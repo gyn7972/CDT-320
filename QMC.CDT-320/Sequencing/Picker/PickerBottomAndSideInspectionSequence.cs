@@ -6,6 +6,7 @@ using QMC.CDT320;
 using QMC.CDT320.Interlocks;
 using QMC.CDT320.Materials;
 using QMC.Common.Diagnostics.TactTime;
+using QMC.Common.Motion;
 
 namespace QMC.CDT320.Sequencing
 {
@@ -42,6 +43,15 @@ namespace QMC.CDT320.Sequencing
             public double Z;
             public double T0;
             public double T90;
+            public bool SideCorrectionValid;
+            public double SideVisionYOffset;
+            public double SidePickerZBase;
+            public double SidePickerZOffset;
+            public double SideVisionProcess0BaseY;
+            public double SideVisionProcess90BaseY;
+            public double SideVisionProcess0Y;
+            public double SideVisionProcess90Y;
+            public string SideCorrectionSourceDieId;
         }
 
         private sealed class BottomShot
@@ -123,6 +133,8 @@ namespace QMC.CDT320.Sequencing
                 result = BuildPickedPickerList();
                 if (result != 0 || CurrentStep == PickerBottomAndSideInspectionStep.Complete)
                     return result;
+
+                ClearRuntimeSideInspectionCorrections();
 
                 CurrentStep = PickerBottomAndSideInspectionStep.AcquireInspectionArea;
                 result = await AcquireInspectionAreaAsync(ct).ConfigureAwait(false);
@@ -771,6 +783,16 @@ namespace QMC.CDT320.Sequencing
         {
             MaterialInspectionResult inspectionResult = result.IsOk ? MaterialInspectionResult.Ok : MaterialInspectionResult.Ng;
             DieResult dieResult = result.IsOk && target.Die.Result != DieResult.NG ? DieResult.Good : DieResult.NG;
+            var measurements = new List<InspectionMeasurement>
+            {
+                BuildMeasurement("BottomAlignOffsetX", result.OffsetX, "mm", inspectionResult),
+                BuildMeasurement("BottomAlignOffsetY", result.OffsetY, "mm", inspectionResult),
+                BuildMeasurement("BottomAlignOffsetT", result.OffsetT, "deg", inspectionResult),
+                BuildMeasurement("SideVisionYOffset", result.SideVisionYOffset, "mm", inspectionResult),
+                BuildMeasurement("SidePickerZOffset", result.PickerZOffset, "mm", inspectionResult),
+                BuildBooleanMeasurement("BottomInspectionResult", result.IsOk)
+            };
+            AppendVisionRawMeasurements(measurements, result, "Bottom", inspectionResult);
 
             MaterialStateService.UpsertInspection(target.Die.DieId, new DieInspectionRecord
             {
@@ -801,13 +823,7 @@ namespace QMC.CDT320.Sequencing
                             IsValid = true
                         })
                 },
-                Measurements = new List<InspectionMeasurement>
-                {
-                    BuildMeasurement("BottomAlignOffsetX", result.OffsetX, "mm", inspectionResult),
-                    BuildMeasurement("BottomAlignOffsetY", result.OffsetY, "mm", inspectionResult),
-                    BuildMeasurement("BottomAlignOffsetT", result.OffsetT, "deg", inspectionResult),
-                    BuildBooleanMeasurement("BottomInspectionResult", result.IsOk)
-                }
+                Measurements = measurements
             });
 
             MaterialStateService.ApplyDieInspectionResult(
@@ -815,6 +831,67 @@ namespace QMC.CDT320.Sequencing
                 dieResult,
                 result.IsOk ? "" : "BOTTOM_NG",
                 "BottomInspection");
+
+            StoreRuntimeSideInspectionCorrection(target, result);
+        }
+
+        private void ClearRuntimeSideInspectionCorrections()
+        {
+            if (Side == PickerSequenceSide.Front)
+            {
+                if (FrontPicker != null)
+                    FrontPicker.ClearRuntimeSideInspectionCorrections();
+            }
+            else
+            {
+                if (RearPicker != null)
+                    RearPicker.ClearRuntimeSideInspectionCorrections();
+            }
+
+            WriteLog("PickerBottomAndSideInspectionSequence",
+                Name + " Side 검사 런타임 보정값 초기화. side=" + Side + " - Ok");
+        }
+
+        private PickerSideInspectionCorrection ResolveRuntimeSideInspectionCorrection(int pickerIndex)
+        {
+            if (Side == PickerSequenceSide.Front)
+                return FrontPicker != null ? FrontPicker.GetRuntimeSideInspectionCorrection(pickerIndex) : null;
+
+            return RearPicker != null ? RearPicker.GetRuntimeSideInspectionCorrection(pickerIndex) : null;
+        }
+
+        private void StoreRuntimeSideInspectionCorrection(InspectionTarget target, BottomVisionOffset result)
+        {
+            if (target == null || result == null)
+                return;
+
+            bool valid = result.IsOk && result.HasSideInspectionCorrection;
+            double sideVisionYOffset = valid ? result.SideVisionYOffset : 0.0;
+            double pickerZOffset = valid ? result.PickerZOffset : 0.0;
+            string sourceDieId = target.Die != null ? target.Die.DieId : string.Empty;
+
+            if (Side == PickerSequenceSide.Front)
+            {
+                if (FrontPicker != null)
+                    FrontPicker.SetRuntimeSideInspectionCorrection(target.PickerIndex, sideVisionYOffset, pickerZOffset, valid, sourceDieId);
+            }
+            else
+            {
+                if (RearPicker != null)
+                    RearPicker.SetRuntimeSideInspectionCorrection(target.PickerIndex, sideVisionYOffset, pickerZOffset, valid, sourceDieId);
+            }
+
+            WriteLog("PickerBottomAndSideInspectionSequence",
+                Name + " Bottom 결과 기반 Side 검사 보정 저장. " +
+                "side=" + Side +
+                ", pickerNo=" + target.PickerNo +
+                ", die=" + sourceDieId +
+                ", valid=" + valid +
+                ", SideVisionY.offset=" + sideVisionYOffset.ToString("F6") +
+                ", PickerZ.offset=" + pickerZOffset.ToString("F6") +
+                ", bottomOffsetX=" + result.OffsetX.ToString("F6") +
+                ", bottomOffsetY=" + result.OffsetY.ToString("F6") +
+                ", bottomOffsetT=" + result.OffsetT.ToString("F6") + " - Ok");
         }
 
         private async Task<int> RunSidePipelineAsync(CancellationToken ct)
@@ -864,6 +941,12 @@ namespace QMC.CDT320.Sequencing
             if (die == null)
                 return null;
 
+            PickerSideInspectionCorrection correction = ResolveRuntimeSideInspectionCorrection(pickerIndex);
+            double baseZ = GetPickerTeachingPosition(GetPickerZAxis(pickerIndex), "SidePosition");
+            double zOffset = correction != null && correction.IsValid ? correction.PickerZOffset : 0.0;
+            double sideYOffset = correction != null && correction.IsValid ? correction.SideVisionYOffset : 0.0;
+            double process0BaseY = ResolveSideVisionBasePosition(0);
+            double process90BaseY = ResolveSideVisionBasePosition(90);
             double t0 = ResolvePickerZoneT("DieSidePosition", pickerIndex);
             return new InspectionTarget
             {
@@ -872,10 +955,55 @@ namespace QMC.CDT320.Sequencing
                 Die = die,
                 X = ResolvePickerZoneX("DieSidePosition", pickerIndex),
                 Y = ResolvePickerZoneY("DieSidePosition", pickerIndex),
-                Z = GetPickerTeachingPosition(GetPickerZAxis(pickerIndex), "SidePosition"),
+                Z = baseZ + zOffset,
                 T0 = t0,
-                T90 = t0 + 90.0
+                T90 = t0 + 90.0,
+                SideCorrectionValid = correction != null && correction.IsValid,
+                SideVisionYOffset = sideYOffset,
+                SidePickerZBase = baseZ,
+                SidePickerZOffset = zOffset,
+                SideVisionProcess0BaseY = process0BaseY,
+                SideVisionProcess90BaseY = process90BaseY,
+                SideVisionProcess0Y = process0BaseY + sideYOffset,
+                SideVisionProcess90Y = process90BaseY + sideYOffset,
+                SideCorrectionSourceDieId = correction != null ? correction.SourceDieId : string.Empty
             };
+        }
+
+        private VisionAxis ResolveSideVisionAxis()
+        {
+            return Side == PickerSequenceSide.Front ? VisionAxis.FrontSideVisionY : VisionAxis.RearSideVisionY;
+        }
+
+        private double ResolveSideVisionBasePosition(int angleDeg)
+        {
+            try
+            {
+                VisionUnit vision = Context != null && Context.Machine != null ? Context.Machine.VisionUnit : null;
+                if (vision == null)
+                    return 0.0;
+
+                string positionName = angleDeg == 90 ? "Process90Position" : "Process0Position";
+                return vision.GetVisionTeachingPosition(ResolveSideVisionAxis(), positionName);
+            }
+            catch
+            {
+                return 0.0;
+            }
+            finally
+            {
+            }
+        }
+
+        private double ResolveSideVisionTargetY(InspectionTarget target, int angleDeg)
+        {
+            if (target == null)
+                return ResolveSideVisionBasePosition(angleDeg);
+
+            if (angleDeg == 90)
+                return target.SideVisionProcess90Y;
+
+            return target.SideVisionProcess0Y;
         }
 
         private async Task<int> StartFirstReadySideInspectionDuringLastBottomAsync(CancellationToken ct)
@@ -941,10 +1069,22 @@ namespace QMC.CDT320.Sequencing
             // Bottom 외곽 XYT 푸시(EventSearchDieEnd) 조회 — Side 에서 해당 콜렛 다이의 X/Y/T 사용 근거.
             // 현재는 가용성 확인/로그만 수행(보정 반영 방식은 공정 담당 확정 후 적용 — TODO).
             LogBottomXytForSide(target);
+            LogSideCorrectionTarget(target);
 
             int result = await MoveSideXAndVision0PositionAsync(target, ct).ConfigureAwait(false);
             if (result != 0)
                 return result;
+
+            WriteLog("PickerBottomAndSideInspectionSequence",
+                Name + " Side PickerZ 보정 이동. " +
+                "side=" + Side +
+                ", axis=" + GetPickerZAxis(target.PickerIndex) +
+                ", pickerNo=" + target.PickerNo +
+                ", die=" + target.Die.DieId +
+                ", baseZ=" + target.SidePickerZBase.ToString("F6") +
+                ", offsetZ=" + target.SidePickerZOffset.ToString("F6") +
+                ", finalZ=" + target.Z.ToString("F6") +
+                ", correctionValid=" + target.SideCorrectionValid + " - Start");
 
             result = await MovePickerAxisAndVerifyAsync(
                 GetPickerZAxis(target.PickerIndex),
@@ -1116,7 +1256,7 @@ namespace QMC.CDT320.Sequencing
                 ct,
                 BuildSideTargetName(target));
 
-            Task<int> visionTask = IsSideVisionProcessPositionReady(0)
+            Task<int> visionTask = IsSideVisionProcessPositionReady(target, 0)
                 ? Task.FromResult(0)
                 : MoveSideVisionProcessPositionAsync(target, 0, ct);
 
@@ -1147,7 +1287,7 @@ namespace QMC.CDT320.Sequencing
                 ct,
                 BuildSideTargetName(target));
 
-            Task<int> visionTask = IsSideVisionProcessPositionReady(90)
+            Task<int> visionTask = IsSideVisionProcessPositionReady(target, 90)
                 ? Task.FromResult(0)
                 : MoveSideVisionProcessPositionAsync(target, 90, ct);
 
@@ -1173,12 +1313,36 @@ namespace QMC.CDT320.Sequencing
                 if (vision == null)
                     return Fail("PICKER-BOTTOM-SIDE-VISION-UNIT", "Vision", "Side 검사 카메라 이동 실패. VisionUnit을 찾을 수 없습니다. angle=" + angleDeg + ", pickerNo=" + target.PickerNo);
 
-                int result = angleDeg == 90
-                    ? await vision.MoveBothSideVisionProcess90PositionAsync(Options != null && Options.FineMove).ConfigureAwait(false)
-                    : await vision.MoveBothSideVisionProcess0PositionAsync(Options != null && Options.FineMove).ConfigureAwait(false);
+                VisionAxis axis = ResolveSideVisionAxis();
+                string positionName = angleDeg == 90 ? "Process90Position" : "Process0Position";
+                double baseY = vision.GetVisionTeachingPosition(axis, positionName);
+                double targetY = ResolveSideVisionTargetY(target, angleDeg);
+
+                WriteLog("PickerBottomAndSideInspectionSequence",
+                    Name + " SideVisionY 보정 이동. " +
+                    "side=" + Side +
+                    ", axis=" + axis +
+                    ", pickerNo=" + target.PickerNo +
+                    ", die=" + target.Die.DieId +
+                    ", angle=" + angleDeg +
+                    ", baseY=" + baseY.ToString("F6") +
+                    ", offsetY=" + target.SideVisionYOffset.ToString("F6") +
+                    ", finalY=" + targetY.ToString("F6") +
+                    ", correctionValid=" + target.SideCorrectionValid +
+                    ", sourceDie=" + (target.SideCorrectionSourceDieId ?? string.Empty) + " - Start");
+
+                int result = await vision.MoveVisionAxis(axis, targetY, Options != null && Options.FineMove).ConfigureAwait(false);
 
                 if (result != 0)
-                    return Fail("PICKER-BOTTOM-SIDE-VISION-POSITION", "Vision", "Side 검사 카메라 " + angleDeg + "도 티칭 위치 이동 실패. result=" + result + ", pickerNo=" + target.PickerNo);
+                    return Fail("PICKER-BOTTOM-SIDE-VISION-POSITION", "Vision",
+                        "Side 검사 카메라 " + angleDeg + "도 보정 위치 이동 실패. " +
+                        "result=" + result +
+                        ", side=" + Side +
+                        ", axis=" + axis +
+                        ", pickerNo=" + target.PickerNo +
+                        ", baseY=" + baseY.ToString("F6") +
+                        ", offsetY=" + target.SideVisionYOffset.ToString("F6") +
+                        ", finalY=" + targetY.ToString("F6"));
 
                 return 0;
             }
@@ -1195,7 +1359,7 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
-        private bool IsSideVisionProcessPositionReady(int angleDeg)
+        private bool IsSideVisionProcessPositionReady(InspectionTarget target, int angleDeg)
         {
             try
             {
@@ -1203,9 +1367,13 @@ namespace QMC.CDT320.Sequencing
                 if (vision == null)
                     return false;
 
-                string positionName = angleDeg == 90 ? "Process90Position" : "Process0Position";
-                return vision.IsVisionAxisInTeachingPosition(VisionAxis.FrontSideVisionY, positionName) &&
-                       vision.IsVisionAxisInTeachingPosition(VisionAxis.RearSideVisionY, positionName);
+                VisionAxis axis = ResolveSideVisionAxis();
+                BaseAxis item = vision.ResolveVisionAxis(axis);
+                double tolerance = item != null && item.Config != null && item.Config.InPositionTolerance > 0.0
+                    ? item.Config.InPositionTolerance
+                    : 0.05;
+                double targetY = ResolveSideVisionTargetY(target, angleDeg);
+                return vision.IsVisionAxisInPosition(axis, targetY, tolerance);
             }
             catch
             {
@@ -1265,8 +1433,7 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
-        /// <summary>Side 진입 시 Bottom XYT 푸시 가용성 확인 — (fb=자기 그룹, collet=pickerNo) 최신값 로그.
-        /// TODO(공정 확정 대기): XYT 를 Side 목표 T/위치 보정에 반영하는 수식이 정해지면 여기서 target 에 적용.</summary>
+        /// <summary>Side 진입 시 Bottom XYT 푸시 가용성 확인 — (fb=자기 그룹, collet=pickerNo) 최신값 로그.</summary>
         private void LogBottomXytForSide(InspectionTarget target)
         {
             try
@@ -1304,6 +1471,34 @@ namespace QMC.CDT320.Sequencing
             finally
             {
             }
+        }
+
+        private void LogSideCorrectionTarget(InspectionTarget target)
+        {
+            if (target == null || target.Die == null)
+                return;
+
+            WriteLog("PickerBottomAndSideInspectionSequence",
+                Name + " Side 검사 보정 목표 계산. " +
+                "side=" + Side +
+                ", pickerNo=" + target.PickerNo +
+                ", die=" + target.Die.DieId +
+                ", correctionValid=" + target.SideCorrectionValid +
+                ", sourceDie=" + (target.SideCorrectionSourceDieId ?? string.Empty) +
+                " | PickerX.final=" + target.X.ToString("F6") +
+                " | PickerY.final=" + target.Y.ToString("F6") +
+                " | PickerZ.base=" + target.SidePickerZBase.ToString("F6") +
+                ", PickerZ.offset=" + target.SidePickerZOffset.ToString("F6") +
+                ", PickerZ.final=" + target.Z.ToString("F6") +
+                " | PickerT0.final=" + target.T0.ToString("F6") +
+                ", PickerT90.final=" + target.T90.ToString("F6") +
+                " | SideVisionY0.base=" + target.SideVisionProcess0BaseY.ToString("F6") +
+                ", SideVisionY0.offset=" + target.SideVisionYOffset.ToString("F6") +
+                ", SideVisionY0.final=" + target.SideVisionProcess0Y.ToString("F6") +
+                " | SideVisionY90.base=" + target.SideVisionProcess90BaseY.ToString("F6") +
+                ", SideVisionY90.offset=" + target.SideVisionYOffset.ToString("F6") +
+                ", SideVisionY90.final=" + target.SideVisionProcess90Y.ToString("F6") +
+                " - Check");
         }
 
         private string BuildSideTargetName(InspectionTarget target)
@@ -1695,8 +1890,11 @@ namespace QMC.CDT320.Sequencing
             bool side2Ok = result != null && result.Side2Ok;
             bool side3Ok = result != null && result.Side3Ok;
             bool side4Ok = result != null && result.Side4Ok;
+            MaterialInspectionResult inspectionResult = result != null && result.IsAllOk
+                ? MaterialInspectionResult.Ok
+                : MaterialInspectionResult.Ng;
 
-            return new List<InspectionMeasurement>
+            var measurements = new List<InspectionMeasurement>
             {
                 BuildBooleanMeasurement(prefix + "Side1", side1Ok),
                 BuildBooleanMeasurement(prefix + "Side2", side2Ok),
@@ -1704,6 +1902,9 @@ namespace QMC.CDT320.Sequencing
                 BuildBooleanMeasurement(prefix + "Side4", side4Ok),
                 BuildBooleanMeasurement(prefix + "InspectionResult", result != null && result.IsAllOk)
             };
+
+            AppendVisionRawMeasurements(measurements, result, prefix, inspectionResult);
+            return measurements;
         }
 
         private void QueuePendingZAvoid(int pickerIndex)

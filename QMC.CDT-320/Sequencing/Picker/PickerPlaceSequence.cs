@@ -1325,7 +1325,22 @@ namespace QMC.CDT320.Sequencing
             }
 
             if (IsPickerAxisAlreadyInPosition(PickerAxis.PickerY, _targetPickerY))
+            {
+                WriteLog("PickerPlaceSequence",
+                    Name + " Place 재시작 Picker X/T 목표 이동 완료 후 PickerY가 이미 Place 위치임을 확인했습니다. " +
+                    "die=" + (_currentDie != null ? _currentDie.DieId : "-") +
+                    ", pickerNo=" + _currentPickerNo +
+                    ", outputSide=" + _currentOutputSide +
+                    ", targetY=" + _targetPickerY + " - Check");
                 return 0;
+            }
+
+            WriteLog("PickerPlaceSequence",
+                Name + " Place 재시작 Picker X/T 목표 이동 완료 후 PickerY 전진을 시작합니다. " +
+                "die=" + (_currentDie != null ? _currentDie.DieId : "-") +
+                ", pickerNo=" + _currentPickerNo +
+                ", outputSide=" + _currentOutputSide +
+                ", targetY=" + _targetPickerY + " - Check");
 
             return await MovePickerAxisAndVerifyAsync(
                 PickerAxis.PickerY,

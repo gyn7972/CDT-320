@@ -65,6 +65,8 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             try
             {
                 if (tabStatus == null) return;
+                tabStatus.UseVisualStyleBackColor = false;
+                tabStatus.BackColor = Color.White;
 
                 // 3열 x 3행 상태 패널 배치 (CONFIG 탭과 동일한 형식)
                 var layout = new TableLayoutPanel
@@ -72,8 +74,10 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                     Dock = DockStyle.Fill,
                     ColumnCount = 3,
                     RowCount = 3,
-                    BackColor = Color.WhiteSmoke,
-                    Padding = new Padding(4),
+                    BackColor = Color.White,
+                    CellBorderStyle = TableLayoutPanelCellBorderStyle.None,
+                    Margin = Padding.Empty,
+                    Padding = Padding.Empty,
                 };
                 for (int i = 0; i < 3; i++) layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f / 3));
                 for (int i = 0; i < 3; i++) layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100f / 3));
@@ -85,6 +89,12 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                 pgStatusHome       = AddStatusGroup(layout, 1, 1, "HOME", STATUS_HOME);
                 pgStatusAlarm      = AddStatusGroup(layout, 2, 1, "ALARM", STATUS_ALARM);
                 pgStatusPosition   = AddStatusGroup(layout, 0, 2, "POSITION", STATUS_POS);
+                Control positionCell = pgStatusPosition.Parent != null ? pgStatusPosition.Parent.Parent : null;
+                if (positionCell != null)
+                {
+                    layout.SetColumnSpan(positionCell, 1);
+                }
+                AddStatusFiller(layout, 1, 2, 2);
 
                 tabStatus.Controls.Clear();
                 tabStatus.Controls.Add(layout);
@@ -107,19 +117,45 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             var grp = new GroupBox
             {
                 Text = title,
+                BackColor = Color.White,
                 Dock = DockStyle.Fill,
-                Margin = new Padding(4),
+                Margin = Padding.Empty,
                 Font = new Font("맑은 고딕", 9F, FontStyle.Bold),
+                ForeColor = Color.Black,
+                Padding = new Padding(1, 9, 1, 1),
+            };
+            var border = new Panel
+            {
+                BackColor = Color.FromArgb(170, 170, 170),
+                Dock = DockStyle.Fill,
+                Margin = new Padding(1),
+                Padding = new Padding(1),
             };
             var pg = new ParamGrid
             {
                 Dock = DockStyle.Fill,
+                Margin = Padding.Empty,
+                Padding = new Padding(2),
                 BackColor = Color.White,
             };
             grp.Controls.Add(pg);
-            layout.Controls.Add(grp, col, row);
+            border.Controls.Add(grp);
+            layout.Controls.Add(border, col, row);
             pg.DefineItems(names);
             return pg;
+        }
+
+        private static void AddStatusFiller(TableLayoutPanel layout, int col, int row, int columnSpan)
+        {
+            var filler = new Panel
+            {
+                BackColor = Color.White,
+                Dock = DockStyle.Fill,
+                Margin = Padding.Empty,
+                Padding = Padding.Empty
+            };
+            layout.Controls.Add(filler, col, row);
+            layout.SetColumnSpan(filler, columnSpan);
         }
 
         /// <summary>STATUS 탭 표시값을 선택 축 기준으로 갱신한다.</summary>

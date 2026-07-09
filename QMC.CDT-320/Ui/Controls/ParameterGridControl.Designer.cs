@@ -7,6 +7,8 @@ namespace QMC.CDT_320.Ui.Controls
         private System.Windows.Forms.DataGridViewTextBoxColumn colName;
         private System.Windows.Forms.DataGridViewTextBoxColumn colValue;
         private System.Windows.Forms.DataGridViewTextBoxColumn colUnit;
+        private System.Windows.Forms.DataGridViewButtonColumn colMove;
+        private System.Windows.Forms.DataGridViewButtonColumn colTeach;
         private System.Windows.Forms.DataGridViewTextBoxColumn colScope;
 
         protected override void Dispose(bool disposing)
@@ -23,10 +25,14 @@ namespace QMC.CDT_320.Ui.Controls
             System.Windows.Forms.DataGridViewCellStyle valueStyle = new System.Windows.Forms.DataGridViewCellStyle();
             System.Windows.Forms.DataGridViewCellStyle unitStyle = new System.Windows.Forms.DataGridViewCellStyle();
             System.Windows.Forms.DataGridViewCellStyle scopeStyle = new System.Windows.Forms.DataGridViewCellStyle();
+            System.Windows.Forms.DataGridViewCellStyle moveStyle = new System.Windows.Forms.DataGridViewCellStyle();
+            System.Windows.Forms.DataGridViewCellStyle teachStyle = new System.Windows.Forms.DataGridViewCellStyle();
             this.grid = new System.Windows.Forms.DataGridView();
             this.colName = new System.Windows.Forms.DataGridViewTextBoxColumn();
             this.colValue = new System.Windows.Forms.DataGridViewTextBoxColumn();
             this.colUnit = new System.Windows.Forms.DataGridViewTextBoxColumn();
+            this.colMove = new System.Windows.Forms.DataGridViewButtonColumn();
+            this.colTeach = new System.Windows.Forms.DataGridViewButtonColumn();
             this.colScope = new System.Windows.Forms.DataGridViewTextBoxColumn();
             ((System.ComponentModel.ISupportInitialize)(this.grid)).BeginInit();
             this.SuspendLayout();
@@ -41,7 +47,7 @@ namespace QMC.CDT_320.Ui.Controls
             this.grid.BorderStyle = System.Windows.Forms.BorderStyle.None;
             this.grid.CellBorderStyle = System.Windows.Forms.DataGridViewCellBorderStyle.SingleHorizontal;
             this.grid.ColumnHeadersBorderStyle = System.Windows.Forms.DataGridViewHeaderBorderStyle.None;
-            headerStyle.Alignment = System.Windows.Forms.DataGridViewContentAlignment.MiddleLeft;
+            headerStyle.Alignment = System.Windows.Forms.DataGridViewContentAlignment.MiddleCenter;
             headerStyle.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(232)))), ((int)(((byte)(234)))), ((int)(((byte)(237)))));
             headerStyle.Font = new System.Drawing.Font("맑은 고딕", 8.5F, System.Drawing.FontStyle.Bold);
             headerStyle.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(48)))), ((int)(((byte)(52)))), ((int)(((byte)(58)))));
@@ -55,6 +61,8 @@ namespace QMC.CDT_320.Ui.Controls
             this.colName,
             this.colValue,
             this.colUnit,
+            this.colMove,
+            this.colTeach,
             this.colScope});
             this.grid.Dock = System.Windows.Forms.DockStyle.Fill;
             this.grid.EnableHeadersVisualStyles = false;
@@ -120,9 +128,56 @@ namespace QMC.CDT_320.Ui.Controls
             this.colUnit.Name = "colUnit";
             this.colUnit.ReadOnly = true;
             this.colUnit.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
-            // 
+            //
+            // moveStyle / teachStyle — 티칭 포지션 행에만 표시되는 작은 액션 버튼(색으로 구분: MOVE=파랑, TEACH=초록)
+            //
+            moveStyle.Alignment = System.Windows.Forms.DataGridViewContentAlignment.MiddleCenter;
+            moveStyle.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(219)))), ((int)(((byte)(231)))), ((int)(((byte)(247)))));
+            moveStyle.Font = new System.Drawing.Font("맑은 고딕", 6.5F, System.Drawing.FontStyle.Bold);
+            moveStyle.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(23)))), ((int)(((byte)(63)))), ((int)(((byte)(120)))));
+            moveStyle.Padding = new System.Windows.Forms.Padding(2, 3, 2, 3);
+            moveStyle.SelectionBackColor = System.Drawing.Color.FromArgb(((int)(((byte)(196)))), ((int)(((byte)(217)))), ((int)(((byte)(243)))));
+            moveStyle.SelectionForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(23)))), ((int)(((byte)(63)))), ((int)(((byte)(120)))));
+            teachStyle.Alignment = System.Windows.Forms.DataGridViewContentAlignment.MiddleCenter;
+            teachStyle.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(223)))), ((int)(((byte)(240)))), ((int)(((byte)(226)))));
+            teachStyle.Font = new System.Drawing.Font("맑은 고딕", 6.5F, System.Drawing.FontStyle.Bold);
+            teachStyle.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(26)))), ((int)(((byte)(94)))), ((int)(((byte)(52)))));
+            teachStyle.Padding = new System.Windows.Forms.Padding(2, 3, 2, 3);
+            teachStyle.SelectionBackColor = System.Drawing.Color.FromArgb(((int)(((byte)(200)))), ((int)(((byte)(228)))), ((int)(((byte)(205)))));
+            teachStyle.SelectionForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(26)))), ((int)(((byte)(94)))), ((int)(((byte)(52)))));
+            //
+            // colMove
+            //
+            this.colMove.AutoSizeMode = System.Windows.Forms.DataGridViewAutoSizeColumnMode.None;
+            this.colMove.DefaultCellStyle = moveStyle;
+            this.colMove.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this.colMove.HeaderText = "";
+            this.colMove.Name = "colMove";
+            this.colMove.ReadOnly = true;
+            this.colMove.Resizable = System.Windows.Forms.DataGridViewTriState.False;
+            this.colMove.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
+            this.colMove.Text = "MOVE";
+            this.colMove.UseColumnTextForButtonValue = true;
+            this.colMove.Visible = false;
+            this.colMove.Width = 40;
+            //
+            // colTeach
+            //
+            this.colTeach.AutoSizeMode = System.Windows.Forms.DataGridViewAutoSizeColumnMode.None;
+            this.colTeach.DefaultCellStyle = teachStyle;
+            this.colTeach.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this.colTeach.HeaderText = "";
+            this.colTeach.Name = "colTeach";
+            this.colTeach.ReadOnly = true;
+            this.colTeach.Resizable = System.Windows.Forms.DataGridViewTriState.False;
+            this.colTeach.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
+            this.colTeach.Text = "TEACH";
+            this.colTeach.UseColumnTextForButtonValue = true;
+            this.colTeach.Visible = false;
+            this.colTeach.Width = 40;
+            //
             // colScope
-            // 
+            //
             scopeStyle.Alignment = System.Windows.Forms.DataGridViewContentAlignment.MiddleCenter;
             scopeStyle.BackColor = System.Drawing.Color.White;
             scopeStyle.Font = new System.Drawing.Font("맑은 고딕", 7.5F, System.Drawing.FontStyle.Bold);

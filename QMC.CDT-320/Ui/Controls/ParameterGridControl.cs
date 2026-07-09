@@ -16,6 +16,12 @@ namespace QMC.CDT_320.Ui.Controls
         public event EventHandler<ParameterGridChangedEventArgs> ParameterValueChanged;
         public event EventHandler<ParameterGridChangedEventArgs> ParameterRowDoubleClicked;
 
+        /// <summary>티칭 포지션 행의 MOVE 버튼 클릭 시 발생. 구독 페이지가 기존 이동 메서드(가드 경유)를 그대로 호출한다.</summary>
+        public event EventHandler<ParameterGridChangedEventArgs> ParameterMoveRequested;
+
+        /// <summary>티칭 포지션 행의 TEACH 버튼 클릭 시 발생. 구독 페이지가 기존 티칭 메서드를 그대로 호출한다.</summary>
+        public event EventHandler<ParameterGridChangedEventArgs> ParameterTeachRequested;
+
         public ParameterGridItem SelectedItem
         {
             get
@@ -94,6 +100,7 @@ namespace QMC.CDT_320.Ui.Controls
             {
                 InitializeComponent();
                 grid.ShowCellToolTips = true;
+                grid.Paint += Grid_ActionHeaderPaint;
             }
             catch
             {
@@ -169,6 +176,8 @@ namespace QMC.CDT_320.Ui.Controls
                 _isRefreshing = true;
                 grid.Rows.Clear();
 
+                ApplyTeachColumnLayout();
+
                 foreach (var item in _items)
                     AddParameterRow(item);
 
@@ -182,6 +191,97 @@ namespace QMC.CDT_320.Ui.Controls
             finally
             {
                 _isRefreshing = false;
+            }
+        }
+
+        /// <summary>티칭 포지션 항목이 하나라도 있으면 MOVE/TEACH 버튼 열을 표시하고 열 폭 비율을 조정한다.
+        /// (unit:scope:value:name = 1:5:4:0 비율로만 줄여 Name 폭은 보존 → 최장 파라미터 이름이 잘리지 않음)
+        /// 티칭 항목이 없으면 버튼 열을 숨기고 원래 폭 비율로 되돌린다.</summary>
+        private void ApplyTeachColumnLayout()
+        {
+            try
+            {
+                if (colMove == null || colTeach == null)
+                    return;
+
+                bool anyTeach = false;
+                foreach (var it in _items)
+                {
+                    if (it != null && it.SupportsTeaching)
+                    {
+                        anyTeach = true;
+                        break;
+                    }
+                }
+
+                colMove.Visible = anyTeach;
+                colTeach.Visible = anyTeach;
+
+                if (anyTeach)
+                {
+                    // Unit/Scope는 고정폭 → 그리드 폭이 변해도(스크롤바 등) 헤더/값이 절대 안 잘린다.
+                    // Name/Value만 Fill로 남는 폭을 324:119 비율로 나눠 가진다(Name 최대한 보존).
+                    colUnit.AutoSizeMode = DataGridViewAutoSizeColumnMode.None;
+                    colUnit.Width = 44;                       // count / "UNIT" 헤더가 딱 들어갈 만큼
+                    colScope.AutoSizeMode = DataGridViewAutoSizeColumnMode.None;
+                    colScope.Width = 54;                      // 대문자 "SCOPE" 헤더 + "CONFIG" 값 + 그룹 화살표 여유
+                    colName.AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill;
+                    colValue.AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill;
+                    colName.FillWeight = 324F;
+                    colValue.FillWeight = 119F;
+
+                    // ACTION 헤더는 colMove+colTeach 두 열에 걸쳐 Paint 오버레이(Grid_ActionHeaderPaint)로 가운데 그린다.
+                    // → 열 헤더 텍스트는 비워서 버튼 폭을 헤더 폭에 구애받지 않고 최소로 유지.
+                    colMove.HeaderText = string.Empty;
+                    colTeach.HeaderText = string.Empty;
+                }
+                else
+                {
+                    colUnit.AutoSizeMode = DataGridViewAutoSizeColumnMode.NotSet;
+                    colScope.AutoSizeMode = DataGridViewAutoSizeColumnMode.NotSet;
+                    colName.AutoSizeMode = DataGridViewAutoSizeColumnMode.NotSet;
+                    colValue.AutoSizeMode = DataGridViewAutoSizeColumnMode.NotSet;
+                    colName.FillWeight = 52F;
+                    colValue.FillWeight = 23F;
+                    colUnit.FillWeight = 10F;
+                    colScope.FillWeight = 15F;
+                    colMove.HeaderText = string.Empty;
+                }
+            }
+            catch (Exception ex)
+            {
+                EventLogger.Write(EventKind.Warning, "UI", "PARAM-GRID", "ApplyTeachColumnLayout failed: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        /// <summary>티칭 포지션이 아닌 행(헤더·Bool·Config 등)의 MOVE/TEACH 칸을 빈 셀로 대체해 버튼이 그려지지 않게 한다.</summary>
+        private void SetTeachCellsBlank(DataGridViewRow row, Color back)
+        {
+            try
+            {
+                if (row == null || colMove == null || colTeach == null)
+                    return;
+
+                var moveCell = new DataGridViewTextBoxCell { Value = string.Empty };
+                var teachCell = new DataGridViewTextBoxCell { Value = string.Empty };
+                row.Cells[colMove.Index] = moveCell;
+                row.Cells[colTeach.Index] = teachCell;
+                moveCell.ReadOnly = true;
+                teachCell.ReadOnly = true;
+                moveCell.Style.BackColor = back;
+                moveCell.Style.SelectionBackColor = back;
+                teachCell.Style.BackColor = back;
+                teachCell.Style.SelectionBackColor = back;
+            }
+            catch (Exception ex)
+            {
+                EventLogger.Write(EventKind.Warning, "UI", "PARAM-GRID", "SetTeachCellsBlank failed: " + ex.Message);
+            }
+            finally
+            {
             }
         }
 
@@ -213,6 +313,9 @@ namespace QMC.CDT_320.Ui.Controls
                 row.Cells[colUnit.Index].Value = item.GetUnit();
                 row.Cells[colScope.Index].Value = item.Scope.ToString();
                 SetValueCellText(row, item, FormatValue(item));
+                // 티칭 포지션 행만 MOVE/TEACH 버튼 유지, 그 외에는 버튼 칸을 빈 셀로
+                if (!item.SupportsTeaching)
+                    SetTeachCellsBlank(row, Color.White);
                 ApplyDescriptionToolTip(row, item);
             }
             catch (Exception ex)
@@ -261,7 +364,7 @@ namespace QMC.CDT_320.Ui.Controls
                 row.Cells[colName.Index].Value = BuildHeaderText(item, collapsed);
                 row.Cells[colValue.Index].Value = string.Empty;
                 row.Cells[colUnit.Index].Value = string.Empty;
-                row.Cells[colScope.Index].Value = collapsed ? "펼치기 ▾" : "접기 ▴";
+                row.Cells[colScope.Index].Value = collapsed ? "▾" : "▴";
                 foreach (DataGridViewCell cell in row.Cells)
                     cell.ReadOnly = true;
 
@@ -273,6 +376,7 @@ namespace QMC.CDT_320.Ui.Controls
                 row.DefaultCellStyle.SelectionForeColor = headerFg;
                 row.DefaultCellStyle.Font = new Font(grid.Font.FontFamily, Math.Max(7F, grid.Font.Size - 0.5F), FontStyle.Bold);
                 row.Cells[colScope.Index].Style.Font = new Font(grid.Font.FontFamily, Math.Max(7F, grid.Font.Size - 1F), FontStyle.Bold);
+                SetTeachCellsBlank(row, headerBg);
                 ApplyDescriptionToolTip(row, item);
             }
             catch (Exception ex)
@@ -353,7 +457,7 @@ namespace QMC.CDT_320.Ui.Controls
                     if (item.IsGroupHeader)
                     {
                         row.Cells[colName.Index].Value = BuildHeaderText(item, nowCollapsed);
-                        row.Cells[colScope.Index].Value = nowCollapsed ? "펼치기 ▾" : "접기 ▴";
+                        row.Cells[colScope.Index].Value = nowCollapsed ? "▾" : "▴";
                     }
                     else
                     {
@@ -688,6 +792,36 @@ namespace QMC.CDT_320.Ui.Controls
             }
         }
 
+        private void OnParameterMoveRequested(ParameterGridItem item)
+        {
+            try
+            {
+                ParameterMoveRequested?.Invoke(this, new ParameterGridChangedEventArgs(item));
+            }
+            catch (Exception ex)
+            {
+                EventLogger.Write(EventKind.Alarm, "UI", "PARAM-GRID", "MoveRequested failed: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private void OnParameterTeachRequested(ParameterGridItem item)
+        {
+            try
+            {
+                ParameterTeachRequested?.Invoke(this, new ParameterGridChangedEventArgs(item));
+            }
+            catch (Exception ex)
+            {
+                EventLogger.Write(EventKind.Alarm, "UI", "PARAM-GRID", "TeachRequested failed: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
         private void ToggleBoolRow(DataGridViewRow row)
         {
             try
@@ -790,6 +924,20 @@ namespace QMC.CDT_320.Ui.Controls
                 if (headerItem != null && headerItem.IsGroupHeader)
                 {
                     ToggleGroup(headerItem.GroupKey);
+                    return;
+                }
+
+                // MOVE / TEACH 버튼 열 클릭 → 티칭 포지션 행일 때만 이벤트 발생(이동 로직은 구독 페이지가 담당)
+                if (colMove != null && (e.ColumnIndex == colMove.Index || e.ColumnIndex == colTeach.Index))
+                {
+                    var teachItem = grid.Rows[e.RowIndex].Tag as ParameterGridItem;
+                    if (teachItem != null && teachItem.SupportsTeaching && !teachItem.IsGroupHeader)
+                    {
+                        if (e.ColumnIndex == colMove.Index)
+                            OnParameterMoveRequested(teachItem);
+                        else
+                            OnParameterTeachRequested(teachItem);
+                    }
                     return;
                 }
 
@@ -955,6 +1103,42 @@ namespace QMC.CDT_320.Ui.Controls
             }
             catch
             {
+            }
+            finally
+            {
+            }
+        }
+
+        /// <summary>MOVE/TEACH 두 열의 헤더 자리에 걸쳐 "ACTION" 텍스트를 가운데로 그린다.
+        /// (DataGridView는 헤더 셀 병합을 지원하지 않으므로, 두 열 헤더는 빈 상태로 두고 여기서 오버레이로 그린다.)
+        /// 덕분에 버튼 열 폭을 헤더 글자폭에 구애받지 않고 최소로 유지할 수 있다.</summary>
+        private void Grid_ActionHeaderPaint(object sender, PaintEventArgs e)
+        {
+            try
+            {
+                if (colMove == null || colTeach == null || !colMove.Visible)
+                    return;
+
+                Rectangle rMove = grid.GetCellDisplayRectangle(colMove.Index, -1, true);
+                Rectangle rTeach = grid.GetCellDisplayRectangle(colTeach.Index, -1, true);
+
+                Rectangle union;
+                if (rMove.Width > 0 && rTeach.Width > 0)
+                    union = Rectangle.Union(rMove, rTeach);
+                else if (rMove.Width > 0)
+                    union = rMove;
+                else if (rTeach.Width > 0)
+                    union = rTeach;
+                else
+                    return;
+
+                DataGridViewCellStyle headerStyle = grid.ColumnHeadersDefaultCellStyle;
+                TextRenderer.DrawText(e.Graphics, "ACTION", headerStyle.Font, union, headerStyle.ForeColor,
+                    TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPadding);
+            }
+            catch (Exception ex)
+            {
+                EventLogger.Write(EventKind.Warning, "UI", "PARAM-GRID", "ActionHeaderPaint failed: " + ex.Message);
             }
             finally
             {

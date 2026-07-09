@@ -33,6 +33,8 @@ namespace QMC.CDT320.Sequencing
             Activity = activity ?? new SequenceActivityMonitor();
             Tact = tact ?? NullTactTimeRecorder.Instance;
             PickerPhases = new PickerPhaseCoordinator();
+            AutoSequenceGate = new AutoSequenceCoordinatorGate(this);
+            AutoLoaderGate = AutoSequenceGate;
             OutputPostPlaceInspections = new OutputPostPlaceInspectionQueue(this);
         }
 
@@ -54,6 +56,8 @@ namespace QMC.CDT320.Sequencing
         public SequenceResourceManager Resources { get; private set; }
 
         internal PickerPhaseCoordinator PickerPhases { get; private set; }
+        internal AutoSequenceCoordinatorGate AutoSequenceGate { get; private set; }
+        internal AutoSequenceCoordinatorGate AutoLoaderGate { get; private set; }
         internal OutputPostPlaceInspectionQueue OutputPostPlaceInspections { get; private set; }
         private int _cycleStopRequested;
 

@@ -25,6 +25,8 @@ namespace QMC.CDT_320.Ui.Pages.History
         private readonly Queue<AlarmRecord> _pendingAlarmRows = new Queue<AlarmRecord>();
         private readonly Timer _liveFlushTimer = new Timer();
         private bool _alarmEventSubscribed;
+        // 그리드에 이미 렌더된 알람 Id — 라이브 flush 삽입과 LoadGrid 전체 재빌드가 같은 레코드를 중복으로 그리지 않도록 한다.
+        private readonly HashSet<int> _renderedAlarmIds = new HashSet<int>();
 
         // 첫 컬럼(시간)은 행 헤더처럼 동작한다. Shift 범위 선택의 기준이 되는 직전 클릭 행(-1 이면 없음).
         private int _lastRowClicked = -1;
@@ -38,12 +40,114 @@ namespace QMC.CDT_320.Ui.Pages.History
         public AlarmHistoryPage()
         {
             InitializeComponent();
+            ApplyHistoryWhiteSurface();
             WireEvents();
 
             if (!IsDesignerMode())
             {
                 LoadGrid();
             }
+        }
+
+        private void ApplyHistoryWhiteSurface()
+        {
+            BackColor = Color.White;
+            rootLayout.BackColor = Color.White;
+            rootLayout.Margin = Padding.Empty;
+            rootLayout.RowStyles[1].Height = 40F;
+            lblHeader.Margin = Padding.Empty;
+            filterLayout.BackColor = Color.White;
+            filterLayout.Margin = Padding.Empty;
+            filterLayout.Padding = new Padding(8, 3, 8, 3);
+            _grid.BackgroundColor = Color.White;
+
+            ConfigureFilterColumns();
+            StyleFilterLabel(lblSeverity);
+            StyleFilterLabel(lblSearch);
+            StyleCountLabel(_lblCount);
+            StyleToolbarControl(_cbSeverity);
+            StyleToolbarControl(_tbFilter);
+            StyleToolbarButton(btnClear, 220);
+        }
+
+        private void ConfigureFilterColumns()
+        {
+            SetFilterColumnWidth(0, 96F);   // Severity
+            SetFilterColumnWidth(1, 160F);  // severity option
+            SetFilterColumnWidth(2, 82F);   // Search
+            SetFilterColumnWidth(3, 330F);  // search text
+            SetFilterColumnWidth(4, 70F);   // count
+            SetFilterColumnWidth(5, 238F);  // Clear active alarms
+        }
+
+        private void SetFilterColumnWidth(int index, float width)
+        {
+            if (filterLayout == null || index < 0 || index >= filterLayout.ColumnStyles.Count)
+                return;
+
+            filterLayout.ColumnStyles[index].SizeType = SizeType.Absolute;
+            filterLayout.ColumnStyles[index].Width = width;
+        }
+
+        private static void StyleFilterLabel(Label label)
+        {
+            if (label == null)
+                return;
+
+            label.BackColor = Color.FromArgb(245, 247, 249);
+            label.BorderStyle = BorderStyle.FixedSingle;
+            label.Dock = DockStyle.None;
+            label.Anchor = AnchorStyles.Left;
+            label.ForeColor = Color.FromArgb(35, 45, 57);
+            label.Height = 24;
+            label.Margin = new Padding(0, 0, 4, 0);
+            label.Padding = new Padding(5, 0, 3, 0);
+            label.Width = Math.Max(label.Width, TextRenderer.MeasureText(label.Text ?? "", label.Font).Width + label.Padding.Horizontal + 8);
+            label.TextAlign = ContentAlignment.MiddleLeft;
+        }
+
+        private static void StyleCountLabel(Label label)
+        {
+            if (label == null)
+                return;
+
+            label.BackColor = Color.White;
+            label.BorderStyle = BorderStyle.None;
+            label.Dock = DockStyle.None;
+            label.Anchor = AnchorStyles.Left;
+            label.ForeColor = Color.FromArgb(35, 45, 57);
+            label.Height = 24;
+            label.Width = 58;
+            label.Margin = new Padding(2, 0, 4, 0);
+            label.Padding = new Padding(4, 0, 0, 0);
+            label.TextAlign = ContentAlignment.MiddleLeft;
+        }
+
+        private static void StyleToolbarControl(Control control)
+        {
+            if (control == null)
+                return;
+
+            control.Dock = DockStyle.None;
+            control.Anchor = AnchorStyles.Left | AnchorStyles.Right;
+            control.Margin = new Padding(3, 0, 3, 0);
+            control.MinimumSize = Size.Empty;
+        }
+
+        private static void StyleToolbarButton(Button button, int minWidth)
+        {
+            if (button == null)
+                return;
+
+            button.AutoSize = false;
+            button.AutoEllipsis = false;
+            button.Dock = DockStyle.None;
+            button.Anchor = AnchorStyles.Left | AnchorStyles.Right;
+            button.Height = 24;
+            button.Margin = new Padding(4, 0, 4, 0);
+            button.MinimumSize = new Size(minWidth, 24);
+            button.Padding = new Padding(8, 0, 8, 0);
+            button.TextAlign = ContentAlignment.MiddleCenter;
         }
 
         private void WireEvents()
@@ -123,11 +227,13 @@ namespace QMC.CDT_320.Ui.Pages.History
         {
             try
             {
+                _renderedAlarmIds.Clear();
                 var rows = new List<DataGridViewRow>();
                 foreach (var a in AlarmManager.History.Reverse().Take(MaxRows)) // 최신순
                 {
                     if (!PassesFilter(a)) continue;
                     rows.Add(BuildRow(a));
+                    _renderedAlarmIds.Add(a.Id);
                 }
 
                 var prevAutoSize = _grid.AutoSizeColumnsMode;
@@ -435,9 +541,18 @@ namespace QMC.CDT_320.Ui.Pages.History
                     if (!PassesFilter(row))
                         continue;
 
+                    if (!_renderedAlarmIds.Add(row.Id))            // LoadGrid/이전 flush가 이미 그린 레코드면 중복 삽입 방지
+                        continue;
+
                     _grid.Rows.Insert(0, BuildRow(row));           // 최신이 맨 위
                     while (_grid.Rows.Count > MaxRows)             // 상한 유지
-                        _grid.Rows.RemoveAt(_grid.Rows.Count - 1);
+                    {
+                        int lastIdx = _grid.Rows.Count - 1;
+                        object trimmedTag = _grid.Rows[lastIdx].Tag;
+                        if (trimmedTag is int)
+                            _renderedAlarmIds.Remove((int)trimmedTag);
+                        _grid.Rows.RemoveAt(lastIdx);
+                    }
                 }
 
                 UpdateCount();

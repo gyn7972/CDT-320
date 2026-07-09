@@ -358,7 +358,10 @@ namespace QMC.CDT320.VisionComm
                         ", ok=" + offset.IsOk +
                         ", dxMm=" + offset.OffsetX.ToString("F6") +
                         ", dyMm=" + offset.OffsetY.ToString("F6") +
-                        ", dt=" + offset.OffsetT.ToString("F6"));
+                        ", dt=" + offset.OffsetT.ToString("F6") +
+                        ", sideVisionYOffsetMm=" + offset.SideVisionYOffset.ToString("F6") +
+                        ", pickerZOffsetMm=" + offset.PickerZOffset.ToString("F6") +
+                        ", sideCorrectionValid=" + offset.HasSideInspectionCorrection);
                 }
 
                 return offset;
@@ -531,7 +534,10 @@ namespace QMC.CDT320.VisionComm
                         ", ok=" + offset.IsOk +
                         ", dxMm=" + offset.OffsetX.ToString("F6") +
                         ", dyMm=" + offset.OffsetY.ToString("F6") +
-                        ", dt=" + offset.OffsetT.ToString("F6"));
+                        ", dt=" + offset.OffsetT.ToString("F6") +
+                        ", sideVisionYOffsetMm=" + offset.SideVisionYOffset.ToString("F6") +
+                        ", pickerZOffsetMm=" + offset.PickerZOffset.ToString("F6") +
+                        ", sideCorrectionValid=" + offset.HasSideInspectionCorrection);
                 }
 
                 return offset;
@@ -544,6 +550,67 @@ namespace QMC.CDT320.VisionComm
             {
                 EventLogger.Write(EventKind.Alarm, "VISION", "AUTO-VISION-BOTTOM-CAL-EX",
                     "Bottom Vision 보정 예외 발생(8콜렛). fb=" + fb + ", collet=" + collet + ", error=" + ex.Message);
+                return new BottomVisionOffset { PickerNo = collet, IsOk = false };
+            }
+            finally
+            {
+            }
+        }
+
+        /// <summary>
+        /// Bottom SurfaceInspector 결과 기반 보정 구조.
+        /// 현재는 원본 파라미터 로그만 확보하고 SideVisionY/PickerZ 보정값은 0으로 고정한다.
+        /// </summary>
+        public static async Task<BottomVisionOffset> InspectBottomOffsetAsync(
+            int fb,
+            int collet,
+            string inspector,
+            int dieIndex,
+            int gridX,
+            int gridY,
+            int timeoutMs,
+            CancellationToken ct)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+
+                InspectionResultDto inspection = await InspectColletAsync(
+                    AutoVisionChannel.BottomInspection,
+                    inspector,
+                    fb,
+                    collet,
+                    dieIndex,
+                    0,
+                    gridX,
+                    gridY,
+                    timeoutMs,
+                    ct).ConfigureAwait(false);
+
+                BottomVisionOffset offset = VisionCameraCalibrationTransform.ToBottomVisionOffset(collet, inspection);
+                EventLogger.Write(EventKind.Event, "VISION", "AUTO-VISION-BOTTOM-INSPECT-CAL",
+                    "Bottom SurfaceInspector 결과 구조 적용. fb=" + fb +
+                    ", collet=" + collet +
+                    ", dieIndex=" + dieIndex +
+                    ", ok=" + (offset != null && offset.IsOk) +
+                    ", rawValues=" + (inspection != null ? inspection.DescribeValues() : "null") +
+                    ", sideVisionYOffsetMm=0.000000" +
+                    ", pickerZOffsetMm=0.000000" +
+                    ", sideCorrectionValid=False");
+
+                return offset;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                EventLogger.Write(EventKind.Alarm, "VISION", "AUTO-VISION-BOTTOM-INSPECT-CAL-EX",
+                    "Bottom SurfaceInspector 결과 구조 적용 중 예외 발생. fb=" + fb +
+                    ", collet=" + collet +
+                    ", dieIndex=" + dieIndex +
+                    ", error=" + ex.Message);
                 return new BottomVisionOffset { PickerNo = collet, IsOk = false };
             }
             finally
@@ -642,7 +709,17 @@ namespace QMC.CDT320.VisionComm
                     if (poll.Error)
                         return new InspectionResultDto { IsPass = false, Raw = poll.Raw };
                     if (poll.Done)
-                        return poll.Result ?? new InspectionResultDto { IsPass = false, Raw = poll.Raw };
+                    {
+                        InspectionResultDto done = poll.Result ?? new InspectionResultDto { IsPass = false, Raw = poll.Raw };
+                        EventLogger.Write(EventKind.Event, "VISION", "AUTO-VISION-INSPECTRESULT-RAW",
+                            "Vision INSPECTRESULT 수신. channel=" + channel +
+                            ", inspector=" + inspector +
+                            ", dieIndex=" + dieIndex +
+                            ", pass=" + done.IsPass +
+                            ", values=" + done.DescribeValues() +
+                            ", raw=" + (done.Raw ?? string.Empty));
+                        return done;
+                    }
 
                     await Task.Delay(100, ct).ConfigureAwait(false);
                 }
@@ -979,21 +1056,34 @@ namespace QMC.CDT320.VisionComm
                 HasImageSize = true,
                 ImageWidthPixel = camera.ImageWidthPixel,
                 ImageHeightPixel = camera.ImageHeightPixel,
+                // Bottom SideY/PickerZ 보정 매핑은 실장비 SurfaceInspector 로그 확인 전까지 0으로 고정한다.
+                HasSideInspectionCorrection = false,
+                SideVisionYOffset = 0.0,
+                PickerZOffset = 0.0,
                 RawError = simulateOffset ? "SIMULATION:VisionPixelOffset" : "BYPASS:VisionDisabled"
             };
         }
 
+        public static InspectionResultDto BuildSimulationInspectionResult(AutoVisionChannel channel, string inspector, int index)
+        {
+            return BuildInspectionResult(channel, inspector, index, true, "SIMULATION:VisionResult");
+        }
+
         private static InspectionResultDto BuildBypassInspectionResult(AutoVisionChannel channel, string inspector, int index)
         {
+            return BuildInspectionResult(channel, inspector, index, ShouldSimulateVisionOffset(), BypassReason());
+        }
+
+        private static InspectionResultDto BuildInspectionResult(AutoVisionChannel channel, string inspector, int index, bool simulateOffset, string reason)
+        {
             VisionCameraPixelCalibration camera = ResolveCameraCalibration(channel);
-            bool simulateOffset = ShouldSimulateVisionOffset();
             double pixelX = simulateOffset ? NextSimulatedPixel(camera.ImageCenterPixelX, SimVisionMaxPixelOffset) : camera.ImageCenterPixelX;
             double pixelY = simulateOffset ? NextSimulatedPixel(camera.ImageCenterPixelY, SimVisionMaxPixelOffset) : camera.ImageCenterPixelY;
             double angle = simulateOffset ? NextSimulatedPixel(0.0, SimVisionMaxAngleDeg) : 0.0;
             double score = simulateOffset ? NextSimulatedScore() : 1.0;
 
             EventLogger.Write(EventKind.Event, "VISION", "AUTO-VISION-INSPECT-BYPASS",
-                BypassReason() + (simulateOffset ? " Vision INSPECT 결과를 시뮬레이션합니다. " : " Vision INSPECT 결과를 0 offset으로 통과합니다. ") +
+                (reason ?? "") + (simulateOffset ? " Vision INSPECT 결과를 시뮬레이션합니다. " : " Vision INSPECT 결과를 0 offset으로 통과합니다. ") +
                 "channel=" + channel +
                 ", inspector=" + inspector +
                 ", index=" + index +
@@ -1004,7 +1094,7 @@ namespace QMC.CDT320.VisionComm
                 ", score=" + score.ToString("F6") +
                 ", angle=" + angle.ToString("F6"));
 
-            return new InspectionResultDto
+            var result = new InspectionResultDto
             {
                 IsPass = true,
                 HasOffset = true,
@@ -1017,6 +1107,147 @@ namespace QMC.CDT320.VisionComm
                 ImageHeightPixel = camera.ImageHeightPixel,
                 Raw = simulateOffset ? "SIMULATION:VisionPixelOffset" : "BYPASS:VisionDisabled"
             };
+
+            AddBypassInspectionValues(result, channel, inspector, simulateOffset);
+            EventLogger.Write(EventKind.Event, "VISION", "AUTO-VISION-INSPECT-BYPASS-DATA",
+                "Simulation/Bypass 검사 측정값 생성. channel=" + channel +
+                ", inspector=" + inspector +
+                ", index=" + index +
+                ", values=" + result.DescribeValues());
+
+            return result;
+        }
+
+        private static void AddBypassInspectionValues(
+            InspectionResultDto result,
+            AutoVisionChannel channel,
+            string inspector,
+            bool simulateOffset)
+        {
+            if (result == null)
+                return;
+
+            if (channel == AutoVisionChannel.BottomInspection)
+            {
+                AddBypassBottomInspectionValues(result, simulateOffset);
+                return;
+            }
+
+            if (channel == AutoVisionChannel.Bin || IsPlacementInspector(inspector))
+            {
+                AddBypassPlacementInspectionValues(result, simulateOffset);
+                return;
+            }
+
+            if (channel == AutoVisionChannel.FrontSide || channel == AutoVisionChannel.RearSide)
+            {
+                AddBypassSideInspectionValues(result, simulateOffset);
+                return;
+            }
+
+            if (!string.IsNullOrWhiteSpace(inspector))
+            {
+                result.SetValue("inspection_item_score", result.Score);
+                result.SetValue("inspection_item_angle_deg", result.OffsetT);
+            }
+        }
+
+        private static void AddBypassBottomInspectionValues(InspectionResultDto result, bool simulateOffset)
+        {
+            double width = simulateOffset ? NextSimulatedRange(0.985, 1.015) : 1.0;
+            double height = simulateOffset ? NextSimulatedRange(0.985, 1.015) : 1.0;
+            double angle = simulateOffset ? NextSimulatedMmOffset(0.08) : 0.0;
+            double offsetX = simulateOffset ? NextSimulatedMmOffset(0.015) : 0.0;
+            double offsetY = simulateOffset ? NextSimulatedMmOffset(0.015) : 0.0;
+
+            result.SetValue("bottom_width_mm", width);
+            result.SetValue("bottom_height_mm", height);
+            result.SetValue("bottom_angle_deg", angle);
+            result.SetValue("bottom_offset_x_mm", offsetX);
+            result.SetValue("bottom_offset_y_mm", offsetY);
+            SetBypassInspectionItem(result, "bottom_item_width", width, true);
+            SetBypassInspectionItem(result, "bottom_item_height", height, true);
+            SetBypassInspectionItem(result, "bottom_item_angle", angle, true);
+            SetBypassInspectionItem(result, "bottom_item_offset_x", offsetX, true);
+            SetBypassInspectionItem(result, "bottom_item_offset_y", offsetY, true);
+
+            SetBypassInspectionItem(result, "bottom_item_chipping_top", simulateOffset ? NextSimulatedRange(0.000, 0.018) : 0.0, true);
+            SetBypassInspectionItem(result, "bottom_item_chipping_right", simulateOffset ? NextSimulatedRange(0.000, 0.018) : 0.0, true);
+            SetBypassInspectionItem(result, "bottom_item_chipping_bottom", simulateOffset ? NextSimulatedRange(0.000, 0.018) : 0.0, true);
+            SetBypassInspectionItem(result, "bottom_item_chipping_left", simulateOffset ? NextSimulatedRange(0.000, 0.018) : 0.0, true);
+            SetBypassInspectionItem(result, "bottom_item_chipping_ch1", simulateOffset ? NextSimulatedRange(0.000, 0.020) : 0.0, true);
+            SetBypassInspectionItem(result, "bottom_item_chipping_ch2", simulateOffset ? NextSimulatedRange(0.000, 0.020) : 0.0, true);
+            SetBypassInspectionItem(result, "bottom_item_foreign_max", simulateOffset ? NextSimulatedRange(0.000, 0.018) : 0.0, true);
+            SetBypassInspectionItem(result, "bottom_item_foreign_count", simulateOffset ? NextSimulatedInteger(0, 3) : 0.0, true);
+        }
+
+        private static void AddBypassSideInspectionValues(InspectionResultDto result, bool simulateOffset)
+        {
+            AddBypassSideChannelInspectionValues(result, "ch0_", simulateOffset);
+            AddBypassSideChannelInspectionValues(result, "ch1_", simulateOffset);
+        }
+
+        private static void AddBypassPlacementInspectionValues(InspectionResultDto result, bool simulateOffset)
+        {
+            double offsetX = simulateOffset ? NextSimulatedMmOffset(0.025) : 0.0;
+            double offsetY = simulateOffset ? NextSimulatedMmOffset(0.025) : 0.0;
+            double angle = simulateOffset ? NextSimulatedMmOffset(0.050) : 0.0;
+
+            result.SetValue("placement_offset_x_mm", offsetX);
+            result.SetValue("placement_offset_y_mm", offsetY);
+            result.SetValue("placement_angle_deg", angle);
+
+            SetBypassInspectionItem(result, "placement_item_offset_x", offsetX, true);
+            SetBypassInspectionItem(result, "placement_item_offset_y", offsetY, true);
+            SetBypassInspectionItem(result, "placement_item_angle", angle, true);
+            SetBypassInspectionItem(result, "placement_item_top_gap_min", simulateOffset ? NextSimulatedRange(0.010, 0.060) : 0.0, true);
+            SetBypassInspectionItem(result, "placement_item_top_gap_max", simulateOffset ? NextSimulatedRange(0.030, 0.090) : 0.0, true);
+            SetBypassInspectionItem(result, "placement_item_top_gap_avg", simulateOffset ? NextSimulatedRange(0.020, 0.075) : 0.0, true);
+            SetBypassInspectionItem(result, "placement_item_right_min", simulateOffset ? NextSimulatedRange(0.010, 0.060) : 0.0, true);
+            SetBypassInspectionItem(result, "placement_item_right_max", simulateOffset ? NextSimulatedRange(0.030, 0.090) : 0.0, true);
+            SetBypassInspectionItem(result, "placement_item_right_gap_avg", simulateOffset ? NextSimulatedRange(0.020, 0.075) : 0.0, true);
+            SetBypassInspectionItem(result, "placement_item_bottom_min", simulateOffset ? NextSimulatedRange(0.010, 0.060) : 0.0, true);
+            SetBypassInspectionItem(result, "placement_item_bottom_gap", simulateOffset ? NextSimulatedRange(0.030, 0.090) : 0.0, true);
+            SetBypassInspectionItem(result, "placement_item_bottom_gap_avg", simulateOffset ? NextSimulatedRange(0.020, 0.075) : 0.0, true);
+            SetBypassInspectionItem(result, "placement_item_left_min", simulateOffset ? NextSimulatedRange(0.010, 0.060) : 0.0, true);
+            SetBypassInspectionItem(result, "placement_item_left_max", simulateOffset ? NextSimulatedRange(0.030, 0.090) : 0.0, true);
+            SetBypassInspectionItem(result, "placement_item_left_gap_avg", simulateOffset ? NextSimulatedRange(0.020, 0.075) : 0.0, true);
+        }
+
+        private static void AddBypassSideChannelInspectionValues(InspectionResultDto result, string prefix, bool simulateOffset)
+        {
+            double maxChippingDepth = simulateOffset ? NextSimulatedRange(0.001, 0.030) : 0.0;
+            double chippingTop = simulateOffset ? NextSimulatedRange(0.000, 0.020) : 0.0;
+            double chippingBottom = simulateOffset ? NextSimulatedRange(0.000, 0.020) : 0.0;
+            double chippingCount = simulateOffset ? NextSimulatedInteger(0, 3) : 0.0;
+            double foreignCount = simulateOffset ? NextSimulatedInteger(0, 4) : 0.0;
+            double foreignMax = simulateOffset ? NextSimulatedRange(0.000, 0.018) : 0.0;
+
+            SetBypassInspectionItem(result, prefix + "side_item_max_chipping_depth", maxChippingDepth, true);
+            SetBypassInspectionItem(result, prefix + "side_item_chipping_top", chippingTop, true);
+            SetBypassInspectionItem(result, prefix + "side_item_chipping_bottom", chippingBottom, true);
+            SetBypassInspectionItem(result, prefix + "side_item_chipping_count", chippingCount, true);
+            SetBypassInspectionItem(result, prefix + "side_item_foreign_count", foreignCount, true);
+            SetBypassInspectionItem(result, prefix + "side_item_foreign_max", foreignMax, true);
+        }
+
+        private static void SetBypassInspectionItem(InspectionResultDto result, string key, double value, bool pass)
+        {
+            if (result == null || string.IsNullOrWhiteSpace(key))
+                return;
+
+            result.SetValue(key, value);
+            result.SetValue(key + "_pass", pass ? 1 : 0);
+        }
+
+        private static bool IsPlacementInspector(string inspector)
+        {
+            if (string.IsNullOrWhiteSpace(inspector))
+                return false;
+
+            return inspector.IndexOf("Placement", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                   inspector.IndexOf("DieGap", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                   inspector.IndexOf("Bin", StringComparison.OrdinalIgnoreCase) >= 0;
         }
 
         private static bool ShouldSimulateVisionOffset()
@@ -1039,6 +1270,44 @@ namespace QMC.CDT320.VisionComm
             lock (SimVisionRandomLock)
             {
                 return center + ((SimVisionRandom.NextDouble() * 2.0) - 1.0) * maxAbsOffset;
+            }
+        }
+
+        private static double NextSimulatedMmOffset(double maxAbsOffset)
+        {
+            lock (SimVisionRandomLock)
+            {
+                return ((SimVisionRandom.NextDouble() * 2.0) - 1.0) * maxAbsOffset;
+            }
+        }
+
+        private static double NextSimulatedRange(double min, double max)
+        {
+            lock (SimVisionRandomLock)
+            {
+                if (max < min)
+                {
+                    double temp = min;
+                    min = max;
+                    max = temp;
+                }
+
+                return min + (SimVisionRandom.NextDouble() * (max - min));
+            }
+        }
+
+        private static int NextSimulatedInteger(int min, int maxInclusive)
+        {
+            lock (SimVisionRandomLock)
+            {
+                if (maxInclusive < min)
+                {
+                    int temp = min;
+                    min = maxInclusive;
+                    maxInclusive = temp;
+                }
+
+                return SimVisionRandom.Next(min, maxInclusive + 1);
             }
         }
 
@@ -1084,7 +1353,10 @@ namespace QMC.CDT320.VisionComm
                 ", ok=" + result.IsOk +
                 ", dxMm=" + result.OffsetX.ToString("F6") +
                 ", dyMm=" + result.OffsetY.ToString("F6") +
-                ", dt=" + result.OffsetT.ToString("F6"));
+                ", dt=" + result.OffsetT.ToString("F6") +
+                ", sideVisionYOffsetMm=" + result.SideVisionYOffset.ToString("F6") +
+                ", pickerZOffsetMm=" + result.PickerZOffset.ToString("F6") +
+                ", sideCorrectionValid=" + result.HasSideInspectionCorrection);
         }
 
         private static void LogSimulatedInspectionResult(

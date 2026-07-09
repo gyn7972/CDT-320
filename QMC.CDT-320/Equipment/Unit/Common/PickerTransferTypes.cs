@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Runtime.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
@@ -299,7 +300,12 @@ namespace QMC.CDT320
         public double OffsetX { get; set; }
         public double OffsetY { get; set; }
         public double OffsetT { get; set; }
+        public double SideVisionYOffset { get; set; }
+        public double PickerZOffset { get; set; }
+        public bool HasSideInspectionCorrection { get; set; }
         public bool IsOk { get; set; }
+        public string Raw { get; set; }
+        public Dictionary<string, string> Values { get; set; } = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
     }
 
     public class SideVisionResult
@@ -309,6 +315,8 @@ namespace QMC.CDT320
         public bool Side2Ok { get; set; }
         public bool Side3Ok { get; set; }
         public bool Side4Ok { get; set; }
+        public string Raw { get; set; }
+        public Dictionary<string, string> Values { get; set; } = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
         public bool IsAllOk
         {

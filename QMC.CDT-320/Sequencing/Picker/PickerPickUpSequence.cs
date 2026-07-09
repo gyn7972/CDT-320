@@ -24,6 +24,10 @@ namespace QMC.CDT320.Sequencing
 
     internal sealed class PickerPickUpSequence : PickerSequenceBase<PickerPickUpStep>
     {
+        private const double ContinuousPickMaxDeltaX = 45.0;
+        private const double ContinuousPickMaxDeltaY = 1.5;
+        private const double ContinuousPickMaxDeltaT = 0.2;
+        private const double ContinuousPickFacingPrecheckClearance = 180.0;
         private static readonly object SimVisionRandomLock = new object();
         private static readonly Random SimVisionRandom = new Random();
         private readonly List<int> _enabledPickerIndexes = new List<int>();
@@ -1130,28 +1134,111 @@ namespace QMC.CDT320.Sequencing
             return 0;
         }
 
-        private Task<int> MoveOppositePickerToAvoidForPickerMoveAsync(CancellationToken ct)
+        private async Task<int> MoveOppositePickerToAvoidForPickerMoveAsync(CancellationToken ct)
         {
             try
             {
                 ct.ThrowIfCancellationRequested();
 
-                int result = VerifyOppositePickerNotInInputPickArea(
-                    "Pick 위치 이동 전 상대 Picker Input 영역 확인");
+                int result = await WaitOppositePickerNotInInputPickAreaAsync(
+                    "Pick 위치 이동 전 상대 Picker Input 영역 확인",
+                    ct).ConfigureAwait(false);
                 if (result != 0)
-                    return Task.FromResult(result);
+                    return result;
 
                 CurrentStep = PickerPickUpStep.MovePickerXStageYPickerT;
-                return Task.FromResult(0);
+                return 0;
             }
             catch (OperationCanceledException)
             {
                 throw;
             }
+            catch (SequenceStopException)
+            {
+                throw;
+            }
             catch (Exception ex)
             {
-                return Task.FromResult(Fail("PICKER-PICKUP-OPPOSITE-CHECK-EX", Name,
-                    "Pick 위치 이동 전 상대 Picker Input 영역 확인 중 예외가 발생했습니다. error=" + ex.Message));
+                return Fail("PICKER-PICKUP-OPPOSITE-CHECK-EX", Name,
+                    "Pick 위치 이동 전 상대 Picker Input 영역 확인 중 예외가 발생했습니다. error=" + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private async Task<int> WaitOppositePickerNotInInputPickAreaAsync(
+            string description,
+            CancellationToken ct)
+        {
+            try
+            {
+                string oppositeUnitName;
+                string blockReason;
+                if (!TryBuildOppositePickerInputBlockReason(description, out oppositeUnitName, out blockReason))
+                {
+                    WriteLog("PickerPickUpSequence",
+                        Name + " 상대 Picker Input 영역 확인 완료. description=" + description + " - Ok");
+                    return 0;
+                }
+
+                if (Options == null || Options.RunMode != SequenceRunMode.Auto)
+                {
+                    return Fail("PICKER-OPPOSITE-INPUT-ZONE", oppositeUnitName, blockReason);
+                }
+
+                bool waitLogged = false;
+                DateTime lastWaitLog = DateTime.MinValue;
+                while (true)
+                {
+                    ct.ThrowIfCancellationRequested();
+                    if (Context != null)
+                        Context.StopIfCycleStopRequested(Name + ".WaitOppositePickerInputClearBeforePick");
+
+                    if (!TryBuildOppositePickerInputBlockReason(description, out oppositeUnitName, out blockReason))
+                    {
+                        if (waitLogged)
+                        {
+                            WriteLog("PickerPickUpSequence",
+                                Name + " 상대 Picker Input 영역 대기 완료. 상대 Picker가 PickUp Input 영역을 물리적으로 이탈한 뒤 Pick 위치 이동을 허용합니다. " +
+                                "description=" + description + " - Ok");
+                        }
+                        else
+                        {
+                            WriteLog("PickerPickUpSequence",
+                                Name + " 상대 Picker Input 영역 확인 완료. description=" + description + " - Ok");
+                        }
+
+                        return 0;
+                    }
+
+                    if ((DateTime.UtcNow - lastWaitLog).TotalMilliseconds >= 1000.0)
+                    {
+                        lastWaitLog = DateTime.UtcNow;
+                        waitLogged = true;
+                        WriteLog("PickerPickUpSequence",
+                            Name + " Pick 위치 이동 전 상대 Picker Input 영역 이탈 대기. " +
+                            "상대 Picker가 PickUp 중이거나 Pick 위치에 남아 있어 현재 Picker의 Input 진입을 보류합니다. " +
+                            "side=" + Side +
+                            ", description=" + description +
+                            ", reason=" + blockReason + " - Wait");
+                    }
+
+                    await Task.Delay(10, ct).ConfigureAwait(false);
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (SequenceStopException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("PICKER-OPPOSITE-INPUT-ZONE-EX", Name,
+                    description + " 중 예외 발생: " + ex.Message);
             }
             finally
             {
@@ -1162,46 +1249,10 @@ namespace QMC.CDT320.Sequencing
         {
             try
             {
-                if (Side == PickerSequenceSide.Front)
-                {
-                    if (RearPicker == null)
-                    {
-                        WriteLog("PickerPickUpSequence",
-                            Name + " 상대 Picker Input 영역 확인 생략. RearPickerUnit 없음. description=" +
-                            description + " - Check");
-                        return 0;
-                    }
-
-                    for (int pickerNo = 1; pickerNo <= 4; pickerNo++)
-                    {
-                        if (!RearPicker.IsRearPickerInDiePickPosition(pickerNo))
-                            continue;
-
-                        return Fail("PICKER-OPPOSITE-INPUT-ZONE", "RearPickerUnit",
-                            description + " 실패. RearPicker가 Input Pick 영역에 있습니다. " +
-                            "RearPicker를 먼저 Input 영역 밖으로 이동해야 합니다. pickerNo=" + pickerNo);
-                    }
-                }
-                else
-                {
-                    if (FrontPicker == null)
-                    {
-                        WriteLog("PickerPickUpSequence",
-                            Name + " 상대 Picker Input 영역 확인 생략. FrontPickerUnit 없음. description=" +
-                            description + " - Check");
-                        return 0;
-                    }
-
-                    for (int pickerNo = 1; pickerNo <= 4; pickerNo++)
-                    {
-                        if (!FrontPicker.IsFrontPickerInDiePickPosition(pickerNo))
-                            continue;
-
-                        return Fail("PICKER-OPPOSITE-INPUT-ZONE", "FrontPickerUnit",
-                            description + " 실패. FrontPicker가 Input Pick 영역에 있습니다. " +
-                            "FrontPicker를 먼저 Input 영역 밖으로 이동해야 합니다. pickerNo=" + pickerNo);
-                    }
-                }
+                string oppositeUnitName;
+                string blockReason;
+                if (TryBuildOppositePickerInputBlockReason(description, out oppositeUnitName, out blockReason))
+                    return Fail("PICKER-OPPOSITE-INPUT-ZONE", oppositeUnitName, blockReason);
 
                 WriteLog("PickerPickUpSequence",
                     Name + " 상대 Picker Input 영역 확인 완료. description=" + description + " - Ok");
@@ -1215,6 +1266,61 @@ namespace QMC.CDT320.Sequencing
             finally
             {
             }
+        }
+
+        private bool TryBuildOppositePickerInputBlockReason(
+            string description,
+            out string oppositeUnitName,
+            out string blockReason)
+        {
+            oppositeUnitName = Side == PickerSequenceSide.Rear ? "FrontPickerUnit" : "RearPickerUnit";
+            blockReason = string.Empty;
+
+            bool oppositeIsFront = Side == PickerSequenceSide.Rear;
+            string oppositePickerName = oppositeIsFront ? "FrontPicker" : "RearPicker";
+
+            if (!IsOppositePickerUnitAvailable())
+            {
+                WriteLog("PickerPickUpSequence",
+                    Name + " 상대 Picker Input 영역 확인 생략. " + oppositeUnitName +
+                    " 없음. description=" + description + " - Check");
+                return false;
+            }
+
+            if (oppositeIsFront)
+            {
+                for (int pickerNo = 1; pickerNo <= 4; pickerNo++)
+                {
+                    if (!FrontPicker.IsFrontPickerInDiePickPosition(pickerNo))
+                        continue;
+
+                    blockReason = description + " 실패. " + oppositePickerName + "가 Input Pick 영역에 있습니다. " +
+                        oppositePickerName + "를 먼저 Input 영역 밖으로 이동해야 합니다. pickerNo=" + pickerNo;
+                    return true;
+                }
+            }
+            else
+            {
+                for (int pickerNo = 1; pickerNo <= 4; pickerNo++)
+                {
+                    if (!RearPicker.IsRearPickerInDiePickPosition(pickerNo))
+                        continue;
+
+                    blockReason = description + " 실패. " + oppositePickerName + "가 Input Pick 영역에 있습니다. " +
+                        oppositePickerName + "를 먼저 Input 영역 밖으로 이동해야 합니다. pickerNo=" + pickerNo;
+                    return true;
+                }
+            }
+
+            string inputBlockReason;
+            if (IsOppositePickerInputInterferenceActive(out inputBlockReason))
+            {
+                blockReason = description + " 실패. " + oppositePickerName +
+                    "가 Input 영역을 점유하거나 진입/이탈 중입니다. " + inputBlockReason;
+                return true;
+            }
+
+            return false;
         }
 
         private async Task<int> MovePickerXStageYPickerTAsync(CancellationToken ct)
@@ -1295,6 +1401,13 @@ namespace QMC.CDT320.Sequencing
                         ", pickerNo=" + _currentPickerNo);
                 }
 
+                WriteLog("PickerPickUpSequence",
+                    Name + " PickUp Picker X/T 및 NeedleX/StageY 목표 이동 완료 후 PickerY 전진을 시작합니다. " +
+                    "die=" + _currentDieId +
+                    ", pickerNo=" + _currentPickerNo +
+                    ", targetY=" + _targetPickerY +
+                    ", targetName=" + targetName + " - Check");
+
                 result = await MovePickerAxisAndVerifyAsync(
                     PickerAxis.PickerY,
                     _targetPickerY,
@@ -1333,20 +1446,26 @@ namespace QMC.CDT320.Sequencing
         {
             try
             {
-                if (_pickCursor > 0 && IsPickerAxisInPosition(PickerAxis.PickerY, _targetPickerY))
+                string continuousDetail;
+                if (CanKeepPickerYForwardForContinuousPick(out continuousDetail))
                 {
                     WriteLog("PickerPickUpSequence",
-                        Name + " 연속 PickUp 진행 중 PickerY가 Pick 위치에 있어 Avoid 복귀를 생략합니다. " +
-                        "pickIndex=" + (_pickCursor + 1) +
-                        "/" + _pickBatchItems.Count +
-                        ", pickerNo=" + _currentPickerNo +
-                        ", targetY=" + _targetPickerY.ToString("0.###") + " - Ok");
+                        Name + " 연속 PickUp X/Y/T 제한 및 외부 간섭 확인 완료. PickerY Avoid 복귀를 생략합니다. " +
+                        continuousDetail + " - Ok");
                     return 0;
                 }
 
                 double avoid = GetPickerTeachingPosition(PickerAxis.PickerY, "AvoidPosition");
                 if (IsPickerAxisAlreadyInPosition(PickerAxis.PickerY, avoid))
+                {
+                    WriteLog("PickerPickUpSequence",
+                        Name + " PickUp 안전 진입: PickerY가 이미 Avoid 위치입니다. " +
+                        "Picker X/T 이동 완료 후에만 PickerY 전진을 시작합니다. " +
+                        "pickIndex=" + (_pickCursor + 1) +
+                        "/" + _pickBatchItems.Count +
+                        ", pickerNo=" + _currentPickerNo + " - Check");
                     return 0;
+                }
 
                 int result = await MovePickerAxisAndVerifyAsync(
                     PickerAxis.PickerY,
@@ -1378,6 +1497,613 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
+        private bool CanKeepPickerYForwardForContinuousPick(out string detail)
+        {
+            detail = string.Empty;
+
+            try
+            {
+                if (Options == null || Options.RunMode != SequenceRunMode.Auto)
+                {
+                    detail = "runMode is not Auto.";
+                    return false;
+                }
+
+                if (_pickCursor <= 0)
+                {
+                    detail = "first pick in batch.";
+                    return false;
+                }
+
+                BaseAxis pickerX = GetPickerAxis(PickerAxis.PickerX);
+                BaseAxis pickerY = GetPickerAxis(PickerAxis.PickerY);
+                PickerAxis tAxis = GetPickerTAxis(_currentPickerIndex);
+                BaseAxis pickerT = GetPickerAxis(tAxis);
+                if (pickerX == null || pickerY == null || pickerT == null)
+                {
+                    detail = "picker axis missing. pickerX=" + FormatAxisForContinuousCheck(pickerX) +
+                        ", pickerY=" + FormatAxisForContinuousCheck(pickerY) +
+                        ", pickerT=" + FormatAxisForContinuousCheck(pickerT);
+                    return false;
+                }
+
+                if (pickerX.IsMoving || pickerY.IsMoving || pickerT.IsMoving)
+                {
+                    detail = "picker X/Y/T is moving. pickerX=" + FormatAxisForContinuousCheck(pickerX) +
+                        ", pickerY=" + FormatAxisForContinuousCheck(pickerY) +
+                        ", pickerT=" + FormatAxisForContinuousCheck(pickerT);
+                    return false;
+                }
+
+                double avoid = GetPickerTeachingPosition(PickerAxis.PickerY, "AvoidPosition");
+                if (IsPickerAxisAlreadyInPosition(PickerAxis.PickerY, avoid))
+                {
+                    detail = "pickerY is already Avoid.";
+                    return false;
+                }
+
+                double deltaX = Math.Abs(_targetPickerX - pickerX.ActualPosition);
+                double deltaY = Math.Abs(_targetPickerY - pickerY.ActualPosition);
+                double deltaT = Math.Abs(_targetPickerT - pickerT.ActualPosition);
+                if (deltaX > ContinuousPickMaxDeltaX ||
+                    deltaY > ContinuousPickMaxDeltaY ||
+                    deltaT > ContinuousPickMaxDeltaT)
+                {
+                    detail = "continuous delta limit exceeded. deltaX=" + deltaX.ToString("0.###") +
+                        "/" + ContinuousPickMaxDeltaX.ToString("0.###") +
+                        ", deltaY=" + deltaY.ToString("0.###") +
+                        "/" + ContinuousPickMaxDeltaY.ToString("0.###") +
+                        ", deltaT=" + deltaT.ToString("0.###") +
+                        "/" + ContinuousPickMaxDeltaT.ToString("0.###");
+                    return false;
+                }
+
+                string zDetail;
+                if (!ArePickerZAxesSafeForContinuousPick(out zDetail))
+                {
+                    detail = "PickerZ is not safe. " + zDetail;
+                    return false;
+                }
+
+                InputStageUnit stage = ResolveInputStage();
+                string visionDetail;
+                if (!IsInputVisionXSafeForContinuousPick(stage, out visionDetail))
+                {
+                    detail = "InputVisionX is not safe. " + visionDetail;
+                    return false;
+                }
+
+                string inputZDetail;
+                if (!AreInputPickZAxesSafeBeforeContinuousXYT(stage, out inputZDetail))
+                {
+                    detail = "Input pick Z axes are not safe. " + inputZDetail;
+                    return false;
+                }
+
+                string oppositeDetail;
+                if (IsOppositePickerInputInterferenceActive(out oppositeDetail))
+                {
+                    detail = "opposite picker blocks Input. " + oppositeDetail;
+                    return false;
+                }
+
+                string facingDetail;
+                if (!IsFrontRearPickerXFacingPrecheckClear(_targetPickerX, out facingDetail))
+                {
+                    detail = "Front/Rear PickerX facing precheck blocked. " + facingDetail;
+                    return false;
+                }
+
+                detail = "pickIndex=" + (_pickCursor + 1) +
+                    "/" + _pickBatchItems.Count +
+                    ", pickerNo=" + _currentPickerNo +
+                    ", deltaX=" + deltaX.ToString("0.###") +
+                    ", deltaY=" + deltaY.ToString("0.###") +
+                    ", deltaT=" + deltaT.ToString("0.###") +
+                    ", facing=" + facingDetail;
+                return true;
+            }
+            catch (Exception ex)
+            {
+                detail = "continuous pick check exception. error=" + ex.Message;
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
+        private bool IsOppositePickerInputInterferenceActive(out string detail)
+        {
+            detail = string.Empty;
+
+            try
+            {
+                bool oppositeIsFront = Side == PickerSequenceSide.Rear;
+                if (!IsOppositePickerUnitAvailable())
+                    return false;
+
+                PickerWorkZone workZone;
+                string owner;
+                bool workAreaActive = PickerZoneInterlockRules.TryGetPickerWorkArea(
+                    oppositeIsFront,
+                    out workZone,
+                    out owner);
+                PickerZoneTransportState state = PickerZoneInterlockRules.ResolvePickerZoneTransportState(
+                    Context != null ? Context.Machine : null,
+                    oppositeIsFront,
+                    PickerWorkZone.Input,
+                    null,
+                    "PickUp continuous input interference check");
+
+                bool xMoving = state != null && state.PickerX != null && state.PickerX.IsMoving;
+                bool yMoving = state != null && state.PickerY != null && state.PickerY.IsMoving;
+                bool activeYInput = PickerZoneInterlockRules.GetPickerYActiveTargetZone(oppositeIsFront) == PickerWorkZone.Input;
+                bool inputRelated = state != null &&
+                    (state.CurrentZone == PickerWorkZone.Input ||
+                     state.TargetZone == PickerWorkZone.Input ||
+                     state.UnknownUnsafe ||
+                     state.BlocksTransport);
+                bool movingInputRisk = (xMoving || yMoving) && inputRelated;
+                bool inputWorkArea = workAreaActive && workZone == PickerWorkZone.Input;
+                bool blocks = inputWorkArea || activeYInput || inputRelated || movingInputRisk;
+
+                detail = "opposite=" + (oppositeIsFront ? "FrontPicker" : "RearPicker") +
+                    ", blocks=" + blocks +
+                    ", inputWorkArea=" + inputWorkArea +
+                    ", workArea=" + (workAreaActive ? workZone.ToString() : "None") +
+                    ", owner=" + (workAreaActive ? owner : "-") +
+                    ", activeYInput=" + activeYInput +
+                    ", movingX=" + xMoving +
+                    ", movingY=" + yMoving +
+                    ", inputRelated=" + inputRelated +
+                    ", movingInputRisk=" + movingInputRisk +
+                    ", state=" + (state != null ? state.Describe() : "null");
+
+                return blocks;
+            }
+            catch (Exception ex)
+            {
+                detail = "opposite picker Input interference check failed. error=" + ex.Message;
+                return true;
+            }
+            finally
+            {
+            }
+        }
+
+        private bool IsOppositePickerUnitAvailable()
+        {
+            return Side == PickerSequenceSide.Front ? RearPicker != null : FrontPicker != null;
+        }
+
+        private bool ArePickerZAxesSafeForContinuousPick(out string detail)
+        {
+            detail = string.Empty;
+
+            PickerAxis[] zAxes =
+            {
+                PickerAxis.PickerZ0,
+                PickerAxis.PickerZ1,
+                PickerAxis.PickerZ2,
+                PickerAxis.PickerZ3
+            };
+
+            for (int i = 0; i < zAxes.Length; i++)
+            {
+                PickerAxis zAxis = zAxes[i];
+                BaseAxis axis = GetPickerAxis(zAxis);
+                if (axis == null)
+                    continue;
+
+                if (axis.IsMoving)
+                {
+                    detail = zAxis + " is moving. " + FormatAxisForContinuousCheck(axis);
+                    return false;
+                }
+
+                double avoid = GetPickerTeachingPosition(zAxis, "AvoidPosition");
+                double tolerance = axis.Config != null && axis.Config.InPositionTolerance > 0.0
+                    ? axis.Config.InPositionTolerance
+                    : 0.01;
+                bool homeOrAbove = axis.ActualPosition >= -tolerance;
+                bool atAvoid = Math.Abs(axis.ActualPosition - avoid) <= tolerance;
+                if (!homeOrAbove && !atAvoid)
+                {
+                    detail = zAxis + " is not at home/avoid. actual=" +
+                        axis.ActualPosition.ToString("0.###") +
+                        ", avoid=" + avoid.ToString("0.###") +
+                        ", tolerance=" + tolerance.ToString("0.###");
+                    return false;
+                }
+            }
+
+            detail = "PickerZ0~3 home/avoid.";
+            return true;
+        }
+
+        private bool IsInputVisionXSafeForContinuousPick(InputStageUnit stage, out string detail)
+        {
+            detail = string.Empty;
+
+            try
+            {
+                if (stage == null || stage.CameraX == null)
+                    return true;
+
+                if (stage.CameraX.IsMoving)
+                {
+                    detail = "InputVisionX is moving. actual=" +
+                        stage.CameraX.ActualPosition.ToString("0.###") +
+                        ", command=" + stage.CameraX.CommandPosition.ToString("0.###");
+                    return false;
+                }
+
+                if (!stage.IsVisionXInAvoidPosition())
+                {
+                    detail = "InputVisionX is not Avoid. actual=" +
+                        stage.CameraX.ActualPosition.ToString("0.###") +
+                        ", target=" + (stage.Recipe != null && stage.Recipe.VisionX != null
+                            ? stage.Recipe.VisionX.AvoidPosition.ToString("0.###")
+                            : "null");
+                    return false;
+                }
+
+                detail = "InputVisionX Avoid.";
+                return true;
+            }
+            catch (Exception ex)
+            {
+                detail = "InputVisionX safety check failed. error=" + ex.Message;
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
+        private bool AreInputPickZAxesSafeBeforeContinuousXYT(InputStageUnit stage, out string detail)
+        {
+            detail = string.Empty;
+
+            try
+            {
+                if (stage == null)
+                    return true;
+
+                if (stage.NeedleZ != null && stage.NeedleZ.IsMoving)
+                {
+                    detail = "NeedleZ is moving. actual=" + stage.NeedleZ.ActualPosition.ToString("0.###");
+                    return false;
+                }
+
+                if (stage.EjectPinZ != null && stage.EjectPinZ.IsMoving)
+                {
+                    detail = "EjectPinZ is moving. actual=" + stage.EjectPinZ.ActualPosition.ToString("0.###");
+                    return false;
+                }
+
+                string needleZTeachingDetail = string.Empty;
+                if (!stage.IsNeedleZInHomeOrSafePosition() &&
+                    !CanKeepNeedleZAtTeachingPositionForPickMove(stage, out needleZTeachingDetail))
+                {
+                    detail = "NeedleZ is not home/safe. actual=" +
+                        (stage.NeedleZ != null ? stage.NeedleZ.ActualPosition.ToString("0.###") : "null") +
+                        ", teachingCheck=" + needleZTeachingDetail;
+                    return false;
+                }
+
+                double ejectAvoid = stage.Recipe != null && stage.Recipe.EjectPinZ != null
+                    ? stage.Recipe.EjectPinZ.AvoidPosition
+                    : 0.0;
+                if (stage.EjectPinZ != null)
+                {
+                    double tolerance = stage.EjectPinZ.Config != null && stage.EjectPinZ.Config.InPositionTolerance > 0.0
+                        ? stage.EjectPinZ.Config.InPositionTolerance
+                        : 0.01;
+                    bool atAvoid = Math.Abs(stage.EjectPinZ.ActualPosition - ejectAvoid) <= tolerance;
+                    bool homeOrBelow = stage.EjectPinZ.ActualPosition <= tolerance;
+                    if (!atAvoid && !homeOrBelow)
+                    {
+                        detail = "EjectPinZ is not avoid/home. actual=" +
+                            stage.EjectPinZ.ActualPosition.ToString("0.###") +
+                            ", avoid=" + ejectAvoid.ToString("0.###") +
+                            ", tolerance=" + tolerance.ToString("0.###");
+                        return false;
+                    }
+                }
+
+                detail = "NeedleZ/EjectPinZ safe. " + needleZTeachingDetail;
+                return true;
+            }
+            catch (Exception ex)
+            {
+                detail = "Input pick Z safety check failed. error=" + ex.Message;
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
+        private bool CanKeepNeedleZAtTeachingPositionForPickMove(InputStageUnit stage, out string detail)
+        {
+            detail = string.Empty;
+
+            try
+            {
+                if (Options == null || Options.RunMode != SequenceRunMode.Auto)
+                {
+                    detail = "runMode is not Auto.";
+                    return false;
+                }
+
+                if (stage == null)
+                {
+                    detail = "InputStageUnit is null.";
+                    return false;
+                }
+
+                BaseAxis needleZ = stage.NeedleZ;
+                if (needleZ == null)
+                {
+                    detail = "NeedleZ axis is null.";
+                    return true;
+                }
+
+                if (needleZ.IsMoving)
+                {
+                    detail = "NeedleZ is moving. actual=" + needleZ.ActualPosition.ToString("0.###");
+                    return false;
+                }
+
+                double tolerance = needleZ.Config != null && needleZ.Config.InPositionTolerance > 0.0
+                    ? needleZ.Config.InPositionTolerance
+                    : 0.01;
+
+                string teachingName;
+                if (!IsNeedleZAtAutoPickTeachingPosition(stage, needleZ.ActualPosition, tolerance, out teachingName))
+                {
+                    detail = "NeedleZ is not at known Auto Pick teaching position. actual=" +
+                        needleZ.ActualPosition.ToString("0.###") +
+                        ", tolerance=" + tolerance.ToString("0.###");
+                    return false;
+                }
+
+                double currentNeedleX = stage.NeedleBlockX != null
+                    ? stage.NeedleBlockX.ActualPosition
+                    : stage.ResolveNeedleWorkAreaCenterX();
+                double currentStageY = stage.StageY != null
+                    ? stage.StageY.ActualPosition
+                    : stage.ResolveNeedleWorkAreaCenterY();
+
+                string currentAreaReason;
+                if (!stage.IsNeedleWorkPointInArea(currentNeedleX, currentStageY, out currentAreaReason))
+                {
+                    detail = "current Needle work point is outside area. needleX=" +
+                        currentNeedleX.ToString("0.###") +
+                        ", stageY=" + currentStageY.ToString("0.###") +
+                        ", reason=" + currentAreaReason;
+                    return false;
+                }
+
+                string targetAreaReason;
+                if (!stage.IsNeedleWorkPointInArea(_targetNeedleX, _targetStageY, out targetAreaReason))
+                {
+                    detail = "target Needle work point is outside area. needleX=" +
+                        _targetNeedleX.ToString("0.###") +
+                        ", stageY=" + _targetStageY.ToString("0.###") +
+                        ", reason=" + targetAreaReason;
+                    return false;
+                }
+
+                bool moveNeedleXFirst;
+                string orderReason;
+                if (!stage.TryResolveNeedleWorkPointMoveOrder(
+                    _targetNeedleX,
+                    _targetStageY,
+                    out moveNeedleXFirst,
+                    out orderReason))
+                {
+                    detail = "NeedleX/StageY safe order not found. " + orderReason;
+                    return false;
+                }
+
+                detail = "NeedleZ keep allowed. teaching=" + teachingName +
+                    ", actual=" + needleZ.ActualPosition.ToString("0.###") +
+                    ", currentNeedleX=" + currentNeedleX.ToString("0.###") +
+                    ", currentStageY=" + currentStageY.ToString("0.###") +
+                    ", targetNeedleX=" + _targetNeedleX.ToString("0.###") +
+                    ", targetStageY=" + _targetStageY.ToString("0.###") +
+                    ", order=" + (moveNeedleXFirst ? "NeedleX->StageY" : "StageY->NeedleX") +
+                    ", reason=" + orderReason;
+                return true;
+            }
+            catch (Exception ex)
+            {
+                detail = "NeedleZ teaching keep check failed. error=" + ex.Message;
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
+        private bool IsNeedleZAtAutoPickTeachingPosition(
+            InputStageUnit stage,
+            double actual,
+            double tolerance,
+            out string teachingName)
+        {
+            teachingName = string.Empty;
+
+            if (actual <= 0.0 + tolerance)
+            {
+                teachingName = "Home";
+                return true;
+            }
+
+            if (stage == null || stage.Recipe == null || stage.Recipe.NeedleZ == null)
+                return false;
+
+            stage.Recipe.EnsurePositionObjects();
+            StageAxisPositions needleZ = stage.Recipe.NeedleZ;
+
+            if (IsPositionNear(actual, needleZ.AvoidPosition, tolerance))
+            {
+                teachingName = "AvoidPosition";
+                return true;
+            }
+
+            if (IsPositionNear(actual, needleZ.ProcessPosition, tolerance))
+            {
+                teachingName = "ProcessPosition";
+                return true;
+            }
+
+            if (IsPositionNear(actual, needleZ.ReadyPosition, tolerance))
+            {
+                teachingName = "ReadyPosition";
+                return true;
+            }
+
+            if (IsPositionNear(actual, needleZ.NeedlePinCalPosition, tolerance))
+            {
+                teachingName = "NeedlePinCalPosition";
+                return true;
+            }
+
+            if (!double.IsNaN(_targetNeedleZ) &&
+                !double.IsInfinity(_targetNeedleZ) &&
+                IsPositionNear(actual, _targetNeedleZ, tolerance))
+            {
+                teachingName = "CurrentPickTarget";
+                return true;
+            }
+
+            return false;
+        }
+
+        private static bool IsPositionNear(double actual, double target, double tolerance)
+        {
+            return Math.Abs(actual - target) <= tolerance;
+        }
+
+        private bool IsFrontRearPickerXFacingPrecheckClear(double ownTargetX, out string detail)
+        {
+            detail = string.Empty;
+
+            try
+            {
+                CDT320_Machine machine = Context != null ? Context.Machine : null;
+                if (machine == null)
+                    return true;
+
+                BaseAxis ownX = GetPickerAxis(PickerAxis.PickerX);
+                BaseAxis ownY = GetPickerAxis(PickerAxis.PickerY);
+                BaseAxis otherX = GetOppositePickerAxis(PickerAxis.PickerX);
+                BaseAxis otherY = GetOppositePickerAxis(PickerAxis.PickerY);
+                if (ownX == null || otherX == null)
+                    return true;
+
+                bool ownYOut = ownY != null && !IsPickerAxisAlreadyInPosition(PickerAxis.PickerY, GetPickerTeachingPosition(PickerAxis.PickerY, "AvoidPosition"));
+                bool otherYOut = IsOppositePickerYOut(otherY);
+                if (!ownYOut || !otherYOut)
+                {
+                    detail = "one picker Y is safe. ownYOut=" + ownYOut + ", otherYOut=" + otherYOut;
+                    return true;
+                }
+
+                double otherTargetX = otherX.IsMoving ? otherX.CommandPosition : otherX.ActualPosition;
+                double ownMin = Math.Min(ownX.ActualPosition, ownTargetX) - ContinuousPickFacingPrecheckClearance;
+                double ownMax = Math.Max(ownX.ActualPosition, ownTargetX) + ContinuousPickFacingPrecheckClearance;
+                double otherMin = Math.Min(otherX.ActualPosition, otherTargetX);
+                double otherMax = Math.Max(otherX.ActualPosition, otherTargetX);
+                bool overlap = otherMax >= ownMin && otherMin <= ownMax;
+
+                detail = "clearance=" + ContinuousPickFacingPrecheckClearance.ToString("0.###") +
+                    ", ownX=" + ownX.ActualPosition.ToString("0.###") +
+                    "->" + ownTargetX.ToString("0.###") +
+                    ", otherX=" + otherX.ActualPosition.ToString("0.###") +
+                    "->" + otherTargetX.ToString("0.###") +
+                    ", ownY=" + FormatAxisForContinuousCheck(ownY) +
+                    ", otherY=" + FormatAxisForContinuousCheck(otherY);
+                return !overlap;
+            }
+            catch (Exception ex)
+            {
+                detail = "facing precheck exception. error=" + ex.Message;
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
+        private BaseAxis GetOppositePickerAxis(PickerAxis axis)
+        {
+            try
+            {
+                if (Side == PickerSequenceSide.Front)
+                {
+                    BaseAxis item;
+                    if (RearPicker != null && RearPicker.Axes != null && RearPicker.Axes.TryGetValue(axis, out item))
+                        return item;
+                    return null;
+                }
+
+                BaseAxis frontItem;
+                if (FrontPicker != null && FrontPicker.Axes != null && FrontPicker.Axes.TryGetValue(axis, out frontItem))
+                    return frontItem;
+                return null;
+            }
+            catch
+            {
+                return null;
+            }
+            finally
+            {
+            }
+        }
+
+        private bool IsOppositePickerYOut(BaseAxis otherY)
+        {
+            try
+            {
+                if (otherY == null)
+                    return false;
+
+                if (Math.Abs(otherY.ActualPosition) <= 0.05)
+                    return false;
+
+                bool oppositeIsFront = Side == PickerSequenceSide.Rear;
+                if (oppositeIsFront)
+                    return FrontPicker == null || !FrontPicker.IsPickerAxisInTeachingPosition(PickerAxis.PickerY, "AvoidPosition");
+
+                return RearPicker == null || !RearPicker.IsPickerAxisInTeachingPosition(PickerAxis.PickerY, "AvoidPosition");
+            }
+            catch
+            {
+                return true;
+            }
+            finally
+            {
+            }
+        }
+
+        private static string FormatAxisForContinuousCheck(BaseAxis axis)
+        {
+            if (axis == null)
+                return "<null>";
+
+            return axis.Name +
+                "(actual=" + axis.ActualPosition.ToString("0.###") +
+                ", command=" + axis.CommandPosition.ToString("0.###") +
+                ", moving=" + (axis.IsMoving ? "Y" : "N") +
+                ", servo=" + (axis.IsServoOn ? "ON" : "OFF") +
+                ", alarm=" + (axis.IsAlarm ? "ON" : "OFF") + ")";
+        }
+
         private async Task<int> EnsureZAxesAtAvoidBeforePickerMoveAsync(
             InputStageUnit stage,
             string description,
@@ -1397,14 +2123,25 @@ namespace QMC.CDT320.Sequencing
                     return result;
 
                 double needleZAvoid = ResolveNeedleZAvoidTarget(stage);
-                result = await MoveInputStageAxisToAvoidAndVerifyIfNeededAsync(
-                    stage,
-                    WaferStageAxis.NeedleZ,
-                    needleZAvoid,
-                    description + " - NeedleZ Avoid",
-                    ct).ConfigureAwait(false);
-                if (result != 0)
-                    return result;
+                string needleZKeepDetail;
+                if (CanKeepNeedleZAtTeachingPositionForPickMove(stage, out needleZKeepDetail))
+                {
+                    WriteLog("PickerPickUpSequence",
+                        Name + " " + description +
+                        " - Auto PickUp NeedleZ 티칭 위치 유지. " +
+                        needleZKeepDetail + " - Ok");
+                }
+                else
+                {
+                    result = await MoveInputStageAxisToAvoidAndVerifyIfNeededAsync(
+                        stage,
+                        WaferStageAxis.NeedleZ,
+                        needleZAvoid,
+                        description + " - NeedleZ Avoid",
+                        ct).ConfigureAwait(false);
+                    if (result != 0)
+                        return result;
+                }
 
                 double ejectPinZAvoid = ResolveEjectPinZAvoidTarget(stage);
                 result = await MoveInputStageAxisToAvoidAndVerifyIfNeededAsync(

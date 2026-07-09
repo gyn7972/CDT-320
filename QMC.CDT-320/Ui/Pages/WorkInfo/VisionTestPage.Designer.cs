@@ -78,7 +78,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             // 
             // grpComm
             // 
-            this.grpComm.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(240)))), ((int)(((byte)(240)))), ((int)(((byte)(240)))));
+            this.grpComm.BackColor = System.Drawing.Color.White;
             this.grpComm.Controls.Add(this.commLayout);
             this.grpComm.Dock = System.Windows.Forms.DockStyle.Fill;
             this.grpComm.Font = new System.Drawing.Font("맑은 고딕", 11F, System.Drawing.FontStyle.Bold);

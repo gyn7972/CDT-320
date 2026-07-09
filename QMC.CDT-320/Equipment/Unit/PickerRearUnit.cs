@@ -346,6 +346,7 @@ namespace QMC.CDT320
         public BaseAxis SideVisionY { get { return PickerY; } }
         public PickerRuntimeTool[] Pickers { get; private set; }
         public PickerAlignOffset[] RuntimePickerOffsets { get; private set; }
+        public PickerSideInspectionCorrection[] RuntimeSideInspectionCorrections { get; private set; }
         public int[] ColletUseCounts { get; private set; } = new int[MaxPickerCount];
         public int PickFailCount { get; private set; }
         public int PlaceFailCount { get; private set; }
@@ -381,6 +382,7 @@ namespace QMC.CDT320
             }
 
             RuntimePickerOffsets = PickerAlignOffset.CreateArray(MaxPickerCount);
+            RuntimeSideInspectionCorrections = PickerSideInspectionCorrection.CreateArray(MaxPickerCount);
             Pickers = CreateRuntimePickers();
         }
 
@@ -422,6 +424,68 @@ namespace QMC.CDT320
                 return;
 
             RuntimePickerOffsets[pickerIndex] = offset.Clone();
+        }
+
+        public void EnsureRuntimeSideInspectionCorrections()
+        {
+            if (RuntimeSideInspectionCorrections == null || RuntimeSideInspectionCorrections.Length < MaxPickerCount)
+            {
+                PickerSideInspectionCorrection[] next = PickerSideInspectionCorrection.CreateArray(MaxPickerCount);
+                if (RuntimeSideInspectionCorrections != null)
+                {
+                    for (int i = 0; i < Math.Min(RuntimeSideInspectionCorrections.Length, next.Length); i++)
+                    {
+                        if (RuntimeSideInspectionCorrections[i] != null)
+                            next[i] = RuntimeSideInspectionCorrections[i].Clone();
+                    }
+                }
+
+                RuntimeSideInspectionCorrections = next;
+            }
+
+            for (int i = 0; i < RuntimeSideInspectionCorrections.Length; i++)
+            {
+                if (RuntimeSideInspectionCorrections[i] == null)
+                    RuntimeSideInspectionCorrections[i] = new PickerSideInspectionCorrection();
+            }
+        }
+
+        public PickerSideInspectionCorrection GetRuntimeSideInspectionCorrection(int pickerIndex)
+        {
+            EnsureRuntimeSideInspectionCorrections();
+            if (pickerIndex < 0 || pickerIndex >= RuntimeSideInspectionCorrections.Length)
+                return null;
+            return RuntimeSideInspectionCorrections[pickerIndex];
+        }
+
+        public void SetRuntimeSideInspectionCorrection(
+            int pickerIndex,
+            double sideVisionYOffset,
+            double pickerZOffset,
+            bool isValid,
+            string sourceDieId)
+        {
+            EnsureRuntimeSideInspectionCorrections();
+            if (pickerIndex < 0 || pickerIndex >= RuntimeSideInspectionCorrections.Length)
+                return;
+
+            RuntimeSideInspectionCorrections[pickerIndex].Set(sideVisionYOffset, pickerZOffset, isValid, sourceDieId);
+        }
+
+        public void RestoreRuntimeSideInspectionCorrection(int pickerIndex, PickerSideInspectionCorrection correction)
+        {
+            EnsureRuntimeSideInspectionCorrections();
+            if (pickerIndex < 0 || pickerIndex >= RuntimeSideInspectionCorrections.Length || correction == null)
+                return;
+
+            RuntimeSideInspectionCorrections[pickerIndex] = correction.Clone();
+        }
+
+        public void ClearRuntimeSideInspectionCorrections()
+        {
+            EnsureRuntimeSideInspectionCorrections();
+            for (int i = 0; i < RuntimeSideInspectionCorrections.Length; i++)
+                RuntimeSideInspectionCorrections[i].Clear();
         }
 
         private PickerRuntimeTool[] CreateRuntimePickers()
@@ -2239,25 +2303,33 @@ namespace QMC.CDT320
 
         private BottomVisionOffset SimulateBottomInspectionResult(int pickerNo)
         {
-            return new BottomVisionOffset
-            {
-                PickerNo = pickerNo,
-                OffsetX = 0.0,
-                OffsetY = 0.0,
-                OffsetT = 0.0,
-                IsOk = true
-            };
+            QMC.CDT320.VisionComm.InspectionResultDto inspection =
+                QMC.CDT320.VisionComm.AutoVisionRequestService.BuildSimulationInspectionResult(
+                    QMC.CDT320.VisionComm.AutoVisionChannel.BottomInspection,
+                    "SurfaceInspector",
+                    pickerNo);
+            return QMC.CDT320.Calibration.VisionCameraCalibrationTransform.ToBottomVisionOffset(pickerNo, inspection);
         }
 
         private SideVisionResult SimulateSideInspectionResult(int pickerNo)
         {
+            QMC.CDT320.VisionComm.InspectionResultDto inspection =
+                QMC.CDT320.VisionComm.AutoVisionRequestService.BuildSimulationInspectionResult(
+                    QMC.CDT320.VisionComm.AutoVisionChannel.RearSide,
+                    "SurfaceInspector",
+                    pickerNo);
+            bool pass = inspection != null && inspection.IsPass;
             return new SideVisionResult
             {
                 PickerNo = pickerNo,
-                Side1Ok = true,
-                Side2Ok = true,
+                Side1Ok = pass,
+                Side2Ok = pass,
                 Side3Ok = true,
-                Side4Ok = true
+                Side4Ok = true,
+                Raw = inspection != null ? inspection.Raw : "",
+                Values = inspection != null && inspection.Values != null
+                    ? new Dictionary<string, string>(inspection.Values, StringComparer.OrdinalIgnoreCase)
+                    : new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
             };
         }
 
@@ -3140,7 +3212,7 @@ namespace QMC.CDT320
 
         private int RaisePickerAlarm(string code, string message)
         {
-            EventLogger.Write(EventKind.Alarm, "QMC", code, Name, message);
+            // AlarmManager.Raise가 이벤트 로그(EventKind.Alarm)를 기록하므로 직접 기록 생략(이벤트 로그 중복 방지)
             AlarmManager.Raise(AlarmSeverity.Error, code, Name, message);
             return -1;
         }

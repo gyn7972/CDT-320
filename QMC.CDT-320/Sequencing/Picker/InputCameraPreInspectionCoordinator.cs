@@ -7,6 +7,8 @@ namespace QMC.CDT320.Sequencing
 {
     internal static class InputCameraPreInspectionCoordinator
     {
+        private const int CycleStoppedResult = -320901;
+
         private sealed class RunningInspection
         {
             public Task<int> Task;
@@ -86,9 +88,27 @@ namespace QMC.CDT320.Sequencing
 
             while (true)
             {
+                if (ct.IsCancellationRequested)
+                {
+                    string pendingPermissionDetail;
+                    bool hasAnyPermission = InputCameraPickUpPermissionStore.HasAnyPermission(out pendingPermissionDetail);
+                    WriteLog("InputCameraPreInspectionCoordinator",
+                        side + " InputCamera 선행검사 대기 진입 전 취소 토큰 감지. " +
+                        "cycleStopRequested=" + (context != null && context.IsCycleStopRequested) +
+                        ", hasOwnPermission=" + InputCameraPickUpPermissionStore.HasPermission(side) +
+                        ", hasAnyPermission=" + hasAnyPermission +
+                        ", permissionDetail=" + (string.IsNullOrWhiteSpace(pendingPermissionDetail) ? "-" : pendingPermissionDetail) +
+                        ", reason=" + (reason ?? "-") + " - Canceled");
+                }
+
                 ct.ThrowIfCancellationRequested();
-                if (context != null)
+                if (context != null && context.IsCycleStopRequested)
+                {
+                    WriteLog("InputCameraPreInspectionCoordinator",
+                        side + " InputCamera 선행검사 대기 중 CYCLE STOP 요청 감지. " +
+                        "reason=" + (reason ?? "-") + " - CycleStop");
                     context.StopIfCycleStopRequested("InputCameraPreInspectionCoordinator.Wait:" + side);
+                }
 
                 if (InputCameraPickUpPermissionStore.HasPermission(side))
                 {
@@ -113,7 +133,48 @@ namespace QMC.CDT320.Sequencing
                         }
                         catch (OperationCanceledException)
                         {
-                            throw;
+                            RemoveIfSame(side, runningTask);
+                            if (ct.IsCancellationRequested ||
+                                (context != null && context.IsCycleStopRequested))
+                            {
+                                throw;
+                            }
+
+                            WriteLog("InputCameraPreInspectionCoordinator",
+                                side + " InputCamera 선행검사 취소 완료 Task가 남아 있어 제거 후 새 선행검사를 시작합니다. " +
+                                "reason=" + (reason ?? "-") + " - Recover");
+                            waitLogged = false;
+                            continue;
+                        }
+                        catch (SequenceStopException ex)
+                        {
+                            RemoveIfSame(side, runningTask);
+                            if (context != null && context.IsCycleStopRequested)
+                            {
+                                throw;
+                            }
+
+                            WriteLog("InputCameraPreInspectionCoordinator",
+                                side + " InputCamera 선행검사 Cycle Stop 완료 Task가 남아 있어 제거 후 새 선행검사를 시작합니다. " +
+                                "reason=" + (reason ?? "-") +
+                                ", stopReason=" + ex.Message + " - Recover");
+                            waitLogged = false;
+                            continue;
+                        }
+                        catch (ObjectDisposedException ex)
+                        {
+                            RemoveIfSame(side, runningTask);
+                            if (ct.IsCancellationRequested ||
+                                (context != null && context.IsCycleStopRequested))
+                            {
+                                throw new OperationCanceledException(ex.Message, ex, ct);
+                            }
+
+                            WriteLog("InputCameraPreInspectionCoordinator",
+                                side + " InputCamera 선행검사 Task 정리 중 dispose 상태를 감지해 제거 후 새 선행검사를 시작합니다. " +
+                                "reason=" + (reason ?? "-") + ", error=" + ex.Message + " - Recover");
+                            waitLogged = false;
+                            continue;
                         }
                         catch (Exception ex)
                         {
@@ -124,6 +185,18 @@ namespace QMC.CDT320.Sequencing
                         }
 
                         RemoveIfSame(side, runningTask);
+
+                        if (result == CycleStoppedResult)
+                        {
+                            if (context != null && context.IsCycleStopRequested)
+                                context.StopIfCycleStopRequested("InputCameraPreInspectionCoordinator.CompletedStop:" + side);
+
+                            WriteLog("InputCameraPreInspectionCoordinator",
+                                side + " InputCamera 선행검사 Cycle Stop 결과를 실패로 사용하지 않고 제거 후 새 선행검사를 시작합니다. " +
+                                "reason=" + (reason ?? "-") + " - Recover");
+                            waitLogged = false;
+                            continue;
+                        }
 
                         if (InputCameraPickUpPermissionStore.HasPermission(side))
                             return InputCameraPreInspectionWaitResult.PermissionReady();
@@ -243,6 +316,13 @@ namespace QMC.CDT320.Sequencing
             catch (OperationCanceledException)
             {
                 throw;
+            }
+            catch (SequenceStopException ex)
+            {
+                WriteLog("InputCameraPreInspectionCoordinator",
+                    side + " InputCamera 선행검사가 Cycle Stop 경계에서 정지되었습니다. reason=" +
+                    ex.Message + ", requestReason=" + (reason ?? "-") + " - Stopped");
+                return CycleStoppedResult;
             }
             catch (Exception ex)
             {

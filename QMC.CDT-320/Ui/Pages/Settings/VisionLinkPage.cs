@@ -22,11 +22,14 @@ namespace QMC.CDT_320.Ui.Pages.Settings
         private Label[] _vs;
         private System.Windows.Forms.Timer _timer;
         private long _lastLogRev = -1;
+        private GroupBox _actionGroup;
 
         public VisionLinkPage()
         {
             InitializeComponent();
             ApplyRuntimeUi();
+            SettingsPageLayoutStyler.Apply(this);
+            ApplyCompactLayout();
             LoadSettings();
             WireEvents();
 
@@ -96,6 +99,74 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             lblColViewerStatus.Text = "Viewer Status";
             _btnClearLog.Text = "CLEAR LOG";
             _btnCameraScale.Text = "CAMERA SCALE SETUP";
+        }
+
+        private void ApplyCompactLayout()
+        {
+            SettingsPageLayoutStyler.ApplyRoot(rootLayout);
+            SettingsPageLayoutStyler.ApplyHeader(lblHeader);
+
+            if (_actionGroup == null)
+                _actionGroup = new GroupBox();
+            _actionGroup.Text = "ACTION";
+            SettingsPageLayoutStyler.ApplyGroupBox(_actionGroup);
+
+            rootLayout.Controls.Clear();
+            rootLayout.RowStyles.Clear();
+            rootLayout.ColumnStyles.Clear();
+            rootLayout.ColumnCount = 1;
+            rootLayout.RowCount = 4;
+            rootLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+            rootLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 30F));
+            rootLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 338F));
+            rootLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 72F));
+            rootLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+            rootLayout.Controls.Add(lblHeader, 0, 0);
+            rootLayout.Controls.Add(grpLink, 0, 1);
+            rootLayout.Controls.Add(_actionGroup, 0, 2);
+            rootLayout.Controls.Add(grpLog, 0, 3);
+
+            if (linkLayout.RowStyles.Count >= 11)
+            {
+                linkLayout.RowStyles[9].SizeType = SizeType.Absolute;
+                linkLayout.RowStyles[9].Height = 0F;
+                linkLayout.RowStyles[10].SizeType = SizeType.Absolute;
+                linkLayout.RowStyles[10].Height = 0F;
+            }
+            linkLayout.Controls.Remove(buttonLayout);
+            linkLayout.Controls.Remove(lblHint);
+            lblHint.Visible = false;
+
+            SettingsPageLayoutStyler.ApplyGroupBox(grpLink);
+            SettingsPageLayoutStyler.ApplyGroupBox(grpLog);
+
+            linkLayout.Margin = Padding.Empty;
+            linkLayout.Padding = Padding.Empty;
+
+            buttonLayout.Controls.Clear();
+            buttonLayout.ColumnStyles.Clear();
+            buttonLayout.RowStyles.Clear();
+            buttonLayout.ColumnCount = 14;
+            buttonLayout.RowCount = 1;
+            for (int i = 0; i < 14; i++)
+                buttonLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F / 14F));
+            buttonLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+            buttonLayout.Controls.Add(_btnConnect, 0, 0);
+            buttonLayout.Controls.Add(_btnDisconnect, 1, 0);
+            buttonLayout.Controls.Add(_btnPing, 2, 0);
+            buttonLayout.Controls.Add(_btnClearLog, 3, 0);
+            buttonLayout.Controls.Add(_btnCameraScale, 4, 0);
+            if (buttonLayout.Parent != _actionGroup)
+                _actionGroup.Controls.Add(buttonLayout);
+            SettingsPageLayoutStyler.ApplyActionRow(buttonLayout);
+
+            if (_txtLog.Parent != grpLog)
+            {
+                grpLog.Controls.Clear();
+                grpLog.Controls.Add(_txtLog);
+            }
+            _txtLog.Dock = DockStyle.Fill;
+            _txtLog.Margin = Padding.Empty;
         }
 
         private void LoadSettings()

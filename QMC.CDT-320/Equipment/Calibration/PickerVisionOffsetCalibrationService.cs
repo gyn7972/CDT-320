@@ -25,9 +25,9 @@ namespace QMC.CDT320.Calibration
 
                 data.Camera.EnsureObjects();
                 data.Collet.EnsureObjects();
-                if (!data.Camera.Valid)
+                if (!data.Camera.Valid && !CanUseStoredCameraOffsets(data.Camera, out summary))
                 {
-                    summary = "Vision Camera Calibration is not valid.";
+                    summary = "Vision Camera Calibration is not valid. " + summary;
                     return false;
                 }
 
@@ -60,6 +60,8 @@ namespace QMC.CDT320.Calibration
 
                 data.Touch(updatedBy);
                 summary = "Picker VisionToPicker offset update complete. count=" + count + ". " + sb;
+                if (!data.Camera.Valid)
+                    summary = "Vision Camera Calibration Valid=false; stored reticle/offset values were used. " + summary;
                 QMC.Common.Log.Write("Calibration", updatedBy ?? "SYSTEM", "PickerVisionOffsetApply", summary);
                 return true;
             }
@@ -72,6 +74,48 @@ namespace QMC.CDT320.Calibration
             finally
             {
             }
+        }
+
+        private static bool CanUseStoredCameraOffsets(VisionCameraCalibrationData camera, out string reason)
+        {
+            reason = string.Empty;
+            if (camera == null)
+            {
+                reason = "camera is null.";
+                return false;
+            }
+
+            camera.EnsureObjects();
+            if (camera.InputReticle == null || !camera.InputReticle.HasVisionXPosition)
+            {
+                reason = "Input reticle VisionX encoder position is missing.";
+                return false;
+            }
+
+            if (camera.OutputReticle == null || !camera.OutputReticle.HasVisionXPosition)
+            {
+                reason = "Output reticle VisionX encoder position is missing.";
+                return false;
+            }
+
+            if (!IsFinite(camera.InputReticle.VisionXPosition) ||
+                !IsFinite(camera.OutputReticle.VisionXPosition) ||
+                !IsFinite(camera.InputToBottomOffsetX) ||
+                !IsFinite(camera.InputToBottomOffsetY) ||
+                !IsFinite(camera.OutputToBottomOffsetX) ||
+                !IsFinite(camera.OutputToBottomOffsetY))
+            {
+                reason = "stored camera offset contains invalid number.";
+                return false;
+            }
+
+            reason = "OK";
+            return true;
+        }
+
+        private static bool IsFinite(double value)
+        {
+            return !double.IsNaN(value) && !double.IsInfinity(value);
         }
 
         private static int ApplySide(

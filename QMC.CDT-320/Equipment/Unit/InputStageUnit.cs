@@ -2283,6 +2283,15 @@ namespace QMC.CDT320
                 if (result != 0)
                     return result;
 
+                result = await MoveInputStageAxis(WaferStageAxis.WaferT, Recipe.WaferT.LoadPosition, bFine).ConfigureAwait(false);
+                if (result != 0 || StageT.IsAlarm)
+                    return RaiseStageAlarm(AlarmSeverity.Error, "IS-LOAD-T", "InputStageUnit.LoadAndPrepareWaferAsync",
+                        "StageT load position move failed. result=" + result + ", alarm=" + StageT.IsAlarm);
+
+                result = await WaitInputStageAxisInPosition(WaferStageAxis.WaferT, Recipe.WaferT.LoadPosition, ResolveSequenceMoveTimeout()).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
                 if (beforeExpanderZMoveAsync != null)
                 {
                     result = await beforeExpanderZMoveAsync().ConfigureAwait(false);
@@ -2456,7 +2465,46 @@ namespace QMC.CDT320
             {
                 EnsurePositionObjectsForSequence();
 
-                int result = await MoveNeedleZAvoidForNonProcessMoveAsync(bFine, "InputStageUnit.PrepareUnloadWaferAsync").ConfigureAwait(false);
+                int result = await MoveInputStageAxis(WaferStageAxis.WaferT, Recipe.WaferT.UnloadPosition, bFine).ConfigureAwait(false);
+                if (result != 0 || StageT.IsAlarm)
+                    return RaiseStageAlarm(AlarmSeverity.Error, "IS-UNLOAD-T", "InputStageUnit.PrepareUnloadWaferAsync",
+                        "StageT unload position move failed. result=" + result + ", alarm=" + StageT.IsAlarm);
+
+                result = await WaitInputStageAxisInPosition(WaferStageAxis.WaferT, Recipe.WaferT.UnloadPosition, ResolveSequenceMoveTimeout()).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                Task<int> needleZMove = MoveNeedleZAvoidForNonProcessMoveAsync(bFine, "InputStageUnit.PrepareUnloadWaferAsync");
+                Task<int> ejectPinZMove = MoveUnloadSafeAxisAsync(
+                    WaferStageAxis.EjectPinZ,
+                    Recipe.EjectPinZ.AvoidPosition,
+                    EjectPinZ,
+                    "EjectPinZ avoid",
+                    "IS-UNLOAD-EJECT-Z",
+                    bFine);
+                int[] zMoveResults = await Task.WhenAll(needleZMove, ejectPinZMove).ConfigureAwait(false);
+                if (zMoveResults[0] != 0)
+                    return zMoveResults[0];
+                if (zMoveResults[1] != 0)
+                    return zMoveResults[1];
+
+                result = await MoveUnloadSafeAxisAsync(
+                    WaferStageAxis.VisionX,
+                    Recipe.VisionX.AvoidPosition,
+                    CameraX,
+                    "VisionX avoid",
+                    "IS-UNLOAD-VISION-X",
+                    bFine).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                result = await MoveUnloadSafeAxisAsync(
+                    WaferStageAxis.NeedleX,
+                    Recipe.NeedleX.AvoidPosition,
+                    NeedleBlockX,
+                    "NeedleX avoid",
+                    "IS-UNLOAD-NEEDLE-X",
+                    bFine).ConfigureAwait(false);
                 if (result != 0)
                     return result;
 
@@ -3536,6 +3584,38 @@ namespace QMC.CDT320
             }
         }
 
+        private async Task<int> MoveUnloadSafeAxisAsync(
+            WaferStageAxis axis,
+            double target,
+            BaseAxis axisState,
+            string description,
+            string alarmCode,
+            bool bFine)
+        {
+            try
+            {
+                int result = await MoveInputStageAxis(axis, target, bFine).ConfigureAwait(false);
+                bool axisAlarm = axisState != null && axisState.IsAlarm;
+                if (result != 0 || axisAlarm)
+                    return RaiseStageAlarm(AlarmSeverity.Error, alarmCode, "InputStageUnit.PrepareUnloadWaferAsync",
+                        description + " move before unload failed. result=" + result +
+                        ", alarm=" + axisAlarm +
+                        ", actual=" + (axisState != null ? axisState.ActualPosition.ToString("F3") : "null") +
+                        ", target=" + target.ToString("F3"));
+
+                result = await WaitInputStageAxisInPosition(axis, target, ResolveSequenceMoveTimeout()).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                return RaiseStageAlarm(AlarmSeverity.Error, alarmCode + "-EX", "InputStageUnit.PrepareUnloadWaferAsync",
+                    description + " move before unload exception: " + ex.Message);
+            }
+        }
+
 
         // ExecutePickupAsync : FrontPickerSequence, RearPickerSequence로 옮겨서 구현 예정.
         /// <summary>
@@ -3616,7 +3696,7 @@ namespace QMC.CDT320
             try
             {
                 Console.WriteLine($"[ALARM] '{Name}' ? {message}");
-                EventLogger.Write(EventKind.Alarm, "QMC", code, source, message);
+                // AlarmManager.Raise가 이벤트 로그(EventKind.Alarm)를 기록하므로 직접 기록 생략(이벤트 로그 중복 방지)
                 AlarmManager.Raise(severity, code, source: source, message: message);
             }
             catch

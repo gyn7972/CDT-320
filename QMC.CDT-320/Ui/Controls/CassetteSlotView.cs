@@ -41,11 +41,11 @@ namespace QMC.CDT_320.Ui.Controls
 
         private void ConfigureDesignSurface()
         {
-            BackColor = UiTheme.OptionPanelBg;
+            BackColor = Color.White;
             Margin = new Padding(0);
             Size = new Size(360, 480);
 
-            rootLayout.BackColor = UiTheme.OptionPanelBg;
+            rootLayout.BackColor = Color.White;
             rootLayout.ColumnCount = 1;
             rootLayout.ColumnStyles.Clear();
             rootLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
@@ -77,14 +77,14 @@ namespace QMC.CDT_320.Ui.Controls
             summaryLabel.TextAlign = ContentAlignment.MiddleLeft;
 
             scrollPanel.AutoScroll = true;
-            scrollPanel.BackColor = UiTheme.OptionPanelBg;
+            scrollPanel.BackColor = Color.White;
             scrollPanel.Dock = DockStyle.Fill;
             scrollPanel.Margin = new Padding(0);
             scrollPanel.Padding = new Padding(0, 8, 0, 0);
 
             slotLayout.AutoSize = true;
             slotLayout.AutoSizeMode = AutoSizeMode.GrowAndShrink;
-            slotLayout.BackColor = UiTheme.OptionPanelBg;
+            slotLayout.BackColor = Color.White;
             slotLayout.ColumnCount = 2;
             slotLayout.ColumnStyles.Clear();
             slotLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 58F));
@@ -123,7 +123,7 @@ namespace QMC.CDT_320.Ui.Controls
                     Cursor = Cursors.Hand,
                     Dock = DockStyle.Fill,
                     Margin = new Padding(0, 2, 4, 2),
-                    BackColor = Color.FromArgb(0xD0, 0xD0, 0xD0),
+                    BackColor = Color.White,
                     BorderStyle = BorderStyle.FixedSingle,
                     Font = UiTheme.ValueFont,
                     Tag = i,

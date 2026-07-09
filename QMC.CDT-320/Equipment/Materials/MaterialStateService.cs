@@ -176,6 +176,12 @@ namespace QMC.CDT320.Materials
                         "to=" + die.CurrentLocation,
                         "result=" + die.Result,
                         "ngCode=" + ngCode);
+                    InputWaferInspectionCsvSnapshotWriter.EnqueueInspection(
+                        "InspectionResult",
+                        State != null ? State.RecipeName : "",
+                        State != null ? State.LotId : "",
+                        die,
+                        null);
                     NotifyAndSave(reason);
                 }
             }
@@ -1487,6 +1493,14 @@ namespace QMC.CDT320.Materials
                         "side=" + side,
                         "order=" + outputWafer.OutputReceiveNextIndex,
                         "result=" + die.Result);
+                    OutputWaferCsvSnapshotWriter.EnqueuePlacedDie(
+                        "Place",
+                        State != null ? State.RecipeName : "",
+                        State != null ? State.LotId : "",
+                        side,
+                        outputWafer,
+                        die,
+                        receiveTarget);
                     NotifyAndSave("MoveDieToOutputStage");
                     return true;
                 }
@@ -1528,7 +1542,8 @@ namespace QMC.CDT320.Materials
             OutputStageReceiveTarget receiveTarget,
             bool inspectionOk,
             VisionOffset offset,
-            string raw)
+            string raw,
+            IDictionary<string, string> visionValues)
         {
             try
             {
@@ -1577,6 +1592,11 @@ namespace QMC.CDT320.Materials
                             Result = inspectionOk ? MaterialInspectionResult.Ok : MaterialInspectionResult.Ng
                         }
                     };
+                    AppendVisionValueMeasurements(
+                        record.Measurements,
+                        visionValues,
+                        "OutputVision",
+                        inspectionOk ? MaterialInspectionResult.Ok : MaterialInspectionResult.Ng);
 
                     if (outputWafer != null && outputWafer.OutputReceiveSlots != null)
                     {
@@ -1608,6 +1628,17 @@ namespace QMC.CDT320.Materials
                     }
 
                     die.UpdatedAt = DateTime.Now;
+                    if (outputWafer != null)
+                    {
+                        OutputWaferCsvSnapshotWriter.EnqueuePlacedDie(
+                            "OutputStageDieInspection",
+                            State != null ? State.RecipeName : "",
+                            State != null ? State.LotId : "",
+                            side,
+                            outputWafer,
+                            die,
+                            receiveTarget);
+                    }
                     NotifyAndSave("OutputStageDieInspection");
                     Log.Write("Main", "MATERIAL", "OutputStageDieInspection",
                         "Output stage die inspection updated. die=" + dieId +
@@ -1626,6 +1657,107 @@ namespace QMC.CDT320.Materials
             finally
             {
             }
+        }
+
+        private static void AppendVisionValueMeasurements(
+            List<InspectionMeasurement> measurements,
+            IDictionary<string, string> values,
+            string prefix,
+            MaterialInspectionResult defaultResult)
+        {
+            if (measurements == null || values == null || values.Count == 0)
+                return;
+
+            string safePrefix = string.IsNullOrWhiteSpace(prefix) ? "Vision" : prefix;
+            foreach (KeyValuePair<string, string> pair in values)
+            {
+                if (IsVisionPassKey(pair.Key))
+                    continue;
+
+                double value;
+                QMC.CDT320.VisionComm.VisionProtocolResponse.TryParseDouble(pair.Value, out value);
+                measurements.Add(new InspectionMeasurement
+                {
+                    Name = safePrefix + "_" + NormalizeVisionMeasurementKey(pair.Key),
+                    Value = value,
+                    Unit = "",
+                    RawValue = pair.Value ?? "",
+                    Result = ResolveVisionMeasurementResult(values, pair.Key, defaultResult)
+                });
+            }
+        }
+
+        private static bool IsVisionPassKey(string key)
+        {
+            return !string.IsNullOrWhiteSpace(key) &&
+                   key.EndsWith("_pass", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static MaterialInspectionResult ResolveVisionMeasurementResult(
+            IDictionary<string, string> values,
+            string key,
+            MaterialInspectionResult defaultResult)
+        {
+            if (values == null || string.IsNullOrWhiteSpace(key))
+                return defaultResult;
+
+            string passText;
+            if (!values.TryGetValue(key + "_pass", out passText))
+                return defaultResult;
+
+            bool pass;
+            if (TryParseVisionPassValue(passText, out pass))
+                return pass ? MaterialInspectionResult.Ok : MaterialInspectionResult.Ng;
+
+            return defaultResult;
+        }
+
+        private static bool TryParseVisionPassValue(string text, out bool pass)
+        {
+            pass = false;
+            if (string.IsNullOrWhiteSpace(text))
+                return false;
+
+            string value = text.Trim();
+            if (string.Equals(value, "1", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(value, "true", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(value, "ok", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(value, "pass", StringComparison.OrdinalIgnoreCase))
+            {
+                pass = true;
+                return true;
+            }
+
+            if (string.Equals(value, "0", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(value, "false", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(value, "ng", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(value, "fail", StringComparison.OrdinalIgnoreCase))
+            {
+                pass = false;
+                return true;
+            }
+
+            return false;
+        }
+
+        private static string NormalizeVisionMeasurementKey(string key)
+        {
+            if (string.IsNullOrWhiteSpace(key))
+                return "unknown";
+
+            char[] chars = key.Trim().ToCharArray();
+            for (int i = 0; i < chars.Length; i++)
+            {
+                char c = chars[i];
+                bool ok = (c >= 'a' && c <= 'z') ||
+                          (c >= 'A' && c <= 'Z') ||
+                          (c >= '0' && c <= '9') ||
+                          c == '_';
+                if (!ok)
+                    chars[i] = '_';
+            }
+
+            return new string(chars);
         }
 
         public static bool IsOutputStageReceiveAvailable(QMC.CDT320.BinSide side)
@@ -1848,15 +1980,15 @@ namespace QMC.CDT320.Materials
                     : null;
                 if (spec != null)
                 {
-                    dieMapX = spec.DieMapX;
-                    dieMapY = spec.DieMapY;
+                    dieMapX = ResolvePitchBasedGridCount(spec.OuterDiameterMm, spec.PitchX, spec.DieMapX);
+                    dieMapY = ResolvePitchBasedGridCount(spec.OuterDiameterMm, spec.PitchY, spec.DieMapY);
                     pitchX = spec.PitchX;
                     pitchY = spec.PitchY;
                 }
                 else if (project != null && project.Frame != null)
                 {
-                    dieMapX = project.Frame.DieMapX;
-                    dieMapY = project.Frame.DieMapY;
+                    dieMapX = ResolvePitchBasedGridCount(project.Frame.OuterDiameterMm, project.Frame.PitchX, project.Frame.DieMapX);
+                    dieMapY = ResolvePitchBasedGridCount(project.Frame.OuterDiameterMm, project.Frame.PitchY, project.Frame.DieMapY);
                     pitchX = project.Frame.PitchX;
                     pitchY = project.Frame.PitchY;
                 }
@@ -4247,6 +4379,12 @@ namespace QMC.CDT320.Materials
             if (record.CreatedAt == default(DateTime)) record.CreatedAt = DateTime.Now;
             die.Inspections.Add(record);
             die.UpdatedAt = DateTime.Now;
+            InputWaferInspectionCsvSnapshotWriter.EnqueueInspection(
+                "InspectionUpsert",
+                State != null ? State.RecipeName : "",
+                State != null ? State.LotId : "",
+                die,
+                record);
             NotifyAndSave("UpsertInspection");
         }
 
@@ -4725,11 +4863,13 @@ namespace QMC.CDT320.Materials
                 return;
 
             EnsureDieSpecFromRecipe(project, project.Die != null ? project.Die.DieSpecName : "");
+            int dieMapX = ResolvePitchBasedGridCount(frame.OuterDiameterMm, frame.PitchX, frame.DieMapX);
+            int dieMapY = ResolvePitchBasedGridCount(frame.OuterDiameterMm, frame.PitchY, frame.DieMapY);
 
             MaterialSpecs.UpsertFrame(
                 specName,
-                frame.DieMapX,
-                frame.DieMapY,
+                dieMapX,
+                dieMapY,
                 frame.PitchX,
                 frame.PitchY,
                 frame.DieSizeX,
@@ -4742,6 +4882,14 @@ namespace QMC.CDT320.Materials
                 frame.TopBottomEdgeSkipMm,
                 mapFileName,
                 project.Die != null ? project.Die.DieSpecName ?? "" : "");
+        }
+
+        private static int ResolvePitchBasedGridCount(double outerDiameterMm, double pitchMm, int fallback)
+        {
+            if (outerDiameterMm <= 0.0 || pitchMm <= 0.0)
+                return Math.Max(1, fallback);
+
+            return DieMapGenerator.CalculateWaferGridCount(outerDiameterMm, pitchMm, pitchMm);
         }
 
         private static void EnsureDieSpecFromRecipe(RecipeProject project, string specName)

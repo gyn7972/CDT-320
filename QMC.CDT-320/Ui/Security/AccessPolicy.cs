@@ -44,8 +44,9 @@ namespace QMC.CDT_320.Ui.Security
         static AccessPolicy()
         {
             try { Directory.CreateDirectory(Dir); } catch { }
-            // 사이드바 버튼이 없어 자동 수집되지 않는 권한 항목을 내장 시드한다(예: JOG 탭).
+            // 사이드바 버튼이 없어 자동 수집되지 않는 권한 항목을 내장 시드한다(예: JOG / VISION 탭).
             RegisterFeature("jog.tab", UserLevel.Engineer);
+            RegisterFeature("vision.tab", UserLevel.Engineer);   // 기본 등급은 제안값 — 권한 매트릭스에서 조정 가능
             Load();
         }
 
@@ -163,9 +164,10 @@ namespace QMC.CDT_320.Ui.Security
                 case "hist":     return 2;
                 case "recipe":   return 3;
                 case "jog":      return 4;
-                case "set":      return 5;
-                case "settings": return 6;
-                case "user":     return 7;
+                case "vision":   return 5;
+                case "set":      return 6;
+                case "settings": return 7;
+                case "user":     return 8;
                 default:         return 9;
             }
         }
@@ -179,7 +181,8 @@ namespace QMC.CDT_320.Ui.Security
                 case "wi":       return "작업정보";
                 case "hist":     return "이력";
                 case "recipe":   return "레시피";
-                case "jog":      return "조그";
+                case "jog":      return "JOG";
+                case "vision":   return "VISION";
                 case "set":
                 case "settings": return "설정";
                 case "user":     return "사용자";

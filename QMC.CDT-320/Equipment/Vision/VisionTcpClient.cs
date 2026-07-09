@@ -616,6 +616,9 @@ namespace QMC.CDT320.VisionComm
         public double Y        { get; set; }
         public double AngleDeg { get; set; }
         public double Score    { get; set; }
+        public bool   HasSideInspectionCorrection { get; set; }
+        public double SideVisionYOffset { get; set; }
+        public double PickerZOffset { get; set; }
         public bool   HasImageSize { get; set; }
         public double ImageWidthPixel { get; set; }
         public double ImageHeightPixel { get; set; }
@@ -642,11 +645,18 @@ namespace QMC.CDT320.VisionComm
             if (angle == 0)
                 response.TryGetDouble("theta", out angle);
             response.TryGetDouble("score", out var score);
+            double sideVisionYOffset;
+            double pickerZOffset;
+            bool hasSideVisionYOffset = TryGetAny(response, out sideVisionYOffset, "side_y", "sidey", "side_offset_y", "sideoffsety", "sidevisiony", "side_vision_y");
+            bool hasPickerZOffset = TryGetAny(response, out pickerZOffset, "z", "dz", "offsetz", "offset_z", "pickerz", "picker_z", "picker_z_offset");
 
             r.X = x;
             r.Y = y;
             r.AngleDeg = angle;
             r.Score = score;
+            r.SideVisionYOffset = hasSideVisionYOffset ? sideVisionYOffset : 0.0;
+            r.PickerZOffset = hasPickerZOffset ? pickerZOffset : 0.0;
+            r.HasSideInspectionCorrection = hasSideVisionYOffset || hasPickerZOffset;
             ApplyImageSize(response, r);
             return r;
         }
@@ -689,6 +699,21 @@ namespace QMC.CDT320.VisionComm
                 return false;
 
             return width > 0 && height > 0;
+        }
+
+        private static bool TryGetAny(VisionProtocolResponse response, out double value, params string[] keys)
+        {
+            value = 0.0;
+            if (response == null || keys == null)
+                return false;
+
+            for (int i = 0; i < keys.Length; i++)
+            {
+                if (response.TryGetDouble(keys[i], out value))
+                    return true;
+            }
+
+            return false;
         }
     }
 
@@ -819,12 +844,14 @@ namespace QMC.CDT320.VisionComm
         public bool   HasImageSize { get; set; }
         public double ImageWidthPixel { get; set; }
         public double ImageHeightPixel { get; set; }
+        public Dictionary<string, string> Values { get; private set; } = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         public string Raw       { get; set; }
 
         public static InspectionResultDto Parse(string line)
         {
             var r = new InspectionResultDto { Raw = line };
             VisionProtocolResponse response = VisionProtocolResponse.Parse(line);
+            r.Values = CopyValues(response);
             if (!response.IsAck)
                 return r;
 
@@ -865,6 +892,72 @@ namespace QMC.CDT320.VisionComm
             }
 
             return r;
+        }
+
+        public void SetValue(string key, object value)
+        {
+            if (string.IsNullOrWhiteSpace(key))
+                return;
+
+            if (Values == null)
+                Values = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+            if (value == null)
+            {
+                Values[key] = string.Empty;
+            }
+            else if (value is IFormattable)
+            {
+                Values[key] = ((IFormattable)value).ToString(null, System.Globalization.CultureInfo.InvariantCulture);
+            }
+            else
+            {
+                Values[key] = value.ToString();
+            }
+        }
+
+        public bool TryGetDoubleValue(out double value, params string[] keys)
+        {
+            value = 0;
+            if (Values == null || keys == null)
+                return false;
+
+            for (int i = 0; i < keys.Length; i++)
+            {
+                string raw;
+                if (Values.TryGetValue(keys[i], out raw) && VisionProtocolResponse.TryParseDouble(raw, out value))
+                    return true;
+            }
+
+            return false;
+        }
+
+        public string DescribeValues()
+        {
+            if (Values == null || Values.Count == 0)
+                return "-";
+
+            var sb = new StringBuilder();
+            foreach (var kv in Values)
+            {
+                if (sb.Length > 0)
+                    sb.Append(", ");
+                sb.Append(kv.Key);
+                sb.Append("=");
+                sb.Append(kv.Value);
+            }
+            return sb.ToString();
+        }
+
+        private static Dictionary<string, string> CopyValues(VisionProtocolResponse response)
+        {
+            var result = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            if (response == null || response.Values == null)
+                return result;
+
+            foreach (var kv in response.Values)
+                result[kv.Key] = kv.Value;
+            return result;
         }
 
         private static bool TryGetAny(VisionProtocolResponse response, out double value, params string[] keys)

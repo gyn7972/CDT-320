@@ -12,6 +12,8 @@ namespace QMC.CDT_320.Ui.Pages.Settings
         {
             InitializeComponent();
             ApplyRuntimeUi();
+            SettingsPageLayoutStyler.Apply(this);
+            ApplyCompactLayout();
             WireEvents();
 
             Load += (s, e) => Hook();
@@ -40,6 +42,41 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             _btnConnect.Tag = "i18n:set.connect;level:Engineer";
             _lblStatus.Text = Lang.T("set.disconnected");
             _lblStatus.Tag = "i18n:set.disconnected";
+        }
+
+        private void ApplyCompactLayout()
+        {
+            SettingsPageLayoutStyler.ApplyRoot(rootLayout);
+            SettingsPageLayoutStyler.ApplyHeader(lblHeader);
+
+            if (rootLayout.RowStyles.Count >= 3)
+            {
+                rootLayout.RowStyles[0].SizeType = SizeType.Absolute;
+                rootLayout.RowStyles[0].Height = 30F;
+                rootLayout.RowStyles[1].SizeType = SizeType.Absolute;
+                rootLayout.RowStyles[1].Height = 270F;
+                rootLayout.RowStyles[2].SizeType = SizeType.Percent;
+                rootLayout.RowStyles[2].Height = 100F;
+            }
+
+            grpLink.Margin = Padding.Empty;
+            grpLink.Padding = new Padding(4, 14, 4, 4);
+            grpLink.ForeColor = Color.Black;
+
+            linkLayout.ColumnStyles.Clear();
+            linkLayout.ColumnCount = 6;
+            linkLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 80F));
+            linkLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 180F));
+            linkLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 70F));
+            linkLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 100F));
+            linkLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 180F));
+            linkLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+            linkLayout.SetColumnSpan(_lblStatus, 5);
+            linkLayout.SetColumnSpan(_txtLog, 6);
+
+            _tbHost.Margin = new Padding(2, 7, 2, 2);
+            _tbPort.Margin = new Padding(2, 7, 2, 2);
+            SettingsPageLayoutStyler.ApplyActionControl(_btnConnect);
         }
 
         private void WireEvents()

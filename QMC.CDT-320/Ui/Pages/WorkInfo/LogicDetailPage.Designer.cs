@@ -60,6 +60,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblHeader.Dock = DockStyle.Fill;
             this.lblHeader.Font = UiTheme.SectionFont;
             this.lblHeader.ForeColor = UiTheme.StatusBarFg;
+            this.lblHeader.Margin = new Padding(0);            // 헤더 바를 가장자리에 붙임(좌측 여백 제거)
             this.lblHeader.Padding = new Padding(10, 0, 0, 0);
             this.lblHeader.Tag = "i18n:wi.logic";
             this.lblHeader.Text = Lang.T("wi.logic");

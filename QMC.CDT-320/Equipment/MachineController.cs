@@ -719,8 +719,9 @@ namespace QMC.CDT320
                 return;
 
             unit.EnsureRuntimePickerOffsets();
+            unit.EnsureRuntimeSideInspectionCorrections();
             for (int i = 0; i < PickerFrontUnit.MaxPickerCount; i++)
-                AddPickerOffsetRuntimeState(items, side, i, unit.GetRuntimePickerOffset(i));
+                AddPickerOffsetRuntimeState(items, side, i, unit.GetRuntimePickerOffset(i), unit.GetRuntimeSideInspectionCorrection(i));
         }
 
         private static void CapturePickerOffsetRuntimeStates(
@@ -732,15 +733,17 @@ namespace QMC.CDT320
                 return;
 
             unit.EnsureRuntimePickerOffsets();
+            unit.EnsureRuntimeSideInspectionCorrections();
             for (int i = 0; i < PickerRearUnit.MaxPickerCount; i++)
-                AddPickerOffsetRuntimeState(items, side, i, unit.GetRuntimePickerOffset(i));
+                AddPickerOffsetRuntimeState(items, side, i, unit.GetRuntimePickerOffset(i), unit.GetRuntimeSideInspectionCorrection(i));
         }
 
         private static void AddPickerOffsetRuntimeState(
             List<MachinePickerOffsetRuntimeState> items,
             string side,
             int pickerIndex,
-            PickerAlignOffset offset)
+            PickerAlignOffset offset,
+            PickerSideInspectionCorrection sideCorrection)
         {
             if (items == null || offset == null)
                 return;
@@ -751,8 +754,39 @@ namespace QMC.CDT320
                 PickerIndex = pickerIndex,
                 AlignOffsetX = offset.AlignOffsetX,
                 AlignOffsetY = offset.AlignOffsetY,
-                AlignOffsetT = offset.AlignOffsetT
+                AlignOffsetT = offset.AlignOffsetT,
+                SideInspectionCorrectionValid = sideCorrection != null && sideCorrection.IsValid,
+                SideVisionYOffset = sideCorrection != null ? sideCorrection.SideVisionYOffset : 0.0,
+                PickerZOffset = sideCorrection != null ? sideCorrection.PickerZOffset : 0.0,
+                SideInspectionSourceDieId = sideCorrection != null ? sideCorrection.SourceDieId : string.Empty,
+                SideInspectionUpdatedAt = NormalizeOptionalRuntimeDateTime(
+                    sideCorrection != null ? sideCorrection.UpdatedAt : DateTime.MinValue,
+                    DateTime.Now)
             });
+        }
+
+        private static DateTime NormalizeOptionalRuntimeDateTime(DateTime value, DateTime fallback)
+        {
+            try
+            {
+                if (value == DateTime.MinValue)
+                    return DateTime.SpecifyKind(DateTime.MinValue, DateTimeKind.Utc);
+
+                if (value == DateTime.MaxValue)
+                    return DateTime.SpecifyKind(DateTime.MaxValue, DateTimeKind.Utc);
+
+                if (value.Year < 2000 || value.Year > 2100)
+                    return fallback;
+
+                return value;
+            }
+            catch
+            {
+                return fallback;
+            }
+            finally
+            {
+            }
         }
 
         private void RestorePickerOffsetRuntimeState(MachineRuntimeState state)
@@ -774,17 +808,27 @@ namespace QMC.CDT320
                         AlignOffsetY = saved.AlignOffsetY,
                         AlignOffsetT = saved.AlignOffsetT
                     };
+                    PickerSideInspectionCorrection sideCorrection = new PickerSideInspectionCorrection
+                    {
+                        IsValid = saved.SideInspectionCorrectionValid,
+                        SideVisionYOffset = saved.SideVisionYOffset,
+                        PickerZOffset = saved.PickerZOffset,
+                        SourceDieId = saved.SideInspectionSourceDieId,
+                        UpdatedAt = saved.SideInspectionUpdatedAt
+                    };
 
                     if (string.Equals(saved.Side, "Front", StringComparison.OrdinalIgnoreCase) &&
                         _machine != null && _machine.PickerFrontUnit != null)
                     {
                         _machine.PickerFrontUnit.RestoreRuntimePickerOffset(saved.PickerIndex, offset);
+                        _machine.PickerFrontUnit.RestoreRuntimeSideInspectionCorrection(saved.PickerIndex, sideCorrection);
                         restored++;
                     }
                     else if (string.Equals(saved.Side, "Rear", StringComparison.OrdinalIgnoreCase) &&
                              _machine != null && _machine.PickerRearUnit != null)
                     {
                         _machine.PickerRearUnit.RestoreRuntimePickerOffset(saved.PickerIndex, offset);
+                        _machine.PickerRearUnit.RestoreRuntimeSideInspectionCorrection(saved.PickerIndex, sideCorrection);
                         restored++;
                     }
                 }
@@ -6555,9 +6599,32 @@ namespace QMC.CDT320
                         // 남아 있는 진행/대기 유닛을 취소 상태로 정리한다.
                         _sequenceActivity.SweepActiveTo(QMC.CDT320.Sequencing.SequenceActivityState.Canceled,
                             "시퀀스가 취소되었습니다.");
+                        bool cycleStopRequested = _seqContext != null && _seqContext.IsCycleStopRequested;
                         Log("[SEQ] Canceled");
-                        if (ActiveSequenceRunMode == QMC.CDT320.Sequencing.SequenceRunMode.Auto)
+                        QMC.Common.Log.Write("Main", "SYSTEM", "StartSequenceAsync",
+                            "Sequence canceled. runMode=" + runMode +
+                            ", tokenCanceled=" + (cts != null && cts.IsCancellationRequested) +
+                            ", cycleStopRequested=" + cycleStopRequested +
+                            ", status=" + _status + " - Canceled");
+                        if (runMode == QMC.CDT320.Sequencing.SequenceRunMode.Auto)
                             EndAutoProductionStats();
+
+                        if (_status != EquipmentStatus.Alarm)
+                        {
+                            if (cycleStopRequested &&
+                                runMode == QMC.CDT320.Sequencing.SequenceRunMode.Auto)
+                            {
+                                QMC.CDT320.Sequencing.SequenceResumeStore.MarkCycleStopped(
+                                    "AutoSequence",
+                                    "",
+                                    "시퀀스 취소 시점에 CYCLE STOP 요청이 감지되었습니다.");
+                                SetStatus(EquipmentStatus.CycleStopped);
+                            }
+                            else
+                            {
+                                SetStatus(EquipmentStatus.Stopped);
+                            }
+                        }
                     }
                     catch (Exception ex)
                     {

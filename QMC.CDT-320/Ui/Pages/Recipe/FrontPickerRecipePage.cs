@@ -1,4 +1,5 @@
 ﻿using QMC.CDT_320.Ui.Controls;
+using QMC.CDT_320.Equipment.Vision;
 using QMC.CDT_320.Ui.Localization;
 using QMC.CDT320;
 using QMC.CDT320.Interlocks;
@@ -27,8 +28,11 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
         }
 
         private readonly Timer refreshTimer = new Timer();
+        private IDisposable bottomVisionPreview;
+        private IDisposable sideVisionPreview;
         private readonly Dictionary<string, PositionItem> positionItems = new Dictionary<string, PositionItem>(StringComparer.OrdinalIgnoreCase);
         private readonly Dictionary<string, List<PositionItem>> groupMoves = new Dictionary<string, List<PositionItem>>(StringComparer.OrdinalIgnoreCase);
+        private const int ManualActionFrameHeight = 29;
         private PickerFrontUnit unit;
         private int selectedManualPickerNo = 4;
 
@@ -38,6 +42,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             if (LicenseManager.UsageMode == LicenseUsageMode.Designtime)
                 return;
 
+            InstallVisionPreview();
             BackColor = Color.FromArgb(207, 210, 214);
             ForeColor = Color.Black;
             refreshTimer.Interval = 250;
@@ -86,6 +91,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             try
             {
                 refreshTimer.Stop();
+                DisposeVisionPreview();
                 if (jogAxisMoveControl != null)
                     jogAxisMoveControl.StopAllAsync(true).GetAwaiter().GetResult();
             }
@@ -96,6 +102,25 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             {
                 base.OnHandleDestroyed(e);
             }
+        }
+
+        private void InstallVisionPreview()
+        {
+            tabBottom.Text = "BOTTOM";
+            tabSide.Text = "SIDE";
+            bottomVisionPreview = RecipeVisionPreview.ShowSingle(tabBottom, "BOTTOM VISION", VisionViewerPorts.BottomInspection);
+            sideVisionPreview = RecipeVisionPreview.ShowVertical(
+                tabSide,
+                new RecipeVisionPreviewTile("FRONT SIDE VISION", VisionViewerPorts.FrontSideVision),
+                new RecipeVisionPreviewTile("REAR SIDE VISION", VisionViewerPorts.RearSideVision));
+        }
+
+        private void DisposeVisionPreview()
+        {
+            try { if (bottomVisionPreview != null) bottomVisionPreview.Dispose(); } catch { }
+            try { if (sideVisionPreview != null) sideVisionPreview.Dispose(); } catch { }
+            bottomVisionPreview = null;
+            sideVisionPreview = null;
         }
 
         private void ResolveUnit()
@@ -175,6 +200,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             try
             {
                 // 픽커 선택은 4열 한 줄, 이동 동작은 2칸씩 사용해서 기존 2열 감각을 유지한다.
+                manualActionPanel.RowHeight = 45;
                 manualActionPanel.ColumnCount = 4;
                 manualActionPanel.SetItems(new[]
                 {
@@ -195,6 +221,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
 
                     CreateManualMoveItem("Z1 0-2mm x50 TEST", () => ConfirmMoveAsync("FRONT PICKER Z1 0-2mm x50 TEST", RunFrontPickerZ1CycleTestAsync))
                 });
+                FitManualActionGroupHeight();
             }
             catch (Exception ex)
             {
@@ -203,6 +230,11 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             finally
             {
             }
+        }
+
+        private void FitManualActionGroupHeight()
+        {
+            grpManual.Height = manualActionPanel.PreferredContentHeight + ManualActionFrameHeight;
         }
 
         private void BindParameterGrids()
@@ -485,6 +517,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             item.Key = display;                     // 이동/티칭 조회는 전체 이름(positionItems 키)으로 매칭
             item.GroupKey = groupKey;
             item.Description = description ?? string.Empty;
+            item.SupportsTeaching = true;           // 행에 MOVE/TEACH 버튼 표시(티칭 포지션)
             items.Add(item);
         }
 
@@ -584,24 +617,47 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
 
         private void BindParameterGridMenus()
         {
-            ContextMenuStrip menu = new ContextMenuStrip();
-            menu.Items.Add("Move To Position", null, async delegate
+            // 우클릭 메뉴 대신, 티칭 포지션 행의 MOVE/TEACH 버튼으로 이동/티칭 수행
+            optionParameterGrid.ParameterMoveRequested += OptionParameterGrid_MoveRequested;
+            optionParameterGrid.ParameterTeachRequested += OptionParameterGrid_TeachRequested;
+        }
+
+        private async void OptionParameterGrid_MoveRequested(object sender, ParameterGridChangedEventArgs e)
+        {
+            try
             {
-                ParameterGridItem selected = optionParameterGrid.SelectedItem;
-                await MoveSelectedPositionAsync(selected != null ? selected.Key : string.Empty);
-            });
-            menu.Items.Add("Teach Current Position", null, delegate
+                if (e == null || e.Item == null)
+                    return;
+
+                await MoveSelectedPositionAsync(e.Item.Key);
+            }
+            catch (Exception ex)
             {
-                ParameterGridItem selected = optionParameterGrid.SelectedItem;
-                TeachSelectedPosition(selected != null ? selected.Key : string.Empty);
-            });
-            ManualMoveGuard.ConfigureTeachingPositionContextMenu(menu);
-            menu.Opening += delegate(object sender, System.ComponentModel.CancelEventArgs e)
+                EventLogger.Write(EventKind.Alarm, "UI", "FRONT-PICKER", "Move button failed: " + ex.Message);
+                QMC.Common.MessageDialog.Show(this, ex.Message, "Front Picker Move", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
             {
-                ParameterGridItem selected = optionParameterGrid.SelectedItem;
-                e.Cancel = selected == null || !positionItems.ContainsKey(selected.Key);
-            };
-            optionParameterGrid.ContextMenuStrip = menu;
+            }
+        }
+
+        private void OptionParameterGrid_TeachRequested(object sender, ParameterGridChangedEventArgs e)
+        {
+            try
+            {
+                if (e == null || e.Item == null)
+                    return;
+
+                TeachSelectedPosition(e.Item.Key);
+            }
+            catch (Exception ex)
+            {
+                EventLogger.Write(EventKind.Alarm, "UI", "FRONT-PICKER", "Teach button failed: " + ex.Message);
+                QMC.Common.MessageDialog.Show(this, ex.Message, "Front Picker Teach", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+            }
         }
 
         private async Task MoveSelectedPositionAsync(string key)
