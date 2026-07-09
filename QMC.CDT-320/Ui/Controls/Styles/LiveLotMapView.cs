@@ -51,8 +51,6 @@ namespace QMC.CDT_320.Ui.Controls
         private MapStats _stats;
         private string _lotText = "(no active lot)";
         private long _signature = long.MinValue;
-        private string _activeInputStageWaferMapKey = "";
-        private string _lastInputStageWaferLogKey = "";
 
         // 부드러운 모던 팔레트 — 회색 기계 룩 대신 밝은 뉴트럴 + 은은한 테두리/아웃라인.
         protected override Color MapBorderColor => Color.FromArgb(0x8F, 0x9C, 0xAD);
@@ -99,8 +97,6 @@ namespace QMC.CDT_320.Ui.Controls
                 _displayMap = null;
                 _displayStates = new Dictionary<string, LiveDieMapCellState>(StringComparer.Ordinal);
                 _signature = long.MinValue;
-                _activeInputStageWaferMapKey = "";
-                _lastInputStageWaferLogKey = "";
                 MarkDirty();
             }
         }
@@ -218,39 +214,15 @@ namespace QMC.CDT_320.Ui.Controls
                 return;
             }
 
-            WaferMaterial stageWafer = null;
-            string stageWaferMapKey = "";
-            try
-            {
-                stageWafer = MaterialStateService.GetWaferAtLocation(MaterialLocationKind.InputStage);
-                stageWaferMapKey = BuildInputStageWaferMapKey(stageWafer);
-            }
-            catch
-            {
-                stageWafer = null;
-                stageWaferMapKey = "";
-            }
-
             DieMap active = LotStorage.ActiveInputDieMap;
             if (active != null)
             {
-                if (!string.IsNullOrWhiteSpace(stageWaferMapKey) &&
-                    !string.Equals(_activeInputStageWaferMapKey, stageWaferMapKey, StringComparison.Ordinal))
-                {
-                    if (EnsureInputStageWaferDisplayMap(stageWafer, stageWaferMapKey))
-                        return;
-                }
-
                 DieMapGenerator.Normalize(active);
                 Dictionary<string, LiveDieMapCellState> states;
                 _displayMap = BuildDisplayMapFromMaterialState(active, out states);
                 _displayStates = states;
                 return;
             }
-
-            if (!string.IsNullOrWhiteSpace(stageWaferMapKey) &&
-                EnsureInputStageWaferDisplayMap(stageWafer, stageWaferMapKey))
-                return;
 
             if (dirtyEvent || _displayMap == null)
             {
@@ -276,89 +248,6 @@ namespace QMC.CDT_320.Ui.Controls
                     _displayMap = null;
                     _displayStates = new Dictionary<string, LiveDieMapCellState>(StringComparer.Ordinal);
                 }
-            }
-        }
-
-        private bool EnsureInputStageWaferDisplayMap(WaferMaterial stageWafer, string stageWaferMapKey)
-        {
-            try
-            {
-                if (stageWafer == null || !stageWafer.HasInputStageDieMappingResult)
-                    return false;
-
-                DieMap built = MaterialStateService.BuildDieMapFromWafer(stageWafer);
-                if (built == null)
-                    return false;
-
-                DieMapGenerator.Normalize(built);
-                LotStorage.ActiveInputDieMap = built;
-                Dictionary<string, LiveDieMapCellState> states;
-                _displayMap = BuildDisplayMapFromMaterialState(built, out states);
-                _displayStates = states;
-                _activeInputStageWaferMapKey = stageWaferMapKey ?? "";
-                LogInputStageWaferMapRefresh(stageWafer, built);
-                return true;
-            }
-            catch
-            {
-                return false;
-            }
-        }
-
-        private static string BuildInputStageWaferMapKey(WaferMaterial wafer)
-        {
-            if (wafer == null || !wafer.HasInputStageDieMappingResult)
-                return "";
-
-            int dieIdCount = wafer.DieIds != null ? wafer.DieIds.Count : 0;
-            return (wafer.WaferId ?? "") + "|" +
-                   (wafer.DieMapFrameObjId ?? "") + "|" +
-                   dieIdCount.ToString() + "|" +
-                   (wafer.HasInputStageAlignResult ? "1" : "0") + "|" +
-                   FormatMapKeyDouble(wafer.InputStageAlignOriginX) + "|" +
-                   FormatMapKeyDouble(wafer.InputStageAlignOriginY) + "|" +
-                   FormatMapKeyDouble(wafer.InputStageAlignPitchX) + "|" +
-                   FormatMapKeyDouble(wafer.InputStageAlignPitchY) + "|" +
-                   FormatMapKeyDouble(wafer.InputStageDieMappingOffsetX) + "|" +
-                   FormatMapKeyDouble(wafer.InputStageDieMappingOffsetY);
-        }
-
-        private static string FormatMapKeyDouble(double value)
-        {
-            return value.ToString("R", System.Globalization.CultureInfo.InvariantCulture);
-        }
-
-        private void LogInputStageWaferMapRefresh(WaferMaterial wafer, DieMap map)
-        {
-            try
-            {
-                int entryCount = map != null && map.Entries != null ? map.Entries.Count : 0;
-                int targetCount = 0;
-                if (map != null && map.Entries != null)
-                {
-                    foreach (DieMapEntry entry in map.Entries)
-                    {
-                        if (entry != null && entry.IsTarget)
-                            targetCount++;
-                    }
-                }
-
-                string waferId = wafer != null ? wafer.WaferId ?? "" : "";
-                string frameId = map != null ? map.FrameObjId ?? "" : "";
-                string key = waferId + "|" + frameId + "|" + entryCount.ToString() + "|" + targetCount.ToString();
-                if (string.Equals(_lastInputStageWaferLogKey, key, StringComparison.Ordinal))
-                    return;
-
-                _lastInputStageWaferLogKey = key;
-                QMC.Common.Log.Write("Main", "SYSTEM", "LiveLotMapView",
-                    "Input live map refreshed from InputStage wafer. wafer=" + waferId +
-                    ", frame=" + frameId +
-                    ", entries=" + entryCount.ToString() +
-                    ", targets=" + targetCount.ToString() +
-                    " - Ok");
-            }
-            catch
-            {
             }
         }
 
