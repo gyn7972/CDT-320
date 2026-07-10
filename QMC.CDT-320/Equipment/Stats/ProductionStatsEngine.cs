@@ -1,4 +1,6 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.Threading;
 using QMC.Common;
 
 namespace QMC.CDT320.Stats
@@ -9,7 +11,7 @@ namespace QMC.CDT320.Stats
     /// <para>
     /// 계산은 모두 이 엔진(시퀀스/상태 스레드)에서 수행하고, 갱신마다 불변
     /// <see cref="ProductionStatsSnapshot"/>을 새로 만들어 <c>volatile</c> 필드에 통째로 교체합니다.
-    /// UI는 <see cref="GetSnapshot"/>으로 그 참조 하나만 lock 없이 읽으므로 락 경합이 0입니다.
+    /// UI는 <see cref="GetSnapshot"/>으로 현재 표시 스냅샷을 짧게 읽고, 락을 잡지 못하면 마지막 값을 사용합니다.
     /// </para>
     /// <para>이 엔진은 UI 타입(Control/Form)을 절대 참조하지 않습니다.</para>
     /// </summary>
@@ -17,6 +19,7 @@ namespace QMC.CDT320.Stats
     {
         // CYCLE TIME Rolling 윈도우(다이당 ms 표본 개수).
         private const int RollingWindow = 20;
+        private static readonly TimeSpan RecentMinuteWindow = TimeSpan.FromSeconds(60);
 
         private readonly object _sync = new object();
         private volatile ProductionStatsSnapshot _current = ProductionStatsSnapshot.Empty;
@@ -32,6 +35,7 @@ namespace QMC.CDT320.Stats
         private int _ringCount;
         private long _ringSum;
         private double _cycleMsInstant;
+        private readonly Queue<DateTime> _recentMinuteDieTimes = new Queue<DateTime>();
 
         // 상태별 확정(완료된 구간) 누적 시간.
         private TimeSpan _upTime;
@@ -57,10 +61,64 @@ namespace QMC.CDT320.Stats
         private int _errorCount;
         private string _activeLotId = string.Empty;
 
-        /// <summary>UI가 호출하는 lock-free 스냅샷 읽기입니다.</summary>
+        /// <summary>UI가 호출하는 현재 시간 기준 표시 스냅샷 읽기입니다.</summary>
         public ProductionStatsSnapshot GetSnapshot()
         {
-            return _current;
+            bool locked = false;
+            try
+            {
+                locked = Monitor.TryEnter(_sync);
+                if (!locked)
+                    return _current;
+
+                // 현재 기준: 진행 중인 상태 구간을 표시값에만 반영하고 누적 원본은 변경하지 않는다.
+                return BuildSnapshotLocked(DateTime.UtcNow);
+            }
+            catch (Exception ex)
+            {
+                Log.Write("WorkStats", "ProductionStatsEngine", "GetSnapshot failed: " + ex.Message);
+                return _current;
+            }
+            finally
+            {
+                if (locked)
+                    Monitor.Exit(_sync);
+            }
+        }
+
+        /// <summary>CycleStop 후 같은 LOT를 재시작할 때 작업 시간 통계를 이어갑니다.</summary>
+        public bool TryResumeLot(string lotId)
+        {
+            try
+            {
+                lock (_sync)
+                {
+                    if (!_lotStarted || _loadEndUtc.HasValue)
+                        return false;
+
+                    string requestedLotId = lotId ?? string.Empty;
+                    if (!string.IsNullOrEmpty(requestedLotId) &&
+                        !string.IsNullOrEmpty(_activeLotId) &&
+                        !string.Equals(_activeLotId, requestedLotId, StringComparison.Ordinal))
+                    {
+                        return false;
+                    }
+
+                    if (!string.IsNullOrEmpty(requestedLotId))
+                        _activeLotId = requestedLotId;
+
+                    PublishLocked(DateTime.UtcNow);
+                    return true;
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Write("WorkStats", "ProductionStatsEngine", "TryResumeLot failed: " + ex.Message);
+                return false;
+            }
+            finally
+            {
+            }
         }
 
         /// <summary>사이클 Start 시점에 호출합니다. 작업 변수를 리셋하고 부하 시간을 시작합니다.</summary>
@@ -81,6 +139,7 @@ namespace QMC.CDT320.Stats
                     _ringCount = 0;
                     _ringSum = 0;
                     _cycleMsInstant = 0;
+                    _recentMinuteDieTimes.Clear();
 
                     _upTime = TimeSpan.Zero;
                     _normalDownTime = TimeSpan.Zero;
@@ -108,6 +167,57 @@ namespace QMC.CDT320.Stats
             catch (Exception ex)
             {
                 Log.Write("WorkStats", "ProductionStatsEngine", "BeginLot failed: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        /// <summary>Clears the displayed work-time counters without touching material or sequence state.</summary>
+        public void ClearRuntimeCounters()
+        {
+            try
+            {
+                lock (_sync)
+                {
+                    DateTime now = DateTime.UtcNow;
+
+                    _processedDies = 0;
+                    _goodCount = 0;
+                    _ngCount = 0;
+
+                    Array.Clear(_ring, 0, _ring.Length);
+                    _ringIndex = 0;
+                    _ringCount = 0;
+                    _ringSum = 0;
+                    _cycleMsInstant = 0;
+                    _recentMinuteDieTimes.Clear();
+
+                    _upTime = TimeSpan.Zero;
+                    _normalDownTime = TimeSpan.Zero;
+                    _errorDownTime = TimeSpan.Zero;
+                    _recoveryTime = TimeSpan.Zero;
+                    _lastContUp = TimeSpan.Zero;
+
+                    _stateEnterUtc = now;
+                    if (_lotStarted)
+                    {
+                        _loadStartUtc = now;
+                        _loadEndUtc = null;
+                    }
+
+                    _contUpStartUtc = now;
+                    _recoveryStartUtc = now;
+                    _afterAlarm = _currentState == EquipmentStatus.Alarm;
+
+                    _errorCount = 0;
+
+                    PublishLocked(now);
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Write("WorkStats", "ProductionStatsEngine", "ClearRuntimeCounters failed: " + ex.Message);
             }
             finally
             {
@@ -150,6 +260,8 @@ namespace QMC.CDT320.Stats
             {
                 lock (_sync)
                 {
+                    DateTime now = DateTime.UtcNow;
+
                     if (diesInCycle > 0)
                         _processedDies += diesInCycle;
                     if (good > 0)
@@ -167,11 +279,15 @@ namespace QMC.CDT320.Stats
                         _ringIndex = (_ringIndex + 1) % RollingWindow;
                         if (_ringCount < RollingWindow)
                             _ringCount++;
+
+                        for (int i = 0; i < diesInCycle; i++)
+                            _recentMinuteDieTimes.Enqueue(now);
+                        PruneRecentMinuteDiesLocked(now);
                     }
 
                     _cycleMsInstant = cycleMs;
 
-                    PublishLocked(DateTime.UtcNow);
+                    PublishLocked(now);
                 }
             }
             catch (Exception ex)
@@ -256,6 +372,12 @@ namespace QMC.CDT320.Stats
         /// <summary>현 작업 변수로 새 불변 스냅샷을 만들어 <c>_current</c>에 원자 교체한다. (호출 시 lock 보유)</summary>
         private void PublishLocked(DateTime utcNow)
         {
+            _current = BuildSnapshotLocked(utcNow);
+        }
+
+        /// <summary>현 작업 변수로 새 불변 스냅샷을 만든다. 누적 원본 값은 변경하지 않는다. (호출 시 lock 보유)</summary>
+        private ProductionStatsSnapshot BuildSnapshotLocked(DateTime utcNow)
+        {
             // 확정 버킷 + 진행 중 구간을 합쳐 표시값을 만든다.
             TimeSpan inProgress = ClampNonNegative(utcNow - _stateEnterUtc);
 
@@ -291,17 +413,20 @@ namespace QMC.CDT320.Stats
                 : _lastContUp.TotalSeconds;
 
             double cycleMsPerDieRolling = _ringCount > 0 ? (double)_ringSum / _ringCount : 0;
+            PruneRecentMinuteDiesLocked(utcNow);
+            int recentMinuteDies = _recentMinuteDieTimes.Count;
 
             //TEST GYN
             //cycleMsPerDieRolling *= 0.75;
 
             double uphInstant = cycleMsPerDieRolling > 0 ? 3600000.0 / cycleMsPerDieRolling : 0;
             double uphEffective = up > 0 ? _goodCount * 3600.0 / up : 0;
+            double recentMinuteUph = recentMinuteDies * 60.0;
             double uptimeRate = load > 0 ? up / load * 100.0 : 0;
             double mtbf = _errorCount > 0 ? up / _errorCount : 0;
             double mttr = _errorCount > 0 ? errorDown / _errorCount : 0;
 
-            _current = new ProductionStatsSnapshot(
+            return new ProductionStatsSnapshot(
                 _processedDies,
                 _goodCount,
                 _ngCount,
@@ -309,6 +434,8 @@ namespace QMC.CDT320.Stats
                 _cycleMsInstant,
                 uphInstant,
                 uphEffective,
+                recentMinuteDies,
+                recentMinuteUph,
                 load,
                 up,
                 contUp,
@@ -320,6 +447,16 @@ namespace QMC.CDT320.Stats
                 mttr,
                 uptimeRate,
                 _activeLotId);
+        }
+
+        private void PruneRecentMinuteDiesLocked(DateTime utcNow)
+        {
+            DateTime threshold = utcNow - RecentMinuteWindow;
+            while (_recentMinuteDieTimes.Count > 0 &&
+                   _recentMinuteDieTimes.Peek() < threshold)
+            {
+                _recentMinuteDieTimes.Dequeue();
+            }
         }
 
         private static TimeSpan ClampNonNegative(TimeSpan ts)

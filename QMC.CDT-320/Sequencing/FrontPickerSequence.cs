@@ -216,7 +216,10 @@ namespace QMC.CDT320.Sequencing
             while (IsInputOrOutputLoaderActive())
             {
                 ct.ThrowIfCancellationRequested();
-                Context.StopIfCycleStopRequested("FrontPickerSequence.WaitLoaderInactive");
+                Context.StopIfCycleStopRequested(
+                    "FrontPickerSequence.WaitLoaderInactive",
+                    HasLoadedDieOnPicker(),
+                    "FrontPicker loaded die drain");
 
                 // 현재 기준: Input/Output 로더 동작 중에는 Picker가 Avoid에서 신규 공정 진입을 기다린다.
                 await EnsureIdlePickerAvoidAsync(ct).ConfigureAwait(false);

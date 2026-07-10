@@ -2182,6 +2182,7 @@ namespace QMC.CDT320.Materials
                 die.CurrentLocation = new MaterialLocation { Kind = entry.IsTarget ? MaterialLocationKind.InputStage : MaterialLocationKind.Unknown };
                 die.ReservedPickerLocation = MaterialLocationKind.Unknown;
                 die.ReservedPickerNo = -1;
+                // 현재 기준: Process Test Data 생성도 새 Input 맵과 동일하게 Pick/검사 이력을 비운다.
                 die.PickedPickerLocation = MaterialLocationKind.Unknown;
                 die.PickedPickerNo = -1;
                 die.PickedAt = DateTime.MinValue;
@@ -2190,12 +2191,22 @@ namespace QMC.CDT320.Materials
                     die.NgCodes = new List<string>();
                 else
                     die.NgCodes.Clear();
+                if (die.Inspections == null)
+                    die.Inspections = new List<DieInspectionRecord>();
+                else
+                    die.Inspections.Clear();
                 if (die.WaferOffset == null)
                     die.WaferOffset = new VisionOffset();
                 die.WaferOffset.X = entry.PosX;
                 die.WaferOffset.Y = entry.PosY;
                 die.WaferOffset.R = 0.0;
                 die.WaferOffset.IsValid = true;
+                if (die.BinOffset == null)
+                    die.BinOffset = new VisionOffset();
+                die.BinOffset.X = 0.0;
+                die.BinOffset.Y = 0.0;
+                die.BinOffset.R = 0.0;
+                die.BinOffset.IsValid = false;
                 die.UpdatedAt = DateTime.Now;
 
                 wafer.DieIds.Add(dieId);

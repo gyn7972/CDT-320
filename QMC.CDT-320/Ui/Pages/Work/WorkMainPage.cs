@@ -392,6 +392,62 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     MessageBoxIcon.Information);
             };
 
+            btnWorkTimeClear.Click += (s, e) => ClearWorkTimeCounters();
+            btnTestAlarm.Click += (s, e) => RaiseTestAlarm();
+        }
+
+        private void ClearWorkTimeCounters()
+        {
+            try
+            {
+                Form1 host = ParentForm as Form1 ?? FindForm() as Form1;
+                if (host?.Controller == null)
+                    return;
+
+                host.Controller.Stats.ClearRuntimeCounters();
+
+                QMC.Common.Logging.EventLogger.Write(
+                    QMC.Common.Logging.EventKind.Event,
+                    QMC.CDT_320.Ui.Security.UserSession.Name,
+                    "WORK-TIME-CLEAR",
+                    "Work time counters were cleared from Work Main page.");
+
+                RefreshAll();
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.MessageDialog.Show(
+                    "Work time clear failed: " + ex.Message,
+                    btnWorkTimeClear != null ? btnWorkTimeClear.Text : "CLEAR",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Error);
+            }
+        }
+
+        private void RaiseTestAlarm()
+        {
+            try
+            {
+                QMC.Common.Logging.EventLogger.Write(
+                    QMC.Common.Logging.EventKind.Event,
+                    QMC.CDT_320.Ui.Security.UserSession.Name,
+                    "TEST-ALARM-CLICK",
+                    "Operator test alarm requested from Work Main page.");
+
+                QMC.Common.Alarms.AlarmManager.Raise(
+                    QMC.Common.Alarms.AlarmSeverity.Critical,
+                    "TEST-ALARM",
+                    "WorkMainPage",
+                    "Operator test alarm requested from Work Main page.");
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.MessageDialog.Show(
+                    "Test alarm failed: " + ex.Message,
+                    btnTestAlarm != null ? btnTestAlarm.Text : "ALARM",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Error);
+            }
         }
 
         private void ApplyBottomGroupSizing()
@@ -426,8 +482,13 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     lblUphCaption,
                     lblUph,
                     "UPH(Units Per Hour)\r\n" +
-                    "최근 Cycle Time 기준으로 1시간 동안 처리 가능한 Die 수를 환산합니다.\r\n" +
-                    "통계 엔진에 실제 처리 수량이 기록된 경우에만 표시합니다.");
+                    "UPH: 최근 20개 Die Place 완료 간격의 다이당 평균 ms를 1시간 기준으로 환산합니다.\r\n" +
+                    "1M Qty: 최근 60초 안에 Place 완료된 Die 수입니다.");
+                SetMetricToolTip(
+                    lblUphCaption,
+                    lblRecentMinuteUph,
+                    "최근 1분 생산 수량\r\n" +
+                    "최근 60초 안에 Place 완료된 Die 수입니다.");
 
                 SetMetricToolTip(
                     lblCycleCaption,
@@ -643,6 +704,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             if (statsTotal > 0 || statsGood > 0)
                 uph = stats.UphInstant > 0 ? stats.UphInstant : stats.UphEffective;
             snap.Uph = uph.ToString("F2");
+            snap.RecentMinuteUph = "1M " + stats.RecentMinuteDies + " ea";
 
             snap.Mtbf = FormatTs(TimeSpan.FromSeconds(stats.MtbfSeconds));
             snap.Mttr = FormatTs(TimeSpan.FromSeconds(stats.MttrSeconds));
@@ -780,6 +842,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             SetText(lblErrCnt, s.ErrCnt);
             SetText(lblRecovery, s.Recovery);
             SetText(lblUph, s.Uph);
+            SetText(lblRecentMinuteUph, s.RecentMinuteUph);
             SetText(lblMtbf, s.Mtbf);
             SetText(lblMttr, s.Mttr);
             SetText(lblCycle, s.Cycle);
@@ -1179,6 +1242,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             public string ErrCnt;
             public string Recovery;
             public string Uph;
+            public string RecentMinuteUph;
             public string Mtbf;
             public string Mttr;
             public string Cycle;

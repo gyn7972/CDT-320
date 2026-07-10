@@ -385,7 +385,10 @@ namespace QMC.CDT320.Sequencing
                 {
                     ct.ThrowIfCancellationRequested();
                     if (Context != null)
-                        Context.StopIfCycleStopRequested(Name + ".AcquireInputStageArea");
+                        Context.StopIfCycleStopRequested(
+                            Name + ".AcquireInputStageArea",
+                            ShouldDeferCycleStopForPickUpDrain(),
+                            "PickUp batch drain");
 
                     string currentHolder = Context != null && Context.Resources != null
                         ? Context.Resources.GetHolder(SequenceResourceKind.InputStageArea)
@@ -1193,7 +1196,10 @@ namespace QMC.CDT320.Sequencing
                 {
                     ct.ThrowIfCancellationRequested();
                     if (Context != null)
-                        Context.StopIfCycleStopRequested(Name + ".WaitOppositePickerInputClearBeforePick");
+                        Context.StopIfCycleStopRequested(
+                            Name + ".WaitOppositePickerInputClearBeforePick",
+                            ShouldDeferCycleStopForPickUpDrain(),
+                            "PickUp batch drain");
 
                     if (!TryBuildOppositePickerInputBlockReason(description, out oppositeUnitName, out blockReason))
                     {
@@ -5793,6 +5799,33 @@ namespace QMC.CDT320.Sequencing
                 _inspectionCursor = 0;
                 _pickCursor = 0;
                 ClearCurrentPickContext();
+            }
+        }
+
+        private bool ShouldDeferCycleStopForPickUpDrain()
+        {
+            try
+            {
+                if (Options != null && Options.RunMode != SequenceRunMode.Auto)
+                    return false;
+                if (Context == null || !Context.IsCycleStopRequested)
+                    return false;
+                if (IsAlarmStopActive())
+                    return false;
+
+                return CurrentStep != PickerPickUpStep.CheckUnit &&
+                       CurrentStep != PickerPickUpStep.CheckPickerSideEnabled &&
+                       CurrentStep != PickerPickUpStep.BuildEnabledPickerList &&
+                       CurrentStep != PickerPickUpStep.CheckInputStageReady &&
+                       CurrentStep != PickerPickUpStep.Complete &&
+                       CurrentStep != PickerPickUpStep.Error;
+            }
+            catch
+            {
+                return false;
+            }
+            finally
+            {
             }
         }
 

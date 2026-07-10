@@ -250,6 +250,8 @@ namespace QMC.CDT_320.Ui.Localization
             A("work.workTime.rate",   "가동률",            "Uptime %");
             A("work.workTime.lotId",  "작업중인 LOT ID",   "Active LOT ID");
             A("work.workTime.ccs",    "CCS 검수 확인",      "CCS Check");
+            A("work.workTime.clear",  "CLEAR",            "CLEAR");
+            A("work.workTime.alarm",  "ALARM",            "ALARM");
 
             A("work.inputMapTransfer","INPUT Die Map 전환",      "INPUT Die Map Switch");
             A("work.outputMapTransfer","OUTPUT Die Map 전환",    "OUTPUT Die Map Switch");

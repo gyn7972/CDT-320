@@ -112,6 +112,35 @@ namespace QMC.CDT320.Sequencing
 
         protected abstract Task<int> ExecuteAsync(CancellationToken ct);
 
+        protected bool ShouldDeferCycleStopForPickerDrain()
+        {
+            try
+            {
+                if (Options != null && Options.RunMode != SequenceRunMode.Auto)
+                    return false;
+                if (Context == null || !Context.IsCycleStopRequested)
+                    return false;
+                if (IsAlarmStopActive())
+                    return false;
+
+                for (int pickerNo = 1; pickerNo <= 4; pickerNo++)
+                {
+                    DieMaterial die = MaterialStateService.GetDieAtPicker(PickerLocationKind, pickerNo);
+                    if (die != null && die.IsInputTarget)
+                        return true;
+                }
+
+                return false;
+            }
+            catch
+            {
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
         protected int ResolveTimeout()
         {
             return Options != null && Options.MoveTimeoutMs > 0 ? Options.MoveTimeoutMs : 30000;
@@ -757,7 +786,10 @@ namespace QMC.CDT320.Sequencing
                 {
                     ct.ThrowIfCancellationRequested();
                     if (!safetyRetreatMoveActive && Context != null)
-                        Context.StopIfCycleStopRequested(Name + ".PickerXSharedRailDistanceWait");
+                        Context.StopIfCycleStopRequested(
+                            Name + ".PickerXSharedRailDistanceWait",
+                            ShouldDeferCycleStopForPickerDrain(),
+                            "Picker target die drain");
 
                     if (IsAlarmStopActive())
                         return StopPickerMoveBecauseAlarmActive(description);
@@ -862,7 +894,10 @@ namespace QMC.CDT320.Sequencing
                 {
                     ct.ThrowIfCancellationRequested();
                     if (!safetyRetreatMoveActive && Context != null)
-                        Context.StopIfCycleStopRequested(Name + ".WaitPickerFacingYInterlock:" + axis);
+                        Context.StopIfCycleStopRequested(
+                            Name + ".WaitPickerFacingYInterlock:" + axis,
+                            ShouldDeferCycleStopForPickerDrain(),
+                            "Picker target die drain");
 
                     string detail;
                     bool clear = PickerZoneInterlockRules.CanMovePickerAxisByFacingYInterlock(
@@ -1037,7 +1072,10 @@ namespace QMC.CDT320.Sequencing
                 {
                     ct.ThrowIfCancellationRequested();
                     if (!safetyRetreatMoveActive && Context != null)
-                        Context.StopIfCycleStopRequested(Name + ".WaitOppositePickerYAvoid");
+                        Context.StopIfCycleStopRequested(
+                            Name + ".WaitOppositePickerYAvoid",
+                            ShouldDeferCycleStopForPickerDrain(),
+                            "Picker target die drain");
 
                     if (!waitLogged)
                     {
@@ -1709,12 +1747,9 @@ namespace QMC.CDT320.Sequencing
 
                     if (!RearPicker.IsRearPickerInAvoidPosition())
                     {
-                        int result = await RearPicker.MoveToRearPickerAvoidPosition(fine).ConfigureAwait(false);
+                        int result = await MoveRearPickerToAvoidSequentialAsync(description, fine, ct).ConfigureAwait(false);
                         if (result != 0)
-                        {
-                            return Fail("PICKER-OPPOSITE-AVOID", "RearPickerUnit",
-                                description + " 실패. RearPicker 어보이드 이동 명령 실패. result=" + result);
-                        }
+                            return result;
                     }
 
                     if (!RearPicker.IsRearPickerInAvoidPosition())
@@ -1735,12 +1770,9 @@ namespace QMC.CDT320.Sequencing
 
                 if (!FrontPicker.IsFrontPickerInAvoidPosition())
                 {
-                    int result = await FrontPicker.MoveToFrontPickerAvoidPosition(fine).ConfigureAwait(false);
+                    int result = await MoveFrontPickerToAvoidSequentialAsync(description, fine, ct).ConfigureAwait(false);
                     if (result != 0)
-                    {
-                        return Fail("PICKER-OPPOSITE-AVOID", "FrontPickerUnit",
-                            description + " 실패. FrontPicker 어보이드 이동 명령 실패. result=" + result);
-                    }
+                        return result;
                 }
 
                 if (!FrontPicker.IsFrontPickerInAvoidPosition())
@@ -1763,6 +1795,150 @@ namespace QMC.CDT320.Sequencing
             finally
             {
             }
+        }
+
+        private async Task<int> MoveFrontPickerToAvoidSequentialAsync(string description, bool fine, CancellationToken ct)
+        {
+            if (FrontPicker == null)
+                return 0;
+
+            ct.ThrowIfCancellationRequested();
+            WriteLog("PickerOppositeAvoid",
+                Name + " opposite FrontPicker avoid sequence start. order=Z all Avoid -> Y Avoid -> X/T Avoid. description=" +
+                description + " - Start");
+
+            var zTargets = BuildFrontPickerAvoidTargets(true, false, false);
+            int result = await FrontPicker.MoveFrontPickerAxes(
+                zTargets,
+                fine,
+                "AvoidPosition;PickerPhase=SafeZ;OppositeAvoid").ConfigureAwait(false);
+            if (result != 0)
+                return Fail("PICKER-OPPOSITE-AVOID-Z", "FrontPickerUnit",
+                    description + " 실패. FrontPicker Z Avoid 이동 실패. result=" + result);
+
+            result = await FrontPicker.MoveFrontPickerAxisToTeachingPosition(
+                PickerAxis.PickerY,
+                "AvoidPosition",
+                fine).ConfigureAwait(false);
+            if (result != 0)
+                return Fail("PICKER-OPPOSITE-AVOID-Y", "FrontPickerUnit",
+                    description + " 실패. FrontPicker Y Avoid 이동 실패. result=" + result);
+
+            if (!FrontPicker.IsFrontPickerAxisInTeachingPosition(PickerAxis.PickerY, "AvoidPosition"))
+                return Fail("PICKER-OPPOSITE-AVOID-Y-CHECK", "FrontPickerUnit",
+                    description + " 실패. FrontPicker Y가 Avoid 위치가 아닙니다.");
+
+            var xtTargets = BuildFrontPickerAvoidTargets(false, true, true);
+            result = await FrontPicker.MoveFrontPickerAxes(
+                xtTargets,
+                fine,
+                "AvoidPosition;PickerPhase=SafeX;OppositeAvoid").ConfigureAwait(false);
+            if (result != 0)
+                return Fail("PICKER-OPPOSITE-AVOID-XT", "FrontPickerUnit",
+                    description + " 실패. FrontPicker X/T Avoid 이동 실패. result=" + result);
+
+            WriteLog("PickerOppositeAvoid",
+                Name + " opposite FrontPicker avoid sequence complete. order=Z all Avoid -> Y Avoid -> X/T Avoid. description=" +
+                description + " - Ok");
+            return 0;
+        }
+
+        private async Task<int> MoveRearPickerToAvoidSequentialAsync(string description, bool fine, CancellationToken ct)
+        {
+            if (RearPicker == null)
+                return 0;
+
+            ct.ThrowIfCancellationRequested();
+            WriteLog("PickerOppositeAvoid",
+                Name + " opposite RearPicker avoid sequence start. order=Z all Avoid -> Y Avoid -> X/T Avoid. description=" +
+                description + " - Start");
+
+            var zTargets = BuildRearPickerAvoidTargets(true, false, false);
+            int result = await RearPicker.MoveRearPickerAxes(
+                zTargets,
+                fine,
+                "AvoidPosition;PickerPhase=SafeZ;OppositeAvoid").ConfigureAwait(false);
+            if (result != 0)
+                return Fail("PICKER-OPPOSITE-AVOID-Z", "RearPickerUnit",
+                    description + " 실패. RearPicker Z Avoid 이동 실패. result=" + result);
+
+            result = await RearPicker.MoveRearPickerAxisToTeachingPosition(
+                PickerAxis.PickerY,
+                "AvoidPosition",
+                fine).ConfigureAwait(false);
+            if (result != 0)
+                return Fail("PICKER-OPPOSITE-AVOID-Y", "RearPickerUnit",
+                    description + " 실패. RearPicker Y Avoid 이동 실패. result=" + result);
+
+            if (!RearPicker.IsRearPickerAxisInTeachingPosition(PickerAxis.PickerY, "AvoidPosition"))
+                return Fail("PICKER-OPPOSITE-AVOID-Y-CHECK", "RearPickerUnit",
+                    description + " 실패. RearPicker Y가 Avoid 위치가 아닙니다.");
+
+            var xtTargets = BuildRearPickerAvoidTargets(false, true, true);
+            result = await RearPicker.MoveRearPickerAxes(
+                xtTargets,
+                fine,
+                "AvoidPosition;PickerPhase=SafeX;OppositeAvoid").ConfigureAwait(false);
+            if (result != 0)
+                return Fail("PICKER-OPPOSITE-AVOID-XT", "RearPickerUnit",
+                    description + " 실패. RearPicker X/T Avoid 이동 실패. result=" + result);
+
+            WriteLog("PickerOppositeAvoid",
+                Name + " opposite RearPicker avoid sequence complete. order=Z all Avoid -> Y Avoid -> X/T Avoid. description=" +
+                description + " - Ok");
+            return 0;
+        }
+
+        private Dictionary<PickerAxis, double> BuildFrontPickerAvoidTargets(bool includeZ, bool includeX, bool includeT)
+        {
+            var targets = new Dictionary<PickerAxis, double>();
+            if (FrontPicker == null)
+                return targets;
+
+            if (includeX)
+                targets[PickerAxis.PickerX] = FrontPicker.GetPickerTeachingPosition(PickerAxis.PickerX, "AvoidPosition");
+            if (includeT)
+            {
+                targets[PickerAxis.PickerT0] = FrontPicker.GetPickerTeachingPosition(PickerAxis.PickerT0, "AvoidPosition");
+                targets[PickerAxis.PickerT1] = FrontPicker.GetPickerTeachingPosition(PickerAxis.PickerT1, "AvoidPosition");
+                targets[PickerAxis.PickerT2] = FrontPicker.GetPickerTeachingPosition(PickerAxis.PickerT2, "AvoidPosition");
+                targets[PickerAxis.PickerT3] = FrontPicker.GetPickerTeachingPosition(PickerAxis.PickerT3, "AvoidPosition");
+            }
+            if (includeZ)
+            {
+                targets[PickerAxis.PickerZ0] = FrontPicker.GetPickerTeachingPosition(PickerAxis.PickerZ0, "AvoidPosition");
+                targets[PickerAxis.PickerZ1] = FrontPicker.GetPickerTeachingPosition(PickerAxis.PickerZ1, "AvoidPosition");
+                targets[PickerAxis.PickerZ2] = FrontPicker.GetPickerTeachingPosition(PickerAxis.PickerZ2, "AvoidPosition");
+                targets[PickerAxis.PickerZ3] = FrontPicker.GetPickerTeachingPosition(PickerAxis.PickerZ3, "AvoidPosition");
+            }
+
+            return targets;
+        }
+
+        private Dictionary<PickerAxis, double> BuildRearPickerAvoidTargets(bool includeZ, bool includeX, bool includeT)
+        {
+            var targets = new Dictionary<PickerAxis, double>();
+            if (RearPicker == null)
+                return targets;
+
+            if (includeX)
+                targets[PickerAxis.PickerX] = RearPicker.GetPickerTeachingPosition(PickerAxis.PickerX, "AvoidPosition");
+            if (includeT)
+            {
+                targets[PickerAxis.PickerT0] = RearPicker.GetPickerTeachingPosition(PickerAxis.PickerT0, "AvoidPosition");
+                targets[PickerAxis.PickerT1] = RearPicker.GetPickerTeachingPosition(PickerAxis.PickerT1, "AvoidPosition");
+                targets[PickerAxis.PickerT2] = RearPicker.GetPickerTeachingPosition(PickerAxis.PickerT2, "AvoidPosition");
+                targets[PickerAxis.PickerT3] = RearPicker.GetPickerTeachingPosition(PickerAxis.PickerT3, "AvoidPosition");
+            }
+            if (includeZ)
+            {
+                targets[PickerAxis.PickerZ0] = RearPicker.GetPickerTeachingPosition(PickerAxis.PickerZ0, "AvoidPosition");
+                targets[PickerAxis.PickerZ1] = RearPicker.GetPickerTeachingPosition(PickerAxis.PickerZ1, "AvoidPosition");
+                targets[PickerAxis.PickerZ2] = RearPicker.GetPickerTeachingPosition(PickerAxis.PickerZ2, "AvoidPosition");
+                targets[PickerAxis.PickerZ3] = RearPicker.GetPickerTeachingPosition(PickerAxis.PickerZ3, "AvoidPosition");
+            }
+
+            return targets;
         }
 
         private async Task<int> WaitOppositePickerReadyForAutoAsync(string description, CancellationToken ct)
@@ -3038,7 +3214,10 @@ namespace QMC.CDT320.Sequencing
                 {
                     ct.ThrowIfCancellationRequested();
                     if (!safetyRetreatMoveActive)
-                        Context.StopIfCycleStopRequested(Name + ".AcquireResource:" + resource);
+                        Context.StopIfCycleStopRequested(
+                            Name + ".AcquireResource:" + resource,
+                            ShouldDeferCycleStopForPickerDrain(),
+                            "Picker target die drain");
 
                     SequenceResourceLease autoLease = await Context.Resources
                         .AcquireAsync(resource, safeHolder, 200, ct, false)

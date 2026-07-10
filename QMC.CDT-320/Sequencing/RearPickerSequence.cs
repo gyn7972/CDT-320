@@ -220,7 +220,10 @@ namespace QMC.CDT320.Sequencing
             while (IsInputOrOutputLoaderActive())
             {
                 ct.ThrowIfCancellationRequested();
-                Context.StopIfCycleStopRequested("RearPickerSequence.WaitLoaderInactive");
+                Context.StopIfCycleStopRequested(
+                    "RearPickerSequence.WaitLoaderInactive",
+                    HasLoadedDieOnPicker(),
+                    "RearPicker loaded die drain");
 
                 // 현재 기준: Input/Output 로더 동작 중에는 Picker가 Avoid에서 신규 공정 진입을 기다린다.
                 await EnsureIdlePickerAvoidAsync(ct).ConfigureAwait(false);
@@ -509,9 +512,11 @@ namespace QMC.CDT320.Sequencing
                 if (!inputStageReady || !MaterialStateService.HasReadyInputStagePickTarget())
                     return false;
 
+                Context.StopIfCycleStopRequested("RearPickerSequence.YieldInputPickupPriorityToFront");
                 WriteFrontPickupYieldWaitLog();
 
                 await Task.Delay(1, ct).ConfigureAwait(false);
+                Context.StopIfCycleStopRequested("RearPickerSequence.YieldInputPickupPriorityToFront");
                 return true;
             }
             catch (OperationCanceledException)

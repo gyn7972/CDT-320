@@ -279,17 +279,31 @@ namespace QMC.CDT320.Sequencing
                 die.CurrentLocation = new MaterialLocation { Kind = entry.IsTarget ? MaterialLocationKind.InputStage : MaterialLocationKind.Unknown };
                 die.ReservedPickerLocation = MaterialLocationKind.Unknown;
                 die.ReservedPickerNo = -1;
+                // 현재 기준: 새 Input 맵 적용 시 이전 wafer의 Pick/검사 이력은 사용하지 않는다.
+                die.PickedPickerLocation = MaterialLocationKind.Unknown;
+                die.PickedPickerNo = -1;
+                die.PickedAt = DateTime.MinValue;
                 die.Result = entry.IsTarget ? DieResult.Unknown : DieResult.NG;
                 if (die.NgCodes == null)
                     die.NgCodes = new List<string>();
                 else
                     die.NgCodes.Clear();
+                if (die.Inspections == null)
+                    die.Inspections = new List<DieInspectionRecord>();
+                else
+                    die.Inspections.Clear();
                 if (die.WaferOffset == null)
                     die.WaferOffset = new VisionOffset();
                 die.WaferOffset.X = entry.PosX;
                 die.WaferOffset.Y = entry.PosY;
                 die.WaferOffset.R = 0.0;
                 die.WaferOffset.IsValid = true;
+                if (die.BinOffset == null)
+                    die.BinOffset = new VisionOffset();
+                die.BinOffset.X = 0.0;
+                die.BinOffset.Y = 0.0;
+                die.BinOffset.R = 0.0;
+                die.BinOffset.IsValid = false;
                 die.UpdatedAt = DateTime.Now;
 
                 wafer.DieIds.Add(dieId);

@@ -93,6 +93,18 @@ namespace QMC.CDT320.Sequencing
             throw new SequenceStopException(reason);
         }
 
+        /// <summary>CYCLE STOP 요청이 있어도 현재 공정을 안전 경계까지 drain해야 하면 정지를 보류합니다.</summary>
+        public void StopIfCycleStopRequested(string boundaryName, bool allowDrain, string drainReason)
+        {
+            if (!IsCycleStopRequested)
+                return;
+
+            if (allowDrain)
+                return;
+
+            StopIfCycleStopRequested(boundaryName);
+        }
+
         /// <summary>장비 컨트롤러의 공개 로그 브리지로 메시지를 출력합니다.</summary>
         public void LogPublic(string message)
         {

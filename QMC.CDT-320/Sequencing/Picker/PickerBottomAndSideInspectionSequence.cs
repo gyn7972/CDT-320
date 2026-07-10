@@ -15,6 +15,7 @@ namespace QMC.CDT320.Sequencing
         private readonly List<int> _pickedPickerIndexes = new List<int>();
         private readonly List<BottomShot> _pendingBottomShots = new List<BottomShot>();
         private readonly List<int> _sideReadyPickerIndexes = new List<int>();
+        private readonly List<int> _sideCompletedPickerIndexes = new List<int>();
         private readonly List<PendingT0Return> _pendingT0Returns = new List<PendingT0Return>();
         private readonly List<PendingZAvoid> _pendingZAvoids = new List<PendingZAvoid>();
         private readonly List<PendingBottomZDown> _pendingBottomZDowns = new List<PendingBottomZDown>();
@@ -103,6 +104,7 @@ namespace QMC.CDT320.Sequencing
                 ReleaseBottomSideProcessArea();
                 _pendingBottomShots.Clear();
                 _sideReadyPickerIndexes.Clear();
+                _sideCompletedPickerIndexes.Clear();
                 _pendingT0Returns.Clear();
                 _pendingZAvoids.Clear();
                 _pendingBottomZDowns.Clear();
@@ -226,6 +228,7 @@ namespace QMC.CDT320.Sequencing
             _pickedPickerIndexes.Clear();
             _pendingBottomShots.Clear();
             _sideReadyPickerIndexes.Clear();
+            _sideCompletedPickerIndexes.Clear();
             _pendingT0Returns.Clear();
             _pendingZAvoids.Clear();
             _pendingBottomZDowns.Clear();
@@ -241,6 +244,7 @@ namespace QMC.CDT320.Sequencing
             _lastSidePitchX = 0.0;
 
             _pickedPickerIndexes.AddRange(BuildLoadedPickerIndexesInRunOrder("PickerBottomAndSideInspectionSequence"));
+            RemoveSkippedPickerTargets();
             if (_pickedPickerIndexes.Count == 0)
             {
                 CurrentStep = PickerBottomAndSideInspectionStep.Complete;
@@ -251,6 +255,26 @@ namespace QMC.CDT320.Sequencing
                 Name + " Bottom/Side 통합 검사 대상 구성 완료. count=" + _pickedPickerIndexes.Count + " - Ok");
             CurrentStep = PickerBottomAndSideInspectionStep.AcquireInspectionArea;
             return 0;
+        }
+
+        private void RemoveSkippedPickerTargets()
+        {
+            for (int i = _pickedPickerIndexes.Count - 1; i >= 0; i--)
+            {
+                int pickerIndex = _pickedPickerIndexes[i];
+                int pickerNo = ToPickerNo(pickerIndex);
+                DieMaterial die = MaterialStateService.GetDieAtPicker(PickerLocationKind, pickerNo);
+                if (die == null || die.IsInputTarget)
+                    continue;
+
+                _pickedPickerIndexes.RemoveAt(i);
+                WriteLog("PickerBottomAndSideInspectionSequence",
+                    Name + " Skip die는 Bottom/Side 검사를 생략합니다. " +
+                    "die=" + die.DieId +
+                    ", pickerNo=" + pickerNo +
+                    ", pickerIndex=" + pickerIndex +
+                    ", result=" + die.Result + " - Skip");
+            }
         }
 
         private async Task<int> AcquireInspectionAreaAsync(CancellationToken ct)
@@ -306,22 +330,10 @@ namespace QMC.CDT320.Sequencing
                 if (target == null || target.Die == null)
                     continue;
 
-                if (HasInspectionResult(target.Die, "Bottom") && !ForceBottomInspectionBeforeSideResume)
-                {
-                    if (!_sideReadyPickerIndexes.Contains(target.PickerIndex))
-                        _sideReadyPickerIndexes.Add(target.PickerIndex);
-
-                    WriteLog("PickerBottomAndSideInspectionSequence",
-                        Name + " 기존 Bottom 검사 결과가 있어 Bottom shot을 생략하고 SideReady로 등록합니다. " +
-                        "die=" + target.Die.DieId +
-                        ", pickerNo=" + target.PickerNo + " - Check");
-                    continue;
-                }
-
-                if (HasInspectionResult(target.Die, "Bottom") && ForceBottomInspectionBeforeSideResume)
+                if (HasInspectionResult(target.Die, "Bottom"))
                 {
                     WriteLog("PickerBottomAndSideInspectionSequence",
-                        Name + " Side 단독 재개 방지 모드라 기존 Bottom 결과가 있어도 Bottom shot을 다시 진행합니다. " +
+                        Name + " 기존 Bottom 검사 결과가 있어도 현재 PickUp 배치는 Bottom shot을 다시 진행합니다. " +
                         "die=" + target.Die.DieId +
                         ", pickerNo=" + target.PickerNo + " - Check");
                 }
@@ -782,7 +794,7 @@ namespace QMC.CDT320.Sequencing
         private void ApplyBottomInspectionResult(InspectionTarget target, BottomVisionOffset result)
         {
             MaterialInspectionResult inspectionResult = result.IsOk ? MaterialInspectionResult.Ok : MaterialInspectionResult.Ng;
-            DieResult dieResult = result.IsOk && target.Die.Result != DieResult.NG ? DieResult.Good : DieResult.NG;
+            DieResult dieResult = result.IsOk ? DieResult.Good : DieResult.NG;
             var measurements = new List<InspectionMeasurement>
             {
                 BuildMeasurement("BottomAlignOffsetX", result.OffsetX, "mm", inspectionResult),
@@ -903,6 +915,14 @@ namespace QMC.CDT320.Sequencing
                 ct.ThrowIfCancellationRequested();
 
                 int pickerIndex = _pickedPickerIndexes[i];
+                if (_sideCompletedPickerIndexes.Contains(pickerIndex))
+                {
+                    WriteLog("PickerBottomAndSideInspectionSequence",
+                        Name + " Bottom 마지막 검사 중 병렬 완료된 Side 대상은 재검사를 생략합니다. " +
+                        "pickerNo=" + ToPickerNo(pickerIndex) + " - Check");
+                    continue;
+                }
+
                 int result = await EnsureBottomReadyForSideAsync(pickerIndex, ct).ConfigureAwait(false);
                 if (result != 0)
                     return result;
@@ -914,14 +934,10 @@ namespace QMC.CDT320.Sequencing
                 if (HasInspectionResult(target.Die, "Side0") &&
                     HasInspectionResult(target.Die, "Side90"))
                 {
-                    // 현재 기준: 기존 검사 기록으로 Side shot을 생략해도 Place 전 Die 최종 판정을 보정한다.
-                    ApplyExistingInspectionFinalResultIfReady(target);
-                    // 기존 조건: 기존 Side 결과가 있으면 Side shot만 생략하고 Die 최종 판정은 갱신하지 않았다.
                     WriteLog("PickerBottomAndSideInspectionSequence",
-                        Name + " 기존 Side 검사 결과가 있어 Side shot을 생략합니다. " +
+                        Name + " 기존 Side 검사 결과가 있어도 현재 PickUp 배치는 Side shot을 다시 진행합니다. " +
                         "die=" + target.Die.DieId +
                         ", pickerNo=" + target.PickerNo + " - Check");
-                    continue;
                 }
 
                 ApplySidePitchTargetIfReady(target);
@@ -1025,14 +1041,10 @@ namespace QMC.CDT320.Sequencing
                     if (HasInspectionResult(target.Die, "Side0") &&
                         HasInspectionResult(target.Die, "Side90"))
                     {
-                        // 현재 기준: 병렬 시작 생략 경로에서도 기존 검사 기록으로 Die 최종 판정을 보정한다.
-                        ApplyExistingInspectionFinalResultIfReady(target);
-                        // 기존 조건: 병렬 시작 대상이 이미 Side 완료 상태이면 최종 판정 갱신 없이 return 했다.
                         WriteLog("PickerBottomAndSideInspectionSequence",
-                            Name + " Bottom 마지막 검사 중 Side 병렬 시작 대상이 이미 검사 완료 상태입니다. " +
+                            Name + " Bottom 마지막 검사 중 Side 병렬 시작 대상에 기존 Side 결과가 있어도 Side shot을 다시 진행합니다. " +
                             "die=" + target.Die.DieId +
                             ", pickerNo=" + target.PickerNo + " - Check");
-                        return 0;
                     }
 
                     ApplySidePitchTargetIfReady(target);
@@ -1043,7 +1055,11 @@ namespace QMC.CDT320.Sequencing
                         ", pickerNo=" + target.PickerNo +
                         ", sideReadyCount=" + _sideReadyPickerIndexes.Count + " - Start");
 
-                    return await InspectSideTargetAsync(target, ct).ConfigureAwait(false);
+                    int result = await InspectSideTargetAsync(target, ct).ConfigureAwait(false);
+                    if (result == 0 && !_sideCompletedPickerIndexes.Contains(pickerIndex))
+                        _sideCompletedPickerIndexes.Add(pickerIndex);
+
+                    return result;
                 }
 
                 WriteLog("PickerBottomAndSideInspectionSequence",
@@ -1809,81 +1825,6 @@ namespace QMC.CDT320.Sequencing
                 ", ok90=" + ok90 + " - Ok");
         }
 
-        private void ApplyExistingInspectionFinalResultIfReady(InspectionTarget target)
-        {
-            try
-            {
-                if (target == null || target.Die == null)
-                    return;
-
-                if (target.Die.Result == DieResult.Good || target.Die.Result == DieResult.NG)
-                    return;
-
-                MaterialInspectionResult bottomResult;
-                MaterialInspectionResult side0Result;
-                MaterialInspectionResult side90Result;
-                if (!TryGetInspectionResult(target.Die, "Bottom", out bottomResult) ||
-                    !TryGetInspectionResult(target.Die, "Side0", out side0Result) ||
-                    !TryGetInspectionResult(target.Die, "Side90", out side90Result))
-                    return;
-
-                bool ok = bottomResult == MaterialInspectionResult.Ok &&
-                          side0Result == MaterialInspectionResult.Ok &&
-                          side90Result == MaterialInspectionResult.Ok;
-                DieResult dieResult = ok ? DieResult.Good : DieResult.NG;
-                string ngCode = ok ? "" : BuildExistingInspectionNgCode(bottomResult, side0Result, side90Result);
-
-                MaterialStateService.ApplyDieInspectionResult(
-                    target.Die.DieId,
-                    dieResult,
-                    ngCode,
-                    "BottomSideExistingInspection");
-
-                target.Die.Result = dieResult;
-                if (dieResult == DieResult.NG && !string.IsNullOrWhiteSpace(ngCode))
-                {
-                    if (target.Die.NgCodes == null)
-                        target.Die.NgCodes = new List<string>();
-                    if (!target.Die.NgCodes.Contains(ngCode))
-                        target.Die.NgCodes.Add(ngCode);
-                }
-
-                WriteLog("PickerBottomAndSideInspectionSequence",
-                    Name + " 기존 Bottom/Side 검사 결과로 Die 최종 판정 보정 완료. " +
-                    "die=" + target.Die.DieId +
-                    ", pickerNo=" + target.PickerNo +
-                    ", result=" + dieResult +
-                    ", bottom=" + bottomResult +
-                    ", side0=" + side0Result +
-                    ", side90=" + side90Result + " - Ok");
-            }
-            catch (Exception ex)
-            {
-                WriteLog("PickerBottomAndSideInspectionSequence",
-                    Name + " 기존 검사 결과 Die 최종 판정 보정 중 예외가 발생했습니다. " +
-                    "die=" + (target != null && target.Die != null ? target.Die.DieId : "-") +
-                    ", error=" + ex.Message + " - Failed");
-            }
-            finally
-            {
-            }
-        }
-
-        private static string BuildExistingInspectionNgCode(
-            MaterialInspectionResult bottomResult,
-            MaterialInspectionResult side0Result,
-            MaterialInspectionResult side90Result)
-        {
-            if (bottomResult == MaterialInspectionResult.Ng)
-                return "BOTTOM_NG";
-
-            if (side0Result == MaterialInspectionResult.Ng ||
-                side90Result == MaterialInspectionResult.Ng)
-                return "SIDE_NG";
-
-            return "INSPECTION_NG";
-        }
-
         private static List<InspectionMeasurement> BuildSideMeasurements(SideVisionResult result, string prefix)
         {
             bool side1Ok = result != null && result.Side1Ok;
@@ -2067,39 +2008,6 @@ namespace QMC.CDT320.Sequencing
                     count++;
             }
             return count;
-        }
-
-        private static bool TryGetInspectionResult(DieMaterial die, string inspectionType, out MaterialInspectionResult result)
-        {
-            result = MaterialInspectionResult.Unknown;
-
-            try
-            {
-                if (die == null || die.Inspections == null || string.IsNullOrWhiteSpace(inspectionType))
-                    return false;
-
-                for (int i = 0; i < die.Inspections.Count; i++)
-                {
-                    DieInspectionRecord record = die.Inspections[i];
-                    if (record == null)
-                        continue;
-
-                    if (!string.Equals(record.InspectionType, inspectionType, StringComparison.OrdinalIgnoreCase))
-                        continue;
-
-                    result = record.Result;
-                    return result != MaterialInspectionResult.Unknown;
-                }
-
-                return false;
-            }
-            catch
-            {
-                return false;
-            }
-            finally
-            {
-            }
         }
 
         private static bool HasInspectionResult(DieMaterial die, string inspectionType)

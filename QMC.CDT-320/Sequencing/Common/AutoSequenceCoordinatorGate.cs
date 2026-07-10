@@ -2,16 +2,22 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using QMC.CDT320.Interlocks;
+using QMC.CDT320.Materials;
 using QMC.Common;
 
 namespace QMC.CDT320.Sequencing
 {
     internal delegate bool AutoSequencePickerAvoidCheck(out string reason);
 
+    internal enum AutoSequenceCameraWorkKind
+    {
+        InputCamera,
+        OutputCamera
+    }
+
     internal sealed class AutoSequenceCoordinatorGate
     {
         private const int PickerWorkZonePollIntervalMs = 20;
-        private const int RearPickerFrontPrioritySettleMs = 20;
         private readonly MachineSequenceContext _context;
         private readonly object _pickerWorkZoneGate = new object();
         private PickerWorkZone _frontWorkZone = PickerWorkZone.Unknown;
@@ -22,6 +28,8 @@ namespace QMC.CDT320.Sequencing
         private PickerWorkZone _rearPendingWorkZone = PickerWorkZone.Unknown;
         private string _frontPendingWorkZoneOwner = "";
         private string _rearPendingWorkZoneOwner = "";
+        private string _inputCameraZoneOwner = "";
+        private string _outputCameraZoneOwner = "";
 
         public AutoSequenceCoordinatorGate(MachineSequenceContext context)
         {
@@ -75,7 +83,10 @@ namespace QMC.CDT320.Sequencing
             while (true)
             {
                 ct.ThrowIfCancellationRequested();
-                _context.StopIfCycleStopRequested("AutoSequenceCoordinator.PickerProcessGate:" + gateHolder);
+                _context.StopIfCycleStopRequested(
+                    "AutoSequenceCoordinator.PickerProcessGate:" + gateHolder,
+                    ShouldDeferCycleStopForPickerDrain(side),
+                    "Picker target die drain");
 
                 await WaitLoaderInactiveBeforePickerStartAsync(gateHolder, ct).ConfigureAwait(false);
 
@@ -137,6 +148,28 @@ namespace QMC.CDT320.Sequencing
             return WaitAndSetPickerWorkZoneAsync(lease, lease.Side, zone, holder, ct);
         }
 
+        public Task<AutoSequenceCameraWorkZoneLease> BeginInputCameraWorkAsync(
+            string holder,
+            CancellationToken ct)
+        {
+            return WaitAndSetCameraWorkZoneAsync(
+                AutoSequenceCameraWorkKind.InputCamera,
+                PickerWorkZone.Input,
+                string.IsNullOrWhiteSpace(holder) ? "InputCamera" : holder,
+                ct);
+        }
+
+        public Task<AutoSequenceCameraWorkZoneLease> BeginOutputCameraWorkAsync(
+            string holder,
+            CancellationToken ct)
+        {
+            return WaitAndSetCameraWorkZoneAsync(
+                AutoSequenceCameraWorkKind.OutputCamera,
+                PickerWorkZone.Output,
+                string.IsNullOrWhiteSpace(holder) ? "OutputCamera" : holder,
+                ct);
+        }
+
         public void ResetPickerWorkZones(string reason)
         {
             lock (_pickerWorkZoneGate)
@@ -149,12 +182,108 @@ namespace QMC.CDT320.Sequencing
                 _rearPendingWorkZone = PickerWorkZone.Unknown;
                 _frontPendingWorkZoneOwner = "";
                 _rearPendingWorkZoneOwner = "";
+                _inputCameraZoneOwner = "";
+                _outputCameraZoneOwner = "";
             }
 
             Log.Write("Main", "SYSTEM", "AutoSequenceCoordinator",
                 "Picker work zones reset. reason=" + (reason ?? "-") + " - Reset");
             if (_context != null)
                 _context.LogPublic("[SEQ] Picker work zones reset. reason=" + (reason ?? "-"));
+        }
+
+        private bool ShouldDeferCycleStopForOutputCameraDrain(AutoSequenceCameraWorkKind kind)
+        {
+            if (kind != AutoSequenceCameraWorkKind.OutputCamera)
+                return false;
+            if (_context == null || !_context.IsCycleStopRequested)
+                return false;
+
+            return !IsControllerAlarm();
+        }
+
+        private bool ShouldDeferCycleStopForPickerDrain(PickerSequenceSide side)
+        {
+            if (_context == null || !_context.IsCycleStopRequested)
+                return false;
+            if (IsControllerAlarm())
+                return false;
+
+            MaterialLocationKind location = side == PickerSequenceSide.Front
+                ? MaterialLocationKind.PickerFront
+                : MaterialLocationKind.PickerRear;
+            for (int pickerNo = 1; pickerNo <= 4; pickerNo++)
+            {
+                DieMaterial die = MaterialStateService.GetDieAtPicker(location, pickerNo);
+                if (die != null && die.IsInputTarget)
+                    return true;
+            }
+
+            return false;
+        }
+
+        private bool IsControllerAlarm()
+        {
+            try
+            {
+                return _context != null &&
+                       _context.Controller != null &&
+                       _context.Controller.Status == EquipmentStatus.Alarm;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        private async Task<AutoSequenceCameraWorkZoneLease> WaitAndSetCameraWorkZoneAsync(
+            AutoSequenceCameraWorkKind kind,
+            PickerWorkZone zone,
+            string holder,
+            CancellationToken ct)
+        {
+            PickerWorkZone safeZone = PickerZoneInterlockRules.NormalizeInterlockZone(zone);
+            string safeHolder = string.IsNullOrWhiteSpace(holder) ? kind.ToString() : holder;
+            if (safeZone == PickerWorkZone.Unknown || safeZone == PickerWorkZone.Avoid)
+                return new AutoSequenceCameraWorkZoneLease(this, kind, PickerWorkZone.Unknown, safeHolder, false);
+
+            bool waitLogged = false;
+            while (true)
+            {
+                ct.ThrowIfCancellationRequested();
+                _context.StopIfCycleStopRequested(
+                    "AutoSequenceCoordinator.CameraWorkZone:" + kind + ":" + safeZone,
+                    ShouldDeferCycleStopForOutputCameraDrain(kind),
+                    "Output post-place inspection drain");
+
+                string reason;
+                if (ArePickersPhysicallyClearForCameraZone(safeZone, kind, safeHolder, out reason))
+                {
+                    lock (_pickerWorkZoneGate)
+                    {
+                        if (CanSetCameraWorkZoneNoLock(kind, safeZone, safeHolder, out reason))
+                        {
+                            SetCameraWorkZoneNoLock(kind, safeHolder);
+                            LogCameraWorkZoneApproved(kind, safeZone, safeHolder);
+                            return new AutoSequenceCameraWorkZoneLease(this, kind, safeZone, safeHolder, true);
+                        }
+                    }
+                }
+
+                if (!waitLogged)
+                {
+                    _context.LogPublic("[SEQ] AutoSequenceCoordinator camera work zone waiting. kind=" +
+                        kind + ", zone=" + safeZone + ", holder=" + safeHolder + ", reason=" + reason);
+                    Log.Write("Main", "SYSTEM", "AutoSequenceCoordinator",
+                        "Camera work zone waiting. kind=" + kind +
+                        ", zone=" + safeZone +
+                        ", holder=" + safeHolder +
+                        ", reason=" + reason + " - Wait");
+                    waitLogged = true;
+                }
+
+                await Task.Delay(PickerWorkZonePollIntervalMs, ct).ConfigureAwait(false);
+            }
         }
 
         private async Task<AutoSequenceLoaderWorkLease> BeginLoaderWorkAsync(
@@ -242,14 +371,14 @@ namespace QMC.CDT320.Sequencing
 
             try
             {
-                if (side == PickerSequenceSide.Rear)
-                    await Task.Delay(RearPickerFrontPrioritySettleMs, ct).ConfigureAwait(false);
-
                 bool waitLogged = false;
                 while (true)
                 {
                     ct.ThrowIfCancellationRequested();
-                    _context.StopIfCycleStopRequested("AutoSequenceCoordinator.PickerWorkZone:" + safeHolder + ":" + safeZone);
+                    _context.StopIfCycleStopRequested(
+                        "AutoSequenceCoordinator.PickerWorkZone:" + safeHolder + ":" + safeZone,
+                        ShouldDeferCycleStopForPickerDrain(side),
+                        "Picker target die drain");
 
                     string reason;
                     lock (_pickerWorkZoneGate)
@@ -315,7 +444,17 @@ namespace QMC.CDT320.Sequencing
             }
 
             if (oppositeZone == PickerWorkZone.Unknown || oppositeZone == PickerWorkZone.Avoid)
+            {
+                string cameraOwner;
+                if (IsCameraWorkZoneOccupiedNoLock(zone, out cameraOwner))
+                {
+                    reason = "camera is already using same work zone. request=" +
+                        zone + ", cameraOwner=" + cameraOwner;
+                    return false;
+                }
+
                 return true;
+            }
 
             if (PickerZoneInterlockRules.IsSameInterlockZone(zone, oppositeZone))
             {
@@ -325,7 +464,131 @@ namespace QMC.CDT320.Sequencing
                 return false;
             }
 
+            string activeCameraOwner;
+            if (IsCameraWorkZoneOccupiedNoLock(zone, out activeCameraOwner))
+            {
+                reason = "camera is already using same work zone. request=" +
+                    zone + ", cameraOwner=" + activeCameraOwner;
+                return false;
+            }
+
             return true;
+        }
+
+        private bool CanSetCameraWorkZoneNoLock(
+            AutoSequenceCameraWorkKind kind,
+            PickerWorkZone zone,
+            string holder,
+            out string reason)
+        {
+            reason = string.Empty;
+
+            string ownOwner = GetCameraWorkZoneOwnerNoLock(kind);
+            if (!string.IsNullOrWhiteSpace(ownOwner))
+            {
+                reason = kind + " work zone is already active. owner=" + ownOwner;
+                return false;
+            }
+
+            PickerWorkZone normalizedZone = PickerZoneInterlockRules.NormalizeInterlockZone(zone);
+            if (PickerZoneInterlockRules.IsSameInterlockZone(_frontWorkZone, normalizedZone))
+            {
+                reason = "front picker is using same work zone. zone=" + normalizedZone +
+                    ", owner=" + (string.IsNullOrWhiteSpace(_frontWorkZoneOwner) ? "-" : _frontWorkZoneOwner);
+                return false;
+            }
+
+            if (PickerZoneInterlockRules.IsSameInterlockZone(_rearWorkZone, normalizedZone))
+            {
+                reason = "rear picker is using same work zone. zone=" + normalizedZone +
+                    ", owner=" + (string.IsNullOrWhiteSpace(_rearWorkZoneOwner) ? "-" : _rearWorkZoneOwner);
+                return false;
+            }
+
+            string cameraOwner;
+            if (IsCameraWorkZoneOccupiedNoLock(normalizedZone, out cameraOwner))
+            {
+                reason = "another camera is using same work zone. zone=" + normalizedZone +
+                    ", owner=" + cameraOwner;
+                return false;
+            }
+
+            return true;
+        }
+
+        private bool ArePickersPhysicallyClearForCameraZone(
+            PickerWorkZone zone,
+            AutoSequenceCameraWorkKind kind,
+            string holder,
+            out string reason)
+        {
+            reason = string.Empty;
+
+            string frontDetail;
+            bool frontBlocking = PickerZoneInterlockRules.IsPickerBlockingZoneTransport(
+                _context.Machine,
+                true,
+                zone,
+                out frontDetail);
+
+            string rearDetail;
+            bool rearBlocking = PickerZoneInterlockRules.IsPickerBlockingZoneTransport(
+                _context.Machine,
+                false,
+                zone,
+                out rearDetail);
+
+            if (!frontBlocking && !rearBlocking)
+                return true;
+
+            reason = "picker physical zone is not clear for camera. kind=" + kind +
+                ", zone=" + zone +
+                ", holder=" + holder +
+                ", frontBlocking=" + frontBlocking +
+                ", front=" + frontDetail +
+                ", rearBlocking=" + rearBlocking +
+                ", rear=" + rearDetail;
+            return false;
+        }
+
+        private bool IsCameraWorkZoneOccupiedNoLock(PickerWorkZone zone, out string owner)
+        {
+            PickerWorkZone normalizedZone = PickerZoneInterlockRules.NormalizeInterlockZone(zone);
+            if (normalizedZone == PickerWorkZone.Input && !string.IsNullOrWhiteSpace(_inputCameraZoneOwner))
+            {
+                owner = _inputCameraZoneOwner;
+                return true;
+            }
+
+            if (normalizedZone == PickerWorkZone.Output && !string.IsNullOrWhiteSpace(_outputCameraZoneOwner))
+            {
+                owner = _outputCameraZoneOwner;
+                return true;
+            }
+
+            owner = string.Empty;
+            return false;
+        }
+
+        private string GetCameraWorkZoneOwnerNoLock(AutoSequenceCameraWorkKind kind)
+        {
+            switch (kind)
+            {
+                case AutoSequenceCameraWorkKind.InputCamera:
+                    return _inputCameraZoneOwner;
+                case AutoSequenceCameraWorkKind.OutputCamera:
+                    return _outputCameraZoneOwner;
+                default:
+                    return string.Empty;
+            }
+        }
+
+        private void SetCameraWorkZoneNoLock(AutoSequenceCameraWorkKind kind, string holder)
+        {
+            if (kind == AutoSequenceCameraWorkKind.InputCamera)
+                _inputCameraZoneOwner = holder ?? "";
+            else if (kind == AutoSequenceCameraWorkKind.OutputCamera)
+                _outputCameraZoneOwner = holder ?? "";
         }
 
         private void SetPickerPendingWorkZoneNoLock(PickerSequenceSide side, PickerWorkZone zone, string holder)
@@ -413,6 +676,33 @@ namespace QMC.CDT320.Sequencing
                 ", zone=" + lease.Zone + ", holder=" + lease.Owner);
         }
 
+        internal void ReleaseCameraWorkZone(AutoSequenceCameraWorkZoneLease lease)
+        {
+            if (lease == null)
+                return;
+
+            lock (_pickerWorkZoneGate)
+            {
+                if (lease.Kind == AutoSequenceCameraWorkKind.InputCamera)
+                {
+                    if (string.Equals(_inputCameraZoneOwner, lease.Owner, StringComparison.Ordinal))
+                        _inputCameraZoneOwner = "";
+                }
+                else if (lease.Kind == AutoSequenceCameraWorkKind.OutputCamera)
+                {
+                    if (string.Equals(_outputCameraZoneOwner, lease.Owner, StringComparison.Ordinal))
+                        _outputCameraZoneOwner = "";
+                }
+            }
+
+            Log.Write("Main", "SYSTEM", "AutoSequenceCoordinator",
+                "Camera work zone released. kind=" + lease.Kind +
+                ", zone=" + lease.Zone +
+                ", holder=" + lease.Owner + " - Reset");
+            _context.LogPublic("[SEQ] Camera work zone released. kind=" + lease.Kind +
+                ", zone=" + lease.Zone + ", holder=" + lease.Owner);
+        }
+
         private void LogPickerWorkZoneApproved(
             PickerSequenceSide side,
             PickerWorkZone zone,
@@ -425,6 +715,19 @@ namespace QMC.CDT320.Sequencing
                 ", holder=" + holder +
                 ", transition=" + transition + " - Ok");
             _context.LogPublic("[SEQ] Picker work zone approved. side=" + side +
+                ", zone=" + zone + ", holder=" + holder);
+        }
+
+        private void LogCameraWorkZoneApproved(
+            AutoSequenceCameraWorkKind kind,
+            PickerWorkZone zone,
+            string holder)
+        {
+            Log.Write("Main", "SYSTEM", "AutoSequenceCoordinator",
+                "Camera work zone approved. kind=" + kind +
+                ", zone=" + zone +
+                ", holder=" + holder + " - Ok");
+            _context.LogPublic("[SEQ] Camera work zone approved. kind=" + kind +
                 ", zone=" + zone + ", holder=" + holder);
         }
 
@@ -597,6 +900,44 @@ namespace QMC.CDT320.Sequencing
                 _frontLease.Dispose();
                 _frontLease = null;
             }
+        }
+    }
+
+    internal sealed class AutoSequenceCameraWorkZoneLease : IDisposable
+    {
+        private readonly AutoSequenceCoordinatorGate _gate;
+        private bool _disposed;
+
+        internal AutoSequenceCameraWorkZoneLease(
+            AutoSequenceCoordinatorGate gate,
+            AutoSequenceCameraWorkKind kind,
+            PickerWorkZone zone,
+            string owner,
+            bool active)
+        {
+            _gate = gate;
+            Kind = kind;
+            Zone = zone;
+            Owner = owner ?? "";
+            Active = active;
+        }
+
+        public AutoSequenceCameraWorkKind Kind { get; private set; }
+        public PickerWorkZone Zone { get; private set; }
+        public string Owner { get; private set; }
+        public bool Active { get; private set; }
+        public bool IsDisposed { get { return _disposed; } }
+
+        public void Dispose()
+        {
+            if (_disposed)
+                return;
+
+            _disposed = true;
+            if (Active && _gate != null)
+                _gate.ReleaseCameraWorkZone(this);
+
+            Active = false;
         }
     }
 

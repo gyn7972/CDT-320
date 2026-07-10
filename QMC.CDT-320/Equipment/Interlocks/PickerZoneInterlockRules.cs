@@ -2324,6 +2324,10 @@ namespace QMC.CDT320.Interlocks
                 IsActiveProcessWorkArea(machine, isFront, explicitProcessZone))
                 return explicitProcessZone;
 
+            PickerWorkZone inspectionContinuousProcessZone = ResolveInspectionContinuousProcessTargetZone(machine, isFront, targetName);
+            if (inspectionContinuousProcessZone != PickerWorkZone.Unknown)
+                return inspectionContinuousProcessZone;
+
             if (targetX.HasValue)
             {
                 PickerWorkZone byPosition = ResolveXZoneByPositionWithContext(machine, isFront, targetX.Value);
@@ -2350,6 +2354,10 @@ namespace QMC.CDT320.Interlocks
             string targetName)
         {
             PickerWorkZone byName = ParseZone(targetName);
+            PickerWorkZone inspectionContinuousProcessZone = ResolveInspectionContinuousProcessTargetZone(machine, isFront, targetName);
+            if (inspectionContinuousProcessZone != PickerWorkZone.Unknown)
+                return inspectionContinuousProcessZone;
+
             if (position.HasValue)
             {
                 PickerWorkZone byPosition = ResolveXZoneByPosition(machine, isFront, position.Value);
@@ -2648,6 +2656,32 @@ namespace QMC.CDT320.Interlocks
 
             PickerWorkZone zone = ParseZone(targetName);
             return IsProcessZone(zone) ? NormalizeInterlockZone(zone) : PickerWorkZone.Unknown;
+        }
+
+        // 인터락 기준: Bottom/Side 연속검사 중 PickerZ를 유지하는 X 이동은 실제 X encoder 범위가 Side 티칭 최대값을 넘어도 Process 존으로 본다.
+        private static PickerWorkZone ResolveInspectionContinuousProcessTargetZone(CDT320_Machine machine, bool isFront, string targetName)
+        {
+            try
+            {
+                MotionGuardMoveIntent intent = MotionGuardMoveIntent.Parse(targetName);
+                if (intent == null || !intent.InspectionContinuous || !intent.InspectionZHold)
+                    return PickerWorkZone.Unknown;
+
+                if (!IsProcessZone(intent.InspectionToZone))
+                    return PickerWorkZone.Unknown;
+
+                PickerWorkZone processZone = NormalizeInterlockZone(intent.InspectionToZone);
+                return IsActiveProcessWorkArea(machine, isFront, processZone)
+                    ? processZone
+                    : PickerWorkZone.Unknown;
+            }
+            catch
+            {
+                return PickerWorkZone.Unknown;
+            }
+            finally
+            {
+            }
         }
 
         // 인터락 기준: 현재 Picker가 점유 중인 Process 작업영역이 요청 Process 존과 일치하는지 확인한다.

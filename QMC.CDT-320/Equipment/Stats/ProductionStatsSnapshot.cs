@@ -17,6 +17,7 @@ namespace QMC.CDT320.Stats
             0, 0, 0,
             0.0, 0.0,
             0.0, 0.0,
+            0, 0.0,
             0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
             0,
             0.0, 0.0, 0.0,
@@ -30,6 +31,8 @@ namespace QMC.CDT320.Stats
             double cycleMsPerCycleInstant,
             double uphInstant,
             double uphEffective,
+            int recentMinuteDies,
+            double recentMinuteUph,
             double loadSeconds,
             double upSeconds,
             double contUpSeconds,
@@ -49,6 +52,8 @@ namespace QMC.CDT320.Stats
             CycleMsPerCycleInstant = cycleMsPerCycleInstant;
             UphInstant = uphInstant;
             UphEffective = uphEffective;
+            RecentMinuteDies = recentMinuteDies;
+            RecentMinuteUph = recentMinuteUph;
             LoadSeconds = loadSeconds;
             UpSeconds = upSeconds;
             ContUpSeconds = contUpSeconds;
@@ -78,6 +83,10 @@ namespace QMC.CDT320.Stats
         public double UphInstant { get; }
         /// <summary>실효 UPH = 양품수 × 3600 / 가동초.</summary>
         public double UphEffective { get; }
+        /// <summary>최근 60초 안에 Place 완료된 Die 수.</summary>
+        public int RecentMinuteDies { get; }
+        /// <summary>최근 1분 UPH = 최근 60초 Die 수 × 60.</summary>
+        public double RecentMinuteUph { get; }
 
         /// <summary>부하 시간[초] = 사이클 Start ~ 현재(또는 종료). 가동률 분모.</summary>
         public double LoadSeconds { get; }

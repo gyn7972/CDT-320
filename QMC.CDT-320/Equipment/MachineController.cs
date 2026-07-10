@@ -6337,7 +6337,9 @@ namespace QMC.CDT320
                     _autoProductionStopwatch = System.Diagnostics.Stopwatch.StartNew();
                 }
 
-                Stats.BeginLot(lotId, totalDies);
+                // 현재 기준: CycleStop 후 같은 LOT 재시작이면 작업 시간 통계를 이어간다.
+                if (!Stats.TryResumeLot(lotId))
+                    Stats.BeginLot(lotId, totalDies);
             }
             catch (Exception ex)
             {

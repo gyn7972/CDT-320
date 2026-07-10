@@ -223,23 +223,11 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 // ① 좌상단: 맵 뷰
                 Reparent(mapView, grpCreate, new Padding(0));
 
-                // ② 우상단: DIE MAP INFO | DIE STATE EDIT — 두 그룹 모두 하단까지 꽉 차게(Dock.Fill)
-                StyleAsQuadrantGroup(grpMapInfo, "DIE MAP INFO");
+                // ② 우상단: BIN / DIE INFO | DIE STATE EDIT — 두 그룹 모두 하단까지 꽉 차게(Dock.Fill)
+                StyleAsQuadrantGroup(grpMapInfo, "BIN / DIE INFO");
                 StyleAsQuadrantGroup(grpDieState, "DIE STATE EDIT");
 
-                // DIE MAP INFO: 9행이 그룹 높이를 균등하게 채우도록 Percent
-                mapInfoLayout.RowStyles.Clear();
-                mapInfoLayout.RowCount = 9;
-                for (int i = 0; i < 9; i++)
-                    mapInfoLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F / 9F));
-                // Die Number 값이 길어 줄바꿈되던 문제: 값 칸을 넓히고(40:60) 폰트를 줄여 한 줄로.
-                mapInfoLayout.ColumnStyles.Clear();
-                mapInfoLayout.ColumnCount = 2;
-                mapInfoLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 40F));
-                mapInfoLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 60F));
-                mapInfoLayout.Dock = DockStyle.Fill;
-                StyleInfoLabelsLikeOutput();                        // 아웃풋 BIN/DIE INFO 라벨 스타일과 통일
-                lblDieNum.Font = new System.Drawing.Font("Consolas", 8F);   // 긴 값은 한 줄 유지
+                ConfigureInputInfoLayoutLikeOutput();
 
                 // APPLY SELECTED DIE: 액션 버튼과 다른 '일반 버튼' 모양. 흰 배경에서 묻히지 않도록
                 //   연한 톤 배경 + 테두리로 버튼임을 명확히.
@@ -418,6 +406,79 @@ namespace QMC.CDT_320.Ui.Pages.Work
             winButton.FlatAppearance.MouseDownBackColor = System.Drawing.Color.FromArgb(0xD5, 0xDE, 0xE9);
         }
 
+        /// <summary>현재 기준: Input 전환 화면 Info도 Output 전환 화면의 BIN/DIE INFO와 같은 12행 구조로 표시한다.</summary>
+        private void ConfigureInputInfoLayoutLikeOutput()
+        {
+            if (mapInfoLayout == null)
+                return;
+
+            if (statusLayout != null)
+                statusLayout.Visible = false;
+
+            lblProjectCaption.Text = "Project Name";
+            lblBarcodeCaption.Text = "Source Wafer :";
+            lblBinCaption.Text = "Side :";
+            lblChipWCaption.Text = "Grid X";
+            lblChipHCaption.Text = "Grid Y";
+            lblPitchXCaption.Text = "Pitch X";
+            lblPitchYCaption.Text = "Pitch Y";
+            lblWaferDiaCaption.Text = "Progress";
+            lblAxisXCaption.Text = "X (mm)";
+            lblAxisYCaption.Text = "Y (mm)";
+            lblBinRankCaption.Text = "Bin / State";
+            lblDieNumCaption.Text = "Next Target";
+
+            mapInfoLayout.SuspendLayout();
+            try
+            {
+                mapInfoLayout.Controls.Clear();
+                mapInfoLayout.RowStyles.Clear();
+                mapInfoLayout.RowCount = 12;
+                for (int i = 0; i < 12; i++)
+                    mapInfoLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F / 12F));
+
+                mapInfoLayout.ColumnStyles.Clear();
+                mapInfoLayout.ColumnCount = 2;
+                mapInfoLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 44F));
+                mapInfoLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 56F));
+                mapInfoLayout.Dock = DockStyle.Fill;
+
+                AddInfoRow(mapInfoLayout, lblProjectCaption, lblProjectValue, 0);
+                AddInfoRow(mapInfoLayout, lblBarcodeCaption, lblBarcodeValue, 1);
+                AddInfoRow(mapInfoLayout, lblBinCaption, lblBinValue, 2);
+                AddInfoRow(mapInfoLayout, lblChipWCaption, lblChipW, 3);
+                AddInfoRow(mapInfoLayout, lblChipHCaption, lblChipH, 4);
+                AddInfoRow(mapInfoLayout, lblPitchXCaption, lblPitchX, 5);
+                AddInfoRow(mapInfoLayout, lblPitchYCaption, lblPitchY, 6);
+                AddInfoRow(mapInfoLayout, lblWaferDiaCaption, lblWaferDia, 7);
+                AddInfoRow(mapInfoLayout, lblAxisXCaption, lblAxisX, 8);
+                AddInfoRow(mapInfoLayout, lblAxisYCaption, lblAxisY, 9);
+                AddInfoRow(mapInfoLayout, lblBinRankCaption, lblBinRank, 10);
+                AddInfoRow(mapInfoLayout, lblDieNumCaption, lblDieNum, 11);
+            }
+            finally
+            {
+                mapInfoLayout.ResumeLayout();
+            }
+
+            StyleInfoLabelsLikeOutput();
+            lblDieNum.Font = new System.Drawing.Font("Consolas", 8F);
+        }
+
+        private static void AddInfoRow(TableLayoutPanel layout, Label caption, Label value, int row)
+        {
+            if (layout == null || caption == null || value == null)
+                return;
+
+            if (caption.Parent != null)
+                caption.Parent.Controls.Remove(caption);
+            if (value.Parent != null)
+                value.Parent.Controls.Remove(value);
+
+            layout.Controls.Add(caption, 0, row);
+            layout.Controls.Add(value, 1, row);
+        }
+
         /// <summary>DIE MAP INFO 캡션/값 라벨을 아웃풋 전환 페이지 BIN/DIE INFO 그룹과 동일한 스타일로 통일한다.</summary>
         private void StyleInfoLabelsLikeOutput()
         {
@@ -427,11 +488,13 @@ namespace QMC.CDT_320.Ui.Pages.Work
 
             Label[] captions =
             {
+                lblProjectCaption, lblBarcodeCaption, lblBinCaption,
                 lblChipWCaption, lblChipHCaption, lblPitchXCaption, lblPitchYCaption,
                 lblWaferDiaCaption, lblAxisXCaption, lblAxisYCaption, lblBinRankCaption, lblDieNumCaption
             };
             Label[] values =
             {
+                lblProjectValue, lblBarcodeValue, lblBinValue,
                 lblChipW, lblChipH, lblPitchX, lblPitchY,
                 lblWaferDia, lblAxisX, lblAxisY, lblBinRank, lblDieNum
             };
@@ -799,30 +862,14 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 {
                     ApplyMap(recipeMap, "RECIPE INPUT DIE MAP");
                     _pickStatusDirty = false;
-                    lblChipW.Text = (recipe.Die != null ? recipe.Die.WidthMm : 1.0).ToString("F3");
-                    lblChipH.Text = (recipe.Die != null ? recipe.Die.HeightMm : 1.0).ToString("F3");
-                    lblPitchX.Text = recipeMap.PitchX.ToString("F3");
-                    lblPitchY.Text = recipeMap.PitchY.ToString("F3");
-                    lblWaferDia.Text = recipeMap.OuterDiameterMm > 0.0
-                        ? recipeMap.OuterDiameterMm.ToString("F0")
-                        : recipe.Frame.OuterDiameterMm.ToString("F0");
-                    lblBarcodeValue.Text = "--";
-                    lblProjectValue.Text = GetCurrentProjectName();
+                    ApplyInputInfoValues(recipeMap);
                     return;
                 }
 
                 DieMap preview = CreateInputCircleMapFromRecipe(recipe);
                 ApplyMap(preview, "RECIPE INPUT CIRCLE DIE MAP");
                 _pickStatusDirty = false;
-                lblChipW.Text = (recipe.Die != null ? recipe.Die.WidthMm : 1.0).ToString("F3");
-                lblChipH.Text = (recipe.Die != null ? recipe.Die.HeightMm : 1.0).ToString("F3");
-                lblPitchX.Text = recipe.Frame.PitchX.ToString("F3");
-                lblPitchY.Text = recipe.Frame.PitchY.ToString("F3");
-                lblWaferDia.Text = recipe.Frame.OuterDiameterMm.ToString("F0");
-                lblBarcodeValue.Text = "--";
-                lblBinValue.Text = "0";
-                lblDieNum.Text = "0 / " + (mapView.Map != null ? mapView.Map.TotalCells.ToString() : "0");
-                lblProjectValue.Text = GetCurrentProjectName();
+                ApplyInputInfoValues(preview);
             }
             catch { }
         }
@@ -1178,13 +1225,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 ClearPendingManualInputDieDetectOffset();
 
                 lblMapTitle.Text = title;
-                lblProjectValue.Text = GetCurrentProjectName();
-                lblBarcodeValue.Text = ResolveActiveWaferId();
-                lblBinValue.Text = "0";
-                lblPitchX.Text = map != null ? map.PitchX.ToString("F3") : "0";
-                lblPitchY.Text = map != null ? map.PitchY.ToString("F3") : "0";
-                lblDieNum.Text = "0 / " + CountVisibleInputDieMapEntries(map).ToString();
-                ApplySpecInfoFromRecipe();
+                ApplyInputInfoValues(map);
                 RefreshDieGrid();
                 if (_selectedEntry != null)
                 {
@@ -1305,24 +1346,127 @@ namespace QMC.CDT_320.Ui.Pages.Work
             }
         }
 
-        private void ApplySpecInfoFromRecipe()
+        private void ApplyInputInfoValues(DieMap map)
         {
             try
             {
-                var list = RecipeStore.List();
-                if (list == null || list.Count == 0)
-                    return;
+                lblProjectValue.Text = GetCurrentProjectName();
+                lblBarcodeValue.Text = ResolveActiveWaferId();
+                lblBinValue.Text = "INPUT";
+                lblChipW.Text = map != null ? map.DieMapX.ToString() : "0";
+                lblChipH.Text = map != null ? map.DieMapY.ToString() : "0";
+                lblPitchX.Text = map != null ? map.PitchX.ToString("F3") : "0";
+                lblPitchY.Text = map != null ? map.PitchY.ToString("F3") : "0";
+                lblWaferDia.Text = BuildInputProgressText(map);
+                lblDieNum.Text = BuildInputNextTargetText(map);
 
-                var recipe = RecipeStore.Load(list[0]);
-                if (recipe == null)
-                    return;
-
-                lblChipW.Text = (recipe.Die != null ? recipe.Die.WidthMm : 1.0).ToString("F3");
-                lblChipH.Text = (recipe.Die != null ? recipe.Die.HeightMm : 1.0).ToString("F3");
-                lblWaferDia.Text = (recipe.Frame != null ? recipe.Frame.OuterDiameterMm : 0.0).ToString("F0");
+                if (_selectedEntry == null)
+                {
+                    lblAxisX.Text = "0";
+                    lblAxisY.Text = "0";
+                    lblBinRank.Text = ResolveInputWaferStateText();
+                }
             }
             catch
             {
+            }
+            finally
+            {
+            }
+        }
+
+        private string ResolveInputWaferStateText()
+        {
+            try
+            {
+                WaferMaterial wafer = MaterialStateService.GetWaferAtLocation(MaterialLocationKind.InputStage);
+                return wafer != null ? WaferMaterialStateText.ToDisplayName(wafer.State) : "EMPTY";
+            }
+            catch
+            {
+                return "EMPTY";
+            }
+            finally
+            {
+            }
+        }
+
+        private string BuildInputProgressText(DieMap map)
+        {
+            try
+            {
+                int target = _inputDieMapStats.Target > 0
+                    ? _inputDieMapStats.Target
+                    : CountVisibleInputDieMapEntries(map);
+                if (target <= 0)
+                    return "0 / 0";
+
+                int progress = _inputDieMapStats.Done +
+                    _inputDieMapStats.InspectionDone +
+                    _inputDieMapStats.PickComplete;
+                if (progress < 0)
+                    progress = 0;
+                if (progress > target)
+                    progress = target;
+
+                return progress.ToString() + " / " + target.ToString();
+            }
+            catch
+            {
+                return "0 / 0";
+            }
+            finally
+            {
+            }
+        }
+
+        private string BuildInputNextTargetText(DieMap map)
+        {
+            try
+            {
+                int total = CountVisibleInputDieMapEntries(map);
+                if (map == null || map.Entries == null || total <= 0)
+                    return "NO MAP";
+
+                List<DieMapEntry> entries = BuildDisplayEntries(map);
+                for (int i = 0; i < entries.Count; i++)
+                {
+                    DieMapEntry entry = entries[i];
+                    if (entry == null || !entry.IsTarget)
+                        continue;
+                    if (entry.Result == DieResult.Good || entry.Result == DieResult.NG)
+                        continue;
+                    if (ResolveInputDieMapCellState(entry) == InputDieMapCellState.PickComplete)
+                        continue;
+
+                    int order = entry.SequenceNo > 0 ? entry.SequenceNo : i + 1;
+                    return BuildEntryMapText(entry) + " / " + order.ToString();
+                }
+
+                return "COMPLETE";
+            }
+            catch
+            {
+                return "NO MAP";
+            }
+            finally
+            {
+            }
+        }
+
+        private string BuildInputBinStateText(DieMapEntry entry)
+        {
+            try
+            {
+                if (entry == null)
+                    return ResolveInputWaferStateText();
+
+                string stateText = MaterialStateService.ResolveInputDieDisplayState(entry);
+                return entry.BinCode.ToString() + " / " + stateText;
+            }
+            catch
+            {
+                return "-";
             }
             finally
             {
@@ -1403,8 +1547,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 }
             }
 
-            lblDieNum.Text = processed + " / " + CountVisibleInputDieMapEntries(map);
             RefreshDieGrid();
+            ApplyInputInfoValues(map);
             mapView.Invalidate();
         }
 
@@ -4750,9 +4894,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 _selectedEntry = entry;
                 lblAxisX.Text = entry.PosX.ToString("F3");
                 lblAxisY.Text = entry.PosY.ToString("F3");
-                lblBinRank.Text = entry.BinCode.ToString();
-                lblDieNum.Text = string.Format("[{0},{1}] / {2}", ResolveEntryMapX(entry), ResolveEntryMapY(entry),
-                    CountVisibleInputDieMapEntries(mapView.Map));
+                lblBinRank.Text = BuildInputBinStateText(entry);
+                lblDieNum.Text = BuildInputNextTargetText(mapView.Map);
                 SetDieStateRadioFromEntry(entry);
                 SelectGridRow(entry);
             }
@@ -5130,9 +5273,6 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     return SkipColor;
 
                 InputDieMapCellState state = ResolveInputDieMapCellState(entry);
-                if (state == InputDieMapCellState.PickComplete)
-                    return PickCompleteColor;
-
                 if (entry.Result == DieResult.NG)
                 {
                     int binCode = entry.BinCode > 0 ? entry.BinCode : BinCodeMap.MaxBin;
@@ -5142,7 +5282,13 @@ namespace QMC.CDT_320.Ui.Pages.Work
                         : color;
                 }
 
-                if (state == InputDieMapCellState.InspectionDone || entry.Result == DieResult.Good)
+                if (entry.Result == DieResult.Good)
+                    return BinCodeMap.ConvertToBinCodeColor(BinCodeMap.GoodBin);
+
+                if (state == InputDieMapCellState.PickComplete)
+                    return PickCompleteColor;
+
+                if (state == InputDieMapCellState.InspectionDone)
                     return InspectionDoneColor;
 
                 if (state == InputDieMapCellState.InspectionWait)
@@ -5172,11 +5318,13 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     return "픽업 제외";
 
                 InputDieMapCellState state = ResolveInputDieMapCellState(entry);
-                if (state == InputDieMapCellState.PickComplete)
-                    return "픽업완료";
+                if (entry.Result == DieResult.Good)
+                    return "GOOD";
                 if (entry.Result == DieResult.NG)
-                    return "검사NG";
-                if (state == InputDieMapCellState.InspectionDone || entry.Result == DieResult.Good)
+                    return "NG";
+                if (state == InputDieMapCellState.PickComplete)
+                    return "픽커 보유";
+                if (state == InputDieMapCellState.InspectionDone)
                     return "검사완료";
 
                 return "검사대기";
@@ -5209,7 +5357,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
             {
                 Tuple.Create("검사대기", InspectionWaitColor),
                 Tuple.Create("검사완료", InspectionDoneColor),
-                Tuple.Create("픽업완료", PickCompleteColor),
+                Tuple.Create("픽커보유", PickCompleteColor),
+                Tuple.Create("GOOD", BinCodeMap.ConvertToBinCodeColor(BinCodeMap.GoodBin)),
                 Tuple.Create("NG", System.Drawing.Color.IndianRed),
                 Tuple.Create("제외", SkipColor),
             };
@@ -5266,23 +5415,26 @@ namespace QMC.CDT_320.Ui.Pages.Work
                         continue;
 
                     stats.Target++;
-                    if (state == InputDieMapCellState.PickComplete)
-                        stats.PickComplete++;
-                    else if (state == InputDieMapCellState.InspectionDone || entry.Result == DieResult.Good)
-                        stats.InspectionDone++;
-                    else
-                        stats.InspectionWait++;
-
                     if (entry.Result == DieResult.Good)
                     {
                         stats.Good++;
                         stats.Done++;
+                        continue;
                     }
-                    else if (entry.Result == DieResult.NG)
+
+                    if (entry.Result == DieResult.NG)
                     {
                         stats.Ng++;
                         stats.Done++;
+                        continue;
                     }
+
+                    if (state == InputDieMapCellState.PickComplete)
+                        stats.PickComplete++;
+                    else if (state == InputDieMapCellState.InspectionDone)
+                        stats.InspectionDone++;
+                    else
+                        stats.InspectionWait++;
                 }
 
                 return stats;
@@ -5350,7 +5502,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     ? InputDieMapCellState.InspectionDone
                     : InputDieMapCellState.InspectionWait;
 
-            if (IsInputDiePicked(die))
+            if (IsInputDieOnPicker(die))
                 return InputDieMapCellState.PickComplete;
 
             if (HasInputPickVisionInspection(die) ||
@@ -5360,24 +5512,14 @@ namespace QMC.CDT_320.Ui.Pages.Work
             return InputDieMapCellState.InspectionWait;
         }
 
-        private static bool IsInputDiePicked(DieMaterial die)
+        private static bool IsInputDieOnPicker(DieMaterial die)
         {
             if (die == null)
                 return false;
 
-            if (HasValidPickedAt(die.PickedAt) ||
-                die.PickedPickerLocation == MaterialLocationKind.PickerFront ||
-                die.PickedPickerLocation == MaterialLocationKind.PickerRear ||
-                die.PickedPickerNo >= 0)
-                return true;
-
             return die.CurrentLocation != null &&
                    (die.CurrentLocation.Kind == MaterialLocationKind.PickerFront ||
-                    die.CurrentLocation.Kind == MaterialLocationKind.PickerRear ||
-                    die.CurrentLocation.Kind == MaterialLocationKind.OutputStageGood ||
-                    die.CurrentLocation.Kind == MaterialLocationKind.OutputStageNg ||
-                    die.CurrentLocation.Kind == MaterialLocationKind.OutputFeeder ||
-                    die.CurrentLocation.Kind == MaterialLocationKind.OutputCassette);
+                    die.CurrentLocation.Kind == MaterialLocationKind.PickerRear);
         }
 
         private static bool HasValidPickedAt(DateTime pickedAt)
@@ -5512,31 +5654,21 @@ namespace QMC.CDT_320.Ui.Pages.Work
             {
                 if (map == null || map.Entries == null)
                 {
-                    lblBinValue.Text = "0";
-                    lblDieNum.Text = "0 / 0";
+                    ApplyInputInfoValues(null);
                     return;
                 }
 
-                int target = 0;
-                int good = 0;
-                int ng = 0;
-                foreach (DieMapEntry entry in map.Entries)
+                ApplyInputInfoValues(map);
+                if (_selectedEntry != null)
                 {
-                    if (entry == null)
-                        continue;
-                    if (!IsVisibleInputDieMapEntry(entry))
-                        continue;
-                    if (entry.IsTarget)
-                        target++;
-                    if (entry.Result == DieResult.Good)
-                        good++;
-                    else if (entry.Result == DieResult.NG)
-                        ng++;
+                    DieMapEntry currentSelection = FindEquivalentEntry(map, _selectedEntry);
+                    if (currentSelection != null)
+                    {
+                        lblAxisX.Text = currentSelection.PosX.ToString("F3");
+                        lblAxisY.Text = currentSelection.PosY.ToString("F3");
+                        lblBinRank.Text = BuildInputBinStateText(currentSelection);
+                    }
                 }
-
-                int displayCount = CountVisibleInputDieMapEntries(map);
-                lblBinValue.Text = target.ToString();
-                lblDieNum.Text = "TARGET " + target + " / MAP " + displayCount + " / G " + good + " / NG " + ng;
             }
             catch
             {

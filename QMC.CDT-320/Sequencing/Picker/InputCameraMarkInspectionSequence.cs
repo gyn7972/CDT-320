@@ -10,6 +10,7 @@ namespace QMC.CDT320.Sequencing
         private readonly List<int> _enabledPickerIndexes = new List<int>();
         private readonly List<InputDieVisionPreparedItem> _inspectedItems = new List<InputDieVisionPreparedItem>();
         private SequenceResourceLease _inputStageLease;
+        private AutoSequenceCameraWorkZoneLease _cameraWorkLease;
 
         public InputCameraMarkInspectionSequence(MachineSequenceContext context, PickerSequenceSide side)
             : base(context, side, PickerSequenceKind.PickUp, side == PickerSequenceSide.Front ? "FrontInputCameraMarkInspectionSequence" : "RearInputCameraMarkInspectionSequence")
@@ -61,6 +62,7 @@ namespace QMC.CDT320.Sequencing
             }
             finally
             {
+                ReleaseInputCameraWorkZone();
                 ReleaseInputStageArea();
             }
         }
@@ -181,6 +183,10 @@ namespace QMC.CDT320.Sequencing
                 }
                 else
                 {
+                    int cameraZoneResult = await AcquireInputCameraWorkZoneAsync(ct).ConfigureAwait(false);
+                    if (cameraZoneResult != 0)
+                        return cameraZoneResult;
+
                     WriteLog("InputCameraMarkInspectionSequence",
                         Name + " InputCamera 선행검사 모드: Picker/Input 영역 대기 중에는 InputStageArea를 점유하지 않고 실제 Stage/Vision 이동 시점에만 점유합니다. side=" +
                         Side + " - Check");
@@ -215,10 +221,79 @@ namespace QMC.CDT320.Sequencing
             {
                 throw;
             }
+            catch (SequenceStopException)
+            {
+                throw;
+            }
             catch (Exception ex)
             {
                 return Fail("INPUT-CAMERA-MARK-INSPECTION-RUN-EX", Name,
                     "Input camera mark inspection run failed. error=" + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private async Task<int> AcquireInputCameraWorkZoneAsync(CancellationToken ct)
+        {
+            try
+            {
+                if (!IsInputCameraPreInspectionMode())
+                    return 0;
+
+                if (_cameraWorkLease != null && !_cameraWorkLease.IsDisposed)
+                    return 0;
+
+                if (Context == null || Context.AutoSequenceGate == null)
+                    return 0;
+
+                _cameraWorkLease = await Context.AutoSequenceGate
+                    .BeginInputCameraWorkAsync(Name + ":InputCameraPreInspection:" + Side, ct)
+                    .ConfigureAwait(false);
+
+                WriteLog("InputCameraMarkInspectionSequence",
+                    Name + " InputCamera pre-inspection Input zone approved. " +
+                    "AutoSequenceCoordinator now owns InputCamera/Picker Input zone arbitration. side=" +
+                    Side + " - Ok");
+                return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (SequenceStopException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("INPUT-CAMERA-MARK-INSPECTION-ZONE-EX", Name,
+                    "InputCamera pre-inspection Input zone approval failed. side=" + Side +
+                    ", error=" + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private void ReleaseInputCameraWorkZone()
+        {
+            try
+            {
+                if (_cameraWorkLease == null)
+                    return;
+
+                _cameraWorkLease.Dispose();
+                _cameraWorkLease = null;
+                WriteLog("InputCameraMarkInspectionSequence",
+                    Name + " InputCamera pre-inspection Input zone released. side=" + Side + " - Ok");
+            }
+            catch (Exception ex)
+            {
+                WriteLog("InputCameraMarkInspectionSequence",
+                    Name + " InputCamera pre-inspection Input zone release failed. side=" + Side +
+                    ", error=" + ex.Message + " - Failed");
             }
             finally
             {

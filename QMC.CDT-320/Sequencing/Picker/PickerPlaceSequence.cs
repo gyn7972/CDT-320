@@ -803,7 +803,10 @@ namespace QMC.CDT320.Sequencing
                     }
 
                     WriteLog("PickerPlaceSequence", Name + " Place 대기: " + detail + " - Wait");
-                    Context.StopIfCycleStopRequested("PickerPlaceSequence.WaitOutputStageReady");
+                    Context.StopIfCycleStopRequested(
+                        "PickerPlaceSequence.WaitOutputStageReady",
+                        ShouldDeferCycleStopForPickerDrain(),
+                        "Picker Place drain");
                     await Task.Delay(1, ct).ConfigureAwait(false);
                 }
 

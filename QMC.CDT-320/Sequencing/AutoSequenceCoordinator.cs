@@ -81,7 +81,11 @@ namespace QMC.CDT320.Sequencing
 
             // §4: 이번 run의 크로스-픽커 첫 전진 우선순위 상태를 초기화한다(신규 시작/재시작 순서 게이트).
             PickerFirstForwardSequencer.BeginRun();
+            PickerFirstForwardSequencer.ConfigureActiveSides(
+                IsPickerSideActive(PickerSequenceSide.Front),
+                IsPickerSideActive(PickerSequenceSide.Rear));
             ConfigureRestartPickerDrain();
+            await RestorePendingOutputPostPlaceInspectionAsync(ct).ConfigureAwait(false);
 
             CancellationTokenSource childrenCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
             _childrenCts = childrenCts;
@@ -101,8 +105,7 @@ namespace QMC.CDT320.Sequencing
             {
                 _ctx.LogPublic("[SEQ] Run stopped");
                 tactScope.Stop("", "시퀀스가 Cycle Stop 경계에서 정지되었습니다.");
-                AbortChildren();
-                await AwaitPendingAfterAbortAsync(tasks).ConfigureAwait(false);
+                await AwaitPendingAfterCycleStopAsync(tasks, false).ConfigureAwait(false);
                 throw;
             }
             catch (OperationCanceledException)
@@ -200,6 +203,45 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
+        private async Task RestorePendingOutputPostPlaceInspectionAsync(CancellationToken ct)
+        {
+            try
+            {
+                if (_ctx == null || _ctx.OutputPostPlaceInspections == null)
+                    return;
+
+                int restored = _ctx.OutputPostPlaceInspections.EnqueuePendingMaterialInspections(
+                    "AutoSequenceCoordinator:RunStart",
+                    false,
+                    10000,
+                    ct);
+                if (restored < 0)
+                    throw new InvalidOperationException("Run start pending Output camera post-place inspection restore failed. result=" + restored);
+                if (restored == 0)
+                    return;
+
+                _ctx.LogPublic("[SEQ] Run start 이전 Output camera 미완료 후검사를 먼저 처리합니다. count=" +
+                               restored);
+                int idleResult = await _ctx.OutputPostPlaceInspections.WaitUntilIdleAsync(
+                    "AutoSequenceCoordinator:RunStartPendingOutputInspection",
+                    0,
+                    ct).ConfigureAwait(false);
+                if (idleResult != 0)
+                    throw new InvalidOperationException("Run start pending Output camera post-place inspection failed. result=" + idleResult);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Log.Write("Main", "SYSTEM", "AutoSequenceCoordinator",
+                    "Run start pending Output camera post-place inspection restore failed. error=" +
+                    ex.Message + " - Failed");
+                throw;
+            }
+        }
+
         private void ResolveRestartPickerDrain(
             PickerSequenceSide side,
             out bool required,
@@ -217,8 +259,7 @@ namespace QMC.CDT320.Sequencing
             }
 
             bool hasPickerDie = false;
-            bool hasPlaceReadyDie = false;
-            bool hasInspectionPendingDie = false;
+            bool hasTargetPickerDie = false;
             MaterialLocationKind location = side == PickerSequenceSide.Front
                 ? MaterialLocationKind.PickerFront
                 : MaterialLocationKind.PickerRear;
@@ -230,28 +271,17 @@ namespace QMC.CDT320.Sequencing
                     continue;
 
                 hasPickerDie = true;
-                bool bottomDone = HasInspectionResult(die, "Bottom");
-                bool side0Done = HasInspectionResult(die, "Side0");
-                bool side90Done = HasInspectionResult(die, "Side90");
-                if (bottomDone && side0Done && side90Done && IsPlaceResultReady(die))
-                    hasPlaceReadyDie = true;
-                else
-                    hasInspectionPendingDie = true;
+                if (die.IsInputTarget)
+                    hasTargetPickerDie = true;
             }
 
-            if (hasPlaceReadyDie)
-            {
-                required = true;
-                rank = PickerFirstForwardSequencer.RankPlace;
-                reason = "place-ready die remains on picker";
-                return;
-            }
-
-            if (hasInspectionPendingDie || hasPickerDie)
+            if (hasTargetPickerDie || hasPickerDie)
             {
                 required = true;
                 rank = PickerFirstForwardSequencer.RankBottomSide;
-                reason = "inspection/picked die remains on picker";
+                reason = hasTargetPickerDie
+                    ? "picked die remains on picker; Bottom/Side reinspection required"
+                    : "non-target die remains on picker; operator/material recovery required";
                 return;
             }
 
@@ -287,32 +317,6 @@ namespace QMC.CDT320.Sequencing
             {
                 return false;
             }
-        }
-
-        private static bool HasInspectionResult(DieMaterial die, string inspectionType)
-        {
-            if (die == null || die.Inspections == null || string.IsNullOrWhiteSpace(inspectionType))
-                return false;
-
-            for (int i = 0; i < die.Inspections.Count; i++)
-            {
-                DieInspectionRecord record = die.Inspections[i];
-                if (record == null)
-                    continue;
-
-                if (!string.Equals(record.InspectionType, inspectionType, StringComparison.OrdinalIgnoreCase))
-                    continue;
-
-                return record.Result != MaterialInspectionResult.Unknown;
-            }
-
-            return false;
-        }
-
-        private static bool IsPlaceResultReady(DieMaterial die)
-        {
-            return die != null &&
-                   (die.Result == DieResult.Good || die.Result == DieResult.NG);
         }
 
         /// <summary>Manual 또는 Step 모드에서 지정 유닛을 1단계 진행시킵니다.</summary>
@@ -378,7 +382,7 @@ namespace QMC.CDT320.Sequencing
                     {
                         string reason = SequenceStopException.ResolveReason(completed.Exception ?? ex);
                         _ctx.LogPublic("[SEQ] Cycle Stop 경계에서 유닛 시퀀스가 정상 정지되었습니다. " + reason);
-                        await AwaitPendingAfterCycleStopAsync(pending).ConfigureAwait(false);
+                        await AwaitPendingAfterCycleStopAsync(pending, false).ConfigureAwait(false);
                         throw new SequenceStopException(reason);
                     }
 
@@ -391,7 +395,7 @@ namespace QMC.CDT320.Sequencing
                     {
                         _ctx.RequestCycleStop();
                         _ctx.LogPublic("[SEQ] 유닛 알람 발생. 다른 유닛은 현재 작업 경계에서 정지합니다.");
-                        await AwaitPendingAfterCycleStopAsync(pending).ConfigureAwait(false);
+                        await AwaitPendingAfterCycleStopAsync(pending, true).ConfigureAwait(false);
                     }
 
                     if (ex != null)
@@ -489,7 +493,7 @@ namespace QMC.CDT320.Sequencing
             return unchecked(System.Environment.TickCount - startTick);
         }
 
-        private async Task AwaitPendingAfterCycleStopAsync(List<Task> pending)
+        private async Task AwaitPendingAfterCycleStopAsync(List<Task> pending, bool abortOnTimeout)
         {
             if (pending == null || pending.Count == 0)
                 return;
@@ -516,7 +520,7 @@ namespace QMC.CDT320.Sequencing
                             ", intervalMs=" + AbortPendingWaitLogIntervalMs + " - Wait");
                     }
 
-                    if (ElapsedMilliseconds(waitStartTick) >= CycleStopPendingWaitTimeoutMs)
+                    if (abortOnTimeout && ElapsedMilliseconds(waitStartTick) >= CycleStopPendingWaitTimeoutMs)
                     {
                         _ctx.LogPublic("[SEQ] Cycle Stop 경계 대기 시간이 초과되어 남은 시퀀스를 취소합니다. pending=" +
                                        pending.Count);
