@@ -360,6 +360,8 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 "구 분리 동작에서 Picker와 Needle을 어떤 순서로 벌릴지 정하던 옵션입니다.\r\n현재 Step 07은 PickerZ Separate 이동 후 EjectPinZ/NeedleZ Avoid 고정 순서라 이 값은 현재 흐름에서 사용하지 않습니다."), groupKey));
             items.Add(InGroup(Describe(ParameterGridItem.Int("VACUUM BEFORE PICK DELAY", "ms", ParameterGridScope.Config, () => pickUp.VacuumOnBeforePickDelayMs, v => pickUp.VacuumOnBeforePickDelayMs = Math.Max(0, v)),
                 "Picker Vacuum을 ON 한 뒤 PickerZ를 PickPosition으로 내리기 전에 기다리는 시간입니다.\r\n기본 Vacuum settle 시간보다 크면 이 값만큼 대기합니다."), groupKey));
+            items.Add(InGroup(Describe(ParameterGridItem.Int("SYNC LIFT SETTLE", "ms", ParameterGridScope.Config, () => pickUp.SyncLiftSettleMs, v => pickUp.SyncLiftSettleMs = Math.Max(0, v)),
+                "Sync Lift 완료 직후 PickerZ Separate 전에 기다리는 시간입니다.\r\n자동 PickUp과 PickUp Test Step 06에서 같이 적용됩니다."), groupKey));
             items.Add(InGroup(Describe(ParameterGridItem.Int("PICK SETTLE", "ms", ParameterGridScope.Config, () => pickUp.PickSettleMs, v => pickUp.PickSettleMs = Math.Max(0, v)),
                 "PickUp Z 동작 후 흡착 확인/Material 갱신 전에 기다리는 안정화 시간입니다.\r\nDie가 흔들리거나 진공 응답이 늦을 때 늘립니다."), groupKey));
         }
@@ -392,14 +394,11 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
 
             place.Ensure();
             items.Add(InGroup(Describe(ParameterGridItem.Selection<PickerPlaceMotionMode>("PLACE MOTION MODE", "mode", ParameterGridScope.Config, () => place.MotionMode, v => place.MotionMode = v),
-                "Default는 기존 Place 이동 순서를 사용합니다.\r\nSynchronizedArrival은 OutputStageY/PickerX/PickerZ 동시 도착 보간을 사용합니다.\r\nContiSegmentedPlace는 이전 Z1 상승과 현재 Z2 접근을 5개 ContiNode로 나누어 연속 구동합니다."), groupKey));
-            items.Add(InGroup(ParameterGridItem.Int("PLACE SYNC COORDINATE", "coord", ParameterGridScope.Config, () => place.InterpolationCoordinate, v => place.InterpolationCoordinate = Math.Max(0, v)), groupKey));
-            items.Add(InGroup(ParameterGridItem.Double("PLACE SYNC VELOCITY", AxisUnitConverter.Millimeter + "/s", ParameterGridScope.Config, () => place.SynchronizedVelocity, v => place.SynchronizedVelocity = PickerPickUpMotionConfig.NormalizePositive(v, 1.0)), groupKey));
-            items.Add(InGroup(ParameterGridItem.Double("PLACE SYNC ACC", AxisUnitConverter.Millimeter + "/s2", ParameterGridScope.Config, () => place.SynchronizedAcceleration, v => place.SynchronizedAcceleration = PickerPickUpMotionConfig.NormalizePositive(v, 10.0)), groupKey));
-            items.Add(InGroup(ParameterGridItem.Double("PLACE SYNC DEC", AxisUnitConverter.Millimeter + "/s2", ParameterGridScope.Config, () => place.SynchronizedDeceleration, v => place.SynchronizedDeceleration = PickerPickUpMotionConfig.NormalizePositive(v, 10.0)), groupKey));
-            items.Add(InGroup(ParameterGridItem.Int("PLACE SYNC TIMEOUT", "ms", ParameterGridScope.Config, () => place.SynchronizedTimeoutMs, v => place.SynchronizedTimeoutMs = Math.Max(1, v)), groupKey));
-            items.Add(InGroup(Describe(ParameterGridItem.Double("PLACE SYNC MAX TRAVEL", AxisUnitConverter.Millimeter, ParameterGridScope.Config, () => place.MaxSynchronizedTravelDistance, v => place.MaxSynchronizedTravelDistance = PickerPickUpMotionConfig.NormalizePositive(v, 37.0)),
-                "현재 위치에서 Place 목표 위치까지 한 축이라도 이 거리보다 많이 움직이면 보간을 사용하지 않고 기존 이동 방식으로 접근합니다.\r\n알람/정지 후 Avoid 위치에서 재시작할 때 긴 거리를 보간으로 이동하지 않게 막는 값입니다."), groupKey));
+                "Default는 기존 Place 이동 순서를 사용합니다.\r\nContiSegmentedPlace는 이전 Z1 상승과 현재 Z2 접근을 5개 ContiNode로 나누어 연속 구동합니다."), groupKey));
+            items.Add(InGroup(ParameterGridItem.Int("PLACE CONTI COORDINATE", "coord", ParameterGridScope.Config, () => place.ContiCoordinate, v => place.ContiCoordinate = Math.Max(1, v)), groupKey));
+            items.Add(InGroup(ParameterGridItem.Int("PLACE CONTI TIMEOUT", "ms", ParameterGridScope.Config, () => place.ContiTimeoutMs, v => place.ContiTimeoutMs = Math.Max(1, v)), groupKey));
+            items.Add(InGroup(Describe(ParameterGridItem.Double("PLACE CONTI MAX TRAVEL", AxisUnitConverter.Millimeter, ParameterGridScope.Config, () => place.ContiMaxTravelDistance, v => place.ContiMaxTravelDistance = PickerPickUpMotionConfig.NormalizePositive(v, 45.0)),
+                "현재 위치에서 Place 목표 위치까지 한 축이라도 이 거리보다 많이 움직이면 ContiNode를 사용하지 않고 기존 이동 방식으로 접근합니다.\r\n알람/정지 후 Avoid 위치에서 재시작할 때 긴 거리를 ContiNode로 이동하지 않게 막는 값입니다."), groupKey));
             items.Add(InGroup(Describe(ParameterGridItem.Double("PLACE CONTI Z1 STEP1 CLEAR", AxisUnitConverter.Millimeter, ParameterGridScope.Config, () => place.ContiZ1Step1Clearance, v => place.ContiZ1Step1Clearance = Math.Max(0.0, v)),
                 "ContiSegmentedPlace node0에서 이전 PickerZ(Z1)를 티칭 Place 기준 + Tape + Die 위치보다 위로 올리는 1단 회피량입니다."), groupKey));
             items.Add(InGroup(Describe(ParameterGridItem.Double("PLACE CONTI Z1 STEP2 CLEAR", AxisUnitConverter.Millimeter, ParameterGridScope.Config, () => place.ContiZ1Step2Clearance, v => place.ContiZ1Step2Clearance = Math.Max(0.0, v)),
@@ -414,41 +413,27 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 "프로젝트/웨이퍼 정보에서 Tape 두께를 읽지 못했을 때 사용할 예비 Tape 두께입니다."), groupKey));
             items.Add(InGroup(Describe(ParameterGridItem.Double("PLACE CONTI DIE FALLBACK", AxisUnitConverter.Millimeter, ParameterGridScope.Config, () => place.ContiDieThicknessFallback, v => place.ContiDieThicknessFallback = Math.Max(0.0, v)),
                 "Die 정보/프로젝트 Die 두께를 읽지 못했을 때 사용할 예비 Die 두께입니다."), groupKey));
-            AddPlaceContiNodeMotionItems(items, groupKey, place);
+            AddPlaceContiNodeSpeedRatioItems(items, groupKey, place);
         }
 
-        private void AddPlaceContiNodeMotionItems(List<ParameterGridItem> items, string groupKey, PickerPlaceMotionConfig place)
+        private void AddPlaceContiNodeSpeedRatioItems(List<ParameterGridItem> items, string groupKey, PickerPlaceMotionConfig place)
         {
-            items.Add(InGroup(Describe(ParameterGridItem.Double("PLACE CONTI NODE0 VEL", AxisUnitConverter.Millimeter + "/s", ParameterGridScope.Config, () => place.ContiNode0Velocity, v => place.ContiNode0Velocity = PickerPickUpMotionConfig.NormalizePositive(v, 2.0)),
-                "node0 속도입니다. X/Y는 유지하고 이전 PickerZ(Z1)를 1단 회피 위치까지 천천히 상승시킵니다."), groupKey));
-            items.Add(InGroup(Describe(ParameterGridItem.Double("PLACE CONTI NODE0 ACC", AxisUnitConverter.Millimeter + "/s2", ParameterGridScope.Config, () => place.ContiNode0Acceleration, v => place.ContiNode0Acceleration = PickerPickUpMotionConfig.NormalizePositive(v, 20.0)),
-                "node0 가속도입니다. Z1 초기 상승 충격을 줄이기 위해 보수적으로 설정합니다."), groupKey));
-            items.Add(InGroup(Describe(ParameterGridItem.Double("PLACE CONTI NODE0 DEC", AxisUnitConverter.Millimeter + "/s2", ParameterGridScope.Config, () => place.ContiNode0Deceleration, v => place.ContiNode0Deceleration = PickerPickUpMotionConfig.NormalizePositive(v, 20.0)),
-                "node0 감속도입니다."), groupKey));
-            items.Add(InGroup(Describe(ParameterGridItem.Double("PLACE CONTI NODE1 VEL", AxisUnitConverter.Millimeter + "/s", ParameterGridScope.Config, () => place.ContiNode1Velocity, v => place.ContiNode1Velocity = PickerPickUpMotionConfig.NormalizePositive(v, 5.0)),
-                "node1 속도입니다. Z1을 2단 회피 위치까지 올리는 구간으로 node0보다 빠르게 설정할 수 있습니다."), groupKey));
-            items.Add(InGroup(Describe(ParameterGridItem.Double("PLACE CONTI NODE1 ACC", AxisUnitConverter.Millimeter + "/s2", ParameterGridScope.Config, () => place.ContiNode1Acceleration, v => place.ContiNode1Acceleration = PickerPickUpMotionConfig.NormalizePositive(v, 50.0)),
-                "node1 가속도입니다."), groupKey));
-            items.Add(InGroup(Describe(ParameterGridItem.Double("PLACE CONTI NODE1 DEC", AxisUnitConverter.Millimeter + "/s2", ParameterGridScope.Config, () => place.ContiNode1Deceleration, v => place.ContiNode1Deceleration = PickerPickUpMotionConfig.NormalizePositive(v, 50.0)),
-                "node1 감속도입니다."), groupKey));
-            items.Add(InGroup(Describe(ParameterGridItem.Double("PLACE CONTI NODE2 VEL", AxisUnitConverter.Millimeter + "/s", ParameterGridScope.Config, () => place.ContiNode2Velocity, v => place.ContiNode2Velocity = PickerPickUpMotionConfig.NormalizePositive(v, 5.0)),
-                "node2 속도입니다. X/Y를 중간 위치로 보내면서 Z1/Z2를 Avoid 근처 위치로 이동합니다."), groupKey));
-            items.Add(InGroup(Describe(ParameterGridItem.Double("PLACE CONTI NODE2 ACC", AxisUnitConverter.Millimeter + "/s2", ParameterGridScope.Config, () => place.ContiNode2Acceleration, v => place.ContiNode2Acceleration = PickerPickUpMotionConfig.NormalizePositive(v, 50.0)),
-                "node2 가속도입니다."), groupKey));
-            items.Add(InGroup(Describe(ParameterGridItem.Double("PLACE CONTI NODE2 DEC", AxisUnitConverter.Millimeter + "/s2", ParameterGridScope.Config, () => place.ContiNode2Deceleration, v => place.ContiNode2Deceleration = PickerPickUpMotionConfig.NormalizePositive(v, 50.0)),
-                "node2 감속도입니다."), groupKey));
-            items.Add(InGroup(Describe(ParameterGridItem.Double("PLACE CONTI NODE3 VEL", AxisUnitConverter.Millimeter + "/s", ParameterGridScope.Config, () => place.ContiNode3Velocity, v => place.ContiNode3Velocity = PickerPickUpMotionConfig.NormalizePositive(v, 2.0)),
-                "node3 속도입니다. X/Y를 Target Pos로 맞추고 Z2를 Place 직전 위치까지 접근시킵니다."), groupKey));
-            items.Add(InGroup(Describe(ParameterGridItem.Double("PLACE CONTI NODE3 ACC", AxisUnitConverter.Millimeter + "/s2", ParameterGridScope.Config, () => place.ContiNode3Acceleration, v => place.ContiNode3Acceleration = PickerPickUpMotionConfig.NormalizePositive(v, 20.0)),
-                "node3 가속도입니다."), groupKey));
-            items.Add(InGroup(Describe(ParameterGridItem.Double("PLACE CONTI NODE3 DEC", AxisUnitConverter.Millimeter + "/s2", ParameterGridScope.Config, () => place.ContiNode3Deceleration, v => place.ContiNode3Deceleration = PickerPickUpMotionConfig.NormalizePositive(v, 20.0)),
-                "node3 감속도입니다."), groupKey));
-            items.Add(InGroup(Describe(ParameterGridItem.Double("PLACE CONTI NODE4 VEL", AxisUnitConverter.Millimeter + "/s", ParameterGridScope.Config, () => place.ContiNode4Velocity, v => place.ContiNode4Velocity = PickerPickUpMotionConfig.NormalizePositive(v, 0.5)),
-                "node4 속도입니다. X/Y Target 상태에서 Z1은 Avoid로, Z2는 최종 Place/OverDrive 위치로 이동합니다."), groupKey));
-            items.Add(InGroup(Describe(ParameterGridItem.Double("PLACE CONTI NODE4 ACC", AxisUnitConverter.Millimeter + "/s2", ParameterGridScope.Config, () => place.ContiNode4Acceleration, v => place.ContiNode4Acceleration = PickerPickUpMotionConfig.NormalizePositive(v, 10.0)),
-                "node4 가속도입니다. 제품 접촉 구간이므로 낮게 시작하는 것을 권장합니다."), groupKey));
-            items.Add(InGroup(Describe(ParameterGridItem.Double("PLACE CONTI NODE4 DEC", AxisUnitConverter.Millimeter + "/s2", ParameterGridScope.Config, () => place.ContiNode4Deceleration, v => place.ContiNode4Deceleration = PickerPickUpMotionConfig.NormalizePositive(v, 10.0)),
-                "node4 감속도입니다."), groupKey));
+            items.Add(InGroup(Describe(ParameterGridItem.Double("PLACE CONTI MAX VEL", AxisUnitConverter.Millimeter + "/s", ParameterGridScope.Config, () => place.ContiMaxVelocity, v => place.ContiMaxVelocity = PickerPickUpMotionConfig.NormalizePositive(v, 500.0)),
+                "ContiNode에서 사용할 최고 속도입니다. 각 node 속도는 이 값에 node별 SPEED %를 곱해 계산합니다."), groupKey));
+            items.Add(InGroup(Describe(ParameterGridItem.Double("PLACE CONTI MAX ACC", AxisUnitConverter.Millimeter + "/s2", ParameterGridScope.Config, () => place.ContiMaxAcceleration, v => place.ContiMaxAcceleration = PickerPickUpMotionConfig.NormalizePositive(v, 5000.0)),
+                "ContiNode에서 사용할 최고 가속도입니다. 각 node 가속도는 이 값에 node별 SPEED %를 곱해 계산합니다."), groupKey));
+            items.Add(InGroup(Describe(ParameterGridItem.Double("PLACE CONTI MAX DEC", AxisUnitConverter.Millimeter + "/s2", ParameterGridScope.Config, () => place.ContiMaxDeceleration, v => place.ContiMaxDeceleration = PickerPickUpMotionConfig.NormalizePositive(v, 5000.0)),
+                "ContiNode에서 사용할 최고 감속도입니다. 각 node 감속도는 이 값에 node별 SPEED %를 곱해 계산합니다."), groupKey));
+            items.Add(InGroup(Describe(ParameterGridItem.Double("PLACE CONTI NODE0 SPEED %", "%", ParameterGridScope.Config, () => place.ContiNode0SpeedPercent, v => place.ContiNode0SpeedPercent = PickerPickUpMotionConfig.NormalizePercent(v, 1.0)),
+                "node0 비율입니다. X/Y는 유지하고 이전 PickerZ(Z1)를 1단 회피 위치까지 천천히 상승시킵니다."), groupKey));
+            items.Add(InGroup(Describe(ParameterGridItem.Double("PLACE CONTI NODE1 SPEED %", "%", ParameterGridScope.Config, () => place.ContiNode1SpeedPercent, v => place.ContiNode1SpeedPercent = PickerPickUpMotionConfig.NormalizePercent(v, 20.0)),
+                "node1 비율입니다. Z1을 2단 회피 위치까지 올리는 구간입니다."), groupKey));
+            items.Add(InGroup(Describe(ParameterGridItem.Double("PLACE CONTI NODE2 SPEED %", "%", ParameterGridScope.Config, () => place.ContiNode2SpeedPercent, v => place.ContiNode2SpeedPercent = PickerPickUpMotionConfig.NormalizePercent(v, 100.0)),
+                "node2 비율입니다. X/Y를 중간 위치로 보내면서 Z1/Z2를 Avoid 근처 위치로 이동합니다."), groupKey));
+            items.Add(InGroup(Describe(ParameterGridItem.Double("PLACE CONTI NODE3 SPEED %", "%", ParameterGridScope.Config, () => place.ContiNode3SpeedPercent, v => place.ContiNode3SpeedPercent = PickerPickUpMotionConfig.NormalizePercent(v, 100.0)),
+                "node3 비율입니다. X/Y를 Target Pos로 맞추고 Z2를 Place 직전 위치까지 접근시킵니다."), groupKey));
+            items.Add(InGroup(Describe(ParameterGridItem.Double("PLACE CONTI NODE4 SPEED %", "%", ParameterGridScope.Config, () => place.ContiNode4SpeedPercent, v => place.ContiNode4SpeedPercent = PickerPickUpMotionConfig.NormalizePercent(v, 1.0)),
+                "node4 비율입니다. 제품 접촉/OverDrive 구간이므로 낮게 시작합니다."), groupKey));
         }
 
         private void AddVisionPickerOffsetItems(

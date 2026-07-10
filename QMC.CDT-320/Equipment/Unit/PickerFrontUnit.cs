@@ -300,6 +300,10 @@ namespace QMC.CDT320
         public int PickUpVacuumOnBeforePickDelayMs { get { return EnsurePickUpConfig().VacuumOnBeforePickDelayMs; } set { EnsurePickUpConfig().VacuumOnBeforePickDelayMs = value; } }
 
         [Category("PickUp")]
+        [DisplayName("PickUp Sync Lift Settle Ms")]
+        public int PickUpSyncLiftSettleMs { get { return EnsurePickUpConfig().SyncLiftSettleMs; } set { EnsurePickUpConfig().SyncLiftSettleMs = value; } }
+
+        [Category("PickUp")]
         [DisplayName("PickUp Settle Ms")]
         public int PickUpSettleMs { get { return EnsurePickUpConfig().PickSettleMs; } set { EnsurePickUpConfig().PickSettleMs = value; } }
 
@@ -328,28 +332,28 @@ namespace QMC.CDT320
         public PickerPlaceMotionMode PlaceMotionMode { get { return EnsurePlaceConfig().MotionMode; } set { EnsurePlaceConfig().MotionMode = value; } }
 
         [Category("Place")]
-        [DisplayName("Place Sync Coordinate")]
-        public int PlaceSyncCoordinate { get { return EnsurePlaceConfig().InterpolationCoordinate; } set { EnsurePlaceConfig().InterpolationCoordinate = Math.Max(0, value); } }
+        [DisplayName("Place Conti Coordinate")]
+        public int PlaceContiCoordinate { get { return EnsurePlaceConfig().ContiCoordinate; } set { EnsurePlaceConfig().ContiCoordinate = Math.Max(1, value); } }
 
         [Category("Place")]
-        [DisplayName("Place Sync Velocity")]
-        public double PlaceSyncVelocity { get { return EnsurePlaceConfig().SynchronizedVelocity; } set { EnsurePlaceConfig().SynchronizedVelocity = PickerPickUpMotionConfig.NormalizePositive(value, 1.0); } }
+        [DisplayName("Place Conti Timeout Ms")]
+        public int PlaceContiTimeoutMs { get { return EnsurePlaceConfig().ContiTimeoutMs; } set { EnsurePlaceConfig().ContiTimeoutMs = Math.Max(1, value); } }
 
         [Category("Place")]
-        [DisplayName("Place Sync Acc")]
-        public double PlaceSyncAcc { get { return EnsurePlaceConfig().SynchronizedAcceleration; } set { EnsurePlaceConfig().SynchronizedAcceleration = PickerPickUpMotionConfig.NormalizePositive(value, 10.0); } }
+        [DisplayName("Place Conti Max Travel")]
+        public double PlaceContiMaxTravel { get { return EnsurePlaceConfig().ContiMaxTravelDistance; } set { EnsurePlaceConfig().ContiMaxTravelDistance = PickerPickUpMotionConfig.NormalizePositive(value, 45.0); } }
 
         [Category("Place")]
-        [DisplayName("Place Sync Dec")]
-        public double PlaceSyncDec { get { return EnsurePlaceConfig().SynchronizedDeceleration; } set { EnsurePlaceConfig().SynchronizedDeceleration = PickerPickUpMotionConfig.NormalizePositive(value, 10.0); } }
+        [DisplayName("Place Conti Max Velocity")]
+        public double PlaceContiMaxVelocity { get { return EnsurePlaceConfig().ContiMaxVelocity; } set { EnsurePlaceConfig().ContiMaxVelocity = PickerPickUpMotionConfig.NormalizePositive(value, 500.0); } }
 
         [Category("Place")]
-        [DisplayName("Place Sync Timeout Ms")]
-        public int PlaceSyncTimeoutMs { get { return EnsurePlaceConfig().SynchronizedTimeoutMs; } set { EnsurePlaceConfig().SynchronizedTimeoutMs = Math.Max(1, value); } }
+        [DisplayName("Place Conti Max Acc")]
+        public double PlaceContiMaxAcc { get { return EnsurePlaceConfig().ContiMaxAcceleration; } set { EnsurePlaceConfig().ContiMaxAcceleration = PickerPickUpMotionConfig.NormalizePositive(value, 5000.0); } }
 
         [Category("Place")]
-        [DisplayName("Place Sync Max Travel")]
-        public double PlaceSyncMaxTravel { get { return EnsurePlaceConfig().MaxSynchronizedTravelDistance; } set { EnsurePlaceConfig().MaxSynchronizedTravelDistance = PickerPickUpMotionConfig.NormalizePositive(value, 37.0); } }
+        [DisplayName("Place Conti Max Dec")]
+        public double PlaceContiMaxDec { get { return EnsurePlaceConfig().ContiMaxDeceleration; } set { EnsurePlaceConfig().ContiMaxDeceleration = PickerPickUpMotionConfig.NormalizePositive(value, 5000.0); } }
 
         [Category("Vision")]
         [DisplayName("Vision Inspection Settle Ms")]

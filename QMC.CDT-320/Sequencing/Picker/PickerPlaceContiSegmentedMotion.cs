@@ -47,11 +47,11 @@ namespace QMC.CDT320.Sequencing
                     config = new PickerPlaceMotionConfig();
                 config.Ensure();
 
-                result.Coordinate = config.InterpolationCoordinate;
-                result.TimeoutMs = config.SynchronizedTimeoutMs;
-                result.Velocity = config.ContiNode4Velocity;
-                result.Acceleration = config.ContiNode4Acceleration;
-                result.Deceleration = config.ContiNode4Deceleration;
+                result.Coordinate = config.ContiCoordinate;
+                result.TimeoutMs = config.ContiTimeoutMs;
+                result.Velocity = config.GetContiNodeVelocity(4);
+                result.Acceleration = config.GetContiNodeAcceleration(4);
+                result.Deceleration = config.GetContiNodeDeceleration(4);
 
                 string readyReason;
                 if (!IsAxisReady(outputStageY, "OutputStageY", out readyReason) ||
@@ -59,7 +59,7 @@ namespace QMC.CDT320.Sequencing
                     !IsAxisReady(previousPickerZ, "PreviousPickerZ", out readyReason) ||
                     !IsAxisReady(pickerZ, "PickerZ", out readyReason))
                 {
-                    return MoveFail(result, -1, "Place ContiNode 구동 전 축 준비 상태가 맞지 않습니다. " + readyReason, watch);
+                    return MoveFail(result, -1, "Place ContiNode 이동 전 축 준비 상태가 맞지 않습니다. " + readyReason, watch);
                 }
 
                 if (nodes == null || nodes.Count == 0)
@@ -81,57 +81,57 @@ namespace QMC.CDT320.Sequencing
                 result.MappedAxes = mappedAxes;
                 result.RequestedPositions = FlattenNodes(nodes);
 
-                int ret = AXM.SetPathAxisMap(config.InterpolationCoordinate, mappedAxes);
+                int ret = AXM.SetPathAxisMap(config.ContiCoordinate, mappedAxes);
                 if (ret != 0)
-                    return MoveFail(result, ret, "Place ContiNode 축 맵 설정 실패. coordinate=" + config.InterpolationCoordinate, watch);
+                    return MoveFail(result, ret, "Place ContiNode 축 맵 설정 실패. coordinate=" + config.ContiCoordinate, watch);
 
-                ret = AXM.ClearPath(config.InterpolationCoordinate);
+                ret = AXM.ClearPath(config.ContiCoordinate);
                 if (ret != 0)
-                    return MoveFail(result, ret, "Place ContiNode 버퍼 초기화 실패. coordinate=" + config.InterpolationCoordinate, watch);
+                    return MoveFail(result, ret, "Place ContiNode 버퍼 초기화 실패. coordinate=" + config.ContiCoordinate, watch);
 
-                ret = AXM.SetPathAbsRelMode(config.InterpolationCoordinate, AXT_MOTION_ABSREL.POS_ABS_MODE);
+                ret = AXM.SetPathAbsRelMode(config.ContiCoordinate, AXT_MOTION_ABSREL.POS_ABS_MODE);
                 if (ret != 0)
-                    return MoveFail(result, ret, "Place ContiNode 절대좌표 모드 설정 실패. coordinate=" + config.InterpolationCoordinate, watch);
+                    return MoveFail(result, ret, "Place ContiNode 절대좌표 모드 설정 실패. coordinate=" + config.ContiCoordinate, watch);
 
-                ret = AXM.BeginPath(config.InterpolationCoordinate);
+                ret = AXM.BeginPath(config.ContiCoordinate);
                 if (ret != 0)
-                    return MoveFail(result, ret, "Place ContiNode BeginNode 실패. coordinate=" + config.InterpolationCoordinate, watch);
+                    return MoveFail(result, ret, "Place ContiNode BeginPath 실패. coordinate=" + config.ContiCoordinate, watch);
 
                 for (int i = 0; i < nodes.Count; i++)
                 {
                     PickerPlaceContiNode node = nodes[i];
                     double[] mappedPosition = MapNodePosition(node, requestedAxes, mappedAxes);
                     ret = AXM.MoveLine(
-                        config.InterpolationCoordinate,
+                        config.ContiCoordinate,
                         mappedAxes,
                         mappedPosition,
                         config.GetContiNodeVelocity(node.Index),
                         config.GetContiNodeAcceleration(node.Index),
                         config.GetContiNodeDeceleration(node.Index));
                     if (ret != 0)
-                        return MoveFail(result, ret, "Place ContiNode node" + node.Index + " 등록 실패. coordinate=" + config.InterpolationCoordinate, watch);
+                        return MoveFail(result, ret, "Place ContiNode node" + node.Index + " 등록 실패. coordinate=" + config.ContiCoordinate, watch);
                 }
 
-                ret = AXM.EndPath(config.InterpolationCoordinate);
+                ret = AXM.EndPath(config.ContiCoordinate);
                 if (ret != 0)
-                    return MoveFail(result, ret, "Place ContiNode EndNode 실패. coordinate=" + config.InterpolationCoordinate, watch);
+                    return MoveFail(result, ret, "Place ContiNode EndPath 실패. coordinate=" + config.ContiCoordinate, watch);
 
-                ret = AXM.StartPath(config.InterpolationCoordinate, 0, 0);
+                ret = AXM.StartPath(config.ContiCoordinate, 0, 0);
                 if (ret != 0)
-                    return MoveFail(result, ret, "Place ContiNode Start 실패. coordinate=" + config.InterpolationCoordinate, watch);
+                    return MoveFail(result, ret, "Place ContiNode StartPath 실패. coordinate=" + config.ContiCoordinate, watch);
 
                 result.CommandIssued = true;
                 result.MappedPositions = MapNodePosition(nodes[nodes.Count - 1], requestedAxes, mappedAxes);
 
-                DateTime deadline = DateTime.UtcNow.AddMilliseconds(config.SynchronizedTimeoutMs <= 0 ? 5000 : config.SynchronizedTimeoutMs);
+                DateTime deadline = DateTime.UtcNow.AddMilliseconds(config.ContiTimeoutMs <= 0 ? 5000 : config.ContiTimeoutMs);
                 while (DateTime.UtcNow <= deadline)
                 {
                     ct.ThrowIfCancellationRequested();
 
                     bool moving = false;
-                    ret = AXM.IsPathMoving(config.InterpolationCoordinate, ref moving);
+                    ret = AXM.IsPathMoving(config.ContiCoordinate, ref moving);
                     if (ret != 0)
-                        return MoveFail(result, ret, "Place ContiNode 구동 상태 확인 실패. coordinate=" + config.InterpolationCoordinate, watch);
+                        return MoveFail(result, ret, "Place ContiNode 구동 상태 확인 실패. coordinate=" + config.ContiCoordinate, watch);
 
                     if (!moving)
                     {
@@ -144,7 +144,7 @@ namespace QMC.CDT320.Sequencing
                     await Task.Delay(1, ct).ConfigureAwait(false);
                 }
 
-                return MoveFail(result, -1, "Place ContiNode 구동 완료 대기 시간 초과. coordinate=" + config.InterpolationCoordinate, watch);
+                return MoveFail(result, -1, "Place ContiNode 구동 완료 대기 시간 초과. coordinate=" + config.ContiCoordinate, watch);
             }
             catch (OperationCanceledException)
             {

@@ -1,9 +1,17 @@
-﻿using System;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 using System.Windows.Forms;
+using QMC.CDT320;
+using QMC.CDT320.Calibration;
 using QMC.CDT320.Sequencing;
 using QMC.CDT320.VisionComm;
 using QMC.CDT_320.Ui.Controls;
 using QMC.CDT_320.Ui.Dialogs;
+using QMC.Common.Motion;
+using QMC.Common.Motion.Ajin;
 
 namespace QMC.CDT_320.Ui.Pages.WorkInfo
 {
@@ -81,27 +89,27 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             return FindForm() as Form1;
         }
 
-        private void lblHead1Value_Click(object sender, System.EventArgs e)
+        private void lblHead1Value_Click(object sender, EventArgs e)
         {
             _runtime.ShowHeadDieDialog(1);
         }
 
-        private void lblHead2Value_Click(object sender, System.EventArgs e)
+        private void lblHead2Value_Click(object sender, EventArgs e)
         {
             _runtime.ShowHeadDieDialog(2);
         }
 
-        private void lblHead3Value_Click(object sender, System.EventArgs e)
+        private void lblHead3Value_Click(object sender, EventArgs e)
         {
             _runtime.ShowHeadDieDialog(3);
         }
 
-        private void lblHead4Value_Click(object sender, System.EventArgs e)
+        private void lblHead4Value_Click(object sender, EventArgs e)
         {
             _runtime.ShowHeadDieDialog(4);
         }
 
-        private void btnAjinLineMapTest_Click(object sender, System.EventArgs e)
+        private void btnAjinLineMapTest_Click(object sender, EventArgs e)
         {
             btnAjinLineMapTest.Enabled = false;
             try
@@ -109,12 +117,12 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 Form1 host = GetHost();
                 if (host == null || host.Machine == null)
                 {
-                    QMC.Common.MessageDialog.Show(this, "장비 객체를 찾을 수 없어 Ajin 보간 맵핑 검증을 실행할 수 없습니다.", "LINE MAP TEST",
+                    QMC.Common.MessageDialog.Show(this, "장비 객체를 찾을 수 없어 ContiNode LineMap 검증을 실행할 수 없습니다.", "LINE MAP TEST",
                         MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
 
-                System.Collections.Generic.List<LineMapTestResult> results = RunGoodStageYLineMapTests(host.Machine);
+                List<LineMapTestResult> results = RunGoodStageYLineMapTests(host.Machine);
                 int failCount = results.FindAll(x => x.Result == null || !x.Result.Success).Count;
                 QMC.Common.Logging.EventKind kind = failCount == 0 ? QMC.Common.Logging.EventKind.Event : QMC.Common.Logging.EventKind.Warning;
 
@@ -125,15 +133,15 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 }
 
                 string message = failCount == 0
-                    ? "GOOD StageY 기준 Ajin 보간 맵핑 검증이 완료되었습니다. 전체 성공=" + results.Count + "건"
-                    : "GOOD StageY 기준 Ajin 보간 맵핑 검증 중 실패가 있습니다. 실패=" + failCount + "건 / 전체=" + results.Count + "건";
+                    ? "GOOD StageY 기준 ContiNode LineMap 검증이 완료되었습니다. 전체 성공=" + results.Count + "건"
+                    : "GOOD StageY 기준 ContiNode LineMap 검증 중 실패가 있습니다. 실패=" + failCount + "건 / 전체=" + results.Count + "건";
 
                 QMC.Common.MessageDialog.Show(this, message + "\r\n상세 내용은 Alarm/Event Log를 확인하세요.", "LINE MAP TEST",
                     MessageBoxButtons.OK, failCount == 0 ? MessageBoxIcon.Information : MessageBoxIcon.Warning);
             }
-            catch (System.Exception ex)
+            catch (Exception ex)
             {
-                string message = "GOOD StageY 기준 Ajin 보간 맵핑 검증 중 예외가 발생했습니다. error=" + ex.Message;
+                string message = "GOOD StageY 기준 ContiNode LineMap 검증 중 예외가 발생했습니다. error=" + ex.Message;
                 QMC.Common.Logging.EventLogger.Write(QMC.Common.Logging.EventKind.Warning, "UI", "AJIN-LINE-MAP-TEST", "FrontPickerPage", message);
                 QMC.Common.MessageDialog.Show(this, message, "LINE MAP TEST", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
@@ -143,20 +151,23 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             }
         }
 
-        private static System.Collections.Generic.List<LineMapTestResult> RunGoodStageYLineMapTests(QMC.CDT320.CDT320_Machine machine)
+        private static List<LineMapTestResult> RunGoodStageYLineMapTests(CDT320_Machine machine)
         {
-            var results = new System.Collections.Generic.List<LineMapTestResult>();
-            QMC.Common.Motion.BaseAxis goodStageY = machine != null &&
-                                                    machine.OutputStageUnit != null &&
-                                                    machine.OutputStageUnit.GoodStage != null
+            var results = new List<LineMapTestResult>();
+            BaseAxis goodStageY = machine != null &&
+                                  machine.OutputStageUnit != null &&
+                                  machine.OutputStageUnit.GoodStage != null
                 ? machine.OutputStageUnit.GoodStage.StageY
                 : null;
 
             int goodStageYAxisNo = ResolveAxisNo(goodStageY, "OutputGoodStageY");
+            PickerPlaceMotionConfig frontPlace = ResolveFrontPlaceConfig(machine);
+            PickerPlaceMotionConfig rearPlace = ResolveRearPlaceConfig(machine);
 
             AddPickerLineMapTests(
                 results,
                 "Front",
+                frontPlace,
                 goodStageYAxisNo,
                 ResolveAxisNo(machine.PickerFrontUnit != null ? machine.PickerFrontUnit.PickerX : null, "FrontPickerX"),
                 new[]
@@ -170,6 +181,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             AddPickerLineMapTests(
                 results,
                 "Rear",
+                rearPlace,
                 goodStageYAxisNo,
                 ResolveAxisNo(machine.PickerRearUnit != null ? machine.PickerRearUnit.PickerX : null, "RearPickerX"),
                 new[]
@@ -184,65 +196,152 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
         }
 
         private static void AddPickerLineMapTests(
-            System.Collections.Generic.List<LineMapTestResult> results,
+            List<LineMapTestResult> results,
             string pickerName,
+            PickerPlaceMotionConfig placeConfig,
             int goodStageYAxisNo,
             int pickerXAxisNo,
             int[] pickerZAxisNos)
         {
-            for (int i = 0; i < pickerZAxisNos.Length - 1; i++)
+            if (placeConfig == null)
+                placeConfig = new PickerPlaceMotionConfig();
+            placeConfig.Ensure();
+
+            int[,] pairs =
             {
-                string name = pickerName + " GOOD-Y/X/Z" + i + "-Z" + (i + 1);
-                int[] axes = { goodStageYAxisNo, pickerXAxisNo, pickerZAxisNos[i], pickerZAxisNos[i + 1] };
-                QMC.Common.Motion.InterpolatedMotionMapResult result = QMC.Common.Motion.AjinInterpolatedMotionService.ValidateSynchronizedArrivalMap(
-                    0,
-                    axes,
-                    false);
+                { 3, 2 },
+                { 2, 1 },
+                { 1, 0 }
+            };
+
+            for (int i = 0; i < pairs.GetLength(0); i++)
+            {
+                int previousIndex = pairs[i, 0];
+                int currentIndex = pairs[i, 1];
+                string name = pickerName + " GOOD-Y/X/P" + (previousIndex + 1) + "-P" + (currentIndex + 1) +
+                    " Z" + previousIndex + "-Z" + currentIndex +
+                    " coord=" + placeConfig.ContiCoordinate;
+                int[] axes = { goodStageYAxisNo, pickerXAxisNo, pickerZAxisNos[previousIndex], pickerZAxisNos[currentIndex] };
+                InterpolatedMotionMapResult result = ValidateContiLineMap(placeConfig.ContiCoordinate, axes);
 
                 results.Add(new LineMapTestResult(name, result));
             }
         }
 
-        private static int ResolveAxisNo(QMC.Common.Motion.BaseAxis axis, string axisName)
+        private static InterpolatedMotionMapResult ValidateContiLineMap(int coordinate, int[] requestedAxes)
+        {
+            var result = new InterpolatedMotionMapResult
+            {
+                Coordinate = coordinate,
+                RequestedAxes = requestedAxes != null ? requestedAxes.ToArray() : new int[0]
+            };
+
+            try
+            {
+                if (coordinate <= 0)
+                    return MapFail(result, -1, "ContiNode coordinate는 1 이상이어야 합니다. coordinate=" + coordinate);
+
+                if (requestedAxes == null || requestedAxes.Length < 2 || requestedAxes.Length > 4)
+                    return MapFail(result, -1, "ContiNode LineMap 축 개수가 맞지 않습니다. axes=" + result.RequestedAxesText);
+
+                if (requestedAxes.Any(x => x < 0))
+                    return MapFail(result, -1, "ContiNode LineMap 축 번호에 음수가 포함되어 있습니다. axes=" + result.RequestedAxesText);
+
+                if (requestedAxes.Distinct().Count() != requestedAxes.Length)
+                    return MapFail(result, -1, "ContiNode LineMap 축 번호가 중복되었습니다. axes=" + result.RequestedAxesText);
+
+                int[] mappedAxes = requestedAxes.OrderBy(x => x).ToArray();
+
+                int ret = AXM.SetPathAxisMap(coordinate, mappedAxes);
+                if (ret != 0)
+                    return MapFail(result, ret, "ContiNode LineMap 축 맵 설정 실패. coordinate=" + coordinate + ", axes=" + string.Join(",", mappedAxes));
+
+                ret = AXM.ClearPath(coordinate);
+                if (ret != 0)
+                    return MapFail(result, ret, "ContiNode LineMap 버퍼 초기화 실패. coordinate=" + coordinate);
+
+                ret = AXM.SetPathAbsRelMode(coordinate, AXT_MOTION_ABSREL.POS_ABS_MODE);
+                if (ret != 0)
+                    return MapFail(result, ret, "ContiNode LineMap 절대좌표 모드 설정 실패. coordinate=" + coordinate);
+
+                uint mappedSize = (uint)mappedAxes.Length;
+                int[] readAxes = new int[mappedAxes.Length];
+                ret = AXM.GetPathAxisMap(coordinate, ref mappedSize, readAxes);
+                if (ret != 0)
+                    return MapFail(result, ret, "ContiNode LineMap 축 맵 조회 실패. coordinate=" + coordinate);
+
+                AXT_MOTION_ABSREL readMode = AXT_MOTION_ABSREL.POS_ABS_MODE;
+                ret = AXM.GetPathAbsRelMode(coordinate, ref readMode);
+                if (ret != 0)
+                    return MapFail(result, ret, "ContiNode LineMap 좌표 모드 조회 실패. coordinate=" + coordinate);
+
+                result.MappedSize = mappedSize;
+                result.MappedAxes = readAxes.Take((int)mappedSize).ToArray();
+                result.AbsRelMode = readMode;
+
+                if (mappedSize != mappedAxes.Length || !result.MappedAxes.SequenceEqual(mappedAxes))
+                    return MapFail(result, -1, "ContiNode LineMap 확인값이 요청값과 다릅니다. request=" + string.Join(",", mappedAxes) + ", actual=" + result.MappedAxesText);
+
+                if (readMode != AXT_MOTION_ABSREL.POS_ABS_MODE)
+                    return MapFail(result, -1, "ContiNode LineMap 좌표 모드 확인값이 ABS가 아닙니다. actual=" + readMode);
+
+                result.ResultCode = 0;
+                result.Message = "ContiNode LineMap 검증 성공.";
+                return result;
+            }
+            catch (Exception ex)
+            {
+                return MapFail(result, -1, "ContiNode LineMap 검증 중 예외가 발생했습니다. error=" + ex.Message);
+            }
+        }
+
+        private static InterpolatedMotionMapResult MapFail(InterpolatedMotionMapResult result, int code, string message)
+        {
+            result.ResultCode = code == 0 ? -1 : code;
+            result.Message = message;
+            return result;
+        }
+
+        private static int ResolveAxisNo(BaseAxis axis, string axisName)
         {
             if (axis == null)
-                throw new System.InvalidOperationException(axisName + " 축 객체를 찾을 수 없습니다.");
+                throw new InvalidOperationException(axisName + " 축 객체를 찾을 수 없습니다.");
 
             if (axis.Setup == null)
-                throw new System.InvalidOperationException(axisName + " 축 설정을 찾을 수 없습니다.");
+                throw new InvalidOperationException(axisName + " 축 설정을 찾을 수 없습니다.");
 
             if (axis.Setup.AxisNo < 0)
-                throw new System.InvalidOperationException(axisName + " 축 번호가 설정되지 않았습니다. axisNo=" + axis.Setup.AxisNo);
+                throw new InvalidOperationException(axisName + " 축 번호가 설정되지 않았습니다. axisNo=" + axis.Setup.AxisNo);
 
             return axis.Setup.AxisNo;
         }
 
         private sealed class LineMapTestResult
         {
-            public LineMapTestResult(string name, QMC.Common.Motion.InterpolatedMotionMapResult result)
+            public LineMapTestResult(string name, InterpolatedMotionMapResult result)
             {
                 Name = name;
                 Result = result;
             }
 
             public string Name { get; private set; }
-            public QMC.Common.Motion.InterpolatedMotionMapResult Result { get; private set; }
+            public InterpolatedMotionMapResult Result { get; private set; }
         }
 
-        private async void btnAjinLineMoveTest_Click(object sender, System.EventArgs e)
+        private async void btnAjinLineMoveTest_Click(object sender, EventArgs e)
         {
-            const double TestDistance = 0.02;
-            const double TestVelocity = 1.0;
-            const double TestAcceleration = 10.0;
-            const double TestDeceleration = 10.0;
-            const int TestTimeoutMs = 5000;
+            PickerPlaceMotionConfig placeConfig = ResolveFrontPlaceConfigFromHostOrDefault(GetHost());
 
             DialogResult confirm = QMC.Common.MessageDialog.Show(
                 this,
-                "GOOD StageY + FrontPickerX + FrontPickerZ0 + FrontPickerZ1 보간 이동 테스트를 실행할까요?\r\n" +
-                "현재 위치 기준 GoodY/PickerX/Z0는 +" + TestDistance.ToString("F3") + ", Z1은 -" + TestDistance.ToString("F3") + " 이동합니다.\r\n" +
-                "성공하면 반대 방향으로 복귀합니다.\r\n" +
-                "축 주변 안전 상태를 확인한 뒤 실행하세요.",
+                "FrontPicker Place teaching center ContiNode 이동 테스트를 실행할까요?\r\n" +
+                "순서: Picker #4 -> #3 -> #2 -> #1\r\n" +
+                "시작 전 #4 Place teaching 위치로 이동한 뒤, 각 세그먼트는 GOOD StageY + PickerX + 이전 PickerZ + 현재 PickerZ를 ContiNode로 구동합니다.\r\n" +
+                "Conti 파라미터: coord=" + placeConfig.ContiCoordinate +
+                ", maxVel=" + placeConfig.ContiMaxVelocity.ToString("F3") +
+                ", maxAcc=" + placeConfig.ContiMaxAcceleration.ToString("F3") +
+                ", maxDec=" + placeConfig.ContiMaxDeceleration.ToString("F3") + "\r\n" +
+                "축 주변 안전 상태와 제품 유무를 확인한 뒤 실행하세요.",
                 "LINE MOVE TEST",
                 MessageBoxButtons.YesNo,
                 MessageBoxIcon.Question);
@@ -257,70 +356,73 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 Form1 host = GetHost();
                 if (host == null || host.Machine == null)
                 {
-                    QMC.Common.MessageDialog.Show(this, "장비 객체를 찾을 수 없어 Ajin 보간 이동 테스트를 실행할 수 없습니다.", "LINE MOVE TEST",
+                    QMC.Common.MessageDialog.Show(this, "장비 객체를 찾을 수 없어 ContiNode 이동 테스트를 실행할 수 없습니다.", "LINE MOVE TEST",
                         MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
 
-                int[] axes = ResolveGoodStageFrontPickerLineMoveAxes(host.Machine);
-                double[] forward = { TestDistance, TestDistance, TestDistance, -TestDistance };
-                QMC.Common.Motion.InterpolatedMotionMoveResult forwardResult =
-                    await QMC.Common.Motion.AjinInterpolatedMotionService.RunSynchronizedArrivalRelativeMoveAsync(
-                        0,
-                        axes,
-                        forward,
-                        TestVelocity,
-                        TestAcceleration,
-                        TestDeceleration,
-                        TestTimeoutMs,
-                        System.Threading.CancellationToken.None).ConfigureAwait(true);
+                placeConfig = ResolveFrontPlaceConfig(host.Machine);
+                PlaceLineMoveTarget[] targets = ResolveFrontPlaceLineMoveTargets(host.Machine);
+                ValidateFrontPlaceLineMoveTargets(targets);
 
-                QMC.Common.Logging.EventLogger.Write(
-                    forwardResult.Success ? QMC.Common.Logging.EventKind.Event : QMC.Common.Logging.EventKind.Warning,
-                    "UI",
-                    "AJIN-LINE-MOVE-TEST",
-                    "FrontPickerPage",
-                    "정방향 보간 이동 테스트: " + forwardResult);
-
-                if (!forwardResult.Success)
+                int prepareResult = await PrepareFrontPlaceLineMoveStartAsync(
+                    host.Machine,
+                    targets,
+                    CancellationToken.None).ConfigureAwait(true);
+                if (prepareResult != 0)
                 {
-                    QMC.Common.MessageDialog.Show(this, "정방향 보간 이동 테스트 실패.\r\n" + forwardResult.Message, "LINE MOVE TEST",
+                    QMC.Common.MessageDialog.Show(this, "Place teaching start position 이동 실패. result=" + prepareResult, "LINE MOVE TEST",
                         MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
 
-                double[] reverse = { -TestDistance, -TestDistance, -TestDistance, TestDistance };
-                QMC.Common.Motion.InterpolatedMotionMoveResult reverseResult =
-                    await QMC.Common.Motion.AjinInterpolatedMotionService.RunSynchronizedArrivalRelativeMoveAsync(
-                        0,
-                        axes,
-                        reverse,
-                        TestVelocity,
-                        TestAcceleration,
-                        TestDeceleration,
-                        TestTimeoutMs,
-                        System.Threading.CancellationToken.None).ConfigureAwait(true);
-
-                QMC.Common.Logging.EventLogger.Write(
-                    reverseResult.Success ? QMC.Common.Logging.EventKind.Event : QMC.Common.Logging.EventKind.Warning,
-                    "UI",
-                    "AJIN-LINE-MOVE-TEST",
-                    "FrontPickerPage",
-                    "복귀 보간 이동 테스트: " + reverseResult);
-
-                if (!reverseResult.Success)
+                for (int i = 0; i < targets.Length - 1; i++)
                 {
-                    QMC.Common.MessageDialog.Show(this, "복귀 보간 이동 테스트 실패.\r\n" + reverseResult.Message, "LINE MOVE TEST",
-                        MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                    return;
+                    PlaceLineMoveTarget previous = targets[i];
+                    PlaceLineMoveTarget current = targets[i + 1];
+                    LineMoveAxisSet axes = ResolveGoodStageFrontPickerLineMoveAxes(
+                        host.Machine,
+                        previous.PickerIndex,
+                        current.PickerIndex);
+
+                    InterpolatedMotionMoveResult moveResult =
+                        await RunContiLineMoveAsync(
+                            axes,
+                            placeConfig,
+                            previous,
+                            current,
+                            CancellationToken.None).ConfigureAwait(true);
+
+                    string detail = "Place teaching ContiNode line move. fromPicker=" + previous.PickerNo +
+                        ", toPicker=" + current.PickerNo +
+                        ", targetStageY=" + current.StageY.ToString("F3") +
+                        ", targetPickerX=" + current.PickerX.ToString("F3") +
+                        ", previousZTarget=Avoid" +
+                        ", currentZTarget=" + current.PickerZ.ToString("F3") +
+                        ", " + moveResult;
+
+                    QMC.Common.Logging.EventLogger.Write(
+                        moveResult.Success ? QMC.Common.Logging.EventKind.Event : QMC.Common.Logging.EventKind.Warning,
+                        "UI",
+                        "AJIN-LINE-MOVE-TEST",
+                        "FrontPickerPage",
+                        detail);
+
+                    if (!moveResult.Success)
+                    {
+                        QMC.Common.MessageDialog.Show(this, "Picker #" + previous.PickerNo + " -> #" + current.PickerNo +
+                            " ContiNode 이동 테스트 실패.\r\n" + moveResult.Message, "LINE MOVE TEST",
+                            MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        return;
+                    }
                 }
 
-                QMC.Common.MessageDialog.Show(this, "GOOD StageY 기준 Ajin 보간 이동 테스트가 완료되었습니다.\r\n상세 내용은 Alarm/Event Log를 확인하세요.", "LINE MOVE TEST",
+                QMC.Common.MessageDialog.Show(this, "FrontPicker Place teaching ContiNode 이동 테스트가 완료되었습니다.\r\n마지막 위치는 Picker #1 Place 상태입니다.\r\n상세 내용은 Alarm/Event Log를 확인하세요.", "LINE MOVE TEST",
                     MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
-            catch (System.Exception ex)
+            catch (Exception ex)
             {
-                string message = "GOOD StageY 기준 Ajin 보간 이동 테스트 중 예외가 발생했습니다. error=" + ex.Message;
+                string message = "GOOD StageY 기준 ContiNode 이동 테스트 중 예외가 발생했습니다. error=" + ex.Message;
                 QMC.Common.Logging.EventLogger.Write(QMC.Common.Logging.EventKind.Warning, "UI", "AJIN-LINE-MOVE-TEST", "FrontPickerPage", message);
                 QMC.Common.MessageDialog.Show(this, message, "LINE MOVE TEST", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
@@ -331,15 +433,339 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             }
         }
 
-        private static int[] ResolveGoodStageFrontPickerLineMoveAxes(QMC.CDT320.CDT320_Machine machine)
+        private static async Task<InterpolatedMotionMoveResult> RunContiLineMoveAsync(
+            LineMoveAxisSet axes,
+            PickerPlaceMotionConfig placeConfig,
+            PlaceLineMoveTarget previous,
+            PlaceLineMoveTarget current,
+            CancellationToken ct)
         {
-            return new[]
+            if (axes == null)
+                throw new InvalidOperationException("Conti LineMove 축 정보를 찾을 수 없습니다.");
+
+            if (placeConfig == null)
+                placeConfig = new PickerPlaceMotionConfig();
+            placeConfig.Ensure();
+
+            List<PickerPlaceContiNode> nodes = BuildLineMoveNodes(
+                axes,
+                placeConfig,
+                previous,
+                current);
+
+            return await PickerPlaceContiSegmentedMotion.MoveStageYPickerXAndPickerZByNodesAsync(
+                axes.StageY,
+                axes.PickerX,
+                axes.PreviousPickerZ,
+                axes.PickerZ,
+                nodes,
+                placeConfig,
+                ct).ConfigureAwait(true);
+        }
+
+        private static List<PickerPlaceContiNode> BuildLineMoveNodes(
+            LineMoveAxisSet axes,
+            PickerPlaceMotionConfig placeConfig,
+            PlaceLineMoveTarget previous,
+            PlaceLineMoveTarget current)
+        {
+            double startStageY = axes.StageY.ActualPosition;
+            double startPickerX = axes.PickerX.ActualPosition;
+            double startPickerZ = axes.PickerZ.ActualPosition;
+            double targetStageY = current.StageY;
+            double targetPickerX = current.PickerX;
+            double previousZStep1 = previous.PickerZ + placeConfig.ContiZ1Step1Clearance;
+            double previousZStep2 = previous.PickerZ + placeConfig.ContiZ1Step1Clearance + placeConfig.ContiZ1Step2Clearance;
+            double previousZNearAvoid = ResolveNearAvoidPosition(previous.PickerZAvoid, previous.PickerZ, placeConfig.ContiNearAvoidDistance);
+            double currentZNearAvoid = ResolveNearAvoidPosition(current.PickerZAvoid, current.PickerZ, placeConfig.ContiNearAvoidDistance);
+            double currentZStep = current.PickerZ + placeConfig.ContiZ1Step1Clearance + placeConfig.ContiZ1Step2Clearance;
+            double ratio = placeConfig.ContiXYMidRatio;
+
+            return new List<PickerPlaceContiNode>
             {
-                ResolveAxisNo(machine.OutputStageUnit != null && machine.OutputStageUnit.GoodStage != null ? machine.OutputStageUnit.GoodStage.StageY : null, "OutputGoodStageY"),
-                ResolveAxisNo(machine.PickerFrontUnit != null ? machine.PickerFrontUnit.PickerX : null, "FrontPickerX"),
-                ResolveAxisNo(machine.PickerFrontUnit != null ? machine.PickerFrontUnit.PickerZ0 : null, "FrontPickerZ0"),
-                ResolveAxisNo(machine.PickerFrontUnit != null ? machine.PickerFrontUnit.PickerZ1 : null, "FrontPickerZ1")
+                new PickerPlaceContiNode(0, startStageY, startPickerX, previousZStep1, startPickerZ),
+                new PickerPlaceContiNode(1, startStageY, startPickerX, previousZStep2, startPickerZ),
+                new PickerPlaceContiNode(2, Lerp(startStageY, targetStageY, ratio), Lerp(startPickerX, targetPickerX, ratio), previousZNearAvoid, currentZNearAvoid),
+                new PickerPlaceContiNode(3, targetStageY, targetPickerX, previousZNearAvoid, currentZStep),
+                new PickerPlaceContiNode(4, targetStageY, targetPickerX, previous.PickerZAvoid, current.PickerZ)
             };
+        }
+
+        private static double ResolveNearAvoidPosition(double avoidPosition, double placePosition, double distanceFromAvoid)
+        {
+            if (distanceFromAvoid <= 0.0)
+                return avoidPosition;
+
+            double directionToPlace = placePosition >= avoidPosition ? 1.0 : -1.0;
+            return avoidPosition + (directionToPlace * distanceFromAvoid);
+        }
+
+        private static double Lerp(double start, double target, double ratio)
+        {
+            return start + ((target - start) * ratio);
+        }
+
+        private static PickerPlaceMotionConfig ResolveFrontPlaceConfigFromHostOrDefault(Form1 host)
+        {
+            return host != null && host.Machine != null
+                ? ResolveFrontPlaceConfig(host.Machine)
+                : new PickerPlaceMotionConfig();
+        }
+
+        private static PickerPlaceMotionConfig ResolveFrontPlaceConfig(CDT320_Machine machine)
+        {
+            PickerPlaceMotionConfig config = machine != null &&
+                                             machine.PickerFrontUnit != null &&
+                                             machine.PickerFrontUnit.Config != null
+                ? machine.PickerFrontUnit.Config.Place
+                : null;
+            if (config == null)
+                config = new PickerPlaceMotionConfig();
+            config.Ensure();
+            return config;
+        }
+
+        private static PickerPlaceMotionConfig ResolveRearPlaceConfig(CDT320_Machine machine)
+        {
+            PickerPlaceMotionConfig config = machine != null &&
+                                             machine.PickerRearUnit != null &&
+                                             machine.PickerRearUnit.Config != null
+                ? machine.PickerRearUnit.Config.Place
+                : null;
+            if (config == null)
+                config = new PickerPlaceMotionConfig();
+            config.Ensure();
+            return config;
+        }
+
+        private static PlaceLineMoveTarget[] ResolveFrontPlaceLineMoveTargets(CDT320_Machine machine)
+        {
+            if (machine == null || machine.PickerFrontUnit == null)
+                throw new InvalidOperationException("FrontPicker unit is missing.");
+            if (machine.OutputStageUnit == null || machine.OutputStageUnit.Recipe == null)
+                throw new InvalidOperationException("OutputStage recipe is missing.");
+
+            machine.OutputStageUnit.Recipe.EnsurePositionObjects();
+
+            int[] order = { 3, 2, 1, 0 };
+            var targets = new List<PlaceLineMoveTarget>();
+            for (int i = 0; i < order.Length; i++)
+            {
+                int pickerIndex = order[i];
+                PickerCalibratedZoneTarget pickerTarget =
+                    CalibrationCoordinateService.ResolvePickerZoneTarget(
+                        machine,
+                        VisionFocusPickerSide.Front,
+                        "DiePlacePosition",
+                        pickerIndex,
+                        null,
+                        false,
+                        false);
+
+                PickerAxis zAxis = CalibrationCoordinateService.ResolvePickerZAxis(pickerIndex);
+                targets.Add(new PlaceLineMoveTarget
+                {
+                    PickerIndex = pickerIndex,
+                    PickerNo = pickerIndex + 1,
+                    PickerTAxis = pickerTarget.PickerTAxis,
+                    PickerZAxis = pickerTarget.PickerZAxis,
+                    StageY = machine.OutputStageUnit.Recipe.GoodStageY.ProcessPosition - Math.Abs(pickerTarget.Y),
+                    PickerX = pickerTarget.X,
+                    PickerY = pickerTarget.Y,
+                    PickerT = pickerTarget.T,
+                    PickerZ = pickerTarget.Z,
+                    PickerZAvoid = machine.PickerFrontUnit.GetPickerTeachingPosition(zAxis, "AvoidPosition")
+                });
+            }
+
+            return targets.ToArray();
+        }
+
+        private static void ValidateFrontPlaceLineMoveTargets(PlaceLineMoveTarget[] targets)
+        {
+            if (targets == null || targets.Length < 2)
+                throw new InvalidOperationException("Place teaching target count is invalid.");
+
+            double pickerY = targets[0].PickerY;
+            for (int i = 1; i < targets.Length; i++)
+            {
+                if (Math.Abs(targets[i].PickerY - pickerY) > 0.001)
+                {
+                    throw new InvalidOperationException(
+                        "Place teaching PickerY differs by picker. Conti line move test requires same PickerY. " +
+                        "picker#" + targets[0].PickerNo + "=" + pickerY.ToString("F3") +
+                        ", picker#" + targets[i].PickerNo + "=" + targets[i].PickerY.ToString("F3"));
+                }
+            }
+        }
+
+        private static async Task<int> PrepareFrontPlaceLineMoveStartAsync(
+            CDT320_Machine machine,
+            PlaceLineMoveTarget[] targets,
+            CancellationToken ct)
+        {
+            if (machine == null || machine.PickerFrontUnit == null || machine.OutputStageUnit == null)
+                return -1;
+
+            PlaceLineMoveTarget first = targets[0];
+
+            var zAvoidTargets = new Dictionary<PickerAxis, double>();
+            for (int i = 0; i < targets.Length; i++)
+                zAvoidTargets[targets[i].PickerZAxis] = targets[i].PickerZAvoid;
+
+            ct.ThrowIfCancellationRequested();
+            int result = await machine.PickerFrontUnit.MovePickerAxes(
+                zAvoidTargets,
+                JogSpeedType.Fine,
+                0.0,
+                "LineMoveTest;PlaceStart;PickerZone=Output;Step=SafeZ").ConfigureAwait(true);
+            if (result != 0)
+                return result;
+
+            var yAvoidTarget = new Dictionary<PickerAxis, double>();
+            yAvoidTarget[PickerAxis.PickerY] = machine.PickerFrontUnit.GetPickerTeachingPosition(PickerAxis.PickerY, "AvoidPosition");
+
+            ct.ThrowIfCancellationRequested();
+            result = await machine.PickerFrontUnit.MovePickerAxes(
+                yAvoidTarget,
+                JogSpeedType.Fine,
+                0.0,
+                "LineMoveTest;PlaceStart;PickerZone=Output;Step=SafeY").ConfigureAwait(true);
+            if (result != 0)
+                return result;
+
+            machine.OutputStageUnit.Recipe.EnsurePositionObjects();
+
+            ct.ThrowIfCancellationRequested();
+            result = await machine.OutputStageUnit.MoveStageAxis(
+                BinStageAxis.GoodBinZ,
+                machine.OutputStageUnit.Recipe.GoodStageZ.AvoidPosition,
+                true,
+                "LineMoveTest;GoodZAvoid").ConfigureAwait(true);
+            if (result != 0)
+                return result;
+
+            ct.ThrowIfCancellationRequested();
+            result = await machine.OutputStageUnit.MoveStageAxis(
+                BinStageAxis.GoodBinY,
+                first.StageY,
+                true,
+                "LineMoveTest;GoodYPlaceCenter").ConfigureAwait(true);
+            if (result != 0)
+                return result;
+
+            var xAndTTargets = new Dictionary<PickerAxis, double>();
+            xAndTTargets[PickerAxis.PickerX] = first.PickerX;
+            for (int i = 0; i < targets.Length; i++)
+                xAndTTargets[targets[i].PickerTAxis] = targets[i].PickerT;
+
+            ct.ThrowIfCancellationRequested();
+            result = await machine.PickerFrontUnit.MovePickerAxes(
+                xAndTTargets,
+                JogSpeedType.Fine,
+                0.0,
+                "LineMoveTest;PlaceStart;PickerZone=Output;Step=XT").ConfigureAwait(true);
+            if (result != 0)
+                return result;
+
+            var yPlaceTarget = new Dictionary<PickerAxis, double>();
+            yPlaceTarget[PickerAxis.PickerY] = first.PickerY;
+
+            ct.ThrowIfCancellationRequested();
+            result = await machine.PickerFrontUnit.MovePickerAxes(
+                yPlaceTarget,
+                JogSpeedType.Fine,
+                0.0,
+                "LineMoveTest;PlaceStart;PickerZone=Output;Step=PlaceY").ConfigureAwait(true);
+            if (result != 0)
+                return result;
+
+            ct.ThrowIfCancellationRequested();
+            result = await machine.OutputStageUnit.MoveNgStageToAvoidAndVerifyAsync(
+                10000,
+                true,
+                ct).ConfigureAwait(true);
+            if (result != 0)
+                return result;
+
+            if (!machine.OutputStageUnit.IsNgStageInAvoidPosition())
+                return -11;
+
+            ct.ThrowIfCancellationRequested();
+            result = await machine.OutputStageUnit.MoveStageAxis(
+                BinStageAxis.GoodBinZ,
+                machine.OutputStageUnit.Recipe.GoodStageZ.ProcessPosition,
+                true,
+                "LineMoveTest;GoodZProcess").ConfigureAwait(true);
+            if (result != 0)
+                return result;
+
+            var firstZTarget = new Dictionary<PickerAxis, double>();
+            firstZTarget[first.PickerZAxis] = first.PickerZ;
+
+            ct.ThrowIfCancellationRequested();
+            return await machine.PickerFrontUnit.MovePickerAxes(
+                firstZTarget,
+                JogSpeedType.Fine,
+                0.0,
+                "LineMoveTest;PlaceStart;PickerZone=Output;Step=PlaceZ;Picker" + first.PickerNo).ConfigureAwait(true);
+        }
+
+        private static LineMoveAxisSet ResolveGoodStageFrontPickerLineMoveAxes(CDT320_Machine machine, int previousPickerIndex, int currentPickerIndex)
+        {
+            var axes = new LineMoveAxisSet
+            {
+                StageY = machine.OutputStageUnit != null && machine.OutputStageUnit.GoodStage != null ? machine.OutputStageUnit.GoodStage.StageY : null,
+                PickerX = machine.PickerFrontUnit != null ? machine.PickerFrontUnit.PickerX : null,
+                PreviousPickerZ = machine.PickerFrontUnit != null ? ResolveFrontPickerZAxis(machine, previousPickerIndex) : null,
+                PickerZ = machine.PickerFrontUnit != null ? ResolveFrontPickerZAxis(machine, currentPickerIndex) : null,
+                PreviousPickerIndex = previousPickerIndex,
+                PickerIndex = currentPickerIndex
+            };
+
+            ResolveAxisNo(axes.StageY, "OutputGoodStageY");
+            ResolveAxisNo(axes.PickerX, "FrontPickerX");
+            ResolveAxisNo(axes.PreviousPickerZ, "FrontPickerZ" + previousPickerIndex);
+            ResolveAxisNo(axes.PickerZ, "FrontPickerZ" + currentPickerIndex);
+            return axes;
+        }
+
+        private static BaseAxis ResolveFrontPickerZAxis(CDT320_Machine machine, int pickerIndex)
+        {
+            if (machine == null || machine.PickerFrontUnit == null)
+                return null;
+
+            if (pickerIndex <= 0)
+                return machine.PickerFrontUnit.PickerZ0;
+            if (pickerIndex == 1)
+                return machine.PickerFrontUnit.PickerZ1;
+            if (pickerIndex == 2)
+                return machine.PickerFrontUnit.PickerZ2;
+            return machine.PickerFrontUnit.PickerZ3;
+        }
+
+        private sealed class PlaceLineMoveTarget
+        {
+            public int PickerIndex { get; set; }
+            public int PickerNo { get; set; }
+            public PickerAxis PickerTAxis { get; set; }
+            public PickerAxis PickerZAxis { get; set; }
+            public double StageY { get; set; }
+            public double PickerX { get; set; }
+            public double PickerY { get; set; }
+            public double PickerT { get; set; }
+            public double PickerZ { get; set; }
+            public double PickerZAvoid { get; set; }
+        }
+
+        private sealed class LineMoveAxisSet
+        {
+            public BaseAxis StageY { get; set; }
+            public BaseAxis PickerX { get; set; }
+            public BaseAxis PreviousPickerZ { get; set; }
+            public BaseAxis PickerZ { get; set; }
+            public int PreviousPickerIndex { get; set; }
+            public int PickerIndex { get; set; }
         }
     }
 }

@@ -946,7 +946,6 @@
     <Compile Include="Sequencing\Picker\PickerSideInspectionSequence.cs" />
     <Compile Include="Sequencing\Picker\PickerBottomAndSideInspectionSequence.cs" />
     <Compile Include="Sequencing\Picker\PickerPlaceContiSegmentedMotion.cs" />
-    <Compile Include="Sequencing\Picker\PickerPlaceSynchronizedArrivalMotion.cs" />
     <Compile Include="Sequencing\Picker\PickerPlaceSequence.cs" />
     <Compile Include="Sequencing\PickerProcessSequence.cs" />
     <Compile Include="Sequencing\FrontPickerSequence.cs" />

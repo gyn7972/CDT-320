@@ -2886,6 +2886,11 @@ namespace QMC.CDT320.Sequencing
                 PickerAxis pickerZ = GetPickerZAxis(_currentPickerIndex);
                 double pickerZAvoid = GetPickerTeachingPosition(pickerZ, "AvoidPosition");
 
+                WriteLog("PickerPickUpZ",
+                    Name + " PickUp Z motion mode. mode=" + config.MotionMode +
+                    ", syncLiftSettleMs=" + config.SyncLiftSettleMs +
+                    ", pickSettleMs=" + config.PickSettleMs + " - Check");
+
                 if (config.MotionMode == PickerPickUpZMotionMode.SimpleZDownVacuumUp)
                     return await RunSimplePickupZMotionAsync(config, pickerZ, pickerZAvoid, updateMaterialInspection, ct).ConfigureAwait(false);
 
@@ -2905,7 +2910,7 @@ namespace QMC.CDT320.Sequencing
                 if (result != 0)
                     return result;
 
-                result = await MoveEjectPinPickerZSyncLiftAsync(pickerZ, ct).ConfigureAwait(false);
+                result = await MoveEjectPinPickerZSyncLiftAndSettleAsync(pickerZ, config, ct).ConfigureAwait(false);
                 if (result != 0)
                     return result;
 
@@ -3014,7 +3019,7 @@ namespace QMC.CDT320.Sequencing
                     case PickerPickUpZManualStep.MovePickerZSlowToContact:
                         return await MovePickerZSlowToContactAsync(pickerZ, config, ct).ConfigureAwait(false);
                     case PickerPickUpZManualStep.MoveEjectPinPickerZSyncLift:
-                        return await MoveEjectPinPickerZSyncLiftAsync(pickerZ, ct).ConfigureAwait(false);
+                        return await MoveEjectPinPickerZSyncLiftAndSettleAsync(pickerZ, config, ct).ConfigureAwait(false);
                     case PickerPickUpZManualStep.SeparateNeedlePickerZ:
                         return await SeparateNeedlePickerZAsync(pickerZ, pickerZAvoid, _lastPickUpZTargets, config, ct).ConfigureAwait(false);
                     case PickerPickUpZManualStep.VerifyDiePicked:
@@ -3435,6 +3440,33 @@ namespace QMC.CDT320.Sequencing
             finally
             {
             }
+        }
+
+        private async Task<int> MoveEjectPinPickerZSyncLiftAndSettleAsync(
+            PickerAxis pickerZ,
+            PickerPickUpMotionConfig config,
+            CancellationToken ct)
+        {
+            int result = await MoveEjectPinPickerZSyncLiftAsync(pickerZ, ct).ConfigureAwait(false);
+            if (result != 0)
+                return result;
+
+            await WaitAfterSyncLiftSettleAsync(config, ct).ConfigureAwait(false);
+            return 0;
+        }
+
+        private async Task WaitAfterSyncLiftSettleAsync(PickerPickUpMotionConfig config, CancellationToken ct)
+        {
+            int waitMs = config != null ? Math.Max(0, config.SyncLiftSettleMs) : 0;
+            if (waitMs <= 0)
+                return;
+
+            // 현재 기준: Sync Lift 직후 Separate 전에 필요한 안정화 대기만 적용한다.
+            WriteLog("PickerPickUpZ",
+                Name + " PickUp Sync Lift settle wait start. waitMs=" + waitMs + " - Wait");
+            await Task.Delay(waitMs, ct).ConfigureAwait(false);
+            WriteLog("PickerPickUpZ",
+                Name + " PickUp Sync Lift settle wait complete. waitMs=" + waitMs + " - Ok");
         }
 
         private async Task<int> MovePickerNeedleZSyncLiftFallbackAsync(
