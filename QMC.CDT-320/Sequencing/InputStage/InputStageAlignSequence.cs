@@ -38,6 +38,7 @@ namespace QMC.CDT320.Sequencing
     {
         private static readonly object SimVisionRandomLock = new object();
         private static readonly Random SimVisionRandom = new Random();
+        private const double AlignPitchCompareToleranceMm = 0.05;
         private WaferMapData _map;
         private WaferMaterial _wafer;
         private TapeFrameSpec _frameSpec;
@@ -794,6 +795,9 @@ namespace QMC.CDT320.Sequencing
                     ? (_ref2Y - _ref1Y) / rowSpan
                     : ResolveAlignPitchY(_ref1Result, _ref2Result);
 
+                _pitchX = NormalizeResolvedAlignPitch("X", _pitchX, ResolveConfiguredAlignPitchX(), "CalculateAlignResult");
+                _pitchY = NormalizeResolvedAlignPitch("Y", _pitchY, ResolveConfiguredAlignPitchY(), "CalculateAlignResult");
+
                 if (Math.Abs(_pitchX) <= 1e-9 || Math.Abs(_pitchY) <= 1e-9)
                     return FailAndResetAlignRuntimeState("IN-STAGE-ALIGN-PITCH", Stage.Name,
                         "Calculated align pitch is invalid. pitchX=" + _pitchX + ", pitchY=" + _pitchY);
@@ -1287,22 +1291,28 @@ namespace QMC.CDT320.Sequencing
         {
             try
             {
-                string specName = wafer != null ? wafer.TapeFrameSpecName : "";
+                string specName = wafer != null ? MaterialStateService.NormalizeInputTapeFrameSpecName(wafer.TapeFrameSpecName) : "";
                 if (string.IsNullOrWhiteSpace(specName))
                 {
-                    specName = MaterialStateService.ResolveRecipeTapeFrameSpecName(0);
+                    specName = MaterialStateService.ResolveInputTapeFrameSpecName(0);
                     if (wafer != null && !string.IsNullOrWhiteSpace(specName))
                     {
                         wafer.TapeFrameSpecName = specName;
                         MaterialStateService.NotifyAndSave("InputStageAlignSpecResolve");
                     }
                 }
+                else if (wafer != null &&
+                         !string.Equals(wafer.TapeFrameSpecName, specName, StringComparison.OrdinalIgnoreCase))
+                {
+                    wafer.TapeFrameSpecName = specName;
+                    MaterialStateService.NotifyAndSave("InputStageAlignSpecNormalize");
+                }
 
                 var spec = MaterialSpecs.FindFrame(specName);
                 if (spec != null)
                     return spec;
 
-                specName = MaterialStateService.ResolveRecipeTapeFrameSpecName(0);
+                specName = MaterialStateService.ResolveInputTapeFrameSpecName(0);
                 return MaterialSpecs.FindFrame(specName);
             }
             catch (Exception ex)
@@ -1389,12 +1399,13 @@ namespace QMC.CDT320.Sequencing
         {
             try
             {
-                if (ref2Result != null && ref2Result.PitchX > 0.0)
-                    return ref2Result.PitchX;
-                if (ref1Result != null && ref1Result.PitchX > 0.0)
-                    return ref1Result.PitchX;
-                if (_frameSpec != null && _frameSpec.PitchX > 0.0)
-                    return _frameSpec.PitchX;
+                double configured = ResolveConfiguredAlignPitchX();
+                double visionPitch = SelectVisionPitchX(ref1Result, ref2Result);
+                if (visionPitch > 0.0)
+                    return NormalizeResolvedAlignPitch("X", visionPitch, configured, "VisionPitch");
+                LogVisionPitchUnavailable("X", ref1Result, ref2Result, configured);
+                if (configured > 0.0)
+                    return configured;
                 return Stage.ResolveAlignPitchX(ref1Result, ref2Result);
             }
             catch
@@ -1410,17 +1421,94 @@ namespace QMC.CDT320.Sequencing
         {
             try
             {
-                if (ref2Result != null && ref2Result.PitchY > 0.0)
-                    return ref2Result.PitchY;
-                if (ref1Result != null && ref1Result.PitchY > 0.0)
-                    return ref1Result.PitchY;
-                if (_frameSpec != null && _frameSpec.PitchY > 0.0)
-                    return _frameSpec.PitchY;
+                double configured = ResolveConfiguredAlignPitchY();
+                double visionPitch = SelectVisionPitchY(ref1Result, ref2Result);
+                if (visionPitch > 0.0)
+                    return NormalizeResolvedAlignPitch("Y", visionPitch, configured, "VisionPitch");
+                LogVisionPitchUnavailable("Y", ref1Result, ref2Result, configured);
+                if (configured > 0.0)
+                    return configured;
                 return Stage.ResolveAlignPitchY(ref1Result, ref2Result);
             }
             catch
             {
                 return Stage.ResolveAlignPitchY(ref1Result, ref2Result);
+            }
+            finally
+            {
+            }
+        }
+
+        private double ResolveConfiguredAlignPitchX()
+        {
+            if (_frameSpec != null && _frameSpec.PitchX > 0.0)
+                return _frameSpec.PitchX;
+            return Stage != null ? Stage.ResolveAlignPitchX(null, null) : 0.0;
+        }
+
+        private double ResolveConfiguredAlignPitchY()
+        {
+            if (_frameSpec != null && _frameSpec.PitchY > 0.0)
+                return _frameSpec.PitchY;
+            return Stage != null ? Stage.ResolveAlignPitchY(null, null) : 0.0;
+        }
+
+        private static double SelectVisionPitchX(VisionAlignResult ref1Result, VisionAlignResult ref2Result)
+        {
+            if (ref2Result != null && ref2Result.PitchX > 0.0)
+                return ref2Result.PitchX;
+            if (ref1Result != null && ref1Result.PitchX > 0.0)
+                return ref1Result.PitchX;
+            return 0.0;
+        }
+
+        private static double SelectVisionPitchY(VisionAlignResult ref1Result, VisionAlignResult ref2Result)
+        {
+            if (ref2Result != null && ref2Result.PitchY > 0.0)
+                return ref2Result.PitchY;
+            if (ref1Result != null && ref1Result.PitchY > 0.0)
+                return ref1Result.PitchY;
+            return 0.0;
+        }
+
+        private double NormalizeResolvedAlignPitch(string axis, double candidate, double configured, string source)
+        {
+            if (candidate <= 0.0)
+                return configured;
+            if (configured <= 0.0)
+                return candidate;
+
+            double delta = Math.Abs(candidate - configured);
+            if (delta <= AlignPitchCompareToleranceMm)
+                return candidate;
+
+            WriteLog("InputStageAlignSequence",
+                "Align pitch mismatch. configured data is used. axis=" + axis +
+                ", source=" + source +
+                ", candidate=" + candidate.ToString("F6") +
+                ", configured=" + configured.ToString("F6") +
+                ", delta=" + delta.ToString("F6") +
+                ", tolerance=" + AlignPitchCompareToleranceMm.ToString("F6") + " - Check");
+            return configured;
+        }
+
+        private void LogVisionPitchUnavailable(
+            string axis,
+            VisionAlignResult ref1Result,
+            VisionAlignResult ref2Result,
+            double configured)
+        {
+            try
+            {
+                if (ref1Result == null && ref2Result == null)
+                    return;
+
+                WriteLog("InputStageAlignSequence",
+                    "Vision align pitch was not supplied. configured map/frame pitch is used. axis=" + axis +
+                    ", configured=" + configured.ToString("F6") + " - Check");
+            }
+            catch
+            {
             }
             finally
             {

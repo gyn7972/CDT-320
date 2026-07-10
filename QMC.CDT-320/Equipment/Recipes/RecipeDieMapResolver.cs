@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using QMC.CDT320.DieMaps;
+using QMC.CDT320.Materials;
 
 namespace QMC.CDT320.Recipes
 {
@@ -130,7 +131,12 @@ namespace QMC.CDT320.Recipes
                 return null;
 
             if (kind == RecipeMapKind.Input)
-                return project.InputFrame ?? project.Frame;
+            {
+                TapeFrameSubset inputFrame = project.InputFrame ?? project.Frame;
+                if (inputFrame != null)
+                    inputFrame.FrameSpecName = MaterialStateService.NormalizeInputTapeFrameSpecName(inputFrame.FrameSpecName);
+                return inputFrame;
+            }
 
             return project.OutputFrame ?? project.Frame;
         }

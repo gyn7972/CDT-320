@@ -80,6 +80,83 @@ namespace QMC.CDT320.Materials
             return die;
         }
 
+        public static int ClearInputDieMaterialsForWafer(string waferId, string reason)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(waferId))
+                    return 0;
+
+                lock (_stateSync)
+                {
+                    int removed = State.Dies.RemoveAll(d =>
+                        d != null &&
+                        string.Equals(d.WaferID_Input, waferId, StringComparison.OrdinalIgnoreCase));
+
+                    if (removed > 0)
+                    {
+                        Log.Write("Main", "SYSTEM", "MaterialStateService",
+                            "Cleared previous input die materials for wafer. wafer=" + waferId +
+                            ", removed=" + removed +
+                            ", reason=" + (reason ?? "") + " - Ok");
+                    }
+
+                    return removed;
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Write("Main", "SYSTEM", "MaterialStateService",
+                    "Clear input die materials failed. wafer=" + waferId +
+                    ", reason=" + (reason ?? "") +
+                    ", error=" + ex.Message + " - Failed");
+                return 0;
+            }
+            finally
+            {
+            }
+        }
+
+        public static int ClearStaleInputDieMaterialsForWafer(string waferId, ICollection<string> activeDieIds, string reason)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(waferId))
+                    return 0;
+
+                lock (_stateSync)
+                {
+                    int removed = State.Dies.RemoveAll(d =>
+                        d != null &&
+                        string.Equals(d.WaferID_Input, waferId, StringComparison.OrdinalIgnoreCase) &&
+                        (activeDieIds == null ||
+                         string.IsNullOrWhiteSpace(d.DieId) ||
+                         !activeDieIds.Contains(d.DieId)));
+
+                    if (removed > 0)
+                    {
+                        Log.Write("Main", "SYSTEM", "MaterialStateService",
+                            "Cleared stale input die materials for wafer. wafer=" + waferId +
+                            ", removed=" + removed +
+                            ", reason=" + (reason ?? "") + " - Ok");
+                    }
+
+                    return removed;
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Write("Main", "SYSTEM", "MaterialStateService",
+                    "Clear stale input die materials failed. wafer=" + waferId +
+                    ", reason=" + (reason ?? "") +
+                    ", error=" + ex.Message + " - Failed");
+                return 0;
+            }
+            finally
+            {
+            }
+        }
+
         public static DieMaterial GetDieMaterial(string dieId)
         {
             try
@@ -518,7 +595,8 @@ namespace QMC.CDT320.Materials
                     RecipeProject project = RecipeStore.LoadLastOrDefault();
                     string timestamp = DateTime.Now.ToString("yyyyMMdd-HHmmss");
                     string lotId = "TEST-LOT-" + timestamp;
-                    string tapeFrameSpecName = ResolveRecipeTapeFrameSpecName(0);
+                    string inputTapeFrameSpecName = ResolveInputTapeFrameSpecName(0);
+                    string outputTapeFrameSpecName = ResolveRecipeTapeFrameSpecName(0);
 
                     int inputSlotCount = ResolveProcessTestSlotCount(CassetteMaterialRole.Input1);
                     int outputSlotCount = ResolveProcessTestSlotCount(CassetteMaterialRole.Good1);
@@ -527,15 +605,15 @@ namespace QMC.CDT320.Materials
 
                     ClearActiveProcessLocationsNoLock();
 
-                    UpdateCassetteMapping(CassetteMaterialRole.Input1, true, inputSlotCount, BuildProcessTestSlotMap(inputSlotCount, 2), null, lotId, tapeFrameSpecName);
-                    UpdateCassetteMapping(CassetteMaterialRole.Input2, useInput2, inputSlotCount, useInput2 ? BuildProcessTestSlotMap(inputSlotCount, 1) : null, null, lotId, tapeFrameSpecName);
-                    UpdateCassetteMapping(CassetteMaterialRole.Good1, true, outputSlotCount, BuildProcessTestSlotMap(outputSlotCount, 2), null, lotId, tapeFrameSpecName);
-                    UpdateCassetteMapping(CassetteMaterialRole.Good2, useGood2, outputSlotCount, useGood2 ? BuildProcessTestSlotMap(outputSlotCount, 1) : null, null, lotId, tapeFrameSpecName);
-                    UpdateCassetteMapping(CassetteMaterialRole.Ng1, true, outputSlotCount, BuildProcessTestSlotMap(outputSlotCount, 2), null, lotId, tapeFrameSpecName);
+                    UpdateCassetteMapping(CassetteMaterialRole.Input1, true, inputSlotCount, BuildProcessTestSlotMap(inputSlotCount, 2), null, lotId, inputTapeFrameSpecName);
+                    UpdateCassetteMapping(CassetteMaterialRole.Input2, useInput2, inputSlotCount, useInput2 ? BuildProcessTestSlotMap(inputSlotCount, 1) : null, null, lotId, inputTapeFrameSpecName);
+                    UpdateCassetteMapping(CassetteMaterialRole.Good1, true, outputSlotCount, BuildProcessTestSlotMap(outputSlotCount, 2), null, lotId, outputTapeFrameSpecName);
+                    UpdateCassetteMapping(CassetteMaterialRole.Good2, useGood2, outputSlotCount, useGood2 ? BuildProcessTestSlotMap(outputSlotCount, 1) : null, null, lotId, outputTapeFrameSpecName);
+                    UpdateCassetteMapping(CassetteMaterialRole.Ng1, true, outputSlotCount, BuildProcessTestSlotMap(outputSlotCount, 2), null, lotId, outputTapeFrameSpecName);
 
                     DieMap inputMap = LoadRecipeInputDieMapForProcessTest(project);
                     if (!IsUsableSourceMap(inputMap))
-                        inputMap = CreateFallbackInputDieMapForProcessTest(project, tapeFrameSpecName);
+                        inputMap = CreateFallbackInputDieMapForProcessTest(project, inputTapeFrameSpecName);
                     if (!IsUsableSourceMap(inputMap))
                     {
                         message = "테스트 입력 DieMap을 만들 수 없습니다. Recipe DieMap 또는 Frame 설정을 확인하세요.";
@@ -553,7 +631,7 @@ namespace QMC.CDT320.Materials
                     inputStageWafer.SourceSlotNumber = 0;
                     inputStageWafer.CurrentLocation = new MaterialLocation { Kind = MaterialLocationKind.InputStage };
                     inputStageWafer.State = WaferMaterialState.Working;
-                    inputStageWafer.TapeFrameSpecName = tapeFrameSpecName;
+                    inputStageWafer.TapeFrameSpecName = inputTapeFrameSpecName;
                     inputStageWafer.DieMapFrameObjId = string.IsNullOrWhiteSpace(inputMap.FrameObjId) ? inputStageWafer.WaferId : inputMap.FrameObjId;
                     inputStageWafer.HasInputStageAlignResult = true;
                     inputStageWafer.InputStageAlignOriginX = inputMap.OriginX;
@@ -581,12 +659,12 @@ namespace QMC.CDT320.Materials
                         MaterialLocationKind.InputStage,
                         WaferMaterialState.Working,
                         lotId,
-                        tapeFrameSpecName);
+                        inputTapeFrameSpecName);
 
                     int inputTargetCount = ApplyProcessTestInputDieMaterialsNoLock(inputMap, inputStageWafer);
 
-                    WaferMaterial goodStageWafer = CreateProcessTestOutputStageWaferNoLock(QMC.CDT320.BinSide.Good, lotId, timestamp, tapeFrameSpecName, inputStageWafer.WaferId, project);
-                    WaferMaterial ngStageWafer = CreateProcessTestOutputStageWaferNoLock(QMC.CDT320.BinSide.Ng, lotId, timestamp, tapeFrameSpecName, inputStageWafer.WaferId, project);
+                    WaferMaterial goodStageWafer = CreateProcessTestOutputStageWaferNoLock(QMC.CDT320.BinSide.Good, lotId, timestamp, outputTapeFrameSpecName, inputStageWafer.WaferId, project);
+                    WaferMaterial ngStageWafer = CreateProcessTestOutputStageWaferNoLock(QMC.CDT320.BinSide.Ng, lotId, timestamp, outputTapeFrameSpecName, inputStageWafer.WaferId, project);
                     BindProcessTestStageWaferToCassetteSlotNoLock(
                         CassetteMaterialRole.Good1,
                         0,
@@ -594,7 +672,7 @@ namespace QMC.CDT320.Materials
                         MaterialLocationKind.OutputStageGood,
                         WaferMaterialState.Working,
                         lotId,
-                        tapeFrameSpecName);
+                        outputTapeFrameSpecName);
                     BindProcessTestStageWaferToCassetteSlotNoLock(
                         CassetteMaterialRole.Ng1,
                         0,
@@ -602,7 +680,7 @@ namespace QMC.CDT320.Materials
                         MaterialLocationKind.OutputStageNg,
                         WaferMaterialState.Working,
                         lotId,
-                        tapeFrameSpecName);
+                        outputTapeFrameSpecName);
 
                     State.LotId = lotId;
                     State.RecipeName = project != null ? project.FileName ?? "" : State.RecipeName;
@@ -644,6 +722,73 @@ namespace QMC.CDT320.Materials
 
             EnsureTapeFrameSpecFromFrame(project, frame, specName, "");
             return specName;
+        }
+
+        public static string ResolveInputTapeFrameSpecName(int inchSelect)
+        {
+            string specName = ResolveRecipeTapeFrameSpecName(inchSelect);
+            if (!string.IsNullOrWhiteSpace(specName))
+                return NormalizeInputTapeFrameSpecName(specName);
+
+            return NormalizeInputTapeFrameSpecName(ResolveDefaultTapeFrameSpecName(inchSelect));
+        }
+
+        public static string NormalizeInputTapeFrameSpecName(string specName)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(specName))
+                    return "";
+
+                string trimmed = specName.Trim();
+                if (trimmed.IndexOf("Output", StringComparison.OrdinalIgnoreCase) < 0)
+                    return trimmed;
+
+                string candidateName = ReplaceIgnoreCase(trimmed, "Output", "Input");
+                TapeFrameSpec candidate = MaterialSpecs.FindFrame(candidateName);
+                if (candidate == null)
+                    return trimmed;
+
+                TapeFrameSpec current = MaterialSpecs.FindFrame(trimmed);
+                if (current != null && !IsCompatibleTapeFrameSpec(current, candidate))
+                    return trimmed;
+
+                Log.Write("Main", "SYSTEM", "MaterialStateService",
+                    "Input tape frame spec normalized. requested=" + trimmed +
+                    ", normalized=" + candidate.Name + " - Ok");
+                return candidate.Name;
+            }
+            catch
+            {
+                return string.IsNullOrWhiteSpace(specName) ? "" : specName.Trim();
+            }
+            finally
+            {
+            }
+        }
+
+        private static string ReplaceIgnoreCase(string source, string oldValue, string newValue)
+        {
+            if (string.IsNullOrEmpty(source) || string.IsNullOrEmpty(oldValue))
+                return source;
+
+            int index = source.IndexOf(oldValue, StringComparison.OrdinalIgnoreCase);
+            if (index < 0)
+                return source;
+
+            return source.Substring(0, index) + newValue + source.Substring(index + oldValue.Length);
+        }
+
+        private static bool IsCompatibleTapeFrameSpec(TapeFrameSpec a, TapeFrameSpec b)
+        {
+            if (a == null || b == null)
+                return false;
+
+            return a.DieMapX == b.DieMapX &&
+                   a.DieMapY == b.DieMapY &&
+                   Math.Abs(a.PitchX - b.PitchX) <= 0.000001 &&
+                   Math.Abs(a.PitchY - b.PitchY) <= 0.000001 &&
+                   Math.Abs(a.OuterDiameterMm - b.OuterDiameterMm) <= 0.001;
         }
 
         private static double ResolveProcessTestThetaAlignOffset(QMC.CDT320.InputStageUnit inputStage)
@@ -896,7 +1041,9 @@ namespace QMC.CDT320.Materials
             wafer.CurrentLocation = new MaterialLocation { Kind = kind };
             wafer.State = WaferMaterialStateText.Normalize(state);
             if (string.IsNullOrWhiteSpace(wafer.TapeFrameSpecName))
-                wafer.TapeFrameSpecName = ResolveRecipeTapeFrameSpecName(0);
+                wafer.TapeFrameSpecName = kind == MaterialLocationKind.InputStage
+                    ? ResolveInputTapeFrameSpecName(0)
+                    : ResolveRecipeTapeFrameSpecName(0);
             wafer.UpdatedAt = DateTime.Now;
             NotifyAndSave("CreateWaferAtLocation");
             return wafer;

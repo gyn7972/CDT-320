@@ -20,6 +20,12 @@ namespace QMC.CDT320
         SimpleZDownVacuumUp = 1
     }
 
+    public enum PickerPickUpTransferMotionMode
+    {
+        Default = 0,
+        ContiSegmentedPickUp = 2
+    }
+
     public enum PickerBottomFlyingZDownMode
     {
         Off = 0,
@@ -45,6 +51,19 @@ namespace QMC.CDT320
     public sealed class PickerPickUpMotionConfig
     {
         [DataMember] public PickerPickUpZMotionMode MotionMode { get; set; } = PickerPickUpZMotionMode.Detailed;
+        [DataMember] public PickerPickUpTransferMotionMode TransferMotionMode { get; set; } = PickerPickUpTransferMotionMode.Default;
+        [DataMember] public int TransferContiCoordinate { get; set; } = 2;
+        [DataMember] public int TransferContiTimeoutMs { get; set; } = 5000;
+        [DataMember] public double TransferContiMaxTravelDistance { get; set; } = 45.0;
+        [DataMember] public double TransferContiPickerYMaxCorrectionDistance { get; set; } = 1.5;
+        [DataMember] public double TransferContiXYMidRatio { get; set; } = 0.5;
+        [DataMember] public double TransferContiMaxVelocity { get; set; } = 500.0;
+        [DataMember] public double TransferContiMaxAcceleration { get; set; } = 5000.0;
+        [DataMember] public double TransferContiMaxDeceleration { get; set; } = 5000.0;
+        [DataMember] public double TransferContiNode0SpeedPercent { get; set; } = 20.0;
+        [DataMember] public double TransferContiNode1SpeedPercent { get; set; } = 100.0;
+        [DataMember] public double TransferContiNode2SpeedPercent { get; set; } = 100.0;
+        [DataMember] public double TransferContiNode3SpeedPercent { get; set; } = 20.0;
         [DataMember] public double PickerZPrePickDistance { get; set; } = 1.0;
         [DataMember] public double PickerZSlowApproachSpeedPercent { get; set; } = 1.0;
         [DataMember] public double PickerZSyncLiftDistance { get; set; } = 2.0;
@@ -53,6 +72,7 @@ namespace QMC.CDT320
         [DataMember] public double PickerZSyncLiftDeceleration { get; set; } = 100.0;
         [DataMember] public double PickerZSeparateDistance { get; set; } = 1.0;
         [DataMember] public double PickerZSeparateSpeedPercent { get; set; } = 1.0;
+        [DataMember] public double PickerZAvoidReturnSpeedPercent { get; set; } = 10.0;
         [DataMember] public PickerPickUpSeparateMode SeparateMode { get; set; } = PickerPickUpSeparateMode.Simultaneous;
         [DataMember] public int VacuumOnBeforePickDelayMs { get; set; } = 0;
         [DataMember] public int SyncLiftSettleMs { get; set; } = 0;
@@ -92,6 +112,27 @@ namespace QMC.CDT320
             if (PickerZSeparateSpeedPercent <= 0.0 && PickerZSeparateVelocity > 0.0)
                 PickerZSeparateSpeedPercent = 1.0;
 
+            if (TransferMotionMode != PickerPickUpTransferMotionMode.Default &&
+                TransferMotionMode != PickerPickUpTransferMotionMode.ContiSegmentedPickUp)
+            {
+                TransferMotionMode = PickerPickUpTransferMotionMode.Default;
+            }
+
+            if (TransferContiCoordinate <= 0)
+                TransferContiCoordinate = 2;
+            if (TransferContiTimeoutMs <= 0)
+                TransferContiTimeoutMs = 5000;
+            TransferContiMaxTravelDistance = NormalizePositive(TransferContiMaxTravelDistance, 45.0);
+            TransferContiPickerYMaxCorrectionDistance = NormalizePositive(TransferContiPickerYMaxCorrectionDistance, 1.5);
+            TransferContiXYMidRatio = NormalizeRatio(TransferContiXYMidRatio, 0.5);
+            TransferContiMaxVelocity = NormalizePositive(TransferContiMaxVelocity, 500.0);
+            TransferContiMaxAcceleration = NormalizePositive(TransferContiMaxAcceleration, 5000.0);
+            TransferContiMaxDeceleration = NormalizePositive(TransferContiMaxDeceleration, 5000.0);
+            TransferContiNode0SpeedPercent = NormalizePercent(TransferContiNode0SpeedPercent, 20.0);
+            TransferContiNode1SpeedPercent = NormalizePercent(TransferContiNode1SpeedPercent, 100.0);
+            TransferContiNode2SpeedPercent = NormalizePercent(TransferContiNode2SpeedPercent, 100.0);
+            TransferContiNode3SpeedPercent = NormalizePercent(TransferContiNode3SpeedPercent, 20.0);
+
             PickerZPrePickDistance = NormalizeDistance(PickerZPrePickDistance);
             PickerZSlowApproachSpeedPercent = NormalizePercent(PickerZSlowApproachSpeedPercent, 1.0);
             PickerZSyncLiftDistance = NormalizeDistance(PickerZSyncLiftDistance);
@@ -100,6 +141,7 @@ namespace QMC.CDT320
             PickerZSyncLiftDeceleration = NormalizePositive(PickerZSyncLiftDeceleration, 100.0);
             PickerZSeparateDistance = NormalizeDistance(PickerZSeparateDistance);
             PickerZSeparateSpeedPercent = NormalizePercent(PickerZSeparateSpeedPercent, 1.0);
+            PickerZAvoidReturnSpeedPercent = NormalizePercent(PickerZAvoidReturnSpeedPercent, 10.0);
 
             if (VacuumOnBeforePickDelayMs < 0)
                 VacuumOnBeforePickDelayMs = 0;
@@ -107,6 +149,21 @@ namespace QMC.CDT320
                 SyncLiftSettleMs = 0;
             if (PickSettleMs < 0)
                 PickSettleMs = 0;
+        }
+
+        public double GetTransferContiNodeVelocity(int nodeIndex)
+        {
+            return TransferContiMaxVelocity * GetTransferContiNodeRatio(nodeIndex);
+        }
+
+        public double GetTransferContiNodeAcceleration(int nodeIndex)
+        {
+            return TransferContiMaxAcceleration * GetTransferContiNodeRatio(nodeIndex);
+        }
+
+        public double GetTransferContiNodeDeceleration(int nodeIndex)
+        {
+            return TransferContiMaxDeceleration * GetTransferContiNodeRatio(nodeIndex);
         }
 
         public static double NormalizePercent(double percent, double fallback)
@@ -132,6 +189,32 @@ namespace QMC.CDT320
             if (double.IsNaN(distance) || double.IsInfinity(distance) || distance < 0.0)
                 return 0.0;
             return distance;
+        }
+
+        private double GetTransferContiNodeRatio(int nodeIndex)
+        {
+            double percent;
+            switch (nodeIndex)
+            {
+                case 0: percent = TransferContiNode0SpeedPercent; break;
+                case 1: percent = TransferContiNode1SpeedPercent; break;
+                case 2: percent = TransferContiNode2SpeedPercent; break;
+                case 3: percent = TransferContiNode3SpeedPercent; break;
+                default: percent = TransferContiNode3SpeedPercent; break;
+            }
+
+            return NormalizePercent(percent, 1.0) / 100.0;
+        }
+
+        private static double NormalizeRatio(double value, double fallback)
+        {
+            if (double.IsNaN(value) || double.IsInfinity(value))
+                value = fallback;
+            if (value < 0.0)
+                return 0.0;
+            if (value > 1.0)
+                return 1.0;
+            return value;
         }
     }
 

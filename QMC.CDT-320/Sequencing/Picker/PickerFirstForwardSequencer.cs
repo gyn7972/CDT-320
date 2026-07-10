@@ -168,6 +168,56 @@ namespace QMC.CDT320.Sequencing
 
         // 해당 side가 이번 run에서 첫 전진 순서를 획득할 때까지 대기한다.
         // 이미 이번 run에서 첫 전진을 마친 side는 즉시 통과한다.
+        // Normal pickup priority yield: remove the yielding side from the first-forward wait set only when resume drain is inactive.
+        public static bool TryYieldExpectedSideToPriority(
+            PickerSequenceSide yieldingSide,
+            PickerSequenceSide prioritySide,
+            out string detail)
+        {
+            lock (Sync)
+            {
+                if (ResumeDrainRanks.Count > 0 && !AllResumeDrainDoneNoLock())
+                {
+                    detail = "resumeDrainActive, expected=" + DescribeExpectedNoLock() +
+                             ", registered=" + DescribeRegisteredNoLock() +
+                             ", done=" + DescribeDoneNoLock();
+                    return false;
+                }
+
+                if (Registered.ContainsKey(yieldingSide) || Done.Contains(yieldingSide))
+                {
+                    detail = "yieldingSideAlreadyParticipating, expected=" + DescribeExpectedNoLock() +
+                             ", registered=" + DescribeRegisteredNoLock() +
+                             ", done=" + DescribeDoneNoLock();
+                    return false;
+                }
+
+                if (Done.Contains(prioritySide))
+                {
+                    detail = "prioritySideAlreadyDone, expected=" + DescribeExpectedNoLock() +
+                             ", registered=" + DescribeRegisteredNoLock() +
+                             ", done=" + DescribeDoneNoLock();
+                    return false;
+                }
+
+                if (!Expected.Contains(prioritySide))
+                {
+                    detail = "prioritySideNotExpected, expected=" + DescribeExpectedNoLock() +
+                             ", registered=" + DescribeRegisteredNoLock() +
+                             ", done=" + DescribeDoneNoLock();
+                    return false;
+                }
+
+                bool removed = Expected.Remove(yieldingSide);
+                detail = "removed=" + removed +
+                         ", expected=" + DescribeExpectedNoLock() +
+                         ", registered=" + DescribeRegisteredNoLock() +
+                         ", done=" + DescribeDoneNoLock();
+                return true;
+            }
+        }
+
+        // Waits until the side owns this run's first forward turn.
         public static async Task AcquireAsync(
             PickerSequenceSide side,
             int rank,

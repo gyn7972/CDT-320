@@ -596,22 +596,27 @@ namespace QMC.CDT_320.Ui.Pages.Work
 
         private DieMap CreateInputCircleMapFromRecipe(RecipeProject recipe)
         {
-            if (recipe == null || recipe.Frame == null)
+            if (recipe == null)
                 return null;
 
-            int gridX = Math.Max(1, recipe.Frame.DieMapX);
-            int gridY = Math.Max(1, recipe.Frame.DieMapY);
-            double pitchX = recipe.Frame.PitchX > 0.0 ? recipe.Frame.PitchX : 1.0;
-            double pitchY = recipe.Frame.PitchY > 0.0 ? recipe.Frame.PitchY : 1.0;
+            TapeFrameSubset frame = recipe.InputFrame ?? recipe.Frame;
+            if (frame == null)
+                return null;
+
+            int gridX = Math.Max(1, frame.DieMapX);
+            int gridY = Math.Max(1, frame.DieMapY);
+            double pitchX = frame.PitchX > 0.0 ? frame.PitchX : 1.0;
+            double pitchY = frame.PitchY > 0.0 ? frame.PitchY : 1.0;
             double originX = -((gridX - 1) * pitchX) / 2.0;
             double originY = -((gridY - 1) * pitchY) / 2.0;
-            int sideEdgeSkip = Math.Max(0, recipe.Frame.SideEdgeSkip);
-            int topBottomEdgeSkip = Math.Max(0, recipe.Frame.TopBottomEdgeSkip);
-            double diameterMm = recipe.Frame.OuterDiameterMm > 0.0 ? recipe.Frame.OuterDiameterMm : 0.0;
+            int sideEdgeSkip = Math.Max(0, frame.SideEdgeSkip);
+            int topBottomEdgeSkip = Math.Max(0, frame.TopBottomEdgeSkip);
+            double diameterMm = frame.OuterDiameterMm > 0.0 ? frame.OuterDiameterMm : 0.0;
+            string frameSpecName = MaterialStateService.NormalizeInputTapeFrameSpecName(frame.FrameSpecName);
 
             var map = new DieMap
             {
-                FrameObjId = string.IsNullOrWhiteSpace(recipe.Frame.FrameSpecName) ? "INPUT_CIRCLE" : recipe.Frame.FrameSpecName,
+                FrameObjId = string.IsNullOrWhiteSpace(frameSpecName) ? "INPUT_CIRCLE" : frameSpecName,
                 DieMapX = gridX,
                 DieMapY = gridY,
                 PitchX = pitchX,

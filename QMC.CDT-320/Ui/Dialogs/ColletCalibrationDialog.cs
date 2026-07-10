@@ -1135,6 +1135,9 @@ namespace QMC.CDT_320.Ui.Dialogs
                 double actualT = tAxis.ActualPosition;
                 double pitchOffsetX = ResolveBottomPitchXOffset(machine, colletIndex);
                 double bottomTeachingX = actualX - pitchOffsetX;
+                double pickerPitchX = ResolvePickerPitchXMagnitude(machine);
+                double bottomPicker1X = bottomTeachingX + (pickerPitchX * 3.0);
+                double sideTeachingX = bottomPicker1X + pickerPitchX;
                 double baseBottomT = GetSelectedPickerTeachingPosition(machine, tAxisKind, "BottomPosition");
                 double activeTPcHomeOffset = ResolvePickerTPcHomeOffset(tAxis);
                 double tZeroResidual = actualT - baseBottomT;
@@ -1162,6 +1165,8 @@ namespace QMC.CDT_320.Ui.Dialogs
                     "Side=" + _side + ", Collet=" + _colletNo + "\r\n" +
                     "X Teaching=" + bottomTeachingX.ToString("F6") + " (actualX=" + actualX.ToString("F6") + ", pitch=" + pitchOffsetX.ToString("F6") + ")\r\n" +
                     "Y Teaching=" + actualY.ToString("F6") + "\r\n" +
+                    "Side X Teaching=" + sideTeachingX.ToString("F6") + " (bottom#1=" + bottomPicker1X.ToString("F6") + " + pitch=" + pickerPitchX.ToString("F6") + ")\r\n" +
+                    "Side Y Teaching=" + actualY.ToString("F6") + "\r\n" +
                     "Z Teaching=" + actualZ.ToString("F6") + " (" + zAxisKind + ")\r\n" +
                     "T Zero Offset=" + tZeroHomeOffset.ToString("F6") + " (" + tAxisKind + ")\r\n" +
                     "  Active PC Offset=" + activeTPcHomeOffset.ToString("F6") +
@@ -1172,8 +1177,10 @@ namespace QMC.CDT_320.Ui.Dialogs
                 SetSelectedPickerTeachingPosition(machine, PickerAxis.PickerX, "BottomPosition", bottomTeachingX);
                 SetSelectedPickerTeachingPosition(machine, PickerAxis.PickerY, "BottomPosition", actualY);
                 SetSelectedPickerTeachingPosition(machine, zAxisKind, "BottomPosition", actualZ);
+                SetSelectedPickerTeachingPosition(machine, PickerAxis.PickerX, "SidePosition", sideTeachingX);
+                SetSelectedPickerTeachingPosition(machine, PickerAxis.PickerY, "SidePosition", actualY);
                 if (colletIndex == 3)
-                    SyncReferenceColletDieTeachingPositions(machine, bottomTeachingX, actualY, actualZ, zAxisKind);
+                    SyncReferenceColletDieTeachingPositions(machine, bottomTeachingX, sideTeachingX, actualY, actualZ, zAxisKind);
 
                 record.Side = _side;
                 record.ColletNo = _colletNo;
@@ -1382,6 +1389,27 @@ namespace QMC.CDT_320.Ui.Dialogs
             return Math.Abs(pitch) * Math.Max(0, 3 - colletIndex);
         }
 
+        private double ResolvePickerPitchXMagnitude(CDT320_Machine machine)
+        {
+            try
+            {
+                double pitch = 0.0;
+                if (_side == VisionFocusPickerSide.Front && machine != null && machine.PickerFrontUnit != null && machine.PickerFrontUnit.Setup != null)
+                    pitch = machine.PickerFrontUnit.Setup.PickerPitchX;
+                else if (_side == VisionFocusPickerSide.Rear && machine != null && machine.PickerRearUnit != null && machine.PickerRearUnit.Setup != null)
+                    pitch = machine.PickerRearUnit.Setup.PickerPitchX;
+
+                return Math.Abs(pitch);
+            }
+            catch
+            {
+                return 0.0;
+            }
+            finally
+            {
+            }
+        }
+
         private double GetSelectedPickerTeachingPosition(CDT320_Machine machine, PickerAxis axis, string positionName)
         {
             if (_side == VisionFocusPickerSide.Front)
@@ -1411,10 +1439,11 @@ namespace QMC.CDT_320.Ui.Dialogs
             machine.PickerRearUnit.SetPickerAxisTeachingPosition(axis, positionName, position);
         }
 
-        private void SyncReferenceColletDieTeachingPositions(CDT320_Machine machine, double bottomX, double pickerY, double bottomZ, PickerAxis zAxis)
+        private void SyncReferenceColletDieTeachingPositions(CDT320_Machine machine, double bottomX, double sideX, double pickerY, double bottomZ, PickerAxis zAxis)
         {
-            // 현재 기준: 4번 Collet Cal 기준 Y는 Pick/Bottom/Side/Place 전진 위치의 공통 기준값으로 저장한다.
+            // Reference collet defines common forward Y. Side #4 X starts at Bottom #1 X plus one picker pitch.
             SetSelectedPickerTeachingPosition(machine, PickerAxis.PickerX, BuildIndexedPositionName("DieBottomPosition"), bottomX);
+            SetSelectedPickerTeachingPosition(machine, PickerAxis.PickerX, BuildIndexedPositionName("DieSidePosition"), sideX);
             SetSelectedPickerTeachingPosition(machine, PickerAxis.PickerY, BuildIndexedPositionName("DiePickPosition"), pickerY);
             SetSelectedPickerTeachingPosition(machine, PickerAxis.PickerY, BuildIndexedPositionName("DieBottomPosition"), pickerY);
             SetSelectedPickerTeachingPosition(machine, PickerAxis.PickerY, BuildIndexedPositionName("DieSidePosition"), pickerY);

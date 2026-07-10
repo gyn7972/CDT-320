@@ -585,9 +585,9 @@ namespace QMC.CDT_320.Ui.Pages.Work
             if (currBin < 0 && material.CurrentBinCode > 0)
                 currBin = material.CurrentBinCode;
 
-            snap.TotalChip = material.TargetCount > 0
-                ? total + " / " + material.TargetCount
-                : total.ToString();
+            snap.TotalChip = material.CurrentInputTargetCount > 0
+                ? material.CurrentInputProcessedCount + " / " + material.CurrentInputTargetCount
+                : "0";
             snap.BinNum = currBin >= 0 ? currBin.ToString() : "--";
             snap.StageInfo =
                 "STAGE\r\nTOTAL : " + total +
@@ -969,6 +969,10 @@ namespace QMC.CDT_320.Ui.Pages.Work
 
                 display.LotId = state.LotId ?? string.Empty;
 
+                WaferMaterial currentInputWafer = ResolveCurrentInputStageWafer(state);
+                string currentInputWaferId = currentInputWafer != null ? currentInputWafer.WaferId : string.Empty;
+                HashSet<string> currentInputDieIds = BuildCurrentInputDieIdSet(currentInputWafer);
+
                 if (state.Dies != null)
                 {
                     foreach (DieMaterial die in state.Dies)
@@ -999,6 +1003,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
 
                         if (die.Output_BinCode > 0)
                             display.CurrentBinCode = die.Output_BinCode;
+
+                        AccumulateCurrentInputWaferCount(display, die, currentInputWaferId, currentInputDieIds);
                     }
                 }
 
@@ -1013,6 +1019,110 @@ namespace QMC.CDT_320.Ui.Pages.Work
             }
 
             return display;
+        }
+
+        private static WaferMaterial ResolveCurrentInputStageWafer(MaterialSnapshot state)
+        {
+            if (state == null || state.Wafers == null)
+                return null;
+
+            WaferMaterial selected = null;
+            foreach (WaferMaterial wafer in state.Wafers)
+            {
+                if (wafer == null ||
+                    wafer.CurrentLocation == null ||
+                    wafer.CurrentLocation.Kind != MaterialLocationKind.InputStage ||
+                    WaferMaterialStateText.Normalize(wafer.State) == WaferMaterialState.Empty ||
+                    string.IsNullOrWhiteSpace(wafer.WaferId))
+                {
+                    continue;
+                }
+
+                if (selected == null || wafer.UpdatedAt > selected.UpdatedAt)
+                    selected = wafer;
+            }
+
+            return selected;
+        }
+
+        private static HashSet<string> BuildCurrentInputDieIdSet(WaferMaterial wafer)
+        {
+            try
+            {
+                if (wafer == null || wafer.DieIds == null || wafer.DieIds.Count == 0)
+                    return null;
+
+                var set = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                foreach (string dieId in wafer.DieIds)
+                {
+                    if (!string.IsNullOrWhiteSpace(dieId))
+                        set.Add(dieId);
+                }
+
+                return set.Count > 0 ? set : null;
+            }
+            catch
+            {
+                return null;
+            }
+            finally
+            {
+            }
+        }
+
+        private static void AccumulateCurrentInputWaferCount(
+            MaterialDisplaySnapshot display,
+            DieMaterial die,
+            string currentInputWaferId,
+            HashSet<string> currentInputDieIds)
+        {
+            if (display == null || die == null || string.IsNullOrWhiteSpace(currentInputWaferId))
+                return;
+
+            if (!string.Equals(die.WaferID_Input, currentInputWaferId, StringComparison.OrdinalIgnoreCase))
+                return;
+
+            if (currentInputDieIds != null &&
+                (string.IsNullOrWhiteSpace(die.DieId) || !currentInputDieIds.Contains(die.DieId)))
+            {
+                return;
+            }
+
+            display.CurrentInputTargetCount++;
+            if (IsCurrentInputWaferDieProcessed(die))
+                display.CurrentInputProcessedCount++;
+        }
+
+        private static bool IsCurrentInputWaferDieProcessed(DieMaterial die)
+        {
+            if (die == null)
+                return false;
+
+            if (die.Result == DieResult.Good || die.Result == DieResult.NG)
+                return true;
+
+            if (IsPickerLocation(die.CurrentLocation) || IsOutputLocation(die.CurrentLocation))
+                return true;
+
+            return HasInputPickVisionInspection(die);
+        }
+
+        private static bool HasInputPickVisionInspection(DieMaterial die)
+        {
+            if (die == null || die.Inspections == null)
+                return false;
+
+            foreach (DieInspectionRecord record in die.Inspections)
+            {
+                if (record == null)
+                    continue;
+
+                if (string.Equals(record.InspectionType, "InputPickVision", StringComparison.OrdinalIgnoreCase) &&
+                    record.Result != MaterialInspectionResult.Unknown)
+                    return true;
+            }
+
+            return false;
         }
 
         private static void ApplyOutputReceiveSlotFallback(MaterialSnapshot state, MaterialDisplaySnapshot display)
@@ -1198,6 +1308,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
             public int NgCount;
             public int PickedCount;
             public int CurrentBinCode = -1;
+            public int CurrentInputTargetCount;
+            public int CurrentInputProcessedCount;
             public string LotId = string.Empty;
         }
     }

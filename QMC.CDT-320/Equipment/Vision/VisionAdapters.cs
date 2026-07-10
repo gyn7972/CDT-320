@@ -11,7 +11,7 @@ namespace QMC.CDT320.VisionComm
     /// </summary>
     public class WaferVisionAdapter : IVisionTcpClient
     {
-        private const double DiePitchMm = 0.15;
+        private const double VisionPitchUnavailableMm = 0.0;
         private const double MatchScoreThreshold = 0.7;
         private const int DefaultTimeoutMs = 5000;
 
@@ -66,7 +66,7 @@ namespace QMC.CDT320.VisionComm
                     AutoVisionChannel.Wafer,
                     finder,
                     0,
-                    DiePitchMm,
+                    VisionPitchUnavailableMm,
                     DefaultTimeoutMs,
                     CancellationToken.None).ConfigureAwait(false);
 

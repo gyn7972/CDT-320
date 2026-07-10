@@ -37,6 +37,7 @@ namespace QMC.CDT320.Sequencing
         private static readonly object SimVisionRandomLock = new object();
         private static readonly Random SimVisionRandom = new Random();
         private static string LastSourceInputDieMapFailure = "";
+        private const double AlignPitchCompareToleranceMm = 0.05;
 
         private readonly Dictionary<string, MappedMarkPoint> _mappedPoints = new Dictionary<string, MappedMarkPoint>(StringComparer.OrdinalIgnoreCase);
         private WaferMaterial _wafer;
@@ -264,6 +265,7 @@ namespace QMC.CDT320.Sequencing
                     _wafer.InputStageAlignPitchX > 0.0 &&
                     _wafer.InputStageAlignPitchY > 0.0)
                 {
+                    NormalizeStoredAlignPitchToFrameSpec();
                     Stage.ApplyWaferAlignResult(
                         _wafer.InputStageAlignOriginX,
                         _wafer.InputStageAlignOriginY,
@@ -1101,16 +1103,31 @@ namespace QMC.CDT320.Sequencing
                 if (IsUsableSourceMap(recipeMap))
                     return ApplyInputPickupSequence(recipeMap);
 
-                if (recipeMapConfigured)
-                    return null;
-
                 DieMap materialMap = MaterialStateService.BuildDieMapFromWafer(wafer);
                 if (IsUsableSourceMap(materialMap))
+                {
+                    if (recipeMapConfigured)
+                    {
+                        WriteLog("InputStageDieMappingSequence",
+                            "Recipe input die map was not usable. Current wafer material map is used instead. reason=" +
+                            LastSourceInputDieMapFailure + " - Check");
+                    }
+
                     return ApplyInputPickupSequence(materialMap);
+                }
 
                 DieMap activeMap = LotStorage.ActiveInputDieMap;
                 if (IsUsableSourceMap(activeMap))
+                {
+                    if (recipeMapConfigured)
+                    {
+                        WriteLog("InputStageDieMappingSequence",
+                            "Recipe input die map was not usable. Active input die map is used instead. reason=" +
+                            LastSourceInputDieMapFailure + " - Check");
+                    }
+
                     return ApplyInputPickupSequence(activeMap);
+                }
 
                 return null;
             }
@@ -1836,19 +1853,28 @@ namespace QMC.CDT320.Sequencing
         {
             try
             {
-                string specName = wafer != null ? wafer.TapeFrameSpecName : "";
+                string specName = wafer != null ? MaterialStateService.NormalizeInputTapeFrameSpecName(wafer.TapeFrameSpecName) : "";
                 if (string.IsNullOrWhiteSpace(specName))
                 {
-                    specName = MaterialStateService.ResolveRecipeTapeFrameSpecName(0);
+                    specName = MaterialStateService.ResolveInputTapeFrameSpecName(0);
                     if (wafer != null && !string.IsNullOrWhiteSpace(specName))
+                    {
                         wafer.TapeFrameSpecName = specName;
+                        MaterialStateService.NotifyAndSave("InputStageDieMapSpecResolve");
+                    }
+                }
+                else if (wafer != null &&
+                         !string.Equals(wafer.TapeFrameSpecName, specName, StringComparison.OrdinalIgnoreCase))
+                {
+                    wafer.TapeFrameSpecName = specName;
+                    MaterialStateService.NotifyAndSave("InputStageDieMapSpecNormalize");
                 }
 
                 TapeFrameSpec spec = MaterialSpecs.FindFrame(specName);
                 if (spec != null)
                     return spec;
 
-                specName = MaterialStateService.ResolveRecipeTapeFrameSpecName(0);
+                specName = MaterialStateService.ResolveInputTapeFrameSpecName(0);
                 return MaterialSpecs.FindFrame(specName);
             }
             catch (Exception ex)
@@ -1859,6 +1885,61 @@ namespace QMC.CDT320.Sequencing
             finally
             {
             }
+        }
+
+        private void NormalizeStoredAlignPitchToFrameSpec()
+        {
+            try
+            {
+                if (_wafer == null || _frameSpec == null)
+                    return;
+
+                bool changed = false;
+                if (ShouldUseFramePitch(_wafer.InputStageAlignPitchX, _frameSpec.PitchX))
+                {
+                    WriteLog("InputStageDieMappingSequence",
+                        "Stored align pitch X is outside configured tolerance. frame pitch is used. wafer=" +
+                        _wafer.WaferId +
+                        ", stored=" + _wafer.InputStageAlignPitchX.ToString("F6") +
+                        ", frame=" + _frameSpec.PitchX.ToString("F6") +
+                        ", tolerance=" + AlignPitchCompareToleranceMm.ToString("F6") + " - Check");
+                    _wafer.InputStageAlignPitchX = _frameSpec.PitchX;
+                    changed = true;
+                }
+
+                if (ShouldUseFramePitch(_wafer.InputStageAlignPitchY, _frameSpec.PitchY))
+                {
+                    WriteLog("InputStageDieMappingSequence",
+                        "Stored align pitch Y is outside configured tolerance. frame pitch is used. wafer=" +
+                        _wafer.WaferId +
+                        ", stored=" + _wafer.InputStageAlignPitchY.ToString("F6") +
+                        ", frame=" + _frameSpec.PitchY.ToString("F6") +
+                        ", tolerance=" + AlignPitchCompareToleranceMm.ToString("F6") + " - Check");
+                    _wafer.InputStageAlignPitchY = _frameSpec.PitchY;
+                    changed = true;
+                }
+
+                if (changed)
+                    _wafer.UpdatedAt = DateTime.Now;
+            }
+            catch (Exception ex)
+            {
+                WriteLog("InputStageDieMappingSequence",
+                    "Stored align pitch normalize failed: " + ex.Message + " - Failed");
+            }
+            finally
+            {
+            }
+        }
+
+        private static bool ShouldUseFramePitch(double stored, double frame)
+        {
+            if (frame <= 0.0)
+                return false;
+            if (stored <= 0.0)
+                return true;
+
+            return Math.Abs(stored - frame) > AlignPitchCompareToleranceMm;
         }
 
         private bool TryGetMappedPoint(string name, out MappedMarkPoint point)

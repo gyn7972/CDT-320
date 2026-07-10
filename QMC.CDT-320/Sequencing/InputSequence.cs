@@ -375,11 +375,15 @@ namespace QMC.CDT320.Sequencing
                 Context.Bus.Set("InputStageFinishComplete");
                 Context.Bus.Set("InputStageReady");
 
+                int fullDieCount = stageWafer.DieIds != null ? stageWafer.DieIds.Count : 0;
+                int targetDieCount = CountInputStageTargetDies(stageWafer);
+
                 WriteLog("PublishInputStageReadySignals",
                     "Input stage ready signals published. wafer=" +
                     stageWafer.WaferId +
                     ", slot=" + stageWafer.SourceSlotNumber +
-                    ", dieCount=" + (stageWafer.DieIds != null ? stageWafer.DieIds.Count.ToString() : "0") +
+                    ", targetDieCount=" + targetDieCount +
+                    ", fullDieCount=" + fullDieCount +
                     " - Ok");
             }
             catch (Exception ex)
@@ -387,6 +391,36 @@ namespace QMC.CDT320.Sequencing
                 WriteLog("PublishInputStageReadySignals",
                     "Input stage ready signal publish failed: " + ex.Message + " - Failed");
                 throw;
+            }
+            finally
+            {
+            }
+        }
+
+        private static int CountInputStageTargetDies(WaferMaterial stageWafer)
+        {
+            try
+            {
+                if (stageWafer == null || stageWafer.DieIds == null)
+                    return 0;
+
+                int count = 0;
+                foreach (string dieId in stageWafer.DieIds)
+                {
+                    DieMaterial die = MaterialStateService.GetDieMaterial(dieId);
+                    if (die != null &&
+                        die.IsInputTarget &&
+                        string.Equals(die.WaferID_Input, stageWafer.WaferId, StringComparison.OrdinalIgnoreCase))
+                    {
+                        count++;
+                    }
+                }
+
+                return count;
+            }
+            catch
+            {
+                return stageWafer != null && stageWafer.DieIds != null ? stageWafer.DieIds.Count : 0;
             }
             finally
             {

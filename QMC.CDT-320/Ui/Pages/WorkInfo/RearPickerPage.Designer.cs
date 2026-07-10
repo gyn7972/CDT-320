@@ -120,6 +120,8 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
         private ActionButton btnSide;
         private ActionButton btnOutput;
         private ActionButton btnPickUpTest;
+        private ActionButton btnAjinLineMapTest;
+        private ActionButton btnAjinLineMoveTest;
         private ActionButton btnStop;
         private TableLayoutPanel actionBar;
         private TableLayoutPanel actionRightPanel;
@@ -243,6 +245,8 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.btnSide = new QMC.CDT_320.Ui.Controls.ActionButton();
             this.btnOutput = new QMC.CDT_320.Ui.Controls.ActionButton();
             this.btnPickUpTest = new QMC.CDT_320.Ui.Controls.ActionButton();
+            this.btnAjinLineMapTest = new QMC.CDT_320.Ui.Controls.ActionButton();
+            this.btnAjinLineMoveTest = new QMC.CDT_320.Ui.Controls.ActionButton();
             this.actionRightPanel = new System.Windows.Forms.TableLayoutPanel();
             this.btnStop = new QMC.CDT_320.Ui.Controls.ActionButton();
             this.rootLayout.SuspendLayout();
@@ -1893,7 +1897,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.actionBar.Padding = new System.Windows.Forms.Padding(3, 1, 3, 0);
             this.actionBar.Name = "actionBar";
             this.actionBar.RowCount = 2;
-            this.actionBar.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 138F));
+            this.actionBar.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 184F));
             this.actionBar.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.actionBar.Size = new System.Drawing.Size(830, 361);
             this.actionBar.TabIndex = 2;
@@ -1910,15 +1914,18 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.actionPanel.Controls.Add(this.btnSide, 1, 1);
             this.actionPanel.Controls.Add(this.btnOutput, 0, 2);
             this.actionPanel.Controls.Add(this.btnPickUpTest, 1, 2);
+            this.actionPanel.Controls.Add(this.btnAjinLineMapTest, 0, 3);
+            this.actionPanel.Controls.Add(this.btnAjinLineMoveTest, 1, 3);
             this.actionPanel.Dock = System.Windows.Forms.DockStyle.Fill;
             this.actionPanel.Location = new System.Drawing.Point(0, 0);
             this.actionPanel.Margin = new System.Windows.Forms.Padding(0);
             this.actionPanel.Name = "actionPanel";
-            this.actionPanel.RowCount = 3;
+            this.actionPanel.RowCount = 4;
             this.actionPanel.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 46F));
             this.actionPanel.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 46F));
             this.actionPanel.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 46F));
-            this.actionPanel.Size = new System.Drawing.Size(830, 138);
+            this.actionPanel.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 46F));
+            this.actionPanel.Size = new System.Drawing.Size(830, 184);
             this.actionPanel.TabIndex = 0;
             // 
             // btnInput
@@ -1999,6 +2006,34 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.btnPickUpTest.TabIndex = 5;
             this.btnPickUpTest.Text = "PICKUP TEST";
             // 
+            // btnAjinLineMapTest
+            // 
+            this.btnAjinLineMapTest.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
+            this.btnAjinLineMapTest.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.btnAjinLineMapTest.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.btnAjinLineMapTest.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
+            this.btnAjinLineMapTest.ForeColor = System.Drawing.Color.White;
+            this.btnAjinLineMapTest.Location = new System.Drawing.Point(3, 141);
+            this.btnAjinLineMapTest.Name = "btnAjinLineMapTest";
+            this.btnAjinLineMapTest.Size = new System.Drawing.Size(409, 40);
+            this.btnAjinLineMapTest.TabIndex = 6;
+            this.btnAjinLineMapTest.Text = "LINE MAP TEST";
+            this.btnAjinLineMapTest.Click += new System.EventHandler(this.btnAjinLineMapTest_Click);
+            // 
+            // btnAjinLineMoveTest
+            // 
+            this.btnAjinLineMoveTest.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
+            this.btnAjinLineMoveTest.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.btnAjinLineMoveTest.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.btnAjinLineMoveTest.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
+            this.btnAjinLineMoveTest.ForeColor = System.Drawing.Color.White;
+            this.btnAjinLineMoveTest.Location = new System.Drawing.Point(418, 141);
+            this.btnAjinLineMoveTest.Name = "btnAjinLineMoveTest";
+            this.btnAjinLineMoveTest.Size = new System.Drawing.Size(409, 40);
+            this.btnAjinLineMoveTest.TabIndex = 7;
+            this.btnAjinLineMoveTest.Text = "LINE MOVE TEST";
+            this.btnAjinLineMoveTest.Click += new System.EventHandler(this.btnAjinLineMoveTest_Click);
+            // 
             // actionRightPanel
             // 
             this.actionRightPanel.BackColor = System.Drawing.Color.White;
@@ -2007,7 +2042,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.actionRightPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 50F));
             this.actionRightPanel.Controls.Add(this.btnStop, 1, 0);
             this.actionRightPanel.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.actionRightPanel.Location = new System.Drawing.Point(0, 138);
+            this.actionRightPanel.Location = new System.Drawing.Point(0, 184);
             this.actionRightPanel.Margin = new System.Windows.Forms.Padding(0);
             this.actionRightPanel.Name = "actionRightPanel";
             this.actionRightPanel.RowCount = 4;
@@ -2015,7 +2050,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.actionRightPanel.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 46F));
             this.actionRightPanel.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 46F));
             this.actionRightPanel.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.actionRightPanel.Size = new System.Drawing.Size(830, 223);
+            this.actionRightPanel.Size = new System.Drawing.Size(830, 177);
             this.actionRightPanel.TabIndex = 1;
             // 
             // btnStop

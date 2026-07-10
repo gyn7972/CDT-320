@@ -373,9 +373,9 @@
             this.leftLayout.Name = "leftLayout";
             this.leftLayout.RowCount = 3;
             this.centerLayout.SetRowSpan(this.leftLayout, 2);
-            this.leftLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 275F));
-            this.leftLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 0F));
             this.leftLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.leftLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 0F));
+            this.leftLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 310F));
             this.leftLayout.Size = new System.Drawing.Size(646, 868);
             this.leftLayout.TabIndex = 0;
             // 
@@ -389,7 +389,7 @@
             this.grpOptions.Margin = new System.Windows.Forms.Padding(0, 0, 0, 4);
             this.grpOptions.Name = "grpOptions";
             this.grpOptions.Padding = new System.Windows.Forms.Padding(3, 2, 3, 3);
-            this.grpOptions.Size = new System.Drawing.Size(646, 271);
+            this.grpOptions.Size = new System.Drawing.Size(646, 554);
             this.grpOptions.TabIndex = 0;
             this.grpOptions.TabStop = false;
             this.grpOptions.Text = "OPTION";
@@ -403,7 +403,7 @@
             this.optionParameterGrid.Location = new System.Drawing.Point(3, 20);
             this.optionParameterGrid.Margin = new System.Windows.Forms.Padding(0);
             this.optionParameterGrid.Name = "optionParameterGrid";
-            this.optionParameterGrid.Size = new System.Drawing.Size(640, 248);
+            this.optionParameterGrid.Size = new System.Drawing.Size(640, 531);
             this.optionParameterGrid.TabIndex = 1;
             // 
             // grpWait
@@ -412,7 +412,7 @@
             this.grpWait.Controls.Add(this.waitParameterGrid);
             this.grpWait.Dock = System.Windows.Forms.DockStyle.Fill;
             this.grpWait.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
-            this.grpWait.Location = new System.Drawing.Point(0, 275);
+            this.grpWait.Location = new System.Drawing.Point(0, 558);
             this.grpWait.Margin = new System.Windows.Forms.Padding(0, 0, 0, 4);
             this.grpWait.Name = "grpWait";
             this.grpWait.Padding = new System.Windows.Forms.Padding(3, 2, 3, 3);
@@ -438,7 +438,7 @@
             // 
             this.grpIo.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(245)))), ((int)(((byte)(245)))), ((int)(((byte)(245)))));
             this.grpIo.Controls.Add(this.ioCylinderPanel);
-            this.grpIo.Dock = System.Windows.Forms.DockStyle.Bottom;
+            this.grpIo.Dock = System.Windows.Forms.DockStyle.Fill;
             this.grpIo.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.grpIo.Location = new System.Drawing.Point(0, 558);
             this.grpIo.Margin = new System.Windows.Forms.Padding(0);

@@ -122,11 +122,20 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                     return;
                 }
 
-                List<LineMapTestResult> results = RunGoodStageYLineMapTests(host.Machine);
+                string readyReason;
+                if (!PickerContiLineTestRunner.EnsureAjinReady(out readyReason))
+                {
+                    QMC.Common.Logging.EventLogger.Write(QMC.Common.Logging.EventKind.Warning, "UI", "AJIN-LINE-MAP-TEST", "FrontPickerPage", readyReason);
+                    QMC.Common.MessageDialog.Show(this, readyReason, "LINE MAP TEST", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                List<PickerContiLineMapTestResult> results =
+                    PickerContiLineTestRunner.RunGoodStageYLineMapTests(host.Machine, PickerSequenceSide.Front);
                 int failCount = results.FindAll(x => x.Result == null || !x.Result.Success).Count;
                 QMC.Common.Logging.EventKind kind = failCount == 0 ? QMC.Common.Logging.EventKind.Event : QMC.Common.Logging.EventKind.Warning;
 
-                foreach (LineMapTestResult item in results)
+                foreach (PickerContiLineMapTestResult item in results)
                 {
                     string detail = item.Name + ": " + (item.Result != null ? item.Result.ToString() : "결과 없음");
                     QMC.Common.Logging.EventLogger.Write(kind, "UI", "AJIN-LINE-MAP-TEST", "FrontPickerPage", detail);
@@ -330,7 +339,10 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
 
         private async void btnAjinLineMoveTest_Click(object sender, EventArgs e)
         {
-            PickerPlaceMotionConfig placeConfig = ResolveFrontPlaceConfigFromHostOrDefault(GetHost());
+            Form1 confirmHost = GetHost();
+            PickerPlaceMotionConfig placeConfig = PickerContiLineTestRunner.ResolvePlaceConfig(
+                confirmHost != null ? confirmHost.Machine : null,
+                PickerSequenceSide.Front);
 
             DialogResult confirm = QMC.Common.MessageDialog.Show(
                 this,
@@ -361,63 +373,28 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                     return;
                 }
 
-                placeConfig = ResolveFrontPlaceConfig(host.Machine);
-                PlaceLineMoveTarget[] targets = ResolveFrontPlaceLineMoveTargets(host.Machine);
-                ValidateFrontPlaceLineMoveTargets(targets);
-
-                int prepareResult = await PrepareFrontPlaceLineMoveStartAsync(
-                    host.Machine,
-                    targets,
-                    CancellationToken.None).ConfigureAwait(true);
-                if (prepareResult != 0)
+                string readyReason;
+                if (!PickerContiLineTestRunner.EnsureAjinReady(out readyReason))
                 {
-                    QMC.Common.MessageDialog.Show(this, "Place teaching start position 이동 실패. result=" + prepareResult, "LINE MOVE TEST",
-                        MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    QMC.Common.Logging.EventLogger.Write(QMC.Common.Logging.EventKind.Warning, "UI", "AJIN-LINE-MOVE-TEST", "FrontPickerPage", readyReason);
+                    QMC.Common.MessageDialog.Show(this, readyReason, "LINE MOVE TEST", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
 
-                for (int i = 0; i < targets.Length - 1; i++)
-                {
-                    PlaceLineMoveTarget previous = targets[i];
-                    PlaceLineMoveTarget current = targets[i + 1];
-                    LineMoveAxisSet axes = ResolveGoodStageFrontPickerLineMoveAxes(
+                PickerContiLineMoveRunResult runResult =
+                    await PickerContiLineTestRunner.RunGoodStagePlaceLineMoveTestAsync(
                         host.Machine,
-                        previous.PickerIndex,
-                        current.PickerIndex);
+                        PickerSequenceSide.Front,
+                        CancellationToken.None).ConfigureAwait(true);
 
-                    InterpolatedMotionMoveResult moveResult =
-                        await RunContiLineMoveAsync(
-                            axes,
-                            placeConfig,
-                            previous,
-                            current,
-                            CancellationToken.None).ConfigureAwait(true);
-
-                    string detail = "Place teaching ContiNode line move. fromPicker=" + previous.PickerNo +
-                        ", toPicker=" + current.PickerNo +
-                        ", targetStageY=" + current.StageY.ToString("F3") +
-                        ", targetPickerX=" + current.PickerX.ToString("F3") +
-                        ", previousZTarget=Avoid" +
-                        ", currentZTarget=" + current.PickerZ.ToString("F3") +
-                        ", " + moveResult;
-
-                    QMC.Common.Logging.EventLogger.Write(
-                        moveResult.Success ? QMC.Common.Logging.EventKind.Event : QMC.Common.Logging.EventKind.Warning,
-                        "UI",
-                        "AJIN-LINE-MOVE-TEST",
-                        "FrontPickerPage",
-                        detail);
-
-                    if (!moveResult.Success)
-                    {
-                        QMC.Common.MessageDialog.Show(this, "Picker #" + previous.PickerNo + " -> #" + current.PickerNo +
-                            " ContiNode 이동 테스트 실패.\r\n" + moveResult.Message, "LINE MOVE TEST",
-                            MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                        return;
-                    }
+                if (!runResult.Success)
+                {
+                    QMC.Common.Logging.EventLogger.Write(QMC.Common.Logging.EventKind.Warning, "UI", "AJIN-LINE-MOVE-TEST", "FrontPickerPage", runResult.Message);
+                    QMC.Common.MessageDialog.Show(this, runResult.Message, "LINE MOVE TEST", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
                 }
 
-                QMC.Common.MessageDialog.Show(this, "FrontPicker Place teaching ContiNode 이동 테스트가 완료되었습니다.\r\n마지막 위치는 Picker #1 Place 상태입니다.\r\n상세 내용은 Alarm/Event Log를 확인하세요.", "LINE MOVE TEST",
+                QMC.Common.MessageDialog.Show(this, runResult.Message, "LINE MOVE TEST",
                     MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
             catch (Exception ex)

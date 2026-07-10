@@ -1929,18 +1929,26 @@ namespace QMC.CDT320.Sequencing.Calibration
 
                 double oldBottomX = GetPickerTeachingPosition(PickerAxis.PickerX, "BottomPosition");
                 double oldBottomY = GetPickerTeachingPosition(PickerAxis.PickerY, "BottomPosition");
+                double oldSideX = GetPickerTeachingPosition(PickerAxis.PickerX, "SidePosition");
+                double oldSideY = GetPickerTeachingPosition(PickerAxis.PickerY, "SidePosition");
                 PickerAxis zAxis = GetPickerZAxis(_colletIndex);
                 double oldBottomZ = GetPickerTeachingPosition(zAxis, "BottomPosition");
                 double oldDieBottomX = GetPickerTeachingPosition(PickerAxis.PickerX, BuildIndexedPositionName("DieBottomPosition"));
+                double oldDieSideX = GetPickerTeachingPosition(PickerAxis.PickerX, BuildIndexedPositionName("DieSidePosition"));
                 double oldDiePickY = GetPickerTeachingPosition(PickerAxis.PickerY, BuildIndexedPositionName("DiePickPosition"));
                 double oldDieBottomY = GetPickerTeachingPosition(PickerAxis.PickerY, BuildIndexedPositionName("DieBottomPosition"));
                 double oldDieSideY = GetPickerTeachingPosition(PickerAxis.PickerY, BuildIndexedPositionName("DieSidePosition"));
                 double oldDiePlaceY = GetPickerTeachingPosition(PickerAxis.PickerY, BuildIndexedPositionName("DiePlacePosition"));
                 double oldDieBottomZ = GetPickerTeachingPosition(zAxis, BuildIndexedPositionName("DieBottomPosition"));
+                double pickerPitchX = ResolvePickerPitchXMagnitude();
+                double bottomPicker1X = target.FinalPickerX + (pickerPitchX * 3.0);
+                double sideTeachingX = bottomPicker1X + pickerPitchX;
                 SetPickerBottomTeachingPosition(PickerAxis.PickerX, target.FinalPickerX);
                 SetPickerBottomTeachingPosition(PickerAxis.PickerY, target.FinalPickerY);
                 SetPickerBottomTeachingPosition(zAxis, target.FinalPickerZ);
-                SyncReferenceColletDieTeachingPositions(target, zAxis);
+                SetPickerSideTeachingPosition(PickerAxis.PickerX, sideTeachingX);
+                SetPickerSideTeachingPosition(PickerAxis.PickerY, target.FinalPickerY);
+                SyncReferenceColletDieTeachingPositions(target, zAxis, sideTeachingX);
 
                 if (!Context.Machine.SaveRecipe(recipeName))
                     return Fail("COLLET-CAL-REFERENCE-RECIPE-SAVE", Name,
@@ -1952,7 +1960,12 @@ namespace QMC.CDT320.Sequencing.Calibration
                     ", colletNo=" + _colletNo +
                     ", oldBottom=(" + oldBottomX.ToString("F6") + "," + oldBottomY.ToString("F6") + "," + oldBottomZ.ToString("F6") + ")" +
                     ", newBottom=(" + target.FinalPickerX.ToString("F6") + "," + target.FinalPickerY.ToString("F6") + "," + target.FinalPickerZ.ToString("F6") + ")" +
+                    ", oldSide=(" + oldSideX.ToString("F6") + "," + oldSideY.ToString("F6") + ")" +
+                    ", newSide=(" + sideTeachingX.ToString("F6") + "," + target.FinalPickerY.ToString("F6") + ")" +
+                    ", bottomPicker1X=" + bottomPicker1X.ToString("F6") +
+                    ", pickerPitchX=" + pickerPitchX.ToString("F6") +
                     ", oldDieBottomX[" + _colletIndex + "]=" + oldDieBottomX.ToString("F6") +
+                    ", oldDieSideX[" + _colletIndex + "]=" + oldDieSideX.ToString("F6") +
                     ", oldDieY[pick,bottom,side,place]=(" + oldDiePickY.ToString("F6") + "," + oldDieBottomY.ToString("F6") + "," + oldDieSideY.ToString("F6") + "," + oldDiePlaceY.ToString("F6") + ")" +
                     ", oldDieBottomZ[" + _colletIndex + "]=" + oldDieBottomZ.ToString("F6") +
                     ", recipe=" + recipeName);
@@ -1961,6 +1974,9 @@ namespace QMC.CDT320.Sequencing.Calibration
                     "4번 Collet 최종 OK 위치를 Bottom 기준 X/Y 티칭으로 저장했습니다. side=" + _calibrationSide +
                     ", oldBottom=(" + oldBottomX.ToString("F6") + "," + oldBottomY.ToString("F6") + "," + oldBottomZ.ToString("F6") + ")" +
                     ", newBottom=(" + target.FinalPickerX.ToString("F6") + "," + target.FinalPickerY.ToString("F6") + "," + target.FinalPickerZ.ToString("F6") + ")" +
+                    ", sideTeaching=(" + sideTeachingX.ToString("F6") + "," + target.FinalPickerY.ToString("F6") + ")" +
+                    ", bottomPicker1X=" + bottomPicker1X.ToString("F6") +
+                    ", pickerPitchX=" + pickerPitchX.ToString("F6") +
                     ", dieY[pick,bottom,side,place]=" + target.FinalPickerY.ToString("F6") +
                     ", recipe=" + recipeName);
 
@@ -1994,18 +2010,57 @@ namespace QMC.CDT320.Sequencing.Calibration
             RearPicker.SetPickerAxisTeachingPosition(axis, "BottomPosition", position);
         }
 
-        private void SyncReferenceColletDieTeachingPositions(ColletCalibrationRecord target, PickerAxis zAxis)
+        private void SetPickerSideTeachingPosition(PickerAxis axis, double position)
+        {
+            if (_calibrationSide == VisionFocusPickerSide.Front)
+            {
+                if (FrontPicker == null)
+                    throw new InvalidOperationException("Front Picker Unit이 없습니다.");
+
+                FrontPicker.SetPickerAxisTeachingPosition(axis, "SidePosition", position);
+                return;
+            }
+
+            if (RearPicker == null)
+                throw new InvalidOperationException("Rear Picker Unit이 없습니다.");
+
+            RearPicker.SetPickerAxisTeachingPosition(axis, "SidePosition", position);
+        }
+
+        private void SyncReferenceColletDieTeachingPositions(ColletCalibrationRecord target, PickerAxis zAxis, double sideTeachingX)
         {
             if (target == null)
                 return;
 
-            // 현재 기준: 4번 Collet Cal 기준 Y는 Pick/Bottom/Side/Place 전진 위치의 공통 기준값으로 저장한다.
+            // Reference collet defines common forward Y. Side #4 X starts at Bottom #1 X plus one picker pitch.
             SetPickerIndexedTeachingPosition(PickerAxis.PickerX, "DieBottomPosition", target.FinalPickerX);
+            SetPickerIndexedTeachingPosition(PickerAxis.PickerX, "DieSidePosition", sideTeachingX);
             SetPickerIndexedTeachingPosition(PickerAxis.PickerY, "DiePickPosition", target.FinalPickerY);
             SetPickerIndexedTeachingPosition(PickerAxis.PickerY, "DieBottomPosition", target.FinalPickerY);
             SetPickerIndexedTeachingPosition(PickerAxis.PickerY, "DieSidePosition", target.FinalPickerY);
             SetPickerIndexedTeachingPosition(PickerAxis.PickerY, "DiePlacePosition", target.FinalPickerY);
             SetPickerIndexedTeachingPosition(zAxis, "DieBottomPosition", target.FinalPickerZ);
+        }
+
+        private double ResolvePickerPitchXMagnitude()
+        {
+            try
+            {
+                double pitch = 0.0;
+                if (_calibrationSide == VisionFocusPickerSide.Front && FrontPicker != null && FrontPicker.Setup != null)
+                    pitch = FrontPicker.Setup.PickerPitchX;
+                else if (_calibrationSide == VisionFocusPickerSide.Rear && RearPicker != null && RearPicker.Setup != null)
+                    pitch = RearPicker.Setup.PickerPitchX;
+
+                return Math.Abs(pitch);
+            }
+            catch
+            {
+                return 0.0;
+            }
+            finally
+            {
+            }
         }
 
         private void SetPickerIndexedTeachingPosition(PickerAxis axis, string positionArrayName, double position)

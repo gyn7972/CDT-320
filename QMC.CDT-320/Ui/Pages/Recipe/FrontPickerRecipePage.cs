@@ -346,6 +346,17 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             pickUp.Ensure();
             items.Add(InGroup(Describe(ParameterGridItem.Selection<PickerPickUpZMotionMode>("PICKUP Z MOTION MODE", "mode", ParameterGridScope.Config, () => pickUp.MotionMode, v => pickUp.MotionMode = v),
                 "PickUp Z 동작 방식을 선택합니다.\r\nDetailed: Needle/Eject 준비, 진공, PrePick, 저속 접촉, 동기 상승, 안전 복귀 순서로 동작합니다.\r\nSimpleZDownVacuumUp: PickerZ 하강, 진공 ON, PickerZ 상승만 수행하는 단순 모드입니다."), groupKey));
+            items.Add(InGroup(Describe(ParameterGridItem.Selection<PickerPickUpTransferMotionMode>("PICKUP TRANSFER MODE", "mode", ParameterGridScope.Config, () => pickUp.TransferMotionMode, v => pickUp.TransferMotionMode = v),
+                "Default는 기존 PickUp 위치 이동 순서를 사용합니다.\r\nContiSegmentedPickUp은 연속 PickUp 중 PickerY/T 선보정과 EjectPinZ Avoid를 같이 준비한 뒤 PickerX/NeedleX/StageY/PickerZ를 4축 ContiNode로 이동합니다."), groupKey));
+            items.Add(InGroup(ParameterGridItem.Int("PICKUP CONTI COORDINATE", "coord", ParameterGridScope.Config, () => pickUp.TransferContiCoordinate, v => pickUp.TransferContiCoordinate = Math.Max(1, v)), groupKey));
+            items.Add(InGroup(ParameterGridItem.Int("PICKUP CONTI TIMEOUT", "ms", ParameterGridScope.Config, () => pickUp.TransferContiTimeoutMs, v => pickUp.TransferContiTimeoutMs = Math.Max(1, v)), groupKey));
+            items.Add(InGroup(Describe(ParameterGridItem.Double("PICKUP CONTI MAX TRAVEL", AxisUnitConverter.Millimeter, ParameterGridScope.Config, () => pickUp.TransferContiMaxTravelDistance, v => pickUp.TransferContiMaxTravelDistance = PickerPickUpMotionConfig.NormalizePositive(v, 45.0)),
+                "현재 위치에서 다음 PickUp 목표까지 한 축이라도 이 거리보다 많이 움직이면 ContiNode를 쓰지 않고 기존 이동 방식으로 접근합니다."), groupKey));
+            items.Add(InGroup(Describe(ParameterGridItem.Double("PICKUP CONTI Y MAX CORR", AxisUnitConverter.Millimeter, ParameterGridScope.Config, () => pickUp.TransferContiPickerYMaxCorrectionDistance, v => pickUp.TransferContiPickerYMaxCorrectionDistance = PickerPickUpMotionConfig.NormalizePositive(v, 1.5)),
+                "PickerY를 Avoid로 빼지 않고 다음 PickUp Y 위치로 선보정할 때 허용하는 최대 보정 거리입니다."), groupKey));
+            items.Add(InGroup(Describe(ParameterGridItem.Double("PICKUP CONTI XY MID RATIO", "ratio", ParameterGridScope.Config, () => pickUp.TransferContiXYMidRatio, v => pickUp.TransferContiXYMidRatio = Math.Max(0.0, Math.Min(1.0, v))),
+                "ContiNode 중간 위치 비율입니다. 0.5면 현재 위치와 다음 PickUp 목표의 중간점을 사용합니다."), groupKey));
+            AddPickUpContiNodeSpeedRatioItems(items, groupKey, pickUp);
             items.Add(InGroup(Describe(ParameterGridItem.Double("PICKER Z PRE PICK DISTANCE", AxisUnitConverter.Millimeter, ParameterGridScope.Config, () => pickUp.PickerZPrePickDistance, v => pickUp.PickerZPrePickDistance = Math.Max(0.0, v)),
                 "PickerZ가 PickPosition으로 바로 내려가기 전에 멈추는 거리입니다.\r\nPickPosition에서 Avoid 방향으로 이 거리만큼 떨어진 위치까지 먼저 이동한 뒤 저속 접근합니다."), groupKey));
             items.Add(InGroup(Describe(ParameterGridItem.Double("PICKER Z APPROACH SPEED", "%", ParameterGridScope.Config, () => pickUp.PickerZSlowApproachSpeedPercent, v => pickUp.PickerZSlowApproachSpeedPercent = PickerPickUpMotionConfig.NormalizePercent(v, 1.0)),
@@ -354,6 +365,8 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 "Sync Lift 후 PickerZ를 Needle/EjectPinZ와 먼저 벌리는 거리입니다.\r\n이 거리만큼 PICKER Z SEPARATE SPEED로 이동한 뒤 이어서 PickerZ를 Avoid 위치까지 올립니다."), groupKey));
             items.Add(InGroup(Describe(ParameterGridItem.Double("PICKER Z SEPARATE SPEED", "%", ParameterGridScope.Config, () => pickUp.PickerZSeparateSpeedPercent, v => pickUp.PickerZSeparateSpeedPercent = PickerPickUpMotionConfig.NormalizePercent(v, 1.0)),
                 "Step 07에서 Sync Lift 후 PickerZ를 Separate Distance만큼 이동할 때 사용하는 속도 비율입니다.\r\nNeedleZ/EjectPinZ Avoid 이동 속도는 InputStage Needle Pickup 설정값을 사용합니다."), groupKey));
+            items.Add(InGroup(Describe(ParameterGridItem.Double("PICKER Z AVOID SPEED", "%", ParameterGridScope.Config, () => pickUp.PickerZAvoidReturnSpeedPercent, v => pickUp.PickerZAvoidReturnSpeedPercent = PickerPickUpMotionConfig.NormalizePercent(v, 10.0)),
+                "Separate Distance 이동 후 PickerZ를 Avoid 위치까지 올릴 때 사용하는 속도 비율입니다.\r\nSeparate 저속 구간과 최종 상승 구간을 분리해서 PickUp 시간을 줄입니다."), groupKey));
             items.Add(InGroup(Describe(ParameterGridItem.Selection<PickerPickUpSeparateMode>("SEPARATE MODE", "mode", ParameterGridScope.Config, () => pickUp.SeparateMode, v => pickUp.SeparateMode = v),
                 "구 분리 동작에서 Picker와 Needle을 어떤 순서로 벌릴지 정하던 옵션입니다.\r\n현재 Step 07은 PickerZ Separate 이동 후 EjectPinZ/NeedleZ Avoid 고정 순서라 이 값은 현재 흐름에서 사용하지 않습니다."), groupKey));
             items.Add(InGroup(Describe(ParameterGridItem.Int("VACUUM BEFORE PICK DELAY", "ms", ParameterGridScope.Config, () => pickUp.VacuumOnBeforePickDelayMs, v => pickUp.VacuumOnBeforePickDelayMs = Math.Max(0, v)),
@@ -362,6 +375,24 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 "Sync Lift 완료 직후 PickerZ Separate 전에 기다리는 시간입니다.\r\n자동 PickUp과 PickUp Test Step 06에서 같이 적용됩니다."), groupKey));
             items.Add(InGroup(Describe(ParameterGridItem.Int("PICK SETTLE", "ms", ParameterGridScope.Config, () => pickUp.PickSettleMs, v => pickUp.PickSettleMs = Math.Max(0, v)),
                 "PickUp Z 동작 후 흡착 확인/Material 갱신 전에 기다리는 안정화 시간입니다.\r\nDie가 흔들리거나 진공 응답이 늦을 때 늘립니다."), groupKey));
+        }
+
+        private void AddPickUpContiNodeSpeedRatioItems(List<ParameterGridItem> items, string groupKey, PickerPickUpMotionConfig pickUp)
+        {
+            items.Add(InGroup(Describe(ParameterGridItem.Double("PICKUP CONTI MAX VEL", AxisUnitConverter.Millimeter + "/s", ParameterGridScope.Config, () => pickUp.TransferContiMaxVelocity, v => pickUp.TransferContiMaxVelocity = PickerPickUpMotionConfig.NormalizePositive(v, 500.0)),
+                "PickUp ContiNode에서 사용할 최고 속도입니다. 각 node 속도는 이 값에 node별 SPEED %를 곱해 계산합니다."), groupKey));
+            items.Add(InGroup(Describe(ParameterGridItem.Double("PICKUP CONTI MAX ACC", AxisUnitConverter.Millimeter + "/s2", ParameterGridScope.Config, () => pickUp.TransferContiMaxAcceleration, v => pickUp.TransferContiMaxAcceleration = PickerPickUpMotionConfig.NormalizePositive(v, 5000.0)),
+                "PickUp ContiNode에서 사용할 최고 가속도입니다. 각 node 가속도는 이 값에 node별 SPEED %를 곱해 계산합니다."), groupKey));
+            items.Add(InGroup(Describe(ParameterGridItem.Double("PICKUP CONTI MAX DEC", AxisUnitConverter.Millimeter + "/s2", ParameterGridScope.Config, () => pickUp.TransferContiMaxDeceleration, v => pickUp.TransferContiMaxDeceleration = PickerPickUpMotionConfig.NormalizePositive(v, 5000.0)),
+                "PickUp ContiNode에서 사용할 최고 감속도입니다. 각 node 감속도는 이 값에 node별 SPEED %를 곱해 계산합니다."), groupKey));
+            items.Add(InGroup(Describe(ParameterGridItem.Double("PICKUP CONTI NODE0 SPEED %", "%", ParameterGridScope.Config, () => pickUp.TransferContiNode0SpeedPercent, v => pickUp.TransferContiNode0SpeedPercent = PickerPickUpMotionConfig.NormalizePercent(v, 20.0)),
+                "node0 비율입니다. X/NeedleX/StageY를 중간점까지 보내고 PickerZ는 Avoid 쪽에 유지합니다."), groupKey));
+            items.Add(InGroup(Describe(ParameterGridItem.Double("PICKUP CONTI NODE1 SPEED %", "%", ParameterGridScope.Config, () => pickUp.TransferContiNode1SpeedPercent, v => pickUp.TransferContiNode1SpeedPercent = PickerPickUpMotionConfig.NormalizePercent(v, 100.0)),
+                "node1 비율입니다. X/NeedleX/StageY를 목표로 보내면서 PickerZ를 PrePick 방향으로 접근시킵니다."), groupKey));
+            items.Add(InGroup(Describe(ParameterGridItem.Double("PICKUP CONTI NODE2 SPEED %", "%", ParameterGridScope.Config, () => pickUp.TransferContiNode2SpeedPercent, v => pickUp.TransferContiNode2SpeedPercent = PickerPickUpMotionConfig.NormalizePercent(v, 100.0)),
+                "node2 비율입니다. PickerZ PrePick 위치를 맞추는 구간입니다."), groupKey));
+            items.Add(InGroup(Describe(ParameterGridItem.Double("PICKUP CONTI NODE3 SPEED %", "%", ParameterGridScope.Config, () => pickUp.TransferContiNode3SpeedPercent, v => pickUp.TransferContiNode3SpeedPercent = PickerPickUpMotionConfig.NormalizePercent(v, 20.0)),
+                "node3 비율입니다. ContiNode 최종 안정 구간입니다."), groupKey));
         }
 
         private void AddBottomMotionSettingItems(List<ParameterGridItem> items, string groupKey)

@@ -643,7 +643,13 @@ namespace QMC.CDT320.Sequencing
                 if (IsPickerAxisInPosition(PickerAxis.PickerY, yAvoid))
                     return 0;
 
-                int result = await MovePickerAxisAndVerifyAsync(
+                int result = await MoveAllPickerZToAvoidAndVerifyAsync(
+                    "Bottom/Side 재시작 전 PickerY Avoid 이동 전 PickerZ 전체 Avoid",
+                    ct).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                result = await MovePickerAxisAndVerifyAsync(
                     PickerAxis.PickerY,
                     yAvoid,
                     "Bottom/Side 재시작 전 PickerY Avoid",
@@ -1620,9 +1626,10 @@ namespace QMC.CDT320.Sequencing
                 return;
 
             double pitchTargetX;
+            double bottomToSidePitchX = ResolvePickerPitchXMagnitude();
             if (!_sidePitchTargetReady)
             {
-                pitchTargetX = _lastBottomX;
+                pitchTargetX = _lastBottomX + bottomToSidePitchX;
                 _sidePitchTargetReady = true;
             }
             else
@@ -1642,6 +1649,8 @@ namespace QMC.CDT320.Sequencing
                 "pickerNo=" + target.PickerNo +
                 ", absoluteX=" + absoluteX.ToString("0.###") +
                 ", pitchTargetX=" + pitchTargetX.ToString("0.###") +
+                ", lastBottomX=" + _lastBottomX.ToString("0.###") +
+                ", bottom1ToSideStartPitchX=" + bottomToSidePitchX.ToString("0.###") +
                 ", pitchStep=" + _sidePitchStepX.ToString("0.###") + " - Check");
         }
 

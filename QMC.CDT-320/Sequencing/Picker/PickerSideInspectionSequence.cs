@@ -406,8 +406,14 @@ namespace QMC.CDT320.Sequencing
 
         private async Task<int> MoveSideEntryYToAvoidAsync(CancellationToken ct)
         {
+            int result = await MoveAllPickerZToAvoidAndVerifyAsync(
+                "사이드 진입 전 PickerY 어보이드 전 PickerZ 전체 Avoid",
+                ct).ConfigureAwait(false);
+            if (result != 0)
+                return result;
+
             double target = GetPickerTeachingPosition(PickerAxis.PickerY, "AvoidPosition");
-            int result = await MovePickerAxisAndVerifyAsync(
+            result = await MovePickerAxisAndVerifyAsync(
                 PickerAxis.PickerY,
                 target,
                 "사이드 진입 전 PickerY 어보이드",
@@ -1097,8 +1103,14 @@ namespace QMC.CDT320.Sequencing
 
         private async Task<int> MoveSideYToAvoidAsync(CancellationToken ct)
         {
+            int result = await MoveAllPickerZToAvoidAndVerifyAsync(
+                "side inspection Y avoid 전 PickerZ 전체 Avoid",
+                ct).ConfigureAwait(false);
+            if (result != 0)
+                return result;
+
             double target = GetPickerTeachingPosition(PickerAxis.PickerY, "AvoidPosition");
-            int result = await MovePickerAxisAndVerifyAsync(
+            result = await MovePickerAxisAndVerifyAsync(
                 PickerAxis.PickerY,
                 target,
                 "side inspection Y avoid",

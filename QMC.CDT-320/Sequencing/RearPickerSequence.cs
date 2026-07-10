@@ -513,7 +513,19 @@ namespace QMC.CDT320.Sequencing
                     return false;
 
                 Context.StopIfCycleStopRequested("RearPickerSequence.YieldInputPickupPriorityToFront");
-                WriteFrontPickupYieldWaitLog();
+                string firstForwardYieldDetail;
+                if (!PickerFirstForwardSequencer.TryYieldExpectedSideToPriority(
+                    PickerSequenceSide.Rear,
+                    PickerSequenceSide.Front,
+                    out firstForwardYieldDetail))
+                {
+                    WriteLog("YieldInputPickupPriorityToFrontAsync",
+                        "RearPicker Front 우선권 양보를 첫 전진 게이트에 반영할 수 없어 RearPicker 공정 진입을 허용합니다. " +
+                        firstForwardYieldDetail + " - Check");
+                    return false;
+                }
+
+                WriteFrontPickupYieldWaitLog(firstForwardYieldDetail);
 
                 await Task.Delay(1, ct).ConfigureAwait(false);
                 Context.StopIfCycleStopRequested("RearPickerSequence.YieldInputPickupPriorityToFront");
@@ -540,7 +552,7 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
-        private void WriteFrontPickupYieldWaitLog()
+        private void WriteFrontPickupYieldWaitLog(string firstForwardYieldDetail)
         {
             try
             {
@@ -551,7 +563,8 @@ namespace QMC.CDT320.Sequencing
                 _lastFrontPickupYieldLogTime = now;
                 WriteLog("YieldInputPickupPriorityToFrontAsync",
                     "RearPicker가 FrontPicker PickUp 우선권을 위해 대기합니다. " +
-                    "FrontPicker가 비어 있고 InputStage에 Pick 대상이 남아 있습니다. - Wait");
+                    "FrontPicker가 비어 있고 InputStage에 Pick 대상이 남아 있습니다. " +
+                    "firstForwardGate=" + firstForwardYieldDetail + " - Wait");
             }
             catch (Exception ex)
             {
