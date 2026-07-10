@@ -323,9 +323,7 @@
     <Compile Include="Ui\Pages\Settings\MotionPage.Speed.cs">
       <SubType>UserControl</SubType>
     </Compile>
-    <Compile Include="Ui\Pages\Settings\MotionPage.Status.cs">
-      <SubType>UserControl</SubType>
-    </Compile>
+    <Compile Include="Ui\Pages\Settings\MotionPage.Status.cs" />
     <Compile Include="Ui\Pages\WorkInfo\StatePage.Designer.cs">
       <DependentUpon>StatePage.cs</DependentUpon>
     </Compile>
