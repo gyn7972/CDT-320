@@ -134,6 +134,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this._btnCommTest.TabIndex = 0;
             this._btnCommTest.Text = "통신 테스트 (PING ALL)";
             this._btnCommTest.UseVisualStyleBackColor = false;
+            this._btnCommTest.Click += new System.EventHandler(this._btnCommTest_Click);
             // 
             // _lblCommResult
             // 
@@ -173,6 +174,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this._btnGrab.TabIndex = 3;
             this._btnGrab.Text = "GRAB";
             this._btnGrab.UseVisualStyleBackColor = false;
+            this._btnGrab.Click += new System.EventHandler(this._btnGrab_Click);
             // 
             // _lblGrabResult
             // 
@@ -210,6 +212,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this._btnMatch.TabIndex = 6;
             this._btnMatch.Text = "MATCH";
             this._btnMatch.UseVisualStyleBackColor = false;
+            this._btnMatch.Click += new System.EventHandler(this._btnMatch_Click);
             // 
             // _lblMatchResult
             // 
@@ -247,6 +250,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this._btnInspect.TabIndex = 9;
             this._btnInspect.Text = "INSPECT";
             this._btnInspect.UseVisualStyleBackColor = false;
+            this._btnInspect.Click += new System.EventHandler(this._btnInspect_Click);
             // 
             // _lblInspectResult
             // 

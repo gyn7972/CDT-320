@@ -1431,6 +1431,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.btnReset.TabIndex = 4;
             this.btnReset.Text = "PLATE RESET";
             this.btnReset.UseVisualStyleBackColor = false;
+            this.btnReset.Click += new System.EventHandler(this.btnReset_Click);
             // 
             // StatePage
             // 

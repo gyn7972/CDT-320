@@ -129,7 +129,6 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                 // ????? PROFILE ???? ???
                 grpPositionClear.Text = "PROFILE";
 
-                grid.SelectionChanged += (s, e) => RefreshConfigForSelected();
             }
             catch (Exception ex)
             {
@@ -142,6 +141,11 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             finally
             {
             }
+        }
+
+        private void grid_SelectionChanged(object sender, EventArgs e)
+        {
+            RefreshConfigForSelected();
         }
 
         private static void MarkEditable(QMC.CDT_320.Ui.Controls.ParamGrid grid, IEnumerable<string> names)

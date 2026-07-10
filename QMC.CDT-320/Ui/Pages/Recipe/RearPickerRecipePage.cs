@@ -43,8 +43,6 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 return;
 
             InstallVisionPreview();
-            BackColor = Color.FromArgb(207, 210, 214);
-            ForeColor = Color.Black;
             refreshTimer.Interval = 250;
             refreshTimer.Tick += delegate
             {
@@ -676,6 +674,13 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 if (e == null || e.Item == null)
                     return;
 
+                PositionItem item;
+                if (!positionItems.TryGetValue(e.Item.Key, out item))
+                    return;
+
+                if (!ConfirmTeachPosition("Rear Picker Teach", item.DisplayName))
+                    return;
+
                 TeachSelectedPosition(e.Item.Key);
             }
             catch (Exception ex)
@@ -1114,6 +1119,26 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             unit.TeachPickerAxisPosition(item.Axis, item.PositionName);
             SaveCurrentRecipeData();
             RefreshView();
+        }
+
+        private bool ConfirmTeachPosition(string title, string actionName)
+        {
+            string name = string.IsNullOrWhiteSpace(actionName) ? "Teach Position" : actionName;
+            using (var dialog = new QMC.Common.MessageBoxYesNo())
+            {
+                dialog.ButtonGroupLabel = "TEACH";
+                DialogResult result = dialog.ShowDialog(
+                    title,
+                    name + " 현재 위치로 티칭하시겠습니까?",
+                    this,
+                    new[] { "Yes", "No" });
+
+                if (result == DialogResult.Yes)
+                    return true;
+
+                EventLogger.Write(EventKind.Event, "UI", "REAR-PICKER", name + " teach canceled.");
+                return false;
+            }
         }
 
         private static readonly PickerAxis[] AllPickerAxesForHomeCheck =

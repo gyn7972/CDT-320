@@ -126,10 +126,11 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             ClearMapClickModes();
             ConfigureRecipeMapGeneratorUi();
             ConfigureBinSideToggle();
-
-            _btnMapLoad.Click += (s, e) => LoadSelectedLibraryMap();
-            btnSave.Click += (s, e) => SaveMapToRecipe();
         }
+
+        private void _btnMapLoad_Click(object sender, EventArgs e) => LoadSelectedLibraryMap();
+
+        private void btnSave_Click(object sender, EventArgs e) => SaveMapToRecipe();
 
         private void ConfigureRecipeMapGeneratorUi()
         {

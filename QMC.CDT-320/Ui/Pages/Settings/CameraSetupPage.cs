@@ -37,8 +37,6 @@ namespace QMC.CDT_320.Ui.Pages.Settings
         private List<CameraRow> _items;
         private static readonly string SavePath =
             Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Config", "camera_setup.json");
-        private GroupBox _cameraGroup;
-        private GroupBox _actionGroup;
 
         public CameraSetupPage()
         {
@@ -46,7 +44,6 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             ApplyRuntimeUi();
             SettingsPageLayoutStyler.Apply(this);
             ApplyCompactLayout();
-            WireEvents();
             _items = LoadOrSeed();
             FillGrid();
         }
@@ -55,94 +52,19 @@ namespace QMC.CDT_320.Ui.Pages.Settings
         {
             lblHeader.Text = Lang.T("set.cameraSetup");
             lblHeader.Tag = "i18n:set.cameraSetup";
-            lblHeader.BackColor = UiTheme.StatusBarBg;
-            lblHeader.ForeColor = UiTheme.StatusBarFg;
-            lblHeader.Font = UiTheme.SectionFont;
-
-            lblSubHeader.BackColor = UiTheme.StatusBarBg;
-            lblSubHeader.ForeColor = Color.White;
-            lblSubHeader.Font = UiTheme.SectionFont;
         }
 
         private void ApplyCompactLayout()
         {
             SettingsPageLayoutStyler.ApplyRoot(rootLayout);
             SettingsPageLayoutStyler.ApplyHeader(lblHeader);
-            lblSubHeader.Visible = false;
 
-            if (_cameraGroup == null)
-                _cameraGroup = new GroupBox();
-            _cameraGroup.Text = "CAMERA SETUP";
             SettingsPageLayoutStyler.ApplyGroupBox(_cameraGroup);
-            _cameraGroup.Dock = DockStyle.Top;
-            _cameraGroup.Height = 200;
+            _cameraGroup.Dock = DockStyle.Top;                 // 스타일러가 Fill로 바꾸므로 Top 재지정
             _cameraGroup.Padding = new Padding(1, 8, 1, 1);
-            _grid.Dock = DockStyle.Fill;
-            _grid.Margin = Padding.Empty;
-            if (_grid.Parent != _cameraGroup)
-            {
-                if (_grid.Parent != null)
-                    _grid.Parent.Controls.Remove(_grid);
-                _cameraGroup.Controls.Add(_grid);
-            }
 
-            if (_actionGroup == null)
-                _actionGroup = new GroupBox();
-            _actionGroup.Text = "ACTION";
             SettingsPageLayoutStyler.ApplyGroupBox(_actionGroup);
-            if (actionsLayout.Parent != _actionGroup)
-            {
-                if (actionsLayout.Parent != null)
-                    actionsLayout.Parent.Controls.Remove(actionsLayout);
-                _actionGroup.Controls.Add(actionsLayout);
-            }
-
-            actionsLayout.Margin = Padding.Empty;
-            actionsLayout.Padding = Padding.Empty;
-            actionsLayout.ColumnStyles.Clear();
-            actionsLayout.ColumnCount = 14;
-            for (int i = 0; i < 14; i++)
-                actionsLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F / 14F));
             SettingsPageLayoutStyler.ApplyActionRow(actionsLayout);
-
-            rootLayout.Controls.Clear();
-            rootLayout.ColumnStyles.Clear();
-            rootLayout.RowStyles.Clear();
-            rootLayout.ColumnCount = 1;
-            rootLayout.RowCount = 4;
-            rootLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
-            rootLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 30F));
-            rootLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 45F));
-            rootLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 45F));
-            rootLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 10F));
-            rootLayout.Controls.Add(lblHeader, 0, 0);
-            rootLayout.Controls.Add(_cameraGroup, 0, 1);
-            rootLayout.Controls.Add(_actionGroup, 0, 3);
-
-            if (rootLayout.RowStyles.Count >= 4)
-            {
-                rootLayout.RowStyles[0].SizeType = SizeType.Absolute;
-                rootLayout.RowStyles[0].Height = 30F;
-                rootLayout.RowStyles[1].SizeType = SizeType.Percent;
-                rootLayout.RowStyles[1].Height = 45F;
-                rootLayout.RowStyles[2].SizeType = SizeType.Percent;
-                rootLayout.RowStyles[2].Height = 45F;
-                rootLayout.RowStyles[3].SizeType = SizeType.Percent;
-                rootLayout.RowStyles[3].Height = 10F;
-            }
-        }
-
-        private void WireEvents()
-        {
-            _grid.CellEndEdit += OnCellEdit;
-            btnSave.Click += (s, e) => DoSave();
-            btnReload.Click += (s, e) =>
-            {
-                _items = LoadOrSeed();
-                FillGrid();
-            };
-            btnTest.Click += (s, e) => DoTestConnection();
-            btnApply.Click += (s, e) => ApplyToAppSettings();
         }
 
         public static List<CameraRow> SeedDefault()
@@ -244,6 +166,27 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                 case "AUTO": it.AutoConnect = txt.Trim().ToUpper().StartsWith("ON"); break;
             }
             FillGrid();
+        }
+
+        private void btnSave_Click(object sender, EventArgs e)
+        {
+            DoSave();
+        }
+
+        private void btnReload_Click(object sender, EventArgs e)
+        {
+            _items = LoadOrSeed();
+            FillGrid();
+        }
+
+        private void btnTest_Click(object sender, EventArgs e)
+        {
+            DoTestConnection();
+        }
+
+        private void btnApply_Click(object sender, EventArgs e)
+        {
+            ApplyToAppSettings();
         }
 
         private void DoTestConnection()

@@ -1203,6 +1203,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.rdoGoodMaterial.TabStop = true;
             this.rdoGoodMaterial.Text = "GOOD";
             this.rdoGoodMaterial.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
+            this.rdoGoodMaterial.CheckedChanged += new System.EventHandler(this.rdoGoodMaterial_CheckedChanged);
             // 
             // rdoNgMaterial
             // 
@@ -1214,6 +1215,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.rdoNgMaterial.TabIndex = 2;
             this.rdoNgMaterial.Text = "NG";
             this.rdoNgMaterial.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
+            this.rdoNgMaterial.CheckedChanged += new System.EventHandler(this.rdoNgMaterial_CheckedChanged);
             // 
             // materialDetailView
             // 

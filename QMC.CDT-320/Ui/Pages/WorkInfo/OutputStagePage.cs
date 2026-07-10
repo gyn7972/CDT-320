@@ -106,22 +106,24 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 "OUTPUT STAGE AVOID",
                 RunMoveAvoidAsync);
             btnStop.Click += async (s, e) => await StopManualActionAsync();
-            rdoGoodMaterial.CheckedChanged += (s, e) =>
-            {
-                if (!rdoGoodMaterial.Checked)
-                    return;
+        }
 
-                _selectedMaterialSide = BinSide.Good;
-                RefreshData();
-            };
-            rdoNgMaterial.CheckedChanged += (s, e) =>
-            {
-                if (!rdoNgMaterial.Checked)
-                    return;
+        private void rdoGoodMaterial_CheckedChanged(object sender, EventArgs e)
+        {
+            if (!rdoGoodMaterial.Checked)
+                return;
 
-                _selectedMaterialSide = BinSide.Ng;
-                RefreshData();
-            };
+            _selectedMaterialSide = BinSide.Good;
+            RefreshData();
+        }
+
+        private void rdoNgMaterial_CheckedChanged(object sender, EventArgs e)
+        {
+            if (!rdoNgMaterial.Checked)
+                return;
+
+            _selectedMaterialSide = BinSide.Ng;
+            RefreshData();
         }
 
         private async Task RunSequenceAction(string actionName, Func<Form1, Task<bool>> action)

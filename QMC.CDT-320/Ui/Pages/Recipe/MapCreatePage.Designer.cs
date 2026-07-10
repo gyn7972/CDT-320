@@ -1068,9 +1068,14 @@
             this._btnMapDelete.TabIndex = 4;
             this._btnMapDelete.Text = "DELETE";
             this._btnMapDelete.UseVisualStyleBackColor = false;
-            // 
+            //
+            // events (디자이너 관리)
+            //
+            this._btnMapLoad.Click += new System.EventHandler(this._btnMapLoad_Click);
+            this.btnSave.Click += new System.EventHandler(this.btnSave_Click);
+            //
             // MapCreatePage
-            // 
+            //
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.None;
             this.BackColor = System.Drawing.Color.White;
             this.Controls.Add(this.mainLayout);

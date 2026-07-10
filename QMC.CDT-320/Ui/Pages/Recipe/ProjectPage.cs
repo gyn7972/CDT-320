@@ -29,7 +29,6 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             InitializeComponent();
             ConfigureRuntimeUi();
             DisableColumnSorting();
-            WireEvents();
 
             if (LicenseManager.UsageMode == LicenseUsageMode.Designtime) return;
 
@@ -114,31 +113,29 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             gridStatus.Columns.Add(new DataGridViewTextBoxColumn { Name = "Detail", HeaderText = "Detail", FillWeight = 64 });
         }
 
-        private void WireEvents()
+        private void listProjects_DoubleClick(object sender, EventArgs e) => OnOpen();
+
+        private void listProjects_SelectedIndexChanged(object sender, EventArgs e)
         {
-            listProjects.DoubleClick += (s, e) => OnOpen();
-            listProjects.SelectedIndexChanged += (s, e) =>
-            {
-                if (!_loading && listProjects.SelectedItem is string fileName)
-                    LoadProject(fileName);
-            };
-
-            btnNew.Click += (s, e) => OnNew();
-            btnOpen.Click += (s, e) => OnOpen();
-            btnCopy.Click += (s, e) => OnCopy();
-            btnDelete.Click += (s, e) => OnDelete();
-            btnOpenFolder.Click += (s, e) => OpenPath(RecipeStore.Dir);
-            btnReload.Click += (s, e) => OnReload();
-            btnOpenRecipeFolder.Click += (s, e) => OnOpenRecipeFolder();
-            btnBrowseMap.Click += (s, e) => OnBrowseMap();
-            btnOpenMap.Click += (s, e) => OnOpenMap();
-            btnBrowseXml.Click += (s, e) => OnBrowseXmlPath();
-            btnApplyCurrent.Click += (s, e) => OnApplyCurrent();
-            btnSaveRecipe.Click += (s, e) => OnSaveCurrent();
-            btnSaveAs.Click += (s, e) => OnSaveAs();
-
-            gridMap.CellEndEdit += (s, e) => UpdateMapStatus();
+            if (!_loading && listProjects.SelectedItem is string fileName)
+                LoadProject(fileName);
         }
+
+        private void btnNew_Click(object sender, EventArgs e) => OnNew();
+        private void btnOpen_Click(object sender, EventArgs e) => OnOpen();
+        private void btnCopy_Click(object sender, EventArgs e) => OnCopy();
+        private void btnDelete_Click(object sender, EventArgs e) => OnDelete();
+        private void btnOpenFolder_Click(object sender, EventArgs e) => OpenPath(RecipeStore.Dir);
+        private void btnReload_Click(object sender, EventArgs e) => OnReload();
+        private void btnOpenRecipeFolder_Click(object sender, EventArgs e) => OnOpenRecipeFolder();
+        private void btnBrowseMap_Click(object sender, EventArgs e) => OnBrowseMap();
+        private void btnOpenMap_Click(object sender, EventArgs e) => OnOpenMap();
+        private void btnBrowseXml_Click(object sender, EventArgs e) => OnBrowseXmlPath();
+        private void btnApplyCurrent_Click(object sender, EventArgs e) => OnApplyCurrent();
+        private void btnSaveRecipe_Click(object sender, EventArgs e) => OnSaveCurrent();
+        private void btnSaveAs_Click(object sender, EventArgs e) => OnSaveAs();
+
+        private void gridMap_CellEndEdit(object sender, DataGridViewCellEventArgs e) => UpdateMapStatus();
 
         private void ReloadList()
         {

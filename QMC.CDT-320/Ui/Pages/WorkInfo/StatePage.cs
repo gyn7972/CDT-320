@@ -25,7 +25,6 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
 
             if (!IsDesignerMode())
             {
-                btnReset.Click += (s, e) => ResetPlates();
                 LotStorage.ActiveLotChanged += OnActiveLotChanged;
 
                 _refresh = new System.Windows.Forms.Timer { Interval = 300 };
@@ -39,6 +38,11 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 VisibleChanged += (s, e) => { if (Visible) _refresh.Start(); else _refresh.Stop(); };
                 RefreshAll();
             }
+        }
+
+        private void btnReset_Click(object sender, EventArgs e)
+        {
+            ResetPlates();
         }
 
         private void OnActiveLotChanged(Lot lot)

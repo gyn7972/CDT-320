@@ -1,4 +1,4 @@
-﻿using System.Drawing;
+using System.Drawing;
 using System.Windows.Forms;
 
 namespace QMC.CDT_320.Ui.Pages.Recipe
@@ -6,16 +6,23 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
     partial class PickupSubsetPage
     {
         private TableLayoutPanel editorLayout;
-        private GroupBox grpTarget;
-        private GroupBox grpCorner;
-        private GroupBox grpDirection;
-        private GroupBox grpPattern;
+        private TableLayoutPanel settingsLayout;
+        private TableLayoutPanel previewLayout;
+        private Label lblPreviewCaption;
+        private PickupPreviewPanel previewPanel;
+        private Label lblTargetCaption;
+        private Label lblCornerCaption;
+        private Label lblDirectionCaption;
+        private Label lblPatternCaption;
+        private Panel separator;
+        private Panel separator2;
+        private Panel separator3;
         private TableLayoutPanel targetLayout;
         private TableLayoutPanel cornerLayout;
         private TableLayoutPanel directionLayout;
         private TableLayoutPanel patternLayout;
-        private RadioButton _rbWafer;
-        private RadioButton _rbBin;
+        private ChipToggle _rbWafer;
+        private ChipToggle _rbBin;
         private RadioButton _rbTL;
         private RadioButton _rbTR;
         private RadioButton _rbBL;
@@ -28,16 +35,23 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
         private void InitializeComponent()
         {
             this.editorLayout = new TableLayoutPanel();
-            this.grpTarget = new GroupBox();
-            this.grpCorner = new GroupBox();
-            this.grpDirection = new GroupBox();
-            this.grpPattern = new GroupBox();
+            this.settingsLayout = new TableLayoutPanel();
+            this.previewLayout = new TableLayoutPanel();
+            this.lblPreviewCaption = new Label();
+            this.previewPanel = new PickupPreviewPanel();
+            this.lblTargetCaption = new Label();
+            this.lblCornerCaption = new Label();
+            this.lblDirectionCaption = new Label();
+            this.lblPatternCaption = new Label();
+            this.separator = new Panel();
+            this.separator2 = new Panel();
+            this.separator3 = new Panel();
             this.targetLayout = new TableLayoutPanel();
             this.cornerLayout = new TableLayoutPanel();
             this.directionLayout = new TableLayoutPanel();
             this.patternLayout = new TableLayoutPanel();
-            this._rbWafer = new RadioButton();
-            this._rbBin = new RadioButton();
+            this._rbWafer = new ChipToggle();
+            this._rbBin = new ChipToggle();
             this._rbTL = new RadioButton();
             this._rbTR = new RadioButton();
             this._rbBL = new RadioButton();
@@ -48,10 +62,8 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this._rbZigZag = new RadioButton();
             this._editorPanel.SuspendLayout();
             this.editorLayout.SuspendLayout();
-            this.grpTarget.SuspendLayout();
-            this.grpCorner.SuspendLayout();
-            this.grpDirection.SuspendLayout();
-            this.grpPattern.SuspendLayout();
+            this.settingsLayout.SuspendLayout();
+            this.previewLayout.SuspendLayout();
             this.targetLayout.SuspendLayout();
             this.cornerLayout.SuspendLayout();
             this.directionLayout.SuspendLayout();
@@ -68,78 +80,139 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             //
             this._lblProject.Size = new Size(794, 36);
             //
-            // editorLayout  (좌측 50%만 사용, 그룹박스 세로 배치 + 균등 여백)
+            // editorLayout  (좌=설정 / 우=픽업 경로 프리뷰)
             //
             this.editorLayout.BackColor = System.Drawing.Color.White;
             this.editorLayout.ColumnCount = 2;
-            this.editorLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50F));
-            this.editorLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50F));
-            this.editorLayout.Controls.Add(this.grpTarget, 0, 0);
-            this.editorLayout.Controls.Add(this.grpCorner, 0, 2);
-            this.editorLayout.Controls.Add(this.grpDirection, 0, 4);
-            this.editorLayout.Controls.Add(this.grpPattern, 0, 6);
+            this.editorLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 540F));
+            this.editorLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+            this.editorLayout.Controls.Add(this.settingsLayout, 0, 0);
+            this.editorLayout.Controls.Add(this.previewLayout, 1, 0);
             this.editorLayout.Dock = DockStyle.Fill;
             this.editorLayout.Location = new Point(8, 12);
             this.editorLayout.Margin = new Padding(0);
             this.editorLayout.Padding = new Padding(0);
-            this.editorLayout.RowCount = 7;
-            this.editorLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 92F));
-            this.editorLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 50F));
-            this.editorLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 150F));
-            this.editorLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 50F));
-            this.editorLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 92F));
-            this.editorLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 50F));
-            this.editorLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 92F));
+            this.editorLayout.RowCount = 1;
+            this.editorLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
             this.editorLayout.Size = new Size(1078, 656);
             this.editorLayout.TabIndex = 0;
             //
-            // grpTarget
+            // settingsLayout  (라벨(좌)+옵션(우), 그룹마다 구분선. 상단 마스터(타겟)=칩 / 하위=라디오)
             //
-            this.grpTarget.BackColor = System.Drawing.Color.White;
-            this.grpTarget.Controls.Add(this.targetLayout);
-            this.grpTarget.Dock = DockStyle.Fill;
-            this.grpTarget.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
-            this.grpTarget.Margin = new Padding(0);
-            this.grpTarget.Name = "grpTarget";
-            this.grpTarget.Padding = new Padding(6, 2, 6, 6);
-            this.grpTarget.TabStop = false;
-            this.grpTarget.Text = "Pickup target";
+            this.settingsLayout.BackColor = System.Drawing.Color.White;
+            this.settingsLayout.ColumnCount = 3;
+            this.settingsLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 116F));
+            this.settingsLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 392F));
+            this.settingsLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+            this.settingsLayout.Controls.Add(this.lblTargetCaption, 0, 0);
+            this.settingsLayout.Controls.Add(this.targetLayout, 1, 0);
+            this.settingsLayout.Controls.Add(this.separator, 0, 1);
+            this.settingsLayout.Controls.Add(this.lblCornerCaption, 0, 2);
+            this.settingsLayout.Controls.Add(this.cornerLayout, 1, 2);
+            this.settingsLayout.Controls.Add(this.separator2, 0, 3);
+            this.settingsLayout.Controls.Add(this.lblDirectionCaption, 0, 4);
+            this.settingsLayout.Controls.Add(this.directionLayout, 1, 4);
+            this.settingsLayout.Controls.Add(this.separator3, 0, 5);
+            this.settingsLayout.Controls.Add(this.lblPatternCaption, 0, 6);
+            this.settingsLayout.Controls.Add(this.patternLayout, 1, 6);
+            this.settingsLayout.Dock = DockStyle.Fill;
+            this.settingsLayout.Margin = new Padding(0);
+            this.settingsLayout.Padding = new Padding(0);
+            this.settingsLayout.RowCount = 8;
+            this.settingsLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 52F));
+            this.settingsLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 16F));
+            this.settingsLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 108F));
+            this.settingsLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 16F));
+            this.settingsLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 46F));
+            this.settingsLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 16F));
+            this.settingsLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 46F));
+            this.settingsLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+            this.settingsLayout.SetColumnSpan(this.separator, 3);
+            this.settingsLayout.SetColumnSpan(this.separator2, 3);
+            this.settingsLayout.SetColumnSpan(this.separator3, 3);
+            this.settingsLayout.TabIndex = 0;
             //
-            // grpCorner
+            // previewLayout  (캡션 + 경로 패널)
             //
-            this.grpCorner.BackColor = System.Drawing.Color.White;
-            this.grpCorner.Controls.Add(this.cornerLayout);
-            this.grpCorner.Dock = DockStyle.Fill;
-            this.grpCorner.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
-            this.grpCorner.Margin = new Padding(0);
-            this.grpCorner.Name = "grpCorner";
-            this.grpCorner.Padding = new Padding(6, 2, 6, 6);
-            this.grpCorner.TabStop = false;
-            this.grpCorner.Text = "Start corner";
+            this.previewLayout.BackColor = System.Drawing.Color.White;
+            this.previewLayout.ColumnCount = 1;
+            this.previewLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+            this.previewLayout.Controls.Add(this.lblPreviewCaption, 0, 0);
+            this.previewLayout.Controls.Add(this.previewPanel, 0, 1);
+            this.previewLayout.Dock = DockStyle.Fill;
+            this.previewLayout.Margin = new Padding(12, 0, 0, 0);
+            this.previewLayout.Padding = new Padding(0);
+            this.previewLayout.RowCount = 2;
+            this.previewLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 26F));
+            this.previewLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+            this.previewLayout.TabIndex = 1;
             //
-            // grpDirection
+            // lblPreviewCaption
             //
-            this.grpDirection.BackColor = System.Drawing.Color.White;
-            this.grpDirection.Controls.Add(this.directionLayout);
-            this.grpDirection.Dock = DockStyle.Fill;
-            this.grpDirection.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
-            this.grpDirection.Margin = new Padding(0);
-            this.grpDirection.Name = "grpDirection";
-            this.grpDirection.Padding = new Padding(6, 2, 6, 6);
-            this.grpDirection.TabStop = false;
-            this.grpDirection.Text = "Pickup direction";
+            this.lblPreviewCaption.Dock = DockStyle.Fill;
+            this.lblPreviewCaption.Font = new System.Drawing.Font("맑은 고딕", 9F);
+            this.lblPreviewCaption.ForeColor = System.Drawing.Color.FromArgb(0x88, 0x88, 0x88);
+            this.lblPreviewCaption.Name = "lblPreviewCaption";
+            this.lblPreviewCaption.Text = "Pickup path preview  (S = start, E = end)";
+            this.lblPreviewCaption.TextAlign = ContentAlignment.MiddleLeft;
             //
-            // grpPattern
+            // previewPanel
             //
-            this.grpPattern.BackColor = System.Drawing.Color.White;
-            this.grpPattern.Controls.Add(this.patternLayout);
-            this.grpPattern.Dock = DockStyle.Fill;
-            this.grpPattern.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
-            this.grpPattern.Margin = new Padding(0);
-            this.grpPattern.Name = "grpPattern";
-            this.grpPattern.Padding = new Padding(6, 2, 6, 6);
-            this.grpPattern.TabStop = false;
-            this.grpPattern.Text = "Pickup pattern";
+            this.previewPanel.BackColor = System.Drawing.Color.White;
+            this.previewPanel.BorderStyle = BorderStyle.FixedSingle;
+            this.previewPanel.Dock = DockStyle.Fill;
+            this.previewPanel.Margin = new Padding(0, 0, 8, 8);
+            this.previewPanel.Name = "previewPanel";
+            this.previewPanel.Paint += new PaintEventHandler(this.previewPanel_Paint);
+            //
+            // caption labels
+            //
+            this.lblTargetCaption.Dock = DockStyle.Fill;
+            this.lblTargetCaption.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
+            this.lblTargetCaption.ForeColor = System.Drawing.Color.FromArgb(0x22, 0x2A, 0x35);
+            this.lblTargetCaption.Margin = new Padding(0, 0, 8, 0);
+            this.lblTargetCaption.Name = "lblTargetCaption";
+            this.lblTargetCaption.Text = "Pickup target";
+            this.lblTargetCaption.TextAlign = ContentAlignment.MiddleLeft;
+            this.lblCornerCaption.Dock = DockStyle.Fill;
+            this.lblCornerCaption.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
+            this.lblCornerCaption.ForeColor = System.Drawing.Color.FromArgb(0x33, 0x33, 0x33);
+            this.lblCornerCaption.Margin = new Padding(0, 0, 8, 0);
+            this.lblCornerCaption.Name = "lblCornerCaption";
+            this.lblCornerCaption.Text = "Start corner";
+            this.lblCornerCaption.TextAlign = ContentAlignment.MiddleLeft;
+            this.lblDirectionCaption.Dock = DockStyle.Fill;
+            this.lblDirectionCaption.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
+            this.lblDirectionCaption.ForeColor = System.Drawing.Color.FromArgb(0x33, 0x33, 0x33);
+            this.lblDirectionCaption.Margin = new Padding(0, 0, 8, 0);
+            this.lblDirectionCaption.Name = "lblDirectionCaption";
+            this.lblDirectionCaption.Text = "Pickup direction";
+            this.lblDirectionCaption.TextAlign = ContentAlignment.MiddleLeft;
+            this.lblPatternCaption.Dock = DockStyle.Fill;
+            this.lblPatternCaption.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
+            this.lblPatternCaption.ForeColor = System.Drawing.Color.FromArgb(0x33, 0x33, 0x33);
+            this.lblPatternCaption.Margin = new Padding(0, 0, 8, 0);
+            this.lblPatternCaption.Name = "lblPatternCaption";
+            this.lblPatternCaption.Text = "Pickup pattern";
+            this.lblPatternCaption.TextAlign = ContentAlignment.MiddleLeft;
+            //
+            // separators (그룹 구분선)
+            //
+            this.separator.BackColor = System.Drawing.Color.FromArgb(0xD5, 0xD9, 0xDE);
+            this.separator.Dock = DockStyle.Top;
+            this.separator.Height = 1;
+            this.separator.Margin = new Padding(0, 7, 8, 7);
+            this.separator.Name = "separator";
+            this.separator2.BackColor = System.Drawing.Color.FromArgb(0xD5, 0xD9, 0xDE);
+            this.separator2.Dock = DockStyle.Top;
+            this.separator2.Height = 1;
+            this.separator2.Margin = new Padding(0, 7, 8, 7);
+            this.separator2.Name = "separator2";
+            this.separator3.BackColor = System.Drawing.Color.FromArgb(0xD5, 0xD9, 0xDE);
+            this.separator3.Dock = DockStyle.Top;
+            this.separator3.Height = 1;
+            this.separator3.Margin = new Padding(0, 7, 8, 7);
+            this.separator3.Name = "separator3";
             //
             // targetLayout
             //
@@ -196,83 +269,78 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.patternLayout.Controls.Add(this._rbStraight, 0, 0);
             this.patternLayout.Controls.Add(this._rbZigZag, 1, 0);
             //
-            // radio buttons
+            // 마스터 타겟 = 부드러운 라운드 칩 (ChipToggle 자체 그리기)
             //
-            this._rbWafer.Appearance = Appearance.Button;
             this._rbWafer.Checked = true;
             this._rbWafer.Dock = DockStyle.Fill;
-            this._rbWafer.FlatStyle = FlatStyle.Flat;
             this._rbWafer.Font = UiTheme.ButtonFont;
+            this._rbWafer.Margin = new Padding(2);
             this._rbWafer.Text = "WAFER INPUT";
-            this._rbWafer.TextAlign = ContentAlignment.MiddleCenter;
             this._rbWafer.CheckedChanged += new System.EventHandler(this.PickupTarget_CheckedChanged);
-            this._rbBin.Appearance = Appearance.Button;
             this._rbBin.Dock = DockStyle.Fill;
-            this._rbBin.FlatStyle = FlatStyle.Flat;
             this._rbBin.Font = UiTheme.ButtonFont;
+            this._rbBin.Margin = new Padding(2);
             this._rbBin.Text = "BIN OUTPUT";
-            this._rbBin.TextAlign = ContentAlignment.MiddleCenter;
             this._rbBin.CheckedChanged += new System.EventHandler(this.PickupTarget_CheckedChanged);
-            this._rbTL.Appearance = Appearance.Button;
+            //
+            // 하위 옵션 = 실제 라디오(동그라미) + 화살표 아이콘
+            //
             this._rbTL.Dock = DockStyle.Fill;
-            this._rbTL.FlatStyle = FlatStyle.Flat;
-            this._rbTL.Font = UiTheme.ButtonFont;
-            this._rbTL.Text = "Top Left";
-            this._rbTL.TextAlign = ContentAlignment.MiddleCenter;
+            this._rbTL.Font = new System.Drawing.Font("맑은 고딕", 10F);
+            this._rbTL.Margin = new Padding(2);
+            this._rbTL.Padding = new Padding(6, 0, 0, 0);
+            this._rbTL.Text = "↖  Top Left";
+            this._rbTL.TextAlign = ContentAlignment.MiddleLeft;
             this._rbTL.CheckedChanged += new System.EventHandler(this.PickupRadio_CheckedChanged);
-            this._rbTR.Appearance = Appearance.Button;
             this._rbTR.Dock = DockStyle.Fill;
-            this._rbTR.FlatStyle = FlatStyle.Flat;
-            this._rbTR.Font = UiTheme.ButtonFont;
-            this._rbTR.Text = "Top Right";
-            this._rbTR.TextAlign = ContentAlignment.MiddleCenter;
+            this._rbTR.Font = new System.Drawing.Font("맑은 고딕", 10F);
+            this._rbTR.Margin = new Padding(2);
+            this._rbTR.Padding = new Padding(6, 0, 0, 0);
+            this._rbTR.Text = "↗  Top Right";
+            this._rbTR.TextAlign = ContentAlignment.MiddleLeft;
             this._rbTR.CheckedChanged += new System.EventHandler(this.PickupRadio_CheckedChanged);
-            this._rbBL.Appearance = Appearance.Button;
             this._rbBL.Dock = DockStyle.Fill;
-            this._rbBL.FlatStyle = FlatStyle.Flat;
-            this._rbBL.Font = UiTheme.ButtonFont;
-            this._rbBL.Text = "Bottom Left";
-            this._rbBL.TextAlign = ContentAlignment.MiddleCenter;
+            this._rbBL.Font = new System.Drawing.Font("맑은 고딕", 10F);
+            this._rbBL.Margin = new Padding(2);
+            this._rbBL.Padding = new Padding(6, 0, 0, 0);
+            this._rbBL.Text = "↙  Bottom Left";
+            this._rbBL.TextAlign = ContentAlignment.MiddleLeft;
             this._rbBL.CheckedChanged += new System.EventHandler(this.PickupRadio_CheckedChanged);
-            this._rbBR.Appearance = Appearance.Button;
             this._rbBR.Dock = DockStyle.Fill;
-            this._rbBR.FlatStyle = FlatStyle.Flat;
-            this._rbBR.Font = UiTheme.ButtonFont;
-            this._rbBR.Text = "Bottom Right";
-            this._rbBR.TextAlign = ContentAlignment.MiddleCenter;
+            this._rbBR.Font = new System.Drawing.Font("맑은 고딕", 10F);
+            this._rbBR.Margin = new Padding(2);
+            this._rbBR.Padding = new Padding(6, 0, 0, 0);
+            this._rbBR.Text = "↘  Bottom Right";
+            this._rbBR.TextAlign = ContentAlignment.MiddleLeft;
             this._rbBR.CheckedChanged += new System.EventHandler(this.PickupRadio_CheckedChanged);
-            this._rbHoriz.Appearance = Appearance.Button;
             this._rbHoriz.Dock = DockStyle.Fill;
-            this._rbHoriz.FlatStyle = FlatStyle.Flat;
-            this._rbHoriz.Font = UiTheme.ButtonFont;
-            this._rbHoriz.Padding = new Padding(0);
-            this._rbHoriz.Text = "Horizontal";
-            this._rbHoriz.TextAlign = ContentAlignment.MiddleCenter;
+            this._rbHoriz.Font = new System.Drawing.Font("맑은 고딕", 10F);
+            this._rbHoriz.Margin = new Padding(2);
+            this._rbHoriz.Padding = new Padding(6, 0, 0, 0);
+            this._rbHoriz.Text = "→  Horizontal";
+            this._rbHoriz.TextAlign = ContentAlignment.MiddleLeft;
             this._rbHoriz.CheckedChanged += new System.EventHandler(this.PickupRadio_CheckedChanged);
-            this._rbVert.Appearance = Appearance.Button;
             this._rbVert.Dock = DockStyle.Fill;
-            this._rbVert.FlatStyle = FlatStyle.Flat;
-            this._rbVert.Font = UiTheme.ButtonFont;
-            this._rbVert.Padding = new Padding(0);
-            this._rbVert.Text = "Vertical";
-            this._rbVert.TextAlign = ContentAlignment.MiddleCenter;
+            this._rbVert.Font = new System.Drawing.Font("맑은 고딕", 10F);
+            this._rbVert.Margin = new Padding(2);
+            this._rbVert.Padding = new Padding(6, 0, 0, 0);
+            this._rbVert.Text = "↓  Vertical";
+            this._rbVert.TextAlign = ContentAlignment.MiddleLeft;
             this._rbVert.CheckedChanged += new System.EventHandler(this.PickupRadio_CheckedChanged);
-            this._rbStraight.Appearance = Appearance.Button;
             this._rbStraight.Checked = true;
             this._rbStraight.Dock = DockStyle.Fill;
-            this._rbStraight.FlatStyle = FlatStyle.Flat;
-            this._rbStraight.Font = UiTheme.ButtonFont;
-            this._rbStraight.Padding = new Padding(0);
-            this._rbStraight.Text = "Straight";
-            this._rbStraight.TextAlign = ContentAlignment.MiddleCenter;
+            this._rbStraight.Font = new System.Drawing.Font("맑은 고딕", 10F);
+            this._rbStraight.Margin = new Padding(2);
+            this._rbStraight.Padding = new Padding(6, 0, 0, 0);
+            this._rbStraight.Text = "→  Straight";
+            this._rbStraight.TextAlign = ContentAlignment.MiddleLeft;
             this._rbStraight.CheckedChanged += new System.EventHandler(this.PickupRadio_CheckedChanged);
-            this._rbZigZag.Appearance = Appearance.Button;
             this._rbZigZag.Dock = DockStyle.Fill;
-            this._rbZigZag.FlatStyle = FlatStyle.Flat;
-            this._rbZigZag.Font = UiTheme.ButtonFont;
-            this._rbZigZag.Padding = new Padding(0);
-            this._rbZigZag.Text = "ZigZag";
-            this._rbZigZag.TextAlign = ContentAlignment.MiddleCenter;
+            this._rbZigZag.Font = new System.Drawing.Font("맑은 고딕", 10F);
+            this._rbZigZag.Margin = new Padding(2);
+            this._rbZigZag.Padding = new Padding(6, 0, 0, 0);
+            this._rbZigZag.Text = "⇄  ZigZag";
+            this._rbZigZag.TextAlign = ContentAlignment.MiddleLeft;
             this._rbZigZag.CheckedChanged += new System.EventHandler(this.PickupRadio_CheckedChanged);
             //
             // PickupSubsetPage
@@ -284,10 +352,8 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.directionLayout.ResumeLayout(false);
             this.cornerLayout.ResumeLayout(false);
             this.targetLayout.ResumeLayout(false);
-            this.grpTarget.ResumeLayout(false);
-            this.grpCorner.ResumeLayout(false);
-            this.grpDirection.ResumeLayout(false);
-            this.grpPattern.ResumeLayout(false);
+            this.previewLayout.ResumeLayout(false);
+            this.settingsLayout.ResumeLayout(false);
             this.editorLayout.ResumeLayout(false);
             this._editorPanel.ResumeLayout(false);
             this.ResumeLayout(false);

@@ -25,7 +25,6 @@ namespace QMC.CDT_320.Ui.Pages.History
         {
             InitializeComponent();
             ApplyRuntimeUi();
-            WireEvents();
             if (!IsDesignerMode()) LoadFromCatalog(false);
         }
 
@@ -33,20 +32,18 @@ namespace QMC.CDT_320.Ui.Pages.History
         {
             lblHeader.Text = Lang.T("hist.msgEdit");
             lblHeader.Tag = "i18n:hist.msgEdit";
-            BackColor = Color.White;
-            rootLayout.BackColor = Color.White;
-            actionLayout.BackColor = Color.White;
-            grid.BackgroundColor = Color.White;
+            // 배경색(페이지/rootLayout/actionLayout/grid White)은 Designer(.Designer.cs)로 이관 — i18n 텍스트/태그만 런타임 유지
         }
 
-        private void WireEvents()
+        // 이벤트 구독은 디자이너(InitializeComponent)로 이관. Grid_CellEndEdit/Grid_CellDoubleClick 핸들러는 그대로 사용.
+        private void btnSave_Click(object sender, EventArgs e)
         {
-            btnSave.Click += (s, e) => SaveCatalog();
-            btnImport.Click += (s, e) => LoadFromCatalog(true);   // REFRESH
-            // KO/EN 셀 인라인 편집 결과를 편집 모델에 반영한다.
-            grid.CellEndEdit += Grid_CellEndEdit;
-            // KO/EN 셀을 더블클릭하면 긴 번역문을 큰 창에서 보고 편집한다(인라인 편집 대체).
-            grid.CellDoubleClick += Grid_CellDoubleClick;
+            SaveCatalog();
+        }
+
+        private void btnImport_Click(object sender, EventArgs e)
+        {
+            LoadFromCatalog(true);   // REFRESH
         }
 
         // KO/EN 셀 더블클릭 시 큰 창에서 전체 번역문을 보고 편집한다. 확인하면 셀과 편집 모델에 반영한다.

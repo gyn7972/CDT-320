@@ -36,9 +36,6 @@ namespace QMC.CDT_320.Ui.Pages.Settings
 
         private List<AxisRow> _items;
         private bool _gridLoading;
-        private TableLayoutPanel _compactLayout;
-        private GroupBox _gridGroup;
-        private GroupBox _actionGroup;
         private QMC.CDT_320.Ui.Dialogs.SharedRailXSetupDialog _sharedRailXDialog;
         private QMC.CDT_320.Ui.Dialogs.PickerZoneSetupDialog _pickerZoneDialog;
         private Form1 Host => FindForm() as Form1;
@@ -62,100 +59,19 @@ namespace QMC.CDT_320.Ui.Pages.Settings
         /// <summary>Designer 에서 표현하기 어려운 UI 색상과 레이아웃 보정을 런타임에 적용한다.</summary>
         private void ApplyRuntimeUi()
         {
-            // UiTheme 정적 색상은 디자이너에서 직접 표현되지 않으므로 런타임 적용
             lblSubHeader.Text = Lang.T("set.axisSetup");
             lblSubHeader.Tag = "i18n:set.axisSetup";
-            lblSubHeader.BackColor = UiTheme.StatusBarBg;
-            lblSubHeader.ForeColor = Color.White;
-            lblSubHeader.Font = UiTheme.SectionFont;
-
-            actionsPanel.BackColor = UiTheme.OptionPanelBg;
             grid.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
             grid.MultiSelect = false;
         }
 
         private void ApplyCompactLayout()
         {
-            if (_compactLayout != null)
-                return;
-
-            SuspendLayout();
-            try
-            {
-                BackColor = Color.White;
-                Margin = Padding.Empty;
-                Padding = Padding.Empty;
-
-                Controls.Remove(lblSubHeader);
-                Controls.Remove(grid);
-                Controls.Remove(actionsPanel);
-
-                _compactLayout = new TableLayoutPanel
-                {
-                    Dock = DockStyle.Fill,
-                    Margin = Padding.Empty,
-                    Padding = Padding.Empty,
-                    ColumnCount = 1,
-                    RowCount = 4,
-                    BackColor = Color.White
-                };
-                _compactLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
-                _compactLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 30F));
-                _compactLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 45F));
-                _compactLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 45F));
-                _compactLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 10F));
-
-                SettingsPageLayoutStyler.ApplyHeader(lblSubHeader);
-                grid.Dock = DockStyle.Fill;
-                grid.Margin = Padding.Empty;
-
-                _gridGroup = new GroupBox { Text = "AXIS SETUP LIST" };
-                SettingsPageLayoutStyler.ApplyGroupBox(_gridGroup);
-                _gridGroup.Controls.Add(grid);
-
-                TableLayoutPanel actionRow = new TableLayoutPanel
-                {
-                    Dock = DockStyle.Fill,
-                    Margin = Padding.Empty,
-                    Padding = Padding.Empty,
-                    ColumnCount = 14,
-                    RowCount = 1,
-                    BackColor = Color.White
-                };
-                for (int i = 0; i < 14; i++)
-                    actionRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F / 14F));
-                actionRow.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
-
-                Control[] buttons =
-                {
-                    btnSave,
-                    btnReload,
-                    btnReset,
-                    btnApply,
-                    btnSharedRailX,
-                    btnPickerZone
-                };
-                for (int i = 0; i < buttons.Length; i++)
-                {
-                    SettingsPageLayoutStyler.ApplyActionControl(buttons[i]);
-                    actionRow.Controls.Add(buttons[i], i, 0);
-                }
-                SettingsPageLayoutStyler.ApplyActionRow(actionRow);
-
-                _compactLayout.Controls.Add(lblSubHeader, 0, 0);
-                _compactLayout.Controls.Add(_gridGroup, 0, 1);
-                _compactLayout.SetRowSpan(_gridGroup, 2);
-                _actionGroup = new GroupBox { Text = "ACTION" };
-                SettingsPageLayoutStyler.ApplyGroupBox(_actionGroup);
-                _actionGroup.Controls.Add(actionRow);
-                _compactLayout.Controls.Add(_actionGroup, 0, 3);
-                Controls.Add(_compactLayout);
-                _compactLayout.BringToFront();
-            }
-            finally
-            {
-                ResumeLayout(false);
-            }
+            SettingsPageLayoutStyler.ApplyRoot(_compactLayout);
+            SettingsPageLayoutStyler.ApplyHeader(lblSubHeader);
+            SettingsPageLayoutStyler.ApplyGroupBox(_gridGroup);
+            SettingsPageLayoutStyler.ApplyGroupBox(_actionGroup);
+            SettingsPageLayoutStyler.ApplyActionRow(actionRow);
         }
 
         // ── Button click handlers (Designer 에서 연결) ────────────────

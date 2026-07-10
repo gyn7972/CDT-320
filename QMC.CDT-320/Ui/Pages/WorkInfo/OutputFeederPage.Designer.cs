@@ -532,6 +532,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.rbTargetOk.Text = "OK";
             this.rbTargetOk.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
             this.rbTargetOk.UseVisualStyleBackColor = true;
+            this.rbTargetOk.CheckedChanged += new System.EventHandler(this.rbTargetOk_CheckedChanged);
             // 
             // rbTargetNg
             // 
@@ -546,6 +547,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.rbTargetNg.Text = "NG";
             this.rbTargetNg.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
             this.rbTargetNg.UseVisualStyleBackColor = true;
+            this.rbTargetNg.CheckedChanged += new System.EventHandler(this.rbTargetNg_CheckedChanged);
             // 
             // infoLayout
             // 

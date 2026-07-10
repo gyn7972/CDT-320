@@ -33,19 +33,10 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             ApplyRuntimeUi();
             SettingsPageLayoutStyler.Apply(this);
             ApplyMotionLayout();
-            WireActions();
             InitializeConfigPanels();
             ConfigureCompactConfigLayout();
             InitializeSpeedTab();
             InitializeStatusPanels();
-
-            Load += (s, e) =>
-            {
-                LoadAxisRows();
-                StartRefresh();
-                RefreshConfigForSelected();
-                LoadSpeedRows();
-            };
 
             Disposed += (s, e) =>
             {
@@ -57,83 +48,20 @@ namespace QMC.CDT_320.Ui.Pages.Settings
 
         private void ApplyMotionLayout()
         {
-            rootLayout.SuspendLayout();
-            actionsPanel.SuspendLayout();
-            try
+            configTabs.ItemSize = new Size(92, 28);
+            configTabs.BackColor = Color.White;
+            foreach (TabPage page in new[] { tabConfig, tabStatus, tabSpeed })
             {
-                rootLayout.Controls.Clear();
-                rootLayout.Padding = Padding.Empty;
-                rootLayout.Margin = Padding.Empty;
-                rootLayout.ColumnCount = 1;
-                rootLayout.ColumnStyles.Clear();
-                rootLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
-                rootLayout.RowCount = 4;
-                rootLayout.RowStyles.Clear();
-                rootLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 30F));
-                rootLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 45F));
-                rootLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 45F));
-                rootLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 10F));
-
-                lblPageHeader.Dock = DockStyle.Fill;
-                lblPageHeader.Margin = Padding.Empty;
-                lblPageHeader.Padding = new Padding(10, 0, 0, 0);
-
-                lblModuleHeader.Visible = false;
-                lblConfigHeader.Visible = false;
-
-                var grpModule = CreateMotionGroupBox("grpMotionModuleList", "MODULE LIST");
-                var grpConfiguration = CreateMotionGroupBox("grpMotionConfiguration", "CONFIGURATION");
-                var grpAction = CreateMotionGroupBox("grpMotionAction", "ACTION");
-
-                grid.Dock = DockStyle.Fill;
-                grid.Margin = Padding.Empty;
-                configTabs.Dock = DockStyle.Fill;
-                configTabs.Margin = Padding.Empty;
-                configTabs.ItemSize = new Size(92, 28);
-                configTabs.BackColor = Color.White;
-                foreach (TabPage page in new[] { tabConfig, tabStatus, tabSpeed })
-                {
-                    page.UseVisualStyleBackColor = false;
-                    page.BackColor = Color.White;
-                }
-                tabConfig.Padding = new Padding(1);
-                tabStatus.Padding = new Padding(1);
-                tabSpeed.Padding = new Padding(1);
-
-                ConfigureCompactConfigLayout();
-                ConfigureActionPanel();
-                ConfigureSpeedButtons();
-
-                grpModule.Controls.Add(grid);
-                grpConfiguration.Controls.Add(configTabs);
-                grpAction.Controls.Add(actionsPanel);
-
-                rootLayout.Controls.Add(lblPageHeader, 0, 0);
-                rootLayout.Controls.Add(grpModule, 0, 1);
-                rootLayout.Controls.Add(grpConfiguration, 0, 2);
-                rootLayout.Controls.Add(grpAction, 0, 3);
+                page.UseVisualStyleBackColor = false;
+                page.BackColor = Color.White;
             }
-            finally
-            {
-                actionsPanel.ResumeLayout(false);
-                rootLayout.ResumeLayout(false);
-            }
-        }
+            tabConfig.Padding = new Padding(1);
+            tabStatus.Padding = new Padding(1);
+            tabSpeed.Padding = new Padding(1);
 
-        private static GroupBox CreateMotionGroupBox(string name, string text)
-        {
-            return new GroupBox
-            {
-                BackColor = Color.White,
-                Dock = DockStyle.Fill,
-                Font = UiTheme.SectionFont,
-                ForeColor = Color.Black,
-                Margin = Padding.Empty,
-                Name = name,
-                Padding = new Padding(1, 9, 1, 1),
-                TabStop = false,
-                Text = text
-            };
+            ConfigureCompactConfigLayout();
+            ConfigureActionPanel();
+            ConfigureSpeedButtons();
         }
 
         private void ConfigureCompactConfigLayout()
@@ -239,10 +167,11 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             actionsPanel.Padding = new Padding(1);
             actionsPanel.Dock = DockStyle.Fill;
             actionsPanel.BackColor = Color.White;
-            actionsPanel.ColumnCount = 10;
+            // 액션 버튼 폭을 다른 설정 페이지와 동일하게(14열 균등 = 각 7.14%) 맞춘다. 버튼 10개는 앞 10칸에 배치, 오른쪽 4칸은 빈칸.
+            actionsPanel.ColumnCount = 14;
             actionsPanel.ColumnStyles.Clear();
-            for (int i = 0; i < 10; i++)
-                actionsPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F / 10F));
+            for (int i = 0; i < 14; i++)
+                actionsPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F / 14F));
 
             actionsPanel.RowCount = 1;
             actionsPanel.RowStyles.Clear();
@@ -298,17 +227,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
         {
             lblPageHeader.Text = Lang.T("set.motion");
             lblPageHeader.Tag = "i18n:set.motion";
-            lblPageHeader.BackColor = UiTheme.StatusBarBg;
-            lblPageHeader.ForeColor = UiTheme.StatusBarFg;
-            lblPageHeader.Font = UiTheme.SectionFont;
-
-            lblModuleHeader.BackColor = UiTheme.StatusBarBg;
-            lblModuleHeader.ForeColor = Color.White;
-            lblModuleHeader.Font = UiTheme.SectionFont;
-
-            lblConfigHeader.BackColor = UiTheme.StatusBarBg;
-            lblConfigHeader.ForeColor = Color.White;
-            lblConfigHeader.Font = UiTheme.SectionFont;
+            // MODULE LIST/CONFIGURATION 라벨은 그룹박스 제목으로 대체됨(죽은 라벨 제거)
 
             actionsPanel.BackColor = UiTheme.OptionPanelBg;
             configTabs.SelectedTab = tabConfig;
@@ -337,18 +256,62 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             ctl.AutoScroll = true;
         }
 
-        private void WireActions()
+        private void MotionPage_Load(object sender, EventArgs e)
         {
-            btnHome.Click += async (s, e) => await InitializeSelectedAxisAsync();
-            btnAllStop.Click += (s, e) => RunAllAxes(ax => ax.Stop());
-            btnAlarmClear.Click += (s, e) => ClearAllAxisAlarms();
-            btnAllServoOff.Click += (s, e) => RunAllAxes(ax => ax.ServoOff());
-            btnServoOn.Click += (s, e) => RunSelectedAxis(ax => ax.ServoOn());
-            btnServoOff.Click += (s, e) => RunSelectedAxis(ax => ax.ServoOff());
-            btnParaLoad.Click += (s, e) => DoLoadPara();
-            btnParaSave.Click += (s, e) => DoSavePara();
-            btnBoardScan.Click += (s, e) => ShowBoardScan();
-            btnMotionTest.Click += (s, e) => ShowOrRestoreMotionTestDialog();
+            LoadAxisRows();
+            StartRefresh();
+            RefreshConfigForSelected();
+            LoadSpeedRows();
+        }
+
+        private async void btnHome_Click(object sender, EventArgs e)
+        {
+            await InitializeSelectedAxisAsync();
+        }
+
+        private void btnAllStop_Click(object sender, EventArgs e)
+        {
+            RunAllAxes(ax => ax.Stop());
+        }
+
+        private void btnAlarmClear_Click(object sender, EventArgs e)
+        {
+            ClearAllAxisAlarms();
+        }
+
+        private void btnAllServoOff_Click(object sender, EventArgs e)
+        {
+            RunAllAxes(ax => ax.ServoOff());
+        }
+
+        private void btnServoOn_Click(object sender, EventArgs e)
+        {
+            RunSelectedAxis(ax => ax.ServoOn());
+        }
+
+        private void btnServoOff_Click(object sender, EventArgs e)
+        {
+            RunSelectedAxis(ax => ax.ServoOff());
+        }
+
+        private void btnParaLoad_Click(object sender, EventArgs e)
+        {
+            DoLoadPara();
+        }
+
+        private void btnParaSave_Click(object sender, EventArgs e)
+        {
+            DoSavePara();
+        }
+
+        private void btnBoardScan_Click(object sender, EventArgs e)
+        {
+            ShowBoardScan();
+        }
+
+        private void btnMotionTest_Click(object sender, EventArgs e)
+        {
+            ShowOrRestoreMotionTestDialog();
         }
 
         private void LoadAxisRows()
@@ -501,7 +464,6 @@ namespace QMC.CDT_320.Ui.Pages.Settings
 
             RefreshConfigDynamic();
             RefreshStatusDynamic();
-            RefreshMachineRuntimeHeader();
         }
 
         private static void ApplyAxisToGrid(DataGridViewRow row, BaseAxis axis)
@@ -752,31 +714,6 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             {
                 QMC.Common.Log.Write("Main", "SYSTEM", source,
                     "Motion action result handling failed: " + ex.Message + " - Failed");
-            }
-            finally
-            {
-            }
-        }
-
-        private void RefreshMachineRuntimeHeader()
-        {
-            try
-            {
-                if (Host == null || Host.Controller == null)
-                {
-                    lblModuleHeader.Text = "MODULE LIST";
-                    return;
-                }
-
-                string initialized = Host.Controller.IsMachineInitialized ? "READY" : "NOT INIT";
-                string restored = Host.Controller.IsDeveloperReadyRestored ? " / RESTORED" : "";
-                string time = Host.Controller.IsMachineInitialized && Host.Controller.MachineInitializedAt > DateTime.MinValue
-                    ? " / " + Host.Controller.MachineInitializedAt.ToString("yyyy-MM-dd HH:mm:ss")
-                    : "";
-                lblModuleHeader.Text = "MODULE LIST   INIT: " + initialized + restored + time;
-            }
-            catch
-            {
             }
             finally
             {

@@ -80,6 +80,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             // headerPanel
             // 
             this.headerPanel.Controls.Add(this.lblHeader);
+            this.headerPanel.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(64)))), ((int)(((byte)(64)))), ((int)(((byte)(64)))));
             this.headerPanel.Dock = System.Windows.Forms.DockStyle.Fill;
             this.headerPanel.Location = new System.Drawing.Point(0, 0);
             this.headerPanel.Margin = new System.Windows.Forms.Padding(0);
@@ -89,7 +90,10 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             // 
             // lblHeader
             // 
+            this.lblHeader.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(64)))), ((int)(((byte)(64)))), ((int)(((byte)(64)))));
             this.lblHeader.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.lblHeader.Font = new System.Drawing.Font("맑은 고딕", 11F, System.Drawing.FontStyle.Bold);
+            this.lblHeader.ForeColor = System.Drawing.Color.White;
             this.lblHeader.Location = new System.Drawing.Point(0, 0);
             this.lblHeader.Name = "lblHeader";
             this.lblHeader.Padding = new System.Windows.Forms.Padding(18, 0, 0, 0);
@@ -311,6 +315,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             // 
             this.lblStatus.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblStatus.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
+            this.lblStatus.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(40)))), ((int)(((byte)(40)))), ((int)(((byte)(40)))));
             this.lblStatus.Location = new System.Drawing.Point(1, 845);
             this.lblStatus.Margin = new System.Windows.Forms.Padding(1, 0, 1, 1);
             this.lblStatus.Name = "lblStatus";
@@ -318,10 +323,23 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.lblStatus.TabIndex = 3;
             this.lblStatus.Text = "-";
             this.lblStatus.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            // 
+            //
+            // events (디자이너 관리)
+            //
+            this.btnVisionCameraCal.Click += new System.EventHandler(this.btnVisionCameraCal_Click);
+            this.btnColletCal.Click += new System.EventHandler(this.btnColletCal_Click);
+            this.btnNeedleCal.Click += new System.EventHandler(this.btnNeedleCal_Click);
+            this.btnColletZHeightCal.Click += new System.EventHandler(this.btnColletZHeightCal_Click);
+            this.btnVisionFocusCal.Click += new System.EventHandler(this.btnVisionFocusCal_Click);
+            this.btnColletRotationCenterCal.Click += new System.EventHandler(this.btnColletRotationCenterCal_Click);
+            this.btnPickUpZCal.Click += new System.EventHandler(this.btnPickUpZCal_Click);
+            this.btnPlaceZCal.Click += new System.EventHandler(this.btnPlaceZCal_Click);
+            this.btnNeedleZCal.Click += new System.EventHandler(this.btnNeedleZCal_Click);
+            //
             // CalibrationPage
-            // 
+            //
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.None;
+            this.BackColor = System.Drawing.Color.White;
             this.Controls.Add(this.rootLayout);
             this.Name = "CalibrationPage";
             this.Size = new System.Drawing.Size(1678, 900);

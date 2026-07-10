@@ -6,6 +6,8 @@
 
         private System.Windows.Forms.TableLayoutPanel rootLayout;
         private System.Windows.Forms.Label lblHeader;
+        private System.Windows.Forms.GroupBox grpSetting;
+        private System.Windows.Forms.TableLayoutPanel settingLayout;
         private System.Windows.Forms.TableLayoutPanel bodyLayout;
         private System.Windows.Forms.Label lblLanguage;
         private System.Windows.Forms.Label lblBinArray;
@@ -42,6 +44,8 @@
         {
             this.rootLayout = new System.Windows.Forms.TableLayoutPanel();
             this.lblHeader = new System.Windows.Forms.Label();
+            this.grpSetting = new System.Windows.Forms.GroupBox();
+            this.settingLayout = new System.Windows.Forms.TableLayoutPanel();
             this.bodyLayout = new System.Windows.Forms.TableLayoutPanel();
             this.lblLanguage = new System.Windows.Forms.Label();
             this.lblBinArray = new System.Windows.Forms.Label();
@@ -67,6 +71,8 @@
             this.logBtnLayout = new System.Windows.Forms.TableLayoutPanel();
             this.btnLogSettings = new System.Windows.Forms.Button();
             this.rootLayout.SuspendLayout();
+            this.grpSetting.SuspendLayout();
+            this.settingLayout.SuspendLayout();
             this.bodyLayout.SuspendLayout();
             this.grpAjin.SuspendLayout();
             this.ajinLayout.SuspendLayout();
@@ -75,28 +81,33 @@
             // 
             // rootLayout
             // 
-            this.rootLayout.ColumnCount = 1;
-            this.rootLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.rootLayout.ColumnCount = 2;
+            this.rootLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 50F));
+            this.rootLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 50F));
             this.rootLayout.Controls.Add(this.lblHeader, 0, 0);
-            this.rootLayout.Controls.Add(this.bodyLayout, 0, 1);
+            this.rootLayout.Controls.Add(this.grpSetting, 0, 1);
             this.rootLayout.Controls.Add(this.grpAjin, 0, 2);
             this.rootLayout.Controls.Add(this.logBtnLayout, 0, 3);
             this.rootLayout.Dock = System.Windows.Forms.DockStyle.Fill;
             this.rootLayout.Location = new System.Drawing.Point(0, 0);
             this.rootLayout.Name = "rootLayout";
             this.rootLayout.Padding = new System.Windows.Forms.Padding(8);
-            this.rootLayout.RowCount = 4;
+            this.rootLayout.RowCount = 5;
             this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 30F));
-            this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 344F));
-            this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 120F));
+            this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 304F));
+            this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 78F));
+            this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 40F));
             this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.rootLayout.Size = new System.Drawing.Size(1678, 900);
             this.rootLayout.TabIndex = 0;
             // 
             // lblHeader
             // 
+            this.lblHeader.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(217)))), ((int)(((byte)(119)))), ((int)(((byte)(6)))));
+            this.rootLayout.SetColumnSpan(this.lblHeader, 2);
             this.lblHeader.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblHeader.Font = new System.Drawing.Font("맑은 고딕", 11F, System.Drawing.FontStyle.Bold);
+            this.lblHeader.ForeColor = System.Drawing.Color.White;
             this.lblHeader.Location = new System.Drawing.Point(8, 8);
             this.lblHeader.Margin = new System.Windows.Forms.Padding(0, 0, 0, 4);
             this.lblHeader.Name = "lblHeader";
@@ -106,11 +117,40 @@
             this.lblHeader.Text = "SETTING";
             this.lblHeader.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
+            // grpSetting
+            // 
+            this.grpSetting.Controls.Add(this.settingLayout);
+            this.grpSetting.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.grpSetting.Font = new System.Drawing.Font("맑은 고딕", 11F, System.Drawing.FontStyle.Bold);
+            this.grpSetting.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(35)))), ((int)(((byte)(45)))), ((int)(((byte)(57)))));
+            this.grpSetting.Location = new System.Drawing.Point(8, 38);
+            this.grpSetting.Margin = new System.Windows.Forms.Padding(0, 0, 0, 1);
+            this.grpSetting.Name = "grpSetting";
+            this.grpSetting.Padding = new System.Windows.Forms.Padding(1, 10, 1, 2);
+            this.grpSetting.Size = new System.Drawing.Size(831, 303);
+            this.grpSetting.TabIndex = 1;
+            this.grpSetting.TabStop = false;
+            this.grpSetting.Text = "SETTING";
+            // 
+            // settingLayout
+            // 
+            this.settingLayout.ColumnCount = 1;
+            this.settingLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.settingLayout.Controls.Add(this.bodyLayout, 0, 0);
+            this.settingLayout.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.settingLayout.Location = new System.Drawing.Point(1, 30);
+            this.settingLayout.Margin = new System.Windows.Forms.Padding(0);
+            this.settingLayout.Name = "settingLayout";
+            this.settingLayout.RowCount = 1;
+            this.settingLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 272F));
+            this.settingLayout.Size = new System.Drawing.Size(829, 271);
+            this.settingLayout.TabIndex = 0;
+            // 
             // bodyLayout
             // 
             this.bodyLayout.ColumnCount = 2;
             this.bodyLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 180F));
-            this.bodyLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 260F));
+            this.bodyLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.bodyLayout.Controls.Add(this.lblLanguage, 0, 0);
             this.bodyLayout.Controls.Add(this.lblBinArray, 0, 1);
             this.bodyLayout.Controls.Add(this.lblVisionMatch, 0, 2);
@@ -128,22 +168,19 @@
             this.bodyLayout.Controls.Add(this._cbPickerMotionOnlyTestMode, 1, 6);
             this.bodyLayout.Controls.Add(this._cbUseVision, 1, 7);
             this.bodyLayout.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.bodyLayout.Location = new System.Drawing.Point(8, 38);
-            this.bodyLayout.Margin = new System.Windows.Forms.Padding(0, 0, 0, 8);
+            this.bodyLayout.Location = new System.Drawing.Point(0, 0);
+            this.bodyLayout.Margin = new System.Windows.Forms.Padding(0);
             this.bodyLayout.Name = "bodyLayout";
-            this.bodyLayout.Padding = new System.Windows.Forms.Padding(8);
             this.bodyLayout.RowCount = 8;
-            this.bodyLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 40F));
-            this.bodyLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 40F));
-            this.bodyLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 40F));
-            this.bodyLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 40F));
-            this.bodyLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 40F));
-            this.bodyLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 40F));
-            this.bodyLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 40F));
-            this.bodyLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 40F));
-            this.bodyLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 40F));
-            this.bodyLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 40F));
-            this.bodyLayout.Size = new System.Drawing.Size(1662, 336);
+            this.bodyLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 34F));
+            this.bodyLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 34F));
+            this.bodyLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 34F));
+            this.bodyLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 34F));
+            this.bodyLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 34F));
+            this.bodyLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 34F));
+            this.bodyLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 34F));
+            this.bodyLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 34F));
+            this.bodyLayout.Size = new System.Drawing.Size(829, 272);
             this.bodyLayout.TabIndex = 1;
             // 
             // lblLanguage
@@ -151,11 +188,11 @@
             this.lblLanguage.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(208)))), ((int)(((byte)(208)))), ((int)(((byte)(208)))));
             this.lblLanguage.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblLanguage.Font = new System.Drawing.Font("맑은 고딕", 9F);
-            this.lblLanguage.Location = new System.Drawing.Point(10, 10);
+            this.lblLanguage.Location = new System.Drawing.Point(2, 2);
             this.lblLanguage.Margin = new System.Windows.Forms.Padding(2);
             this.lblLanguage.Name = "lblLanguage";
             this.lblLanguage.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
-            this.lblLanguage.Size = new System.Drawing.Size(176, 36);
+            this.lblLanguage.Size = new System.Drawing.Size(176, 30);
             this.lblLanguage.TabIndex = 0;
             this.lblLanguage.Text = "Language";
             this.lblLanguage.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -165,11 +202,11 @@
             this.lblBinArray.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(208)))), ((int)(((byte)(208)))), ((int)(((byte)(208)))));
             this.lblBinArray.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblBinArray.Font = new System.Drawing.Font("맑은 고딕", 9F);
-            this.lblBinArray.Location = new System.Drawing.Point(10, 50);
+            this.lblBinArray.Location = new System.Drawing.Point(2, 36);
             this.lblBinArray.Margin = new System.Windows.Forms.Padding(2);
             this.lblBinArray.Name = "lblBinArray";
             this.lblBinArray.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
-            this.lblBinArray.Size = new System.Drawing.Size(176, 36);
+            this.lblBinArray.Size = new System.Drawing.Size(176, 30);
             this.lblBinArray.TabIndex = 1;
             this.lblBinArray.Text = "Bin Array File";
             this.lblBinArray.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -179,11 +216,11 @@
             this.lblVisionMatch.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(208)))), ((int)(((byte)(208)))), ((int)(((byte)(208)))));
             this.lblVisionMatch.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblVisionMatch.Font = new System.Drawing.Font("맑은 고딕", 9F);
-            this.lblVisionMatch.Location = new System.Drawing.Point(10, 90);
+            this.lblVisionMatch.Location = new System.Drawing.Point(2, 70);
             this.lblVisionMatch.Margin = new System.Windows.Forms.Padding(2);
             this.lblVisionMatch.Name = "lblVisionMatch";
             this.lblVisionMatch.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
-            this.lblVisionMatch.Size = new System.Drawing.Size(176, 36);
+            this.lblVisionMatch.Size = new System.Drawing.Size(176, 30);
             this.lblVisionMatch.TabIndex = 2;
             this.lblVisionMatch.Text = "Vision Match Error";
             this.lblVisionMatch.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -193,11 +230,11 @@
             this.lblSimulationMode.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(208)))), ((int)(((byte)(208)))), ((int)(((byte)(208)))));
             this.lblSimulationMode.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblSimulationMode.Font = new System.Drawing.Font("맑은 고딕", 9F);
-            this.lblSimulationMode.Location = new System.Drawing.Point(10, 130);
+            this.lblSimulationMode.Location = new System.Drawing.Point(2, 104);
             this.lblSimulationMode.Margin = new System.Windows.Forms.Padding(2);
             this.lblSimulationMode.Name = "lblSimulationMode";
             this.lblSimulationMode.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
-            this.lblSimulationMode.Size = new System.Drawing.Size(176, 36);
+            this.lblSimulationMode.Size = new System.Drawing.Size(176, 30);
             this.lblSimulationMode.TabIndex = 6;
             this.lblSimulationMode.Text = "SIMULATION MODE";
             this.lblSimulationMode.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -207,11 +244,11 @@
             this.lblDryRunMode.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(208)))), ((int)(((byte)(208)))), ((int)(((byte)(208)))));
             this.lblDryRunMode.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblDryRunMode.Font = new System.Drawing.Font("맑은 고딕", 9F);
-            this.lblDryRunMode.Location = new System.Drawing.Point(10, 170);
+            this.lblDryRunMode.Location = new System.Drawing.Point(2, 138);
             this.lblDryRunMode.Margin = new System.Windows.Forms.Padding(2);
             this.lblDryRunMode.Name = "lblDryRunMode";
             this.lblDryRunMode.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
-            this.lblDryRunMode.Size = new System.Drawing.Size(176, 36);
+            this.lblDryRunMode.Size = new System.Drawing.Size(176, 30);
             this.lblDryRunMode.TabIndex = 7;
             this.lblDryRunMode.Text = "DRY RUN MODE";
             this.lblDryRunMode.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -221,11 +258,11 @@
             this.lblDeveloperMode.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(208)))), ((int)(((byte)(208)))), ((int)(((byte)(208)))));
             this.lblDeveloperMode.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblDeveloperMode.Font = new System.Drawing.Font("맑은 고딕", 9F);
-            this.lblDeveloperMode.Location = new System.Drawing.Point(10, 210);
+            this.lblDeveloperMode.Location = new System.Drawing.Point(2, 172);
             this.lblDeveloperMode.Margin = new System.Windows.Forms.Padding(2);
             this.lblDeveloperMode.Name = "lblDeveloperMode";
             this.lblDeveloperMode.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
-            this.lblDeveloperMode.Size = new System.Drawing.Size(176, 36);
+            this.lblDeveloperMode.Size = new System.Drawing.Size(176, 30);
             this.lblDeveloperMode.TabIndex = 10;
             this.lblDeveloperMode.Text = "DEVELOPER MODE";
             this.lblDeveloperMode.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -235,11 +272,11 @@
             this.lblPickerMotionOnlyTestMode.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(208)))), ((int)(((byte)(208)))), ((int)(((byte)(208)))));
             this.lblPickerMotionOnlyTestMode.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblPickerMotionOnlyTestMode.Font = new System.Drawing.Font("맑은 고딕", 9F);
-            this.lblPickerMotionOnlyTestMode.Location = new System.Drawing.Point(10, 250);
+            this.lblPickerMotionOnlyTestMode.Location = new System.Drawing.Point(2, 206);
             this.lblPickerMotionOnlyTestMode.Margin = new System.Windows.Forms.Padding(2);
             this.lblPickerMotionOnlyTestMode.Name = "lblPickerMotionOnlyTestMode";
             this.lblPickerMotionOnlyTestMode.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
-            this.lblPickerMotionOnlyTestMode.Size = new System.Drawing.Size(176, 36);
+            this.lblPickerMotionOnlyTestMode.Size = new System.Drawing.Size(176, 30);
             this.lblPickerMotionOnlyTestMode.TabIndex = 12;
             this.lblPickerMotionOnlyTestMode.Text = "PICKER MOTION ONLY TEST";
             this.lblPickerMotionOnlyTestMode.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -249,11 +286,11 @@
             this.lblUseVision.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(208)))), ((int)(((byte)(208)))), ((int)(((byte)(208)))));
             this.lblUseVision.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblUseVision.Font = new System.Drawing.Font("맑은 고딕", 9F);
-            this.lblUseVision.Location = new System.Drawing.Point(10, 290);
+            this.lblUseVision.Location = new System.Drawing.Point(2, 240);
             this.lblUseVision.Margin = new System.Windows.Forms.Padding(2);
             this.lblUseVision.Name = "lblUseVision";
             this.lblUseVision.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
-            this.lblUseVision.Size = new System.Drawing.Size(176, 36);
+            this.lblUseVision.Size = new System.Drawing.Size(176, 30);
             this.lblUseVision.TabIndex = 14;
             this.lblUseVision.Text = "VISION USE";
             this.lblUseVision.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -263,99 +300,107 @@
             this._cbLang.Dock = System.Windows.Forms.DockStyle.Fill;
             this._cbLang.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
             this._cbLang.Font = new System.Drawing.Font("맑은 고딕", 9F);
-            this._cbLang.Location = new System.Drawing.Point(190, 10);
+            this._cbLang.Location = new System.Drawing.Point(182, 2);
             this._cbLang.Margin = new System.Windows.Forms.Padding(2);
             this._cbLang.Name = "_cbLang";
-            this._cbLang.Size = new System.Drawing.Size(1462, 23);
+            this._cbLang.Size = new System.Drawing.Size(645, 23);
             this._cbLang.TabIndex = 3;
+            this._cbLang.SelectedIndexChanged += new System.EventHandler(this._cbLang_SelectedIndexChanged);
             // 
             // _cbBinArr
             // 
             this._cbBinArr.Dock = System.Windows.Forms.DockStyle.Fill;
             this._cbBinArr.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
             this._cbBinArr.Font = new System.Drawing.Font("맑은 고딕", 9F);
-            this._cbBinArr.Location = new System.Drawing.Point(190, 50);
+            this._cbBinArr.Location = new System.Drawing.Point(182, 36);
             this._cbBinArr.Margin = new System.Windows.Forms.Padding(2);
             this._cbBinArr.Name = "_cbBinArr";
-            this._cbBinArr.Size = new System.Drawing.Size(1462, 23);
+            this._cbBinArr.Size = new System.Drawing.Size(645, 23);
             this._cbBinArr.TabIndex = 4;
+            this._cbBinArr.SelectedIndexChanged += new System.EventHandler(this._cbBinArr_SelectedIndexChanged);
             // 
             // _cbVisionMatch
             // 
             this._cbVisionMatch.Dock = System.Windows.Forms.DockStyle.Fill;
             this._cbVisionMatch.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
             this._cbVisionMatch.Font = new System.Drawing.Font("맑은 고딕", 9F);
-            this._cbVisionMatch.Location = new System.Drawing.Point(190, 90);
+            this._cbVisionMatch.Location = new System.Drawing.Point(182, 70);
             this._cbVisionMatch.Margin = new System.Windows.Forms.Padding(2);
             this._cbVisionMatch.Name = "_cbVisionMatch";
-            this._cbVisionMatch.Size = new System.Drawing.Size(1462, 23);
+            this._cbVisionMatch.Size = new System.Drawing.Size(645, 23);
             this._cbVisionMatch.TabIndex = 5;
+            this._cbVisionMatch.SelectedIndexChanged += new System.EventHandler(this._cbVisionMatch_SelectedIndexChanged);
             // 
             // _cbSimulationMode
             // 
             this._cbSimulationMode.Dock = System.Windows.Forms.DockStyle.Fill;
             this._cbSimulationMode.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
             this._cbSimulationMode.Font = new System.Drawing.Font("맑은 고딕", 9F);
-            this._cbSimulationMode.Location = new System.Drawing.Point(190, 130);
+            this._cbSimulationMode.Location = new System.Drawing.Point(182, 104);
             this._cbSimulationMode.Margin = new System.Windows.Forms.Padding(2);
             this._cbSimulationMode.Name = "_cbSimulationMode";
-            this._cbSimulationMode.Size = new System.Drawing.Size(1462, 23);
+            this._cbSimulationMode.Size = new System.Drawing.Size(645, 23);
             this._cbSimulationMode.TabIndex = 8;
+            this._cbSimulationMode.SelectedIndexChanged += new System.EventHandler(this._cbSimulationMode_SelectedIndexChanged);
             // 
             // _cbDryRunMode
             // 
             this._cbDryRunMode.Dock = System.Windows.Forms.DockStyle.Fill;
             this._cbDryRunMode.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
             this._cbDryRunMode.Font = new System.Drawing.Font("맑은 고딕", 9F);
-            this._cbDryRunMode.Location = new System.Drawing.Point(190, 170);
+            this._cbDryRunMode.Location = new System.Drawing.Point(182, 138);
             this._cbDryRunMode.Margin = new System.Windows.Forms.Padding(2);
             this._cbDryRunMode.Name = "_cbDryRunMode";
-            this._cbDryRunMode.Size = new System.Drawing.Size(1462, 23);
+            this._cbDryRunMode.Size = new System.Drawing.Size(645, 23);
             this._cbDryRunMode.TabIndex = 9;
+            this._cbDryRunMode.SelectedIndexChanged += new System.EventHandler(this._cbDryRunMode_SelectedIndexChanged);
             // 
             // _cbDeveloperMode
             // 
             this._cbDeveloperMode.Dock = System.Windows.Forms.DockStyle.Fill;
             this._cbDeveloperMode.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
             this._cbDeveloperMode.Font = new System.Drawing.Font("맑은 고딕", 9F);
-            this._cbDeveloperMode.Location = new System.Drawing.Point(190, 210);
+            this._cbDeveloperMode.Location = new System.Drawing.Point(182, 172);
             this._cbDeveloperMode.Margin = new System.Windows.Forms.Padding(2);
             this._cbDeveloperMode.Name = "_cbDeveloperMode";
-            this._cbDeveloperMode.Size = new System.Drawing.Size(1462, 23);
+            this._cbDeveloperMode.Size = new System.Drawing.Size(645, 23);
             this._cbDeveloperMode.TabIndex = 11;
+            this._cbDeveloperMode.SelectedIndexChanged += new System.EventHandler(this._cbDeveloperMode_SelectedIndexChanged);
             // 
             // _cbPickerMotionOnlyTestMode
             // 
             this._cbPickerMotionOnlyTestMode.Dock = System.Windows.Forms.DockStyle.Fill;
             this._cbPickerMotionOnlyTestMode.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
             this._cbPickerMotionOnlyTestMode.Font = new System.Drawing.Font("맑은 고딕", 9F);
-            this._cbPickerMotionOnlyTestMode.Location = new System.Drawing.Point(190, 250);
+            this._cbPickerMotionOnlyTestMode.Location = new System.Drawing.Point(182, 206);
             this._cbPickerMotionOnlyTestMode.Margin = new System.Windows.Forms.Padding(2);
             this._cbPickerMotionOnlyTestMode.Name = "_cbPickerMotionOnlyTestMode";
-            this._cbPickerMotionOnlyTestMode.Size = new System.Drawing.Size(1462, 23);
+            this._cbPickerMotionOnlyTestMode.Size = new System.Drawing.Size(645, 23);
             this._cbPickerMotionOnlyTestMode.TabIndex = 13;
+            this._cbPickerMotionOnlyTestMode.SelectedIndexChanged += new System.EventHandler(this._cbPickerMotionOnlyTestMode_SelectedIndexChanged);
             // 
             // _cbUseVision
             // 
             this._cbUseVision.Dock = System.Windows.Forms.DockStyle.Fill;
             this._cbUseVision.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
             this._cbUseVision.Font = new System.Drawing.Font("맑은 고딕", 9F);
-            this._cbUseVision.Location = new System.Drawing.Point(190, 290);
+            this._cbUseVision.Location = new System.Drawing.Point(182, 240);
             this._cbUseVision.Margin = new System.Windows.Forms.Padding(2);
             this._cbUseVision.Name = "_cbUseVision";
-            this._cbUseVision.Size = new System.Drawing.Size(1462, 23);
+            this._cbUseVision.Size = new System.Drawing.Size(645, 23);
             this._cbUseVision.TabIndex = 15;
+            this._cbUseVision.SelectedIndexChanged += new System.EventHandler(this._cbUseVision_SelectedIndexChanged);
             // 
             // grpAjin
             // 
             this.grpAjin.Controls.Add(this.ajinLayout);
             this.grpAjin.Dock = System.Windows.Forms.DockStyle.Fill;
             this.grpAjin.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
-            this.grpAjin.Location = new System.Drawing.Point(8, 382);
+            this.grpAjin.Location = new System.Drawing.Point(8, 342);
             this.grpAjin.Margin = new System.Windows.Forms.Padding(0, 0, 0, 8);
             this.grpAjin.Name = "grpAjin";
             this.grpAjin.Padding = new System.Windows.Forms.Padding(8);
-            this.grpAjin.Size = new System.Drawing.Size(1662, 112);
+            this.grpAjin.Size = new System.Drawing.Size(831, 70);
             this.grpAjin.TabIndex = 2;
             this.grpAjin.TabStop = false;
             this.grpAjin.Text = "AJINEXTEK";
@@ -374,7 +419,7 @@
             this.ajinLayout.Name = "ajinLayout";
             this.ajinLayout.RowCount = 1;
             this.ajinLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 36F));
-            this.ajinLayout.Size = new System.Drawing.Size(1646, 36);
+            this.ajinLayout.Size = new System.Drawing.Size(815, 36);
             this.ajinLayout.TabIndex = 0;
             // 
             // _cbAjin
@@ -388,6 +433,7 @@
             this._cbAjin.TabIndex = 0;
             this._cbAjin.Text = "UseAjin (AXL.dll)";
             this._cbAjin.UseVisualStyleBackColor = true;
+            this._cbAjin.CheckedChanged += new System.EventHandler(this._cbAjin_CheckedChanged);
             // 
             // lblIrq
             // 
@@ -406,23 +452,24 @@
             this._tbIrq.Font = new System.Drawing.Font("맑은 고딕", 9F);
             this._tbIrq.Location = new System.Drawing.Point(263, 3);
             this._tbIrq.Name = "_tbIrq";
-            this._tbIrq.Size = new System.Drawing.Size(1380, 23);
+            this._tbIrq.Size = new System.Drawing.Size(549, 23);
             this._tbIrq.TabIndex = 2;
+            this._tbIrq.TextChanged += new System.EventHandler(this._tbIrq_TextChanged);
             // 
             // logBtnLayout
             // 
-            this.logBtnLayout.ColumnCount = 3;
-            this.logBtnLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 33.33333F));
-            this.logBtnLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 33.33333F));
-            this.logBtnLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 33.33333F));
-            this.logBtnLayout.Controls.Add(this.btnLogSettings, 2, 0);
-            this.logBtnLayout.Dock = System.Windows.Forms.DockStyle.Top;
-            this.logBtnLayout.Location = new System.Drawing.Point(16, 510);
-            this.logBtnLayout.Margin = new System.Windows.Forms.Padding(8, 8, 8, 0);
+            this.logBtnLayout.ColumnCount = 2;
+            this.logBtnLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 50F));
+            this.logBtnLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 50F));
+            this.logBtnLayout.Controls.Add(this.btnLogSettings, 1, 0);
+            this.logBtnLayout.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.logBtnLayout.Location = new System.Drawing.Point(8, 420);
+            this.logBtnLayout.Margin = new System.Windows.Forms.Padding(0);
             this.logBtnLayout.Name = "logBtnLayout";
+            this.logBtnLayout.Padding = new System.Windows.Forms.Padding(0, 3, 0, 0);
             this.logBtnLayout.RowCount = 1;
-            this.logBtnLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 22F));
-            this.logBtnLayout.Size = new System.Drawing.Size(1646, 50);
+            this.logBtnLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.logBtnLayout.Size = new System.Drawing.Size(831, 40);
             this.logBtnLayout.TabIndex = 3;
             // 
             // btnLogSettings
@@ -430,13 +477,14 @@
             this.btnLogSettings.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnLogSettings.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.btnLogSettings.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
-            this.btnLogSettings.Location = new System.Drawing.Point(1098, 2);
-            this.btnLogSettings.Margin = new System.Windows.Forms.Padding(2);
+            this.btnLogSettings.Location = new System.Drawing.Point(415, 3);
+            this.btnLogSettings.Margin = new System.Windows.Forms.Padding(0);
             this.btnLogSettings.Name = "btnLogSettings";
-            this.btnLogSettings.Size = new System.Drawing.Size(546, 46);
+            this.btnLogSettings.Size = new System.Drawing.Size(416, 37);
             this.btnLogSettings.TabIndex = 0;
             this.btnLogSettings.Text = "LOG SETTINGS";
             this.btnLogSettings.UseVisualStyleBackColor = true;
+            this.btnLogSettings.Click += new System.EventHandler(this.btnLogSettings_Click);
             // 
             // GeneralPage
             // 
@@ -446,6 +494,8 @@
             this.Name = "GeneralPage";
             this.Size = new System.Drawing.Size(1678, 900);
             this.rootLayout.ResumeLayout(false);
+            this.grpSetting.ResumeLayout(false);
+            this.settingLayout.ResumeLayout(false);
             this.bodyLayout.ResumeLayout(false);
             this.grpAjin.ResumeLayout(false);
             this.ajinLayout.ResumeLayout(false);
