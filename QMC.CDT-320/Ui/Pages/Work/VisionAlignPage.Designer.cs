@@ -9,7 +9,9 @@
         private System.Windows.Forms.Label lblCameraInfo;
         private System.Windows.Forms.Label lblLive;
         private System.Windows.Forms.TableLayoutPanel sideLayout;
-        private System.Windows.Forms.Label lblActionHeader;
+        private System.Windows.Forms.GroupBox grpAction;
+        private System.Windows.Forms.TableLayoutPanel actionBody;
+        private System.Windows.Forms.GroupBox grpResult;
         private QMC.CDT_320.Ui.Controls.ActionButton btnAutoAlign;
         private QMC.CDT_320.Ui.Controls.ActionButton btnManualAlign;
         private QMC.CDT_320.Ui.Controls.ActionButton btnFirstMark;
@@ -18,7 +20,6 @@
         private QMC.CDT_320.Ui.Controls.ActionButton btnXyMatch;
         private QMC.CDT_320.Ui.Controls.ActionButton btnSave;
         private QMC.CDT_320.Ui.Controls.ActionButton btnClose;
-        private System.Windows.Forms.Label lblResultHeader;
         private System.Windows.Forms.TableLayoutPanel resultLayout;
         private System.Windows.Forms.Label lblDeltaXCaption;
         private System.Windows.Forms.Label lblDeltaXValue;
@@ -43,7 +44,9 @@
             this.lblCameraInfo = new System.Windows.Forms.Label();
             this.lblLive = new System.Windows.Forms.Label();
             this.sideLayout = new System.Windows.Forms.TableLayoutPanel();
-            this.lblActionHeader = new System.Windows.Forms.Label();
+            this.grpAction = new System.Windows.Forms.GroupBox();
+            this.actionBody = new System.Windows.Forms.TableLayoutPanel();
+            this.grpResult = new System.Windows.Forms.GroupBox();
             this.btnAutoAlign = new QMC.CDT_320.Ui.Controls.ActionButton();
             this.btnManualAlign = new QMC.CDT_320.Ui.Controls.ActionButton();
             this.btnFirstMark = new QMC.CDT_320.Ui.Controls.ActionButton();
@@ -52,7 +55,6 @@
             this.btnXyMatch = new QMC.CDT_320.Ui.Controls.ActionButton();
             this.btnSave = new QMC.CDT_320.Ui.Controls.ActionButton();
             this.btnClose = new QMC.CDT_320.Ui.Controls.ActionButton();
-            this.lblResultHeader = new System.Windows.Forms.Label();
             this.resultLayout = new System.Windows.Forms.TableLayoutPanel();
             this.lblDeltaXCaption = new System.Windows.Forms.Label();
             this.lblDeltaXValue = new System.Windows.Forms.Label();
@@ -65,16 +67,19 @@
             this.rootLayout.SuspendLayout();
             this.camPanel.SuspendLayout();
             this.sideLayout.SuspendLayout();
+            this.grpAction.SuspendLayout();
+            this.actionBody.SuspendLayout();
+            this.grpResult.SuspendLayout();
             this.resultLayout.SuspendLayout();
             this.SuspendLayout();
             this.rootLayout.ColumnCount = 2;
-            this.rootLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.rootLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 330F));
+            this.rootLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 70F));
+            this.rootLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 30F));
             this.rootLayout.Controls.Add(this.lblHeader, 0, 0);
             this.rootLayout.Controls.Add(this.camPanel, 0, 1);
             this.rootLayout.Controls.Add(this.sideLayout, 1, 1);
             this.rootLayout.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.rootLayout.Padding = new System.Windows.Forms.Padding(8);
+            this.rootLayout.Padding = new System.Windows.Forms.Padding(0);
             this.rootLayout.RowCount = 2;
             this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 32F));
             this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
@@ -83,7 +88,7 @@
             this.lblHeader.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblHeader.Font = new System.Drawing.Font("맑은 고딕", 11F, System.Drawing.FontStyle.Bold);
             this.lblHeader.ForeColor = System.Drawing.Color.White;
-            this.lblHeader.Margin = new System.Windows.Forms.Padding(0, 0, 0, 6);
+            this.lblHeader.Margin = new System.Windows.Forms.Padding(0);
             this.lblHeader.Padding = new System.Windows.Forms.Padding(10, 0, 0, 0);
             this.lblHeader.Text = "VISION ALIGN";
             this.lblHeader.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -92,7 +97,7 @@
             this.camPanel.Controls.Add(this.lblCameraInfo);
             this.camPanel.Controls.Add(this.lblLive);
             this.camPanel.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.camPanel.Margin = new System.Windows.Forms.Padding(0, 0, 12, 0);
+            this.camPanel.Margin = new System.Windows.Forms.Padding(0, 0, 3, 0);
             this.lblCameraInfo.AutoSize = true;
             this.lblCameraInfo.BackColor = System.Drawing.Color.Black;
             this.lblCameraInfo.Font = new System.Drawing.Font("Consolas", 9F);
@@ -109,39 +114,67 @@
             this.lblLive.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             this.sideLayout.ColumnCount = 1;
             this.sideLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.sideLayout.Controls.Add(this.lblActionHeader, 0, 0);
-            this.sideLayout.Controls.Add(this.btnAutoAlign, 0, 1);
-            this.sideLayout.Controls.Add(this.btnManualAlign, 0, 2);
-            this.sideLayout.Controls.Add(this.btnFirstMark, 0, 3);
-            this.sideLayout.Controls.Add(this.btnSecondMark, 0, 4);
-            this.sideLayout.Controls.Add(this.btnThetaMatch, 0, 5);
-            this.sideLayout.Controls.Add(this.btnXyMatch, 0, 6);
-            this.sideLayout.Controls.Add(this.btnSave, 0, 7);
-            this.sideLayout.Controls.Add(this.btnClose, 0, 8);
-            this.sideLayout.Controls.Add(this.lblResultHeader, 0, 10);
-            this.sideLayout.Controls.Add(this.resultLayout, 0, 11);
+            this.sideLayout.Controls.Add(this.grpAction, 0, 0);
+            this.sideLayout.Controls.Add(this.grpResult, 0, 2);
             this.sideLayout.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.sideLayout.RowCount = 13;
-            this.sideLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 28F));
-            this.sideLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 50F));
-            this.sideLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 50F));
-            this.sideLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 50F));
-            this.sideLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 50F));
-            this.sideLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 50F));
-            this.sideLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 50F));
-            this.sideLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 50F));
-            this.sideLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 50F));
-            this.sideLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 14F));
-            this.sideLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 28F));
-            this.sideLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 132F));
+            this.sideLayout.Margin = new System.Windows.Forms.Padding(0);
+            this.sideLayout.RowCount = 3;
+            this.sideLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 402F));
             this.sideLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.lblActionHeader.BackColor = System.Drawing.Color.FromArgb(64, 64, 64);
-            this.lblActionHeader.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblActionHeader.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
-            this.lblActionHeader.ForeColor = System.Drawing.Color.White;
-            this.lblActionHeader.Padding = new System.Windows.Forms.Padding(10, 0, 0, 0);
-            this.lblActionHeader.Text = "ACTION";
-            this.lblActionHeader.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            this.sideLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 176F));
+            //
+            // grpAction
+            //
+            this.grpAction.BackColor = System.Drawing.Color.White;
+            this.grpAction.Controls.Add(this.actionBody);
+            this.grpAction.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.grpAction.Font = new System.Drawing.Font("맑은 고딕", 11F, System.Drawing.FontStyle.Bold);
+            this.grpAction.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(38)))), ((int)(((byte)(50)))), ((int)(((byte)(66)))));
+            this.grpAction.Margin = new System.Windows.Forms.Padding(0);
+            this.grpAction.Name = "grpAction";
+            this.grpAction.Padding = new System.Windows.Forms.Padding(4);
+            this.grpAction.TabStop = false;
+            this.grpAction.Text = "ACTION";
+            //
+            // actionBody
+            //
+            this.actionBody.BackColor = System.Drawing.Color.White;
+            this.actionBody.ColumnCount = 1;
+            this.actionBody.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.actionBody.Controls.Add(this.btnAutoAlign, 0, 0);
+            this.actionBody.Controls.Add(this.btnManualAlign, 0, 1);
+            this.actionBody.Controls.Add(this.btnFirstMark, 0, 2);
+            this.actionBody.Controls.Add(this.btnSecondMark, 0, 3);
+            this.actionBody.Controls.Add(this.btnThetaMatch, 0, 4);
+            this.actionBody.Controls.Add(this.btnXyMatch, 0, 5);
+            this.actionBody.Controls.Add(this.btnSave, 0, 6);
+            this.actionBody.Controls.Add(this.btnClose, 0, 7);
+            this.actionBody.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.actionBody.Margin = new System.Windows.Forms.Padding(0);
+            this.actionBody.Name = "actionBody";
+            this.actionBody.Padding = new System.Windows.Forms.Padding(3, 1, 3, 1);
+            this.actionBody.RowCount = 8;
+            this.actionBody.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 46F));
+            this.actionBody.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 46F));
+            this.actionBody.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 46F));
+            this.actionBody.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 46F));
+            this.actionBody.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 46F));
+            this.actionBody.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 46F));
+            this.actionBody.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 46F));
+            this.actionBody.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 46F));
+            //
+            // grpResult
+            //
+            this.grpResult.BackColor = System.Drawing.Color.White;
+            this.grpResult.Controls.Add(this.resultLayout);
+            this.grpResult.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.grpResult.Font = new System.Drawing.Font("맑은 고딕", 11F, System.Drawing.FontStyle.Bold);
+            this.grpResult.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(38)))), ((int)(((byte)(50)))), ((int)(((byte)(66)))));
+            this.grpResult.Margin = new System.Windows.Forms.Padding(0);
+            this.grpResult.Name = "grpResult";
+            this.grpResult.Padding = new System.Windows.Forms.Padding(4);
+            this.grpResult.TabStop = false;
+            this.grpResult.Text = "RESULT";
             this.btnAutoAlign.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnAutoAlign.Margin = new System.Windows.Forms.Padding(0, 6, 0, 0);
             this.btnAutoAlign.Text = "AUTO ALIGN";
@@ -166,16 +199,11 @@
             this.btnClose.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnClose.Margin = new System.Windows.Forms.Padding(0, 6, 0, 0);
             this.btnClose.Text = "CLOSE";
-            this.lblResultHeader.BackColor = System.Drawing.Color.FromArgb(64, 64, 64);
-            this.lblResultHeader.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblResultHeader.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
-            this.lblResultHeader.ForeColor = System.Drawing.Color.White;
-            this.lblResultHeader.Padding = new System.Windows.Forms.Padding(10, 0, 0, 0);
-            this.lblResultHeader.Text = "RESULT";
-            this.lblResultHeader.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             this.resultLayout.ColumnCount = 2;
-            this.resultLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 132F));
-            this.resultLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.resultLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 44F));
+            this.resultLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 56F));
+            this.resultLayout.Margin = new System.Windows.Forms.Padding(0);
+            this.resultLayout.Padding = new System.Windows.Forms.Padding(1);
             this.resultLayout.Controls.Add(this.lblDeltaXCaption, 0, 0);
             this.resultLayout.Controls.Add(this.lblDeltaXValue, 1, 0);
             this.resultLayout.Controls.Add(this.lblDeltaYCaption, 0, 1);
@@ -252,6 +280,9 @@
             this.Name = "VisionAlignPage";
             this.Size = new System.Drawing.Size(1678, 900);
             this.resultLayout.ResumeLayout(false);
+            this.grpResult.ResumeLayout(false);
+            this.actionBody.ResumeLayout(false);
+            this.grpAction.ResumeLayout(false);
             this.sideLayout.ResumeLayout(false);
             this.camPanel.ResumeLayout(false);
             this.camPanel.PerformLayout();
@@ -265,9 +296,8 @@
         private System.ComponentModel.IContainer components = null;
         private System.Windows.Forms.TableLayoutPanel rootLayout;
         private System.Windows.Forms.Label lblHeader;
-        private System.Windows.Forms.Label lblListHeader;
+        private System.Windows.Forms.GroupBox grpList;
         private System.Windows.Forms.ListBox lbMapFiles;
-        private System.Windows.Forms.Label lblMapHeader;
         private System.Windows.Forms.Panel mapPanel;
 
         protected override void Dispose(bool disposing)
@@ -280,61 +310,66 @@
         {
             this.rootLayout = new System.Windows.Forms.TableLayoutPanel();
             this.lblHeader = new System.Windows.Forms.Label();
-            this.lblListHeader = new System.Windows.Forms.Label();
+            this.grpList = new System.Windows.Forms.GroupBox();
             this.lbMapFiles = new System.Windows.Forms.ListBox();
-            this.lblMapHeader = new System.Windows.Forms.Label();
             this.mapPanel = new System.Windows.Forms.Panel();
             this.rootLayout.SuspendLayout();
+            this.grpList.SuspendLayout();
             this.SuspendLayout();
             this.rootLayout.ColumnCount = 2;
-            this.rootLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 372F));
-            this.rootLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.rootLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 70F));
+            this.rootLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 30F));
             this.rootLayout.Controls.Add(this.lblHeader, 0, 0);
-            this.rootLayout.Controls.Add(this.lblListHeader, 0, 1);
-            this.rootLayout.Controls.Add(this.lbMapFiles, 0, 2);
-            this.rootLayout.Controls.Add(this.lblMapHeader, 1, 1);
-            this.rootLayout.Controls.Add(this.mapPanel, 1, 2);
+            this.rootLayout.Controls.Add(this.mapPanel, 0, 1);
+            this.rootLayout.Controls.Add(this.grpList, 1, 1);
             this.rootLayout.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.rootLayout.Padding = new System.Windows.Forms.Padding(8);
-            this.rootLayout.RowCount = 3;
+            this.rootLayout.Padding = new System.Windows.Forms.Padding(0);
+            this.rootLayout.RowCount = 2;
             this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 32F));
-            this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 28F));
             this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.rootLayout.SetColumnSpan(this.lblHeader, 2);
             this.lblHeader.BackColor = System.Drawing.Color.FromArgb(217, 119, 6);
             this.lblHeader.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblHeader.Font = new System.Drawing.Font("맑은 고딕", 11F, System.Drawing.FontStyle.Bold);
             this.lblHeader.ForeColor = System.Drawing.Color.White;
-            this.lblHeader.Margin = new System.Windows.Forms.Padding(0, 0, 0, 6);
+            this.lblHeader.Margin = new System.Windows.Forms.Padding(0);
             this.lblHeader.Padding = new System.Windows.Forms.Padding(10, 0, 0, 0);
             this.lblHeader.Text = "WAFER MAP OPEN";
             this.lblHeader.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            this.lblListHeader.BackColor = System.Drawing.Color.FromArgb(64, 64, 64);
-            this.lblListHeader.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblListHeader.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
-            this.lblListHeader.ForeColor = System.Drawing.Color.White;
-            this.lblListHeader.Margin = new System.Windows.Forms.Padding(0, 0, 12, 0);
-            this.lblListHeader.Padding = new System.Windows.Forms.Padding(10, 0, 0, 0);
-            this.lblListHeader.Text = "MAP FILE LIST";
-            this.lblListHeader.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            //
+            // grpList
+            //
+            this.grpList.BackColor = System.Drawing.Color.White;
+            this.grpList.Controls.Add(this.lbMapFiles);
+            this.grpList.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.grpList.Font = new System.Drawing.Font("맑은 고딕", 11F, System.Drawing.FontStyle.Bold);
+            this.grpList.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(38)))), ((int)(((byte)(50)))), ((int)(((byte)(66)))));
+            this.grpList.Margin = new System.Windows.Forms.Padding(0);
+            this.grpList.Name = "grpList";
+            this.grpList.Padding = new System.Windows.Forms.Padding(4);
+            this.grpList.TabStop = false;
+            this.grpList.Text = "MAP FILE LIST";
+            //
+            // lbMapFiles
+            //
+            this.lbMapFiles.BorderStyle = System.Windows.Forms.BorderStyle.None;
             this.lbMapFiles.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lbMapFiles.Font = new System.Drawing.Font("Consolas", 9F);
-            this.lbMapFiles.Margin = new System.Windows.Forms.Padding(0, 0, 12, 0);
-            this.lblMapHeader.BackColor = System.Drawing.Color.FromArgb(64, 64, 64);
-            this.lblMapHeader.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblMapHeader.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
-            this.lblMapHeader.ForeColor = System.Drawing.Color.White;
-            this.lblMapHeader.Padding = new System.Windows.Forms.Padding(10, 0, 0, 0);
-            this.lblMapHeader.Text = "MAP VIEW";
-            this.lblMapHeader.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            this.lbMapFiles.Margin = new System.Windows.Forms.Padding(0);
+            this.lbMapFiles.Name = "lbMapFiles";
+            //
+            // mapPanel
+            //
             this.mapPanel.BackColor = System.Drawing.Color.Black;
             this.mapPanel.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.mapPanel.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.mapPanel.Margin = new System.Windows.Forms.Padding(0, 0, 3, 0);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.None;
             this.BackColor = System.Drawing.Color.White;
             this.Controls.Add(this.rootLayout);
             this.Name = "WaferMapOpenPage";
             this.Size = new System.Drawing.Size(1678, 900);
+            this.grpList.ResumeLayout(false);
             this.rootLayout.ResumeLayout(false);
             this.ResumeLayout(false);
         }

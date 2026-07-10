@@ -22,7 +22,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
         private Label[] _vs;
         private System.Windows.Forms.Timer _timer;
         private long _lastLogRev = -1;
-        private GroupBox _actionGroup;
+        private bool _loadingSettings;
 
         public VisionLinkPage()
         {
@@ -31,7 +31,6 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             SettingsPageLayoutStyler.Apply(this);
             ApplyCompactLayout();
             LoadSettings();
-            WireEvents();
 
             _lamps = new[] { _lblWafer, _lblInsp, _lblBin, _lblMain, _lblTop, _lblBot };
             _rx    = new[] { _rxWafer,  _rxInsp,  _rxBin,  _rxMain,  _rxTop,  _rxBot  };
@@ -85,9 +84,6 @@ namespace QMC.CDT_320.Ui.Pages.Settings
         {
             lblHeader.Text = Lang.T("set.visionLink");
             lblHeader.Tag = "i18n:set.visionLink";
-            lblHeader.BackColor = UiTheme.StatusBarBg;
-            lblHeader.ForeColor = UiTheme.StatusBarFg;
-            lblHeader.Font = UiTheme.SectionFont;
 
             grpLink.Text = "TCP 포트 / 상태 (명령=Handler ↔ Vision, Viewer=영상 스트림)";
             grpLog.Text = "통신 로그 (TX / RX / EPD / ARM)";
@@ -105,88 +101,38 @@ namespace QMC.CDT_320.Ui.Pages.Settings
         {
             SettingsPageLayoutStyler.ApplyRoot(rootLayout);
             SettingsPageLayoutStyler.ApplyHeader(lblHeader);
-
-            if (_actionGroup == null)
-                _actionGroup = new GroupBox();
-            _actionGroup.Text = "ACTION";
-            SettingsPageLayoutStyler.ApplyGroupBox(_actionGroup);
-
-            rootLayout.Controls.Clear();
-            rootLayout.RowStyles.Clear();
-            rootLayout.ColumnStyles.Clear();
-            rootLayout.ColumnCount = 1;
-            rootLayout.RowCount = 4;
-            rootLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
-            rootLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 30F));
-            rootLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 338F));
-            rootLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 72F));
-            rootLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
-            rootLayout.Controls.Add(lblHeader, 0, 0);
-            rootLayout.Controls.Add(grpLink, 0, 1);
-            rootLayout.Controls.Add(_actionGroup, 0, 2);
-            rootLayout.Controls.Add(grpLog, 0, 3);
-
-            if (linkLayout.RowStyles.Count >= 11)
-            {
-                linkLayout.RowStyles[9].SizeType = SizeType.Absolute;
-                linkLayout.RowStyles[9].Height = 0F;
-                linkLayout.RowStyles[10].SizeType = SizeType.Absolute;
-                linkLayout.RowStyles[10].Height = 0F;
-            }
-            linkLayout.Controls.Remove(buttonLayout);
-            linkLayout.Controls.Remove(lblHint);
-            lblHint.Visible = false;
-
             SettingsPageLayoutStyler.ApplyGroupBox(grpLink);
+            SettingsPageLayoutStyler.ApplyGroupBox(_actionGroup);
             SettingsPageLayoutStyler.ApplyGroupBox(grpLog);
-
-            linkLayout.Margin = Padding.Empty;
-            linkLayout.Padding = Padding.Empty;
-
-            buttonLayout.Controls.Clear();
-            buttonLayout.ColumnStyles.Clear();
-            buttonLayout.RowStyles.Clear();
-            buttonLayout.ColumnCount = 14;
-            buttonLayout.RowCount = 1;
-            for (int i = 0; i < 14; i++)
-                buttonLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F / 14F));
-            buttonLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
-            buttonLayout.Controls.Add(_btnConnect, 0, 0);
-            buttonLayout.Controls.Add(_btnDisconnect, 1, 0);
-            buttonLayout.Controls.Add(_btnPing, 2, 0);
-            buttonLayout.Controls.Add(_btnClearLog, 3, 0);
-            buttonLayout.Controls.Add(_btnCameraScale, 4, 0);
-            if (buttonLayout.Parent != _actionGroup)
-                _actionGroup.Controls.Add(buttonLayout);
             SettingsPageLayoutStyler.ApplyActionRow(buttonLayout);
-
-            if (_txtLog.Parent != grpLog)
-            {
-                grpLog.Controls.Clear();
-                grpLog.Controls.Add(_txtLog);
-            }
-            _txtLog.Dock = DockStyle.Fill;
-            _txtLog.Margin = Padding.Empty;
         }
 
         private void LoadSettings()
         {
+            _loadingSettings = true;
             var cfg = AppSettingsStore.Current;
-            _tbHost.Text = cfg.VisionHost;
-            _tbWafer.Text = cfg.VisionWaferPort.ToString();
-            _tbInsp.Text  = cfg.VisionInspectionPort.ToString();
-            _tbBin.Text   = cfg.VisionBinPort.ToString();
-            _tbMain.Text  = cfg.VisionMainPort.ToString();
-            _tbTop.Text   = cfg.VisionFrontSidePort.ToString();
-            _tbBot.Text   = cfg.VisionRearSidePort.ToString();
+            try
+            {
+                _tbHost.Text = cfg.VisionHost;
+                _tbWafer.Text = cfg.VisionWaferPort.ToString();
+                _tbInsp.Text  = cfg.VisionInspectionPort.ToString();
+                _tbBin.Text   = cfg.VisionBinPort.ToString();
+                _tbMain.Text  = cfg.VisionMainPort.ToString();
+                _tbTop.Text   = cfg.VisionFrontSidePort.ToString();
+                _tbBot.Text   = cfg.VisionRearSidePort.ToString();
 
-            _tbWaferV.Text = cfg.VisionWaferViewerPort.ToString();
-            _tbInspV.Text  = cfg.VisionInspectionViewerPort.ToString();
-            _tbBinV.Text   = cfg.VisionBinViewerPort.ToString();
-            _tbTopV.Text   = cfg.VisionFrontSideViewerPort.ToString();
-            _tbBotV.Text   = cfg.VisionRearSideViewerPort.ToString();
+                _tbWaferV.Text = cfg.VisionWaferViewerPort.ToString();
+                _tbInspV.Text  = cfg.VisionInspectionViewerPort.ToString();
+                _tbBinV.Text   = cfg.VisionBinViewerPort.ToString();
+                _tbTopV.Text   = cfg.VisionFrontSideViewerPort.ToString();
+                _tbBotV.Text   = cfg.VisionRearSideViewerPort.ToString();
 
-            _cbAuto.Checked = cfg.VisionAutoConnect;
+                _cbAuto.Checked = cfg.VisionAutoConnect;
+            }
+            finally
+            {
+                _loadingSettings = false;
+            }
         }
 
         private void _btnCameraScale_Click(object sender, EventArgs e)
@@ -194,22 +140,34 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             VisionCameraScaleDialog.Open(this);
         }
 
-        private void WireEvents()
+        private void _cbAuto_CheckedChanged(object sender, EventArgs e)
         {
-            _cbAuto.CheckedChanged += (s, e) =>
-            {
-                AppSettingsStore.Current.VisionAutoConnect = _cbAuto.Checked;
-                AppSettingsStore.Save();
-            };
+            if (_loadingSettings) return;
+            AppSettingsStore.Current.VisionAutoConnect = _cbAuto.Checked;
+            AppSettingsStore.Save();
+        }
 
-            _btnConnect.Click += async (s, e) => await DoConnect();
-            _btnDisconnect.Click += (s, e) =>
-            {
-                VisionHub.DisconnectAll();
-                OnConnChanged();
-            };
-            _btnPing.Click += async (s, e) => await DoPing();
-            _btnClearLog.Click += (s, e) => { VisionCommLog.Clear(); _lastLogRev = -1; RefreshLog(); };
+        private async void _btnConnect_Click(object sender, EventArgs e)
+        {
+            await DoConnect();
+        }
+
+        private void _btnDisconnect_Click(object sender, EventArgs e)
+        {
+            VisionHub.DisconnectAll();
+            OnConnChanged();
+        }
+
+        private async void _btnPing_Click(object sender, EventArgs e)
+        {
+            await DoPing();
+        }
+
+        private void _btnClearLog_Click(object sender, EventArgs e)
+        {
+            VisionCommLog.Clear();
+            _lastLogRev = -1;
+            RefreshLog();
         }
 
         private async Task DoConnect()

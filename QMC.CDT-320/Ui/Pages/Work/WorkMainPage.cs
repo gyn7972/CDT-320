@@ -48,7 +48,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 RebuildVisionPanel();
                 StyleMapTabs();
                 ApplyBottomGroupSizing();
-                WireEvents();
+                WireRuntimeEvents();
                 InitializeWorkTimeToolTips();
                 HookStateEvents();
                 EnsureRefreshTimer();
@@ -368,86 +368,29 @@ namespace QMC.CDT_320.Ui.Pages.Work
             _visionSources.Clear();
         }
 
-        private void WireEvents()
+        private void WireRuntimeEvents()
         {
             if (rootLayout != null)
                 rootLayout.SizeChanged += (s, e) => ApplyBottomGroupSizing();
-
-            btnCcs.Click += (s, e) =>
-            {
-                try
-                {
-                    QMC.Common.Logging.EventLogger.Write(
-                        QMC.Common.Logging.EventKind.Event,
-                        QMC.CDT_320.Ui.Security.UserSession.Name,
-                        "CCS-CHECK",
-                        "CCS check button clicked.");
-                }
-                catch { }
-
-                QMC.Common.MessageDialog.Show(
-                    "CCS check page will be connected in the next work step.",
-                    btnCcs.Text,
-                    MessageBoxButtons.OK,
-                    MessageBoxIcon.Information);
-            };
-
-            btnWorkTimeClear.Click += (s, e) => ClearWorkTimeCounters();
-            btnTestAlarm.Click += (s, e) => RaiseTestAlarm();
         }
 
-        private void ClearWorkTimeCounters()
-        {
-            try
-            {
-                Form1 host = ParentForm as Form1 ?? FindForm() as Form1;
-                if (host?.Controller == null)
-                    return;
-
-                host.Controller.Stats.ClearRuntimeCounters();
-
-                QMC.Common.Logging.EventLogger.Write(
-                    QMC.Common.Logging.EventKind.Event,
-                    QMC.CDT_320.Ui.Security.UserSession.Name,
-                    "WORK-TIME-CLEAR",
-                    "Work time counters were cleared from Work Main page.");
-
-                RefreshAll();
-            }
-            catch (Exception ex)
-            {
-                QMC.Common.MessageDialog.Show(
-                    "Work time clear failed: " + ex.Message,
-                    btnWorkTimeClear != null ? btnWorkTimeClear.Text : "CLEAR",
-                    MessageBoxButtons.OK,
-                    MessageBoxIcon.Error);
-            }
-        }
-
-        private void RaiseTestAlarm()
+        private void btnCcs_Click(object sender, EventArgs e)
         {
             try
             {
                 QMC.Common.Logging.EventLogger.Write(
                     QMC.Common.Logging.EventKind.Event,
                     QMC.CDT_320.Ui.Security.UserSession.Name,
-                    "TEST-ALARM-CLICK",
-                    "Operator test alarm requested from Work Main page.");
+                    "CCS-CHECK",
+                    "CCS check button clicked.");
+            }
+            catch { }
 
-                QMC.Common.Alarms.AlarmManager.Raise(
-                    QMC.Common.Alarms.AlarmSeverity.Critical,
-                    "TEST-ALARM",
-                    "WorkMainPage",
-                    "Operator test alarm requested from Work Main page.");
-            }
-            catch (Exception ex)
-            {
-                QMC.Common.MessageDialog.Show(
-                    "Test alarm failed: " + ex.Message,
-                    btnTestAlarm != null ? btnTestAlarm.Text : "ALARM",
-                    MessageBoxButtons.OK,
-                    MessageBoxIcon.Error);
-            }
+            QMC.Common.MessageDialog.Show(
+                "CCS check page will be connected in the next work step.",
+                btnCcs.Text,
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Information);
         }
 
         private void ApplyBottomGroupSizing()
@@ -878,10 +821,6 @@ namespace QMC.CDT_320.Ui.Pages.Work
             mapTabControl.BackColor = Color.White;
             mapTabControl.Font = new Font("맑은 고딕", 8F, FontStyle.Bold);
             mapTabControl.Padding = new Point(6, 1);
-            mapTabControl.DrawItem -= MapTabControl_DrawItem;
-            mapTabControl.DrawItem += MapTabControl_DrawItem;
-            mapTabControl.SizeChanged -= MapTabControl_SizeChanged;
-            mapTabControl.SizeChanged += MapTabControl_SizeChanged;
             UpdateMapTabWidth();
         }
 

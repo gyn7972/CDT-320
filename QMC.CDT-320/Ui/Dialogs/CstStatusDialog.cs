@@ -27,7 +27,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             : this(
                 isInput ? "INPUT CASSETTE STATUS" : "OUTPUT CASSETTE STATUS",
                 isInput
-                    ? new[] { CassetteStatusSource.Input("INPUT CASSETTE 1", CassetteMaterialRole.Input1, DefaultSlotCount, null) }
+                    ? new[] { CassetteStatusSource.Input("INPUT CASSETTE", CassetteMaterialRole.Input1, DefaultSlotCount, null) }
                     : new[] { CassetteStatusSource.Output("OUTPUT GOOD 1", CassetteMaterialRole.Good1, DefaultSlotCount, null) })
         {
         }
@@ -72,7 +72,7 @@ namespace QMC.CDT_320.Ui.Dialogs
 
             return new[]
             {
-                CassetteStatusSource.Input("INPUT CASSETTE 1", CassetteMaterialRole.Input1, DefaultSlotCount, null)
+                CassetteStatusSource.Input("INPUT CASSETTE", CassetteMaterialRole.Input1, DefaultSlotCount, null)
             };
         }
 
@@ -241,8 +241,8 @@ namespace QMC.CDT_320.Ui.Dialogs
             var labels = new Label[Math.Max(1, source.SlotCount)];
             for (int row = 0; row < labels.Length; row++)
             {
-                int slotNo = labels.Length - row;
-                int slotIndex = slotNo - 1;
+                int slotIndex = row;
+                int slotNo = slotIndex + 1;
                 slotLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, SlotRowHeight));
 
                 var slot = new Label

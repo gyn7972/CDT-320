@@ -13,13 +13,28 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
         {
             InitializeComponent();
 
-            _btnCommTest.Click += async (s, e) => await RunCommTest();
-
             _cbVisionModule.Items.AddRange(new object[] { "Wafer", "Inspection", "Bin", "FrontSideVision", "RearSideVision" });
             _cbVisionModule.SelectedIndex = 0;
-            _btnGrab.Click += async (s, e) => await RunGrab();
-            _btnMatch.Click += async (s, e) => await RunMatch();
-            _btnInspect.Click += async (s, e) => await RunInspect();
+        }
+
+        private async void _btnCommTest_Click(object sender, EventArgs e)
+        {
+            await RunCommTest();
+        }
+
+        private async void _btnGrab_Click(object sender, EventArgs e)
+        {
+            await RunGrab();
+        }
+
+        private async void _btnMatch_Click(object sender, EventArgs e)
+        {
+            await RunMatch();
+        }
+
+        private async void _btnInspect_Click(object sender, EventArgs e)
+        {
+            await RunInspect();
         }
 
         /// <summary>선택한 Vision 모듈 채널.</summary>

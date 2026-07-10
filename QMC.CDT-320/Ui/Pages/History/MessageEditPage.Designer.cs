@@ -41,6 +41,7 @@
             //
             // rootLayout
             //
+            this.rootLayout.BackColor = System.Drawing.Color.White;
             this.rootLayout.ColumnCount = 1;
             this.rootLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.rootLayout.Controls.Add(this.lblHeader, 0, 0);
@@ -128,6 +129,7 @@
             //
             // actionLayout — [코드 동기화] [저장]
             //
+            this.actionLayout.BackColor = System.Drawing.Color.White;
             this.actionLayout.ColumnCount = 3;
             this.actionLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 168F));
             this.actionLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 128F));
@@ -169,6 +171,13 @@
             this.btnSave.Margin = new System.Windows.Forms.Padding(0, 0, 0, 0);
             this.btnSave.Text = "SAVE";
             this.btnSave.UseVisualStyleBackColor = false;
+            //
+            // events (디자이너 관리)
+            //
+            this.grid.CellEndEdit += new System.Windows.Forms.DataGridViewCellEventHandler(this.Grid_CellEndEdit);
+            this.grid.CellDoubleClick += new System.Windows.Forms.DataGridViewCellEventHandler(this.Grid_CellDoubleClick);
+            this.btnSave.Click += new System.EventHandler(this.btnSave_Click);
+            this.btnImport.Click += new System.EventHandler(this.btnImport_Click);
             //
             // MessageEditPage
             //

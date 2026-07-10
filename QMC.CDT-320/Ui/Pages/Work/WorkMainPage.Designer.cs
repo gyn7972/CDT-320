@@ -719,7 +719,9 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.mapTabControl.SelectedIndex = 0;
             this.mapTabControl.SizeMode = System.Windows.Forms.TabSizeMode.Fixed;
             this.mapTabControl.TabIndex = 1;
-            //
+            this.mapTabControl.DrawItem += new System.Windows.Forms.DrawItemEventHandler(this.MapTabControl_DrawItem);
+            this.mapTabControl.SizeChanged += new System.EventHandler(this.MapTabControl_SizeChanged);
+            // 
             // tabInputMap
             //
             this.tabInputMap.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(221)))), ((int)(((byte)(221)))), ((int)(((byte)(221)))));
@@ -1576,6 +1578,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.btnCcs.Tag = "i18n:work.workTime.ccs";
             this.btnCcs.Text = "CCS 검수 확인";
             this.btnCcs.UseVisualStyleBackColor = false;
+            this.btnCcs.Click += new System.EventHandler(this.btnCcs_Click);
             //
             // btnWorkTimeClear
             //

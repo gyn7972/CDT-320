@@ -23,58 +23,14 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             try
             {
                 InitializeComponent();
-                ApplyRuntimeStyle();
-                WireEvents();
+                // 색/폰트(페이지·헤더·상태 라벨)는 Designer(.Designer.cs)로 이관
+                // 버튼 Click 이벤트 연결도 Designer(InitializeComponent)로 이관
                 lblStatus.Text = "캘리브레이션 항목을 선택하세요. 각 기능은 모달리스 창으로 열립니다.";
             }
             catch (Exception ex)
             {
                 EventLogger.Write(EventKind.Alarm, "UI", "CAL-PAGE-INIT", "CalibrationPage 초기화 실패: " + ex.Message);
                 QMC.Common.MessageDialog.Show(this, "Calibration 화면 초기화 실패:\r\n" + ex.Message, "Calibration", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
-            finally
-            {
-            }
-        }
-
-        private void ApplyRuntimeStyle()
-        {
-            try
-            {
-                BackColor = Color.White;
-                rootLayout.BackColor = Color.White;
-                headerPanel.BackColor = Color.FromArgb(64, 64, 64);
-                lblHeader.BackColor = Color.FromArgb(64, 64, 64);
-                lblHeader.ForeColor = Color.White;
-                lblHeader.Font = new Font("Malgun Gothic", 11F, FontStyle.Bold);
-                lblStatus.ForeColor = Color.FromArgb(40, 40, 40);
-            }
-            catch (Exception ex)
-            {
-                EventLogger.Write(EventKind.Warning, "UI", "CAL-PAGE-STYLE", "CalibrationPage 스타일 적용 실패: " + ex.Message);
-            }
-            finally
-            {
-            }
-        }
-
-        private void WireEvents()
-        {
-            try
-            {
-                btnVisionCameraCal.Click += btnVisionCameraCal_Click;
-                btnColletCal.Click += btnColletCal_Click;
-                btnNeedleCal.Click += btnNeedleCal_Click;
-                btnColletZHeightCal.Click += btnColletZHeightCal_Click;
-                btnVisionFocusCal.Click += btnVisionFocusCal_Click;
-                btnColletRotationCenterCal.Click += btnColletRotationCenterCal_Click;
-                btnPickUpZCal.Click += btnPickUpZCal_Click;
-                btnPlaceZCal.Click += btnPlaceZCal_Click;
-                btnNeedleZCal.Click += btnNeedleZCal_Click;
-            }
-            catch (Exception ex)
-            {
-                EventLogger.Write(EventKind.Alarm, "UI", "CAL-PAGE-EVENT", "CalibrationPage 이벤트 연결 실패: " + ex.Message);
             }
             finally
             {

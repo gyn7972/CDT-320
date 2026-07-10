@@ -9,12 +9,14 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
         private TableLayoutPanel rootLayout;
         private Label lblHeader;
         private Panel contentHost;
+        private LogicDetailPage logicDetailPage;
 
         private void InitializeComponent()
         {
             this.rootLayout = new TableLayoutPanel();
             this.lblHeader = new Label();
             this.contentHost = new Panel();
+            this.logicDetailPage = new LogicDetailPage();
             this.SuspendLayout();
 
             this.rootLayout.ColumnCount = 1;
@@ -36,6 +38,12 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblHeader.TextAlign = ContentAlignment.MiddleLeft;
 
             this.contentHost.Dock = DockStyle.Fill;
+            this.contentHost.Controls.Add(this.logicDetailPage);
+
+            this.logicDetailPage.Dock = DockStyle.Fill;
+            this.logicDetailPage.Location = new Point(0, 0);
+            this.logicDetailPage.Margin = new Padding(0);
+            this.logicDetailPage.Name = "logicDetailPage";
 
             this.Controls.Add(this.rootLayout);
             this.Name = "LogicPage";

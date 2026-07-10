@@ -28,7 +28,6 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             SettingsPageLayoutStyler.Apply(this);   // 그룹 생성 前에 정규화(Motion 순서) → 이후 그룹 패딩·폰트 유지
             BuildLayout();
             TightenActionButtons();
-            WireEvents();
 
             _timer = new Timer { Interval = 200 };
             _timer.Tick += (s, e) =>
@@ -66,105 +65,11 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             catch { }
         }
 
-        /// <summary>Motion 페이지와 같은 4행 비율로 재구성하여 ACTION 위치와 버튼 크기 기준을 맞춘다.</summary>
+        /// <summary>구조(root 4행·headerLayout·bodyLayout 2그룹·grpAction·actionRow 14열)는 Designer로 이관. 스타일러가 못 살리는 값만 재지정.</summary>
         private void BuildLayout()
         {
-            SuspendLayout();
-            try
-            {
-                Controls.Clear();
-
-                var root = new TableLayoutPanel
-                {
-                    Dock = DockStyle.Fill,
-                    ColumnCount = 1,
-                    RowCount = 4,
-                    Padding = Padding.Empty
-                };
-                root.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
-                root.RowStyles.Add(new RowStyle(SizeType.Absolute, 30F));
-                root.RowStyles.Add(new RowStyle(SizeType.Percent, 45F));
-                root.RowStyles.Add(new RowStyle(SizeType.Percent, 45F));
-                root.RowStyles.Add(new RowStyle(SizeType.Percent, 10F));
-
-                var headerLayout = new TableLayoutPanel
-                {
-                    Dock = DockStyle.Fill,
-                    ColumnCount = 2,
-                    RowCount = 1,
-                    Margin = Padding.Empty,
-                    Padding = Padding.Empty,
-                    BackColor = UiTheme.StatusBarBg
-                };
-                headerLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 150F));
-                headerLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
-                headerLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
-                lblHeader.AutoSize = false;
-                lblHeader.Dock = DockStyle.Fill;
-                lblHeader.Margin = new Padding(0);
-                lblStatus.AutoSize = false;
-                lblStatus.Dock = DockStyle.Fill;
-                lblStatus.Margin = new Padding(0);
-                lblStatus.Padding = new Padding(0);
-                lblStatus.TextAlign = ContentAlignment.MiddleLeft;
-                headerLayout.Controls.Add(lblHeader, 0, 0);
-                headerLayout.Controls.Add(lblStatus, 1, 0);
-                root.Controls.Add(headerLayout, 0, 0);
-
-                var bodyLayout = new TableLayoutPanel
-                {
-                    Dock = DockStyle.Fill,
-                    ColumnCount = 2,
-                    RowCount = 1,
-                    Margin = Padding.Empty,
-                    Padding = Padding.Empty
-                };
-                bodyLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50F));
-                bodyLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50F));
-                bodyLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
-
-                GroupBox grpDi = MakeIoGroup("DIGITAL INPUT");
-                diGrid.Dock = DockStyle.Fill;
-                grpDi.Controls.Add(diGrid);
-
-                GroupBox grpDo = MakeIoGroup("DIGITAL OUTPUT");
-                doGrid.Dock = DockStyle.Fill;
-                grpDo.Controls.Add(doGrid);
-
-                bodyLayout.Controls.Add(grpDi, 0, 0);
-                bodyLayout.Controls.Add(grpDo, 1, 0);
-                root.Controls.Add(bodyLayout, 0, 1);
-                root.SetRowSpan(bodyLayout, 2);
-
-                GroupBox grpAction = MakeIoGroup("ACTION");
-                var actionRow = new TableLayoutPanel
-                {
-                    BackColor = Color.White,
-                    Dock = DockStyle.Fill,
-                    ColumnCount = 14,
-                    RowCount = 1,
-                    Margin = Padding.Empty,
-                    Padding = new Padding(1)
-                };
-                for (int i = 0; i < 14; i++)
-                    actionRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F / 14F));
-                actionRow.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
-
-                Control[] btns = { btnRefresh, btnDoOn, btnDoOff, btnPulse };
-                for (int i = 0; i < btns.Length; i++)
-                {
-                    btns[i].Dock = DockStyle.Fill;
-                    actionRow.Controls.Add(btns[i], i, 0);
-                }
-                grpAction.Controls.Add(actionRow);
-                root.Controls.Add(grpAction, 0, 3);
-
-                Controls.Add(root);
-            }
-            finally
-            {
-                ResumeLayout(true);
-            }
+            // 공용 스타일러 Apply(this)가 모든 TableLayoutPanel 패딩을 0으로 정규화하므로, ACTION 행 안쪽 여백(1)만 다시 지정한다.
+            actionRow.Padding = new Padding(1);
         }
 
         /// <summary>Motion 페이지 ACTION 버튼과 같은 크기 계산 규칙을 사용한다.</summary>
@@ -181,48 +86,32 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             }
         }
 
-        private static GroupBox MakeIoGroup(string text)
-        {
-            return new GroupBox
-            {
-                Text = text,
-                Dock = DockStyle.Fill,
-                BackColor = System.Drawing.Color.White,
-                ForeColor = System.Drawing.Color.Black,
-                Font = UiTheme.SectionFont,
-                Padding = new Padding(1, 9, 1, 1),
-                Margin = new Padding(0),
-                TabStop = false
-            };
-        }
-
         private void ApplyRuntimeUi()
         {
             lblHeader.Text = "DIGITAL LINK";
             lblStatus.Text = "Live hardware I/O. DO commands are written directly to the mapped Ajin output.";
-            lblHeader.BackColor = UiTheme.StatusBarBg;
-            lblHeader.ForeColor = UiTheme.StatusBarFg;
-            lblHeader.Font = UiTheme.SectionFont;
-            lblStatus.BackColor = UiTheme.StatusBarBg;
-            lblStatus.ForeColor = Color.White;
-            lblStatus.Font = UiTheme.SectionFont;
-            lblDiTitle.Font = UiTheme.SectionFont;
-            lblDoTitle.Font = UiTheme.SectionFont;
-            actionsPanel.BackColor = UiTheme.OptionPanelBg;
         }
 
-        private void WireEvents()
+        private void btnRefresh_Click(object sender, EventArgs e)
         {
-            btnRefresh.Click += (s, e) =>
-            {
-                _loaded = false;
-                EnsureLoaded();
-                RefreshRows();
-            };
-            btnDoOn.Click += (s, e) => WriteSelected(true);
-            btnDoOff.Click += (s, e) => WriteSelected(false);
-            btnPulse.Click += async (s, e) => await PulseSelectedAsync(200);
-            doGrid.CellClick += DoGrid_CellClick;
+            _loaded = false;
+            EnsureLoaded();
+            RefreshRows();
+        }
+
+        private void btnDoOn_Click(object sender, EventArgs e)
+        {
+            WriteSelected(true);
+        }
+
+        private void btnDoOff_Click(object sender, EventArgs e)
+        {
+            WriteSelected(false);
+        }
+
+        private async void btnPulse_Click(object sender, EventArgs e)
+        {
+            await PulseSelectedAsync(200);
         }
 
         private void EnsureLoaded()

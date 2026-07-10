@@ -97,7 +97,6 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             {
                 lblHeader.Tag = "i18n:recipe.outputCassette";
                 lblHeader.Text = Lang.T("recipe.outputCassette");
-
                 _refreshTimer.Interval = 250;
                 _refreshTimer.Tick += RefreshTimer_Tick;
                 optionParameterGrid.ParameterValueChanged += ParameterGrid_ParameterValueChanged;
@@ -692,6 +691,9 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 if (string.IsNullOrWhiteSpace(positionName))
                     return;
 
+                if (!ConfirmTeachPosition("Output Cassette Teach", e.Item.Key))
+                    return;
+
                 TeachPosition(positionName);
                 SaveCurrentRecipeData();
                 RefreshView();
@@ -717,6 +719,26 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
 
             jogAxisMoveControl.SetSelectedSpeedType(speedType);
             return true;
+        }
+
+        private bool ConfirmTeachPosition(string title, string actionName)
+        {
+            string name = string.IsNullOrWhiteSpace(actionName) ? "Teach Position" : actionName;
+            using (var dialog = new QMC.Common.MessageBoxYesNo())
+            {
+                dialog.ButtonGroupLabel = "TEACH";
+                DialogResult result = dialog.ShowDialog(
+                    title,
+                    name + " 현재 위치로 티칭하시겠습니까?",
+                    this,
+                    new[] { "Yes", "No" });
+
+                if (result == DialogResult.Yes)
+                    return true;
+
+                EventLogger.Write(EventKind.Event, "UI", "OUTPUT-CASSETTE", name + " teach canceled.");
+                return false;
+            }
         }
 
         private string GetSelectedTeachingPositionName()
@@ -1435,33 +1457,9 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
         {
             try
             {
-                Color bg = Color.FromArgb(207, 210, 214);
-                Color header = Color.FromArgb(64, 64, 64);
-                Color actionButtonColor = Color.FromArgb(88, 94, 103);
+                // 여기서는 고정 Key/Value 셀 라벨 스타일링(반복)만 유지한다.
                 Color key = Color.FromArgb(208, 208, 208);
                 Color value = Color.White;
-
-                BackColor = bg;
-                grpActions.BackColor = Color.FromArgb(245, 245, 245);
-                grpIo.BackColor = Color.FromArgb(245, 245, 245);
-                grpOptions.BackColor = Color.FromArgb(245, 245, 245);
-                grpWait.BackColor = Color.FromArgb(245, 245, 245);
-                grpJog.BackColor = Color.FromArgb(245, 245, 245);
-                grpSpeed.BackColor = Color.FromArgb(245, 245, 245);
-                ioLayout.BackColor = Color.FromArgb(245, 245, 245);
-                optionRows.BackColor = bg;
-                waitRows.BackColor = bg;
-                lblHeader.BackColor = header;
-                lblHeader.ForeColor = Color.White;
-                lblHeader.Font = new Font("Malgun Gothic", 11F, FontStyle.Bold);
-
-                foreach (var group in new[] { grpActions, grpIo, grpOptions, grpWait, grpJog, grpSpeed })
-                    group.Font = new Font("Malgun Gothic", 10F, FontStyle.Bold);
-
-                Color groupHeaderBg = Color.FromArgb(245, 245, 245);
-                Color groupHeaderFg = Color.FromArgb(64, 64, 64);
-                Font actionFont = new Font("Malgun Gothic", 8F, FontStyle.Bold);
-                Font groupFont = new Font("Malgun Gothic", 8.5F, FontStyle.Bold);
 
                 foreach (var label in new[]
                 {

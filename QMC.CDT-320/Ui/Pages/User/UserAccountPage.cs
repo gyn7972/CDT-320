@@ -34,7 +34,6 @@ namespace QMC.CDT_320.Ui.Pages.User
         {
             InitializeComponent();
             BuildPermDetail();
-            WireEvents();
 
             // 로그인 오버레이(비로그인 시 전체를 덮는 로그인 카드)
             _login = new SessionControl { Dock = DockStyle.Fill, Visible = false };
@@ -47,25 +46,49 @@ namespace QMC.CDT_320.Ui.Pages.User
             }
         }
 
-        private void WireEvents()
-        {
-            btnAdd.Click += (s, e) => AddAccount();
-            btnEdit.Click += (s, e) => EditSelected();
-            btnDelete.Click += (s, e) => DeleteSelected();
-            btnLogout.Click += (s, e) => UserSession.Logout();
-
-            // 계정 행 더블클릭 = 그 계정 아래로 권한 펼침/접기. (계정 편집은 수정 버튼)
-            grid.CellDoubleClick += (s, e) => { if (e.RowIndex >= 0) ToggleExpand(e.RowIndex); };
-            grid.Scroll += (s, e) => RepositionDetail();
-            grid.SizeChanged += (s, e) => RepositionDetail();
-        }
-
         private static bool CanEdit() => UserSession.Has(UserLevel.Admin);
 
         private void OnUserChanged()
         {
             if (InvokeRequired) { try { BeginInvoke(new Action(OnUserChanged)); } catch { } return; }
             RefreshState();
+        }
+
+        private void btnAdd_Click(object sender, EventArgs e)
+        {
+            AddAccount();
+        }
+
+        private void btnEdit_Click(object sender, EventArgs e)
+        {
+            EditSelected();
+        }
+
+        private void btnDelete_Click(object sender, EventArgs e)
+        {
+            DeleteSelected();
+        }
+
+        private void btnLogout_Click(object sender, EventArgs e)
+        {
+            UserSession.Logout();
+        }
+
+        private void grid_CellDoubleClick(object sender, DataGridViewCellEventArgs e)
+        {
+            // 계정 행 더블클릭 = 그 계정 아래로 권한 펼침/접기. (계정 편집은 수정 버튼)
+            if (e.RowIndex >= 0)
+                ToggleExpand(e.RowIndex);
+        }
+
+        private void grid_Scroll(object sender, ScrollEventArgs e)
+        {
+            RepositionDetail();
+        }
+
+        private void grid_SizeChanged(object sender, EventArgs e)
+        {
+            RepositionDetail();
         }
 
         // 로그인 상태에 따라 로그인 카드 / 계정 목록 전환.

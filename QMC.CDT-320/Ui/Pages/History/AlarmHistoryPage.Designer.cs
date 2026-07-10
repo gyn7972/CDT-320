@@ -48,6 +48,7 @@ namespace QMC.CDT_320.Ui.Pages.History
             // 
             // rootLayout
             // 
+            this.rootLayout.BackColor = System.Drawing.Color.White;
             this.rootLayout.ColumnCount = 1;
             this.rootLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.rootLayout.Controls.Add(this.lblHeader, 0, 0);
@@ -80,7 +81,7 @@ namespace QMC.CDT_320.Ui.Pages.History
             // 
             // filterLayout
             // 
-            this.filterLayout.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(240)))), ((int)(((byte)(240)))), ((int)(((byte)(240)))));
+            this.filterLayout.BackColor = System.Drawing.Color.White;
             this.filterLayout.ColumnCount = 7;
             this.filterLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 76F));
             this.filterLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 150F));
@@ -124,6 +125,7 @@ namespace QMC.CDT_320.Ui.Pages.History
             this._cbSeverity.Name = "_cbSeverity";
             this._cbSeverity.Size = new System.Drawing.Size(144, 23);
             this._cbSeverity.TabIndex = 1;
+            this._cbSeverity.SelectedIndexChanged += new System.EventHandler(this._cbSeverity_SelectedIndexChanged);
             // 
             // lblSearch
             // 
@@ -177,6 +179,7 @@ namespace QMC.CDT_320.Ui.Pages.History
             // _grid
             // 
             this._grid.AllowUserToAddRows = false;
+            this._grid.AllowUserToResizeRows = false;
             this._grid.AutoSizeColumnsMode = System.Windows.Forms.DataGridViewAutoSizeColumnsMode.Fill;
             this._grid.BackgroundColor = System.Drawing.Color.White;
             dataGridViewCellStyle1.Alignment = System.Windows.Forms.DataGridViewContentAlignment.MiddleCenter;
@@ -189,7 +192,6 @@ namespace QMC.CDT_320.Ui.Pages.History
             this._grid.ColumnHeadersDefaultCellStyle = dataGridViewCellStyle1;
             this._grid.ColumnHeadersHeight = 29;
             this._grid.ColumnHeadersHeightSizeMode = System.Windows.Forms.DataGridViewColumnHeadersHeightSizeMode.DisableResizing;
-            this._grid.AllowUserToResizeRows = false;
             this._grid.Columns.AddRange(new System.Windows.Forms.DataGridViewColumn[] {
             this.dataGridViewTextBoxColumn1,
             this.dataGridViewTextBoxColumn2,
@@ -279,9 +281,17 @@ namespace QMC.CDT_320.Ui.Pages.History
             this.dataGridViewTextBoxColumn7.Name = "dataGridViewTextBoxColumn7";
             this.dataGridViewTextBoxColumn7.ReadOnly = true;
             this.dataGridViewTextBoxColumn7.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
-            // 
+            //
+            // events (디자이너 관리)
+            //
+            this._grid.CellClick += new System.Windows.Forms.DataGridViewCellEventHandler(this.Grid_CellClick);
+            this._grid.CellDoubleClick += new System.Windows.Forms.DataGridViewCellEventHandler(this.Grid_CellDoubleClick);
+            this._tbFilter.TextChanged += new System.EventHandler(this._tbFilter_TextChanged);
+            this.btnClear.Click += new System.EventHandler(this.btnClear_Click);
+            //
             // AlarmHistoryPage
-            // 
+            //
+            this.BackColor = System.Drawing.Color.White;
             this.Controls.Add(this.rootLayout);
             this.Name = "AlarmHistoryPage";
             this.Size = new System.Drawing.Size(1678, 900);

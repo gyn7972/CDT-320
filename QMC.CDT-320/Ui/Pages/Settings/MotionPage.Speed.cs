@@ -34,13 +34,6 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                     col.Resizable = DataGridViewTriState.True;
                 }
 
-                speedGrid.CellDoubleClick += OnSpeedCellDoubleClick;
-                speedGrid.ColumnHeaderMouseDoubleClick += OnSpeedHeaderDoubleClick;
-                speedGrid.DataError += (s, e) => { e.ThrowException = false; };
-
-                btnSpeedReload.Click += (s, e) => LoadSpeedRows();
-                btnSpeedSave.Click += (s, e) => SaveSpeedRows();
-                btnSpeedScale.Click += OnSpeedScaleClick;
                 UpdateSpeedScaleButton();
             }
             catch (Exception ex)
@@ -134,6 +127,21 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             finally
             {
             }
+        }
+
+        private void speedGrid_DataError(object sender, DataGridViewDataErrorEventArgs e)
+        {
+            e.ThrowException = false;
+        }
+
+        private void btnSpeedReload_Click(object sender, EventArgs e)
+        {
+            LoadSpeedRows();
+        }
+
+        private void btnSpeedSave_Click(object sender, EventArgs e)
+        {
+            SaveSpeedRows();
         }
 
         /// <summary>

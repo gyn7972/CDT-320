@@ -51,8 +51,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
         {
             _i18nTitle = titleI18n;
             InitializeComponent();
+            AssignStableControlNames();
             ConfigureOutputDesignerText();
-            BuildTwoByTwoLayout();
             ApplyTitle();
             WireEvents();
 
@@ -135,202 +135,6 @@ namespace QMC.CDT_320.Ui.Pages.Work
             lblProjectValue.Text = GetCurrentProjectName();
         }
 
-        /// <summary>Input Die Map 전환 페이지와 같은 2x2 기준 좌표로 재구성한다.</summary>
-        private void BuildTwoByTwoLayout()
-        {
-            SuspendLayout();
-            try
-            {
-                StyleAsQuadrantGroup(grpReceiveMap, "OUTPUT GOOD RECEIVE MAP");
-                StyleAsQuadrantGroup(grpMapInfo, "BIN / DIE INFO");
-                StyleAsQuadrantGroup(grpMode, "OUTPUT STAGE");
-                StyleAsQuadrantGroup(grpAction, "ACTION");
-
-                grpReceiveMap.Controls.Clear();
-                Reparent(mapView, grpReceiveMap, new Padding(0));
-
-                grpDieGrid.Parent?.Controls.Remove(grpDieGrid);
-
-                mapInfoLayout.RowStyles.Clear();
-                mapInfoLayout.RowCount = 12;
-                for (int i = 0; i < 12; i++)
-                    mapInfoLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F / 12F));
-                mapInfoLayout.ColumnStyles.Clear();
-                mapInfoLayout.ColumnCount = 2;
-                mapInfoLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 44F));
-                mapInfoLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 56F));
-                mapInfoLayout.Dock = DockStyle.Fill;
-
-                modeLayout.Controls.Clear();
-                modeLayout.ColumnStyles.Clear();
-                modeLayout.ColumnCount = 4;
-                for (int i = 0; i < 4; i++)
-                    modeLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 25F));
-                modeLayout.RowStyles.Clear();
-                modeLayout.RowCount = 5;
-                for (int i = 0; i < 4; i++)
-                    modeLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 30F));
-                modeLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 44F));
-                modeLayout.Padding = new Padding(10, 8, 10, 8);
-                modeLayout.Dock = DockStyle.Fill;
-                ConfigureStageToggleButton(rbStandard, "GOOD", 0);
-                ConfigureStageToggleButton(rbStartIndex, "NG", 1);
-                modeLayout.Controls.Add(rbStandard, 2, 0);
-                modeLayout.Controls.Add(rbStartIndex, 3, 0);
-                modeLayout.Controls.Add(rbSelectPickStatus, 0, 2);
-                modeLayout.Controls.Add(rbDragPickStatus, 0, 3);
-                modeLayout.Controls.Add(btnReloadActiveMap, 0, 4);
-                modeLayout.Controls.Add(btnPickStatusSave, 2, 4);
-                modeLayout.SetColumnSpan(rbStandard, 1);
-                modeLayout.SetColumnSpan(rbStartIndex, 1);
-                modeLayout.SetRowSpan(rbStandard, 2);
-                modeLayout.SetRowSpan(rbStartIndex, 2);
-                modeLayout.SetColumnSpan(rbSelectPickStatus, 4);
-                modeLayout.SetColumnSpan(rbDragPickStatus, 4);
-                modeLayout.SetColumnSpan(btnReloadActiveMap, 2);
-                modeLayout.SetColumnSpan(btnPickStatusSave, 2);
-                UpdateStageToggleButtonStyle(rbStandard);
-                UpdateStageToggleButtonStyle(rbStartIndex);
-
-                var infoStageBody = new TableLayoutPanel
-                {
-                    Dock = DockStyle.Fill,
-                    BackColor = System.Drawing.Color.White,
-                    Margin = new Padding(3),
-                    Padding = new Padding(0),
-                    ColumnCount = 2,
-                    RowCount = 1
-                };
-                infoStageBody.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50F));
-                infoStageBody.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50F));
-                infoStageBody.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
-
-                grpMapInfo.Parent?.Controls.Remove(grpMapInfo);
-                grpMapInfo.Dock = DockStyle.Fill;
-                grpMapInfo.Margin = new Padding(0, 0, 2, 0);
-                infoStageBody.Controls.Add(grpMapInfo, 0, 0);
-
-                grpMode.Parent?.Controls.Remove(grpMode);
-                grpMode.Dock = DockStyle.Top;
-                grpMode.Margin = new Padding(2, 0, 0, 0);
-                grpMode.Height = 4 * 30 + 44 + 52;
-                infoStageBody.Controls.Add(grpMode, 1, 0);
-
-                gridDieList.Parent?.Controls.Remove(gridDieList);
-                gridDieList.Dock = DockStyle.Fill;
-                gridDieList.Margin = new Padding(3);
-
-                Control[] actionButtons =
-                {
-                    btnManualAlignComplete, btnNeedleBlockDown,
-                    btnThetaMatchMove, btnXyMatchMove
-                };
-                int rows = (actionButtons.Length + 1) / 2;
-                actionLayout.Controls.Clear();
-                actionLayout.ColumnStyles.Clear();
-                actionLayout.RowStyles.Clear();
-                actionLayout.BackColor = System.Drawing.Color.White;
-                actionLayout.Dock = DockStyle.Top;
-                actionLayout.Margin = new Padding(0);
-                actionLayout.Padding = new Padding(3, 1, 3, 0);
-                actionLayout.ColumnCount = 2;
-                actionLayout.RowCount = rows;
-                actionLayout.Height = rows * 46 + 4;
-                actionLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50F));
-                actionLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50F));
-                for (int r = 0; r < rows; r++)
-                    actionLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 46F));
-                for (int i = 0; i < actionButtons.Length; i++)
-                {
-                    Control b = actionButtons[i];
-                    b.Parent?.Controls.Remove(b);
-                    b.Dock = DockStyle.Fill;
-                    b.Margin = new Padding(3);
-                    b.Visible = true;
-                    b.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
-                    actionLayout.Controls.Add(b, i % 2, i / 2);
-                }
-
-                grpAction.Controls.Clear();
-                grpAction.Controls.Add(actionLayout);
-                grpAction.Dock = DockStyle.Top;
-                grpAction.Height = actionLayout.Height + 30;
-
-                rootLayout.Controls.Clear();
-                rootLayout.ColumnStyles.Clear();
-                rootLayout.RowStyles.Clear();
-                rootLayout.BackColor = System.Drawing.Color.White;
-                rootLayout.Padding = new Padding(0);
-                rootLayout.ColumnCount = 2;
-                rootLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50F));
-                rootLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50F));
-                rootLayout.RowCount = 2;
-                rootLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 65F));
-                rootLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 35F));
-                rootLayout.Controls.Add(grpReceiveMap, 0, 0);
-                rootLayout.Controls.Add(gridDieList, 0, 1);
-                rootLayout.Controls.Add(infoStageBody, 1, 0);
-                rootLayout.Controls.Add(grpAction, 1, 1);
-            }
-            catch
-            {
-            }
-            finally
-            {
-                ResumeLayout(true);
-            }
-        }
-
-        private static void StyleAsQuadrantGroup(GroupBox group, string text)
-        {
-            if (group == null)
-                return;
-
-            group.Text = text;
-            group.Dock = DockStyle.Fill;
-            group.BackColor = System.Drawing.Color.White;
-            group.ForeColor = System.Drawing.Color.Black;
-            group.Font = new System.Drawing.Font("맑은 고딕", 11F, System.Drawing.FontStyle.Bold);
-            group.Margin = new Padding(3);
-            group.Padding = new Padding(3);
-            group.TabStop = false;
-        }
-
-        private static void Reparent(Control child, Control newParent, Padding margin)
-        {
-            if (child == null || newParent == null)
-                return;
-
-            child.Parent?.Controls.Remove(child);
-            child.Dock = DockStyle.Fill;
-            child.Margin = margin;
-            newParent.Controls.Add(child);
-        }
-
-        private static void ConfigureStageToggleButton(RadioButton radio, string text, int tabIndex)
-        {
-            if (radio == null)
-                return;
-
-            radio.Appearance = Appearance.Button;
-            radio.AutoSize = false;
-            radio.CheckAlign = System.Drawing.ContentAlignment.MiddleCenter;
-            radio.Cursor = Cursors.Hand;
-            radio.Dock = DockStyle.Fill;
-            radio.FlatAppearance.BorderSize = 1;
-            radio.FlatAppearance.MouseDownBackColor = System.Drawing.Color.FromArgb(0xE4, 0xEC, 0xF6);
-            radio.FlatAppearance.MouseOverBackColor = System.Drawing.Color.FromArgb(0xF4, 0xF7, 0xFB);
-            radio.FlatStyle = FlatStyle.Flat;
-            radio.Font = new System.Drawing.Font("맑은 고딕", 8.5F, System.Drawing.FontStyle.Bold);
-            radio.Margin = new Padding(3, 1, 3, 1);
-            radio.Padding = new Padding(0);
-            radio.TabIndex = tabIndex;
-            radio.TabStop = true;
-            radio.Text = text;
-            radio.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
-            radio.UseVisualStyleBackColor = false;
-        }
-
         private static void UpdateStageToggleButtonStyle(RadioButton radio)
         {
             if (radio == null)
@@ -356,50 +160,67 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 SelectGridRow(entry);
             };
 
-            gridDieList.CellClick += (s, e) =>
-            {
-                if (e.RowIndex < 0)
-                    return;
-                SelectEntryByGridRow(e.RowIndex);
-            };
-
-            gridDieList.CellMouseDown += OnGridDieListCellMouseDown;
             BuildGridContextMenu();
+        }
 
-            rbStandard.CheckedChanged += (s, e) =>
-            {
-                UpdateStageToggleButtonStyle(rbStandard);
-                if (!rbStandard.Checked)
-                    return;
-                _selectedSide = BinSide.Good;
-                _lastMapSignature = null;
-                ReloadOutputMap();
-            };
+        // 이하 표준 이벤트 핸들러들은 디자이너(InitializeComponent)에서 구독한다. 컨트롤명_이벤트명 규칙.
+        private void gridDieList_CellClick(object sender, DataGridViewCellEventArgs e)
+        {
+            if (e.RowIndex < 0)
+                return;
+            SelectEntryByGridRow(e.RowIndex);
+        }
 
-            rbStartIndex.CheckedChanged += (s, e) =>
-            {
-                UpdateStageToggleButtonStyle(rbStartIndex);
-                if (!rbStartIndex.Checked)
-                    return;
-                _selectedSide = BinSide.Ng;
-                _lastMapSignature = null;
-                ReloadOutputMap();
-            };
+        private void rbStandard_CheckedChanged(object sender, EventArgs e)
+        {
+            UpdateStageToggleButtonStyle(rbStandard);
+            if (!rbStandard.Checked)
+                return;
+            _selectedSide = BinSide.Good;
+            _lastMapSignature = null;
+            ReloadOutputMap();
+        }
 
-            btnReloadActiveMap.Click += (s, e) =>
-            {
-                _lastMapSignature = null;
-                ReloadOutputMap();
-            };
-            btnPickStatusSave.Click += async (s, e) => await MoveSelectedBinSlotAsync().ConfigureAwait(true);
-            btnManualAlignComplete.Click += (s, e) => InitializeReceivePlan(BinSide.Good);
-            btnNeedleBlockDown.Click += (s, e) => InitializeReceivePlan(BinSide.Ng);
-            btnThetaMatchMove.Click += (s, e) => SaveMaterialState();
-            btnXyMatchMove.Click += (s, e) =>
-            {
-                _lastMapSignature = null;
-                ReloadOutputMap();
-            };
+        private void rbStartIndex_CheckedChanged(object sender, EventArgs e)
+        {
+            UpdateStageToggleButtonStyle(rbStartIndex);
+            if (!rbStartIndex.Checked)
+                return;
+            _selectedSide = BinSide.Ng;
+            _lastMapSignature = null;
+            ReloadOutputMap();
+        }
+
+        private void btnReloadActiveMap_Click(object sender, EventArgs e)
+        {
+            _lastMapSignature = null;
+            ReloadOutputMap();
+        }
+
+        private async void btnPickStatusSave_Click(object sender, EventArgs e)
+        {
+            await MoveSelectedBinSlotAsync().ConfigureAwait(true);
+        }
+
+        private void btnManualAlignComplete_Click(object sender, EventArgs e)
+        {
+            InitializeReceivePlan(BinSide.Good);
+        }
+
+        private void btnNeedleBlockDown_Click(object sender, EventArgs e)
+        {
+            InitializeReceivePlan(BinSide.Ng);
+        }
+
+        private void btnThetaMatchMove_Click(object sender, EventArgs e)
+        {
+            SaveMaterialState();
+        }
+
+        private void btnXyMatchMove_Click(object sender, EventArgs e)
+        {
+            _lastMapSignature = null;
+            ReloadOutputMap();
         }
 
         protected override void OnVisibleChanged(EventArgs e)

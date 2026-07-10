@@ -1018,6 +1018,7 @@
             // 
             // OutputFeederRecipePage
             // 
+            this.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(207)))), ((int)(((byte)(210)))), ((int)(((byte)(214)))));
             this.Controls.Add(this.rootLayout);
             this.Name = "OutputFeederRecipePage";
             this.Size = new System.Drawing.Size(1678, 900);

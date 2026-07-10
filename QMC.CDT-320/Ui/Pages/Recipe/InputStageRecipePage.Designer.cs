@@ -348,6 +348,7 @@
             // manualActionPanel
             // 
             this.manualActionPanel.AutoFitParentGroupHeight = false;
+            this.manualActionPanel.AutoScroll = true;
             this.manualActionPanel.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(245)))), ((int)(((byte)(245)))), ((int)(((byte)(245)))));
             this.manualActionPanel.ColumnCount = 2;
             this.manualActionPanel.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -595,6 +596,7 @@
             this.optionLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 30F));
             this.optionLayout.Size = new System.Drawing.Size(396, 412);
             this.optionLayout.TabIndex = 0;
+            this.optionLayout.Visible = false;
             // 
             // lblLoadingPositionKey
             // 
@@ -857,6 +859,7 @@
             this.waitLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 30F));
             this.waitLayout.Size = new System.Drawing.Size(396, 187);
             this.waitLayout.TabIndex = 0;
+            this.waitLayout.Visible = false;
             // 
             // lblNeedleUpWaitKey
             // 
@@ -1017,6 +1020,7 @@
             this.ioLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 28F));
             this.ioLayout.Size = new System.Drawing.Size(396, 144);
             this.ioLayout.TabIndex = 0;
+            this.ioLayout.Visible = false;
             // 
             // dotNeedleVacuum
             // 
@@ -1187,6 +1191,7 @@
             this.jogLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.jogLayout.Size = new System.Drawing.Size(444, 817);
             this.jogLayout.TabIndex = 0;
+            this.jogLayout.Visible = false;
             // 
             // jogAxisLayout
             // 
@@ -1463,6 +1468,7 @@
             this.speedLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 32F));
             this.speedLayout.Size = new System.Drawing.Size(79, 817);
             this.speedLayout.TabIndex = 0;
+            this.speedLayout.Visible = false;
             // 
             // trkSpeed
             // 
@@ -1491,6 +1497,7 @@
             // 
             // InputStageRecipePage
             // 
+            this.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(207)))), ((int)(((byte)(210)))), ((int)(((byte)(214)))));
             this.Controls.Add(this.rootLayout);
             this.Name = "InputStageRecipePage";
             this.Size = new System.Drawing.Size(1678, 900);

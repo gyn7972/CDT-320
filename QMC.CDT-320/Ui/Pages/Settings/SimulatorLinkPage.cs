@@ -14,9 +14,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             ApplyRuntimeUi();
             SettingsPageLayoutStyler.Apply(this);
             ApplyCompactLayout();
-            WireEvents();
 
-            Load += (s, e) => Hook();
             Disposed += (s, e) => Unhook();
         }
 
@@ -26,9 +24,6 @@ namespace QMC.CDT_320.Ui.Pages.Settings
         {
             lblHeader.Text = Lang.T("set.simulator");
             lblHeader.Tag = "i18n:set.simulator";
-            lblHeader.BackColor = UiTheme.StatusBarBg;
-            lblHeader.ForeColor = UiTheme.StatusBarFg;
-            lblHeader.Font = UiTheme.SectionFont;
 
             grpLink.Text = Lang.T("set.simulator");
             grpLink.Tag = "i18n:set.simulator;level:Engineer";
@@ -49,39 +44,37 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             SettingsPageLayoutStyler.ApplyRoot(rootLayout);
             SettingsPageLayoutStyler.ApplyHeader(lblHeader);
 
-            if (rootLayout.RowStyles.Count >= 3)
-            {
-                rootLayout.RowStyles[0].SizeType = SizeType.Absolute;
-                rootLayout.RowStyles[0].Height = 30F;
-                rootLayout.RowStyles[1].SizeType = SizeType.Absolute;
-                rootLayout.RowStyles[1].Height = 270F;
-                rootLayout.RowStyles[2].SizeType = SizeType.Percent;
-                rootLayout.RowStyles[2].Height = 100F;
-            }
-
             grpLink.Margin = Padding.Empty;
             grpLink.Padding = new Padding(4, 14, 4, 4);
             grpLink.ForeColor = Color.Black;
 
-            linkLayout.ColumnStyles.Clear();
-            linkLayout.ColumnCount = 6;
-            linkLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 80F));
-            linkLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 180F));
-            linkLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 70F));
-            linkLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 100F));
-            linkLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 180F));
-            linkLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
-            linkLayout.SetColumnSpan(_lblStatus, 5);
-            linkLayout.SetColumnSpan(_txtLog, 6);
-
             _tbHost.Margin = new Padding(2, 7, 2, 2);
             _tbPort.Margin = new Padding(2, 7, 2, 2);
-            SettingsPageLayoutStyler.ApplyActionControl(_btnConnect);
+
+            // 모던 플랫 버튼 — 공용 스타일러(ApplyActionControl)가 강제하던 회색 대신 적용. 스타일러 이후라 런타임에 확실히 반영되고, Designer에도 같은 색을 넣어 미리보기를 맞춘다.
+            StyleModernButton(_btnConnect, Color.FromArgb(34, 139, 84), Color.FromArgb(46, 160, 98), Color.FromArgb(27, 115, 68));
         }
 
-        private void WireEvents()
+        // 모던 플랫 버튼: 테두리 없음 + hover/press 색. (Designer 프리뷰용으로 .Designer.cs에도 동일 색을 박아둠)
+        private static void StyleModernButton(Button b, Color back, Color hover, Color down)
         {
-            _btnConnect.Click += BtnConnect_Click;
+            b.FlatStyle = FlatStyle.Flat;
+            b.FlatAppearance.BorderSize = 0;
+            b.FlatAppearance.MouseOverBackColor = hover;
+            b.FlatAppearance.MouseDownBackColor = down;
+            b.BackColor = back;
+            b.ForeColor = Color.White;
+            b.UseVisualStyleBackColor = false;
+            b.Font = new Font("맑은 고딕", 9F, FontStyle.Bold);
+            b.TextAlign = ContentAlignment.MiddleCenter;
+            b.Dock = DockStyle.Fill;
+            b.Margin = new Padding(2);
+            b.Cursor = Cursors.Hand;
+        }
+
+        private void SimulatorLinkPage_Load(object sender, EventArgs e)
+        {
+            Hook();
         }
 
         private void Hook()

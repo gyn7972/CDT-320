@@ -6,9 +6,10 @@
 
         private System.Windows.Forms.TableLayoutPanel rootLayout;
         private System.Windows.Forms.Label lblPageHeader;
-        private System.Windows.Forms.Label lblModuleHeader;
+        private System.Windows.Forms.GroupBox grpModule;
         private System.Windows.Forms.DataGridView grid;
-        private System.Windows.Forms.Label lblConfigHeader;
+        private System.Windows.Forms.GroupBox grpConfiguration;
+        private System.Windows.Forms.GroupBox grpAction;
         private System.Windows.Forms.TabControl configTabs;
         private System.Windows.Forms.TabPage tabStatus;
         private System.Windows.Forms.TabPage tabConfig;
@@ -59,7 +60,9 @@
             System.Windows.Forms.DataGridViewCellStyle dataGridViewCellStyle1 = new System.Windows.Forms.DataGridViewCellStyle();
             this.rootLayout = new System.Windows.Forms.TableLayoutPanel();
             this.lblPageHeader = new System.Windows.Forms.Label();
-            this.lblModuleHeader = new System.Windows.Forms.Label();
+            this.grpModule = new System.Windows.Forms.GroupBox();
+            this.grpConfiguration = new System.Windows.Forms.GroupBox();
+            this.grpAction = new System.Windows.Forms.GroupBox();
             this.grid = new System.Windows.Forms.DataGridView();
             this.dataGridViewTextBoxColumn1 = new System.Windows.Forms.DataGridViewTextBoxColumn();
             this.dataGridViewTextBoxColumn2 = new System.Windows.Forms.DataGridViewTextBoxColumn();
@@ -79,7 +82,6 @@
             this.dataGridViewTextBoxColumn16 = new System.Windows.Forms.DataGridViewTextBoxColumn();
             this.dataGridViewTextBoxColumn17 = new System.Windows.Forms.DataGridViewTextBoxColumn();
             this.dataGridViewTextBoxColumn18 = new System.Windows.Forms.DataGridViewTextBoxColumn();
-            this.lblConfigHeader = new System.Windows.Forms.Label();
             this.configTabs = new System.Windows.Forms.TabControl();
             this.tabStatus = new System.Windows.Forms.TabPage();
             this.tabConfig = new System.Windows.Forms.TabPage();
@@ -137,6 +139,9 @@
             this.btnBoardScan = new QMC.CDT_320.Ui.Controls.ActionButton();
             this.btnMotionTest = new QMC.CDT_320.Ui.Controls.ActionButton();
             this.rootLayout.SuspendLayout();
+            this.grpModule.SuspendLayout();
+            this.grpConfiguration.SuspendLayout();
+            this.grpAction.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.grid)).BeginInit();
             this.configTabs.SuspendLayout();
             this.tabConfig.SuspendLayout();
@@ -160,31 +165,27 @@
             this.rootLayout.ColumnCount = 1;
             this.rootLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.rootLayout.Controls.Add(this.lblPageHeader, 0, 0);
-            this.rootLayout.Controls.Add(this.lblModuleHeader, 0, 1);
-            this.rootLayout.Controls.Add(this.grid, 0, 2);
-            this.rootLayout.Controls.Add(this.lblConfigHeader, 0, 3);
-            this.rootLayout.Controls.Add(this.configTabs, 0, 4);
-            this.rootLayout.Controls.Add(this.actionsPanel, 0, 5);
+            this.rootLayout.Controls.Add(this.grpModule, 0, 1);
+            this.rootLayout.Controls.Add(this.grpConfiguration, 0, 2);
+            this.rootLayout.Controls.Add(this.grpAction, 0, 3);
             this.rootLayout.Dock = System.Windows.Forms.DockStyle.Fill;
             this.rootLayout.Location = new System.Drawing.Point(0, 0);
             this.rootLayout.Name = "rootLayout";
             this.rootLayout.Padding = new System.Windows.Forms.Padding(8);
-            this.rootLayout.RowCount = 6;
+            this.rootLayout.RowCount = 4;
             this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 30F));
-            this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 30F));
-            this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 300F));
-            this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 30F));
-            this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 60F));
+            this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 45F));
+            this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 45F));
+            this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 10F));
             this.rootLayout.Size = new System.Drawing.Size(1678, 900);
             this.rootLayout.TabIndex = 0;
             // 
             // lblPageHeader
             // 
-            this.lblPageHeader.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(64)))), ((int)(((byte)(64)))), ((int)(((byte)(64)))));
+            this.lblPageHeader.BackColor = UiTheme.StatusBarBg;
             this.lblPageHeader.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblPageHeader.Font = new System.Drawing.Font("맑은 고딕", 11F, System.Drawing.FontStyle.Bold);
-            this.lblPageHeader.ForeColor = System.Drawing.Color.White;
+            this.lblPageHeader.ForeColor = UiTheme.StatusBarFg;
             this.lblPageHeader.Location = new System.Drawing.Point(8, 8);
             this.lblPageHeader.Margin = new System.Windows.Forms.Padding(0);
             this.lblPageHeader.Name = "lblPageHeader";
@@ -193,24 +194,24 @@
             this.lblPageHeader.TabIndex = 0;
             this.lblPageHeader.Text = "MOTION";
             this.lblPageHeader.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            // 
-            // lblModuleHeader
-            // 
-            this.lblModuleHeader.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(64)))), ((int)(((byte)(64)))), ((int)(((byte)(64)))));
-            this.lblModuleHeader.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblModuleHeader.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
-            this.lblModuleHeader.ForeColor = System.Drawing.Color.White;
-            this.lblModuleHeader.Location = new System.Drawing.Point(8, 38);
-            this.lblModuleHeader.Margin = new System.Windows.Forms.Padding(0, 0, 0, 4);
-            this.lblModuleHeader.Name = "lblModuleHeader";
-            this.lblModuleHeader.Padding = new System.Windows.Forms.Padding(10, 0, 0, 0);
-            this.lblModuleHeader.Size = new System.Drawing.Size(1662, 26);
-            this.lblModuleHeader.TabIndex = 1;
-            this.lblModuleHeader.Text = "MODULE LIST";
-            this.lblModuleHeader.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            // 
+            //
+            // grpModule
+            //
+            this.grpModule.Controls.Add(this.grid);
+            this.grpModule.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.grpModule.Font = new System.Drawing.Font("맑은 고딕", 11F, System.Drawing.FontStyle.Bold);
+            this.grpModule.ForeColor = System.Drawing.Color.Black;
+            this.grpModule.Location = new System.Drawing.Point(8, 38);
+            this.grpModule.Margin = new System.Windows.Forms.Padding(0);
+            this.grpModule.Name = "grpModule";
+            this.grpModule.Padding = new System.Windows.Forms.Padding(1, 9, 1, 1);
+            this.grpModule.Size = new System.Drawing.Size(1662, 388);
+            this.grpModule.TabIndex = 1;
+            this.grpModule.TabStop = false;
+            this.grpModule.Text = "MODULE LIST";
+            //
             // grid
-            // 
+            //
             this.grid.AllowUserToAddRows = false;
             this.grid.AllowUserToDeleteRows = false;
             this.grid.AutoSizeColumnsMode = System.Windows.Forms.DataGridViewAutoSizeColumnsMode.Fill;
@@ -257,6 +258,7 @@
             this.grid.SelectionMode = System.Windows.Forms.DataGridViewSelectionMode.FullRowSelect;
             this.grid.Size = new System.Drawing.Size(1662, 292);
             this.grid.TabIndex = 2;
+            this.grid.SelectionChanged += new System.EventHandler(this.grid_SelectionChanged);
             // 
             // dataGridViewTextBoxColumn1
             // 
@@ -365,24 +367,24 @@
             this.dataGridViewTextBoxColumn18.HeaderText = "ORG";
             this.dataGridViewTextBoxColumn18.Name = "ORG";
             this.dataGridViewTextBoxColumn18.ReadOnly = true;
-            // 
-            // lblConfigHeader
-            // 
-            this.lblConfigHeader.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(64)))), ((int)(((byte)(64)))), ((int)(((byte)(64)))));
-            this.lblConfigHeader.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblConfigHeader.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
-            this.lblConfigHeader.ForeColor = System.Drawing.Color.White;
-            this.lblConfigHeader.Location = new System.Drawing.Point(8, 368);
-            this.lblConfigHeader.Margin = new System.Windows.Forms.Padding(0, 0, 0, 4);
-            this.lblConfigHeader.Name = "lblConfigHeader";
-            this.lblConfigHeader.Padding = new System.Windows.Forms.Padding(10, 0, 0, 0);
-            this.lblConfigHeader.Size = new System.Drawing.Size(1662, 26);
-            this.lblConfigHeader.TabIndex = 3;
-            this.lblConfigHeader.Text = "CONFIGURATION";
-            this.lblConfigHeader.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            // 
+            //
+            // grpConfiguration
+            //
+            this.grpConfiguration.Controls.Add(this.configTabs);
+            this.grpConfiguration.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.grpConfiguration.Font = new System.Drawing.Font("맑은 고딕", 11F, System.Drawing.FontStyle.Bold);
+            this.grpConfiguration.ForeColor = System.Drawing.Color.Black;
+            this.grpConfiguration.Location = new System.Drawing.Point(8, 430);
+            this.grpConfiguration.Margin = new System.Windows.Forms.Padding(0);
+            this.grpConfiguration.Name = "grpConfiguration";
+            this.grpConfiguration.Padding = new System.Windows.Forms.Padding(1, 9, 1, 1);
+            this.grpConfiguration.Size = new System.Drawing.Size(1662, 388);
+            this.grpConfiguration.TabIndex = 2;
+            this.grpConfiguration.TabStop = false;
+            this.grpConfiguration.Text = "CONFIGURATION";
+            //
             // configTabs
-            // 
+            //
             this.configTabs.Alignment = System.Windows.Forms.TabAlignment.Left;
             this.configTabs.Controls.Add(this.tabStatus);
             this.configTabs.Controls.Add(this.tabConfig);
@@ -728,6 +730,9 @@
             this.speedGrid.SelectionMode = System.Windows.Forms.DataGridViewSelectionMode.CellSelect;
             this.speedGrid.Size = new System.Drawing.Size(1606, 346);
             this.speedGrid.TabIndex = 0;
+            this.speedGrid.CellDoubleClick += new System.Windows.Forms.DataGridViewCellEventHandler(this.OnSpeedCellDoubleClick);
+            this.speedGrid.ColumnHeaderMouseDoubleClick += new System.Windows.Forms.DataGridViewCellMouseEventHandler(this.OnSpeedHeaderDoubleClick);
+            this.speedGrid.DataError += new System.Windows.Forms.DataGridViewDataErrorEventHandler(this.speedGrid_DataError);
             // 
             // dataGridViewTextBoxColumn19
             // 
@@ -850,6 +855,7 @@
             this.btnSpeedReload.Size = new System.Drawing.Size(120, 38);
             this.btnSpeedReload.TabIndex = 1;
             this.btnSpeedReload.Text = "RELOAD";
+            this.btnSpeedReload.Click += new System.EventHandler(this.btnSpeedReload_Click);
             // 
             // btnSpeedSave
             // 
@@ -863,6 +869,7 @@
             this.btnSpeedSave.Size = new System.Drawing.Size(120, 38);
             this.btnSpeedSave.TabIndex = 0;
             this.btnSpeedSave.Text = "SAVE";
+            this.btnSpeedSave.Click += new System.EventHandler(this.btnSpeedSave_Click);
             // 
             // btnSpeedScale
             // 
@@ -876,6 +883,7 @@
             this.btnSpeedScale.Size = new System.Drawing.Size(110, 38);
             this.btnSpeedScale.TabIndex = 2;
             this.btnSpeedScale.Text = "100 %";
+            this.btnSpeedScale.Click += new System.EventHandler(this.OnSpeedScaleClick);
             // 
             // lblSpeedScaleCaption
             // 
@@ -887,18 +895,39 @@
             this.lblSpeedScaleCaption.TabIndex = 3;
             this.lblSpeedScaleCaption.Text = "DEFAULT SPEED SCALE %";
             this.lblSpeedScaleCaption.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
-            // 
+            //
+            // grpAction
+            //
+            this.grpAction.Controls.Add(this.actionsPanel);
+            this.grpAction.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.grpAction.Font = new System.Drawing.Font("맑은 고딕", 11F, System.Drawing.FontStyle.Bold);
+            this.grpAction.ForeColor = System.Drawing.Color.Black;
+            this.grpAction.Location = new System.Drawing.Point(8, 822);
+            this.grpAction.Margin = new System.Windows.Forms.Padding(0);
+            this.grpAction.Name = "grpAction";
+            this.grpAction.Padding = new System.Windows.Forms.Padding(1, 9, 1, 1);
+            this.grpAction.Size = new System.Drawing.Size(1662, 70);
+            this.grpAction.TabIndex = 3;
+            this.grpAction.TabStop = false;
+            this.grpAction.Text = "ACTION";
+            //
             // actionsPanel
-            // 
-            this.actionsPanel.ColumnCount = 10;
-            this.actionsPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 8F));
-            this.actionsPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 8F));
-            this.actionsPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 7F));
-            this.actionsPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 7F));
-            this.actionsPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 7F));
-            this.actionsPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 7F));
-            this.actionsPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 8F));
-            this.actionsPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 8F));
+            //
+            this.actionsPanel.ColumnCount = 14;
+            this.actionsPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 7.142857F));
+            this.actionsPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 7.142857F));
+            this.actionsPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 7.142857F));
+            this.actionsPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 7.142857F));
+            this.actionsPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 7.142857F));
+            this.actionsPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 7.142857F));
+            this.actionsPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 7.142857F));
+            this.actionsPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 7.142857F));
+            this.actionsPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 7.142857F));
+            this.actionsPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 7.142857F));
+            this.actionsPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 7.142857F));
+            this.actionsPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 7.142857F));
+            this.actionsPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 7.142857F));
+            this.actionsPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 7.142857F));
             this.actionsPanel.Controls.Add(this.btnHome, 0, 0);
             this.actionsPanel.Controls.Add(this.btnAllStop, 1, 0);
             this.actionsPanel.Controls.Add(this.btnAlarmClear, 2, 0);
@@ -931,6 +960,7 @@
             this.btnHome.Size = new System.Drawing.Size(122, 44);
             this.btnHome.TabIndex = 2;
             this.btnHome.Text = "INIT AXIS";
+            this.btnHome.Click += new System.EventHandler(this.btnHome_Click);
             // 
             // btnAllStop
             // 
@@ -945,6 +975,7 @@
             this.btnAllStop.Size = new System.Drawing.Size(122, 44);
             this.btnAllStop.TabIndex = 5;
             this.btnAllStop.Text = "ALL STOP";
+            this.btnAllStop.Click += new System.EventHandler(this.btnAllStop_Click);
             // 
             // btnAlarmClear
             // 
@@ -959,6 +990,7 @@
             this.btnAlarmClear.Size = new System.Drawing.Size(138, 44);
             this.btnAlarmClear.TabIndex = 4;
             this.btnAlarmClear.Text = "ALARM CLEAR";
+            this.btnAlarmClear.Click += new System.EventHandler(this.btnAlarmClear_Click);
             // 
             // btnAllServoOff
             // 
@@ -973,6 +1005,7 @@
             this.btnAllServoOff.Size = new System.Drawing.Size(154, 44);
             this.btnAllServoOff.TabIndex = 5;
             this.btnAllServoOff.Text = "ALL SERVO OFF";
+            this.btnAllServoOff.Click += new System.EventHandler(this.btnAllServoOff_Click);
             // 
             // btnServoOn
             // 
@@ -987,6 +1020,7 @@
             this.btnServoOn.Size = new System.Drawing.Size(122, 44);
             this.btnServoOn.TabIndex = 6;
             this.btnServoOn.Text = "SERVO ON";
+            this.btnServoOn.Click += new System.EventHandler(this.btnServoOn_Click);
             // 
             // btnServoOff
             // 
@@ -1001,6 +1035,7 @@
             this.btnServoOff.Size = new System.Drawing.Size(122, 44);
             this.btnServoOff.TabIndex = 7;
             this.btnServoOff.Text = "SERVO OFF";
+            this.btnServoOff.Click += new System.EventHandler(this.btnServoOff_Click);
             // 
             // btnParaLoad
             // 
@@ -1015,6 +1050,7 @@
             this.btnParaLoad.Size = new System.Drawing.Size(106, 44);
             this.btnParaLoad.TabIndex = 8;
             this.btnParaLoad.Text = "PARA LOAD";
+            this.btnParaLoad.Click += new System.EventHandler(this.btnParaLoad_Click);
             // 
             // btnParaSave
             // 
@@ -1029,6 +1065,7 @@
             this.btnParaSave.Size = new System.Drawing.Size(106, 44);
             this.btnParaSave.TabIndex = 9;
             this.btnParaSave.Text = "PARA SAVE";
+            this.btnParaSave.Click += new System.EventHandler(this.btnParaSave_Click);
             // 
             // btnBoardScan
             // 
@@ -1043,6 +1080,7 @@
             this.btnBoardScan.Size = new System.Drawing.Size(110, 44);
             this.btnBoardScan.TabIndex = 10;
             this.btnBoardScan.Text = "BOARD SCAN";
+            this.btnBoardScan.Click += new System.EventHandler(this.btnBoardScan_Click);
             // 
             // btnMotionTest
             // 
@@ -1057,6 +1095,7 @@
             this.btnMotionTest.Size = new System.Drawing.Size(126, 44);
             this.btnMotionTest.TabIndex = 11;
             this.btnMotionTest.Text = "MOTION TEST";
+            this.btnMotionTest.Click += new System.EventHandler(this.btnMotionTest_Click);
             // 
             // MotionPage
             // 
@@ -1065,6 +1104,7 @@
             this.Controls.Add(this.rootLayout);
             this.Name = "MotionPage";
             this.Size = new System.Drawing.Size(1678, 900);
+            this.Load += new System.EventHandler(this.MotionPage_Load);
             this.rootLayout.ResumeLayout(false);
             ((System.ComponentModel.ISupportInitialize)(this.grid)).EndInit();
             this.configTabs.ResumeLayout(false);
@@ -1082,6 +1122,9 @@
             ((System.ComponentModel.ISupportInitialize)(this.speedGrid)).EndInit();
             this.speedButtons.ResumeLayout(false);
             this.actionsPanel.ResumeLayout(false);
+            this.grpModule.ResumeLayout(false);
+            this.grpConfiguration.ResumeLayout(false);
+            this.grpAction.ResumeLayout(false);
             this.ResumeLayout(false);
 
         }

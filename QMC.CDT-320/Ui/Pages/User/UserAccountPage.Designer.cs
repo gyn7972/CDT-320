@@ -91,6 +91,9 @@ namespace QMC.CDT_320.Ui.Pages.User
             this.grid.Font = new System.Drawing.Font("Consolas", 10F, System.Drawing.FontStyle.Bold);
             this.grid.RowHeadersVisible = false;
             this.grid.RowTemplate.Height = 28;
+            this.grid.CellDoubleClick += new System.Windows.Forms.DataGridViewCellEventHandler(this.grid_CellDoubleClick);
+            this.grid.Scroll += new System.Windows.Forms.ScrollEventHandler(this.grid_Scroll);
+            this.grid.SizeChanged += new System.EventHandler(this.grid_SizeChanged);
             //
             // colId
             //
@@ -159,6 +162,7 @@ namespace QMC.CDT_320.Ui.Pages.User
             this.btnAdd.Margin = new System.Windows.Forms.Padding(0, 0, 8, 0);
             this.btnAdd.Text = "추가";
             this.btnAdd.UseVisualStyleBackColor = false;
+            this.btnAdd.Click += new System.EventHandler(this.btnAdd_Click);
             //
             // btnEdit
             //
@@ -172,6 +176,7 @@ namespace QMC.CDT_320.Ui.Pages.User
             this.btnEdit.Margin = new System.Windows.Forms.Padding(0, 0, 8, 0);
             this.btnEdit.Text = "수정";
             this.btnEdit.UseVisualStyleBackColor = false;
+            this.btnEdit.Click += new System.EventHandler(this.btnEdit_Click);
             //
             // btnDelete
             //
@@ -185,6 +190,7 @@ namespace QMC.CDT_320.Ui.Pages.User
             this.btnDelete.Margin = new System.Windows.Forms.Padding(0, 0, 8, 0);
             this.btnDelete.Text = "삭제";
             this.btnDelete.UseVisualStyleBackColor = false;
+            this.btnDelete.Click += new System.EventHandler(this.btnDelete_Click);
             //
             // btnLogout
             //
@@ -198,6 +204,7 @@ namespace QMC.CDT_320.Ui.Pages.User
             this.btnLogout.Margin = new System.Windows.Forms.Padding(0, 0, 0, 0);
             this.btnLogout.Text = "로그아웃";
             this.btnLogout.UseVisualStyleBackColor = false;
+            this.btnLogout.Click += new System.EventHandler(this.btnLogout_Click);
             //
             // UserAccountPage
             //
