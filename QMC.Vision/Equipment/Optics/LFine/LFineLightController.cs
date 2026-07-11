@@ -127,6 +127,9 @@ namespace QMC.Vision.Optics.LFine
         public async Task<bool> SetChannelBatchAsync(int page, int[] times)
         {
             if (times == null || times.Length != ChannelCount) return false;
+            // 값 < 0 = "유지" 요청(2026-07-11) — LFine SP 는 페이지 전 채널 1프레임이라 유지가 불가능하고,
+            // 모듈 간 페이지가 분리돼 있어 교차 소등도 없다 → 0(소등)으로 해석(종전 동작 동일).
+            for (int i = 0; i < times.Length; i++) if (times[i] < 0) times[i] = 0;
             if (_batchCache.IsHit(page, times)) return true;   // 캐시 히트 — 송신/대기 생략
 
             bool ok = SendFrame(LFineProtocol.PageOnTimeFrame(page, times));   // 페이지 전체 1프레임

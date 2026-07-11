@@ -88,8 +88,8 @@ namespace QMC.Vision.Ui.Pages
             try
             {
                 if (_bar == null) return;
-                var vis = new[] { _btnSave, _btnApply, _btnReset, _btnCancel }
-                    .Where(b => b != null && b.Visible).ToArray();
+                var vis = new[] { _btnSave, _btnApply, _btnLightOn, _btnLightOff, _btnReset, _btnCancel }
+                    .Where(b => b != null && b.Visible).ToArray();   // 조명 ON/OFF 포함 — 미포함 시 재배치된 버튼에 덮여 안 보였음(2026-07-11)
                 if (vis.Length == 0) return;
 
                 const int pad = 8, gap = 6;
@@ -118,13 +118,26 @@ namespace QMC.Vision.Ui.Pages
             { if (!_suppressChange) LightChanged?.Invoke(this, EventArgs.Empty); };
 
             if (!_langHooked) { Lang.LanguageChanged += OnLanguageChanged; _langHooked = true; }
+            if (!_setupHooked) { QMC.Vision.Core.LightSetupNotifier.Changed += OnLightSetupChanged; _setupHooked = true; }
             ApplyLanguage();
         }
 
         protected override void OnHandleDestroyed(EventArgs e)
         {
             if (_langHooked) { Lang.LanguageChanged -= OnLanguageChanged; _langHooked = false; }
+            if (_setupHooked) { QMC.Vision.Core.LightSetupNotifier.Changed -= OnLightSetupChanged; _setupHooked = false; }
             base.OnHandleDestroyed(e);
+        }
+
+        private bool _setupHooked;   // LightSetupNotifier 중복 구독 방지
+
+        /// <summary>[설정] 조명 인벤토리/지정 저장·조명 연결 통지 — 재시작 없이 즉시 재바인딩(2026-07-11).</summary>
+        private void OnLightSetupChanged()
+        {
+            if (IsDisposed) return;
+            if (InvokeRequired) { try { BeginInvoke((Action)OnLightSetupChanged); } catch { } return; }
+            BindFields();
+            SetStatus("조명 설정 변경 감지 — 다시 불러옴", false);
         }
 
         /// <summary>언어 변경 — UI 스레드로 마샬링 후 표시 문구 재적용.</summary>
@@ -234,14 +247,14 @@ namespace QMC.Vision.Ui.Pages
                         continue;
                     }
                     ports.Add(grp.Key);
-                    tasks.Add(ApplyControllerAsync(ctrl, grp.ToList()));
+                    tasks.Add(TurnOffControllerAsync(ctrl, grp.ToList()));
                 }
                 if (tasks.Count == 0) { SetStatus(Lang.T("rec.lightApplyNoCtrl"), true); return; }
 
                 var results = await Task.WhenAll(tasks);
                 int okCtrl = results.Count(r => r);
                 SetStatus("조명 OFF — " + okCtrl + "/" + tasks.Count + " 컨트롤러 소등", okCtrl != tasks.Count);
-                LogLight("조명 OFF 완료 — 포트=[" + string.Join(",", ports) + "] 전 채널 0 송신 (" + okCtrl + "/" + tasks.Count + ")");
+                LogLight("조명 OFF 완료 — 포트=[" + string.Join(",", ports) + "] 레벨 0 + 채널 OFF 명령 송신 (" + okCtrl + "/" + tasks.Count + ")");
             }
             catch (Exception ex)
             {
@@ -465,6 +478,20 @@ namespace QMC.Vision.Ui.Pages
             catch { }
         }
 
+        /// <summary>[조명 OFF] 전용 — 레벨 0 배치에 더해 채널별 OFF 명령까지 송신해 확실히 소등.
+        /// 컨티뉴어스 조명(LeesOS: LH OFF)은 볼륨 0 외에 채널 OFF 명령이 실제 소등 명령이다(2026-07-11).
+        /// LFine 은 SetOnOffAsync(false)=파워 0 송신이라 동일 경로로 무해.</summary>
+        private async Task<bool> TurnOffControllerAsync(ILightController ctrl, List<InspectionLightSetting> settings)
+        {
+            bool ok = await ApplyControllerAsync(ctrl, settings);   // 전 채널 레벨 0 배치
+            foreach (var s in settings)
+            {
+                if (s.Channel < 1 || s.Channel > ctrl.ChannelCount) continue;
+                ok &= await ctrl.SetOnOffAsync(s.Channel, false);
+            }
+            return ok;
+        }
+
         /// <summary>한 컨트롤러의 settings 를 Page 별 batch 로 적용 (Level 0 = OFF=미사용). 모두 성공 시 true.</summary>
         private async Task<bool> ApplyControllerAsync(ILightController ctrl, List<InspectionLightSetting> settings)
         {
@@ -472,10 +499,12 @@ namespace QMC.Vision.Ui.Pages
             foreach (var pgrp in settings.GroupBy(s => s.Page).OrderBy(g => g.Key))
             {
                 await ctrl.SwitchPageAsync(pgrp.Key);
-                int[] times = new int[ctrl.ChannelCount];   // 0 = OFF (미사용)
+                // -1 = 이 검사에 미지정 채널 "유지" — 같은 컨트롤러를 나눠 쓰는 다른 검사의 조명을 끄지 않는다(2026-07-11).
+                int[] times = new int[ctrl.ChannelCount];
+                for (int i = 0; i < times.Length; i++) times[i] = -1;
                 foreach (var s in pgrp)
                 {
-                    // 결선 풀 검증 폐기(C3b-3) — 컨트롤러의 전 채널이 유효, 레벨 0 = OFF(미사용).
+                    // 결선 풀 검증 폐기(C3b-3) — 컨트롤러의 전 채널이 유효, 레벨 0 = OFF(이 검사 지정 채널만).
                     if (s.Channel >= 1 && s.Channel <= ctrl.ChannelCount)
                         times[s.Channel - 1] = s.On ? s.Level : 0;
                 }

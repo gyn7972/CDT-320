@@ -709,6 +709,29 @@ namespace QMC.Vision.Inspector
                 result.Corners[2] = resultChppingNForeign.RightBottom; // Bottom-right corner
                 result.Corners[3] = resultChppingNForeign.LeftBottom; // Bottom-left corner
 
+                // 칩핑 컨투어/이물 위치도 코너와 동일 규약(×0.5 + ChipRoi 좌상단)으로 원본 입력 좌표 환산.
+                // (검사는 2배 확장 이미지에서 수행 — 종전에는 컨투어가 검사 좌표 그대로 반환되어
+                //  소비측(BottomInspector)에서 디펙 마크가 엉뚱한 위치에 표시됐다. 2026-07-11)
+                foreach (var ci in result.ChippingInfos)
+                {
+                    if (ci == null || ci.Contour == null) continue;
+                    for (int i = 0; i < ci.Contour.Count; i++)
+                    {
+                        PointF p = ci.Contour[i];
+                        OffsetPointFAndReSize(ref p, bip.ChipRoi, 0.5);
+                        ci.Contour[i] = p;
+                    }
+                }
+                foreach (var fi in result.ForeignInfos)
+                {
+                    if (fi == null) continue;
+                    fi.Rect = new RectangleF(
+                        bip.ChipRoi.Left + fi.Rect.X * 0.5f,
+                        bip.ChipRoi.Top + fi.Rect.Y * 0.5f,
+                        fi.Rect.Width * 0.5f,
+                        fi.Rect.Height * 0.5f);
+                }
+
                 double dOffsetX = 0;
                 double dOffsetY = 0;
                 foreach (var v in result.Corners)
@@ -1410,10 +1433,13 @@ namespace QMC.Vision.Inspector
                 if (isNg && regionPoints.Count > bip.MinForeignAreaFilterSize)
                 {
                     bForeign = true;
+                    // 이물 위치를 결과에 담는다(검사 좌표 — 반환 직전 BottomInspect 가 원본 좌표로 환산).
+                    result.ForeignInfos.Add(new ForeignInfo { Rect = saveRect, SizeMm = foreignSize, Area = area, IsNg = true });
                     SaveDefactImage(w, h, shiftImage, saveRect, bip, null, true, result , area);
                 }
                 else if (foreignSize > bip.ForeignObjectSize / 5)
                 {
+                    result.ForeignInfos.Add(new ForeignInfo { Rect = saveRect, SizeMm = foreignSize, Area = area, IsNg = false });
                     SaveDefactImage(w, h, shiftImage, saveRect, bip, null, false, result, area);
                 }
             }

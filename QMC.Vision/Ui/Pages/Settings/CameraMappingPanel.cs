@@ -1339,6 +1339,7 @@ namespace QMC.Vision.Ui.Pages
             if (msetup != null) { msetup.LightPages = CollectLightPages(); lightCount = msetup.LightPages.Count; }
             mod.SaveSettings();
             mod.SaveRecipe(ActiveRecipeName());   // 카메라 Recipe(노출 등 품목별) = 활성 레시피에 저장(구 "default" 하드코딩 수정)
+            QMC.Vision.Core.LightSetupNotifier.Notify();   // 조명 지정 변경 — 레시피 조명 패널 즉시 재바인딩(재시작 불필요)
             OnMilFieldChanged();
             VisionConfigStore.Save();   // MIL DCF/System 등 전역 설정 영속
 

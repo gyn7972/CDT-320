@@ -27,6 +27,11 @@ namespace QMC.Vision.Inspector
         public PointF[] Corners { get; set; } = new PointF[4];
 
         public List<ChippingInfo> ChippingInfos { get; set; } = new List<ChippingInfo>();
+
+        // 이물 위치/크기 목록 — 좌표는 BottomInspect 반환 시 코너와 동일 규약(×0.5 + ChipRoi 좌상단)으로
+        // 원본 입력 이미지 기준으로 환산되어 담긴다(2026-07-11, 종전에는 크기만 반환하고 위치는 버렸음).
+        public List<ForeignInfo> ForeignInfos { get; set; } = new List<ForeignInfo>();
+
         // 불량 코드
         public int DefectCode { get; set; }
         public double Channel1ChippingSize { get; set; } = 0;
@@ -45,6 +50,18 @@ namespace QMC.Vision.Inspector
         public Image DisplayImage = null;
         public int SaveCount = 0;
     }
+    /// <summary>
+    /// 이물 1건의 위치/크기. Rect 좌표계는 수집 시 검사(2배 확장) 이미지 기준이며,
+    /// BottomInspect 가 반환 직전 코너와 동일 규약(×0.5 + ChipRoi 좌상단)으로 원본 입력 좌표로 환산한다.
+    /// </summary>
+    public class ForeignInfo
+    {
+        public RectangleF Rect { get; set; }
+        public double SizeMm { get; set; }
+        public int Area { get; set; }
+        public bool IsNg { get; set; }
+    }
+
     public class SideResult
     {
       
