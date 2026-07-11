@@ -1839,12 +1839,26 @@ namespace QMC.CDT320.Sequencing
             CancellationToken ct)
         {
             double ejectPinZAvoid = ResolveEjectPinZAvoidTarget(stage);
-            return await MoveInputStageAxisToAvoidAndVerifyIfNeededAsync(
+            int vacuumOffResult = EnsureNeedleVacuumOffForPick(stage, description + " - EjectPinZ Avoid 이동 전");
+            if (vacuumOffResult != 0)
+                return vacuumOffResult;
+
+            int result = await MoveInputStageAxisToAvoidAndVerifyIfNeededAsync(
                 stage,
                 WaferStageAxis.EjectPinZ,
                 ejectPinZAvoid,
                 description + " - EjectPinZ Avoid",
                 ct).ConfigureAwait(false);
+            if (result != 0)
+                return result;
+
+            WriteLog("PickerPickUpZ",
+                Name + " Needle Vacuum OFF 후 EjectPinZ Avoid 완료 확인. " +
+                "description=" + description +
+                ", " + BuildInputStageAxisState(stage, WaferStageAxis.EjectPinZ, ejectPinZAvoid) +
+                " - Ok");
+
+            return 0;
         }
 
         private bool CanUseContiSegmentedPickUpFromCurrentPosition(
@@ -5258,6 +5272,12 @@ namespace QMC.CDT320.Sequencing
                 if (check != 0)
                     return check;
 
+                WriteLog("PickerPickUpZ",
+                    Name + " Needle Vacuum OFF 후 EjectPinZ Avoid 완료 확인. " +
+                    "description=" + description +
+                    ", " + BuildInputStageAxisState(stage, WaferStageAxis.EjectPinZ, ejectPinZAvoid) +
+                    " - Ok");
+
                 check = CheckInputStageAxisInPosition(stage, WaferStageAxis.NeedleZ, needleTeachingTarget, description + " NeedleZ teaching 유지");
                 if (check != 0)
                     return check;
@@ -6943,6 +6963,13 @@ namespace QMC.CDT320.Sequencing
 
                 if (!IsInputStageAxisAlreadyInPosition(stage, WaferStageAxis.WaferY, target))
                 {
+                    int safeResult = await EnsureEjectPinZAtAvoidBeforePickStageMoveAsync(
+                        stage,
+                        description + " StageY 이동 전",
+                        ct).ConfigureAwait(false);
+                    if (safeResult != 0)
+                        return safeResult;
+
                     int result = await MoveInputStageYForPickerWorkPointCommandAsync(
                         stage,
                         workAreaVisionX,
@@ -7396,6 +7423,11 @@ namespace QMC.CDT320.Sequencing
                 int check = CheckInputStageAxisInPosition(stage, WaferStageAxis.EjectPinZ, ejectTarget, "PickUp 후 EjectPinZ Avoid 이동");
                 if (check != 0)
                     return check;
+
+                WriteLog("PickerPickUpZ",
+                    Name + " Needle Vacuum OFF 후 EjectPinZ Avoid 완료 확인. " +
+                    BuildInputStageAxisState(stage, WaferStageAxis.EjectPinZ, ejectTarget) +
+                    " - Ok");
 
                 check = CheckInputStageAxisInPosition(stage, WaferStageAxis.NeedleZ, needleTeachingTarget, "PickUp 후 NeedleZ teaching 유지");
                 if (check != 0)

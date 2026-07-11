@@ -6,51 +6,51 @@ using System.Threading.Tasks;
 
 namespace QMC.CDT320
 {
-    // ??????????????????????????????????????????????????????????????????????????
-    //  CDT-320 ���� ���� ������ Ŭ����
-    // ??????????????????????????????????????????????????????????????????????????
+    // ----------------------------------------------------------------------
+    //  CDT-320 설비 수준 데이터 클래스
+    // ----------------------------------------------------------------------
 
-    /// <summary>CDT-320 ���� ������ �ⱸ�� ������.</summary>
+    /// <summary>CDT-320 설비 수준의 기구적 설정값.</summary>
     public class CDT320MachineSetup : ISetupData
     {
-        /// <summary>���� �ø��� ��Ī.</summary>
+        /// <summary>설비 시리즈 명칭.</summary>
         public string MachineSeries { get; set; } = "CDT-320";
     }
 
-    /// <summary>CDT-320 ���� ������ ���� ��� �Ķ����.</summary>
+    /// <summary>CDT-320 설비 수준의 고정 사양 파라미터.</summary>
     public class CDT320MachineConfig : IConfigData
     {
-        /// <summary>����Ʈ���� �� ����.</summary>
+        /// <summary>소프트웨어 모델 버전.</summary>
         public string ModelVersion { get; set; } = "v1.0";
     }
 
-    /// <summary>CDT-320 ���� ������ ������ �۾� �Ķ����.</summary>
+    /// <summary>CDT-320 설비 수준의 공정별 작업 파라미터.</summary>
     public class CDT320MachineRecipe : IRecipeData
     {
-        /// <summary>���� �ε�� ��ǰ(����) ID.</summary>
+        /// <summary>현재 로드된 제품(공정) ID.</summary>
         public string ProductId { get; set; } = "PRODUCT-A";
     }
 
-    // ??????????????????????????????????????????????????????????????????????????
-    //  Null Object ����ü ? ��� �� �ܵ� �׽�Ʈ��
-    //  ���� �ϵ����/���� ���� �� �������� �����Ű�� ���� �ּ� �����̴�.
-    //  �� ����ý��� ���� �Ϸ� �� �ش� ��ü Ŭ������ ��ü�Ѵ�.
-    // ??????????????????????????????????????????????????????????????????????????
+    // ----------------------------------------------------------------------
+    //  Null Object 구현체 - 빌드 및 단독 테스트용
+    //  실제 하드웨어/서버 연동 전 컴파일을 통과시키기 위한 최소 구현이다.
+    //  각 서브시스템 구현 완료 후 해당 구체 클래스로 교체한다.
+    // ----------------------------------------------------------------------
 
-    /// <summary>IWaferLoader ���� Null Object.</summary>
+    /// <summary>IWaferLoader 빌드용 Null Object.</summary>
     internal class NullWaferLoader : IWaferLoader
     {
         public bool IsFeederAtSafePosition => true;
     }
 
-    /// <summary>IBarcodeReader ���� Null Object.</summary>
+    /// <summary>IBarcodeReader 빌드용 Null Object.</summary>
     internal class NullBarcodeReader : IBarcodeReader
     {
         public Task<string> ReadAsync(int timeoutMs = 3000)
             => Task.FromResult("WAFER-NULL-ID");
     }
 
-    /// <summary>IVisionTcpClient ���� Null Object (InputStageUnit��).</summary>
+    /// <summary>IVisionTcpClient 빌드용 Null Object (InputStageUnit용).</summary>
     internal class NullVisionTcpClient : IVisionTcpClient
     {
         public Task<bool> TriggerExposeAsync(int dieIndex)
@@ -63,7 +63,7 @@ namespace QMC.CDT320
             => Task.FromResult(new VisionAlignResult());
     }
 
-    /// <summary>IWaferMapHandler ���� Null Object.</summary>
+    /// <summary>IWaferMapHandler 빌드용 Null Object.</summary>
     internal class NullWaferMapHandler : IWaferMapHandler
     {
         public Task<WaferMapData> ParseMapAsync(string waferId)
@@ -78,7 +78,7 @@ namespace QMC.CDT320
         public void SendMapToUi(WaferMapData mapData) { }
     }
 
-    /// <summary>ITransferPickerUnit ���� Null Object.</summary>
+    /// <summary>ITransferPickerUnit 빌드용 Null Object.</summary>
     internal class NullTransferPickerUnit : ITransferPickerUnit
     {
         public int  PickerCount    => 1;
@@ -90,7 +90,7 @@ namespace QMC.CDT320
             => Task.FromResult(true);
     }
 
-    /// <summary>IVisionTpuClient ���� Null Object (TransferPickerUnit��).</summary>
+    /// <summary>IVisionTpuClient 빌드용 Null Object (TransferPickerUnit용).</summary>
     internal class NullVisionTpuClient : IVisionTpuClient
     {
         public Task<bool> TriggerBottomExposeAsync(int pickerNo, int timeoutMs = 1000)
@@ -168,7 +168,7 @@ namespace QMC.CDT320
         }
     }
 
-    /// <summary>ITpuUnit �� Null Object (OutputStageUnit��).</summary>
+    /// <summary>ITpuUnit 용 Null Object (OutputStageUnit용).</summary>
     internal class NullTpuUnit : ITpuUnit
     {
         public void NotifyPlaceReady() { }
@@ -185,85 +185,85 @@ namespace QMC.CDT320
             => Task.FromResult(true);
     }
 
-    /// <summary>IOutputUnloaderUnit �� Null Object (OutputStageUnit��).</summary>
+    /// <summary>IOutputUnloaderUnit 용 Null Object (OutputStageUnit용).</summary>
     internal class NullOutputUnloaderUnit : IOutputUnloaderUnit
     {
         public Task<bool> RequestWaferChangeAsync(DieGrade grade, int timeoutMs = 0)
             => Task.FromResult(true);
     }
 
-    // ??????????????????????????????????????????????????????????????????????????
-    //  ��4. VisionInspectionUnit
-    // ??????????????????????????????????????????????????????????????????????????
+    // ----------------------------------------------------------------------
+    //  §4. VisionInspectionUnit
+    // ----------------------------------------------------------------------
 
     /// <summary>
-    /// Vision Inspection ����.<br/>
-    /// �ִ� 5��(Bottom 1�� + Side 4��)�� �Ի��Ͽ� ����ũ�ν�ũ��ġ�� �� Ĩ�� �����ϴ� ����.
+    /// Vision Inspection 유닛.<br/>
+    /// 최대 5면(Bottom 1면 + Side 4면)을 촬상하여 마이크로스크래치를 및 칩을 검출하는 유닛.
     /// </summary>
     public class VisionInspectionUnit : BaseUnit<UnitSetup, UnitConfig, UnitRecipe>
     {
-        /// <summary>Vision Inspection ������ �ʱ�ȭ�Ѵ�.</summary>
+        /// <summary>Vision Inspection 유닛을 초기화한다.</summary>
         public VisionInspectionUnit() : base("VisionInspectionUnit") { }
     }
 
-    // ??????????????????????????????????????????????????????????????????????????
-    //  CDT-320 �ӽ� ��Ʈ Ŭ����
-    // ??????????????????????????????????????????????????????????????????????????
+    // ----------------------------------------------------------------------
+    //  CDT-320 머신 루트 클래스
+    // ----------------------------------------------------------------------
 
     /// <summary>
-    /// CDT-320 �ӽ� 5�� �˻� �� �з� �ڵ鷯 ����� �ֻ��� ��Ʈ Ŭ����.<br/>
-    /// 6���� Main Unit�� �����ϸ�, Composite Pattern�� ���� Save() �� ���� ������
-    /// ��ü Ʈ���� ��������� ���ĵȴ�.
+    /// CDT-320 머신 5개 검사 및 분류 핸들러 장비의 최상위 루트 클래스.<br/>
+    /// 6개의 Main Unit을 소유하며, Composite Pattern에 의해 Save() 등 공통 동작이
+    /// 전체 트리에 재귀적으로 전파된다.
     /// <para>
-    /// ��� ���� �帧:<br/>
-    /// [InputLoader] �� [InputStage] �� [Picker] �� [VisionInspection]
-    ///                                      �� [OutputStage] �� [OutputCassette/OutputFeeder]
+    /// 장비 공정 흐름:<br/>
+    /// [InputLoader] → [InputStage] → [Picker] → [VisionInspection]
+    ///                                      → [OutputStage] → [OutputCassette/OutputFeeder]
     /// </para>
     /// </summary>
     public class CDT320_Machine
         : Machine<CDT320MachineSetup, CDT320MachineConfig, CDT320MachineRecipe>
     {
-        /// <summary>Input Cassette���� �����۸� �����ϴ� �δ� ����.</summary>
+        /// <summary>Input Cassette에서 웨이퍼를 공급하는 로더 유닛.</summary>
         public InputCassetteUnit    InputCassetteUnit { get; }
         public InputFeederUnit      InputFeederUnit { get; }
-        /// <summary>�����۸� �����ϰ� ���� ��ġ�� �����ϴ� Input Stage ����.</summary>
+        /// <summary>웨이퍼를 고정하고 다이 위치를 관리하는 Input Stage 유닛.</summary>
         public InputStageUnit       InputStageUnit       { get; }
 
-        /// <summary>���� PickerFront Sheet ���� ��/I/O/ƼĪ Unit�Դϴ�.</summary>
+        /// <summary>엑셀 PickerFront Sheet 기준 축/I/O/티칭 Unit입니다.</summary>
         public PickerFrontUnit      PickerFrontUnit      { get; }
-        /// <summary>���� PickerRear Sheet ���� ��/I/O/ƼĪ Unit�Դϴ�.</summary>
+        /// <summary>엑셀 PickerRear Sheet 기준 축/I/O/티칭 Unit입니다.</summary>
         public PickerRearUnit       PickerRearUnit       { get; }
 
-        // <summary>���� Vision Sheet ���� ��/I/O/ƼĪ Unit�Դϴ�.</summary>
+        // <summary>엑셀 Vision Sheet 기준 축/I/O/티칭 Unit입니다.</summary>
         public VisionUnit VisionUnit { get; }
 
-        // �̰� ����?
-        /// <summary>5�� �Ի� �� ��� ���� ����.</summary>
+        // 이거 쓰나?
+        /// <summary>5면 촬상 후 결과 판정 유닛.</summary>
         public VisionInspectionUnit VisionInspection { get; }
-        
-        /// <summary>��� �з� ���� Output Stage ����.</summary>
+
+        /// <summary>양불 분류 적재 Output Stage 유닛.</summary>
         public OutputStageUnit      OutputStageUnit      { get; }
-        /// <summary>Output Bin Feeder Y��� Ŭ���� �Ǹ����� ����ϴ� �����Դϴ�.</summary>
+        /// <summary>Output Bin Feeder Y축과 클램프 실린더를 담당하는 유닛입니다.</summary>
         public OutputFeederUnit OutputFeederUnit { get; }
-        /// <summary>Output Bin ī��Ʈ �����Ϳ� ���� ������ ����ϴ� �����Դϴ�.</summary>
+        /// <summary>Output Bin 카세트 리프터와 매핑 센서를 담당하는 유닛입니다.</summary>
         public OutputCassetteUnit      OutputCassetteUnit      { get; }
 
-        /// <summary>Stage 45 ? ���� �г� (��ư + ���� + ��ȣž + ����).</summary>
+        /// <summary>Stage 45 - 운전 패널 (버튼 + 램프 + 신호탑 + 부저).</summary>
         public OperationPanelUnit   OpPanelUnit          { get; }
 
-        /// <summary>Stage 46 ? Resource Sensors (CDA + Vacuum ���� �з� ����).</summary>
+        /// <summary>Stage 46 - Resource Sensors (CDA + Vacuum 라인 압력 감지).</summary>
         public ResourceSensorsUnit  ResourcesUnit        { get; }
 
-        /// <summary>Stage 47 ? Ionizer (������ ���ű�).</summary>
+        /// <summary>Stage 47 - Ionizer (정전기 제거기).</summary>
         public IonizerUnit          IonizerUnit          { get; }
 
-        /// <summary>Stage 50 ? Bin Barcode Reader (Output ī��Ʈ ID �б�).</summary>
+        /// <summary>Stage 50 - Bin Barcode Reader (Output 카세트 ID 읽기).</summary>
         public IBarcodeReader       BinBarcodeReader { get; }
 
         /// <summary>
-        /// <see cref="CDT320_Machine"/>�� �ʱ�ȭ�ϰ� 6�� Unit Ʈ���� �����Ѵ�.<br/>
-        /// ��� �ܺ� ���� �������̽��� Null Object�� �ʱ�ȭ�Ǹ�,
-        /// ���� �ϵ���� �ý��� ���� �Ϸ� �� ������ ����(DI)���� ��ü�Ѵ�.
+        /// <see cref="CDT320_Machine"/>을 초기화하고 6개 Unit 트리를 구성한다.<br/>
+        /// 모든 외부 연동 인터페이스는 Null Object로 초기화되며,
+        /// 실제 하드웨어 시스템 구성 완료 후 의존성 주입(DI)으로 교체한다.
         /// </summary>
         public CDT320_Machine() : base("CDT-320")
         {
@@ -271,10 +271,10 @@ namespace QMC.CDT320
             InputFeederUnit = new InputFeederUnit();
             InputCassetteUnit.BindMachine(this);
 
-            // InputStageUnit - Wafer Vision �� �� TCP Adapter ��� (QMC.Vision �� ���).
-            // VisionHub �� ���� �� �� ��� Adapter �� ���� fallback(Expose/Match = false).
-            // Stage 28 ? NullWaferLoader �� WaferLoaderAdapter(InputLoader) �� ��ü:
-            //   InputStage �� ���� ���Ͷ��� �� InputLoader.FeederY ��ġ + Cyl ���¸� üũ�ϵ��� ��.
+            // InputStageUnit - Wafer Vision 은 실 TCP Adapter 사용 (QMC.Vision 과 통신).
+            // VisionHub 가 연결 안 된 경우 Adapter 는 안전 fallback(Expose/Match = false).
+            // Stage 28 - NullWaferLoader 를 WaferLoaderAdapter(InputLoader) 로 교체:
+            //   InputStage 의 안전 인터락이 실 InputLoader.FeederY 위치 + Cyl 상태를 체크하도록 함.
             InputStageUnit = new InputStageUnit(
                 vision: new VisionComm.WaferVisionAdapter(),
                 mapHandler: new NullWaferMapHandler());
@@ -295,19 +295,19 @@ namespace QMC.CDT320
             OutputStageUnit = new OutputStageUnit(
                 tpu: new NullTpuUnit(),
                 unloader: new QMC.CDT320.Sim.OutputUnloaderAdapter(OutputCassetteUnit, OutputFeederUnit));
-            
 
-            // Stage 45 ? Operation Panel + Tower Lamp + Buzzer �ű�
+
+            // Stage 45 - Operation Panel + Tower Lamp + Buzzer 신규
             OpPanelUnit = new OperationPanelUnit();
 
-            // Stage 46 ? Resource Sensors (CDA + Vacuum ����)
+            // Stage 46 - Resource Sensors (CDA + Vacuum 라인)
             ResourcesUnit = new ResourceSensorsUnit();
 
-            // Stage 47 ? Ionizer (������ ���ű�)
+            // Stage 47 - Ionizer (정전기 제거기)
             IonizerUnit = new IonizerUnit();
 
-            // Stage 50 ? Bin Barcode Reader (���� IBarcodeReader �ν��Ͻ�)
-            //   �Ǻ��� � �� BarcodeSerialAdapter �� ��ü ����
+            // Stage 50 - Bin Barcode Reader (별도 IBarcodeReader 인스턴스)
+            //   실보드 운영 시 BarcodeSerialAdapter 로 교체 가능
             BinBarcodeReader = new NullBarcodeReader();
 
 
