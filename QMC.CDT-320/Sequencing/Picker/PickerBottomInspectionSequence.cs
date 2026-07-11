@@ -423,6 +423,7 @@ namespace QMC.CDT320.Sequencing
                     "bottom inspection X/Y",
                     ct,
                     BuildBottomMoveTargetName());
+            // 현재 기준: Z Down Mode 선행 Z 이동은 AutoFocus 단계보다 먼저 시작되어야 하므로 위치를 바꾸지 않는다.
             Task<int> flyingZTask = MoveBottomFlyingZDownDuringXYAsync(ct);
 
             int[] results = await Task.WhenAll(xyTask, flyingZTask).ConfigureAwait(false);
@@ -491,7 +492,7 @@ namespace QMC.CDT320.Sequencing
 
                 PickerAxis zAxis = GetPickerZAxis(_currentPickerIndex);
                 double avoid = GetPickerTeachingPosition(zAxis, "AvoidPosition");
-                double target = ResolveBottomFlyingZDownTarget(config, avoid, _targetPickerZ);
+                double target = config.ResolveFlyingZDownTarget(avoid, _targetPickerZ);
                 if (Math.Abs(target - avoid) <= 0.0001)
                     return 0;
 
@@ -511,10 +512,6 @@ namespace QMC.CDT320.Sequencing
                         ", target=" + target.ToString("0.###") + " - Check");
                     return 0;
                 }
-
-                int waitStartResult = await WaitBottomFlyingZStartConditionAsync(config, ct).ConfigureAwait(false);
-                if (waitStartResult != 0)
-                    return waitStartResult;
 
                 int result = await MovePickerAxisAndVerifyAsync(
                     zAxis,
@@ -542,99 +539,6 @@ namespace QMC.CDT320.Sequencing
             catch (Exception ex)
             {
                 return Fail("PICKER-BOTTOM-FLYING-Z-EX", Name, "Bottom Flying Z Down 이동 중 예외가 발생했습니다. error=" + ex.Message);
-            }
-            finally
-            {
-            }
-        }
-
-        private async Task<int> WaitBottomFlyingZStartConditionAsync(PickerBottomInspectionMotionConfig config, CancellationToken ct)
-        {
-            try
-            {
-                ct.ThrowIfCancellationRequested();
-                if (config == null)
-                    return 0;
-
-                bool delayModeRequested = config.FlyingZStartMode == PickerBottomFlyingZStartMode.DelayMs;
-                int requestedDelayMs = config.FlyingZStartDelayMs;
-                config.Ensure();
-                if (delayModeRequested)
-                {
-                    WriteLog("PickerBottomInspectionSequence",
-                        Name + " Bottom Flying Z DelayMs 시작 모드는 장비 운전에서 사용하지 않습니다. " +
-                        "XRemainingDistance 기준으로 전환합니다. delayMs=" + requestedDelayMs +
-                        ", xRemaining=" + config.FlyingZStartXRemainingDistance.ToString("0.###") +
-                        ", pickerNo=" + _currentPickerNo + " - Check");
-                }
-
-                if (config.FlyingZStartMode == PickerBottomFlyingZStartMode.Immediate)
-                    return 0;
-
-                if (config.FlyingZStartMode == PickerBottomFlyingZStartMode.DelayMs)
-                {
-                    WriteLog("PickerBottomInspectionSequence",
-                        Name + " Bottom Flying Z DelayMs 시작 모드는 장비 운전에서 사용하지 않습니다. " +
-                        "XRemainingDistance 기준으로 전환합니다. delayMs=" + config.FlyingZStartDelayMs +
-                        ", pickerNo=" + _currentPickerNo + " - Check");
-                    config.FlyingZStartMode = PickerBottomFlyingZStartMode.XRemainingDistance;
-                    config.FlyingZStartDelayMs = 0;
-                    config.Ensure();
-                }
-
-                if (config.FlyingZStartMode != PickerBottomFlyingZStartMode.XRemainingDistance)
-                    return 0;
-
-                double remainingThreshold = PickerBottomInspectionMotionConfig.NormalizeDistance(config.FlyingZStartXRemainingDistance);
-                if (remainingThreshold <= 0.0)
-                    return 0;
-
-                BaseAxis xAxis = GetPickerAxis(PickerAxis.PickerX);
-                if (xAxis == null)
-                {
-                    return Fail(
-                        "PICKER-BOTTOM-FLYING-Z-START",
-                        Name,
-                        "Bottom Flying Z Down 시작 조건 확인 실패. PickerX 축 정보를 찾을 수 없습니다.");
-                }
-
-                int timeoutMs = ResolveTimeout();
-                DateTime deadline = DateTime.UtcNow.AddMilliseconds(timeoutMs);
-                while (DateTime.UtcNow <= deadline)
-                {
-                    ct.ThrowIfCancellationRequested();
-
-                    double remaining = Math.Abs(_targetPickerX - xAxis.ActualPosition);
-                    if (remaining <= remainingThreshold || IsPickerAxisInPosition(PickerAxis.PickerX, _targetPickerX))
-                    {
-                        WriteLog("PickerBottomInspectionSequence",
-                            Name + " Bottom Flying Z Down 시작 조건 충족. " +
-                            "mode=" + config.FlyingZStartMode +
-                            ", remaining=" + remaining.ToString("0.###") +
-                            ", threshold=" + remainingThreshold.ToString("0.###") +
-                            ", pickerNo=" + _currentPickerNo + " - Ok");
-                        return 0;
-                    }
-
-                    await Task.Delay(10, ct).ConfigureAwait(false);
-                }
-
-                return Fail(
-                    "PICKER-BOTTOM-FLYING-Z-START-TIMEOUT",
-                    Name,
-                    "Bottom Flying Z Down 시작 조건 대기 시간이 초과되었습니다. " +
-                    "mode=" + config.FlyingZStartMode +
-                    ", threshold=" + remainingThreshold.ToString("0.###") +
-                    ", pickerX=" + BuildPickerAxisState(PickerAxis.PickerX, _targetPickerX) +
-                    ", pickerNo=" + _currentPickerNo);
-            }
-            catch (OperationCanceledException)
-            {
-                throw;
-            }
-            catch (Exception ex)
-            {
-                return Fail("PICKER-BOTTOM-FLYING-Z-START-EX", Name, "Bottom Flying Z Down 시작 조건 확인 중 예외가 발생했습니다. error=" + ex.Message);
             }
             finally
             {
@@ -688,32 +592,6 @@ namespace QMC.CDT320.Sequencing
 
             config.Ensure();
             return config;
-        }
-
-        private static double ResolveBottomFlyingZDownTarget(PickerBottomInspectionMotionConfig config, double avoid, double bottom)
-        {
-            if (config == null)
-                return avoid;
-
-            if (config.FlyingZDownMode == PickerBottomFlyingZDownMode.ToBottomPosition)
-                return bottom;
-
-            if (config.FlyingZDownMode != PickerBottomFlyingZDownMode.DownDistance)
-                return avoid;
-
-            double distance = PickerBottomInspectionMotionConfig.NormalizeDistance(config.FlyingZDownDistance);
-            if (distance <= 0.0)
-                return avoid;
-
-            double delta = bottom - avoid;
-            double total = Math.Abs(delta);
-            if (total <= 0.0001)
-                return bottom;
-
-            if (distance >= total)
-                return bottom;
-
-            return avoid + Math.Sign(delta) * distance;
         }
 
         private async Task<int> MoveBottomTAsync(CancellationToken ct)

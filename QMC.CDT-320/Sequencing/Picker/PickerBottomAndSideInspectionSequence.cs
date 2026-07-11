@@ -19,17 +19,11 @@ namespace QMC.CDT320.Sequencing
         private readonly List<PendingT0Return> _pendingT0Returns = new List<PendingT0Return>();
         private readonly List<PendingZAvoid> _pendingZAvoids = new List<PendingZAvoid>();
         private readonly List<PendingBottomZDown> _pendingBottomZDowns = new List<PendingBottomZDown>();
+        private readonly Dictionary<int, BottomReferencePosition> _bottomReferencePositions = new Dictionary<int, BottomReferencePosition>();
 
         private bool _bottomInspectionYReady;
         private bool _sideInspectionYReady;
-        private bool _hasPreviousBottomX;
-        private bool _hasLastBottomX;
-        private bool _hasSidePitchStepX;
-        private bool _sidePitchTargetReady;
-        private double _previousBottomX;
-        private double _lastBottomX;
-        private double _sidePitchStepX;
-        private double _lastSidePitchX;
+        private bool _sidePipelineEnabled;
         private SequenceResourceLease _inspectionAreaLease;
         private IDisposable _bottomProcessAreaScope;
         private IDisposable _sideProcessAreaScope;
@@ -60,6 +54,12 @@ namespace QMC.CDT320.Sequencing
             public InspectionTarget Target;
             public bool Applied;
             public DateTime InspectStartedAt;
+        }
+
+        private sealed class BottomReferencePosition
+        {
+            public double X;
+            public double Y;
         }
 
         private sealed class PendingT0Return
@@ -108,6 +108,8 @@ namespace QMC.CDT320.Sequencing
                 _pendingT0Returns.Clear();
                 _pendingZAvoids.Clear();
                 _pendingBottomZDowns.Clear();
+                _bottomReferencePositions.Clear();
+                _sidePipelineEnabled = false;
                 ForceBottomInspectionBeforeSideResume = false;
                 CurrentStep = PickerBottomAndSideInspectionStep.Complete;
             }
@@ -237,16 +239,10 @@ namespace QMC.CDT320.Sequencing
             _pendingT0Returns.Clear();
             _pendingZAvoids.Clear();
             _pendingBottomZDowns.Clear();
+            _bottomReferencePositions.Clear();
             _bottomInspectionYReady = false;
             _sideInspectionYReady = false;
-            _hasPreviousBottomX = false;
-            _hasLastBottomX = false;
-            _hasSidePitchStepX = false;
-            _sidePitchTargetReady = false;
-            _previousBottomX = 0.0;
-            _lastBottomX = 0.0;
-            _sidePitchStepX = 0.0;
-            _lastSidePitchX = 0.0;
+            _sidePipelineEnabled = false;
 
             _pickedPickerIndexes.AddRange(BuildLoadedPickerIndexesInRunOrder("PickerBottomAndSideInspectionSequence"));
             RemoveSkippedPickerTargets();
@@ -256,10 +252,54 @@ namespace QMC.CDT320.Sequencing
                 return 0;
             }
 
+            if (_pickedPickerIndexes.Count == 4)
+            {
+                string orderReason;
+                if (!IsBottomSideFullBatchOrderValid(out orderReason))
+                {
+                    return Fail("PICKER-BOTTOM-SIDE-RUN-ORDER", Name,
+                        "Bottom/Side 통합 검사는 4->3->2->1 순서만 허용합니다. " + orderReason);
+                }
+
+                _sidePipelineEnabled = true;
+            }
+            else
+            {
+                WriteLog("PickerBottomAndSideInspectionSequence",
+                    Name + " Bottom/Side 통합 Side 검사를 생략합니다. " +
+                    "4개 풀 배치가 아니면 Side 첫 검사가 잘못 선행될 수 있어 현재 배치는 Bottom만 진행합니다. " +
+                    "loadedPickers=" + BuildPickerNoListText(_pickedPickerIndexes) +
+                    ", count=" + _pickedPickerIndexes.Count + " - Check");
+            }
+
             WriteLog("PickerBottomAndSideInspectionSequence",
-                Name + " Bottom/Side 통합 검사 대상 구성 완료. count=" + _pickedPickerIndexes.Count + " - Ok");
+                Name + " Bottom/Side 통합 검사 대상 구성 완료. count=" + _pickedPickerIndexes.Count +
+                ", sidePipelineEnabled=" + _sidePipelineEnabled + " - Ok");
             CurrentStep = PickerBottomAndSideInspectionStep.AcquireInspectionArea;
             return 0;
+        }
+
+        private bool IsBottomSideFullBatchOrderValid(out string reason)
+        {
+            reason = string.Empty;
+            if (_pickedPickerIndexes.Count != 4)
+            {
+                reason = "loadedPickers=" + BuildPickerNoListText(_pickedPickerIndexes) + ".";
+                return false;
+            }
+
+            int[] expected = new int[] { ToPickerIndex(4), ToPickerIndex(3), ToPickerIndex(2), ToPickerIndex(1) };
+            for (int i = 0; i < expected.Length; i++)
+            {
+                if (_pickedPickerIndexes[i] == expected[i])
+                    continue;
+
+                reason = "loadedPickers=" + BuildPickerNoListText(_pickedPickerIndexes) +
+                    ", expected=4->3->2->1.";
+                return false;
+            }
+
+            return true;
         }
 
         private async Task<int> VerifyPickedPickerFlowBeforeInspectionAsync(CancellationToken ct)
@@ -418,6 +458,8 @@ namespace QMC.CDT320.Sequencing
                 if (target == null || target.Die == null)
                     continue;
 
+                StoreBottomReferencePosition(target);
+
                 if (HasInspectionResult(target.Die, "Bottom"))
                 {
                     WriteLog("PickerBottomAndSideInspectionSequence",
@@ -427,7 +469,6 @@ namespace QMC.CDT320.Sequencing
                 }
 
                 bool isLastBottomShot = i >= _pickedPickerIndexes.Count - 1;
-                double bottomPitchReferenceX = target.X;
                 InspectionTarget sideFirstTarget = isLastBottomShot
                     ? PrepareAutoFirstSideTargetForLastBottom(target)
                     : null;
@@ -440,41 +481,67 @@ namespace QMC.CDT320.Sequencing
                 if (result != 0)
                     return result;
 
+                // 현재 기준: Z Down Mode 선행 Z 명령은 AutoFocus보다 먼저 수행되어야 하므로 위치를 바꾸지 않는다.
+                StartNextBottomZDownCommand(i + 1);
+
                 result = await RunAutoFocusBeforeBottomInspectionAsync(target, ct).ConfigureAwait(false);
                 if (result != 0)
                     return result;
 
-                UpdateBottomPitchReference(bottomPitchReferenceX);
-                StartNextBottomZDownCommand(i + 1);
-
-                Task<int> sideFirstTask = null;
-                DateTime bottomInspectStartedAt = DateTime.Now;
-                Task<int> bottomTriggerTask = StartBottomInspectionAsync(target, ct);
                 if (sideFirstTarget != null)
-                    sideFirstTask = StartPreparedFirstSideInspectionDuringLastBottomAsync(sideFirstTarget, ct);
-
-                result = await bottomTriggerTask.ConfigureAwait(false);
-                if (result != 0)
                 {
-                    RecordDetailedTactRecord(
-                        TactTimeCategory.Vision,
-                        "Bottom Camera Inspect",
-                        "Bottom",
-                        target,
-                        bottomInspectStartedAt,
-                        TactTimeResult.Failed,
-                        "PICKER-BOTTOM-SIDE-BOTTOM-TRIGGER",
-                        "Bottom inspection trigger failed. result=" + result);
-                    return result;
-                }
-
-                _pendingBottomShots.Add(new BottomShot { Target = target, InspectStartedAt = bottomInspectStartedAt });
-
-                if (sideFirstTask != null)
-                {
-                    result = await sideFirstTask.ConfigureAwait(false);
+                    result = await PrepareSideTargetForInspectionAsync(sideFirstTarget, ct).ConfigureAwait(false);
                     if (result != 0)
                         return result;
+                }
+
+                DateTime bottomInspectStartedAt = DateTime.Now;
+                if (sideFirstTarget != null)
+                {
+                    int[] triggerResults = await StartBottomAndPreparedSide0InspectionAsync(target, sideFirstTarget, ct).ConfigureAwait(false);
+                    result = triggerResults[0];
+                    if (result != 0)
+                    {
+                        RecordDetailedTactRecord(
+                            TactTimeCategory.Vision,
+                            "Bottom Camera Inspect",
+                            "Bottom",
+                            target,
+                            bottomInspectStartedAt,
+                            TactTimeResult.Failed,
+                            "PICKER-BOTTOM-SIDE-BOTTOM-TRIGGER",
+                            "Bottom inspection trigger failed. result=" + result);
+                        return result;
+                    }
+
+                    _pendingBottomShots.Add(new BottomShot { Target = target, InspectStartedAt = bottomInspectStartedAt });
+
+                    result = triggerResults[1];
+                    if (result != 0)
+                        return result;
+
+                    result = await CompletePreparedFirstSideInspectionDuringLastBottomAsync(sideFirstTarget, ct).ConfigureAwait(false);
+                    if (result != 0)
+                        return result;
+                }
+                else
+                {
+                    result = await StartBottomInspectionAsync(target, ct).ConfigureAwait(false);
+                    if (result != 0)
+                    {
+                        RecordDetailedTactRecord(
+                            TactTimeCategory.Vision,
+                            "Bottom Camera Inspect",
+                            "Bottom",
+                            target,
+                            bottomInspectStartedAt,
+                            TactTimeResult.Failed,
+                            "PICKER-BOTTOM-SIDE-BOTTOM-TRIGGER",
+                            "Bottom inspection trigger failed. result=" + result);
+                        return result;
+                    }
+
+                    _pendingBottomShots.Add(new BottomShot { Target = target, InspectStartedAt = bottomInspectStartedAt });
                 }
 
                 // Vision 결과 대기 시간을 뒤로 밀기 위해 최소 3번째 shot 이후부터 앞쪽 결과를 회수한다.
@@ -489,6 +556,14 @@ namespace QMC.CDT320.Sequencing
 
             WriteLog("PickerBottomAndSideInspectionSequence",
                 Name + " Bottom shot 전체 완료. pendingResult=" + CountPendingBottomResults() + " - Ok");
+
+            if (!_sidePipelineEnabled)
+            {
+                int result = await ApplyAllPendingBottomResultsAsync(ct).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+            }
+
             return 0;
         }
 
@@ -527,6 +602,63 @@ namespace QMC.CDT320.Sequencing
                 Z = GetPickerTeachingPosition(GetPickerZAxis(pickerIndex), "BottomPosition"),
                 T0 = ResolvePickerZoneT("DieBottomPosition", pickerIndex)
             };
+        }
+
+        private void StoreBottomReferencePosition(InspectionTarget target)
+        {
+            if (target == null)
+                return;
+
+            _bottomReferencePositions[target.PickerIndex] = new BottomReferencePosition
+            {
+                X = target.X,
+                Y = target.Y
+            };
+
+            WriteLog("PickerBottomAndSideInspectionSequence",
+                Name + " Bottom 공정 X/Y를 Side 기준 위치로 저장합니다. " +
+                "bottomPickerNo=" + target.PickerNo +
+                ", x=" + target.X.ToString("0.###") +
+                ", y=" + target.Y.ToString("0.###") + " - Check");
+        }
+
+        private bool TryResolveBottomReferenceForSideTarget(
+            int sidePickerIndex,
+            out double x,
+            out double y,
+            out int bottomReferencePickerNo,
+            out bool stored)
+        {
+            x = 0.0;
+            y = 0.0;
+            stored = false;
+            bottomReferencePickerNo = ResolveBottomReferencePickerNoForSide(sidePickerIndex);
+            if (bottomReferencePickerNo < 1 || bottomReferencePickerNo > 4)
+                return false;
+
+            int bottomReferencePickerIndex = ToPickerIndex(bottomReferencePickerNo);
+            BottomReferencePosition reference;
+            if (_bottomReferencePositions.TryGetValue(bottomReferencePickerIndex, out reference))
+            {
+                x = reference.X;
+                y = reference.Y;
+                stored = true;
+                return true;
+            }
+
+            if (!_sidePipelineEnabled)
+                return false;
+
+            // 현재 기준: Side는 Bottom 공정 X/Y만 사용한다. 런타임 저장값이 없으면 Bottom 티칭값으로만 대체한다.
+            x = ResolvePickerZoneX("DieBottomPosition", bottomReferencePickerIndex);
+            y = ResolvePickerZoneY("DieBottomPosition", bottomReferencePickerIndex);
+            return true;
+        }
+
+        private int ResolveBottomReferencePickerNoForSide(int sidePickerIndex)
+        {
+            int sidePickerNo = ToPickerNo(sidePickerIndex);
+            return 5 - sidePickerNo;
         }
 
         private async Task<int> MoveBottomTargetAsync(InspectionTarget target, CancellationToken ct)
@@ -815,9 +947,10 @@ namespace QMC.CDT320.Sequencing
             return AppendAutoProcessCorrectionTargetTag(BuildPickerTargetName("DieBottomPosition", target.PickerIndex) + ";PickerProcess=BottomSide;PickerPhase=InspectionZHold;InspectionContinuous;From=Input;To=Bottom");
         }
 
-        private async Task<int> StartBottomInspectionAsync(InspectionTarget target, CancellationToken ct)
+        private async Task<int> StartBottomInspectionAsync(InspectionTarget target, CancellationToken ct, bool skipDelay = false)
         {
-            await DelayBeforeVisionInspectionAsync(ct).ConfigureAwait(false);
+            if (!skipDelay)
+                await DelayBeforeVisionInspectionAsync(ct).ConfigureAwait(false);
 
             RegisterVisionDieAddress(target);   // 신형 와이어(die_index/gridx;gridy) 구성용 — 어댑터가 조회
 
@@ -845,6 +978,23 @@ namespace QMC.CDT320.Sequencing
                 ", pickerNo=" + target.PickerNo +
                 ", pendingResult=" + (_pendingBottomShots.Count + 1) + " - Ok");
             return 0;
+        }
+
+        private async Task<int[]> StartBottomAndPreparedSide0InspectionAsync(InspectionTarget bottomTarget, InspectionTarget sideTarget, CancellationToken ct)
+        {
+            await DelayBeforeVisionInspectionAsync(ct).ConfigureAwait(false);
+
+            WriteLog("PickerBottomAndSideInspectionSequence",
+                Name + " Bottom #1 / Side #4 검사 시작 명령을 같은 대기 조건에서 연속 발행합니다. " +
+                "bottomPickerNo=" + (bottomTarget != null ? bottomTarget.PickerNo : 0) +
+                ", sidePickerNo=" + (sideTarget != null ? sideTarget.PickerNo : 0) +
+                ", sharedX=" + (sideTarget != null ? sideTarget.X.ToString("0.###") : "-") +
+                ", sharedY=" + (sideTarget != null ? sideTarget.Y.ToString("0.###") : "-") + " - Start");
+
+            Task<int> side0TriggerTask = StartSide0InspectionAsync(sideTarget, ct, true);
+            Task<int> bottomTriggerTask = StartBottomInspectionAsync(bottomTarget, ct, true);
+            int[] results = await Task.WhenAll(bottomTriggerTask, side0TriggerTask).ConfigureAwait(false);
+            return results;
         }
 
         private async Task TriggerDryRunBottomGrabIfConnectedAsync(InspectionTarget target, int timeoutMs, CancellationToken ct)
@@ -877,6 +1027,20 @@ namespace QMC.CDT320.Sequencing
             {
                 if (!_pendingBottomShots[i].Applied)
                     return await ApplyBottomResultAsync(_pendingBottomShots[i], ct).ConfigureAwait(false);
+            }
+
+            return 0;
+        }
+
+        private async Task<int> ApplyAllPendingBottomResultsAsync(CancellationToken ct)
+        {
+            while (CountPendingBottomResults() > 0)
+            {
+                ct.ThrowIfCancellationRequested();
+
+                int result = await ApplyOldestBottomResultIfNeededAsync(ct).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
             }
 
             return 0;
@@ -1077,6 +1241,14 @@ namespace QMC.CDT320.Sequencing
 
         private async Task<int> RunSidePipelineAsync(CancellationToken ct)
         {
+            if (!_sidePipelineEnabled)
+            {
+                WriteLog("PickerBottomAndSideInspectionSequence",
+                    Name + " Side Pipeline 생략. 4개 풀 배치가 아니므로 Bottom 검사 결과만 반영하고 Side 검사는 수행하지 않습니다. " +
+                    "loadedPickers=" + BuildPickerNoListText(_pickedPickerIndexes) + " - Check");
+                return 0;
+            }
+
             EnsureBottomSideProcessAreaReserved("BottomAndSideInspection:Side");
 
             for (int i = 0; i < _pickedPickerIndexes.Count; i++)
@@ -1109,8 +1281,6 @@ namespace QMC.CDT320.Sequencing
                         ", pickerNo=" + target.PickerNo + " - Check");
                 }
 
-                ApplySidePitchTargetIfReady(target);
-
                 result = await InspectSideTargetAsync(target, ct).ConfigureAwait(false);
                 if (result != 0)
                     return result;
@@ -1136,13 +1306,36 @@ namespace QMC.CDT320.Sequencing
             double process0BaseY = ResolveSideVisionBasePosition(0);
             double process90BaseY = ResolveSideVisionBasePosition(90);
             double t0 = ResolvePickerZoneT("DieSidePosition", pickerIndex);
+            double sideTeachingX = ResolvePickerZoneX("DieSidePosition", pickerIndex);
+            double sideTeachingY = ResolvePickerZoneY("DieSidePosition", pickerIndex);
+            double targetX = sideTeachingX;
+            double targetY = sideTeachingY;
+            int bottomReferencePickerNo;
+            bool bottomReferenceStored;
+            if (TryResolveBottomReferenceForSideTarget(
+                pickerIndex,
+                out targetX,
+                out targetY,
+                out bottomReferencePickerNo,
+                out bottomReferenceStored))
+            {
+                WriteLog("PickerBottomAndSideInspectionSequence",
+                    Name + " Side X/Y 목표를 Side 티칭값 대신 Bottom 공정 X/Y 기준으로 적용합니다. " +
+                    "sidePickerNo=" + pickerNo +
+                    ", bottomReferencePickerNo=" + bottomReferencePickerNo +
+                    ", targetX=" + targetX.ToString("0.###") +
+                    ", targetY=" + targetY.ToString("0.###") +
+                    ", sideTeachingXIgnored=" + sideTeachingX.ToString("0.###") +
+                    ", sideTeachingYIgnored=" + sideTeachingY.ToString("0.###") +
+                    ", source=" + (bottomReferenceStored ? "RuntimeBottomTarget" : "BottomTeachingFallback") + " - Check");
+            }
             return new InspectionTarget
             {
                 PickerIndex = pickerIndex,
                 PickerNo = pickerNo,
                 Die = die,
-                X = ResolvePickerZoneX("DieSidePosition", pickerIndex),
-                Y = ResolvePickerZoneY("DieSidePosition", pickerIndex),
+                X = targetX,
+                Y = targetY,
                 Z = baseZ + zOffset,
                 T0 = t0,
                 T90 = t0 + 90.0,
@@ -1204,6 +1397,9 @@ namespace QMC.CDT320.Sequencing
                 if (lastBottomTarget == null || _pickedPickerIndexes.Count == 0)
                     return null;
 
+                if (!_sidePipelineEnabled)
+                    return null;
+
                 if (lastBottomTarget.PickerNo != 1)
                 {
                     WriteLog("PickerBottomAndSideInspectionSequence",
@@ -1219,7 +1415,7 @@ namespace QMC.CDT320.Sequencing
                 {
                     WriteLog("PickerBottomAndSideInspectionSequence",
                         Name + " Auto Bottom 마지막/Side 첫 동시 검사를 생략합니다. " +
-                        "pickerNo=4에 제품이 없습니다. Side 검사는 각 Picker Side 위치에서 순차 진행합니다. " +
+                        "pickerNo=4에 제품이 없습니다. 현재 배치는 Bottom만 진행합니다. " +
                         "loadedPickers=" + BuildPickerNoListText(_pickedPickerIndexes) + " - Check");
                     return null;
                 }
@@ -1234,13 +1430,11 @@ namespace QMC.CDT320.Sequencing
                 double bottomX = lastBottomTarget.X;
                 double bottomY = lastBottomTarget.Y;
                 double sharedX = bottomX;
-                double originalSideX = sideTarget.X;
-                double originalSideY = sideTarget.Y;
+                double preparedSideX = sideTarget.X;
+                double preparedSideY = sideTarget.Y;
 
                 sideTarget.X = sharedX;
                 sideTarget.Y = bottomY;
-                _sidePitchTargetReady = true;
-                _lastSidePitchX = sharedX;
 
                 WriteLog("PickerBottomAndSideInspectionSequence",
                     Name + " Auto Bottom 마지막 검사와 Side 첫 검사를 같은 XY 위치에서 동시 진행하도록 공유 위치를 적용합니다. " +
@@ -1248,8 +1442,8 @@ namespace QMC.CDT320.Sequencing
                     ", sidePickerNo=" + sideTarget.PickerNo +
                     ", sharedX=" + sharedX.ToString("0.###") +
                     ", sharedY=" + bottomY.ToString("0.###") +
-                    ", sideTeachingXIgnored=" + originalSideX.ToString("0.###") +
-                    ", sideTeachingYIgnored=" + originalSideY.ToString("0.###") + " - Check");
+                    ", preparedSideX=" + preparedSideX.ToString("0.###") +
+                    ", preparedSideY=" + preparedSideY.ToString("0.###") + " - Check");
 
                 return sideTarget;
             }
@@ -1264,7 +1458,7 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
-        private async Task<int> StartPreparedFirstSideInspectionDuringLastBottomAsync(InspectionTarget target, CancellationToken ct)
+        private async Task<int> CompletePreparedFirstSideInspectionDuringLastBottomAsync(InspectionTarget target, CancellationToken ct)
         {
             try
             {
@@ -1287,14 +1481,14 @@ namespace QMC.CDT320.Sequencing
                 }
 
                 WriteLog("PickerBottomAndSideInspectionSequence",
-                    Name + " Bottom 마지막 검사와 Side 첫 검사를 병렬 시작합니다. " +
+                    Name + " Bottom 마지막 검사와 함께 시작한 Side 첫 검사의 90도 검사를 진행합니다. " +
                     "die=" + target.Die.DieId +
                     ", pickerNo=" + target.PickerNo +
                     ", sharedX=" + target.X.ToString("0.###") +
                     ", sharedY=" + target.Y.ToString("0.###") +
                     ", sideReadyBypass=True - Start");
 
-                int result = await InspectSideTargetAsync(target, ct).ConfigureAwait(false);
+                int result = await CompleteSideInspectionAfterSide0Async(target, ct).ConfigureAwait(false);
                 if (result == 0 && !_sideCompletedPickerIndexes.Contains(target.PickerIndex))
                     _sideCompletedPickerIndexes.Add(target.PickerIndex);
 
@@ -1315,6 +1509,19 @@ namespace QMC.CDT320.Sequencing
         }
 
         private async Task<int> InspectSideTargetAsync(InspectionTarget target, CancellationToken ct)
+        {
+            int result = await PrepareSideTargetForInspectionAsync(target, ct).ConfigureAwait(false);
+            if (result != 0)
+                return result;
+
+            result = await StartSide0InspectionAsync(target, ct).ConfigureAwait(false);
+            if (result != 0)
+                return result;
+
+            return await CompleteSideInspectionAfterSide0Async(target, ct).ConfigureAwait(false);
+        }
+
+        private async Task<int> PrepareSideTargetForInspectionAsync(InspectionTarget target, CancellationToken ct)
         {
             // Bottom 외곽 XYT 푸시(EventSearchDieEnd) 조회 — Side 에서 해당 콜렛 다이의 X/Y/T 사용 근거.
             // 현재는 가용성 확인/로그만 수행(보정 반영 방식은 공정 담당 확정 후 적용 — TODO).
@@ -1354,7 +1561,11 @@ namespace QMC.CDT320.Sequencing
             if (result != 0)
                 return result;
 
-            SideVisionResult side0Result = null;
+            return 0;
+        }
+
+        private async Task<int> StartSide0InspectionAsync(InspectionTarget target, CancellationToken ct, bool skipDelay = false)
+        {
             using (TactTimeScope side0TactScope = BeginDetailedTactScope(
                 TactTimeCategory.Vision,
                 "Side 0deg Inspect",
@@ -1364,7 +1575,7 @@ namespace QMC.CDT320.Sequencing
             {
                 try
                 {
-                    bool side0Started = await TriggerSideInspectionStartAsync(target, 0, ct).ConfigureAwait(false);
+                    bool side0Started = await TriggerSideInspectionStartAsync(target, 0, ct, skipDelay).ConfigureAwait(false);
                     if (!side0Started)
                     {
                         MarkInspectionResultReceiveFailureAsNg(
@@ -1405,6 +1616,14 @@ namespace QMC.CDT320.Sequencing
                 {
                 }
             }
+
+            return 0;
+        }
+
+        private async Task<int> CompleteSideInspectionAfterSide0Async(InspectionTarget target, CancellationToken ct)
+        {
+            int result;
+            SideVisionResult side0Result = null;
 
             await DelaySideInspectionTurnSettleAsync(ct).ConfigureAwait(false);
 
@@ -1699,9 +1918,10 @@ namespace QMC.CDT320.Sequencing
             };
         }
 
-        private async Task<bool> TriggerSideInspectionStartAsync(InspectionTarget target, int angleDeg, CancellationToken ct)
+        private async Task<bool> TriggerSideInspectionStartAsync(InspectionTarget target, int angleDeg, CancellationToken ct, bool skipDelay = false)
         {
-            await DelayBeforeVisionInspectionAsync(ct).ConfigureAwait(false);
+            if (!skipDelay)
+                await DelayBeforeVisionInspectionAsync(ct).ConfigureAwait(false);
 
             RegisterVisionDieAddress(target);   // 신형 와이어(die_index/gridx;gridy) 구성용 — 어댑터가 조회
 
@@ -1950,88 +2170,6 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
-        private void UpdateBottomPitchReference(InspectionTarget target)
-        {
-            if (target == null)
-                return;
-
-            UpdateBottomPitchReference(target.X);
-        }
-
-        private void UpdateBottomPitchReference(double targetX)
-        {
-            if (_hasPreviousBottomX)
-            {
-                double rawStep = targetX - _previousBottomX;
-                if (Math.Abs(rawStep) > 0.000001)
-                {
-                    double pitch = ResolvePickerPitchXMagnitude();
-                    _sidePitchStepX = (pitch > 0.000001 ? pitch : Math.Abs(rawStep)) * Math.Sign(rawStep);
-                    _hasSidePitchStepX = true;
-                }
-            }
-
-            _previousBottomX = targetX;
-            _lastBottomX = targetX;
-            _hasPreviousBottomX = true;
-            _hasLastBottomX = true;
-        }
-
-        private void ApplySidePitchTargetIfReady(InspectionTarget target)
-        {
-            if (target == null || !_hasLastBottomX)
-                return;
-
-            double pitchTargetX;
-            double bottomToSidePitchX = ResolvePickerPitchXMagnitude();
-            if (!_sidePitchTargetReady)
-            {
-                pitchTargetX = _lastBottomX + bottomToSidePitchX;
-                _sidePitchTargetReady = true;
-            }
-            else
-            {
-                if (!_hasSidePitchStepX)
-                    return;
-
-                pitchTargetX = _lastSidePitchX + _sidePitchStepX;
-            }
-
-            double absoluteX = target.X;
-            target.X = pitchTargetX;
-            _lastSidePitchX = pitchTargetX;
-
-            WriteLog("PickerBottomAndSideInspectionSequence",
-                Name + " Side X 목표를 절대 포지션 대신 Bottom 진행 피치 기준으로 계산합니다. " +
-                "pickerNo=" + target.PickerNo +
-                ", absoluteX=" + absoluteX.ToString("0.###") +
-                ", pitchTargetX=" + pitchTargetX.ToString("0.###") +
-                ", lastBottomX=" + _lastBottomX.ToString("0.###") +
-                ", bottom1ToSideStartPitchX=" + bottomToSidePitchX.ToString("0.###") +
-                ", pitchStep=" + _sidePitchStepX.ToString("0.###") + " - Check");
-        }
-
-        private double ResolvePickerPitchXMagnitude()
-        {
-            try
-            {
-                double pitch = 0.0;
-                if (Side == PickerSequenceSide.Front && FrontPicker != null && FrontPicker.Setup != null)
-                    pitch = FrontPicker.Setup.PickerPitchX;
-                else if (Side == PickerSequenceSide.Rear && RearPicker != null && RearPicker.Setup != null)
-                    pitch = RearPicker.Setup.PickerPitchX;
-
-                return Math.Abs(pitch);
-            }
-            catch
-            {
-                return 0.0;
-            }
-            finally
-            {
-            }
-        }
-
         private void StartNextBottomZDownCommand(int nextCursor)
         {
             try
@@ -2039,12 +2177,36 @@ namespace QMC.CDT320.Sequencing
                 if (nextCursor < 0 || nextCursor >= _pickedPickerIndexes.Count)
                     return;
 
+                PickerBottomInspectionMotionConfig config = ResolveBottomInspectionMotionConfig();
+                if (config.FlyingZDownMode == PickerBottomFlyingZDownMode.Off)
+                    return;
+
                 int nextPickerIndex = _pickedPickerIndexes[nextCursor];
                 InspectionTarget nextTarget = BuildBottomTarget(nextPickerIndex);
                 if (nextTarget == null || nextTarget.Die == null)
                     return;
 
-                QueuePendingBottomZDown(nextPickerIndex, nextTarget.Z);
+                PickerAxis zAxis = GetPickerZAxis(nextPickerIndex);
+                double avoid = GetPickerTeachingPosition(zAxis, "AvoidPosition");
+                double zTarget = config.ResolveFlyingZDownTarget(avoid, nextTarget.Z);
+                if (Math.Abs(zTarget - avoid) <= 0.0001)
+                    return;
+
+                if (!IsPickerAxisInPosition(zAxis, nextTarget.Z) &&
+                    !IsPickerAxisInPosition(zAxis, avoid))
+                {
+                    WriteLog("PickerBottomAndSideInspectionSequence",
+                        Name + " Bottom 검사 중 다음 PickerZ 선행 하강을 생략합니다. PickerZ가 Avoid 위치가 아닙니다. " +
+                        "pickerNo=" + ToPickerNo(nextPickerIndex) +
+                        ", axis=" + zAxis +
+                        ", avoid=" + avoid.ToString("0.###") +
+                        ", target=" + zTarget.ToString("0.###") +
+                        ", mode=" + config.FlyingZDownMode + " - Check");
+                    return;
+                }
+
+                // 현재 기준: 통합 Bottom/Side 선행 Z는 FlyingZDownMode/Distance를 따른다.
+                QueuePendingBottomZDown(nextPickerIndex, zTarget);
                 StartPendingBottomZDownCommand(
                     "Bottom 검사 중 다음 PickerZ 선행 하강",
                     nextPickerIndex);
@@ -2098,6 +2260,29 @@ namespace QMC.CDT320.Sequencing
                     Name + " " + description + " 명령 시작. pickerNo=" + ToPickerNo(pending.PickerIndex) +
                     ", target=" + pending.Target.ToString("0.###") + " - Ok");
             }
+        }
+
+        private PickerBottomInspectionMotionConfig ResolveBottomInspectionMotionConfig()
+        {
+            PickerBottomInspectionMotionConfig config = null;
+            if (Side == PickerSequenceSide.Front && FrontPicker != null && FrontPicker.Config != null)
+            {
+                if (FrontPicker.Config.BottomInspection == null)
+                    FrontPicker.Config.BottomInspection = new PickerBottomInspectionMotionConfig();
+                config = FrontPicker.Config.BottomInspection;
+            }
+            else if (RearPicker != null && RearPicker.Config != null)
+            {
+                if (RearPicker.Config.BottomInspection == null)
+                    RearPicker.Config.BottomInspection = new PickerBottomInspectionMotionConfig();
+                config = RearPicker.Config.BottomInspection;
+            }
+
+            if (config == null)
+                config = new PickerBottomInspectionMotionConfig();
+
+            config.Ensure();
+            return config;
         }
 
         private async Task<int> CompletePendingBottomZDownForPickerAsync(int pickerIndex, CancellationToken ct)

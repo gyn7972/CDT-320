@@ -33,14 +33,6 @@ namespace QMC.CDT320
         ToBottomPosition = 2
     }
 
-    public enum PickerBottomFlyingZStartMode
-    {
-        Immediate = 0,
-        // Legacy compatibility only. Runtime operation normalizes DelayMs to XRemainingDistance.
-        DelayMs = 1,
-        XRemainingDistance = 2
-    }
-
     public enum PickerPlaceMotionMode
     {
         Default = 0,
@@ -256,13 +248,8 @@ namespace QMC.CDT320
     [DataContract]
     public sealed class PickerBottomInspectionMotionConfig
     {
-        private const double DefaultFlyingZStartXRemainingDistance = 5.0;
-
         [DataMember] public PickerBottomFlyingZDownMode FlyingZDownMode { get; set; } = PickerBottomFlyingZDownMode.Off;
         [DataMember] public double FlyingZDownDistance { get; set; } = 2.0;
-        [DataMember] public PickerBottomFlyingZStartMode FlyingZStartMode { get; set; } = PickerBottomFlyingZStartMode.XRemainingDistance;
-        [DataMember] public int FlyingZStartDelayMs { get; set; } = 0;
-        [DataMember] public double FlyingZStartXRemainingDistance { get; set; } = 5.0;
 
         [OnDeserialized]
         private void OnDeserialized(StreamingContext ctx)
@@ -273,15 +260,41 @@ namespace QMC.CDT320
         public void Ensure()
         {
             FlyingZDownDistance = NormalizeDistance(FlyingZDownDistance);
-            if (FlyingZStartMode == PickerBottomFlyingZStartMode.DelayMs)
-                FlyingZStartMode = PickerBottomFlyingZStartMode.XRemainingDistance;
-            if (FlyingZStartDelayMs < 0)
-                FlyingZStartDelayMs = 0;
-            if (FlyingZStartMode != PickerBottomFlyingZStartMode.DelayMs)
-                FlyingZStartDelayMs = 0;
-            FlyingZStartXRemainingDistance = NormalizeDistance(FlyingZStartXRemainingDistance);
-            if (FlyingZStartMode == PickerBottomFlyingZStartMode.XRemainingDistance && FlyingZStartXRemainingDistance <= 0.0)
-                FlyingZStartXRemainingDistance = DefaultFlyingZStartXRemainingDistance;
+        }
+
+        public double ResolveFlyingZDownTarget(double avoid, double bottom)
+        {
+            Ensure();
+
+            switch (FlyingZDownMode)
+            {
+                case PickerBottomFlyingZDownMode.ToBottomPosition:
+                    return bottom;
+
+                case PickerBottomFlyingZDownMode.DownDistance:
+                    return ResolveFlyingZDownDistanceTarget(avoid, bottom);
+
+                case PickerBottomFlyingZDownMode.Off:
+                default:
+                    return avoid;
+            }
+        }
+
+        private double ResolveFlyingZDownDistanceTarget(double avoid, double bottom)
+        {
+            double distance = NormalizeDistance(FlyingZDownDistance);
+            if (distance <= 0.0)
+                return avoid;
+
+            double delta = bottom - avoid;
+            double total = Math.Abs(delta);
+            if (total <= 0.0001)
+                return bottom;
+
+            if (distance >= total)
+                return bottom;
+
+            return avoid + Math.Sign(delta) * distance;
         }
 
         public static double NormalizeDistance(double distance)
