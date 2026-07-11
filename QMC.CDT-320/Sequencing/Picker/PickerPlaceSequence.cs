@@ -1616,7 +1616,7 @@ namespace QMC.CDT320.Sequencing
                 previousPickerZRetreatTask = MovePickerAxisAndVerifyAsync(
                     previousZAxis,
                     previousPickerZAvoid,
-                    "Place ContiNode 이전 PickerZ 비동기 Avoid 복귀",
+                    "Place ContiNode 이전 PickerZ Avoid 복귀",
                     ct,
                     "AvoidPosition");
                 await Task.Delay(1, ct).ConfigureAwait(false);
@@ -1628,6 +1628,23 @@ namespace QMC.CDT320.Sequencing
                         _targetPickerZ = originalPickerZTarget;
                         return immediatePreviousZResult;
                     }
+                }
+
+                if (previousPickerZRetreatTask != null)
+                {
+                    int previousZReadyResult = await previousPickerZRetreatTask.ConfigureAwait(false);
+                    if (previousZReadyResult != 0)
+                    {
+                        _targetPickerZ = originalPickerZTarget;
+                        return previousZReadyResult;
+                    }
+
+                    previousPickerZRetreatTask = null;
+                    WriteLog("PickerPlaceSequence",
+                        Name + " Place ContiNode 보간 축 맵 설정 전 이전 PickerZ Avoid 복귀 완료. " +
+                        "pickerNo=" + _currentPickerNo +
+                        ", die=" + (_currentDie != null ? _currentDie.DieId : "-") +
+                        ", outputSide=" + _currentOutputSide + " - Ok");
                 }
             }
 

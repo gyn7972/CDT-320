@@ -45,6 +45,8 @@ namespace QMC.CDT320.Sequencing
             var result = new InterpolatedMotionMoveResult();
             Stopwatch watch = Stopwatch.StartNew();
             AjinVirtualCoordinateLease coordinateLease = null;
+            int activeCoordinate = -1;
+            bool pathBeginOpen = false;
 
             try
             {
@@ -100,6 +102,7 @@ namespace QMC.CDT320.Sequencing
                 }
 
                 int coordinate = coordinateLease.Coordinate;
+                activeCoordinate = coordinate;
                 result.Coordinate = coordinate;
 
                 int mapRetryCount = 0;
@@ -122,6 +125,11 @@ namespace QMC.CDT320.Sequencing
                 double[] splineX = MapNodeAxisPositions(motionNodes, mappedAxes[0], requestedAxes);
                 double[] splineY = MapNodeAxisPositions(motionNodes, mappedAxes[1], requestedAxes);
                 double splineZ = GetNodeAxisPosition(motionNodes[motionNodes.Count - 1], mappedAxes[2], requestedAxes);
+                ret = AXM.BeginPath(coordinate);
+                if (ret != 0)
+                    return MoveFail(result, ret, "Place ContiNode BeginPath 실패. coordinate=" + coordinate, watch);
+                pathBeginOpen = true;
+
                 ret = AXM.SplineWrite(
                     coordinate,
                     splineX,
@@ -133,6 +141,11 @@ namespace QMC.CDT320.Sequencing
                     1);
                 if (ret != 0)
                     return MoveFail(result, ret, "Place ContiNode SplineWrite 실패. coordinate=" + coordinate, watch);
+
+                ret = AXM.EndPath(coordinate);
+                if (ret != 0)
+                    return MoveFail(result, ret, "Place ContiNode EndPath 실패. coordinate=" + coordinate, watch);
+                pathBeginOpen = false;
 
                 ret = AXM.StartPath(coordinate, (uint)AXT_MOTION_CONTISTART_NODE.CONTI_NODE_VELOCITY, 0);
                 if (ret != 0)
@@ -180,6 +193,9 @@ namespace QMC.CDT320.Sequencing
             }
             finally
             {
+                if (pathBeginOpen && activeCoordinate >= 0)
+                    AXM.EndPath(activeCoordinate);
+
                 if (coordinateLease != null)
                     AjinInterpolatedMotionService.ReleasePathAndReturnCoordinateIfIdle(coordinateLease, out _);
             }
