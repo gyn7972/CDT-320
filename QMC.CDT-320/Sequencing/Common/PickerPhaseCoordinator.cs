@@ -168,9 +168,11 @@ namespace QMC.CDT320.Sequencing
                     return false;
 
                 case PickerProcessPhase.BottomInspection:
-                    if (opposite == PickerProcessPhase.PickUp)
+                    // Bottom 검사와 반대 헤드 Output Place는 서로 다른 작업 존이므로 기존 물리/축 인터락을 유지한 채 동시 진행한다.
+                    if (opposite == PickerProcessPhase.PickUp ||
+                        opposite == PickerProcessPhase.Place)
                         return true;
-                    reason = "BottomInspection은 상대 Picker가 BottomInspection/SideInspection/Place 중이면 진입할 수 없습니다.";
+                    reason = "BottomInspection은 상대 Picker가 BottomInspection 또는 SideInspection 중이면 진입할 수 없습니다.";
                     return false;
 
                 case PickerProcessPhase.SideInspection:

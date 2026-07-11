@@ -94,6 +94,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
         private ToolStripMenuItem[] _gridPickUpTestRearPickerMenuItems;
         private ToolStripMenuItem[] _gridOffsetFrontPickerMenuItems;
         private ToolStripMenuItem[] _gridOffsetRearPickerMenuItems;
+        private ToolStripMenuItem[] _gridDataMoveFrontPickerMenuItems;
+        private ToolStripMenuItem[] _gridDataMoveRearPickerMenuItems;
         private InputPickTargetSelectDialog _pickUpTestDialog;
         private bool _manualMoveBusy;
         private bool _manualDieDetectSentPositionValid;
@@ -354,6 +356,11 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 _gridMenu.Items.Add(new ToolStripSeparator());
                 _gridMenu.Items.Add(BuildPickerOffsetMenu("SET FRONT PICKER OFFSET", PickerSequenceSide.Front, out _gridOffsetFrontPickerMenuItems));
                 _gridMenu.Items.Add(BuildPickerOffsetMenu("SET REAR PICKER OFFSET", PickerSequenceSide.Rear, out _gridOffsetRearPickerMenuItems));
+                _gridMenu.Items.Add(new ToolStripSeparator());
+                ToolStripMenuItem dataMoveRoot = new ToolStripMenuItem("MOVE DIE DATA TO PICKER");
+                dataMoveRoot.DropDownItems.Add(BuildPickerDataMoveMenu("FRONT PICKER", PickerSequenceSide.Front, out _gridDataMoveFrontPickerMenuItems));
+                dataMoveRoot.DropDownItems.Add(BuildPickerDataMoveMenu("REAR PICKER", PickerSequenceSide.Rear, out _gridDataMoveRearPickerMenuItems));
+                _gridMenu.Items.Add(dataMoveRoot);
                 _gridMenu.Opening += (s, e) =>
                 {
                     bool enabled = _selectedEntry != null && !_manualMoveBusy;
@@ -366,6 +373,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     SetPickerMoveMenuEnabled(_gridPickUpTestRearPickerMenuItems, enabled);
                     SetPickerMoveMenuEnabled(_gridOffsetFrontPickerMenuItems, enabled);
                     SetPickerMoveMenuEnabled(_gridOffsetRearPickerMenuItems, enabled);
+                    UpdatePickerDataMoveMenu(PickerSequenceSide.Front, _gridDataMoveFrontPickerMenuItems, enabled);
+                    UpdatePickerDataMoveMenu(PickerSequenceSide.Rear, _gridDataMoveRearPickerMenuItems, enabled);
                 };
 
                 gridDieList.ContextMenuStrip = _gridMenu;
@@ -388,6 +397,26 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 int pickerNo = i + 1;
                 ToolStripMenuItem item = new ToolStripMenuItem("PICKER #" + pickerNo);
                 item.Click += async (s, e) => await MoveSelectedDieByPickerAsync(side, pickerNo).ConfigureAwait(true);
+                items[i] = item;
+                root.DropDownItems.Add(item);
+            }
+
+            return root;
+        }
+
+        private ToolStripMenuItem BuildPickerDataMoveMenu(
+            string title,
+            PickerSequenceSide side,
+            out ToolStripMenuItem[] items)
+        {
+            ToolStripMenuItem root = new ToolStripMenuItem(title);
+            items = new ToolStripMenuItem[4];
+
+            for (int i = 0; i < items.Length; i++)
+            {
+                int pickerNo = i + 1;
+                ToolStripMenuItem item = new ToolStripMenuItem("PICKER #" + pickerNo);
+                item.Click += (s, e) => MoveSelectedDieDataToPicker(side, pickerNo);
                 items[i] = item;
                 root.DropDownItems.Add(item);
             }
@@ -438,6 +467,129 @@ namespace QMC.CDT_320.Ui.Pages.Work
             {
                 if (items[i] != null)
                     items[i].Enabled = enabled;
+            }
+        }
+
+        private static void UpdatePickerDataMoveMenu(
+            PickerSequenceSide side,
+            ToolStripMenuItem[] items,
+            bool enabled)
+        {
+            if (items == null)
+                return;
+
+            MaterialLocationKind location = side == PickerSequenceSide.Front
+                ? MaterialLocationKind.PickerFront
+                : MaterialLocationKind.PickerRear;
+
+            for (int i = 0; i < items.Length; i++)
+            {
+                ToolStripMenuItem item = items[i];
+                if (item == null)
+                    continue;
+
+                int pickerNo = i + 1;
+                DieMaterial occupiedDie = MaterialStateService.GetDieAtPicker(location, pickerNo);
+                item.Text = occupiedDie == null
+                    ? "PICKER #" + pickerNo + " (EMPTY)"
+                    : "PICKER #" + pickerNo + " (" + (occupiedDie.DieId ?? "DIE") + ")";
+                item.Enabled = enabled && occupiedDie == null;
+            }
+        }
+
+        private void MoveSelectedDieDataToPicker(PickerSequenceSide side, int pickerNo)
+        {
+            try
+            {
+                DieMapEntry entry = _selectedEntry;
+                if (entry == null || string.IsNullOrWhiteSpace(entry.DieUid))
+                {
+                    QMC.Common.MessageDialog.Show(this,
+                        "Picker로 이동할 Input Die를 먼저 선택하세요.",
+                        "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                string editReason;
+                if (!CanEditSelectedDieState(entry, out editReason))
+                {
+                    QMC.Common.MessageDialog.Show(this, editReason,
+                        "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                DieMaterial die = MaterialStateService.GetDieMaterial(entry.DieUid);
+                if (die == null)
+                {
+                    QMC.Common.MessageDialog.Show(this,
+                        "선택한 Die의 Material 데이터를 찾을 수 없습니다.\r\nDie=" + entry.DieUid,
+                        "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                MaterialLocationKind pickerLocation = side == PickerSequenceSide.Front
+                    ? MaterialLocationKind.PickerFront
+                    : MaterialLocationKind.PickerRear;
+                DieMaterial occupiedDie = MaterialStateService.GetDieAtPicker(pickerLocation, pickerNo);
+                if (occupiedDie != null)
+                {
+                    QMC.Common.MessageDialog.Show(this,
+                        "선택한 Picker가 이미 Die를 가지고 있습니다.\r\n" +
+                        "Picker=" + side + " #" + pickerNo + "\r\n" +
+                        "Die=" + occupiedDie.DieId,
+                        "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                DialogResult confirm = QMC.Common.MessageDialog.Show(this,
+                    "선택한 Input Die 데이터를 Picker로 이동하시겠습니까?\r\n" +
+                    "실제 모션은 동작하지 않고 Material 데이터만 이동합니다.\r\n\r\n" +
+                    "Die=" + entry.DieUid + "\r\n" +
+                    "Map=" + BuildEntryMapText(entry) + "\r\n" +
+                    "Target=" + side + " Picker #" + pickerNo,
+                    "Input Die Map", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+                if (confirm != DialogResult.Yes)
+                    return;
+
+                string message;
+                bool moved = MaterialStateService.MoveInputDieToPickerManually(
+                    entry.DieUid,
+                    pickerLocation,
+                    pickerNo,
+                    "InputStageMapTransferPage",
+                    out message);
+                if (!moved)
+                {
+                    QMC.Common.MessageDialog.Show(this, message,
+                        "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                MaterialStateService.TryFlushPendingSave("MapTransferManualInputDieToPicker");
+                RefreshActiveInputMapIfChanged();
+                RefreshDieGrid();
+                SelectEntry(entry);
+                mapView.Invalidate();
+
+                QMC.Common.Log.Write("Main", "SYSTEM", "InputStageMapTransferPage",
+                    "Input Die 데이터 Picker 수동 이동 완료. die=" + entry.DieUid +
+                    ", map=" + BuildEntryMapText(entry) +
+                    ", side=" + side +
+                    ", pickerNo=" + pickerNo + " - Ok");
+                QMC.Common.MessageDialog.Show(this,
+                    "Die 데이터를 " + side + " Picker #" + pickerNo + "로 이동했습니다.",
+                    "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Log.Write("Main", "SYSTEM", "InputStageMapTransferPage",
+                    "Input Die 데이터 Picker 수동 이동 실패: " + ex.Message + " - Failed");
+                QMC.Common.MessageDialog.Show(this,
+                    "Input Die 데이터 Picker 이동 실패:\r\n" + ex.Message,
+                    "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
             }
         }
 
@@ -1626,8 +1778,9 @@ namespace QMC.CDT_320.Ui.Pages.Work
                         out cameraOffsetY);
                 double centerMoveDeltaX = bottomRefVisionDeltaX;
 
-                //double centerMoveDeltaY = -bottomRefVisionDeltaY;
-                double centerMoveDeltaY = bottomRefVisionDeltaY;
+                // 기존 수식은 영상에서 위쪽으로 검출된 Die에 대해 StageY를 같은 방향으로 이동시켜 중심 오차를 키웠다.
+                // Stage가 Die를 카메라 중심에 맞추려면 Vision Y 오프셋의 반대 방향으로 이동해야 한다.
+                double centerMoveDeltaY = -bottomRefVisionDeltaY;
                 if (cameraOffsetXExcluded)
                 {
                     centerMoveDeltaX -= cameraOffsetX;
@@ -2015,8 +2168,6 @@ namespace QMC.CDT_320.Ui.Pages.Work
         private void ApplyPendingManualInputDieMapOffset()
         {
             DieMap map = null;
-            bool offsetApplied = false;
-            bool offsetCommitted = false;
             try
             {
                 if (!_manualDieDetectOffsetPending)
@@ -2094,32 +2245,35 @@ namespace QMC.CDT_320.Ui.Pages.Work
 
                 SetActionButtonsEnabled(false);
 
-                ApplyManualInputDieMapOffset(map, _manualDieDetectOffsetX, _manualDieDetectOffsetY);
-                offsetApplied = true;
-                InputStageDieMapApplyResult applyResult = InputStageDieMapApplyService.Apply(
-                    new InputStageDieMapApplyRequest
-                    {
-                        Stage = stage,
-                        Controller = host.Controller,
-                        Bus = null,
-                        DieMap = map,
-                        WaferMap = null,
-                        ExpectedWafer = MaterialStateService.GetWaferAtLocation(MaterialLocationKind.InputStage),
-                        PickupOptions = ResolveInputPickupSubsetFromRecipe(),
-                        Source = "InputStageMapTransferPage.ManualInputDieMapOffsetApply",
-                        SaveReason = "InputStageManualDieDetectOffsetApply",
-                        PublishReadySignals = true
-                    });
-                if (applyResult == null || !applyResult.Success)
+                int updatedDieCount;
+                string coordinateUpdateDetail;
+                if (!MaterialStateService.TryApplyInputMapOffsetPreservingDieState(
+                    map,
+                    _manualDieDetectOffsetX,
+                    _manualDieDetectOffsetY,
+                    "InputStageManualDieDetectOffsetApply",
+                    out updatedDieCount,
+                    out coordinateUpdateDetail))
                 {
-                    ApplyManualInputDieMapOffset(map, -_manualDieDetectOffsetX, -_manualDieDetectOffsetY);
-                    offsetApplied = false;
                     QMC.Common.MessageDialog.Show(this,
-                        "Offset 적용 실패:\r\n" + (applyResult != null ? applyResult.ErrorMessage : ""),
+                        "Offset 적용 실패:\r\n" + coordinateUpdateDetail,
                         "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Error);
                     return;
                 }
-                offsetCommitted = true;
+
+                double mappingOffsetX = map.OriginX - stage.OriginX;
+                double mappingOffsetY = map.OriginY - stage.OriginY;
+                WaferMaterial currentWafer = MaterialStateService.GetWaferAtLocation(MaterialLocationKind.InputStage);
+                WaferMapData waferMap = BuildWaferMapDataFromDieMap(map, currentWafer);
+                stage.ApplyDieMappingResult(
+                    waferMap,
+                    map.OriginX,
+                    map.OriginY,
+                    map.PitchX,
+                    map.PitchY,
+                    mappingOffsetX,
+                    mappingOffsetY);
+                host.Controller.ApplyInputDieMap(map, "InputStageMapTransferPage.ManualInputDieMapOffsetPreserveState");
 
                 _selectedEntry = entry;
                 _pickStatusDirty = false;
@@ -2134,31 +2288,21 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     "Manual input die map offset applied. die=" + (entry.DieUid ?? "") +
                     ", offsetX=" + _manualDieDetectOffsetX.ToString("F6") +
                     ", offsetY=" + _manualDieDetectOffsetY.ToString("F6") +
-                    ", mappingOffsetX=" + applyResult.MappingOffsetX.ToString("F6") +
-                    ", mappingOffsetY=" + applyResult.MappingOffsetY.ToString("F6") + " - Ok");
+                    ", mappingOffsetX=" + mappingOffsetX.ToString("F6") +
+                    ", mappingOffsetY=" + mappingOffsetY.ToString("F6") +
+                    ", updatedDieCount=" + updatedDieCount +
+                    ", dieStatePreserved=True - Ok");
 
                 ClearPendingManualInputDieDetectOffset();
 
                 QMC.Common.MessageDialog.Show(this,
                     "Offset 적용 완료.\r\n" +
-                    "Offset X=" + applyResult.MappingOffsetX.ToString("F6") + " mm, Y=" + applyResult.MappingOffsetY.ToString("F6") + " mm",
+                    "Offset X=" + mappingOffsetX.ToString("F6") + " mm, Y=" + mappingOffsetY.ToString("F6") + " mm\r\n" +
+                    "기존 Die 상태와 검사 이력은 유지했습니다.",
                     "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
             catch (Exception ex)
             {
-                if (offsetApplied && !offsetCommitted && map != null)
-                {
-                    try
-                    {
-                        ApplyManualInputDieMapOffset(map, -_manualDieDetectOffsetX, -_manualDieDetectOffsetY);
-                    }
-                    catch (Exception rollbackEx)
-                    {
-                        QMC.Common.Log.Write("Main", "SYSTEM", "InputStageMapTransferPage",
-                            "Manual input die map offset rollback failed: " + rollbackEx.Message + " - Failed");
-                    }
-                }
-
                 QMC.Common.Log.Write("Main", "SYSTEM", "InputStageMapTransferPage",
                     "Manual input die map offset apply failed: " + ex.Message + " - Failed");
                 QMC.Common.MessageDialog.Show(this, "Offset 적용 실패:\r\n" + ex.Message,
@@ -2358,26 +2502,6 @@ namespace QMC.CDT_320.Ui.Pages.Work
         private static bool IsFinite(double value)
         {
             return !double.IsNaN(value) && !double.IsInfinity(value);
-        }
-
-        private void ApplyManualInputDieMapOffset(DieMap map, double offsetX, double offsetY)
-        {
-            if (map == null || map.Entries == null)
-                return;
-
-            map.OriginX += offsetX;
-            map.OriginY += offsetY;
-            foreach (DieMapEntry entry in map.Entries)
-            {
-                if (entry == null)
-                    continue;
-
-                entry.PosX += offsetX;
-                entry.PosY += offsetY;
-            }
-
-            PickupSequenceGenerator.ApplySequenceNumbers(map, ResolveInputPickupSubsetFromRecipe());
-            DieMapGenerator.Normalize(map);
         }
 
         private static WaferMapData BuildWaferMapDataFromDieMap(DieMap map, WaferMaterial wafer)

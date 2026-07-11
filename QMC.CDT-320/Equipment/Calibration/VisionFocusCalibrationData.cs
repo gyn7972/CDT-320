@@ -1,5 +1,6 @@
 using System;
 using System.Runtime.Serialization;
+using System.Threading;
 
 namespace QMC.CDT320.Calibration
 {
@@ -25,6 +26,13 @@ namespace QMC.CDT320.Calibration
         WaitResultForTest = 1
     }
 
+    public enum RuntimeAutoFocusScanMode
+    {
+        None = 0,
+        FineOnly = 1,
+        RoughAndFine = 2
+    }
+
     [DataContract]
     public sealed class VisionFocusScanSettings
     {
@@ -45,7 +53,9 @@ namespace QMC.CDT320.Calibration
         [DataMember] public VisionFocusValueReceiveMode FocusValueReceiveMode { get; set; } = VisionFocusValueReceiveMode.AckOnly;
         [DataMember] public bool ReturnToDefaultAfterScan { get; set; } = true;
         [DataMember] public bool AutoFocusBeforeBottomEnabled { get; set; }
+        [DataMember] public bool AutoFocusOnStartEnabled { get; set; }
         [DataMember] public bool AutoFocusOnWaferChange { get; set; } = true;
+        [DataMember] public bool AutoFocusOnPickCountEnabled { get; set; }
         [DataMember] public int AutoFocusPickInterval { get; set; }
         [DataMember] public bool AutoFocusRuntimePolicyInitialized { get; set; }
 
@@ -151,6 +161,11 @@ namespace QMC.CDT320.Calibration
     [DataContract]
     public sealed class VisionFocusCalibrationData
     {
+        private static readonly DateTime SafeRuntimeUnsetDateTime = new DateTime(2000, 1, 1);
+        private object _runtimeAutoFocusSync;
+        private bool _runtimeAutoFocusReserved;
+        private RuntimeAutoFocusScanMode _startupAutoFocusMode;
+
         [DataMember] public VisionFocusScanSettings BottomColletScan { get; set; } = new VisionFocusScanSettings();
         [DataMember] public VisionFocusScanSettings BottomDieScan { get; set; } = new VisionFocusScanSettings();
         [DataMember] public VisionFocusScanSettings SideVisionScan { get; set; } = new VisionFocusScanSettings();
@@ -162,6 +177,9 @@ namespace QMC.CDT320.Calibration
         [DataMember] public VisionFocusPositionRecord FrontSide90 { get; set; } = new VisionFocusPositionRecord();
         [DataMember] public VisionFocusPositionRecord RearSide0 { get; set; } = new VisionFocusPositionRecord();
         [DataMember] public VisionFocusPositionRecord RearSide90 { get; set; } = new VisionFocusPositionRecord();
+        [DataMember] public int RuntimeAutoFocusTotalPickCount { get; set; }
+        [DataMember] public string RuntimeAutoFocusLastWaferId { get; set; }
+        [DataMember] public DateTime RuntimeAutoFocusLastCompletedAt { get; set; }
 
         [OnDeserialized]
         private void OnDeserialized(StreamingContext ctx)
@@ -186,11 +204,114 @@ namespace QMC.CDT320.Calibration
             if (FrontSide90 == null) FrontSide90 = new VisionFocusPositionRecord();
             if (RearSide0 == null) RearSide0 = new VisionFocusPositionRecord();
             if (RearSide90 == null) RearSide90 = new VisionFocusPositionRecord();
+            if (RuntimeAutoFocusLastWaferId == null) RuntimeAutoFocusLastWaferId = string.Empty;
+            if (RuntimeAutoFocusTotalPickCount < 0) RuntimeAutoFocusTotalPickCount = 0;
+            if (RuntimeAutoFocusLastCompletedAt <= DateTime.MinValue.AddDays(1) ||
+                RuntimeAutoFocusLastCompletedAt >= DateTime.MaxValue.AddDays(-1))
+                RuntimeAutoFocusLastCompletedAt = SafeRuntimeUnsetDateTime;
 
             FrontSide0.EnsureDefaults();
             FrontSide90.EnsureDefaults();
             RearSide0.EnsureDefaults();
             RearSide90.EnsureDefaults();
+        }
+
+        public int RecordRuntimeAutoFocusPick()
+        {
+            lock (RuntimeAutoFocusSync)
+            {
+                if (RuntimeAutoFocusTotalPickCount < int.MaxValue)
+                    RuntimeAutoFocusTotalPickCount++;
+                return RuntimeAutoFocusTotalPickCount;
+            }
+        }
+
+        public void SetStartupAutoFocusMode(RuntimeAutoFocusScanMode mode)
+        {
+            lock (RuntimeAutoFocusSync)
+                _startupAutoFocusMode = mode;
+        }
+
+        public bool TryReserveRuntimeAutoFocus(
+            string waferId,
+            out RuntimeAutoFocusScanMode scanMode,
+            out string reason)
+        {
+            lock (RuntimeAutoFocusSync)
+            {
+                scanMode = RuntimeAutoFocusScanMode.None;
+                reason = string.Empty;
+                if (_runtimeAutoFocusReserved)
+                    return false;
+
+                VisionFocusScanSettings settings = BottomDieScan;
+                settings.EnsureDefaults();
+                if (_startupAutoFocusMode != RuntimeAutoFocusScanMode.None)
+                {
+                    scanMode = _startupAutoFocusMode;
+                    reason = "Start";
+                    _startupAutoFocusMode = RuntimeAutoFocusScanMode.None;
+                }
+                else if (settings.AutoFocusOnWaferChange &&
+                         !string.IsNullOrWhiteSpace(waferId) &&
+                         !string.Equals(RuntimeAutoFocusLastWaferId ?? string.Empty, waferId, StringComparison.OrdinalIgnoreCase))
+                {
+                    scanMode = RuntimeAutoFocusScanMode.RoughAndFine;
+                    reason = "WaferChanged";
+                }
+                else if (settings.AutoFocusOnPickCountEnabled &&
+                         settings.AutoFocusPickInterval > 0 &&
+                         RuntimeAutoFocusTotalPickCount >= settings.AutoFocusPickInterval)
+                {
+                    scanMode = RuntimeAutoFocusScanMode.RoughAndFine;
+                    reason = "TotalPickCount";
+                }
+
+                if (scanMode == RuntimeAutoFocusScanMode.None)
+                    return false;
+
+                _runtimeAutoFocusReserved = true;
+                return true;
+            }
+        }
+
+        public void CompleteRuntimeAutoFocus(string waferId)
+        {
+            lock (RuntimeAutoFocusSync)
+            {
+                RuntimeAutoFocusTotalPickCount = 0;
+                RuntimeAutoFocusLastWaferId = waferId ?? string.Empty;
+                RuntimeAutoFocusLastCompletedAt = DateTime.Now;
+                _runtimeAutoFocusReserved = false;
+            }
+        }
+
+        public void ReleaseRuntimeAutoFocusReservation()
+        {
+            lock (RuntimeAutoFocusSync)
+                _runtimeAutoFocusReserved = false;
+        }
+
+        public void ResetRuntimeAutoFocusTracking()
+        {
+            lock (RuntimeAutoFocusSync)
+            {
+                RuntimeAutoFocusTotalPickCount = 0;
+                RuntimeAutoFocusLastWaferId = string.Empty;
+                RuntimeAutoFocusLastCompletedAt = SafeRuntimeUnsetDateTime;
+                _runtimeAutoFocusReserved = false;
+                _startupAutoFocusMode = RuntimeAutoFocusScanMode.None;
+            }
+        }
+
+        private object RuntimeAutoFocusSync
+        {
+            get
+            {
+                if (_runtimeAutoFocusSync == null)
+                    Interlocked.CompareExchange(ref _runtimeAutoFocusSync, new object(), null);
+                return _runtimeAutoFocusSync;
+            }
         }
 
         public VisionFocusPositionRecord GetColletRecord(VisionFocusPickerSide side, int pickerNo)

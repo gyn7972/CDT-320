@@ -96,6 +96,8 @@ namespace QMC.CDT320.Sequencing
 
         public bool ForceBottomInspectionBeforeSideResume { get; set; }
 
+        public bool PickerZStageSafeConfirmedByPickUp { get; set; }
+
         public void Abort()
         {
             try
@@ -109,6 +111,7 @@ namespace QMC.CDT320.Sequencing
                 _pendingZAvoids.Clear();
                 _pendingBottomZDowns.Clear();
                 ForceBottomInspectionBeforeSideResume = false;
+                PickerZStageSafeConfirmedByPickUp = false;
                 CurrentStep = PickerBottomAndSideInspectionStep.Complete;
             }
             catch
@@ -151,7 +154,8 @@ namespace QMC.CDT320.Sequencing
                 CurrentStep = PickerBottomAndSideInspectionStep.MoveOppositePickerToAvoidBeforeInspection;
                 result = await MoveOppositePickerToAvoidAndVerifyAsync(
                     "Bottom/Side 통합 검사 진입 전 상대 Picker Avoid 확인",
-                    ct).ConfigureAwait(false);
+                    ct,
+                    true).ConfigureAwait(false);
                 if (result != 0)
                     return result;
 
@@ -383,9 +387,26 @@ namespace QMC.CDT320.Sequencing
 
                 EnsureBottomSideProcessAreaReserved("BottomAndSideInspection");
 
-                int result = await MoveAllPickerZToAvoidAndVerifyAsync("Bottom/Side 통합 검사 진입 전 PickerZ 전체 Avoid", ct).ConfigureAwait(false);
-                if (result != 0)
-                    return result;
+                bool skipFullAvoidWait =
+                    PickerZStageSafeConfirmedByPickUp &&
+                    !ForceBottomInspectionBeforeSideResume;
+                PickerZStageSafeConfirmedByPickUp = false;
+
+                if (!skipFullAvoidWait)
+                {
+                    // PickUp의 안전 상승을 확인하지 못한 신규/재개 경로는 Full Avoid를 확인한다.
+                    int result = await MoveAllPickerZToAvoidAndVerifyAsync(
+                        "Bottom/Side 통합 검사 진입 전 PickerZ 전체 Avoid",
+                        ct).ConfigureAwait(false);
+                    if (result != 0)
+                        return result;
+                }
+                else
+                {
+                    WriteLog("PickerBottomAndSideInspectionSequence",
+                        Name + " 직전 PickUp의 PickerZ Stage Safe 높이 확인을 사용하고 Full Avoid 완료 대기를 생략합니다. " +
+                        "PickerZ는 기존 Avoid 목표로 계속 이동하며 Bottom 검사 이동을 이어갑니다. side=" + Side + " - Check");
+                }
 
                 return 0;
             }

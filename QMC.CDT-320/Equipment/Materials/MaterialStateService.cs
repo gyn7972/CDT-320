@@ -4594,6 +4594,302 @@ namespace QMC.CDT320.Materials
             NotifyAndSave("MoveDie");
         }
 
+        public static bool MoveInputDieToPickerManually(
+            string dieId,
+            MaterialLocationKind pickerLocation,
+            int pickerNo,
+            string reason,
+            out string message)
+        {
+            message = string.Empty;
+            try
+            {
+                if (string.IsNullOrWhiteSpace(dieId))
+                {
+                    message = "이동할 Die ID가 비어 있습니다.";
+                    return false;
+                }
+
+                if (!IsPickerLocation(pickerLocation))
+                {
+                    message = "Picker 위치가 올바르지 않습니다. location=" + pickerLocation;
+                    return false;
+                }
+
+                if (pickerNo < 1 || pickerNo > 4)
+                {
+                    message = "Picker 번호가 올바르지 않습니다. pickerNo=" + pickerNo;
+                    return false;
+                }
+
+                MaterialLocation previousLocation;
+                lock (_stateSync)
+                {
+                    DieMaterial die = State.Dies.FirstOrDefault(d =>
+                        d != null &&
+                        string.Equals(d.DieId, dieId, StringComparison.OrdinalIgnoreCase));
+                    if (die == null)
+                    {
+                        message = "Die 정보를 찾을 수 없습니다. dieId=" + dieId;
+                        return false;
+                    }
+
+                    if (die.CurrentLocation == null ||
+                        die.CurrentLocation.Kind != MaterialLocationKind.InputStage)
+                    {
+                        message = "InputStage에 있는 Die만 Picker로 이동할 수 있습니다. dieId=" + dieId +
+                                  ", current=" + (die.CurrentLocation != null ? die.CurrentLocation.ToString() : "Unknown");
+                        return false;
+                    }
+
+                    if (!die.IsInputTarget)
+                    {
+                        message = "SKIP/제외 상태의 Die는 Picker로 이동할 수 없습니다. dieId=" + dieId;
+                        return false;
+                    }
+
+                    DieMaterial occupiedDie = FindDieAtPickerNoLock(pickerLocation, pickerNo);
+                    if (occupiedDie != null &&
+                        !string.Equals(occupiedDie.DieId, dieId, StringComparison.OrdinalIgnoreCase))
+                    {
+                        message = "선택한 Picker가 이미 Die를 가지고 있습니다. location=" + pickerLocation +
+                                  ", pickerNo=" + pickerNo +
+                                  ", loadedDie=" + occupiedDie.DieId;
+                        return false;
+                    }
+
+                    previousLocation = die.CurrentLocation;
+                    die.CurrentLocation = MaterialLocation.Picker(pickerLocation, pickerNo);
+                    die.ReservedPickerLocation = MaterialLocationKind.Unknown;
+                    die.ReservedPickerNo = -1;
+                    die.PickedPickerLocation = pickerLocation;
+                    die.PickedPickerNo = pickerNo;
+                    die.PickedAt = DateTime.Now;
+                    die.UpdatedAt = DateTime.Now;
+
+                    SequenceTrace.MaterialChange(
+                        "ManualInputDieToPicker",
+                        "die=" + die.DieId,
+                        "from=" + previousLocation,
+                        "to=" + die.CurrentLocation,
+                        "pickerLocation=" + pickerLocation,
+                        "pickerNo=" + pickerNo,
+                        "reason=" + (reason ?? ""),
+                        "result=" + die.Result);
+                }
+
+                string saveReason = "MapTransferManualInputDieToPicker:" + dieId;
+                NotifyAndSave(saveReason);
+                Log.Write("Main", "MATERIAL", "ManualInputDieToPicker",
+                    "Input die data moved to picker manually. dieId=" + dieId +
+                    ", from=" + previousLocation +
+                    ", pickerLocation=" + pickerLocation +
+                    ", pickerNo=" + pickerNo +
+                    ", reason=" + (reason ?? "") + " - Ok");
+
+                message = "Die 데이터를 Picker로 이동했습니다. dieId=" + dieId;
+                return true;
+            }
+            catch (Exception ex)
+            {
+                message = "Input Die 데이터 Picker 이동 실패: " + ex.Message;
+                Log.Write("Main", "MATERIAL", "ManualInputDieToPicker",
+                    "Input die data move to picker failed. dieId=" + dieId +
+                    ", pickerLocation=" + pickerLocation +
+                    ", pickerNo=" + pickerNo +
+                    ", error=" + ex.Message + " - Failed");
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
+        public static bool TryApplyInputMapOffsetPreservingDieState(
+            DieMap map,
+            double offsetX,
+            double offsetY,
+            string reason,
+            out int updatedDieCount,
+            out string detail)
+        {
+            updatedDieCount = 0;
+            detail = string.Empty;
+
+            try
+            {
+                lock (_stateSync)
+                {
+                    if (map == null || map.Entries == null)
+                    {
+                        detail = "Input Die Map이 없습니다.";
+                        return false;
+                    }
+
+                    map.OriginX += offsetX;
+                    map.OriginY += offsetY;
+                    foreach (DieMapEntry entry in map.Entries)
+                    {
+                        if (entry == null)
+                            continue;
+
+                        entry.PosX += offsetX;
+                        entry.PosY += offsetY;
+
+                        DieMaterial die = State.Dies.FirstOrDefault(x =>
+                            x != null &&
+                            !string.IsNullOrWhiteSpace(entry.DieUid) &&
+                            string.Equals(x.DieId, entry.DieUid, StringComparison.OrdinalIgnoreCase));
+                        if (die == null)
+                            continue;
+
+                        if (die.WaferOffset == null)
+                            die.WaferOffset = new VisionOffset();
+                        die.WaferOffset.X = entry.PosX;
+                        die.WaferOffset.Y = entry.PosY;
+                        die.WaferOffset.R = 0.0;
+                        die.WaferOffset.IsValid = true;
+                        die.UpdatedAt = DateTime.Now;
+                        updatedDieCount++;
+                    }
+
+                    WaferMaterial wafer = GetWaferAtLocation(MaterialLocationKind.InputStage);
+                    if (wafer != null)
+                    {
+                        wafer.InputStageAlignOriginX = map.OriginX;
+                        wafer.InputStageAlignOriginY = map.OriginY;
+                        wafer.InputStageDieMappingOffsetX += offsetX;
+                        wafer.InputStageDieMappingOffsetY += offsetY;
+                        wafer.UpdatedAt = DateTime.Now;
+                    }
+
+                    LotStorage.ActiveInputDieMap = map;
+                }
+
+                NotifyAndSave(string.IsNullOrWhiteSpace(reason)
+                    ? "InputDieMapCoordinateOffsetPreserveState"
+                    : reason);
+                detail = "Die 상태를 유지한 채 전체 Input Die 좌표를 갱신했습니다. updated=" + updatedDieCount +
+                         ", offsetX=" + offsetX.ToString("F6") +
+                         ", offsetY=" + offsetY.ToString("F6");
+                Log.Write("Main", "SYSTEM", "MaterialStateService", detail + " - Ok");
+                return true;
+            }
+            catch (Exception ex)
+            {
+                detail = "Die 상태 유지 Input Die 좌표 갱신 실패. error=" + ex.Message;
+                Log.Write("Main", "SYSTEM", "MaterialStateService", detail + " - Failed");
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
+        public static bool TryApplyLastVisionOffsetToPendingInputDies(
+            string referenceDieId,
+            double offsetX,
+            double offsetY,
+            string reason,
+            out int updatedDieCount,
+            out int skippedDieCount,
+            out string detail)
+        {
+            updatedDieCount = 0;
+            skippedDieCount = 0;
+            detail = string.Empty;
+
+            try
+            {
+                lock (_stateSync)
+                {
+                    WaferMaterial wafer = GetWaferAtLocation(MaterialLocationKind.InputStage);
+                    DieMap map = LotStorage.ActiveInputDieMap ?? BuildDieMapFromWafer(wafer);
+                    if (wafer == null || map == null || map.Entries == null)
+                    {
+                        detail = "InputStage Wafer 또는 Die Map이 없어 미촬영 Die 좌표를 갱신할 수 없습니다.";
+                        return false;
+                    }
+
+                    foreach (DieMapEntry entry in map.Entries)
+                    {
+                        if (entry == null || !entry.IsTarget || string.IsNullOrWhiteSpace(entry.DieUid))
+                            continue;
+
+                        DieMaterial die = State.Dies.FirstOrDefault(x =>
+                            x != null && string.Equals(x.DieId, entry.DieUid, StringComparison.OrdinalIgnoreCase));
+                        if (!IsPendingUninspectedInputDie(die))
+                        {
+                            skippedDieCount++;
+                            continue;
+                        }
+
+                        entry.PosX += offsetX;
+                        entry.PosY += offsetY;
+                        if (die.WaferOffset == null)
+                            die.WaferOffset = new VisionOffset();
+                        die.WaferOffset.X = entry.PosX;
+                        die.WaferOffset.Y = entry.PosY;
+                        die.WaferOffset.R = 0.0;
+                        die.WaferOffset.IsValid = true;
+                        die.UpdatedAt = DateTime.Now;
+                        updatedDieCount++;
+                    }
+
+                    LotStorage.ActiveInputDieMap = map;
+                }
+
+                NotifyAndSave(string.IsNullOrWhiteSpace(reason)
+                    ? "InputLastVisionOffsetToPendingDies"
+                    : reason);
+                detail = "마지막 Input Vision 결과를 미촬영·미예약 Die 좌표에 적용했습니다. referenceDie=" +
+                         (referenceDieId ?? "") +
+                         ", updated=" + updatedDieCount +
+                         ", skipped=" + skippedDieCount +
+                         ", offsetX=" + offsetX.ToString("F6") +
+                         ", offsetY=" + offsetY.ToString("F6");
+                Log.Write("Main", "SYSTEM", "MaterialStateService", detail + " - Ok");
+                return true;
+            }
+            catch (Exception ex)
+            {
+                detail = "마지막 Input Vision 결과의 미촬영 Die 좌표 적용 실패. referenceDie=" +
+                         (referenceDieId ?? "") + ", error=" + ex.Message;
+                Log.Write("Main", "SYSTEM", "MaterialStateService", detail + " - Failed");
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
+        private static bool IsPendingUninspectedInputDie(DieMaterial die)
+        {
+            if (die == null || !die.IsInputTarget)
+                return false;
+            if (die.CurrentLocation == null || die.CurrentLocation.Kind != MaterialLocationKind.InputStage)
+                return false;
+            if (die.ReservedPickerLocation != MaterialLocationKind.Unknown || die.ReservedPickerNo > 0)
+                return false;
+            if (die.PickedPickerLocation != MaterialLocationKind.Unknown || die.PickedPickerNo > 0)
+                return false;
+
+            if (die.Inspections != null)
+            {
+                for (int i = 0; i < die.Inspections.Count; i++)
+                {
+                    DieInspectionRecord record = die.Inspections[i];
+                    if (record != null &&
+                        string.Equals(record.InspectionType, "InputPickVision", StringComparison.OrdinalIgnoreCase))
+                    {
+                        return false;
+                    }
+                }
+            }
+
+            return true;
+        }
+
         public static bool MarkDiePickedByPicker(string dieId, MaterialLocationKind pickerLocation, int pickerNo)
         {
             try

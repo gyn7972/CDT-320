@@ -637,6 +637,62 @@ namespace QMC.CDT320.Sequencing
                     }
                 });
 
+                bool lastPreparedDie = _inspectionCursor == _preparedItems.Count - 1;
+                if (lastPreparedDie)
+                {
+                    double cameraOffsetX;
+                    double cameraOffsetY;
+                    if (!InputPickerPickTargetResolver.TryResolveInputCameraToBottomOffsets(
+                        Context != null ? Context.Machine : null,
+                        out cameraOffsetX,
+                        out cameraOffsetY))
+                    {
+                        cameraOffsetX = 0.0;
+                        cameraOffsetY = 0.0;
+                    }
+
+                    double pendingMapOffsetX = _visionOffset.DeltaX - cameraOffsetX;
+                    double pendingMapOffsetY = -(_visionOffset.DeltaY - cameraOffsetY);
+                    string limitReason;
+                    if (stage != null &&
+                        !stage.IsManualDieDetectOffsetWithinLimit(pendingMapOffsetX, pendingMapOffsetY, out limitReason))
+                    {
+                        return Fail("INPUT-DIE-VISION-PREPARE-PENDING-OFFSET-LIMIT", "Material",
+                            "마지막 Input Vision 보정값이 허용 범위를 벗어나 미촬영 Die 좌표에 적용할 수 없습니다. " +
+                            "referenceDie=" + _currentDieId +
+                            ", offsetX=" + pendingMapOffsetX.ToString("F6") +
+                            ", offsetY=" + pendingMapOffsetY.ToString("F6") +
+                            ", reason=" + limitReason);
+                    }
+
+                    int updatedCount;
+                    int skippedCount;
+                    string updateDetail;
+                    if (!MaterialStateService.TryApplyLastVisionOffsetToPendingInputDies(
+                        _currentDieId,
+                        pendingMapOffsetX,
+                        pendingMapOffsetY,
+                        "InputLastPreparedVisionOffset:" + _currentDieId,
+                        out updatedCount,
+                        out skippedCount,
+                        out updateDetail))
+                    {
+                        return Fail("INPUT-DIE-VISION-PREPARE-PENDING-OFFSET-APPLY", "Material", updateDetail);
+                    }
+
+                    WriteLog("InputDieVisionPrepareSequence",
+                        Name + " 예약 배치 마지막 촬영 결과를 아직 촬영하지 않은 Die 좌표에 적용했습니다. " +
+                        "referenceDie=" + _currentDieId +
+                        ", visionDeltaX=" + _visionOffset.DeltaX.ToString("F6") +
+                        ", visionDeltaY=" + _visionOffset.DeltaY.ToString("F6") +
+                        ", cameraOffsetX=" + cameraOffsetX.ToString("F6") +
+                        ", cameraOffsetY=" + cameraOffsetY.ToString("F6") +
+                        ", appliedOffsetX=" + pendingMapOffsetX.ToString("F6") +
+                        ", appliedOffsetY=" + pendingMapOffsetY.ToString("F6") +
+                        ", updated=" + updatedCount +
+                        ", skipped=" + skippedCount + " - Ok");
+                }
+
                 SaveCurrentStateToItem();
                 _inspectionCursor++;
                 ReleasePreInspectionInputStageArea();

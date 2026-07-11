@@ -323,7 +323,8 @@ namespace QMC.CDT320.Sequencing
 
                 int result = await MoveOppositePickerToAvoidAndVerifyAsync(
                     "바텀 검사 진입 전 상대 Picker 상태 확인",
-                    ct).ConfigureAwait(false);
+                    ct,
+                    true).ConfigureAwait(false);
                 if (result != 0)
                     return result;
 

@@ -7,6 +7,7 @@ using QMC.CDT320.Interlocks;
 using QMC.CDT320.Recipes;
 using QMC.Common.Motion;
 using QMC.Common;
+using QMC.CDT320.Motion.SharedRailX;
 
 namespace QMC.CDT320.Sequencing
 {
@@ -40,6 +41,7 @@ namespace QMC.CDT320.Sequencing
         private int _pendingContiRetreatPickerNo;
         private bool _suppressOutputPostPlaceInspection;
         private bool _placeBlowHoldUntilAvoid;
+        private bool _placeTargetPrepared;
 
         public bool ForceSafeYBeforeFirstPlaceMove { get; set; }
         public bool KeepPickerYForwardDuringPlaceReadyWait { get; set; }
@@ -340,8 +342,7 @@ namespace QMC.CDT320.Sequencing
                     ", reason=" + offsetReason);
             }
 
-            CalculatePlaceTargetValues();
-            return 0;
+            return CalculatePlaceTargetValues();
         }
 
         private static OutputStageReceiveTarget CloneReceiveTarget(OutputStageReceiveTarget source, BinSide side)
@@ -1031,6 +1032,8 @@ namespace QMC.CDT320.Sequencing
                     ", pickerNo=" + _currentPickerNo);
             }
 
+            _placeTargetPrepared = false;
+
             CurrentStep = PickerPlaceStep.MoveOutputStageAvoidPosition;
             return 0;
         }
@@ -1077,13 +1080,87 @@ namespace QMC.CDT320.Sequencing
                 return 0;
             }
 
-            result = await AwaitStepWithCancellationAsync(
-                OutputStage.MoveVisionXToAvoidAndVerifyAsync(ResolveTimeout(), Options.FineMove, ct),
+            bool outputFeederAlreadySafe = OutputFeeder != null &&
+                                           OutputFeeder.IsFeederUnclamped() &&
+                                           OutputFeeder.IsBinFeederYInAvoidPosition();
+            if (!outputFeederAlreadySafe)
+            {
+                result = await AwaitStepWithCancellationAsync(
+                    OutputStage.MoveVisionXToAvoidAndVerifyAsync(ResolveTimeout(), Options.FineMove, ct),
+                    ct).ConfigureAwait(false);
+                if (result != 0)
+                {
+                    return Fail("PICKER-PLACE-VISION-X-FEEDER-SAFE", "OutputStage",
+                        "OutputFeeder 안전 위치 확보 전 OutputVisionX 전체 Avoid 이동 실패. " +
+                        "side=" + _currentOutputSide + ", result=" + result + ", " +
+                        OutputStage.DescribeStageLoadMoveState(_currentOutputSide));
+                }
+
+                result = await EnsureOutputFeederSafeBeforePlaceStageMoveAsync(ct).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                WriteLog("PickerPlaceSequence",
+                    Name + " OutputFeeder가 안전 위치가 아니어서 OutputVisionX 전체 Avoid 후 Feeder를 먼저 정리했습니다. " +
+                    "side=" + _currentOutputSide + ", die=" + (_currentDie != null ? _currentDie.DieId : "-") + " - Ok");
+            }
+
+            result = PreparePlaceTargetValues();
+            if (result != 0)
+                return result;
+
+            double fullAvoid = OutputStage.Recipe.VisionX.AvoidPosition;
+            double visionTarget = fullAvoid;
+            string retreatDetail = "전체 Avoid 사용";
+            SharedRailXMotionService service = SharedRailXMotionRuntime.ResolveService(
+                Context != null ? Context.Machine : null);
+            if (service != null)
+            {
+                var planned = new Dictionary<SharedRailXAxis, IList<double>>();
+                SharedRailXAxis pickerRailAxis = Side == PickerSequenceSide.Front
+                    ? SharedRailXAxis.FrontPickerX
+                    : SharedRailXAxis.RearPickerX;
+                planned[pickerRailAxis] = new List<double> { _targetPickerX };
+
+                double dynamicTarget;
+                string dynamicDetail;
+                if (service.TryResolveNearestVisionRetreatTarget(
+                    OutputStage.OutputCameraX,
+                    fullAvoid,
+                    -0.1,
+                    planned,
+                    1.0,
+                    out dynamicTarget,
+                    out dynamicDetail))
+                {
+                    visionTarget = dynamicTarget;
+                    retreatDetail = dynamicDetail;
+                }
+                else
+                {
+                    retreatDetail = dynamicDetail + " 전체 Avoid로 대체합니다.";
+                }
+            }
+
+            WriteLog("PickerPlaceSequence",
+                Name + " OutputVisionX 피커 진입 회피 좌표를 확정했습니다. " +
+                "die=" + (_currentDie != null ? _currentDie.DieId : "-") +
+                ", pickerNo=" + _currentPickerNo +
+                ", pickerX=" + _targetPickerX.ToString("F6") +
+                ", target=" + visionTarget.ToString("F6") +
+                ", fullAvoid=" + fullAvoid.ToString("F6") +
+                ", detail=" + retreatDetail + " - Check");
+
+            result = await MoveOutputStageAxisAndVerifyAsync(
+                BinStageAxis.VisionX,
+                visionTarget,
+                "OutputVisionX 최소 회피 위치 이동",
                 ct).ConfigureAwait(false);
 
             if (result != 0)
                 return Fail("PICKER-PLACE-VISION-X-AVOID", "OutputStage",
-                    "OutputVisionX 피커 진입용 Avoid 이동 실패. side=" + _currentOutputSide +
+                    "OutputVisionX 피커 진입용 최소 회피 이동 실패. side=" + _currentOutputSide +
+                    ", target=" + visionTarget.ToString("F6") +
                     ", result=" + result + ", " + OutputStage.DescribeStageLoadMoveState(_currentOutputSide));
 
             CurrentStep = PickerPlaceStep.MoveOutputStageReceivePosition;
@@ -1163,23 +1240,9 @@ namespace QMC.CDT320.Sequencing
 
             BinStageAxis yAxis = _currentOutputSide == BinSide.Ng ? BinStageAxis.NgBinY : BinStageAxis.GoodBinY;
 
-            string offsetReason;
-            if (!TryResolveOutputVisionToPickerOffsets(
-                _currentOutputSide,
-                _currentPickerIndex,
-                out _outputVisionToPickerX,
-                out _outputVisionToPickerY,
-                out offsetReason))
-            {
-                return Fail("PICKER-PLACE-COORD-OFFSET", Name,
-                    "OutputVision 기준 Picker 좌표 보정값 계산 실패. " +
-                    "side=" + Side +
-                    ", outputSide=" + _currentOutputSide +
-                    ", pickerNo=" + _currentPickerNo +
-                    ", reason=" + offsetReason);
-            }
-
-            CalculatePlaceTargetValues();
+            int prepareResult = PreparePlaceTargetValues();
+            if (prepareResult != 0)
+                return prepareResult;
             Log.Write("PickerPlaceSequence", Name + " Place 대상 좌표 계산 완료. side=" + Side + ", step=" + CurrentStep);
 
             int result = await MoveOutputStageYPickerXAndPickerZToPlaceByModeAsync(yAxis, ct).ConfigureAwait(false);
@@ -1282,15 +1345,57 @@ namespace QMC.CDT320.Sequencing
 
         private int CalculatePlaceTarget()
         {
-            CalculatePlaceTargetValues();
+            int result = PreparePlaceTargetValues();
+            if (result != 0)
+                return result;
 
             CurrentStep = PickerPlaceStep.MovePickerXYAndTToPlace;
             return 0;
         }
 
-        private void CalculatePlaceTargetValues()
+        private int PreparePlaceTargetValues()
+        {
+            if (_placeTargetPrepared)
+                return 0;
+
+            string offsetReason;
+            if (!TryResolveOutputVisionToPickerOffsets(
+                _currentOutputSide,
+                _currentPickerIndex,
+                out _outputVisionToPickerX,
+                out _outputVisionToPickerY,
+                out offsetReason))
+            {
+                return Fail("PICKER-PLACE-COORD-OFFSET", Name,
+                    "OutputVision 기준 Picker 좌표 보정값 계산 실패. " +
+                    "side=" + Side +
+                    ", outputSide=" + _currentOutputSide +
+                    ", pickerNo=" + _currentPickerNo +
+                    ", reason=" + offsetReason);
+            }
+
+            int calculateResult = CalculatePlaceTargetValues();
+            if (calculateResult != 0)
+                return calculateResult;
+
+            _placeTargetPrepared = true;
+            return 0;
+        }
+
+        private int CalculatePlaceTargetValues()
         {
             string dieId = _currentDie != null ? _currentDie.DieId : string.Empty;
+            VisionOffset bottomOffset;
+            string bottomOffsetReason;
+            if (!TryResolveBottomPlaceOffset(_currentDie, out bottomOffset, out bottomOffsetReason))
+            {
+                return Fail("PICKER-PLACE-BOTTOM-OFFSET", "Material",
+                    "Place 좌표에 적용할 Bottom 검사 보정값을 찾을 수 없습니다. " +
+                    "die=" + dieId +
+                    ", pickerNo=" + _currentPickerNo +
+                    ", reason=" + bottomOffsetReason);
+            }
+
             double outputStageBaseY = _currentOutputSide == BinSide.Ng
                 ? OutputStage.Recipe.NGStageY.ProcessPosition
                 : OutputStage.Recipe.GoodStageY.ProcessPosition;
@@ -1307,7 +1412,10 @@ namespace QMC.CDT320.Sequencing
                 _receiveTarget != null ? _receiveTarget.TargetY : 0.0,
                 OutputStage.Recipe.VisionX.ProcessPosition,
                 _outputVisionToPickerX,
-                _outputVisionToPickerY);
+                _outputVisionToPickerY,
+                bottomOffset.X,
+                bottomOffset.Y,
+                bottomOffset.R);
 
             _targetOutputStageY = coordinate.OutputStageY;
             _targetPickerX = coordinate.PickerX;
@@ -1336,7 +1444,82 @@ namespace QMC.CDT320.Sequencing
                 ", receiveTargetY=" + (_receiveTarget != null ? _receiveTarget.TargetY.ToString() : "-") +
                 ", outputVisionToPickerOffsetX=" + _outputVisionToPickerX +
                 ", outputVisionToPickerOffsetY=" + _outputVisionToPickerY +
+                ", bottomOffsetX=" + bottomOffset.X +
+                ", bottomOffsetY=" + bottomOffset.Y +
+                ", bottomOffsetT=" + bottomOffset.R +
                 ", formula=" + _targetFormula + " - Ok");
+            return 0;
+        }
+
+        private static bool TryResolveBottomPlaceOffset(
+            DieMaterial die,
+            out VisionOffset offset,
+            out string reason)
+        {
+            offset = null;
+            reason = string.Empty;
+            try
+            {
+                if (die == null)
+                {
+                    reason = "Die Material 데이터가 없습니다.";
+                    return false;
+                }
+
+                if (die.Inspections == null || die.Inspections.Count == 0)
+                {
+                    reason = "검사 기록이 없습니다.";
+                    return false;
+                }
+
+                DieInspectionRecord latest = null;
+                for (int i = 0; i < die.Inspections.Count; i++)
+                {
+                    DieInspectionRecord record = die.Inspections[i];
+                    if (record == null ||
+                        !string.Equals(record.InspectionType, "Bottom", StringComparison.OrdinalIgnoreCase) ||
+                        record.Result == MaterialInspectionResult.Unknown ||
+                        record.Offset == null ||
+                        !record.Offset.IsValid)
+                    {
+                        continue;
+                    }
+
+                    if (latest == null || record.UpdatedAt >= latest.UpdatedAt)
+                        latest = record;
+                }
+
+                if (latest == null)
+                {
+                    reason = "유효한 Bottom 검사 Offset 기록이 없습니다.";
+                    return false;
+                }
+
+                if (double.IsNaN(latest.Offset.X) || double.IsInfinity(latest.Offset.X) ||
+                    double.IsNaN(latest.Offset.Y) || double.IsInfinity(latest.Offset.Y) ||
+                    double.IsNaN(latest.Offset.R) || double.IsInfinity(latest.Offset.R))
+                {
+                    reason = "Bottom 검사 Offset에 사용할 수 없는 숫자가 포함되어 있습니다.";
+                    return false;
+                }
+
+                offset = new VisionOffset
+                {
+                    X = latest.Offset.X,
+                    Y = latest.Offset.Y,
+                    R = latest.Offset.R,
+                    IsValid = true
+                };
+                return true;
+            }
+            catch (Exception ex)
+            {
+                reason = "Bottom 검사 Offset 확인 실패: " + ex.Message;
+                return false;
+            }
+            finally
+            {
+            }
         }
 
         private async Task<int> MovePickerXYAndTToPlaceAsync(CancellationToken ct)
@@ -1609,125 +1792,83 @@ namespace QMC.CDT320.Sequencing
             double originalPickerZTarget = _targetPickerZ;
             _targetPickerZ = finalPickerZ;
 
-            Task<int> previousPickerZRetreatTask = null;
-            if (HasPendingContiRetreat())
+            int previousRetreatResult = await CompletePendingContiRetreatIfNeededAsync(
+                "Place 비동기 접근 전 이전 PickerZ Avoid 복귀",
+                ct).ConfigureAwait(false);
+            if (previousRetreatResult != 0)
             {
-                PickerAxis previousZAxis = GetPickerZAxis(_pendingContiRetreatPickerIndex);
-                previousPickerZRetreatTask = MovePickerAxisAndVerifyAsync(
-                    previousZAxis,
-                    previousPickerZAvoid,
-                    "Place ContiNode 이전 PickerZ Avoid 복귀",
-                    ct,
-                    "AvoidPosition");
-                await Task.Delay(1, ct).ConfigureAwait(false);
-                if (previousPickerZRetreatTask.IsCompleted)
-                {
-                    int immediatePreviousZResult = await previousPickerZRetreatTask.ConfigureAwait(false);
-                    if (immediatePreviousZResult != 0)
-                    {
-                        _targetPickerZ = originalPickerZTarget;
-                        return immediatePreviousZResult;
-                    }
-                }
-
-                if (previousPickerZRetreatTask != null)
-                {
-                    int previousZReadyResult = await previousPickerZRetreatTask.ConfigureAwait(false);
-                    if (previousZReadyResult != 0)
-                    {
-                        _targetPickerZ = originalPickerZTarget;
-                        return previousZReadyResult;
-                    }
-
-                    previousPickerZRetreatTask = null;
-                    WriteLog("PickerPlaceSequence",
-                        Name + " Place ContiNode 보간 축 맵 설정 전 이전 PickerZ Avoid 복귀 완료. " +
-                        "pickerNo=" + _currentPickerNo +
-                        ", die=" + (_currentDie != null ? _currentDie.DieId : "-") +
-                        ", outputSide=" + _currentOutputSide + " - Ok");
-                }
+                _targetPickerZ = originalPickerZTarget;
+                return previousRetreatResult;
             }
 
-            InterpolatedMotionMoveResult contiResult =
-                await PickerPlaceContiSegmentedMotion.MoveStageYPickerXAndPickerZByNodesAsync(
-                    stageY,
-                    pickerX,
-                    pickerZ,
-                    nodes,
-                    placeConfig,
-                    ct).ConfigureAwait(false);
+            double stageYStart = stageY != null ? stageY.ActualPosition : _targetOutputStageY;
+            double pickerXStart = pickerX != null ? pickerX.ActualPosition : _targetPickerX;
+            PickerAxis currentPickerZAxis = GetPickerZAxis(_currentPickerIndex);
+            string placeTargetName = BuildPlaceMoveTargetName();
 
-            if (contiResult != null && contiResult.Success)
+            Task<int> stageYMove = MoveOutputStageAxisAndVerifyAsync(
+                yAxis,
+                _targetOutputStageY,
+                "Place ContiNode OutputStageY 비동기 이동",
+                ct,
+                BuildOutputStagePlaceMoveTargetName("AsyncReceiveY"));
+            Task<int> pickerXMove = MovePickerAxisAndVerifyAsync(
+                PickerAxis.PickerX,
+                _targetPickerX,
+                "Place ContiNode PickerX 비동기 이동",
+                ct,
+                placeTargetName);
+            Task<int> pickerZMove = MovePickerZPlaceAfterContiProgressAsync(
+                yAxis,
+                stageY,
+                pickerX,
+                stageYStart,
+                pickerXStart,
+                stageYMove,
+                pickerXMove,
+                currentPickerZAxis,
+                finalPickerZ,
+                placeConfig,
+                ct);
+
+            int[] moveResults = await Task.WhenAll(stageYMove, pickerXMove, pickerZMove).ConfigureAwait(false);
+            if (moveResults[0] != 0 || moveResults[1] != 0 || moveResults[2] != 0)
             {
-                if (previousPickerZRetreatTask != null)
-                {
-                    int previousZResult = await previousPickerZRetreatTask.ConfigureAwait(false);
-                    if (previousZResult != 0)
-                    {
-                        _pickerZPlacedByContiSegmentedPlace = false;
-                        return previousZResult;
-                    }
-                }
-
-                int finalWait = await WaitContiSegmentedPlaceFinalPositionAsync(
-                    yAxis,
-                    HasPendingContiRetreat() ? GetPickerZAxis(_pendingContiRetreatPickerIndex) : (PickerAxis?)null,
-                    previousPickerZAvoid,
-                    GetPickerZAxis(_currentPickerIndex),
-                    Math.Max(placeConfig.ContiTimeoutMs, ResolveTimeout()),
-                    ct).ConfigureAwait(false);
-                if (finalWait != 0)
-                    return finalWait;
-
-                WriteLog("PickerPlaceSequence",
-                    Name + " Place ContiNode 이동 완료. die=" + (_currentDie != null ? _currentDie.DieId : "-") +
-                    ", pickerNo=" + _currentPickerNo +
-                    ", outputSide=" + _currentOutputSide +
-                    ", basePickerZ=" + originalPickerZTarget.ToString("F3") +
-                    ", finalPickerZ=" + finalPickerZ.ToString("F3") +
-                    ", " + contiResult + " - Ok");
-                ClearPendingContiRetreat();
-                _pickerZPlacedByContiSegmentedPlace = true;
-                return 0;
-            }
-
-            if (contiResult != null && contiResult.CommandIssued)
-            {
-                if (previousPickerZRetreatTask != null)
-                    await previousPickerZRetreatTask.ConfigureAwait(false);
-
                 _pickerZPlacedByContiSegmentedPlace = false;
-                return Fail("PICKER-PLACE-CONTI-MOVE", Name,
-                    "Place ContiNode 이동 명령 후 완료 확인에 실패했습니다. 기존 이동 방식으로 전환하지 않고 정지합니다. " +
-                    "die=" + (_currentDie != null ? _currentDie.DieId : "-") +
+                return Fail("PICKER-PLACE-CONTI-ASYNC-MOVE", Name,
+                    "Place ContiNode 비동기 이동 실패. " +
+                    "stageYResult=" + moveResults[0] +
+                    ", pickerXResult=" + moveResults[1] +
+                    ", pickerZResult=" + moveResults[2] +
+                    ", die=" + (_currentDie != null ? _currentDie.DieId : "-") +
                     ", pickerNo=" + _currentPickerNo +
-                    ", outputSide=" + _currentOutputSide +
-                    ", " + contiResult);
+                    ", outputSide=" + _currentOutputSide);
             }
 
-            _targetPickerZ = originalPickerZTarget;
+            int finalWait = await WaitContiSegmentedPlaceFinalPositionAsync(
+                yAxis,
+                null,
+                previousPickerZAvoid,
+                currentPickerZAxis,
+                Math.Max(placeConfig.ContiTimeoutMs, ResolveTimeout()),
+                ct).ConfigureAwait(false);
+            if (finalWait != 0)
+                return finalWait;
+
             WriteLog("PickerPlaceSequence",
-                Name + " Place ContiNode 이동 명령 전 실패로 기존 이동 방식으로 전환합니다. die=" +
-                (_currentDie != null ? _currentDie.DieId : "-") +
+                Name + " Place ContiNode 비동기 이동 완료. die=" + (_currentDie != null ? _currentDie.DieId : "-") +
                 ", pickerNo=" + _currentPickerNo +
                 ", outputSide=" + _currentOutputSide +
-                ", result=" + (contiResult != null ? contiResult.ResultCode.ToString() : "-") +
-                ", reason=" + (contiResult != null ? contiResult.Message : "결과 없음") +
-                " - Check");
-
-            if (previousPickerZRetreatTask != null)
-            {
-                int previousZFallbackResult = await previousPickerZRetreatTask.ConfigureAwait(false);
-                if (previousZFallbackResult != 0)
-                    return previousZFallbackResult;
-            }
-
-            int pendingFallbackResult = await CompletePendingContiRetreatIfNeededAsync("Place ContiNode 명령 전 실패로 기존 이동 전 이전 PickerZ Avoid 복귀", ct).ConfigureAwait(false);
-            if (pendingFallbackResult != 0)
-                return pendingFallbackResult;
-
-            _pickerZPlacedByContiSegmentedPlace = false;
-            return await MoveOutputStageYAndPickerXYTToPlaceAsync(yAxis, ct).ConfigureAwait(false);
+                ", basePickerZ=" + originalPickerZTarget.ToString("F3") +
+                ", finalPickerZ=" + finalPickerZ.ToString("F3") +
+                ", stageYStart=" + stageYStart.ToString("F3") +
+                ", stageYTarget=" + _targetOutputStageY.ToString("F3") +
+                ", pickerXStart=" + pickerXStart.ToString("F3") +
+                ", pickerXTarget=" + _targetPickerX.ToString("F3") +
+                ", triggerRatio=" + placeConfig.ContiXYMidRatio.ToString("F3") +
+                " - Ok");
+            _pickerZPlacedByContiSegmentedPlace = true;
+            return 0;
         }
 
         private IList<PickerPlaceContiNode> BuildContiSegmentedPlaceNodes(
@@ -2129,6 +2270,167 @@ namespace QMC.CDT320.Sequencing
                 BuildPlaceMoveTargetName()).ConfigureAwait(false);
         }
 
+        private static double ResolveContiAsyncPlaceTriggerPosition(double start, double target, PickerPlaceMotionConfig placeConfig)
+        {
+            double ratio = placeConfig != null ? placeConfig.ContiXYMidRatio : 0.5;
+            if (double.IsNaN(ratio) || double.IsInfinity(ratio))
+                ratio = 0.5;
+            ratio = Math.Max(0.0, Math.Min(1.0, ratio));
+            return start + ((target - start) * ratio);
+        }
+
+        private static bool IsContiAsyncPlaceTriggerReached(double start, double target, double trigger, double actual)
+        {
+            double travel = target - start;
+            if (Math.Abs(travel) <= 0.000001)
+                return true;
+
+            return travel > 0.0
+                ? actual >= trigger
+                : actual <= trigger;
+        }
+
+        private async Task<int> MovePickerZPlaceAfterContiProgressAsync(
+            BinStageAxis yAxis,
+            BaseAxis stageY,
+            BaseAxis pickerX,
+            double stageYStart,
+            double pickerXStart,
+            Task<int> stageYMove,
+            Task<int> pickerXMove,
+            PickerAxis pickerZAxis,
+            double pickerZTarget,
+            PickerPlaceMotionConfig placeConfig,
+            CancellationToken ct)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+
+                double stageYTrigger = ResolveContiAsyncPlaceTriggerPosition(stageYStart, _targetOutputStageY, placeConfig);
+                double pickerXTrigger = ResolveContiAsyncPlaceTriggerPosition(pickerXStart, _targetPickerX, placeConfig);
+                int timeoutMs = Math.Max(1000, Math.Max(placeConfig != null ? placeConfig.ContiTimeoutMs : 0, ResolveTimeout()));
+                DateTime deadline = DateTime.UtcNow.AddMilliseconds(timeoutMs);
+                DateTime stoppedCheckDeadline = DateTime.UtcNow.AddMilliseconds(200);
+
+                while (true)
+                {
+                    ct.ThrowIfCancellationRequested();
+
+                    if (stageYMove != null && stageYMove.IsCompleted)
+                    {
+                        int stageResult = await stageYMove.ConfigureAwait(false);
+                        if (stageResult != 0)
+                            return stageResult;
+                    }
+
+                    if (pickerXMove != null && pickerXMove.IsCompleted)
+                    {
+                        int pickerXResult = await pickerXMove.ConfigureAwait(false);
+                        if (pickerXResult != 0)
+                            return pickerXResult;
+                    }
+
+                    double stageYActual = stageY != null ? stageY.ActualPosition : stageYStart;
+                    double pickerXActual = pickerX != null ? pickerX.ActualPosition : pickerXStart;
+                    bool stageYReached = IsContiAsyncPlaceTriggerReached(stageYStart, _targetOutputStageY, stageYTrigger, stageYActual);
+                    bool pickerXReached = IsContiAsyncPlaceTriggerReached(pickerXStart, _targetPickerX, pickerXTrigger, pickerXActual);
+                    if (stageYReached && pickerXReached)
+                        break;
+
+                    if (stageY != null && stageY.IsAlarm)
+                    {
+                        return Fail("PICKER-PLACE-CONTI-ASYNC-Z-TRIGGER", Name,
+                            "Place ContiNode PickerZ 하강 트리거 대기 중 OutputStageY 알람이 발생했습니다. " +
+                            OutputStage.BuildStageAxisState(yAxis, _targetOutputStageY));
+                    }
+
+                    if (pickerX != null && pickerX.IsAlarm)
+                    {
+                        return Fail("PICKER-PLACE-CONTI-ASYNC-Z-TRIGGER", Name,
+                            "Place ContiNode PickerZ 하강 트리거 대기 중 PickerX 알람이 발생했습니다. " +
+                            BuildPickerAxisState(PickerAxis.PickerX, _targetPickerX));
+                    }
+
+                    if (DateTime.UtcNow >= stoppedCheckDeadline)
+                    {
+                        if (stageY != null &&
+                            !stageY.IsMoving &&
+                            !OutputStage.IsStageAxisInPosition(yAxis, _targetOutputStageY, ResolveOutputStageAxisTolerance(yAxis)) &&
+                            !stageYReached)
+                        {
+                            return Fail("PICKER-PLACE-CONTI-ASYNC-Z-TRIGGER", Name,
+                                "Place ContiNode PickerZ 하강 트리거 대기 중 OutputStageY가 목표 전 정지했습니다. " +
+                                "start=" + stageYStart.ToString("F6") +
+                                ", trigger=" + stageYTrigger.ToString("F6") +
+                                ", actual=" + stageYActual.ToString("F6") +
+                                ", " + OutputStage.BuildStageAxisState(yAxis, _targetOutputStageY));
+                        }
+
+                        if (pickerX != null &&
+                            !pickerX.IsMoving &&
+                            !IsPickerAxisInPosition(PickerAxis.PickerX, _targetPickerX) &&
+                            !pickerXReached)
+                        {
+                            return Fail("PICKER-PLACE-CONTI-ASYNC-Z-TRIGGER", Name,
+                                "Place ContiNode PickerZ 하강 트리거 대기 중 PickerX가 목표 전 정지했습니다. " +
+                                "start=" + pickerXStart.ToString("F6") +
+                                ", trigger=" + pickerXTrigger.ToString("F6") +
+                                ", actual=" + pickerXActual.ToString("F6") +
+                                ", " + BuildPickerAxisState(PickerAxis.PickerX, _targetPickerX));
+                        }
+                    }
+
+                    if (DateTime.UtcNow >= deadline)
+                    {
+                        return Fail("PICKER-PLACE-CONTI-ASYNC-Z-TRIGGER-TIMEOUT", Name,
+                            "Place ContiNode PickerZ 하강 트리거 대기 시간이 초과되었습니다. " +
+                            "timeoutMs=" + timeoutMs +
+                            ", stageYStart=" + stageYStart.ToString("F6") +
+                            ", stageYTrigger=" + stageYTrigger.ToString("F6") +
+                            ", stageYActual=" + stageYActual.ToString("F6") +
+                            ", pickerXStart=" + pickerXStart.ToString("F6") +
+                            ", pickerXTrigger=" + pickerXTrigger.ToString("F6") +
+                            ", pickerXActual=" + pickerXActual.ToString("F6"));
+                    }
+
+                    await Task.Delay(10, ct).ConfigureAwait(false);
+                }
+
+                WriteLog("PickerPlaceSequence",
+                    Name + " Place ContiNode PickerZ 하강 트리거 도달. " +
+                    "pickerNo=" + _currentPickerNo +
+                    ", outputSide=" + _currentOutputSide +
+                    ", stageYStart=" + stageYStart.ToString("F6") +
+                    ", stageYTrigger=" + stageYTrigger.ToString("F6") +
+                    ", stageYActual=" + (stageY != null ? stageY.ActualPosition.ToString("F6") : "-") +
+                    ", pickerXStart=" + pickerXStart.ToString("F6") +
+                    ", pickerXTrigger=" + pickerXTrigger.ToString("F6") +
+                    ", pickerXActual=" + (pickerX != null ? pickerX.ActualPosition.ToString("F6") : "-") +
+                    ", pickerZTarget=" + pickerZTarget.ToString("F6") +
+                    " - Start");
+
+                return await MovePickerAxisAndVerifyAsync(
+                    pickerZAxis,
+                    pickerZTarget,
+                    "Place ContiNode PickerZ 비동기 하강",
+                    ct,
+                    BuildPickerTargetName("DiePlacePosition", _currentPickerIndex)).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("PICKER-PLACE-CONTI-ASYNC-Z-EX", Name,
+                    "Place ContiNode PickerZ 비동기 하강 중 예외가 발생했습니다. error=" + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
         private PickerPlaceMotionConfig ResolvePlaceMotionConfig()
         {
             PickerPlaceMotionConfig config = null;
@@ -2271,7 +2573,10 @@ namespace QMC.CDT320.Sequencing
 
         private double ResolvePlacePickerTTarget(int pickerIndex)
         {
-            // Place T는 보정값을 더하지 않고 레시피 Place 티칭값을 그대로 사용한다.
+            // 현재 Place 대상 PickerT에는 Bottom 검사 회전 보정값이 적용된 최종 목표를 사용한다.
+            if (pickerIndex == _currentPickerIndex)
+                return _targetPickerT;
+
             return GetPickerTeachingPosition(GetPickerTAxis(pickerIndex), "PlacePosition");
         }
 
