@@ -182,7 +182,7 @@ namespace QMC.Vision.Ui.Localization
             A("insp.SecondReferenceFinder",   "둘째 기준",   "Second Reference");
             A("insp.DieFinder",               "다이",        "Die");
             A("insp.ScaleFinder",             "스케일",      "Scale");
-            A("insp.PlacementInspector",      "안착 검사",   "Placement");
+            A("insp.PlacementInspector",      "다이",        "Die");   // 빈비전 '다이' = 안착 갭 검사(DieGapInspect) — 매칭 아님(2026-07-11)
             A("insp.ColletFinder",            "콜렛",        "Collet");
             A("insp.SurfaceInspector",        "표면",        "Surface");
             A("insp.FocusFinder",             "포커스",      "Focus");
@@ -393,7 +393,7 @@ namespace QMC.Vision.Ui.Localization
             Z("insp.SecondReferenceFinder",   "第二基准");
             Z("insp.DieFinder",               "芯片");
             Z("insp.ScaleFinder",             "比例");
-            Z("insp.PlacementInspector",      "贴装检查");
+            Z("insp.PlacementInspector",      "芯片");
             Z("insp.ColletFinder",            "吸嘴");
             Z("insp.SurfaceInspector",        "表面");
             Z("insp.FocusFinder",             "对焦");
@@ -519,7 +519,7 @@ namespace QMC.Vision.Ui.Localization
             J("insp.SecondReferenceFinder",   "第二基準");
             J("insp.DieFinder",               "ダイ");
             J("insp.ScaleFinder",             "スケール");
-            J("insp.PlacementInspector",      "装着検査");
+            J("insp.PlacementInspector",      "ダイ");
             J("insp.ColletFinder",            "コレット");
             J("insp.SurfaceInspector",        "表面");
             J("insp.FocusFinder",             "フォーカス");

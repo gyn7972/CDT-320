@@ -33,8 +33,8 @@ namespace QMC.Vision.Sequencing
             },
             [SequenceModuleKind.BinVision] = new[]
             {
+                // '다이'는 패턴매치(MATCH DieFinder)가 아니라 안착 갭 검사(DieGapInspect) — 잘못된 단계 제거(2026-07-11).
                 T("MATCH",   "ReticleFinder"),
-                T("MATCH",   "DieFinder"),
                 T("INSPECT", "PlacementInspector"),
                 T("MATCH",   "ScaleFinder"),
             },

@@ -558,7 +558,10 @@ namespace QMC.Vision.Modules
                         foreach (var pgrp in list.GroupBy(s => s.Page).OrderBy(g => g.Key))
                         {
                             await ctrl.SwitchPageAsync(pgrp.Key).ConfigureAwait(false);
-                            int[] values = new int[ctrl.ChannelCount];   // 0 = OFF(미사용)
+                            // -1 = 이 도구에 미지정 채널 "유지" — 같은 컨트롤러(예: Leesos 단일 페이지)를 나눠 쓰는
+                            // 다른 모듈 조명(Bin 백라이트 등)을 그랩 때마다 0으로 꺼버리던 교차 소등 방지(2026-07-11).
+                            int[] values = new int[ctrl.ChannelCount];
+                            for (int i = 0; i < values.Length; i++) values[i] = -1;
                             foreach (var s in pgrp)
                                 if (s.Channel >= 1 && s.Channel <= ctrl.ChannelCount)
                                     values[s.Channel - 1] = s.On ? s.Level : 0;
@@ -720,6 +723,7 @@ namespace QMC.Vision.Modules
                               out double scaleX, out double scaleY, out string err)
         {
             scaleX = 0; scaleY = 0; err = null;
+            PrepareToolAcquisition("ScaleFinder");   // 통신(SCALE) 그랩도 조명(도구 레시피) 적용 후 촬상(2026-07-11, 캐시 히트=무비용)
             using (var g = Grab())
             {
                 if (!g.IsSuccess) { err = g.ErrorMessage; return false; }
@@ -749,6 +753,7 @@ namespace QMC.Vision.Modules
         {
             corners = new List<PointF>();
             err = null;
+            PrepareToolAcquisition("ReticleFinder");   // 통신(ROT_CENTER) 그랩도 조명 적용 후 촬상(2026-07-11)
             using (var g = Grab())
             {
                 if (!g.IsSuccess) { err = g.ErrorMessage; return false; }
@@ -765,6 +770,7 @@ namespace QMC.Vision.Modules
         public bool LearnDistortion(out string err)
         {
             err = null;
+            PrepareToolAcquisition("DistortionCompensation");   // 통신(DISTORT) 그랩도 조명 적용 후 촬상(2026-07-11)
             using (var g = Grab())
             {
                 if (!g.IsSuccess) { err = g.ErrorMessage; return false; }
@@ -787,6 +793,7 @@ namespace QMC.Vision.Modules
             SuppressLiveAutoStopOnGrab = true;   // 오토포커스(4-ROI) 측정 — 라이브(스트로브) 유지
             try
             {
+                PrepareToolAcquisition("FocusFinder");   // 구형 FOCUS_VAL(4-ROI) 그랩도 조명 적용 후 촬상(2026-07-11)
                 using (var g = Grab())
                 {
                     if (!g.IsSuccess) { err = g.ErrorMessage; return false; }

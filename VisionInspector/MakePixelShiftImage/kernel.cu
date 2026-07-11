@@ -3,7 +3,7 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <math.h>
-#include <vector> // <vector> Çì´õ Ãß°¡
+#include <vector> // <vector> ï¿½ï¿½ï¿½ ï¿½ß°ï¿½
 #include <thrust/device_vector.h>
 #include <thrust/host_vector.h>
 #include <thrust/scan.h>
@@ -33,20 +33,20 @@ struct BlobInfo {
     int pointCount;
 };
 
-// Union-Find: Find ¿¬»ê (°æ·Î ¾ĞÃà Æ÷ÇÔ)
+// Union-Find: Find ï¿½ï¿½ï¿½ï¿½ (ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½)
 __device__ int find_set(int* parent, int i) {
     if (parent[i] == i)
         return i;
-    // °æ·Î ¾ĞÃà
+    // ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
     return parent[i] = find_set(parent, parent[i]);
 }
 
-// Union-Find: Union ¿¬»ê
+// Union-Find: Union ï¿½ï¿½ï¿½ï¿½
 __device__ void unite_sets(int* parent, int a, int b) {
     a = find_set(parent, a);
     b = find_set(parent, b);
     if (a != b) {
-        // ´õ ÀÛÀº ·¹ÀÌºíÀ» ºÎ¸ğ·Î ¼³Á¤
+        // ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½Ìºï¿½ï¿½ï¿½ ï¿½Î¸ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
         if (a < b)
             parent[b] = a;
         else
@@ -54,7 +54,7 @@ __device__ void unite_sets(int* parent, int a, int b) {
     }
 }
 
-// 1´Ü°è: ÃÊ±â ·¹ÀÌºí¸µ ¹× ÀÌ¿ô°ú Union
+// 1ï¿½Ü°ï¿½: ï¿½Ê±ï¿½ ï¿½ï¿½ï¿½Ìºï¿½ï¿½ï¿½ ï¿½ï¿½ ï¿½Ì¿ï¿½ï¿½ï¿½ Union
 __global__ void ccl_union_neighbors_kernel(const uint8_t* image, int* parent, int width, int height) {
     int x = blockIdx.x * blockDim.x + threadIdx.x;
     int y = blockIdx.y * blockDim.y + threadIdx.y;
@@ -63,13 +63,13 @@ __global__ void ccl_union_neighbors_kernel(const uint8_t* image, int* parent, in
 
     int idx = y * width + x;
     if (image[idx] == 0) {
-        parent[idx] = 0; // ¹è°æ
+        parent[idx] = 0; // ï¿½ï¿½ï¿½
         return;
     }
 
-    parent[idx] = idx + 1; // ÃÊ±â ·¹ÀÌºí (0Àº ¹è°æÀÌ¹Ç·Î +1)
+    parent[idx] = idx + 1; // ï¿½Ê±ï¿½ ï¿½ï¿½ï¿½Ìºï¿½ (0ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½Ì¹Ç·ï¿½ +1)
 
-    // ¿À¸¥ÂÊ ÀÌ¿ô È®ÀÎ
+    // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½Ì¿ï¿½ È®ï¿½ï¿½
     if (x + 1 < width) {
         int right_idx = y * width + (x + 1);
         if (image[right_idx] != 0) {
@@ -77,7 +77,7 @@ __global__ void ccl_union_neighbors_kernel(const uint8_t* image, int* parent, in
         }
     }
 
-    // ¾Æ·¡ÂÊ ÀÌ¿ô È®ÀÎ
+    // ï¿½Æ·ï¿½ï¿½ï¿½ ï¿½Ì¿ï¿½ È®ï¿½ï¿½
     if (y + 1 < height) {
         int down_idx = (y + 1) * width + x;
         if (image[down_idx] != 0) {
@@ -86,15 +86,15 @@ __global__ void ccl_union_neighbors_kernel(const uint8_t* image, int* parent, in
     }
 }
 
-// 2´Ü°è: ·¹ÀÌºí ÀüÆÄ (¼ö·ÅÇÒ ¶§±îÁö ¹İº¹) - size ÀÎÀÚ Ãß°¡
+// 2ï¿½Ü°ï¿½: ï¿½ï¿½ï¿½Ìºï¿½ ï¿½ï¿½ï¿½ï¿½ (ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½İºï¿½) - size ï¿½ï¿½ï¿½ï¿½ ï¿½ß°ï¿½
 __global__ void ccl_propagate_labels_kernel(int* parent, int size) {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
-    if (idx < size && parent[idx] != 0) { // °æ°è °Ë»ç Ãß°¡
+    if (idx < size && parent[idx] != 0) { // ï¿½ï¿½ï¿½ ï¿½Ë»ï¿½ ï¿½ß°ï¿½
         find_set(parent, parent[idx]);
     }
 }
 
-// 3´Ü°è: ÃÖÁ¾ ·¹ÀÌºí ÇÒ´ç
+// 3ï¿½Ü°ï¿½: ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½Ìºï¿½ ï¿½Ò´ï¿½
 __global__ void ccl_final_labeling_kernel(const uint8_t* image, int* parent, int* labels, int width, int height) {
     int x = blockIdx.x * blockDim.x + threadIdx.x;
     int y = blockIdx.y * blockDim.y + threadIdx.y;
@@ -110,7 +110,7 @@ __global__ void ccl_final_labeling_kernel(const uint8_t* image, int* parent, int
     }
 }
 
-// ÀÓ°è°ª Àû¿ë Ä¿³Î
+// ï¿½Ó°è°ª ï¿½ï¿½ï¿½ï¿½ Ä¿ï¿½ï¿½
 __global__ void threshold_kernel(const uint8_t* input, uint8_t* output, int size, uint8_t threshold) {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
     if (idx < size) {
@@ -118,7 +118,7 @@ __global__ void threshold_kernel(const uint8_t* input, uint8_t* output, int size
     }
 }
 
-// C#¿¡¼­ È£ÃâÇÒ ¸ŞÀÎ ÇÔ¼ö
+// C#ï¿½ï¿½ï¿½ï¿½ È£ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½Ô¼ï¿½
 extern "C" __declspec(dllexport) int FindBlobsWithCuda(
     const uint8_t* h_inputImage,
     int width,
@@ -133,24 +133,24 @@ extern "C" __declspec(dllexport) int FindBlobsWithCuda(
     dim3 numBlocks((width + threadsPerBlock.x - 1) / threadsPerBlock.x, (height + threadsPerBlock.y - 1) / threadsPerBlock.y);
     dim3 numBlocks1D((imageSize + 1023) / 1024, 1);
 
-    // 1. GPU ¸Ş¸ğ¸® ÇÒ´ç ¹× µ¥ÀÌÅÍ º¹»ç
+    // 1. GPU ï¿½Ş¸ï¿½ ï¿½Ò´ï¿½ ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
     uint8_t* d_inputImage, * d_binaryImage;
     cudaMalloc(&d_inputImage, imageSize);
     cudaMemcpy(d_inputImage, h_inputImage, imageSize, cudaMemcpyHostToDevice);
     cudaMalloc(&d_binaryImage, imageSize);
 
-    // 2. ÀÓ°è°ª Àû¿ë
+    // 2. ï¿½Ó°è°ª ï¿½ï¿½ï¿½ï¿½
     threshold_kernel<<<numBlocks1D, 1024>>>(d_inputImage, d_binaryImage, imageSize, threshold);
 
     // 3. CCL (Union-Find)
     int* d_parent;
-    cudaMalloc(&d_parent, (imageSize + 1) * sizeof(int)); // ·¹ÀÌºíÀÌ 1ºÎÅÍ ½ÃÀÛÇÏ¹Ç·Î +1
+    cudaMalloc(&d_parent, (imageSize + 1) * sizeof(int)); // ï¿½ï¿½ï¿½Ìºï¿½ï¿½ï¿½ 1ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½Ï¹Ç·ï¿½ +1
 
     ccl_union_neighbors_kernel<<<numBlocks, threadsPerBlock>>>(d_binaryImage, d_parent, width, height);
 
-    // ·¹ÀÌºíÀÌ ¾ÈÁ¤È­µÉ ¶§±îÁö ¹İº¹ (º¸Åë log(N) È½¼ö¸é ÃæºĞ)
+    // ï¿½ï¿½ï¿½Ìºï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½È­ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½İºï¿½ (ï¿½ï¿½ï¿½ï¿½ log(N) È½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½)
     for (int i = 0; i < 15; ++i) {
-        // ¼öÁ¤µÈ Ä¿³Î È£Ãâ: size ÀÎÀÚ Àü´Ş
+        // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ Ä¿ï¿½ï¿½ È£ï¿½ï¿½: size ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
         ccl_propagate_labels_kernel<<<numBlocks1D, 1024>>>(d_parent, imageSize + 1);
     }
 
@@ -158,15 +158,15 @@ extern "C" __declspec(dllexport) int FindBlobsWithCuda(
     cudaMalloc(&d_finalLabels, imageSize * sizeof(int));
     ccl_final_labeling_kernel<<<numBlocks, threadsPerBlock>>>(d_binaryImage, d_parent, d_finalLabels, width, height);
 
-    // 4. Thrust¸¦ »ç¿ëÇÏ¿© ºí blobs Á¤º¸ ÃßÃâ
+    // 4. Thrustï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½Ï¿ï¿½ ï¿½ï¿½ blobs ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
     thrust::device_vector<int> d_keys(d_finalLabels, d_finalLabels + imageSize);
     thrust::device_vector<int> d_values(imageSize);
     thrust::sequence(d_values.begin(), d_values.end()); // 0, 1, 2, ...
 
-    // ·¹ÀÌºí(key)À» ±âÁØÀ¸·Î Á¤·Ä
+    // ï¿½ï¿½ï¿½Ìºï¿½(key)ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
     thrust::sort_by_key(d_keys.begin(), d_keys.end(), d_values.begin());
 
-    // °íÀ¯ÇÑ ·¹ÀÌºí ¼ö Ã£±â (ºí·Ó ¼ö)
+    // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½Ìºï¿½ ï¿½ï¿½ Ã£ï¿½ï¿½ (ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½)
     thrust::device_vector<int> d_unique_keys(d_keys.size());
     thrust::device_vector<int> d_counts(d_keys.size());
 
@@ -178,19 +178,19 @@ extern "C" __declspec(dllexport) int FindBlobsWithCuda(
     );
 
     int num_blobs = thrust::distance(d_unique_keys.begin(), end_iter.first);
-    if (num_blobs <= 1) { // ¹è°æ(0)¸¸ ÀÖ°Å³ª ºí·ÓÀÌ ¾ø´Â °æ¿ì
+    if (num_blobs <= 1) { // ï¿½ï¿½ï¿½(0)ï¿½ï¿½ ï¿½Ö°Å³ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½
         *blobCount = 0;
         *h_blobInfos = nullptr;
         cudaFree(d_inputImage); cudaFree(d_binaryImage); cudaFree(d_parent); cudaFree(d_finalLabels);
         return 0;
     }
 
-    // ¹è°æ(·¹ÀÌºí 0) Á¦¿Ü
+    // ï¿½ï¿½ï¿½(ï¿½ï¿½ï¿½Ìºï¿½ 0) ï¿½ï¿½ï¿½ï¿½
     thrust::host_vector<int> h_unique_keys = d_unique_keys;
     thrust::host_vector<int> h_counts = d_counts;
 
     std::vector<BlobInfo> blob_results;
-    for (int i = 1; i < num_blobs; ++i) { // 0¹ø ·¹ÀÌºí(¹è°æ)Àº °Ç³Ê¶Ü
+    for (int i = 1; i < num_blobs; ++i) { // 0ï¿½ï¿½ ï¿½ï¿½ï¿½Ìºï¿½(ï¿½ï¿½ï¿½)ï¿½ï¿½ ï¿½Ç³Ê¶ï¿½
         if (h_counts[i] >= minDefectSize) {
             BlobInfo info;
             info.pointCount = h_counts[i];
@@ -207,16 +207,16 @@ extern "C" __declspec(dllexport) int FindBlobsWithCuda(
         *h_blobInfos = nullptr;
     }
 
-    // GPU ¸Ş¸ğ¸® ÇØÁ¦
+    // GPU ï¿½Ş¸ï¿½ ï¿½ï¿½ï¿½ï¿½
     cudaFree(d_inputImage);
     cudaFree(d_binaryImage);
     cudaFree(d_parent);
     cudaFree(d_finalLabels);
 
-    return 0; // ¼º°ø
+    return 0; // ï¿½ï¿½ï¿½ï¿½
 }
 
-// C#¿¡¼­ ÇÒ´çµÈ ¸Ş¸ğ¸®¸¦ ÇØÁ¦ÇÏ±â À§ÇÑ ÇÔ¼ö
+// C#ï¿½ï¿½ï¿½ï¿½ ï¿½Ò´ï¿½ï¿½ ï¿½Ş¸ğ¸®¸ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½Ï±ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½Ô¼ï¿½
 extern "C" __declspec(dllexport) void FreeCudaHostMemory(void* ptr) {
     if (ptr != nullptr) {
         free(ptr);
@@ -246,7 +246,7 @@ __global__ void SobelKernel(const uint8_t* input, uint8_t* output, int width, in
         -input[(y - 1) * width + (x - 1)] - 2 * input[(y - 1) * width + x] - input[(y - 1) * width + (x + 1)]
         + input[(y + 1) * width + (x - 1)] + 2 * input[(y + 1) * width + x] + input[(y + 1) * width + (x + 1)];
 
-    int mag = abs(gx) + abs(gy); // ºü¸¥ ±Ù»ç (sqrt ´ë½Å)
+    int mag = abs(gx) + abs(gy); // ï¿½ï¿½ï¿½ï¿½ ï¿½Ù»ï¿½ (sqrt ï¿½ï¿½ï¿½)
     mag = IMin(mag, 255);
     output[y * width + x] = (uint8_t)mag;
 }
@@ -262,18 +262,18 @@ cudaError_t ApplySobelFilter(
     size_t imageSize = (size_t)width * height * sizeof(uint8_t);
     cudaError_t status;
 
-    // 1. ¸Ş¸ğ¸® ÇÒ´ç
+    // 1. ï¿½Ş¸ï¿½ ï¿½Ò´ï¿½
     status = cudaMalloc(&d_input, imageSize);
     if (status != cudaSuccess) goto Error;
     
     status = cudaMalloc(&d_output, imageSize);
     if (status != cudaSuccess) goto Error;
 
-    // 2. µ¥ÀÌÅÍ º¹»ç
+    // 2. ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
     status = cudaMemcpy(d_input, h_inputImage, imageSize, cudaMemcpyHostToDevice);
     if (status != cudaSuccess) goto Error;
 
-    // 3. Ä¿³Î ½ÇÇà
+    // 3. Ä¿ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
     {
         dim3 block(32, 32);
         dim3 grid((width + block.x - 1) / block.x, (height + block.y - 1) / block.y);
@@ -286,7 +286,7 @@ cudaError_t ApplySobelFilter(
     status = cudaDeviceSynchronize();
     if (status != cudaSuccess) goto Error;
 
-    // 4. °á°ú º¹»ç
+    // 4. ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
     status = cudaMemcpy(h_outputImage, d_output, imageSize, cudaMemcpyDeviceToHost);
 
 Error:
@@ -386,18 +386,18 @@ cudaError_t Upscale2xBilinear(
     uint8_t* d_output = nullptr;
     cudaError_t status;
 
-    // 1. ¸Ş¸ğ¸® ÇÒ´ç
+    // 1. ï¿½Ş¸ï¿½ ï¿½Ò´ï¿½
     status = cudaMalloc(&d_input, inSize);
     if (status != cudaSuccess) goto Error;
 
     status = cudaMalloc(&d_output, outSize);
     if (status != cudaSuccess) goto Error;
 
-    // 2. µ¥ÀÌÅÍ º¹»ç
+    // 2. ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
     status = cudaMemcpy(d_input, input, inSize, cudaMemcpyHostToDevice);
     if (status != cudaSuccess) goto Error;
 
-    // 3. Ä¿³Î ½ÇÇà
+    // 3. Ä¿ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
     {
         dim3 block(32, 32);
         dim3 grid((outWidth + block.x - 1) / block.x, (outHeight + block.y - 1) / block.y);
@@ -410,7 +410,7 @@ cudaError_t Upscale2xBilinear(
     status = cudaDeviceSynchronize();
     if (status != cudaSuccess) goto Error;
 
-    // 4. °á°ú º¹»ç
+    // 4. ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
     status = cudaMemcpy(output, d_output, outSize, cudaMemcpyDeviceToHost);
 
 Error:
@@ -434,18 +434,18 @@ cudaError_t UpscaleROI2xBilinear(
     uint8_t* d_output = nullptr;
     cudaError_t status;
 
-    // 1. ¸Ş¸ğ¸® ÇÒ´ç
+    // 1. ï¿½Ş¸ï¿½ ï¿½Ò´ï¿½
     status = cudaMalloc(&d_input, inSize);
     if (status != cudaSuccess) goto Error;
 
     status = cudaMalloc(&d_output, outSize);
     if (status != cudaSuccess) goto Error;
 
-    // 2. µ¥ÀÌÅÍ º¹»ç
+    // 2. ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
     status = cudaMemcpy(d_input, input, inSize, cudaMemcpyHostToDevice);
     if (status != cudaSuccess) goto Error;
 
-    // 3. Ä¿³Î ½ÇÇà
+    // 3. Ä¿ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
     {
         dim3 blockDim(16, 16);
         dim3 gridDim((outWidth + blockDim.x - 1) / blockDim.x, (outHeight + blockDim.y - 1) / blockDim.y);
@@ -461,7 +461,7 @@ cudaError_t UpscaleROI2xBilinear(
     status = cudaDeviceSynchronize();
     if (status != cudaSuccess) goto Error;
 
-    // 4. °á°ú º¹»ç
+    // 4. ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
     status = cudaMemcpy(output, d_output, outSize, cudaMemcpyDeviceToHost);
 
 Error:
@@ -486,7 +486,7 @@ cudaError_t UpscaleROI2xBilinearAndSobel(
     uint8_t* d_outputSobel = nullptr;
     cudaError_t status;
 
-    // 1. ¸Ş¸ğ¸® ÇÒ´ç
+    // 1. ï¿½Ş¸ï¿½ ï¿½Ò´ï¿½
     status = cudaMalloc(&d_input, inSize);
     if (status != cudaSuccess) goto Error;
 
@@ -496,12 +496,12 @@ cudaError_t UpscaleROI2xBilinearAndSobel(
     status = cudaMalloc(&d_outputSobel, outSize);
     if (status != cudaSuccess) goto Error;
 
-    // 2. µ¥ÀÌÅÍ º¹»ç
+    // 2. ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
     status = cudaMemcpy(d_input, input, inSize, cudaMemcpyHostToDevice);
     if (status != cudaSuccess) goto Error;
 
 
-    // 3. Upscale Ä¿³Î ½ÇÇà
+    // 3. Upscale Ä¿ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
     {
         dim3 blockDim(16, 16);
         dim3 gridDim((outWidth + blockDim.x - 1) / blockDim.x, (outHeight + blockDim.y - 1) / blockDim.y);
@@ -511,7 +511,7 @@ cudaError_t UpscaleROI2xBilinearAndSobel(
             d_output, outWidth, outHeight);
     }
 
-    // 4. Sobel Ä¿³Î ½ÇÇà
+    // 4. Sobel Ä¿ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
     {
         dim3 sobelBlock(16, 16);
         dim3 sobelGrid((outWidth + sobelBlock.x - 1) / sobelBlock.x, (outHeight + sobelBlock.y - 1) / sobelBlock.y);
@@ -525,7 +525,7 @@ cudaError_t UpscaleROI2xBilinearAndSobel(
     status = cudaDeviceSynchronize();
     if (status != cudaSuccess) goto Error;
 
-    // 5. °á°ú º¹»ç
+    // 5. ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
     status = cudaMemcpy(output, d_output, outSize, cudaMemcpyDeviceToHost);
     if (status != cudaSuccess) goto Error;
     status = cudaMemcpy(outputSobel, d_outputSobel, outSize, cudaMemcpyDeviceToHost);
@@ -777,10 +777,10 @@ cudaError_t LaunchTranspose(const uint8_t* in, uint8_t* out, int width, int heig
     return cudaGetLastError();
 }
 
-// ¿Ü°û ¿µ¿ª ¸¶½ºÅ· Ä¿³Î: ¶óÀÎ+¸¶Áø ¹Ù±ù ÇÈ¼¿À» fillValue·Î Ã¤¿ò
-// ³»ºÎ ÇÈ¼¿Àº ¿øº»°ªÀ» º¹»ç
-// Closing Àü¿¡ Àû¿ëÇÏ¸é, ¿Ü°û¿¡¼­ Closing°á°ú ? fillValue ¡æ TopHat ? 0
-// ¿Ü°û Ä¡ÇÎÀÇ ¹à°Å³ª ¾îµÎ¿î ÇÈ¼¿ÀÌ Dilate¸¦ ÅëÇØ ³»ºÎ·Î Ä§ÅõÇÏ´Â °ÍÀ» ¹æÁö
+// ï¿½Ü°ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½Å· Ä¿ï¿½ï¿½: ï¿½ï¿½ï¿½ï¿½+ï¿½ï¿½ï¿½ï¿½ ï¿½Ù±ï¿½ ï¿½È¼ï¿½ï¿½ï¿½ fillValueï¿½ï¿½ Ã¤ï¿½ï¿½
+// ï¿½ï¿½ï¿½ï¿½ ï¿½È¼ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
+// Closing ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½Ï¸ï¿½, ï¿½Ü°ï¿½ï¿½ï¿½ï¿½ï¿½ Closingï¿½ï¿½ï¿½ ? fillValue ï¿½ï¿½ TopHat ? 0
+// ï¿½Ü°ï¿½ Ä¡ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½Å³ï¿½ ï¿½ï¿½Î¿ï¿½ ï¿½È¼ï¿½ï¿½ï¿½ Dilateï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½Î·ï¿½ Ä§ï¿½ï¿½ï¿½Ï´ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
 __global__ void MaskOutsideRegionKernel(
     const uint8_t* __restrict__ original,
     uint8_t* __restrict__ image,
@@ -807,12 +807,12 @@ __global__ void MaskOutsideRegionKernel(
     }
 }
 
-// C#¿¡¼­ È£ÃâÇÒ ¼ö ÀÖ´Â ·¡ÆÛ ÇÔ¼ö
+// C#ï¿½ï¿½ï¿½ï¿½ È£ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ ï¿½Ö´ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½Ô¼ï¿½
 extern "C" __declspec(dllexport)
 cudaError_t FindChipping(
-    const uint8_t* h_inputImage, // HostÀÇ ÀÔ·Â ÀÌ¹ÌÁö
-    uint8_t* h_outputMask,       // HostÀÇ Ãâ·Â ¸¶½ºÅ©
-    uint8_t* h_outputMask2,       // HostÀÇ Ãâ·Â ¸¶½ºÅ©
+    const uint8_t* h_inputImage, // Hostï¿½ï¿½ ï¿½Ô·ï¿½ ï¿½Ì¹ï¿½ï¿½ï¿½
+    uint8_t* h_outputMask,       // Hostï¿½ï¿½ ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½Å©
+    uint8_t* h_outputMask2,       // Hostï¿½ï¿½ ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½Å©
     int width, int height,
     LineParams lineTop,
     LineParams lineBottom,
@@ -826,21 +826,21 @@ cudaError_t FindChipping(
     size_t requiredSize = (size_t)width * height * sizeof(uint8_t);
     cudaError_t status;
     
-    // ·ÎÄÃ º¯¼ö·Î ¼±¾ğ
+    // ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
     uint8_t* d_input = nullptr;
     uint8_t* d_output = nullptr;
     uint8_t* d_output2 = nullptr;
     uint8_t* d_temp = nullptr;
     uint8_t* d_closing = nullptr;
 
-    // 1. ¸Ş¸ğ¸® ÇÒ´ç
+    // 1. ï¿½Ş¸ï¿½ ï¿½Ò´ï¿½
     status = cudaMalloc(&d_input, requiredSize); if (status != cudaSuccess) goto Error;
     status = cudaMalloc(&d_output, requiredSize); if (status != cudaSuccess) goto Error;
     status = cudaMalloc(&d_output2, requiredSize); if (status != cudaSuccess) goto Error;
     status = cudaMalloc(&d_temp, requiredSize); if (status != cudaSuccess) goto Error;
     status = cudaMalloc(&d_closing, requiredSize); if (status != cudaSuccess) goto Error;
 
-    // 2. ÀÔ·Â µ¥ÀÌÅÍ º¹»ç
+    // 2. ï¿½Ô·ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
     status = cudaMemcpy(d_input, h_inputImage, requiredSize, cudaMemcpyHostToDevice);
     if (status != cudaSuccess) goto Error;
 
@@ -851,13 +851,13 @@ cudaError_t FindChipping(
     size_t sharedMemSize = (blockX + 2 * topHatRadius) * sizeof(uint8_t);
 
     // -------------------------------------------------------------
-    // ¿Ü°û ¸¶½ºÅ·
+    // ï¿½Ü°ï¿½ ï¿½ï¿½ï¿½ï¿½Å·
     // -------------------------------------------------------------
     {
         dim3 maskBlock(32, 32);
         dim3 maskGrid((width + maskBlock.x - 1) / maskBlock.x, (height + maskBlock.y - 1) / maskBlock.y);
         MaskOutsideRegionKernel<<<maskGrid, maskBlock>>>(
-            d_input, d_closing, // d_closingÀ» ÃÊ±â ¹öÆÛ·Î »ç¿ë
+            d_input, d_closing, // d_closingï¿½ï¿½ ï¿½Ê±ï¿½ ï¿½ï¿½ï¿½Û·ï¿½ ï¿½ï¿½ï¿½
             width, height,
             lineTop, lineBottom, lineLeft, lineRight,
             margin,
@@ -894,7 +894,7 @@ cudaError_t FindChipping(
     // 6. Fused Erode Row + Logic
     Fused_ErodeRow_TopHat_Chipping_Kernel<<<gridRow, blockX, sharedMemSize>>>(
         d_temp,     // Source (ErodeCol result)
-        d_input,    // Original input (¸¶½ºÅ· ¾ÈµÈ ¿øº»)
+        d_input,    // Original input (ï¿½ï¿½ï¿½ï¿½Å· ï¿½Èµï¿½ ï¿½ï¿½ï¿½ï¿½)
         d_output,
         d_output2,   // Final output (Output 1)
         width, height, topHatRadius,
@@ -902,10 +902,10 @@ cudaError_t FindChipping(
         topHatThreshold
     );
     //
-    //// ÀÌÀü¿¡ È£ÃâµÈ Ä¿³Î°ú µ¿ÀÏ Ãâ·ÂÀ» d_output2¿¡ ÀúÀå (ÇÊ¿äÇÑ °æ¿ì ¼öÁ¤)
+    //// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ È£ï¿½ï¿½ï¿½ Ä¿ï¿½Î°ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ d_output2ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ (ï¿½Ê¿ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½)
     //Fused_ErodeRow_TopHat_Chipping_Kernel << <gridRow, blockX, sharedMemSize >> > (
     //    d_temp,     // Source (ErodeCol result)
-    //    d_input,    // Original input (¸¶½ºÅ· ¾ÈµÈ ¿øº»)
+    //    d_input,    // Original input (ï¿½ï¿½ï¿½ï¿½Å· ï¿½Èµï¿½ ï¿½ï¿½ï¿½ï¿½)
     //    d_output2,   // Final output (Output 2)
     //    width, height, topHatRadius,
     //    lineTop, lineBottom, lineLeft, lineRight, threshold, 0,
@@ -930,4 +930,231 @@ Error:
     if (d_temp) cudaFree(d_temp);
     if (d_closing) cudaFree(d_closing);
     return status;
+}
+
+// =========================================================================
+// QmcCudaContext â€” ë””ë°”ì´ìŠ¤ ë²„í¼ í’€ ì»¨í…ìŠ¤íŠ¸ (2026-07-11)
+//
+// ê¸°ì¡´ ìµìŠ¤í¬íŠ¸ëŠ” í˜¸ì¶œë§ˆë‹¤ cudaMalloc/cudaFree ë¥¼ ë°˜ë³µí•œë‹¤(í˜¸ì¶œë‹¹ ìˆ˜ ms + ë³‘ë ¬ ì‹œ í• ë‹¹ ë½ ê²½í•©).
+// ì»¨í…ìŠ¤íŠ¸ëŠ” í•¨ìˆ˜ë³„ ì—­í•  ê³ ì • ìŠ¬ë¡¯ì˜ ë””ë°”ì´ìŠ¤ ë²„í¼ì™€ ì „ìš© ìŠ¤íŠ¸ë¦¼ì„ ë³´ìœ í•˜ê³ ,
+// "ìš”ì²­ í¬ê¸°ê°€ ì´ì „ê³¼ ê°™ìœ¼ë©´ ê·¸ëŒ€ë¡œ ì¬ì‚¬ìš© / ë‹¤ë¥´ë©´(ROI ë³€ê²½ ë“±) ê·¸ ìŠ¬ë¡¯ë§Œ ì¬í• ë‹¹" ê·œì¹™ìœ¼ë¡œ ë™ì‘í•œë‹¤.
+// C# ìª½ CudaContextPool ì´ ê¸°ë³¸ 8ê°œë¥¼ ë§Œë“¤ì–´ ë¹Œë ¤ì£¼ê³ (ê²€ì‚¬ 1ê±´ë‹¹ 1ê°œ), ì‚¬ìš© í›„ ë°˜í™˜í•œë‹¤.
+// ê¸°ì¡´(ë¬´-ctx) ìµìŠ¤í¬íŠ¸ëŠ” ê·¸ëŒ€ë¡œ ìœ ì§€ â€” êµ¬ë²„ì „ DLL/í´ë°± ê²½ë¡œì™€ í˜¸í™˜.
+//
+// ìŠ¬ë¡¯ ë°°ì¹˜(í•¨ìˆ˜ ê°„ í¬ê¸° ì¶©ëŒë¡œ ì¸í•œ í•‘í ì¬í• ë‹¹ ë°©ì§€ â€” í•¨ìˆ˜ë³„ ì „ìš© ìŠ¬ë¡¯):
+//   0: Upscale ì…ë ¥(ì›ë³¸ ì „ì²´)   1: Upscale ì¶œë ¥(2x)   2: Upscale Sobel ì¶œë ¥(2x)
+//   3: FindChipping ì…ë ¥          4: mask1              5: mask2
+//   6: temp                       7: closing
+// =========================================================================
+
+#define QMC_CTX_BUF_COUNT 8
+
+struct QmcCtxBuf { void* ptr; size_t bytes; };
+
+struct QmcCudaContext {
+    QmcCtxBuf bufs[QMC_CTX_BUF_COUNT];
+    cudaStream_t stream;
+};
+
+// ìŠ¬ë¡¯ ë²„í¼ í™•ë³´ â€” í¬ê¸°ê°€ ê°™ìœ¼ë©´ ì¬ì‚¬ìš©(í• ë‹¹ 0íšŒ), ë‹¤ë¥´ë©´ í•´ì œ í›„ ì¬í• ë‹¹.
+static cudaError_t QmcEnsureBuf(QmcCudaContext* ctx, int slot, size_t need, void** outPtr)
+{
+    if (slot < 0 || slot >= QMC_CTX_BUF_COUNT || need == 0) return cudaErrorInvalidValue;
+    QmcCtxBuf* b = &ctx->bufs[slot];
+    if (b->ptr != nullptr && b->bytes == need) { *outPtr = b->ptr; return cudaSuccess; }
+    if (b->ptr != nullptr) { cudaFree(b->ptr); b->ptr = nullptr; b->bytes = 0; }
+    cudaError_t st = cudaMalloc(&b->ptr, need);
+    if (st != cudaSuccess) { b->ptr = nullptr; return st; }
+    b->bytes = need;
+    *outPtr = b->ptr;
+    return cudaSuccess;
+}
+
+extern "C" __declspec(dllexport)
+int QmcCtxCreate(void** outCtx)
+{
+    if (outCtx == nullptr) return cudaErrorInvalidValue;
+    *outCtx = nullptr;
+    QmcCudaContext* ctx = new QmcCudaContext();
+    for (int i = 0; i < QMC_CTX_BUF_COUNT; ++i) { ctx->bufs[i].ptr = nullptr; ctx->bufs[i].bytes = 0; }
+    cudaError_t st = cudaStreamCreate(&ctx->stream);
+    if (st != cudaSuccess) { delete ctx; return (int)st; }
+    *outCtx = ctx;
+    return (int)cudaSuccess;
+}
+
+extern "C" __declspec(dllexport)
+void QmcCtxDestroy(void* ctxPtr)
+{
+    QmcCudaContext* ctx = (QmcCudaContext*)ctxPtr;
+    if (ctx == nullptr) return;
+    for (int i = 0; i < QMC_CTX_BUF_COUNT; ++i)
+        if (ctx->bufs[i].ptr != nullptr) { cudaFree(ctx->bufs[i].ptr); ctx->bufs[i].ptr = nullptr; ctx->bufs[i].bytes = 0; }
+    cudaStreamDestroy(ctx->stream);
+    delete ctx;
+}
+
+// FindChipping ì˜ ì»¨í…ìŠ¤íŠ¸ ë²„ì „ â€” ë””ë°”ì´ìŠ¤ í• ë‹¹/í•´ì œ ì—†ì´ ctx ìŠ¬ë¡¯ ì¬ì‚¬ìš©, ctx ì „ìš© ìŠ¤íŠ¸ë¦¼ì—ì„œ ì‹¤í–‰.
+extern "C" __declspec(dllexport)
+cudaError_t FindChippingCtx(
+    void* ctxPtr,
+    const uint8_t* h_inputImage,
+    uint8_t* h_outputMask,
+    uint8_t* h_outputMask2,
+    int width, int height,
+    LineParams lineTop,
+    LineParams lineBottom,
+    LineParams lineLeft,
+    LineParams lineRight,
+    uint8_t threshold,
+    int margin,
+    int topHatRadius,
+    uint8_t topHatThreshold)
+{
+    QmcCudaContext* ctx = (QmcCudaContext*)ctxPtr;
+    if (ctx == nullptr) return cudaErrorInvalidValue;
+
+    size_t requiredSize = (size_t)width * height * sizeof(uint8_t);
+    cudaError_t status;
+    void* p;
+
+    uint8_t* d_input;   status = QmcEnsureBuf(ctx, 3, requiredSize, &p); if (status != cudaSuccess) return status; d_input   = (uint8_t*)p;
+    uint8_t* d_output;  status = QmcEnsureBuf(ctx, 4, requiredSize, &p); if (status != cudaSuccess) return status; d_output  = (uint8_t*)p;
+    uint8_t* d_output2; status = QmcEnsureBuf(ctx, 5, requiredSize, &p); if (status != cudaSuccess) return status; d_output2 = (uint8_t*)p;
+    uint8_t* d_temp;    status = QmcEnsureBuf(ctx, 6, requiredSize, &p); if (status != cudaSuccess) return status; d_temp    = (uint8_t*)p;
+    uint8_t* d_closing; status = QmcEnsureBuf(ctx, 7, requiredSize, &p); if (status != cudaSuccess) return status; d_closing = (uint8_t*)p;
+
+    cudaStream_t s = ctx->stream;
+    status = cudaMemcpyAsync(d_input, h_inputImage, requiredSize, cudaMemcpyHostToDevice, s);
+    if (status != cudaSuccess) return status;
+
+    topHatRadius = topHatRadius < 1 ? 1 : topHatRadius;
+    int blockX = 256;
+    size_t sharedMemSize = (blockX + 2 * topHatRadius) * sizeof(uint8_t);
+
+    {
+        dim3 maskBlock(32, 32);
+        dim3 maskGrid((width + maskBlock.x - 1) / maskBlock.x, (height + maskBlock.y - 1) / maskBlock.y);
+        MaskOutsideRegionKernel<<<maskGrid, maskBlock, 0, s>>>(
+            d_input, d_closing, width, height,
+            lineTop, lineBottom, lineLeft, lineRight, margin, threshold);
+    }
+
+    dim3 gridRow((width + blockX - 1) / blockX, height);
+    DilateRowKernel_Shared<<<gridRow, blockX, sharedMemSize, s>>>(d_closing, width, height, topHatRadius, d_temp);
+
+    {
+        dim3 dimBlock(32, 32);
+        dim3 dimGrid((width + 31) / 32, (height + 31) / 32);
+        TransposeKernel<<<dimGrid, dimBlock, 0, s>>>(d_temp, d_closing, width, height);
+    }
+
+    dim3 gridCol((height + blockX - 1) / blockX, width);
+    DilateRowKernel_Shared<<<gridCol, blockX, sharedMemSize, s>>>(d_closing, height, width, topHatRadius, d_temp);
+    ErodeRowKernel_Shared<<<gridCol, blockX, sharedMemSize, s>>>(d_temp, height, width, topHatRadius, d_closing);
+
+    {
+        dim3 dimBlock(32, 32);
+        dim3 dimGrid((height + 31) / 32, (width + 31) / 32);
+        TransposeKernel<<<dimGrid, dimBlock, 0, s>>>(d_closing, d_temp, height, width);
+    }
+
+    Fused_ErodeRow_TopHat_Chipping_Kernel<<<gridRow, blockX, sharedMemSize, s>>>(
+        d_temp, d_input, d_output, d_output2,
+        width, height, topHatRadius,
+        lineTop, lineBottom, lineLeft, lineRight, threshold, margin,
+        topHatThreshold);
+
+    status = cudaGetLastError();
+    if (status != cudaSuccess) return status;
+
+    status = cudaMemcpyAsync(h_outputMask, d_output, requiredSize, cudaMemcpyDeviceToHost, s);
+    if (status != cudaSuccess) return status;
+    if (h_outputMask2 != nullptr) {
+        status = cudaMemcpyAsync(h_outputMask2, d_output2, requiredSize, cudaMemcpyDeviceToHost, s);
+        if (status != cudaSuccess) return status;
+    }
+    return cudaStreamSynchronize(s);
+}
+
+// UpscaleROI2xBilinearAndSobel ì˜ ì»¨í…ìŠ¤íŠ¸ ë²„ì „ â€” ì…ë ¥(ì›ë³¸ ì „ì²´)/ì¶œë ¥(2x ROI) ìŠ¬ë¡¯ ì¬ì‚¬ìš©.
+extern "C" __declspec(dllexport)
+cudaError_t UpscaleROI2xBilinearAndSobelCtx(
+    void* ctxPtr,
+    const uint8_t* input, int inWidth, int inHeight,
+    int roiX, int roiY, int roiWidth, int roiHeight,
+    uint8_t* output, uint8_t* outputSobel)
+{
+    QmcCudaContext* ctx = (QmcCudaContext*)ctxPtr;
+    if (ctx == nullptr) return cudaErrorInvalidValue;
+
+    size_t inSize = (size_t)inWidth * inHeight * sizeof(uint8_t);
+    int outWidth = roiWidth * 2;
+    int outHeight = roiHeight * 2;
+    size_t outSize = (size_t)outWidth * outHeight * sizeof(uint8_t);
+
+    cudaError_t status;
+    void* p;
+    uint8_t* d_input;       status = QmcEnsureBuf(ctx, 0, inSize,  &p); if (status != cudaSuccess) return status; d_input       = (uint8_t*)p;
+    uint8_t* d_output;      status = QmcEnsureBuf(ctx, 1, outSize, &p); if (status != cudaSuccess) return status; d_output      = (uint8_t*)p;
+    uint8_t* d_outputSobel; status = QmcEnsureBuf(ctx, 2, outSize, &p); if (status != cudaSuccess) return status; d_outputSobel = (uint8_t*)p;
+
+    cudaStream_t s = ctx->stream;
+    status = cudaMemcpyAsync(d_input, input, inSize, cudaMemcpyHostToDevice, s);
+    if (status != cudaSuccess) return status;
+
+    {
+        dim3 blockDim(16, 16);
+        dim3 gridDim((outWidth + blockDim.x - 1) / blockDim.x, (outHeight + blockDim.y - 1) / blockDim.y);
+        UpscaleROI2xBilinearKernel<<<gridDim, blockDim, 0, s>>>(
+            d_input, inWidth, inHeight,
+            roiX, roiY, roiWidth, roiHeight,
+            d_output, outWidth, outHeight);
+        SobelKernel<<<gridDim, blockDim, 0, s>>>(d_output, d_outputSobel, outWidth, outHeight);
+    }
+
+    status = cudaGetLastError();
+    if (status != cudaSuccess) return status;
+
+    status = cudaMemcpyAsync(output, d_output, outSize, cudaMemcpyDeviceToHost, s);
+    if (status != cudaSuccess) return status;
+    status = cudaMemcpyAsync(outputSobel, d_outputSobel, outSize, cudaMemcpyDeviceToHost, s);
+    if (status != cudaSuccess) return status;
+    return cudaStreamSynchronize(s);
+}
+
+// ApplySobelFilter ì˜ ì»¨í…ìŠ¤íŠ¸ ë²„ì „ â€” FindChipping ì…ë ¥/mask1 ìŠ¬ë¡¯ ì¬ì‚¬ìš©(ë™ì‹œ ì‚¬ìš© ì—†ìŒ).
+extern "C" __declspec(dllexport)
+cudaError_t ApplySobelFilterCtx(
+    void* ctxPtr,
+    const uint8_t* h_inputImage,
+    uint8_t* h_outputImage,
+    int width,
+    int height)
+{
+    QmcCudaContext* ctx = (QmcCudaContext*)ctxPtr;
+    if (ctx == nullptr) return cudaErrorInvalidValue;
+
+    size_t imageSize = (size_t)width * height * sizeof(uint8_t);
+    cudaError_t status;
+    void* p;
+    uint8_t* d_input;  status = QmcEnsureBuf(ctx, 3, imageSize, &p); if (status != cudaSuccess) return status; d_input  = (uint8_t*)p;
+    uint8_t* d_output; status = QmcEnsureBuf(ctx, 4, imageSize, &p); if (status != cudaSuccess) return status; d_output = (uint8_t*)p;
+
+    cudaStream_t s = ctx->stream;
+    status = cudaMemcpyAsync(d_input, h_inputImage, imageSize, cudaMemcpyHostToDevice, s);
+    if (status != cudaSuccess) return status;
+
+    {
+        dim3 block(32, 32);
+        dim3 grid((width + block.x - 1) / block.x, (height + block.y - 1) / block.y);
+        SobelKernel<<<grid, block, 0, s>>>(d_input, d_output, width, height);
+    }
+
+    status = cudaGetLastError();
+    if (status != cudaSuccess) return status;
+
+    status = cudaMemcpyAsync(h_outputImage, d_output, imageSize, cudaMemcpyDeviceToHost, s);
+    if (status != cudaSuccess) return status;
+    return cudaStreamSynchronize(s);
 }

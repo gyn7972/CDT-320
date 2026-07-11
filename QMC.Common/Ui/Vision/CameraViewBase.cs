@@ -1143,8 +1143,14 @@ namespace QMC.Common.Ui.Controls
                         g.DrawLine(p, cx - 6, cy, cx + 6, cy);
                         g.DrawLine(p, cx, cy - 6, cx, cy + 6);
 
-                        // 인덱스 + 각도(°). 점수는 MATCH RESULT 그리드에서 확인. 컴팩트 라벨.
-                        string txt = idx.ToString() + " " + m.AngleDeg.ToString("F1") + "°";
+                        // 오프셋(찾은 중심 − 이미지 중심, 부호는 이미지 좌표 기준) + 각도(°). 점수는 MATCH RESULT 그리드에서 확인.
+                        // mm 스케일(MmPerPixelX/Y) 주입 시 mm(F3), 없으면 px(F1). 다중 매칭만 인덱스 접두.
+                        double dxPx = m.CenterX - _frame.Width  / 2.0;
+                        double dyPx = m.CenterY - _frame.Height / 2.0;
+                        string off = (MmPerPixelX > 0 && MmPerPixelY > 0)
+                            ? "dX " + (dxPx * MmPerPixelX).ToString("F3") + " dY " + (dyPx * MmPerPixelY).ToString("F3")
+                            : "dX " + dxPx.ToString("F1") + " dY " + dyPx.ToString("F1") + "px";
+                        string txt = (_overlayMarks.Length > 1 ? idx.ToString() + " " : "") + off + " " + m.AngleDeg.ToString("F1") + "°";
                         var ts = g.MeasureString(txt, f);
                         float tx = cx + 7, ty = cy - ts.Height - 1;
                         if (tx + ts.Width + 2 > ClientSize.Width)  tx = cx - ts.Width - 7;
