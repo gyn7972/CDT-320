@@ -372,7 +372,8 @@
     <Compile Include="Sequencing\Common\SequenceTrace.cs" />
     <Compile Include="Sequencing\Common\SequenceTactTimeExtensions.cs" />
     <Compile Include="Sequencing\Common\UnitSequenceBase.cs" />
-    <Compile Include="Sequencing\Common\AutoSequenceCoordinator.cs" />
+    <Compile Include="Sequencing\Common\AutoSequenceCoordinatorGate.cs" />
+    <Compile Include="Sequencing\AutoSequenceCoordinator.cs" />
     <Compile Include="Sequencing\Calibration\VisionCameraCalibrationSequence.cs" />
     <Compile Include="Sequencing\Calibration\NeedlePinCalibrationSequence.cs" />
     <Compile Include="Sequencing\Calibration\NeedleCalibrationSequence.cs" />
@@ -446,15 +447,18 @@
     <!-- Equipment / Recipes -->
     <Compile Include="Equipment\Recipes\RecipeMapPaths.cs" />
     <Compile Include="Equipment\Recipes\RecipeDieMapResolver.cs" />
+    <Compile Include="Equipment\Recipes\RecipeColletZApplyService.cs" />
     <Compile Include="Equipment\Recipes\RecipeStore.cs" />
     <!-- Equipment / Materials (310 ?�식) -->
     <Compile Include="Equipment\Materials\Die.cs" />
     <Compile Include="Equipment\Materials\DieTapeFrame.cs" />
+    <Compile Include="Equipment\Materials\InputWaferInspectionCsvSnapshotWriter.cs" />
     <Compile Include="Equipment\Materials\MaterialModel.cs" />
     <Compile Include="Equipment\Materials\MaterialSnapshotStore.cs" />
     <Compile Include="Equipment\Materials\MaterialStateService.cs" />
     <Compile Include="Equipment\Materials\MaterialStorage.cs" />
     <Compile Include="Equipment\Materials\MaterialSpecs.cs" />
+    <Compile Include="Equipment\Materials\OutputWaferCsvSnapshotWriter.cs" />
     <!-- Equipment / Vision (310 ?�식 ??좌표/캘리브레?�션) -->
     <Compile Include="Equipment\Vision\CoordinateMap.cs" />
     <Compile Include="Equipment\Vision\AlignmentSolver.cs" />
@@ -922,7 +926,7 @@
     <Compile Include="Sequencing\Picker\PickerSideInspectionStep.cs" />
     <Compile Include="Sequencing\Picker\PickerBottomAndSideInspectionStep.cs" />
     <Compile Include="Sequencing\Picker\PickerPlaceStep.cs" />
-    <Compile Include="Sequencing\Picker\PickerProcessStep.cs" />
+    <Compile Include="Sequencing\PickerProcessStep.cs" />
     <Compile Include="Sequencing\Picker\PickerSequenceBase.cs" />
     <Compile Include="Sequencing\Picker\PickerFirstForwardSequencer.cs" />
     <Compile Include="Sequencing\Picker\PickerCoordinateTransformHelper.cs" />
@@ -937,14 +941,14 @@
     <Compile Include="Sequencing\Picker\InputCameraPreInspectionWaitResult.cs" />
     <Compile Include="Sequencing\Picker\InputCameraPreInspectionCoordinator.cs" />
     <Compile Include="Sequencing\Picker\InputCameraMarkInspectionSequence.cs" />
+    <Compile Include="Sequencing\Picker\PickerPickUpContiSegmentedMotion.cs" />
     <Compile Include="Sequencing\Picker\PickerPickUpSequence.cs" />
     <Compile Include="Sequencing\Picker\PickerBottomInspectionSequence.cs" />
     <Compile Include="Sequencing\Picker\PickerSideInspectionSequence.cs" />
     <Compile Include="Sequencing\Picker\PickerBottomAndSideInspectionSequence.cs" />
     <Compile Include="Sequencing\Picker\PickerPlaceContiSegmentedMotion.cs" />
-    <Compile Include="Sequencing\Picker\PickerPlaceSynchronizedArrivalMotion.cs" />
     <Compile Include="Sequencing\Picker\PickerPlaceSequence.cs" />
-    <Compile Include="Sequencing\Picker\PickerProcessSequence.cs" />
+    <Compile Include="Sequencing\PickerProcessSequence.cs" />
     <Compile Include="Sequencing\FrontPickerSequence.cs" />
     <Compile Include="Sequencing\RearPickerSequence.cs" />
     <!-- UI / Pages / Work -->
@@ -995,6 +999,7 @@
     <Compile Include="Ui\Pages\WorkInfo\Common\PickerHeadDieDialog.cs">
       <SubType>Form</SubType>
     </Compile>
+    <Compile Include="Ui\Pages\WorkInfo\PickerContiLineTestRunner.cs" />
     <Compile Include="Ui\Pages\WorkInfo\FrontPickerPage.Designer.cs">
       <DependentUpon>FrontPickerPage.cs</DependentUpon>
     </Compile>

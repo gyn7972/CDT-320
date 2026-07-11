@@ -61,6 +61,7 @@ namespace QMC.CDT_320.Ui.Pages.History
             // 
             // rootLayout
             // 
+            this.rootLayout.BackColor = System.Drawing.Color.White;
             this.rootLayout.ColumnCount = 1;
             this.rootLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.rootLayout.Controls.Add(this.lblHeader, 0, 0);
@@ -68,10 +69,11 @@ namespace QMC.CDT_320.Ui.Pages.History
             this.rootLayout.Controls.Add(this._grid, 0, 2);
             this.rootLayout.Dock = System.Windows.Forms.DockStyle.Fill;
             this.rootLayout.Location = new System.Drawing.Point(0, 0);
+            this.rootLayout.Margin = new System.Windows.Forms.Padding(0);
             this.rootLayout.Name = "rootLayout";
             this.rootLayout.RowCount = 3;
             this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 30F));
-            this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 50F));
+            this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 40F));
             this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.rootLayout.Size = new System.Drawing.Size(1678, 900);
             this.rootLayout.TabIndex = 0;
@@ -82,10 +84,11 @@ namespace QMC.CDT_320.Ui.Pages.History
             this.lblHeader.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblHeader.Font = new System.Drawing.Font("맑은 고딕", 11F, System.Drawing.FontStyle.Bold);
             this.lblHeader.ForeColor = System.Drawing.Color.White;
-            this.lblHeader.Location = new System.Drawing.Point(3, 0);
+            this.lblHeader.Location = new System.Drawing.Point(0, 0);
+            this.lblHeader.Margin = new System.Windows.Forms.Padding(0);
             this.lblHeader.Name = "lblHeader";
             this.lblHeader.Padding = new System.Windows.Forms.Padding(10, 0, 0, 0);
-            this.lblHeader.Size = new System.Drawing.Size(1672, 30);
+            this.lblHeader.Size = new System.Drawing.Size(1678, 30);
             this.lblHeader.TabIndex = 0;
             this.lblHeader.Tag = "i18n:hist.event";
             this.lblHeader.Text = "이벤트";
@@ -93,21 +96,21 @@ namespace QMC.CDT_320.Ui.Pages.History
             // 
             // filterLayout
             // 
-            this.filterLayout.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(240)))), ((int)(((byte)(240)))), ((int)(((byte)(240)))));
+            this.filterLayout.BackColor = System.Drawing.Color.White;
             this.filterLayout.ColumnCount = 13;
-            this.filterLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 58F));
+            this.filterLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 66F));
             this.filterLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 170F));
-            this.filterLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 62F));
+            this.filterLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 76F));
             this.filterLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 220F));
-            this.filterLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 70F));
+            this.filterLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 76F));
             this.filterLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 150F));
-            this.filterLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 72F));
+            this.filterLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 82F));
             this.filterLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.filterLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 104F));
             this.filterLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 76F));
-            this.filterLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 110F));
-            this.filterLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 120F));
+            this.filterLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 122F));
             this.filterLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 136F));
+            this.filterLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 0F));
             this.filterLayout.Controls.Add(this.lblDate, 0, 0);
             this.filterLayout.Controls.Add(this._dp, 1, 0);
             this.filterLayout.Controls.Add(this.lblRunId, 2, 0);
@@ -121,43 +124,54 @@ namespace QMC.CDT_320.Ui.Pages.History
             this.filterLayout.Controls.Add(this.btnRefresh, 10, 0);
             this.filterLayout.Controls.Add(this.btnOpenFile, 11, 0);
             this.filterLayout.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.filterLayout.Location = new System.Drawing.Point(3, 33);
+            this.filterLayout.Location = new System.Drawing.Point(0, 30);
+            this.filterLayout.Margin = new System.Windows.Forms.Padding(0);
             this.filterLayout.Name = "filterLayout";
-            this.filterLayout.Padding = new System.Windows.Forms.Padding(8, 6, 8, 6);
+            this.filterLayout.Padding = new System.Windows.Forms.Padding(8, 3, 8, 3);
             this.filterLayout.RowCount = 1;
             this.filterLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.filterLayout.Size = new System.Drawing.Size(1672, 44);
+            this.filterLayout.Size = new System.Drawing.Size(1678, 40);
             this.filterLayout.TabIndex = 1;
             // 
             // lblDate
             // 
-            this.lblDate.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.lblDate.Anchor = System.Windows.Forms.AnchorStyles.Left;
+            this.lblDate.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(245)))), ((int)(((byte)(247)))), ((int)(((byte)(249)))));
+            this.lblDate.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblDate.Font = new System.Drawing.Font("맑은 고딕", 11F);
-            this.lblDate.Location = new System.Drawing.Point(11, 6);
+            this.lblDate.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(35)))), ((int)(((byte)(45)))), ((int)(((byte)(57)))));
+            this.lblDate.Location = new System.Drawing.Point(8, 8);
+            this.lblDate.Margin = new System.Windows.Forms.Padding(0, 0, 4, 0);
             this.lblDate.Name = "lblDate";
-            this.lblDate.Size = new System.Drawing.Size(52, 32);
+            this.lblDate.Padding = new System.Windows.Forms.Padding(5, 0, 3, 0);
+            this.lblDate.Size = new System.Drawing.Size(52, 24);
             this.lblDate.TabIndex = 0;
             this.lblDate.Text = "DATE";
             this.lblDate.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
             // _dp
             // 
-            this._dp.Dock = System.Windows.Forms.DockStyle.Fill;
+            this._dp.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Left | System.Windows.Forms.AnchorStyles.Right)));
             this._dp.Font = new System.Drawing.Font("Consolas", 10F);
             this._dp.Format = System.Windows.Forms.DateTimePickerFormat.Short;
-            this._dp.Location = new System.Drawing.Point(69, 9);
+            this._dp.Location = new System.Drawing.Point(77, 8);
+            this._dp.Margin = new System.Windows.Forms.Padding(3, 0, 3, 0);
             this._dp.Name = "_dp";
             this._dp.Size = new System.Drawing.Size(164, 23);
             this._dp.TabIndex = 1;
-            this._dp.Value = new System.DateTime(2026, 5, 28, 0, 0, 0, 0);
             // 
             // lblRunId
             // 
-            this.lblRunId.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.lblRunId.Anchor = System.Windows.Forms.AnchorStyles.Left;
+            this.lblRunId.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(245)))), ((int)(((byte)(247)))), ((int)(((byte)(249)))));
+            this.lblRunId.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblRunId.Font = new System.Drawing.Font("맑은 고딕", 10F);
-            this.lblRunId.Location = new System.Drawing.Point(239, 6);
+            this.lblRunId.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(35)))), ((int)(((byte)(45)))), ((int)(((byte)(57)))));
+            this.lblRunId.Location = new System.Drawing.Point(244, 8);
+            this.lblRunId.Margin = new System.Windows.Forms.Padding(0, 0, 4, 0);
             this.lblRunId.Name = "lblRunId";
-            this.lblRunId.Size = new System.Drawing.Size(56, 32);
+            this.lblRunId.Padding = new System.Windows.Forms.Padding(5, 0, 3, 0);
+            this.lblRunId.Size = new System.Drawing.Size(56, 24);
             this.lblRunId.TabIndex = 4;
             this.lblRunId.Text = "RunId";
             this.lblRunId.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -166,18 +180,24 @@ namespace QMC.CDT_320.Ui.Pages.History
             // 
             this.txtRunId.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Left | System.Windows.Forms.AnchorStyles.Right)));
             this.txtRunId.Font = new System.Drawing.Font("Consolas", 10F);
-            this.txtRunId.Location = new System.Drawing.Point(301, 10);
+            this.txtRunId.Location = new System.Drawing.Point(323, 8);
+            this.txtRunId.Margin = new System.Windows.Forms.Padding(3, 0, 3, 0);
             this.txtRunId.Name = "txtRunId";
             this.txtRunId.Size = new System.Drawing.Size(214, 23);
             this.txtRunId.TabIndex = 5;
             // 
             // lblSource
             // 
-            this.lblSource.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.lblSource.Anchor = System.Windows.Forms.AnchorStyles.Left;
+            this.lblSource.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(245)))), ((int)(((byte)(247)))), ((int)(((byte)(249)))));
+            this.lblSource.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblSource.Font = new System.Drawing.Font("맑은 고딕", 10F);
-            this.lblSource.Location = new System.Drawing.Point(521, 6);
+            this.lblSource.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(35)))), ((int)(((byte)(45)))), ((int)(((byte)(57)))));
+            this.lblSource.Location = new System.Drawing.Point(540, 8);
+            this.lblSource.Margin = new System.Windows.Forms.Padding(0, 0, 4, 0);
             this.lblSource.Name = "lblSource";
-            this.lblSource.Size = new System.Drawing.Size(64, 32);
+            this.lblSource.Padding = new System.Windows.Forms.Padding(5, 0, 3, 0);
+            this.lblSource.Size = new System.Drawing.Size(64, 24);
             this.lblSource.TabIndex = 6;
             this.lblSource.Text = "Source";
             this.lblSource.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -186,18 +206,24 @@ namespace QMC.CDT_320.Ui.Pages.History
             // 
             this.txtSource.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Left | System.Windows.Forms.AnchorStyles.Right)));
             this.txtSource.Font = new System.Drawing.Font("Consolas", 10F);
-            this.txtSource.Location = new System.Drawing.Point(591, 10);
+            this.txtSource.Location = new System.Drawing.Point(619, 8);
+            this.txtSource.Margin = new System.Windows.Forms.Padding(3, 0, 3, 0);
             this.txtSource.Name = "txtSource";
             this.txtSource.Size = new System.Drawing.Size(144, 23);
             this.txtSource.TabIndex = 7;
             // 
             // lblSearch
             // 
-            this.lblSearch.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.lblSearch.Anchor = System.Windows.Forms.AnchorStyles.Left;
+            this.lblSearch.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(245)))), ((int)(((byte)(247)))), ((int)(((byte)(249)))));
+            this.lblSearch.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblSearch.Font = new System.Drawing.Font("맑은 고딕", 10F);
-            this.lblSearch.Location = new System.Drawing.Point(741, 6);
+            this.lblSearch.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(35)))), ((int)(((byte)(45)))), ((int)(((byte)(57)))));
+            this.lblSearch.Location = new System.Drawing.Point(766, 8);
+            this.lblSearch.Margin = new System.Windows.Forms.Padding(0, 0, 4, 0);
             this.lblSearch.Name = "lblSearch";
-            this.lblSearch.Size = new System.Drawing.Size(66, 32);
+            this.lblSearch.Padding = new System.Windows.Forms.Padding(5, 0, 3, 0);
+            this.lblSearch.Size = new System.Drawing.Size(66, 24);
             this.lblSearch.TabIndex = 8;
             this.lblSearch.Text = "Search";
             this.lblSearch.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -206,19 +232,22 @@ namespace QMC.CDT_320.Ui.Pages.History
             // 
             this.txtSearch.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Left | System.Windows.Forms.AnchorStyles.Right)));
             this.txtSearch.Font = new System.Drawing.Font("Consolas", 10F);
-            this.txtSearch.Location = new System.Drawing.Point(813, 10);
+            this.txtSearch.Location = new System.Drawing.Point(851, 8);
+            this.txtSearch.Margin = new System.Windows.Forms.Padding(3, 0, 3, 0);
             this.txtSearch.Name = "txtSearch";
-            this.txtSearch.Size = new System.Drawing.Size(302, 23);
+            this.txtSearch.Size = new System.Drawing.Size(378, 23);
             this.txtSearch.TabIndex = 9;
             // 
             // chkRecentHour
             // 
             this.chkRecentHour.Anchor = System.Windows.Forms.AnchorStyles.Left;
             this.chkRecentHour.AutoSize = true;
+            this.chkRecentHour.BackColor = System.Drawing.Color.White;
             this.chkRecentHour.Checked = true;
             this.chkRecentHour.CheckState = System.Windows.Forms.CheckState.Checked;
             this.chkRecentHour.Font = new System.Drawing.Font("맑은 고딕", 9F);
-            this.chkRecentHour.Location = new System.Drawing.Point(1121, 12);
+            this.chkRecentHour.Location = new System.Drawing.Point(1235, 10);
+            this.chkRecentHour.Margin = new System.Windows.Forms.Padding(3, 0, 3, 0);
             this.chkRecentHour.Name = "chkRecentHour";
             this.chkRecentHour.Size = new System.Drawing.Size(87, 19);
             this.chkRecentHour.TabIndex = 10;
@@ -231,7 +260,8 @@ namespace QMC.CDT_320.Ui.Pages.History
             this.cmbLimit.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
             this.cmbLimit.Font = new System.Drawing.Font("Consolas", 10F);
             this.cmbLimit.FormattingEnabled = true;
-            this.cmbLimit.Location = new System.Drawing.Point(1225, 9);
+            this.cmbLimit.Location = new System.Drawing.Point(1339, 8);
+            this.cmbLimit.Margin = new System.Windows.Forms.Padding(3, 0, 3, 0);
             this.cmbLimit.Name = "cmbLimit";
             this.cmbLimit.Size = new System.Drawing.Size(70, 23);
             this.cmbLimit.TabIndex = 11;
@@ -247,11 +277,15 @@ namespace QMC.CDT_320.Ui.Pages.History
             this.btnRefresh.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.btnRefresh.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.btnRefresh.ForeColor = System.Drawing.Color.White;
-            this.btnRefresh.Location = new System.Drawing.Point(1301, 9);
+            this.btnRefresh.Location = new System.Drawing.Point(1416, 8);
+            this.btnRefresh.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
+            this.btnRefresh.MinimumSize = new System.Drawing.Size(116, 24);
             this.btnRefresh.Name = "btnRefresh";
-            this.btnRefresh.Size = new System.Drawing.Size(104, 26);
+            this.btnRefresh.Padding = new System.Windows.Forms.Padding(8, 0, 8, 0);
+            this.btnRefresh.Size = new System.Drawing.Size(114, 24);
             this.btnRefresh.TabIndex = 12;
             this.btnRefresh.Text = "REFRESH";
+            this.btnRefresh.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
             this.btnRefresh.UseVisualStyleBackColor = false;
             // 
             // btnOpenFile
@@ -265,11 +299,15 @@ namespace QMC.CDT_320.Ui.Pages.History
             this.btnOpenFile.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.btnOpenFile.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.btnOpenFile.ForeColor = System.Drawing.Color.White;
-            this.btnOpenFile.Location = new System.Drawing.Point(1411, 9);
+            this.btnOpenFile.Location = new System.Drawing.Point(1538, 8);
+            this.btnOpenFile.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
+            this.btnOpenFile.MinimumSize = new System.Drawing.Size(128, 24);
             this.btnOpenFile.Name = "btnOpenFile";
-            this.btnOpenFile.Size = new System.Drawing.Size(114, 26);
+            this.btnOpenFile.Padding = new System.Windows.Forms.Padding(8, 0, 8, 0);
+            this.btnOpenFile.Size = new System.Drawing.Size(128, 24);
             this.btnOpenFile.TabIndex = 13;
             this.btnOpenFile.Text = "OPEN FILE";
+            this.btnOpenFile.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
             this.btnOpenFile.UseVisualStyleBackColor = false;
             // 
             // _grid
@@ -298,13 +336,13 @@ namespace QMC.CDT_320.Ui.Pages.History
             this._grid.Dock = System.Windows.Forms.DockStyle.Fill;
             this._grid.EnableHeadersVisualStyles = false;
             this._grid.Font = new System.Drawing.Font("Consolas", 10F);
-            this._grid.Location = new System.Drawing.Point(3, 83);
+            this._grid.Location = new System.Drawing.Point(3, 73);
             this._grid.Name = "_grid";
             this._grid.ReadOnly = true;
             this._grid.RowHeadersVisible = false;
             this._grid.RowHeadersWidth = 51;
             this._grid.RowTemplate.Height = 26;
-            this._grid.Size = new System.Drawing.Size(1672, 814);
+            this._grid.Size = new System.Drawing.Size(1672, 824);
             this._grid.TabIndex = 2;
             // 
             // dataGridViewTextBoxColumn1
@@ -370,12 +408,27 @@ namespace QMC.CDT_320.Ui.Pages.History
             this.dataGridViewTextBoxColumn5.Name = "dataGridViewTextBoxColumn5";
             this.dataGridViewTextBoxColumn5.ReadOnly = true;
             this.dataGridViewTextBoxColumn5.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
-            // 
+            //
+            // events (디자이너 관리)
+            //
+            this._grid.CellClick += new System.Windows.Forms.DataGridViewCellEventHandler(this.Grid_CellClick);
+            this._grid.CellDoubleClick += new System.Windows.Forms.DataGridViewCellEventHandler(this.Grid_CellDoubleClick);
+            this._dp.ValueChanged += new System.EventHandler(this.dp_ValueChanged);
+            this.txtRunId.TextChanged += new System.EventHandler(this.FilterTextBox_TextChanged);
+            this.txtSource.TextChanged += new System.EventHandler(this.FilterTextBox_TextChanged);
+            this.txtSearch.TextChanged += new System.EventHandler(this.FilterTextBox_TextChanged);
+            this.chkRecentHour.CheckedChanged += new System.EventHandler(this.chkRecentHour_CheckedChanged);
+            this.cmbLimit.SelectedIndexChanged += new System.EventHandler(this.cmbLimit_SelectedIndexChanged);
+            this.btnRefresh.Click += new System.EventHandler(this.btnRefresh_Click);
+            this.btnOpenFile.Click += new System.EventHandler(this.btnOpenFile_Click);
+            //
             // EventLogPage
-            // 
+            //
+            this.BackColor = System.Drawing.Color.White;
             this.Controls.Add(this.rootLayout);
             this.Name = "EventLogPage";
             this.Size = new System.Drawing.Size(1678, 900);
+            this.Load += new System.EventHandler(this.EventLogPage_Load);
             this.rootLayout.ResumeLayout(false);
             this.filterLayout.ResumeLayout(false);
             this.filterLayout.PerformLayout();

@@ -58,6 +58,69 @@ namespace QMC.Vision.Core
         private static string AggKey(string module, string insp, string uid)
             => (module ?? "") + "|" + (insp ?? "") + "|" + (uid ?? "");
 
+        private static void ResolveGrid(int dieIndex, int gridX, int gridY, out int ix, out int iy)
+        {
+            ix = 0;
+            iy = 0;
+            if (gridX >= 0 && gridY >= 0)
+            {
+                ix = gridX;
+                iy = gridY;
+                return;
+            }
+
+            if (dieIndex > 0 && !QMC.Vision.DieMaps.PickupOrderResolver.TryGetCell(dieIndex, out ix, out iy))
+            {
+                ix = 0;
+                iy = 0;
+            }
+        }
+
+        private static void EnsureUidGroup(IVisionModule m, string insp, string chipUid, int channel)
+        {
+            string key = AggKey(m.Name, insp, chipUid);
+            lock (_aggLock)
+            {
+                if (!_agg.TryGetValue(key, out var exist))
+                {
+                    // 채널 명시(운영 0/1)만 그룹 기대 수 적용 — 채널 없는 구형/수동(-1)은 단건 완결(대기 방지).
+                    _agg[key] = new UidAgg { Remain = channel >= 0 ? ExpectedPerUid(m) : 1 };
+                    AsyncMatchStore.Start(m.Name, insp, chipUid);
+                }
+            }
+        }
+
+        private static void InspectGrabbedImage(IVisionModule m, VisionSettings cfg, string insp,
+                                                int picker, string chipUid, int dieIndex, int channel,
+                                                int ix, int iy, long gen, System.Drawing.Bitmap image)
+        {
+            // ── 즉시 검사(배치 대기 없음) — 게이트 밖이라 다음 그랩과 병렬 ──
+            // 웨이퍼 경계(Clear) 이전에 시작된 잔여 요청 — 새 맵에 유령 셀이 생기므로 폐기.
+            if (gen != InspectionResultStore.GenerationOf(m.Name))
+            {
+                FailUid(m.Name, insp, chipUid, "stale wafer(폐기 — 새 웨이퍼 초기화 이후 도착)");
+                return;
+            }
+
+            // 콜렛(전역 픽커)·채널별 영속 인스턴스 — 파라미터는 레시피 1벌 공유(사용 직전 반사 복제).
+            if (!ColletInspectorCache.TryGet(m.Name, insp, picker, channel, out var ins))
+            {
+                FailUid(m.Name, insp, chipUid, "inspector create fail");
+                return;
+            }
+
+            UnitContext.ApplyScale(ins, m.ScaleX, m.ScaleY);
+            var template = m.Inspectors.TryGetValue(insp, out var t) ? t : null;
+            if (template != null) VisionCommandCore.CopyInspectorConfig(template, ins);
+
+            var sw = System.Diagnostics.Stopwatch.StartNew();
+            string res = VisionCommandCore.InspectOnImageExplicit(
+                m, cfg, insp, ins, image, chipUid, picker, channel, ix, iy);
+            sw.Stop();
+
+            ApplyUidResult(m.Name, insp, chipUid, channel, res, sw.ElapsedMilliseconds);
+        }
+
         /// <summary>비동기 검사 시작 — 즉시 "STARTED"/"fail:.." 반환(그랩 전 선응답), 그랩·검사는 백그라운드.
         /// picker: 전역 픽커 1~8(fb×4+콜렛). channel: 항상 0/1(Side 0°/90°, Bottom/Bin=0. 구형 수신만 -1).
         /// dieIndex: 픽업 순서 1-base(=결과 매칭 키 chipUid, 2026-07-06). 0=없음, -1=다이 없는 메뉴얼 테스트(맵/집계 생략).
@@ -71,11 +134,8 @@ namespace QMC.Vision.Core
             if (string.IsNullOrEmpty(insp)) return "fail:no inspector";
             if (!m.Inspectors.ContainsKey(insp)) return "fail:inspector not found";
 
-            int ix = 0, iy = 0;
-            if (gridX >= 0 && gridY >= 0)
-            { ix = gridX; iy = gridY; }   // 신형 — 핸들러 grid 수신값 그대로(레시피 맵 조회 대체)
-            else if (dieIndex > 0 && !QMC.Vision.DieMaps.PickupOrderResolver.TryGetCell(dieIndex, out ix, out iy))
-            { ix = 0; iy = 0; }   // 구형 폴백 — 레시피 순서를 못 구하면 맵 표시만 생략(검사는 정상 진행)
+            int ix, iy;
+            ResolveGrid(dieIndex, gridX, gridY, out ix, out iy);
 
             // 검사 사용 게이트 OFF → 그랩 없이 즉시 완료(스킵).
             if (VisionCommandCore.IsInspectionSkipped(m, insp))
@@ -87,16 +147,7 @@ namespace QMC.Vision.Core
 
             // uid 그룹 시작/참여 — 첫 요청이면 집계 생성 + Running 표시. 진행 중이면 리셋 없이 참여
             // (Side 는 0° 요청과 90° 요청이 시간차로 들어와 같은 uid 를 완성한다).
-            string key = AggKey(m.Name, insp, chipUid);
-            lock (_aggLock)
-            {
-                if (!_agg.TryGetValue(key, out var exist))
-                {
-                    // 채널 명시(운영 0/1)만 그룹 기대 수 적용 — 채널 없는 구형/수동(-1)은 단건 완결(대기 방지).
-                    _agg[key] = new UidAgg { Remain = channel >= 0 ? ExpectedPerUid(m) : 1 };
-                    AsyncMatchStore.Start(m.Name, insp, chipUid);
-                }
-            }
+            EnsureUidGroup(m, insp, chipUid, channel);
 
             long gen = InspectionResultStore.GenerationOf(m.Name);
             System.Threading.Tasks.Task.Run(() =>
@@ -122,30 +173,76 @@ namespace QMC.Vision.Core
                     keep = g.DetachImage();   // 사본 대신 소유권 이전 — 고해상도 복제 제거
                     g.Dispose();
 
-                    // ── 즉시 검사(배치 대기 없음) — 게이트 밖이라 다음 그랩과 병렬 ──
-                    // 웨이퍼 경계(Clear) 이전에 시작된 잔여 요청 — 새 맵에 유령 셀이 생기므로 폐기.
-                    if (gen != InspectionResultStore.GenerationOf(m.Name))
-                    { FailUid(m.Name, insp, chipUid, "stale wafer(폐기 — 새 웨이퍼 초기화 이후 도착)"); return; }
-
-                    // 콜렛(전역 픽커)·채널별 영속 인스턴스 — 파라미터는 레시피 1벌 공유(사용 직전 반사 복제).
-                    if (!ColletInspectorCache.TryGet(m.Name, insp, picker, channel, out var ins))
-                    { FailUid(m.Name, insp, chipUid, "inspector create fail"); return; }
-
-                    UnitContext.ApplyScale(ins, m.ScaleX, m.ScaleY);
-                    var template = m.Inspectors.TryGetValue(insp, out var t) ? t : null;
-                    if (template != null) VisionCommandCore.CopyInspectorConfig(template, ins);
-
-                    var sw = System.Diagnostics.Stopwatch.StartNew();
-                    string res = VisionCommandCore.InspectOnImageExplicit(
-                        m, cfg, insp, ins, keep, chipUid, picker, channel, ix, iy);
-                    sw.Stop();
-
-                    ApplyUidResult(m.Name, insp, chipUid, channel, res, sw.ElapsedMilliseconds);
+                    InspectGrabbedImage(m, cfg, insp, picker, chipUid, dieIndex, channel, ix, iy, gen, keep);
                 }
                 catch (Exception ex) { FailUid(m.Name, insp, chipUid, ex.Message); }
                 finally { try { keep?.Dispose(); } catch { } }
             });
             return "STARTED";
+        }
+
+        /// <summary>실제 GRAB 완료 후 그 이미지를 백그라운드 검사에 투입한다.
+        /// Handler Side 인터페이스용: GRAB ACK는 촬상 완료를 의미하고, INSPECTRESULT는 같은 die_index 로 따로 회수한다.</summary>
+        public static string GrabThenStart(IVisionModule m, VisionSettings cfg, string insp,
+                                           int picker, string chipUid, int dieIndex, int channel,
+                                           int gridX = -1, int gridY = -1)
+        {
+            if (m == null) return "fail:no module";
+            if (string.IsNullOrEmpty(insp)) return "fail:no inspector";
+            if (!m.Inspectors.ContainsKey(insp)) return "fail:inspector not found";
+
+            int ix, iy;
+            ResolveGrid(dieIndex, gridX, gridY, out ix, out iy);
+
+            if (VisionCommandCore.IsInspectionSkipped(m, insp))
+            {
+                ModuleResultStore.Record(m.Name, insp, true, "inspection=skip");
+                AsyncMatchStore.Complete(m.Name, insp, chipUid, "PASS;inspection=skip");
+                return "w=0;h=0;frame=0;inspection=skip";
+            }
+
+            EnsureUidGroup(m, insp, chipUid, channel);
+
+            GrabResult g;
+            try
+            {
+                lock (GateOf(m.Name))
+                {
+                    bool setCtx = channel >= 0 || picker > 0;
+                    if (setCtx) VisionCommandCore.SetInspectContext(m.Name, picker, channel, ix, iy);
+                    try { g = m.GrabForTool(insp); }
+                    finally { if (setCtx) VisionCommandCore.SetInspectContext(m.Name, 0, -1, 0, 0); }
+                }
+            }
+            catch (Exception ex)
+            {
+                FailUid(m.Name, insp, chipUid, ex.Message);
+                return "fail:" + ex.Message;
+            }
+
+            if (g == null || !g.IsSuccess)
+            {
+                string reason = g?.ErrorMessage ?? "grab";
+                try { g?.Dispose(); } catch { }
+                FailUid(m.Name, insp, chipUid, reason);
+                return "fail:" + reason;
+            }
+
+            int width = g.Width;
+            int height = g.Height;
+            long frame = g.FrameNumber;
+            System.Drawing.Bitmap keep = g.DetachImage();
+            g.Dispose();
+
+            long gen = InspectionResultStore.GenerationOf(m.Name);
+            System.Threading.Tasks.Task.Run(() =>
+            {
+                try { InspectGrabbedImage(m, cfg, insp, picker, chipUid, dieIndex, channel, ix, iy, gen, keep); }
+                catch (Exception ex) { FailUid(m.Name, insp, chipUid, ex.Message); }
+                finally { try { keep?.Dispose(); } catch { } }
+            });
+
+            return "w=" + width + ";h=" + height + ";frame=" + frame + ";inspect=STARTED";
         }
 
         /// <summary>비동기 검사 결과 — 대기형 응답(요청 1회 = 데이터 응답 1회).

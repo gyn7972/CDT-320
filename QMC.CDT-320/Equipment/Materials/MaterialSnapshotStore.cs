@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -24,6 +25,7 @@ namespace QMC.CDT320.Materials
 
         private static readonly DateTime SafeEmptyDateTime =
             DateTime.SpecifyKind(new DateTime(1900, 1, 1, 0, 0, 0), DateTimeKind.Utc);
+        private static DateTime _lastTempCleanupUtc = DateTime.MinValue;
 
         public static bool Exists()
         {
@@ -48,8 +50,23 @@ namespace QMC.CDT320.Materials
 
         public static MaterialSnapshot Load()
         {
+            Stopwatch sw = Stopwatch.StartNew();
             try
             {
+                MaterialSnapshot fastSnapshot;
+                string fastReason;
+                if (TryLoadPrimarySnapshotFast(out fastSnapshot, out fastReason))
+                {
+                    LogLoadElapsed("Fast", sw.ElapsedMilliseconds, fastSnapshot);
+                    return fastSnapshot;
+                }
+
+                if (!string.IsNullOrWhiteSpace(fastReason) && File.Exists(SnapshotPath))
+                {
+                    Log.Write("Main", "SYSTEM", "MaterialSnapshotLoad",
+                        "Material snapshot fast load skipped. reason=" + fastReason + " - Check");
+                }
+
                 var candidates = LoadCandidates();
                 if (candidates.Count == 0)
                 {
@@ -76,6 +93,7 @@ namespace QMC.CDT320.Materials
                 }
 
                 NormalizeSnapshotStates(selected.Snapshot);
+                LogLoadElapsed("Fallback", sw.ElapsedMilliseconds, selected.Snapshot);
                 return selected.Snapshot;
             }
             catch (Exception ex)
@@ -83,6 +101,128 @@ namespace QMC.CDT320.Materials
                 Log.Write("Main", "SYSTEM", "MaterialSnapshotLoad", "Material snapshot load failed: " + SnapshotPath + " / " + ex.Message + " - Failed");
                 LastLoadedPath = "";
                 return null;
+            }
+            finally
+            {
+            }
+        }
+
+        private static bool TryLoadPrimarySnapshotFast(out MaterialSnapshot snapshot, out string reason)
+        {
+            snapshot = null;
+            reason = "";
+
+            try
+            {
+                if (!File.Exists(SnapshotPath))
+                {
+                    reason = "primary snapshot does not exist";
+                    return false;
+                }
+
+                DateTime snapshotWriteTime = File.GetLastWriteTime(SnapshotPath);
+                string alternatePath;
+                if (HasNewerAlternateSnapshotCandidate(snapshotWriteTime, out alternatePath))
+                {
+                    reason = "newer alternate snapshot candidate exists. file=" + alternatePath;
+                    return false;
+                }
+
+                string error;
+                if (!TryLoadFromPath(SnapshotPath, out snapshot, out error))
+                {
+                    reason = "primary snapshot load failed. error=" + error;
+                    return false;
+                }
+
+                if (IsStartupInitializeReason(snapshot.SaveReason))
+                {
+                    reason = "primary snapshot is startup initialize reason. reason=" + snapshot.SaveReason;
+                    snapshot = null;
+                    return false;
+                }
+
+                LastLoadedPath = SnapshotPath;
+                return true;
+            }
+            catch (Exception ex)
+            {
+                snapshot = null;
+                reason = "fast load exception. error=" + ex.Message;
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
+        private static bool HasNewerAlternateSnapshotCandidate(DateTime snapshotWriteTime, out string alternatePath)
+        {
+            alternatePath = "";
+
+            try
+            {
+                if (IsFileNewerThan(RecoveryPath, snapshotWriteTime))
+                {
+                    alternatePath = RecoveryPath;
+                    return true;
+                }
+
+                string legacyTemp = SnapshotPath + ".tmp";
+                if (IsFileNewerThan(legacyTemp, snapshotWriteTime))
+                {
+                    alternatePath = legacyTemp;
+                    return true;
+                }
+
+                if (!Directory.Exists(Dir))
+                    return false;
+
+                foreach (string path in Directory.GetFiles(Dir, "material_state.json.*.tmp"))
+                {
+                    if (!IsFileNewerThan(path, snapshotWriteTime))
+                        continue;
+
+                    alternatePath = path;
+                    return true;
+                }
+
+                return false;
+            }
+            catch
+            {
+                return true;
+            }
+            finally
+            {
+            }
+        }
+
+        private static bool IsFileNewerThan(string path, DateTime baseline)
+        {
+            if (string.IsNullOrEmpty(path) || !File.Exists(path))
+                return false;
+
+            FileInfo file = new FileInfo(path);
+            return file.Length >= 16 && file.LastWriteTime > baseline;
+        }
+
+        private static void LogLoadElapsed(string mode, long elapsedMs, MaterialSnapshot snapshot)
+        {
+            try
+            {
+                if (elapsedMs < 300)
+                    return;
+
+                Log.Write("Main", "SYSTEM", "MaterialSnapshotLoad",
+                    "Material snapshot load completed. mode=" + mode +
+                    ", elapsedMs=" + elapsedMs +
+                    ", wafers=" + CountList(snapshot != null ? snapshot.Wafers : null) +
+                    ", dies=" + CountList(snapshot != null ? snapshot.Dies : null) +
+                    ", file=" + LastLoadedPath + " - Ok");
+            }
+            catch
+            {
             }
             finally
             {
@@ -485,6 +625,7 @@ namespace QMC.CDT320.Materials
             }
 
             string tmp = null;
+            Stopwatch sw = Stopwatch.StartNew();
             try
             {
                 Directory.CreateDirectory(Dir);
@@ -500,10 +641,18 @@ namespace QMC.CDT320.Materials
 
                 using (var fs = File.Create(tmp))
                 {
-                    JsonPrettySerializer.WriteObject(fs, typeof(MaterialSnapshot), saveSnapshot);
+                    WriteSnapshotCompact(fs, saveSnapshot);
                 }
 
-                if (!ValidateWrittenSnapshot(tmp, saveSnapshot))
+                if (!IsWrittenSnapshotFileUsable(tmp))
+                {
+                    CopyFailedSnapshotForDiagnosis(tmp);
+                    DeleteTempFile(tmp);
+                    return false;
+                }
+
+                bool validateWrittenSnapshot = ShouldValidateWrittenSnapshot(saveSnapshot.SaveReason);
+                if (validateWrittenSnapshot && !ValidateWrittenSnapshot(tmp, saveSnapshot))
                 {
                     CopyFailedSnapshotForDiagnosis(tmp);
                     DeleteTempFile(tmp);
@@ -516,6 +665,9 @@ namespace QMC.CDT320.Materials
                 else
                     DeleteTempFile(tmp);
 
+                if (committed)
+                    LogSaveElapsed(sw.ElapsedMilliseconds, saveSnapshot, validateWrittenSnapshot);
+
                 return committed;
             }
             catch (Exception ex)
@@ -527,6 +679,86 @@ namespace QMC.CDT320.Materials
                     DeleteTempFile(tmp);
                 }
                 return false;
+            }
+            finally
+            {
+            }
+        }
+
+        private static void WriteSnapshotCompact(Stream stream, MaterialSnapshot snapshot)
+        {
+            if (stream == null) throw new ArgumentNullException(nameof(stream));
+
+            var serializer = new DataContractJsonSerializer(typeof(MaterialSnapshot));
+            using (var writer = JsonReaderWriterFactory.CreateJsonWriter(stream, Encoding.UTF8, false, false, "  "))
+            {
+                serializer.WriteObject(writer, snapshot);
+                writer.Flush();
+            }
+        }
+
+        private static bool IsWrittenSnapshotFileUsable(string path)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
+                {
+                    Log.Write("Main", "SYSTEM", "MaterialSnapshotSave",
+                        "Material snapshot validation failed. file does not exist. file=" + path + " - Failed");
+                    return false;
+                }
+
+                long length = new FileInfo(path).Length;
+                if (length < 16)
+                {
+                    Log.Write("Main", "SYSTEM", "MaterialSnapshotSave",
+                        "Material snapshot validation failed. file is too small. file=" + path +
+                        ", length=" + length + " - Failed");
+                    return false;
+                }
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Log.Write("Main", "SYSTEM", "MaterialSnapshotSave",
+                    "Material snapshot validation failed. file check error. file=" + path +
+                    ", error=" + ex.Message + " - Failed");
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
+        private static bool ShouldValidateWrittenSnapshot(string reason)
+        {
+            string value = reason ?? "";
+            return value.IndexOf("ApplicationExit", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                   value.IndexOf("Initialize", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                   value.IndexOf("Manual", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                   value.IndexOf("Clear", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                   value.IndexOf("Mapping", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                   value.IndexOf("MapTransfer", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                   value.IndexOf("Dialog", StringComparison.OrdinalIgnoreCase) >= 0;
+        }
+
+        private static void LogSaveElapsed(long elapsedMs, MaterialSnapshot snapshot, bool validated)
+        {
+            try
+            {
+                if (elapsedMs < 300)
+                    return;
+
+                Log.Write("Main", "SYSTEM", "MaterialSnapshotSave",
+                    "Material snapshot save completed. elapsedMs=" + elapsedMs +
+                    ", validated=" + validated +
+                    ", wafers=" + CountList(snapshot != null ? snapshot.Wafers : null) +
+                    ", dies=" + CountList(snapshot != null ? snapshot.Dies : null) +
+                    ", file=" + SnapshotPath + " - Ok");
+            }
+            catch
+            {
             }
             finally
             {
@@ -700,6 +932,12 @@ namespace QMC.CDT320.Materials
         {
             try
             {
+                DateTime now = DateTime.UtcNow;
+                if ((now - _lastTempCleanupUtc).TotalSeconds < 30)
+                    return;
+
+                _lastTempCleanupUtc = now;
+
                 if (File.Exists(SnapshotPath + ".tmp"))
                     File.Delete(SnapshotPath + ".tmp");
 

@@ -55,15 +55,17 @@
             this.rootLayout.Padding = new System.Windows.Forms.Padding(8);
             this.rootLayout.RowCount = 3;
             this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 30F));
-            this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 300F));
+            this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 270F));
             this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.rootLayout.Size = new System.Drawing.Size(1678, 900);
             this.rootLayout.TabIndex = 0;
             // 
             // lblHeader
             // 
+            this.lblHeader.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(217)))), ((int)(((byte)(119)))), ((int)(((byte)(6)))));
             this.lblHeader.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblHeader.Font = new System.Drawing.Font("맑은 고딕", 11F, System.Drawing.FontStyle.Bold);
+            this.lblHeader.ForeColor = System.Drawing.Color.White;
             this.lblHeader.Location = new System.Drawing.Point(8, 8);
             this.lblHeader.Margin = new System.Windows.Forms.Padding(0, 0, 0, 4);
             this.lblHeader.Name = "lblHeader";
@@ -82,19 +84,20 @@
             this.grpLink.Margin = new System.Windows.Forms.Padding(0, 0, 0, 8);
             this.grpLink.Name = "grpLink";
             this.grpLink.Padding = new System.Windows.Forms.Padding(10);
-            this.grpLink.Size = new System.Drawing.Size(1662, 292);
+            this.grpLink.Size = new System.Drawing.Size(1662, 262);
             this.grpLink.TabIndex = 1;
             this.grpLink.TabStop = false;
             this.grpLink.Text = "Simulator";
             // 
             // linkLayout
             // 
-            this.linkLayout.ColumnCount = 5;
+            this.linkLayout.ColumnCount = 6;
             this.linkLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 80F));
             this.linkLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 180F));
             this.linkLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 70F));
             this.linkLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 100F));
             this.linkLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 180F));
+            this.linkLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.linkLayout.Controls.Add(this.lblHost, 0, 0);
             this.linkLayout.Controls.Add(this._tbHost, 1, 0);
             this.linkLayout.Controls.Add(this.lblPort, 2, 0);
@@ -110,7 +113,7 @@
             this.linkLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 40F));
             this.linkLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 36F));
             this.linkLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.linkLayout.Size = new System.Drawing.Size(1642, 254);
+            this.linkLayout.Size = new System.Drawing.Size(1642, 224);
             this.linkLayout.TabIndex = 0;
             // 
             // lblHost
@@ -157,14 +160,22 @@
             // 
             // _btnConnect
             // 
+            this._btnConnect.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(34)))), ((int)(((byte)(139)))), ((int)(((byte)(84)))));
             this._btnConnect.Dock = System.Windows.Forms.DockStyle.Fill;
+            this._btnConnect.FlatAppearance.BorderSize = 0;
+            this._btnConnect.FlatAppearance.MouseDownBackColor = System.Drawing.Color.FromArgb(((int)(((byte)(27)))), ((int)(((byte)(115)))), ((int)(((byte)(68)))));
+            this._btnConnect.FlatAppearance.MouseOverBackColor = System.Drawing.Color.FromArgb(((int)(((byte)(46)))), ((int)(((byte)(160)))), ((int)(((byte)(98)))));
             this._btnConnect.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this._btnConnect.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
-            this._btnConnect.Location = new System.Drawing.Point(433, 3);
+            this._btnConnect.ForeColor = System.Drawing.Color.White;
+            this._btnConnect.Location = new System.Drawing.Point(432, 2);
+            this._btnConnect.Margin = new System.Windows.Forms.Padding(2);
             this._btnConnect.Name = "_btnConnect";
-            this._btnConnect.Size = new System.Drawing.Size(1206, 34);
+            this._btnConnect.Size = new System.Drawing.Size(176, 36);
             this._btnConnect.TabIndex = 4;
             this._btnConnect.Text = "CONNECT";
+            this._btnConnect.UseVisualStyleBackColor = false;
+            this._btnConnect.Click += new System.EventHandler(this.BtnConnect_Click);
             // 
             // lblConnStatus
             // 
@@ -179,7 +190,7 @@
             // 
             // _lblStatus
             // 
-            this.linkLayout.SetColumnSpan(this._lblStatus, 4);
+            this.linkLayout.SetColumnSpan(this._lblStatus, 5);
             this._lblStatus.Dock = System.Windows.Forms.DockStyle.Fill;
             this._lblStatus.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
             this._lblStatus.ForeColor = System.Drawing.Color.IndianRed;
@@ -193,14 +204,14 @@
             // _txtLog
             // 
             this._txtLog.BackColor = System.Drawing.Color.Black;
-            this.linkLayout.SetColumnSpan(this._txtLog, 5);
+            this.linkLayout.SetColumnSpan(this._txtLog, 6);
             this._txtLog.Dock = System.Windows.Forms.DockStyle.Fill;
             this._txtLog.Font = new System.Drawing.Font("Consolas", 9F);
             this._txtLog.ForeColor = System.Drawing.Color.LightGray;
             this._txtLog.Location = new System.Drawing.Point(3, 79);
             this._txtLog.Name = "_txtLog";
             this._txtLog.ReadOnly = true;
-            this._txtLog.Size = new System.Drawing.Size(1636, 172);
+            this._txtLog.Size = new System.Drawing.Size(1636, 142);
             this._txtLog.TabIndex = 7;
             this._txtLog.Text = "";
             this._txtLog.WordWrap = false;
@@ -212,6 +223,7 @@
             this.Controls.Add(this.rootLayout);
             this.Name = "SimulatorLinkPage";
             this.Size = new System.Drawing.Size(1678, 900);
+            this.Load += new System.EventHandler(this.SimulatorLinkPage_Load);
             this.rootLayout.ResumeLayout(false);
             this.grpLink.ResumeLayout(false);
             this.linkLayout.ResumeLayout(false);

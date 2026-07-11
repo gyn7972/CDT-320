@@ -47,6 +47,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
         private Label lblPlaceCaption;
         private TableLayoutPanel workInfoBody;
         private TableLayoutPanel workTimeBody;
+        private TableLayoutPanel workTimeActionPanel;
         private Label lblProjectCaption;
         private Label lblProject;
         private Label lblPickFailCaption;
@@ -79,6 +80,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
         private Label lblRecovery;
         private Label lblUphCaption;
         private Label lblUph;
+        private Label lblRecentMinuteUph;
         private Label lblMtbfCaption;
         private Label lblMtbf;
         private Label lblMttrCaption;
@@ -90,6 +92,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
         private Label lblLotCaption;
         private Label lblLot;
         private Button btnCcs;
+        private Button btnWorkTimeClear;
+        private Button btnTestAlarm;
         private Panel workInfoProjectTile;
         private Panel workInfoBinQtyTile;
         private Panel workInfoPickFailTile;
@@ -121,6 +125,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
         private Label lblRearCollet4Designer;
         private Panel workTimeLotTile;
         private Panel workTimeUphTile;
+        private TableLayoutPanel workTimeUphHeaderLayout;
+        private TableLayoutPanel workTimeUphValueLayout;
         private Panel workTimeUpTile;
         private Panel workTimeContUpTile;
         private Panel workTimeRateTile;
@@ -193,6 +199,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.lblBinArrMonCaption = new System.Windows.Forms.Label();
             this.lblBinArrMon = new System.Windows.Forms.Label();
             this.workTimeBody = new System.Windows.Forms.TableLayoutPanel();
+            this.workTimeActionPanel = new System.Windows.Forms.TableLayoutPanel();
             this.lblLoadCaption = new System.Windows.Forms.Label();
             this.lblLoad = new System.Windows.Forms.Label();
             this.lblUpCaption = new System.Windows.Forms.Label();
@@ -209,6 +216,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.lblRecovery = new System.Windows.Forms.Label();
             this.lblUphCaption = new System.Windows.Forms.Label();
             this.lblUph = new System.Windows.Forms.Label();
+            this.lblRecentMinuteUph = new System.Windows.Forms.Label();
             this.lblMtbfCaption = new System.Windows.Forms.Label();
             this.lblMtbf = new System.Windows.Forms.Label();
             this.lblMttrCaption = new System.Windows.Forms.Label();
@@ -220,6 +228,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.lblLotCaption = new System.Windows.Forms.Label();
             this.lblLot = new System.Windows.Forms.Label();
             this.btnCcs = new System.Windows.Forms.Button();
+            this.btnWorkTimeClear = new System.Windows.Forms.Button();
+            this.btnTestAlarm = new System.Windows.Forms.Button();
             this.workInfoProjectTile = new System.Windows.Forms.Panel();
             this.workInfoBinQtyTile = new System.Windows.Forms.Panel();
             this.workInfoPickFailTile = new System.Windows.Forms.Panel();
@@ -251,6 +261,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.lblRearCollet4Designer = new System.Windows.Forms.Label();
             this.workTimeLotTile = new System.Windows.Forms.Panel();
             this.workTimeUphTile = new System.Windows.Forms.Panel();
+            this.workTimeUphHeaderLayout = new System.Windows.Forms.TableLayoutPanel();
+            this.workTimeUphValueLayout = new System.Windows.Forms.TableLayoutPanel();
             this.workTimeUpTile = new System.Windows.Forms.Panel();
             this.workTimeContUpTile = new System.Windows.Forms.Panel();
             this.workTimeRateTile = new System.Windows.Forms.Panel();
@@ -287,6 +299,9 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.tabOutputNgMap.SuspendLayout();
             this.workInfoBody.SuspendLayout();
             this.workTimeBody.SuspendLayout();
+            this.workTimeActionPanel.SuspendLayout();
+            this.workTimeUphHeaderLayout.SuspendLayout();
+            this.workTimeUphValueLayout.SuspendLayout();
             this.SuspendLayout();
             //
             // rootLayout  (2x2, 50:50 / 65:35, 흰 배경)
@@ -704,7 +719,9 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.mapTabControl.SelectedIndex = 0;
             this.mapTabControl.SizeMode = System.Windows.Forms.TabSizeMode.Fixed;
             this.mapTabControl.TabIndex = 1;
-            //
+            this.mapTabControl.DrawItem += new System.Windows.Forms.DrawItemEventHandler(this.MapTabControl_DrawItem);
+            this.mapTabControl.SizeChanged += new System.EventHandler(this.MapTabControl_SizeChanged);
+            // 
             // tabInputMap
             //
             this.tabInputMap.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(221)))), ((int)(((byte)(221)))), ((int)(((byte)(221)))));
@@ -834,7 +851,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.workTimeBody.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 25F));
             this.workTimeBody.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 25F));
             this.workTimeBody.Controls.Add(this.workTimeLotTile, 0, 0);
-            this.workTimeBody.Controls.Add(this.btnCcs, 3, 0);
+            this.workTimeBody.Controls.Add(this.workTimeActionPanel, 2, 0);
             this.workTimeBody.Controls.Add(this.workTimeUphTile, 0, 1);
             this.workTimeBody.Controls.Add(this.workTimeUpTile, 1, 1);
             this.workTimeBody.Controls.Add(this.workTimeContUpTile, 2, 1);
@@ -857,7 +874,25 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.workTimeBody.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 33.33333F));
             this.workTimeBody.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 33.33333F));
             this.workTimeBody.TabIndex = 0;
-            this.workTimeBody.SetColumnSpan(this.workTimeLotTile, 3);
+            this.workTimeBody.SetColumnSpan(this.workTimeLotTile, 2);
+            this.workTimeBody.SetColumnSpan(this.workTimeActionPanel, 2);
+            //
+            // workTimeActionPanel
+            //
+            this.workTimeActionPanel.BackColor = System.Drawing.Color.FromArgb(240, 242, 245);
+            this.workTimeActionPanel.ColumnCount = 3;
+            this.workTimeActionPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 33.33333F));
+            this.workTimeActionPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 33.33333F));
+            this.workTimeActionPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 33.33333F));
+            this.workTimeActionPanel.Controls.Add(this.btnCcs, 0, 0);
+            this.workTimeActionPanel.Controls.Add(this.btnWorkTimeClear, 1, 0);
+            this.workTimeActionPanel.Controls.Add(this.btnTestAlarm, 2, 0);
+            this.workTimeActionPanel.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.workTimeActionPanel.Margin = new System.Windows.Forms.Padding(0);
+            this.workTimeActionPanel.Name = "workTimeActionPanel";
+            this.workTimeActionPanel.RowCount = 1;
+            this.workTimeActionPanel.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.workTimeActionPanel.TabIndex = 1;
             //
             // work info tiles
             //
@@ -978,12 +1013,31 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.workTimeLotTile.Padding = new System.Windows.Forms.Padding(8, 1, 8, 1);
             this.workTimeUphTile.BackColor = System.Drawing.Color.White;
             this.workTimeUphTile.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            this.workTimeUphTile.Controls.Add(this.lblUph);
-            this.workTimeUphTile.Controls.Add(this.lblUphCaption);
+            this.workTimeUphTile.Controls.Add(this.workTimeUphValueLayout);
+            this.workTimeUphTile.Controls.Add(this.workTimeUphHeaderLayout);
             this.workTimeUphTile.Dock = System.Windows.Forms.DockStyle.Fill;
             this.workTimeUphTile.Margin = new System.Windows.Forms.Padding(3);
             this.workTimeUphTile.Name = "workTimeUphTile";
             this.workTimeUphTile.Padding = new System.Windows.Forms.Padding(8, 2, 8, 2);
+            this.workTimeUphHeaderLayout.ColumnCount = 2;
+            this.workTimeUphHeaderLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 42F));
+            this.workTimeUphHeaderLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 58F));
+            this.workTimeUphHeaderLayout.Controls.Add(this.lblUphCaption, 0, 0);
+            this.workTimeUphHeaderLayout.Controls.Add(this.lblRecentMinuteUph, 1, 0);
+            this.workTimeUphHeaderLayout.Dock = System.Windows.Forms.DockStyle.Top;
+            this.workTimeUphHeaderLayout.Height = 17;
+            this.workTimeUphHeaderLayout.Margin = new System.Windows.Forms.Padding(0);
+            this.workTimeUphHeaderLayout.Name = "workTimeUphHeaderLayout";
+            this.workTimeUphHeaderLayout.RowCount = 1;
+            this.workTimeUphHeaderLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.workTimeUphValueLayout.ColumnCount = 1;
+            this.workTimeUphValueLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.workTimeUphValueLayout.Controls.Add(this.lblUph, 0, 0);
+            this.workTimeUphValueLayout.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.workTimeUphValueLayout.Margin = new System.Windows.Forms.Padding(0);
+            this.workTimeUphValueLayout.Name = "workTimeUphValueLayout";
+            this.workTimeUphValueLayout.RowCount = 1;
+            this.workTimeUphValueLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.workTimeUpTile.BackColor = System.Drawing.Color.White;
             this.workTimeUpTile.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.workTimeUpTile.Controls.Add(this.lblUp);
@@ -1142,16 +1196,21 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.lblNeedle.ForeColor = System.Drawing.Color.FromArgb(45, 45, 45);
             this.lblNeedle.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             this.lblUphCaption.AutoSize = false;
-            this.lblUphCaption.Dock = System.Windows.Forms.DockStyle.Top;
+            this.lblUphCaption.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblUphCaption.Height = 17;
             this.lblUphCaption.Font = new System.Drawing.Font("맑은 고딕", 8.5F, System.Drawing.FontStyle.Bold);
             this.lblUphCaption.ForeColor = System.Drawing.Color.FromArgb(51, 65, 85);
             this.lblUphCaption.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             this.lblUph.AutoSize = false;
             this.lblUph.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblUph.Font = new System.Drawing.Font("Consolas", 11.5F, System.Drawing.FontStyle.Bold);
+            this.lblUph.Font = new System.Drawing.Font("Consolas", 10.5F, System.Drawing.FontStyle.Bold);
             this.lblUph.ForeColor = System.Drawing.Color.FromArgb(24, 95, 165);
             this.lblUph.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            this.lblRecentMinuteUph.AutoSize = false;
+            this.lblRecentMinuteUph.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.lblRecentMinuteUph.Font = new System.Drawing.Font("Consolas", 8F, System.Drawing.FontStyle.Bold);
+            this.lblRecentMinuteUph.ForeColor = System.Drawing.Color.FromArgb(34, 139, 94);
+            this.lblRecentMinuteUph.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
             this.lblUpCaption.AutoSize = false;
             this.lblUpCaption.Dock = System.Windows.Forms.DockStyle.Top;
             this.lblUpCaption.Height = 17;
@@ -1436,6 +1495,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.lblUphCaption.Text = "UPH";
             this.lblUph.Name = "lblUph";
             this.lblUph.Text = "0.00";
+            this.lblRecentMinuteUph.Name = "lblRecentMinuteUph";
+            this.lblRecentMinuteUph.Text = "1M 0 ea";
             this.lblMtbfCaption.Name = "lblMtbfCaption";
             this.lblMtbfCaption.Tag = "i18n:work.workTime.mtbf";
             this.lblMtbfCaption.Text = "MTBF";
@@ -1517,6 +1578,35 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.btnCcs.Tag = "i18n:work.workTime.ccs";
             this.btnCcs.Text = "CCS 검수 확인";
             this.btnCcs.UseVisualStyleBackColor = false;
+            this.btnCcs.Click += new System.EventHandler(this.btnCcs_Click);
+            //
+            // btnWorkTimeClear
+            //
+            this.btnWorkTimeClear.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(217)))), ((int)(((byte)(119)))), ((int)(((byte)(6)))));
+            this.btnWorkTimeClear.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.btnWorkTimeClear.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this.btnWorkTimeClear.Font = new System.Drawing.Font("맑은 고딕", 9.5F, System.Drawing.FontStyle.Bold);
+            this.btnWorkTimeClear.ForeColor = System.Drawing.Color.White;
+            this.btnWorkTimeClear.Margin = new System.Windows.Forms.Padding(3, 2, 3, 2);
+            this.btnWorkTimeClear.Name = "btnWorkTimeClear";
+            this.btnWorkTimeClear.TabIndex = 27;
+            this.btnWorkTimeClear.Tag = "i18n:work.workTime.clear";
+            this.btnWorkTimeClear.Text = "CLEAR";
+            this.btnWorkTimeClear.UseVisualStyleBackColor = false;
+            //
+            // btnTestAlarm
+            //
+            this.btnTestAlarm.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(192)))), ((int)(((byte)(57)))), ((int)(((byte)(43)))));
+            this.btnTestAlarm.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.btnTestAlarm.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this.btnTestAlarm.Font = new System.Drawing.Font("맑은 고딕", 9.5F, System.Drawing.FontStyle.Bold);
+            this.btnTestAlarm.ForeColor = System.Drawing.Color.White;
+            this.btnTestAlarm.Margin = new System.Windows.Forms.Padding(3, 2, 3, 2);
+            this.btnTestAlarm.Name = "btnTestAlarm";
+            this.btnTestAlarm.TabIndex = 28;
+            this.btnTestAlarm.Tag = "i18n:work.workTime.alarm";
+            this.btnTestAlarm.Text = "ALARM";
+            this.btnTestAlarm.UseVisualStyleBackColor = false;
             //
             // WorkMainPage
             //
@@ -1553,6 +1643,9 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.tabOutputNgMap.ResumeLayout(false);
             this.workInfoBody.ResumeLayout(false);
             this.workTimeBody.ResumeLayout(false);
+            this.workTimeActionPanel.ResumeLayout(false);
+            this.workTimeUphHeaderLayout.ResumeLayout(false);
+            this.workTimeUphValueLayout.ResumeLayout(false);
             this.ResumeLayout(false);
         }
     }

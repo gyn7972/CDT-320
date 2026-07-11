@@ -179,6 +179,9 @@ namespace QMC.CDT320.Recipes
                 project.InputPickup = ClonePickupSubset(project.Pickup);
             if (project.OutputPickup == null)
                 project.OutputPickup = ClonePickupSubset(project.Pickup);
+            if (project.ColletZ == null)
+                project.ColletZ = new ColletZConfigSubset();
+            project.ColletZ.Ensure();
             return project;
         }
 
@@ -284,6 +287,7 @@ namespace QMC.CDT320.Recipes
         [DataMember] public string ColletModelNum     { get; set; }
         [DataMember] public string ColletLotNum       { get; set; }
         [DataMember] public string XmlPath            { get; set; }
+        [DataMember] public ColletZConfigSubset ColletZ { get; set; } = new ColletZConfigSubset();
 
         // ── 310 Union Recipe 이식 — SubsetRecipe 4 종 ──
         [DataMember] public DieSubset             Die           { get; set; } = new DieSubset();
@@ -305,6 +309,51 @@ namespace QMC.CDT320.Recipes
         [DataMember] public PickupSubset          Pickup        { get; set; } = new PickupSubset();
         [DataMember] public PickupSubset          InputPickup   { get; set; } = new PickupSubset();
         [DataMember] public PickupSubset          OutputPickup  { get; set; } = new PickupSubset();
+    }
+
+    [DataContract]
+    public enum ColletShapeType
+    {
+        [EnumMember] Flat = 0,
+        [EnumMember] Rim = 1
+    }
+
+    [DataContract]
+    public class ColletZConfigSubset
+    {
+        [DataMember] public bool Enable { get; set; } = false;
+        [DataMember] public ColletShapeType ColletType { get; set; } = ColletShapeType.Flat;
+        [DataMember] public double DieCalThicknessMm { get; set; } = 0.0;
+        [DataMember] public double FilmThicknessMm { get; set; } = 0.0;
+        [DataMember] public double BestFocusApplyOffsetMm { get; set; } = 0.0;
+        [DataMember] public double FlatZOffsetMm { get; set; } = 0.0;
+        [DataMember] public double RimOffsetFromFlatMm { get; set; } = 0.0;
+        [DataMember] public double LastAppliedOffsetMm { get; set; } = 0.0;
+
+        public void Ensure()
+        {
+            if (double.IsNaN(DieCalThicknessMm) || double.IsInfinity(DieCalThicknessMm) || DieCalThicknessMm < 0.0)
+                DieCalThicknessMm = 0.0;
+            if (double.IsNaN(FilmThicknessMm) || double.IsInfinity(FilmThicknessMm) || FilmThicknessMm < 0.0)
+                FilmThicknessMm = 0.0;
+            if (double.IsNaN(BestFocusApplyOffsetMm) || double.IsInfinity(BestFocusApplyOffsetMm))
+                BestFocusApplyOffsetMm = 0.0;
+            if (double.IsNaN(FlatZOffsetMm) || double.IsInfinity(FlatZOffsetMm))
+                FlatZOffsetMm = 0.0;
+            if (double.IsNaN(RimOffsetFromFlatMm) || double.IsInfinity(RimOffsetFromFlatMm))
+                RimOffsetFromFlatMm = 0.0;
+            if (double.IsNaN(LastAppliedOffsetMm) || double.IsInfinity(LastAppliedOffsetMm))
+                LastAppliedOffsetMm = 0.0;
+        }
+
+        public double ResolveEffectiveOffsetMm()
+        {
+            Ensure();
+            if (!Enable)
+                return 0.0;
+
+            return ColletType == ColletShapeType.Rim ? RimOffsetFromFlatMm : 0.0;
+        }
     }
 
     // ─── Stage 61 — Pickup Sequence 옵션 enums ──────────────────────

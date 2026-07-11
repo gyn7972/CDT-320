@@ -129,6 +129,10 @@ namespace QMC.CDT320
         public int PickUpVacuumOnBeforePickDelayMs { get { return EnsurePickUpConfig().VacuumOnBeforePickDelayMs; } set { EnsurePickUpConfig().VacuumOnBeforePickDelayMs = value; } }
 
         [Category("PickUp")]
+        [DisplayName("PickUp Sync Lift Settle Ms")]
+        public int PickUpSyncLiftSettleMs { get { return EnsurePickUpConfig().SyncLiftSettleMs; } set { EnsurePickUpConfig().SyncLiftSettleMs = value; } }
+
+        [Category("PickUp")]
         [DisplayName("PickUp Settle Ms")]
         public int PickUpSettleMs { get { return EnsurePickUpConfig().PickSettleMs; } set { EnsurePickUpConfig().PickSettleMs = value; } }
 
@@ -157,28 +161,36 @@ namespace QMC.CDT320
         public PickerPlaceMotionMode PlaceMotionMode { get { return EnsurePlaceConfig().MotionMode; } set { EnsurePlaceConfig().MotionMode = value; } }
 
         [Category("Place")]
-        [DisplayName("Place Sync Coordinate")]
-        public int PlaceSyncCoordinate { get { return EnsurePlaceConfig().InterpolationCoordinate; } set { EnsurePlaceConfig().InterpolationCoordinate = Math.Max(0, value); } }
+        [DisplayName("Place Conti Coordinate")]
+        public int PlaceContiCoordinate { get { return EnsurePlaceConfig().ContiCoordinate; } set { EnsurePlaceConfig().ContiCoordinate = Math.Max(1, value); } }
 
         [Category("Place")]
-        [DisplayName("Place Sync Velocity")]
-        public double PlaceSyncVelocity { get { return EnsurePlaceConfig().SynchronizedVelocity; } set { EnsurePlaceConfig().SynchronizedVelocity = PickerPickUpMotionConfig.NormalizePositive(value, 1.0); } }
+        [DisplayName("Place Conti Timeout Ms")]
+        public int PlaceContiTimeoutMs { get { return EnsurePlaceConfig().ContiTimeoutMs; } set { EnsurePlaceConfig().ContiTimeoutMs = Math.Max(1, value); } }
 
         [Category("Place")]
-        [DisplayName("Place Sync Acc")]
-        public double PlaceSyncAcc { get { return EnsurePlaceConfig().SynchronizedAcceleration; } set { EnsurePlaceConfig().SynchronizedAcceleration = PickerPickUpMotionConfig.NormalizePositive(value, 10.0); } }
+        [DisplayName("Place Conti Max Travel")]
+        public double PlaceContiMaxTravel { get { return EnsurePlaceConfig().ContiMaxTravelDistance; } set { EnsurePlaceConfig().ContiMaxTravelDistance = PickerPickUpMotionConfig.NormalizePositive(value, 45.0); } }
 
         [Category("Place")]
-        [DisplayName("Place Sync Dec")]
-        public double PlaceSyncDec { get { return EnsurePlaceConfig().SynchronizedDeceleration; } set { EnsurePlaceConfig().SynchronizedDeceleration = PickerPickUpMotionConfig.NormalizePositive(value, 10.0); } }
+        [DisplayName("Place Z OverDrive")]
+        public double PlaceZOverDrive { get { return EnsurePlaceConfig().PlaceZOverDrive; } set { EnsurePlaceConfig().PlaceZOverDrive = value; } }
 
         [Category("Place")]
-        [DisplayName("Place Sync Timeout Ms")]
-        public int PlaceSyncTimeoutMs { get { return EnsurePlaceConfig().SynchronizedTimeoutMs; } set { EnsurePlaceConfig().SynchronizedTimeoutMs = Math.Max(1, value); } }
+        [DisplayName("Place Release Dwell Ms")]
+        public int PlaceReleaseDwellMs { get { return EnsurePlaceConfig().PlaceReleaseDwellMs; } set { EnsurePlaceConfig().PlaceReleaseDwellMs = Math.Max(0, value); } }
 
         [Category("Place")]
-        [DisplayName("Place Sync Max Travel")]
-        public double PlaceSyncMaxTravel { get { return EnsurePlaceConfig().MaxSynchronizedTravelDistance; } set { EnsurePlaceConfig().MaxSynchronizedTravelDistance = PickerPickUpMotionConfig.NormalizePositive(value, 37.0); } }
+        [DisplayName("Place Conti Max Velocity")]
+        public double PlaceContiMaxVelocity { get { return EnsurePlaceConfig().ContiMaxVelocity; } set { EnsurePlaceConfig().ContiMaxVelocity = PickerPickUpMotionConfig.NormalizePositive(value, 500.0); } }
+
+        [Category("Place")]
+        [DisplayName("Place Conti Max Acc")]
+        public double PlaceContiMaxAcc { get { return EnsurePlaceConfig().ContiMaxAcceleration; } set { EnsurePlaceConfig().ContiMaxAcceleration = PickerPickUpMotionConfig.NormalizePositive(value, 5000.0); } }
+
+        [Category("Place")]
+        [DisplayName("Place Conti Max Dec")]
+        public double PlaceContiMaxDec { get { return EnsurePlaceConfig().ContiMaxDeceleration; } set { EnsurePlaceConfig().ContiMaxDeceleration = PickerPickUpMotionConfig.NormalizePositive(value, 5000.0); } }
 
         [Category("Vision")]
         [DisplayName("Vision Inspection Settle Ms")]
@@ -595,23 +607,15 @@ namespace QMC.CDT320
                     return null;
                 }
 
-                BottomVisionOffset[] results = await vision.GetBottomResultsAsync(timeoutMs, ct).ConfigureAwait(false);
-                if (results == null)
+                BottomVisionOffset result = await vision.GetBottomResultAsync(pickerNo, timeoutMs, ct).ConfigureAwait(false);
+                if (result == null)
                 {
                     Log.Write("Main", "VISION", "PickerBottomInspect",
                         Name + " Bottom 검사 결과 수신 실패. pickerNo=" + pickerNo + ", timeoutMs=" + timeoutMs + " - Failed");
                     return null;
                 }
 
-                for (int i = 0; i < results.Length; i++)
-                {
-                    if (results[i] != null && results[i].PickerNo == pickerNo)
-                        return results[i];
-                }
-
-                Log.Write("Main", "VISION", "PickerBottomInspect",
-                    Name + " Bottom 검사 결과에 현재 Picker 번호가 없습니다. pickerNo=" + pickerNo + ", resultCount=" + results.Length + " - Failed");
-                return null;
+                return result;
             }
             catch (OperationCanceledException)
             {
@@ -684,23 +688,15 @@ namespace QMC.CDT320
                     return null;
                 }
 
-                BottomVisionOffset[] results = await vision.GetBottomResultsAsync(timeoutMs, ct).ConfigureAwait(false);
-                if (results == null)
+                BottomVisionOffset result = await vision.GetBottomResultAsync(pickerNo, timeoutMs, ct).ConfigureAwait(false);
+                if (result == null)
                 {
                     Log.Write("Main", "VISION", "PickerBottomInspect",
                         Name + " Bottom 검사 결과 수신 실패. pickerNo=" + pickerNo + ", timeoutMs=" + timeoutMs + " - Failed");
                     return null;
                 }
 
-                for (int i = 0; i < results.Length; i++)
-                {
-                    if (results[i] != null && results[i].PickerNo == pickerNo)
-                        return results[i];
-                }
-
-                Log.Write("Main", "VISION", "PickerBottomInspect",
-                    Name + " Bottom 검사 결과에 현재 Picker 번호가 없습니다. pickerNo=" + pickerNo + ", resultCount=" + results.Length + " - Failed");
-                return null;
+                return result;
             }
             catch (OperationCanceledException)
             {
@@ -821,6 +817,49 @@ namespace QMC.CDT320
             }
         }
 
+        public async Task<bool> StartSideInspectionAsync(int pickerNo, int angleDeg, int timeoutMs, CancellationToken ct)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+
+                if (IsVisionBypassed())
+                    return true;
+
+                if (vision == null)
+                {
+                    Log.Write("Main", "VISION", "PickerSideInspect",
+                        Name + " Side VisionPC가 연결되어 있지 않습니다. pickerNo=" + pickerNo + ", angleDeg=" + angleDeg + " - Failed");
+                    return false;
+                }
+
+                bool started = await vision.StartSideInspectAsync(pickerNo, angleDeg, timeoutMs, ct).ConfigureAwait(false);
+                if (!started)
+                {
+                    Log.Write("Main", "VISION", "PickerSideInspect",
+                        Name + " Side 검사 시작 요청 실패. pickerNo=" + pickerNo +
+                        ", angleDeg=" + angleDeg +
+                        ", timeoutMs=" + timeoutMs + " - Failed");
+                }
+
+                return started;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                Log.Write("Main", "VISION", "PickerSideInspect",
+                    Name + " Side 검사 시작 요청 중 예외가 발생했습니다. pickerNo=" + pickerNo +
+                    ", angleDeg=" + angleDeg + ", error=" + ex.Message + " - Failed");
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
         public async Task<SideVisionResult> GetSideInspectionResultAsync(int pickerNo, int timeoutMs, CancellationToken ct)
         {
             try
@@ -856,6 +895,49 @@ namespace QMC.CDT320
             {
                 Log.Write("Main", "VISION", "PickerSideInspect",
                     Name + " Side 검사 결과 수신 중 예외가 발생했습니다. pickerNo=" + pickerNo +
+                    ", error=" + ex.Message + " - Failed");
+                return null;
+            }
+            finally
+            {
+            }
+        }
+
+        public async Task<SideVisionResult> WaitSideInspectionResultAsync(int pickerNo, int timeoutMs, CancellationToken ct)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+
+                if (IsVisionBypassed())
+                    return SimulateSideInspectionResult(pickerNo);
+
+                if (vision == null)
+                {
+                    Log.Write("Main", "VISION", "PickerSideInspect",
+                        Name + " Side VisionPC가 연결되어 있지 않습니다. pickerNo=" + pickerNo + " - Failed");
+                    return null;
+                }
+
+                SideVisionResult result = await vision.WaitSideResultAsync(pickerNo, timeoutMs, ct).ConfigureAwait(false);
+                if (result == null)
+                {
+                    Log.Write("Main", "VISION", "PickerSideInspect",
+                        Name + " Side 검사 결과 대기 실패. pickerNo=" + pickerNo +
+                        ", timeoutMs=" + timeoutMs + " - Failed");
+                    return null;
+                }
+
+                return result;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                Log.Write("Main", "VISION", "PickerSideInspect",
+                    Name + " Side 검사 결과 대기 중 예외가 발생했습니다. pickerNo=" + pickerNo +
                     ", error=" + ex.Message + " - Failed");
                 return null;
             }
@@ -940,7 +1022,10 @@ namespace QMC.CDT320
 
         private bool VerifyContinuousJogInterlock(PickerAxis axis, Direction direction, string targetName)
         {
-            if (axis != PickerAxis.PickerY || string.IsNullOrWhiteSpace(targetName))
+            if (axis != PickerAxis.PickerY && !IsZAxis(axis))
+                return true;
+
+            if (axis == PickerAxis.PickerY && string.IsNullOrWhiteSpace(targetName))
                 return true;
 
             BaseAxis item = GetAxis(axis);
@@ -948,7 +1033,7 @@ namespace QMC.CDT320
                 return false;
 
             double guardTarget = ResolveContinuousJogGuardTarget(item, direction);
-            string guardTargetName = BuildPickerGuardTargetName(axis, targetName);
+            string guardTargetName = BuildContinuousJogGuardTargetName(axis, direction, targetName);
             string reason;
             using (PickerZoneInterlockRules.BeginPickerZoneMove(side, axis, guardTargetName))
             {
@@ -957,6 +1042,15 @@ namespace QMC.CDT320
             }
 
             return true;
+        }
+
+        private string BuildContinuousJogGuardTargetName(PickerAxis axis, Direction direction, string targetName)
+        {
+            string name = string.IsNullOrWhiteSpace(targetName)
+                ? "JogContinuous" + (direction == Direction.Plus ? "Plus" : "Minus")
+                : targetName + ";JogDirection=" + (direction == Direction.Plus ? "Plus" : "Minus");
+
+            return BuildPickerGuardTargetName(axis, name);
         }
 
         private static double ResolveContinuousJogGuardTarget(BaseAxis axis, Direction direction)
@@ -2303,25 +2397,33 @@ namespace QMC.CDT320
 
         private BottomVisionOffset SimulateBottomInspectionResult(int pickerNo)
         {
-            return new BottomVisionOffset
-            {
-                PickerNo = pickerNo,
-                OffsetX = 0.0,
-                OffsetY = 0.0,
-                OffsetT = 0.0,
-                IsOk = true
-            };
+            QMC.CDT320.VisionComm.InspectionResultDto inspection =
+                QMC.CDT320.VisionComm.AutoVisionRequestService.BuildSimulationInspectionResult(
+                    QMC.CDT320.VisionComm.AutoVisionChannel.BottomInspection,
+                    "SurfaceInspector",
+                    pickerNo);
+            return QMC.CDT320.Calibration.VisionCameraCalibrationTransform.ToBottomVisionOffset(pickerNo, inspection);
         }
 
         private SideVisionResult SimulateSideInspectionResult(int pickerNo)
         {
+            QMC.CDT320.VisionComm.InspectionResultDto inspection =
+                QMC.CDT320.VisionComm.AutoVisionRequestService.BuildSimulationInspectionResult(
+                    QMC.CDT320.VisionComm.AutoVisionChannel.RearSide,
+                    "SurfaceInspector",
+                    pickerNo);
+            bool pass = inspection != null && inspection.IsPass;
             return new SideVisionResult
             {
                 PickerNo = pickerNo,
-                Side1Ok = true,
-                Side2Ok = true,
+                Side1Ok = pass,
+                Side2Ok = pass,
                 Side3Ok = true,
-                Side4Ok = true
+                Side4Ok = true,
+                Raw = inspection != null ? inspection.Raw : "",
+                Values = inspection != null && inspection.Values != null
+                    ? new Dictionary<string, string>(inspection.Values, StringComparer.OrdinalIgnoreCase)
+                    : new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
             };
         }
 

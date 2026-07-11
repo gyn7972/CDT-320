@@ -4,6 +4,7 @@ using QMC.Common.Ui.Controls;
 using System;
 using System.Collections.Generic;
 using System.Drawing;
+using System.Threading;
 using System.Windows.Forms;
 
 namespace QMC.CDT_320.Ui.Pages.Recipe
@@ -151,25 +152,111 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 VisionViewerSource source = new VisionViewerSource(host, viewerPort, 2000, null);
                 source.FrameMeta += meta => OnFrameMeta(camera, title, meta);
                 camera.AttachSource(source);
+                camera.ShowLiveLabel = false;
 
                 _sources.Add(source);
                 _cameras.Add(camera);
 
-                camera.HandleCreated += (s, e) => StartCamera(camera);
+                int[] pending = new int[1];
+                camera.HandleCreated += (s, e) => StartGrabImageStream(source, camera, title, viewerPort, pending);
                 if (camera.IsHandleCreated)
-                    StartCamera(camera);
+                    StartGrabImageStream(source, camera, title, viewerPort, pending);
             }
             catch
             {
             }
         }
 
-        private static void StartCamera(CameraViewBase camera)
+        private void StartGrabImageStream(VisionViewerSource source, CameraViewBase camera, string title, int viewerPort, int[] pending)
         {
-            if (camera == null || camera.IsDisposed)
+            if (source == null || camera == null || camera.IsDisposed)
                 return;
 
-            try { camera.StartLive(); } catch { }
+            try
+            {
+                source.StartGrabImageStream(bmp => OnGrabImageFrame(camera, bmp, pending));
+                LogGrabImageStarted(title, viewerPort);
+            }
+            catch (Exception ex)
+            {
+                LogGrabImageFailed(title, viewerPort, ex.Message);
+            }
+        }
+
+        private void OnGrabImageFrame(CameraViewBase camera, Bitmap bmp, int[] pending)
+        {
+            if (bmp == null)
+                return;
+
+            if (pending == null)
+            {
+                try { bmp.Dispose(); } catch { }
+                return;
+            }
+
+            if (Interlocked.CompareExchange(ref pending[0], 1, 0) != 0)
+            {
+                try { bmp.Dispose(); } catch { }
+                return;
+            }
+
+            try
+            {
+                if (camera == null || camera.IsDisposed || !camera.IsHandleCreated)
+                {
+                    try { bmp.Dispose(); } catch { }
+                    Interlocked.Exchange(ref pending[0], 0);
+                    return;
+                }
+
+                camera.BeginInvoke((Action)(() =>
+                {
+                    try
+                    {
+                        if (camera != null && !camera.IsDisposed)
+                            camera.SetImage(bmp);
+                    }
+                    finally
+                    {
+                        try { bmp.Dispose(); } catch { }
+                        Interlocked.Exchange(ref pending[0], 0);
+                    }
+                }));
+            }
+            catch
+            {
+                try { bmp.Dispose(); } catch { }
+                Interlocked.Exchange(ref pending[0], 0);
+            }
+        }
+
+        private static void LogGrabImageStarted(string title, int viewerPort)
+        {
+            try
+            {
+                QMC.Common.Logging.EventLogger.Write(
+                    QMC.Common.Logging.EventKind.Event,
+                    "VISION",
+                    "VISION-GRAB-VIEW",
+                    "Recipe Vision Grab 이미지 수신을 시작했습니다. title=" +
+                    (title ?? string.Empty) + ", viewerPort=" + viewerPort);
+            }
+            catch { }
+        }
+
+        private static void LogGrabImageFailed(string title, int viewerPort, string reason)
+        {
+            try
+            {
+                QMC.Common.Logging.EventLogger.Write(
+                    QMC.Common.Logging.EventKind.Warning,
+                    "VISION",
+                    "VISION-GRAB-VIEW",
+                    "Recipe Vision Grab 이미지 수신 시작 실패. title=" +
+                    (title ?? string.Empty) + ", viewerPort=" + viewerPort +
+                    ", reason=" + reason);
+            }
+            catch { }
         }
 
         private void OnFrameMeta(CameraViewBase camera, string title, VisionFrameMeta meta)

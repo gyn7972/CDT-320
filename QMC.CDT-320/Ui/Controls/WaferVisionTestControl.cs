@@ -62,17 +62,14 @@ namespace QMC.CDT_320.Ui.Controls
             btnExpose.Enabled = false;
             lblExpose.ForeColor = Color.DimGray;
             lblExpose.Text = "GRAB 실행 중...";
-            // 뷰어 스트림을 그랩 "전에" 연결한다 — EXPOSE 후에야 StartLive 하면
-            // 스트림 접속(RecvLoop) 이 완료되기 전에 그랩 프레임이 지나가 첫 그랩이 화면에 안 뜨는
-            // 접속 레이스가 있다(수동 Grab/Live 한 번이면 되던 증상). 미리 연결해 그랩 프레임을 놓치지 않는다.
-            TryStartLive();
+            LogLiveAutoStartBlocked("EXPOSE 전 자동 Live 시작 차단");
             try
             {
                 bool ok = await _adapter.TriggerExposeAsync(0).ConfigureAwait(true);
                 lblExpose.ForeColor = ok ? Color.SeaGreen : Color.Firebrick;
                 lblExpose.Text = ok ? "EXPOSE ACK 완료" : "EXPOSE 실패. Vision READY/연결 상태를 확인하세요.";
                 if (ok)
-                    TryStartLive();
+                    LogLiveAutoStartBlocked("EXPOSE 완료 후 자동 Live 시작 차단");
             }
             catch (Exception ex)
             {
@@ -103,7 +100,7 @@ namespace QMC.CDT_320.Ui.Controls
                                  "  dy=" + result.DeltaY.ToString("F4") +
                                  "  t=" + result.DeltaTheta.ToString("F4") +
                                  "  pitch=" + result.PitchX.ToString("F4") + "/" + result.PitchY.ToString("F4");
-                    TryStartLive();
+                    LogLiveAutoStartBlocked("ALIGN 완료 후 자동 Live 시작 차단");
                 }
                 else
                 {
@@ -178,7 +175,21 @@ namespace QMC.CDT_320.Ui.Controls
 
         private void TryStartLive()
         {
-            try { viewer.StartLive(); } catch { }
+            LogLiveAutoStartBlocked("TryStartLive 호출 차단");
+        }
+
+        private void LogLiveAutoStartBlocked(string reason)
+        {
+            try
+            {
+                QMC.Common.Logging.EventLogger.Write(
+                    QMC.Common.Logging.EventKind.Warning,
+                    "VISION",
+                    "VISION-LIVE-BLOCK",
+                    "Wafer Vision 테스트 화면에서 Live 자동 시작을 차단했습니다. viewerPort=" +
+                    VisionViewerPorts.Wafer + ", reason=" + reason);
+            }
+            catch { }
         }
     }
 }

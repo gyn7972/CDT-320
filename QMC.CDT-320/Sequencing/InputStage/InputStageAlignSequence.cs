@@ -29,6 +29,7 @@ namespace QMC.CDT320.Sequencing
         RequestRef2Mark,
         WaitRef2MarkResult,
         CalculateAlignResult,
+        MoveCenterAfterRefAlign,
         ApplyAlignResult,
         Complete,
         Error
@@ -38,6 +39,7 @@ namespace QMC.CDT320.Sequencing
     {
         private static readonly object SimVisionRandomLock = new object();
         private static readonly Random SimVisionRandom = new Random();
+        private const double AlignPitchCompareToleranceMm = 0.05;
         private WaferMapData _map;
         private WaferMaterial _wafer;
         private TapeFrameSpec _frameSpec;
@@ -56,6 +58,8 @@ namespace QMC.CDT320.Sequencing
         private double _thetaFromTwoPoint;
         private int _thetaRetryCount;
         private int _twoPointThetaRetryCount;
+        private bool _alignThetaReferenceReady;
+        private double _alignThetaReferenceT;
         private bool _alignAnchorReady;
         private int _alignAnchorRow;
         private int _alignAnchorCol;
@@ -132,6 +136,9 @@ namespace QMC.CDT320.Sequencing
                     // 얼라인 결과 계산
                     case InputStageAlignStep.CalculateAlignResult:
                         return CalculateAlignResultAsync(ct);
+                    // Ref1/Ref2 T 보정 후 센터 복귀
+                    case InputStageAlignStep.MoveCenterAfterRefAlign:
+                        return MoveCenterAfterRefAlignAsync(ct);
                     // 얼라인 결과 적용
                     case InputStageAlignStep.ApplyAlignResult:
                         return Task.FromResult(ApplyAlignResult());
@@ -195,6 +202,7 @@ namespace QMC.CDT320.Sequencing
 
                 Stage.ClearWaferAlignThetaResult();
                 MaterialStateService.ResetInputStageThetaAlignResult(_wafer, "InputStageAlignStartThetaReset");
+                CaptureAlignThetaReference("CheckUnit");
 
                 _frameSpec = ResolveFrameSpecForWafer(_wafer);
                 string waferId = !string.IsNullOrWhiteSpace(Options.WaferId) ? Options.WaferId : _wafer.WaferId;
@@ -245,6 +253,8 @@ namespace QMC.CDT320.Sequencing
             _thetaFromTwoPoint = 0.0;
             _thetaRetryCount = 0;
             _twoPointThetaRetryCount = 0;
+            _alignThetaReferenceReady = false;
+            _alignThetaReferenceT = 0.0;
             _alignAnchorReady = false;
             _alignAnchorRow = 0;
             _alignAnchorCol = 0;
@@ -260,16 +270,7 @@ namespace QMC.CDT320.Sequencing
                 ct.ThrowIfCancellationRequested();
                 if (Options.EnableMotion)
                 {
-                    int result = await MoveZAxesAvoidBeforeProcessPlaneMoveAsync(ct).ConfigureAwait(false);
-                    if (result != 0) return result;
-
-                    result = await MoveAxisAndVerifyAsync(WaferStageAxis.WaferY, Stage.Recipe.WaferY.ProcessPosition, "StageY process", ct).ConfigureAwait(false);
-                    if (result != 0) return result;
-
-                    result = await MoveAxisAndVerifyAsync(WaferStageAxis.VisionX, Stage.Recipe.VisionX.ProcessPosition, "VisionX process", ct).ConfigureAwait(false);
-                    if (result != 0) return result;
-
-                    result = await MoveAxisAndVerifyAsync(WaferStageAxis.WaferExpandingZ, Stage.Recipe.WaferZ.ProcessPosition, "StageZ process", ct).ConfigureAwait(false);
+                    int result = await PrepareVisionProcessPlaneForAlignAsync(ct).ConfigureAwait(false);
                     if (result != 0) return result;
                 }
 
@@ -289,7 +290,69 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
-        private async Task<int> MoveZAxesAvoidBeforeProcessPlaneMoveAsync(CancellationToken ct)
+        private async Task<int> PrepareVisionProcessPlaneForAlignAsync(CancellationToken ct)
+        {
+            Stage.Recipe.EnsurePositionObjects();
+
+            int result = await MoveHeadZAxesAvoidBeforeProcessPlaneMoveAsync(ct).ConfigureAwait(false);
+            if (result != 0) return result;
+
+            bool stageZAtProcess = Stage.Recipe.WaferZ != null &&
+                IsAxisInPosition(ResolveStageAxis(WaferStageAxis.WaferExpandingZ), Stage.Recipe.WaferZ.ProcessPosition);
+
+            if (stageZAtProcess)
+            {
+                result = await MoveAxisAndVerifyAsync(
+                    WaferStageAxis.NeedleX,
+                    Stage.Recipe.NeedleX.AvoidPosition,
+                    "NeedleX avoid before process plane move",
+                    ct).ConfigureAwait(false);
+                if (result != 0) return result;
+
+                WriteLog("InputStageAlignSequence",
+                    "StageZ already at process position. Skip StageZ avoid/process move before align process plane move. " +
+                    BuildAxisState(WaferStageAxis.WaferExpandingZ, Stage.Recipe.WaferZ.ProcessPosition) + " - Ok");
+
+                return await MoveVisionProcessPlaneAxesAsync(ct).ConfigureAwait(false);
+            }
+
+            result = await EnsureStageTFixedBeforeExpanderZMoveAsync(ct).ConfigureAwait(false);
+            if (result != 0) return result;
+
+            if (Stage.Recipe.WaferZ != null)
+            {
+                result = await MoveAxisAndVerifyAsync(
+                    WaferStageAxis.WaferExpandingZ,
+                    Stage.Recipe.WaferZ.AvoidPosition,
+                    "StageZ avoid before process plane move",
+                    ct).ConfigureAwait(false);
+                if (result != 0) return result;
+            }
+
+            result = await MoveAxisAndVerifyAsync(
+                WaferStageAxis.NeedleX,
+                Stage.Recipe.NeedleX.AvoidPosition,
+                "NeedleX avoid before process plane move",
+                ct).ConfigureAwait(false);
+            if (result != 0) return result;
+
+            result = await MoveVisionProcessPlaneAxesAsync(ct).ConfigureAwait(false);
+            if (result != 0) return result;
+
+            if (Stage.Recipe.WaferZ != null)
+            {
+                result = await MoveAxisAndVerifyAsync(
+                    WaferStageAxis.WaferExpandingZ,
+                    Stage.Recipe.WaferZ.ProcessPosition,
+                    "StageZ process",
+                    ct).ConfigureAwait(false);
+                if (result != 0) return result;
+            }
+
+            return 0;
+        }
+
+        private async Task<int> MoveHeadZAxesAvoidBeforeProcessPlaneMoveAsync(CancellationToken ct)
         {
             Stage.Recipe.EnsurePositionObjects();
 
@@ -307,17 +370,71 @@ namespace QMC.CDT320.Sequencing
                 ct).ConfigureAwait(false);
             if (result != 0) return result;
 
-            if (Stage.Recipe.WaferZ != null)
-            {
-                result = await MoveAxisAndVerifyAsync(
-                    WaferStageAxis.WaferExpandingZ,
-                    Stage.Recipe.WaferZ.AvoidPosition,
-                    "StageZ avoid before process plane move",
-                    ct).ConfigureAwait(false);
-                if (result != 0) return result;
-            }
+            return 0;
+        }
+
+        private async Task<int> MoveVisionProcessPlaneAxesAsync(CancellationToken ct)
+        {
+            int result = await MoveAxisAndVerifyAsync(
+                WaferStageAxis.WaferY,
+                Stage.Recipe.WaferY.ProcessPosition,
+                "StageY process",
+                ct).ConfigureAwait(false);
+            if (result != 0) return result;
+
+            result = await MoveAxisAndVerifyAsync(
+                WaferStageAxis.VisionX,
+                Stage.Recipe.VisionX.ProcessPosition,
+                "VisionX process",
+                ct).ConfigureAwait(false);
+            if (result != 0) return result;
 
             return 0;
+        }
+
+        private async Task<int> EnsureStageTFixedBeforeExpanderZMoveAsync(CancellationToken ct)
+        {
+            Stage.Recipe.EnsurePositionObjects();
+
+            if (IsStageTAtExpanderZFixedPosition())
+                return 0;
+
+            WriteLog("InputStageAlignSequence",
+                "StageT is not at an ExpanderZ-safe fixed position before StageZ process plane move. Move StageT home first. " +
+                BuildAxisState(WaferStageAxis.WaferT, 0.0) + " - Start");
+
+            return await MoveAxisAndVerifyAsync(
+                WaferStageAxis.WaferT,
+                0.0,
+                "StageT home before StageZ process plane move",
+                ct,
+                true).ConfigureAwait(false);
+        }
+
+        private bool IsStageTAtExpanderZFixedPosition()
+        {
+            try
+            {
+                Stage.Recipe.EnsurePositionObjects();
+
+                QMC.Common.Motion.BaseAxis stageT = ResolveStageAxis(WaferStageAxis.WaferT);
+                if (stageT == null || Stage.Recipe.WaferT == null)
+                    return false;
+
+                return IsAxisInPosition(stageT, 0.0) ||
+                    IsAxisInPosition(stageT, Stage.Recipe.WaferT.AvoidPosition) ||
+                    IsAxisInPosition(stageT, Stage.Recipe.WaferT.LoadPosition) ||
+                    IsAxisInPosition(stageT, Stage.Recipe.WaferT.UnloadPosition) ||
+                    IsAxisInPosition(stageT, Stage.Recipe.WaferT.ReadyPosition) ||
+                    IsAxisInPosition(stageT, Stage.Recipe.WaferT.ProcessPosition);
+            }
+            catch
+            {
+                return false;
+            }
+            finally
+            {
+            }
         }
 
         private Task<int> MoveCenterMarkPositionAsync(CancellationToken ct)
@@ -382,7 +499,17 @@ namespace QMC.CDT320.Sequencing
 
                 _centerResult = await WaitPendingVisionResultAsync(ct).ConfigureAwait(false);
                 if (_centerResult == null)
-                    return Fail("IN-STAGE-ALIGN-CENTER", "Vision", "Center vision offset receive failed.");
+                {
+                    _centerResult = await SearchVisionMarkAroundCurrentPointAsync(
+                        ResolveTargetId(Options.CenterAlignTargetId, "Center"),
+                        "Center",
+                        "Wafer Align Center",
+                        ct).ConfigureAwait(false);
+                }
+
+                if (_centerResult == null)
+                    return Fail("IN-STAGE-ALIGN-CENTER", "Vision",
+                        "Wafer Align Center 다이를 찾지 못했습니다. 센터와 주변 8방향 탐색을 모두 실패했습니다.");
 
                 CaptureAlignAnchorFromVisionResult(_centerResult, "Center");
                 CurrentStep = InputStageAlignStep.CorrectTheta;
@@ -467,7 +594,17 @@ namespace QMC.CDT320.Sequencing
 
                 _verifyCenterResult = await WaitPendingVisionResultAsync(ct).ConfigureAwait(false);
                 if (_verifyCenterResult == null)
-                    return Fail("IN-STAGE-ALIGN-THETA-VERIFY", "Vision", "Center verify vision offset receive failed.");
+                {
+                    _verifyCenterResult = await SearchVisionMarkAroundCurrentPointAsync(
+                        ResolveTargetId(Options.CenterAlignTargetId, "Center"),
+                        "CenterVerify",
+                        "Wafer Align Center Verify",
+                        ct).ConfigureAwait(false);
+                }
+
+                if (_verifyCenterResult == null)
+                    return Fail("IN-STAGE-ALIGN-THETA-VERIFY", "Vision",
+                        "Wafer Align T 보정 확인용 Center 다이를 찾지 못했습니다. 센터와 주변 8방향 탐색을 모두 실패했습니다.");
 
                 CaptureAlignAnchorFromVisionResult(_verifyCenterResult, "CenterVerify");
                 double theta = Math.Abs(_verifyCenterResult.DeltaTheta);
@@ -682,6 +819,9 @@ namespace QMC.CDT320.Sequencing
                     ? (_ref2Y - _ref1Y) / rowSpan
                     : ResolveAlignPitchY(_ref1Result, _ref2Result);
 
+                _pitchX = NormalizeResolvedAlignPitch("X", _pitchX, ResolveConfiguredAlignPitchX(), "CalculateAlignResult");
+                _pitchY = NormalizeResolvedAlignPitch("Y", _pitchY, ResolveConfiguredAlignPitchY(), "CalculateAlignResult");
+
                 if (Math.Abs(_pitchX) <= 1e-9 || Math.Abs(_pitchY) <= 1e-9)
                     return FailAndResetAlignRuntimeState("IN-STAGE-ALIGN-PITCH", Stage.Name,
                         "Calculated align pitch is invalid. pitchX=" + _pitchX + ", pitchY=" + _pitchY);
@@ -701,7 +841,7 @@ namespace QMC.CDT320.Sequencing
                     return 0;
                 }
 
-                CurrentStep = InputStageAlignStep.ApplyAlignResult;
+                CurrentStep = InputStageAlignStep.MoveCenterAfterRefAlign;
                 return 0;
             }
             catch (OperationCanceledException)
@@ -812,6 +952,42 @@ namespace QMC.CDT320.Sequencing
             _thetaFromTwoPoint = 0.0;
         }
 
+        private async Task<int> MoveCenterAfterRefAlignAsync(CancellationToken ct)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+
+                if (Options.EnableMotion)
+                {
+                    int centerRow = _map != null ? _map.RowCount / 2 : _alignAnchorRow;
+                    int centerCol = _map != null ? _map.ColumnCount / 2 : _alignAnchorCol;
+                    int result = await MoveVisionPointAndVerifyAsync(
+                        centerRow,
+                        centerCol,
+                        "Wafer Align Ref1/Ref2 T 보정 후 Center 복귀",
+                        ct).ConfigureAwait(false);
+                    if (result != 0)
+                        return result;
+                }
+
+                CurrentStep = InputStageAlignStep.ApplyAlignResult;
+                return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return FailAndResetAlignRuntimeState("IN-STAGE-ALIGN-CENTER-RETURN-EX", Stage.Name,
+                    "Wafer Align Ref1/Ref2 T 보정 후 Center 복귀 중 예외가 발생했습니다. error=" + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
         private int CheckThetaCorrectionLimit(double correctionTheta, string source)
         {
             double limit = ResolveThetaCorrectionLimit();
@@ -836,9 +1012,9 @@ namespace QMC.CDT320.Sequencing
             {
                 double offsetX = _centerResult != null ? _centerResult.DeltaX : 0.0;
                 double offsetY = _centerResult != null ? _centerResult.DeltaY : 0.0;
-                double referenceT = Stage.ResolveWaferAlignReferenceT();
+                double referenceT = ResolveAlignThetaReference();
                 double correctedT = Stage.StageT != null ? Stage.StageT.ActualPosition : referenceT;
-                double offsetT = correctedT - referenceT;
+                double offsetT = NormalizeThetaOffset(correctedT - referenceT);
                 if (Math.Abs(offsetT) <= 0.000001)
                     return FailAndResetAlignRuntimeState("IN-STAGE-ALIGN-THETA-ZERO", Stage.Name,
                         "Final theta offset is zero. referenceT=" + referenceT.ToString("F6") +
@@ -885,6 +1061,58 @@ namespace QMC.CDT320.Sequencing
             catch (Exception ex)
             {
                 return Fail("IN-STAGE-ALIGN-APPLY-EX", Stage.Name, "Align result apply failed: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private void CaptureAlignThetaReference(string source)
+        {
+            try
+            {
+                _alignThetaReferenceT = Stage != null && Stage.StageT != null
+                    ? Stage.StageT.ActualPosition
+                    : 0.0;
+                _alignThetaReferenceReady = true;
+
+                WriteLog("InputStageAlignSequence",
+                    "Align theta reference captured. source=" + source +
+                    ", referenceT=" + _alignThetaReferenceT.ToString("F6") +
+                    ", recipeProcessT=" + (Stage != null ? Stage.ResolveWaferAlignReferenceT().ToString("F6") : "0.000000") +
+                    " - Ok");
+            }
+            catch
+            {
+                _alignThetaReferenceT = 0.0;
+                _alignThetaReferenceReady = true;
+            }
+            finally
+            {
+            }
+        }
+
+        private double ResolveAlignThetaReference()
+        {
+            if (!_alignThetaReferenceReady)
+                CaptureAlignThetaReference("ApplyAlignResultFallback");
+
+            return _alignThetaReferenceT;
+        }
+
+        private static double NormalizeThetaOffset(double offsetT)
+        {
+            try
+            {
+                while (offsetT > 180.0)
+                    offsetT -= 360.0;
+                while (offsetT < -180.0)
+                    offsetT += 360.0;
+                return offsetT;
+            }
+            catch
+            {
+                return offsetT;
             }
             finally
             {
@@ -1091,6 +1319,122 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
+        private async Task<VisionAlignResult> SearchVisionMarkAroundCurrentPointAsync(
+            string targetId,
+            string stepName,
+            string description,
+            CancellationToken ct)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+
+                if (!Options.EnableMotion)
+                {
+                    WriteLog("InputStageAlignSequence",
+                        description + " 주변 탐색은 Motion Disable 상태라 수행하지 않습니다. step=" +
+                        stepName + " - Skip");
+                    return null;
+                }
+
+                double baseX = Stage != null && Stage.CameraX != null ? Stage.CameraX.ActualPosition : 0.0;
+                double baseY = Stage != null && Stage.StageY != null ? Stage.StageY.ActualPosition : 0.0;
+                double pitchX = Math.Abs(ResolveAlignPitchX(null, null));
+                double pitchY = Math.Abs(ResolveAlignPitchY(null, null));
+                if (pitchX <= 1e-9 || pitchY <= 1e-9)
+                {
+                    WriteLog("InputStageAlignSequence",
+                        description + " 주변 탐색 실패. Pitch 값이 유효하지 않습니다. pitchX=" +
+                        pitchX.ToString("F6") +
+                        ", pitchY=" + pitchY.ToString("F6") + " - Failed");
+                    return null;
+                }
+
+                SearchOffset[] offsets = BuildOnePitchSearchOffsets(pitchX, pitchY);
+                for (int i = 0; i < offsets.Length; i++)
+                {
+                    ct.ThrowIfCancellationRequested();
+
+                    double targetX = baseX + offsets[i].X;
+                    double targetY = baseY + offsets[i].Y;
+                    string areaReason;
+                    if (!Stage.IsInputStageWorkPointInArea(targetX, targetY, out areaReason))
+                    {
+                        WriteLog("InputStageAlignSequence",
+                            description + " 주변 탐색 후보 위치가 작업 영역 밖이라 건너뜁니다. direction=" +
+                            offsets[i].Name +
+                            ", targetX=" + targetX.ToString("F6") +
+                            ", targetY=" + targetY.ToString("F6") +
+                            ", reason=" + areaReason + " - Skip");
+                        continue;
+                    }
+
+                    int moveResult = await MoveVisionXYPointSafelyAsync(
+                        targetX,
+                        targetY,
+                        description + " 주변 탐색 " + offsets[i].Name,
+                        ct).ConfigureAwait(false);
+                    if (moveResult != 0)
+                        return null;
+
+                    VisionAlignResult result = await RequestVisionPcOffsetWithRetryAsync(
+                        targetId,
+                        stepName + "_Search_" + offsets[i].Name,
+                        ct).ConfigureAwait(false);
+                    if (result != null)
+                    {
+                        WriteLog("InputStageAlignSequence",
+                            description + " 주변 탐색에서 다이를 찾았습니다. direction=" +
+                            offsets[i].Name +
+                            ", baseX=" + baseX.ToString("F6") +
+                            ", baseY=" + baseY.ToString("F6") +
+                            ", targetX=" + targetX.ToString("F6") +
+                            ", targetY=" + targetY.ToString("F6") +
+                            ", dx=" + result.DeltaX.ToString("F6") +
+                            ", dy=" + result.DeltaY.ToString("F6") +
+                            ", dt=" + result.DeltaTheta.ToString("F6") + " - Ok");
+                        return result;
+                    }
+                }
+
+                WriteLog("InputStageAlignSequence",
+                    description + " 주변 8방향 탐색에서 다이를 찾지 못했습니다. baseX=" +
+                    baseX.ToString("F6") +
+                    ", baseY=" + baseY.ToString("F6") +
+                    ", pitchX=" + pitchX.ToString("F6") +
+                    ", pitchY=" + pitchY.ToString("F6") + " - Failed");
+                return null;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                WriteLog("InputStageAlignSequence",
+                    description + " 주변 탐색 중 예외가 발생했습니다. error=" + ex.Message + " - Failed");
+                return null;
+            }
+            finally
+            {
+            }
+        }
+
+        private static SearchOffset[] BuildOnePitchSearchOffsets(double pitchX, double pitchY)
+        {
+            return new[]
+            {
+                new SearchOffset("Up", 0.0, pitchY),
+                new SearchOffset("Down", 0.0, -pitchY),
+                new SearchOffset("Left", -pitchX, 0.0),
+                new SearchOffset("Right", pitchX, 0.0),
+                new SearchOffset("LeftUp", -pitchX, pitchY),
+                new SearchOffset("RightUp", pitchX, pitchY),
+                new SearchOffset("LeftDown", -pitchX, -pitchY),
+                new SearchOffset("RightDown", pitchX, -pitchY)
+            };
+        }
+
         private static bool IsDryRunWithVisionDisabled()
         {
             AppSettings settings = AppSettingsStore.Current;
@@ -1123,22 +1467,28 @@ namespace QMC.CDT320.Sequencing
         {
             try
             {
-                string specName = wafer != null ? wafer.TapeFrameSpecName : "";
+                string specName = wafer != null ? MaterialStateService.NormalizeInputTapeFrameSpecName(wafer.TapeFrameSpecName) : "";
                 if (string.IsNullOrWhiteSpace(specName))
                 {
-                    specName = MaterialStateService.ResolveRecipeTapeFrameSpecName(0);
+                    specName = MaterialStateService.ResolveInputTapeFrameSpecName(0);
                     if (wafer != null && !string.IsNullOrWhiteSpace(specName))
                     {
                         wafer.TapeFrameSpecName = specName;
                         MaterialStateService.NotifyAndSave("InputStageAlignSpecResolve");
                     }
                 }
+                else if (wafer != null &&
+                         !string.Equals(wafer.TapeFrameSpecName, specName, StringComparison.OrdinalIgnoreCase))
+                {
+                    wafer.TapeFrameSpecName = specName;
+                    MaterialStateService.NotifyAndSave("InputStageAlignSpecNormalize");
+                }
 
                 var spec = MaterialSpecs.FindFrame(specName);
                 if (spec != null)
                     return spec;
 
-                specName = MaterialStateService.ResolveRecipeTapeFrameSpecName(0);
+                specName = MaterialStateService.ResolveInputTapeFrameSpecName(0);
                 return MaterialSpecs.FindFrame(specName);
             }
             catch (Exception ex)
@@ -1225,12 +1575,13 @@ namespace QMC.CDT320.Sequencing
         {
             try
             {
-                if (ref2Result != null && ref2Result.PitchX > 0.0)
-                    return ref2Result.PitchX;
-                if (ref1Result != null && ref1Result.PitchX > 0.0)
-                    return ref1Result.PitchX;
-                if (_frameSpec != null && _frameSpec.PitchX > 0.0)
-                    return _frameSpec.PitchX;
+                double configured = ResolveConfiguredAlignPitchX();
+                double visionPitch = SelectVisionPitchX(ref1Result, ref2Result);
+                if (visionPitch > 0.0)
+                    return NormalizeResolvedAlignPitch("X", visionPitch, configured, "VisionPitch");
+                LogVisionPitchUnavailable("X", ref1Result, ref2Result, configured);
+                if (configured > 0.0)
+                    return configured;
                 return Stage.ResolveAlignPitchX(ref1Result, ref2Result);
             }
             catch
@@ -1246,17 +1597,94 @@ namespace QMC.CDT320.Sequencing
         {
             try
             {
-                if (ref2Result != null && ref2Result.PitchY > 0.0)
-                    return ref2Result.PitchY;
-                if (ref1Result != null && ref1Result.PitchY > 0.0)
-                    return ref1Result.PitchY;
-                if (_frameSpec != null && _frameSpec.PitchY > 0.0)
-                    return _frameSpec.PitchY;
+                double configured = ResolveConfiguredAlignPitchY();
+                double visionPitch = SelectVisionPitchY(ref1Result, ref2Result);
+                if (visionPitch > 0.0)
+                    return NormalizeResolvedAlignPitch("Y", visionPitch, configured, "VisionPitch");
+                LogVisionPitchUnavailable("Y", ref1Result, ref2Result, configured);
+                if (configured > 0.0)
+                    return configured;
                 return Stage.ResolveAlignPitchY(ref1Result, ref2Result);
             }
             catch
             {
                 return Stage.ResolveAlignPitchY(ref1Result, ref2Result);
+            }
+            finally
+            {
+            }
+        }
+
+        private double ResolveConfiguredAlignPitchX()
+        {
+            if (_frameSpec != null && _frameSpec.PitchX > 0.0)
+                return _frameSpec.PitchX;
+            return Stage != null ? Stage.ResolveAlignPitchX(null, null) : 0.0;
+        }
+
+        private double ResolveConfiguredAlignPitchY()
+        {
+            if (_frameSpec != null && _frameSpec.PitchY > 0.0)
+                return _frameSpec.PitchY;
+            return Stage != null ? Stage.ResolveAlignPitchY(null, null) : 0.0;
+        }
+
+        private static double SelectVisionPitchX(VisionAlignResult ref1Result, VisionAlignResult ref2Result)
+        {
+            if (ref2Result != null && ref2Result.PitchX > 0.0)
+                return ref2Result.PitchX;
+            if (ref1Result != null && ref1Result.PitchX > 0.0)
+                return ref1Result.PitchX;
+            return 0.0;
+        }
+
+        private static double SelectVisionPitchY(VisionAlignResult ref1Result, VisionAlignResult ref2Result)
+        {
+            if (ref2Result != null && ref2Result.PitchY > 0.0)
+                return ref2Result.PitchY;
+            if (ref1Result != null && ref1Result.PitchY > 0.0)
+                return ref1Result.PitchY;
+            return 0.0;
+        }
+
+        private double NormalizeResolvedAlignPitch(string axis, double candidate, double configured, string source)
+        {
+            if (candidate <= 0.0)
+                return configured;
+            if (configured <= 0.0)
+                return candidate;
+
+            double delta = Math.Abs(candidate - configured);
+            if (delta <= AlignPitchCompareToleranceMm)
+                return candidate;
+
+            WriteLog("InputStageAlignSequence",
+                "Align pitch mismatch. configured data is used. axis=" + axis +
+                ", source=" + source +
+                ", candidate=" + candidate.ToString("F6") +
+                ", configured=" + configured.ToString("F6") +
+                ", delta=" + delta.ToString("F6") +
+                ", tolerance=" + AlignPitchCompareToleranceMm.ToString("F6") + " - Check");
+            return configured;
+        }
+
+        private void LogVisionPitchUnavailable(
+            string axis,
+            VisionAlignResult ref1Result,
+            VisionAlignResult ref2Result,
+            double configured)
+        {
+            try
+            {
+                if (ref1Result == null && ref2Result == null)
+                    return;
+
+                WriteLog("InputStageAlignSequence",
+                    "Vision align pitch was not supplied. configured map/frame pitch is used. axis=" + axis +
+                    ", configured=" + configured.ToString("F6") + " - Check");
+            }
+            catch
+            {
             }
             finally
             {
@@ -1500,17 +1928,18 @@ namespace QMC.CDT320.Sequencing
         {
             try
             {
-                DieMap activeMap = LotStorage.ActiveInputDieMap;
-                if (IsUsableSourceMap(activeMap))
-                    return activeMap;
+                // 현재 기준: 새 wafer align 소스는 recipe/current wafer를 우선하고 이전 active map은 마지막 fallback으로만 사용한다.
+                DieMap recipeMap = LoadRecipeInputDieMap();
+                if (IsUsableSourceMap(recipeMap))
+                    return recipeMap;
 
                 DieMap materialMap = MaterialStateService.BuildDieMapFromWafer(wafer);
                 if (IsUsableSourceMap(materialMap))
                     return materialMap;
 
-                DieMap recipeMap = LoadRecipeInputDieMap();
-                if (IsUsableSourceMap(recipeMap))
-                    return recipeMap;
+                DieMap activeMap = LotStorage.ActiveInputDieMap;
+                if (IsUsableSourceMap(activeMap))
+                    return activeMap;
 
                 return null;
             }
@@ -1977,6 +2406,20 @@ namespace QMC.CDT320.Sequencing
             finally
             {
             }
+        }
+
+        private sealed class SearchOffset
+        {
+            public SearchOffset(string name, double x, double y)
+            {
+                Name = name;
+                X = x;
+                Y = y;
+            }
+
+            public string Name { get; private set; }
+            public double X { get; private set; }
+            public double Y { get; private set; }
         }
     }
 }

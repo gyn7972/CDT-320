@@ -230,6 +230,24 @@ namespace QMC.CDT320
             }
         }
 
+        public void ClearInputDieMap(string reason)
+        {
+            try
+            {
+                _inputDieMap = null;
+                _inputPickupSequence.Clear();
+                QMC.CDT320.Lots.LotStorage.ActiveInputDieMap = null;
+                Log("[PICKSEQ] Input DieMap cleared. reason=" + (reason ?? ""));
+            }
+            catch (Exception ex)
+            {
+                Log("[PICKSEQ] Input DieMap clear failed: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
         /// <summary>Input/Output 다이맵을 생성합니다. 이미 생성되어 있으면 기존 맵을 재사용합니다.</summary>
         public void EnsureDieMaps()
         {
@@ -759,8 +777,34 @@ namespace QMC.CDT320
                 SideVisionYOffset = sideCorrection != null ? sideCorrection.SideVisionYOffset : 0.0,
                 PickerZOffset = sideCorrection != null ? sideCorrection.PickerZOffset : 0.0,
                 SideInspectionSourceDieId = sideCorrection != null ? sideCorrection.SourceDieId : string.Empty,
-                SideInspectionUpdatedAt = sideCorrection != null ? sideCorrection.UpdatedAt : DateTime.MinValue
+                SideInspectionUpdatedAt = NormalizeOptionalRuntimeDateTime(
+                    sideCorrection != null ? sideCorrection.UpdatedAt : DateTime.MinValue,
+                    DateTime.Now)
             });
+        }
+
+        private static DateTime NormalizeOptionalRuntimeDateTime(DateTime value, DateTime fallback)
+        {
+            try
+            {
+                if (value == DateTime.MinValue)
+                    return DateTime.SpecifyKind(DateTime.MinValue, DateTimeKind.Utc);
+
+                if (value == DateTime.MaxValue)
+                    return DateTime.SpecifyKind(DateTime.MaxValue, DateTimeKind.Utc);
+
+                if (value.Year < 2000 || value.Year > 2100)
+                    return fallback;
+
+                return value;
+            }
+            catch
+            {
+                return fallback;
+            }
+            finally
+            {
+            }
         }
 
         private void RestorePickerOffsetRuntimeState(MachineRuntimeState state)
@@ -1263,11 +1307,12 @@ namespace QMC.CDT320
                 }
 
                 data.EnsureObjects();
-                if (data.Camera == null || !data.Camera.Valid)
-                {
-                    reason = "Camera Calibration이 유효하지 않습니다. Bottom/Input/Output 카메라 Reticle 캘리브레이션을 완료하세요.";
-                    return false;
-                }
+                // Camera Calibration check disabled for auto start.
+                // if (data.Camera == null || !data.Camera.Valid)
+                // {
+                //     reason = "Camera Calibration이 유효하지 않습니다. Bottom/Input/Output 카메라 Reticle 캘리브레이션을 완료하세요.";
+                //     return false;
+                // }
 
                 if (data.Needle == null || !data.Needle.Valid)
                 {
@@ -1286,6 +1331,30 @@ namespace QMC.CDT320
             catch (Exception ex)
             {
                 reason = "CalibrationData 유효성 확인 중 예외가 발생했습니다. error=" + ex.Message;
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
+        private bool ShouldBypassCameraCalibrationForAutoStart()
+        {
+            try
+            {
+                AppSettings settings = AppSettingsStore.Current;
+                if (settings != null &&
+                    (settings.SimulationMode ||
+                     settings.DryRunMode ||
+                     settings.BypassHardware ||
+                     !settings.UseAjin ||
+                     !settings.UseVision))
+                    return true;
+
+                return DryRun || GlobalDryRun;
+            }
+            catch
+            {
                 return false;
             }
             finally
@@ -5716,8 +5785,8 @@ namespace QMC.CDT320
                 if (!EnsureReticleAvoidForAutoStart("StartAsync"))
                     return -1;
 
-                if (!EnsureCalibrationReadyForAutoStart("StartAsync"))
-                    return -1;
+                //if (!EnsureCalibrationReadyForAutoStart("StartAsync"))
+                //    return -1;
 
                 Log("[START] Process auto sequence start.");
                 QMC.Common.Log.Write("Main", "SYSTEM", "StartAsync", "Process auto sequence start requested. - Ok");
@@ -6293,7 +6362,9 @@ namespace QMC.CDT320
                     _autoProductionStopwatch = System.Diagnostics.Stopwatch.StartNew();
                 }
 
-                Stats.BeginLot(lotId, totalDies);
+                // 현재 기준: CycleStop 후 같은 LOT 재시작이면 작업 시간 통계를 이어간다.
+                if (!Stats.TryResumeLot(lotId))
+                    Stats.BeginLot(lotId, totalDies);
             }
             catch (Exception ex)
             {
@@ -6482,9 +6553,9 @@ namespace QMC.CDT320
                     !EnsureReticleAvoidForAutoStart("StartSequenceAsync"))
                     return;
 
-                if (options.Mode == QMC.CDT320.Sequencing.SequenceRunMode.Auto &&
-                    !EnsureCalibrationReadyForAutoStart("StartSequenceAsync"))
-                    return;
+                //if (options.Mode == QMC.CDT320.Sequencing.SequenceRunMode.Auto &&
+                //    !EnsureCalibrationReadyForAutoStart("StartSequenceAsync"))
+                //    return;
 
                 _autoCts = new CancellationTokenSource();
                 var bus = new QMC.CDT320.Sequencing.SequenceSignalBus();
@@ -7184,6 +7255,7 @@ namespace QMC.CDT320
                         _sequenceActivity);
                     var options = QMC.CDT320.Sequencing.PickerSequenceOptions.Default();
                     options.RunMode = QMC.CDT320.Sequencing.SequenceRunMode.Manual;
+                    options.ApplyInputStageVisionPolicy(Machine);
 
                     string name = (processName ?? "").Trim();
                     int result;
@@ -7286,6 +7358,7 @@ namespace QMC.CDT320
                     var options = QMC.CDT320.Sequencing.PickerSequenceOptions.Default();
                     options.RunMode = QMC.CDT320.Sequencing.SequenceRunMode.Manual;
                     options.PickerNo = pickerNo;
+                    options.ApplyInputStageVisionPolicy(Machine);
 
                     int result = await new QMC.CDT320.Sequencing.PickerPickUpSequence(context, side)
                         .RunManualZMotionOnlyAsync(pickerNo, ManualOperationToken, options).ConfigureAwait(false);
@@ -7402,6 +7475,7 @@ namespace QMC.CDT320
                     options.RunMode = QMC.CDT320.Sequencing.SequenceRunMode.Manual;
                     options.PickerNo = pickerNo;
                     options.SimulateVisionResult = ShouldSimulatePickerVisionResult(side);
+                    options.ApplyInputStageVisionPolicy(Machine);
 
                     int result = await new QMC.CDT320.Sequencing.PickerPickUpSequence(context, side)
                         .RunManualSelectedDiePickUpAsync(dieId, pickerNo, ManualOperationToken, options)
@@ -7529,6 +7603,7 @@ namespace QMC.CDT320
                     options.RunMode = QMC.CDT320.Sequencing.SequenceRunMode.Manual;
                     options.PickerNo = pickerNo;
                     options.RestrictToPickerNo = pickerNo;
+                    options.ApplyInputStageVisionPolicy(Machine);
 
                     var sequence = new QMC.CDT320.Sequencing.PickerPlaceSequence(context, side);
                     int result = step.HasValue
@@ -7682,6 +7757,7 @@ namespace QMC.CDT320
                     options.RunMode = QMC.CDT320.Sequencing.SequenceRunMode.Manual;
                     options.PickerNo = pickerNo;
                     options.SimulateVisionResult = ShouldSimulatePickerVisionResult(side);
+                    options.ApplyInputStageVisionPolicy(Machine);
 
                     var sequence = new QMC.CDT320.Sequencing.PickerPickUpSequence(context, side);
                     int result;

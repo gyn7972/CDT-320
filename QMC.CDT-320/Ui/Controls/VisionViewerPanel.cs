@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
+using System.Threading;
 using System.Windows.Forms;
 using QMC.CDT320;
 using QMC.CDT320.Calibration;
@@ -29,6 +30,9 @@ namespace QMC.CDT_320.Ui.Controls
         private double _savedPixelScaleY;
         private double _savedWidthPixel;
         private double _savedHeightPixel;
+        private int _grabImageUiPending;
+
+        public bool AllowLive { get; set; }
 
         public VisionViewerPanel()
         {
@@ -55,14 +59,20 @@ namespace QMC.CDT_320.Ui.Controls
 
             if (_port > 0)
             {
-                _source = new VisionViewerSource(h, _port, 2000, commandClient);
+                _source = new VisionViewerSource(h, _port, 2000, commandClient)
+                {
+                    LiveEnabled = AllowLive
+                };
                 _source.FrameMeta += OnMeta;
                 _source.Status += OnStatus;
                 _cam.AttachSource(_source);   // 툴바 Grab/Live/Stop이 이 소스를 제어(접속·촬상은 누를 때).
-                _lblStat.Text = "대기 — Grab/뷰어 ON을 누르면 연결";
+                _cam.ShowLiveLabel = false;
+                _lblStat.Text = AllowLive ? "대기 — Vision Live/Grab 준비" : "대기 — Grab 이미지 수신 준비";
                 RefreshSavedPixelScale();
                 SetViewerToggle(false);       // 재구성 시 토글은 OFF(라이브 미시작)로 초기화
                 _chkViewer.Enabled = true;
+                if (!AllowLive)
+                    StartGrabImageView();
             }
             else
             {
@@ -72,13 +82,115 @@ namespace QMC.CDT_320.Ui.Controls
             }
         }
 
-        /// <summary>외부에서 LIVE 시작(툴바 Live와 동일). 토글 상태도 동기화.</summary>
-        public void StartLive() { if (_port > 0) { try { _cam.StartLive(); } catch { } SetViewerToggle(true); } }
-        /// <summary>외부에서 LIVE 정지(툴바 Stop과 동일). 토글 상태도 동기화.</summary>
-        public void StopLive() { try { _cam.StopLive(); } catch { } SetViewerToggle(false); }
+        /// <summary>기존 호출 호환용. VisionViewDialog처럼 허용된 화면에서만 Vision Live를 시작하고, 나머지는 Grab 이미지만 수신한다.</summary>
+        public void StartLive()
+        {
+            if (AllowLive)
+            {
+                StartVisionLiveView();
+                return;
+            }
 
-        // ── 뷰어(라이브 스트림) ON/OFF 토글 ──
-        // OFF 로 두면 비전 측이 프레임 인코딩/송출을 멈추므로, Grab 명령만의 응답 속도를 격리 측정할 수 있다.
+            StartGrabImageView();
+        }
+
+        /// <summary>기존 호출 호환용. Grab 이미지 수신을 정지한다.</summary>
+        public void StopLive()
+        {
+            StopGrabImageView();
+        }
+
+        private void StartGrabImageView()
+        {
+            if (_port <= 0)
+                return;
+
+            try
+            {
+                if (_source == null)
+                    return;
+
+                _source.StartGrabImageStream(OnGrabImageFrame);
+                SetViewerToggle(true);
+                _lblStat.Text = "Grab 이미지 수신 중";
+            }
+            catch (Exception ex)
+            {
+                SetViewerToggle(false);
+                LogGrabImageViewFailed("Grab 이미지 수신 시작 실패: " + ex.Message);
+            }
+        }
+
+        private void StartVisionLiveView()
+        {
+            if (_port <= 0)
+                return;
+
+            try
+            {
+                if (_source == null)
+                    return;
+
+                _source.StartLive(OnGrabImageFrame);
+                SetViewerToggle(true);
+                _lblStat.Text = "Vision Live 수신 중";
+            }
+            catch (Exception ex)
+            {
+                SetViewerToggle(false);
+                LogLiveBlocked("Vision Live 시작 실패: " + ex.Message);
+            }
+        }
+
+        private void StopGrabImageView()
+        {
+            try { if (_source != null) _source.StopLive(); } catch { }
+            SetViewerToggle(false);
+        }
+
+        private void OnGrabImageFrame(Bitmap bmp)
+        {
+            if (bmp == null)
+                return;
+
+            if (Interlocked.CompareExchange(ref _grabImageUiPending, 1, 0) != 0)
+            {
+                try { bmp.Dispose(); } catch { }
+                return;
+            }
+
+            try
+            {
+                if (IsDisposed || !IsHandleCreated)
+                {
+                    try { bmp.Dispose(); } catch { }
+                    Interlocked.Exchange(ref _grabImageUiPending, 0);
+                    return;
+                }
+
+                BeginInvoke(new Action(() =>
+                {
+                    try
+                    {
+                        if (!IsDisposed)
+                            _cam.SetImage(bmp);
+                    }
+                    finally
+                    {
+                        try { bmp.Dispose(); } catch { }
+                        Interlocked.Exchange(ref _grabImageUiPending, 0);
+                    }
+                }));
+            }
+            catch
+            {
+                try { bmp.Dispose(); } catch { }
+                Interlocked.Exchange(ref _grabImageUiPending, 0);
+            }
+        }
+
+        // ── 뷰어 ON/OFF 토글 ──
+        // 통합 VisionViewDialog 에서만 Vision Live 명령을 허용하고, 그 외 화면은 Grab 이미지 수신만 사용한다.
         private void chkViewer_CheckedChanged(object sender, EventArgs e)
         {
             try
@@ -87,13 +199,11 @@ namespace QMC.CDT_320.Ui.Controls
 
                 if (_chkViewer.Checked)
                 {
-                    _cam.StartLive();
-                    _chkViewer.Text = "뷰어 ON";
+                    StartLive();
                 }
                 else
                 {
-                    _cam.StopLive();
-                    _chkViewer.Text = "뷰어 OFF";
+                    StopGrabImageView();
                 }
             }
             catch (Exception ex)
@@ -108,7 +218,7 @@ namespace QMC.CDT_320.Ui.Controls
             }
         }
 
-        /// <summary>토글 체크/텍스트를 코드에서 설정(이벤트 재진입 방지). 실제 Start/StopLive 는 호출측 책임.</summary>
+        /// <summary>토글 체크/텍스트를 코드에서 설정(이벤트 재진입 방지). 실제 Start/Stop 은 호출측 책임.</summary>
         private void SetViewerToggle(bool on)
         {
             if (IsDisposed || _chkViewer == null || _chkViewer.IsDisposed) return;
@@ -116,12 +226,41 @@ namespace QMC.CDT_320.Ui.Controls
             {
                 _chkViewer.CheckedChanged -= chkViewer_CheckedChanged;
                 _chkViewer.Checked = on;
-                _chkViewer.Text = on ? "뷰어 ON" : "뷰어 OFF";
+                string mode = AllowLive ? "LIVE VIEW" : "GRAB VIEW";
+                _chkViewer.Text = on ? mode + " ON" : mode + " OFF";
             }
             finally
             {
                 _chkViewer.CheckedChanged += chkViewer_CheckedChanged;
             }
+        }
+
+        private void LogGrabImageViewFailed(string reason)
+        {
+            try
+            {
+                QMC.Common.Logging.EventLogger.Write(
+                    QMC.Common.Logging.EventKind.Warning,
+                    "VISION",
+                    "VISION-GRAB-VIEW",
+                    "Vision Grab 이미지 수신 처리 실패. viewerPort=" + _port +
+                    ", reason=" + reason);
+            }
+            catch { }
+        }
+
+        private void LogLiveBlocked(string reason)
+        {
+            try
+            {
+                QMC.Common.Logging.EventLogger.Write(
+                    QMC.Common.Logging.EventKind.Warning,
+                    "VISION",
+                    "VISION-LIVE-START",
+                    "Vision 뷰어 Live 시작에 실패했습니다. viewerPort=" + _port +
+                    ", reason=" + reason);
+            }
+            catch { }
         }
 
         /// <summary>결과 라인(우측하단 텍스트) 오버레이 — 내부 카메라뷰로 위임.</summary>

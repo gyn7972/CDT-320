@@ -15,6 +15,8 @@ namespace QMC.CDT320.Sequencing
         MoveOppositeStageZToAvoid,
         CheckOppositeStageZAvoid,
         EnsureGoodGuideDownBeforeNgYMove,
+        MoveTargetStageZToAvoidBeforeY,
+        CheckTargetStageZAvoidBeforeY,
         MoveTargetStageYToLoad,
         CheckTargetStageYLoad,
         MoveTargetStageZToLoad,
@@ -66,6 +68,14 @@ namespace QMC.CDT320.Sequencing
                     // NG Y 이동 전 Good Guide Down 확보
                     case OutputStagePrepareLoadStep.EnsureGoodGuideDownBeforeNgYMove:
                         return EnsureGoodGuideDownBeforeNgYMoveAsync(ct);
+
+                    // 대상 스테이지 Y 이동 전 대상 Z 어보이드 확보
+                    case OutputStagePrepareLoadStep.MoveTargetStageZToAvoidBeforeY:
+                        return MoveTargetStageZToAvoidBeforeYAsync(ct);
+
+                    // 대상 스테이지 Y 이동 전 대상 Z 어보이드 확인
+                    case OutputStagePrepareLoadStep.CheckTargetStageZAvoidBeforeY:
+                        return Task.FromResult(CheckTargetStageZAvoidBeforeY());
 
                     // 대상 스테이지 Y로 로드 이동
                     case OutputStagePrepareLoadStep.MoveTargetStageYToLoad:
@@ -259,7 +269,7 @@ namespace QMC.CDT320.Sequencing
 
                 if (Options.Side != BinSide.Ng)
                 {
-                    CurrentStep = OutputStagePrepareLoadStep.MoveTargetStageYToLoad;
+                    CurrentStep = OutputStagePrepareLoadStep.MoveTargetStageZToAvoidBeforeY;
                     return 0;
                 }
 
@@ -274,7 +284,7 @@ namespace QMC.CDT320.Sequencing
                         "NG Y 이동 전 Good Bin Guide Down 확인 실패. " +
                         Stage.DescribeOutputStageInterlockState(Options.Side));
 
-                CurrentStep = OutputStagePrepareLoadStep.MoveTargetStageYToLoad;
+                CurrentStep = OutputStagePrepareLoadStep.MoveTargetStageZToAvoidBeforeY;
                 return 0;
             }
             catch (OperationCanceledException)
@@ -285,6 +295,67 @@ namespace QMC.CDT320.Sequencing
             {
                 return Fail("OUT-STAGE-GOOD-GUIDE-DOWN-EX", Name,
                     "NG Y 이동 전 Good Bin Guide Down 확보 중 예외가 발생했습니다: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private async Task<int> MoveTargetStageZToAvoidBeforeYAsync(CancellationToken ct)
+        {
+            try
+            {
+                if (SkipMissingSideZAxis(Options.Side, Options.Side + " Z avoid before Y load"))
+                {
+                    CurrentStep = OutputStagePrepareLoadStep.MoveTargetStageYToLoad;
+                    return 0;
+                }
+
+                int result = await MoveAxisAndVerifyAsync(
+                    ResolveZAxis(Options.Side),
+                    ResolveSideZTarget(Options.Side, "Avoid"),
+                    Options.Side + " Z avoid before Y load",
+                    ct).ConfigureAwait(false);
+
+                if (result != 0)
+                    return result;
+
+                CurrentStep = OutputStagePrepareLoadStep.CheckTargetStageZAvoidBeforeY;
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                return Fail("OUT-STAGE-TARGET-Z-AVOID-EX", Name, "Target stage Z avoid before Y load failed: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private int CheckTargetStageZAvoidBeforeY()
+        {
+            try
+            {
+                if (SkipMissingSideZAxis(Options.Side, Options.Side + " Z avoid final check before Y load"))
+                {
+                    CurrentStep = OutputStagePrepareLoadStep.MoveTargetStageYToLoad;
+                    return 0;
+                }
+
+                BinStageAxis axis = ResolveZAxis(Options.Side);
+                double target = ResolveSideZTarget(Options.Side, "Avoid");
+
+                if (!Stage.IsStageAxisInPosition(axis, target, ResolveTolerance(axis)))
+                    return Fail("OUT-STAGE-TARGET-Z-AVOID-CHECK", Stage.Name,
+                        Options.Side + " Z avoid final check before Y load failed. target=" + target + ". " +
+                        BuildAxisState(axis, target));
+
+                CurrentStep = OutputStagePrepareLoadStep.MoveTargetStageYToLoad;
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                return Fail("OUT-STAGE-TARGET-Z-AVOID-CHECK-EX", Name, "Target stage Z avoid check before Y load failed: " + ex.Message);
             }
             finally
             {

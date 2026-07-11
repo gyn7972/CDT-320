@@ -569,6 +569,7 @@
             this.jogCommonLayout.Dock = System.Windows.Forms.DockStyle.Fill;
             this.jogCommonLayout.Location = new System.Drawing.Point(3, 21);
             this.jogCommonLayout.Name = "jogCommonLayout";
+            this.jogCommonLayout.Visible = true;
             this.jogCommonLayout.RowCount = 2;
             this.jogCommonLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 136F));
             this.jogCommonLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
@@ -669,6 +670,7 @@
             this.optionLayout.Dock = System.Windows.Forms.DockStyle.Fill;
             this.optionLayout.Location = new System.Drawing.Point(3, 26);
             this.optionLayout.Name = "optionLayout";
+            this.optionLayout.Visible = false;
             this.optionLayout.Padding = new System.Windows.Forms.Padding(10, 18, 10, 8);
             this.optionLayout.RowCount = 9;
             this.optionLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 30F));
@@ -935,6 +937,7 @@
             this.waitLayout.Dock = System.Windows.Forms.DockStyle.Fill;
             this.waitLayout.Location = new System.Drawing.Point(3, 26);
             this.waitLayout.Name = "waitLayout";
+            this.waitLayout.Visible = false;
             this.waitLayout.Padding = new System.Windows.Forms.Padding(10, 18, 10, 8);
             this.waitLayout.RowCount = 5;
             this.waitLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 30F));
@@ -1096,6 +1099,7 @@
             this.ioLayout.Dock = System.Windows.Forms.DockStyle.Fill;
             this.ioLayout.Location = new System.Drawing.Point(3, 26);
             this.ioLayout.Name = "ioLayout";
+            this.ioLayout.Visible = false;
             this.ioLayout.Padding = new System.Windows.Forms.Padding(8, 18, 8, 8);
             this.ioLayout.RowCount = 4;
             this.ioLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 28F));
@@ -1269,6 +1273,7 @@
             this.jogLayout.Dock = System.Windows.Forms.DockStyle.Fill;
             this.jogLayout.Location = new System.Drawing.Point(3, 26);
             this.jogLayout.Name = "jogLayout";
+            this.jogLayout.Visible = false;
             this.jogLayout.Padding = new System.Windows.Forms.Padding(10, 18, 10, 10);
             this.jogLayout.RowCount = 1;
             this.jogLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
@@ -1544,6 +1549,7 @@
             this.speedLayout.Dock = System.Windows.Forms.DockStyle.Fill;
             this.speedLayout.Location = new System.Drawing.Point(3, 26);
             this.speedLayout.Name = "speedLayout";
+            this.speedLayout.Visible = false;
             this.speedLayout.Padding = new System.Windows.Forms.Padding(12, 18, 12, 12);
             this.speedLayout.RowCount = 2;
             this.speedLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
@@ -1577,7 +1583,8 @@
             this.lblSpeedValue.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
             // 
             // VisionRecipePage
-            // 
+            //
+            this.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(207)))), ((int)(((byte)(210)))), ((int)(((byte)(214)))));
             this.Controls.Add(this.rootLayout);
             this.Name = "VisionRecipePage";
             this.Size = new System.Drawing.Size(1678, 900);

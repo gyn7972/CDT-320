@@ -74,7 +74,7 @@ namespace QMC.CDT320.Interlocks
             return VerifyInputStageNotBusy(machine != null ? machine.InputStageUnit : null, "WaferStageY", out reason);
         }
 
-        // WaferStageY 이동 전제(Wafer Feeder): Ring Check==true, Unclamp==true, Overload==false.
+        // WaferStageY 이동 전제(Wafer Feeder): Ring Check==false, Unclamp==true, Overload==false.
         // 세 조건 중 하나라도 아니면 차단/알람.
         // 인터락 항목: StageY 이동 전 InputFeederY가 Stage 간섭 없는 준비 위치인지 확인한다.
         private static bool VerifyWaferFeederReadyForStageY(CDT320_Machine machine, string movingName, out string reason)
@@ -87,11 +87,11 @@ namespace QMC.CDT320.Interlocks
                 if (feeder == null)
                     return true;
 
-                // 1. Wafer Feeder Ring Check == true
-                if (!feeder.IsWaferFeederRingCheck())
+                // 인터락 조건: StageY/T 이동 전 Wafer Feeder Ring Check가 감지되면 Stage 간섭 위험으로 차단한다.
+                if (feeder.IsWaferFeederRingCheck())
                     return MotionGuardRuleHelpers.Block(
                         movingName,
-                        movingName + " 이동 불가: Wafer Feeder Ring Check가 감지되지 않았습니다.",
+                        movingName + " 이동 불가: Wafer Feeder Ring Check가 감지되었습니다.",
                         out reason);
 
                 // 2. Wafer Feeder Unclamp == true
@@ -950,7 +950,7 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
-        // 인터락 항목: WaferStageY 홈은 NeedleZ Avoid와 PickerZ 안전 위치를 확인한다.
+        // 인터락 항목: WaferStageY 홈은 NeedleZ Home/Avoid와 PickerZ 안전 위치를 확인한다.
         private static bool CanHomeWaferStageY(CDT320_Machine machine, out string reason)
         {
             reason = string.Empty;
@@ -962,7 +962,7 @@ namespace QMC.CDT320.Interlocks
                 if (stage != null && !stage.IsNeedleZInHomeOrSafePosition())
                     return MotionGuardRuleHelpers.Block(
                         "InputStageY",
-                        "InputStageY HOME blocked. NeedleZ must be at Home(0) or Avoid position.",
+                        "InputStageY HOME blocked. NeedleZ must be at Home(0) or Avoid position. " + BuildNeedleZState(stage),
                         out reason);
 
                 //여기 조건에 따라 다르다.
@@ -1345,7 +1345,10 @@ namespace QMC.CDT320.Interlocks
             {
                 double targetY = request != null ? request.TargetValue : 0.0;
 
-                if (!stage.IsNeedleZInHomeOrSafePosition())
+                if (stage.IsNeedleZInHomeOrSafePosition())
+                    return true;
+
+                if (!stage.IsNeedleZInSafePosition())
                 {
                     double currentNeedleX = stage.NeedleBlockX != null
                         ? stage.NeedleBlockX.ActualPosition
@@ -1356,15 +1359,19 @@ namespace QMC.CDT320.Interlocks
 
                     if (!stage.IsNeedleWorkPointInArea(currentNeedleX, currentStageY, out areaReason))
                     {
-                        return MotionGuardRuleHelpers.Block(
-                            movingName,
-                            movingName + " 이동 불가: NeedleZ 상승 상태에서는 현재 NeedleX/StageY가 작업영역 안이어야 합니다. " +
-                            areaReason +
-                            ", currentNeedleX=" + currentNeedleX.ToString("F3") +
-                            ", currentStageY=" + currentStageY.ToString("F3") +
-                            ", targetStageY=" + targetY.ToString("F3") +
-                            ", overrideWorkAreaNeedleX=" + overrideWorkAreaNeedleX.ToString("F3"),
-                            out reason);
+                        if (!stage.IsNeedleZInHomeOrSafePosition())
+                        {
+                            return MotionGuardRuleHelpers.Block(
+                                movingName,
+                                movingName + " 이동 불가: 현재 NeedleX/StageY가 작업영역 밖일 때 NeedleZ는 반드시 Home(0) 또는 Avoid 위치여야 합니다. " +
+                                areaReason +
+                                ", currentNeedleX=" + currentNeedleX.ToString("F3") +
+                                ", currentStageY=" + currentStageY.ToString("F3") +
+                                ", targetStageY=" + targetY.ToString("F3") +
+                                ", overrideWorkAreaNeedleX=" + overrideWorkAreaNeedleX.ToString("F3") +
+                                ", " + BuildNeedleZState(stage),
+                                out reason);
+                        }
                     }
                 }
 
@@ -1376,7 +1383,7 @@ namespace QMC.CDT320.Interlocks
                 {
                     return MotionGuardRuleHelpers.Block(
                         movingName,
-                        movingName + " 이동 불가: NeedleZ 상승 상태에서는 목표 NeedleX/StageY가 작업영역 안이어야 합니다. " +
+                        movingName + " 이동 불가: NeedleZ가 Home(0) 또는 Avoid 위치가 아닐 때는 목표 NeedleX/StageY가 작업영역 안이어야 합니다. " +
                         areaReason +
                         ", overrideWorkAreaNeedleX=" + overrideWorkAreaNeedleX.ToString("F3"),
                         out reason);
@@ -2124,6 +2131,37 @@ namespace QMC.CDT320.Interlocks
                 return true;
 
             return isTeachingAvoid != null && isTeachingAvoid();
+        }
+
+        private static string BuildNeedleZState(InputStageUnit stage)
+        {
+            try
+            {
+                if (stage == null || stage.NeedleZ == null)
+                    return "NeedleZ=null";
+
+                double avoid = stage.Recipe != null && stage.Recipe.NeedleZ != null
+                    ? stage.Recipe.NeedleZ.AvoidPosition
+                    : 0.0;
+                double tolerance = stage.NeedleZ.Config != null && stage.NeedleZ.Config.InPositionTolerance > 0.0
+                    ? stage.NeedleZ.Config.InPositionTolerance
+                    : 0.01;
+
+                return "NeedleZ[name=" + stage.NeedleZ.Name +
+                    ", actual=" + stage.NeedleZ.ActualPosition.ToString("F3") +
+                    ", avoid=" + avoid.ToString("F3") +
+                    ", tolerance=" + tolerance.ToString("F3") +
+                    ", servo=" + (stage.NeedleZ.IsServoOn ? "ON" : "OFF") +
+                    ", alarm=" + (stage.NeedleZ.IsAlarm ? "ON" : "OFF") +
+                    ", moving=" + (stage.NeedleZ.IsMoving ? "Y" : "N") + "]";
+            }
+            catch
+            {
+                return "NeedleZ state unavailable.";
+            }
+            finally
+            {
+            }
         }
 
         private static void LogBlockedReason(string reason)

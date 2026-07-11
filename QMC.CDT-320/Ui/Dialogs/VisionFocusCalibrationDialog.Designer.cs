@@ -24,6 +24,8 @@
         private System.Windows.Forms.DataGridViewTextBoxColumn colDefaultPos;
         private System.Windows.Forms.DataGridViewTextBoxColumn colBestPos;
         private System.Windows.Forms.DataGridViewTextBoxColumn colBestScore;
+        private System.Windows.Forms.DataGridViewTextBoxColumn colAutoFocusCount;
+        private System.Windows.Forms.DataGridViewTextBoxColumn colAutoFocusWafer;
         private System.Windows.Forms.DataGridViewTextBoxColumn colValid;
         private System.Windows.Forms.Label lblStatus;
         private System.Windows.Forms.TableLayoutPanel buttonPanel;
@@ -33,7 +35,9 @@
         private CalibrationDialogButton btnMoveZAvoid;
         private CalibrationDialogButton btnMoveYAvoid;
         private CalibrationDialogButton btnStartScan;
+        private CalibrationDialogButton btnSeqStop;
         private CalibrationDialogButton btnApplyBest;
+        private CalibrationDialogButton btnResetAutoFocus;
         private CalibrationDialogButton btnReload;
         private CalibrationDialogButton btnSave;
         private CalibrationDialogButton btnClose;
@@ -68,6 +72,8 @@
             this.colDefaultPos = new System.Windows.Forms.DataGridViewTextBoxColumn();
             this.colBestPos = new System.Windows.Forms.DataGridViewTextBoxColumn();
             this.colBestScore = new System.Windows.Forms.DataGridViewTextBoxColumn();
+            this.colAutoFocusCount = new System.Windows.Forms.DataGridViewTextBoxColumn();
+            this.colAutoFocusWafer = new System.Windows.Forms.DataGridViewTextBoxColumn();
             this.colValid = new System.Windows.Forms.DataGridViewTextBoxColumn();
             this.lblStatus = new System.Windows.Forms.Label();
             this.buttonPanel = new System.Windows.Forms.TableLayoutPanel();
@@ -77,7 +83,9 @@
             this.btnMoveZAvoid = new CalibrationDialogButton();
             this.btnMoveYAvoid = new CalibrationDialogButton();
             this.btnStartScan = new CalibrationDialogButton();
+            this.btnSeqStop = new CalibrationDialogButton();
             this.btnApplyBest = new CalibrationDialogButton();
+            this.btnResetAutoFocus = new CalibrationDialogButton();
             this.btnReload = new CalibrationDialogButton();
             this.btnSave = new CalibrationDialogButton();
             this.btnClose = new CalibrationDialogButton();
@@ -309,6 +317,8 @@
             this.colDefaultPos,
             this.colBestPos,
             this.colBestScore,
+            this.colAutoFocusCount,
+            this.colAutoFocusWafer,
             this.colValid});
             this.gridSaved.Dock = System.Windows.Forms.DockStyle.Fill;
             this.gridSaved.Location = new System.Drawing.Point(3, 21);
@@ -357,6 +367,24 @@
             this.colBestScore.ReadOnly = true;
             this.colBestScore.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
             // 
+            // colAutoFocusCount
+            // 
+            this.colAutoFocusCount.AutoSizeMode = System.Windows.Forms.DataGridViewAutoSizeColumnMode.Fill;
+            this.colAutoFocusCount.FillWeight = 14F;
+            this.colAutoFocusCount.HeaderText = "AF CNT";
+            this.colAutoFocusCount.Name = "colAutoFocusCount";
+            this.colAutoFocusCount.ReadOnly = true;
+            this.colAutoFocusCount.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
+            // 
+            // colAutoFocusWafer
+            // 
+            this.colAutoFocusWafer.AutoSizeMode = System.Windows.Forms.DataGridViewAutoSizeColumnMode.Fill;
+            this.colAutoFocusWafer.FillWeight = 20F;
+            this.colAutoFocusWafer.HeaderText = "AF WAFER";
+            this.colAutoFocusWafer.Name = "colAutoFocusWafer";
+            this.colAutoFocusWafer.ReadOnly = true;
+            this.colAutoFocusWafer.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
+            // 
             // colValid
             // 
             this.colValid.AutoSizeMode = System.Windows.Forms.DataGridViewAutoSizeColumnMode.Fill;
@@ -381,27 +409,31 @@
             // 
             // buttonPanel
             // 
-            this.buttonPanel.ColumnCount = 10;
-            this.buttonPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 10F));
-            this.buttonPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 10F));
-            this.buttonPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 10F));
-            this.buttonPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 10F));
-            this.buttonPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 10F));
-            this.buttonPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 10F));
-            this.buttonPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 10F));
-            this.buttonPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 10F));
-            this.buttonPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 10F));
-            this.buttonPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 10F));
+            this.buttonPanel.ColumnCount = 12;
+            this.buttonPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 8.333333F));
+            this.buttonPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 8.333333F));
+            this.buttonPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 8.333333F));
+            this.buttonPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 8.333333F));
+            this.buttonPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 8.333333F));
+            this.buttonPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 8.333333F));
+            this.buttonPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 8.333333F));
+            this.buttonPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 8.333333F));
+            this.buttonPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 8.333333F));
+            this.buttonPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 8.333333F));
+            this.buttonPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 8.333333F));
+            this.buttonPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 8.333333F));
             this.buttonPanel.Controls.Add(this.btnCheck, 0, 0);
             this.buttonPanel.Controls.Add(this.btnUseCurrent, 1, 0);
             this.buttonPanel.Controls.Add(this.btnMoveDefault, 2, 0);
             this.buttonPanel.Controls.Add(this.btnMoveZAvoid, 3, 0);
             this.buttonPanel.Controls.Add(this.btnMoveYAvoid, 4, 0);
             this.buttonPanel.Controls.Add(this.btnStartScan, 5, 0);
-            this.buttonPanel.Controls.Add(this.btnApplyBest, 6, 0);
-            this.buttonPanel.Controls.Add(this.btnReload, 7, 0);
-            this.buttonPanel.Controls.Add(this.btnSave, 8, 0);
-            this.buttonPanel.Controls.Add(this.btnClose, 9, 0);
+            this.buttonPanel.Controls.Add(this.btnSeqStop, 6, 0);
+            this.buttonPanel.Controls.Add(this.btnApplyBest, 7, 0);
+            this.buttonPanel.Controls.Add(this.btnResetAutoFocus, 8, 0);
+            this.buttonPanel.Controls.Add(this.btnReload, 9, 0);
+            this.buttonPanel.Controls.Add(this.btnSave, 10, 0);
+            this.buttonPanel.Controls.Add(this.btnClose, 11, 0);
             this.buttonPanel.Dock = System.Windows.Forms.DockStyle.Fill;
             this.buttonPanel.Location = new System.Drawing.Point(10, 704);
             this.buttonPanel.Margin = new System.Windows.Forms.Padding(10, 13, 10, 13);
@@ -525,6 +557,25 @@
             this.btnStartScan.Role = CalibrationDialogButtonRole.Primary;
             this.btnStartScan.Click += new System.EventHandler(this.btnStartScan_Click);
             // 
+            // btnSeqStop
+            // 
+            this.btnSeqStop.BackColor = System.Drawing.Color.White;
+            this.btnSeqStop.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.btnSeqStop.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.btnSeqStop.Enabled = false;
+            this.btnSeqStop.FlatAppearance.BorderSize = 0;
+            this.btnSeqStop.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this.btnSeqStop.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
+            this.btnSeqStop.ForeColor = System.Drawing.Color.Black;
+            this.btnSeqStop.Location = new System.Drawing.Point(545, 6);
+            this.btnSeqStop.Margin = new System.Windows.Forms.Padding(5, 6, 5, 6);
+            this.btnSeqStop.Name = "btnSeqStop";
+            this.btnSeqStop.Size = new System.Drawing.Size(80, 29);
+            this.btnSeqStop.TabIndex = 6;
+            this.btnSeqStop.Text = "SEQ STOP";
+            this.btnSeqStop.UseVisualStyleBackColor = false;
+            this.btnSeqStop.Role = CalibrationDialogButtonRole.Normal;
+            this.btnSeqStop.Click += new System.EventHandler(this.btnSeqStop_Click);
             // 
             // btnApplyBest
             // 
@@ -539,11 +590,30 @@
             this.btnApplyBest.Margin = new System.Windows.Forms.Padding(5, 6, 5, 6);
             this.btnApplyBest.Name = "btnApplyBest";
             this.btnApplyBest.Size = new System.Drawing.Size(89, 29);
-            this.btnApplyBest.TabIndex = 6;
+            this.btnApplyBest.TabIndex = 7;
             this.btnApplyBest.Text = "APPLY BEST";
             this.btnApplyBest.UseVisualStyleBackColor = false;
             this.btnApplyBest.Role = CalibrationDialogButtonRole.Normal;
             this.btnApplyBest.Click += new System.EventHandler(this.btnApplyBest_Click);
+            // 
+            // btnResetAutoFocus
+            // 
+            this.btnResetAutoFocus.BackColor = System.Drawing.Color.White;
+            this.btnResetAutoFocus.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.btnResetAutoFocus.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.btnResetAutoFocus.FlatAppearance.BorderSize = 0;
+            this.btnResetAutoFocus.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this.btnResetAutoFocus.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
+            this.btnResetAutoFocus.ForeColor = System.Drawing.Color.Black;
+            this.btnResetAutoFocus.Location = new System.Drawing.Point(705, 6);
+            this.btnResetAutoFocus.Margin = new System.Windows.Forms.Padding(5, 6, 5, 6);
+            this.btnResetAutoFocus.Name = "btnResetAutoFocus";
+            this.btnResetAutoFocus.Size = new System.Drawing.Size(80, 29);
+            this.btnResetAutoFocus.TabIndex = 8;
+            this.btnResetAutoFocus.Text = "RESET AF";
+            this.btnResetAutoFocus.UseVisualStyleBackColor = false;
+            this.btnResetAutoFocus.Role = CalibrationDialogButtonRole.Normal;
+            this.btnResetAutoFocus.Click += new System.EventHandler(this.btnResetAutoFocus_Click);
             // 
             // btnReload
             // 
@@ -558,7 +628,7 @@
             this.btnReload.Margin = new System.Windows.Forms.Padding(5, 6, 5, 6);
             this.btnReload.Name = "btnReload";
             this.btnReload.Size = new System.Drawing.Size(89, 29);
-            this.btnReload.TabIndex = 7;
+            this.btnReload.TabIndex = 9;
             this.btnReload.Text = "RELOAD";
             this.btnReload.UseVisualStyleBackColor = false;
             this.btnReload.Role = CalibrationDialogButtonRole.Normal;
@@ -577,7 +647,7 @@
             this.btnSave.Margin = new System.Windows.Forms.Padding(5, 6, 5, 6);
             this.btnSave.Name = "btnSave";
             this.btnSave.Size = new System.Drawing.Size(89, 29);
-            this.btnSave.TabIndex = 8;
+            this.btnSave.TabIndex = 10;
             this.btnSave.Text = "SAVE";
             this.btnSave.UseVisualStyleBackColor = false;
             this.btnSave.Role = CalibrationDialogButtonRole.Dark;
@@ -596,7 +666,7 @@
             this.btnClose.Margin = new System.Windows.Forms.Padding(5, 6, 5, 6);
             this.btnClose.Name = "btnClose";
             this.btnClose.Size = new System.Drawing.Size(88, 29);
-            this.btnClose.TabIndex = 9;
+            this.btnClose.TabIndex = 11;
             this.btnClose.Text = "CLOSE";
             this.btnClose.UseVisualStyleBackColor = false;
             this.btnClose.Role = CalibrationDialogButtonRole.Normal;

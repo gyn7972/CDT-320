@@ -129,7 +129,7 @@ namespace QMC.CDT_320.Ui.Controls
                 lblExpose.ForeColor = ok ? Color.SeaGreen : Color.Firebrick;
                 lblExpose.Text = ok ? "EXPOSE ACK 완료" : "EXPOSE 실패. Vision READY/연결 상태를 확인하세요.";
                 if (ok)
-                    TryStartLive();
+                    LogLiveAutoStartBlocked("EXPOSE 완료 후 자동 Live 시작 차단");
             }
             catch (Exception ex)
             {
@@ -233,7 +233,22 @@ namespace QMC.CDT_320.Ui.Controls
 
         private void TryStartLive()
         {
-            try { viewer.StartLive(); } catch { }
+            LogLiveAutoStartBlocked("TryStartLive 호출 차단");
+        }
+
+        private void LogLiveAutoStartBlocked(string reason)
+        {
+            try
+            {
+                QMC.Common.Logging.EventLogger.Write(
+                    QMC.Common.Logging.EventKind.Warning,
+                    "VISION",
+                    "VISION-LIVE-BLOCK",
+                    "Vision 테스트 화면에서 Live 자동 시작을 차단했습니다. mode=" + _mode +
+                    ", viewerPort=" + ResolveViewerPort() +
+                    ", reason=" + reason);
+            }
+            catch { }
         }
     }
 }

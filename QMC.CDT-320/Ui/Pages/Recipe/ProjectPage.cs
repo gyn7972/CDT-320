@@ -22,13 +22,13 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
         private RecipeProject _current;
         private string _loadedProjectName = string.Empty;
         private bool _loading;
+        private static readonly string[] ColletTypeOptions = { "Flat", "Rim" };
 
         public ProjectPage()
         {
             InitializeComponent();
             ConfigureRuntimeUi();
             DisableColumnSorting();
-            WireEvents();
 
             if (LicenseManager.UsageMode == LicenseUsageMode.Designtime) return;
 
@@ -113,31 +113,29 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             gridStatus.Columns.Add(new DataGridViewTextBoxColumn { Name = "Detail", HeaderText = "Detail", FillWeight = 64 });
         }
 
-        private void WireEvents()
+        private void listProjects_DoubleClick(object sender, EventArgs e) => OnOpen();
+
+        private void listProjects_SelectedIndexChanged(object sender, EventArgs e)
         {
-            listProjects.DoubleClick += (s, e) => OnOpen();
-            listProjects.SelectedIndexChanged += (s, e) =>
-            {
-                if (!_loading && listProjects.SelectedItem is string fileName)
-                    LoadProject(fileName);
-            };
-
-            btnNew.Click += (s, e) => OnNew();
-            btnOpen.Click += (s, e) => OnOpen();
-            btnCopy.Click += (s, e) => OnCopy();
-            btnDelete.Click += (s, e) => OnDelete();
-            btnOpenFolder.Click += (s, e) => OpenPath(RecipeStore.Dir);
-            btnReload.Click += (s, e) => OnReload();
-            btnOpenRecipeFolder.Click += (s, e) => OnOpenRecipeFolder();
-            btnBrowseMap.Click += (s, e) => OnBrowseMap();
-            btnOpenMap.Click += (s, e) => OnOpenMap();
-            btnBrowseXml.Click += (s, e) => OnBrowseXmlPath();
-            btnApplyCurrent.Click += (s, e) => OnApplyCurrent();
-            btnSaveRecipe.Click += (s, e) => OnSaveCurrent();
-            btnSaveAs.Click += (s, e) => OnSaveAs();
-
-            gridMap.CellEndEdit += (s, e) => UpdateMapStatus();
+            if (!_loading && listProjects.SelectedItem is string fileName)
+                LoadProject(fileName);
         }
+
+        private void btnNew_Click(object sender, EventArgs e) => OnNew();
+        private void btnOpen_Click(object sender, EventArgs e) => OnOpen();
+        private void btnCopy_Click(object sender, EventArgs e) => OnCopy();
+        private void btnDelete_Click(object sender, EventArgs e) => OnDelete();
+        private void btnOpenFolder_Click(object sender, EventArgs e) => OpenPath(RecipeStore.Dir);
+        private void btnReload_Click(object sender, EventArgs e) => OnReload();
+        private void btnOpenRecipeFolder_Click(object sender, EventArgs e) => OnOpenRecipeFolder();
+        private void btnBrowseMap_Click(object sender, EventArgs e) => OnBrowseMap();
+        private void btnOpenMap_Click(object sender, EventArgs e) => OnOpenMap();
+        private void btnBrowseXml_Click(object sender, EventArgs e) => OnBrowseXmlPath();
+        private void btnApplyCurrent_Click(object sender, EventArgs e) => OnApplyCurrent();
+        private void btnSaveRecipe_Click(object sender, EventArgs e) => OnSaveCurrent();
+        private void btnSaveAs_Click(object sender, EventArgs e) => OnSaveAs();
+
+        private void gridMap_CellEndEdit(object sender, DataGridViewCellEventArgs e) => UpdateMapStatus();
 
         private void ReloadList()
         {
@@ -256,6 +254,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             AddRow(gridProject, "ChipThickness", "CHIP THICKNESS", project.ChipThickness.ToString("0.###", CultureInfo.InvariantCulture));
             AddRow(gridProject, "MasterChipThickness", "MASTER CHIP THICKNESS", project.MasterChipThickness.ToString("0.###", CultureInfo.InvariantCulture));
             AddRow(gridProject, "TapeThickness", "TAPE THICKNESS", project.TapeThickness.ToString("0.###", CultureInfo.InvariantCulture));
+            AddComboRow(gridProject, "ColletType", "COLLET TYPE", project.ColletZ.ColletType.ToString(), ColletTypeOptions);
             AddRow(gridProject, "BinSortNumber", "BIN SORT NUMBER", project.BinSortNumber.ToString(CultureInfo.InvariantCulture));
             AddRow(gridProject, "InputCassetteLevelCount", "INPUT CASSETTE LEVEL COUNT", project.InputCassetteLevelCount.ToString(CultureInfo.InvariantCulture));
             AddRow(gridProject, "GoodCassetteLevelCount", "GOOD CASSETTE LEVEL COUNT", project.GoodCassetteLevelCount.ToString(CultureInfo.InvariantCulture));
@@ -282,6 +281,24 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             int row = grid.Rows.Add(key, name, value == null ? "" : value.ToString());
             grid.Rows[row].Cells[NameColumnIndex].Style.BackColor = Color.FromArgb(224, 224, 224);
             grid.Rows[row].Cells[NameColumnIndex].Style.Font = new Font("맑은 고딕", 9F, FontStyle.Bold);
+        }
+
+        private static void AddComboRow(DataGridView grid, string key, string name, string value, string[] options)
+        {
+            string selected = string.IsNullOrWhiteSpace(value) ? "Flat" : value;
+            if (Array.IndexOf(options ?? new string[0], selected) < 0)
+                selected = options != null && options.Length > 0 ? options[0] : "";
+
+            int row = grid.Rows.Add(key, name, selected);
+            grid.Rows[row].Cells[NameColumnIndex].Style.BackColor = Color.FromArgb(224, 224, 224);
+            grid.Rows[row].Cells[NameColumnIndex].Style.Font = new Font("맑은 고딕", 9F, FontStyle.Bold);
+
+            var combo = new DataGridViewComboBoxCell();
+            combo.FlatStyle = FlatStyle.Flat;
+            combo.DisplayStyle = DataGridViewComboBoxDisplayStyle.ComboBox;
+            combo.Items.AddRange(options ?? new string[0]);
+            combo.Value = selected;
+            grid.Rows[row].Cells[ValueColumnIndex] = combo;
         }
 
         private void AddMapRow(string key, string name, string configured, string resolved)
@@ -637,6 +654,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             project.ChipThickness = ParseDouble(GetValue(gridProject, "ChipThickness"), project.ChipThickness);
             project.MasterChipThickness = ParseDouble(GetValue(gridProject, "MasterChipThickness"), project.MasterChipThickness);
             project.TapeThickness = ParseDouble(GetValue(gridProject, "TapeThickness"), project.TapeThickness);
+            project.ColletZ.ColletType = ParseColletType(GetValue(gridProject, "ColletType"), project.ColletZ.ColletType);
             project.BinSortNumber = ParseInt(GetValue(gridProject, "BinSortNumber"), project.BinSortNumber);
             project.InputCassetteLevelCount = Clamp(ParseInt(GetValue(gridProject, "InputCassetteLevelCount"), project.InputCassetteLevelCount), 1, 2);
             project.GoodCassetteLevelCount = Clamp(ParseInt(GetValue(gridProject, "GoodCassetteLevelCount"), project.GoodCassetteLevelCount), 1, 2);
@@ -712,6 +730,8 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
         {
             if (project == null)
                 return;
+            if (project.ColletZ == null) project.ColletZ = new ColletZConfigSubset();
+            project.ColletZ.Ensure();
             if (project.Die == null) project.Die = new DieSubset();
             if (project.Frame == null) project.Frame = new TapeFrameSubset();
             if (project.LoadFrame == null) project.LoadFrame = new LoadTapeFrameSubset();
@@ -798,6 +818,12 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                    int.TryParse(value, NumberStyles.Integer, CultureInfo.CurrentCulture, out result)
                 ? result
                 : fallback;
+        }
+
+        private static ColletShapeType ParseColletType(string value, ColletShapeType fallback)
+        {
+            ColletShapeType parsed;
+            return Enum.TryParse(value, true, out parsed) ? parsed : fallback;
         }
 
         private static int Clamp(int value, int min, int max)

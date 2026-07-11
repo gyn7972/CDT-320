@@ -1066,6 +1066,10 @@ namespace QMC.CDT320.Interlocks
             if (!CanHomeFrontPickerZ(machine, movingName, out reason))
                 return false;
 
+            // 현재 기준: PickerY가 Input/Output/공통 Avoid 위치이면 FrontPickerZ 하강 이동을 차단한다.
+            if (!VerifyFrontPickerYAvoidBlocksZDown(request, out reason))
+                return false;
+
             // 현재 기준: FrontPickerZ 작업 이동 전 Reticle은 Retract 상태여야 한다.
             if (!MotionGuardRuleHelpers.VerifyReticleRetractedBeforePickerZWorkMove(request, out reason))
                 return false;
@@ -1099,6 +1103,97 @@ namespace QMC.CDT320.Interlocks
         {
             // 현재 기준: Auto FrontPickerZ도 Manual FrontPickerZ 기본 인터락과 동일하게 확인한다.
             return CanManualFrontPickerZ(request, out reason);
+        }
+
+        // 인터락 항목: FrontPickerY가 Avoid 계열 위치일 때 FrontPickerZ 하강 명령을 차단한다.
+        private static bool VerifyFrontPickerYAvoidBlocksZDown(MotionGuardRuleContext request, out string reason)
+        {
+            reason = string.Empty;
+
+            // 방어 조건: 요청 또는 FrontPicker 참조가 없으면 Y-Z Avoid 연동 조건을 적용하지 않는다.
+            PickerFrontUnit picker = request != null && request.Machine != null ? request.Machine.PickerFrontUnit : null;
+            if (picker == null)
+                return true;
+
+            PickerAxis zAxis;
+            // 방어 조건: 이동 Z축을 해석하지 못하면 Y-Z Avoid 연동 조건을 적용하지 않는다.
+            if (!TryResolveMovingZAxis(request.MovingName, out zAxis))
+                return true;
+
+            BaseAxis zItem = ResolveFrontPickerAxis(picker, zAxis);
+            if (zItem == null)
+                return true;
+
+            // 현재 기준: Home/0 또는 Z Avoid 위치로 가는 복귀 목표는 하강 차단 대상에서 제외한다.
+            if (IsFrontPickerZSafeRetreatTarget(request, picker, zAxis, zItem))
+                return true;
+
+            // 현재 기준: 실제 Z 하강 목표가 아니면 차단하지 않는다.
+            if (!IsZTargetDown(request.TargetValue, zItem))
+                return true;
+
+            string yAvoidName = ResolveFrontPickerYAvoidPositionName(picker);
+            if (string.IsNullOrWhiteSpace(yAvoidName))
+                return true;
+
+            double yActual = picker.PickerY != null ? picker.PickerY.ActualPosition : 0.0;
+            return MotionGuardRuleHelpers.Block(
+                request.MovingName,
+                request.MovingName + " 이동 불가: FrontPickerY가 " + yAvoidName +
+                " 위치일 때 PickerZ 하강 이동은 금지됩니다. " +
+                "pickerY=" + yActual.ToString("F3") +
+                ", zActual=" + zItem.ActualPosition.ToString("F3") +
+                ", zTarget=" + request.TargetValue.ToString("F3") +
+                ", targetName=" + (string.IsNullOrWhiteSpace(request.TargetName) ? "-" : request.TargetName),
+                out reason);
+        }
+
+        // 인터락 기준: FrontPickerZ 목표가 Home/0 또는 Z Avoid 위치 복귀 목표인지 판단한다.
+        private static bool IsFrontPickerZSafeRetreatTarget(MotionGuardRuleContext request, PickerFrontUnit picker, PickerAxis zAxis, BaseAxis zItem)
+        {
+            if (request == null)
+                return true;
+
+            double tolerance = ResolveAxisTolerance(zItem);
+            double target = request.TargetValue;
+
+            // 현재 기준: 목표가 0 근처이면 Home 복귀 목표로 본다.
+            if (System.Math.Abs(target) <= tolerance)
+                return true;
+
+            // 현재 기준: 목표가 해당 Z축 Avoid 티칭 위치이면 복귀 목표로 본다.
+            return System.Math.Abs(target - picker.GetPickerTeachingPosition(zAxis, "AvoidPosition")) <= tolerance;
+        }
+
+        // 인터락 기준: FrontPickerY가 InputAvoid/OutputAvoid/Avoid 중 어느 위치에 있는지 반환한다.
+        private static string ResolveFrontPickerYAvoidPositionName(PickerFrontUnit picker)
+        {
+            if (picker == null)
+                return string.Empty;
+
+            // 현재 기준: InputAvoidPosition도 Z 하강 금지 Y 위치로 본다.
+            if (picker.IsPickerAxisInTeachingPosition(PickerAxis.PickerY, "InputAvoidPosition"))
+                return "InputAvoidPosition";
+
+            // 현재 기준: OutputAvoidPosition도 Z 하강 금지 Y 위치로 본다.
+            if (picker.IsPickerAxisInTeachingPosition(PickerAxis.PickerY, "OutputAvoidPosition"))
+                return "OutputAvoidPosition";
+
+            // 현재 기준: 공통 AvoidPosition도 Z 하강 금지 Y 위치로 본다.
+            if (picker.IsPickerAxisInTeachingPosition(PickerAxis.PickerY, "AvoidPosition"))
+                return "AvoidPosition";
+
+            return string.Empty;
+        }
+
+        // 인터락 기준: Z축 목표가 현재 위치보다 아래 방향인지 판단한다.
+        private static bool IsZTargetDown(double target, BaseAxis zItem)
+        {
+            if (zItem == null)
+                return false;
+
+            // 현재 기준: 1um 단위 하강도 차단해야 하므로 InPositionTolerance 대신 최소 오차만 사용한다.
+            return target < zItem.ActualPosition - 0.000001;
         }
 
         // 인터락 기준: PickerZ 이동 요청의 목표 작업 존을 해석한다.
@@ -1456,6 +1551,34 @@ namespace QMC.CDT320.Interlocks
                     return true;
                 // 프론트 피커 T3축 처리
                 case "FrontPickerT3":
+                    zAxis = PickerAxis.PickerZ3;
+                    return true;
+                default:
+                    return false;
+            }
+        }
+
+        // 인터락 기준: FrontPickerZ 축명에서 이동 대상 Z축을 해석한다.
+        private static bool TryResolveMovingZAxis(string movingName, out PickerAxis zAxis)
+        {
+            zAxis = PickerAxis.PickerZ0;
+
+            switch (movingName)
+            {
+                // 프론트 피커 Z0축 처리
+                case "FrontPickerZ0":
+                    zAxis = PickerAxis.PickerZ0;
+                    return true;
+                // 프론트 피커 Z1축 처리
+                case "FrontPickerZ1":
+                    zAxis = PickerAxis.PickerZ1;
+                    return true;
+                // 프론트 피커 Z2축 처리
+                case "FrontPickerZ2":
+                    zAxis = PickerAxis.PickerZ2;
+                    return true;
+                // 프론트 피커 Z3축 처리
+                case "FrontPickerZ3":
                     zAxis = PickerAxis.PickerZ3;
                     return true;
                 default:

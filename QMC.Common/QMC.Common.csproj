@@ -42,7 +42,7 @@
     <UseVSHostingProcess>true</UseVSHostingProcess>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Release|x64'">
-    <OutputPath>bin\x64\Release\</OutputPath>
+    <OutputPath>..\..\..\CDT-320\</OutputPath>
     <DefineConstants>TRACE</DefineConstants>
     <Optimize>true</Optimize>
     <DebugType>pdbonly</DebugType>
@@ -154,6 +154,7 @@
     <Compile Include="Motion\AxisStatusSnapshot.cs" />
     <Compile Include="Motion\AxisSpeedTable.cs" />
     <Compile Include="Motion\AjinInterpolatedMotionService.cs" />
+    <Compile Include="Motion\AjinVirtualCoordinatePool.cs" />
     <Compile Include="Motion\BaseAxis.cs" />
     <Compile Include="Motion\InterpolatedMotionAxisInfo.cs" />
     <Compile Include="Motion\InterpolatedMotionMapResult.cs" />

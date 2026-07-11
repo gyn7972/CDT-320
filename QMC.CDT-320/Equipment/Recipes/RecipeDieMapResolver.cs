@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using QMC.CDT320.DieMaps;
+using QMC.CDT320.Materials;
 
 namespace QMC.CDT320.Recipes
 {
@@ -36,6 +37,18 @@ namespace QMC.CDT320.Recipes
                     {
                         reason = "configured map is empty. path=" + configuredPath;
                     }
+
+                    string sidecarCsvPath;
+                    string sidecarCsvReason;
+                    DieMap sidecarCsvMap = LoadCompatibleSidecarCsv(configuredPath, frame, out sidecarCsvPath, out sidecarCsvReason);
+                    if (IsUsableMap(sidecarCsvMap))
+                    {
+                        sourcePath = sidecarCsvPath;
+                        return DieMapGenerator.Normalize(sidecarCsvMap);
+                    }
+
+                    if (!string.IsNullOrWhiteSpace(sidecarCsvReason))
+                        reason = AppendReason(reason, sidecarCsvReason);
                 }
                 else if (!string.IsNullOrWhiteSpace(configuredPath))
                 {
@@ -71,13 +84,59 @@ namespace QMC.CDT320.Recipes
             }
         }
 
+        private static DieMap LoadCompatibleSidecarCsv(string configuredPath, TapeFrameSubset frame, out string sourcePath, out string reason)
+        {
+            sourcePath = "";
+            reason = "";
+
+            try
+            {
+                if (string.IsNullOrWhiteSpace(configuredPath))
+                    return null;
+
+                if (string.Equals(Path.GetExtension(configuredPath), ".csv", StringComparison.OrdinalIgnoreCase))
+                    return null;
+
+                string csvPath = Path.ChangeExtension(configuredPath, ".csv");
+                if (string.IsNullOrWhiteSpace(csvPath) || !File.Exists(csvPath))
+                    return null;
+
+                DieMap csvMap = DieMapGenerator.Load(csvPath);
+                if (!IsUsableMap(csvMap))
+                {
+                    reason = "configured sidecar csv is empty. path=" + csvPath;
+                    return null;
+                }
+
+                string mismatch;
+                if (IsCompatibleWithFrame(csvMap, frame, out mismatch))
+                {
+                    sourcePath = csvPath;
+                    return DieMapGenerator.Normalize(csvMap);
+                }
+
+                reason = "configured sidecar csv mismatch. path=" + csvPath + ", " + mismatch;
+                return null;
+            }
+            catch (Exception ex)
+            {
+                reason = "configured sidecar csv load failed. path=" + configuredPath + ", error=" + ex.Message;
+                return null;
+            }
+        }
+
         public static TapeFrameSubset ResolveFrame(RecipeProject project, RecipeMapKind kind)
         {
             if (project == null)
                 return null;
 
             if (kind == RecipeMapKind.Input)
-                return project.InputFrame ?? project.Frame;
+            {
+                TapeFrameSubset inputFrame = project.InputFrame ?? project.Frame;
+                if (inputFrame != null)
+                    inputFrame.FrameSpecName = MaterialStateService.NormalizeInputTapeFrameSpecName(inputFrame.FrameSpecName);
+                return inputFrame;
+            }
 
             return project.OutputFrame ?? project.Frame;
         }

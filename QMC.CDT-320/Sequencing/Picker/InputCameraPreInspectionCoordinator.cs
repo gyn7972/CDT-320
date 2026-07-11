@@ -7,6 +7,8 @@ namespace QMC.CDT320.Sequencing
 {
     internal static class InputCameraPreInspectionCoordinator
     {
+        private const int CycleStoppedResult = -320901;
+
         private sealed class RunningInspection
         {
             public Task<int> Task;
@@ -144,6 +146,21 @@ namespace QMC.CDT320.Sequencing
                             waitLogged = false;
                             continue;
                         }
+                        catch (SequenceStopException ex)
+                        {
+                            RemoveIfSame(side, runningTask);
+                            if (context != null && context.IsCycleStopRequested)
+                            {
+                                throw;
+                            }
+
+                            WriteLog("InputCameraPreInspectionCoordinator",
+                                side + " InputCamera 선행검사 Cycle Stop 완료 Task가 남아 있어 제거 후 새 선행검사를 시작합니다. " +
+                                "reason=" + (reason ?? "-") +
+                                ", stopReason=" + ex.Message + " - Recover");
+                            waitLogged = false;
+                            continue;
+                        }
                         catch (ObjectDisposedException ex)
                         {
                             RemoveIfSame(side, runningTask);
@@ -168,6 +185,18 @@ namespace QMC.CDT320.Sequencing
                         }
 
                         RemoveIfSame(side, runningTask);
+
+                        if (result == CycleStoppedResult)
+                        {
+                            if (context != null && context.IsCycleStopRequested)
+                                context.StopIfCycleStopRequested("InputCameraPreInspectionCoordinator.CompletedStop:" + side);
+
+                            WriteLog("InputCameraPreInspectionCoordinator",
+                                side + " InputCamera 선행검사 Cycle Stop 결과를 실패로 사용하지 않고 제거 후 새 선행검사를 시작합니다. " +
+                                "reason=" + (reason ?? "-") + " - Recover");
+                            waitLogged = false;
+                            continue;
+                        }
 
                         if (InputCameraPickUpPermissionStore.HasPermission(side))
                             return InputCameraPreInspectionWaitResult.PermissionReady();
@@ -288,6 +317,13 @@ namespace QMC.CDT320.Sequencing
             {
                 throw;
             }
+            catch (SequenceStopException ex)
+            {
+                WriteLog("InputCameraPreInspectionCoordinator",
+                    side + " InputCamera 선행검사가 Cycle Stop 경계에서 정지되었습니다. reason=" +
+                    ex.Message + ", requestReason=" + (reason ?? "-") + " - Stopped");
+                return CycleStoppedResult;
+            }
             catch (Exception ex)
             {
                 WriteLog("InputCameraPreInspectionCoordinator",
@@ -351,6 +387,7 @@ namespace QMC.CDT320.Sequencing
                 PickerNo = options.PickerNo,
                 RestrictToPickerNo = options.RestrictToPickerNo,
                 VisionRetryCount = options.VisionRetryCount,
+                InputDieVisionFailureAction = options.InputDieVisionFailureAction,
                 SimulateVisionResult = options.SimulateVisionResult,
                 PickerMotionOnlyTestMode = options.PickerMotionOnlyTestMode,
                 RequireInputCameraMarkInspectionPermission = false,

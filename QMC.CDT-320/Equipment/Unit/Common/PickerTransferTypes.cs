@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Runtime.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
@@ -19,6 +20,12 @@ namespace QMC.CDT320
         SimpleZDownVacuumUp = 1
     }
 
+    public enum PickerPickUpTransferMotionMode
+    {
+        Default = 0,
+        ContiSegmentedPickUp = 2
+    }
+
     public enum PickerBottomFlyingZDownMode
     {
         Off = 0,
@@ -29,6 +36,7 @@ namespace QMC.CDT320
     public enum PickerBottomFlyingZStartMode
     {
         Immediate = 0,
+        // Legacy compatibility only. Runtime operation normalizes DelayMs to XRemainingDistance.
         DelayMs = 1,
         XRemainingDistance = 2
     }
@@ -36,14 +44,29 @@ namespace QMC.CDT320
     public enum PickerPlaceMotionMode
     {
         Default = 0,
-        SynchronizedArrival = 1,
         ContiSegmentedPlace = 2
     }
 
     [DataContract]
     public sealed class PickerPickUpMotionConfig
     {
+        public const double MinimumPickerSafeForWaferStageDistance = 2.0;
+
         [DataMember] public PickerPickUpZMotionMode MotionMode { get; set; } = PickerPickUpZMotionMode.Detailed;
+        [DataMember] public PickerPickUpTransferMotionMode TransferMotionMode { get; set; } = PickerPickUpTransferMotionMode.Default;
+        [DataMember] public int TransferContiCoordinate { get; set; } = 2;
+        [DataMember] public int TransferContiTimeoutMs { get; set; } = 5000;
+        [DataMember] public double TransferContiMaxTravelDistance { get; set; } = 45.0;
+        [DataMember] public double TransferContiPickerYMaxCorrectionDistance { get; set; } = 1.5;
+        [DataMember] public double TransferContiXYMidRatio { get; set; } = 0.5;
+        [DataMember] public double TransferContiSplineCurvePercent { get; set; } = 100.0;
+        [DataMember] public double TransferContiMaxVelocity { get; set; } = 500.0;
+        [DataMember] public double TransferContiMaxAcceleration { get; set; } = 5000.0;
+        [DataMember] public double TransferContiMaxDeceleration { get; set; } = 5000.0;
+        [DataMember] public double TransferContiNode0SpeedPercent { get; set; } = 20.0;
+        [DataMember] public double TransferContiNode1SpeedPercent { get; set; } = 100.0;
+        [DataMember] public double TransferContiNode2SpeedPercent { get; set; } = 100.0;
+        [DataMember] public double TransferContiNode3SpeedPercent { get; set; } = 20.0;
         [DataMember] public double PickerZPrePickDistance { get; set; } = 1.0;
         [DataMember] public double PickerZSlowApproachSpeedPercent { get; set; } = 1.0;
         [DataMember] public double PickerZSyncLiftDistance { get; set; } = 2.0;
@@ -52,8 +75,11 @@ namespace QMC.CDT320
         [DataMember] public double PickerZSyncLiftDeceleration { get; set; } = 100.0;
         [DataMember] public double PickerZSeparateDistance { get; set; } = 1.0;
         [DataMember] public double PickerZSeparateSpeedPercent { get; set; } = 1.0;
+        [DataMember] public double PickerZAvoidReturnSpeedPercent { get; set; } = 10.0;
+        [DataMember] public double PickerSafeForWaferStageDistance { get; set; } = MinimumPickerSafeForWaferStageDistance;
         [DataMember] public PickerPickUpSeparateMode SeparateMode { get; set; } = PickerPickUpSeparateMode.Simultaneous;
         [DataMember] public int VacuumOnBeforePickDelayMs { get; set; } = 0;
+        [DataMember] public int SyncLiftSettleMs { get; set; } = 0;
         [DataMember] public int PickSettleMs { get; set; } = 0;
 
         // Legacy values are kept only for reading old config files.
@@ -68,6 +94,12 @@ namespace QMC.CDT320
         [DataMember] public double PickerZSeparateVelocity { get; set; } = 0.0;
         [DataMember] public double PickerZSeparateAcceleration { get; set; } = 0.0;
         [DataMember] public double PickerZSeparateDeceleration { get; set; } = 0.0;
+
+        [OnDeserializing]
+        private void OnDeserializing(StreamingContext ctx)
+        {
+            TransferContiSplineCurvePercent = 100.0;
+        }
 
         [OnDeserialized]
         private void OnDeserialized(StreamingContext ctx)
@@ -90,6 +122,28 @@ namespace QMC.CDT320
             if (PickerZSeparateSpeedPercent <= 0.0 && PickerZSeparateVelocity > 0.0)
                 PickerZSeparateSpeedPercent = 1.0;
 
+            if (TransferMotionMode != PickerPickUpTransferMotionMode.Default &&
+                TransferMotionMode != PickerPickUpTransferMotionMode.ContiSegmentedPickUp)
+            {
+                TransferMotionMode = PickerPickUpTransferMotionMode.Default;
+            }
+
+            if (TransferContiCoordinate <= 0)
+                TransferContiCoordinate = 2;
+            if (TransferContiTimeoutMs <= 0)
+                TransferContiTimeoutMs = 5000;
+            TransferContiMaxTravelDistance = NormalizePositive(TransferContiMaxTravelDistance, 45.0);
+            TransferContiPickerYMaxCorrectionDistance = NormalizePositive(TransferContiPickerYMaxCorrectionDistance, 1.5);
+            TransferContiXYMidRatio = NormalizeRatio(TransferContiXYMidRatio, 0.5);
+            TransferContiSplineCurvePercent = NormalizeSplineCurvePercent(TransferContiSplineCurvePercent, 100.0);
+            TransferContiMaxVelocity = NormalizePositive(TransferContiMaxVelocity, 500.0);
+            TransferContiMaxAcceleration = NormalizePositive(TransferContiMaxAcceleration, 5000.0);
+            TransferContiMaxDeceleration = NormalizePositive(TransferContiMaxDeceleration, 5000.0);
+            TransferContiNode0SpeedPercent = NormalizePercent(TransferContiNode0SpeedPercent, 20.0);
+            TransferContiNode1SpeedPercent = NormalizePercent(TransferContiNode1SpeedPercent, 100.0);
+            TransferContiNode2SpeedPercent = NormalizePercent(TransferContiNode2SpeedPercent, 100.0);
+            TransferContiNode3SpeedPercent = NormalizePercent(TransferContiNode3SpeedPercent, 20.0);
+
             PickerZPrePickDistance = NormalizeDistance(PickerZPrePickDistance);
             PickerZSlowApproachSpeedPercent = NormalizePercent(PickerZSlowApproachSpeedPercent, 1.0);
             PickerZSyncLiftDistance = NormalizeDistance(PickerZSyncLiftDistance);
@@ -98,11 +152,30 @@ namespace QMC.CDT320
             PickerZSyncLiftDeceleration = NormalizePositive(PickerZSyncLiftDeceleration, 100.0);
             PickerZSeparateDistance = NormalizeDistance(PickerZSeparateDistance);
             PickerZSeparateSpeedPercent = NormalizePercent(PickerZSeparateSpeedPercent, 1.0);
+            PickerZAvoidReturnSpeedPercent = NormalizePercent(PickerZAvoidReturnSpeedPercent, 10.0);
+            PickerSafeForWaferStageDistance = NormalizePickerSafeForWaferStageDistance(PickerSafeForWaferStageDistance);
 
             if (VacuumOnBeforePickDelayMs < 0)
                 VacuumOnBeforePickDelayMs = 0;
+            if (SyncLiftSettleMs < 0)
+                SyncLiftSettleMs = 0;
             if (PickSettleMs < 0)
                 PickSettleMs = 0;
+        }
+
+        public double GetTransferContiNodeVelocity(int nodeIndex)
+        {
+            return MotionSpeedScale.ApplyDefaultVelocityScale(TransferContiMaxVelocity * GetTransferContiNodeRatio(nodeIndex));
+        }
+
+        public double GetTransferContiNodeAcceleration(int nodeIndex)
+        {
+            return MotionSpeedScale.ApplyDefaultAccelerationScale(TransferContiMaxAcceleration * GetTransferContiNodeRatio(nodeIndex));
+        }
+
+        public double GetTransferContiNodeDeceleration(int nodeIndex)
+        {
+            return MotionSpeedScale.ApplyDefaultAccelerationScale(TransferContiMaxDeceleration * GetTransferContiNodeRatio(nodeIndex));
         }
 
         public static double NormalizePercent(double percent, double fallback)
@@ -123,17 +196,63 @@ namespace QMC.CDT320
             return value;
         }
 
+        public static double NormalizePickerSafeForWaferStageDistance(double distance)
+        {
+            if (double.IsNaN(distance) || double.IsInfinity(distance))
+                return MinimumPickerSafeForWaferStageDistance;
+            return Math.Max(MinimumPickerSafeForWaferStageDistance, distance);
+        }
+
+        public static double NormalizeSplineCurvePercent(double percent, double fallback)
+        {
+            if (double.IsNaN(percent) || double.IsInfinity(percent))
+                percent = fallback;
+            if (percent < 0.0)
+                return 0.0;
+            if (percent > 200.0)
+                return 200.0;
+            return percent;
+        }
+
         private static double NormalizeDistance(double distance)
         {
             if (double.IsNaN(distance) || double.IsInfinity(distance) || distance < 0.0)
                 return 0.0;
             return distance;
         }
+
+        private double GetTransferContiNodeRatio(int nodeIndex)
+        {
+            double percent;
+            switch (nodeIndex)
+            {
+                case 0: percent = TransferContiNode0SpeedPercent; break;
+                case 1: percent = TransferContiNode1SpeedPercent; break;
+                case 2: percent = TransferContiNode2SpeedPercent; break;
+                case 3: percent = TransferContiNode3SpeedPercent; break;
+                default: percent = TransferContiNode3SpeedPercent; break;
+            }
+
+            return NormalizePercent(percent, 1.0) / 100.0;
+        }
+
+        private static double NormalizeRatio(double value, double fallback)
+        {
+            if (double.IsNaN(value) || double.IsInfinity(value))
+                value = fallback;
+            if (value < 0.0)
+                return 0.0;
+            if (value > 1.0)
+                return 1.0;
+            return value;
+        }
     }
 
     [DataContract]
     public sealed class PickerBottomInspectionMotionConfig
     {
+        private const double DefaultFlyingZStartXRemainingDistance = 5.0;
+
         [DataMember] public PickerBottomFlyingZDownMode FlyingZDownMode { get; set; } = PickerBottomFlyingZDownMode.Off;
         [DataMember] public double FlyingZDownDistance { get; set; } = 2.0;
         [DataMember] public PickerBottomFlyingZStartMode FlyingZStartMode { get; set; } = PickerBottomFlyingZStartMode.XRemainingDistance;
@@ -149,9 +268,15 @@ namespace QMC.CDT320
         public void Ensure()
         {
             FlyingZDownDistance = NormalizeDistance(FlyingZDownDistance);
+            if (FlyingZStartMode == PickerBottomFlyingZStartMode.DelayMs)
+                FlyingZStartMode = PickerBottomFlyingZStartMode.XRemainingDistance;
             if (FlyingZStartDelayMs < 0)
                 FlyingZStartDelayMs = 0;
+            if (FlyingZStartMode != PickerBottomFlyingZStartMode.DelayMs)
+                FlyingZStartDelayMs = 0;
             FlyingZStartXRemainingDistance = NormalizeDistance(FlyingZStartXRemainingDistance);
+            if (FlyingZStartMode == PickerBottomFlyingZStartMode.XRemainingDistance && FlyingZStartXRemainingDistance <= 0.0)
+                FlyingZStartXRemainingDistance = DefaultFlyingZStartXRemainingDistance;
         }
 
         public static double NormalizeDistance(double distance)
@@ -165,35 +290,34 @@ namespace QMC.CDT320
     [DataContract]
     public sealed class PickerPlaceMotionConfig
     {
-        [DataMember] public PickerPlaceMotionMode MotionMode { get; set; } = PickerPlaceMotionMode.Default;
-        [DataMember] public int InterpolationCoordinate { get; set; } = 0;
-        [DataMember] public double SynchronizedVelocity { get; set; } = 1.0;
-        [DataMember] public double SynchronizedAcceleration { get; set; } = 10.0;
-        [DataMember] public double SynchronizedDeceleration { get; set; } = 10.0;
-        [DataMember] public int SynchronizedTimeoutMs { get; set; } = 5000;
-        [DataMember] public double MaxSynchronizedTravelDistance { get; set; } = 37.0;
-        [DataMember] public double ContiZ1Step1Clearance { get; set; } = 0.15;
-        [DataMember] public double ContiZ1Step2Clearance { get; set; } = 0.15;
+        [DataMember] public PickerPlaceMotionMode MotionMode { get; set; } = PickerPlaceMotionMode.ContiSegmentedPlace;
+        [DataMember] public int ContiCoordinate { get; set; } = 1;
+        [DataMember] public int ContiTimeoutMs { get; set; } = 5000;
+        [DataMember] public double ContiMaxTravelDistance { get; set; } = 45.0;
+        [DataMember] public double ContiZ1Step1Clearance { get; set; } = 2.0;
+        [DataMember] public double ContiZ1Step2Clearance { get; set; } = 2.0;
         [DataMember] public double ContiNearAvoidDistance { get; set; } = 1.0;
         [DataMember] public double ContiXYMidRatio { get; set; } = 0.5;
-        [DataMember] public double ContiOverDrive { get; set; } = 0.05;
-        [DataMember] public double ContiTapeThicknessFallback { get; set; } = 0.10;
-        [DataMember] public double ContiDieThicknessFallback { get; set; } = 0.15;
-        [DataMember] public double ContiNode0Velocity { get; set; } = 2.0;
-        [DataMember] public double ContiNode0Acceleration { get; set; } = 20.0;
-        [DataMember] public double ContiNode0Deceleration { get; set; } = 20.0;
-        [DataMember] public double ContiNode1Velocity { get; set; } = 5.0;
-        [DataMember] public double ContiNode1Acceleration { get; set; } = 50.0;
-        [DataMember] public double ContiNode1Deceleration { get; set; } = 50.0;
-        [DataMember] public double ContiNode2Velocity { get; set; } = 5.0;
-        [DataMember] public double ContiNode2Acceleration { get; set; } = 50.0;
-        [DataMember] public double ContiNode2Deceleration { get; set; } = 50.0;
-        [DataMember] public double ContiNode3Velocity { get; set; } = 2.0;
-        [DataMember] public double ContiNode3Acceleration { get; set; } = 20.0;
-        [DataMember] public double ContiNode3Deceleration { get; set; } = 20.0;
-        [DataMember] public double ContiNode4Velocity { get; set; } = 0.5;
-        [DataMember] public double ContiNode4Acceleration { get; set; } = 10.0;
-        [DataMember] public double ContiNode4Deceleration { get; set; } = 10.0;
+        [DataMember] public double ContiSplineCurvePercent { get; set; } = 100.0;
+        [DataMember] public double ContiOverDrive { get; set; } = 0.03;
+        [DataMember] public double PlaceZOverDrive { get; set; } = 0.0;
+        [DataMember] public int PlaceReleaseDwellMs { get; set; } = 0;
+        [DataMember] public double ContiTapeThicknessFallback { get; set; } = 0.0;
+        [DataMember] public double ContiDieThicknessFallback { get; set; } = 0.0;
+        [DataMember] public double ContiMaxVelocity { get; set; } = 500.0;
+        [DataMember] public double ContiMaxAcceleration { get; set; } = 5000.0;
+        [DataMember] public double ContiMaxDeceleration { get; set; } = 5000.0;
+        [DataMember] public double ContiNode0SpeedPercent { get; set; } = 1.0;
+        [DataMember] public double ContiNode1SpeedPercent { get; set; } = 20.0;
+        [DataMember] public double ContiNode2SpeedPercent { get; set; } = 100.0;
+        [DataMember] public double ContiNode3SpeedPercent { get; set; } = 100.0;
+        [DataMember] public double ContiNode4SpeedPercent { get; set; } = 1.0;
+
+        [OnDeserializing]
+        private void OnDeserializing(StreamingContext ctx)
+        {
+            ContiSplineCurvePercent = 100.0;
+        }
 
         [OnDeserialized]
         private void OnDeserialized(StreamingContext ctx)
@@ -203,80 +327,79 @@ namespace QMC.CDT320
 
         public void Ensure()
         {
-            if (InterpolationCoordinate < 0)
-                InterpolationCoordinate = 0;
-            SynchronizedVelocity = PickerPickUpMotionConfig.NormalizePositive(SynchronizedVelocity, 1.0);
-            SynchronizedAcceleration = PickerPickUpMotionConfig.NormalizePositive(SynchronizedAcceleration, 10.0);
-            SynchronizedDeceleration = PickerPickUpMotionConfig.NormalizePositive(SynchronizedDeceleration, 10.0);
-            if (SynchronizedTimeoutMs <= 0)
-                SynchronizedTimeoutMs = 5000;
-            MaxSynchronizedTravelDistance = PickerPickUpMotionConfig.NormalizePositive(MaxSynchronizedTravelDistance, 37.0);
+            if (MotionMode != PickerPlaceMotionMode.Default &&
+                MotionMode != PickerPlaceMotionMode.ContiSegmentedPlace)
+            {
+                MotionMode = PickerPlaceMotionMode.ContiSegmentedPlace;
+            }
+
+            if (ContiCoordinate <= 0)
+                ContiCoordinate = 1;
+            if (ContiTimeoutMs <= 0)
+                ContiTimeoutMs = 5000;
+            ContiMaxTravelDistance = PickerPickUpMotionConfig.NormalizePositive(ContiMaxTravelDistance, 45.0);
             ContiZ1Step1Clearance = NormalizeNonNegative(ContiZ1Step1Clearance);
             ContiZ1Step2Clearance = NormalizeNonNegative(ContiZ1Step2Clearance);
             ContiNearAvoidDistance = NormalizeNonNegative(ContiNearAvoidDistance);
             ContiXYMidRatio = NormalizeRatio(ContiXYMidRatio, 0.5);
+            ContiSplineCurvePercent = PickerPickUpMotionConfig.NormalizeSplineCurvePercent(ContiSplineCurvePercent, 100.0);
             ContiOverDrive = NormalizeNonNegative(ContiOverDrive);
+            PlaceZOverDrive = NormalizeFinite(PlaceZOverDrive);
+            if (PlaceReleaseDwellMs < 0)
+                PlaceReleaseDwellMs = 0;
             ContiTapeThicknessFallback = NormalizeNonNegative(ContiTapeThicknessFallback);
             ContiDieThicknessFallback = NormalizeNonNegative(ContiDieThicknessFallback);
-            ContiNode0Velocity = PickerPickUpMotionConfig.NormalizePositive(ContiNode0Velocity, 2.0);
-            ContiNode0Acceleration = PickerPickUpMotionConfig.NormalizePositive(ContiNode0Acceleration, 20.0);
-            ContiNode0Deceleration = PickerPickUpMotionConfig.NormalizePositive(ContiNode0Deceleration, 20.0);
-            ContiNode1Velocity = PickerPickUpMotionConfig.NormalizePositive(ContiNode1Velocity, 5.0);
-            ContiNode1Acceleration = PickerPickUpMotionConfig.NormalizePositive(ContiNode1Acceleration, 50.0);
-            ContiNode1Deceleration = PickerPickUpMotionConfig.NormalizePositive(ContiNode1Deceleration, 50.0);
-            ContiNode2Velocity = PickerPickUpMotionConfig.NormalizePositive(ContiNode2Velocity, 5.0);
-            ContiNode2Acceleration = PickerPickUpMotionConfig.NormalizePositive(ContiNode2Acceleration, 50.0);
-            ContiNode2Deceleration = PickerPickUpMotionConfig.NormalizePositive(ContiNode2Deceleration, 50.0);
-            ContiNode3Velocity = PickerPickUpMotionConfig.NormalizePositive(ContiNode3Velocity, 2.0);
-            ContiNode3Acceleration = PickerPickUpMotionConfig.NormalizePositive(ContiNode3Acceleration, 20.0);
-            ContiNode3Deceleration = PickerPickUpMotionConfig.NormalizePositive(ContiNode3Deceleration, 20.0);
-            ContiNode4Velocity = PickerPickUpMotionConfig.NormalizePositive(ContiNode4Velocity, 0.5);
-            ContiNode4Acceleration = PickerPickUpMotionConfig.NormalizePositive(ContiNode4Acceleration, 10.0);
-            ContiNode4Deceleration = PickerPickUpMotionConfig.NormalizePositive(ContiNode4Deceleration, 10.0);
+            ContiMaxVelocity = PickerPickUpMotionConfig.NormalizePositive(ContiMaxVelocity, 500.0);
+            ContiMaxAcceleration = PickerPickUpMotionConfig.NormalizePositive(ContiMaxAcceleration, 5000.0);
+            ContiMaxDeceleration = PickerPickUpMotionConfig.NormalizePositive(ContiMaxDeceleration, 5000.0);
+            ContiNode0SpeedPercent = PickerPickUpMotionConfig.NormalizePercent(ContiNode0SpeedPercent, 1.0);
+            ContiNode1SpeedPercent = PickerPickUpMotionConfig.NormalizePercent(ContiNode1SpeedPercent, 20.0);
+            ContiNode2SpeedPercent = PickerPickUpMotionConfig.NormalizePercent(ContiNode2SpeedPercent, 100.0);
+            ContiNode3SpeedPercent = PickerPickUpMotionConfig.NormalizePercent(ContiNode3SpeedPercent, 100.0);
+            ContiNode4SpeedPercent = PickerPickUpMotionConfig.NormalizePercent(ContiNode4SpeedPercent, 1.0);
         }
 
         public double GetContiNodeVelocity(int nodeIndex)
         {
-            switch (nodeIndex)
-            {
-                case 0: return ContiNode0Velocity;
-                case 1: return ContiNode1Velocity;
-                case 2: return ContiNode2Velocity;
-                case 3: return ContiNode3Velocity;
-                case 4: return ContiNode4Velocity;
-                default: return ContiNode4Velocity;
-            }
+            return MotionSpeedScale.ApplyDefaultVelocityScale(ContiMaxVelocity * GetContiNodeRatio(nodeIndex));
         }
 
         public double GetContiNodeAcceleration(int nodeIndex)
         {
-            switch (nodeIndex)
-            {
-                case 0: return ContiNode0Acceleration;
-                case 1: return ContiNode1Acceleration;
-                case 2: return ContiNode2Acceleration;
-                case 3: return ContiNode3Acceleration;
-                case 4: return ContiNode4Acceleration;
-                default: return ContiNode4Acceleration;
-            }
+            return MotionSpeedScale.ApplyDefaultAccelerationScale(ContiMaxAcceleration * GetContiNodeRatio(nodeIndex));
         }
 
         public double GetContiNodeDeceleration(int nodeIndex)
         {
+            return MotionSpeedScale.ApplyDefaultAccelerationScale(ContiMaxDeceleration * GetContiNodeRatio(nodeIndex));
+        }
+
+        private double GetContiNodeRatio(int nodeIndex)
+        {
+            double percent;
             switch (nodeIndex)
             {
-                case 0: return ContiNode0Deceleration;
-                case 1: return ContiNode1Deceleration;
-                case 2: return ContiNode2Deceleration;
-                case 3: return ContiNode3Deceleration;
-                case 4: return ContiNode4Deceleration;
-                default: return ContiNode4Deceleration;
+                case 0: percent = ContiNode0SpeedPercent; break;
+                case 1: percent = ContiNode1SpeedPercent; break;
+                case 2: percent = ContiNode2SpeedPercent; break;
+                case 3: percent = ContiNode3SpeedPercent; break;
+                case 4: percent = ContiNode4SpeedPercent; break;
+                default: percent = ContiNode4SpeedPercent; break;
             }
+
+            return PickerPickUpMotionConfig.NormalizePercent(percent, 1.0) / 100.0;
         }
 
         private static double NormalizeNonNegative(double value)
         {
             if (double.IsNaN(value) || double.IsInfinity(value) || value < 0.0)
+                return 0.0;
+            return value;
+        }
+
+        private static double NormalizeFinite(double value)
+        {
+            if (double.IsNaN(value) || double.IsInfinity(value))
                 return 0.0;
             return value;
         }
@@ -303,6 +426,8 @@ namespace QMC.CDT320
         public double PickerZOffset { get; set; }
         public bool HasSideInspectionCorrection { get; set; }
         public bool IsOk { get; set; }
+        public string Raw { get; set; }
+        public Dictionary<string, string> Values { get; set; } = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
     }
 
     public class SideVisionResult
@@ -312,6 +437,8 @@ namespace QMC.CDT320
         public bool Side2Ok { get; set; }
         public bool Side3Ok { get; set; }
         public bool Side4Ok { get; set; }
+        public string Raw { get; set; }
+        public Dictionary<string, string> Values { get; set; } = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
         public bool IsAllOk
         {
@@ -323,10 +450,14 @@ namespace QMC.CDT320
     {
         Task<bool> TriggerBottomExposeAsync(int pickerNo, int timeoutMs = 1000);
         Task<bool> TriggerBottomExposeAsync(int pickerNo, int timeoutMs, CancellationToken ct);
+        Task<BottomVisionOffset> GetBottomResultAsync(int pickerNo, int timeoutMs = 5000);
+        Task<BottomVisionOffset> GetBottomResultAsync(int pickerNo, int timeoutMs, CancellationToken ct);
         Task<BottomVisionOffset[]> GetBottomResultsAsync(int timeoutMs = 5000);
         Task<BottomVisionOffset[]> GetBottomResultsAsync(int timeoutMs, CancellationToken ct);
         Task<bool> TriggerSideExposeAsync(int pickerNo, int sideNo, int timeoutMs = 1000);
         Task<bool> TriggerSideExposeAsync(int pickerNo, int sideNo, int timeoutMs, CancellationToken ct);
+        Task<bool> StartSideInspectAsync(int pickerNo, int angleDeg, int timeoutMs, CancellationToken ct);
+        Task<SideVisionResult> WaitSideResultAsync(int pickerNo, int timeoutMs, CancellationToken ct);
         Task<SideVisionResult> GetSideResultAsync(int pickerNo, int timeoutMs = 5000);
         Task<SideVisionResult> GetSideResultAsync(int pickerNo, int timeoutMs, CancellationToken ct);
     }

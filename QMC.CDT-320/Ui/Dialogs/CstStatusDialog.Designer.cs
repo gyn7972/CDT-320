@@ -153,11 +153,11 @@ namespace QMC.CDT_320.Ui.Dialogs
             this.legendLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 50F));
             this.legendReadyColor.BackColor = System.Drawing.Color.Cyan;
             this.legendReadyText.Text = "READY";
-            this.legendEmptyColor.BackColor = System.Drawing.Color.LimeGreen;
+            this.legendEmptyColor.BackColor = System.Drawing.Color.Gainsboro;
             this.legendEmptyText.Text = "EMPTY";
             this.legendWorkingColor.BackColor = System.Drawing.Color.Orange;
             this.legendWorkingText.Text = "WORKING";
-            this.legendFinishColor.BackColor = System.Drawing.Color.Red;
+            this.legendFinishColor.BackColor = System.Drawing.Color.MediumSeaGreen;
             this.legendFinishText.Text = "FINISH";
             this.legendWorkReadyColor.BackColor = System.Drawing.Color.Navy;
             this.legendWorkReadyText.Text = "WORK READY";

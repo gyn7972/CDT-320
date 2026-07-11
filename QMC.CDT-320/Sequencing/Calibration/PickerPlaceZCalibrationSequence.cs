@@ -43,6 +43,8 @@ namespace QMC.CDT320.Sequencing.Calibration
     {
         public int ResultCode { get; set; }
         public double DetectedPosition { get; set; }
+        public double FirstFlowOnPosition { get; set; }
+        public double StopPosition { get; set; }
         public int ElapsedMs { get; set; }
 
         public bool Success
@@ -54,6 +56,7 @@ namespace QMC.CDT320.Sequencing.Calibration
     internal sealed class PickerPlaceZCalibrationSequence : PickerSequenceBase<PlaceZCalibrationStep>
     {
         private const string SearchTargetName = "PlaceZCalibration;PickerZone=Output";
+        private const int MinInitialVacuumOnDelayMs = 500;
 
         private readonly VisionFocusPickerSide _calibrationSide;
         private readonly BinSide _targetOutputSide;
@@ -75,6 +78,8 @@ namespace QMC.CDT320.Sequencing.Calibration
         private double _detectedFlowPosition;
         private double _savedPlacePosition;
         private int _detectElapsedMs;
+        private bool _preferCurrentPoseScanStart;
+        private volatile bool _immediateStopRequested;
 
         public PickerPlaceZCalibrationSequence(MachineSequenceContext context, VisionFocusPickerSide side, int pickerNo)
             : this(context, side, pickerNo, BinSide.Good)
@@ -103,9 +108,37 @@ namespace QMC.CDT320.Sequencing.Calibration
 
         public PlaceZCalibrationResult Result { get; private set; }
 
+        public void RequestImmediateStop(string reason)
+        {
+            _immediateStopRequested = true;
+            WriteLog("PlaceZCalibration",
+                "PlaceZ Calibration 즉시 정지 요청. " +
+                "side=" + Side +
+                ", outputSide=" + _targetOutputSide +
+                ", pickerNo=" + _pickerNo +
+                ", step=" + CurrentStep +
+                ", reason=" + reason + " - Stop");
+            StopPickerZAxis("즉시 정지 요청: " + reason);
+        }
+
+        public async Task<int> RunCurrentPoseTestOrDefaultAsync(CancellationToken ct, PickerSequenceOptions options)
+        {
+            _preferCurrentPoseScanStart = true;
+            try
+            {
+                return await RunAsync(ct, options).ConfigureAwait(false);
+            }
+            finally
+            {
+                _preferCurrentPoseScanStart = false;
+            }
+        }
+
         protected override async Task<int> ExecuteAsync(CancellationToken ct)
         {
             bool vacuumOn = false;
+            bool currentPoseScanStart = false;
+            _immediateStopRequested = false;
             try
             {
                 CurrentStep = PlaceZCalibrationStep.CheckReady;
@@ -118,24 +151,61 @@ namespace QMC.CDT320.Sequencing.Calibration
 
                 EnsurePickerWorkAreaReserved(PickerWorkZone.Output, "PlaceZCalibration");
 
-                CurrentStep = PlaceZCalibrationStep.MoveZSafe;
-                result = await PrepareSafeStartPositionAsync("PlaceZ Calibration 시작 전 안전 위치 이동", ct).ConfigureAwait(false);
-                if (result != 0) return result;
+                string currentPoseReason = "현재 위치 반복 테스트 요청 없음.";
+                if (_preferCurrentPoseScanStart && TryConfigureCurrentPoseScanStart(out currentPoseReason))
+                {
+                    currentPoseScanStart = true;
+                    CurrentStep = PlaceZCalibrationStep.MoveScanStart;
+                    WriteLog("PlaceZCalibration",
+                        "PlaceZ Calibration 현재 위치 반복 테스트 조건 충족. 안전 시작 위치 이동과 Scan Start 이동을 생략합니다. " +
+                        "side=" + Side +
+                        ", outputSide=" + _targetOutputSide +
+                        ", pickerNo=" + _pickerNo +
+                        ", scanStartZ=" + _scanStartPosition.ToString("F6") +
+                        ", searchLimitZ=" + _searchLimitPosition.ToString("F6") +
+                        ", reason=" + currentPoseReason + " - Ok");
+                }
+                else
+                {
+                    if (_preferCurrentPoseScanStart)
+                    {
+                        WriteLog("PlaceZCalibration",
+                            "PlaceZ Calibration 현재 위치 반복 테스트 조건 불만족. 기존 안전 시작 위치 이동으로 진행합니다. " +
+                            "side=" + Side +
+                            ", outputSide=" + _targetOutputSide +
+                            ", pickerNo=" + _pickerNo +
+                            ", reason=" + currentPoseReason + " - Check");
+                    }
 
-                CurrentStep = PlaceZCalibrationStep.MoveScanStart;
-                result = await MovePickerAxisAndVerifyAsync(
-                    _pickerZAxis,
-                    _scanStartPosition,
-                    "PlaceZ Calibration Scan Start",
-                    ct,
-                    SearchTargetName).ConfigureAwait(false);
-                if (result != 0) return result;
+                    CurrentStep = PlaceZCalibrationStep.MoveZSafe;
+                    result = await PrepareSafeStartPositionAsync("PlaceZ Calibration 시작 전 안전 위치 이동", ct).ConfigureAwait(false);
+                    if (result != 0) return result;
+
+                    CurrentStep = PlaceZCalibrationStep.MoveScanStart;
+                    result = await MovePickerAxisAndVerifyAsync(
+                        _pickerZAxis,
+                        _scanStartPosition,
+                        "PlaceZ Calibration Scan Start",
+                        ct,
+                        SearchTargetName).ConfigureAwait(false);
+                    if (result != 0) return result;
+                }
 
                 CurrentStep = PlaceZCalibrationStep.VacuumOn;
                 SetPickerVacuum(_pickerNo, true);
                 vacuumOn = true;
-                if (_settings.VacuumOnDelayMs > 0)
-                    await Task.Delay(_settings.VacuumOnDelayMs, ct).ConfigureAwait(false);
+                int vacuumOnDelayMs = ResolveInitialVacuumOnDelayMs();
+                if (vacuumOnDelayMs > 0)
+                {
+                    WriteLog("PlaceZCalibration",
+                        "PlaceZ Calibration 초기 Vacuum ON 안정화 대기. " +
+                        "side=" + Side +
+                        ", outputSide=" + _targetOutputSide +
+                        ", pickerNo=" + _pickerNo +
+                        ", configuredDelayMs=" + _settings.VacuumOnDelayMs +
+                        ", appliedDelayMs=" + vacuumOnDelayMs + " - Check");
+                    await Task.Delay(vacuumOnDelayMs, ct).ConfigureAwait(false);
+                }
 
                 CurrentStep = PlaceZCalibrationStep.SearchFlow;
                 result = await SearchFlowPositionWithResetAsync(ct).ConfigureAwait(false);
@@ -172,23 +242,24 @@ namespace QMC.CDT320.Sequencing.Calibration
                     ", dieThickness=" + (_settings != null ? _settings.DieThicknessMm.ToString("F6") : "0.000000") +
                     ", filmThickness=" + (_settings != null ? _settings.FilmThicknessMm.ToString("F6") : "0.000000") +
                     ", outputSide=" + _targetOutputSide +
+                    ", currentPoseScanStart=" + currentPoseScanStart +
                     ", elapsedMs=" + _detectElapsedMs + " - Ok");
                 return 0;
             }
             catch (OperationCanceledException)
             {
-                StopPickerZAxis();
+                StopPickerZAxis("정지 요청 취소");
                 Result.Message = "PlaceZ Calibration canceled.";
                 throw;
             }
             catch (SequenceStopException)
             {
-                StopPickerZAxis();
+                StopPickerZAxis("시퀀스 정지 요청");
                 throw;
             }
             catch (Exception ex)
             {
-                StopPickerZAxis();
+                StopPickerZAxis("예외 발생");
                 return Fail("PLACE-Z-CAL-EX", Name, "PlaceZ Calibration 예외 발생. error=" + ex.Message);
             }
             finally
@@ -202,6 +273,224 @@ namespace QMC.CDT320.Sequencing.Calibration
                 ReleasePickerWorkArea();
                 ReleaseArea();
             }
+        }
+
+        private bool TryConfigureCurrentPoseScanStart(out string reason)
+        {
+            reason = string.Empty;
+            try
+            {
+                if (_settings == null || _calibrationTarget == null)
+                {
+                    reason = "캘리브레이션 목표가 아직 계산되지 않았습니다.";
+                    return false;
+                }
+
+                BaseAxis zAxis = GetPickerAxis(_pickerZAxis);
+                if (!IsAxisReadyForCurrentPose(zAxis, out reason))
+                    return false;
+
+                if (!IsPickerAxisAlreadyInPosition(PickerAxis.PickerX, _calibrationTarget.PickerX))
+                {
+                    reason = "PickerX가 PlaceZ 캘리브레이션 목표 위치가 아닙니다. " +
+                             BuildPickerAxisState(PickerAxis.PickerX, _calibrationTarget.PickerX);
+                    return false;
+                }
+
+                if (!IsPickerAxisAlreadyInPosition(PickerAxis.PickerY, _calibrationTarget.PickerY))
+                {
+                    reason = "PickerY가 PlaceZ 캘리브레이션 목표 위치가 아닙니다. " +
+                             BuildPickerAxisState(PickerAxis.PickerY, _calibrationTarget.PickerY);
+                    return false;
+                }
+
+                PickerAxis tAxis = GetPickerTAxis(_pickerIndex);
+                if (!IsPickerAxisAlreadyInPosition(tAxis, _calibrationTarget.PickerT))
+                {
+                    reason = "PickerT가 PlaceZ 캘리브레이션 목표 위치가 아닙니다. " +
+                             BuildPickerAxisState(tAxis, _calibrationTarget.PickerT);
+                    return false;
+                }
+
+                if (!IsInputVisionInAvoidForCurrentPose(out reason))
+                    return false;
+
+                if (!IsOutputVisionInAvoidForCurrentPose(out reason))
+                    return false;
+
+                if (!IsOppositePickerInOutputAvoidForCurrentPose(out reason))
+                    return false;
+
+                if (!IsOutputStageInCalibrationPosition(out reason))
+                    return false;
+
+                double currentZ = zAxis.ActualPosition;
+                if (!IsBetween(currentZ, _settings.StartZMm, _searchLimitPosition, ResolveAxisPositionTolerance(zAxis)))
+                {
+                    reason = "현재 PickerZ가 설정된 PlaceZ 검색 범위 밖입니다. currentZ=" +
+                             currentZ.ToString("F6") +
+                             ", startZ=" + _settings.StartZMm.ToString("F6") +
+                             ", searchLimitZ=" + _searchLimitPosition.ToString("F6");
+                    return false;
+                }
+
+                _scanStartPosition = currentZ;
+                Result.ScanStartPosition = _scanStartPosition;
+                Result.SearchLimitPosition = _searchLimitPosition;
+                reason = "현재 X/Y/T/Stage/Vision 조건이 유지되어 Z 현재 위치에서 반복 테스트합니다.";
+                return true;
+            }
+            catch (Exception ex)
+            {
+                reason = "현재 위치 반복 테스트 조건 확인 예외 발생. error=" + ex.Message;
+                return false;
+            }
+        }
+
+        private bool IsAxisReadyForCurrentPose(BaseAxis axis, out string reason)
+        {
+            if (axis == null)
+            {
+                reason = "PickerZ 축을 찾을 수 없습니다.";
+                return false;
+            }
+
+            axis.UpdateStatus();
+            if (!axis.IsServoOn || axis.IsAlarm || axis.IsMoving)
+            {
+                reason = "PickerZ 축 상태가 현재 위치 반복 테스트 조건이 아닙니다. axis=" + axis.Name +
+                         ", servo=" + (axis.IsServoOn ? "ON" : "OFF") +
+                         ", alarm=" + (axis.IsAlarm ? "ON" : "OFF") +
+                         ", moving=" + (axis.IsMoving ? "Y" : "N") +
+                         ", actual=" + axis.ActualPosition.ToString("F6");
+                return false;
+            }
+
+            reason = string.Empty;
+            return true;
+        }
+
+        private bool IsInputVisionInAvoidForCurrentPose(out string reason)
+        {
+            InputStageUnit stage = Context != null && Context.Machine != null ? Context.Machine.InputStageUnit : null;
+            if (stage == null || stage.CameraX == null || stage.Recipe == null || stage.Recipe.VisionX == null)
+            {
+                reason = "InputVisionX 현재 위치 확인에 필요한 축/레시피가 없습니다.";
+                return false;
+            }
+
+            if (!stage.IsVisionXInAvoidPosition())
+            {
+                reason = "InputVisionX가 Avoid 위치가 아닙니다.";
+                return false;
+            }
+
+            reason = string.Empty;
+            return true;
+        }
+
+        private bool IsOutputVisionInAvoidForCurrentPose(out string reason)
+        {
+            OutputStageUnit stage = Context != null && Context.Machine != null ? Context.Machine.OutputStageUnit : null;
+            if (stage == null || stage.OutputCameraX == null)
+            {
+                reason = "OutputVisionX 현재 위치 확인에 필요한 축이 없습니다.";
+                return false;
+            }
+
+            if (!stage.IsVisionXInAvoidPosition())
+            {
+                reason = "OutputVisionX가 Avoid 위치가 아닙니다.";
+                return false;
+            }
+
+            reason = string.Empty;
+            return true;
+        }
+
+        private bool IsOppositePickerInOutputAvoidForCurrentPose(out string reason)
+        {
+            if (Side == PickerSequenceSide.Front)
+            {
+                if (RearPicker == null || RearPicker.IsPickerInOutputSideAvoidPosition())
+                {
+                    reason = string.Empty;
+                    return true;
+                }
+
+                reason = "Rear Picker가 Output Avoid 위치가 아닙니다.";
+                return false;
+            }
+
+            if (FrontPicker == null || FrontPicker.IsPickerInOutputSideAvoidPosition())
+            {
+                reason = string.Empty;
+                return true;
+            }
+
+            reason = "Front Picker가 Output Avoid 위치가 아닙니다.";
+            return false;
+        }
+
+        private bool IsOutputStageInCalibrationPosition(out string reason)
+        {
+            OutputStageUnit stage = Context != null && Context.Machine != null ? Context.Machine.OutputStageUnit : null;
+            if (stage == null || stage.Recipe == null || _calibrationTarget == null)
+            {
+                reason = "OutputStage 현재 위치 확인에 필요한 축/레시피/목표가 없습니다.";
+                return false;
+            }
+
+            BinStageAxis yAxis = _targetOutputSide == BinSide.Ng ? BinStageAxis.NgBinY : BinStageAxis.GoodBinY;
+            if (!stage.IsStageAxisInPosition(yAxis, _calibrationTarget.OutputStageY, 0.05))
+            {
+                reason = "OutputStageY가 PlaceZ 캘리브레이션 목표 위치가 아닙니다. " +
+                         stage.BuildStageAxisState(yAxis, _calibrationTarget.OutputStageY);
+                return false;
+            }
+
+            if (_targetOutputSide == BinSide.Good && stage.HasStageAxis(BinStageAxis.GoodBinZ))
+            {
+                double targetZ = stage.Recipe.GoodStageZ.ProcessPosition;
+                if (!stage.IsStageAxisInPosition(BinStageAxis.GoodBinZ, targetZ, 0.05))
+                {
+                    reason = "GoodStageZ가 Process 위치가 아닙니다. " +
+                             stage.BuildStageAxisState(BinStageAxis.GoodBinZ, targetZ);
+                    return false;
+                }
+
+                if (stage.HasStageAxis(BinStageAxis.NgBinY))
+                {
+                    double ngAvoidY = stage.Recipe.NGStageY.AvoidPosition;
+                    if (!stage.IsStageAxisInPosition(BinStageAxis.NgBinY, ngAvoidY, 0.05))
+                    {
+                        reason = "Good PlaceZ 캘리브레이션에서 NGStageY가 Avoid 위치가 아닙니다. " +
+                                 stage.BuildStageAxisState(BinStageAxis.NgBinY, ngAvoidY);
+                        return false;
+                    }
+                }
+            }
+            else if (_targetOutputSide == BinSide.Ng && stage.HasStageAxis(BinStageAxis.GoodBinZ))
+            {
+                double goodAvoidZ = stage.Recipe.GoodStageZ.AvoidPosition;
+                if (!stage.IsStageAxisInPosition(BinStageAxis.GoodBinZ, goodAvoidZ, 0.05))
+                {
+                    reason = "NG PlaceZ 캘리브레이션에서 GoodStageZ가 Avoid 위치가 아닙니다. " +
+                             stage.BuildStageAxisState(BinStageAxis.GoodBinZ, goodAvoidZ);
+                    return false;
+                }
+            }
+
+            reason = BuildOutputStageCalibrationPositionState(stage);
+            return true;
+        }
+
+        private static double ResolveAxisPositionTolerance(BaseAxis axis)
+        {
+            if (axis != null && axis.Config != null && axis.Config.InPositionTolerance > 0.0)
+                return axis.Config.InPositionTolerance;
+
+            return 0.01;
         }
 
         public async Task<int> MoveScanStartOnlyAsync(CancellationToken ct, PickerSequenceOptions options)
@@ -536,6 +825,18 @@ namespace QMC.CDT320.Sequencing.Calibration
                 return Fail("PLACE-Z-CAL-OUTPUT-STAGE-MISSING", "OutputStageUnit",
                     "PlaceZ Calibration OutputStage process move requires axis/recipe/target.");
 
+            string readyReason;
+            if (IsOutputStageInCalibrationPosition(out readyReason))
+            {
+                WriteLog("PlaceZCalibration",
+                    "PlaceZ Calibration OutputStage가 이미 캘리브레이션 공정 위치 조건입니다. " +
+                    "불필요한 OutputStage MoveProcess를 생략합니다. side=" + Side +
+                    ", outputSide=" + _targetOutputSide +
+                    ", pickerNo=" + _pickerNo +
+                    ", " + readyReason + " - Ok");
+                return 0;
+            }
+
             var options = OutputStageSequenceOptions.Default();
             options.Side = _targetOutputSide;
             options.RunMode = Options != null ? Options.RunMode : SequenceRunMode.Manual;
@@ -589,6 +890,35 @@ namespace QMC.CDT320.Sequencing.Calibration
             }
 
             return 0;
+        }
+
+        private int ResolveInitialVacuumOnDelayMs()
+        {
+            int configured = _settings != null ? _settings.VacuumOnDelayMs : 0;
+            return Math.Max(configured, MinInitialVacuumOnDelayMs);
+        }
+
+        private string BuildOutputStageCalibrationPositionState(OutputStageUnit stage)
+        {
+            if (stage == null || stage.Recipe == null || _calibrationTarget == null)
+                return "outputStageState=unknown";
+
+            BinStageAxis yAxis = _targetOutputSide == BinSide.Ng ? BinStageAxis.NgBinY : BinStageAxis.GoodBinY;
+            string state = stage.BuildStageAxisState(yAxis, _calibrationTarget.OutputStageY);
+
+            if (_targetOutputSide == BinSide.Good)
+            {
+                if (stage.HasStageAxis(BinStageAxis.GoodBinZ))
+                    state += ", " + stage.BuildStageAxisState(BinStageAxis.GoodBinZ, stage.Recipe.GoodStageZ.ProcessPosition);
+                if (stage.HasStageAxis(BinStageAxis.NgBinY))
+                    state += ", " + stage.BuildStageAxisState(BinStageAxis.NgBinY, stage.Recipe.NGStageY.AvoidPosition);
+            }
+            else if (stage.HasStageAxis(BinStageAxis.GoodBinZ))
+            {
+                state += ", " + stage.BuildStageAxisState(BinStageAxis.GoodBinZ, stage.Recipe.GoodStageZ.AvoidPosition);
+            }
+
+            return state;
         }
 
         private async Task<int> MoveCurrentPickerToCalibrationTargetAsync(string description, CancellationToken ct)
@@ -764,7 +1094,9 @@ namespace QMC.CDT320.Sequencing.Calibration
                     "Coarse",
                     _scanStartPosition,
                     _searchLimitPosition,
-                    _settings.Motion.MoveVelocity,
+                    _settings.CoarseSearchVelocityMmPerSec,
+                    _settings.CoarseSearchAccelerationMmPerSec2,
+                    _settings.CoarseSearchDecelerationMmPerSec2,
                     ct).ConfigureAwait(false);
                 if (!coarse.Success)
                     return coarse.ResultCode;
@@ -781,7 +1113,9 @@ namespace QMC.CDT320.Sequencing.Calibration
                     ", pickerZAxis=" + _pickerZAxis +
                     ", coarseFlow=" + coarse.DetectedPosition.ToString("F6") +
                     ", repeatCount=" + repeatCount +
-                    ", fineVelocity=" + _settings.FineSearchVelocityMmPerSec.ToString("F6") + " - Check");
+                    ", fineVelocity=" + _settings.FineSearchVelocityMmPerSec.ToString("F6") +
+                    ", fineAcceleration=" + _settings.FineSearchAccelerationMmPerSec2.ToString("F6") +
+                    ", fineDeceleration=" + _settings.FineSearchDecelerationMmPerSec2.ToString("F6") + " - Check");
 
                 for (int index = 1; index <= repeatCount; index++)
                 {
@@ -799,6 +1133,8 @@ namespace QMC.CDT320.Sequencing.Calibration
                         backOffTarget,
                         _searchLimitPosition,
                         _settings.FineSearchVelocityMmPerSec,
+                        _settings.FineSearchAccelerationMmPerSec2,
+                        _settings.FineSearchDecelerationMmPerSec2,
                         ct).ConfigureAwait(false);
                     if (!fine.Success)
                         return fine.ResultCode;
@@ -864,6 +1200,8 @@ namespace QMC.CDT320.Sequencing.Calibration
             double searchStart,
             double searchLimit,
             double velocity,
+            double acceleration,
+            double deceleration,
             CancellationToken ct)
         {
             var result = new PlaceZFlowSearchResult();
@@ -903,6 +1241,8 @@ namespace QMC.CDT320.Sequencing.Calibration
 
                 axis.UpdateStatus();
                 result.DetectedPosition = axis.ActualPosition;
+                result.FirstFlowOnPosition = result.DetectedPosition;
+                result.StopPosition = result.DetectedPosition;
                 result.ElapsedMs = (int)Math.Min(int.MaxValue, simWatch.ElapsedMilliseconds);
                 WriteLog("PlaceZCalibration",
                     "PlaceZ Calibration " + passName + " simulated Flow detected. side=" + Side +
@@ -927,119 +1267,313 @@ namespace QMC.CDT320.Sequencing.Calibration
                 return result;
             }
 
-            Stopwatch watch = Stopwatch.StartNew();
-            DateTime? stableSinceUtc = null;
-            bool detected = false;
+            int maxAttempts = Math.Max(1, Math.Min(3, Math.Max(1, _settings.RepeatCount)));
+            double currentStart = searchStart;
 
-            Task<int> moveTask = MovePickerAxisCommandWithMotionAsync(
-                _pickerZAxis,
-                searchLimit,
-                velocity,
-                _settings.Motion.MoveAcceleration,
-                _settings.Motion.MoveDeceleration,
-                SearchTargetName);
-
-            try
+            for (int attempt = 1; attempt <= maxAttempts; attempt++)
             {
-                while (!moveTask.IsCompleted)
+                string attemptName = passName;
+                if (attempt > 1)
+                    attemptName += "/Retry#" + (attempt - 1);
+
+                Stopwatch watch = Stopwatch.StartNew();
+                bool firstFlowOn = false;
+                double firstFlowOnPosition = 0.0;
+                double stopPosition = 0.0;
+                bool stopCommanded = false;
+                bool lastFlowState = ReadPickerFlowState(_pickerNo);
+
+                Task<int> moveTask = MovePickerAxisCommandWithMotionAsync(
+                    _pickerZAxis,
+                    searchLimit,
+                    velocity,
+                    acceleration,
+                    deceleration,
+                    SearchTargetName);
+
+                WriteLog("PlaceZCalibration",
+                    "PlaceZ Calibration " + attemptName + " Flow 검색 시작. " +
+                    "side=" + Side +
+                    ", outputSide=" + _targetOutputSide +
+                    ", pickerNo=" + _pickerNo +
+                    ", start=" + currentStart.ToString("F6") +
+                    ", limit=" + searchLimit.ToString("F6") +
+                    ", velocity=" + velocity.ToString("F6") +
+                    ", acceleration=" + acceleration.ToString("F6") +
+                    ", deceleration=" + deceleration.ToString("F6") +
+                    ", initialFlow=" + (lastFlowState ? "ON" : "OFF") +
+                    ", pollMs=" + _settings.FlowPollIntervalMs + " - Check");
+
+                try
                 {
-                    ct.ThrowIfCancellationRequested();
-                    if (Context != null)
-                        Context.StopIfCycleStopRequested(Name + ".SearchFlow." + passName);
-
-                    if (ReadPickerFlowState(_pickerNo))
+                    while (!moveTask.IsCompleted)
                     {
-                        if (!stableSinceUtc.HasValue)
-                            stableSinceUtc = DateTime.UtcNow;
+                        ct.ThrowIfCancellationRequested();
+                        if (Context != null)
+                            Context.StopIfCycleStopRequested(Name + ".SearchFlow." + attemptName);
 
-                        if ((DateTime.UtcNow - stableSinceUtc.Value).TotalMilliseconds >= _settings.FlowStableMs)
+                        if (_immediateStopRequested)
                         {
-                            StopPickerZAxis();
-                            detected = true;
+                            stopCommanded = true;
+                            StopPickerZAxis("PlaceZ Calibration 검색 중 즉시 정지 요청");
+                            await WaitMoveTaskAfterStopAsync(moveTask, attemptName + " 즉시 정지 요청").ConfigureAwait(false);
+                            throw new OperationCanceledException();
+                        }
+
+                        bool currentFlowState = ReadPickerFlowState(_pickerNo);
+                        if (currentFlowState != lastFlowState)
+                        {
+                            axis.UpdateStatus();
+                            WriteLog("PlaceZCalibration",
+                                "PlaceZ Calibration " + attemptName + " Flow 상태 변화 감지. " +
+                                "side=" + Side +
+                                ", outputSide=" + _targetOutputSide +
+                                ", pickerNo=" + _pickerNo +
+                                ", flow=" + (currentFlowState ? "ON" : "OFF") +
+                                ", z=" + axis.ActualPosition.ToString("F6") + " - Check");
+                            lastFlowState = currentFlowState;
+                        }
+
+                        if (currentFlowState)
+                        {
+                            axis.UpdateStatus();
+                            firstFlowOn = true;
+                            firstFlowOnPosition = axis.ActualPosition;
+                            stopCommanded = true;
+                            StopPickerZAxis("Flow ON 감지");
+                            WriteLog("PlaceZCalibration",
+                                "PlaceZ Calibration " + attemptName + " Flow ON 감지로 PickerZ 즉시 정지 명령. " +
+                                "side=" + Side +
+                                ", outputSide=" + _targetOutputSide +
+                                ", pickerNo=" + _pickerNo +
+                                ", firstOnZ=" + firstFlowOnPosition.ToString("F6") + " - Stop");
                             break;
                         }
+
+                        if (watch.ElapsedMilliseconds > _settings.Motion.MoveTimeoutMs)
+                        {
+                            stopCommanded = true;
+                            StopPickerZAxis("Flow 검색 타임아웃");
+                            break;
+                        }
+
+                        await Task.Delay(_settings.FlowPollIntervalMs, ct).ConfigureAwait(false);
                     }
-                    else
+
+                    int moveResult = stopCommanded
+                        ? await WaitMoveTaskAfterStopAsync(moveTask, attemptName + " 정지 후 이동 대기").ConfigureAwait(false)
+                        : await moveTask.ConfigureAwait(false);
+                    axis.UpdateStatus();
+
+                    if (!firstFlowOn && ReadPickerFlowState(_pickerNo))
                     {
-                        stableSinceUtc = null;
+                        firstFlowOn = true;
+                        firstFlowOnPosition = axis.ActualPosition;
                     }
 
-                    if (watch.ElapsedMilliseconds > _settings.Motion.MoveTimeoutMs)
+                    if (firstFlowOn)
                     {
-                        StopPickerZAxis();
-                        break;
+                        stopPosition = axis.ActualPosition;
+                        bool stable = await WaitPickerFlowStableAfterStopAsync(
+                            attemptName,
+                            firstFlowOnPosition,
+                            stopPosition,
+                            velocity,
+                            ct).ConfigureAwait(false);
+
+                        if (stable)
+                        {
+                            result.FirstFlowOnPosition = firstFlowOnPosition;
+                            result.StopPosition = stopPosition;
+                            result.DetectedPosition = stopPosition;
+                            result.ElapsedMs = (int)Math.Min(int.MaxValue, watch.ElapsedMilliseconds);
+                            WriteLog("PlaceZCalibration",
+                                "PlaceZ Calibration " + attemptName + " Flow detected after immediate stop. side=" + Side +
+                                ", outputSide=" + _targetOutputSide +
+                                ", pickerNo=" + _pickerNo +
+                                ", start=" + currentStart.ToString("F6") +
+                                ", limit=" + searchLimit.ToString("F6") +
+                                ", velocity=" + velocity.ToString("F6") +
+                                ", acceleration=" + acceleration.ToString("F6") +
+                                ", deceleration=" + deceleration.ToString("F6") +
+                                ", firstOnZ=" + firstFlowOnPosition.ToString("F6") +
+                                ", stopZ=" + stopPosition.ToString("F6") +
+                                ", stopOverrun=" + (stopPosition - firstFlowOnPosition).ToString("F6") +
+                                ", stableMs=" + _settings.FlowStableMs +
+                                ", pollMs=" + _settings.FlowPollIntervalMs +
+                                ", elapsedMs=" + result.ElapsedMs + " - Ok");
+                            return result;
+                        }
+
+                        WriteLog("PlaceZCalibration",
+                            "PlaceZ Calibration " + attemptName + " Flow unstable after stop. BackOff/Blow reset and retry. side=" + Side +
+                            ", outputSide=" + _targetOutputSide +
+                            ", pickerNo=" + _pickerNo +
+                            ", firstOnZ=" + firstFlowOnPosition.ToString("F6") +
+                            ", stopZ=" + stopPosition.ToString("F6") +
+                            ", attempt=" + attempt +
+                            ", maxAttempts=" + maxAttempts + " - Check");
+
+                        if (attempt < maxAttempts)
+                        {
+                            double backOffTarget = CalculateBackOffTarget(stopPosition);
+                            int resetResult = await RunBackOffBlowResetAsync(
+                                stopPosition,
+                                backOffTarget,
+                                attempt,
+                                ct,
+                                "unstable flow retry").ConfigureAwait(false);
+                            if (resetResult != 0)
+                            {
+                                result.ResultCode = resetResult;
+                                return result;
+                            }
+
+                            currentStart = backOffTarget;
+                            continue;
+                        }
+
+                        result.ResultCode = Fail("PLACE-Z-CAL-FLOW-UNSTABLE", Name,
+                            "PlaceZ Calibration Flow was detected but not stable after immediate stop. pass=" + attemptName +
+                            ", side=" + Side +
+                            ", outputSide=" + _targetOutputSide +
+                            ", pickerNo=" + _pickerNo +
+                            ", firstOnZ=" + firstFlowOnPosition.ToString("F6") +
+                            ", stopZ=" + stopPosition.ToString("F6") +
+                            ", stableMs=" + _settings.FlowStableMs +
+                            ", attempts=" + maxAttempts);
+                        return result;
                     }
 
-                    await Task.Delay(_settings.FlowPollIntervalMs, ct).ConfigureAwait(false);
-                }
-
-                int moveResult = await moveTask.ConfigureAwait(false);
-                axis.UpdateStatus();
-
-                if (!detected)
-                {
-                    if (ReadPickerFlowState(_pickerNo))
-                    {
-                        detected = true;
-                    }
-                    else if (moveResult != 0)
+                    if (moveResult != 0)
                     {
                         result.ResultCode = Fail("PLACE-Z-CAL-Z-MOVE", Name,
-                            "PlaceZ Calibration search move failed. pass=" + passName +
+                            "PlaceZ Calibration search move failed. pass=" + attemptName +
                             ", result=" + moveResult +
                             ", " + BuildPickerAxisState(_pickerZAxis, searchLimit));
                         return result;
                     }
-                }
 
-                if (!detected)
-                {
                     result.ResultCode = Fail("PLACE-Z-CAL-FLOW-NOT-DETECTED", Name,
-                        "PlaceZ Calibration Flow was not detected. pass=" + passName +
+                        "PlaceZ Calibration Flow was not detected. pass=" + attemptName +
                         ", side=" + Side +
                         ", outputSide=" + _targetOutputSide +
                         ", pickerNo=" + _pickerNo +
-                        ", start=" + searchStart.ToString("F6") +
+                        ", start=" + currentStart.ToString("F6") +
                         ", limit=" + searchLimit.ToString("F6") +
                         ", actual=" + axis.ActualPosition.ToString("F6") +
                         ", timeoutMs=" + _settings.Motion.MoveTimeoutMs);
                     return result;
                 }
+                catch (OperationCanceledException)
+                {
+                    StopPickerZAxis("Flow 검색 중 취소");
+                    await WaitMoveTaskAfterStopAsync(moveTask, attemptName + " 취소 후 이동 대기").ConfigureAwait(false);
+                    throw;
+                }
+                catch (SequenceStopException)
+                {
+                    StopPickerZAxis("Flow 검색 중 시퀀스 정지");
+                    await WaitMoveTaskAfterStopAsync(moveTask, attemptName + " 정지 후 이동 대기").ConfigureAwait(false);
+                    throw;
+                }
+                catch
+                {
+                    StopPickerZAxis("Flow 검색 중 예외");
+                    await WaitMoveTaskAfterStopAsync(moveTask, attemptName + " 예외 후 이동 대기").ConfigureAwait(false);
+                    throw;
+                }
+                finally
+                {
+                    watch.Stop();
+                }
+            }
 
-                result.DetectedPosition = axis.ActualPosition;
-                result.ElapsedMs = (int)Math.Min(int.MaxValue, watch.ElapsedMilliseconds);
-                WriteLog("PlaceZCalibration",
-                    "PlaceZ Calibration " + passName + " Flow detected. side=" + Side +
-                    ", outputSide=" + _targetOutputSide +
-                    ", pickerNo=" + _pickerNo +
-                    ", start=" + searchStart.ToString("F6") +
-                    ", limit=" + searchLimit.ToString("F6") +
-                    ", velocity=" + velocity.ToString("F6") +
-                    ", flow=" + result.DetectedPosition.ToString("F6") +
-                    ", elapsedMs=" + result.ElapsedMs + " - Ok");
-                return result;
-            }
-            catch
+            result.ResultCode = Fail("PLACE-Z-CAL-FLOW-NOT-DETECTED", Name,
+                "PlaceZ Calibration Flow search ended without result. pass=" + passName +
+                ", side=" + Side +
+                ", outputSide=" + _targetOutputSide +
+                ", pickerNo=" + _pickerNo +
+                ", start=" + searchStart.ToString("F6") +
+                ", limit=" + searchLimit.ToString("F6"));
+            return result;
+        }
+
+        private async Task<bool> WaitPickerFlowStableAfterStopAsync(
+            string passName,
+            double firstFlowOnPosition,
+            double stopPosition,
+            double velocity,
+            CancellationToken ct)
+        {
+            int stableMs = Math.Max(0, _settings.FlowStableMs);
+            int pollMs = Math.Max(1, _settings.FlowPollIntervalMs);
+            if (stableMs <= 0)
+                return ReadPickerFlowState(_pickerNo);
+
+            int timeoutMs = Math.Max(stableMs + 100, stableMs + (pollMs * 4));
+            DateTime deadline = DateTime.UtcNow.AddMilliseconds(timeoutMs);
+            DateTime? stableSinceUtc = null;
+
+            while (DateTime.UtcNow <= deadline)
             {
-                StopPickerZAxis();
-                throw;
+                ct.ThrowIfCancellationRequested();
+                if (Context != null)
+                    Context.StopIfCycleStopRequested(Name + ".FlowStableAfterStop." + passName);
+
+                if (ReadPickerFlowState(_pickerNo))
+                {
+                    if (!stableSinceUtc.HasValue)
+                        stableSinceUtc = DateTime.UtcNow;
+
+                    if ((DateTime.UtcNow - stableSinceUtc.Value).TotalMilliseconds >= stableMs)
+                    {
+                        WriteLog("PlaceZCalibration",
+                            "PlaceZ Calibration Flow stable after stop. pass=" + passName +
+                            ", side=" + Side +
+                            ", outputSide=" + _targetOutputSide +
+                            ", pickerNo=" + _pickerNo +
+                            ", firstOnZ=" + firstFlowOnPosition.ToString("F6") +
+                            ", stopZ=" + stopPosition.ToString("F6") +
+                            ", stopOverrun=" + (stopPosition - firstFlowOnPosition).ToString("F6") +
+                            ", velocity=" + velocity.ToString("F6") +
+                            ", stableMs=" + stableMs +
+                            ", pollMs=" + pollMs + " - Ok");
+                        return true;
+                    }
+                }
+                else
+                {
+                    stableSinceUtc = null;
+                }
+
+                await Task.Delay(pollMs, ct).ConfigureAwait(false);
             }
-            finally
-            {
-                watch.Stop();
-            }
+
+            WriteLog("PlaceZCalibration",
+                "PlaceZ Calibration Flow stable check failed after stop. pass=" + passName +
+                ", side=" + Side +
+                ", outputSide=" + _targetOutputSide +
+                ", pickerNo=" + _pickerNo +
+                ", firstOnZ=" + firstFlowOnPosition.ToString("F6") +
+                ", stopZ=" + stopPosition.ToString("F6") +
+                ", velocity=" + velocity.ToString("F6") +
+                ", stableMs=" + stableMs +
+                ", timeoutMs=" + timeoutMs + " - Check");
+            return false;
         }
 
         private async Task<int> RunBackOffBlowResetAsync(
             double detectedPosition,
             double backOffTarget,
             int repeatIndex,
-            CancellationToken ct)
+            CancellationToken ct,
+            string resetReason = "fine search")
         {
             int result = await MovePickerAxisAndVerifyAsync(
                 _pickerZAxis,
                 backOffTarget,
-                "PlaceZ Calibration Z-only BackOff before fine search #" + repeatIndex,
+                "PlaceZ Calibration Z-only BackOff before " + resetReason + " #" + repeatIndex,
                 ct,
                 SearchTargetName).ConfigureAwait(false);
             if (result != 0)
@@ -1051,6 +1585,7 @@ namespace QMC.CDT320.Sequencing.Calibration
                 ", outputSide=" + _targetOutputSide +
                 ", pickerNo=" + _pickerNo +
                 ", repeat=" + repeatIndex +
+                ", reason=" + resetReason +
                 ", detected=" + detectedPosition.ToString("F6") +
                 ", backOffTarget=" + backOffTarget.ToString("F6") +
                 ", vacuum=OFF");
@@ -1235,6 +1770,9 @@ namespace QMC.CDT320.Sequencing.Calibration
 
         private async Task<int> SearchFlowPositionAsync(CancellationToken ct)
         {
+            if (_settings != null)
+                return await SearchFlowPositionWithResetAsync(ct).ConfigureAwait(false);
+
             BaseAxis axis = GetPickerAxis(_pickerZAxis);
             if (axis == null)
                 return Fail("PLACE-Z-CAL-Z-AXIS", Name, "PickerZ axis is null. axis=" + _pickerZAxis);
@@ -1441,16 +1979,81 @@ namespace QMC.CDT320.Sequencing.Calibration
             }
         }
 
-        private void StopPickerZAxis()
+        private async Task<int> WaitMoveTaskAfterStopAsync(Task<int> moveTask, string reason)
+        {
+            if (moveTask == null)
+                return 0;
+
+            try
+            {
+                Task completed = await Task.WhenAny(moveTask, Task.Delay(2000)).ConfigureAwait(false);
+                if (completed == moveTask)
+                    return await moveTask.ConfigureAwait(false);
+
+                BaseAxis axis = GetPickerAxis(_pickerZAxis);
+                if (axis != null)
+                    axis.UpdateStatus();
+
+                WriteLog("PlaceZCalibration",
+                    "PlaceZ Calibration 정지 명령 후 이동 Task 완료 대기 시간이 초과되었습니다. " +
+                    "side=" + Side +
+                    ", outputSide=" + _targetOutputSide +
+                    ", pickerNo=" + _pickerNo +
+                    ", reason=" + reason +
+                    ", " + BuildPickerAxisState(_pickerZAxis, axis != null ? axis.ActualPosition : 0.0) +
+                    " - Check");
+                return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                WriteLog("PlaceZCalibration",
+                    "PlaceZ Calibration 정지 후 이동 Task 대기 중 예외. " +
+                    "side=" + Side +
+                    ", outputSide=" + _targetOutputSide +
+                    ", pickerNo=" + _pickerNo +
+                    ", reason=" + reason +
+                    ", error=" + ex.Message + " - Check");
+                return -1;
+            }
+        }
+
+        private void StopPickerZAxis(string reason = null)
         {
             try
             {
                 BaseAxis axis = GetPickerAxis(_pickerZAxis);
-                if (axis != null)
-                    axis.StopJog();
+                if (axis == null)
+                    return;
+
+                axis.UpdateStatus();
+                WriteLog("PlaceZCalibration",
+                    "PlaceZ Calibration PickerZ 정지 명령. " +
+                    "side=" + Side +
+                    ", outputSide=" + _targetOutputSide +
+                    ", pickerNo=" + _pickerNo +
+                    ", axis=" + _pickerZAxis +
+                    ", reason=" + (string.IsNullOrEmpty(reason) ? "-" : reason) +
+                    ", actual=" + axis.ActualPosition.ToString("F6") +
+                    ", command=" + axis.CommandPosition.ToString("F6") +
+                    ", isMoving=" + axis.IsMoving + " - Stop");
+                axis.StopJog();
+                axis.Stop();
+                axis.UpdateStatus();
             }
-            catch
+            catch (Exception ex)
             {
+                WriteLog("PlaceZCalibration",
+                    "PlaceZ Calibration PickerZ 정지 명령 예외. " +
+                    "side=" + Side +
+                    ", outputSide=" + _targetOutputSide +
+                    ", pickerNo=" + _pickerNo +
+                    ", axis=" + _pickerZAxis +
+                    ", reason=" + (string.IsNullOrEmpty(reason) ? "-" : reason) +
+                    ", error=" + ex.Message + " - Check");
             }
             finally
             {

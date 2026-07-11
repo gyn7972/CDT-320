@@ -210,6 +210,13 @@ namespace QMC.CDT320.VisionComm
             return response.IsAck;
         }
 
+        /// <summary>검사용 GRAB 확장 — 실제 GRAB 완료 ACK 후 Vision 이 같은 die_index/ch 로 백그라운드 검사를 시작한다.</summary>
+        public async Task<bool> GrabInspectAsync(string inspector, int fb, int collet, int dieIndex, int channel, int gridX, int gridY, int timeoutMs, CancellationToken ct)
+        {
+            VisionProtocolResponse response = await SendCommandAsync(VisionProtocolCommand.Grab, timeoutMs, ct, inspector, fb, collet, dieIndex, channel, gridX + ";" + gridY).ConfigureAwait(false);
+            return response.IsAck && !response.Payload.StartsWith("fail:", StringComparison.OrdinalIgnoreCase);
+        }
+
         public async Task<MatchResultDto> MatchAsync(string finder, int index = 0, int timeoutMs = 5000)
         {
             return await MatchAsync(finder, index, timeoutMs, CancellationToken.None).ConfigureAwait(false);
@@ -396,7 +403,7 @@ namespace QMC.CDT320.VisionComm
                 ct.ThrowIfCancellationRequested();
 
                 int remainMs = (int)Math.Max(1, (timeoutAt - DateTime.UtcNow).TotalMilliseconds);
-                int pollTimeoutMs = Math.Min(10000, Math.Max(8000, remainMs));   // 서버 대기 상한(6s)보다 길게
+                int pollTimeoutMs = Math.Min(8000, remainMs);
                 AsyncInspectPoll poll = await PollInspectResultAsync(inspector, index, pollTimeoutMs, ct).ConfigureAwait(false);
                 if (poll.Error)
                     return new InspectionResultDto { IsPass = false, Raw = poll.Raw };
@@ -844,12 +851,14 @@ namespace QMC.CDT320.VisionComm
         public bool   HasImageSize { get; set; }
         public double ImageWidthPixel { get; set; }
         public double ImageHeightPixel { get; set; }
+        public Dictionary<string, string> Values { get; private set; } = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         public string Raw       { get; set; }
 
         public static InspectionResultDto Parse(string line)
         {
             var r = new InspectionResultDto { Raw = line };
             VisionProtocolResponse response = VisionProtocolResponse.Parse(line);
+            r.Values = CopyValues(response);
             if (!response.IsAck)
                 return r;
 
@@ -890,6 +899,72 @@ namespace QMC.CDT320.VisionComm
             }
 
             return r;
+        }
+
+        public void SetValue(string key, object value)
+        {
+            if (string.IsNullOrWhiteSpace(key))
+                return;
+
+            if (Values == null)
+                Values = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+            if (value == null)
+            {
+                Values[key] = string.Empty;
+            }
+            else if (value is IFormattable)
+            {
+                Values[key] = ((IFormattable)value).ToString(null, System.Globalization.CultureInfo.InvariantCulture);
+            }
+            else
+            {
+                Values[key] = value.ToString();
+            }
+        }
+
+        public bool TryGetDoubleValue(out double value, params string[] keys)
+        {
+            value = 0;
+            if (Values == null || keys == null)
+                return false;
+
+            for (int i = 0; i < keys.Length; i++)
+            {
+                string raw;
+                if (Values.TryGetValue(keys[i], out raw) && VisionProtocolResponse.TryParseDouble(raw, out value))
+                    return true;
+            }
+
+            return false;
+        }
+
+        public string DescribeValues()
+        {
+            if (Values == null || Values.Count == 0)
+                return "-";
+
+            var sb = new StringBuilder();
+            foreach (var kv in Values)
+            {
+                if (sb.Length > 0)
+                    sb.Append(", ");
+                sb.Append(kv.Key);
+                sb.Append("=");
+                sb.Append(kv.Value);
+            }
+            return sb.ToString();
+        }
+
+        private static Dictionary<string, string> CopyValues(VisionProtocolResponse response)
+        {
+            var result = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            if (response == null || response.Values == null)
+                return result;
+
+            foreach (var kv in response.Values)
+                result[kv.Key] = kv.Value;
+            return result;
         }
 
         private static bool TryGetAny(VisionProtocolResponse response, out double value, params string[] keys)

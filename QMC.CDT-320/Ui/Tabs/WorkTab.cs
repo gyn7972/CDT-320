@@ -721,7 +721,7 @@ namespace QMC.CDT_320.Ui.Tabs
 
             var sources = new List<CstStatusDialog.CassetteStatusSource>
             {
-                CstStatusDialog.CassetteStatusSource.Input("INPUT CASSETTE 1", CassetteMaterialRole.Input1, slotCount, input1Fallback)
+                CstStatusDialog.CassetteStatusSource.Input("INPUT CASSETTE", CassetteMaterialRole.Input1, slotCount, input1Fallback)
             };
 
             if (levelCount >= 2)

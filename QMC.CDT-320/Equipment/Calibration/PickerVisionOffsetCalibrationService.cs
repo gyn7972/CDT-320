@@ -25,9 +25,9 @@ namespace QMC.CDT320.Calibration
 
                 data.Camera.EnsureObjects();
                 data.Collet.EnsureObjects();
-                if (!data.Camera.Valid)
+                if (!data.Camera.Valid && !CanUseStoredCameraOffsets(data.Camera, out summary))
                 {
-                    summary = "Vision Camera Calibration is not valid.";
+                    summary = "Vision Camera Calibration is not valid. " + summary;
                     return false;
                 }
 
@@ -60,6 +60,8 @@ namespace QMC.CDT320.Calibration
 
                 data.Touch(updatedBy);
                 summary = "Picker VisionToPicker offset update complete. count=" + count + ". " + sb;
+                if (!data.Camera.Valid)
+                    summary = "Vision Camera Calibration Valid=false; stored reticle/offset values were used. " + summary;
                 QMC.Common.Log.Write("Calibration", updatedBy ?? "SYSTEM", "PickerVisionOffsetApply", summary);
                 return true;
             }
@@ -72,6 +74,48 @@ namespace QMC.CDT320.Calibration
             finally
             {
             }
+        }
+
+        private static bool CanUseStoredCameraOffsets(VisionCameraCalibrationData camera, out string reason)
+        {
+            reason = string.Empty;
+            if (camera == null)
+            {
+                reason = "camera is null.";
+                return false;
+            }
+
+            camera.EnsureObjects();
+            if (camera.InputReticle == null || !camera.InputReticle.HasVisionXPosition)
+            {
+                reason = "Input reticle VisionX encoder position is missing.";
+                return false;
+            }
+
+            if (camera.OutputReticle == null || !camera.OutputReticle.HasVisionXPosition)
+            {
+                reason = "Output reticle VisionX encoder position is missing.";
+                return false;
+            }
+
+            if (!IsFinite(camera.InputReticle.VisionXPosition) ||
+                !IsFinite(camera.OutputReticle.VisionXPosition) ||
+                !IsFinite(camera.InputToBottomOffsetX) ||
+                !IsFinite(camera.InputToBottomOffsetY) ||
+                !IsFinite(camera.OutputToBottomOffsetX) ||
+                !IsFinite(camera.OutputToBottomOffsetY))
+            {
+                reason = "stored camera offset contains invalid number.";
+                return false;
+            }
+
+            reason = "OK";
+            return true;
+        }
+
+        private static bool IsFinite(double value)
+        {
+            return !double.IsNaN(value) && !double.IsInfinity(value);
         }
 
         private static int ApplySide(
@@ -102,8 +146,9 @@ namespace QMC.CDT320.Calibration
                 // 저장 offset은 자동/수동 Pick 계산식에서 그대로 쓰는 최종 Vision->Picker 보정값이다.
                 double inputX = record.FinalPickerX - camera.InputReticle.VisionXPosition - camera.InputToBottomOffsetX;
                 double inputY = record.FinalPickerY + camera.InputToBottomOffsetY;
-                double outputX = record.FinalPickerX - camera.OutputReticle.VisionXPosition - camera.OutputToBottomOffsetX;
-                double outputY = Math.Abs(record.FinalPickerY) - camera.OutputToBottomOffsetY;
+                double outputFinalPickerX = record.FinalPickerX;
+                double outputX = outputFinalPickerX - camera.OutputReticle.VisionXPosition - camera.OutputToBottomOffsetX;
+                double outputY = record.FinalPickerY - camera.OutputToBottomOffsetY;
 
                 inputOffsets.OffsetX[i] = inputX;
                 inputOffsets.OffsetY[i] = inputY;
@@ -111,7 +156,7 @@ namespace QMC.CDT320.Calibration
                 outputOffsets.OffsetY[i] = outputY;
                 count++;
 
-                LogAppliedOffset(side, i, record, camera, inputX, inputY, outputX, outputY);
+                LogAppliedOffset(side, i, record, camera, inputX, inputY, outputX, outputY, outputFinalPickerX);
                 if (summary != null)
                 {
                     summary.Append(side).Append(" C").Append(i + 1)
@@ -160,12 +205,16 @@ namespace QMC.CDT320.Calibration
             double inputX,
             double inputY,
             double outputX,
-            double outputY)
+            double outputY,
+            double outputFinalPickerX)
         {
             QMC.Common.Log.Write("Calibration", "SYSTEM", "PickerVisionOffsetFormula",
                 "VisionToPicker offset calculated. side=" + side +
                 ", pickerNo=" + (pickerIndex + 1) +
                 ", finalPicker=(" + record.FinalPickerX.ToString("F6") + "," + record.FinalPickerY.ToString("F6") + ")" +
+                ", outputFinalPickerX=" + outputFinalPickerX.ToString("F6") +
+                ", outputXMode=ColletFinalPickerX" +
+                ", outputYMode=SignedPickBasisMinusCameraOffset" +
                 ", inputReticleVisionX=" + camera.InputReticle.VisionXPosition.ToString("F6") +
                 ", outputReticleVisionX=" + camera.OutputReticle.VisionXPosition.ToString("F6") +
                 ", inputCameraOffset=(" + camera.InputToBottomOffsetX.ToString("F6") + "," + camera.InputToBottomOffsetY.ToString("F6") + ")" +
@@ -177,12 +226,12 @@ namespace QMC.CDT320.Calibration
                 ", formulaInputY=finalPickerY+inputCameraOffsetY=" +
                 record.FinalPickerY.ToString("F6") + "+" +
                 camera.InputToBottomOffsetY.ToString("F6") + "=" + inputY.ToString("F6") +
-                ", formulaOutputX=finalPickerX-outputVisionX-outputCameraOffsetX=" +
-                record.FinalPickerX.ToString("F6") + "-" +
+                ", formulaOutputX=outputFinalPickerX-outputVisionX-outputCameraOffsetX=" +
+                outputFinalPickerX.ToString("F6") + "-" +
                 camera.OutputReticle.VisionXPosition.ToString("F6") + "-" +
                 camera.OutputToBottomOffsetX.ToString("F6") + "=" + outputX.ToString("F6") +
-                ", formulaOutputY=abs(finalPickerY)-outputCameraOffsetY=" +
-                Math.Abs(record.FinalPickerY).ToString("F6") + "-" +
+                ", formulaOutputY=finalPickerY-outputCameraOffsetY=" +
+                record.FinalPickerY.ToString("F6") + "-" +
                 camera.OutputToBottomOffsetY.ToString("F6") + "=" + outputY.ToString("F6"));
         }
     }

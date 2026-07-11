@@ -13,6 +13,7 @@ namespace QMC.CDT320.Sequencing
         MoveBottomYToInspection,
         MoveBottomZ,
         MoveBottomT,
+        RunAutoFocusBeforeBottomInspection,
         RequestBottomInspection,
         ApplyBottomInspectionResult,
         MoveBottomZToAvoid,

@@ -120,7 +120,7 @@ namespace QMC.CDT320.Sequencing
                 visionAlignOffsetT,
                 InputPickerPickTargetResolver.ResolveNeedleCalibrationOffsetX(machine),
                 InputPickerPickTargetResolver.ResolveNeedleCalibrationOffsetY(machine),
-                InputPickerPickTargetResolver.ResolvePickerYPickTeaching(machine, side, pickerIndex),
+                InputPickerPickTargetResolver.ResolvePickerYPickTeaching(machine, side),
                 InputPickerPickTargetResolver.ResolvePickerTeachingPosition(
                     machine,
                     side,
@@ -255,9 +255,28 @@ namespace QMC.CDT320.Sequencing
             double outputVisionToPickerX,
             double outputVisionToPickerY)
         {
-            double carryOffsetX = ResolveCarryOffsetX(machine, side, pickerIndex);
-            double carryOffsetY = ResolveCarryOffsetY(machine, side, pickerIndex);
-            double carryOffsetT = ResolveCarryOffsetT(machine, side, pickerIndex);
+            PickerAlignOffset runtime = InputPickerPickTargetResolver.ResolveRuntimePickerOffset(machine, side, pickerIndex);
+            PickerCalibrationOffset collet = ResolveColletOffset(machine, side, pickerIndex);
+            double runtimeOffsetX = runtime != null ? runtime.AlignOffsetX : 0.0;
+            double runtimeOffsetY = runtime != null ? runtime.AlignOffsetY : 0.0;
+            double runtimeOffsetT = runtime != null ? runtime.AlignOffsetT : 0.0;
+            double colletOffsetX = collet != null ? collet.X : 0.0;
+            double colletOffsetY = collet != null ? collet.Y : 0.0;
+            double pickerYTeaching = InputPickerPickTargetResolver.ResolvePickerTeachingPosition(
+                machine,
+                side,
+                PickerAxis.PickerY,
+                "PlacePosition");
+            double pickerTTeaching = InputPickerPickTargetResolver.ResolvePickerTeachingPosition(
+                machine,
+                side,
+                CalibrationCoordinateService.ResolvePickerTAxis(pickerIndex),
+                "PlacePosition");
+            double pickerZTeaching = InputPickerPickTargetResolver.ResolvePickerTeachingPosition(
+                machine,
+                side,
+                CalibrationCoordinateService.ResolvePickerZAxis(pickerIndex),
+                "PlacePosition");
 
             PlaceCoordinateResult result = DieCoordinateTransformService.CalculatePlaceTarget(
                 sequenceName,
@@ -271,24 +290,12 @@ namespace QMC.CDT320.Sequencing
                 receiveTargetX,
                 outputVisionToPickerX,
                 outputVisionToPickerY,
-                carryOffsetX,
-                carryOffsetY,
-                InputPickerPickTargetResolver.ResolvePickerTeachingPosition(
-                    machine,
-                    side,
-                    PickerAxis.PickerY,
-                    "PlacePosition"),
-                InputPickerPickTargetResolver.ResolvePickerTeachingPosition(
-                    machine,
-                    side,
-                    CalibrationCoordinateService.ResolvePickerTAxis(pickerIndex),
-                    "PlacePosition"),
-                carryOffsetT,
-                InputPickerPickTargetResolver.ResolvePickerTeachingPosition(
-                    machine,
-                    side,
-                    CalibrationCoordinateService.ResolvePickerZAxis(pickerIndex),
-                    "PlacePosition"));
+                runtimeOffsetX,
+                runtimeOffsetY,
+                pickerYTeaching,
+                pickerTTeaching,
+                runtimeOffsetT,
+                pickerZTeaching);
 
             WriteCoordinateLog(
                 "OutputPlaceTarget",
@@ -298,9 +305,11 @@ namespace QMC.CDT320.Sequencing
                 ", die=" + (dieId ?? string.Empty) +
                 ", targetSide=" + targetSide +
                 ", runtimeSource=PickerAlignOffset" +
-                ", carryOffsetX=" + F(carryOffsetX) +
-                ", carryOffsetY=" + F(carryOffsetY) +
-                ", runtimeT=" + F(carryOffsetT) +
+                ", runtimeOffsetX=" + F(runtimeOffsetX) +
+                ", runtimeOffsetY=" + F(runtimeOffsetY) +
+                ", runtimeT=" + F(runtimeOffsetT) +
+                ", colletXAlreadyInOutputVisionToPicker=" + F(colletOffsetX) +
+                ", colletYAlreadyInOutputVisionToPicker=" + F(colletOffsetY) +
                 ", colletTAppliedToMove=0.000000" +
                 ", outputStageBaseY=" + F(outputStageBaseY) +
                 ", receiveTargetX=" + F(receiveTargetX) +
@@ -308,36 +317,45 @@ namespace QMC.CDT320.Sequencing
                 ", outputVisionProcessX=" + F(outputVisionProcessX) +
                 ", outputVisionToPickerX=" + F(outputVisionToPickerX) +
                 ", outputVisionToPickerY=" + F(outputVisionToPickerY) +
+                ", pickerYTeaching=" + F(pickerYTeaching) +
+                ", pickerTTeaching=" + F(pickerTTeaching) +
+                ", pickerZTeaching=" + F(pickerZTeaching) +
                 ", finalOutputStageY=" + F(result.OutputStageY) +
                 ", finalPickerX=" + F(result.PickerX) +
                 ", finalPickerY=" + F(result.PickerY) +
                 ", finalPickerT=" + F(result.PickerT) +
                 ", formula=" + result.Formula);
+
+            WriteCoordinateLog(
+                "OutputPlaceFormula",
+                "sequence=" + (sequenceName ?? string.Empty) +
+                ", side=" + side +
+                ", pickerIndex=" + pickerIndex +
+                ", die=" + (dieId ?? string.Empty) +
+                ", targetSide=" + targetSide +
+                ", formulaPickerX=outputVisionProcessX(" + F(outputVisionProcessX) +
+                ")+receiveTargetX(" + F(receiveTargetX) +
+                ")+outputVisionToPickerX(" + F(outputVisionToPickerX) +
+                ")+runtimeOffsetX(" + F(runtimeOffsetX) +
+                ")=" + F(result.PickerX) +
+                ", colletXAlreadyInOutputVisionToPicker=" + F(colletOffsetX) +
+                ", colletXNotAddedAgain=True" +
+                ", pickerXIfColletDoubleAdded=" + F(result.PickerX + colletOffsetX) +
+                ", formulaOutputStageY=outputStageBaseY(" + F(outputStageBaseY) +
+                ")+receiveTargetY(" + F(receiveTargetY) +
+                ")+outputVisionToPickerY(" + F(outputVisionToPickerY) +
+                ")-pickerYTeaching(" + F(pickerYTeaching) +
+                ")=" + F(result.OutputStageY) +
+                ", runtimeOffsetYLoggedOnly=" + F(runtimeOffsetY) +
+                ", colletYAlreadyInOutputVisionToPicker=" + F(colletOffsetY) +
+                ", colletYNotAddedAgain=True" +
+                ", pickerYFixed=" + F(result.PickerY) +
+                ", pickerT=placeTeachingT(" + F(pickerTTeaching) +
+                ")=" + F(result.PickerT) +
+                ", pickerZ=placeTeachingZ(" + F(pickerZTeaching) +
+                ")=" + F(result.PickerZ) +
+                " - Calc");
             return result;
-        }
-
-        // Carry X = temporary runtime X + saved collet X correction.
-        private static double ResolveCarryOffsetX(CDT320_Machine machine, PickerSequenceSide side, int pickerIndex)
-        {
-            PickerAlignOffset runtime = InputPickerPickTargetResolver.ResolveRuntimePickerOffset(machine, side, pickerIndex);
-            PickerCalibrationOffset collet = ResolveColletOffset(machine, side, pickerIndex);
-            return (runtime != null ? runtime.AlignOffsetX : 0.0) + (collet != null ? collet.X : 0.0);
-        }
-
-        // Carry Y = temporary runtime Y + saved collet Y correction.
-        private static double ResolveCarryOffsetY(CDT320_Machine machine, PickerSequenceSide side, int pickerIndex)
-        {
-            PickerAlignOffset runtime = InputPickerPickTargetResolver.ResolveRuntimePickerOffset(machine, side, pickerIndex);
-            PickerCalibrationOffset collet = ResolveColletOffset(machine, side, pickerIndex);
-            return (runtime != null ? runtime.AlignOffsetY : 0.0) + (collet != null ? collet.Y : 0.0);
-        }
-
-        // Carry T = temporary runtime T only. Saved collet theta is converted to picker T home zero.
-        private static double ResolveCarryOffsetT(CDT320_Machine machine, PickerSequenceSide side, int pickerIndex)
-        {
-            PickerAlignOffset runtime = InputPickerPickTargetResolver.ResolveRuntimePickerOffset(machine, side, pickerIndex);
-            // Runtime T is PickerAlignOffset.AlignOffsetT. Collet theta is already handled by homing zero.
-            return runtime != null ? runtime.AlignOffsetT : 0.0;
         }
 
         private static PickerCalibrationOffset ResolveColletOffset(CDT320_Machine machine, PickerSequenceSide side, int pickerIndex)

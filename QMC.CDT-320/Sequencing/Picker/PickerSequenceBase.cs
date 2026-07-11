@@ -10,6 +10,7 @@ using QMC.CDT320.Calibration;
 using QMC.CDT320.Interlocks;
 using QMC.CDT320.Materials;
 using QMC.CDT320.Motion.SharedRailX;
+using QMC.CDT320.Sequencing.Calibration;
 
 namespace QMC.CDT320.Sequencing
 {
@@ -37,6 +38,7 @@ namespace QMC.CDT320.Sequencing
         protected TStep CurrentStep { get; set; }
         private IDisposable pickerWorkAreaScope;
         private PickerWorkZone pickerWorkAreaZone = PickerWorkZone.Unknown;
+        private bool safetyRetreatMoveActive;
 
         protected PickerFrontUnit FrontPicker
         {
@@ -111,9 +113,44 @@ namespace QMC.CDT320.Sequencing
 
         protected abstract Task<int> ExecuteAsync(CancellationToken ct);
 
+        protected bool ShouldDeferCycleStopForPickerDrain()
+        {
+            try
+            {
+                if (Options != null && Options.RunMode != SequenceRunMode.Auto)
+                    return false;
+                if (Context == null || !Context.IsCycleStopRequested)
+                    return false;
+                if (IsAlarmStopActive())
+                    return false;
+
+                for (int pickerNo = 1; pickerNo <= 4; pickerNo++)
+                {
+                    DieMaterial die = MaterialStateService.GetDieAtPicker(PickerLocationKind, pickerNo);
+                    if (die != null && die.IsInputTarget)
+                        return true;
+                }
+
+                return false;
+            }
+            catch
+            {
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
         protected int ResolveTimeout()
         {
             return Options != null && Options.MoveTimeoutMs > 0 ? Options.MoveTimeoutMs : 30000;
+        }
+
+        protected int ResolveVisionInspectionTimeout()
+        {
+            const int defaultVisionInspectionTimeoutMs = 12000;
+            return defaultVisionInspectionTimeoutMs;
         }
 
         protected int ResolveMoveTimeout()
@@ -154,6 +191,267 @@ namespace QMC.CDT320.Sequencing
             catch (Exception ex)
             {
                 WriteLog("SaveRuntimeState", Name + " runtime state save failed. reason=" + reason + ", error=" + ex.Message + " - Failed");
+            }
+            finally
+            {
+            }
+        }
+
+        protected void RecordBottomAutoFocusPickCount(int pickerNo, DieMaterial die)
+        {
+            try
+            {
+                VisionFocusPositionRecord record = ResolveBottomAutoFocusRecord(pickerNo);
+                if (record == null)
+                    return;
+
+                record.RecordAutoFocusPick();
+                WriteLog("PickerAutoFocus",
+                    Name + " Bottom AutoFocus pick count updated. side=" + Side +
+                    ", pickerNo=" + pickerNo +
+                    ", count=" + record.AutoFocusPickCountSinceLast +
+                    ", wafer=" + BuildAutoFocusWaferKey(die) + " - Check");
+            }
+            catch (Exception ex)
+            {
+                WriteLog("PickerAutoFocus",
+                    Name + " Bottom AutoFocus pick count update failed. side=" + Side +
+                    ", pickerNo=" + pickerNo +
+                    ", error=" + ex.Message + " - Failed");
+            }
+            finally
+            {
+            }
+        }
+
+        protected async Task<int> RunBottomRuntimeAutoFocusIfNeededAsync(
+            int pickerIndex,
+            int pickerNo,
+            DieMaterial die,
+            double defaultPosition,
+            CancellationToken ct)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+
+                VisionFocusCalibrationData data = ResolveFocusCalibrationData();
+                if (data == null)
+                    return 0;
+
+                VisionFocusScanSettings settings = data.BottomColletScan;
+                settings.EnsureDefaults();
+                VisionFocusPositionRecord record = ResolveBottomAutoFocusRecord(pickerNo);
+                if (record == null)
+                    return 0;
+
+                string waferKey = BuildAutoFocusWaferKey(die);
+                string reason;
+                if (!ShouldRunBottomAutoFocus(settings, record, waferKey, out reason))
+                {
+                    WriteLog("PickerAutoFocus",
+                        Name + " Bottom Runtime AutoFocus skip. side=" + Side +
+                        ", pickerNo=" + pickerNo +
+                        ", count=" + record.AutoFocusPickCountSinceLast +
+                        ", interval=" + settings.AutoFocusPickInterval +
+                        ", wafer=" + waferKey +
+                        ", lastWafer=" + (record.LastAutoFocusWaferId ?? string.Empty) +
+                        " - Check");
+                    return 0;
+                }
+
+                WriteLog("PickerAutoFocus",
+                    Name + " Bottom Runtime AutoFocus start. side=" + Side +
+                    ", pickerNo=" + pickerNo +
+                    ", pickerIndex=" + pickerIndex +
+                    ", defaultZ=" + defaultPosition.ToString("F6") +
+                    ", scan=FineOnly" +
+                    ", fineMinus=" + settings.FineMinusRange.ToString("F6") +
+                    ", finePlus=" + settings.FinePlusRange.ToString("F6") +
+                    ", fineStep=" + settings.FineStep.ToString("F6") +
+                    ", reason=" + reason +
+                    ", count=" + record.AutoFocusPickCountSinceLast +
+                    ", interval=" + settings.AutoFocusPickInterval +
+                    ", wafer=" + waferKey + " - Start");
+
+                var request = new VisionFocusScanRequest
+                {
+                    Kind = VisionFocusScanKind.BottomCollet,
+                    PickerSide = ResolveFocusPickerSide(),
+                    PickerNo = pickerNo,
+                    DefaultPosition = defaultPosition,
+                    MinusRange = settings.MinusRange,
+                    PlusRange = settings.PlusRange,
+                    Step = settings.Step,
+                    FineMinusRange = settings.FineMinusRange,
+                    FinePlusRange = settings.FinePlusRange,
+                    FineStep = settings.FineStep,
+                    RepeatCount = settings.RepeatCount,
+                    MoveVelocity = settings.MoveVelocity,
+                    MoveAcceleration = settings.MoveAcceleration,
+                    MoveDeceleration = settings.MoveDeceleration,
+                    SettleDelayMs = settings.SettleDelayMs,
+                    MotionTimeoutMs = settings.MotionTimeoutMs,
+                    VisionTimeoutMs = settings.VisionTimeoutMs,
+                    VisionBestTimeoutMs = settings.VisionBestTimeoutMs,
+                    FocusValueReceiveMode = settings.FocusValueReceiveMode,
+                    ReturnToDefaultAfterScan = false,
+                    SkipPrepareFocusPosition = true,
+                    FineOnlyScan = true,
+                    RuntimeReason = reason,
+                    UpdatedBy = "AutoBeforeBottom"
+                };
+
+                var sequence = new VisionFocusScanSequence(Context.Machine, request);
+                int result = await sequence.RunAsync(ct, Options != null ? Options.RunMode : SequenceRunMode.Auto).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                double bestZ = sequence.Result.BestPosition;
+                ApplyRuntimeBottomFocusPosition(pickerIndex, bestZ);
+                record.MarkAutoFocusComplete(waferKey);
+                SaveVisionFocusSettings("Bottom Runtime AutoFocus complete");
+
+                WriteLog("PickerAutoFocus",
+                    Name + " Bottom Runtime AutoFocus complete. side=" + Side +
+                    ", pickerNo=" + pickerNo +
+                    ", defaultZ=" + defaultPosition.ToString("F6") +
+                    ", bestZ=" + bestZ.ToString("F6") +
+                    ", score=" + sequence.Result.BestScore.ToString("F4") +
+                    ", sample=" + sequence.Result.SampleCount +
+                    ", wafer=" + waferKey + " - Ok");
+                return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (SequenceStopException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("PICKER-BOTTOM-AUTOFOCUS-EX", Name,
+                    "Bottom 촬영 전 Runtime AutoFocus 중 예외가 발생했습니다. side=" + Side +
+                    ", pickerNo=" + pickerNo +
+                    ", error=" + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private bool ShouldRunBottomAutoFocus(
+            VisionFocusScanSettings settings,
+            VisionFocusPositionRecord record,
+            string waferKey,
+            out string reason)
+        {
+            reason = string.Empty;
+            if (settings == null || record == null)
+                return false;
+
+            if (!settings.AutoFocusBeforeBottomEnabled && !record.ForceNextAutoFocus)
+                return false;
+
+            if (record.ForceNextAutoFocus)
+            {
+                reason = "ForceNext";
+                return true;
+            }
+
+            if (settings.AutoFocusOnWaferChange &&
+                !string.IsNullOrWhiteSpace(waferKey) &&
+                !string.Equals(record.LastAutoFocusWaferId ?? string.Empty, waferKey, StringComparison.OrdinalIgnoreCase))
+            {
+                reason = "WaferChanged";
+                return true;
+            }
+
+            if (settings.AutoFocusPickInterval > 0 &&
+                record.AutoFocusPickCountSinceLast >= settings.AutoFocusPickInterval)
+            {
+                reason = "PickCount";
+                return true;
+            }
+
+            return false;
+        }
+
+        private VisionFocusCalibrationData ResolveFocusCalibrationData()
+        {
+            if (Context == null || Context.Machine == null ||
+                Context.Machine.VisionUnit == null ||
+                Context.Machine.VisionUnit.Config == null)
+                return null;
+
+            Context.Machine.VisionUnit.Config.EnsureCalibrationObjects();
+            VisionFocusCalibrationData data = Context.Machine.VisionUnit.Config.FocusCalibration;
+            if (data != null)
+                data.EnsureObjects();
+            return data;
+        }
+
+        private VisionFocusPositionRecord ResolveBottomAutoFocusRecord(int pickerNo)
+        {
+            VisionFocusCalibrationData data = ResolveFocusCalibrationData();
+            if (data == null)
+                return null;
+            return data.GetColletRecord(ResolveFocusPickerSide(), pickerNo);
+        }
+
+        private VisionFocusPickerSide ResolveFocusPickerSide()
+        {
+            return Side == PickerSequenceSide.Rear
+                ? VisionFocusPickerSide.Rear
+                : VisionFocusPickerSide.Front;
+        }
+
+        private string BuildAutoFocusWaferKey(DieMaterial die)
+        {
+            if (die != null && !string.IsNullOrWhiteSpace(die.WaferID_Input))
+                return die.WaferID_Input.Trim();
+
+            try
+            {
+                if (Context != null && Context.Machine != null &&
+                    Context.Machine.InputStageUnit != null &&
+                    !string.IsNullOrWhiteSpace(Context.Machine.InputStageUnit.CurrentWaferId))
+                    return Context.Machine.InputStageUnit.CurrentWaferId.Trim();
+            }
+            catch
+            {
+            }
+
+            return string.Empty;
+        }
+
+        private void ApplyRuntimeBottomFocusPosition(int pickerIndex, double bestZ)
+        {
+            if (Side == PickerSequenceSide.Front)
+                FrontPicker.SetRuntimePickerZPosition(pickerIndex, "FocusPosition", bestZ);
+            else
+                RearPicker.SetRuntimePickerZPosition(pickerIndex, "FocusPosition", bestZ);
+        }
+
+        private void SaveVisionFocusSettings(string reason)
+        {
+            try
+            {
+                if (Context == null || Context.Machine == null || Context.Machine.VisionUnit == null)
+                    return;
+
+                bool saved = Context.Machine.VisionUnit.SaveSettings();
+                WriteLog("PickerAutoFocus",
+                    Name + " Vision Focus 설정 저장. reason=" + reason +
+                    ", saved=" + saved + " - Check");
+            }
+            catch (Exception ex)
+            {
+                WriteLog("PickerAutoFocus",
+                    Name + " Vision Focus 설정 저장 실패. reason=" + reason +
+                    ", error=" + ex.Message + " - Failed");
             }
             finally
             {
@@ -755,8 +1053,11 @@ namespace QMC.CDT320.Sequencing
                 while (true)
                 {
                     ct.ThrowIfCancellationRequested();
-                    if (Context != null)
-                        Context.StopIfCycleStopRequested(Name + ".PickerXSharedRailDistanceWait");
+                    if (!safetyRetreatMoveActive && Context != null)
+                        Context.StopIfCycleStopRequested(
+                            Name + ".PickerXSharedRailDistanceWait",
+                            ShouldDeferCycleStopForPickerDrain(),
+                            "Picker target die drain");
 
                     if (IsAlarmStopActive())
                         return StopPickerMoveBecauseAlarmActive(description);
@@ -860,8 +1161,11 @@ namespace QMC.CDT320.Sequencing
                 while (true)
                 {
                     ct.ThrowIfCancellationRequested();
-                    if (Context != null)
-                        Context.StopIfCycleStopRequested(Name + ".WaitPickerFacingYInterlock:" + axis);
+                    if (!safetyRetreatMoveActive && Context != null)
+                        Context.StopIfCycleStopRequested(
+                            Name + ".WaitPickerFacingYInterlock:" + axis,
+                            ShouldDeferCycleStopForPickerDrain(),
+                            "Picker target die drain");
 
                     string detail;
                     bool clear = PickerZoneInterlockRules.CanMovePickerAxisByFacingYInterlock(
@@ -1035,8 +1339,11 @@ namespace QMC.CDT320.Sequencing
                 while (!IsOppositePickerYReadyForForwardMove(targetZone, target, pairedXTarget, targetName, out gateDetail))
                 {
                     ct.ThrowIfCancellationRequested();
-                    if (Context != null)
-                        Context.StopIfCycleStopRequested(Name + ".WaitOppositePickerYAvoid");
+                    if (!safetyRetreatMoveActive && Context != null)
+                        Context.StopIfCycleStopRequested(
+                            Name + ".WaitOppositePickerYAvoid",
+                            ShouldDeferCycleStopForPickerDrain(),
+                            "Picker target die drain");
 
                     if (!waitLogged)
                     {
@@ -1603,8 +1910,10 @@ namespace QMC.CDT320.Sequencing
         protected async Task<int> EnsureSelfSafeAsync(string reason, CancellationToken ct)
         {
             string label = string.IsNullOrWhiteSpace(reason) ? "EnsureSelfSafe" : reason;
+            bool previousSafetyRetreatMoveActive = safetyRetreatMoveActive;
             try
             {
+                safetyRetreatMoveActive = true;
                 ct.ThrowIfCancellationRequested();
 
                 int result = await MoveAllPickerZToAvoidAndVerifyAsync(
@@ -1640,6 +1949,7 @@ namespace QMC.CDT320.Sequencing
             }
             finally
             {
+                safetyRetreatMoveActive = previousSafetyRetreatMoveActive;
             }
         }
 
@@ -1705,12 +2015,9 @@ namespace QMC.CDT320.Sequencing
 
                     if (!RearPicker.IsRearPickerInAvoidPosition())
                     {
-                        int result = await RearPicker.MoveToRearPickerAvoidPosition(fine).ConfigureAwait(false);
+                        int result = await MoveRearPickerToAvoidSequentialAsync(description, fine, ct).ConfigureAwait(false);
                         if (result != 0)
-                        {
-                            return Fail("PICKER-OPPOSITE-AVOID", "RearPickerUnit",
-                                description + " 실패. RearPicker 어보이드 이동 명령 실패. result=" + result);
-                        }
+                            return result;
                     }
 
                     if (!RearPicker.IsRearPickerInAvoidPosition())
@@ -1731,12 +2038,9 @@ namespace QMC.CDT320.Sequencing
 
                 if (!FrontPicker.IsFrontPickerInAvoidPosition())
                 {
-                    int result = await FrontPicker.MoveToFrontPickerAvoidPosition(fine).ConfigureAwait(false);
+                    int result = await MoveFrontPickerToAvoidSequentialAsync(description, fine, ct).ConfigureAwait(false);
                     if (result != 0)
-                    {
-                        return Fail("PICKER-OPPOSITE-AVOID", "FrontPickerUnit",
-                            description + " 실패. FrontPicker 어보이드 이동 명령 실패. result=" + result);
-                    }
+                        return result;
                 }
 
                 if (!FrontPicker.IsFrontPickerInAvoidPosition())
@@ -1759,6 +2063,150 @@ namespace QMC.CDT320.Sequencing
             finally
             {
             }
+        }
+
+        private async Task<int> MoveFrontPickerToAvoidSequentialAsync(string description, bool fine, CancellationToken ct)
+        {
+            if (FrontPicker == null)
+                return 0;
+
+            ct.ThrowIfCancellationRequested();
+            WriteLog("PickerOppositeAvoid",
+                Name + " opposite FrontPicker avoid sequence start. order=Z all Avoid -> Y Avoid -> X/T Avoid. description=" +
+                description + " - Start");
+
+            var zTargets = BuildFrontPickerAvoidTargets(true, false, false);
+            int result = await FrontPicker.MoveFrontPickerAxes(
+                zTargets,
+                fine,
+                "AvoidPosition;PickerPhase=SafeZ;OppositeAvoid").ConfigureAwait(false);
+            if (result != 0)
+                return Fail("PICKER-OPPOSITE-AVOID-Z", "FrontPickerUnit",
+                    description + " 실패. FrontPicker Z Avoid 이동 실패. result=" + result);
+
+            result = await FrontPicker.MoveFrontPickerAxisToTeachingPosition(
+                PickerAxis.PickerY,
+                "AvoidPosition",
+                fine).ConfigureAwait(false);
+            if (result != 0)
+                return Fail("PICKER-OPPOSITE-AVOID-Y", "FrontPickerUnit",
+                    description + " 실패. FrontPicker Y Avoid 이동 실패. result=" + result);
+
+            if (!FrontPicker.IsFrontPickerAxisInTeachingPosition(PickerAxis.PickerY, "AvoidPosition"))
+                return Fail("PICKER-OPPOSITE-AVOID-Y-CHECK", "FrontPickerUnit",
+                    description + " 실패. FrontPicker Y가 Avoid 위치가 아닙니다.");
+
+            var xtTargets = BuildFrontPickerAvoidTargets(false, true, true);
+            result = await FrontPicker.MoveFrontPickerAxes(
+                xtTargets,
+                fine,
+                "AvoidPosition;PickerPhase=SafeX;OppositeAvoid").ConfigureAwait(false);
+            if (result != 0)
+                return Fail("PICKER-OPPOSITE-AVOID-XT", "FrontPickerUnit",
+                    description + " 실패. FrontPicker X/T Avoid 이동 실패. result=" + result);
+
+            WriteLog("PickerOppositeAvoid",
+                Name + " opposite FrontPicker avoid sequence complete. order=Z all Avoid -> Y Avoid -> X/T Avoid. description=" +
+                description + " - Ok");
+            return 0;
+        }
+
+        private async Task<int> MoveRearPickerToAvoidSequentialAsync(string description, bool fine, CancellationToken ct)
+        {
+            if (RearPicker == null)
+                return 0;
+
+            ct.ThrowIfCancellationRequested();
+            WriteLog("PickerOppositeAvoid",
+                Name + " opposite RearPicker avoid sequence start. order=Z all Avoid -> Y Avoid -> X/T Avoid. description=" +
+                description + " - Start");
+
+            var zTargets = BuildRearPickerAvoidTargets(true, false, false);
+            int result = await RearPicker.MoveRearPickerAxes(
+                zTargets,
+                fine,
+                "AvoidPosition;PickerPhase=SafeZ;OppositeAvoid").ConfigureAwait(false);
+            if (result != 0)
+                return Fail("PICKER-OPPOSITE-AVOID-Z", "RearPickerUnit",
+                    description + " 실패. RearPicker Z Avoid 이동 실패. result=" + result);
+
+            result = await RearPicker.MoveRearPickerAxisToTeachingPosition(
+                PickerAxis.PickerY,
+                "AvoidPosition",
+                fine).ConfigureAwait(false);
+            if (result != 0)
+                return Fail("PICKER-OPPOSITE-AVOID-Y", "RearPickerUnit",
+                    description + " 실패. RearPicker Y Avoid 이동 실패. result=" + result);
+
+            if (!RearPicker.IsRearPickerAxisInTeachingPosition(PickerAxis.PickerY, "AvoidPosition"))
+                return Fail("PICKER-OPPOSITE-AVOID-Y-CHECK", "RearPickerUnit",
+                    description + " 실패. RearPicker Y가 Avoid 위치가 아닙니다.");
+
+            var xtTargets = BuildRearPickerAvoidTargets(false, true, true);
+            result = await RearPicker.MoveRearPickerAxes(
+                xtTargets,
+                fine,
+                "AvoidPosition;PickerPhase=SafeX;OppositeAvoid").ConfigureAwait(false);
+            if (result != 0)
+                return Fail("PICKER-OPPOSITE-AVOID-XT", "RearPickerUnit",
+                    description + " 실패. RearPicker X/T Avoid 이동 실패. result=" + result);
+
+            WriteLog("PickerOppositeAvoid",
+                Name + " opposite RearPicker avoid sequence complete. order=Z all Avoid -> Y Avoid -> X/T Avoid. description=" +
+                description + " - Ok");
+            return 0;
+        }
+
+        private Dictionary<PickerAxis, double> BuildFrontPickerAvoidTargets(bool includeZ, bool includeX, bool includeT)
+        {
+            var targets = new Dictionary<PickerAxis, double>();
+            if (FrontPicker == null)
+                return targets;
+
+            if (includeX)
+                targets[PickerAxis.PickerX] = FrontPicker.GetPickerTeachingPosition(PickerAxis.PickerX, "AvoidPosition");
+            if (includeT)
+            {
+                targets[PickerAxis.PickerT0] = FrontPicker.GetPickerTeachingPosition(PickerAxis.PickerT0, "AvoidPosition");
+                targets[PickerAxis.PickerT1] = FrontPicker.GetPickerTeachingPosition(PickerAxis.PickerT1, "AvoidPosition");
+                targets[PickerAxis.PickerT2] = FrontPicker.GetPickerTeachingPosition(PickerAxis.PickerT2, "AvoidPosition");
+                targets[PickerAxis.PickerT3] = FrontPicker.GetPickerTeachingPosition(PickerAxis.PickerT3, "AvoidPosition");
+            }
+            if (includeZ)
+            {
+                targets[PickerAxis.PickerZ0] = FrontPicker.GetPickerTeachingPosition(PickerAxis.PickerZ0, "AvoidPosition");
+                targets[PickerAxis.PickerZ1] = FrontPicker.GetPickerTeachingPosition(PickerAxis.PickerZ1, "AvoidPosition");
+                targets[PickerAxis.PickerZ2] = FrontPicker.GetPickerTeachingPosition(PickerAxis.PickerZ2, "AvoidPosition");
+                targets[PickerAxis.PickerZ3] = FrontPicker.GetPickerTeachingPosition(PickerAxis.PickerZ3, "AvoidPosition");
+            }
+
+            return targets;
+        }
+
+        private Dictionary<PickerAxis, double> BuildRearPickerAvoidTargets(bool includeZ, bool includeX, bool includeT)
+        {
+            var targets = new Dictionary<PickerAxis, double>();
+            if (RearPicker == null)
+                return targets;
+
+            if (includeX)
+                targets[PickerAxis.PickerX] = RearPicker.GetPickerTeachingPosition(PickerAxis.PickerX, "AvoidPosition");
+            if (includeT)
+            {
+                targets[PickerAxis.PickerT0] = RearPicker.GetPickerTeachingPosition(PickerAxis.PickerT0, "AvoidPosition");
+                targets[PickerAxis.PickerT1] = RearPicker.GetPickerTeachingPosition(PickerAxis.PickerT1, "AvoidPosition");
+                targets[PickerAxis.PickerT2] = RearPicker.GetPickerTeachingPosition(PickerAxis.PickerT2, "AvoidPosition");
+                targets[PickerAxis.PickerT3] = RearPicker.GetPickerTeachingPosition(PickerAxis.PickerT3, "AvoidPosition");
+            }
+            if (includeZ)
+            {
+                targets[PickerAxis.PickerZ0] = RearPicker.GetPickerTeachingPosition(PickerAxis.PickerZ0, "AvoidPosition");
+                targets[PickerAxis.PickerZ1] = RearPicker.GetPickerTeachingPosition(PickerAxis.PickerZ1, "AvoidPosition");
+                targets[PickerAxis.PickerZ2] = RearPicker.GetPickerTeachingPosition(PickerAxis.PickerZ2, "AvoidPosition");
+                targets[PickerAxis.PickerZ3] = RearPicker.GetPickerTeachingPosition(PickerAxis.PickerZ3, "AvoidPosition");
+            }
+
+            return targets;
         }
 
         private async Task<int> WaitOppositePickerReadyForAutoAsync(string description, CancellationToken ct)
@@ -2101,31 +2549,16 @@ namespace QMC.CDT320.Sequencing
         {
             try
             {
-                int index = ToPickerIndex(pickerNo);
-                if (Side == PickerSequenceSide.Front &&
-                    FrontPicker != null &&
-                    FrontPicker.FlowChecks != null &&
-                    index >= 0 &&
-                    index < FrontPicker.FlowChecks.Length &&
-                    FrontPicker.FlowChecks[index] != null)
-                {
-                    return FrontPicker.FlowChecks[index].IsOn;
-                }
+                if (Side == PickerSequenceSide.Front && FrontPicker != null)
+                    return FrontPicker.IsPickerFlowDetected(pickerNo, true);
 
-                if (Side == PickerSequenceSide.Rear &&
-                    RearPicker != null &&
-                    RearPicker.FlowChecks != null &&
-                    index >= 0 &&
-                    index < RearPicker.FlowChecks.Length &&
-                    RearPicker.FlowChecks[index] != null)
-                {
-                    return RearPicker.FlowChecks[index].IsOn;
-                }
+                if (Side == PickerSequenceSide.Rear && RearPicker != null)
+                    return RearPicker.IsPickerFlowDetected(pickerNo, true);
             }
             catch (Exception ex)
             {
                 WriteLog("PickerFlowCheck",
-                    Name + " Picker Flow 신호 읽기 실패. side=" + Side +
+                    Name + " Picker Flow 신호 읽기 실패. Unit IsPickerFlowDetected 호출 실패. side=" + Side +
                     ", pickerNo=" + pickerNo +
                     ", error=" + ex.Message + " - Failed");
             }
@@ -2141,6 +2574,19 @@ namespace QMC.CDT320.Sequencing
             if (CalibrationMotion != null)
             {
                 CalibrationMotion.EnsureDefaults();
+                WriteLog("PickerMoveCommand",
+                    Name + " calibration motion command. side=" + Side +
+                    ", axis=" + axis +
+                    ", target=" + target.ToString("F6") +
+                    ", targetName=" + (targetName ?? "-") +
+                    ", forceMove=" + forceMove +
+                    ", velocity=" + CalibrationMotion.MoveVelocity.ToString("F6") +
+                    ", acceleration=" + CalibrationMotion.MoveAcceleration.ToString("F6") +
+                    ", deceleration=" + CalibrationMotion.MoveDeceleration.ToString("F6") +
+                    ", timeoutMs=" + CalibrationMotion.MoveTimeoutMs +
+                    ", speedScalePercent=" + MotionSpeedScale.ScalePercent.ToString("F3") +
+                    ", effectiveScaleFactor=" + MotionSpeedScale.EffectiveScaleFactor.ToString("F6") +
+                    ", explicitVelocityNotDefaultScaled=True - Check");
                 if (Side == PickerSequenceSide.Front)
                     return FrontPicker.MovePickerAxisCommandWithMotion(
                         axis,
@@ -2176,6 +2622,17 @@ namespace QMC.CDT320.Sequencing
 
         protected Task<int> MovePickerAxisCommandWithMotionAsync(PickerAxis axis, double target, double velocity, double acceleration, double deceleration, string targetName = null)
         {
+            WriteLog("PickerMoveCommand",
+                Name + " explicit motion command. side=" + Side +
+                ", axis=" + axis +
+                ", target=" + target.ToString("F6") +
+                ", targetName=" + (targetName ?? "-") +
+                ", velocity=" + velocity.ToString("F6") +
+                ", acceleration=" + acceleration.ToString("F6") +
+                ", deceleration=" + deceleration.ToString("F6") +
+                ", speedScalePercent=" + MotionSpeedScale.ScalePercent.ToString("F3") +
+                ", effectiveScaleFactor=" + MotionSpeedScale.EffectiveScaleFactor.ToString("F6") +
+                ", explicitVelocityNotDefaultScaled=True - Check");
             if (Side == PickerSequenceSide.Front)
                 return FrontPicker.MovePickerAxisCommandWithMotion(axis, target, velocity, acceleration, deceleration, targetName);
             return RearPicker.MovePickerAxisCommandWithMotion(axis, target, velocity, acceleration, deceleration, targetName);
@@ -2829,6 +3286,160 @@ namespace QMC.CDT320.Sequencing
             };
         }
 
+        protected static void AppendVisionRawMeasurements(
+            List<InspectionMeasurement> measurements,
+            BottomVisionOffset result,
+            string prefix,
+            MaterialInspectionResult inspectionResult)
+        {
+            if (measurements == null || result == null)
+                return;
+
+            string safePrefix = string.IsNullOrWhiteSpace(prefix) ? "Vision" : prefix;
+            if (!string.IsNullOrWhiteSpace(result.Raw))
+            {
+                measurements.Add(new InspectionMeasurement
+                {
+                    Name = safePrefix + "VisionRaw",
+                    Value = 0.0,
+                    Unit = "raw",
+                    RawValue = result.Raw,
+                    Result = inspectionResult
+                });
+            }
+
+            AppendVisionValueMeasurements(measurements, result.Values, safePrefix, inspectionResult);
+        }
+
+        protected static void AppendVisionRawMeasurements(
+            List<InspectionMeasurement> measurements,
+            SideVisionResult result,
+            string prefix,
+            MaterialInspectionResult inspectionResult)
+        {
+            if (measurements == null || result == null)
+                return;
+
+            string safePrefix = string.IsNullOrWhiteSpace(prefix) ? "Vision" : prefix;
+            if (!string.IsNullOrWhiteSpace(result.Raw))
+            {
+                measurements.Add(new InspectionMeasurement
+                {
+                    Name = safePrefix + "VisionRaw",
+                    Value = 0.0,
+                    Unit = "raw",
+                    RawValue = result.Raw,
+                    Result = inspectionResult
+                });
+            }
+
+            if (result.Values == null || result.Values.Count == 0)
+                return;
+
+            AppendVisionValueMeasurements(measurements, result.Values, safePrefix, inspectionResult);
+        }
+
+        protected static void AppendVisionValueMeasurements(
+            List<InspectionMeasurement> measurements,
+            IDictionary<string, string> values,
+            string prefix,
+            MaterialInspectionResult defaultResult)
+        {
+            if (measurements == null || values == null || values.Count == 0)
+                return;
+
+            string safePrefix = string.IsNullOrWhiteSpace(prefix) ? "Vision" : prefix;
+            foreach (KeyValuePair<string, string> pair in values)
+            {
+                if (IsVisionPassKey(pair.Key))
+                    continue;
+
+                double value;
+                QMC.CDT320.VisionComm.VisionProtocolResponse.TryParseDouble(pair.Value, out value);
+                measurements.Add(new InspectionMeasurement
+                {
+                    Name = safePrefix + "Vision_" + NormalizeMeasurementKey(pair.Key),
+                    Value = value,
+                    Unit = "",
+                    RawValue = pair.Value ?? "",
+                    Result = ResolveVisionMeasurementResult(values, pair.Key, defaultResult)
+                });
+            }
+        }
+
+        protected static bool IsVisionPassKey(string key)
+        {
+            return !string.IsNullOrWhiteSpace(key) &&
+                   key.EndsWith("_pass", StringComparison.OrdinalIgnoreCase);
+        }
+
+        protected static MaterialInspectionResult ResolveVisionMeasurementResult(
+            IDictionary<string, string> values,
+            string key,
+            MaterialInspectionResult defaultResult)
+        {
+            if (values == null || string.IsNullOrWhiteSpace(key))
+                return defaultResult;
+
+            string passText;
+            if (!values.TryGetValue(key + "_pass", out passText))
+                return defaultResult;
+
+            bool pass;
+            if (TryParseVisionPassValue(passText, out pass))
+                return pass ? MaterialInspectionResult.Ok : MaterialInspectionResult.Ng;
+
+            return defaultResult;
+        }
+
+        protected static bool TryParseVisionPassValue(string text, out bool pass)
+        {
+            pass = false;
+            if (string.IsNullOrWhiteSpace(text))
+                return false;
+
+            string value = text.Trim();
+            if (string.Equals(value, "1", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(value, "true", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(value, "ok", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(value, "pass", StringComparison.OrdinalIgnoreCase))
+            {
+                pass = true;
+                return true;
+            }
+
+            if (string.Equals(value, "0", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(value, "false", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(value, "ng", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(value, "fail", StringComparison.OrdinalIgnoreCase))
+            {
+                pass = false;
+                return true;
+            }
+
+            return false;
+        }
+
+        private static string NormalizeMeasurementKey(string key)
+        {
+            if (string.IsNullOrWhiteSpace(key))
+                return "unknown";
+
+            var chars = key.Trim().ToCharArray();
+            for (int i = 0; i < chars.Length; i++)
+            {
+                char c = chars[i];
+                bool ok = (c >= 'a' && c <= 'z') ||
+                          (c >= 'A' && c <= 'Z') ||
+                          (c >= '0' && c <= '9') ||
+                          c == '_';
+                if (!ok)
+                    chars[i] = '_';
+            }
+
+            return new string(chars);
+        }
+
         protected async Task<SequenceResourceLease> AcquireResourceAsync(
             SequenceResourceKind resource,
             string holder,
@@ -2855,7 +3466,11 @@ namespace QMC.CDT320.Sequencing
                 while (true)
                 {
                     ct.ThrowIfCancellationRequested();
-                    Context.StopIfCycleStopRequested(Name + ".AcquireResource:" + resource);
+                    if (!safetyRetreatMoveActive)
+                        Context.StopIfCycleStopRequested(
+                            Name + ".AcquireResource:" + resource,
+                            ShouldDeferCycleStopForPickerDrain(),
+                            "Picker target die drain");
 
                     SequenceResourceLease autoLease = await Context.Resources
                         .AcquireAsync(resource, safeHolder, 200, ct, false)
@@ -2942,7 +3557,7 @@ namespace QMC.CDT320.Sequencing
             return -1;
         }
 
-        private bool IsAlarmStopActive()
+        protected bool IsAlarmStopActive()
         {
             try
             {

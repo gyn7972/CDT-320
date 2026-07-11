@@ -204,10 +204,6 @@ namespace QMC.CDT320.Sequencing
             if (stage.Recipe == null)
                 return Fail("IN-FEEDER-STAGE-RECIPE", stage.Name, "Input stage recipe is not available.");
 
-            int result = await MoveStageAxisAndVerifyAsync(stage, WaferStageAxis.VisionX, stage.Recipe.VisionX.AvoidPosition, "VisionX avoid", ct).ConfigureAwait(false);
-            if (result != 0)
-                return result;
-
             Task<int> needleZMove = MoveStageAxisCommandAsync(stage, WaferStageAxis.NeedleZ, stage.Recipe.NeedleZ.AvoidPosition, "NeedleZ avoid", ct);
             Task<int> ejectPinZMove = MoveStageAxisCommandAsync(stage, WaferStageAxis.EjectPinZ, stage.Recipe.EjectPinZ.AvoidPosition, "EjectPinZ avoid", ct);
             int[] zResults = await Task.WhenAll(needleZMove, ejectPinZMove).ConfigureAwait(false);
@@ -224,11 +220,19 @@ namespace QMC.CDT320.Sequencing
             if (zWaitResults[1] != 0)
                 return zWaitResults[1];
 
-            result = CheckStageAxisInPosition(stage, WaferStageAxis.NeedleZ, stage.Recipe.NeedleZ.AvoidPosition, "NeedleZ avoid");
+            int result = CheckStageAxisInPosition(stage, WaferStageAxis.NeedleZ, stage.Recipe.NeedleZ.AvoidPosition, "NeedleZ avoid");
             if (result != 0)
                 return result;
 
             result = CheckStageAxisInPosition(stage, WaferStageAxis.EjectPinZ, stage.Recipe.EjectPinZ.AvoidPosition, "EjectPinZ avoid");
+            if (result != 0)
+                return result;
+
+            result = await MoveStageAxisAndVerifyAsync(stage, WaferStageAxis.WaferExpandingZ, stage.Recipe.WaferZ.AvoidPosition, "StageZ avoid", ct).ConfigureAwait(false);
+            if (result != 0)
+                return result;
+
+            result = await MoveStageAxisAndVerifyAsync(stage, WaferStageAxis.VisionX, stage.Recipe.VisionX.AvoidPosition, "VisionX avoid", ct).ConfigureAwait(false);
             if (result != 0)
                 return result;
 

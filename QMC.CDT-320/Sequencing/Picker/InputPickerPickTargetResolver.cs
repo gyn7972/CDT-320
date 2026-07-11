@@ -130,20 +130,6 @@ namespace QMC.CDT320.Sequencing
             return ResolvePickerTeachingPosition(machine, side, PickerAxis.PickerY, "PickPosition");
         }
 
-        public static double ResolvePickerYPickTeaching(CDT320_Machine machine, PickerSequenceSide side, int pickerIndex)
-        {
-            // 현재 기준: Input Pick은 공통 PickPosition보다 픽커별 DiePickPosition 티칭을 우선 사용한다.
-            double indexed = ResolvePickerTeachingPosition(
-                machine,
-                side,
-                PickerAxis.PickerY,
-                "DiePickPosition[" + pickerIndex + "]");
-            if (System.Math.Abs(indexed) > double.Epsilon)
-                return indexed;
-
-            return ResolvePickerYPickTeaching(machine, side);
-        }
-
         public static double ResolvePickerTeachingPosition(
             CDT320_Machine machine,
             PickerSequenceSide side,
@@ -220,8 +206,7 @@ namespace QMC.CDT320.Sequencing
                 return 0.0;
 
             stage.Recipe.EnsurePositionObjects();
-            double offset = stage.Config != null ? stage.Config.PickUpEjectPinOffset : 0.0;
-            return stage.Recipe.EjectPinZ.ProcessPosition + offset;
+            return stage.Recipe.EjectPinZ.ProcessPosition;
         }
 
         private static PickerCalibrationOffset ResolvePickerCalibrationOffset(CDT320_Machine machine, PickerSequenceSide side, int pickerIndex)

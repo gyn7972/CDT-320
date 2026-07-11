@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.ComponentModel;
 using System.Drawing;
 using System.Windows.Forms;
@@ -23,8 +24,13 @@ namespace QMC.CDT320.Ui.Controls
         private bool _dragMoved;
         private Point _dragStart;
         private PointF _dragStartPan;
+        private readonly List<DieMapEntry> _selectedEntries = new List<DieMapEntry>();
+        private bool _rectangleSelecting;
+        private Point _selectionStart;
+        private Point _selectionEnd;
 
         public event Action<DieMapEntry> CellClicked;
+        public event Action<IReadOnlyList<DieMapEntry>> SelectionRectangleCompleted;
 
         /// <summary>현재 표시 중인 다이 맵.</summary>
         public DieMap Map
@@ -60,6 +66,15 @@ namespace QMC.CDT320.Ui.Controls
 
         public bool ShowWaferOutline { get; set; }
 
+        public bool EnableRectangleSelection { get; set; }
+
+        [Browsable(false)]
+        [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+        public IReadOnlyList<DieMapEntry> SelectedEntries
+        {
+            get { return _selectedEntries.AsReadOnly(); }
+        }
+
         // ─── 스타일 훅 (기본값 = 기존 룩). 파생 뷰에서 override 하여 부드러운 팔레트 적용. ───
         /// <summary>외곽 테두리 색.</summary>
         protected virtual Color MapBorderColor => Color.DimGray;
@@ -80,6 +95,9 @@ namespace QMC.CDT320.Ui.Controls
             set
             {
                 _selected = value;
+                _selectedEntries.Clear();
+                if (value != null)
+                    _selectedEntries.Add(value);
                 Invalidate();
             }
         }
@@ -176,6 +194,8 @@ namespace QMC.CDT320.Ui.Controls
                 }
             }
 
+            DrawSelectedEntries(g, mapRect, cell, bounds);
+
             if (_selected != null && IsEntryVisible(_selected))
             {
                 float x = mapRect.Left + ToViewX(_selected, bounds) * cell.Width;
@@ -194,6 +214,9 @@ namespace QMC.CDT320.Ui.Controls
                 using (var pen = new Pen(Color.Yellow, 2f))
                     g.DrawRectangle(pen, dieRect.X, dieRect.Y, Math.Max(1.0F, dieRect.Width - 1.0F), Math.Max(1.0F, dieRect.Height - 1.0F));
             }
+
+            if (_rectangleSelecting && EnableRectangleSelection)
+                DrawSelectionRectangle(g);
 
             // 좌상단 정보
             using (var br = new SolidBrush(textColor))
@@ -231,10 +254,34 @@ namespace QMC.CDT320.Ui.Controls
             _map = map;
             _hover = null;
             _selected = null;
+            _selectedEntries.Clear();
             if (resetView)
                 ResetView();
             else
                 Invalidate();
+        }
+
+        public void SetSelectedEntries(IEnumerable<DieMapEntry> entries)
+        {
+            _selectedEntries.Clear();
+            _selected = null;
+
+            if (entries != null)
+            {
+                foreach (DieMapEntry entry in entries)
+                {
+                    if (entry == null || !IsEntryVisible(entry))
+                        continue;
+                    if (ContainsEntry(_selectedEntries, entry))
+                        continue;
+
+                    _selectedEntries.Add(entry);
+                    if (_selected == null)
+                        _selected = entry;
+                }
+            }
+
+            Invalidate();
         }
 
         private void DrawLegend(Graphics g, int totalW, int x0, int y)
@@ -284,6 +331,18 @@ namespace QMC.CDT320.Ui.Controls
 
         private void OnMouseMoveEvt(object s, MouseEventArgs e)
         {
+            if (_rectangleSelecting)
+            {
+                int dx = e.X - _selectionStart.X;
+                int dy = e.Y - _selectionStart.Y;
+                if (Math.Abs(dx) > 2 || Math.Abs(dy) > 2)
+                    _dragMoved = true;
+
+                _selectionEnd = e.Location;
+                Invalidate();
+                return;
+            }
+
             if (_dragging)
             {
                 int dx = e.X - _dragStart.X;
@@ -311,10 +370,41 @@ namespace QMC.CDT320.Ui.Controls
             var hit = HitTest(e.X, e.Y);
             if (hit != null)
             {
+                if ((ModifierKeys & Keys.Shift) == Keys.Shift)
+                {
+                    ToggleSelectedEntry(hit);
+                    try { SelectionRectangleCompleted?.Invoke(_selectedEntries.AsReadOnly()); } catch { }
+                    return;
+                }
+
                 _selected = hit;
+                _selectedEntries.Clear();
+                _selectedEntries.Add(hit);
                 Invalidate();
                 try { CellClicked?.Invoke(hit); } catch { }
             }
+        }
+
+        private void ToggleSelectedEntry(DieMapEntry entry)
+        {
+            if (entry == null || !IsEntryVisible(entry))
+                return;
+
+            for (int i = _selectedEntries.Count - 1; i >= 0; i--)
+            {
+                if (IsSameEntry(_selectedEntries[i], entry))
+                {
+                    _selectedEntries.RemoveAt(i);
+                    _selected = _selectedEntries.Count > 0 ? _selectedEntries[0] : null;
+                    Invalidate();
+                    return;
+                }
+            }
+
+            _selectedEntries.Add(entry);
+            if (_selected == null)
+                _selected = entry;
+            Invalidate();
         }
 
         private void OnMouseDownEvt(object s, MouseEventArgs e)
@@ -323,6 +413,16 @@ namespace QMC.CDT320.Ui.Controls
                 return;
 
             Focus();
+            if (EnableRectangleSelection && e.Button == MouseButtons.Left)
+            {
+                _rectangleSelecting = true;
+                _dragMoved = false;
+                _selectionStart = e.Location;
+                _selectionEnd = e.Location;
+                Cursor = Cursors.Cross;
+                return;
+            }
+
             _dragging = true;
             _dragMoved = false;
             _dragStart = e.Location;
@@ -332,6 +432,29 @@ namespace QMC.CDT320.Ui.Controls
 
         private void OnMouseUpEvt(object s, MouseEventArgs e)
         {
+            if (_rectangleSelecting)
+            {
+                _rectangleSelecting = false;
+                _selectionEnd = e.Location;
+                Cursor = Cursors.Default;
+
+                if (_dragMoved)
+                {
+                    List<DieMapEntry> entries = HitTestRectangle(NormalizeRectangle(_selectionStart, _selectionEnd));
+                    SetSelectedEntries(entries);
+                    if (entries.Count > 0)
+                    {
+                        try { SelectionRectangleCompleted?.Invoke(_selectedEntries.AsReadOnly()); } catch { }
+                    }
+                    else
+                    {
+                        Invalidate();
+                    }
+                }
+
+                return;
+            }
+
             _dragging = false;
             Cursor = Cursors.Default;
         }
@@ -506,6 +629,106 @@ namespace QMC.CDT320.Ui.Controls
             if (entry == null)
                 return false;
             return EntryVisibilityPredicate == null || EntryVisibilityPredicate(entry);
+        }
+
+        private void DrawSelectedEntries(Graphics g, RectangleF mapRect, CellMetrics cell, VisibleBounds bounds)
+        {
+            if (_selectedEntries == null || _selectedEntries.Count <= 0)
+                return;
+
+            using (var pen = new Pen(Color.LimeGreen, Math.Max(1.5F, Math.Min(3.0F, Math.Min(cell.DieWidth, cell.DieHeight) / 8.0F))))
+            {
+                for (int i = 0; i < _selectedEntries.Count; i++)
+                {
+                    DieMapEntry entry = _selectedEntries[i];
+                    if (entry == null || !IsEntryVisible(entry))
+                        continue;
+
+                    float x = mapRect.Left + ToViewX(entry, bounds) * cell.Width;
+                    float y = mapRect.Top + ToViewY(entry, bounds) * cell.Height;
+                    RectangleF dieRect = GetDieRect(x, y, cell);
+                    g.DrawRectangle(pen, dieRect.X, dieRect.Y, Math.Max(1.0F, dieRect.Width - 1.0F), Math.Max(1.0F, dieRect.Height - 1.0F));
+                }
+            }
+        }
+
+        private void DrawSelectionRectangle(Graphics g)
+        {
+            Rectangle rect = NormalizeRectangle(_selectionStart, _selectionEnd);
+            if (rect.Width <= 0 || rect.Height <= 0)
+                return;
+
+            using (var fill = new SolidBrush(Color.FromArgb(45, Color.DeepSkyBlue)))
+                g.FillRectangle(fill, rect);
+            using (var pen = new Pen(Color.DeepSkyBlue, 1.4F))
+                g.DrawRectangle(pen, rect);
+        }
+
+        private List<DieMapEntry> HitTestRectangle(Rectangle screenRect)
+        {
+            var result = new List<DieMapEntry>();
+            if (_map == null || _map.Entries == null || screenRect.Width <= 0 || screenRect.Height <= 0)
+                return result;
+
+            RectangleF mapRect;
+            CellMetrics cell;
+            VisibleBounds bounds;
+            GetMapLayout(out mapRect, out cell, out bounds);
+
+            foreach (DieMapEntry entry in _map.Entries)
+            {
+                if (entry == null || !IsEntryVisible(entry))
+                    continue;
+
+                float x = mapRect.Left + ToViewX(entry, bounds) * cell.Width;
+                float y = mapRect.Top + ToViewY(entry, bounds) * cell.Height;
+                RectangleF dieRect = GetDieRect(x, y, cell);
+                if (screenRect.IntersectsWith(Rectangle.Round(dieRect)))
+                    result.Add(entry);
+            }
+
+            return result;
+        }
+
+        private static Rectangle NormalizeRectangle(Point a, Point b)
+        {
+            int left = Math.Min(a.X, b.X);
+            int top = Math.Min(a.Y, b.Y);
+            int right = Math.Max(a.X, b.X);
+            int bottom = Math.Max(a.Y, b.Y);
+            return new Rectangle(left, top, Math.Max(0, right - left), Math.Max(0, bottom - top));
+        }
+
+        private static bool ContainsEntry(List<DieMapEntry> entries, DieMapEntry target)
+        {
+            if (entries == null || target == null)
+                return false;
+
+            int targetX = ResolveEntryMapX(target);
+            int targetY = ResolveEntryMapY(target);
+            string targetUid = target.DieUid ?? "";
+            for (int i = 0; i < entries.Count; i++)
+            {
+                DieMapEntry entry = entries[i];
+                if (entry == null)
+                    continue;
+                if (ResolveEntryMapX(entry) == targetX &&
+                    ResolveEntryMapY(entry) == targetY &&
+                    string.Equals(entry.DieUid ?? "", targetUid, StringComparison.OrdinalIgnoreCase))
+                    return true;
+            }
+
+            return false;
+        }
+
+        private static bool IsSameEntry(DieMapEntry left, DieMapEntry right)
+        {
+            if (left == null || right == null)
+                return false;
+
+            return ResolveEntryMapX(left) == ResolveEntryMapX(right) &&
+                   ResolveEntryMapY(left) == ResolveEntryMapY(right) &&
+                   string.Equals(left.DieUid ?? "", right.DieUid ?? "", StringComparison.OrdinalIgnoreCase);
         }
 
         private static int ToViewX(DieMapEntry entry, VisibleBounds bounds)

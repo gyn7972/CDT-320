@@ -214,15 +214,32 @@ namespace QMC.CDT_320.Ui.Controls
                 return;
             }
 
-            DieMap active = LotStorage.ActiveInputDieMap;
-            if (active != null)
+            WaferMaterial stageWafer = MaterialStateService.GetWaferAtLocation(MaterialLocationKind.InputStage);
+            if (stageWafer != null)
             {
-                DieMapGenerator.Normalize(active);
-                Dictionary<string, LiveDieMapCellState> states;
-                _displayMap = BuildDisplayMapFromMaterialState(active, out states);
-                _displayStates = states;
+                DieMap stageMap = null;
+                if (stageWafer.HasInputStageDieMappingResult)
+                    stageMap = MaterialStateService.BuildDieMapFromWafer(stageWafer);
+
+                if (stageMap != null)
+                {
+                    DieMapGenerator.Normalize(stageMap);
+                    LotStorage.ActiveInputDieMap = stageMap;
+                    Dictionary<string, LiveDieMapCellState> stageStates;
+                    _displayMap = BuildDisplayMapFromMaterialState(stageMap, stageWafer, out stageStates);
+                    _displayStates = stageStates;
+                    return;
+                }
+
+                // 현재 기준: Stage wafer가 아직 맵핑 전이면 이전 wafer map을 표시하지 않는다.
+                LotStorage.ActiveInputDieMap = null;
+                _displayMap = null;
+                _displayStates = new Dictionary<string, LiveDieMapCellState>(StringComparer.Ordinal);
                 return;
             }
+
+            // 현재 기준: Stage wafer가 없으면 live input map은 비운다.
+            LotStorage.ActiveInputDieMap = null;
 
             if (dirtyEvent || _displayMap == null)
             {
@@ -234,7 +251,7 @@ namespace QMC.CDT_320.Ui.Controls
                         DieMapGenerator.Normalize(built);
                         LotStorage.ActiveInputDieMap = built;
                         Dictionary<string, LiveDieMapCellState> states;
-                        _displayMap = BuildDisplayMapFromMaterialState(built, out states);
+                        _displayMap = BuildDisplayMapFromMaterialState(built, null, out states);
                         _displayStates = states;
                     }
                     else
@@ -281,6 +298,7 @@ namespace QMC.CDT_320.Ui.Controls
 
         private static DieMap BuildDisplayMapFromMaterialState(
             DieMap source,
+            WaferMaterial inputWafer,
             out Dictionary<string, LiveDieMapCellState> states)
         {
             states = new Dictionary<string, LiveDieMapCellState>(StringComparer.Ordinal);
@@ -296,10 +314,17 @@ namespace QMC.CDT_320.Ui.Controls
 
                 var dieById = new Dictionary<string, DieMaterial>(StringComparer.OrdinalIgnoreCase);
                 var dieByGrid = new Dictionary<string, DieMaterial>(StringComparer.Ordinal);
+                string waferId = inputWafer != null ? inputWafer.WaferId : null;
                 foreach (DieMaterial die in state.Dies)
                 {
                     if (die == null)
                         continue;
+
+                    if (!string.IsNullOrWhiteSpace(waferId) &&
+                        !string.Equals(die.WaferID_Input, waferId, StringComparison.OrdinalIgnoreCase))
+                    {
+                        continue;
+                    }
 
                     if (!string.IsNullOrWhiteSpace(die.DieId) && !dieById.ContainsKey(die.DieId))
                         dieById.Add(die.DieId, die);
@@ -409,6 +434,13 @@ namespace QMC.CDT_320.Ui.Controls
                         entry.IsTarget = slot.IsTarget;
                         entry.Result = slot.Result;
                         entry.BinCode = slot.BinCode;
+                        // 현재 기준: Output Vision 검사 NG는 물류 결과와 별도로 작업 맵에서 NG로 표시한다.
+                        if (slot.IsOutputInspectionDone && !slot.IsOutputInspectionOk)
+                        {
+                            entry.Result = DieResult.NG;
+                            if (entry.BinCode <= 0)
+                                entry.BinCode = BinCodeMap.MaxBin;
+                        }
                         entry.PosX = slot.PosX;
                         entry.PosY = slot.PosY;
                         entry.DieUid = slot.DieUid ?? entry.DieUid;
@@ -502,12 +534,14 @@ namespace QMC.CDT_320.Ui.Controls
 
                 if (map != null && map.Entries != null)
                 {
+                    h = h * 31 + BuildStringHash(map.FrameObjId);
                     h = h * 31 + map.DieMapX;
                     h = h * 31 + map.DieMapY;
                     foreach (var entry in map.Entries)
                     {
                         if (entry == null)
                             continue;
+                        h = h * 31 + BuildStringHash(entry.DieUid);
                         h = h * 31 + (entry.IsTarget ? 1 : 0);
                         h = h * 31 + (int)entry.Result;
                         h = h * 31 + entry.BinCode;
@@ -591,7 +625,7 @@ namespace QMC.CDT_320.Ui.Controls
 
                         int x = x0 + DieMapGenerator.ResolveMapIndexX(entry) * cell;
                         int y = y0 + DieMapGenerator.ResolveMapIndexY(entry) * cell;
-                        Color c = ResolveEntryColor(entry, states);
+                        Color c = ResolveEntryColor(entry, states, IsOutputMapSource());
 
                         using (var br = new SolidBrush(c))
                             g.FillRectangle(br, x, y, Math.Max(1, cell - 1), Math.Max(1, cell - 1));
@@ -666,11 +700,19 @@ namespace QMC.CDT_320.Ui.Controls
 
         private Color ResolveLiveEntryColor(DieMapEntry entry)
         {
-            return ResolveEntryColor(entry, _displayStates);
+            return ResolveEntryColor(entry, _displayStates, IsOutputMapSource());
         }
 
         private string ResolveLiveEntryStatusText(DieMapEntry entry)
         {
+            if (!IsOutputMapSource() && entry != null)
+            {
+                if (entry.Result == DieResult.Good)
+                    return "Good";
+                if (entry.Result == DieResult.NG)
+                    return "NG";
+            }
+
             LiveDieMapCellState state = ResolveEntryState(entry, _displayStates);
             switch (state)
             {
@@ -687,24 +729,51 @@ namespace QMC.CDT_320.Ui.Controls
 
         private Tuple<string, Color>[] BuildLiveLegendItems()
         {
-            string doneText = IsOutputMapSource() ? "Place" : "Pick";
+            if (IsOutputMapSource())
+            {
+                return new[]
+                {
+                    Tuple.Create("Wait", InspectionWaitColor),
+                    Tuple.Create("Vision", InspectionDoneColor),
+                    Tuple.Create("Place", PickCompleteColor),
+                    Tuple.Create("NG", Color.IndianRed)
+                };
+            }
+
             return new[]
             {
                 Tuple.Create("Wait", InspectionWaitColor),
                 Tuple.Create("Vision", InspectionDoneColor),
-                Tuple.Create(doneText, PickCompleteColor),
+                Tuple.Create("Pick", PickCompleteColor),
+                Tuple.Create("Good", BinCodeMap.ConvertToBinCodeColor(BinCodeMap.GoodBin)),
                 Tuple.Create("NG", Color.IndianRed)
             };
         }
 
-        private static Color ResolveEntryColor(DieMapEntry entry, Dictionary<string, LiveDieMapCellState> states)
+        private static Color ResolveEntryColor(
+            DieMapEntry entry,
+            Dictionary<string, LiveDieMapCellState> states,
+            bool outputMapSource)
         {
             if (entry == null || !entry.IsTarget)
                 return Color.FromArgb(0x66, 0x66, 0x66);
 
             LiveDieMapCellState state = ResolveEntryState(entry, states);
-            if (state == LiveDieMapCellState.PickComplete)
-                return PickCompleteColor;
+            if (outputMapSource)
+            {
+                if (state == LiveDieMapCellState.PickComplete)
+                    return PickCompleteColor;
+
+                if (entry.Result == DieResult.NG)
+                {
+                    int outputNgBinCode = entry.BinCode > 0 ? entry.BinCode : BinCodeMap.MaxBin;
+                    Color outputNgColor = BinCodeMap.ConvertToBinCodeColor(outputNgBinCode);
+                    return outputNgColor.ToArgb() == Color.Black.ToArgb() ? Color.IndianRed : outputNgColor;
+                }
+
+                if (state == LiveDieMapCellState.InspectionDone)
+                    return InspectionDoneColor;
+            }
 
             if (entry.Result == DieResult.NG)
             {
@@ -713,14 +782,17 @@ namespace QMC.CDT_320.Ui.Controls
                 return c.ToArgb() == Color.Black.ToArgb() ? Color.IndianRed : c;
             }
 
+            if (entry.Result == DieResult.Good)
+                return BinCodeMap.ConvertToBinCodeColor(BinCodeMap.GoodBin);
+
+            if (state == LiveDieMapCellState.PickComplete)
+                return PickCompleteColor;
+
             if (state == LiveDieMapCellState.InspectionDone)
                 return InspectionDoneColor;
 
             if (state == LiveDieMapCellState.InspectionWait)
                 return InspectionWaitColor;
-
-            if (entry.Result == DieResult.Good)
-                return BinCodeMap.ConvertToBinCodeColor(BinCodeMap.GoodBin);
 
             if (entry.BinCode > 0)
                 return BinCodeMap.ConvertToBinCodeColor(entry.BinCode);
@@ -747,7 +819,7 @@ namespace QMC.CDT_320.Ui.Controls
             if (die == null)
                 return LiveDieMapCellState.InspectionWait;
 
-            if (IsInputDiePicked(die))
+            if (IsInputDieOnPicker(die))
                 return LiveDieMapCellState.PickComplete;
 
             if (HasInputPickVisionInspection(die))
@@ -783,24 +855,14 @@ namespace QMC.CDT_320.Ui.Controls
             return LiveDieMapCellState.InspectionWait;
         }
 
-        private static bool IsInputDiePicked(DieMaterial die)
+        private static bool IsInputDieOnPicker(DieMaterial die)
         {
             if (die == null)
                 return false;
 
-            if (HasValidPickedAt(die.PickedAt) ||
-                die.PickedPickerLocation == MaterialLocationKind.PickerFront ||
-                die.PickedPickerLocation == MaterialLocationKind.PickerRear ||
-                die.PickedPickerNo >= 0)
-                return true;
-
             return die.CurrentLocation != null &&
                    (die.CurrentLocation.Kind == MaterialLocationKind.PickerFront ||
-                    die.CurrentLocation.Kind == MaterialLocationKind.PickerRear ||
-                    die.CurrentLocation.Kind == MaterialLocationKind.OutputStageGood ||
-                    die.CurrentLocation.Kind == MaterialLocationKind.OutputStageNg ||
-                    die.CurrentLocation.Kind == MaterialLocationKind.OutputFeeder ||
-                    die.CurrentLocation.Kind == MaterialLocationKind.OutputCassette);
+                    die.CurrentLocation.Kind == MaterialLocationKind.PickerRear);
         }
 
         private static bool HasValidPickedAt(DateTime pickedAt)
@@ -838,7 +900,9 @@ namespace QMC.CDT_320.Ui.Controls
                 int y = 23;
                 x = DrawLegendItem(g, x, y, InspectionWaitColor, "검사대기", font, textBrush, borderPen);
                 x = DrawLegendItem(g, x + 12, y, InspectionDoneColor, "검사완료", font, textBrush, borderPen);
-                DrawLegendItem(g, x + 12, y, PickCompleteColor, "픽업완료", font, textBrush, borderPen);
+                x = DrawLegendItem(g, x + 12, y, PickCompleteColor, "픽커보유", font, textBrush, borderPen);
+                x = DrawLegendItem(g, x + 12, y, BinCodeMap.ConvertToBinCodeColor(BinCodeMap.GoodBin), "GOOD", font, textBrush, borderPen);
+                DrawLegendItem(g, x + 12, y, Color.IndianRed, "NG", font, textBrush, borderPen);
             }
         }
 
@@ -862,18 +926,36 @@ namespace QMC.CDT_320.Ui.Controls
             return x + box + 4 + (int)Math.Ceiling(size.Width);
         }
 
-        private static MapStats CalculateMapStats(DieMap map, Dictionary<string, LiveDieMapCellState> states)
+        private MapStats CalculateMapStats(DieMap map, Dictionary<string, LiveDieMapCellState> states)
         {
             var stats = new MapStats();
             if (map == null || map.Entries == null)
                 return stats;
 
+            bool outputMapSource = IsOutputMapSource();
             foreach (var entry in map.Entries)
             {
                 if (entry == null || !entry.IsTarget)
                     continue;
 
                 stats.Target++;
+                if (!outputMapSource)
+                {
+                    if (entry.Result == DieResult.Good)
+                    {
+                        stats.Good++;
+                        stats.Done++;
+                        continue;
+                    }
+
+                    if (entry.Result == DieResult.NG)
+                    {
+                        stats.Ng++;
+                        stats.Done++;
+                        continue;
+                    }
+                }
+
                 LiveDieMapCellState state = ResolveEntryState(entry, states);
                 if (state == LiveDieMapCellState.PickComplete)
                     stats.PickComplete++;

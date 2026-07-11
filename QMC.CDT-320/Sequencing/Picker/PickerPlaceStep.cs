@@ -5,6 +5,7 @@ namespace QMC.CDT320.Sequencing
         Idle,
         CheckUnit,
         BuildPickedPickerList,
+        VerifyPickedPickerFlow,
         MoveAllPickerZToAvoid,
         SelectNextPicker,
         ResolveOutputSide,

@@ -19,6 +19,7 @@ namespace QMC.CDT_320
         private Label lblTimeCaption;
         private Label lblTimeValue;
         private Label lblAvatar;
+        private Button btnTopAlarm;
         private Button btnDoorToggle;
         private Button btnBuzzerStop;
         private Label lblStateBig;
@@ -78,6 +79,7 @@ namespace QMC.CDT_320
             this.lblUserValue = new System.Windows.Forms.Label();
             this.lblTimeCaption = new System.Windows.Forms.Label();
             this.lblTimeValue = new System.Windows.Forms.Label();
+            this.btnTopAlarm = new System.Windows.Forms.Button();
             this.btnDoorToggle = new System.Windows.Forms.Button();
             this.btnBuzzerStop = new System.Windows.Forms.Button();
             this.lblStateBig = new System.Windows.Forms.Label();
@@ -128,6 +130,7 @@ namespace QMC.CDT_320
             this.pnlHeader.Controls.Add(this.lblTitle);
             this.pnlHeader.Controls.Add(this.lblVersion);
             this.pnlHeader.Controls.Add(this.pnlUserBox);
+            this.pnlHeader.Controls.Add(this.btnTopAlarm);
             this.pnlHeader.Controls.Add(this.btnDoorToggle);
             this.pnlHeader.Controls.Add(this.btnBuzzerStop);
             this.pnlHeader.Controls.Add(this.lblStateBig);
@@ -244,6 +247,23 @@ namespace QMC.CDT_320
             this.lblTimeValue.Text = "----";
             this.lblTimeValue.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
             // 
+            // btnTopAlarm
+            // 
+            this.btnTopAlarm.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(192)))), ((int)(((byte)(57)))), ((int)(((byte)(43)))));
+            this.btnTopAlarm.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.btnTopAlarm.FlatAppearance.BorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(230)))), ((int)(((byte)(90)))), ((int)(((byte)(78)))));
+            this.btnTopAlarm.FlatAppearance.MouseDownBackColor = System.Drawing.Color.FromArgb(((int)(((byte)(150)))), ((int)(((byte)(45)))), ((int)(((byte)(36)))));
+            this.btnTopAlarm.FlatAppearance.MouseOverBackColor = System.Drawing.Color.FromArgb(((int)(((byte)(210)))), ((int)(((byte)(70)))), ((int)(((byte)(58)))));
+            this.btnTopAlarm.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this.btnTopAlarm.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
+            this.btnTopAlarm.ForeColor = System.Drawing.Color.White;
+            this.btnTopAlarm.Location = new System.Drawing.Point(1180, 14);
+            this.btnTopAlarm.Name = "btnTopAlarm";
+            this.btnTopAlarm.Size = new System.Drawing.Size(90, 42);
+            this.btnTopAlarm.TabIndex = 4;
+            this.btnTopAlarm.Text = "ALARM";
+            this.btnTopAlarm.UseVisualStyleBackColor = false;
+            // 
             // btnDoorToggle
             // 
             this.btnDoorToggle.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(48)))), ((int)(((byte)(92)))), ((int)(((byte)(76)))));
@@ -257,7 +277,7 @@ namespace QMC.CDT_320
             this.btnDoorToggle.Location = new System.Drawing.Point(1277, 14);
             this.btnDoorToggle.Name = "btnDoorToggle";
             this.btnDoorToggle.Size = new System.Drawing.Size(90, 42);
-            this.btnDoorToggle.TabIndex = 4;
+            this.btnDoorToggle.TabIndex = 5;
             this.btnDoorToggle.Text = "DOOR\r\nCLOSE";
             this.btnDoorToggle.UseVisualStyleBackColor = false;
             // 
@@ -274,7 +294,7 @@ namespace QMC.CDT_320
             this.btnBuzzerStop.Location = new System.Drawing.Point(1374, 14);
             this.btnBuzzerStop.Name = "btnBuzzerStop";
             this.btnBuzzerStop.Size = new System.Drawing.Size(90, 42);
-            this.btnBuzzerStop.TabIndex = 5;
+            this.btnBuzzerStop.TabIndex = 6;
             this.btnBuzzerStop.Text = "BUZZER\r\nSTOP";
             this.btnBuzzerStop.UseVisualStyleBackColor = false;
             // 
@@ -286,7 +306,7 @@ namespace QMC.CDT_320
             this.lblStateBig.Location = new System.Drawing.Point(1480, 10);
             this.lblStateBig.Name = "lblStateBig";
             this.lblStateBig.Size = new System.Drawing.Size(300, 50);
-            this.lblStateBig.TabIndex = 6;
+            this.lblStateBig.TabIndex = 7;
             this.lblStateBig.Text = "NONE";
             this.lblStateBig.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
             // 

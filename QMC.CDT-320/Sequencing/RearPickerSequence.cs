@@ -25,6 +25,7 @@ namespace QMC.CDT320.Sequencing
                 while (!ct.IsCancellationRequested)
                 {
                     await WaitForPickerWorkAsync(ct).ConfigureAwait(false);
+                    await WaitForLoaderInactiveBeforePickerProcessAsync(ct).ConfigureAwait(false);
                     if (await YieldInputPickupPriorityToFrontAsync(ct).ConfigureAwait(false))
                         continue;
 
@@ -66,6 +67,8 @@ namespace QMC.CDT320.Sequencing
         {
             try
             {
+                EnsureLoaderInactiveForManualStep();
+
                 if (_stepSequence == null || _stepSequence.IsComplete)
                     _stepSequence = new PickerProcessSequence(Context, PickerSequenceSide.Rear);
 
@@ -98,6 +101,7 @@ namespace QMC.CDT320.Sequencing
             options.SimulateVisionResult = ShouldSimulateVisionResult();
             options.PickerMotionOnlyTestMode = Mode == SequenceRunMode.Auto && IsPickerMotionOnlyTestModeEnabled();
             options.RequireInputCameraMarkInspectionPermission = Mode == SequenceRunMode.Auto;
+            options.ApplyInputStageVisionPolicy(Context != null ? Context.Machine : null);
             return options;
         }
 
@@ -209,6 +213,51 @@ namespace QMC.CDT320.Sequencing
             finally
             {
             }
+        }
+
+        private async Task WaitForLoaderInactiveBeforePickerProcessAsync(CancellationToken ct)
+        {
+            bool waitLogged = false;
+            while (IsInputOrOutputLoaderActive())
+            {
+                ct.ThrowIfCancellationRequested();
+                Context.StopIfCycleStopRequested(
+                    "RearPickerSequence.WaitLoaderInactive",
+                    HasLoadedDieOnPicker(),
+                    "RearPicker loaded die drain");
+
+                // 현재 기준: Input/Output 로더 동작 중에는 Picker가 Avoid에서 신규 공정 진입을 기다린다.
+                await EnsureIdlePickerAvoidAsync(ct).ConfigureAwait(false);
+                if (!waitLogged)
+                {
+                    WriteLog("WaitForLoaderInactiveBeforePickerProcessAsync",
+                        "RearPicker 신규 공정 대기: Input/Output 로더가 동작 중입니다. - Wait");
+                    waitLogged = true;
+                }
+
+                await Task.Delay(100, ct).ConfigureAwait(false);
+            }
+
+            if (waitLogged)
+            {
+                WriteLog("WaitForLoaderInactiveBeforePickerProcessAsync",
+                    "RearPicker 신규 공정 대기 해제: Input/Output 로더 동작 종료. - Ok");
+            }
+        }
+
+        private void EnsureLoaderInactiveForManualStep()
+        {
+            if (!IsInputOrOutputLoaderActive())
+                return;
+
+            throw new InvalidOperationException("Input/Output 로더 동작 중이므로 RearPicker 수동/스텝 공정 진입이 차단되었습니다.");
+        }
+
+        private bool IsInputOrOutputLoaderActive()
+        {
+            return Context != null &&
+                   Context.Bus != null &&
+                   (Context.Bus.IsSet("InputLoaderActive") || Context.Bus.IsSet("OutputLoaderActive"));
         }
 
         private async Task EnsureIdlePickerAvoidAsync(CancellationToken ct)
@@ -434,6 +483,14 @@ namespace QMC.CDT320.Sequencing
                 if (Mode != SequenceRunMode.Auto)
                     return false;
 
+                if (PickerFirstForwardSequencer.IsResumeDrainRequired(PickerSequenceSide.Rear))
+                {
+                    WriteLog("YieldInputPickupPriorityToFrontAsync",
+                        "RearPicker 재시작 드레인이 남아 있어 FrontPicker PickUp 우선권 양보를 건너뜁니다. " +
+                        "정지/알람 복구 중 남은 RearPicker 작업을 먼저 완료합니다. - Check");
+                    return false;
+                }
+
                 if (HasLoadedDieOnPicker())
                     return false;
 
@@ -456,9 +513,23 @@ namespace QMC.CDT320.Sequencing
                 if (!inputStageReady || !MaterialStateService.HasReadyInputStagePickTarget())
                     return false;
 
-                WriteFrontPickupYieldWaitLog();
+                Context.StopIfCycleStopRequested("RearPickerSequence.YieldInputPickupPriorityToFront");
+                string firstForwardYieldDetail;
+                if (!PickerFirstForwardSequencer.TryYieldExpectedSideToPriority(
+                    PickerSequenceSide.Rear,
+                    PickerSequenceSide.Front,
+                    out firstForwardYieldDetail))
+                {
+                    WriteLog("YieldInputPickupPriorityToFrontAsync",
+                        "RearPicker Front 우선권 양보를 첫 전진 게이트에 반영할 수 없어 RearPicker 공정 진입을 허용합니다. " +
+                        firstForwardYieldDetail + " - Check");
+                    return false;
+                }
+
+                WriteFrontPickupYieldWaitLog(firstForwardYieldDetail);
 
                 await Task.Delay(1, ct).ConfigureAwait(false);
+                Context.StopIfCycleStopRequested("RearPickerSequence.YieldInputPickupPriorityToFront");
                 return true;
             }
             catch (OperationCanceledException)
@@ -482,7 +553,7 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
-        private void WriteFrontPickupYieldWaitLog()
+        private void WriteFrontPickupYieldWaitLog(string firstForwardYieldDetail)
         {
             try
             {
@@ -493,7 +564,8 @@ namespace QMC.CDT320.Sequencing
                 _lastFrontPickupYieldLogTime = now;
                 WriteLog("YieldInputPickupPriorityToFrontAsync",
                     "RearPicker가 FrontPicker PickUp 우선권을 위해 대기합니다. " +
-                    "FrontPicker가 비어 있고 InputStage에 Pick 대상이 남아 있습니다. - Wait");
+                    "FrontPicker가 비어 있고 InputStage에 Pick 대상이 남아 있습니다. " +
+                    "firstForwardGate=" + firstForwardYieldDetail + " - Wait");
             }
             catch (Exception ex)
             {

@@ -17,6 +17,10 @@ namespace QMC.CDT320.Sequencing
         CheckUnit,
         MoveNeedleZSafeBeforeMapping,
         MoveVisionProcessBeforeMapping,
+        MoveCenterPoint,
+        FindCenterPoint,
+        MoveCenterDiePoint,
+        // Legacy 4-point mapping steps are kept for reference. The active sequence now uses Center die search.
         MoveTopPoint,
         FindTopPoint,
         MoveBottomPoint,
@@ -37,6 +41,7 @@ namespace QMC.CDT320.Sequencing
         private static readonly object SimVisionRandomLock = new object();
         private static readonly Random SimVisionRandom = new Random();
         private static string LastSourceInputDieMapFailure = "";
+        private const double AlignPitchCompareToleranceMm = 0.05;
 
         private readonly Dictionary<string, MappedMarkPoint> _mappedPoints = new Dictionary<string, MappedMarkPoint>(StringComparer.OrdinalIgnoreCase);
         private WaferMaterial _wafer;
@@ -44,6 +49,12 @@ namespace QMC.CDT320.Sequencing
         private DieMap _dieMap;
         private WaferMapData _waferMap;
         private int _createdDieCount;
+        private double _dieMapCenterX;
+        private double _dieMapCenterY;
+        private double _dieMapCenterSearchOffsetX;
+        private double _dieMapCenterSearchOffsetY;
+        private double _centerDieTargetX;
+        private double _centerDieTargetY;
 
         public InputStageDieMappingSequence(MachineSequenceContext context)
             : base(context, InputStageSequenceKind.DieMapping, "InputStageDieMappingSequence")
@@ -71,6 +82,12 @@ namespace QMC.CDT320.Sequencing
                     // 다이 맵핑 시작 전 Vision/Stage 작업 기준 위치 진입
                     case InputStageDieMappingStep.MoveVisionProcessBeforeMapping:
                         return MoveVisionProcessBeforeMappingAsync(ct);
+                    // 센터 포인트 이동
+                    case InputStageDieMappingStep.MoveCenterPoint:
+                        return MoveCenterPointAsync(ct);
+                    // 센터 포인트 찾기
+                    case InputStageDieMappingStep.FindCenterPoint:
+                        return FindCenterPointAsync(ct);
                     // 상단 포인트 이동
                     case InputStageDieMappingStep.MoveTopPoint:
                         return MoveMarkPointAsync(Stage.Recipe.DieMap.Top, InputStageDieMappingStep.FindTopPoint, ct);
@@ -98,6 +115,9 @@ namespace QMC.CDT320.Sequencing
                     // 다이 맵 계산
                     case InputStageDieMappingStep.CalculateDieMap:
                         return Task.FromResult(CalculateDieMap());
+                    // 계산된 다이맵 Center 위치 이동
+                    case InputStageDieMappingStep.MoveCenterDiePoint:
+                        return MoveCenterDiePointAsync(ct);
                     // 다이 맵 적용
                     case InputStageDieMappingStep.ApplyDieMap:
                         return Task.FromResult(ApplyDieMap());
@@ -125,7 +145,7 @@ namespace QMC.CDT320.Sequencing
         {
             try
             {
-                int result = CheckUnit(InputStageDieMappingStep.MoveTopPoint);
+                int result = CheckUnit(InputStageDieMappingStep.MoveNeedleZSafeBeforeMapping);
                 if (result != 0)
                     return result;
 
@@ -141,14 +161,8 @@ namespace QMC.CDT320.Sequencing
                     return Fail("IN-STAGE-DIEMAP-RECIPE", Stage.Name, "Input stage die map recipe is not available.");
 
                 Stage.Recipe.DieMap.EnsurePoints();
-                result = CheckMarkPoint(Stage.Recipe.DieMap.Top);
-                if (result != 0) return result;
-                result = CheckMarkPoint(Stage.Recipe.DieMap.Bottom);
-                if (result != 0) return result;
-                result = CheckMarkPoint(Stage.Recipe.DieMap.Left);
-                if (result != 0) return result;
-                result = CheckMarkPoint(Stage.Recipe.DieMap.Right);
-                if (result != 0) return result;
+                // 기존 Top/Bottom/Left/Right 4점 방식은 현재 시퀀스에서 사용하지 않는다.
+                // Center die를 먼저 찾고 그 오프셋을 전체 DieMap 좌표에 반영한다.
 
                 if (!Stage.HasWaferOnStage())
                     return Fail("IN-STAGE-DIEMAP-WAFER", "Material",
@@ -189,6 +203,12 @@ namespace QMC.CDT320.Sequencing
                     return Fail("IN-STAGE-DIEMAP-VISION", Stage.Name, "Vision client is required but not available.");
 
                 _mappedPoints.Clear();
+                _dieMapCenterX = 0.0;
+                _dieMapCenterY = 0.0;
+                _dieMapCenterSearchOffsetX = 0.0;
+                _dieMapCenterSearchOffsetY = 0.0;
+                _centerDieTargetX = 0.0;
+                _centerDieTargetY = 0.0;
                 CurrentStep = InputStageDieMappingStep.MoveNeedleZSafeBeforeMapping;
                 return 0;
             }
@@ -264,6 +284,7 @@ namespace QMC.CDT320.Sequencing
                     _wafer.InputStageAlignPitchX > 0.0 &&
                     _wafer.InputStageAlignPitchY > 0.0)
                 {
+                    NormalizeStoredAlignPitchToFrameSpec();
                     Stage.ApplyWaferAlignResult(
                         _wafer.InputStageAlignOriginX,
                         _wafer.InputStageAlignOriginY,
@@ -364,13 +385,13 @@ namespace QMC.CDT320.Sequencing
 
                 if (Options == null || !Options.EnableMotion || Stage == null || Stage.Recipe == null)
                 {
-                    CurrentStep = InputStageDieMappingStep.MoveTopPoint;
+                    CurrentStep = InputStageDieMappingStep.MoveCenterPoint;
                     return 0;
                 }
 
                 Stage.Recipe.EnsurePositionObjects();
 
-                int result = await MoveZAxesAvoidBeforeProcessPlaneMoveAsync(ct).ConfigureAwait(false);
+                int result = await PrepareVisionProcessPlaneForMappingAsync(ct).ConfigureAwait(false);
                 if (result != 0)
                     return result;
 
@@ -378,39 +399,12 @@ namespace QMC.CDT320.Sequencing
                 if (result != 0)
                     return result;
 
-                result = await MoveAxisAndWaitAsync(
-                    WaferStageAxis.WaferY,
-                    Stage.Recipe.WaferY.ProcessPosition,
-                    "Die Mapping 시작 전 StageY Process",
-                    ct).ConfigureAwait(false);
-                if (result != 0)
-                    return result;
-
-                result = await MoveAxisAndWaitAsync(
-                    WaferStageAxis.VisionX,
-                    Stage.Recipe.VisionX.ProcessPosition,
-                    "Die Mapping 시작 전 VisionX Process",
-                    ct).ConfigureAwait(false);
-                if (result != 0)
-                    return result;
-
-                if (Stage.Recipe.WaferZ != null)
-                {
-                    result = await MoveAxisAndWaitAsync(
-                        WaferStageAxis.WaferExpandingZ,
-                        Stage.Recipe.WaferZ.ProcessPosition,
-                        "Die Mapping 시작 전 StageZ Process",
-                        ct).ConfigureAwait(false);
-                    if (result != 0)
-                        return result;
-                }
-
                 WriteLog("InputStageDieMappingSequence",
                     "Die Mapping 시작 전 InputStage를 Process 기준 위치로 이동했습니다. visionX=" +
                     Stage.Recipe.VisionX.ProcessPosition.ToString("F3") +
                     ", stageY=" + Stage.Recipe.WaferY.ProcessPosition.ToString("F3") + " - Ok");
 
-                CurrentStep = InputStageDieMappingStep.MoveTopPoint;
+                CurrentStep = InputStageDieMappingStep.MoveCenterPoint;
                 return 0;
             }
             catch (OperationCanceledException)
@@ -429,7 +423,78 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
-        private async Task<int> MoveZAxesAvoidBeforeProcessPlaneMoveAsync(CancellationToken ct)
+        private async Task<int> PrepareVisionProcessPlaneForMappingAsync(CancellationToken ct)
+        {
+            Stage.Recipe.EnsurePositionObjects();
+
+            int result = await MoveHeadZAxesAvoidBeforeProcessPlaneMoveAsync(ct).ConfigureAwait(false);
+            if (result != 0)
+                return result;
+
+            bool stageZAtProcess = Stage.Recipe.WaferZ != null &&
+                IsAxisInPosition(ResolveStageAxis(WaferStageAxis.WaferExpandingZ), Stage.Recipe.WaferZ.ProcessPosition);
+
+            if (stageZAtProcess)
+            {
+                result = await MoveNeedleXToMappingCenterAsync(ct).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                WriteLog("InputStageDieMappingSequence",
+                    "Die Mapping 시작 전 StageZ가 이미 Process 위치입니다. StageZ Avoid/Process 재이동을 생략합니다. " +
+                    BuildAxisState(WaferStageAxis.WaferExpandingZ, Stage.Recipe.WaferZ.ProcessPosition) + " - Ok");
+
+                return await MoveVisionProcessPlaneAxesAsync(ct).ConfigureAwait(false);
+            }
+
+            result = await EnsureStageTFixedBeforeExpanderZMoveAsync(ct).ConfigureAwait(false);
+            if (result != 0)
+                return result;
+
+            if (Stage.Recipe.WaferZ != null)
+            {
+                result = await MoveAxisAndWaitAsync(
+                    WaferStageAxis.WaferExpandingZ,
+                    Stage.Recipe.WaferZ.AvoidPosition,
+                    "Die Mapping 시작 전 StageZ Avoid",
+                    ct).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+            }
+
+            result = await MoveNeedleXToMappingCenterAsync(ct).ConfigureAwait(false);
+            if (result != 0)
+                return result;
+
+            result = await MoveVisionProcessPlaneAxesAsync(ct).ConfigureAwait(false);
+            if (result != 0)
+                return result;
+
+            if (Stage.Recipe.WaferZ != null)
+            {
+                result = await MoveAxisAndWaitAsync(
+                    WaferStageAxis.WaferExpandingZ,
+                    Stage.Recipe.WaferZ.ProcessPosition,
+                    "Die Mapping 시작 전 StageZ Process",
+                    ct).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+            }
+
+            return 0;
+        }
+
+        private async Task<int> MoveNeedleXToMappingCenterAsync(CancellationToken ct)
+        {
+            double target = Stage.ResolveNeedleWorkAreaCenterX();
+            return await MoveAxisAndWaitAsync(
+                WaferStageAxis.NeedleX,
+                target,
+                "Die Mapping 시작 전 NeedleX Stage Center",
+                ct).ConfigureAwait(false);
+        }
+
+        private async Task<int> MoveHeadZAxesAvoidBeforeProcessPlaneMoveAsync(CancellationToken ct)
         {
             Stage.Recipe.EnsurePositionObjects();
 
@@ -449,18 +514,72 @@ namespace QMC.CDT320.Sequencing
             if (result != 0)
                 return result;
 
-            if (Stage.Recipe.WaferZ != null)
-            {
-                result = await MoveAxisAndWaitAsync(
-                    WaferStageAxis.WaferExpandingZ,
-                    Stage.Recipe.WaferZ.AvoidPosition,
-                    "Die Mapping 시작 전 StageZ Avoid",
-                    ct).ConfigureAwait(false);
-                if (result != 0)
-                    return result;
-            }
+            return 0;
+        }
+
+        private async Task<int> MoveVisionProcessPlaneAxesAsync(CancellationToken ct)
+        {
+            int result = await MoveAxisAndWaitAsync(
+                WaferStageAxis.WaferY,
+                Stage.Recipe.WaferY.ProcessPosition,
+                "Die Mapping 시작 전 StageY Process",
+                ct).ConfigureAwait(false);
+            if (result != 0)
+                return result;
+
+            result = await MoveAxisAndWaitAsync(
+                WaferStageAxis.VisionX,
+                Stage.Recipe.VisionX.ProcessPosition,
+                "Die Mapping 시작 전 VisionX Process",
+                ct).ConfigureAwait(false);
+            if (result != 0)
+                return result;
 
             return 0;
+        }
+
+        private async Task<int> EnsureStageTFixedBeforeExpanderZMoveAsync(CancellationToken ct)
+        {
+            Stage.Recipe.EnsurePositionObjects();
+
+            if (IsStageTAtExpanderZFixedPosition())
+                return 0;
+
+            WriteLog("InputStageDieMappingSequence",
+                "Die Mapping 시작 전 StageZ 이동을 위해 StageT를 고정 위치로 복귀합니다. " +
+                BuildAxisState(WaferStageAxis.WaferT, 0.0) + " - Start");
+
+            return await MoveAxisAndWaitAsync(
+                WaferStageAxis.WaferT,
+                0.0,
+                "Die Mapping 시작 전 StageT Home",
+                ct).ConfigureAwait(false);
+        }
+
+        private bool IsStageTAtExpanderZFixedPosition()
+        {
+            try
+            {
+                Stage.Recipe.EnsurePositionObjects();
+
+                QMC.Common.Motion.BaseAxis stageT = ResolveStageAxis(WaferStageAxis.WaferT);
+                if (stageT == null || Stage.Recipe.WaferT == null)
+                    return false;
+
+                return IsAxisInPosition(stageT, 0.0) ||
+                    IsAxisInPosition(stageT, Stage.Recipe.WaferT.AvoidPosition) ||
+                    IsAxisInPosition(stageT, Stage.Recipe.WaferT.LoadPosition) ||
+                    IsAxisInPosition(stageT, Stage.Recipe.WaferT.UnloadPosition) ||
+                    IsAxisInPosition(stageT, Stage.Recipe.WaferT.ReadyPosition) ||
+                    IsAxisInPosition(stageT, Stage.Recipe.WaferT.ProcessPosition);
+            }
+            catch
+            {
+                return false;
+            }
+            finally
+            {
+            }
         }
 
         private async Task<int> MoveMarkPointAsync(InputStageDieMapMarkPoint point, InputStageDieMappingStep nextStep, CancellationToken ct)
@@ -605,6 +724,117 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
+        private async Task<int> MoveCenterPointAsync(CancellationToken ct)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+
+                if (Options.EnableMotion)
+                {
+                    double centerX;
+                    double centerY;
+                    ResolveProcessCenter(out centerX, out centerY);
+
+                    string areaReason;
+                    if (!Stage.IsInputStageWorkPointInArea(centerX, centerY, out areaReason))
+                        return Fail("IN-STAGE-DIEMAP-CENTER-WORK-AREA", Stage.Name,
+                            "Die Mapping Center 위치가 작업 영역 밖입니다. centerX=" +
+                            centerX.ToString("F6") +
+                            ", centerY=" + centerY.ToString("F6") +
+                            ", reason=" + areaReason);
+
+                    int result = await MoveVisionXYPointSafelyAsync(
+                        centerX,
+                        centerY,
+                        "Die Mapping Center",
+                        ct).ConfigureAwait(false);
+                    if (result != 0)
+                        return result;
+                }
+
+                CurrentStep = InputStageDieMappingStep.FindCenterPoint;
+                return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("IN-STAGE-DIEMAP-CENTER-MOVE-EX", Stage != null ? Stage.Name : "InputStageUnit",
+                    "Die Mapping Center 위치 이동 중 예외가 발생했습니다. error=" + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private async Task<int> FindCenterPointAsync(CancellationToken ct)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+
+                double baseX = Stage.CameraX != null ? Stage.CameraX.ActualPosition : 0.0;
+                double baseY = Stage.StageY != null ? Stage.StageY.ActualPosition : 0.0;
+                VisionAlignResult vision = await RequestVisionPcOffsetWithRetryAsync(ResolveTargetId(), "Center", ct).ConfigureAwait(false);
+                if (vision == null)
+                {
+                    vision = await SearchVisionMarkAroundCurrentPointAsync(
+                        ResolveTargetId(),
+                        "Center",
+                        "Die Mapping Center",
+                        baseX,
+                        baseY,
+                        ct).ConfigureAwait(false);
+                }
+
+                if (vision == null)
+                    return Fail("IN-STAGE-DIEMAP-CENTER-VISION", "Vision",
+                        "Die Mapping Center 다이를 찾지 못했습니다. 센터와 주변 8방향 탐색을 모두 실패했습니다.");
+
+                _dieMapCenterX = (Stage.CameraX != null ? Stage.CameraX.ActualPosition : baseX) + vision.DeltaX;
+                _dieMapCenterY = (Stage.StageY != null ? Stage.StageY.ActualPosition : baseY) + vision.DeltaY;
+                _dieMapCenterSearchOffsetX = _dieMapCenterX - baseX;
+                _dieMapCenterSearchOffsetY = _dieMapCenterY - baseY;
+
+                _mappedPoints["Center"] = new MappedMarkPoint
+                {
+                    Name = "Center",
+                    X = _dieMapCenterX,
+                    Y = _dieMapCenterY,
+                    OffsetX = _dieMapCenterSearchOffsetX,
+                    OffsetY = _dieMapCenterSearchOffsetY
+                };
+
+                WriteLog("InputStageDieMappingSequence",
+                    "Die Mapping Center 다이를 찾았습니다. baseX=" + baseX.ToString("F6") +
+                    ", baseY=" + baseY.ToString("F6") +
+                    ", centerX=" + _dieMapCenterX.ToString("F6") +
+                    ", centerY=" + _dieMapCenterY.ToString("F6") +
+                    ", mapOffsetX=" + _dieMapCenterSearchOffsetX.ToString("F6") +
+                    ", mapOffsetY=" + _dieMapCenterSearchOffsetY.ToString("F6") +
+                    ", visionDx=" + vision.DeltaX.ToString("F6") +
+                    ", visionDy=" + vision.DeltaY.ToString("F6") + " - Ok");
+
+                CurrentStep = InputStageDieMappingStep.CalculateDieMap;
+                return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("IN-STAGE-DIEMAP-CENTER-VISION-EX", "Vision",
+                    "Die Mapping Center 다이 탐색 중 예외가 발생했습니다. error=" + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
         private async Task<int> MoveAxisAndWaitAsync(WaferStageAxis axis, double target, string description, CancellationToken ct)
         {
             int result = await MoveAxisCommandAsync(axis, target, description, ct).ConfigureAwait(false);
@@ -714,20 +944,115 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
+        private async Task<VisionAlignResult> SearchVisionMarkAroundCurrentPointAsync(
+            string targetId,
+            string stepName,
+            string description,
+            double baseX,
+            double baseY,
+            CancellationToken ct)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+
+                if (!Options.EnableMotion)
+                {
+                    WriteLog("InputStageDieMappingSequence",
+                        description + " 주변 탐색은 Motion Disable 상태라 수행하지 않습니다. step=" +
+                        stepName + " - Skip");
+                    return null;
+                }
+
+                double pitchX = Math.Abs(ResolvePitchX());
+                double pitchY = Math.Abs(ResolvePitchY());
+                if (pitchX <= 1e-9 || pitchY <= 1e-9)
+                {
+                    WriteLog("InputStageDieMappingSequence",
+                        description + " 주변 탐색 실패. Pitch 값이 유효하지 않습니다. pitchX=" +
+                        pitchX.ToString("F6") +
+                        ", pitchY=" + pitchY.ToString("F6") + " - Failed");
+                    return null;
+                }
+
+                SearchOffset[] offsets = BuildOnePitchSearchOffsets(pitchX, pitchY);
+                for (int i = 0; i < offsets.Length; i++)
+                {
+                    ct.ThrowIfCancellationRequested();
+
+                    double targetX = baseX + offsets[i].X;
+                    double targetY = baseY + offsets[i].Y;
+                    string areaReason;
+                    if (!Stage.IsInputStageWorkPointInArea(targetX, targetY, out areaReason))
+                    {
+                        WriteLog("InputStageDieMappingSequence",
+                            description + " 주변 탐색 후보 위치가 작업 영역 밖이라 건너뜁니다. direction=" +
+                            offsets[i].Name +
+                            ", targetX=" + targetX.ToString("F6") +
+                            ", targetY=" + targetY.ToString("F6") +
+                            ", reason=" + areaReason + " - Skip");
+                        continue;
+                    }
+
+                    int moveResult = await MoveVisionXYPointSafelyAsync(
+                        targetX,
+                        targetY,
+                        description + " 주변 탐색 " + offsets[i].Name,
+                        ct).ConfigureAwait(false);
+                    if (moveResult != 0)
+                        return null;
+
+                    VisionAlignResult result = await RequestVisionPcOffsetWithRetryAsync(
+                        targetId,
+                        stepName + "_Search_" + offsets[i].Name,
+                        ct).ConfigureAwait(false);
+                    if (result != null)
+                    {
+                        WriteLog("InputStageDieMappingSequence",
+                            description + " 주변 탐색에서 다이를 찾았습니다. direction=" +
+                            offsets[i].Name +
+                            ", baseX=" + baseX.ToString("F6") +
+                            ", baseY=" + baseY.ToString("F6") +
+                            ", targetX=" + targetX.ToString("F6") +
+                            ", targetY=" + targetY.ToString("F6") +
+                            ", dx=" + result.DeltaX.ToString("F6") +
+                            ", dy=" + result.DeltaY.ToString("F6") + " - Ok");
+                        return result;
+                    }
+                }
+
+                WriteLog("InputStageDieMappingSequence",
+                    description + " 주변 8방향 탐색에서 다이를 찾지 못했습니다. baseX=" +
+                    baseX.ToString("F6") +
+                    ", baseY=" + baseY.ToString("F6") +
+                    ", pitchX=" + pitchX.ToString("F6") +
+                    ", pitchY=" + pitchY.ToString("F6") + " - Failed");
+                return null;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                WriteLog("InputStageDieMappingSequence",
+                    description + " 주변 탐색 중 예외가 발생했습니다. error=" + ex.Message + " - Failed");
+                return null;
+            }
+            finally
+            {
+            }
+        }
+
         private int CalculateDieMap()
         {
             try
             {
-                MappedMarkPoint top;
-                MappedMarkPoint bottom;
-                MappedMarkPoint left;
-                MappedMarkPoint right;
-                if (!TryGetMappedPoint("Top", out top) ||
-                    !TryGetMappedPoint("Bottom", out bottom) ||
-                    !TryGetMappedPoint("Left", out left) ||
-                    !TryGetMappedPoint("Right", out right))
+                MappedMarkPoint center;
+                if (!TryGetMappedPoint("Center", out center))
                 {
-                    return Fail("IN-STAGE-DIEMAP-POINTS", "Vision", "Die mapping requires Top/Bottom/Left/Right mark results.");
+                    return Fail("IN-STAGE-DIEMAP-CENTER-POINT", "Vision",
+                        "Die Mapping 계산에는 Center die 탐색 결과가 필요합니다.");
                 }
 
                 DieMap sourceMap = ResolveSourceInputDieMap(_wafer, _frameSpec);
@@ -751,30 +1076,22 @@ namespace QMC.CDT320.Sequencing
                 if (pitchX <= 0.0 || pitchY <= 0.0)
                     return Fail("IN-STAGE-DIEMAP-PITCH", "InputStageDieMappingSequence", "Die map pitch is invalid.");
 
-                bool processCenterMode = IsAxisSimulationMode();
-                double signX = processCenterMode ? 1.0 : (right.X >= left.X ? 1.0 : -1.0);
-                double signY = processCenterMode ? 1.0 : (bottom.Y >= top.Y ? 1.0 : -1.0);
-                double centerX;
-                double centerY;
-                string centerSource;
-                if (processCenterMode)
-                {
-                    ResolveProcessCenter(out centerX, out centerY);
-                    centerSource = "ProcessPosition";
-                }
-                else
-                {
-                    centerX = (left.X + right.X) / 2.0;
-                    centerY = (top.Y + bottom.Y) / 2.0;
-                    centerSource = "DieMappingMarks";
-                }
+                double signX = 1.0;
+                double signY = 1.0;
+                double centerX = center.X;
+                double centerY = center.Y;
+                string centerSource = "CenterDieSearch";
                 double originX = sourceMapIsExternal
                     ? centerX + (signX * sourceMap.OriginX)
                     : centerX - (signX * pitchX * Math.Max(0, dieMapX - 1) / 2.0);
                 double originY = sourceMapIsExternal
                     ? centerY + (signY * sourceMap.OriginY)
                     : centerY - (signY * pitchY * Math.Max(0, dieMapY - 1) / 2.0);
-                double waferRadius = ResolveWaferRadiusFromSpecOrMarks(_frameSpec, left, right, top, bottom);
+                double waferRadius = ResolveWaferRadiusFromSpecOrMap(_frameSpec, dieMapX, dieMapY, pitchX, pitchY);
+                int centerCol = Math.Max(0, Math.Min(dieMapX - 1, dieMapX / 2));
+                int centerRow = Math.Max(0, Math.Min(dieMapY - 1, dieMapY / 2));
+                _centerDieTargetX = centerX;
+                _centerDieTargetY = centerY;
 
                 _dieMap = new DieMap
                 {
@@ -825,6 +1142,11 @@ namespace QMC.CDT320.Sequencing
                         double y = sourceMapIsExternal && sourceEntry != null
                             ? centerY + signY * sourceEntry.PosY
                             : originY + signY * pitchY * row;
+                        if (col == centerCol && row == centerRow)
+                        {
+                            _centerDieTargetX = x;
+                            _centerDieTargetY = y;
+                        }
                         bool target = sourceEntry != null
                             ? sourceEntry.IsTarget
                             : (!sourceMapIsExternal && IsInsideWaferCircle(x, y, centerX, centerY, waferRadius));
@@ -844,8 +1166,8 @@ namespace QMC.CDT320.Sequencing
                             OriginalMapX = mapX,
                             OriginalMapY = mapY,
                             IsTarget = target,
-                            Result = target ? DieResult.Unknown : DieResult.NG,
-                            BinCode = target ? (sourceEntry != null ? sourceEntry.BinCode : 0) : 255,
+                            Result = DieResult.Unknown,
+                            BinCode = target ? (sourceEntry != null ? sourceEntry.BinCode : 0) : 0,
                             PosX = x,
                             PosY = y,
                             DieUid = sourceEntry != null && !string.IsNullOrWhiteSpace(sourceEntry.DieUid)
@@ -866,6 +1188,10 @@ namespace QMC.CDT320.Sequencing
                     ", centerSource=" + centerSource +
                     ", centerX=" + centerX.ToString("F6") +
                     ", centerY=" + centerY.ToString("F6") +
+                    ", centerSearchOffsetX=" + _dieMapCenterSearchOffsetX.ToString("F6") +
+                    ", centerSearchOffsetY=" + _dieMapCenterSearchOffsetY.ToString("F6") +
+                    ", centerDieTargetX=" + _centerDieTargetX.ToString("F6") +
+                    ", centerDieTargetY=" + _centerDieTargetY.ToString("F6") +
                     ", signX=" + signX.ToString("F1") +
                     ", signY=" + signY.ToString("F1") +
                     ", originX=" + originX.ToString("F6") +
@@ -875,12 +1201,63 @@ namespace QMC.CDT320.Sequencing
                     ", targetCount=" + targetCount +
                     ", orderedCount=" + orderedCount + " - Ok");
 
-                CurrentStep = InputStageDieMappingStep.ApplyDieMap;
+                CurrentStep = InputStageDieMappingStep.MoveCenterDiePoint;
                 return 0;
             }
             catch (Exception ex)
             {
                 return Fail("IN-STAGE-DIEMAP-CALC-EX", "InputStageDieMappingSequence", "Die map calculation failed: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private async Task<int> MoveCenterDiePointAsync(CancellationToken ct)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+
+                if (Options.EnableMotion)
+                {
+                    string areaReason;
+                    if (!Stage.IsInputStageWorkPointInArea(_centerDieTargetX, _centerDieTargetY, out areaReason))
+                    {
+                        return Fail("IN-STAGE-DIEMAP-CENTER-DIE-WORK-AREA", Stage.Name,
+                            "Die Mapping 계산 후 Center die 위치가 작업 영역 밖입니다. targetX=" +
+                            _centerDieTargetX.ToString("F6") +
+                            ", targetY=" + _centerDieTargetY.ToString("F6") +
+                            ", reason=" + areaReason);
+                    }
+
+                    int result = await MoveVisionXYPointSafelyAsync(
+                        _centerDieTargetX,
+                        _centerDieTargetY,
+                        "Die Mapping 계산 후 Center die 위치",
+                        ct).ConfigureAwait(false);
+                    if (result != 0)
+                        return result;
+                }
+
+                WriteLog("InputStageDieMappingSequence",
+                    "Die Mapping 계산 후 Center die 위치로 이동했습니다. targetX=" +
+                    _centerDieTargetX.ToString("F6") +
+                    ", targetY=" + _centerDieTargetY.ToString("F6") +
+                    ", centerOffsetX=" + _dieMapCenterSearchOffsetX.ToString("F6") +
+                    ", centerOffsetY=" + _dieMapCenterSearchOffsetY.ToString("F6") + " - Ok");
+
+                CurrentStep = InputStageDieMappingStep.ApplyDieMap;
+                return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("IN-STAGE-DIEMAP-CENTER-DIE-MOVE-EX", Stage != null ? Stage.Name : "InputStageUnit",
+                    "Die Mapping 계산 후 Center die 위치 이동 중 예외가 발생했습니다. error=" + ex.Message);
             }
             finally
             {
@@ -1003,16 +1380,31 @@ namespace QMC.CDT320.Sequencing
                 if (IsUsableSourceMap(recipeMap))
                     return ApplyInputPickupSequence(recipeMap);
 
-                if (recipeMapConfigured)
-                    return null;
-
                 DieMap materialMap = MaterialStateService.BuildDieMapFromWafer(wafer);
                 if (IsUsableSourceMap(materialMap))
+                {
+                    if (recipeMapConfigured)
+                    {
+                        WriteLog("InputStageDieMappingSequence",
+                            "Recipe input die map was not usable. Current wafer material map is used instead. reason=" +
+                            LastSourceInputDieMapFailure + " - Check");
+                    }
+
                     return ApplyInputPickupSequence(materialMap);
+                }
 
                 DieMap activeMap = LotStorage.ActiveInputDieMap;
                 if (IsUsableSourceMap(activeMap))
+                {
+                    if (recipeMapConfigured)
+                    {
+                        WriteLog("InputStageDieMappingSequence",
+                            "Recipe input die map was not usable. Active input die map is used instead. reason=" +
+                            LastSourceInputDieMapFailure + " - Check");
+                    }
+
                     return ApplyInputPickupSequence(activeMap);
+                }
 
                 return null;
             }
@@ -1285,7 +1677,7 @@ namespace QMC.CDT320.Sequencing
                     die.Wafer_IndexX = mapX;
                     die.Wafer_IndexY = mapY;
                     die.InputSequenceNo = entry.SequenceNo;
-                    die.Input_BinCode = entry.BinCode;
+                    die.Input_BinCode = entry.IsTarget ? entry.BinCode : 0;
                     die.IsInputTarget = entry.IsTarget;
                     die.Output_BinCode = 0;
                     die.Bin_IndexX = -1;
@@ -1293,17 +1685,31 @@ namespace QMC.CDT320.Sequencing
                     die.CurrentLocation = new MaterialLocation { Kind = entry.IsTarget ? MaterialLocationKind.InputStage : MaterialLocationKind.Unknown };
                     die.ReservedPickerLocation = MaterialLocationKind.Unknown;
                     die.ReservedPickerNo = -1;
-                    die.Result = entry.IsTarget ? DieResult.Unknown : DieResult.NG;
+                    // 현재 기준: 새 Input 맵 생성 시 이전 wafer의 Pick/검사 이력은 초기화한다.
+                    die.PickedPickerLocation = MaterialLocationKind.Unknown;
+                    die.PickedPickerNo = -1;
+                    die.PickedAt = DateTime.MinValue;
+                    die.Result = DieResult.Unknown;
                     if (die.NgCodes == null)
                         die.NgCodes = new List<string>();
                     else
                         die.NgCodes.Clear();
+                    if (die.Inspections == null)
+                        die.Inspections = new List<DieInspectionRecord>();
+                    else
+                        die.Inspections.Clear();
                     if (die.WaferOffset == null)
                         die.WaferOffset = new VisionOffset();
                     die.WaferOffset.X = entry.PosX;
                     die.WaferOffset.Y = entry.PosY;
                     die.WaferOffset.R = 0.0;
                     die.WaferOffset.IsValid = true;
+                    if (die.BinOffset == null)
+                        die.BinOffset = new VisionOffset();
+                    die.BinOffset.X = 0.0;
+                    die.BinOffset.Y = 0.0;
+                    die.BinOffset.R = 0.0;
+                    die.BinOffset.IsValid = false;
                     die.UpdatedAt = DateTime.Now;
                     wafer.DieIds.Add(dieId);
                     if (entry.IsTarget)
@@ -1724,19 +2130,28 @@ namespace QMC.CDT320.Sequencing
         {
             try
             {
-                string specName = wafer != null ? wafer.TapeFrameSpecName : "";
+                string specName = wafer != null ? MaterialStateService.NormalizeInputTapeFrameSpecName(wafer.TapeFrameSpecName) : "";
                 if (string.IsNullOrWhiteSpace(specName))
                 {
-                    specName = MaterialStateService.ResolveRecipeTapeFrameSpecName(0);
+                    specName = MaterialStateService.ResolveInputTapeFrameSpecName(0);
                     if (wafer != null && !string.IsNullOrWhiteSpace(specName))
+                    {
                         wafer.TapeFrameSpecName = specName;
+                        MaterialStateService.NotifyAndSave("InputStageDieMapSpecResolve");
+                    }
+                }
+                else if (wafer != null &&
+                         !string.Equals(wafer.TapeFrameSpecName, specName, StringComparison.OrdinalIgnoreCase))
+                {
+                    wafer.TapeFrameSpecName = specName;
+                    MaterialStateService.NotifyAndSave("InputStageDieMapSpecNormalize");
                 }
 
                 TapeFrameSpec spec = MaterialSpecs.FindFrame(specName);
                 if (spec != null)
                     return spec;
 
-                specName = MaterialStateService.ResolveRecipeTapeFrameSpecName(0);
+                specName = MaterialStateService.ResolveInputTapeFrameSpecName(0);
                 return MaterialSpecs.FindFrame(specName);
             }
             catch (Exception ex)
@@ -1747,6 +2162,61 @@ namespace QMC.CDT320.Sequencing
             finally
             {
             }
+        }
+
+        private void NormalizeStoredAlignPitchToFrameSpec()
+        {
+            try
+            {
+                if (_wafer == null || _frameSpec == null)
+                    return;
+
+                bool changed = false;
+                if (ShouldUseFramePitch(_wafer.InputStageAlignPitchX, _frameSpec.PitchX))
+                {
+                    WriteLog("InputStageDieMappingSequence",
+                        "Stored align pitch X is outside configured tolerance. frame pitch is used. wafer=" +
+                        _wafer.WaferId +
+                        ", stored=" + _wafer.InputStageAlignPitchX.ToString("F6") +
+                        ", frame=" + _frameSpec.PitchX.ToString("F6") +
+                        ", tolerance=" + AlignPitchCompareToleranceMm.ToString("F6") + " - Check");
+                    _wafer.InputStageAlignPitchX = _frameSpec.PitchX;
+                    changed = true;
+                }
+
+                if (ShouldUseFramePitch(_wafer.InputStageAlignPitchY, _frameSpec.PitchY))
+                {
+                    WriteLog("InputStageDieMappingSequence",
+                        "Stored align pitch Y is outside configured tolerance. frame pitch is used. wafer=" +
+                        _wafer.WaferId +
+                        ", stored=" + _wafer.InputStageAlignPitchY.ToString("F6") +
+                        ", frame=" + _frameSpec.PitchY.ToString("F6") +
+                        ", tolerance=" + AlignPitchCompareToleranceMm.ToString("F6") + " - Check");
+                    _wafer.InputStageAlignPitchY = _frameSpec.PitchY;
+                    changed = true;
+                }
+
+                if (changed)
+                    _wafer.UpdatedAt = DateTime.Now;
+            }
+            catch (Exception ex)
+            {
+                WriteLog("InputStageDieMappingSequence",
+                    "Stored align pitch normalize failed: " + ex.Message + " - Failed");
+            }
+            finally
+            {
+            }
+        }
+
+        private static bool ShouldUseFramePitch(double stored, double frame)
+        {
+            if (frame <= 0.0)
+                return false;
+            if (stored <= 0.0)
+                return true;
+
+            return Math.Abs(stored - frame) > AlignPitchCompareToleranceMm;
         }
 
         private bool TryGetMappedPoint(string name, out MappedMarkPoint point)
@@ -1928,6 +2398,32 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
+        private static double ResolveWaferRadiusFromSpecOrMap(
+            TapeFrameSpec spec,
+            int dieMapX,
+            int dieMapY,
+            double pitchX,
+            double pitchY)
+        {
+            try
+            {
+                if (spec != null && spec.OuterDiameterMm > 0.0)
+                    return spec.OuterDiameterMm / 2.0;
+
+                double radiusX = Math.Abs(pitchX) * Math.Max(0, dieMapX - 1) / 2.0;
+                double radiusY = Math.Abs(pitchY) * Math.Max(0, dieMapY - 1) / 2.0;
+                double radius = Math.Max(radiusX, radiusY);
+                return radius > 0.0 ? radius : 0.0;
+            }
+            catch
+            {
+                return 0.0;
+            }
+            finally
+            {
+            }
+        }
+
         private static bool IsInsideWaferCircle(double x, double y, double centerX, double centerY, double radius)
         {
             try
@@ -2007,6 +2503,35 @@ namespace QMC.CDT320.Sequencing
             public double Y { get; set; }
             public double OffsetX { get; set; }
             public double OffsetY { get; set; }
+        }
+
+        private sealed class SearchOffset
+        {
+            public SearchOffset(string name, double x, double y)
+            {
+                Name = name;
+                X = x;
+                Y = y;
+            }
+
+            public string Name { get; private set; }
+            public double X { get; private set; }
+            public double Y { get; private set; }
+        }
+
+        private static SearchOffset[] BuildOnePitchSearchOffsets(double pitchX, double pitchY)
+        {
+            return new[]
+            {
+                new SearchOffset("Up", 0.0, pitchY),
+                new SearchOffset("Down", 0.0, -pitchY),
+                new SearchOffset("Left", -pitchX, 0.0),
+                new SearchOffset("Right", pitchX, 0.0),
+                new SearchOffset("LeftUp", -pitchX, pitchY),
+                new SearchOffset("RightUp", pitchX, pitchY),
+                new SearchOffset("LeftDown", -pitchX, -pitchY),
+                new SearchOffset("RightDown", pitchX, -pitchY)
+            };
         }
     }
 }

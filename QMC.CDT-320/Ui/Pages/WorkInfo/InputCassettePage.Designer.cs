@@ -465,7 +465,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             // lblLegendEmptyColor
             // 
             this.lblLegendEmptyColor.Anchor = System.Windows.Forms.AnchorStyles.None;
-            this.lblLegendEmptyColor.BackColor = System.Drawing.Color.Lime;
+            this.lblLegendEmptyColor.BackColor = System.Drawing.Color.Gainsboro;
             this.lblLegendEmptyColor.Location = new System.Drawing.Point(9, 1);
             this.lblLegendEmptyColor.Margin = new System.Windows.Forms.Padding(0);
             this.lblLegendEmptyColor.Name = "lblLegendEmptyColor";
@@ -537,7 +537,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             // lblLegendFinishColor
             // 
             this.lblLegendFinishColor.Anchor = System.Windows.Forms.AnchorStyles.None;
-            this.lblLegendFinishColor.BackColor = System.Drawing.Color.Red;
+            this.lblLegendFinishColor.BackColor = System.Drawing.Color.MediumSeaGreen;
             this.lblLegendFinishColor.Location = new System.Drawing.Point(9, 1);
             this.lblLegendFinishColor.Margin = new System.Windows.Forms.Padding(0);
             this.lblLegendFinishColor.Name = "lblLegendFinishColor";
@@ -611,7 +611,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             // 
             this.cassetteSlotView.BackColor = System.Drawing.Color.White;
             this.cassetteSlotView.Dock = System.Windows.Forms.DockStyle.Top;
-            this.cassetteSlotView.EmptyColor = System.Drawing.Color.LightGray;
+            this.cassetteSlotView.EmptyColor = System.Drawing.Color.Gainsboro;
             this.cassetteSlotView.Location = new System.Drawing.Point(0, 0);
             this.cassetteSlotView.Margin = new System.Windows.Forms.Padding(0);
             this.cassetteSlotView.Name = "cassetteSlotView";
@@ -623,7 +623,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             // 
             this.cassetteSlotViewLevel2.BackColor = System.Drawing.Color.White;
             this.cassetteSlotViewLevel2.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.cassetteSlotViewLevel2.EmptyColor = System.Drawing.Color.LightGray;
+            this.cassetteSlotViewLevel2.EmptyColor = System.Drawing.Color.Gainsboro;
             this.cassetteSlotViewLevel2.Location = new System.Drawing.Point(818, 0);
             this.cassetteSlotViewLevel2.Margin = new System.Windows.Forms.Padding(0);
             this.cassetteSlotViewLevel2.Name = "cassetteSlotViewLevel2";

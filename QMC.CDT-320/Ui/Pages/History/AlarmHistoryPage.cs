@@ -25,6 +25,7 @@ namespace QMC.CDT_320.Ui.Pages.History
         private readonly Queue<AlarmRecord> _pendingAlarmRows = new Queue<AlarmRecord>();
         private readonly Timer _liveFlushTimer = new Timer();
         private bool _alarmEventSubscribed;
+        private bool _initializingFilterControls;
         // 그리드에 이미 렌더된 알람 Id — 라이브 flush 삽입과 LoadGrid 전체 재빌드가 같은 레코드를 중복으로 그리지 않도록 한다.
         private readonly HashSet<int> _renderedAlarmIds = new HashSet<int>();
 
@@ -41,6 +42,7 @@ namespace QMC.CDT_320.Ui.Pages.History
         {
             InitializeComponent();
             ApplyHistoryWhiteSurface();
+            InitializeFilterControls();
             WireEvents();
 
             if (!IsDesignerMode())
@@ -49,17 +51,30 @@ namespace QMC.CDT_320.Ui.Pages.History
             }
         }
 
+        private void InitializeFilterControls()
+        {
+            _initializingFilterControls = true;
+            try
+            {
+                _cbSeverity.Items.Add("(All)");
+                foreach (var s in Enum.GetNames(typeof(AlarmSeverity)))
+                    _cbSeverity.Items.Add(s);
+                _cbSeverity.SelectedIndex = 0;
+            }
+            finally
+            {
+                _initializingFilterControls = false;
+            }
+        }
+
         private void ApplyHistoryWhiteSurface()
         {
-            BackColor = Color.White;
-            rootLayout.BackColor = Color.White;
+            // 배경색(페이지/rootLayout/filterLayout/_grid White)은 Designer(.Designer.cs)로 이관.
             rootLayout.Margin = Padding.Empty;
             rootLayout.RowStyles[1].Height = 40F;
             lblHeader.Margin = Padding.Empty;
-            filterLayout.BackColor = Color.White;
             filterLayout.Margin = Padding.Empty;
             filterLayout.Padding = new Padding(8, 3, 8, 3);
-            _grid.BackgroundColor = Color.White;
 
             ConfigureFilterColumns();
             StyleFilterLabel(lblSeverity);
@@ -152,19 +167,28 @@ namespace QMC.CDT_320.Ui.Pages.History
 
         private void WireEvents()
         {
-            _cbSeverity.Items.Add("(All)");
-            foreach (var s in Enum.GetNames(typeof(AlarmSeverity))) _cbSeverity.Items.Add(s);
-            _cbSeverity.SelectedIndex = 0;
-            _cbSeverity.SelectedIndexChanged += (s, e) => LoadGrid();
-            _tbFilter.TextChanged += (s, e) => LoadGrid();
-            btnClear.Click += (s, e) => { AlarmManager.ClearAll(); LoadGrid(); };
             _liveFlushTimer.Interval = LiveFlushIntervalMs;
             // 주기 갱신에 Clear 버튼 상태도 편승 — 다른 화면/시퀀스에서 알람이 해제돼도 곧 반영된다.
             _liveFlushTimer.Tick += (s, e) => { FlushPendingAlarmRows(); UpdateClearButtonState(); };
-            // 행 헤더가 숨겨져 있으므로 첫 컬럼(시간)을 행 헤더처럼 써서 행 전체를 선택한다.
-            _grid.CellClick += Grid_CellClick;
-            // Message/Cause/Action 셀을 더블클릭하면 전체 내용을 큰 창(읽기 전용)으로 보여준다.
-            _grid.CellDoubleClick += Grid_CellDoubleClick;
+        }
+
+        private void _cbSeverity_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            if (_initializingFilterControls)
+                return;
+
+            LoadGrid();
+        }
+
+        private void _tbFilter_TextChanged(object sender, EventArgs e)
+        {
+            LoadGrid();
+        }
+
+        private void btnClear_Click(object sender, EventArgs e)
+        {
+            AlarmManager.ClearAll();
+            LoadGrid();
         }
 
         // 긴 텍스트 컬럼(Message/Cause/Action)을 더블클릭하면 전체 내용을 큰 창(읽기 전용)으로 보여준다.

@@ -34,8 +34,6 @@ namespace QMC.CDT_320.Ui.Pages.Settings
         private List<LightRow> _items;
         private static readonly string SavePath =
             Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Config", "light_setup.json");
-        private GroupBox _lightGroup;
-        private GroupBox _actionGroup;
 
         public LightControllerPage()
         {
@@ -43,7 +41,6 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             ApplyRuntimeUi();
             SettingsPageLayoutStyler.Apply(this);
             ApplyCompactLayout();
-            WireEvents();
             _items = LoadOrSeed();
             FillGrid();
         }
@@ -52,102 +49,19 @@ namespace QMC.CDT_320.Ui.Pages.Settings
         {
             lblHeader.Text = Lang.T("set.lightSetup");
             lblHeader.Tag = "i18n:set.lightSetup";
-            lblHeader.BackColor = UiTheme.StatusBarBg;
-            lblHeader.ForeColor = UiTheme.StatusBarFg;
-            lblHeader.Font = UiTheme.SectionFont;
-
-            lblSubHeader.BackColor = UiTheme.StatusBarBg;
-            lblSubHeader.ForeColor = Color.White;
-            lblSubHeader.Font = UiTheme.SectionFont;
         }
 
         private void ApplyCompactLayout()
         {
             SettingsPageLayoutStyler.ApplyRoot(rootLayout);
             SettingsPageLayoutStyler.ApplyHeader(lblHeader);
-            lblSubHeader.Visible = false;
 
-            if (_lightGroup == null)
-                _lightGroup = new GroupBox();
-            _lightGroup.Text = "LIGHT CONTROLLER";
             SettingsPageLayoutStyler.ApplyGroupBox(_lightGroup);
-            _lightGroup.Dock = DockStyle.Top;
-            _lightGroup.Height = 252;
+            _lightGroup.Dock = DockStyle.Top;                 // 스타일러가 Fill로 바꾸므로 Top 재지정
             _lightGroup.Padding = new Padding(1, 8, 1, 1);
-            _grid.Dock = DockStyle.Fill;
-            _grid.Margin = Padding.Empty;
-            if (_grid.Parent != _lightGroup)
-            {
-                if (_grid.Parent != null)
-                    _grid.Parent.Controls.Remove(_grid);
-                _lightGroup.Controls.Add(_grid);
-            }
 
-            if (_actionGroup == null)
-                _actionGroup = new GroupBox();
-            _actionGroup.Text = "ACTION";
             SettingsPageLayoutStyler.ApplyGroupBox(_actionGroup);
-            if (actionsLayout.Parent != _actionGroup)
-            {
-                if (actionsLayout.Parent != null)
-                    actionsLayout.Parent.Controls.Remove(actionsLayout);
-                _actionGroup.Controls.Add(actionsLayout);
-            }
-
-            actionsLayout.Margin = Padding.Empty;
-            actionsLayout.Padding = Padding.Empty;
-            actionsLayout.ColumnStyles.Clear();
-            actionsLayout.ColumnCount = 14;
-            for (int i = 0; i < 14; i++)
-                actionsLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F / 14F));
             SettingsPageLayoutStyler.ApplyActionRow(actionsLayout);
-
-            rootLayout.Controls.Clear();
-            rootLayout.ColumnStyles.Clear();
-            rootLayout.RowStyles.Clear();
-            rootLayout.ColumnCount = 1;
-            rootLayout.RowCount = 4;
-            rootLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
-            rootLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 30F));
-            rootLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 45F));
-            rootLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 45F));
-            rootLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 10F));
-            rootLayout.Controls.Add(lblHeader, 0, 0);
-            rootLayout.Controls.Add(_lightGroup, 0, 1);
-            rootLayout.Controls.Add(_actionGroup, 0, 3);
-
-            if (rootLayout.RowStyles.Count >= 4)
-            {
-                rootLayout.RowStyles[0].SizeType = SizeType.Absolute;
-                rootLayout.RowStyles[0].Height = 30F;
-                rootLayout.RowStyles[1].SizeType = SizeType.Percent;
-                rootLayout.RowStyles[1].Height = 45F;
-                rootLayout.RowStyles[2].SizeType = SizeType.Percent;
-                rootLayout.RowStyles[2].Height = 45F;
-                rootLayout.RowStyles[3].SizeType = SizeType.Percent;
-                rootLayout.RowStyles[3].Height = 10F;
-            }
-        }
-
-        private void WireEvents()
-        {
-            _grid.CellEndEdit += OnCellEdit;
-            btnSave.Click += (s, e) => DoSave();
-            btnReload.Click += (s, e) =>
-            {
-                _items = LoadOrSeed();
-                FillGrid();
-            };
-            btnAllOn.Click += (s, e) =>
-            {
-                foreach (var item in _items) item.Active = true;
-                FillGrid();
-            };
-            btnAllOff.Click += (s, e) =>
-            {
-                foreach (var item in _items) item.Active = false;
-                FillGrid();
-            };
         }
 
         public static List<LightRow> SeedDefault()
@@ -284,6 +198,29 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                 // 조명 활성 여부 적용
                 case "ACTIVE": it.Active = txt.Trim().ToUpper().StartsWith("ON"); break;
             }
+            FillGrid();
+        }
+
+        private void btnSave_Click(object sender, EventArgs e)
+        {
+            DoSave();
+        }
+
+        private void btnReload_Click(object sender, EventArgs e)
+        {
+            _items = LoadOrSeed();
+            FillGrid();
+        }
+
+        private void btnAllOn_Click(object sender, EventArgs e)
+        {
+            foreach (var item in _items) item.Active = true;
+            FillGrid();
+        }
+
+        private void btnAllOff_Click(object sender, EventArgs e)
+        {
+            foreach (var item in _items) item.Active = false;
             FillGrid();
         }
     }

@@ -51,6 +51,15 @@ namespace QMC.CDT320.VisionComm
             return await client.GrabAsync(index, timeoutMs, ct).ConfigureAwait(false);
         }
 
+        public static async Task<bool> GrabInspectAsync(AutoVisionChannel channel, string inspector, int fb, int collet, int dieIndex, int visionChannel, int gridX, int gridY, int timeoutMs, CancellationToken ct)
+        {
+            VisionTcpClient client = ResolveClient(channel);
+            if (client == null)
+                return false;
+
+            return await client.GrabInspectAsync(inspector, fb, collet, dieIndex, visionChannel, gridX, gridY, timeoutMs, ct).ConfigureAwait(false);
+        }
+
         public static async Task<MatchResultDto> MatchAsync(AutoVisionChannel channel, string finder, int index, int timeoutMs, CancellationToken ct)
         {
             VisionTcpClient client = ResolveClient(channel);

@@ -643,9 +643,28 @@
             this.btnSaveAs.Size = new System.Drawing.Size(114, 36);
             this.btnSaveAs.TabIndex = 8;
             this.btnSaveAs.Text = "SAVE AS";
-            // 
+            //
+            // events (디자이너 관리)
+            //
+            this.listProjects.DoubleClick += new System.EventHandler(this.listProjects_DoubleClick);
+            this.listProjects.SelectedIndexChanged += new System.EventHandler(this.listProjects_SelectedIndexChanged);
+            this.btnNew.Click += new System.EventHandler(this.btnNew_Click);
+            this.btnOpen.Click += new System.EventHandler(this.btnOpen_Click);
+            this.btnCopy.Click += new System.EventHandler(this.btnCopy_Click);
+            this.btnDelete.Click += new System.EventHandler(this.btnDelete_Click);
+            this.btnOpenFolder.Click += new System.EventHandler(this.btnOpenFolder_Click);
+            this.btnReload.Click += new System.EventHandler(this.btnReload_Click);
+            this.btnOpenRecipeFolder.Click += new System.EventHandler(this.btnOpenRecipeFolder_Click);
+            this.btnBrowseMap.Click += new System.EventHandler(this.btnBrowseMap_Click);
+            this.btnOpenMap.Click += new System.EventHandler(this.btnOpenMap_Click);
+            this.btnBrowseXml.Click += new System.EventHandler(this.btnBrowseXml_Click);
+            this.btnApplyCurrent.Click += new System.EventHandler(this.btnApplyCurrent_Click);
+            this.btnSaveRecipe.Click += new System.EventHandler(this.btnSaveRecipe_Click);
+            this.btnSaveAs.Click += new System.EventHandler(this.btnSaveAs_Click);
+            this.gridMap.CellEndEdit += new System.Windows.Forms.DataGridViewCellEventHandler(this.gridMap_CellEndEdit);
+            //
             // ProjectPage
-            // 
+            //
             this.Controls.Add(this.rootLayout);
             this.Name = "ProjectPage";
             this.Size = new System.Drawing.Size(1678, 900);

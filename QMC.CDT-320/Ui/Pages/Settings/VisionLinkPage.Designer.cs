@@ -75,7 +75,7 @@
         private System.Windows.Forms.Button _btnDisconnect;
         private System.Windows.Forms.Button _btnPing;
         private System.Windows.Forms.Button _btnCameraScale;
-        private System.Windows.Forms.Label lblHint;
+        private System.Windows.Forms.GroupBox _actionGroup;
 
         protected override void Dispose(bool disposing)
         {
@@ -133,18 +133,19 @@
             this._rxBot = new System.Windows.Forms.Label();
             this._vsBot = new System.Windows.Forms.Label();
             this._cbAuto = new System.Windows.Forms.CheckBox();
+            this._actionGroup = new System.Windows.Forms.GroupBox();
             this.buttonLayout = new System.Windows.Forms.TableLayoutPanel();
             this._btnConnect = new System.Windows.Forms.Button();
             this._btnDisconnect = new System.Windows.Forms.Button();
             this._btnPing = new System.Windows.Forms.Button();
             this._btnClearLog = new System.Windows.Forms.Button();
             this._btnCameraScale = new System.Windows.Forms.Button();
-            this.lblHint = new System.Windows.Forms.Label();
             this.grpLog = new System.Windows.Forms.GroupBox();
             this._txtLog = new System.Windows.Forms.TextBox();
             this.rootLayout.SuspendLayout();
             this.grpLink.SuspendLayout();
             this.linkLayout.SuspendLayout();
+            this._actionGroup.SuspendLayout();
             this.buttonLayout.SuspendLayout();
             this.grpLog.SuspendLayout();
             this.SuspendLayout();
@@ -155,22 +156,26 @@
             this.rootLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.rootLayout.Controls.Add(this.lblHeader, 0, 0);
             this.rootLayout.Controls.Add(this.grpLink, 0, 1);
-            this.rootLayout.Controls.Add(this.grpLog, 0, 2);
+            this.rootLayout.Controls.Add(this._actionGroup, 0, 2);
+            this.rootLayout.Controls.Add(this.grpLog, 0, 3);
             this.rootLayout.Dock = System.Windows.Forms.DockStyle.Fill;
             this.rootLayout.Location = new System.Drawing.Point(0, 0);
             this.rootLayout.Name = "rootLayout";
             this.rootLayout.Padding = new System.Windows.Forms.Padding(8);
-            this.rootLayout.RowCount = 3;
+            this.rootLayout.RowCount = 4;
             this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 30F));
-            this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 410F));
+            this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 338F));
+            this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 72F));
             this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.rootLayout.Size = new System.Drawing.Size(1678, 900);
             this.rootLayout.TabIndex = 0;
             // 
             // lblHeader
             // 
+            this.lblHeader.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(217)))), ((int)(((byte)(119)))), ((int)(((byte)(6)))));
             this.lblHeader.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblHeader.Font = new System.Drawing.Font("맑은 고딕", 11F, System.Drawing.FontStyle.Bold);
+            this.lblHeader.ForeColor = System.Drawing.Color.White;
             this.lblHeader.Location = new System.Drawing.Point(8, 8);
             this.lblHeader.Margin = new System.Windows.Forms.Padding(0, 0, 0, 4);
             this.lblHeader.Name = "lblHeader";
@@ -189,7 +194,7 @@
             this.grpLink.Margin = new System.Windows.Forms.Padding(0, 0, 0, 8);
             this.grpLink.Name = "grpLink";
             this.grpLink.Padding = new System.Windows.Forms.Padding(10);
-            this.grpLink.Size = new System.Drawing.Size(1662, 402);
+            this.grpLink.Size = new System.Drawing.Size(1662, 330);
             this.grpLink.TabIndex = 1;
             this.grpLink.TabStop = false;
             this.grpLink.Text = "TCP 포트 / 상태 (명령=핸들러→Vision · 뷰어=영상 스트림)";
@@ -246,12 +251,10 @@
             this.linkLayout.Controls.Add(this._rxBot, 4, 7);
             this.linkLayout.Controls.Add(this._vsBot, 5, 7);
             this.linkLayout.Controls.Add(this._cbAuto, 0, 8);
-            this.linkLayout.Controls.Add(this.buttonLayout, 0, 9);
-            this.linkLayout.Controls.Add(this.lblHint, 0, 10);
             this.linkLayout.Dock = System.Windows.Forms.DockStyle.Fill;
             this.linkLayout.Location = new System.Drawing.Point(10, 28);
             this.linkLayout.Name = "linkLayout";
-            this.linkLayout.RowCount = 11;
+            this.linkLayout.RowCount = 9;
             this.linkLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 36F));
             this.linkLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 28F));
             this.linkLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 34F));
@@ -261,9 +264,7 @@
             this.linkLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 34F));
             this.linkLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 34F));
             this.linkLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 40F));
-            this.linkLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 48F));
-            this.linkLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.linkLayout.Size = new System.Drawing.Size(1642, 364);
+            this.linkLayout.Size = new System.Drawing.Size(1642, 292);
             this.linkLayout.TabIndex = 0;
             // 
             // lblHost
@@ -751,28 +752,50 @@
             this._cbAuto.TabIndex = 20;
             this._cbAuto.Text = "Auto connect on app start";
             this._cbAuto.UseVisualStyleBackColor = true;
+            this._cbAuto.CheckedChanged += new System.EventHandler(this._cbAuto_CheckedChanged);
+            // 
+            // _actionGroup
+            // 
+            this._actionGroup.Controls.Add(this.buttonLayout);
+            this._actionGroup.Dock = System.Windows.Forms.DockStyle.Fill;
+            this._actionGroup.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
+            this._actionGroup.Location = new System.Drawing.Point(8, 376);
+            this._actionGroup.Margin = new System.Windows.Forms.Padding(0, 0, 0, 8);
+            this._actionGroup.Name = "_actionGroup";
+            this._actionGroup.Padding = new System.Windows.Forms.Padding(10);
+            this._actionGroup.Size = new System.Drawing.Size(1662, 64);
+            this._actionGroup.TabIndex = 2;
+            this._actionGroup.TabStop = false;
+            this._actionGroup.Text = "ACTION";
             // 
             // buttonLayout
             // 
-            this.buttonLayout.ColumnCount = 6;
-            this.linkLayout.SetColumnSpan(this.buttonLayout, 6);
-            this.buttonLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 150F));
-            this.buttonLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 150F));
-            this.buttonLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 150F));
-            this.buttonLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 150F));
-            this.buttonLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 190F));
-            this.buttonLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.buttonLayout.ColumnCount = 14;
+            this.buttonLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 7.142857F));
+            this.buttonLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 7.142857F));
+            this.buttonLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 7.142857F));
+            this.buttonLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 7.142857F));
+            this.buttonLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 7.142857F));
+            this.buttonLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 7.142857F));
+            this.buttonLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 7.142857F));
+            this.buttonLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 7.142857F));
+            this.buttonLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 7.142857F));
+            this.buttonLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 7.142857F));
+            this.buttonLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 7.142857F));
+            this.buttonLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 7.142857F));
+            this.buttonLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 7.142857F));
+            this.buttonLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 7.142857F));
             this.buttonLayout.Controls.Add(this._btnConnect, 0, 0);
             this.buttonLayout.Controls.Add(this._btnDisconnect, 1, 0);
             this.buttonLayout.Controls.Add(this._btnPing, 2, 0);
             this.buttonLayout.Controls.Add(this._btnClearLog, 3, 0);
             this.buttonLayout.Controls.Add(this._btnCameraScale, 4, 0);
             this.buttonLayout.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.buttonLayout.Location = new System.Drawing.Point(3, 311);
+            this.buttonLayout.Location = new System.Drawing.Point(10, 28);
             this.buttonLayout.Name = "buttonLayout";
             this.buttonLayout.RowCount = 1;
             this.buttonLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.buttonLayout.Size = new System.Drawing.Size(1636, 42);
+            this.buttonLayout.Size = new System.Drawing.Size(1642, 26);
             this.buttonLayout.TabIndex = 21;
             // 
             // _btnConnect
@@ -782,79 +805,69 @@
             this._btnConnect.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
             this._btnConnect.Location = new System.Drawing.Point(3, 3);
             this._btnConnect.Name = "_btnConnect";
-            this._btnConnect.Size = new System.Drawing.Size(144, 36);
+            this._btnConnect.Size = new System.Drawing.Size(111, 20);
             this._btnConnect.TabIndex = 0;
             this._btnConnect.Text = "CONNECT";
+            this._btnConnect.Click += new System.EventHandler(this._btnConnect_Click);
             // 
             // _btnDisconnect
             // 
             this._btnDisconnect.Dock = System.Windows.Forms.DockStyle.Fill;
             this._btnDisconnect.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this._btnDisconnect.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
-            this._btnDisconnect.Location = new System.Drawing.Point(153, 3);
+            this._btnDisconnect.Location = new System.Drawing.Point(120, 3);
             this._btnDisconnect.Name = "_btnDisconnect";
-            this._btnDisconnect.Size = new System.Drawing.Size(144, 36);
+            this._btnDisconnect.Size = new System.Drawing.Size(111, 20);
             this._btnDisconnect.TabIndex = 1;
             this._btnDisconnect.Text = "DISCONNECT";
+            this._btnDisconnect.Click += new System.EventHandler(this._btnDisconnect_Click);
             // 
             // _btnPing
             // 
             this._btnPing.Dock = System.Windows.Forms.DockStyle.Fill;
             this._btnPing.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this._btnPing.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
-            this._btnPing.Location = new System.Drawing.Point(303, 3);
+            this._btnPing.Location = new System.Drawing.Point(237, 3);
             this._btnPing.Name = "_btnPing";
-            this._btnPing.Size = new System.Drawing.Size(144, 36);
+            this._btnPing.Size = new System.Drawing.Size(111, 20);
             this._btnPing.TabIndex = 2;
             this._btnPing.Text = "PING ALL";
-            // 
-            // _btnCameraScale
-            // 
-            this._btnCameraScale.Dock = System.Windows.Forms.DockStyle.Fill;
-            this._btnCameraScale.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this._btnCameraScale.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
-            this._btnCameraScale.Location = new System.Drawing.Point(603, 3);
-            this._btnCameraScale.Name = "_btnCameraScale";
-            this._btnCameraScale.Size = new System.Drawing.Size(184, 36);
-            this._btnCameraScale.TabIndex = 4;
-            this._btnCameraScale.Text = "CAMERA SCALE SETUP";
-            this._btnCameraScale.Click += new System.EventHandler(this._btnCameraScale_Click);
+            this._btnPing.Click += new System.EventHandler(this._btnPing_Click);
             // 
             // _btnClearLog
             // 
             this._btnClearLog.Dock = System.Windows.Forms.DockStyle.Fill;
             this._btnClearLog.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this._btnClearLog.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
-            this._btnClearLog.Location = new System.Drawing.Point(453, 3);
+            this._btnClearLog.Location = new System.Drawing.Point(354, 3);
             this._btnClearLog.Name = "_btnClearLog";
-            this._btnClearLog.Size = new System.Drawing.Size(144, 36);
+            this._btnClearLog.Size = new System.Drawing.Size(111, 20);
             this._btnClearLog.TabIndex = 3;
             this._btnClearLog.Text = "로그 지움";
+            this._btnClearLog.Click += new System.EventHandler(this._btnClearLog_Click);
             // 
-            // lblHint
+            // _btnCameraScale
             // 
-            this.linkLayout.SetColumnSpan(this.lblHint, 6);
-            this.lblHint.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblHint.Font = new System.Drawing.Font("맑은 고딕", 9F);
-            this.lblHint.ForeColor = System.Drawing.Color.DimGray;
-            this.lblHint.Location = new System.Drawing.Point(3, 356);
-            this.lblHint.Name = "lblHint";
-            this.lblHint.Padding = new System.Windows.Forms.Padding(0, 6, 0, 0);
-            this.lblHint.Size = new System.Drawing.Size(1636, 8);
-            this.lblHint.TabIndex = 22;
-            this.lblHint.Text = "명령 포트=핸들러 명령(GRAB/MATCH 등) · 뷰어 포트(5200대)=영상 스트림. Main 은 영상 없음.  ● 접속됨/대기 · RX=마지" +
-    "막 수신 경과(무통신 30s↑ 주황).  포트 변경은 CONNECT(저장) 후 Vision측과 동일하게 맞추세요.";
+            this._btnCameraScale.Dock = System.Windows.Forms.DockStyle.Fill;
+            this._btnCameraScale.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this._btnCameraScale.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
+            this._btnCameraScale.Location = new System.Drawing.Point(471, 3);
+            this._btnCameraScale.Name = "_btnCameraScale";
+            this._btnCameraScale.Size = new System.Drawing.Size(111, 20);
+            this._btnCameraScale.TabIndex = 4;
+            this._btnCameraScale.Text = "CAMERA SCALE SETUP";
+            this._btnCameraScale.Click += new System.EventHandler(this._btnCameraScale_Click);
             // 
             // grpLog
             // 
             this.grpLog.Controls.Add(this._txtLog);
             this.grpLog.Dock = System.Windows.Forms.DockStyle.Fill;
             this.grpLog.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
-            this.grpLog.Location = new System.Drawing.Point(8, 638);
+            this.grpLog.Location = new System.Drawing.Point(8, 448);
             this.grpLog.Margin = new System.Windows.Forms.Padding(0);
             this.grpLog.Name = "grpLog";
             this.grpLog.Padding = new System.Windows.Forms.Padding(10);
-            this.grpLog.Size = new System.Drawing.Size(1662, 254);
+            this.grpLog.Size = new System.Drawing.Size(1662, 444);
             this.grpLog.TabIndex = 2;
             this.grpLog.TabStop = false;
             this.grpLog.Text = "통신 로그 (TX / RX / EPD / ARM)";
@@ -871,7 +884,7 @@
             this._txtLog.Name = "_txtLog";
             this._txtLog.ReadOnly = true;
             this._txtLog.ScrollBars = System.Windows.Forms.ScrollBars.Both;
-            this._txtLog.Size = new System.Drawing.Size(1642, 216);
+            this._txtLog.Size = new System.Drawing.Size(1642, 406);
             this._txtLog.TabIndex = 0;
             this._txtLog.WordWrap = false;
             // 
@@ -886,6 +899,7 @@
             this.grpLink.ResumeLayout(false);
             this.linkLayout.ResumeLayout(false);
             this.linkLayout.PerformLayout();
+            this._actionGroup.ResumeLayout(false);
             this.buttonLayout.ResumeLayout(false);
             this.grpLog.ResumeLayout(false);
             this.grpLog.PerformLayout();

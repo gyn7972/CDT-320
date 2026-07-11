@@ -107,7 +107,7 @@
             this.lblHeader.Margin = new System.Windows.Forms.Padding(0, 0, 0, 4);
             this.lblHeader.Name = "lblHeader";
             this.lblHeader.Padding = new System.Windows.Forms.Padding(10, 0, 0, 0);
-            this.lblHeader.Size = new System.Drawing.Size(1662, 30);
+            this.lblHeader.Size = new System.Drawing.Size(1662, 26);
             this.lblHeader.TabIndex = 0;
             this.lblHeader.Text = "IO LIST";
             this.lblHeader.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -116,7 +116,7 @@
             // 
             this.lblSubHeader.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblSubHeader.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
-            this.lblSubHeader.Location = new System.Drawing.Point(8, 40);
+            this.lblSubHeader.Location = new System.Drawing.Point(8, 38);
             this.lblSubHeader.Margin = new System.Windows.Forms.Padding(0, 0, 0, 4);
             this.lblSubHeader.Name = "lblSubHeader";
             this.lblSubHeader.Padding = new System.Windows.Forms.Padding(10, 0, 0, 0);
@@ -141,7 +141,7 @@
             this._grid.Dock = System.Windows.Forms.DockStyle.Fill;
             this._grid.EnableHeadersVisualStyles = false;
             this._grid.Font = new System.Drawing.Font("맑은 고딕", 9F);
-            this._grid.Location = new System.Drawing.Point(8, 70);
+            this._grid.Location = new System.Drawing.Point(8, 68);
             this._grid.Margin = new System.Windows.Forms.Padding(0, 0, 0, 8);
             this._grid.MultiSelect = false;
             this._grid.Name = "_grid";
@@ -149,8 +149,15 @@
             this._grid.RowHeadersWidth = 51;
             this._grid.RowTemplate.Height = 26;
             this._grid.SelectionMode = System.Windows.Forms.DataGridViewSelectionMode.FullRowSelect;
-            this._grid.Size = new System.Drawing.Size(1662, 564);
+            this._grid.Size = new System.Drawing.Size(1662, 566);
             this._grid.TabIndex = 2;
+            this._grid.CellClick += new System.Windows.Forms.DataGridViewCellEventHandler(this.OnGridCellClick);
+            this._grid.CellEnter += new System.Windows.Forms.DataGridViewCellEventHandler(this.OnGridCellEnter);
+            this._grid.ColumnHeaderMouseClick += new System.Windows.Forms.DataGridViewCellMouseEventHandler(this.OnColumnHeaderMouseClick);
+            this._grid.CurrentCellDirtyStateChanged += new System.EventHandler(this._grid_CurrentCellDirtyStateChanged);
+            this._grid.DataError += new System.Windows.Forms.DataGridViewDataErrorEventHandler(this._grid_DataError);
+            this._grid.EditingControlShowing += new System.Windows.Forms.DataGridViewEditingControlShowingEventHandler(this.OnGridEditingControlShowing);
+            this._grid.SelectionChanged += new System.EventHandler(this._grid_SelectionChanged);
             // 
             // cylinderTestPanel
             // 
@@ -351,6 +358,7 @@
             this.txtFwdLabel.Size = new System.Drawing.Size(132, 25);
             this.txtFwdLabel.TabIndex = 15;
             this.txtFwdLabel.Text = "FWD";
+            this.txtFwdLabel.TextChanged += new System.EventHandler(this.txtFwdLabel_TextChanged);
             // 
             // lblBwdLabel
             // 
@@ -373,10 +381,15 @@
             this.txtBwdLabel.Size = new System.Drawing.Size(142, 25);
             this.txtBwdLabel.TabIndex = 17;
             this.txtBwdLabel.Text = "BWD";
+            this.txtBwdLabel.TextChanged += new System.EventHandler(this.txtBwdLabel_TextChanged);
             // 
             // btnCylinderApply
             // 
             this.btnCylinderApply.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
+            this.btnCylinderApply.BadgeColor = System.Drawing.Color.FromArgb(((int)(((byte)(245)))), ((int)(((byte)(166)))), ((int)(((byte)(35)))));
+            this.btnCylinderApply.BadgeText = "ACTION";
+            this.btnCylinderApply.BorderColor = System.Drawing.Color.Empty;
+            this.btnCylinderApply.BorderWidth = 0;
             this.btnCylinderApply.Cursor = System.Windows.Forms.Cursors.Hand;
             this.btnCylinderApply.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnCylinderApply.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
@@ -387,10 +400,15 @@
             this.btnCylinderApply.Size = new System.Drawing.Size(172, 34);
             this.btnCylinderApply.TabIndex = 18;
             this.btnCylinderApply.Text = "APPLY";
+            this.btnCylinderApply.Click += new System.EventHandler(this.btnCylinderApply_Click);
             // 
             // btnCylinderFwd
             // 
             this.btnCylinderFwd.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
+            this.btnCylinderFwd.BadgeColor = System.Drawing.Color.FromArgb(((int)(((byte)(245)))), ((int)(((byte)(166)))), ((int)(((byte)(35)))));
+            this.btnCylinderFwd.BadgeText = "ACTION";
+            this.btnCylinderFwd.BorderColor = System.Drawing.Color.Empty;
+            this.btnCylinderFwd.BorderWidth = 0;
             this.btnCylinderFwd.Cursor = System.Windows.Forms.Cursors.Hand;
             this.btnCylinderFwd.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnCylinderFwd.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
@@ -401,10 +419,15 @@
             this.btnCylinderFwd.Size = new System.Drawing.Size(132, 34);
             this.btnCylinderFwd.TabIndex = 19;
             this.btnCylinderFwd.Text = "FWD";
+            this.btnCylinderFwd.Click += new System.EventHandler(this.btnCylinderFwd_Click);
             // 
             // btnCylinderBwd
             // 
             this.btnCylinderBwd.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
+            this.btnCylinderBwd.BadgeColor = System.Drawing.Color.FromArgb(((int)(((byte)(245)))), ((int)(((byte)(166)))), ((int)(((byte)(35)))));
+            this.btnCylinderBwd.BadgeText = "ACTION";
+            this.btnCylinderBwd.BorderColor = System.Drawing.Color.Empty;
+            this.btnCylinderBwd.BorderWidth = 0;
             this.btnCylinderBwd.Cursor = System.Windows.Forms.Cursors.Hand;
             this.btnCylinderBwd.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnCylinderBwd.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
@@ -415,10 +438,15 @@
             this.btnCylinderBwd.Size = new System.Drawing.Size(132, 34);
             this.btnCylinderBwd.TabIndex = 20;
             this.btnCylinderBwd.Text = "BWD";
+            this.btnCylinderBwd.Click += new System.EventHandler(this.btnCylinderBwd_Click);
             // 
             // btnCylinderOff
             // 
             this.btnCylinderOff.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
+            this.btnCylinderOff.BadgeColor = System.Drawing.Color.FromArgb(((int)(((byte)(245)))), ((int)(((byte)(166)))), ((int)(((byte)(35)))));
+            this.btnCylinderOff.BadgeText = "ACTION";
+            this.btnCylinderOff.BorderColor = System.Drawing.Color.Empty;
+            this.btnCylinderOff.BorderWidth = 0;
             this.btnCylinderOff.Cursor = System.Windows.Forms.Cursors.Hand;
             this.btnCylinderOff.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnCylinderOff.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
@@ -429,6 +457,7 @@
             this.btnCylinderOff.Size = new System.Drawing.Size(142, 34);
             this.btnCylinderOff.TabIndex = 21;
             this.btnCylinderOff.Text = "OFF";
+            this.btnCylinderOff.Click += new System.EventHandler(this.btnCylinderOff_Click);
             // 
             // lblCylinderResult
             // 
@@ -465,6 +494,10 @@
             // btnSave
             // 
             this.btnSave.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
+            this.btnSave.BadgeColor = System.Drawing.Color.FromArgb(((int)(((byte)(245)))), ((int)(((byte)(166)))), ((int)(((byte)(35)))));
+            this.btnSave.BadgeText = "ACTION";
+            this.btnSave.BorderColor = System.Drawing.Color.Empty;
+            this.btnSave.BorderWidth = 0;
             this.btnSave.Cursor = System.Windows.Forms.Cursors.Hand;
             this.btnSave.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnSave.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
@@ -475,10 +508,15 @@
             this.btnSave.Size = new System.Drawing.Size(122, 44);
             this.btnSave.TabIndex = 0;
             this.btnSave.Text = "SAVE";
+            this.btnSave.Click += new System.EventHandler(this.btnSave_Click);
             // 
             // btnReload
             // 
             this.btnReload.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
+            this.btnReload.BadgeColor = System.Drawing.Color.FromArgb(((int)(((byte)(245)))), ((int)(((byte)(166)))), ((int)(((byte)(35)))));
+            this.btnReload.BadgeText = "ACTION";
+            this.btnReload.BorderColor = System.Drawing.Color.Empty;
+            this.btnReload.BorderWidth = 0;
             this.btnReload.Cursor = System.Windows.Forms.Cursors.Hand;
             this.btnReload.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnReload.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
@@ -489,10 +527,15 @@
             this.btnReload.Size = new System.Drawing.Size(122, 44);
             this.btnReload.TabIndex = 1;
             this.btnReload.Text = "RELOAD";
+            this.btnReload.Click += new System.EventHandler(this.btnReload_Click);
             // 
             // btnAddRow
             // 
             this.btnAddRow.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
+            this.btnAddRow.BadgeColor = System.Drawing.Color.FromArgb(((int)(((byte)(245)))), ((int)(((byte)(166)))), ((int)(((byte)(35)))));
+            this.btnAddRow.BadgeText = "ACTION";
+            this.btnAddRow.BorderColor = System.Drawing.Color.Empty;
+            this.btnAddRow.BorderWidth = 0;
             this.btnAddRow.Cursor = System.Windows.Forms.Cursors.Hand;
             this.btnAddRow.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnAddRow.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);

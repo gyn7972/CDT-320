@@ -1,4 +1,6 @@
 ﻿using QMC.Common;
+using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -97,13 +99,19 @@ namespace QMC.CDT320
         public Task<bool> TriggerBottomExposeAsync(int pickerNo, int timeoutMs, CancellationToken ct)
             => Task.FromResult(true);
 
+        public Task<BottomVisionOffset> GetBottomResultAsync(int pickerNo, int timeoutMs = 5000)
+            => Task.FromResult(BuildSimulatedBottom(pickerNo));
+
+        public Task<BottomVisionOffset> GetBottomResultAsync(int pickerNo, int timeoutMs, CancellationToken ct)
+            => GetBottomResultAsync(pickerNo, timeoutMs);
+
         public Task<BottomVisionOffset[]> GetBottomResultsAsync(int timeoutMs = 5000)
             => Task.FromResult(new BottomVisionOffset[]
             {
-                new BottomVisionOffset { PickerNo = 1, OffsetX = 0, OffsetY = 0, IsOk = true },
-                new BottomVisionOffset { PickerNo = 2, OffsetX = 0, OffsetY = 0, IsOk = true },
-                new BottomVisionOffset { PickerNo = 3, OffsetX = 0, OffsetY = 0, IsOk = true },
-                new BottomVisionOffset { PickerNo = 4, OffsetX = 0, OffsetY = 0, IsOk = true },
+                BuildSimulatedBottom(1),
+                BuildSimulatedBottom(2),
+                BuildSimulatedBottom(3),
+                BuildSimulatedBottom(4),
             });
 
         public Task<BottomVisionOffset[]> GetBottomResultsAsync(int timeoutMs, CancellationToken ct)
@@ -115,18 +123,49 @@ namespace QMC.CDT320
         public Task<bool> TriggerSideExposeAsync(int pickerNo, int sideNo, int timeoutMs, CancellationToken ct)
             => Task.FromResult(true);
 
+        public Task<bool> StartSideInspectAsync(int pickerNo, int angleDeg, int timeoutMs, CancellationToken ct)
+            => Task.FromResult(true);
+
+        public Task<SideVisionResult> WaitSideResultAsync(int pickerNo, int timeoutMs, CancellationToken ct)
+            => GetSideResultAsync(pickerNo, timeoutMs);
+
         public Task<SideVisionResult> GetSideResultAsync(int pickerNo, int timeoutMs = 5000)
-            => Task.FromResult(new SideVisionResult
-            {
-                PickerNo = pickerNo,
-                Side1Ok  = true,
-                Side2Ok  = true,
-                Side3Ok  = true,
-                Side4Ok  = true,
-            });
+            => Task.FromResult(BuildSimulatedSide(pickerNo));
 
         public Task<SideVisionResult> GetSideResultAsync(int pickerNo, int timeoutMs, CancellationToken ct)
             => GetSideResultAsync(pickerNo, timeoutMs);
+
+        private static BottomVisionOffset BuildSimulatedBottom(int pickerNo)
+        {
+            QMC.CDT320.VisionComm.InspectionResultDto inspection =
+                QMC.CDT320.VisionComm.AutoVisionRequestService.BuildSimulationInspectionResult(
+                    QMC.CDT320.VisionComm.AutoVisionChannel.BottomInspection,
+                    "SurfaceInspector",
+                    pickerNo);
+            return QMC.CDT320.Calibration.VisionCameraCalibrationTransform.ToBottomVisionOffset(pickerNo, inspection);
+        }
+
+        private static SideVisionResult BuildSimulatedSide(int pickerNo)
+        {
+            QMC.CDT320.VisionComm.InspectionResultDto inspection =
+                QMC.CDT320.VisionComm.AutoVisionRequestService.BuildSimulationInspectionResult(
+                    QMC.CDT320.VisionComm.AutoVisionChannel.FrontSide,
+                    "SurfaceInspector",
+                    pickerNo);
+            bool pass = inspection != null && inspection.IsPass;
+            return new SideVisionResult
+            {
+                PickerNo = pickerNo,
+                Side1Ok = pass,
+                Side2Ok = pass,
+                Side3Ok = true,
+                Side4Ok = true,
+                Raw = inspection != null ? inspection.Raw : "",
+                Values = inspection != null && inspection.Values != null
+                    ? new System.Collections.Generic.Dictionary<string, string>(inspection.Values, System.StringComparer.OrdinalIgnoreCase)
+                    : new System.Collections.Generic.Dictionary<string, string>(System.StringComparer.OrdinalIgnoreCase)
+            };
+        }
     }
 
     /// <summary>ITpuUnit �� Null Object (OutputStageUnit��).</summary>

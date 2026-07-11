@@ -33,6 +33,8 @@ namespace QMC.CDT320.Sequencing
             Activity = activity ?? new SequenceActivityMonitor();
             Tact = tact ?? NullTactTimeRecorder.Instance;
             PickerPhases = new PickerPhaseCoordinator();
+            AutoSequenceGate = new AutoSequenceCoordinatorGate(this);
+            AutoLoaderGate = AutoSequenceGate;
             OutputPostPlaceInspections = new OutputPostPlaceInspectionQueue(this);
         }
 
@@ -54,6 +56,8 @@ namespace QMC.CDT320.Sequencing
         public SequenceResourceManager Resources { get; private set; }
 
         internal PickerPhaseCoordinator PickerPhases { get; private set; }
+        internal AutoSequenceCoordinatorGate AutoSequenceGate { get; private set; }
+        internal AutoSequenceCoordinatorGate AutoLoaderGate { get; private set; }
         internal OutputPostPlaceInspectionQueue OutputPostPlaceInspections { get; private set; }
         private int _cycleStopRequested;
 
@@ -87,6 +91,18 @@ namespace QMC.CDT320.Sequencing
                             (boundaryName ?? "-");
             LogPublic("[SEQ] " + reason);
             throw new SequenceStopException(reason);
+        }
+
+        /// <summary>CYCLE STOP 요청이 있어도 현재 공정을 안전 경계까지 drain해야 하면 정지를 보류합니다.</summary>
+        public void StopIfCycleStopRequested(string boundaryName, bool allowDrain, string drainReason)
+        {
+            if (!IsCycleStopRequested)
+                return;
+
+            if (allowDrain)
+                return;
+
+            StopIfCycleStopRequested(boundaryName);
         }
 
         /// <summary>장비 컨트롤러의 공개 로그 브리지로 메시지를 출력합니다.</summary>

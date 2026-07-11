@@ -469,6 +469,7 @@
             this.ioLayout.Dock = System.Windows.Forms.DockStyle.Fill;
             this.ioLayout.Location = new System.Drawing.Point(3, 21);
             this.ioLayout.Name = "ioLayout";
+            this.ioLayout.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(245)))), ((int)(((byte)(245)))), ((int)(((byte)(245)))));
             this.ioLayout.Padding = new System.Windows.Forms.Padding(12, 22, 12, 12);
             this.ioLayout.RowCount = 6;
             this.ioLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 30F));
@@ -613,6 +614,7 @@
             this.optionRows.Dock = System.Windows.Forms.DockStyle.Top;
             this.optionRows.Location = new System.Drawing.Point(3, 26);
             this.optionRows.Name = "optionRows";
+            this.optionRows.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(207)))), ((int)(((byte)(210)))), ((int)(((byte)(214)))));
             this.optionRows.Padding = new System.Windows.Forms.Padding(10, 18, 10, 10);
             this.optionRows.RowCount = 18;
             this.optionRows.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 32F));
@@ -968,6 +970,7 @@
             this.waitRows.Dock = System.Windows.Forms.DockStyle.Top;
             this.waitRows.Location = new System.Drawing.Point(3, 26);
             this.waitRows.Name = "waitRows";
+            this.waitRows.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(207)))), ((int)(((byte)(210)))), ((int)(((byte)(214)))));
             this.waitRows.Padding = new System.Windows.Forms.Padding(10, 18, 10, 10);
             this.waitRows.RowCount = 3;
             this.waitRows.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 32F));
@@ -1018,6 +1021,7 @@
             // 
             // OutputCassetteRecipePage
             // 
+            this.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(207)))), ((int)(((byte)(210)))), ((int)(((byte)(214)))));
             this.Controls.Add(this.rootLayout);
             this.Name = "OutputCassetteRecipePage";
             this.Size = new System.Drawing.Size(1678, 900);

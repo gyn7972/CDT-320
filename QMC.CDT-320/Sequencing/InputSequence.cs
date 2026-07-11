@@ -2,6 +2,7 @@
 using System.Threading;
 using System.Threading.Tasks;
 using QMC.CDT320.Bin;
+using QMC.CDT320.Lots;
 using QMC.CDT320.Materials;
 using QMC.Common;
 using QMC.Common.Alarms;
@@ -35,12 +36,17 @@ namespace QMC.CDT320.Sequencing
 
     public class InputSequence : UnitSequenceBase
     {
+        private const string InputLoaderActiveSignal = "InputLoaderActive";
+        private const string InputStageAlignSequenceStateName = "InputStageSequence.Align";
+        private const string InputStageDieMappingSequenceStateName = "InputStageSequence.DieMapping";
         // 현재 자동/스텝 실행 위치. 장비 상태 복원 시 Runtime Material 위치를 보고 재설정된다.
         private InputSequenceAutoStep _autoStep = InputSequenceAutoStep.Mapping;
         // 현재 처리 중인 Input Cassette slot index. -1이면 아직 slot이 확정되지 않은 상태이다.
         private int _autoSlotIndex = -1;
         // 로그와 Stage option 전달용 wafer id. 기본 규칙은 INPUT-SLOT-xx이다.
         private string _autoWaferId = "";
+        // Input loader active signal 중복 Set/Reset을 막기 위한 상태입니다.
+        private bool _inputLoaderActivePublished;
 
         public InputSequence(MachineSequenceContext ctx)
             : base(ctx, SequenceUnitKind.InputLoader, "Input")
@@ -85,8 +91,22 @@ namespace QMC.CDT320.Sequencing
                 // 이전 실행 중 Stage/Feeder에 남은 wafer가 있으면 해당 위치부터 재개한다.
                 RestoreInputStepSessionFromRuntimeState();
 
-                // Mapping부터 DieMapping까지 수행해서 InputStage를 Picker가 집을 수 있는 상태로 만든다.
-                await ExecuteInputLoadingStepsUntilStageReadyAsync(ct).ConfigureAwait(false);
+                bool readySignalPublishedFromRestore = TryPublishRestoredInputStageReadySignals();
+
+                // Mapping부터 DieMapping까지 한 번 승인된 Input loader 작업으로 완료한다.
+                if (_autoStep != InputSequenceAutoStep.Complete || !readySignalPublishedFromRestore)
+                {
+                    using (AutoSequenceLoaderWorkLease loaderLease = await Context.AutoLoaderGate
+                        .BeginInputWorkAsync(
+                            "InputStageReadyCycle",
+                            ct,
+                            EnsureInputPickersAvoidBeforeFeederMoveAsync,
+                            AreInputPickersAvoidAndStopped)
+                        .ConfigureAwait(false))
+                    {
+                        await ExecuteInputLoadingStepsUntilStageReadyAsync(ct).ConfigureAwait(false);
+                    }
+                }
 
                 // Stage에 wafer가 없으면 아직 다음 cycle을 진행할 조건이 아니므로 짧게 대기 후 반환한다.
                 WaferMaterial stageWafer = ResolveStageWaferFromRuntimeState();
@@ -100,11 +120,26 @@ namespace QMC.CDT320.Sequencing
                 // Stage 준비 상태가 중간에 빠졌거나 복원 직후 불완전하면 누락 step부터 다시 수행한다.
                 stageWafer = await EnsureInputStageFinishBeforePickerReadyAsync(stageWafer, ct).ConfigureAwait(false);
                 // Picker 쪽에서 볼 수 있는 ready bus를 올린 뒤 die pick 완료를 기다린다.
-                PublishInputStageReadySignals(stageWafer);
+                if (!readySignalPublishedFromRestore ||
+                    Context == null ||
+                    Context.Bus == null ||
+                    !Context.Bus.IsSet("InputStageReady"))
+                {
+                    PublishInputStageReadySignals(stageWafer);
+                }
                 await WaitPickerToCompleteInputStageDiesAsync(stageWafer, ct).ConfigureAwait(false);
 
-                // Picker가 해당 Stage wafer의 die pick을 완료하면 Stage wafer를 cassette로 되돌린다.
-                await UnloadInputStageWaferIfPresentAsync(ct).ConfigureAwait(false);
+                // Picker가 해당 Stage wafer의 die pick을 완료하면 별도 승인된 Input loader 작업으로 Stage wafer를 cassette로 되돌린다.
+                using (AutoSequenceLoaderWorkLease unloadLease = await Context.AutoLoaderGate
+                    .BeginInputWorkAsync(
+                        "InputStageUnloadCycle",
+                        ct,
+                        EnsureInputPickersAvoidBeforeFeederMoveAsync,
+                        AreInputPickersAvoidAndStopped)
+                    .ConfigureAwait(false))
+                {
+                    await UnloadInputStageWaferIfPresentAsync(ct).ConfigureAwait(false);
+                }
 
                 // 모든 Input Cassette slot 처리가 끝났으면 알람/메시지를 띄우고 Auto를 정지한다.
                 int completeResult = StopAutoSequenceIfInputCassetteComplete();
@@ -190,6 +225,42 @@ namespace QMC.CDT320.Sequencing
                 Fail("SEQ-IN-STAGE-FINISH-RECOVER", "InputSequence",
                     "InputStage PickUp 준비 복구 실패: " + ex.Message);
                 throw;
+            }
+            finally
+            {
+            }
+        }
+
+        private bool TryPublishRestoredInputStageReadySignals()
+        {
+            try
+            {
+                if (_autoStep != InputSequenceAutoStep.Complete)
+                    return false;
+
+                WaferMaterial stageWafer = ResolveStageWaferFromRuntimeState();
+                if (stageWafer == null)
+                    return false;
+
+                string finishReason;
+                if (!MaterialStateService.IsInputStageFinishComplete(out finishReason))
+                    return false;
+
+                // 재시작 복구 시 Stage가 이미 완료 상태면 Picker 재개보다 먼저 Ready 신호를 복구한다.
+                PublishInputStageReadySignals(stageWafer);
+                WriteLog("TryPublishRestoredInputStageReadySignals",
+                    "Restored InputStage is already ready for PickUp. InputStageReady was published before InputLoader gate. " +
+                    "wafer=" + stageWafer.WaferId +
+                    ", slot=" + _autoSlotIndex +
+                    ", step=" + _autoStep +
+                    " - Ok");
+                return true;
+            }
+            catch (Exception ex)
+            {
+                WriteLog("TryPublishRestoredInputStageReadySignals",
+                    "Restored InputStage ready signal publish skipped/failed: " + ex.Message + " - Check");
+                return false;
             }
             finally
             {
@@ -351,11 +422,15 @@ namespace QMC.CDT320.Sequencing
                 Context.Bus.Set("InputStageFinishComplete");
                 Context.Bus.Set("InputStageReady");
 
+                int fullDieCount = stageWafer.DieIds != null ? stageWafer.DieIds.Count : 0;
+                int targetDieCount = CountInputStageTargetDies(stageWafer);
+
                 WriteLog("PublishInputStageReadySignals",
                     "Input stage ready signals published. wafer=" +
                     stageWafer.WaferId +
                     ", slot=" + stageWafer.SourceSlotNumber +
-                    ", dieCount=" + (stageWafer.DieIds != null ? stageWafer.DieIds.Count.ToString() : "0") +
+                    ", targetDieCount=" + targetDieCount +
+                    ", fullDieCount=" + fullDieCount +
                     " - Ok");
             }
             catch (Exception ex)
@@ -363,6 +438,36 @@ namespace QMC.CDT320.Sequencing
                 WriteLog("PublishInputStageReadySignals",
                     "Input stage ready signal publish failed: " + ex.Message + " - Failed");
                 throw;
+            }
+            finally
+            {
+            }
+        }
+
+        private static int CountInputStageTargetDies(WaferMaterial stageWafer)
+        {
+            try
+            {
+                if (stageWafer == null || stageWafer.DieIds == null)
+                    return 0;
+
+                int count = 0;
+                foreach (string dieId in stageWafer.DieIds)
+                {
+                    DieMaterial die = MaterialStateService.GetDieMaterial(dieId);
+                    if (die != null &&
+                        die.IsInputTarget &&
+                        string.Equals(die.WaferID_Input, stageWafer.WaferId, StringComparison.OrdinalIgnoreCase))
+                    {
+                        count++;
+                    }
+                }
+
+                return count;
+            }
+            catch
+            {
+                return stageWafer != null && stageWafer.DieIds != null ? stageWafer.DieIds.Count : 0;
             }
             finally
             {
@@ -783,10 +888,15 @@ namespace QMC.CDT320.Sequencing
 
         private async Task<int> ExecuteCurrentInputStepAsync(CancellationToken ct, bool requireVisionAlign)
         {
+            InputSequenceAutoStep executingStep = _autoStep;
+            bool loaderActiveStep = IsInputLoaderActiveAutoStep(executingStep);
+            bool stepSucceeded = false;
             try
             {
                 ct.ThrowIfCancellationRequested();
                 WriteLog("ExecuteCurrentInputStepAsync", "Input sequence step start. step=" + _autoStep + " - Start");
+                if (Mode != SequenceRunMode.Auto)
+                    SetInputLoaderActive(loaderActiveStep, executingStep.ToString());
 
                 int result;
                 switch (_autoStep)
@@ -811,35 +921,32 @@ namespace QMC.CDT320.Sequencing
                         _autoStep = InputSequenceAutoStep.PrepareStageLoad;
                         break;
 
-                    // [3] PrepareStageLoad: Picker 리소스를 잠시 점유하고 Stage 로드 준비 위치를 만든다.
+                    // [3] PrepareStageLoad: Picker가 Avoid로 빠진 상태에서 Stage 로드 준비 위치를 만든다.
                     case InputSequenceAutoStep.PrepareStageLoad:
                     {
-                        // Stage 주변 충돌을 막기 위해 Front/Rear Picker와 InputStageArea 리소스를 함께 잡는다.
-                        using (SequenceResourceLease frontPickerLease = await AcquirePickerPauseResourceAsync(SequenceResourceKind.FrontPicker, "InputPrepareLoad", ct).ConfigureAwait(false))
-                        using (SequenceResourceLease rearPickerLease = await AcquirePickerPauseResourceAsync(SequenceResourceKind.RearPicker, "InputPrepareLoad", ct).ConfigureAwait(false))
-                        using (SequenceResourceLease lease = await AcquireInputStageAreaAsync("InputPrepareLoad", ct).ConfigureAwait(false))
+                        result = await ExecuteWithInputPickerAvoidGateAsync("InputPrepareLoad", ct, async () =>
                         {
-                            if (frontPickerLease == null || rearPickerLease == null)
-                                return Fail("SEQ-IN-RESOURCE-PICKER", "InputSequence", "Load 준비 중 Picker 리소스 점유에 실패했습니다.");
-                            if (lease == null)
-                                return Fail("SEQ-IN-RESOURCE-STAGE", "InputSequence", "Load 준비 중 InputStageArea 리소스 점유에 실패했습니다.");
+                            using (SequenceResourceLease lease = await AcquireInputStageAreaAsync("InputPrepareLoad", ct).ConfigureAwait(false))
+                            {
+                                if (lease == null)
+                                    return Fail("SEQ-IN-RESOURCE-STAGE", "InputSequence", "Load 준비 중 InputStageArea 리소스 점유에 실패했습니다.");
 
-                            // Feeder/Stage가 움직이기 전에 Picker를 Avoid 위치로 보내 안전 조건을 만든다.
-                            result = await EnsureInputPickersAvoidBeforeFeederMoveAsync("InputPrepareLoad", ct).ConfigureAwait(false);
-                            if (result != 0)
-                                return result;
+                                // InputStageSequence가 실제 Stage 준비 동작을 담당한다.
+                                var stageSequence = new InputStageSequence(Context);
+                                int stageResult = await SequenceTrace.ChildAsync("InputStageSequence", "PrepareLoad",
+                                    () => stageSequence.RunPrepareLoadAsync(
+                                        ct,
+                                        BuildStageSequenceOptions(false, SequenceStartMode.Resume, false, _autoWaferId, false)),
+                                    "wafer=" + _autoWaferId).ConfigureAwait(false);
+                                if (stageResult != 0)
+                                    return Fail("SEQ-IN-STEP-STAGE-PREP", "InputStage",
+                                        "InputStage Load 준비 실패. result=" + stageResult);
+                            }
 
-                            // InputStageSequence가 실제 Stage 준비 동작을 담당한다.
-                            var stageSequence = new InputStageSequence(Context);
-                            result = await SequenceTrace.ChildAsync("InputStageSequence", "PrepareLoad",
-                                () => stageSequence.RunPrepareLoadAsync(
-                                    ct,
-                                    BuildStageSequenceOptions(false, SequenceStartMode.Resume, false, _autoWaferId, false)),
-                                "wafer=" + _autoWaferId).ConfigureAwait(false);
-                            if (result != 0)
-                                return Fail("SEQ-IN-STEP-STAGE-PREP", "InputStage",
-                                    "InputStage Load 준비 실패. result=" + result);
-                        }
+                            return 0;
+                        }).ConfigureAwait(false);
+                        if (result != 0)
+                            return result;
                         _autoStep = InputSequenceAutoStep.LoadFeederFromCassette;
                         break;
                     }
@@ -857,9 +964,10 @@ namespace QMC.CDT320.Sequencing
                         var feederSequence = new InputFeederSequence(Context);
                         InputFeederSequenceOptions feederOptions =
                             BuildFeederSequenceOptions(_autoSlotIndex, _autoSlotIndex, false, 0, SequenceStartMode.Resume);
-                        result = await SequenceTrace.ChildAsync("InputFeederSequence", "LoadFromCassette",
-                            () => feederSequence.RunLoadFromCassetteAsync(ct, feederOptions),
-                            "slot=" + _autoSlotIndex).ConfigureAwait(false);
+                        result = await ExecuteWithInputPickerAvoidGateAsync("InputLoadFromCassette", ct, () =>
+                            SequenceTrace.ChildAsync("InputFeederSequence", "LoadFromCassette",
+                                () => feederSequence.RunLoadFromCassetteAsync(ct, feederOptions),
+                                "slot=" + _autoSlotIndex)).ConfigureAwait(false);
                         if (result != 0)
                             return Fail("SEQ-IN-STEP-FEEDER-CST", "InputFeeder",
                                 "InputFeeder cassette loading 실패. result=" + result);
@@ -876,31 +984,28 @@ namespace QMC.CDT320.Sequencing
                         if (_autoSlotIndex < 0)
                             _autoSlotIndex = ResolveSlotIndexFromWafer(ResolveFeederWaferFromRuntimeState());
 
-                        // Feeder -> Stage 이송도 Picker와 StageArea를 동시에 보호한 상태에서만 진행한다.
-                        using (SequenceResourceLease frontPickerLease = await AcquirePickerPauseResourceAsync(SequenceResourceKind.FrontPicker, "InputFeederToStage", ct).ConfigureAwait(false))
-                        using (SequenceResourceLease rearPickerLease = await AcquirePickerPauseResourceAsync(SequenceResourceKind.RearPicker, "InputFeederToStage", ct).ConfigureAwait(false))
-                        using (SequenceResourceLease lease = await AcquireInputStageAreaAsync("InputFeederToStage", ct).ConfigureAwait(false))
+                        result = await ExecuteWithInputPickerAvoidGateAsync("InputFeederToStage", ct, async () =>
                         {
-                            if (frontPickerLease == null || rearPickerLease == null)
-                                return Fail("SEQ-IN-RESOURCE-PICKER", "InputSequence", "Feeder -> Stage 이송 중 Picker 리소스 점유에 실패했습니다.");
-                            if (lease == null)
-                                return Fail("SEQ-IN-RESOURCE-STAGE", "InputSequence", "Feeder -> Stage 이송 중 InputStageArea 리소스 점유에 실패했습니다.");
+                            using (SequenceResourceLease lease = await AcquireInputStageAreaAsync("InputFeederToStage", ct).ConfigureAwait(false))
+                            {
+                                if (lease == null)
+                                    return Fail("SEQ-IN-RESOURCE-STAGE", "InputSequence", "Feeder -> Stage 이송 중 InputStageArea 리소스 점유에 실패했습니다.");
 
-                            // Picker Avoid 확인 후 Feeder가 Stage로 wafer를 올린다.
-                            result = await EnsureInputPickersAvoidBeforeFeederMoveAsync("InputFeederToStage", ct).ConfigureAwait(false);
-                            if (result != 0)
-                                return result;
+                                var feederSequence = new InputFeederSequence(Context);
+                                InputFeederSequenceOptions feederOptions =
+                                    BuildFeederSequenceOptions(_autoSlotIndex, _autoSlotIndex, false, 0, SequenceStartMode.Resume);
+                                int feederResult = await SequenceTrace.ChildAsync("InputFeederSequence", "LoadToStage",
+                                    () => feederSequence.RunLoadToStageAsync(ct, feederOptions),
+                                    "slot=" + _autoSlotIndex).ConfigureAwait(false);
+                                if (feederResult != 0)
+                                    return Fail("SEQ-IN-STEP-FEEDER-STAGE", "InputFeeder",
+                                        "InputFeeder -> InputStage loading 실패. result=" + feederResult);
+                            }
 
-                            var feederSequence = new InputFeederSequence(Context);
-                            InputFeederSequenceOptions feederOptions =
-                                BuildFeederSequenceOptions(_autoSlotIndex, _autoSlotIndex, false, 0, SequenceStartMode.Resume);
-                            result = await SequenceTrace.ChildAsync("InputFeederSequence", "LoadToStage",
-                                () => feederSequence.RunLoadToStageAsync(ct, feederOptions),
-                                "slot=" + _autoSlotIndex).ConfigureAwait(false);
-                            if (result != 0)
-                                return Fail("SEQ-IN-STEP-FEEDER-STAGE", "InputFeeder",
-                                    "InputFeeder -> InputStage loading 실패. result=" + result);
-                        }
+                            return 0;
+                        }).ConfigureAwait(false);
+                        if (result != 0)
+                            return result;
                         _autoStep = InputSequenceAutoStep.RecoverFeeder;
                         break;
                     }
@@ -915,9 +1020,10 @@ namespace QMC.CDT320.Sequencing
                         var feederSequence = new InputFeederSequence(Context);
                         InputFeederSequenceOptions feederOptions =
                             BuildFeederSequenceOptions(_autoSlotIndex, _autoSlotIndex, false, 0, SequenceStartMode.Resume);
-                        result = await SequenceTrace.ChildAsync("InputFeederSequence", "Recover",
-                            () => feederSequence.RunRecoverAsync(ct, feederOptions),
-                            "slot=" + _autoSlotIndex).ConfigureAwait(false);
+                        result = await ExecuteWithInputPickerAvoidGateAsync("InputFeederRecover", ct, () =>
+                            SequenceTrace.ChildAsync("InputFeederSequence", "Recover",
+                                () => feederSequence.RunRecoverAsync(ct, feederOptions),
+                                "slot=" + _autoSlotIndex)).ConfigureAwait(false);
                         if (result != 0)
                             return Fail("SEQ-IN-STEP-FEEDER-RECOVER", "InputFeeder",
                                 "InputFeeder recover 실패. result=" + result);
@@ -928,23 +1034,30 @@ namespace QMC.CDT320.Sequencing
                     // [7] AlignStage: InputStageArea를 점유하고 wafer align을 수행한다.
                     case InputSequenceAutoStep.AlignStage:
                     {
-                        using (SequenceResourceLease lease = await AcquireInputStageAreaAsync("InputAlign", ct).ConfigureAwait(false))
+                        result = await ExecuteWithInputPickerAvoidGateAsync("InputAlign", ct, async () =>
                         {
-                            if (lease == null)
-                                return Fail("SEQ-IN-RESOURCE-STAGE", "InputSequence", "Align 중 InputStageArea 리소스 점유에 실패했습니다.");
+                            using (SequenceResourceLease lease = await AcquireInputStageAreaAsync("InputAlign", ct).ConfigureAwait(false))
+                            {
+                                if (lease == null)
+                                    return Fail("SEQ-IN-RESOURCE-STAGE", "InputSequence", "Align 중 InputStageArea 리소스 점유에 실패했습니다.");
 
-                            // requireVisionAlign이 true이면 StageSequence 내부에서 vision align 조건을 함께 요구한다.
-                            var stageSequence = new InputStageSequence(Context);
-                            result = await SequenceTrace.ChildAsync("InputStageSequence", "Align",
-                                () => stageSequence.RunAlignAsync(
-                                    ct,
-                                    BuildStageSequenceOptions(false, SequenceStartMode.Resume, requireVisionAlign, _autoWaferId, false)),
-                                "wafer=" + _autoWaferId,
-                                "requireVisionAlign=" + requireVisionAlign).ConfigureAwait(false);
-                            if (result != 0)
-                                return Fail("SEQ-IN-STEP-STAGE-ALIGN", "InputStage",
-                                    "InputStage align 실패. result=" + result);
-                        }
+                                // requireVisionAlign이 true이면 StageSequence 내부에서 vision align 조건을 함께 요구한다.
+                                var stageSequence = new InputStageSequence(Context);
+                                int stageResult = await SequenceTrace.ChildAsync("InputStageSequence", "Align",
+                                    () => stageSequence.RunAlignAsync(
+                                        ct,
+                                        BuildStageSequenceOptions(false, SequenceStartMode.Resume, requireVisionAlign, _autoWaferId, false)),
+                                    "wafer=" + _autoWaferId,
+                                    "requireVisionAlign=" + requireVisionAlign).ConfigureAwait(false);
+                                if (stageResult != 0)
+                                    return Fail("SEQ-IN-STEP-STAGE-ALIGN", "InputStage",
+                                        "InputStage align 실패. result=" + stageResult);
+                            }
+
+                            return 0;
+                        }).ConfigureAwait(false);
+                        if (result != 0)
+                            return result;
                         _autoStep = InputSequenceAutoStep.DieMapping;
                         break;
                     }
@@ -952,23 +1065,37 @@ namespace QMC.CDT320.Sequencing
                     // [8] DieMapping: Align 결과를 기반으로 Stage wafer의 die map 정보를 생성한다.
                     case InputSequenceAutoStep.DieMapping:
                     {
-                        using (SequenceResourceLease lease = await AcquireInputStageAreaAsync("InputDieMapping", ct).ConfigureAwait(false))
+                        string dieMappingResumeStep;
+                        if (ShouldRestartWaferAlignForDieMappingResume(out dieMappingResumeStep))
                         {
-                            if (lease == null)
-                                return Fail("SEQ-IN-RESOURCE-STAGE", "InputSequence", "Die mapping 중 InputStageArea 리소스 점유에 실패했습니다.");
-
-                            // DieMapping이 끝나면 MaterialStateService의 Stage finish 조건이 만족되어야 한다.
-                            var stageSequence = new InputStageSequence(Context);
-                            result = await SequenceTrace.ChildAsync("InputStageSequence", "DieMapping",
-                                () => stageSequence.RunDieMappingAsync(
-                                    ct,
-                                    BuildStageSequenceOptions(false, SequenceStartMode.Resume, requireVisionAlign, _autoWaferId, false)),
-                                "wafer=" + _autoWaferId,
-                                "requireVisionAlign=" + requireVisionAlign).ConfigureAwait(false);
-                            if (result != 0)
-                                return Fail("SEQ-IN-STEP-STAGE-DIEMAP", "InputStage",
-                                    "InputStage die mapping 실패. result=" + result);
+                            RestartWaferAlignAfterMissingDieMapPoints(dieMappingResumeStep);
+                            break;
                         }
+
+                        result = await ExecuteWithInputPickerAvoidGateAsync("InputDieMapping", ct, async () =>
+                        {
+                            using (SequenceResourceLease lease = await AcquireInputStageAreaAsync("InputDieMapping", ct).ConfigureAwait(false))
+                            {
+                                if (lease == null)
+                                    return Fail("SEQ-IN-RESOURCE-STAGE", "InputSequence", "Die mapping 중 InputStageArea 리소스 점유에 실패했습니다.");
+
+                                // DieMapping이 끝나면 MaterialStateService의 Stage finish 조건이 만족되어야 한다.
+                                var stageSequence = new InputStageSequence(Context);
+                                int stageResult = await SequenceTrace.ChildAsync("InputStageSequence", "DieMapping",
+                                    () => stageSequence.RunDieMappingAsync(
+                                        ct,
+                                        BuildStageSequenceOptions(false, SequenceStartMode.Resume, requireVisionAlign, _autoWaferId, false)),
+                                    "wafer=" + _autoWaferId,
+                                    "requireVisionAlign=" + requireVisionAlign).ConfigureAwait(false);
+                                if (stageResult != 0)
+                                    return Fail("SEQ-IN-STEP-STAGE-DIEMAP", "InputStage",
+                                        "InputStage die mapping 실패. result=" + stageResult);
+                            }
+
+                            return 0;
+                        }).ConfigureAwait(false);
+                        if (result != 0)
+                            return result;
                         // Stage 준비 완료 신호를 올려 Picker가 InputStage die pick을 시작할 수 있게 한다.
                         PublishInputStageReadySignals(ResolveStageWaferFromRuntimeState());
                         _autoStep = InputSequenceAutoStep.Complete;
@@ -985,6 +1112,7 @@ namespace QMC.CDT320.Sequencing
                 }
 
                 WriteLog("ExecuteCurrentInputStepAsync", "Input sequence step complete. nextStep=" + _autoStep + " - Ok");
+                stepSucceeded = true;
                 return 0;
             }
             catch (OperationCanceledException)
@@ -1002,6 +1130,9 @@ namespace QMC.CDT320.Sequencing
             }
             finally
             {
+                if (loaderActiveStep && (!stepSucceeded || !IsInputLoaderActiveAutoStep(_autoStep)))
+                    if (Mode != SequenceRunMode.Auto)
+                        ResetInputLoaderActive(true, executingStep.ToString());
             }
         }
 
@@ -1081,11 +1212,13 @@ namespace QMC.CDT320.Sequencing
             SequenceStartMode startMode = SequenceStartMode.Resume,
             bool requireVisionAlign = false)
         {
+            bool loaderActive = true;
             try
             {
                 ct.ThrowIfCancellationRequested();
                 LogPublic("[UNIT-INPUT] Wafer loading start");
                 WriteLog("ExecuteWaferLoadingAsync", "Input wafer loading sequence start. - Start");
+                SetInputLoaderActive(loaderActive, "ManualWaferLoading");
 
                 // 수동 Wafer Loading도 먼저 cassette mapping을 수행해서 Ready slot 판단 기준을 최신화한다.
                 int result = await ExecuteMappingAsync(ct, bFine, moveTimeoutMs, startMode).ConfigureAwait(false);
@@ -1098,83 +1231,90 @@ namespace QMC.CDT320.Sequencing
                     return StopInputNoReadyWafer();
 
                 string waferId = ResolveInputWaferId(slotIndex);
-                // Stage 로드 준비 구간: Picker를 Avoid시키고 Stage를 load 받을 위치로 준비한다.
-                using (SequenceResourceLease frontPickerLease = await AcquirePickerPauseResourceAsync(SequenceResourceKind.FrontPicker, "ManualInputPrepareLoad", ct).ConfigureAwait(false))
-                using (SequenceResourceLease rearPickerLease = await AcquirePickerPauseResourceAsync(SequenceResourceKind.RearPicker, "ManualInputPrepareLoad", ct).ConfigureAwait(false))
-                using (SequenceResourceLease lease = await AcquireInputStageAreaAsync("ManualInputPrepareLoad", ct).ConfigureAwait(false))
+                // Stage 로드 준비 구간: Picker가 이미 Avoid일 때만 Stage를 load 받을 위치로 준비한다.
+                result = await ExecuteWithInputPickerAvoidGateAsync("ManualInputPrepareLoad", ct, async () =>
                 {
-                    if (frontPickerLease == null || rearPickerLease == null)
-                        return Fail("SEQ-IN-RESOURCE-PICKER", "InputSequence", "수동 웨이퍼 로딩 준비 중 Picker 리소스 점유에 실패했습니다.");
-                    if (lease == null)
-                        return Fail("SEQ-IN-RESOURCE-STAGE", "InputSequence", "수동 웨이퍼 로딩 준비 중 InputStageArea 리소스 점유에 실패했습니다.");
+                    using (SequenceResourceLease lease = await AcquireInputStageAreaAsync("ManualInputPrepareLoad", ct).ConfigureAwait(false))
+                    {
+                        if (lease == null)
+                            return Fail("SEQ-IN-RESOURCE-STAGE", "InputSequence", "수동 웨이퍼 로딩 준비 중 InputStageArea 리소스 점유에 실패했습니다.");
 
-                    result = await EnsureInputPickersAvoidBeforeFeederMoveAsync("ManualInputPrepareLoad", ct).ConfigureAwait(false);
-                    if (result != 0)
-                        return result;
+                        var stageSequence = new InputStageSequence(Context);
+                        int stageResult = await SequenceTrace.ChildAsync("InputStageSequence", "PrepareLoad",
+                            () => stageSequence.RunPrepareLoadAsync(ct, BuildStageSequenceOptions(bFine, startMode, false, waferId, false)),
+                            "wafer=" + waferId).ConfigureAwait(false);
+                        if (stageResult != 0)
+                            return Fail("SEQ-IN-STAGE-PREP", "InputStage",
+                                "InputStage load 준비 실패. result=" + stageResult);
+                    }
 
-                    var stageSequence = new InputStageSequence(Context);
-                    result = await SequenceTrace.ChildAsync("InputStageSequence", "PrepareLoad",
-                        () => stageSequence.RunPrepareLoadAsync(ct, BuildStageSequenceOptions(bFine, startMode, false, waferId, false)),
-                        "wafer=" + waferId).ConfigureAwait(false);
-                    if (result != 0)
-                        return Fail("SEQ-IN-STAGE-PREP", "InputStage",
-                            "InputStage load 준비 실패. result=" + result);
-                }
+                    return 0;
+                }).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
 
                 // Cassette -> Feeder 로딩 구간.
                 var feederSequence = new InputFeederSequence(Context);
                 InputFeederSequenceOptions feederOptions = BuildFeederSequenceOptions(slotIndex, slotIndex, bFine, moveTimeoutMs, startMode);
 
-                result = await SequenceTrace.ChildAsync("InputFeederSequence", "LoadFromCassette",
-                    () => feederSequence.RunLoadFromCassetteAsync(ct, feederOptions),
-                    "slot=" + slotIndex).ConfigureAwait(false);
+                result = await ExecuteWithInputPickerAvoidGateAsync("ManualInputLoadFromCassette", ct, () =>
+                    SequenceTrace.ChildAsync("InputFeederSequence", "LoadFromCassette",
+                        () => feederSequence.RunLoadFromCassetteAsync(ct, feederOptions),
+                        "slot=" + slotIndex)).ConfigureAwait(false);
                 if (result != 0)
                     return Fail("SEQ-IN-FEEDER-CST", "InputSequence", "InputFeeder cassette loading 실패. result=" + result);
 
                 UpdateInputSlotState(slotIndex, SlotPresence.Exist, ProcessState.Processing);
 
                 // Feeder -> Stage 이송 구간. 자동 step의 LoadFeederToStage와 같은 안전 조건을 사용한다.
-                using (SequenceResourceLease frontPickerLease = await AcquirePickerPauseResourceAsync(SequenceResourceKind.FrontPicker, "ManualInputFeederToStage", ct).ConfigureAwait(false))
-                using (SequenceResourceLease rearPickerLease = await AcquirePickerPauseResourceAsync(SequenceResourceKind.RearPicker, "ManualInputFeederToStage", ct).ConfigureAwait(false))
-                using (SequenceResourceLease lease = await AcquireInputStageAreaAsync("ManualInputFeederToStage", ct).ConfigureAwait(false))
+                result = await ExecuteWithInputPickerAvoidGateAsync("ManualInputFeederToStage", ct, async () =>
                 {
-                    if (frontPickerLease == null || rearPickerLease == null)
-                        return Fail("SEQ-IN-RESOURCE-PICKER", "InputSequence", "수동 Feeder -> Stage 이송 중 Picker 리소스 점유에 실패했습니다.");
-                    if (lease == null)
-                        return Fail("SEQ-IN-RESOURCE-STAGE", "InputSequence", "수동 Feeder -> Stage 이송 중 InputStageArea 리소스 점유에 실패했습니다.");
+                    using (SequenceResourceLease lease = await AcquireInputStageAreaAsync("ManualInputFeederToStage", ct).ConfigureAwait(false))
+                    {
+                        if (lease == null)
+                            return Fail("SEQ-IN-RESOURCE-STAGE", "InputSequence", "수동 Feeder -> Stage 이송 중 InputStageArea 리소스 점유에 실패했습니다.");
 
-                    result = await EnsureInputPickersAvoidBeforeFeederMoveAsync("ManualInputFeederToStage", ct).ConfigureAwait(false);
-                    if (result != 0)
-                        return result;
+                        int feederResult = await SequenceTrace.ChildAsync("InputFeederSequence", "LoadToStage",
+                            () => feederSequence.RunLoadToStageAsync(ct, feederOptions),
+                            "slot=" + slotIndex).ConfigureAwait(false);
+                        if (feederResult != 0)
+                            return Fail("SEQ-IN-FEEDER-STAGE", "InputSequence", "InputFeeder -> InputStage 로딩 실패. result=" + feederResult);
+                    }
 
-                    result = await SequenceTrace.ChildAsync("InputFeederSequence", "LoadToStage",
-                        () => feederSequence.RunLoadToStageAsync(ct, feederOptions),
-                        "slot=" + slotIndex).ConfigureAwait(false);
-                    if (result != 0)
-                        return Fail("SEQ-IN-FEEDER-STAGE", "InputSequence", "InputFeeder -> InputStage 로딩 실패. result=" + result);
-                }
+                    return 0;
+                }).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
 
                 // Stage로 넘긴 뒤 Feeder를 복귀시킨다.
-                result = await SequenceTrace.ChildAsync("InputFeederSequence", "Recover",
-                    () => feederSequence.RunRecoverAsync(ct, feederOptions),
-                    "slot=" + slotIndex).ConfigureAwait(false);
+                result = await ExecuteWithInputPickerAvoidGateAsync("ManualInputFeederRecover", ct, () =>
+                    SequenceTrace.ChildAsync("InputFeederSequence", "Recover",
+                        () => feederSequence.RunRecoverAsync(ct, feederOptions),
+                        "slot=" + slotIndex)).ConfigureAwait(false);
                 if (result != 0)
                     return Fail("SEQ-IN-FEEDER-RECOVER", "InputSequence", "Stage loading 후 InputFeeder recover 실패. result=" + result);
 
                 // 수동 Loading은 Align까지 수행하고 종료한다. DieMapping/Picker ready는 자동 step 흐름과 별도로 호출된다.
-                using (SequenceResourceLease lease = await AcquireInputStageAreaAsync("ManualInputAlign", ct).ConfigureAwait(false))
+                result = await ExecuteWithInputPickerAvoidGateAsync("ManualInputAlign", ct, async () =>
                 {
-                    if (lease == null)
-                        return Fail("SEQ-IN-RESOURCE-STAGE", "InputSequence", "수동 Align 중 InputStageArea 리소스 점유에 실패했습니다.");
+                    using (SequenceResourceLease lease = await AcquireInputStageAreaAsync("ManualInputAlign", ct).ConfigureAwait(false))
+                    {
+                        if (lease == null)
+                            return Fail("SEQ-IN-RESOURCE-STAGE", "InputSequence", "수동 Align 중 InputStageArea 리소스 점유에 실패했습니다.");
 
-                    var stageSequence = new InputStageSequence(Context);
-                    result = await SequenceTrace.ChildAsync("InputStageSequence", "Align",
-                        () => stageSequence.RunAlignAsync(ct, BuildStageSequenceOptions(bFine, startMode, requireVisionAlign, waferId, false)),
-                        "wafer=" + waferId,
-                        "requireVisionAlign=" + requireVisionAlign).ConfigureAwait(false);
-                    if (result != 0)
-                        return Fail("SEQ-IN-STAGE-ALIGN", "InputSequence", "InputStage align 실패. result=" + result);
-                }
+                        var stageSequence = new InputStageSequence(Context);
+                        int stageResult = await SequenceTrace.ChildAsync("InputStageSequence", "Align",
+                            () => stageSequence.RunAlignAsync(ct, BuildStageSequenceOptions(bFine, startMode, requireVisionAlign, waferId, false)),
+                            "wafer=" + waferId,
+                            "requireVisionAlign=" + requireVisionAlign).ConfigureAwait(false);
+                        if (stageResult != 0)
+                            return Fail("SEQ-IN-STAGE-ALIGN", "InputSequence", "InputStage align 실패. result=" + stageResult);
+                    }
+
+                    return 0;
+                }).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
 
                 // Loading 완료 bus는 올리지만, Picker 접근을 허용하는 StageReady는 올리지 않는다.
                 Context.Bus.Set("InputWaferLoaded");
@@ -1198,6 +1338,7 @@ namespace QMC.CDT320.Sequencing
             }
             finally
             {
+                ResetInputLoaderActive(loaderActive, "ManualWaferLoading");
             }
         }
 
@@ -1208,64 +1349,65 @@ namespace QMC.CDT320.Sequencing
             int moveTimeoutMs = 0,
             SequenceStartMode startMode = SequenceStartMode.Resume)
         {
+            bool loaderActive = true;
             try
             {
                 ct.ThrowIfCancellationRequested();
                 LogPublic("[UNIT-INPUT] Wafer unloading start slot=" + slotIndex);
                 WriteLog("ExecuteWaferUnloadingAsync", "Input wafer unloading sequence start. slot=" + slotIndex + " - Start");
+                SetInputLoaderActive(loaderActive, "ManualWaferUnloading");
 
                 int result;
-                // Stage unload 준비 구간: Picker를 Avoid시키고 Stage를 unload 가능한 상태로 만든다.
-                using (SequenceResourceLease frontPickerLease = await AcquirePickerPauseResourceAsync(SequenceResourceKind.FrontPicker, "InputPrepareUnload", ct).ConfigureAwait(false))
-                using (SequenceResourceLease rearPickerLease = await AcquirePickerPauseResourceAsync(SequenceResourceKind.RearPicker, "InputPrepareUnload", ct).ConfigureAwait(false))
-                using (SequenceResourceLease lease = await AcquireInputStageAreaAsync("InputPrepareUnload", ct).ConfigureAwait(false))
+                // Stage unload 준비 구간: Picker가 Avoid일 때만 Stage를 unload 가능한 상태로 만든다.
+                result = await ExecuteWithInputPickerAvoidGateAsync("InputPrepareUnload", ct, async () =>
                 {
-                    if (frontPickerLease == null || rearPickerLease == null)
-                        return Fail("SEQ-IN-RESOURCE-PICKER", "InputSequence", "Unload 준비 중 Picker 리소스 점유에 실패했습니다.");
-                    if (lease == null)
-                        return Fail("SEQ-IN-RESOURCE-STAGE", "InputSequence", "Unload 준비 중 InputStageArea 리소스 점유에 실패했습니다.");
+                    using (SequenceResourceLease lease = await AcquireInputStageAreaAsync("InputPrepareUnload", ct).ConfigureAwait(false))
+                    {
+                        if (lease == null)
+                            return Fail("SEQ-IN-RESOURCE-STAGE", "InputSequence", "Unload 준비 중 InputStageArea 리소스 점유에 실패했습니다.");
 
-                    result = await EnsureInputPickersAvoidBeforeFeederMoveAsync("InputPrepareUnload", ct).ConfigureAwait(false);
-                    if (result != 0)
-                        return result;
+                        var stageSequence = new InputStageSequence(Context);
+                        int stageResult = await SequenceTrace.ChildAsync("InputStageSequence", "PrepareUnload",
+                            () => stageSequence.RunPrepareUnloadAsync(ct, BuildStageSequenceOptions(bFine, startMode, false, ResolveInputWaferId(slotIndex), false)),
+                            "slot=" + slotIndex).ConfigureAwait(false);
+                        if (stageResult != 0)
+                            return Fail("SEQ-IN-STAGE-UNLOAD-PREP", "InputStage",
+                                "InputStage unload 준비 실패. result=" + stageResult);
+                    }
 
-                    var stageSequence = new InputStageSequence(Context);
-                    result = await SequenceTrace.ChildAsync("InputStageSequence", "PrepareUnload",
-                        () => stageSequence.RunPrepareUnloadAsync(ct, BuildStageSequenceOptions(bFine, startMode, false, ResolveInputWaferId(slotIndex), false)),
-                        "slot=" + slotIndex).ConfigureAwait(false);
-                    if (result != 0)
-                        return Fail("SEQ-IN-STAGE-UNLOAD-PREP", "InputStage",
-                            "InputStage unload 준비 실패. result=" + result);
-                }
+                    return 0;
+                }).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
 
                 // Stage -> Feeder 언로딩 구간.
                 var feederSequence = new InputFeederSequence(Context);
                 InputFeederSequenceOptions feederOptions = BuildFeederSequenceOptions(slotIndex, slotIndex, bFine, moveTimeoutMs, startMode);
 
-                using (SequenceResourceLease frontPickerLease = await AcquirePickerPauseResourceAsync(SequenceResourceKind.FrontPicker, "InputStageToFeeder", ct).ConfigureAwait(false))
-                using (SequenceResourceLease rearPickerLease = await AcquirePickerPauseResourceAsync(SequenceResourceKind.RearPicker, "InputStageToFeeder", ct).ConfigureAwait(false))
-                using (SequenceResourceLease lease = await AcquireInputStageAreaAsync("InputStageToFeeder", ct).ConfigureAwait(false))
+                result = await ExecuteWithInputPickerAvoidGateAsync("InputStageToFeeder", ct, async () =>
                 {
-                    if (frontPickerLease == null || rearPickerLease == null)
-                        return Fail("SEQ-IN-RESOURCE-PICKER", "InputSequence", "Stage -> Feeder 이송 중 Picker 리소스 점유에 실패했습니다.");
-                    if (lease == null)
-                        return Fail("SEQ-IN-RESOURCE-STAGE", "InputSequence", "Stage -> Feeder 이송 중 InputStageArea 리소스 점유에 실패했습니다.");
+                    using (SequenceResourceLease lease = await AcquireInputStageAreaAsync("InputStageToFeeder", ct).ConfigureAwait(false))
+                    {
+                        if (lease == null)
+                            return Fail("SEQ-IN-RESOURCE-STAGE", "InputSequence", "Stage -> Feeder 이송 중 InputStageArea 리소스 점유에 실패했습니다.");
 
-                    result = await EnsureInputPickersAvoidBeforeFeederMoveAsync("InputStageToFeeder", ct).ConfigureAwait(false);
-                    if (result != 0)
-                        return result;
+                        int feederResult = await SequenceTrace.ChildAsync("InputFeederSequence", "UnloadFromStage",
+                            () => feederSequence.RunUnloadFromStageAsync(ct, feederOptions),
+                            "slot=" + slotIndex).ConfigureAwait(false);
+                        if (feederResult != 0)
+                            return Fail("SEQ-IN-FEEDER-STAGE-UNLOAD", "InputSequence", "InputStage -> InputFeeder 언로딩 실패. result=" + feederResult);
+                    }
 
-                    result = await SequenceTrace.ChildAsync("InputFeederSequence", "UnloadFromStage",
-                        () => feederSequence.RunUnloadFromStageAsync(ct, feederOptions),
-                        "slot=" + slotIndex).ConfigureAwait(false);
-                    if (result != 0)
-                        return Fail("SEQ-IN-FEEDER-STAGE-UNLOAD", "InputSequence", "InputStage -> InputFeeder 언로딩 실패. result=" + result);
-                }
+                    return 0;
+                }).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
 
                 // Feeder -> Cassette 복귀 구간.
-                result = await SequenceTrace.ChildAsync("InputFeederSequence", "UnloadToCassette",
-                    () => feederSequence.RunUnloadToCassetteAsync(ct, feederOptions),
-                    "slot=" + slotIndex).ConfigureAwait(false);
+                result = await ExecuteWithInputPickerAvoidGateAsync("InputUnloadToCassette", ct, () =>
+                    SequenceTrace.ChildAsync("InputFeederSequence", "UnloadToCassette",
+                        () => feederSequence.RunUnloadToCassetteAsync(ct, feederOptions),
+                        "slot=" + slotIndex)).ConfigureAwait(false);
                 if (result != 0)
                     return Fail("SEQ-IN-FEEDER-CST-UNLOAD", "InputSequence", "InputFeeder -> 카세트 언로딩 실패. result=" + result);
 
@@ -1288,6 +1430,7 @@ namespace QMC.CDT320.Sequencing
             }
             finally
             {
+                ResetInputLoaderActive(loaderActive, "ManualWaferUnloading");
             }
         }
 
@@ -1486,16 +1629,130 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
-        private async Task<SequenceResourceLease> AcquirePickerPauseResourceAsync(SequenceResourceKind resource, string holder, CancellationToken ct)
+        private static bool IsInputLoaderActiveAutoStep(InputSequenceAutoStep step)
+        {
+            return step == InputSequenceAutoStep.PrepareStageLoad ||
+                   step == InputSequenceAutoStep.LoadFeederFromCassette ||
+                   step == InputSequenceAutoStep.LoadFeederToStage ||
+                   step == InputSequenceAutoStep.RecoverFeeder ||
+                   step == InputSequenceAutoStep.AlignStage ||
+                   step == InputSequenceAutoStep.DieMapping;
+        }
+
+        private bool ShouldRestartWaferAlignForDieMappingResume(out string resumeStep)
+        {
+            resumeStep = "";
+
+            try
+            {
+                resumeStep = SequenceResumeStore.ResolveStartStep(InputStageDieMappingSequenceStateName, "");
+                if (string.IsNullOrWhiteSpace(resumeStep))
+                    return false;
+
+                // DieMapping mark point 결과는 시퀀스 메모리에만 있으므로, 중간/계산 단계 재개 시 Align부터 다시 수행한다.
+                if (string.Equals(resumeStep, "FindTopPoint", StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(resumeStep, "MoveBottomPoint", StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(resumeStep, "FindBottomPoint", StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(resumeStep, "MoveLeftPoint", StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(resumeStep, "FindLeftPoint", StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(resumeStep, "MoveRightPoint", StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(resumeStep, "FindRightPoint", StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(resumeStep, "CalculateDieMap", StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(resumeStep, "ApplyDieMap", StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(resumeStep, "MoveVisionXAvoidAfterManual", StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+            }
+            catch (Exception ex)
+            {
+                WriteLog("ShouldRestartWaferAlignForDieMappingResume",
+                    "DieMapping resume step 확인 실패. Align부터 재시작합니다. error=" + ex.Message + " - Failed");
+                return true;
+            }
+            finally
+            {
+            }
+
+            return false;
+        }
+
+        private void RestartWaferAlignAfterMissingDieMapPoints(string dieMappingResumeStep)
         {
             try
             {
-                string safeHolder = string.IsNullOrWhiteSpace(holder) ? "InputSequence" : holder;
-                return await AcquireResourceForRunAsync(
-                    resource,
-                    safeHolder + ":PickerPause",
-                    30000,
-                    ct).ConfigureAwait(false);
+                SequenceResumeStore.Clear(InputStageDieMappingSequenceStateName);
+                SequenceResumeStore.Clear(InputStageAlignSequenceStateName);
+                _autoStep = InputSequenceAutoStep.AlignStage;
+
+                WriteLog("ExecuteCurrentInputStepAsync",
+                    "DieMapping resume step=" + dieMappingResumeStep +
+                    " 은/는 재시작 후 맵포인트가 복원되지 않는 단계입니다. 웨이퍼 얼라인부터 다시 시작합니다. wafer=" +
+                    _autoWaferId + ", slot=" + _autoSlotIndex + " - Restart");
+            }
+            catch (Exception ex)
+            {
+                _autoStep = InputSequenceAutoStep.AlignStage;
+                WriteLog("ExecuteCurrentInputStepAsync",
+                    "DieMapping resume 상태 초기화 중 예외가 발생했지만 웨이퍼 얼라인부터 다시 시작합니다. error=" +
+                    ex.Message + " - Failed");
+            }
+            finally
+            {
+            }
+        }
+
+        private void SetInputLoaderActive(bool active, string holder)
+        {
+            if (Mode == SequenceRunMode.Auto)
+                return;
+
+            if (!active || Context == null || Context.Bus == null)
+                return;
+
+            if (_inputLoaderActivePublished)
+                return;
+
+            // 현재 기준: Input 로더 동작 중에는 Picker 공정 신규 진입을 막는다.
+            Context.Bus.Set(InputLoaderActiveSignal);
+            _inputLoaderActivePublished = true;
+            WriteLog("InputLoaderActive", holder + " 시작: Picker 신규 공정 진입을 대기시킵니다. - Set");
+        }
+
+        private void ResetInputLoaderActive(bool active, string holder)
+        {
+            if (Mode == SequenceRunMode.Auto)
+                return;
+
+            if (!active || Context == null || Context.Bus == null)
+                return;
+
+            if (!_inputLoaderActivePublished)
+                return;
+
+            Context.Bus.Reset(InputLoaderActiveSignal);
+            _inputLoaderActivePublished = false;
+            WriteLog("InputLoaderActive", holder + " 종료: Picker 신규 공정 진입 대기를 해제합니다. - Reset");
+        }
+
+        private async Task<int> ExecuteWithInputPickerAvoidGateAsync(string holder, CancellationToken ct, Func<Task<int>> action)
+        {
+            string safeHolder = string.IsNullOrWhiteSpace(holder) ? "InputSequence" : holder;
+
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+
+                int result = await EnsureInputPickersAvoidBeforeFeederMoveAsync(safeHolder, ct).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                string reason;
+                if (!AreInputPickersAvoidAndStopped(out reason))
+                    return Fail("SEQ-IN-PICKER-AVOID-STATE", "InputSequence",
+                        safeHolder + " 불가: Front/Rear Picker가 Avoid 정지 상태가 아닙니다. " + reason);
+
+                return await action().ConfigureAwait(false);
             }
             catch (OperationCanceledException)
             {
@@ -1505,9 +1762,10 @@ namespace QMC.CDT320.Sequencing
             {
                 throw;
             }
-            catch (Exception)
+            catch (Exception ex)
             {
-                throw;
+                return Fail("SEQ-IN-PICKER-GATE-EX", "InputSequence",
+                    safeHolder + " Picker Avoid gate 처리 중 예외 발생. error=" + ex.Message);
             }
             finally
             {
@@ -1520,37 +1778,38 @@ namespace QMC.CDT320.Sequencing
             {
                 ct.ThrowIfCancellationRequested();
 
-                // Feeder 또는 Stage 이송 전에 Front/Rear Picker가 Avoid 위치인지 확인하고, 아니면 이동시킨다.
                 string safeHolder = string.IsNullOrWhiteSpace(holder) ? "InputSequence" : holder;
-                var front = Context != null && Context.Machine != null ? Context.Machine.PickerFrontUnit : null;
-                if (front != null && !front.IsFrontPickerInAvoidPosition())
-                {
-                    WriteLog("InputPickerAvoidGate",
-                        safeHolder + " 전 FrontPicker를 AVOID 위치로 이동합니다. - Start");
-                    int result = await front.MoveToFrontPickerAvoidPosition(false).ConfigureAwait(false);
-                    if (result != 0 || !front.IsFrontPickerInAvoidPosition())
-                        return Fail("SEQ-IN-PICKER-FRONT-AVOID", "InputSequence",
-                            safeHolder + " 전 FrontPicker AVOID 이동 실패. result=" + result +
-                            ", finalAvoid=" + front.IsFrontPickerInAvoidPosition());
-                    WriteLog("InputPickerAvoidGate",
-                        safeHolder + " 전 FrontPicker AVOID 이동 완료. - Ok");
-                }
+                bool waitLogged = false;
 
-                var rear = Context != null && Context.Machine != null ? Context.Machine.PickerRearUnit : null;
-                if (rear != null && !rear.IsRearPickerInAvoidPosition())
+                while (true)
                 {
-                    WriteLog("InputPickerAvoidGate",
-                        safeHolder + " 전 RearPicker를 AVOID 위치로 이동합니다. - Start");
-                    int result = await rear.MoveToRearPickerAvoidPosition(false).ConfigureAwait(false);
-                    if (result != 0 || !rear.IsRearPickerInAvoidPosition())
-                        return Fail("SEQ-IN-PICKER-REAR-AVOID", "InputSequence",
-                            safeHolder + " 전 RearPicker AVOID 이동 실패. result=" + result +
-                            ", finalAvoid=" + rear.IsRearPickerInAvoidPosition());
-                    WriteLog("InputPickerAvoidGate",
-                        safeHolder + " 전 RearPicker AVOID 이동 완료. - Ok");
-                }
+                    ct.ThrowIfCancellationRequested();
+                    if (Context != null)
+                        Context.StopIfCycleStopRequested("InputSequence.PickerAvoidGate:" + safeHolder);
 
-                return 0;
+                    string reason;
+                    if (AreInputPickersAvoidAndStopped(out reason))
+                    {
+                        if (waitLogged)
+                            WriteLog("InputPickerAvoidGate", safeHolder + " 전 Picker Avoid 대기 완료. - Ok");
+                        return 0;
+                    }
+
+                    // 현재 기준: 로더는 Picker를 직접 이동하지 않고 PickerSequence가 Avoid로 빠질 때까지 대기한다.
+                    if (Mode != SequenceRunMode.Auto)
+                        return Fail("SEQ-IN-PICKER-AVOID-STATE", "InputSequence",
+                            safeHolder + " 불가: Front/Rear Picker가 Avoid 정지 상태가 아닙니다. " + reason);
+
+                    if (!waitLogged)
+                    {
+                        WriteLog("InputPickerAvoidGate",
+                            safeHolder + " 전 Picker Avoid 대기 중입니다. reason=" + reason + " - Wait");
+                        LogPublic("[UNIT-INPUT-LOADER] WAIT Picker Avoid before " + safeHolder + ". " + reason);
+                        waitLogged = true;
+                    }
+
+                    await Task.Delay(100, ct).ConfigureAwait(false);
+                }
             }
             catch (OperationCanceledException)
             {
@@ -1569,6 +1828,77 @@ namespace QMC.CDT320.Sequencing
             finally
             {
             }
+        }
+
+        private bool AreInputPickersAvoidAndStopped(out string reason)
+        {
+            reason = string.Empty;
+
+            var machine = Context != null ? Context.Machine : null;
+            var front = machine != null ? machine.PickerFrontUnit : null;
+            var rear = machine != null ? machine.PickerRearUnit : null;
+
+            if (IsFrontPickerEnabled(front))
+            {
+                if (!front.IsFrontPickerInAvoidPosition())
+                {
+                    reason = "FrontPicker가 Avoid 위치가 아닙니다.";
+                    return false;
+                }
+
+                string movingReason;
+                if (TryDescribeMovingPickerAxes(front.Axes, "FrontPicker", out movingReason))
+                {
+                    reason = movingReason;
+                    return false;
+                }
+            }
+
+            if (IsRearPickerEnabled(rear))
+            {
+                if (!rear.IsRearPickerInAvoidPosition())
+                {
+                    reason = "RearPicker가 Avoid 위치가 아닙니다.";
+                    return false;
+                }
+
+                string movingReason;
+                if (TryDescribeMovingPickerAxes(rear.Axes, "RearPicker", out movingReason))
+                {
+                    reason = movingReason;
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        private static bool IsFrontPickerEnabled(PickerFrontUnit front)
+        {
+            return front != null && front.Config != null && front.Config.UseUnit;
+        }
+
+        private static bool IsRearPickerEnabled(PickerRearUnit rear)
+        {
+            return rear != null && rear.Config != null && rear.Config.UseUnit;
+        }
+
+        private static bool TryDescribeMovingPickerAxes(System.Collections.Generic.IEnumerable<System.Collections.Generic.KeyValuePair<PickerAxis, QMC.Common.Motion.BaseAxis>> axes, string pickerName, out string reason)
+        {
+            reason = string.Empty;
+            if (axes == null)
+                return false;
+
+            foreach (var pair in axes)
+            {
+                if (pair.Value != null && pair.Value.IsMoving)
+                {
+                    reason = pickerName + " " + pair.Key + " 축이 이동 중입니다.";
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         private InputFeederSequenceOptions BuildFeederSequenceOptions(
@@ -1661,7 +1991,16 @@ namespace QMC.CDT320.Sequencing
             {
                 var stage = Context != null && Context.Machine != null ? Context.Machine.InputStageUnit : null;
                 if (stage != null)
+                {
+                    stage.ClearCurrentWaferMaterial();
                     stage.ClearCurrentWaferMap();
+                }
+
+                // 현재 기준: InputStage가 비워질 때 이전 wafer active map도 같이 비워 다음 wafer와 섞이지 않게 한다.
+                if (Context != null && Context.Controller != null)
+                    Context.Controller.ClearInputDieMap("InputSequence.ClearInputStageRuntime");
+                else
+                    LotStorage.ActiveInputDieMap = null;
             }
             catch (Exception ex)
             {

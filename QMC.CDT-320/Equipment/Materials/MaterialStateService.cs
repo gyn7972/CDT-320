@@ -5,7 +5,9 @@ using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using QMC.Common;
+using QMC.CDT320.Bin;
 using QMC.CDT320.DieMaps;
+using QMC.CDT320.Lots;
 using QMC.CDT320.Recipes;
 using QMC.CDT320.Sequencing;
 
@@ -30,6 +32,7 @@ namespace QMC.CDT320.Materials
         private static bool _saveRequested;
         private static string _pendingSaveReason = "";
         private static DateTime _lastSaveCompletedUtc = DateTime.MinValue;
+        private static bool _lastSaveSucceeded;
         private static bool _stateChangedQueued;
         private static DateTime _lastStateChangedAt = DateTime.MinValue;
 
@@ -79,6 +82,83 @@ namespace QMC.CDT320.Materials
             return die;
         }
 
+        public static int ClearInputDieMaterialsForWafer(string waferId, string reason)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(waferId))
+                    return 0;
+
+                lock (_stateSync)
+                {
+                    int removed = State.Dies.RemoveAll(d =>
+                        d != null &&
+                        string.Equals(d.WaferID_Input, waferId, StringComparison.OrdinalIgnoreCase));
+
+                    if (removed > 0)
+                    {
+                        Log.Write("Main", "SYSTEM", "MaterialStateService",
+                            "Cleared previous input die materials for wafer. wafer=" + waferId +
+                            ", removed=" + removed +
+                            ", reason=" + (reason ?? "") + " - Ok");
+                    }
+
+                    return removed;
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Write("Main", "SYSTEM", "MaterialStateService",
+                    "Clear input die materials failed. wafer=" + waferId +
+                    ", reason=" + (reason ?? "") +
+                    ", error=" + ex.Message + " - Failed");
+                return 0;
+            }
+            finally
+            {
+            }
+        }
+
+        public static int ClearStaleInputDieMaterialsForWafer(string waferId, ICollection<string> activeDieIds, string reason)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(waferId))
+                    return 0;
+
+                lock (_stateSync)
+                {
+                    int removed = State.Dies.RemoveAll(d =>
+                        d != null &&
+                        string.Equals(d.WaferID_Input, waferId, StringComparison.OrdinalIgnoreCase) &&
+                        (activeDieIds == null ||
+                         string.IsNullOrWhiteSpace(d.DieId) ||
+                         !activeDieIds.Contains(d.DieId)));
+
+                    if (removed > 0)
+                    {
+                        Log.Write("Main", "SYSTEM", "MaterialStateService",
+                            "Cleared stale input die materials for wafer. wafer=" + waferId +
+                            ", removed=" + removed +
+                            ", reason=" + (reason ?? "") + " - Ok");
+                    }
+
+                    return removed;
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Write("Main", "SYSTEM", "MaterialStateService",
+                    "Clear stale input die materials failed. wafer=" + waferId +
+                    ", reason=" + (reason ?? "") +
+                    ", error=" + ex.Message + " - Failed");
+                return 0;
+            }
+            finally
+            {
+            }
+        }
+
         public static DieMaterial GetDieMaterial(string dieId)
         {
             try
@@ -99,6 +179,65 @@ namespace QMC.CDT320.Materials
                     "Get die material failed: dieId=" + dieId +
                     ", error=" + ex.Message + " - Failed");
                 return null;
+            }
+            finally
+            {
+            }
+        }
+
+        public static bool ApplyManualDieState(
+            string dieId,
+            bool isInputTarget,
+            DieResult result,
+            int binCode,
+            string ngCode,
+            string reason,
+            out string message)
+        {
+            message = string.Empty;
+            try
+            {
+                if (string.IsNullOrWhiteSpace(dieId))
+                {
+                    message = "Die ID가 비어 있습니다.";
+                    return false;
+                }
+
+                lock (_stateSync)
+                {
+                    DieMaterial die = State.Dies.FirstOrDefault(d =>
+                        d != null &&
+                        string.Equals(d.DieId, dieId, StringComparison.OrdinalIgnoreCase));
+                    if (die == null)
+                    {
+                        message = "Die 정보를 찾을 수 없습니다. dieId=" + dieId;
+                        return false;
+                    }
+
+                    ApplyManualDieStateNoLock(die, isInputTarget, result, binCode, ngCode);
+                    SyncManualDieStateTargetsNoLock(die, isInputTarget, result, binCode);
+                }
+
+                NotifyAndSave("ManualDieStateSync:" + dieId);
+                Log.Write("Main", "MATERIAL", "ManualDieStateSync",
+                    "Manual die state synchronized. dieId=" + dieId +
+                    ", result=" + result +
+                    ", isInputTarget=" + isInputTarget +
+                    ", binCode=" + binCode +
+                    ", reason=" + (reason ?? "") + " - Ok");
+
+                message = "Die 상태를 동기화했습니다. dieId=" + dieId;
+                return true;
+            }
+            catch (Exception ex)
+            {
+                message = "Die 상태 동기화 실패: " + ex.Message;
+                Log.Write("Main", "MATERIAL", "ManualDieStateSync",
+                    "Manual die state sync failed. dieId=" + dieId +
+                    ", result=" + result +
+                    ", isInputTarget=" + isInputTarget +
+                    ", error=" + ex.Message + " - Failed");
+                return false;
             }
             finally
             {
@@ -176,6 +315,12 @@ namespace QMC.CDT320.Materials
                         "to=" + die.CurrentLocation,
                         "result=" + die.Result,
                         "ngCode=" + ngCode);
+                    InputWaferInspectionCsvSnapshotWriter.EnqueueInspection(
+                        "InspectionResult",
+                        State != null ? State.RecipeName : "",
+                        State != null ? State.LotId : "",
+                        die,
+                        null);
                     NotifyAndSave(reason);
                 }
             }
@@ -226,24 +371,9 @@ namespace QMC.CDT320.Materials
                     }
 
                     dieId = die.DieId;
-                    die.Result = result;
-                    die.IsInputTarget = isInputTarget;
-                    die.UpdatedAt = DateTime.Now;
-
-                    if (die.NgCodes == null)
-                        die.NgCodes = new List<string>();
-
-                    if (result == DieResult.NG)
-                    {
-                        string code = string.IsNullOrWhiteSpace(ngCode) ? "MANUAL-NG" : ngCode.Trim();
-                        if (!die.NgCodes.Contains(code))
-                            die.NgCodes.Add(code);
-                    }
-                    else
-                    {
-                        die.NgCodes.Clear();
-                    }
-
+                    int binCode = ResolveManualBinCode(result, 0);
+                    ApplyManualDieStateNoLock(die, isInputTarget, result, binCode, ngCode);
+                    SyncManualDieStateTargetsNoLock(die, isInputTarget, result, binCode);
                     UpsertManualPickerInspectionNoLock(die, result, ngCode, reason);
                 }
 
@@ -309,9 +439,7 @@ namespace QMC.CDT320.Materials
                     die.CurrentLocation = MaterialLocation.Unknown();
                     die.ReservedPickerLocation = MaterialLocationKind.Unknown;
                     die.ReservedPickerNo = -1;
-                    die.PickedPickerLocation = MaterialLocationKind.Unknown;
-                    die.PickedPickerNo = -1;
-                    die.PickedAt = DateTime.MinValue;
+                    die.IsInputTarget = false;
                     die.UpdatedAt = DateTime.Now;
                     UpsertManualPickerInspectionNoLock(die, die.Result, string.Empty, reason);
                 }
@@ -321,6 +449,7 @@ namespace QMC.CDT320.Materials
                     "Picker die cleared manually. location=" + pickerLocation +
                     ", pickerNo=" + pickerNo +
                     ", dieId=" + dieId +
+                    ", isInputTarget=False" +
                     ", reason=" + (reason ?? "") + " - Ok");
 
                 message = "Picker Die 정보를 제거했습니다. dieId=" + dieId;
@@ -345,6 +474,162 @@ namespace QMC.CDT320.Materials
         {
             return pickerLocation == MaterialLocationKind.PickerFront ||
                    pickerLocation == MaterialLocationKind.PickerRear;
+        }
+
+        private static void ApplyManualDieStateNoLock(
+            DieMaterial die,
+            bool isInputTarget,
+            DieResult result,
+            int binCode,
+            string ngCode)
+        {
+            if (die == null)
+                return;
+
+            int normalizedBinCode = ResolveManualBinCode(result, binCode);
+            die.Result = result;
+            die.IsInputTarget = isInputTarget;
+            die.Input_BinCode = isInputTarget ? normalizedBinCode : 0;
+
+            MaterialLocationKind locationKind = die.CurrentLocation != null
+                ? die.CurrentLocation.Kind
+                : MaterialLocationKind.Unknown;
+            if (IsOutputStageLocation(locationKind))
+                die.Output_BinCode = normalizedBinCode;
+
+            if (die.NgCodes == null)
+                die.NgCodes = new List<string>();
+
+            if (result == DieResult.NG)
+            {
+                string code = string.IsNullOrWhiteSpace(ngCode) ? "MANUAL-NG" : ngCode.Trim();
+                if (!die.NgCodes.Contains(code))
+                    die.NgCodes.Add(code);
+            }
+            else
+            {
+                die.NgCodes.Clear();
+            }
+
+            die.UpdatedAt = DateTime.Now;
+        }
+
+        private static void SyncManualDieStateTargetsNoLock(
+            DieMaterial die,
+            bool isInputTarget,
+            DieResult result,
+            int binCode)
+        {
+            if (die == null)
+                return;
+
+            int normalizedBinCode = ResolveManualBinCode(result, binCode);
+            SyncActiveInputMapEntryNoLock(die.DieId, isInputTarget, result, normalizedBinCode);
+            SyncOutputReceiveSlotsNoLock(die.DieId, isInputTarget, result, normalizedBinCode);
+        }
+
+        private static void SyncActiveInputMapEntryNoLock(
+            string dieId,
+            bool isInputTarget,
+            DieResult result,
+            int binCode)
+        {
+            try
+            {
+                DieMap map = LotStorage.ActiveInputDieMap;
+                if (map == null || map.Entries == null || string.IsNullOrWhiteSpace(dieId))
+                    return;
+
+                foreach (DieMapEntry entry in map.Entries)
+                {
+                    if (entry == null ||
+                        !string.Equals(entry.DieUid ?? "", dieId, StringComparison.OrdinalIgnoreCase))
+                        continue;
+
+                    entry.IsTarget = isInputTarget;
+                    entry.Result = isInputTarget ? result : DieResult.Unknown;
+                    entry.BinCode = isInputTarget ? binCode : 0;
+                    if (!isInputTarget)
+                        entry.SequenceNo = 0;
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Write("Main", "MATERIAL", "ManualDieStateSync",
+                    "Active input map sync failed. dieId=" + dieId +
+                    ", error=" + ex.Message + " - Failed");
+            }
+            finally
+            {
+            }
+        }
+
+        private static void SyncOutputReceiveSlotsNoLock(
+            string dieId,
+            bool isTarget,
+            DieResult result,
+            int binCode)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(dieId) || State.Wafers == null)
+                    return;
+
+                foreach (WaferMaterial wafer in State.Wafers)
+                {
+                    if (wafer == null || wafer.OutputReceiveSlots == null)
+                        continue;
+
+                    bool touched = false;
+                    foreach (OutputReceiveSlotMaterial slot in wafer.OutputReceiveSlots)
+                    {
+                        if (slot == null ||
+                            !string.Equals(slot.DieUid ?? "", dieId, StringComparison.OrdinalIgnoreCase))
+                            continue;
+
+                        slot.IsTarget = isTarget;
+                        slot.Result = isTarget ? result : DieResult.Unknown;
+                        slot.BinCode = isTarget ? ResolveManualBinCode(result, binCode) : 0;
+                        touched = true;
+                    }
+
+                    if (touched)
+                    {
+                        wafer.OutputReceiveNextIndex = ResolveNextOutputReceiveIndex(wafer);
+                        wafer.State = IsOutputStageReceiveComplete(wafer)
+                            ? WaferMaterialState.Finish
+                            : WaferMaterialState.Working;
+                        wafer.UpdatedAt = DateTime.Now;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Write("Main", "MATERIAL", "ManualDieStateSync",
+                    "Output receive slot sync failed. dieId=" + dieId +
+                    ", error=" + ex.Message + " - Failed");
+            }
+            finally
+            {
+            }
+        }
+
+        private static bool IsOutputStageLocation(MaterialLocationKind kind)
+        {
+            return kind == MaterialLocationKind.OutputStageGood ||
+                   kind == MaterialLocationKind.OutputStageNg ||
+                   kind == MaterialLocationKind.OutputFeeder ||
+                   kind == MaterialLocationKind.OutputCassette;
+        }
+
+        private static int ResolveManualBinCode(DieResult result, int binCode)
+        {
+            if (result == DieResult.Good)
+                return binCode > 0 ? binCode : BinCodeMap.GoodBin;
+            if (result == DieResult.NG)
+                return binCode > 0 ? binCode : BinCodeMap.MaxBin;
+
+            return result == DieResult.Unknown && binCode > 0 ? binCode : 0;
         }
 
         private static DieMaterial FindDieAtPickerNoLock(MaterialLocationKind pickerLocation, int pickerNo)
@@ -501,6 +786,78 @@ namespace QMC.CDT320.Materials
             return CreateProcessTestDataSet(null, out message);
         }
 
+        public static bool CreateProcessTestOutputStageWafer(QMC.CDT320.BinSide side, out string message)
+        {
+            message = string.Empty;
+            try
+            {
+                lock (_stateSync)
+                {
+                    RecipeProject project = RecipeStore.LoadLastOrDefault();
+                    string timestamp = DateTime.Now.ToString("yyyyMMdd-HHmmss");
+                    string lotId = "TEST-LOT-" + timestamp;
+                    string outputTapeFrameSpecName = ResolveRecipeTapeFrameSpecName(0);
+                    MaterialLocationKind location = ResolveOutputStageLocation(side);
+
+                    var existing = State.Wafers
+                        .Where(w => w != null &&
+                                    w.CurrentLocation != null &&
+                                    w.CurrentLocation.Kind == location &&
+                                    WaferMaterialStateText.Normalize(w.State) != WaferMaterialState.Empty)
+                        .ToList();
+                    foreach (WaferMaterial wafer in existing)
+                    {
+                        wafer.State = WaferMaterialState.Empty;
+                        wafer.CurrentLocation = MaterialLocation.Unknown();
+                        wafer.UpdatedAt = DateTime.Now;
+                    }
+
+                    WaferMaterial sourceWafer = GetWaferAtLocation(MaterialLocationKind.InputStage);
+                    string sourceWaferId = sourceWafer != null ? sourceWafer.WaferId : "";
+                    WaferMaterial stageWafer = CreateProcessTestOutputStageWaferNoLock(
+                        side,
+                        lotId,
+                        timestamp,
+                        outputTapeFrameSpecName,
+                        sourceWaferId,
+                        project);
+
+                    CassetteMaterialRole cassetteRole = side == QMC.CDT320.BinSide.Ng
+                        ? CassetteMaterialRole.Ng1
+                        : CassetteMaterialRole.Good1;
+                    BindProcessTestStageWaferToCassetteSlotNoLock(
+                        cassetteRole,
+                        0,
+                        stageWafer,
+                        location,
+                        WaferMaterialState.Working,
+                        lotId,
+                        outputTapeFrameSpecName);
+
+                    State.LotId = lotId;
+                    State.RecipeName = project != null ? project.FileName ?? "" : State.RecipeName;
+
+                    NotifyAndSave("CreateProcessTestOutputStageWafer");
+                    TryFlushPendingSave("CreateProcessTestOutputStageWafer");
+
+                    message = "Output Stage 공정 테스트 Wafer Data 생성 완료. side=" + side +
+                              ", wafer=" + (stageWafer != null ? stageWafer.WaferId : "") +
+                              ", target=" + (stageWafer != null ? stageWafer.OutputReceiveTotalCount : 0) +
+                              ", lot=" + lotId;
+                    return true;
+                }
+            }
+            catch (Exception ex)
+            {
+                message = "Output Stage 공정 테스트 Wafer Data 생성 실패: " + ex.Message;
+                Log.Write("Main", "SYSTEM", "MaterialStateService", message + " - Failed");
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
         public static bool CreateProcessTestDataSet(QMC.CDT320.InputStageUnit inputStage, out string message)
         {
             message = string.Empty;
@@ -511,7 +868,8 @@ namespace QMC.CDT320.Materials
                     RecipeProject project = RecipeStore.LoadLastOrDefault();
                     string timestamp = DateTime.Now.ToString("yyyyMMdd-HHmmss");
                     string lotId = "TEST-LOT-" + timestamp;
-                    string tapeFrameSpecName = ResolveRecipeTapeFrameSpecName(0);
+                    string inputTapeFrameSpecName = ResolveInputTapeFrameSpecName(0);
+                    string outputTapeFrameSpecName = ResolveRecipeTapeFrameSpecName(0);
 
                     int inputSlotCount = ResolveProcessTestSlotCount(CassetteMaterialRole.Input1);
                     int outputSlotCount = ResolveProcessTestSlotCount(CassetteMaterialRole.Good1);
@@ -520,15 +878,15 @@ namespace QMC.CDT320.Materials
 
                     ClearActiveProcessLocationsNoLock();
 
-                    UpdateCassetteMapping(CassetteMaterialRole.Input1, true, inputSlotCount, BuildProcessTestSlotMap(inputSlotCount, 2), null, lotId, tapeFrameSpecName);
-                    UpdateCassetteMapping(CassetteMaterialRole.Input2, useInput2, inputSlotCount, useInput2 ? BuildProcessTestSlotMap(inputSlotCount, 1) : null, null, lotId, tapeFrameSpecName);
-                    UpdateCassetteMapping(CassetteMaterialRole.Good1, true, outputSlotCount, BuildProcessTestSlotMap(outputSlotCount, 2), null, lotId, tapeFrameSpecName);
-                    UpdateCassetteMapping(CassetteMaterialRole.Good2, useGood2, outputSlotCount, useGood2 ? BuildProcessTestSlotMap(outputSlotCount, 1) : null, null, lotId, tapeFrameSpecName);
-                    UpdateCassetteMapping(CassetteMaterialRole.Ng1, true, outputSlotCount, BuildProcessTestSlotMap(outputSlotCount, 2), null, lotId, tapeFrameSpecName);
+                    UpdateCassetteMapping(CassetteMaterialRole.Input1, true, inputSlotCount, BuildProcessTestSlotMap(inputSlotCount, 2), null, lotId, inputTapeFrameSpecName);
+                    UpdateCassetteMapping(CassetteMaterialRole.Input2, useInput2, inputSlotCount, useInput2 ? BuildProcessTestSlotMap(inputSlotCount, 1) : null, null, lotId, inputTapeFrameSpecName);
+                    UpdateCassetteMapping(CassetteMaterialRole.Good1, true, outputSlotCount, BuildProcessTestSlotMap(outputSlotCount, 2), null, lotId, outputTapeFrameSpecName);
+                    UpdateCassetteMapping(CassetteMaterialRole.Good2, useGood2, outputSlotCount, useGood2 ? BuildProcessTestSlotMap(outputSlotCount, 1) : null, null, lotId, outputTapeFrameSpecName);
+                    UpdateCassetteMapping(CassetteMaterialRole.Ng1, true, outputSlotCount, BuildProcessTestSlotMap(outputSlotCount, 2), null, lotId, outputTapeFrameSpecName);
 
                     DieMap inputMap = LoadRecipeInputDieMapForProcessTest(project);
                     if (!IsUsableSourceMap(inputMap))
-                        inputMap = CreateFallbackInputDieMapForProcessTest(project, tapeFrameSpecName);
+                        inputMap = CreateFallbackInputDieMapForProcessTest(project, inputTapeFrameSpecName);
                     if (!IsUsableSourceMap(inputMap))
                     {
                         message = "테스트 입력 DieMap을 만들 수 없습니다. Recipe DieMap 또는 Frame 설정을 확인하세요.";
@@ -546,7 +904,7 @@ namespace QMC.CDT320.Materials
                     inputStageWafer.SourceSlotNumber = 0;
                     inputStageWafer.CurrentLocation = new MaterialLocation { Kind = MaterialLocationKind.InputStage };
                     inputStageWafer.State = WaferMaterialState.Working;
-                    inputStageWafer.TapeFrameSpecName = tapeFrameSpecName;
+                    inputStageWafer.TapeFrameSpecName = inputTapeFrameSpecName;
                     inputStageWafer.DieMapFrameObjId = string.IsNullOrWhiteSpace(inputMap.FrameObjId) ? inputStageWafer.WaferId : inputMap.FrameObjId;
                     inputStageWafer.HasInputStageAlignResult = true;
                     inputStageWafer.InputStageAlignOriginX = inputMap.OriginX;
@@ -574,12 +932,12 @@ namespace QMC.CDT320.Materials
                         MaterialLocationKind.InputStage,
                         WaferMaterialState.Working,
                         lotId,
-                        tapeFrameSpecName);
+                        inputTapeFrameSpecName);
 
                     int inputTargetCount = ApplyProcessTestInputDieMaterialsNoLock(inputMap, inputStageWafer);
 
-                    WaferMaterial goodStageWafer = CreateProcessTestOutputStageWaferNoLock(QMC.CDT320.BinSide.Good, lotId, timestamp, tapeFrameSpecName, inputStageWafer.WaferId, project);
-                    WaferMaterial ngStageWafer = CreateProcessTestOutputStageWaferNoLock(QMC.CDT320.BinSide.Ng, lotId, timestamp, tapeFrameSpecName, inputStageWafer.WaferId, project);
+                    WaferMaterial goodStageWafer = CreateProcessTestOutputStageWaferNoLock(QMC.CDT320.BinSide.Good, lotId, timestamp, outputTapeFrameSpecName, inputStageWafer.WaferId, project);
+                    WaferMaterial ngStageWafer = CreateProcessTestOutputStageWaferNoLock(QMC.CDT320.BinSide.Ng, lotId, timestamp, outputTapeFrameSpecName, inputStageWafer.WaferId, project);
                     BindProcessTestStageWaferToCassetteSlotNoLock(
                         CassetteMaterialRole.Good1,
                         0,
@@ -587,7 +945,7 @@ namespace QMC.CDT320.Materials
                         MaterialLocationKind.OutputStageGood,
                         WaferMaterialState.Working,
                         lotId,
-                        tapeFrameSpecName);
+                        outputTapeFrameSpecName);
                     BindProcessTestStageWaferToCassetteSlotNoLock(
                         CassetteMaterialRole.Ng1,
                         0,
@@ -595,7 +953,7 @@ namespace QMC.CDT320.Materials
                         MaterialLocationKind.OutputStageNg,
                         WaferMaterialState.Working,
                         lotId,
-                        tapeFrameSpecName);
+                        outputTapeFrameSpecName);
 
                     State.LotId = lotId;
                     State.RecipeName = project != null ? project.FileName ?? "" : State.RecipeName;
@@ -637,6 +995,73 @@ namespace QMC.CDT320.Materials
 
             EnsureTapeFrameSpecFromFrame(project, frame, specName, "");
             return specName;
+        }
+
+        public static string ResolveInputTapeFrameSpecName(int inchSelect)
+        {
+            string specName = ResolveRecipeTapeFrameSpecName(inchSelect);
+            if (!string.IsNullOrWhiteSpace(specName))
+                return NormalizeInputTapeFrameSpecName(specName);
+
+            return NormalizeInputTapeFrameSpecName(ResolveDefaultTapeFrameSpecName(inchSelect));
+        }
+
+        public static string NormalizeInputTapeFrameSpecName(string specName)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(specName))
+                    return "";
+
+                string trimmed = specName.Trim();
+                if (trimmed.IndexOf("Output", StringComparison.OrdinalIgnoreCase) < 0)
+                    return trimmed;
+
+                string candidateName = ReplaceIgnoreCase(trimmed, "Output", "Input");
+                TapeFrameSpec candidate = MaterialSpecs.FindFrame(candidateName);
+                if (candidate == null)
+                    return trimmed;
+
+                TapeFrameSpec current = MaterialSpecs.FindFrame(trimmed);
+                if (current != null && !IsCompatibleTapeFrameSpec(current, candidate))
+                    return trimmed;
+
+                Log.Write("Main", "SYSTEM", "MaterialStateService",
+                    "Input tape frame spec normalized. requested=" + trimmed +
+                    ", normalized=" + candidate.Name + " - Ok");
+                return candidate.Name;
+            }
+            catch
+            {
+                return string.IsNullOrWhiteSpace(specName) ? "" : specName.Trim();
+            }
+            finally
+            {
+            }
+        }
+
+        private static string ReplaceIgnoreCase(string source, string oldValue, string newValue)
+        {
+            if (string.IsNullOrEmpty(source) || string.IsNullOrEmpty(oldValue))
+                return source;
+
+            int index = source.IndexOf(oldValue, StringComparison.OrdinalIgnoreCase);
+            if (index < 0)
+                return source;
+
+            return source.Substring(0, index) + newValue + source.Substring(index + oldValue.Length);
+        }
+
+        private static bool IsCompatibleTapeFrameSpec(TapeFrameSpec a, TapeFrameSpec b)
+        {
+            if (a == null || b == null)
+                return false;
+
+            return a.DieMapX == b.DieMapX &&
+                   a.DieMapY == b.DieMapY &&
+                   Math.Abs(a.PitchX - b.PitchX) <= 0.000001 &&
+                   Math.Abs(a.PitchY - b.PitchY) <= 0.000001 &&
+                   Math.Abs(a.OuterDiameterMm - b.OuterDiameterMm) <= 0.001;
         }
 
         private static double ResolveProcessTestThetaAlignOffset(QMC.CDT320.InputStageUnit inputStage)
@@ -889,7 +1314,9 @@ namespace QMC.CDT320.Materials
             wafer.CurrentLocation = new MaterialLocation { Kind = kind };
             wafer.State = WaferMaterialStateText.Normalize(state);
             if (string.IsNullOrWhiteSpace(wafer.TapeFrameSpecName))
-                wafer.TapeFrameSpecName = ResolveRecipeTapeFrameSpecName(0);
+                wafer.TapeFrameSpecName = kind == MaterialLocationKind.InputStage
+                    ? ResolveInputTapeFrameSpecName(0)
+                    : ResolveRecipeTapeFrameSpecName(0);
             wafer.UpdatedAt = DateTime.Now;
             NotifyAndSave("CreateWaferAtLocation");
             return wafer;
@@ -1487,6 +1914,14 @@ namespace QMC.CDT320.Materials
                         "side=" + side,
                         "order=" + outputWafer.OutputReceiveNextIndex,
                         "result=" + die.Result);
+                    OutputWaferCsvSnapshotWriter.EnqueuePlacedDie(
+                        "Place",
+                        State != null ? State.RecipeName : "",
+                        State != null ? State.LotId : "",
+                        side,
+                        outputWafer,
+                        die,
+                        receiveTarget);
                     NotifyAndSave("MoveDieToOutputStage");
                     return true;
                 }
@@ -1528,7 +1963,8 @@ namespace QMC.CDT320.Materials
             OutputStageReceiveTarget receiveTarget,
             bool inspectionOk,
             VisionOffset offset,
-            string raw)
+            string raw,
+            IDictionary<string, string> visionValues)
         {
             try
             {
@@ -1577,6 +2013,11 @@ namespace QMC.CDT320.Materials
                             Result = inspectionOk ? MaterialInspectionResult.Ok : MaterialInspectionResult.Ng
                         }
                     };
+                    AppendVisionValueMeasurements(
+                        record.Measurements,
+                        visionValues,
+                        "OutputVision",
+                        inspectionOk ? MaterialInspectionResult.Ok : MaterialInspectionResult.Ng);
 
                     if (outputWafer != null && outputWafer.OutputReceiveSlots != null)
                     {
@@ -1608,6 +2049,17 @@ namespace QMC.CDT320.Materials
                     }
 
                     die.UpdatedAt = DateTime.Now;
+                    if (outputWafer != null)
+                    {
+                        OutputWaferCsvSnapshotWriter.EnqueuePlacedDie(
+                            "OutputStageDieInspection",
+                            State != null ? State.RecipeName : "",
+                            State != null ? State.LotId : "",
+                            side,
+                            outputWafer,
+                            die,
+                            receiveTarget);
+                    }
                     NotifyAndSave("OutputStageDieInspection");
                     Log.Write("Main", "MATERIAL", "OutputStageDieInspection",
                         "Output stage die inspection updated. die=" + dieId +
@@ -1626,6 +2078,107 @@ namespace QMC.CDT320.Materials
             finally
             {
             }
+        }
+
+        private static void AppendVisionValueMeasurements(
+            List<InspectionMeasurement> measurements,
+            IDictionary<string, string> values,
+            string prefix,
+            MaterialInspectionResult defaultResult)
+        {
+            if (measurements == null || values == null || values.Count == 0)
+                return;
+
+            string safePrefix = string.IsNullOrWhiteSpace(prefix) ? "Vision" : prefix;
+            foreach (KeyValuePair<string, string> pair in values)
+            {
+                if (IsVisionPassKey(pair.Key))
+                    continue;
+
+                double value;
+                QMC.CDT320.VisionComm.VisionProtocolResponse.TryParseDouble(pair.Value, out value);
+                measurements.Add(new InspectionMeasurement
+                {
+                    Name = safePrefix + "_" + NormalizeVisionMeasurementKey(pair.Key),
+                    Value = value,
+                    Unit = "",
+                    RawValue = pair.Value ?? "",
+                    Result = ResolveVisionMeasurementResult(values, pair.Key, defaultResult)
+                });
+            }
+        }
+
+        private static bool IsVisionPassKey(string key)
+        {
+            return !string.IsNullOrWhiteSpace(key) &&
+                   key.EndsWith("_pass", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static MaterialInspectionResult ResolveVisionMeasurementResult(
+            IDictionary<string, string> values,
+            string key,
+            MaterialInspectionResult defaultResult)
+        {
+            if (values == null || string.IsNullOrWhiteSpace(key))
+                return defaultResult;
+
+            string passText;
+            if (!values.TryGetValue(key + "_pass", out passText))
+                return defaultResult;
+
+            bool pass;
+            if (TryParseVisionPassValue(passText, out pass))
+                return pass ? MaterialInspectionResult.Ok : MaterialInspectionResult.Ng;
+
+            return defaultResult;
+        }
+
+        private static bool TryParseVisionPassValue(string text, out bool pass)
+        {
+            pass = false;
+            if (string.IsNullOrWhiteSpace(text))
+                return false;
+
+            string value = text.Trim();
+            if (string.Equals(value, "1", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(value, "true", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(value, "ok", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(value, "pass", StringComparison.OrdinalIgnoreCase))
+            {
+                pass = true;
+                return true;
+            }
+
+            if (string.Equals(value, "0", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(value, "false", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(value, "ng", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(value, "fail", StringComparison.OrdinalIgnoreCase))
+            {
+                pass = false;
+                return true;
+            }
+
+            return false;
+        }
+
+        private static string NormalizeVisionMeasurementKey(string key)
+        {
+            if (string.IsNullOrWhiteSpace(key))
+                return "unknown";
+
+            char[] chars = key.Trim().ToCharArray();
+            for (int i = 0; i < chars.Length; i++)
+            {
+                char c = chars[i];
+                bool ok = (c >= 'a' && c <= 'z') ||
+                          (c >= 'A' && c <= 'Z') ||
+                          (c >= '0' && c <= '9') ||
+                          c == '_';
+                if (!ok)
+                    chars[i] = '_';
+            }
+
+            return new string(chars);
         }
 
         public static bool IsOutputStageReceiveAvailable(QMC.CDT320.BinSide side)
@@ -2041,7 +2594,7 @@ namespace QMC.CDT320.Materials
                 die.Wafer_IndexX = mapX;
                 die.Wafer_IndexY = mapY;
                 die.InputSequenceNo = entry.SequenceNo;
-                die.Input_BinCode = entry.BinCode;
+                die.Input_BinCode = entry.IsTarget ? entry.BinCode : 0;
                 die.IsInputTarget = entry.IsTarget;
                 die.Output_BinCode = 0;
                 die.Bin_IndexX = -1;
@@ -2049,20 +2602,31 @@ namespace QMC.CDT320.Materials
                 die.CurrentLocation = new MaterialLocation { Kind = entry.IsTarget ? MaterialLocationKind.InputStage : MaterialLocationKind.Unknown };
                 die.ReservedPickerLocation = MaterialLocationKind.Unknown;
                 die.ReservedPickerNo = -1;
+                // 현재 기준: Process Test Data 생성도 새 Input 맵과 동일하게 Pick/검사 이력을 비운다.
                 die.PickedPickerLocation = MaterialLocationKind.Unknown;
                 die.PickedPickerNo = -1;
                 die.PickedAt = DateTime.MinValue;
-                die.Result = entry.IsTarget ? DieResult.Unknown : DieResult.NG;
+                die.Result = DieResult.Unknown;
                 if (die.NgCodes == null)
                     die.NgCodes = new List<string>();
                 else
                     die.NgCodes.Clear();
+                if (die.Inspections == null)
+                    die.Inspections = new List<DieInspectionRecord>();
+                else
+                    die.Inspections.Clear();
                 if (die.WaferOffset == null)
                     die.WaferOffset = new VisionOffset();
                 die.WaferOffset.X = entry.PosX;
                 die.WaferOffset.Y = entry.PosY;
                 die.WaferOffset.R = 0.0;
                 die.WaferOffset.IsValid = true;
+                if (die.BinOffset == null)
+                    die.BinOffset = new VisionOffset();
+                die.BinOffset.X = 0.0;
+                die.BinOffset.Y = 0.0;
+                die.BinOffset.R = 0.0;
+                die.BinOffset.IsValid = false;
                 die.UpdatedAt = DateTime.Now;
 
                 wafer.DieIds.Add(dieId);
@@ -4209,9 +4773,10 @@ namespace QMC.CDT320.Materials
                     return false;
                 }
 
-                if (entry.Result == DieResult.NG)
+                if (entry.Result == DieResult.Good || entry.Result == DieResult.NG)
                 {
-                    reason = "die map result is NG. die=" + entry.DieUid +
+                    reason = "die map result is already completed. die=" + entry.DieUid +
+                             ", result=" + entry.Result +
                              ", sequence=" + entry.SequenceNo +
                              ", grid=(" + ResolveEntryMapX(entry) + "," + ResolveEntryMapY(entry) + ")";
                     return false;
@@ -4226,15 +4791,77 @@ namespace QMC.CDT320.Materials
                 return false;
             }
 
-            if (die.Result == DieResult.NG)
+            if (die.Result == DieResult.Good || die.Result == DieResult.NG)
             {
-                reason = "die result is NG. die=" + die.DieId +
+                reason = "die result is already completed. die=" + die.DieId +
+                         ", result=" + die.Result +
+                         ", sequence=" + die.InputSequenceNo +
+                         ", grid=(" + die.Wafer_IndexX + "," + die.Wafer_IndexY + ")";
+                return false;
+            }
+
+            if (HasInputPickCompletedHistory(die))
+            {
+                reason = "die was already picked. die=" + die.DieId +
+                         ", pickedPickerLocation=" + die.PickedPickerLocation +
+                         ", pickedPickerNo=" + die.PickedPickerNo +
+                         ", pickedAt=" + FormatDateTimeForLog(die.PickedAt) +
                          ", sequence=" + die.InputSequenceNo +
                          ", grid=(" + die.Wafer_IndexX + "," + die.Wafer_IndexY + ")";
                 return false;
             }
 
             return true;
+        }
+
+        private static bool HasInputPickCompletedHistory(DieMaterial die)
+        {
+            if (die == null)
+                return false;
+
+            if (HasValidPickedAt(die.PickedAt) ||
+                die.PickedPickerNo > 0 ||
+                IsPickerLocation(die.PickedPickerLocation))
+                return true;
+
+            if (die.Inspections == null || die.Inspections.Count == 0)
+                return false;
+
+            for (int i = 0; i < die.Inspections.Count; i++)
+            {
+                DieInspectionRecord record = die.Inspections[i];
+                if (record == null)
+                    continue;
+
+                if (!string.Equals(record.InspectionType, "PickUp", StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                if (record.Result != MaterialInspectionResult.Unknown)
+                    return true;
+            }
+
+            return false;
+        }
+
+        private static bool HasValidPickedAt(DateTime pickedAt)
+        {
+            if (pickedAt == DateTime.MinValue)
+                return false;
+
+            // MaterialSnapshotStore stores optional empty DateTime values as 1900-01-01
+            // because JSON serializers cannot safely round-trip DateTime.MinValue.
+            // Treat that sentinel as "not picked" so restored input-map targets remain pickable.
+            if (pickedAt <= new DateTime(1900, 1, 1, 23, 59, 59))
+                return false;
+
+            return true;
+        }
+
+        private static string FormatDateTimeForLog(DateTime value)
+        {
+            return !HasValidPickedAt(value)
+                ? "-"
+                : value.ToString("yyyy-MM-dd HH:mm:ss.fff", CultureInfo.InvariantCulture);
         }
 
         public static void UpsertInspection(string dieId, DieInspectionRecord record)
@@ -4247,6 +4874,12 @@ namespace QMC.CDT320.Materials
             if (record.CreatedAt == default(DateTime)) record.CreatedAt = DateTime.Now;
             die.Inspections.Add(record);
             die.UpdatedAt = DateTime.Now;
+            InputWaferInspectionCsvSnapshotWriter.EnqueueInspection(
+                "InspectionUpsert",
+                State != null ? State.RecipeName : "",
+                State != null ? State.LotId : "",
+                die,
+                record);
             NotifyAndSave("UpsertInspection");
         }
 
@@ -4257,6 +4890,68 @@ namespace QMC.CDT320.Materials
             die.Inspections.RemoveAll(x => x.InspectionType == inspectionType);
             die.UpdatedAt = DateTime.Now;
             NotifyAndSave("RemoveInspection");
+        }
+
+        public static void ResetInputPickCompletionHistory(string dieId, string reason)
+        {
+            try
+            {
+                lock (_stateSync)
+                {
+                    if (string.IsNullOrWhiteSpace(dieId))
+                        return;
+
+                    DieMaterial die = State.Dies.FirstOrDefault(d =>
+                        d != null &&
+                        string.Equals(d.DieId, dieId, StringComparison.OrdinalIgnoreCase));
+                    if (die == null)
+                        return;
+
+                    die.IsInputTarget = true;
+                    die.Result = DieResult.Unknown;
+                    if (die.NgCodes != null)
+                        die.NgCodes.Clear();
+
+                    if (die.CurrentLocation == null ||
+                        die.CurrentLocation.Kind == MaterialLocationKind.Unknown)
+                    {
+                        die.CurrentLocation = new MaterialLocation { Kind = MaterialLocationKind.InputStage };
+                    }
+
+                    die.ReservedPickerLocation = MaterialLocationKind.Unknown;
+                    die.ReservedPickerNo = -1;
+                    die.PickedPickerLocation = MaterialLocationKind.Unknown;
+                    die.PickedPickerNo = -1;
+                    die.PickedAt = DateTime.MinValue;
+
+                    if (die.Inspections != null)
+                    {
+                        die.Inspections.RemoveAll(x =>
+                            x != null &&
+                            (string.Equals(x.InspectionType, "InputPickVision", StringComparison.OrdinalIgnoreCase) ||
+                             string.Equals(x.InspectionType, "PickUp", StringComparison.OrdinalIgnoreCase) ||
+                             string.Equals(x.InspectionType, "Bottom", StringComparison.OrdinalIgnoreCase) ||
+                             string.Equals(x.InspectionType, "Side0", StringComparison.OrdinalIgnoreCase) ||
+                             string.Equals(x.InspectionType, "Side90", StringComparison.OrdinalIgnoreCase) ||
+                             string.Equals(x.InspectionType, "ManualPickerHeadEdit", StringComparison.OrdinalIgnoreCase)));
+                    }
+
+                    die.UpdatedAt = DateTime.Now;
+                    NotifyAndSave("ResetInputPickCompletionHistory");
+                    Log.Write("Main", "MATERIAL", "ResetInputPickCompletionHistory",
+                        "Input pick completion history reset manually. die=" + dieId +
+                        ", reason=" + (reason ?? "") + " - Ok");
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Write("Main", "MATERIAL", "ResetInputPickCompletionHistory",
+                    "Input pick completion history reset failed. die=" + dieId +
+                    ", error=" + ex.Message + " - Failed");
+            }
+            finally
+            {
+            }
         }
 
         public static void NotifyAndSave(string reason)
@@ -4286,13 +4981,23 @@ namespace QMC.CDT320.Materials
         {
             try
             {
+                bool shouldSave;
                 lock (_saveRequestSync)
                 {
+                    shouldSave = _saveRequested || _saveWorkerRunning || !_lastSaveSucceeded || _lastSaveCompletedUtc == DateTime.MinValue;
                     _saveRequested = false;
                     _pendingSaveReason = reason ?? "";
                 }
 
                 RequestStateChanged();
+                if (!shouldSave)
+                {
+                    Log.Write("Main", "SYSTEM", "MaterialStateSave",
+                        "Material state flush skipped because latest snapshot is already saved. reason=" +
+                        (reason ?? "") + " - Ok");
+                    return true;
+                }
+
                 return SaveCurrentSnapshot(reason);
             }
             catch (Exception ex)
@@ -4444,7 +5149,20 @@ namespace QMC.CDT320.Materials
                 }
 
                 if (saved)
-                    _lastSaveCompletedUtc = DateTime.UtcNow;
+                {
+                    lock (_saveRequestSync)
+                    {
+                        _lastSaveCompletedUtc = DateTime.UtcNow;
+                        _lastSaveSucceeded = true;
+                    }
+                }
+                else
+                {
+                    lock (_saveRequestSync)
+                    {
+                        _lastSaveSucceeded = false;
+                    }
+                }
 
                 if (!saved)
                 {
@@ -4463,6 +5181,10 @@ namespace QMC.CDT320.Materials
             }
             catch (Exception ex)
             {
+                lock (_saveRequestSync)
+                {
+                    _lastSaveSucceeded = false;
+                }
                 Log.Write("Main", "SYSTEM", "MaterialStateSave", "Material state save failed: " + ex.Message + " - Failed");
                 return false;
             }

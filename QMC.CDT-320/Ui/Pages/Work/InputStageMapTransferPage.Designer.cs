@@ -10,19 +10,17 @@ namespace QMC.CDT_320.Ui.Pages.Work
     {
         private TableLayoutPanel rootLayout;
         private Label lblHeader;
-        private TableLayoutPanel statusLayout;
         private Label lblProjectCaption;
         private Label lblProjectValue;
         private Label lblBarcodeCaption;
         private Label lblBarcodeValue;
         private Label lblBinCaption;
         private Label lblBinValue;
-        private TableLayoutPanel bodyLayout;
-        private TableLayoutPanel mapLayout;
         private Label lblMapTitle;
+        private GroupBox grpCreate;
         private DieMapView mapView;
         private DataGridView gridDieList;
-        private TableLayoutPanel sideLayout;
+        private TableLayoutPanel infoEditBody;
         private GroupBox grpMapInfo;
         private TableLayoutPanel mapInfoLayout;
         private Label lblChipWCaption;
@@ -43,14 +41,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
         private Label lblBinRank;
         private Label lblDieNumCaption;
         private Label lblDieNum;
-        private GroupBox grpMode;
-        private TableLayoutPanel modeLayout;
-        private RadioButton rbStandard;
-        private RadioButton rbStartIndex;
-        private RadioButton rbSelectPickStatus;
-        private RadioButton rbDragPickStatus;
-        private ActionButton btnPickStatusSave;
-        private ActionButton btnReloadActiveMap;
+        private TableLayoutPanel dieStateArea;
         private GroupBox grpDieState;
         private TableLayoutPanel dieStateLayout;
         private RadioButton rdoDieStateWait;
@@ -58,31 +49,37 @@ namespace QMC.CDT_320.Ui.Pages.Work
         private RadioButton rdoDieStateNg;
         private RadioButton rdoDieStateSkip;
         private System.Windows.Forms.Button btnApplyDieState;
-        private TableLayoutPanel actionLayout;
+        private TableLayoutPanel detachedButtonRow;
         private ActionButton btnManualAlignComplete;
-        private ActionButton btnNeedleBlockDown;
+        private ActionButton btnReloadActiveMap;
+        private GroupBox grpAction;
+        private TableLayoutPanel actionBar;
         private ActionButton btnThetaMatchMove;
         private ActionButton btnXyMatchMove;
         private ActionButton btnManualDieMapOffsetApply;
+        private RadioButton rbStandard;
+        private RadioButton rbStartIndex;
+        private RadioButton rbSelectPickStatus;
+        private RadioButton rbDragPickStatus;
+        private ActionButton btnPickStatusSave;
+        private ActionButton btnNeedleBlockDown;
         private Button btnClose;
 
         private void InitializeComponent()
         {
             this.rootLayout = new System.Windows.Forms.TableLayoutPanel();
             this.lblHeader = new System.Windows.Forms.Label();
-            this.statusLayout = new System.Windows.Forms.TableLayoutPanel();
             this.lblProjectCaption = new System.Windows.Forms.Label();
             this.lblProjectValue = new System.Windows.Forms.Label();
             this.lblBarcodeCaption = new System.Windows.Forms.Label();
             this.lblBarcodeValue = new System.Windows.Forms.Label();
             this.lblBinCaption = new System.Windows.Forms.Label();
             this.lblBinValue = new System.Windows.Forms.Label();
-            this.bodyLayout = new System.Windows.Forms.TableLayoutPanel();
-            this.mapLayout = new System.Windows.Forms.TableLayoutPanel();
             this.lblMapTitle = new System.Windows.Forms.Label();
+            this.grpCreate = new System.Windows.Forms.GroupBox();
             this.mapView = new QMC.CDT320.Ui.Controls.DieMapView();
             this.gridDieList = new System.Windows.Forms.DataGridView();
-            this.sideLayout = new System.Windows.Forms.TableLayoutPanel();
+            this.infoEditBody = new System.Windows.Forms.TableLayoutPanel();
             this.grpMapInfo = new System.Windows.Forms.GroupBox();
             this.mapInfoLayout = new System.Windows.Forms.TableLayoutPanel();
             this.lblChipWCaption = new System.Windows.Forms.Label();
@@ -103,14 +100,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.lblBinRank = new System.Windows.Forms.Label();
             this.lblDieNumCaption = new System.Windows.Forms.Label();
             this.lblDieNum = new System.Windows.Forms.Label();
-            this.grpMode = new System.Windows.Forms.GroupBox();
-            this.modeLayout = new System.Windows.Forms.TableLayoutPanel();
-            this.rbStandard = new System.Windows.Forms.RadioButton();
-            this.rbStartIndex = new System.Windows.Forms.RadioButton();
-            this.rbSelectPickStatus = new System.Windows.Forms.RadioButton();
-            this.rbDragPickStatus = new System.Windows.Forms.RadioButton();
-            this.btnReloadActiveMap = new QMC.CDT_320.Ui.Controls.ActionButton();
-            this.btnPickStatusSave = new QMC.CDT_320.Ui.Controls.ActionButton();
+            this.dieStateArea = new System.Windows.Forms.TableLayoutPanel();
             this.grpDieState = new System.Windows.Forms.GroupBox();
             this.dieStateLayout = new System.Windows.Forms.TableLayoutPanel();
             this.rdoDieStateWait = new System.Windows.Forms.RadioButton();
@@ -118,12 +108,20 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.rdoDieStateNg = new System.Windows.Forms.RadioButton();
             this.rdoDieStateSkip = new System.Windows.Forms.RadioButton();
             this.btnApplyDieState = new System.Windows.Forms.Button();
-            this.actionLayout = new System.Windows.Forms.TableLayoutPanel();
+            this.detachedButtonRow = new System.Windows.Forms.TableLayoutPanel();
             this.btnManualAlignComplete = new QMC.CDT_320.Ui.Controls.ActionButton();
-            this.btnNeedleBlockDown = new QMC.CDT_320.Ui.Controls.ActionButton();
+            this.btnReloadActiveMap = new QMC.CDT_320.Ui.Controls.ActionButton();
+            this.grpAction = new System.Windows.Forms.GroupBox();
+            this.actionBar = new System.Windows.Forms.TableLayoutPanel();
             this.btnThetaMatchMove = new QMC.CDT_320.Ui.Controls.ActionButton();
             this.btnXyMatchMove = new QMC.CDT_320.Ui.Controls.ActionButton();
             this.btnManualDieMapOffsetApply = new QMC.CDT_320.Ui.Controls.ActionButton();
+            this.rbStandard = new System.Windows.Forms.RadioButton();
+            this.rbStartIndex = new System.Windows.Forms.RadioButton();
+            this.rbSelectPickStatus = new System.Windows.Forms.RadioButton();
+            this.rbDragPickStatus = new System.Windows.Forms.RadioButton();
+            this.btnPickStatusSave = new QMC.CDT_320.Ui.Controls.ActionButton();
+            this.btnNeedleBlockDown = new QMC.CDT_320.Ui.Controls.ActionButton();
             this.btnClose = new System.Windows.Forms.Button();
             this.colIndex = new System.Windows.Forms.DataGridViewTextBoxColumn();
             this.colGridX = new System.Windows.Forms.DataGridViewTextBoxColumn();
@@ -135,207 +133,62 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.colAxisY = new System.Windows.Forms.DataGridViewTextBoxColumn();
             this.colDieUid = new System.Windows.Forms.DataGridViewTextBoxColumn();
             this.rootLayout.SuspendLayout();
-            this.statusLayout.SuspendLayout();
-            this.bodyLayout.SuspendLayout();
-            this.mapLayout.SuspendLayout();
+            this.grpCreate.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.gridDieList)).BeginInit();
-            this.sideLayout.SuspendLayout();
+            this.infoEditBody.SuspendLayout();
             this.grpMapInfo.SuspendLayout();
             this.mapInfoLayout.SuspendLayout();
-            this.grpMode.SuspendLayout();
-            this.modeLayout.SuspendLayout();
+            this.dieStateArea.SuspendLayout();
             this.grpDieState.SuspendLayout();
             this.dieStateLayout.SuspendLayout();
-            this.actionLayout.SuspendLayout();
+            this.detachedButtonRow.SuspendLayout();
+            this.grpAction.SuspendLayout();
+            this.actionBar.SuspendLayout();
             this.SuspendLayout();
             //
             // rootLayout
             //
-            this.rootLayout.ColumnCount = 1;
-            this.rootLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.rootLayout.Controls.Add(this.lblHeader, 0, 0);
-            this.rootLayout.Controls.Add(this.statusLayout, 0, 1);
-            this.rootLayout.Controls.Add(this.bodyLayout, 0, 2);
+            this.rootLayout.BackColor = System.Drawing.Color.White;
+            this.rootLayout.ColumnCount = 2;
+            this.rootLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 50F));
+            this.rootLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 50F));
+            this.rootLayout.Controls.Add(this.grpCreate, 0, 0);
+            this.rootLayout.Controls.Add(this.gridDieList, 0, 1);
+            this.rootLayout.Controls.Add(this.infoEditBody, 1, 0);
+            this.rootLayout.Controls.Add(this.grpAction, 1, 1);
             this.rootLayout.Dock = System.Windows.Forms.DockStyle.Fill;
             this.rootLayout.Location = new System.Drawing.Point(0, 0);
             this.rootLayout.Name = "rootLayout";
-            this.rootLayout.RowCount = 3;
-            this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 30F));
-            this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 22F));
-            this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.rootLayout.Padding = new System.Windows.Forms.Padding(0);
+            this.rootLayout.RowCount = 2;
+            this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 65F));
+            this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 35F));
             this.rootLayout.Size = new System.Drawing.Size(1678, 900);
             this.rootLayout.TabIndex = 0;
             //
-            // lblHeader
+            // grpCreate
             //
-            this.lblHeader.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(217)))), ((int)(((byte)(119)))), ((int)(((byte)(6)))));
-            this.lblHeader.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblHeader.Font = new System.Drawing.Font("맑은 고딕", 11F, System.Drawing.FontStyle.Bold);
-            this.lblHeader.ForeColor = System.Drawing.Color.White;
-            this.lblHeader.Location = new System.Drawing.Point(3, 0);
-            this.lblHeader.Name = "lblHeader";
-            this.lblHeader.Padding = new System.Windows.Forms.Padding(10, 0, 0, 0);
-            this.lblHeader.Size = new System.Drawing.Size(1672, 30);
-            this.lblHeader.TabIndex = 0;
-            this.lblHeader.Tag = "i18n:work.page.inputMap";
-            this.lblHeader.Text = "INPUT STAGE DIE MAP";
-            this.lblHeader.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            //
-            // statusLayout
-            //
-            this.statusLayout.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(217)))), ((int)(((byte)(119)))), ((int)(((byte)(6)))));
-            this.statusLayout.ColumnCount = 8;
-            this.statusLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 80F));
-            this.statusLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 260F));
-            this.statusLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 90F));
-            this.statusLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 220F));
-            this.statusLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 60F));
-            this.statusLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 120F));
-            this.statusLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.statusLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 80F));
-            this.statusLayout.Controls.Add(this.lblProjectCaption, 0, 0);
-            this.statusLayout.Controls.Add(this.lblProjectValue, 1, 0);
-            this.statusLayout.Controls.Add(this.lblBarcodeCaption, 2, 0);
-            this.statusLayout.Controls.Add(this.lblBarcodeValue, 3, 0);
-            this.statusLayout.Controls.Add(this.lblBinCaption, 4, 0);
-            this.statusLayout.Controls.Add(this.lblBinValue, 5, 0);
-            this.statusLayout.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.statusLayout.Location = new System.Drawing.Point(3, 29);
-            this.statusLayout.Name = "statusLayout";
-            this.statusLayout.RowCount = 1;
-            this.statusLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.statusLayout.Size = new System.Drawing.Size(1672, 16);
-            this.statusLayout.TabIndex = 1;
-            //
-            // lblProjectCaption
-            //
-            this.lblProjectCaption.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblProjectCaption.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
-            this.lblProjectCaption.ForeColor = System.Drawing.Color.White;
-            this.lblProjectCaption.Location = new System.Drawing.Point(3, 0);
-            this.lblProjectCaption.Name = "lblProjectCaption";
-            this.lblProjectCaption.Size = new System.Drawing.Size(74, 16);
-            this.lblProjectCaption.TabIndex = 0;
-            this.lblProjectCaption.Text = "Project Name :";
-            this.lblProjectCaption.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            //
-            // lblProjectValue
-            //
-            this.lblProjectValue.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblProjectValue.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
-            this.lblProjectValue.ForeColor = System.Drawing.Color.White;
-            this.lblProjectValue.Location = new System.Drawing.Point(83, 0);
-            this.lblProjectValue.Name = "lblProjectValue";
-            this.lblProjectValue.Size = new System.Drawing.Size(254, 16);
-            this.lblProjectValue.TabIndex = 1;
-            this.lblProjectValue.Text = "--";
-            this.lblProjectValue.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            //
-            // lblBarcodeCaption
-            //
-            this.lblBarcodeCaption.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblBarcodeCaption.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
-            this.lblBarcodeCaption.ForeColor = System.Drawing.Color.White;
-            this.lblBarcodeCaption.Location = new System.Drawing.Point(343, 0);
-            this.lblBarcodeCaption.Name = "lblBarcodeCaption";
-            this.lblBarcodeCaption.Size = new System.Drawing.Size(84, 16);
-            this.lblBarcodeCaption.TabIndex = 2;
-            this.lblBarcodeCaption.Text = "Barcode Name :";
-            this.lblBarcodeCaption.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            //
-            // lblBarcodeValue
-            //
-            this.lblBarcodeValue.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblBarcodeValue.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
-            this.lblBarcodeValue.ForeColor = System.Drawing.Color.White;
-            this.lblBarcodeValue.Location = new System.Drawing.Point(433, 0);
-            this.lblBarcodeValue.Name = "lblBarcodeValue";
-            this.lblBarcodeValue.Size = new System.Drawing.Size(214, 16);
-            this.lblBarcodeValue.TabIndex = 3;
-            this.lblBarcodeValue.Text = "--";
-            this.lblBarcodeValue.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            //
-            // lblBinCaption
-            //
-            this.lblBinCaption.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblBinCaption.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
-            this.lblBinCaption.ForeColor = System.Drawing.Color.White;
-            this.lblBinCaption.Location = new System.Drawing.Point(653, 0);
-            this.lblBinCaption.Name = "lblBinCaption";
-            this.lblBinCaption.Size = new System.Drawing.Size(54, 16);
-            this.lblBinCaption.TabIndex = 4;
-            this.lblBinCaption.Text = "1Bin :";
-            this.lblBinCaption.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            //
-            // lblBinValue
-            //
-            this.lblBinValue.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblBinValue.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
-            this.lblBinValue.ForeColor = System.Drawing.Color.White;
-            this.lblBinValue.Location = new System.Drawing.Point(713, 0);
-            this.lblBinValue.Name = "lblBinValue";
-            this.lblBinValue.Size = new System.Drawing.Size(114, 16);
-            this.lblBinValue.TabIndex = 5;
-            this.lblBinValue.Text = "--";
-            this.lblBinValue.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            //
-            // bodyLayout
-            //
-            this.bodyLayout.ColumnCount = 2;
-            this.bodyLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.bodyLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 520F));
-            this.bodyLayout.Controls.Add(this.mapLayout, 0, 0);
-            this.bodyLayout.Controls.Add(this.sideLayout, 1, 0);
-            this.bodyLayout.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.bodyLayout.Location = new System.Drawing.Point(3, 51);
-            this.bodyLayout.Name = "bodyLayout";
-            this.bodyLayout.Padding = new System.Windows.Forms.Padding(6);
-            this.bodyLayout.RowCount = 1;
-            this.bodyLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.bodyLayout.Size = new System.Drawing.Size(1672, 846);
-            this.bodyLayout.TabIndex = 2;
-            //
-            // mapLayout
-            //
-            this.mapLayout.ColumnCount = 1;
-            this.mapLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.mapLayout.Controls.Add(this.lblMapTitle, 0, 0);
-            this.mapLayout.Controls.Add(this.mapView, 0, 1);
-            this.mapLayout.Controls.Add(this.gridDieList, 0, 2);
-            this.mapLayout.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.mapLayout.Location = new System.Drawing.Point(9, 9);
-            this.mapLayout.Name = "mapLayout";
-            this.mapLayout.RowCount = 3;
-            this.mapLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 24F));
-            this.mapLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 58F));
-            this.mapLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 42F));
-            this.mapLayout.Size = new System.Drawing.Size(1134, 828);
-            this.mapLayout.TabIndex = 0;
-            //
-            // lblMapTitle
-            //
-            this.lblMapTitle.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(217)))), ((int)(((byte)(119)))), ((int)(((byte)(6)))));
-            this.lblMapTitle.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblMapTitle.Font = new System.Drawing.Font("맑은 고딕", 11F, System.Drawing.FontStyle.Bold);
-            this.lblMapTitle.ForeColor = System.Drawing.Color.White;
-            this.lblMapTitle.Location = new System.Drawing.Point(3, 0);
-            this.lblMapTitle.Name = "lblMapTitle";
-            this.lblMapTitle.Padding = new System.Windows.Forms.Padding(10, 0, 0, 0);
-            this.lblMapTitle.Size = new System.Drawing.Size(1128, 24);
-            this.lblMapTitle.TabIndex = 0;
-            this.lblMapTitle.Tag = "i18n:recipe.inputMapCreate";
-            this.lblMapTitle.Text = "INPUT DIE MAP CREATE";
-            this.lblMapTitle.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            this.grpCreate.BackColor = System.Drawing.Color.White;
+            this.grpCreate.Controls.Add(this.mapView);
+            this.grpCreate.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.grpCreate.Font = new System.Drawing.Font("맑은 고딕", 11F, System.Drawing.FontStyle.Bold);
+            this.grpCreate.ForeColor = System.Drawing.Color.Black;
+            this.grpCreate.Margin = new System.Windows.Forms.Padding(3);
+            this.grpCreate.Name = "grpCreate";
+            this.grpCreate.Padding = new System.Windows.Forms.Padding(3);
+            this.grpCreate.TabStop = false;
+            this.grpCreate.Text = "INPUT DIE MAP CREATE";
             //
             // mapView
             //
-            this.mapView.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(30)))), ((int)(((byte)(30)))), ((int)(((byte)(30)))));
+            this.mapView.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(221)))), ((int)(((byte)(221)))), ((int)(((byte)(221)))));
             this.mapView.Caption = "Input Die Map";
             this.mapView.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.mapView.Location = new System.Drawing.Point(3, 27);
+            this.mapView.Location = new System.Drawing.Point(6, 24);
             this.mapView.Map = null;
+            this.mapView.Margin = new System.Windows.Forms.Padding(0);
             this.mapView.Name = "mapView";
-            this.mapView.Size = new System.Drawing.Size(1128, 460);
+            this.mapView.Size = new System.Drawing.Size(815, 412);
             this.mapView.TabIndex = 1;
             //
             // gridDieList
@@ -359,6 +212,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.colDieUid});
             this.gridDieList.Dock = System.Windows.Forms.DockStyle.Fill;
             this.gridDieList.Location = new System.Drawing.Point(3, 493);
+            this.gridDieList.Margin = new System.Windows.Forms.Padding(3);
             this.gridDieList.MultiSelect = false;
             this.gridDieList.Name = "gridDieList";
             this.gridDieList.ReadOnly = true;
@@ -368,44 +222,40 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.gridDieList.Size = new System.Drawing.Size(1128, 332);
             this.gridDieList.TabIndex = 2;
             //
-            // sideLayout
+            // infoEditBody
             //
-            this.sideLayout.ColumnCount = 2;
-            this.sideLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 230F));
-            this.sideLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.sideLayout.Controls.Add(this.grpMapInfo, 0, 0);
-            this.sideLayout.Controls.Add(this.grpMode, 1, 0);
-            this.sideLayout.Controls.Add(this.grpDieState, 0, 1);
-            this.sideLayout.Controls.Add(this.actionLayout, 1, 1);
-            this.sideLayout.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.sideLayout.Location = new System.Drawing.Point(1149, 9);
-            this.sideLayout.Name = "sideLayout";
-            this.sideLayout.RowCount = 3;
-            this.sideLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 260F));
-            this.sideLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 230F));
-            this.sideLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.sideLayout.Size = new System.Drawing.Size(514, 828);
-            this.sideLayout.TabIndex = 1;
+            this.infoEditBody.BackColor = System.Drawing.Color.White;
+            this.infoEditBody.ColumnCount = 2;
+            this.infoEditBody.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 50F));
+            this.infoEditBody.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 50F));
+            this.infoEditBody.Controls.Add(this.grpMapInfo, 0, 0);
+            this.infoEditBody.Controls.Add(this.dieStateArea, 1, 0);
+            this.infoEditBody.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.infoEditBody.Margin = new System.Windows.Forms.Padding(3);
+            this.infoEditBody.Name = "infoEditBody";
+            this.infoEditBody.Padding = new System.Windows.Forms.Padding(0);
+            this.infoEditBody.RowCount = 1;
+            this.infoEditBody.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.infoEditBody.TabIndex = 1;
             //
             // grpMapInfo
             //
-            this.grpMapInfo.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(240)))), ((int)(((byte)(240)))), ((int)(((byte)(240)))));
+            this.grpMapInfo.BackColor = System.Drawing.Color.White;
             this.grpMapInfo.Controls.Add(this.mapInfoLayout);
             this.grpMapInfo.Dock = System.Windows.Forms.DockStyle.Fill;
             this.grpMapInfo.Font = new System.Drawing.Font("맑은 고딕", 11F, System.Drawing.FontStyle.Bold);
-            this.grpMapInfo.Location = new System.Drawing.Point(4, 4);
-            this.grpMapInfo.Margin = new System.Windows.Forms.Padding(4);
+            this.grpMapInfo.ForeColor = System.Drawing.Color.Black;
+            this.grpMapInfo.Margin = new System.Windows.Forms.Padding(0, 0, 2, 0);
             this.grpMapInfo.Name = "grpMapInfo";
-            this.grpMapInfo.Size = new System.Drawing.Size(222, 252);
-            this.grpMapInfo.TabIndex = 0;
+            this.grpMapInfo.Padding = new System.Windows.Forms.Padding(3);
             this.grpMapInfo.TabStop = false;
             this.grpMapInfo.Text = "DIE MAP INFO";
             //
             // mapInfoLayout
             //
             this.mapInfoLayout.ColumnCount = 2;
-            this.mapInfoLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 48F));
-            this.mapInfoLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 52F));
+            this.mapInfoLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 40F));
+            this.mapInfoLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 60F));
             this.mapInfoLayout.Controls.Add(this.lblChipWCaption, 0, 0);
             this.mapInfoLayout.Controls.Add(this.lblChipW, 1, 0);
             this.mapInfoLayout.Controls.Add(this.lblChipHCaption, 0, 1);
@@ -429,390 +279,315 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.mapInfoLayout.Name = "mapInfoLayout";
             this.mapInfoLayout.Padding = new System.Windows.Forms.Padding(4, 6, 4, 4);
             this.mapInfoLayout.RowCount = 9;
-            this.mapInfoLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 22F));
-            this.mapInfoLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 22F));
-            this.mapInfoLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 22F));
-            this.mapInfoLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 22F));
-            this.mapInfoLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 22F));
-            this.mapInfoLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 22F));
-            this.mapInfoLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 22F));
-            this.mapInfoLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 22F));
-            this.mapInfoLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 22F));
-            this.mapInfoLayout.Size = new System.Drawing.Size(216, 226);
+            this.mapInfoLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 11.11111F));
+            this.mapInfoLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 11.11111F));
+            this.mapInfoLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 11.11111F));
+            this.mapInfoLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 11.11111F));
+            this.mapInfoLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 11.11111F));
+            this.mapInfoLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 11.11111F));
+            this.mapInfoLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 11.11111F));
+            this.mapInfoLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 11.11111F));
+            this.mapInfoLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 11.11111F));
             this.mapInfoLayout.TabIndex = 0;
             //
             // lblChipWCaption
             //
-            this.lblChipWCaption.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(208)))), ((int)(((byte)(208)))), ((int)(((byte)(208)))));
+            this.lblChipWCaption.AutoEllipsis = true;
+            this.lblChipWCaption.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(236)))), ((int)(((byte)(238)))), ((int)(((byte)(241)))));
             this.lblChipWCaption.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblChipWCaption.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblChipWCaption.Font = new System.Drawing.Font("맑은 고딕", 9F);
-            this.lblChipWCaption.Location = new System.Drawing.Point(7, 6);
+            this.lblChipWCaption.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
+            this.lblChipWCaption.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(70)))), ((int)(((byte)(70)))), ((int)(((byte)(70)))));
+            this.lblChipWCaption.Margin = new System.Windows.Forms.Padding(1);
             this.lblChipWCaption.Name = "lblChipWCaption";
             this.lblChipWCaption.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
-            this.lblChipWCaption.Size = new System.Drawing.Size(93, 22);
             this.lblChipWCaption.TabIndex = 0;
             this.lblChipWCaption.Text = "Chip Width";
             this.lblChipWCaption.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             //
             // lblChipW
             //
+            this.lblChipW.AutoEllipsis = true;
             this.lblChipW.BackColor = System.Drawing.Color.White;
             this.lblChipW.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblChipW.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblChipW.Font = new System.Drawing.Font("Consolas", 9F);
-            this.lblChipW.Location = new System.Drawing.Point(106, 6);
+            this.lblChipW.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(25)))), ((int)(((byte)(29)))), ((int)(((byte)(34)))));
+            this.lblChipW.Margin = new System.Windows.Forms.Padding(1);
             this.lblChipW.Name = "lblChipW";
             this.lblChipW.Padding = new System.Windows.Forms.Padding(0, 0, 6, 0);
-            this.lblChipW.Size = new System.Drawing.Size(103, 22);
             this.lblChipW.TabIndex = 1;
             this.lblChipW.Text = "0";
             this.lblChipW.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
             //
             // lblChipHCaption
             //
-            this.lblChipHCaption.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(208)))), ((int)(((byte)(208)))), ((int)(((byte)(208)))));
+            this.lblChipHCaption.AutoEllipsis = true;
+            this.lblChipHCaption.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(236)))), ((int)(((byte)(238)))), ((int)(((byte)(241)))));
             this.lblChipHCaption.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblChipHCaption.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblChipHCaption.Font = new System.Drawing.Font("맑은 고딕", 9F);
-            this.lblChipHCaption.Location = new System.Drawing.Point(7, 28);
+            this.lblChipHCaption.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
+            this.lblChipHCaption.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(70)))), ((int)(((byte)(70)))), ((int)(((byte)(70)))));
+            this.lblChipHCaption.Margin = new System.Windows.Forms.Padding(1);
             this.lblChipHCaption.Name = "lblChipHCaption";
             this.lblChipHCaption.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
-            this.lblChipHCaption.Size = new System.Drawing.Size(93, 22);
             this.lblChipHCaption.TabIndex = 2;
             this.lblChipHCaption.Text = "Chip Height";
             this.lblChipHCaption.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             //
             // lblChipH
             //
+            this.lblChipH.AutoEllipsis = true;
             this.lblChipH.BackColor = System.Drawing.Color.White;
             this.lblChipH.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblChipH.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblChipH.Font = new System.Drawing.Font("Consolas", 9F);
-            this.lblChipH.Location = new System.Drawing.Point(106, 28);
+            this.lblChipH.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(25)))), ((int)(((byte)(29)))), ((int)(((byte)(34)))));
+            this.lblChipH.Margin = new System.Windows.Forms.Padding(1);
             this.lblChipH.Name = "lblChipH";
             this.lblChipH.Padding = new System.Windows.Forms.Padding(0, 0, 6, 0);
-            this.lblChipH.Size = new System.Drawing.Size(103, 22);
             this.lblChipH.TabIndex = 3;
             this.lblChipH.Text = "0";
             this.lblChipH.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
             //
             // lblPitchXCaption
             //
-            this.lblPitchXCaption.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(208)))), ((int)(((byte)(208)))), ((int)(((byte)(208)))));
+            this.lblPitchXCaption.AutoEllipsis = true;
+            this.lblPitchXCaption.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(236)))), ((int)(((byte)(238)))), ((int)(((byte)(241)))));
             this.lblPitchXCaption.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblPitchXCaption.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblPitchXCaption.Font = new System.Drawing.Font("맑은 고딕", 9F);
-            this.lblPitchXCaption.Location = new System.Drawing.Point(7, 50);
+            this.lblPitchXCaption.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
+            this.lblPitchXCaption.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(70)))), ((int)(((byte)(70)))), ((int)(((byte)(70)))));
+            this.lblPitchXCaption.Margin = new System.Windows.Forms.Padding(1);
             this.lblPitchXCaption.Name = "lblPitchXCaption";
             this.lblPitchXCaption.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
-            this.lblPitchXCaption.Size = new System.Drawing.Size(93, 22);
             this.lblPitchXCaption.TabIndex = 4;
             this.lblPitchXCaption.Text = "Pitch X";
             this.lblPitchXCaption.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             //
             // lblPitchX
             //
+            this.lblPitchX.AutoEllipsis = true;
             this.lblPitchX.BackColor = System.Drawing.Color.White;
             this.lblPitchX.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblPitchX.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblPitchX.Font = new System.Drawing.Font("Consolas", 9F);
-            this.lblPitchX.Location = new System.Drawing.Point(106, 50);
+            this.lblPitchX.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(25)))), ((int)(((byte)(29)))), ((int)(((byte)(34)))));
+            this.lblPitchX.Margin = new System.Windows.Forms.Padding(1);
             this.lblPitchX.Name = "lblPitchX";
             this.lblPitchX.Padding = new System.Windows.Forms.Padding(0, 0, 6, 0);
-            this.lblPitchX.Size = new System.Drawing.Size(103, 22);
             this.lblPitchX.TabIndex = 5;
             this.lblPitchX.Text = "0";
             this.lblPitchX.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
             //
             // lblPitchYCaption
             //
-            this.lblPitchYCaption.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(208)))), ((int)(((byte)(208)))), ((int)(((byte)(208)))));
+            this.lblPitchYCaption.AutoEllipsis = true;
+            this.lblPitchYCaption.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(236)))), ((int)(((byte)(238)))), ((int)(((byte)(241)))));
             this.lblPitchYCaption.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblPitchYCaption.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblPitchYCaption.Font = new System.Drawing.Font("맑은 고딕", 9F);
-            this.lblPitchYCaption.Location = new System.Drawing.Point(7, 72);
+            this.lblPitchYCaption.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
+            this.lblPitchYCaption.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(70)))), ((int)(((byte)(70)))), ((int)(((byte)(70)))));
+            this.lblPitchYCaption.Margin = new System.Windows.Forms.Padding(1);
             this.lblPitchYCaption.Name = "lblPitchYCaption";
             this.lblPitchYCaption.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
-            this.lblPitchYCaption.Size = new System.Drawing.Size(93, 22);
             this.lblPitchYCaption.TabIndex = 6;
             this.lblPitchYCaption.Text = "Pitch Y";
             this.lblPitchYCaption.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             //
             // lblPitchY
             //
+            this.lblPitchY.AutoEllipsis = true;
             this.lblPitchY.BackColor = System.Drawing.Color.White;
             this.lblPitchY.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblPitchY.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblPitchY.Font = new System.Drawing.Font("Consolas", 9F);
-            this.lblPitchY.Location = new System.Drawing.Point(106, 72);
+            this.lblPitchY.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(25)))), ((int)(((byte)(29)))), ((int)(((byte)(34)))));
+            this.lblPitchY.Margin = new System.Windows.Forms.Padding(1);
             this.lblPitchY.Name = "lblPitchY";
             this.lblPitchY.Padding = new System.Windows.Forms.Padding(0, 0, 6, 0);
-            this.lblPitchY.Size = new System.Drawing.Size(103, 22);
             this.lblPitchY.TabIndex = 7;
             this.lblPitchY.Text = "0";
             this.lblPitchY.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
             //
             // lblWaferDiaCaption
             //
-            this.lblWaferDiaCaption.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(208)))), ((int)(((byte)(208)))), ((int)(((byte)(208)))));
+            this.lblWaferDiaCaption.AutoEllipsis = true;
+            this.lblWaferDiaCaption.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(236)))), ((int)(((byte)(238)))), ((int)(((byte)(241)))));
             this.lblWaferDiaCaption.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblWaferDiaCaption.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblWaferDiaCaption.Font = new System.Drawing.Font("맑은 고딕", 9F);
-            this.lblWaferDiaCaption.Location = new System.Drawing.Point(7, 94);
+            this.lblWaferDiaCaption.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
+            this.lblWaferDiaCaption.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(70)))), ((int)(((byte)(70)))), ((int)(((byte)(70)))));
+            this.lblWaferDiaCaption.Margin = new System.Windows.Forms.Padding(1);
             this.lblWaferDiaCaption.Name = "lblWaferDiaCaption";
             this.lblWaferDiaCaption.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
-            this.lblWaferDiaCaption.Size = new System.Drawing.Size(93, 22);
             this.lblWaferDiaCaption.TabIndex = 8;
             this.lblWaferDiaCaption.Text = "Wafer Dia";
             this.lblWaferDiaCaption.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             //
             // lblWaferDia
             //
+            this.lblWaferDia.AutoEllipsis = true;
             this.lblWaferDia.BackColor = System.Drawing.Color.White;
             this.lblWaferDia.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblWaferDia.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblWaferDia.Font = new System.Drawing.Font("Consolas", 9F);
-            this.lblWaferDia.Location = new System.Drawing.Point(106, 94);
+            this.lblWaferDia.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(25)))), ((int)(((byte)(29)))), ((int)(((byte)(34)))));
+            this.lblWaferDia.Margin = new System.Windows.Forms.Padding(1);
             this.lblWaferDia.Name = "lblWaferDia";
             this.lblWaferDia.Padding = new System.Windows.Forms.Padding(0, 0, 6, 0);
-            this.lblWaferDia.Size = new System.Drawing.Size(103, 22);
             this.lblWaferDia.TabIndex = 9;
             this.lblWaferDia.Text = "0";
             this.lblWaferDia.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
             //
             // lblAxisXCaption
             //
-            this.lblAxisXCaption.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(208)))), ((int)(((byte)(208)))), ((int)(((byte)(208)))));
+            this.lblAxisXCaption.AutoEllipsis = true;
+            this.lblAxisXCaption.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(236)))), ((int)(((byte)(238)))), ((int)(((byte)(241)))));
             this.lblAxisXCaption.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblAxisXCaption.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblAxisXCaption.Font = new System.Drawing.Font("맑은 고딕", 9F);
-            this.lblAxisXCaption.Location = new System.Drawing.Point(7, 116);
+            this.lblAxisXCaption.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
+            this.lblAxisXCaption.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(70)))), ((int)(((byte)(70)))), ((int)(((byte)(70)))));
+            this.lblAxisXCaption.Margin = new System.Windows.Forms.Padding(1);
             this.lblAxisXCaption.Name = "lblAxisXCaption";
             this.lblAxisXCaption.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
-            this.lblAxisXCaption.Size = new System.Drawing.Size(93, 22);
             this.lblAxisXCaption.TabIndex = 10;
             this.lblAxisXCaption.Text = "Axis X";
             this.lblAxisXCaption.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             //
             // lblAxisX
             //
+            this.lblAxisX.AutoEllipsis = true;
             this.lblAxisX.BackColor = System.Drawing.Color.White;
             this.lblAxisX.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblAxisX.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblAxisX.Font = new System.Drawing.Font("Consolas", 9F);
-            this.lblAxisX.Location = new System.Drawing.Point(106, 116);
+            this.lblAxisX.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(25)))), ((int)(((byte)(29)))), ((int)(((byte)(34)))));
+            this.lblAxisX.Margin = new System.Windows.Forms.Padding(1);
             this.lblAxisX.Name = "lblAxisX";
             this.lblAxisX.Padding = new System.Windows.Forms.Padding(0, 0, 6, 0);
-            this.lblAxisX.Size = new System.Drawing.Size(103, 22);
             this.lblAxisX.TabIndex = 11;
             this.lblAxisX.Text = "0";
             this.lblAxisX.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
             //
             // lblAxisYCaption
             //
-            this.lblAxisYCaption.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(208)))), ((int)(((byte)(208)))), ((int)(((byte)(208)))));
+            this.lblAxisYCaption.AutoEllipsis = true;
+            this.lblAxisYCaption.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(236)))), ((int)(((byte)(238)))), ((int)(((byte)(241)))));
             this.lblAxisYCaption.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblAxisYCaption.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblAxisYCaption.Font = new System.Drawing.Font("맑은 고딕", 9F);
-            this.lblAxisYCaption.Location = new System.Drawing.Point(7, 138);
+            this.lblAxisYCaption.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
+            this.lblAxisYCaption.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(70)))), ((int)(((byte)(70)))), ((int)(((byte)(70)))));
+            this.lblAxisYCaption.Margin = new System.Windows.Forms.Padding(1);
             this.lblAxisYCaption.Name = "lblAxisYCaption";
             this.lblAxisYCaption.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
-            this.lblAxisYCaption.Size = new System.Drawing.Size(93, 22);
             this.lblAxisYCaption.TabIndex = 12;
             this.lblAxisYCaption.Text = "Axis Y";
             this.lblAxisYCaption.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             //
             // lblAxisY
             //
+            this.lblAxisY.AutoEllipsis = true;
             this.lblAxisY.BackColor = System.Drawing.Color.White;
             this.lblAxisY.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblAxisY.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblAxisY.Font = new System.Drawing.Font("Consolas", 9F);
-            this.lblAxisY.Location = new System.Drawing.Point(106, 138);
+            this.lblAxisY.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(25)))), ((int)(((byte)(29)))), ((int)(((byte)(34)))));
+            this.lblAxisY.Margin = new System.Windows.Forms.Padding(1);
             this.lblAxisY.Name = "lblAxisY";
             this.lblAxisY.Padding = new System.Windows.Forms.Padding(0, 0, 6, 0);
-            this.lblAxisY.Size = new System.Drawing.Size(103, 22);
             this.lblAxisY.TabIndex = 13;
             this.lblAxisY.Text = "0";
             this.lblAxisY.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
             //
             // lblBinRankCaption
             //
-            this.lblBinRankCaption.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(208)))), ((int)(((byte)(208)))), ((int)(((byte)(208)))));
+            this.lblBinRankCaption.AutoEllipsis = true;
+            this.lblBinRankCaption.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(236)))), ((int)(((byte)(238)))), ((int)(((byte)(241)))));
             this.lblBinRankCaption.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblBinRankCaption.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblBinRankCaption.Font = new System.Drawing.Font("맑은 고딕", 9F);
-            this.lblBinRankCaption.Location = new System.Drawing.Point(7, 160);
+            this.lblBinRankCaption.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
+            this.lblBinRankCaption.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(70)))), ((int)(((byte)(70)))), ((int)(((byte)(70)))));
+            this.lblBinRankCaption.Margin = new System.Windows.Forms.Padding(1);
             this.lblBinRankCaption.Name = "lblBinRankCaption";
             this.lblBinRankCaption.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
-            this.lblBinRankCaption.Size = new System.Drawing.Size(93, 22);
             this.lblBinRankCaption.TabIndex = 14;
             this.lblBinRankCaption.Text = "BIN RANK";
             this.lblBinRankCaption.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             //
             // lblBinRank
             //
+            this.lblBinRank.AutoEllipsis = true;
             this.lblBinRank.BackColor = System.Drawing.Color.White;
             this.lblBinRank.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblBinRank.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblBinRank.Font = new System.Drawing.Font("Consolas", 9F);
-            this.lblBinRank.Location = new System.Drawing.Point(106, 160);
+            this.lblBinRank.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(25)))), ((int)(((byte)(29)))), ((int)(((byte)(34)))));
+            this.lblBinRank.Margin = new System.Windows.Forms.Padding(1);
             this.lblBinRank.Name = "lblBinRank";
             this.lblBinRank.Padding = new System.Windows.Forms.Padding(0, 0, 6, 0);
-            this.lblBinRank.Size = new System.Drawing.Size(103, 22);
             this.lblBinRank.TabIndex = 15;
             this.lblBinRank.Text = "0";
             this.lblBinRank.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
             //
             // lblDieNumCaption
             //
-            this.lblDieNumCaption.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(208)))), ((int)(((byte)(208)))), ((int)(((byte)(208)))));
+            this.lblDieNumCaption.AutoEllipsis = true;
+            this.lblDieNumCaption.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(236)))), ((int)(((byte)(238)))), ((int)(((byte)(241)))));
             this.lblDieNumCaption.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblDieNumCaption.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblDieNumCaption.Font = new System.Drawing.Font("맑은 고딕", 9F);
-            this.lblDieNumCaption.Location = new System.Drawing.Point(7, 182);
+            this.lblDieNumCaption.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
+            this.lblDieNumCaption.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(70)))), ((int)(((byte)(70)))), ((int)(((byte)(70)))));
+            this.lblDieNumCaption.Margin = new System.Windows.Forms.Padding(1);
             this.lblDieNumCaption.Name = "lblDieNumCaption";
             this.lblDieNumCaption.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
-            this.lblDieNumCaption.Size = new System.Drawing.Size(93, 40);
             this.lblDieNumCaption.TabIndex = 16;
             this.lblDieNumCaption.Text = "Die Number";
             this.lblDieNumCaption.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             //
             // lblDieNum
             //
+            this.lblDieNum.AutoEllipsis = true;
             this.lblDieNum.BackColor = System.Drawing.Color.White;
             this.lblDieNum.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblDieNum.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblDieNum.Font = new System.Drawing.Font("Consolas", 9F);
-            this.lblDieNum.Location = new System.Drawing.Point(106, 182);
+            this.lblDieNum.Font = new System.Drawing.Font("Consolas", 8F);
+            this.lblDieNum.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(25)))), ((int)(((byte)(29)))), ((int)(((byte)(34)))));
+            this.lblDieNum.Margin = new System.Windows.Forms.Padding(1);
             this.lblDieNum.Name = "lblDieNum";
             this.lblDieNum.Padding = new System.Windows.Forms.Padding(0, 0, 6, 0);
-            this.lblDieNum.Size = new System.Drawing.Size(103, 40);
             this.lblDieNum.TabIndex = 17;
             this.lblDieNum.Text = "0/0";
             this.lblDieNum.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
             //
-            // grpMode
+            // dieStateArea
             //
-            this.grpMode.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(240)))), ((int)(((byte)(240)))), ((int)(((byte)(240)))));
-            this.grpMode.Controls.Add(this.modeLayout);
-            this.grpMode.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.grpMode.Font = new System.Drawing.Font("맑은 고딕", 11F, System.Drawing.FontStyle.Bold);
-            this.grpMode.Location = new System.Drawing.Point(234, 4);
-            this.grpMode.Margin = new System.Windows.Forms.Padding(4);
-            this.grpMode.Name = "grpMode";
-            this.grpMode.Size = new System.Drawing.Size(276, 252);
-            this.grpMode.TabIndex = 1;
-            this.grpMode.TabStop = false;
-            this.grpMode.Text = "MAP ACTION";
-            //
-            // modeLayout
-            //
-            this.modeLayout.ColumnCount = 1;
-            this.modeLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.modeLayout.Controls.Add(this.btnReloadActiveMap, 0, 0);
-            this.modeLayout.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.modeLayout.Location = new System.Drawing.Point(3, 23);
-            this.modeLayout.Name = "modeLayout";
-            this.modeLayout.Padding = new System.Windows.Forms.Padding(10, 8, 10, 4);
-            this.modeLayout.RowCount = 1;
-            this.modeLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 46F));
-            this.modeLayout.Size = new System.Drawing.Size(270, 226);
-            this.modeLayout.TabIndex = 0;
-            //
-            // rbStandard
-            //
-            this.rbStandard.AutoSize = true;
-            this.rbStandard.Checked = true;
-            this.rbStandard.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.rbStandard.Font = new System.Drawing.Font("맑은 고딕", 9F);
-            this.rbStandard.Location = new System.Drawing.Point(13, 11);
-            this.rbStandard.Name = "rbStandard";
-            this.rbStandard.Size = new System.Drawing.Size(244, 18);
-            this.rbStandard.TabIndex = 0;
-            this.rbStandard.TabStop = true;
-            this.rbStandard.Text = "STANDARD";
-            this.rbStandard.UseVisualStyleBackColor = true;
-            this.rbStandard.Visible = false;
-            //
-            // rbStartIndex
-            //
-            this.rbStartIndex.AutoSize = true;
-            this.rbStartIndex.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.rbStartIndex.Font = new System.Drawing.Font("맑은 고딕", 9F);
-            this.rbStartIndex.Location = new System.Drawing.Point(13, 35);
-            this.rbStartIndex.Name = "rbStartIndex";
-            this.rbStartIndex.Size = new System.Drawing.Size(244, 18);
-            this.rbStartIndex.TabIndex = 1;
-            this.rbStartIndex.Text = "START INDEX";
-            this.rbStartIndex.Visible = false;
-            //
-            // rbSelectPickStatus
-            //
-            this.rbSelectPickStatus.AutoSize = true;
-            this.rbSelectPickStatus.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.rbSelectPickStatus.Font = new System.Drawing.Font("맑은 고딕", 9F);
-            this.rbSelectPickStatus.Location = new System.Drawing.Point(13, 59);
-            this.rbSelectPickStatus.Name = "rbSelectPickStatus";
-            this.rbSelectPickStatus.Size = new System.Drawing.Size(244, 18);
-            this.rbSelectPickStatus.TabIndex = 2;
-            this.rbSelectPickStatus.Text = "SELECT PICK STATUS";
-            this.rbSelectPickStatus.UseVisualStyleBackColor = true;
-            this.rbSelectPickStatus.Visible = false;
-            //
-            // rbDragPickStatus
-            //
-            this.rbDragPickStatus.AutoSize = true;
-            this.rbDragPickStatus.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.rbDragPickStatus.Font = new System.Drawing.Font("맑은 고딕", 9F);
-            this.rbDragPickStatus.Location = new System.Drawing.Point(13, 83);
-            this.rbDragPickStatus.Name = "rbDragPickStatus";
-            this.rbDragPickStatus.Size = new System.Drawing.Size(244, 18);
-            this.rbDragPickStatus.TabIndex = 3;
-            this.rbDragPickStatus.Text = "DRAG PICK STATUS";
-            this.rbDragPickStatus.Visible = false;
-            //
-            // btnReloadActiveMap
-            //
-            this.btnReloadActiveMap.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
-            this.btnReloadActiveMap.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.btnReloadActiveMap.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnReloadActiveMap.Font = new System.Drawing.Font("맑은 고딕", 9F);
-            this.btnReloadActiveMap.ForeColor = System.Drawing.Color.White;
-            this.btnReloadActiveMap.Location = new System.Drawing.Point(14, 12);
-            this.btnReloadActiveMap.Margin = new System.Windows.Forms.Padding(4);
-            this.btnReloadActiveMap.Name = "btnReloadActiveMap";
-            this.btnReloadActiveMap.Size = new System.Drawing.Size(242, 38);
-            this.btnReloadActiveMap.TabIndex = 5;
-            this.btnReloadActiveMap.Text = "RELOAD ACTIVE MAP";
-            //
-            // btnPickStatusSave
-            //
-            this.btnPickStatusSave.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
-            this.btnPickStatusSave.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.btnPickStatusSave.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnPickStatusSave.Font = new System.Drawing.Font("맑은 고딕", 9F);
-            this.btnPickStatusSave.ForeColor = System.Drawing.Color.White;
-            this.btnPickStatusSave.Location = new System.Drawing.Point(14, 142);
-            this.btnPickStatusSave.Margin = new System.Windows.Forms.Padding(4);
-            this.btnPickStatusSave.Name = "btnPickStatusSave";
-            this.btnPickStatusSave.Size = new System.Drawing.Size(242, 76);
-            this.btnPickStatusSave.TabIndex = 4;
-            this.btnPickStatusSave.Text = "SELECT PICK STATUS SAVE";
-            this.btnPickStatusSave.Visible = false;
+            this.dieStateArea.BackColor = System.Drawing.Color.White;
+            this.dieStateArea.ColumnCount = 1;
+            this.dieStateArea.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.dieStateArea.Controls.Add(this.grpDieState, 0, 0);
+            this.dieStateArea.Controls.Add(this.detachedButtonRow, 0, 2);
+            this.dieStateArea.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.dieStateArea.Margin = new System.Windows.Forms.Padding(2, 0, 0, 0);
+            this.dieStateArea.Name = "dieStateArea";
+            this.dieStateArea.Padding = new System.Windows.Forms.Padding(0);
+            this.dieStateArea.RowCount = 4;
+            this.dieStateArea.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 216F));
+            this.dieStateArea.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 56F));
+            this.dieStateArea.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 92F));
+            this.dieStateArea.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.dieStateArea.TabIndex = 2;
             //
             // grpDieState
             //
-            this.grpDieState.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(240)))), ((int)(((byte)(240)))), ((int)(((byte)(240)))));
+            this.grpDieState.BackColor = System.Drawing.Color.White;
             this.grpDieState.Controls.Add(this.dieStateLayout);
             this.grpDieState.Dock = System.Windows.Forms.DockStyle.Fill;
             this.grpDieState.Font = new System.Drawing.Font("맑은 고딕", 11F, System.Drawing.FontStyle.Bold);
-            this.grpDieState.Location = new System.Drawing.Point(4, 264);
-            this.grpDieState.Margin = new System.Windows.Forms.Padding(4);
+            this.grpDieState.ForeColor = System.Drawing.Color.Black;
+            this.grpDieState.Margin = new System.Windows.Forms.Padding(0);
             this.grpDieState.Name = "grpDieState";
-            this.grpDieState.Size = new System.Drawing.Size(222, 222);
-            this.grpDieState.TabIndex = 2;
+            this.grpDieState.Padding = new System.Windows.Forms.Padding(3);
             this.grpDieState.TabStop = false;
             this.grpDieState.Text = "DIE STATE EDIT";
             //
@@ -834,8 +609,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.dieStateLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 30F));
             this.dieStateLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 30F));
             this.dieStateLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 30F));
-            this.dieStateLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.dieStateLayout.Size = new System.Drawing.Size(216, 196);
+            this.dieStateLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 44F));
             this.dieStateLayout.TabIndex = 0;
             //
             // rdoDieStateWait
@@ -843,122 +617,138 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.rdoDieStateWait.Checked = true;
             this.rdoDieStateWait.Dock = System.Windows.Forms.DockStyle.Fill;
             this.rdoDieStateWait.Font = new System.Drawing.Font("맑은 고딕", 9F);
-            this.rdoDieStateWait.Location = new System.Drawing.Point(13, 11);
             this.rdoDieStateWait.Name = "rdoDieStateWait";
-            this.rdoDieStateWait.Size = new System.Drawing.Size(190, 24);
             this.rdoDieStateWait.TabIndex = 0;
             this.rdoDieStateWait.TabStop = true;
-            this.rdoDieStateWait.Text = "검사 대기";
+            this.rdoDieStateWait.Text = "WAIT / 검사 대기";
             this.rdoDieStateWait.UseVisualStyleBackColor = true;
             //
             // rdoDieStateGood
             //
             this.rdoDieStateGood.Dock = System.Windows.Forms.DockStyle.Fill;
             this.rdoDieStateGood.Font = new System.Drawing.Font("맑은 고딕", 9F);
-            this.rdoDieStateGood.Location = new System.Drawing.Point(13, 41);
             this.rdoDieStateGood.Name = "rdoDieStateGood";
-            this.rdoDieStateGood.Size = new System.Drawing.Size(190, 24);
             this.rdoDieStateGood.TabIndex = 1;
-            this.rdoDieStateGood.Text = "검사 완료(Good)";
+            this.rdoDieStateGood.Text = "GOOD / 검사 완료";
             this.rdoDieStateGood.UseVisualStyleBackColor = true;
             //
             // rdoDieStateNg
             //
             this.rdoDieStateNg.Dock = System.Windows.Forms.DockStyle.Fill;
             this.rdoDieStateNg.Font = new System.Drawing.Font("맑은 고딕", 9F);
-            this.rdoDieStateNg.Location = new System.Drawing.Point(13, 71);
             this.rdoDieStateNg.Name = "rdoDieStateNg";
-            this.rdoDieStateNg.Size = new System.Drawing.Size(190, 24);
             this.rdoDieStateNg.TabIndex = 2;
-            this.rdoDieStateNg.Text = "검사 NG";
+            this.rdoDieStateNg.Text = "NG / 검사 불량";
             this.rdoDieStateNg.UseVisualStyleBackColor = true;
             //
             // rdoDieStateSkip
             //
             this.rdoDieStateSkip.Dock = System.Windows.Forms.DockStyle.Fill;
             this.rdoDieStateSkip.Font = new System.Drawing.Font("맑은 고딕", 9F);
-            this.rdoDieStateSkip.Location = new System.Drawing.Point(13, 101);
             this.rdoDieStateSkip.Name = "rdoDieStateSkip";
-            this.rdoDieStateSkip.Size = new System.Drawing.Size(190, 24);
             this.rdoDieStateSkip.TabIndex = 3;
-            this.rdoDieStateSkip.Text = "픽업 제외";
+            this.rdoDieStateSkip.Text = "SKIP / 제외";
             this.rdoDieStateSkip.UseVisualStyleBackColor = true;
             //
             // btnApplyDieState
             //
-            this.btnApplyDieState.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
+            this.btnApplyDieState.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(233)))), ((int)(((byte)(238)))), ((int)(((byte)(244)))));
             this.btnApplyDieState.Cursor = System.Windows.Forms.Cursors.Hand;
             this.btnApplyDieState.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnApplyDieState.Font = new System.Drawing.Font("맑은 고딕", 9F);
-            this.btnApplyDieState.ForeColor = System.Drawing.Color.White;
-            this.btnApplyDieState.Location = new System.Drawing.Point(14, 132);
-            this.btnApplyDieState.Margin = new System.Windows.Forms.Padding(4);
+            this.btnApplyDieState.FlatAppearance.BorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(143)))), ((int)(((byte)(156)))), ((int)(((byte)(173)))));
+            this.btnApplyDieState.FlatAppearance.BorderSize = 1;
+            this.btnApplyDieState.FlatAppearance.MouseDownBackColor = System.Drawing.Color.FromArgb(((int)(((byte)(199)))), ((int)(((byte)(210)))), ((int)(((byte)(224)))));
+            this.btnApplyDieState.FlatAppearance.MouseOverBackColor = System.Drawing.Color.FromArgb(((int)(((byte)(218)))), ((int)(((byte)(226)))), ((int)(((byte)(236)))));
+            this.btnApplyDieState.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this.btnApplyDieState.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
+            this.btnApplyDieState.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(38)))), ((int)(((byte)(50)))), ((int)(((byte)(66)))));
+            this.btnApplyDieState.Margin = new System.Windows.Forms.Padding(3, 4, 3, 3);
             this.btnApplyDieState.Name = "btnApplyDieState";
-            this.btnApplyDieState.Size = new System.Drawing.Size(188, 52);
-            this.btnApplyDieState.TabIndex = 4;
             this.btnApplyDieState.Text = "APPLY SELECTED DIE";
+            this.btnApplyDieState.UseVisualStyleBackColor = false;
             //
-            // actionLayout
+            // detachedButtonRow
             //
-            this.actionLayout.ColumnCount = 1;
-            this.actionLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.actionLayout.Controls.Add(this.btnManualAlignComplete, 0, 0);
-            this.actionLayout.Controls.Add(this.btnThetaMatchMove, 0, 1);
-            this.actionLayout.Controls.Add(this.btnXyMatchMove, 0, 2);
-            this.actionLayout.Controls.Add(this.btnManualDieMapOffsetApply, 0, 3);
-            this.actionLayout.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.actionLayout.Location = new System.Drawing.Point(233, 263);
-            this.actionLayout.Name = "actionLayout";
-            this.actionLayout.Padding = new System.Windows.Forms.Padding(4, 6, 4, 4);
-            this.actionLayout.RowCount = 4;
-            this.actionLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 25F));
-            this.actionLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 25F));
-            this.actionLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 25F));
-            this.actionLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 25F));
-            this.actionLayout.Size = new System.Drawing.Size(278, 224);
-            this.actionLayout.TabIndex = 3;
+            this.detachedButtonRow.BackColor = System.Drawing.Color.White;
+            this.detachedButtonRow.ColumnCount = 1;
+            this.detachedButtonRow.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.detachedButtonRow.Controls.Add(this.btnManualAlignComplete, 0, 0);
+            this.detachedButtonRow.Controls.Add(this.btnReloadActiveMap, 0, 1);
+            this.detachedButtonRow.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.detachedButtonRow.Margin = new System.Windows.Forms.Padding(0);
+            this.detachedButtonRow.Name = "detachedButtonRow";
+            this.detachedButtonRow.Padding = new System.Windows.Forms.Padding(0);
+            this.detachedButtonRow.RowCount = 2;
+            this.detachedButtonRow.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 46F));
+            this.detachedButtonRow.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 46F));
+            this.detachedButtonRow.TabIndex = 3;
             //
             // btnManualAlignComplete
             //
-            this.btnManualAlignComplete.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
-            this.btnManualAlignComplete.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.btnManualAlignComplete.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(242)))), ((int)(((byte)(244)))), ((int)(((byte)(247)))));
             this.btnManualAlignComplete.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnManualAlignComplete.Font = new System.Drawing.Font("맑은 고딕", 9F);
-            this.btnManualAlignComplete.ForeColor = System.Drawing.Color.White;
-            this.btnManualAlignComplete.Location = new System.Drawing.Point(8, 10);
-            this.btnManualAlignComplete.Margin = new System.Windows.Forms.Padding(4);
+            this.btnManualAlignComplete.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
+            this.btnManualAlignComplete.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(38)))), ((int)(((byte)(50)))), ((int)(((byte)(66)))));
+            this.btnManualAlignComplete.Margin = new System.Windows.Forms.Padding(3);
             this.btnManualAlignComplete.Name = "btnManualAlignComplete";
-            this.btnManualAlignComplete.Size = new System.Drawing.Size(262, 48);
             this.btnManualAlignComplete.TabIndex = 0;
             this.btnManualAlignComplete.Text = "MANUAL ALIGN COMPLETE";
             //
-            // btnNeedleBlockDown
+            // btnReloadActiveMap
             //
-            this.btnNeedleBlockDown.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
-            this.btnNeedleBlockDown.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.btnNeedleBlockDown.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnNeedleBlockDown.Font = new System.Drawing.Font("맑은 고딕", 9F);
-            this.btnNeedleBlockDown.ForeColor = System.Drawing.Color.White;
-            this.btnNeedleBlockDown.Location = new System.Drawing.Point(8, 63);
-            this.btnNeedleBlockDown.Margin = new System.Windows.Forms.Padding(4);
-            this.btnNeedleBlockDown.Name = "btnNeedleBlockDown";
-            this.btnNeedleBlockDown.Size = new System.Drawing.Size(262, 45);
-            this.btnNeedleBlockDown.TabIndex = 1;
-            this.btnNeedleBlockDown.Text = "NEEDLE BLOCK DOWN";
-            this.btnNeedleBlockDown.Visible = false;
+            this.btnReloadActiveMap.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(242)))), ((int)(((byte)(244)))), ((int)(((byte)(247)))));
+            this.btnReloadActiveMap.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.btnReloadActiveMap.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
+            this.btnReloadActiveMap.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(38)))), ((int)(((byte)(50)))), ((int)(((byte)(66)))));
+            this.btnReloadActiveMap.Margin = new System.Windows.Forms.Padding(3);
+            this.btnReloadActiveMap.Name = "btnReloadActiveMap";
+            this.btnReloadActiveMap.TabIndex = 1;
+            this.btnReloadActiveMap.Text = "RELOAD ACTIVE MAP";
+            //
+            // grpAction
+            //
+            this.grpAction.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left)));
+            this.grpAction.BackColor = System.Drawing.Color.White;
+            this.grpAction.Controls.Add(this.actionBar);
+            this.grpAction.Font = new System.Drawing.Font("맑은 고딕", 11F, System.Drawing.FontStyle.Bold);
+            this.grpAction.ForeColor = System.Drawing.Color.Black;
+            this.grpAction.Margin = new System.Windows.Forms.Padding(3);
+            this.grpAction.Name = "grpAction";
+            this.grpAction.Padding = new System.Windows.Forms.Padding(3);
+            this.grpAction.Size = new System.Drawing.Size(410, 172);
+            this.grpAction.TabStop = false;
+            this.grpAction.Text = "ACTION";
+            //
+            // actionBar
+            //
+            this.actionBar.BackColor = System.Drawing.Color.White;
+            this.actionBar.ColumnCount = 1;
+            this.actionBar.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.actionBar.Controls.Add(this.btnThetaMatchMove, 0, 0);
+            this.actionBar.Controls.Add(this.btnXyMatchMove, 0, 1);
+            this.actionBar.Controls.Add(this.btnManualDieMapOffsetApply, 0, 2);
+            this.actionBar.Dock = System.Windows.Forms.DockStyle.Top;
+            this.actionBar.Location = new System.Drawing.Point(6, 24);
+            this.actionBar.Margin = new System.Windows.Forms.Padding(0);
+            this.actionBar.Name = "actionBar";
+            this.actionBar.Padding = new System.Windows.Forms.Padding(3, 1, 3, 0);
+            this.actionBar.RowCount = 3;
+            this.actionBar.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 46F));
+            this.actionBar.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 46F));
+            this.actionBar.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 46F));
+            this.actionBar.Size = new System.Drawing.Size(398, 142);
+            this.actionBar.TabIndex = 0;
             //
             // btnThetaMatchMove
             //
             this.btnThetaMatchMove.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
             this.btnThetaMatchMove.Cursor = System.Windows.Forms.Cursors.Hand;
             this.btnThetaMatchMove.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnThetaMatchMove.Font = new System.Drawing.Font("맑은 고딕", 9F);
+            this.btnThetaMatchMove.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
             this.btnThetaMatchMove.ForeColor = System.Drawing.Color.White;
-            this.btnThetaMatchMove.Location = new System.Drawing.Point(8, 64);
-            this.btnThetaMatchMove.Margin = new System.Windows.Forms.Padding(4);
+            this.btnThetaMatchMove.Margin = new System.Windows.Forms.Padding(3);
             this.btnThetaMatchMove.Name = "btnThetaMatchMove";
-            this.btnThetaMatchMove.Size = new System.Drawing.Size(262, 47);
-            this.btnThetaMatchMove.TabIndex = 2;
+            this.btnThetaMatchMove.TabIndex = 0;
             this.btnThetaMatchMove.Text = "T 보정";
             //
             // btnXyMatchMove
@@ -966,13 +756,11 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.btnXyMatchMove.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
             this.btnXyMatchMove.Cursor = System.Windows.Forms.Cursors.Hand;
             this.btnXyMatchMove.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnXyMatchMove.Font = new System.Drawing.Font("맑은 고딕", 9F);
+            this.btnXyMatchMove.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
             this.btnXyMatchMove.ForeColor = System.Drawing.Color.White;
-            this.btnXyMatchMove.Location = new System.Drawing.Point(8, 117);
-            this.btnXyMatchMove.Margin = new System.Windows.Forms.Padding(4);
+            this.btnXyMatchMove.Margin = new System.Windows.Forms.Padding(3);
             this.btnXyMatchMove.Name = "btnXyMatchMove";
-            this.btnXyMatchMove.Size = new System.Drawing.Size(262, 47);
-            this.btnXyMatchMove.TabIndex = 3;
+            this.btnXyMatchMove.TabIndex = 1;
             this.btnXyMatchMove.Text = "다이 검출";
             //
             // btnManualDieMapOffsetApply
@@ -980,28 +768,173 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.btnManualDieMapOffsetApply.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
             this.btnManualDieMapOffsetApply.Cursor = System.Windows.Forms.Cursors.Hand;
             this.btnManualDieMapOffsetApply.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnManualDieMapOffsetApply.Font = new System.Drawing.Font("맑은 고딕", 9F);
+            this.btnManualDieMapOffsetApply.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
             this.btnManualDieMapOffsetApply.ForeColor = System.Drawing.Color.White;
-            this.btnManualDieMapOffsetApply.Location = new System.Drawing.Point(8, 170);
-            this.btnManualDieMapOffsetApply.Margin = new System.Windows.Forms.Padding(4);
+            this.btnManualDieMapOffsetApply.Margin = new System.Windows.Forms.Padding(3);
             this.btnManualDieMapOffsetApply.Name = "btnManualDieMapOffsetApply";
-            this.btnManualDieMapOffsetApply.Size = new System.Drawing.Size(262, 46);
-            this.btnManualDieMapOffsetApply.TabIndex = 4;
+            this.btnManualDieMapOffsetApply.TabIndex = 2;
             this.btnManualDieMapOffsetApply.Text = "Offset 적용";
+            //
+            // rbStandard
+            //
+            this.rbStandard.AutoSize = true;
+            this.rbStandard.Checked = true;
+            this.rbStandard.Font = new System.Drawing.Font("맑은 고딕", 9F);
+            this.rbStandard.Name = "rbStandard";
+            this.rbStandard.TabIndex = 0;
+            this.rbStandard.TabStop = true;
+            this.rbStandard.Text = "STANDARD";
+            this.rbStandard.UseVisualStyleBackColor = true;
+            this.rbStandard.Visible = false;
+            //
+            // rbStartIndex
+            //
+            this.rbStartIndex.AutoSize = true;
+            this.rbStartIndex.Font = new System.Drawing.Font("맑은 고딕", 9F);
+            this.rbStartIndex.Name = "rbStartIndex";
+            this.rbStartIndex.TabIndex = 1;
+            this.rbStartIndex.Text = "START INDEX";
+            this.rbStartIndex.Visible = false;
+            //
+            // rbSelectPickStatus
+            //
+            this.rbSelectPickStatus.AutoSize = true;
+            this.rbSelectPickStatus.Font = new System.Drawing.Font("맑은 고딕", 9F);
+            this.rbSelectPickStatus.Name = "rbSelectPickStatus";
+            this.rbSelectPickStatus.TabIndex = 2;
+            this.rbSelectPickStatus.Text = "SELECT PICK STATUS";
+            this.rbSelectPickStatus.UseVisualStyleBackColor = true;
+            this.rbSelectPickStatus.Visible = false;
+            //
+            // rbDragPickStatus
+            //
+            this.rbDragPickStatus.AutoSize = true;
+            this.rbDragPickStatus.Font = new System.Drawing.Font("맑은 고딕", 9F);
+            this.rbDragPickStatus.Name = "rbDragPickStatus";
+            this.rbDragPickStatus.TabIndex = 3;
+            this.rbDragPickStatus.Text = "DRAG PICK STATUS";
+            this.rbDragPickStatus.Visible = false;
+            //
+            // btnPickStatusSave
+            //
+            this.btnPickStatusSave.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
+            this.btnPickStatusSave.Font = new System.Drawing.Font("맑은 고딕", 9F);
+            this.btnPickStatusSave.ForeColor = System.Drawing.Color.White;
+            this.btnPickStatusSave.Name = "btnPickStatusSave";
+            this.btnPickStatusSave.TabIndex = 4;
+            this.btnPickStatusSave.Text = "SELECT PICK STATUS SAVE";
+            this.btnPickStatusSave.Visible = false;
+            //
+            // btnNeedleBlockDown
+            //
+            this.btnNeedleBlockDown.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
+            this.btnNeedleBlockDown.Font = new System.Drawing.Font("맑은 고딕", 9F);
+            this.btnNeedleBlockDown.ForeColor = System.Drawing.Color.White;
+            this.btnNeedleBlockDown.Name = "btnNeedleBlockDown";
+            this.btnNeedleBlockDown.TabIndex = 1;
+            this.btnNeedleBlockDown.Text = "NEEDLE BLOCK DOWN";
+            this.btnNeedleBlockDown.Visible = false;
+            //
+            // lblHeader
+            //
+            this.lblHeader.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(217)))), ((int)(((byte)(119)))), ((int)(((byte)(6)))));
+            this.lblHeader.Font = new System.Drawing.Font("맑은 고딕", 11F, System.Drawing.FontStyle.Bold);
+            this.lblHeader.ForeColor = System.Drawing.Color.White;
+            this.lblHeader.Name = "lblHeader";
+            this.lblHeader.Padding = new System.Windows.Forms.Padding(10, 0, 0, 0);
+            this.lblHeader.Size = new System.Drawing.Size(0, 0);
+            this.lblHeader.TabIndex = 100;
+            this.lblHeader.Tag = "i18n:work.page.inputMap";
+            this.lblHeader.Text = "INPUT STAGE DIE MAP";
+            this.lblHeader.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            this.lblHeader.Visible = false;
+            //
+            // lblMapTitle
+            //
+            this.lblMapTitle.Name = "lblMapTitle";
+            this.lblMapTitle.Size = new System.Drawing.Size(0, 0);
+            this.lblMapTitle.TabIndex = 101;
+            this.lblMapTitle.Tag = "i18n:recipe.inputMapCreate";
+            this.lblMapTitle.Text = "INPUT DIE MAP CREATE";
+            this.lblMapTitle.Visible = false;
+            //
+            // lblProjectCaption
+            //
+            this.lblProjectCaption.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
+            this.lblProjectCaption.ForeColor = System.Drawing.Color.White;
+            this.lblProjectCaption.Name = "lblProjectCaption";
+            this.lblProjectCaption.Size = new System.Drawing.Size(0, 0);
+            this.lblProjectCaption.TabIndex = 102;
+            this.lblProjectCaption.Text = "Project Name :";
+            this.lblProjectCaption.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            this.lblProjectCaption.Visible = false;
+            //
+            // lblProjectValue
+            //
+            this.lblProjectValue.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
+            this.lblProjectValue.ForeColor = System.Drawing.Color.White;
+            this.lblProjectValue.Name = "lblProjectValue";
+            this.lblProjectValue.Size = new System.Drawing.Size(0, 0);
+            this.lblProjectValue.TabIndex = 103;
+            this.lblProjectValue.Text = "--";
+            this.lblProjectValue.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            this.lblProjectValue.Visible = false;
+            //
+            // lblBarcodeCaption
+            //
+            this.lblBarcodeCaption.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
+            this.lblBarcodeCaption.ForeColor = System.Drawing.Color.White;
+            this.lblBarcodeCaption.Name = "lblBarcodeCaption";
+            this.lblBarcodeCaption.Size = new System.Drawing.Size(0, 0);
+            this.lblBarcodeCaption.TabIndex = 104;
+            this.lblBarcodeCaption.Text = "Barcode Name :";
+            this.lblBarcodeCaption.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            this.lblBarcodeCaption.Visible = false;
+            //
+            // lblBarcodeValue
+            //
+            this.lblBarcodeValue.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
+            this.lblBarcodeValue.ForeColor = System.Drawing.Color.White;
+            this.lblBarcodeValue.Name = "lblBarcodeValue";
+            this.lblBarcodeValue.Size = new System.Drawing.Size(0, 0);
+            this.lblBarcodeValue.TabIndex = 105;
+            this.lblBarcodeValue.Text = "--";
+            this.lblBarcodeValue.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            this.lblBarcodeValue.Visible = false;
+            //
+            // lblBinCaption
+            //
+            this.lblBinCaption.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
+            this.lblBinCaption.ForeColor = System.Drawing.Color.White;
+            this.lblBinCaption.Name = "lblBinCaption";
+            this.lblBinCaption.Size = new System.Drawing.Size(0, 0);
+            this.lblBinCaption.TabIndex = 106;
+            this.lblBinCaption.Text = "1Bin :";
+            this.lblBinCaption.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            this.lblBinCaption.Visible = false;
+            //
+            // lblBinValue
+            //
+            this.lblBinValue.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
+            this.lblBinValue.ForeColor = System.Drawing.Color.White;
+            this.lblBinValue.Name = "lblBinValue";
+            this.lblBinValue.Size = new System.Drawing.Size(0, 0);
+            this.lblBinValue.TabIndex = 107;
+            this.lblBinValue.Text = "--";
+            this.lblBinValue.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            this.lblBinValue.Visible = false;
             //
             // btnClose
             //
             this.btnClose.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(208)))), ((int)(((byte)(208)))), ((int)(((byte)(208)))));
-            this.btnClose.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnClose.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.btnClose.Font = new System.Drawing.Font("맑은 고딕", 9F);
-            this.btnClose.Location = new System.Drawing.Point(4, 208);
-            this.btnClose.Margin = new System.Windows.Forms.Padding(4);
             this.btnClose.Name = "btnClose";
-            this.btnClose.Size = new System.Drawing.Size(279, 44);
-            this.btnClose.TabIndex = 4;
+            this.btnClose.Size = new System.Drawing.Size(0, 0);
+            this.btnClose.TabIndex = 108;
             this.btnClose.Text = "CLOSE";
             this.btnClose.UseVisualStyleBackColor = false;
+            this.btnClose.Visible = false;
             //
             // colIndex
             //
@@ -1075,26 +1008,39 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.colDieUid.ReadOnly = true;
             this.colDieUid.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
             //
+            // events (디자이너 관리)
+            //
+            this.gridDieList.CellClick += new System.Windows.Forms.DataGridViewCellEventHandler(this.gridDieList_CellClick);
+            this.gridDieList.CellDoubleClick += new System.Windows.Forms.DataGridViewCellEventHandler(this.gridDieList_CellDoubleClick);
+            this.gridDieList.CellMouseDown += new System.Windows.Forms.DataGridViewCellMouseEventHandler(this.OnGridDieListCellMouseDown);
+            this.btnReloadActiveMap.Click += new System.EventHandler(this.btnReloadActiveMap_Click);
+            this.btnPickStatusSave.Click += new System.EventHandler(this.btnPickStatusSave_Click);
+            this.btnApplyDieState.Click += new System.EventHandler(this.btnApplyDieState_Click);
+            this.btnManualAlignComplete.Click += new System.EventHandler(this.btnManualAlignComplete_Click);
+            this.btnNeedleBlockDown.Click += new System.EventHandler(this.btnNeedleBlockDown_Click);
+            this.btnThetaMatchMove.Click += new System.EventHandler(this.btnThetaMatchMove_Click);
+            this.btnXyMatchMove.Click += new System.EventHandler(this.btnXyMatchMove_Click);
+            this.btnManualDieMapOffsetApply.Click += new System.EventHandler(this.btnManualDieMapOffsetApply_Click);
+            //
             // InputStageMapTransferPage
             //
             this.AutoScroll = false;
+            this.BackColor = System.Drawing.Color.White;
             this.Controls.Add(this.rootLayout);
             this.Name = "InputStageMapTransferPage";
             this.Size = new System.Drawing.Size(1678, 900);
             this.rootLayout.ResumeLayout(false);
-            this.statusLayout.ResumeLayout(false);
-            this.bodyLayout.ResumeLayout(false);
-            this.mapLayout.ResumeLayout(false);
+            this.grpCreate.ResumeLayout(false);
             ((System.ComponentModel.ISupportInitialize)(this.gridDieList)).EndInit();
-            this.sideLayout.ResumeLayout(false);
+            this.infoEditBody.ResumeLayout(false);
             this.grpMapInfo.ResumeLayout(false);
             this.mapInfoLayout.ResumeLayout(false);
-            this.grpMode.ResumeLayout(false);
-            this.modeLayout.ResumeLayout(false);
-            this.modeLayout.PerformLayout();
+            this.dieStateArea.ResumeLayout(false);
             this.grpDieState.ResumeLayout(false);
             this.dieStateLayout.ResumeLayout(false);
-            this.actionLayout.ResumeLayout(false);
+            this.detachedButtonRow.ResumeLayout(false);
+            this.grpAction.ResumeLayout(false);
+            this.actionBar.ResumeLayout(false);
             this.ResumeLayout(false);
 
         }
@@ -1110,5 +1056,3 @@ namespace QMC.CDT_320.Ui.Pages.Work
         private DataGridViewTextBoxColumn colDieUid;
     }
 }
-
-

@@ -730,7 +730,8 @@ namespace QMC.CDT320
 
         public bool IsWaferFeederRingCheck()
         {
-            return IsWaferFeederRingDetected(false);
+            // 웨이퍼 감지 신호는 true=감지, false=클리어 기준으로 통일한다.
+            return IsWaferFeederRingDetected(true);
         }
 
         public bool IsWaferFeederRingDetected(bool expected = true)
@@ -1296,6 +1297,9 @@ namespace QMC.CDT320
 
         public async Task<bool> WaitWaferFeederRingClear(int timeoutMs, CancellationToken ct)
         {
+            if (ShouldBypassInputWaitInSimulation(WaferFeederRingCheckSensor))
+                return IsWaferFeederTransferDataOccupied() == false;
+
             return await WaferFeederRingCheckSensor.WaitUntilStateAsync(false, timeoutMs, ct);
         }
 
@@ -1306,6 +1310,9 @@ namespace QMC.CDT320
 
         public async Task<bool> WaitWaferFeederRingState(bool expected, int timeoutMs, CancellationToken ct)
         {
+            if (ShouldBypassInputWaitInSimulation(WaferFeederRingCheckSensor))
+                return IsWaferFeederTransferDataOccupied() == expected;
+
             return await WaferFeederRingCheckSensor.WaitUntilStateAsync(expected, timeoutMs, ct);
         }
 

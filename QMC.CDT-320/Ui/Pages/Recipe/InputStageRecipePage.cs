@@ -335,25 +335,12 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
         {
             try
             {
-                optionLayout.Visible = false;
-                waitLayout.Visible = false;
-                ioLayout.Visible = false;
-                jogLayout.Visible = false;
-                jogCommonLayout.Visible = true;
-                speedLayout.Visible = false;
-
+                // 신형 컨트롤 z-order(레거시 위로)만 런타임 유지한다.
                 optionParameterGrid.BringToFront();
                 waitParameterGrid.BringToFront();
                 ioCylinderPanel.BringToFront();
                 jogCommonLayout.BringToFront();
                 jogSpeedControl.BringToFront();
-
-                BackColor = Color.FromArgb(207, 210, 214);
-                lblHeader.BackColor = Color.FromArgb(64, 64, 64);
-                lblHeader.ForeColor = Color.White;
-                lblHeader.Font = new Font("Malgun Gothic", 11F, FontStyle.Bold);
-                foreach (var group in new[] { grpOptions, grpWait, grpManual, grpIo, grpVision, grpJog, grpSpeed })
-                    group.Font = new Font("Malgun Gothic", 10F, FontStyle.Bold);
             }
             catch (Exception ex)
             {
@@ -644,6 +631,9 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 if (position == null)
                     return;
 
+                if (!ConfirmTeachPosition("Input Stage Teach", position.DisplayName))
+                    return;
+
                 TeachPosition(position);
                 SaveCurrentRecipeData();
                 RefreshView();
@@ -655,6 +645,26 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             }
             finally
             {
+            }
+        }
+
+        private bool ConfirmTeachPosition(string title, string actionName)
+        {
+            string name = string.IsNullOrWhiteSpace(actionName) ? "Teach Position" : actionName;
+            using (var dialog = new QMC.Common.MessageBoxYesNo())
+            {
+                dialog.ButtonGroupLabel = "TEACH";
+                DialogResult result = dialog.ShowDialog(
+                    title,
+                    name + " 현재 위치로 티칭하시겠습니까?",
+                    this,
+                    new[] { "Yes", "No" });
+
+                if (result == DialogResult.Yes)
+                    return true;
+
+                EventLogger.Write(EventKind.Event, "UI", "INPUT-STAGE", name + " teach canceled.");
+                return false;
             }
         }
 
@@ -1163,7 +1173,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             return true;
         }
 
-        // ===== LOAD / UNLOAD: Needle/Eject Z Avoid -> ExpanderZ safe -> T -> Y -> ExpanderZ teaching =====
+        // ===== LOAD / UNLOAD: Needle/Eject Z Avoid -> T -> ExpanderZ Avoid -> Y -> ExpanderZ teaching =====
         private async Task<int> MoveLoadUnloadSequenceAsync(StagePositionKind kind)
         {
             try
@@ -1178,6 +1188,31 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 // 0) NeedleZ/EjectPinZ는 무조건 Avoid로 후퇴시킨다.
                 if ((r = await MoveNeedleAndEjectZAsync(StagePositionKind.Avoid, title)) != 0)
                     return r;
+
+                if (kind == StagePositionKind.Load || kind == StagePositionKind.Unload)
+                {
+                    // 1) WAFER T - InputFeeder Avoid 확인
+                    if (!CheckInputFeederAvoidOnly(machine, out reason))
+                        return AbortStage(title, "WAFER T 전 " + reason);
+                    if (await StepMoveKindAsync(kind, "WAFER T") != 0)
+                        return AbortStage(title, "WAFER T 이동 실패");
+
+                    // 2) ExpanderZ는 StageY 이동 전에 Avoid 위치로 명시 후퇴시킨다.
+                    if ((r = await MoveExpanderZAsync(StagePositionKind.Avoid, title, machine, ensureVisionXAvoid: false)) != 0)
+                        return r;
+
+                    // 3) WAFER Y
+                    if (!CheckStagePlaneInterlock(machine, true, out reason))
+                        return AbortStage(title, "WAFER Y 전 " + reason);
+                    if (await StepMoveKindAsync(kind, "WAFER Y") != 0)
+                        return AbortStage(title, "WAFER Y 이동 실패");
+
+                    // 4) ExpanderZ Load/Unload
+                    if ((r = await MoveExpanderZAsync(kind, title, machine)) != 0)
+                        return r;
+
+                    return 0;
+                }
 
                 // 1) ExpanderZ는 평면 이동 전 Avoid 또는 Process 기준 위치여야 한다.
                 if ((r = await EnsureExpanderZSafeForPlanarMoveAsync(title, machine)) != 0)
@@ -1395,6 +1430,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 AddStagePositions(items, unit);
                 AddNeedlePickUpSettingItems(items, unit);   // NEEDLE PIN CAL POSITION 바로 아래 배치
                 AddWorkAreaSettingItems(items, unit);
+                AddInputDieVisionSettingItems(items, unit);
                 items.Add(ParameterGridItem.Int("BARCODE READ TIMEOUT", "ms", ParameterGridScope.Setup, () => unit.Setup.BarcodeReadTimeoutMs, v => unit.Setup.BarcodeReadTimeoutMs = Math.Max(0, v)));
                 items.Add(ParameterGridItem.Int("ALIGN ITERATIONS", "count", ParameterGridScope.Config, () => unit.Config.MaxAlignIterations, v => unit.Config.MaxAlignIterations = Math.Max(1, v)));
                 items.Add(ParameterGridItem.Double("ALIGN THRESHOLD", "deg", ParameterGridScope.Config, () => unit.Config.AlignConvergenceThresholdDeg, v => unit.Config.AlignConvergenceThresholdDeg = Math.Max(0.0, v)));
@@ -1412,6 +1448,32 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             finally
             {
             }
+        }
+
+        private void AddInputDieVisionSettingItems(List<ParameterGridItem> items, InputStageUnit unit)
+        {
+            const string groupKey = "INPUT_DIE_VISION_SETTING";
+            unit.Config.EnsurePickUpMotionDefaults();
+
+            items.Add(Describe(ParameterGridItem.Header("INPUT DIE VISION SETTING", groupKey),
+                "PickUp 전 Wafer/Input Vision Die 검사 실패 처리 정책입니다."));
+            items.Add(InGroup(Describe(ParameterGridItem.Int("INPUT DIE VISION RETRY", "ea", ParameterGridScope.Config,
+                () => unit.Config.InputDieVisionRetryCount,
+                v => unit.Config.InputDieVisionRetryCount = Math.Max(1, v)),
+                "PickUp 전 Die Vision 검사를 최대 몇 번 시도할지 설정합니다.\r\n예: 3이면 3회 검사 후 실패 정책을 적용합니다."), groupKey));
+
+            var failActionOptions = new List<ParameterGridOption>
+            {
+                new ParameterGridOption("SKIP DIE / 다음 Die 진행", InputDieVisionFailureAction.SkipDie),
+                new ParameterGridOption("ALARM / 알람 정지", InputDieVisionFailureAction.Alarm)
+            };
+            items.Add(InGroup(Describe(ParameterGridItem.Selection("INPUT DIE VISION FAIL ACTION", "mode", ParameterGridScope.Config,
+                () => unit.Config.InputDieVisionFailureAction,
+                value => unit.Config.InputDieVisionFailureAction = value is InputDieVisionFailureAction
+                    ? (InputDieVisionFailureAction)value
+                    : InputDieVisionFailureAction.SkipDie,
+                failActionOptions),
+                "지정 횟수만큼 Die Vision 검사에 실패했을 때 처리 방식입니다.\r\nSKIP은 해당 Die를 제외 처리하고 다음 Die로 넘어가며, ALARM은 기존처럼 알람 정지합니다."), groupKey));
         }
 
         private void AddWorkAreaSettingItems(List<ParameterGridItem> items, InputStageUnit unit)
@@ -1463,6 +1525,8 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 "PickUp Step 06 PickerZ/EjectPinZ 직선 동기 상승의 가속도입니다."), groupKey));
             items.Add(InGroup(Describe(AxisDouble("PICKUP SYNC LIFT DEC", ParameterGridScope.Config, unit.EjectPinZ, () => unit.Config.PickUpNeedleSyncLiftDec, v => unit.Config.PickUpNeedleSyncLiftDec = Math.Max(0.0, v), "/s2"),
                 "PickUp Step 06 PickerZ/EjectPinZ 직선 동기 상승의 감속도입니다."), groupKey));
+            items.Add(InGroup(Describe(ParameterGridItem.Int("PICKUP SYNC LIFT SETTLE", "ms", ParameterGridScope.Config, () => unit.Config.PickUpNeedleSyncLiftSettleMs, v => unit.Config.PickUpNeedleSyncLiftSettleMs = Math.Max(0, v)),
+                "PickUp Step 06에서 PickerZ와 EjectPinZ가 동시에 상승 완료한 뒤 기다리는 시간입니다.\r\n이 대기 후 PickerZ Separate/AVOID 복귀 단계로 넘어갑니다."), groupKey));
             items.Add(InGroup(Describe(AxisDouble("NEEDLE SEPARATE DISTANCE", ParameterGridScope.Config, unit.NeedleZ, () => unit.Config.PickUpNeedleSeparateDistance, v => unit.Config.PickUpNeedleSeparateDistance = Math.Max(0.0, v)),
                 "구 Needle 분리 동작용 거리입니다.\r\n현재 PickUp Step 07은 PickerZ Avoid 후 NeedleZ/EjectPinZ Avoid 복귀 흐름이라 이 값은 현재 흐름에서 사용하지 않습니다."), groupKey));
             items.Add(InGroup(Describe(ParameterGridItem.Double("NEEDLE SEPARATE SPEED", "%", ParameterGridScope.Config, () => unit.Config.PickUpNeedleSeparateSpeedPercent, v => unit.Config.PickUpNeedleSeparateSpeedPercent = PickerPickUpMotionConfig.NormalizePercent(v, 1.0)),

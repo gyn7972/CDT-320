@@ -48,7 +48,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 RebuildVisionPanel();
                 StyleMapTabs();
                 ApplyBottomGroupSizing();
-                WireEvents();
+                WireRuntimeEvents();
                 InitializeWorkTimeToolTips();
                 HookStateEvents();
                 EnsureRefreshTimer();
@@ -267,25 +267,111 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 VisionViewerSource source = new VisionViewerSource(host, viewerPort, 2000, null);
                 source.FrameMeta += meta => OnVisionFrameMeta(camera, infoLabel, title, meta);
                 camera.AttachSource(source);
+                camera.ShowLiveLabel = false;
 
                 _visionSources.Add(source);
                 _visionCameras.Add(camera);
 
-                camera.HandleCreated += (s, e) => StartPassiveVisionCamera(camera);
+                int[] pending = new int[1];
+                camera.HandleCreated += (s, e) => StartPassiveVisionGrabImageStream(source, camera, title, viewerPort, pending);
                 if (camera.IsHandleCreated)
-                    StartPassiveVisionCamera(camera);
+                    StartPassiveVisionGrabImageStream(source, camera, title, viewerPort, pending);
             }
             catch
             {
             }
         }
 
-        private static void StartPassiveVisionCamera(CameraViewBase camera)
+        private void StartPassiveVisionGrabImageStream(VisionViewerSource source, CameraViewBase camera, string title, int viewerPort, int[] pending)
         {
-            if (camera == null || camera.IsDisposed)
+            if (source == null || camera == null || camera.IsDisposed)
                 return;
 
-            try { camera.StartLive(); } catch { }
+            try
+            {
+                source.StartGrabImageStream(bmp => OnPassiveVisionGrabImageFrame(camera, bmp, pending));
+                LogPassiveVisionGrabImageStarted(title, viewerPort);
+            }
+            catch (Exception ex)
+            {
+                LogPassiveVisionGrabImageFailed(title, viewerPort, ex.Message);
+            }
+        }
+
+        private void OnPassiveVisionGrabImageFrame(CameraViewBase camera, Bitmap bmp, int[] pending)
+        {
+            if (bmp == null)
+                return;
+
+            if (pending == null)
+            {
+                try { bmp.Dispose(); } catch { }
+                return;
+            }
+
+            if (Interlocked.CompareExchange(ref pending[0], 1, 0) != 0)
+            {
+                try { bmp.Dispose(); } catch { }
+                return;
+            }
+
+            try
+            {
+                if (camera == null || camera.IsDisposed || !camera.IsHandleCreated)
+                {
+                    try { bmp.Dispose(); } catch { }
+                    Interlocked.Exchange(ref pending[0], 0);
+                    return;
+                }
+
+                camera.BeginInvoke(new Action(() =>
+                {
+                    try
+                    {
+                        if (camera != null && !camera.IsDisposed)
+                            camera.SetImage(bmp);
+                    }
+                    finally
+                    {
+                        try { bmp.Dispose(); } catch { }
+                        Interlocked.Exchange(ref pending[0], 0);
+                    }
+                }));
+            }
+            catch
+            {
+                try { bmp.Dispose(); } catch { }
+                Interlocked.Exchange(ref pending[0], 0);
+            }
+        }
+
+        private static void LogPassiveVisionGrabImageStarted(string title, int viewerPort)
+        {
+            try
+            {
+                QMC.Common.Logging.EventLogger.Write(
+                    QMC.Common.Logging.EventKind.Event,
+                    "VISION",
+                    "VISION-GRAB-VIEW",
+                    "Work 화면 Vision Grab 이미지 수신을 시작했습니다. title=" +
+                    (title ?? string.Empty) + ", viewerPort=" + viewerPort);
+            }
+            catch { }
+        }
+
+        private static void LogPassiveVisionGrabImageFailed(string title, int viewerPort, string reason)
+        {
+            try
+            {
+                QMC.Common.Logging.EventLogger.Write(
+                    QMC.Common.Logging.EventKind.Warning,
+                    "VISION",
+                    "VISION-GRAB-VIEW",
+                    "Work 화면 Vision Grab 이미지 수신 시작 실패. title=" +
+                    (title ?? string.Empty) + ", viewerPort=" + viewerPort +
+                    ", reason=" + reason);
+            }
+            catch { }
         }
 
         private void OnVisionFrameMeta(CameraViewBase camera, Label infoLabel, string title, VisionFrameMeta meta)
@@ -368,30 +454,58 @@ namespace QMC.CDT_320.Ui.Pages.Work
             _visionSources.Clear();
         }
 
-        private void WireEvents()
+        private void WireRuntimeEvents()
         {
             if (rootLayout != null)
                 rootLayout.SizeChanged += (s, e) => ApplyBottomGroupSizing();
 
-            btnCcs.Click += (s, e) =>
+            if (btnTestAlarm != null)
+                btnTestAlarm.Click += btnTestAlarm_Click;
+        }
+
+        private void btnCcs_Click(object sender, EventArgs e)
+        {
+            try
             {
-                try
-                {
-                    QMC.Common.Logging.EventLogger.Write(
-                        QMC.Common.Logging.EventKind.Event,
-                        QMC.CDT_320.Ui.Security.UserSession.Name,
-                        "CCS-CHECK",
-                        "CCS check button clicked.");
-                }
-                catch { }
+                QMC.Common.Logging.EventLogger.Write(
+                    QMC.Common.Logging.EventKind.Event,
+                    QMC.CDT_320.Ui.Security.UserSession.Name,
+                    "CCS-CHECK",
+                    "CCS check button clicked.");
+            }
+            catch { }
 
-                QMC.Common.MessageDialog.Show(
-                    "CCS check page will be connected in the next work step.",
-                    btnCcs.Text,
-                    MessageBoxButtons.OK,
-                    MessageBoxIcon.Information);
-            };
+            QMC.Common.MessageDialog.Show(
+                "CCS check page will be connected in the next work step.",
+                btnCcs.Text,
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Information);
+        }
 
+        private void btnTestAlarm_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                QMC.Common.Logging.EventLogger.Write(
+                    QMC.Common.Logging.EventKind.Alarm,
+                    QMC.CDT_320.Ui.Security.UserSession.Name,
+                    "TEST-ALARM",
+                    "Main ALARM button clicked. TEST-ALARM will be raised.");
+
+                QMC.Common.Alarms.AlarmManager.Raise(
+                    QMC.Common.Alarms.AlarmSeverity.Critical,
+                    "TEST-ALARM",
+                    "WorkMainPage",
+                    "Main 화면 ALARM 버튼에 의해 테스트 알람이 발생했습니다.");
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Logging.EventLogger.Write(
+                    QMC.Common.Logging.EventKind.Alarm,
+                    "UI",
+                    "TEST-ALARM",
+                    "Main ALARM button failed: " + ex.Message);
+            }
         }
 
         private void ApplyBottomGroupSizing()
@@ -426,8 +540,13 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     lblUphCaption,
                     lblUph,
                     "UPH(Units Per Hour)\r\n" +
-                    "최근 Cycle Time 기준으로 1시간 동안 처리 가능한 Die 수를 환산합니다.\r\n" +
-                    "통계 엔진에 실제 처리 수량이 기록된 경우에만 표시합니다.");
+                    "UPH: 최근 20개 Die Place 완료 간격의 다이당 평균 ms를 1시간 기준으로 환산합니다.\r\n" +
+                    "1M Qty: 최근 60초 안에 Place 완료된 Die 수입니다.");
+                SetMetricToolTip(
+                    lblUphCaption,
+                    lblRecentMinuteUph,
+                    "최근 1분 생산 수량\r\n" +
+                    "최근 60초 안에 Place 완료된 Die 수입니다.");
 
                 SetMetricToolTip(
                     lblCycleCaption,
@@ -581,9 +700,9 @@ namespace QMC.CDT_320.Ui.Pages.Work
             if (currBin < 0 && material.CurrentBinCode > 0)
                 currBin = material.CurrentBinCode;
 
-            snap.TotalChip = material.TargetCount > 0
-                ? total + " / " + material.TargetCount
-                : total.ToString();
+            snap.TotalChip = material.CurrentInputTargetCount > 0
+                ? material.CurrentInputProcessedCount + " / " + material.CurrentInputTargetCount
+                : "0";
             snap.BinNum = currBin >= 0 ? currBin.ToString() : "--";
             snap.StageInfo =
                 "STAGE\r\nTOTAL : " + total +
@@ -643,6 +762,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             if (statsTotal > 0 || statsGood > 0)
                 uph = stats.UphInstant > 0 ? stats.UphInstant : stats.UphEffective;
             snap.Uph = uph.ToString("F2");
+            snap.RecentMinuteUph = "1M " + stats.RecentMinuteDies + " ea";
 
             snap.Mtbf = FormatTs(TimeSpan.FromSeconds(stats.MtbfSeconds));
             snap.Mttr = FormatTs(TimeSpan.FromSeconds(stats.MttrSeconds));
@@ -780,6 +900,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             SetText(lblErrCnt, s.ErrCnt);
             SetText(lblRecovery, s.Recovery);
             SetText(lblUph, s.Uph);
+            SetText(lblRecentMinuteUph, s.RecentMinuteUph);
             SetText(lblMtbf, s.Mtbf);
             SetText(lblMttr, s.Mttr);
             SetText(lblCycle, s.Cycle);
@@ -815,10 +936,6 @@ namespace QMC.CDT_320.Ui.Pages.Work
             mapTabControl.BackColor = Color.White;
             mapTabControl.Font = new Font("맑은 고딕", 8F, FontStyle.Bold);
             mapTabControl.Padding = new Point(6, 1);
-            mapTabControl.DrawItem -= MapTabControl_DrawItem;
-            mapTabControl.DrawItem += MapTabControl_DrawItem;
-            mapTabControl.SizeChanged -= MapTabControl_SizeChanged;
-            mapTabControl.SizeChanged += MapTabControl_SizeChanged;
             UpdateMapTabWidth();
         }
 
@@ -967,6 +1084,10 @@ namespace QMC.CDT_320.Ui.Pages.Work
 
                 display.LotId = state.LotId ?? string.Empty;
 
+                WaferMaterial currentInputWafer = ResolveCurrentInputStageWafer(state);
+                string currentInputWaferId = currentInputWafer != null ? currentInputWafer.WaferId : string.Empty;
+                HashSet<string> currentInputDieIds = BuildCurrentInputDieIdSet(currentInputWafer);
+
                 if (state.Dies != null)
                 {
                     foreach (DieMaterial die in state.Dies)
@@ -997,6 +1118,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
 
                         if (die.Output_BinCode > 0)
                             display.CurrentBinCode = die.Output_BinCode;
+
+                        AccumulateCurrentInputWaferCount(display, die, currentInputWaferId, currentInputDieIds);
                     }
                 }
 
@@ -1011,6 +1134,110 @@ namespace QMC.CDT_320.Ui.Pages.Work
             }
 
             return display;
+        }
+
+        private static WaferMaterial ResolveCurrentInputStageWafer(MaterialSnapshot state)
+        {
+            if (state == null || state.Wafers == null)
+                return null;
+
+            WaferMaterial selected = null;
+            foreach (WaferMaterial wafer in state.Wafers)
+            {
+                if (wafer == null ||
+                    wafer.CurrentLocation == null ||
+                    wafer.CurrentLocation.Kind != MaterialLocationKind.InputStage ||
+                    WaferMaterialStateText.Normalize(wafer.State) == WaferMaterialState.Empty ||
+                    string.IsNullOrWhiteSpace(wafer.WaferId))
+                {
+                    continue;
+                }
+
+                if (selected == null || wafer.UpdatedAt > selected.UpdatedAt)
+                    selected = wafer;
+            }
+
+            return selected;
+        }
+
+        private static HashSet<string> BuildCurrentInputDieIdSet(WaferMaterial wafer)
+        {
+            try
+            {
+                if (wafer == null || wafer.DieIds == null || wafer.DieIds.Count == 0)
+                    return null;
+
+                var set = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                foreach (string dieId in wafer.DieIds)
+                {
+                    if (!string.IsNullOrWhiteSpace(dieId))
+                        set.Add(dieId);
+                }
+
+                return set.Count > 0 ? set : null;
+            }
+            catch
+            {
+                return null;
+            }
+            finally
+            {
+            }
+        }
+
+        private static void AccumulateCurrentInputWaferCount(
+            MaterialDisplaySnapshot display,
+            DieMaterial die,
+            string currentInputWaferId,
+            HashSet<string> currentInputDieIds)
+        {
+            if (display == null || die == null || string.IsNullOrWhiteSpace(currentInputWaferId))
+                return;
+
+            if (!string.Equals(die.WaferID_Input, currentInputWaferId, StringComparison.OrdinalIgnoreCase))
+                return;
+
+            if (currentInputDieIds != null &&
+                (string.IsNullOrWhiteSpace(die.DieId) || !currentInputDieIds.Contains(die.DieId)))
+            {
+                return;
+            }
+
+            display.CurrentInputTargetCount++;
+            if (IsCurrentInputWaferDieProcessed(die))
+                display.CurrentInputProcessedCount++;
+        }
+
+        private static bool IsCurrentInputWaferDieProcessed(DieMaterial die)
+        {
+            if (die == null)
+                return false;
+
+            if (die.Result == DieResult.Good || die.Result == DieResult.NG)
+                return true;
+
+            if (IsPickerLocation(die.CurrentLocation) || IsOutputLocation(die.CurrentLocation))
+                return true;
+
+            return HasInputPickVisionInspection(die);
+        }
+
+        private static bool HasInputPickVisionInspection(DieMaterial die)
+        {
+            if (die == null || die.Inspections == null)
+                return false;
+
+            foreach (DieInspectionRecord record in die.Inspections)
+            {
+                if (record == null)
+                    continue;
+
+                if (string.Equals(record.InspectionType, "InputPickVision", StringComparison.OrdinalIgnoreCase) &&
+                    record.Result != MaterialInspectionResult.Unknown)
+                    return true;
+            }
+
+            return false;
         }
 
         private static void ApplyOutputReceiveSlotFallback(MaterialSnapshot state, MaterialDisplaySnapshot display)
@@ -1179,6 +1406,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             public string ErrCnt;
             public string Recovery;
             public string Uph;
+            public string RecentMinuteUph;
             public string Mtbf;
             public string Mttr;
             public string Cycle;
@@ -1195,6 +1423,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
             public int NgCount;
             public int PickedCount;
             public int CurrentBinCode = -1;
+            public int CurrentInputTargetCount;
+            public int CurrentInputProcessedCount;
             public string LotId = string.Empty;
         }
     }

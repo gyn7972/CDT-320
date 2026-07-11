@@ -31,6 +31,7 @@ namespace QMC.CDT320.Sequencing
         public double MappingOffsetX { get; set; }
         public double MappingOffsetY { get; set; }
         public int CreatedDieCount { get; set; }
+        public int FullDieCount { get; set; }
     }
 
     internal static class InputStageDieMapApplyService
@@ -91,7 +92,8 @@ namespace QMC.CDT320.Sequencing
                             : request.Source);
                 }
 
-                int dieCount = ApplyDieMaterials(request.DieMap, wafer);
+                int fullDieCount = CountMapEntries(request.DieMap);
+                int targetDieCount = ApplyDieMaterials(request.DieMap, wafer);
                 ApplyWaferDieMapResult(request.Stage, wafer, request.DieMap, mappingOffsetX, mappingOffsetY);
 
                 MaterialStateService.NotifyAndSave(string.IsNullOrWhiteSpace(request.SaveReason)
@@ -111,7 +113,8 @@ namespace QMC.CDT320.Sequencing
                     ", frame=" + (request.DieMap.FrameObjId ?? "") +
                     ", dieMapX=" + request.DieMap.DieMapX +
                     ", dieMapY=" + request.DieMap.DieMapY +
-                    ", dieCount=" + dieCount +
+                    ", targetDieCount=" + targetDieCount +
+                    ", fullDieCount=" + fullDieCount +
                     ", offsetX=" + mappingOffsetX.ToString("F6") +
                     ", offsetY=" + mappingOffsetY.ToString("F6") + " - Ok");
 
@@ -121,7 +124,8 @@ namespace QMC.CDT320.Sequencing
                 result.WaferMap = waferMap;
                 result.MappingOffsetX = mappingOffsetX;
                 result.MappingOffsetY = mappingOffsetY;
-                result.CreatedDieCount = dieCount;
+                result.CreatedDieCount = targetDieCount;
+                result.FullDieCount = fullDieCount;
                 return result;
             }
             catch (Exception ex)
@@ -212,6 +216,9 @@ namespace QMC.CDT320.Sequencing
                 return;
 
             wafer.DieMapFrameObjId = map.FrameObjId;
+            string inputSpecName = MaterialStateService.ResolveInputTapeFrameSpecName(0);
+            if (!string.IsNullOrWhiteSpace(inputSpecName))
+                wafer.TapeFrameSpecName = inputSpecName;
             wafer.HasInputStageAlignResult = true;
             wafer.InputStageAlignOriginX = map.OriginX;
             wafer.InputStageAlignOriginY = map.OriginY;
@@ -245,9 +252,11 @@ namespace QMC.CDT320.Sequencing
 
             if (wafer.DieIds == null)
                 wafer.DieIds = new List<string>();
+
             wafer.DieIds.Clear();
 
             int count = 0;
+            var activeDieIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             foreach (DieMapEntry entry in map.Entries)
             {
                 if (entry == null)
@@ -271,7 +280,7 @@ namespace QMC.CDT320.Sequencing
                 die.Wafer_IndexX = mapX;
                 die.Wafer_IndexY = mapY;
                 die.InputSequenceNo = entry.SequenceNo;
-                die.Input_BinCode = entry.BinCode;
+                die.Input_BinCode = entry.IsTarget ? entry.BinCode : 0;
                 die.IsInputTarget = entry.IsTarget;
                 die.Output_BinCode = 0;
                 die.Bin_IndexX = -1;
@@ -279,21 +288,56 @@ namespace QMC.CDT320.Sequencing
                 die.CurrentLocation = new MaterialLocation { Kind = entry.IsTarget ? MaterialLocationKind.InputStage : MaterialLocationKind.Unknown };
                 die.ReservedPickerLocation = MaterialLocationKind.Unknown;
                 die.ReservedPickerNo = -1;
-                die.Result = entry.IsTarget ? DieResult.Unknown : DieResult.NG;
+                // 현재 기준: 새 Input 맵 적용 시 이전 wafer의 Pick/검사 이력은 사용하지 않는다.
+                die.PickedPickerLocation = MaterialLocationKind.Unknown;
+                die.PickedPickerNo = -1;
+                die.PickedAt = DateTime.MinValue;
+                die.Result = DieResult.Unknown;
                 if (die.NgCodes == null)
                     die.NgCodes = new List<string>();
                 else
                     die.NgCodes.Clear();
+                if (die.Inspections == null)
+                    die.Inspections = new List<DieInspectionRecord>();
+                else
+                    die.Inspections.Clear();
                 if (die.WaferOffset == null)
                     die.WaferOffset = new VisionOffset();
                 die.WaferOffset.X = entry.PosX;
                 die.WaferOffset.Y = entry.PosY;
                 die.WaferOffset.R = 0.0;
                 die.WaferOffset.IsValid = true;
+                if (die.BinOffset == null)
+                    die.BinOffset = new VisionOffset();
+                die.BinOffset.X = 0.0;
+                die.BinOffset.Y = 0.0;
+                die.BinOffset.R = 0.0;
+                die.BinOffset.IsValid = false;
                 die.UpdatedAt = DateTime.Now;
 
+                activeDieIds.Add(dieId);
                 wafer.DieIds.Add(dieId);
                 if (entry.IsTarget)
+                    count++;
+            }
+
+            MaterialStateService.ClearStaleInputDieMaterialsForWafer(
+                wafer.WaferId,
+                activeDieIds,
+                "InputStageDieMapApplyService.ApplyDieMaterials");
+
+            return count;
+        }
+
+        private static int CountMapEntries(DieMap map)
+        {
+            if (map == null || map.Entries == null)
+                return 0;
+
+            int count = 0;
+            foreach (DieMapEntry entry in map.Entries)
+            {
+                if (entry != null)
                     count++;
             }
 

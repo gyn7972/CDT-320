@@ -298,27 +298,64 @@ namespace QMC.CDT_320.Ui.Pages.Settings
         {
             btnSave.Visible = false;
             btnReload.Text = "REFRESH";
-            btnReload.Click += (s, e) => LoadRows();
             btnAddRow.Visible = false;
             btnSave.Text = "SAVE";
-            btnSave.Click += (s, e) => SaveIoSettings();
-            btnCylinderApply.Click += (s, e) => ApplySelectedCylinderSettings(true);
-            btnCylinderFwd.Click += async (s, e) => await RunCylinderTestAsync("FWD");
-            btnCylinderBwd.Click += async (s, e) => await RunCylinderTestAsync("BWD");
-            btnCylinderOff.Click += async (s, e) => await RunCylinderTestAsync("OFF");
-            _grid.CellClick += OnGridCellClick;
-            _grid.CellEnter += OnGridCellEnter;
-            _grid.ColumnHeaderMouseClick += OnColumnHeaderMouseClick;
-            _grid.SelectionChanged += (s, e) => ScheduleSelectedCylinderPanelUpdate();
-            _grid.EditingControlShowing += OnGridEditingControlShowing;
-            txtFwdLabel.TextChanged += (s, e) => SyncCylinderButtonText();
-            txtBwdLabel.TextChanged += (s, e) => SyncCylinderButtonText();
-            _grid.CurrentCellDirtyStateChanged += (s, e) =>
-            {
-                if (_grid.IsCurrentCellDirty)
-                    _grid.CommitEdit(DataGridViewDataErrorContexts.Commit);
-            };
-            _grid.DataError += (s, e) => { e.ThrowException = false; };
+        }
+
+        private void btnReload_Click(object sender, EventArgs e)
+        {
+            LoadRows();
+        }
+
+        private void btnSave_Click(object sender, EventArgs e)
+        {
+            SaveIoSettings();
+        }
+
+        private void btnCylinderApply_Click(object sender, EventArgs e)
+        {
+            ApplySelectedCylinderSettings(true);
+        }
+
+        private async void btnCylinderFwd_Click(object sender, EventArgs e)
+        {
+            await RunCylinderTestAsync("FWD");
+        }
+
+        private async void btnCylinderBwd_Click(object sender, EventArgs e)
+        {
+            await RunCylinderTestAsync("BWD");
+        }
+
+        private async void btnCylinderOff_Click(object sender, EventArgs e)
+        {
+            await RunCylinderTestAsync("OFF");
+        }
+
+        private void _grid_SelectionChanged(object sender, EventArgs e)
+        {
+            ScheduleSelectedCylinderPanelUpdate();
+        }
+
+        private void txtFwdLabel_TextChanged(object sender, EventArgs e)
+        {
+            SyncCylinderButtonText();
+        }
+
+        private void txtBwdLabel_TextChanged(object sender, EventArgs e)
+        {
+            SyncCylinderButtonText();
+        }
+
+        private void _grid_CurrentCellDirtyStateChanged(object sender, EventArgs e)
+        {
+            if (_grid.IsCurrentCellDirty)
+                _grid.CommitEdit(DataGridViewDataErrorContexts.Commit);
+        }
+
+        private void _grid_DataError(object sender, DataGridViewDataErrorEventArgs e)
+        {
+            e.ThrowException = false;
         }
 
         private void OnGridEditingControlShowing(object sender, DataGridViewEditingControlShowingEventArgs e)

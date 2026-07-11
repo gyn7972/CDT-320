@@ -5,7 +5,6 @@
         public LogicPage()
         {
             InitializeComponent();
-            this.contentHost.Controls.Add(new LogicDetailPage { Dock = System.Windows.Forms.DockStyle.Fill });
         }
     }
 }

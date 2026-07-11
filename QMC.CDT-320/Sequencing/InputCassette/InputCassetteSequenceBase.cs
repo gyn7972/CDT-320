@@ -773,7 +773,7 @@ namespace QMC.CDT320.Sequencing
                     BuildCassetteLevelSlotPositions(cassette, 1),
                     BuildCassetteLevelSlotPositions(cassette, 2),
                     LotStorage.ActiveLot != null ? LotStorage.ActiveLot.LotID : "",
-                    MaterialStateService.ResolveRecipeTapeFrameSpecName(inchSelect));
+                    MaterialStateService.ResolveInputTapeFrameSpecName(inchSelect));
                 Context.Controller.ApplyInputCassetteMappingCompleted();
                 WriteLog("RegisterMappingResult", "Input cassette material mapping result registered. - Ok");
                 return 0;

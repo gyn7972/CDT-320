@@ -4,9 +4,12 @@
     {
         private System.ComponentModel.IContainer components = null;
 
+        private System.Windows.Forms.TableLayoutPanel _compactLayout;
         private System.Windows.Forms.Label lblSubHeader;
+        private System.Windows.Forms.GroupBox _gridGroup;
         private System.Windows.Forms.DataGridView grid;
-        private System.Windows.Forms.FlowLayoutPanel actionsPanel;
+        private System.Windows.Forms.GroupBox _actionGroup;
+        private System.Windows.Forms.TableLayoutPanel actionRow;
         private QMC.CDT_320.Ui.Controls.ActionButton btnSave;
         private QMC.CDT_320.Ui.Controls.ActionButton btnReload;
         private QMC.CDT_320.Ui.Controls.ActionButton btnReset;
@@ -29,7 +32,9 @@
             System.Windows.Forms.DataGridViewCellStyle dataGridViewCellStyle4 = new System.Windows.Forms.DataGridViewCellStyle();
             System.Windows.Forms.DataGridViewCellStyle dataGridViewCellStyle5 = new System.Windows.Forms.DataGridViewCellStyle();
             System.Windows.Forms.DataGridViewCellStyle dataGridViewCellStyle6 = new System.Windows.Forms.DataGridViewCellStyle();
+            this._compactLayout = new System.Windows.Forms.TableLayoutPanel();
             this.lblSubHeader = new System.Windows.Forms.Label();
+            this._gridGroup = new System.Windows.Forms.GroupBox();
             this.grid = new System.Windows.Forms.DataGridView();
             this.NO = new System.Windows.Forms.DataGridViewTextBoxColumn();
             this.MODULE = new System.Windows.Forms.DataGridViewTextBoxColumn();
@@ -41,20 +46,25 @@
             this.SIM = new System.Windows.Forms.DataGridViewButtonColumn();
             this.SLN = new System.Windows.Forms.DataGridViewTextBoxColumn();
             this.SLP = new System.Windows.Forms.DataGridViewTextBoxColumn();
-            this.actionsPanel = new System.Windows.Forms.FlowLayoutPanel();
+            this._actionGroup = new System.Windows.Forms.GroupBox();
+            this.actionRow = new System.Windows.Forms.TableLayoutPanel();
             this.btnSave = new QMC.CDT_320.Ui.Controls.ActionButton();
             this.btnReload = new QMC.CDT_320.Ui.Controls.ActionButton();
             this.btnReset = new QMC.CDT_320.Ui.Controls.ActionButton();
             this.btnApply = new QMC.CDT_320.Ui.Controls.ActionButton();
             this.btnSharedRailX = new QMC.CDT_320.Ui.Controls.ActionButton();
             this.btnPickerZone = new QMC.CDT_320.Ui.Controls.ActionButton();
+            this._compactLayout.SuspendLayout();
+            this._gridGroup.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.grid)).BeginInit();
-            this.actionsPanel.SuspendLayout();
+            this._actionGroup.SuspendLayout();
+            this.actionRow.SuspendLayout();
             this.SuspendLayout();
             // 
             // lblSubHeader
             // 
-            this.lblSubHeader.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(64)))), ((int)(((byte)(64)))), ((int)(((byte)(64)))));
+            this.lblSubHeader.BackColor = UiTheme.StatusBarBg;
+            this.lblSubHeader.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblSubHeader.Font = new System.Drawing.Font("맑은 고딕", 11F, System.Drawing.FontStyle.Bold);
             this.lblSubHeader.ForeColor = System.Drawing.Color.White;
             this.lblSubHeader.Location = new System.Drawing.Point(8, 7);
@@ -70,9 +80,7 @@
             this.grid.AllowUserToAddRows = false;
             this.grid.AllowUserToDeleteRows = false;
             this.grid.AllowUserToResizeRows = false;
-            this.grid.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
-            | System.Windows.Forms.AnchorStyles.Left) 
-            | System.Windows.Forms.AnchorStyles.Right)));
+            this.grid.Dock = System.Windows.Forms.DockStyle.Fill;
             this.grid.AutoSizeColumnsMode = System.Windows.Forms.DataGridViewAutoSizeColumnsMode.Fill;
             this.grid.BackgroundColor = System.Drawing.Color.White;
             dataGridViewCellStyle1.Alignment = System.Windows.Forms.DataGridViewContentAlignment.MiddleCenter;
@@ -208,22 +216,89 @@
             this.SLP.Name = "SLP";
             this.SLP.ReadOnly = true;
             this.SLP.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
-            // 
-            // actionsPanel
-            // 
-            this.actionsPanel.BackColor = System.Drawing.Color.WhiteSmoke;
-            this.actionsPanel.Controls.Add(this.btnSave);
-            this.actionsPanel.Controls.Add(this.btnReload);
-            this.actionsPanel.Controls.Add(this.btnReset);
-            this.actionsPanel.Controls.Add(this.btnApply);
-            this.actionsPanel.Controls.Add(this.btnSharedRailX);
-            this.actionsPanel.Controls.Add(this.btnPickerZone);
-            this.actionsPanel.Dock = System.Windows.Forms.DockStyle.Bottom;
-            this.actionsPanel.Location = new System.Drawing.Point(0, 840);
-            this.actionsPanel.Name = "actionsPanel";
-            this.actionsPanel.Padding = new System.Windows.Forms.Padding(8);
-            this.actionsPanel.Size = new System.Drawing.Size(1678, 60);
-            this.actionsPanel.TabIndex = 2;
+            //
+            // _compactLayout
+            //
+            this._compactLayout.BackColor = System.Drawing.Color.White;
+            this._compactLayout.ColumnCount = 1;
+            this._compactLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this._compactLayout.Controls.Add(this.lblSubHeader, 0, 0);
+            this._compactLayout.Controls.Add(this._gridGroup, 0, 1);
+            this._compactLayout.Controls.Add(this._actionGroup, 0, 3);
+            this._compactLayout.Dock = System.Windows.Forms.DockStyle.Fill;
+            this._compactLayout.Location = new System.Drawing.Point(0, 0);
+            this._compactLayout.Margin = new System.Windows.Forms.Padding(0);
+            this._compactLayout.Name = "_compactLayout";
+            this._compactLayout.RowCount = 4;
+            this._compactLayout.SetRowSpan(this._gridGroup, 2);
+            this._compactLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 30F));
+            this._compactLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 45F));
+            this._compactLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 45F));
+            this._compactLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 10F));
+            this._compactLayout.Size = new System.Drawing.Size(1678, 900);
+            this._compactLayout.TabIndex = 0;
+            //
+            // _gridGroup
+            //
+            this._gridGroup.Controls.Add(this.grid);
+            this._gridGroup.Dock = System.Windows.Forms.DockStyle.Fill;
+            this._gridGroup.Font = new System.Drawing.Font("맑은 고딕", 11F, System.Drawing.FontStyle.Bold);
+            this._gridGroup.Location = new System.Drawing.Point(0, 30);
+            this._gridGroup.Margin = new System.Windows.Forms.Padding(0);
+            this._gridGroup.Name = "_gridGroup";
+            this._gridGroup.Padding = new System.Windows.Forms.Padding(1, 9, 1, 1);
+            this._gridGroup.Size = new System.Drawing.Size(1678, 783);
+            this._gridGroup.TabIndex = 1;
+            this._gridGroup.TabStop = false;
+            this._gridGroup.Text = "AXIS SETUP LIST";
+            //
+            // _actionGroup
+            //
+            this._actionGroup.Controls.Add(this.actionRow);
+            this._actionGroup.Dock = System.Windows.Forms.DockStyle.Fill;
+            this._actionGroup.Font = new System.Drawing.Font("맑은 고딕", 11F, System.Drawing.FontStyle.Bold);
+            this._actionGroup.Location = new System.Drawing.Point(0, 813);
+            this._actionGroup.Margin = new System.Windows.Forms.Padding(0);
+            this._actionGroup.Name = "_actionGroup";
+            this._actionGroup.Padding = new System.Windows.Forms.Padding(1, 9, 1, 1);
+            this._actionGroup.Size = new System.Drawing.Size(1678, 87);
+            this._actionGroup.TabIndex = 2;
+            this._actionGroup.TabStop = false;
+            this._actionGroup.Text = "ACTION";
+            //
+            // actionRow
+            //
+            this.actionRow.BackColor = System.Drawing.Color.White;
+            this.actionRow.ColumnCount = 14;
+            this.actionRow.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 7.142857F));
+            this.actionRow.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 7.142857F));
+            this.actionRow.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 7.142857F));
+            this.actionRow.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 7.142857F));
+            this.actionRow.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 7.142857F));
+            this.actionRow.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 7.142857F));
+            this.actionRow.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 7.142857F));
+            this.actionRow.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 7.142857F));
+            this.actionRow.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 7.142857F));
+            this.actionRow.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 7.142857F));
+            this.actionRow.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 7.142857F));
+            this.actionRow.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 7.142857F));
+            this.actionRow.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 7.142857F));
+            this.actionRow.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 7.142857F));
+            this.actionRow.Controls.Add(this.btnSave, 0, 0);
+            this.actionRow.Controls.Add(this.btnReload, 1, 0);
+            this.actionRow.Controls.Add(this.btnReset, 2, 0);
+            this.actionRow.Controls.Add(this.btnApply, 3, 0);
+            this.actionRow.Controls.Add(this.btnSharedRailX, 4, 0);
+            this.actionRow.Controls.Add(this.btnPickerZone, 5, 0);
+            this.actionRow.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.actionRow.Location = new System.Drawing.Point(1, 22);
+            this.actionRow.Margin = new System.Windows.Forms.Padding(0);
+            this.actionRow.Name = "actionRow";
+            this.actionRow.Padding = new System.Windows.Forms.Padding(1);
+            this.actionRow.RowCount = 1;
+            this.actionRow.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.actionRow.Size = new System.Drawing.Size(1676, 64);
+            this.actionRow.TabIndex = 0;
             // 
             // btnSave
             // 
@@ -313,13 +388,14 @@
             // 
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.None;
             this.BackColor = System.Drawing.Color.White;
-            this.Controls.Add(this.lblSubHeader);
-            this.Controls.Add(this.grid);
-            this.Controls.Add(this.actionsPanel);
+            this.Controls.Add(this._compactLayout);
             this.Name = "AxisSetupPage";
             this.Size = new System.Drawing.Size(1678, 900);
             ((System.ComponentModel.ISupportInitialize)(this.grid)).EndInit();
-            this.actionsPanel.ResumeLayout(false);
+            this._gridGroup.ResumeLayout(false);
+            this.actionRow.ResumeLayout(false);
+            this._actionGroup.ResumeLayout(false);
+            this._compactLayout.ResumeLayout(false);
             this.ResumeLayout(false);
 
         }

@@ -16,9 +16,13 @@ namespace QMC.CDT_320.Ui.Controls
             InitializeComponent();
         }
 
+        public bool AllowLive { get; set; }
+
         /// <summary>런타임 주입 — 두 측면 뷰어를 각자 포트/명령 채널로 구성한다.</summary>
         public void Configure(string host)
         {
+            _front.AllowLive = AllowLive;
+            _rear.AllowLive = AllowLive;
             _front.Configure(host, VisionViewerPorts.FrontSideVision, "FRONT SIDE", VisionHub.FrontSideVision);
             _rear.Configure(host,  VisionViewerPorts.RearSideVision,  "REAR SIDE",  VisionHub.RearSideVision);
         }

@@ -61,20 +61,22 @@
             this.rootLayout.Padding = new System.Windows.Forms.Padding(8);
             this.rootLayout.RowCount = 3;
             this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 30F));
-            this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 46F));
+            this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 34F));
             this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.rootLayout.Size = new System.Drawing.Size(1678, 900);
             this.rootLayout.TabIndex = 0;
             // 
             // lblHeader
             // 
+            this.lblHeader.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(217)))), ((int)(((byte)(119)))), ((int)(((byte)(6)))));
             this.lblHeader.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblHeader.Font = new System.Drawing.Font("맑은 고딕", 11F, System.Drawing.FontStyle.Bold);
+            this.lblHeader.ForeColor = System.Drawing.Color.White;
             this.lblHeader.Location = new System.Drawing.Point(8, 8);
             this.lblHeader.Margin = new System.Windows.Forms.Padding(0, 0, 0, 4);
             this.lblHeader.Name = "lblHeader";
             this.lblHeader.Padding = new System.Windows.Forms.Padding(10, 0, 0, 0);
-            this.lblHeader.Size = new System.Drawing.Size(1662, 30);
+            this.lblHeader.Size = new System.Drawing.Size(1662, 26);
             this.lblHeader.TabIndex = 0;
             this.lblHeader.Text = "ALARM MASTER";
             this.lblHeader.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -82,13 +84,13 @@
             // filterLayout
             // 
             this.filterLayout.ColumnCount = 8;
-            this.filterLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 64F));
+            this.filterLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 74F));
             this.filterLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 300F));
-            this.filterLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 80F));
+            this.filterLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 86F));
             this.filterLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 170F));
-            this.filterLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 90F));
-            this.filterLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 120F));
-            this.filterLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 120F));
+            this.filterLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 80F));
+            this.filterLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 128F));
+            this.filterLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 110F));
             this.filterLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.filterLayout.Controls.Add(this.lblSearch, 0, 0);
             this.filterLayout.Controls.Add(this._tbFilter, 1, 0);
@@ -98,12 +100,12 @@
             this.filterLayout.Controls.Add(this.btnReload, 5, 0);
             this.filterLayout.Controls.Add(this.btnSave, 6, 0);
             this.filterLayout.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.filterLayout.Location = new System.Drawing.Point(8, 40);
+            this.filterLayout.Location = new System.Drawing.Point(8, 38);
             this.filterLayout.Margin = new System.Windows.Forms.Padding(0, 0, 0, 8);
             this.filterLayout.Name = "filterLayout";
             this.filterLayout.RowCount = 1;
             this.filterLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.filterLayout.Size = new System.Drawing.Size(1662, 38);
+            this.filterLayout.Size = new System.Drawing.Size(1662, 26);
             this.filterLayout.TabIndex = 1;
             // 
             // lblSearch
@@ -112,7 +114,7 @@
             this.lblSearch.Font = new System.Drawing.Font("맑은 고딕", 9F);
             this.lblSearch.Location = new System.Drawing.Point(3, 0);
             this.lblSearch.Name = "lblSearch";
-            this.lblSearch.Size = new System.Drawing.Size(58, 38);
+            this.lblSearch.Size = new System.Drawing.Size(68, 26);
             this.lblSearch.TabIndex = 0;
             this.lblSearch.Text = "Search:";
             this.lblSearch.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -121,18 +123,19 @@
             // 
             this._tbFilter.Dock = System.Windows.Forms.DockStyle.Fill;
             this._tbFilter.Font = new System.Drawing.Font("맑은 고딕", 9F);
-            this._tbFilter.Location = new System.Drawing.Point(67, 3);
+            this._tbFilter.Location = new System.Drawing.Point(77, 3);
             this._tbFilter.Name = "_tbFilter";
             this._tbFilter.Size = new System.Drawing.Size(294, 23);
             this._tbFilter.TabIndex = 1;
+            this._tbFilter.TextChanged += new System.EventHandler(this._tbFilter_TextChanged);
             // 
             // lblCategory
             // 
             this.lblCategory.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblCategory.Font = new System.Drawing.Font("맑은 고딕", 9F);
-            this.lblCategory.Location = new System.Drawing.Point(367, 0);
+            this.lblCategory.Location = new System.Drawing.Point(377, 0);
             this.lblCategory.Name = "lblCategory";
-            this.lblCategory.Size = new System.Drawing.Size(74, 38);
+            this.lblCategory.Size = new System.Drawing.Size(80, 26);
             this.lblCategory.TabIndex = 2;
             this.lblCategory.Text = "Category:";
             this.lblCategory.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -142,46 +145,60 @@
             this._cbCategory.Dock = System.Windows.Forms.DockStyle.Fill;
             this._cbCategory.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
             this._cbCategory.Font = new System.Drawing.Font("맑은 고딕", 9F);
-            this._cbCategory.Location = new System.Drawing.Point(447, 3);
+            this._cbCategory.Location = new System.Drawing.Point(463, 3);
             this._cbCategory.Name = "_cbCategory";
             this._cbCategory.Size = new System.Drawing.Size(164, 23);
             this._cbCategory.TabIndex = 3;
+            this._cbCategory.SelectedIndexChanged += new System.EventHandler(this._cbCategory_SelectedIndexChanged);
             // 
             // _lblCount
             // 
             this._lblCount.Dock = System.Windows.Forms.DockStyle.Fill;
             this._lblCount.Font = new System.Drawing.Font("맑은 고딕", 9F);
-            this._lblCount.Location = new System.Drawing.Point(617, 0);
+            this._lblCount.Location = new System.Drawing.Point(633, 0);
             this._lblCount.Name = "_lblCount";
-            this._lblCount.Size = new System.Drawing.Size(84, 38);
+            this._lblCount.Size = new System.Drawing.Size(74, 26);
             this._lblCount.TabIndex = 4;
             this._lblCount.Text = "(0)";
             this._lblCount.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
             // btnReload
             // 
+            this.btnReload.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(71)))), ((int)(((byte)(85)))), ((int)(((byte)(105)))));
             this.btnReload.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.btnReload.FlatAppearance.BorderSize = 0;
+            this.btnReload.FlatAppearance.MouseDownBackColor = System.Drawing.Color.FromArgb(((int)(((byte)(51)))), ((int)(((byte)(65)))), ((int)(((byte)(85)))));
+            this.btnReload.FlatAppearance.MouseOverBackColor = System.Drawing.Color.FromArgb(((int)(((byte)(100)))), ((int)(((byte)(116)))), ((int)(((byte)(139)))));
             this.btnReload.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.btnReload.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
-            this.btnReload.Location = new System.Drawing.Point(707, 3);
+            this.btnReload.ForeColor = System.Drawing.Color.White;
+            this.btnReload.Location = new System.Drawing.Point(712, 2);
+            this.btnReload.Margin = new System.Windows.Forms.Padding(2);
             this.btnReload.Name = "btnReload";
-            this.btnReload.Size = new System.Drawing.Size(114, 32);
+            this.btnReload.Size = new System.Drawing.Size(124, 22);
             this.btnReload.TabIndex = 5;
             this.btnReload.Text = "Reload JSON";
+            this.btnReload.UseVisualStyleBackColor = false;
+            this.btnReload.Click += new System.EventHandler(this.btnReload_Click);
             // 
             // btnSave
             // 
-            this.btnSave.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(40)))), ((int)(((byte)(120)))), ((int)(((byte)(180)))));
+            this.btnSave.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(34)))), ((int)(((byte)(139)))), ((int)(((byte)(84)))));
             this.btnSave.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.btnSave.FlatAppearance.BorderSize = 0;
+            this.btnSave.FlatAppearance.MouseDownBackColor = System.Drawing.Color.FromArgb(((int)(((byte)(27)))), ((int)(((byte)(115)))), ((int)(((byte)(68)))));
+            this.btnSave.FlatAppearance.MouseOverBackColor = System.Drawing.Color.FromArgb(((int)(((byte)(46)))), ((int)(((byte)(160)))), ((int)(((byte)(98)))));
             this.btnSave.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.btnSave.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
             this.btnSave.ForeColor = System.Drawing.Color.White;
-            this.btnSave.Location = new System.Drawing.Point(827, 3);
+            this.btnSave.Location = new System.Drawing.Point(840, 2);
+            this.btnSave.Margin = new System.Windows.Forms.Padding(2);
             this.btnSave.Name = "btnSave";
-            this.btnSave.Size = new System.Drawing.Size(114, 32);
+            this.btnSave.Size = new System.Drawing.Size(106, 22);
             this.btnSave.TabIndex = 6;
             this.btnSave.Text = "SAVE";
             this.btnSave.UseVisualStyleBackColor = false;
+            this.btnSave.Click += new System.EventHandler(this.btnSave_Click);
             // 
             // _grid
             // 
@@ -207,13 +224,14 @@
             this._grid.Dock = System.Windows.Forms.DockStyle.Fill;
             this._grid.EnableHeadersVisualStyles = false;
             this._grid.Font = new System.Drawing.Font("맑은 고딕", 9F);
-            this._grid.Location = new System.Drawing.Point(8, 86);
+            this._grid.Location = new System.Drawing.Point(8, 72);
             this._grid.Margin = new System.Windows.Forms.Padding(0);
             this._grid.Name = "_grid";
             this._grid.RowHeadersVisible = false;
             this._grid.RowHeadersWidth = 51;
-            this._grid.Size = new System.Drawing.Size(1662, 806);
+            this._grid.Size = new System.Drawing.Size(1662, 820);
             this._grid.TabIndex = 2;
+            this._grid.CellEndEdit += new System.Windows.Forms.DataGridViewCellEventHandler(this._grid_CellEndEdit);
             // 
             // dataGridViewTextBoxColumn1
             // 

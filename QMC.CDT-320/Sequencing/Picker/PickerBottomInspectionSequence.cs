@@ -12,8 +12,6 @@ namespace QMC.CDT320.Sequencing
 {
     internal sealed class PickerBottomInspectionSequence : PickerSequenceBase<PickerBottomInspectionStep>
     {
-        private static readonly object SimVisionRandomLock = new object();
-        private static readonly Random SimVisionRandom = new Random();
         private readonly List<int> _pickedPickerIndexes = new List<int>();
         private int _pickerCursor;
         private int _currentPickerIndex = -1;
@@ -155,6 +153,11 @@ namespace QMC.CDT320.Sequencing
                 case PickerBottomInspectionStep.MoveBottomT:
                     Log.Write("PickerBottomInspectionSequence", Name + " moving bottom T to inspection. side=" + Side + " - Check");
                     return MoveBottomTAsync(ct);
+
+                // Bottom 촬영 위치에서 PickerZ만 이동하며 Runtime AutoFocus 실행
+                case PickerBottomInspectionStep.RunAutoFocusBeforeBottomInspection:
+                    Log.Write("PickerBottomInspectionSequence", Name + " running runtime autofocus before bottom inspection. side=" + Side + ", die=" + _currentDie.DieId + ", pickerNo=" + _currentPickerNo + " - Check");
+                    return RunAutoFocusBeforeBottomInspectionAsync(ct);
 
                 // 하단 검사 요청
                 case PickerBottomInspectionStep.RequestBottomInspection:
@@ -387,8 +390,14 @@ namespace QMC.CDT320.Sequencing
 
         private async Task<int> MoveBottomYToAvoidBeforeInspectionAsync(CancellationToken ct)
         {
+            int result = await MoveAllPickerZToAvoidAndVerifyAsync(
+                "bottom inspection entry Y avoid 전 PickerZ 전체 Avoid",
+                ct).ConfigureAwait(false);
+            if (result != 0)
+                return result;
+
             double target = GetPickerTeachingPosition(PickerAxis.PickerY, "AvoidPosition");
-            int result = await MovePickerAxisAndVerifyAsync(
+            result = await MovePickerAxisAndVerifyAsync(
                 PickerAxis.PickerY,
                 target,
                 "bottom inspection entry Y avoid",
@@ -547,14 +556,30 @@ namespace QMC.CDT320.Sequencing
                 if (config == null)
                     return 0;
 
+                bool delayModeRequested = config.FlyingZStartMode == PickerBottomFlyingZStartMode.DelayMs;
+                int requestedDelayMs = config.FlyingZStartDelayMs;
+                config.Ensure();
+                if (delayModeRequested)
+                {
+                    WriteLog("PickerBottomInspectionSequence",
+                        Name + " Bottom Flying Z DelayMs 시작 모드는 장비 운전에서 사용하지 않습니다. " +
+                        "XRemainingDistance 기준으로 전환합니다. delayMs=" + requestedDelayMs +
+                        ", xRemaining=" + config.FlyingZStartXRemainingDistance.ToString("0.###") +
+                        ", pickerNo=" + _currentPickerNo + " - Check");
+                }
+
                 if (config.FlyingZStartMode == PickerBottomFlyingZStartMode.Immediate)
                     return 0;
 
                 if (config.FlyingZStartMode == PickerBottomFlyingZStartMode.DelayMs)
                 {
-                    if (config.FlyingZStartDelayMs > 0)
-                        await Task.Delay(config.FlyingZStartDelayMs, ct).ConfigureAwait(false);
-                    return 0;
+                    WriteLog("PickerBottomInspectionSequence",
+                        Name + " Bottom Flying Z DelayMs 시작 모드는 장비 운전에서 사용하지 않습니다. " +
+                        "XRemainingDistance 기준으로 전환합니다. delayMs=" + config.FlyingZStartDelayMs +
+                        ", pickerNo=" + _currentPickerNo + " - Check");
+                    config.FlyingZStartMode = PickerBottomFlyingZStartMode.XRemainingDistance;
+                    config.FlyingZStartDelayMs = 0;
+                    config.Ensure();
                 }
 
                 if (config.FlyingZStartMode != PickerBottomFlyingZStartMode.XRemainingDistance)
@@ -702,6 +727,22 @@ namespace QMC.CDT320.Sequencing
             if (result != 0)
                 return result;
 
+            CurrentStep = PickerBottomInspectionStep.RunAutoFocusBeforeBottomInspection;
+            return 0;
+        }
+
+        private async Task<int> RunAutoFocusBeforeBottomInspectionAsync(CancellationToken ct)
+        {
+            int result = await RunBottomRuntimeAutoFocusIfNeededAsync(
+                _currentPickerIndex,
+                _currentPickerNo,
+                _currentDie,
+                _targetPickerZ,
+                ct).ConfigureAwait(false);
+            if (result != 0)
+                return result;
+
+            _targetPickerZ = GetPickerTeachingPosition(GetPickerZAxis(_currentPickerIndex), "BottomPosition");
             CurrentStep = PickerBottomInspectionStep.RequestBottomInspection;
             return 0;
         }
@@ -780,6 +821,14 @@ namespace QMC.CDT320.Sequencing
             DieResult dieResult = _bottomResult.IsOk && _currentDie.Result != DieResult.NG
                 ? DieResult.Good
                 : DieResult.NG;
+            var measurements = new List<InspectionMeasurement>
+            {
+                BuildMeasurement("BottomAlignOffsetX", _bottomResult.OffsetX, "mm", inspectionResult),
+                BuildMeasurement("BottomAlignOffsetY", _bottomResult.OffsetY, "mm", inspectionResult),
+                BuildMeasurement("BottomAlignOffsetT", _bottomResult.OffsetT, "deg", inspectionResult),
+                BuildBooleanMeasurement("BottomInspectionResult", _bottomResult.IsOk)
+            };
+            AppendVisionRawMeasurements(measurements, _bottomResult, "Bottom", inspectionResult);
 
             MaterialStateService.UpsertInspection(_currentDie.DieId, new DieInspectionRecord
             {
@@ -812,13 +861,7 @@ namespace QMC.CDT320.Sequencing
                             IsValid = true
                         })
                 },
-                Measurements = new List<InspectionMeasurement>
-                {
-                    BuildMeasurement("BottomAlignOffsetX", _bottomResult.OffsetX, "mm", inspectionResult),
-                    BuildMeasurement("BottomAlignOffsetY", _bottomResult.OffsetY, "mm", inspectionResult),
-                    BuildMeasurement("BottomAlignOffsetT", _bottomResult.OffsetT, "deg", inspectionResult),
-                    BuildBooleanMeasurement("BottomInspectionResult", _bottomResult.IsOk)
-                }
+                Measurements = measurements
             });
 
             MaterialStateService.ApplyDieInspectionResult(
@@ -874,8 +917,14 @@ namespace QMC.CDT320.Sequencing
 
         private async Task<int> MoveBottomYToAvoidAsync(CancellationToken ct)
         {
+            int result = await MoveAllPickerZToAvoidAndVerifyAsync(
+                "bottom inspection Y avoid 전 PickerZ 전체 Avoid",
+                ct).ConfigureAwait(false);
+            if (result != 0)
+                return result;
+
             double target = GetPickerTeachingPosition(PickerAxis.PickerY, "AvoidPosition");
-            int result = await MovePickerAxisAndVerifyAsync(
+            result = await MovePickerAxisAndVerifyAsync(
                 PickerAxis.PickerY,
                 target,
                 "bottom inspection Y avoid",
@@ -966,28 +1015,12 @@ namespace QMC.CDT320.Sequencing
 
         private BottomVisionOffset SimulateBottomResult()
         {
-            if (IsDryRunWithVisionDisabled())
-            {
-                return new BottomVisionOffset
-                {
-                    PickerNo = _currentPickerNo,
-                    OffsetX = 0.0,
-                    OffsetY = 0.0,
-                    OffsetT = 0.0,
-                    IsOk = true
-                };
-            }
-
-            lock (SimVisionRandomLock)
-            {
-                return new BottomVisionOffset
-                {
-                    PickerNo = _currentPickerNo,
-                    OffsetX = (SimVisionRandom.NextDouble() - 0.5) * 0.002,
-                    OffsetY = (SimVisionRandom.NextDouble() - 0.5) * 0.002,
-                    IsOk = true
-                };
-            }
+            QMC.CDT320.VisionComm.InspectionResultDto inspection =
+                QMC.CDT320.VisionComm.AutoVisionRequestService.BuildSimulationInspectionResult(
+                    QMC.CDT320.VisionComm.AutoVisionChannel.BottomInspection,
+                    "SurfaceInspector",
+                    _currentPickerNo);
+            return QMC.CDT320.Calibration.VisionCameraCalibrationTransform.ToBottomVisionOffset(_currentPickerNo, inspection);
         }
 
         private bool ShouldUseSimulatedBottomVision()

@@ -126,10 +126,11 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             ClearMapClickModes();
             ConfigureRecipeMapGeneratorUi();
             ConfigureBinSideToggle();
-
-            _btnMapLoad.Click += (s, e) => LoadSelectedLibraryMap();
-            btnSave.Click += (s, e) => SaveMapToRecipe();
         }
+
+        private void _btnMapLoad_Click(object sender, EventArgs e) => LoadSelectedLibraryMap();
+
+        private void btnSave_Click(object sender, EventArgs e) => SaveMapToRecipe();
 
         private void ConfigureRecipeMapGeneratorUi()
         {
@@ -1043,8 +1044,8 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 return;
 
             entry.IsTarget = target;
-            entry.Result = target ? DieResult.Unknown : DieResult.NG;
-            entry.BinCode = target ? 0 : 255;
+            entry.Result = DieResult.Unknown;
+            entry.BinCode = 0;
         }
 
         private void SetAllTargets(bool target)
@@ -1695,27 +1696,138 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                     : ResolveSaveMapPath();
                 _map.FrameObjId = Path.GetFileNameWithoutExtension(path);
                 DieMapGenerator.Save(_map, path);
-                if (!string.Equals(Path.GetExtension(path), ".csv", StringComparison.OrdinalIgnoreCase))
-                    DieMapGenerator.SaveCsv(_map, Path.ChangeExtension(path, ".csv"));
+                string recipeMapPath = SaveRecipeCompatibleMapFiles(path);
 
-                UpdateRecipeMapFileName(path);
+                UpdateRecipeMapFileName(recipeMapPath);
                 RecipeStore.Save(_project);
                 RecipeStore.SaveLastProjectName(_project.FileName);
-                _currentMapPath = path;
-                _currentMapWriteUtc = File.Exists(path) ? File.GetLastWriteTimeUtc(path) : DateTime.MinValue;
+                _currentMapPath = recipeMapPath;
+                _currentMapWriteUtc = File.Exists(recipeMapPath) ? File.GetLastWriteTimeUtc(recipeMapPath) : DateTime.MinValue;
+                bool appliedImmediately = TryApplyInputRecipeMapImmediatelyIfIdle(recipeMapPath);
                 RefreshMapLibraryList();
-                SelectLibraryPath(path);
+                SelectLibraryPath(recipeMapPath);
 
                 QMC.Common.Log.Write("Main", "RECIPE", "MapCreatePage",
-                    "Die Map Recipe 연결 저장 완료. 현재 진행 중인 웨이퍼 맵에는 즉시 적용하지 않고 다음 웨이퍼부터 적용합니다. path=" + path + " - Ok");
+                    "Die Map Recipe 연결 저장 완료. path=" + recipeMapPath +
+                    ", originalPath=" + path +
+                    ", immediateApply=" + appliedImmediately + " - Ok");
+
+                string applyMessage = appliedImmediately
+                    ? "현재 공정 중인 Input 웨이퍼가 없어 Active Input Die Map에도 즉시 적용했습니다."
+                    : "현재 진행 중인 웨이퍼에는 적용하지 않습니다.\r\n다음 웨이퍼부터 적용됩니다.";
 
                 QMC.Common.MessageDialog.Show(this,
-                    "Die Map 저장 및 Recipe 연결 완료.\r\n현재 진행 중인 웨이퍼에는 적용하지 않습니다.\r\n다음 웨이퍼부터 적용됩니다.\r\n" + path,
+                    "Die Map 저장 및 Recipe 연결 완료.\r\n" + applyMessage + "\r\n" + recipeMapPath,
                     "Die Map Create", MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
             catch (Exception ex)
             {
                 QMC.Common.MessageDialog.Show(this, "Die map save failed:\r\n" + ex.Message, "Die Map Create", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+            }
+        }
+
+        private string SaveRecipeCompatibleMapFiles(string primaryPath)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(primaryPath))
+                    return primaryPath ?? "";
+
+                string csvPath = Path.ChangeExtension(primaryPath, ".csv");
+                if (!string.IsNullOrWhiteSpace(csvPath))
+                    DieMapGenerator.SaveCsv(_map, csvPath);
+
+                if (string.Equals(Path.GetExtension(primaryPath), ".csv", StringComparison.OrdinalIgnoreCase))
+                {
+                    string txtPath = Path.ChangeExtension(primaryPath, ".txt");
+                    if (!string.IsNullOrWhiteSpace(txtPath))
+                        DieMapGenerator.Save(_map, txtPath);
+                }
+
+                return !string.IsNullOrWhiteSpace(csvPath) && File.Exists(csvPath)
+                    ? csvPath
+                    : primaryPath;
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Log.Write("Main", "RECIPE", "MapCreatePage",
+                    "Recipe compatible map sidecar save failed: " + ex.Message + ". primaryPath=" + primaryPath + " - Failed");
+                return primaryPath ?? "";
+            }
+            finally
+            {
+            }
+        }
+
+        private bool TryApplyInputRecipeMapImmediatelyIfIdle(string recipeMapPath)
+        {
+            try
+            {
+                if (_mode != MapEditorMode.Input)
+                    return false;
+
+                if (HasCurrentInputProcessWafer())
+                {
+                    QMC.Common.Log.Write("Main", "RECIPE", "MapCreatePage",
+                        "Input Die Map active apply deferred because current input wafer exists. path=" + recipeMapPath + " - Deferred");
+                    return false;
+                }
+
+                DieMap applyMap = !string.IsNullOrWhiteSpace(recipeMapPath) && File.Exists(recipeMapPath)
+                    ? DieMapGenerator.Load(recipeMapPath)
+                    : null;
+                if (applyMap == null)
+                    applyMap = _map;
+                if (applyMap == null)
+                    return false;
+
+                Form1 host = FindForm() as Form1;
+                if (host != null && host.Controller != null)
+                {
+                    host.Controller.ApplyInputDieMap(applyMap, "MapCreatePage.SaveMapToRecipe.IdleInput");
+                }
+                else
+                {
+                    QMC.CDT320.Lots.LotStorage.ActiveInputDieMap = DieMapGenerator.Normalize(applyMap);
+                }
+
+                QMC.Common.Log.Write("Main", "RECIPE", "MapCreatePage",
+                    "Input Die Map active apply completed because current input wafer is empty. path=" + recipeMapPath + " - Ok");
+                return true;
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Log.Write("Main", "RECIPE", "MapCreatePage",
+                    "Input Die Map active apply failed: " + ex.Message + ". path=" + recipeMapPath + " - Failed");
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
+        private bool HasCurrentInputProcessWafer()
+        {
+            try
+            {
+                Form1 host = FindForm() as Form1;
+                if (host != null && host.Machine != null)
+                {
+                    if (host.Machine.InputStageUnit != null && host.Machine.InputStageUnit.CurrentWaferMaterial != null)
+                        return true;
+                    if (host.Machine.InputFeederUnit != null && host.Machine.InputFeederUnit.CurrentWaferMaterial != null)
+                        return true;
+                }
+
+                return MaterialStateService.GetWaferAtLocation(MaterialLocationKind.InputStage) != null ||
+                       MaterialStateService.GetWaferAtLocation(MaterialLocationKind.InputFeeder) != null;
+            }
+            catch
+            {
+                return true;
             }
             finally
             {

@@ -72,7 +72,6 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 if (LicenseManager.UsageMode == LicenseUsageMode.Designtime)
                     return;
 
-                ApplyRecipeTheme();
                 ConfigureRuntimeBehavior();
             }
             catch (Exception ex)
@@ -525,6 +524,9 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 if (string.IsNullOrWhiteSpace(positionName))
                     return;
 
+                if (!ConfirmTeachPosition("Output Feeder Teach", e.Item.Key))
+                    return;
+
                 TeachPosition(positionName);
                 SaveCurrentRecipeData();
                 RefreshView();
@@ -550,6 +552,26 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
 
             jogAxisMoveControl.SetSelectedSpeedType(speedType);
             return true;
+        }
+
+        private bool ConfirmTeachPosition(string title, string actionName)
+        {
+            string name = string.IsNullOrWhiteSpace(actionName) ? "Teach Position" : actionName;
+            using (var dialog = new QMC.Common.MessageBoxYesNo())
+            {
+                dialog.ButtonGroupLabel = "TEACH";
+                DialogResult result = dialog.ShowDialog(
+                    title,
+                    name + " 현재 위치로 티칭하시겠습니까?",
+                    this,
+                    new[] { "Yes", "No" });
+
+                if (result == DialogResult.Yes)
+                    return true;
+
+                EventLogger.Write(EventKind.Event, "UI", "OUTPUT-FEEDER", name + " teach canceled.");
+                return false;
+            }
         }
 
         private string GetSelectedTeachingPositionName()
@@ -821,31 +843,5 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             }
         }
 
-        private void ApplyRecipeTheme()
-        {
-            try
-            {
-                Color bg = Color.FromArgb(207, 210, 214);
-                BackColor = bg;
-
-                lblHeader.BackColor = Color.FromArgb(64, 64, 64);
-                lblHeader.ForeColor = Color.White;
-                lblHeader.Font = new Font("Malgun Gothic", 11F, FontStyle.Bold);
-
-                foreach (var g in new[] { grpActions, grpIo, grpOptions, grpWait, grpJog, grpSpeed })
-                {
-                    g.BackColor = Color.FromArgb(245, 245, 245);
-                    g.Font = new Font("Malgun Gothic", 10F, FontStyle.Bold);
-                }
-
-            }
-            catch (Exception ex)
-            {
-                QMC.Common.MessageDialog.Show(this, ex.Message, "Output Feeder Theme", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
-            finally
-            {
-            }
-        }
     }
 }

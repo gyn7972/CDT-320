@@ -48,9 +48,17 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             btnStop.Click += async (s, e) => await StopManualActionAsync();
             materialDetailView.CreateDataRequested += MaterialDetailView_CreateDataRequested;
             materialDetailView.ClearDataRequested += MaterialDetailView_ClearDataRequested;
-            rbTargetOk.CheckedChanged += (s, e) => RefreshTargetSideDisplay(ResolveSelectedSide());
-            rbTargetNg.CheckedChanged += (s, e) => RefreshTargetSideDisplay(ResolveSelectedSide());
             ConfigureTargetButtonVisuals();
+        }
+
+        private void rbTargetOk_CheckedChanged(object sender, EventArgs e)
+        {
+            RefreshTargetSideDisplay(ResolveSelectedSide());
+        }
+
+        private void rbTargetNg_CheckedChanged(object sender, EventArgs e)
+        {
+            RefreshTargetSideDisplay(ResolveSelectedSide());
         }
 
         private async Task RunSequenceAction(string actionName, Func<Form1, Task<bool>> action)

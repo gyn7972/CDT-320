@@ -253,6 +253,113 @@ namespace QMC.CDT320.Sequencing
             return 0;
         }
 
+        public int EnqueuePendingMaterialInspections(
+            string owner,
+            bool fineMove,
+            int moveTimeoutMs,
+            CancellationToken ct)
+        {
+            try
+            {
+                int existing = Volatile.Read(ref _pendingOrRunning);
+                if (existing > 0)
+                {
+                    Log.Write("Main", "SYSTEM", "OutputPostPlaceInspection",
+                        "Output camera 후검사 대기/진행 요청이 이미 있어 material pending 복구 등록을 생략하고 기존 요청 완료를 기다립니다. " +
+                        "owner=" + (string.IsNullOrWhiteSpace(owner) ? "-" : owner) +
+                        ", pendingOrRunning=" + existing + " - Wait");
+                    return existing;
+                }
+
+                int restored = 0;
+                restored += EnqueuePendingMaterialInspectionsForSide(
+                    BinSide.Good,
+                    MaterialLocationKind.OutputStageGood,
+                    owner,
+                    fineMove,
+                    moveTimeoutMs,
+                    ct);
+                restored += EnqueuePendingMaterialInspectionsForSide(
+                    BinSide.Ng,
+                    MaterialLocationKind.OutputStageNg,
+                    owner,
+                    fineMove,
+                    moveTimeoutMs,
+                    ct);
+
+                if (restored > 0)
+                {
+                    Log.Write("Main", "SYSTEM", "OutputPostPlaceInspection",
+                        "Output camera 미완료 후검사 material pending 복구 등록 완료. owner=" +
+                        (string.IsNullOrWhiteSpace(owner) ? "-" : owner) +
+                        ", count=" + restored + " - Ok");
+                }
+
+                return restored;
+            }
+            catch (Exception ex)
+            {
+                RaiseFailure("OUT-POST-INSPECT-RESTORE-EX", "OutputPostPlaceInspection",
+                    "Output camera 미완료 후검사 material pending 복구 중 예외가 발생했습니다. error=" +
+                    ex.Message);
+                return -1;
+            }
+        }
+
+        private int EnqueuePendingMaterialInspectionsForSide(
+            BinSide side,
+            MaterialLocationKind stageLocation,
+            string owner,
+            bool fineMove,
+            int moveTimeoutMs,
+            CancellationToken ct)
+        {
+            WaferMaterial wafer = MaterialStateService.GetWaferAtLocation(stageLocation);
+            if (wafer == null || wafer.OutputReceiveSlots == null || wafer.OutputReceiveSlots.Count == 0)
+                return 0;
+
+            int count = 0;
+            for (int i = 0; i < wafer.OutputReceiveSlots.Count; i++)
+            {
+                OutputReceiveSlotMaterial slot = wafer.OutputReceiveSlots[i];
+                if (slot == null)
+                    continue;
+                if (!slot.IsTarget)
+                    continue;
+                if (slot.IsOutputInspectionDone)
+                    continue;
+                if (string.IsNullOrWhiteSpace(slot.DieUid))
+                    continue;
+
+                int result = Enqueue(
+                    new OutputPostPlaceInspectionRequest
+                    {
+                        DieId = slot.DieUid,
+                        OutputSide = side,
+                        ReceiveTarget = new OutputStageReceiveTarget
+                        {
+                            StageLocation = stageLocation,
+                            OutputWaferId = wafer.WaferId,
+                            OrderIndex = slot.OrderIndex,
+                            DieMapX = slot.DieMapX,
+                            DieMapY = slot.DieMapY,
+                            TargetX = slot.PosX,
+                            TargetY = slot.PosY
+                        },
+                        FineMove = fineMove,
+                        MoveTimeoutMs = moveTimeoutMs,
+                        Owner = string.IsNullOrWhiteSpace(owner) ? "MaterialPendingRestore" : owner
+                    },
+                    ct);
+                if (result != 0)
+                    return count > 0 ? count : result;
+
+                count++;
+            }
+
+            return count;
+        }
+
         private string BuildWaitStateDetail()
         {
             return "pendingOrRunning=" + Volatile.Read(ref _pendingOrRunning) +
@@ -360,6 +467,7 @@ namespace QMC.CDT320.Sequencing
         private async Task<int> InspectPlacedDieBatchAsync(OutputPostPlaceInspectionRequest firstRequest, CancellationToken ct)
         {
             SequenceResourceLease placeLease = null;
+            AutoSequenceCameraWorkZoneLease cameraWorkLease = null;
             OutputPostPlaceInspectionRequest lastRequest = null;
             bool shouldMoveVisionAvoid = false;
             int inspectedCount = 0;
@@ -384,6 +492,22 @@ namespace QMC.CDT320.Sequencing
                 int timeout = firstRequest != null && firstRequest.MoveTimeoutMs > 0
                     ? firstRequest.MoveTimeoutMs
                     : 10000;
+                if (_context.AutoSequenceGate != null)
+                {
+                    cameraWorkLease = await _context.AutoSequenceGate
+                        .BeginOutputCameraWorkAsync("OutputPostPlaceInspection:Batch", ct)
+                        .ConfigureAwait(false);
+                    if (cameraWorkLease == null)
+                    {
+                        CompleteRequest(firstRequest);
+                        firstRequestCompleted = true;
+                        return -1;
+                    }
+
+                    Log.Write("Main", "SYSTEM", "OutputPostPlaceInspection",
+                        "Output camera work zone approved for post-place inspection batch. die=" +
+                        (firstRequest != null ? firstRequest.DieId : "-") + " - Ok");
+                }
                 // Place 시퀀스가 모든 다이를 내려놓을 때까지 OutputPlaceArea를 정상 보유한다.
                 // 후검사는 같은 영역을 이어받아야 하므로 여기서는 모션 timeout으로 실패시키지 않고
                 // Stop/Alarm 취소 토큰이 들어올 때까지 기다린다.
@@ -451,6 +575,12 @@ namespace QMC.CDT320.Sequencing
                     CompleteRequest(firstRequest);
                 throw;
             }
+            catch (SequenceStopException)
+            {
+                if (!firstRequestCompleted && firstRequest != null)
+                    CompleteRequest(firstRequest);
+                return StopRequestedResult;
+            }
             catch (Exception ex)
             {
                 if (!firstRequestCompleted && firstRequest != null)
@@ -462,6 +592,8 @@ namespace QMC.CDT320.Sequencing
             {
                 if (placeLease != null)
                     placeLease.Dispose();
+                if (cameraWorkLease != null)
+                    cameraWorkLease.Dispose();
             }
         }
 
@@ -586,7 +718,8 @@ namespace QMC.CDT320.Sequencing
                     request.ReceiveTarget,
                     inspectionOk,
                     offset,
-                    inspection != null ? inspection.Raw : "");
+                    inspection != null ? inspection.Raw : "",
+                    inspection != null ? inspection.Values : null);
                 Log.Write("Main", "SYSTEM", "OutputPostPlaceInspection",
                     "Output camera 후검사 완료. die=" + request.DieId +
                     ", side=" + request.OutputSide +
@@ -1073,14 +1206,10 @@ namespace QMC.CDT320.Sequencing
             {
                 if (IsAlarmStopActive())
                     return true;
-                if (_context != null && _context.IsCycleStopRequested)
-                    return true;
                 if (_context != null && _context.Controller != null)
                 {
                     EquipmentStatus status = _context.Controller.Status;
-                    return status == EquipmentStatus.Stopped ||
-                           status == EquipmentStatus.CycleStopped ||
-                           status == EquipmentStatus.Alarm;
+                    return status == EquipmentStatus.Alarm;
                 }
             }
             catch

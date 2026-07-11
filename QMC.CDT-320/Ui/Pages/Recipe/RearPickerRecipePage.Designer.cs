@@ -501,6 +501,8 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             // FrontPickerRecipePage
             // 
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.None;
+            this.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(207)))), ((int)(((byte)(210)))), ((int)(((byte)(214)))));
+            this.ForeColor = System.Drawing.Color.Black;
             this.Controls.Add(this.rootLayout);
             this.Name = "RearPickerRecipePage";
             this.Size = new System.Drawing.Size(1678, 900);

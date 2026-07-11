@@ -138,25 +138,11 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
         {
             try
             {
-                optionLayout.Visible = false;
-                waitLayout.Visible = false;
-                ioLayout.Visible = false;
-                jogLayout.Visible = false;
-                jogCommonLayout.Visible = true;
-                speedLayout.Visible = false;
-
                 optionParameterGrid.BringToFront();
                 waitParameterGrid.BringToFront();
                 ioCylinderPanel.BringToFront();
                 jogCommonLayout.BringToFront();
                 jogSpeedControl.BringToFront();
-
-                BackColor = Color.FromArgb(207, 210, 214);
-                lblHeader.BackColor = Color.FromArgb(64, 64, 64);
-                lblHeader.ForeColor = Color.White;
-                lblHeader.Font = new Font("Malgun Gothic", 11F, FontStyle.Bold);
-                foreach (var group in new[] { grpOptions, grpWait, grpManual, grpIo, grpVision, grpJog, grpSpeed })
-                    group.Font = new Font("Malgun Gothic", 10F, FontStyle.Bold);
             }
             catch (Exception ex)
             {
@@ -493,6 +479,9 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 if (!TryGetSelectedTeachingPosition(out axis, out positionName))
                     return;
 
+                if (!ConfirmTeachPosition("Vision Teach", e.Item.Key))
+                    return;
+
                 _visionUnit.TeachVisionAxisPosition(axis, positionName);
                 SaveCurrentRecipeData();
                 RefreshView();
@@ -504,6 +493,26 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             }
             finally
             {
+            }
+        }
+
+        private bool ConfirmTeachPosition(string title, string actionName)
+        {
+            string name = string.IsNullOrWhiteSpace(actionName) ? "Teach Position" : actionName;
+            using (var dialog = new QMC.Common.MessageBoxYesNo())
+            {
+                dialog.ButtonGroupLabel = "TEACH";
+                DialogResult result = dialog.ShowDialog(
+                    title,
+                    name + " 현재 위치로 티칭하시겠습니까?",
+                    this,
+                    new[] { "Yes", "No" });
+
+                if (result == DialogResult.Yes)
+                    return true;
+
+                EventLogger.Write(EventKind.Event, "UI", "VISION", name + " teach canceled.");
+                return false;
             }
         }
 

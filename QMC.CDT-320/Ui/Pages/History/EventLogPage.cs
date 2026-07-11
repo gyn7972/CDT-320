@@ -32,6 +32,7 @@ namespace QMC.CDT_320.Ui.Pages.History
         private readonly Queue<EventRow> _pendingLiveRows = new Queue<EventRow>();
         private readonly Timer _liveFlushTimer = new Timer();
         private bool _liveEventSubscribed;
+        private bool _initializingFilterControls;
 
         // 사용자가 직접 연 로그 파일 경로. null 이면 DATE 피커 날짜 기준으로 읽는다.
         private string _overridePath;
@@ -125,11 +126,27 @@ namespace QMC.CDT_320.Ui.Pages.History
         {
             _presetKind = presetKind;
             InitializeComponent();
-            ApplyHistoryWhiteSurface();
+            InitializeFilterControls();
             ApplyKindHeader();
             // 이벤트는 항상 연결한다 — 켜짐/꺼짐 판정은 페이지가 보일 때마다(UpdateLiveEventSubscription,
             // ReloadCurrent) 설정값을 다시 읽어 반영하므로, 재시작 없이 토글이 적용된다.
             WireEvents();
+        }
+
+        private void InitializeFilterControls()
+        {
+            _initializingFilterControls = true;
+            try
+            {
+                // 초기 날짜/표시 상한은 이벤트 구독 후에도 오발화하지 않도록 가드 안에서 설정한다.
+                _dp.Value = DateTime.Today;
+                cmbLimit.Items.AddRange(new object[] { "500", "2000", "ALL" });
+                cmbLimit.SelectedIndex = 0;
+            }
+            finally
+            {
+                _initializingFilterControls = false;
+            }
         }
 
         // 설정이 꺼져 있을 때 표시하는 상태 — 필터를 잠그고 안내 행만 남긴다(켜면 SetFilterUiEnabled 로 원복).
@@ -187,129 +204,64 @@ namespace QMC.CDT_320.Ui.Pages.History
             }
         }
 
-        private void ApplyHistoryWhiteSurface()
-        {
-            BackColor = Color.White;
-            rootLayout.BackColor = Color.White;
-            rootLayout.Margin = Padding.Empty;
-            rootLayout.RowStyles[1].Height = 40F;
-            lblHeader.Margin = Padding.Empty;
-            filterLayout.BackColor = Color.White;
-            filterLayout.Margin = Padding.Empty;
-            filterLayout.Padding = new Padding(8, 3, 8, 3);
-            _grid.BackgroundColor = Color.White;
-
-            ConfigureFilterColumns();
-            StyleFilterLabel(lblDate);
-            StyleFilterLabel(lblRunId);
-            StyleFilterLabel(lblSource);
-            StyleFilterLabel(lblSearch);
-
-            chkRecentHour.BackColor = Color.White;
-            StyleToolbarControl(_dp);
-            StyleToolbarControl(txtRunId);
-            StyleToolbarControl(txtSource);
-            StyleToolbarControl(txtSearch);
-            StyleToolbarControl(chkRecentHour);
-            StyleToolbarControl(cmbLimit);
-            StyleToolbarButton(btnRefresh, 116);
-            StyleToolbarButton(btnOpenFile, 128);
-        }
-
-        private void ConfigureFilterColumns()
-        {
-            SetFilterColumnWidth(0, 66F);   // DATE
-            SetFilterColumnWidth(2, 76F);   // RunId
-            SetFilterColumnWidth(4, 76F);   // Source
-            SetFilterColumnWidth(6, 82F);   // Search
-            SetFilterColumnWidth(10, 122F); // REFRESH
-            SetFilterColumnWidth(11, 136F); // OPEN FILE
-            SetFilterColumnWidth(12, 0F);   // unused spacer from the original layout
-        }
-
-        private void SetFilterColumnWidth(int index, float width)
-        {
-            if (filterLayout == null || index < 0 || index >= filterLayout.ColumnStyles.Count)
-                return;
-
-            filterLayout.ColumnStyles[index].SizeType = SizeType.Absolute;
-            filterLayout.ColumnStyles[index].Width = width;
-        }
-
-        private static void StyleFilterLabel(Label label)
-        {
-            if (label == null)
-                return;
-
-            label.BackColor = Color.FromArgb(245, 247, 249);
-            label.BorderStyle = BorderStyle.FixedSingle;
-            label.Dock = DockStyle.None;
-            label.Anchor = AnchorStyles.Left;
-            label.ForeColor = Color.FromArgb(35, 45, 57);
-            label.Height = 24;
-            label.Margin = new Padding(0, 0, 4, 0);
-            label.Padding = new Padding(5, 0, 3, 0);
-            label.Width = Math.Max(label.Width, TextRenderer.MeasureText(label.Text ?? "", label.Font).Width + label.Padding.Horizontal + 8);
-            label.TextAlign = ContentAlignment.MiddleLeft;
-        }
-
-        private static void StyleToolbarControl(Control control)
-        {
-            if (control == null)
-                return;
-
-            control.Dock = DockStyle.None;
-            control.Anchor = control is CheckBox ? AnchorStyles.Left : AnchorStyles.Left | AnchorStyles.Right;
-            control.Margin = new Padding(3, 0, 3, 0);
-            control.MinimumSize = Size.Empty;
-        }
-
-        private static void StyleToolbarButton(Button button, int minWidth)
-        {
-            if (button == null)
-                return;
-
-            button.AutoSize = false;
-            button.AutoEllipsis = false;
-            button.Dock = DockStyle.None;
-            button.Anchor = AnchorStyles.Left | AnchorStyles.Right;
-            button.Height = 24;
-            button.Margin = new Padding(4, 0, 4, 0);
-            button.MinimumSize = new Size(minWidth, 24);
-            button.Padding = new Padding(8, 0, 8, 0);
-            button.TextAlign = ContentAlignment.MiddleCenter;
-        }
-
         private void WireEvents()
         {
-            // 초기 날짜를 오늘로 지정한다. ValueChanged 구독 전에 설정해 중복 로드를 막는다.
-            _dp.Value = DateTime.Today;
-            // 날짜를 바꾸면 파일 열기 모드를 해제하고 날짜 기준으로 돌아간다.
-            _dp.ValueChanged += (s, e) => { _overridePath = null; ReloadCurrent(); };
-            // 텍스트 필터는 파일을 다시 읽지 않고, 이미 불러온 최신 N개(캐시) 안에서만 즉시 거른다.
-            txtRunId.TextChanged += (s, e) => { CaptureFilterSnapshot(); ApplyTextFilterAndDisplay(); };
-            txtSource.TextChanged += (s, e) => { CaptureFilterSnapshot(); ApplyTextFilterAndDisplay(); };
-            txtSearch.TextChanged += (s, e) => { CaptureFilterSnapshot(); ApplyTextFilterAndDisplay(); };
-            chkRecentHour.CheckedChanged += (s, e) => ReloadCurrent();
-            cmbLimit.Items.AddRange(new object[] { "500", "2000", "ALL" });
-            cmbLimit.SelectedIndex = 0;
-            cmbLimit.SelectedIndexChanged += (s, e) => ReloadCurrent();
-            // REFRESH 는 파일 강제 재로드 — 재시작 후 '오늘'의 앱 시작 이전 로그까지 파일에서 다시 불러온다.
-            btnRefresh.Click += (s, e) => ReloadCurrent(true);
-            btnOpenFile.Click += (s, e) => OpenFile();
+            // _liveFlushTimer 는 코드에서 생성한 컴포넌트(디자이너 미등록)라 Tick 구독은 코드 유지.
             _liveFlushTimer.Interval = LiveFlushIntervalMs;
             _liveFlushTimer.Tick += (s, e) => FlushPendingLiveRows();
-            // 행 헤더가 숨겨져 있으므로 첫 컬럼(시간)을 행 헤더처럼 써서 행 전체를 선택한다.
-            _grid.CellClick += Grid_CellClick;
-            // Description 셀을 더블클릭하면 전체 내용을 큰 창(읽기 전용)으로 보여준다.
-            _grid.CellDoubleClick += Grid_CellDoubleClick;
+            // 페이지 수명 이벤트(라이브 구독 해제/타이머 정리와 짝)라 코드 유지.
             Disposed += (s, e) =>
             {
                 UnsubscribeLiveEvents();
                 _liveFlushTimer.Stop();
                 _liveFlushTimer.Dispose();
             };
-            Load += (s, e) => ReloadCurrent();
+        }
+
+        private void EventLogPage_Load(object sender, EventArgs e)
+        {
+            ReloadCurrent();
+        }
+
+        private void dp_ValueChanged(object sender, EventArgs e)
+        {
+            if (_initializingFilterControls)
+                return;
+
+            _overridePath = null;
+            ReloadCurrent();
+        }
+
+        private void cmbLimit_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            if (_initializingFilterControls)
+                return;
+
+            ReloadCurrent();
+        }
+
+        // 이하 표준 컨트롤 이벤트는 디자이너(InitializeComponent)에서 구독한다. Grid_CellClick/Grid_CellDoubleClick 핸들러는 그대로 사용.
+        // 텍스트 필터: 파일을 다시 읽지 않고 캐시(최신 N개) 안에서만 즉시 거른다. 세 필터 박스가 같은 동작이라 핸들러를 공유한다.
+        private void FilterTextBox_TextChanged(object sender, EventArgs e)
+        {
+            CaptureFilterSnapshot();
+            ApplyTextFilterAndDisplay();
+        }
+
+        private void chkRecentHour_CheckedChanged(object sender, EventArgs e)
+        {
+            ReloadCurrent();
+        }
+
+        // REFRESH 는 파일 강제 재로드 — 재시작 후 '오늘'의 앱 시작 이전 로그까지 파일에서 다시 불러온다.
+        private void btnRefresh_Click(object sender, EventArgs e)
+        {
+            ReloadCurrent(true);
+        }
+
+        private void btnOpenFile_Click(object sender, EventArgs e)
+        {
+            OpenFile();
         }
 
         // 첫 컬럼(시간)을 행 헤더처럼 다뤄 행 전체를 선택한다. 다른 컬럼은 기본 셀 단위 선택을 유지한다.
