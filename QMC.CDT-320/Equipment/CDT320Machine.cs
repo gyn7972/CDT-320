@@ -99,6 +99,12 @@ namespace QMC.CDT320
         public Task<bool> TriggerBottomExposeAsync(int pickerNo, int timeoutMs, CancellationToken ct)
             => Task.FromResult(true);
 
+        public Task<bool> StartBottomInspectAsync(int pickerNo, int timeoutMs, CancellationToken ct)
+            => Task.FromResult(true);
+
+        public Task<BottomVisionOffset> WaitBottomResultAsync(int pickerNo, int timeoutMs, CancellationToken ct)
+            => Task.FromResult(BuildSimulatedBottom(pickerNo));
+
         public Task<BottomVisionOffset> GetBottomResultAsync(int pickerNo, int timeoutMs = 5000)
             => Task.FromResult(BuildSimulatedBottom(pickerNo));
 
@@ -140,7 +146,7 @@ namespace QMC.CDT320
             QMC.CDT320.VisionComm.InspectionResultDto inspection =
                 QMC.CDT320.VisionComm.AutoVisionRequestService.BuildSimulationInspectionResult(
                     QMC.CDT320.VisionComm.AutoVisionChannel.BottomInspection,
-                    "SurfaceInspector",
+                    QMC.CDT320.VisionComm.VisionToolIds.BottomInspection.SurfaceInspector,
                     pickerNo);
             return QMC.CDT320.Calibration.VisionCameraCalibrationTransform.ToBottomVisionOffset(pickerNo, inspection);
         }
@@ -150,7 +156,7 @@ namespace QMC.CDT320
             QMC.CDT320.VisionComm.InspectionResultDto inspection =
                 QMC.CDT320.VisionComm.AutoVisionRequestService.BuildSimulationInspectionResult(
                     QMC.CDT320.VisionComm.AutoVisionChannel.FrontSide,
-                    "SurfaceInspector",
+                    QMC.CDT320.VisionComm.VisionToolIds.FrontSide.SurfaceInspector,
                     pickerNo);
             bool pass = inspection != null && inspection.IsPass;
             return new SideVisionResult

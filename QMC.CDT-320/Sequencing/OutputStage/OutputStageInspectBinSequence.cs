@@ -166,7 +166,7 @@ namespace QMC.CDT320.Sequencing
             try
             {
                 ct.ThrowIfCancellationRequested();
-                SimulatorBridge.Instance?.CameraExposeFlash("BIN");
+                SimulatorBridge.Instance?.CameraExposeFlash(QMC.CDT320.VisionComm.VisionCameraIds.Bin);
                 await Task.Delay(20, ct).ConfigureAwait(false);
                 CurrentStep = OutputStageInspectBinStep.MoveVisionXToAvoid;
                 return 0;

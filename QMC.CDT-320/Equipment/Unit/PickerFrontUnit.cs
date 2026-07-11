@@ -897,6 +897,87 @@ namespace QMC.CDT320
             }
         }
 
+        public async Task<bool> StartBottomInspectionAsync(int pickerNo, int timeoutMs, CancellationToken ct)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+
+                if (IsVisionBypassed())
+                    return true;
+
+                if (vision == null)
+                {
+                    Log.Write("Main", "VISION", "PickerBottomInspect",
+                        Name + " Bottom VisionPC가 연결되어 있지 않습니다. pickerNo=" + pickerNo + " - Failed");
+                    return false;
+                }
+
+                bool started = await vision.StartBottomInspectAsync(pickerNo, timeoutMs, ct).ConfigureAwait(false);
+                if (!started)
+                {
+                    Log.Write("Main", "VISION", "PickerBottomInspect",
+                        Name + " Bottom 검사 시작 ACK 수신 실패. pickerNo=" + pickerNo + ", timeoutMs=" + timeoutMs + " - Failed");
+                }
+
+                return started;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                Log.Write("Main", "VISION", "PickerBottomInspect",
+                    Name + " Bottom 검사 시작 요청 중 예외가 발생했습니다. pickerNo=" + pickerNo + ", error=" + ex.Message + " - Failed");
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
+        public async Task<BottomVisionOffset> WaitBottomInspectionResultAsync(int pickerNo, int timeoutMs, CancellationToken ct)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+
+                if (IsVisionBypassed())
+                    return SimulateBottomInspectionResult(pickerNo);
+
+                if (vision == null)
+                {
+                    Log.Write("Main", "VISION", "PickerBottomInspect",
+                        Name + " Bottom VisionPC가 연결되어 있지 않습니다. pickerNo=" + pickerNo + " - Failed");
+                    return null;
+                }
+
+                BottomVisionOffset result = await vision.WaitBottomResultAsync(pickerNo, timeoutMs, ct).ConfigureAwait(false);
+                if (result == null)
+                {
+                    Log.Write("Main", "VISION", "PickerBottomInspect",
+                        Name + " Bottom 검사 결과 수신 실패. pickerNo=" + pickerNo + ", timeoutMs=" + timeoutMs + " - Failed");
+                    return null;
+                }
+
+                return result;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                Log.Write("Main", "VISION", "PickerBottomInspect",
+                    Name + " Bottom 검사 결과 수신 중 예외가 발생했습니다. pickerNo=" + pickerNo + ", error=" + ex.Message + " - Failed");
+                return null;
+            }
+            finally
+            {
+            }
+        }
+
         public async Task<BottomVisionOffset> GetBottomInspectionResultAsync(int pickerNo, int timeoutMs, CancellationToken ct)
         {
             try
@@ -2673,7 +2754,7 @@ namespace QMC.CDT320
             QMC.CDT320.VisionComm.InspectionResultDto inspection =
                 QMC.CDT320.VisionComm.AutoVisionRequestService.BuildSimulationInspectionResult(
                     QMC.CDT320.VisionComm.AutoVisionChannel.BottomInspection,
-                    "SurfaceInspector",
+                    QMC.CDT320.VisionComm.VisionToolIds.BottomInspection.SurfaceInspector,
                     pickerNo);
             return QMC.CDT320.Calibration.VisionCameraCalibrationTransform.ToBottomVisionOffset(pickerNo, inspection);
         }
@@ -2683,7 +2764,7 @@ namespace QMC.CDT320
             QMC.CDT320.VisionComm.InspectionResultDto inspection =
                 QMC.CDT320.VisionComm.AutoVisionRequestService.BuildSimulationInspectionResult(
                     QMC.CDT320.VisionComm.AutoVisionChannel.FrontSide,
-                    "SurfaceInspector",
+                    QMC.CDT320.VisionComm.VisionToolIds.FrontSide.SurfaceInspector,
                     pickerNo);
             bool pass = inspection != null && inspection.IsPass;
             return new SideVisionResult

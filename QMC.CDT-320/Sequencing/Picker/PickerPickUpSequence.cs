@@ -6,6 +6,7 @@ using QMC.CDT320.Calibration;
 using QMC.Common.Motion;
 using QMC.CDT320.Interlocks;
 using QMC.CDT320.Materials;
+using QMC.CDT320.VisionComm;
 
 namespace QMC.CDT320.Sequencing
 {
@@ -6037,7 +6038,13 @@ namespace QMC.CDT320.Sequencing
                 return null;
 
             if (IsSimulationOrDryRun(stage))
+            {
+                VisionAlignResult dryRunVisionResult = await RequestDryRunInputVisionOffsetAsync(stage, ct, applySettleDelay).ConfigureAwait(false);
+                if (dryRunVisionResult != null)
+                    return dryRunVisionResult;
+
                 return SimulateInputVisionOffset();
+            }
 
             if (applySettleDelay)
                 await DelayBeforeVisionInspectionAsync(ct).ConfigureAwait(false);
@@ -6046,7 +6053,48 @@ namespace QMC.CDT320.Sequencing
                 return null;
 
             ct.ThrowIfCancellationRequested();
-            return await stage.Vision.TriggerAlignAsync("InputPickDie").ConfigureAwait(false);
+            return await stage.Vision.TriggerAlignAsync(VisionAlignTargetIds.InputPickDie).ConfigureAwait(false);
+        }
+
+        private async Task<VisionAlignResult> RequestDryRunInputVisionOffsetAsync(
+            InputStageUnit stage,
+            CancellationToken ct,
+            bool applySettleDelay)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+                if (!IsDryRunWithWaferVisionConnected())
+                    return null;
+
+                if (stage == null || stage.Vision == null)
+                    return null;
+
+                if (applySettleDelay)
+                    await DelayBeforeVisionInspectionAsync(ct).ConfigureAwait(false);
+
+                VisionAlignResult result = await stage.Vision.TriggerAlignAsync(VisionAlignTargetIds.InputPickDie).ConfigureAwait(false);
+                WriteLog(Name,
+                    "DryRun " + VisionAlignTargetIds.InputPickDie + " Vision GRAB request completed. die=" + _currentDieId +
+                    ", pickerNo=" + _currentPickerNo +
+                    ", result=" + (result != null ? "OK" : "NG"));
+                return result;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                WriteLog(Name,
+                    "DryRun " + VisionAlignTargetIds.InputPickDie + " Vision GRAB request exception. die=" + _currentDieId +
+                    ", pickerNo=" + _currentPickerNo +
+                    ", error=" + ex.Message + " - SimFallback");
+                return null;
+            }
+            finally
+            {
+            }
         }
 
         private VisionAlignResult SimulateInputVisionOffset()
@@ -6136,6 +6184,26 @@ namespace QMC.CDT320.Sequencing
                 return true;
 
             return IsPickerSimulationOrDryRun();
+        }
+
+        private static bool IsDryRunWithWaferVisionConnected()
+        {
+            try
+            {
+                QMC.CDT320.AppSettings settings = QMC.CDT320.AppSettingsStore.Current;
+                if (settings == null || !settings.DryRunMode || !settings.UseVision)
+                    return false;
+
+                return QMC.CDT320.VisionComm.VisionCommandService.IsConnected(
+                    QMC.CDT320.VisionComm.AutoVisionChannel.Wafer);
+            }
+            catch
+            {
+                return false;
+            }
+            finally
+            {
+            }
         }
 
         private int ResolveVacuumSettleMs()

@@ -11,6 +11,7 @@ using QMC.CDT320.Lots;
 using QMC.CDT320.Materials;
 using QMC.CDT320.Recipes;
 using QMC.CDT320.Sequencing;
+using QMC.CDT320.VisionComm;
 using QMC.CDT_320.Ui.Dialogs;
 using QMC.CDT_320.Ui.Localization;
 using QMC.CDT_320.Ui.Pages.WorkInfo;
@@ -63,7 +64,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
         private static readonly System.Drawing.Color SkipColor = System.Drawing.Color.FromArgb(0x66, 0x66, 0x66);
         private static readonly object ManualDieDetectSimVisionRandomLock = new object();
         private static readonly Random ManualDieDetectSimVisionRandom = new Random();
-        private const string ManualInputDieDetectFinderName = "DieFinder";
+        private const string ManualInputDieDetectFinderName = VisionToolIds.Wafer.DieFinder;
         private const int ManualInputDieDetectVisionIndex = 0;
         private const int ManualInputDieDetectVisionTimeoutMs = 5000;
         private const double ManualInputDieDetectPitchMm = 0.15;

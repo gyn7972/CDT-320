@@ -18,6 +18,8 @@ namespace QMC.CDT320.Sequencing
         private DieMaterial _currentDie;
         private SideVisionResult _side0Result;
         private SideVisionResult _side90Result;
+        private bool _side0Started;
+        private bool _side90Started;
         private double _targetPickerX;
         private double _targetPickerY;
         private double _targetPickerZ;
@@ -164,7 +166,7 @@ namespace QMC.CDT320.Sequencing
 
                 // 사이드 검사 결과 적용
                 case PickerSideInspectionStep.ApplySideInspectionResult:
-                    return Task.FromResult(ApplySideInspectionResult());
+                    return ApplySideInspectionResultAsync(ct);
 
                 // 사이드 Z 어보이드 후 T 0도 복귀를 다음 검사 동작과 겹치도록 예약
                 case PickerSideInspectionStep.MoveSideZToAvoid:
@@ -376,6 +378,8 @@ namespace QMC.CDT320.Sequencing
             _currentDie = MaterialStateService.GetDieAtPicker(PickerLocationKind, _currentPickerNo);
             _side0Result = null;
             _side90Result = null;
+            _side0Started = false;
+            _side90Started = false;
 
             if (_currentDie == null)
             {
@@ -682,21 +686,21 @@ namespace QMC.CDT320.Sequencing
             {
                 try
                 {
-                    _side0Result = await RequestSideResultAsync(0, ct).ConfigureAwait(false);
-                    if (_side0Result == null)
+                    bool started = await StartSideInspectionRequestAsync(0, ct).ConfigureAwait(false);
+                    if (!started)
                     {
                         scope.Fail("PICKER-SIDE-VISION0-FAIL", BuildSideTactDetail(0, "Side 0도 검사 실패."));
                         return Fail("PICKER-SIDE-VISION0-FAIL", "Vision",
-                            "Side 0deg inspection communication/result failed after retry. die=" +
+                            "Side 0deg inspection STARTED ACK failed. die=" +
                             _currentDie.DieId + ", pickerNo=" + _currentPickerNo);
                     }
 
-                    scope.Complete(BuildSideTactDetail(0, "Side 0도 검사 완료. ok=" + _side0Result.IsAllOk));
+                    scope.Complete(BuildSideTactDetail(0, "Side 0도 검사 시작 ACK 수신."));
                     RecordInspectionCheckpointForTact(
                         "Side0Inspection",
                         "Side 0deg Inspect Interval",
                         "0deg",
-                        "ok=" + _side0Result.IsAllOk);
+                        "started=True");
                 }
                 catch (OperationCanceledException)
                 {
@@ -811,21 +815,21 @@ namespace QMC.CDT320.Sequencing
             {
                 try
                 {
-                    _side90Result = await RequestSideResultAsync(90, ct).ConfigureAwait(false);
-                    if (_side90Result == null)
+                    bool started = await StartSideInspectionRequestAsync(90, ct).ConfigureAwait(false);
+                    if (!started)
                     {
                         scope.Fail("PICKER-SIDE-VISION90-FAIL", BuildSideTactDetail(90, "Side 90도 검사 실패."));
                         return Fail("PICKER-SIDE-VISION90-FAIL", "Vision",
-                            "Side 90deg inspection communication/result failed after retry. die=" +
+                            "Side 90deg inspection STARTED ACK failed. die=" +
                             _currentDie.DieId + ", pickerNo=" + _currentPickerNo);
                     }
 
-                    scope.Complete(BuildSideTactDetail(90, "Side 90도 검사 완료. ok=" + _side90Result.IsAllOk));
+                    scope.Complete(BuildSideTactDetail(90, "Side 90도 검사 시작 ACK 수신."));
                     RecordInspectionCheckpointForTact(
                         "Side90Inspection",
                         "Side 90deg Inspect Interval",
                         "90deg",
-                        "ok=" + _side90Result.IsAllOk);
+                        "started=True");
                 }
                 catch (OperationCanceledException)
                 {
@@ -913,6 +917,44 @@ namespace QMC.CDT320.Sequencing
             catch
             {
                 return false;
+            }
+            finally
+            {
+            }
+        }
+
+        private async Task<int> ApplySideInspectionResultAsync(CancellationToken ct)
+        {
+            try
+            {
+                if ((_side0Started || _side90Started) && (_side0Result == null || _side90Result == null))
+                {
+                    SideVisionResult result = await WaitSideInspectionResultAsync(ct).ConfigureAwait(false);
+                    if (result == null)
+                    {
+                        return Fail("PICKER-SIDE-VISION-RESULT", "Vision",
+                            "Side 검사 결과 수신 실패. die=" + _currentDie.DieId +
+                            ", pickerNo=" + _currentPickerNo);
+                    }
+
+                    if (_side0Result == null)
+                        _side0Result = result;
+                    if (_side90Result == null)
+                        _side90Result = result;
+                }
+
+                return ApplySideInspectionResult();
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("PICKER-SIDE-VISION-RESULT-EX", "Vision",
+                    "Side 검사 결과 적용 중 예외가 발생했습니다. die=" + _currentDie.DieId +
+                    ", pickerNo=" + _currentPickerNo +
+                    ", error=" + ex.Message);
             }
             finally
             {
@@ -1329,7 +1371,7 @@ namespace QMC.CDT320.Sequencing
             return 0;
         }
 
-        private async Task<SideVisionResult> RequestSideResultAsync(int angleDeg, CancellationToken ct)
+        private async Task<bool> StartSideInspectionRequestAsync(int angleDeg, CancellationToken ct)
         {
             try
             {
@@ -1338,9 +1380,9 @@ namespace QMC.CDT320.Sequencing
                 {
                     ct.ThrowIfCancellationRequested();
 
-                    SideVisionResult result = await RequestSideResultCoreAsync(angleDeg, ct).ConfigureAwait(false);
-                    if (result != null)
-                        return result;
+                    bool started = await StartSideInspectionRequestCoreAsync(angleDeg, ct).ConfigureAwait(false);
+                    if (started)
+                        return true;
 
                     WriteLog("PickerSideInspectionSequence",
                         Name + " side inspection retry. die=" + _currentDie.DieId +
@@ -1349,7 +1391,7 @@ namespace QMC.CDT320.Sequencing
                         ", attempt=" + attempt + " - Check");
                 }
 
-                return null;
+                return false;
             }
             catch (OperationCanceledException)
             {
@@ -1358,17 +1400,23 @@ namespace QMC.CDT320.Sequencing
             catch (Exception ex)
             {
                 Fail("PICKER-SIDE-VISION-EX", "Vision", "Side inspection exception. angle=" + angleDeg + ", error=" + ex.Message);
-                return null;
+                return false;
             }
             finally
             {
             }
         }
 
-        private async Task<SideVisionResult> RequestSideResultCoreAsync(int angleDeg, CancellationToken ct)
+        private async Task<bool> StartSideInspectionRequestCoreAsync(int angleDeg, CancellationToken ct)
         {
             if (IsVisionBypassed())
-                return SimulateSideResult();
+            {
+                if (angleDeg == 90)
+                    _side90Result = SimulateSideResult();
+                else
+                    _side0Result = SimulateSideResult();
+                return true;
+            }
 
             await DelayBeforeVisionInspectionAsync(ct).ConfigureAwait(false);
 
@@ -1385,23 +1433,75 @@ namespace QMC.CDT320.Sequencing
                 ", pickerT=" + (angleDeg == 90 ? _targetPickerT90 : _targetPickerT0) +
                 ", timeoutMs=" + timeoutMs + " - Start");
 
+            if (IsDryRunMode())
+            {
+                await TriggerDryRunSideGrabIfConnectedAsync(angleDeg, timeoutMs, ct).ConfigureAwait(false);
+                if (angleDeg == 90)
+                    _side90Result = BuildSideResultWaitSkipped(angleDeg);
+                else
+                    _side0Result = BuildSideResultWaitSkipped(angleDeg);
+                return true;
+            }
+
             bool started;
             if (Side == PickerSequenceSide.Front)
             {
-                started = await FrontPicker.TriggerSideInspectionExposeAsync(_currentPickerNo, angleDeg, timeoutMs, ct).ConfigureAwait(false);
+                started = await FrontPicker.StartSideInspectionAsync(_currentPickerNo, angleDeg, timeoutMs, ct).ConfigureAwait(false);
             }
             else
             {
-                started = await RearPicker.TriggerSideInspectionExposeAsync(_currentPickerNo, angleDeg, timeoutMs, ct).ConfigureAwait(false);
+                started = await RearPicker.StartSideInspectionAsync(_currentPickerNo, angleDeg, timeoutMs, ct).ConfigureAwait(false);
             }
 
             if (!started)
-                return null;
+                return false;
 
-            // GYN 사이드 복구
-            // Side 결과 수신은 임시 보류한다. 재활성화 시 위 TriggerSideInspectionExposeAsync 호출 대신
-            // RequestSideInspectionAsync 호출을 복구하고, BuildSideResultWaitSkipped 반환을 제거하면 된다.
-            return BuildSideResultWaitSkipped(angleDeg);
+            if (angleDeg == 90)
+                _side90Started = true;
+            else
+                _side0Started = true;
+
+            return true;
+        }
+
+        private async Task<SideVisionResult> WaitSideInspectionResultAsync(CancellationToken ct)
+        {
+            if (IsVisionBypassed() || IsDryRunMode())
+                return SimulateSideResult();
+
+            ct.ThrowIfCancellationRequested();
+
+            int timeoutMs = ResolveVisionInspectionTimeout();
+            return Side == PickerSequenceSide.Front
+                ? await FrontPicker.WaitSideInspectionResultAsync(_currentPickerNo, timeoutMs, ct).ConfigureAwait(false)
+                : await RearPicker.WaitSideInspectionResultAsync(_currentPickerNo, timeoutMs, ct).ConfigureAwait(false);
+        }
+
+        private async Task TriggerDryRunSideGrabIfConnectedAsync(int angleDeg, int timeoutMs, CancellationToken ct)
+        {
+            ct.ThrowIfCancellationRequested();
+
+            if (!IsSideVisionConnected())
+            {
+                WriteLog("PickerSideInspectionSequence",
+                    Name + " DryRun Side GRAB skipped. Vision is not connected. side=" + Side +
+                    ", die=" + (_currentDie != null ? _currentDie.DieId : string.Empty) +
+                    ", pickerNo=" + _currentPickerNo +
+                    ", angleDeg=" + angleDeg + " - Check");
+                return;
+            }
+
+            bool grabbed = Side == PickerSequenceSide.Front
+                ? await FrontPicker.TriggerSideInspectionExposeAsync(_currentPickerNo, angleDeg, timeoutMs, ct).ConfigureAwait(false)
+                : await RearPicker.TriggerSideInspectionExposeAsync(_currentPickerNo, angleDeg, timeoutMs, ct).ConfigureAwait(false);
+
+            WriteLog("PickerSideInspectionSequence",
+                Name + " DryRun Side GRAB " + (grabbed ? "completed" : "failed") +
+                ". side=" + Side +
+                ", die=" + (_currentDie != null ? _currentDie.DieId : string.Empty) +
+                ", pickerNo=" + _currentPickerNo +
+                ", angleDeg=" + angleDeg +
+                ", timeoutMs=" + timeoutMs + " - Check");
         }
 
         private SideVisionResult BuildSideResultWaitSkipped(int angleDeg)
@@ -1435,10 +1535,13 @@ namespace QMC.CDT320.Sequencing
             QMC.CDT320.VisionComm.AutoVisionChannel channel = Side == PickerSequenceSide.Front
                 ? QMC.CDT320.VisionComm.AutoVisionChannel.FrontSide
                 : QMC.CDT320.VisionComm.AutoVisionChannel.RearSide;
+            string inspector = Side == PickerSequenceSide.Front
+                ? QMC.CDT320.VisionComm.VisionToolIds.FrontSide.SurfaceInspector
+                : QMC.CDT320.VisionComm.VisionToolIds.RearSide.SurfaceInspector;
             QMC.CDT320.VisionComm.InspectionResultDto inspection =
                 QMC.CDT320.VisionComm.AutoVisionRequestService.BuildSimulationInspectionResult(
                     channel,
-                    "SurfaceInspector",
+                    inspector,
                     _currentPickerNo);
             bool pass = inspection != null && inspection.IsPass;
             return new SideVisionResult
@@ -1466,6 +1569,20 @@ namespace QMC.CDT320.Sequencing
         {
             AppSettings settings = AppSettingsStore.Current;
             return settings != null && !settings.UseVision;
+        }
+
+        private bool IsDryRunMode()
+        {
+            AppSettings settings = AppSettingsStore.Current;
+            return settings != null && settings.DryRunMode;
+        }
+
+        private bool IsSideVisionConnected()
+        {
+            QMC.CDT320.VisionComm.AutoVisionChannel channel = Side == PickerSequenceSide.Front
+                ? QMC.CDT320.VisionComm.AutoVisionChannel.FrontSide
+                : QMC.CDT320.VisionComm.AutoVisionChannel.RearSide;
+            return QMC.CDT320.VisionComm.VisionCommandService.IsConnected(channel);
         }
 
         private TactTimeScope BeginDetailedTactScope(TactTimeCategory category, string processName, string stepName)

@@ -82,7 +82,7 @@ namespace QMC.CDT_320.Ui.Controls
             }
         }
 
-        /// <summary>기존 호출 호환용. VisionViewDialog처럼 허용된 화면에서만 Vision Live를 시작하고, 나머지는 Grab 이미지만 수신한다.</summary>
+        /// <summary>기존 호출 호환용. 명시적으로 허용된 화면에서만 Vision Live를 시작하고, 나머지는 Grab 이미지만 수신한다.</summary>
         public void StartLive()
         {
             if (AllowLive)
@@ -190,7 +190,7 @@ namespace QMC.CDT_320.Ui.Controls
         }
 
         // ── 뷰어 ON/OFF 토글 ──
-        // 통합 VisionViewDialog 에서만 Vision Live 명령을 허용하고, 그 외 화면은 Grab 이미지 수신만 사용한다.
+        // 일반 카메라 뷰는 Vision Live 명령을 보내지 않고 Grab 이미지 수신만 사용한다.
         private void chkViewer_CheckedChanged(object sender, EventArgs e)
         {
             try

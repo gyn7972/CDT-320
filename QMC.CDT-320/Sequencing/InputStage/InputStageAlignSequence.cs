@@ -7,6 +7,7 @@ using QMC.CDT320.Lots;
 using QMC.CDT320.Materials;
 using QMC.CDT320.Motion.SharedRailX;
 using QMC.CDT320.Recipes;
+using QMC.CDT320.VisionComm;
 using QMC.Common.Motion;
 
 namespace QMC.CDT320.Sequencing
@@ -473,7 +474,7 @@ namespace QMC.CDT320.Sequencing
         {
             try
             {
-                StartVisionMarkRequest(ResolveTargetId(Options.CenterAlignTargetId, "Center"), "Center");
+                StartVisionMarkRequest(ResolveTargetId(Options.CenterAlignTargetId, VisionAlignTargetIds.Center), VisionAlignTargetIds.Center);
                 CurrentStep = InputStageAlignStep.WaitCenterMarkResult;
                 return 0;
             }
@@ -501,8 +502,8 @@ namespace QMC.CDT320.Sequencing
                 if (_centerResult == null)
                 {
                     _centerResult = await SearchVisionMarkAroundCurrentPointAsync(
-                        ResolveTargetId(Options.CenterAlignTargetId, "Center"),
-                        "Center",
+                        ResolveTargetId(Options.CenterAlignTargetId, VisionAlignTargetIds.Center),
+                        VisionAlignTargetIds.Center,
                         "Wafer Align Center",
                         ct).ConfigureAwait(false);
                 }
@@ -511,7 +512,7 @@ namespace QMC.CDT320.Sequencing
                     return Fail("IN-STAGE-ALIGN-CENTER", "Vision",
                         "Wafer Align Center 다이를 찾지 못했습니다. 센터와 주변 8방향 탐색을 모두 실패했습니다.");
 
-                CaptureAlignAnchorFromVisionResult(_centerResult, "Center");
+                CaptureAlignAnchorFromVisionResult(_centerResult, VisionAlignTargetIds.Center);
                 CurrentStep = InputStageAlignStep.CorrectTheta;
                 return 0;
             }
@@ -540,7 +541,7 @@ namespace QMC.CDT320.Sequencing
                 }
 
                 double deltaTheta = _centerResult != null ? _centerResult.DeltaTheta : 0.0;
-                int limitResult = CheckThetaCorrectionLimit(deltaTheta, "Center");
+                int limitResult = CheckThetaCorrectionLimit(deltaTheta, VisionAlignTargetIds.Center);
                 if (limitResult != 0)
                     return limitResult;
 
@@ -568,7 +569,7 @@ namespace QMC.CDT320.Sequencing
         {
             try
             {
-                StartVisionMarkRequest(ResolveTargetId(Options.CenterAlignTargetId, "Center"), "CenterVerify");
+                StartVisionMarkRequest(ResolveTargetId(Options.CenterAlignTargetId, VisionAlignTargetIds.Center), VisionAlignTargetIds.CenterVerify);
                 CurrentStep = InputStageAlignStep.WaitThetaVerifyResult;
                 return 0;
             }
@@ -596,8 +597,8 @@ namespace QMC.CDT320.Sequencing
                 if (_verifyCenterResult == null)
                 {
                     _verifyCenterResult = await SearchVisionMarkAroundCurrentPointAsync(
-                        ResolveTargetId(Options.CenterAlignTargetId, "Center"),
-                        "CenterVerify",
+                        ResolveTargetId(Options.CenterAlignTargetId, VisionAlignTargetIds.Center),
+                        VisionAlignTargetIds.CenterVerify,
                         "Wafer Align Center Verify",
                         ct).ConfigureAwait(false);
                 }
@@ -606,7 +607,7 @@ namespace QMC.CDT320.Sequencing
                     return Fail("IN-STAGE-ALIGN-THETA-VERIFY", "Vision",
                         "Wafer Align T 보정 확인용 Center 다이를 찾지 못했습니다. 센터와 주변 8방향 탐색을 모두 실패했습니다.");
 
-                CaptureAlignAnchorFromVisionResult(_verifyCenterResult, "CenterVerify");
+                CaptureAlignAnchorFromVisionResult(_verifyCenterResult, VisionAlignTargetIds.CenterVerify);
                 double theta = Math.Abs(_verifyCenterResult.DeltaTheta);
                 double tolerance = ResolveThetaTolerance();
                 if (theta <= tolerance)
@@ -671,7 +672,7 @@ namespace QMC.CDT320.Sequencing
         {
             try
             {
-                StartVisionMarkRequest(ResolveTargetId(Options.Ref1AlignTargetId, "Ref1"), "Ref1");
+                StartVisionMarkRequest(ResolveTargetId(Options.Ref1AlignTargetId, VisionAlignTargetIds.Ref1), VisionAlignTargetIds.Ref1);
                 CurrentStep = InputStageAlignStep.WaitRef1MarkResult;
                 return 0;
             }
@@ -748,7 +749,7 @@ namespace QMC.CDT320.Sequencing
         {
             try
             {
-                StartVisionMarkRequest(ResolveTargetId(Options.Ref2AlignTargetId, "Ref2"), "Ref2");
+                StartVisionMarkRequest(ResolveTargetId(Options.Ref2AlignTargetId, VisionAlignTargetIds.Ref2), VisionAlignTargetIds.Ref2);
                 CurrentStep = InputStageAlignStep.WaitRef2MarkResult;
                 return 0;
             }
@@ -887,7 +888,7 @@ namespace QMC.CDT320.Sequencing
                 bool isResidualCorrection = Math.Abs(_thetaFromTwoPoint) <= tolerance;
                 double correctionTheta = -_thetaFromTwoPoint;
 
-                int limitResult = CheckThetaCorrectionLimit(correctionTheta, "Ref1Ref2");
+                int limitResult = CheckThetaCorrectionLimit(correctionTheta, VisionAlignTargetIds.Ref1Ref2);
                 if (limitResult != 0)
                     return limitResult;
 
@@ -1240,7 +1241,13 @@ namespace QMC.CDT320.Sequencing
             {
                 ct.ThrowIfCancellationRequested();
                 if (IsSimulationOrDryRun())
+                {
+                    VisionAlignResult dryRunVisionResult = await RequestDryRunVisionOffsetAsync(targetId, stepName, ct).ConfigureAwait(false);
+                    if (dryRunVisionResult != null)
+                        return dryRunVisionResult;
+
                     return await RequestSimVisionOffsetAsync(targetId, stepName, ct).ConfigureAwait(false);
+                }
 
                 if (Stage.Vision == null)
                     return null;
@@ -1258,6 +1265,42 @@ namespace QMC.CDT320.Sequencing
             catch (Exception ex)
             {
                 WriteLog("InputStageAlignSequence", "Vision PC offset request exception. step=" + stepName + ": " + ex.Message + " - Failed");
+                return null;
+            }
+            finally
+            {
+            }
+        }
+
+        private async Task<VisionAlignResult> RequestDryRunVisionOffsetAsync(string targetId, string stepName, CancellationToken ct)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+                if (!IsDryRunWithVisionConnected())
+                    return null;
+
+                if (Stage == null || Stage.Vision == null)
+                    return null;
+
+                Task<VisionAlignResult> alignTask = Stage.Vision.TriggerAlignAsync(targetId);
+                if (alignTask == null)
+                    return null;
+
+                VisionAlignResult result = await SequenceAwaiter.AwaitAsync(alignTask, null, ct).ConfigureAwait(false);
+                WriteLog("InputStageAlignSequence",
+                    "DryRun Vision GRAB request completed. step=" + stepName +
+                    ", target=" + targetId +
+                    ", result=" + (result != null ? "OK" : "NG"));
+                return result;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                WriteLog("InputStageAlignSequence", "DryRun Vision GRAB request exception. step=" + stepName + ": " + ex.Message + " - SimFallback");
                 return null;
             }
             finally
@@ -1289,8 +1332,8 @@ namespace QMC.CDT320.Sequencing
                 lock (SimVisionRandomLock)
                 {
                     bool referenceMark =
-                        string.Equals(stepName, "Ref1", StringComparison.OrdinalIgnoreCase) ||
-                        string.Equals(stepName, "Ref2", StringComparison.OrdinalIgnoreCase);
+                        string.Equals(stepName, VisionAlignTargetIds.Ref1, StringComparison.OrdinalIgnoreCase) ||
+                        string.Equals(stepName, VisionAlignTargetIds.Ref2, StringComparison.OrdinalIgnoreCase);
                     dx = referenceMark ? 0.0 : (SimVisionRandom.NextDouble() - 0.5) * 0.002;
                     dy = referenceMark ? 0.0 : (SimVisionRandom.NextDouble() - 0.5) * 0.002;
                     dt = ResolveSimThetaOffset(stepName);
@@ -1441,15 +1484,35 @@ namespace QMC.CDT320.Sequencing
             return settings != null && settings.DryRunMode && !settings.UseVision;
         }
 
+        private static bool IsDryRunWithVisionConnected()
+        {
+            try
+            {
+                AppSettings settings = AppSettingsStore.Current;
+                if (settings == null || !settings.DryRunMode || !settings.UseVision)
+                    return false;
+
+                return QMC.CDT320.VisionComm.VisionCommandService.IsConnected(
+                    QMC.CDT320.VisionComm.AutoVisionChannel.Wafer);
+            }
+            catch
+            {
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
         private double ResolveSimThetaOffset(string stepName)
         {
             try
             {
                 double tolerance = ResolveThetaTolerance();
-                if (string.Equals(stepName, "CenterVerify", StringComparison.OrdinalIgnoreCase))
+                if (string.Equals(stepName, VisionAlignTargetIds.CenterVerify, StringComparison.OrdinalIgnoreCase))
                     return 0.0;
 
-                if (string.Equals(stepName, "Center", StringComparison.OrdinalIgnoreCase))
+                if (string.Equals(stepName, VisionAlignTargetIds.Center, StringComparison.OrdinalIgnoreCase))
                     return tolerance * 0.2;
 
                 return 0.0;

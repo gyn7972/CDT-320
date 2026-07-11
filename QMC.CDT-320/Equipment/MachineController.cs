@@ -2173,7 +2173,7 @@ namespace QMC.CDT320
         /// <param name="finder">매칭에 사용할 Finder 이름(기본 ReticleFinder).</param>
         public async Task<bool> AlignWaferAsync(
             (double mx, double my)[] motorPts,
-            string finder = "ReticleFinder")
+            string finder = VisionComm.VisionToolIds.Wafer.ReticleFinder)
         {
             if (motorPts == null || motorPts.Length < 3)
             { Log("[ALIGN] need 3 motor points"); return false; }
@@ -8861,16 +8861,16 @@ namespace QMC.CDT320
                 {
                     offsets[p] = (0, 0);
                     // wafer 미연결 상태에서도 simulator flash는 송신합니다(시각 확인용).
-                    SimulatorBridge.Instance?.CameraExposeFlash("WAFER");
+                    SimulatorBridge.Instance?.CameraExposeFlash(VisionComm.VisionCameraIds.Wafer);
                     await Task.Delay(200, ct).ConfigureAwait(false);
                     continue;
                 }
 
                 try
                 {
-                    SimulatorBridge.Instance?.CameraExposeFlash("WAFER");
+                    SimulatorBridge.Instance?.CameraExposeFlash(VisionComm.VisionCameraIds.Wafer);
                     var m = await VisionComm.VisionHub.Wafer.MatchAsync(
-                        "DieFinder", dieBase + p, 1500);
+                        VisionComm.VisionToolIds.Wafer.DieFinder, dieBase + p, 1500);
                     if (m.Success && m.Score >= 0.7)
                     {
                         offsets[p] = (0, 0);

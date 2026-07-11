@@ -2994,7 +2994,7 @@ namespace QMC.CDT320
                 }
 
                 Console.WriteLine("[INFO]  '" + Name + "' -> BinCamera 안착 검사 수행 중...");
-                SimulatorBridge.Instance?.CameraExposeFlash("BIN");
+                SimulatorBridge.Instance?.CameraExposeFlash(QMC.CDT320.VisionComm.VisionCameraIds.Bin);
                 await Task.Delay(20, ct).ConfigureAwait(false); // 촬상 소요 시간 시뮬레이션
                 Console.WriteLine("[INFO]  '" + Name + "' -> BinCamera 검사 완료. 즉시 후퇴.");
 

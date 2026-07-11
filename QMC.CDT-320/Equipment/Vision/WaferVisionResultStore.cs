@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using QMC.CDT320.VisionComm;
 
 namespace QMC.CDT_320.Equipment.Vision
 {
@@ -31,7 +32,7 @@ namespace QMC.CDT_320.Equipment.Vision
                 if (result == null)
                     return;
 
-                string key = string.IsNullOrWhiteSpace(targetId) ? "Center" : targetId.Trim();
+                string key = string.IsNullOrWhiteSpace(targetId) ? VisionAlignTargetIds.Center : targetId.Trim();
                 lock (_lock)
                 {
                     _aligns[key] = new WaferAlignSample
@@ -91,7 +92,7 @@ namespace QMC.CDT_320.Equipment.Vision
         /// <summary>타깃별 마지막 정렬 결과. 없으면 null.</summary>
         public static WaferAlignSample GetAlign(string targetId)
         {
-            string key = string.IsNullOrWhiteSpace(targetId) ? "Center" : targetId.Trim();
+            string key = string.IsNullOrWhiteSpace(targetId) ? VisionAlignTargetIds.Center : targetId.Trim();
             lock (_lock)
             {
                 WaferAlignSample sample;

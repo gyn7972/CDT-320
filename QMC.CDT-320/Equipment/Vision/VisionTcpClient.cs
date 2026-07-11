@@ -4,6 +4,7 @@ using System.Net.Sockets;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using QMC.Common.Logging;
 
 namespace QMC.CDT320.VisionComm
 {
@@ -165,15 +166,85 @@ namespace QMC.CDT320.VisionComm
         public async Task<VisionProtocolResponse> SendCommandAsync(VisionProtocolCommand command, int timeoutMs, CancellationToken ct, params object[] arguments)
         {
             VisionProtocolMessage message = VisionProtocolMessage.Create(ModuleName, command, arguments);
-            string response = await SendAsync(message.ToLine(), timeoutMs, ct).ConfigureAwait(false);
+            string line = message.ToLine();
+            LogCommandRequest(message, line, timeoutMs);
+            string response = await SendAsync(line, timeoutMs, ct).ConfigureAwait(false);
+            LogCommandResponse(message, response);
             return VisionProtocolResponse.Parse(response);
         }
 
         public async Task<VisionProtocolResponse> SendCommandAsync(string command, int timeoutMs, CancellationToken ct, params object[] arguments)
         {
             VisionProtocolMessage message = VisionProtocolMessage.Create(ModuleName, command, arguments);
-            string response = await SendAsync(message.ToLine(), timeoutMs, ct).ConfigureAwait(false);
+            string line = message.ToLine();
+            LogCommandRequest(message, line, timeoutMs);
+            string response = await SendAsync(line, timeoutMs, ct).ConfigureAwait(false);
+            LogCommandResponse(message, response);
             return VisionProtocolResponse.Parse(response);
+        }
+
+        private void LogCommandRequest(VisionProtocolMessage message, string line, int timeoutMs)
+        {
+            try
+            {
+                StringBuilder sb = new StringBuilder();
+                sb.Append("Vision TX command. ");
+                sb.Append("module=").Append(message != null ? message.Module : ModuleName);
+                sb.Append(", command=").Append(message != null ? message.Command : string.Empty);
+                sb.Append(", host=").Append(Host);
+                sb.Append(", port=").Append(Port);
+                sb.Append(", timeoutMs=").Append(timeoutMs);
+                sb.Append(", separator=|");
+                sb.Append(", compositeSeparator=;");
+                AppendCommandArguments(sb, message);
+                sb.Append(", wireLine=").Append(line ?? string.Empty);
+
+                EventLogger.Write(EventKind.Event, "VISION", "VISION-COMM-TX", sb.ToString());
+            }
+            catch
+            {
+            }
+            finally
+            {
+            }
+        }
+
+        private void LogCommandResponse(VisionProtocolMessage message, string response)
+        {
+            try
+            {
+                EventLogger.Write(EventKind.Event, "VISION", "VISION-COMM-RX",
+                    "Vision RX response. module=" + (message != null ? message.Module : ModuleName) +
+                    ", command=" + (message != null ? message.Command : string.Empty) +
+                    ", host=" + Host +
+                    ", port=" + Port +
+                    ", rawLine=" + (response ?? string.Empty));
+            }
+            catch
+            {
+            }
+            finally
+            {
+            }
+        }
+
+        private static void AppendCommandArguments(StringBuilder sb, VisionProtocolMessage message)
+        {
+            try
+            {
+                string[] args = message != null ? message.Arguments : null;
+                int count = args != null ? args.Length : 0;
+                sb.Append(", argCount=").Append(count);
+
+                for (int i = 0; i < count; i++)
+                    sb.Append(", arg[").Append(i).Append("]=").Append(args[i] ?? string.Empty);
+            }
+            catch
+            {
+            }
+            finally
+            {
+            }
         }
 
         // ─── High-level helpers ──────────────────────

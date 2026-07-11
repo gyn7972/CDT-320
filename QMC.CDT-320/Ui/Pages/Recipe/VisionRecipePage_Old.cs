@@ -115,7 +115,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                     case "MATCH":
                         if (wafer != null && wafer.IsConnected)
                         {
-                            var result = await wafer.MatchAsync("ReticleFinder", 0, 5000);
+                            var result = await wafer.MatchAsync(VisionToolIds.Wafer.ReticleFinder, 0, 5000);
                             string msg = result == null
                                 ? "MATCH failed. Result is null."
                                 : "MATCH result: x=" + result.X.ToString("F2") +
