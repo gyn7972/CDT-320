@@ -179,8 +179,8 @@ namespace QMC.CDT_320.Ui.Pages.Material
                         DieMapX = col,
                         DieMapY = row,
                         IsTarget = target,
-                        Result = target ? DieResult.Unknown : DieResult.NG,
-                        BinCode = target ? 0 : 255,
+                        Result = DieResult.Unknown,
+                        BinCode = 0,
                         PosX = originX + col * pitchX,
                         PosY = originY + row * pitchY,
                         DieUid = BuildDisplayDieId(waferMap.WaferId, row, col)

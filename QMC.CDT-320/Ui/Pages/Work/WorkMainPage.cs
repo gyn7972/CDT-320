@@ -267,25 +267,111 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 VisionViewerSource source = new VisionViewerSource(host, viewerPort, 2000, null);
                 source.FrameMeta += meta => OnVisionFrameMeta(camera, infoLabel, title, meta);
                 camera.AttachSource(source);
+                camera.ShowLiveLabel = false;
 
                 _visionSources.Add(source);
                 _visionCameras.Add(camera);
 
-                camera.HandleCreated += (s, e) => StartPassiveVisionCamera(camera);
+                int[] pending = new int[1];
+                camera.HandleCreated += (s, e) => StartPassiveVisionGrabImageStream(source, camera, title, viewerPort, pending);
                 if (camera.IsHandleCreated)
-                    StartPassiveVisionCamera(camera);
+                    StartPassiveVisionGrabImageStream(source, camera, title, viewerPort, pending);
             }
             catch
             {
             }
         }
 
-        private static void StartPassiveVisionCamera(CameraViewBase camera)
+        private void StartPassiveVisionGrabImageStream(VisionViewerSource source, CameraViewBase camera, string title, int viewerPort, int[] pending)
         {
-            if (camera == null || camera.IsDisposed)
+            if (source == null || camera == null || camera.IsDisposed)
                 return;
 
-            try { camera.StartLive(); } catch { }
+            try
+            {
+                source.StartGrabImageStream(bmp => OnPassiveVisionGrabImageFrame(camera, bmp, pending));
+                LogPassiveVisionGrabImageStarted(title, viewerPort);
+            }
+            catch (Exception ex)
+            {
+                LogPassiveVisionGrabImageFailed(title, viewerPort, ex.Message);
+            }
+        }
+
+        private void OnPassiveVisionGrabImageFrame(CameraViewBase camera, Bitmap bmp, int[] pending)
+        {
+            if (bmp == null)
+                return;
+
+            if (pending == null)
+            {
+                try { bmp.Dispose(); } catch { }
+                return;
+            }
+
+            if (Interlocked.CompareExchange(ref pending[0], 1, 0) != 0)
+            {
+                try { bmp.Dispose(); } catch { }
+                return;
+            }
+
+            try
+            {
+                if (camera == null || camera.IsDisposed || !camera.IsHandleCreated)
+                {
+                    try { bmp.Dispose(); } catch { }
+                    Interlocked.Exchange(ref pending[0], 0);
+                    return;
+                }
+
+                camera.BeginInvoke(new Action(() =>
+                {
+                    try
+                    {
+                        if (camera != null && !camera.IsDisposed)
+                            camera.SetImage(bmp);
+                    }
+                    finally
+                    {
+                        try { bmp.Dispose(); } catch { }
+                        Interlocked.Exchange(ref pending[0], 0);
+                    }
+                }));
+            }
+            catch
+            {
+                try { bmp.Dispose(); } catch { }
+                Interlocked.Exchange(ref pending[0], 0);
+            }
+        }
+
+        private static void LogPassiveVisionGrabImageStarted(string title, int viewerPort)
+        {
+            try
+            {
+                QMC.Common.Logging.EventLogger.Write(
+                    QMC.Common.Logging.EventKind.Event,
+                    "VISION",
+                    "VISION-GRAB-VIEW",
+                    "Work 화면 Vision Grab 이미지 수신을 시작했습니다. title=" +
+                    (title ?? string.Empty) + ", viewerPort=" + viewerPort);
+            }
+            catch { }
+        }
+
+        private static void LogPassiveVisionGrabImageFailed(string title, int viewerPort, string reason)
+        {
+            try
+            {
+                QMC.Common.Logging.EventLogger.Write(
+                    QMC.Common.Logging.EventKind.Warning,
+                    "VISION",
+                    "VISION-GRAB-VIEW",
+                    "Work 화면 Vision Grab 이미지 수신 시작 실패. title=" +
+                    (title ?? string.Empty) + ", viewerPort=" + viewerPort +
+                    ", reason=" + reason);
+            }
+            catch { }
         }
 
         private void OnVisionFrameMeta(CameraViewBase camera, Label infoLabel, string title, VisionFrameMeta meta)
@@ -372,6 +458,9 @@ namespace QMC.CDT_320.Ui.Pages.Work
         {
             if (rootLayout != null)
                 rootLayout.SizeChanged += (s, e) => ApplyBottomGroupSizing();
+
+            if (btnTestAlarm != null)
+                btnTestAlarm.Click += btnTestAlarm_Click;
         }
 
         private void btnCcs_Click(object sender, EventArgs e)
@@ -391,6 +480,32 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 btnCcs.Text,
                 MessageBoxButtons.OK,
                 MessageBoxIcon.Information);
+        }
+
+        private void btnTestAlarm_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                QMC.Common.Logging.EventLogger.Write(
+                    QMC.Common.Logging.EventKind.Alarm,
+                    QMC.CDT_320.Ui.Security.UserSession.Name,
+                    "TEST-ALARM",
+                    "Main ALARM button clicked. TEST-ALARM will be raised.");
+
+                QMC.Common.Alarms.AlarmManager.Raise(
+                    QMC.Common.Alarms.AlarmSeverity.Critical,
+                    "TEST-ALARM",
+                    "WorkMainPage",
+                    "Main 화면 ALARM 버튼에 의해 테스트 알람이 발생했습니다.");
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Logging.EventLogger.Write(
+                    QMC.Common.Logging.EventKind.Alarm,
+                    "UI",
+                    "TEST-ALARM",
+                    "Main ALARM button failed: " + ex.Message);
+            }
         }
 
         private void ApplyBottomGroupSizing()

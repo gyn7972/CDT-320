@@ -22,6 +22,8 @@ namespace QMC.CDT320.VisionComm
 
         private Thread _thread;
         private volatile bool _running;
+        private volatile bool _liveCommandActive;
+        private volatile bool _registryRegistered;
         private TcpClient _tcp;
         private Action<Bitmap> _onFrame;
 
@@ -45,14 +47,35 @@ namespace QMC.CDT320.VisionComm
             _host = host; _port = port; _connectTimeoutMs = connectTimeoutMs; _cmd = commandClient;
         }
 
-        public bool SupportsLive => true;
+        public bool LiveEnabled { get; set; }
+
+        public bool SupportsLive => LiveEnabled;
 
         public void StartLive(Action<Bitmap> onFrame)
         {
             if (_running) return;
+            if (!LiveEnabled)
+            {
+                string blockReason = "Vision Live ON은 사용하지 않습니다. Grab 이미지 수신만 사용하세요.";
+                OnStatus(blockReason);
+                try
+                {
+                    QMC.Common.Logging.EventLogger.Write(
+                        QMC.Common.Logging.EventKind.Warning,
+                        "VISION",
+                        "VISION-LIVE-BLOCK",
+                        "Vision Live 시작 요청을 차단했습니다. port=" + _port +
+                        ", reason=" + blockReason);
+                }
+                catch { }
+                throw new InvalidOperationException(blockReason);
+            }
+
             // 핸들러 Live → Vision 카메라를 연속 촬상(Live)으로 전환. RUN/READY 중이면 Vision 이 거부(throw).
             // 이 명령이 있어야 Vision 이 프레임을 내보내고, 아래 RecvLoop 가 그 프레임을 받는다.
             RequestVisionLive(true);
+            _liveCommandActive = true;
+            _registryRegistered = true;
             _onFrame = onFrame;
             _running = true;
             VisionViewerRegistry.StreamStarted(_port);   // 스트리밍 상태 등록(설정 페이지 표시용)
@@ -60,16 +83,35 @@ namespace QMC.CDT320.VisionComm
             _thread.Start();
         }
 
+        /// <summary>Vision Live 명령 없이 뷰어 포트에서 Grab 이미지 프레임만 수신한다.
+        /// CAM_SWITCH ON/OFF 를 절대 보내지 않으므로 카메라 Live 상태를 건드리지 않는다.</summary>
+        public void StartGrabImageStream(Action<Bitmap> onFrame)
+        {
+            if (_running) return;
+
+            _liveCommandActive = false;
+            _registryRegistered = false;
+            _onFrame = onFrame;
+            _running = true;
+            OnStatus("Grab 이미지 수신 시작");
+            _thread = new Thread(RecvLoop) { IsBackground = true, Name = "VisionGrabImageViewer-" + _port };
+            _thread.Start();
+        }
+
         public void StopLive()
         {
             bool was = _running;
+            bool liveCommandWasActive = _liveCommandActive;
+            bool registryWasRegistered = _registryRegistered;
             _running = false;
-            if (was) VisionViewerRegistry.StreamStopped(_port);
+            _liveCommandActive = false;
+            _registryRegistered = false;
+            if (was && registryWasRegistered) VisionViewerRegistry.StreamStopped(_port);
             try { _tcp?.Close(); } catch { }
             try { _thread?.Join(800); } catch { }
             _thread = null;
             // 라이브였을 때만 Vision 카메라 Live 정지 요청(재구성 시 불필요한 명령 방지).
-            if (was) { try { RequestVisionLive(false); } catch { } }
+            if (was && liveCommandWasActive) { try { RequestVisionLive(false); } catch { } }
             if (was) RaiseLiveStopped();
         }
 

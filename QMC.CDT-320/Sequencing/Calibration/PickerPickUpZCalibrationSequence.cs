@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Threading;
@@ -74,6 +74,7 @@ namespace QMC.CDT320.Sequencing.Calibration
         private double _detectedFlowPosition;
         private double _savedPickPosition;
         private int _detectElapsedMs;
+        private volatile bool _immediateStopRequested;
 
         public PickerPickUpZCalibrationSequence(MachineSequenceContext context, VisionFocusPickerSide side, int pickerNo)
             : base(
@@ -95,9 +96,23 @@ namespace QMC.CDT320.Sequencing.Calibration
 
         public PickUpZCalibrationResult Result { get; private set; }
 
+        public void RequestImmediateStop(string reason)
+        {
+            _immediateStopRequested = true;
+            WriteLog("PickUpZCalibration",
+                "PickUpZ Calibration 즉시 정지 요청. " +
+                "side=" + Side +
+                ", pickerNo=" + _pickerNo +
+                ", step=" + CurrentStep +
+                ", reason=" + reason + " - Stop");
+            StopPickerZAxis("즉시 정지 요청: " + reason);
+        }
+
         protected override async Task<int> ExecuteAsync(CancellationToken ct)
         {
             bool vacuumOn = false;
+            bool needleVacuumOn = false;
+            _immediateStopRequested = false;
             try
             {
                 CurrentStep = PickUpZCalibrationStep.CheckReady;
@@ -124,6 +139,10 @@ namespace QMC.CDT320.Sequencing.Calibration
                 if (result != 0) return result;
 
                 CurrentStep = PickUpZCalibrationStep.VacuumOn;
+                result = EnsureNeedleVacuumOnForCalibration("PickUpZ Calibration 측정 시작 전");
+                if (result != 0) return result;
+                needleVacuumOn = true;
+
                 SetPickerVacuum(_pickerNo, true);
                 vacuumOn = true;
                 if (_settings.VacuumOnDelayMs > 0)
@@ -135,6 +154,10 @@ namespace QMC.CDT320.Sequencing.Calibration
 
                 SetPickerVacuum(_pickerNo, false);
                 vacuumOn = false;
+
+                result = EnsureNeedleVacuumOffForCalibration("PickUpZ Calibration 측정 완료 후");
+                if (result != 0) return result;
+                needleVacuumOn = false;
 
                 CurrentStep = PickUpZCalibrationStep.SaveResult;
                 result = SaveCalibrationResult();
@@ -149,6 +172,11 @@ namespace QMC.CDT320.Sequencing.Calibration
                         "PickUpZ Calibration 완료 후 PickerZ Avoid",
                         ct,
                         "AvoidPosition").ConfigureAwait(false);
+                    if (result != 0) return result;
+
+                    result = await MoveNeedleZToAvoidWithNeedleVacuumOffAsync(
+                        "PickUpZ Calibration 완료 후 NeedleZ Avoid",
+                        ct).ConfigureAwait(false);
                     if (result != 0) return result;
                 }
 
@@ -168,18 +196,18 @@ namespace QMC.CDT320.Sequencing.Calibration
             }
             catch (OperationCanceledException)
             {
-                StopPickerZAxis();
+                StopPickerZAxis("정지 요청 취소");
                 Result.Message = "PickUpZ Calibration canceled.";
                 throw;
             }
             catch (SequenceStopException)
             {
-                StopPickerZAxis();
+                StopPickerZAxis("시퀀스 정지 요청");
                 throw;
             }
             catch (Exception ex)
             {
-                StopPickerZAxis();
+                StopPickerZAxis("예외 발생");
                 return Fail("PICKUP-Z-CAL-EX", Name, "PickUpZ Calibration 예외 발생. error=" + ex.Message);
             }
             finally
@@ -189,6 +217,8 @@ namespace QMC.CDT320.Sequencing.Calibration
                     try { SetPickerVacuum(_pickerNo, false); }
                     catch { }
                 }
+                if (needleVacuumOn)
+                    TryNeedleVacuumOffForCalibration("PickUpZ Calibration 종료 정리");
 
                 ReleasePickerWorkArea();
                 ReleaseArea();
@@ -264,6 +294,7 @@ namespace QMC.CDT320.Sequencing.Calibration
                     if (result != 0) return result;
 
                     CurrentStep = PickUpZCalibrationStep.MoveAvoid;
+                    TryNeedleVacuumOffForCalibration("PickUpZ Calibration PickerZ Avoid 이동 전");
                     result = await MovePickerAxisAndVerifyAsync(
                         _pickerZAxis,
                         GetPickerTeachingPosition(_pickerZAxis, "AvoidPosition"),
@@ -583,6 +614,83 @@ namespace QMC.CDT320.Sequencing.Calibration
                 ct).ConfigureAwait(false);
         }
 
+        private async Task<int> MoveNeedleZToAvoidWithNeedleVacuumOffAsync(string description, CancellationToken ct)
+        {
+            InputStageUnit stage = Context != null && Context.Machine != null ? Context.Machine.InputStageUnit : null;
+            int vacuumOffResult = EnsureNeedleVacuumOffForCalibration(description + " 이동 전");
+            if (vacuumOffResult != 0)
+                return vacuumOffResult;
+
+            if (stage == null || stage.Recipe == null)
+                return Fail("PICKUP-Z-CAL-NEEDLE-Z-AVOID-STAGE", "InputStageUnit",
+                    "PickUpZ Calibration NeedleZ Avoid 이동 실패: InputStageUnit 또는 Recipe가 없습니다.");
+
+            stage.Recipe.EnsurePositionObjects();
+            return await MoveInputStageAxisWithCalibrationMotionAsync(
+                stage,
+                WaferStageAxis.NeedleZ,
+                stage.Recipe.NeedleZ.AvoidPosition,
+                description,
+                ct).ConfigureAwait(false);
+        }
+
+        private int EnsureNeedleVacuumOnForCalibration(string reason)
+        {
+            InputStageUnit stage = Context != null && Context.Machine != null ? Context.Machine.InputStageUnit : null;
+            if (stage == null)
+                return Fail("PICKUP-Z-CAL-NEEDLE-VAC-ON-NO-STAGE", "InputStageUnit",
+                    reason + " Needle Vacuum ON 실패: InputStageUnit이 없습니다.");
+
+            if (stage.NeedleVacuum == null)
+                return Fail("PICKUP-Z-CAL-NEEDLE-VAC-ON-NO-OUTPUT", "InputStageUnit",
+                    reason + " Needle Vacuum 출력이 없습니다.");
+
+            stage.NeedleVacuum.On();
+            WriteLog("PickUpZCalibration",
+                reason + " Needle Vacuum ON. outputOn=" + stage.NeedleVacuum.IsOn + " - Ok");
+            return 0;
+        }
+
+        private int EnsureNeedleVacuumOffForCalibration(string reason)
+        {
+            InputStageUnit stage = Context != null && Context.Machine != null ? Context.Machine.InputStageUnit : null;
+            if (stage == null)
+                return Fail("PICKUP-Z-CAL-NEEDLE-VAC-OFF-NO-STAGE", "InputStageUnit",
+                    reason + " Needle Vacuum OFF 실패: InputStageUnit이 없습니다.");
+
+            if (stage.NeedleVacuum == null)
+                return Fail("PICKUP-Z-CAL-NEEDLE-VAC-OFF-NO-OUTPUT", "InputStageUnit",
+                    reason + " Needle Vacuum 출력이 없습니다.");
+
+            stage.NeedleVacuum.Off();
+            WriteLog("PickUpZCalibration",
+                reason + " Needle Vacuum OFF. outputOn=" + stage.NeedleVacuum.IsOn + " - Ok");
+            return 0;
+        }
+
+        private void TryNeedleVacuumOffForCalibration(string reason)
+        {
+            try
+            {
+                InputStageUnit stage = Context != null && Context.Machine != null ? Context.Machine.InputStageUnit : null;
+                if (stage == null || stage.NeedleVacuum == null)
+                {
+                    WriteLog("PickUpZCalibration",
+                        reason + " Needle Vacuum OFF 생략. InputStageUnit 또는 Needle Vacuum 출력이 없습니다. - Check");
+                    return;
+                }
+
+                stage.NeedleVacuum.Off();
+                WriteLog("PickUpZCalibration",
+                    reason + " Needle Vacuum OFF. outputOn=" + stage.NeedleVacuum.IsOn + " - Check");
+            }
+            catch (Exception ex)
+            {
+                WriteLog("PickUpZCalibration",
+                    reason + " Needle Vacuum OFF 중 예외 발생. error=" + ex.Message + " - Check");
+            }
+        }
+
         private async Task<int> MoveCurrentPickerToCalibrationTargetAsync(string description, CancellationToken ct)
         {
             if (_calibrationTarget == null)
@@ -714,7 +822,9 @@ namespace QMC.CDT320.Sequencing.Calibration
                     "Coarse",
                     _scanStartPosition,
                     _searchLimitPosition,
-                    _settings.Motion.MoveVelocity,
+                    _settings.CoarseSearchVelocityMmPerSec,
+                    _settings.CoarseSearchAccelerationMmPerSec2,
+                    _settings.CoarseSearchDecelerationMmPerSec2,
                     ct).ConfigureAwait(false);
                 if (!coarse.Success)
                     return coarse.ResultCode;
@@ -730,7 +840,9 @@ namespace QMC.CDT320.Sequencing.Calibration
                     ", pickerZAxis=" + _pickerZAxis +
                     ", coarseFlow=" + coarse.DetectedPosition.ToString("F6") +
                     ", repeatCount=" + repeatCount +
-                    ", fineVelocity=" + _settings.FineSearchVelocityMmPerSec.ToString("F6") + " - Check");
+                    ", fineVelocity=" + _settings.FineSearchVelocityMmPerSec.ToString("F6") +
+                    ", fineAcceleration=" + _settings.FineSearchAccelerationMmPerSec2.ToString("F6") +
+                    ", fineDeceleration=" + _settings.FineSearchDecelerationMmPerSec2.ToString("F6") + " - Check");
 
                 for (int index = 1; index <= repeatCount; index++)
                 {
@@ -748,6 +860,8 @@ namespace QMC.CDT320.Sequencing.Calibration
                         backOffTarget,
                         _searchLimitPosition,
                         _settings.FineSearchVelocityMmPerSec,
+                        _settings.FineSearchAccelerationMmPerSec2,
+                        _settings.FineSearchDecelerationMmPerSec2,
                         ct).ConfigureAwait(false);
                     if (!fine.Success)
                         return fine.ResultCode;
@@ -812,6 +926,8 @@ namespace QMC.CDT320.Sequencing.Calibration
             double searchStart,
             double searchLimit,
             double velocity,
+            double acceleration,
+            double deceleration,
             CancellationToken ct)
         {
             var result = new PickUpZFlowSearchResult();
@@ -888,14 +1004,28 @@ namespace QMC.CDT320.Sequencing.Calibration
                 bool firstFlowOn = false;
                 double firstFlowOnPosition = 0.0;
                 double stopPosition = 0.0;
+                bool stopCommanded = false;
+                bool lastFlowState = ReadPickerFlowState(_pickerNo);
 
                 Task<int> moveTask = MovePickerAxisCommandWithMotionAsync(
                     _pickerZAxis,
                     searchLimit,
                     velocity,
-                    _settings.Motion.MoveAcceleration,
-                    _settings.Motion.MoveDeceleration,
+                    acceleration,
+                    deceleration,
                     SearchTargetName);
+
+                WriteLog("PickUpZCalibration",
+                    "PickUpZ Calibration " + attemptName + " Flow 검색 시작. " +
+                    "side=" + Side +
+                    ", pickerNo=" + _pickerNo +
+                    ", start=" + currentStart.ToString("F6") +
+                    ", limit=" + searchLimit.ToString("F6") +
+                    ", velocity=" + velocity.ToString("F6") +
+                    ", acceleration=" + acceleration.ToString("F6") +
+                    ", deceleration=" + deceleration.ToString("F6") +
+                    ", initialFlow=" + (lastFlowState ? "ON" : "OFF") +
+                    ", pollMs=" + _settings.FlowPollIntervalMs + " - Check");
 
                 try
                 {
@@ -905,25 +1035,55 @@ namespace QMC.CDT320.Sequencing.Calibration
                         if (Context != null)
                             Context.StopIfCycleStopRequested(Name + ".SearchFlow." + attemptName);
 
-                        if (ReadPickerFlowState(_pickerNo))
+                        if (_immediateStopRequested)
+                        {
+                            stopCommanded = true;
+                            StopPickerZAxis("PickUpZ Calibration 검색 중 즉시 정지 요청");
+                            await WaitMoveTaskAfterStopAsync(moveTask, attemptName + " 즉시 정지 요청").ConfigureAwait(false);
+                            throw new OperationCanceledException();
+                        }
+
+                        bool currentFlowState = ReadPickerFlowState(_pickerNo);
+                        if (currentFlowState != lastFlowState)
+                        {
+                            axis.UpdateStatus();
+                            WriteLog("PickUpZCalibration",
+                                "PickUpZ Calibration " + attemptName + " Flow 상태 변화 감지. " +
+                                "side=" + Side +
+                                ", pickerNo=" + _pickerNo +
+                                ", flow=" + (currentFlowState ? "ON" : "OFF") +
+                                ", z=" + axis.ActualPosition.ToString("F6") + " - Check");
+                            lastFlowState = currentFlowState;
+                        }
+
+                        if (currentFlowState)
                         {
                             axis.UpdateStatus();
                             firstFlowOn = true;
                             firstFlowOnPosition = axis.ActualPosition;
-                            StopPickerZAxis();
+                            stopCommanded = true;
+                            StopPickerZAxis("Flow ON 감지");
+                            WriteLog("PickUpZCalibration",
+                                "PickUpZ Calibration " + attemptName + " Flow ON 감지로 PickerZ 즉시 정지 명령. " +
+                                "side=" + Side +
+                                ", pickerNo=" + _pickerNo +
+                                ", firstOnZ=" + firstFlowOnPosition.ToString("F6") + " - Stop");
                             break;
                         }
 
                         if (watch.ElapsedMilliseconds > _settings.Motion.MoveTimeoutMs)
                         {
-                            StopPickerZAxis();
+                            stopCommanded = true;
+                            StopPickerZAxis("Flow 검색 타임아웃");
                             break;
                         }
 
                         await Task.Delay(_settings.FlowPollIntervalMs, ct).ConfigureAwait(false);
                     }
 
-                    int moveResult = await moveTask.ConfigureAwait(false);
+                    int moveResult = stopCommanded
+                        ? await WaitMoveTaskAfterStopAsync(moveTask, attemptName + " 정지 후 이동 대기").ConfigureAwait(false)
+                        : await moveTask.ConfigureAwait(false);
                     axis.UpdateStatus();
 
                     if (!firstFlowOn && ReadPickerFlowState(_pickerNo))
@@ -954,6 +1114,8 @@ namespace QMC.CDT320.Sequencing.Calibration
                                 ", start=" + currentStart.ToString("F6") +
                                 ", limit=" + searchLimit.ToString("F6") +
                                 ", velocity=" + velocity.ToString("F6") +
+                                ", acceleration=" + acceleration.ToString("F6") +
+                                ", deceleration=" + deceleration.ToString("F6") +
                                 ", firstOnZ=" + firstFlowOnPosition.ToString("F6") +
                                 ", stopZ=" + stopPosition.ToString("F6") +
                                 ", stopOverrun=" + (stopPosition - firstFlowOnPosition).ToString("F6") +
@@ -1020,9 +1182,22 @@ namespace QMC.CDT320.Sequencing.Calibration
                         ", timeoutMs=" + _settings.Motion.MoveTimeoutMs);
                     return result;
                 }
+                catch (OperationCanceledException)
+                {
+                    StopPickerZAxis("Flow 검색 중 취소");
+                    await WaitMoveTaskAfterStopAsync(moveTask, attemptName + " 취소 후 이동 대기").ConfigureAwait(false);
+                    throw;
+                }
+                catch (SequenceStopException)
+                {
+                    StopPickerZAxis("Flow 검색 중 시퀀스 정지");
+                    await WaitMoveTaskAfterStopAsync(moveTask, attemptName + " 정지 후 이동 대기").ConfigureAwait(false);
+                    throw;
+                }
                 catch
                 {
-                    StopPickerZAxis();
+                    StopPickerZAxis("Flow 검색 중 예외");
+                    await WaitMoveTaskAfterStopAsync(moveTask, attemptName + " 예외 후 이동 대기").ConfigureAwait(false);
                     throw;
                 }
                 finally
@@ -1517,16 +1692,77 @@ namespace QMC.CDT320.Sequencing.Calibration
             return detectedFlowPosition + dieThickness + filmThickness;
         }
 
-        private void StopPickerZAxis()
+        private async Task<int> WaitMoveTaskAfterStopAsync(Task<int> moveTask, string reason)
+        {
+            if (moveTask == null)
+                return 0;
+
+            try
+            {
+                Task completed = await Task.WhenAny(moveTask, Task.Delay(2000)).ConfigureAwait(false);
+                if (completed == moveTask)
+                    return await moveTask.ConfigureAwait(false);
+
+                BaseAxis axis = GetPickerAxis(_pickerZAxis);
+                if (axis != null)
+                    axis.UpdateStatus();
+
+                WriteLog("PickUpZCalibration",
+                    "PickUpZ Calibration 정지 명령 후 이동 Task 완료 대기 시간이 초과되었습니다. " +
+                    "side=" + Side +
+                    ", pickerNo=" + _pickerNo +
+                    ", reason=" + reason +
+                    ", " + BuildPickerAxisState(_pickerZAxis, axis != null ? axis.ActualPosition : 0.0) +
+                    " - Check");
+                return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                WriteLog("PickUpZCalibration",
+                    "PickUpZ Calibration 정지 후 이동 Task 대기 중 예외. " +
+                    "side=" + Side +
+                    ", pickerNo=" + _pickerNo +
+                    ", reason=" + reason +
+                    ", error=" + ex.Message + " - Check");
+                return -1;
+            }
+        }
+
+        private void StopPickerZAxis(string reason = null)
         {
             try
             {
                 BaseAxis axis = GetPickerAxis(_pickerZAxis);
-                if (axis != null)
-                    axis.StopJog();
+                if (axis == null)
+                    return;
+
+                axis.UpdateStatus();
+                WriteLog("PickUpZCalibration",
+                    "PickUpZ Calibration PickerZ 정지 명령. " +
+                    "side=" + Side +
+                    ", pickerNo=" + _pickerNo +
+                    ", axis=" + _pickerZAxis +
+                    ", reason=" + (string.IsNullOrEmpty(reason) ? "-" : reason) +
+                    ", actual=" + axis.ActualPosition.ToString("F6") +
+                    ", command=" + axis.CommandPosition.ToString("F6") +
+                    ", isMoving=" + axis.IsMoving + " - Stop");
+                axis.StopJog();
+                axis.Stop();
+                axis.UpdateStatus();
             }
-            catch
+            catch (Exception ex)
             {
+                WriteLog("PickUpZCalibration",
+                    "PickUpZ Calibration PickerZ 정지 명령 예외. " +
+                    "side=" + Side +
+                    ", pickerNo=" + _pickerNo +
+                    ", axis=" + _pickerZAxis +
+                    ", reason=" + (string.IsNullOrEmpty(reason) ? "-" : reason) +
+                    ", error=" + ex.Message + " - Check");
             }
             finally
             {

@@ -29,6 +29,7 @@ namespace QMC.CDT320.Sequencing
         RequestRef2Mark,
         WaitRef2MarkResult,
         CalculateAlignResult,
+        MoveCenterAfterRefAlign,
         ApplyAlignResult,
         Complete,
         Error
@@ -135,6 +136,9 @@ namespace QMC.CDT320.Sequencing
                     // 얼라인 결과 계산
                     case InputStageAlignStep.CalculateAlignResult:
                         return CalculateAlignResultAsync(ct);
+                    // Ref1/Ref2 T 보정 후 센터 복귀
+                    case InputStageAlignStep.MoveCenterAfterRefAlign:
+                        return MoveCenterAfterRefAlignAsync(ct);
                     // 얼라인 결과 적용
                     case InputStageAlignStep.ApplyAlignResult:
                         return Task.FromResult(ApplyAlignResult());
@@ -495,7 +499,17 @@ namespace QMC.CDT320.Sequencing
 
                 _centerResult = await WaitPendingVisionResultAsync(ct).ConfigureAwait(false);
                 if (_centerResult == null)
-                    return Fail("IN-STAGE-ALIGN-CENTER", "Vision", "Center vision offset receive failed.");
+                {
+                    _centerResult = await SearchVisionMarkAroundCurrentPointAsync(
+                        ResolveTargetId(Options.CenterAlignTargetId, "Center"),
+                        "Center",
+                        "Wafer Align Center",
+                        ct).ConfigureAwait(false);
+                }
+
+                if (_centerResult == null)
+                    return Fail("IN-STAGE-ALIGN-CENTER", "Vision",
+                        "Wafer Align Center 다이를 찾지 못했습니다. 센터와 주변 8방향 탐색을 모두 실패했습니다.");
 
                 CaptureAlignAnchorFromVisionResult(_centerResult, "Center");
                 CurrentStep = InputStageAlignStep.CorrectTheta;
@@ -580,7 +594,17 @@ namespace QMC.CDT320.Sequencing
 
                 _verifyCenterResult = await WaitPendingVisionResultAsync(ct).ConfigureAwait(false);
                 if (_verifyCenterResult == null)
-                    return Fail("IN-STAGE-ALIGN-THETA-VERIFY", "Vision", "Center verify vision offset receive failed.");
+                {
+                    _verifyCenterResult = await SearchVisionMarkAroundCurrentPointAsync(
+                        ResolveTargetId(Options.CenterAlignTargetId, "Center"),
+                        "CenterVerify",
+                        "Wafer Align Center Verify",
+                        ct).ConfigureAwait(false);
+                }
+
+                if (_verifyCenterResult == null)
+                    return Fail("IN-STAGE-ALIGN-THETA-VERIFY", "Vision",
+                        "Wafer Align T 보정 확인용 Center 다이를 찾지 못했습니다. 센터와 주변 8방향 탐색을 모두 실패했습니다.");
 
                 CaptureAlignAnchorFromVisionResult(_verifyCenterResult, "CenterVerify");
                 double theta = Math.Abs(_verifyCenterResult.DeltaTheta);
@@ -817,7 +841,7 @@ namespace QMC.CDT320.Sequencing
                     return 0;
                 }
 
-                CurrentStep = InputStageAlignStep.ApplyAlignResult;
+                CurrentStep = InputStageAlignStep.MoveCenterAfterRefAlign;
                 return 0;
             }
             catch (OperationCanceledException)
@@ -926,6 +950,42 @@ namespace QMC.CDT320.Sequencing
             _pitchX = 0.0;
             _pitchY = 0.0;
             _thetaFromTwoPoint = 0.0;
+        }
+
+        private async Task<int> MoveCenterAfterRefAlignAsync(CancellationToken ct)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+
+                if (Options.EnableMotion)
+                {
+                    int centerRow = _map != null ? _map.RowCount / 2 : _alignAnchorRow;
+                    int centerCol = _map != null ? _map.ColumnCount / 2 : _alignAnchorCol;
+                    int result = await MoveVisionPointAndVerifyAsync(
+                        centerRow,
+                        centerCol,
+                        "Wafer Align Ref1/Ref2 T 보정 후 Center 복귀",
+                        ct).ConfigureAwait(false);
+                    if (result != 0)
+                        return result;
+                }
+
+                CurrentStep = InputStageAlignStep.ApplyAlignResult;
+                return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return FailAndResetAlignRuntimeState("IN-STAGE-ALIGN-CENTER-RETURN-EX", Stage.Name,
+                    "Wafer Align Ref1/Ref2 T 보정 후 Center 복귀 중 예외가 발생했습니다. error=" + ex.Message);
+            }
+            finally
+            {
+            }
         }
 
         private int CheckThetaCorrectionLimit(double correctionTheta, string source)
@@ -1257,6 +1317,122 @@ namespace QMC.CDT320.Sequencing
             finally
             {
             }
+        }
+
+        private async Task<VisionAlignResult> SearchVisionMarkAroundCurrentPointAsync(
+            string targetId,
+            string stepName,
+            string description,
+            CancellationToken ct)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+
+                if (!Options.EnableMotion)
+                {
+                    WriteLog("InputStageAlignSequence",
+                        description + " 주변 탐색은 Motion Disable 상태라 수행하지 않습니다. step=" +
+                        stepName + " - Skip");
+                    return null;
+                }
+
+                double baseX = Stage != null && Stage.CameraX != null ? Stage.CameraX.ActualPosition : 0.0;
+                double baseY = Stage != null && Stage.StageY != null ? Stage.StageY.ActualPosition : 0.0;
+                double pitchX = Math.Abs(ResolveAlignPitchX(null, null));
+                double pitchY = Math.Abs(ResolveAlignPitchY(null, null));
+                if (pitchX <= 1e-9 || pitchY <= 1e-9)
+                {
+                    WriteLog("InputStageAlignSequence",
+                        description + " 주변 탐색 실패. Pitch 값이 유효하지 않습니다. pitchX=" +
+                        pitchX.ToString("F6") +
+                        ", pitchY=" + pitchY.ToString("F6") + " - Failed");
+                    return null;
+                }
+
+                SearchOffset[] offsets = BuildOnePitchSearchOffsets(pitchX, pitchY);
+                for (int i = 0; i < offsets.Length; i++)
+                {
+                    ct.ThrowIfCancellationRequested();
+
+                    double targetX = baseX + offsets[i].X;
+                    double targetY = baseY + offsets[i].Y;
+                    string areaReason;
+                    if (!Stage.IsInputStageWorkPointInArea(targetX, targetY, out areaReason))
+                    {
+                        WriteLog("InputStageAlignSequence",
+                            description + " 주변 탐색 후보 위치가 작업 영역 밖이라 건너뜁니다. direction=" +
+                            offsets[i].Name +
+                            ", targetX=" + targetX.ToString("F6") +
+                            ", targetY=" + targetY.ToString("F6") +
+                            ", reason=" + areaReason + " - Skip");
+                        continue;
+                    }
+
+                    int moveResult = await MoveVisionXYPointSafelyAsync(
+                        targetX,
+                        targetY,
+                        description + " 주변 탐색 " + offsets[i].Name,
+                        ct).ConfigureAwait(false);
+                    if (moveResult != 0)
+                        return null;
+
+                    VisionAlignResult result = await RequestVisionPcOffsetWithRetryAsync(
+                        targetId,
+                        stepName + "_Search_" + offsets[i].Name,
+                        ct).ConfigureAwait(false);
+                    if (result != null)
+                    {
+                        WriteLog("InputStageAlignSequence",
+                            description + " 주변 탐색에서 다이를 찾았습니다. direction=" +
+                            offsets[i].Name +
+                            ", baseX=" + baseX.ToString("F6") +
+                            ", baseY=" + baseY.ToString("F6") +
+                            ", targetX=" + targetX.ToString("F6") +
+                            ", targetY=" + targetY.ToString("F6") +
+                            ", dx=" + result.DeltaX.ToString("F6") +
+                            ", dy=" + result.DeltaY.ToString("F6") +
+                            ", dt=" + result.DeltaTheta.ToString("F6") + " - Ok");
+                        return result;
+                    }
+                }
+
+                WriteLog("InputStageAlignSequence",
+                    description + " 주변 8방향 탐색에서 다이를 찾지 못했습니다. baseX=" +
+                    baseX.ToString("F6") +
+                    ", baseY=" + baseY.ToString("F6") +
+                    ", pitchX=" + pitchX.ToString("F6") +
+                    ", pitchY=" + pitchY.ToString("F6") + " - Failed");
+                return null;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                WriteLog("InputStageAlignSequence",
+                    description + " 주변 탐색 중 예외가 발생했습니다. error=" + ex.Message + " - Failed");
+                return null;
+            }
+            finally
+            {
+            }
+        }
+
+        private static SearchOffset[] BuildOnePitchSearchOffsets(double pitchX, double pitchY)
+        {
+            return new[]
+            {
+                new SearchOffset("Up", 0.0, pitchY),
+                new SearchOffset("Down", 0.0, -pitchY),
+                new SearchOffset("Left", -pitchX, 0.0),
+                new SearchOffset("Right", pitchX, 0.0),
+                new SearchOffset("LeftUp", -pitchX, pitchY),
+                new SearchOffset("RightUp", pitchX, pitchY),
+                new SearchOffset("LeftDown", -pitchX, -pitchY),
+                new SearchOffset("RightDown", pitchX, -pitchY)
+            };
         }
 
         private static bool IsDryRunWithVisionDisabled()
@@ -2230,6 +2406,20 @@ namespace QMC.CDT320.Sequencing
             finally
             {
             }
+        }
+
+        private sealed class SearchOffset
+        {
+            public SearchOffset(string name, double x, double y)
+            {
+                Name = name;
+                X = x;
+                Y = y;
+            }
+
+            public string Name { get; private set; }
+            public double X { get; private set; }
+            public double Y { get; private set; }
         }
     }
 }

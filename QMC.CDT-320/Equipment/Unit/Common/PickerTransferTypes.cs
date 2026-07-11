@@ -269,6 +269,8 @@ namespace QMC.CDT320
         [DataMember] public double ContiNearAvoidDistance { get; set; } = 1.0;
         [DataMember] public double ContiXYMidRatio { get; set; } = 0.5;
         [DataMember] public double ContiOverDrive { get; set; } = 0.03;
+        [DataMember] public double PlaceZOverDrive { get; set; } = 0.0;
+        [DataMember] public int PlaceReleaseDwellMs { get; set; } = 0;
         [DataMember] public double ContiTapeThicknessFallback { get; set; } = 0.0;
         [DataMember] public double ContiDieThicknessFallback { get; set; } = 0.0;
         [DataMember] public double ContiMaxVelocity { get; set; } = 500.0;
@@ -304,6 +306,9 @@ namespace QMC.CDT320
             ContiNearAvoidDistance = NormalizeNonNegative(ContiNearAvoidDistance);
             ContiXYMidRatio = NormalizeRatio(ContiXYMidRatio, 0.5);
             ContiOverDrive = NormalizeNonNegative(ContiOverDrive);
+            PlaceZOverDrive = NormalizeFinite(PlaceZOverDrive);
+            if (PlaceReleaseDwellMs < 0)
+                PlaceReleaseDwellMs = 0;
             ContiTapeThicknessFallback = NormalizeNonNegative(ContiTapeThicknessFallback);
             ContiDieThicknessFallback = NormalizeNonNegative(ContiDieThicknessFallback);
             ContiMaxVelocity = PickerPickUpMotionConfig.NormalizePositive(ContiMaxVelocity, 500.0);
@@ -354,6 +359,13 @@ namespace QMC.CDT320
             return value;
         }
 
+        private static double NormalizeFinite(double value)
+        {
+            if (double.IsNaN(value) || double.IsInfinity(value))
+                return 0.0;
+            return value;
+        }
+
         private static double NormalizeRatio(double value, double fallback)
         {
             if (double.IsNaN(value) || double.IsInfinity(value))
@@ -400,10 +412,14 @@ namespace QMC.CDT320
     {
         Task<bool> TriggerBottomExposeAsync(int pickerNo, int timeoutMs = 1000);
         Task<bool> TriggerBottomExposeAsync(int pickerNo, int timeoutMs, CancellationToken ct);
+        Task<BottomVisionOffset> GetBottomResultAsync(int pickerNo, int timeoutMs = 5000);
+        Task<BottomVisionOffset> GetBottomResultAsync(int pickerNo, int timeoutMs, CancellationToken ct);
         Task<BottomVisionOffset[]> GetBottomResultsAsync(int timeoutMs = 5000);
         Task<BottomVisionOffset[]> GetBottomResultsAsync(int timeoutMs, CancellationToken ct);
         Task<bool> TriggerSideExposeAsync(int pickerNo, int sideNo, int timeoutMs = 1000);
         Task<bool> TriggerSideExposeAsync(int pickerNo, int sideNo, int timeoutMs, CancellationToken ct);
+        Task<bool> StartSideInspectAsync(int pickerNo, int angleDeg, int timeoutMs, CancellationToken ct);
+        Task<SideVisionResult> WaitSideResultAsync(int pickerNo, int timeoutMs, CancellationToken ct);
         Task<SideVisionResult> GetSideResultAsync(int pickerNo, int timeoutMs = 5000);
         Task<SideVisionResult> GetSideResultAsync(int pickerNo, int timeoutMs, CancellationToken ct);
     }

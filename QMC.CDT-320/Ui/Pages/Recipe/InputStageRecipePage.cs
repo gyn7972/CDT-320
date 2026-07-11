@@ -1173,7 +1173,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             return true;
         }
 
-        // ===== LOAD / UNLOAD: Needle/Eject Z Avoid -> ExpanderZ safe -> T -> Y -> ExpanderZ teaching =====
+        // ===== LOAD / UNLOAD: Needle/Eject Z Avoid -> T -> ExpanderZ Avoid -> Y -> ExpanderZ teaching =====
         private async Task<int> MoveLoadUnloadSequenceAsync(StagePositionKind kind)
         {
             try
@@ -1188,6 +1188,31 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 // 0) NeedleZ/EjectPinZ는 무조건 Avoid로 후퇴시킨다.
                 if ((r = await MoveNeedleAndEjectZAsync(StagePositionKind.Avoid, title)) != 0)
                     return r;
+
+                if (kind == StagePositionKind.Load || kind == StagePositionKind.Unload)
+                {
+                    // 1) WAFER T - InputFeeder Avoid 확인
+                    if (!CheckInputFeederAvoidOnly(machine, out reason))
+                        return AbortStage(title, "WAFER T 전 " + reason);
+                    if (await StepMoveKindAsync(kind, "WAFER T") != 0)
+                        return AbortStage(title, "WAFER T 이동 실패");
+
+                    // 2) ExpanderZ는 StageY 이동 전에 Avoid 위치로 명시 후퇴시킨다.
+                    if ((r = await MoveExpanderZAsync(StagePositionKind.Avoid, title, machine, ensureVisionXAvoid: false)) != 0)
+                        return r;
+
+                    // 3) WAFER Y
+                    if (!CheckStagePlaneInterlock(machine, true, out reason))
+                        return AbortStage(title, "WAFER Y 전 " + reason);
+                    if (await StepMoveKindAsync(kind, "WAFER Y") != 0)
+                        return AbortStage(title, "WAFER Y 이동 실패");
+
+                    // 4) ExpanderZ Load/Unload
+                    if ((r = await MoveExpanderZAsync(kind, title, machine)) != 0)
+                        return r;
+
+                    return 0;
+                }
 
                 // 1) ExpanderZ는 평면 이동 전 Avoid 또는 Process 기준 위치여야 한다.
                 if ((r = await EnsureExpanderZSafeForPlanarMoveAsync(title, machine)) != 0)
@@ -1473,6 +1498,8 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 "PickUp Step 06 PickerZ/EjectPinZ 직선 동기 상승의 가속도입니다."), groupKey));
             items.Add(InGroup(Describe(AxisDouble("PICKUP SYNC LIFT DEC", ParameterGridScope.Config, unit.EjectPinZ, () => unit.Config.PickUpNeedleSyncLiftDec, v => unit.Config.PickUpNeedleSyncLiftDec = Math.Max(0.0, v), "/s2"),
                 "PickUp Step 06 PickerZ/EjectPinZ 직선 동기 상승의 감속도입니다."), groupKey));
+            items.Add(InGroup(Describe(ParameterGridItem.Int("PICKUP SYNC LIFT SETTLE", "ms", ParameterGridScope.Config, () => unit.Config.PickUpNeedleSyncLiftSettleMs, v => unit.Config.PickUpNeedleSyncLiftSettleMs = Math.Max(0, v)),
+                "PickUp Step 06에서 PickerZ와 EjectPinZ가 동시에 상승 완료한 뒤 기다리는 시간입니다.\r\n이 대기 후 PickerZ Separate/AVOID 복귀 단계로 넘어갑니다."), groupKey));
             items.Add(InGroup(Describe(AxisDouble("NEEDLE SEPARATE DISTANCE", ParameterGridScope.Config, unit.NeedleZ, () => unit.Config.PickUpNeedleSeparateDistance, v => unit.Config.PickUpNeedleSeparateDistance = Math.Max(0.0, v)),
                 "구 Needle 분리 동작용 거리입니다.\r\n현재 PickUp Step 07은 PickerZ Avoid 후 NeedleZ/EjectPinZ Avoid 복귀 흐름이라 이 값은 현재 흐름에서 사용하지 않습니다."), groupKey));
             items.Add(InGroup(Describe(ParameterGridItem.Double("NEEDLE SEPARATE SPEED", "%", ParameterGridScope.Config, () => unit.Config.PickUpNeedleSeparateSpeedPercent, v => unit.Config.PickUpNeedleSeparateSpeedPercent = PickerPickUpMotionConfig.NormalizePercent(v, 1.0)),

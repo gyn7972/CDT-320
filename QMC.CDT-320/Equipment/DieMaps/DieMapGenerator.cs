@@ -133,8 +133,8 @@ namespace QMC.CDT320.DieMaps
                         DieMapX = col,
                         DieMapY = row,
                         IsTarget = target,
-                        Result = target ? DieResult.Unknown : DieResult.NG,
-                        BinCode = target ? 0 : 255,
+                        Result = DieResult.Unknown,
+                        BinCode = 0,
                         PosX = x,
                         PosY = y
                     });
@@ -699,8 +699,8 @@ namespace QMC.CDT320.DieMaps
                         OriginalMapX = point.X,
                         OriginalMapY = point.Y,
                         IsTarget = target,
-                        Result = target ? DieResult.Unknown : DieResult.NG,
-                        BinCode = target ? binCode : 255,
+                        Result = DieResult.Unknown,
+                        BinCode = target ? binCode : 0,
                         PosX = originX + point.X * pitchX,
                         PosY = originY + point.Y * pitchY,
                         DieUid = BuildExternalMapDieUid(frameId, point.X, point.Y)

@@ -108,6 +108,7 @@ namespace QMC.CDT_320.Ui.Dialogs
         private VisionFocusValueReceiveMode _focusValueReceiveMode = VisionFocusValueReceiveMode.AckOnly;
         private bool _returnToDefaultAfterScan = true;
         private CancellationTokenSource _runCts;
+        private Action _activeStopRequest;
 
         public static VisionFocusCalibrationDialog Open(IWin32Window owner)
         {
@@ -145,6 +146,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                 ApplyButtonStyle();
                 LoadSettingsToUi();
                 RefreshSavedGrid();
+                UpdateStopButtonEnabled();
                 lblStatus.Text = "대기 중입니다. Focus 기준 위치를 확인한 뒤 START SCAN을 실행하세요.";
             }
             finally
@@ -157,7 +159,7 @@ namespace QMC.CDT_320.Ui.Dialogs
         private void ApplyButtonStyle()
         {
             CalibrationDialogButtonStyle.ApplyFooterButtons(
-                new[] { btnCheck, btnUseCurrent, btnMoveDefault, btnMoveZAvoid, btnMoveYAvoid, btnApplyBest, btnReload, btnClose },
+                new[] { btnCheck, btnUseCurrent, btnMoveDefault, btnMoveZAvoid, btnMoveYAvoid, btnSeqStop, btnApplyBest, btnReload, btnClose },
                 new[] { btnStartScan },
                 new[] { btnSave });
         }
@@ -344,6 +346,11 @@ namespace QMC.CDT_320.Ui.Dialogs
             ApplyBestFocusToInspectionPosition();
         }
 
+        private void btnSeqStop_Click(object sender, EventArgs e)
+        {
+            RequestActiveSequenceStop("SEQ STOP 버튼");
+        }
+
         private void btnReload_Click(object sender, EventArgs e)
         {
             LoadSettingsToUi();
@@ -375,24 +382,9 @@ namespace QMC.CDT_320.Ui.Dialogs
                 "VisionFocusCalibration:" + actionName + ":" + _selectedKind + ":" + _selectedPickerSide + ":" + _selectedPickerNo);
             CancellationTokenSource runCts = CancellationTokenSource.CreateLinkedTokenSource(host.Controller.ManualOperationToken);
             _runCts = runCts;
-            stopHandler = delegate
-            {
-                try
-                {
-                    CancellationTokenSource cts = _runCts;
-                    if (cts != null && !cts.IsCancellationRequested)
-                        cts.Cancel();
-
-                    QMC.Common.Log.Write("Calibration", "SYSTEM", "VisionFocusCalStop",
-                        "메인 STOP 요청으로 Vision Focus Calibration 정지 요청. action=" + actionName +
-                        ", kind=" + _selectedKind +
-                        ", side=" + _selectedPickerSide +
-                        ", pickerNo=" + _selectedPickerNo);
-                }
-                catch
-                {
-                }
-            };
+            stopHandler = CreateStopRequestAction(actionName);
+            _activeStopRequest = stopHandler;
+            UpdateStopButtonEnabled();
             host.Controller.StopRequested += stopHandler;
             return runCts;
         }
@@ -408,12 +400,63 @@ namespace QMC.CDT_320.Ui.Dialogs
 
             if (ReferenceEquals(_runCts, runCts))
                 _runCts = null;
+            if (ReferenceEquals(_activeStopRequest, stopHandler))
+                _activeStopRequest = null;
 
             if (runCts != null)
                 runCts.Dispose();
 
             if (actionScope != null)
                 actionScope.Dispose();
+
+            UpdateStopButtonEnabled();
+        }
+
+        private Action CreateStopRequestAction(string actionName)
+        {
+            return delegate
+            {
+                try
+                {
+                    CancellationTokenSource cts = _runCts;
+                    if (cts != null && !cts.IsCancellationRequested)
+                        cts.Cancel();
+
+                    QMC.Common.Log.Write("Calibration", "SYSTEM", "VisionFocusCalStop",
+                        "Vision Focus Calibration 정지 요청. action=" + actionName +
+                        ", kind=" + _selectedKind +
+                        ", side=" + _selectedPickerSide +
+                        ", pickerNo=" + _selectedPickerNo);
+                }
+                catch
+                {
+                }
+            };
+        }
+
+        private void RequestActiveSequenceStop(string source)
+        {
+            try
+            {
+                Action request = _activeStopRequest;
+                if (request == null)
+                {
+                    lblStatus.Text = "현재 정지 요청할 Vision Focus Calibration 동작이 없습니다.";
+                    return;
+                }
+
+                request();
+                lblStatus.Text = source + "으로 Vision Focus Calibration 정지를 요청했습니다.";
+            }
+            catch (Exception ex)
+            {
+                lblStatus.Text = "Vision Focus Calibration 정지 요청 실패: " + ex.Message;
+                EventLogger.Write(EventKind.Alarm, "CAL", "VISION-FOCUS-CAL-STOP-REQUEST", lblStatus.Text);
+            }
+            finally
+            {
+                UpdateStopButtonEnabled();
+            }
         }
 
         private async Task RunMoveDefaultAsync()
@@ -815,7 +858,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                 host.SaveMachineSettings();
                 RefreshSavedGrid();
                 if (showMessage)
-                    lblStatus.Text = "Vision Focus Cal 설정값을 저장했습니다.";
+                    lblStatus.Text = "Vision Focus Cal 설정값/Focus 기준값을 저장했습니다. 실제 Recipe/Teaching Z는 변경하지 않았습니다.";
                 return true;
             }
             catch (Exception ex)
@@ -855,13 +898,12 @@ namespace QMC.CDT_320.Ui.Dialogs
                     return;
                 }
 
-                string targetName;
-                double oldPosition = ResolveInspectionTeachingPosition(host.Machine, out targetName);
                 double bestPosition = record.BestPosition;
-                string message = "Best Focus를 검사 기준 위치에 적용하시겠습니까?" + Environment.NewLine +
-                                 "Target : " + targetName + Environment.NewLine +
-                                 "Current: " + oldPosition.ToString("F3") + Environment.NewLine +
-                                 "Best   : " + bestPosition.ToString("F3");
+                double oldDefaultPosition = record.DefaultPosition;
+                string message = "Best Focus를 Focus Cal 기준값으로 저장하시겠습니까?" + Environment.NewLine +
+                                 "실제 Recipe/Teaching Z축 위치는 변경하지 않습니다." + Environment.NewLine +
+                                 "Current Default: " + oldDefaultPosition.ToString("F3") + Environment.NewLine +
+                                 "Best           : " + bestPosition.ToString("F3");
 
                 DialogResult answer = QMC.Common.MessageDialog.Show(
                     this,
@@ -872,7 +914,6 @@ namespace QMC.CDT_320.Ui.Dialogs
                 if (answer != DialogResult.Yes)
                     return;
 
-                ApplyInspectionTeachingPosition(host.Machine, bestPosition);
                 record.DefaultPosition = bestPosition;
                 record.UpdatedAt = DateTime.Now;
                 record.UpdatedBy = UserSession.Name ?? string.Empty;
@@ -881,11 +922,12 @@ namespace QMC.CDT_320.Ui.Dialogs
                 RefreshSettingGrid();
                 RefreshSavedGrid();
 
-                lblStatus.Text = "Best Focus 적용 완료. " + targetName +
-                                 " = " + bestPosition.ToString("F3");
+                lblStatus.Text = "Best Focus 기준값 저장 완료. Default=" + bestPosition.ToString("F3") +
+                                 ", Recipe/Teaching Z 변경 없음";
                 EventLogger.Write(EventKind.Event, "CAL", "VISION-FOCUS-CAL-APPLY-BEST",
-                    lblStatus.Text + ", old=" + oldPosition.ToString("F3") +
-                    ", score=" + record.BestScore.ToString("F4"));
+                    lblStatus.Text + ", oldDefault=" + oldDefaultPosition.ToString("F3") +
+                    ", score=" + record.BestScore.ToString("F4") +
+                    ", recipeTeachingZChanged=False");
             }
             catch (Exception ex)
             {
@@ -1259,24 +1301,11 @@ namespace QMC.CDT_320.Ui.Dialogs
 
         private void ApplyInspectionTeachingPosition(CDT320_Machine machine, double position)
         {
-            if (machine == null)
-                return;
-
-            if (IsBottomFocusKind(_selectedKind))
-            {
-                PickerAxis zAxis = ResolveSelectedPickerZAxis();
-                if (_selectedPickerSide == VisionFocusPickerSide.Front && machine.PickerFrontUnit != null)
-                    machine.PickerFrontUnit.SetPickerAxisTeachingPosition(zAxis, "BottomPosition", position);
-                else if (_selectedPickerSide == VisionFocusPickerSide.Rear && machine.PickerRearUnit != null)
-                    machine.PickerRearUnit.SetPickerAxisTeachingPosition(zAxis, "BottomPosition", position);
-                return;
-            }
-
-            if (machine.VisionUnit != null)
-                machine.VisionUnit.SetVisionAxisTeachingPosition(
-                    ResolveSelectedSideVisionAxis(),
-                    ResolveSelectedSideVisionPositionName(),
-                    position);
+            QMC.Common.Log.Write("Calibration", "SYSTEM", "VisionFocusCalTeachingApplyBlocked",
+                "Vision Focus Cal에서 실제 Recipe/Teaching Z 적용은 차단됨. kind=" + _selectedKind +
+                ", side=" + _selectedPickerSide +
+                ", pickerNo=" + _selectedPickerNo +
+                ", requestedPosition=" + position.ToString("F3"));
         }
 
         private async Task<int> MoveSelectedPickerZToAvoidAsync(CDT320_Machine machine)
@@ -1480,10 +1509,17 @@ namespace QMC.CDT_320.Ui.Dialogs
             btnMoveZAvoid.Enabled = enabled;
             btnMoveYAvoid.Enabled = enabled;
             btnStartScan.Enabled = enabled;
+            btnSeqStop.Enabled = _activeStopRequest != null;
             btnApplyBest.Enabled = enabled;
             btnReload.Enabled = enabled;
             btnSave.Enabled = enabled;
             btnClose.Enabled = enabled;
+        }
+
+        private void UpdateStopButtonEnabled()
+        {
+            if (btnSeqStop != null)
+                btnSeqStop.Enabled = _activeStopRequest != null;
         }
 
         private static VisionFocusScanKind TextToKind(string text)

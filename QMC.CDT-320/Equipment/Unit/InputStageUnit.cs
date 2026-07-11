@@ -86,6 +86,8 @@ namespace QMC.CDT320
 
         [DataMember] public double PickUpNeedleSyncLiftDec { get; set; } = 100.0;
 
+        [DataMember] public int PickUpNeedleSyncLiftSettleMs { get; set; }
+
         [DataMember] public double PickUpNeedleSeparateDistance { get; set; } = 1.0;
 
         [DataMember] public double PickUpNeedleSeparateSpeedPercent { get; set; } = 1.0;
@@ -140,6 +142,8 @@ namespace QMC.CDT320
                 PickUpNeedleSyncLiftAcc = 100.0;
             if (PickUpNeedleSyncLiftDec <= 0.0)
                 PickUpNeedleSyncLiftDec = 100.0;
+            if (PickUpNeedleSyncLiftSettleMs < 0)
+                PickUpNeedleSyncLiftSettleMs = 0;
             if (PickUpNeedleSeparateDistance <= 0.0)
                 PickUpNeedleSeparateDistance = 1.0;
             if (PickUpNeedleSeparateSpeedPercent <= 0.0 && PickUpNeedleSeparateVelocity > 0.0)
@@ -2351,21 +2355,30 @@ namespace QMC.CDT320
                 if (result != 0)
                     return result;
 
-                result = await MoveInputStageAxis(WaferStageAxis.WaferY, Recipe.WaferY.LoadPosition, bFine).ConfigureAwait(false);
-                if (result != 0 || StageY.IsAlarm)
-                    return RaiseStageAlarm(AlarmSeverity.Error, "IS-LOAD-Y", "InputStageUnit.LoadAndPrepareWaferAsync",
-                        "StageY load position move failed. result=" + result + ", alarm=" + StageY.IsAlarm);
-
-                result = await WaitInputStageAxisInPosition(WaferStageAxis.WaferY, Recipe.WaferY.LoadPosition, ResolveSequenceMoveTimeout()).ConfigureAwait(false);
-                if (result != 0)
-                    return result;
-
                 result = await MoveInputStageAxis(WaferStageAxis.WaferT, Recipe.WaferT.LoadPosition, bFine).ConfigureAwait(false);
                 if (result != 0 || StageT.IsAlarm)
                     return RaiseStageAlarm(AlarmSeverity.Error, "IS-LOAD-T", "InputStageUnit.LoadAndPrepareWaferAsync",
-                        "StageT load position move failed. result=" + result + ", alarm=" + StageT.IsAlarm);
+                        "StageT Load 위치 이동 실패. result=" + result + ", alarm=" + StageT.IsAlarm);
 
                 result = await WaitInputStageAxisInPosition(WaferStageAxis.WaferT, Recipe.WaferT.LoadPosition, ResolveSequenceMoveTimeout()).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                result = await MoveInputStageAxis(WaferStageAxis.WaferExpandingZ, Recipe.WaferZ.AvoidPosition, bFine).ConfigureAwait(false);
+                if (result != 0 || ExpanderZ.IsAlarm)
+                    return RaiseStageAlarm(AlarmSeverity.Error, "IS-LOAD-Z-AVOID", "InputStageUnit.LoadAndPrepareWaferAsync",
+                        "ExpanderZ Avoid 위치 이동 실패. result=" + result + ", alarm=" + ExpanderZ.IsAlarm);
+
+                result = await WaitInputStageAxisInPosition(WaferStageAxis.WaferExpandingZ, Recipe.WaferZ.AvoidPosition, ResolveSequenceMoveTimeout()).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                result = await MoveInputStageAxis(WaferStageAxis.WaferY, Recipe.WaferY.LoadPosition, bFine).ConfigureAwait(false);
+                if (result != 0 || StageY.IsAlarm)
+                    return RaiseStageAlarm(AlarmSeverity.Error, "IS-LOAD-Y", "InputStageUnit.LoadAndPrepareWaferAsync",
+                        "StageY Load 위치 이동 실패. result=" + result + ", alarm=" + StageY.IsAlarm);
+
+                result = await WaitInputStageAxisInPosition(WaferStageAxis.WaferY, Recipe.WaferY.LoadPosition, ResolveSequenceMoveTimeout()).ConfigureAwait(false);
                 if (result != 0)
                     return result;
 
@@ -2379,7 +2392,7 @@ namespace QMC.CDT320
                 result = await MoveInputStageAxis(WaferStageAxis.WaferExpandingZ, Recipe.WaferZ.LoadPosition, bFine).ConfigureAwait(false);
                 if (result != 0 || ExpanderZ.IsAlarm)
                     return RaiseStageAlarm(AlarmSeverity.Error, "IS-LOAD-Z", "InputStageUnit.LoadAndPrepareWaferAsync",
-                        "ExpanderZ load position move failed. result=" + result + ", alarm=" + ExpanderZ.IsAlarm);
+                        "ExpanderZ Load 위치 이동 실패. result=" + result + ", alarm=" + ExpanderZ.IsAlarm);
 
                 result = await WaitInputStageAxisInPosition(WaferStageAxis.WaferExpandingZ, Recipe.WaferZ.LoadPosition, ResolveSequenceMoveTimeout()).ConfigureAwait(false);
                 if (result != 0)
@@ -2559,9 +2572,18 @@ namespace QMC.CDT320
                 int result = await MoveInputStageAxis(WaferStageAxis.WaferT, Recipe.WaferT.UnloadPosition, bFine).ConfigureAwait(false);
                 if (result != 0 || StageT.IsAlarm)
                     return RaiseStageAlarm(AlarmSeverity.Error, "IS-UNLOAD-T", "InputStageUnit.PrepareUnloadWaferAsync",
-                        "StageT unload position move failed. result=" + result + ", alarm=" + StageT.IsAlarm);
+                        "StageT Unload 위치 이동 실패. result=" + result + ", alarm=" + StageT.IsAlarm);
 
                 result = await WaitInputStageAxisInPosition(WaferStageAxis.WaferT, Recipe.WaferT.UnloadPosition, ResolveSequenceMoveTimeout()).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                result = await MoveInputStageAxis(WaferStageAxis.WaferExpandingZ, Recipe.WaferZ.AvoidPosition, bFine).ConfigureAwait(false);
+                if (result != 0 || ExpanderZ.IsAlarm)
+                    return RaiseStageAlarm(AlarmSeverity.Error, "IS-UNLOAD-Z-AVOID", "InputStageUnit.PrepareUnloadWaferAsync",
+                        "ExpanderZ Avoid 위치 이동 실패. result=" + result + ", alarm=" + ExpanderZ.IsAlarm);
+
+                result = await WaitInputStageAxisInPosition(WaferStageAxis.WaferExpandingZ, Recipe.WaferZ.AvoidPosition, ResolveSequenceMoveTimeout()).ConfigureAwait(false);
                 if (result != 0)
                     return result;
 
@@ -2588,7 +2610,7 @@ namespace QMC.CDT320
                 result = await MoveInputStageAxis(WaferStageAxis.WaferY, Recipe.WaferY.UnloadPosition, bFine).ConfigureAwait(false);
                 if (result != 0 || StageY.IsAlarm)
                     return RaiseStageAlarm(AlarmSeverity.Error, "IS-UNLOAD-Y", "InputStageUnit.PrepareUnloadWaferAsync",
-                        "StageY unload position move failed. result=" + result + ", alarm=" + StageY.IsAlarm);
+                        "StageY Unload 위치 이동 실패. result=" + result + ", alarm=" + StageY.IsAlarm);
 
                 result = await WaitInputStageAxisInPosition(WaferStageAxis.WaferY, Recipe.WaferY.UnloadPosition, ResolveSequenceMoveTimeout()).ConfigureAwait(false);
                 if (result != 0)
@@ -2604,7 +2626,7 @@ namespace QMC.CDT320
                 result = await MoveInputStageAxis(WaferStageAxis.WaferExpandingZ, Recipe.WaferZ.UnloadPosition, bFine).ConfigureAwait(false);
                 if (result != 0 || ExpanderZ.IsAlarm)
                     return RaiseStageAlarm(AlarmSeverity.Error, "IS-UNLOAD-Z", "InputStageUnit.PrepareUnloadWaferAsync",
-                        "ExpanderZ unload position move failed. result=" + result + ", alarm=" + ExpanderZ.IsAlarm);
+                        "ExpanderZ Unload 위치 이동 실패. result=" + result + ", alarm=" + ExpanderZ.IsAlarm);
 
                 result = await WaitInputStageAxisInPosition(WaferStageAxis.WaferExpandingZ, Recipe.WaferZ.UnloadPosition, ResolveSequenceMoveTimeout()).ConfigureAwait(false);
                 if (result != 0)

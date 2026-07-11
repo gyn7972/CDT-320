@@ -22,6 +22,7 @@ namespace QMC.CDT320.Sequencing
         MoveOppositePickerToAvoidForPickerMove,
         MovePickerXStageYPickerT,
         VerifyPickTarget,
+        VerifyPickerEmptyBeforePick,
         MovePickerZPick,
         VacuumOn,
         VerifyDiePicked,

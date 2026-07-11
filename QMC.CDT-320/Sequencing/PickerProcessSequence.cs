@@ -22,6 +22,8 @@ namespace QMC.CDT320.Sequencing
         private bool _bottomInspectionCompletedInCurrentRun;
         private bool _forceBottomInspectionBeforeSideResume;
         private bool _forceSafeYBeforePlaceResume;
+        private bool _keepPickerYForwardForContinuousPlace;
+        private bool _resumePartialPickUpWithoutMarkPermission;
         private bool _firstForwardTurnHandled;
         private bool _resumeDrainWaitHandled;
         private bool _resumeDrainTurnHeld;
@@ -65,6 +67,8 @@ namespace QMC.CDT320.Sequencing
                 _bottomInspectionCompletedInCurrentRun = false;
                 _forceBottomInspectionBeforeSideResume = false;
                 _forceSafeYBeforePlaceResume = false;
+                _keepPickerYForwardForContinuousPlace = false;
+                _resumePartialPickUpWithoutMarkPermission = false;
                 _firstForwardTurnHandled = false;
                 _resumeDrainWaitHandled = false;
                 _resumeDrainTurnHeld = false;
@@ -599,21 +603,29 @@ namespace QMC.CDT320.Sequencing
                 }
 
                 bool hasReadyInputPickTarget = MaterialStateService.HasReadyInputStagePickTarget();
+                bool hasInputPickReservationForSide =
+                    MaterialStateService.HasInputStagePickReservationForPickerLocation(PickerLocationKind);
+                bool hasRemainingInputPickWork = hasReadyInputPickTarget || hasInputPickReservationForSide;
+                int emptyEnabledPickerCount = enabled.Count - occupiedCount;
                 WriteLog("PickerProcessSequence",
                     Name + " Picker 공정 시작 스텝 판단. side=" + Side +
                     ", runMode=" + (Options != null ? Options.RunMode.ToString() : "null") +
                     ", enabledPickerCount=" + enabled.Count +
                     ", occupiedPickerCount=" + occupiedCount +
+                    ", emptyEnabledPickerCount=" + emptyEnabledPickerCount +
                     ", targetPickerDieCount=" + targetPickerDieCount +
                     ", nonTargetPickerDieCount=" + nonTargetPickerDieCount +
                     ", bottomRequiredCount=" + bottomRequiredCount +
                     ", sideRequiredCount=" + sideRequiredCount +
                     ", placeReadyCount=" + placeReadyCount +
                     ", hasReadyInputPickTarget=" + hasReadyInputPickTarget +
+                    ", hasInputPickReservationForSide=" + hasInputPickReservationForSide +
+                    ", hasRemainingInputPickWork=" + hasRemainingInputPickWork +
                     " - Check");
 
                 if (occupiedCount == 0)
                 {
+                    _resumePartialPickUpWithoutMarkPermission = false;
                     CurrentStep = PickerProcessStep.RunInputCameraMarkInspection;
                     WriteLog("PickerProcessSequence",
                         Name + " Picker에 Die가 없어 InputCamera Mark 검사부터 시작합니다. side=" + Side +
@@ -630,7 +642,91 @@ namespace QMC.CDT320.Sequencing
                         ", nonTargetPickerDieCount=" + nonTargetPickerDieCount);
                 }
 
+                if (placeReadyCount > 0 &&
+                    placeReadyCount == targetPickerDieCount &&
+                    bottomRequiredCount == 0 &&
+                    sideRequiredCount == 0)
+                {
+                    _forceBottomInspectionBeforeSideResume = false;
+                    _forceSafeYBeforePlaceResume = true;
+                    _keepPickerYForwardForContinuousPlace = false;
+                    _resumePartialPickUpWithoutMarkPermission = false;
+                    CurrentStep = PickerProcessStep.RunPlace;
+                    WriteLog("PickerProcessSequence",
+                        Name + " Picker 위 target Die가 모두 Place 가능 상태라 Place부터 재개합니다. " +
+                        "Place 도중 알람/정지 후 재시작 케이스로 판단하여 Bottom/Side 재검사를 생략하고, " +
+                        "PickerY Avoid 정리 후 Picker X/T를 Place 위치로 먼저 이동한 다음 PickerY 전진을 허용합니다. " +
+                        "side=" + Side +
+                        ", occupiedPickerCount=" + occupiedCount +
+                        ", targetPickerDieCount=" + targetPickerDieCount +
+                        ", nonTargetPickerDieCount=" + nonTargetPickerDieCount +
+                        ", bottomRequiredCount=" + bottomRequiredCount +
+                        ", sideRequiredCount=" + sideRequiredCount +
+                        ", placeReadyCount=" + placeReadyCount +
+                        ", forceSafeYBeforePlaceResume=" + _forceSafeYBeforePlaceResume + " - Check");
+                    return 0;
+                }
+
+                bool canResumePartialPickUp =
+                    occupiedCount > 0 &&
+                    occupiedCount < enabled.Count &&
+                    targetPickerDieCount == occupiedCount &&
+                    nonTargetPickerDieCount == 0 &&
+                    bottomRequiredCount == targetPickerDieCount &&
+                    sideRequiredCount == 0 &&
+                    placeReadyCount == 0 &&
+                    hasRemainingInputPickWork;
+                if (canResumePartialPickUp)
+                {
+                    _forceBottomInspectionBeforeSideResume = false;
+                    _forceSafeYBeforePlaceResume = false;
+                    _keepPickerYForwardForContinuousPlace = false;
+                    _resumePartialPickUpWithoutMarkPermission = true;
+                    InputCameraPickUpPermissionStore.Clear(Side);
+                    CurrentStep = PickerProcessStep.RunPickUp;
+                    WriteLog("PickerProcessSequence",
+                        Name + " 부분 PickUp 재개 상태로 판단하여 빈 Picker부터 PickUp을 이어서 진행합니다. " +
+                        "이미 들고 있는 Picker는 PickUp 예약에서 제외하고, 남은 예약 대상 Picker만 채운 뒤 Bottom/Side로 진입합니다. " +
+                        "Bottom/Side 또는 Place 드레인 상태가 아니라 PickUp 중간 실패/정지 상태로 판단했습니다. side=" + Side +
+                        ", enabledPickerCount=" + enabled.Count +
+                        ", occupiedPickerCount=" + occupiedCount +
+                        ", emptyEnabledPickerCount=" + emptyEnabledPickerCount +
+                        ", targetPickerDieCount=" + targetPickerDieCount +
+                        ", bottomRequiredCount=" + bottomRequiredCount +
+                        ", sideRequiredCount=" + sideRequiredCount +
+                        ", placeReadyCount=" + placeReadyCount +
+                        ", hasReadyInputPickTarget=" + hasReadyInputPickTarget +
+                        ", hasInputPickReservationForSide=" + hasInputPickReservationForSide +
+                        ", hasRemainingInputPickWork=" + hasRemainingInputPickWork +
+                        ", resumePartialPickUpWithoutMarkPermission=" + _resumePartialPickUpWithoutMarkPermission +
+                        " - Check");
+                    return 0;
+                }
+
+                if (occupiedCount > 0 &&
+                    occupiedCount < enabled.Count &&
+                    targetPickerDieCount == occupiedCount &&
+                    nonTargetPickerDieCount == 0 &&
+                    bottomRequiredCount == targetPickerDieCount &&
+                    sideRequiredCount == 0 &&
+                    placeReadyCount == 0 &&
+                    !hasRemainingInputPickWork)
+                {
+                    WriteLog("PickerProcessSequence",
+                        Name + " 부분 로드 상태이지만 남은 Input Pick 대상이 없어 PickUp 재개로 판단하지 않습니다. " +
+                        "Bottom/Side 진입 후 정지했거나 마지막 부분 배치일 수 있으므로 기존 드레인 정책을 유지합니다. side=" + Side +
+                        ", enabledPickerCount=" + enabled.Count +
+                        ", occupiedPickerCount=" + occupiedCount +
+                        ", emptyEnabledPickerCount=" + emptyEnabledPickerCount +
+                        ", targetPickerDieCount=" + targetPickerDieCount +
+                        ", hasReadyInputPickTarget=" + hasReadyInputPickTarget +
+                        ", hasInputPickReservationForSide=" + hasInputPickReservationForSide +
+                        ", hasRemainingInputPickWork=" + hasRemainingInputPickWork +
+                        " - Check");
+                }
+
                 _forceBottomInspectionBeforeSideResume = false;
+                _resumePartialPickUpWithoutMarkPermission = false;
                 bool forceBottomAndSideFromFirst =
                     (Options == null || Options.RunMode == SequenceRunMode.Auto) &&
                     IsBottomAndSidePipelineModeEnabled();
@@ -781,8 +877,21 @@ namespace QMC.CDT320.Sequencing
                     _pickUpSequence = new PickerPickUpSequence(Context, Side);
                 }
 
+                PickerSequenceOptions pickUpOptions = BuildChildSequenceOptions();
+                if (_resumePartialPickUpWithoutMarkPermission)
+                {
+                    pickUpOptions.RequireInputCameraMarkInspectionPermission = false;
+                    pickUpOptions.InputCameraPreInspectionMode = false;
+                    WriteLog("PickerProcessSequence",
+                        Name + " 부분 PickUp 재개로 PickUp 내부 Input die vision 검사 흐름을 허용합니다. " +
+                        "이미 들고 있는 Picker는 준비 배치에서 제외되고, 빈 Picker만 예약/검사/픽업합니다. side=" + Side +
+                        ", requireInputCameraMarkInspectionPermission=" +
+                        pickUpOptions.RequireInputCameraMarkInspectionPermission +
+                        ", inputCameraPreInspectionMode=" + pickUpOptions.InputCameraPreInspectionMode + " - Check");
+                }
+
                 int result = await SequenceTrace.ChildAsync("PickerPickUpSequence", "PickUp",
-                    () => _pickUpSequence.RunAsync(ct, BuildChildSequenceOptions()),
+                    () => _pickUpSequence.RunAsync(ct, pickUpOptions),
                     "side=" + Side).ConfigureAwait(false);
 
                 if (result != 0)
@@ -794,6 +903,7 @@ namespace QMC.CDT320.Sequencing
                 if (_pickUpSequence.IsComplete)
                 {
                     _pickUpSequence = null;
+                    _resumePartialPickUpWithoutMarkPermission = false;
                     WriteLog("PickerProcessSequence",
                         Name + " PickUp 완료 후 PickerProcessSequence가 비침습 InputCamera 선행검사를 예약합니다. " +
                         "선행검사는 Picker X/Y를 직접 이동하지 않고 Input 영역 이탈 확인 후 InputStage/InputVision만 사용합니다. side=" +
@@ -1258,6 +1368,7 @@ namespace QMC.CDT320.Sequencing
                         return nextPhaseResult;
 
                     CurrentStep = PickerProcessStep.RunPlace;
+                    EnableContinuousPlaceEntryFromInspection("BottomAndSideInspectionToPlace");
                     EnableSafePlaceEntryIfResumeDrain("BottomAndSideInspectionToPlace");
                 }
                 else
@@ -1632,6 +1743,7 @@ namespace QMC.CDT320.Sequencing
                         return nextPhaseResult;
 
                     CurrentStep = PickerProcessStep.RunPlace;
+                    EnableContinuousPlaceEntryFromInspection("SideInspectionToPlace");
                     EnableSafePlaceEntryIfResumeDrain("SideInspectionToPlace");
                 }
                 else
@@ -1673,11 +1785,19 @@ namespace QMC.CDT320.Sequencing
 
                     _placeSequence = new PickerPlaceSequence(Context, Side);
                     _placeSequence.ForceSafeYBeforeFirstPlaceMove = _forceSafeYBeforePlaceResume;
+                    _placeSequence.KeepPickerYForwardDuringPlaceReadyWait = _keepPickerYForwardForContinuousPlace;
                     if (_forceSafeYBeforePlaceResume)
                     {
                         WriteLog("PickerProcessSequence",
                             Name + " Place 재시작 안전 진입 옵션을 전달했습니다. " +
                             "Place 가능 전에는 PickerY Avoid에서 대기하고, X/T 위치 이동 후 Y를 전진합니다. side=" + Side + " - Check");
+                    }
+                    else if (_keepPickerYForwardForContinuousPlace)
+                    {
+                        WriteLog("PickerProcessSequence",
+                            Name + " 정상 연속 검사 후 Place 옵션을 전달했습니다. " +
+                            "OutputStage 준비 대기 중 PickerY Avoid 복귀를 생략하고, 준비가 열리면 현재 Y 위치에서 Place 목표 Y로 직접 이동합니다. " +
+                            "side=" + Side + " - Check");
                     }
                 }
 
@@ -1697,6 +1817,7 @@ namespace QMC.CDT320.Sequencing
                     ReleasePickerProcessPhase("PlaceComplete");
                     _placeSequence = null;
                     _forceSafeYBeforePlaceResume = false;
+                    _keepPickerYForwardForContinuousPlace = false;
                     WriteLog("PickerProcessSequence",
                         Name + " Place 완료 후 PickerProcessSequence가 다음 PickUp용 비침습 InputCamera 선행검사를 예약합니다. " +
                         "선행검사는 Picker 축을 직접 이동하지 않는 경로만 사용합니다. side=" +
@@ -1742,12 +1863,28 @@ namespace QMC.CDT320.Sequencing
                 return;
 
             _forceSafeYBeforePlaceResume = true;
+            _keepPickerYForwardForContinuousPlace = false;
             WriteLog("PickerProcessSequence",
                 Name + " 재시작 드레인 중 Place 진입이 예정되어 Place 첫 접근 안전 옵션을 강제합니다. " +
                 "PickerY Avoid 정리 후 Picker X/T를 Place 티칭값으로 먼저 이동하고, 그 다음 PickerY 전진을 허용합니다. " +
                 "side=" + Side +
                 ", reason=" + reason +
                 ", forceSafeYBeforePlaceResume=" + _forceSafeYBeforePlaceResume + " - Check");
+        }
+
+        private void EnableContinuousPlaceEntryFromInspection(string reason)
+        {
+            if (_resumeDrainTurnHeld)
+                return;
+
+            _keepPickerYForwardForContinuousPlace = true;
+            WriteLog("PickerProcessSequence",
+                Name + " 정상 검사 완료 후 Place 진입으로 PickerY Forward 유지 옵션을 설정합니다. " +
+                "Side 검사 종료 위치에서 PickerY Avoid 복귀 없이 Place 목표 Y로 직접 이동합니다. " +
+                "side=" + Side +
+                ", runMode=" + (Options != null ? Options.RunMode.ToString() : "-") +
+                ", reason=" + reason +
+                ", keepPickerYForwardForContinuousPlace=" + _keepPickerYForwardForContinuousPlace + " - Check");
         }
 
         private async Task<int> EnterOrTransitionPickerPhaseAsync(

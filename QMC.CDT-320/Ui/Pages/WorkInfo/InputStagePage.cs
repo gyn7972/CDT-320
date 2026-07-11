@@ -48,7 +48,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             btnPrepareLoad.Click += async (s, e) => await RunSequenceAction("INPUT STAGE PREP LOAD", RunPrepareLoadAsync);
             btnWfAlign.Click += async (s, e) => await RunSequenceAction("INPUT STAGE ALIGN", RunAlignAsync);
             btnDieMapping.Click += async (s, e) => await RunSequenceAction("INPUT STAGE DIE MAPPING", RunDieMappingAsync);
-            btnWfBarcode.Click += async (s, e) => await RunSequenceAction("INPUT STAGE MAP LOAD", RunPrepareLoadAsync);
+            btnWfBarcode.Click += async (s, e) => await RunSequenceAction("INPUT STAGE WAFER BARCODE", RunMapLoadAsync);
             btnPrepareUnload.Click += async (s, e) => await RunSequenceAction("INPUT STAGE PREP UNLOAD", RunPrepareUnloadAsync);
             btnMoveAvoid.Click += async (s, e) => await RunSequenceAction("INPUT STAGE AVOID", RunMoveAvoidAsync);
             btnVisionWafer.Click += (s, e) => WaferVisionTestDialog.Open(this);
@@ -253,33 +253,432 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
 
         private async Task<bool> RunPrepareLoadAsync(Form1 host)
         {
-            return await CreateSequence(host).RunPrepareLoadAsync(host.Controller.ManualOperationToken, BuildOptions(host)) == 0;
+            return await RunPrepareLoadCoreAsync(host, "PREP LOAD").ConfigureAwait(true);
+        }
+
+        private async Task<bool> RunMapLoadAsync(Form1 host)
+        {
+            CancellationToken ct = host.Controller.ManualOperationToken;
+
+            int feederResult = await LowerInputFeederForStageButtonAsync(
+                host,
+                ct,
+                "WAFER BARCODE").ConfigureAwait(true);
+            if (feederResult != 0)
+                return false;
+
+            int readyResult = await RunReadyBeforeStagePrepareAsync(host, ct, "WAFER BARCODE").ConfigureAwait(true);
+            if (readyResult != 0)
+                return false;
+
+            int axisResult = await PrepareInputStageButtonProcessPlaneAsync(host, ct, "WAFER BARCODE").ConfigureAwait(true);
+            if (axisResult != 0)
+                return false;
+
+            int stageResult = await CreateSequence(host).RunPrepareLoadAsync(ct, BuildOptions(host)).ConfigureAwait(true);
+            return stageResult == 0;
+        }
+
+        private async Task<bool> RunPrepareLoadCoreAsync(Form1 host, string actionName)
+        {
+            CancellationToken ct = host.Controller.ManualOperationToken;
+
+            int readyResult = await RunReadyBeforeStagePrepareAsync(host, ct, actionName).ConfigureAwait(true);
+            if (readyResult != 0)
+                return false;
+
+            int feederResult = await LiftInputFeederUpForStagePrepareAsync(
+                host,
+                ct,
+                actionName).ConfigureAwait(true);
+            if (feederResult != 0)
+                return false;
+
+            int stageResult = await CreateSequence(host).RunPrepareLoadAsync(ct, BuildOptions(host)).ConfigureAwait(true);
+            return stageResult == 0;
         }
 
         private async Task<bool> RunAlignAsync(Form1 host)
         {
-            return await CreateSequence(host).RunAlignAsync(host.Controller.ManualOperationToken, BuildOptions(host)) == 0;
+            CancellationToken ct = host.Controller.ManualOperationToken;
+
+            int feederResult = await LowerInputFeederForStageButtonAsync(
+                host,
+                ct,
+                "ALIGN").ConfigureAwait(true);
+            if (feederResult != 0)
+                return false;
+
+            int readyResult = await RunReadyBeforeStagePrepareAsync(host, ct, "ALIGN").ConfigureAwait(true);
+            if (readyResult != 0)
+                return false;
+
+            int axisResult = await PrepareInputStageButtonProcessPlaneAsync(host, ct, "ALIGN").ConfigureAwait(true);
+            if (axisResult != 0)
+                return false;
+
+            return await CreateSequence(host).RunAlignAsync(ct, BuildOptions(host)).ConfigureAwait(true) == 0;
         }
 
         private async Task<bool> RunDieMappingAsync(Form1 host)
         {
-            return await CreateSequence(host).RunDieMappingAsync(host.Controller.ManualOperationToken, BuildOptions(host)) == 0;
+            CancellationToken ct = host.Controller.ManualOperationToken;
+
+            int feederResult = await LowerInputFeederForStageButtonAsync(
+                host,
+                ct,
+                "DIE MAPPING").ConfigureAwait(true);
+            if (feederResult != 0)
+                return false;
+
+            int readyResult = await RunReadyBeforeStagePrepareAsync(host, ct, "DIE MAPPING").ConfigureAwait(true);
+            if (readyResult != 0)
+                return false;
+
+            int axisResult = await PrepareInputStageButtonProcessPlaneAsync(host, ct, "DIE MAPPING").ConfigureAwait(true);
+            if (axisResult != 0)
+                return false;
+
+            return await CreateSequence(host).RunDieMappingAsync(ct, BuildOptions(host)).ConfigureAwait(true) == 0;
         }
 
         private async Task<bool> RunPrepareUnloadAsync(Form1 host)
         {
-            return await CreateSequence(host).RunPrepareUnloadAsync(host.Controller.ManualOperationToken, BuildOptions(host)) == 0;
+            CancellationToken ct = host.Controller.ManualOperationToken;
+
+            int readyResult = await RunReadyBeforeStagePrepareAsync(host, ct, "PREP UNLOAD").ConfigureAwait(true);
+            if (readyResult != 0)
+                return false;
+
+            int feederResult = await LiftInputFeederUpForStagePrepareAsync(
+                host,
+                ct,
+                "PREP UNLOAD").ConfigureAwait(true);
+            if (feederResult != 0)
+                return false;
+
+            int stageResult = await CreateSequence(host).RunPrepareUnloadAsync(ct, BuildOptions(host)).ConfigureAwait(true);
+            return stageResult == 0;
         }
 
         private async Task<bool> RunMoveAvoidAsync(Form1 host)
         {
-            return await CreateSequence(host).RunMoveAvoidAsync(host.Controller.ManualOperationToken, BuildOptions(host)) == 0;
+            CancellationToken ct = host.Controller.ManualOperationToken;
+
+            int feederResult = await LowerInputFeederForStageButtonAsync(
+                host,
+                ct,
+                "AVOID").ConfigureAwait(true);
+            if (feederResult != 0)
+                return false;
+
+            int readyResult = await RunReadyBeforeStagePrepareAsync(host, ct, "AVOID").ConfigureAwait(true);
+            if (readyResult != 0)
+                return false;
+
+            int axisResult = await PrepareInputStageButtonProcessPlaneAsync(host, ct, "AVOID").ConfigureAwait(true);
+            if (axisResult != 0)
+                return false;
+
+            return await CreateSequence(host).RunMoveAvoidAsync(ct, BuildOptions(host)).ConfigureAwait(true) == 0;
         }
 
         private InputStageSequence CreateSequence(Form1 host)
         {
             var ctx = new MachineSequenceContext(host.Controller, new SequenceSignalBus());
             return new InputStageSequence(ctx);
+        }
+
+        private async Task<int> RunReadyBeforeStagePrepareAsync(Form1 host, CancellationToken ct, string actionName)
+        {
+            try
+            {
+                if (host == null || host.Machine == null)
+                {
+                    WriteAlarm("INPUT-STAGE-PREP-READY-NO-MACHINE", actionName + " 전 Ready 시컨스를 실행할 장비 객체가 없습니다.");
+                    return -1;
+                }
+
+                WriteEvent("INPUT-STAGE-PREP-READY-START", actionName + " 전 Ready 시컨스 시작.");
+                var readySequence = new MachineReadySequence(host.Machine);
+                int result = await readySequence.RunAsync(ct).ConfigureAwait(true);
+                if (result != 0)
+                {
+                    string reason = string.IsNullOrWhiteSpace(readySequence.LastErrorMessage)
+                        ? "result=" + result
+                        : readySequence.LastErrorMessage;
+                    WriteAlarm("INPUT-STAGE-PREP-READY-FAIL", actionName + " 전 Ready 시컨스 실패: " + reason);
+                    return result;
+                }
+
+                WriteEvent("INPUT-STAGE-PREP-READY-OK", actionName + " 전 Ready 시컨스 완료.");
+                return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                WriteEvent("INPUT-STAGE-PREP-READY-CANCEL", actionName + " 전 Ready 시컨스가 정지 요청으로 중단되었습니다.");
+                throw;
+            }
+            catch (Exception ex)
+            {
+                WriteAlarm("INPUT-STAGE-PREP-READY-EX", actionName + " 전 Ready 시컨스 예외: " + ex.Message);
+                return -1;
+            }
+            finally
+            {
+            }
+        }
+
+        private async Task<int> LiftInputFeederUpForStagePrepareAsync(
+            Form1 host,
+            CancellationToken ct,
+            string actionName)
+        {
+            try
+            {
+                InputFeederUnit feeder = host != null && host.Machine != null ? host.Machine.InputFeederUnit : null;
+                if (feeder == null)
+                {
+                    WriteAlarm("INPUT-STAGE-PREP-FEEDER-MISSING", actionName + " Feeder Up 실패: InputFeeder 유닛을 찾을 수 없습니다.");
+                    return -1;
+                }
+
+                if (feeder.IsWaferFeederUp())
+                {
+                    WriteEvent("INPUT-STAGE-PREP-FEEDER-UP-SKIP", actionName + " Feeder Up 생략: 이미 Up 상태입니다.");
+                    return 0;
+                }
+
+                string reason;
+                int timeoutMs = ResolveInputFeederLiftTimeoutMs(feeder);
+                if (!feeder.CheckWaferFeederMoveReady(out reason))
+                {
+                    WriteAlarm("INPUT-STAGE-PREP-FEEDER-READY", actionName + " Feeder Up 차단: Feeder 준비 상태가 아닙니다. " + reason);
+                    return -1;
+                }
+
+                WriteEvent("INPUT-STAGE-PREP-FEEDER-UP-START", actionName + " Feeder Up 시작. timeoutMs=" + timeoutMs);
+                int result = await feeder.SetWaferFeederUpDownAsync(true, timeoutMs, ct).ConfigureAwait(true);
+                if (result != 0 || !feeder.IsWaferFeederUp())
+                {
+                    WriteAlarm("INPUT-STAGE-PREP-FEEDER-UP-FAIL", actionName + " Feeder Up 실패. result=" + result + ", " + feeder.GetWaferFeederTransferState());
+                    return result != 0 ? result : -1;
+                }
+
+                WriteEvent("INPUT-STAGE-PREP-FEEDER-UP-OK", actionName + " Feeder Up 완료.");
+                return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                WriteEvent("INPUT-STAGE-PREP-FEEDER-UP-CANCEL", actionName + " Feeder Up이 정지 요청으로 중단되었습니다.");
+                throw;
+            }
+            catch (Exception ex)
+            {
+                WriteAlarm("INPUT-STAGE-PREP-FEEDER-UP-EX", actionName + " Feeder Up 예외: " + ex.Message);
+                return -1;
+            }
+            finally
+            {
+            }
+        }
+
+        private async Task<int> LowerInputFeederForStageButtonAsync(
+            Form1 host,
+            CancellationToken ct,
+            string actionName)
+        {
+            try
+            {
+                InputFeederUnit feeder = host != null && host.Machine != null ? host.Machine.InputFeederUnit : null;
+                if (feeder == null)
+                {
+                    WriteAlarm("INPUT-STAGE-FEEDER-DOWN-MISSING", actionName + " Feeder Down 실패: InputFeeder 유닛을 찾을 수 없습니다.");
+                    return -1;
+                }
+
+                if (feeder.IsWaferFeederDown())
+                {
+                    WriteEvent("INPUT-STAGE-FEEDER-DOWN-SKIP", actionName + " Feeder Down 생략: 이미 Down 상태입니다.");
+                    return EnsureInputFeederAvoidForStageButton(feeder, actionName);
+                }
+
+                string reason;
+                int timeoutMs = ResolveInputFeederLiftTimeoutMs(feeder);
+                if (!feeder.CheckWaferFeederMoveReady(out reason))
+                {
+                    WriteAlarm("INPUT-STAGE-FEEDER-DOWN-READY", actionName + " Feeder Down 차단: Feeder 준비 상태가 아닙니다. " + reason);
+                    return -1;
+                }
+
+                WriteEvent("INPUT-STAGE-FEEDER-DOWN-START", actionName + " Feeder Down 시작. timeoutMs=" + timeoutMs);
+                int result = await feeder.SetWaferFeederUpDownAsync(false, timeoutMs, ct).ConfigureAwait(true);
+                if (result != 0 || !feeder.IsWaferFeederDown())
+                {
+                    WriteAlarm("INPUT-STAGE-FEEDER-DOWN-FAIL", actionName + " Feeder Down 실패. result=" + result + ", " + feeder.GetWaferFeederTransferState());
+                    return result != 0 ? result : -1;
+                }
+
+                WriteEvent("INPUT-STAGE-FEEDER-DOWN-OK", actionName + " Feeder Down 완료.");
+                return EnsureInputFeederAvoidForStageButton(feeder, actionName);
+            }
+            catch (OperationCanceledException)
+            {
+                WriteEvent("INPUT-STAGE-FEEDER-DOWN-CANCEL", actionName + " Feeder Down이 정지 요청으로 중단되었습니다.");
+                throw;
+            }
+            catch (Exception ex)
+            {
+                WriteAlarm("INPUT-STAGE-FEEDER-DOWN-EX", actionName + " Feeder Down 예외: " + ex.Message);
+                return -1;
+            }
+            finally
+            {
+            }
+        }
+
+        private int EnsureInputFeederAvoidForStageButton(InputFeederUnit feeder, string actionName)
+        {
+            try
+            {
+                if (feeder == null)
+                {
+                    WriteAlarm("INPUT-STAGE-FEEDER-AVOID-MISSING", actionName + " Feeder AVOID 확인 실패: InputFeeder 유닛을 찾을 수 없습니다.");
+                    return -1;
+                }
+
+                if (!feeder.IsWaferFeederInAvoidPosition())
+                {
+                    WriteAlarm(
+                        "INPUT-STAGE-FEEDER-AVOID",
+                        actionName + " 시작 차단: InputFeederY가 AVOID 위치가 아닙니다. " + feeder.GetWaferFeederTransferState());
+                    return -1;
+                }
+
+                WriteEvent("INPUT-STAGE-FEEDER-AVOID-OK", actionName + " Feeder AVOID 위치 확인 완료.");
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                WriteAlarm("INPUT-STAGE-FEEDER-AVOID-EX", actionName + " Feeder AVOID 확인 예외: " + ex.Message);
+                return -1;
+            }
+            finally
+            {
+            }
+        }
+
+        private async Task<int> PrepareInputStageButtonProcessPlaneAsync(
+            Form1 host,
+            CancellationToken ct,
+            string actionName)
+        {
+            try
+            {
+                InputStageUnit stage = host != null && host.Machine != null ? host.Machine.InputStageUnit : null;
+                if (stage == null || stage.Recipe == null)
+                {
+                    WriteAlarm("INPUT-STAGE-BUTTON-AXIS-MISSING", actionName + " 시작 전 InputStage 유닛 또는 레시피를 찾을 수 없습니다.");
+                    return -1;
+                }
+
+                stage.Recipe.EnsurePositionObjects();
+
+                int result = await MoveInputStageButtonAxisAsync(
+                    stage,
+                    ct,
+                    actionName,
+                    WaferStageAxis.NeedleZ,
+                    stage.Recipe.NeedleZ.AvoidPosition,
+                    "NeedleZ AVOID").ConfigureAwait(true);
+                if (result != 0)
+                    return result;
+
+                result = await MoveInputStageButtonAxisAsync(
+                    stage,
+                    ct,
+                    actionName,
+                    WaferStageAxis.EjectPinZ,
+                    stage.Recipe.EjectPinZ.AvoidPosition,
+                    "EjectPinZ AVOID").ConfigureAwait(true);
+                if (result != 0)
+                    return result;
+
+                result = await MoveInputStageButtonAxisAsync(
+                    stage,
+                    ct,
+                    actionName,
+                    WaferStageAxis.WaferExpandingZ,
+                    stage.Recipe.WaferZ.ProcessPosition,
+                    "ExpanderZ PROCESS").ConfigureAwait(true);
+                if (result != 0)
+                    return result;
+
+                WriteEvent("INPUT-STAGE-BUTTON-AXIS-OK", actionName + " 시작 전 NeedleZ/EjectPinZ AVOID, ExpanderZ PROCESS 정렬 완료.");
+                return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                WriteEvent("INPUT-STAGE-BUTTON-AXIS-CANCEL", actionName + " 시작 전 InputStage 축 정렬이 정지 요청으로 중단되었습니다.");
+                throw;
+            }
+            catch (Exception ex)
+            {
+                WriteAlarm("INPUT-STAGE-BUTTON-AXIS-EX", actionName + " 시작 전 InputStage 축 정렬 예외: " + ex.Message);
+                return -1;
+            }
+            finally
+            {
+            }
+        }
+
+        private async Task<int> MoveInputStageButtonAxisAsync(
+            InputStageUnit stage,
+            CancellationToken ct,
+            string actionName,
+            WaferStageAxis axis,
+            double target,
+            string label)
+        {
+            ct.ThrowIfCancellationRequested();
+
+            WriteEvent(
+                "INPUT-STAGE-BUTTON-AXIS-START",
+                actionName + " 시작 전 " + label + " 이동 시작. target=" + target.ToString("F6"));
+
+            int result = await stage.MoveInputStageAxis(axis, target, false).ConfigureAwait(true);
+            if (result != 0)
+            {
+                string reason = string.IsNullOrWhiteSpace(stage.LastStageMoveFailureMessage)
+                    ? "result=" + result
+                    : stage.LastStageMoveFailureMessage;
+                WriteAlarm("INPUT-STAGE-BUTTON-AXIS-FAIL", actionName + " 시작 전 " + label + " 이동 실패: " + reason);
+                return result;
+            }
+
+            WriteEvent("INPUT-STAGE-BUTTON-AXIS-DONE", actionName + " 시작 전 " + label + " 이동 완료.");
+            return 0;
+        }
+
+        private static int ResolveInputFeederLiftTimeoutMs(InputFeederUnit feeder)
+        {
+            try
+            {
+                if (feeder != null && feeder.InputFeederLift != null && feeder.InputFeederLift.Recipe != null)
+                {
+                    int timeoutMs = feeder.InputFeederLift.Recipe.FwdTimeoutMs;
+                    if (timeoutMs > 0)
+                        return timeoutMs;
+                }
+            }
+            catch
+            {
+            }
+            finally
+            {
+            }
+
+            return 3000;
         }
 
         private InputStageSequenceOptions BuildOptions(Form1 host)

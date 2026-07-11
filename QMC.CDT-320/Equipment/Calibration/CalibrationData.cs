@@ -108,7 +108,12 @@ namespace QMC.CDT320.Calibration
         [DataMember] public double StartZMm { get; set; } = 0.0;
         [DataMember] public double SearchStartOffsetMm { get; set; } = 1.0;
         [DataMember] public double SearchMaxDistanceMm { get; set; } = 2.0;
+        [DataMember] public double CoarseSearchVelocityMmPerSec { get; set; } = 5.0;
+        [DataMember] public double CoarseSearchAccelerationMmPerSec2 { get; set; } = 50.0;
+        [DataMember] public double CoarseSearchDecelerationMmPerSec2 { get; set; } = 50.0;
         [DataMember] public double FineSearchVelocityMmPerSec { get; set; } = 1.0;
+        [DataMember] public double FineSearchAccelerationMmPerSec2 { get; set; } = 10.0;
+        [DataMember] public double FineSearchDecelerationMmPerSec2 { get; set; } = 10.0;
         [DataMember] public double BackOffDistanceMm { get; set; } = 0.2;
         [DataMember] public double ContactOffsetMm { get; set; } = 0.0;
         [DataMember] public double FilmThicknessMm { get; set; } = 0.0;
@@ -144,8 +149,18 @@ namespace QMC.CDT320.Calibration
                 SearchStartOffsetMm = 1.0;
             if (SearchMaxDistanceMm <= 0.0)
                 SearchMaxDistanceMm = 2.0;
+            if (double.IsNaN(CoarseSearchVelocityMmPerSec) || double.IsInfinity(CoarseSearchVelocityMmPerSec) || CoarseSearchVelocityMmPerSec <= 0.0)
+                CoarseSearchVelocityMmPerSec = 5.0;
+            if (double.IsNaN(CoarseSearchAccelerationMmPerSec2) || double.IsInfinity(CoarseSearchAccelerationMmPerSec2) || CoarseSearchAccelerationMmPerSec2 <= 0.0)
+                CoarseSearchAccelerationMmPerSec2 = 50.0;
+            if (double.IsNaN(CoarseSearchDecelerationMmPerSec2) || double.IsInfinity(CoarseSearchDecelerationMmPerSec2) || CoarseSearchDecelerationMmPerSec2 <= 0.0)
+                CoarseSearchDecelerationMmPerSec2 = 50.0;
             if (double.IsNaN(FineSearchVelocityMmPerSec) || double.IsInfinity(FineSearchVelocityMmPerSec) || FineSearchVelocityMmPerSec <= 0.0)
                 FineSearchVelocityMmPerSec = Math.Max(0.001, Math.Min(Motion.MoveVelocity, 1.0));
+            if (double.IsNaN(FineSearchAccelerationMmPerSec2) || double.IsInfinity(FineSearchAccelerationMmPerSec2) || FineSearchAccelerationMmPerSec2 <= 0.0)
+                FineSearchAccelerationMmPerSec2 = 10.0;
+            if (double.IsNaN(FineSearchDecelerationMmPerSec2) || double.IsInfinity(FineSearchDecelerationMmPerSec2) || FineSearchDecelerationMmPerSec2 <= 0.0)
+                FineSearchDecelerationMmPerSec2 = 10.0;
             if (double.IsNaN(BackOffDistanceMm) || double.IsInfinity(BackOffDistanceMm) || BackOffDistanceMm <= 0.0)
                 BackOffDistanceMm = 0.2;
             if (double.IsNaN(FilmThicknessMm) || double.IsInfinity(FilmThicknessMm) || FilmThicknessMm < 0.0)
@@ -365,7 +380,12 @@ namespace QMC.CDT320.Calibration
         [DataMember] public double StartZMm { get; set; } = 0.0;
         [DataMember] public double SearchStartOffsetMm { get; set; } = 1.0;
         [DataMember] public double SearchMaxDistanceMm { get; set; } = 2.0;
+        [DataMember] public double CoarseSearchVelocityMmPerSec { get; set; } = 5.0;
+        [DataMember] public double CoarseSearchAccelerationMmPerSec2 { get; set; } = 50.0;
+        [DataMember] public double CoarseSearchDecelerationMmPerSec2 { get; set; } = 50.0;
         [DataMember] public double FineSearchVelocityMmPerSec { get; set; } = 1.0;
+        [DataMember] public double FineSearchAccelerationMmPerSec2 { get; set; } = 10.0;
+        [DataMember] public double FineSearchDecelerationMmPerSec2 { get; set; } = 10.0;
         [DataMember] public double BackOffDistanceMm { get; set; } = 0.2;
         [DataMember] public double ContactOffsetMm { get; set; } = 0.0;
         [DataMember] public double FilmThicknessMm { get; set; } = 0.0;
@@ -401,8 +421,18 @@ namespace QMC.CDT320.Calibration
                 SearchStartOffsetMm = 1.0;
             if (SearchMaxDistanceMm <= 0.0)
                 SearchMaxDistanceMm = 2.0;
+            if (double.IsNaN(CoarseSearchVelocityMmPerSec) || double.IsInfinity(CoarseSearchVelocityMmPerSec) || CoarseSearchVelocityMmPerSec <= 0.0)
+                CoarseSearchVelocityMmPerSec = 5.0;
+            if (double.IsNaN(CoarseSearchAccelerationMmPerSec2) || double.IsInfinity(CoarseSearchAccelerationMmPerSec2) || CoarseSearchAccelerationMmPerSec2 <= 0.0)
+                CoarseSearchAccelerationMmPerSec2 = 50.0;
+            if (double.IsNaN(CoarseSearchDecelerationMmPerSec2) || double.IsInfinity(CoarseSearchDecelerationMmPerSec2) || CoarseSearchDecelerationMmPerSec2 <= 0.0)
+                CoarseSearchDecelerationMmPerSec2 = 50.0;
             if (double.IsNaN(FineSearchVelocityMmPerSec) || double.IsInfinity(FineSearchVelocityMmPerSec) || FineSearchVelocityMmPerSec <= 0.0)
                 FineSearchVelocityMmPerSec = Math.Max(0.001, Math.Min(Motion.MoveVelocity, 1.0));
+            if (double.IsNaN(FineSearchAccelerationMmPerSec2) || double.IsInfinity(FineSearchAccelerationMmPerSec2) || FineSearchAccelerationMmPerSec2 <= 0.0)
+                FineSearchAccelerationMmPerSec2 = 10.0;
+            if (double.IsNaN(FineSearchDecelerationMmPerSec2) || double.IsInfinity(FineSearchDecelerationMmPerSec2) || FineSearchDecelerationMmPerSec2 <= 0.0)
+                FineSearchDecelerationMmPerSec2 = 10.0;
             if (double.IsNaN(BackOffDistanceMm) || double.IsInfinity(BackOffDistanceMm) || BackOffDistanceMm <= 0.0)
                 BackOffDistanceMm = 0.2;
             if (double.IsNaN(FilmThicknessMm) || double.IsInfinity(FilmThicknessMm) || FilmThicknessMm < 0.0)

@@ -324,6 +324,7 @@ namespace QMC.CDT320.Recipes
         [DataMember] public bool Enable { get; set; } = false;
         [DataMember] public ColletShapeType ColletType { get; set; } = ColletShapeType.Flat;
         [DataMember] public double DieCalThicknessMm { get; set; } = 0.0;
+        [DataMember] public double FilmThicknessMm { get; set; } = 0.0;
         [DataMember] public double BestFocusApplyOffsetMm { get; set; } = 0.0;
         [DataMember] public double FlatZOffsetMm { get; set; } = 0.0;
         [DataMember] public double RimOffsetFromFlatMm { get; set; } = 0.0;
@@ -331,8 +332,10 @@ namespace QMC.CDT320.Recipes
 
         public void Ensure()
         {
-            if (double.IsNaN(DieCalThicknessMm) || double.IsInfinity(DieCalThicknessMm))
+            if (double.IsNaN(DieCalThicknessMm) || double.IsInfinity(DieCalThicknessMm) || DieCalThicknessMm < 0.0)
                 DieCalThicknessMm = 0.0;
+            if (double.IsNaN(FilmThicknessMm) || double.IsInfinity(FilmThicknessMm) || FilmThicknessMm < 0.0)
+                FilmThicknessMm = 0.0;
             if (double.IsNaN(BestFocusApplyOffsetMm) || double.IsInfinity(BestFocusApplyOffsetMm))
                 BestFocusApplyOffsetMm = 0.0;
             if (double.IsNaN(FlatZOffsetMm) || double.IsInfinity(FlatZOffsetMm))

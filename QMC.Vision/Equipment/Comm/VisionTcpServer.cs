@@ -197,7 +197,7 @@ namespace QMC.Vision.Comm
                 {
                     case "PING": resp = "OK"; break;
                     case "EXPOSE":
-                    case "GRAB": resp = DoExpose(m); break;
+                    case "GRAB": resp = DoExpose(m, parts); break;
                     case "MATCHASYNC": resp = DoMatchAsync(m, parts); break;   // 그랩+알고리즘 백그라운드 (ACK는 1단계에서 이미 보냄)
                     case "MATCHRESULT": resp = DoMatchResult(m, parts); break;  // 폴링: 0/1;data/ERR
                     case "INSPECTASYNC": resp = DoInspectAsync(m, parts); break;   // 그랩+검사 백그라운드 (ACK는 1단계)
@@ -257,7 +257,18 @@ namespace QMC.Vision.Comm
         }
 
         // 명령 실행은 공통 코어(VisionCommandCore)로 위임 — 자체 시퀀서(DirectVisionCommandDispatcher)와 동일 구현 공유.
-        private string DoExpose(IVisionModule m) => VisionCommandCore.Grab(m);
+        private string DoExpose(IVisionModule m, string[] parts)
+        {
+            if (parts != null && ColletAddress.TryParseWire(parts, out int fb, out int collet, out int dieIndex, out int channel, out int gridX, out int gridY))
+            {
+                string insp = parts.Length > 2 ? parts[2] : "";
+                int picker = ColletAddress.ToGlobalPicker(fb, collet);
+                string chipUid = dieIndex.ToString();
+                return AsyncInspectCore.GrabThenStart(m, _cfg, insp, picker, chipUid, dieIndex, channel, gridX, gridY);
+            }
+
+            return VisionCommandCore.Grab(m);
+        }
 
         /// <summary>비동기 매칭 시작 — 요청 즉시 "STARTED"(그랩 전 1차 ACK) 반환, 그랩과 알고리즘은 모두 백그라운드.
         /// 결과는 <see cref="AsyncMatchStore"/> 에 (모듈,finder,chip_uid) 키로 저장되고 핸들러는 MATCHRESULT|finder|chip_uid 로 폴링한다.

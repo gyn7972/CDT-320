@@ -39,8 +39,10 @@ namespace QMC.CDT320.Sequencing
         private int _pendingContiRetreatPickerIndex = -1;
         private int _pendingContiRetreatPickerNo;
         private bool _suppressOutputPostPlaceInspection;
+        private bool _placeBlowHoldUntilAvoid;
 
         public bool ForceSafeYBeforeFirstPlaceMove { get; set; }
+        public bool KeepPickerYForwardDuringPlaceReadyWait { get; set; }
 
         public PickerPlaceSequence(MachineSequenceContext context, PickerSequenceSide side)
             : base(context, side, PickerSequenceKind.UnloadToOutput, side == PickerSequenceSide.Front ? "FrontPickerPlaceSequence" : "RearPickerPlaceSequence")
@@ -57,6 +59,7 @@ namespace QMC.CDT320.Sequencing
         {
             try
             {
+                TurnPlaceBlowOff("Place 시퀀스 Abort");
                 ClearPendingContiRetreat();
                 ReleaseOutputPlaceArea();
                 ReleaseOutputStageArea();
@@ -290,6 +293,7 @@ namespace QMC.CDT320.Sequencing
             _placedDieId = "";
             _placedReceiveTarget = null;
             _pickerZPlacedByContiSegmentedPlace = false;
+            _placeBlowHoldUntilAvoid = false;
 
             if (OutputStage == null)
                 return Fail("PICKER-PLACE-OUTPUT-STAGE-MISSING", "OutputStage", "OutputStageUnit is null.");
@@ -445,6 +449,10 @@ namespace QMC.CDT320.Sequencing
                     Log.Write("PickerPlaceSequence", Name + " Place 피커 목록 생성 시작. side=" + Side + ", step=" + CurrentStep);
                     return Task.FromResult(BuildPickedPickerList());
 
+                case PickerPlaceStep.VerifyPickedPickerFlow:
+                    Log.Write("PickerPlaceSequence", Name + " Place 시작 전 제품 흡착 Flow 확인 시작. side=" + Side + ", step=" + CurrentStep);
+                    return VerifyPickedPickerFlowBeforePlaceAsync(ct);
+
                 // 전체 피커 Z로 어보이드 이동
                 case PickerPlaceStep.MoveAllPickerZToAvoid:
                     Log.Write("PickerPlaceSequence", Name + " Place 전체 피커 Z Avoid 이동 시작. side=" + Side + ", step=" + CurrentStep);
@@ -515,9 +523,9 @@ namespace QMC.CDT320.Sequencing
                     Log.Write("PickerPlaceSequence", Name + " Place 피커 Z Avoid 이동 시작. side=" + Side + ", step=" + CurrentStep);
                     return MovePickerZToAvoidAsync(ct);
 
-                // Flow OFF 최종 확인
+                // Place 후 제품 유/무 최종 확인
                 case PickerPlaceStep.VerifyFlowOff:
-                    Log.Write("PickerPlaceSequence", Name + " Place Flow OFF 최종 확인 시작. side=" + Side + ", step=" + CurrentStep);
+                    Log.Write("PickerPlaceSequence", Name + " Place 후 제품 유/무 최종 확인 시작. side=" + Side + ", step=" + CurrentStep);
                     return VerifyFlowOffAsync(ct);
 
                 // 자재로 아웃풋 스테이지 갱신
@@ -585,8 +593,103 @@ namespace QMC.CDT320.Sequencing
                 return Fail("PICKER-PLACE-DIE-RESULT-UNKNOWN", "Material", unknownReason);
 
             BeginOutputPostPlaceInspectionBatch();
-            CurrentStep = PickerPlaceStep.MoveAllPickerZToAvoid;
+            CurrentStep = PickerPlaceStep.VerifyPickedPickerFlow;
             return 0;
+        }
+
+        private async Task<int> VerifyPickedPickerFlowBeforePlaceAsync(CancellationToken ct)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+
+                if (IsPlaceProductCheckBypassed())
+                {
+                    WriteLog("PickerPlaceSequence",
+                        Name + " Place 시작 전 제품 흡착 Flow 확인은 Simulation/DryRun 조건으로 통과합니다. " +
+                        "side=" + Side +
+                        ", targetCount=" + _pickedPickerIndexes.Count + " - Bypass");
+                    CurrentStep = PickerPlaceStep.MoveAllPickerZToAvoid;
+                    return 0;
+                }
+
+                for (int i = 0; i < _pickedPickerIndexes.Count; i++)
+                {
+                    ct.ThrowIfCancellationRequested();
+
+                    int pickerIndex = _pickedPickerIndexes[i];
+                    int pickerNo = ToPickerNo(pickerIndex);
+                    DieMaterial die = MaterialStateService.GetDieAtPicker(PickerLocationKind, pickerNo);
+                    if (die == null)
+                        continue;
+
+                    int timeoutMs = ResolvePickerIoTimeoutMs(pickerNo);
+                    DateTime deadline = DateTime.Now.AddMilliseconds(timeoutMs);
+                    bool flowOn = ReadPickerFlowState(pickerNo);
+                    while (!flowOn && DateTime.Now <= deadline)
+                    {
+                        ct.ThrowIfCancellationRequested();
+                        await Task.Delay(1, ct).ConfigureAwait(false);
+                        flowOn = ReadPickerFlowState(pickerNo);
+                    }
+
+                    if (!flowOn)
+                    {
+                        return Fail("PICKER-PLACE-FLOW-NOT-DETECTED", Name,
+                            "Place 시작 전 제품 흡착 Flow 확인 실패. " +
+                            "데이터상 Picker에 Die가 있지만 실제 Flow 신호가 ON이 아닙니다. " +
+                            "side=" + Side +
+                            ", pickerNo=" + pickerNo +
+                            ", pickerIndex=" + pickerIndex +
+                            ", die=" + die.DieId +
+                            ", timeoutMs=" + timeoutMs +
+                            ", expectedFlow=ON, actualFlow=OFF");
+                    }
+
+                    WriteLog("PickerPlaceSequence",
+                        Name + " Place 시작 전 제품 흡착 Flow 확인 완료. " +
+                        "side=" + Side +
+                        ", pickerNo=" + pickerNo +
+                        ", pickerIndex=" + pickerIndex +
+                        ", die=" + die.DieId +
+                        ", flow=ON - Ok");
+                }
+
+                CurrentStep = PickerPlaceStep.MoveAllPickerZToAvoid;
+                return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("PICKER-PLACE-FLOW-CHECK-EX", Name,
+                    "Place 시작 전 제품 흡착 Flow 확인 중 예외가 발생했습니다. side=" + Side +
+                    ", error=" + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private bool IsPlaceProductCheckBypassed()
+        {
+            try
+            {
+                AppSettings settings = AppSettingsStore.Current;
+                if (settings != null && (settings.BypassHardware || settings.SimulationMode || settings.DryRunMode))
+                    return true;
+
+                return Context != null && Context.Controller != null && Context.Controller.GlobalDryRun;
+            }
+            catch
+            {
+                return false;
+            }
+            finally
+            {
+            }
         }
 
         private bool HasUnknownResultDieBeforePlace(out string reason)
@@ -697,6 +800,7 @@ namespace QMC.CDT320.Sequencing
             _placedDieId = "";
             _placedReceiveTarget = null;
             _pickerZPlacedByContiSegmentedPlace = false;
+            _placeBlowHoldUntilAvoid = false;
 
             if (_currentDie == null)
             {
@@ -713,7 +817,7 @@ namespace QMC.CDT320.Sequencing
             if (!IsInspectionFlowComplete(_currentDie))
             {
                 return Fail("PICKER-PLACE-INSPECTION-INCOMPLETE", "Material",
-                    "Place 전 Bottom/Side 검사 흐름이 완료되지 않았습니다. 검사 NG는 정지 조건이 아니며 모든 검사를 완료한 뒤 NG Stage로 배출해야 합니다. " +
+                    "Place 전 Bottom/Side 검사 흐름이 완료되지 않았습니다. 검사 NG는 정지 조건이 아니며 현재 정책상 모든 검사를 완료한 뒤 Good Stage 순번으로 Place해야 합니다. " +
                     "die=" + (_currentDie != null ? _currentDie.DieId : "-") +
                     ", pickerNo=" + _currentPickerNo +
                     ", bottomDone=" + HasInspectionResult(_currentDie, "Bottom") +
@@ -721,16 +825,18 @@ namespace QMC.CDT320.Sequencing
                     ", side90Done=" + HasInspectionResult(_currentDie, "Side90"));
             }
 
-            if (_currentDie.Result == DieResult.Good)
+            if (_currentDie.Result == DieResult.Good || _currentDie.Result == DieResult.NG)
             {
                 _currentOutputSide = BinSide.Good;
-                CurrentStep = PickerPlaceStep.VerifyOutputStageReady;
-                return 0;
-            }
-
-            if (_currentDie.Result == DieResult.NG)
-            {
-                _currentOutputSide = BinSide.Ng;
+                if (_currentDie.Result == DieResult.NG)
+                {
+                    WriteLog("PickerPlaceSequence",
+                        Name + " Die 결과가 NG이지만 현재 운전 정책에 따라 Good Stage 순번으로 Place합니다. " +
+                        "나중에 NG Stage 배출로 복구하려면 이 분기에서 NG 결과를 BinSide.Ng로 되돌리면 됩니다. " +
+                        "die=" + _currentDie.DieId +
+                        ", pickerNo=" + _currentPickerNo +
+                        ", forcedOutputSide=" + _currentOutputSide + " - Check");
+                }
                 CurrentStep = PickerPlaceStep.VerifyOutputStageReady;
                 return 0;
             }
@@ -795,9 +901,22 @@ namespace QMC.CDT320.Sequencing
 
                     if (!safeWaitPositionPrepared)
                     {
-                        int waitSafeResult = await MovePickerToSafeYBeforeOutputStageReadyWaitAsync(ct).ConfigureAwait(false);
-                        if (waitSafeResult != 0)
-                            return waitSafeResult;
+                        if (KeepPickerYForwardDuringPlaceReadyWait && !ForceSafeYBeforeFirstPlaceMove)
+                        {
+                            WriteLog("PickerPlaceSequence",
+                                Name + " 정상 연속 Place 대기: Side 검사 종료 위치에서 PickerY Avoid 복귀를 생략합니다. " +
+                                "OutputStage 준비가 열리면 현재 PickerY 위치에서 Place 목표 Y로 직접 이동합니다. " +
+                                "side=" + Side +
+                                ", outputSide=" + _currentOutputSide +
+                                ", die=" + (_currentDie != null ? _currentDie.DieId : "-") +
+                                ", pickerNo=" + _currentPickerNo + " - Check");
+                        }
+                        else
+                        {
+                            int waitSafeResult = await MovePickerToSafeYBeforeOutputStageReadyWaitAsync(ct).ConfigureAwait(false);
+                            if (waitSafeResult != 0)
+                                return waitSafeResult;
+                        }
 
                         safeWaitPositionPrepared = true;
                     }
@@ -1210,8 +1329,12 @@ namespace QMC.CDT320.Sequencing
             _targetPickerX = coordinate.PickerX;
             _targetPickerY = coordinate.PickerY;
             _targetPickerT = coordinate.PickerT;
-            _targetPickerZ = coordinate.PickerZ;
-            _targetFormula = coordinate.Formula;
+            double placeZOverDrive = ResolvePlaceZOverDrive();
+            _targetPickerZ = coordinate.PickerZ + placeZOverDrive;
+            _targetFormula = coordinate.Formula +
+                " / pickerZFinal = pickerZTeaching(" + coordinate.PickerZ.ToString("F6") +
+                ") + placeZOverDrive(" + placeZOverDrive.ToString("F6") +
+                ") = " + _targetPickerZ.ToString("F6");
 
             WriteLog("PickerPlaceSequence",
                 Name + " calculated place target. die=" + dieId +
@@ -1222,12 +1345,14 @@ namespace QMC.CDT320.Sequencing
                 ", pickerY=" + _targetPickerY +
                 ", pickerT=" + _targetPickerT +
                 ", pickerZ=" + _targetPickerZ +
+                ", pickerZTeaching=" + coordinate.PickerZ +
+                ", placeZOverDrive=" + placeZOverDrive +
                 ", outputStageBaseY=" + outputStageBaseY +
                 ", receiveTargetX=" + (_receiveTarget != null ? _receiveTarget.TargetX.ToString() : "-") +
                 ", receiveTargetY=" + (_receiveTarget != null ? _receiveTarget.TargetY.ToString() : "-") +
                 ", outputVisionToPickerOffsetX=" + _outputVisionToPickerX +
                 ", outputVisionToPickerOffsetY=" + _outputVisionToPickerY +
-                ", formula=" + coordinate.Formula + " - Ok");
+                ", formula=" + _targetFormula + " - Ok");
         }
 
         private async Task<int> MovePickerXYAndTToPlaceAsync(CancellationToken ct)
@@ -1897,15 +2022,12 @@ namespace QMC.CDT320.Sequencing
             if (die == null)
                 return false;
 
-            if (die.Result == DieResult.Good)
+            // GYN GOOD/NG Stage를 모두 사용하는 경우, NG 결과도 Good Stage로 내려놓는다.
+            // 현재 운전 정책: NG 결과도 Good Stage 순번으로 내려놓는다.
+            // 나중에 NG Stage 배출로 복구하려면 DieResult.NG는 BinSide.Ng를 반환하도록 되돌린다.
+            if (die.Result == DieResult.Good || die.Result == DieResult.NG)
             {
                 side = BinSide.Good;
-                return true;
-            }
-
-            if (die.Result == DieResult.NG)
-            {
-                side = BinSide.Ng;
                 return true;
             }
 
@@ -1983,6 +2105,67 @@ namespace QMC.CDT320.Sequencing
 
             config.Ensure();
             return config;
+        }
+
+        private double ResolvePlaceZOverDrive()
+        {
+            PickerPlaceMotionConfig config = ResolvePlaceMotionConfig();
+            return config != null ? config.PlaceZOverDrive : 0.0;
+        }
+
+        private int ResolvePlaceReleaseDwellMs()
+        {
+            PickerPlaceMotionConfig config = ResolvePlaceMotionConfig();
+            return config != null ? Math.Max(0, config.PlaceReleaseDwellMs) : 0;
+        }
+
+        private int ResolvePlaceBlowHoldBeforeLiftMs()
+        {
+            int releaseDwellMs = ResolvePlaceReleaseDwellMs();
+            if (releaseDwellMs > 0)
+                return releaseDwellMs;
+
+            try
+            {
+                if (Side == PickerSequenceSide.Front && FrontPicker != null)
+                    return Math.Max(0, FrontPicker.ResolvePickerBlowTimeMs(_currentPickerNo));
+                if (Side == PickerSequenceSide.Rear && RearPicker != null)
+                    return Math.Max(0, RearPicker.ResolvePickerBlowTimeMs(_currentPickerNo));
+            }
+            catch
+            {
+            }
+
+            return 100;
+        }
+
+        private void TurnPlaceBlowOff(string reason)
+        {
+            if (!_placeBlowHoldUntilAvoid)
+                return;
+
+            try
+            {
+                SetPickerBlow(_currentPickerNo, false);
+                WriteLog("PickerPlaceSequence",
+                    Name + " Place Blow OFF. " +
+                    "pickerNo=" + _currentPickerNo +
+                    ", pickerIndex=" + _currentPickerIndex +
+                    ", reason=" + reason + " - Ok");
+            }
+            catch (Exception ex)
+            {
+                WriteLog("PickerPlaceSequence",
+                    Name + " Place Blow OFF 정리 실패. " +
+                    "pickerNo=" + _currentPickerNo +
+                    ", pickerIndex=" + _currentPickerIndex +
+                    ", reason=" + reason +
+                    ", error=" + ex.Message + " - Failed");
+            }
+            finally
+            {
+                _placeBlowHoldUntilAvoid = false;
+            }
         }
 
         private BaseAxis ResolveOutputStageYAxis(BinStageAxis yAxis)
@@ -2190,21 +2373,52 @@ namespace QMC.CDT320.Sequencing
         {
             try
             {
-                int result = await PickerBlowAsync(_currentPickerNo, ct).ConfigureAwait(false);
-                if (result != 0)
-                    return result;
+                int releaseDwellMs = ResolvePlaceReleaseDwellMs();
+                int holdBeforeLiftMs = ResolvePlaceBlowHoldBeforeLiftMs();
+
+                SetPickerBlow(_currentPickerNo, true);
+                _placeBlowHoldUntilAvoid = true;
+
+                WriteLog("PickerPlaceSequence",
+                    Name + " Place Blow ON. " +
+                    "Vacuum OFF 후 Blow를 켠 상태로 대기하고 PickerZ Avoid 복귀가 끝날 때까지 유지합니다. " +
+                    "pickerNo=" + _currentPickerNo +
+                    ", pickerIndex=" + _currentPickerIndex +
+                    ", die=" + (_currentDie != null ? _currentDie.DieId : "-") +
+                    ", outputSide=" + _currentOutputSide +
+                    ", releaseDwellMs=" + releaseDwellMs +
+                    ", holdBeforeLiftMs=" + holdBeforeLiftMs + " - Start");
+
+                if (holdBeforeLiftMs > 0)
+                {
+                    WriteLog("PickerPlaceSequence",
+                        Name + " Place Blow 유지 대기 시작. " +
+                        "pickerNo=" + _currentPickerNo +
+                        ", pickerIndex=" + _currentPickerIndex +
+                        ", die=" + (_currentDie != null ? _currentDie.DieId : "-") +
+                        ", outputSide=" + _currentOutputSide +
+                        ", releaseDwellMs=" + releaseDwellMs +
+                        ", holdBeforeLiftMs=" + holdBeforeLiftMs + " - Start");
+                    await Task.Delay(holdBeforeLiftMs, ct).ConfigureAwait(false);
+                    WriteLog("PickerPlaceSequence",
+                        Name + " Place Blow 유지 대기 완료. Blow ON 상태로 PickerZ Avoid 복귀를 진행합니다. " +
+                        "pickerNo=" + _currentPickerNo +
+                        ", pickerIndex=" + _currentPickerIndex +
+                        ", releaseDwellMs=" + releaseDwellMs +
+                        ", holdBeforeLiftMs=" + holdBeforeLiftMs + " - Ok");
+                }
 
                 if (ShouldDelayCurrentPickerZRetreatForNextContiPlace())
                 {
-                    SetPendingContiRetreat(_currentPickerIndex, _currentPickerNo);
                     WriteLog("PickerPlaceSequence",
-                        Name + " 다음 Place ContiNode 이동에 현재 PickerZ Avoid 복귀를 포함하기 위해 Z 복귀를 지연합니다. " +
+                        Name + " Place Blow 유지 조건으로 현재 PickerZ 복귀 지연 최적화를 사용하지 않습니다. " +
+                        "Blow ON 상태로 즉시 PickerZ Avoid까지 복귀한 뒤 Blow OFF합니다. " +
                         "pickerNo=" + _currentPickerNo +
                         ", pickerIndex=" + _currentPickerIndex +
                         ", cursor=" + _pickerCursor +
-                        ", outputSide=" + _currentOutputSide + " - Check");
-                    CurrentStep = PickerPlaceStep.VerifyFlowOff;
-                    return 0;
+                        ", outputSide=" + _currentOutputSide +
+                        ", releaseDwellMs=" + releaseDwellMs +
+                        ", holdBeforeLiftMs=" + holdBeforeLiftMs + " - Check");
                 }
 
                 CurrentStep = PickerPlaceStep.MovePickerZToAvoid;
@@ -2212,11 +2426,15 @@ namespace QMC.CDT320.Sequencing
             }
             catch (OperationCanceledException)
             {
+                TurnPlaceBlowOff("Place Blow 유지 중 취소");
                 throw;
             }
             catch (Exception ex)
             {
-                return Fail("PICKER-PLACE-BLOW", Name, "Picker blow failed. pickerNo=" + _currentPickerNo + ", error=" + ex.Message);
+                TurnPlaceBlowOff("Place Blow 유지 중 예외");
+                return Fail("PICKER-PLACE-BLOW", Name,
+                    "Place Blow 유지 동작 중 예외가 발생했습니다. pickerNo=" + _currentPickerNo +
+                    ", error=" + ex.Message);
             }
             finally
             {
@@ -2225,29 +2443,119 @@ namespace QMC.CDT320.Sequencing
 
         private async Task<int> MovePickerZToAvoidAsync(CancellationToken ct)
         {
-            PickerAxis zAxis = GetPickerZAxis(_currentPickerIndex);
-            double avoid = GetPickerTeachingPosition(zAxis, "AvoidPosition");
-            int result = await MovePickerAxisAndVerifyAsync(zAxis, avoid, "place picker Z avoid", ct, "AvoidPosition").ConfigureAwait(false);
-            if (result != 0)
-                return result;
+            try
+            {
+                PickerAxis zAxis = GetPickerZAxis(_currentPickerIndex);
+                double avoid = GetPickerTeachingPosition(zAxis, "AvoidPosition");
+                int result = await MovePickerAxisAndVerifyAsync(zAxis, avoid, "place picker Z avoid", ct, "AvoidPosition").ConfigureAwait(false);
+                if (result != 0)
+                {
+                    TurnPlaceBlowOff("PickerZ Avoid 복귀 실패");
+                    return result;
+                }
 
-            ClearPendingContiRetreat();
-            CurrentStep = PickerPlaceStep.VerifyFlowOff;
-            return 0;
+                TurnPlaceBlowOff("PickerZ Avoid 복귀 완료");
+                ClearPendingContiRetreat();
+                CurrentStep = PickerPlaceStep.VerifyFlowOff;
+                return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                TurnPlaceBlowOff("PickerZ Avoid 복귀 중 취소");
+                throw;
+            }
+            catch (Exception ex)
+            {
+                TurnPlaceBlowOff("PickerZ Avoid 복귀 중 예외");
+                return Fail("PICKER-PLACE-Z-AVOID-EX", Name,
+                    "Place 후 PickerZ Avoid 복귀 중 예외가 발생했습니다. side=" + Side +
+                    ", pickerNo=" + _currentPickerNo +
+                    ", pickerIndex=" + _currentPickerIndex +
+                    ", error=" + ex.Message);
+            }
+            finally
+            {
+            }
         }
 
         private async Task<int> VerifyFlowOffAsync(CancellationToken ct)
         {
-            int result = await VerifyPickerFlowStateAsync(
-                _currentPickerNo,
-                false,
-                "Place 후 Vacuum OFF/Blow 완료 및 Picker Z Avoid 후 Flow OFF 확인",
-                ct).ConfigureAwait(false);
-            if (result != 0)
-                return result;
+            try
+            {
+                ct.ThrowIfCancellationRequested();
 
-            CurrentStep = PickerPlaceStep.UpdateMaterialToOutputStage;
-            return 0;
+                if (IsPlaceProductCheckBypassed())
+                {
+                    WriteLog("PickerPlaceSequence",
+                        Name + " Place 후 제품 유/무 확인은 Simulation/DryRun 조건으로 통과합니다. " +
+                        "side=" + Side +
+                        ", pickerNo=" + _currentPickerNo +
+                        ", die=" + (_currentDie != null ? _currentDie.DieId : "") + " - Bypass");
+                    CurrentStep = PickerPlaceStep.UpdateMaterialToOutputStage;
+                    return 0;
+                }
+
+                SetPickerVacuum(_currentPickerNo, true);
+                await Task.Delay(100, ct).ConfigureAwait(false);
+
+                bool flowOn = ReadPickerFlowState(_currentPickerNo);
+                if (flowOn)
+                {
+                    return Fail("PICKER-PLACE-RECHECK-FLOW-DETECTED", Name,
+                        "Place 후 제품 유/무 확인 실패. " +
+                        "Vacuum ON 후 Flow 신호가 ON입니다. Place 후에도 Picker가 제품을 가지고 있는 것으로 판단하여 시퀀스를 정지합니다. " +
+                        "side=" + Side +
+                        ", pickerNo=" + _currentPickerNo +
+                        ", pickerIndex=" + _currentPickerIndex +
+                        ", die=" + (_currentDie != null ? _currentDie.DieId : "") +
+                        ", vacuumSettleMs=100" +
+                        ", expectedFlow=OFF, actualFlow=ON");
+                }
+
+                WriteLog("PickerPlaceSequence",
+                    Name + " Place 후 제품 유/무 확인 완료. " +
+                    "Vacuum ON 후 Flow 신호가 OFF이므로 Picker에 제품이 없다고 판단합니다. " +
+                    "side=" + Side +
+                    ", pickerNo=" + _currentPickerNo +
+                    ", pickerIndex=" + _currentPickerIndex +
+                    ", die=" + (_currentDie != null ? _currentDie.DieId : "") +
+                    ", vacuumSettleMs=100" +
+                    ", flow=OFF - Ok");
+
+                CurrentStep = PickerPlaceStep.UpdateMaterialToOutputStage;
+                return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("PICKER-PLACE-RECHECK-FLOW-EX", Name,
+                    "Place 후 제품 유/무 확인 중 예외가 발생했습니다. side=" + Side +
+                    ", pickerNo=" + _currentPickerNo +
+                    ", die=" + (_currentDie != null ? _currentDie.DieId : "") +
+                    ", error=" + ex.Message);
+            }
+            finally
+            {
+                try
+                {
+                    SetPickerVacuum(_currentPickerNo, false);
+                    WriteLog("PickerPlaceSequence",
+                        Name + " Place 후 제품 유/무 확인 종료. Picker Vacuum OFF 정리 완료. " +
+                        "side=" + Side +
+                        ", pickerNo=" + _currentPickerNo + " - Ok");
+                }
+                catch (Exception ex)
+                {
+                    WriteLog("PickerPlaceSequence",
+                        Name + " Place 후 제품 유/무 확인 종료 중 Picker Vacuum OFF 정리 실패. " +
+                        "side=" + Side +
+                        ", pickerNo=" + _currentPickerNo +
+                        ", error=" + ex.Message + " - Failed");
+                }
+            }
         }
 
         private int UpdateMaterialToOutputStage(CancellationToken ct)

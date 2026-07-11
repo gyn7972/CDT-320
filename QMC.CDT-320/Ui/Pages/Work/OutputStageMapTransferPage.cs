@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using System.Windows.Forms;
 using QMC.Common.Motion;
 using QMC.CDT320;
+using QMC.CDT320.Bin;
 using QMC.CDT320.Calibration;
 using QMC.CDT320.DieMaps;
 using QMC.CDT320.Lots;
@@ -19,6 +20,14 @@ namespace QMC.CDT_320.Ui.Pages.Work
 {
     public partial class OutputStageMapTransferPage : PageBase
     {
+        private enum OutputDieManualState
+        {
+            Wait,
+            GoodComplete,
+            NgComplete,
+            Skip
+        }
+
         private Timer _refresh;
         private string _i18nTitle;
         private DieMapEntry _selectedEntry;
@@ -32,6 +41,13 @@ namespace QMC.CDT_320.Ui.Pages.Work
         private ToolStripMenuItem[] _gridPlaceTestRearPickerMenuItems;
         private OutputPlaceTargetSelectDialog _placeTestDialog;
         private bool _manualMoveBusy;
+        private static readonly PickerAxis[] PickerZAxes =
+        {
+            PickerAxis.PickerZ0,
+            PickerAxis.PickerZ1,
+            PickerAxis.PickerZ2,
+            PickerAxis.PickerZ3
+        };
 
         private sealed class OutputPlaceManualTargets
         {
@@ -96,14 +112,30 @@ namespace QMC.CDT_320.Ui.Pages.Work
             mapView.ShowWaferOutline = true;
             mapView.CompactUsedBounds = true;
             mapView.EntryVisibilityPredicate = IsVisibleOutputMapEntry;
+            mapView.EnableRectangleSelection = true;
 
             rbStandard.Text = "GOOD";
             rbStartIndex.Text = "NG";
-            rbSelectPickStatus.Text = "SOURCE ORDER";
-            rbDragPickStatus.Text = "RECEIVED STATUS";
+            rbSelectPickStatus.Text = "WAIT / 대기";
+            rbDragPickStatus.Text = "SKIP / 제외";
+            if (rdoOutputStateGood != null)
+                rdoOutputStateGood.Text = "GOOD / 완료";
+            if (rdoOutputStateNg != null)
+                rdoOutputStateNg.Text = "NG / 불량";
+            if (btnApplyOutputDieState != null)
+                btnApplyOutputDieState.Text = "APPLY SELECTED STATE";
+            if (cmbOutputDieState != null)
+            {
+                cmbOutputDieState.Items.Clear();
+                cmbOutputDieState.Items.Add("WAIT / 대기");
+                cmbOutputDieState.Items.Add("GOOD / 완료");
+                cmbOutputDieState.Items.Add("NG / 불량");
+                cmbOutputDieState.Items.Add("SKIP / 제외");
+                cmbOutputDieState.SelectedIndex = 0;
+            }
             rbStandard.Checked = true;
-            rbSelectPickStatus.Enabled = false;
-            rbDragPickStatus.Enabled = false;
+            rbSelectPickStatus.Enabled = true;
+            rbDragPickStatus.Enabled = true;
 
             grpMapInfo.Text = "BIN / DIE INFO";
             grpMode.Text = "OUTPUT STAGE";
@@ -158,6 +190,10 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     return;
                 SelectEntry(entry);
                 SelectGridRow(entry);
+            };
+            mapView.SelectionRectangleCompleted += entries =>
+            {
+                HandleOutputMapRectangleSelection(entries);
             };
 
             BuildGridContextMenu();
@@ -221,6 +257,11 @@ namespace QMC.CDT_320.Ui.Pages.Work
         {
             _lastMapSignature = null;
             ReloadOutputMap();
+        }
+
+        private void btnApplyOutputDieState_Click(object sender, EventArgs e)
+        {
+            ApplySelectedOutputDieState();
         }
 
         protected override void OnVisibleChanged(EventArgs e)
@@ -495,6 +536,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             double processX = ResolveOutputVisionProcessX();
             double processY = ResolveOutputStageProcessY(_selectedSide);
             List<DieMapEntry> ordered = BuildReceiveOrder(display);
+            Dictionary<string, OutputReceiveSlotMaterial> savedSlots = BuildOutputReceiveSlotLookup(outputWafer);
             int nextIndex = outputWafer != null ? outputWafer.OutputReceiveNextIndex : 0;
             int total = ordered.Count;
             if (nextIndex < 0)
@@ -505,6 +547,18 @@ namespace QMC.CDT_320.Ui.Pages.Work
             for (int i = 0; i < ordered.Count; i++)
             {
                 DieMapEntry entry = ordered[i];
+                OutputReceiveSlotMaterial savedSlot = null;
+                if (savedSlots != null)
+                    savedSlots.TryGetValue(BuildEntryGridKey(entry), out savedSlot);
+
+                if (ShouldUseSavedOutputSlotState(savedSlot))
+                {
+                    entry.IsTarget = savedSlot.IsTarget;
+                    entry.Result = savedSlot.Result;
+                    entry.BinCode = savedSlot.BinCode;
+                    continue;
+                }
+
                 if (i < nextIndex)
                 {
                     entry.Result = _selectedSide == BinSide.Ng ? DieResult.NG : DieResult.Good;
@@ -535,6 +589,49 @@ namespace QMC.CDT_320.Ui.Pages.Work
             }
 
             return display;
+        }
+
+        private static Dictionary<string, OutputReceiveSlotMaterial> BuildOutputReceiveSlotLookup(WaferMaterial outputWafer)
+        {
+            var result = new Dictionary<string, OutputReceiveSlotMaterial>(StringComparer.Ordinal);
+            try
+            {
+                if (outputWafer == null || outputWafer.OutputReceiveSlots == null)
+                    return result;
+
+                foreach (OutputReceiveSlotMaterial slot in outputWafer.OutputReceiveSlots)
+                {
+                    if (slot == null)
+                        continue;
+
+                    string key = BuildGridKey(slot.DieMapX, slot.DieMapY);
+                    if (!result.ContainsKey(key))
+                        result.Add(key, slot);
+                }
+            }
+            catch
+            {
+            }
+            finally
+            {
+            }
+
+            return result;
+        }
+
+        private static bool ShouldUseSavedOutputSlotState(OutputReceiveSlotMaterial slot)
+        {
+            if (slot == null)
+                return false;
+
+            if (!slot.IsTarget)
+                return true;
+
+            if (slot.Result != DieResult.Unknown)
+                return true;
+
+            // DieUid가 있는 슬롯은 실제 배치된 Die 상태이므로 WAIT도 진행률 계산으로 덮어쓰지 않는다.
+            return !string.IsNullOrWhiteSpace(slot.DieUid);
         }
 
         private double ResolveOutputVisionProcessX()
@@ -613,8 +710,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
 
         private static bool IsVisibleOutputMapEntry(DieMapEntry entry)
         {
-            // 현재 기준: 전환 화면은 실제 받을 대상 slot만 표시하고, 빈 grid SKIP 셀은 숨긴다.
-            return entry != null && entry.IsTarget;
+            // 현재 기준: SKIP은 수납 대상에서만 제외하고, 맵/리스트에는 상태로 표시한다.
+            return entry != null;
         }
 
         private static int ResolveEntryMapX(DieMapEntry entry)
@@ -627,9 +724,36 @@ namespace QMC.CDT_320.Ui.Pages.Work
             return DieMapGenerator.ResolveMapIndexY(entry);
         }
 
+        private static string BuildGridKey(int x, int y)
+        {
+            return x.ToString() + ":" + y.ToString();
+        }
+
+        private static string BuildEntryGridKey(DieMapEntry entry)
+        {
+            return BuildGridKey(ResolveEntryMapX(entry), ResolveEntryMapY(entry));
+        }
+
         private static string BuildEntryMapText(DieMapEntry entry)
         {
             return "[" + ResolveEntryMapX(entry) + "," + ResolveEntryMapY(entry) + "]";
+        }
+
+        private static string ResolveOutputDieGridStateText(DieMapEntry entry)
+        {
+            if (entry == null)
+                return "";
+
+            if (!entry.IsTarget)
+                return "SKIP";
+
+            if (entry.Result == DieResult.Good)
+                return "GOOD";
+
+            if (entry.Result == DieResult.NG)
+                return "NG";
+
+            return "WAIT";
         }
 
         private static List<DieMapEntry> BuildReceiveOrder(DieMap map)
@@ -757,9 +881,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     if (entry == null)
                         continue;
 
-                    string status = entry.Result == DieResult.Good || entry.Result == DieResult.NG
-                        ? "RECEIVED"
-                        : (entry.BinCode != 0 && entry.IsTarget ? "NEXT" : "WAIT");
+                    string status = ResolveOutputDieGridStateText(entry);
                     int rowIndex = gridDieList.Rows.Add(
                         i,
                         ResolveEntryMapX(entry),
@@ -819,6 +941,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 lblBinRank.Text = entry.BinCode.ToString();
                 lblDieNum.Text = string.Format("[{0},{1}] / {2}", ResolveEntryMapX(entry), ResolveEntryMapY(entry),
                     mapView.Map != null ? BuildReceiveOrder(mapView.Map).Count : 0);
+                SetOutputStateRadioFromEntry(entry);
                 SelectGridRow(entry);
             }
             catch
@@ -890,6 +1013,355 @@ namespace QMC.CDT_320.Ui.Pages.Work
             }
             finally
             {
+            }
+        }
+
+        private void HandleOutputMapRectangleSelection(IReadOnlyList<DieMapEntry> entries)
+        {
+            try
+            {
+                if (entries == null || entries.Count <= 0)
+                    return;
+
+                DieMapEntry first = entries[0];
+                _selectedEntry = first;
+                SelectGridRow(first);
+                SetOutputStateRadioFromEntry(first);
+                lblAxisX.Text = first.PosX.ToString("F3");
+                lblAxisY.Text = first.PosY.ToString("F3");
+                lblBinRank.Text = "선택 " + entries.Count + "개";
+                lblDieNum.Text = "MAP SELECT " + entries.Count;
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Log.Write("Main", "SYSTEM", "OutputStageMapTransferPage",
+                    "Output Die Map 사각 선택 처리 실패: " + ex.Message + " - Failed");
+            }
+            finally
+            {
+            }
+        }
+
+        private void ApplySelectedOutputDieState()
+        {
+            try
+            {
+                DieMap map = mapView != null ? mapView.Map : null;
+                if (map == null || map.Entries == null)
+                {
+                    QMC.Common.MessageDialog.Show(this, "상태를 변경할 Output Die Map 데이터가 없습니다.",
+                        "Output Stage Map", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                string reason;
+                if (!CanEditOutputDieState(out reason))
+                {
+                    QMC.Common.MessageDialog.Show(this, reason,
+                        "Output Stage Map", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                List<DieMapEntry> entries = ResolveSelectedOutputDieEntries(map);
+                if (entries.Count <= 0)
+                {
+                    QMC.Common.MessageDialog.Show(this, "상태를 변경할 Die를 먼저 선택하세요.",
+                        "Output Stage Map", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                OutputDieManualState state = ResolveSelectedOutputDieManualState();
+                string stateText = ResolveOutputManualStateDisplayName(state);
+                DialogResult confirm = QMC.Common.MessageDialog.Show(this,
+                    "선택 Output Die " + entries.Count + "개 상태를 [" + stateText + "]로 변경하시겠습니까?\r\n" +
+                    "첫 Die=" + BuildEntryMapText(entries[0]) + "\r\n" +
+                    "UID=" + (entries[0].DieUid ?? ""),
+                    "Output Stage Map", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+                if (confirm != DialogResult.Yes)
+                    return;
+
+                for (int i = 0; i < entries.Count; i++)
+                    ApplyManualStateToOutputEntry(entries[i], state);
+
+                for (int i = 0; i < entries.Count; i++)
+                    SyncManualOutputDieState(entries[i], "OutputMapManualDieState");
+                MaterialStateService.NotifyAndSave("OutputMapManualDieState");
+
+                QMC.Common.Log.Write("Main", "SYSTEM", "OutputStageMapTransferPage",
+                    "Output Die 상태 일괄 변경 완료. side=" + _selectedSide +
+                    ", count=" + entries.Count +
+                    ", firstGrid=(" + ResolveEntryMapX(entries[0]) + "," + ResolveEntryMapY(entries[0]) + ")" +
+                    ", state=" + stateText + " - Ok");
+
+                _lastMapSignature = null;
+                ReloadOutputMap();
+                QMC.Common.MessageDialog.Show(this, "선택 Output Die " + entries.Count + "개 상태 변경 완료.",
+                    "Output Stage Map", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Log.Write("Main", "SYSTEM", "OutputStageMapTransferPage",
+                    "Output Die 상태 변경 실패: " + ex.Message + " - Failed");
+                QMC.Common.MessageDialog.Show(this, "Output Die 상태 변경 실패:\r\n" + ex.Message,
+                    "Output Stage Map", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+            }
+        }
+
+        private bool CanEditOutputDieState(out string reason)
+        {
+            reason = string.Empty;
+            try
+            {
+                if (_manualMoveBusy)
+                {
+                    reason = "좌표 이동 동작 중에는 Output Die 상태를 변경할 수 없습니다.";
+                    return false;
+                }
+
+                var host = FindForm() as Form1;
+                var controller = host != null ? host.Controller : null;
+                if (controller != null &&
+                    (controller.Status == EquipmentStatus.AutoRunning ||
+                     controller.Status == EquipmentStatus.Initializing ||
+                     controller.IsSequenceRunning ||
+                     controller.IsManualBusy))
+                {
+                    reason = "장비 동작 중에는 Output Die 상태를 변경할 수 없습니다.\r\n" +
+                             "Auto/Manual 동작을 정지한 뒤 다시 시도하세요.";
+                    return false;
+                }
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                reason = "Output Die 상태 변경 가능 여부 확인 실패: " + ex.Message;
+                QMC.Common.Log.Write("Main", "SYSTEM", "OutputStageMapTransferPage",
+                    reason + " - Failed");
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
+        private List<DieMapEntry> ResolveSelectedOutputDieEntries(DieMap map)
+        {
+            var result = new List<DieMapEntry>();
+            try
+            {
+                if (map == null || map.Entries == null)
+                    return result;
+
+                IReadOnlyList<DieMapEntry> selected = mapView != null ? mapView.SelectedEntries : null;
+                if (selected != null && selected.Count > 1)
+                {
+                    for (int i = 0; i < selected.Count; i++)
+                    {
+                        DieMapEntry entry = FindEquivalentEntry(map, selected[i]);
+                        if (entry != null && !ContainsEntry(result, entry))
+                            result.Add(entry);
+                    }
+                }
+
+                if (result.Count <= 0)
+                {
+                    DieMapEntry entry = FindEquivalentEntry(map, _selectedEntry);
+                    if (entry != null)
+                        result.Add(entry);
+                }
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Log.Write("Main", "SYSTEM", "OutputStageMapTransferPage",
+                    "Output Die Map 선택 목록 확인 실패: " + ex.Message + " - Failed");
+            }
+            finally
+            {
+            }
+
+            return result;
+        }
+
+        private static DieMapEntry FindEquivalentEntry(DieMap map, DieMapEntry source)
+        {
+            if (map == null || map.Entries == null || source == null)
+                return null;
+
+            int sourceX = ResolveEntryMapX(source);
+            int sourceY = ResolveEntryMapY(source);
+            string sourceUid = source.DieUid ?? "";
+            foreach (DieMapEntry entry in map.Entries)
+            {
+                if (entry == null)
+                    continue;
+                if (ResolveEntryMapX(entry) == sourceX &&
+                    ResolveEntryMapY(entry) == sourceY &&
+                    string.Equals(entry.DieUid ?? "", sourceUid, StringComparison.OrdinalIgnoreCase))
+                    return entry;
+            }
+
+            return null;
+        }
+
+        private static bool ContainsEntry(List<DieMapEntry> entries, DieMapEntry target)
+        {
+            if (entries == null || target == null)
+                return false;
+
+            int targetX = ResolveEntryMapX(target);
+            int targetY = ResolveEntryMapY(target);
+            string targetUid = target.DieUid ?? "";
+            for (int i = 0; i < entries.Count; i++)
+            {
+                DieMapEntry entry = entries[i];
+                if (entry == null)
+                    continue;
+                if (ResolveEntryMapX(entry) == targetX &&
+                    ResolveEntryMapY(entry) == targetY &&
+                    string.Equals(entry.DieUid ?? "", targetUid, StringComparison.OrdinalIgnoreCase))
+                    return true;
+            }
+
+            return false;
+        }
+
+        private OutputDieManualState ResolveSelectedOutputDieManualState()
+        {
+            string text = cmbOutputDieState != null && cmbOutputDieState.SelectedItem != null
+                ? cmbOutputDieState.SelectedItem.ToString()
+                : "";
+            if (text.IndexOf("GOOD", StringComparison.OrdinalIgnoreCase) >= 0)
+                return OutputDieManualState.GoodComplete;
+            if (text.IndexOf("NG", StringComparison.OrdinalIgnoreCase) >= 0)
+                return OutputDieManualState.NgComplete;
+            if (text.IndexOf("SKIP", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                text.IndexOf("제외", StringComparison.OrdinalIgnoreCase) >= 0)
+                return OutputDieManualState.Skip;
+
+            return OutputDieManualState.Wait;
+        }
+
+        private static void ApplyManualStateToOutputEntry(DieMapEntry entry, OutputDieManualState state)
+        {
+            if (entry == null)
+                return;
+
+            switch (state)
+            {
+                case OutputDieManualState.GoodComplete:
+                    entry.IsTarget = true;
+                    entry.Result = DieResult.Good;
+                    entry.BinCode = BinCodeMap.GoodBin;
+                    return;
+                case OutputDieManualState.NgComplete:
+                    entry.IsTarget = true;
+                    entry.Result = DieResult.NG;
+                    entry.BinCode = BinCodeMap.MaxBin;
+                    return;
+                case OutputDieManualState.Skip:
+                    entry.IsTarget = false;
+                    entry.Result = DieResult.Unknown;
+                    entry.BinCode = 0;
+                    entry.SequenceNo = 0;
+                    return;
+                case OutputDieManualState.Wait:
+                default:
+                    entry.IsTarget = true;
+                    entry.Result = DieResult.Unknown;
+                    entry.BinCode = 0;
+                    return;
+            }
+        }
+
+        private static void SyncManualOutputDieState(DieMapEntry entry, string reason)
+        {
+            if (entry == null || string.IsNullOrWhiteSpace(entry.DieUid))
+                return;
+
+            string message;
+            bool ok = MaterialStateService.ApplyManualDieState(
+                entry.DieUid,
+                entry.IsTarget,
+                entry.IsTarget ? entry.Result : DieResult.Unknown,
+                entry.IsTarget ? entry.BinCode : 0,
+                "",
+                reason,
+                out message);
+            if (!ok)
+            {
+                QMC.Common.Log.Write("Main", "SYSTEM", "OutputStageMapTransferPage",
+                    "Output Die 상태 공통 동기화 실패. die=" + (entry.DieUid ?? "") +
+                    ", message=" + message + " - Failed");
+            }
+        }
+
+        private void SetOutputStateRadioFromEntry(DieMapEntry entry)
+        {
+            try
+            {
+                OutputDieManualState state = ResolveEntryOutputManualState(entry);
+                if (cmbOutputDieState == null)
+                    return;
+
+                switch (state)
+                {
+                    case OutputDieManualState.GoodComplete:
+                        cmbOutputDieState.SelectedItem = "GOOD / 완료";
+                        break;
+                    case OutputDieManualState.NgComplete:
+                        cmbOutputDieState.SelectedItem = "NG / 불량";
+                        break;
+                    case OutputDieManualState.Skip:
+                        cmbOutputDieState.SelectedItem = "SKIP / 제외";
+                        break;
+                    case OutputDieManualState.Wait:
+                    default:
+                        cmbOutputDieState.SelectedItem = "WAIT / 대기";
+                        break;
+                }
+
+                if (cmbOutputDieState.SelectedIndex < 0)
+                    cmbOutputDieState.SelectedIndex = 0;
+            }
+            catch
+            {
+            }
+            finally
+            {
+            }
+        }
+
+        private static OutputDieManualState ResolveEntryOutputManualState(DieMapEntry entry)
+        {
+            if (entry == null)
+                return OutputDieManualState.Wait;
+            if (!entry.IsTarget)
+                return OutputDieManualState.Skip;
+            if (entry.Result == DieResult.Good)
+                return OutputDieManualState.GoodComplete;
+            if (entry.Result == DieResult.NG)
+                return OutputDieManualState.NgComplete;
+
+            return OutputDieManualState.Wait;
+        }
+
+        private static string ResolveOutputManualStateDisplayName(OutputDieManualState state)
+        {
+            switch (state)
+            {
+                case OutputDieManualState.GoodComplete:
+                    return "GOOD / 완료";
+                case OutputDieManualState.NgComplete:
+                    return "NG / 불량";
+                case OutputDieManualState.Skip:
+                    return "SKIP / 제외";
+                case OutputDieManualState.Wait:
+                default:
+                    return "WAIT / 대기";
             }
         }
 
@@ -1199,7 +1671,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
 
         /// <summary>
         /// 선택 빈 슬롯 좌표로 출력 스테이지를 이동합니다.<br/>
-        /// 인터락: VisionX(공유레일) 이동 전 Front/Rear PickerX를 Avoid로 선행 이동.<br/>
+        /// 인터락: VisionX(공유레일) 이동 전 Front/Rear Picker를 Z->Y->X 순서로 Avoid 선행 이동.<br/>
         /// 축 구조 D3: 행(Y)=스테이지 {side}BinY, 열(X)=VisionX(카메라). 각 단계 타임아웃 가드 + 정지.
         /// </summary>
         private async Task MoveSelectedBinSlotAsync()
@@ -1249,7 +1721,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     ManualMotionScopeKind.SpeedOnly,
                     "OutputStageMapTransferPage:MoveSelectedBinSlot");
 
-                // 1) VisionX(공유레일) 이동 전 Front/Rear PickerX를 Avoid로 선행 이동(간섭 차단).
+                // 1) VisionX(공유레일) 이동 전 Front/Rear Picker를 Z 상승 -> Y 후진 -> X Avoid 순서로 선행 이동(간섭 차단).
                 int prepareResult = await AwaitManualMoveStepAsync(
                     MovePickersToAvoidForOutputMoveAsync(host),
                     timeoutMs,
@@ -1264,24 +1736,10 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     return;
                 }
 
-                int stagePrepareResult = await AwaitManualMoveStepAsync(
-                    PrepareOutputStageYMoveAsync(unit, _selectedSide, timeoutMs),
-                    timeoutMs,
-                    "OutputStage Y 이동 준비",
-                    () => StopManualMapMove(host, "OutputStage Y 이동 준비 타임아웃")).ConfigureAwait(true);
-                if (stagePrepareResult != 0)
-                {
-                    QMC.Common.MessageDialog.Show(this,
-                        "OutputStage Y 이동 준비 실패\r\nresult=" + stagePrepareResult +
-                        "\r\nAlarm/Event Log를 확인하세요.",
-                        "Output Stage Map", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                    return;
-                }
-
                 // 2) 행(Y): 스테이지 Y축
                 BinStageAxis yAxis = _selectedSide == BinSide.Ng ? BinStageAxis.NgBinY : BinStageAxis.GoodBinY;
                 int rowResult = await AwaitManualMoveStepAsync(
-                    unit.MoveStageAxis(yAxis, absY, JogSpeedType.Fine, 0.0),
+                    MoveOutputStageYToSlotWithInterlockAsync(unit, _selectedSide, absY, timeoutMs, "OutputVisionMove"),
                     timeoutMs,
                     "빈 슬롯 행(Y) 이동",
                     () => StopManualMapMove(host, "Output Y move timeout")).ConfigureAwait(true);
@@ -1450,35 +1908,39 @@ namespace QMC.CDT_320.Ui.Pages.Work
             {
                 OutputStageUnit unit = host.Machine.OutputStageUnit;
 
-                int prepareResult = await PrepareOutputStageYMoveAsync(unit, outputSide, timeoutMs).ConfigureAwait(true);
-                if (prepareResult != 0)
-                    return prepareResult;
-
-                BinStageAxis yAxis = outputSide == BinSide.Ng ? BinStageAxis.NgBinY : BinStageAxis.GoodBinY;
-                int stageResult = await unit.MoveStageAxis(yAxis, targets.OutputStageY, JogSpeedType.Fine, 0.0).ConfigureAwait(true);
-                if (stageResult != 0)
-                    return stageResult;
-
-                AxisMoveWaitResult stageWait = await unit.WaitStageAxisMoveDoneInPosition(yAxis, targets.OutputStageY, timeoutMs).ConfigureAwait(true);
-                if (stageWait == null || !stageWait.Success)
-                    return -1;
-
+                // 수동 Picker Place 이동 전 OutputVisionX를 먼저 Avoid로 빼서 공유레일 간섭을 줄인다.
                 int visionAvoidResult = await MoveOutputVisionXToAvoidForPickerMoveAsync(host, unit, timeoutMs).ConfigureAwait(true);
                 if (visionAvoidResult != 0)
                     return visionAvoidResult;
 
-                int otherPickerAvoidResult = await MoveOtherPickerOutOfOutputZoneForPickerMoveAsync(host, side).ConfigureAwait(true);
+                // Picker X 이동 전 대상 Picker는 Z 상승 후 Y 후진을 먼저 완료한다.
+                int targetPickerSafeResult = await MoveTargetPickerZAndYToAvoidForPickerMoveAsync(host, side, timeoutMs).ConfigureAwait(true);
+                if (targetPickerSafeResult != 0)
+                    return targetPickerSafeResult;
+
+                // 반대편 Picker는 Output 영역 진입 전 Z->Y->X 순서로 완전 Avoid 위치에 둔다.
+                int otherPickerAvoidResult = await MoveOtherPickerOutOfOutputZoneForPickerMoveAsync(host, side, timeoutMs).ConfigureAwait(true);
                 if (otherPickerAvoidResult != 0)
                     return otherPickerAvoidResult;
+
+                BinStageAxis yAxis = outputSide == BinSide.Ng ? BinStageAxis.NgBinY : BinStageAxis.GoodBinY;
+                int stageResult = await MoveOutputStageYToSlotWithInterlockAsync(
+                    unit,
+                    outputSide,
+                    targets.OutputStageY,
+                    timeoutMs,
+                    "ManualPickerMove").ConfigureAwait(true);
+                if (stageResult != 0)
+                    return stageResult;
 
                 int pickerIndex = pickerNo - 1;
                 PickerAxis tAxis = GetPickerTAxis(pickerIndex);
                 string targetName = "DiePlacePosition[" + pickerIndex + "];ManualOutputDieMapMove";
 
+                // PickerY는 후진된 상태에서 X/T를 먼저 맞춘 뒤, 마지막에 Place Y로 전진시킨다.
                 Task<int> movePickerX = MovePickerAxisAsync(host, side, PickerAxis.PickerX, targets.PickerX, targetName);
-                Task<int> movePickerY = MovePickerAxisAsync(host, side, PickerAxis.PickerY, targets.PickerY, targetName);
                 Task<int> movePickerT = MovePickerAxisAsync(host, side, tAxis, targets.PickerT, targetName);
-                int[] moveResults = await Task.WhenAll(movePickerX, movePickerY, movePickerT).ConfigureAwait(true);
+                int[] moveResults = await Task.WhenAll(movePickerX, movePickerT).ConfigureAwait(true);
                 for (int i = 0; i < moveResults.Length; i++)
                 {
                     if (moveResults[i] != 0)
@@ -1486,14 +1948,31 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 }
 
                 Task<int> waitPickerX = WaitPickerAxisInPositionAsync(host, side, PickerAxis.PickerX, targets.PickerX, timeoutMs);
-                Task<int> waitPickerY = WaitPickerAxisInPositionAsync(host, side, PickerAxis.PickerY, targets.PickerY, timeoutMs);
                 Task<int> waitPickerT = WaitPickerAxisInPositionAsync(host, side, tAxis, targets.PickerT, timeoutMs);
-                int[] waitResults = await Task.WhenAll(waitPickerX, waitPickerY, waitPickerT).ConfigureAwait(true);
+                int[] waitResults = await Task.WhenAll(waitPickerX, waitPickerT).ConfigureAwait(true);
                 for (int i = 0; i < waitResults.Length; i++)
                 {
                     if (waitResults[i] != 0)
                         return waitResults[i];
                 }
+
+                int pickerYMoveResult = await MovePickerAxisAsync(
+                    host,
+                    side,
+                    PickerAxis.PickerY,
+                    targets.PickerY,
+                    targetName + ";PickerPhase=ForwardY").ConfigureAwait(true);
+                if (pickerYMoveResult != 0)
+                    return pickerYMoveResult;
+
+                int pickerYWaitResult = await WaitPickerAxisInPositionAsync(
+                    host,
+                    side,
+                    PickerAxis.PickerY,
+                    targets.PickerY,
+                    timeoutMs).ConfigureAwait(true);
+                if (pickerYWaitResult != 0)
+                    return pickerYWaitResult;
 
                 if (!IsPickerAxisInPosition(host, side, PickerAxis.PickerX, targets.PickerX) ||
                     !IsPickerAxisInPosition(host, side, PickerAxis.PickerY, targets.PickerY) ||
@@ -1522,7 +2001,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             }
         }
 
-        /// <summary>VisionX(공유레일) 이동 전 Output Zone에 있는 Picker만 Avoid 위치로 이동합니다.</summary>
+        /// <summary>VisionX(공유레일) 이동 전 Front/Rear Picker를 모두 Z->Y->X 순서로 Avoid 위치로 이동합니다.</summary>
         private async Task<int> MovePickersToAvoidForOutputMoveAsync(Form1 host)
         {
             try
@@ -1530,25 +2009,23 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 if (host == null || host.Machine == null)
                     return -1;
 
-                PickerFrontUnit front = host.Machine.PickerFrontUnit;
-                if (IsFrontPickerInOutputZone(front) && !front.IsFrontPickerInAvoidPosition())
-                {
-                    int frontResult = await front.MoveToFrontPickerAvoidPosition(JogSpeedType.Fine, 0.0).ConfigureAwait(true);
-                    if (frontResult != 0)
-                        return frontResult;
-                    if (!front.IsFrontPickerInAvoidPosition())
-                        return -1;
-                }
+                int timeoutMs = ResolveManualMoveTimeoutMs(host);
 
-                PickerRearUnit rear = host.Machine.PickerRearUnit;
-                if (IsRearPickerInOutputZone(rear) && !rear.IsRearPickerInAvoidPosition())
-                {
-                    int rearResult = await rear.MoveToRearPickerAvoidPosition(JogSpeedType.Fine, 0.0).ConfigureAwait(true);
-                    if (rearResult != 0)
-                        return rearResult;
-                    if (!rear.IsRearPickerInAvoidPosition())
-                        return -1;
-                }
+                int frontResult = await MovePickerToAvoidOrderedAsync(
+                    host,
+                    PickerSequenceSide.Front,
+                    timeoutMs,
+                    "OutputVisionMove").ConfigureAwait(true);
+                if (frontResult != 0)
+                    return frontResult;
+
+                int rearResult = await MovePickerToAvoidOrderedAsync(
+                    host,
+                    PickerSequenceSide.Rear,
+                    timeoutMs,
+                    "OutputVisionMove").ConfigureAwait(true);
+                if (rearResult != 0)
+                    return rearResult;
 
                 return 0;
             }
@@ -1572,10 +2049,6 @@ namespace QMC.CDT_320.Ui.Pages.Work
 
                 if (unit.IsVisionXInAvoidPosition())
                     return 0;
-
-                int pickerAvoidResult = await MovePickersToAvoidForOutputMoveAsync(host).ConfigureAwait(true);
-                if (pickerAvoidResult != 0)
-                    return pickerAvoidResult;
 
                 int result = await unit.MoveStageAxis(BinStageAxis.VisionX, unit.Recipe.VisionX.AvoidPosition, JogSpeedType.Fine, 0.0).ConfigureAwait(true);
                 if (result != 0)
@@ -1629,36 +2102,23 @@ namespace QMC.CDT_320.Ui.Pages.Work
             return false;
         }
 
-        /// <summary>선택 Picker가 Output Zone에 들어가기 전, 상대 Picker가 Output Zone에 있으면 Avoid로 이동합니다.</summary>
-        private async Task<int> MoveOtherPickerOutOfOutputZoneForPickerMoveAsync(Form1 host, PickerSequenceSide movingSide)
+        /// <summary>선택 Picker가 Output Zone에 들어가기 전, 상대 Picker를 Z->Y->X 순서로 Avoid 이동합니다.</summary>
+        private async Task<int> MoveOtherPickerOutOfOutputZoneForPickerMoveAsync(Form1 host, PickerSequenceSide movingSide, int timeoutMs)
         {
             try
             {
                 if (host == null || host.Machine == null)
                     return -1;
 
-                if (movingSide == PickerSequenceSide.Front)
-                {
-                    PickerRearUnit rear = host.Machine.PickerRearUnit;
-                    if (!IsRearPickerInOutputZone(rear))
-                        return 0;
+                PickerSequenceSide oppositeSide = movingSide == PickerSequenceSide.Front
+                    ? PickerSequenceSide.Rear
+                    : PickerSequenceSide.Front;
 
-                    int rearResult = await rear.MoveToRearPickerAvoidPosition(JogSpeedType.Fine, 0.0).ConfigureAwait(true);
-                    if (rearResult != 0)
-                        return rearResult;
-
-                    return rear.IsRearPickerInAvoidPosition() ? 0 : -1;
-                }
-
-                PickerFrontUnit front = host.Machine.PickerFrontUnit;
-                if (!IsFrontPickerInOutputZone(front))
-                    return 0;
-
-                int frontResult = await front.MoveToFrontPickerAvoidPosition(JogSpeedType.Fine, 0.0).ConfigureAwait(true);
-                if (frontResult != 0)
-                    return frontResult;
-
-                return front.IsFrontPickerInAvoidPosition() ? 0 : -1;
+                return await MovePickerToAvoidOrderedAsync(
+                    host,
+                    oppositeSide,
+                    timeoutMs,
+                    "ManualPickerMoveOther").ConfigureAwait(true);
             }
             catch (Exception ex)
             {
@@ -1724,6 +2184,59 @@ namespace QMC.CDT_320.Ui.Pages.Work
             {
                 QMC.Common.Log.Write("Main", "SYSTEM", "OutputStageMapTransferPage",
                     "OutputStage Y 이동 준비 실패: " + ex.Message + " - Failed");
+                return -1;
+            }
+            finally
+            {
+            }
+        }
+
+        private async Task<int> MoveOutputStageYToSlotWithInterlockAsync(
+            OutputStageUnit unit,
+            BinSide side,
+            double targetY,
+            int timeoutMs,
+            string reasonTag)
+        {
+            try
+            {
+                if (unit == null)
+                    return -1;
+
+                int prepareResult = await PrepareOutputStageYMoveAsync(unit, side, timeoutMs).ConfigureAwait(true);
+                if (prepareResult != 0)
+                    return prepareResult;
+
+                BinStageAxis yAxis = side == BinSide.Ng ? BinStageAxis.NgBinY : BinStageAxis.GoodBinY;
+                QMC.Common.Log.Write("Main", "SYSTEM", "OutputStageMapTransferPage",
+                    "Output " + side + " StageY slot move start. axis=" + yAxis +
+                    ", targetY=" + targetY.ToString("F6") +
+                    ", reason=" + (reasonTag ?? string.Empty) +
+                    ". MoveStageAxis interlock path is used. - Start");
+
+                // 해당 GOOD/NG StageY 이동은 기존 MoveStageAxis 경로로 인터락을 확인한 뒤 진행한다.
+                int stageResult = await unit.MoveStageAxis(yAxis, targetY, JogSpeedType.Fine, 0.0).ConfigureAwait(true);
+                if (stageResult != 0)
+                    return stageResult;
+
+                AxisMoveWaitResult stageWait = await unit.WaitStageAxisMoveDoneInPosition(yAxis, targetY, timeoutMs).ConfigureAwait(true);
+                if (stageWait == null || !stageWait.Success)
+                    return -1;
+
+                if (!unit.IsStageAxisInPosition(yAxis, targetY, ResolveOutputStageAxisTolerance(unit, yAxis)))
+                    return -1;
+
+                QMC.Common.Log.Write("Main", "SYSTEM", "OutputStageMapTransferPage",
+                    "Output " + side + " StageY slot move complete. " +
+                    unit.BuildStageAxisState(yAxis, targetY) + " - Ok");
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Log.Write("Main", "SYSTEM", "OutputStageMapTransferPage",
+                    "Output StageY slot move failed: side=" + side +
+                    ", targetY=" + targetY.ToString("F6") +
+                    ", error=" + ex.Message + " - Failed");
                 return -1;
             }
             finally
@@ -1970,6 +2483,11 @@ namespace QMC.CDT_320.Ui.Pages.Work
             return (side == PickerSequenceSide.Front ? "FRONT" : "REAR") + " PICKER #" + pickerNo;
         }
 
+        private static string ResolvePickerSideName(PickerSequenceSide side)
+        {
+            return side == PickerSequenceSide.Front ? "FRONT" : "REAR";
+        }
+
         private async Task<int> AwaitManualMoveStepAsync(Task<int> operation, int timeoutMs, string description, Action onTimeoutStop)
         {
             try
@@ -2145,6 +2663,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 btnNeedleBlockDown.Enabled = enabled;
                 btnThetaMatchMove.Enabled = enabled;
                 btnXyMatchMove.Enabled = enabled;
+                if (btnApplyOutputDieState != null)
+                    btnApplyOutputDieState.Enabled = enabled;
             }
             catch
             {
@@ -2245,6 +2765,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 wafer.UpdatedAt = DateTime.Now;
 
                 List<DieMapEntry> ordered = BuildReceiveOrder(map);
+                wafer.OutputReceiveNextIndex = CalculateNextOutputReceiveIndex(ordered);
                 if (wafer.OutputReceiveSlots == null)
                     wafer.OutputReceiveSlots = new List<OutputReceiveSlotMaterial>();
                 else
@@ -2282,6 +2803,220 @@ namespace QMC.CDT_320.Ui.Pages.Work
             finally
             {
             }
+        }
+
+        private async Task<int> MoveTargetPickerZAndYToAvoidForPickerMoveAsync(Form1 host, PickerSequenceSide side, int timeoutMs)
+        {
+            try
+            {
+                // Picker X 이동 전 대상 Picker는 Z를 올리고 Y를 후진시켜 X 이동 간섭을 줄인다.
+                int zResult = await MovePickerZAxesToAvoidAsync(
+                    host,
+                    side,
+                    timeoutMs,
+                    "ManualPickerMoveTarget").ConfigureAwait(true);
+                if (zResult != 0)
+                    return zResult;
+
+                return await MovePickerAxisToTeachingIfNeededAsync(
+                    host,
+                    side,
+                    PickerAxis.PickerY,
+                    "AvoidPosition",
+                    timeoutMs,
+                    "ManualPickerMoveTarget.SafeY").ConfigureAwait(true);
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Log.Write("Main", "SYSTEM", "OutputStageMapTransferPage",
+                    ResolvePickerSideName(side) + " picker Z/Y avoid prepare failed: " + ex.Message + " - Failed");
+                return -1;
+            }
+            finally
+            {
+            }
+        }
+
+        private async Task<int> MovePickerToAvoidOrderedAsync(Form1 host, PickerSequenceSide side, int timeoutMs, string reasonTag)
+        {
+            try
+            {
+                // 수동 Output 이동 안전 순서: Z 상승 -> Y 후진 -> X Avoid 순서로 이동한다.
+                int zResult = await MovePickerZAxesToAvoidAsync(host, side, timeoutMs, reasonTag).ConfigureAwait(true);
+                if (zResult != 0)
+                    return zResult;
+
+                int yResult = await MovePickerAxisToTeachingIfNeededAsync(
+                    host,
+                    side,
+                    PickerAxis.PickerY,
+                    "AvoidPosition",
+                    timeoutMs,
+                    reasonTag + ".SafeY").ConfigureAwait(true);
+                if (yResult != 0)
+                    return yResult;
+
+                int xResult = await MovePickerAxisToTeachingIfNeededAsync(
+                    host,
+                    side,
+                    PickerAxis.PickerX,
+                    "AvoidPosition",
+                    timeoutMs,
+                    reasonTag + ".SafeX").ConfigureAwait(true);
+                if (xResult != 0)
+                    return xResult;
+
+                return IsPickerSideAtOrderedAvoidPosition(host, side) ? 0 : -1;
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Log.Write("Main", "SYSTEM", "OutputStageMapTransferPage",
+                    ResolvePickerSideName(side) + " ordered avoid move failed: " + ex.Message + " - Failed");
+                return -1;
+            }
+            finally
+            {
+            }
+        }
+
+        private async Task<int> MovePickerZAxesToAvoidAsync(Form1 host, PickerSequenceSide side, int timeoutMs, string reasonTag)
+        {
+            try
+            {
+                for (int i = 0; i < PickerZAxes.Length; i++)
+                {
+                    int result = await MovePickerAxisToTeachingIfNeededAsync(
+                        host,
+                        side,
+                        PickerZAxes[i],
+                        "AvoidPosition",
+                        timeoutMs,
+                        reasonTag + ".SafeZ").ConfigureAwait(true);
+                    if (result != 0)
+                        return result;
+                }
+
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Log.Write("Main", "SYSTEM", "OutputStageMapTransferPage",
+                    ResolvePickerSideName(side) + " PickerZ avoid move failed: " + ex.Message + " - Failed");
+                return -1;
+            }
+            finally
+            {
+            }
+        }
+
+        private async Task<int> MovePickerAxisToTeachingIfNeededAsync(
+            Form1 host,
+            PickerSequenceSide side,
+            PickerAxis axis,
+            string positionName,
+            int timeoutMs,
+            string phaseName)
+        {
+            try
+            {
+                if (host == null || host.Machine == null)
+                    return -1;
+
+                double target = GetPickerTeachingPosition(host, side, axis, positionName);
+                if (IsPickerAxisInPosition(host, side, axis, target))
+                    return 0;
+
+                string targetName = positionName + ";ManualOutputDieMapMove;PickerPhase=" + phaseName;
+                QMC.Common.Log.Write("Main", "SYSTEM", "OutputStageMapTransferPage",
+                    ResolvePickerSideName(side) + " " + axis +
+                    " move to " + positionName + ". target=" + target.ToString("F6") +
+                    ", phase=" + phaseName + " - Start");
+
+                int result = await MovePickerAxisAsync(host, side, axis, target, targetName).ConfigureAwait(true);
+                if (result != 0)
+                {
+                    QMC.Common.Log.Write("Main", "SYSTEM", "OutputStageMapTransferPage",
+                        ResolvePickerSideName(side) + " " + axis +
+                        " move to " + positionName + " failed. result=" + result + " - Failed");
+                    return result;
+                }
+
+                result = await WaitPickerAxisInPositionAsync(host, side, axis, target, timeoutMs).ConfigureAwait(true);
+                if (result != 0)
+                {
+                    QMC.Common.Log.Write("Main", "SYSTEM", "OutputStageMapTransferPage",
+                        ResolvePickerSideName(side) + " " + axis +
+                        " wait " + positionName + " failed. target=" + target.ToString("F6") +
+                        ", state=" + BuildPickerAxisState(host, side, axis, target) + " - Failed");
+                    return result;
+                }
+
+                if (!IsPickerAxisInPosition(host, side, axis, target))
+                {
+                    QMC.Common.Log.Write("Main", "SYSTEM", "OutputStageMapTransferPage",
+                        ResolvePickerSideName(side) + " " + axis +
+                        " final " + positionName + " check failed. " +
+                        BuildPickerAxisState(host, side, axis, target) + " - Failed");
+                    return -1;
+                }
+
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Log.Write("Main", "SYSTEM", "OutputStageMapTransferPage",
+                    ResolvePickerSideName(side) + " " + axis +
+                    " teaching move failed: " + ex.Message + " - Failed");
+                return -1;
+            }
+            finally
+            {
+            }
+        }
+
+        private static bool IsPickerSideAtOrderedAvoidPosition(Form1 host, PickerSequenceSide side)
+        {
+            if (host == null || host.Machine == null)
+                return false;
+
+            if (!IsPickerAxisInPosition(host, side, PickerAxis.PickerX, GetPickerTeachingPosition(host, side, PickerAxis.PickerX, "AvoidPosition")))
+                return false;
+
+            if (!IsPickerAxisInPosition(host, side, PickerAxis.PickerY, GetPickerTeachingPosition(host, side, PickerAxis.PickerY, "AvoidPosition")))
+                return false;
+
+            for (int i = 0; i < PickerZAxes.Length; i++)
+            {
+                PickerAxis axis = PickerZAxes[i];
+                if (!IsPickerAxisInPosition(host, side, axis, GetPickerTeachingPosition(host, side, axis, "AvoidPosition")))
+                    return false;
+            }
+
+            return true;
+        }
+
+        private static int CalculateNextOutputReceiveIndex(List<DieMapEntry> ordered)
+        {
+            if (ordered == null || ordered.Count <= 0)
+                return 0;
+
+            int targetCount = 0;
+            for (int index = 0; index < ordered.Count; index++)
+            {
+                DieMapEntry entry = ordered[index];
+                if (entry == null)
+                    continue;
+
+                if (!entry.IsTarget)
+                    continue;
+
+                targetCount++;
+                // Output 수납 진행 위치는 검사 결과가 아니라 실제 DieUid가 비어있는 슬롯 기준으로 계산한다.
+                if (string.IsNullOrWhiteSpace(entry.DieUid))
+                    return index;
+            }
+
+            return targetCount > 0 ? targetCount : 0;
         }
 
         protected override void OnHandleDestroyed(EventArgs e)

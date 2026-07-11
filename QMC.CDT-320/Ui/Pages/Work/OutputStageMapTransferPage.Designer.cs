@@ -50,8 +50,12 @@ namespace QMC.CDT_320.Ui.Pages.Work
         private RadioButton rbStartIndex;
         private RadioButton rbSelectPickStatus;
         private RadioButton rbDragPickStatus;
+        private RadioButton rdoOutputStateGood;
+        private RadioButton rdoOutputStateNg;
+        private ComboBox cmbOutputDieState;
         private Button btnPickStatusSave;
         private Button btnReloadActiveMap;
+        private Button btnApplyOutputDieState;
         private TableLayoutPanel actionLayout;
         private ActionButton btnManualAlignComplete;
         private ActionButton btnNeedleBlockDown;
@@ -106,8 +110,12 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.rbStartIndex = new System.Windows.Forms.RadioButton();
             this.rbSelectPickStatus = new System.Windows.Forms.RadioButton();
             this.rbDragPickStatus = new System.Windows.Forms.RadioButton();
+            this.rdoOutputStateGood = new System.Windows.Forms.RadioButton();
+            this.rdoOutputStateNg = new System.Windows.Forms.RadioButton();
+            this.cmbOutputDieState = new System.Windows.Forms.ComboBox();
             this.btnReloadActiveMap = new System.Windows.Forms.Button();
             this.btnPickStatusSave = new System.Windows.Forms.Button();
+            this.btnApplyOutputDieState = new System.Windows.Forms.Button();
             this.btnManualAlignComplete = new QMC.CDT_320.Ui.Controls.ActionButton();
             this.btnNeedleBlockDown = new QMC.CDT_320.Ui.Controls.ActionButton();
             this.btnThetaMatchMove = new QMC.CDT_320.Ui.Controls.ActionButton();
@@ -611,7 +619,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.grpMode.Padding = new System.Windows.Forms.Padding(3);
             this.grpMode.TabStop = false;
             this.grpMode.Text = "OUTPUT STAGE";
-            this.grpMode.Size = new System.Drawing.Size(410, 216);
+            this.grpMode.Size = new System.Drawing.Size(410, 246);
             //
             // modeLayout
             //
@@ -623,8 +631,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.modeLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 25F));
             this.modeLayout.Controls.Add(this.rbStandard, 2, 0);
             this.modeLayout.Controls.Add(this.rbStartIndex, 3, 0);
-            this.modeLayout.Controls.Add(this.rbSelectPickStatus, 0, 2);
-            this.modeLayout.Controls.Add(this.rbDragPickStatus, 0, 3);
+            this.modeLayout.Controls.Add(this.cmbOutputDieState, 0, 2);
+            this.modeLayout.Controls.Add(this.btnApplyOutputDieState, 0, 3);
             this.modeLayout.Controls.Add(this.btnReloadActiveMap, 0, 4);
             this.modeLayout.Controls.Add(this.btnPickStatusSave, 2, 4);
             this.modeLayout.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -635,17 +643,17 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.modeLayout.RowCount = 5;
             this.modeLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 30F));
             this.modeLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 30F));
-            this.modeLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 30F));
-            this.modeLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 30F));
+            this.modeLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 34F));
             this.modeLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 44F));
-            this.modeLayout.Size = new System.Drawing.Size(398, 186);
+            this.modeLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 44F));
+            this.modeLayout.Size = new System.Drawing.Size(398, 216);
             this.modeLayout.TabIndex = 0;
             this.modeLayout.SetColumnSpan(this.rbStandard, 1);
             this.modeLayout.SetRowSpan(this.rbStandard, 2);
             this.modeLayout.SetColumnSpan(this.rbStartIndex, 1);
             this.modeLayout.SetRowSpan(this.rbStartIndex, 2);
-            this.modeLayout.SetColumnSpan(this.rbSelectPickStatus, 4);
-            this.modeLayout.SetColumnSpan(this.rbDragPickStatus, 4);
+            this.modeLayout.SetColumnSpan(this.cmbOutputDieState, 4);
+            this.modeLayout.SetColumnSpan(this.btnApplyOutputDieState, 4);
             this.modeLayout.SetColumnSpan(this.btnReloadActiveMap, 2);
             this.modeLayout.SetColumnSpan(this.btnPickStatusSave, 2);
             //
@@ -701,14 +709,15 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.rbSelectPickStatus.AutoSize = false;
             this.rbSelectPickStatus.CheckAlign = System.Drawing.ContentAlignment.MiddleLeft;
             this.rbSelectPickStatus.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.rbSelectPickStatus.Enabled = false;
+            this.rbSelectPickStatus.Checked = true;
+            this.rbSelectPickStatus.Enabled = true;
             this.rbSelectPickStatus.Font = new System.Drawing.Font("맑은 고딕", 9F);
             this.rbSelectPickStatus.ForeColor = System.Drawing.Color.Black;
             this.rbSelectPickStatus.Margin = new System.Windows.Forms.Padding(3);
             this.rbSelectPickStatus.Padding = new System.Windows.Forms.Padding(0);
             this.rbSelectPickStatus.TabIndex = 2;
-            this.rbSelectPickStatus.TabStop = false;
-            this.rbSelectPickStatus.Text = "SOURCE ORDER";
+            this.rbSelectPickStatus.TabStop = true;
+            this.rbSelectPickStatus.Text = "WAIT / 대기";
             this.rbSelectPickStatus.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             this.rbSelectPickStatus.UseVisualStyleBackColor = true;
             //
@@ -717,16 +726,60 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.rbDragPickStatus.AutoSize = false;
             this.rbDragPickStatus.CheckAlign = System.Drawing.ContentAlignment.MiddleLeft;
             this.rbDragPickStatus.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.rbDragPickStatus.Enabled = false;
+            this.rbDragPickStatus.Enabled = true;
             this.rbDragPickStatus.Font = new System.Drawing.Font("맑은 고딕", 9F);
             this.rbDragPickStatus.ForeColor = System.Drawing.Color.Black;
             this.rbDragPickStatus.Margin = new System.Windows.Forms.Padding(3);
             this.rbDragPickStatus.Padding = new System.Windows.Forms.Padding(0);
             this.rbDragPickStatus.TabIndex = 3;
-            this.rbDragPickStatus.TabStop = false;
-            this.rbDragPickStatus.Text = "RECEIVED STATUS";
+            this.rbDragPickStatus.TabStop = true;
+            this.rbDragPickStatus.Text = "SKIP / 제외";
             this.rbDragPickStatus.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             this.rbDragPickStatus.UseVisualStyleBackColor = true;
+            //
+            // rdoOutputStateGood
+            //
+            this.rdoOutputStateGood.AutoSize = false;
+            this.rdoOutputStateGood.CheckAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            this.rdoOutputStateGood.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.rdoOutputStateGood.Font = new System.Drawing.Font("맑은 고딕", 9F);
+            this.rdoOutputStateGood.ForeColor = System.Drawing.Color.Black;
+            this.rdoOutputStateGood.Margin = new System.Windows.Forms.Padding(3);
+            this.rdoOutputStateGood.Padding = new System.Windows.Forms.Padding(0);
+            this.rdoOutputStateGood.TabIndex = 4;
+            this.rdoOutputStateGood.TabStop = true;
+            this.rdoOutputStateGood.Text = "GOOD / 완료";
+            this.rdoOutputStateGood.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            this.rdoOutputStateGood.UseVisualStyleBackColor = true;
+            //
+            // rdoOutputStateNg
+            //
+            this.rdoOutputStateNg.AutoSize = false;
+            this.rdoOutputStateNg.CheckAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            this.rdoOutputStateNg.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.rdoOutputStateNg.Font = new System.Drawing.Font("맑은 고딕", 9F);
+            this.rdoOutputStateNg.ForeColor = System.Drawing.Color.Black;
+            this.rdoOutputStateNg.Margin = new System.Windows.Forms.Padding(3);
+            this.rdoOutputStateNg.Padding = new System.Windows.Forms.Padding(0);
+            this.rdoOutputStateNg.TabIndex = 5;
+            this.rdoOutputStateNg.TabStop = true;
+            this.rdoOutputStateNg.Text = "NG / 불량";
+            this.rdoOutputStateNg.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            this.rdoOutputStateNg.UseVisualStyleBackColor = true;
+            //
+            // cmbOutputDieState
+            //
+            this.cmbOutputDieState.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.cmbOutputDieState.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
+            this.cmbOutputDieState.Font = new System.Drawing.Font("맑은 고딕", 9F);
+            this.cmbOutputDieState.FormattingEnabled = true;
+            this.cmbOutputDieState.Items.AddRange(new object[] {
+            "WAIT / 대기",
+            "GOOD / 완료",
+            "NG / 불량",
+            "SKIP / 제외"});
+            this.cmbOutputDieState.Margin = new System.Windows.Forms.Padding(3);
+            this.cmbOutputDieState.TabIndex = 4;
             //
             // btnReloadActiveMap
             //
@@ -761,6 +814,23 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.btnPickStatusSave.TabIndex = 1;
             this.btnPickStatusSave.Text = "MOVE SELECTED SLOT";
             this.btnPickStatusSave.UseVisualStyleBackColor = false;
+            //
+            // btnApplyOutputDieState
+            //
+            this.btnApplyOutputDieState.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(233)))), ((int)(((byte)(238)))), ((int)(((byte)(244)))));
+            this.btnApplyOutputDieState.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.btnApplyOutputDieState.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.btnApplyOutputDieState.FlatAppearance.BorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(143)))), ((int)(((byte)(156)))), ((int)(((byte)(173)))));
+            this.btnApplyOutputDieState.FlatAppearance.BorderSize = 1;
+            this.btnApplyOutputDieState.FlatAppearance.MouseDownBackColor = System.Drawing.Color.FromArgb(((int)(((byte)(199)))), ((int)(((byte)(210)))), ((int)(((byte)(224)))));
+            this.btnApplyOutputDieState.FlatAppearance.MouseOverBackColor = System.Drawing.Color.FromArgb(((int)(((byte)(218)))), ((int)(((byte)(226)))), ((int)(((byte)(236)))));
+            this.btnApplyOutputDieState.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this.btnApplyOutputDieState.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
+            this.btnApplyOutputDieState.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(38)))), ((int)(((byte)(50)))), ((int)(((byte)(66)))));
+            this.btnApplyOutputDieState.Margin = new System.Windows.Forms.Padding(3, 4, 3, 3);
+            this.btnApplyOutputDieState.TabIndex = 6;
+            this.btnApplyOutputDieState.Text = "APPLY SELECTED STATE";
+            this.btnApplyOutputDieState.UseVisualStyleBackColor = false;
             //
             // grpAction
             //
@@ -942,6 +1012,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.rbStartIndex.CheckedChanged += new System.EventHandler(this.rbStartIndex_CheckedChanged);
             this.btnReloadActiveMap.Click += new System.EventHandler(this.btnReloadActiveMap_Click);
             this.btnPickStatusSave.Click += new System.EventHandler(this.btnPickStatusSave_Click);
+            this.btnApplyOutputDieState.Click += new System.EventHandler(this.btnApplyOutputDieState_Click);
             this.btnManualAlignComplete.Click += new System.EventHandler(this.btnManualAlignComplete_Click);
             this.btnNeedleBlockDown.Click += new System.EventHandler(this.btnNeedleBlockDown_Click);
             this.btnThetaMatchMove.Click += new System.EventHandler(this.btnThetaMatchMove_Click);
@@ -1007,8 +1078,12 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.rbStartIndex.Name = "rbStartIndex";
             this.rbSelectPickStatus.Name = "rbSelectPickStatus";
             this.rbDragPickStatus.Name = "rbDragPickStatus";
+            this.rdoOutputStateGood.Name = "rdoOutputStateGood";
+            this.rdoOutputStateNg.Name = "rdoOutputStateNg";
+            this.cmbOutputDieState.Name = "cmbOutputDieState";
             this.btnReloadActiveMap.Name = "btnReloadActiveMap";
             this.btnPickStatusSave.Name = "btnPickStatusSave";
+            this.btnApplyOutputDieState.Name = "btnApplyOutputDieState";
             this.btnManualAlignComplete.Name = "btnManualAlignComplete";
             this.btnNeedleBlockDown.Name = "btnNeedleBlockDown";
             this.btnThetaMatchMove.Name = "btnThetaMatchMove";

@@ -344,6 +344,14 @@ namespace QMC.CDT320
         public double PlaceContiMaxTravel { get { return EnsurePlaceConfig().ContiMaxTravelDistance; } set { EnsurePlaceConfig().ContiMaxTravelDistance = PickerPickUpMotionConfig.NormalizePositive(value, 45.0); } }
 
         [Category("Place")]
+        [DisplayName("Place Z OverDrive")]
+        public double PlaceZOverDrive { get { return EnsurePlaceConfig().PlaceZOverDrive; } set { EnsurePlaceConfig().PlaceZOverDrive = value; } }
+
+        [Category("Place")]
+        [DisplayName("Place Release Dwell Ms")]
+        public int PlaceReleaseDwellMs { get { return EnsurePlaceConfig().PlaceReleaseDwellMs; } set { EnsurePlaceConfig().PlaceReleaseDwellMs = Math.Max(0, value); } }
+
+        [Category("Place")]
         [DisplayName("Place Conti Max Velocity")]
         public double PlaceContiMaxVelocity { get { return EnsurePlaceConfig().ContiMaxVelocity; } set { EnsurePlaceConfig().ContiMaxVelocity = PickerPickUpMotionConfig.NormalizePositive(value, 500.0); } }
 
@@ -820,23 +828,15 @@ namespace QMC.CDT320
                     return null;
                 }
 
-                BottomVisionOffset[] results = await vision.GetBottomResultsAsync(timeoutMs, ct).ConfigureAwait(false);
-                if (results == null)
+                BottomVisionOffset result = await vision.GetBottomResultAsync(pickerNo, timeoutMs, ct).ConfigureAwait(false);
+                if (result == null)
                 {
                     Log.Write("Main", "VISION", "PickerBottomInspect",
                         Name + " Bottom 검사 결과 수신 실패. pickerNo=" + pickerNo + ", timeoutMs=" + timeoutMs + " - Failed");
                     return null;
                 }
 
-                for (int i = 0; i < results.Length; i++)
-                {
-                    if (results[i] != null && results[i].PickerNo == pickerNo)
-                        return results[i];
-                }
-
-                Log.Write("Main", "VISION", "PickerBottomInspect",
-                    Name + " Bottom 검사 결과에 현재 Picker 번호가 없습니다. pickerNo=" + pickerNo + ", resultCount=" + results.Length + " - Failed");
-                return null;
+                return result;
             }
             catch (OperationCanceledException)
             {
@@ -909,23 +909,15 @@ namespace QMC.CDT320
                     return null;
                 }
 
-                BottomVisionOffset[] results = await vision.GetBottomResultsAsync(timeoutMs, ct).ConfigureAwait(false);
-                if (results == null)
+                BottomVisionOffset result = await vision.GetBottomResultAsync(pickerNo, timeoutMs, ct).ConfigureAwait(false);
+                if (result == null)
                 {
                     Log.Write("Main", "VISION", "PickerBottomInspect",
                         Name + " Bottom 검사 결과 수신 실패. pickerNo=" + pickerNo + ", timeoutMs=" + timeoutMs + " - Failed");
                     return null;
                 }
 
-                for (int i = 0; i < results.Length; i++)
-                {
-                    if (results[i] != null && results[i].PickerNo == pickerNo)
-                        return results[i];
-                }
-
-                Log.Write("Main", "VISION", "PickerBottomInspect",
-                    Name + " Bottom 검사 결과에 현재 Picker 번호가 없습니다. pickerNo=" + pickerNo + ", resultCount=" + results.Length + " - Failed");
-                return null;
+                return result;
             }
             catch (OperationCanceledException)
             {
@@ -1046,6 +1038,49 @@ namespace QMC.CDT320
             }
         }
 
+        public async Task<bool> StartSideInspectionAsync(int pickerNo, int angleDeg, int timeoutMs, CancellationToken ct)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+
+                if (IsVisionBypassed())
+                    return true;
+
+                if (vision == null)
+                {
+                    Log.Write("Main", "VISION", "PickerSideInspect",
+                        Name + " Side VisionPC가 연결되어 있지 않습니다. pickerNo=" + pickerNo + ", angleDeg=" + angleDeg + " - Failed");
+                    return false;
+                }
+
+                bool started = await vision.StartSideInspectAsync(pickerNo, angleDeg, timeoutMs, ct).ConfigureAwait(false);
+                if (!started)
+                {
+                    Log.Write("Main", "VISION", "PickerSideInspect",
+                        Name + " Side 검사 시작 요청 실패. pickerNo=" + pickerNo +
+                        ", angleDeg=" + angleDeg +
+                        ", timeoutMs=" + timeoutMs + " - Failed");
+                }
+
+                return started;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                Log.Write("Main", "VISION", "PickerSideInspect",
+                    Name + " Side 검사 시작 요청 중 예외가 발생했습니다. pickerNo=" + pickerNo +
+                    ", angleDeg=" + angleDeg + ", error=" + ex.Message + " - Failed");
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
         public async Task<SideVisionResult> GetSideInspectionResultAsync(int pickerNo, int timeoutMs, CancellationToken ct)
         {
             try
@@ -1081,6 +1116,49 @@ namespace QMC.CDT320
             {
                 Log.Write("Main", "VISION", "PickerSideInspect",
                     Name + " Side 검사 결과 수신 중 예외가 발생했습니다. pickerNo=" + pickerNo +
+                    ", error=" + ex.Message + " - Failed");
+                return null;
+            }
+            finally
+            {
+            }
+        }
+
+        public async Task<SideVisionResult> WaitSideInspectionResultAsync(int pickerNo, int timeoutMs, CancellationToken ct)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+
+                if (IsVisionBypassed())
+                    return SimulateSideInspectionResult(pickerNo);
+
+                if (vision == null)
+                {
+                    Log.Write("Main", "VISION", "PickerSideInspect",
+                        Name + " Side VisionPC가 연결되어 있지 않습니다. pickerNo=" + pickerNo + " - Failed");
+                    return null;
+                }
+
+                SideVisionResult result = await vision.WaitSideResultAsync(pickerNo, timeoutMs, ct).ConfigureAwait(false);
+                if (result == null)
+                {
+                    Log.Write("Main", "VISION", "PickerSideInspect",
+                        Name + " Side 검사 결과 대기 실패. pickerNo=" + pickerNo +
+                        ", timeoutMs=" + timeoutMs + " - Failed");
+                    return null;
+                }
+
+                return result;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                Log.Write("Main", "VISION", "PickerSideInspect",
+                    Name + " Side 검사 결과 대기 중 예외가 발생했습니다. pickerNo=" + pickerNo +
                     ", error=" + ex.Message + " - Failed");
                 return null;
             }

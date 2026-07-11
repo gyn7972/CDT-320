@@ -398,7 +398,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             items.Add(InGroup(Describe(ParameterGridItem.Int("VACUUM BEFORE PICK DELAY", "ms", ParameterGridScope.Config, () => pickUp.VacuumOnBeforePickDelayMs, v => pickUp.VacuumOnBeforePickDelayMs = Math.Max(0, v)),
                 "Picker Vacuum을 ON 한 뒤 PickerZ를 PickPosition으로 내리기 전에 기다리는 시간입니다.\r\n기본 Vacuum settle 시간보다 크면 이 값만큼 대기합니다."), groupKey));
             items.Add(InGroup(Describe(ParameterGridItem.Int("SYNC LIFT SETTLE", "ms", ParameterGridScope.Config, () => pickUp.SyncLiftSettleMs, v => pickUp.SyncLiftSettleMs = Math.Max(0, v)),
-                "Sync Lift 완료 직후 PickerZ Separate 전에 기다리는 시간입니다.\r\n자동 PickUp과 PickUp Test Step 06에서 같이 적용됩니다."), groupKey));
+                "Sync Lift 완료 직후 PickerZ Separate 전에 기다리던 기존 Picker별 값입니다.\r\n현재 자동 PickUp은 InputStage NEEDLE PICKUP SETTING의 PICKUP SYNC LIFT SETTLE 공통값을 우선 사용합니다."), groupKey));
             items.Add(InGroup(Describe(ParameterGridItem.Int("PICK SETTLE", "ms", ParameterGridScope.Config, () => pickUp.PickSettleMs, v => pickUp.PickSettleMs = Math.Max(0, v)),
                 "PickUp Z 동작 후 흡착 확인/Material 갱신 전에 기다리는 안정화 시간입니다.\r\nDie가 흔들리거나 진공 응답이 늦을 때 늘립니다."), groupKey));
         }
@@ -454,6 +454,10 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             items.Add(InGroup(ParameterGridItem.Int("PLACE CONTI TIMEOUT", "ms", ParameterGridScope.Config, () => place.ContiTimeoutMs, v => place.ContiTimeoutMs = Math.Max(1, v)), groupKey));
             items.Add(InGroup(Describe(ParameterGridItem.Double("PLACE CONTI MAX TRAVEL", AxisUnitConverter.Millimeter, ParameterGridScope.Config, () => place.ContiMaxTravelDistance, v => place.ContiMaxTravelDistance = PickerPickUpMotionConfig.NormalizePositive(v, 45.0)),
                 "현재 위치에서 Place 목표 위치까지 한 축이라도 이 거리보다 많이 움직이면 ContiNode를 사용하지 않고 기존 이동 방식으로 접근합니다.\r\n알람/정지 후 Avoid 위치에서 재시작할 때 긴 거리를 ContiNode로 이동하지 않게 막는 값입니다."), groupKey));
+            items.Add(InGroup(Describe(ParameterGridItem.Double("PLACE Z OVERDRIVE", AxisUnitConverter.Millimeter, ParameterGridScope.Config, () => place.PlaceZOverDrive, v => place.PlaceZOverDrive = v),
+                "Place Z 티칭 위치에 더해서 내려놓는 보정량입니다.\r\n최종 Place Z = 티칭 Place Z + 이 값입니다. 장비 Z 좌표 방향에 맞춰 부호를 설정하세요."), groupKey));
+            items.Add(InGroup(Describe(ParameterGridItem.Int("PLACE RELEASE DWELL", "ms", ParameterGridScope.Config, () => place.PlaceReleaseDwellMs, v => place.PlaceReleaseDwellMs = Math.Max(0, v)),
+                "Place 위치에서 Vacuum OFF/Blow 후 PickerZ가 Avoid로 올라가기 전에 대기하는 시간입니다."), groupKey));
             items.Add(InGroup(Describe(ParameterGridItem.Double("PLACE CONTI Z1 STEP1 CLEAR", AxisUnitConverter.Millimeter, ParameterGridScope.Config, () => place.ContiZ1Step1Clearance, v => place.ContiZ1Step1Clearance = Math.Max(0.0, v)),
                 "ContiSegmentedPlace node0에서 이전 PickerZ(Z1)를 티칭 Place 기준 + Tape + Die 위치보다 위로 올리는 1단 회피량입니다."), groupKey));
             items.Add(InGroup(Describe(ParameterGridItem.Double("PLACE CONTI Z1 STEP2 CLEAR", AxisUnitConverter.Millimeter, ParameterGridScope.Config, () => place.ContiZ1Step2Clearance, v => place.ContiZ1Step2Clearance = Math.Max(0.0, v)),

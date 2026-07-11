@@ -115,17 +115,15 @@
             this.infoLayout.Controls.Add(this.lblLocationValue, 1, 4);
             this.infoLayout.Controls.Add(this.lblResultTitle, 0, 5);
             this.infoLayout.Controls.Add(this.cmbResult, 1, 5);
-            this.infoLayout.Controls.Add(this.chkInputTarget, 1, 6);
-            this.infoLayout.Controls.Add(this.lblNgCodeTitle, 0, 7);
-            this.infoLayout.Controls.Add(this.txtNgCode, 1, 7);
-            this.infoLayout.Controls.Add(this.lblReasonTitle, 0, 8);
-            this.infoLayout.Controls.Add(this.txtReason, 1, 8);
+            this.infoLayout.Controls.Add(this.lblNgCodeTitle, 0, 6);
+            this.infoLayout.Controls.Add(this.txtNgCode, 1, 6);
+            this.infoLayout.Controls.Add(this.lblReasonTitle, 0, 7);
+            this.infoLayout.Controls.Add(this.txtReason, 1, 7);
             this.infoLayout.Dock = System.Windows.Forms.DockStyle.Fill;
             this.infoLayout.Location = new System.Drawing.Point(12, 52);
             this.infoLayout.Margin = new System.Windows.Forms.Padding(0, 8, 0, 0);
             this.infoLayout.Name = "infoLayout";
-            this.infoLayout.RowCount = 10;
-            this.infoLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 32F));
+            this.infoLayout.RowCount = 9;
             this.infoLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 32F));
             this.infoLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 32F));
             this.infoLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 32F));
@@ -273,22 +271,17 @@
             this.lblResultTitle.Name = "lblResultTitle";
             this.lblResultTitle.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
             this.lblResultTitle.TabIndex = 10;
-            this.lblResultTitle.Text = "Result";
+            this.lblResultTitle.Text = "State";
             this.lblResultTitle.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             this.cmbResult.Dock = System.Windows.Forms.DockStyle.Fill;
             this.cmbResult.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
-            this.cmbResult.Items.AddRange(new object[] { "Unknown", "Good", "NG" });
+            this.cmbResult.Items.AddRange(new object[] { "WAIT / 대기", "GOOD / 완료", "NG / 불량", "SKIP / 제외" });
             this.cmbResult.Location = new System.Drawing.Point(153, 163);
             this.cmbResult.Name = "cmbResult";
             this.cmbResult.Size = new System.Drawing.Size(340, 23);
             this.cmbResult.TabIndex = 11;
-            this.chkInputTarget.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.chkInputTarget.Location = new System.Drawing.Point(153, 195);
             this.chkInputTarget.Name = "chkInputTarget";
-            this.chkInputTarget.Size = new System.Drawing.Size(340, 26);
-            this.chkInputTarget.TabIndex = 12;
-            this.chkInputTarget.Text = "Input Target";
-            this.chkInputTarget.UseVisualStyleBackColor = true;
+            this.chkInputTarget.Visible = false;
             // 
             // lblNgCodeTitle
             // 
@@ -303,7 +296,7 @@
             this.lblNgCodeTitle.Text = "NG Code";
             this.lblNgCodeTitle.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             this.txtNgCode.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.txtNgCode.Location = new System.Drawing.Point(153, 227);
+            this.txtNgCode.Location = new System.Drawing.Point(153, 195);
             this.txtNgCode.Name = "txtNgCode";
             this.txtNgCode.Size = new System.Drawing.Size(340, 23);
             this.txtNgCode.TabIndex = 14;
@@ -321,7 +314,7 @@
             this.lblReasonTitle.Text = "Reason";
             this.lblReasonTitle.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             this.txtReason.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.txtReason.Location = new System.Drawing.Point(153, 259);
+            this.txtReason.Location = new System.Drawing.Point(153, 227);
             this.txtReason.Name = "txtReason";
             this.txtReason.Size = new System.Drawing.Size(340, 23);
             this.txtReason.TabIndex = 16;

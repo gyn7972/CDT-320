@@ -1307,11 +1307,12 @@ namespace QMC.CDT320
                 }
 
                 data.EnsureObjects();
-                if (data.Camera == null || !data.Camera.Valid)
-                {
-                    reason = "Camera Calibration이 유효하지 않습니다. Bottom/Input/Output 카메라 Reticle 캘리브레이션을 완료하세요.";
-                    return false;
-                }
+                // Camera Calibration check disabled for auto start.
+                // if (data.Camera == null || !data.Camera.Valid)
+                // {
+                //     reason = "Camera Calibration이 유효하지 않습니다. Bottom/Input/Output 카메라 Reticle 캘리브레이션을 완료하세요.";
+                //     return false;
+                // }
 
                 if (data.Needle == null || !data.Needle.Valid)
                 {
@@ -1330,6 +1331,30 @@ namespace QMC.CDT320
             catch (Exception ex)
             {
                 reason = "CalibrationData 유효성 확인 중 예외가 발생했습니다. error=" + ex.Message;
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
+        private bool ShouldBypassCameraCalibrationForAutoStart()
+        {
+            try
+            {
+                AppSettings settings = AppSettingsStore.Current;
+                if (settings != null &&
+                    (settings.SimulationMode ||
+                     settings.DryRunMode ||
+                     settings.BypassHardware ||
+                     !settings.UseAjin ||
+                     !settings.UseVision))
+                    return true;
+
+                return DryRun || GlobalDryRun;
+            }
+            catch
+            {
                 return false;
             }
             finally
@@ -5760,8 +5785,8 @@ namespace QMC.CDT320
                 if (!EnsureReticleAvoidForAutoStart("StartAsync"))
                     return -1;
 
-                if (!EnsureCalibrationReadyForAutoStart("StartAsync"))
-                    return -1;
+                //if (!EnsureCalibrationReadyForAutoStart("StartAsync"))
+                //    return -1;
 
                 Log("[START] Process auto sequence start.");
                 QMC.Common.Log.Write("Main", "SYSTEM", "StartAsync", "Process auto sequence start requested. - Ok");
@@ -6528,9 +6553,9 @@ namespace QMC.CDT320
                     !EnsureReticleAvoidForAutoStart("StartSequenceAsync"))
                     return;
 
-                if (options.Mode == QMC.CDT320.Sequencing.SequenceRunMode.Auto &&
-                    !EnsureCalibrationReadyForAutoStart("StartSequenceAsync"))
-                    return;
+                //if (options.Mode == QMC.CDT320.Sequencing.SequenceRunMode.Auto &&
+                //    !EnsureCalibrationReadyForAutoStart("StartSequenceAsync"))
+                //    return;
 
                 _autoCts = new CancellationTokenSource();
                 var bus = new QMC.CDT320.Sequencing.SequenceSignalBus();

@@ -1044,8 +1044,8 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 return;
 
             entry.IsTarget = target;
-            entry.Result = target ? DieResult.Unknown : DieResult.NG;
-            entry.BinCode = target ? 0 : 255;
+            entry.Result = DieResult.Unknown;
+            entry.BinCode = 0;
         }
 
         private void SetAllTargets(bool target)

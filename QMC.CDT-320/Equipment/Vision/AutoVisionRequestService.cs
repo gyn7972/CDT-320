@@ -64,6 +64,70 @@ namespace QMC.CDT320.VisionComm
             }
         }
 
+        public static Task<bool> GrabInspectAsync(
+            AutoVisionChannel channel,
+            string inspector,
+            int fb,
+            int collet,
+            int dieIndex,
+            int visionChannel,
+            int gridX,
+            int gridY,
+            int timeoutMs,
+            CancellationToken ct)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+
+                if (IsVisionDisabled())
+                {
+                    EventLogger.Write(EventKind.Event, "VISION", "AUTO-VISION-GRAB-INSPECT-BYPASS",
+                        BypassReason() + " Vision 검사 GRAB 요청을 생략합니다. channel=" + channel +
+                        ", inspector=" + inspector +
+                        ", fb=" + fb + ", collet=" + collet +
+                        ", dieIndex=" + dieIndex + ", ch=" + visionChannel);
+                    return Task.FromResult(true);
+                }
+
+                int readyIndex = fb * 4 + collet;
+                if (IsDryRunMode())
+                    return RunDryRunGrabAsync(channel, collet * 10 + (visionChannel == 1 ? 2 : 1), timeoutMs, ct);
+
+                if (!IsReady(channel, VisionProtocolCommand.Grab, inspector, readyIndex))
+                    return Task.FromResult(false);
+
+                EventLogger.Write(EventKind.Event, "VISION", "AUTO-VISION-GRAB-INSPECT",
+                    "Vision 검사 GRAB 요청. GRAB 완료 후 같은 키로 백그라운드 검사를 시작합니다. channel=" + channel +
+                    ", inspector=" + inspector +
+                    ", fb=" + fb + ", collet=" + collet +
+                    ", dieIndex=" + dieIndex +
+                    ", ch=" + visionChannel +
+                    ", grid=" + gridX + ";" + gridY +
+                    ", timeoutMs=" + timeoutMs);
+
+                return VisionCommandService.GrabInspectAsync(channel, inspector, fb, collet, dieIndex, visionChannel, gridX, gridY, timeoutMs, ct);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                EventLogger.Write(EventKind.Alarm, "VISION", "AUTO-VISION-GRAB-INSPECT",
+                    "Vision 검사 GRAB 예외 발생. channel=" + channel +
+                    ", inspector=" + inspector +
+                    ", fb=" + fb + ", collet=" + collet +
+                    ", dieIndex=" + dieIndex +
+                    ", ch=" + visionChannel +
+                    ", error=" + ex.Message);
+                return Task.FromResult(false);
+            }
+            finally
+            {
+            }
+        }
+
         public static async Task<MatchResultDto> MatchAsync(
             AutoVisionChannel channel,
             string finder,
@@ -587,6 +651,16 @@ namespace QMC.CDT320.VisionComm
                     timeoutMs,
                     ct).ConfigureAwait(false);
 
+                if (IsInspectionResultTransportFailure(inspection))
+                {
+                    EventLogger.Write(EventKind.Alarm, "VISION", "AUTO-VISION-BOTTOM-INSPECT-RESULT",
+                        "Bottom SurfaceInspector 결과 수신 실패. 검사 NG가 아니라 Vision ACK/RESULT 미수신입니다. fb=" + fb +
+                        ", collet=" + collet +
+                        ", dieIndex=" + dieIndex +
+                        ", raw=" + (inspection != null ? inspection.Raw : "null"));
+                    return null;
+                }
+
                 BottomVisionOffset offset = VisionCameraCalibrationTransform.ToBottomVisionOffset(collet, inspection);
                 EventLogger.Write(EventKind.Event, "VISION", "AUTO-VISION-BOTTOM-INSPECT-CAL",
                     "Bottom SurfaceInspector 결과 구조 적용. fb=" + fb +
@@ -702,15 +776,38 @@ namespace QMC.CDT320.VisionComm
                     ct.ThrowIfCancellationRequested();
 
                     int remainMs = (int)Math.Max(1, (timeoutAt - DateTime.UtcNow).TotalMilliseconds);
-                    int pollTimeoutMs = Math.Min(10000, Math.Max(8000, remainMs));   // 서버 대기 상한(6s)보다 길게
+                    int pollTimeoutMs = Math.Min(8000, remainMs);
                     AsyncInspectPoll poll = await VisionCommandService.PollInspectResultAsync(channel, inspector, dieIndex, pollTimeoutMs, ct).ConfigureAwait(false);
                     if (poll == null)
-                        return new InspectionResultDto { IsPass = false, Raw = "INSPECTRESULT response is null." };
+                    {
+                        EventLogger.Write(EventKind.Alarm, "VISION", "AUTO-VISION-INSPECTRESULT",
+                            "Vision INSPECTRESULT 응답 수신 실패. poll=null, channel=" + channel +
+                            ", inspector=" + inspector +
+                            ", dieIndex=" + dieIndex);
+                        return null;
+                    }
                     if (poll.Error)
-                        return new InspectionResultDto { IsPass = false, Raw = poll.Raw };
+                    {
+                        EventLogger.Write(EventKind.Alarm, "VISION", "AUTO-VISION-INSPECTRESULT",
+                            "Vision INSPECTRESULT 응답 오류. channel=" + channel +
+                            ", inspector=" + inspector +
+                            ", dieIndex=" + dieIndex +
+                            ", raw=" + (poll.Raw ?? string.Empty));
+                        return null;
+                    }
                     if (poll.Done)
                     {
-                        InspectionResultDto done = poll.Result ?? new InspectionResultDto { IsPass = false, Raw = poll.Raw };
+                        InspectionResultDto done = poll.Result;
+                        if (done == null)
+                        {
+                            EventLogger.Write(EventKind.Alarm, "VISION", "AUTO-VISION-INSPECTRESULT",
+                                "Vision INSPECTRESULT 완료 ACK를 받았지만 결과 데이터가 없습니다. channel=" + channel +
+                                ", inspector=" + inspector +
+                                ", dieIndex=" + dieIndex +
+                                ", raw=" + (poll.Raw ?? string.Empty));
+                            return null;
+                        }
+
                         EventLogger.Write(EventKind.Event, "VISION", "AUTO-VISION-INSPECTRESULT-RAW",
                             "Vision INSPECTRESULT 수신. channel=" + channel +
                             ", inspector=" + inspector +
@@ -724,11 +821,12 @@ namespace QMC.CDT320.VisionComm
                     await Task.Delay(100, ct).ConfigureAwait(false);
                 }
 
-                return new InspectionResultDto
-                {
-                    IsPass = false,
-                    Raw = "INSPECTRESULT timeout. channel=" + channel + ", inspector=" + inspector + ", dieIndex=" + dieIndex + ", timeoutMs=" + timeoutMs
-                };
+                EventLogger.Write(EventKind.Alarm, "VISION", "AUTO-VISION-INSPECTRESULT",
+                    "Vision INSPECTRESULT timeout. 검사 결과 ACK/OK/NG를 받지 못했습니다. channel=" + channel +
+                    ", inspector=" + inspector +
+                    ", dieIndex=" + dieIndex +
+                    ", timeoutMs=" + timeoutMs);
+                return null;
             }
             catch (OperationCanceledException)
             {
@@ -736,7 +834,12 @@ namespace QMC.CDT320.VisionComm
             }
             catch (Exception ex)
             {
-                return new InspectionResultDto { IsPass = false, Raw = ex.Message };
+                EventLogger.Write(EventKind.Alarm, "VISION", "AUTO-VISION-INSPECTRESULT",
+                    "Vision INSPECTRESULT 대기 중 예외 발생. channel=" + channel +
+                    ", inspector=" + inspector +
+                    ", dieIndex=" + dieIndex +
+                    ", error=" + ex.Message);
+                return null;
             }
             finally
             {
@@ -766,16 +869,31 @@ namespace QMC.CDT320.VisionComm
 
                 bool started = await StartInspectColletAsync(channel, inspector, fb, collet, dieIndex, visionChannel, gridX, gridY, timeoutMs, ct).ConfigureAwait(false);
                 if (!started)
-                    return new InspectionResultDto { IsPass = false, Raw = "INSPECTASYNC STARTED ACK failed." };
+                {
+                    EventLogger.Write(EventKind.Alarm, "VISION", "AUTO-VISION-INSPECTASYNC",
+                        "Vision INSPECTASYNC STARTED ACK를 받지 못했습니다. 검사 NG가 아니라 검사 시작 실패입니다. channel=" + channel +
+                        ", inspector=" + inspector +
+                        ", fb=" + fb + ", collet=" + collet + ", dieIndex=" + dieIndex + ", ch=" + visionChannel);
+                    return null;
+                }
 
                 InspectionResultDto result = await WaitInspectResultByDieAsync(channel, inspector, dieIndex, timeoutMs, ct).ConfigureAwait(false);
-                if (result == null || !result.IsPass)
+                if (IsInspectionResultTransportFailure(result))
                 {
                     EventLogger.Write(EventKind.Alarm, "VISION", "AUTO-VISION-INSPECT",
-                        "Vision INSPECTRESULT(8콜렛) 실패/NG. channel=" + channel +
+                        "Vision INSPECTRESULT(8콜렛) 수신 실패. ACK/RESULT 미수신으로 시퀀스를 정지해야 합니다. channel=" + channel +
                         ", inspector=" + inspector +
                         ", fb=" + fb + ", collet=" + collet + ", dieIndex=" + dieIndex + ", ch=" + visionChannel +
                         ", raw=" + (result != null ? result.Raw : "null"));
+                    return null;
+                }
+                else if (!result.IsPass)
+                {
+                    EventLogger.Write(EventKind.Event, "VISION", "AUTO-VISION-INSPECT",
+                        "Vision INSPECTRESULT(8콜렛) NG 결과 수신. 통신 실패가 아니라 검사 판정 NG입니다. channel=" + channel +
+                        ", inspector=" + inspector +
+                        ", fb=" + fb + ", collet=" + collet + ", dieIndex=" + dieIndex + ", ch=" + visionChannel +
+                        ", raw=" + (result.Raw ?? string.Empty));
                 }
                 return result;
             }
@@ -790,7 +908,7 @@ namespace QMC.CDT320.VisionComm
                     ", inspector=" + inspector +
                     ", fb=" + fb + ", collet=" + collet +
                     ", error=" + ex.Message);
-                return new InspectionResultDto { IsPass = false, Raw = ex.Message };
+                return null;
             }
             finally
             {
@@ -821,13 +939,22 @@ namespace QMC.CDT320.VisionComm
                     ", timeoutMs=" + timeoutMs);
 
                 InspectionResultDto result = await VisionCommandService.InspectAsync(channel, inspector, index, timeoutMs, ct).ConfigureAwait(false);
-                if (result == null || !result.IsPass)
+                if (IsInspectionResultTransportFailure(result))
                 {
                     EventLogger.Write(EventKind.Alarm, "VISION", "AUTO-VISION-INSPECT",
-                        "Vision INSPECT 실패/NG. channel=" + channel +
+                        "Vision INSPECT 결과 수신 실패. ACK/RESULT 미수신으로 시퀀스를 정지해야 합니다. channel=" + channel +
                         ", inspector=" + inspector +
                         ", index=" + index +
                         ", raw=" + (result != null ? result.Raw : "null"));
+                    return null;
+                }
+                else if (!result.IsPass)
+                {
+                    EventLogger.Write(EventKind.Event, "VISION", "AUTO-VISION-INSPECT",
+                        "Vision INSPECT NG 결과 수신. 통신 실패가 아니라 검사 판정 NG입니다. channel=" + channel +
+                        ", inspector=" + inspector +
+                        ", index=" + index +
+                        ", raw=" + (result.Raw ?? string.Empty));
                 }
                 else
                 {
@@ -855,7 +982,7 @@ namespace QMC.CDT320.VisionComm
                     ", inspector=" + inspector +
                     ", index=" + index +
                     ", error=" + ex.Message);
-                return new InspectionResultDto { IsPass = false, Raw = ex.Message };
+                return null;
             }
             finally
             {
@@ -907,11 +1034,39 @@ namespace QMC.CDT320.VisionComm
                     ", inspector=" + inspector +
                     ", index=" + index +
                     ", error=" + ex.Message);
-                return new InspectionResultDto { IsPass = false, Raw = ex.Message };
+                return null;
             }
             finally
             {
             }
+        }
+
+        public static bool IsInspectionResultTransportFailure(InspectionResultDto result)
+        {
+            if (result == null)
+                return true;
+
+            string raw = result.Raw;
+            if (string.IsNullOrWhiteSpace(raw))
+                return true;
+
+            if (raw.StartsWith("SIMULATION:", StringComparison.OrdinalIgnoreCase) ||
+                raw.StartsWith("BYPASS", StringComparison.OrdinalIgnoreCase))
+                return false;
+
+            VisionProtocolResponse response = VisionProtocolResponse.Parse(raw);
+            if (!response.IsAck)
+                return true;
+
+            if (!string.Equals(response.Command, VisionProtocolCommands.Inspect, StringComparison.OrdinalIgnoreCase))
+                return false;
+
+            string token = response.ResultToken;
+            if (string.Equals(token, "ERR", StringComparison.OrdinalIgnoreCase) ||
+                string.IsNullOrWhiteSpace(token))
+                return true;
+
+            return false;
         }
 
         public static VisionAlignResult ToAlignResult(MatchResultDto match, double imageCenterX, double imageCenterY, double pixelToMm, double pitchMm)

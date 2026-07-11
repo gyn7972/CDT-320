@@ -140,6 +140,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             BuildTwoByTwoLayout();
             ApplyTitle();
             InitializeMapDisplayStyle();
+            ConfigureInputDieStateText();
             WireEvents();
 
             if (!IsDesignerMode())
@@ -201,6 +202,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 mapView.CellColorResolver = ResolveInputDieMapCellColor;
                 mapView.CellStatusResolver = ResolveInputDieMapCellStatusText;
                 mapView.LegendItemsResolver = BuildInputDieMapLegendItems;
+                mapView.EnableRectangleSelection = true;
             }
             catch
             {
@@ -240,6 +242,24 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 if (rbSelectPickStatus.Checked)
                     ToggleSelectedEntryTarget();
             };
+            mapView.SelectionRectangleCompleted += entries =>
+            {
+                HandleMapRectangleSelection(entries);
+            };
+        }
+
+        private void ConfigureInputDieStateText()
+        {
+            if (rdoDieStateWait != null)
+                rdoDieStateWait.Text = "WAIT / 검사 대기";
+            if (rdoDieStateGood != null)
+                rdoDieStateGood.Text = "GOOD / 검사 완료";
+            if (rdoDieStateNg != null)
+                rdoDieStateNg.Text = "NG / 검사 불량";
+            if (rdoDieStateSkip != null)
+                rdoDieStateSkip.Text = "SKIP / 제외";
+            if (btnApplyDieState != null)
+                btnApplyDieState.Text = "APPLY SELECTED STATE";
         }
 
         // 이하 표준 이벤트 핸들러들은 디자이너(InitializeComponent)에서 구독한다. 컨트롤명_이벤트명 규칙.
@@ -1157,7 +1177,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 if (entry == null)
                     return ResolveInputWaferStateText();
 
-                string stateText = MaterialStateService.ResolveInputDieDisplayState(entry);
+                string stateText = ResolveInputDieGridStateText(entry);
                 return entry.BinCode.ToString() + " / " + stateText;
             }
             catch
@@ -1370,13 +1390,22 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     die.Wafer_IndexX = mapX;
                     die.Wafer_IndexY = mapY;
                     die.InputSequenceNo = entry.SequenceNo;
-                    die.Input_BinCode = entry.BinCode;
+                    die.Input_BinCode = entry.IsTarget ? entry.BinCode : 0;
                     die.IsInputTarget = entry.IsTarget;
-                    if (!entry.IsTarget)
+                    MaterialLocationKind currentKind = die.CurrentLocation != null
+                        ? die.CurrentLocation.Kind
+                        : MaterialLocationKind.Unknown;
+                    if (!entry.IsTarget &&
+                        (currentKind == MaterialLocationKind.InputStage || currentKind == MaterialLocationKind.Unknown))
+                    {
                         die.CurrentLocation = new MaterialLocation { Kind = MaterialLocationKind.Unknown };
-                    else if (die.CurrentLocation == null || die.CurrentLocation.Kind == MaterialLocationKind.Unknown)
+                    }
+                    else if (entry.IsTarget &&
+                             (die.CurrentLocation == null || die.CurrentLocation.Kind == MaterialLocationKind.Unknown))
+                    {
                         die.CurrentLocation = new MaterialLocation { Kind = MaterialLocationKind.InputStage };
-                    die.Result = entry.IsTarget ? entry.Result : DieResult.NG;
+                    }
+                    die.Result = entry.IsTarget ? entry.Result : DieResult.Unknown;
                     if (die.WaferOffset == null)
                         die.WaferOffset = new VisionOffset();
                     die.WaferOffset.X = entry.PosX;
@@ -4622,6 +4651,92 @@ namespace QMC.CDT_320.Ui.Pages.Work
             }
         }
 
+        private void HandleMapRectangleSelection(IReadOnlyList<DieMapEntry> entries)
+        {
+            try
+            {
+                if (entries == null || entries.Count <= 0)
+                    return;
+
+                DieMapEntry first = entries[0];
+                _selectedEntry = first;
+                SetDieStateRadioFromEntry(first);
+                SelectGridRow(first);
+                lblAxisX.Text = first.PosX.ToString("F3");
+                lblAxisY.Text = first.PosY.ToString("F3");
+                lblBinRank.Text = "선택 " + entries.Count + "개";
+                lblDieNum.Text = "MAP SELECT " + entries.Count;
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Log.Write("Main", "SYSTEM", "InputStageMapTransferPage",
+                    "Input Die Map 사각 선택 처리 실패: " + ex.Message + " - Failed");
+            }
+            finally
+            {
+            }
+        }
+
+        private List<DieMapEntry> ResolveSelectedInputDieEntries(DieMap map)
+        {
+            var result = new List<DieMapEntry>();
+            try
+            {
+                if (map == null || map.Entries == null)
+                    return result;
+
+                IReadOnlyList<DieMapEntry> selected = mapView != null ? mapView.SelectedEntries : null;
+                if (selected != null && selected.Count > 1)
+                {
+                    for (int i = 0; i < selected.Count; i++)
+                    {
+                        DieMapEntry entry = FindEquivalentEntry(map, selected[i]);
+                        if (entry != null && !ContainsEntry(result, entry))
+                            result.Add(entry);
+                    }
+                }
+
+                if (result.Count <= 0)
+                {
+                    DieMapEntry entry = FindEquivalentEntry(map, _selectedEntry);
+                    if (entry != null)
+                        result.Add(entry);
+                }
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Log.Write("Main", "SYSTEM", "InputStageMapTransferPage",
+                    "Input Die Map 선택 목록 확인 실패: " + ex.Message + " - Failed");
+            }
+            finally
+            {
+            }
+
+            return result;
+        }
+
+        private static bool ContainsEntry(List<DieMapEntry> entries, DieMapEntry target)
+        {
+            if (entries == null || target == null)
+                return false;
+
+            int targetX = ResolveEntryMapX(target);
+            int targetY = ResolveEntryMapY(target);
+            string targetUid = target.DieUid ?? "";
+            for (int i = 0; i < entries.Count; i++)
+            {
+                DieMapEntry entry = entries[i];
+                if (entry == null)
+                    continue;
+                if (ResolveEntryMapX(entry) == targetX &&
+                    ResolveEntryMapY(entry) == targetY &&
+                    string.Equals(entry.DieUid ?? "", targetUid, StringComparison.OrdinalIgnoreCase))
+                    return true;
+            }
+
+            return false;
+        }
+
         private void ToggleSelectedEntryTarget()
         {
             try
@@ -4632,8 +4747,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 _selectedEntry.IsTarget = !_selectedEntry.IsTarget;
                 if (!_selectedEntry.IsTarget)
                 {
-                    _selectedEntry.Result = DieResult.NG;
-                    _selectedEntry.BinCode = 255;
+                    _selectedEntry.Result = DieResult.Unknown;
+                    _selectedEntry.BinCode = 0;
                 }
                 else
                 {
@@ -4670,38 +4785,48 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     return;
                 }
 
-                DieMapEntry entry = FindEquivalentEntry(map, _selectedEntry);
-                if (entry == null)
+                List<DieMapEntry> entries = ResolveSelectedInputDieEntries(map);
+                if (entries.Count <= 0)
                 {
                     QMC.Common.MessageDialog.Show(this, "상태를 변경할 Die를 먼저 선택하세요.",
                         "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
 
-                string reason;
-                if (!CanEditSelectedDieState(entry, out reason))
+                for (int i = 0; i < entries.Count; i++)
                 {
-                    QMC.Common.MessageDialog.Show(this, reason,
-                        "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                    return;
+                    string reason;
+                    if (!CanEditSelectedDieState(entries[i], out reason))
+                    {
+                        QMC.Common.MessageDialog.Show(this,
+                            "선택 Die 중 상태 변경이 차단된 항목이 있습니다.\r\n" +
+                            "Die=" + BuildSelectedDieText(entries[i]) + "\r\n" +
+                            reason,
+                            "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        return;
+                    }
                 }
 
                 InputDieManualState state = ResolveSelectedDieManualState();
                 string stateText = ResolveManualStateDisplayName(state);
                 DialogResult confirm = QMC.Common.MessageDialog.Show(this,
-                    "선택 Die 상태를 [" + stateText + "]로 변경하시겠습니까?\r\n" +
-                    "Die=" + BuildSelectedDieText(entry) + "\r\n" +
-                    "UID=" + (entry.DieUid ?? ""),
+                    "선택 Die " + entries.Count + "개 상태를 [" + stateText + "]로 변경하시겠습니까?\r\n" +
+                    "첫 Die=" + BuildSelectedDieText(entries[0]) + "\r\n" +
+                    "UID=" + (entries[0].DieUid ?? ""),
                     "Input Die Map", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
                 if (confirm != DialogResult.Yes)
                     return;
 
-                ApplyManualStateToEntry(entry, state);
+                for (int i = 0; i < entries.Count; i++)
+                    ApplyManualStateToEntry(entries[i], state);
+
                 PickupSequenceGenerator.ApplySequenceNumbers(map, ResolveInputPickupSubsetFromRecipe());
 
                 LotStorage.ActiveInputDieMap = map;
-                PersistPickStatusToMaterialState(map);
-                SyncManualInputPickVisionInspection(entry, state);
+                for (int i = 0; i < entries.Count; i++)
+                    SyncManualInputPickVisionInspection(entries[i], state);
+                for (int i = 0; i < entries.Count; i++)
+                    SyncManualDieState(entries[i], "InputMapManualDieState");
 
                 var host = FindForm() as Form1;
                 if (host != null && host.Controller != null)
@@ -4709,20 +4834,21 @@ namespace QMC.CDT_320.Ui.Pages.Work
 
                 MaterialStateService.TryFlushPendingSave("InputMapManualDieState");
 
-                _selectedEntry = entry;
+                _selectedEntry = entries[0];
                 _pickStatusDirty = false;
                 _suppressLotProgressOverlay = true;
                 _lastMapSignature = BuildMapSignature(map);
                 _lastMapFrameObjId = map.FrameObjId ?? "";
                 RefreshDieGrid();
-                SelectEntry(entry);
+                SelectEntry(entries[0]);
                 mapView.Invalidate();
 
                 QMC.Common.Log.Write("Main", "SYSTEM", "InputStageMapTransferPage",
-                    "Input Die 상태 변경 완료. die=" + (entry.DieUid ?? "") +
-                    ", grid=(" + ResolveEntryMapX(entry) + "," + ResolveEntryMapY(entry) + ")" +
+                    "Input Die 상태 일괄 변경 완료. count=" + entries.Count +
+                    ", firstDie=" + (entries[0].DieUid ?? "") +
+                    ", firstGrid=(" + ResolveEntryMapX(entries[0]) + "," + ResolveEntryMapY(entries[0]) + ")" +
                     ", state=" + stateText + " - Ok");
-                QMC.Common.MessageDialog.Show(this, "선택 Die 상태 변경 완료.",
+                QMC.Common.MessageDialog.Show(this, "선택 Die " + entries.Count + "개 상태 변경 완료.",
                     "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
             catch (Exception ex)
@@ -4761,28 +4887,6 @@ namespace QMC.CDT_320.Ui.Pages.Work
                                  "Auto/Manual 동작을 정지한 뒤 다시 시도하세요.";
                         return false;
                     }
-                }
-
-                DieMaterial die = MaterialStateService.GetDieMaterial(entry != null ? entry.DieUid : "");
-                if (die == null)
-                    return true;
-
-                if ((die.ReservedPickerLocation == MaterialLocationKind.PickerFront ||
-                     die.ReservedPickerLocation == MaterialLocationKind.PickerRear) &&
-                    die.ReservedPickerNo > 0)
-                {
-                    reason = "선택 Die는 Picker 예약 상태라 변경할 수 없습니다.\r\n" +
-                             "예약 해제 또는 시퀀스 정지 상태를 확인하세요.";
-                    return false;
-                }
-
-                MaterialLocation location = die.CurrentLocation;
-                MaterialLocationKind kind = location != null ? location.Kind : MaterialLocationKind.Unknown;
-                if (kind != MaterialLocationKind.InputStage && kind != MaterialLocationKind.Unknown)
-                {
-                    reason = "선택 Die는 이미 InputStage를 벗어나 상태 변경이 차단되었습니다.\r\n" +
-                             "현재 위치=" + kind;
-                    return false;
                 }
 
                 return true;
@@ -4840,8 +4944,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     return;
                 case InputDieManualState.PickSkip:
                     entry.IsTarget = false;
-                    entry.Result = DieResult.NG;
-                    entry.BinCode = BinCodeMap.MaxBin;
+                    entry.Result = DieResult.Unknown;
+                    entry.BinCode = 0;
                     entry.SequenceNo = 0;
                     return;
                 case InputDieManualState.InspectionWait:
@@ -4850,6 +4954,28 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     entry.Result = DieResult.Unknown;
                     entry.BinCode = 0;
                     return;
+            }
+        }
+
+        private static void SyncManualDieState(DieMapEntry entry, string reason)
+        {
+            if (entry == null || string.IsNullOrWhiteSpace(entry.DieUid))
+                return;
+
+            string message;
+            bool ok = MaterialStateService.ApplyManualDieState(
+                entry.DieUid,
+                entry.IsTarget,
+                entry.IsTarget ? entry.Result : DieResult.Unknown,
+                entry.IsTarget ? entry.BinCode : 0,
+                "",
+                reason,
+                out message);
+            if (!ok)
+            {
+                QMC.Common.Log.Write("Main", "SYSTEM", "InputStageMapTransferPage",
+                    "Input Die 상태 공통 동기화 실패. die=" + (entry.DieUid ?? "") +
+                    ", message=" + message + " - Failed");
             }
         }
 
@@ -4902,14 +5028,14 @@ namespace QMC.CDT_320.Ui.Pages.Work
             switch (state)
             {
                 case InputDieManualState.InspectionGood:
-                    return "검사 완료(Good)";
+                    return "GOOD / 검사 완료";
                 case InputDieManualState.InspectionNg:
-                    return "검사 NG";
+                    return "NG / 검사 불량";
                 case InputDieManualState.PickSkip:
-                    return "픽업 제외";
+                    return "SKIP / 제외";
                 case InputDieManualState.InspectionWait:
                 default:
-                    return "검사 대기";
+                    return "WAIT / 검사 대기";
             }
         }
 
@@ -4920,8 +5046,13 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 if (entry == null || string.IsNullOrWhiteSpace(entry.DieUid))
                     return;
 
-                if (state == InputDieManualState.InspectionWait ||
-                    state == InputDieManualState.PickSkip)
+                if (state == InputDieManualState.InspectionWait)
+                {
+                    MaterialStateService.RemoveInspection(entry.DieUid, "InputPickVision");
+                    return;
+                }
+
+                if (state == InputDieManualState.PickSkip)
                 {
                     MaterialStateService.RemoveInspection(entry.DieUid, "InputPickVision");
                     return;
@@ -5011,7 +5142,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 if (entry == null)
                     return "";
                 if (!entry.IsTarget)
-                    return "픽업 제외";
+                    return "SKIP";
 
                 InputDieMapCellState state = ResolveInputDieMapCellState(entry);
                 if (entry.Result == DieResult.Good)
@@ -5266,6 +5397,26 @@ namespace QMC.CDT_320.Ui.Pages.Work
             return "[" + ResolveEntryMapX(entry) + "," + ResolveEntryMapY(entry) + "]";
         }
 
+        private static string ResolveInputDieGridStateText(DieMapEntry entry)
+        {
+            if (entry == null)
+                return "";
+
+            if (!entry.IsTarget)
+                return "SKIP";
+
+            string materialState = MaterialStateService.ResolveInputDieDisplayState(entry);
+            if (string.Equals(materialState, "TARGET", StringComparison.OrdinalIgnoreCase))
+            {
+                if (entry.Result == DieResult.Good)
+                    return "GOOD";
+                if (entry.Result == DieResult.NG)
+                    return "NG";
+            }
+
+            return materialState;
+        }
+
         private string BuildInputDieMapCaption(DieMap map, InputDieMapStats stats)
         {
             try
@@ -5320,7 +5471,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
                             entry.IsTarget && entry.SequenceNo > 0 ? (object)entry.SequenceNo : "",
                             ResolveEntryMapX(entry),
                             ResolveEntryMapY(entry),
-                            MaterialStateService.ResolveInputDieDisplayState(entry),
+                            ResolveInputDieGridStateText(entry),
                             entry.Result,
                             entry.BinCode,
                             entry.PosX.ToString("F4"),
@@ -5402,8 +5553,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
 
         private static bool IsVisibleInputDieMapEntry(DieMapEntry entry)
         {
-            // 현재 기준: 전환 화면은 실제 처리 대상 die만 표시하고, 빈 grid SKIP 셀은 숨긴다.
-            return entry != null && entry.IsTarget;
+            // 현재 기준: SKIP은 작업 대상에서만 제외하고, 맵/리스트에는 상태로 표시한다.
+            return entry != null;
         }
 
         private static int CountVisibleInputDieMapEntries(DieMap map)

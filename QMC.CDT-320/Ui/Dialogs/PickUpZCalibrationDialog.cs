@@ -22,7 +22,12 @@ namespace QMC.CDT_320.Ui.Dialogs
         private const string MoveDecKey = "Move Dec";
         private const string MoveTimeoutKey = "Move Timeout";
         private const string StartZKey = "Start Z";
+        private const string CoarseSearchSpeedKey = "Coarse Search Speed";
+        private const string CoarseSearchAccKey = "Coarse Search Acc";
+        private const string CoarseSearchDecKey = "Coarse Search Dec";
         private const string FineSearchSpeedKey = "Fine Search Speed";
+        private const string FineSearchAccKey = "Fine Search Acc";
+        private const string FineSearchDecKey = "Fine Search Dec";
         private const string SearchStartOffsetKey = "Search Start Offset";
         private const string SearchMaxDistanceKey = "Search Max Distance";
         private const string BackOffDistanceKey = "BackOff Distance";
@@ -53,13 +58,16 @@ namespace QMC.CDT_320.Ui.Dialogs
         private readonly CalibrationDialogButton _btnStartScan;
         private readonly CalibrationDialogButton _btnMoveAvoid;
         private readonly CalibrationDialogButton _btnVacOff;
+        private readonly CalibrationDialogButton _btnSeqStop;
         private readonly CalibrationDialogButton _btnReload;
         private readonly CalibrationDialogButton _btnSave;
         private readonly CalibrationDialogButton _btnClose;
+        private readonly System.Windows.Forms.Timer _flowStatusTimer;
 
         private bool _busy;
         private bool _loadedOnce;
         private CancellationTokenSource _runCts;
+        private Action<string> _activeStopRequest;
 
         public static PickUpZCalibrationDialog Open(IWin32Window owner)
         {
@@ -182,12 +190,12 @@ namespace QMC.CDT_320.Ui.Dialogs
             var footer = new TableLayoutPanel
             {
                 Dock = DockStyle.Fill,
-                ColumnCount = 8,
+                ColumnCount = 9,
                 RowCount = 1,
                 Padding = new Padding(0, 8, 0, 0)
             };
-            for (int i = 0; i < 8; i++)
-                footer.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 12.5F));
+            for (int i = 0; i < 9; i++)
+                footer.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F / 9F));
             root.Controls.Add(footer, 0, 4);
 
             _btnCheck = MakeButton("CHECK");
@@ -195,36 +203,44 @@ namespace QMC.CDT_320.Ui.Dialogs
             _btnStartScan = MakeButton("START SCAN");
             _btnMoveAvoid = MakeButton("Z AVOID");
             _btnVacOff = MakeButton("VAC OFF");
+            _btnSeqStop = MakeButton("SEQ STOP");
             _btnReload = MakeButton("RELOAD");
             _btnSave = MakeButton("SAVE");
             _btnClose = MakeButton("CLOSE");
             _btnStartScan.Role = CalibrationDialogButtonRole.Primary;
             _btnSave.Role = CalibrationDialogButtonRole.Dark;
+            _btnSeqStop.Enabled = false;
+            ApplyStopButtonStyle();
 
             footer.Controls.Add(_btnCheck, 0, 0);
             footer.Controls.Add(_btnMoveStart, 1, 0);
             footer.Controls.Add(_btnStartScan, 2, 0);
             footer.Controls.Add(_btnMoveAvoid, 3, 0);
             footer.Controls.Add(_btnVacOff, 4, 0);
-            footer.Controls.Add(_btnReload, 5, 0);
-            footer.Controls.Add(_btnSave, 6, 0);
-            footer.Controls.Add(_btnClose, 7, 0);
+            footer.Controls.Add(_btnSeqStop, 5, 0);
+            footer.Controls.Add(_btnReload, 6, 0);
+            footer.Controls.Add(_btnSave, 7, 0);
+            footer.Controls.Add(_btnClose, 8, 0);
 
             CalibrationDialogButtonStyle.ApplyFooterButtons(
-                new[] { _btnCheck, _btnMoveStart, _btnMoveAvoid, _btnVacOff, _btnReload, _btnClose },
+                new[] { _btnCheck, _btnMoveStart, _btnMoveAvoid, _btnVacOff, _btnSeqStop, _btnReload, _btnClose },
                 new[] { _btnStartScan },
                 new[] { _btnSave });
+            ApplyStopButtonStyle();
 
             _btnCheck.Click += delegate { CheckReady(true); };
             _btnMoveStart.Click += async delegate { await MoveScanStartAsync().ConfigureAwait(true); };
             _btnStartScan.Click += async delegate { await RunCalibrationAsync().ConfigureAwait(true); };
             _btnMoveAvoid.Click += async delegate { await MoveZAvoidAsync().ConfigureAwait(true); };
             _btnVacOff.Click += delegate { VacuumOff(); };
+            _btnSeqStop.Click += delegate { RequestActiveSequenceStop("창 STOP 버튼 요청"); };
             _btnReload.Click += delegate { LoadFromMachine(); };
             _btnSave.Click += delegate { SaveSettingsFromUi(true); };
             _btnClose.Click += delegate { Close(); };
-            _cmbSide.SelectedIndexChanged += delegate { RefreshResultGrid(); };
-            _cmbPickerNo.SelectedIndexChanged += delegate { RefreshResultGrid(); };
+            _cmbSide.SelectedIndexChanged += delegate { RefreshResultGrid(); UpdateVacFlowButton(); };
+            _cmbPickerNo.SelectedIndexChanged += delegate { RefreshResultGrid(); UpdateVacFlowButton(); };
+            _flowStatusTimer = new System.Windows.Forms.Timer { Interval = 300 };
+            _flowStatusTimer.Tick += delegate { UpdateVacFlowButton(); };
         }
 
         protected override void OnShown(EventArgs e)
@@ -234,7 +250,16 @@ namespace QMC.CDT_320.Ui.Dialogs
             {
                 _loadedOnce = true;
                 LoadFromMachine();
+                UpdateVacFlowButton();
+                _flowStatusTimer.Start();
             }
+        }
+
+        protected override void OnFormClosed(FormClosedEventArgs e)
+        {
+            if (_flowStatusTimer != null)
+                _flowStatusTimer.Stop();
+            base.OnFormClosed(e);
         }
 
         private static Control Wrap(string title, Control content)
@@ -337,11 +362,16 @@ namespace QMC.CDT_320.Ui.Dialogs
                 settings.EnsureDefaults();
                 _settingsGrid.Rows.Clear();
                 AddSetting(MoveSpeedKey, settings.Motion.MoveVelocity, "mm/s");
-                AddSetting(FineSearchSpeedKey, settings.FineSearchVelocityMmPerSec, "mm/s");
                 AddSetting(MoveAccKey, settings.Motion.MoveAcceleration, "mm/s2");
                 AddSetting(MoveDecKey, settings.Motion.MoveDeceleration, "mm/s2");
                 AddSetting(MoveTimeoutKey, settings.Motion.MoveTimeoutMs, "ms");
                 AddSetting(StartZKey, settings.StartZMm, "mm");
+                AddSetting(CoarseSearchSpeedKey, settings.CoarseSearchVelocityMmPerSec, "mm/s");
+                AddSetting(CoarseSearchAccKey, settings.CoarseSearchAccelerationMmPerSec2, "mm/s2");
+                AddSetting(CoarseSearchDecKey, settings.CoarseSearchDecelerationMmPerSec2, "mm/s2");
+                AddSetting(FineSearchSpeedKey, settings.FineSearchVelocityMmPerSec, "mm/s");
+                AddSetting(FineSearchAccKey, settings.FineSearchAccelerationMmPerSec2, "mm/s2");
+                AddSetting(FineSearchDecKey, settings.FineSearchDecelerationMmPerSec2, "mm/s2");
                 AddSetting(SearchMaxDistanceKey, settings.SearchMaxDistanceMm, "mm");
                 AddSetting(BackOffDistanceKey, settings.BackOffDistanceMm, "mm");
                 AddSetting(DieThicknessKey, settings.DieThicknessMm, "mm");
@@ -448,13 +478,23 @@ namespace QMC.CDT_320.Ui.Dialogs
             switch (name)
             {
                 case MoveSpeedKey:
-                    return "PickUpZ Calibration에서 Picker Z를 탐색 시작 위치와 접촉 위치로 이동할 때 사용하는 속도입니다.";
+                    return "PickUpZ Calibration 준비 이동 속도입니다. 안전 위치와 Scan Start 이동에 사용하며 Flow 검색 속도는 별도 Search 설정을 사용합니다.";
+                case CoarseSearchSpeedKey:
+                    return "처음 Flow 위치를 찾을 때 PickerZ가 내려가는 Coarse 검색 속도입니다.";
+                case CoarseSearchAccKey:
+                    return "처음 Flow 위치를 찾을 때 사용하는 Coarse 검색 가속도입니다.";
+                case CoarseSearchDecKey:
+                    return "처음 Flow 위치를 찾을 때 사용하는 Coarse 검색 감속도입니다.";
                 case FineSearchSpeedKey:
-                    return "Final fine Flow search speed after BackOff, Blow, and Flow OFF check.";
+                    return "BackOff, Blow, Flow OFF 확인 후 최종 Flow 위치를 다시 찾을 때 사용하는 정밀 탐색 속도입니다.";
                 case MoveAccKey:
-                    return "PickUpZ Calibration 전용 이동 가속도입니다. 값이 너무 크면 접촉 탐색 중 충격이 커질 수 있습니다.";
+                    return "PickUpZ Calibration 준비 이동 가속도입니다. Flow 검색 가속도는 별도 Search 설정을 사용합니다.";
                 case MoveDecKey:
-                    return "PickUpZ Calibration 전용 이동 감속도입니다. 접촉 감지 후 정지 안정성에 영향을 줍니다.";
+                    return "PickUpZ Calibration 준비 이동 감속도입니다. Flow 검색 감속도는 별도 Search 설정을 사용합니다.";
+                case FineSearchAccKey:
+                    return "BackOff 후 정밀 Flow 위치를 다시 찾을 때 사용하는 Fine 검색 가속도입니다.";
+                case FineSearchDecKey:
+                    return "BackOff 후 정밀 Flow 위치를 다시 찾을 때 사용하는 Fine 검색 감속도입니다.";
                 case MoveTimeoutKey:
                     return "각 Z 이동 명령 후 인포지션 완료를 기다리는 최대 시간입니다. 초과하면 캘리브레이션을 실패 처리합니다.";
                 case StartZKey:
@@ -539,11 +579,16 @@ namespace QMC.CDT_320.Ui.Dialogs
                 if (settings.Motion == null)
                     settings.Motion = new CalibrationMotionSettings();
                 settings.Motion.MoveVelocity = Math.Max(0.001, ReadDouble(MoveSpeedKey));
-                settings.FineSearchVelocityMmPerSec = Math.Max(0.001, ReadDouble(FineSearchSpeedKey));
                 settings.Motion.MoveAcceleration = Math.Max(0.001, ReadDouble(MoveAccKey));
                 settings.Motion.MoveDeceleration = Math.Max(0.001, ReadDouble(MoveDecKey));
                 settings.Motion.MoveTimeoutMs = Math.Max(100, ReadInt(MoveTimeoutKey, CalibrationMotionSettings.DefaultMoveTimeoutMs));
                 settings.StartZMm = ReadDouble(StartZKey);
+                settings.CoarseSearchVelocityMmPerSec = Math.Max(0.001, ReadDouble(CoarseSearchSpeedKey));
+                settings.CoarseSearchAccelerationMmPerSec2 = Math.Max(0.001, ReadDouble(CoarseSearchAccKey));
+                settings.CoarseSearchDecelerationMmPerSec2 = Math.Max(0.001, ReadDouble(CoarseSearchDecKey));
+                settings.FineSearchVelocityMmPerSec = Math.Max(0.001, ReadDouble(FineSearchSpeedKey));
+                settings.FineSearchAccelerationMmPerSec2 = Math.Max(0.001, ReadDouble(FineSearchAccKey));
+                settings.FineSearchDecelerationMmPerSec2 = Math.Max(0.001, ReadDouble(FineSearchDecKey));
                 settings.SearchMaxDistanceMm = Math.Max(0.001, ReadDouble(SearchMaxDistanceKey));
                 settings.BackOffDistanceMm = Math.Max(0.001, ReadDouble(BackOffDistanceKey));
                 settings.DieThicknessMm = Math.Max(0.0, ReadDouble(DieThicknessKey));
@@ -682,9 +727,9 @@ namespace QMC.CDT_320.Ui.Dialogs
                     return;
 
                 host = ResolveHost();
-                runCts = BeginManualCalibrationRun(host, actionName, out actionScope, out stopHandler);
                 var context = new MachineSequenceContext(host.Controller, new SequenceSignalBus());
                 var sequence = new PickerPickUpZCalibrationSequence(context, ResolveSide(), ResolvePickerNo());
+                runCts = BeginManualCalibrationRun(host, actionName, sequence, out actionScope, out stopHandler);
                 PickerSequenceOptions options = PickerSequenceOptions.Default();
                 options.RunMode = SequenceRunMode.Manual;
                 options.StartMode = SequenceStartMode.Restart;
@@ -754,6 +799,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                     host.Machine.PickerRearUnit.SetPickerVacuum(pickerNo, false);
 
                 _status.Text = ResolveSide() + " Picker #" + pickerNo + " Vacuum OFF 완료.";
+                UpdateVacFlowButton();
             }
             catch (Exception ex)
             {
@@ -761,9 +807,23 @@ namespace QMC.CDT_320.Ui.Dialogs
             }
         }
 
+        private void RequestActiveSequenceStop(string reason)
+        {
+            Action<string> request = _activeStopRequest;
+            if (request == null)
+            {
+                _status.Text = "실행 중인 PickUpZ Calibration 시퀀스가 없습니다.";
+                return;
+            }
+
+            request(reason);
+            _status.Text = "PickUpZ Calibration 정지 요청을 보냈습니다. Z축 정지 로그를 확인하세요.";
+        }
+
         private CancellationTokenSource BeginManualCalibrationRun(
             Form1 host,
             string actionName,
+            PickerPickUpZCalibrationSequence sequence,
             out IDisposable actionScope,
             out Action stopHandler)
         {
@@ -775,7 +835,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                 "PickUpZCalibration:" + actionName + ":" + ResolveSide() + ":" + ResolvePickerNo());
             CancellationTokenSource runCts = CancellationTokenSource.CreateLinkedTokenSource(host.Controller.ManualOperationToken);
             _runCts = runCts;
-            stopHandler = delegate
+            _activeStopRequest = delegate(string reason)
             {
                 try
                 {
@@ -783,8 +843,11 @@ namespace QMC.CDT_320.Ui.Dialogs
                     if (cts != null && !cts.IsCancellationRequested)
                         cts.Cancel();
 
+                    if (sequence != null)
+                        sequence.RequestImmediateStop(reason);
+
                     QMC.Common.Log.Write("Calibration", "SYSTEM", "PickUpZCalStop",
-                        "메인 STOP 요청으로 PickUpZ Calibration 정지 요청. action=" + actionName +
+                        reason + "으로 PickUpZ Calibration 정지 요청. action=" + actionName +
                         ", side=" + ResolveSide() +
                         ", pickerNo=" + ResolvePickerNo());
                 }
@@ -792,7 +855,9 @@ namespace QMC.CDT_320.Ui.Dialogs
                 {
                 }
             };
+            stopHandler = delegate { _activeStopRequest("메인 STOP 요청"); };
             host.Controller.StopRequested += stopHandler;
+            UpdateStopButtonEnabled();
             return runCts;
         }
 
@@ -807,6 +872,8 @@ namespace QMC.CDT_320.Ui.Dialogs
 
             if (ReferenceEquals(_runCts, runCts))
                 _runCts = null;
+            _activeStopRequest = null;
+            UpdateStopButtonEnabled();
 
             if (runCts != null)
                 runCts.Dispose();
@@ -976,6 +1043,94 @@ namespace QMC.CDT_320.Ui.Dialogs
             _btnReload.Enabled = enabled;
             _btnSave.Enabled = enabled;
             _btnClose.Enabled = enabled;
+            UpdateStopButtonEnabled();
+        }
+
+        private void UpdateStopButtonEnabled()
+        {
+            if (_btnSeqStop == null)
+                return;
+
+            _btnSeqStop.Enabled = _activeStopRequest != null;
+            ApplyStopButtonStyle();
+        }
+
+        private void ApplyStopButtonStyle()
+        {
+            if (_btnSeqStop == null)
+                return;
+
+            _btnSeqStop.BackColor = _btnSeqStop.Enabled ? Color.FromArgb(192, 57, 43) : Color.FromArgb(180, 180, 180);
+            _btnSeqStop.ForeColor = Color.White;
+            _btnSeqStop.FlatStyle = FlatStyle.Flat;
+            _btnSeqStop.FlatAppearance.BorderSize = 1;
+            _btnSeqStop.FlatAppearance.BorderColor = Color.FromArgb(128, 128, 128);
+        }
+
+        private void UpdateVacFlowButton()
+        {
+            if (_btnVacOff == null || IsDisposed)
+                return;
+
+            bool flowOn;
+            string reason;
+            if (TryReadPickerFlow(out flowOn, out reason))
+            {
+                _btnVacOff.Text = flowOn ? "VAC OFF\r\nFLOW ON" : "VAC OFF\r\nFLOW OFF";
+                _btnVacOff.BackColor = flowOn ? Color.FromArgb(46, 160, 67) : Color.White;
+                _btnVacOff.ForeColor = flowOn ? Color.White : Color.Black;
+                _btnVacOff.FlatAppearance.BorderColor = flowOn ? Color.FromArgb(28, 120, 48) : Color.FromArgb(176, 176, 176);
+                _btnVacOff.Tag = flowOn;
+                return;
+            }
+
+            _btnVacOff.Text = "VAC OFF\r\nFLOW ?";
+            _btnVacOff.BackColor = Color.FromArgb(245, 245, 245);
+            _btnVacOff.ForeColor = Color.Black;
+            _btnVacOff.FlatAppearance.BorderColor = Color.FromArgb(176, 176, 176);
+            _btnVacOff.Tag = reason;
+        }
+
+        private bool TryReadPickerFlow(out bool flowOn, out string reason)
+        {
+            flowOn = false;
+            reason = string.Empty;
+            try
+            {
+                Form1 host = ResolveHost();
+                if (host == null || host.Machine == null)
+                {
+                    reason = "장비 연결 없음";
+                    return false;
+                }
+
+                int pickerNo = ResolvePickerNo();
+                if (ResolveSide() == VisionFocusPickerSide.Front)
+                {
+                    if (host.Machine.PickerFrontUnit == null)
+                    {
+                        reason = "Front Picker Unit 없음";
+                        return false;
+                    }
+
+                    flowOn = host.Machine.PickerFrontUnit.IsPickerFlowDetected(pickerNo, true);
+                    return true;
+                }
+
+                if (host.Machine.PickerRearUnit == null)
+                {
+                    reason = "Rear Picker Unit 없음";
+                    return false;
+                }
+
+                flowOn = host.Machine.PickerRearUnit.IsPickerFlowDetected(pickerNo, true);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                reason = ex.Message;
+                return false;
+            }
         }
     }
 }

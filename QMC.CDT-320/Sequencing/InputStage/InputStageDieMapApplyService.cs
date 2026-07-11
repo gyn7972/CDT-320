@@ -280,7 +280,7 @@ namespace QMC.CDT320.Sequencing
                 die.Wafer_IndexX = mapX;
                 die.Wafer_IndexY = mapY;
                 die.InputSequenceNo = entry.SequenceNo;
-                die.Input_BinCode = entry.BinCode;
+                die.Input_BinCode = entry.IsTarget ? entry.BinCode : 0;
                 die.IsInputTarget = entry.IsTarget;
                 die.Output_BinCode = 0;
                 die.Bin_IndexX = -1;
@@ -292,7 +292,7 @@ namespace QMC.CDT320.Sequencing
                 die.PickedPickerLocation = MaterialLocationKind.Unknown;
                 die.PickedPickerNo = -1;
                 die.PickedAt = DateTime.MinValue;
-                die.Result = entry.IsTarget ? DieResult.Unknown : DieResult.NG;
+                die.Result = DieResult.Unknown;
                 if (die.NgCodes == null)
                     die.NgCodes = new List<string>();
                 else

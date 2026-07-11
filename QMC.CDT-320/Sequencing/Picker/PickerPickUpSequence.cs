@@ -79,6 +79,7 @@ namespace QMC.CDT320.Sequencing
             public double PickerZ;
             public double NeedleZ;
             public double EjectPinZ;
+            public double EjectPinSyncLiftOffset;
         }
 
         public PickerPickUpSequence(MachineSequenceContext context, PickerSequenceSide side)
@@ -238,6 +239,10 @@ namespace QMC.CDT320.Sequencing
                 // 픽업 대상 검증
                 case PickerPickUpStep.VerifyPickTarget:
                     return Task.FromResult(VerifyPickTarget());
+
+                // 픽업 전 Picker 제품 유/무 확인
+                case PickerPickUpStep.VerifyPickerEmptyBeforePick:
+                    return VerifyPickerEmptyBeforePickAsync(ct);
 
                 // 피커 Z 픽업 이동
                 case PickerPickUpStep.MovePickerZPick:
@@ -2951,8 +2956,88 @@ namespace QMC.CDT320.Sequencing
                 ", pickerTState=" + BuildPickerAxisState(GetPickerTAxis(_currentPickerIndex), _targetPickerT) +
                 " - Ok");
 
-            CurrentStep = PickerPickUpStep.MovePickerZPick;
+            CurrentStep = PickerPickUpStep.VerifyPickerEmptyBeforePick;
             return 0;
+        }
+
+        private async Task<int> VerifyPickerEmptyBeforePickAsync(CancellationToken ct)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+
+                if (IsPickUpProductPrecheckBypassed())
+                {
+                    WriteLog("PickerPickUpSequence",
+                        Name + " PickUp 시작 전 Picker 제품 유/무 확인은 Simulation/DryRun 조건으로 통과합니다. " +
+                        "side=" + Side +
+                        ", pickerNo=" + _currentPickerNo +
+                        ", die=" + _currentDieId + " - Bypass");
+                    CurrentStep = PickerPickUpStep.MovePickerZPick;
+                    return 0;
+                }
+
+                SetPickerVacuum(_currentPickerNo, true);
+                await Task.Delay(100, ct).ConfigureAwait(false);
+
+                bool flowOn = ReadPickerFlowState(_currentPickerNo);
+                if (flowOn)
+                {
+                    return Fail("PICKER-PICKUP-PRE-FLOW-DETECTED", Name,
+                        "PickUp 시작 전 Picker 제품 유/무 확인 실패. " +
+                        "Vacuum ON 후 Flow 신호가 ON입니다. Picker가 이미 제품을 가지고 있으므로 PickUp을 진행하지 않습니다. " +
+                        "side=" + Side +
+                        ", pickerNo=" + _currentPickerNo +
+                        ", pickerIndex=" + _currentPickerIndex +
+                        ", die=" + _currentDieId +
+                        ", vacuumSettleMs=100" +
+                        ", expectedFlow=OFF, actualFlow=ON");
+                }
+
+                WriteLog("PickerPickUpSequence",
+                    Name + " PickUp 시작 전 Picker 제품 유/무 확인 완료. " +
+                    "Vacuum ON 후 Flow 신호가 OFF이므로 Picker가 비어 있다고 판단합니다. " +
+                    "side=" + Side +
+                    ", pickerNo=" + _currentPickerNo +
+                    ", pickerIndex=" + _currentPickerIndex +
+                    ", die=" + _currentDieId +
+                    ", vacuumSettleMs=100" +
+                    ", flow=OFF - Ok");
+
+                CurrentStep = PickerPickUpStep.MovePickerZPick;
+                return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("PICKER-PICKUP-PRE-FLOW-CHECK-EX", Name,
+                    "PickUp 시작 전 Picker 제품 유/무 확인 중 예외가 발생했습니다. side=" + Side +
+                    ", pickerNo=" + _currentPickerNo +
+                    ", die=" + _currentDieId +
+                    ", error=" + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private bool IsPickUpProductPrecheckBypassed()
+        {
+            try
+            {
+                AppSettings settings = AppSettingsStore.Current;
+                if (settings != null && (settings.BypassHardware || settings.SimulationMode || settings.DryRunMode))
+                    return true;
+
+                return Context != null && Context.Controller != null && Context.Controller.GlobalDryRun;
+            }
+            catch
+            {
+                return false;
+            }
         }
 
         private async Task<int> MovePickerZPickAsync(CancellationToken ct)
@@ -3167,6 +3252,10 @@ namespace QMC.CDT320.Sequencing
                 if (result != 0)
                     return result;
 
+                result = await VerifyPickerEmptyBeforePickAsync(ct).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
                 result = await MovePickerZPickAsync(ct).ConfigureAwait(false);
                 if (result != 0)
                     return result;
@@ -3356,6 +3445,10 @@ namespace QMC.CDT320.Sequencing
                     return result;
 
                 result = VerifyPickTarget();
+                if (result != 0)
+                    return result;
+
+                result = await VerifyPickerEmptyBeforePickAsync(ct).ConfigureAwait(false);
                 if (result != 0)
                     return result;
 
@@ -3550,10 +3643,13 @@ namespace QMC.CDT320.Sequencing
                 PickerPickUpMotionConfig config = ResolvePickUpMotionConfig();
                 PickerAxis pickerZ = GetPickerZAxis(_currentPickerIndex);
                 double pickerZAvoid = GetPickerTeachingPosition(pickerZ, "AvoidPosition");
+                string syncLiftSettleSource;
+                int syncLiftSettleMs = ResolvePickUpSyncLiftSettleMs(config, out syncLiftSettleSource);
 
                 WriteLog("PickerPickUpZ",
                     Name + " PickUp Z motion mode. mode=" + config.MotionMode +
-                    ", syncLiftSettleMs=" + config.SyncLiftSettleMs +
+                    ", syncLiftSettleMs=" + syncLiftSettleMs +
+                    ", syncLiftSettleSource=" + syncLiftSettleSource +
                     ", pickSettleMs=" + config.PickSettleMs + " - Check");
 
                 if (config.MotionMode == PickerPickUpZMotionMode.SimpleZDownVacuumUp)
@@ -3990,11 +4086,13 @@ namespace QMC.CDT320.Sequencing
 
                 stage.Config.EnsurePickUpMotionDefaults();
                 double syncLiftDistance = stage.Config.PickUpNeedleSyncLiftDistance;
+                double ejectPinSyncLiftOffset = ResolveEjectPinZSyncLiftOffset(stage);
 
                 QMC.Common.Motion.BaseAxis ejectPinZ = ResolveInputStageAxis(stage, WaferStageAxis.EjectPinZ);
                 syncTargets.PickerZ = _targetPickerZ + syncLiftDistance;
                 syncTargets.NeedleZ = _targetNeedleZ;
-                syncTargets.EjectPinZ = _targetEjectPinZ + syncLiftDistance;
+                syncTargets.EjectPinZ = _targetEjectPinZ + syncLiftDistance + ejectPinSyncLiftOffset;
+                syncTargets.EjectPinSyncLiftOffset = ejectPinSyncLiftOffset;
                 _lastPickUpZTargets = syncTargets;
 
                 if (syncLiftDistance <= 0.0)
@@ -4096,6 +4194,7 @@ namespace QMC.CDT320.Sequencing
                     Name + " PickUp PickerZ/EjectPinZ synchronized lift complete. pickerNo=" + _currentPickerNo +
                     ", pickerIndex=" + _currentPickerIndex +
                     ", distance=" + syncLiftDistance.ToString("F6") +
+                    ", ejectPinSyncLiftOffset=" + ejectPinSyncLiftOffset.ToString("F6") +
                     ", velocity=" + stage.Config.PickUpNeedleSyncLiftVelocity.ToString("F6") +
                     ", acc=" + stage.Config.PickUpNeedleSyncLiftAcc.ToString("F6") +
                     ", dec=" + stage.Config.PickUpNeedleSyncLiftDec.ToString("F6") +
@@ -4135,16 +4234,49 @@ namespace QMC.CDT320.Sequencing
 
         private async Task WaitAfterSyncLiftSettleAsync(PickerPickUpMotionConfig config, CancellationToken ct)
         {
-            int waitMs = config != null ? Math.Max(0, config.SyncLiftSettleMs) : 0;
+            string source;
+            int waitMs = ResolvePickUpSyncLiftSettleMs(config, out source);
             if (waitMs <= 0)
                 return;
 
             // 현재 기준: Sync Lift 직후 Separate 전에 필요한 안정화 대기만 적용한다.
             WriteLog("PickerPickUpZ",
-                Name + " PickUp Sync Lift settle wait start. waitMs=" + waitMs + " - Wait");
+                Name + " PickUp Sync Lift settle wait start. waitMs=" + waitMs +
+                ", source=" + source + " - Wait");
             await Task.Delay(waitMs, ct).ConfigureAwait(false);
             WriteLog("PickerPickUpZ",
-                Name + " PickUp Sync Lift settle wait complete. waitMs=" + waitMs + " - Ok");
+                Name + " PickUp Sync Lift settle wait complete. waitMs=" + waitMs +
+                ", source=" + source + " - Ok");
+        }
+
+        private int ResolvePickUpSyncLiftSettleMs(PickerPickUpMotionConfig config, out string source)
+        {
+            source = "None";
+            try
+            {
+                InputStageUnit stage = ResolveInputStage();
+                if (stage != null && stage.Config != null)
+                {
+                    stage.Config.EnsurePickUpMotionDefaults();
+                    int inputStageWaitMs = Math.Max(0, stage.Config.PickUpNeedleSyncLiftSettleMs);
+                    source = "InputStage.PickUpNeedleSyncLiftSettleMs";
+                    return inputStageWaitMs;
+                }
+
+                int pickerWaitMs = config != null ? Math.Max(0, config.SyncLiftSettleMs) : 0;
+                if (pickerWaitMs > 0)
+                    source = "Picker.PickUp.SyncLiftSettleMs";
+
+                return pickerWaitMs;
+            }
+            catch
+            {
+                source = "Error";
+                return config != null ? Math.Max(0, config.SyncLiftSettleMs) : 0;
+            }
+            finally
+            {
+            }
         }
 
         private async Task<int> MovePickerNeedleZSyncLiftFallbackAsync(
@@ -4191,6 +4323,7 @@ namespace QMC.CDT320.Sequencing
             WriteLog("PickerPickUpSyncLift",
                 Name + " PickUp PickerZ/EjectPinZ simulated synchronized lift complete. pickerNo=" + _currentPickerNo +
                 ", pickerIndex=" + _currentPickerIndex +
+                ", ejectPinSyncLiftOffset=" + syncTargets.EjectPinSyncLiftOffset.ToString("F6") +
                 ", pickerZState=" + BuildPickerAxisState(pickerZ, syncTargets.PickerZ) +
                 ", ejectPinZState=" + BuildInputStageAxisState(stage, WaferStageAxis.EjectPinZ, syncTargets.EjectPinZ) +
                 ", needleZHoldState=" + BuildInputStageAxisState(stage, WaferStageAxis.NeedleZ, syncTargets.NeedleZ) +
@@ -5057,9 +5190,17 @@ namespace QMC.CDT320.Sequencing
 
         private int UpdateMaterialToPicker()
         {
+            string pickedDieId = _currentDieId;
+            int pickedPickerNo = _currentPickerNo;
+            int pickedPickerIndex = _currentPickerIndex;
+
             bool materialUpdated = MaterialStateService.MarkDiePickedByPicker(_currentDieId, PickerLocationKind, _currentPickerNo);
             if (!materialUpdated)
                 return Fail("PICKER-PICKUP-MATERIAL", Name, "Picked die material state update failed. die=" + _currentDieId + ", pickerNo=" + _currentPickerNo);
+
+            int verifyResult = VerifyPickerHasDieDataAndFlowAfterPick(pickedDieId, pickedPickerNo, pickedPickerIndex);
+            if (verifyResult != 0)
+                return verifyResult;
 
             RecordColletUse(_currentPickerNo);
             SaveRuntimeState(Name + ":PickUp:ColletUse:" + _currentPickerNo);
@@ -5073,6 +5214,67 @@ namespace QMC.CDT320.Sequencing
             _diePicked = false;
             CurrentStep = PickerPickUpStep.SelectNextPickTargetOrComplete;
             return 0;
+        }
+
+        private int VerifyPickerHasDieDataAndFlowAfterPick(string dieId, int pickerNo, int pickerIndex)
+        {
+            try
+            {
+                DieMaterial dieOnPicker = MaterialStateService.GetDieAtPicker(PickerLocationKind, pickerNo);
+                if (dieOnPicker == null || !string.Equals(dieOnPicker.DieId, dieId, StringComparison.OrdinalIgnoreCase))
+                {
+                    return Fail("PICKER-PICKUP-MATERIAL-FLOW-MISMATCH", Name,
+                        "PickUp 완료 후 제품 보유 데이터 확인 실패. " +
+                        "Flow 확인 전에 Material 데이터가 Picker 위치와 일치해야 합니다. " +
+                        "side=" + Side +
+                        ", pickerNo=" + pickerNo +
+                        ", pickerIndex=" + pickerIndex +
+                        ", expectedDie=" + dieId +
+                        ", actualDie=" + (dieOnPicker != null ? dieOnPicker.DieId : "null"));
+                }
+
+                if (IsPickUpProductPrecheckBypassed())
+                {
+                    WriteLog("PickerPickUpSequence",
+                        Name + " PickUp 완료 후 제품 보유 Flow/Data 확인은 Simulation/DryRun 조건으로 Flow 확인을 통과합니다. " +
+                        "side=" + Side +
+                        ", pickerNo=" + pickerNo +
+                        ", pickerIndex=" + pickerIndex +
+                        ", die=" + dieId +
+                        ", data=OK - Bypass");
+                    return 0;
+                }
+
+                bool flowOn = ReadPickerFlowState(pickerNo);
+                if (!flowOn)
+                {
+                    return Fail("PICKER-PICKUP-COMPLETE-FLOW-NOT-DETECTED", Name,
+                        "PickUp 완료 후 제품 보유 Flow/Data 확인 실패. " +
+                        "Material 데이터는 Picker에 있지만 실제 Flow 신호가 ON이 아닙니다. " +
+                        "side=" + Side +
+                        ", pickerNo=" + pickerNo +
+                        ", pickerIndex=" + pickerIndex +
+                        ", die=" + dieId +
+                        ", expectedFlow=ON, actualFlow=OFF");
+                }
+
+                WriteLog("PickerPickUpSequence",
+                    Name + " PickUp 완료 후 제품 보유 Flow/Data 확인 완료. " +
+                    "side=" + Side +
+                    ", pickerNo=" + pickerNo +
+                    ", pickerIndex=" + pickerIndex +
+                    ", die=" + dieId +
+                    ", data=OK, flow=ON - Ok");
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                return Fail("PICKER-PICKUP-COMPLETE-FLOW-DATA-EX", Name,
+                    "PickUp 완료 후 제품 보유 Flow/Data 확인 중 예외가 발생했습니다. side=" + Side +
+                    ", pickerNo=" + pickerNo +
+                    ", die=" + dieId +
+                    ", error=" + ex.Message);
+            }
         }
 
         private int SelectNextPickTargetOrComplete()
@@ -5236,8 +5438,14 @@ namespace QMC.CDT320.Sequencing
                 return 0.0;
 
             stage.Recipe.EnsurePositionObjects();
-            double offset = stage.Config != null ? stage.Config.PickUpEjectPinOffset : 0.0;
-            return stage.Recipe.EjectPinZ.ProcessPosition + offset;
+            return stage.Recipe.EjectPinZ.ProcessPosition;
+        }
+
+        private static double ResolveEjectPinZSyncLiftOffset(InputStageUnit stage)
+        {
+            return stage != null && stage.Config != null
+                ? stage.Config.PickUpEjectPinOffset
+                : 0.0;
         }
 
         private static double ResolveNeedleZAvoidTarget(InputStageUnit stage)

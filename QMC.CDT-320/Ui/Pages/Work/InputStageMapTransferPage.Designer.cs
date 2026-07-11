@@ -620,7 +620,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.rdoDieStateWait.Name = "rdoDieStateWait";
             this.rdoDieStateWait.TabIndex = 0;
             this.rdoDieStateWait.TabStop = true;
-            this.rdoDieStateWait.Text = "검사 대기";
+            this.rdoDieStateWait.Text = "WAIT / 검사 대기";
             this.rdoDieStateWait.UseVisualStyleBackColor = true;
             //
             // rdoDieStateGood
@@ -629,7 +629,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.rdoDieStateGood.Font = new System.Drawing.Font("맑은 고딕", 9F);
             this.rdoDieStateGood.Name = "rdoDieStateGood";
             this.rdoDieStateGood.TabIndex = 1;
-            this.rdoDieStateGood.Text = "검사 완료(Good)";
+            this.rdoDieStateGood.Text = "GOOD / 검사 완료";
             this.rdoDieStateGood.UseVisualStyleBackColor = true;
             //
             // rdoDieStateNg
@@ -638,7 +638,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.rdoDieStateNg.Font = new System.Drawing.Font("맑은 고딕", 9F);
             this.rdoDieStateNg.Name = "rdoDieStateNg";
             this.rdoDieStateNg.TabIndex = 2;
-            this.rdoDieStateNg.Text = "검사 NG";
+            this.rdoDieStateNg.Text = "NG / 검사 불량";
             this.rdoDieStateNg.UseVisualStyleBackColor = true;
             //
             // rdoDieStateSkip
@@ -647,7 +647,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.rdoDieStateSkip.Font = new System.Drawing.Font("맑은 고딕", 9F);
             this.rdoDieStateSkip.Name = "rdoDieStateSkip";
             this.rdoDieStateSkip.TabIndex = 3;
-            this.rdoDieStateSkip.Text = "픽업 제외";
+            this.rdoDieStateSkip.Text = "SKIP / 제외";
             this.rdoDieStateSkip.UseVisualStyleBackColor = true;
             //
             // btnApplyDieState

@@ -99,6 +99,12 @@ namespace QMC.CDT320
         public Task<bool> TriggerBottomExposeAsync(int pickerNo, int timeoutMs, CancellationToken ct)
             => Task.FromResult(true);
 
+        public Task<BottomVisionOffset> GetBottomResultAsync(int pickerNo, int timeoutMs = 5000)
+            => Task.FromResult(BuildSimulatedBottom(pickerNo));
+
+        public Task<BottomVisionOffset> GetBottomResultAsync(int pickerNo, int timeoutMs, CancellationToken ct)
+            => GetBottomResultAsync(pickerNo, timeoutMs);
+
         public Task<BottomVisionOffset[]> GetBottomResultsAsync(int timeoutMs = 5000)
             => Task.FromResult(new BottomVisionOffset[]
             {
@@ -116,6 +122,12 @@ namespace QMC.CDT320
 
         public Task<bool> TriggerSideExposeAsync(int pickerNo, int sideNo, int timeoutMs, CancellationToken ct)
             => Task.FromResult(true);
+
+        public Task<bool> StartSideInspectAsync(int pickerNo, int angleDeg, int timeoutMs, CancellationToken ct)
+            => Task.FromResult(true);
+
+        public Task<SideVisionResult> WaitSideResultAsync(int pickerNo, int timeoutMs, CancellationToken ct)
+            => GetSideResultAsync(pickerNo, timeoutMs);
 
         public Task<SideVisionResult> GetSideResultAsync(int pickerNo, int timeoutMs = 5000)
             => Task.FromResult(BuildSimulatedSide(pickerNo));

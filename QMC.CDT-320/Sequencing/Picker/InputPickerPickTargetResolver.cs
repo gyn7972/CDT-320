@@ -206,8 +206,7 @@ namespace QMC.CDT320.Sequencing
                 return 0.0;
 
             stage.Recipe.EnsurePositionObjects();
-            double offset = stage.Config != null ? stage.Config.PickUpEjectPinOffset : 0.0;
-            return stage.Recipe.EjectPinZ.ProcessPosition + offset;
+            return stage.Recipe.EjectPinZ.ProcessPosition;
         }
 
         private static PickerCalibrationOffset ResolvePickerCalibrationOffset(CDT320_Machine machine, PickerSequenceSide side, int pickerIndex)

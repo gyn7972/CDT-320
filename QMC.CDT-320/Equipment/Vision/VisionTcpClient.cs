@@ -210,6 +210,13 @@ namespace QMC.CDT320.VisionComm
             return response.IsAck;
         }
 
+        /// <summary>검사용 GRAB 확장 — 실제 GRAB 완료 ACK 후 Vision 이 같은 die_index/ch 로 백그라운드 검사를 시작한다.</summary>
+        public async Task<bool> GrabInspectAsync(string inspector, int fb, int collet, int dieIndex, int channel, int gridX, int gridY, int timeoutMs, CancellationToken ct)
+        {
+            VisionProtocolResponse response = await SendCommandAsync(VisionProtocolCommand.Grab, timeoutMs, ct, inspector, fb, collet, dieIndex, channel, gridX + ";" + gridY).ConfigureAwait(false);
+            return response.IsAck && !response.Payload.StartsWith("fail:", StringComparison.OrdinalIgnoreCase);
+        }
+
         public async Task<MatchResultDto> MatchAsync(string finder, int index = 0, int timeoutMs = 5000)
         {
             return await MatchAsync(finder, index, timeoutMs, CancellationToken.None).ConfigureAwait(false);
@@ -396,7 +403,7 @@ namespace QMC.CDT320.VisionComm
                 ct.ThrowIfCancellationRequested();
 
                 int remainMs = (int)Math.Max(1, (timeoutAt - DateTime.UtcNow).TotalMilliseconds);
-                int pollTimeoutMs = Math.Min(10000, Math.Max(8000, remainMs));   // 서버 대기 상한(6s)보다 길게
+                int pollTimeoutMs = Math.Min(8000, remainMs);
                 AsyncInspectPoll poll = await PollInspectResultAsync(inspector, index, pollTimeoutMs, ct).ConfigureAwait(false);
                 if (poll.Error)
                     return new InspectionResultDto { IsPass = false, Raw = poll.Raw };

@@ -31,6 +31,10 @@ namespace QMC.CDT_320.Ui.Dialogs
                 return;
 
             string host = VisionHub.Host;
+            _pnWafer.AllowLive = true;
+            _pnBottom.AllowLive = true;
+            _pnBin.AllowLive = true;
+            _pnSide.AllowLive = true;
             _pnWafer.Configure(host, VisionViewerPorts.Wafer, "Wafer", VisionHub.Wafer);
             _pnBottom.Configure(host, VisionViewerPorts.BottomInspection, "Bottom Inspection", VisionHub.Inspection);
             _pnBin.Configure(host, VisionViewerPorts.Bin, "Bin", VisionHub.Bin);

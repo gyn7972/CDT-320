@@ -5,6 +5,7 @@
         Idle,
         CheckUnit,
         BuildPickedPickerList,
+        VerifyPickedPickerFlow,
         AcquireInspectionArea,
         MoveOppositePickerToAvoidBeforeInspection,
         RunBottomPipeline,

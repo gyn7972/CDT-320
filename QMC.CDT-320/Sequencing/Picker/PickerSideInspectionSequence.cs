@@ -1374,7 +1374,7 @@ namespace QMC.CDT320.Sequencing
 
             ct.ThrowIfCancellationRequested();
 
-            int timeoutMs = ResolveTimeout();
+            int timeoutMs = ResolveVisionInspectionTimeout();
             WriteLog("PickerSideInspectionSequence",
                 Name + " request side vision. die=" + _currentDie.DieId +
                 ", pickerNo=" + _currentPickerNo +
@@ -1385,32 +1385,49 @@ namespace QMC.CDT320.Sequencing
                 ", pickerT=" + (angleDeg == 90 ? _targetPickerT90 : _targetPickerT0) +
                 ", timeoutMs=" + timeoutMs + " - Start");
 
-            SideVisionResult result;
+            bool started;
             if (Side == PickerSequenceSide.Front)
             {
-                result = await FrontPicker.RequestSideInspectionAsync(_currentPickerNo, angleDeg, timeoutMs, ct).ConfigureAwait(false);
+                started = await FrontPicker.TriggerSideInspectionExposeAsync(_currentPickerNo, angleDeg, timeoutMs, ct).ConfigureAwait(false);
             }
             else
             {
-                result = await RearPicker.RequestSideInspectionAsync(_currentPickerNo, angleDeg, timeoutMs, ct).ConfigureAwait(false);
+                started = await RearPicker.TriggerSideInspectionExposeAsync(_currentPickerNo, angleDeg, timeoutMs, ct).ConfigureAwait(false);
             }
 
-            if (result == null)
+            if (!started)
                 return null;
 
-            if (!result.IsAllOk)
-            {
-                WriteLog("PickerSideInspectionSequence",
-                    Name + " side vision returned NG. die=" + _currentDie.DieId +
-                    ", pickerNo=" + _currentPickerNo +
-                    ", angleDeg=" + angleDeg +
-                    ", side1=" + result.Side1Ok +
-                    ", side2=" + result.Side2Ok +
-                    ", side3=" + result.Side3Ok +
-                    ", side4=" + result.Side4Ok + " - Check");
-            }
+            // GYN 사이드 복구
+            // Side 결과 수신은 임시 보류한다. 재활성화 시 위 TriggerSideInspectionExposeAsync 호출 대신
+            // RequestSideInspectionAsync 호출을 복구하고, BuildSideResultWaitSkipped 반환을 제거하면 된다.
+            return BuildSideResultWaitSkipped(angleDeg);
+        }
 
-            return result;
+        private SideVisionResult BuildSideResultWaitSkipped(int angleDeg)
+        {
+            var values = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            values["ResultWaitSkipped"] = "True";
+            values["AngleDeg"] = angleDeg.ToString();
+            values["DieId"] = _currentDie != null ? _currentDie.DieId : string.Empty;
+
+            WriteLog("PickerSideInspectionSequence",
+                Name + " Side 검사 시작 ACK 이후 결과 수신 대기를 생략하고 진행합니다. " +
+                "side=" + Side +
+                ", die=" + (_currentDie != null ? _currentDie.DieId : string.Empty) +
+                ", pickerNo=" + _currentPickerNo +
+                ", angleDeg=" + angleDeg + " - Check");
+
+            return new SideVisionResult
+            {
+                PickerNo = _currentPickerNo,
+                Side1Ok = true,
+                Side2Ok = true,
+                Side3Ok = true,
+                Side4Ok = true,
+                Raw = "SIDE_RESULT_WAIT_SKIPPED",
+                Values = values
+            };
         }
 
         private SideVisionResult SimulateSideResult()

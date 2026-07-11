@@ -7,6 +7,14 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
 {
     internal partial class PickerHeadDieDialog : Form
     {
+        private enum PickerDieManualState
+        {
+            Wait,
+            Good,
+            Ng,
+            Skip
+        }
+
         private readonly PickerSequenceSide _side;
         private readonly int _pickerNo;
         private readonly MaterialLocationKind _pickerLocation;
@@ -24,7 +32,21 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
 
             Text = (side == PickerSequenceSide.Front ? "Front" : "Rear") + " Picker Head #" + pickerNo + " Die";
             lblTitle.Text = Text;
+            ConfigureStateUi();
             LoadDieInfo();
+        }
+
+        private void ConfigureStateUi()
+        {
+            lblResultTitle.Text = "State";
+            cmbResult.Items.Clear();
+            cmbResult.Items.Add("WAIT / 대기");
+            cmbResult.Items.Add("GOOD / 완료");
+            cmbResult.Items.Add("NG / 불량");
+            cmbResult.Items.Add("SKIP / 제외");
+            cmbResult.SelectedIndex = 0;
+            chkInputTarget.Visible = false;
+            chkInputTarget.TabStop = false;
         }
 
         private void LoadDieInfo()
@@ -39,7 +61,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                     lblSequenceValue.Text = "-";
                     lblMapValue.Text = "-";
                     lblLocationValue.Text = "-";
-                    cmbResult.SelectedItem = DieResult.Unknown.ToString();
+                    cmbResult.SelectedItem = "WAIT / 대기";
                     chkInputTarget.Checked = false;
                     txtNgCode.Text = "";
                     txtReason.Text = "No die";
@@ -53,7 +75,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 lblSequenceValue.Text = _die.InputSequenceNo.ToString();
                 lblMapValue.Text = _die.Wafer_IndexX + " / " + _die.Wafer_IndexY;
                 lblLocationValue.Text = _die.CurrentLocation != null ? _die.CurrentLocation.ToString() : "-";
-                cmbResult.SelectedItem = _die.Result.ToString();
+                cmbResult.SelectedItem = ResolvePickerDieStateText(_die);
                 chkInputTarget.Checked = _die.IsInputTarget;
                 txtNgCode.Text = _die.NgCodes != null && _die.NgCodes.Count > 0 ? string.Join(",", _die.NgCodes.ToArray()) : "";
                 txtReason.Text = "Manual picker head edit";
@@ -75,13 +97,15 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
         {
             try
             {
-                DieResult result = ResolveSelectedResult();
+                PickerDieManualState state = ResolveSelectedState();
+                DieResult result = ResolveStateResult(state);
+                bool isInputTarget = state != PickerDieManualState.Skip;
                 string message;
                 bool ok = MaterialStateService.UpdatePickerDieManualState(
                     _pickerLocation,
                     _pickerNo,
                     result,
-                    chkInputTarget.Checked,
+                    isInputTarget,
                     txtNgCode.Text,
                     txtReason.Text,
                     out message);
@@ -155,27 +179,60 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             Close();
         }
 
-        private DieResult ResolveSelectedResult()
+        private PickerDieManualState ResolveSelectedState()
         {
             try
             {
                 string value = cmbResult.SelectedItem != null ? cmbResult.SelectedItem.ToString() : "";
-                if (string.Equals(value, DieResult.Good.ToString(), StringComparison.OrdinalIgnoreCase))
-                    return DieResult.Good;
-                if (string.Equals(value, DieResult.NG.ToString(), StringComparison.OrdinalIgnoreCase))
-                    return DieResult.NG;
+                if (value.IndexOf("GOOD", StringComparison.OrdinalIgnoreCase) >= 0)
+                    return PickerDieManualState.Good;
+                if (value.IndexOf("NG", StringComparison.OrdinalIgnoreCase) >= 0)
+                    return PickerDieManualState.Ng;
+                if (value.IndexOf("SKIP", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                    value.IndexOf("제외", StringComparison.OrdinalIgnoreCase) >= 0)
+                    return PickerDieManualState.Skip;
 
-                return DieResult.Unknown;
+                return PickerDieManualState.Wait;
             }
             catch (Exception ex)
             {
                 QMC.Common.Log.Write("Main", "UI", "PickerHeadDieDialog",
-                    "Resolve selected die result failed: " + ex.Message + " - Failed");
-                return DieResult.Unknown;
+                    "Resolve selected die state failed: " + ex.Message + " - Failed");
+                return PickerDieManualState.Wait;
             }
             finally
             {
             }
+        }
+
+        private static DieResult ResolveStateResult(PickerDieManualState state)
+        {
+            switch (state)
+            {
+                case PickerDieManualState.Good:
+                    return DieResult.Good;
+                case PickerDieManualState.Ng:
+                    return DieResult.NG;
+                case PickerDieManualState.Skip:
+                case PickerDieManualState.Wait:
+                default:
+                    return DieResult.Unknown;
+            }
+        }
+
+        private static string ResolvePickerDieStateText(DieMaterial die)
+        {
+            if (die == null)
+                return "WAIT / 대기";
+
+            if (!die.IsInputTarget)
+                return "SKIP / 제외";
+            if (die.Result == DieResult.Good)
+                return "GOOD / 완료";
+            if (die.Result == DieResult.NG)
+                return "NG / 불량";
+
+            return "WAIT / 대기";
         }
     }
 }

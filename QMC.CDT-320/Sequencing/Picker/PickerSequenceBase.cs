@@ -146,6 +146,12 @@ namespace QMC.CDT320.Sequencing
             return Options != null && Options.MoveTimeoutMs > 0 ? Options.MoveTimeoutMs : 30000;
         }
 
+        protected int ResolveVisionInspectionTimeout()
+        {
+            const int defaultVisionInspectionTimeoutMs = 12000;
+            return defaultVisionInspectionTimeoutMs;
+        }
+
         protected int ResolveMoveTimeout()
         {
             if (CalibrationMotion != null)
@@ -2281,31 +2287,16 @@ namespace QMC.CDT320.Sequencing
         {
             try
             {
-                int index = ToPickerIndex(pickerNo);
-                if (Side == PickerSequenceSide.Front &&
-                    FrontPicker != null &&
-                    FrontPicker.FlowChecks != null &&
-                    index >= 0 &&
-                    index < FrontPicker.FlowChecks.Length &&
-                    FrontPicker.FlowChecks[index] != null)
-                {
-                    return FrontPicker.FlowChecks[index].IsOn;
-                }
+                if (Side == PickerSequenceSide.Front && FrontPicker != null)
+                    return FrontPicker.IsPickerFlowDetected(pickerNo, true);
 
-                if (Side == PickerSequenceSide.Rear &&
-                    RearPicker != null &&
-                    RearPicker.FlowChecks != null &&
-                    index >= 0 &&
-                    index < RearPicker.FlowChecks.Length &&
-                    RearPicker.FlowChecks[index] != null)
-                {
-                    return RearPicker.FlowChecks[index].IsOn;
-                }
+                if (Side == PickerSequenceSide.Rear && RearPicker != null)
+                    return RearPicker.IsPickerFlowDetected(pickerNo, true);
             }
             catch (Exception ex)
             {
                 WriteLog("PickerFlowCheck",
-                    Name + " Picker Flow 신호 읽기 실패. side=" + Side +
+                    Name + " Picker Flow 신호 읽기 실패. Unit IsPickerFlowDetected 호출 실패. side=" + Side +
                     ", pickerNo=" + pickerNo +
                     ", error=" + ex.Message + " - Failed");
             }

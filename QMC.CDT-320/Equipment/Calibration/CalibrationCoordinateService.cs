@@ -279,8 +279,7 @@ namespace QMC.CDT320.Calibration
             double appliedColletT = 0.0;
             double pickerYTarget = pickerYTeaching;
             double pickerYForward = Math.Abs(pickerYTarget);
-            double pickerYWithCarryOffset = pickerYTeaching + runtimeY + collet.Y;
-            double placeYOffsetMovedToStage = Math.Abs(pickerYWithCarryOffset) - pickerYForward;
+            double pickerYRuntimeOffset = runtimeY;
             PickerCalibratedManualOutputTarget target = new PickerCalibratedManualOutputTarget
             {
                 OutputVisionToPickerX = outputVisionToPickerX,
@@ -293,17 +292,17 @@ namespace QMC.CDT320.Calibration
                 ColletOffsetY = collet.Y,
                 ColletOffsetT = appliedColletT
             };
-            // Place keeps PickerY on the taught transfer line; OutputStageY absorbs carried Y correction.
-            target.OutputStageY = slotY + outputVisionToPickerY - pickerYForward;
-            // OutputCameraX와 PickerX는 X 좌표계 방향이 반대이므로 Output map X 오프셋은 PickerX에서 뺀다.
-            target.PickerX = -slotX + outputVisionToPickerX + runtimeX + collet.X;
+            // Place keeps PickerY on the taught transfer line; OutputStageY uses the signed Pick-style Y basis.
+            target.OutputStageY = slotY + pickerYTeaching - outputVisionToPickerY;
+            // OutputCameraX와 PickerX는 Place 수령 방향이 같으므로 Output map X 오프셋은 PickerX에 더한다.
+            target.PickerX = slotX + outputVisionToPickerX + runtimeX;
             target.PickerY = pickerYTarget;
             target.PickerT = pickerTTeaching + runtimeT + appliedColletT;
             target.Formula =
-                "OutputStageY=slotY(" + F(slotY) + ")+outputVisionToPickerY(" + F(outputVisionToPickerY) + ")-pickerYForward(abs(fixedPickerY))(" + F(pickerYForward) + ")=" + F(target.OutputStageY) +
-                " / placeYOffsetMovedToStage=abs(teachingY(" + F(pickerYTeaching) + ")+runtimeY(" + F(runtimeY) + ")+colletY(" + F(collet.Y) + "))-abs(fixedPickerY(" + F(target.PickerY) + "))=" + F(placeYOffsetMovedToStage) +
-                " / PickerX=-slotX(" + F(slotX) + ")+outputVisionToPickerX(" + F(outputVisionToPickerX) + ")+runtimeX(" + F(runtimeX) + ")+colletX(" + F(collet.X) + ")=" + F(target.PickerX) +
-                " / PickerY=fixed teachingY(" + F(pickerYTeaching) + ") [runtimeY+colletY moved to OutputStageY compensation=" + F(runtimeY + collet.Y) + "]=" + F(target.PickerY) +
+                "OutputStageY=slotY(" + F(slotY) + ")+pickerYTeaching(" + F(pickerYTeaching) + ")-outputVisionToPickerY(" + F(outputVisionToPickerY) + ")=" + F(target.OutputStageY) +
+                " / pickerYRuntimeOffset=" + F(pickerYRuntimeOffset) +
+                " / PickerX=slotX(" + F(slotX) + ")+outputVisionToPickerX(" + F(outputVisionToPickerX) + ")+runtimeX(" + F(runtimeX) + ") [colletX already in OutputVisionToPicker=" + F(collet.X) + "]=" + F(target.PickerX) +
+                " / PickerY=fixed teachingY(" + F(pickerYTeaching) + ") [runtimeY logged separately=" + F(runtimeY) + ", colletY already in OutputVisionToPicker=" + F(collet.Y) + "]=" + F(target.PickerY) +
                 " / PickerT=teachingT(" + F(pickerTTeaching) + ")+runtimeT(" + F(runtimeT) + ")+colletT(homeZeroApplied)(" + F(appliedColletT) + ")=" + F(target.PickerT);
             return target;
         }
