@@ -181,10 +181,10 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 ResolveAxisNo(machine.PickerFrontUnit != null ? machine.PickerFrontUnit.PickerX : null, "FrontPickerX"),
                 new[]
                 {
-                    ResolveAxisNo(machine.PickerFrontUnit != null ? machine.PickerFrontUnit.PickerZ0 : null, "FrontPickerZ0"),
-                    ResolveAxisNo(machine.PickerFrontUnit != null ? machine.PickerFrontUnit.PickerZ1 : null, "FrontPickerZ1"),
-                    ResolveAxisNo(machine.PickerFrontUnit != null ? machine.PickerFrontUnit.PickerZ2 : null, "FrontPickerZ2"),
-                    ResolveAxisNo(machine.PickerFrontUnit != null ? machine.PickerFrontUnit.PickerZ3 : null, "FrontPickerZ3")
+                    ResolveAxisNo(machine.PickerFrontUnit != null ? machine.PickerFrontUnit.PickerZ0 : null, "FrontPickerZ1"),
+                    ResolveAxisNo(machine.PickerFrontUnit != null ? machine.PickerFrontUnit.PickerZ1 : null, "FrontPickerZ2"),
+                    ResolveAxisNo(machine.PickerFrontUnit != null ? machine.PickerFrontUnit.PickerZ2 : null, "FrontPickerZ3"),
+                    ResolveAxisNo(machine.PickerFrontUnit != null ? machine.PickerFrontUnit.PickerZ3 : null, "FrontPickerZ4")
                 });
 
             AddPickerLineMapTests(
@@ -195,10 +195,10 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 ResolveAxisNo(machine.PickerRearUnit != null ? machine.PickerRearUnit.PickerX : null, "RearPickerX"),
                 new[]
                 {
-                    ResolveAxisNo(machine.PickerRearUnit != null ? machine.PickerRearUnit.PickerZ0 : null, "RearPickerZ0"),
-                    ResolveAxisNo(machine.PickerRearUnit != null ? machine.PickerRearUnit.PickerZ1 : null, "RearPickerZ1"),
-                    ResolveAxisNo(machine.PickerRearUnit != null ? machine.PickerRearUnit.PickerZ2 : null, "RearPickerZ2"),
-                    ResolveAxisNo(machine.PickerRearUnit != null ? machine.PickerRearUnit.PickerZ3 : null, "RearPickerZ3")
+                    ResolveAxisNo(machine.PickerRearUnit != null ? machine.PickerRearUnit.PickerZ0 : null, "RearPickerZ1"),
+                    ResolveAxisNo(machine.PickerRearUnit != null ? machine.PickerRearUnit.PickerZ1 : null, "RearPickerZ2"),
+                    ResolveAxisNo(machine.PickerRearUnit != null ? machine.PickerRearUnit.PickerZ2 : null, "RearPickerZ3"),
+                    ResolveAxisNo(machine.PickerRearUnit != null ? machine.PickerRearUnit.PickerZ3 : null, "RearPickerZ4")
                 });
 
             return results;
@@ -433,7 +433,6 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             return await PickerPlaceContiSegmentedMotion.MoveStageYPickerXAndPickerZByNodesAsync(
                 axes.StageY,
                 axes.PickerX,
-                axes.PreviousPickerZ,
                 axes.PickerZ,
                 nodes,
                 placeConfig,
@@ -702,8 +701,8 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
 
             ResolveAxisNo(axes.StageY, "OutputGoodStageY");
             ResolveAxisNo(axes.PickerX, "FrontPickerX");
-            ResolveAxisNo(axes.PreviousPickerZ, "FrontPickerZ" + previousPickerIndex);
-            ResolveAxisNo(axes.PickerZ, "FrontPickerZ" + currentPickerIndex);
+            ResolveAxisNo(axes.PreviousPickerZ, "FrontPickerZ" + (previousPickerIndex + 1));
+            ResolveAxisNo(axes.PickerZ, "FrontPickerZ" + (currentPickerIndex + 1));
             return axes;
         }
 

@@ -20,7 +20,6 @@ namespace QMC.CDT320.Sequencing
         VacuumOff,
         BlowOff,
         MovePickerZToAvoid,
-        VerifyFlowOff,
         UpdateMaterialToOutputStage,
         RecoverOutputStageAfterPlace,
         SelectNextPickerOrComplete,
@@ -37,8 +36,7 @@ namespace QMC.CDT320.Sequencing
         MovePickerZPlace = 3,
         VacuumOffBlow = 4,
         MovePickerZToAvoid = 5,
-        VerifyFlowOff = 6,
-        UpdateMaterialToOutputStage = 7,
-        RecoverAfterPlace = 8
+        UpdateMaterialToOutputStage = 6,
+        RecoverAfterPlace = 7
     }
 }

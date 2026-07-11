@@ -168,7 +168,6 @@ namespace QMC.CDT320.Sequencing
                         WriteLog("InputDieVisionPrepareSequence",
                             Name + " InputCamera 선행검사 모드: Picker가 Die를 들고 있지만 다음 PickUp 대상 예약을 허용합니다. " +
                             "pickerNo=" + pickerNo +
-                            ", pickerIndex=" + pickerIndex +
                             ", loadedDie=" + loadedDie.DieId + " - Check");
                         loadedDie = null;
                     }
@@ -178,7 +177,6 @@ namespace QMC.CDT320.Sequencing
                         WriteLog("InputDieVisionPrepareSequence",
                             Name + " Picker가 이미 Die를 가지고 있어 Input die vision 예약에서 제외합니다. " +
                             "pickerNo=" + pickerNo +
-                            ", pickerIndex=" + pickerIndex +
                             ", loadedDie=" + loadedDie.DieId + " - Check");
                         continue;
                     }
@@ -203,7 +201,6 @@ namespace QMC.CDT320.Sequencing
                     WriteLog("InputDieVisionPrepareSequence",
                         Name + " Input die vision 준비용 Die를 예약했습니다. die=" + dieId +
                         ", pickerNo=" + pickerNo +
-                        ", pickerIndex=" + pickerIndex +
                         ", grid=(" + target.DieMapX + "," + target.DieMapY + ")" +
                         ", inputVisionX=" + target.TargetX +
                         ", inputStageY=" + target.TargetY + " - Ok");

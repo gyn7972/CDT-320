@@ -469,7 +469,7 @@ namespace QMC.CDT320.Sequencing
 
         private string BuildSideMoveTargetName()
         {
-            string targetName = "DieSidePosition[" + _currentPickerIndex + "]";
+            string targetName = BuildPickerTargetName("DieSidePosition", _currentPickerIndex);
             if (!IsEnterSideFromBottomInspection() &&
                 (Options == null || !Options.KeepZUntilSideInspectionComplete))
                 return AppendAutoProcessCorrectionTargetTag(targetName);
@@ -567,7 +567,7 @@ namespace QMC.CDT320.Sequencing
                     previousZAvoid,
                     "다음 Side 검사 진입 중 이전 PickerZ Avoid",
                     ct,
-                    "DieSideZAvoidDeferred[" + previousPickerIndex + "];PickerPhase=InspectionZHold;InspectionContinuous;From=Side;To=Side").ConfigureAwait(false);
+                    BuildPickerTargetName("DieSideZAvoidDeferred", previousPickerIndex) + ";PickerPhase=InspectionZHold;InspectionContinuous;From=Side;To=Side").ConfigureAwait(false);
                 if (result != 0)
                     return result;
 
@@ -1023,7 +1023,7 @@ namespace QMC.CDT320.Sequencing
                 zAvoid,
                 "사이드 검사 종료 후 PickerZ 어보이드",
                 ct,
-                "DieSideExit[" + _currentPickerIndex + "]").ConfigureAwait(false);
+                BuildPickerTargetName("DieSideExit", _currentPickerIndex)).ConfigureAwait(false);
             if (result != 0)
                 return result;
 
@@ -1208,7 +1208,7 @@ namespace QMC.CDT320.Sequencing
                 pending.MoveTask = MovePickerAxisCommandAsync(
                     tAxis,
                     pending.Target,
-                    "DieSideT0ReturnDeferred[" + pending.PickerIndex + "]");
+                    BuildPickerTargetName("DieSideT0ReturnDeferred", pending.PickerIndex));
 
                 WriteLog("PickerSideInspectionSequence",
                     Name + " 이전 PickerT 0도 복귀 명령을 백그라운드로 시작했습니다. description=" + description +
@@ -1245,7 +1245,7 @@ namespace QMC.CDT320.Sequencing
                     pending.Target,
                     "마지막 Side PickerT 0도 복귀",
                     ct,
-                    "DieSideT0ReturnFinal[" + pending.PickerIndex + "]").ConfigureAwait(false);
+                    BuildPickerTargetName("DieSideT0ReturnFinal", pending.PickerIndex)).ConfigureAwait(false);
                 if (moveResult != 0)
                     return moveResult;
 
@@ -1514,7 +1514,6 @@ namespace QMC.CDT320.Sequencing
                    ", angleDeg=" + angleDeg +
                    ", die=" + (_currentDie != null ? _currentDie.DieId : "-") +
                    ", pickerNo=" + _currentPickerNo +
-                   ", pickerIndex=" + _currentPickerIndex +
                    ", " + (detail ?? "");
         }
 

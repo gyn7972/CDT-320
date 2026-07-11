@@ -139,7 +139,7 @@ namespace QMC.CDT320.Sequencing
                 "InputPickTarget",
                 "sequence=" + (sequenceName ?? string.Empty) +
                 ", side=" + side +
-                ", pickerIndex=" + pickerIndex +
+                ", pickerNo=" + ToPickerNo(pickerIndex) +
                 ", die=" + (dieId ?? string.Empty) +
                 ", runtimeSource=PickerAlignOffset" +
                 ", runtimeX=" + F(runtimeX) +
@@ -204,7 +204,7 @@ namespace QMC.CDT320.Sequencing
             WriteCoordinateLog(
                 "PickerZoneTarget",
                 "side=" + side +
-                ", pickerIndex=" + pickerIndex +
+                ", pickerNo=" + ToPickerNo(pickerIndex) +
                 ", positionArrayName=" + (positionArrayName ?? string.Empty) +
                 ", policy=" + policy +
                 ", runtimeSource=PickerAlignOffset" +
@@ -301,7 +301,7 @@ namespace QMC.CDT320.Sequencing
                 "OutputPlaceTarget",
                 "sequence=" + (sequenceName ?? string.Empty) +
                 ", side=" + side +
-                ", pickerIndex=" + pickerIndex +
+                ", pickerNo=" + ToPickerNo(pickerIndex) +
                 ", die=" + (dieId ?? string.Empty) +
                 ", targetSide=" + targetSide +
                 ", runtimeSource=PickerAlignOffset" +
@@ -330,7 +330,7 @@ namespace QMC.CDT320.Sequencing
                 "OutputPlaceFormula",
                 "sequence=" + (sequenceName ?? string.Empty) +
                 ", side=" + side +
-                ", pickerIndex=" + pickerIndex +
+                ", pickerNo=" + ToPickerNo(pickerIndex) +
                 ", die=" + (dieId ?? string.Empty) +
                 ", targetSide=" + targetSide +
                 ", formulaPickerX=outputVisionProcessX(" + F(outputVisionProcessX) +
@@ -391,6 +391,11 @@ namespace QMC.CDT320.Sequencing
         private static string F(double value)
         {
             return value.ToString("F6");
+        }
+
+        private static int ToPickerNo(int pickerIndex)
+        {
+            return pickerIndex + 1;
         }
     }
 }

@@ -1009,16 +1009,16 @@ namespace QMC.CDT320.Sequencing.Calibration
         {
             int result = await MoveFrontPickerTeachingAxisAndVerifyAsync(PickerAxis.PickerZ0, positionName, ct).ConfigureAwait(false);
             if (result != 0)
-                return Fail("VISION-FOCUS-CAL-FRONT-Z-GROUP", "PickerFrontUnit", description + " 실패. axis=PickerZ0, result=" + result);
+                return Fail("VISION-FOCUS-CAL-FRONT-Z-GROUP", "PickerFrontUnit", description + " 실패. axis=PickerZ1, result=" + result);
             result = await MoveFrontPickerTeachingAxisAndVerifyAsync(PickerAxis.PickerZ1, positionName, ct).ConfigureAwait(false);
             if (result != 0)
-                return Fail("VISION-FOCUS-CAL-FRONT-Z-GROUP", "PickerFrontUnit", description + " 실패. axis=PickerZ1, result=" + result);
+                return Fail("VISION-FOCUS-CAL-FRONT-Z-GROUP", "PickerFrontUnit", description + " 실패. axis=PickerZ2, result=" + result);
             result = await MoveFrontPickerTeachingAxisAndVerifyAsync(PickerAxis.PickerZ2, positionName, ct).ConfigureAwait(false);
             if (result != 0)
-                return Fail("VISION-FOCUS-CAL-FRONT-Z-GROUP", "PickerFrontUnit", description + " 실패. axis=PickerZ2, result=" + result);
+                return Fail("VISION-FOCUS-CAL-FRONT-Z-GROUP", "PickerFrontUnit", description + " 실패. axis=PickerZ3, result=" + result);
             result = await MoveFrontPickerTeachingAxisAndVerifyAsync(PickerAxis.PickerZ3, positionName, ct).ConfigureAwait(false);
             if (result != 0)
-                return Fail("VISION-FOCUS-CAL-FRONT-Z-GROUP", "PickerFrontUnit", description + " 실패. axis=PickerZ3, result=" + result);
+                return Fail("VISION-FOCUS-CAL-FRONT-Z-GROUP", "PickerFrontUnit", description + " 실패. axis=PickerZ4, result=" + result);
             return 0;
         }
 
@@ -1026,16 +1026,16 @@ namespace QMC.CDT320.Sequencing.Calibration
         {
             int result = await MoveRearPickerTeachingAxisAndVerifyAsync(PickerAxis.PickerZ0, positionName, ct).ConfigureAwait(false);
             if (result != 0)
-                return Fail("VISION-FOCUS-CAL-REAR-Z-GROUP", "PickerRearUnit", description + " 실패. axis=PickerZ0, result=" + result);
+                return Fail("VISION-FOCUS-CAL-REAR-Z-GROUP", "PickerRearUnit", description + " 실패. axis=PickerZ2, result=" + result);
             result = await MoveRearPickerTeachingAxisAndVerifyAsync(PickerAxis.PickerZ1, positionName, ct).ConfigureAwait(false);
             if (result != 0)
                 return Fail("VISION-FOCUS-CAL-REAR-Z-GROUP", "PickerRearUnit", description + " 실패. axis=PickerZ1, result=" + result);
             result = await MoveRearPickerTeachingAxisAndVerifyAsync(PickerAxis.PickerZ2, positionName, ct).ConfigureAwait(false);
             if (result != 0)
-                return Fail("VISION-FOCUS-CAL-REAR-Z-GROUP", "PickerRearUnit", description + " 실패. axis=PickerZ2, result=" + result);
+                return Fail("VISION-FOCUS-CAL-REAR-Z-GROUP", "PickerRearUnit", description + " 실패. axis=PickerZ3, result=" + result);
             result = await MoveRearPickerTeachingAxisAndVerifyAsync(PickerAxis.PickerZ3, positionName, ct).ConfigureAwait(false);
             if (result != 0)
-                return Fail("VISION-FOCUS-CAL-REAR-Z-GROUP", "PickerRearUnit", description + " 실패. axis=PickerZ3, result=" + result);
+                return Fail("VISION-FOCUS-CAL-REAR-Z-GROUP", "PickerRearUnit", description + " 실패. axis=PickerZ4, result=" + result);
             return 0;
         }
 

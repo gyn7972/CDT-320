@@ -3051,7 +3051,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     entry.PosX,
                     speedType,
                     ResolvePickerMoveTitle(side, pickerNo));
-                string pickerTargetName = "DiePickPosition[" + (pickerNo - 1) + "];ManualInputDieMapMove";
+                string pickerTargetName = "DiePickPosition[P" + pickerNo + "];ManualInputDieMapMove";
                 Task<int> movePickerX = side == PickerSequenceSide.Front
                     ? host.Machine.PickerFrontUnit.MoveFrontPickerAxis(PickerAxis.PickerX, targetPickerX, speedType, 0.0, pickerTargetName)
                     : host.Machine.PickerRearUnit.MoveRearPickerAxis(PickerAxis.PickerX, targetPickerX, speedType, 0.0, pickerTargetName);
@@ -4212,7 +4212,6 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     QMC.Common.Log.Write("Main", "SYSTEM", "InputStageMapTransferPage",
                         "Picker input offset resolve failed. side=" + side +
                         ", pickerNo=" + pickerNo +
-                        ", pickerIndex=" + index +
                         ", reason=" + reason + " - Failed");
                 }
 

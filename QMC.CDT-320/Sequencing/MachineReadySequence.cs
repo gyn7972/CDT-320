@@ -394,14 +394,14 @@ namespace QMC.CDT320.Sequencing
                 LogStep("Front/Rear Picker Z축 전체 상승 Avoid 이동 시작.");
 
                 var tasks = new List<Task<int>>();
-                AddFrontPickerAxisAvoidTask(tasks, frontUnit, PickerAxis.PickerZ0, "PickerZ0", ct);
-                AddFrontPickerAxisAvoidTask(tasks, frontUnit, PickerAxis.PickerZ1, "PickerZ1", ct);
-                AddFrontPickerAxisAvoidTask(tasks, frontUnit, PickerAxis.PickerZ2, "PickerZ2", ct);
-                AddFrontPickerAxisAvoidTask(tasks, frontUnit, PickerAxis.PickerZ3, "PickerZ3", ct);
-                AddRearPickerAxisAvoidTask(tasks, rearUnit, PickerAxis.PickerZ0, "PickerZ0", ct);
-                AddRearPickerAxisAvoidTask(tasks, rearUnit, PickerAxis.PickerZ1, "PickerZ1", ct);
-                AddRearPickerAxisAvoidTask(tasks, rearUnit, PickerAxis.PickerZ2, "PickerZ2", ct);
-                AddRearPickerAxisAvoidTask(tasks, rearUnit, PickerAxis.PickerZ3, "PickerZ3", ct);
+                AddFrontPickerAxisAvoidTask(tasks, frontUnit, PickerAxis.PickerZ0, "PickerZ1", ct);
+                AddFrontPickerAxisAvoidTask(tasks, frontUnit, PickerAxis.PickerZ1, "PickerZ2", ct);
+                AddFrontPickerAxisAvoidTask(tasks, frontUnit, PickerAxis.PickerZ2, "PickerZ3", ct);
+                AddFrontPickerAxisAvoidTask(tasks, frontUnit, PickerAxis.PickerZ3, "PickerZ4", ct);
+                AddRearPickerAxisAvoidTask(tasks, rearUnit, PickerAxis.PickerZ0, "PickerZ1", ct);
+                AddRearPickerAxisAvoidTask(tasks, rearUnit, PickerAxis.PickerZ1, "PickerZ2", ct);
+                AddRearPickerAxisAvoidTask(tasks, rearUnit, PickerAxis.PickerZ2, "PickerZ3", ct);
+                AddRearPickerAxisAvoidTask(tasks, rearUnit, PickerAxis.PickerZ3, "PickerZ4", ct);
 
                 int result = await AwaitReadyAxisTasksAsync(tasks).ConfigureAwait(false);
                 if (result != 0)
@@ -559,14 +559,14 @@ namespace QMC.CDT320.Sequencing
                 LogStep("Front/Rear Picker T축 전체 Avoid 이동 시작.");
 
                 var tasks = new List<Task<int>>();
-                AddFrontPickerAxisAvoidTask(tasks, frontUnit, PickerAxis.PickerT0, "PickerT0", ct);
-                AddFrontPickerAxisAvoidTask(tasks, frontUnit, PickerAxis.PickerT1, "PickerT1", ct);
-                AddFrontPickerAxisAvoidTask(tasks, frontUnit, PickerAxis.PickerT2, "PickerT2", ct);
-                AddFrontPickerAxisAvoidTask(tasks, frontUnit, PickerAxis.PickerT3, "PickerT3", ct);
-                AddRearPickerAxisAvoidTask(tasks, rearUnit, PickerAxis.PickerT0, "PickerT0", ct);
-                AddRearPickerAxisAvoidTask(tasks, rearUnit, PickerAxis.PickerT1, "PickerT1", ct);
-                AddRearPickerAxisAvoidTask(tasks, rearUnit, PickerAxis.PickerT2, "PickerT2", ct);
-                AddRearPickerAxisAvoidTask(tasks, rearUnit, PickerAxis.PickerT3, "PickerT3", ct);
+                AddFrontPickerAxisAvoidTask(tasks, frontUnit, PickerAxis.PickerT0, "PickerT1", ct);
+                AddFrontPickerAxisAvoidTask(tasks, frontUnit, PickerAxis.PickerT1, "PickerT2", ct);
+                AddFrontPickerAxisAvoidTask(tasks, frontUnit, PickerAxis.PickerT2, "PickerT3", ct);
+                AddFrontPickerAxisAvoidTask(tasks, frontUnit, PickerAxis.PickerT3, "PickerT4", ct);
+                AddRearPickerAxisAvoidTask(tasks, rearUnit, PickerAxis.PickerT0, "PickerT1", ct);
+                AddRearPickerAxisAvoidTask(tasks, rearUnit, PickerAxis.PickerT1, "PickerT2", ct);
+                AddRearPickerAxisAvoidTask(tasks, rearUnit, PickerAxis.PickerT2, "PickerT3", ct);
+                AddRearPickerAxisAvoidTask(tasks, rearUnit, PickerAxis.PickerT3, "PickerT4", ct);
 
                 int result = await AwaitReadyAxisTasksAsync(tasks).ConfigureAwait(false);
                 if (result != 0)
@@ -675,16 +675,16 @@ namespace QMC.CDT320.Sequencing
 
                 LogStep("FrontPicker Avoid 이동 시작.");
 
-                int result = await MoveFrontPickerAxisAvoidAsync(unit, PickerAxis.PickerZ0, "PickerZ0", ct).ConfigureAwait(false);
+                int result = await MoveFrontPickerAxisAvoidAsync(unit, PickerAxis.PickerZ0, "PickerZ1", ct).ConfigureAwait(false);
                 if (result != 0) return result;
 
-                result = await MoveFrontPickerAxisAvoidAsync(unit, PickerAxis.PickerZ1, "PickerZ1", ct).ConfigureAwait(false);
+                result = await MoveFrontPickerAxisAvoidAsync(unit, PickerAxis.PickerZ1, "PickerZ2", ct).ConfigureAwait(false);
                 if (result != 0) return result;
 
-                result = await MoveFrontPickerAxisAvoidAsync(unit, PickerAxis.PickerZ2, "PickerZ2", ct).ConfigureAwait(false);
+                result = await MoveFrontPickerAxisAvoidAsync(unit, PickerAxis.PickerZ2, "PickerZ3", ct).ConfigureAwait(false);
                 if (result != 0) return result;
 
-                result = await MoveFrontPickerAxisAvoidAsync(unit, PickerAxis.PickerZ3, "PickerZ3", ct).ConfigureAwait(false);
+                result = await MoveFrontPickerAxisAvoidAsync(unit, PickerAxis.PickerZ3, "PickerZ4", ct).ConfigureAwait(false);
                 if (result != 0) return result;
 
                 result = await MoveFrontPickerAxisAvoidAsync(unit, PickerAxis.PickerY, "PickerY", ct).ConfigureAwait(false);
@@ -693,16 +693,16 @@ namespace QMC.CDT320.Sequencing
                 result = await MoveFrontPickerAxisAvoidAsync(unit, PickerAxis.PickerX, "PickerX", ct).ConfigureAwait(false);
                 if (result != 0) return result;
 
-                result = await MoveFrontPickerAxisAvoidAsync(unit, PickerAxis.PickerT0, "PickerT0", ct).ConfigureAwait(false);
+                result = await MoveFrontPickerAxisAvoidAsync(unit, PickerAxis.PickerT0, "PickerT1", ct).ConfigureAwait(false);
                 if (result != 0) return result;
 
-                result = await MoveFrontPickerAxisAvoidAsync(unit, PickerAxis.PickerT1, "PickerT1", ct).ConfigureAwait(false);
+                result = await MoveFrontPickerAxisAvoidAsync(unit, PickerAxis.PickerT1, "PickerT2", ct).ConfigureAwait(false);
                 if (result != 0) return result;
 
-                result = await MoveFrontPickerAxisAvoidAsync(unit, PickerAxis.PickerT2, "PickerT2", ct).ConfigureAwait(false);
+                result = await MoveFrontPickerAxisAvoidAsync(unit, PickerAxis.PickerT2, "PickerT3", ct).ConfigureAwait(false);
                 if (result != 0) return result;
 
-                result = await MoveFrontPickerAxisAvoidAsync(unit, PickerAxis.PickerT3, "PickerT3", ct).ConfigureAwait(false);
+                result = await MoveFrontPickerAxisAvoidAsync(unit, PickerAxis.PickerT3, "PickerT4", ct).ConfigureAwait(false);
                 if (result != 0) return result;
 
                 if (!unit.IsFrontPickerInAvoidPosition())
@@ -735,16 +735,16 @@ namespace QMC.CDT320.Sequencing
 
                 LogStep("RearPicker Avoid 이동 시작.");
 
-                int result = await MoveRearPickerAxisAvoidAsync(unit, PickerAxis.PickerZ0, "PickerZ0", ct).ConfigureAwait(false);
+                int result = await MoveRearPickerAxisAvoidAsync(unit, PickerAxis.PickerZ0, "PickerZ1", ct).ConfigureAwait(false);
                 if (result != 0) return result;
 
-                result = await MoveRearPickerAxisAvoidAsync(unit, PickerAxis.PickerZ1, "PickerZ1", ct).ConfigureAwait(false);
+                result = await MoveRearPickerAxisAvoidAsync(unit, PickerAxis.PickerZ1, "PickerZ2", ct).ConfigureAwait(false);
                 if (result != 0) return result;
 
-                result = await MoveRearPickerAxisAvoidAsync(unit, PickerAxis.PickerZ2, "PickerZ2", ct).ConfigureAwait(false);
+                result = await MoveRearPickerAxisAvoidAsync(unit, PickerAxis.PickerZ2, "PickerZ3", ct).ConfigureAwait(false);
                 if (result != 0) return result;
 
-                result = await MoveRearPickerAxisAvoidAsync(unit, PickerAxis.PickerZ3, "PickerZ3", ct).ConfigureAwait(false);
+                result = await MoveRearPickerAxisAvoidAsync(unit, PickerAxis.PickerZ3, "PickerZ4", ct).ConfigureAwait(false);
                 if (result != 0) return result;
 
                 result = await MoveRearPickerAxisAvoidAsync(unit, PickerAxis.PickerY, "PickerY", ct).ConfigureAwait(false);
@@ -753,16 +753,16 @@ namespace QMC.CDT320.Sequencing
                 result = await MoveRearPickerAxisAvoidAsync(unit, PickerAxis.PickerX, "PickerX", ct).ConfigureAwait(false);
                 if (result != 0) return result;
 
-                result = await MoveRearPickerAxisAvoidAsync(unit, PickerAxis.PickerT0, "PickerT0", ct).ConfigureAwait(false);
+                result = await MoveRearPickerAxisAvoidAsync(unit, PickerAxis.PickerT0, "PickerT1", ct).ConfigureAwait(false);
                 if (result != 0) return result;
 
-                result = await MoveRearPickerAxisAvoidAsync(unit, PickerAxis.PickerT1, "PickerT1", ct).ConfigureAwait(false);
+                result = await MoveRearPickerAxisAvoidAsync(unit, PickerAxis.PickerT1, "PickerT2", ct).ConfigureAwait(false);
                 if (result != 0) return result;
 
-                result = await MoveRearPickerAxisAvoidAsync(unit, PickerAxis.PickerT2, "PickerT2", ct).ConfigureAwait(false);
+                result = await MoveRearPickerAxisAvoidAsync(unit, PickerAxis.PickerT2, "PickerT3", ct).ConfigureAwait(false);
                 if (result != 0) return result;
 
-                result = await MoveRearPickerAxisAvoidAsync(unit, PickerAxis.PickerT3, "PickerT3", ct).ConfigureAwait(false);
+                result = await MoveRearPickerAxisAvoidAsync(unit, PickerAxis.PickerT3, "PickerT4", ct).ConfigureAwait(false);
                 if (result != 0) return result;
 
                 if (!unit.IsRearPickerInAvoidPosition())

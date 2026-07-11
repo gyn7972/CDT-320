@@ -384,6 +384,8 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 "ContiNode 중간 위치 비율입니다. 0.5면 현재 위치와 다음 PickUp 목표의 중간점을 사용합니다."), groupKey));
             items.Add(InGroup(Describe(ParameterGridItem.Double("PICKUP CONTI SPLINE CURVE %", "%", ParameterGridScope.Config, () => pickUp.TransferContiSplineCurvePercent, v => pickUp.TransferContiSplineCurvePercent = PickerPickUpMotionConfig.NormalizeSplineCurvePercent(v, 100.0)),
                 "PickUp ContiNode 스플라인 곡선 강도입니다.\r\n0%는 직선에 가깝게, 100%는 현재 기준, 200%는 더 둥근 X-Z 궤적으로 이동합니다."), groupKey));
+            items.Add(InGroup(Describe(ParameterGridItem.Bool("PICKUP CONTI USE GLOBAL SPEED SCALE", ParameterGridScope.Config, () => pickUp.TransferContiUseGlobalSpeedScale, v => pickUp.TransferContiUseGlobalSpeedScale = v),
+                "PickUp ContiNode 속도에 MOTION 화면의 DEFAULT SPEED SCALE %를 적용할지 선택합니다.\r\nTrue: 전역 스케일을 적용합니다.\r\nFalse: PICKUP CONTI MAX VEL/ACC/DEC와 NODE SPEED % 값만 사용합니다."), groupKey));
             AddPickUpContiNodeSpeedRatioItems(items, groupKey, pickUp);
             items.Add(InGroup(Describe(ParameterGridItem.Double("PICKER Z PRE PICK DISTANCE", AxisUnitConverter.Millimeter, ParameterGridScope.Config, () => pickUp.PickerZPrePickDistance, v => pickUp.PickerZPrePickDistance = Math.Max(0.0, v)),
                 "PickerZ가 PickPosition으로 바로 내려가기 전에 멈추는 거리입니다.\r\nPickPosition에서 Avoid 방향으로 이 거리만큼 떨어진 위치까지 먼저 이동한 뒤 저속 접근합니다."), groupKey));
@@ -461,7 +463,9 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             items.Add(InGroup(Describe(ParameterGridItem.Double("PLACE Z OVERDRIVE", AxisUnitConverter.Millimeter, ParameterGridScope.Config, () => place.PlaceZOverDrive, v => place.PlaceZOverDrive = v),
                 "Place Z 티칭 위치에 더해서 내려놓는 보정량입니다.\r\n최종 Place Z = 티칭 Place Z + 이 값입니다. 장비 Z 좌표 방향에 맞춰 부호를 설정하세요."), groupKey));
             items.Add(InGroup(Describe(ParameterGridItem.Int("PLACE RELEASE DWELL", "ms", ParameterGridScope.Config, () => place.PlaceReleaseDwellMs, v => place.PlaceReleaseDwellMs = Math.Max(0, v)),
-                "Place 위치에서 Vacuum OFF/Blow 후 PickerZ가 Avoid로 올라가기 전에 대기하는 시간입니다."), groupKey));
+                "Place 위치에서 제품을 내려놓기 위해 유지하는 총 대기 시간입니다.\r\nBlow Delay보다 길면 Blow OFF 후 남은 시간만 더 대기합니다."), groupKey));
+            items.Add(InGroup(Describe(ParameterGridItem.Int("PLACE BLOW DELAY", "ms", ParameterGridScope.Config, () => place.PlaceBlowDelayMs, v => place.PlaceBlowDelayMs = Math.Max(0, v)),
+                "Place 위치에서 Vacuum OFF 후 Blow를 켜고 유지하는 시간입니다.\r\n이 시간이 지나면 PickerZ를 올리기 전에 Blow를 먼저 OFF합니다."), groupKey));
             items.Add(InGroup(Describe(ParameterGridItem.Double("PLACE CONTI Z1 STEP1 CLEAR", AxisUnitConverter.Millimeter, ParameterGridScope.Config, () => place.ContiZ1Step1Clearance, v => place.ContiZ1Step1Clearance = Math.Max(0.0, v)),
                 "ContiSegmentedPlace node0에서 이전 PickerZ(Z1)를 티칭 Place 기준 + Tape + Die 위치보다 위로 올리는 1단 회피량입니다."), groupKey));
             items.Add(InGroup(Describe(ParameterGridItem.Double("PLACE CONTI Z1 STEP2 CLEAR", AxisUnitConverter.Millimeter, ParameterGridScope.Config, () => place.ContiZ1Step2Clearance, v => place.ContiZ1Step2Clearance = Math.Max(0.0, v)),
@@ -478,6 +482,8 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 "프로젝트/웨이퍼 정보에서 Tape 두께를 읽지 못했을 때 사용할 예비 Tape 두께입니다."), groupKey));
             items.Add(InGroup(Describe(ParameterGridItem.Double("PLACE CONTI DIE FALLBACK", AxisUnitConverter.Millimeter, ParameterGridScope.Config, () => place.ContiDieThicknessFallback, v => place.ContiDieThicknessFallback = Math.Max(0.0, v)),
                 "Die 정보/프로젝트 Die 두께를 읽지 못했을 때 사용할 예비 Die 두께입니다."), groupKey));
+            items.Add(InGroup(Describe(ParameterGridItem.Bool("PLACE CONTI USE GLOBAL SPEED SCALE", ParameterGridScope.Config, () => place.ContiUseGlobalSpeedScale, v => place.ContiUseGlobalSpeedScale = v),
+                "Place ContiNode 속도에 MOTION 화면의 DEFAULT SPEED SCALE %를 적용할지 선택합니다.\r\nTrue: 전역 스케일을 적용합니다.\r\nFalse: PLACE CONTI MAX VEL/ACC/DEC와 NODE SPEED % 값만 사용합니다."), groupKey));
             AddPlaceContiNodeSpeedRatioItems(items, groupKey, place);
         }
 
@@ -1131,7 +1137,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
 
         private static string BuildAppliedZoneTargetName(RecipePickerMoveTarget target, string phase)
         {
-            return target.PositionArrayName + "[" + target.PickerIndex + "];RecipeAppliedZoneMove;PickerZone=" +
+            return target.PositionArrayName + "[P" + target.PickerNo + "];RecipeAppliedZoneMove;PickerZone=" +
                    target.ZonePositionName + ";PickerPhase=" + phase + ";Source=" + target.SourceMode;
         }
 
@@ -1335,8 +1341,8 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 "REAR PICKER" + Environment.NewLine +
                 "X : " + AxisText(GetAxis(PickerAxis.PickerX), false) + Environment.NewLine +
                 "Y : " + AxisText(GetAxis(PickerAxis.PickerY), false) + Environment.NewLine +
-                "T0: " + AxisText(GetAxis(PickerAxis.PickerT0), true) + Environment.NewLine +
-                "Z0: " + AxisText(GetAxis(PickerAxis.PickerZ0), false) + Environment.NewLine +
+                "T1: " + AxisText(GetAxis(PickerAxis.PickerT0), true) + Environment.NewLine +
+                "Z1: " + AxisText(GetAxis(PickerAxis.PickerZ0), false) + Environment.NewLine +
                 "CDA: " + OnOff(unit.IsPickerCdaPressureOk()) + Environment.NewLine +
                 "VAC: " + OnOff(unit.IsPickerVacuumPressureOk());
 
