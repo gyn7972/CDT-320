@@ -219,6 +219,7 @@ namespace QMC.Vision.Core
         {
             if (m == null) return "fail:no module";
             if (string.IsNullOrEmpty(inspId)) return "fail:no inspector";
+            inspId = AsyncInspectCore.ResolveInspectorId(m, inspId);   // 핸들러 공용 id → 등록 id (측면=칩핑 검사기)
             if (!m.Inspectors.TryGetValue(inspId, out var ins)) return "fail:inspector not found";
 
             // 검사기별 '검사 사용' 게이트 — 레시피 UseInspection=false 면 이 검사를 건너뛴다(PASS 처리).
@@ -324,7 +325,7 @@ namespace QMC.Vision.Core
                                               ?? (ins as BottomInspector)?.LastCorners
                                               ?? (ins as SideAppearanceInspector)?.LastCorners;
                     var ctx = new InspectCtx { Picker = ctxPicker, Channel = ctxChannel, IndexX = ctxIndexX, IndexY = ctxIndexY };
-                    var storeItem = InspectionResultStore.FromResult(mode, ctx.Picker, ctx.Channel, ctx.IndexX, ctx.IndexY, r, image, box, geom);
+                    var storeItem = InspectionResultStore.FromResult(mode, ctx.Picker, ctx.Channel, ctx.IndexX, ctx.IndexY, r, image, box, geom, m.Name);
                     InspectionResultStore.Record(storeItem);
                     // 진단(MapTrace): 기록 좌표/키 — Bottom 맵은 Width+Height 둘 다 있어야 셀이 생긴다.
                     try

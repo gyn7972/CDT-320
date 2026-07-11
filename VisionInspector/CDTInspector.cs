@@ -2038,42 +2038,42 @@ namespace QMC.Vision.Inspector
         int w = saveHelper.Width;
         int h = saveHelper.Height;
         string fileName = saveHelper.FileName;
-        byte[,] img = new byte[ h/4, w / 4];
-        if(w>5000)
-        {
-            for (int x = 0; x < w / 4; x++)
-            {
-                for (int y = 0; y < h / 4; y++)
-                {
-                    int nSum = 0;
-                    int nCount = 0;
-                    if (x > 0 && x < w/4-1)
-                    {
-                        nSum = shiftImage[y*4, x * 4 - 1] 
-                         +  shiftImage[ y * 4, x * 4]
-                         +  shiftImage[y * 4, x * 4 + 1]
-                         +  shiftImage[y * 4, x * 4 + 2];
-                        nCount = 4;
-                    }
-                    else
-                    {
-                        nSum = shiftImage[y * 4, x * 4];
-                        nCount = 1;
-                    }
-                    if (y > 0 && y < h/4-1)
-                    {
-                        nSum += shiftImage[ y * 4 - 1, x * 4]
-                        + shiftImage[ y * 4 + 1,x * 4]
-                        + shiftImage[y * 4 + 2, x * 4];
-                        nCount += 3;
-                    }
-                    img[y, x] = (byte)(nSum / nCount);
-                }
-            }
-            shiftImage = img;
-            w = w / 4;
-            h = h/4;
-        }
+        //byte[,] img = new byte[ h/4, w / 4];
+        //if(w>5000)
+        //{
+        //    for (int x = 0; x < w / 4; x++)
+        //    {
+        //        for (int y = 0; y < h / 4; y++)
+        //        {
+        //            int nSum = 0;
+        //            int nCount = 0;
+        //            if (x > 0 && x < w/4-1)
+        //            {
+        //                nSum = shiftImage[y*4, x * 4 - 1] 
+        //                 +  shiftImage[ y * 4, x * 4]
+        //                 +  shiftImage[y * 4, x * 4 + 1]
+        //                 +  shiftImage[y * 4, x * 4 + 2];
+        //                nCount = 4;
+        //            }
+        //            else
+        //            {
+        //                nSum = shiftImage[y * 4, x * 4];
+        //                nCount = 1;
+        //            }
+        //            if (y > 0 && y < h/4-1)
+        //            {
+        //                nSum += shiftImage[ y * 4 - 1, x * 4]
+        //                + shiftImage[ y * 4 + 1,x * 4]
+        //                + shiftImage[y * 4 + 2, x * 4];
+        //                nCount += 3;
+        //            }
+        //            img[y, x] = (byte)(nSum / nCount);
+        //        }
+        //    }
+        //    shiftImage = img;
+        //    w = w / 4;
+        //    h = h/4;
+        //}
         
         try
         {

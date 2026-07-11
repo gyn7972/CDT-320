@@ -21,6 +21,7 @@ namespace QMC.Vision.Core
         public class Item
         {
             public string Mode;
+            public string Source;           // 결과를 만든 모듈명 — 뷰어의 모드-모듈 일치 필터용(Bottom 뷰어에 측면 이미지 표시 방지, 2026-07-12)
             public int Picker;              // 전역 픽커 1~8(Front 콜렛 1~4=1~4, Back 콜렛 1~4=5~8. 0=미지정)
             public int Channel = -1;        // Side 채널: 신형 0(0°)/1(90°), 구형 0~3(Front ch1/2, Back ch1/2). -1=단일
             public int IndexX, IndexY;
@@ -286,13 +287,15 @@ namespace QMC.Vision.Core
             }
         }
 
-        /// <summary>모듈/검사기 id → 모드 키(Bottom/Side/Bin). 매칭 없으면 null.</summary>
+        /// <summary>모듈/검사기 id → 모드 키(Bottom/Side/Bin). 매칭 없으면 null.
+        /// 주의: 측면 표면 검사기(Front/RearSurfaceInspector)는 "Surface"보다 Front/Rear 를 먼저 봐야 한다 —
+        /// 종전에는 "Surface"만 보고 Bottom 으로 기록되어 측면 이미지가 Bottom 뷰어에 섞였다(2026-07-12 수정).</summary>
         public static string ModeOf(string moduleOrId)
         {
             if (string.IsNullOrEmpty(moduleOrId)) return null;
             bool Has(string k) => moduleOrId.IndexOf(k, StringComparison.OrdinalIgnoreCase) >= 0;
             if (Has("Placement") || Has("Bin")) return Bin;
-            if (Has("Side") || Has("Chipping")) return Side;
+            if (Has("Side") || Has("Chipping") || Has("Front") || Has("Rear")) return Side;
             if (Has("Bottom") || Has("Surface")) return Bottom;
             return null;
         }
@@ -301,10 +304,11 @@ namespace QMC.Vision.Core
         public static Item FromResult(string mode, int picker, int ix, int iy, InspectionResult r, Bitmap image, PointF[] box = null)
             => FromResult(mode, picker, -1, ix, iy, r, image, box);
 
-        /// <summary>채널 지정 변환(Side 4채널: channel 0~3, 그 외 -1). box=검출 박스(이미지 px, 픽커 오버레이용).</summary>
-        public static Item FromResult(string mode, int picker, int channel, int ix, int iy, InspectionResult r, Bitmap image, PointF[] box = null, InspectionOverlayStore.Geom geom = null)
+        /// <summary>채널 지정 변환(Side 4채널: channel 0~3, 그 외 -1). box=검출 박스(이미지 px, 픽커 오버레이용).
+        /// source=결과를 만든 모듈명 — 뷰어의 모드-모듈 일치 필터용(2026-07-12).</summary>
+        public static Item FromResult(string mode, int picker, int channel, int ix, int iy, InspectionResult r, Bitmap image, PointF[] box = null, InspectionOverlayStore.Geom geom = null, string source = null)
         {
-            var it = new Item { Mode = mode, Picker = picker, Channel = channel, IndexX = ix, IndexY = iy, Pass = r != null && r.IsPass };
+            var it = new Item { Mode = mode, Picker = picker, Channel = channel, IndexX = ix, IndexY = iy, Pass = r != null && r.IsPass, Source = source };
             var lines = new List<string>();
             if (r?.Items != null)
                 foreach (var item in r.Items)
