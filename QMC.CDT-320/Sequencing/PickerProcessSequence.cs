@@ -1501,7 +1501,7 @@ namespace QMC.CDT320.Sequencing
                     Side == PickerSequenceSide.Front,
                     PickerAxis.PickerY,
                     bottomY,
-                    "DieBottomPosition[" + pickerIndex + "];PickerPhase=BottomEntry;OppositeSidePending",
+                    BuildPickerTargetName("DieBottomPosition", pickerIndex) + ";PickerPhase=BottomEntry;OppositeSidePending",
                     bottomX,
                     null,
                     out encoderDetail);
@@ -1510,7 +1510,7 @@ namespace QMC.CDT320.Sequencing
                     return false;
 
                 detail = pendingDetail +
-                         ", pickerIndex=" + pickerIndex +
+                         ", pickerNo=" + ToPickerNo(pickerIndex) +
                          ", bottomX=" + bottomX.ToString("0.###") +
                          ", bottomY=" + bottomY.ToString("0.###") +
                          ", encoder=" + encoderDetail;
@@ -1633,7 +1633,7 @@ namespace QMC.CDT320.Sequencing
                     bottomX,
                     "Bottom/Side 통합 검사 X 대기 위치 이동",
                     ct,
-                    "DieBottomPosition[" + pickerIndex + "];PickerPhase=BottomSideXWait;YHold").ConfigureAwait(false);
+                    BuildPickerTargetName("DieBottomPosition", pickerIndex) + ";PickerPhase=BottomSideXWait;YHold").ConfigureAwait(false);
                 if (result != 0)
                     return result;
 
@@ -1642,7 +1642,6 @@ namespace QMC.CDT320.Sequencing
                     "PickerY는 Avoid를 유지하고 PickerX만 Bottom 위치로 선행 이동했습니다. " +
                     "side=" + Side +
                     ", pickerNo=" + pickerNo +
-                    ", pickerIndex=" + pickerIndex +
                     ", bottomX=" + bottomX + " - Ok");
 
                 return 0;

@@ -352,6 +352,10 @@ namespace QMC.CDT320
         public int PlaceReleaseDwellMs { get { return EnsurePlaceConfig().PlaceReleaseDwellMs; } set { EnsurePlaceConfig().PlaceReleaseDwellMs = Math.Max(0, value); } }
 
         [Category("Place")]
+        [DisplayName("Place Blow Delay Ms")]
+        public int PlaceBlowDelayMs { get { return EnsurePlaceConfig().PlaceBlowDelayMs; } set { EnsurePlaceConfig().PlaceBlowDelayMs = Math.Max(0, value); } }
+
+        [Category("Place")]
         [DisplayName("Place Conti Max Velocity")]
         public double PlaceContiMaxVelocity { get { return EnsurePlaceConfig().ContiMaxVelocity; } set { EnsurePlaceConfig().ContiMaxVelocity = PickerPickUpMotionConfig.NormalizePositive(value, 500.0); } }
 
@@ -2048,7 +2052,6 @@ namespace QMC.CDT320
             // runtimeT is the current PickerAlignOffset.AlignOffsetT. Collet theta is already reflected in picker T home zero.
             EventLogger.Write(EventKind.Event, "QMC", "PK-T-OFFSET-CALC",
                 Name + " MovePickerTToOffset target calculated. pickerNo=" + pickerNo +
-                ", pickerIndex=" + index +
                 ", axis=" + axis +
                 ", formula=targetT=teachingT(" + teachingT.ToString("F6") +
                 ")+runtimeT(" + runtimeT.ToString("F6") +
@@ -2067,7 +2070,6 @@ namespace QMC.CDT320
             EventLogger.Write(EventKind.Event, "QMC", result == 0 ? "PK-T-OFFSET-OK" : "PK-T-OFFSET-FAIL",
                 Name + " MovePickerTToOffset move complete. result=" + result +
                 ", pickerNo=" + pickerNo +
-                ", pickerIndex=" + index +
                 ", formula=targetT=teachingT(" + teachingT.ToString("F6") +
                 ")+runtimeT(" + runtimeT.ToString("F6") +
                 ")+colletT(homeZeroApplied)(0.000000)=" + targetT.ToString("F6") +

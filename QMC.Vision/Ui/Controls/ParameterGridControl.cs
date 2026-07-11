@@ -683,6 +683,9 @@ namespace QMC.Vision.Ui.Controls
                     BrowseFileRow(grid.Rows[e.RowIndex]);
                 else if (item.ValueType == ParameterGridValueType.Slider)
                     ShowSliderRow(grid.Rows[e.RowIndex]);
+                else if (item.ValueType == ParameterGridValueType.Double ||
+                         item.ValueType == ParameterGridValueType.Int)
+                    ShowNumericEditor(grid.Rows[e.RowIndex]);   // 숫자도 다른 형과 동일하게 클릭 1회 = 키패드(더블클릭 전용이라 편집 불가로 오인되던 문제)
             }
             catch (Exception ex)
             {

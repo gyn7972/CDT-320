@@ -358,6 +358,7 @@ namespace QMC.Vision.Ui.Pages
             if (errs.Count > 0) { SetStatus("저장 거부 — " + string.Join(" / ", errs.Take(3)), true); return; }
             LightSystemSetupStore.SetCurrent(setup);
             LightSystemSetupStore.Save();
+            QMC.Vision.Core.LightSetupNotifier.Notify();   // 레시피 조명 패널 즉시 재바인딩(재시작 불필요)
             SetStatus("저장 완료 — " + LightSystemSetupStore.Path_, false);
         }
 
@@ -428,6 +429,7 @@ namespace QMC.Vision.Ui.Pages
                     SetStatus($"조명 연결 완료 — {ok}포트 Open. 검사 노드의 '실행 적용'으로 실제 점등 테스트하세요.", false);
                 else
                     SetStatus($"조명 연결 — {ok}포트 OK / 실패 [{string.Join(",", fails)}] (포트/케이블 확인, LIGHT-OPEN-FAIL 알람 참조)", true);
+                QMC.Vision.Core.LightSetupNotifier.Notify();   // LightHub 재구성됨 — 레시피 조명 패널 즉시 재바인딩
             }
             catch (Exception ex) { SetStatus("조명 연결 예외: " + ex.Message, true); }
         }

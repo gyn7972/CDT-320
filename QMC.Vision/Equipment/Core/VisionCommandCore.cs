@@ -59,13 +59,29 @@ namespace QMC.Vision.Core
                 _inspectCtx[module] = new InspectCtx { Picker = picker, Channel = channel, IndexX = indexX, IndexY = indexY };
         }
 
+        /// <summary>도구 미지정 그랩(GRAB/EXPOSE)에 쓸 기본 조명 도구 — 조명 레벨이 설정된 첫 도구(검사기 우선,
+        /// 다음 파인더). 없으면 null(조명 유지, 노출만 모듈 기본). 통신 그랩도 '조명 → 그랩' 순서 보장용(2026-07-11).</summary>
+        private static string DefaultLightToolOf(IVisionModule m)
+        {
+            try
+            {
+                foreach (var id in m.Inspectors.Keys)
+                    if ((m.GetAlgorithm(id)?.Recipe as AlgoRecipeBase)?.LightSettings?.Count > 0) return id;
+                foreach (var id in m.Finders.Keys)
+                    if ((m.GetAlgorithm(id)?.Recipe as AlgoRecipeBase)?.LightSettings?.Count > 0) return id;
+            }
+            catch { }
+            return null;
+        }
+
         /// <summary>1장 그랩. "w=..;h=..;frame=.." 또는 "fail:..".</summary>
         public static string Grab(IVisionModule m)
         {
             if (m == null) return "fail:no module";
             // 레시피 카메라 노출 적용 후 그랩 — 직전 도구/포커스 그랩이 남긴 노출(예: 스캔용 30µs)이
-            // 그대로 쓰이지 않게 한다. 도구 미지정(null) → 모듈 카메라 레시피 노출, 조명은 변경 없음.
-            try { m.PrepareToolAcquisition(null); } catch { }
+            // 그대로 쓰이지 않게 한다. 도구 미지정(GRAB/EXPOSE)이라도 조명 설정이 있는 기본 도구의 조명을
+            // 먼저 적용하고 그랩한다(컨트롤러 배치 캐시 히트면 통신 생략 = 무비용). 기본 도구 없으면 조명 유지.
+            try { m.PrepareToolAcquisition(DefaultLightToolOf(m)); } catch { }
             var swGrab = Stopwatch.StartNew();
             using (var g = m.Grab())
             {

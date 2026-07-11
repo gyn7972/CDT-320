@@ -88,10 +88,10 @@ namespace QMC.Vision.Core
         /// </summary>
         public InspectionResult Inspect(Bitmap image)
         {
-            if (!UseInspectorLib)
-                return InspectLegacy(image);
-            if (_libNullStreak >= LibNullSkipThreshold)
-                return InspectLegacy(image);   // lib 연속 실패 래치 — 불필요한 이중 그레이변환/lib 호출 생략
+            //if (!UseInspectorLib)
+            //    return InspectLegacy(image);
+            //if (_libNullStreak >= LibNullSkipThreshold)
+            //    return InspectLegacy(image);   // lib 연속 실패 래치 — 불필요한 이중 그레이변환/lib 호출 생략
 
             var r = new InspectionResult { RoiName = Id, IsPass = true };
             LastValid = false;
@@ -105,6 +105,18 @@ namespace QMC.Vision.Core
 
                 int gw, gh;
                 byte[] gray = ToGray(image, libRoi, out gw, out gh);
+
+                // BottomInspect 규약: 크롭 → 2배 확장 → 처리 → (÷2·×0.5)로 원좌표 환원.
+                // bSimulate(단일 이미지) 경로는 '이미 2배 확장된 이미지'를 전제하고 확장을 건너뛰므로,
+                // 라이브 그랩의 1배 크롭을 그대로 넣으면 폭/높이/코너가 절반으로 나온다 — 여기서 2배 확장해 규약을 맞춘다(2026-07-11).
+                long px2x = (long)(gw * 2) * (gh * 2);
+                if (px2x > int.MaxValue)
+                {
+                    QMC.Common.Logging.EventLogger.Write(QMC.Common.Logging.EventKind.Event, "VISION", "BottomInspector",
+                        Id + " ROI 2배 확장 불가(크기 초과 " + gw + "x" + gh + ") → 레거시 검사");
+                    return InspectLegacy(image);
+                }
+                gray = Upscale2xBilinear(gray, gw, gh, out gw, out gh);
 
                 // 이미지 저장 경로: 설정→일반(VisionSettings.ImageLogPath) 우선, 비어있으면 FileSavePath 폴백.
                 string saveRoot = QMC.Vision.Config.VisionConfigStore.Current?.ImageLogPath;
@@ -216,6 +228,25 @@ namespace QMC.Vision.Core
 
             double foreignMm = Math.Max(br.ForeingSize, br.MaxDefactSize);
             AddItem(r, "Foreign Max", foreignMm.ToString("F4"), foreignMm <= ForeignObjectSize);
+
+            // 이물 위치 마크 — lib 가 원본 입력 좌표(코너 규약)로 환산해 반환(2026-07-11). ROI 좌상단만 더해 전체 이미지 좌표로.
+            if (br.ForeignInfos != null)
+            {
+                foreach (var fi in br.ForeignInfos)
+                {
+                    if (fi == null) continue;
+                    r.Defects.Add(new DefectMark
+                    {
+                        X = roi.X + fi.Rect.X + fi.Rect.Width / 2.0,
+                        Y = roi.Y + fi.Rect.Y + fi.Rect.Height / 2.0,
+                        Width = fi.Rect.Width,
+                        Height = fi.Rect.Height,
+                        Area = fi.Area,
+                        Type = "Foreign"
+                    });
+                }
+                AddItem(r, "Foreign Count", br.ForeignInfos.Count.ToString(), true);
+            }
 
             if (br.ChippingInfos != null)
             {
@@ -612,6 +643,40 @@ namespace QMC.Vision.Core
             }
             finally { bmp.UnlockBits(data); }
             return bmp;
+        }
+
+        /// <summary>1배 그레이(ROI 크롭)를 2배 bilinear 확장 — BottomInspect 시뮬(단일 이미지) 경로의
+        /// '2배 확장 이미지' 입력 규약 충족용(2026-07-11). 반환 좌표는 lib 가 ×0.5 로 1배로 환원한다.</summary>
+        private static byte[] Upscale2xBilinear(byte[] src, int w, int h, out int w2, out int h2)
+        {
+            w2 = w * 2; h2 = h * 2;
+            var dst = new byte[w2 * h2];
+            int dw = w2;
+            Parallel.For(0, h2, y =>
+            {
+                double sy = (y + 0.5) * 0.5 - 0.5;
+                int y0 = (int)Math.Floor(sy);
+                double fy = sy - y0;
+                int y1 = y0 + 1;
+                if (y0 < 0) { y0 = 0; y1 = 0; fy = 0; }
+                else if (y1 >= h) { y1 = h - 1; y0 = Math.Min(y0, h - 1); }
+                int row = y * dw;
+                for (int x = 0; x < dw; x++)
+                {
+                    double sx = (x + 0.5) * 0.5 - 0.5;
+                    int x0 = (int)Math.Floor(sx);
+                    double fx = sx - x0;
+                    int x1 = x0 + 1;
+                    if (x0 < 0) { x0 = 0; x1 = 0; fx = 0; }
+                    else if (x1 >= w) { x1 = w - 1; x0 = Math.Min(x0, w - 1); }
+                    double v = src[y0 * w + x0] * (1 - fx) * (1 - fy)
+                             + src[y0 * w + x1] * fx * (1 - fy)
+                             + src[y1 * w + x0] * (1 - fx) * fy
+                             + src[y1 * w + x1] * fx * fy;
+                    dst[row + x] = (byte)(v + 0.5);
+                }
+            });
+            return dst;
         }
 
         private static byte[] ToGray(Bitmap bmp, Rectangle rect, out int w, out int h)

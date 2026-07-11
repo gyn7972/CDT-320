@@ -34,9 +34,8 @@ namespace QMC.CDT320.Sequencing
         private const double MinimumContiVelocity = 0.1;
         private const double MinimumContiAcceleration = 1.0;
 
-        public static async Task<InterpolatedMotionMoveResult> MovePickerXNeedleXStageYAndPickerZByNodesAsync(
+        public static async Task<InterpolatedMotionMoveResult> MovePickerXStageYAndPickerZBySplineWriteAsync(
             BaseAxis pickerX,
-            BaseAxis needleX,
             BaseAxis stageY,
             BaseAxis pickerZ,
             IList<PickerPickUpContiNode> nodes,
@@ -61,24 +60,20 @@ namespace QMC.CDT320.Sequencing
 
                 string readyReason;
                 if (!IsAxisReady(pickerX, "PickerX", out readyReason) ||
-                    !IsAxisReady(needleX, "NeedleX", out readyReason) ||
                     !IsAxisReady(stageY, "StageY", out readyReason) ||
                     !IsAxisReady(pickerZ, "PickerZ", out readyReason))
                 {
                     return MoveFail(result, -1, "PickUp ContiNode axis is not ready. " + readyReason, watch);
                 }
 
-                if (nodes == null || nodes.Count == 0)
+                if (nodes == null || nodes.Count < 3)
                     return MoveFail(result, -1, "PickUp ContiNode node list is empty.", watch);
 
-                IList<PickerPickUpContiNode> motionNodes = ExpandSplineNodes(nodes, config.TransferContiSplineCurvePercent);
-                if (motionNodes == null || motionNodes.Count == 0)
-                    return MoveFail(result, -1, "PickUp ContiNode spline node list is empty.", watch);
+                IList<PickerPickUpContiNode> motionNodes = nodes;
 
                 int[] requestedAxes =
                 {
                     pickerX.Setup.AxisNo,
-                    needleX.Setup.AxisNo,
                     stageY.Setup.AxisNo,
                     pickerZ.Setup.AxisNo
                 };
@@ -120,45 +115,26 @@ namespace QMC.CDT320.Sequencing
                 if (ret != 0)
                     return MoveFail(result, ret, "PickUp ContiNode abs mode setup failed. coordinate=" + coordinate, watch);
 
-                ret = AXM.BeginPath(coordinate);
-                if (ret != 0)
-                    return MoveFail(result, ret, "PickUp ContiNode BeginPath failed. coordinate=" + coordinate, watch);
-
-                PickerPickUpContiNode previousNode = new PickerPickUpContiNode(
-                    -1,
-                    pickerX.ActualPosition,
-                    needleX.ActualPosition,
-                    stageY.ActualPosition,
-                    pickerZ.ActualPosition);
-
-                for (int i = 0; i < motionNodes.Count; i++)
-                {
-                    PickerPickUpContiNode node = motionNodes[i];
-                    double[] mappedPosition = MapNodePosition(node, requestedAxes, mappedAxes);
-                    double segmentDistance = CalculateNodeDistance(previousNode, node);
-                    ContiNodeMotionProfile profile = ResolveDistanceLimitedProfile(node.Index, segmentDistance, config);
-                    ret = AXM.MoveLine(
-                        coordinate,
-                        mappedAxes,
-                        mappedPosition,
-                        profile.Velocity,
-                        profile.Acceleration,
-                        profile.Deceleration);
-                    if (ret != 0)
-                        return MoveFail(result, ret, "PickUp ContiNode node" + node.Index + " registration failed. coordinate=" + coordinate, watch);
-
-                    previousNode = node;
-                }
-
-                ret = AXM.EndPath(coordinate);
-                if (ret != 0)
-                    return MoveFail(result, ret, "PickUp ContiNode EndPath failed. coordinate=" + coordinate, watch);
-
                 ret = ApplyContiAxisProfile(mappedAxes);
                 if (ret != 0)
                     return MoveFail(result, ret, "PickUp ContiNode S-Curve profile setup failed. coordinate=" + coordinate, watch);
 
-                ret = AXM.StartPath(coordinate, (uint)AXT_MOTION_CONTISTART_NODE.CONTI_NODE_MANUAL, 0);
+                double[] splineX = MapNodeAxisPositions(motionNodes, mappedAxes[0], requestedAxes);
+                double[] splineY = MapNodeAxisPositions(motionNodes, mappedAxes[1], requestedAxes);
+                double splineZ = GetNodeAxisPosition(motionNodes[motionNodes.Count - 1], mappedAxes[2], requestedAxes);
+                ret = AXM.SplineWrite(
+                    coordinate,
+                    splineX,
+                    splineY,
+                    splineZ,
+                    result.Velocity,
+                    result.Acceleration,
+                    result.Deceleration,
+                    1);
+                if (ret != 0)
+                    return MoveFail(result, ret, "PickUp ContiNode SplineWrite failed. coordinate=" + coordinate, watch);
+
+                ret = AXM.StartPath(coordinate, (uint)AXT_MOTION_CONTISTART_NODE.CONTI_NODE_VELOCITY, 0);
                 if (ret != 0)
                     return MoveFail(result, ret, "PickUp ContiNode StartPath failed. coordinate=" + coordinate, watch);
 
@@ -184,9 +160,7 @@ namespace QMC.CDT320.Sequencing
 
                         result.ResultCode = 0;
                         result.ElapsedMs = watch.ElapsedMilliseconds;
-                        result.Message = "PickUp ContiNode completed. nodeCount=" + motionNodes.Count +
-                            ", baseNodeCount=" + nodes.Count +
-                            ", splinePerSegment=" + SplineNodeCountPerSegment +
+                        result.Message = "PickUp ContiNode SplineWrite completed. nodeCount=" + motionNodes.Count +
                             ", coordinate=" + coordinate + " returned.";
                         return result;
                     }
@@ -217,7 +191,6 @@ namespace QMC.CDT320.Sequencing
             foreach (PickerPickUpContiNode node in nodes)
             {
                 values.Add(node.PickerX);
-                values.Add(node.NeedleX);
                 values.Add(node.StageY);
                 values.Add(node.PickerZ);
             }
@@ -316,11 +289,27 @@ namespace QMC.CDT320.Sequencing
         {
             var positionByAxis = new Dictionary<int, double>();
             positionByAxis[requestedAxes[0]] = node.PickerX;
-            positionByAxis[requestedAxes[1]] = node.NeedleX;
-            positionByAxis[requestedAxes[2]] = node.StageY;
-            positionByAxis[requestedAxes[3]] = node.PickerZ;
+            positionByAxis[requestedAxes[1]] = node.StageY;
+            positionByAxis[requestedAxes[2]] = node.PickerZ;
 
             return mappedAxes.Select(axis => positionByAxis[axis]).ToArray();
+        }
+
+        private static double[] MapNodeAxisPositions(IList<PickerPickUpContiNode> nodes, int axis, int[] requestedAxes)
+        {
+            return nodes.Select(node => GetNodeAxisPosition(node, axis, requestedAxes)).ToArray();
+        }
+
+        private static double GetNodeAxisPosition(PickerPickUpContiNode node, int axis, int[] requestedAxes)
+        {
+            if (axis == requestedAxes[0])
+                return node.PickerX;
+            if (axis == requestedAxes[1])
+                return node.StageY;
+            if (axis == requestedAxes[2])
+                return node.PickerZ;
+
+            return 0.0;
         }
 
         private static int ApplyContiAxisProfile(int[] mappedAxes)

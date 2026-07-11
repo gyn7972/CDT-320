@@ -240,14 +240,14 @@ namespace QMC.CDT320.Sequencing.Calibration
                 QMC.Common.Log.Write("Calibration", "SYSTEM", "ColletCalMove",
                     "Collet Calibration Bottom 진입 전 Z 안전 위치 확인. side=" + _calibrationSide +
                     ", colletNo=" + _colletNo +
-                    ", z0Actual=" + (GetPickerAxis(PickerAxis.PickerZ0) != null ? GetPickerAxis(PickerAxis.PickerZ0).ActualPosition.ToString("F6") : "null") +
-                    ", z1Actual=" + (GetPickerAxis(PickerAxis.PickerZ1) != null ? GetPickerAxis(PickerAxis.PickerZ1).ActualPosition.ToString("F6") : "null") +
-                    ", z2Actual=" + (GetPickerAxis(PickerAxis.PickerZ2) != null ? GetPickerAxis(PickerAxis.PickerZ2).ActualPosition.ToString("F6") : "null") +
-                    ", z3Actual=" + (GetPickerAxis(PickerAxis.PickerZ3) != null ? GetPickerAxis(PickerAxis.PickerZ3).ActualPosition.ToString("F6") : "null") +
-                    ", z0Avoid=" + GetPickerTeachingPosition(PickerAxis.PickerZ0, "AvoidPosition").ToString("F6") +
-                    ", z1Avoid=" + GetPickerTeachingPosition(PickerAxis.PickerZ1, "AvoidPosition").ToString("F6") +
-                    ", z2Avoid=" + GetPickerTeachingPosition(PickerAxis.PickerZ2, "AvoidPosition").ToString("F6") +
-                    ", z3Avoid=" + GetPickerTeachingPosition(PickerAxis.PickerZ3, "AvoidPosition").ToString("F6"));
+                    ", z1Actual=" + (GetPickerAxis(PickerAxis.PickerZ0) != null ? GetPickerAxis(PickerAxis.PickerZ0).ActualPosition.ToString("F6") : "null") +
+                    ", z2Actual=" + (GetPickerAxis(PickerAxis.PickerZ1) != null ? GetPickerAxis(PickerAxis.PickerZ1).ActualPosition.ToString("F6") : "null") +
+                    ", z3Actual=" + (GetPickerAxis(PickerAxis.PickerZ2) != null ? GetPickerAxis(PickerAxis.PickerZ2).ActualPosition.ToString("F6") : "null") +
+                    ", z4Actual=" + (GetPickerAxis(PickerAxis.PickerZ3) != null ? GetPickerAxis(PickerAxis.PickerZ3).ActualPosition.ToString("F6") : "null") +
+                    ", z1Avoid=" + GetPickerTeachingPosition(PickerAxis.PickerZ0, "AvoidPosition").ToString("F6") +
+                    ", z2Avoid=" + GetPickerTeachingPosition(PickerAxis.PickerZ1, "AvoidPosition").ToString("F6") +
+                    ", z3Avoid=" + GetPickerTeachingPosition(PickerAxis.PickerZ2, "AvoidPosition").ToString("F6") +
+                    ", z4Avoid=" + GetPickerTeachingPosition(PickerAxis.PickerZ3, "AvoidPosition").ToString("F6"));
 
                 result = await MoveCurrentPickerZAndYToAvoidForStartAsync(ct).ConfigureAwait(false);
                 if (result != 0)

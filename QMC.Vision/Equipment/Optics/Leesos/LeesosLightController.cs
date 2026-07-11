@@ -121,17 +121,38 @@ namespace QMC.Vision.Optics.Leesos
         /// <summary>LeesOS 는 Page 미지원 — no-op + true.</summary>
         public Task<bool> SwitchPageAsync(int page) => Task.FromResult(true);
 
-        /// <summary>일괄 적용. 전체 동일값이면 LCT 1프레임, 그 외 전 채널 LC loop.
-        /// 이전 송신값과 같으면(캐시 히트) 통신·안정화 대기 모두 생략하고, 값이 달라진 경우에만
-        /// 송신 후 SettleDelayMs 만큼 대기한다(조명 안정화 — 그랩 직전 매번 호출해도 비용 없음).</summary>
+        /// <summary>일괄 적용. 전체 동일 명시값이면 LCT 1프레임, 그 외 명시 채널만 LC loop.
+        /// <para>값 &lt; 0 = "채널 유지(미지정)" — 송신하지 않고 현재 값을 지킨다(2026-07-11).
+        /// LeesOS 는 단일 페이지라 여러 모듈(Bottom coax / Bin backlight)이 채널을 나눠 쓰는데,
+        /// 종전처럼 미지정 채널을 0으로 밀어 보내면 다른 모듈이 켠 조명을 그랩 때마다 꺼버렸다(교차 소등).</para>
+        /// 이전 송신값과 같으면(캐시 히트) 통신·안정화 대기 모두 생략.</summary>
         public async Task<bool> SetChannelBatchAsync(int page, int[] values)
         {
             if (values == null || values.Length != ChannelCount) return false;
-            if (_batchCache.IsHit(page, values)) return true;   // 캐시 히트 — 송신/대기 생략
 
-            if (AllSame(values))
+            // 유지(-1) 채널은 현재 값으로 치환한 '실효 배열'로 캐시 비교/보관.
+            var target = new int[values.Length];
+            bool allExplicit = true;
+            for (int i = 0; i < values.Length; i++)
             {
-                int v = Clamp(values[0]);
+                if (values[i] < 0) { target[i] = _power[i + 1]; allExplicit = false; }
+                else target[i] = Clamp(values[i]);
+            }
+            if (_batchCache.IsHit(page, target)) return true;   // 캐시 히트 — 송신/대기 생략
+
+            // 조명 OFF(LH) 이후 볼륨만 보내면 채널이 꺼진 채 유지된다 — 값>0 으로 명시된 채널이 OFF 로
+            // 알려져 있으면 먼저 LH ON 송신(연결 직후 상태 미상도 최초 1회 ON 으로 정착, 이후 캐시로 생략).
+            for (int i = 0; i < values.Length; i++)
+            {
+                if (values[i] > 0 && !_onState[i + 1])
+                {
+                    if (!await SetOnOffAsync(i + 1, true).ConfigureAwait(false)) return false;
+                }
+            }
+
+            if (allExplicit && AllSame(target))
+            {
+                int v = target[0];
                 string resp = await SendReceiveAsync(LeesosProtocol.BuildVolumeAllCommand(v)).ConfigureAwait(false);
                 if (resp == null)                       { RaiseTimeout("LCT"); return false; }
                 if (LeesosProtocol.IsErrorResponse(resp)) { RaiseNak(resp);     return false; }
@@ -140,14 +161,15 @@ namespace QMC.Vision.Optics.Leesos
             }
             else
             {
-                // 전 채널 LC (SetPowerAsync 가 송신 + 에코 검증)
+                // 명시 채널만 LC (SetPowerAsync 가 송신 + 에코 검증). 유지(-1) 채널은 송신 생략.
                 for (int i = 0; i < values.Length; i++)
                 {
-                    if (!await SetPowerAsync(i + 1, Clamp(values[i])).ConfigureAwait(false)) return false;
+                    if (values[i] < 0) continue;
+                    if (!await SetPowerAsync(i + 1, target[i]).ConfigureAwait(false)) return false;
                 }
             }
 
-            _batchCache.Store(page, values);
+            _batchCache.Store(page, target);
             if (SettleDelayMs > 0) await Task.Delay(SettleDelayMs).ConfigureAwait(false);   // 조명 안정화 대기
             return true;
         }

@@ -69,10 +69,10 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             int pickerXAxisNo = ResolveAxisNo(ResolvePickerX(machine, side), SideName(side) + "PickerX");
             int[] pickerZAxisNos =
             {
-                ResolveAxisNo(ResolvePickerZAxis(machine, side, 0), SideName(side) + "PickerZ0"),
-                ResolveAxisNo(ResolvePickerZAxis(machine, side, 1), SideName(side) + "PickerZ1"),
-                ResolveAxisNo(ResolvePickerZAxis(machine, side, 2), SideName(side) + "PickerZ2"),
-                ResolveAxisNo(ResolvePickerZAxis(machine, side, 3), SideName(side) + "PickerZ3")
+                ResolveAxisNo(ResolvePickerZAxis(machine, side, 0), SideName(side) + "PickerZ1"),
+                ResolveAxisNo(ResolvePickerZAxis(machine, side, 1), SideName(side) + "PickerZ2"),
+                ResolveAxisNo(ResolvePickerZAxis(machine, side, 2), SideName(side) + "PickerZ3"),
+                ResolveAxisNo(ResolvePickerZAxis(machine, side, 3), SideName(side) + "PickerZ4")
             };
 
             int[,] pairs =
@@ -263,7 +263,6 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             return await PickerPlaceContiSegmentedMotion.MoveStageYPickerXAndPickerZByNodesAsync(
                 axes.StageY,
                 axes.PickerX,
-                axes.PreviousPickerZ,
                 axes.PickerZ,
                 nodes,
                 placeConfig,
@@ -505,8 +504,8 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
 
             ResolveAxisNo(axes.StageY, "OutputGoodStageY");
             ResolveAxisNo(axes.PickerX, SideName(side) + "PickerX");
-            ResolveAxisNo(axes.PreviousPickerZ, SideName(side) + "PickerZ" + previousPickerIndex);
-            ResolveAxisNo(axes.PickerZ, SideName(side) + "PickerZ" + currentPickerIndex);
+            ResolveAxisNo(axes.PreviousPickerZ, SideName(side) + "PickerZ" + (previousPickerIndex + 1));
+            ResolveAxisNo(axes.PickerZ, SideName(side) + "PickerZ" + (currentPickerIndex + 1));
             return axes;
         }
 

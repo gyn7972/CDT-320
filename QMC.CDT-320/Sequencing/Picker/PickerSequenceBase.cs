@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using QMC.Common;
 using QMC.Common.Alarms;
 using QMC.Common.Motion;
+using QMC.CDT320.Ajin;
 using QMC.CDT320.Calibration;
 using QMC.CDT320.Interlocks;
 using QMC.CDT320.Materials;
@@ -263,7 +264,6 @@ namespace QMC.CDT320.Sequencing
                 WriteLog("PickerAutoFocus",
                     Name + " Bottom Runtime AutoFocus start. side=" + Side +
                     ", pickerNo=" + pickerNo +
-                    ", pickerIndex=" + pickerIndex +
                     ", defaultZ=" + defaultPosition.ToString("F6") +
                     ", scan=FineOnly" +
                     ", fineMinus=" + settings.FineMinusRange.ToString("F6") +
@@ -592,7 +592,7 @@ namespace QMC.CDT320.Sequencing
                     {
                         WriteLog(ownerName,
                             Name + " picker has no die. pickerNo=" + pickerNo +
-                            ", pickerIndex=" + index + " - Check");
+                            " - Check");
                         continue;
                     }
 
@@ -600,7 +600,6 @@ namespace QMC.CDT320.Sequencing
                     WriteLog(ownerName,
                         Name + " picker loaded die selected. die=" + die.DieId +
                         ", pickerNo=" + pickerNo +
-                        ", pickerIndex=" + index +
                         ", result=" + die.Result +
                         ", location=" + (die.CurrentLocation != null ? die.CurrentLocation.ToString() : "-") +
                         " - Check");
@@ -634,6 +633,11 @@ namespace QMC.CDT320.Sequencing
             if (pickerNo >= 4)
                 return 3;
             return pickerNo - 1;
+        }
+
+        protected string BuildPickerTargetName(string positionArrayName, int pickerIndex)
+        {
+            return (positionArrayName ?? string.Empty) + "[P" + ToPickerNo(pickerIndex) + "]";
         }
 
         protected bool IsPickerIndexEnabled(int pickerIndex)
@@ -1745,7 +1749,7 @@ namespace QMC.CDT320.Sequencing
         protected async Task<int> MovePickerToDiePositionAndVerifyAsync(string positionArrayName, int pickerNo, string description, CancellationToken ct)
         {
             int index = pickerNo - 1;
-            string targetName = positionArrayName + "[" + index + "]";
+            string targetName = BuildPickerTargetName(positionArrayName, index);
 
             int result = await MoveAllPickerZToAvoidAndVerifyAsync(description + " pre Z avoid", ct).ConfigureAwait(false);
             if (result != 0)
@@ -1762,7 +1766,6 @@ namespace QMC.CDT320.Sequencing
                 Name + " picker zone target calculated. description=" + (description ?? string.Empty) +
                 ", targetName=" + targetName +
                 ", pickerNo=" + pickerNo +
-                ", pickerIndex=" + index +
                 ", policy=CarryRuntimeAndCollet" +
                 ", formula=" + zoneTarget.Formula +
                 " - Calc");
@@ -1786,7 +1789,6 @@ namespace QMC.CDT320.Sequencing
                 Name + " picker zone move complete. description=" + (description ?? string.Empty) +
                 ", targetName=" + targetName +
                 ", pickerNo=" + pickerNo +
-                ", pickerIndex=" + index +
                 ", formula=" + zoneTarget.Formula +
                 ", axisStates=" + BuildPickerAxesState(allTargets) +
                 " - Ok");
@@ -2761,14 +2763,14 @@ namespace QMC.CDT320.Sequencing
         {
             BaseAxis item = GetPickerAxis(axis);
             if (item == null)
-                return "axis=" + axis + ", target=" + target + ", state=axis-not-found";
+                return "axis=" + ToPickerAxisDisplayName(axis) + ", target=" + target + ", state=axis-not-found";
 
             double tolerance = item.Config != null && item.Config.InPositionTolerance > 0.0
                 ? item.Config.InPositionTolerance
                 : 0.001;
 
-            return "axis=" + axis +
-                   ", name=" + item.Name +
+            return "axis=" + ToPickerAxisDisplayName(axis) +
+                   ", name=" + AjinAxisDefaults.ToDisplayName(item.Name) +
                    ", servo=" + (item.IsServoOn ? "ON" : "OFF") +
                    ", alarm=" + (item.IsAlarm ? "ON" : "OFF") +
                    ", moving=" + (item.IsMoving ? "Y" : "N") +
@@ -2817,20 +2819,35 @@ namespace QMC.CDT320.Sequencing
         {
             BaseAxis item = GetPickerAxis(axis);
             if (item == null)
-                return "축=" + axis + ", 목표위치=" + target + ", 상태=축을 찾을 수 없음";
+                return "축=" + ToPickerAxisDisplayName(axis) + ", 목표위치=" + target + ", 상태=축을 찾을 수 없음";
 
             double tolerance = item.Config != null && item.Config.InPositionTolerance > 0.0
                 ? item.Config.InPositionTolerance
                 : 0.001;
 
-            return "축=" + axis +
-                   ", 축이름=" + item.Name +
+            return "축=" + ToPickerAxisDisplayName(axis) +
+                   ", 축이름=" + AjinAxisDefaults.ToDisplayName(item.Name) +
                    ", 서보=" + (item.IsServoOn ? "ON" : "OFF") +
                    ", 알람=" + (item.IsAlarm ? "ON" : "OFF") +
                    ", 이동중=" + (item.IsMoving ? "Y" : "N") +
                    ", 현재위치=" + item.ActualPosition +
                    ", 목표위치=" + target +
                    ", 허용오차=" + tolerance;
+        }
+
+        private static string ToPickerAxisDisplayName(PickerAxis axis)
+        {
+            string name = axis.ToString();
+            if ((name.StartsWith("PickerT", StringComparison.Ordinal) ||
+                 name.StartsWith("PickerZ", StringComparison.Ordinal)) &&
+                name.Length == 8)
+            {
+                char c = name[7];
+                if (c >= '0' && c <= '3')
+                    return name.Substring(0, 7) + ((c - '0') + 1).ToString();
+            }
+
+            return name;
         }
 
         private string BuildPickerLastMotionFailureReason(PickerAxis axis, int result)
@@ -3059,8 +3076,8 @@ namespace QMC.CDT320.Sequencing
                 return offsetX;
 
             WriteLog("PickerCoordinate",
-                Name + " failed to resolve InputVisionToPicker X offset. pickerIndex=" +
-                index + ", reason=" + reason + " - Failed");
+                Name + " failed to resolve InputVisionToPicker X offset. pickerNo=" +
+                ToPickerNo(index) + ", reason=" + reason + " - Failed");
             return 0.0;
         }
 
@@ -3073,8 +3090,8 @@ namespace QMC.CDT320.Sequencing
                 return offsetY;
 
             WriteLog("PickerCoordinate",
-                Name + " failed to resolve InputVisionToPicker Y offset. pickerIndex=" +
-                index + ", reason=" + reason + " - Failed");
+                Name + " failed to resolve InputVisionToPicker Y offset. pickerNo=" +
+                ToPickerNo(index) + ", reason=" + reason + " - Failed");
             return 0.0;
         }
 
@@ -3087,8 +3104,8 @@ namespace QMC.CDT320.Sequencing
                 return offsetX;
 
             WriteLog("PickerCoordinate",
-                Name + " failed to resolve OutputVisionToPicker X offset. pickerIndex=" +
-                index + ", reason=" + reason + " - Failed");
+                Name + " failed to resolve OutputVisionToPicker X offset. pickerNo=" +
+                ToPickerNo(index) + ", reason=" + reason + " - Failed");
             return 0.0;
         }
 
@@ -3101,8 +3118,8 @@ namespace QMC.CDT320.Sequencing
                 return offsetY;
 
             WriteLog("PickerCoordinate",
-                Name + " failed to resolve OutputVisionToPicker Y offset. pickerIndex=" +
-                index + ", reason=" + reason + " - Failed");
+                Name + " failed to resolve OutputVisionToPicker Y offset. pickerNo=" +
+                ToPickerNo(index) + ", reason=" + reason + " - Failed");
             return 0.0;
         }
 

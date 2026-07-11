@@ -2889,7 +2889,7 @@ namespace QMC.CDT320
 
         private async Task<int> PrepareFrontPickerXHomeConditionAsync()
         {
-            Log("[INIT] Check FrontPickerX home: InputVisionX / InputExpandingZ / FrontPickerY / FrontPickerZ0~Z3 / InputFeederY Avoid, feeder cylinder down.");
+            Log("[INIT] Check FrontPickerX home: InputVisionX / InputExpandingZ / FrontPickerY / FrontPickerZ1~Z4 / InputFeederY Avoid, feeder cylinder down.");
 
             var stage = _machine.InputStageUnit;
             if (stage != null && !stage.IsVisionXInAvoidPosition())
@@ -2941,7 +2941,7 @@ namespace QMC.CDT320
 
         private async Task<int> PrepareFrontPickerYHomeConditionAsync()
         {
-            Log("[INIT] Check FrontPickerY home: FrontPickerZ0~Z3 Home(0) or Avoid.");
+            Log("[INIT] Check FrontPickerY home: FrontPickerZ1~Z4 Home(0) or Avoid.");
 
             return await CheckFrontPickerZAxesHomeOrAvoidAsync().ConfigureAwait(false);
         }
@@ -3102,7 +3102,7 @@ namespace QMC.CDT320
 
         private async Task<int> PrepareRearPickerYHomeConditionAsync()
         {
-            Log("[INIT] Check RearPickerY home: RearPickerZ0~Z3 Home(0) or Avoid.");
+            Log("[INIT] Check RearPickerY home: RearPickerZ1~Z4 Home(0) or Avoid.");
 
             return await CheckRearPickerZAxesHomeOrAvoidAsync().ConfigureAwait(false);
         }
@@ -3114,7 +3114,7 @@ namespace QMC.CDT320
 
         private async Task<int> PrepareRearPickerXHomeConditionAsync()
         {
-            Log("[INIT] Check RearPickerX home: InputVisionX / InputExpandingZ / FrontPickerY / RearPickerY / RearPickerZ0~Z3 Avoid.");
+            Log("[INIT] Check RearPickerX home: InputVisionX / InputExpandingZ / FrontPickerY / RearPickerY / RearPickerZ1~Z4 Avoid.");
 
             var stage = _machine.InputStageUnit;
             if (stage != null && !stage.IsVisionXInAvoidPosition())
@@ -4293,7 +4293,7 @@ namespace QMC.CDT320
 
         private async Task<int> PrepareInputStageHomeAsync()
         {
-            Log("[INIT] Prepare InputStageY home: NeedleZ Home(0)/Avoid / Input-risk Front,RearPickerZ0~Z3 / InputFeederY Avoid check.");
+            Log("[INIT] Prepare InputStageY home: NeedleZ Home(0)/Avoid / Input-risk Front,RearPickerZ1~Z4 / InputFeederY Avoid check.");
 
             var stage = _machine.InputStageUnit;
             if (stage != null && !stage.IsNeedleZInHomeOrSafePosition())
@@ -4322,7 +4322,7 @@ namespace QMC.CDT320
 
         private async Task<int> PrepareInputStageTHomeAsync(BaseAxis axis)
         {
-            Log("[INIT] Prepare InputStageT home: EjectPinZ Home(0)/Avoid / Input-risk Front,RearPickerZ0~Z3 check.");
+            Log("[INIT] Prepare InputStageT home: EjectPinZ Home(0)/Avoid / Input-risk Front,RearPickerZ1~Z4 check.");
 
             var stage = _machine.InputStageUnit;
             string ejectPinZReason;
@@ -9122,7 +9122,7 @@ namespace QMC.CDT320
                         out inputVisionToPickerReason))
                     {
                         Log("[INPUT-VISION-PICKER-OFFSET] resolve failed. side=" +
-                            pickerSequenceSide + ", pickerIndex=" + p +
+                            pickerSequenceSide + ", pickerNo=" + (p + 1) +
                             ", reason=" + inputVisionToPickerReason +
                             ". fallback zero.");
                     }

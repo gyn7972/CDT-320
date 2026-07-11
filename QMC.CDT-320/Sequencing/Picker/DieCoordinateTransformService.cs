@@ -192,9 +192,14 @@ namespace QMC.CDT320.Sequencing
                 (sequenceName ?? "UnknownSequence") +
                 " coordinate calculation. phase=" + phase +
                 ", side=" + side +
-                ", pickerIndex=" + pickerIndex +
+                ", pickerNo=" + ToPickerNo(pickerIndex) +
                 ", target=" + (targetId ?? string.Empty) +
                 ", formula: " + formula);
+        }
+
+        private static int ToPickerNo(int pickerIndex)
+        {
+            return pickerIndex + 1;
         }
 
         private static string F(double value)

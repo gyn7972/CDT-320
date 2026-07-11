@@ -81,15 +81,19 @@ namespace QMC.Vision.Optics.Sim
         public Task<bool> SwitchPageAsync(int page) { _lastPage = page; Emit($"SwitchPage page={page}"); return Task.FromResult(true); }
 
         /// <summary>일괄 적용 — 이전 송신값과 같으면(캐시 히트) 송신 생략(BatchSendCount 미증가).
+        /// 값 &lt; 0 = "채널 유지(미지정)" — 실장비(Leesos)와 동일 계약(2026-07-11).
         /// 값이 달라진 경우에만 송신 + SettleDelayMs 대기(실장비와 동일 계약).</summary>
         public async Task<bool> SetChannelBatchAsync(int page, int[] values)
         {
             if (values == null || values.Length != ChannelCount) return false;
-            if (_batchCache.IsHit(page, values)) { Emit($"BatchSkip(cache-hit) page={page}"); return true; }
+            var target = new int[values.Length];
+            for (int i = 0; i < values.Length; i++)
+                target[i] = values[i] < 0 ? _power[i + 1] : values[i];
+            if (_batchCache.IsHit(page, target)) { Emit($"BatchSkip(cache-hit) page={page}"); return true; }
             BatchSendCount++;
-            for (int i = 0; i < values.Length; i++) { _power[i + 1] = values[i]; if (values[i] > 0) _lastOnPower[i + 1] = values[i]; }
-            _batchCache.Store(page, values);
-            Emit($"BatchSend page={page} [{string.Join(",", values)}]");
+            for (int i = 0; i < target.Length; i++) { _power[i + 1] = target[i]; if (target[i] > 0) _lastOnPower[i + 1] = target[i]; }
+            _batchCache.Store(page, target);
+            Emit($"BatchSend page={page} [{string.Join(",", target)}]");
             if (SettleDelayMs > 0) await Task.Delay(SettleDelayMs).ConfigureAwait(false);
             return true;
         }

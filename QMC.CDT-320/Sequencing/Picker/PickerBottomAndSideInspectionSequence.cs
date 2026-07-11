@@ -303,7 +303,6 @@ namespace QMC.CDT320.Sequencing
                             "데이터상 Picker에 Die가 있지만 실제 Flow 신호가 ON이 아닙니다. " +
                             "side=" + Side +
                             ", pickerNo=" + pickerNo +
-                            ", pickerIndex=" + pickerIndex +
                             ", die=" + die.DieId +
                             ", timeoutMs=" + timeoutMs +
                             ", expectedFlow=ON, actualFlow=OFF");
@@ -313,7 +312,6 @@ namespace QMC.CDT320.Sequencing
                         Name + " Bottom/Side 시작 전 제품 흡착 Flow 확인 완료. " +
                         "side=" + Side +
                         ", pickerNo=" + pickerNo +
-                        ", pickerIndex=" + pickerIndex +
                         ", die=" + die.DieId +
                         ", flow=ON - Ok");
                 }
@@ -363,7 +361,6 @@ namespace QMC.CDT320.Sequencing
                     Name + " Skip die는 Bottom/Side 검사를 생략합니다. " +
                     "die=" + die.DieId +
                     ", pickerNo=" + pickerNo +
-                    ", pickerIndex=" + pickerIndex +
                     ", result=" + die.Result + " - Skip");
             }
         }
@@ -677,7 +674,6 @@ namespace QMC.CDT320.Sequencing
             return "side=" + Side +
                    ", die=" + (target != null && target.Die != null ? target.Die.DieId : "-") +
                    ", pickerNo=" + (target != null ? target.PickerNo.ToString() : "-") +
-                   ", pickerIndex=" + (target != null ? target.PickerIndex.ToString() : "-") +
                    ", " + (detail ?? "");
         }
 
@@ -816,7 +812,7 @@ namespace QMC.CDT320.Sequencing
 
         private string BuildBottomTargetName(InspectionTarget target)
         {
-            return AppendAutoProcessCorrectionTargetTag("DieBottomPosition[" + target.PickerIndex + "];PickerProcess=BottomSide;PickerPhase=InspectionZHold;InspectionContinuous;From=Input;To=Bottom");
+            return AppendAutoProcessCorrectionTargetTag(BuildPickerTargetName("DieBottomPosition", target.PickerIndex) + ";PickerProcess=BottomSide;PickerPhase=InspectionZHold;InspectionContinuous;From=Input;To=Bottom");
         }
 
         private async Task<int> StartBottomInspectionAsync(InspectionTarget target, CancellationToken ct)
@@ -1332,7 +1328,7 @@ namespace QMC.CDT320.Sequencing
             WriteLog("PickerBottomAndSideInspectionSequence",
                 Name + " Side PickerZ 보정 이동. " +
                 "side=" + Side +
-                ", axis=" + GetPickerZAxis(target.PickerIndex) +
+                ", axis=PickerZ" + target.PickerNo +
                 ", pickerNo=" + target.PickerNo +
                 ", die=" + target.Die.DieId +
                 ", baseZ=" + target.SidePickerZBase.ToString("F6") +
@@ -1881,7 +1877,7 @@ namespace QMC.CDT320.Sequencing
 
         private string BuildSideTargetName(InspectionTarget target)
         {
-            return AppendAutoProcessCorrectionTargetTag("DieSidePosition[" + target.PickerIndex + "];PickerProcess=BottomSide;PickerPhase=InspectionZHold;InspectionContinuous;From=Bottom;To=Side");
+            return AppendAutoProcessCorrectionTargetTag(BuildPickerTargetName("DieSidePosition", target.PickerIndex) + ";PickerProcess=BottomSide;PickerPhase=InspectionZHold;InspectionContinuous;From=Bottom;To=Side");
         }
 
         private void EnsureBottomSideProcessAreaReserved(string description)
@@ -2096,7 +2092,7 @@ namespace QMC.CDT320.Sequencing
                 pending.MoveTask = MovePickerAxisCommandAsync(
                     axis,
                     pending.Target,
-                    "DieBottomZPreDown[" + pending.PickerIndex + "];PickerProcess=BottomSide;PickerPhase=InspectionZHold;InspectionContinuous;From=Bottom;To=Bottom");
+                    BuildPickerTargetName("DieBottomZPreDown", pending.PickerIndex) + ";PickerProcess=BottomSide;PickerPhase=InspectionZHold;InspectionContinuous;From=Bottom;To=Bottom");
 
                 WriteLog("PickerBottomAndSideInspectionSequence",
                     Name + " " + description + " 명령 시작. pickerNo=" + ToPickerNo(pending.PickerIndex) +
@@ -2130,7 +2126,7 @@ namespace QMC.CDT320.Sequencing
                         MovePickerAxisCommandAsync(
                             axis,
                             pending.Target,
-                            "DieBottomZPreDown[" + pending.PickerIndex + "];PickerProcess=BottomSide;PickerPhase=InspectionZHold;InspectionContinuous;From=Bottom;To=Bottom"),
+                            BuildPickerTargetName("DieBottomZPreDown", pending.PickerIndex) + ";PickerProcess=BottomSide;PickerPhase=InspectionZHold;InspectionContinuous;From=Bottom;To=Bottom"),
                         -1,
                         ct).ConfigureAwait(false);
                     if (commandResult != 0)
@@ -2315,7 +2311,7 @@ namespace QMC.CDT320.Sequencing
                 pending.MoveTask = MovePickerAxisCommandAsync(
                     GetPickerZAxis(pending.PickerIndex),
                     pending.Target,
-                    "DieSideZAvoidDeferred[" + pending.PickerIndex + "]");
+                    BuildPickerTargetName("DieSideZAvoidDeferred", pending.PickerIndex));
 
                 WriteLog("PickerBottomAndSideInspectionSequence",
                     Name + " " + description + " 명령 시작. pickerNo=" + ToPickerNo(pending.PickerIndex) + " - Ok");
@@ -2345,7 +2341,7 @@ namespace QMC.CDT320.Sequencing
                         MovePickerAxisCommandAsync(
                             axis,
                             pending.Target,
-                            "DieSideZAvoidDeferred[" + pending.PickerIndex + "]"),
+                            BuildPickerTargetName("DieSideZAvoidDeferred", pending.PickerIndex)),
                         -1,
                         ct).ConfigureAwait(false);
                     if (commandResult != 0)
@@ -2391,7 +2387,7 @@ namespace QMC.CDT320.Sequencing
                 pending.MoveTask = MovePickerAxisCommandAsync(
                     GetPickerTAxis(pending.PickerIndex),
                     pending.Target,
-                    "DieSideT0ReturnDeferred[" + pending.PickerIndex + "]");
+                    BuildPickerTargetName("DieSideT0ReturnDeferred", pending.PickerIndex));
 
                 WriteLog("PickerBottomAndSideInspectionSequence",
                     Name + " " + description + " 명령 시작. pickerNo=" + ToPickerNo(pending.PickerIndex) + " - Ok");

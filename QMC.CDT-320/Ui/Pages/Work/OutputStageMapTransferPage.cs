@@ -1935,7 +1935,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
 
                 int pickerIndex = pickerNo - 1;
                 PickerAxis tAxis = GetPickerTAxis(pickerIndex);
-                string targetName = "DiePlacePosition[" + pickerIndex + "];ManualOutputDieMapMove";
+                string targetName = "DiePlacePosition[P" + pickerNo + "];ManualOutputDieMapMove";
 
                 // PickerY는 후진된 상태에서 X/T를 먼저 맞춘 뒤, 마지막에 Place Y로 전진시킨다.
                 Task<int> movePickerX = MovePickerAxisAsync(host, side, PickerAxis.PickerX, targets.PickerX, targetName);

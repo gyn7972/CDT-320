@@ -749,7 +749,7 @@ namespace QMC.CDT320.Sequencing
 
         private string BuildBottomMoveTargetName()
         {
-            string targetName = "DieBottomPosition[" + _currentPickerIndex + "]";
+            string targetName = BuildPickerTargetName("DieBottomPosition", _currentPickerIndex);
             if (Options == null || !Options.KeepZAfterBottomInspection)
                 return AppendAutoProcessCorrectionTargetTag(targetName);
 
@@ -930,7 +930,7 @@ namespace QMC.CDT320.Sequencing
         {
             PickerAxis tAxis = GetPickerTAxis(_currentPickerIndex);
             double target = ResolvePickerZoneT("DiePickPosition", _currentPickerIndex);
-            int result = await MovePickerAxisAndVerifyAsync(tAxis, target, "bottom inspection T safe", ct, "DiePickPosition[" + _currentPickerIndex + "]").ConfigureAwait(false);
+            int result = await MovePickerAxisAndVerifyAsync(tAxis, target, "bottom inspection T safe", ct, BuildPickerTargetName("DiePickPosition", _currentPickerIndex)).ConfigureAwait(false);
             if (result != 0)
                 return result;
 
@@ -1302,7 +1302,6 @@ namespace QMC.CDT320.Sequencing
             return "side=" + Side +
                    ", die=" + (_currentDie != null ? _currentDie.DieId : "-") +
                    ", pickerNo=" + _currentPickerNo +
-                   ", pickerIndex=" + _currentPickerIndex +
                    ", " + (detail ?? "");
         }
 

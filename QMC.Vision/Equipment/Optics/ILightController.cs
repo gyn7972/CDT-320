@@ -42,9 +42,12 @@ namespace QMC.Vision.Optics
         Task<bool> SwitchPageAsync(int page);
 
         /// <summary>한 페이지/배치의 채널 값 일괄 적용 (valuesPerChannel.Length == ChannelCount, 인덱스 0 = 채널 1).
+        /// <para>값 &lt; 0 = "채널 유지(미지정)" — 그 채널은 송신하지 않고 현재 값을 지킨다(2026-07-11).
+        /// 여러 검사(모듈)가 한 컨트롤러의 채널을 나눠 쓸 때(Leesos 단일 페이지) 교차 소등을 막는다.
+        /// Leesos/Sim = 유지, LFine = 0(소등)으로 해석(SP 는 페이지 전 채널 1프레임 + 페이지가 모듈별 분리).</para>
         /// 이전 송신값과 같으면(캐시 히트) 통신을 생략하고, 값이 달라진 경우에만 송신 후
         /// <see cref="SettleDelayMs"/> 만큼 안정화 대기한다. LFine = SP 1프레임.
-        /// Leesos = 전체동일값 LCT 1프레임 / 그 외 LC loop. Sim = 캐시 갱신.</summary>
+        /// Leesos = 전체동일 명시값 LCT 1프레임 / 그 외 명시 채널 LC loop. Sim = 캐시 갱신.</summary>
         Task<bool> SetChannelBatchAsync(int page, int[] valuesPerChannel);
 
         /// <summary>LFine 실 하드웨어 모드(SM 명령, 0~3) 런타임 설정 — 영속 아님.

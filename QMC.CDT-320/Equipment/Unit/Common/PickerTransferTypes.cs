@@ -63,6 +63,7 @@ namespace QMC.CDT320
         [DataMember] public double TransferContiMaxVelocity { get; set; } = 500.0;
         [DataMember] public double TransferContiMaxAcceleration { get; set; } = 5000.0;
         [DataMember] public double TransferContiMaxDeceleration { get; set; } = 5000.0;
+        [DataMember] public bool TransferContiUseGlobalSpeedScale { get; set; } = true;
         [DataMember] public double TransferContiNode0SpeedPercent { get; set; } = 20.0;
         [DataMember] public double TransferContiNode1SpeedPercent { get; set; } = 100.0;
         [DataMember] public double TransferContiNode2SpeedPercent { get; set; } = 100.0;
@@ -99,6 +100,7 @@ namespace QMC.CDT320
         private void OnDeserializing(StreamingContext ctx)
         {
             TransferContiSplineCurvePercent = 100.0;
+            TransferContiUseGlobalSpeedScale = true;
         }
 
         [OnDeserialized]
@@ -165,17 +167,20 @@ namespace QMC.CDT320
 
         public double GetTransferContiNodeVelocity(int nodeIndex)
         {
-            return MotionSpeedScale.ApplyDefaultVelocityScale(TransferContiMaxVelocity * GetTransferContiNodeRatio(nodeIndex));
+            double velocity = TransferContiMaxVelocity * GetTransferContiNodeRatio(nodeIndex);
+            return TransferContiUseGlobalSpeedScale ? MotionSpeedScale.ApplyDefaultVelocityScale(velocity) : velocity;
         }
 
         public double GetTransferContiNodeAcceleration(int nodeIndex)
         {
-            return MotionSpeedScale.ApplyDefaultAccelerationScale(TransferContiMaxAcceleration * GetTransferContiNodeRatio(nodeIndex));
+            double acceleration = TransferContiMaxAcceleration * GetTransferContiNodeRatio(nodeIndex);
+            return TransferContiUseGlobalSpeedScale ? MotionSpeedScale.ApplyDefaultAccelerationScale(acceleration) : acceleration;
         }
 
         public double GetTransferContiNodeDeceleration(int nodeIndex)
         {
-            return MotionSpeedScale.ApplyDefaultAccelerationScale(TransferContiMaxDeceleration * GetTransferContiNodeRatio(nodeIndex));
+            double deceleration = TransferContiMaxDeceleration * GetTransferContiNodeRatio(nodeIndex);
+            return TransferContiUseGlobalSpeedScale ? MotionSpeedScale.ApplyDefaultAccelerationScale(deceleration) : deceleration;
         }
 
         public static double NormalizePercent(double percent, double fallback)
@@ -302,11 +307,13 @@ namespace QMC.CDT320
         [DataMember] public double ContiOverDrive { get; set; } = 0.03;
         [DataMember] public double PlaceZOverDrive { get; set; } = 0.0;
         [DataMember] public int PlaceReleaseDwellMs { get; set; } = 0;
+        [DataMember] public int PlaceBlowDelayMs { get; set; } = 100;
         [DataMember] public double ContiTapeThicknessFallback { get; set; } = 0.0;
         [DataMember] public double ContiDieThicknessFallback { get; set; } = 0.0;
         [DataMember] public double ContiMaxVelocity { get; set; } = 500.0;
         [DataMember] public double ContiMaxAcceleration { get; set; } = 5000.0;
         [DataMember] public double ContiMaxDeceleration { get; set; } = 5000.0;
+        [DataMember] public bool ContiUseGlobalSpeedScale { get; set; } = true;
         [DataMember] public double ContiNode0SpeedPercent { get; set; } = 1.0;
         [DataMember] public double ContiNode1SpeedPercent { get; set; } = 20.0;
         [DataMember] public double ContiNode2SpeedPercent { get; set; } = 100.0;
@@ -317,6 +324,8 @@ namespace QMC.CDT320
         private void OnDeserializing(StreamingContext ctx)
         {
             ContiSplineCurvePercent = 100.0;
+            ContiUseGlobalSpeedScale = true;
+            PlaceBlowDelayMs = 100;
         }
 
         [OnDeserialized]
@@ -347,6 +356,8 @@ namespace QMC.CDT320
             PlaceZOverDrive = NormalizeFinite(PlaceZOverDrive);
             if (PlaceReleaseDwellMs < 0)
                 PlaceReleaseDwellMs = 0;
+            if (PlaceBlowDelayMs < 0)
+                PlaceBlowDelayMs = 0;
             ContiTapeThicknessFallback = NormalizeNonNegative(ContiTapeThicknessFallback);
             ContiDieThicknessFallback = NormalizeNonNegative(ContiDieThicknessFallback);
             ContiMaxVelocity = PickerPickUpMotionConfig.NormalizePositive(ContiMaxVelocity, 500.0);
@@ -361,17 +372,20 @@ namespace QMC.CDT320
 
         public double GetContiNodeVelocity(int nodeIndex)
         {
-            return MotionSpeedScale.ApplyDefaultVelocityScale(ContiMaxVelocity * GetContiNodeRatio(nodeIndex));
+            double velocity = ContiMaxVelocity * GetContiNodeRatio(nodeIndex);
+            return ContiUseGlobalSpeedScale ? MotionSpeedScale.ApplyDefaultVelocityScale(velocity) : velocity;
         }
 
         public double GetContiNodeAcceleration(int nodeIndex)
         {
-            return MotionSpeedScale.ApplyDefaultAccelerationScale(ContiMaxAcceleration * GetContiNodeRatio(nodeIndex));
+            double acceleration = ContiMaxAcceleration * GetContiNodeRatio(nodeIndex);
+            return ContiUseGlobalSpeedScale ? MotionSpeedScale.ApplyDefaultAccelerationScale(acceleration) : acceleration;
         }
 
         public double GetContiNodeDeceleration(int nodeIndex)
         {
-            return MotionSpeedScale.ApplyDefaultAccelerationScale(ContiMaxDeceleration * GetContiNodeRatio(nodeIndex));
+            double deceleration = ContiMaxDeceleration * GetContiNodeRatio(nodeIndex);
+            return ContiUseGlobalSpeedScale ? MotionSpeedScale.ApplyDefaultAccelerationScale(deceleration) : deceleration;
         }
 
         private double GetContiNodeRatio(int nodeIndex)

@@ -698,10 +698,10 @@ namespace QMC.CDT320.Sequencing
                     FormatAxis("EjectPinZ", stage != null ? stage.EjectPinZ : null) + "; " +
                     FormatAxis("FrontPickerX", front != null ? front.PickerX : null) + "; " +
                     FormatAxis("FrontPickerY", front != null ? front.PickerY : null) + "; " +
-                    FormatAxis("FrontPickerZ0", front != null ? front.PickerZ0 : null) + "; " +
+                    FormatAxis("FrontPickerZ1", front != null ? front.PickerZ0 : null) + "; " +
                     FormatAxis("RearPickerX", rear != null ? rear.PickerX : null) + "; " +
                     FormatAxis("RearPickerY", rear != null ? rear.PickerY : null) + "; " +
-                    FormatAxis("RearPickerZ0", rear != null ? rear.PickerZ0 : null) + "; " +
+                    FormatAxis("RearPickerZ1", rear != null ? rear.PickerZ0 : null) + "; " +
                     FormatAxis("OutputVisionX", outputStage != null ? outputStage.OutputCameraX : null) + "; " +
                     FormatAxis("GoodStageY", outputStage != null && outputStage.GoodStage != null ? outputStage.GoodStage.StageY : null) + "; " +
                     FormatAxis("GoodStageZ", outputStage != null && outputStage.GoodStage != null ? outputStage.GoodStage.StageZ : null) + "; " +

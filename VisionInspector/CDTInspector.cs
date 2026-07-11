@@ -48,6 +48,14 @@ namespace QMC.Vision.Inspector
       int roiX, int roiY, int roiWidth, int roiHeight,
       IntPtr output2D, IntPtr outputSobel);
 
+        // 컨텍스트 버전(2026-07-11) — 디바이스 버퍼를 컨텍스트(CudaContextPool)가 보유, 호출마다 할당 없음.
+        [DllImport("MakePixelShiftImage.dll", CallingConvention = CallingConvention.Cdecl)]
+        public static extern int UpscaleROI2xBilinearAndSobelCtx(
+      IntPtr ctx,
+      byte[] input, int inWidth, int inHeight,
+      int roiX, int roiY, int roiWidth, int roiHeight,
+      IntPtr output2D, IntPtr outputSobel);
+
         [DllImport("MakePixelShiftImage.dll", CallingConvention = CallingConvention.Cdecl)]
         public static extern int UpscaleROI2xBilinear_Init(int inWidth, int inHeight, int roiWidth, int roiHeight);
 
@@ -506,6 +514,10 @@ namespace QMC.Vision.Inspector
             byte[,] ShiftImage = new byte[1, 1];
 
             byte[,] ShiftImageSobel = new byte[1, 1];
+            // CUDA 컨텍스트 대여(2026-07-11) — 검사 1건당 1개. 이 검사의 모든 CUDA 호출(업스케일/칩핑)이
+            // 같은 컨텍스트의 디바이스 버퍼를 재사용한다(같은 이미지 크기 = 할당 0회, ROI 변경 시 그 슬롯만 재할당).
+            // 풀 비활성(무-CUDA/구 DLL)이면 Handle=Zero → 기존(호출마다 할당) 경로 그대로.
+            CudaContextPool.Lease cudaLease = CudaContextPool.Rent();
             try
             {
                 //int test = 3;
@@ -553,9 +565,9 @@ namespace QMC.Vision.Inspector
                             vv.shiftSobelimage = ShiftImageSobel;
                         }
                         else
-                        {   
+                        {
                             {
-                                MakeSoftWareExpendImage(bip, out ShiftImage, out ShiftImageSobel, out w, out h, imageindex);
+                                MakeSoftWareExpendImage(bip, out ShiftImage, out ShiftImageSobel, out w, out h, imageindex, cudaLease.Handle);
                                 vv.shiftimage = ShiftImage;
                                 vv.shiftSobelimage = ShiftImageSobel;
                             }
@@ -650,6 +662,7 @@ namespace QMC.Vision.Inspector
                     
                     int topHatRadius = Math.Max(1, margin / 2);
                      var v= cudaWrapper.DetectChippingWithCuda(
+                     cudaLease.Handle,   // 컨텍스트 대여 핸들 — 디바이스 버퍼 재사용(2026-07-11)
                      ShiftImage,
                      resultChppingNForeign.m_lineTop,
                      resultChppingNForeign.m_lineBottom,
@@ -708,6 +721,29 @@ namespace QMC.Vision.Inspector
                 result.Corners[1] = resultChppingNForeign.RightTop; // Top-right corner
                 result.Corners[2] = resultChppingNForeign.RightBottom; // Bottom-right corner
                 result.Corners[3] = resultChppingNForeign.LeftBottom; // Bottom-left corner
+
+                // 칩핑 컨투어/이물 위치도 코너와 동일 규약(×0.5 + ChipRoi 좌상단)으로 원본 입력 좌표 환산.
+                // (검사는 2배 확장 이미지에서 수행 — 종전에는 컨투어가 검사 좌표 그대로 반환되어
+                //  소비측(BottomInspector)에서 디펙 마크가 엉뚱한 위치에 표시됐다. 2026-07-11)
+                foreach (var ci in result.ChippingInfos)
+                {
+                    if (ci == null || ci.Contour == null) continue;
+                    for (int i = 0; i < ci.Contour.Count; i++)
+                    {
+                        PointF p = ci.Contour[i];
+                        OffsetPointFAndReSize(ref p, bip.ChipRoi, 0.5);
+                        ci.Contour[i] = p;
+                    }
+                }
+                foreach (var fi in result.ForeignInfos)
+                {
+                    if (fi == null) continue;
+                    fi.Rect = new RectangleF(
+                        bip.ChipRoi.Left + fi.Rect.X * 0.5f,
+                        bip.ChipRoi.Top + fi.Rect.Y * 0.5f,
+                        fi.Rect.Width * 0.5f,
+                        fi.Rect.Height * 0.5f);
+                }
 
                 double dOffsetX = 0;
                 double dOffsetY = 0;
@@ -819,6 +855,7 @@ namespace QMC.Vision.Inspector
             }
             finally
             {
+                cudaLease.Dispose();   // CUDA 컨텍스트 풀 반납 — 재할당된 버퍼도 그대로 반납되어 다음 검사에 재사용(2026-07-11)
                 int nStartX = Math.Min((int)result.Corners[0].X, (int)result.Corners[3].X)*2;
                 int nStartY = Math.Min((int)result.Corners[0].Y, (int)result.Corners[1].Y)*2;
                 int nEndX = Math.Max((int)result.Corners[1].X, (int)result.Corners[2].X)*2;
@@ -1410,10 +1447,13 @@ namespace QMC.Vision.Inspector
                 if (isNg && regionPoints.Count > bip.MinForeignAreaFilterSize)
                 {
                     bForeign = true;
+                    // 이물 위치를 결과에 담는다(검사 좌표 — 반환 직전 BottomInspect 가 원본 좌표로 환산).
+                    result.ForeignInfos.Add(new ForeignInfo { Rect = saveRect, SizeMm = foreignSize, Area = area, IsNg = true });
                     SaveDefactImage(w, h, shiftImage, saveRect, bip, null, true, result , area);
                 }
                 else if (foreignSize > bip.ForeignObjectSize / 5)
                 {
+                    result.ForeignInfos.Add(new ForeignInfo { Rect = saveRect, SizeMm = foreignSize, Area = area, IsNg = false });
                     SaveDefactImage(w, h, shiftImage, saveRect, bip, null, false, result, area);
                 }
             }
@@ -1668,7 +1708,7 @@ namespace QMC.Vision.Inspector
 
             return false;
         }
-        private void MakeSoftWareExpendImage(BottomInspectionParameter bip, out byte[,] shiftImage, out byte[,] shiftImageSobel, out int w, out int h, int i = 0)
+        private void MakeSoftWareExpendImage(BottomInspectionParameter bip, out byte[,] shiftImage, out byte[,] shiftImageSobel, out int w, out int h, int i = 0, IntPtr cudaCtx = default(IntPtr))
         {
             if (bip.Images == null || bip.Images.Count == 0 || bip.Images[0] == null)
                 throw new ArgumentException("입력 이미지가 없습니다.");
@@ -1700,10 +1740,34 @@ namespace QMC.Vision.Inspector
                 IntPtr ptr = handle.AddrOfPinnedObject();
 
                 IntPtr ptrSobel = handleSobel.AddrOfPinnedObject();
-                int result = UpscaleROI2xBilinearAndSobel(
-                    bip.Images[0], bip.ImageWidth, bip.ImageHeight,
-                    roi.Left, roi.Top, roi.Width, roi.Height,
-                    ptr, ptrSobel);
+                int result;
+                if (cudaCtx != IntPtr.Zero)
+                {
+                    // 컨텍스트 경로(2026-07-11) — 디바이스 버퍼 재사용(같은 크기면 할당 0회, 크기 변경 시만 재할당).
+                    try
+                    {
+                        result = UpscaleROI2xBilinearAndSobelCtx(
+                            cudaCtx,
+                            bip.Images[0], bip.ImageWidth, bip.ImageHeight,
+                            roi.Left, roi.Top, roi.Width, roi.Height,
+                            ptr, ptrSobel);
+                    }
+                    catch (EntryPointNotFoundException)
+                    {
+                        // 구버전 DLL(QmcCtx 미탑재) — 기존(호출마다 할당) 경로 폴백.
+                        result = UpscaleROI2xBilinearAndSobel(
+                            bip.Images[0], bip.ImageWidth, bip.ImageHeight,
+                            roi.Left, roi.Top, roi.Width, roi.Height,
+                            ptr, ptrSobel);
+                    }
+                }
+                else
+                {
+                    result = UpscaleROI2xBilinearAndSobel(
+                        bip.Images[0], bip.ImageWidth, bip.ImageHeight,
+                        roi.Left, roi.Top, roi.Width, roi.Height,
+                        ptr, ptrSobel);
+                }
                 // result 체크
             }
             finally

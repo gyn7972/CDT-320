@@ -57,6 +57,24 @@ public class CudaWrapper
     [DllImport("MakePixelShiftImage.dll", CallingConvention = CallingConvention.Cdecl)]
     public static extern void FreeCudaHostMemory(IntPtr ptr);
 
+    // 컨텍스트 버전(2026-07-11) — 디바이스 버퍼를 컨텍스트(CudaContextPool)가 보유, 호출마다 할당 없음.
+    [DllImport("MakePixelShiftImage.dll", CallingConvention = CallingConvention.Cdecl)]
+    public static extern int FindChippingCtx(
+        IntPtr ctx,
+        IntPtr h_inputImage,
+        IntPtr h_outputMask,
+        IntPtr h_outputMask2,
+        int width,
+        int height,
+        LineParams lineTop,
+        LineParams lineBottom,
+        LineParams lineLeft,
+        LineParams lineRight,
+        byte threshold,
+        int margin,
+        int topHatRadius,
+        byte topHatThreshold);
+
     [DllImport("MakePixelShiftImage.dll", CallingConvention = CallingConvention.Cdecl)]
     public static extern int ApplySobelFilter(
         IntPtr h_inputImage,
@@ -98,6 +116,11 @@ public class CudaWrapper
 
     // 3. C#에서 CUDA 함수를 사용하는 예시 메서드
     public (byte[,] mask1, byte[,] mask2) DetectChippingWithCuda(byte[,] imageArray, Line csharpLineTop, Line csharpLineBottom, Line csharpLineLeft, Line csharpLineRight, byte threshold, int margin, int topHatRadius, byte topHatThreshold)
+        => DetectChippingWithCuda(IntPtr.Zero, imageArray, csharpLineTop, csharpLineBottom, csharpLineLeft, csharpLineRight, threshold, margin, topHatRadius, topHatThreshold);
+
+    /// <summary>컨텍스트 버전(2026-07-11) — cudaCtx(CudaContextPool 대여 핸들)가 유효하면 디바이스 버퍼를
+    /// 재사용하는 FindChippingCtx 로 호출(호출마다 cudaMalloc 없음). Zero/구 DLL 이면 기존 경로.</summary>
+    public (byte[,] mask1, byte[,] mask2) DetectChippingWithCuda(IntPtr cudaCtx, byte[,] imageArray, Line csharpLineTop, Line csharpLineBottom, Line csharpLineLeft, Line csharpLineRight, byte threshold, int margin, int topHatRadius, byte topHatThreshold)
     {
         int height = imageArray.GetLength(0);
         int width = imageArray.GetLength(1);
@@ -128,20 +151,44 @@ public class CudaWrapper
             IntPtr ptrOutput1 = hOutput1.AddrOfPinnedObject();
             IntPtr ptrOutput2 = hOutput2.AddrOfPinnedObject();
 
-            // 첫 번째 FindChipping 호출 (margin 적용)
+            // 첫 번째 FindChipping 호출 (margin 적용) — 컨텍스트 핸들이 있으면 버퍼 재사용 경로.
             int cudaStatus;
             try
             {
-                cudaStatus = FindChipping(
-                    ptrInput,
-                    ptrOutput1,
-                    ptrOutput2,
-                    width, height,
-                    cudaLineTop, cudaLineBottom, cudaLineLeft, cudaLineRight,
-                    threshold, margin,
-                    topHatRadius,
-                    topHatThreshold
-                );
+                if (cudaCtx != IntPtr.Zero)
+                {
+                    try
+                    {
+                        cudaStatus = FindChippingCtx(
+                            cudaCtx,
+                            ptrInput, ptrOutput1, ptrOutput2,
+                            width, height,
+                            cudaLineTop, cudaLineBottom, cudaLineLeft, cudaLineRight,
+                            threshold, margin, topHatRadius, topHatThreshold);
+                    }
+                    catch (EntryPointNotFoundException)
+                    {
+                        // 구버전 DLL(QmcCtx 미탑재) — 기존(호출마다 할당) 경로 폴백.
+                        cudaStatus = FindChipping(
+                            ptrInput, ptrOutput1, ptrOutput2,
+                            width, height,
+                            cudaLineTop, cudaLineBottom, cudaLineLeft, cudaLineRight,
+                            threshold, margin, topHatRadius, topHatThreshold);
+                    }
+                }
+                else
+                {
+                    cudaStatus = FindChipping(
+                        ptrInput,
+                        ptrOutput1,
+                        ptrOutput2,
+                        width, height,
+                        cudaLineTop, cudaLineBottom, cudaLineLeft, cudaLineRight,
+                        threshold, margin,
+                        topHatRadius,
+                        topHatThreshold
+                    );
+                }
             }
             catch (Exception ex)
             {

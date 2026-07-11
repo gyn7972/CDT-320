@@ -239,7 +239,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             _jogButtonArea.Controls.Clear();
         }
 
-        /// <summary>axis 라벨 (예: "#12 FrontPickerZ0", "#03 WaferStageT") 에서 마지막 방향 문자 추출.</summary>
+        /// <summary>axis 라벨 (예: "#12 FrontPickerZ1", "#03 WaferStageT") 에서 마지막 방향 문자 추출.</summary>
         private static char DetectAxisDir(string axisLabel)
         {
             if (string.IsNullOrEmpty(axisLabel)) return '?';
@@ -356,12 +356,12 @@ namespace QMC.CDT_320.Ui.Pages.Settings
 
             // ── TransferPicker — Picker Z 위치 (Front 4 + Rear 4 = 8 picker, 각 4 위치 = 32 entries) ──
             // 각 picker (PickerComponent) 마다 Pick/Place/Focus/Wait Z 위치를 별도 티칭.
-            //   Front Picker 0~3 → axis #12, #14, #16, #18
-            //   Rear  Picker 0~3 → axis #24, #26, #28, #30
-            string[] frontZAxes = new[] { "#12 FrontPickerZ0", "#14 FrontPickerZ1",
-                                          "#16 FrontPickerZ2", "#18 FrontPickerZ3" };
-            string[] rearZAxes  = new[] { "#24 RearPickerZ0",  "#26 RearPickerZ1",
-                                          "#28 RearPickerZ2",  "#30 RearPickerZ3" };
+            //   Front Picker 1~4 → axis #12, #14, #16, #18
+            //   Rear  Picker 1~4 → axis #24, #26, #28, #30
+            string[] frontZAxes = new[] { "#12 FrontPickerZ1", "#14 FrontPickerZ2",
+                                          "#16 FrontPickerZ3", "#18 FrontPickerZ4" };
+            string[] rearZAxes  = new[] { "#24 RearPickerZ1",  "#26 RearPickerZ2",
+                                          "#28 RearPickerZ3",  "#30 RearPickerZ4" };
             string[] zKinds     = new[] { "PickPosition", "PlacePosition", "FocusPosition", "WaitPosition" };
             string[] zKindNames = new[] { "Pick Z",       "Place Z",       "Focus Z",       "Wait Z" };
             double[] zDefaults  = new[] {  42.0,            42.0,            20.0,           0.0 };
