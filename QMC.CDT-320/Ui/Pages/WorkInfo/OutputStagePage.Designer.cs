@@ -76,6 +76,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
         private ActionButton btnNgUnload;
         private ActionButton btnInspect;
         private ActionButton btnStageInit;
+        private ActionButton btnVisionBin;
         private ActionButton btnStop;
 
         private void InitializeComponent()
@@ -144,6 +145,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.btnInspect = new QMC.CDT_320.Ui.Controls.ActionButton();
             this.btnStageInit = new QMC.CDT_320.Ui.Controls.ActionButton();
             this.actionRightPanel = new System.Windows.Forms.TableLayoutPanel();
+            this.btnVisionBin = new QMC.CDT_320.Ui.Controls.ActionButton();
             this.btnStop = new QMC.CDT_320.Ui.Controls.ActionButton();
             this.materialPanel = new System.Windows.Forms.TableLayoutPanel();
             this.materialHeaderLayout = new System.Windows.Forms.TableLayoutPanel();
@@ -1122,6 +1124,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.actionRightPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 50F));
             this.actionRightPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 50F));
             this.actionRightPanel.Controls.Add(this.btnStop, 1, 0);
+            this.actionRightPanel.Controls.Add(this.btnVisionBin, 0, 1);
             this.actionRightPanel.Dock = System.Windows.Forms.DockStyle.Fill;
             this.actionRightPanel.Location = new System.Drawing.Point(0, 230);
             this.actionRightPanel.Margin = new System.Windows.Forms.Padding(0);
@@ -1132,6 +1135,19 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.actionRightPanel.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.actionRightPanel.Size = new System.Drawing.Size(830, 311);
             this.actionRightPanel.TabIndex = 1;
+            // 
+            // btnVisionBin
+            // 
+            this.btnVisionBin.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
+            this.btnVisionBin.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.btnVisionBin.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.btnVisionBin.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
+            this.btnVisionBin.ForeColor = System.Drawing.Color.White;
+            this.btnVisionBin.Location = new System.Drawing.Point(3, 49);
+            this.btnVisionBin.Name = "btnVisionBin";
+            this.btnVisionBin.Size = new System.Drawing.Size(409, 40);
+            this.btnVisionBin.TabIndex = 11;
+            this.btnVisionBin.Text = "VISION: BIN";
             // 
             // btnStop
             // 

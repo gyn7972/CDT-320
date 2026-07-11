@@ -155,6 +155,8 @@
     <Compile Include="Equipment\Vision\WaferVisionResultStore.cs" />
     <Compile Include="Equipment\Vision\VisionViewerPorts.cs" />
     <Compile Include="Equipment\Vision\VisionModuleNames.cs" />
+    <Compile Include="Equipment\Vision\VisionCameraIds.cs" />
+    <Compile Include="Equipment\Vision\VisionAlignTargetIds.cs" />
     <Compile Include="Equipment\Vision\VisionCommLog.cs" />
     <Compile Include="Equipment\Vision\VisionViewerRegistry.cs" />
     <Compile Include="Equipment\Vision\VisionReconnectWatchdog.cs" />
@@ -649,6 +651,7 @@
     <Compile Include="Equipment\Vision\BottomXytStore.cs" />
     <Compile Include="Equipment\Vision\VisionDieAddressStore.cs" />
     <Compile Include="Equipment\Vision\VisionAdapters.cs" />
+    <Compile Include="Equipment\Vision\VisionToolIds.cs" />
     <Compile Include="Equipment\Vision\AutoVisionRequestService.cs" />
     <Compile Include="Equipment\Vision\VisionCommandService.cs" />
     <Compile Include="Equipment\Vision\VisionHub.cs" />

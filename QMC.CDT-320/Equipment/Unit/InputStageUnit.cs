@@ -10,6 +10,7 @@ using QMC.CDT320.Motion.SharedRailX;
 using QMC.Common.Alarms;
 using QMC.Common.Logging;
 using QMC.CDT320.Materials;
+using QMC.CDT320.VisionComm;
 using System.Collections.Generic;
 using System.Runtime.Serialization;
 
@@ -48,7 +49,7 @@ namespace QMC.CDT320
 
         [DataMember] public double NeedleWorkAreaCenterY { get; set; } = 0.0;
 
-        [DataMember] public string NeedlePinCalVisionTargetId { get; set; } = "EjectPinFinder";
+        [DataMember] public string NeedlePinCalVisionTargetId { get; set; } = VisionToolIds.Wafer.EjectPinFinder;
 
         [DataMember] public int NeedlePinCalVisionTimeoutMs { get; set; } = 5000;
 
@@ -64,7 +65,7 @@ namespace QMC.CDT320
             if (NeedleWorkAreaRadius <= 0.0)
                 NeedleWorkAreaRadius = 125.0;
             if (string.IsNullOrWhiteSpace(NeedlePinCalVisionTargetId))
-                NeedlePinCalVisionTargetId = "EjectPinFinder";
+                NeedlePinCalVisionTargetId = VisionToolIds.Wafer.EjectPinFinder;
             if (NeedlePinCalVisionTimeoutMs <= 0)
                 NeedlePinCalVisionTimeoutMs = 5000;
         }
@@ -2500,7 +2501,7 @@ namespace QMC.CDT320
 
                 for (int iter = 0; iter < Config.MaxAlignIterations; iter++)
                 {
-                    VisionAlignResult alignResult = await Vision.TriggerAlignAsync("Center").ConfigureAwait(false);
+                    VisionAlignResult alignResult = await Vision.TriggerAlignAsync(VisionAlignTargetIds.Center).ConfigureAwait(false);
                     if (alignResult == null)
                         return RaiseStageAlarm(AlarmSeverity.Error, "IS-ALIGN", "InputStageUnit.VisionAlignAndSetupOriginAsync",
                             "Center vision align failed. iteration=" + (iter + 1));
@@ -2522,7 +2523,7 @@ namespace QMC.CDT320
                 result = await MoveToDieAsync(map.Ref1Row, map.Ref1Col, useEstimatedDiePosition, bFine).ConfigureAwait(false);
                 if (result != 0) return result;
 
-                VisionAlignResult ref1Result = await Vision.TriggerAlignAsync("Ref1").ConfigureAwait(false);
+                VisionAlignResult ref1Result = await Vision.TriggerAlignAsync(VisionAlignTargetIds.Ref1).ConfigureAwait(false);
                 if (ref1Result == null)
                     return RaiseStageAlarm(AlarmSeverity.Error, "IS-ALIGN-REF1", "InputStageUnit.VisionAlignAndSetupOriginAsync",
                         "Ref1 vision align failed.");
@@ -2533,7 +2534,7 @@ namespace QMC.CDT320
                 result = await MoveToDieAsync(map.Ref2Row, map.Ref2Col, useEstimatedDiePosition, bFine).ConfigureAwait(false);
                 if (result != 0) return result;
 
-                VisionAlignResult ref2Result = await Vision.TriggerAlignAsync("Ref2").ConfigureAwait(false);
+                VisionAlignResult ref2Result = await Vision.TriggerAlignAsync(VisionAlignTargetIds.Ref2).ConfigureAwait(false);
                 if (ref2Result == null)
                     return RaiseStageAlarm(AlarmSeverity.Error, "IS-ALIGN-REF2", "InputStageUnit.VisionAlignAndSetupOriginAsync",
                         "Ref2 vision align failed.");

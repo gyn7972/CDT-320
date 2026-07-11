@@ -353,31 +353,30 @@ namespace QMC.CDT320.Sequencing.Calibration
         private async Task<VisionAlignResult> RequestVisionAsync(CancellationToken ct)
         {
             InputStageUnit stage = _context.Machine.InputStageUnit;
+            string targetId = stage != null && stage.Setup != null ? stage.Setup.NeedlePinCalVisionTargetId : null;
+            if (string.IsNullOrWhiteSpace(targetId))
+                targetId = VisionToolIds.Wafer.EjectPinFinder;
+
+            int timeoutMs = stage != null && stage.Setup != null && stage.Setup.NeedlePinCalVisionTimeoutMs > 0
+                ? stage.Setup.NeedlePinCalVisionTimeoutMs
+                : 5000;
+            string finder = ResolveAlignFinder(targetId);
+
+            if (IsDryRunWithWaferVisionConnected(stage))
+            {
+                await AutoVisionRequestService.GrabAsync(
+                    AutoVisionChannel.Wafer,
+                    0,
+                    timeoutMs,
+                    ct).ConfigureAwait(false);
+
+                return CreateSimulatedVisionResult(stage);
+            }
+
             if (IsSimulationOrVisionBypass(stage))
                 return CreateSimulatedVisionResult(stage);
 
-            string targetId = stage.Setup.NeedlePinCalVisionTargetId;
-            if (string.IsNullOrWhiteSpace(targetId))
-                targetId = "EjectPinFinder";
-
-            int timeoutMs = stage.Setup.NeedlePinCalVisionTimeoutMs > 0 ? stage.Setup.NeedlePinCalVisionTimeoutMs : 5000;
-            string finder = ResolveAlignFinder(targetId);
-
             ct.ThrowIfCancellationRequested();
-            bool grabbed = await AutoVisionRequestService.GrabAsync(
-                AutoVisionChannel.Wafer,
-                0,
-                timeoutMs,
-                ct).ConfigureAwait(false);
-            if (!grabbed)
-            {
-                EventLogger.Write(EventKind.Alarm, "CAL", "NEEDLE-PIN-CAL-VISION-GRAB",
-                    "Needle Pin Cal vision grab failed. target=" + targetId +
-                    ", finder=" + finder +
-                    ", timeoutMs=" + timeoutMs);
-                return null;
-            }
-
             MatchResultDto match = await AutoVisionRequestService.MatchAsync(
                 AutoVisionChannel.Wafer,
                 finder,
@@ -430,19 +429,7 @@ namespace QMC.CDT320.Sequencing.Calibration
 
         private static string ResolveAlignFinder(string alignTargetId)
         {
-            switch (alignTargetId)
-            {
-                case "Center":
-                    return "AlignDieFinder";
-                case "Ref1":
-                    return "FirstReferenceFinder";
-                case "Ref2":
-                    return "SecondReferenceFinder";
-                case "InputPickDie":
-                    return "DieFinder";
-                default:
-                    return alignTargetId;
-            }
+            return VisionAlignTargetIds.ResolveWaferFinder(alignTargetId);
         }
 
         private void LogVisionMatch(
@@ -523,7 +510,7 @@ namespace QMC.CDT320.Sequencing.Calibration
 
             string targetId = stage != null && stage.Setup != null ? stage.Setup.NeedlePinCalVisionTargetId : null;
             if (string.IsNullOrWhiteSpace(targetId))
-                targetId = "EjectPinFinder";
+                targetId = VisionToolIds.Wafer.EjectPinFinder;
 
             EventLogger.Write(EventKind.Event, "CAL", "NEEDLE-PIN-CAL-SIM-VISION",
                 "Needle Pin Cal simulated vision offset generated. target=" + targetId +
@@ -557,6 +544,28 @@ namespace QMC.CDT320.Sequencing.Calibration
         {
             AppSettings settings = AppSettingsStore.Current;
             return settings != null && settings.DryRunMode && !settings.UseVision;
+        }
+
+        private static bool IsDryRunWithWaferVisionConnected(InputStageUnit stage)
+        {
+            try
+            {
+                AppSettings settings = AppSettingsStore.Current;
+                if (settings == null || !settings.DryRunMode || !settings.UseVision)
+                    return false;
+
+                if (stage == null || stage.Vision == null)
+                    return false;
+
+                return VisionCommandService.IsConnected(AutoVisionChannel.Wafer);
+            }
+            catch
+            {
+                return false;
+            }
+            finally
+            {
+            }
         }
 
         private static double NextSignedOffset(Random random, double range)

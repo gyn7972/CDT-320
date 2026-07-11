@@ -5,6 +5,7 @@ using System.IO;
 using System.Runtime.Serialization;
 using System.Runtime.Serialization.Json;
 using System.Windows.Forms;
+using QMC.CDT320.VisionComm;
 using QMC.CDT_320.Ui.Localization;
 using QMC.Common.Data.Store;
 
@@ -73,7 +74,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             {
                 new CameraRow { Index=0, Channel="Wafer", Role="WaferAlign", Host="127.0.0.1", Port=5100, ExposureMs=400, LightLevel=0.6, Trigger="Software" },
                 new CameraRow { Index=1, Channel="BottomInspection", Role="DiePresence", Host="127.0.0.1", Port=5101, ExposureMs=300, LightLevel=0.7, Trigger="Software" },
-                new CameraRow { Index=2, Channel="Bin", Role="PlacementInspector", Host="127.0.0.1", Port=5103, ExposureMs=300, LightLevel=0.5, Trigger="Software" },
+                new CameraRow { Index=2, Channel="Bin", Role=VisionToolIds.Bin.PlacementInspector, Host="127.0.0.1", Port=5103, ExposureMs=300, LightLevel=0.5, Trigger="Software" },
                 new CameraRow { Index=3, Channel="Main", Role="MainComm", Host="127.0.0.1", Port=5104, ExposureMs=0, LightLevel=0.0, Trigger="None" },
                 new CameraRow { Index=4, Channel="FrontSide", Role="FrontSide4Side", Host="127.0.0.1", Port=5105, ExposureMs=300, LightLevel=0.8, Trigger="Software" },
                 new CameraRow { Index=5, Channel="RearSide", Role="RearSide4Side", Host="127.0.0.1", Port=5106, ExposureMs=300, LightLevel=0.8, Trigger="Software" },

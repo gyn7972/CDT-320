@@ -10,6 +10,7 @@ namespace QMC.CDT_320.Ui.Controls
         private System.Windows.Forms.TextBox txtHost;
         private System.Windows.Forms.Button btnConnect;
         private System.Windows.Forms.Button btnDisconnect;
+        private System.Windows.Forms.Button btnLive;
         private System.Windows.Forms.Label lblStatus;
         private QMC.Common.Ui.Controls.CameraViewBase cameraView;
 
@@ -29,6 +30,7 @@ namespace QMC.CDT_320.Ui.Controls
             this.txtHost = new System.Windows.Forms.TextBox();
             this.btnConnect = new System.Windows.Forms.Button();
             this.btnDisconnect = new System.Windows.Forms.Button();
+            this.btnLive = new System.Windows.Forms.Button();
             this.lblStatus = new System.Windows.Forms.Label();
             this.cameraView = new QMC.Common.Ui.Controls.CameraViewBase();
             this.topPanel.SuspendLayout();
@@ -42,6 +44,7 @@ namespace QMC.CDT_320.Ui.Controls
             this.topPanel.Controls.Add(this.txtHost);
             this.topPanel.Controls.Add(this.btnConnect);
             this.topPanel.Controls.Add(this.btnDisconnect);
+            this.topPanel.Controls.Add(this.btnLive);
             this.topPanel.Controls.Add(this.lblStatus);
             this.topPanel.Dock = System.Windows.Forms.DockStyle.Top;
             this.topPanel.Location = new System.Drawing.Point(0, 0);
@@ -103,14 +106,24 @@ namespace QMC.CDT_320.Ui.Controls
             this.btnDisconnect.Text = "Disconnect";
             this.btnDisconnect.UseVisualStyleBackColor = true;
             // 
+            // btnLive
+            // 
+            this.btnLive.Enabled = false;
+            this.btnLive.Location = new System.Drawing.Point(734, 8);
+            this.btnLive.Name = "btnLive";
+            this.btnLive.Size = new System.Drawing.Size(86, 25);
+            this.btnLive.TabIndex = 6;
+            this.btnLive.Text = "Live OFF";
+            this.btnLive.UseVisualStyleBackColor = true;
+            // 
             // lblStatus
             // 
             this.lblStatus.AutoSize = true;
             this.lblStatus.ForeColor = System.Drawing.Color.DimGray;
-            this.lblStatus.Location = new System.Drawing.Point(744, 13);
+            this.lblStatus.Location = new System.Drawing.Point(834, 13);
             this.lblStatus.Name = "lblStatus";
             this.lblStatus.Size = new System.Drawing.Size(24, 15);
-            this.lblStatus.TabIndex = 6;
+            this.lblStatus.TabIndex = 7;
             this.lblStatus.Text = "idle";
             // 
             // cameraView

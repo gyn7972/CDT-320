@@ -95,7 +95,7 @@ namespace QMC.CDT320
 
         /// <summary>
         /// 시뮬레이터에 카메라 Expose 반짝임 효과를 송신한다.<br/>
-        /// camId: "BOTTOM" | "SIDE1" | "SIDE2" (대소문자 무관)
+        /// camId: QMC.CDT320.VisionComm.VisionCameraIds values (대소문자 무관)
         /// </summary>
         public void CameraExposeFlash(string camId, int durationMs = 100)
         {

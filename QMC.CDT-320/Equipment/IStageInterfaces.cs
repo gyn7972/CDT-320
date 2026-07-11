@@ -80,7 +80,7 @@ namespace QMC.CDT320
         /// 비전 PC에 얼라인 모드를 설정하고 촬상을 트리거한다.<br/>
         /// 얼라인 전용 파라미터(조명, 배율 등)를 적용한 뒤 <b>노출 완료 + 계산 결과</b>까지 대기한다.
         /// </summary>
-        /// <param name="alignTargetId">얼라인 대상 식별자 (예: "Center", "Ref1", "Ref2")</param>
+        /// <param name="alignTargetId">얼라인 대상 식별자 (VisionComm.VisionAlignTargetIds 참조)</param>
         /// <returns>비전이 계산한 위치 보정값 객체. 통신 실패 시 null.</returns>
         Task<VisionAlignResult> TriggerAlignAsync(string alignTargetId);
     }

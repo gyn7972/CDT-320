@@ -122,6 +122,9 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
         private ActionButton btnPickUpTest;
         private ActionButton btnAjinLineMapTest;
         private ActionButton btnAjinLineMoveTest;
+        private ActionButton btnVisionBottomInspect;
+        private ActionButton btnVisionFrontSide;
+        private ActionButton btnVisionRearSide;
         private ActionButton btnStop;
         private TableLayoutPanel actionBar;
         private TableLayoutPanel actionRightPanel;
@@ -248,6 +251,9 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.btnAjinLineMapTest = new QMC.CDT_320.Ui.Controls.ActionButton();
             this.btnAjinLineMoveTest = new QMC.CDT_320.Ui.Controls.ActionButton();
             this.actionRightPanel = new System.Windows.Forms.TableLayoutPanel();
+            this.btnVisionBottomInspect = new QMC.CDT_320.Ui.Controls.ActionButton();
+            this.btnVisionFrontSide = new QMC.CDT_320.Ui.Controls.ActionButton();
+            this.btnVisionRearSide = new QMC.CDT_320.Ui.Controls.ActionButton();
             this.btnStop = new QMC.CDT_320.Ui.Controls.ActionButton();
             this.rootLayout.SuspendLayout();
             this.contentLayout.SuspendLayout();
@@ -2041,6 +2047,9 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.actionRightPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 50F));
             this.actionRightPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 50F));
             this.actionRightPanel.Controls.Add(this.btnStop, 1, 0);
+            this.actionRightPanel.Controls.Add(this.btnVisionBottomInspect, 0, 1);
+            this.actionRightPanel.Controls.Add(this.btnVisionFrontSide, 1, 1);
+            this.actionRightPanel.Controls.Add(this.btnVisionRearSide, 0, 2);
             this.actionRightPanel.Dock = System.Windows.Forms.DockStyle.Fill;
             this.actionRightPanel.Location = new System.Drawing.Point(0, 184);
             this.actionRightPanel.Margin = new System.Windows.Forms.Padding(0);
@@ -2052,6 +2061,45 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.actionRightPanel.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.actionRightPanel.Size = new System.Drawing.Size(830, 177);
             this.actionRightPanel.TabIndex = 1;
+            // 
+            // btnVisionBottomInspect
+            // 
+            this.btnVisionBottomInspect.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
+            this.btnVisionBottomInspect.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.btnVisionBottomInspect.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.btnVisionBottomInspect.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
+            this.btnVisionBottomInspect.ForeColor = System.Drawing.Color.White;
+            this.btnVisionBottomInspect.Location = new System.Drawing.Point(3, 49);
+            this.btnVisionBottomInspect.Name = "btnVisionBottomInspect";
+            this.btnVisionBottomInspect.Size = new System.Drawing.Size(409, 40);
+            this.btnVisionBottomInspect.TabIndex = 9;
+            this.btnVisionBottomInspect.Text = "VISION: BOTTOM INSP";
+            // 
+            // btnVisionFrontSide
+            // 
+            this.btnVisionFrontSide.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
+            this.btnVisionFrontSide.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.btnVisionFrontSide.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.btnVisionFrontSide.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
+            this.btnVisionFrontSide.ForeColor = System.Drawing.Color.White;
+            this.btnVisionFrontSide.Location = new System.Drawing.Point(418, 49);
+            this.btnVisionFrontSide.Name = "btnVisionFrontSide";
+            this.btnVisionFrontSide.Size = new System.Drawing.Size(409, 40);
+            this.btnVisionFrontSide.TabIndex = 10;
+            this.btnVisionFrontSide.Text = "VISION: FRONT SIDE";
+            // 
+            // btnVisionRearSide
+            // 
+            this.btnVisionRearSide.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
+            this.btnVisionRearSide.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.btnVisionRearSide.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.btnVisionRearSide.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
+            this.btnVisionRearSide.ForeColor = System.Drawing.Color.White;
+            this.btnVisionRearSide.Location = new System.Drawing.Point(3, 95);
+            this.btnVisionRearSide.Name = "btnVisionRearSide";
+            this.btnVisionRearSide.Size = new System.Drawing.Size(409, 40);
+            this.btnVisionRearSide.TabIndex = 11;
+            this.btnVisionRearSide.Text = "VISION: REAR SIDE";
             // 
             // btnStop
             // 

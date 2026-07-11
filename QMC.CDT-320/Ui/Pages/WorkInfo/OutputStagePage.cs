@@ -26,35 +26,10 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
         {
             InitializeComponent();
             WireEvents();
+            WireVisionButtons();
 
             materialDetailView.CreateDataRequested += MaterialDetailView_CreateDataRequested;
             materialDetailView.ClearDataRequested += MaterialDetailView_ClearDataRequested;
-
-            VisionModuleTestDialog.AddLaunchers(
-                actionRightPanel.Controls, this, btnStop,
-                Tuple.Create<string, Func<VisionTcpClient>, string>("VISION: BIN", () => VisionHub.Bin, "Bin Vision"));
-
-            // STOP/비전 런처를 그리드 셀에 통일 배치: [빈칸][STOP] / [VISION][빈칸]
-            int visionIndex = 0;
-            foreach (Control control in actionRightPanel.Controls)
-            {
-                if (!(control is ActionButton button))
-                    continue;
-
-                button.Dock = DockStyle.Fill;
-                button.Margin = new Padding(3);
-
-                if (ReferenceEquals(button, btnStop))
-                {
-                    actionRightPanel.SetCellPosition(button, new TableLayoutPanelCellPosition(1, 0));
-                }
-                else
-                {
-                    button.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
-                    actionRightPanel.SetCellPosition(button, new TableLayoutPanelCellPosition(0, 1 + visionIndex));
-                    visionIndex++;
-                }
-            }
 
             _timer = new System.Windows.Forms.Timer { Interval = 200 };
             _timer.Tick += (s, e) =>
@@ -66,6 +41,12 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             };
             VisibleChanged += (s, e) => { if (Visible) _timer.Start(); else _timer.Stop(); };
             HandleDestroyed += (s, e) => _timer.Stop();
+        }
+
+        private void WireVisionButtons()
+        {
+            btnVisionBin.Click += (s, e) =>
+                VisionModuleTestDialog.Open(this, VisionHub.Bin, "Bin Vision");
         }
 
         private Form1 GetHost()

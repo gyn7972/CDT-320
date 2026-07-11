@@ -452,7 +452,7 @@ namespace QMC.CDT320.Sequencing
 
                 Task<int> sideFirstTask = null;
                 DateTime bottomInspectStartedAt = DateTime.Now;
-                Task<int> bottomTriggerTask = TriggerBottomInspectionAsync(target, ct);
+                Task<int> bottomTriggerTask = StartBottomInspectionAsync(target, ct);
                 if (sideFirstTarget != null)
                     sideFirstTask = StartPreparedFirstSideInspectionDuringLastBottomAsync(sideFirstTarget, ct);
 
@@ -819,30 +819,60 @@ namespace QMC.CDT320.Sequencing
             return AppendAutoProcessCorrectionTargetTag("DieBottomPosition[" + target.PickerIndex + "];PickerProcess=BottomSide;PickerPhase=InspectionZHold;InspectionContinuous;From=Input;To=Bottom");
         }
 
-        private async Task<int> TriggerBottomInspectionAsync(InspectionTarget target, CancellationToken ct)
+        private async Task<int> StartBottomInspectionAsync(InspectionTarget target, CancellationToken ct)
         {
             await DelayBeforeVisionInspectionAsync(ct).ConfigureAwait(false);
 
             RegisterVisionDieAddress(target);   // 신형 와이어(die_index/gridx;gridy) 구성용 — 어댑터가 조회
 
             int timeoutMs = ResolveVisionInspectionTimeout();
-            bool triggered = Side == PickerSequenceSide.Front
-                ? await FrontPicker.TriggerBottomInspectionExposeAsync(target.PickerNo, timeoutMs, ct).ConfigureAwait(false)
-                : await RearPicker.TriggerBottomInspectionExposeAsync(target.PickerNo, timeoutMs, ct).ConfigureAwait(false);
+            if (IsDryRunMode())
+            {
+                await TriggerDryRunBottomGrabIfConnectedAsync(target, timeoutMs, ct).ConfigureAwait(false);
+                return 0;
+            }
 
-            if (!triggered)
+            bool started = Side == PickerSequenceSide.Front
+                ? await FrontPicker.StartBottomInspectionAsync(target.PickerNo, timeoutMs, ct).ConfigureAwait(false)
+                : await RearPicker.StartBottomInspectionAsync(target.PickerNo, timeoutMs, ct).ConfigureAwait(false);
+
+            if (!started)
             {
                 return Fail("PICKER-BOTTOM-SIDE-BOTTOM-TRIGGER", "Vision",
-                    "Bottom 검사 노출 요청 실패. die=" + target.Die.DieId +
+                    "Bottom 검사 시작 ACK 수신 실패. die=" + target.Die.DieId +
                     ", pickerNo=" + target.PickerNo +
                     ", timeoutMs=" + timeoutMs);
             }
 
             WriteLog("PickerBottomAndSideInspectionSequence",
-                Name + " Bottom 검사 노출 완료. die=" + target.Die.DieId +
+                Name + " Bottom 검사 시작 ACK 수신 완료. die=" + target.Die.DieId +
                 ", pickerNo=" + target.PickerNo +
                 ", pendingResult=" + (_pendingBottomShots.Count + 1) + " - Ok");
             return 0;
+        }
+
+        private async Task TriggerDryRunBottomGrabIfConnectedAsync(InspectionTarget target, int timeoutMs, CancellationToken ct)
+        {
+            ct.ThrowIfCancellationRequested();
+
+            if (!IsVisionConnected(QMC.CDT320.VisionComm.AutoVisionChannel.BottomInspection))
+            {
+                WriteLog("PickerBottomAndSideInspectionSequence",
+                    Name + " DryRun Bottom GRAB skipped. BottomInspection Vision is not connected. die=" +
+                    (target != null && target.Die != null ? target.Die.DieId : "") +
+                    ", pickerNo=" + (target != null ? target.PickerNo : 0) + " - Check");
+                return;
+            }
+
+            bool grabbed = Side == PickerSequenceSide.Front
+                ? await FrontPicker.TriggerBottomInspectionExposeAsync(target.PickerNo, timeoutMs, ct).ConfigureAwait(false)
+                : await RearPicker.TriggerBottomInspectionExposeAsync(target.PickerNo, timeoutMs, ct).ConfigureAwait(false);
+
+            WriteLog("PickerBottomAndSideInspectionSequence",
+                Name + " DryRun Bottom GRAB " + (grabbed ? "completed" : "failed") +
+                ". die=" + (target != null && target.Die != null ? target.Die.DieId : "") +
+                ", pickerNo=" + (target != null ? target.PickerNo : 0) +
+                ", timeoutMs=" + timeoutMs + " - Check");
         }
 
         private async Task<int> ApplyOldestBottomResultIfNeededAsync(CancellationToken ct)
@@ -876,9 +906,10 @@ namespace QMC.CDT320.Sequencing
                 return 0;
 
             int timeoutMs = ResolveVisionInspectionTimeout();
+            // 현재 기준: Bottom 결과는 반드시 받아야 하며, 미수신 시 timeout 후 알람 정지한다.
             BottomVisionOffset result = Side == PickerSequenceSide.Front
-                ? await FrontPicker.GetBottomInspectionResultAsync(shot.Target.PickerNo, timeoutMs, ct).ConfigureAwait(false)
-                : await RearPicker.GetBottomInspectionResultAsync(shot.Target.PickerNo, timeoutMs, ct).ConfigureAwait(false);
+                ? await FrontPicker.WaitBottomInspectionResultAsync(shot.Target.PickerNo, timeoutMs, ct).ConfigureAwait(false)
+                : await RearPicker.WaitBottomInspectionResultAsync(shot.Target.PickerNo, timeoutMs, ct).ConfigureAwait(false);
 
             if (result == null)
             {
@@ -1350,14 +1381,14 @@ namespace QMC.CDT320.Sequencing
                         return Fail("PICKER-BOTTOM-SIDE-SIDE0-RESULT", "Vision", "Side 0도 검사 시작 실패. die=" + target.Die.DieId + ", pickerNo=" + target.PickerNo);
                     }
 
-                    side0Result = BuildSideResultWaitSkipped(target, 0);
-                    side0TactScope.Complete(BuildTactDetail(target, "Side 0deg inspection started. Side 결과 대기는 현재 생략하고 진행합니다."));
+                    // 현재 기준: Side 0도는 시작 ACK만 확인하고, 결과는 90도 검사 후 통합 결과로 받는다.
+                    side0TactScope.Complete(BuildTactDetail(target, "Side 0deg inspection started. RESULT는 Side 90deg 시작 후 회수합니다."));
                     RecordInspectionCheckpointForTact(
                         "Side0Inspection",
                         "Side 0deg Inspect Interval",
                         "0deg",
                         target,
-                        "started=True,resultWaitSkipped=True");
+                        "started=True,resultPending=True");
                 }
                 catch (OperationCanceledException)
                 {
@@ -1429,26 +1460,42 @@ namespace QMC.CDT320.Sequencing
             {
                 try
                 {
-                    side90Result = await TriggerAndGetSideResultAsync(target, 90, ct).ConfigureAwait(false);
-                    if (side90Result == null)
+                    bool side90Started = await TriggerSideInspectionStartAsync(target, 90, ct).ConfigureAwait(false);
+                    if (!side90Started)
                     {
                         MarkInspectionResultReceiveFailureAsNg(
                             target,
                             "Side90",
                             "SIDE90_RESULT_MISSING",
-                            "Side 90도 검사 결과 ACK/RESULT 미수신");
+                            "Side 90도 검사 시작 ACK 미수신");
 
                         side90TactScope.Fail("PICKER-BOTTOM-SIDE-SIDE90-RESULT", BuildTactDetail(target, "Side 90deg inspection result receive failed."));
-                        return Fail("PICKER-BOTTOM-SIDE-SIDE90-RESULT", "Vision", "Side 90도 검사 결과 수신 실패. die=" + target.Die.DieId + ", pickerNo=" + target.PickerNo);
+                        return Fail("PICKER-BOTTOM-SIDE-SIDE90-RESULT", "Vision", "Side 90도 검사 시작 실패. die=" + target.Die.DieId + ", pickerNo=" + target.PickerNo);
                     }
 
-                    side90TactScope.Complete(BuildTactDetail(target, "Side 90deg inspection started. Side 결과 대기는 현재 생략하고 진행합니다. ok=" + side90Result.IsAllOk));
+                    // 수정 포인트: Side RESULT 미수신을 임시 통과시키려면 아래 Wait 대신 BuildSideResultWaitSkipped(target, 90)를 사용한다.
+                    SideVisionResult sideResult = await WaitSideInspectionResultAsync(target, ct).ConfigureAwait(false);
+                    if (sideResult == null)
+                    {
+                        MarkInspectionResultReceiveFailureAsNg(
+                            target,
+                            "Side",
+                            "SIDE_RESULT_MISSING",
+                            "Side 검사 결과 ACK/RESULT 미수신");
+
+                        side90TactScope.Fail("PICKER-BOTTOM-SIDE-SIDE-RESULT", BuildTactDetail(target, "Side inspection result receive failed."));
+                        return Fail("PICKER-BOTTOM-SIDE-SIDE-RESULT", "Vision", "Side 검사 결과 수신 실패. die=" + target.Die.DieId + ", pickerNo=" + target.PickerNo);
+                    }
+
+                    side0Result = sideResult;
+                    side90Result = sideResult;
+                    side90TactScope.Complete(BuildTactDetail(target, "Side 90deg inspection RESULT 수신 완료. ok=" + side90Result.IsAllOk));
                     RecordInspectionCheckpointForTact(
                         "Side90Inspection",
                         "Side 90deg Inspect Interval",
                         "90deg",
                         target,
-                        "started=True,resultWaitSkipped=True");
+                        "started=True,resultReceived=True,ok=" + side90Result.IsAllOk);
                 }
                 catch (OperationCanceledException)
                 {
@@ -1626,13 +1673,10 @@ namespace QMC.CDT320.Sequencing
             if (!started)
                 return null;
 
-            // GYN 사이드 복구
-            // Side 결과 수신은 임시 보류한다. 재활성화 시 아래 return을 복구하고
-            // BuildSideResultWaitSkipped 반환을 제거하면 된다.
-            // return await WaitSideInspectionResultAsync(target, ct).ConfigureAwait(false);
-            return BuildSideResultWaitSkipped(target, angleDeg);
+            return await WaitSideInspectionResultAsync(target, ct).ConfigureAwait(false);
         }
 
+        // 임시 우회용: Side RESULT 대기를 스킵하고 OK 결과를 만든다. 현재 통합 시퀀스에서는 직접 호출하지 않는다.
         private SideVisionResult BuildSideResultWaitSkipped(InspectionTarget target, int angleDeg)
         {
             var values = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
@@ -1666,15 +1710,18 @@ namespace QMC.CDT320.Sequencing
             RegisterVisionDieAddress(target);   // 신형 와이어(die_index/gridx;gridy) 구성용 — 어댑터가 조회
 
             int timeoutMs = ResolveVisionInspectionTimeout();
+            if (IsDryRunMode())
+                return await TriggerDryRunSideGrabIfConnectedAsync(target, angleDeg, timeoutMs, ct).ConfigureAwait(false);
+
             bool triggered = Side == PickerSequenceSide.Front
-                ? await FrontPicker.TriggerSideInspectionExposeAsync(target.PickerNo, angleDeg, timeoutMs, ct).ConfigureAwait(false)
-                : await RearPicker.TriggerSideInspectionExposeAsync(target.PickerNo, angleDeg, timeoutMs, ct).ConfigureAwait(false);
+                ? await FrontPicker.StartSideInspectionAsync(target.PickerNo, angleDeg, timeoutMs, ct).ConfigureAwait(false)
+                : await RearPicker.StartSideInspectionAsync(target.PickerNo, angleDeg, timeoutMs, ct).ConfigureAwait(false);
 
             if (!triggered)
                 return false;
 
             WriteLog("PickerBottomAndSideInspectionSequence",
-                Name + " Side 검사 GRAB 완료 후 Vision 백그라운드 결과 대기 상태로 진행합니다. " +
+                Name + " Side 검사 시작 ACK 수신 후 Vision 백그라운드 결과 대기 상태로 진행합니다. " +
                 "side=" + Side +
                 ", die=" + target.Die.DieId +
                 ", pickerNo=" + target.PickerNo +
@@ -1683,6 +1730,49 @@ namespace QMC.CDT320.Sequencing
             return true;
         }
 
+        private async Task<bool> TriggerDryRunSideGrabIfConnectedAsync(InspectionTarget target, int angleDeg, int timeoutMs, CancellationToken ct)
+        {
+            ct.ThrowIfCancellationRequested();
+
+            QMC.CDT320.VisionComm.AutoVisionChannel channel = Side == PickerSequenceSide.Front
+                ? QMC.CDT320.VisionComm.AutoVisionChannel.FrontSide
+                : QMC.CDT320.VisionComm.AutoVisionChannel.RearSide;
+            if (!IsVisionConnected(channel))
+            {
+                WriteLog("PickerBottomAndSideInspectionSequence",
+                    Name + " DryRun Side GRAB skipped. Vision is not connected. channel=" + channel +
+                    ", die=" + (target != null && target.Die != null ? target.Die.DieId : "") +
+                    ", pickerNo=" + (target != null ? target.PickerNo : 0) +
+                    ", angleDeg=" + angleDeg + " - Check");
+                return true;
+            }
+
+            bool grabbed = Side == PickerSequenceSide.Front
+                ? await FrontPicker.TriggerSideInspectionExposeAsync(target.PickerNo, angleDeg, timeoutMs, ct).ConfigureAwait(false)
+                : await RearPicker.TriggerSideInspectionExposeAsync(target.PickerNo, angleDeg, timeoutMs, ct).ConfigureAwait(false);
+
+            WriteLog("PickerBottomAndSideInspectionSequence",
+                Name + " DryRun Side GRAB " + (grabbed ? "completed" : "failed") +
+                ". channel=" + channel +
+                ", die=" + (target != null && target.Die != null ? target.Die.DieId : "") +
+                ", pickerNo=" + (target != null ? target.PickerNo : 0) +
+                ", angleDeg=" + angleDeg +
+                ", timeoutMs=" + timeoutMs + " - Check");
+            return true;
+        }
+
+        private bool IsDryRunMode()
+        {
+            AppSettings settings = AppSettingsStore.Current;
+            return settings != null && settings.DryRunMode;
+        }
+
+        private bool IsVisionConnected(QMC.CDT320.VisionComm.AutoVisionChannel channel)
+        {
+            return QMC.CDT320.VisionComm.VisionCommandService.IsConnected(channel);
+        }
+
+        // 현재 기준: Side 결과를 timeout까지 기다리며, null이면 상위에서 알람 정지한다.
         private async Task<SideVisionResult> WaitSideInspectionResultAsync(InspectionTarget target, CancellationToken ct)
         {
             int timeoutMs = ResolveVisionInspectionTimeout();

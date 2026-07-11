@@ -1400,7 +1400,8 @@ namespace QMC.CDT320.VisionComm
             if (string.IsNullOrWhiteSpace(inspector))
                 return false;
 
-            return inspector.IndexOf("Placement", StringComparison.OrdinalIgnoreCase) >= 0 ||
+            return string.Equals(inspector, VisionToolIds.Bin.PlacementInspector, StringComparison.OrdinalIgnoreCase) ||
+                   inspector.IndexOf("Placement", StringComparison.OrdinalIgnoreCase) >= 0 ||
                    inspector.IndexOf("DieGap", StringComparison.OrdinalIgnoreCase) >= 0 ||
                    inspector.IndexOf("Bin", StringComparison.OrdinalIgnoreCase) >= 0;
         }

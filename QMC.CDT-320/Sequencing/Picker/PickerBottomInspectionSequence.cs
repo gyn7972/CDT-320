@@ -167,7 +167,7 @@ namespace QMC.CDT320.Sequencing
                 // 하단 검사 결과 적용
                 case PickerBottomInspectionStep.ApplyBottomInspectionResult:
                     Log.Write("PickerBottomInspectionSequence", Name + " applying bottom inspection result. side=" + Side + ", die=" + _currentDie.DieId + ", pickerNo=" + _currentPickerNo + " - Check");
-                    return Task.FromResult(ApplyBottomInspectionResult());
+                    return ApplyBottomInspectionResultAsync(ct);
 
                 // 하단 Z로 어보이드 이동
                 case PickerBottomInspectionStep.MoveBottomZToAvoid:
@@ -770,17 +770,19 @@ namespace QMC.CDT320.Sequencing
                 {
                     ct.ThrowIfCancellationRequested();
 
-                    _bottomResult = await RequestBottomResultAsync(ct).ConfigureAwait(false);
-                    if (_bottomResult != null)
+                    bool started = await StartBottomInspectionRequestAsync(ct).ConfigureAwait(false);
+                    if (started)
                     {
-                        scope.Complete(BuildBottomTactDetail("Bottom 검사 완료. attempt=" + attempt));
-                        StartBottomVisionToPitchMoveTact("attempt=" + attempt + ", ok=" + _bottomResult.IsOk);
+                        scope.Complete(BuildBottomTactDetail("Bottom 검사 시작 ACK 수신. attempt=" + attempt));
+                        StartBottomVisionToPitchMoveTact("attempt=" + attempt + ", started=True");
                         RecordInspectionCheckpointForTact(
                             "BottomCameraInspection",
                             "Bottom Camera Inspect Interval",
                             "Bottom",
-                            "attempt=" + attempt + ", ok=" + _bottomResult.IsOk);
-                        CurrentStep = PickerBottomInspectionStep.ApplyBottomInspectionResult;
+                            "attempt=" + attempt + ", started=True");
+                        CurrentStep = Options != null && Options.KeepZAfterBottomInspection
+                            ? PickerBottomInspectionStep.ApplyBottomInspectionResult
+                            : PickerBottomInspectionStep.MoveBottomZToAvoid;
                         return 0;
                     }
 
@@ -792,7 +794,7 @@ namespace QMC.CDT320.Sequencing
 
                 scope.Fail("PICKER-BOTTOM-VISION-FAIL", BuildBottomTactDetail("Bottom 검사 재시도 실패."));
                 return Fail("PICKER-BOTTOM-VISION-FAIL", "Vision",
-                    "Bottom 검사 통신 또는 결과 수신이 재시도 후에도 실패했습니다. die=" +
+                    "Bottom 검사 시작 ACK 수신이 재시도 후에도 실패했습니다. die=" +
                     _currentDie.DieId + ", pickerNo=" + _currentPickerNo +
                     ", mode=" + DescribeBottomVisionRuntimeMode());
             }
@@ -809,6 +811,37 @@ namespace QMC.CDT320.Sequencing
             finally
             {
             }
+            }
+        }
+
+        private async Task<int> ApplyBottomInspectionResultAsync(CancellationToken ct)
+        {
+            try
+            {
+                if (_bottomResult == null)
+                    _bottomResult = await WaitBottomInspectionResultAsync(ct).ConfigureAwait(false);
+
+                if (_bottomResult == null)
+                    return Fail("PICKER-BOTTOM-VISION-RESULT", "Vision",
+                        "Bottom 검사 결과 수신 실패. die=" + _currentDie.DieId +
+                        ", pickerNo=" + _currentPickerNo +
+                        ", mode=" + DescribeBottomVisionRuntimeMode());
+
+                return ApplyBottomInspectionResult();
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("PICKER-BOTTOM-VISION-RESULT-EX", "Vision",
+                    "Bottom 검사 결과 적용 중 예외가 발생했습니다. die=" + _currentDie.DieId +
+                    ", pickerNo=" + _currentPickerNo +
+                    ", error=" + ex.Message);
+            }
+            finally
+            {
             }
         }
 
@@ -877,17 +910,7 @@ namespace QMC.CDT320.Sequencing
                 ", offsetX=" + _bottomResult.OffsetX +
                 ", offsetY=" + _bottomResult.OffsetY + " - Ok");
 
-            if (Options != null && Options.KeepZAfterBottomInspection)
-            {
-                WriteLog("PickerBottomInspectionSequence",
-                    Name + " Auto 연속 검사를 위해 Bottom 완료 후 PickerZ를 유지합니다. " +
-                    "pickerNo=" + _currentPickerNo +
-                    ", die=" + _currentDie.DieId + " - Ok");
-                CurrentStep = PickerBottomInspectionStep.SelectNextPickerOrComplete;
-                return 0;
-            }
-
-            CurrentStep = PickerBottomInspectionStep.MoveBottomZToAvoid;
+            CurrentStep = PickerBottomInspectionStep.SelectNextPickerOrComplete;
             return 0;
         }
 
@@ -899,7 +922,7 @@ namespace QMC.CDT320.Sequencing
             if (result != 0)
                 return result;
 
-            CurrentStep = PickerBottomInspectionStep.SelectNextPickerOrComplete;
+            CurrentStep = PickerBottomInspectionStep.ApplyBottomInspectionResult;
             return 0;
         }
 
@@ -968,14 +991,25 @@ namespace QMC.CDT320.Sequencing
             return 0;
         }
 
-        private async Task<BottomVisionOffset> RequestBottomResultAsync(CancellationToken ct)
+        private async Task<bool> StartBottomInspectionRequestAsync(CancellationToken ct)
         {
             if (IsVisionBypassed())
-                return SimulateBottomResult();
+            {
+                _bottomResult = SimulateBottomResult();
+                return true;
+            }
+
+            if (IsDryRunMode())
+            {
+                await TriggerDryRunBottomGrabIfConnectedAsync(ct).ConfigureAwait(false);
+                _bottomResult = SimulateBottomResult();
+                return true;
+            }
 
             await DelayBeforeVisionInspectionAsync(ct).ConfigureAwait(false);
 
             ct.ThrowIfCancellationRequested();
+            RegisterVisionDieAddress();
 
             int timeoutMs = ResolveTimeout();
             WriteLog("PickerBottomInspectionSequence",
@@ -987,14 +1021,44 @@ namespace QMC.CDT320.Sequencing
                 ", pickerT=" + _targetPickerT +
                 ", timeoutMs=" + timeoutMs + " - Start");
 
-            BottomVisionOffset result;
+            bool started;
             if (Side == PickerSequenceSide.Front)
             {
-                result = await FrontPicker.RequestBottomInspectionAsync(_currentPickerNo, timeoutMs, ct).ConfigureAwait(false);
+                started = await FrontPicker.StartBottomInspectionAsync(_currentPickerNo, timeoutMs, ct).ConfigureAwait(false);
             }
             else
             {
-                result = await RearPicker.RequestBottomInspectionAsync(_currentPickerNo, timeoutMs, ct).ConfigureAwait(false);
+                started = await RearPicker.StartBottomInspectionAsync(_currentPickerNo, timeoutMs, ct).ConfigureAwait(false);
+            }
+
+            if (!started)
+            {
+                WriteLog("PickerBottomInspectionSequence",
+                    Name + " bottom vision INSPECTASYNC STARTED ACK failed. die=" + _currentDie.DieId +
+                    ", pickerNo=" + _currentPickerNo +
+                    ", timeoutMs=" + timeoutMs + " - Failed");
+                return false;
+            }
+
+            return true;
+        }
+
+        private async Task<BottomVisionOffset> WaitBottomInspectionResultAsync(CancellationToken ct)
+        {
+            if (IsVisionBypassed() || IsDryRunMode())
+                return SimulateBottomResult();
+
+            ct.ThrowIfCancellationRequested();
+
+            int timeoutMs = ResolveTimeout();
+            BottomVisionOffset result;
+            if (Side == PickerSequenceSide.Front)
+            {
+                result = await FrontPicker.WaitBottomInspectionResultAsync(_currentPickerNo, timeoutMs, ct).ConfigureAwait(false);
+            }
+            else
+            {
+                result = await RearPicker.WaitBottomInspectionResultAsync(_currentPickerNo, timeoutMs, ct).ConfigureAwait(false);
             }
 
             if (result == null)
@@ -1013,12 +1077,78 @@ namespace QMC.CDT320.Sequencing
             return result;
         }
 
+        private void RegisterVisionDieAddress()
+        {
+            try
+            {
+                if (_currentDie == null)
+                    return;
+
+                int fb = Side == PickerSequenceSide.Front ? 0 : 1;
+                QMC.CDT320.VisionComm.VisionDieAddressStore.Set(
+                    fb,
+                    _currentPickerNo,
+                    _currentDie.InputSequenceNo,
+                    _currentDie.Wafer_IndexX,
+                    _currentDie.Wafer_IndexY,
+                    _currentDie.DieId);
+            }
+            catch (Exception ex)
+            {
+                WriteLog("PickerBottomInspectionSequence",
+                    Name + " 비전 다이 주소 기록 실패(진행에는 영향 없음). error=" + ex.Message + " - Check");
+            }
+            finally
+            {
+            }
+        }
+
+        private async Task TriggerDryRunBottomGrabIfConnectedAsync(CancellationToken ct)
+        {
+            ct.ThrowIfCancellationRequested();
+
+            if (!IsBottomVisionConnected())
+            {
+                WriteLog("PickerBottomInspectionSequence",
+                    Name + " DryRun bottom GRAB skipped. BottomInspection Vision is not connected. die=" +
+                    (_currentDie != null ? _currentDie.DieId : "") +
+                    ", pickerNo=" + _currentPickerNo + " - Check");
+                return;
+            }
+
+            await DelayBeforeVisionInspectionAsync(ct).ConfigureAwait(false);
+            ct.ThrowIfCancellationRequested();
+
+            int timeoutMs = ResolveTimeout();
+            bool grabbed = Side == PickerSequenceSide.Front
+                ? await FrontPicker.TriggerBottomInspectionExposeAsync(_currentPickerNo, timeoutMs, ct).ConfigureAwait(false)
+                : await RearPicker.TriggerBottomInspectionExposeAsync(_currentPickerNo, timeoutMs, ct).ConfigureAwait(false);
+
+            WriteLog("PickerBottomInspectionSequence",
+                Name + " DryRun bottom GRAB " + (grabbed ? "completed" : "failed") +
+                ". die=" + (_currentDie != null ? _currentDie.DieId : "") +
+                ", pickerNo=" + _currentPickerNo +
+                ", timeoutMs=" + timeoutMs + " - Check");
+        }
+
+        private bool IsDryRunMode()
+        {
+            AppSettings settings = AppSettingsStore.Current;
+            return settings != null && settings.DryRunMode;
+        }
+
+        private bool IsBottomVisionConnected()
+        {
+            return QMC.CDT320.VisionComm.VisionCommandService.IsConnected(
+                QMC.CDT320.VisionComm.AutoVisionChannel.BottomInspection);
+        }
+
         private BottomVisionOffset SimulateBottomResult()
         {
             QMC.CDT320.VisionComm.InspectionResultDto inspection =
                 QMC.CDT320.VisionComm.AutoVisionRequestService.BuildSimulationInspectionResult(
                     QMC.CDT320.VisionComm.AutoVisionChannel.BottomInspection,
-                    "SurfaceInspector",
+                    QMC.CDT320.VisionComm.VisionToolIds.BottomInspection.SurfaceInspector,
                     _currentPickerNo);
             return QMC.CDT320.Calibration.VisionCameraCalibrationTransform.ToBottomVisionOffset(_currentPickerNo, inspection);
         }

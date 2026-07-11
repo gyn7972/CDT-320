@@ -1520,6 +1520,17 @@ namespace QMC.CDT320.Sequencing.Calibration
 
         private async Task<MatchResultDto> RequestColletMatchAsync(CancellationToken ct)
         {
+            if (IsDryRunWithBottomVisionConnected())
+            {
+                await AutoVisionRequestService.GrabAsync(
+                    AutoVisionChannel.BottomInspection,
+                    _colletNo,
+                    _settings != null ? _settings.VisionTimeoutMs : 5000,
+                    ct).ConfigureAwait(false);
+
+                return BuildSimulatedColletMatch();
+            }
+
             if (IsVisionResultSimulationAllowed())
                 return BuildSimulatedColletMatch();
 
@@ -1567,6 +1578,25 @@ namespace QMC.CDT320.Sequencing.Calibration
         {
             AppSettings settings = AppSettingsStore.Current;
             return settings != null && (!settings.UseVision || settings.DryRunMode || settings.SimulationMode || settings.BypassHardware);
+        }
+
+        private static bool IsDryRunWithBottomVisionConnected()
+        {
+            try
+            {
+                AppSettings settings = AppSettingsStore.Current;
+                if (settings == null || !settings.DryRunMode || !settings.UseVision)
+                    return false;
+
+                return VisionCommandService.IsConnected(AutoVisionChannel.BottomInspection);
+            }
+            catch
+            {
+                return false;
+            }
+            finally
+            {
+            }
         }
 
         private bool IsAxisRuntimeSimulationAllowed()
