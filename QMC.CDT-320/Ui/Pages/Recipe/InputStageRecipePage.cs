@@ -1430,6 +1430,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 AddStagePositions(items, unit);
                 AddNeedlePickUpSettingItems(items, unit);   // NEEDLE PIN CAL POSITION 바로 아래 배치
                 AddWorkAreaSettingItems(items, unit);
+                AddInputDieVisionSettingItems(items, unit);
                 items.Add(ParameterGridItem.Int("BARCODE READ TIMEOUT", "ms", ParameterGridScope.Setup, () => unit.Setup.BarcodeReadTimeoutMs, v => unit.Setup.BarcodeReadTimeoutMs = Math.Max(0, v)));
                 items.Add(ParameterGridItem.Int("ALIGN ITERATIONS", "count", ParameterGridScope.Config, () => unit.Config.MaxAlignIterations, v => unit.Config.MaxAlignIterations = Math.Max(1, v)));
                 items.Add(ParameterGridItem.Double("ALIGN THRESHOLD", "deg", ParameterGridScope.Config, () => unit.Config.AlignConvergenceThresholdDeg, v => unit.Config.AlignConvergenceThresholdDeg = Math.Max(0.0, v)));
@@ -1447,6 +1448,32 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             finally
             {
             }
+        }
+
+        private void AddInputDieVisionSettingItems(List<ParameterGridItem> items, InputStageUnit unit)
+        {
+            const string groupKey = "INPUT_DIE_VISION_SETTING";
+            unit.Config.EnsurePickUpMotionDefaults();
+
+            items.Add(Describe(ParameterGridItem.Header("INPUT DIE VISION SETTING", groupKey),
+                "PickUp 전 Wafer/Input Vision Die 검사 실패 처리 정책입니다."));
+            items.Add(InGroup(Describe(ParameterGridItem.Int("INPUT DIE VISION RETRY", "ea", ParameterGridScope.Config,
+                () => unit.Config.InputDieVisionRetryCount,
+                v => unit.Config.InputDieVisionRetryCount = Math.Max(1, v)),
+                "PickUp 전 Die Vision 검사를 최대 몇 번 시도할지 설정합니다.\r\n예: 3이면 3회 검사 후 실패 정책을 적용합니다."), groupKey));
+
+            var failActionOptions = new List<ParameterGridOption>
+            {
+                new ParameterGridOption("SKIP DIE / 다음 Die 진행", InputDieVisionFailureAction.SkipDie),
+                new ParameterGridOption("ALARM / 알람 정지", InputDieVisionFailureAction.Alarm)
+            };
+            items.Add(InGroup(Describe(ParameterGridItem.Selection("INPUT DIE VISION FAIL ACTION", "mode", ParameterGridScope.Config,
+                () => unit.Config.InputDieVisionFailureAction,
+                value => unit.Config.InputDieVisionFailureAction = value is InputDieVisionFailureAction
+                    ? (InputDieVisionFailureAction)value
+                    : InputDieVisionFailureAction.SkipDie,
+                failActionOptions),
+                "지정 횟수만큼 Die Vision 검사에 실패했을 때 처리 방식입니다.\r\nSKIP은 해당 Die를 제외 처리하고 다음 Die로 넘어가며, ALARM은 기존처럼 알람 정지합니다."), groupKey));
         }
 
         private void AddWorkAreaSettingItems(List<ParameterGridItem> items, InputStageUnit unit)

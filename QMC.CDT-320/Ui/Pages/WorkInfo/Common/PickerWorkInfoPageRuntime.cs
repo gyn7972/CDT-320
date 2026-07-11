@@ -793,6 +793,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             options.RunMode = mode;
             options.StartMode = startMode;
             options.SimulateVisionResult = ShouldSimulateVisionResult(context);
+            options.ApplyInputStageVisionPolicy(context != null ? context.Machine : null);
             return options;
         }
 
@@ -1164,6 +1165,9 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             options.ResourceTimeoutMs = source != null ? source.ResourceTimeoutMs : 30000;
             options.PickerNo = source != null ? source.PickerNo : 0;
             options.VisionRetryCount = source != null ? source.VisionRetryCount : 3;
+            options.InputDieVisionFailureAction = source != null
+                ? source.InputDieVisionFailureAction
+                : InputDieVisionFailureAction.SkipDie;
             options.SimulateVisionResult = source != null && source.SimulateVisionResult;
             return options;
         }

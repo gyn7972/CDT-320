@@ -97,6 +97,7 @@ namespace QMC.CDT320.Sequencing
             options.SimulateVisionResult = ShouldSimulateVisionResult();
             options.PickerMotionOnlyTestMode = Mode == SequenceRunMode.Auto && IsPickerMotionOnlyTestModeEnabled();
             options.RequireInputCameraMarkInspectionPermission = Mode == SequenceRunMode.Auto;
+            options.ApplyInputStageVisionPolicy(Context != null ? Context.Machine : null);
             return options;
         }
 

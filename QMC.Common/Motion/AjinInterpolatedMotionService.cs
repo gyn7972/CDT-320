@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
@@ -14,7 +15,29 @@ namespace QMC.Common.Motion
     /// </summary>
     public static class AjinInterpolatedMotionService
     {
+        private const int PathMapRetryTimeoutMs = 1000;
+        private const int PathMapRetryIntervalMs = 10;
+        private static readonly ConcurrentDictionary<int, SemaphoreSlim> CoordinateLocks =
+            new ConcurrentDictionary<int, SemaphoreSlim>();
+
         public static InterpolatedMotionMapResult ValidateSynchronizedArrivalMap(
+            int coordinate,
+            IEnumerable<int> axisNumbers,
+            bool relativeMode)
+        {
+            SemaphoreSlim coordinateLock = GetCoordinateLock(coordinate);
+            coordinateLock.Wait();
+            try
+            {
+                return ValidateSynchronizedArrivalMapCore(coordinate, axisNumbers, relativeMode);
+            }
+            finally
+            {
+                coordinateLock.Release();
+            }
+        }
+
+        private static InterpolatedMotionMapResult ValidateSynchronizedArrivalMapCore(
             int coordinate,
             IEnumerable<int> axisNumbers,
             bool relativeMode)
@@ -26,6 +49,13 @@ namespace QMC.Common.Motion
 
             try
             {
+                if (coordinate < AjinVirtualCoordinatePool.MinCoordinate ||
+                    coordinate > AjinVirtualCoordinatePool.MaxCoordinate)
+                {
+                    return Fail(result, -1, "보간 가상축 번호가 허용 범위를 벗어났습니다. coordinate=" + coordinate +
+                        ", range=" + AjinVirtualCoordinatePool.MinCoordinate + "~" + AjinVirtualCoordinatePool.MaxCoordinate);
+                }
+
                 if (axisNumbers == null)
                 {
                     return Fail(result, -1, "보간 축 목록이 비어 있습니다.");
@@ -68,10 +98,15 @@ namespace QMC.Common.Motion
                     }
                 }
 
-                int ret = AXM.SetPathAxisMap(coordinate, mappedAxes);
+                int mapRetryCount = 0;
+                int ret = SetPathAxisMapWithRetry(coordinate, mappedAxes, out mapRetryCount);
                 if (ret != 0)
                 {
-                    return Fail(result, ret, "보간 축 맵핑 실패. coordinate=" + coordinate + ", axes=" + string.Join(",", mappedAxes));
+                    return Fail(result, ret, "보간 축 맵핑 실패. coordinate=" + coordinate +
+                        ", axes=" + string.Join(",", mappedAxes) +
+                        ", retryMs=" + PathMapRetryTimeoutMs +
+                        ", retryIntervalMs=" + PathMapRetryIntervalMs +
+                        ", retryCount=" + mapRetryCount);
                 }
 
                 ret = AXM.ClearPath(coordinate);
@@ -122,7 +157,9 @@ namespace QMC.Common.Motion
                 }
 
                 result.ResultCode = 0;
-                result.Message = "보간 축 맵핑 검증 성공.";
+                result.Message = mapRetryCount > 0
+                    ? "보간 축 맵핑 검증 성공. mapRetryCount=" + mapRetryCount
+                    : "보간 축 맵핑 검증 성공.";
                 return result;
             }
             catch (Exception ex)
@@ -153,6 +190,7 @@ namespace QMC.Common.Motion
             };
 
             Stopwatch watch = Stopwatch.StartNew();
+            AjinVirtualCoordinateLease coordinateLease = null;
 
             try
             {
@@ -165,9 +203,25 @@ namespace QMC.Common.Motion
                 if (velocity <= 0 || acceleration <= 0 || deceleration <= 0)
                     return MoveFail(result, -1, "보간 이동 속도/가감속 값은 0보다 커야 합니다. vel=" + velocity + ", acc=" + acceleration + ", dec=" + deceleration, watch);
 
-                InterpolatedMotionMapResult map = ValidateSynchronizedArrivalMap(coordinate, axisNumbers, true);
+                coordinateLease = await AjinVirtualCoordinatePool.Instance
+                    .RentAsync(coordinate, timeoutMs, ct)
+                    .ConfigureAwait(false);
+                if (coordinateLease == null)
+                {
+                    return MoveFail(
+                        result,
+                        -1,
+                        "사용 가능한 보간 가상축 번호가 없습니다. preferred=" + coordinate +
+                        ", pool=" + AjinVirtualCoordinatePool.Instance.BuildStateText(),
+                        watch);
+                }
+
+                coordinate = coordinateLease.Coordinate;
+                result.Coordinate = coordinate;
+
+                InterpolatedMotionMapResult map = ValidateSynchronizedArrivalMapCore(coordinate, axisNumbers, true);
                 if (!map.Success)
-                    return MoveFail(result, map.ResultCode, "보간 이동 전 축 맵핑 검증 실패. " + map.Message, watch);
+                    return MoveFailAfterRelease(result, map.ResultCode, "보간 이동 전 축 맵핑 검증 실패. " + map.Message, watch, ref coordinateLease);
 
                 var ordered = axisNumbers
                     .Select((axis, index) => new { Axis = axis, Position = relativePositions[index] })
@@ -179,7 +233,7 @@ namespace QMC.Common.Motion
 
                 int ret = AXM.MoveLine(coordinate, result.MappedAxes, result.MappedPositions, velocity, acceleration, deceleration);
                 if (ret != 0)
-                    return MoveFail(result, ret, "보간 이동 명령 실패. coordinate=" + coordinate, watch);
+                    return MoveFailAfterRelease(result, ret, "보간 이동 명령 실패. coordinate=" + coordinate, watch, ref coordinateLease);
 
                 result.CommandIssued = true;
 
@@ -191,29 +245,148 @@ namespace QMC.Common.Motion
                     bool moving = false;
                     ret = AXM.IsPathMoving(coordinate, ref moving);
                     if (ret != 0)
-                        return MoveFail(result, ret, "보간 이동 상태 확인 실패. coordinate=" + coordinate, watch);
+                        return MoveFailAfterRelease(result, ret, "보간 이동 상태 확인 실패. coordinate=" + coordinate, watch, ref coordinateLease);
 
                     if (!moving)
                     {
+                        int releaseRet = ReleasePathAndReturnCoordinateIfIdle(coordinateLease, out bool releaseSkipped);
+                        if (releaseRet != 0 || releaseSkipped)
+                        {
+                            return MoveFail(
+                                result,
+                                releaseRet != 0 ? releaseRet : -1,
+                                "보간 이동 완료 후 좌표계 해제 실패. coordinate=" + coordinate +
+                                ", releaseRet=" + releaseRet +
+                                ", releaseSkippedMoving=" + releaseSkipped,
+                                watch);
+                        }
+
+                        coordinateLease = null;
                         result.ResultCode = 0;
                         result.ElapsedMs = watch.ElapsedMilliseconds;
-                        result.Message = "보간 이동 완료.";
+                        result.Message = "보간 이동 완료. 보간 좌표계 해제 및 풀 반환 완료.";
                         return result;
                     }
 
                     await Task.Delay(1, ct).ConfigureAwait(false);
                 }
 
-                return MoveFail(result, -1, "보간 이동 완료 대기 시간 초과. coordinate=" + coordinate, watch);
+                return MoveFailAfterRelease(result, -1, "보간 이동 완료 대기 시간 초과. coordinate=" + coordinate, watch, ref coordinateLease);
             }
             catch (OperationCanceledException)
             {
-                return MoveFail(result, -1, "보간 이동 작업이 취소되었습니다.", watch);
+                return MoveFailAfterRelease(result, -1, "보간 이동 작업이 취소되었습니다.", watch, ref coordinateLease);
             }
             catch (Exception ex)
             {
-                return MoveFail(result, -1, "보간 이동 중 예외가 발생했습니다. error=" + ex.Message, watch);
+                return MoveFailAfterRelease(result, -1, "보간 이동 중 예외가 발생했습니다. error=" + ex.Message, watch, ref coordinateLease);
             }
+            finally
+            {
+                if (coordinateLease != null)
+                    ReleasePathAndReturnCoordinateIfIdle(coordinateLease, out _);
+            }
+        }
+
+        private static SemaphoreSlim GetCoordinateLock(int coordinate)
+        {
+            return CoordinateLocks.GetOrAdd(coordinate, _ => new SemaphoreSlim(1, 1));
+        }
+
+        public static int SetPathAxisMapWithRetry(int coordinate, int[] mappedAxes, out int retryCount)
+        {
+            retryCount = 0;
+            Stopwatch watch = Stopwatch.StartNew();
+
+            while (true)
+            {
+                int ret = AXM.SetPathAxisMap(coordinate, mappedAxes);
+                if (ret == 0)
+                    return 0;
+
+                if (watch.ElapsedMilliseconds >= PathMapRetryTimeoutMs)
+                    return ret;
+
+                // 보간 좌표계가 이미 정지 상태라면 남아있는 경로 데이터를 먼저 비우고 다시 묶습니다.
+                ReleasePathIfIdle(coordinate, out _, false);
+                retryCount++;
+                Thread.Sleep(PathMapRetryIntervalMs);
+            }
+        }
+
+        private static int ReleasePathIfIdle(int coordinate, out bool skippedMoving)
+        {
+            return ReleasePathIfIdle(coordinate, out skippedMoving, true);
+        }
+
+        private static int ReleasePathIfIdle(int coordinate, out bool skippedMoving, bool retryClear)
+        {
+            skippedMoving = false;
+
+            bool moving = false;
+            int ret = AXM.IsPathMoving(coordinate, ref moving);
+            if (ret != 0)
+                return ret;
+
+            if (moving)
+            {
+                skippedMoving = true;
+                return 0;
+            }
+
+            if (!retryClear)
+                return AXM.ClearPath(coordinate);
+
+            Stopwatch watch = Stopwatch.StartNew();
+            while (true)
+            {
+                ret = AXM.ClearPath(coordinate);
+                if (ret == 0)
+                    return 0;
+
+                if (watch.ElapsedMilliseconds >= PathMapRetryTimeoutMs)
+                    return ret;
+
+                Thread.Sleep(PathMapRetryIntervalMs);
+            }
+        }
+
+        public static int ReleasePathAndReturnCoordinateIfIdle(AjinVirtualCoordinateLease coordinateLease, out bool skippedMoving)
+        {
+            skippedMoving = false;
+
+            if (coordinateLease == null)
+                return 0;
+
+            int ret = ReleasePathIfIdle(coordinateLease.Coordinate, out skippedMoving);
+            if (ret == 0 && !skippedMoving)
+                coordinateLease.Dispose();
+
+            return ret;
+        }
+
+        private static InterpolatedMotionMoveResult MoveFailAfterRelease(
+            InterpolatedMotionMoveResult result,
+            int code,
+            string message,
+            Stopwatch watch,
+            ref AjinVirtualCoordinateLease coordinateLease)
+        {
+            if (coordinateLease == null)
+                return MoveFail(result, code, message, watch);
+
+            int releaseRet = ReleasePathAndReturnCoordinateIfIdle(coordinateLease, out bool releaseSkipped);
+            if (releaseRet == 0 && !releaseSkipped)
+                coordinateLease = null;
+
+            if (releaseRet != 0 || releaseSkipped)
+            {
+                message += " releaseRet=" + releaseRet +
+                    ", releaseSkippedMoving=" + releaseSkipped +
+                    ", coordinateHeld=" + releaseSkipped;
+            }
+
+            return MoveFail(result, code, message, watch);
         }
 
         private static InterpolatedMotionMapResult Fail(InterpolatedMotionMapResult result, int code, string message)

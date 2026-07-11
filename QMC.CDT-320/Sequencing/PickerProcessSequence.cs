@@ -667,7 +667,7 @@ namespace QMC.CDT320.Sequencing
                     return 0;
                 }
 
-                bool canResumePartialPickUp =
+                bool partialPickUpResumeCandidate =
                     occupiedCount > 0 &&
                     occupiedCount < enabled.Count &&
                     targetPickerDieCount == occupiedCount &&
@@ -676,18 +676,12 @@ namespace QMC.CDT320.Sequencing
                     sideRequiredCount == 0 &&
                     placeReadyCount == 0 &&
                     hasRemainingInputPickWork;
-                if (canResumePartialPickUp)
+                if (partialPickUpResumeCandidate)
                 {
-                    _forceBottomInspectionBeforeSideResume = false;
-                    _forceSafeYBeforePlaceResume = false;
-                    _keepPickerYForwardForContinuousPlace = false;
-                    _resumePartialPickUpWithoutMarkPermission = true;
-                    InputCameraPickUpPermissionStore.Clear(Side);
-                    CurrentStep = PickerProcessStep.RunPickUp;
+                    _resumePartialPickUpWithoutMarkPermission = false;
                     WriteLog("PickerProcessSequence",
-                        Name + " 부분 PickUp 재개 상태로 판단하여 빈 Picker부터 PickUp을 이어서 진행합니다. " +
-                        "이미 들고 있는 Picker는 PickUp 예약에서 제외하고, 남은 예약 대상 Picker만 채운 뒤 Bottom/Side로 진입합니다. " +
-                        "Bottom/Side 또는 Place 드레인 상태가 아니라 PickUp 중간 실패/정지 상태로 판단했습니다. side=" + Side +
+                        Name + " 부분 PickUp 재개 후보 상태이지만 Picker가 이미 Die를 가지고 있어 빈 Picker PickUp보다 보유 Die 검사를 우선합니다. " +
+                        "이미 들고 있는 Die를 Bottom/Side/Place로 먼저 드레인한 뒤 다음 PickUp batch를 시작합니다. side=" + Side +
                         ", enabledPickerCount=" + enabled.Count +
                         ", occupiedPickerCount=" + occupiedCount +
                         ", emptyEnabledPickerCount=" + emptyEnabledPickerCount +
@@ -700,7 +694,6 @@ namespace QMC.CDT320.Sequencing
                         ", hasRemainingInputPickWork=" + hasRemainingInputPickWork +
                         ", resumePartialPickUpWithoutMarkPermission=" + _resumePartialPickUpWithoutMarkPermission +
                         " - Check");
-                    return 0;
                 }
 
                 if (occupiedCount > 0 &&
@@ -2575,6 +2568,7 @@ namespace QMC.CDT320.Sequencing
                 PickerNo = source.PickerNo,
                 RestrictToPickerNo = source.RestrictToPickerNo,
                 VisionRetryCount = source.VisionRetryCount,
+                InputDieVisionFailureAction = source.InputDieVisionFailureAction,
                 SimulateVisionResult = source.SimulateVisionResult,
                 PickerMotionOnlyTestMode = source.PickerMotionOnlyTestMode,
                 RequireInputCameraMarkInspectionPermission = source.RequireInputCameraMarkInspectionPermission,

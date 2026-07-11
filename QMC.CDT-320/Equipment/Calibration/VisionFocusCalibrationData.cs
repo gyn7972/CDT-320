@@ -44,6 +44,10 @@ namespace QMC.CDT320.Calibration
         [DataMember] public int VisionBestTimeoutMs { get; set; } = 120000;
         [DataMember] public VisionFocusValueReceiveMode FocusValueReceiveMode { get; set; } = VisionFocusValueReceiveMode.AckOnly;
         [DataMember] public bool ReturnToDefaultAfterScan { get; set; } = true;
+        [DataMember] public bool AutoFocusBeforeBottomEnabled { get; set; }
+        [DataMember] public bool AutoFocusOnWaferChange { get; set; } = true;
+        [DataMember] public int AutoFocusPickInterval { get; set; }
+        [DataMember] public bool AutoFocusRuntimePolicyInitialized { get; set; }
 
         public void EnsureDefaults()
         {
@@ -62,6 +66,13 @@ namespace QMC.CDT320.Calibration
             if (MotionTimeoutMs <= 0) MotionTimeoutMs = 5000;
             if (VisionTimeoutMs <= 0) VisionTimeoutMs = 5000;
             if (VisionBestTimeoutMs <= 0) VisionBestTimeoutMs = 120000;
+            if (!AutoFocusRuntimePolicyInitialized)
+            {
+                AutoFocusOnWaferChange = true;
+                AutoFocusRuntimePolicyInitialized = true;
+            }
+            if (AutoFocusPickInterval < 0) AutoFocusPickInterval = 0;
+            if (AutoFocusPickInterval > 1000000) AutoFocusPickInterval = 1000000;
             if (!Enum.IsDefined(typeof(VisionFocusValueReceiveMode), FocusValueReceiveMode))
                 FocusValueReceiveMode = VisionFocusValueReceiveMode.AckOnly;
         }
@@ -79,6 +90,10 @@ namespace QMC.CDT320.Calibration
         [DataMember] public bool Valid { get; set; }
         [DataMember] public DateTime UpdatedAt { get; set; }
         [DataMember] public string UpdatedBy { get; set; }
+        [DataMember] public int AutoFocusPickCountSinceLast { get; set; }
+        [DataMember] public string LastAutoFocusWaferId { get; set; }
+        [DataMember] public DateTime LastAutoFocusAt { get; set; }
+        [DataMember] public bool ForceNextAutoFocus { get; set; }
 
         public void ApplyBest(double defaultPosition, double bestPosition, double bestScore, int sampleCount, string updatedBy)
         {
@@ -95,7 +110,33 @@ namespace QMC.CDT320.Calibration
         {
             if (UpdatedBy == null)
                 UpdatedBy = string.Empty;
+            if (LastAutoFocusWaferId == null)
+                LastAutoFocusWaferId = string.Empty;
+            if (AutoFocusPickCountSinceLast < 0)
+                AutoFocusPickCountSinceLast = 0;
             UpdatedAt = EnsureSerializableDateTime(UpdatedAt);
+            LastAutoFocusAt = EnsureSerializableDateTime(LastAutoFocusAt);
+        }
+
+        public void RecordAutoFocusPick()
+        {
+            if (AutoFocusPickCountSinceLast < 0)
+                AutoFocusPickCountSinceLast = 0;
+            if (AutoFocusPickCountSinceLast < int.MaxValue)
+                AutoFocusPickCountSinceLast++;
+        }
+
+        public void MarkAutoFocusComplete(string waferId)
+        {
+            AutoFocusPickCountSinceLast = 0;
+            LastAutoFocusWaferId = waferId ?? string.Empty;
+            LastAutoFocusAt = DateTime.Now;
+            ForceNextAutoFocus = false;
+        }
+
+        public void RequestAutoFocusNext()
+        {
+            ForceNextAutoFocus = true;
         }
 
         private static DateTime EnsureSerializableDateTime(DateTime value)

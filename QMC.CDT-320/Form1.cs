@@ -400,6 +400,7 @@ namespace QMC.CDT_320
             btnTabSettings.Click += (s, e) => ShowTab(MainTab.Settings);
             btnTabUser.Click += (s, e) => ShowTab(MainTab.User);
             btnTabExit.Click += (s, e) => RequestApplicationExit();
+            btnTopAlarm.Click += (s, e) => RaiseTestAlarmFromTopButton();
             btnDoorToggle.Click += (s, e) => ToggleDoorSimulationState();
             btnBuzzerStop.Click += (s, e) => StopBuzzerFromTopButton();
             UpdateTopCommandButtons();
@@ -440,6 +441,32 @@ namespace QMC.CDT_320
                     UserSession.Name,
                     "TOP-BUZZER",
                     "Buzzer stop failed: " + ex.Message);
+            }
+        }
+
+        private void RaiseTestAlarmFromTopButton()
+        {
+            try
+            {
+                QMC.Common.Logging.EventLogger.Write(
+                    QMC.Common.Logging.EventKind.Alarm,
+                    UserSession.Name,
+                    "TEST-ALARM",
+                    "Top ALARM button clicked. TEST-ALARM will be raised.");
+
+                QMC.Common.Alarms.AlarmManager.Raise(
+                    QMC.Common.Alarms.AlarmSeverity.Critical,
+                    "TEST-ALARM",
+                    "Form1",
+                    "상단 ALARM 버튼에 의해 테스트 알람이 발생했습니다.");
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Logging.EventLogger.Write(
+                    QMC.Common.Logging.EventKind.Alarm,
+                    "UI",
+                    "TEST-ALARM",
+                    "Top ALARM button failed: " + ex.Message);
             }
         }
 
@@ -496,6 +523,8 @@ namespace QMC.CDT_320
         private void UpdateTopCommandButtons()
         {
             UpdateDoorToggleButton();
+            btnTopAlarm.BackColor = Color.FromArgb(192, 57, 43);
+            btnTopAlarm.ForeColor = Color.White;
             btnBuzzerStop.BackColor = Color.FromArgb(92, 64, 34);
             btnBuzzerStop.ForeColor = Color.White;
         }

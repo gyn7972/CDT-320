@@ -50,6 +50,8 @@ namespace QMC.CDT320
     [DataContract]
     public sealed class PickerPickUpMotionConfig
     {
+        public const double MinimumPickerSafeForWaferStageDistance = 2.0;
+
         [DataMember] public PickerPickUpZMotionMode MotionMode { get; set; } = PickerPickUpZMotionMode.Detailed;
         [DataMember] public PickerPickUpTransferMotionMode TransferMotionMode { get; set; } = PickerPickUpTransferMotionMode.Default;
         [DataMember] public int TransferContiCoordinate { get; set; } = 2;
@@ -57,6 +59,7 @@ namespace QMC.CDT320
         [DataMember] public double TransferContiMaxTravelDistance { get; set; } = 45.0;
         [DataMember] public double TransferContiPickerYMaxCorrectionDistance { get; set; } = 1.5;
         [DataMember] public double TransferContiXYMidRatio { get; set; } = 0.5;
+        [DataMember] public double TransferContiSplineCurvePercent { get; set; } = 100.0;
         [DataMember] public double TransferContiMaxVelocity { get; set; } = 500.0;
         [DataMember] public double TransferContiMaxAcceleration { get; set; } = 5000.0;
         [DataMember] public double TransferContiMaxDeceleration { get; set; } = 5000.0;
@@ -73,6 +76,7 @@ namespace QMC.CDT320
         [DataMember] public double PickerZSeparateDistance { get; set; } = 1.0;
         [DataMember] public double PickerZSeparateSpeedPercent { get; set; } = 1.0;
         [DataMember] public double PickerZAvoidReturnSpeedPercent { get; set; } = 10.0;
+        [DataMember] public double PickerSafeForWaferStageDistance { get; set; } = MinimumPickerSafeForWaferStageDistance;
         [DataMember] public PickerPickUpSeparateMode SeparateMode { get; set; } = PickerPickUpSeparateMode.Simultaneous;
         [DataMember] public int VacuumOnBeforePickDelayMs { get; set; } = 0;
         [DataMember] public int SyncLiftSettleMs { get; set; } = 0;
@@ -90,6 +94,12 @@ namespace QMC.CDT320
         [DataMember] public double PickerZSeparateVelocity { get; set; } = 0.0;
         [DataMember] public double PickerZSeparateAcceleration { get; set; } = 0.0;
         [DataMember] public double PickerZSeparateDeceleration { get; set; } = 0.0;
+
+        [OnDeserializing]
+        private void OnDeserializing(StreamingContext ctx)
+        {
+            TransferContiSplineCurvePercent = 100.0;
+        }
 
         [OnDeserialized]
         private void OnDeserialized(StreamingContext ctx)
@@ -125,6 +135,7 @@ namespace QMC.CDT320
             TransferContiMaxTravelDistance = NormalizePositive(TransferContiMaxTravelDistance, 45.0);
             TransferContiPickerYMaxCorrectionDistance = NormalizePositive(TransferContiPickerYMaxCorrectionDistance, 1.5);
             TransferContiXYMidRatio = NormalizeRatio(TransferContiXYMidRatio, 0.5);
+            TransferContiSplineCurvePercent = NormalizeSplineCurvePercent(TransferContiSplineCurvePercent, 100.0);
             TransferContiMaxVelocity = NormalizePositive(TransferContiMaxVelocity, 500.0);
             TransferContiMaxAcceleration = NormalizePositive(TransferContiMaxAcceleration, 5000.0);
             TransferContiMaxDeceleration = NormalizePositive(TransferContiMaxDeceleration, 5000.0);
@@ -142,6 +153,7 @@ namespace QMC.CDT320
             PickerZSeparateDistance = NormalizeDistance(PickerZSeparateDistance);
             PickerZSeparateSpeedPercent = NormalizePercent(PickerZSeparateSpeedPercent, 1.0);
             PickerZAvoidReturnSpeedPercent = NormalizePercent(PickerZAvoidReturnSpeedPercent, 10.0);
+            PickerSafeForWaferStageDistance = NormalizePickerSafeForWaferStageDistance(PickerSafeForWaferStageDistance);
 
             if (VacuumOnBeforePickDelayMs < 0)
                 VacuumOnBeforePickDelayMs = 0;
@@ -153,17 +165,17 @@ namespace QMC.CDT320
 
         public double GetTransferContiNodeVelocity(int nodeIndex)
         {
-            return TransferContiMaxVelocity * GetTransferContiNodeRatio(nodeIndex);
+            return MotionSpeedScale.ApplyDefaultVelocityScale(TransferContiMaxVelocity * GetTransferContiNodeRatio(nodeIndex));
         }
 
         public double GetTransferContiNodeAcceleration(int nodeIndex)
         {
-            return TransferContiMaxAcceleration * GetTransferContiNodeRatio(nodeIndex);
+            return MotionSpeedScale.ApplyDefaultAccelerationScale(TransferContiMaxAcceleration * GetTransferContiNodeRatio(nodeIndex));
         }
 
         public double GetTransferContiNodeDeceleration(int nodeIndex)
         {
-            return TransferContiMaxDeceleration * GetTransferContiNodeRatio(nodeIndex);
+            return MotionSpeedScale.ApplyDefaultAccelerationScale(TransferContiMaxDeceleration * GetTransferContiNodeRatio(nodeIndex));
         }
 
         public static double NormalizePercent(double percent, double fallback)
@@ -182,6 +194,24 @@ namespace QMC.CDT320
             if (double.IsNaN(value) || double.IsInfinity(value) || value <= 0.0)
                 return fallback;
             return value;
+        }
+
+        public static double NormalizePickerSafeForWaferStageDistance(double distance)
+        {
+            if (double.IsNaN(distance) || double.IsInfinity(distance))
+                return MinimumPickerSafeForWaferStageDistance;
+            return Math.Max(MinimumPickerSafeForWaferStageDistance, distance);
+        }
+
+        public static double NormalizeSplineCurvePercent(double percent, double fallback)
+        {
+            if (double.IsNaN(percent) || double.IsInfinity(percent))
+                percent = fallback;
+            if (percent < 0.0)
+                return 0.0;
+            if (percent > 200.0)
+                return 200.0;
+            return percent;
         }
 
         private static double NormalizeDistance(double distance)
@@ -268,6 +298,7 @@ namespace QMC.CDT320
         [DataMember] public double ContiZ1Step2Clearance { get; set; } = 2.0;
         [DataMember] public double ContiNearAvoidDistance { get; set; } = 1.0;
         [DataMember] public double ContiXYMidRatio { get; set; } = 0.5;
+        [DataMember] public double ContiSplineCurvePercent { get; set; } = 100.0;
         [DataMember] public double ContiOverDrive { get; set; } = 0.03;
         [DataMember] public double PlaceZOverDrive { get; set; } = 0.0;
         [DataMember] public int PlaceReleaseDwellMs { get; set; } = 0;
@@ -281,6 +312,12 @@ namespace QMC.CDT320
         [DataMember] public double ContiNode2SpeedPercent { get; set; } = 100.0;
         [DataMember] public double ContiNode3SpeedPercent { get; set; } = 100.0;
         [DataMember] public double ContiNode4SpeedPercent { get; set; } = 1.0;
+
+        [OnDeserializing]
+        private void OnDeserializing(StreamingContext ctx)
+        {
+            ContiSplineCurvePercent = 100.0;
+        }
 
         [OnDeserialized]
         private void OnDeserialized(StreamingContext ctx)
@@ -305,6 +342,7 @@ namespace QMC.CDT320
             ContiZ1Step2Clearance = NormalizeNonNegative(ContiZ1Step2Clearance);
             ContiNearAvoidDistance = NormalizeNonNegative(ContiNearAvoidDistance);
             ContiXYMidRatio = NormalizeRatio(ContiXYMidRatio, 0.5);
+            ContiSplineCurvePercent = PickerPickUpMotionConfig.NormalizeSplineCurvePercent(ContiSplineCurvePercent, 100.0);
             ContiOverDrive = NormalizeNonNegative(ContiOverDrive);
             PlaceZOverDrive = NormalizeFinite(PlaceZOverDrive);
             if (PlaceReleaseDwellMs < 0)
@@ -323,17 +361,17 @@ namespace QMC.CDT320
 
         public double GetContiNodeVelocity(int nodeIndex)
         {
-            return ContiMaxVelocity * GetContiNodeRatio(nodeIndex);
+            return MotionSpeedScale.ApplyDefaultVelocityScale(ContiMaxVelocity * GetContiNodeRatio(nodeIndex));
         }
 
         public double GetContiNodeAcceleration(int nodeIndex)
         {
-            return ContiMaxAcceleration * GetContiNodeRatio(nodeIndex);
+            return MotionSpeedScale.ApplyDefaultAccelerationScale(ContiMaxAcceleration * GetContiNodeRatio(nodeIndex));
         }
 
         public double GetContiNodeDeceleration(int nodeIndex)
         {
-            return ContiMaxDeceleration * GetContiNodeRatio(nodeIndex);
+            return MotionSpeedScale.ApplyDefaultAccelerationScale(ContiMaxDeceleration * GetContiNodeRatio(nodeIndex));
         }
 
         private double GetContiNodeRatio(int nodeIndex)

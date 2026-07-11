@@ -91,16 +91,21 @@ namespace QMC.CDT320.Sequencing
                 // 이전 실행 중 Stage/Feeder에 남은 wafer가 있으면 해당 위치부터 재개한다.
                 RestoreInputStepSessionFromRuntimeState();
 
+                bool readySignalPublishedFromRestore = TryPublishRestoredInputStageReadySignals();
+
                 // Mapping부터 DieMapping까지 한 번 승인된 Input loader 작업으로 완료한다.
-                using (AutoSequenceLoaderWorkLease loaderLease = await Context.AutoLoaderGate
-                    .BeginInputWorkAsync(
-                        "InputStageReadyCycle",
-                        ct,
-                        EnsureInputPickersAvoidBeforeFeederMoveAsync,
-                        AreInputPickersAvoidAndStopped)
-                    .ConfigureAwait(false))
+                if (_autoStep != InputSequenceAutoStep.Complete || !readySignalPublishedFromRestore)
                 {
-                    await ExecuteInputLoadingStepsUntilStageReadyAsync(ct).ConfigureAwait(false);
+                    using (AutoSequenceLoaderWorkLease loaderLease = await Context.AutoLoaderGate
+                        .BeginInputWorkAsync(
+                            "InputStageReadyCycle",
+                            ct,
+                            EnsureInputPickersAvoidBeforeFeederMoveAsync,
+                            AreInputPickersAvoidAndStopped)
+                        .ConfigureAwait(false))
+                    {
+                        await ExecuteInputLoadingStepsUntilStageReadyAsync(ct).ConfigureAwait(false);
+                    }
                 }
 
                 // Stage에 wafer가 없으면 아직 다음 cycle을 진행할 조건이 아니므로 짧게 대기 후 반환한다.
@@ -115,7 +120,13 @@ namespace QMC.CDT320.Sequencing
                 // Stage 준비 상태가 중간에 빠졌거나 복원 직후 불완전하면 누락 step부터 다시 수행한다.
                 stageWafer = await EnsureInputStageFinishBeforePickerReadyAsync(stageWafer, ct).ConfigureAwait(false);
                 // Picker 쪽에서 볼 수 있는 ready bus를 올린 뒤 die pick 완료를 기다린다.
-                PublishInputStageReadySignals(stageWafer);
+                if (!readySignalPublishedFromRestore ||
+                    Context == null ||
+                    Context.Bus == null ||
+                    !Context.Bus.IsSet("InputStageReady"))
+                {
+                    PublishInputStageReadySignals(stageWafer);
+                }
                 await WaitPickerToCompleteInputStageDiesAsync(stageWafer, ct).ConfigureAwait(false);
 
                 // Picker가 해당 Stage wafer의 die pick을 완료하면 별도 승인된 Input loader 작업으로 Stage wafer를 cassette로 되돌린다.
@@ -214,6 +225,42 @@ namespace QMC.CDT320.Sequencing
                 Fail("SEQ-IN-STAGE-FINISH-RECOVER", "InputSequence",
                     "InputStage PickUp 준비 복구 실패: " + ex.Message);
                 throw;
+            }
+            finally
+            {
+            }
+        }
+
+        private bool TryPublishRestoredInputStageReadySignals()
+        {
+            try
+            {
+                if (_autoStep != InputSequenceAutoStep.Complete)
+                    return false;
+
+                WaferMaterial stageWafer = ResolveStageWaferFromRuntimeState();
+                if (stageWafer == null)
+                    return false;
+
+                string finishReason;
+                if (!MaterialStateService.IsInputStageFinishComplete(out finishReason))
+                    return false;
+
+                // 재시작 복구 시 Stage가 이미 완료 상태면 Picker 재개보다 먼저 Ready 신호를 복구한다.
+                PublishInputStageReadySignals(stageWafer);
+                WriteLog("TryPublishRestoredInputStageReadySignals",
+                    "Restored InputStage is already ready for PickUp. InputStageReady was published before InputLoader gate. " +
+                    "wafer=" + stageWafer.WaferId +
+                    ", slot=" + _autoSlotIndex +
+                    ", step=" + _autoStep +
+                    " - Ok");
+                return true;
+            }
+            catch (Exception ex)
+            {
+                WriteLog("TryPublishRestoredInputStageReadySignals",
+                    "Restored InputStage ready signal publish skipped/failed: " + ex.Message + " - Check");
+                return false;
             }
             finally
             {

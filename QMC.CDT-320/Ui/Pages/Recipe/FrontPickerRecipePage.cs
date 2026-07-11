@@ -356,6 +356,8 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 "PickerY를 Avoid로 빼지 않고 다음 PickUp Y 위치로 선보정할 때 허용하는 최대 보정 거리입니다."), groupKey));
             items.Add(InGroup(Describe(ParameterGridItem.Double("PICKUP CONTI XY MID RATIO", "ratio", ParameterGridScope.Config, () => pickUp.TransferContiXYMidRatio, v => pickUp.TransferContiXYMidRatio = Math.Max(0.0, Math.Min(1.0, v))),
                 "ContiNode 중간 위치 비율입니다. 0.5면 현재 위치와 다음 PickUp 목표의 중간점을 사용합니다."), groupKey));
+            items.Add(InGroup(Describe(ParameterGridItem.Double("PICKUP CONTI SPLINE CURVE %", "%", ParameterGridScope.Config, () => pickUp.TransferContiSplineCurvePercent, v => pickUp.TransferContiSplineCurvePercent = PickerPickUpMotionConfig.NormalizeSplineCurvePercent(v, 100.0)),
+                "PickUp ContiNode 스플라인 곡선 강도입니다.\r\n0%는 직선에 가깝게, 100%는 현재 기준, 200%는 더 둥근 X-Z 궤적으로 이동합니다."), groupKey));
             AddPickUpContiNodeSpeedRatioItems(items, groupKey, pickUp);
             items.Add(InGroup(Describe(ParameterGridItem.Double("PICKER Z PRE PICK DISTANCE", AxisUnitConverter.Millimeter, ParameterGridScope.Config, () => pickUp.PickerZPrePickDistance, v => pickUp.PickerZPrePickDistance = Math.Max(0.0, v)),
                 "PickerZ가 PickPosition으로 바로 내려가기 전에 멈추는 거리입니다.\r\nPickPosition에서 Avoid 방향으로 이 거리만큼 떨어진 위치까지 먼저 이동한 뒤 저속 접근합니다."), groupKey));
@@ -367,6 +369,8 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 "Step 07에서 Sync Lift 후 PickerZ를 Separate Distance만큼 이동할 때 사용하는 속도 비율입니다.\r\nNeedleZ/EjectPinZ Avoid 이동 속도는 InputStage Needle Pickup 설정값을 사용합니다."), groupKey));
             items.Add(InGroup(Describe(ParameterGridItem.Double("PICKER Z AVOID SPEED", "%", ParameterGridScope.Config, () => pickUp.PickerZAvoidReturnSpeedPercent, v => pickUp.PickerZAvoidReturnSpeedPercent = PickerPickUpMotionConfig.NormalizePercent(v, 10.0)),
                 "Separate Distance 이동 후 PickerZ를 Avoid 위치까지 올릴 때 사용하는 속도 비율입니다.\r\nSeparate 저속 구간과 최종 상승 구간을 분리해서 PickUp 시간을 줄입니다."), groupKey));
+            items.Add(InGroup(Describe(ParameterGridItem.Double("PICKER SAFE FOR WAFERSTAGE", AxisUnitConverter.Millimeter, ParameterGridScope.Config, () => pickUp.PickerSafeForWaferStageDistance, v => pickUp.PickerSafeForWaferStageDistance = PickerPickUpMotionConfig.NormalizePickerSafeForWaferStageDistance(v)),
+                "PickUp 후 PickerZ Avoid 복귀를 끝까지 기다리지 않고 다음 동작을 허용할 최소 상승 거리입니다.\r\nDie Touch 높이에서 Avoid 방향으로 이 거리 이상 올라오면 다음 시퀀스를 진행합니다. 최소값은 2.0 mm입니다."), groupKey));
             items.Add(InGroup(Describe(ParameterGridItem.Selection<PickerPickUpSeparateMode>("SEPARATE MODE", "mode", ParameterGridScope.Config, () => pickUp.SeparateMode, v => pickUp.SeparateMode = v),
                 "구 분리 동작에서 Picker와 Needle을 어떤 순서로 벌릴지 정하던 옵션입니다.\r\n현재 Step 07은 PickerZ Separate 이동 후 EjectPinZ/NeedleZ Avoid 고정 순서라 이 값은 현재 흐름에서 사용하지 않습니다."), groupKey));
             items.Add(InGroup(Describe(ParameterGridItem.Int("VACUUM BEFORE PICK DELAY", "ms", ParameterGridScope.Config, () => pickUp.VacuumOnBeforePickDelayMs, v => pickUp.VacuumOnBeforePickDelayMs = Math.Max(0, v)),
@@ -440,6 +444,8 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 "node2/node3에서 Z1과 Z2가 Avoid 바로 전까지 접근할 거리입니다. 1 mm이면 Avoid 위치에서 Place 방향으로 1 mm 내려온 위치를 사용합니다."), groupKey));
             items.Add(InGroup(Describe(ParameterGridItem.Double("PLACE CONTI XY MID RATIO", "ratio", ParameterGridScope.Config, () => place.ContiXYMidRatio, v => place.ContiXYMidRatio = Math.Max(0.0, Math.Min(1.0, v))),
                 "node2의 X/Y 중간 위치 비율입니다. 0.5면 현재 위치와 Target Pos의 중간까지 이동합니다."), groupKey));
+            items.Add(InGroup(Describe(ParameterGridItem.Double("PLACE CONTI SPLINE CURVE %", "%", ParameterGridScope.Config, () => place.ContiSplineCurvePercent, v => place.ContiSplineCurvePercent = PickerPickUpMotionConfig.NormalizeSplineCurvePercent(v, 100.0)),
+                "Place ContiNode 스플라인 곡선 강도입니다.\r\n0%는 직선에 가깝게, 100%는 현재 기준, 200%는 더 둥근 X-Z 궤적으로 이동합니다."), groupKey));
             items.Add(InGroup(Describe(ParameterGridItem.Double("PLACE CONTI OVERDRIVE", AxisUnitConverter.Millimeter, ParameterGridScope.Config, () => place.ContiOverDrive, v => place.ContiOverDrive = Math.Max(0.0, v)),
                 "node4에서 현재 PickerZ(Z2)가 최종 Place 위치에 더 들어가는 OverDrive 값입니다."), groupKey));
             items.Add(InGroup(Describe(ParameterGridItem.Double("PLACE CONTI TAPE FALLBACK", AxisUnitConverter.Millimeter, ParameterGridScope.Config, () => place.ContiTapeThicknessFallback, v => place.ContiTapeThicknessFallback = Math.Max(0.0, v)),

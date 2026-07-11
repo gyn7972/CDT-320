@@ -504,7 +504,7 @@ namespace QMC.CDT320.Sequencing
                 {
                     ct.ThrowIfCancellationRequested();
 
-                    _visionOffset = await RequestInputVisionOffsetAsync(ct).ConfigureAwait(false);
+                    _visionOffset = await RequestInputVisionOffsetAsync(ct, attempt == 1).ConfigureAwait(false);
                     if (_visionOffset != null)
                     {
                         WriteLog("InputDieVisionPrepareSequence",
@@ -525,9 +525,16 @@ namespace QMC.CDT320.Sequencing
                         ", attempt=" + attempt + " - Check");
                 }
 
-                return Fail("INPUT-DIE-VISION-PREPARE-VISION-NG", "Vision",
-                    "Input die vision 검사에 실패했습니다. die=" + _currentDieId +
-                    ", pickerNo=" + _currentPickerNo);
+                if (Options != null &&
+                    Options.InputDieVisionFailureAction == InputDieVisionFailureAction.Alarm)
+                {
+                    return Fail("INPUT-DIE-VISION-PREPARE-VISION-NG", "Vision",
+                        "Input die vision 검사에 실패했습니다. die=" + _currentDieId +
+                        ", pickerNo=" + _currentPickerNo +
+                        ", retryCount=" + retryCount);
+                }
+
+                return SkipCurrentVisionFailedDieAndContinue(retryCount);
             }
             catch (OperationCanceledException)
             {
@@ -537,6 +544,59 @@ namespace QMC.CDT320.Sequencing
             {
                 return Fail("INPUT-DIE-VISION-PREPARE-VISION-EX", "Vision",
                     "Input die vision 검사 중 예외가 발생했습니다. error=" + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private int SkipCurrentVisionFailedDieAndContinue(int retryCount)
+        {
+            try
+            {
+                string dieId = _currentDieId ?? string.Empty;
+                int pickerNo = _currentPickerNo;
+
+                MaterialStateService.ReleaseInputStagePickReservation(dieId, PickerLocationKind, pickerNo);
+                MaterialStateService.RemoveInspection(dieId, "InputPickVision");
+
+                string message;
+                bool syncOk = MaterialStateService.ApplyManualDieState(
+                    dieId,
+                    false,
+                    DieResult.Unknown,
+                    0,
+                    "",
+                    "InputDieVisionPrepareVisionNgSkip",
+                    out message);
+                if (!syncOk)
+                {
+                    return Fail("INPUT-DIE-VISION-PREPARE-VISION-SKIP-FAIL", "Material",
+                        "Input die vision 실패 Die SKIP 처리에 실패했습니다. die=" + dieId +
+                        ", pickerNo=" + pickerNo +
+                        ", message=" + message);
+                }
+
+                if (_currentItem != null)
+                    _preparedItems.Remove(_currentItem);
+
+                WriteLog("InputDieVisionPrepareSequence",
+                    Name + " Input die vision 검사 실패 Die를 SKIP 처리하고 다음 Die로 진행합니다. " +
+                    "die=" + dieId +
+                    ", pickerNo=" + pickerNo +
+                    ", retryCount=" + retryCount + " - Ok");
+
+                ReleasePreInspectionInputStageArea();
+                ClearCurrentContext();
+                CurrentStep = InputDieVisionPrepareStep.SelectNextInspectionTarget;
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                return Fail("INPUT-DIE-VISION-PREPARE-VISION-SKIP-EX", "Material",
+                    "Input die vision 실패 Die SKIP 처리 중 예외가 발생했습니다. die=" + _currentDieId +
+                    ", pickerNo=" + _currentPickerNo +
+                    ", error=" + ex.Message);
             }
             finally
             {
@@ -1018,7 +1078,7 @@ namespace QMC.CDT320.Sequencing
                 ", actual=" + axis.ActualPosition + ");";
         }
 
-        private async Task<VisionAlignResult> RequestInputVisionOffsetAsync(CancellationToken ct)
+        private async Task<VisionAlignResult> RequestInputVisionOffsetAsync(CancellationToken ct, bool applySettleDelay)
         {
             InputStageUnit stage = ResolveInputStage();
             if (stage == null)
@@ -1027,7 +1087,8 @@ namespace QMC.CDT320.Sequencing
             if (IsSimulationOrDryRun(stage))
                 return SimulateInputVisionOffset();
 
-            await DelayBeforeVisionInspectionAsync(ct).ConfigureAwait(false);
+            if (applySettleDelay)
+                await DelayBeforeVisionInspectionAsync(ct).ConfigureAwait(false);
 
             if (stage.Vision == null)
                 return null;

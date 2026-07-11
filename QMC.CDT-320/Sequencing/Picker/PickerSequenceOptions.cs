@@ -10,6 +10,7 @@ namespace QMC.CDT320.Sequencing
         public int PickerNo { get; set; }
         public int RestrictToPickerNo { get; set; }
         public int VisionRetryCount { get; set; }
+        public InputDieVisionFailureAction InputDieVisionFailureAction { get; set; }
         public bool SimulateVisionResult { get; set; }
         public bool PickerMotionOnlyTestMode { get; set; }
         public bool RequireInputCameraMarkInspectionPermission { get; set; }
@@ -30,6 +31,7 @@ namespace QMC.CDT320.Sequencing
                 PickerNo = 0,
                 RestrictToPickerNo = 0,
                 VisionRetryCount = 3,
+                InputDieVisionFailureAction = InputDieVisionFailureAction.SkipDie,
                 SimulateVisionResult = false,
                 PickerMotionOnlyTestMode = false,
                 RequireInputCameraMarkInspectionPermission = false,
@@ -38,6 +40,27 @@ namespace QMC.CDT320.Sequencing
                 EnterSideFromBottomInspection = false,
                 KeepZUntilSideInspectionComplete = false
             };
+        }
+
+        public void ApplyInputStageVisionPolicy(CDT320_Machine machine)
+        {
+            try
+            {
+                InputStageUnit inputStage = machine != null ? machine.InputStageUnit : null;
+                InputStageConfig config = inputStage != null ? inputStage.Config : null;
+                if (config == null)
+                    return;
+
+                config.EnsurePickUpMotionDefaults();
+                VisionRetryCount = config.InputDieVisionRetryCount > 0 ? config.InputDieVisionRetryCount : 3;
+                InputDieVisionFailureAction = config.InputDieVisionFailureAction;
+            }
+            catch
+            {
+            }
+            finally
+            {
+            }
         }
     }
 }

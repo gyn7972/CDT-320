@@ -19,6 +19,13 @@ namespace QMC.CDT320
     //  InputStageUnit 전용 데이터 클래스
     // ??????????????????????????????????????????????????????????????????????????
 
+    [DataContract]
+    public enum InputDieVisionFailureAction
+    {
+        [EnumMember] SkipDie = 0,
+        [EnumMember] Alarm = 1
+    }
+
     /// <summary>
     /// InputStageUnit의 기구적 설정값.<br/>
     /// 각 축의 기준 위치 및 기구 오프셋 등 하드웨어 교체 전까지 유지되는 값을 담는다.
@@ -118,6 +125,12 @@ namespace QMC.CDT320
         /// <summary>수동 Die 검출로 전체 Input Die Map에 적용할 수 있는 Y Offset 최대값 [mm].</summary>
         [DataMember] public double ManualDieDetectOffsetLimitY { get; set; } = 5.0;
 
+        /// <summary>PickUp 전 Input Die Vision 검사 재시도 횟수.</summary>
+        [DataMember] public int InputDieVisionRetryCount { get; set; } = 3;
+
+        /// <summary>PickUp 전 Input Die Vision 검사 실패 시 처리 방식.</summary>
+        [DataMember] public InputDieVisionFailureAction InputDieVisionFailureAction { get; set; } = InputDieVisionFailureAction.SkipDie;
+
         [DataMember] public int SequenceMoveTimeoutMs { get; set; } = 10000;
 
         [OnDeserialized]
@@ -150,6 +163,8 @@ namespace QMC.CDT320
                 PickUpNeedleSeparateSpeedPercent = 1.0;
             if (PickUpNeedleSeparateSpeedPercent <= 0.0)
                 PickUpNeedleSeparateSpeedPercent = 1.0;
+            if (InputDieVisionRetryCount <= 0)
+                InputDieVisionRetryCount = 3;
         }
     }
 

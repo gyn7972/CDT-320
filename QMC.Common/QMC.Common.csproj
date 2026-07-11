@@ -154,6 +154,7 @@
     <Compile Include="Motion\AxisStatusSnapshot.cs" />
     <Compile Include="Motion\AxisSpeedTable.cs" />
     <Compile Include="Motion\AjinInterpolatedMotionService.cs" />
+    <Compile Include="Motion\AjinVirtualCoordinatePool.cs" />
     <Compile Include="Motion\BaseAxis.cs" />
     <Compile Include="Motion\InterpolatedMotionAxisInfo.cs" />
     <Compile Include="Motion\InterpolatedMotionMapResult.cs" />

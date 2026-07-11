@@ -7255,6 +7255,7 @@ namespace QMC.CDT320
                         _sequenceActivity);
                     var options = QMC.CDT320.Sequencing.PickerSequenceOptions.Default();
                     options.RunMode = QMC.CDT320.Sequencing.SequenceRunMode.Manual;
+                    options.ApplyInputStageVisionPolicy(Machine);
 
                     string name = (processName ?? "").Trim();
                     int result;
@@ -7357,6 +7358,7 @@ namespace QMC.CDT320
                     var options = QMC.CDT320.Sequencing.PickerSequenceOptions.Default();
                     options.RunMode = QMC.CDT320.Sequencing.SequenceRunMode.Manual;
                     options.PickerNo = pickerNo;
+                    options.ApplyInputStageVisionPolicy(Machine);
 
                     int result = await new QMC.CDT320.Sequencing.PickerPickUpSequence(context, side)
                         .RunManualZMotionOnlyAsync(pickerNo, ManualOperationToken, options).ConfigureAwait(false);
@@ -7473,6 +7475,7 @@ namespace QMC.CDT320
                     options.RunMode = QMC.CDT320.Sequencing.SequenceRunMode.Manual;
                     options.PickerNo = pickerNo;
                     options.SimulateVisionResult = ShouldSimulatePickerVisionResult(side);
+                    options.ApplyInputStageVisionPolicy(Machine);
 
                     int result = await new QMC.CDT320.Sequencing.PickerPickUpSequence(context, side)
                         .RunManualSelectedDiePickUpAsync(dieId, pickerNo, ManualOperationToken, options)
@@ -7600,6 +7603,7 @@ namespace QMC.CDT320
                     options.RunMode = QMC.CDT320.Sequencing.SequenceRunMode.Manual;
                     options.PickerNo = pickerNo;
                     options.RestrictToPickerNo = pickerNo;
+                    options.ApplyInputStageVisionPolicy(Machine);
 
                     var sequence = new QMC.CDT320.Sequencing.PickerPlaceSequence(context, side);
                     int result = step.HasValue
@@ -7753,6 +7757,7 @@ namespace QMC.CDT320
                     options.RunMode = QMC.CDT320.Sequencing.SequenceRunMode.Manual;
                     options.PickerNo = pickerNo;
                     options.SimulateVisionResult = ShouldSimulatePickerVisionResult(side);
+                    options.ApplyInputStageVisionPolicy(Machine);
 
                     var sequence = new QMC.CDT320.Sequencing.PickerPickUpSequence(context, side);
                     int result;

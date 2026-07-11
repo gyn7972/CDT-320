@@ -10,6 +10,7 @@ using QMC.CDT320.Calibration;
 using QMC.CDT320.Interlocks;
 using QMC.CDT320.Materials;
 using QMC.CDT320.Motion.SharedRailX;
+using QMC.CDT320.Sequencing.Calibration;
 
 namespace QMC.CDT320.Sequencing
 {
@@ -190,6 +191,267 @@ namespace QMC.CDT320.Sequencing
             catch (Exception ex)
             {
                 WriteLog("SaveRuntimeState", Name + " runtime state save failed. reason=" + reason + ", error=" + ex.Message + " - Failed");
+            }
+            finally
+            {
+            }
+        }
+
+        protected void RecordBottomAutoFocusPickCount(int pickerNo, DieMaterial die)
+        {
+            try
+            {
+                VisionFocusPositionRecord record = ResolveBottomAutoFocusRecord(pickerNo);
+                if (record == null)
+                    return;
+
+                record.RecordAutoFocusPick();
+                WriteLog("PickerAutoFocus",
+                    Name + " Bottom AutoFocus pick count updated. side=" + Side +
+                    ", pickerNo=" + pickerNo +
+                    ", count=" + record.AutoFocusPickCountSinceLast +
+                    ", wafer=" + BuildAutoFocusWaferKey(die) + " - Check");
+            }
+            catch (Exception ex)
+            {
+                WriteLog("PickerAutoFocus",
+                    Name + " Bottom AutoFocus pick count update failed. side=" + Side +
+                    ", pickerNo=" + pickerNo +
+                    ", error=" + ex.Message + " - Failed");
+            }
+            finally
+            {
+            }
+        }
+
+        protected async Task<int> RunBottomRuntimeAutoFocusIfNeededAsync(
+            int pickerIndex,
+            int pickerNo,
+            DieMaterial die,
+            double defaultPosition,
+            CancellationToken ct)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+
+                VisionFocusCalibrationData data = ResolveFocusCalibrationData();
+                if (data == null)
+                    return 0;
+
+                VisionFocusScanSettings settings = data.BottomColletScan;
+                settings.EnsureDefaults();
+                VisionFocusPositionRecord record = ResolveBottomAutoFocusRecord(pickerNo);
+                if (record == null)
+                    return 0;
+
+                string waferKey = BuildAutoFocusWaferKey(die);
+                string reason;
+                if (!ShouldRunBottomAutoFocus(settings, record, waferKey, out reason))
+                {
+                    WriteLog("PickerAutoFocus",
+                        Name + " Bottom Runtime AutoFocus skip. side=" + Side +
+                        ", pickerNo=" + pickerNo +
+                        ", count=" + record.AutoFocusPickCountSinceLast +
+                        ", interval=" + settings.AutoFocusPickInterval +
+                        ", wafer=" + waferKey +
+                        ", lastWafer=" + (record.LastAutoFocusWaferId ?? string.Empty) +
+                        " - Check");
+                    return 0;
+                }
+
+                WriteLog("PickerAutoFocus",
+                    Name + " Bottom Runtime AutoFocus start. side=" + Side +
+                    ", pickerNo=" + pickerNo +
+                    ", pickerIndex=" + pickerIndex +
+                    ", defaultZ=" + defaultPosition.ToString("F6") +
+                    ", scan=FineOnly" +
+                    ", fineMinus=" + settings.FineMinusRange.ToString("F6") +
+                    ", finePlus=" + settings.FinePlusRange.ToString("F6") +
+                    ", fineStep=" + settings.FineStep.ToString("F6") +
+                    ", reason=" + reason +
+                    ", count=" + record.AutoFocusPickCountSinceLast +
+                    ", interval=" + settings.AutoFocusPickInterval +
+                    ", wafer=" + waferKey + " - Start");
+
+                var request = new VisionFocusScanRequest
+                {
+                    Kind = VisionFocusScanKind.BottomCollet,
+                    PickerSide = ResolveFocusPickerSide(),
+                    PickerNo = pickerNo,
+                    DefaultPosition = defaultPosition,
+                    MinusRange = settings.MinusRange,
+                    PlusRange = settings.PlusRange,
+                    Step = settings.Step,
+                    FineMinusRange = settings.FineMinusRange,
+                    FinePlusRange = settings.FinePlusRange,
+                    FineStep = settings.FineStep,
+                    RepeatCount = settings.RepeatCount,
+                    MoveVelocity = settings.MoveVelocity,
+                    MoveAcceleration = settings.MoveAcceleration,
+                    MoveDeceleration = settings.MoveDeceleration,
+                    SettleDelayMs = settings.SettleDelayMs,
+                    MotionTimeoutMs = settings.MotionTimeoutMs,
+                    VisionTimeoutMs = settings.VisionTimeoutMs,
+                    VisionBestTimeoutMs = settings.VisionBestTimeoutMs,
+                    FocusValueReceiveMode = settings.FocusValueReceiveMode,
+                    ReturnToDefaultAfterScan = false,
+                    SkipPrepareFocusPosition = true,
+                    FineOnlyScan = true,
+                    RuntimeReason = reason,
+                    UpdatedBy = "AutoBeforeBottom"
+                };
+
+                var sequence = new VisionFocusScanSequence(Context.Machine, request);
+                int result = await sequence.RunAsync(ct, Options != null ? Options.RunMode : SequenceRunMode.Auto).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                double bestZ = sequence.Result.BestPosition;
+                ApplyRuntimeBottomFocusPosition(pickerIndex, bestZ);
+                record.MarkAutoFocusComplete(waferKey);
+                SaveVisionFocusSettings("Bottom Runtime AutoFocus complete");
+
+                WriteLog("PickerAutoFocus",
+                    Name + " Bottom Runtime AutoFocus complete. side=" + Side +
+                    ", pickerNo=" + pickerNo +
+                    ", defaultZ=" + defaultPosition.ToString("F6") +
+                    ", bestZ=" + bestZ.ToString("F6") +
+                    ", score=" + sequence.Result.BestScore.ToString("F4") +
+                    ", sample=" + sequence.Result.SampleCount +
+                    ", wafer=" + waferKey + " - Ok");
+                return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (SequenceStopException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("PICKER-BOTTOM-AUTOFOCUS-EX", Name,
+                    "Bottom 촬영 전 Runtime AutoFocus 중 예외가 발생했습니다. side=" + Side +
+                    ", pickerNo=" + pickerNo +
+                    ", error=" + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private bool ShouldRunBottomAutoFocus(
+            VisionFocusScanSettings settings,
+            VisionFocusPositionRecord record,
+            string waferKey,
+            out string reason)
+        {
+            reason = string.Empty;
+            if (settings == null || record == null)
+                return false;
+
+            if (!settings.AutoFocusBeforeBottomEnabled && !record.ForceNextAutoFocus)
+                return false;
+
+            if (record.ForceNextAutoFocus)
+            {
+                reason = "ForceNext";
+                return true;
+            }
+
+            if (settings.AutoFocusOnWaferChange &&
+                !string.IsNullOrWhiteSpace(waferKey) &&
+                !string.Equals(record.LastAutoFocusWaferId ?? string.Empty, waferKey, StringComparison.OrdinalIgnoreCase))
+            {
+                reason = "WaferChanged";
+                return true;
+            }
+
+            if (settings.AutoFocusPickInterval > 0 &&
+                record.AutoFocusPickCountSinceLast >= settings.AutoFocusPickInterval)
+            {
+                reason = "PickCount";
+                return true;
+            }
+
+            return false;
+        }
+
+        private VisionFocusCalibrationData ResolveFocusCalibrationData()
+        {
+            if (Context == null || Context.Machine == null ||
+                Context.Machine.VisionUnit == null ||
+                Context.Machine.VisionUnit.Config == null)
+                return null;
+
+            Context.Machine.VisionUnit.Config.EnsureCalibrationObjects();
+            VisionFocusCalibrationData data = Context.Machine.VisionUnit.Config.FocusCalibration;
+            if (data != null)
+                data.EnsureObjects();
+            return data;
+        }
+
+        private VisionFocusPositionRecord ResolveBottomAutoFocusRecord(int pickerNo)
+        {
+            VisionFocusCalibrationData data = ResolveFocusCalibrationData();
+            if (data == null)
+                return null;
+            return data.GetColletRecord(ResolveFocusPickerSide(), pickerNo);
+        }
+
+        private VisionFocusPickerSide ResolveFocusPickerSide()
+        {
+            return Side == PickerSequenceSide.Rear
+                ? VisionFocusPickerSide.Rear
+                : VisionFocusPickerSide.Front;
+        }
+
+        private string BuildAutoFocusWaferKey(DieMaterial die)
+        {
+            if (die != null && !string.IsNullOrWhiteSpace(die.WaferID_Input))
+                return die.WaferID_Input.Trim();
+
+            try
+            {
+                if (Context != null && Context.Machine != null &&
+                    Context.Machine.InputStageUnit != null &&
+                    !string.IsNullOrWhiteSpace(Context.Machine.InputStageUnit.CurrentWaferId))
+                    return Context.Machine.InputStageUnit.CurrentWaferId.Trim();
+            }
+            catch
+            {
+            }
+
+            return string.Empty;
+        }
+
+        private void ApplyRuntimeBottomFocusPosition(int pickerIndex, double bestZ)
+        {
+            if (Side == PickerSequenceSide.Front)
+                FrontPicker.SetRuntimePickerZPosition(pickerIndex, "FocusPosition", bestZ);
+            else
+                RearPicker.SetRuntimePickerZPosition(pickerIndex, "FocusPosition", bestZ);
+        }
+
+        private void SaveVisionFocusSettings(string reason)
+        {
+            try
+            {
+                if (Context == null || Context.Machine == null || Context.Machine.VisionUnit == null)
+                    return;
+
+                bool saved = Context.Machine.VisionUnit.SaveSettings();
+                WriteLog("PickerAutoFocus",
+                    Name + " Vision Focus 설정 저장. reason=" + reason +
+                    ", saved=" + saved + " - Check");
+            }
+            catch (Exception ex)
+            {
+                WriteLog("PickerAutoFocus",
+                    Name + " Vision Focus 설정 저장 실패. reason=" + reason +
+                    ", error=" + ex.Message + " - Failed");
             }
             finally
             {

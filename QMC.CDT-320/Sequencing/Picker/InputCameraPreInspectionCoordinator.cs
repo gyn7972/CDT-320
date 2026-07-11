@@ -387,6 +387,7 @@ namespace QMC.CDT320.Sequencing
                 PickerNo = options.PickerNo,
                 RestrictToPickerNo = options.RestrictToPickerNo,
                 VisionRetryCount = options.VisionRetryCount,
+                InputDieVisionFailureAction = options.InputDieVisionFailureAction,
                 SimulateVisionResult = options.SimulateVisionResult,
                 PickerMotionOnlyTestMode = options.PickerMotionOnlyTestMode,
                 RequireInputCameraMarkInspectionPermission = false,

@@ -47,6 +47,9 @@ namespace QMC.CDT320.Sequencing.Calibration
         public int VisionBestTimeoutMs { get; set; } = 120000;
         public VisionFocusValueReceiveMode FocusValueReceiveMode { get; set; } = VisionFocusValueReceiveMode.AckOnly;
         public bool ReturnToDefaultAfterScan { get; set; } = true;
+        public bool SkipPrepareFocusPosition { get; set; }
+        public bool FineOnlyScan { get; set; }
+        public string RuntimeReason { get; set; }
         public string UpdatedBy { get; set; }
     }
 
@@ -258,8 +261,23 @@ namespace QMC.CDT320.Sequencing.Calibration
                     return checkResult;
 
                 Result.Samples.Clear();
-                _scanPass = 0;
-                BuildRoughScanPositions();
+                if (_request.FineOnlyScan)
+                {
+                    // Runtime AutoFocus는 현재 Bottom Z 기준으로 Fine 구간만 스캔한다.
+                    _scanPass = 1;
+                    BuildFineScanPositions(_request.DefaultPosition);
+                    EventLogger.Write(EventKind.Event, "CAL", "VISION-FOCUS-CAL-FINE-ONLY",
+                        "Runtime Fine-only Focus Scan을 시작합니다. 대상=" + BuildTargetLabel() +
+                        ", baseZ=" + _request.DefaultPosition.ToString("F3") +
+                        ", fineMinus=" + _request.FineMinusRange +
+                        ", finePlus=" + _request.FinePlusRange +
+                        ", fineStep=" + _request.FineStep);
+                }
+                else
+                {
+                    _scanPass = 0;
+                    BuildRoughScanPositions();
+                }
                 if (_scanPositions.Count == 0)
                     return Fail("VISION-FOCUS-CAL-NO-SAMPLE", "VisionFocusScanSequence", "Vision Focus Cal 스캔 위치가 없습니다.");
 
@@ -288,11 +306,11 @@ namespace QMC.CDT320.Sequencing.Calibration
 
             if (requireScanRange)
             {
-                if (_request.Step <= 0)
-                    return Fail("VISION-FOCUS-CAL-BAD-STEP", "VisionFocusScanSequence", "Vision Focus Cal Step 값은 0보다 커야 합니다. step=" + _request.Step);
                 if (_request.FineStep <= 0)
                     return Fail("VISION-FOCUS-CAL-BAD-FINE-STEP", "VisionFocusScanSequence", "Vision Focus Cal Fine Step 값은 0보다 커야 합니다. fineStep=" + _request.FineStep);
-                if (_request.MinusRange < 0 || _request.PlusRange < 0)
+                if (!_request.FineOnlyScan && _request.Step <= 0)
+                    return Fail("VISION-FOCUS-CAL-BAD-STEP", "VisionFocusScanSequence", "Vision Focus Cal Step 값은 0보다 커야 합니다. step=" + _request.Step);
+                if (!_request.FineOnlyScan && (_request.MinusRange < 0 || _request.PlusRange < 0))
                     return Fail("VISION-FOCUS-CAL-BAD-RANGE", "VisionFocusScanSequence", "Vision Focus Cal 스캔 범위가 올바르지 않습니다. minus=" + _request.MinusRange + ", plus=" + _request.PlusRange);
                 if (_request.FineMinusRange < 0 || _request.FinePlusRange < 0)
                     return Fail("VISION-FOCUS-CAL-BAD-FINE-RANGE", "VisionFocusScanSequence", "Vision Focus Cal Fine 스캔 범위가 올바르지 않습니다. minus=" + _request.FineMinusRange + ", plus=" + _request.FinePlusRange);
@@ -350,6 +368,19 @@ namespace QMC.CDT320.Sequencing.Calibration
                 ct.ThrowIfCancellationRequested();
                 EventLogger.Write(EventKind.Event, "CAL", "VISION-FOCUS-CAL-PREPARE",
                     "Vision Focus 준비 동작을 시작합니다. 대상=" + BuildTargetLabel());
+
+                if (_request.SkipPrepareFocusPosition)
+                {
+                    EventLogger.Write(EventKind.Event, "CAL", "VISION-FOCUS-RUNTIME-Z-ONLY",
+                        "생산 Runtime Focus Scan은 현재 Bottom 촬영 위치를 유지하고 Z축만 스캔합니다. 대상=" +
+                        BuildTargetLabel() + ", reason=" + (_request.RuntimeReason ?? string.Empty));
+                    if (!IsBottomFocusKind())
+                        return Fail("VISION-FOCUS-RUNTIME-Z-ONLY-KIND", "VisionFocusScanSequence",
+                            "Runtime Z-only Focus는 Bottom Focus 대상에서만 사용할 수 있습니다. 대상=" + BuildTargetLabel());
+
+                    CurrentStep = VisionFocusScanStep.FocusStart;
+                    return 0;
+                }
 
                 int result = await EnsureInputOutputVisionAvoidAsync(ct).ConfigureAwait(false);
                 if (result != 0)

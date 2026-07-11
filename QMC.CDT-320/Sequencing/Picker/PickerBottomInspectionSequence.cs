@@ -154,6 +154,11 @@ namespace QMC.CDT320.Sequencing
                     Log.Write("PickerBottomInspectionSequence", Name + " moving bottom T to inspection. side=" + Side + " - Check");
                     return MoveBottomTAsync(ct);
 
+                // Bottom 촬영 위치에서 PickerZ만 이동하며 Runtime AutoFocus 실행
+                case PickerBottomInspectionStep.RunAutoFocusBeforeBottomInspection:
+                    Log.Write("PickerBottomInspectionSequence", Name + " running runtime autofocus before bottom inspection. side=" + Side + ", die=" + _currentDie.DieId + ", pickerNo=" + _currentPickerNo + " - Check");
+                    return RunAutoFocusBeforeBottomInspectionAsync(ct);
+
                 // 하단 검사 요청
                 case PickerBottomInspectionStep.RequestBottomInspection:
                     Log.Write("PickerBottomInspectionSequence", Name + " requesting bottom inspection. side=" + Side + ", die=" + _currentDie.DieId + ", pickerNo=" + _currentPickerNo + " - Check");
@@ -722,6 +727,22 @@ namespace QMC.CDT320.Sequencing
             if (result != 0)
                 return result;
 
+            CurrentStep = PickerBottomInspectionStep.RunAutoFocusBeforeBottomInspection;
+            return 0;
+        }
+
+        private async Task<int> RunAutoFocusBeforeBottomInspectionAsync(CancellationToken ct)
+        {
+            int result = await RunBottomRuntimeAutoFocusIfNeededAsync(
+                _currentPickerIndex,
+                _currentPickerNo,
+                _currentDie,
+                _targetPickerZ,
+                ct).ConfigureAwait(false);
+            if (result != 0)
+                return result;
+
+            _targetPickerZ = GetPickerTeachingPosition(GetPickerZAxis(_currentPickerIndex), "BottomPosition");
             CurrentStep = PickerBottomInspectionStep.RequestBottomInspection;
             return 0;
         }

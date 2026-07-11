@@ -38,7 +38,10 @@ namespace QMC.CDT_320.Ui.Dialogs
             VisionTimeout,
             VisionBestTimeout,
             FocusValueMode,
-            ReturnDefault
+            ReturnDefault,
+            AutoFocusBeforeBottom,
+            AutoFocusOnWaferChange,
+            AutoFocusPickInterval
         }
 
         private sealed class SettingRowInfo
@@ -107,8 +110,12 @@ namespace QMC.CDT_320.Ui.Dialogs
         private int _visionBestTimeoutMs = 120000;
         private VisionFocusValueReceiveMode _focusValueReceiveMode = VisionFocusValueReceiveMode.AckOnly;
         private bool _returnToDefaultAfterScan = true;
+        private bool _autoFocusBeforeBottomEnabled;
+        private bool _autoFocusOnWaferChange = true;
+        private int _autoFocusPickInterval;
         private CancellationTokenSource _runCts;
         private Action _activeStopRequest;
+        private System.Windows.Forms.Timer _runtimeRefreshTimer;
 
         public static VisionFocusCalibrationDialog Open(IWin32Window owner)
         {
@@ -126,6 +133,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                 CalibrationDialogGridBehavior.Apply(gridSettings, gridSamples, gridSaved);
                 ConfigureEditableSettingGrid();
                 InitializeRuntime();
+                StartRuntimeRefreshTimer();
             }
             catch (Exception ex)
             {
@@ -159,9 +167,22 @@ namespace QMC.CDT_320.Ui.Dialogs
         private void ApplyButtonStyle()
         {
             CalibrationDialogButtonStyle.ApplyFooterButtons(
-                new[] { btnCheck, btnUseCurrent, btnMoveDefault, btnMoveZAvoid, btnMoveYAvoid, btnSeqStop, btnApplyBest, btnReload, btnClose },
+                new[] { btnCheck, btnUseCurrent, btnMoveDefault, btnMoveZAvoid, btnMoveYAvoid, btnSeqStop, btnApplyBest, btnResetAutoFocus, btnReload, btnClose },
                 new[] { btnStartScan },
                 new[] { btnSave });
+        }
+
+        private void StartRuntimeRefreshTimer()
+        {
+            _runtimeRefreshTimer = new System.Windows.Forms.Timer();
+            _runtimeRefreshTimer.Interval = 2000;
+            _runtimeRefreshTimer.Tick += delegate
+            {
+                if (_busy || _loading || IsDisposed)
+                    return;
+                RefreshSavedGrid();
+            };
+            _runtimeRefreshTimer.Start();
         }
 
         private void ConfigureEditableSettingGrid()
@@ -346,6 +367,11 @@ namespace QMC.CDT_320.Ui.Dialogs
             ApplyBestFocusToInspectionPosition();
         }
 
+        private void btnResetAutoFocus_Click(object sender, EventArgs e)
+        {
+            ResetSelectedAutoFocusCount();
+        }
+
         private void btnSeqStop_Click(object sender, EventArgs e)
         {
             RequestActiveSequenceStop("SEQ STOP 버튼");
@@ -366,6 +392,23 @@ namespace QMC.CDT_320.Ui.Dialogs
         private void btnClose_Click(object sender, EventArgs e)
         {
             Close();
+        }
+
+        protected override void OnFormClosed(FormClosedEventArgs e)
+        {
+            try
+            {
+                if (_runtimeRefreshTimer != null)
+                {
+                    _runtimeRefreshTimer.Stop();
+                    _runtimeRefreshTimer.Dispose();
+                    _runtimeRefreshTimer = null;
+                }
+            }
+            finally
+            {
+                base.OnFormClosed(e);
+            }
         }
 
         private CancellationTokenSource BeginManualCalibrationRun(
@@ -801,6 +844,9 @@ namespace QMC.CDT_320.Ui.Dialogs
                 _visionBestTimeoutMs = settings.VisionBestTimeoutMs;
                 _focusValueReceiveMode = settings.FocusValueReceiveMode;
                 _returnToDefaultAfterScan = settings.ReturnToDefaultAfterScan;
+                _autoFocusBeforeBottomEnabled = settings.AutoFocusBeforeBottomEnabled;
+                _autoFocusOnWaferChange = settings.AutoFocusOnWaferChange;
+                _autoFocusPickInterval = settings.AutoFocusPickInterval;
                 _defaultPosition = ResolveSavedDefaultPosition(host.Machine);
             }
             catch (Exception ex)
@@ -846,6 +892,9 @@ namespace QMC.CDT_320.Ui.Dialogs
                 settings.VisionBestTimeoutMs = _visionBestTimeoutMs;
                 settings.FocusValueReceiveMode = _focusValueReceiveMode;
                 settings.ReturnToDefaultAfterScan = _returnToDefaultAfterScan;
+                settings.AutoFocusBeforeBottomEnabled = _autoFocusBeforeBottomEnabled;
+                settings.AutoFocusOnWaferChange = _autoFocusOnWaferChange;
+                settings.AutoFocusPickInterval = _autoFocusPickInterval;
 
                 VisionFocusPositionRecord record = ResolveSelectedRecord(host.Machine);
                 if (record != null)
@@ -988,6 +1037,7 @@ namespace QMC.CDT_320.Ui.Dialogs
 
                 AddSettingRow(CreateOptionInfo(FocusSettingKey.Mode, "Mode", "Focus Scan 대상 모드입니다.", ModeOptions), KindToText(_selectedKind), true);
                 bool bottomFocus = IsBottomFocusKind(_selectedKind);
+                bool runtimeBottomFocus = _selectedKind == VisionFocusScanKind.BottomCollet;
                 string pickerNoName = _selectedKind == VisionFocusScanKind.BottomDie ? "Picker No" : "Collet No";
                 AddSettingRow(CreateOptionInfo(FocusSettingKey.PickerSide, "Picker Side", "Bottom Focus에서 사용할 Front/Rear Picker를 선택합니다.", SideOptions), SideToText(_selectedPickerSide), bottomFocus);
                 AddSettingRow(CreateOptionInfo(FocusSettingKey.ColletNo, pickerNoName, "Bottom Focus에서 측정할 Picker 번호입니다.", ColletOptions), _selectedPickerNo.ToString(CultureInfo.InvariantCulture), bottomFocus);
@@ -1008,6 +1058,9 @@ namespace QMC.CDT_320.Ui.Dialogs
                 AddSettingRow(CreateNumberInfo(FocusSettingKey.VisionBestTimeout, "Best Timeout (ms)", "ms", "VisionPC FOCUS_BEST 응답 대기 시간입니다. 백그라운드 Focus 점수 처리가 완료될 때까지 기다립니다.", true), _visionBestTimeoutMs.ToString(CultureInfo.InvariantCulture), true);
                 AddSettingRow(CreateOptionInfo(FocusSettingKey.FocusValueMode, "Focus Val Mode", "Ack Only는 FOCUS_VAL 그랩 ACK만 받고 진행하며 최종 점수는 FOCUS_BEST에서만 받습니다. Wait Result는 테스트용 기존 대기 모드입니다.", FocusValueModeOptions), FocusValueModeToText(_focusValueReceiveMode), true);
                 AddSettingRow(CreateOptionInfo(FocusSettingKey.ReturnDefault, "Return Default", "스캔 완료 후 Default Pos로 복귀할지 선택합니다.", BoolOptions), _returnToDefaultAfterScan ? "True" : "False", true);
+                AddSettingRow(CreateOptionInfo(FocusSettingKey.AutoFocusBeforeBottom, "Auto Before Bottom", "생산 중 Bottom 촬영 위치에 진입한 뒤 PickerZ만 스캔하여 Best Focus를 Bottom Z로 적용할지 선택합니다.", BoolOptions), _autoFocusBeforeBottomEnabled ? "True" : "False", runtimeBottomFocus);
+                AddSettingRow(CreateOptionInfo(FocusSettingKey.AutoFocusOnWaferChange, "AF On Wafer Change", "Wafer ID가 바뀐 뒤 해당 콜렛의 다음 Bottom 촬영 전에 AutoFocus를 실행할지 선택합니다.", BoolOptions), _autoFocusOnWaferChange ? "True" : "False", runtimeBottomFocus);
+                AddSettingRow(CreateNumberInfo(FocusSettingKey.AutoFocusPickInterval, "AF Pick Interval (ea)", "ea", "AutoFocus 후 해당 콜렛이 지정 횟수만큼 PickUp하면 다음 Bottom 촬영 전에 다시 AutoFocus합니다. 0이면 횟수 조건을 사용하지 않습니다.", true), _autoFocusPickInterval.ToString(CultureInfo.InvariantCulture), runtimeBottomFocus);
 
                 _loading = oldLoading;
             }
@@ -1081,6 +1134,12 @@ namespace QMC.CDT_320.Ui.Dialogs
                 case FocusSettingKey.ReturnDefault:
                     _returnToDefaultAfterScan = value == "True";
                     break;
+                case FocusSettingKey.AutoFocusBeforeBottom:
+                    _autoFocusBeforeBottomEnabled = value == "True";
+                    break;
+                case FocusSettingKey.AutoFocusOnWaferChange:
+                    _autoFocusOnWaferChange = value == "True";
+                    break;
                 case FocusSettingKey.FocusValueMode:
                     _focusValueReceiveMode = TextToFocusValueMode(value);
                     break;
@@ -1119,6 +1178,63 @@ namespace QMC.CDT_320.Ui.Dialogs
                 case FocusSettingKey.VisionBestTimeout:
                     _visionBestTimeoutMs = Clamp(value, 1000, 300000);
                     break;
+                case FocusSettingKey.AutoFocusPickInterval:
+                    _autoFocusPickInterval = Clamp(value, 0, 1000000);
+                    break;
+            }
+        }
+
+        private void ResetSelectedAutoFocusCount()
+        {
+            try
+            {
+                if (_busy)
+                    return;
+
+                if (!ApplyAllSettingRowsFromGrid())
+                    return;
+
+                if (_selectedKind != VisionFocusScanKind.BottomCollet)
+                {
+                    lblStatus.Text = "AutoFocus Count Reset은 생산 Runtime Focus 기준인 Bottom Collet 모드에서만 사용할 수 있습니다.";
+                    return;
+                }
+
+                string reason;
+                Form1 host = ResolveHost(out reason);
+                if (host == null || host.Machine == null || host.Machine.VisionUnit == null)
+                {
+                    lblStatus.Text = reason;
+                    return;
+                }
+
+                VisionFocusCalibrationData data = host.Machine.VisionUnit.Config.FocusCalibration;
+                data.EnsureObjects();
+                VisionFocusPositionRecord record = data.GetBottomRecord(_selectedKind, _selectedPickerSide, _selectedPickerNo);
+                if (record == null)
+                {
+                    lblStatus.Text = "선택된 Focus 기록을 찾을 수 없습니다.";
+                    return;
+                }
+
+                record.AutoFocusPickCountSinceLast = 0;
+                record.LastAutoFocusWaferId = string.Empty;
+                record.RequestAutoFocusNext();
+                host.SaveMachineSettings();
+                RefreshSavedGrid();
+
+                lblStatus.Text = "선택 콜렛 AutoFocus Count를 리셋했고 다음 Bottom 촬영 전 AutoFocus를 강제 예약했습니다. " +
+                                 SideToText(_selectedPickerSide) + " #" + _selectedPickerNo;
+                EventLogger.Write(EventKind.Event, "CAL", "VISION-FOCUS-AUTO-RESET",
+                    lblStatus.Text);
+            }
+            catch (Exception ex)
+            {
+                lblStatus.Text = "AutoFocus Count Reset 실패: " + ex.Message;
+                EventLogger.Write(EventKind.Alarm, "CAL", "VISION-FOCUS-AUTO-RESET-EX", lblStatus.Text);
+            }
+            finally
+            {
             }
         }
 
@@ -1203,6 +1319,8 @@ namespace QMC.CDT_320.Ui.Dialogs
                 record.DefaultPosition.ToString("F3"),
                 record.BestPosition.ToString("F3"),
                 record.BestScore.ToString("F4"),
+                record.AutoFocusPickCountSinceLast.ToString(CultureInfo.InvariantCulture),
+                record.LastAutoFocusWaferId ?? string.Empty,
                 record.Valid ? "Y" : "N");
         }
 
@@ -1511,6 +1629,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             btnStartScan.Enabled = enabled;
             btnSeqStop.Enabled = _activeStopRequest != null;
             btnApplyBest.Enabled = enabled;
+            btnResetAutoFocus.Enabled = enabled;
             btnReload.Enabled = enabled;
             btnSave.Enabled = enabled;
             btnClose.Enabled = enabled;

@@ -443,6 +443,10 @@ namespace QMC.CDT320.Sequencing
                 if (result != 0)
                     return result;
 
+                result = await RunAutoFocusBeforeBottomInspectionAsync(target, ct).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
                 UpdateBottomPitchReference(bottomPitchReferenceX);
                 StartNextBottomZDownCommand(i + 1);
 
@@ -488,6 +492,24 @@ namespace QMC.CDT320.Sequencing
 
             WriteLog("PickerBottomAndSideInspectionSequence",
                 Name + " Bottom shot 전체 완료. pendingResult=" + CountPendingBottomResults() + " - Ok");
+            return 0;
+        }
+
+        private async Task<int> RunAutoFocusBeforeBottomInspectionAsync(InspectionTarget target, CancellationToken ct)
+        {
+            if (target == null)
+                return 0;
+
+            int result = await RunBottomRuntimeAutoFocusIfNeededAsync(
+                target.PickerIndex,
+                target.PickerNo,
+                target.Die,
+                target.Z,
+                ct).ConfigureAwait(false);
+            if (result != 0)
+                return result;
+
+            target.Z = GetPickerTeachingPosition(GetPickerZAxis(target.PickerIndex), "BottomPosition");
             return 0;
         }
 
