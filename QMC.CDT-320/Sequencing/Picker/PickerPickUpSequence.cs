@@ -7,6 +7,7 @@ using QMC.Common.Motion;
 using QMC.CDT320.Interlocks;
 using QMC.CDT320.Materials;
 using QMC.CDT320.VisionComm;
+using QMC.CDT320.Motion.SharedRailX;
 
 namespace QMC.CDT320.Sequencing
 {
@@ -55,6 +56,8 @@ namespace QMC.CDT320.Sequencing
         private SequenceResourceLease _inputStageLease;
         private PickUpBatchItem _currentBatchItem;
         private PickUpZTargets _lastPickUpZTargets;
+        private double _inputVisionPickerEntryTarget;
+        private bool _inputVisionPickerEntryTargetPrepared;
 
         private sealed class PickUpBatchItem
         {
@@ -224,7 +227,7 @@ namespace QMC.CDT320.Sequencing
 
                 // 검사 완료된 배치의 픽업 대상 계산
                 case PickerPickUpStep.CalculatePickTargets:
-                    return Task.FromResult(CalculatePickTargets());
+                    return Task.FromResult(CalculatePickTargets(true));
 
                 // 다음 픽업 대상 선택
                 case PickerPickUpStep.SelectNextPickTarget:
@@ -450,6 +453,7 @@ namespace QMC.CDT320.Sequencing
                 _pickBatchItems.Clear();
                 _inspectionCursor = 0;
                 _pickCursor = 0;
+                _inputVisionPickerEntryTargetPrepared = false;
                 ClearCurrentPickContext();
 
                 bool permitLoaded;
@@ -497,7 +501,7 @@ namespace QMC.CDT320.Sequencing
                     Name + " Input die vision 준비 결과를 PickUp 배치로 받았습니다. count=" + _pickBatchItems.Count +
                     ", enabledPickerCount=" + _enabledPickerIndexes.Count + " - Ok");
 
-                CurrentStep = PickerPickUpStep.MoveInputVisionToAvoidForPickerMove;
+                CurrentStep = PickerPickUpStep.CalculatePickTargets;
                 return 0;
             }
             catch (OperationCanceledException)
@@ -640,7 +644,7 @@ namespace QMC.CDT320.Sequencing
         {
             if (_inspectionCursor >= _pickBatchItems.Count)
             {
-                CurrentStep = PickerPickUpStep.MoveInputVisionToAvoidForPickerMove;
+                CurrentStep = PickerPickUpStep.CalculatePickTargets;
                 return 0;
             }
 
@@ -932,7 +936,7 @@ namespace QMC.CDT320.Sequencing
                 }
                 else if (_inspectionCursor >= _pickBatchItems.Count)
                 {
-                    CurrentStep = PickerPickUpStep.MoveInputVisionToAvoidForPickerMove;
+                    CurrentStep = PickerPickUpStep.CalculatePickTargets;
                 }
                 else
                 {
@@ -1004,7 +1008,7 @@ namespace QMC.CDT320.Sequencing
             WriteLog("PickerPickUpSequence",
                 Name + " input die vision batch completed. count=" + _pickBatchItems.Count + " - Ok");
 
-            CurrentStep = PickerPickUpStep.MoveInputVisionToAvoidForPickerMove;
+            CurrentStep = PickerPickUpStep.CalculatePickTargets;
             return 0;
         }
 
@@ -1021,14 +1025,62 @@ namespace QMC.CDT320.Sequencing
 
                 stage.Recipe.EnsurePositionObjects();
                 double avoid = stage.Recipe.VisionX.AvoidPosition;
+                double target = avoid;
+                string retreatDetail = "PickUp 목표 좌표가 없어 전체 Avoid를 사용합니다.";
+                bool targetsCalculated = ArePickBatchTargetsCalculated();
 
-                if (!stage.IsVisionXInAvoidPosition())
+                if (targetsCalculated)
+                {
+                    SharedRailXMotionService service = SharedRailXMotionRuntime.ResolveService(
+                        Context != null ? Context.Machine : null);
+                    if (service != null)
+                    {
+                        var planned = new Dictionary<SharedRailXAxis, IList<double>>();
+                        SharedRailXAxis pickerRailAxis = Side == PickerSequenceSide.Front
+                            ? SharedRailXAxis.FrontPickerX
+                            : SharedRailXAxis.RearPickerX;
+                        var pickerTargets = new List<double>();
+                        for (int i = 0; i < _pickBatchItems.Count; i++)
+                            pickerTargets.Add(_pickBatchItems[i].TargetPickerX);
+                        planned[pickerRailAxis] = pickerTargets;
+
+                        double dynamicTarget;
+                        string dynamicDetail;
+                        if (service.TryResolveNearestVisionRetreatTarget(
+                            stage.CameraX,
+                            avoid,
+                            -0.1,
+                            planned,
+                            1.0,
+                            out dynamicTarget,
+                            out dynamicDetail))
+                        {
+                            target = dynamicTarget;
+                            retreatDetail = dynamicDetail;
+                        }
+                        else
+                        {
+                            retreatDetail = dynamicDetail + " 전체 Avoid로 대체합니다.";
+                        }
+                    }
+                }
+
+                _inputVisionPickerEntryTarget = target;
+                _inputVisionPickerEntryTargetPrepared = true;
+                WriteLog("PickerPickUpSequence",
+                    Name + " InputVisionX 피커 진입 회피 좌표를 확정했습니다. " +
+                    "target=" + target.ToString("F6") +
+                    ", fullAvoid=" + avoid.ToString("F6") +
+                    ", batchPickerX=" + string.Join(",", _pickBatchItems.ConvertAll(x => x.TargetPickerX.ToString("F6")).ToArray()) +
+                    ", detail=" + retreatDetail + " - Check");
+
+                if (!IsAxisInTarget(stage.CameraX, target))
                 {
                     int result = await MoveInputStageAxisCommandAsync(
                         stage,
                         WaferStageAxis.VisionX,
-                        avoid,
-                        "InputVisionX avoid before picker move",
+                        target,
+                        "InputVisionX 최소 회피 위치 이동",
                         ct).ConfigureAwait(false);
                     if (result != 0)
                         return result;
@@ -1036,8 +1088,8 @@ namespace QMC.CDT320.Sequencing
                     result = await WaitInputStageAxisInPositionResultAsync(
                         stage,
                         WaferStageAxis.VisionX,
-                        avoid,
-                        "InputVisionX avoid before picker move",
+                        target,
+                        "InputVisionX 최소 회피 위치 이동",
                         ct).ConfigureAwait(false);
                     if (result != 0)
                         return result;
@@ -1046,12 +1098,14 @@ namespace QMC.CDT320.Sequencing
                 int checkResult = CheckInputStageAxisInPosition(
                     stage,
                     WaferStageAxis.VisionX,
-                    avoid,
-                    "InputVisionX avoid before picker move");
+                    target,
+                    "InputVisionX 최소 회피 위치 이동");
                 if (checkResult != 0)
                     return checkResult;
 
-                CurrentStep = PickerPickUpStep.CalculatePickTargets;
+                CurrentStep = targetsCalculated
+                    ? PickerPickUpStep.SelectNextPickTarget
+                    : PickerPickUpStep.CalculatePickTargets;
                 return 0;
             }
             catch (OperationCanceledException)
@@ -1068,7 +1122,7 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
-        private int CalculatePickTargets()
+        private int CalculatePickTargets(bool moveVisionAfterCalculation = false)
         {
             try
             {
@@ -1085,7 +1139,9 @@ namespace QMC.CDT320.Sequencing
                     SaveCurrentStateToBatchItem();
                 }
 
-                CurrentStep = PickerPickUpStep.SelectNextPickTarget;
+                CurrentStep = moveVisionAfterCalculation
+                    ? PickerPickUpStep.MoveInputVisionToAvoidForPickerMove
+                    : PickerPickUpStep.SelectNextPickTarget;
                 return 0;
             }
             catch (Exception ex)
@@ -1657,101 +1713,144 @@ namespace QMC.CDT320.Sequencing
                     return await MovePickerXStageYPickerTByDefaultAsync(stage, tAxis, targetName, ct).ConfigureAwait(false);
                 }
 
-                bool pickerVacuumWasOn;
-                string pickerVacuumStateReason;
-                bool pickerVacuumStateKnown = TryReadPickerVacuumOutputOn(_currentPickerNo, out pickerVacuumWasOn, out pickerVacuumStateReason);
-                if (!pickerVacuumStateKnown)
-                {
-                    WriteLog("PickerPickUpSequence",
-                        Name + " PickUp ContiNode Vacuum 기존 상태 확인 실패. " +
-                        "fallback 시 Vacuum 복구는 생략합니다. reason=" + pickerVacuumStateReason +
-                        ", pickerNo=" + _currentPickerNo +
-                        ", die=" + _currentDieId + " - Check");
-                }
-
                 int vacuumResult = await VacuumOnBeforePickAsync(pickUpConfig, ct).ConfigureAwait(false);
                 if (vacuumResult != 0)
                     return vacuumResult;
 
                 EnsurePickerWorkAreaReserved(PickerWorkZone.Input, "PickUp ContiNode");
 
-                Task<int> needleXMoveTask = MoveInputStageAxisCommandAsync(
+                double pickerXStart = pickerX.ActualPosition;
+                double pickerXPrePickTrigger = ResolveContiAsyncPrePickTriggerPosition(
+                    pickerXStart,
+                    _targetPickerX,
+                    pickUpConfig);
+                double transferVelocity = pickUpConfig.GetTransferContiNodeVelocity(2);
+                double transferAcceleration = pickUpConfig.GetTransferContiNodeAcceleration(2);
+                double transferDeceleration = pickUpConfig.GetTransferContiNodeDeceleration(2);
+
+                WriteLog("PickerPickUpSequence",
+                    Name + " PickUp ContiNode async transfer start. " +
+                    "die=" + _currentDieId +
+                    ", pickerNo=" + _currentPickerNo +
+                    ", pickerXStart=" + pickerXStart.ToString("F6") +
+                    ", pickerXTarget=" + _targetPickerX.ToString("F6") +
+                    ", prePickTrigger=" + pickerXPrePickTrigger.ToString("F6") +
+                    ", prePickZ=" + prePickTarget.ToString("F6") +
+                    ", velocity=" + transferVelocity.ToString("F6") +
+                    ", acc=" + transferAcceleration.ToString("F6") +
+                    ", dec=" + transferDeceleration.ToString("F6") + " - Start");
+
+                Task<int> pickerXMoveTask = MovePickerAxisWithMotionAndVerifyAsync(
+                    PickerAxis.PickerX,
+                    _targetPickerX,
+                    transferVelocity,
+                    transferAcceleration,
+                    transferDeceleration,
+                    "PickUp ContiNode PickerX async target",
+                    targetName,
+                    ct);
+                Task<int> stageYMoveTask = MoveInputStageAxisWithMotionAndVerifyAsync(
+                    stage,
+                    WaferStageAxis.WaferY,
+                    _targetStageY,
+                    transferVelocity,
+                    transferAcceleration,
+                    transferDeceleration,
+                    "PickUp ContiNode StageY async target",
+                    ct);
+                Task<int> needleXMoveTask = MoveInputStageAxisWithMotionAndVerifyAsync(
                     stage,
                     WaferStageAxis.NeedleX,
                     _targetNeedleX,
-                    "PickUp ContiNode NeedleX async",
+                    transferVelocity,
+                    transferAcceleration,
+                    transferDeceleration,
+                    "PickUp ContiNode NeedleX async target",
                     ct);
-                await Task.Delay(1, ct).ConfigureAwait(false);
-                if (needleXMoveTask.IsCompleted)
+                Task<int> pickerZPrePickTask = MovePickerZPrePickAfterPickerXProgressAsync(
+                    pickerX,
+                    pickerZAxis,
+                    pickerZAvoid,
+                    pickerXStart,
+                    pickerXPrePickTrigger,
+                    pickUpConfig,
+                    ct);
+
+                int[] transferResults = await Task.WhenAll(
+                    pickerXMoveTask,
+                    stageYMoveTask,
+                    needleXMoveTask,
+                    pickerZPrePickTask).ConfigureAwait(false);
+                if (transferResults[0] != 0 ||
+                    transferResults[1] != 0 ||
+                    transferResults[2] != 0 ||
+                    transferResults[3] != 0)
                 {
-                    int immediateNeedleXResult = await needleXMoveTask.ConfigureAwait(false);
-                    if (immediateNeedleXResult != 0)
-                    {
-                        RestorePickerVacuumBeforeDefaultFallbackIfNeeded(pickerVacuumStateKnown, pickerVacuumWasOn);
-                        return immediateNeedleXResult;
-                    }
+                    return Fail("PICKER-PICKUP-CONTI-ASYNC-MOVE", Name,
+                        "PickUp ContiNode async transfer failed. " +
+                        "pickerXResult=" + transferResults[0] +
+                        ", stageYResult=" + transferResults[1] +
+                        ", needleXResult=" + transferResults[2] +
+                        ", pickerZPrePickResult=" + transferResults[3] +
+                        ", " + BuildPickerAxisState(PickerAxis.PickerX, _targetPickerX) +
+                        ", " + BuildInputStageAxisState(stage, WaferStageAxis.WaferY, _targetStageY) +
+                        ", " + BuildInputStageAxisState(stage, WaferStageAxis.NeedleX, _targetNeedleX) +
+                        ", " + BuildPickerAxisState(pickerZAxis, prePickTarget));
                 }
 
-                InterpolatedMotionMoveResult contiResult =
-                    await PickerPickUpContiSegmentedMotion.MovePickerXStageYAndPickerZBySplineWriteAsync(
-                        pickerX,
-                        stageY,
-                        pickerZ,
-                        nodes,
-                        pickUpConfig,
-                        ct).ConfigureAwait(false);
+                Task<int> pickerZContactTask = MovePickerZSlowToContactAndSettleAsync(
+                    pickerZAxis,
+                    pickUpConfig,
+                    ct);
+                Task<int> ejectPinZReadyTask = MoveInputStageAxisCommandAsync(
+                    stage,
+                    WaferStageAxis.EjectPinZ,
+                    _targetEjectPinZ,
+                    "PickUp ContiNode EjectPinZ pick ready async",
+                    ct);
 
-                if (contiResult != null && contiResult.Success)
+                int[] contactResults = await Task.WhenAll(
+                    pickerZContactTask,
+                    ejectPinZReadyTask).ConfigureAwait(false);
+                if (contactResults[0] != 0 || contactResults[1] != 0)
                 {
-                    int needleXResult = await needleXMoveTask.ConfigureAwait(false);
-                    if (needleXResult != 0)
-                        return needleXResult;
-
-                    int finalWait = await WaitContiSegmentedPickUpFinalPositionAsync(
-                        stage,
-                        pickerZAxis,
-                        _targetPickerZ,
-                        Math.Max(pickUpConfig.TransferContiTimeoutMs, ResolveTimeout()),
-                        ct).ConfigureAwait(false);
-                    if (finalWait != 0)
-                        return finalWait;
-
-                    WriteLog("PickerPickUpSequence",
-                        Name + " PickUp ContiNode transfer complete. " +
-                        "die=" + _currentDieId +
-                        ", pickerNo=" + _currentPickerNo +
-                        ", targetPickerZ=" + _targetPickerZ.ToString("F3") +
-                        ", prePickZ=" + prePickTarget.ToString("F3") +
-                        ", " + contiResult + " - Ok");
-
-                    _pickerZContactedByContiPickUp = true;
-                    CurrentStep = PickerPickUpStep.VerifyPickTarget;
-                    return 0;
+                    return Fail("PICKER-PICKUP-CONTI-CONTACT", Name,
+                        "PickUp ContiNode contact/eject ready failed. " +
+                        "pickerZContactResult=" + contactResults[0] +
+                        ", ejectPinZReadyResult=" + contactResults[1] +
+                        ", " + BuildPickerAxisState(pickerZAxis, _targetPickerZ) +
+                        ", " + BuildInputStageAxisState(stage, WaferStageAxis.EjectPinZ, _targetEjectPinZ));
                 }
 
-                if (contiResult != null && contiResult.CommandIssued)
-                {
-                    await needleXMoveTask.ConfigureAwait(false);
-                    return Fail("PICKER-PICKUP-CONTI-MOVE", Name,
-                        "PickUp ContiNode command was issued but completion failed. Stop without default fallback. " +
-                    "die=" + _currentDieId +
-                    ", pickerNo=" + _currentPickerNo +
-                    ", " + contiResult);
-                }
+                int finalWait = await WaitContiSegmentedPickUpFinalPositionAsync(
+                    stage,
+                    pickerZAxis,
+                    _targetPickerZ,
+                    Math.Max(pickUpConfig.TransferContiTimeoutMs, ResolveTimeout()),
+                    ct).ConfigureAwait(false);
+                if (finalWait != 0)
+                    return finalWait;
 
-                RestorePickerVacuumBeforeDefaultFallbackIfNeeded(pickerVacuumStateKnown, pickerVacuumWasOn);
+                int ejectCheck = CheckInputStageAxisInPosition(
+                    stage,
+                    WaferStageAxis.EjectPinZ,
+                    _targetEjectPinZ,
+                    "PickUp ContiNode EjectPinZ pick ready final");
+                if (ejectCheck != 0)
+                    return ejectCheck;
+
                 WriteLog("PickerPickUpSequence",
-                    Name + " PickUp ContiNode failed before command. Use default PickUp transfer. " +
+                    Name + " PickUp ContiNode async transfer/contact complete. " +
                     "die=" + _currentDieId +
                     ", pickerNo=" + _currentPickerNo +
-                    ", result=" + (contiResult != null ? contiResult.ResultCode.ToString() : "-") +
-                    ", reason=" + (contiResult != null ? contiResult.Message : "no result") +
-                    " - Check");
-                int fallbackNeedleXResult = await needleXMoveTask.ConfigureAwait(false);
-                if (fallbackNeedleXResult != 0)
-                    return fallbackNeedleXResult;
+                    ", targetPickerZ=" + _targetPickerZ.ToString("F3") +
+                    ", prePickZ=" + prePickTarget.ToString("F3") +
+                    ", ejectPinZ=" + _targetEjectPinZ.ToString("F3") +
+                    " - Ok");
 
-                return await MovePickerXStageYPickerTByDefaultAsync(stage, tAxis, targetName, ct).ConfigureAwait(false);
+                _pickerZContactedByContiPickUp = true;
+                CurrentStep = PickerPickUpStep.VerifyPickTarget;
+                return 0;
             }
             catch (OperationCanceledException)
             {
@@ -2081,6 +2180,144 @@ namespace QMC.CDT320.Sequencing
             }
 
             return true;
+        }
+
+        private static double ResolveContiAsyncPrePickTriggerPosition(
+            double pickerXStart,
+            double pickerXTarget,
+            PickerPickUpMotionConfig pickUpConfig)
+        {
+            double ratio = pickUpConfig != null ? pickUpConfig.TransferContiXYMidRatio : 0.5;
+            if (double.IsNaN(ratio) || double.IsInfinity(ratio))
+                ratio = 0.5;
+            ratio = Math.Max(0.0, Math.Min(1.0, ratio));
+            return pickerXStart + ((pickerXTarget - pickerXStart) * ratio);
+        }
+
+        private static bool IsContiAsyncPrePickTriggerReached(
+            double pickerXStart,
+            double pickerXTarget,
+            double pickerXTrigger,
+            double pickerXActual)
+        {
+            double travel = pickerXTarget - pickerXStart;
+            if (Math.Abs(travel) <= 0.000001)
+                return true;
+
+            return travel > 0.0
+                ? pickerXActual >= pickerXTrigger
+                : pickerXActual <= pickerXTrigger;
+        }
+
+        private async Task<int> MovePickerZPrePickAfterPickerXProgressAsync(
+            BaseAxis pickerX,
+            PickerAxis pickerZ,
+            double pickerZAvoid,
+            double pickerXStart,
+            double pickerXTrigger,
+            PickerPickUpMotionConfig pickUpConfig,
+            CancellationToken ct)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+
+                if (pickUpConfig == null || pickUpConfig.PickerZPrePickDistance <= 0.0)
+                    return 0;
+
+                int timeoutMs = Math.Max(1000, Math.Max(pickUpConfig.TransferContiTimeoutMs, ResolveTimeout()));
+                DateTime deadline = DateTime.UtcNow.AddMilliseconds(timeoutMs);
+                DateTime stoppedCheckDeadline = DateTime.UtcNow.AddMilliseconds(200);
+
+                while (true)
+                {
+                    ct.ThrowIfCancellationRequested();
+
+                    double pickerXActual = pickerX != null ? pickerX.ActualPosition : pickerXStart;
+                    if (IsContiAsyncPrePickTriggerReached(pickerXStart, _targetPickerX, pickerXTrigger, pickerXActual))
+                        break;
+
+                    if (pickerX != null && pickerX.IsAlarm)
+                    {
+                        return Fail("PICKER-PICKUP-CONTI-PREPICK-TRIGGER", Name,
+                            "PickUp ContiNode PickerZ PrePick trigger wait failed. PickerX alarm is ON. " +
+                            BuildPickerAxisState(PickerAxis.PickerX, _targetPickerX));
+                    }
+
+                    if (DateTime.UtcNow >= stoppedCheckDeadline &&
+                        pickerX != null &&
+                        !pickerX.IsMoving &&
+                        !IsPickerAxisInPosition(PickerAxis.PickerX, _targetPickerX))
+                    {
+                        return Fail("PICKER-PICKUP-CONTI-PREPICK-TRIGGER", Name,
+                            "PickUp ContiNode PickerZ PrePick trigger wait failed. PickerX stopped before trigger. " +
+                            "start=" + pickerXStart.ToString("F6") +
+                            ", trigger=" + pickerXTrigger.ToString("F6") +
+                            ", actual=" + pickerXActual.ToString("F6") +
+                            ", " + BuildPickerAxisState(PickerAxis.PickerX, _targetPickerX));
+                    }
+
+                    if (DateTime.UtcNow >= deadline)
+                    {
+                        return Fail("PICKER-PICKUP-CONTI-PREPICK-TRIGGER-TIMEOUT", Name,
+                            "PickUp ContiNode PickerZ PrePick trigger timeout. " +
+                            "timeoutMs=" + timeoutMs +
+                            ", start=" + pickerXStart.ToString("F6") +
+                            ", trigger=" + pickerXTrigger.ToString("F6") +
+                            ", actual=" + pickerXActual.ToString("F6") +
+                            ", " + BuildPickerAxisState(PickerAxis.PickerX, _targetPickerX));
+                    }
+
+                    await Task.Delay(10, ct).ConfigureAwait(false);
+                }
+
+                WriteLog("PickerPickUpSequence",
+                    Name + " PickUp ContiNode PickerZ PrePick trigger reached. " +
+                    "pickerNo=" + _currentPickerNo +
+                    ", start=" + pickerXStart.ToString("F6") +
+                    ", trigger=" + pickerXTrigger.ToString("F6") +
+                    ", actual=" + (pickerX != null ? pickerX.ActualPosition.ToString("F6") : "-") +
+                    " - Start");
+
+                return await MovePickerZPrePickAsync(pickerZ, pickerZAvoid, pickUpConfig, ct).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("PICKER-PICKUP-CONTI-PREPICK-EX", Name,
+                    "PickUp ContiNode PickerZ PrePick trigger move exception. error=" + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private bool ArePickBatchTargetsCalculated()
+        {
+            if (_pickBatchItems.Count == 0)
+                return false;
+
+            for (int i = 0; i < _pickBatchItems.Count; i++)
+            {
+                if (string.IsNullOrWhiteSpace(_pickBatchItems[i].TargetFormula))
+                    return false;
+            }
+
+            return true;
+        }
+
+        private static bool IsAxisInTarget(BaseAxis axis, double target)
+        {
+            if (axis == null || axis.IsMoving)
+                return false;
+
+            double tolerance = axis.Config != null && axis.Config.InPositionTolerance > 0.0
+                ? axis.Config.InPositionTolerance
+                : 0.01;
+            return Math.Abs(axis.ActualPosition - target) <= tolerance;
         }
 
         private async Task<int> WaitContiSegmentedPickUpFinalPositionAsync(
@@ -2540,17 +2777,20 @@ namespace QMC.CDT320.Sequencing
                     return false;
                 }
 
-                if (!stage.IsVisionXInAvoidPosition())
+                if (!_inputVisionPickerEntryTargetPrepared ||
+                    !IsAxisInTarget(stage.CameraX, _inputVisionPickerEntryTarget) ||
+                    stage.CameraX.ActualPosition > 0.0)
                 {
-                    detail = "InputVisionX is not Avoid. actual=" +
+                    detail = "InputVisionX가 확정된 피커 진입 회피 위치가 아닙니다. actual=" +
                         stage.CameraX.ActualPosition.ToString("0.###") +
-                        ", target=" + (stage.Recipe != null && stage.Recipe.VisionX != null
-                            ? stage.Recipe.VisionX.AvoidPosition.ToString("0.###")
-                            : "null");
+                        ", target=" + (_inputVisionPickerEntryTargetPrepared
+                            ? _inputVisionPickerEntryTarget.ToString("0.###")
+                            : "미확정") +
+                        ", entryLimit=0";
                     return false;
                 }
 
-                detail = "InputVisionX Avoid.";
+                detail = "InputVisionX 피커 진입 회피 위치 확인 완료.";
                 return true;
             }
             catch (Exception ex)
@@ -3941,12 +4181,12 @@ namespace QMC.CDT320.Sequencing
 
                 WriteLog("PickerPickUpZ",
                     Name + " PickUp ContiNode Contact 이후 Z 세부 모션 시작. " +
-                    "PrepareNeedlePinZ 후 SyncLift/Separate/Verify/Safe만 실행합니다. " +
+                    "Contact/EjectPinZ Ready 완료 후 SyncLift/Separate/Verify/Safe만 실행합니다. " +
                     "pickerNo=" + _currentPickerNo +
                     ", targetPickerZ=" + _targetPickerZ.ToString("F6") +
                     ", pickerZAvoid=" + pickerZAvoid.ToString("F6") + " - Start");
 
-                int result = await PrepareNeedlePinZForPickAsync(ct).ConfigureAwait(false);
+                int result = MoveEjectPinPickerZStartPositionCheck(pickerZ);
                 if (result != 0)
                     return result;
 
@@ -3998,7 +4238,11 @@ namespace QMC.CDT320.Sequencing
                 if (result != 0)
                     return result;
 
-                result = await VacuumOnForSimplePickAsync(config, ct).ConfigureAwait(false);
+                result = await VacuumOnForSimplePickAsync(ct).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                result = await WaitAfterPickerZContactSettleAsync(pickerZ, config, ct).ConfigureAwait(false);
                 if (result != 0)
                     return result;
 
@@ -4046,6 +4290,23 @@ namespace QMC.CDT320.Sequencing
             finally
             {
             }
+        }
+
+        private int MoveEjectPinPickerZStartPositionCheck(PickerAxis pickerZ)
+        {
+            InputStageUnit stage = ResolveInputStage();
+            if (stage == null)
+                return Fail("PICKER-PICKUP-STAGE-NO-UNIT", "InputStageUnit", "InputStageUnit is null.");
+
+            int check = CheckPickerAxisInPosition(pickerZ, _targetPickerZ, "PickUp ContiNode Sync Lift 시작 PickerZ Contact 위치");
+            if (check != 0)
+                return check;
+
+            check = CheckInputStageAxisInPosition(stage, WaferStageAxis.NeedleZ, _targetNeedleZ, "PickUp ContiNode Sync Lift 시작 NeedleZ 티칭 위치");
+            if (check != 0)
+                return check;
+
+            return CheckInputStageAxisInPosition(stage, WaferStageAxis.EjectPinZ, _targetEjectPinZ, "PickUp ContiNode Sync Lift 시작 EjectPinZ 픽업 준비 위치");
         }
 
         private async Task<int> RunPickupZManualStepAsync(PickerPickUpZManualStep step, CancellationToken ct)
@@ -4283,7 +4544,7 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
-        private async Task<int> VacuumOnForSimplePickAsync(PickerPickUpMotionConfig config, CancellationToken ct)
+        private Task<int> VacuumOnForSimplePickAsync(CancellationToken ct)
         {
             try
             {
@@ -4292,15 +4553,11 @@ namespace QMC.CDT320.Sequencing
                 InputStageUnit stage = ResolveInputStage();
                 int needleVacuumResult = EnsureNeedleVacuumOnForPick(stage, "PickUp Simple Vacuum ON Step");
                 if (needleVacuumResult != 0)
-                    return needleVacuumResult;
+                    return Task.FromResult(needleVacuumResult);
 
                 SetPickerVacuum(_currentPickerNo, true);
 
-                int delayMs = Math.Max(ResolveVacuumSettleMs(), config.VacuumOnBeforePickDelayMs);
-                if (delayMs > 0)
-                    await Task.Delay(delayMs, ct).ConfigureAwait(false);
-
-                return 0;
+                return Task.FromResult(0);
             }
             catch (OperationCanceledException)
             {
@@ -4308,8 +4565,8 @@ namespace QMC.CDT320.Sequencing
             }
             catch (Exception ex)
             {
-                return Fail("PICKER-PICKUP-SIMPLE-VACUUM-EX", Name,
-                    "PickUp 단순 Z 모션 Vacuum ON 중 예외가 발생했습니다. error=" + ex.Message);
+                return Task.FromResult(Fail("PICKER-PICKUP-SIMPLE-VACUUM-EX", Name,
+                    "PickUp 단순 Z 모션 Vacuum ON 중 예외가 발생했습니다. error=" + ex.Message));
             }
             finally
             {
@@ -4404,7 +4661,6 @@ namespace QMC.CDT320.Sequencing
                 double syncLiftDistance = stage.Config.PickUpNeedleSyncLiftDistance;
                 double ejectPinSyncLiftOffset = ResolveEjectPinZSyncLiftOffset(stage);
 
-                QMC.Common.Motion.BaseAxis ejectPinZ = ResolveInputStageAxis(stage, WaferStageAxis.EjectPinZ);
                 syncTargets.PickerZ = _targetPickerZ + syncLiftDistance;
                 syncTargets.NeedleZ = _targetNeedleZ;
                 syncTargets.EjectPinZ = _targetEjectPinZ + syncLiftDistance + ejectPinSyncLiftOffset;
@@ -4426,99 +4682,11 @@ namespace QMC.CDT320.Sequencing
                 if (startCheck != 0)
                     return startCheck;
 
-                if (ShouldUseSimulatedSyncLiftFallback())
-                {
-                    return await MovePickerNeedleZSyncLiftFallbackAsync(
-                        pickerZ,
-                        stage,
-                        syncTargets,
-                        ct).ConfigureAwait(false);
-                }
-
-                QMC.Common.Motion.BaseAxis pickerZAxis = GetPickerAxis(pickerZ);
-                int readyResult = CheckAxisReadyForInterpolatedSyncLift(pickerZAxis, "PickerZ");
-                if (readyResult != 0)
-                    return readyResult;
-
-                readyResult = CheckAxisReadyForInterpolatedSyncLift(ejectPinZ, "EjectPinZ");
-                if (readyResult != 0)
-                    return readyResult;
-
-                int[] axes =
-                {
-                    pickerZAxis.Setup.AxisNo,
-                    ejectPinZ.Setup.AxisNo
-                };
-                double[] relatives =
-                {
-                    syncTargets.PickerZ - pickerZAxis.ActualPosition,
-                    syncTargets.EjectPinZ - ejectPinZ.ActualPosition
-                };
-
-                InterpolatedMotionMoveResult moveResult = await AjinInterpolatedMotionService.RunSynchronizedArrivalRelativeMoveAsync(
-                    0,
-                    axes,
-                    relatives,
-                    stage.Config.PickUpNeedleSyncLiftVelocity,
-                    stage.Config.PickUpNeedleSyncLiftAcc,
-                    stage.Config.PickUpNeedleSyncLiftDec,
-                    ResolveTimeout(),
-                    ct).ConfigureAwait(false);
-
-                if (moveResult == null || !moveResult.Success)
-                {
-                    StopSyncLiftAxes(pickerZAxis, ejectPinZ);
-                    return Fail("PICKER-PICKUP-Z-SYNC-LIFT", Name,
-                        "PickUp PickerZ/EjectPinZ 직선 동기 상승 실패. result=" +
-                        (moveResult != null ? moveResult.ResultCode : -1) +
-                        ", message=" + (moveResult != null ? moveResult.Message : "null-result") +
-                        ", " + BuildPickerAxisState(pickerZ, syncTargets.PickerZ) +
-                        ", " + BuildInputStageAxisState(stage, WaferStageAxis.EjectPinZ, syncTargets.EjectPinZ) +
-                        ", NeedleZHold=" + BuildInputStageAxisState(stage, WaferStageAxis.NeedleZ, syncTargets.NeedleZ));
-                }
-
-                int waitResult = await WaitPickerAxisInPositionResultAsync(
+                return await MovePickerNeedleZSyncLiftFallbackAsync(
                     pickerZ,
-                    syncTargets.PickerZ,
-                    "PickUp PickerZ/EjectPinZ 직선 동기 상승 PickerZ",
-                    ct).ConfigureAwait(false);
-                if (waitResult != 0)
-                    return waitResult;
-
-                waitResult = await WaitInputStageAxisInPositionResultAsync(
                     stage,
-                    WaferStageAxis.EjectPinZ,
-                    syncTargets.EjectPinZ,
-                    "PickUp PickerZ/EjectPinZ 직선 동기 상승 EjectPinZ",
+                    syncTargets,
                     ct).ConfigureAwait(false);
-                if (waitResult != 0)
-                    return waitResult;
-
-                int check = CheckPickerAxisInPosition(pickerZ, syncTargets.PickerZ, "PickUp PickerZ/EjectPinZ 직선 동기 상승 PickerZ");
-                if (check != 0)
-                    return check;
-
-                check = CheckInputStageAxisInPosition(stage, WaferStageAxis.EjectPinZ, syncTargets.EjectPinZ, "PickUp PickerZ/EjectPinZ 직선 동기 상승 EjectPinZ");
-                if (check != 0)
-                    return check;
-
-                check = CheckInputStageAxisInPosition(stage, WaferStageAxis.NeedleZ, syncTargets.NeedleZ, "PickUp Sync Lift NeedleZ 티칭 위치 유지");
-                if (check != 0)
-                    return check;
-
-                WriteLog("PickerPickUpSyncLift",
-                    Name + " PickUp PickerZ/EjectPinZ synchronized lift complete. pickerNo=" + _currentPickerNo +
-                    ", distance=" + syncLiftDistance.ToString("F6") +
-                    ", ejectPinSyncLiftOffset=" + ejectPinSyncLiftOffset.ToString("F6") +
-                    ", velocity=" + stage.Config.PickUpNeedleSyncLiftVelocity.ToString("F6") +
-                    ", acc=" + stage.Config.PickUpNeedleSyncLiftAcc.ToString("F6") +
-                    ", dec=" + stage.Config.PickUpNeedleSyncLiftDec.ToString("F6") +
-                    ", pickerZState=" + BuildPickerAxisState(pickerZ, syncTargets.PickerZ) +
-                    ", ejectPinZState=" + BuildInputStageAxisState(stage, WaferStageAxis.EjectPinZ, syncTargets.EjectPinZ) +
-                    ", needleZHoldState=" + BuildInputStageAxisState(stage, WaferStageAxis.NeedleZ, syncTargets.NeedleZ) +
-                    " - Ok");
-
-                return 0;
             }
             catch (OperationCanceledException)
             {
@@ -4527,7 +4695,7 @@ namespace QMC.CDT320.Sequencing
             catch (Exception ex)
             {
                 return Fail("PICKER-PICKUP-Z-SYNC-LIFT-EX", Name,
-                    "PickUp PickerZ/EjectPinZ 동기 상승 중 예외가 발생했습니다. error=" + ex.Message);
+                    "PickUp PickerZ/EjectPinZ 개별 비동기 상승 중 예외가 발생했습니다. error=" + ex.Message);
             }
             finally
             {
@@ -4603,6 +4771,21 @@ namespace QMC.CDT320.Sequencing
             if (result != 0)
                 return result;
 
+            return await WaitAfterPickerZContactSettleAsync(pickerZ, config, ct).ConfigureAwait(false);
+        }
+
+        private async Task<int> WaitAfterPickerZContactSettleAsync(
+            PickerAxis pickerZ,
+            PickerPickUpMotionConfig config,
+            CancellationToken ct)
+        {
+            int check = CheckPickerAxisInPosition(
+                pickerZ,
+                _targetPickerZ,
+                "PickUp PickerZ Die Touch 위치 완료 확인");
+            if (check != 0)
+                return check;
+
             int contactSettleMs = ResolvePickerContactSettleMs(config);
             if (contactSettleMs <= 0)
                 return 0;
@@ -4639,7 +4822,7 @@ namespace QMC.CDT320.Sequencing
                 stage.Config.PickUpNeedleSyncLiftVelocity,
                 stage.Config.PickUpNeedleSyncLiftAcc,
                 stage.Config.PickUpNeedleSyncLiftDec,
-                "PickUp PickerZ/EjectPinZ 시뮬레이션 동시 상승 PickerZ",
+                "PickUp PickerZ/EjectPinZ 개별 비동기 상승 PickerZ",
                 "PickUpSyncLift",
                 ct);
             Task<int> ejectPinMove = MoveInputStageAxisWithMotionAndVerifyAsync(
@@ -4649,14 +4832,14 @@ namespace QMC.CDT320.Sequencing
                 stage.Config.PickUpNeedleSyncLiftVelocity,
                 stage.Config.PickUpNeedleSyncLiftAcc,
                 stage.Config.PickUpNeedleSyncLiftDec,
-                "PickUp PickerZ/EjectPinZ 시뮬레이션 동시 상승 EjectPinZ",
+                "PickUp PickerZ/EjectPinZ 개별 비동기 상승 EjectPinZ",
                 ct);
 
             int[] results = await Task.WhenAll(pickerMove, ejectPinMove).ConfigureAwait(false);
             if (results[0] != 0 || results[1] != 0)
             {
                 return Fail("PICKER-PICKUP-Z-SYNC-LIFT", Name,
-                    "PickUp PickerZ/EjectPinZ 시뮬레이션 동시 상승 실패. " +
+                    "PickUp PickerZ/EjectPinZ 개별 비동기 상승 실패. " +
                     "pickerZResult=" + results[0] +
                     ", ejectPinZResult=" + results[1] +
                     ", " + BuildPickerAxisState(pickerZ, syncTargets.PickerZ) +
@@ -4669,7 +4852,7 @@ namespace QMC.CDT320.Sequencing
                 return check;
 
             WriteLog("PickerPickUpSyncLift",
-                Name + " PickUp PickerZ/EjectPinZ simulated synchronized lift complete. pickerNo=" + _currentPickerNo +
+                Name + " PickUp PickerZ/EjectPinZ async lift complete. pickerNo=" + _currentPickerNo +
                 ", ejectPinSyncLiftOffset=" + syncTargets.EjectPinSyncLiftOffset.ToString("F6") +
                 ", pickerZState=" + BuildPickerAxisState(pickerZ, syncTargets.PickerZ) +
                 ", ejectPinZState=" + BuildInputStageAxisState(stage, WaferStageAxis.EjectPinZ, syncTargets.EjectPinZ) +

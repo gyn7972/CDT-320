@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Windows.Forms;
 using QMC.CDT320;
+using QMC.CDT320.Calibration;
 using QMC.CDT320.Materials;
 using QMC.CDT_320.Ui.Controls;
 using QMC.CDT_320.Ui.Dialogs;
@@ -50,7 +51,7 @@ namespace QMC.CDT_320.Ui.Tabs
             {
                 if (!EnsureAxesHomeReadyForRun("Start")) return;
                 if (ConfirmRun("Start", "장비를 Start 하여 작업을 진행하시겠습니까?"))
-                    RunSafe(async c => await c.StartAsync(), false);
+                    StartAutoWithFocusSelection();
             });
             RegisterActionButton(BtnStop,       "work.stop",       op, () => RunSafe(async c => await RunStopSequenceWithMessageAsync(c), false));
             RegisterActionButton(BtnCycleRun,   "work.cycleRun",   op, () =>
@@ -78,6 +79,44 @@ namespace QMC.CDT_320.Ui.Tabs
             RegisterSidebarButton(BtnVisionAlign,       "work.visionAlign",       en, () => new VisionAlignPage());
             RegisterSidebarButton(BtnWaferMapOpen,      "work.waferMapOpen",      en, () => new WaferMapOpenPage());
             RegisterSidebarButton(BtnDieMap,            "work.dieMap",            en, () => new DieMapPage());
+        }
+
+        private void StartAutoWithFocusSelection()
+        {
+            try
+            {
+                if (Host == null || Host.Controller == null)
+                {
+                    QMC.Common.MessageDialog.Show(FindForm(), "Machine Controller를 찾을 수 없습니다.", "Start", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                RuntimeAutoFocusScanMode mode = RuntimeAutoFocusScanMode.None;
+                if (Host.Controller.IsRuntimeAutoFocusOnStartEnabled())
+                {
+                    using (var dialog = new EnumPickerDialog(
+                        "시작 시 Bottom Die AutoFocus",
+                        new[] { "Rough + Fine", "Fine", "AutoFocus 안 함" },
+                        "Rough + Fine"))
+                    {
+                        if (dialog.ShowDialog(FindForm()) != DialogResult.OK)
+                            return;
+
+                        if (string.Equals(dialog.SelectedValue, "Rough + Fine", StringComparison.OrdinalIgnoreCase))
+                            mode = RuntimeAutoFocusScanMode.RoughAndFine;
+                        else if (string.Equals(dialog.SelectedValue, "Fine", StringComparison.OrdinalIgnoreCase))
+                            mode = RuntimeAutoFocusScanMode.FineOnly;
+                    }
+                }
+
+                RunSafe(async c => await c.StartAsync(mode), false);
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Log.Write("Main", "SYSTEM", "StartAutoWithFocusSelection",
+                    "시작 AutoFocus 선택창 처리 중 예외가 발생했습니다. error=" + ex.Message + " - Failed");
+                QMC.Common.MessageDialog.Show(FindForm(), "시작 AutoFocus 선택 처리에 실패했습니다.\r\n" + ex.Message, "Start", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
         }
 
         public override void AttachHost(Form1 host)

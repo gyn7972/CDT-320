@@ -112,6 +112,112 @@ namespace QMC.CDT320.Ajin
             Config.IsSimulationMode = false;
         }
 
+        public int TryOverridePosition(
+            double targetPosition,
+            double velocity,
+            double acceleration,
+            double deceleration)
+        {
+            try
+            {
+                if (UseSimulation)
+                {
+                    if (!IsMoving)
+                        return -4;
+
+                    string simulationGuardReason;
+                    if (!MotionGuardRuntime.VerifyAxisTeachingMove(
+                        this,
+                        targetPosition,
+                        "PositionOverride",
+                        out simulationGuardReason))
+                    {
+                        return -11;
+                    }
+
+                    base.OverridePosition(targetPosition);
+                    if (velocity > 0.0)
+                        CurrentVelocity = velocity;
+                    return 0;
+                }
+
+                if (!AjinSystem.IsOpen)
+                    return FailMotion(-2, "POSITION OVERRIDE", "AXL 라이브러리가 열려 있지 않습니다.", targetPosition, true);
+                if (IsAlarm)
+                    return FailMotion(-2, "POSITION OVERRIDE", "축 알람이 ON 상태입니다. alarmCode=0x" + AlarmCode.ToString("X4"), targetPosition, true);
+                if (!IsServoOn)
+                    return FailMotion(-2, "POSITION OVERRIDE", "축 서보가 OFF 상태입니다.", targetPosition, true);
+
+                UpdateStatus();
+                if (!IsMoving)
+                    return -4;
+
+                string guardReason;
+                if (!MotionGuardRuntime.VerifyAxisTeachingMove(
+                    this,
+                    targetPosition,
+                    "PositionOverride",
+                    out guardReason))
+                {
+                    return -11;
+                }
+
+                int limitCheck = CheckSoftLimitTarget(targetPosition);
+                if (limitCheck != 0)
+                    return limitCheck;
+
+                double safeVelocity = velocity > 0.0
+                    ? velocity
+                    : MotionSpeedScale.ApplyDefaultVelocityScale(Config.DefaultVelocity);
+                double safeAcceleration = acceleration > 0.0
+                    ? acceleration
+                    : MotionSpeedScale.ApplyDefaultAccelerationScale(Config.Acceleration);
+                double safeDeceleration = deceleration > 0.0
+                    ? deceleration
+                    : MotionSpeedScale.ApplyDefaultAccelerationScale(Config.Deceleration);
+
+                int ret;
+                lock (_sync)
+                {
+                    ret = AXM.ModifyPosition(
+                        AxisNo,
+                        ToBoardPosition(targetPosition),
+                        ToBoardVelocity(safeVelocity),
+                        ToBoardAcceleration(safeAcceleration),
+                        ToBoardAcceleration(safeDeceleration));
+                }
+
+                if (ret != 0)
+                {
+                    return FailMotion(
+                        ret,
+                        "POSITION OVERRIDE",
+                        "AXM 위치 오버라이드 명령이 실패했습니다. ret=0x" + ret.ToString("X4"),
+                        targetPosition,
+                        true);
+                }
+
+                base.OverridePosition(targetPosition);
+                CurrentVelocity = safeVelocity;
+                _motionDirection = targetPosition > ActualPosition
+                    ? 1
+                    : targetPosition < ActualPosition ? -1 : 0;
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                return FailMotion(
+                    -1,
+                    "POSITION OVERRIDE",
+                    "위치 오버라이드 처리 중 예외가 발생했습니다. error=" + ex.Message,
+                    targetPosition,
+                    true);
+            }
+            finally
+            {
+            }
+        }
+
         public override void ServoOn()
         {
             if (UseSimulation)

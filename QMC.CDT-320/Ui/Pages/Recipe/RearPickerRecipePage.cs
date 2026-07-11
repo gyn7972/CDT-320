@@ -402,7 +402,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             items.Add(InGroup(Describe(ParameterGridItem.Selection<PickerPickUpSeparateMode>("SEPARATE MODE", "mode", ParameterGridScope.Config, () => pickUp.SeparateMode, v => pickUp.SeparateMode = v),
                 "구 분리 동작에서 Picker와 Needle을 어떤 순서로 벌릴지 정하던 옵션입니다.\r\n현재 Step 07은 PickerZ Separate 이동 후 EjectPinZ/NeedleZ Avoid 고정 순서라 이 값은 현재 흐름에서 사용하지 않습니다."), groupKey));
             items.Add(InGroup(Describe(ParameterGridItem.Int("VACUUM BEFORE PICK DELAY", "ms", ParameterGridScope.Config, () => pickUp.VacuumOnBeforePickDelayMs, v => pickUp.VacuumOnBeforePickDelayMs = Math.Max(0, v)),
-                "Picker Vacuum을 ON 한 뒤 PickerZ를 PickPosition으로 내리기 전에 기다리는 시간입니다.\r\n기본 Vacuum settle 시간보다 크면 이 값만큼 대기합니다."), groupKey));
+                "PickerZ가 Die Touch 위치에 도착하고 위치 확인이 끝난 직후 기다리는 시간입니다.\r\n이 시간이 지난 뒤 Sync Lift 또는 PickerZ 상승을 시작합니다."), groupKey));
             items.Add(InGroup(Describe(ParameterGridItem.Int("SYNC LIFT SETTLE", "ms", ParameterGridScope.Config, () => pickUp.SyncLiftSettleMs, v => pickUp.SyncLiftSettleMs = Math.Max(0, v)),
                 "Sync Lift 완료 직후 PickerZ Separate 전에 기다리던 기존 Picker별 값입니다.\r\n현재 자동 PickUp은 InputStage NEEDLE PICKUP SETTING의 PICKUP SYNC LIFT SETTLE 공통값을 우선 사용합니다."), groupKey));
             items.Add(InGroup(Describe(ParameterGridItem.Int("PICK SETTLE", "ms", ParameterGridScope.Config, () => pickUp.PickSettleMs, v => pickUp.PickSettleMs = Math.Max(0, v)),

@@ -85,6 +85,216 @@ namespace QMC.CDT320.Motion.SharedRailX
             return result.Allowed;
         }
 
+        public bool TryResolveNearestVisionRetreatTarget(
+            BaseAxis visionAxis,
+            double fullAvoidPosition,
+            double maximumPickerEntryPosition,
+            IDictionary<SharedRailXAxis, IList<double>> plannedAxisPositions,
+            double additionalClearance,
+            out double retreatTarget,
+            out string detail)
+        {
+            retreatTarget = fullAvoidPosition;
+            detail = string.Empty;
+
+            SharedRailXAxis visionRailAxis;
+            if (!TryResolve(visionAxis, out visionRailAxis) ||
+                (visionRailAxis != SharedRailXAxis.InputVisionX &&
+                 visionRailAxis != SharedRailXAxis.OutputVisionX))
+            {
+                detail = "VisionX 공유 레일 축을 확인할 수 없어 전체 Avoid를 사용합니다.";
+                return false;
+            }
+
+            IReadOnlyList<SharedRailXAxisSetting> settings = GetAxisSettings();
+            var settingMap = settings
+                .Where(x => x != null && x.Axis != null)
+                .ToDictionary(x => x.RailAxis);
+            var obstaclePositions = new Dictionary<SharedRailXAxis, List<double>>();
+
+            if (_config == null || _config.CollisionPairs == null || _config.CollisionPairs.Count == 0)
+            {
+                detail = "공유 레일 충돌 Pair 설정이 없어 전체 Avoid를 사용합니다. axis=" + visionRailAxis;
+                return false;
+            }
+
+            foreach (SharedRailXAxisPair pair in _config.CollisionPairs)
+            {
+                if (pair.AxisA != visionRailAxis && pair.AxisB != visionRailAxis)
+                    continue;
+
+                SharedRailXAxis otherAxis = pair.AxisA == visionRailAxis ? pair.AxisB : pair.AxisA;
+                SharedRailXAxisSetting otherSetting;
+                if (!settingMap.TryGetValue(otherAxis, out otherSetting))
+                {
+                    detail = "공유 레일 상대 축을 찾을 수 없어 전체 Avoid를 사용합니다. axis=" + otherAxis;
+                    return false;
+                }
+
+                List<double> positions;
+                if (!obstaclePositions.TryGetValue(otherAxis, out positions))
+                {
+                    positions = new List<double>();
+                    obstaclePositions[otherAxis] = positions;
+                }
+
+                positions.Add(otherSetting.Axis.ActualPosition);
+                positions.Add(otherSetting.Axis.CommandPosition);
+
+                IList<double> planned;
+                if (plannedAxisPositions != null &&
+                    plannedAxisPositions.TryGetValue(otherAxis, out planned) &&
+                    planned != null)
+                {
+                    for (int i = 0; i < planned.Count; i++)
+                        positions.Add(planned[i]);
+                }
+            }
+
+            if (obstaclePositions.Count == 0)
+            {
+                detail = "VisionX-PickerX 충돌 Pair가 없어 전체 Avoid를 사용합니다. axis=" + visionRailAxis;
+                return false;
+            }
+
+            double preferred = Math.Min(visionAxis.ActualPosition, maximumPickerEntryPosition);
+            string preferredReason;
+            if (IsVisionRetreatTargetSafe(
+                visionRailAxis,
+                preferred,
+                settingMap,
+                obstaclePositions,
+                additionalClearance,
+                out preferredReason))
+            {
+                retreatTarget = preferred;
+                detail = "현재 위치에서 가장 가까운 안전 위치를 사용합니다. target=" + retreatTarget.ToString("F6") +
+                         ", fullAvoid=" + fullAvoidPosition.ToString("F6") +
+                         ", entryLimit=" + maximumPickerEntryPosition.ToString("F6") +
+                         ", " + preferredReason;
+                return true;
+            }
+
+            string avoidReason;
+            if (!IsVisionRetreatTargetSafe(
+                visionRailAxis,
+                fullAvoidPosition,
+                settingMap,
+                obstaclePositions,
+                additionalClearance,
+                out avoidReason))
+            {
+                detail = "전체 Avoid도 예정 PickerX 경로 안전거리를 만족하지 못합니다. preferredBlocked=" +
+                         preferredReason + ", avoidBlocked=" + avoidReason;
+                return false;
+            }
+
+            double allowedRatio = 0.0;
+            double blockedRatio = 1.0;
+            string boundaryReason = avoidReason;
+            for (int i = 0; i < 48; i++)
+            {
+                double ratio = (allowedRatio + blockedRatio) * 0.5;
+                double probe = fullAvoidPosition + ((preferred - fullAvoidPosition) * ratio);
+                string probeReason;
+                if (IsVisionRetreatTargetSafe(
+                    visionRailAxis,
+                    probe,
+                    settingMap,
+                    obstaclePositions,
+                    additionalClearance,
+                    out probeReason))
+                {
+                    allowedRatio = ratio;
+                    boundaryReason = probeReason;
+                }
+                else
+                {
+                    blockedRatio = ratio;
+                }
+            }
+
+            retreatTarget = fullAvoidPosition + ((preferred - fullAvoidPosition) * allowedRatio);
+            if (retreatTarget > maximumPickerEntryPosition + 0.000001)
+            {
+                detail = "계산된 최소 회피 위치가 Picker 진입 허용 상한보다 커서 전체 Avoid를 사용합니다. " +
+                         "calculated=" + retreatTarget.ToString("F6") +
+                         ", entryLimit=" + maximumPickerEntryPosition.ToString("F6") +
+                         ", fullAvoid=" + fullAvoidPosition.ToString("F6") +
+                         ", " + boundaryReason;
+                retreatTarget = fullAvoidPosition;
+                return false;
+            }
+
+            detail = "예정 PickerX 경로 기준 최소 회피 위치를 계산했습니다. target=" + retreatTarget.ToString("F6") +
+                     ", preferred=" + preferred.ToString("F6") +
+                     ", fullAvoid=" + fullAvoidPosition.ToString("F6") +
+                     ", additionalClearance=" + Math.Max(0.0, additionalClearance).ToString("F3") +
+                     ", " + boundaryReason;
+            return true;
+        }
+
+        private bool IsVisionRetreatTargetSafe(
+            SharedRailXAxis visionRailAxis,
+            double visionPosition,
+            IDictionary<SharedRailXAxis, SharedRailXAxisSetting> settingMap,
+            IDictionary<SharedRailXAxis, List<double>> obstaclePositions,
+            double additionalClearance,
+            out string reason)
+        {
+            reason = "clear";
+            foreach (SharedRailXAxisPair pair in _config.CollisionPairs)
+            {
+                if (pair.AxisA != visionRailAxis && pair.AxisB != visionRailAxis)
+                    continue;
+                if (!pair.HasClearanceRule)
+                {
+                    reason = "충돌 Pair 안전거리 수식이 없습니다. pair=" + pair.AxisA + "<->" + pair.AxisB;
+                    return false;
+                }
+
+                SharedRailXAxis otherAxis = pair.AxisA == visionRailAxis ? pair.AxisB : pair.AxisA;
+                List<double> positions;
+                SharedRailXAxisSetting visionSetting;
+                SharedRailXAxisSetting otherSetting;
+                if (!obstaclePositions.TryGetValue(otherAxis, out positions) || positions.Count == 0 ||
+                    !settingMap.TryGetValue(visionRailAxis, out visionSetting) ||
+                    !settingMap.TryGetValue(otherAxis, out otherSetting))
+                {
+                    reason = "충돌 Pair 축 상태가 없습니다. pair=" + pair.AxisA + "<->" + pair.AxisB;
+                    return false;
+                }
+
+                double required = (pair.SafetyDistance.HasValue
+                    ? pair.SafetyDistance.Value
+                    : Math.Max(visionSetting.SafetyDistance, otherSetting.SafetyDistance)) +
+                    Math.Max(0.0, additionalClearance);
+
+                for (int i = 0; i < positions.Count; i++)
+                {
+                    double axisA = pair.AxisA == visionRailAxis ? visionPosition : positions[i];
+                    double axisB = pair.AxisB == visionRailAxis ? visionPosition : positions[i];
+                    double clearance = CalculatePairClearance(
+                        pair.HomeClearance,
+                        pair.AxisATowardSign,
+                        axisA,
+                        pair.AxisBTowardSign,
+                        axisB);
+                    if (clearance + 0.000001 < required)
+                    {
+                        reason = "안전거리 부족. pair=" + pair.AxisA + "<->" + pair.AxisB +
+                                 ", vision=" + visionPosition.ToString("F6") +
+                                 ", other=" + positions[i].ToString("F6") +
+                                 ", clearance=" + clearance.ToString("F6") +
+                                 ", required=" + required.ToString("F6");
+                        return false;
+                    }
+                }
+            }
+
+            return true;
+        }
+
         public bool VerifyJogMove(BaseAxis axis, int direction, out string reason)
         {
             reason = string.Empty;

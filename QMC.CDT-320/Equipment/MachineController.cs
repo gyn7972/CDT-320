@@ -5752,7 +5752,24 @@ namespace QMC.CDT320
         }
 
         /// <summary>장비 START: Servo ON 후 현재 구성된 자동 시퀀스를 시작합니다.</summary>
-        public async Task<int> StartAsync()
+        public bool IsRuntimeAutoFocusOnStartEnabled()
+        {
+            try
+            {
+                if (Machine == null || Machine.VisionUnit == null || Machine.VisionUnit.Config == null)
+                    return false;
+
+                Machine.VisionUnit.Config.EnsureCalibrationObjects();
+                VisionFocusCalibrationData data = Machine.VisionUnit.Config.FocusCalibration;
+                return data != null && data.BottomDieScan != null && data.BottomDieScan.AutoFocusOnStartEnabled;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        public async Task<int> StartAsync(RuntimeAutoFocusScanMode? startupAutoFocusMode = null)
         {
             try
             {
@@ -5789,6 +5806,8 @@ namespace QMC.CDT320
                 if (!EnsureReticleAvoidForAutoStart("StartAsync"))
                     return -1;
 
+                ConfigureRuntimeAutoFocusForStart(startupAutoFocusMode);
+
                 //if (!EnsureCalibrationReadyForAutoStart("StartAsync"))
                 //    return -1;
 
@@ -5811,6 +5830,38 @@ namespace QMC.CDT320
             }
             finally
             {
+            }
+        }
+
+        private void ConfigureRuntimeAutoFocusForStart(RuntimeAutoFocusScanMode? requestedMode)
+        {
+            try
+            {
+                if (Machine == null || Machine.VisionUnit == null || Machine.VisionUnit.Config == null)
+                    return;
+
+                Machine.VisionUnit.Config.EnsureCalibrationObjects();
+                VisionFocusCalibrationData data = Machine.VisionUnit.Config.FocusCalibration;
+                if (data == null || data.BottomDieScan == null)
+                    return;
+
+                RuntimeAutoFocusScanMode mode = RuntimeAutoFocusScanMode.None;
+                if (data.BottomDieScan.AutoFocusOnStartEnabled)
+                {
+                    mode = requestedMode.HasValue
+                        ? requestedMode.Value
+                        : RuntimeAutoFocusScanMode.RoughAndFine;
+                }
+
+                data.SetStartupAutoFocusMode(mode);
+                QMC.Common.Log.Write("Main", "SYSTEM", "RuntimeAutoFocusStart",
+                    "생산 시작 AutoFocus 선택을 반영했습니다. enabled=" +
+                    data.BottomDieScan.AutoFocusOnStartEnabled + ", mode=" + mode + " - Check");
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Log.Write("Main", "SYSTEM", "RuntimeAutoFocusStart",
+                    "생산 시작 AutoFocus 선택 반영 중 예외가 발생했습니다. error=" + ex.Message + " - Failed");
             }
         }
 
