@@ -341,7 +341,11 @@ namespace QMC.CDT320
             _machine = machine ?? throw new ArgumentNullException(nameof(machine));
             SharedRailX = new SharedRailXMotionService(_machine, CreateSharedRailXConfig());
             SharedRailXMotionRuntime.ServiceProvider = () => SharedRailX;
-            _axisInitializeInterlocks = new AxisInitializeInterlockService(_machine, EnumerateAxes);
+            _axisInitializeInterlocks = new AxisInitializeInterlockService(
+                _machine,
+                EnumerateAxes,
+                () => !IsSequenceRunning && _status != EquipmentStatus.AutoRunning,
+                () => !IsManualBusy);
             MotionGuardRuntime.ContextProvider = () =>
                 new MotionGuardContext(_machine, EnumerateAxes(), QMC.CDT320.Ajin.CylinderManager.Items.Values);
             BaseAxis.MotionGuard = VerifyAxisMotionGuard;

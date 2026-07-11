@@ -63,6 +63,8 @@ namespace QMC.CDT320.Initialization
         [DataMember] public string TargetType { get; set; }
         [DataMember] public string Name { get; set; }
         [DataMember] public string ExpectedState { get; set; }
+        [DataMember] public double ExpectedPosition { get; set; }
+        [DataMember] public double Tolerance { get; set; } = 0.01;
         [DataMember] public bool Enabled { get; set; } = true;
         [DataMember] public string Description { get; set; }
     }
@@ -73,6 +75,8 @@ namespace QMC.CDT320.Initialization
         public const string Cylinder = "Cylinder";
         public const string DigitalInput = "DigitalInput";
         public const string Resource = "Resource";
+        public const string Machine = "Machine";
+        public const string Material = "Material";
     }
 
     public static class AxisInitializeInterlockState
@@ -85,6 +89,35 @@ namespace QMC.CDT320.Initialization
         public const string On = "On";
         public const string Off = "Off";
         public const string AllOk = "AllOk";
+        public const string Stopped = "Stopped";
+        public const string AtPosition = "AtPosition";
+        public const string AutoStopped = "AutoStopped";
+        public const string ManualStopped = "ManualStopped";
+        public const string AllAxesStopped = "AllAxesStopped";
+        public const string Empty = "Empty";
+    }
+
+    public static class AxisInitializeInterlockName
+    {
+        public const string Machine = "Machine";
+        public const string Resources = "Resources";
+        public const string InputFeeder = "InputFeeder";
+        public const string OutputFeeder = "OutputFeeder";
+        public const string OutputStageGood = "OutputStageGood";
+        public const string OutputStageNg = "OutputStageNg";
+    }
+
+    public static class AxisInitializeSafetyInput
+    {
+        public const string ElecEmgOn = "ElecEmgOn";
+        public const string OpEmgOn = "OpEmgOn";
+        public const string RearEmgOn = "RearEmgOn";
+        public const string RightEmgOn = "RightEmgOn";
+        public const string LeftDoorCheck = "LeftDoorCheck";
+        public const string RearDoorCheck = "RearDoorCheck";
+        public const string RightDoorCheck = "RightDoorCheck";
+        public const string WaferLifterDoorCheck = "WaferLifterDoorCheck";
+        public const string BinLifterDoorCheck = "BinLifterDoorCheck";
     }
 
     public static class AxisInitializeActionCommand
@@ -150,7 +183,7 @@ namespace QMC.CDT320.Initialization
 
     public static class AxisInitializePlanStore
     {
-        private const int CurrentDefaultVersion = 6;
+        private const int CurrentDefaultVersion = 7;
         public static string RootDir => @"D:\CDT-320";
         public static string Dir => Path.Combine(RootDir, "Config");
         public static string PlanPath => Path.Combine(Dir, "axis_initialize_plan.json");
@@ -313,18 +346,43 @@ namespace QMC.CDT320.Initialization
                     "EjectPinZ",
                     "NeedleZ");
 
-                AddActionOnlyStep(plan, 40, "OutputStageZClampLift", "NGBinGuideClampLift", AxisInitializeActionCommand.CylinderFwd,
-                    "NG bin clamp lift moves up before OutputGoodStageZ home.");
+                AddActionOnlyStep(plan, 40, "OutputStageNGClampRelease", "NGBinGuideClamp", AxisInitializeActionCommand.CylinderBwd,
+                    "NG bin clamp moves backward before the clamp lift moves up.");
+                AddStepInterlock(plan, 40, "OutputStageNGClampRelease",
+                    AxisInitializeInterlockTarget.Material,
+                    AxisInitializeInterlockName.OutputStageNg,
+                    AxisInitializeInterlockState.Empty,
+                    "Output NG Stage의 자재를 육안 확인한 후 Manual 화면에서 자재를 제거하십시오.");
+
+                AddActionOnlyStep(plan, 45, "OutputStageNGClampLift", "NGBinGuideClampLift", AxisInitializeActionCommand.CylinderFwd,
+                    "NG bin clamp lift moves up only after the NG clamp is backward.");
+                AddStepInterlock(plan, 45, "OutputStageNGClampLift",
+                    AxisInitializeInterlockTarget.Cylinder,
+                    "NGBinGuideClamp",
+                    AxisInitializeInterlockState.Bwd,
+                    "NG Clamp를 Manual 화면에서 Unclamp(Bwd) 상태로 만든 후 다시 실행하십시오.");
+                AddStepInterlock(plan, 45, "OutputStageNGClampLift",
+                    AxisInitializeInterlockTarget.Material,
+                    AxisInitializeInterlockName.OutputStageNg,
+                    AxisInitializeInterlockState.Empty,
+                    "Output NG Stage의 자재를 육안 확인한 후 Manual 화면에서 자재를 제거하십시오.");
 
                 AddKnownSingleStep(plan, axisByName, used, 50, "OutputStageZ",
                     AxisInitializeRunMode.Serial,
                     "Output good stage Z home before Y axes. NG stage has Y axis only.",
                     "OutputGoodStageZ", "GoodStage_StageZ");
+                AddFeederSafeInterlocks(plan, 50, "OutputStageZ", false);
+                AddStepInterlock(plan, 50, "OutputStageZ",
+                    AxisInitializeInterlockTarget.Cylinder,
+                    "NGBinGuideClampLift",
+                    AxisInitializeInterlockState.Fwd,
+                    "NG ClampLift가 Up 상태인지 확인하고 Manual 화면에서 조치하십시오.");
 
                 AddKnownSingleStep(plan, axisByName, used, 60, "InputStageZ",
                     AxisInitializeRunMode.Serial,
                     "InputExpandingZ home after needle vertical axes.",
                     "InputExpandingZ", "ExpanderZ");
+                AddFeederSafeInterlocks(plan, 60, "InputStageZ", true);
 
                 AddKnownStep(plan, axisByName, used, 70, "FrontPickerT",
                     AxisInitializeRunMode.Parallel,
@@ -380,19 +438,19 @@ namespace QMC.CDT320.Initialization
                     "NeedleX home after InputStageY home and Avoid move.",
                     "NeedleX", "NeedleBlockX");
 
-                AddActionOnlyStep(plan, 170, "InputFeederClamp", "InputFeederClamp", AxisInitializeActionCommand.CylinderBwd,
-                    "Input feeder must be unclamped before InputFeederY home.");
-
                 AddActionOnlyStep(plan, 180, "InputFeederLift", "InputFeederLift", AxisInitializeActionCommand.CylinderBwd,
-                    "Input feeder must be Down before InputFeederY home.");
+                    "Input feeder moves down only when it is empty and already unclamped.");
+                AddFeederSafeInterlocks(plan, 180, "InputFeederLift", true);
 
                 AddKnownSingleStep(plan, axisByName, used, 190, "InputFeeder",
                     AxisInitializeRunMode.Serial,
                     "InputFeederY home. SharedRailX/InputFeeder relation is checked in prepare hook.",
                     "InputFeederY", "FeederY");
+                AddFeederSafeInterlocks(plan, 190, "InputFeeder", true);
 
                 AddActionOnlyStep(plan, 200, "InputFeederLiftDown", "InputFeederLift", AxisInitializeActionCommand.CylinderBwd,
                     "Input feeder lift moves down after InputFeederY home.");
+                AddFeederSafeInterlocks(plan, 200, "InputFeederLiftDown", true);
 
                 //AddAxisTeachingActionOnlyStep(plan, 390, "InputFeederYAvoid", "InputFeederY", "AvoidPosition",
                 //    "InputFeederY moves to Avoid after home.");
@@ -433,19 +491,19 @@ namespace QMC.CDT320.Initialization
                     "RearPickerX home after FrontPickerX.",
                     "RearPickerX");
 
-                AddActionOnlyStep(plan, 270, "OutputFeederClamp", "OutputFeederClamp", AxisInitializeActionCommand.CylinderBwd,
-                    "Output feeder must be unclamped before OutputFeederY home.");
-
                 AddActionOnlyStep(plan, 280, "OutputFeederLift", "OutputFeederLift", AxisInitializeActionCommand.CylinderFwd,
-                    "Output feeder must be up before OutputFeederY home.");
+                    "Output feeder moves up only when it is empty and already unclamped.");
+                AddFeederSafeInterlocks(plan, 280, "OutputFeederLift", false);
 
                 AddKnownStep(plan, axisByName, used, 290, "OutputFeeder",
                     AxisInitializeRunMode.Serial,
                     "OutputFeederY home. SharedRailX/OutputFeeder relation is checked in prepare hook.",
                     "OutputFeederY");
+                AddFeederSafeInterlocks(plan, 290, "OutputFeeder", false);
 
                 AddActionOnlyStep(plan, 300, "OutputFeederLiftDown", "OutputFeederLift", AxisInitializeActionCommand.CylinderBwd,
                     "Output feeder must be down after OutputFeederY home.");
+                AddFeederSafeInterlocks(plan, 300, "OutputFeederLiftDown", false);
 
                 AddKnownStep(plan, axisByName, used, 310, "SharedRailXOutput",
                     AxisInitializeRunMode.Serial,
@@ -457,13 +515,28 @@ namespace QMC.CDT320.Initialization
                     "Output good stage Y home after feeder relation.",
                     "OutputGoodStageY", "GoodStage_StageY");
 
+                AddActionOnlyStep(plan, 325, "OutputGoodBinGuideDown", "GoodBinGuideLift", AxisInitializeActionCommand.CylinderBwd,
+                    "Good bin guide moves down in an independent step before OutputNGStageY home.");
+                AddStepInterlock(plan, 325, "OutputGoodBinGuideDown",
+                    AxisInitializeInterlockTarget.Material,
+                    AxisInitializeInterlockName.OutputStageGood,
+                    AxisInitializeInterlockState.Empty,
+                    "Output Good Stage의 자재를 육안 확인한 후 Manual 화면에서 자재를 제거하십시오.");
+
                 AddKnownSingleStep(plan, axisByName, used, 330, "OutputNGStageY",
                     AxisInitializeRunMode.Serial,
                     "Output NG stage Y home after good stage Y.",
                     "OutputNGStageY", "NgStage_StageY");
-
-                AddPreCylinderAction(plan, 330, "OutputNGStageY", "GoodBinGuideLift", AxisInitializeActionCommand.CylinderBwd,
-                    "Good bin guide must be down before OutputNGStageY home.");
+                AddStepInterlock(plan, 330, "OutputNGStageY",
+                    AxisInitializeInterlockTarget.Cylinder,
+                    "GoodBinGuideLift",
+                    AxisInitializeInterlockState.Bwd,
+                    "Good Bin Guide가 Down 상태인지 확인하고 Manual 화면에서 조치하십시오.");
+                AddStepInterlock(plan, 330, "OutputNGStageY",
+                    AxisInitializeInterlockTarget.Material,
+                    AxisInitializeInterlockName.OutputStageGood,
+                    AxisInitializeInterlockState.Empty,
+                    "Output Good Stage의 자재를 육안 확인한 후 Manual 화면에서 자재를 제거하십시오.");
 
                 AddKnownStep(plan, axisByName, used, 340, "OutputCassette",
                     AxisInitializeRunMode.Serial,
@@ -481,7 +554,187 @@ namespace QMC.CDT320.Initialization
             {
             }
 
+            ApplyCommonSafetyInterlocks(plan);
             return plan;
+        }
+
+        private static void ApplyCommonSafetyInterlocks(AxisInitializePlan plan)
+        {
+            try
+            {
+                if (plan == null || plan.Steps == null)
+                    return;
+
+                foreach (AxisInitializeStep step in plan.Steps)
+                {
+                    if (step == null)
+                        continue;
+
+                    List<AxisInitializeInterlockRule> stepInterlocks = step.Interlocks ??
+                        new List<AxisInitializeInterlockRule>();
+                    step.Interlocks = new List<AxisInitializeInterlockRule>();
+
+                    AddInterlock(step, AxisInitializeInterlockTarget.Machine,
+                        AxisInitializeInterlockName.Machine, AxisInitializeInterlockState.AutoStopped,
+                        "Auto와 Sequence를 정지한 후 초기화를 다시 실행하십시오.");
+                    AddInterlock(step, AxisInitializeInterlockTarget.Machine,
+                        AxisInitializeInterlockName.Machine, AxisInitializeInterlockState.ManualStopped,
+                        "진행 중인 Manual 동작을 정지한 후 초기화를 다시 실행하십시오.");
+                    AddInterlock(step, AxisInitializeInterlockTarget.Machine,
+                        AxisInitializeInterlockName.Machine, AxisInitializeInterlockState.AllAxesStopped,
+                        "모든 축이 완전히 정지했는지 확인한 후 초기화를 다시 실행하십시오.");
+
+                    AddInterlock(step, AxisInitializeInterlockTarget.DigitalInput,
+                        AxisInitializeSafetyInput.ElecEmgOn, AxisInitializeInterlockState.On,
+                        "전장 E-Stop을 복귀하고 안전 상태를 확인하십시오.");
+                    AddInterlock(step, AxisInitializeInterlockTarget.DigitalInput,
+                        AxisInitializeSafetyInput.OpEmgOn, AxisInitializeInterlockState.On,
+                        "조작반 E-Stop을 복귀하고 안전 상태를 확인하십시오.");
+                    AddInterlock(step, AxisInitializeInterlockTarget.DigitalInput,
+                        AxisInitializeSafetyInput.RearEmgOn, AxisInitializeInterlockState.On,
+                        "후면 E-Stop을 복귀하고 안전 상태를 확인하십시오.");
+                    AddInterlock(step, AxisInitializeInterlockTarget.DigitalInput,
+                        AxisInitializeSafetyInput.RightEmgOn, AxisInitializeInterlockState.On,
+                        "우측 E-Stop을 복귀하고 안전 상태를 확인하십시오.");
+
+                    AddInterlock(step, AxisInitializeInterlockTarget.DigitalInput,
+                        AxisInitializeSafetyInput.LeftDoorCheck, AxisInitializeInterlockState.On,
+                        "좌측 도어를 닫고 도어 센서 상태를 확인하십시오.");
+                    AddInterlock(step, AxisInitializeInterlockTarget.DigitalInput,
+                        AxisInitializeSafetyInput.RearDoorCheck, AxisInitializeInterlockState.On,
+                        "후면 도어를 닫고 도어 센서 상태를 확인하십시오.");
+                    AddInterlock(step, AxisInitializeInterlockTarget.DigitalInput,
+                        AxisInitializeSafetyInput.RightDoorCheck, AxisInitializeInterlockState.On,
+                        "우측 도어를 닫고 도어 센서 상태를 확인하십시오.");
+                    AddInterlock(step, AxisInitializeInterlockTarget.DigitalInput,
+                        AxisInitializeSafetyInput.WaferLifterDoorCheck, AxisInitializeInterlockState.On,
+                        "Wafer Lifter 도어를 닫고 도어 센서 상태를 확인하십시오.");
+                    AddInterlock(step, AxisInitializeInterlockTarget.DigitalInput,
+                        AxisInitializeSafetyInput.BinLifterDoorCheck, AxisInitializeInterlockState.On,
+                        "Bin Lifter 도어를 닫고 도어 센서 상태를 확인하십시오.");
+
+                    AddInterlock(step, AxisInitializeInterlockTarget.Resource,
+                        AxisInitializeInterlockName.Resources, AxisInitializeInterlockState.AllOk,
+                        "Main CDA 2개와 Vacuum 4개 공급 상태를 확인하십시오.");
+
+                    step.Interlocks.AddRange(stepInterlocks);
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Write("Main", "SYSTEM", "AxisInitializePlanDefault",
+                    "Common initialize safety interlock add failed. error=" + ex.Message + " - Failed");
+            }
+            finally
+            {
+            }
+        }
+
+        private static void AddFeederSafeInterlocks(
+            AxisInitializePlan plan,
+            int stepNo,
+            string groupName,
+            bool inputFeeder)
+        {
+            try
+            {
+                string materialName = inputFeeder
+                    ? AxisInitializeInterlockName.InputFeeder
+                    : AxisInitializeInterlockName.OutputFeeder;
+                string cylinderName = inputFeeder ? "InputFeederClamp" : "OutputFeederClamp";
+                string feederName = inputFeeder ? "InputFeeder" : "OutputFeeder";
+
+                AddStepInterlock(plan, stepNo, groupName,
+                    AxisInitializeInterlockTarget.Material,
+                    materialName,
+                    AxisInitializeInterlockState.Empty,
+                    feederName + "의 자재를 육안 확인한 후 자재가 있으면 Manual 화면에서 제거하십시오.");
+                AddStepInterlock(plan, stepNo, groupName,
+                    AxisInitializeInterlockTarget.Cylinder,
+                    cylinderName,
+                    AxisInitializeInterlockState.Bwd,
+                    feederName + "는 자동 Unclamp하지 않습니다. 자재를 육안 확인한 후 Manual 화면에서 Unclamp하십시오.");
+            }
+            catch (Exception ex)
+            {
+                Log.Write("Main", "SYSTEM", "AxisInitializePlanDefault",
+                    "Feeder initialize safety interlock add failed. group=" + groupName +
+                    ", error=" + ex.Message + " - Failed");
+            }
+            finally
+            {
+            }
+        }
+
+        private static void AddStepInterlock(
+            AxisInitializePlan plan,
+            int stepNo,
+            string groupName,
+            string targetType,
+            string name,
+            string expectedState,
+            string description)
+        {
+            try
+            {
+                if (plan == null || plan.Steps == null)
+                    return;
+
+                AxisInitializeStep step = plan.Steps.FirstOrDefault(x => x != null &&
+                    x.StepNo == stepNo &&
+                    string.Equals(x.GroupName, groupName, StringComparison.OrdinalIgnoreCase));
+                if (step == null)
+                    return;
+
+                AddInterlock(step, targetType, name, expectedState, description);
+            }
+            catch (Exception ex)
+            {
+                Log.Write("Main", "SYSTEM", "AxisInitializePlanDefault",
+                    "Initialize step interlock add failed. step=" + stepNo +
+                    ", group=" + groupName +
+                    ", target=" + targetType + ":" + name +
+                    ", error=" + ex.Message + " - Failed");
+            }
+            finally
+            {
+            }
+        }
+
+        private static void AddInterlock(
+            AxisInitializeStep step,
+            string targetType,
+            string name,
+            string expectedState,
+            string description)
+        {
+            try
+            {
+                if (step == null)
+                    return;
+
+                if (step.Interlocks == null)
+                    step.Interlocks = new List<AxisInitializeInterlockRule>();
+
+                step.Interlocks.Add(new AxisInitializeInterlockRule
+                {
+                    Comment = "초기화 Step 실행 전 확인하는 안전 조건입니다.",
+                    TargetType = targetType,
+                    Name = name,
+                    ExpectedState = expectedState,
+                    Enabled = true,
+                    Description = description
+                });
+            }
+            catch (Exception ex)
+            {
+                Log.Write("Main", "SYSTEM", "AxisInitializePlanDefault",
+                    "Initialize interlock add failed. target=" + targetType + ":" + name +
+                    ", error=" + ex.Message + " - Failed");
+            }
+            finally
+            {
+            }
         }
 
         private static void AddActionOnlyStep(
@@ -1468,7 +1721,7 @@ namespace QMC.CDT320.Initialization
                         "AxisTeachingMove: TargetType=Axis, Name=축 이름, PositionName=AvoidPosition 같은 티칭 위치 이름을 사용합니다.",
                         "RunMode: Serial은 축을 순서대로 초기화하고, Parallel은 같은 Step의 축을 동시에 초기화합니다.",
                         "InterlockGroup: Step 시작 전에 해당 UnitName 그룹 또는 간섭 그룹 축을 Stop 합니다.",
-                        "Interlocks: Step 실행 전에 확인할 조건입니다. 축, 실린더, DI, Resource 조건을 넣을 수 있습니다.",
+                        "Interlocks: Step 실행 전에 확인할 조건입니다. Machine, Material, 축, 실린더, DI, Resource 조건을 넣을 수 있습니다.",
                         "Enabled: false이면 해당 Step 또는 Interlock 조건을 건너뜁니다."
                     };
                     changed = true;
@@ -1491,7 +1744,9 @@ namespace QMC.CDT320.Initialization
                         AxisInitializeInterlockTarget.Axis,
                         AxisInitializeInterlockTarget.Cylinder,
                         AxisInitializeInterlockTarget.DigitalInput,
-                        AxisInitializeInterlockTarget.Resource
+                        AxisInitializeInterlockTarget.Resource,
+                        AxisInitializeInterlockTarget.Machine,
+                        AxisInitializeInterlockTarget.Material
                     };
                     changed = true;
                 }
@@ -1500,10 +1755,12 @@ namespace QMC.CDT320.Initialization
                 {
                     plan.AllowedInterlockStates = new List<string>
                     {
-                        "Axis: ServoOn, HomeDone, AlarmOff",
+                        "Axis: ServoOn, HomeDone, AlarmOff, Stopped, AtPosition",
                         "Cylinder: Fwd, Bwd",
                         "DigitalInput: On, Off",
-                        "Resource: AllOk"
+                        "Resource: AllOk",
+                        "Machine: AutoStopped, ManualStopped, AllAxesStopped",
+                        "Material: Empty"
                     };
                     changed = true;
                 }

@@ -126,6 +126,7 @@ namespace QMC.CDT320
         public BaseDigitalInput BinFeederUnclampSensor { get; private set; }
         public BaseDigitalInput BinFeederRingCheckSensor { get; private set; }
         public BaseDigitalInput BinFeederOverloadSensor { get; private set; }
+        public BaseDigitalInput BinFeederAvoidPositionCheckSensor { get; private set; }
         public BaseDigitalInput WaferClampedSensor { get { return BinFeederRingCheckSensor; } }
         public BaseCylinder FeederUpDownCyl { get; private set; }
         public BaseCylinder FeederClampCyl { get; private set; }
@@ -145,6 +146,7 @@ namespace QMC.CDT320
             BinFeederUnclampSensor = AjinFactory.CreateDigitalInput(AjinIoCatalog.FindInput("BinFeederUnclamp"));
             BinFeederRingCheckSensor = AjinFactory.CreateDigitalInput(AjinIoCatalog.FindInput("BinFeederRing"));
             BinFeederOverloadSensor = AjinFactory.CreateDigitalInput(AjinIoCatalog.FindInput("BinFeederOverload"));
+            BinFeederAvoidPositionCheckSensor = AjinFactory.CreateDigitalInput(AjinIoCatalog.Inputs.BinFeederAvoidPositionCheck);
             FeederUpDownCyl = CylinderManager.Get(AjinIoCatalog.CylinderRefs.OutputFeederLift);
             FeederClampCyl = CylinderManager.Get(AjinIoCatalog.CylinderRefs.OutputFeederClamp);
 
@@ -154,6 +156,7 @@ namespace QMC.CDT320
             Components.Add(BinFeederUnclampSensor);
             Components.Add(BinFeederRingCheckSensor);
             Components.Add(BinFeederOverloadSensor);
+            Components.Add(BinFeederAvoidPositionCheckSensor);
             Components.Add(FeederUpDownCyl);
             Components.Add(FeederClampCyl);
 
@@ -542,7 +545,8 @@ namespace QMC.CDT320
                    ", clamp=" + (!IsFeederUnclamped()) +
                    ", ringOn=" + IsFeederRingDetected(true) +
                    ", ringOff=" + IsFeederRingDetected(false) +
-                   ", overload=" + IsFeederOverload();
+                   ", overload=" + IsFeederOverload() +
+                   ", avoidCheck=" + IsBinFeederAvoidPositionCheck();
         }
 
         public async Task<bool> WaitBinFeederYInPosition(string positionName, int timeoutMs)
@@ -559,7 +563,28 @@ namespace QMC.CDT320
         }
 
         public bool IsBinFeederYInAvoidPosition() { return IsBinFeederInAvoidPosition(); }
-        public bool IsBinFeederInAvoidPosition() { return IsBinFeederYInPosition(Recipe.AvoidPosition, ResolveBinFeederYInPositionTolerance()); }
+        public bool IsBinFeederInAvoidPosition()
+        {
+            bool axisInPosition = IsBinFeederYInPosition(
+                Recipe.AvoidPosition,
+                ResolveBinFeederYInPositionTolerance());
+
+            if (!axisInPosition)
+                return false;
+
+            return IsBinFeederAvoidPositionCheck();
+        }
+
+        public bool IsBinFeederAvoidPositionCheck()
+        {
+            if (IsOutputFeederSimulationOrDryRun())
+                return IsBinFeederYInPosition(
+                    Recipe.AvoidPosition,
+                    ResolveBinFeederYInPositionTolerance());
+
+            return BinFeederAvoidPositionCheckSensor != null &&
+                   BinFeederAvoidPositionCheckSensor.IsOn;
+        }
         public bool IsBinFeederYInCassetteLoadPosition(BinSide side) { return IsBinFeederYInPosition(GetSidePosition(side, FeederPositionType.CassetteLoad), ResolveBinFeederYInPositionTolerance()); }
         public bool IsBinFeederInCassetteLoadPosition(int slotIndex) { return IsBinFeederYInCassetteLoadPosition(BinSide.Good); }
         public bool IsBinFeederYInCassetteUnloadPosition(BinSide side) { return IsBinFeederYInPosition(GetSidePosition(side, FeederPositionType.CassetteUnload), ResolveBinFeederYInPositionTolerance()); }
@@ -1820,13 +1845,32 @@ namespace QMC.CDT320
             AxisMoveWaitResult waitResult = await WaitBinFeederYMoveDoneInPosition(target, timeoutMs).ConfigureAwait(false);
             ct.ThrowIfCancellationRequested();
 
-            if (waitResult.Success)
+            if (!waitResult.Success)
+            {
+                return RaiseFeederAlarm(
+                    AxisMoveWaiter.ResolveAlarmCode(alarmPrefix, waitResult),
+                    description + " move/in-position wait failed. " +
+                    AxisMoveWaiter.FormatResult(waitResult, DescribeBinFeederYMoveDoneState()));
+            }
+
+            if (!IsBinFeederAvoidTarget(target) || IsOutputFeederSimulationOrDryRun())
+                return 0;
+
+            bool avoidCheck = BinFeederAvoidPositionCheckSensor != null &&
+                await BinFeederAvoidPositionCheckSensor.WaitUntilStateAsync(true, timeoutMs, ct).ConfigureAwait(false);
+            if (avoidCheck)
                 return 0;
 
             return RaiseFeederAlarm(
-                AxisMoveWaiter.ResolveAlarmCode(alarmPrefix, waitResult),
-                description + " move/in-position wait failed. " +
-                AxisMoveWaiter.FormatResult(waitResult, DescribeBinFeederYMoveDoneState()));
+                alarmPrefix + "-AVOID-CHECK",
+                description + " 도착 후 BinFeeder Avoid 위치 확인 접점이 ON되지 않았습니다. " +
+                FormatInputState("X091", BinFeederAvoidPositionCheckSensor));
+        }
+
+        private bool IsBinFeederAvoidTarget(double target)
+        {
+            return Recipe != null &&
+                   Math.Abs(target - Recipe.AvoidPosition) <= ResolveBinFeederYInPositionTolerance();
         }
 
         private void SetExclusiveOutput(BaseDigitalOutput onOutput, BaseDigitalOutput oppositeOutput, bool on, string code)

@@ -103,6 +103,7 @@ namespace QMC.CDT320
         public BaseDigitalInput WaferFeederOverloadSensor { get; private set; }
         public BaseDigitalInput WaferFeeder8RingCheckSensor { get; private set; }
         public BaseDigitalInput WaferFeeder12RingCheckSensor { get; private set; }
+        public BaseDigitalInput WaferFeederAvoidPositionCheckSensor { get; private set; }
         public BaseDigitalInput WaferClampedSensor { get { return WaferFeederClampSensor; } }
         public BaseCylinder InputFeederLift { get; private set; }
         public BaseCylinder InputFeederClamp { get; private set; }
@@ -129,6 +130,7 @@ namespace QMC.CDT320
             WaferFeederOverloadSensor = AjinFactory.CreateDigitalInput(AjinIoCatalog.Inputs.WaferFeederOverloadCheck);
             WaferFeeder8RingCheckSensor = AjinFactory.CreateDigitalInput(AjinIoCatalog.Inputs.WaferFeeder8RingCheck);
             WaferFeeder12RingCheckSensor = AjinFactory.CreateDigitalInput(AjinIoCatalog.Inputs.WaferFeeder12RingCheck);
+            WaferFeederAvoidPositionCheckSensor = AjinFactory.CreateDigitalInput(AjinIoCatalog.Inputs.WaferFeederAvoidPositionCheck);
             InputFeederLift = CylinderManager.Get(AjinIoCatalog.CylinderRefs.InputFeederLift);
             InputFeederClamp = CylinderManager.Get(AjinIoCatalog.CylinderRefs.InputFeederClamp);
 
@@ -140,6 +142,7 @@ namespace QMC.CDT320
             Components.Add(WaferFeederOverloadSensor);
             Components.Add(WaferFeeder8RingCheckSensor);
             Components.Add(WaferFeeder12RingCheckSensor);
+            Components.Add(WaferFeederAvoidPositionCheckSensor);
             Components.Add(InputFeederLift);
             Components.Add(InputFeederClamp);
         }
@@ -607,12 +610,30 @@ namespace QMC.CDT320
 
         public bool IsWaferFeederInAvoidPosition()
         {
-            return IsWaferFeederYInPosition(Recipe.AvoidPosition, ResolveWaferFeederYInPositionTolerance());
+            bool axisInPosition = IsWaferFeederYInPosition(
+                Recipe.AvoidPosition,
+                ResolveWaferFeederYInPositionTolerance());
+
+            if (!axisInPosition)
+                return false;
+
+            return IsWaferFeederAvoidPositionCheck();
         }
 
         public bool IsWaferFeederYInAvoidPosition()
         {
             return IsWaferFeederInAvoidPosition();
+        }
+
+        public bool IsWaferFeederAvoidPositionCheck()
+        {
+            if (IsWaferFeederSimulationOrDryRun())
+                return IsWaferFeederYInPosition(
+                    Recipe.AvoidPosition,
+                    ResolveWaferFeederYInPositionTolerance());
+
+            return WaferFeederAvoidPositionCheckSensor != null &&
+                   WaferFeederAvoidPositionCheckSensor.IsOn;
         }
 
         public bool IsWaferFeederInCassetteLoadPosition(int slotIndex)
@@ -2063,6 +2084,7 @@ namespace QMC.CDT320
                     + ", Wafer=" + CurrentWaferId
                     + ", Ring=" + IsWaferFeederRingCheck()
                     + ", Overload=" + IsWaferFeederOverload()
+                    + ", AvoidCheck=" + IsWaferFeederAvoidPositionCheck()
                     + ", FeederY=" + BuildFeederYAxisSummary();
             }
             catch (Exception ex)
@@ -2539,13 +2561,32 @@ namespace QMC.CDT320
                 WaitWaferFeederYMoveDoneInPosition(target, timeoutMs),
                 ct).ConfigureAwait(false);
 
-            if (waitResult.Success)
+            if (!waitResult.Success)
+            {
+                return RaiseFeederAlarm(
+                    AxisMoveWaiter.ResolveAlarmCode(alarmPrefix, waitResult),
+                    description + " move/in-position wait failed. " +
+                    AxisMoveWaiter.FormatResult(waitResult, GetWaferFeederTransferState()));
+            }
+
+            if (!IsWaferFeederAvoidTarget(target) || IsWaferFeederSimulationOrDryRun())
+                return 0;
+
+            bool avoidCheck = WaferFeederAvoidPositionCheckSensor != null &&
+                await WaferFeederAvoidPositionCheckSensor.WaitUntilStateAsync(true, timeoutMs, ct).ConfigureAwait(false);
+            if (avoidCheck)
                 return 0;
 
             return RaiseFeederAlarm(
-                AxisMoveWaiter.ResolveAlarmCode(alarmPrefix, waitResult),
-                description + " move/in-position wait failed. " +
-                AxisMoveWaiter.FormatResult(waitResult, GetWaferFeederTransferState()));
+                alarmPrefix + "-AVOID-CHECK",
+                description + " 도착 후 WaferFeeder Avoid 위치 확인 접점이 ON되지 않았습니다. " +
+                FormatInputState("X090", WaferFeederAvoidPositionCheckSensor));
+        }
+
+        private bool IsWaferFeederAvoidTarget(double target)
+        {
+            return Recipe != null &&
+                   Math.Abs(target - Recipe.AvoidPosition) <= ResolveWaferFeederYInPositionTolerance();
         }
 
         private double GetTeachingPosition(string positionName)

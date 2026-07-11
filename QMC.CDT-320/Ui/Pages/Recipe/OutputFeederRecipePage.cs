@@ -693,7 +693,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
 
                 var unit = _outputFeederUnit;
 
-                // 2열 열우선 배치 (접두사/CHECK 생략): [1열] RING CHECK + LIFT 세트, [2열] OVERLOAD + CLAMP 세트
+                // 2열 열우선 배치 (접두사/CHECK 생략): [1열] RING/AVOID CHECK + LIFT 세트, [2열] OVERLOAD + CLAMP 세트
                 ioCylinderPanel.ColumnCount = 2;
                 ioCylinderPanel.SetItems(new[]
                 {
@@ -701,6 +701,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                     IoCylinderItem.Input("UP", () => unit.IsFeederUp()),
                     IoCylinderItem.Input("DOWN", () => unit.IsFeederDown()),
                     IoCylinderItem.Cylinder("LIFT", unit.FeederUpDownCyl, "UP", "DOWN"),
+                    IoCylinderItem.Input("AVOID CHECK", () => unit.IsBinFeederAvoidPositionCheck()),
 
                     IoCylinderItem.Input("OVERLOAD", () => unit.IsFeederOverload()),
                     IoCylinderItem.Input("CLAMP", () => unit.IsBinFeederClamp()),
