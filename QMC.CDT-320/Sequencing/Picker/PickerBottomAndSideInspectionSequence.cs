@@ -20,10 +20,12 @@ namespace QMC.CDT320.Sequencing
         private readonly List<PendingZAvoid> _pendingZAvoids = new List<PendingZAvoid>();
         private readonly List<PendingBottomZDown> _pendingBottomZDowns = new List<PendingBottomZDown>();
         private readonly Dictionary<int, BottomReferencePosition> _bottomReferencePositions = new Dictionary<int, BottomReferencePosition>();
+        private readonly Dictionary<int, BottomReferencePosition> _sideTargetPositions = new Dictionary<int, BottomReferencePosition>();
 
         private bool _bottomInspectionYReady;
         private bool _sideInspectionYReady;
         private bool _sidePipelineEnabled;
+        private bool _parallelFirstSideEnabled;
         private SequenceResourceLease _inspectionAreaLease;
         private IDisposable _bottomProcessAreaScope;
         private IDisposable _sideProcessAreaScope;
@@ -109,7 +111,9 @@ namespace QMC.CDT320.Sequencing
                 _pendingZAvoids.Clear();
                 _pendingBottomZDowns.Clear();
                 _bottomReferencePositions.Clear();
+                _sideTargetPositions.Clear();
                 _sidePipelineEnabled = false;
+                _parallelFirstSideEnabled = false;
                 ForceBottomInspectionBeforeSideResume = false;
                 CurrentStep = PickerBottomAndSideInspectionStep.Complete;
             }
@@ -240,9 +244,11 @@ namespace QMC.CDT320.Sequencing
             _pendingZAvoids.Clear();
             _pendingBottomZDowns.Clear();
             _bottomReferencePositions.Clear();
+            _sideTargetPositions.Clear();
             _bottomInspectionYReady = false;
             _sideInspectionYReady = false;
             _sidePipelineEnabled = false;
+            _parallelFirstSideEnabled = false;
 
             _pickedPickerIndexes.AddRange(BuildLoadedPickerIndexesInRunOrder("PickerBottomAndSideInspectionSequence"));
             RemoveSkippedPickerTargets();
@@ -252,54 +258,120 @@ namespace QMC.CDT320.Sequencing
                 return 0;
             }
 
-            if (_pickedPickerIndexes.Count == 4)
+            string orderReason;
+            if (!IsBottomSideRunOrderValid(out orderReason))
             {
-                string orderReason;
-                if (!IsBottomSideFullBatchOrderValid(out orderReason))
-                {
-                    return Fail("PICKER-BOTTOM-SIDE-RUN-ORDER", Name,
-                        "Bottom/Side 통합 검사는 4->3->2->1 순서만 허용합니다. " + orderReason);
-                }
+                return Fail("PICKER-BOTTOM-SIDE-RUN-ORDER", Name,
+                    "Bottom/Side 통합 검사는 보유 Picker를 4->3->2->1 순서로만 처리합니다. " + orderReason);
+            }
 
-                _sidePipelineEnabled = true;
+            // 현재 기준: 제품 수와 관계없이 Side 검사는 수행하고, 4개 풀 배치에서만 Bottom1/Side4 병렬을 허용한다.
+            _sidePipelineEnabled = true;
+            _parallelFirstSideEnabled = _pickedPickerIndexes.Count == 4;
+
+            int planResult = BuildSideTargetPlan();
+            if (planResult != 0)
+                return planResult;
+
+            if (_parallelFirstSideEnabled)
+            {
+                WriteLog("PickerBottomAndSideInspectionSequence",
+                    Name + " 4개 풀 배치이므로 Bottom1 검사와 Side4 첫 검사를 병렬 수행합니다. " +
+                    "loadedPickers=" + BuildPickerNoListText(_pickedPickerIndexes) + " - Check");
             }
             else
             {
                 WriteLog("PickerBottomAndSideInspectionSequence",
-                    Name + " Bottom/Side 통합 Side 검사를 생략합니다. " +
-                    "4개 풀 배치가 아니면 Side 첫 검사가 잘못 선행될 수 있어 현재 배치는 Bottom만 진행합니다. " +
+                    Name + " 부분 배치이므로 Side 병렬 동작만 생략합니다. " +
+                    "보유 Picker의 Bottom 검사를 모두 완료한 뒤 Side 검사를 순차 수행합니다. " +
                     "loadedPickers=" + BuildPickerNoListText(_pickedPickerIndexes) +
                     ", count=" + _pickedPickerIndexes.Count + " - Check");
             }
 
             WriteLog("PickerBottomAndSideInspectionSequence",
                 Name + " Bottom/Side 통합 검사 대상 구성 완료. count=" + _pickedPickerIndexes.Count +
-                ", sidePipelineEnabled=" + _sidePipelineEnabled + " - Ok");
+                ", sidePipelineEnabled=" + _sidePipelineEnabled +
+                ", parallelFirstSideEnabled=" + _parallelFirstSideEnabled + " - Ok");
             CurrentStep = PickerBottomAndSideInspectionStep.AcquireInspectionArea;
             return 0;
         }
 
-        private bool IsBottomSideFullBatchOrderValid(out string reason)
+        private bool IsBottomSideRunOrderValid(out string reason)
         {
             reason = string.Empty;
-            if (_pickedPickerIndexes.Count != 4)
+            if (_pickedPickerIndexes.Count <= 0)
             {
                 reason = "loadedPickers=" + BuildPickerNoListText(_pickedPickerIndexes) + ".";
                 return false;
             }
 
-            int[] expected = new int[] { ToPickerIndex(4), ToPickerIndex(3), ToPickerIndex(2), ToPickerIndex(1) };
-            for (int i = 0; i < expected.Length; i++)
+            for (int i = 1; i < _pickedPickerIndexes.Count; i++)
             {
-                if (_pickedPickerIndexes[i] == expected[i])
+                if (_pickedPickerIndexes[i - 1] > _pickedPickerIndexes[i])
                     continue;
 
                 reason = "loadedPickers=" + BuildPickerNoListText(_pickedPickerIndexes) +
-                    ", expected=4->3->2->1.";
+                    ", expectedOrder=4->3->2->1 subset.";
                 return false;
             }
 
             return true;
+        }
+
+        private int BuildSideTargetPlan()
+        {
+            _sideTargetPositions.Clear();
+
+            try
+            {
+                for (int sidePickerNo = 1; sidePickerNo <= 4; sidePickerNo++)
+                {
+                    int sidePickerIndex = ToPickerIndex(sidePickerNo);
+                    int bottomReferencePickerNo = ResolveBottomReferencePickerNoForSide(sidePickerIndex);
+                    int bottomReferencePickerIndex = ToPickerIndex(bottomReferencePickerNo);
+                    var bottomTarget = ResolvePickerZoneTarget("DieBottomPosition", bottomReferencePickerIndex);
+
+                    if (bottomTarget == null ||
+                        !IsValidSidePlanCoordinate(bottomTarget.X) ||
+                        !IsValidSidePlanCoordinate(bottomTarget.Y))
+                    {
+                        return Fail("PICKER-BOTTOM-SIDE-TARGET-PLAN", Name,
+                            "Side 검사 X/Y 사전 할당 실패. Bottom 공정 좌표 설정을 확인하세요. " +
+                            "sidePickerNo=" + sidePickerNo +
+                            ", bottomReferencePickerNo=" + bottomReferencePickerNo +
+                            ", targetX=" + (bottomTarget != null ? bottomTarget.X.ToString("0.###") : "null") +
+                            ", targetY=" + (bottomTarget != null ? bottomTarget.Y.ToString("0.###") : "null") + ".");
+                    }
+
+                    _sideTargetPositions[sidePickerIndex] = new BottomReferencePosition
+                    {
+                        X = bottomTarget.X,
+                        Y = bottomTarget.Y
+                    };
+
+                    WriteLog("PickerBottomAndSideInspectionSequence",
+                        Name + " Side 검사 X/Y 사전 할당 완료. " +
+                        "sidePickerNo=" + sidePickerNo +
+                        ", bottomReferencePickerNo=" + bottomReferencePickerNo +
+                        ", targetX=" + bottomTarget.X.ToString("0.###") +
+                        ", targetY=" + bottomTarget.Y.ToString("0.###") +
+                        ", source=BottomProcessPlan - Check");
+                }
+
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                return Fail("PICKER-BOTTOM-SIDE-TARGET-PLAN", Name,
+                    "Side 검사 X/Y 사전 할당 중 예외가 발생했습니다. error=" + ex.Message);
+            }
+        }
+
+        private static bool IsValidSidePlanCoordinate(double value)
+        {
+            return !double.IsNaN(value) &&
+                   !double.IsInfinity(value) &&
+                   Math.Abs(value) > 0.000001;
         }
 
         private async Task<int> VerifyPickedPickerFlowBeforeInspectionAsync(CancellationToken ct)
@@ -469,11 +541,16 @@ namespace QMC.CDT320.Sequencing
                 }
 
                 bool isLastBottomShot = i >= _pickedPickerIndexes.Count - 1;
-                InspectionTarget sideFirstTarget = isLastBottomShot
-                    ? PrepareAutoFirstSideTargetForLastBottom(target)
-                    : null;
+                InspectionTarget sideFirstTarget = null;
+                int result = 0;
+                if (isLastBottomShot)
+                {
+                    result = PrepareAutoFirstSideTargetForLastBottom(target, out sideFirstTarget);
+                    if (result != 0)
+                        return result;
+                }
 
-                int result = await CompletePendingBottomZDownForPickerAsync(target.PickerIndex, ct).ConfigureAwait(false);
+                result = await CompletePendingBottomZDownForPickerAsync(target.PickerIndex, ct).ConfigureAwait(false);
                 if (result != 0)
                     return result;
 
@@ -646,13 +723,16 @@ namespace QMC.CDT320.Sequencing
                 return true;
             }
 
-            if (!_sidePipelineEnabled)
-                return false;
+            // 현재 기준: 미보유 Bottom 축도 시작 시 선계산한 계획으로 Side X/Y를 확정한다.
+            BottomReferencePosition plannedTarget;
+            if (_sideTargetPositions.TryGetValue(sidePickerIndex, out plannedTarget))
+            {
+                x = plannedTarget.X;
+                y = plannedTarget.Y;
+                return true;
+            }
 
-            // 현재 기준: Side는 Bottom 공정 X/Y만 사용한다. 런타임 저장값이 없으면 Bottom 티칭값으로만 대체한다.
-            x = ResolvePickerZoneX("DieBottomPosition", bottomReferencePickerIndex);
-            y = ResolvePickerZoneY("DieBottomPosition", bottomReferencePickerIndex);
-            return true;
+            return false;
         }
 
         private int ResolveBottomReferencePickerNoForSide(int sidePickerIndex)
@@ -1244,7 +1324,7 @@ namespace QMC.CDT320.Sequencing
             if (!_sidePipelineEnabled)
             {
                 WriteLog("PickerBottomAndSideInspectionSequence",
-                    Name + " Side Pipeline 생략. 4개 풀 배치가 아니므로 Bottom 검사 결과만 반영하고 Side 검사는 수행하지 않습니다. " +
+                    Name + " Side Pipeline 비활성 상태입니다. 보유 Picker가 없을 때만 허용됩니다. " +
                     "loadedPickers=" + BuildPickerNoListText(_pickedPickerIndexes) + " - Check");
                 return 0;
             }
@@ -1270,7 +1350,12 @@ namespace QMC.CDT320.Sequencing
 
                 InspectionTarget target = BuildSideTarget(pickerIndex);
                 if (target == null || target.Die == null)
-                    continue;
+                {
+                    return Fail("PICKER-BOTTOM-SIDE-SIDE-TARGET", Name,
+                        "Side 검사 목표 생성 실패. Side 목표 좌표 또는 Picker 제품 상태를 확인하세요. " +
+                        "pickerNo=" + ToPickerNo(pickerIndex) +
+                        ", loadedPickers=" + BuildPickerNoListText(_pickedPickerIndexes) + ".");
+                }
 
                 if (HasInspectionResult(target.Die, "Side0") &&
                     HasInspectionResult(target.Die, "Side90"))
@@ -1312,7 +1397,7 @@ namespace QMC.CDT320.Sequencing
             double targetY = sideTeachingY;
             int bottomReferencePickerNo;
             bool bottomReferenceStored;
-            if (TryResolveBottomReferenceForSideTarget(
+            if (!TryResolveBottomReferenceForSideTarget(
                 pickerIndex,
                 out targetX,
                 out targetY,
@@ -1320,15 +1405,24 @@ namespace QMC.CDT320.Sequencing
                 out bottomReferenceStored))
             {
                 WriteLog("PickerBottomAndSideInspectionSequence",
-                    Name + " Side X/Y 목표를 Side 티칭값 대신 Bottom 공정 X/Y 기준으로 적용합니다. " +
+                    Name + " Side X/Y 목표를 확정할 수 없습니다. " +
                     "sidePickerNo=" + pickerNo +
                     ", bottomReferencePickerNo=" + bottomReferencePickerNo +
-                    ", targetX=" + targetX.ToString("0.###") +
-                    ", targetY=" + targetY.ToString("0.###") +
-                    ", sideTeachingXIgnored=" + sideTeachingX.ToString("0.###") +
-                    ", sideTeachingYIgnored=" + sideTeachingY.ToString("0.###") +
-                    ", source=" + (bottomReferenceStored ? "RuntimeBottomTarget" : "BottomTeachingFallback") + " - Check");
+                    ", sideTeachingXNotUsed=" + sideTeachingX.ToString("0.###") +
+                    ", sideTeachingYNotUsed=" + sideTeachingY.ToString("0.###") + " - Failed");
+                return null;
             }
+
+            WriteLog("PickerBottomAndSideInspectionSequence",
+                Name + " Side X/Y 목표를 Bottom 공정 X/Y 기준으로 적용합니다. " +
+                "sidePickerNo=" + pickerNo +
+                ", bottomReferencePickerNo=" + bottomReferencePickerNo +
+                ", targetX=" + targetX.ToString("0.###") +
+                ", targetY=" + targetY.ToString("0.###") +
+                ", sideTeachingXIgnored=" + sideTeachingX.ToString("0.###") +
+                ", sideTeachingYIgnored=" + sideTeachingY.ToString("0.###") +
+                ", source=" + (bottomReferenceStored ? "RuntimeBottomTarget" : "PrecalculatedBottomPlan") + " - Check");
+
             return new InspectionTarget
             {
                 PickerIndex = pickerIndex,
@@ -1387,45 +1481,55 @@ namespace QMC.CDT320.Sequencing
             return target.SideVisionProcess0Y;
         }
 
-        private InspectionTarget PrepareAutoFirstSideTargetForLastBottom(InspectionTarget lastBottomTarget)
+        private int PrepareAutoFirstSideTargetForLastBottom(
+            InspectionTarget lastBottomTarget,
+            out InspectionTarget sideTarget)
         {
+            sideTarget = null;
+
             try
             {
                 if (Options == null || Options.RunMode != SequenceRunMode.Auto)
-                    return null;
+                    return 0;
 
                 if (lastBottomTarget == null || _pickedPickerIndexes.Count == 0)
-                    return null;
+                    return 0;
 
                 if (!_sidePipelineEnabled)
-                    return null;
+                    return 0;
+
+                // 현재 기준: Bottom1/Side4 병렬 검사는 정확히 4개를 보유한 풀 배치에서만 수행한다.
+                if (!_parallelFirstSideEnabled)
+                    return 0;
 
                 if (lastBottomTarget.PickerNo != 1)
                 {
-                    WriteLog("PickerBottomAndSideInspectionSequence",
-                        Name + " Auto Bottom 마지막/Side 첫 동시 검사를 생략합니다. " +
+                    return Fail("PICKER-BOTTOM-SIDE-PARALLEL-TARGET", Name,
+                        "4개 풀 배치 Bottom1/Side4 병렬 검사 준비 실패. " +
                         "Bottom 마지막 대상이 pickerNo=1이 아닙니다. " +
                         "lastBottomPickerNo=" + lastBottomTarget.PickerNo +
-                        ", loadedPickers=" + BuildPickerNoListText(_pickedPickerIndexes) + " - Check");
-                    return null;
+                        ", loadedPickers=" + BuildPickerNoListText(_pickedPickerIndexes) + ".");
                 }
 
                 int sideFirstPickerIndex = ToPickerIndex(4);
                 if (!_pickedPickerIndexes.Contains(sideFirstPickerIndex))
                 {
-                    WriteLog("PickerBottomAndSideInspectionSequence",
-                        Name + " Auto Bottom 마지막/Side 첫 동시 검사를 생략합니다. " +
-                        "pickerNo=4에 제품이 없습니다. 현재 배치는 Bottom만 진행합니다. " +
-                        "loadedPickers=" + BuildPickerNoListText(_pickedPickerIndexes) + " - Check");
-                    return null;
+                    return Fail("PICKER-BOTTOM-SIDE-PARALLEL-TARGET", Name,
+                        "4개 풀 배치 Bottom1/Side4 병렬 검사 준비 실패. " +
+                        "pickerNo=4에 제품이 없습니다. " +
+                        "loadedPickers=" + BuildPickerNoListText(_pickedPickerIndexes) + ".");
                 }
 
                 if (_sideCompletedPickerIndexes.Contains(sideFirstPickerIndex))
-                    return null;
+                    return 0;
 
-                InspectionTarget sideTarget = BuildSideTarget(sideFirstPickerIndex);
+                sideTarget = BuildSideTarget(sideFirstPickerIndex);
                 if (sideTarget == null || sideTarget.Die == null)
-                    return null;
+                {
+                    return Fail("PICKER-BOTTOM-SIDE-PARALLEL-TARGET", Name,
+                        "4개 풀 배치 Bottom1/Side4 병렬 검사 목표 생성 실패. " +
+                        "sidePickerNo=4, loadedPickers=" + BuildPickerNoListText(_pickedPickerIndexes) + ".");
+                }
 
                 double bottomX = lastBottomTarget.X;
                 double bottomY = lastBottomTarget.Y;
@@ -1445,13 +1549,13 @@ namespace QMC.CDT320.Sequencing
                     ", preparedSideX=" + preparedSideX.ToString("0.###") +
                     ", preparedSideY=" + preparedSideY.ToString("0.###") + " - Check");
 
-                return sideTarget;
+                return 0;
             }
             catch (Exception ex)
             {
-                WriteLog("PickerBottomAndSideInspectionSequence",
-                    Name + " Auto Bottom 마지막/Side 첫 동시 검사 공유 위치 준비 실패. error=" + ex.Message + " - Failed");
-                return null;
+                sideTarget = null;
+                return Fail("PICKER-BOTTOM-SIDE-PARALLEL-TARGET", Name,
+                    "Auto Bottom1/Side4 병렬 검사 공유 위치 준비 중 예외가 발생했습니다. error=" + ex.Message);
             }
             finally
             {
