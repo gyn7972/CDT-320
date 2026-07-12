@@ -508,6 +508,9 @@ namespace QMC.CDT320
         [DataMember] public double PickLiftPosition { get; set; } = 2.0; // Pick 후 Die를 들어 올릴 때 사용하는 Z축 상승 기준 위치입니다.
         [DataMember] public int PickLiftWaitMs { get; set; } = 50; // Pick Lift 후 진동 안정화를 위해 기다리는 시간입니다.
         [DataMember] public int PlaceDelayMs { get; set; } = 50; // Place 동작 후 다음 동작으로 넘어가기 전 대기 시간입니다.
+        [DataMember] public double[] ColletRotationCenterX { get; set; } = new double[4]; // Collet별 회전 중심의 PickerX 기계 좌표입니다.
+        [DataMember] public double[] ColletRotationCenterY { get; set; } = new double[4]; // Collet별 회전 중심의 PickerY 기계 좌표입니다.
+        [DataMember] public bool[] ColletRotationCenterValid { get; set; } = new bool[4]; // Collet별 회전 중심 좌표의 유효 상태입니다.
 
         [OnDeserialized]
         private void OnDeserialized(StreamingContext ctx)
@@ -538,6 +541,31 @@ namespace QMC.CDT320
             PickerZ1.EnsureArrays();
             PickerZ2.EnsureArrays();
             PickerZ3.EnsureArrays();
+            ColletRotationCenterX = EnsureArrayLength(ColletRotationCenterX, 4);
+            ColletRotationCenterY = EnsureArrayLength(ColletRotationCenterY, 4);
+            ColletRotationCenterValid = EnsureArrayLength(ColletRotationCenterValid, 4);
+        }
+
+        private static double[] EnsureArrayLength(double[] source, int length)
+        {
+            if (source != null && source.Length == length)
+                return source;
+
+            var result = new double[length];
+            if (source != null)
+                Array.Copy(source, result, Math.Min(source.Length, result.Length));
+            return result;
+        }
+
+        private static bool[] EnsureArrayLength(bool[] source, int length)
+        {
+            if (source != null && source.Length == length)
+                return source;
+
+            var result = new bool[length];
+            if (source != null)
+                Array.Copy(source, result, Math.Min(source.Length, result.Length));
+            return result;
         }
     }
 

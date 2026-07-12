@@ -304,6 +304,23 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                     AddPositionItem(optionItems, tzKeys[i], tzNames[i], zoneKinds[k] + " POSITION", zoneKindPos[k], tzUnits[i], tzNames[i], gk);
             }
 
+            const string rotationCenterGroup = "K_COLLET_ROTATION_CENTER";
+            optionItems.Add(Describe(ParameterGridItem.Header("COLLET ROTATION CENTER", rotationCenterGroup),
+                "COC CENTER / RE-CAL에서 계산한 Collet별 회전 중심의 실제 Picker X/Y 좌표입니다."));
+            for (int i = 0; i < 4; i++)
+            {
+                int index = i;
+                string name = "PICKER " + (index + 1) + " COC";
+                optionItems.Add(InGroup(Describe(AxisDouble(name + " X", PickerAxis.PickerX, AxisUnitConverter.Millimeter, ParameterGridScope.Recipe,
+                    () => unit.Recipe.ColletRotationCenterX[index], v => unit.Recipe.ColletRotationCenterX[index] = v),
+                    "선택 Collet의 회전 중심 PickerX 기계 좌표입니다."), rotationCenterGroup));
+                optionItems.Add(InGroup(Describe(AxisDouble(name + " Y", PickerAxis.PickerY, AxisUnitConverter.Millimeter, ParameterGridScope.Recipe,
+                    () => unit.Recipe.ColletRotationCenterY[index], v => unit.Recipe.ColletRotationCenterY[index] = v),
+                    "선택 Collet의 회전 중심 PickerY 기계 좌표입니다."), rotationCenterGroup));
+                optionItems.Add(InGroup(ParameterGridItem.Bool(name + " VALID", ParameterGridScope.Recipe,
+                    () => unit.Recipe.ColletRotationCenterValid[index], v => unit.Recipe.ColletRotationCenterValid[index] = v), rotationCenterGroup));
+            }
+
             const string pickerSettingGroup = "K_PICKER_SETTING";
             optionItems.Add(ParameterGridItem.Header("PICKER SETTING", pickerSettingGroup));
             optionItems.Add(InGroup(ParameterGridItem.Bool("REAR PICKER USE", ParameterGridScope.Config, () => unit.Config.UseUnit, v => unit.Config.UseUnit = v), pickerSettingGroup));

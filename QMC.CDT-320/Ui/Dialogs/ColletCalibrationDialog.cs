@@ -138,7 +138,7 @@ namespace QMC.CDT_320.Ui.Dialogs
         {
             CalibrationDialogButtonStyle.ApplyFooterButtons(
                 new[] { btnCheck, btnSaveBottomTeaching, btnApplyHomeOffset, btnMoveZForward, btnMoveYAvoid, btnSeqStop, btnReload, btnClose },
-                new[] { btnStart, btnCoc },
+                new[] { btnStart, btnCoc, btnCocCenter },
                 new[] { btnSave });
         }
 
@@ -297,7 +297,12 @@ namespace QMC.CDT_320.Ui.Dialogs
 
         private async void btnCoc_Click(object sender, EventArgs e)
         {
-            await RunCocCalibrationAsync().ConfigureAwait(true);
+            await RunCocCalibrationAsync(false).ConfigureAwait(true);
+        }
+
+        private async void btnCocCenter_Click(object sender, EventArgs e)
+        {
+            await RunCocCalibrationAsync(true).ConfigureAwait(true);
         }
 
         private void btnSaveBottomTeaching_Click(object sender, EventArgs e)
@@ -449,7 +454,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             }
         }
 
-        private async Task RunCocCalibrationAsync()
+        private async Task RunCocCalibrationAsync(bool moveToStoredCenter)
         {
             if (_busy)
                 return;
@@ -482,17 +487,37 @@ namespace QMC.CDT_320.Ui.Dialogs
                 if (!SaveSettingsFromUi(false))
                     return;
 
+                if (moveToStoredCenter)
+                {
+                    ColletCalibrationRecord record = ResolveData(host.Machine).GetRecord(_side, _colletNo);
+                    if (record == null || !record.RotationCenterValid)
+                    {
+                        lblStatus.Text = "COC START로 선택 Collet의 1차 회전 중심을 먼저 검출하세요.";
+                        QMC.Common.MessageDialog.Show(this, lblStatus.Text, "COLLET COC", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        return;
+                    }
+
+                    if (string.IsNullOrWhiteSpace(host.CurrentRecipeName))
+                    {
+                        lblStatus.Text = "현재 활성 Recipe가 없어 회전 중심 기계 좌표를 저장할 수 없습니다.";
+                        QMC.Common.MessageDialog.Show(this, lblStatus.Text, "COLLET COC", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        return;
+                    }
+                }
+
                 runCts = BeginManualCalibrationRun(host, "ColletCOC", out actionScope, out stopHandler);
                 var context = new MachineSequenceContext(host.Controller, new SequenceSignalBus());
-                var sequence = new ColletRotationCenterCalibrationSequence(context, _side, _colletNo);
+                var sequence = new ColletRotationCenterCalibrationSequence(context, _side, _colletNo, moveToStoredCenter);
                 PickerSequenceOptions options = PickerSequenceOptions.Default();
                 options.RunMode = SequenceRunMode.Manual;
                 options.StartMode = SequenceStartMode.Restart;
                 options.PickerNo = _colletNo;
                 options.RestrictToPickerNo = _colletNo;
 
-                lblStatus.Text = "COC 실행 중입니다. 기존 Collet Calibration 위치에서 T축을 " +
-                                 _cocRotationVelocityDegPerSec.ToString("F3") + " deg/s로 360도 회전합니다.";
+                lblStatus.Text = moveToStoredCenter
+                    ? "저장된 회전 중심으로 X/Y 이동 후 COC를 다시 실행하고 있습니다."
+                    : "COC 실행 중입니다. 기존 Collet Calibration 위치에서 T축을 " +
+                      _cocRotationVelocityDegPerSec.ToString("F3") + " deg/s로 360도 회전합니다.";
                 int result = await sequence.RunAsync(runCts.Token, options).ConfigureAwait(true);
                 RefreshResultGrid();
                 if (result != 0)
@@ -502,15 +527,33 @@ namespace QMC.CDT_320.Ui.Dialogs
                     return;
                 }
 
+                string recipeSummary = string.Empty;
+                if (moveToStoredCenter)
+                {
+                    if (!SaveRotationCenterToRecipe(host, sequence.RotationCenterMachineX, sequence.RotationCenterMachineY, out recipeSummary))
+                    {
+                        lblStatus.Text = recipeSummary;
+                        QMC.Common.MessageDialog.Show(this, lblStatus.Text, "COLLET COC", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                        return;
+                    }
+                }
+
                 host.SaveMachineSettings();
-                string summary = "COC 완료. Side=" + _side +
-                                 ", Collet=" + _colletNo +
-                                 ", CenterPixel=(" + sequence.Result.CenterPixelX.ToString("F3") +
-                                 ", " + sequence.Result.CenterPixelY.ToString("F3") + ")" +
-                                 ", Frames=" + sequence.Result.FrameCount;
+                string summary = (moveToStoredCenter ? "COC 중심 이동/재검출 완료. " : "COC 완료. ") + "Side=" + _side +
+                                  ", Collet=" + _colletNo +
+                                  ", CenterPixel=(" + sequence.Result.CenterPixelX.ToString("F3") +
+                                  ", " + sequence.Result.CenterPixelY.ToString("F3") + ")" +
+                                  ", Frames=" + sequence.Result.FrameCount +
+                                  (moveToStoredCenter
+                                      ? ", MachineCenter=(" + sequence.RotationCenterMachineX.ToString("F6") +
+                                        ", " + sequence.RotationCenterMachineY.ToString("F6") + ")"
+                                      : string.Empty);
                 lblStatus.Text = summary;
-                AppendSaveHistory(new[] { summary });
-                WriteSaveHistoryLog(new[] { summary });
+                string[] history = string.IsNullOrWhiteSpace(recipeSummary)
+                    ? new[] { summary }
+                    : new[] { summary, recipeSummary };
+                AppendSaveHistory(history);
+                WriteSaveHistoryLog(history);
             }
             catch (OperationCanceledException)
             {
@@ -535,6 +578,52 @@ namespace QMC.CDT_320.Ui.Dialogs
                 SetButtonsEnabled(true);
                 UpdateStopButtonEnabled();
             }
+        }
+
+        private bool SaveRotationCenterToRecipe(Form1 host, double centerX, double centerY, out string message)
+        {
+            message = string.Empty;
+            if (host == null || host.Machine == null || string.IsNullOrWhiteSpace(host.CurrentRecipeName))
+            {
+                message = "현재 활성 Recipe가 없어 Collet 회전 중심 좌표를 저장할 수 없습니다.";
+                return false;
+            }
+
+            int index = Math.Max(0, Math.Min(3, _colletNo - 1));
+            if (_side == VisionFocusPickerSide.Front)
+            {
+                if (host.Machine.PickerFrontUnit == null || host.Machine.PickerFrontUnit.Recipe == null)
+                {
+                    message = "Front Picker Recipe가 준비되지 않아 회전 중심 좌표를 저장할 수 없습니다.";
+                    return false;
+                }
+
+                host.Machine.PickerFrontUnit.Recipe.EnsurePositionObjects();
+                host.Machine.PickerFrontUnit.Recipe.ColletRotationCenterX[index] = centerX;
+                host.Machine.PickerFrontUnit.Recipe.ColletRotationCenterY[index] = centerY;
+                host.Machine.PickerFrontUnit.Recipe.ColletRotationCenterValid[index] = true;
+            }
+            else
+            {
+                if (host.Machine.PickerRearUnit == null || host.Machine.PickerRearUnit.Recipe == null)
+                {
+                    message = "Rear Picker Recipe가 준비되지 않아 회전 중심 좌표를 저장할 수 없습니다.";
+                    return false;
+                }
+
+                host.Machine.PickerRearUnit.Recipe.EnsurePositionObjects();
+                host.Machine.PickerRearUnit.Recipe.ColletRotationCenterX[index] = centerX;
+                host.Machine.PickerRearUnit.Recipe.ColletRotationCenterY[index] = centerY;
+                host.Machine.PickerRearUnit.Recipe.ColletRotationCenterValid[index] = true;
+            }
+
+            bool saved = host.SaveMachineRecipe(host.CurrentRecipeName);
+            message = "COC Recipe 저장: " + _side + " C" + _colletNo +
+                      ", X=" + centerX.ToString("F6") +
+                      ", Y=" + centerY.ToString("F6") +
+                      ", recipe=" + host.CurrentRecipeName +
+                      ", saved=" + saved;
+            return saved;
         }
 
         private async Task RunMoveZForwardAsync()
@@ -2196,6 +2285,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             btnCheck.Enabled = enabled;
             btnStart.Enabled = enabled;
             btnCoc.Enabled = enabled;
+            btnCocCenter.Enabled = enabled;
             btnSaveBottomTeaching.Enabled = enabled;
             btnApplyHomeOffset.Enabled = enabled;
             btnMoveZForward.Enabled = enabled;

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using QMC.CDT320.Calibration;
@@ -20,6 +21,7 @@ namespace QMC.CDT320.Sequencing.Calibration
         private readonly VisionFocusPickerSide _calibrationSide;
         private readonly int _colletNo;
         private readonly int _colletIndex;
+        private readonly bool _moveToStoredRotationCenter;
         private SequenceResourceLease _inspectionAreaLease;
         private ColletCalibrationSettings _settings;
         private ColletCalibrationRecord _record;
@@ -29,7 +31,8 @@ namespace QMC.CDT320.Sequencing.Calibration
         public ColletRotationCenterCalibrationSequence(
             MachineSequenceContext context,
             VisionFocusPickerSide side,
-            int colletNo)
+            int colletNo,
+            bool moveToStoredRotationCenter = false)
             : base(
                 context,
                 side == VisionFocusPickerSide.Front ? PickerSequenceSide.Front : PickerSequenceSide.Rear,
@@ -41,10 +44,13 @@ namespace QMC.CDT320.Sequencing.Calibration
             _calibrationSide = side;
             _colletNo = Math.Max(1, Math.Min(4, colletNo));
             _colletIndex = _colletNo - 1;
+            _moveToStoredRotationCenter = moveToStoredRotationCenter;
             CurrentStep = ColletRotationCenterCalibrationStep.CheckReady;
         }
 
         public VisionCocResult Result { get; private set; }
+        public double RotationCenterMachineX { get; private set; }
+        public double RotationCenterMachineY { get; private set; }
 
         protected override async Task<int> ExecuteAsync(CancellationToken ct)
         {
@@ -57,6 +63,14 @@ namespace QMC.CDT320.Sequencing.Calibration
                 result = await AcquireInspectionAreaAsync(ct).ConfigureAwait(false);
                 if (result != 0)
                     return result;
+
+                if (_moveToStoredRotationCenter)
+                {
+                    CurrentStep = ColletRotationCenterCalibrationStep.MoveToStoredCenter;
+                    result = await MoveToStoredRotationCenterAsync(ct).ConfigureAwait(false);
+                    if (result != 0)
+                        return result;
+                }
 
                 CurrentStep = ColletRotationCenterCalibrationStep.StartCoc;
                 result = await StartCocAsync(ct).ConfigureAwait(false);
@@ -126,6 +140,15 @@ namespace QMC.CDT320.Sequencing.Calibration
                     _calibrationSide + ", colletNo=" + _colletNo);
             }
 
+            if (_moveToStoredRotationCenter && !_record.RotationCenterValid)
+            {
+                return Fail("COLLET-COC-CENTER-NOT-READY", Name,
+                    "COC CENTER / RE-CAL 전에 COC START로 1차 회전 중심을 먼저 검출해야 합니다. side=" +
+                    _calibrationSide + ", colletNo=" + _colletNo);
+            }
+
+            SetCalibrationMotion(_settings.Motion.Clone());
+
             BaseAxis x = GetPickerAxis(PickerAxis.PickerX);
             BaseAxis y = GetPickerAxis(PickerAxis.PickerY);
             BaseAxis z = GetPickerAxis(GetPickerZAxis(_colletIndex));
@@ -177,6 +200,59 @@ namespace QMC.CDT320.Sequencing.Calibration
                 Name + ":COC",
                 ct).ConfigureAwait(false);
             return _inspectionAreaLease != null ? 0 : -1;
+        }
+
+        private async Task<int> MoveToStoredRotationCenterAsync(CancellationToken ct)
+        {
+            VisionCameraPixelCalibration camera = VisionCameraCalibrationTransform.ResolveCamera(
+                Context.Machine.VisionUnit.Config.CalibrationData.Camera,
+                AutoVisionChannel.BottomInspection);
+            double offsetMmX = camera.PixelToMmOffsetX(_record.RotationCenterPixelX);
+            double offsetMmY = camera.PixelToMmOffsetY(_record.RotationCenterPixelY);
+            BaseAxis x = GetPickerAxis(PickerAxis.PickerX);
+            BaseAxis y = GetPickerAxis(PickerAxis.PickerY);
+            double actualX = x.ActualPosition;
+            double actualY = y.ActualPosition;
+            double targetX = actualX - offsetMmX * _settings.XyMoveGainX;
+            double targetY = actualY - offsetMmY * _settings.XyMoveGainY;
+            double moveX = Math.Abs(targetX - actualX);
+            double moveY = Math.Abs(targetY - actualY);
+
+            if (moveX > _settings.FineAlignMaxXyMoveMm || moveY > _settings.FineAlignMaxXyMoveMm)
+            {
+                return Fail("COLLET-COC-CENTER-LIMIT", Name,
+                    "저장된 회전 중심으로 이동할 보정량이 XY Fine Max를 초과했습니다. side=" + _calibrationSide +
+                    ", colletNo=" + _colletNo +
+                    ", move=(" + moveX.ToString("F6") + "," + moveY.ToString("F6") + ")" +
+                    ", fineMax=" + _settings.FineAlignMaxXyMoveMm.ToString("F6"));
+            }
+
+            WriteLog("ColletCOC",
+                "저장된 회전 중심으로 XY 이동. side=" + _calibrationSide +
+                ", colletNo=" + _colletNo +
+                ", centerPixel=(" + _record.RotationCenterPixelX.ToString("F6") + "," + _record.RotationCenterPixelY.ToString("F6") + ")" +
+                ", imageCenter=(" + camera.ImageCenterPixelX.ToString("F6") + "," + camera.ImageCenterPixelY.ToString("F6") + ")" +
+                ", scale=(" + camera.PixelToMmX.ToString("F9") + "," + camera.PixelToMmY.ToString("F9") + ")" +
+                ", offsetMm=(" + offsetMmX.ToString("F6") + "," + offsetMmY.ToString("F6") + ")" +
+                ", target=(" + targetX.ToString("F6") + "," + targetY.ToString("F6") + ") - Start");
+
+            var targets = new Dictionary<PickerAxis, double>
+            {
+                { PickerAxis.PickerX, targetX },
+                { PickerAxis.PickerY, targetY }
+            };
+            int result = await MovePickerXTThenYAndVerifyAsync(
+                targets,
+                "COC 회전 중심 XY 이동",
+                ct,
+                "ColletCalibrationFineAlign;PickerZone=Bottom",
+                true).ConfigureAwait(false);
+            if (result != 0)
+                return result;
+
+            RotationCenterMachineX = targetX;
+            RotationCenterMachineY = targetY;
+            return 0;
         }
 
         private async Task<int> StartCocAsync(CancellationToken ct)
@@ -290,6 +366,23 @@ namespace QMC.CDT320.Sequencing.Calibration
             _record.RotationCenterSampleCount = Result.FrameCount;
             _record.RotationCenterValid = true;
             _record.RotationCenterUpdatedAt = DateTime.Now;
+
+            VisionCameraPixelCalibration camera = VisionCameraCalibrationTransform.ResolveCamera(
+                Context.Machine.VisionUnit.Config.CalibrationData.Camera,
+                AutoVisionChannel.BottomInspection);
+            BaseAxis x = GetPickerAxis(PickerAxis.PickerX);
+            BaseAxis y = GetPickerAxis(PickerAxis.PickerY);
+            double residualMmX = camera.PixelToMmOffsetX(Result.CenterPixelX);
+            double residualMmY = camera.PixelToMmOffsetY(Result.CenterPixelY);
+            RotationCenterMachineX = x.ActualPosition - residualMmX * _settings.XyMoveGainX;
+            RotationCenterMachineY = y.ActualPosition - residualMmY * _settings.XyMoveGainY;
+            WriteLog("ColletCOC",
+                "COC 최종 회전 중심 기계 좌표 계산. side=" + _calibrationSide +
+                ", colletNo=" + _colletNo +
+                ", actual=(" + x.ActualPosition.ToString("F6") + "," + y.ActualPosition.ToString("F6") + ")" +
+                ", residualMm=(" + residualMmX.ToString("F6") + "," + residualMmY.ToString("F6") + ")" +
+                ", formula=machineCenter=actual-residual*gain" +
+                ", machineCenter=(" + RotationCenterMachineX.ToString("F6") + "," + RotationCenterMachineY.ToString("F6") + ") - Ok");
             bool saved = Context.Machine.VisionUnit.SaveSettings();
             if (!saved)
                 return Fail("COLLET-COC-SAVE", "VisionUnit", "COC 회전 중심 픽셀 결과 저장에 실패했습니다.");
@@ -345,6 +438,7 @@ namespace QMC.CDT320.Sequencing.Calibration
     internal enum ColletRotationCenterCalibrationStep
     {
         CheckReady,
+        MoveToStoredCenter,
         StartCoc,
         RotateTheta,
         EndCoc,
