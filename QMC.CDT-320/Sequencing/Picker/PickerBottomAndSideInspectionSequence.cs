@@ -328,6 +328,23 @@ namespace QMC.CDT320.Sequencing
 
             try
             {
+                double rearSideAnchorX = 0.0;
+                if (Side == PickerSequenceSide.Rear)
+                {
+                    int firstSideBottomReferencePickerNo = ResolveBottomReferencePickerNoForSide(ToPickerIndex(4));
+                    var firstSideBottomTarget = ResolvePickerZoneTarget(
+                        "DieBottomPosition",
+                        ToPickerIndex(firstSideBottomReferencePickerNo));
+                    if (firstSideBottomTarget == null || !IsValidSidePlanCoordinate(firstSideBottomTarget.X))
+                    {
+                        return Fail("PICKER-BOTTOM-SIDE-REAR-X-ANCHOR", Name,
+                            "Rear Side 검사 X 진행 방향 기준 위치를 계산할 수 없습니다. " +
+                            "bottomReferencePickerNo=" + firstSideBottomReferencePickerNo + ".");
+                    }
+
+                    rearSideAnchorX = firstSideBottomTarget.X;
+                }
+
                 for (int sidePickerNo = 1; sidePickerNo <= 4; sidePickerNo++)
                 {
                     int sidePickerIndex = ToPickerIndex(sidePickerNo);
@@ -347,9 +364,13 @@ namespace QMC.CDT320.Sequencing
                             ", targetY=" + (bottomTarget != null ? bottomTarget.Y.ToString("0.###") : "null") + ".");
                     }
 
+                    double targetX = bottomTarget.X;
+                    if (Side == PickerSequenceSide.Rear)
+                        targetX = rearSideAnchorX + (rearSideAnchorX - bottomTarget.X);
+
                     _sideTargetPositions[sidePickerIndex] = new BottomReferencePosition
                     {
-                        X = bottomTarget.X,
+                        X = targetX,
                         Y = bottomTarget.Y
                     };
 
@@ -357,8 +378,10 @@ namespace QMC.CDT320.Sequencing
                         Name + " Side 검사 X/Y 사전 할당 완료. " +
                         "sidePickerNo=" + sidePickerNo +
                         ", bottomReferencePickerNo=" + bottomReferencePickerNo +
-                        ", targetX=" + bottomTarget.X.ToString("0.###") +
+                        ", bottomReferenceX=" + bottomTarget.X.ToString("0.###") +
+                        ", targetX=" + targetX.ToString("0.###") +
                         ", targetY=" + bottomTarget.Y.ToString("0.###") +
+                        ", xDirection=" + (Side == PickerSequenceSide.Rear ? "RearPositiveFromFirstSide" : "FrontExisting") +
                         ", source=BottomProcessPlan - Check");
                 }
 
@@ -734,26 +757,24 @@ namespace QMC.CDT320.Sequencing
             if (bottomReferencePickerNo < 1 || bottomReferencePickerNo > 4)
                 return false;
 
+            BottomReferencePosition plannedTarget;
+            if (!_sideTargetPositions.TryGetValue(sidePickerIndex, out plannedTarget))
+                return false;
+
+            x = plannedTarget.X;
+
             int bottomReferencePickerIndex = ToPickerIndex(bottomReferencePickerNo);
             BottomReferencePosition reference;
             if (_bottomReferencePositions.TryGetValue(bottomReferencePickerIndex, out reference))
             {
-                x = reference.X;
                 y = reference.Y;
                 stored = true;
                 return true;
             }
 
             // 현재 기준: 미보유 Bottom 축도 시작 시 선계산한 계획으로 Side X/Y를 확정한다.
-            BottomReferencePosition plannedTarget;
-            if (_sideTargetPositions.TryGetValue(sidePickerIndex, out plannedTarget))
-            {
-                x = plannedTarget.X;
-                y = plannedTarget.Y;
-                return true;
-            }
-
-            return false;
+            y = plannedTarget.Y;
+            return true;
         }
 
         private int ResolveBottomReferencePickerNoForSide(int sidePickerIndex)

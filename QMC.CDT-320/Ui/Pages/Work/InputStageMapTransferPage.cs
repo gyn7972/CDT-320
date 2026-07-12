@@ -245,6 +245,10 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 if (rbSelectPickStatus.Checked)
                     ToggleSelectedEntryTarget();
             };
+            mapView.CellDoubleClicked += async entry =>
+            {
+                await MoveMapDieToVisionOnDoubleClickAsync(entry).ConfigureAwait(true);
+            };
             mapView.SelectionRectangleCompleted += entries =>
             {
                 HandleMapRectangleSelection(entries);
@@ -402,6 +406,32 @@ namespace QMC.CDT_320.Ui.Pages.Work
             }
 
             return root;
+        }
+
+        private async Task MoveMapDieToVisionOnDoubleClickAsync(DieMapEntry entry)
+        {
+            try
+            {
+                if (entry == null || _manualMoveBusy)
+                    return;
+
+                SelectEntry(entry);
+                QMC.Common.Log.Write("Main", "SYSTEM", "InputDieMapDoubleClick",
+                    "Input Die Map 더블클릭으로 MOVE VISION을 요청했습니다. die=" +
+                    BuildSelectedDieText(entry) + " - Start");
+                await MoveSelectedDieAsync().ConfigureAwait(true);
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Log.Write("Main", "SYSTEM", "InputDieMapDoubleClick",
+                    "Input Die Map 더블클릭 MOVE VISION 처리 중 예외가 발생했습니다. error=" +
+                    ex.Message + " - Failed");
+                QMC.Common.MessageDialog.Show(this,
+                    "더블클릭 MOVE VISION 처리에 실패했습니다.\r\n" + ex.Message,
+                    "Input Die Map",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Error);
+            }
         }
 
         private ToolStripMenuItem BuildPickerDataMoveMenu(

@@ -22,6 +22,7 @@ namespace QMC.CDT320.Calibration
         [DataMember] public bool UseDiagonalXyTolerance { get; set; } = true;
         [DataMember] public double FineAlignMaxXyMoveMm { get; set; } = 0.2;
         [DataMember] public bool RunAutoFocusAfterTheta { get; set; } = true;
+        [DataMember] public double CocRotationVelocityDegPerSec { get; set; } = 30.0;
         [DataMember] public CalibrationMotionSettings Motion { get; set; } = new CalibrationMotionSettings();
 
         public void EnsureDefaults()
@@ -56,6 +57,10 @@ namespace QMC.CDT320.Calibration
                 FineAlignMaxXyMoveMm = 0.2;
             if (FineAlignMaxXyMoveMm > 2.0)
                 FineAlignMaxXyMoveMm = 2.0;
+            if (CocRotationVelocityDegPerSec <= 0.0)
+                CocRotationVelocityDegPerSec = 30.0;
+            if (CocRotationVelocityDegPerSec > 360.0)
+                CocRotationVelocityDegPerSec = 360.0;
         }
 
         public static string NormalizeBottomFinderName(string finderName)
@@ -92,6 +97,12 @@ namespace QMC.CDT320.Calibration
         [DataMember] public double FinalPickerY { get; set; }
         [DataMember] public double FinalPickerZ { get; set; }
         [DataMember] public double FinalPickerT { get; set; }
+        [DataMember] public double RotationCenterPixelX { get; set; }
+        [DataMember] public double RotationCenterPixelY { get; set; }
+        [DataMember] public double RotationCenterRadiusPixel { get; set; }
+        [DataMember] public int RotationCenterSampleCount { get; set; }
+        [DataMember] public bool RotationCenterValid { get; set; }
+        [DataMember] public DateTime RotationCenterUpdatedAt { get; set; }
         [DataMember] public bool Valid { get; set; }
         [DataMember] public DateTime UpdatedAt { get; set; }
 
@@ -100,6 +111,7 @@ namespace QMC.CDT320.Calibration
             Side = side;
             ColletNo = colletNo < 1 ? 1 : colletNo > 4 ? 4 : colletNo;
             UpdatedAt = EnsureSerializableDateTime(UpdatedAt);
+            RotationCenterUpdatedAt = EnsureSerializableDateTime(RotationCenterUpdatedAt);
         }
 
         private static DateTime EnsureSerializableDateTime(DateTime value)

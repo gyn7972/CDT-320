@@ -31,6 +31,7 @@
         private System.Windows.Forms.TableLayoutPanel buttonPanel;
         private CalibrationDialogButton btnCheck;
         private CalibrationDialogButton btnStart;
+        private CalibrationDialogButton btnCoc;
         private CalibrationDialogButton btnSaveBottomTeaching;
         private CalibrationDialogButton btnApplyHomeOffset;
         private CalibrationDialogButton btnMoveZForward;
@@ -77,6 +78,7 @@
             this.buttonPanel = new System.Windows.Forms.TableLayoutPanel();
             this.btnCheck = new QMC.CDT_320.Ui.Dialogs.CalibrationDialogButton();
             this.btnStart = new QMC.CDT_320.Ui.Dialogs.CalibrationDialogButton();
+            this.btnCoc = new QMC.CDT_320.Ui.Dialogs.CalibrationDialogButton();
             this.btnSaveBottomTeaching = new QMC.CDT_320.Ui.Dialogs.CalibrationDialogButton();
             this.btnApplyHomeOffset = new QMC.CDT_320.Ui.Dialogs.CalibrationDialogButton();
             this.btnMoveZForward = new QMC.CDT_320.Ui.Dialogs.CalibrationDialogButton();
@@ -395,7 +397,8 @@
             // 
             // buttonPanel
             // 
-            this.buttonPanel.ColumnCount = 10;
+            this.buttonPanel.ColumnCount = 11;
+            this.buttonPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 10F));
             this.buttonPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 10F));
             this.buttonPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 10F));
             this.buttonPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 10F));
@@ -408,14 +411,15 @@
             this.buttonPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 10F));
             this.buttonPanel.Controls.Add(this.btnCheck, 0, 0);
             this.buttonPanel.Controls.Add(this.btnStart, 1, 0);
-            this.buttonPanel.Controls.Add(this.btnSaveBottomTeaching, 2, 0);
-            this.buttonPanel.Controls.Add(this.btnApplyHomeOffset, 3, 0);
-            this.buttonPanel.Controls.Add(this.btnMoveZForward, 4, 0);
-            this.buttonPanel.Controls.Add(this.btnMoveYAvoid, 5, 0);
-            this.buttonPanel.Controls.Add(this.btnSeqStop, 6, 0);
-            this.buttonPanel.Controls.Add(this.btnReload, 7, 0);
-            this.buttonPanel.Controls.Add(this.btnSave, 8, 0);
-            this.buttonPanel.Controls.Add(this.btnClose, 9, 0);
+            this.buttonPanel.Controls.Add(this.btnCoc, 2, 0);
+            this.buttonPanel.Controls.Add(this.btnSaveBottomTeaching, 3, 0);
+            this.buttonPanel.Controls.Add(this.btnApplyHomeOffset, 4, 0);
+            this.buttonPanel.Controls.Add(this.btnMoveZForward, 5, 0);
+            this.buttonPanel.Controls.Add(this.btnMoveYAvoid, 6, 0);
+            this.buttonPanel.Controls.Add(this.btnSeqStop, 7, 0);
+            this.buttonPanel.Controls.Add(this.btnReload, 8, 0);
+            this.buttonPanel.Controls.Add(this.btnSave, 9, 0);
+            this.buttonPanel.Controls.Add(this.btnClose, 10, 0);
             this.buttonPanel.Dock = System.Windows.Forms.DockStyle.Fill;
             this.buttonPanel.Location = new System.Drawing.Point(10, 670);
             this.buttonPanel.Margin = new System.Windows.Forms.Padding(10, 0, 10, 13);
@@ -463,8 +467,24 @@
             this.btnStart.UseVisualStyleBackColor = false;
             this.btnStart.Click += new System.EventHandler(this.btnStart_Click);
             // 
-            // btnSaveBottomTeaching
+            // btnCoc
+            //
+            this.btnCoc.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(0)))), ((int)(((byte)(120)))), ((int)(((byte)(160)))));
+            this.btnCoc.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.btnCoc.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.btnCoc.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this.btnCoc.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
+            this.btnCoc.ForeColor = System.Drawing.Color.White;
+            this.btnCoc.Margin = new System.Windows.Forms.Padding(6, 4, 6, 4);
+            this.btnCoc.Name = "btnCoc";
+            this.btnCoc.Role = QMC.CDT_320.Ui.Dialogs.CalibrationDialogButtonRole.Primary;
+            this.btnCoc.TabIndex = 2;
+            this.btnCoc.Text = "COC START";
+            this.btnCoc.UseVisualStyleBackColor = false;
+            this.btnCoc.Click += new System.EventHandler(this.btnCoc_Click);
             // 
+            // btnSaveBottomTeaching
+            //
             this.btnSaveBottomTeaching.BackColor = System.Drawing.Color.White;
             this.btnSaveBottomTeaching.Cursor = System.Windows.Forms.Cursors.Hand;
             this.btnSaveBottomTeaching.Dock = System.Windows.Forms.DockStyle.Fill;

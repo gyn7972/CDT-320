@@ -205,6 +205,7 @@ namespace QMC.Vision.Comm
                     case "TRAIN": resp = DoTrain(m, parts); break;
                     case "SCALE": resp = DoScale(m, parts); break;
                     case "ROT_CENTER": resp = DoRotCenter(m); break;
+                    case "COC": resp = ColletRotationCenterStore.Process(m, _cfg, parts); break;
                     case "DISTORT": resp = DoDistort(m); break;
                     case "CAM_SWITCH": resp = DoCamSwitch(m, parts); break;
                     case "CAM_SETTING":resp = DoCameraSetting(m); break;
@@ -239,6 +240,7 @@ namespace QMC.Vision.Comm
             => cmd == "PING" || cmd == "EXPOSE" || cmd == "GRAB"
             || cmd == "CAM_SETTING" || cmd == "CAM_SWITCH"
             || cmd == "MATCHASYNC" || cmd == "MATCHRESULT"
+            || cmd == "COC"
             || cmd == "FOCUS_START" || cmd == "FOCUS_VAL" || cmd == "FOCUS_BEST";   // 오토포커스=셋업/캘리브레이션, RUN 아닐 때도 허용(그랩만, 모션은 핸들러 책임)
 
         /// <summary>응답 ACK 의 echo 토큰 선택.
