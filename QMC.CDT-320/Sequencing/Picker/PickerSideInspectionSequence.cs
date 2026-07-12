@@ -694,11 +694,11 @@ namespace QMC.CDT320.Sequencing
                     {
                         scope.Fail("PICKER-SIDE-VISION0-FAIL", BuildSideTactDetail(0, "Side 0도 검사 실패."));
                         return Fail("PICKER-SIDE-VISION0-FAIL", "Vision",
-                            "Side 0deg inspection STARTED ACK failed. die=" +
+                            "Side 0deg inspection EPD timeout. die=" +
                             _currentDie.DieId + ", pickerNo=" + _currentPickerNo);
                     }
 
-                    scope.Complete(BuildSideTactDetail(0, "Side 0도 검사 시작 ACK 수신."));
+                    scope.Complete(BuildSideTactDetail(0, "Side 0도 검사 EPD 수신."));
                     RecordInspectionCheckpointForTact(
                         "Side0Inspection",
                         "Side 0deg Inspect Interval",
@@ -823,11 +823,11 @@ namespace QMC.CDT320.Sequencing
                     {
                         scope.Fail("PICKER-SIDE-VISION90-FAIL", BuildSideTactDetail(90, "Side 90도 검사 실패."));
                         return Fail("PICKER-SIDE-VISION90-FAIL", "Vision",
-                            "Side 90deg inspection STARTED ACK failed. die=" +
+                            "Side 90deg inspection EPD timeout. die=" +
                             _currentDie.DieId + ", pickerNo=" + _currentPickerNo);
                     }
 
-                    scope.Complete(BuildSideTactDetail(90, "Side 90도 검사 시작 ACK 수신."));
+                    scope.Complete(BuildSideTactDetail(90, "Side 90도 검사 EPD 수신."));
                     RecordInspectionCheckpointForTact(
                         "Side90Inspection",
                         "Side 90deg Inspect Interval",
@@ -1514,7 +1514,7 @@ namespace QMC.CDT320.Sequencing
             values["DieId"] = _currentDie != null ? _currentDie.DieId : string.Empty;
 
             WriteLog("PickerSideInspectionSequence",
-                Name + " Side 검사 시작 ACK 이후 결과 수신 대기를 생략하고 진행합니다. " +
+                Name + " Side 검사 EPD 수신 이후 결과 수신 대기를 생략하고 진행합니다. " +
                 "side=" + Side +
                 ", die=" + (_currentDie != null ? _currentDie.DieId : string.Empty) +
                 ", pickerNo=" + _currentPickerNo +

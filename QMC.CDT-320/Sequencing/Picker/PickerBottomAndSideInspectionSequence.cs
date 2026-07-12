@@ -2084,13 +2084,13 @@ namespace QMC.CDT320.Sequencing
                             target,
                             "Side0",
                             "SIDE0_RESULT_MISSING",
-                            "Side 0도 검사 결과 ACK/RESULT 미수신");
+                            "Side 0도 검사 INSPECTRESULT 미수신");
 
                         side0TactScope.Fail("PICKER-BOTTOM-SIDE-SIDE0-RESULT", BuildTactDetail(target, "Side 0deg inspection result receive failed."));
                         return Fail("PICKER-BOTTOM-SIDE-SIDE0-RESULT", "Vision", "Side 0도 검사 시작 실패. die=" + target.Die.DieId + ", pickerNo=" + target.PickerNo);
                     }
 
-                    // 현재 기준: Side 0도는 시작 ACK만 확인하고, 결과는 90도 검사 후 통합 결과로 받는다.
+                    // Side 0도는 EPD 수신 후 진행하고, 최종 결과는 90도 검사 후 통합 INSPECTRESULT로 받는다.
                     side0TactScope.Complete(BuildTactDetail(target, "Side 0deg inspection started. RESULT는 Side 90deg 시작 후 회수합니다."));
                     RecordInspectionCheckpointForTact(
                         "Side0Inspection",
@@ -2184,7 +2184,7 @@ namespace QMC.CDT320.Sequencing
                             target,
                             "Side90",
                             "SIDE90_RESULT_MISSING",
-                            "Side 90도 검사 시작 ACK 미수신");
+                            "Side 90도 검사 EPD 미수신");
 
                         side90TactScope.Fail("PICKER-BOTTOM-SIDE-SIDE90-RESULT", BuildTactDetail(target, "Side 90deg inspection result receive failed."));
                         return Fail("PICKER-BOTTOM-SIDE-SIDE90-RESULT", "Vision", "Side 90도 검사 시작 실패. die=" + target.Die.DieId + ", pickerNo=" + target.PickerNo);
@@ -2198,7 +2198,7 @@ namespace QMC.CDT320.Sequencing
                             target,
                             "Side",
                             "SIDE_RESULT_MISSING",
-                            "Side 검사 결과 ACK/RESULT 미수신");
+                            "Side 검사 INSPECTRESULT 미수신");
 
                         side90TactScope.Fail("PICKER-BOTTOM-SIDE-SIDE-RESULT", BuildTactDetail(target, "Side inspection result receive failed."));
                         return Fail("PICKER-BOTTOM-SIDE-SIDE-RESULT", "Vision", "Side 검사 결과 수신 실패. die=" + target.Die.DieId + ", pickerNo=" + target.PickerNo);
@@ -2411,7 +2411,7 @@ namespace QMC.CDT320.Sequencing
             values["DieId"] = target != null && target.Die != null ? target.Die.DieId : string.Empty;
 
             WriteLog("PickerBottomAndSideInspectionSequence",
-                Name + " Side 검사 시작 ACK 이후 결과 수신 대기를 생략하고 진행합니다. " +
+                Name + " Side 검사 EPD 수신 이후 결과 수신 대기를 생략하고 진행합니다. " +
                 "side=" + Side +
                 ", die=" + (target != null && target.Die != null ? target.Die.DieId : string.Empty) +
                 ", pickerNo=" + (target != null ? target.PickerNo : 0) +
@@ -2448,7 +2448,7 @@ namespace QMC.CDT320.Sequencing
                 return false;
 
             WriteLog("PickerBottomAndSideInspectionSequence",
-                Name + " Side 검사 시작 ACK 수신 후 Vision 백그라운드 결과 대기 상태로 진행합니다. " +
+                Name + " Side 검사 EPD 수신 후 Vision 백그라운드 결과 대기 상태로 진행합니다. " +
                 "side=" + Side +
                 ", die=" + target.Die.DieId +
                 ", pickerNo=" + target.PickerNo +
