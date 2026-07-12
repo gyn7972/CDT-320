@@ -693,8 +693,16 @@ namespace QMC.CDT320.Sequencing
                 if (result != 0)
                     return result;
 
-                // 현재 기준: Z Down Mode 선행 Z 명령은 AutoFocus보다 먼저 수행되어야 하므로 위치를 바꾸지 않는다.
+                // 다음 PickerZ 선행 하강은 AutoFocus 시작 전에 명령과 완료 확인까지 끝냅니다.
                 StartNextBottomZDownCommand(i + 1);
+                if (i + 1 < _pickedPickerIndexes.Count)
+                {
+                    result = await CompletePendingBottomZDownForPickerAsync(
+                        _pickedPickerIndexes[i + 1],
+                        ct).ConfigureAwait(false);
+                    if (result != 0)
+                        return result;
+                }
 
                 result = await RunAutoFocusBeforeBottomInspectionAsync(target, ct).ConfigureAwait(false);
                 if (result != 0)
