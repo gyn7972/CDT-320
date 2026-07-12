@@ -53,6 +53,7 @@ namespace QMC.CDT320.Sequencing
         private string _targetFormula = "";
         private bool _diePicked;
         private bool _pickerZContactedByContiPickUp;
+        private bool _currentPickSafeReturnCompleted;
         private SequenceResourceLease _inputStageLease;
         private PickUpBatchItem _currentBatchItem;
         private PickUpZTargets _lastPickUpZTargets;
@@ -329,6 +330,9 @@ namespace QMC.CDT320.Sequencing
 
         private int CheckInputStageReady()
         {
+            if (ShouldBlockNewPickForWaferCompletion())
+                return StopRemainingPickBatchForWaferCompletion("CheckInputStageReady");
+
             bool inputStageReady = Context != null &&
                                    Context.Bus != null &&
                                    Context.Bus.IsSet("InputStageReady");
@@ -1250,6 +1254,9 @@ namespace QMC.CDT320.Sequencing
 
         private int SelectNextPickTarget()
         {
+            if (ShouldBlockNewPickForWaferCompletion())
+                return StopRemainingPickBatchForWaferCompletion("SelectNextPickTarget");
+
             if (_pickCursor >= _pickBatchItems.Count)
             {
                 CurrentStep = PickerPickUpStep.Complete;
@@ -3356,6 +3363,9 @@ namespace QMC.CDT320.Sequencing
 
         private int VerifyPickTarget()
         {
+            if (ShouldBlockNewPickForWaferCompletion())
+                return StopRemainingPickBatchForWaferCompletion("VerifyPickTarget");
+
             InputStageUnit stage = ResolveInputStage();
             if (stage == null)
                 return Fail("PICKER-PICKUP-STAGE-NO-UNIT", "InputStageUnit", "InputStageUnit is null.");
@@ -3447,6 +3457,9 @@ namespace QMC.CDT320.Sequencing
             try
             {
                 ct.ThrowIfCancellationRequested();
+                if (ShouldBlockNewPickForWaferCompletion())
+                    return StopRemainingPickBatchForWaferCompletion("VerifyPickerEmptyBeforePick");
+
                 await Task.CompletedTask.ConfigureAwait(false);
 
                 if (IsPickUpProductPrecheckBypassed())
@@ -3588,6 +3601,7 @@ namespace QMC.CDT320.Sequencing
                     return result;
                 }
 
+                _currentPickSafeReturnCompleted = true;
                 CurrentStep = PickerPickUpStep.UpdateMaterialToPicker;
                 return 0;
             }
@@ -6170,6 +6184,7 @@ namespace QMC.CDT320.Sequencing
             if (result != 0)
                 return result;
 
+            _currentPickSafeReturnCompleted = true;
             CurrentStep = PickerPickUpStep.UpdateMaterialToPicker;
             return 0;
         }
@@ -6193,6 +6208,10 @@ namespace QMC.CDT320.Sequencing
             SaveRuntimeState(Name + ":PickUp:ColletUse:" + _currentPickerNo);
             WriteLog("PickerPickUpSequence", Name + " picked die. die=" + _currentDieId + ", pickerNo=" + _currentPickerNo + " - Ok");
 
+            int completionResult = PublishInputStageCompletionAfterSafePickReturn();
+            if (completionResult != 0)
+                return completionResult;
+
             if (_currentBatchItem != null)
                 _currentBatchItem.DiePicked = true;
 
@@ -6200,6 +6219,37 @@ namespace QMC.CDT320.Sequencing
             _pickTarget = null;
             _diePicked = false;
             CurrentStep = PickerPickUpStep.SelectNextPickTargetOrComplete;
+            return 0;
+        }
+
+        private int PublishInputStageCompletionAfterSafePickReturn()
+        {
+            if (Options == null || Options.RunMode != SequenceRunMode.Auto)
+                return 0;
+
+            if (!MaterialStateService.IsInputStagePickComplete())
+                return 0;
+
+            if (!_currentPickSafeReturnCompleted)
+            {
+                return Fail("PICKER-PICKUP-STAGE-COMPLETE-UNSAFE", Name,
+                    "InputStage 마지막 Pick 완료 신호를 발행할 수 없습니다. " +
+                    "PickerZ/NeedleZ/EjectPinZ 안전 복귀가 완료되지 않았습니다. " +
+                    "side=" + Side + ", pickerNo=" + _currentPickerNo);
+            }
+
+            if (Context == null || Context.Bus == null)
+            {
+                return Fail("PICKER-PICKUP-STAGE-COMPLETE-BUS", Name,
+                    "InputStage 마지막 Pick 안전 복귀 완료 신호를 발행할 Bus가 없습니다. " +
+                    "side=" + Side + ", pickerNo=" + _currentPickerNo);
+            }
+
+            Context.Bus.Set("InputStageDieComplete");
+            WriteLog("PickerPickUpSequence",
+                Name + " InputStage 마지막 Pick 안전 복귀 완료 후 완료 신호를 발행했습니다. " +
+                "signal=InputStageDieComplete, side=" + Side +
+                ", pickerNo=" + _currentPickerNo + " - Ok");
             return 0;
         }
 
@@ -6264,6 +6314,9 @@ namespace QMC.CDT320.Sequencing
         {
             _pickCursor++;
 
+            if (ShouldBlockNewPickForWaferCompletion())
+                return StopRemainingPickBatchForWaferCompletion("SelectNextPickTargetOrComplete");
+
             if (_pickCursor >= _pickBatchItems.Count)
             {
                 CurrentStep = PickerPickUpStep.Complete;
@@ -6272,6 +6325,33 @@ namespace QMC.CDT320.Sequencing
             }
 
             CurrentStep = PickerPickUpStep.SelectNextPickTarget;
+            return 0;
+        }
+
+        private bool ShouldBlockNewPickForWaferCompletion()
+        {
+            if (Options == null || Options.RunMode != SequenceRunMode.Auto)
+                return false;
+
+            WaferCompletionRunCoordinator completion = Context != null ? Context.WaferCompletion : null;
+            if (completion == null || !completion.Enabled)
+                return false;
+
+            completion.ObserveCompletionSignals();
+            return completion.IsDrainRequested;
+        }
+
+        private int StopRemainingPickBatchForWaferCompletion(string boundary)
+        {
+            WriteLog("WaferCompletionRun",
+                Name + " Stop After Drain 요청으로 현재 안전 경계에서 남은 신규 Pick 대상을 해제합니다. " +
+                "side=" + Side +
+                ", boundary=" + (boundary ?? "-") +
+                ", currentPickerNo=" + _currentPickerNo + " - Ok");
+            InputCameraPickUpPermissionStore.Clear(Side);
+            ReleaseInputReservationIfNeeded();
+            ReleaseInputStageArea();
+            CurrentStep = PickerPickUpStep.Complete;
             return 0;
         }
 
@@ -6294,6 +6374,7 @@ namespace QMC.CDT320.Sequencing
             _targetFormula = item != null ? item.TargetFormula ?? "" : "";
             _diePicked = item != null && item.DiePicked;
             _pickerZContactedByContiPickUp = false;
+            _currentPickSafeReturnCompleted = false;
         }
 
         private void SaveCurrentStateToBatchItem()

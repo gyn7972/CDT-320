@@ -78,6 +78,32 @@ namespace QMC.CDT320
         [DataMember] public double AvoidPosition { get; set; }
         [DataMember] public double Process0Position { get; set; }
         [DataMember] public double Process90Position { get; set; }
+        [DataMember] public double[] ColletRotationCenterX { get; set; } = new double[4];
+        [DataMember] public double[] ColletRotationCenterY { get; set; } = new double[4];
+        [DataMember] public bool[] ColletRotationCenterValid { get; set; } = new bool[4];
+
+        public void EnsureRotationCenterObjects()
+        {
+            ColletRotationCenterX = EnsureArrayLength(ColletRotationCenterX, 4);
+            ColletRotationCenterY = EnsureArrayLength(ColletRotationCenterY, 4);
+            ColletRotationCenterValid = EnsureArrayLength(ColletRotationCenterValid, 4);
+        }
+
+        private static double[] EnsureArrayLength(double[] source, int length)
+        {
+            var result = new double[length];
+            if (source != null)
+                Array.Copy(source, result, Math.Min(source.Length, result.Length));
+            return result;
+        }
+
+        private static bool[] EnsureArrayLength(bool[] source, int length)
+        {
+            var result = new bool[length];
+            if (source != null)
+                Array.Copy(source, result, Math.Min(source.Length, result.Length));
+            return result;
+        }
     }
 
     [DataContract]
@@ -88,6 +114,8 @@ namespace QMC.CDT320
         [DataMember] public int MoveTimeoutMs { get; set; } = 5000;
         [DataMember] public int IoTimeoutMs { get; set; } = 1000;
         [DataMember] public int CaptureTimeoutMs { get; set; } = 5000;
+        [DataMember] public int RuntimeAutoFocusToBottomInspectionDelayMs { get; set; } = 300;
+        [DataMember] public bool RuntimeAutoFocusToBottomInspectionDelayInitialized { get; set; }
 
         [OnDeserialized]
         private void OnDeserialized(StreamingContext ctx)
@@ -99,6 +127,14 @@ namespace QMC.CDT320
         {
             if (FrontSideVision == null) FrontSideVision = new VisionAxisPositions();
             if (RearSideVision == null) RearSideVision = new VisionAxisPositions();
+            FrontSideVision.EnsureRotationCenterObjects();
+            RearSideVision.EnsureRotationCenterObjects();
+            if (!RuntimeAutoFocusToBottomInspectionDelayInitialized)
+            {
+                RuntimeAutoFocusToBottomInspectionDelayMs = 300;
+                RuntimeAutoFocusToBottomInspectionDelayInitialized = true;
+            }
+            RuntimeAutoFocusToBottomInspectionDelayMs = Math.Max(0, Math.Min(60000, RuntimeAutoFocusToBottomInspectionDelayMs));
         }
     }
 

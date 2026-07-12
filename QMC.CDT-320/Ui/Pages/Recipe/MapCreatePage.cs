@@ -1183,7 +1183,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 }
 
                 double expectedGridX = entry.DieMapX - Math.Max(0, _map.DieMapX - 1) / 2.0;
-                double expectedGridY = Math.Max(0, _map.DieMapY - 1) / 2.0 - entry.DieMapY;
+                double expectedGridY = DieMapGenerator.CalculateEquipmentGridY(entry.DieMapY, _map.DieMapY);
                 if (Math.Abs(entry.EquipmentGridX - expectedGridX) > 0.000001 ||
                     Math.Abs(entry.EquipmentGridY - expectedGridY) > 0.000001 ||
                     Math.Abs(entry.PosX - expectedGridX * _map.PitchX) > 0.000001 ||

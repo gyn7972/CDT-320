@@ -781,7 +781,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                     Math.Abs(savedRoleMap.PitchX - roleCenterStepX) > 0.000001 ||
                     Math.Abs(savedRoleMap.PitchY - roleCenterStepY) > 0.000001;
                 double firstCalculatedX = map.SourceFirstX >= 0 ? (map.SourceFirstX - centerRawX) * map.PitchX : double.NaN;
-                double firstCalculatedY = map.SourceFirstY >= 0 ? (map.SourceFirstY - centerRawY) * map.PitchY : double.NaN;
+                double firstCalculatedY = map.SourceFirstY >= 0 ? (centerRawY - map.SourceFirstY) * map.PitchY : double.NaN;
                 bool localDomainMatches = map.DieMapX == maxRawX - minRawX + 1 &&
                                           map.DieMapY == maxRawY - minRawY + 1;
 
@@ -821,7 +821,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 lines.Add("Saved map step: " + (savedRoleMap != null
                     ? FormatNumber(savedRoleMap.PitchX) + " x " + FormatNumber(savedRoleMap.PitchY) + " mm (actual role file)"
                     : "role map not found"));
-                lines.Add("Grid control  : center (0,0), Left-/Right+, Down-/Up+");
+                lines.Add("Grid control  : center (0,0), Left-/Right+, Down+/Up-");
                 lines.Add("Axis reference: X offset -> " + axisX + ", Y offset -> " + axisY);
                 if (_currentRoleIsOutput)
                     lines.Add("Output place  : Camera X 기준좌표를 Picker X 배치좌표로 변환");
@@ -898,13 +898,12 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             double diameter = (double)_nDiameter.Value;
             double radius = Math.Max(0.0, diameter / 2.0);
             double centerGridX = Math.Max(0, gridX - 1) / 2.0;
-            double centerGridY = Math.Max(0, gridY - 1) / 2.0;
             int centerInside = 0;
             int fullDieInside = 0;
 
             for (int y = 0; y < gridY; y++)
             {
-                double equipmentGridY = centerGridY - y;
+                double equipmentGridY = DieMapGenerator.CalculateEquipmentGridY(y, gridY);
                 double posY = equipmentGridY * centerStepY;
                 for (int x = 0; x < gridX; x++)
                 {

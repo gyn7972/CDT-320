@@ -35,6 +35,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             lblDryRunMode.Text = "DRY RUN MODE";
             lblDeveloperMode.Text = "DEVELOPER MODE";
             lblPickerMotionOnlyTestMode.Text = "PICKER MOTION ONLY TEST";
+            lblWaferCompleteRunMode.Text = "WAFER COMPLETE RUN MODE";
             lblUseVision.Text = "VISION USE";
 
             grpAjin.Tag = "level:Maintenance";
@@ -68,6 +69,9 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                 ResetEnableDisableItems(_cbDeveloperMode);
                 ResetEnableDisableItems(_cbPickerMotionOnlyTestMode);
                 ResetEnableDisableItems(_cbUseVision);
+                _cbWaferCompleteRunMode.Items.Clear();
+                _cbWaferCompleteRunMode.Items.Add("CONTINUE");
+                _cbWaferCompleteRunMode.Items.Add("STOP AFTER DRAIN");
 
                 _cbBinArr.SelectedIndex = cfg.BinArrayFile ? 0 : 1;
                 _cbVisionMatch.SelectedIndex = cfg.VisionMatchError ? 0 : 1;
@@ -76,6 +80,9 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                 _cbDeveloperMode.SelectedIndex = cfg.DeveloperMode ? 0 : 1;
                 _cbPickerMotionOnlyTestMode.SelectedIndex = cfg.PickerMotionOnlyTestMode ? 0 : 1;
                 _cbUseVision.SelectedIndex = cfg.UseVision ? 0 : 1;
+                _cbWaferCompleteRunMode.SelectedIndex = cfg.WaferCompleteRunMode == WaferCompleteRunMode.StopAfterDrain
+                    ? 1
+                    : 0;
 
                 _cbAjin.Checked = cfg.UseAjin;
                 _tbIrq.Text = cfg.AjinIrqNo.ToString();
@@ -151,6 +158,16 @@ namespace QMC.CDT_320.Ui.Pages.Settings
         {
             if (_loadingSettings) return;
             AppSettingsStore.Current.PickerMotionOnlyTestMode = _cbPickerMotionOnlyTestMode.SelectedIndex == 0;
+            AppSettingsStore.Save();
+        }
+
+        private void _cbWaferCompleteRunMode_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            if (_loadingSettings) return;
+
+            AppSettingsStore.Current.WaferCompleteRunMode = _cbWaferCompleteRunMode.SelectedIndex == 1
+                ? WaferCompleteRunMode.StopAfterDrain
+                : WaferCompleteRunMode.Continue;
             AppSettingsStore.Save();
         }
 

@@ -652,7 +652,7 @@ namespace QMC.CDT320.Sequencing
                     bool started = await StartBottomInspectionRequestAsync(ct).ConfigureAwait(false);
                     if (started)
                     {
-                        scope.Complete(BuildBottomTactDetail("Bottom 검사 시작 ACK 수신. attempt=" + attempt));
+                        scope.Complete(BuildBottomTactDetail("Bottom 검사 EPD 수신. attempt=" + attempt));
                         StartBottomVisionToPitchMoveTact("attempt=" + attempt + ", started=True");
                         RecordInspectionCheckpointForTact(
                             "BottomCameraInspection",
@@ -673,7 +673,7 @@ namespace QMC.CDT320.Sequencing
 
                 scope.Fail("PICKER-BOTTOM-VISION-FAIL", BuildBottomTactDetail("Bottom 검사 재시도 실패."));
                 return Fail("PICKER-BOTTOM-VISION-FAIL", "Vision",
-                    "Bottom 검사 시작 ACK 수신이 재시도 후에도 실패했습니다. die=" +
+                    "Bottom 검사 EPD 수신이 재시도 후에도 실패했습니다. die=" +
                     _currentDie.DieId + ", pickerNo=" + _currentPickerNo +
                     ", mode=" + DescribeBottomVisionRuntimeMode());
             }
@@ -881,6 +881,7 @@ namespace QMC.CDT320.Sequencing
             if (IsDryRunMode())
             {
                 await TriggerDryRunBottomGrabIfConnectedAsync(ct).ConfigureAwait(false);
+                await DelayAfterRuntimeAutoFocusBottomGrabAckAsync(_currentPickerNo, ct).ConfigureAwait(false);
                 _bottomResult = SimulateBottomResult();
                 return true;
             }
@@ -913,12 +914,13 @@ namespace QMC.CDT320.Sequencing
             if (!started)
             {
                 WriteLog("PickerBottomInspectionSequence",
-                    Name + " bottom vision INSPECTASYNC STARTED ACK failed. die=" + _currentDie.DieId +
+                    Name + " bottom vision EPD receive failed. die=" + _currentDie.DieId +
                     ", pickerNo=" + _currentPickerNo +
                     ", timeoutMs=" + timeoutMs + " - Failed");
                 return false;
             }
 
+            await DelayAfterRuntimeAutoFocusBottomGrabAckAsync(_currentPickerNo, ct).ConfigureAwait(false);
             return true;
         }
 

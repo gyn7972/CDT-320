@@ -7,6 +7,16 @@ using QMC.Common.Data.Store;
 
 namespace QMC.CDT320
 {
+    /// <summary>Wafer 완료 후 자동 운전 처리 방식입니다.</summary>
+    public enum WaferCompleteRunMode
+    {
+        /// <summary>완료 Wafer를 교체한 뒤 자동 운전을 계속합니다.</summary>
+        Continue = 0,
+
+        /// <summary>신규 Pick을 차단하고 Picker 보유 제품을 모두 배출한 뒤 READY로 종료합니다.</summary>
+        StopAfterDrain = 1
+    }
+
     /// <summary>애플리케이션 설정 데이터.</summary>
     [DataContract]
     public class AppSettings
@@ -83,6 +93,12 @@ namespace QMC.CDT320
         [DataMember] public bool   PickerMotionOnlyTestMode { get; set; } = false;
 
         /// <summary>
+        /// Input 또는 Output Wafer 완료 시 자동 교체를 계속할지, Picker 보유 제품을 모두 배출한 뒤
+        /// READY로 종료할지 선택합니다.
+        /// </summary>
+        [DataMember] public WaferCompleteRunMode WaferCompleteRunMode { get; set; } = WaferCompleteRunMode.Continue;
+
+        /// <summary>
         /// 이력 탭의 로그(Event/시퀀스) 이력 화면 사용 여부. false 면 해당 페이지들은 안내만 표시한다.
         /// 로그 폭주 등으로 문제가 보일 때 빌드 없이 끌 수 있는 안전 스위치. 기본 true.
         /// </summary>
@@ -116,6 +132,7 @@ namespace QMC.CDT320
         internal void OnDeserializing(StreamingContext ctx)
         {
             UseVision = true;
+            WaferCompleteRunMode = WaferCompleteRunMode.Continue;
             ViewerMeasureScaleFactor = 1.0;   // 구 settings.json 에 키 없으면 0 으로 로드되는 것 방지(기본=저장 스케일 그대로)
             FileLogHistoryEnabled = true;   // 구 settings.json 에 키가 없으면 false 로 로드되어 이력 화면이 꺼지는 문제 방지
             // ArchiveKeepDays 는 키가 없으면 0(무기한 보관)으로 로드되며, 이는 기본값과 같아 별도 처리가 필요 없다.

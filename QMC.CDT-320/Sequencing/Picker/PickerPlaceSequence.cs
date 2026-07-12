@@ -37,6 +37,7 @@ namespace QMC.CDT320.Sequencing
         private SequenceResourceLease _outputFeederLease;
         private bool _outputInspectBatchOpen;
         private bool _pickerZPlacedByContiSegmentedPlace;
+        private bool _currentPlaceZSafeReturnCompleted;
         private int _pendingContiRetreatPickerIndex = -1;
         private int _pendingContiRetreatPickerNo;
         private bool _suppressOutputPostPlaceInspection;
@@ -288,6 +289,7 @@ namespace QMC.CDT320.Sequencing
             _placedDieId = "";
             _placedReceiveTarget = null;
             _pickerZPlacedByContiSegmentedPlace = false;
+            _currentPlaceZSafeReturnCompleted = false;
             _placeBlowHoldUntilAvoid = false;
 
             if (OutputStage == null)
@@ -786,6 +788,7 @@ namespace QMC.CDT320.Sequencing
             _placedDieId = "";
             _placedReceiveTarget = null;
             _pickerZPlacedByContiSegmentedPlace = false;
+            _currentPlaceZSafeReturnCompleted = false;
             _placeBlowHoldUntilAvoid = false;
 
             if (_currentDie == null)
@@ -836,6 +839,7 @@ namespace QMC.CDT320.Sequencing
             try
             {
                 bool safeWaitPositionPrepared = false;
+                bool fullAvoidPrepared = false;
                 if (ForceSafeYBeforeFirstPlaceMove)
                 {
                     int waitSafeResult = await MovePickerToSafeYBeforeOutputStageReadyWaitAsync(ct).ConfigureAwait(false);
@@ -859,9 +863,11 @@ namespace QMC.CDT320.Sequencing
                     bool materialReady = MaterialStateService.IsOutputStageReceiveAvailable(_currentOutputSide, out reason);
                     bool signalReady = IsOutputStageSideReadySignalSet(_currentOutputSide);
                     bool autoMode = Options != null && Options.RunMode == SequenceRunMode.Auto;
+                    bool stageReceiveComplete = MaterialStateService.IsOutputStageReceiveComplete(_currentOutputSide);
 
                     if (materialReady && (!autoMode || signalReady))
                     {
+                        BeginOutputPostPlaceInspectionBatch();
                         WriteLog("PickerPlaceSequence",
                             Name + " OutputStage 수령 준비 확인 완료. side=" + _currentOutputSide +
                             ", die=" + (_currentDie != null ? _currentDie.DieId : "-") +
@@ -885,7 +891,29 @@ namespace QMC.CDT320.Sequencing
                     if (!autoMode)
                         return Fail("PICKER-PLACE-OUTPUT-STAGE-NOT-READY", "Material", detail);
 
-                    if (!safeWaitPositionPrepared)
+                    if (stageReceiveComplete && !fullAvoidPrepared)
+                    {
+                        int fullAvoidResult = await MovePickerToAvoidAfterPlaceFastAsync(
+                            "OutputStage 수령 완료 대기 중 보유 Die Picker 전체 Avoid",
+                            ct).ConfigureAwait(false);
+                        if (fullAvoidResult != 0)
+                            return fullAvoidResult;
+
+                        ClearPendingContiRetreat();
+                        ForceSafeYBeforeFirstPlaceMove = true;
+                        KeepPickerYForwardDuringPlaceReadyWait = false;
+                        ReleaseOutputPlaceArea();
+                        ReleaseOutputStageArea();
+                        ReleaseOutputFeederArea();
+                        EndOutputPostPlaceInspectionBatch();
+                        safeWaitPositionPrepared = true;
+                        fullAvoidPrepared = true;
+                        WriteLog("PickerPlaceSequence",
+                            Name + " OutputStage가 완료되어 다음 Place 대상이 열릴 때까지 보유 Die 상태로 Picker 전체 Avoid 복귀를 완료했습니다. " +
+                            "side=" + Side + ", outputSide=" + _currentOutputSide +
+                            ", pickerNo=" + _currentPickerNo + " - Ok");
+                    }
+                    else if (!safeWaitPositionPrepared)
                     {
                         if (KeepPickerYForwardDuringPlaceReadyWait && !ForceSafeYBeforeFirstPlaceMove)
                         {
@@ -2193,6 +2221,16 @@ namespace QMC.CDT320.Sequencing
             if (placeConfig == null || !IsCoordinatedPlaceMotionMode(placeConfig.MotionMode))
                 return false;
 
+            if (WillCurrentPlaceCompleteOutputStage())
+            {
+                WriteLog("PickerPlaceSequence",
+                    Name + " OutputStage 마지막 Place이므로 PickerZ Avoid 복귀를 다음 Conti Place로 지연하지 않습니다. " +
+                    "side=" + Side + ", outputSide=" + _currentOutputSide +
+                    ", pickerNo=" + _currentPickerNo +
+                    ", order=" + (_receiveTarget != null ? _receiveTarget.OrderIndex.ToString() : "-") + " - Check");
+                return false;
+            }
+
             int nextCursor = _pickerCursor + 1;
             if (nextCursor >= _pickedPickerIndexes.Count)
                 return false;
@@ -2208,6 +2246,55 @@ namespace QMC.CDT320.Sequencing
                 return false;
 
             return nextSide == _currentOutputSide;
+        }
+
+        private bool WillCurrentPlaceCompleteOutputStage()
+        {
+            try
+            {
+                if (_receiveTarget == null || _receiveTarget.OrderIndex < 0)
+                    return false;
+
+                WaferMaterial outputWafer = MaterialStateService.GetWaferAtLocation(_receiveTarget.StageLocation);
+                if (outputWafer == null || outputWafer.OutputReceiveTotalCount <= 0)
+                    return false;
+
+                if (!string.IsNullOrWhiteSpace(_receiveTarget.OutputWaferId) &&
+                    !string.Equals(outputWafer.WaferId, _receiveTarget.OutputWaferId, StringComparison.OrdinalIgnoreCase))
+                    return false;
+
+                if (outputWafer.OutputReceiveSlots != null && outputWafer.OutputReceiveSlots.Count > 0)
+                {
+                    int pendingTargetCount = 0;
+                    bool currentTargetIsPending = false;
+                    for (int i = 0; i < outputWafer.OutputReceiveSlots.Count; i++)
+                    {
+                        OutputReceiveSlotMaterial slot = outputWafer.OutputReceiveSlots[i];
+                        bool pending = slot != null &&
+                                       slot.IsTarget &&
+                                       slot.Result == DieResult.Unknown &&
+                                       string.IsNullOrWhiteSpace(slot.DieUid);
+                        if (!pending)
+                            continue;
+
+                        pendingTargetCount++;
+                        if (slot.OrderIndex == _receiveTarget.OrderIndex)
+                            currentTargetIsPending = true;
+                    }
+
+                    if (currentTargetIsPending)
+                        return pendingTargetCount == 1;
+                }
+
+                return _receiveTarget.OrderIndex >= outputWafer.OutputReceiveTotalCount - 1;
+            }
+            catch (Exception ex)
+            {
+                WriteLog("PickerPlaceSequence",
+                    Name + " OutputStage 마지막 Place 판단 중 예외가 발생하여 Z 복귀 지연을 금지합니다. " +
+                    "error=" + ex.Message + " - Check");
+                return true;
+            }
         }
 
         private static bool TryResolveOutputSide(DieMaterial die, out BinSide side)
@@ -2811,6 +2898,7 @@ namespace QMC.CDT320.Sequencing
 
                 TurnPlaceBlowOff("PickerZ Avoid 복귀 완료");
                 ClearPendingContiRetreat();
+                _currentPlaceZSafeReturnCompleted = true;
                 CurrentStep = PickerPlaceStep.UpdateMaterialToOutputStage;
                 return 0;
             }
@@ -2858,8 +2946,6 @@ namespace QMC.CDT320.Sequencing
                     _currentPickerNo,
                     _receiveTarget);
             }
-
-            NotifySequenceProgressAfterPlace();
 
             _placedDieId = _currentDie.DieId;
             _placedOutputSide = _currentOutputSide;
@@ -2931,6 +3017,16 @@ namespace QMC.CDT320.Sequencing
         {
             try
             {
+                if (MaterialStateService.IsOutputStageReceiveComplete(_currentOutputSide))
+                {
+                    int handoffResult = await CompleteOutputStageExchangeHandoffAsync(ct).ConfigureAwait(false);
+                    if (handoffResult != 0)
+                        return handoffResult;
+
+                    CurrentStep = PickerPlaceStep.SelectNextPickerOrComplete;
+                    return 0;
+                }
+
                 if (HasPendingContiRetreat())
                 {
                     CurrentStep = PickerPlaceStep.SelectNextPickerOrComplete;
@@ -2987,6 +3083,27 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
+        private async Task<int> CompleteOutputStageExchangeHandoffAsync(CancellationToken ct)
+        {
+            int avoidResult = await MovePickerToAvoidAfterPlaceFastAsync(
+                "OutputStage 마지막 Place 후 교체 준비 Picker 전체 Avoid",
+                ct).ConfigureAwait(false);
+            if (avoidResult != 0)
+                return avoidResult;
+
+            _currentPlaceZSafeReturnCompleted = true;
+            ClearPendingContiRetreat();
+            ForceSafeYBeforeFirstPlaceMove = true;
+            KeepPickerYForwardDuringPlaceReadyWait = false;
+
+            ReleaseOutputPlaceArea();
+            ReleaseOutputStageArea();
+            ReleaseOutputFeederArea();
+            EndOutputPostPlaceInspectionBatch();
+
+            return await PublishOutputStageExchangeReadyAfterSafeCompletionAsync(ct).ConfigureAwait(false);
+        }
+
         private async Task<int> WaitOutputPostPlaceInspectionIdleAsync(CancellationToken ct)
         {
             try
@@ -3018,37 +3135,103 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
-        private void NotifySequenceProgressAfterPlace()
+        private async Task<int> PublishOutputStageExchangeReadyAfterSafeCompletionAsync(CancellationToken ct)
         {
             try
             {
-                if (MaterialStateService.IsInputStagePickComplete())
+                if (!MaterialStateService.IsOutputStageReceiveComplete(_currentOutputSide))
+                    return 0;
+
+                if (!_currentPlaceZSafeReturnCompleted || !IsCurrentPickerAtFullAvoidPosition())
                 {
-                    Context.Bus.Set("InputStageDieComplete");
-                    WriteLog("PickerPlaceSequence",
-                        Name + " input stage die complete signal set after place. - Ok");
+                    return Fail("PICKER-PLACE-STAGE-COMPLETE-UNSAFE", Name,
+                        "OutputStage 마지막 Place 교체 준비 신호를 발행할 수 없습니다. " +
+                        "마지막 Place Picker 전체 Avoid 복귀가 완료되지 않았습니다. " +
+                        "side=" + Side + ", outputSide=" + _currentOutputSide +
+                        ", pickerNo=" + _currentPickerNo);
                 }
 
-                if (MaterialStateService.IsOutputStageReceiveComplete(_currentOutputSide))
+                if (Context == null || Context.Bus == null)
                 {
-                    string signal = _currentOutputSide == BinSide.Ng
-                        ? "OutputNgStageReceiveComplete"
-                        : "OutputGoodStageReceiveComplete";
-
-                    Context.Bus.Set(signal);
-                    WriteLog("PickerPlaceSequence",
-                        Name + " output stage receive complete signal set. side=" +
-                        _currentOutputSide + ", signal=" + signal + " - Ok");
+                    return Fail("PICKER-PLACE-STAGE-COMPLETE-BUS", Name,
+                        "OutputStage 마지막 Place 교체 준비 신호를 발행할 Bus가 없습니다. " +
+                        "side=" + Side + ", outputSide=" + _currentOutputSide +
+                        ", pickerNo=" + _currentPickerNo);
                 }
+
+                if (Context.OutputPostPlaceInspections != null)
+                {
+                    int idleResult = await Context.OutputPostPlaceInspections.WaitUntilIdleAsync(
+                        "OutputStageExchangeReady:" + Side + ":" + _currentOutputSide,
+                        0,
+                        ct).ConfigureAwait(false);
+                    if (idleResult != 0)
+                    {
+                        return Fail("PICKER-PLACE-STAGE-COMPLETE-INSPECTION", Name,
+                            "OutputStage 마지막 Place 후검사 완료 대기 실패. " +
+                            "side=" + Side + ", outputSide=" + _currentOutputSide +
+                            ", pickerNo=" + _currentPickerNo + ", result=" + idleResult);
+                    }
+                }
+
+                if (!MaterialStateService.IsOutputStageReceiveComplete(_currentOutputSide) ||
+                    !IsCurrentPickerAtFullAvoidPosition())
+                {
+                    return Fail("PICKER-PLACE-STAGE-COMPLETE-FINAL-CHECK", Name,
+                        "OutputStage 교체 준비 신호 직전 최종 안전 확인 실패. " +
+                        "side=" + Side + ", outputSide=" + _currentOutputSide +
+                        ", pickerNo=" + _currentPickerNo);
+                }
+
+                string signal = _currentOutputSide == BinSide.Ng
+                    ? "OutputNgStageReceiveComplete"
+                    : "OutputGoodStageReceiveComplete";
+
+                Context.Bus.Set(signal);
+                WriteLog("PickerPlaceSequence",
+                    Name + " OutputStage 마지막 Place 후 Picker 전체 Avoid 및 후검사 완료를 확인하고 교체 준비 신호를 발행했습니다. " +
+                    "side=" + _currentOutputSide + ", signal=" + signal +
+                    ", pickerNo=" + _currentPickerNo + " - Ok");
+                return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
             }
             catch (Exception ex)
             {
-                WriteLog("PickerPlaceSequence",
-                    Name + " sequence progress notify failed: " + ex.Message + " - Failed");
+                return Fail("PICKER-PLACE-STAGE-COMPLETE-NOTIFY", Name,
+                    "OutputStage 교체 준비 신호 처리 중 예외가 발생했습니다. error=" + ex.Message);
             }
             finally
             {
             }
+        }
+
+        private bool IsCurrentPickerAtFullAvoidPosition()
+        {
+            PickerAxis[] axes =
+            {
+                PickerAxis.PickerX,
+                PickerAxis.PickerY,
+                PickerAxis.PickerT0,
+                PickerAxis.PickerT1,
+                PickerAxis.PickerT2,
+                PickerAxis.PickerT3,
+                PickerAxis.PickerZ0,
+                PickerAxis.PickerZ1,
+                PickerAxis.PickerZ2,
+                PickerAxis.PickerZ3
+            };
+
+            for (int i = 0; i < axes.Length; i++)
+            {
+                PickerAxis axis = axes[i];
+                if (!IsPickerAxisInPosition(axis, GetPickerTeachingPosition(axis, "AvoidPosition")))
+                    return false;
+            }
+
+            return true;
         }
 
         private int SelectNextPickerOrComplete()
@@ -3079,6 +3262,11 @@ namespace QMC.CDT320.Sequencing
                 ReleaseOutputStageArea();
                 ReleaseOutputFeederArea();
                 EndOutputPostPlaceInspectionBatch();
+
+                int completionResult = await PublishOutputStageExchangeReadyAfterSafeCompletionAsync(ct).ConfigureAwait(false);
+                if (completionResult != 0)
+                    return completionResult;
+
                 CurrentStep = PickerPlaceStep.Complete;
                 return 0;
             }

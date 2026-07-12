@@ -696,8 +696,8 @@ namespace QMC.CDT320.VisionComm
 
         /// <summary>동기 검사(신형) — "inspector|fb|collet|die_index|channel|chip_uid" 고정 8파트.
         /// 기존 pickerNo*10+side 인덱스 패킹을 대체한다.</summary>
-        /// <summary>비동기 검사 시작(신형 8파트) — STARTED ACK 만 확인. 결과는 <see cref="WaitInspectResultByDieAsync"/> 로 회수.
-        /// Side 는 같은 die_index 로 채널 0/1 두 번 시작 → 결과 1회(그룹 합산 판정).</summary>
+        /// <summary>비동기 검사 시작(신형 8파트). EPD 진행 옵션 사용 시 STARTED ACK 는 진행 조건에서 제외한다.
+        /// 결과는 <see cref="WaitInspectResultByDieAsync"/> 로 회수하며, Side 는 같은 die_index 로 채널 0/1 두 번 시작한다.</summary>
         public static async Task<bool> StartInspectColletAsync(
             AutoVisionChannel channel,
             string inspector,
@@ -732,29 +732,45 @@ namespace QMC.CDT320.VisionComm
                     ", timeoutMs=" + timeoutMs);
 
                 // EPD(노출 종료) 선등록 — 반드시 명령 전송 '전'에 등록해야 푸시를 놓치지 않는다(모션 안전 규약).
-                // 미연결이면 null → 기존 ACK 대기 경로로 폴백.
                 Task<bool> epdTask = proceedOnExposureDone
                     ? VisionCommandService.WaitExposureDoneAsync(channel, timeoutMs, exposureModuleName)
                     : null;
 
+                if (proceedOnExposureDone && epdTask == null)
+                {
+                    EventLogger.Write(EventKind.Alarm, "VISION", "AUTO-VISION-INSPECTASYNC",
+                        "Vision EPD 대기 등록 실패 — 다음 모션을 차단합니다. channel=" + channel +
+                        ", inspector=" + inspector +
+                        ", fb=" + fb + ", collet=" + collet + ", dieIndex=" + dieIndex + ", ch=" + visionChannel +
+                        ", exposureModule=" + (exposureModuleName ?? string.Empty));
+                    return false;
+                }
+
                 Task<bool> ackTask = VisionCommandService.InspectAsyncStartAsync(channel, inspector, fb, collet, dieIndex, visionChannel, gridX, gridY, timeoutMs, ct);
 
-                if (epdTask != null)
+                if (proceedOnExposureDone)
                 {
-                    Task<bool> first = await Task.WhenAny(ackTask, epdTask).ConfigureAwait(false);
-                    if (first == epdTask && epdTask.Result)
+                    // STARTED ACK 는 진행 조건으로 사용하지 않는다. 통신 실패 관찰만 백그라운드에서 수행하고,
+                    // 지정 모듈의 EPD 를 정상 수신해야만 호출자(모션 시퀀스)에 성공을 반환한다.
+                    ObserveInspectAckInBackground(ackTask, channel, inspector, fb, collet, dieIndex, visionChannel);
+                    bool epdReceived = await epdTask.ConfigureAwait(false);
+                    if (!epdReceived)
                     {
-                        // 노출 종료 = 다이 촬상은 이미 끝남 → ACK(영상 카피 완료 회신)를 기다리지 않고 진행해
-                        // 픽커 이동을 앞당긴다(실측 EPD→ACK ≈ 88ms/장). ACK 는 백그라운드에서 검증만 하고,
-                        // 실제 실패는 INSPECTRESULT 회수 실패 알람이 최종 방어한다.
-                        ObserveInspectAckInBackground(ackTask, channel, inspector, fb, collet, dieIndex, visionChannel);
-                        EventLogger.Write(EventKind.Event, "VISION", "AUTO-VISION-INSPECTASYNC",
-                            "Vision EPD(노출 종료) 수신 — STARTED ACK 대기 없이 진행. channel=" + channel +
+                        EventLogger.Write(EventKind.Alarm, "VISION", "AUTO-VISION-INSPECTASYNC",
+                            "Vision EPD(노출 종료) 타임아웃 — 다음 모션을 차단합니다. channel=" + channel +
                             ", inspector=" + inspector +
-                            ", fb=" + fb + ", collet=" + collet + ", dieIndex=" + dieIndex + ", ch=" + visionChannel);
-                        return true;
+                            ", fb=" + fb + ", collet=" + collet + ", dieIndex=" + dieIndex + ", ch=" + visionChannel +
+                            ", exposureModule=" + (exposureModuleName ?? string.Empty) +
+                            ", timeoutMs=" + timeoutMs);
+                        return false;
                     }
-                    // EPD 타임아웃 또는 ACK 선도착 → 기존 ACK 결과 경로로 판정.
+
+                    EventLogger.Write(EventKind.Event, "VISION", "AUTO-VISION-INSPECTASYNC",
+                        "Vision EPD(노출 종료) 수신 — STARTED ACK와 무관하게 진행. channel=" + channel +
+                        ", inspector=" + inspector +
+                        ", fb=" + fb + ", collet=" + collet + ", dieIndex=" + dieIndex + ", ch=" + visionChannel +
+                        ", exposureModule=" + (exposureModuleName ?? string.Empty));
+                    return true;
                 }
 
                 bool started = await ackTask.ConfigureAwait(false);

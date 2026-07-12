@@ -66,6 +66,17 @@ namespace QMC.CDT320.DieMaps
             return Math.Max(0.0, centerStepMm - dieSize);
         }
 
+        public static double CalculateEquipmentGridY(int localY, int gridY)
+        {
+            // 장비 Y 엔코더 기준으로 화면 상단은 음수, 하단은 양수가 되도록 변환한다.
+            return localY - Math.Max(0, gridY - 1) / 2.0;
+        }
+
+        public static double CalculateCenteredOriginY(int gridY, double pitchY)
+        {
+            return CalculateEquipmentGridY(0, gridY) * pitchY;
+        }
+
         public static int CalculateWaferGridCount(double outerDiameterMm, double pitchMm, double dieSizeMm)
         {
             if (outerDiameterMm <= 0.0)
@@ -104,7 +115,7 @@ namespace QMC.CDT320.DieMaps
             int gridX = CalculateWaferGridCount(diameter, resolvedPitchX, resolvedDieSizeX);
             int gridY = CalculateWaferGridCount(diameter, resolvedPitchY, resolvedDieSizeY);
             double originX = -Math.Max(0, gridX - 1) * resolvedPitchX / 2.0;
-            double originY = Math.Max(0, gridY - 1) * resolvedPitchY / 2.0;
+            double originY = CalculateCenteredOriginY(gridY, resolvedPitchY);
             double radius = diameter / 2.0;
 
             int sideGridSkip = 0;
@@ -147,7 +158,7 @@ namespace QMC.CDT320.DieMaps
                 for (int col = 0; col < gridX; col++)
                 {
                     double x = originX + col * resolvedPitchX;
-                    double y = originY - row * resolvedPitchY;
+                    double y = originY + row * resolvedPitchY;
                     bool target = IsInsideCircularWaferTarget(
                         col,
                         row,
@@ -173,7 +184,7 @@ namespace QMC.CDT320.DieMaps
                         Result = DieResult.Unknown,
                         BinCode = 0,
                         EquipmentGridX = col - Math.Max(0, gridX - 1) / 2.0,
-                        EquipmentGridY = Math.Max(0, gridY - 1) / 2.0 - row,
+                        EquipmentGridY = CalculateEquipmentGridY(row, gridY),
                         PosX = x,
                         PosY = y
                     });
@@ -297,7 +308,7 @@ namespace QMC.CDT320.DieMaps
             if (dieMapY < 1) dieMapY = 1;
             // 격자 index 기준 중심 좌표를 (0,0)으로 둔다.
             double originX = -Math.Max(0, dieMapX - 1) * pitchX / 2.0;
-            double originY = Math.Max(0, dieMapY - 1) * pitchY / 2.0;
+            double originY = CalculateCenteredOriginY(dieMapY, pitchY);
 
             var map = new DieMap
             {
@@ -318,7 +329,7 @@ namespace QMC.CDT320.DieMaps
                 for (int x = 0; x < dieMapX; x++)
                 {
                     double cx = originX + x * pitchX;
-                    double cy = originY - y * pitchY;
+                    double cy = originY + y * pitchY;
                     map.Entries.Add(new DieMapEntry
                     {
                         Index    = idx++,
@@ -328,7 +339,7 @@ namespace QMC.CDT320.DieMaps
                         Result   = DieResult.Unknown,
                         BinCode  = 0,
                         EquipmentGridX = x - Math.Max(0, dieMapX - 1) / 2.0,
-                        EquipmentGridY = Math.Max(0, dieMapY - 1) / 2.0 - y,
+                        EquipmentGridY = CalculateEquipmentGridY(y, dieMapY),
                         PosX        = cx,
                         PosY        = cy
                     });
@@ -442,7 +453,6 @@ namespace QMC.CDT320.DieMaps
             }
 
             double centerGridX = Math.Max(0, map.DieMapX - 1) / 2.0;
-            double centerGridY = Math.Max(0, map.DieMapY - 1) / 2.0;
 
             var usedDieIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             for (int i = 0; i < map.Entries.Count; i++)
@@ -461,7 +471,7 @@ namespace QMC.CDT320.DieMaps
                 if (double.IsNaN(entry.EquipmentGridX) || double.IsInfinity(entry.EquipmentGridX))
                     entry.EquipmentGridX = entry.DieMapX - centerGridX;
                 if (double.IsNaN(entry.EquipmentGridY) || double.IsInfinity(entry.EquipmentGridY))
-                    entry.EquipmentGridY = centerGridY - entry.DieMapY;
+                    entry.EquipmentGridY = CalculateEquipmentGridY(entry.DieMapY, map.DieMapY);
 
                 if (string.IsNullOrWhiteSpace(entry.DieUid))
                     entry.DieUid = BuildDefaultDieUid(map, entry);
@@ -802,7 +812,6 @@ namespace QMC.CDT320.DieMaps
             int gridX = Math.Max(1, maxX - minX + 1);
             int gridY = Math.Max(1, maxY - minY + 1);
             double centerGridX = Math.Max(0, gridX - 1) / 2.0;
-            double centerGridY = Math.Max(0, gridY - 1) / 2.0;
             double pitchX = header.PitchX;
             double pitchY = header.PitchY;
             string frameId = Path.GetFileNameWithoutExtension(path);
@@ -820,7 +829,7 @@ namespace QMC.CDT320.DieMaps
                 OuterDiameterMm = Math.Max(gridX * pitchX, gridY * pitchY),
                 EdgeSkipMode = "ExternalMap",
                 OriginX = -centerGridX * pitchX,
-                OriginY = centerGridY * pitchY,
+                OriginY = CalculateCenteredOriginY(gridY, pitchY),
                 SourceFileName = Path.GetFileName(path),
                 SourceFormat = "RAD TXT",
                 SourcePitchFromFile = header.HasPitch,
@@ -838,7 +847,7 @@ namespace QMC.CDT320.DieMaps
                 int localX = point.X - minX;
                 int localY = maxY - point.Y;
                 double equipmentGridX = localX - centerGridX;
-                double equipmentGridY = centerGridY - localY;
+                double equipmentGridY = CalculateEquipmentGridY(localY, gridY);
                 bool target = point.Bin > 0;
                 map.Entries.Add(new DieMapEntry
                 {
@@ -939,7 +948,6 @@ namespace QMC.CDT320.DieMaps
             int gridX = Math.Max(1, maxX - minX + 1);
             int gridY = Math.Max(1, maxY - minY + 1);
             double centerGridX = Math.Max(0, gridX - 1) / 2.0;
-            double centerGridY = Math.Max(0, gridY - 1) / 2.0;
             string frameId = Path.GetFileNameWithoutExtension(path);
             double pitchX = 1.0;
             double pitchY = 1.0;
@@ -956,7 +964,7 @@ namespace QMC.CDT320.DieMaps
                 OuterDiameterMm = Math.Max(gridX * pitchX, gridY * pitchY),
                 EdgeSkipMode = "ExternalMap",
                 OriginX = -centerGridX * pitchX,
-                OriginY = centerGridY * pitchY,
+                OriginY = CalculateCenteredOriginY(gridY, pitchY),
                 SourceFileName = Path.GetFileName(path),
                 SourceFormat = "PLACE GRID TXT",
                 SourcePitchFromFile = false,
@@ -972,7 +980,7 @@ namespace QMC.CDT320.DieMaps
                 int localX = point.X - minX;
                 int localY = maxY - point.Y;
                 double equipmentGridX = localX - centerGridX;
-                double equipmentGridY = centerGridY - localY;
+                double equipmentGridY = CalculateEquipmentGridY(localY, gridY);
                 map.Entries.Add(new DieMapEntry
                 {
                     Index = index++,

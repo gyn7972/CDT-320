@@ -7,12 +7,12 @@ namespace QMC.Vision.Core
     /// <para>실기 구조: 콜렛 8개 = Front 1~4 + Back 1~4. 공정은 순차(Front 배치 → Front 카메라 →
     /// Back 배치 → Back 카메라)이며 Front/Back 은 동시에 촬영하지 않는다(상호배제).</para>
     /// <para>와이어 신형(고정 8파트, 생략 없음):
-    /// <c>MODULE|INSPECTASYNC|inspector|fb|collet|die_index|channel|chip_uid</c>
+    /// <c>MODULE|INSPECTASYNC|inspector|fb|collet|die_index|channel|gridx;gridy</c>
     ///  • fb        : 0=Front / 1=Back
     ///  • collet    : 1~4
     ///  • die_index : 픽업 순서 1-base, -1=다이 없음(메뉴얼 테스트 — 맵 매칭/다이 집계 생략)
     ///  • channel   : 항상 0/1 — Side 0=0°/1=90°, Bottom/Bin 은 0°로 간주해 0(-1 미사용, 구형 수신만 -1 허용)
-    ///  • chip_uid  : 핸들러 자재 고유 ID(결과 매칭 키)
+    ///  • gridx;gridy : 핸들러가 전달하는 웨이퍼 격자 인덱스
     /// 신/구형 판별 = 파트 수(구형 ≤7, 신형 =8). 구형 포맷은 이행기 하위호환으로 계속 수용한다.</para>
     /// </summary>
     public static class ColletAddress

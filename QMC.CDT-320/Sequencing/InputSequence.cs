@@ -61,6 +61,13 @@ namespace QMC.CDT320.Sequencing
                 // 정지 요청이 없으면 다음 Ready wafer cycle로 반복 진입한다.
                 while (!ct.IsCancellationRequested)
                 {
+                    if (await WaitForStopAfterDrainCompletionIfRequestedAsync(
+                        "InputSequence.AutoLoop",
+                        ct).ConfigureAwait(false))
+                    {
+                        return;
+                    }
+
                     await ExecuteInputAutoCycleAsync(ct).ConfigureAwait(false);
                     Context.StopIfCycleStopRequested("InputSequence.AutoCycleComplete");
                 }
@@ -88,6 +95,13 @@ namespace QMC.CDT320.Sequencing
         {
             try
             {
+                if (await WaitForStopAfterDrainCompletionIfRequestedAsync(
+                    "InputSequence.AutoCycleStart",
+                    ct).ConfigureAwait(false))
+                {
+                    return;
+                }
+
                 // 이전 실행 중 Stage/Feeder에 남은 wafer가 있으면 해당 위치부터 재개한다.
                 RestoreInputStepSessionFromRuntimeState();
 
@@ -127,7 +141,17 @@ namespace QMC.CDT320.Sequencing
                 {
                     PublishInputStageReadySignals(stageWafer);
                 }
-                await WaitPickerToCompleteInputStageDiesAsync(stageWafer, ct).ConfigureAwait(false);
+                await WaitPickerToCompleteInputStageDiesAsync(
+                    stageWafer,
+                    readySignalPublishedFromRestore,
+                    ct).ConfigureAwait(false);
+
+                if (await WaitForStopAfterDrainCompletionIfRequestedAsync(
+                    "InputSequence.BeforeStageUnload",
+                    ct).ConfigureAwait(false))
+                {
+                    return;
+                }
 
                 // Picker가 해당 Stage wafer의 die pick을 완료하면 별도 승인된 Input loader 작업으로 Stage wafer를 cassette로 되돌린다.
                 using (AutoSequenceLoaderWorkLease unloadLease = await Context.AutoLoaderGate
@@ -279,7 +303,10 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
-        private async Task WaitPickerToCompleteInputStageDiesAsync(WaferMaterial stageWafer, CancellationToken ct)
+        private async Task WaitPickerToCompleteInputStageDiesAsync(
+            WaferMaterial stageWafer,
+            bool allowSafeCompletionSignalRecovery,
+            CancellationToken ct)
         {
             try
             {
@@ -292,23 +319,32 @@ namespace QMC.CDT320.Sequencing
                 if (!MaterialStateService.IsInputStageFinishComplete(out finishReason))
                     throw new InvalidOperationException("InputStage Finish 상태가 완료가 아닙니다. " + finishReason);
 
-                if (MaterialStateService.IsInputStagePickComplete())
+                if (Context.Bus.IsSet("InputStageDieComplete"))
                 {
-                    // Material 상태상 이미 pick 완료이면 bus도 완료 상태로 맞춰 중복 대기를 피한다.
-                    Context.Bus.Set("InputStageDieComplete");
                     WriteLog("WaitPickerToCompleteInputStageDiesAsync",
-                        "Input stage die pick already complete. wafer=" +
+                        "Input stage 마지막 Pick 안전 복귀 완료 신호가 이미 발행되어 있습니다. wafer=" +
                         (stageWafer != null ? stageWafer.WaferId : "-") + " - Ok");
                     return;
                 }
 
+                if (allowSafeCompletionSignalRecovery &&
+                    TryRestoreInputStageCompletionSignalAfterPickerAvoid(stageWafer))
+                    return;
+
                 Context.Bus.Reset("InputStageDieComplete");
                 PublishInputStageReadySignals(stageWafer);
 
-                // Picker Sequence는 InputStageReady/InputStageFinishComplete를 보고 작업하고,
-                // 완료되면 InputStageDieComplete bus 또는 Material pick complete 상태로 알려준다.
+                // 정상 운전은 Picker Sequence가 마지막 Pick 안전 복귀 후 완료 신호를 발행한다.
+                // Material 상태 기반 완료 신호 복구는 Ready 상태를 복원한 재시작 경로에서만 허용한다.
                 while (!ct.IsCancellationRequested)
                 {
+                    if (await WaitForStopAfterDrainCompletionIfRequestedAsync(
+                        "InputSequence.WaitInputStageDieComplete",
+                        ct).ConfigureAwait(false))
+                    {
+                        return;
+                    }
+
                     Context.StopIfCycleStopRequested("InputSequence.WaitInputStageDieComplete");
 
                     if (Context.Bus.IsSet("InputStageDieComplete"))
@@ -319,14 +355,9 @@ namespace QMC.CDT320.Sequencing
                         return;
                     }
 
-                    if (MaterialStateService.IsInputStagePickComplete())
-                    {
-                        Context.Bus.Set("InputStageDieComplete");
-                        WriteLog("WaitPickerToCompleteInputStageDiesAsync",
-                            "Input stage die pick complete by material state. wafer=" +
-                            (stageWafer != null ? stageWafer.WaferId : "-") + " - Ok");
+                    if (allowSafeCompletionSignalRecovery &&
+                        TryRestoreInputStageCompletionSignalAfterPickerAvoid(stageWafer))
                         return;
-                    }
 
                     await Task.Delay(100, ct).ConfigureAwait(false);
                 }
@@ -352,6 +383,44 @@ namespace QMC.CDT320.Sequencing
             finally
             {
             }
+        }
+
+        private async Task<bool> WaitForStopAfterDrainCompletionIfRequestedAsync(
+            string boundary,
+            CancellationToken ct)
+        {
+            WaferCompletionRunCoordinator completion = Context != null ? Context.WaferCompletion : null;
+            if (completion == null || !completion.Enabled)
+                return false;
+
+            completion.ObserveCompletionSignals();
+            if (!completion.IsDrainRequested)
+                return false;
+
+            WriteLog("WaferCompletionRun",
+                "Stop After Drain 요청으로 Input 신규 Pick/교체를 중단하고 안전 배출 완료를 기다립니다. " +
+                "boundary=" + (boundary ?? "-") + " - Wait");
+            await completion.WaitForCompletionAsync(ct).ConfigureAwait(false);
+            WriteLog("WaferCompletionRun",
+                "Stop After Drain 안전 배출 완료를 확인하여 Input 자동 시퀀스를 종료합니다. " +
+                "boundary=" + (boundary ?? "-") + " - Ok");
+            return true;
+        }
+
+        private bool TryRestoreInputStageCompletionSignalAfterPickerAvoid(WaferMaterial stageWafer)
+        {
+            if (!MaterialStateService.IsInputStagePickComplete())
+                return false;
+
+            string reason;
+            if (!AreInputPickersAvoidAndStopped(out reason))
+                return false;
+
+            Context.Bus.Set("InputStageDieComplete");
+            WriteLog("WaitPickerToCompleteInputStageDiesAsync",
+                "InputStage Material Pick 완료 복구 시 Front/Rear Picker 전체 Avoid 및 정지를 확인한 후 완료 신호를 복구했습니다. wafer=" +
+                (stageWafer != null ? stageWafer.WaferId : "-") + " - Ok");
+            return true;
         }
 
         private async Task UnloadInputStageWaferIfPresentAsync(CancellationToken ct)

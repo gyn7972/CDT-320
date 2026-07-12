@@ -383,9 +383,52 @@ namespace QMC.CDT320.Sequencing.Calibration
                 ", residualMm=(" + residualMmX.ToString("F6") + "," + residualMmY.ToString("F6") + ")" +
                 ", formula=machineCenter=actual-residual*gain" +
                 ", machineCenter=(" + RotationCenterMachineX.ToString("F6") + "," + RotationCenterMachineY.ToString("F6") + ") - Ok");
+
+            int sideRecipeResult = SaveRotationCenterToSideVisionRecipe();
+            if (sideRecipeResult != 0)
+                return sideRecipeResult;
+
             bool saved = Context.Machine.VisionUnit.SaveSettings();
             if (!saved)
                 return Fail("COLLET-COC-SAVE", "VisionUnit", "COC 회전 중심 픽셀 결과 저장에 실패했습니다.");
+            return 0;
+        }
+
+        private int SaveRotationCenterToSideVisionRecipe()
+        {
+            if (Context == null || Context.Machine == null || Context.Machine.VisionUnit == null ||
+                Context.Machine.VisionUnit.Recipe == null || Context.Controller == null)
+            {
+                return Fail("COLLET-COC-SIDE-RECIPE-NO-CONTEXT", Name,
+                    "COC 회전 중심을 Side Vision Recipe에 저장할 장비 Context가 없습니다.");
+            }
+
+            VisionRecipe visionRecipe = Context.Machine.VisionUnit.Recipe;
+            visionRecipe.EnsurePositionObjects();
+            VisionAxisPositions sidePositions = _calibrationSide == VisionFocusPickerSide.Front
+                ? visionRecipe.FrontSideVision
+                : visionRecipe.RearSideVision;
+            int colletIndex = Math.Max(0, Math.Min(3, _colletNo - 1));
+
+            sidePositions.ColletRotationCenterX[colletIndex] = RotationCenterMachineX;
+            sidePositions.ColletRotationCenterY[colletIndex] = RotationCenterMachineY;
+            sidePositions.ColletRotationCenterValid[colletIndex] = true;
+
+            string recipeName = Context.Controller.ActiveRecipeName;
+            if (string.IsNullOrWhiteSpace(recipeName) || !Context.Machine.SaveRecipe(recipeName))
+            {
+                return Fail("COLLET-COC-SIDE-RECIPE-SAVE", Name,
+                    "COC 회전 중심 Side Vision Recipe 저장에 실패했습니다. side=" + _calibrationSide +
+                    ", colletNo=" + _colletNo +
+                    ", recipe=" + (recipeName ?? string.Empty));
+            }
+
+            WriteLog("ColletCOC",
+                "COC 회전 중심을 Side Vision Recipe에 저장했습니다. side=" + _calibrationSide +
+                ", colletNo=" + _colletNo +
+                ", centerX=" + RotationCenterMachineX.ToString("F6") +
+                ", centerY=" + RotationCenterMachineY.ToString("F6") +
+                ", recipe=" + recipeName + " - Ok");
             return 0;
         }
 

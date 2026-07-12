@@ -1585,6 +1585,14 @@ namespace QMC.CDT320.Sequencing.Calibration
                         "Collet Calibration 후 COC 회전 중심 검출에 실패했습니다. side=" +
                         _calibrationSide + ", colletNo=" + _colletNo + ", result=" + result);
 
+                // COC 하위 시퀀스가 해제한 Bottom 작업영역을 다시 점유한 뒤 회전 중심 FineAlign 이동을 수행합니다.
+                result = await AcquireCalibrationAreaAsync(ct).ConfigureAwait(false);
+                if (result != 0)
+                    return Fail("COLLET-CAL-COC-AREA", Name,
+                        "COC 완료 후 회전 중심 이동을 위한 InspectionArea 재점유에 실패했습니다. side=" +
+                        _calibrationSide + ", colletNo=" + _colletNo);
+                EnsurePickerWorkAreaReserved(PickerWorkZone.Bottom, "ColletCalibration");
+
                 result = SaveAndApplyRotationCenter(coc.RotationCenterMachineX, coc.RotationCenterMachineY);
                 if (result != 0)
                     return result;
@@ -1939,7 +1947,8 @@ namespace QMC.CDT320.Sequencing.Calibration
             VisionAxis visionAxis = _calibrationSide == VisionFocusPickerSide.Front
                 ? VisionAxis.FrontSideVisionY
                 : VisionAxis.RearSideVisionY;
-            string positionName = angleDeg == 90 ? "Process90Position" : "Process0Position";
+            // Side 0/90도는 동일한 카메라 초점 기준을 사용하고 각도별 COC/Die Size 보정만 적용한다.
+            const string positionName = "Process0Position";
             double teachingY = Context.Machine.VisionUnit.GetVisionTeachingPosition(visionAxis, positionName);
             double axisSign = _calibrationSide == VisionFocusPickerSide.Front ? 1.0 : -1.0;
 

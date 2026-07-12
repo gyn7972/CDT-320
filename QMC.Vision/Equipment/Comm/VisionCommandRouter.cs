@@ -53,6 +53,8 @@ namespace QMC.Vision.Comm
                     case "GRAB":       resp = VisionCommandCore.Grab(m); break;
                     case "MATCHASYNC": resp = DoMatchAsync(m, cfg, parts); break;
                     case "MATCHRESULT":resp = DoMatchResult(m, parts); break;
+                    case "INSPECTASYNC":resp = DoInspectAsync(m, cfg, parts); break;
+                    case "INSPECTRESULT":resp = DoInspectResult(m, cfg, parts); break;
                     case "TRAIN":      resp = DoTrain(m, parts);     break;
                     case "SCALE":      resp = DoScale(m, parts);     break;
                     case "ROT_CENTER": resp = DoRotCenter(m);        break;
@@ -149,6 +151,55 @@ namespace QMC.Vision.Comm
                 case AsyncMatchStore.State.Running: return "0";
                 default: return "0";
             }
+        }
+
+        /// <summary>
+        /// 비동기 검사 시작. 신형 와이어는
+        /// MODULE|INSPECTASYNC|inspector|fb|collet|die_index|channel|gridx;gridy 순서로 고정한다.
+        /// </summary>
+        private static string DoInspectAsync(IVisionModule m, VisionSettings cfg, string[] parts)
+        {
+            string inspector = parts.Length > 2 ? parts[2] : "";
+            int picker = 0;
+            int dieIndex = 0;
+            int channel = -1;
+            int gridX = -1;
+            int gridY = -1;
+            string chipUid = "";
+
+            if (ColletAddress.TryParseWire(parts, out int fb, out int collet, out dieIndex, out channel, out gridX, out gridY))
+            {
+                picker = ColletAddress.ToGlobalPicker(fb, collet);
+                chipUid = dieIndex.ToString();
+            }
+            else
+            {
+                if (parts.Length >= 5)
+                {
+                    int.TryParse(parts[3], out picker);
+                    chipUid = parts[4];
+                }
+                else if (parts.Length == 4)
+                {
+                    chipUid = parts[3];
+                }
+
+                if (parts.Length >= 6)
+                    int.TryParse(parts[5], out dieIndex);
+                if (parts.Length >= 7 && !int.TryParse(parts[6], out channel))
+                    channel = -1;
+                if (dieIndex <= 0)
+                    int.TryParse(chipUid, out dieIndex);
+            }
+
+            return AsyncInspectCore.Start(m, cfg, inspector, picker, chipUid, dieIndex, channel, gridX, gridY);
+        }
+
+        private static string DoInspectResult(IVisionModule m, VisionSettings cfg, string[] parts)
+        {
+            string inspector = parts.Length > 2 ? parts[2] : "";
+            string chipUid = parts.Length > 3 ? parts[3] : "";
+            return AsyncInspectCore.WaitResult(m, cfg, inspector, chipUid);
         }
 
         private static string DoTrain(IVisionModule m, string[] parts)

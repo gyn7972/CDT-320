@@ -2513,10 +2513,9 @@ namespace QMC.CDT320.Materials
                     pitchY = 1.0;
 
                 double centerGridX = Math.Max(0, map.DieMapX - 1) / 2.0;
-                double centerGridY = Math.Max(0, map.DieMapY - 1) / 2.0;
                 double originX = targetCenterX - pitchX * centerGridX;
-                // Local row 0 is the physical top side, therefore its equipment Y is positive.
-                double originY = targetCenterY + pitchY * centerGridY;
+                // 장비 Y 엔코더 기준으로 local row 0은 중심보다 음수 방향에 둔다.
+                double originY = targetCenterY + DieMapGenerator.CalculateCenteredOriginY(map.DieMapY, pitchY);
 
                 map.PitchX = pitchX;
                 map.PitchY = pitchY;
@@ -2532,7 +2531,7 @@ namespace QMC.CDT320.Materials
                     if (double.IsNaN(equipmentGridX) || double.IsInfinity(equipmentGridX))
                         equipmentGridX = ResolveEntryMapX(entry) - centerGridX;
                     if (double.IsNaN(equipmentGridY) || double.IsInfinity(equipmentGridY))
-                        equipmentGridY = centerGridY - ResolveEntryMapY(entry);
+                        equipmentGridY = DieMapGenerator.CalculateEquipmentGridY(ResolveEntryMapY(entry), map.DieMapY);
 
                     entry.EquipmentGridX = equipmentGridX;
                     entry.EquipmentGridY = equipmentGridY;
@@ -4356,9 +4355,9 @@ namespace QMC.CDT320.Materials
                         Result = die.Result,
                         BinCode = die.Input_BinCode,
                         EquipmentGridX = die.Wafer_IndexX - Math.Max(0, maxX) / 2.0,
-                        EquipmentGridY = Math.Max(0, maxY) / 2.0 - die.Wafer_IndexY,
+                        EquipmentGridY = DieMapGenerator.CalculateEquipmentGridY(die.Wafer_IndexY, maxY + 1),
                         PosX = die.WaferOffset != null && die.WaferOffset.IsValid ? die.WaferOffset.X : originX + pitchX * die.Wafer_IndexX,
-                        PosY = die.WaferOffset != null && die.WaferOffset.IsValid ? die.WaferOffset.Y : originY - pitchY * die.Wafer_IndexY,
+                        PosY = die.WaferOffset != null && die.WaferOffset.IsValid ? die.WaferOffset.Y : originY + pitchY * die.Wafer_IndexY,
                         DieUid = die.DieId
                     });
                 }
@@ -4428,7 +4427,7 @@ namespace QMC.CDT320.Materials
                         Result = slot.Result,
                         BinCode = slot.BinCode,
                         EquipmentGridX = slot.DieMapX - Math.Max(0, map.DieMapX - 1) / 2.0,
-                        EquipmentGridY = Math.Max(0, map.DieMapY - 1) / 2.0 - slot.DieMapY,
+                        EquipmentGridY = DieMapGenerator.CalculateEquipmentGridY(slot.DieMapY, map.DieMapY),
                         PosX = slot.PosX,
                         PosY = slot.PosY,
                         DieUid = slot.DieUid ?? ""
