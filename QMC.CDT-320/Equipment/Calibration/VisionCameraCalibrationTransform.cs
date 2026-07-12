@@ -65,14 +65,14 @@ namespace QMC.CDT320.Calibration
                 // Bottom SurfaceInspector Angle 원본값이다. T 보정 적용 여부는 별도 검증 후 결정한다.
             }
 
-            // 기존 단일 SideVisionY/PickerZ 보정 계약은 사용하지 않는다.
-            // Bottom Center X/Y(mm)는 각도별 SideVisionY 보정 전용 필드로 분리한다.
+            // TODO: 실장비 로그 확인 후 아래 후보 중 하나를 SideVisionY / PickerZ 보정으로 연결한다.
+            // double sideVisionYOffset = ReadCandidate(result, "bottom_offset_y_mm", "bottom_item_offset_y");
+            // double pickerZOffset = ReadCandidate(result, "bottom_offset_x_mm", "bottom_item_offset_x");
             double sideVisionYOffset = 0.0;
             double pickerZOffset = 0.0;
             double bottomCenterOffsetX = 0.0;
             double bottomCenterOffsetY = 0.0;
-            bool hasBottomCenterOffsetX = TryReadValidatedBottomOffset(
-                result,
+            bool hasBottomCenterOffsetX = result != null && result.TryGetDoubleValue(
                 out bottomCenterOffsetX,
                 "bottom_offset_x_mm",
                 "bottom_center_offset_x_mm",
@@ -82,8 +82,7 @@ namespace QMC.CDT320.Calibration
                 "center_x_offset_mm",
                 "center_x_mm",
                 "bottom_item_offset_x");
-            bool hasBottomCenterOffsetY = TryReadValidatedBottomOffset(
-                result,
+            bool hasBottomCenterOffsetY = result != null && result.TryGetDoubleValue(
                 out bottomCenterOffsetY,
                 "bottom_offset_y_mm",
                 "bottom_center_offset_y_mm",
@@ -94,14 +93,15 @@ namespace QMC.CDT320.Calibration
                 "center_y_mm",
                 "bottom_item_offset_y");
             bool hasBottomCenterOffset = hasBottomCenterOffsetX &&
-                                         hasBottomCenterOffsetY;
+                                         hasBottomCenterOffsetY &&
+                                         IsFinite(bottomCenterOffsetX) &&
+                                         IsFinite(bottomCenterOffsetY);
 
             return new BottomVisionOffset
             {
                 PickerNo = pickerNo,
-                // Place용 Offset과 Side Focus용 Bottom 중심 Offset을 분리합니다.
-                OffsetX = 0.0,
-                OffsetY = 0.0,
+                OffsetX = bottomOffsetX,
+                OffsetY = bottomOffsetY,
                 OffsetT = ok ? bottomAngleDeg : 0.0,
                 BottomCenterOffsetX = bottomCenterOffsetX,
                 BottomCenterOffsetY = bottomCenterOffsetY,
@@ -117,27 +117,18 @@ namespace QMC.CDT320.Calibration
             };
         }
 
-        private static bool TryReadValidatedBottomOffset(
-            InspectionResultDto result,
-            out double value,
-            params string[] keys)
+        private static double ReadValidatedBottomOffset(InspectionResultDto result, params string[] keys)
         {
-            value = 0.0;
             if (result == null || keys == null)
-                return false;
+                return 0.0;
 
+            double value;
             if (!result.TryGetDoubleValue(out value, keys) ||
                 double.IsNaN(value) || double.IsInfinity(value))
-                return false;
+                return 0.0;
 
             // Bottom Die 중심 오프셋은 mm 단위의 소량 값만 허용하고 절대 픽셀 좌표 유입은 차단합니다.
-            if (Math.Abs(value) > 50.0)
-            {
-                value = 0.0;
-                return false;
-            }
-
-            return true;
+            return Math.Abs(value) <= 50.0 ? value : 0.0;
         }
 
         public static InspectionResultDto ToInspectionResult(AutoVisionChannel channel, InspectionResultDto result)
