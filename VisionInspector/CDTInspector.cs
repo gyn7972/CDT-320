@@ -793,13 +793,7 @@ namespace QMC.Vision.Inspector
                 result.Width *= _visionConfig.BottomVision.PixelSizeWidthMm / 2; // mm 단위로 변환
                 result.Height *= _visionConfig.BottomVision.PixelSizeHeightMm / 2; // mm 단위로 변환
 
-                if (result != null)
-                {
-                    double dTemp = result.Width;
-                    result.Width = result.Height;
-                    result.Height = dTemp;
-                    result.Offset = new PointF(result.Offset.Y, result.Offset.X);
-                }
+               
                 Log.Write("Data_" +bip.WaferID , bip.IndexX.ToString() 
                     + "," + bip.IndexY.ToString() 
                     + "," + result.Width 
