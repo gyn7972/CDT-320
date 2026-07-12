@@ -219,6 +219,10 @@ namespace QMC.Vision.Modules
         [DataMember] public double FirstBladeDepth { get; set; }
         [DataMember] public double PixelSizeXmmBottom { get; set; }   // 0=검사기 기본 사용
         [DataMember] public double PixelSizeYmmBottom { get; set; }
+        // ── 바텀 다이 외곽(피크) 검출 파라미터 — QMC_FindChippingNForeign.FindChipOutline 소비 ──
+        [DataMember] public double FirstPeekValueThreshold { get; set; }   // 첫 피크 밝기 임계(기본 230)
+        [DataMember] public double PeekValueThreshold { get; set; }        // 피크 판정 임계(기본 40)
+        [DataMember] public double Stdev { get; set; }                     // 피크 표준편차 임계(기본 0.01)
 
         [OnDeserializing] private void OnDeserializing(StreamingContext ctx) => SetDefaults();
         private void SetDefaults()
@@ -231,6 +235,7 @@ namespace QMC.Vision.Modules
             TopHatRadius = 21; TopHatThreshold = 30; MinForeignAreaFilterSize = 36; MaxForeignAreaFilterSize = 100000; LinkDistance = 25; ChipEdgeMargin = 0; ForeignEdgeMargin = 12; DarkChip = false;
             ChipThickness = 0.25; BladeWidth = 0.048; FirstBladeDepth = 0.050;
             PixelSizeXmmBottom = 0.0; PixelSizeYmmBottom = 0.0;
+            FirstPeekValueThreshold = 230.0; PeekValueThreshold = 40.0; Stdev = 0.01;   // 구 JSON 에 키 없음 → 기본값(비파괴)
         }
     }
 }

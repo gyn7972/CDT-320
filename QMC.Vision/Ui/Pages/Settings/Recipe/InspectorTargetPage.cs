@@ -473,6 +473,10 @@ namespace QMC.Vision.Ui.Pages
                 // Bottom 사이즈·칩핑·이물 (CDT-310 BottomInspectionParameter)
                 items.Add(ParameterGridItem.Int   ("Chip Threshold", "", ParameterGridScope.Recipe, () => bi.ChipThreshold, v => { bi.ChipThreshold = v; }));
                 items.Add(ParameterGridItem.Bool  ("Dark Chip", ParameterGridScope.Recipe, () => bi.DarkChip, v => { bi.DarkChip = v; }));
+                // 다이 외곽(피크) 검출 — QMC_FindChippingNForeign.FindChipOutline 임계(그레이/편차)
+                items.Add(ParameterGridItem.Double("First Peek Threshold", "", ParameterGridScope.Recipe, () => bi.FirstPeekValueThreshold, v => { bi.FirstPeekValueThreshold = v; }));
+                items.Add(ParameterGridItem.Double("Peek Threshold", "", ParameterGridScope.Recipe, () => bi.PeekValueThreshold, v => { bi.PeekValueThreshold = v; }));
+                items.Add(ParameterGridItem.Double("Peek Stdev", "", ParameterGridScope.Recipe, () => bi.Stdev, v => { bi.Stdev = v; }));
                 items.Add(ParameterGridItem.Measure("Chipping Depth", ParameterGridScope.Recipe, () => bi.ChippingDepth, v => { bi.ChippingDepth = v; }, () => _module?.ScaleY ?? 1.0));
                 items.Add(ParameterGridItem.Int   ("Chip Edge Margin", "px", ParameterGridScope.Recipe, () => bi.ChipEdgeMargin, v => { bi.ChipEdgeMargin = v; }));
                 // 너비/높이 상·하한 — 저장/판정 mm(SSOT)·표시는 전역 단위 환산. (0=미설정) 차트 Limit 점선 + 사이즈 NG 기준.

@@ -244,6 +244,10 @@ namespace QMC.Vision.Modules
                     bi.DarkChip                 = r.DarkChip;
                     if (r.PixelSizeXmmBottom > 0) bi.PixelSizeWidthMm  = r.PixelSizeXmmBottom;
                     if (r.PixelSizeYmmBottom > 0) bi.PixelSizeHeightMm = r.PixelSizeYmmBottom;
+                    // 다이 외곽(피크) 검출 파라미터 — 0=미설정(구 JSON/미입력) → 검사기 기본값 유지
+                    if (r.FirstPeekValueThreshold > 0) bi.FirstPeekValueThreshold = r.FirstPeekValueThreshold;
+                    if (r.PeekValueThreshold > 0)      bi.PeekValueThreshold      = r.PeekValueThreshold;
+                    if (r.Stdev > 0)                   bi.Stdev                   = r.Stdev;
                 }
                 else if (_inspector is QMC.Vision.Core.SideAppearanceInspector si)
                 {
@@ -344,6 +348,9 @@ namespace QMC.Vision.Modules
                     r.DarkChip                 = bi.DarkChip;
                     r.PixelSizeXmmBottom       = bi.PixelSizeWidthMm;
                     r.PixelSizeYmmBottom       = bi.PixelSizeHeightMm;
+                    r.FirstPeekValueThreshold  = bi.FirstPeekValueThreshold;
+                    r.PeekValueThreshold       = bi.PeekValueThreshold;
+                    r.Stdev                    = bi.Stdev;
                 }
                 else if (_inspector is QMC.Vision.Core.SideAppearanceInspector si)
                 {
