@@ -107,15 +107,6 @@ namespace QMC.Vision.Inspector
                 }
                 CollectChippingRegions(vals, xs, y0s, y1s, parameter.ChippingDepth, false, chipRegions);
 
-                // 최대 치핑 정보(NG 크롭 저장용) — 에지점과 기준 라인점을 컨투어로.
-                ChippingInfo info = new ChippingInfo();
-                if (maxIdx >= 0)
-                {
-                    info.Depth = maxChip;
-                    info.Contour.Add(new PointF(xs[maxIdx], y0s[maxIdx]));
-                    info.Contour.Add(new PointF(xs[maxIdx], y1s[maxIdx]));
-                }
-
                 // 4. 결과 설정 — 탑 치핑은 미검사(0), Bottom 만 사용(2026-07-12 지시).
                 result.TopChippingSize = 0;
                 result.BottomChippingSize = maxChip;
@@ -125,7 +116,7 @@ namespace QMC.Vision.Inspector
 
                 // 6. 스펙 판정
                 double chippingSpec = parameter.ChippingDepth;
-                
+
                 result.IsDefect = result.MaxChippingSize > chippingSpec;
 
                 if (result.IsDefect)
@@ -144,35 +135,17 @@ namespace QMC.Vision.Inspector
                     strFileName += "_Y_" + parameter.IndexY.ToString();
                     strFileName += DateTime.Now.Ticks.ToString();
 
-                    int nMargin = 50;
-                    int cropWidth = (int)(info.Contour.Max(t => t.X) - info.Contour.Min(t => t.X)) + nMargin * 2;
-                    int cropHeight = (int)(info.Contour.Max(t => t.Y) - info.Contour.Min(t => t.Y)) + nMargin * 2;
-                    int cropX = Math.Max((int)info.Contour.Min(t => t.X) - nMargin, 0);
-                    int cropY = Math.Max((int)info.Contour.Min(t => t.Y) - nMargin, 0);
-
-                    byte[,] croppedImage = new byte[cropHeight, cropWidth];
-                    for (int y = 0; y < cropHeight; y++)
-                    {
-                        if (cropY + y >= imageHeight || y >= cropHeight) continue;
-                        Buffer.BlockCopy(image, (cropY + y) * imageWidth + cropX, croppedImage, y * cropWidth, Math.Min(cropWidth, imageWidth - cropX));
-                    }
-                    SaveImage(croppedImage, cropWidth, cropHeight, info, strFileName);
-                }
-                else
-                {
-                    //string strFileName = "d:\\Log\\Image\\Side";
-
-                    //CDTInspector.IfNotExistMakeFolder(strFileName);
-
-                    //strFileName += "\\" + parameter.WaferID;
-                    //CDTInspector.IfNotExistMakeFolder(strFileName);
-                    //strFileName += "\\OK\\";
-                    //CDTInspector.IfNotExistMakeFolder(strFileName);
-
-                    //strFileName += "X_" + parameter.IndexX.ToString();
-                    //strFileName += "_Y_" + parameter.IndexY.ToString();
-                    //strFileName += DateTime.Now.Ticks.ToString();
-                    //SaveImage(image, imageWidth, imageHeight, info, strFileName);
+                    // NG 저장(2026-07-12 지시): 측면 영상은 작으므로 크랍하지 않고 '전체 이미지'에
+                    // 스펙 초과 치핑 영역마다 박스 + 치핑 크기 텍스트를 그려 저장(바텀 불량 저장과 동일 취지).
+                    var saveRegions = chipRegions.Count > 0
+                        ? chipRegions
+                        : (maxIdx >= 0   // 영역 집계가 비어도 최대 치핑 위치 1개는 표시(방어)
+                            ? new List<ChippingRegion> { new ChippingRegion {
+                                  XStart = xs[maxIdx], XEnd = xs[maxIdx], X = xs[maxIdx],
+                                  StartY = Math.Min(y0s[maxIdx], y1s[maxIdx]), EndY = Math.Max(y0s[maxIdx], y1s[maxIdx]),
+                                  SizeMM = maxChip } }
+                            : new List<ChippingRegion>());
+                    SaveChippingNgImage(image, imageWidth, imageHeight, saveRegions, strFileName);
                 }
 
                     Log.Write("SideChippingInspector",
@@ -190,129 +163,84 @@ namespace QMC.Vision.Inspector
             return result;
         }
 
-        private void SaveImage(byte[,] image, int width, int height, ChippingInfo info,string strFileName)
+        /// <summary>치핑 NG 이미지 저장(2026-07-12 지시) — 측면 영상은 작으므로 크랍 없이 '전체 이미지'에
+        /// 스펙 초과 치핑 영역마다 빨간 박스 + 치핑 크기(µm) 텍스트를 그려 저장한다(바텀 불량 저장과 동일 취지).
+        /// 이미지/영역은 사본으로 캡처하고 PNG 인코드·쓰기는 ImageSaveQueue(비동기) — 검사 흐름 비차단.</summary>
+        private void SaveChippingNgImage(byte[,] image, int width, int height, List<ChippingRegion> regions, string strFileName)
         {
-            SaveImageHelper helper = new SaveImageHelper
-            {
-                ShiftImage = image,
-                Width = width,
-                Height = height,
-                FileName = strFileName
-            };
-            int nMargin = 50;
-            // 저장 전용 큐(2026-07-12) — PNG 인코드를 검사 스레드풀에서 분리(내용/경로 동일, 타이밍만 분리).
+            if (image == null || width <= 0 || height <= 0 || string.IsNullOrWhiteSpace(strFileName))
+                return;
+
+            // 비동기 저장 전 사본 고정 — 원본 배열/목록이 이후 재사용·변경되어도 저장 내용 불변.
+            byte[,] copy = new byte[height, width];
+            Buffer.BlockCopy(image, 0, copy, 0, width * height);
+            var regionsCopy = regions != null ? regions.ToList() : new List<ChippingRegion>();
+
             ImageSaveQueue.Enqueue(() =>
             {
-                lock (this)
-                {
-                    double dsize = Math.Min(width, height);
-
-                }
-                SaveImageHelper saveHelper = helper;
-
-                string strOrginalFileName = saveHelper.FileName;
-                byte[,] shiftImage = saveHelper.ShiftImage;
-                int w = saveHelper.Width;
-                int h = saveHelper.Height;
-                string fileName = saveHelper.FileName;
-
                 try
                 {
-                    if (shiftImage == null)
-                        throw new ArgumentNullException(nameof(shiftImage));
-                    if (string.IsNullOrWhiteSpace(fileName))
-                        throw new ArgumentException("파일 이름이 올바르지 않습니다.", nameof(fileName));
-
-                    // 8비트 인덱스 비트맵 생성
-                    using (var bmp8bit = new Bitmap(w, h, System.Drawing.Imaging.PixelFormat.Format8bppIndexed))
+                    using (var bmp24 = new Bitmap(width, height, System.Drawing.Imaging.PixelFormat.Format24bppRgb))
                     {
-                        // 회색조 팔레트 설정
-                        var palette = bmp8bit.Palette;
-                        for (int i = 0; i < 256; i++)
-                        {
-                            palette.Entries[i] = Color.FromArgb(i, i, i);
-                        }
-                        bmp8bit.Palette = palette;
-
-                        // 픽셀 데이터 복사
-                        var rect = new Rectangle(0, 0, w, h);
-                        var bmpData = bmp8bit.LockBits(rect, System.Drawing.Imaging.ImageLockMode.WriteOnly, bmp8bit.PixelFormat);
+                        // 그레이 → 24bpp 직접 기록
+                        var rect = new Rectangle(0, 0, width, height);
+                        var data = bmp24.LockBits(rect, System.Drawing.Imaging.ImageLockMode.WriteOnly, bmp24.PixelFormat);
                         try
                         {
-                            int stride = bmpData.Stride;
                             unsafe
                             {
-                                fixed (byte* pSrc = &shiftImage[0, 0])
+                                fixed (byte* pSrc = &copy[0, 0])
                                 {
-                                    byte* ptr = (byte*)bmpData.Scan0;
-                                    int rowBytes = Math.Max(w, stride); // stride가 w보다 클 수 있음
-                                    for (int y = 0; y < h; y++)
+                                    byte* basePtr = (byte*)data.Scan0;
+                                    int stride = data.Stride;
+                                    for (int y = 0; y < height; y++)
                                     {
-                                        Buffer.MemoryCopy(
-                                            pSrc + y * w,      // 소스: shiftImage[y, 0]
-                                            ptr + y * stride,  // 타겟: Bitmap의 y번째 라인
-                                            rowBytes,          // 타겟 버퍼 크기
-                                            w                  // 복사할 바이트 수
-                                        );
+                                        byte* src = pSrc + (long)y * width;
+                                        byte* dst = basePtr + (long)y * stride;
+                                        for (int x = 0; x < width; x++)
+                                        {
+                                            byte v = src[x];
+                                            int o = x * 3;
+                                            dst[o] = v; dst[o + 1] = v; dst[o + 2] = v;
+                                        }
                                     }
                                 }
                             }
                         }
-                        finally
+                        finally { bmp24.UnlockBits(data); }
+
+                        using (Graphics g = Graphics.FromImage(bmp24))
+                        using (var pen = new Pen(Color.Red, 2f))
+                        using (var font = new Font("Arial", 12, FontStyle.Bold))
+                        using (var textBrush = new SolidBrush(Color.Red))
+                        using (var textBg = new SolidBrush(Color.FromArgb(160, 0, 0, 0)))
                         {
-                            bmp8bit.UnlockBits(bmpData);
-                        }
-
-                        // 24비트 컬러 비트맵으로 변환
-                        //using (var bmp24bit = new Bitmap(w, h, System.Drawing.Imaging.PixelFormat.Format24bppRgb))
-                        Bitmap bmp24bit = new Bitmap(w, h, System.Drawing.Imaging.PixelFormat.Format24bppRgb);
-                        {
-                            using (Graphics g = Graphics.FromImage(bmp24bit))
+                            foreach (var r in regionsCopy)
                             {
-                                // 8비트 비트맵을 그립니다.
-                                g.DrawImage(bmp8bit, 0, 0);
+                                if (r == null) continue;
+                                const int pad = 8;
+                                int x0 = Math.Max(0, r.XStart - pad);
+                                int y0 = Math.Max(0, r.StartY - pad);
+                                int x1 = Math.Min(width - 1, r.XEnd + pad);
+                                int y1 = Math.Min(height - 1, r.EndY + pad);
+                                g.DrawRectangle(pen, x0, y0, Math.Max(1, x1 - x0), Math.Max(1, y1 - y0));
 
-                                // 사각형 그리기
-                                using (Pen pen = new Pen(Color.Red, 2))
-                                {
-                                    g.DrawRectangle(pen, nMargin, nMargin, w - 2 * nMargin, h - 2 * nMargin);
-                                }
-
-                                // Width와 Height 텍스트 추가
-                                using (Font font = new Font("Arial", 10))
-                                using (Brush brush = new SolidBrush(Color.Red))
-                                {
-                                    double dWidth = w - nMargin * 2;
-                                    double dHeight = h - nMargin * 2;
-                                    dWidth *= _visionConfig.SideVisionFront.PixelSizeWidthMm  * 1000; // mm 단위로 변환
-                                    dHeight *= _visionConfig.SideVisionFront.PixelSizeHeightMm  * 1000; // mm 단위로 변환
-                                    // 텍스트 위치 조정
-                                    string text = $"W: {dWidth:F1} um, H: {dHeight:F1} um";
-
-                                    g.DrawString(text, font, brush, new PointF(50 + 5, nMargin - 30));
-                                }
-                            }
-
-                            
-
-                            string path = fileName  + ".png";
-                            bmp24bit.Save(path, System.Drawing.Imaging.ImageFormat.Png);
-                            lock (this)
-                            {
-                                double dsize = Math.Min(width, height);
-                               
+                                string txt = (r.SizeMM * 1000.0).ToString("F1") + " um";
+                                SizeF sz = g.MeasureString(txt, font);
+                                float tx = Math.Max(0, Math.Min(x0, width - sz.Width));
+                                float ty = y0 - sz.Height - 2;                       // 기본: 박스 위
+                                if (ty < 0) ty = Math.Min(height - sz.Height, y1 + 2);   // 위 공간 없으면 박스 아래
+                                g.FillRectangle(textBg, tx, ty, sz.Width, sz.Height);
+                                g.DrawString(txt, font, textBrush, tx, ty);
                             }
                         }
+
+                        bmp24.Save(strFileName + ".png", System.Drawing.Imaging.ImageFormat.Png);
                     }
                 }
                 catch (Exception ex)
                 {
                     Log.Write(ex);
-                    // SaveImage(shiftImage, w, h, strOrginalFileName + "Retry_");
-                }
-                finally
-                {
-
                 }
             });
         }
