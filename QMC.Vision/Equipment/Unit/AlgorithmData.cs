@@ -223,6 +223,9 @@ namespace QMC.Vision.Modules
         [DataMember] public double FirstPeekValueThreshold { get; set; }   // 첫 피크 밝기 임계(기본 230)
         [DataMember] public double PeekValueThreshold { get; set; }        // 피크 판정 임계(기본 40)
         [DataMember] public double Stdev { get; set; }                     // 피크 표준편차 임계(기본 0.01)
+        // ── 바텀 이물/오염 검사 파라미터 (BottomInspectionParameter 대응 — 절대 누락 금지) ──
+        [DataMember] public double PortentiolDefactMinSize { get; set; }   // 이물 후보 최소 크기[px] (기본 20)
+        [DataMember] public bool   UseContaminationInspection { get; set; } // 오염(이물) 검사 사용 (기본 true)
 
         [OnDeserializing] private void OnDeserializing(StreamingContext ctx) => SetDefaults();
         private void SetDefaults()
@@ -236,6 +239,7 @@ namespace QMC.Vision.Modules
             ChipThickness = 0.25; BladeWidth = 0.048; FirstBladeDepth = 0.050;
             PixelSizeXmmBottom = 0.0; PixelSizeYmmBottom = 0.0;
             FirstPeekValueThreshold = 230.0; PeekValueThreshold = 40.0; Stdev = 0.01;   // 구 JSON 에 키 없음 → 기본값(비파괴)
+            PortentiolDefactMinSize = 20.0; UseContaminationInspection = true;          // 구 JSON 에 키 없음 → 기본값(비파괴)
         }
     }
 }
