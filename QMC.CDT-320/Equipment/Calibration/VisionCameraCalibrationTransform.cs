@@ -65,6 +65,10 @@ namespace QMC.CDT320.Calibration
                 // Bottom SurfaceInspector Angle 원본값이다. T 보정 적용 여부는 별도 검증 후 결정한다.
             }
 
+            // Place 보정용 Bottom Offset은 mm 소량 값만 허용하는 검증 경로로 읽는다.
+            double bottomOffsetX = ReadValidatedBottomOffset(result, "bottom_offset_x_mm", "bottom_item_offset_x");
+            double bottomOffsetY = ReadValidatedBottomOffset(result, "bottom_offset_y_mm", "bottom_item_offset_y");
+
             // TODO: 실장비 로그 확인 후 아래 후보 중 하나를 SideVisionY / PickerZ 보정으로 연결한다.
             // double sideVisionYOffset = ReadCandidate(result, "bottom_offset_y_mm", "bottom_item_offset_y");
             // double pickerZOffset = ReadCandidate(result, "bottom_offset_x_mm", "bottom_item_offset_x");

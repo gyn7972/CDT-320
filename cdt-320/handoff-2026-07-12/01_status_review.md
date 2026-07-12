@@ -76,10 +76,34 @@ Collet Cal Side AF 계산 경로는 이 지점 검증에 의존했다.)
 5. Side AF 중 Zone Tag `ColletCalibration;PickerZone=Bottom` 적절성 — 인터락 레포트 없이 수정 금지
 6. Bottom Overall NG여도 Side AF 진행하는 정책 — 공정 정책 확인 필요
 
-## 다음 단계
+## 진행 결과 (2026-07-12, 팀장님 B안 승인 후)
 
-팀장님 승인 대기. 코드 수정 지시(A/B 선택 포함)를 받은 뒤:
+### 적용한 수정
 
-1. 컴파일 오류 2건 수정
-2. Handler/Vision Clean Rebuild (별도 obj)
-3. 이후 인계 문서 §14 순서대로 진행
+팀장님이 **B안**을 승인하여 `f595e603` 커밋의 의도대로 유실된 선언 2줄을 복원했다.
+선언 형태는 병합 전 원본 커밋 `54f58ba9`에서 그대로 가져왔다.
+
+- 파일: `QMC.CDT-320/Equipment/Calibration/VisionCameraCalibrationTransform.cs`
+- `ToBottomVisionOffset(int, InspectionResultDto)` 내부에 추가:
+
+```csharp
+// Place 보정용 Bottom Offset은 mm 소량 값만 허용하는 검증 경로로 읽는다.
+double bottomOffsetX = ReadValidatedBottomOffset(result, "bottom_offset_x_mm", "bottom_item_offset_x");
+double bottomOffsetY = ReadValidatedBottomOffset(result, "bottom_offset_y_mm", "bottom_item_offset_y");
+```
+
+- `ReadValidatedBottomOffset`은 `|value| > 50mm`(절대 픽셀 유입)을 0.0으로 차단하므로
+  Place Offset 경로에는 검증이 유지된다.
+- `BottomCenterOffsetX/Y` 읽기의 50mm 차단 제거(f595e603의 변경)는 팀장님 지시가
+  없어 되돌리지 않았다. (IsFinite 검사만 수행, 생산 Runtime에는 2mm 제한 별도 존재)
+
+### Clean Rebuild 결과 (별도 obj/out)
+
+- `QMC.CDT-320.csproj /t:Rebuild` → **성공** (CS0103 2건 해소, 경고 4건은 기존 CS0162)
+- `QMC.Vision.csproj /t:Rebuild` → **성공** (경고는 기존 VisionInspector 항목)
+
+### 남은 확인
+
+- OffsetX/Y가 0.0 → 실값으로 바뀌므로 생산 Place 소비 경로 영향을 멀티에이전트로
+  전수 추적/검증 중. 결과는 `02_impact_verification.md`에 기록 예정.
+- 이후 실장비 검증은 인계 문서 §13/§14 순서를 따른다.
