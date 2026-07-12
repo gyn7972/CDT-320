@@ -480,15 +480,15 @@ namespace QMC.Vision.Inspector
                 float cy = (lt.Y + rt.Y + rb.Y + lb.Y) / 4f;
                 double angle = best.GetAngle();   // NaN = 외곽 미검출(구독자 판단)
 
-                // W/H 사본 선계산(2026-07-12) — 본류와 동일 수식:
-                // 픽셀 평균(vList 상위 2) → mm 변환(×PixelSize÷2) → W↔H 스왑. 최종 result.Width/Height 와 동일 값.
+                // W/H 사본 선계산 — 본류와 동일 수식: 픽셀 평균(vList 상위 2) → mm 변환(×PixelSize÷2).
+                // (2026-07-12 deece5d5 'W/H 바꾸는 코드 삭제' 반영 — 스왑 없이 최종 result.Width/Height 와 동일 값.)
                 double wPx = vList != null && vList.Count > 0 ? vList.Average(t => t.w) : 0;
                 double hPx = vList != null && vList.Count > 0 ? vList.Average(t => t.h) : 0;
-                double wMm = hPx * _visionConfig.BottomVision.PixelSizeHeightMm / 2;   // 최종 Width  = hPx×PH÷2 (스왑 반영)
-                double hMm = wPx * _visionConfig.BottomVision.PixelSizeWidthMm / 2;    // 최종 Height = wPx×PW÷2 (스왑 반영)
+                double wMm = wPx * _visionConfig.BottomVision.PixelSizeWidthMm / 2;
+                double hMm = hPx * _visionConfig.BottomVision.PixelSizeHeightMm / 2;
 
-                // 최종 result.Offset 규약(X/Y 스왑)과 동일하게 전달.
-                handler(cy, cx, angle, bip.IndexX, bip.IndexY, wMm, hMm);
+                // 최종 result.Offset 규약(deece5d5 이후 스왑 없음)과 동일하게 전달.
+                handler(cx, cy, angle, bip.IndexX, bip.IndexY, wMm, hMm);
             }
             catch (Exception ex)
             {
@@ -553,6 +553,11 @@ namespace QMC.Vision.Inspector
                 List<Task<QMC_ResultChppingNForeign>> tasks = new List<Task<QMC_ResultChppingNForeign>>();
                 int ImageCount = bip.Images.Count;
                 ImageCount = 1;
+                // 설비 확정 계약(2026-07-12, 사용자 지정): 설비에서는 항상 실제 검사 모드로 동작한다 —
+                // 입력은 '1배 원본 전체' 이미지여야 하며, lib 가 FindChipCenter 로 ChipRoi 를 다이 중심에
+                // 재배치해 크롭 → GPU 2배 확장 → 검사한다. (미리 2배 확장한 이미지를 넣으면 이중 확장
+                // (527MP)으로 수십 초 지연 + W/H·좌표 2배 왜곡 — 공급측 BottomInspector 가 1배 원본을 넣는다.)
+                bSimulate = false;
                 if (bSimulate)
                 {
                     ImageCount = 1;
@@ -1518,12 +1523,13 @@ namespace QMC.Vision.Inspector
         }
 
         private List<List<Point>> LinkForeignRegions(List<List<Point>> regions, int width, int height, int minSize, int linkDistance)
-        {
+        { 
             if (regions == null || regions.Count == 0)
             {
                 return new List<List<Point>>();
             }
 
+            var swLink = System.Diagnostics.Stopwatch.StartNew();   // 이물 링크 소요 진단(2026-07-12) — 실장비 90초 정체 재발 감시용
             // 클러스터 분해 처리(2026-07-12): 종전에는 후보 점 몇 천 개를 위해 전체 프레임(131MP) 마스크를
             // 새로 할당하고 모폴로지 Close + ConnectedComponents×2 를 돌렸다. Close(사각 커널 반지름 =
             // linkDistance)는 서로 체비셰프 거리 2×linkDistance 초과로 떨어진 픽셀 집합을 절대 연결하지
@@ -1555,24 +1561,85 @@ namespace QMC.Vision.Inspector
             }
 
             // union-find 로 클러스터링(박스 간격 ≤ 2*linkDistance → 같은 클러스터; 보수적 과잉 병합은 결과 불변)
+            // 근접쌍 탐색은 그리드 버킷(2026-07-12): 종전의 전수 i×j 비교는 후보 수만 개(먼지 많은 실물 다이)에서
+            // n² 폭발로 검사 1건에 90초 이상 걸렸다. 셀 크기 = linkGap 격자에 박스를 등록하고, 각 박스는
+            // linkGap 만큼 확장한 범위의 셀에 든 박스와만 정확 판정(gap ≤ linkGap)한다 — 병합 결과(분할)는
+            // 전수 비교와 동일(같은 판정식, union 순서는 파티션에 무영향).
             int linkGap = 2 * Math.Max(1, linkDistance);
             var parent = new int[n];
             for (int i = 0; i < n; i++) parent[i] = i;
-            Func<int, int> find = null;
-            find = (i) => parent[i] == i ? i : (parent[i] = find(parent[i]));
+            bool useLegacyPairLoop = Environment.GetEnvironmentVariable("QMC_LINK_LEGACY") == "1";   // 동일성 검증용 임시 스위치
+            Func<int, int> find = (i) =>
+            {
+                int root = i;
+                while (parent[root] != root) root = parent[root];
+                while (parent[i] != root) { int next = parent[i]; parent[i] = root; i = next; }   // 경로 압축(반복형 — 대량 후보에서 재귀 스택 방지)
+                return root;
+            };
+            if (useLegacyPairLoop)
+            {
+                for (int i = 0; i < n; i++)
+                {
+                    if (!alive[i]) continue;
+                    for (int j = i + 1; j < n; j++)
+                    {
+                        if (!alive[j]) continue;
+                        int gapX = Math.Max(bboxes[i].Left, bboxes[j].Left) - Math.Min(bboxes[i].Right - 1, bboxes[j].Right - 1) - 1;
+                        int gapY = Math.Max(bboxes[i].Top, bboxes[j].Top) - Math.Min(bboxes[i].Bottom - 1, bboxes[j].Bottom - 1) - 1;
+                        if (Math.Max(gapX, gapY) <= linkGap)
+                        {
+                            parent[find(i)] = find(j);
+                        }
+                    }
+                }
+            }
+            else
+            {
+            int cell = Math.Max(1, linkGap);
+            var buckets = new Dictionary<long, List<int>>();
             for (int i = 0; i < n; i++)
             {
                 if (!alive[i]) continue;
-                for (int j = i + 1; j < n; j++)
-                {
-                    if (!alive[j]) continue;
-                    int gapX = Math.Max(bboxes[i].Left, bboxes[j].Left) - Math.Min(bboxes[i].Right - 1, bboxes[j].Right - 1) - 1;
-                    int gapY = Math.Max(bboxes[i].Top, bboxes[j].Top) - Math.Min(bboxes[i].Bottom - 1, bboxes[j].Bottom - 1) - 1;
-                    if (Math.Max(gapX, gapY) <= linkGap)
+                int cx0 = bboxes[i].Left / cell;
+                int cx1 = (bboxes[i].Right - 1) / cell;
+                int cy0 = bboxes[i].Top / cell;
+                int cy1 = (bboxes[i].Bottom - 1) / cell;
+                for (int cy = cy0; cy <= cy1; cy++)
+                    for (int cx = cx0; cx <= cx1; cx++)
                     {
-                        parent[find(i)] = find(j);
+                        long bkey = ((long)cy << 32) | (uint)cx;
+                        if (!buckets.TryGetValue(bkey, out var list)) { list = new List<int>(); buckets[bkey] = list; }
+                        list.Add(i);
                     }
-                }
+            }
+            for (int i = 0; i < n; i++)
+            {
+                if (!alive[i]) continue;
+                // linkGap 확장 박스가 닿는 셀만 조회 — gap ≤ linkGap 인 상대는 반드시 이 셀들 중에 있다.
+                int qx0 = Math.Max(0, bboxes[i].Left - linkGap) / cell;
+                int qx1 = (bboxes[i].Right - 1 + linkGap) / cell;
+                int qy0 = Math.Max(0, bboxes[i].Top - linkGap) / cell;
+                int qy1 = (bboxes[i].Bottom - 1 + linkGap) / cell;
+                for (int cy = qy0; cy <= qy1; cy++)
+                    for (int cx = qx0; cx <= qx1; cx++)
+                    {
+                        long bkey = ((long)cy << 32) | (uint)cx;
+                        if (!buckets.TryGetValue(bkey, out var list)) continue;
+                        for (int k = 0; k < list.Count; k++)
+                        {
+                            int j = list[k];
+                            if (j <= i) continue;   // 쌍 1회 판정(전수 비교의 i<j 와 동일)
+                            int ri = find(i), rj = find(j);
+                            if (ri == rj) continue;
+                            int gapX = Math.Max(bboxes[i].Left, bboxes[j].Left) - Math.Min(bboxes[i].Right - 1, bboxes[j].Right - 1) - 1;
+                            int gapY = Math.Max(bboxes[i].Top, bboxes[j].Top) - Math.Min(bboxes[i].Bottom - 1, bboxes[j].Bottom - 1) - 1;
+                            if (Math.Max(gapX, gapY) <= linkGap)
+                            {
+                                parent[ri] = rj;
+                            }
+                        }
+                    }
+            }
             }
 
             var clusters = new Dictionary<int, List<int>>();
@@ -1647,6 +1714,8 @@ namespace QMC.Vision.Inspector
                 int c = pa.Y.CompareTo(pb.Y);
                 return c != 0 ? c : pa.X.CompareTo(pb.X);
             });
+            Log.Write("VisionInspector", "Foreign link: 후보 " + n + "개 → 클러스터 " + clusters.Count
+                + "개 → 연결 " + all.Count + "개, " + swLink.ElapsedMilliseconds + "ms");
             return all;
         }
 
