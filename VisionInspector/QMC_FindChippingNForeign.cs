@@ -107,6 +107,67 @@ namespace QMC.Vision.Inspector
 
     public class QMC_FindChippingNForeign
     {
+        // 내부 Parallel.For 병렬도 상한(2026-07-12) — 동시 검사 개수에 맞춰 코어를 배분한다(CDTInspector 가 설정).
+        // 각 인덱스(열/행)가 서로 독립 계산이라 분할 수가 바뀌어도 결과는 동일하다(기존에도 분할은 런타임 결정).
+        public static int MaxParallelism = Environment.ProcessorCount;
+
+        private static ParallelOptions ParallelOpts
+        {
+            get { return new ParallelOptions { MaxDegreeOfParallelism = Math.Max(1, MaxParallelism) }; }
+        }
+
+        /// <summary>LINQ Where+OrderBy 대체(2026-07-12) — listPeek 는 스캔 진행 방향으로 키(nY/nX)가 단조로
+        /// 추가되므로 '임계 초과 중 최소(최대) 키 원소' = '삽입 순서상 첫 임계 초과 원소'다(OrderBy 는 안정 정렬,
+        /// 키 단조). 선형 첫-일치 탐색은 기존과 동일한 원소를 반환하며 열/행마다의 정렬·열거자 할당이 사라진다.</summary>
+        private static PeekValue FirstPeekOver(List<PeekValue> listPeek, double threshold)
+        {
+            for (int i = 0; i < listPeek.Count; i++)
+            {
+                if (listPeek[i].dValue > threshold) return listPeek[i];
+            }
+            return null;
+        }
+
+        /// <summary>밴드 전치(2026-07-12) — Top/Bottom 라인 탐색은 열 단위 세로 스캔이라 row-major 배열에서
+        /// 접근 간격이 이미지 폭(13182B)이 되어 캐시 미스가 극심하다. 스캔 행 구간 [y0..y1]만 전치해 두면
+        /// 열 스캔이 연속 메모리 접근이 된다. 픽셀 값과 판정 산술은 그대로 — 결과 동일. 버퍼는 BufferPool 재사용.</summary>
+        private static unsafe byte[] TransposeBand(byte[,] img, int nWidth, int y0, int y1, out int bandH)
+        {
+            bandH = y1 - y0 + 1;
+            byte[] tp = BufferPool.Rent(nWidth * bandH);
+            fixed (byte* pSrcF = &img[0, 0])
+            fixed (byte* pDstF = tp)
+            {
+                IntPtr srcPtr = (IntPtr)pSrcF, dstPtr = (IntPtr)pDstF;
+                int w = nWidth, bh = bandH, yy0 = y0;
+                const int TILE = 64;
+                int tilesX = (w + TILE - 1) / TILE;
+                Parallel.For(0, tilesX, ParallelOpts, tx =>
+                {
+                    unsafe
+                    {
+                        byte* src = (byte*)srcPtr;
+                        byte* dst = (byte*)dstPtr;
+                        int x0 = tx * TILE;
+                        int x1 = Math.Min(x0 + TILE, w);
+                        for (int yb = 0; yb < bh; yb += TILE)
+                        {
+                            int yend = Math.Min(yb + TILE, bh);
+                            for (int y = yb; y < yend; y++)
+                            {
+                                byte* srow = src + (long)(yy0 + y) * w;
+                                for (int x = x0; x < x1; x++)
+                                {
+                                    dst[(long)x * bh + y] = srow[x];
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+            return tp;
+        }
+
         //칩의 엣지 부분 에서 검사 안하는 영역 좌,우,상,하를 설정 할수 있습니다.
         private int nRegionSize = 1;
         private int m_nLeftMargin = 0;
@@ -401,16 +462,22 @@ namespace QMC.Vision.Inspector
 
         }
 
+        private static readonly bool bProfilePhases =
+            Environment.GetEnvironmentVariable("QMC_PROFILE") == "1";
+
         public void FindChipOutline(QMC_ResultChppingNForeign resultChppingNForeign, int nWidth, int nHeight, byte[,] imageArray, bool bWhite = true)
         {
             Line lineTop = null, lineBottom = null, lineLeft = null, lineRight = null;
 
+            var swTB = bProfilePhases ? System.Diagnostics.Stopwatch.StartNew() : null;
             // 병렬 Task 생성
             var topTask = Task.Run(() => FindTopLineOfChip(nWidth, nHeight, imageArray, bWhite));
             var bottomTask = Task.Run(() => FindBottomLineOfChip(nWidth, nHeight, imageArray, bWhite));
 
             // Top/Bottom이 끝나야 Left/Right를 구할 수 있으므로, 먼저 대기
             Task.WaitAll(topTask, bottomTask);
+            double msTB = swTB != null ? swTB.Elapsed.TotalMilliseconds : 0;
+            if (swTB != null) swTB.Restart();
 
             lineTop = topTask.Result;
             lineBottom = bottomTask.Result;
@@ -419,6 +486,7 @@ namespace QMC.Vision.Inspector
             var rightTask = Task.Run(() => FindRightLineOfChip(nWidth, nHeight, imageArray, lineTop, lineBottom, bWhite));
 
             Task.WaitAll(leftTask, rightTask);
+            if (swTB != null) Console.WriteLine(string.Format("[PROF2] topbottom={0:F1} leftright={1:F1}", msTB, swTB.Elapsed.TotalMilliseconds));
 
             lineLeft = leftTask.Result;
             lineRight = rightTask.Result;
@@ -898,7 +966,15 @@ namespace QMC.Vision.Inspector
             Line lineTop = null;
             var bag = new ConcurrentBag<PointF>();
 
-            Parallel.For(0, nWidth, x =>
+            // 스캔 밴드만 전치(2026-07-12) — 접근 인덱스 y-2..y+1, y∈[10,nEndY) → 밴드 [8..nEndY].
+            // 밴드가 무효(루프 자체가 안 도는 크기)면 원래도 아무 점이 안 추가되므로 스캔 전체를 생략(동일 동작).
+            int nEndYBand = Math.Max(10, (int)(nHeight * dMagin - 10));
+            if (nEndYBand <= 10 || nEndYBand >= nHeight)
+                return FitTopLine(bag, out lineTop);
+            int bandH;
+            byte[] tp = TransposeBand(imageArray, nWidth, 8, nEndYBand, out bandH);
+
+            Parallel.For(0, nWidth, ParallelOpts, x =>
             {
                 try
                 {
@@ -911,12 +987,13 @@ namespace QMC.Vision.Inspector
                         List<PeekValue> listPeek = new List<PeekValue>();
                         bool bFind = false;
                         int nEndY =Math.Max(10,(int)( nHeight * dMagin - 10));
+                        int cb = x * bandH - 8;   // tp[cb + y] == imageArray[y, x] (밴드 내)
 
                         for (int y = 10; y < nEndY; y++)
                         {
 
-                            int nCurrentVale = imageArray[y, x];
-                            int nNextValue = imageArray[y + 1, x];
+                            int nCurrentVale = tp[cb + y];
+                            int nNextValue = tp[cb + y + 1];
 
                             if (bMax)
                             {
@@ -972,10 +1049,10 @@ namespace QMC.Vision.Inspector
 
                                 }
                             }
-                            if (imageArray[y, x] > m_nChippingThreshold && imageArray[y - 1, x] <= m_nChippingThreshold && imageArray[y - 2, x] <= m_nChippingThreshold)
+                            if (tp[cb + y] > m_nChippingThreshold && tp[cb + y - 1] <= m_nChippingThreshold && tp[cb + y - 2] <= m_nChippingThreshold)
                             {
 
-                                var v = listPeek.Where(t => t.dValue > PeekValueThreshold).OrderBy(t => t.nY).FirstOrDefault();
+                                var v = FirstPeekOver(listPeek, PeekValueThreshold);
                                 if (v != null && v.dValue > PeekValueThreshold)
                                 {
                                     bag.Add(new PointF(v.nX, v.nY));
@@ -990,7 +1067,7 @@ namespace QMC.Vision.Inspector
                         }
                         if (bFind == false)
                         {
-                            var v = listPeek.Where(t => t.dValue > PeekValueThreshold).OrderBy(t => t.nY).FirstOrDefault();
+                            var v = FirstPeekOver(listPeek, PeekValueThreshold);
                             if (v != null && v.dValue > PeekValueThreshold)
                             {
                                 bag.Add(new PointF(v.nX, v.nY));
@@ -1008,6 +1085,15 @@ namespace QMC.Vision.Inspector
                 }
             });
 
+            BufferPool.Return(tp);
+
+            return FitTopLine(bag, out lineTop);
+
+        }
+
+        /// <summary>Top 라인 피팅(기존 FindTopLineOfChip 말미 코드 그대로 분리 — 밴드 무효 시 조기 경로와 공용).</summary>
+        private Line FitTopLine(ConcurrentBag<PointF> bag, out Line lineTop)
+        {
             List<PointF> listPoint = bag.OrderBy(t => t.X).ToList();
 
 
@@ -1022,7 +1108,6 @@ namespace QMC.Vision.Inspector
             lineTop = new Line(dA, dB);
 
             return lineTop;
-
         }
 
         double dRatioFirst = 0.98;
@@ -1177,7 +1262,15 @@ namespace QMC.Vision.Inspector
             Line lineBottom = null;
             var bag = new ConcurrentBag<PointF>();
 
-            Parallel.For(0, nWidth, x =>
+            // 스캔 밴드만 전치(2026-07-12) — 접근 인덱스 y-1..y+2, y∈(nH*0.7+10, nH-10] → 밴드 [(int)(nH*0.7+10)-1 .. nH-8].
+            // 루프가 아예 안 도는 크기면 원래도 점이 안 추가되므로 스캔 전체를 생략(동일 동작).
+            if (!(nHeight - 10 > nHeight * 0.7 + 10) || nHeight < 24)
+                return FitBottomLine(bag, out lineBottom);
+            int bandY0 = Math.Max(0, (int)(nHeight * 0.7 + 10) - 1);
+            int bandH;
+            byte[] tp = TransposeBand(imageArray, nWidth, bandY0, nHeight - 8, out bandH);
+
+            Parallel.For(0, nWidth, ParallelOpts, x =>
             {
                 try
                 {
@@ -1188,10 +1281,11 @@ namespace QMC.Vision.Inspector
                         int nMin = 255;
                         List<PeekValue> listPeek = new List<PeekValue>();
                         bool bFind = false;
+                        int cb = x * bandH - bandY0;   // tp[cb + y] == imageArray[y, x] (밴드 내)
                         for (int y = nHeight - 10; y > nHeight * 0.7 + 10; y--)
                         {
-                            int nCurrentVale = imageArray[y, x];
-                            int nNextValue = imageArray[y - 1, x];
+                            int nCurrentVale = tp[cb + y];
+                            int nNextValue = tp[cb + y - 1];
 
 
                             if (bMax)
@@ -1248,9 +1342,9 @@ namespace QMC.Vision.Inspector
 
                                 }
                             }
-                            if (imageArray[y, x] > m_nChippingThreshold && imageArray[y + 1, x] <= m_nChippingThreshold && imageArray[y + 2, x] <= m_nChippingThreshold)
+                            if (tp[cb + y] > m_nChippingThreshold && tp[cb + y + 1] <= m_nChippingThreshold && tp[cb + y + 2] <= m_nChippingThreshold)
                             {
-                                var v = listPeek.Where(t => t.dValue > PeekValueThreshold).OrderByDescending(t => t.nY).FirstOrDefault();
+                                var v = FirstPeekOver(listPeek, PeekValueThreshold);
                                 if (v != null && v.dValue > PeekValueThreshold)
                                 {
                                     bag.Add(new PointF(v.nX, v.nY));
@@ -1265,7 +1359,7 @@ namespace QMC.Vision.Inspector
                         }
                         if (bFind == false)
                         {
-                            var v = listPeek.Where(t => t.dValue > PeekValueThreshold).OrderByDescending(t => t.nY).FirstOrDefault();
+                            var v = FirstPeekOver(listPeek, PeekValueThreshold);
                             if (v != null && v.dValue > PeekValueThreshold)
                             {
                                 bag.Add(new PointF(v.nX, v.nY));
@@ -1278,11 +1372,12 @@ namespace QMC.Vision.Inspector
                         int nMin = 255;
                         int nMax = 0;
                         List<PeekValue> listPeek = new List<PeekValue>();
+                        int cb = x * bandH - bandY0;   // tp[cb + y] == imageArray[y, x] (밴드 내)
                         for (int y = nHeight - 10; y > nHeight * 0.7 + 10; y--)
                         {
                             if (bMin)
                             {
-                                bMin = GetMinValue(imageArray[y, x], imageArray[y - 1, x], ref nMin);
+                                bMin = GetMinValue(tp[cb + y], tp[cb + y - 1], ref nMin);
                                 if (bMin == false)
                                 {
                                     listPeek.Add(new PeekValue(x, y, nMax - nMin));
@@ -1290,7 +1385,7 @@ namespace QMC.Vision.Inspector
                             }
                             else
                             {
-                                bMin = !GetMaxValue(imageArray[y, x], imageArray[y - 1, x], ref nMax);
+                                bMin = !GetMaxValue(tp[cb + y], tp[cb + y - 1], ref nMax);
                                 if (bMin)
                                 {
                                     if (listPeek.Count > 0)
@@ -1309,6 +1404,15 @@ namespace QMC.Vision.Inspector
                 }
             });
 
+            BufferPool.Return(tp);
+
+            return FitBottomLine(bag, out lineBottom);
+
+        }
+
+        /// <summary>Bottom 라인 피팅(기존 FindBottomLineOfChip 말미 코드 그대로 분리 — 밴드 무효 시 조기 경로와 공용).</summary>
+        private Line FitBottomLine(ConcurrentBag<PointF> bag, out Line lineBottom)
+        {
             List<PointF> listPoint = bag.OrderBy(t => t.X).ToList();
 
             double dA = 0;
@@ -1321,7 +1425,6 @@ namespace QMC.Vision.Inspector
             lineBottom = new Line(dA, dB);
 
             return lineBottom;
-
         }
 
         // 칩의 Left Line을 구한다.
@@ -1340,10 +1443,20 @@ namespace QMC.Vision.Inspector
             nTop = Math.Max(nTop, 0);
             nBottom = Math.Max(0, nBottom);
 
-            Parallel.For(0, nHeight, y =>
+            // 행 포인터 직접 접근(2026-07-12) — byte[,] 인덱싱의 이중 경계검사/곱셈 제거(같은 바이트를 같은
+            // 순서로 읽음 — 결과 동일). fixed 는 Parallel.For 동기 완료까지 유지된다.
+            unsafe
+            {
+            fixed (byte* pImgF = &imageArray[0, 0])
+            {
+            IntPtr imgPtr = (IntPtr)pImgF;
+            Parallel.For(0, nHeight, ParallelOpts, y =>
             {
                 if (bWhite)
                 {
+                    unsafe
+                    {
+                    byte* prow = (byte*)imgPtr + (long)y * nWidth;
                     int nMax = 0;
                     int nMin = 255;
                     bool bMax = false;
@@ -1353,8 +1466,8 @@ namespace QMC.Vision.Inspector
                     for (int x = 10; x < nWidth * 0.3 - 10; x++)
                     {
 
-                        int nCurrentVale = imageArray[y, x];
-                        int nNextValue = imageArray[y, x + 1];
+                        int nCurrentVale = prow[x];
+                        int nNextValue = prow[x + 1];
 
                         if (bMax)
                         {
@@ -1411,13 +1524,13 @@ namespace QMC.Vision.Inspector
 
                             }
                         }
-                        if (imageArray[y, x] > m_nChippingThreshold && imageArray[y, x + 1] <= m_nChippingThreshold && imageArray[y, x + 2] <= m_nChippingThreshold)
+                        if (prow[x] > m_nChippingThreshold && prow[x + 1] <= m_nChippingThreshold && prow[x + 2] <= m_nChippingThreshold)
                         {
                             if (y <= nTop || y >= nBottom)
                                 continue;
 
 
-                            var v = listPeek.Where(t => t.dValue > PeekValueThreshold).OrderBy(t => t.nX).FirstOrDefault();
+                            var v = FirstPeekOver(listPeek, PeekValueThreshold);
                             if (v != null && v.dValue > PeekValueThreshold)
                             {
                                 bag.Add(new PointF(v.nX, v.nY));
@@ -1432,19 +1545,22 @@ namespace QMC.Vision.Inspector
                     }
                     if (bFind == false)
                     {
-                        var v = listPeek.Where(t => t.dValue > PeekValueThreshold).OrderBy(t => t.nX).FirstOrDefault();
+                        var v = FirstPeekOver(listPeek, PeekValueThreshold);
                         if (v != null && v.dValue > PeekValueThreshold)
                         {
                             bag.Add(new PointF(v.nX, v.nY));
                         }
                     }
 
+                    }
                 }
                 else
                 {
 
                 }
             });
+            }
+            }
 
             List<PointF> listPoint = bag.OrderBy(t => t.Y).ToList();
             for (int iter = 0; iter < listPoint.Count; iter++)
@@ -1492,10 +1608,19 @@ namespace QMC.Vision.Inspector
             nBottom = Math.Max(0, nBottom);
 
 
-            Parallel.For(0, nHeight, y =>
+            // 행 포인터 직접 접근(2026-07-12) — Left 와 동일한 근거(같은 바이트, 같은 순서 → 결과 동일).
+            unsafe
+            {
+            fixed (byte* pImgF = &imageArray[0, 0])
+            {
+            IntPtr imgPtr = (IntPtr)pImgF;
+            Parallel.For(0, nHeight, ParallelOpts, y =>
             {
                 if (bWhite)
                 {
+                    unsafe
+                    {
+                    byte* prow = (byte*)imgPtr + (long)y * nWidth;
                     int nMax = 0;
                     int nMin = 255;
                     bool bMax = false;
@@ -1505,8 +1630,8 @@ namespace QMC.Vision.Inspector
                     for (int x = nWidth - 10; x > nWidth * 0.7 + 10; x--)
                     {
 
-                        int nCurrentVale = imageArray[y, x];
-                        int nNextValue = imageArray[y, x - 1];
+                        int nCurrentVale = prow[x];
+                        int nNextValue = prow[x - 1];
 
                         if (bMax)
                         {
@@ -1562,11 +1687,11 @@ namespace QMC.Vision.Inspector
 
                             }
                         }
-                        if (imageArray[y, x] > m_nChippingThreshold && imageArray[y, x - 1] <= m_nChippingThreshold && imageArray[y, x - 2] <= m_nChippingThreshold)
+                        if (prow[x] > m_nChippingThreshold && prow[x - 1] <= m_nChippingThreshold && prow[x - 2] <= m_nChippingThreshold)
                         {
                             if (y <= nTop || y >= nBottom)
                                 continue;
-                            var v = listPeek.Where(t => t.dValue > PeekValueThreshold).OrderByDescending(t => t.nX).FirstOrDefault();
+                            var v = FirstPeekOver(listPeek, PeekValueThreshold);
                             if (v != null && v.dValue > PeekValueThreshold)
                             {
                                 bag.Add(new PointF(v.nX, v.nY));
@@ -1581,11 +1706,12 @@ namespace QMC.Vision.Inspector
                     }
                     if (bFind == false)
                     {
-                        var v = listPeek.Where(t => t.dValue > PeekValueThreshold).OrderByDescending(t => t.nX).FirstOrDefault();
+                        var v = FirstPeekOver(listPeek, PeekValueThreshold);
                         if (v != null && v.dValue > PeekValueThreshold)
                         {
                             bag.Add(new PointF(v.nX, v.nY));
                         }
+                    }
                     }
                 }
                 else
@@ -1594,6 +1720,8 @@ namespace QMC.Vision.Inspector
                 }
 
             });
+            }
+            }
 
             double dA = 0;
             double dB = 0;

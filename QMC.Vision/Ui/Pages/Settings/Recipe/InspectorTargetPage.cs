@@ -845,7 +845,7 @@ namespace QMC.Vision.Ui.Pages
                                               ?? (_inspector as QMC.Vision.Core.BottomInspector)?.LastCorners
                                               ?? (_inspector as QMC.Vision.Core.SideAppearanceInspector)?.LastCorners;
                     QMC.Vision.Core.InspectionResultStore.Record(
-                        QMC.Vision.Core.InspectionResultStore.FromResult(mode, 1, 0, 0, 0, r, img, box));
+                        QMC.Vision.Core.InspectionResultStore.FromResult(mode, 1, 0, 0, 0, r, img, box, null, _module?.Name));
 
                     string mod = _module?.Name;
                     if (!string.IsNullOrEmpty(mod))

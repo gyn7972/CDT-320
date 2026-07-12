@@ -112,6 +112,7 @@
     <Compile Include="Equipment\Core\VisionScale.cs" />
     <Compile Include="Equipment\Core\VisionCommandCore.cs" />
     <Compile Include="Equipment\Core\FlatColletFinder.cs" />
+    <Compile Include="Equipment\Core\ColletRotationCenterCore.cs" />
     <Compile Include="Equipment\Core\Collet\ColletStdDevFilter.cs" />
     <Compile Include="Equipment\Core\Collet\ColletBlobRectFinder.cs" />
     <Compile Include="Equipment\Core\Collet\ColletNativeCuda.cs" />

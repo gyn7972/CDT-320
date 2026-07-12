@@ -213,7 +213,7 @@ namespace QMC.Vision.Ui.Controls
                     for (int c = 0; c < 4; c++)
                     {
                         var it = InspectionResultStore.LatestChannel(mode, p, c);
-                        if (it != null && it.Image != null && !ReferenceEquals(_boundCh[p, c], it))
+                        if (it != null && it.Image != null && IsModeSource(it, mode) && !ReferenceEquals(_boundCh[p, c], it))
                         {
                             // 바인딩이 실제로 성공(클론 OK)했을 때만 기록 — 실패 시 다음 갱신에 재시도(빈 채로 굳지 않게)
                             if (pks[p - 1].SetChannel(c, it.Image, it.Box, it.Pass, it.Pass ? "Good" : "NG", it.Lines, MarksOf(it), it.Geom))
@@ -223,11 +223,12 @@ namespace QMC.Vision.Ui.Controls
             }
             else
             {
-                // Picker 단일 이미지(Bottom/Bin)
+                // Picker 단일 이미지(Bottom/Bin) — 이 모드의 모듈에서 나온 결과만 표시(2026-07-12,
+                // Bottom 뷰어에 측면 검사 이미지가 섞여 보이는 문제 차단. 소스 불일치는 MapTrace 로 남겨 원인 추적).
                 for (int p = 1; p <= 4; p++)
                 {
                     var it = InspectionResultStore.Latest(mode, p);
-                    if (it != null && it.Image != null)
+                    if (it != null && it.Image != null && IsModeSource(it, mode))
                         pks[p - 1].SetSingle(it.Image, it.Box, it.Pass, it.Pass ? "Good" : "NG", it.Lines, MarksOf(it), it.Geom);
                 }
             }
@@ -581,6 +582,35 @@ namespace QMC.Vision.Ui.Controls
 
         private static PointF[] MarksOf(InspectionResultStore.Item it)
             => it.Defects == null ? null : it.Defects.Select(d => new PointF((float)d.X, (float)d.Y)).ToArray();
+
+        // 소스-모드 불일치 필터 경고 — 같은 (소스|모드) 조합은 1회만 기록(갱신 스팸 방지).
+        private static readonly System.Collections.Generic.HashSet<string> _srcWarned =
+            new System.Collections.Generic.HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        /// <summary>결과 항목이 이 모드의 모듈에서 나온 것인지 — 픽커 이미지 패널 표시 필터(2026-07-12).
+        /// 소스 미태깅(구 데이터)은 통과. 불일치(예: Bottom 뷰에 측면 모듈 결과)는 숨기고 MapTrace 1회 기록.</summary>
+        private static bool IsModeSource(InspectionResultStore.Item it, string mode)
+        {
+            if (it == null) return false;
+            if (string.IsNullOrEmpty(it.Source)) return true;   // 소스 미태깅(구버전 기록) — 기존 동작 유지
+            string srcMode = InspectionResultStore.ModeOf(it.Source);
+            if (srcMode == null || string.Equals(srcMode, mode, StringComparison.OrdinalIgnoreCase)) return true;
+
+            string key = it.Source + "|" + mode;
+            lock (_srcWarned)
+            {
+                if (_srcWarned.Add(key))
+                {
+                    try
+                    {
+                        QMC.Common.Logging.EventLogger.Write(QMC.Common.Logging.EventKind.Event, "VISION", "MapTrace",
+                            "뷰어 소스 필터 — mode=" + mode + " 패널에 source=" + it.Source + " 결과 유입(표시 생략, 기록 경로 확인 필요)");
+                    }
+                    catch { }
+                }
+            }
+            return false;
+        }
 
         /// <summary>차트 상/하한을 레시피 기반 ChartLimitStore 값으로 덮어쓴다(없으면 기본값 유지). px 모드면 mm→px 환산.</summary>
         private void ApplyChartLimits(int which, ref double up, ref double lo)

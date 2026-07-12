@@ -814,6 +814,51 @@ namespace QMC.Vision.Inspector
                         return;
                     }
 
+                    if (nLinkDistance <= 1)
+                    {
+                        // 고속 경로(2026-07-12): 링크 거리 1 이하면 모폴로지(Close)가 없으므로 유효 성분만 남긴
+                        // 마스크를 다시 라벨링(두 번째 ConnectedComponents)해도 성분 구성·래스터 순서가 그대로다
+                        // (라벨 번호만 재부여). 따라서 첫 라벨링 결과에서 바로 점을 수집하면 결과가 동일하고,
+                        // 131MP 기준 마스크 재구성 1패스 + 재라벨링 + 재스캔(약 500ms)이 통째로 사라진다.
+                        var fastBlobs = new List<Point>[count];
+                        for (int i = 1; i < count; i++)
+                        {
+                            if (valid[i])
+                            {
+                                int area = stats.Get<int>(i, (int)OpenCvSharp.ConnectedComponentsTypes.Area);
+                                fastBlobs[i] = new List<Point>(area);
+                            }
+                        }
+
+                        unsafe
+                        {
+                            int* labelPtr = (int*)labels.Data;
+                            long labelStep = labels.Step() / sizeof(int);
+                            for (int y = 0; y < h; y++)
+                            {
+                                int* rowPtr = labelPtr + y * labelStep;
+                                for (int x = 0; x < w; x++)
+                                {
+                                    int label = rowPtr[x];
+                                    if (label > 0 && label < count && valid[label])
+                                    {
+                                        fastBlobs[label].Add(new Point(x, y));
+                                    }
+                                }
+                            }
+                        }
+
+                        for (int i = 1; i < count; i++)
+                        {
+                            var blob = fastBlobs[i];
+                            if (blob != null && blob.Count >= nMinSize)
+                            {
+                                listlistPoint.Add(blob);
+                            }
+                        }
+                        return;
+                    }
+
                     using (var filtered = new OpenCvSharp.Mat(binary.Size(), OpenCvSharp.MatType.CV_8UC1, OpenCvSharp.Scalar.All(0)))
                     {
                         unsafe

@@ -82,6 +82,9 @@ namespace QMC.Vision.Modules
         void RaiseAlarm(string reason);
         Bitmap AcquireViewerFrame();
 
+        /// <summary>외부 계산 결과 영상(예: COC 누적 평균)을 뷰어 프레임으로 발행 — 작업/레시피 UI·원격뷰어에 표시.</summary>
+        void PublishViewerFrame(Bitmap bmp);
+
         /// <summary>테스트용 in-memory 그랩 이미지 주입. 설정 시 Grab()이 이 이미지를 반환(null=해제).</summary>
         void SetSimOverrideImage(Bitmap bmp);
 

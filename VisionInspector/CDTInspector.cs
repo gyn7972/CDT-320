@@ -491,8 +491,21 @@ namespace QMC.Vision.Inspector
             }
         }
 
+        // 동시 진행 중인 BottomInspect 수(2026-07-12) — 내부 Parallel.For 병렬도 배분용(프로세스 전역).
+        private static int _concurrentInspects = 0;
+
+        // 페이즈 프로파일링(2026-07-12, 진단용) — QMC_PROFILE=1 일 때만 단계별 소요(ms)를 콘솔로 출력.
+        private static readonly bool bProfilePhases =
+            Environment.GetEnvironmentVariable("QMC_PROFILE") == "1";
+
         public BottomResult BottomInspect(BottomInspectionParameter bip)
         {
+            // 동시 검사 수에 맞춰 내부 병렬도 배분(2026-07-12) — 검사 8건 동시 진행 시 각 검사의
+            // Parallel.For 가 코어 전체를 두고 경합해 tact 가 8배 이상 부풀던 문제 완화. 계산식/결과 불변.
+            int nConcurrent = System.Threading.Interlocked.Increment(ref _concurrentInspects);
+            QMC_FindChippingNForeign.MaxParallelism =
+                Math.Max(2, Environment.ProcessorCount / Math.Max(1, nConcurrent));
+
             lock (CodaLock)
             {
                 Defact = 0;
@@ -541,12 +554,14 @@ namespace QMC.Vision.Inspector
                     Log.Write("VisionInspector", "실제 검사 모드로 실행");
                 }
                 var cudaWrapper = new CudaWrapper();
+                double[] profMs = new double[6];   // 0:roi 1:outline 2:cuda 3:chip 4:(예비) 5:(예비) — QMC_PROFILE=1 진단용
                 for (int i = 0; i < ImageCount; i++)
                 {
                     var t = Task.Factory.StartNew((obj) =>
                     {
                         int imageindex = (int)obj;
                         var vv = new QMC_ResultChppingNForeign();
+                        var swProf = bProfilePhases ? System.Diagnostics.Stopwatch.StartNew() : null;
                         if (bSimulate)
                         {
                             ShiftImage = MakeRoiImage(new Rectangle(new Point(0, 0), new Size(bip.ImageWidth, bip.ImageHeight)), bip.Images[0], bip.ImageWidth); // 시뮬레이션 모드에서는 첫 번째 이미지를 사용
@@ -572,6 +587,7 @@ namespace QMC.Vision.Inspector
                                 vv.shiftSobelimage = ShiftImageSobel;
                             }
                         }
+                        if (swProf != null) { profMs[0] = swProf.Elapsed.TotalMilliseconds; swProf.Restart(); }
                         //ShiftImage = MakeRoiImage(bip.ChipRoi, bip.Images[0], bip.ImageWidth);
                         //w = bip.ChipRoi.Width ;
                         //h = bip.ChipRoi.Height;
@@ -590,6 +606,7 @@ namespace QMC.Vision.Inspector
                         FindChippingNForeign.dStdEv = bip.Stdev;
                         
                         FindChippingNForeign.FindChipOutline(vv, w, h, vv.shiftimage, bip.SelectedChipType == InspectionParameterBase.ChipType.White);
+                        if (swProf != null) profMs[1] = swProf.Elapsed.TotalMilliseconds;
                         return vv;
                     }, i);
                     tasks.Add(t);
@@ -654,14 +671,16 @@ namespace QMC.Vision.Inspector
                 // Chipping 검사 시 외곽선에서 안쪽으로 5픽셀 마진을 줍니다.
                 int margin = (int)(dChppingMargin + 1);
 
-                byte[,] chippingMask = null;
-                byte[,] chippingMask2 = null;
-                
+                // 칩핑 마스크는 1차원 풀 버퍼로 수령(2026-07-12) — mask2 는 소비처가 없어 D2H/할당을 생략하고,
+                // 종전의 [2D 수령 → InspectChipping 에서 1D 재복사] 였던 131MB 중간 복사도 제거(내용/결과 동일).
+                byte[] chippingMask = null;
+
                 {
                     Log.Write("Cuda", "DetectChippingWithCuda Start");
-                    
+                    var swCuda = bProfilePhases ? System.Diagnostics.Stopwatch.StartNew() : null;
+
                     int topHatRadius = Math.Max(1, margin / 2);
-                     var v= cudaWrapper.DetectChippingWithCuda(
+                    chippingMask = cudaWrapper.DetectChippingMask1WithCuda(
                      cudaLease.Handle,   // 컨텍스트 대여 핸들 — 디바이스 버퍼 재사용(2026-07-11)
                      ShiftImage,
                      resultChppingNForeign.m_lineTop,
@@ -675,16 +694,7 @@ namespace QMC.Vision.Inspector
                      (byte)bip.TopHatThreshold
                      );
                     Log.Write("Cuda", "DetectChippingWithCuda END");
-                    chippingMask = v.mask1;
-                     chippingMask2 = v.mask2;
-                    string strMaskFolder = "D:\\temp\\Mask";
-                    string strMaskFileName = strMaskFolder + "\\" + bip.WaferID;
-                    strMaskFileName += "_X-" + bip.IndexX.ToString() + "_Y-" + bip.IndexY.ToString() ;
-
-                    //SaveImage(chippingMask, w, h, strMaskFileName + "_mask1.png");
-                    //SaveImage(chippingMask2, w, h, strMaskFileName + "_mask2.png");
-
-
+                    if (swCuda != null) profMs[2] = swCuda.Elapsed.TotalMilliseconds;
                 }
 
                 DateTime startTime = DateTime.Now;
@@ -694,10 +704,18 @@ namespace QMC.Vision.Inspector
                 bool bForeign = false;
                 if (bip.ChippingDepth != 0)
                 {
-                    var v =InspectChipping(bip, result, w, h, ShiftImage, dChppingMargin, startTime, chippingMask, chippingMask2, resultChppingNForeign, margin / 2 + 3);
+                    var swChip = bProfilePhases ? System.Diagnostics.Stopwatch.StartNew() : null;
+                    var v =InspectChipping(bip, result, w, h, ShiftImage, dChppingMargin, startTime, chippingMask, resultChppingNForeign, margin / 2 + 3);
                     bChipping = v.bChipping;
                     bForeign = v.bForeign;
+                    if (swChip != null)
+                    {
+                        profMs[3] = swChip.Elapsed.TotalMilliseconds;
+                        Console.WriteLine(string.Format("[PROF] roi={0:F1} outline={1:F1} cuda={2:F1} chip={3:F1}",
+                            profMs[0], profMs[1], profMs[2], profMs[3]));
+                    }
                 }
+                BufferPool.Return(chippingMask); chippingMask = null;   // 풀 반납 — 이후 참조 없음
 
 
                 //Log.Write("4Corner", "X , Y :  " + bip.IndexX.ToString() + "_" + bip.IndexY.ToString());
@@ -855,6 +873,7 @@ namespace QMC.Vision.Inspector
             }
             finally
             {
+                System.Threading.Interlocked.Decrement(ref _concurrentInspects);
                 cudaLease.Dispose();   // CUDA 컨텍스트 풀 반납 — 재할당된 버퍼도 그대로 반납되어 다음 검사에 재사용(2026-07-11)
                 int nStartX = Math.Min((int)result.Corners[0].X, (int)result.Corners[3].X)*2;
                 int nStartY = Math.Min((int)result.Corners[0].Y, (int)result.Corners[1].Y)*2;
@@ -868,13 +887,16 @@ namespace QMC.Vision.Inspector
 
                 
                 //if (bSimulate == false)
+                // IsSaveGoodImage 존중(2026-07-12) — 양품(DefectCode==0)은 플래그가 켜진 경우에만 원본 저장.
+                // 종전에는 플래그를 무시하고 양품도 131MP PNG 를 매 검사 저장해 인코드 CPU/디스크가 tact 를 지배했다.
+                // NG 저장/파일명/경로 규칙과 검사 결과 계산은 그대로다.
+                if (result.DefectCode != 0 || bip.IsSaveGoodImage)
                 {
                     SaveImage(w, h, ShiftImage, result.DefectCode == 0, bip.IndexX, bip.IndexY, bip.WaferID,bip.ColletID);
                 }
-                while (result.SaveCount> 0)
-                {
-                    Thread.Sleep(1);
-                }
+                // 저장 완료 동기 대기 제거(2026-07-12) — 디펙 크롭 저장(SaveCount)은 ImageSaveQueue 가
+                // 백그라운드에서 수행하며, 저장 결과는 검사 결과 계산과 무관(DisplayImage 소비처 없음 확인).
+                // 종전에는 PNG 인코드(장당 CPU 1~2초)가 검사 tact 에 포함되어 병렬 검사를 크게 지연시켰다.
                 //SaveImage(w, h, ShiftImageSobel, result.DefectCode == 0, bip.IndexX, bip.IndexY, bip.WaferID, bip.ColletID+1000);
                 if (result.DefectCode == 0)
                 {
@@ -1034,7 +1056,7 @@ namespace QMC.Vision.Inspector
             }
         }
 
-        private (bool bChipping,bool bForeign) InspectChipping(BottomInspectionParameter bip, BottomResult result, int w, int h, byte[,] ShiftImage,  double dChppingMargin, DateTime startTime, byte[,] chippingMask, byte[,] chippingMask2, QMC_ResultChppingNForeign resultChppingNForeign, int margin)
+        private (bool bChipping,bool bForeign) InspectChipping(BottomInspectionParameter bip, BottomResult result, int w, int h, byte[,] ShiftImage,  double dChppingMargin, DateTime startTime, byte[] chippingMask, QMC_ResultChppingNForeign resultChppingNForeign, int margin)
         {
             bool bChipping = false;
             bool bForeign = false;
@@ -1045,19 +1067,21 @@ namespace QMC.Vision.Inspector
                 var blobTool = new QMC_BlobTool();
                 var chippingRegions = new List<List<Point>>();
 
-                byte[] chippingMask1D = new byte[chippingMask.GetLength(0) * chippingMask.GetLength(1)];
-                Buffer.BlockCopy(chippingMask, 0, chippingMask1D, 0, chippingMask1D.Length);
-
+                // 마스크는 이미 1차원(w*h) — 종전의 2D→1D 131MB 재복사 제거(2026-07-12, 내용 동일).
+                var swBlob = bProfilePhases ? System.Diagnostics.Stopwatch.StartNew() : null;
                 chippingRegions = FindBrightBlobsOpenCv(
-                    chippingMask1D,
-                    chippingMask.GetLength(1),
-                    chippingMask.GetLength(0),
-                    chippingMask.GetLength(1),
+                    chippingMask,
+                    w,
+                    h,
+                    w,
                     120,
                     1,
                     1);
+                double msBlob = swBlob != null ? swBlob.Elapsed.TotalMilliseconds : 0;
+                if (swBlob != null) swBlob.Restart();
 
                 var chippingResult = InspectChippingRegions(bip, result, w, h, ShiftImage, chippingRegions, resultChppingNForeign, margin);
+                if (swBlob != null) Console.WriteLine(string.Format("[PROF3] blob={0:F1} regions={1:F1} regionCount={2}", msBlob, swBlob.Elapsed.TotalMilliseconds, chippingRegions.Count));
                 bChipping = chippingResult.bChipping;
                 
                 if (chippingResult.innerRegions.Count > 0)
@@ -1070,7 +1094,7 @@ namespace QMC.Vision.Inspector
 
                     if (foreignCandidates.Count > 0)
                     {
-                        var foreignResult = InspectForeignRegions(bip, result, w, h, ShiftImage, foreignCandidates, chippingMask.GetLength(1), chippingMask.GetLength(0));
+                        var foreignResult = InspectForeignRegions(bip, result, w, h, ShiftImage, foreignCandidates, w, h);
                         bForeign = foreignResult.bForeign;
                         result.ForeingSize = foreignResult.maxForeignSize;
                     }
@@ -1468,23 +1492,24 @@ namespace QMC.Vision.Inspector
                 return new List<List<Point>>();
             }
 
-            byte[] mask = new byte[width * height];
+            // 서브 ROI 처리(2026-07-12): 종전에는 후보 점 몇 천 개를 위해 전체 프레임(131MP) 마스크를
+            // 새로 할당하고 그 위에서 모폴로지 Close + ConnectedComponents 를 돌렸다. 모폴로지 Close(사각
+            // 커널 반지름 = linkDistance)의 영향 범위는 원본 백색 픽셀에서 체비셰프 거리 linkDistance 이내로
+            // 국한되므로, 후보 전체 바운딩박스를 (linkDistance+2)만큼 패딩한 부분 영역만 처리해도
+            // 출력 백색 픽셀 집합이 동일하다. 성분의 래스터 첫-등장 순서도 (y,x) 대소 관계가 부분/전체
+            // 좌표계에서 같아 블랍 목록 순서까지 동일 — 좌표만 오프셋 환원하면 결과가 완전히 같다.
+            int minX = int.MaxValue, maxX = int.MinValue, minY = int.MaxValue, maxY = int.MinValue;
             bool hasPixels = false;
             foreach (var region in regions)
             {
-                if (region == null)
-                {
-                    continue;
-                }
-
+                if (region == null) continue;
                 foreach (var pt in region)
                 {
-                    if (pt.X < 0 || pt.X >= width || pt.Y < 0 || pt.Y >= height)
-                    {
-                        continue;
-                    }
-
-                    mask[pt.Y * width + pt.X] = 255;
+                    if (pt.X < 0 || pt.X >= width || pt.Y < 0 || pt.Y >= height) continue;
+                    if (pt.X < minX) minX = pt.X;
+                    if (pt.X > maxX) maxX = pt.X;
+                    if (pt.Y < minY) minY = pt.Y;
+                    if (pt.Y > maxY) maxY = pt.Y;
                     hasPixels = true;
                 }
             }
@@ -1494,7 +1519,40 @@ namespace QMC.Vision.Inspector
                 return new List<List<Point>>();
             }
 
-            return FindBrightBlobsOpenCv(mask, width, height, width, 120, minSize, linkDistance);
+            int pad = Math.Max(1, linkDistance) + 2;
+            int x0 = Math.Max(0, minX - pad);
+            int y0 = Math.Max(0, minY - pad);
+            int x1 = Math.Min(width - 1, maxX + pad);
+            int y1 = Math.Min(height - 1, maxY + pad);
+            int subW = x1 - x0 + 1;
+            int subH = y1 - y0 + 1;
+
+            byte[] mask = BufferPool.Rent(subW * subH);
+            Array.Clear(mask, 0, mask.Length);   // 풀 재사용 버퍼 — 종전 '새 배열=0' 의미 유지
+            foreach (var region in regions)
+            {
+                if (region == null) continue;
+                foreach (var pt in region)
+                {
+                    if (pt.X < 0 || pt.X >= width || pt.Y < 0 || pt.Y >= height) continue;
+                    mask[(pt.Y - y0) * subW + (pt.X - x0)] = 255;
+                }
+            }
+
+            var found = FindBrightBlobsOpenCv(mask, subW, subH, subW, 120, minSize, linkDistance);
+            BufferPool.Return(mask);
+
+            if (x0 != 0 || y0 != 0)
+            {
+                foreach (var blob in found)
+                {
+                    for (int i = 0; i < blob.Count; i++)
+                    {
+                        blob[i] = new Point(blob[i].X + x0, blob[i].Y + y0);
+                    }
+                }
+            }
+            return found;
         }
 
         private static List<List<Point>> FindBrightBlobsOpenCv(byte[] image, int width, int height, int stride, byte threshold, int minDefectSize, int linkDistance)
@@ -2027,53 +2085,52 @@ namespace QMC.Vision.Inspector
         Height = height,
         FileName = strFileName
     };
-    Task.Factory.StartNew((obj) =>
-
+    // 저장 전용 큐(2026-07-12) — PNG 인코드를 검사 스레드풀에서 분리(내용/경로 동일, 타이밍만 분리).
+    ImageSaveQueue.Enqueue(() =>
     {
-
-        SaveImageHelper saveHelper = (SaveImageHelper)obj;
+        SaveImageHelper saveHelper = helper;
 
         string strOrginalFileName = saveHelper.FileName;
         byte[,] shiftImage = saveHelper.ShiftImage;
         int w = saveHelper.Width;
         int h = saveHelper.Height;
         string fileName = saveHelper.FileName;
-        byte[,] img = new byte[ h/4, w / 4];
-        if(w>5000)
-        {
-            for (int x = 0; x < w / 4; x++)
-            {
-                for (int y = 0; y < h / 4; y++)
-                {
-                    int nSum = 0;
-                    int nCount = 0;
-                    if (x > 0 && x < w/4-1)
-                    {
-                        nSum = shiftImage[y*4, x * 4 - 1] 
-                         +  shiftImage[ y * 4, x * 4]
-                         +  shiftImage[y * 4, x * 4 + 1]
-                         +  shiftImage[y * 4, x * 4 + 2];
-                        nCount = 4;
-                    }
-                    else
-                    {
-                        nSum = shiftImage[y * 4, x * 4];
-                        nCount = 1;
-                    }
-                    if (y > 0 && y < h/4-1)
-                    {
-                        nSum += shiftImage[ y * 4 - 1, x * 4]
-                        + shiftImage[ y * 4 + 1,x * 4]
-                        + shiftImage[y * 4 + 2, x * 4];
-                        nCount += 3;
-                    }
-                    img[y, x] = (byte)(nSum / nCount);
-                }
-            }
-            shiftImage = img;
-            w = w / 4;
-            h = h/4;
-        }
+        //byte[,] img = new byte[ h/4, w / 4];
+        //if(w>5000)
+        //{
+        //    for (int x = 0; x < w / 4; x++)
+        //    {
+        //        for (int y = 0; y < h / 4; y++)
+        //        {
+        //            int nSum = 0;
+        //            int nCount = 0;
+        //            if (x > 0 && x < w/4-1)
+        //            {
+        //                nSum = shiftImage[y*4, x * 4 - 1] 
+        //                 +  shiftImage[ y * 4, x * 4]
+        //                 +  shiftImage[y * 4, x * 4 + 1]
+        //                 +  shiftImage[y * 4, x * 4 + 2];
+        //                nCount = 4;
+        //            }
+        //            else
+        //            {
+        //                nSum = shiftImage[y * 4, x * 4];
+        //                nCount = 1;
+        //            }
+        //            if (y > 0 && y < h/4-1)
+        //            {
+        //                nSum += shiftImage[ y * 4 - 1, x * 4]
+        //                + shiftImage[ y * 4 + 1,x * 4]
+        //                + shiftImage[y * 4 + 2, x * 4];
+        //                nCount += 3;
+        //            }
+        //            img[y, x] = (byte)(nSum / nCount);
+        //        }
+        //    }
+        //    shiftImage = img;
+        //    w = w / 4;
+        //    h = h/4;
+        //}
         
         try
         {
@@ -2153,7 +2210,7 @@ namespace QMC.Vision.Inspector
             //SaveImage(shiftImage, w, h, strOrginalFileName + "Retry_");
         }
 
-    }, helper);
+    });
 
 
 
@@ -2175,14 +2232,15 @@ namespace QMC.Vision.Inspector
             };
             lock (result)
             {
-                
+
                 result.SaveCount++;
-               
+
             }
-            Task.Factory.StartNew((obj) =>
+            // 저장 전용 큐(2026-07-12) — 디펙 크롭 PNG 인코드를 검사 스레드풀에서 분리(내용/경로 동일).
+            ImageSaveQueue.Enqueue(() =>
             {
-                
-                SaveImageHelper saveHelper = (SaveImageHelper)obj;
+
+                SaveImageHelper saveHelper = helper;
 
                 string strOrginalFileName = saveHelper.FileName;
                 byte[,] shiftImage = saveHelper.ShiftImage;
@@ -2320,7 +2378,7 @@ namespace QMC.Vision.Inspector
                         saveHelper.Result.SaveCount--;
                     }
                 }
-            }, helper);
+            });
         }
         private byte[,] MakeImagePixelShift(List<byte[]> images, Rectangle chipRoi, int threshold, int nSourceWidth)
         {

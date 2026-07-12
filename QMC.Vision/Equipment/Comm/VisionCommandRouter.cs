@@ -59,6 +59,7 @@ namespace QMC.Vision.Comm
                     case "FOCUS_START":resp = VisionCommandCore.FocusStart(m, parts); break;
                     case "FOCUS_VAL":  resp = VisionCommandCore.FocusValue(m, parts); break;
                     case "FOCUS_BEST": resp = VisionCommandCore.FocusBest(m, parts); break;
+                    case "COC":        resp = VisionCommandCore.ColletRotationCenter(m, parts); break;   // 콜렛 회전 중심(START/END)
                     default:           resp = null;                  break;
                 }
                 if (resp == null) return $"ERR|{mod}|{cmd}|unknown command";
