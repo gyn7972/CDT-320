@@ -79,6 +79,22 @@ namespace QMC.Vision.Core
             return true;
         }
 
+        /// <summary>모듈 결과를 엔트리(키/합부/항목문자열) 단위로 반환 — 레시피 페이지 '검사 결과' 그리드
+        /// 표시용(2026-07-12). 항목문자열은 "name=value;name=value" 형식(Record 로 기록된 원본 그대로).</summary>
+        public static bool TryGetEntries(string module, out List<Tuple<string, bool, string>> entries)
+        {
+            entries = null;
+            if (string.IsNullOrEmpty(module)) return false;
+            lock (_lock)
+            {
+                if (!_map.TryGetValue(module, out var d) || d.Count == 0) return false;
+                entries = new List<Tuple<string, bool, string>>(d.Count);
+                foreach (var kv in d)
+                    entries.Add(Tuple.Create(kv.Key, kv.Value.Pass, kv.Value.Items ?? ""));
+            }
+            return true;
+        }
+
         /// <summary>검출 마크 1개 기록(module, finder/inspector 키, 이미지 좌표 x/y, score). 오버레이 표시용.</summary>
         public static void RecordMark(string module, string key, double x, double y, double score)
         {

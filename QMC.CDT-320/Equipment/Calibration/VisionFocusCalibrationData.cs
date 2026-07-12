@@ -52,6 +52,9 @@ namespace QMC.CDT320.Calibration
         [DataMember] public int VisionBestTimeoutMs { get; set; } = 120000;
         [DataMember] public VisionFocusValueReceiveMode FocusValueReceiveMode { get; set; } = VisionFocusValueReceiveMode.AckOnly;
         [DataMember] public bool ReturnToDefaultAfterScan { get; set; } = true;
+        [DataMember] public VisionFocusScanKind CalibrationKind { get; set; } = VisionFocusScanKind.FrontSide0;
+        [DataMember] public VisionFocusPickerSide CalibrationPickerSide { get; set; } = VisionFocusPickerSide.Front;
+        [DataMember] public int CalibrationPickerNo { get; set; } = 1;
         [DataMember] public bool AutoFocusBeforeBottomEnabled { get; set; }
         [DataMember] public bool AutoFocusOnStartEnabled { get; set; }
         [DataMember] public bool AutoFocusOnWaferChange { get; set; } = true;
@@ -85,6 +88,10 @@ namespace QMC.CDT320.Calibration
             if (AutoFocusPickInterval > 1000000) AutoFocusPickInterval = 1000000;
             if (!Enum.IsDefined(typeof(VisionFocusValueReceiveMode), FocusValueReceiveMode))
                 FocusValueReceiveMode = VisionFocusValueReceiveMode.AckOnly;
+            if (!Enum.IsDefined(typeof(VisionFocusPickerSide), CalibrationPickerSide))
+                CalibrationPickerSide = VisionFocusPickerSide.Front;
+            if (CalibrationPickerNo < 1 || CalibrationPickerNo > 4)
+                CalibrationPickerNo = 1;
         }
     }
 

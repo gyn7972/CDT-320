@@ -1716,8 +1716,9 @@ namespace QMC.CDT320.Sequencing.Calibration
                 ", colletNo=" + _colletNo +
                 ", die=" + dieId +
                 ", ok=" + (result != null && result.IsOk) +
-                ", offset=(" + (result != null ? result.OffsetX.ToString("F6") : "null") + "," +
-                (result != null ? result.OffsetY.ToString("F6") : "null") + ") - Check");
+                ", bottomCenterValid=" + (result != null && result.HasBottomCenterOffset) +
+                ", bottomCenter=(" + (result != null ? result.BottomCenterOffsetX.ToString("F6") : "null") + "," +
+                (result != null ? result.BottomCenterOffsetY.ToString("F6") : "null") + ") - Check");
             return result;
         }
 
@@ -1739,11 +1740,9 @@ namespace QMC.CDT320.Sequencing.Calibration
                 !TryReadBottomValue(bottom, out height, "bottom_height_mm", "bottom_item_height"))
                 return false;
 
-            double rawOffsetX;
-            double rawOffsetY;
-            if (!TryReadFiniteBottomValue(bottom, out rawOffsetX, "bottom_offset_x_mm", "bottom_item_offset_x") ||
-                !TryReadFiniteBottomValue(bottom, out rawOffsetY, "bottom_offset_y_mm", "bottom_item_offset_y") ||
-                Math.Abs(rawOffsetX) > 50.0 || Math.Abs(rawOffsetY) > 50.0)
+            if (!bottom.HasBottomCenterOffset ||
+                double.IsNaN(bottom.BottomCenterOffsetX) || double.IsInfinity(bottom.BottomCenterOffsetX) ||
+                double.IsNaN(bottom.BottomCenterOffsetY) || double.IsInfinity(bottom.BottomCenterOffsetY))
                 return false;
 
             double referenceWidth = Context.Controller != null && Context.Controller.DieSizeXMm > 0.0
@@ -1766,8 +1765,8 @@ namespace QMC.CDT320.Sequencing.Calibration
                 AutoVisionChannel.BottomInspection);
             double cocResidualX = camera.PixelToMmOffsetX(ResultRecord.RotationCenterPixelX);
             double cocResidualY = camera.PixelToMmOffsetY(ResultRecord.RotationCenterPixelY);
-            double dieX = bottom.OffsetX;
-            double dieY = bottom.OffsetY;
+            double dieX = bottom.BottomCenterOffsetX;
+            double dieY = bottom.BottomCenterOffsetY;
 
             // COC 기계 중심으로 XY 이동한 뒤 다시 측정했으므로 영상상의 회전 중심은 (0,0)으로 적용합니다.
             double rotatedY = dieX;
@@ -1806,24 +1805,6 @@ namespace QMC.CDT320.Sequencing.Calibration
                     double.TryParse(raw, System.Globalization.NumberStyles.Float,
                         System.Globalization.CultureInfo.InvariantCulture, out value))
                     return !double.IsNaN(value) && !double.IsInfinity(value) && value > 0.0;
-            }
-
-            return false;
-        }
-
-        private static bool TryReadFiniteBottomValue(BottomVisionOffset bottom, out double value, params string[] keys)
-        {
-            value = 0.0;
-            if (bottom == null || bottom.Values == null || keys == null)
-                return false;
-
-            for (int i = 0; i < keys.Length; i++)
-            {
-                string raw;
-                if (bottom.Values.TryGetValue(keys[i], out raw) &&
-                    double.TryParse(raw, System.Globalization.NumberStyles.Float,
-                        System.Globalization.CultureInfo.InvariantCulture, out value))
-                    return !double.IsNaN(value) && !double.IsInfinity(value);
             }
 
             return false;

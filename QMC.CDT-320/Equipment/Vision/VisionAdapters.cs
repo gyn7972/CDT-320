@@ -270,9 +270,11 @@ namespace QMC.CDT320.VisionComm
                     ", dieIndex=" + dieIndex +
                     ", ok=" + (offset != null && offset.IsOk) +
                     ", rawValues=" + (inspection != null ? inspection.DescribeValues() : "null") +
-                    ", sideVisionYOffsetMm=0.000000" +
-                    ", pickerZOffsetMm=0.000000" +
-                    ", sideCorrectionValid=False");
+                    ", bottomCenterOffsetXmm=" + (offset != null ? offset.BottomCenterOffsetX.ToString("F6") : "null") +
+                    ", bottomCenterOffsetYmm=" + (offset != null ? offset.BottomCenterOffsetY.ToString("F6") : "null") +
+                    ", bottomCenterOffsetValid=" + (offset != null && offset.HasBottomCenterOffset) +
+                    ", side0Source=BottomCenterX" +
+                    ", side90Source=BottomCenterY");
 
                 return offset;
             }

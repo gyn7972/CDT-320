@@ -623,7 +623,7 @@ namespace QMC.CDT320.VisionComm
 
         /// <summary>
         /// Bottom SurfaceInspector 결과 기반 보정 구조.
-        /// 현재는 원본 파라미터 로그만 확보하고 SideVisionY/PickerZ 보정값은 0으로 고정한다.
+        /// Bottom Center X/Y(mm)는 Side 0도/90도 카메라 위치 보정용 전용 필드로 전달한다.
         /// </summary>
         public static async Task<BottomVisionOffset> InspectBottomOffsetAsync(
             int fb,
@@ -668,9 +668,11 @@ namespace QMC.CDT320.VisionComm
                     ", dieIndex=" + dieIndex +
                     ", ok=" + (offset != null && offset.IsOk) +
                     ", rawValues=" + (inspection != null ? inspection.DescribeValues() : "null") +
-                    ", sideVisionYOffsetMm=0.000000" +
-                    ", pickerZOffsetMm=0.000000" +
-                    ", sideCorrectionValid=False");
+                    ", bottomCenterOffsetXmm=" + (offset != null ? offset.BottomCenterOffsetX.ToString("F6") : "null") +
+                    ", bottomCenterOffsetYmm=" + (offset != null ? offset.BottomCenterOffsetY.ToString("F6") : "null") +
+                    ", bottomCenterOffsetValid=" + (offset != null && offset.HasBottomCenterOffset) +
+                    ", side0Source=BottomCenterX" +
+                    ", side90Source=BottomCenterY");
 
                 return offset;
             }

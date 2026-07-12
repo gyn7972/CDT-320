@@ -126,6 +126,7 @@ namespace QMC.CDT320
         public BaseDigitalInput BinFeederUnclampSensor { get; private set; }
         public BaseDigitalInput BinFeederRingCheckSensor { get; private set; }
         public BaseDigitalInput BinFeederOverloadSensor { get; private set; }
+        public BaseDigitalInput BinFeederAvoidPositionCheckSensor { get; private set; }
         public BaseDigitalInput WaferClampedSensor { get { return BinFeederRingCheckSensor; } }
         public BaseCylinder FeederUpDownCyl { get; private set; }
         public BaseCylinder FeederClampCyl { get; private set; }
@@ -145,6 +146,7 @@ namespace QMC.CDT320
             BinFeederUnclampSensor = AjinFactory.CreateDigitalInput(AjinIoCatalog.FindInput("BinFeederUnclamp"));
             BinFeederRingCheckSensor = AjinFactory.CreateDigitalInput(AjinIoCatalog.FindInput("BinFeederRing"));
             BinFeederOverloadSensor = AjinFactory.CreateDigitalInput(AjinIoCatalog.FindInput("BinFeederOverload"));
+            BinFeederAvoidPositionCheckSensor = AjinFactory.CreateDigitalInput(AjinIoCatalog.Inputs.BinFeederAvoidPositionCheck);
             FeederUpDownCyl = CylinderManager.Get(AjinIoCatalog.CylinderRefs.OutputFeederLift);
             FeederClampCyl = CylinderManager.Get(AjinIoCatalog.CylinderRefs.OutputFeederClamp);
 
@@ -154,6 +156,7 @@ namespace QMC.CDT320
             Components.Add(BinFeederUnclampSensor);
             Components.Add(BinFeederRingCheckSensor);
             Components.Add(BinFeederOverloadSensor);
+            Components.Add(BinFeederAvoidPositionCheckSensor);
             Components.Add(FeederUpDownCyl);
             Components.Add(FeederClampCyl);
 
@@ -542,7 +545,8 @@ namespace QMC.CDT320
                    ", clamp=" + (!IsFeederUnclamped()) +
                    ", ringOn=" + IsFeederRingDetected(true) +
                    ", ringOff=" + IsFeederRingDetected(false) +
-                   ", overload=" + IsFeederOverload();
+                   ", overload=" + IsFeederOverload() +
+                   ", avoidCheck=" + IsBinFeederAvoidPositionCheck();
         }
 
         public async Task<bool> WaitBinFeederYInPosition(string positionName, int timeoutMs)
@@ -559,7 +563,25 @@ namespace QMC.CDT320
         }
 
         public bool IsBinFeederYInAvoidPosition() { return IsBinFeederInAvoidPosition(); }
-        public bool IsBinFeederInAvoidPosition() { return IsBinFeederYInPosition(Recipe.AvoidPosition, ResolveBinFeederYInPositionTolerance()); }
+        public bool IsBinFeederInAvoidPosition()
+        {
+            // Feeder 자체 이동 완료는 엔코더 위치로 확인한다. Picker 간섭 안전 확인은 X091 Dog를 별도로 사용한다.
+            return IsBinFeederYInPosition(
+                Recipe.AvoidPosition,
+                ResolveBinFeederYInPositionTolerance());
+        }
+
+        public bool IsBinFeederAvoidPositionCheck()
+        {
+            // 실장비 Picker 안전 인터록용 Avoid Dog. Simulation/DryRun에는 물리 Dog가 없으므로 위치로 대체한다.
+            if (IsOutputFeederSimulationOrDryRun())
+                return IsBinFeederYInPosition(
+                    Recipe.AvoidPosition,
+                    ResolveBinFeederYInPositionTolerance());
+
+            return BinFeederAvoidPositionCheckSensor != null &&
+                   BinFeederAvoidPositionCheckSensor.IsOn;
+        }
         public bool IsBinFeederYInCassetteLoadPosition(BinSide side) { return IsBinFeederYInPosition(GetSidePosition(side, FeederPositionType.CassetteLoad), ResolveBinFeederYInPositionTolerance()); }
         public bool IsBinFeederInCassetteLoadPosition(int slotIndex) { return IsBinFeederYInCassetteLoadPosition(BinSide.Good); }
         public bool IsBinFeederYInCassetteUnloadPosition(BinSide side) { return IsBinFeederYInPosition(GetSidePosition(side, FeederPositionType.CassetteUnload), ResolveBinFeederYInPositionTolerance()); }

@@ -125,7 +125,7 @@
 - PICKUP Z CAL은 웨이퍼 필름 위에서 PickerZ를 하강시키며 Vacuum/Flow 신호가 들어온 위치를 PickPosition으로 저장합니다.
 - PLACE Z CAL은 Output Place 위치에서 PickerZ를 하강시키며 Vacuum/Flow 신호가 들어온 위치를 PlacePosition으로 저장합니다.
 - NEEDLE Z CAL은 WaferStageTouchSensor 기준으로 NeedleCap Touch, NeedlePin Flush, NeedlePin Ready 위치를 계산합니다.
-- VISION CAMERA CAL / VISION FOCUS CAL은 별도 전용 설정창에서 실행합니다.
+- VISION CAMERA CAL / VISION FOCUS CAL / SIDE VISION FOCUS CAL은 별도 전용 설정창에서 실행합니다.
 - 실장비 안전 인터락, phase gate, resource gate는 우회하지 않습니다.</value>
   </data>
 </root>

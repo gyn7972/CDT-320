@@ -13,7 +13,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
         private Button btnVisionCameraCal;
         private Button btnColletCal;
         private Button btnNeedleCal;
-        private Button btnColletZHeightCal;
+        private Button btnSideVisionFocusCal;
         private Button btnVisionFocusCal;
         private Button btnColletRotationCenterCal;
         private Button btnPickUpZCal;
@@ -42,7 +42,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.btnVisionCameraCal = new System.Windows.Forms.Button();
             this.btnColletCal = new System.Windows.Forms.Button();
             this.btnNeedleCal = new System.Windows.Forms.Button();
-            this.btnColletZHeightCal = new System.Windows.Forms.Button();
+            this.btnSideVisionFocusCal = new System.Windows.Forms.Button();
             this.btnVisionFocusCal = new System.Windows.Forms.Button();
             this.btnColletRotationCenterCal = new System.Windows.Forms.Button();
             this.btnPickUpZCal = new System.Windows.Forms.Button();
@@ -127,7 +127,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.buttonLayout.Controls.Add(this.btnVisionCameraCal, 0, 0);
             this.buttonLayout.Controls.Add(this.btnColletCal, 1, 0);
             this.buttonLayout.Controls.Add(this.btnNeedleCal, 2, 0);
-            this.buttonLayout.Controls.Add(this.btnColletZHeightCal, 0, 1);
+            this.buttonLayout.Controls.Add(this.btnSideVisionFocusCal, 0, 1);
             this.buttonLayout.Controls.Add(this.btnVisionFocusCal, 1, 1);
             this.buttonLayout.Controls.Add(this.btnColletRotationCenterCal, 2, 1);
             this.buttonLayout.Controls.Add(this.btnPickUpZCal, 0, 2);
@@ -195,22 +195,22 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.btnNeedleCal.Text = "NEEDLE PIN CAL";
             this.btnNeedleCal.UseVisualStyleBackColor = false;
             // 
-            // btnColletZHeightCal
-            // 
-            this.btnColletZHeightCal.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
-            this.btnColletZHeightCal.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.btnColletZHeightCal.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnColletZHeightCal.FlatAppearance.BorderSize = 0;
-            this.btnColletZHeightCal.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnColletZHeightCal.Font = new System.Drawing.Font("맑은 고딕", 13F, System.Drawing.FontStyle.Bold);
-            this.btnColletZHeightCal.ForeColor = System.Drawing.Color.White;
-            this.btnColletZHeightCal.Location = new System.Drawing.Point(8, 153);
-            this.btnColletZHeightCal.Margin = new System.Windows.Forms.Padding(8);
-            this.btnColletZHeightCal.Name = "btnColletZHeightCal";
-            this.btnColletZHeightCal.Size = new System.Drawing.Size(538, 129);
-            this.btnColletZHeightCal.TabIndex = 3;
-            this.btnColletZHeightCal.Text = "COLLET Z HEIGHT CAL";
-            this.btnColletZHeightCal.UseVisualStyleBackColor = false;
+            // btnSideVisionFocusCal
+            //
+            this.btnSideVisionFocusCal.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
+            this.btnSideVisionFocusCal.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.btnSideVisionFocusCal.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.btnSideVisionFocusCal.FlatAppearance.BorderSize = 0;
+            this.btnSideVisionFocusCal.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this.btnSideVisionFocusCal.Font = new System.Drawing.Font("맑은 고딕", 13F, System.Drawing.FontStyle.Bold);
+            this.btnSideVisionFocusCal.ForeColor = System.Drawing.Color.White;
+            this.btnSideVisionFocusCal.Location = new System.Drawing.Point(8, 153);
+            this.btnSideVisionFocusCal.Margin = new System.Windows.Forms.Padding(8);
+            this.btnSideVisionFocusCal.Name = "btnSideVisionFocusCal";
+            this.btnSideVisionFocusCal.Size = new System.Drawing.Size(538, 129);
+            this.btnSideVisionFocusCal.TabIndex = 3;
+            this.btnSideVisionFocusCal.Text = "SIDE VISION FOCUS CAL";
+            this.btnSideVisionFocusCal.UseVisualStyleBackColor = false;
             // 
             // btnVisionFocusCal
             // 
@@ -329,7 +329,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.btnVisionCameraCal.Click += new System.EventHandler(this.btnVisionCameraCal_Click);
             this.btnColletCal.Click += new System.EventHandler(this.btnColletCal_Click);
             this.btnNeedleCal.Click += new System.EventHandler(this.btnNeedleCal_Click);
-            this.btnColletZHeightCal.Click += new System.EventHandler(this.btnColletZHeightCal_Click);
+            this.btnSideVisionFocusCal.Click += new System.EventHandler(this.btnSideVisionFocusCal_Click);
             this.btnVisionFocusCal.Click += new System.EventHandler(this.btnVisionFocusCal_Click);
             this.btnColletRotationCenterCal.Click += new System.EventHandler(this.btnColletRotationCenterCal_Click);
             this.btnPickUpZCal.Click += new System.EventHandler(this.btnPickUpZCal_Click);

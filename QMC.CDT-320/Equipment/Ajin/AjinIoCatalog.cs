@@ -202,7 +202,9 @@ namespace QMC.CDT320.Ajin
             DI("NgBin12CassetteCheck0", 2, 22),
             DI("NgBin12CassetteCheck1", 2, 23),
             DI("BinRingJUTCheck", 2, 24),
-            DI("BinMapping", 2, 25)
+            DI("BinMapping", 2, 25),
+            DI("WaferFeederAvoidPositionCheck", 2, 26),
+            DI("BinFeederAvoidPositionCheck", 2, 27)
         };
 
         public static readonly CylinderDefault[] Cylinders =
@@ -258,6 +260,8 @@ namespace QMC.CDT320.Ajin
             public static readonly DioDefault BinRingJUTCheck = FindInput("BinRingJUTCheck");
             public static readonly DioDefault BinMapping = FindInput("BinMapping");
             public static readonly DioDefault BinFeederUnclamp = FindInput("BinFeederUnclamp");
+            public static readonly DioDefault WaferFeederAvoidPositionCheck = FindInput("WaferFeederAvoidPositionCheck");
+            public static readonly DioDefault BinFeederAvoidPositionCheck = FindInput("BinFeederAvoidPositionCheck");
             public static readonly DioDefault PostPnpPickOk = null;
         }
 
@@ -541,7 +545,7 @@ namespace QMC.CDT320.Ajin
                 if (Contains(name, "RearPicker")) return "RearPicker";
                 if (Contains(name, "NgBin") || Contains(name, "NGBin")) return "OutputStage";
                 if (Contains(name, "GoodBin")) return "OutputStage";
-                if (Contains(name, "OutputFeeder") || Contains(name, "OutputFeeder")) return "OutputFeeder";
+                if (Contains(name, "OutputFeeder") || Contains(name, "BinFeeder")) return "OutputFeeder";
                 if (Contains(name, "BinLifter") || Contains(name, "OutputCassette")) return "OutputCassette";
                 if (Contains(name, "Vision") || Contains(name, "Camera") || Contains(name, "Light")) return "Vision";
                 if (Contains(name, "Lamp") || Contains(name, "Buzzer") || Contains(name, "Button") || Contains(name, "Emg")) return "OperationPanel";

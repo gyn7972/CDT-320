@@ -275,24 +275,30 @@ namespace QMC.Vision.Ui.Pages
                 {
                     if (_viewByMod != null && i < _viewByMod.Length && _viewByMod[i] != null)
                     {
+                        RectangleF roi = RectangleF.Empty;
+                        System.Collections.Generic.List<QMC.Common.Ui.Controls.OverlayMark> marks = null;
                         if (QMC.Vision.Core.MatchOverlayStore.TryGet(m.Name, out var ov))
                         {
-                            var roi = (ov.RoiW > 0 && ov.RoiH > 0)
+                            roi = (ov.RoiW > 0 && ov.RoiH > 0)
                                 ? new RectangleF((float)ov.RoiX, (float)ov.RoiY, (float)ov.RoiW, (float)ov.RoiH)
                                 : RectangleF.Empty;
-                            System.Collections.Generic.List<QMC.Common.Ui.Controls.OverlayMark> marks = null;
                             if (ov.Marks != null && ov.Marks.Length > 0)
                             {
                                 marks = new System.Collections.Generic.List<QMC.Common.Ui.Controls.OverlayMark>(ov.Marks.Length);
                                 foreach (var k in ov.Marks)
                                     marks.Add(new QMC.Common.Ui.Controls.OverlayMark(k.X, k.Y, k.Score, k.Angle, k.BoxW, k.BoxH));
                             }
-                            _viewByMod[i].SetOverlay(roi, marks);
                         }
-                        else
+                        // 결과 마크(COC 회전중심 등, ModuleResultStore.RecordMark)도 병합(2026-07-12) —
+                        // 새 그랩 시 GrabForTool 이 ClearMarks 로 지우므로 이전 프레임 마크가 새 영상에 남지 않는다.
+                        var extraMarks = QMC.Vision.Core.ModuleResultStore.GetMarks(m.Name);
+                        if (extraMarks != null && extraMarks.Length > 0)
                         {
-                            _viewByMod[i].SetOverlay(RectangleF.Empty, null);
+                            marks = marks ?? new System.Collections.Generic.List<QMC.Common.Ui.Controls.OverlayMark>(extraMarks.Length);
+                            foreach (var k in extraMarks)
+                                marks.Add(new QMC.Common.Ui.Controls.OverlayMark(k.X, k.Y, k.Score, 0, 0, 0));
                         }
+                        _viewByMod[i].SetOverlay(roi, marks);
                     }
                 }
                 catch { }

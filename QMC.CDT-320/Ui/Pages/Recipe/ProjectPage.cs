@@ -267,6 +267,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             AddRow(gridXml, "XmlPath", "XML PATH", project.XmlPath);
 
             gridMap.Rows.Clear();
+            AddMapRow("Base", "BASE WAFER MAP", project.BaseWaferMapFileName, ResolveBaseWaferMapPath(project));
             AddMapRow("Input", "INPUT DIE MAP", project.InputDieMapFileName, RecipeMapPaths.ResolveConfigured(project, RecipeMapKind.Input));
             AddMapRow("GoodBin", "GOOD BIN DIE MAP", project.GoodBinDieMapFileName, RecipeMapPaths.ResolveConfigured(project, RecipeMapKind.GoodBin));
             AddMapRow("NgBin", "NG BIN DIE MAP", project.NgBinDieMapFileName, RecipeMapPaths.ResolveConfigured(project, RecipeMapKind.NgBin));
@@ -315,8 +316,11 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 for (int i = 0; i < gridMap.Rows.Count; i++)
                 {
                     DataGridViewRow row = gridMap.Rows[i];
+                    string key = CellText(row, 0);
                     string configured = CellText(row, 2);
-                    string resolved = ResolveConfiguredRaw(configured);
+                    string resolved = string.Equals(key, "Base", StringComparison.OrdinalIgnoreCase)
+                        ? ResolveBaseWaferMapPath(_current, configured)
+                        : ResolveConfiguredRaw(configured);
                     row.Cells[3].Value = resolved;
 
                     bool exists = !string.IsNullOrWhiteSpace(resolved) && File.Exists(resolved);
@@ -439,21 +443,26 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
 
             try
             {
-                RecipeProject copy = CollectFromUi();
-                copy.FileName = targetName;
-                RecipeStore.Save(copy);
+                RecipeProject source = CollectFromUi();
+                source.FileName = sourceName;
+                RecipeProjectCloneResult cloneResult = RecipeProjectCloneService.Clone(source, targetName);
+                if (!cloneResult.Success)
+                    throw new InvalidOperationException(cloneResult.Message);
 
-                string sourceDir = RecipeDataStore.DirOf(sourceName);
-                if (Directory.Exists(sourceDir))
-                    RecipeDataStore.CopyRecipe(sourceName, targetName);
-                else
-                    SaveMachineRecipe(targetName);
+                if (!cloneResult.UnitRecipeCopied && !SaveMachineRecipe(targetName))
+                {
+                    RollbackClonedProject(targetName);
+                    throw new IOException("Unit Recipe 원본 폴더가 없고 현재 장비 Recipe 저장도 실패했습니다.");
+                }
 
                 MarkCurrentProject(targetName);
                 ReloadList();
                 SelectAndLoadProject(targetName);
                 EventLogger.Write(EventKind.Event, Security.UserSession.Name, "RECIPE-COPY",
-                    "프로젝트를 복사했습니다. source=" + sourceName + ", target=" + targetName);
+                    "프로젝트를 독립 복사했습니다. source=" + sourceName +
+                    ", target=" + targetName +
+                    ", unitRecipeCopied=" + cloneResult.UnitRecipeCopied +
+                    ", mapFiles=" + cloneResult.MapFileCount);
             }
             catch (Exception ex)
             {
@@ -666,6 +675,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             project.XmlPath = GetValue(gridXml, "XmlPath");
 
             project.InputDieMapFileName = GetMapConfigured("Input");
+            project.BaseWaferMapFileName = GetMapConfigured("Base");
             project.GoodBinDieMapFileName = GetMapConfigured("GoodBin");
             project.NgBinDieMapFileName = GetMapConfigured("NgBin");
             project.OutputDieMapFileName = GetMapConfigured("LegacyOutput");
@@ -700,17 +710,38 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             }
         }
 
-        private void SaveMachineRecipe(string recipeName)
+        private bool SaveMachineRecipe(string recipeName)
         {
             try
             {
                 var host = FindForm() as Form1;
-                host?.SaveMachineRecipe(NormalizeProjectName(recipeName));
+                return host != null && host.SaveMachineRecipe(NormalizeProjectName(recipeName));
             }
             catch (Exception ex)
             {
                 EventLogger.Write(EventKind.Alarm, Security.UserSession.Name, "RECIPE-DATA-SAVE",
                     "Unit Recipe 저장 실패: " + ex.Message);
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
+        private void RollbackClonedProject(string recipeName)
+        {
+            try
+            {
+                string normalized = NormalizeProjectName(recipeName);
+                RecipeStore.Delete(normalized);
+                RecipeDataStore.DeleteRecipe(normalized);
+                EventLogger.Write(EventKind.Warning, Security.UserSession.Name, "RECIPE-COPY-ROLLBACK",
+                    "프로젝트 복사 롤백을 완료했습니다. project=" + normalized);
+            }
+            catch (Exception ex)
+            {
+                EventLogger.Write(EventKind.Alarm, Security.UserSession.Name, "RECIPE-COPY-ROLLBACK",
+                    "프로젝트 복사 롤백 실패: " + ex.Message);
             }
             finally
             {
@@ -894,6 +925,28 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             if (Path.IsPathRooted(configured))
                 return configured;
             return Path.Combine(AppDomain.CurrentDomain.BaseDirectory, configured);
+        }
+
+        private static string ResolveBaseWaferMapPath(RecipeProject project, string configured = null)
+        {
+            try
+            {
+                string configuredPath = ResolveConfiguredRaw(
+                    configured ?? (project != null ? project.BaseWaferMapFileName : ""));
+                if (!string.IsNullOrWhiteSpace(configuredPath))
+                    return configuredPath;
+
+                return project != null
+                    ? RecipeDieMapResolver.ResolveExternalSourcePath(project, RecipeMapKind.Input)
+                    : "";
+            }
+            catch
+            {
+                return "";
+            }
+            finally
+            {
+            }
         }
 
         private static void OpenPath(string path)

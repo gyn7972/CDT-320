@@ -57,7 +57,7 @@ namespace QMC.CDT320.Recipes
 
                 if (IsExternalFrame(frame))
                 {
-                    DieMap externalMap = LoadExternalSourceMap(frame, kind, out sourcePath);
+                    DieMap externalMap = LoadExternalSourceMap(project, frame, kind, out sourcePath);
                     if (IsUsableMap(externalMap))
                     {
                         string mismatch;
@@ -192,10 +192,27 @@ namespace QMC.CDT320.Recipes
             }
         }
 
-        private static DieMap LoadExternalSourceMap(TapeFrameSubset frame, RecipeMapKind kind, out string sourcePath)
+        public static string ResolveExternalSourcePath(RecipeProject project, RecipeMapKind kind)
+        {
+            try
+            {
+                string sourcePath;
+                DieMap map = LoadExternalSourceMap(project, ResolveFrame(project, kind), kind, out sourcePath);
+                return IsUsableMap(map) ? sourcePath : "";
+            }
+            catch
+            {
+                return "";
+            }
+            finally
+            {
+            }
+        }
+
+        private static DieMap LoadExternalSourceMap(RecipeProject project, TapeFrameSubset frame, RecipeMapKind kind, out string sourcePath)
         {
             sourcePath = "";
-            foreach (string path in BuildExternalSourceCandidates(frame, kind))
+            foreach (string path in BuildExternalSourceCandidates(project, frame, kind))
             {
                 try
                 {
@@ -217,10 +234,11 @@ namespace QMC.CDT320.Recipes
             return null;
         }
 
-        private static IEnumerable<string> BuildExternalSourceCandidates(TapeFrameSubset frame, RecipeMapKind kind)
+        private static IEnumerable<string> BuildExternalSourceCandidates(RecipeProject project, TapeFrameSubset frame, RecipeMapKind kind)
         {
             var paths = new List<string>();
             string baseDir = AppDomain.CurrentDomain.BaseDirectory;
+            AddCandidate(paths, RecipeMapPaths.ResolveBaseConfigured(project));
             foreach (string name in BuildExternalSourceNames(frame, kind))
             {
                 AddCandidate(paths, Path.Combine(baseDir, "Config", "WaferMap", name + ".txt"));

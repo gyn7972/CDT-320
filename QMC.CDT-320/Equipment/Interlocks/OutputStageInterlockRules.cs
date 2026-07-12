@@ -18,7 +18,13 @@ namespace QMC.CDT320.Interlocks
                 return VerifyBinGoodY(request, out reason);
 
             if (MotionGuardRuleHelpers.IsMoving(request, "OutputGoodStageZ", "GoodBinZ", "GoodStage_StageZ"))
+            {
+                if (!PickerZoneInterlockRules.VerifyPickerXStoppedForClearanceMechanismMove(
+                    request.Machine, "OutputGoodStageZ", out reason))
+                    return false;
+
                 return VerifyBinGoodZ(request, out reason);
+            }
 
             if (MotionGuardRuleHelpers.IsMoving(request, "OutputNGStageY", "NgBinY", "NgStage_StageY"))
                 return VerifyBinNgY(request, out reason);
