@@ -917,7 +917,7 @@ namespace QMC.Vision.Inspector
                 {
                     result.DisplayImage = null;
                 }
-                else
+                else 
                 {
                     
                 }
