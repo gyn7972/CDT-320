@@ -449,6 +449,7 @@
     <!-- Equipment / Recipes -->
     <Compile Include="Equipment\Recipes\RecipeMapPaths.cs" />
     <Compile Include="Equipment\Recipes\RecipeDieMapResolver.cs" />
+    <Compile Include="Equipment\Recipes\RecipeProjectCloneService.cs" />
     <Compile Include="Equipment\Recipes\RecipeColletZApplyService.cs" />
     <Compile Include="Equipment\Recipes\RecipeStore.cs" />
     <!-- Equipment / Materials (310 ?�식) -->
@@ -739,6 +740,9 @@
     </Compile>
     <Compile Include="Ui\Dialogs\VisionFocusCalibrationDialog.Designer.cs">
       <DependentUpon>VisionFocusCalibrationDialog.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Ui\Dialogs\SideVisionFocusCalibrationDialog.cs">
+      <SubType>Form</SubType>
     </Compile>
     <Compile Include="Ui\Dialogs\ColletCalibrationDialog.cs">
       <SubType>Form</SubType>

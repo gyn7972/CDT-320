@@ -11,7 +11,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
         private VisionCameraCalibrationDialog _visionCameraDialog;
         private ColletCalibrationDialog _colletDialog;
         private NeedlePinCalibrationDialog _needleDialog;
-        private CalibrationSetupDialog _colletZHeightDialog;
+        private SideVisionFocusCalibrationDialog _sideVisionFocusDialog;
         private VisionFocusCalibrationDialog _visionFocusDialog;
         private CalibrationSetupDialog _colletRotationCenterDialog;
         private PickUpZCalibrationDialog _pickUpZDialog;
@@ -104,13 +104,35 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 "저장 제안: Needle Cap/Pin 기준 높이는 장비 기준값이므로 Config에 저장합니다.");
         }
 
-        private void btnColletZHeightCal_Click(object sender, EventArgs e)
+        private void btnSideVisionFocusCal_Click(object sender, EventArgs e)
         {
-            ShowDialogOnce(
-                ref _colletZHeightDialog,
-                "COLLET Z HEIGHT CAL",
-                "Vacuum과 Flow 센서 기준으로 Front/Rear 콜렛 1~4번의 Z 기준 높이를 측정하는 캘리브레이션입니다.",
-                "저장 제안: 콜렛별 기준 높이는 Config, 제품 두께는 Recipe에 저장합니다.");
+            try
+            {
+                Form host = FindForm();
+                if (_sideVisionFocusDialog == null || _sideVisionFocusDialog.IsDisposed)
+                {
+                    _sideVisionFocusDialog = SideVisionFocusCalibrationDialog.Open(host);
+                    _sideVisionFocusDialog.StartPosition = FormStartPosition.Manual;
+                    _sideVisionFocusDialog.Location = ResolveDialogLocation(_sideVisionFocusDialog);
+                    lblStatus.Text = "SIDE VISION FOCUS CAL 설정창을 열었습니다.";
+                    return;
+                }
+
+                if (!_sideVisionFocusDialog.Visible)
+                    _sideVisionFocusDialog.Show(host);
+
+                _sideVisionFocusDialog.Activate();
+                _sideVisionFocusDialog.BringToFront();
+                lblStatus.Text = "SIDE VISION FOCUS CAL 설정창이 이미 열려 있습니다.";
+            }
+            catch (Exception ex)
+            {
+                EventLogger.Write(EventKind.Alarm, "UI", "SIDE-VISION-FOCUS-CAL-OPEN", "SIDE VISION FOCUS CAL 설정창 열기 실패: " + ex.Message);
+                QMC.Common.MessageDialog.Show(this, "SIDE VISION FOCUS CAL 설정창 열기 실패:\r\n" + ex.Message, "Calibration", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+            }
         }
 
         private void btnVisionFocusCal_Click(object sender, EventArgs e)

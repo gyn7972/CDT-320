@@ -610,14 +610,10 @@ namespace QMC.CDT320
 
         public bool IsWaferFeederInAvoidPosition()
         {
-            bool axisInPosition = IsWaferFeederYInPosition(
+            // Feeder 자체 이동 완료는 엔코더 위치로 확인한다. Picker 간섭 안전 확인은 X090 Dog를 별도로 사용한다.
+            return IsWaferFeederYInPosition(
                 Recipe.AvoidPosition,
                 ResolveWaferFeederYInPositionTolerance());
-
-            if (!axisInPosition)
-                return false;
-
-            return IsWaferFeederAvoidPositionCheck();
         }
 
         public bool IsWaferFeederYInAvoidPosition()
@@ -627,6 +623,7 @@ namespace QMC.CDT320
 
         public bool IsWaferFeederAvoidPositionCheck()
         {
+            // 실장비 Picker 안전 인터록용 Avoid Dog. Simulation/DryRun에는 물리 Dog가 없으므로 위치로 대체한다.
             if (IsWaferFeederSimulationOrDryRun())
                 return IsWaferFeederYInPosition(
                     Recipe.AvoidPosition,
@@ -2561,32 +2558,13 @@ namespace QMC.CDT320
                 WaitWaferFeederYMoveDoneInPosition(target, timeoutMs),
                 ct).ConfigureAwait(false);
 
-            if (!waitResult.Success)
-            {
-                return RaiseFeederAlarm(
-                    AxisMoveWaiter.ResolveAlarmCode(alarmPrefix, waitResult),
-                    description + " move/in-position wait failed. " +
-                    AxisMoveWaiter.FormatResult(waitResult, GetWaferFeederTransferState()));
-            }
-
-            if (!IsWaferFeederAvoidTarget(target) || IsWaferFeederSimulationOrDryRun())
-                return 0;
-
-            bool avoidCheck = WaferFeederAvoidPositionCheckSensor != null &&
-                await WaferFeederAvoidPositionCheckSensor.WaitUntilStateAsync(true, timeoutMs, ct).ConfigureAwait(false);
-            if (avoidCheck)
+            if (waitResult.Success)
                 return 0;
 
             return RaiseFeederAlarm(
-                alarmPrefix + "-AVOID-CHECK",
-                description + " 도착 후 WaferFeeder Avoid 위치 확인 접점이 ON되지 않았습니다. " +
-                FormatInputState("X090", WaferFeederAvoidPositionCheckSensor));
-        }
-
-        private bool IsWaferFeederAvoidTarget(double target)
-        {
-            return Recipe != null &&
-                   Math.Abs(target - Recipe.AvoidPosition) <= ResolveWaferFeederYInPositionTolerance();
+                AxisMoveWaiter.ResolveAlarmCode(alarmPrefix, waitResult),
+                description + " move/in-position wait failed. " +
+                AxisMoveWaiter.FormatResult(waitResult, GetWaferFeederTransferState()));
         }
 
         private double GetTeachingPosition(string positionName)

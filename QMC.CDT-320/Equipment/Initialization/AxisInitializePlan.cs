@@ -63,6 +63,7 @@ namespace QMC.CDT320.Initialization
         [DataMember] public string TargetType { get; set; }
         [DataMember] public string Name { get; set; }
         [DataMember] public string ExpectedState { get; set; }
+        [DataMember] public string PositionName { get; set; }
         [DataMember] public double ExpectedPosition { get; set; }
         [DataMember] public double Tolerance { get; set; } = 0.01;
         [DataMember] public bool Enabled { get; set; } = true;
@@ -91,10 +92,12 @@ namespace QMC.CDT320.Initialization
         public const string AllOk = "AllOk";
         public const string Stopped = "Stopped";
         public const string AtPosition = "AtPosition";
+        public const string AtOrBelowPosition = "AtOrBelowPosition";
         public const string AutoStopped = "AutoStopped";
         public const string ManualStopped = "ManualStopped";
         public const string AllAxesStopped = "AllAxesStopped";
         public const string Empty = "Empty";
+        public const string SharedRailHomeClear = "SharedRailHomeClear";
     }
 
     public static class AxisInitializeInterlockName
@@ -118,6 +121,8 @@ namespace QMC.CDT320.Initialization
         public const string RightDoorCheck = "RightDoorCheck";
         public const string WaferLifterDoorCheck = "WaferLifterDoorCheck";
         public const string BinLifterDoorCheck = "BinLifterDoorCheck";
+        public const string WaferFeederAvoidPositionCheck = "WaferFeederAvoidPositionCheck";
+        public const string BinFeederAvoidPositionCheck = "BinFeederAvoidPositionCheck";
     }
 
     public static class AxisInitializeActionCommand
@@ -183,7 +188,7 @@ namespace QMC.CDT320.Initialization
 
     public static class AxisInitializePlanStore
     {
-        private const int CurrentDefaultVersion = 7;
+        private const int CurrentDefaultVersion = 9;
         public static string RootDir => @"D:\CDT-320";
         public static string Dir => Path.Combine(RootDir, "Config");
         public static string PlanPath => Path.Combine(Dir, "axis_initialize_plan.json");
@@ -322,228 +327,397 @@ namespace QMC.CDT320.Initialization
                     .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
                 var used = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-                // Z/T/Y/X 초기화는 우선 전부 축 단위 순차 스텝으로 표시/실행한다.
-                AddKnownStep(plan, axisByName, used, 10, "FrontPickerZ",
-                    AxisInitializeRunMode.Parallel,
-                    "FrontPickerZ1~Z4 home together to secure vertical clearance.",
-                    "FrontPickerZ0",
-                    "FrontPickerZ1",
-                    "FrontPickerZ2",
-                    "FrontPickerZ3");
+                // 1. 수직축을 먼저 Home하여 이후 실린더/평면축 이동 공간을 확보한다.
+                AddKnownStep(plan, axisByName, used, 10, "FrontPickerZ", AxisInitializeRunMode.Parallel,
+                    "Front Picker Z0~Z3 home together.",
+                    "FrontPickerZ0", "FrontPickerZ1", "FrontPickerZ2", "FrontPickerZ3");
+                AddKnownStep(plan, axisByName, used, 20, "RearPickerZ", AxisInitializeRunMode.Parallel,
+                    "Rear Picker Z0~Z3 home together.",
+                    "RearPickerZ0", "RearPickerZ1", "RearPickerZ2", "RearPickerZ3");
+                AddKnownStep(plan, axisByName, used, 30, "NeedleZ", AxisInitializeRunMode.Parallel,
+                    "NeedleZ and EjectPinZ home together.", "NeedleZ", "EjectPinZ");
 
-                AddKnownStep(plan, axisByName, used, 20, "RearPickerZ",
-                    AxisInitializeRunMode.Parallel,
-                    "RearPickerZ1~Z4 home together to secure vertical clearance.",
-                    "RearPickerZ0",
-                    "RearPickerZ1",
-                    "RearPickerZ2",
-                    "RearPickerZ3");
+                // 2. Reticle은 Rear/Front Slide Bwd 완료 후 Lift Bwd 순서로 이동한다.
+                AddActionOnlyStep(plan, 40, "ReticleSideSlideRear", "ReticleSideSlideRear",
+                    AxisInitializeActionCommand.CylinderBwd, "Reticle rear slide moves backward.");
+                AddAxisHomeDoneInterlocks(plan, 40, "ReticleSideSlideRear",
+                    "FrontPickerZ0", "FrontPickerZ1", "FrontPickerZ2", "FrontPickerZ3",
+                    "RearPickerZ0", "RearPickerZ1", "RearPickerZ2", "RearPickerZ3");
 
-                AddKnownStep(plan, axisByName, used, 30, "NeedleZ",
-                    AxisInitializeRunMode.Parallel,
-                    "NeedleZ home together to secure vertical clearance.",
-                    "NeedleZ",
-                    "EjectPinZ",
-                    "NeedleZ");
+                AddActionOnlyStep(plan, 50, "ReticleSideSlideFront", "ReticleSideSlideFront",
+                    AxisInitializeActionCommand.CylinderBwd, "Reticle front slide moves backward.");
+                AddAxisHomeDoneInterlocks(plan, 50, "ReticleSideSlideFront",
+                    "FrontPickerZ0", "FrontPickerZ1", "FrontPickerZ2", "FrontPickerZ3",
+                    "RearPickerZ0", "RearPickerZ1", "RearPickerZ2", "RearPickerZ3");
 
-                AddActionOnlyStep(plan, 40, "OutputStageNGClampRelease", "NGBinGuideClamp", AxisInitializeActionCommand.CylinderBwd,
-                    "NG bin clamp moves backward before the clamp lift moves up.");
-                AddStepInterlock(plan, 40, "OutputStageNGClampRelease",
-                    AxisInitializeInterlockTarget.Material,
-                    AxisInitializeInterlockName.OutputStageNg,
-                    AxisInitializeInterlockState.Empty,
+                AddActionOnlyStep(plan, 60, "ReticleLift", "ReticleLift",
+                    AxisInitializeActionCommand.CylinderBwd, "Reticle lift moves backward after both slides.");
+                AddAxisHomeDoneInterlocks(plan, 60, "ReticleLift",
+                    "FrontPickerZ0", "FrontPickerZ1", "FrontPickerZ2", "FrontPickerZ3",
+                    "RearPickerZ0", "RearPickerZ1", "RearPickerZ2", "RearPickerZ3");
+                AddStepInterlock(plan, 60, "ReticleLift", AxisInitializeInterlockTarget.Cylinder,
+                    "ReticleSideSlideRear", AxisInitializeInterlockState.Bwd,
+                    "Reticle Rear Slide를 Bwd 상태로 만든 후 다시 실행하십시오.");
+                AddStepInterlock(plan, 60, "ReticleLift", AxisInitializeInterlockTarget.Cylinder,
+                    "ReticleSideSlideFront", AxisInitializeInterlockState.Bwd,
+                    "Reticle Front Slide를 Bwd 상태로 만든 후 다시 실행하십시오.");
+
+                // 3. OutputStage 6개 실린더 중 축 Home에 필요한 상태만 조건부로 만든다.
+                // NG GuideLift, Good ClampLift, Good Clamp는 자재 상태에 종속되므로 자동으로 움직이지 않는다.
+                AddActionOnlyStep(plan, 70, "OutputStageNGClampRelease", "NGBinGuideClamp",
+                    AxisInitializeActionCommand.CylinderBwd, "NG Clamp moves Bwd before ClampLift Up.");
+                AddStepInterlock(plan, 70, "OutputStageNGClampRelease", AxisInitializeInterlockTarget.Material,
+                    AxisInitializeInterlockName.OutputStageNg, AxisInitializeInterlockState.Empty,
                     "Output NG Stage의 자재를 육안 확인한 후 Manual 화면에서 자재를 제거하십시오.");
 
-                AddActionOnlyStep(plan, 45, "OutputStageNGClampLift", "NGBinGuideClampLift", AxisInitializeActionCommand.CylinderFwd,
-                    "NG bin clamp lift moves up only after the NG clamp is backward.");
-                AddStepInterlock(plan, 45, "OutputStageNGClampLift",
-                    AxisInitializeInterlockTarget.Cylinder,
-                    "NGBinGuideClamp",
-                    AxisInitializeInterlockState.Bwd,
-                    "NG Clamp를 Manual 화면에서 Unclamp(Bwd) 상태로 만든 후 다시 실행하십시오.");
-                AddStepInterlock(plan, 45, "OutputStageNGClampLift",
-                    AxisInitializeInterlockTarget.Material,
-                    AxisInitializeInterlockName.OutputStageNg,
-                    AxisInitializeInterlockState.Empty,
+                AddActionOnlyStep(plan, 80, "OutputStageNGClampLift", "NGBinGuideClampLift",
+                    AxisInitializeActionCommand.CylinderFwd, "NG ClampLift moves Up after NG Clamp Bwd.");
+                AddStepInterlock(plan, 80, "OutputStageNGClampLift", AxisInitializeInterlockTarget.Cylinder,
+                    "NGBinGuideClamp", AxisInitializeInterlockState.Bwd,
+                    "NG Clamp가 Unclamp(Bwd) 상태인지 확인하십시오.");
+                AddStepInterlock(plan, 80, "OutputStageNGClampLift", AxisInitializeInterlockTarget.Material,
+                    AxisInitializeInterlockName.OutputStageNg, AxisInitializeInterlockState.Empty,
                     "Output NG Stage의 자재를 육안 확인한 후 Manual 화면에서 자재를 제거하십시오.");
 
-                AddKnownSingleStep(plan, axisByName, used, 50, "OutputStageZ",
-                    AxisInitializeRunMode.Serial,
-                    "Output good stage Z home before Y axes. NG stage has Y axis only.",
+                AddKnownSingleStep(plan, axisByName, used, 90, "OutputStageZ", AxisInitializeRunMode.Serial,
+                    "OutputGoodStageZ home after NG Clamp Bwd and ClampLift Up.",
                     "OutputGoodStageZ", "GoodStage_StageZ");
-                AddFeederSafeInterlocks(plan, 50, "OutputStageZ", false);
-                AddStepInterlock(plan, 50, "OutputStageZ",
-                    AxisInitializeInterlockTarget.Cylinder,
-                    "NGBinGuideClampLift",
-                    AxisInitializeInterlockState.Fwd,
-                    "NG ClampLift가 Up 상태인지 확인하고 Manual 화면에서 조치하십시오.");
+                AddFeederSafeInterlocks(plan, 90, "OutputStageZ", false);
+                AddStepInterlock(plan, 90, "OutputStageZ", AxisInitializeInterlockTarget.Cylinder,
+                    "NGBinGuideClamp", AxisInitializeInterlockState.Bwd,
+                    "NG Clamp가 Unclamp(Bwd) 상태인지 확인하십시오.");
+                AddStepInterlock(plan, 90, "OutputStageZ", AxisInitializeInterlockTarget.Cylinder,
+                    "NGBinGuideClampLift", AxisInitializeInterlockState.Fwd,
+                    "NG ClampLift가 Up 상태인지 확인하십시오.");
+                AddStepInterlock(plan, 90, "OutputStageZ", AxisInitializeInterlockTarget.Material,
+                    AxisInitializeInterlockName.OutputStageGood, AxisInitializeInterlockState.Empty,
+                    "Output Good Stage의 자재를 육안 확인한 후 Manual 화면에서 자재를 제거하십시오.");
+                AddStepInterlock(plan, 90, "OutputStageZ", AxisInitializeInterlockTarget.Material,
+                    AxisInitializeInterlockName.OutputStageNg, AxisInitializeInterlockState.Empty,
+                    "Output NG Stage의 자재를 육안 확인한 후 Manual 화면에서 자재를 제거하십시오.");
 
-                AddKnownSingleStep(plan, axisByName, used, 60, "InputStageZ",
-                    AxisInitializeRunMode.Serial,
-                    "InputExpandingZ home after needle vertical axes.",
+                AddKnownSingleStep(plan, axisByName, used, 100, "InputStageZ", AxisInitializeRunMode.Serial,
+                    "InputExpandingZ home only when InputFeeder is empty and already unclamped.",
                     "InputExpandingZ", "ExpanderZ");
-                AddFeederSafeInterlocks(plan, 60, "InputStageZ", true);
+                AddFeederSafeInterlocks(plan, 100, "InputStageZ", true);
+                AddAxisHomeDoneInterlocks(plan, 100, "InputStageZ", "NeedleZ", "EjectPinZ");
 
-                AddKnownStep(plan, axisByName, used, 70, "FrontPickerT",
-                    AxisInitializeRunMode.Parallel,
-                    "FrontPickerT1~T4 home together to secure vertical clearance.",
-                    "FrontPickerT0",
-                    "FrontPickerT1",
-                    "FrontPickerT2",
-                    "FrontPickerT3");
+                // 4. 회전축과 독립 Vision Y축을 초기화한다.
+                AddKnownStep(plan, axisByName, used, 110, "FrontPickerT", AxisInitializeRunMode.Parallel,
+                    "Front Picker T0~T3 home together.",
+                    "FrontPickerT0", "FrontPickerT1", "FrontPickerT2", "FrontPickerT3");
+                AddAxisHomeDoneInterlocks(plan, 110, "FrontPickerT",
+                    "FrontPickerZ0", "FrontPickerZ1", "FrontPickerZ2", "FrontPickerZ3");
 
-                AddKnownStep(plan, axisByName, used, 80, "RearPickerT",
-                    AxisInitializeRunMode.Parallel,
-                    "RearPickerT1~T4 home together to secure vertical clearance.",
-                    "RearPickerT0",
-                    "RearPickerT1",
-                    "RearPickerT2",
-                    "RearPickerT3");
+                AddKnownStep(plan, axisByName, used, 120, "RearPickerT", AxisInitializeRunMode.Parallel,
+                    "Rear Picker T0~T3 home together.",
+                    "RearPickerT0", "RearPickerT1", "RearPickerT2", "RearPickerT3");
+                AddAxisHomeDoneInterlocks(plan, 120, "RearPickerT",
+                    "RearPickerZ0", "RearPickerZ1", "RearPickerZ2", "RearPickerZ3");
 
-                AddKnownSingleStep(plan, axisByName, used, 90, "FrontSideVisionY",
-                    AxisInitializeRunMode.Serial,
-                    "Front side vision Y home.",
-                    "FrontSideVisionY0", "FrontSideVisionY");
+                AddKnownSingleStep(plan, axisByName, used, 130, "FrontSideVisionY", AxisInitializeRunMode.Serial,
+                    "Front side vision Y home.", "FrontSideVisionY0", "FrontSideVisionY");
+                AddKnownSingleStep(plan, axisByName, used, 140, "RearSideVisionY", AxisInitializeRunMode.Serial,
+                    "Rear side vision Y home.", "RearSideVisionY0", "RearSideVisionY");
 
-                AddKnownSingleStep(plan, axisByName, used, 100, "RearSideVisionY",
-                    AxisInitializeRunMode.Serial,
-                    "Rear side vision Y home.",
-                    "RearSideVisionY0", "RearSideVisionY");
+                // 5. Picker Y는 수직 Stage가 안전해진 후 직렬로 Home한다.
+                AddKnownStep(plan, axisByName, used, 150, "FrontPickerY", AxisInitializeRunMode.Serial,
+                    "FrontPickerY home after Front Z, ExpanderZ and GoodStageZ.", "FrontPickerY");
+                AddAxisHomeDoneInterlocks(plan, 150, "FrontPickerY",
+                    "FrontPickerZ0", "FrontPickerZ1", "FrontPickerZ2", "FrontPickerZ3",
+                    "InputExpandingZ", "OutputGoodStageZ");
+                AddStepInterlock(plan, 150, "FrontPickerY", AxisInitializeInterlockTarget.Cylinder,
+                    "ReticleLift", AxisInitializeInterlockState.Bwd,
+                    "Reticle Lift가 Bwd 상태인지 확인하십시오.");
 
-                //Reticle 순서 뒤로 빠지고 다운해야함.
-                AddActionOnlyStep(plan, 110, "ReticleSideSlideRear", "ReticleSideSlideRear", AxisInitializeActionCommand.CylinderBwd,
-                    "Reticle side slide rear moves backward before shared rail/input feeder initialize.");
+                AddKnownStep(plan, axisByName, used, 160, "RearPickerY", AxisInitializeRunMode.Serial,
+                    "RearPickerY home after Rear Z.", "RearPickerY");
+                AddAxisHomeDoneInterlocks(plan, 160, "RearPickerY",
+                    "RearPickerZ0", "RearPickerZ1", "RearPickerZ2", "RearPickerZ3");
+                AddStepInterlock(plan, 160, "RearPickerY", AxisInitializeInterlockTarget.Cylinder,
+                    "ReticleLift", AxisInitializeInterlockState.Bwd,
+                    "Reticle Lift가 Bwd 상태인지 확인하십시오.");
 
-                AddActionOnlyStep(plan, 120, "ReticleSideSlideFront", "ReticleSideSlideFront", AxisInitializeActionCommand.CylinderBwd,
-                    "Reticle side slide front moves backward before shared rail/input feeder initialize.");
+                // 6. InputFeeder는 자동 Unclamp하지 않고 Empty/Unclamp 확인 후 Down/Home한다.
+                AddActionOnlyStep(plan, 170, "InputFeederLift", "InputFeederLift",
+                    AxisInitializeActionCommand.CylinderBwd,
+                    "InputFeeder Lift moves Down only when empty and already unclamped.");
+                AddFeederSafeInterlocks(plan, 170, "InputFeederLift", true);
+                AddAxisHomeDoneInterlocks(plan, 170, "InputFeederLift", "FrontPickerY", "RearPickerY");
 
-                AddActionOnlyStep(plan, 130, "ReticleLift", "ReticleLift", AxisInitializeActionCommand.CylinderBwd,
-                    "Reticle lift moves backward before shared rail/input feeder initialize.");
+                AddKnownSingleStep(plan, axisByName, used, 180, "InputFeeder", AxisInitializeRunMode.Serial,
+                    "InputFeederY home after Lift Down.", "InputFeederY", "FeederY");
+                AddFeederSafeInterlocks(plan, 180, "InputFeeder", true);
+                AddAxisHomeDoneInterlocks(plan, 180, "InputFeeder", "FrontPickerY", "RearPickerY");
+                AddStepInterlock(plan, 180, "InputFeeder", AxisInitializeInterlockTarget.Cylinder,
+                    "InputFeederLift", AxisInitializeInterlockState.Bwd,
+                    "InputFeeder Lift를 Down 상태로 만든 후 다시 실행하십시오.");
 
-                AddKnownSingleStep(plan, axisByName, used, 140, "InputStageY",
-                    AxisInitializeRunMode.Serial,
-                    "InputStageY home. InputStageY moves to Avoid before NeedleX.",
-                    "InputStageY", "StageY");
+                // 7. InputStage 평면축과 Input Cassette를 초기화한다.
+                AddKnownSingleStep(plan, axisByName, used, 190, "InputStageY", AxisInitializeRunMode.Serial,
+                    "InputStageY home after feeder and vertical axes.", "InputStageY", "StageY");
+                AddFeederSafeInterlocks(plan, 190, "InputStageY", true);
+                AddAxisHomeDoneInterlocks(plan, 190, "InputStageY",
+                    "InputFeederY", "NeedleZ", "EjectPinZ", "InputExpandingZ",
+                    "FrontPickerZ0", "FrontPickerZ1", "FrontPickerZ2", "FrontPickerZ3",
+                    "RearPickerZ0", "RearPickerZ1", "RearPickerZ2", "RearPickerZ3");
+                AddStepInterlock(plan, 190, "InputStageY", AxisInitializeInterlockTarget.Cylinder,
+                    "InputFeederLift", AxisInitializeInterlockState.Bwd,
+                    "InputFeeder Lift를 Down 상태로 만든 후 다시 실행하십시오.");
 
-                //AddAxisTeachingActionOnlyStep(plan, 320, "InputStageYAvoid", "InputStageY", "AvoidPosition",
-                //    "InputStageY moves to Avoid after home.");
+                AddAxisTeachingActionOnlyStep(plan, 200, "InputStageYAvoid", "InputStageY", "AvoidPosition",
+                    "InputStageY moves to Avoid after home.");
+                AddFeederSafeInterlocks(plan, 200, "InputStageYAvoid", true);
+                AddAxisHomeDoneInterlocks(plan, 200, "InputStageYAvoid",
+                    "InputStageY", "InputFeederY", "InputExpandingZ", "EjectPinZ");
+                AddStepInterlock(plan, 200, "InputStageYAvoid", AxisInitializeInterlockTarget.Axis,
+                    "InputFeederY", AxisInitializeInterlockState.AtPosition,
+                    "InputFeederY를 Home/Avoid 위치로 이동한 후 다시 실행하십시오.", "AvoidPosition");
+                AddStepInterlock(plan, 200, "InputStageYAvoid", AxisInitializeInterlockTarget.DigitalInput,
+                    AxisInitializeSafetyInput.WaferFeederAvoidPositionCheck, AxisInitializeInterlockState.On,
+                    "InputFeederY Home 후 Wafer Feeder Avoid 센서를 확인하십시오.");
+                AddStepInterlock(plan, 200, "InputStageYAvoid", AxisInitializeInterlockTarget.Cylinder,
+                    "InputFeederLift", AxisInitializeInterlockState.Bwd,
+                    "InputFeeder Lift를 Down 상태로 만든 후 다시 실행하십시오.");
 
-                AddKnownSingleStep(plan, axisByName, used, 150, "InputStageT",
-                    AxisInitializeRunMode.Serial,
-                    "InputStageT home after InputStageY home.",
-                    "InputStageT", "StageT");
+                AddKnownSingleStep(plan, axisByName, used, 210, "InputStageT", AxisInitializeRunMode.Serial,
+                    "InputStageT home after InputStageY Avoid.", "InputStageT", "StageT");
+                AddFeederSafeInterlocks(plan, 210, "InputStageT", true);
+                AddAxisHomeDoneInterlocks(plan, 210, "InputStageT",
+                    "InputStageY", "InputFeederY", "EjectPinZ", "InputExpandingZ",
+                    "FrontPickerZ0", "FrontPickerZ1", "FrontPickerZ2", "FrontPickerZ3",
+                    "RearPickerZ0", "RearPickerZ1", "RearPickerZ2", "RearPickerZ3");
+                AddStepInterlock(plan, 210, "InputStageT", AxisInitializeInterlockTarget.Cylinder,
+                    "InputFeederLift", AxisInitializeInterlockState.Bwd,
+                    "InputFeeder Lift를 Down 상태로 만든 후 다시 실행하십시오.");
+                AddStepInterlock(plan, 210, "InputStageT", AxisInitializeInterlockTarget.Axis,
+                    "InputStageY", AxisInitializeInterlockState.AtPosition,
+                    "InputStageY를 Avoid 위치로 이동한 후 다시 실행하십시오.", "AvoidPosition");
 
-                AddKnownSingleStep(plan, axisByName, used, 160, "InputStageNeedleX",
-                    AxisInitializeRunMode.Serial,
-                    "NeedleX home after InputStageY home and Avoid move.",
-                    "NeedleX", "NeedleBlockX");
+                AddKnownSingleStep(plan, axisByName, used, 220, "InputStageNeedleX", AxisInitializeRunMode.Serial,
+                    "NeedleX home after InputStageY Avoid.", "NeedleX", "NeedleBlockX");
+                AddAxisHomeDoneInterlocks(plan, 220, "InputStageNeedleX",
+                    "InputStageY", "NeedleZ", "EjectPinZ");
+                AddStepInterlock(plan, 220, "InputStageNeedleX", AxisInitializeInterlockTarget.Axis,
+                    "InputStageY", AxisInitializeInterlockState.AtPosition,
+                    "InputStageY를 Avoid 위치로 이동한 후 다시 실행하십시오.", "AvoidPosition");
 
-                AddActionOnlyStep(plan, 180, "InputFeederLift", "InputFeederLift", AxisInitializeActionCommand.CylinderBwd,
-                    "Input feeder moves down only when it is empty and already unclamped.");
-                AddFeederSafeInterlocks(plan, 180, "InputFeederLift", true);
+                AddKnownStep(plan, axisByName, used, 230, "InputCassette", AxisInitializeRunMode.Serial,
+                    "InputLifterZ home after InputFeederY is safe.", "InputLifterZ");
+                AddFeederSafeInterlocks(plan, 230, "InputCassette", true);
+                AddAxisHomeDoneInterlocks(plan, 230, "InputCassette", "InputFeederY");
+                AddStepInterlock(plan, 230, "InputCassette", AxisInitializeInterlockTarget.Cylinder,
+                    "InputFeederLift", AxisInitializeInterlockState.Bwd,
+                    "InputFeeder Lift를 Down 상태로 만든 후 다시 실행하십시오.");
 
-                AddKnownSingleStep(plan, axisByName, used, 190, "InputFeeder",
-                    AxisInitializeRunMode.Serial,
-                    "InputFeederY home. SharedRailX/InputFeeder relation is checked in prepare hook.",
-                    "InputFeederY", "FeederY");
-                AddFeederSafeInterlocks(plan, 190, "InputFeeder", true);
-
-                AddActionOnlyStep(plan, 200, "InputFeederLiftDown", "InputFeederLift", AxisInitializeActionCommand.CylinderBwd,
-                    "Input feeder lift moves down after InputFeederY home.");
-                AddFeederSafeInterlocks(plan, 200, "InputFeederLiftDown", true);
-
-                //AddAxisTeachingActionOnlyStep(plan, 390, "InputFeederYAvoid", "InputFeederY", "AvoidPosition",
-                //    "InputFeederY moves to Avoid after home.");
-
-                AddKnownStep(plan, axisByName, used, 210, "FrontPickerY",
-                    AxisInitializeRunMode.Serial,
-                    "FrontPickerY home after InputFeederY is at Avoid.",
-                    "FrontPickerY");
-
-                //AddAxisTeachingActionOnlyStep(plan, 410, "FrontPickerYAvoid", "FrontPickerY", "AvoidPosition",
-                //    "FrontPickerY moves to Avoid after home.");
-
-                AddKnownStep(plan, axisByName, used, 220, "RearPickerY",
-                    AxisInitializeRunMode.Serial,
-                    "RearPickerY home after FrontPickerY and InputFeederY are at Avoid.",
-                    "RearPickerY");
-
-                //AddAxisTeachingActionOnlyStep(plan, 430, "RearPickerYAvoid", "RearPickerY", "AvoidPosition",
-                //    "RearPickerY moves to Avoid after home.");
-
-                AddKnownStep(plan, axisByName, used, 230, "InputCassette",
-                    AxisInitializeRunMode.Serial,
-                    "Input cassette lifter Z home before InputFeederY. Lifter moves to Avoid in axis post hook.",
-                    "InputLifterZ");
-
-                AddKnownSingleStep(plan, axisByName, used, 240, "InputVisionX",
-                    AxisInitializeRunMode.Serial,
-                    "InputVisionX home after InputFeederY home and lift down.",
-                    "InputVisionX", "CameraX");
-
-                AddKnownStep(plan, axisByName, used, 250, "FrontPickerX",
-                    AxisInitializeRunMode.Serial,
-                    "FrontPickerX home after InputVisionX.",
-                    "FrontPickerX");
-
-                AddKnownStep(plan, axisByName, used, 260, "RearPickerX",
-                    AxisInitializeRunMode.Serial,
-                    "RearPickerX home after FrontPickerX.",
-                    "RearPickerX");
-
-                AddActionOnlyStep(plan, 280, "OutputFeederLift", "OutputFeederLift", AxisInitializeActionCommand.CylinderFwd,
-                    "Output feeder moves up only when it is empty and already unclamped.");
-                AddFeederSafeInterlocks(plan, 280, "OutputFeederLift", false);
-
-                AddKnownStep(plan, axisByName, used, 290, "OutputFeeder",
-                    AxisInitializeRunMode.Serial,
-                    "OutputFeederY home. SharedRailX/OutputFeeder relation is checked in prepare hook.",
-                    "OutputFeederY");
-                AddFeederSafeInterlocks(plan, 290, "OutputFeeder", false);
-
-                AddActionOnlyStep(plan, 300, "OutputFeederLiftDown", "OutputFeederLift", AxisInitializeActionCommand.CylinderBwd,
-                    "Output feeder must be down after OutputFeederY home.");
-                AddFeederSafeInterlocks(plan, 300, "OutputFeederLiftDown", false);
-
-                AddKnownStep(plan, axisByName, used, 310, "SharedRailXOutput",
-                    AxisInitializeRunMode.Serial,
-                    "OutputVisionX home after OutputFeederY home and lift down.",
-                    "OutputVisionX");
-
-                AddKnownSingleStep(plan, axisByName, used, 320, "OutputGoodStageY",
-                    AxisInitializeRunMode.Serial,
-                    "Output good stage Y home after feeder relation.",
-                    "OutputGoodStageY", "GoodStage_StageY");
-
-                AddActionOnlyStep(plan, 325, "OutputGoodBinGuideDown", "GoodBinGuideLift", AxisInitializeActionCommand.CylinderBwd,
-                    "Good bin guide moves down in an independent step before OutputNGStageY home.");
-                AddStepInterlock(plan, 325, "OutputGoodBinGuideDown",
-                    AxisInitializeInterlockTarget.Material,
-                    AxisInitializeInterlockName.OutputStageGood,
-                    AxisInitializeInterlockState.Empty,
+                // 8. OutputFeeder와 Output Stage Y축을 초기화한다.
+                AddActionOnlyStep(plan, 240, "OutputGoodBinGuideDown", "GoodBinGuideLift",
+                    AxisInitializeActionCommand.CylinderBwd,
+                    "Good Bin Guide moves Down before OutputFeederY and NGStageY home.");
+                AddStepInterlock(plan, 240, "OutputGoodBinGuideDown", AxisInitializeInterlockTarget.Material,
+                    AxisInitializeInterlockName.OutputStageGood, AxisInitializeInterlockState.Empty,
                     "Output Good Stage의 자재를 육안 확인한 후 Manual 화면에서 자재를 제거하십시오.");
+                AddAxisHomeDoneInterlocks(plan, 240, "OutputGoodBinGuideDown", "OutputGoodStageZ");
 
-                AddKnownSingleStep(plan, axisByName, used, 330, "OutputNGStageY",
-                    AxisInitializeRunMode.Serial,
-                    "Output NG stage Y home after good stage Y.",
+                AddActionOnlyStep(plan, 250, "OutputFeederLift", "OutputFeederLift",
+                    AxisInitializeActionCommand.CylinderFwd,
+                    "OutputFeeder Lift moves Up only when empty and already unclamped.");
+                AddFeederSafeInterlocks(plan, 250, "OutputFeederLift", false);
+                AddAxisHomeDoneInterlocks(plan, 250, "OutputFeederLift",
+                    "FrontPickerY", "RearPickerY", "OutputGoodStageZ");
+                AddStepInterlock(plan, 250, "OutputFeederLift", AxisInitializeInterlockTarget.Cylinder,
+                    "GoodBinGuideLift", AxisInitializeInterlockState.Bwd,
+                    "Good Bin Guide를 Down 상태로 만든 후 다시 실행하십시오.");
+
+                AddKnownStep(plan, axisByName, used, 260, "OutputFeeder", AxisInitializeRunMode.Serial,
+                    "OutputFeederY home after Lift Up and Good Guide Down.", "OutputFeederY");
+                AddFeederSafeInterlocks(plan, 260, "OutputFeeder", false);
+                AddAxisHomeDoneInterlocks(plan, 260, "OutputFeeder",
+                    "FrontPickerY", "RearPickerY", "OutputGoodStageZ");
+                AddStepInterlock(plan, 260, "OutputFeeder", AxisInitializeInterlockTarget.Cylinder,
+                    "OutputFeederLift", AxisInitializeInterlockState.Fwd,
+                    "OutputFeeder Lift를 Up 상태로 만든 후 다시 실행하십시오.");
+                AddStepInterlock(plan, 260, "OutputFeeder", AxisInitializeInterlockTarget.Cylinder,
+                    "GoodBinGuideLift", AxisInitializeInterlockState.Bwd,
+                    "Good Bin Guide를 Down 상태로 만든 후 다시 실행하십시오.");
+
+                AddAxisTeachingActionOnlyStep(plan, 270, "OutputStageZAvoid", "OutputGoodStageZ", "AvoidPosition",
+                    "OutputGoodStageZ moves to Avoid after OutputFeederY home.");
+                AddAxisHomeDoneInterlocks(plan, 270, "OutputStageZAvoid", "OutputGoodStageZ", "OutputFeederY");
+                AddFeederSafeInterlocks(plan, 270, "OutputStageZAvoid", false);
+                AddStepInterlock(plan, 270, "OutputStageZAvoid", AxisInitializeInterlockTarget.Axis,
+                    "OutputFeederY", AxisInitializeInterlockState.AtPosition,
+                    "OutputFeederY를 Home/Avoid 위치로 이동한 후 다시 실행하십시오.", "AvoidPosition");
+                AddStepInterlock(plan, 270, "OutputStageZAvoid", AxisInitializeInterlockTarget.DigitalInput,
+                    AxisInitializeSafetyInput.BinFeederAvoidPositionCheck, AxisInitializeInterlockState.On,
+                    "OutputFeederY Home 후 Bin Feeder Avoid 센서를 확인하십시오.");
+                AddStepInterlock(plan, 270, "OutputStageZAvoid", AxisInitializeInterlockTarget.Cylinder,
+                    "NGBinGuideClampLift", AxisInitializeInterlockState.Fwd,
+                    "NG ClampLift가 Up 상태인지 확인하십시오.");
+                AddStepInterlock(plan, 270, "OutputStageZAvoid", AxisInitializeInterlockTarget.Cylinder,
+                    "NGBinGuideClamp", AxisInitializeInterlockState.Bwd,
+                    "NG Clamp가 Unclamp(Bwd) 상태인지 확인하십시오.");
+                AddStepInterlock(plan, 270, "OutputStageZAvoid", AxisInitializeInterlockTarget.Material,
+                    AxisInitializeInterlockName.OutputStageGood, AxisInitializeInterlockState.Empty,
+                    "Output Good Stage의 자재를 육안 확인한 후 Manual 화면에서 자재를 제거하십시오.");
+                AddStepInterlock(plan, 270, "OutputStageZAvoid", AxisInitializeInterlockTarget.Material,
+                    AxisInitializeInterlockName.OutputStageNg, AxisInitializeInterlockState.Empty,
+                    "Output NG Stage의 자재를 육안 확인한 후 Manual 화면에서 자재를 제거하십시오.");
+
+                AddActionOnlyStep(plan, 280, "OutputFeederLiftDown", "OutputFeederLift",
+                    AxisInitializeActionCommand.CylinderBwd,
+                    "OutputFeeder Lift moves Down after OutputFeederY home.");
+                AddFeederSafeInterlocks(plan, 280, "OutputFeederLiftDown", false);
+                AddAxisHomeDoneInterlocks(plan, 280, "OutputFeederLiftDown", "OutputFeederY");
+
+                AddKnownSingleStep(plan, axisByName, used, 290, "OutputNGStageY", AxisInitializeRunMode.Serial,
+                    "OutputNGStageY home after GoodStageZ Avoid and Good Guide Down.",
                     "OutputNGStageY", "NgStage_StageY");
-                AddStepInterlock(plan, 330, "OutputNGStageY",
-                    AxisInitializeInterlockTarget.Cylinder,
-                    "GoodBinGuideLift",
-                    AxisInitializeInterlockState.Bwd,
-                    "Good Bin Guide가 Down 상태인지 확인하고 Manual 화면에서 조치하십시오.");
-                AddStepInterlock(plan, 330, "OutputNGStageY",
-                    AxisInitializeInterlockTarget.Material,
-                    AxisInitializeInterlockName.OutputStageGood,
-                    AxisInitializeInterlockState.Empty,
+                AddAxisHomeDoneInterlocks(plan, 290, "OutputNGStageY", "OutputGoodStageZ", "OutputFeederY");
+                AddStepInterlock(plan, 290, "OutputNGStageY", AxisInitializeInterlockTarget.Axis,
+                    "OutputGoodStageZ", AxisInitializeInterlockState.AtPosition,
+                    "OutputGoodStageZ를 Avoid 위치로 이동한 후 다시 실행하십시오.", "AvoidPosition");
+                AddStepInterlock(plan, 290, "OutputNGStageY", AxisInitializeInterlockTarget.Cylinder,
+                    "GoodBinGuideLift", AxisInitializeInterlockState.Bwd,
+                    "Good Bin Guide를 Down 상태로 만든 후 다시 실행하십시오.");
+                AddStepInterlock(plan, 290, "OutputNGStageY", AxisInitializeInterlockTarget.Cylinder,
+                    "NGBinGuideClamp", AxisInitializeInterlockState.Bwd,
+                    "NG Clamp가 Unclamp(Bwd) 상태인지 확인하십시오.");
+                AddStepInterlock(plan, 290, "OutputNGStageY", AxisInitializeInterlockTarget.Cylinder,
+                    "NGBinGuideClampLift", AxisInitializeInterlockState.Fwd,
+                    "NG ClampLift가 Up 상태인지 확인하십시오.");
+                AddStepInterlock(plan, 290, "OutputNGStageY", AxisInitializeInterlockTarget.Material,
+                    AxisInitializeInterlockName.OutputStageNg, AxisInitializeInterlockState.Empty,
+                    "Output NG Stage의 자재를 육안 확인한 후 Manual 화면에서 자재를 제거하십시오.");
+                AddStepInterlock(plan, 290, "OutputNGStageY", AxisInitializeInterlockTarget.Material,
+                    AxisInitializeInterlockName.OutputStageGood, AxisInitializeInterlockState.Empty,
                     "Output Good Stage의 자재를 육안 확인한 후 Manual 화면에서 자재를 제거하십시오.");
 
-                AddKnownStep(plan, axisByName, used, 340, "OutputCassette",
-                    AxisInitializeRunMode.Serial,
-                    "Output cassette lifter Z home after OutputFeederY is safe.",
-                    "OutputLifterZ");
+                AddAxisTeachingActionOnlyStep(plan, 300, "OutputNGStageYAvoid", "OutputNGStageY", "AvoidPosition",
+                    "OutputNGStageY moves to Avoid after home.");
+                AddAxisHomeDoneInterlocks(plan, 300, "OutputNGStageYAvoid", "OutputNGStageY", "OutputGoodStageZ", "OutputFeederY");
+                AddStepInterlock(plan, 300, "OutputNGStageYAvoid", AxisInitializeInterlockTarget.Cylinder,
+                    "GoodBinGuideLift", AxisInitializeInterlockState.Bwd,
+                    "Good Bin Guide를 Down 상태로 만든 후 다시 실행하십시오.");
+                AddStepInterlock(plan, 300, "OutputNGStageYAvoid", AxisInitializeInterlockTarget.Cylinder,
+                    "NGBinGuideClampLift", AxisInitializeInterlockState.Fwd,
+                    "NG ClampLift가 Up 상태인지 확인하십시오.");
+                AddStepInterlock(plan, 300, "OutputNGStageYAvoid", AxisInitializeInterlockTarget.Cylinder,
+                    "NGBinGuideClamp", AxisInitializeInterlockState.Bwd,
+                    "NG Clamp가 Unclamp(Bwd) 상태인지 확인하십시오.");
+                AddStepInterlock(plan, 300, "OutputNGStageYAvoid", AxisInitializeInterlockTarget.Material,
+                    AxisInitializeInterlockName.OutputStageNg, AxisInitializeInterlockState.Empty,
+                    "Output NG Stage의 자재를 육안 확인한 후 Manual 화면에서 자재를 제거하십시오.");
+                AddStepInterlock(plan, 300, "OutputNGStageYAvoid", AxisInitializeInterlockTarget.Material,
+                    AxisInitializeInterlockName.OutputStageGood, AxisInitializeInterlockState.Empty,
+                    "Output Good Stage의 자재를 육안 확인한 후 Manual 화면에서 자재를 제거하십시오.");
 
-                //AddRemainingGroupedSteps(plan, cleanAxes, used, 330);
+                AddKnownSingleStep(plan, axisByName, used, 310, "OutputGoodStageY", AxisInitializeRunMode.Serial,
+                    "OutputGoodStageY home after OutputNGStageY Avoid.",
+                    "OutputGoodStageY", "GoodStage_StageY");
+                AddAxisHomeDoneInterlocks(plan, 310, "OutputGoodStageY", "OutputGoodStageZ", "OutputNGStageY", "OutputFeederY");
+                AddStepInterlock(plan, 310, "OutputGoodStageY", AxisInitializeInterlockTarget.Axis,
+                    "OutputFeederY", AxisInitializeInterlockState.AtPosition,
+                    "OutputFeederY를 Home/Avoid 위치로 이동한 후 다시 실행하십시오.", "AvoidPosition");
+                AddStepInterlock(plan, 310, "OutputGoodStageY", AxisInitializeInterlockTarget.DigitalInput,
+                    AxisInitializeSafetyInput.BinFeederAvoidPositionCheck, AxisInitializeInterlockState.On,
+                    "OutputFeederY Home 후 Bin Feeder Avoid 센서를 확인하십시오.");
+                AddStepInterlock(plan, 310, "OutputGoodStageY", AxisInitializeInterlockTarget.Axis,
+                    "OutputGoodStageZ", AxisInitializeInterlockState.AtPosition,
+                    "OutputGoodStageZ를 Avoid 위치로 이동한 후 다시 실행하십시오.", "AvoidPosition");
+                AddStepInterlock(plan, 310, "OutputGoodStageY", AxisInitializeInterlockTarget.Axis,
+                    "OutputNGStageY", AxisInitializeInterlockState.AtPosition,
+                    "OutputNGStageY를 Avoid 위치로 이동한 후 다시 실행하십시오.", "AvoidPosition");
+                AddStepInterlock(plan, 310, "OutputGoodStageY", AxisInitializeInterlockTarget.Cylinder,
+                    "NGBinGuideClampLift", AxisInitializeInterlockState.Fwd,
+                    "NG ClampLift가 Up 상태인지 확인하십시오.");
+                AddStepInterlock(plan, 310, "OutputGoodStageY", AxisInitializeInterlockTarget.Cylinder,
+                    "NGBinGuideClamp", AxisInitializeInterlockState.Bwd,
+                    "NG Clamp가 Unclamp(Bwd) 상태인지 확인하십시오.");
+                AddStepInterlock(plan, 310, "OutputGoodStageY", AxisInitializeInterlockTarget.Material,
+                    AxisInitializeInterlockName.OutputStageGood, AxisInitializeInterlockState.Empty,
+                    "Output Good Stage의 자재를 육안 확인한 후 Manual 화면에서 자재를 제거하십시오.");
+                AddStepInterlock(plan, 310, "OutputGoodStageY", AxisInitializeInterlockTarget.Material,
+                    AxisInitializeInterlockName.OutputStageNg, AxisInitializeInterlockState.Empty,
+                    "Output NG Stage의 자재를 육안 확인한 후 Manual 화면에서 자재를 제거하십시오.");
+
+                AddAxisTeachingActionOnlyStep(plan, 320, "OutputGoodStageYAvoid", "OutputGoodStageY", "AvoidPosition",
+                    "OutputGoodStageY moves to Avoid after home.");
+                AddAxisHomeDoneInterlocks(plan, 320, "OutputGoodStageYAvoid",
+                    "OutputGoodStageY", "OutputGoodStageZ", "OutputNGStageY", "OutputFeederY");
+                AddStepInterlock(plan, 320, "OutputGoodStageYAvoid", AxisInitializeInterlockTarget.Axis,
+                    "OutputNGStageY", AxisInitializeInterlockState.AtPosition,
+                    "OutputNGStageY를 Avoid 위치로 이동한 후 다시 실행하십시오.", "AvoidPosition");
+                AddStepInterlock(plan, 320, "OutputGoodStageYAvoid", AxisInitializeInterlockTarget.Cylinder,
+                    "NGBinGuideClampLift", AxisInitializeInterlockState.Fwd,
+                    "NG ClampLift가 Up 상태인지 확인하십시오.");
+                AddStepInterlock(plan, 320, "OutputGoodStageYAvoid", AxisInitializeInterlockTarget.Cylinder,
+                    "NGBinGuideClamp", AxisInitializeInterlockState.Bwd,
+                    "NG Clamp가 Unclamp(Bwd) 상태인지 확인하십시오.");
+                AddStepInterlock(plan, 320, "OutputGoodStageYAvoid", AxisInitializeInterlockTarget.Material,
+                    AxisInitializeInterlockName.OutputStageGood, AxisInitializeInterlockState.Empty,
+                    "Output Good Stage의 자재를 육안 확인한 후 Manual 화면에서 자재를 제거하십시오.");
+                AddStepInterlock(plan, 320, "OutputGoodStageYAvoid", AxisInitializeInterlockTarget.Material,
+                    AxisInitializeInterlockName.OutputStageNg, AxisInitializeInterlockState.Empty,
+                    "Output NG Stage의 자재를 육안 확인한 후 Manual 화면에서 자재를 제거하십시오.");
+
+                AddKnownStep(plan, axisByName, used, 330, "OutputCassette", AxisInitializeRunMode.Serial,
+                    "OutputLifterZ home after OutputFeederY is safe.", "OutputLifterZ");
+                AddFeederSafeInterlocks(plan, 330, "OutputCassette", false);
+                AddAxisHomeDoneInterlocks(plan, 330, "OutputCassette", "OutputFeederY");
+                AddStepInterlock(plan, 330, "OutputCassette", AxisInitializeInterlockTarget.Axis,
+                    "OutputFeederY", AxisInitializeInterlockState.AtPosition,
+                    "OutputFeederY를 Home/Avoid 위치로 이동한 후 다시 실행하십시오.", "AvoidPosition");
+                AddStepInterlock(plan, 330, "OutputCassette", AxisInitializeInterlockTarget.DigitalInput,
+                    AxisInitializeSafetyInput.BinFeederAvoidPositionCheck, AxisInitializeInterlockState.On,
+                    "OutputFeederY Home 후 Bin Feeder Avoid 센서를 확인하십시오.");
+                AddStepInterlock(plan, 330, "OutputCassette", AxisInitializeInterlockTarget.Cylinder,
+                    "OutputFeederLift", AxisInitializeInterlockState.Bwd,
+                    "OutputFeeder Lift를 Down 상태로 만든 후 다시 실행하십시오.");
+
+                // 9. SharedRail X 4축은 마지막에 직렬 Home하며 현재→Home 전체 경로를 Pair Clearance로 검사한다.
+                AddKnownSingleStep(plan, axisByName, used, 340, "InputVisionX", AxisInitializeRunMode.Serial,
+                    "InputVisionX home first on the shared rail.", "InputVisionX", "CameraX");
+                AddAxisHomeDoneInterlocks(plan, 340, "InputVisionX", "InputFeederY", "FrontPickerY", "RearPickerY");
+                AddStepInterlock(plan, 340, "InputVisionX", AxisInitializeInterlockTarget.Cylinder,
+                    "InputFeederLift", AxisInitializeInterlockState.Bwd,
+                    "InputFeeder Lift를 Down 상태로 만든 후 다시 실행하십시오.");
+                AddStepInterlock(plan, 340, "InputVisionX", AxisInitializeInterlockTarget.Axis,
+                    "InputVisionX", AxisInitializeInterlockState.SharedRailHomeClear,
+                    "SharedRail X축 현재 위치를 확인하고 간섭물을 제거한 후 다시 실행하십시오.");
+
+                AddKnownStep(plan, axisByName, used, 350, "FrontPickerX", AxisInitializeRunMode.Serial,
+                    "FrontPickerX home after InputVisionX.", "FrontPickerX");
+                AddAxisHomeDoneInterlocks(plan, 350, "FrontPickerX",
+                    "InputVisionX", "FrontPickerY", "RearPickerY",
+                    "InputFeederY", "OutputFeederY", "InputExpandingZ", "OutputGoodStageZ",
+                    "FrontPickerZ0", "FrontPickerZ1", "FrontPickerZ2", "FrontPickerZ3");
+                AddPickerXGlobalSafetyInterlocks(plan, 350, "FrontPickerX");
+                AddStepInterlock(plan, 350, "FrontPickerX", AxisInitializeInterlockTarget.Axis,
+                    "FrontPickerX", AxisInitializeInterlockState.SharedRailHomeClear,
+                    "SharedRail X축 현재 위치를 확인하고 간섭물을 제거한 후 다시 실행하십시오.");
+
+                AddKnownStep(plan, axisByName, used, 360, "RearPickerX", AxisInitializeRunMode.Serial,
+                    "RearPickerX home after FrontPickerX.", "RearPickerX");
+                AddAxisHomeDoneInterlocks(plan, 360, "RearPickerX",
+                    "InputVisionX", "FrontPickerY", "RearPickerY",
+                    "InputFeederY", "OutputFeederY", "InputExpandingZ", "OutputGoodStageZ",
+                    "RearPickerZ0", "RearPickerZ1", "RearPickerZ2", "RearPickerZ3");
+                AddPickerXGlobalSafetyInterlocks(plan, 360, "RearPickerX");
+                AddStepInterlock(plan, 360, "RearPickerX", AxisInitializeInterlockTarget.Axis,
+                    "RearPickerX", AxisInitializeInterlockState.SharedRailHomeClear,
+                    "SharedRail X축 현재 위치를 확인하고 간섭물을 제거한 후 다시 실행하십시오.");
+
+                AddKnownStep(plan, axisByName, used, 370, "SharedRailXOutput", AxisInitializeRunMode.Serial,
+                    "OutputVisionX home after both Picker X axes.", "OutputVisionX");
+                AddAxisHomeDoneInterlocks(plan, 370, "SharedRailXOutput",
+                    "FrontPickerX", "RearPickerX", "OutputFeederY");
+                AddStepInterlock(plan, 370, "SharedRailXOutput", AxisInitializeInterlockTarget.Cylinder,
+                    "OutputFeederLift", AxisInitializeInterlockState.Bwd,
+                    "OutputFeeder Lift를 Down 상태로 만든 후 다시 실행하십시오.");
+                AddStepInterlock(plan, 370, "SharedRailXOutput", AxisInitializeInterlockTarget.Axis,
+                    "OutputVisionX", AxisInitializeInterlockState.SharedRailHomeClear,
+                    "SharedRail X축 현재 위치를 확인하고 간섭물을 제거한 후 다시 실행하십시오.");
             }
             catch (Exception ex)
             {
@@ -666,6 +840,108 @@ namespace QMC.CDT320.Initialization
             }
         }
 
+        private static void AddPickerXGlobalSafetyInterlocks(
+            AxisInitializePlan plan,
+            int stepNo,
+            string groupName)
+        {
+            try
+            {
+                AddStepInterlock(plan, stepNo, groupName,
+                    AxisInitializeInterlockTarget.Axis,
+                    "InputFeederY",
+                    AxisInitializeInterlockState.AtPosition,
+                    "InputFeederY를 Avoid 위치로 이동한 후 다시 실행하십시오.",
+                    "AvoidPosition");
+                AddStepInterlock(plan, stepNo, groupName,
+                    AxisInitializeInterlockTarget.DigitalInput,
+                    AxisInitializeSafetyInput.WaferFeederAvoidPositionCheck,
+                    AxisInitializeInterlockState.On,
+                    "Wafer Feeder Avoid 센서를 확인하십시오.");
+                AddStepInterlock(plan, stepNo, groupName,
+                    AxisInitializeInterlockTarget.Cylinder,
+                    "InputFeederLift",
+                    AxisInitializeInterlockState.Bwd,
+                    "InputFeeder Lift를 Down 상태로 만든 후 다시 실행하십시오.");
+
+                AddStepInterlock(plan, stepNo, groupName,
+                    AxisInitializeInterlockTarget.Axis,
+                    "OutputFeederY",
+                    AxisInitializeInterlockState.AtPosition,
+                    "OutputFeederY를 Avoid 위치로 이동한 후 다시 실행하십시오.",
+                    "AvoidPosition");
+                AddStepInterlock(plan, stepNo, groupName,
+                    AxisInitializeInterlockTarget.DigitalInput,
+                    AxisInitializeSafetyInput.BinFeederAvoidPositionCheck,
+                    AxisInitializeInterlockState.On,
+                    "Bin Feeder Avoid 센서를 확인하십시오.");
+                AddStepInterlock(plan, stepNo, groupName,
+                    AxisInitializeInterlockTarget.Cylinder,
+                    "OutputFeederLift",
+                    AxisInitializeInterlockState.Bwd,
+                    "OutputFeeder Lift를 Down 상태로 만든 후 다시 실행하십시오.");
+
+                AddStepInterlock(plan, stepNo, groupName,
+                    AxisInitializeInterlockTarget.Axis,
+                    "InputExpandingZ",
+                    AxisInitializeInterlockState.AtOrBelowPosition,
+                    "InputExpandingZ를 0 이하 위치로 이동한 후 다시 실행하십시오.",
+                    null,
+                    0.0);
+                AddStepInterlock(plan, stepNo, groupName,
+                    AxisInitializeInterlockTarget.Axis,
+                    "OutputGoodStageZ",
+                    AxisInitializeInterlockState.AtOrBelowPosition,
+                    "OutputGoodStageZ를 Process Position 이하로 이동한 후 다시 실행하십시오.",
+                    "ProcessPosition");
+            }
+            catch (Exception ex)
+            {
+                Log.Write("Main", "SYSTEM", "AxisInitializePlanDefault",
+                    "Picker X global initialize safety interlock add failed. step=" + stepNo +
+                    ", group=" + groupName +
+                    ", error=" + ex.Message + " - Failed");
+            }
+            finally
+            {
+            }
+        }
+
+        private static void AddAxisHomeDoneInterlocks(
+            AxisInitializePlan plan,
+            int stepNo,
+            string groupName,
+            params string[] axisNames)
+        {
+            try
+            {
+                if (axisNames == null)
+                    return;
+
+                foreach (string axisName in axisNames)
+                {
+                    if (string.IsNullOrWhiteSpace(axisName))
+                        continue;
+
+                    AddStepInterlock(plan, stepNo, groupName,
+                        AxisInitializeInterlockTarget.Axis,
+                        axisName,
+                        AxisInitializeInterlockState.HomeDone,
+                        axisName + " Home을 먼저 완료한 후 현재 Step을 다시 실행하십시오.");
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Write("Main", "SYSTEM", "AxisInitializePlanDefault",
+                    "Initialize prerequisite axis interlock add failed. step=" + stepNo +
+                    ", group=" + groupName +
+                    ", error=" + ex.Message + " - Failed");
+            }
+            finally
+            {
+            }
+        }
+
         private static void AddStepInterlock(
             AxisInitializePlan plan,
             int stepNo,
@@ -673,7 +949,10 @@ namespace QMC.CDT320.Initialization
             string targetType,
             string name,
             string expectedState,
-            string description)
+            string description,
+            string positionName = null,
+            double expectedPosition = 0.0,
+            double tolerance = 0.01)
         {
             try
             {
@@ -686,7 +965,8 @@ namespace QMC.CDT320.Initialization
                 if (step == null)
                     return;
 
-                AddInterlock(step, targetType, name, expectedState, description);
+                AddInterlock(step, targetType, name, expectedState, description,
+                    positionName, expectedPosition, tolerance);
             }
             catch (Exception ex)
             {
@@ -706,7 +986,10 @@ namespace QMC.CDT320.Initialization
             string targetType,
             string name,
             string expectedState,
-            string description)
+            string description,
+            string positionName = null,
+            double expectedPosition = 0.0,
+            double tolerance = 0.01)
         {
             try
             {
@@ -722,6 +1005,9 @@ namespace QMC.CDT320.Initialization
                     TargetType = targetType,
                     Name = name,
                     ExpectedState = expectedState,
+                    PositionName = positionName,
+                    ExpectedPosition = expectedPosition,
+                    Tolerance = tolerance,
                     Enabled = true,
                     Description = description
                 });
@@ -1755,7 +2041,7 @@ namespace QMC.CDT320.Initialization
                 {
                     plan.AllowedInterlockStates = new List<string>
                     {
-                        "Axis: ServoOn, HomeDone, AlarmOff, Stopped, AtPosition",
+                        "Axis: ServoOn, HomeDone, AlarmOff, Stopped, AtPosition, AtOrBelowPosition, SharedRailHomeClear",
                         "Cylinder: Fwd, Bwd",
                         "DigitalInput: On, Off",
                         "Resource: AllOk",

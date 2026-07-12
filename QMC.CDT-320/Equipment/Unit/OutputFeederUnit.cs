@@ -565,18 +565,15 @@ namespace QMC.CDT320
         public bool IsBinFeederYInAvoidPosition() { return IsBinFeederInAvoidPosition(); }
         public bool IsBinFeederInAvoidPosition()
         {
-            bool axisInPosition = IsBinFeederYInPosition(
+            // Feeder 자체 이동 완료는 엔코더 위치로 확인한다. Picker 간섭 안전 확인은 X091 Dog를 별도로 사용한다.
+            return IsBinFeederYInPosition(
                 Recipe.AvoidPosition,
                 ResolveBinFeederYInPositionTolerance());
-
-            if (!axisInPosition)
-                return false;
-
-            return IsBinFeederAvoidPositionCheck();
         }
 
         public bool IsBinFeederAvoidPositionCheck()
         {
+            // 실장비 Picker 안전 인터록용 Avoid Dog. Simulation/DryRun에는 물리 Dog가 없으므로 위치로 대체한다.
             if (IsOutputFeederSimulationOrDryRun())
                 return IsBinFeederYInPosition(
                     Recipe.AvoidPosition,
@@ -1845,32 +1842,13 @@ namespace QMC.CDT320
             AxisMoveWaitResult waitResult = await WaitBinFeederYMoveDoneInPosition(target, timeoutMs).ConfigureAwait(false);
             ct.ThrowIfCancellationRequested();
 
-            if (!waitResult.Success)
-            {
-                return RaiseFeederAlarm(
-                    AxisMoveWaiter.ResolveAlarmCode(alarmPrefix, waitResult),
-                    description + " move/in-position wait failed. " +
-                    AxisMoveWaiter.FormatResult(waitResult, DescribeBinFeederYMoveDoneState()));
-            }
-
-            if (!IsBinFeederAvoidTarget(target) || IsOutputFeederSimulationOrDryRun())
-                return 0;
-
-            bool avoidCheck = BinFeederAvoidPositionCheckSensor != null &&
-                await BinFeederAvoidPositionCheckSensor.WaitUntilStateAsync(true, timeoutMs, ct).ConfigureAwait(false);
-            if (avoidCheck)
+            if (waitResult.Success)
                 return 0;
 
             return RaiseFeederAlarm(
-                alarmPrefix + "-AVOID-CHECK",
-                description + " 도착 후 BinFeeder Avoid 위치 확인 접점이 ON되지 않았습니다. " +
-                FormatInputState("X091", BinFeederAvoidPositionCheckSensor));
-        }
-
-        private bool IsBinFeederAvoidTarget(double target)
-        {
-            return Recipe != null &&
-                   Math.Abs(target - Recipe.AvoidPosition) <= ResolveBinFeederYInPositionTolerance();
+                AxisMoveWaiter.ResolveAlarmCode(alarmPrefix, waitResult),
+                description + " move/in-position wait failed. " +
+                AxisMoveWaiter.FormatResult(waitResult, DescribeBinFeederYMoveDoneState()));
         }
 
         private void SetExclusiveOutput(BaseDigitalOutput onOutput, BaseDigitalOutput oppositeOutput, bool on, string code)

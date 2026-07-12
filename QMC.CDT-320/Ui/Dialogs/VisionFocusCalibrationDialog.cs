@@ -15,6 +15,12 @@ using QMC.Common.Logging;
 
 namespace QMC.CDT_320.Ui.Dialogs
 {
+    internal enum VisionFocusCalibrationDialogProfile
+    {
+        BottomOnly,
+        SideOnly
+    }
+
     public partial class VisionFocusCalibrationDialog : Form
     {
         private enum FocusSettingKey
@@ -22,6 +28,10 @@ namespace QMC.CDT_320.Ui.Dialogs
             Mode,
             PickerSide,
             ColletNo,
+            PickerReferenceX,
+            PickerReferenceY,
+            PickerReferenceZ,
+            PickerReferenceT,
             DefaultPosition,
             MinusRange,
             PlusRange,
@@ -74,10 +84,14 @@ namespace QMC.CDT_320.Ui.Dialogs
             }
         }
 
-        private static readonly string[] ModeOptions =
+        private static readonly string[] BottomModeOptions =
         {
             "Bottom Collet",
-            "Bottom Die",
+            "Bottom Die"
+        };
+
+        private static readonly string[] SideModeOptions =
+        {
             "Front Side 0deg",
             "Front Side 90deg",
             "Rear Side 0deg",
@@ -89,11 +103,17 @@ namespace QMC.CDT_320.Ui.Dialogs
         private static readonly string[] BoolOptions = { "True", "False" };
         private static readonly string[] FocusValueModeOptions = { "Ack Only", "Wait Result (Test)" };
 
+        private readonly VisionFocusCalibrationDialogProfile _profile;
         private bool _loading;
         private bool _busy;
         private VisionFocusScanKind _selectedKind = VisionFocusScanKind.BottomDie;
         private VisionFocusPickerSide _selectedPickerSide = VisionFocusPickerSide.Front;
         private int _selectedPickerNo = 1;
+        private double _pickerReferenceX;
+        private double _pickerReferenceY;
+        private double _pickerReferenceZ;
+        private double _pickerReferenceT;
+        private string _pickerReferenceFormula = string.Empty;
         private double _defaultPosition;
         private double _minusRange = 0.2;
         private double _plusRange = 0.2;
@@ -128,10 +148,20 @@ namespace QMC.CDT_320.Ui.Dialogs
         }
 
         public VisionFocusCalibrationDialog()
+            : this(VisionFocusCalibrationDialogProfile.BottomOnly)
+        {
+        }
+
+        internal VisionFocusCalibrationDialog(VisionFocusCalibrationDialogProfile profile)
         {
             try
             {
+                _profile = profile;
+                if (_profile == VisionFocusCalibrationDialogProfile.SideOnly)
+                    _selectedKind = VisionFocusScanKind.FrontSide0;
+
                 InitializeComponent();
+                ApplyDialogProfile();
                 CalibrationDialogGridBehavior.Apply(gridSettings, gridSamples, gridSaved);
                 ConfigureEditableSettingGrid();
                 InitializeRuntime();
@@ -157,13 +187,39 @@ namespace QMC.CDT_320.Ui.Dialogs
                 LoadSettingsToUi();
                 RefreshSavedGrid();
                 UpdateStopButtonEnabled();
-                lblStatus.Text = "대기 중입니다. Focus 기준 위치를 확인한 뒤 START SCAN을 실행하세요.";
+                lblStatus.Text = IsSideOnlyProfile
+                    ? "대기 중입니다. Side Focus 기준 위치를 확인한 뒤 START SCAN을 실행하세요."
+                    : "대기 중입니다. Focus 기준 위치를 확인한 뒤 START SCAN을 실행하세요.";
             }
             finally
             {
                 _loading = false;
                 RefreshSettingGrid();
             }
+        }
+
+        private bool IsSideOnlyProfile
+        {
+            get { return _profile == VisionFocusCalibrationDialogProfile.SideOnly; }
+        }
+
+        private string[] ResolveModeOptions()
+        {
+            return IsSideOnlyProfile ? SideModeOptions : BottomModeOptions;
+        }
+
+        private void ApplyDialogProfile()
+        {
+            if (!IsSideOnlyProfile)
+                return;
+
+            Text = "Side Vision Focus Calibration";
+            lblHeader.Text = "SIDE VISION FOCUS CAL";
+
+            // Side 전용 창에서는 Bottom Picker 복귀/Runtime AF 전용 명령을 표시하지 않는다.
+            btnMoveZAvoid.Visible = false;
+            btnMoveYAvoid.Visible = false;
+            btnResetAutoFocus.Visible = false;
         }
 
         private void ApplyButtonStyle()
@@ -226,11 +282,16 @@ namespace QMC.CDT_320.Ui.Dialogs
                     return;
 
                 ApplySettingValue(row);
-                if (info.Key == FocusSettingKey.Mode ||
-                    info.Key == FocusSettingKey.PickerSide ||
-                    info.Key == FocusSettingKey.ColletNo)
+                if (info.Key == FocusSettingKey.Mode)
                 {
                     LoadSettingsToUi();
+                    RefreshSavedGrid();
+                }
+                else if (info.Key == FocusSettingKey.PickerSide ||
+                         info.Key == FocusSettingKey.ColletNo)
+                {
+                    ReloadSelectedTargetReference();
+                    RefreshSettingGrid();
                     RefreshSavedGrid();
                 }
                 else
@@ -830,6 +891,13 @@ namespace QMC.CDT_320.Ui.Dialogs
                 }
 
                 VisionFocusScanSettings settings = ResolveSettings(host.Machine, _selectedKind);
+                if (IsSideOnlyProfile)
+                {
+                    if (IsSideFocusKind(settings.CalibrationKind))
+                        _selectedKind = settings.CalibrationKind;
+                    _selectedPickerSide = settings.CalibrationPickerSide;
+                    _selectedPickerNo = Clamp(settings.CalibrationPickerNo, 1, 4);
+                }
                 _minusRange = settings.MinusRange;
                 _plusRange = settings.PlusRange;
                 _step = settings.Step;
@@ -851,6 +919,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                 _autoFocusOnPickCountEnabled = settings.AutoFocusOnPickCountEnabled;
                 _autoFocusPickInterval = settings.AutoFocusPickInterval;
                 _defaultPosition = ResolveSavedDefaultPosition(host.Machine);
+                LoadSelectedPickerReference(host.Machine);
             }
             catch (Exception ex)
             {
@@ -903,6 +972,12 @@ namespace QMC.CDT_320.Ui.Dialogs
                 settings.VisionBestTimeoutMs = _visionBestTimeoutMs;
                 settings.FocusValueReceiveMode = _focusValueReceiveMode;
                 settings.ReturnToDefaultAfterScan = _returnToDefaultAfterScan;
+                if (IsSideOnlyProfile)
+                {
+                    settings.CalibrationKind = _selectedKind;
+                    settings.CalibrationPickerSide = _selectedPickerSide;
+                    settings.CalibrationPickerNo = _selectedPickerNo;
+                }
                 settings.AutoFocusOnStartEnabled = _autoFocusOnStartEnabled;
                 settings.AutoFocusOnWaferChange = _autoFocusOnWaferChange;
                 settings.AutoFocusOnPickCountEnabled = _autoFocusOnPickCountEnabled;
@@ -1047,13 +1122,27 @@ namespace QMC.CDT_320.Ui.Dialogs
                 _loading = true;
                 gridSettings.Rows.Clear();
 
-                AddSettingRow(CreateOptionInfo(FocusSettingKey.Mode, "Mode", "Focus Scan 대상 모드입니다.", ModeOptions), KindToText(_selectedKind), true);
+                AddSettingRow(CreateOptionInfo(FocusSettingKey.Mode, "Mode", "Focus Scan 대상 모드입니다.", ResolveModeOptions()), KindToText(_selectedKind), true);
                 bool bottomFocus = IsBottomFocusKind(_selectedKind);
                 bool runtimeBottomFocus = _selectedKind == VisionFocusScanKind.BottomDie;
+                bool pickerSelectionEnabled = bottomFocus || IsSideOnlyProfile;
                 string pickerNoName = _selectedKind == VisionFocusScanKind.BottomDie ? "Picker No" : "Collet No";
-                AddSettingRow(CreateOptionInfo(FocusSettingKey.PickerSide, "Picker Side", "Bottom Focus에서 사용할 Front/Rear Picker를 선택합니다.", SideOptions), SideToText(_selectedPickerSide), bottomFocus);
-                AddSettingRow(CreateOptionInfo(FocusSettingKey.ColletNo, pickerNoName, "Bottom Focus에서 측정할 Picker 번호입니다.", ColletOptions), _selectedPickerNo.ToString(CultureInfo.InvariantCulture), bottomFocus);
-                AddSettingRow(CreateNumberInfo(FocusSettingKey.DefaultPosition, "Default Pos (mm)", "mm", "Focus 기준 위치입니다. 저장된 Focus Cal 등록값만 불러오며, USE CURRENT로 현재 축 위치를 덮어쓸 수 있습니다.", false), FormatDouble(_defaultPosition), true);
+                if (IsSideOnlyProfile)
+                    pickerNoName = "Picker No";
+                AddSettingRow(CreateOptionInfo(FocusSettingKey.PickerSide, "Picker Side", "Focus 기준 제품을 보유한 Front/Rear Picker를 선택합니다.", SideOptions), SideToText(_selectedPickerSide), pickerSelectionEnabled);
+                AddSettingRow(CreateOptionInfo(FocusSettingKey.ColletNo, pickerNoName, "Focus 기준으로 사용할 Picker 번호를 선택합니다.", ColletOptions), _selectedPickerNo.ToString(CultureInfo.InvariantCulture), pickerSelectionEnabled);
+                if (IsSideOnlyProfile)
+                {
+                    AddSettingRow(CreateNumberInfo(FocusSettingKey.PickerReferenceX, "Picker X Ref (mm)", "mm", "자동 통합 Side 검사와 동일한 Picker 번호의 DieSidePosition 기준 X입니다. " + _pickerReferenceFormula, false), FormatDouble(_pickerReferenceX), false);
+                    AddSettingRow(CreateNumberInfo(FocusSettingKey.PickerReferenceY, "Picker Y Ref (mm)", "mm", "자동 통합 Side 검사와 동일한 Picker 번호의 DieSidePosition 기준 Y입니다. " + _pickerReferenceFormula, false), FormatDouble(_pickerReferenceY), false);
+                    AddSettingRow(CreateNumberInfo(FocusSettingKey.PickerReferenceZ, "Picker Z Ref (mm)", "mm", "선택 PickerZ의 SidePosition 기준 Z이며 Focus 스캔 중에는 고정합니다.", false), FormatDouble(_pickerReferenceZ), false);
+                    AddSettingRow(CreateNumberInfo(FocusSettingKey.PickerReferenceT, "Picker T Ref (deg)", "deg", "생산 Side 검사와 동일한 DieSidePosition 기준 T입니다.", false), FormatDouble(_pickerReferenceT), false);
+                }
+                string defaultPositionName = IsSideOnlyProfile ? "Side Camera Y Default" : "Default Pos (mm)";
+                string defaultPositionTip = IsSideOnlyProfile
+                    ? "Side Camera Y Focus 기준입니다. 저장값이 없으면 선택 카메라/각도의 Process0/90 티칭값을 사용하며 USE CURRENT로 현재 Camera Y를 적용할 수 있습니다."
+                    : "Focus 기준 위치입니다. 저장된 Focus Cal 등록값만 불러오며, USE CURRENT로 현재 축 위치를 덮어쓸 수 있습니다.";
+                AddSettingRow(CreateNumberInfo(FocusSettingKey.DefaultPosition, defaultPositionName, "mm", defaultPositionTip, false), FormatDouble(_defaultPosition), true);
                 AddSettingRow(CreateNumberInfo(FocusSettingKey.MinusRange, "Rough - Range (mm)", "mm", "Default Pos 기준 Rough 마이너스 방향으로 스캔할 거리입니다.", false), FormatDouble(_minusRange), true);
                 AddSettingRow(CreateNumberInfo(FocusSettingKey.PlusRange, "Rough + Range (mm)", "mm", "Default Pos 기준 Rough 플러스 방향으로 스캔할 거리입니다.", false), FormatDouble(_plusRange), true);
                 AddSettingRow(CreateNumberInfo(FocusSettingKey.Step, "Rough Step (mm)", "mm", "Rough Focus 측정 지점 사이의 이동 간격입니다.", false), FormatDouble(_step), true);
@@ -1406,7 +1495,56 @@ namespace QMC.CDT_320.Ui.Dialogs
         private double ResolveSavedDefaultPosition(CDT320_Machine machine)
         {
             VisionFocusPositionRecord record = ResolveSelectedRecord(machine);
-            return HasSavedDefaultPosition(record) ? record.DefaultPosition : 0.0;
+            if (HasSavedDefaultPosition(record))
+                return record.DefaultPosition;
+
+            if (IsSideOnlyProfile)
+            {
+                string targetName;
+                return ResolveInspectionTeachingPosition(machine, out targetName);
+            }
+
+            return 0.0;
+        }
+
+        private void ReloadSelectedTargetReference()
+        {
+            string reason;
+            Form1 host = ResolveHost(out reason);
+            if (host == null || host.Machine == null)
+            {
+                lblStatus.Text = reason;
+                return;
+            }
+
+            _defaultPosition = ResolveSavedDefaultPosition(host.Machine);
+            LoadSelectedPickerReference(host.Machine);
+        }
+
+        private void LoadSelectedPickerReference(CDT320_Machine machine)
+        {
+            _pickerReferenceX = 0.0;
+            _pickerReferenceY = 0.0;
+            _pickerReferenceZ = 0.0;
+            _pickerReferenceT = 0.0;
+            _pickerReferenceFormula = string.Empty;
+
+            if (!IsSideOnlyProfile || machine == null)
+                return;
+
+            int pickerIndex = Clamp(_selectedPickerNo, 1, 4) - 1;
+            PickerSideFocusReferenceTarget target = CalibrationCoordinateService.ResolveSideFocusReferenceTarget(
+                machine,
+                _selectedPickerSide,
+                pickerIndex);
+            if (target == null)
+                return;
+
+            _pickerReferenceX = target.X;
+            _pickerReferenceY = target.Y;
+            _pickerReferenceZ = target.Z;
+            _pickerReferenceT = target.T;
+            _pickerReferenceFormula = target.Formula ?? string.Empty;
         }
 
         private double ResolveInspectionTeachingPosition(CDT320_Machine machine, out string targetName)
@@ -1704,6 +1842,14 @@ namespace QMC.CDT_320.Ui.Dialogs
         {
             return kind == VisionFocusScanKind.BottomCollet ||
                    kind == VisionFocusScanKind.BottomDie;
+        }
+
+        private static bool IsSideFocusKind(VisionFocusScanKind kind)
+        {
+            return kind == VisionFocusScanKind.FrontSide0 ||
+                   kind == VisionFocusScanKind.FrontSide90 ||
+                   kind == VisionFocusScanKind.RearSide0 ||
+                   kind == VisionFocusScanKind.RearSide90;
         }
 
         private static string ResolveBottomTargetText(VisionFocusScanKind kind)

@@ -779,6 +779,8 @@ namespace QMC.CDT320
                 AlignOffsetT = offset.AlignOffsetT,
                 SideInspectionCorrectionValid = sideCorrection != null && sideCorrection.IsValid,
                 SideVisionYOffset = sideCorrection != null ? sideCorrection.SideVisionYOffset : 0.0,
+                SideVisionProcess0YOffset = sideCorrection != null ? sideCorrection.SideVisionProcess0YOffset : 0.0,
+                SideVisionProcess90YOffset = sideCorrection != null ? sideCorrection.SideVisionProcess90YOffset : 0.0,
                 PickerZOffset = sideCorrection != null ? sideCorrection.PickerZOffset : 0.0,
                 SideInspectionSourceDieId = sideCorrection != null ? sideCorrection.SourceDieId : string.Empty,
                 SideInspectionUpdatedAt = NormalizeOptionalRuntimeDateTime(
@@ -834,6 +836,8 @@ namespace QMC.CDT320
                     {
                         IsValid = saved.SideInspectionCorrectionValid,
                         SideVisionYOffset = saved.SideVisionYOffset,
+                        SideVisionProcess0YOffset = saved.SideVisionProcess0YOffset,
+                        SideVisionProcess90YOffset = saved.SideVisionProcess90YOffset,
                         PickerZOffset = saved.PickerZOffset,
                         SourceDieId = saved.SideInspectionSourceDieId,
                         UpdatedAt = saved.SideInspectionUpdatedAt

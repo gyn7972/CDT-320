@@ -6,8 +6,10 @@ using QMC.Common;
 using QMC.Common.Alarms;
 using QMC.Common.IO;
 using QMC.Common.Motion;
+using QMC.Common.Motion.Ajin;
 using QMC.CDT320.Ajin;
 using QMC.CDT320.Materials;
+using QMC.CDT320.Motion.SharedRailX;
 
 namespace QMC.CDT320.Initialization
 {
@@ -138,19 +140,45 @@ namespace QMC.CDT320.Initialization
                     return Check(!axis.IsAlarm, "축 Alarm 상태입니다. axis=" + axis.Name + ", code=" + axis.AlarmCode, out reason);
                 if (string.Equals(state, AxisInitializeInterlockState.Stopped, StringComparison.OrdinalIgnoreCase))
                     return Check(!axis.IsMoving, "축이 정지 상태가 아닙니다. axis=" + axis.Name, out reason);
-                if (string.Equals(state, AxisInitializeInterlockState.AtPosition, StringComparison.OrdinalIgnoreCase))
+                bool requiresExactPosition = string.Equals(
+                    state,
+                    AxisInitializeInterlockState.AtPosition,
+                    StringComparison.OrdinalIgnoreCase);
+                bool requiresAtOrBelowPosition = string.Equals(
+                    state,
+                    AxisInitializeInterlockState.AtOrBelowPosition,
+                    StringComparison.OrdinalIgnoreCase);
+                if (requiresExactPosition || requiresAtOrBelowPosition)
                 {
+                    double expectedPosition = rule.ExpectedPosition;
+                    string expectedName = string.IsNullOrWhiteSpace(rule.PositionName)
+                        ? expectedPosition.ToString("0.###", CultureInfo.InvariantCulture)
+                        : rule.PositionName.Trim();
+                    if (!string.IsNullOrWhiteSpace(rule.PositionName) &&
+                        !TryResolveAxisPosition(axis, rule.PositionName, out expectedPosition))
+                    {
+                        reason = "축 지정 위치를 찾을 수 없습니다. axis=" + axis.Name +
+                            ", position=" + rule.PositionName;
+                        return false;
+                    }
+
                     double tolerance = rule.Tolerance > 0.0 ? rule.Tolerance : 0.01;
                     bool atPosition = axis.IsHomeDone &&
-                                      Math.Abs(axis.ActualPosition - rule.ExpectedPosition) <= tolerance;
+                        (requiresAtOrBelowPosition
+                            ? axis.ActualPosition <= expectedPosition + tolerance
+                            : Math.Abs(axis.ActualPosition - expectedPosition) <= tolerance);
                     return Check(atPosition,
-                        "축이 HomeDone이 아니거나 지정 위치가 아닙니다. axis=" + axis.Name +
+                        "축이 HomeDone이 아니거나 지정 위치 조건을 만족하지 않습니다. axis=" + axis.Name +
                         ", actual=" + axis.ActualPosition.ToString("0.###", CultureInfo.InvariantCulture) +
-                        ", expected=" + rule.ExpectedPosition.ToString("0.###", CultureInfo.InvariantCulture) +
+                        ", expected=" + expectedPosition.ToString("0.###", CultureInfo.InvariantCulture) +
+                        ", comparison=" + (requiresAtOrBelowPosition ? "AtOrBelow" : "Exact") +
+                        ", position=" + expectedName +
                         ", tolerance=" + tolerance.ToString("0.###", CultureInfo.InvariantCulture) +
                         ", homeDone=" + axis.IsHomeDone,
                         out reason);
                 }
+                if (string.Equals(state, AxisInitializeInterlockState.SharedRailHomeClear, StringComparison.OrdinalIgnoreCase))
+                    return VerifySharedRailHomeClear(axis, out reason);
 
                 reason = "지원하지 않는 Axis ExpectedState입니다. state=" + state;
                 return false;
@@ -201,6 +229,25 @@ namespace QMC.CDT320.Initialization
             reason = "";
             try
             {
+                string state = rule.ExpectedState ?? "";
+                if (string.Equals(rule.Name, AxisInitializeSafetyInput.WaferFeederAvoidPositionCheck, StringComparison.OrdinalIgnoreCase) &&
+                    string.Equals(state, AxisInitializeInterlockState.On, StringComparison.OrdinalIgnoreCase) &&
+                    _machine != null && _machine.InputFeederUnit != null)
+                {
+                    return Check(_machine.InputFeederUnit.IsWaferFeederAvoidPositionCheck(),
+                        "InputFeederY가 Avoid 위치가 아니거나 Wafer Feeder Avoid 센서가 ON 상태가 아닙니다.",
+                        out reason);
+                }
+
+                if (string.Equals(rule.Name, AxisInitializeSafetyInput.BinFeederAvoidPositionCheck, StringComparison.OrdinalIgnoreCase) &&
+                    string.Equals(state, AxisInitializeInterlockState.On, StringComparison.OrdinalIgnoreCase) &&
+                    _machine != null && _machine.OutputFeederUnit != null)
+                {
+                    return Check(_machine.OutputFeederUnit.IsBinFeederAvoidPositionCheck(),
+                        "OutputFeederY가 Avoid 위치가 아니거나 Bin Feeder Avoid 센서가 ON 상태가 아닙니다.",
+                        out reason);
+                }
+
                 BaseDigitalInput input = FindDigitalInput(rule.Name);
                 if (input == null)
                 {
@@ -208,7 +255,6 @@ namespace QMC.CDT320.Initialization
                     return false;
                 }
 
-                string state = rule.ExpectedState ?? "";
                 if (string.Equals(state, AxisInitializeInterlockState.On, StringComparison.OrdinalIgnoreCase))
                     return Check(input.IsOn, "DI가 ON 상태가 아닙니다. input=" + input.Name, out reason);
                 if (string.Equals(state, AxisInitializeInterlockState.Off, StringComparison.OrdinalIgnoreCase))
@@ -432,6 +478,193 @@ namespace QMC.CDT320.Initialization
             catch (Exception ex)
             {
                 reason = "OutputFeeder 자재 확인 중 예외가 발생했습니다. error=" + ex.Message;
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
+        private bool VerifySharedRailHomeClear(BaseAxis axis, out string reason)
+        {
+            reason = "";
+            try
+            {
+                if (axis == null)
+                {
+                    reason = "SharedRail Home 확인 축이 없습니다.";
+                    return false;
+                }
+
+                SharedRailXMotionService service = SharedRailXMotionRuntime.ResolveService(_machine);
+                if (service == null || !service.IsSharedRailAxis(axis))
+                {
+                    reason = "SharedRailX에 등록되지 않은 축입니다. axis=" + axis.Name;
+                    return false;
+                }
+
+                double probeTarget = ResolveSharedRailHomeProbeTarget(axis);
+                string clearanceReason;
+                if (!service.VerifySingleAxisMove(axis, probeTarget, out clearanceReason))
+                {
+                    reason = "SharedRail Home 탐색 경로의 안전거리가 부족합니다. axis=" + axis.Name +
+                        ", current=" + axis.ActualPosition.ToString("0.###", CultureInfo.InvariantCulture) +
+                        ", probeTarget=" + probeTarget.ToString("0.###", CultureInfo.InvariantCulture) +
+                        ", homeDirection=" + (axis.Setup != null ? axis.Setup.HomeDirection.ToString() : "Unknown") +
+                        ", detail=" + clearanceReason;
+                    return false;
+                }
+
+                if (!service.VerifySingleAxisMove(axis, 0.0, out clearanceReason))
+                {
+                    reason = "SharedRail Home 완료 위치의 안전거리가 부족합니다. axis=" + axis.Name +
+                        ", current=" + axis.ActualPosition.ToString("0.###", CultureInfo.InvariantCulture) +
+                        ", homeTarget=0.000, detail=" + clearanceReason;
+                    return false;
+                }
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                reason = "SharedRail Home 안전거리 확인 중 예외가 발생했습니다. axis=" +
+                    (axis != null ? axis.Name : "-") + ", error=" + ex.Message;
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
+        private static double ResolveSharedRailHomeProbeTarget(BaseAxis axis)
+        {
+            try
+            {
+                if (axis == null || axis.Setup == null || !axis.Setup.SoftLimitEnabled)
+                    return 0.0;
+
+                return axis.Setup.HomeDirection == HomeDirection.Ccw
+                    ? Math.Min(0.0, axis.Setup.SoftLimitMinus)
+                    : Math.Max(0.0, axis.Setup.SoftLimitPlus);
+            }
+            catch (Exception ex)
+            {
+                Log.Write("Main", "SYSTEM", "AxisInitializeInterlock",
+                    "SharedRail Home probe target resolve failed. axis=" +
+                    (axis != null ? axis.Name : "-") + ", error=" + ex.Message + " - Failed");
+                return 0.0;
+            }
+            finally
+            {
+            }
+        }
+
+        private bool TryResolveAxisPosition(BaseAxis axis, string positionName, out double position)
+        {
+            position = 0.0;
+            try
+            {
+                if (axis == null || string.IsNullOrWhiteSpace(positionName))
+                    return false;
+
+                string normalizedPositionName = positionName.Trim();
+
+                OutputStageUnit outputStage = _machine != null ? _machine.OutputStageUnit : null;
+                if (string.Equals(normalizedPositionName, "ProcessPosition", StringComparison.OrdinalIgnoreCase))
+                {
+                    if (IsAxisName(axis, "OutputGoodStageZ", "GoodStage_StageZ") &&
+                        outputStage != null && outputStage.Recipe != null && outputStage.Recipe.GoodStageZ != null)
+                    {
+                        position = outputStage.Recipe.GoodStageZ.ProcessPosition;
+                        return true;
+                    }
+
+                    return false;
+                }
+
+                if (!string.Equals(normalizedPositionName, "AvoidPosition", StringComparison.OrdinalIgnoreCase))
+                    return false;
+
+                if (IsAxisName(axis, "OutputNGStageY", "NgStage_StageY") &&
+                    outputStage != null && outputStage.Recipe != null && outputStage.Recipe.NGStageY != null)
+                {
+                    position = outputStage.Recipe.NGStageY.AvoidPosition;
+                    return true;
+                }
+
+                if (IsAxisName(axis, "OutputGoodStageY", "GoodStage_StageY") &&
+                    outputStage != null && outputStage.Recipe != null && outputStage.Recipe.GoodStageY != null)
+                {
+                    position = outputStage.Recipe.GoodStageY.AvoidPosition;
+                    return true;
+                }
+
+                if (IsAxisName(axis, "OutputGoodStageZ", "GoodStage_StageZ") &&
+                    outputStage != null && outputStage.Recipe != null && outputStage.Recipe.GoodStageZ != null)
+                {
+                    position = outputStage.Recipe.GoodStageZ.AvoidPosition;
+                    return true;
+                }
+
+                InputStageUnit inputStage = _machine != null ? _machine.InputStageUnit : null;
+                if (IsAxisName(axis, "InputStageY", "StageY", "WaferStageY") &&
+                    inputStage != null && inputStage.Recipe != null && inputStage.Recipe.WaferY != null)
+                {
+                    position = inputStage.Recipe.WaferY.AvoidPosition;
+                    return true;
+                }
+
+                InputFeederUnit inputFeeder = _machine != null ? _machine.InputFeederUnit : null;
+                if (IsAxisName(axis, "InputFeederY", "FeederY") &&
+                    inputFeeder != null && inputFeeder.Recipe != null)
+                {
+                    position = inputFeeder.Recipe.AvoidPosition;
+                    return true;
+                }
+
+                OutputFeederUnit outputFeeder = _machine != null ? _machine.OutputFeederUnit : null;
+                if (IsAxisName(axis, "OutputFeederY", "FeederY_Output") &&
+                    outputFeeder != null && outputFeeder.Recipe != null)
+                {
+                    position = outputFeeder.Recipe.AvoidPosition;
+                    return true;
+                }
+
+                return false;
+            }
+            catch (Exception ex)
+            {
+                Log.Write("Main", "SYSTEM", "AxisInitializeInterlock",
+                    "Initialize axis position resolve failed. axis=" +
+                    (axis != null ? axis.Name : "-") + ", position=" + positionName +
+                    ", error=" + ex.Message + " - Failed");
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
+        private static bool IsAxisName(BaseAxis axis, params string[] names)
+        {
+            try
+            {
+                if (axis == null || names == null)
+                    return false;
+
+                foreach (string name in names)
+                {
+                    if (!string.IsNullOrWhiteSpace(name) &&
+                        string.Equals(axis.Name, name, StringComparison.OrdinalIgnoreCase))
+                        return true;
+                }
+
+                return false;
+            }
+            catch (Exception ex)
+            {
+                Log.Write("Main", "SYSTEM", "AxisInitializeInterlock",
+                    "Initialize axis name compare failed. error=" + ex.Message + " - Failed");
                 return false;
             }
             finally

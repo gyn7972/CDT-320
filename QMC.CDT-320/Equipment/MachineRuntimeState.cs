@@ -54,6 +54,8 @@ namespace QMC.CDT320
         [DataMember] public double AlignOffsetT { get; set; }
         [DataMember] public bool SideInspectionCorrectionValid { get; set; }
         [DataMember] public double SideVisionYOffset { get; set; }
+        [DataMember] public double SideVisionProcess0YOffset { get; set; }
+        [DataMember] public double SideVisionProcess90YOffset { get; set; }
         [DataMember] public double PickerZOffset { get; set; }
         [DataMember] public string SideInspectionSourceDieId { get; set; }
         [DataMember] public DateTime SideInspectionUpdatedAt { get; set; }

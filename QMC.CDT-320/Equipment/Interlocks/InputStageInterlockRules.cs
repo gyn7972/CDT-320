@@ -20,7 +20,13 @@ namespace QMC.CDT320.Interlocks
                 return VerifyWaferStageT(request, out reason);
 
             if (MotionGuardRuleHelpers.IsMoving(request, "WaferExpandingZ", "InputExpandingZ", "ExpanderZ"))
+            {
+                if (!PickerZoneInterlockRules.VerifyPickerXStoppedForClearanceMechanismMove(
+                    request.Machine, "InputExpandingZ", out reason))
+                    return false;
+
                 return VerifyWaferExpandingZ(request, out reason);
+            }
 
             if (MotionGuardRuleHelpers.IsMoving(request, "InputVisionX", "CameraX"))
                 return VerifyWaferVisionX(request, out reason);

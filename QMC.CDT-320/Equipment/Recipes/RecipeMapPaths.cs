@@ -20,6 +20,18 @@ namespace QMC.CDT320.Recipes
         public static string ResolveConfigured(RecipeProject project, RecipeMapKind kind)
         {
             string configured = ConfiguredFileName(project, kind);
+            return ResolveConfiguredPath(configured);
+        }
+
+        /// <summary>Recipe-owned Base WaferMap path. Empty means legacy name-based lookup.</summary>
+        public static string ResolveBaseConfigured(RecipeProject project)
+        {
+            return ResolveConfiguredPath(project != null ? project.BaseWaferMapFileName : "");
+        }
+
+        /// <summary>Absolute paths are preserved; relative paths are based on the handler executable directory.</summary>
+        public static string ResolveConfiguredPath(string configured)
+        {
             if (string.IsNullOrWhiteSpace(configured))
                 return "";
 
@@ -86,6 +98,19 @@ namespace QMC.CDT320.Recipes
             string dir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Config", "DieMaps");
             Directory.CreateDirectory(dir);
             return dir;
+        }
+
+        /// <summary>Project-owned map directory used by cloned recipes.</summary>
+        public static string GetProjectMapDirectory(string recipeName)
+        {
+            return Path.Combine(QMC.Common.Data.Store.RecipeDataStore.DirOf(recipeName), "Maps");
+        }
+
+        /// <summary>Builds the path persisted in a Project file for a project-owned map asset.</summary>
+        public static string BuildProjectMapRelativePath(string recipeName, string fileName)
+        {
+            string safeFileName = SanitizeFileName(fileName);
+            return MakeConfigRelativePath(Path.Combine(GetProjectMapDirectory(recipeName), safeFileName));
         }
 
         /// <summary>파일명 접미사: InputDieMap / GoodBinDieMap / NgBinDieMap.</summary>

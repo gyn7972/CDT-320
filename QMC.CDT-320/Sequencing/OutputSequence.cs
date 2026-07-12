@@ -96,6 +96,9 @@ namespace QMC.CDT320.Sequencing
     public class OutputSequence : UnitSequenceBase
     {
         private const string OutputLoaderActiveSignal = "OutputLoaderActive";
+        private const int MaxOutputLoaderBatchActions = 12;
+        private const string OutputLoaderBatchDrainReason = "Output loader 교체를 Feeder Avoid 및 최종 안전 자세까지 완료";
+        private int _autoOutputLoaderBatchDepth;
 
         public OutputSequence(MachineSequenceContext ctx)
             : base(ctx, SequenceUnitKind.OutputUnloader, "Output")
@@ -177,6 +180,17 @@ namespace QMC.CDT320.Sequencing
 
                 OutputSequenceAutoAction action = ResolveNextOutputAction();
                 Context.LogPublic("[OUTPUT] next action=" + action);
+
+                // 현재 기준: Auto 교체 작업은 실제 필요한 GOOD/NG만 하나의 Loader lease 안에서 연속 처리한다.
+                if (Mode == SequenceRunMode.Auto && IsOutputLoaderWorkAction(action))
+                {
+                    return await ExecuteCoordinatorOutputLoaderBatchAsync(
+                        action,
+                        ct,
+                        bFine,
+                        moveTimeoutMs,
+                        startMode).ConfigureAwait(false);
+                }
 
                 switch (action)
                 {
@@ -314,6 +328,168 @@ namespace QMC.CDT320.Sequencing
             }
             finally
             {
+            }
+        }
+
+        private async Task<int> ExecuteCoordinatorOutputLoaderBatchAsync(
+            OutputSequenceAutoAction firstAction,
+            CancellationToken ct,
+            bool bFine,
+            int moveTimeoutMs,
+            SequenceStartMode startMode)
+        {
+            return await ExecuteCoordinatorOutputLoaderWorkAsync(
+                "OutputLoaderBatch",
+                ct,
+                async () =>
+                {
+                    Interlocked.Increment(ref _autoOutputLoaderBatchDepth);
+                    try
+                    {
+                        // 현재 기준: Picker 대기 중 바뀐 자재 상태를 반영하도록 lease 획득 직후 작업 계획을 다시 계산한다.
+                        OutputSequenceAutoAction action = ResolveNextOutputAction();
+                        int actionCount = 0;
+
+                        Context.LogPublic(
+                            "[OUTPUT] Loader batch start. firstAction=" + firstAction +
+                            ", resolvedAction=" + action +
+                            ", canSupplyGood=" + CanSupplyOutputStage(BinSide.Good) +
+                            ", canSupplyNg=" + CanSupplyOutputStage(BinSide.Ng));
+
+                        while (IsOutputLoaderWorkAction(action))
+                        {
+                            ct.ThrowIfCancellationRequested();
+                            actionCount++;
+                            if (actionCount > MaxOutputLoaderBatchActions)
+                            {
+                                return Fail(
+                                    "OUT-LOADER-BATCH-LIMIT",
+                                    "OutputSequence",
+                                    "Output Loader batch 작업 횟수가 제한을 초과했습니다. " +
+                                    "firstAction=" + firstAction +
+                                    ", currentAction=" + action +
+                                    ", limit=" + MaxOutputLoaderBatchActions);
+                            }
+
+                            Context.LogPublic(
+                                "[OUTPUT] Loader batch action start. index=" + actionCount +
+                                ", action=" + action);
+
+                            int result = await ExecuteOutputLoaderActionCoreAsync(
+                                action,
+                                ct,
+                                bFine,
+                                moveTimeoutMs,
+                                startMode).ConfigureAwait(false);
+                            if (result != 0)
+                                return result;
+
+                            OutputSequenceAutoAction nextAction = ResolveNextOutputAction();
+                            Context.LogPublic(
+                                "[OUTPUT] Loader batch action complete. index=" + actionCount +
+                                ", action=" + action +
+                                ", nextAction=" + nextAction);
+
+                            if (nextAction == action)
+                            {
+                                return Fail(
+                                    "OUT-LOADER-BATCH-NO-PROGRESS",
+                                    "OutputSequence",
+                                    "Output Loader batch가 자재 상태를 갱신하지 못했습니다. " +
+                                    "action=" + action +
+                                    ", actionCount=" + actionCount);
+                            }
+
+                            action = nextAction;
+                        }
+
+                        // 현재 기준: 중간 Ready 공개는 막고 교체 묶음의 최종 안전 자세 완료 후 한 번만 공개한다.
+                        SetOutputStageReadySignals();
+                        Context.LogPublic(
+                            "[OUTPUT] Loader batch complete. actionCount=" + actionCount +
+                            ", nextAction=" + action);
+                        return 0;
+                    }
+                    finally
+                    {
+                        Interlocked.Decrement(ref _autoOutputLoaderBatchDepth);
+                    }
+                }).ConfigureAwait(false);
+        }
+
+        private async Task<int> ExecuteOutputLoaderActionCoreAsync(
+            OutputSequenceAutoAction action,
+            CancellationToken ct,
+            bool bFine,
+            int moveTimeoutMs,
+            SequenceStartMode startMode)
+        {
+            switch (action)
+            {
+                case OutputSequenceAutoAction.StoreNgStageToCassette:
+                    return await ExecuteCompletedStageStoreAsync(
+                        ct,
+                        BinSide.Ng,
+                        DieGrade.Ng,
+                        bFine,
+                        moveTimeoutMs,
+                        startMode).ConfigureAwait(false);
+
+                case OutputSequenceAutoAction.StoreGoodStageToCassette:
+                    return await ExecuteCompletedStageStoreAsync(
+                        ct,
+                        BinSide.Good,
+                        DieGrade.Good,
+                        bFine,
+                        moveTimeoutMs,
+                        startMode).ConfigureAwait(false);
+
+                case OutputSequenceAutoAction.ResumeOccupiedFeeder:
+                    return await ExecuteOccupiedFeederActionAsync(
+                        ct,
+                        bFine,
+                        moveTimeoutMs,
+                        startMode).ConfigureAwait(false);
+
+                case OutputSequenceAutoAction.SupplyGoodCassetteToStage:
+                    return await ExecuteSupplyCassetteToStageAsync(
+                        ct,
+                        BinSide.Good,
+                        bFine,
+                        moveTimeoutMs,
+                        startMode).ConfigureAwait(false);
+
+                case OutputSequenceAutoAction.SupplyNgCassetteToStage:
+                    return await ExecuteSupplyCassetteToStageAsync(
+                        ct,
+                        BinSide.Ng,
+                        bFine,
+                        moveTimeoutMs,
+                        startMode).ConfigureAwait(false);
+
+                default:
+                    return Fail(
+                        "OUT-LOADER-BATCH-ACTION",
+                        "OutputSequence",
+                        "Output Loader batch에서 처리할 수 없는 작업입니다. action=" + action);
+            }
+        }
+
+        private static bool IsOutputLoaderWorkAction(OutputSequenceAutoAction action)
+        {
+            return action == OutputSequenceAutoAction.StoreNgStageToCassette ||
+                   action == OutputSequenceAutoAction.StoreGoodStageToCassette ||
+                   action == OutputSequenceAutoAction.ResumeOccupiedFeeder ||
+                   action == OutputSequenceAutoAction.SupplyGoodCassetteToStage ||
+                   action == OutputSequenceAutoAction.SupplyNgCassetteToStage;
+        }
+
+        private bool IsAutoOutputLoaderBatchActive
+        {
+            get
+            {
+                return Mode == SequenceRunMode.Auto &&
+                       Volatile.Read(ref _autoOutputLoaderBatchDepth) > 0;
             }
         }
 
@@ -1107,7 +1283,8 @@ namespace QMC.CDT320.Sequencing
                     }
                 }
 
-                SetOutputStageReadySignals();
+                if (!IsAutoOutputLoaderBatchActive)
+                    SetOutputStageReadySignals();
                 return 0;
             }
             catch (OperationCanceledException)
@@ -1226,7 +1403,8 @@ namespace QMC.CDT320.Sequencing
                     }
                 }
 
-                SetOutputStageReadySignals();
+                if (!IsAutoOutputLoaderBatchActive)
+                    SetOutputStageReadySignals();
                 return 0;
             }
             catch (OperationCanceledException)
@@ -1370,7 +1548,9 @@ namespace QMC.CDT320.Sequencing
                     resource,
                     safeHolder + ":" + side,
                     30000,
-                    ct).ConfigureAwait(false);
+                    ct,
+                    IsAutoOutputLoaderBatchActive,
+                    OutputLoaderBatchDrainReason).ConfigureAwait(false);
             }
             catch (OperationCanceledException)
             {
@@ -1464,7 +1644,12 @@ namespace QMC.CDT320.Sequencing
                 {
                     ct.ThrowIfCancellationRequested();
                     if (Context != null)
-                        Context.StopIfCycleStopRequested("OutputSequence.PickerAvoidGate:" + safeHolder);
+                    {
+                        Context.StopIfCycleStopRequested(
+                            "OutputSequence.PickerAvoidGate:" + safeHolder,
+                            IsAutoOutputLoaderBatchActive,
+                            OutputLoaderBatchDrainReason);
+                    }
 
                     string reason;
                     if (AreOutputPickersAvoidAndStopped(out reason))
@@ -1590,7 +1775,9 @@ namespace QMC.CDT320.Sequencing
                     SequenceResourceKind.OutputPlaceArea,
                     safeHolder,
                     30000,
-                    ct).ConfigureAwait(false);
+                    ct,
+                    IsAutoOutputLoaderBatchActive,
+                    OutputLoaderBatchDrainReason).ConfigureAwait(false);
             }
             catch (OperationCanceledException)
             {

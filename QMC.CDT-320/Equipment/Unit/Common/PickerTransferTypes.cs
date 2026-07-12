@@ -449,6 +449,10 @@ namespace QMC.CDT320
         public double OffsetX { get; set; }
         public double OffsetY { get; set; }
         public double OffsetT { get; set; }
+        // Bottom 완료 결과의 중심 Offset(mm). Side 카메라 각도별 보정 전용이며 Place OffsetX/Y와 분리한다.
+        public double BottomCenterOffsetX { get; set; }
+        public double BottomCenterOffsetY { get; set; }
+        public bool HasBottomCenterOffset { get; set; }
         public double SideVisionYOffset { get; set; }
         public double PickerZOffset { get; set; }
         public bool HasSideInspectionCorrection { get; set; }
