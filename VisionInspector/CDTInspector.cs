@@ -540,6 +540,10 @@ namespace QMC.Vision.Inspector
             // 같은 컨텍스트의 디바이스 버퍼를 재사용한다(같은 이미지 크기 = 할당 0회, ROI 변경 시 그 슬롯만 재할당).
             // 풀 비활성(무-CUDA/구 DLL)이면 Handle=Zero → 기존(호출마다 할당) 경로 그대로.
             CudaContextPool.Lease cudaLease = CudaContextPool.Rent();
+            // host 스크래치 컨텍스트 대여(2026-07-12, 모델 B) — 2배 업스케일 ROI 버퍼(대형 LOH)를 재사용.
+            // 검사 전 구간 이 컨텍스트를 점유하고 finally 에서 반납(다른 검사가 같은 버퍼를 겹쳐 쓰지 않음).
+            BottomScratchPool.Lease scratchLease = BottomScratchPool.Rent();
+            var scratch = scratchLease.Ctx;
             try
             {
                 //int test = 3;
@@ -596,7 +600,7 @@ namespace QMC.Vision.Inspector
                         else
                         {
                             {
-                                MakeSoftWareExpendImage(bip, out ShiftImage, out ShiftImageSobel, out w, out h, imageindex, cudaLease.Handle);
+                                MakeSoftWareExpendImage(bip, out ShiftImage, out ShiftImageSobel, out w, out h, imageindex, cudaLease.Handle, scratch);
                                 vv.shiftimage = ShiftImage;
                                 vv.shiftSobelimage = ShiftImageSobel;
                             }
@@ -930,8 +934,12 @@ namespace QMC.Vision.Inspector
                        // result.DefectCode = 100;
                     }
                 }
+
+                // host 스크래치 반납 — 위 SaveImage(전체이미지)는 풀 버퍼를 동기 복사해 큐에 넣으므로,
+                // 여기서 반납해 다음 검사가 재사용해도 저장 중인 이미지가 손상되지 않는다(SaveDefactImage 는 이미 크롭 복사).
+                scratchLease.Dispose();
             }
-            
+
             return result;
         }
 
@@ -1930,13 +1938,13 @@ namespace QMC.Vision.Inspector
 
             return false;
         }
-        private void MakeSoftWareExpendImage(BottomInspectionParameter bip, out byte[,] shiftImage, out byte[,] shiftImageSobel, out int w, out int h, int i = 0, IntPtr cudaCtx = default(IntPtr))
+        private void MakeSoftWareExpendImage(BottomInspectionParameter bip, out byte[,] shiftImage, out byte[,] shiftImageSobel, out int w, out int h, int i = 0, IntPtr cudaCtx = default(IntPtr), BottomInspectContext scratch = null)
         {
             if (bip.Images == null || bip.Images.Count == 0 || bip.Images[0] == null)
                 throw new ArgumentException("입력 이미지가 없습니다.");
 
             Point ptCenter = FindChipCenter(bip);
-            
+
             var srcImage = bip.Images[i];
             bip.ChipRoi = new Rectangle(ptCenter.X - bip.ChipRoi.Width / 2, ptCenter.Y - bip.ChipRoi.Height / 2, bip.ChipRoi.Width, bip.ChipRoi.Height);
             var roi = bip.ChipRoi;
@@ -1948,18 +1956,26 @@ namespace QMC.Vision.Inspector
             w = srcW * 2;
             h = srcH * 2;
 
-            byte[,] output2D = new byte[h, w]; // [y, x]
-
-            // Sobel 출력 폐지(2026-07-12): 결과 소비처가 없어(호출측 죽은 경로) 98MP 버퍼 할당·핀·GPU 커널·D2H
-            //   전부 낭비였다. 네이티브에 ptrSobel=IntPtr.Zero 를 넘겨 Sobel 전 과정을 생략시킨다(업스케일 결과 불변).
-            //   shiftImageSobel 은 소비처 안전을 위해 1x1 플레이스홀더로 반환(대형 할당 제거).
-
-            // output2D를 포인터로 고정하여 전달
-            var handle = GCHandle.Alloc(output2D, GCHandleType.Pinned);
+            // 2배 업스케일 ROI 버퍼(대형 LOH) — 스크래치 컨텍스트에서 재사용(2026-07-12, 모델 B).
+            //   (h,w) 가 같으면 할당·핀 0회. 폴백: scratch==null(경로상 없음) 이면 기존 방식 신규 할당.
+            //   GPU D2H 가 버퍼 전체(outSize)를 덮어쓰므로 이전 검사 잔상은 결과에 영향 없음.
+            // Sobel 출력 폐지(2026-07-12): 결과 소비처가 없어(호출측 죽은 경로) 커널·버퍼·D2H 전부 낭비였다.
+            //   네이티브에 ptrSobel=IntPtr.Zero 를 넘겨 Sobel 전 과정을 생략(업스케일 결과 불변).
+            byte[,] output2D;
+            IntPtr ptr;
+            GCHandle localHandle = default(GCHandle);
+            if (scratch != null)
+            {
+                output2D = scratch.EnsureUpscaled(h, w, out ptr);   // 영속 핀 — 여기서 Free 하지 않음
+            }
+            else
+            {
+                output2D = new byte[h, w];
+                localHandle = GCHandle.Alloc(output2D, GCHandleType.Pinned);
+                ptr = localHandle.AddrOfPinnedObject();
+            }
             try
             {
-                IntPtr ptr = handle.AddrOfPinnedObject();
-
                 IntPtr ptrSobel = IntPtr.Zero;   // Sobel 미사용 — 네이티브가 커널/버퍼/전송을 건너뛴다.
                 int result;
                 if (cudaCtx != IntPtr.Zero)
@@ -1989,11 +2005,14 @@ namespace QMC.Vision.Inspector
                         roi.Left, roi.Top, roi.Width, roi.Height,
                         ptr, ptrSobel);
                 }
-                // result 체크
+                // 업스케일 실패 시 재사용 버퍼는 이전 검사 잔상이 남는다 — 신규 할당(구 동작)은 0 초기화였으므로
+                // 실패 경로 동작을 맞추기 위해 0 으로 지운다(정상 경로는 전량 덮어써져 무영향).
+                if (result != 0)
+                    Array.Clear(output2D, 0, output2D.Length);
             }
             finally
             {
-                handle.Free();
+                if (localHandle.IsAllocated) localHandle.Free();
             }
 
             shiftImage = output2D;
@@ -2194,8 +2213,11 @@ namespace QMC.Vision.Inspector
                 }
                 strFileName += "\\_X-" + indexX.ToString() + "_Y-" + indexY.ToString() + "_" + colletID.ToString() + "_" + SaveIndex.ToString();
 
-                
-                SaveImage(ShiftImage, w, h, strFileName);
+                // ShiftImage 는 스크래치 풀 버퍼(2026-07-12) — 저장은 ImageSaveQueue 로 비동기 인코드되어
+                // 검사 반환 후 실행될 수 있다. 그 사이 다음 검사가 같은 버퍼를 재사용해 덮어쓰면 저장 이미지가
+                // 손상되므로, 여기서 독립 사본을 만들어 큐에 넘긴다(내용 동일 — 저장 이미지/결과 불변).
+                byte[,] snapshot = (byte[,])ShiftImage.Clone();
+                SaveImage(snapshot, w, h, strFileName);
             }
             catch (Exception ex)
             {

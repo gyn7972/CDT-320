@@ -106,6 +106,8 @@
     <Compile Include="CudaContextPool.cs" />
     <Compile Include="ImageSaveQueue.cs" />
     <Compile Include="BufferPool.cs" />
+    <Compile Include="BottomInspectContext.cs" />
+    <Compile Include="BottomScratchPool.cs" />
     <Compile Include="Log.cs" />
     <Compile Include="LogInfo.cs" />
     <Compile Include="LogManager.cs" />
