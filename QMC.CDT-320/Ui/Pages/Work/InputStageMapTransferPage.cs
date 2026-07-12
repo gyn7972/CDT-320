@@ -926,7 +926,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             {
                 if (recipe == null)
                     return null;
-                string path = RecipeMapPaths.ResolveBaseConfigured(recipe);
+                string path = RecipeMapPaths.ResolveBaseConfigured(recipe, RecipeMapKind.Input);
                 if (string.IsNullOrWhiteSpace(path) || !System.IO.File.Exists(path))
                     return null;
 

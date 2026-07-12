@@ -810,26 +810,6 @@ namespace QMC.CDT320.Initialization
                         AxisInitializeSafetyInput.RightEmgOn, AxisInitializeInterlockState.On,
                         "우측 E-Stop을 복귀하고 안전 상태를 확인하십시오.");
 
-                    AddInterlock(step, AxisInitializeInterlockTarget.DigitalInput,
-                        AxisInitializeSafetyInput.LeftDoorCheck, AxisInitializeInterlockState.On,
-                        "좌측 도어를 닫고 도어 센서 상태를 확인하십시오.");
-                    AddInterlock(step, AxisInitializeInterlockTarget.DigitalInput,
-                        AxisInitializeSafetyInput.RearDoorCheck, AxisInitializeInterlockState.On,
-                        "후면 도어를 닫고 도어 센서 상태를 확인하십시오.");
-                    AddInterlock(step, AxisInitializeInterlockTarget.DigitalInput,
-                        AxisInitializeSafetyInput.RightDoorCheck, AxisInitializeInterlockState.On,
-                        "우측 도어를 닫고 도어 센서 상태를 확인하십시오.");
-                    AddInterlock(step, AxisInitializeInterlockTarget.DigitalInput,
-                        AxisInitializeSafetyInput.WaferLifterDoorCheck, AxisInitializeInterlockState.On,
-                        "Wafer Lifter 도어를 닫고 도어 센서 상태를 확인하십시오.");
-                    AddInterlock(step, AxisInitializeInterlockTarget.DigitalInput,
-                        AxisInitializeSafetyInput.BinLifterDoorCheck, AxisInitializeInterlockState.On,
-                        "Bin Lifter 도어를 닫고 도어 센서 상태를 확인하십시오.");
-
-                    AddInterlock(step, AxisInitializeInterlockTarget.Resource,
-                        AxisInitializeInterlockName.Resources, AxisInitializeInterlockState.AllOk,
-                        "Main CDA 2개와 Vacuum 4개 공급 상태를 확인하십시오.");
-
                     step.Interlocks.AddRange(stepInterlocks);
                 }
             }

@@ -232,6 +232,10 @@ namespace QMC.CDT320.Recipes
                 project.ColletZ = new ColletZConfigSubset();
             if (project.BaseWaferMapFileName == null)
                 project.BaseWaferMapFileName = "";
+            if (project.InputBaseWaferMapFileName == null)
+                project.InputBaseWaferMapFileName = "";
+            if (project.OutputBaseWaferMapFileName == null)
+                project.OutputBaseWaferMapFileName = "";
             if (project.InputDieMapFileName == null)
                 project.InputDieMapFileName = "";
             if (project.OutputDieMapFileName == null)
@@ -343,8 +347,11 @@ namespace QMC.CDT320.Recipes
         [DataMember] public string PartId             { get; set; }
         [DataMember] public string InputCassetteId    { get; set; }
         [DataMember] public string OutputCassetteId   { get; set; }
-        // Recipe-owned source WaferMap. Empty keeps the legacy Config\WaferMap lookup behavior.
+        // BaseWaferMapFileName은 구형 Recipe의 공용 Base 경로 호환용으로만 유지한다.
+        // 신규 저장은 Input/Output 역할별 Base 경로를 사용한다.
         [DataMember] public string BaseWaferMapFileName { get; set; } = "";
+        [DataMember] public string InputBaseWaferMapFileName { get; set; } = "";
+        [DataMember] public string OutputBaseWaferMapFileName { get; set; } = "";
         [DataMember] public string InputDieMapFileName { get; set; } = "";
         // 출력(빈) 맵은 원형 형상 + GOOD/NG 분리 관리. OutputDieMapFileName은 레거시 폴백으로 유지.
         [DataMember] public string OutputDieMapFileName { get; set; } = "";

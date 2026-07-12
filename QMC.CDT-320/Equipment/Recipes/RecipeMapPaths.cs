@@ -28,10 +28,57 @@ namespace QMC.CDT320.Recipes
             return ResolveConfiguredPath(configured);
         }
 
-        /// <summary>Recipe-owned Base WaferMap path. Empty means legacy name-based lookup.</summary>
+        /// <summary>구형 호출 호환용 Input Base 경로.</summary>
         public static string ResolveBaseConfigured(RecipeProject project)
         {
-            return ResolveConfiguredPath(project != null ? project.BaseWaferMapFileName : "");
+            return ResolveBaseConfigured(project, RecipeMapKind.Input);
+        }
+
+        /// <summary>역할별 Recipe-owned Base WaferMap 경로. 역할 필드가 비어 있으면 구형 공용 Base로 폴백한다.</summary>
+        public static string ResolveBaseConfigured(RecipeProject project, RecipeMapKind kind)
+        {
+            return ResolveConfiguredPath(ConfiguredBaseFileName(project, kind));
+        }
+
+        /// <summary>역할별 Base 파일명. 역할 필드가 비어 있으면 구형 공용 Base로 폴백한다.</summary>
+        public static string ConfiguredBaseFileName(RecipeProject project, RecipeMapKind kind)
+        {
+            if (project == null)
+                return "";
+
+            string rolePath = ExactBaseConfiguredFileName(project, kind);
+            return !string.IsNullOrWhiteSpace(rolePath)
+                ? rolePath
+                : project.BaseWaferMapFileName ?? "";
+        }
+
+        /// <summary>다른 역할이나 구형 공용 Base로 폴백하지 않는 역할 전용 Base 파일명.</summary>
+        public static string ExactBaseConfiguredFileName(RecipeProject project, RecipeMapKind kind)
+        {
+            if (project == null)
+                return "";
+
+            return kind == RecipeMapKind.Input
+                ? project.InputBaseWaferMapFileName ?? ""
+                : project.OutputBaseWaferMapFileName ?? "";
+        }
+
+        /// <summary>역할별 Base 파일명을 기록한다. GOOD/NG는 동일한 Output Base를 공유한다.</summary>
+        public static void SetConfiguredBaseFileName(RecipeProject project, RecipeMapKind kind, string relativePath)
+        {
+            if (project == null)
+                return;
+
+            if (kind == RecipeMapKind.Input)
+                project.InputBaseWaferMapFileName = relativePath ?? "";
+            else
+                project.OutputBaseWaferMapFileName = relativePath ?? "";
+        }
+
+        /// <summary>역할별 Base 파일 접미사.</summary>
+        public static string BaseFileSuffix(RecipeMapKind kind)
+        {
+            return kind == RecipeMapKind.Input ? "InputBaseWaferMap" : "OutputBaseWaferMap";
         }
 
         /// <summary>Absolute paths are preserved; relative paths are based on the handler executable directory.</summary>

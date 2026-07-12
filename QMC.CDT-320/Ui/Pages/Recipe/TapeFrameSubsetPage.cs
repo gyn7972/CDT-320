@@ -99,7 +99,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                     UpdateDerivedControlAccess();
                     _lastWaferStatus = "[SAVE OK] " + (_currentRoleIsOutput ? "OUTPUT" : "INPUT") +
                         " Pitch Gap을 Recipe에 저장하고 Die Size + Gap 중심 간격으로 역할 맵 좌표를 다시 계산했습니다.";
-                    if (!string.IsNullOrWhiteSpace(_project.BaseWaferMapFileName))
+                    if (IsBaseMapConnected())
                         _lastWaferStatus += " 공정 사용 전 Map Create에서 역할별 FINAL APPLY가 필요합니다.";
                     UpdateMapSourceInfo();
                 }
@@ -228,9 +228,10 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
 
                     // Base 파싱 전에 현재 역할의 Pitch/Frame 편집값을 먼저 반영한다.
                     SaveControlsToSelectedRole();
-                    RecipeMapBuildResult result = RecipeMapBuildService.ImportBaseAndBuildAll(
+                    RecipeMapBuildResult result = RecipeMapBuildService.ImportBaseAndBuildRole(
                         _project,
                         dialog.FileName,
+                        _currentRoleIsOutput,
                         RecipeStore.Save);
                     if (!result.Success)
                         throw new InvalidOperationException(result.Message);
@@ -254,7 +255,8 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                         UpdateMapFileLabel();
                         UpdateDerivedControlAccess();
                         _lastWaferStatus = "[LOAD WAFER MAP OK] " + Path.GetFileName(dialog.FileName) +
-                            "을 Base로 저장하고 Input/Good/NG 역할 맵을 생성했습니다. Map Create에서 확인 후 APPLY 하세요.";
+                            "을 " + (_currentRoleIsOutput ? "Output Base" : "Input Base") + "로 저장하고 " +
+                            (_currentRoleIsOutput ? "Good/NG" : "Input") + " 역할 맵을 생성했습니다. Map Create에서 확인 후 APPLY 하세요.";
                         UpdateMapSourceInfo();
                     }
                     finally
@@ -264,9 +266,11 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
 
                     MessageBox.Show(
                         string.Format(
-                            "Base/Input/Good/NG Wafer Map 생성 완료.\r\n주소 수: {0}\r\n\r\n" +
-                            "공정 사용 전 INPUT DIE MAP CREATE와 BIN DIE MAP CREATE에서 각 역할을 확인하고 FINAL APPLY 하세요.",
-                            result.AddressCount),
+                            "{0} Base Wafer Map 생성 완료.\r\n주소 수: {1}\r\n\r\n" +
+                            "공정 사용 전 {2}에서 해당 역할을 확인하고 FINAL APPLY 하세요.",
+                            _currentRoleIsOutput ? "Output" : "Input",
+                            result.AddressCount,
+                            _currentRoleIsOutput ? "BIN DIE MAP CREATE" : "INPUT DIE MAP CREATE"),
                         "Wafer Map",
                         MessageBoxButtons.OK,
                         MessageBoxIcon.Information);
@@ -423,8 +427,8 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             if (!IsBaseMapConnected())
                 return false;
 
-            bool rebuildInput = !_currentRoleIsOutput || RoleMapNeedsRebuild(false);
-            bool rebuildOutput = _currentRoleIsOutput || RoleMapNeedsRebuild(true);
+            bool rebuildInput = !_currentRoleIsOutput;
+            bool rebuildOutput = _currentRoleIsOutput;
             RecipeMapBuildResult result = RecipeMapBuildService.RebuildDerivedMaps(
                 _project,
                 rebuildInput,
@@ -434,37 +438,6 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             if (!result.Success)
                 throw new InvalidOperationException(result.Message);
             return true;
-        }
-
-        private bool RoleMapNeedsRebuild(bool output)
-        {
-            TapeFrameSubset frame = ResolveRoleFrame(output);
-            if (frame == null || !IsPitchGapValid(frame.PitchX) || !IsPitchGapValid(frame.PitchY))
-                return true;
-
-            double expectedStepX = ResolveRecipeDieSizeX() + frame.PitchX;
-            double expectedStepY = ResolveRecipeDieSizeY() + frame.PitchY;
-            RecipeMapKind[] kinds = output
-                ? new[] { RecipeMapKind.GoodBin, RecipeMapKind.NgBin }
-                : new[] { RecipeMapKind.Input };
-            foreach (RecipeMapKind kind in kinds)
-            {
-                string configured = RecipeMapPaths.ExactConfiguredFileName(_project, kind);
-                string path = RecipeMapPaths.ResolveConfiguredPath(configured);
-                DieMap roleMap = !string.IsNullOrWhiteSpace(path) && File.Exists(path)
-                    ? DieMapGenerator.Load(path)
-                    : null;
-                if (roleMap == null ||
-                    roleMap.DieMapX != Math.Max(1, frame.DieMapX) ||
-                    roleMap.DieMapY != Math.Max(1, frame.DieMapY) ||
-                    !NearlyEqual(roleMap.PitchX, expectedStepX) ||
-                    !NearlyEqual(roleMap.PitchY, expectedStepY))
-                {
-                    return true;
-                }
-            }
-
-            return false;
         }
 
         private void SaveAllFrameSpecs()
@@ -503,6 +476,11 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             return output ? _project.GoodBinDieMapFileName : _project.InputDieMapFileName;
         }
 
+        private static RecipeMapKind ResolveBaseMapKind(bool output)
+        {
+            return output ? RecipeMapKind.GoodBin : RecipeMapKind.Input;
+        }
+
         private TapeFrameSubset ResolveRoleFrame(bool output)
         {
             if (_project == null)
@@ -520,7 +498,8 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
 
         private bool IsBaseMapConnected()
         {
-            return _project != null && !string.IsNullOrWhiteSpace(_project.BaseWaferMapFileName);
+            return _project != null && !string.IsNullOrWhiteSpace(
+                RecipeMapPaths.ConfiguredBaseFileName(_project, ResolveBaseMapKind(_currentRoleIsOutput)));
         }
 
         private void UpdateMapFileLabel()
@@ -529,8 +508,8 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 return;
 
             _lblMapFileValue.Text = _currentRoleIsOutput
-                ? "BASE=" + EmptyDash(_project.BaseWaferMapFileName) + " / GOOD=" + EmptyDash(_project.GoodBinDieMapFileName) + " / NG=" + EmptyDash(_project.NgBinDieMapFileName)
-                : "BASE=" + EmptyDash(_project.BaseWaferMapFileName) + " / INPUT=" + EmptyDash(_project.InputDieMapFileName);
+                ? "OUTPUT BASE=" + EmptyDash(RecipeMapPaths.ConfiguredBaseFileName(_project, RecipeMapKind.GoodBin)) + " / GOOD=" + EmptyDash(_project.GoodBinDieMapFileName) + " / NG=" + EmptyDash(_project.NgBinDieMapFileName)
+                : "INPUT BASE=" + EmptyDash(RecipeMapPaths.ConfiguredBaseFileName(_project, RecipeMapKind.Input)) + " / INPUT=" + EmptyDash(_project.InputDieMapFileName);
         }
 
         private void OnPitchValueChanged(object sender, EventArgs e)
@@ -682,7 +661,9 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 if (_project == null)
                     return false;
 
-                string basePath = RecipeMapPaths.ResolveBaseConfigured(_project);
+                string basePath = RecipeMapPaths.ResolveBaseConfigured(
+                    _project,
+                    ResolveBaseMapKind(_currentRoleIsOutput));
                 if (string.IsNullOrWhiteSpace(basePath) || !File.Exists(basePath))
                     return false;
 
@@ -747,7 +728,9 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 string axisX = _currentRoleIsOutput ? "Output Camera X" : "Input Camera X";
                 string axisY = _currentRoleIsOutput ? "Output Stage Y" : "Input Stage Y";
                 string projectName = _project != null ? _project.FileName ?? "-" : "-";
-                string basePath = _project != null ? RecipeMapPaths.ResolveBaseConfigured(_project) : "";
+                string basePath = _project != null
+                    ? RecipeMapPaths.ResolveBaseConfigured(_project, ResolveBaseMapKind(_currentRoleIsOutput))
+                    : "";
                 DieMap map = !string.IsNullOrWhiteSpace(basePath) && File.Exists(basePath)
                     ? DieMapGenerator.Load(basePath)
                     : null;
@@ -876,11 +859,10 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
         private static void AppendWaferApplyFlow(System.Collections.Generic.ICollection<string> lines)
         {
             lines.Add("[SAVE / LOAD / FINAL APPLY]");
-            lines.Add("1. LOAD WAFER MAP: RAD/CSV/JSON 원본을 Base로 연결");
-            lines.Add("2. INPUT WAFER 선택 -> Pitch Gap 입력 -> top SAVE");
-            lines.Add("3. OUTPUT WAFER 선택 -> Pitch Gap 입력 -> top SAVE");
-            lines.Add("4. INPUT DIE MAP CREATE: 현재 Input 맵/좌표 확인 -> APPLY");
-            lines.Add("5. BIN DIE MAP CREATE: GOOD/NG 각각 확인 -> APPLY");
+            lines.Add("1. INPUT WAFER 선택 -> LOAD WAFER MAP으로 Input Base 연결 -> Pitch Gap 입력 -> top SAVE");
+            lines.Add("2. OUTPUT WAFER 선택 -> LOAD WAFER MAP으로 Output Base 연결 -> Pitch Gap 입력 -> top SAVE");
+            lines.Add("3. INPUT DIE MAP CREATE: Input Base 기준 맵/좌표 확인 -> APPLY");
+            lines.Add("4. BIN DIE MAP CREATE: Output Base 기준 GOOD/NG 각각 확인 -> APPLY");
             lines.Add("※ LOAD SPEC은 화면만 변경하며 SAVE 전에는 Recipe에 적용되지 않습니다.");
         }
 
@@ -967,7 +949,9 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
 
             try
             {
-                string basePath = _project != null ? RecipeMapPaths.ResolveBaseConfigured(_project) : "";
+                string basePath = _project != null
+                    ? RecipeMapPaths.ResolveBaseConfigured(_project, ResolveBaseMapKind(_currentRoleIsOutput))
+                    : "";
                 DieMap baseMap = !string.IsNullOrWhiteSpace(basePath) && File.Exists(basePath)
                     ? DieMapGenerator.Load(basePath)
                     : null;
