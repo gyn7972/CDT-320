@@ -159,6 +159,10 @@ namespace QMC.Vision.Ui.Pages
                 // 그랩 전 지연: MVS 카메라 노드가 아닌 핸들러 그랩 직전 대기(소프트웨어) — (SW) 표기로 구분.
                 WithRange(ParameterGridItem.Int(Lang.T("set.cam.delayGrab") + " (SW)", "ms", ParameterGridScope.Recipe,
                     () => m.DelayBeforeGrabMs, v => m.DelayBeforeGrabMs = v), 0, 60000),
+                // 그랩 busy 대기 한도: 명령이 촬상 간격보다 빨리 와 이전 그랩이 진행 중이면 즉시 실패하지 않고
+                //   10ms 간격 재시도 후 이 시간 초과 시에만 실패(기본 1000ms). 0 이하 = 1000 적용.
+                WithRange(ParameterGridItem.Int("그랩 Busy 대기 한도 (SW)", "ms", ParameterGridScope.Recipe,
+                    () => m.GrabBusyTimeoutMs, v => m.GrabBusyTimeoutMs = v), 0, 60000),
                 // 프레임 평균화 매수(1=단발). N장 촬상 후 픽셀평균으로 노이즈 저감 — 소프트웨어 처리(SW) 표기.
                 WithRange(ParameterGridItem.Int(Lang.T("set.cam.avgCount") + " (SW)", "장", ParameterGridScope.Recipe,
                     () => m.AverageCount, v => m.AverageCount = v), 1, 64),

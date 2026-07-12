@@ -63,6 +63,9 @@ namespace QMC.Common.Recipes
         [DataMember] public string TriggerMode       { get; set; } = "Software";
         [DataMember] public string PixelFormat       { get; set; } = "Mono8";
         [DataMember] public int    DelayBeforeGrabMs { get; set; } = 0;
+        /// <summary>그랩 재진입(busy) 대기 한도(ms). 명령이 촬상 간격보다 빨리 와서 이전 그랩이 진행 중이면
+        /// 즉시 실패하지 않고 10ms 간격 재시도하며 이 시간까지 기다린다. 기본 1000ms. (0 이하 = 1000 적용)</summary>
+        [DataMember] public int    GrabBusyTimeoutMs { get; set; } = 1000;
         /// <summary>프레임 평균화(Averaging) 매수. 1=미사용(단발), N&gt;1 이면 N장 촬상 후 픽셀평균으로 노이즈 저감.</summary>
         [DataMember] public int    AverageCount      { get; set; } = 1;
 
@@ -122,6 +125,7 @@ namespace QMC.Common.Recipes
                 ExposureUs = ExposureUs, Gain = Gain, FrameRate = FrameRate,
                 TriggerMode = TriggerMode, PixelFormat = PixelFormat,
                 DelayBeforeGrabMs = DelayBeforeGrabMs,
+                GrabBusyTimeoutMs = GrabBusyTimeoutMs,
                 AverageCount = AverageCount,
                 RoiOffsetX = RoiOffsetX, RoiOffsetY = RoiOffsetY,
                 RoiWidth = RoiWidth, RoiHeight = RoiHeight,
