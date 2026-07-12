@@ -705,7 +705,9 @@ namespace QMC.Vision.Inspector
                 if (bip.ChippingDepth != 0)
                 {
                     var swChip = bProfilePhases ? System.Diagnostics.Stopwatch.StartNew() : null;
-                    var v =InspectChipping(bip, result, w, h, ShiftImage, dChppingMargin, startTime, chippingMask, resultChppingNForeign, margin / 2 + 3);
+                    // ctx 경로는 마스크의 다이 외곽이 0 으로 보장(cudaMemset + isInside 한정 기록) → 다이 bbox 만 블랍 탐색 가능.
+                    bool maskZeroOutside = cudaLease.Handle != IntPtr.Zero;
+                    var v =InspectChipping(bip, result, w, h, ShiftImage, dChppingMargin, startTime, chippingMask, resultChppingNForeign, margin / 2 + 3, maskZeroOutside);
                     bChipping = v.bChipping;
                     bForeign = v.bForeign;
                     if (swChip != null)
@@ -1056,7 +1058,7 @@ namespace QMC.Vision.Inspector
             }
         }
 
-        private (bool bChipping,bool bForeign) InspectChipping(BottomInspectionParameter bip, BottomResult result, int w, int h, byte[,] ShiftImage,  double dChppingMargin, DateTime startTime, byte[] chippingMask, QMC_ResultChppingNForeign resultChppingNForeign, int margin)
+        private (bool bChipping,bool bForeign) InspectChipping(BottomInspectionParameter bip, BottomResult result, int w, int h, byte[,] ShiftImage,  double dChppingMargin, DateTime startTime, byte[] chippingMask, QMC_ResultChppingNForeign resultChppingNForeign, int margin, bool maskZeroOutside = false)
         {
             bool bChipping = false;
             bool bForeign = false;
@@ -1067,16 +1069,28 @@ namespace QMC.Vision.Inspector
                 var blobTool = new QMC_BlobTool();
                 var chippingRegions = new List<List<Point>>();
 
+                // 다이 bbox 한정 탐색(2026-07-12): 마스크 백색 픽셀은 외곽 4라인 안쪽(isInside)에만 존재하고
+                // ctx 경로는 그 밖이 0 으로 보장되므로, 4코너 bbox(+여유)만 라벨링해도 성분/순서/좌표가 동일하다.
+                Rectangle blobRoi = new Rectangle(0, 0, 0, 0);   // 무효 = 전체 프레임
+                if (maskZeroOutside)
+                {
+                    float cminX = Math.Min(Math.Min(resultChppingNForeign.LeftTop.X, resultChppingNForeign.LeftBottom.X), Math.Min(resultChppingNForeign.RightTop.X, resultChppingNForeign.RightBottom.X));
+                    float cmaxX = Math.Max(Math.Max(resultChppingNForeign.LeftTop.X, resultChppingNForeign.LeftBottom.X), Math.Max(resultChppingNForeign.RightTop.X, resultChppingNForeign.RightBottom.X));
+                    float cminY = Math.Min(Math.Min(resultChppingNForeign.LeftTop.Y, resultChppingNForeign.RightTop.Y), Math.Min(resultChppingNForeign.LeftBottom.Y, resultChppingNForeign.RightBottom.Y));
+                    float cmaxY = Math.Max(Math.Max(resultChppingNForeign.LeftTop.Y, resultChppingNForeign.RightTop.Y), Math.Max(resultChppingNForeign.LeftBottom.Y, resultChppingNForeign.RightBottom.Y));
+                    int bx0 = Math.Max(0, (int)Math.Floor(cminX) - 2);
+                    int by0 = Math.Max(0, (int)Math.Floor(cminY) - 2);
+                    int bx1 = Math.Min(w - 1, (int)Math.Ceiling(cmaxX) + 2);
+                    int by1 = Math.Min(h - 1, (int)Math.Ceiling(cmaxY) + 2);
+                    if (bx1 > bx0 && by1 > by0)
+                        blobRoi = new Rectangle(bx0, by0, bx1 - bx0 + 1, by1 - by0 + 1);
+                }
+
                 // 마스크는 이미 1차원(w*h) — 종전의 2D→1D 131MB 재복사 제거(2026-07-12, 내용 동일).
+                // 링크거리 1 → 모폴로지 없음 → 성분 정의가 순수 8-연결이라 희소 라벨링으로 대체(성분/점 동일).
                 var swBlob = bProfilePhases ? System.Diagnostics.Stopwatch.StartNew() : null;
-                chippingRegions = FindBrightBlobsOpenCv(
-                    chippingMask,
-                    w,
-                    h,
-                    w,
-                    120,
-                    1,
-                    1);
+                blobTool.FindBlobBrightSparse(chippingMask, w, h, w, 120, 1,
+                    ref chippingRegions, blobRoi.X, blobRoi.Y, blobRoi.Width, blobRoi.Height);
                 double msBlob = swBlob != null ? swBlob.Elapsed.TotalMilliseconds : 0;
                 if (swBlob != null) swBlob.Restart();
 
@@ -1492,17 +1506,22 @@ namespace QMC.Vision.Inspector
                 return new List<List<Point>>();
             }
 
-            // 서브 ROI 처리(2026-07-12): 종전에는 후보 점 몇 천 개를 위해 전체 프레임(131MP) 마스크를
-            // 새로 할당하고 그 위에서 모폴로지 Close + ConnectedComponents 를 돌렸다. 모폴로지 Close(사각
-            // 커널 반지름 = linkDistance)의 영향 범위는 원본 백색 픽셀에서 체비셰프 거리 linkDistance 이내로
-            // 국한되므로, 후보 전체 바운딩박스를 (linkDistance+2)만큼 패딩한 부분 영역만 처리해도
-            // 출력 백색 픽셀 집합이 동일하다. 성분의 래스터 첫-등장 순서도 (y,x) 대소 관계가 부분/전체
-            // 좌표계에서 같아 블랍 목록 순서까지 동일 — 좌표만 오프셋 환원하면 결과가 완전히 같다.
-            int minX = int.MaxValue, maxX = int.MinValue, minY = int.MaxValue, maxY = int.MinValue;
-            bool hasPixels = false;
-            foreach (var region in regions)
+            // 클러스터 분해 처리(2026-07-12): 종전에는 후보 점 몇 천 개를 위해 전체 프레임(131MP) 마스크를
+            // 새로 할당하고 모폴로지 Close + ConnectedComponents×2 를 돌렸다. Close(사각 커널 반지름 =
+            // linkDistance)는 서로 체비셰프 거리 2×linkDistance 초과로 떨어진 픽셀 집합을 절대 연결하지
+            // 못하므로(각각의 dilate 가 접촉 불가), 후보 영역들을 '바운딩박스 간격 ≤ 2×linkDistance' 기준으로
+            // 뭉친 클러스터별 소창(패딩 = linkDistance+2)에서 독립 처리해도 출력 백색 픽셀 집합·성분 구성이
+            // 전체 처리와 동일하다(과잉 병합은 무해 — 같은 창 안에서도 Close 가 못 잇는 건 CCL 이 갈라놓음).
+            // 최종 목록은 성분 첫-등장 픽셀(y,x) 래스터 순으로 정렬해 전체-프레임 라벨 순서와 일치시킨다.
+            int n = regions.Count;
+            var bboxes = new Rectangle[n];
+            var alive = new bool[n];
+            for (int i = 0; i < n; i++)
             {
-                if (region == null) continue;
+                var region = regions[i];
+                if (region == null || region.Count == 0) continue;
+                int minX = int.MaxValue, maxX = int.MinValue, minY = int.MaxValue, maxY = int.MinValue;
+                bool has = false;
                 foreach (var pt in region)
                 {
                     if (pt.X < 0 || pt.X >= width || pt.Y < 0 || pt.Y >= height) continue;
@@ -1510,49 +1529,107 @@ namespace QMC.Vision.Inspector
                     if (pt.X > maxX) maxX = pt.X;
                     if (pt.Y < minY) minY = pt.Y;
                     if (pt.Y > maxY) maxY = pt.Y;
-                    hasPixels = true;
+                    has = true;
+                }
+                if (!has) continue;
+                alive[i] = true;
+                bboxes[i] = new Rectangle(minX, minY, maxX - minX + 1, maxY - minY + 1);
+            }
+
+            // union-find 로 클러스터링(박스 간격 ≤ 2*linkDistance → 같은 클러스터; 보수적 과잉 병합은 결과 불변)
+            int linkGap = 2 * Math.Max(1, linkDistance);
+            var parent = new int[n];
+            for (int i = 0; i < n; i++) parent[i] = i;
+            Func<int, int> find = null;
+            find = (i) => parent[i] == i ? i : (parent[i] = find(parent[i]));
+            for (int i = 0; i < n; i++)
+            {
+                if (!alive[i]) continue;
+                for (int j = i + 1; j < n; j++)
+                {
+                    if (!alive[j]) continue;
+                    int gapX = Math.Max(bboxes[i].Left, bboxes[j].Left) - Math.Min(bboxes[i].Right - 1, bboxes[j].Right - 1) - 1;
+                    int gapY = Math.Max(bboxes[i].Top, bboxes[j].Top) - Math.Min(bboxes[i].Bottom - 1, bboxes[j].Bottom - 1) - 1;
+                    if (Math.Max(gapX, gapY) <= linkGap)
+                    {
+                        parent[find(i)] = find(j);
+                    }
                 }
             }
 
-            if (!hasPixels)
+            var clusters = new Dictionary<int, List<int>>();
+            for (int i = 0; i < n; i++)
+            {
+                if (!alive[i]) continue;
+                int root = find(i);
+                List<int> members;
+                if (!clusters.TryGetValue(root, out members)) { members = new List<int>(); clusters[root] = members; }
+                members.Add(i);
+            }
+
+            if (clusters.Count == 0)
             {
                 return new List<List<Point>>();
             }
 
             int pad = Math.Max(1, linkDistance) + 2;
-            int x0 = Math.Max(0, minX - pad);
-            int y0 = Math.Max(0, minY - pad);
-            int x1 = Math.Min(width - 1, maxX + pad);
-            int y1 = Math.Min(height - 1, maxY + pad);
-            int subW = x1 - x0 + 1;
-            int subH = y1 - y0 + 1;
-
-            byte[] mask = BufferPool.Rent(subW * subH);
-            Array.Clear(mask, 0, mask.Length);   // 풀 재사용 버퍼 — 종전 '새 배열=0' 의미 유지
-            foreach (var region in regions)
+            var blobTool = new QMC_BlobTool();
+            var all = new List<List<Point>>();
+            foreach (var kv in clusters)
             {
-                if (region == null) continue;
-                foreach (var pt in region)
+                // 클러스터 창 = 멤버 bbox 합집합 + 패딩
+                int minCX = int.MaxValue, maxCX = int.MinValue, minCY = int.MaxValue, maxCY = int.MinValue;
+                foreach (int idx in kv.Value)
                 {
-                    if (pt.X < 0 || pt.X >= width || pt.Y < 0 || pt.Y >= height) continue;
-                    mask[(pt.Y - y0) * subW + (pt.X - x0)] = 255;
+                    var b = bboxes[idx];
+                    if (b.Left < minCX) minCX = b.Left;
+                    if (b.Right - 1 > maxCX) maxCX = b.Right - 1;
+                    if (b.Top < minCY) minCY = b.Top;
+                    if (b.Bottom - 1 > maxCY) maxCY = b.Bottom - 1;
                 }
-            }
+                int x0 = Math.Max(0, minCX - pad);
+                int y0 = Math.Max(0, minCY - pad);
+                int x1 = Math.Min(width - 1, maxCX + pad);
+                int y1 = Math.Min(height - 1, maxCY + pad);
+                int subW = x1 - x0 + 1;
+                int subH = y1 - y0 + 1;
 
-            var found = FindBrightBlobsOpenCv(mask, subW, subH, subW, 120, minSize, linkDistance);
-            BufferPool.Return(mask);
-
-            if (x0 != 0 || y0 != 0)
-            {
-                foreach (var blob in found)
+                byte[] mask = BufferPool.Rent(subW * subH);
+                Array.Clear(mask, 0, mask.Length);
+                foreach (int idx in kv.Value)
                 {
-                    for (int i = 0; i < blob.Count; i++)
+                    foreach (var pt in regions[idx])
                     {
-                        blob[i] = new Point(blob[i].X + x0, blob[i].Y + y0);
+                        if (pt.X < 0 || pt.X >= width || pt.Y < 0 || pt.Y >= height) continue;
+                        mask[(pt.Y - y0) * subW + (pt.X - x0)] = 255;
                     }
                 }
+
+                var found = new List<List<Point>>();
+                blobTool.FindBlobBright(mask, subW, subH, subW, 120, minSize, (byte)120, ref found, null, linkDistance);
+                BufferPool.Return(mask);
+
+                foreach (var blob in found)
+                {
+                    if (x0 != 0 || y0 != 0)
+                    {
+                        for (int i = 0; i < blob.Count; i++)
+                        {
+                            blob[i] = new Point(blob[i].X + x0, blob[i].Y + y0);
+                        }
+                    }
+                    all.Add(blob);
+                }
             }
-            return found;
+
+            // 전체-프레임 라벨링과 동일한 순서(첫-등장 픽셀 래스터 순) — 블랍 내 점들은 이미 래스터 순.
+            all.Sort((a, b) =>
+            {
+                Point pa = a[0], pb = b[0];
+                int c = pa.Y.CompareTo(pb.Y);
+                return c != 0 ? c : pa.X.CompareTo(pb.X);
+            });
+            return all;
         }
 
         private static List<List<Point>> FindBrightBlobsOpenCv(byte[] image, int width, int height, int stride, byte threshold, int minDefectSize, int linkDistance)

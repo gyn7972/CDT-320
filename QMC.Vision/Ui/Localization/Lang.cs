@@ -184,6 +184,7 @@ namespace QMC.Vision.Ui.Localization
             A("insp.ScaleFinder",             "스케일",      "Scale");
             A("insp.PlacementInspector",      "다이",        "Die");   // 빈비전 '다이' = 안착 갭 검사(DieGapInspect) — 매칭 아님(2026-07-11)
             A("insp.ColletFinder",            "콜렛",        "Collet");
+            A("insp.ColletRotCenterFinder",   "회전 중심",   "Rot. Center");
             A("insp.SurfaceInspector",        "표면",        "Surface");
             A("insp.FocusFinder",             "포커스",      "Focus");
             A("insp.DistortionCompensation",  "왜곡 보정",   "Distortion Comp.");
@@ -395,6 +396,7 @@ namespace QMC.Vision.Ui.Localization
             Z("insp.ScaleFinder",             "比例");
             Z("insp.PlacementInspector",      "芯片");
             Z("insp.ColletFinder",            "吸嘴");
+            Z("insp.ColletRotCenterFinder",   "旋转中心");
             Z("insp.SurfaceInspector",        "表面");
             Z("insp.FocusFinder",             "对焦");
             Z("insp.DistortionCompensation",  "畸变校正");
@@ -521,6 +523,7 @@ namespace QMC.Vision.Ui.Localization
             J("insp.ScaleFinder",             "スケール");
             J("insp.PlacementInspector",      "ダイ");
             J("insp.ColletFinder",            "コレット");
+            J("insp.ColletRotCenterFinder",   "回転中心");
             J("insp.SurfaceInspector",        "表面");
             J("insp.FocusFinder",             "フォーカス");
             J("insp.DistortionCompensation",  "歪み補正");
