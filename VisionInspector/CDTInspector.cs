@@ -2328,6 +2328,15 @@ namespace QMC.Vision.Inspector
 
                 result.SaveCount++;
 
+                // MaxDefactSize 동기 갱신(2026-07-12): 종전에는 이 값이 비동기 저장 작업 안에서 설정됐고
+                // BottomInspect 가 SaveCount 대기 루프로 완료를 보장했다. 저장을 ImageSaveQueue 로 분리하면서
+                // 대기 없이 반환하므로, 같은 식(dsize = min(크롭폭, 크롭높이), NG 시 최대 갱신)을 저장 등록
+                // 시점에 즉시 계산한다 — 최댓값 갱신이라 순서 무관, 종전과 같은 최종값이 반환 전에 확정된다.
+                double dsizeSync = Math.Min(width, height);
+                if (dsizeSync > result.MaxDefactSize && bIsNG)
+                {
+                    result.MaxDefactSize = dsizeSync;
+                }
             }
             // 저장 전용 큐(2026-07-12) — 디펙 크롭 PNG 인코드를 검사 스레드풀에서 분리(내용/경로 동일).
             ImageSaveQueue.Enqueue(() =>
@@ -2446,17 +2455,8 @@ namespace QMC.Vision.Inspector
 
                                 }
                             }
-                            lock(saveHelper.Result)
-                            {
-                                
-                                double dsize = Math.Min(width, height);
-                                if (dsize > saveHelper.Result.MaxDefactSize && bIsNG)
-                                {
-                                    saveHelper.Result.DisplayImage = bmp24bit;
-                                    saveHelper.Result.MaxDefactSize = dsize;
-                                    //this.LastBitMap = bmp24bit;
-                                }
-                            }                            
+                            // MaxDefactSize 는 저장 등록 시점(동기)에 갱신하도록 이동(2026-07-12) — 위 주석 참조.
+                            // DisplayImage 는 소비처가 없어(선언/초기화 외 참조 없음 확인) 설정을 중단한다.
                         }
                     }
                 }
