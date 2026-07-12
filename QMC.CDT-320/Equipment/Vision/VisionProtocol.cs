@@ -155,7 +155,8 @@ namespace QMC.CDT320.VisionComm
         public const string LegacyExposureDone = "EPD";
         public const string Alarm = "ARM";
         public const string RecipeRequest = "RECIPEREQ";
-        /// <summary>Bottom 외곽 종료(EventSearchDieEnd) XYT — "XYT|MODULE|fb|collet|chip_uid|x=..;y=..;t=..;ix=..;iy=..".</summary>
+        /// <summary>Bottom 외곽 종료(EventSearchDieEnd) XYT —
+        /// "XYT|MODULE|fb|collet|die_index|x=..;y=..;t=..;ix=..;iy=..;valid=0|1;w=..;h=.." (w/h=다이 W/H mm, 2026-07-12).</summary>
         public const string BottomXyt = "XYT";
     }
 

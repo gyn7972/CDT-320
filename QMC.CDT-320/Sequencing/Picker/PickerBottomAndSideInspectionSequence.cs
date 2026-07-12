@@ -1669,9 +1669,12 @@ namespace QMC.CDT320.Sequencing
 
         private async Task<int> PrepareSideTargetForInspectionAsync(InspectionTarget target, CancellationToken ct)
         {
-            // Bottom 외곽 XYT 푸시(EventSearchDieEnd) 조회 — Side 에서 해당 콜렛 다이의 X/Y/T 사용 근거.
-            // 현재는 가용성 확인/로그만 수행(보정 반영 방식은 공정 담당 확정 후 적용 — TODO).
-            LogBottomXytForSide(target);
+            // Bottom 외곽 XYT+W/H 푸시(EventSearchDieEnd) 도착 게이트(2026-07-12 확정 정책):
+            // 데이터가 도착하지 않았으면 Side 촬영을 시작하지 않는다 — 이 오프셋을 Side 포커스 보정에
+            // 사용해야 하기 때문. 도착까지 대기하고, 타임아웃 시 알람 정지(촬영 미시작).
+            int gate = await WaitBottomXytForSideAsync(target, ct).ConfigureAwait(false);
+            if (gate != 0)
+                return gate;
             LogSideCorrectionTarget(target);
 
             int result = await MoveSideXAndVision0PositionAsync(target, ct).ConfigureAwait(false);
@@ -2174,43 +2177,51 @@ namespace QMC.CDT320.Sequencing
         }
 
         /// <summary>Side 진입 시 Bottom XYT 푸시 가용성 확인 — (fb=자기 그룹, collet=pickerNo) 최신값 로그.</summary>
-        private void LogBottomXytForSide(InspectionTarget target)
+        /// <summary>Side 촬영 전 Bottom XYT+W/H 푸시 도착 게이트(2026-07-12 확정 정책).
+        /// <para>Bottom 외곽 확정 즉시 오는 푸시가 이 콜렛에 도착할 때까지 대기한다 — 이 오프셋을
+        /// Side 포커스(PickerZ)/비전 Y 보정에 사용해야 하므로, 미도착 상태로 촬영을 시작하면 안 된다.
+        /// 배치 흐름상 Bottom 촬영 → Side 진입 순서라 (fb, collet) 최신 1건 = 현재 다이의 푸시다.
+        /// 타임아웃(비전 검사 타임아웃과 동일) 시 알람 정지 — 촬영 미시작. valid=0(외곽 미검출)은
+        /// '도착'으로 간주하고 진행한다(보정 0 적용, 기존 미검출 정책과 동일).</para></summary>
+        private async Task<int> WaitBottomXytForSideAsync(InspectionTarget target, CancellationToken ct)
         {
-            try
-            {
-                if (target == null)
-                    return;
+            if (target == null)
+                return 0;
 
-                int fb = Side == PickerSequenceSide.Front ? 0 : 1;
-                QMC.CDT320.VisionComm.BottomXytPush xyt;
-                if (QMC.CDT320.VisionComm.BottomXytStore.TryGet(fb, target.PickerNo, out xyt))
+            int fb = Side == PickerSequenceSide.Front ? 0 : 1;
+            int timeoutMs = ResolveVisionInspectionTimeout();
+            var sw = System.Diagnostics.Stopwatch.StartNew();
+
+            QMC.CDT320.VisionComm.BottomXytPush xyt;
+            while (!QMC.CDT320.VisionComm.BottomXytStore.TryGet(fb, target.PickerNo, out xyt))
+            {
+                ct.ThrowIfCancellationRequested();
+                if (sw.ElapsedMilliseconds >= timeoutMs)
                 {
-                    WriteLog("PickerBottomAndSideInspectionSequence",
-                        Name + " Side 진입 — Bottom XYT 푸시 확인. die=" + (target.Die != null ? target.Die.DieId : "-") +
+                    return Fail("PICKER-SIDE-XYT-TIMEOUT", "Vision",
+                        "Side 촬영 전 Bottom XYT 푸시 미도착 — 촬영을 시작하지 않습니다. " +
+                        "die=" + (target.Die != null ? target.Die.DieId : "-") +
                         ", fb=" + fb +
                         ", collet=" + target.PickerNo +
-                        ", dieIndex=" + xyt.DieIndex +
-                        ", x=" + xyt.X.ToString("F3") +
-                        ", y=" + xyt.Y.ToString("F3") +
-                        ", t=" + xyt.T.ToString("F4") +
-                        ", valid=" + xyt.IsValid +
-                        ", age=" + (DateTime.Now - xyt.ReceivedAt).TotalMilliseconds.ToString("F0") + "ms - Check");
+                        ", timeoutMs=" + timeoutMs);
                 }
-                else
-                {
-                    WriteLog("PickerBottomAndSideInspectionSequence",
-                        Name + " Side 진입 — Bottom XYT 푸시 미수신(스토어 없음). fb=" + fb +
-                        ", collet=" + target.PickerNo + " - Check");
-                }
+                await Task.Delay(5, ct).ConfigureAwait(false);
             }
-            catch (Exception ex)
-            {
-                WriteLog("PickerBottomAndSideInspectionSequence",
-                    Name + " Bottom XYT 조회 실패(진행에는 영향 없음). error=" + ex.Message + " - Check");
-            }
-            finally
-            {
-            }
+
+            WriteLog("PickerBottomAndSideInspectionSequence",
+                Name + " Side 진입 — Bottom XYT 푸시 확인(게이트 통과). die=" + (target.Die != null ? target.Die.DieId : "-") +
+                ", fb=" + fb +
+                ", collet=" + target.PickerNo +
+                ", dieIndex=" + xyt.DieIndex +
+                ", x=" + xyt.X.ToString("F3") +
+                ", y=" + xyt.Y.ToString("F3") +
+                ", t=" + xyt.T.ToString("F4") +
+                ", w=" + xyt.W.ToString("F4") + "mm" +
+                ", h=" + xyt.H.ToString("F4") + "mm" +
+                ", valid=" + xyt.IsValid +
+                ", waited=" + sw.ElapsedMilliseconds + "ms" +
+                ", age=" + (DateTime.Now - xyt.ReceivedAt).TotalMilliseconds.ToString("F0") + "ms - Check");
+            return 0;
         }
 
         private void LogSideCorrectionTarget(InspectionTarget target)
