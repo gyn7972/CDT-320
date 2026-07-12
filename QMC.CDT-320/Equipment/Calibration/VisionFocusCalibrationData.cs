@@ -111,6 +111,9 @@ namespace QMC.CDT320.Calibration
         [DataMember] public string LastAutoFocusWaferId { get; set; }
         [DataMember] public DateTime LastAutoFocusAt { get; set; }
         [DataMember] public bool ForceNextAutoFocus { get; set; }
+        // Side AF 전용: 촬영 당시 사용한 PickerZ 위치. 이후 AF 시작 위치로 재사용한다.
+        [DataMember] public double PickerZPosition { get; set; }
+        [DataMember] public bool PickerZValid { get; set; }
 
         public void ApplyBest(double defaultPosition, double bestPosition, double bestScore, int sampleCount, string updatedBy)
         {
@@ -123,6 +126,12 @@ namespace QMC.CDT320.Calibration
             UpdatedBy = updatedBy ?? string.Empty;
         }
 
+        public void ApplyPickerZ(double pickerZPosition)
+        {
+            PickerZPosition = pickerZPosition;
+            PickerZValid = !double.IsNaN(pickerZPosition) && !double.IsInfinity(pickerZPosition);
+        }
+
         public void EnsureDefaults()
         {
             if (UpdatedBy == null)
@@ -131,6 +140,8 @@ namespace QMC.CDT320.Calibration
                 LastAutoFocusWaferId = string.Empty;
             if (AutoFocusPickCountSinceLast < 0)
                 AutoFocusPickCountSinceLast = 0;
+            if (PickerZValid && (double.IsNaN(PickerZPosition) || double.IsInfinity(PickerZPosition)))
+                PickerZValid = false;
             UpdatedAt = EnsureSerializableDateTime(UpdatedAt);
             LastAutoFocusAt = EnsureSerializableDateTime(LastAutoFocusAt);
         }
@@ -549,7 +560,9 @@ namespace QMC.CDT320.Calibration
                 AutoFocusPickCountSinceLast = source.AutoFocusPickCountSinceLast,
                 LastAutoFocusWaferId = source.LastAutoFocusWaferId,
                 LastAutoFocusAt = source.LastAutoFocusAt,
-                ForceNextAutoFocus = source.ForceNextAutoFocus
+                ForceNextAutoFocus = source.ForceNextAutoFocus,
+                PickerZPosition = source.PickerZPosition,
+                PickerZValid = source.PickerZValid
             };
         }
 

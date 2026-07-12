@@ -48,6 +48,9 @@ namespace QMC.CDT320.Sequencing.Calibration
         public VisionFocusValueReceiveMode FocusValueReceiveMode { get; set; } = VisionFocusValueReceiveMode.AckOnly;
         public bool ReturnToDefaultAfterScan { get; set; } = true;
         public bool SkipPrepareFocusPosition { get; set; }
+        // Side 스캔 전 Picker X/Y/Z/T를 DieSidePosition 기준으로 이동한다(다이얼로그 수동 실행 전용).
+        // 자동(Collet Cal) 경로는 자체적으로 Picker를 위치시키므로 false를 유지한다.
+        public bool PrepareSidePickerPosition { get; set; }
         public bool FineOnlyScan { get; set; }
         public string RuntimeReason { get; set; }
         public string UpdatedBy { get; set; }
@@ -401,6 +404,13 @@ namespace QMC.CDT320.Sequencing.Calibration
                     return 0;
                 }
 
+                if (_request.PrepareSidePickerPosition)
+                {
+                    result = await PrepareSideFocusPickerPositionAsync(ct).ConfigureAwait(false);
+                    if (result != 0)
+                        return result;
+                }
+
                 EventLogger.Write(EventKind.Event, "CAL", "VISION-FOCUS-CAL-PREPARE-DONE",
                     "Vision Focus 준비 동작이 완료되었습니다. 대상=" + BuildTargetLabel());
                 return 0;
@@ -457,6 +467,107 @@ namespace QMC.CDT320.Sequencing.Calibration
             {
                 return Fail("VISION-FOCUS-CAL-BOTTOM-PICKER-PREPARE-EX", "VisionFocusScanSequence",
                     "Bottom Focus Picker 위치 준비 중 예외 발생: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private async Task<int> PrepareSideFocusPickerPositionAsync(CancellationToken ct)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+
+                bool front = _request.Kind == VisionFocusScanKind.FrontSide0 ||
+                             _request.Kind == VisionFocusScanKind.FrontSide90;
+                bool angle90 = _request.Kind == VisionFocusScanKind.FrontSide90 ||
+                               _request.Kind == VisionFocusScanKind.RearSide90;
+                // Side kind에서는 Picker 측을 Kind 기준으로 강제해 표시/이동/저장 간 불일치를 방지한다.
+                _request.PickerSide = front ? VisionFocusPickerSide.Front : VisionFocusPickerSide.Rear;
+                int pickerIndex = NormalizePickerIndex(_request.PickerNo);
+                PickerSideFocusReferenceTarget target = CalibrationCoordinateService.ResolveSideFocusReferenceTarget(
+                    _machine,
+                    front ? VisionFocusPickerSide.Front : VisionFocusPickerSide.Rear,
+                    pickerIndex);
+                if (target == null)
+                    return Fail("VISION-FOCUS-CAL-SIDE-TARGET", "VisionFocusScanSequence",
+                        "Side Focus 기준 좌표를 계산할 수 없습니다. 대상=" + BuildTargetLabel());
+
+                double targetT = angle90 ? target.T + 90.0 : target.T;
+
+                EventLogger.Write(EventKind.Event, "CAL", "VISION-FOCUS-CAL-SIDE-PREPARE",
+                    "Side Focus Picker 준비 이동을 시작합니다. 대상=" + BuildTargetLabel() +
+                    ", x=" + target.X.ToString("F3") +
+                    ", y=" + target.Y.ToString("F3") +
+                    ", z=" + target.Z.ToString("F3") +
+                    ", t=" + targetT.ToString("F3"));
+
+                int result;
+                if (!IsNonSelectedPickerOutputAvoid())
+                {
+                    result = await MoveSelectedPickerYAndZSafeForOppositePickerXAsync(ct).ConfigureAwait(false);
+                    if (result != 0)
+                        return result;
+
+                    result = await MoveNonSelectedPickerOutputAvoidAsync(ct).ConfigureAwait(false);
+                    if (result != 0)
+                        return result;
+                }
+
+                // 표준 존 진입 순서: Z 상승(Avoid) -> Y 후진(Avoid) -> X 이동 -> Y 전진 -> T 이동 -> Z 하강
+                result = front
+                    ? await MoveFrontPickerZGroupTeachingAsync("AvoidPosition", "Side Focus 준비 Z Avoid", ct).ConfigureAwait(false)
+                    : await MoveRearPickerZGroupTeachingAsync("AvoidPosition", "Side Focus 준비 Z Avoid", ct).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                result = front
+                    ? await MoveFrontPickerTeachingAxisAndVerifyAsync(PickerAxis.PickerY, "AvoidPosition", ct).ConfigureAwait(false)
+                    : await MoveRearPickerTeachingAxisAndVerifyAsync(PickerAxis.PickerY, "AvoidPosition", ct).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                result = ReserveFocusWorkArea(PickerWorkZone.Side, front);
+                if (result != 0)
+                    return result;
+
+                result = front
+                    ? await MoveFrontPickerAxisAndVerifyAsync(PickerAxis.PickerX, target.X, "VisionFocusCal;DieSidePosition;PickerPhase=SafeX", ct).ConfigureAwait(false)
+                    : await MoveRearPickerAxisAndVerifyAsync(PickerAxis.PickerX, target.X, "VisionFocusCal;DieSidePosition;PickerPhase=SafeX", ct).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                result = front
+                    ? await MoveFrontPickerAxisAndVerifyAsync(PickerAxis.PickerY, target.Y, "VisionFocusCal;DieSidePosition;PickerPhase=SafeY", ct).ConfigureAwait(false)
+                    : await MoveRearPickerAxisAndVerifyAsync(PickerAxis.PickerY, target.Y, "VisionFocusCal;DieSidePosition;PickerPhase=SafeY", ct).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                result = front
+                    ? await MoveFrontPickerAxisAndVerifyAsync(target.PickerTAxis, targetT, "VisionFocusCal;DieSidePosition;PickerPhase=SafeT", ct).ConfigureAwait(false)
+                    : await MoveRearPickerAxisAndVerifyAsync(target.PickerTAxis, targetT, "VisionFocusCal;DieSidePosition;PickerPhase=SafeT", ct).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                result = front
+                    ? await MoveFrontPickerAxisAndVerifyAsync(target.PickerZAxis, target.Z, "VisionFocusCal;DieSidePosition;PickerPhase=SideZ", ct).ConfigureAwait(false)
+                    : await MoveRearPickerAxisAndVerifyAsync(target.PickerZAxis, target.Z, "VisionFocusCal;DieSidePosition;PickerPhase=SideZ", ct).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                EventLogger.Write(EventKind.Event, "CAL", "VISION-FOCUS-CAL-SIDE-PREPARE-DONE",
+                    "Side Focus Picker 준비 이동이 완료되었습니다. 대상=" + BuildTargetLabel());
+                return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("VISION-FOCUS-CAL-SIDE-PICKER-PREPARE-EX", "VisionFocusScanSequence",
+                    "Side Focus Picker 위치 준비 중 예외 발생: " + ex.Message);
             }
             finally
             {
@@ -1219,22 +1330,27 @@ namespace QMC.CDT320.Sequencing.Calibration
 
         private int ReserveFocusWorkArea()
         {
+            return ReserveFocusWorkArea(PickerWorkZone.Bottom, IsSelectedFront());
+        }
+
+        private int ReserveFocusWorkArea(PickerWorkZone zone, bool front)
+        {
             try
             {
                 ReleaseFocusWorkArea();
                 string owner = ResolveFocusWorkAreaOwner();
                 _focusWorkAreaScope = PickerZoneInterlockRules.BeginPickerWorkAreaUse(
-                    IsSelectedFront(),
-                    PickerWorkZone.Bottom,
+                    front,
+                    zone,
                     owner);
                 EventLogger.Write(EventKind.Event, "CAL", "VISION-FOCUS-CAL-WORK-AREA",
-                    "Vision Focus Bottom 작업 영역을 점유했습니다. 대상=" + BuildTargetLabel() +
+                    "Vision Focus " + zone + " 작업 영역을 점유했습니다. 대상=" + BuildTargetLabel() +
                     ", owner=" + owner);
                 return 0;
             }
             catch (Exception ex)
             {
-                return Fail("VISION-FOCUS-CAL-WORK-AREA-EX", "VisionFocusScanSequence", "Vision Focus Bottom 작업 영역 점유 중 예외 발생: " + ex.Message);
+                return Fail("VISION-FOCUS-CAL-WORK-AREA-EX", "VisionFocusScanSequence", "Vision Focus " + zone + " 작업 영역 점유 중 예외 발생: " + ex.Message);
             }
             finally
             {
@@ -1264,7 +1380,7 @@ namespace QMC.CDT320.Sequencing.Calibration
             catch (Exception ex)
             {
                 EventLogger.Write(EventKind.Warning, "CAL", "VISION-FOCUS-CAL-WORK-AREA-RELEASE",
-                    "Vision Focus Bottom 작업 영역 해제 중 예외 발생: " + ex.Message);
+                    "Vision Focus 작업 영역 해제 중 예외 발생: " + ex.Message);
             }
             finally
             {
@@ -1709,6 +1825,39 @@ namespace QMC.CDT320.Sequencing.Calibration
                     Result.BestScore,
                     Result.SampleCount,
                     _request.UpdatedBy);
+
+                if (!IsBottomFocusKind())
+                {
+                    // Side AF는 촬영 당시 사용한 PickerZ 위치를 함께 저장해 이후 AF 시작 위치로 재사용한다.
+                    // Best(BestPosition)는 해당 Side Vision Y의 초점 위치다.
+                    // Picker 측 선택은 요청 PickerSide가 아니라 Kind 기준으로 결정한다(다이얼로그 측 선택 불일치 방지).
+                    bool frontSideKind = _request.Kind == VisionFocusScanKind.FrontSide0 ||
+                                         _request.Kind == VisionFocusScanKind.FrontSide90;
+                    BaseAxis pickerZ = frontSideKind
+                        ? ResolveFrontPickerAxis(ResolvePickerZAxis())
+                        : ResolveRearPickerAxis(ResolvePickerZAxis());
+                    // 초점 신호가 없는 스캔(score<=0)은 위치 저장에서 제외해 무효값이 다음 AF 시작 위치로 쓰이는 것을 막는다.
+                    bool focusMeaningful = Result.BestScore > 0.0 && Result.SampleCount > 0;
+                    if (pickerZ != null && focusMeaningful)
+                    {
+                        record.ApplyPickerZ(pickerZ.ActualPosition);
+                        QMC.Common.Log.Write("Calibration", "SYSTEM", "VisionFocusSideSave",
+                            "Side AF PickerZ/VisionY 저장. kind=" + _request.Kind +
+                            ", pickerNo=" + _request.PickerNo +
+                            ", pickerZ=" + record.PickerZPosition.ToString("F6") +
+                            ", visionYBest=" + record.BestPosition.ToString("F6") +
+                            ", score=" + record.BestScore.ToString("F6"));
+                    }
+                    else
+                    {
+                        QMC.Common.Log.Write("Calibration", "SYSTEM", "VisionFocusSideSave",
+                            "Side AF PickerZ 저장을 건너뜁니다. 기존 저장값을 유지합니다. kind=" + _request.Kind +
+                            ", pickerNo=" + _request.PickerNo +
+                            ", reason=" + (pickerZ == null ? "PickerZ 축 확인 불가" : "초점 score/샘플 없음") +
+                            ", score=" + Result.BestScore.ToString("F6") +
+                            ", sample=" + Result.SampleCount);
+                    }
+                }
 
                 CurrentStep = _request.ReturnToDefaultAfterScan
                     ? VisionFocusScanStep.ReturnDefault

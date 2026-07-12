@@ -873,6 +873,8 @@ namespace QMC.CDT_320.Ui.Dialogs
                 VisionBestTimeoutMs = _visionBestTimeoutMs,
                 FocusValueReceiveMode = _focusValueReceiveMode,
                 ReturnToDefaultAfterScan = _returnToDefaultAfterScan,
+                // 다이얼로그 수동 Side 스캔은 스캔 전에 Picker X/Y/Z/T를 DieSidePosition 기준으로 이동시킨다.
+                PrepareSidePickerPosition = !IsBottomFocusKind(_selectedKind),
                 UpdatedBy = UserSession.Name
             };
         }
@@ -1428,6 +1430,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                 record.DefaultPosition.ToString("F3"),
                 record.BestPosition.ToString("F3"),
                 record.BestScore.ToString("F4"),
+                record.PickerZValid ? record.PickerZPosition.ToString("F3") : "-",
                 autoFocusCount ?? record.AutoFocusPickCountSinceLast.ToString(CultureInfo.InvariantCulture),
                 autoFocusWafer ?? record.LastAutoFocusWaferId ?? string.Empty,
                 record.Valid ? "Y" : "N");
