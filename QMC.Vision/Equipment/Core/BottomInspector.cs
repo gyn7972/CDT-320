@@ -223,8 +223,18 @@ namespace QMC.Vision.Core
             AddItem(r, "Width", br.Width.ToString("F4"), sizePass);
             AddItem(r, "Height", br.Height.ToString("F4"), sizePass);
             AddItem(r, "Angle", br.Angle.ToString("F3"), true);
-            AddItem(r, "Offset X", br.Offset.X.ToString("F4"), true);
-            AddItem(r, "Offset Y", br.Offset.Y.ToString("F4"), true);
+            double offsetXmm = br.Offset.X;
+            double offsetYmm = br.Offset.Y;
+            if (Math.Abs(offsetXmm) > 100.0 || Math.Abs(offsetYmm) > 100.0)
+            {
+                // 검사 라이브러리가 절대 픽셀 중심을 반환하는 버전은 ROI 중심 기준 mm 오프셋으로 변환합니다.
+                double nominalX = InspectionRoi != null ? InspectionRoi.CenterX : roi.X + roi.Width / 2.0;
+                double nominalY = InspectionRoi != null ? InspectionRoi.CenterY : roi.Y + roi.Height / 2.0;
+                offsetXmm = (br.Offset.X - nominalX) * PixelSizeWidthMm;
+                offsetYmm = (br.Offset.Y - nominalY) * PixelSizeHeightMm;
+            }
+            AddItem(r, "Offset X", offsetXmm.ToString("F4"), true);
+            AddItem(r, "Offset Y", offsetYmm.ToString("F4"), true);
 
             AddItem(r, "Chipping Top", br.ChppingTopSize.ToString("F4"), br.ChppingTopSize <= ChippingDepth);
             AddItem(r, "Chipping Right", br.ChppingRightSize.ToString("F4"), br.ChppingRightSize <= ChippingDepth);

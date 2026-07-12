@@ -873,6 +873,8 @@ namespace QMC.CDT_320.Ui.Dialogs
                 VisionBestTimeoutMs = _visionBestTimeoutMs,
                 FocusValueReceiveMode = _focusValueReceiveMode,
                 ReturnToDefaultAfterScan = _returnToDefaultAfterScan,
+                // 다이얼로그 수동 Side 스캔은 스캔 전에 Picker X/Y/Z/T를 DieSidePosition 기준으로 이동시킨다.
+                PrepareSidePickerPosition = !IsBottomFocusKind(_selectedKind),
                 UpdatedBy = UserSession.Name
             };
         }
@@ -1139,10 +1141,10 @@ namespace QMC.CDT_320.Ui.Dialogs
                     AddSettingRow(CreateNumberInfo(FocusSettingKey.PickerReferenceT, "Picker T Ref (deg)", "deg", "생산 Side 검사와 동일한 DieSidePosition 기준 T입니다.", false), FormatDouble(_pickerReferenceT), false);
                 }
                 string defaultPositionName = IsSideOnlyProfile ? "Side Camera Y Default" : "Default Pos (mm)";
-                string defaultPositionTip = IsSideOnlyProfile
-                    ? "Side Camera Y Focus 기준입니다. 저장값이 없으면 선택 카메라/각도의 Process0/90 티칭값을 사용하며 USE CURRENT로 현재 Camera Y를 적용할 수 있습니다."
-                    : "Focus 기준 위치입니다. 저장된 Focus Cal 등록값만 불러오며, USE CURRENT로 현재 축 위치를 덮어쓸 수 있습니다.";
-                AddSettingRow(CreateNumberInfo(FocusSettingKey.DefaultPosition, defaultPositionName, "mm", defaultPositionTip, false), FormatDouble(_defaultPosition), true);
+                 string defaultPositionTip = IsSideOnlyProfile
+                     ? "Side Camera Y Focus 기준입니다. 저장값이 없으면 선택 카메라/각도의 Process0/90 티칭값을 사용하며 USE CURRENT로 현재 Camera Y를 적용할 수 있습니다."
+                     : "Focus 기준 위치입니다. 저장된 Focus Cal 등록값만 불러오며, USE CURRENT로 현재 축 위치를 덮어쓸 수 있습니다.";
+                 AddSettingRow(CreateNumberInfo(FocusSettingKey.DefaultPosition, defaultPositionName, "mm", defaultPositionTip, false), FormatDouble(_defaultPosition), true);
                 AddSettingRow(CreateNumberInfo(FocusSettingKey.MinusRange, "Rough - Range (mm)", "mm", "Default Pos 기준 Rough 마이너스 방향으로 스캔할 거리입니다.", false), FormatDouble(_minusRange), true);
                 AddSettingRow(CreateNumberInfo(FocusSettingKey.PlusRange, "Rough + Range (mm)", "mm", "Default Pos 기준 Rough 플러스 방향으로 스캔할 거리입니다.", false), FormatDouble(_plusRange), true);
                 AddSettingRow(CreateNumberInfo(FocusSettingKey.Step, "Rough Step (mm)", "mm", "Rough Focus 측정 지점 사이의 이동 간격입니다.", false), FormatDouble(_step), true);
@@ -1226,6 +1228,10 @@ namespace QMC.CDT_320.Ui.Dialogs
             {
                 case FocusSettingKey.Mode:
                     _selectedKind = TextToKind(value);
+                    if (_selectedKind == VisionFocusScanKind.FrontSide0 || _selectedKind == VisionFocusScanKind.FrontSide90)
+                        _selectedPickerSide = VisionFocusPickerSide.Front;
+                    else if (_selectedKind == VisionFocusScanKind.RearSide0 || _selectedKind == VisionFocusScanKind.RearSide90)
+                        _selectedPickerSide = VisionFocusPickerSide.Rear;
                     break;
                 case FocusSettingKey.PickerSide:
                     _selectedPickerSide = value == "Rear" ? VisionFocusPickerSide.Rear : VisionFocusPickerSide.Front;
@@ -1398,10 +1404,9 @@ namespace QMC.CDT_320.Ui.Dialogs
 
                 colAutoFocusCount.HeaderText = "AF CNT";
                 colAutoFocusWafer.HeaderText = "AF WAFER";
-                AddSavedRow("Front 0deg", data.FrontSide0);
-                AddSavedRow("Front 90deg", data.FrontSide90);
-                AddSavedRow("Rear 0deg", data.RearSide0);
-                AddSavedRow("Rear 90deg", data.RearSide90);
+                for (int pickerNo = 1; pickerNo <= 4; pickerNo++)
+                    AddSavedRow(KindToText(_selectedKind) + " C" + pickerNo,
+                        data.GetSideRecord(_selectedKind, pickerNo));
             }
             catch
             {
@@ -1425,6 +1430,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                 record.DefaultPosition.ToString("F3"),
                 record.BestPosition.ToString("F3"),
                 record.BestScore.ToString("F4"),
+                record.PickerZValid ? record.PickerZPosition.ToString("F3") : "-",
                 autoFocusCount ?? record.AutoFocusPickCountSinceLast.ToString(CultureInfo.InvariantCulture),
                 autoFocusWafer ?? record.LastAutoFocusWaferId ?? string.Empty,
                 record.Valid ? "Y" : "N");
@@ -1465,7 +1471,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             VisionFocusCalibrationData data = machine.VisionUnit.Config.FocusCalibration;
             return IsBottomFocusKind(_selectedKind)
                 ? data.GetBottomRecord(_selectedKind, _selectedPickerSide, _selectedPickerNo)
-                : data.GetSideRecord(_selectedKind);
+                : data.GetSideRecord(_selectedKind, _selectedPickerNo);
         }
 
         private double ResolveCurrentAxisPosition(CDT320_Machine machine)

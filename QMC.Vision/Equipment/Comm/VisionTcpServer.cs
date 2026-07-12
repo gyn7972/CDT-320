@@ -551,19 +551,22 @@ namespace QMC.Vision.Comm
 
         /// <summary>
         /// Bottom 외곽 종료(EventSearchDieEnd) XYT 비동기 푸시 —
-        /// "XYT|MODULE|fb|collet|die_index|x=..;y=..;t=..;ix=..;iy=..;valid=0|1" (x/y=px, t=deg).
+        /// "XYT|MODULE|fb|collet|die_index|x=..;y=..;t=..;ix=..;iy=..;valid=0|1;w=..;h=.." (x/y=px, t=deg, w/h=mm).
         /// die_index = 결과 매칭 키(구 chip_uid 자리 — chipUid 인자에 die_index 문자열이 들어온다, 2026-07-06).
-        /// 정책(2026-07-04): 외곽 미검출이면 x/y/t 를 0 으로 보내고 valid=0 — 수신측은 진행(정지하지 않음).
-        /// EPD/ARM 과 같은 푸시 계열(응답 큐 무관). Side 공정이 Bottom 완료 대기 없이 XYT 를 소비한다.
+        /// w/h = 다이 W/H(mm, 최종 INSPECTRESULT 의 W/H 와 동일 값 — 2026-07-12 추가, 키-값이라 하위호환).
+        /// 정책(2026-07-04): 외곽 미검출이면 x/y/t/w/h 를 0 으로 보내고 valid=0 — 수신측은 진행(정지하지 않음).
+        /// EPD/ARM 과 같은 푸시 계열(응답 큐 무관). Side 공정이 Bottom 완료 대기 없이 좌표/크기를 소비한다.
         /// </summary>
         public static bool PushBottomXyt(string moduleName, int fb, int collet, string chipUid,
-                                         double x, double y, double t, int ix, int iy, bool valid)
+                                         double x, double y, double t, int ix, int iy, bool valid,
+                                         double wMm = 0.0, double hMm = 0.0)
         {
             var inv = System.Globalization.CultureInfo.InvariantCulture;
             string line = "XYT|" + moduleName + "|" + fb + "|" + collet + "|" + (chipUid ?? "") + "|" +
                           "x=" + x.ToString("F3", inv) + ";y=" + y.ToString("F3", inv) +
                           ";t=" + t.ToString("F4", inv) + ";ix=" + ix + ";iy=" + iy +
-                          ";valid=" + (valid ? "1" : "0");
+                          ";valid=" + (valid ? "1" : "0") +
+                          ";w=" + wMm.ToString("F4", inv) + ";h=" + hMm.ToString("F4", inv);
             return TryBroadcast(moduleName, line);
         }
 

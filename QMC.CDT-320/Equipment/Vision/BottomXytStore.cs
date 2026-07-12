@@ -4,7 +4,8 @@ using System.Collections.Generic;
 namespace QMC.CDT320.VisionComm
 {
     /// <summary>Bottom 외곽 종료(EventSearchDieEnd) XYT 푸시 1건 —
-    /// "XYT|MODULE|fb|collet|die_index|x=..;y=..;t=..;ix=..;iy=..;valid=0|1" 파싱 결과(키=die_index, 2026-07-06).</summary>
+    /// "XYT|MODULE|fb|collet|die_index|x=..;y=..;t=..;ix=..;iy=..;valid=0|1;w=..;h=.." 파싱 결과
+    /// (키=die_index 2026-07-06, w/h=다이 W/H mm 2026-07-12).</summary>
     public sealed class BottomXytPush
     {
         /// <summary>0=Front / 1=Back(Rear).</summary>
@@ -19,6 +20,10 @@ namespace QMC.CDT320.VisionComm
         public double Y { get; set; }
         /// <summary>각도 T(deg). 미검출 시 0 송신 정책(valid=0 로 구분).</summary>
         public double T { get; set; }
+        /// <summary>다이 폭 W(mm) — 최종 INSPECTRESULT 의 W 와 동일 값(2026-07-12). 미검출/구버전 페이로드면 0.</summary>
+        public double W { get; set; }
+        /// <summary>다이 높이 H(mm) — 최종 INSPECTRESULT 의 H 와 동일 값(2026-07-12). 미검출/구버전 페이로드면 0.</summary>
+        public double H { get; set; }
         public int IndexX { get; set; }
         public int IndexY { get; set; }
         public DateTime ReceivedAt { get; set; } = DateTime.Now;

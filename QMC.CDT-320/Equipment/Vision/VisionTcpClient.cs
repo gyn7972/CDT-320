@@ -630,8 +630,9 @@ namespace QMC.CDT320.VisionComm
             finally { Disconnect(); }
         }
 
-        /// <summary>XYT 푸시 파싱/기록 — Fields=[fb, collet, die_index, "x=..;y=..;t=..;ix=..;iy=..;valid=0|1"].
-        /// die_index = 결과 매칭 키(구 chip_uid 자리, 2026-07-06). 파싱 실패는 로그만 남기고 무시(수신 루프 보호).</summary>
+        /// <summary>XYT 푸시 파싱/기록 — Fields=[fb, collet, die_index, "x=..;y=..;t=..;ix=..;iy=..;valid=0|1;w=..;h=.."].
+        /// die_index = 결과 매칭 키(구 chip_uid 자리, 2026-07-06). w/h = 다이 W/H(mm, 2026-07-12 — 구버전 페이로드면 0).
+        /// 파싱 실패는 로그만 남기고 무시(수신 루프 보호).</summary>
         private void HandleBottomXytPush(VisionProtocolResponse response)
         {
             try
@@ -649,6 +650,9 @@ namespace QMC.CDT320.VisionComm
                 int ix, iy;
                 if (!response.TryGetInt("ix", out ix)) ix = 0;
                 if (!response.TryGetInt("iy", out iy)) iy = 0;
+                double wMm, hMm;
+                if (!response.TryGetDouble("w", out wMm)) wMm = 0.0;   // 구버전 비전 호환
+                if (!response.TryGetDouble("h", out hMm)) hMm = 0.0;
 
                 // valid=0/1(신형) — 없으면 구형 규약(T NaN=미검출)으로 판정. 미검출이어도 진행(정지 아님).
                 bool valid;
@@ -659,12 +663,13 @@ namespace QMC.CDT320.VisionComm
                 var push = new BottomXytPush
                 {
                     Fb = fb, Collet = collet, DieIndex = uid,
-                    X = x, Y = y, T = double.IsNaN(t) ? 0.0 : t, IndexX = ix, IndexY = iy,
+                    X = x, Y = y, T = double.IsNaN(t) ? 0.0 : t, W = wMm, H = hMm, IndexX = ix, IndexY = iy,
                     IsValid = valid
                 };
                 BottomXytStore.Record(push);
                 LogMsg("XYT push — fb=" + fb + ", collet=" + collet + ", uid=" + uid +
                        ", x=" + x.ToString("F3") + ", y=" + y.ToString("F3") + ", t=" + t.ToString("F4") +
+                       ", w=" + wMm.ToString("F4") + "mm, h=" + hMm.ToString("F4") + "mm" +
                        ", valid=" + (valid ? "1" : "0(미검출→0, 진행)"));
                 try { BottomXytReceived?.Invoke(push); } catch { }
             }

@@ -2,6 +2,10 @@
 
 이 파일은 Claude Code가 `QMC.CDT-320` 코드베이스에서 작업할 때 참조하는 진입점이다.
 
+## 현재 작업 인계
+
+2026-07-12 기준 Collet Bottom AF, COC, Side AF 및 생산 Side 보정 작업은 반드시 [HANDOFF_TO_CLAUDE_2026-07-12.md](HANDOFF_TO_CLAUDE_2026-07-12.md)를 먼저 읽고 이어서 진행한다. 현재 Clean Rebuild 오류와 실장비 검증 전 미확정 좌표 계약이 문서에 기록되어 있다.
+
 ## ⚠️ 작업 전 필수 확인
 
 코드를 수정하기 전에 **반드시 [AGENTS.md](AGENTS.md)를 먼저 읽고 그 규칙을 따른다.** AGENTS.md는 이 프로젝트의 고정 코딩 규칙(UI/Designer 작성, 예외·로그·알람, 명명, `.cs` 배치 순서, 인코딩, Material, Sequence Recovery, 한글 복원)을 정의한다. 핵심만 요약:
