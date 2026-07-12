@@ -717,6 +717,7 @@ namespace QMC.CDT320.Interlocks
             bool xMoving = state != null && state.PickerX != null && state.PickerX.IsMoving;
             bool yMoving = state != null && state.PickerY != null && state.PickerY.IsMoving;
             bool movingIntoOrInsideInput = IsPickerInputZoneMotionRisk(state, xMoving, yMoving);
+            bool targetAtAvoid = IsInputVisionXTargetAtAvoid(request);
 
             // 인터락 조건: InputVisionX가 Avoid 목표로 복귀하는 이동은 간섭이 없으므로(기구 확인 2026-07-12),
             // PickerY가 Avoid(후퇴)이고 Picker X/Y가 정지 상태이며 작업영역 점유/Unknown이 없으면
