@@ -656,34 +656,42 @@ namespace QMC.Vision.Core
         }
 
         /// <summary>1배 그레이(ROI 크롭)를 2배 bilinear 확장 — BottomInspect 시뮬(단일 이미지) 경로의
-        /// '2배 확장 이미지' 입력 규약 충족용(2026-07-11). 반환 좌표는 lib 가 ×0.5 로 1배로 환원한다.</summary>
+        /// '2배 확장 이미지' 입력 규약 충족용(2026-07-11). 반환 좌표는 lib 가 ×0.5 로 1배로 환원한다.
+        /// <para>정수 산술화(2026-07-12): 2배 업스케일의 보간 가중은 (0, 1/4, 3/4)로 고정되어 모든 항이
+        /// 1/16 단위의 정확한 이진 분수다. 종전 double 식 v=Σ p·(a/4)(b/4), out=(byte)(v+0.5) 는
+        /// 정수식 (Σ p·a·b + 8) >> 4 와 비트 동일하다(BottomInspectTest --upcheck 301케이스 전량 일치 확인).</para></summary>
         private static byte[] Upscale2xBilinear(byte[] src, int w, int h, out int w2, out int h2)
         {
             w2 = w * 2; h2 = h * 2;
             var dst = RentBuf(w2 * h2);   // 전 픽셀을 아래에서 덮어쓰므로 재사용 버퍼여도 결과 동일
             int dw = w2;
+            var xs0 = new int[dw]; var xs1 = new int[dw]; var gxs = new int[dw];
+            for (int x = 0; x < dw; x++)
+            {
+                int x0, gx;
+                if ((x & 1) == 0) { x0 = x / 2 - 1; gx = 3; }
+                else { x0 = x / 2; gx = 1; }
+                int x1 = x0 + 1;
+                if (x0 < 0) { x0 = 0; x1 = 0; gx = 0; }
+                else if (x1 >= w) { x1 = w - 1; x0 = Math.Min(x0, w - 1); }
+                xs0[x] = x0; xs1[x] = x1; gxs[x] = gx;
+            }
             Parallel.For(0, h2, y =>
             {
-                double sy = (y + 0.5) * 0.5 - 0.5;
-                int y0 = (int)Math.Floor(sy);
-                double fy = sy - y0;
+                int y0, gy;
+                if ((y & 1) == 0) { y0 = y / 2 - 1; gy = 3; }
+                else { y0 = y / 2; gy = 1; }
                 int y1 = y0 + 1;
-                if (y0 < 0) { y0 = 0; y1 = 0; fy = 0; }
+                if (y0 < 0) { y0 = 0; y1 = 0; gy = 0; }
                 else if (y1 >= h) { y1 = h - 1; y0 = Math.Min(y0, h - 1); }
-                int row = y * dw;
+                int rowA = y0 * w, rowB = y1 * w, row = y * dw;
+                int wy1 = gy, wy0 = 4 - gy;
                 for (int x = 0; x < dw; x++)
                 {
-                    double sx = (x + 0.5) * 0.5 - 0.5;
-                    int x0 = (int)Math.Floor(sx);
-                    double fx = sx - x0;
-                    int x1 = x0 + 1;
-                    if (x0 < 0) { x0 = 0; x1 = 0; fx = 0; }
-                    else if (x1 >= w) { x1 = w - 1; x0 = Math.Min(x0, w - 1); }
-                    double v = src[y0 * w + x0] * (1 - fx) * (1 - fy)
-                             + src[y0 * w + x1] * fx * (1 - fy)
-                             + src[y1 * w + x0] * (1 - fx) * fy
-                             + src[y1 * w + x1] * fx * fy;
-                    dst[row + x] = (byte)(v + 0.5);
+                    int x0 = xs0[x], x1p = xs1[x], gx = gxs[x];
+                    int sum = (4 - gx) * wy0 * src[rowA + x0] + gx * wy0 * src[rowA + x1p]
+                            + (4 - gx) * wy1 * src[rowB + x0] + gx * wy1 * src[rowB + x1p];
+                    dst[row + x] = (byte)((sum + 8) >> 4);
                 }
             });
             return dst;
@@ -695,6 +703,26 @@ namespace QMC.Vision.Core
             w = rect.Width; h = rect.Height;
             var gray = RentBuf(w * h);
             int lw = w, lh = h;
+
+            // 8bpp(그레이 카메라) 고속 경로(2026-07-12): 팔레트가 항등 그레이(entry[i]=(i,i,i))면
+            // 24bpp 변환 경로는 픽셀마다 (v+v+v)/3 = v 를 계산하는 것과 정확히 같다 → 원바이트 복사로 대체.
+            // 24bpp LockBits 의 GDI 팔레트 변환(131MP × 3B 생성)을 통째로 생략 — 값은 비트 동일.
+            if (bmp.PixelFormat == PixelFormat.Format8bppIndexed && IsIdentityGrayPalette(bmp))
+            {
+                BitmapData d8 = bmp.LockBits(rect, ImageLockMode.ReadOnly, PixelFormat.Format8bppIndexed);
+                try
+                {
+                    int stride8 = d8.Stride;
+                    IntPtr scan0 = d8.Scan0;
+                    Parallel.For(0, lh, y =>
+                    {
+                        Marshal.Copy(scan0 + y * stride8, gray, y * lw, lw);
+                    });
+                }
+                finally { bmp.UnlockBits(d8); }
+                return gray;
+            }
+
             BitmapData data = bmp.LockBits(rect, ImageLockMode.ReadOnly, PixelFormat.Format24bppRgb);
             int stride = data.Stride;
             var buf = RentBuf(stride * lh);
@@ -712,6 +740,23 @@ namespace QMC.Vision.Core
             });
             ReturnBuf(buf);   // 스트라이드 중간 버퍼는 이 함수 안에서만 사용 → 즉시 풀 반납
             return gray;
+        }
+
+        /// <summary>팔레트가 항등 그레이(entry[i] == (i,i,i), 256개)인지 확인 — 고속 경로 적용 조건.</summary>
+        private static bool IsIdentityGrayPalette(Bitmap bmp)
+        {
+            try
+            {
+                var entries = bmp.Palette.Entries;
+                if (entries == null || entries.Length < 256) return false;
+                for (int i = 0; i < 256; i++)
+                {
+                    var c = entries[i];
+                    if (c.R != i || c.G != i || c.B != i) return false;
+                }
+                return true;
+            }
+            catch { return false; }
         }
 
         // ── 대형 버퍼 풀(2026-07-12) ──

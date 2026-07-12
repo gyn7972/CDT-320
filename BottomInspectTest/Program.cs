@@ -29,10 +29,64 @@ namespace QMC.BottomInspectTest
                 }
             }
 
+            // 업스케일 정수화 등가성 검증: 다양한 크기/난수 입력에서 double 참조 구현과 바이트 완전 비교.
+            if (args != null && args.Length >= 1 && string.Equals(args[0], "--upcheck", StringComparison.OrdinalIgnoreCase))
+            {
+                try { return RunUpscaleCheck(); }
+                catch (Exception ex) { Console.WriteLine("upcheck error: " + ex); return 1; }
+            }
+
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
             Application.Run(new MainForm());
             return 0;
+        }
+
+        /// <summary>Upscale2xBilinear(double 참조) vs Upscale2xBilinearFast(정수) 바이트 동등성 검증.</summary>
+        private static int RunUpscaleCheck()
+        {
+            int[] sizes = { 1, 2, 3, 5, 8, 16, 33, 64, 101, 640 };
+            int fail = 0, cases = 0;
+            var rnd = new Random(12345);
+            foreach (int w in sizes)
+            {
+                foreach (int h in sizes)
+                {
+                    for (int rep = 0; rep < 3; rep++)
+                    {
+                        var src = new byte[w * h];
+                        rnd.NextBytes(src);
+                        int rw, rh, fw, fh;
+                        byte[] a = InspectionRunner.Upscale2xBilinear(src, w, h, out rw, out rh);
+                        byte[] b = InspectionRunner.Upscale2xBilinearFast(src, w, h, out fw, out fh);
+                        cases++;
+                        if (rw != fw || rh != fh) { fail++; Console.WriteLine($"DIM MISMATCH {w}x{h}"); continue; }
+                        for (int i = 0; i < a.Length; i++)
+                        {
+                            if (a[i] != b[i])
+                            {
+                                fail++;
+                                Console.WriteLine($"BYTE MISMATCH {w}x{h} at {i}: ref={a[i]} fast={b[i]}");
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+            // 대형 실치수 1건(장비 크롭 근사 6591x4995)
+            {
+                var src = new byte[6591 * 4995];
+                rnd.NextBytes(src);
+                int rw, rh, fw, fh;
+                byte[] a = InspectionRunner.Upscale2xBilinear(src, 6591, 4995, out rw, out rh);
+                byte[] b = InspectionRunner.Upscale2xBilinearFast(src, 6591, 4995, out fw, out fh);
+                cases++;
+                bool eq = rw == fw && rh == fh;
+                if (eq) { for (long i = 0; i < a.LongLength; i++) { if (a[i] != b[i]) { eq = false; break; } } }
+                if (!eq) { fail++; Console.WriteLine("BYTE MISMATCH large 6591x4995"); }
+            }
+            Console.WriteLine($"upcheck: cases={cases} fail={fail}");
+            return fail == 0 ? 0 : 3;
         }
 
         private sealed class AutoRecord

@@ -500,6 +500,7 @@ namespace QMC.Vision.Inspector
 
         public BottomResult BottomInspect(BottomInspectionParameter bip)
         {
+            var swTotalProf = bProfilePhases ? System.Diagnostics.Stopwatch.StartNew() : null;
             // 동시 검사 수에 맞춰 내부 병렬도 배분(2026-07-12) — 검사 8건 동시 진행 시 각 검사의
             // Parallel.For 가 코어 전체를 두고 경합해 tact 가 8배 이상 부풀던 문제 완화. 계산식/결과 불변.
             int nConcurrent = System.Threading.Interlocked.Increment(ref _concurrentInspects);
@@ -875,6 +876,7 @@ namespace QMC.Vision.Inspector
             }
             finally
             {
+                if (swTotalProf != null) Console.WriteLine(string.Format("[PROF4] total={0:F1}", swTotalProf.Elapsed.TotalMilliseconds));
                 System.Threading.Interlocked.Decrement(ref _concurrentInspects);
                 cudaLease.Dispose();   // CUDA 컨텍스트 풀 반납 — 재할당된 버퍼도 그대로 반납되어 다음 검사에 재사용(2026-07-11)
                 int nStartX = Math.Min((int)result.Corners[0].X, (int)result.Corners[3].X)*2;
@@ -1138,10 +1140,18 @@ namespace QMC.Vision.Inspector
             {
                 try
                 {
-                    int minX = regionPoints.Min(t => t.X);
-                    int maxX = regionPoints.Max(t => t.X);
-                    int minY = regionPoints.Min(t => t.Y);
-                    int maxY = regionPoints.Max(t => t.Y);
+                    // 빈 영역: 종전엔 Min() 예외 → catch 로 건너뜀 — 동일하게 건너뜀(블랍은 원래 비지 않음)
+                    if (regionPoints == null || regionPoints.Count == 0) continue;
+                    // LINQ Min/Max 4회 순회 → 1회 순회(같은 값 — 결과 동일, 2026-07-12)
+                    int minX = int.MaxValue, maxX = int.MinValue, minY = int.MaxValue, maxY = int.MinValue;
+                    for (int pi = 0; pi < regionPoints.Count; pi++)
+                    {
+                        Point p = regionPoints[pi];
+                        if (p.X < minX) minX = p.X;
+                        if (p.X > maxX) maxX = p.X;
+                        if (p.Y < minY) minY = p.Y;
+                        if (p.Y > maxY) maxY = p.Y;
+                    }
 
                     Point topLeft = new Point(minX - margin, minY - margin);
                     Point topRight = new Point(maxX + margin, minY - margin);
@@ -1469,10 +1479,16 @@ namespace QMC.Vision.Inspector
                 }
                 
                 int area = regionPoints.Count;
-                int minX = regionPoints.Min(t => t.X);
-                int maxX = regionPoints.Max(t => t.X);
-                int minY = regionPoints.Min(t => t.Y);
-                int maxY = regionPoints.Max(t => t.Y);
+                // LINQ Min/Max 4회 순회 → 1회 순회(같은 값 — 결과 동일, 2026-07-12)
+                int minX = int.MaxValue, maxX = int.MinValue, minY = int.MaxValue, maxY = int.MinValue;
+                for (int pi = 0; pi < regionPoints.Count; pi++)
+                {
+                    Point p = regionPoints[pi];
+                    if (p.X < minX) minX = p.X;
+                    if (p.X > maxX) maxX = p.X;
+                    if (p.Y < minY) minY = p.Y;
+                    if (p.Y > maxY) maxY = p.Y;
+                }
 
                 Rectangle saveRect = new Rectangle(minX, minY, maxX - minX, maxY - minY);
                 double foreignSize = Math.Max(ConvertPixelToMM(saveRect.Width, _visionConfig.BottomVision.PixelSizeWidthMm / 2), ConvertPixelToMM(saveRect.Height, _visionConfig.BottomVision.PixelSizeWidthMm / 2));

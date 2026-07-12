@@ -59,6 +59,9 @@
       <Name>QMc.Vision.Inspector</Name>
     </ProjectReference>
   </ItemGroup>
+  <ItemGroup>
+    <None Include="App.config" />
+  </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- CUDA 네이티브 DLL 을 출력 폴더로 복사(비전 프로그램과 동일 소스 = NativeDeps) -->
   <Target Name="CopyNativeDeps" AfterTargets="Build">
