@@ -1950,18 +1950,17 @@ namespace QMC.Vision.Inspector
 
             byte[,] output2D = new byte[h, w]; // [y, x]
 
-
-            byte[,] outputSobel = new byte[h, w]; // [y, x]
-
+            // Sobel 출력 폐지(2026-07-12): 결과 소비처가 없어(호출측 죽은 경로) 98MP 버퍼 할당·핀·GPU 커널·D2H
+            //   전부 낭비였다. 네이티브에 ptrSobel=IntPtr.Zero 를 넘겨 Sobel 전 과정을 생략시킨다(업스케일 결과 불변).
+            //   shiftImageSobel 은 소비처 안전을 위해 1x1 플레이스홀더로 반환(대형 할당 제거).
 
             // output2D를 포인터로 고정하여 전달
             var handle = GCHandle.Alloc(output2D, GCHandleType.Pinned);
-            var handleSobel = GCHandle.Alloc(outputSobel, GCHandleType.Pinned);
             try
             {
                 IntPtr ptr = handle.AddrOfPinnedObject();
 
-                IntPtr ptrSobel = handleSobel.AddrOfPinnedObject();
+                IntPtr ptrSobel = IntPtr.Zero;   // Sobel 미사용 — 네이티브가 커널/버퍼/전송을 건너뛴다.
                 int result;
                 if (cudaCtx != IntPtr.Zero)
                 {
@@ -1995,11 +1994,10 @@ namespace QMC.Vision.Inspector
             finally
             {
                 handle.Free();
-                handleSobel.Free();
             }
 
             shiftImage = output2D;
-            shiftImageSobel = outputSobel;
+            shiftImageSobel = new byte[1, 1];   // 소비처 없는 플레이스홀더(구 98MP 할당 제거)
         }
 
         private void MakePixelShiftImage(BottomInspectionParameter bip, BottomResult result, out int w, out int h, out byte[,] ShiftImage)
