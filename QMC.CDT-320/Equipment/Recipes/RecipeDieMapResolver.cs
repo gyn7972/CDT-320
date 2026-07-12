@@ -341,7 +341,7 @@ namespace QMC.CDT320.Recipes
         {
             var paths = new List<string>();
             string baseDir = AppDomain.CurrentDomain.BaseDirectory;
-            AddCandidate(paths, RecipeMapPaths.ResolveBaseConfigured(project));
+            AddCandidate(paths, RecipeMapPaths.ResolveBaseConfigured(project, kind));
             foreach (string name in BuildExternalSourceNames(frame, kind))
             {
                 AddCandidate(paths, Path.Combine(baseDir, "Config", "WaferMap", name + ".txt"));

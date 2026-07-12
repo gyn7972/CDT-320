@@ -71,17 +71,31 @@ namespace QMC.CDT320.Recipes
                 string stageMapDirectory = Path.Combine(stageDirectory, "Maps");
                 Directory.CreateDirectory(stageMapDirectory);
 
-                string baseSourcePath = ResolveBaseSourcePath(source);
+                string inputBaseSourcePath = ResolveBaseSourcePath(source, RecipeMapKind.Input);
                 if (RecipeDieMapResolver.IsExternalFrame(RecipeDieMapResolver.ResolveFrame(source, RecipeMapKind.Input)) &&
-                    string.IsNullOrWhiteSpace(baseSourcePath))
+                    string.IsNullOrWhiteSpace(inputBaseSourcePath))
                 {
-                    throw new FileNotFoundException("External Base WaferMap was not found for recipe " + sourceProjectName + ".");
+                    throw new FileNotFoundException("Input Base WaferMap을 찾을 수 없습니다. recipe=" + sourceProjectName);
                 }
 
-                clone.BaseWaferMapFileName = CopyMapFamily(
-                    baseSourcePath,
+                string outputBaseSourcePath = ResolveBaseSourcePath(source, RecipeMapKind.GoodBin);
+                if (RecipeDieMapResolver.IsExternalFrame(RecipeDieMapResolver.ResolveFrame(source, RecipeMapKind.GoodBin)) &&
+                    string.IsNullOrWhiteSpace(outputBaseSourcePath))
+                {
+                    throw new FileNotFoundException("Output Base WaferMap을 찾을 수 없습니다. recipe=" + sourceProjectName);
+                }
+
+                clone.BaseWaferMapFileName = "";
+                clone.InputBaseWaferMapFileName = CopyMapFamily(
+                    inputBaseSourcePath,
                     targetProjectName,
-                    "BaseWaferMap",
+                    RecipeMapPaths.BaseFileSuffix(RecipeMapKind.Input),
+                    stageMapDirectory,
+                    ref mapFileCount);
+                clone.OutputBaseWaferMapFileName = CopyMapFamily(
+                    outputBaseSourcePath,
+                    targetProjectName,
+                    RecipeMapPaths.BaseFileSuffix(RecipeMapKind.GoodBin),
                     stageMapDirectory,
                     ref mapFileCount);
                 clone.InputDieMapFileName = CopyConfiguredMap(
@@ -230,15 +244,15 @@ namespace QMC.CDT320.Recipes
             }
         }
 
-        private static string ResolveBaseSourcePath(RecipeProject source)
+        private static string ResolveBaseSourcePath(RecipeProject source, RecipeMapKind kind)
         {
             try
             {
-                string configuredPath = RecipeMapPaths.ResolveBaseConfigured(source);
+                string configuredPath = RecipeMapPaths.ResolveBaseConfigured(source, kind);
                 if (!string.IsNullOrWhiteSpace(configuredPath) && File.Exists(configuredPath))
                     return configuredPath;
 
-                return RecipeDieMapResolver.ResolveExternalSourcePath(source, RecipeMapKind.Input);
+                return RecipeDieMapResolver.ResolveExternalSourcePath(source, kind);
             }
             catch
             {

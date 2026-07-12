@@ -313,7 +313,18 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             AddRow(gridXml, "XmlPath", "XML PATH", project.XmlPath);
 
             gridMap.Rows.Clear();
-            AddMapRow("Base", "BASE WAFER MAP", project.BaseWaferMapFileName, ResolveBaseWaferMapPath(project), true);
+            AddMapRow(
+                "InputBase",
+                "INPUT BASE WAFER MAP",
+                RecipeMapPaths.ConfiguredBaseFileName(project, RecipeMapKind.Input),
+                ResolveBaseWaferMapPath(project, RecipeMapKind.Input),
+                true);
+            AddMapRow(
+                "OutputBase",
+                "OUTPUT BASE WAFER MAP",
+                RecipeMapPaths.ConfiguredBaseFileName(project, RecipeMapKind.GoodBin),
+                ResolveBaseWaferMapPath(project, RecipeMapKind.GoodBin),
+                true);
             AddMapRow("Input", "INPUT DIE MAP (AUTO)", project.InputDieMapFileName, RecipeMapPaths.ResolveConfigured(project, RecipeMapKind.Input), true);
             AddMapRow("GoodBin", "GOOD BIN DIE MAP (AUTO)", project.GoodBinDieMapFileName, RecipeMapPaths.ResolveConfigured(project, RecipeMapKind.GoodBin), true);
             AddMapRow("NgBin", "NG BIN DIE MAP (AUTO)", project.NgBinDieMapFileName, RecipeMapPaths.ResolveConfigured(project, RecipeMapKind.NgBin), true);
@@ -367,7 +378,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             if (configuredReadOnly)
             {
                 gridMap.Rows[row].Cells[2].Style.BackColor = Color.FromArgb(238, 238, 238);
-                string toolTip = string.Equals(key, "Base", StringComparison.OrdinalIgnoreCase)
+                string toolTip = key.EndsWith("Base", StringComparison.OrdinalIgnoreCase)
                     ? "Recipe → 웨이퍼 사양 → LOAD WAFER MAP에서 설정합니다."
                     : "Base WaferMap과 Recipe → 웨이퍼 사양의 Role별 Pitch로 자동 생성됩니다.";
                 gridMap.Rows[row].Cells[1].ToolTipText = toolTip;
@@ -388,9 +399,13 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                     DataGridViewRow row = gridMap.Rows[i];
                     string key = CellText(row, 0);
                     string configured = CellText(row, 2);
-                    string resolved = string.Equals(key, "Base", StringComparison.OrdinalIgnoreCase)
-                        ? ResolveBaseWaferMapPath(_current, configured)
-                        : ResolveConfiguredRaw(configured);
+                    string resolved;
+                    if (string.Equals(key, "InputBase", StringComparison.OrdinalIgnoreCase))
+                        resolved = ResolveBaseWaferMapPath(_current, RecipeMapKind.Input, configured);
+                    else if (string.Equals(key, "OutputBase", StringComparison.OrdinalIgnoreCase))
+                        resolved = ResolveBaseWaferMapPath(_current, RecipeMapKind.GoodBin, configured);
+                    else
+                        resolved = ResolveConfiguredRaw(configured);
                     row.Cells[3].Value = resolved;
 
                     bool exists = !string.IsNullOrWhiteSpace(resolved) && File.Exists(resolved);
@@ -1023,17 +1038,20 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             return Path.Combine(AppDomain.CurrentDomain.BaseDirectory, configured);
         }
 
-        private static string ResolveBaseWaferMapPath(RecipeProject project, string configured = null)
+        private static string ResolveBaseWaferMapPath(
+            RecipeProject project,
+            RecipeMapKind kind,
+            string configured = null)
         {
             try
             {
                 string configuredPath = ResolveConfiguredRaw(
-                    configured ?? (project != null ? project.BaseWaferMapFileName : ""));
+                    configured ?? RecipeMapPaths.ConfiguredBaseFileName(project, kind));
                 if (!string.IsNullOrWhiteSpace(configuredPath))
                     return configuredPath;
 
                 return project != null
-                    ? RecipeDieMapResolver.ResolveExternalSourcePath(project, RecipeMapKind.Input)
+                    ? RecipeDieMapResolver.ResolveExternalSourcePath(project, kind)
                     : "";
             }
             catch

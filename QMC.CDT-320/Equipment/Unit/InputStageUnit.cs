@@ -121,10 +121,10 @@ namespace QMC.CDT320
         [DataMember] public double AlignThetaCorrectionLimitDeg { get; set; } = 1.0;
 
         /// <summary>수동 Die 검출로 전체 Input Die Map에 적용할 수 있는 X Offset 최대값 [mm].</summary>
-        [DataMember] public double ManualDieDetectOffsetLimitX { get; set; } = 5.0;
+        [DataMember] public double ManualDieDetectOffsetLimitX { get; set; } = 20.0;
 
         /// <summary>수동 Die 검출로 전체 Input Die Map에 적용할 수 있는 Y Offset 최대값 [mm].</summary>
-        [DataMember] public double ManualDieDetectOffsetLimitY { get; set; } = 5.0;
+        [DataMember] public double ManualDieDetectOffsetLimitY { get; set; } = 20.0;
 
         /// <summary>PickUp 전 Input Die Vision 검사 재시도 횟수.</summary>
         [DataMember] public int InputDieVisionRetryCount { get; set; } = 3;
@@ -145,9 +145,9 @@ namespace QMC.CDT320
             if (AlignThetaCorrectionLimitDeg <= 0.0)
                 AlignThetaCorrectionLimitDeg = 1.0;
             if (ManualDieDetectOffsetLimitX <= 0.0)
-                ManualDieDetectOffsetLimitX = 5.0;
+                ManualDieDetectOffsetLimitX = 20.0;
             if (ManualDieDetectOffsetLimitY <= 0.0)
-                ManualDieDetectOffsetLimitY = 5.0;
+                ManualDieDetectOffsetLimitY = 20.0;
             if (PickUpNeedleSyncLiftDistance <= 0.0)
                 PickUpNeedleSyncLiftDistance = 2.0;
             if (PickUpNeedleSyncLiftVelocity <= 0.0)

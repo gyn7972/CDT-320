@@ -1055,7 +1055,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                     lines.Add("Wafer  : " + (_map.OuterDiameterMm > 0.0
                         ? _map.OuterDiameterMm.ToString("0.###") + " mm"
                         : "not set"));
-                    string basePath = RecipeMapPaths.ResolveBaseConfigured(_project);
+                    string basePath = RecipeMapPaths.ResolveBaseConfigured(_project, CurrentMapKind);
                     if (!string.IsNullOrWhiteSpace(basePath) && File.Exists(basePath))
                     {
                         DieMap baseMap = DieMapGenerator.Load(basePath);
@@ -1195,7 +1195,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 }
             }
 
-            string basePath = RecipeMapPaths.ResolveBaseConfigured(_project);
+            string basePath = RecipeMapPaths.ResolveBaseConfigured(_project, CurrentMapKind);
             if (string.IsNullOrWhiteSpace(basePath) || !File.Exists(basePath))
             {
                 reason = "Base WaferMap 파일을 찾을 수 없습니다.";

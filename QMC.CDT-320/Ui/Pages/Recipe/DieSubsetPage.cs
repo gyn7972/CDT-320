@@ -198,29 +198,39 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                     libraryPersisted = true;
                 }
 
-                string baseMapPath = RecipeMapPaths.ResolveBaseConfigured(_project);
-                bool hasConfiguredBaseMap = !string.IsNullOrWhiteSpace(_project.BaseWaferMapFileName);
-                if (hasConfiguredBaseMap)
+                string inputBaseMapPath = RecipeMapPaths.ResolveBaseConfigured(_project, RecipeMapKind.Input);
+                string outputBaseMapPath = RecipeMapPaths.ResolveBaseConfigured(_project, RecipeMapKind.GoodBin);
+                bool hasInputBaseMap = !string.IsNullOrWhiteSpace(
+                    RecipeMapPaths.ConfiguredBaseFileName(_project, RecipeMapKind.Input));
+                bool hasOutputBaseMap = !string.IsNullOrWhiteSpace(
+                    RecipeMapPaths.ConfiguredBaseFileName(_project, RecipeMapKind.GoodBin));
+                if (hasInputBaseMap || hasOutputBaseMap)
                 {
                     stage = "BASE MAP CHECK";
-                    if (string.IsNullOrWhiteSpace(baseMapPath) || !File.Exists(baseMapPath))
+                    if (hasInputBaseMap && (string.IsNullOrWhiteSpace(inputBaseMapPath) || !File.Exists(inputBaseMapPath)))
                     {
                         throw new FileNotFoundException(
-                            "Recipe에 Base WaferMap이 설정되어 있지만 파일을 찾을 수 없습니다. 웨이퍼 사양 페이지에서 LOAD WAFER MAP을 다시 실행하세요.",
-                            baseMapPath);
+                            "Recipe에 Input Base WaferMap이 설정되어 있지만 파일을 찾을 수 없습니다. 웨이퍼 사양 페이지에서 INPUT 역할을 선택한 뒤 LOAD WAFER MAP을 다시 실행하세요.",
+                            inputBaseMapPath);
+                    }
+                    if (hasOutputBaseMap && (string.IsNullOrWhiteSpace(outputBaseMapPath) || !File.Exists(outputBaseMapPath)))
+                    {
+                        throw new FileNotFoundException(
+                            "Recipe에 Output Base WaferMap이 설정되어 있지만 파일을 찾을 수 없습니다. 웨이퍼 사양 페이지에서 OUTPUT 역할을 선택한 뒤 LOAD WAFER MAP을 다시 실행하세요.",
+                            outputBaseMapPath);
                     }
 
                     stage = "WAFER MAP REBUILD";
                     RecipeMapBuildResult result = RecipeMapBuildService.RebuildDerivedMaps(
                         _project,
-                        true,
-                        true,
+                        hasInputBaseMap,
+                        hasOutputBaseMap,
                         true,
                         RecipeStore.Save);
                     if (!result.Success)
                     {
                         throw new InvalidOperationException(
-                            "Die 규격 반영 후 Base/Input/Good/NG WaferMap 재생성에 실패했습니다. 원인: " + result.Message);
+                            "Die 규격 반영 후 역할별 Base/Input/Good/NG WaferMap 재생성에 실패했습니다. 원인: " + result.Message);
                     }
                     recipePersisted = true;
                 }
@@ -250,9 +260,9 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 RefreshSpecList(die.DieSpecName);
                 UpdateCurrentRecipeInfo();
 
-                string mapResult = hasConfiguredBaseMap
-                    ? "연결된 Base/Input/Good/NG 맵도 새 Die 크기로 재생성했습니다. 공정 사용 전 Map Create에서 Input/Good/NG를 각각 확인하고 FINAL APPLY 하세요."
-                    : "Base WaferMap이 연결되지 않아 Recipe 값만 저장했습니다.";
+                string mapResult = hasInputBaseMap || hasOutputBaseMap
+                    ? "연결된 역할별 Base와 파생 맵도 새 Die 크기로 재생성했습니다. 공정 사용 전 Map Create에서 해당 역할을 확인하고 FINAL APPLY 하세요."
+                    : "Input/Output Base WaferMap이 연결되지 않아 Recipe 값만 저장했습니다.";
                 SetOperationStatus(
                     saveSpecButton ? "SAVE SPEC COMPLETE" : "SAVE COMPLETE",
                     "현재 Recipe '" + _project.FileName + "'에 " + die.WidthMm.ToString("0.####") + " x " +
@@ -405,12 +415,21 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             string recipeName = _project != null && !string.IsNullOrWhiteSpace(_project.FileName)
                 ? _project.FileName
                 : "(없음)";
-            string baseMap = _project != null ? RecipeMapPaths.ResolveBaseConfigured(_project) : "";
-            string mapState = string.IsNullOrWhiteSpace(baseMap)
-                ? "연결 안 됨 (Recipe 값만 저장)"
-                : (File.Exists(baseMap) ? Path.GetFileName(baseMap) : "파일 없음: " + baseMap);
+            string inputBaseMap = _project != null
+                ? RecipeMapPaths.ResolveBaseConfigured(_project, RecipeMapKind.Input)
+                : "";
+            string outputBaseMap = _project != null
+                ? RecipeMapPaths.ResolveBaseConfigured(_project, RecipeMapKind.GoodBin)
+                : "";
+            string inputMapState = string.IsNullOrWhiteSpace(inputBaseMap)
+                ? "연결 안 됨"
+                : (File.Exists(inputBaseMap) ? Path.GetFileName(inputBaseMap) : "파일 없음: " + inputBaseMap);
+            string outputMapState = string.IsNullOrWhiteSpace(outputBaseMap)
+                ? "연결 안 됨"
+                : (File.Exists(outputBaseMap) ? Path.GetFileName(outputBaseMap) : "파일 없음: " + outputBaseMap);
 
-            _lblCurrentRecipeInfo.Text = "현재 Recipe : " + recipeName + "\r\nBase WaferMap : " + mapState;
+            _lblCurrentRecipeInfo.Text = "현재 Recipe : " + recipeName +
+                "\r\nBase WaferMap : Input=" + inputMapState + " / Output=" + outputMapState;
         }
 
         private void SetOperationStatus(string operation, string detail, bool isError)

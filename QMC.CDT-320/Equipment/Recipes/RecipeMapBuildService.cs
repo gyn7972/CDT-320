@@ -13,6 +13,8 @@ namespace QMC.CDT320.Recipes
         public bool Success { get; internal set; }
         public string Message { get; internal set; } = "";
         public string BaseMapPath { get; internal set; } = "";
+        public string InputBaseMapPath { get; internal set; } = "";
+        public string OutputBaseMapPath { get; internal set; } = "";
         public string InputMapPath { get; internal set; } = "";
         public string GoodMapPath { get; internal set; } = "";
         public string NgMapPath { get; internal set; } = "";
@@ -23,9 +25,9 @@ namespace QMC.CDT320.Recipes
     }
 
     /// <summary>
-    /// Base WaferMap을 한 번만 파싱하고 같은 원본 X/Y 주소 도메인으로 Input/Good/NG 맵을 만든다.
+    /// Input/Output Base WaferMap을 독립적으로 관리하고 각 역할의 원본 X/Y 주소 도메인으로 파생 맵을 만든다.
     /// 역할별 Recipe Pitch는 Die 사이 Gap이고, DieMap Pitch는 장비 중심 간격(Die Size + Gap)이다.
-    /// 역할별 차이는 Gap과 독립 Target mask뿐이며 Die 크기는 RecipeProject.Die를 공통 사용한다.
+    /// 각 역할은 독립 Base 주소 도메인, Gap, Target mask를 가지며 Die 크기는 RecipeProject.Die를 공통 사용한다.
     /// </summary>
     public static class RecipeMapBuildService
     {
@@ -55,7 +57,9 @@ namespace QMC.CDT320.Recipes
             public TapeFrameSubset Frame { get; set; }
             public TapeFrameSubset InputFrame { get; set; }
             public TapeFrameSubset OutputFrame { get; set; }
-            public string BasePath { get; set; } = "";
+            public string LegacyBasePath { get; set; } = "";
+            public string InputBasePath { get; set; } = "";
+            public string OutputBasePath { get; set; } = "";
             public string InputPath { get; set; } = "";
             public string OutputPath { get; set; } = "";
             public string GoodPath { get; set; } = "";
@@ -67,9 +71,10 @@ namespace QMC.CDT320.Recipes
             public double ChipThickness { get; set; }
         }
 
-        public static RecipeMapBuildResult ImportBaseAndBuildAll(
+        public static RecipeMapBuildResult ImportBaseAndBuildRole(
             RecipeProject project,
             string sourcePath,
+            bool outputRole,
             Func<RecipeProject, bool> persistProject = null)
         {
             var result = new RecipeMapBuildResult();
@@ -94,44 +99,59 @@ namespace QMC.CDT320.Recipes
                 RecipeProjectConsistencyService.EnsureStructure(project);
                 RecipeProjectConsistencyService.SynchronizeDieSpecification(project);
 
+                RecipeMapKind baseKind = outputRole ? RecipeMapKind.GoodBin : RecipeMapKind.Input;
                 DieMap baseMap = PrepareBaseMap(project, parsed);
-                ApplyBaseDomainToFrames(project, baseMap, false);
+                ApplyBaseDomainToFrame(project, baseMap, outputRole, false);
 
-                DieMap inputMap = BuildDerivedMap(project, baseMap, RecipeMapKind.Input, null);
-                DieMap goodMap = BuildDerivedMap(project, baseMap, RecipeMapKind.GoodBin, null);
-                DieMap ngMap = BuildDerivedMap(project, baseMap, RecipeMapKind.NgBin, null);
+                string basePath = BuildMapPath(project, RecipeMapPaths.BaseFileSuffix(baseKind));
+                var pendingMaps = new List<PendingMap> { new PendingMap(baseMap, basePath) };
+                RecipeMapPaths.SetConfiguredBaseFileName(
+                    project,
+                    baseKind,
+                    RecipeMapPaths.MakeConfigRelativePath(basePath));
 
-                EnsureSameAddressDomain(baseMap, inputMap, "Input");
-                EnsureSameAddressDomain(baseMap, goodMap, "Good");
-                EnsureSameAddressDomain(baseMap, ngMap, "NG");
-
-                string basePath = BuildMapPath(project, "BaseWaferMap");
-                string inputPath = BuildMapPath(project, RecipeMapPaths.FileSuffix(RecipeMapKind.Input));
-                string goodPath = BuildMapPath(project, RecipeMapPaths.FileSuffix(RecipeMapKind.GoodBin));
-                string ngPath = BuildMapPath(project, RecipeMapPaths.FileSuffix(RecipeMapKind.NgBin));
-                project.BaseWaferMapFileName = RecipeMapPaths.MakeConfigRelativePath(basePath);
-                RecipeMapPaths.SetConfiguredFileName(project, RecipeMapKind.Input, RecipeMapPaths.MakeConfigRelativePath(inputPath));
-                RecipeMapPaths.SetConfiguredFileName(project, RecipeMapKind.GoodBin, RecipeMapPaths.MakeConfigRelativePath(goodPath));
-                RecipeMapPaths.SetConfiguredFileName(project, RecipeMapKind.NgBin, RecipeMapPaths.MakeConfigRelativePath(ngPath));
-                RecipeMapPaths.InvalidateApproval(project, true, true);
-                SaveMapFamiliesAtomically(new[]
+                if (outputRole)
                 {
-                    new PendingMap(baseMap, basePath),
-                    new PendingMap(inputMap, inputPath),
-                    new PendingMap(goodMap, goodPath),
-                    new PendingMap(ngMap, ngPath)
-                }, BuildProjectCommit(project, persistProject));
+                    DieMap goodMap = BuildDerivedMap(project, baseMap, RecipeMapKind.GoodBin, null);
+                    DieMap ngMap = BuildDerivedMap(project, baseMap, RecipeMapKind.NgBin, null);
+                    EnsureSameAddressDomain(baseMap, goodMap, "Good");
+                    EnsureSameAddressDomain(baseMap, ngMap, "NG");
+
+                    string goodPath = BuildMapPath(project, RecipeMapPaths.FileSuffix(RecipeMapKind.GoodBin));
+                    string ngPath = BuildMapPath(project, RecipeMapPaths.FileSuffix(RecipeMapKind.NgBin));
+                    RecipeMapPaths.SetConfiguredFileName(project, RecipeMapKind.GoodBin, RecipeMapPaths.MakeConfigRelativePath(goodPath));
+                    RecipeMapPaths.SetConfiguredFileName(project, RecipeMapKind.NgBin, RecipeMapPaths.MakeConfigRelativePath(ngPath));
+                    RecipeMapPaths.InvalidateApproval(project, false, true);
+                    pendingMaps.Add(new PendingMap(goodMap, goodPath));
+                    pendingMaps.Add(new PendingMap(ngMap, ngPath));
+                    result.OutputBaseMapPath = basePath;
+                    result.GoodMapPath = goodPath;
+                    result.NgMapPath = ngPath;
+                }
+                else
+                {
+                    DieMap inputMap = BuildDerivedMap(project, baseMap, RecipeMapKind.Input, null);
+                    EnsureSameAddressDomain(baseMap, inputMap, "Input");
+
+                    string inputPath = BuildMapPath(project, RecipeMapPaths.FileSuffix(RecipeMapKind.Input));
+                    RecipeMapPaths.SetConfiguredFileName(project, RecipeMapKind.Input, RecipeMapPaths.MakeConfigRelativePath(inputPath));
+                    RecipeMapPaths.InvalidateApproval(project, true, false);
+                    pendingMaps.Add(new PendingMap(inputMap, inputPath));
+                    result.InputBaseMapPath = basePath;
+                    result.InputMapPath = inputPath;
+                }
+
+                SaveMapFamiliesAtomically(pendingMaps, BuildProjectCommit(project, persistProject));
                 TryCopyOriginalSourceSidecar(sourcePath, basePath);
 
                 result.BaseMapPath = basePath;
                 result.BaseMap = baseMap;
-                result.InputMapPath = inputPath;
-                result.GoodMapPath = goodPath;
-                result.NgMapPath = ngPath;
                 result.AddressCount = baseMap.Entries.Count;
                 result.TargetCount = baseMap.Entries.Count(e => e != null && e.IsTarget);
                 result.Success = true;
-                result.Message = "Base/Input/Good/NG 맵 생성 완료. Map Create에서 역할별 FINAL APPLY가 필요합니다.";
+                result.Message = outputRole
+                    ? "Output Base와 Good/NG 맵 생성 완료. Bin Map Create에서 FINAL APPLY가 필요합니다."
+                    : "Input Base와 Input 맵 생성 완료. Input Map Create에서 FINAL APPLY가 필요합니다.";
                 return result;
             }
             catch (Exception ex)
@@ -161,62 +181,87 @@ namespace QMC.CDT320.Recipes
                 originalState = CaptureProjectMapState(project);
                 RecipeProjectConsistencyService.EnsureStructure(project);
                 RecipeProjectConsistencyService.SynchronizeDieSpecification(project);
+                if (!rebuildInput && !rebuildOutput)
+                    throw new InvalidOperationException("재생성할 Input/Output 맵 역할이 선택되지 않았습니다.");
 
-                string basePath = RecipeMapPaths.ResolveBaseConfigured(project);
-                DieMap baseMap = !string.IsNullOrWhiteSpace(basePath) && File.Exists(basePath)
-                    ? DieMapGenerator.Load(basePath)
-                    : null;
-                if (!IsUsableMap(baseMap))
-                    throw new InvalidDataException("Recipe Base WaferMap이 없어 파생 맵을 다시 만들 수 없습니다.");
-
-                baseMap = PrepareBaseMap(project, baseMap);
-                ApplyBaseDomainToFrames(project, baseMap, true);
-                string canonicalBasePath = BuildMapPath(project, "BaseWaferMap");
-                var pendingMaps = new List<PendingMap>
-                {
-                    new PendingMap(baseMap, canonicalBasePath)
-                };
-                result.BaseMapPath = canonicalBasePath;
-                result.BaseMap = baseMap;
+                var pendingMaps = new List<PendingMap>();
+                int addressCount = 0;
+                int targetCount = 0;
 
                 if (rebuildInput)
                 {
+                    string inputBaseSourcePath = RecipeMapPaths.ResolveBaseConfigured(project, RecipeMapKind.Input);
+                    DieMap inputBaseMap = LoadConfiguredMapWithSidecar(inputBaseSourcePath, "Input Base WaferMap");
+                    inputBaseMap = PrepareBaseMap(project, inputBaseMap);
+                    ApplyBaseDomainToFrame(project, inputBaseMap, false, true);
+
+                    string inputBasePath = BuildMapPath(project, RecipeMapPaths.BaseFileSuffix(RecipeMapKind.Input));
                     DieMap existingInput = LoadDirectConfiguredMap(project, RecipeMapKind.Input);
-                    DieMap inputMap = BuildDerivedMap(project, baseMap, RecipeMapKind.Input, existingInput);
-                    EnsureSameAddressDomain(baseMap, inputMap, "Input");
+                    DieMap inputMap = BuildDerivedMap(project, inputBaseMap, RecipeMapKind.Input, existingInput);
+                    EnsureSameAddressDomain(inputBaseMap, inputMap, "Input");
+                    result.InputBaseMapPath = inputBasePath;
                     result.InputMapPath = BuildMapPath(project, RecipeMapPaths.FileSuffix(RecipeMapKind.Input));
+                    pendingMaps.Add(new PendingMap(inputBaseMap, inputBasePath));
                     pendingMaps.Add(new PendingMap(inputMap, result.InputMapPath));
+                    RecipeMapPaths.SetConfiguredBaseFileName(
+                        project,
+                        RecipeMapKind.Input,
+                        RecipeMapPaths.MakeConfigRelativePath(inputBasePath));
+                    RecipeMapPaths.SetConfiguredFileName(
+                        project,
+                        RecipeMapKind.Input,
+                        RecipeMapPaths.MakeConfigRelativePath(result.InputMapPath));
+                    result.BaseMapPath = inputBasePath;
+                    result.BaseMap = inputBaseMap;
+                    addressCount += inputBaseMap.Entries.Count;
+                    targetCount += inputBaseMap.Entries.Count(entry => entry != null && entry.IsTarget);
                 }
 
                 if (rebuildOutput)
                 {
+                    string outputBaseSourcePath = RecipeMapPaths.ResolveBaseConfigured(project, RecipeMapKind.GoodBin);
+                    DieMap outputBaseMap = LoadConfiguredMapWithSidecar(outputBaseSourcePath, "Output Base WaferMap");
+                    outputBaseMap = PrepareBaseMap(project, outputBaseMap);
+                    ApplyBaseDomainToFrame(project, outputBaseMap, true, true);
+
+                    string outputBasePath = BuildMapPath(project, RecipeMapPaths.BaseFileSuffix(RecipeMapKind.GoodBin));
                     DieMap existingGood = preserveOutputMasks ? LoadDirectConfiguredMap(project, RecipeMapKind.GoodBin) : null;
                     DieMap existingNg = preserveOutputMasks ? LoadDirectConfiguredMap(project, RecipeMapKind.NgBin) : null;
-                    DieMap goodMap = BuildDerivedMap(project, baseMap, RecipeMapKind.GoodBin, existingGood);
-                    DieMap ngMap = BuildDerivedMap(project, baseMap, RecipeMapKind.NgBin, existingNg);
-                    EnsureSameAddressDomain(baseMap, goodMap, "Good");
-                    EnsureSameAddressDomain(baseMap, ngMap, "NG");
+                    DieMap goodMap = BuildDerivedMap(project, outputBaseMap, RecipeMapKind.GoodBin, existingGood);
+                    DieMap ngMap = BuildDerivedMap(project, outputBaseMap, RecipeMapKind.NgBin, existingNg);
+                    EnsureSameAddressDomain(outputBaseMap, goodMap, "Good");
+                    EnsureSameAddressDomain(outputBaseMap, ngMap, "NG");
+                    result.OutputBaseMapPath = outputBasePath;
                     result.GoodMapPath = BuildMapPath(project, RecipeMapPaths.FileSuffix(RecipeMapKind.GoodBin));
                     result.NgMapPath = BuildMapPath(project, RecipeMapPaths.FileSuffix(RecipeMapKind.NgBin));
+                    pendingMaps.Add(new PendingMap(outputBaseMap, outputBasePath));
                     pendingMaps.Add(new PendingMap(goodMap, result.GoodMapPath));
                     pendingMaps.Add(new PendingMap(ngMap, result.NgMapPath));
+                    RecipeMapPaths.SetConfiguredBaseFileName(
+                        project,
+                        RecipeMapKind.GoodBin,
+                        RecipeMapPaths.MakeConfigRelativePath(outputBasePath));
+                    RecipeMapPaths.SetConfiguredFileName(
+                        project,
+                        RecipeMapKind.GoodBin,
+                        RecipeMapPaths.MakeConfigRelativePath(result.GoodMapPath));
+                    RecipeMapPaths.SetConfiguredFileName(
+                        project,
+                        RecipeMapKind.NgBin,
+                        RecipeMapPaths.MakeConfigRelativePath(result.NgMapPath));
+                    result.BaseMapPath = outputBasePath;
+                    result.BaseMap = outputBaseMap;
+                    addressCount += outputBaseMap.Entries.Count;
+                    targetCount += outputBaseMap.Entries.Count(entry => entry != null && entry.IsTarget);
                 }
 
-                project.BaseWaferMapFileName = RecipeMapPaths.MakeConfigRelativePath(canonicalBasePath);
-                if (rebuildInput)
-                    RecipeMapPaths.SetConfiguredFileName(project, RecipeMapKind.Input, RecipeMapPaths.MakeConfigRelativePath(result.InputMapPath));
-                if (rebuildOutput)
-                {
-                    RecipeMapPaths.SetConfiguredFileName(project, RecipeMapKind.GoodBin, RecipeMapPaths.MakeConfigRelativePath(result.GoodMapPath));
-                    RecipeMapPaths.SetConfiguredFileName(project, RecipeMapKind.NgBin, RecipeMapPaths.MakeConfigRelativePath(result.NgMapPath));
-                }
                 RecipeMapPaths.InvalidateApproval(project, rebuildInput, rebuildOutput);
                 SaveMapFamiliesAtomically(pendingMaps, BuildProjectCommit(project, persistProject));
 
-                result.AddressCount = baseMap.Entries.Count;
-                result.TargetCount = baseMap.Entries.Count(e => e != null && e.IsTarget);
+                result.AddressCount = addressCount;
+                result.TargetCount = targetCount;
                 result.Success = true;
-                result.Message = "Recipe 파생 맵 재생성 완료. 변경된 역할은 Map Create FINAL APPLY가 필요합니다.";
+                result.Message = "역할별 Base 기준 Recipe 파생 맵 재생성 완료. 변경된 역할은 Map Create FINAL APPLY가 필요합니다.";
                 return result;
             }
             catch (Exception ex)
@@ -233,7 +278,7 @@ namespace QMC.CDT320.Recipes
 
         /// <summary>
         /// Saves only the Target/Skip mask of an already configured role map.
-        /// The Base/Input/Good/NG OriginalMap address domain and configured paths are never changed here.
+        /// 선택 역할의 Base 주소 도메인만 검증하며 다른 역할의 Base/파생 맵은 변경하지 않는다.
         /// </summary>
         public static RecipeMapBuildResult SaveRoleTargetMask(
             RecipeProject project,
@@ -252,41 +297,30 @@ namespace QMC.CDT320.Recipes
                 if (kind != RecipeMapKind.Input && kind != RecipeMapKind.GoodBin && kind != RecipeMapKind.NgBin)
                     throw new ArgumentOutOfRangeException(nameof(kind));
 
-                string basePath = RecipeMapPaths.ResolveBaseConfigured(project);
-                DieMap baseMap = LoadConfiguredMapWithSidecar(basePath, "Base WaferMap");
+                string basePath = RecipeMapPaths.ResolveBaseConfigured(project, kind);
+                string baseRoleName = kind == RecipeMapKind.Input ? "Input" : "Output";
+                DieMap baseMap = LoadConfiguredMapWithSidecar(basePath, baseRoleName + " Base WaferMap");
                 List<DieMapEntry> baseEntries = BuildUniqueAddressEntries(baseMap);
                 if (baseEntries.Count == 0)
-                    throw new InvalidDataException("Base WaferMap의 OriginalMap 주소가 비어 있습니다.");
+                    throw new InvalidDataException(baseRoleName + " Base WaferMap의 OriginalMap 주소가 비어 있습니다.");
 
-                var roleMaps = new Dictionary<RecipeMapKind, DieMap>();
-                var rolePaths = new Dictionary<RecipeMapKind, string>();
-                foreach (RecipeMapKind roleKind in new[]
-                {
-                    RecipeMapKind.Input,
-                    RecipeMapKind.GoodBin,
-                    RecipeMapKind.NgBin
-                })
-                {
-                    string configured = RecipeMapPaths.ExactConfiguredFileName(project, roleKind);
-                    string rolePath = RecipeMapPaths.ResolveConfiguredPath(configured);
-                    if (string.IsNullOrWhiteSpace(rolePath))
-                        throw new InvalidDataException(roleKind + " DieMap 경로가 설정되지 않았습니다. Recipe → 웨이퍼 사양에서 Base WaferMap을 다시 연결하세요.");
-                    if (!string.Equals(Path.GetExtension(rolePath), ".json", StringComparison.OrdinalIgnoreCase))
-                        throw new InvalidDataException(roleKind + " DieMap이 Project 소유 JSON 형식이 아닙니다. Recipe → 웨이퍼 사양에서 Base WaferMap을 다시 연결하세요.");
+                string configured = RecipeMapPaths.ExactConfiguredFileName(project, kind);
+                string rolePath = RecipeMapPaths.ResolveConfiguredPath(configured);
+                if (string.IsNullOrWhiteSpace(rolePath))
+                    throw new InvalidDataException(kind + " DieMap 경로가 설정되지 않았습니다. Recipe → 웨이퍼 사양에서 해당 역할 Base WaferMap을 다시 연결하세요.");
+                if (!string.Equals(Path.GetExtension(rolePath), ".json", StringComparison.OrdinalIgnoreCase))
+                    throw new InvalidDataException(kind + " DieMap이 Project 소유 JSON 형식이 아닙니다. Recipe → 웨이퍼 사양에서 해당 역할 Base WaferMap을 다시 연결하세요.");
 
-                    DieMap roleMap = LoadConfiguredMapWithSidecar(rolePath, roleKind + " DieMap");
-                    EnsureSameAddressDomain(baseMap, roleMap, roleKind.ToString());
-                    string mismatch;
-                    TapeFrameSubset roleFrame = RecipeDieMapResolver.ResolveFrame(project, roleKind);
-                    if (!RecipeDieMapResolver.IsCompatibleWithFrame(roleMap, roleFrame, out mismatch))
-                        throw new InvalidDataException(roleKind + " DieMap과 Project Frame 설정이 일치하지 않습니다: " + mismatch);
-                    roleMaps[roleKind] = roleMap;
-                    rolePaths[roleKind] = rolePath;
-                }
+                DieMap roleMap = LoadConfiguredMapWithSidecar(rolePath, kind + " DieMap");
+                EnsureSameAddressDomain(baseMap, roleMap, kind.ToString());
+                string mismatch;
+                TapeFrameSubset roleFrame = RecipeDieMapResolver.ResolveFrame(project, kind);
+                if (!RecipeDieMapResolver.IsCompatibleWithFrame(roleMap, roleFrame, out mismatch))
+                    throw new InvalidDataException(kind + " DieMap과 Project Frame 설정이 일치하지 않습니다: " + mismatch);
 
                 EnsureSameAddressDomain(baseMap, editedRoleMap, "편집 Mask");
                 Dictionary<string, DieMapEntry> editedByAddress = BuildCompatibleMask(baseEntries, editedRoleMap);
-                DieMap savedRoleMap = CloneMap(roleMaps[kind]);
+                DieMap savedRoleMap = CloneMap(roleMap);
                 foreach (DieMapEntry entry in savedRoleMap.Entries.Where(item => item != null))
                 {
                     string address = BuildAddressKey(ResolveOriginalX(entry), ResolveOriginalY(entry));
@@ -302,13 +336,20 @@ namespace QMC.CDT320.Recipes
                 PickupSequenceGenerator.ApplySequenceNumbers(savedRoleMap, pickup);
                 RecipeMapPaths.ApproveMap(project, kind, savedRoleMap);
                 SaveMapFamiliesAtomically(
-                    new[] { new PendingMap(savedRoleMap, rolePaths[kind]) },
+                    new[] { new PendingMap(savedRoleMap, rolePath) },
                     BuildProjectCommit(project, persistProject));
 
                 result.BaseMapPath = basePath;
-                result.InputMapPath = rolePaths[RecipeMapKind.Input];
-                result.GoodMapPath = rolePaths[RecipeMapKind.GoodBin];
-                result.NgMapPath = rolePaths[RecipeMapKind.NgBin];
+                if (kind == RecipeMapKind.Input)
+                    result.InputBaseMapPath = basePath;
+                else
+                    result.OutputBaseMapPath = basePath;
+                result.InputMapPath = RecipeMapPaths.ResolveConfiguredPath(
+                    RecipeMapPaths.ExactConfiguredFileName(project, RecipeMapKind.Input));
+                result.GoodMapPath = RecipeMapPaths.ResolveConfiguredPath(
+                    RecipeMapPaths.ExactConfiguredFileName(project, RecipeMapKind.GoodBin));
+                result.NgMapPath = RecipeMapPaths.ResolveConfiguredPath(
+                    RecipeMapPaths.ExactConfiguredFileName(project, RecipeMapKind.NgBin));
                 result.BaseMap = baseMap;
                 result.RoleMap = savedRoleMap;
                 result.AddressCount = savedRoleMap.Entries.Count;
@@ -539,30 +580,36 @@ namespace QMC.CDT320.Recipes
             return DieMapGenerator.Normalize(map);
         }
 
-        private static void ApplyBaseDomainToFrames(RecipeProject project, DieMap baseMap, bool preserveConfiguredGrid)
+        private static void ApplyBaseDomainToFrame(
+            RecipeProject project,
+            DieMap baseMap,
+            bool outputRole,
+            bool preserveConfiguredGrid)
         {
             RecipeProjectConsistencyService.EnsureStructure(project);
-            foreach (TapeFrameSubset frame in new[] { project.Frame, project.InputFrame, project.OutputFrame })
-            {
-                if (frame == null)
-                    continue;
+            TapeFrameSubset frame = outputRole ? project.OutputFrame : project.InputFrame;
+            if (frame == null)
+                throw new InvalidDataException((outputRole ? "Output" : "Input") + " Frame 설정이 없습니다.");
 
-                frame.DieMapX = preserveConfiguredGrid
-                    ? Math.Max(Math.Max(1, frame.DieMapX), Math.Max(1, baseMap.DieMapX))
-                    : Math.Max(1, baseMap.DieMapX);
-                frame.DieMapY = preserveConfiguredGrid
-                    ? Math.Max(Math.Max(1, frame.DieMapY), Math.Max(1, baseMap.DieMapY))
-                    : Math.Max(1, baseMap.DieMapY);
-                frame.DieSizeX = project.Die.WidthMm;
-                frame.DieSizeY = project.Die.HeightMm;
-                frame.EdgeSkipMode = "ExternalMap";
-                frame.SideEdgeSkip = 0;
-                frame.TopBottomEdgeSkip = 0;
-                frame.SideEdgeSkipMm = 0.0;
-                frame.TopBottomEdgeSkipMm = 0.0;
-                if (frame.OuterDiameterMm <= 0.0)
-                    frame.OuterDiameterMm = baseMap.OuterDiameterMm;
-            }
+            frame.DieMapX = preserveConfiguredGrid
+                ? Math.Max(Math.Max(1, frame.DieMapX), Math.Max(1, baseMap.DieMapX))
+                : Math.Max(1, baseMap.DieMapX);
+            frame.DieMapY = preserveConfiguredGrid
+                ? Math.Max(Math.Max(1, frame.DieMapY), Math.Max(1, baseMap.DieMapY))
+                : Math.Max(1, baseMap.DieMapY);
+            frame.DieSizeX = project.Die.WidthMm;
+            frame.DieSizeY = project.Die.HeightMm;
+            frame.EdgeSkipMode = "ExternalMap";
+            frame.SideEdgeSkip = 0;
+            frame.TopBottomEdgeSkip = 0;
+            frame.SideEdgeSkipMm = 0.0;
+            frame.TopBottomEdgeSkipMm = 0.0;
+            if (frame.OuterDiameterMm <= 0.0)
+                frame.OuterDiameterMm = baseMap.OuterDiameterMm;
+
+            // Frame은 구형 Input Frame 호환 필드다. Output Base 적용 시에는 변경하지 않는다.
+            if (!outputRole)
+                project.Frame = RecipeProjectConsistencyService.CloneFrame(frame);
         }
 
         private static Action BuildProjectCommit(
@@ -773,7 +820,9 @@ namespace QMC.CDT320.Recipes
                 Frame = RecipeProjectConsistencyService.CloneFrame(project.Frame),
                 InputFrame = RecipeProjectConsistencyService.CloneFrame(project.InputFrame),
                 OutputFrame = RecipeProjectConsistencyService.CloneFrame(project.OutputFrame),
-                BasePath = project.BaseWaferMapFileName ?? "",
+                LegacyBasePath = project.BaseWaferMapFileName ?? "",
+                InputBasePath = project.InputBaseWaferMapFileName ?? "",
+                OutputBasePath = project.OutputBaseWaferMapFileName ?? "",
                 InputPath = project.InputDieMapFileName ?? "",
                 OutputPath = project.OutputDieMapFileName ?? "",
                 GoodPath = project.GoodBinDieMapFileName ?? "",
@@ -794,7 +843,9 @@ namespace QMC.CDT320.Recipes
             project.Frame = RecipeProjectConsistencyService.CloneFrame(state.Frame);
             project.InputFrame = RecipeProjectConsistencyService.CloneFrame(state.InputFrame);
             project.OutputFrame = RecipeProjectConsistencyService.CloneFrame(state.OutputFrame);
-            project.BaseWaferMapFileName = state.BasePath;
+            project.BaseWaferMapFileName = state.LegacyBasePath;
+            project.InputBaseWaferMapFileName = state.InputBasePath;
+            project.OutputBaseWaferMapFileName = state.OutputBasePath;
             project.InputDieMapFileName = state.InputPath;
             project.OutputDieMapFileName = state.OutputPath;
             project.GoodBinDieMapFileName = state.GoodPath;
@@ -908,7 +959,8 @@ namespace QMC.CDT320.Recipes
 
         private static DieMap LoadDirectConfiguredMap(RecipeProject project, RecipeMapKind kind)
         {
-            string path = RecipeMapPaths.ResolveConfigured(project, kind);
+            string path = RecipeMapPaths.ResolveConfiguredPath(
+                RecipeMapPaths.ExactConfiguredFileName(project, kind));
             if (string.IsNullOrWhiteSpace(path))
                 return null;
 
