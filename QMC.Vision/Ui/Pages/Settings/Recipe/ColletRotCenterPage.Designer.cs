@@ -102,7 +102,7 @@ namespace QMC.Vision.Ui.Pages
             this.lblHdrImg.Font = hdrFont;
             this.lblHdrImg.Padding = new Padding(8, 0, 0, 0);
             this.lblHdrImg.TextAlign = ContentAlignment.MiddleLeft;
-            this.lblHdrImg.Text = "카메라 이미지 (누적 라이브 → 종료 시 평균 영상 + 회전 중심 크로스)";
+            this.lblHdrImg.Text = "카메라 이미지 (누적 라이브 → 종료 시 축소 평균 영상 + 회전 중심 크로스)";
 
             this.camView.Dock = DockStyle.Fill;
             this.camView.Margin = new Padding(0);

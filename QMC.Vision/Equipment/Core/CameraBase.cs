@@ -110,8 +110,18 @@ namespace QMC.Vision.Core
         // ─── 이벤트 발행 헬퍼 ─────────────────────
         protected void RaiseFrame(GrabResult r)
         {
-            var h = FrameReceived;
-            if (h != null) try { h(r); } catch { }
+            try
+            {
+                var h = FrameReceived;
+                if (h != null)
+                    try { h(r); } catch { }
+            }
+            finally
+            {
+                // FrameReceived는 동기 콜백이며 구독자는 필요한 이미지를 콜백 안에서 복제한다.
+                // 카메라 Live가 생성한 원본 프레임은 여기서 해제해 고해상도 연속 촬상 누수를 막는다.
+                try { if (r != null) r.Dispose(); } catch { }
+            }
         }
         protected void RaiseConnectionChanged(CameraConnectionEvent ev)
         {

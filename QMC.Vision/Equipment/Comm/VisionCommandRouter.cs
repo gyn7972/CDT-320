@@ -35,6 +35,9 @@ namespace QMC.Vision.Comm
             if (!string.Equals(mod, moduleName, StringComparison.OrdinalIgnoreCase) || m == null)
                 return $"ERR|{mod}|{cmd}|unknown module";
 
+            if (ColletRotationCenterCore.IsRunning(m.Name) && cmd != "COC" && cmd != "PING")
+                return $"ERR|{mod}|{cmd}|COC 회전 중심 측정 중에는 다른 Vision 명령을 실행할 수 없습니다.";
+
             // RUN 게이트 — RUN 상태가 아니면 명령 거부. 단, PING(상태확인)과 단발 그랩(EXPOSE/GRAB)은 면제:
             // 단발 그랩은 모션을 유발하지 않는 카메라 촬상이라 셋업/수동 테스트를 위해 RUN 아닐 때도 허용한다.
             if (!IsGateExemptCommand(cmd) && isCommandAllowed != null && !isCommandAllowed())
@@ -53,7 +56,6 @@ namespace QMC.Vision.Comm
                     case "TRAIN":      resp = DoTrain(m, parts);     break;
                     case "SCALE":      resp = DoScale(m, parts);     break;
                     case "ROT_CENTER": resp = DoRotCenter(m);        break;
-                    case "COC":        resp = ColletRotationCenterStore.Process(m, cfg, parts); break;
                     case "DISTORT":    resp = DoDistort(m);          break;
                     case "CAM_SWITCH": resp = DoCamSwitch(m, parts); break;
                     case "FOCUS_START":resp = VisionCommandCore.FocusStart(m, parts); break;

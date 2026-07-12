@@ -183,6 +183,8 @@ namespace QMC.Vision.Comm
             try { _stream?.Close(); } catch { }
             try { _client?.Close(); } catch { }
             _stream = null; _client = null;
+            if (wasConnected)
+                QMC.Vision.Core.ColletRotationCenterCore.Abort(Module, "핸들러 TCP 연결 종료");
             if (raise && wasConnected) RaiseConn(false);
         }
 

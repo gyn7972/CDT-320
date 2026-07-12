@@ -1,7 +1,8 @@
-﻿using System;
+using System;
 using System.Collections.Concurrent;
 using System.Drawing;
 using System.Drawing.Imaging;
+using System.Globalization;
 using System.Threading;
 using System.Threading.Tasks;
 using QMC.Vision.Modules;
@@ -9,295 +10,735 @@ using QMC.Vision.Modules;
 namespace QMC.Vision.Core
 {
     /// <summary>
-    /// 콜렛 회전 중심(COC) 측정 코어.
-    /// <para>
-    /// 핸들러가 콜렛을 회전시키는 동안 "COC START" 로 카메라를 라이브(연속)로 켜고 프레임을
-    /// 픽셀별 밝기 합/카운트로 누적한다. "COC END" 에서 라이브를 끄고, 누적 평균 영상에서
-    /// 가로/세로 방향 미러 대칭 중심을 찾아 회전 중심 (x,y) 를 핸들러에 리턴한다.
-    /// </para>
-    /// <para>
-    /// 원리: 회전하는 물체의 시간 평균 영상은 회전 중심 기준 원형 대칭이 된다 →
-    /// 열 프로젝션(colSum)의 좌우 대칭 중심 = 중심 x, 행 프로젝션(rowSum)의 상하 대칭 중심 = 중심 y.
-    /// </para>
-    /// 프로토콜: "MODULE|COC|START" → "OK;started" / "MODULE|COC|END" → "OK;x=..;y=..;frames=..".
+    /// COC START부터 END까지 Bottom 카메라 라이브 프레임을 모두 누적하고,
+    /// 누적 영상의 좌우/상하 대칭 중심을 픽셀 좌표로 계산한다.
     /// </summary>
     public static class ColletRotationCenterCore
     {
-        /// <summary>노출/조명 레시피를 읽어올 도구 노드 id(바텀 검사 콜렛 회전중심 Finder).</summary>
         public const string ToolId = "ColletRotCenterFinder";
+
+        private const int FirstFrameTimeoutMs = 10000;
+        private const int MinimumFrameCount = 8;
+        private const int PreviewMaxDimension = 1600;
 
         private sealed class Session
         {
+            public readonly object Sync = new object();
+            public readonly object ColumnMergeSync = new object();
+            public readonly ManualResetEventSlim FirstFrame = new ManualResetEventSlim(false);
             public Action<GrabResult> Handler;
-            public int[] Sum;      // 픽셀별 그레이 합
-            public int W, H;
-            public int Count;      // 누적 프레임 수
-            public int Busy;       // 0/1 — 프레임 처리 중이면 새 프레임 드롭(누적 평균이라 드롭 무해)
+            public long[] ColumnSum;
+            public long[] RowSum;
+            public long[] PreviewSum;
+            public int Width;
+            public int Height;
+            public int PreviewWidth;
+            public int PreviewHeight;
+            public int Count;
+            public bool Accepting = true;
+            public QMC.Vision.Cameras.Mil.MilCamera MilCamera;
+            public int OriginalMilPreviewFps;
         }
 
         private sealed class LastResult
         {
-            public double X, Y;
+            public double X;
+            public double Y;
             public int Frames;
+            public int SourceWidth;
+            public int SourceHeight;
+            public int DisplayWidth;
+            public int DisplayHeight;
             public DateTime Time;
-            public long Seq;   // 결과 갱신 시퀀스 — UI 폴링이 변경 감지에 사용
+            public long Seq;
         }
 
-        private static readonly ConcurrentDictionary<string, Session> _sessions =
+        private static readonly ConcurrentDictionary<string, Session> Sessions =
             new ConcurrentDictionary<string, Session>(StringComparer.OrdinalIgnoreCase);
-        private static readonly ConcurrentDictionary<string, LastResult> _last =
+        private static readonly ConcurrentDictionary<string, LastResult> LastResults =
             new ConcurrentDictionary<string, LastResult>(StringComparer.OrdinalIgnoreCase);
-        private static long _seq;
+        private static long _resultSequence;
 
-        // ── Public Methods ──────────────────────────────────────────
-
-        /// <summary>모듈의 COC 누적 세션이 진행 중인지(START~END 사이). UI 상태 표시용.</summary>
         public static bool IsRunning(string moduleName)
-            => !string.IsNullOrEmpty(moduleName) && _sessions.ContainsKey(moduleName);
-
-        /// <summary>모듈의 마지막 COC 결과(통신/수동 공통). seq 는 결과마다 증가 — 변경 감지용. 결과 없으면 false.</summary>
-        public static bool TryGetLast(string moduleName, out double x, out double y, out int frames, out DateTime time, out long seq)
         {
-            x = y = 0; frames = 0; time = DateTime.MinValue; seq = 0;
-            if (string.IsNullOrEmpty(moduleName) || !_last.TryGetValue(moduleName, out var r)) return false;
-            x = r.X; y = r.Y; frames = r.Frames; time = r.Time; seq = r.Seq;
+            return !string.IsNullOrWhiteSpace(moduleName) && Sessions.ContainsKey(moduleName);
+        }
+
+        public static bool TryGetLast(
+            string moduleName,
+            out double x,
+            out double y,
+            out int frames,
+            out DateTime time,
+            out long sequence)
+        {
+            x = 0.0;
+            y = 0.0;
+            frames = 0;
+            time = DateTime.MinValue;
+            sequence = 0;
+
+            LastResult result;
+            if (string.IsNullOrWhiteSpace(moduleName) || !LastResults.TryGetValue(moduleName, out result))
+                return false;
+
+            x = result.X;
+            y = result.Y;
+            frames = result.Frames;
+            time = result.Time;
+            sequence = result.Seq;
             return true;
         }
 
-        /// <summary>COC 시작 — 도구 노출/조명 적용 후 카메라 라이브 시작 + 프레임 누적 구독.</summary>
-        public static string Start(IVisionModule m)
+        public static bool TryGetLastDisplayInfo(
+            string moduleName,
+            out int sourceWidth,
+            out int sourceHeight,
+            out int displayWidth,
+            out int displayHeight)
         {
-            if (m == null) return "fail:no module";
-            var cam = m.Camera;
-            if (cam == null) return "fail:no camera";
+            sourceWidth = 0;
+            sourceHeight = 0;
+            displayWidth = 0;
+            displayHeight = 0;
+
+            LastResult result;
+            if (string.IsNullOrWhiteSpace(moduleName) || !LastResults.TryGetValue(moduleName, out result))
+                return false;
+
+            sourceWidth = result.SourceWidth;
+            sourceHeight = result.SourceHeight;
+            displayWidth = result.DisplayWidth;
+            displayHeight = result.DisplayHeight;
+            return true;
+        }
+
+        public static string Start(IVisionModule module)
+        {
+            if (module == null)
+                return "fail:COC 대상 Vision 모듈이 없습니다.";
+            if (module.Camera == null)
+                return "fail:COC 대상 카메라가 없습니다.";
+            if (module.GetAlgorithm(ToolId) == null)
+                return "fail:COC 촬상 도구가 없습니다. tool=" + ToolId;
+            if (Sessions.ContainsKey(module.Name))
+                return "fail:COC가 이미 실행 중입니다.";
+
+            ICamera camera = module.Camera;
+            Session session = null;
+            bool subscribed = false;
 
             try
             {
-                // 이전 세션 잔존 시 정리 후 재시작(핸들러 재시도 대응).
-                if (_sessions.TryRemove(m.Name, out var old))
-                    try { cam.FrameReceived -= old.Handler; } catch { }
+                if (camera.IsGrabbing)
+                {
+                    Log(module.Name, "COC 시작 전 기존 Live를 정지합니다.");
+                    camera.StopLive();
+                }
 
-                // 콜렛 회전중심 도구의 레시피 노출/조명 적용(캐시 히트면 통신 생략).
-                try { m.PrepareToolAcquisition(ToolId); } catch { }
+                module.PrepareToolAcquisition(ToolId);
 
-                var s = new Session();
-                s.Handler = r =>
+                session = new Session();
+                session.Handler = delegate(GrabResult frame)
                 {
                     try
                     {
-                        if (r == null || !r.IsSuccess || r.Image == null) return;
-                        if (Interlocked.CompareExchange(ref s.Busy, 1, 0) != 0) return;   // 처리 중 → 드롭
-                        try { Accumulate(s, r.Image); }
-                        finally { Interlocked.Exchange(ref s.Busy, 0); }
+                        if (frame == null || !frame.IsSuccess || frame.Image == null)
+                            return;
+
+                        lock (session.Sync)
+                        {
+                            if (!session.Accepting)
+                                return;
+
+                            Accumulate(session, frame.Image);
+                            session.FirstFrame.Set();
+                        }
                     }
                     catch (Exception ex)
                     {
-                        try { QMC.Vision.Comm.VisionCommLog.Add("[COC] 프레임 누적 실패: " + ex.Message); } catch { }
+                        Log(module.Name, "COC 프레임 누적 실패. error=" + ex.Message);
                     }
                 };
-                _sessions[m.Name] = s;
 
-                cam.FrameReceived += s.Handler;
-                try { cam.TriggerMode = CameraTriggerMode.Continuous; } catch { }
-                cam.StartLive();
+                if (!Sessions.TryAdd(module.Name, session))
+                {
+                    session.FirstFrame.Dispose();
+                    return "fail:COC가 이미 실행 중입니다.";
+                }
 
-                try { QMC.Vision.Comm.VisionCommLog.Add("[COC] 시작 — 누적 라이브 ON (" + m.Name + ")"); } catch { }
-                return "OK;started";
+                camera.FrameReceived += session.Handler;
+                subscribed = true;
+
+                session.MilCamera = camera as QMC.Vision.Cameras.Mil.MilCamera;
+                if (session.MilCamera != null)
+                {
+                    session.OriginalMilPreviewFps = session.MilCamera.LivePreviewFps;
+                    session.MilCamera.LivePreviewFps = 0;
+                    Log(module.Name,
+                        "COC 누적 중 MIL Live 프레임 상한을 해제합니다. originalFps=" +
+                        session.OriginalMilPreviewFps);
+                }
+                else
+                {
+                    camera.TriggerMode = CameraTriggerMode.Continuous;
+                }
+
+                camera.StartLive();
+                if (!camera.IsGrabbing)
+                    throw new InvalidOperationException("카메라 Live 시작 상태를 확인할 수 없습니다.");
+                if (!session.FirstFrame.Wait(FirstFrameTimeoutMs))
+                    throw new TimeoutException("COC Live 첫 프레임 수신시간을 초과했습니다. timeoutMs=" + FirstFrameTimeoutMs);
+
+                Log(module.Name,
+                    "COC START 완료. 누적 Live=ON, firstFrame=수신, tool=" + ToolId + " - Ok");
+                return "OK;started=1";
             }
             catch (Exception ex)
             {
-                _sessions.TryRemove(m.Name, out _);
-                return "fail:" + ex.Message;
-            }
-        }
+                Session removed;
+                Sessions.TryRemove(module.Name, out removed);
 
-        /// <summary>COC 종료 — 라이브 정지 후 누적 평균 영상의 가로/세로 대칭 중심을 회전 중심으로 계산.</summary>
-        public static string End(IVisionModule m)
-        {
-            if (m == null) return "fail:no module";
-            if (!_sessions.TryRemove(m.Name, out var s)) return "fail:no session (COC START first)";
+                if (session != null)
+                {
+                    if (subscribed)
+                    {
+                        try { camera.FrameReceived -= session.Handler; } catch { }
+                    }
+                    lock (session.Sync)
+                        session.Accepting = false;
+                    session.FirstFrame.Dispose();
+                }
 
-            var cam = m.Camera;
-            try { cam?.StopLive(); } catch { }
-            try { if (cam != null) cam.FrameReceived -= s.Handler; } catch { }
-
-            // 마지막 프레임 누적이 진행 중이면 잠깐 대기(최대 2s).
-            for (int i = 0; i < 200 && Volatile.Read(ref s.Busy) != 0; i++) Thread.Sleep(10);
-
-            if (s.Count <= 0 || s.Sum == null) return "fail:no frames accumulated";
-
-            try
-            {
-                double cx, cy;
-                if (!FindSymmetryCenter(s.Sum, s.W, s.H, out cx, out cy))
-                    return "fail:symmetry center not found";
-
-                // 누적 평균 영상을 뷰어로 발행 — 작업/레시피 UI 에 결과 영상 표시(디버깅/확인용).
                 try
                 {
-                    using (var avg = BuildAverage(s.Sum, s.W, s.H, s.Count))
-                        m.PublishViewerFrame(avg);
+                    if (camera.IsGrabbing)
+                        camera.StopLive();
                 }
                 catch { }
+                RestoreCameraFramePolicy(session);
 
-                _last[m.Name] = new LastResult
-                {
-                    X = cx, Y = cy, Frames = s.Count, Time = DateTime.Now,
-                    Seq = Interlocked.Increment(ref _seq)
-                };
-
-                var inv = System.Globalization.CultureInfo.InvariantCulture;
-                string items = "x=" + cx.ToString("F2", inv) + ";y=" + cy.ToString("F2", inv) + ";frames=" + s.Count;
-                try { ModuleResultStore.Record(m.Name, "COC", true, items); } catch { }
-                try { ModuleResultStore.RecordMark(m.Name, "COC", cx, cy, 1.0); } catch { }
-                try { QMC.Vision.Comm.VisionCommLog.Add("[COC] 종료 — 회전 중심 (" + cx.ToString("F2", inv)
-                    + ", " + cy.ToString("F2", inv) + "), 누적 " + s.Count + "프레임"); } catch { }
-
-                return "OK;" + items;
-            }
-            catch (Exception ex)
-            {
+                Log(module.Name, "COC START 실패. error=" + ex.Message);
                 return "fail:" + ex.Message;
             }
         }
 
-        // ── Private Methods ─────────────────────────────────────────
-
-        /// <summary>프레임 1장을 그레이로 변환해 합 버퍼에 누적(행 병렬). 크기 변경 시 리셋.</summary>
-        private static void Accumulate(Session s, Bitmap src)
+        public static string End(IVisionModule module)
         {
-            int w = src.Width, h = src.Height;
-            var fmt = src.PixelFormat;
-            int bpp = fmt == PixelFormat.Format8bppIndexed ? 1
-                    : fmt == PixelFormat.Format24bppRgb ? 3
-                    : (fmt == PixelFormat.Format32bppRgb || fmt == PixelFormat.Format32bppArgb) ? 4 : 0;
-            if (bpp == 0) return;
+            if (module == null)
+                return "fail:COC 대상 Vision 모듈이 없습니다.";
 
-            if (s.Sum == null || s.W != w || s.H != h)
-            {
-                s.Sum = new int[w * h];
-                s.W = w; s.H = h; s.Count = 0;
-            }
+            Session session;
+            if (!Sessions.TryRemove(module.Name, out session))
+                return "fail:COC START 세션이 없습니다.";
 
-            var bd = src.LockBits(new Rectangle(0, 0, w, h), ImageLockMode.ReadOnly, fmt);
+            ICamera camera = module.Camera;
             try
             {
-                IntPtr scan0 = bd.Scan0;
-                int stride = bd.Stride;
-                int[] sum = s.Sum;
-                Parallel.For(0, h, y =>
+                bool liveActiveAtEnd = camera != null && camera.IsGrabbing;
+                if (camera != null)
+                    camera.FrameReceived -= session.Handler;
+
+                lock (session.Sync)
+                    session.Accepting = false;
+
+                if (!liveActiveAtEnd)
                 {
-                    var row = new byte[stride];
-                    System.Runtime.InteropServices.Marshal.Copy(IntPtr.Add(scan0, y * stride), row, 0, stride);
-                    int o = y * w;
-                    if (bpp == 1)
+                    const string reason = "COC END 전에 카메라 Live가 이미 정지되었습니다.";
+                    Log(module.Name, reason);
+                    return "fail:" + reason;
+                }
+
+                if (camera != null && camera.IsGrabbing)
+                    camera.StopLive();
+
+                if (session.Count < MinimumFrameCount || session.ColumnSum == null || session.RowSum == null)
+                {
+                    string reason = "COC 누적 프레임이 부족합니다. frames=" + session.Count +
+                                    ", required=" + MinimumFrameCount;
+                    Log(module.Name, reason);
+                    return "fail:" + reason;
+                }
+
+                double centerX;
+                double centerY;
+                double symmetryX;
+                double symmetryY;
+                if (!FindSymmetryCenter(
+                    session.ColumnSum,
+                    session.RowSum,
+                    out centerX,
+                    out centerY,
+                    out symmetryX,
+                    out symmetryY))
+                {
+                    const string reason = "COC 누적 영상에서 좌우/상하 대칭 중심을 찾지 못했습니다.";
+                    Log(module.Name, reason);
+                    return "fail:" + reason;
+                }
+
+                int displayWidth = session.Width;
+                int displayHeight = session.Height;
+                bool previewPublished = false;
+                try
+                {
+                    using (Bitmap preview = BuildAveragePreview(session))
                     {
-                        for (int x = 0; x < w; x++) sum[o + x] += row[x];
+                        if (preview != null)
+                        {
+                            displayWidth = preview.Width;
+                            displayHeight = preview.Height;
+                            module.PublishViewerFrame(preview);
+                            previewPublished = true;
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Log(module.Name, "COC 누적 평균 미리보기 생성 실패. 중심 결과는 유지합니다. error=" + ex.Message);
+                }
+
+                var result = new LastResult
+                {
+                    X = centerX,
+                    Y = centerY,
+                    Frames = session.Count,
+                    SourceWidth = session.Width,
+                    SourceHeight = session.Height,
+                    DisplayWidth = previewPublished ? displayWidth : session.Width,
+                    DisplayHeight = previewPublished ? displayHeight : session.Height,
+                    Time = DateTime.Now,
+                    Seq = Interlocked.Increment(ref _resultSequence)
+                };
+                LastResults[module.Name] = result;
+
+                double displayX = centerX * result.DisplayWidth / Math.Max(1.0, result.SourceWidth);
+                double displayY = centerY * result.DisplayHeight / Math.Max(1.0, result.SourceHeight);
+                string values = "centerX=" + centerX.ToString("F3", CultureInfo.InvariantCulture) +
+                                ";centerY=" + centerY.ToString("F3", CultureInfo.InvariantCulture) +
+                                ";frames=" + session.Count.ToString(CultureInfo.InvariantCulture) +
+                                ";width=" + session.Width.ToString(CultureInfo.InvariantCulture) +
+                                ";height=" + session.Height.ToString(CultureInfo.InvariantCulture) +
+                                ";symmetryX=" + symmetryX.ToString("F6", CultureInfo.InvariantCulture) +
+                                ";symmetryY=" + symmetryY.ToString("F6", CultureInfo.InvariantCulture);
+
+                try { ModuleResultStore.Record(module.Name, "COC", true, values); } catch { }
+                try { ModuleResultStore.RecordMark(module.Name, "COC", displayX, displayY, 1.0); } catch { }
+                Log(module.Name,
+                    "COC END 완료. centerPixel=(" + centerX.ToString("F3", CultureInfo.InvariantCulture) +
+                    "," + centerY.ToString("F3", CultureInfo.InvariantCulture) + ")" +
+                    ", frames=" + session.Count +
+                    ", symmetry=(" + symmetryX.ToString("F6", CultureInfo.InvariantCulture) +
+                    "," + symmetryY.ToString("F6", CultureInfo.InvariantCulture) + ") - Ok");
+                return "OK;" + values;
+            }
+            catch (Exception ex)
+            {
+                Log(module.Name, "COC END 실패. error=" + ex.Message);
+                return "fail:" + ex.Message;
+            }
+            finally
+            {
+                try
+                {
+                    if (camera != null)
+                        camera.FrameReceived -= session.Handler;
+                }
+                catch { }
+                try
+                {
+                    if (camera != null && camera.IsGrabbing)
+                        camera.StopLive();
+                }
+                catch { }
+                RestoreCameraFramePolicy(session);
+                session.FirstFrame.Dispose();
+            }
+        }
+
+        public static bool Abort(IVisionModule module, string reason)
+        {
+            if (module == null)
+                return false;
+
+            Session session;
+            if (!Sessions.TryRemove(module.Name, out session))
+                return false;
+
+            ICamera camera = module.Camera;
+            try
+            {
+                if (camera != null)
+                    camera.FrameReceived -= session.Handler;
+                lock (session.Sync)
+                    session.Accepting = false;
+                if (camera != null && camera.IsGrabbing)
+                    camera.StopLive();
+
+                Log(module.Name,
+                    "COC 세션을 결과 저장 없이 정리했습니다. reason=" +
+                    (string.IsNullOrWhiteSpace(reason) ? "지정되지 않음" : reason));
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Log(module.Name, "COC 비정상 종료 정리 실패. error=" + ex.Message);
+                return false;
+            }
+            finally
+            {
+                try
+                {
+                    if (camera != null)
+                        camera.FrameReceived -= session.Handler;
+                }
+                catch { }
+                try
+                {
+                    if (camera != null && camera.IsGrabbing)
+                        camera.StopLive();
+                }
+                catch { }
+                RestoreCameraFramePolicy(session);
+                session.FirstFrame.Dispose();
+            }
+        }
+
+        private static void RestoreCameraFramePolicy(Session session)
+        {
+            if (session == null || session.MilCamera == null)
+                return;
+
+            try
+            {
+                session.MilCamera.LivePreviewFps = session.OriginalMilPreviewFps;
+            }
+            catch { }
+            session.MilCamera = null;
+        }
+
+        private static unsafe void Accumulate(Session session, Bitmap source)
+        {
+            int width = source.Width;
+            int height = source.Height;
+            PixelFormat format = source.PixelFormat;
+            int bytesPerPixel = ResolveBytesPerPixel(format);
+            if (bytesPerPixel == 0)
+                throw new InvalidOperationException("COC에서 지원하지 않는 픽셀 형식입니다. format=" + format);
+
+            EnsureBuffers(session, width, height);
+            byte[] grayLookup = bytesPerPixel == 1 ? BuildGrayLookup(source) : null;
+
+            BitmapData data = source.LockBits(
+                new Rectangle(0, 0, width, height),
+                ImageLockMode.ReadOnly,
+                format);
+            try
+            {
+                byte* scan0 = (byte*)data.Scan0.ToPointer();
+                int stride = data.Stride;
+
+                Parallel.For<long[]>(
+                    0,
+                    height,
+                    delegate { return new long[width]; },
+                    delegate(int y, ParallelLoopState state, long[] localColumns)
+                    {
+                        byte* row = scan0 + (y * stride);
+                        long rowTotal = 0;
+                        for (int x = 0; x < width; x++)
+                        {
+                            int gray = ReadGray(row, x, bytesPerPixel, grayLookup);
+                            rowTotal += gray;
+                            localColumns[x] += gray;
+                        }
+                        session.RowSum[y] += rowTotal;
+                        return localColumns;
+                    },
+                    delegate(long[] localColumns)
+                    {
+                        lock (session.ColumnMergeSync)
+                        {
+                            for (int x = 0; x < width; x++)
+                                session.ColumnSum[x] += localColumns[x];
+                        }
+                    });
+
+                Parallel.For(0, session.PreviewHeight, delegate(int previewY)
+                {
+                    int sourceY = Math.Min(height - 1,
+                        (int)(((previewY + 0.5) * height) / session.PreviewHeight));
+                    byte* row = scan0 + (sourceY * stride);
+                    int previewOffset = previewY * session.PreviewWidth;
+                    for (int previewX = 0; previewX < session.PreviewWidth; previewX++)
+                    {
+                        int sourceX = Math.Min(width - 1,
+                            (int)(((previewX + 0.5) * width) / session.PreviewWidth));
+                        session.PreviewSum[previewOffset + previewX] +=
+                            ReadGray(row, sourceX, bytesPerPixel, grayLookup);
+                    }
+                });
+            }
+            finally
+            {
+                source.UnlockBits(data);
+            }
+
+            session.Count++;
+        }
+
+        private static void EnsureBuffers(Session session, int width, int height)
+        {
+            if (session.ColumnSum != null && session.Width == width && session.Height == height)
+                return;
+
+            double previewScale = Math.Min(
+                1.0,
+                (double)PreviewMaxDimension / Math.Max(width, height));
+            session.Width = width;
+            session.Height = height;
+            session.PreviewWidth = Math.Max(1, (int)Math.Round(width * previewScale));
+            session.PreviewHeight = Math.Max(1, (int)Math.Round(height * previewScale));
+            session.ColumnSum = new long[width];
+            session.RowSum = new long[height];
+            session.PreviewSum = new long[session.PreviewWidth * session.PreviewHeight];
+            session.Count = 0;
+        }
+
+        private static int ResolveBytesPerPixel(PixelFormat format)
+        {
+            if (format == PixelFormat.Format8bppIndexed)
+                return 1;
+            if (format == PixelFormat.Format24bppRgb)
+                return 3;
+            if (format == PixelFormat.Format32bppRgb ||
+                format == PixelFormat.Format32bppArgb ||
+                format == PixelFormat.Format32bppPArgb)
+                return 4;
+            return 0;
+        }
+
+        private static byte[] BuildGrayLookup(Bitmap source)
+        {
+            var lookup = new byte[256];
+            try
+            {
+                Color[] entries = source.Palette.Entries;
+                for (int i = 0; i < lookup.Length; i++)
+                {
+                    if (i < entries.Length)
+                    {
+                        Color color = entries[i];
+                        lookup[i] = (byte)((color.B * 114 + color.G * 587 + color.R * 299) / 1000);
                     }
                     else
                     {
-                        for (int x = 0; x < w; x++)
-                        {
-                            int i = x * bpp;
-                            sum[o + x] += (row[i] * 114 + row[i + 1] * 587 + row[i + 2] * 299) / 1000;
-                        }
+                        lookup[i] = (byte)i;
                     }
-                });
+                }
             }
-            finally { src.UnlockBits(bd); }
-            s.Count++;
+            catch
+            {
+                for (int i = 0; i < lookup.Length; i++)
+                    lookup[i] = (byte)i;
+            }
+            return lookup;
         }
 
-        /// <summary>합÷카운트 평균 흑백 24bpp 영상 생성(뷰어 표시용).</summary>
-        private static Bitmap BuildAverage(int[] sum, int w, int h, int count)
+        private static unsafe int ReadGray(byte* row, int x, int bytesPerPixel, byte[] grayLookup)
         {
-            var avg = new Bitmap(w, h, PixelFormat.Format24bppRgb);
-            var ad = avg.LockBits(new Rectangle(0, 0, w, h), ImageLockMode.WriteOnly, PixelFormat.Format24bppRgb);
+            if (bytesPerPixel == 1)
+                return grayLookup[row[x]];
+
+            int offset = x * bytesPerPixel;
+            return (row[offset] * 114 + row[offset + 1] * 587 + row[offset + 2] * 299) / 1000;
+        }
+
+        private static Bitmap BuildAveragePreview(Session session)
+        {
+            if (session.PreviewSum == null || session.Count <= 0)
+                return null;
+
+            int width = session.PreviewWidth;
+            int height = session.PreviewHeight;
+            var bitmap = new Bitmap(width, height, PixelFormat.Format24bppRgb);
+            BitmapData data = bitmap.LockBits(
+                new Rectangle(0, 0, width, height),
+                ImageLockMode.WriteOnly,
+                PixelFormat.Format24bppRgb);
             try
             {
-                IntPtr s0 = ad.Scan0;
-                int stride = ad.Stride;
-                Parallel.For(0, h, y =>
+                IntPtr scan0 = data.Scan0;
+                int stride = data.Stride;
+                Parallel.For(0, height, delegate(int y)
                 {
-                    var row = new byte[stride];
-                    int o = y * w;
-                    for (int x = 0; x < w; x++)
+                    var row = new byte[Math.Abs(stride)];
+                    int sourceOffset = y * width;
+                    for (int x = 0; x < width; x++)
                     {
-                        byte v = (byte)(sum[o + x] / count);
-                        int i = x * 3;
-                        row[i] = v; row[i + 1] = v; row[i + 2] = v;
+                        long average = session.PreviewSum[sourceOffset + x] / session.Count;
+                        byte value = (byte)Math.Max(0, Math.Min(255, average));
+                        int offset = x * 3;
+                        row[offset] = value;
+                        row[offset + 1] = value;
+                        row[offset + 2] = value;
                     }
-                    System.Runtime.InteropServices.Marshal.Copy(row, 0, IntPtr.Add(s0, y * stride), stride);
+                    System.Runtime.InteropServices.Marshal.Copy(
+                        row,
+                        0,
+                        IntPtr.Add(scan0, y * stride),
+                        row.Length);
                 });
             }
-            finally { avg.UnlockBits(ad); }
-            return avg;
-        }
-
-        /// <summary>누적 영상의 가로/세로 대칭 중심 탐색 — 열/행 프로젝션의 미러 대칭 중심(0.5px 격자).</summary>
-        private static bool FindSymmetryCenter(int[] sum, int w, int h, out double cx, out double cy)
-        {
-            cx = cy = 0;
-
-            // 열/행 프로젝션(합 버퍼 그대로 사용 — 평균 나눔은 대칭 위치에 영향 없음).
-            long[] colSum = new long[w];
-            long[] rowSum = new long[h];
-            object mergeLock = new object();
-            Parallel.For(0, h,
-                () => new long[w],
-                (y, st, loc) =>
-                {
-                    long r = 0;
-                    int o = y * w;
-                    for (int x = 0; x < w; x++) { int v = sum[o + x]; loc[x] += v; r += v; }
-                    rowSum[y] = r;
-                    return loc;
-                },
-                loc => { lock (mergeLock) { for (int x = 0; x < w; x++) colSum[x] += loc[x]; } });
-
-            double bx = BestMirrorCenter(colSum);
-            double by = BestMirrorCenter(rowSum);
-            if (bx < 0 || by < 0) return false;
-            cx = bx; cy = by;
-            return true;
-        }
-
-        /// <summary>1차원 프로파일의 미러 대칭 중심(0.5px 격자) — 후보 중심마다 대칭 쌍의 정규화 SAD 를
-        /// 최소화한다(대칭이면 0). 오버랩이 짧거나 신호가 약한 후보는 제외(우연 대칭 방지). 실패 시 -1.</summary>
-        private static double BestMirrorCenter(long[] p)
-        {
-            int n = p.Length;
-            if (n < 16) return -1;
-
-            long total = 0;
-            for (int i = 0; i < n; i++) total += p[i];
-            if (total <= 0) return -1;
-
-            int minPairs = n / 8;          // 최소 대칭 쌍 수(오버랩)
-            long minMag = total / 20;      // 최소 신호량(전체의 5%) — 빈 배경끼리의 우연 대칭 방지
-
-            double bestC = -1, bestCost = double.MaxValue;
-            // c2 = 2×중심(정수) → 중심 c = c2/2 (0.5px 격자). 쌍: (i, c2-i).
-            for (int c2 = minPairs; c2 <= 2 * (n - 1) - minPairs; c2++)
+            finally
             {
-                int iLo = Math.Max(0, c2 - (n - 1));
-                int iHi = (c2 - 1) / 2;                // i < c2-i 인 쌍만
-                if (iHi - iLo + 1 < minPairs) continue;
-
-                long sad = 0, mag = 0;
-                for (int i = iLo; i <= iHi; i++)
-                {
-                    long a = p[i], b = p[c2 - i];
-                    long d = a - b;
-                    sad += d >= 0 ? d : -d;
-                    mag += a + b;
-                }
-                if (mag < minMag) continue;
-
-                double cost = (double)sad / mag;
-                if (cost < bestCost) { bestCost = cost; bestC = c2 / 2.0; }
+                bitmap.UnlockBits(data);
             }
-            return bestC;
+            return bitmap;
+        }
+
+        private static bool FindSymmetryCenter(
+            long[] columnProfile,
+            long[] rowProfile,
+            out double centerX,
+            out double centerY,
+            out double symmetryX,
+            out double symmetryY)
+        {
+            centerX = BestMirrorCenter(columnProfile, out symmetryX);
+            centerY = BestMirrorCenter(rowProfile, out symmetryY);
+            return centerX >= 0.0 && centerY >= 0.0;
+        }
+
+        private static double BestMirrorCenter(long[] profile, out double bestCost)
+        {
+            bestCost = double.MaxValue;
+            if (profile == null || profile.Length < 16)
+                return -1.0;
+
+            // 대칭 이동평균으로 픽셀 노이즈를 먼저 줄인다. 대칭 커널이므로 중심 위치는 이동하지 않는다.
+            int profileLength = profile.Length;
+            int smoothRadius = Math.Max(2, Math.Min(24, profileLength / 1000));
+            var prefix = new double[profileLength + 1];
+            for (int i = 0; i < profileLength; i++)
+                prefix[i + 1] = prefix[i] + profile[i];
+            var smoothed = new double[profileLength];
+            for (int i = 0; i < profileLength; i++)
+            {
+                int first = Math.Max(0, i - smoothRadius);
+                int last = Math.Min(profileLength - 1, i + smoothRadius);
+                smoothed[i] = (prefix[last + 1] - prefix[first]) / (last - first + 1);
+            }
+
+            // 선형 조명 기울기는 인접 차분의 중앙값으로 제거한다. 이후 에지 세기 프로파일을
+            // 미러 비교하면 밝은/어두운 콜렛 모두 같은 방식으로 중심을 찾을 수 있다.
+            int length = profileLength - 1;
+            var slopes = new double[length];
+            for (int i = 0; i < length; i++)
+                slopes[i] = smoothed[i + 1] - smoothed[i];
+            var sortedSlopes = (double[])slopes.Clone();
+            Array.Sort(sortedSlopes);
+            double backgroundSlope = sortedSlopes[length / 2];
+
+            var residuals = new double[length];
+            for (int i = 0; i < length; i++)
+                residuals[i] = Math.Abs(slopes[i] - backgroundSlope);
+            var sortedResiduals = (double[])residuals.Clone();
+            Array.Sort(sortedResiduals);
+            double residualMedian = sortedResiduals[length / 2];
+            var deviations = new double[length];
+            for (int i = 0; i < length; i++)
+                deviations[i] = Math.Abs(residuals[i] - residualMedian);
+            Array.Sort(deviations);
+            double residualMad = deviations[length / 2];
+            double noiseThreshold = residualMedian + (3.0 * residualMad);
+
+            var edgeSignal = new double[length];
+            double totalWeight = 0.0;
+            double weightedPosition = 0.0;
+            for (int i = 0; i < length; i++)
+            {
+                double weight = Math.Max(0.0, residuals[i] - noiseThreshold);
+                edgeSignal[i] = weight;
+                totalWeight += weight;
+                weightedPosition += i * weight;
+            }
+            if (totalWeight <= double.Epsilon)
+            {
+                for (int i = 0; i < length; i++)
+                {
+                    edgeSignal[i] = residuals[i];
+                    totalWeight += residuals[i];
+                    weightedPosition += i * residuals[i];
+                }
+            }
+            if (totalWeight <= double.Epsilon)
+                return -1.0;
+
+            double coarseCenter = weightedPosition / totalWeight;
+            double variance = 0.0;
+            for (int i = 0; i < length; i++)
+            {
+                double distance = i - coarseCenter;
+                variance += edgeSignal[i] * distance * distance;
+            }
+            double sigma = Math.Sqrt(variance / totalWeight);
+            if (sigma < 1.0)
+                return -1.0;
+
+            double searchHalfWidth = Math.Max(4.0, Math.Min(length / 8.0, sigma * 0.75));
+            int firstCenter2 = Math.Max(1, (int)Math.Floor((coarseCenter - searchHalfWidth) * 2.0));
+            int lastCenter2 = Math.Min((2 * (length - 1)) - 1,
+                (int)Math.Ceiling((coarseCenter + searchHalfWidth) * 2.0));
+            int desiredPairs = Math.Max(8,
+                Math.Min((length / 2) - 1, (int)Math.Ceiling(Math.Max(16.0, sigma * 3.0))));
+
+            int bestCenter2 = -1;
+            for (int center2 = firstCenter2; center2 <= lastCenter2; center2++)
+            {
+                int nearestLeft = (center2 - 1) / 2;
+                int nearestRight = center2 - nearestLeft;
+                int availablePairs = Math.Min(nearestLeft + 1, length - nearestRight);
+                int pairCount = Math.Min(desiredPairs, availablePairs);
+                if (pairCount < 8)
+                    continue;
+
+                double difference = 0.0;
+                double magnitude = 0.0;
+                for (int pair = 0; pair < pairCount; pair++)
+                {
+                    double left = edgeSignal[nearestLeft - pair];
+                    double right = edgeSignal[nearestRight + pair];
+                    difference += Math.Abs(left - right);
+                    magnitude += Math.Abs(left) + Math.Abs(right);
+                }
+                if (magnitude <= double.Epsilon)
+                    continue;
+
+                double cost = difference / magnitude;
+                if (cost < bestCost)
+                {
+                    bestCost = cost;
+                    bestCenter2 = center2;
+                }
+            }
+
+            // edgeSignal[i]는 원본 픽셀 i와 i+1 사이(i+0.5)에 있으므로 0.5px를 복원한다.
+            return bestCenter2 >= 0 ? (bestCenter2 / 2.0) + 0.5 : -1.0;
+        }
+
+        private static void Log(string moduleName, string message)
+        {
+            try { QMC.Vision.Comm.VisionCommLog.Add("[COC] " + message); } catch { }
+            try
+            {
+                QMC.Common.Logging.EventLogger.Write(
+                    QMC.Common.Logging.EventKind.Event,
+                    "VISION",
+                    "ColletRotationCenter",
+                    (moduleName ?? "-") + " " + message);
+            }
+            catch { }
         }
     }
 }
