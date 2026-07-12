@@ -33,6 +33,7 @@ namespace QMC.Vision.Cameras.Mil
         private long _expStartCount;                           // 노출 시작(ExposureStart) 훅 발화 횟수(진단 로그용)
         private volatile bool _expStartHandled;               // 이번 그랩에서 ExposureStart 로 계산식 EPD 를 arm 했는지(FRAME_START 폴백 억제)
         private int _epdArmGuard;                              // 이번 그랩에서 EPD 를 1회만 arm 하도록(Interlocked 0→1)
+        private int _epdRaisedGuard;                           // 이번 그랩에서 EPD(ExposureEnded)를 1회만 '발행'하도록(HW훅+계산식 중복 방지, Interlocked 0→1)
         private System.Threading.CancellationTokenSource _epdCts;   // 계산식 EPD 타이머 취소(그랩 시작 실패 시)
         private volatile bool _expEndHwFired;                  // 실제 노출 종료 훅(그래버 or GenICam)이 한 번이라도 발화했는지
         private long _expEndCount;                             // 발화 횟수(진단 로그용)
@@ -258,10 +259,12 @@ namespace QMC.Vision.Cameras.Mil
                 // 계산식 EPD 상태 리셋(그랩 1건당 EPD 1회) — ExposureStart 훅이 이 그랩 동안 arm 한다.
                 _expStartHandled = false;
                 System.Threading.Interlocked.Exchange(ref _epdArmGuard, 0);
+                System.Threading.Interlocked.Exchange(ref _epdRaisedGuard, 0);
                 _epdCts = new System.Threading.CancellationTokenSource();
 
                 // 그랩 시작 전처리 실패(직전 Live 정지 MdigHalt 미완료 등)는 timeoutMs 만큼 10ms 간격 재시도한다
                 //   — '그랩 시작 명령이 실패하면 타임아웃만큼 재시도'(2026-07-13, 사용자 지정). 시작 못하면 EPD 미발화.
+                
                 while (!WaitHaltDone(2000))
                 {
                     if (sw.ElapsedMilliseconds >= timeoutMs)
@@ -271,8 +274,11 @@ namespace QMC.Vision.Cameras.Mil
                 long tHaltWait = sw.ElapsedMilliseconds;
 
                 try { MIL.MdigControl(_dig, MIL.M_GRAB_TIMEOUT, (double)timeoutMs); } catch { }
-                // 동기 그랩 — MdigGrab 이 프레임 완료까지 블록한다.
-                try { MIL.MdigControl(_dig, MIL.M_GRAB_MODE, (double)MIL.M_SYNCHRONOUS); } catch { }
+                // 비동기 그랩 — MdigGrab 은 획득 시작(=노출 시작)만 시키고 즉시 리턴한다(2026-07-13, 사용자 지정).
+                //   이래야 (1) MdigGrab '이후' 에 계산식 EPD 타이머가 실제 노출 구간에 걸리고,
+                //   (2) 그래버가 노출 이벤트(M_GRAB_EXPOSURE_END/START)를 올릴 수 있다. 전송 완료 동기화는
+                //   아래 MdigGrabWait(M_GRAB_END) 로 한다. (동기 모드에선 MdigGrab 이 완료까지 블록해 뒤 타이머가 무의미)
+                try { MIL.MdigControl(_dig, MIL.M_GRAB_MODE, (double)MIL.M_ASYNCHRONOUS); } catch { }
                 long tCtrl = sw.ElapsedMilliseconds;
                 // 라이브 중이 아니면 직전 단발 획득을 확실히 정지 → 다음 그랩이 깨끗이 재-arm(실패 시 timeoutMs 재시도).
                 while (!_continuousOn && !HaltWithTimeout(2000))
@@ -285,14 +291,19 @@ namespace QMC.Vision.Cameras.Mil
                 EnsureSingleFrameGrabMode();
                 long tMode = sw.ElapsedMilliseconds;
 
-                // 계산식 EPD arm — 전처리를 모두 통과했으므로 '그랩 시작 성공'. 노출은 Timed 라 MdigGrab
-                //   직후 시작 → 노출종료 = 지금 + ExposureTime 으로 결정적. (그래버 ExposureStart 훅이 발화하는
-                //   카메라면 그 훅이 이미 arm 해 이 호출은 guard 로 무시됨.) 전처리 실패 시 여기 못 와 EPD 미발화.
-                ArmComputedEpd(tMode, "GrabLaunch");
-
-                // 단발 촬상 = AcquisitionMode SingleFrame + AcquisitionStart(=MdigGrab) → 1프레임.
-                //   (노출 Timed, 스트로브는 DCF). 동기라 완료까지 블록한다.
+                // 비동기 단발 촬상 시작 — MdigGrab 이 획득을 시작시키고(=노출 시작) 즉시 리턴한다.
+                //   비동기라 이 시점부터 그래버 노출종료 훅(M_GRAB_EXPOSURE_END)이 발화한다.
                 MIL.MdigGrab(_dig, _buf);
+                long tLaunch = sw.ElapsedMilliseconds;
+
+                // EPD 는 '실제 노출 종료(ExposureEndHook, M_GRAB_EXPOSURE_END)' 수신 시 발화한다(2026-07-13, 사용자 지정).
+                //   노출 시작 전(tLaunch) 기준으로 앞당겨 쏘던 계산식 arm 은 제거한다 — 실제 노출 종료보다 일찍 떠
+                //   픽커가 그랩 도중 이동/촬영되던 원인이었다. ExposureEnd 미지원 카메라는 FRAME_START 폴백(전송 시작
+                //   = 노출 종료 이후)이 대체 발화한다. (그래버 ExposureStart 훅이 발화하는 카메라라면 그 훅이 계산식
+                //   EPD 를 걸지만, Task.Delay 특성상 실제 ExposureEnd 보다 늦게 떠 RaiseEpdOnce 에서 ExposureEnd 가 우선.)
+
+                // 전송 완료까지 대기 — 비동기 그랩의 동기 지점(프레임 수신 완료).
+                MIL.MdigGrabWait(_dig, MIL.M_GRAB_END);
                 long tGrab = sw.ElapsedMilliseconds;
 
                 var bmp = BufferToBitmap();
@@ -302,8 +313,8 @@ namespace QMC.Vision.Cameras.Mil
                         " ctrl=" + (tCtrl - tHaltWait) +
                         " halt=" + (tHalt - tCtrl) +
                         " mode=" + (tMode - tHalt) +
-                        " expStart=" + (_expStartHandled ? "O" : "X(폴백)") +
-                        " start→epd=" + (exp >= 0 ? (exp - tMode).ToString() : "?") +
+                        " epdSrc=" + (_expEndHwFired ? "ExposureEnd" : (_expStartHandled ? "계산식" : "FRAME_START폴백")) +
+                        " launch→epd=" + (exp >= 0 ? (exp - tLaunch).ToString() : "?") +
                         " epd→grabRet=" + (exp >= 0 ? (tGrab - exp).ToString() : "?") +
                         " bmp=" + (tBmp - tGrab) + " total=" + tBmp);
                 if (bmp == null) return GrabResult.Fail("buffer→bitmap 실패", Info.Id);
@@ -615,7 +626,7 @@ namespace QMC.Vision.Cameras.Mil
                 if (n == 1) LiveLog("ExposureEnd HW 훅 첫 발화 확인");
                 var tsw = _grabTimingSw;
                 if (tsw != null && _grabExpEndMs < 0) _grabExpEndMs = tsw.ElapsedMilliseconds;   // 단발 그랩 계측
-                if (IsOpen) RaiseExposureEnded();
+                RaiseEpdOnce();
             }
             catch (Exception ex) { LiveLog("ExposureEnd 발화 예외: " + ex.Message); }
             return 0;
@@ -638,7 +649,7 @@ namespace QMC.Vision.Cameras.Mil
                 }
                 var tsw = _grabTimingSw;
                 if (tsw != null && _grabExpEndMs < 0) _grabExpEndMs = tsw.ElapsedMilliseconds;   // 단발 그랩 계측(실제 노출 종료 시각)
-                if (IsOpen) RaiseExposureEnded();
+                RaiseEpdOnce();
             }
             catch (Exception ex) { LiveLog("GenICam ExposureEnd 발화 예외: " + ex.Message); }
             return 0;
@@ -682,13 +693,24 @@ namespace QMC.Vision.Cameras.Mil
                     if (IsOpen)
                     {
                         if (tsw != null && _grabExpEndMs < 0) _grabExpEndMs = tsw.ElapsedMilliseconds;
-                        RaiseExposureEnded();
+                        RaiseEpdOnce();
                     }
                 }
                 catch (System.Threading.Tasks.TaskCanceledException) { }   // 그랩 시작 실패 → EPD 미발화
                 catch (OperationCanceledException) { }
                 catch (Exception ex) { LiveLog("계산식 EPD 타이머 예외: " + ex.Message); }
             });
+        }
+
+        /// <summary>EPD(ExposureEnded)를 단발 그랩 1건당 1회만 발행한다 — HW 노출종료 훅(M_GRAB_EXPOSURE_END/
+        /// GenICam)과 계산식 타이머, FRAME_START 폴백이 동시에 발화해도 중복 EPD(핸들러 이중 선진행)를 막는다.
+        /// 라이브(_grabTimingSw == null)에서는 가드를 적용하지 않고 기존대로 매 프레임 발행한다.</summary>
+        private void RaiseEpdOnce()
+        {
+            if (_grabTimingSw != null &&
+                System.Threading.Interlocked.Exchange(ref _epdRaisedGuard, 1) == 1)
+                return;   // 이번 단발 그랩에서 이미 EPD 발행됨
+            if (IsOpen) RaiseExposureEnded();
         }
 
         /// <summary>프레임 전송 시작 훅(M_GRAB_FRAME_START) — 계산식 EPD(ExposureStart) 가 없는 카메라의 EPD 폴백.
@@ -705,7 +727,7 @@ namespace QMC.Vision.Cameras.Mil
                 if (_expStartHandled || _expEndHwFired) return 0;   // 계산식(ExposureStart) or 실 노출종료 소스가 처리 → 중복 방지
                 var tsw = _grabTimingSw;
                 if (tsw != null && _grabExpEndMs < 0) _grabExpEndMs = tsw.ElapsedMilliseconds;   // 단발 그랩 계측(폴백)
-                if (IsOpen) RaiseExposureEnded();
+                RaiseEpdOnce();
             }
             catch (Exception ex) { LiveLog("FRAME_START 폴백 발화 예외: " + ex.Message); }
             return 0;

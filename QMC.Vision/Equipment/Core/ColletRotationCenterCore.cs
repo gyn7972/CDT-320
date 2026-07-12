@@ -24,12 +24,9 @@ namespace QMC.Vision.Core
         private sealed class Session
         {
             public readonly object Sync = new object();
-            public readonly object ColumnMergeSync = new object();
             public readonly ManualResetEventSlim FirstFrame = new ManualResetEventSlim(false);
             public Action<GrabResult> Handler;
-            public long[] ColumnSum;
-            public long[] RowSum;
-            public long[] PreviewSum;
+            public long[] PreviewSum;      // 누적 평균의 2D 다운스케일 영상(대칭 축 탐색 + 미리보기 공용)
             public int Width;
             public int Height;
             public int PreviewWidth;
@@ -252,7 +249,7 @@ namespace QMC.Vision.Core
                 if (camera != null && camera.IsGrabbing)
                     camera.StopLive();
 
-                if (session.Count < MinimumFrameCount || session.ColumnSum == null || session.RowSum == null)
+                if (session.Count < MinimumFrameCount || session.PreviewSum == null)
                 {
                     string reason = "COC 누적 프레임이 부족합니다. frames=" + session.Count +
                                     ", required=" + MinimumFrameCount;
@@ -264,13 +261,7 @@ namespace QMC.Vision.Core
                 double centerY;
                 double symmetryX;
                 double symmetryY;
-                if (!FindSymmetryCenter(
-                    session.ColumnSum,
-                    session.RowSum,
-                    out centerX,
-                    out centerY,
-                    out symmetryX,
-                    out symmetryY))
+                if (!FindSymmetryCenter(session, out centerX, out centerY, out symmetryX, out symmetryY))
                 {
                     const string reason = "COC 누적 영상에서 좌우/상하 대칭 중심을 찾지 못했습니다.";
                     Log(module.Name, reason);
@@ -438,32 +429,8 @@ namespace QMC.Vision.Core
                 byte* scan0 = (byte*)data.Scan0.ToPointer();
                 int stride = data.Stride;
 
-                Parallel.For<long[]>(
-                    0,
-                    height,
-                    delegate { return new long[width]; },
-                    delegate(int y, ParallelLoopState state, long[] localColumns)
-                    {
-                        byte* row = scan0 + (y * stride);
-                        long rowTotal = 0;
-                        for (int x = 0; x < width; x++)
-                        {
-                            int gray = ReadGray(row, x, bytesPerPixel, grayLookup);
-                            rowTotal += gray;
-                            localColumns[x] += gray;
-                        }
-                        session.RowSum[y] += rowTotal;
-                        return localColumns;
-                    },
-                    delegate(long[] localColumns)
-                    {
-                        lock (session.ColumnMergeSync)
-                        {
-                            for (int x = 0; x < width; x++)
-                                session.ColumnSum[x] += localColumns[x];
-                        }
-                    });
-
+                // 누적은 2D 다운스케일 평균 영상 한 장에만 더한다. 이 영상을 END에서 그대로
+                // 좌우/상하로 접어 대칭 축을 찾는다(별도 투영/에지/배경 처리 없음).
                 Parallel.For(0, session.PreviewHeight, delegate(int previewY)
                 {
                     int sourceY = Math.Min(height - 1,
@@ -489,7 +456,7 @@ namespace QMC.Vision.Core
 
         private static void EnsureBuffers(Session session, int width, int height)
         {
-            if (session.ColumnSum != null && session.Width == width && session.Height == height)
+            if (session.PreviewSum != null && session.Width == width && session.Height == height)
                 return;
 
             double previewScale = Math.Min(
@@ -499,8 +466,6 @@ namespace QMC.Vision.Core
             session.Height = height;
             session.PreviewWidth = Math.Max(1, (int)Math.Round(width * previewScale));
             session.PreviewHeight = Math.Max(1, (int)Math.Round(height * previewScale));
-            session.ColumnSum = new long[width];
-            session.RowSum = new long[height];
             session.PreviewSum = new long[session.PreviewWidth * session.PreviewHeight];
             session.Count = 0;
         }
@@ -597,134 +562,133 @@ namespace QMC.Vision.Core
             return bitmap;
         }
 
+        // 대칭 축 후보 탐색 범위 — 회전 중심은 시야 중앙 부근이므로 가장자리(우연 대칭)를 제외한다.
+        private const double AxisSearchLow = 0.15;
+        private const double AxisSearchHigh = 0.85;
+
+        /// <summary>누적 평균의 2D 영상을 그대로 좌우/상하로 접어, 접힘이 가장 잘 맞는(대칭인) 축을 찾는다.
+        /// 배경 제거·에지 추출·투영 없이 원본 밝기값을 미러 비교한다. 좌우 대칭 축=중심 X, 상하 대칭 축=중심 Y.</summary>
         private static bool FindSymmetryCenter(
-            long[] columnProfile,
-            long[] rowProfile,
+            Session session,
             out double centerX,
             out double centerY,
             out double symmetryX,
             out double symmetryY)
         {
-            centerX = BestMirrorCenter(columnProfile, out symmetryX);
-            centerY = BestMirrorCenter(rowProfile, out symmetryY);
-            return centerX >= 0.0 && centerY >= 0.0;
+            centerX = 0.0;
+            centerY = 0.0;
+            symmetryX = 0.0;
+            symmetryY = 0.0;
+
+            long[] image = session.PreviewSum;
+            int width = session.PreviewWidth;
+            int height = session.PreviewHeight;
+            if (image == null || width < 8 || height < 8)
+                return false;
+
+            double axisX = FindVerticalMirrorAxis(image, width, height, out symmetryX);   // 좌우 대칭 축(열)
+            double axisY = FindHorizontalMirrorAxis(image, width, height, out symmetryY);  // 상하 대칭 축(행)
+            if (axisX < 0.0 || axisY < 0.0)
+                return false;
+
+            // 다운스케일 프리뷰 좌표 → 원본 픽셀 좌표.
+            centerX = axisX * session.Width / (double)width;
+            centerY = axisY * session.Height / (double)height;
+            return true;
         }
 
-        private static double BestMirrorCenter(long[] profile, out double bestCost)
+        /// <summary>좌우 대칭 축(세로선 x=c) 탐색 — 후보 열 c 마다 좌우로 접어 |왼쪽 - 오른쪽| 을 전 행에 대해 합산,
+        /// 겹치는 픽셀당 평균 차이가 최소인 c 가 대칭 축이다. 포물선 보간으로 서브픽셀까지 구한다.</summary>
+        private static double FindVerticalMirrorAxis(long[] image, int width, int height, out double bestCost)
+        {
+            int lo = Math.Max(2, (int)(width * AxisSearchLow));
+            int hi = Math.Min(width - 3, (int)(width * AxisSearchHigh));
+            if (hi <= lo) { lo = 2; hi = width - 3; }
+
+            var cost = new double[width];
+            for (int i = 0; i < width; i++)
+                cost[i] = double.NaN;
+
+            Parallel.For(lo, hi + 1, delegate(int c)
+            {
+                int reach = Math.Min(c, width - 1 - c);
+                if (reach < 1)
+                    return;
+
+                double diffSum = 0.0;
+                for (int y = 0; y < height; y++)
+                {
+                    int rowOffset = y * width;
+                    for (int d = 1; d <= reach; d++)
+                        diffSum += Math.Abs((double)(image[rowOffset + c - d] - image[rowOffset + c + d]));
+                }
+                cost[c] = diffSum / ((double)reach * height);   // 겹치는 픽셀당 평균 차이
+            });
+
+            return SelectBestAxis(cost, lo, hi, out bestCost);
+        }
+
+        /// <summary>상하 대칭 축(가로선 y=c) 탐색 — 후보 행 c 마다 상하로 접어 |위 - 아래| 를 전 열에 대해 합산.</summary>
+        private static double FindHorizontalMirrorAxis(long[] image, int width, int height, out double bestCost)
+        {
+            int lo = Math.Max(2, (int)(height * AxisSearchLow));
+            int hi = Math.Min(height - 3, (int)(height * AxisSearchHigh));
+            if (hi <= lo) { lo = 2; hi = height - 3; }
+
+            var cost = new double[height];
+            for (int i = 0; i < height; i++)
+                cost[i] = double.NaN;
+
+            Parallel.For(lo, hi + 1, delegate(int c)
+            {
+                int reach = Math.Min(c, height - 1 - c);
+                if (reach < 1)
+                    return;
+
+                double diffSum = 0.0;
+                for (int d = 1; d <= reach; d++)
+                {
+                    int upOffset = (c - d) * width;
+                    int downOffset = (c + d) * width;
+                    for (int x = 0; x < width; x++)
+                        diffSum += Math.Abs((double)(image[upOffset + x] - image[downOffset + x]));
+                }
+                cost[c] = diffSum / ((double)reach * width);
+            });
+
+            return SelectBestAxis(cost, lo, hi, out bestCost);
+        }
+
+        /// <summary>비용 배열에서 최소 축을 고르고 포물선 보간으로 서브픽셀 위치를 반환. 유효 축이 없으면 -1.</summary>
+        private static double SelectBestAxis(double[] cost, int lo, int hi, out double bestCost)
         {
             bestCost = double.MaxValue;
-            if (profile == null || profile.Length < 16)
-                return -1.0;
-
-            // 대칭 이동평균으로 픽셀 노이즈를 먼저 줄인다. 대칭 커널이므로 중심 위치는 이동하지 않는다.
-            int profileLength = profile.Length;
-            int smoothRadius = Math.Max(2, Math.Min(24, profileLength / 1000));
-            var prefix = new double[profileLength + 1];
-            for (int i = 0; i < profileLength; i++)
-                prefix[i + 1] = prefix[i] + profile[i];
-            var smoothed = new double[profileLength];
-            for (int i = 0; i < profileLength; i++)
+            int best = -1;
+            for (int c = lo; c <= hi; c++)
             {
-                int first = Math.Max(0, i - smoothRadius);
-                int last = Math.Min(profileLength - 1, i + smoothRadius);
-                smoothed[i] = (prefix[last + 1] - prefix[first]) / (last - first + 1);
-            }
-
-            // 선형 조명 기울기는 인접 차분의 중앙값으로 제거한다. 이후 에지 세기 프로파일을
-            // 미러 비교하면 밝은/어두운 콜렛 모두 같은 방식으로 중심을 찾을 수 있다.
-            int length = profileLength - 1;
-            var slopes = new double[length];
-            for (int i = 0; i < length; i++)
-                slopes[i] = smoothed[i + 1] - smoothed[i];
-            var sortedSlopes = (double[])slopes.Clone();
-            Array.Sort(sortedSlopes);
-            double backgroundSlope = sortedSlopes[length / 2];
-
-            var residuals = new double[length];
-            for (int i = 0; i < length; i++)
-                residuals[i] = Math.Abs(slopes[i] - backgroundSlope);
-            var sortedResiduals = (double[])residuals.Clone();
-            Array.Sort(sortedResiduals);
-            double residualMedian = sortedResiduals[length / 2];
-            var deviations = new double[length];
-            for (int i = 0; i < length; i++)
-                deviations[i] = Math.Abs(residuals[i] - residualMedian);
-            Array.Sort(deviations);
-            double residualMad = deviations[length / 2];
-            double noiseThreshold = residualMedian + (3.0 * residualMad);
-
-            var edgeSignal = new double[length];
-            double totalWeight = 0.0;
-            double weightedPosition = 0.0;
-            for (int i = 0; i < length; i++)
-            {
-                double weight = Math.Max(0.0, residuals[i] - noiseThreshold);
-                edgeSignal[i] = weight;
-                totalWeight += weight;
-                weightedPosition += i * weight;
-            }
-            if (totalWeight <= double.Epsilon)
-            {
-                for (int i = 0; i < length; i++)
-                {
-                    edgeSignal[i] = residuals[i];
-                    totalWeight += residuals[i];
-                    weightedPosition += i * residuals[i];
-                }
-            }
-            if (totalWeight <= double.Epsilon)
-                return -1.0;
-
-            double coarseCenter = weightedPosition / totalWeight;
-            double variance = 0.0;
-            for (int i = 0; i < length; i++)
-            {
-                double distance = i - coarseCenter;
-                variance += edgeSignal[i] * distance * distance;
-            }
-            double sigma = Math.Sqrt(variance / totalWeight);
-            if (sigma < 1.0)
-                return -1.0;
-
-            double searchHalfWidth = Math.Max(4.0, Math.Min(length / 8.0, sigma * 0.75));
-            int firstCenter2 = Math.Max(1, (int)Math.Floor((coarseCenter - searchHalfWidth) * 2.0));
-            int lastCenter2 = Math.Min((2 * (length - 1)) - 1,
-                (int)Math.Ceiling((coarseCenter + searchHalfWidth) * 2.0));
-            int desiredPairs = Math.Max(8,
-                Math.Min((length / 2) - 1, (int)Math.Ceiling(Math.Max(16.0, sigma * 3.0))));
-
-            int bestCenter2 = -1;
-            for (int center2 = firstCenter2; center2 <= lastCenter2; center2++)
-            {
-                int nearestLeft = (center2 - 1) / 2;
-                int nearestRight = center2 - nearestLeft;
-                int availablePairs = Math.Min(nearestLeft + 1, length - nearestRight);
-                int pairCount = Math.Min(desiredPairs, availablePairs);
-                if (pairCount < 8)
+                if (double.IsNaN(cost[c]) || cost[c] >= bestCost)
                     continue;
+                bestCost = cost[c];
+                best = c;
+            }
+            if (best < 0)
+                return -1.0;
 
-                double difference = 0.0;
-                double magnitude = 0.0;
-                for (int pair = 0; pair < pairCount; pair++)
+            // 포물선 보간(양옆 비용) — 접힘 차이가 최소인 지점의 서브픽셀 위치.
+            if (best > lo && best < hi && !double.IsNaN(cost[best - 1]) && !double.IsNaN(cost[best + 1]))
+            {
+                double left = cost[best - 1];
+                double center = cost[best];
+                double right = cost[best + 1];
+                double denom = left - (2.0 * center) + right;
+                if (denom > 1e-9)
                 {
-                    double left = edgeSignal[nearestLeft - pair];
-                    double right = edgeSignal[nearestRight + pair];
-                    difference += Math.Abs(left - right);
-                    magnitude += Math.Abs(left) + Math.Abs(right);
-                }
-                if (magnitude <= double.Epsilon)
-                    continue;
-
-                double cost = difference / magnitude;
-                if (cost < bestCost)
-                {
-                    bestCost = cost;
-                    bestCenter2 = center2;
+                    double delta = 0.5 * (left - right) / denom;
+                    if (delta > -1.0 && delta < 1.0)
+                        return best + delta;
                 }
             }
-
-            // edgeSignal[i]는 원본 픽셀 i와 i+1 사이(i+0.5)에 있으므로 0.5px를 복원한다.
-            return bestCenter2 >= 0 ? (bestCenter2 / 2.0) + 0.5 : -1.0;
+            return best;
         }
 
         private static void Log(string moduleName, string message)
