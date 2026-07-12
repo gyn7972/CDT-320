@@ -1859,6 +1859,16 @@ namespace QMC.CDT320.Sequencing
             return MovePickerAxesAndVerifyAsync(targets, description, ct, "AvoidPosition", forceMove);
         }
 
+        protected Task<int> MoveAllPickerTToAvoidAndVerifyAsync(string description, CancellationToken ct, bool forceMove = false)
+        {
+            var targets = new Dictionary<PickerAxis, double>();
+            targets[PickerAxis.PickerT0] = GetPickerTeachingPosition(PickerAxis.PickerT0, "AvoidPosition");
+            targets[PickerAxis.PickerT1] = GetPickerTeachingPosition(PickerAxis.PickerT1, "AvoidPosition");
+            targets[PickerAxis.PickerT2] = GetPickerTeachingPosition(PickerAxis.PickerT2, "AvoidPosition");
+            targets[PickerAxis.PickerT3] = GetPickerTeachingPosition(PickerAxis.PickerT3, "AvoidPosition");
+            return MovePickerAxesAndVerifyAsync(targets, description, ct, "AvoidPosition;PickerPhase=SafeT", forceMove);
+        }
+
         protected Task<int> MovePickerGroupAndVerifyAsync(string positionName, string description, CancellationToken ct)
         {
             var targets = new Dictionary<PickerAxis, double>();
@@ -2134,7 +2144,7 @@ namespace QMC.CDT320.Sequencing
 
             ct.ThrowIfCancellationRequested();
             WriteLog("PickerOppositeAvoid",
-                Name + " opposite FrontPicker avoid sequence start. order=Z all Avoid -> Y Avoid -> X/T Avoid. description=" +
+                Name + " opposite FrontPicker avoid sequence start. order=Z all Avoid -> Y Avoid -> T all Avoid -> X Avoid. description=" +
                 description + " - Start");
 
             var zTargets = BuildFrontPickerAvoidTargets(true, false, false);
@@ -2158,17 +2168,30 @@ namespace QMC.CDT320.Sequencing
                 return Fail("PICKER-OPPOSITE-AVOID-Y-CHECK", "FrontPickerUnit",
                     description + " 실패. FrontPicker Y가 Avoid 위치가 아닙니다.");
 
-            var xtTargets = BuildFrontPickerAvoidTargets(false, true, true);
+            var tTargets = BuildFrontPickerAvoidTargets(false, false, true);
             result = await FrontPicker.MoveFrontPickerAxes(
-                xtTargets,
+                tTargets,
+                fine,
+                "AvoidPosition;PickerPhase=SafeT;OppositeAvoid").ConfigureAwait(false);
+            if (result != 0)
+                return Fail("PICKER-OPPOSITE-AVOID-T", "FrontPickerUnit",
+                    description + " 실패. FrontPicker T Avoid 이동 실패. result=" + result);
+
+            var xTargets = BuildFrontPickerAvoidTargets(false, true, false);
+            result = await FrontPicker.MoveFrontPickerAxes(
+                xTargets,
                 fine,
                 "AvoidPosition;PickerPhase=SafeX;OppositeAvoid").ConfigureAwait(false);
             if (result != 0)
-                return Fail("PICKER-OPPOSITE-AVOID-XT", "FrontPickerUnit",
-                    description + " 실패. FrontPicker X/T Avoid 이동 실패. result=" + result);
+                return Fail("PICKER-OPPOSITE-AVOID-X", "FrontPickerUnit",
+                    description + " 실패. FrontPicker X Avoid 이동 실패. result=" + result);
+
+            if (!FrontPicker.IsFrontPickerInAvoidPosition())
+                return Fail("PICKER-OPPOSITE-AVOID-FINAL", "FrontPickerUnit",
+                    description + " 실패. FrontPicker 최종 전체 Avoid 위치 확인에 실패했습니다.");
 
             WriteLog("PickerOppositeAvoid",
-                Name + " opposite FrontPicker avoid sequence complete. order=Z all Avoid -> Y Avoid -> X/T Avoid. description=" +
+                Name + " opposite FrontPicker avoid sequence complete. order=Z all Avoid -> Y Avoid -> T all Avoid -> X Avoid. description=" +
                 description + " - Ok");
             return 0;
         }
@@ -2180,7 +2203,7 @@ namespace QMC.CDT320.Sequencing
 
             ct.ThrowIfCancellationRequested();
             WriteLog("PickerOppositeAvoid",
-                Name + " opposite RearPicker avoid sequence start. order=Z all Avoid -> Y Avoid -> X/T Avoid. description=" +
+                Name + " opposite RearPicker avoid sequence start. order=Z all Avoid -> Y Avoid -> T all Avoid -> X Avoid. description=" +
                 description + " - Start");
 
             var zTargets = BuildRearPickerAvoidTargets(true, false, false);
@@ -2204,17 +2227,30 @@ namespace QMC.CDT320.Sequencing
                 return Fail("PICKER-OPPOSITE-AVOID-Y-CHECK", "RearPickerUnit",
                     description + " 실패. RearPicker Y가 Avoid 위치가 아닙니다.");
 
-            var xtTargets = BuildRearPickerAvoidTargets(false, true, true);
+            var tTargets = BuildRearPickerAvoidTargets(false, false, true);
             result = await RearPicker.MoveRearPickerAxes(
-                xtTargets,
+                tTargets,
+                fine,
+                "AvoidPosition;PickerPhase=SafeT;OppositeAvoid").ConfigureAwait(false);
+            if (result != 0)
+                return Fail("PICKER-OPPOSITE-AVOID-T", "RearPickerUnit",
+                    description + " 실패. RearPicker T Avoid 이동 실패. result=" + result);
+
+            var xTargets = BuildRearPickerAvoidTargets(false, true, false);
+            result = await RearPicker.MoveRearPickerAxes(
+                xTargets,
                 fine,
                 "AvoidPosition;PickerPhase=SafeX;OppositeAvoid").ConfigureAwait(false);
             if (result != 0)
-                return Fail("PICKER-OPPOSITE-AVOID-XT", "RearPickerUnit",
-                    description + " 실패. RearPicker X/T Avoid 이동 실패. result=" + result);
+                return Fail("PICKER-OPPOSITE-AVOID-X", "RearPickerUnit",
+                    description + " 실패. RearPicker X Avoid 이동 실패. result=" + result);
+
+            if (!RearPicker.IsRearPickerInAvoidPosition())
+                return Fail("PICKER-OPPOSITE-AVOID-FINAL", "RearPickerUnit",
+                    description + " 실패. RearPicker 최종 전체 Avoid 위치 확인에 실패했습니다.");
 
             WriteLog("PickerOppositeAvoid",
-                Name + " opposite RearPicker avoid sequence complete. order=Z all Avoid -> Y Avoid -> X/T Avoid. description=" +
+                Name + " opposite RearPicker avoid sequence complete. order=Z all Avoid -> Y Avoid -> T all Avoid -> X Avoid. description=" +
                 description + " - Ok");
             return 0;
         }

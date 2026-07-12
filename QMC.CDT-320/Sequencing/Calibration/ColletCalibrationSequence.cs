@@ -26,6 +26,7 @@ namespace QMC.CDT320.Sequencing.Calibration
         private readonly VisionFocusPickerSide _calibrationSide;
         private readonly int _colletNo;
         private readonly int _colletIndex;
+        private readonly bool? _runPostCalibrationPipelineOverride;
         private SequenceResourceLease _inspectionAreaLease;
         private ColletCalibrationSettings _settings;
         private MatchResultDto _firstMatch;
@@ -46,6 +47,24 @@ namespace QMC.CDT320.Sequencing.Calibration
         private ColletCalibrationRecord _calculatedRecord;
 
         public ColletCalibrationSequence(MachineSequenceContext context, VisionFocusPickerSide side, int colletNo)
+            : this(context, side, colletNo, null)
+        {
+        }
+
+        public ColletCalibrationSequence(
+            MachineSequenceContext context,
+            VisionFocusPickerSide side,
+            int colletNo,
+            bool runPostCalibrationPipeline)
+            : this(context, side, colletNo, (bool?)runPostCalibrationPipeline)
+        {
+        }
+
+        private ColletCalibrationSequence(
+            MachineSequenceContext context,
+            VisionFocusPickerSide side,
+            int colletNo,
+            bool? runPostCalibrationPipelineOverride)
             : base(
                   context,
                   side == VisionFocusPickerSide.Front ? PickerSequenceSide.Front : PickerSequenceSide.Rear,
@@ -55,6 +74,7 @@ namespace QMC.CDT320.Sequencing.Calibration
             _calibrationSide = side;
             _colletNo = colletNo < 1 ? 1 : colletNo > 4 ? 4 : colletNo;
             _colletIndex = _colletNo - 1;
+            _runPostCalibrationPipelineOverride = runPostCalibrationPipelineOverride;
             CurrentStep = ColletCalibrationStep.CheckUnit;
         }
 
@@ -260,7 +280,9 @@ namespace QMC.CDT320.Sequencing.Calibration
                 if (result != 0)
                     return result;
 
-                result = await MoveOppositePickerToOutsideForStartAsync(ct).ConfigureAwait(false);
+                result = await MoveOppositePickerToAvoidAndVerifyAsync(
+                    "Collet Calibration 시작 전 상대 Picker 전체 Avoid",
+                    ct).ConfigureAwait(false);
                 if (result != 0)
                     return result;
 
@@ -449,8 +471,15 @@ namespace QMC.CDT320.Sequencing.Calibration
                 ApplyPickerAxisPositionForSimulation(PickerAxis.PickerY, avoidY);
                 UpdateSimulatedPickerPosition(PickerAxis.PickerY, avoidY);
 
+                result = await MoveAllPickerTToAvoidAndVerifyAsync(
+                    "Collet Calibration 시작 전 선택 Picker T축 전체 Avoid",
+                    ct,
+                    true).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
                 QMC.Common.Log.Write("Calibration", "SYSTEM", "ColletCalStartSafe",
-                    "Collet Calibration 시작 전 선택 Picker Z/Y 안전 위치 완료. side=" + _calibrationSide +
+                    "Collet Calibration 시작 전 선택 Picker Z/Y/T 안전 위치 완료. side=" + _calibrationSide +
                     ", colletNo=" + _colletNo +
                     ", pickerXActual=" + (GetPickerAxis(PickerAxis.PickerX) != null ? GetPickerAxis(PickerAxis.PickerX).ActualPosition.ToString("F6") : "null") +
                     ", pickerYTarget=" + avoidY.ToString("F6"));
@@ -1509,7 +1538,9 @@ namespace QMC.CDT320.Sequencing.Calibration
                     ", thetaOffset=" + target.ThetaOffset.ToString("F6") +
                     ", tZeroHomeOffset=" + target.TZeroHomeOffset.ToString("F6") + " - Ok");
 
-                CurrentStep = _settings != null && _settings.RunAutoFocusAfterTheta
+                bool runPostCalibrationPipeline = _runPostCalibrationPipelineOverride ??
+                                                  (_settings != null && _settings.RunAutoFocusAfterTheta);
+                CurrentStep = runPostCalibrationPipeline
                     ? ColletCalibrationStep.RunCocAndSideAutoFocus
                     : ColletCalibrationStep.Complete;
                 return 0;

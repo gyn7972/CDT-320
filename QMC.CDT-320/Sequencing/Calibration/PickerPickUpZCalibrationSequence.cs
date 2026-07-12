@@ -469,6 +469,13 @@ namespace QMC.CDT320.Sequencing.Calibration
             if (result != 0)
                 return result;
 
+            result = await MoveAllPickerTToAvoidAndVerifyAsync(
+                description + " - PickerT all Avoid",
+                ct,
+                true).ConfigureAwait(false);
+            if (result != 0)
+                return result;
+
             result = await MoveOppositePickerToAvoidAndVerifyAsync(description + " - Opposite Picker Avoid", ct).ConfigureAwait(false);
             if (result != 0)
                 return result;
@@ -696,14 +703,30 @@ namespace QMC.CDT320.Sequencing.Calibration
             if (_calibrationTarget == null)
                 return Fail("PICKUP-Z-CAL-PICKER-TARGET", Name, "PickUpZ Calibration picker target is null.");
 
-            var targets = new Dictionary<PickerAxis, double>();
-            targets[PickerAxis.PickerX] = _calibrationTarget.PickerX;
-            targets[GetPickerTAxis(_pickerIndex)] = _calibrationTarget.PickerT;
-            targets[PickerAxis.PickerY] = _calibrationTarget.PickerY;
+            int result = await MovePickerAxisAndVerifyAsync(
+                PickerAxis.PickerX,
+                _calibrationTarget.PickerX,
+                description + " Picker Input Process X",
+                ct,
+                SearchTargetName,
+                true).ConfigureAwait(false);
+            if (result != 0)
+                return result;
 
-            return await MovePickerXTThenYAndVerifyAsync(
-                targets,
-                description + " Picker Input Process",
+            result = await MovePickerAxisAndVerifyAsync(
+                PickerAxis.PickerY,
+                _calibrationTarget.PickerY,
+                description + " Picker Input Process Y",
+                ct,
+                SearchTargetName,
+                true).ConfigureAwait(false);
+            if (result != 0)
+                return result;
+
+            return await MovePickerAxisAndVerifyAsync(
+                GetPickerTAxis(_pickerIndex),
+                _calibrationTarget.PickerT,
+                description + " Picker Input Process T",
                 ct,
                 SearchTargetName,
                 true).ConfigureAwait(false);

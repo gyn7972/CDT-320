@@ -17,6 +17,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
         private PickUpZCalibrationDialog _pickUpZDialog;
         private PlaceZCalibrationDialog _placeZDialog;
         private NeedleCalibrationDialog _needleZDialog;
+        private AutoCalibrationDialog _autoCalibrationDialog;
 
         public CalibrationPage()
         {
@@ -262,6 +263,38 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             {
                 EventLogger.Write(EventKind.Alarm, "UI", "NEEDLE-Z-CAL-OPEN", "NEEDLE Z CAL 설정창 열기 실패: " + ex.Message);
                 QMC.Common.MessageDialog.Show(this, "NEEDLE Z CAL 설정창 열기 실패:\r\n" + ex.Message, "Calibration", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+            }
+        }
+
+        private void btnAutoCalibration_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                Form host = FindForm();
+                if (_autoCalibrationDialog == null || _autoCalibrationDialog.IsDisposed)
+                {
+                    _autoCalibrationDialog = AutoCalibrationDialog.Open(host);
+                    _autoCalibrationDialog.StartPosition = FormStartPosition.Manual;
+                    _autoCalibrationDialog.Location = ResolveDialogLocation(_autoCalibrationDialog);
+                    lblStatus.Text = "AUTO CALIBRATION 설정창을 열었습니다.";
+                    return;
+                }
+
+                ActivateDialog(host, _autoCalibrationDialog);
+                lblStatus.Text = "AUTO CALIBRATION 설정창이 이미 열려 있습니다.";
+            }
+            catch (Exception ex)
+            {
+                EventLogger.Write(EventKind.Alarm, "UI", "AUTO-CAL-OPEN",
+                    "AUTO CALIBRATION 설정창 열기 실패: " + ex.Message);
+                QMC.Common.MessageDialog.Show(this,
+                    "AUTO CALIBRATION 설정창 열기 실패:\r\n" + ex.Message,
+                    "Calibration",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Error);
             }
             finally
             {
