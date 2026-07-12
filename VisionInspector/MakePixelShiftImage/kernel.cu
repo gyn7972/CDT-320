@@ -485,6 +485,8 @@ cudaError_t UpscaleROI2xBilinearAndSobel(
     uint8_t* d_output = nullptr;
     uint8_t* d_outputSobel = nullptr;
     cudaError_t status;
+    // Sobel 출력 선택(2026-07-12) — outputSobel==nullptr 이면 Sobel 전 과정 생략(업스케일 결과 불변).
+    bool wantSobel = (outputSobel != nullptr);
 
     // 1. �޸� �Ҵ�
     status = cudaMalloc(&d_input, inSize);
@@ -493,8 +495,11 @@ cudaError_t UpscaleROI2xBilinearAndSobel(
     status = cudaMalloc(&d_output, outSize);
     if (status != cudaSuccess) goto Error;
 
-    status = cudaMalloc(&d_outputSobel, outSize);
-    if (status != cudaSuccess) goto Error;
+    if (wantSobel)
+    {
+        status = cudaMalloc(&d_outputSobel, outSize);
+        if (status != cudaSuccess) goto Error;
+    }
 
     // 2. ������ ����
     status = cudaMemcpy(d_input, input, inSize, cudaMemcpyHostToDevice);
@@ -511,7 +516,8 @@ cudaError_t UpscaleROI2xBilinearAndSobel(
             d_output, outWidth, outHeight);
     }
 
-    // 4. Sobel Ŀ�� ����
+    // 4. Sobel Ŀ�� ���� (outputSobel 지정 시에만)
+    if (wantSobel)
     {
         dim3 sobelBlock(16, 16);
         dim3 sobelGrid((outWidth + sobelBlock.x - 1) / sobelBlock.x, (outHeight + sobelBlock.y - 1) / sobelBlock.y);
@@ -528,8 +534,11 @@ cudaError_t UpscaleROI2xBilinearAndSobel(
     // 5. ��� ����
     status = cudaMemcpy(output, d_output, outSize, cudaMemcpyDeviceToHost);
     if (status != cudaSuccess) goto Error;
-    status = cudaMemcpy(outputSobel, d_outputSobel, outSize, cudaMemcpyDeviceToHost);
-    if (status != cudaSuccess) goto Error;
+    if (wantSobel)
+    {
+        status = cudaMemcpy(outputSobel, d_outputSobel, outSize, cudaMemcpyDeviceToHost);
+        if (status != cudaSuccess) goto Error;
+    }
 
 Error:
     if (d_input) cudaFree(d_input);
@@ -1099,11 +1108,16 @@ cudaError_t UpscaleROI2xBilinearAndSobelCtx(
     int outHeight = roiHeight * 2;
     size_t outSize = (size_t)outWidth * outHeight * sizeof(uint8_t);
 
+    // Sobel 출력은 선택(2026-07-12): outputSobel==nullptr 이면 Sobel 커널/버퍼/D2H 를 전부 생략한다.
+    // Sobel 결과는 소비처가 없어(호출측 죽은 경로) 계산·전송이 순수 낭비였다. d_output(업스케일)은 불변.
+    bool wantSobel = (outputSobel != nullptr);
+
     cudaError_t status;
     void* p;
     uint8_t* d_input;       status = QmcEnsureBuf(ctx, 0, inSize,  &p); if (status != cudaSuccess) return status; d_input       = (uint8_t*)p;
     uint8_t* d_output;      status = QmcEnsureBuf(ctx, 1, outSize, &p); if (status != cudaSuccess) return status; d_output      = (uint8_t*)p;
-    uint8_t* d_outputSobel; status = QmcEnsureBuf(ctx, 2, outSize, &p); if (status != cudaSuccess) return status; d_outputSobel = (uint8_t*)p;
+    uint8_t* d_outputSobel = nullptr;
+    if (wantSobel) { status = QmcEnsureBuf(ctx, 2, outSize, &p); if (status != cudaSuccess) return status; d_outputSobel = (uint8_t*)p; }
 
     cudaStream_t s = ctx->stream;
     status = cudaMemcpyAsync(d_input, input, inSize, cudaMemcpyHostToDevice, s);
@@ -1116,7 +1130,8 @@ cudaError_t UpscaleROI2xBilinearAndSobelCtx(
             d_input, inWidth, inHeight,
             roiX, roiY, roiWidth, roiHeight,
             d_output, outWidth, outHeight);
-        SobelKernel<<<gridDim, blockDim, 0, s>>>(d_output, d_outputSobel, outWidth, outHeight);
+        if (wantSobel)
+            SobelKernel<<<gridDim, blockDim, 0, s>>>(d_output, d_outputSobel, outWidth, outHeight);
     }
 
     status = cudaGetLastError();
@@ -1124,8 +1139,11 @@ cudaError_t UpscaleROI2xBilinearAndSobelCtx(
 
     status = cudaMemcpyAsync(output, d_output, outSize, cudaMemcpyDeviceToHost, s);
     if (status != cudaSuccess) return status;
-    status = cudaMemcpyAsync(outputSobel, d_outputSobel, outSize, cudaMemcpyDeviceToHost, s);
-    if (status != cudaSuccess) return status;
+    if (wantSobel)
+    {
+        status = cudaMemcpyAsync(outputSobel, d_outputSobel, outSize, cudaMemcpyDeviceToHost, s);
+        if (status != cudaSuccess) return status;
+    }
     return cudaStreamSynchronize(s);
 }
 

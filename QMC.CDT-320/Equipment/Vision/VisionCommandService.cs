@@ -208,6 +208,13 @@ namespace QMC.CDT320.VisionComm
             return client != null ? client.WaitExposureDoneAsync(timeoutMs) : null;
         }
 
+        /// <summary>EPD 1회 대기(모듈 필터) — 지정 모듈의 EPD 만 인정(브로드캐스트 오인 방지). 미연결이면 null.</summary>
+        public static Task<bool> WaitExposureDoneAsync(AutoVisionChannel channel, int timeoutMs, string moduleName)
+        {
+            VisionTcpClient client = ResolveClient(channel);
+            return client != null ? client.WaitExposureDoneAsync(timeoutMs, moduleName) : null;
+        }
+
         public static async Task<VisionFocusValueResult> FocusValueAsync(AutoVisionChannel channel, double motorZ, string camera, string target, int pickupNo, bool initial, int timeoutMs, CancellationToken ct)
         {
             return await FocusValueAsync(channel, motorZ, camera, target, pickupNo, initial, timeoutMs, ct, false).ConfigureAwait(false);

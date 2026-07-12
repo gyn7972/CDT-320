@@ -193,6 +193,8 @@ namespace QMC.CDT320.VisionComm
                     ", grid=" + gridX + ";" + gridY +
                     ", timeoutMs=" + timeoutMs);
 
+                // EPD(노출 종료) 수신 즉시 true 리턴 — ACK(영상 카피 완료)까지 기다리지 않아
+                // 픽커가 촬상 직후 바로 다음 위치로 이동한다(실측 EPD→ACK ≈ 88ms/장 단축).
                 return await AutoVisionRequestService.StartInspectColletAsync(
                     AutoVisionChannel.BottomInspection,
                     VisionToolIds.BottomInspection.SurfaceInspector,
@@ -203,7 +205,9 @@ namespace QMC.CDT320.VisionComm
                     gridX,
                     gridY,
                     timeoutMs,
-                    ct).ConfigureAwait(false);
+                    ct,
+                    proceedOnExposureDone: true,
+                    exposureModuleName: "BottomInspection").ConfigureAwait(false);
             }
             catch (OperationCanceledException)
             {
