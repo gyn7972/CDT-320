@@ -1289,11 +1289,12 @@ namespace QMC.CDT320.Sequencing
             if (target == null || result == null)
                 return;
 
-            bool valid = result.HasBottomCenterOffset &&
-                         IsFiniteCorrectionValue(result.BottomCenterOffsetX) &&
-                         IsFiniteCorrectionValue(result.BottomCenterOffsetY);
-            double sideVisionProcess0YOffset = valid ? result.BottomCenterOffsetX : 0.0;
-            double sideVisionProcess90YOffset = valid ? result.BottomCenterOffsetY : 0.0;
+            // 현재 기준: Bottom 검사 결과(BottomCenterOffsetX/Y)는 Side 위치 보정에 적용하지 않는다.
+            // Side 위치는 콜렛별 Side AF 저장값(BestPosition)과 티칭으로만 결정한다(Bottom/Side AutoFocus 간섭 금지).
+            // Bottom 중심 값은 Vision ROI 공칭 중심 기준이라 die 주차 위치와의 상수 편차(수 mm)가 섞여 Side 보정으로 쓸 수 없다.
+            bool valid = true;
+            double sideVisionProcess0YOffset = 0.0;
+            double sideVisionProcess90YOffset = 0.0;
             double pickerZOffset = result.HasSideInspectionCorrection && IsFiniteCorrectionValue(result.PickerZOffset)
                 ? result.PickerZOffset
                 : 0.0;
@@ -1323,17 +1324,17 @@ namespace QMC.CDT320.Sequencing
             }
 
             WriteLog("PickerBottomAndSideInspectionSequence",
-                Name + " Bottom 결과 기반 Side 검사 보정 저장. " +
+                Name + " Bottom 결과 확인. Side 위치 보정에는 적용하지 않습니다(Bottom/Side AF 간섭 금지). " +
                 "side=" + Side +
                 ", pickerNo=" + target.PickerNo +
                 ", die=" + sourceDieId +
                 ", bottomInspectionOk=" + result.IsOk +
                 ", valid=" + valid +
-                ", SideVisionY0.offsetFromBottomX=" + sideVisionProcess0YOffset.ToString("F6") +
-                ", SideVisionY90.offsetFromBottomY=" + sideVisionProcess90YOffset.ToString("F6") +
+                ", appliedSideVisionY0Offset=" + sideVisionProcess0YOffset.ToString("F6") +
+                ", appliedSideVisionY90Offset=" + sideVisionProcess90YOffset.ToString("F6") +
                 ", PickerZ.offset=" + pickerZOffset.ToString("F6") +
-                ", bottomCenterOffsetX=" + result.BottomCenterOffsetX.ToString("F6") +
-                ", bottomCenterOffsetY=" + result.BottomCenterOffsetY.ToString("F6") +
+                ", bottomCenterOffsetX(참고)=" + result.BottomCenterOffsetX.ToString("F6") +
+                ", bottomCenterOffsetY(참고)=" + result.BottomCenterOffsetY.ToString("F6") +
                 ", bottomOffsetT=" + result.OffsetT.ToString("F6") + " - Ok");
         }
 

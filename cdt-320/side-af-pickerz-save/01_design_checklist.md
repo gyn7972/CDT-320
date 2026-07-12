@@ -50,6 +50,31 @@
       변경(다이얼로그 측 선택 불일치 방지), (2) EnsureDefaults에 PickerZValid+NaN 조합 방어,
       (3) PickerZ 축 미해석 시 건너뜀 로그 추가
 
+## 추가 수정 (팀장님 후속 지시): 다이얼로그 Side AF 시 Picker 이동
+
+문제: 다이얼로그 수동 Side AF는 Picker를 전혀 움직이지 않아 카메라 앞에 대상이 없었음
+(자동 Collet Cal 경로만 Z/T를 이동).
+
+- [x] E1. `VisionFocusScanRequest.PrepareSidePickerPosition` 플래그 추가 (기본 false —
+      자동 경로 무영향, 다이얼로그 Side kind에서만 true)
+- [x] E2. 신설 `PrepareSideFocusPickerPositionAsync`: 다이얼로그에 표시되는 기준 좌표
+      (`ResolveSideFocusReferenceTarget`, DieSidePosition)로 Picker 이동 후 스캔.
+      표준 존 진입 순서(반대편 Picker Output 대피 → Z그룹 Avoid → Y 후진 → Side 작업영역
+      점유 → X → Y → T(90도는 +90) → Z 하강), 존 태그 `VisionFocusCal;DieSidePosition;PickerPhase=*`
+- [x] E3. Side kind에서 PickerSide를 Kind 기준으로 강제 (표시/이동/저장 불일치 방지)
+- [x] E4. `ReserveFocusWorkArea(zone, front)` 오버로드 — Side 작업영역 점유 지원
+- [x] E5. 델타 검증(에이전트): 자동 경로 무영향, 인터락 순서 정합(PickerX 이동 전제 충족),
+      좌표 출처 = 다이얼로그 표시 Ref와 동일, 실패/취소 시 작업영역 해제 확인, 빌드 통과.
+      검증 지적 2건(반대편 Picker 미대피, PickerSide 불일치)은 E2/E3에 반영
+
+동작 참고:
+- 수동 Side 스캔의 PickerZ는 항상 티칭(SidePosition) 기준으로 이동 → 스캔 완료 시 그 Z가
+  저장됨. 즉 **다이얼로그 스캔 = 티칭 기준 재베이스라인**, 자동(Collet Cal) 스캔 = 저장값
+  우선 적용. SidePosition 티칭을 바꾼 뒤 다이얼로그에서 한 번 스캔하면 저장값이 갱신됨
+  (앞서 보고한 "저장값 무효화 경로 없음" 문제의 운영 해법)
+- 기준 좌표는 런타임 Align offset 미포함(다이얼로그 표시값과 동일). 자동/생산 경로와
+  Align offset만큼 차이가 날 수 있으나 스캔 범위(±0.2mm)가 흡수 — 실장비 확인 항목
+
 ## 미반영 권고 (팀장님 판단 필요)
 
 1. **저장값 무효화 경로 없음**: 저장된 PickerZ/Best는 티칭 재교시나 die/레시피 변경 후에도

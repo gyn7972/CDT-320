@@ -1837,10 +1837,12 @@ namespace QMC.CDT320.Sequencing.Calibration
             // 저장된 Side AF 위치(PickerZ/VisionY)가 유효하면 그 값으로 AF를 시작한다.
             // 없으면 기존 계약(PickerZ=SidePosition 티칭, Y=Process 티칭+보정)으로 시작한다.
             VisionFocusPositionRecord savedRecord = focusData.GetSideRecord(kind, _colletNo);
-            bool useSavedZ = savedRecord != null && savedRecord.PickerZValid &&
+            // 초점 신호가 없던 스캔(score<=0)의 저장값은 시작 위치로 쓰지 않는다.
+            bool savedFocusMeaningful = savedRecord != null && savedRecord.BestScore > 0.0;
+            bool useSavedZ = savedFocusMeaningful && savedRecord.PickerZValid &&
                              !double.IsNaN(savedRecord.PickerZPosition) &&
                              !double.IsInfinity(savedRecord.PickerZPosition);
-            bool useSavedY = savedRecord != null && savedRecord.Valid &&
+            bool useSavedY = savedFocusMeaningful && savedRecord.Valid &&
                              !double.IsNaN(savedRecord.BestPosition) &&
                              !double.IsInfinity(savedRecord.BestPosition);
             double sideZ = useSavedZ ? savedRecord.PickerZPosition : GetPickerTeachingPosition(zAxis, "SidePosition");
