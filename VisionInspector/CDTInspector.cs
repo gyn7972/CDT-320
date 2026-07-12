@@ -500,6 +500,7 @@ namespace QMC.Vision.Inspector
 
         public BottomResult BottomInspect(BottomInspectionParameter bip)
         {
+            var swTotalProf = bProfilePhases ? System.Diagnostics.Stopwatch.StartNew() : null;
             // 동시 검사 수에 맞춰 내부 병렬도 배분(2026-07-12) — 검사 8건 동시 진행 시 각 검사의
             // Parallel.For 가 코어 전체를 두고 경합해 tact 가 8배 이상 부풀던 문제 완화. 계산식/결과 불변.
             int nConcurrent = System.Threading.Interlocked.Increment(ref _concurrentInspects);
@@ -875,6 +876,7 @@ namespace QMC.Vision.Inspector
             }
             finally
             {
+                if (swTotalProf != null) Console.WriteLine(string.Format("[PROF4] total={0:F1}", swTotalProf.Elapsed.TotalMilliseconds));
                 System.Threading.Interlocked.Decrement(ref _concurrentInspects);
                 cudaLease.Dispose();   // CUDA 컨텍스트 풀 반납 — 재할당된 버퍼도 그대로 반납되어 다음 검사에 재사용(2026-07-11)
                 int nStartX = Math.Min((int)result.Corners[0].X, (int)result.Corners[3].X)*2;

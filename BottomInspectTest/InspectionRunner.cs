@@ -79,6 +79,48 @@ namespace QMC.BottomInspectTest
             return dst;
         }
 
+        /// <summary>2배 bilinear 정수 산술 버전(2026-07-12) — 2배 업스케일의 보간 가중은 (0, 1/4, 3/4)로
+        /// 고정되어 모든 항이 1/16 단위의 정확한 이진 분수다. 따라서 double 식
+        /// v = Σ p·(a/4)(b/4), out = (byte)(v+0.5) 는 정수식 (Σ p·a·b + 8) >> 4 와 비트 동일하다
+        /// (double 곱·합이 전부 정확값이라 반올림 오차 자체가 없음 — --upcheck 로 실측 대조).</summary>
+        public static byte[] Upscale2xBilinearFast(byte[] src, int w, int h, out int w2, out int h2)
+        {
+            w2 = w * 2; h2 = h * 2;
+            var dst = new byte[w2 * h2];
+            int dw = w2;
+            // x 방향 인덱스/가중 사전 계산(가중 gx = fx*4 ∈ {0,1,3})
+            var xs0 = new int[dw]; var xs1 = new int[dw]; var gxs = new int[dw];
+            for (int x = 0; x < dw; x++)
+            {
+                int x0, gx;
+                if ((x & 1) == 0) { x0 = x / 2 - 1; gx = 3; }
+                else { x0 = x / 2; gx = 1; }
+                int x1 = x0 + 1;
+                if (x0 < 0) { x0 = 0; x1 = 0; gx = 0; }
+                else if (x1 >= w) { x1 = w - 1; x0 = Math.Min(x0, w - 1); }
+                xs0[x] = x0; xs1[x] = x1; gxs[x] = gx;
+            }
+            Parallel.For(0, h2, y =>
+            {
+                int y0, gy;
+                if ((y & 1) == 0) { y0 = y / 2 - 1; gy = 3; }
+                else { y0 = y / 2; gy = 1; }
+                int y1 = y0 + 1;
+                if (y0 < 0) { y0 = 0; y1 = 0; gy = 0; }
+                else if (y1 >= h) { y1 = h - 1; y0 = Math.Min(y0, h - 1); }
+                int rowA = y0 * w, rowB = y1 * w, row = y * dw;
+                int wy1 = gy, wy0 = 4 - gy;
+                for (int x = 0; x < dw; x++)
+                {
+                    int x0 = xs0[x], x1p = xs1[x], gx = gxs[x];
+                    int sum = (4 - gx) * wy0 * src[rowA + x0] + gx * wy0 * src[rowA + x1p]
+                            + (4 - gx) * wy1 * src[rowB + x0] + gx * wy1 * src[rowB + x1p];
+                    dst[row + x] = (byte)((sum + 8) >> 4);
+                }
+            });
+            return dst;
+        }
+
         /// <summary>테스트 파라미터 → BottomInspectionParameter 구성.</summary>
         public static BottomInspectionParameter BuildParameter(TestParameters p, byte[] gray, int w, int h, string savePath)
         {
