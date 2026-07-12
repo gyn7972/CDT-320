@@ -364,6 +364,19 @@ namespace QMC.CDT320.Sequencing
                 if (orderResult != 0)
                     return orderResult;
 
+                int side4BottomReferencePickerNo = ResolveBottomReferencePickerNoForSide(ToPickerIndex(4));
+                SideTargetPosition sideXAnchorBottomTarget;
+                if (!bottomTargetPositions.TryGetValue(ToPickerIndex(side4BottomReferencePickerNo), out sideXAnchorBottomTarget) ||
+                    sideXAnchorBottomTarget == null ||
+                    !IsValidSidePlanCoordinate(sideXAnchorBottomTarget.X))
+                {
+                    return Fail("PICKER-BOTTOM-SIDE-TARGET-PLAN", Name,
+                        "Side 검사 X 앵커 계산 실패. Bottom1 공정 좌표를 확인하세요. " +
+                        "side=" + Side +
+                        ", side4BottomReferencePickerNo=" + side4BottomReferencePickerNo + ".");
+                }
+
+                double sideXAnchor = sideXAnchorBottomTarget.X;
                 for (int sidePickerNo = 1; sidePickerNo <= 4; sidePickerNo++)
                 {
                     int sidePickerIndex = ToPickerIndex(sidePickerNo);
@@ -383,7 +396,7 @@ namespace QMC.CDT320.Sequencing
                             ", targetY=" + (bottomTarget != null ? bottomTarget.Y.ToString("0.###") : "null") + ".");
                     }
 
-                    double targetX = bottomTarget.X;
+                    double targetX = sideXAnchor + (sideXAnchor - bottomTarget.X);
 
                     _sideTargetPositions[sidePickerIndex] = new SideTargetPosition
                     {
@@ -398,10 +411,11 @@ namespace QMC.CDT320.Sequencing
                         ", bottomReferencePickerNo=" + bottomReferencePickerNo +
                         ", bottomReferenceX=" + bottomTarget.X.ToString("0.###") +
                         ", bottomReferenceY=" + bottomTarget.Y.ToString("0.###") +
+                        ", sideXAnchor=" + sideXAnchor.ToString("0.###") +
                         ", targetX=" + targetX.ToString("0.###") +
                         ", targetY=" + bottomTarget.Y.ToString("0.###") +
                         ", mapping=BottomReference" +
-                        ", xCoordinate=BottomReferenceDirect" +
+                        ", xCoordinate=SideCameraForwardFromBottom1Anchor" +
                         ", yProcessDirection=" + ResolveProcessYDirectionName() +
                         ", source=BottomProcessPlan - Check");
                 }
