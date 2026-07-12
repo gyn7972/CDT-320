@@ -478,6 +478,7 @@ namespace QMC.Vision.Ui.Pages
                 items.Add(ParameterGridItem.Double("Peek Threshold", "", ParameterGridScope.Recipe, () => bi.PeekValueThreshold, v => { bi.PeekValueThreshold = v; }));
                 items.Add(ParameterGridItem.Double("Peek Stdev", "", ParameterGridScope.Recipe, () => bi.Stdev, v => { bi.Stdev = v; }));
                 items.Add(ParameterGridItem.Measure("Chipping Depth", ParameterGridScope.Recipe, () => bi.ChippingDepth, v => { bi.ChippingDepth = v; }, () => _module?.ScaleY ?? 1.0));
+                items.Add(ParameterGridItem.Measure("Chipping Length", ParameterGridScope.Recipe, () => bi.ChippingLength, v => { bi.ChippingLength = v; }, () => _module?.ScaleX ?? 1.0));
                 items.Add(ParameterGridItem.Int   ("Chip Edge Margin", "px", ParameterGridScope.Recipe, () => bi.ChipEdgeMargin, v => { bi.ChipEdgeMargin = v; }));
                 // 너비/높이 상·하한 — 저장/판정 mm(SSOT)·표시는 전역 단위 환산. (0=미설정) 차트 Limit 점선 + 사이즈 NG 기준.
                 items.Add(ParameterGridItem.Measure("Width Lower",  ParameterGridScope.Recipe, () => bi.ChipLowerSpecLimit.Width,  v => { bi.ChipLowerSpecLimit = new System.Drawing.SizeF((float)v, bi.ChipLowerSpecLimit.Height); PushChartLimits(); }, () => _module?.ScaleX ?? 1.0));
@@ -491,6 +492,7 @@ namespace QMC.Vision.Ui.Pages
                 items.Add(ParameterGridItem.Int   ("Min Foreign Area", "px", ParameterGridScope.Recipe, () => bi.MinForeignAreaFilterSize, v => { bi.MinForeignAreaFilterSize = v; }));
                 items.Add(ParameterGridItem.Int   ("Max Foreign Area", "px", ParameterGridScope.Recipe, () => bi.MaxForeignAreaFilterSize, v => { bi.MaxForeignAreaFilterSize = v; }));
                 items.Add(ParameterGridItem.Int   ("Link Distance", "px", ParameterGridScope.Recipe, () => bi.LinkDistance, v => { bi.LinkDistance = v; }));
+                items.Add(ParameterGridItem.Double("Foreign Min Size", "px", ParameterGridScope.Recipe, () => bi.PortentiolDefactMinSize, v => { bi.PortentiolDefactMinSize = v; }));
                 items.Add(ParameterGridItem.Bool  ("Use Contamination", ParameterGridScope.Recipe, () => bi.UseContaminationInspection, v => { bi.UseContaminationInspection = v; }));
                 AddChartLimitItems(items, "Width", "Height");   // 차트 전용 상/하한(빨간선) — 판정과 별개
                 // (단위/스케일은 설정의 카메라 ScaleX/Y + GENERAL mm/px 토글이 결정 — 레시피 Pixel Size 제거)

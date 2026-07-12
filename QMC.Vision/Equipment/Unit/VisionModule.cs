@@ -538,6 +538,13 @@ namespace QMC.Vision.Modules
             ApplyToolLights(toolId);
         }
 
+        /// <summary>도구 조명만 적용(노출 불변) — 오토포커스 FOCUS_VAL 처럼 노출을 별도 관리하는 경로가
+        /// 그랩 직전 조명을 보장할 때 쓴다. 캐시 히트면 통신/안정화 대기 생략(스캔 중 반복 호출해도 무비용).</summary>
+        public void EnsureToolLights(string toolId)
+        {
+            ApplyToolLights(toolId);
+        }
+
         /// <summary>도구 조명 적용 — 노드 Recipe.LightSettings 를 컨트롤러별 페이지 배치로 송신.
         /// 미지정(빈 목록) 도구는 조명을 건드리지 않는다. 송신/대기는 컨트롤러 캐시가 관리(동일 값 = 생략).</summary>
         private void ApplyToolLights(string toolId)

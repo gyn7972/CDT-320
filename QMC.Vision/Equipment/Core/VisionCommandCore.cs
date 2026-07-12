@@ -701,6 +701,12 @@ namespace QMC.Vision.Core
             //WaitLastFocusGrab(m.Name, 5000);
             WaitLastFocusGrab(m.Name, 0);
 
+            // 그랩 직전 FocusFinder 조명 보장(2026-07-13) — 종전엔 FOCUS_START 에서만 조명을 켜고
+            // FOCUS_VAL 은 조명 없이 바로 grab 했다. FOCUS_START 누락/타 모듈의 조명 변경 시 잘못된
+            // 조명으로 촬상될 수 있어, 각 FOCUS_VAL 이 스스로 조명을 보장한다(노출은 FOCUS_START 설정 유지).
+            // 캐시 히트면 통신/안정화 대기 생략 → 스캔 중 반복 호출해도 무비용.
+            try { m.EnsureToolLights("FocusFinder"); } catch { }
+
             var expEvt = new System.Threading.ManualResetEventSlim(false);
             Action<string> onExp = _n => { try { expEvt.Set(); } catch { } };
             m.ExposureDone += onExp;

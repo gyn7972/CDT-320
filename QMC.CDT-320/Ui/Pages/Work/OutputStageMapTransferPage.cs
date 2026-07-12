@@ -1908,12 +1908,16 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 double absX = entry.PosX;
                 double absY = entry.PosY;
 
-                DialogResult confirm = QMC.Common.MessageDialog.Show(this,
+                JogSpeedType speedType;
+                if (!ConfirmManualMapMoveSpeed(
+                    this,
+                    "Output Stage Map",
                     "빈 슬롯 " + BuildEntryMapText(entry) + "의 좌표로 이동하시겠습니까?\r\n" +
                     "X(VisionX)=" + absX.ToString("F3") + " mm, Y(StageY)=" + absY.ToString("F3") + " mm",
-                    "Output Stage Map", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
-                if (confirm != DialogResult.Yes)
+                    out speedType))
+                {
                     return;
+                }
 
                 int timeoutMs = ResolveManualMoveTimeoutMs(host);
                 SetActionButtonsEnabled(false);
@@ -1924,7 +1928,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
 
                 // 1) VisionX(공유레일) 이동 전 Front/Rear Picker를 Z 상승 -> Y 후진 -> X Avoid 순서로 선행 이동(간섭 차단).
                 int prepareResult = await AwaitManualMoveStepAsync(
-                    MovePickersToAvoidForOutputMoveAsync(host),
+                    MovePickersToAvoidForOutputMoveAsync(host, speedType),
                     timeoutMs,
                     "출력 이동 전 Picker Avoid 준비",
                     () => StopManualMapMove(host, "Output move prepare timeout")).ConfigureAwait(true);
@@ -1940,7 +1944,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 // 2) 행(Y): 스테이지 Y축
                 BinStageAxis yAxis = _selectedSide == BinSide.Ng ? BinStageAxis.NgBinY : BinStageAxis.GoodBinY;
                 int rowResult = await AwaitManualMoveStepAsync(
-                    MoveOutputStageYToSlotWithInterlockAsync(unit, _selectedSide, absY, timeoutMs, "OutputVisionMove"),
+                    MoveOutputStageYToSlotWithInterlockAsync(unit, _selectedSide, absY, timeoutMs, "OutputVisionMove", speedType),
                     timeoutMs,
                     "빈 슬롯 행(Y) 이동",
                     () => StopManualMapMove(host, "Output Y move timeout")).ConfigureAwait(true);
@@ -1954,7 +1958,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
 
                 // 3) 열(X): VisionX(카메라)
                 int colResult = await AwaitManualMoveStepAsync(
-                    unit.MoveStageAxis(BinStageAxis.VisionX, absX, JogSpeedType.Fine, 0.0),
+                    unit.MoveStageAxis(BinStageAxis.VisionX, absX, speedType, 0.0),
                     timeoutMs,
                     "빈 슬롯 열(VisionX) 이동",
                     () => StopManualMapMove(host, "Output VisionX move timeout")).ConfigureAwait(true);
@@ -2028,7 +2032,10 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     return;
                 }
 
-                DialogResult confirm = QMC.Common.MessageDialog.Show(this,
+                JogSpeedType speedType;
+                if (!ConfirmManualMapMoveSpeed(
+                    this,
+                    "Output Stage Map",
                     ResolvePickerMoveTitle(side, pickerNo) + "를 선택 빈 슬롯 Place 위치로 이동하시겠습니까?\r\n" +
                     "Slot=" + BuildEntryMapText(entry) + "\r\n" +
                     "StageY=" + targets.OutputStageY.ToString("F3") + " mm\r\n" +
@@ -2038,9 +2045,10 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     "PickerT=" + targets.PickerT.ToString("F3") + " deg\r\n" +
                     "Formula=" + (targets.Formula ?? string.Empty) + "\r\n" +
                     "PickerZ는 이동하지 않습니다.",
-                    "Output Stage Map", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
-                if (confirm != DialogResult.Yes)
+                    out speedType))
+                {
                     return;
+                }
 
                 int timeoutMs = ResolveManualMoveTimeoutMs(host);
                 SetActionButtonsEnabled(false);
@@ -2050,7 +2058,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     "OutputStageMapTransferPage:" + ResolvePickerMoveTitle(side, pickerNo));
 
                 int result = await AwaitManualMoveStepAsync(
-                    MoveSelectedSlotByPickerCoreAsync(host, _selectedSide, side, pickerNo, entry, targets, timeoutMs),
+                    MoveSelectedSlotByPickerCoreAsync(host, _selectedSide, side, pickerNo, entry, targets, timeoutMs, speedType),
                     timeoutMs,
                     ResolvePickerMoveTitle(side, pickerNo) + " Place 보기 위치 이동",
                     () => StopManualMapMove(host, ResolvePickerMoveTitle(side, pickerNo) + " output place view timeout")).ConfigureAwait(true);
@@ -2103,24 +2111,25 @@ namespace QMC.CDT_320.Ui.Pages.Work
             int pickerNo,
             DieMapEntry entry,
             OutputPlaceManualTargets targets,
-            int timeoutMs)
+            int timeoutMs,
+            JogSpeedType speedType)
         {
             try
             {
                 OutputStageUnit unit = host.Machine.OutputStageUnit;
 
                 // 수동 Picker Place 이동 전 OutputVisionX를 먼저 Avoid로 빼서 공유레일 간섭을 줄인다.
-                int visionAvoidResult = await MoveOutputVisionXToAvoidForPickerMoveAsync(host, unit, timeoutMs).ConfigureAwait(true);
+                int visionAvoidResult = await MoveOutputVisionXToAvoidForPickerMoveAsync(host, unit, timeoutMs, speedType).ConfigureAwait(true);
                 if (visionAvoidResult != 0)
                     return visionAvoidResult;
 
                 // Picker X 이동 전 대상 Picker는 Z 상승 후 Y 후진을 먼저 완료한다.
-                int targetPickerSafeResult = await MoveTargetPickerZAndYToAvoidForPickerMoveAsync(host, side, timeoutMs).ConfigureAwait(true);
+                int targetPickerSafeResult = await MoveTargetPickerZAndYToAvoidForPickerMoveAsync(host, side, timeoutMs, speedType).ConfigureAwait(true);
                 if (targetPickerSafeResult != 0)
                     return targetPickerSafeResult;
 
                 // 반대편 Picker는 Output 영역 진입 전 Z->Y->X 순서로 완전 Avoid 위치에 둔다.
-                int otherPickerAvoidResult = await MoveOtherPickerOutOfOutputZoneForPickerMoveAsync(host, side, timeoutMs).ConfigureAwait(true);
+                int otherPickerAvoidResult = await MoveOtherPickerOutOfOutputZoneForPickerMoveAsync(host, side, timeoutMs, speedType).ConfigureAwait(true);
                 if (otherPickerAvoidResult != 0)
                     return otherPickerAvoidResult;
 
@@ -2130,7 +2139,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     outputSide,
                     targets.OutputStageY,
                     timeoutMs,
-                    "ManualPickerMove").ConfigureAwait(true);
+                    "ManualPickerMove",
+                    speedType).ConfigureAwait(true);
                 if (stageResult != 0)
                     return stageResult;
 
@@ -2139,8 +2149,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 string targetName = "DiePlacePosition[P" + pickerNo + "];ManualOutputDieMapMove";
 
                 // PickerY는 후진된 상태에서 X/T를 먼저 맞춘 뒤, 마지막에 Place Y로 전진시킨다.
-                Task<int> movePickerX = MovePickerAxisAsync(host, side, PickerAxis.PickerX, targets.PickerX, targetName);
-                Task<int> movePickerT = MovePickerAxisAsync(host, side, tAxis, targets.PickerT, targetName);
+                Task<int> movePickerX = MovePickerAxisAsync(host, side, PickerAxis.PickerX, targets.PickerX, targetName, speedType);
+                Task<int> movePickerT = MovePickerAxisAsync(host, side, tAxis, targets.PickerT, targetName, speedType);
                 int[] moveResults = await Task.WhenAll(movePickerX, movePickerT).ConfigureAwait(true);
                 for (int i = 0; i < moveResults.Length; i++)
                 {
@@ -2162,7 +2172,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     side,
                     PickerAxis.PickerY,
                     targets.PickerY,
-                    targetName + ";PickerPhase=ForwardY").ConfigureAwait(true);
+                    targetName + ";PickerPhase=ForwardY",
+                    speedType).ConfigureAwait(true);
                 if (pickerYMoveResult != 0)
                     return pickerYMoveResult;
 
@@ -2203,7 +2214,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
         }
 
         /// <summary>VisionX(공유레일) 이동 전 Front/Rear Picker를 모두 Z->Y->X 순서로 Avoid 위치로 이동합니다.</summary>
-        private async Task<int> MovePickersToAvoidForOutputMoveAsync(Form1 host)
+        private async Task<int> MovePickersToAvoidForOutputMoveAsync(Form1 host, JogSpeedType speedType)
         {
             try
             {
@@ -2216,7 +2227,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     host,
                     PickerSequenceSide.Front,
                     timeoutMs,
-                    "OutputVisionMove").ConfigureAwait(true);
+                    "OutputVisionMove",
+                    speedType).ConfigureAwait(true);
                 if (frontResult != 0)
                     return frontResult;
 
@@ -2224,7 +2236,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     host,
                     PickerSequenceSide.Rear,
                     timeoutMs,
-                    "OutputVisionMove").ConfigureAwait(true);
+                    "OutputVisionMove",
+                    speedType).ConfigureAwait(true);
                 if (rearResult != 0)
                     return rearResult;
 
@@ -2241,7 +2254,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             }
         }
 
-        private async Task<int> MoveOutputVisionXToAvoidForPickerMoveAsync(Form1 host, OutputStageUnit unit, int timeoutMs)
+        private async Task<int> MoveOutputVisionXToAvoidForPickerMoveAsync(Form1 host, OutputStageUnit unit, int timeoutMs, JogSpeedType speedType)
         {
             try
             {
@@ -2251,7 +2264,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 if (unit.IsVisionXInAvoidPosition())
                     return 0;
 
-                int result = await unit.MoveStageAxis(BinStageAxis.VisionX, unit.Recipe.VisionX.AvoidPosition, JogSpeedType.Fine, 0.0).ConfigureAwait(true);
+                int result = await unit.MoveStageAxis(BinStageAxis.VisionX, unit.Recipe.VisionX.AvoidPosition, speedType, 0.0).ConfigureAwait(true);
                 if (result != 0)
                     return result;
 
@@ -2304,7 +2317,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
         }
 
         /// <summary>선택 Picker가 Output Zone에 들어가기 전, 상대 Picker를 Z->Y->X 순서로 Avoid 이동합니다.</summary>
-        private async Task<int> MoveOtherPickerOutOfOutputZoneForPickerMoveAsync(Form1 host, PickerSequenceSide movingSide, int timeoutMs)
+        private async Task<int> MoveOtherPickerOutOfOutputZoneForPickerMoveAsync(Form1 host, PickerSequenceSide movingSide, int timeoutMs, JogSpeedType speedType)
         {
             try
             {
@@ -2319,7 +2332,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     host,
                     oppositeSide,
                     timeoutMs,
-                    "ManualPickerMoveOther").ConfigureAwait(true);
+                    "ManualPickerMoveOther",
+                    speedType).ConfigureAwait(true);
             }
             catch (Exception ex)
             {
@@ -2332,7 +2346,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             }
         }
 
-        private async Task<int> PrepareOutputStageYMoveAsync(OutputStageUnit unit, BinSide side, int timeoutMs)
+        private async Task<int> PrepareOutputStageYMoveAsync(OutputStageUnit unit, BinSide side, int timeoutMs, JogSpeedType speedType)
         {
             try
             {
@@ -2366,7 +2380,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     if (alreadyReady)
                         return 0;
 
-                    int zResult = await unit.MoveStageAxis(BinStageAxis.GoodBinZ, targetZ, JogSpeedType.Fine, 0.0).ConfigureAwait(true);
+                    int zResult = await unit.MoveStageAxis(BinStageAxis.GoodBinZ, targetZ, speedType, 0.0).ConfigureAwait(true);
                     if (zResult != 0)
                         return zResult;
 
@@ -2397,14 +2411,15 @@ namespace QMC.CDT_320.Ui.Pages.Work
             BinSide side,
             double targetY,
             int timeoutMs,
-            string reasonTag)
+            string reasonTag,
+            JogSpeedType speedType)
         {
             try
             {
                 if (unit == null)
                     return -1;
 
-                int prepareResult = await PrepareOutputStageYMoveAsync(unit, side, timeoutMs).ConfigureAwait(true);
+                int prepareResult = await PrepareOutputStageYMoveAsync(unit, side, timeoutMs, speedType).ConfigureAwait(true);
                 if (prepareResult != 0)
                     return prepareResult;
 
@@ -2416,7 +2431,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     ". MoveStageAxis interlock path is used. - Start");
 
                 // 해당 GOOD/NG StageY 이동은 기존 MoveStageAxis 경로로 인터락을 확인한 뒤 진행한다.
-                int stageResult = await unit.MoveStageAxis(yAxis, targetY, JogSpeedType.Fine, 0.0).ConfigureAwait(true);
+                int stageResult = await unit.MoveStageAxis(yAxis, targetY, speedType, 0.0).ConfigureAwait(true);
                 if (stageResult != 0)
                     return stageResult;
 
@@ -2572,7 +2587,13 @@ namespace QMC.CDT_320.Ui.Pages.Work
             return PickerAxis.PickerT3;
         }
 
-        private static Task<int> MovePickerAxisAsync(Form1 host, PickerSequenceSide side, PickerAxis axis, double target, string targetName)
+        private static Task<int> MovePickerAxisAsync(
+            Form1 host,
+            PickerSequenceSide side,
+            PickerAxis axis,
+            double target,
+            string targetName,
+            JogSpeedType speedType)
         {
             if (host == null || host.Machine == null)
                 return Task.FromResult(-1);
@@ -2580,11 +2601,11 @@ namespace QMC.CDT_320.Ui.Pages.Work
             if (side == PickerSequenceSide.Front)
             {
                 PickerFrontUnit front = host.Machine.PickerFrontUnit;
-                return front != null ? front.MoveFrontPickerAxis(axis, target, JogSpeedType.Fine, 0.0, targetName) : Task.FromResult(-1);
+                return front != null ? front.MoveFrontPickerAxis(axis, target, speedType, 0.0, targetName) : Task.FromResult(-1);
             }
 
             PickerRearUnit rear = host.Machine.PickerRearUnit;
-            return rear != null ? rear.MoveRearPickerAxis(axis, target, JogSpeedType.Fine, 0.0, targetName) : Task.FromResult(-1);
+            return rear != null ? rear.MoveRearPickerAxis(axis, target, speedType, 0.0, targetName) : Task.FromResult(-1);
         }
 
         private static async Task<int> WaitPickerAxisInPositionAsync(Form1 host, PickerSequenceSide side, PickerAxis axis, double target, int timeoutMs)
@@ -2854,6 +2875,39 @@ namespace QMC.CDT_320.Ui.Pages.Work
             }
         }
 
+        private static bool ConfirmManualMapMoveSpeed(
+            IWin32Window owner,
+            string title,
+            string message,
+            out JogSpeedType speedType)
+        {
+            speedType = JogSpeedType.Fine;
+
+            using (var dialog = new QMC.Common.MessageBoxYesNo())
+            {
+                dialog.ButtonGroupLabel = "MOVE";
+                DialogResult result = dialog.ShowDialog(
+                    string.IsNullOrWhiteSpace(title) ? "Output Stage Map" : title,
+                    message,
+                    owner,
+                    new[] { "Coarse 이동", "Fine 이동", "No" });
+
+                if (result == DialogResult.Yes)
+                {
+                    speedType = JogSpeedType.Coarse;
+                    return true;
+                }
+
+                if (result == DialogResult.No)
+                {
+                    speedType = JogSpeedType.Fine;
+                    return true;
+                }
+
+                return false;
+            }
+        }
+
         private void SetActionButtonsEnabled(bool enabled)
         {
             try
@@ -3011,7 +3065,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             }
         }
 
-        private async Task<int> MoveTargetPickerZAndYToAvoidForPickerMoveAsync(Form1 host, PickerSequenceSide side, int timeoutMs)
+        private async Task<int> MoveTargetPickerZAndYToAvoidForPickerMoveAsync(Form1 host, PickerSequenceSide side, int timeoutMs, JogSpeedType speedType)
         {
             try
             {
@@ -3020,7 +3074,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     host,
                     side,
                     timeoutMs,
-                    "ManualPickerMoveTarget").ConfigureAwait(true);
+                    "ManualPickerMoveTarget",
+                    speedType).ConfigureAwait(true);
                 if (zResult != 0)
                     return zResult;
 
@@ -3030,7 +3085,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     PickerAxis.PickerY,
                     "AvoidPosition",
                     timeoutMs,
-                    "ManualPickerMoveTarget.SafeY").ConfigureAwait(true);
+                    "ManualPickerMoveTarget.SafeY",
+                    speedType).ConfigureAwait(true);
             }
             catch (Exception ex)
             {
@@ -3043,12 +3099,12 @@ namespace QMC.CDT_320.Ui.Pages.Work
             }
         }
 
-        private async Task<int> MovePickerToAvoidOrderedAsync(Form1 host, PickerSequenceSide side, int timeoutMs, string reasonTag)
+        private async Task<int> MovePickerToAvoidOrderedAsync(Form1 host, PickerSequenceSide side, int timeoutMs, string reasonTag, JogSpeedType speedType)
         {
             try
             {
                 // 수동 Output 이동 안전 순서: Z 상승 -> Y 후진 -> X Avoid 순서로 이동한다.
-                int zResult = await MovePickerZAxesToAvoidAsync(host, side, timeoutMs, reasonTag).ConfigureAwait(true);
+                int zResult = await MovePickerZAxesToAvoidAsync(host, side, timeoutMs, reasonTag, speedType).ConfigureAwait(true);
                 if (zResult != 0)
                     return zResult;
 
@@ -3058,7 +3114,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     PickerAxis.PickerY,
                     "AvoidPosition",
                     timeoutMs,
-                    reasonTag + ".SafeY").ConfigureAwait(true);
+                    reasonTag + ".SafeY",
+                    speedType).ConfigureAwait(true);
                 if (yResult != 0)
                     return yResult;
 
@@ -3068,7 +3125,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     PickerAxis.PickerX,
                     "AvoidPosition",
                     timeoutMs,
-                    reasonTag + ".SafeX").ConfigureAwait(true);
+                    reasonTag + ".SafeX",
+                    speedType).ConfigureAwait(true);
                 if (xResult != 0)
                     return xResult;
 
@@ -3085,7 +3143,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             }
         }
 
-        private async Task<int> MovePickerZAxesToAvoidAsync(Form1 host, PickerSequenceSide side, int timeoutMs, string reasonTag)
+        private async Task<int> MovePickerZAxesToAvoidAsync(Form1 host, PickerSequenceSide side, int timeoutMs, string reasonTag, JogSpeedType speedType)
         {
             try
             {
@@ -3097,7 +3155,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
                         PickerZAxes[i],
                         "AvoidPosition",
                         timeoutMs,
-                        reasonTag + ".SafeZ").ConfigureAwait(true);
+                        reasonTag + ".SafeZ",
+                        speedType).ConfigureAwait(true);
                     if (result != 0)
                         return result;
                 }
@@ -3121,7 +3180,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
             PickerAxis axis,
             string positionName,
             int timeoutMs,
-            string phaseName)
+            string phaseName,
+            JogSpeedType speedType)
         {
             try
             {
@@ -3138,7 +3198,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     " move to " + positionName + ". target=" + target.ToString("F6") +
                     ", phase=" + phaseName + " - Start");
 
-                int result = await MovePickerAxisAsync(host, side, axis, target, targetName).ConfigureAwait(true);
+                int result = await MovePickerAxisAsync(host, side, axis, target, targetName, speedType).ConfigureAwait(true);
                 if (result != 0)
                 {
                     QMC.Common.Log.Write("Main", "SYSTEM", "OutputStageMapTransferPage",
