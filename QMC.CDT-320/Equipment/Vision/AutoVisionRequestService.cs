@@ -144,7 +144,7 @@ namespace QMC.CDT320.VisionComm
 
                 bool started = await StartMatchAsync(channel, finder, index, timeoutMs, ct).ConfigureAwait(false);
                 if (!started)
-                    return BuildMatchFailure("MATCHASYNC STARTED ACK failed.");
+                    return BuildMatchFailure("MATCHASYNC EPD timeout.");
 
                 MatchResultDto result = await WaitMatchResultAsync(channel, finder, index, timeoutMs, ct).ConfigureAwait(false);
                 if (result == null || !result.Success)
@@ -216,16 +216,42 @@ namespace QMC.CDT320.VisionComm
                     ", index=" + index +
                     ", timeoutMs=" + timeoutMs);
 
-                bool started = await VisionCommandService.StartMatchAsync(channel, finder, index, timeoutMs, ct).ConfigureAwait(false);
-                if (!started)
+                string exposureModuleName = VisionCommandService.ResolveActiveModuleName(channel);
+                Task<bool> epdTask = VisionCommandService.WaitExposureDoneAsync(channel, timeoutMs, exposureModuleName);
+                if (epdTask == null)
                 {
                     EventLogger.Write(EventKind.Alarm, "VISION", "AUTO-VISION-MATCHASYNC",
-                        "Vision MATCHASYNC STARTED 응답 실패. channel=" + channel +
+                        "Vision EPD 대기 등록 실패 — 다음 모션을 차단합니다. channel=" + channel +
                         ", finder=" + finder +
-                        ", index=" + index);
+                        ", index=" + index +
+                        ", exposureModule=" + exposureModuleName);
+                    return false;
                 }
 
-                return started;
+                Task<bool> ackTask = VisionCommandService.StartMatchAsync(channel, finder, index, timeoutMs, ct);
+                ObserveAsyncStartAckInBackground(
+                    ackTask,
+                    "AUTO-VISION-MATCHASYNC",
+                    "channel=" + channel + ", finder=" + finder + ", index=" + index);
+
+                bool epdReceived = await epdTask.ConfigureAwait(false);
+                if (!epdReceived)
+                {
+                    EventLogger.Write(EventKind.Alarm, "VISION", "AUTO-VISION-MATCHASYNC",
+                        "Vision MATCHASYNC EPD 타임아웃 — 다음 모션을 차단합니다. channel=" + channel +
+                        ", finder=" + finder +
+                        ", index=" + index +
+                        ", exposureModule=" + exposureModuleName +
+                        ", timeoutMs=" + timeoutMs);
+                    return false;
+                }
+
+                EventLogger.Write(EventKind.Event, "VISION", "AUTO-VISION-MATCHASYNC",
+                    "Vision MATCHASYNC EPD 수신 — STARTED ACK와 무관하게 진행. channel=" + channel +
+                    ", finder=" + finder +
+                    ", index=" + index +
+                    ", exposureModule=" + exposureModuleName);
+                return true;
             }
             catch (OperationCanceledException)
             {
@@ -445,9 +471,9 @@ namespace QMC.CDT320.VisionComm
             }
         }
 
-        // ── 8콜렛(Front4+Back4) 신형 규약 — 고정 8파트 "tool|fb|collet|die_index|channel|chip_uid" ──
+        // ── 8콜렛(Front4+Back4) 신형 규약 — 고정 8파트 "tool|fb|collet|die_index|channel|gridX;gridY" ──
         //  fb=0(Front)/1(Back), collet=1~4, die_index=픽업 순서 1-base(0=없음, -1=다이 없는 메뉴얼 테스트),
-        //  channel=항상 0/1 — Side 0(0°)/1(90°), Bottom/Bin 은 0°로 간주해 0. chip_uid=자재 고유 ID(결과 매칭 키, 맨 뒤).
+        //  channel=항상 0/1 — Side 0(0°)/1(90°), Bottom/Bin 은 0°로 간주해 0. 맨 뒤는 웨이퍼 격자 인덱스.
 
         /// <summary>비동기 매칭(신형) — MATCHASYNC(fb/collet 명시) 시작 후 die_index 로 MATCHRESULT 회수(2026-07-06).
         /// gridX/gridY = 웨이퍼 격자 인덱스(비전 맵 조회 대체, 모름=-1).</summary>
@@ -480,14 +506,42 @@ namespace QMC.CDT320.VisionComm
                     ", grid=" + gridX + ";" + gridY +
                     ", timeoutMs=" + timeoutMs);
 
-                bool started = await VisionCommandService.StartMatchAsync(channel, finder, fb, collet, dieIndex, 0, gridX, gridY, timeoutMs, ct).ConfigureAwait(false);   // 채널은 항상 0/1 — Bottom 은 0°로 간주해 0
-                if (!started)
+                string exposureModuleName = VisionCommandService.ResolveActiveModuleName(channel);
+                Task<bool> epdTask = VisionCommandService.WaitExposureDoneAsync(channel, timeoutMs, exposureModuleName);
+                if (epdTask == null)
                 {
                     EventLogger.Write(EventKind.Alarm, "VISION", "AUTO-VISION-MATCHASYNC",
-                        "Vision MATCHASYNC(8콜렛) STARTED 응답 실패. channel=" + channel +
-                        ", finder=" + finder + ", fb=" + fb + ", collet=" + collet + ", dieIndex=" + dieIndex);
-                    return BuildMatchFailure("MATCHASYNC STARTED ACK failed.");
+                        "Vision MATCHASYNC(8콜렛) EPD 대기 등록 실패. channel=" + channel +
+                        ", finder=" + finder + ", fb=" + fb + ", collet=" + collet + ", dieIndex=" + dieIndex +
+                        ", exposureModule=" + exposureModuleName);
+                    return BuildMatchFailure("MATCHASYNC EPD registration failed.");
                 }
+
+                Task<bool> ackTask = VisionCommandService.StartMatchAsync(
+                    channel, finder, fb, collet, dieIndex, 0, gridX, gridY, timeoutMs, ct);   // Bottom/Bin MATCH 채널은 0
+                ObserveAsyncStartAckInBackground(
+                    ackTask,
+                    "AUTO-VISION-MATCHASYNC",
+                    "channel=" + channel + ", finder=" + finder + ", fb=" + fb + ", collet=" + collet +
+                    ", dieIndex=" + dieIndex + ", grid=" + gridX + ";" + gridY);
+
+                bool epdReceived = await epdTask.ConfigureAwait(false);
+                if (!epdReceived)
+                {
+                    EventLogger.Write(EventKind.Alarm, "VISION", "AUTO-VISION-MATCHASYNC",
+                        "Vision MATCHASYNC(8콜렛) EPD 타임아웃 — 다음 모션을 차단합니다. channel=" + channel +
+                        ", finder=" + finder + ", fb=" + fb + ", collet=" + collet + ", dieIndex=" + dieIndex +
+                        ", grid=" + gridX + ";" + gridY +
+                        ", exposureModule=" + exposureModuleName +
+                        ", timeoutMs=" + timeoutMs);
+                    return BuildMatchFailure("MATCHASYNC EPD timeout.");
+                }
+
+                EventLogger.Write(EventKind.Event, "VISION", "AUTO-VISION-MATCHASYNC",
+                    "Vision MATCHASYNC(8콜렛) EPD 수신 — STARTED ACK와 무관하게 진행. channel=" + channel +
+                    ", finder=" + finder + ", fb=" + fb + ", collet=" + collet + ", dieIndex=" + dieIndex +
+                    ", grid=" + gridX + ";" + gridY +
+                    ", exposureModule=" + exposureModuleName);
 
                 MatchResultDto result = await WaitMatchResultByDieAsync(channel, finder, dieIndex, timeoutMs, ct).ConfigureAwait(false);
                 if (result == null || !result.Success)
@@ -694,9 +748,7 @@ namespace QMC.CDT320.VisionComm
             }
         }
 
-        /// <summary>동기 검사(신형) — "inspector|fb|collet|die_index|channel|chip_uid" 고정 8파트.
-        /// 기존 pickerNo*10+side 인덱스 패킹을 대체한다.</summary>
-        /// <summary>비동기 검사 시작(신형 8파트). EPD 진행 옵션 사용 시 STARTED ACK 는 진행 조건에서 제외한다.
+        /// <summary>비동기 검사 시작(신형 8파트). STARTED ACK는 진행 조건에서 제외하고 실제 연결 모듈의 EPD만 인정한다.
         /// 결과는 <see cref="WaitInspectResultByDieAsync"/> 로 회수하며, Side 는 같은 die_index 로 채널 0/1 두 번 시작한다.</summary>
         public static async Task<bool> StartInspectColletAsync(
             AutoVisionChannel channel,
@@ -708,9 +760,7 @@ namespace QMC.CDT320.VisionComm
             int gridX,
             int gridY,
             int timeoutMs,
-            CancellationToken ct,
-            bool proceedOnExposureDone = false,
-            string exposureModuleName = null)
+            CancellationToken ct)
         {
             try
             {
@@ -732,11 +782,9 @@ namespace QMC.CDT320.VisionComm
                     ", timeoutMs=" + timeoutMs);
 
                 // EPD(노출 종료) 선등록 — 반드시 명령 전송 '전'에 등록해야 푸시를 놓치지 않는다(모션 안전 규약).
-                Task<bool> epdTask = proceedOnExposureDone
-                    ? VisionCommandService.WaitExposureDoneAsync(channel, timeoutMs, exposureModuleName)
-                    : null;
-
-                if (proceedOnExposureDone && epdTask == null)
+                string exposureModuleName = VisionCommandService.ResolveActiveModuleName(channel);
+                Task<bool> epdTask = VisionCommandService.WaitExposureDoneAsync(channel, timeoutMs, exposureModuleName);
+                if (epdTask == null)
                 {
                     EventLogger.Write(EventKind.Alarm, "VISION", "AUTO-VISION-INSPECTASYNC",
                         "Vision EPD 대기 등록 실패 — 다음 모션을 차단합니다. channel=" + channel +
@@ -747,41 +795,32 @@ namespace QMC.CDT320.VisionComm
                 }
 
                 Task<bool> ackTask = VisionCommandService.InspectAsyncStartAsync(channel, inspector, fb, collet, dieIndex, visionChannel, gridX, gridY, timeoutMs, ct);
+                ObserveAsyncStartAckInBackground(
+                    ackTask,
+                    "AUTO-VISION-INSPECTASYNC",
+                    "channel=" + channel + ", inspector=" + inspector + ", fb=" + fb + ", collet=" + collet +
+                    ", dieIndex=" + dieIndex + ", ch=" + visionChannel + ", grid=" + gridX + ";" + gridY);
 
-                if (proceedOnExposureDone)
-                {
-                    // STARTED ACK 는 진행 조건으로 사용하지 않는다. 통신 실패 관찰만 백그라운드에서 수행하고,
-                    // 지정 모듈의 EPD 를 정상 수신해야만 호출자(모션 시퀀스)에 성공을 반환한다.
-                    ObserveInspectAckInBackground(ackTask, channel, inspector, fb, collet, dieIndex, visionChannel);
-                    bool epdReceived = await epdTask.ConfigureAwait(false);
-                    if (!epdReceived)
-                    {
-                        EventLogger.Write(EventKind.Alarm, "VISION", "AUTO-VISION-INSPECTASYNC",
-                            "Vision EPD(노출 종료) 타임아웃 — 다음 모션을 차단합니다. channel=" + channel +
-                            ", inspector=" + inspector +
-                            ", fb=" + fb + ", collet=" + collet + ", dieIndex=" + dieIndex + ", ch=" + visionChannel +
-                            ", exposureModule=" + (exposureModuleName ?? string.Empty) +
-                            ", timeoutMs=" + timeoutMs);
-                        return false;
-                    }
-
-                    EventLogger.Write(EventKind.Event, "VISION", "AUTO-VISION-INSPECTASYNC",
-                        "Vision EPD(노출 종료) 수신 — STARTED ACK와 무관하게 진행. channel=" + channel +
-                        ", inspector=" + inspector +
-                        ", fb=" + fb + ", collet=" + collet + ", dieIndex=" + dieIndex + ", ch=" + visionChannel +
-                        ", exposureModule=" + (exposureModuleName ?? string.Empty));
-                    return true;
-                }
-
-                bool started = await ackTask.ConfigureAwait(false);
-                if (!started)
+                bool epdReceived = await epdTask.ConfigureAwait(false);
+                if (!epdReceived)
                 {
                     EventLogger.Write(EventKind.Alarm, "VISION", "AUTO-VISION-INSPECTASYNC",
-                        "Vision INSPECTASYNC(8콜렛) STARTED 응답 실패. channel=" + channel +
+                        "Vision EPD(노출 종료) 타임아웃 — 다음 모션을 차단합니다. channel=" + channel +
                         ", inspector=" + inspector +
-                        ", fb=" + fb + ", collet=" + collet + ", dieIndex=" + dieIndex + ", ch=" + visionChannel);
+                        ", fb=" + fb + ", collet=" + collet + ", dieIndex=" + dieIndex + ", ch=" + visionChannel +
+                        ", grid=" + gridX + ";" + gridY +
+                        ", exposureModule=" + exposureModuleName +
+                        ", timeoutMs=" + timeoutMs);
+                    return false;
                 }
-                return started;
+
+                EventLogger.Write(EventKind.Event, "VISION", "AUTO-VISION-INSPECTASYNC",
+                    "Vision EPD(노출 종료) 수신 — STARTED ACK와 무관하게 진행. channel=" + channel +
+                    ", inspector=" + inspector +
+                    ", fb=" + fb + ", collet=" + collet + ", dieIndex=" + dieIndex + ", ch=" + visionChannel +
+                    ", grid=" + gridX + ";" + gridY +
+                    ", exposureModule=" + exposureModuleName);
+                return true;
             }
             catch (OperationCanceledException)
             {
@@ -801,26 +840,27 @@ namespace QMC.CDT320.VisionComm
             }
         }
 
-        /// <summary>EPD 선진행 후 STARTED ACK 를 백그라운드에서 관찰 — 실패/예외 시 알람 로그만 남긴다
-        /// (시퀀스는 이미 진행 중이므로 여기서 멈추지 않는다. 최종 방어 = INSPECTRESULT 회수 실패 알람).</summary>
-        private static void ObserveInspectAckInBackground(
-            Task<bool> ackTask, AutoVisionChannel channel, string inspector, int fb, int collet, int dieIndex, int visionChannel)
+        /// <summary>STARTED ACK는 모션 진행 조건으로 사용하지 않고 통신 진단용으로만 관찰한다.</summary>
+        private static void ObserveAsyncStartAckInBackground(Task<bool> ackTask, string eventId, string context)
         {
+            if (ackTask == null)
+            {
+                EventLogger.Write(EventKind.Alarm, "VISION", eventId,
+                    "EPD 진행 명령의 STARTED ACK Task가 생성되지 않았습니다. " + context);
+                return;
+            }
+
             ackTask.ContinueWith(t =>
             {
                 try
                 {
                     if (t.IsFaulted)
-                        EventLogger.Write(EventKind.Alarm, "VISION", "AUTO-VISION-INSPECTASYNC",
-                            "EPD 선진행 후 STARTED ACK 백그라운드 예외. channel=" + channel +
-                            ", inspector=" + inspector +
-                            ", fb=" + fb + ", collet=" + collet + ", dieIndex=" + dieIndex + ", ch=" + visionChannel +
+                        EventLogger.Write(EventKind.Alarm, "VISION", eventId,
+                            "EPD 진행 명령의 STARTED ACK 백그라운드 예외. " + context +
                             ", error=" + (t.Exception != null ? t.Exception.GetBaseException().Message : "unknown"));
                     else if (t.IsCanceled || !t.Result)
-                        EventLogger.Write(EventKind.Alarm, "VISION", "AUTO-VISION-INSPECTASYNC",
-                            "EPD 선진행 후 STARTED ACK 실패/취소. 검사 결과 회수 단계에서 재확인됩니다. channel=" + channel +
-                            ", inspector=" + inspector +
-                            ", fb=" + fb + ", collet=" + collet + ", dieIndex=" + dieIndex + ", ch=" + visionChannel);
+                        EventLogger.Write(EventKind.Alarm, "VISION", eventId,
+                            "EPD 진행 명령의 STARTED ACK 실패/취소. 최종 RESULT 회수 단계에서 재확인됩니다. " + context);
                 }
                 catch
                 {
@@ -944,7 +984,7 @@ namespace QMC.CDT320.VisionComm
                 if (!started)
                 {
                     EventLogger.Write(EventKind.Alarm, "VISION", "AUTO-VISION-INSPECTASYNC",
-                        "Vision INSPECTASYNC STARTED ACK를 받지 못했습니다. 검사 NG가 아니라 검사 시작 실패입니다. channel=" + channel +
+                        "Vision INSPECTASYNC EPD를 받지 못했습니다. 검사 NG가 아니라 촬상 진행 실패입니다. channel=" + channel +
                         ", inspector=" + inspector +
                         ", fb=" + fb + ", collet=" + collet + ", dieIndex=" + dieIndex + ", ch=" + visionChannel);
                     return null;

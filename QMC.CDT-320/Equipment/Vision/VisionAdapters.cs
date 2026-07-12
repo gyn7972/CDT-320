@@ -193,8 +193,6 @@ namespace QMC.CDT320.VisionComm
                     ", grid=" + gridX + ";" + gridY +
                     ", timeoutMs=" + timeoutMs);
 
-                // BottomInspection EPD(노출 종료) 수신만 진행 조건으로 사용한다.
-                // STARTED ACK 는 무시하며, EPD 타임아웃 시 다음 픽커 이동을 차단한다.
                 return await AutoVisionRequestService.StartInspectColletAsync(
                     AutoVisionChannel.BottomInspection,
                     VisionToolIds.BottomInspection.SurfaceInspector,
@@ -205,9 +203,7 @@ namespace QMC.CDT320.VisionComm
                     gridX,
                     gridY,
                     timeoutMs,
-                    ct,
-                    proceedOnExposureDone: true,
-                    exposureModuleName: "BottomInspection").ConfigureAwait(false);
+                    ct).ConfigureAwait(false);
             }
             catch (OperationCanceledException)
             {
@@ -466,7 +462,7 @@ namespace QMC.CDT320.VisionComm
                 if (!started)
                 {
                     EventLogger.Write(EventKind.Alarm, "VISION", "AUTO-VISION-SIDE-INSPECTASYNC",
-                        "Side 검사 시작 ACK 수신 실패. 검사 NG가 아니라 Vision INSPECTASYNC STARTED 미수신입니다. camera=" + _sideChannel +
+                        "Side 검사 시작 EPD 수신 실패. 검사 NG가 아니라 Vision 촬상 완료 미수신입니다. camera=" + _sideChannel +
                         ", fb=" + Fb +
                         ", pickerNo=" + pickerNo +
                         ", collet=" + pickerNo +
@@ -526,7 +522,7 @@ namespace QMC.CDT320.VisionComm
                 if (AutoVisionRequestService.IsInspectionResultTransportFailure(inspection))
                 {
                     EventLogger.Write(EventKind.Alarm, "VISION", "AUTO-VISION-SIDE-INSPECTRESULT",
-                        "Side 검사 결과 수신 실패. 검사 NG가 아니라 Vision ACK/RESULT 미수신입니다. camera=" + _sideChannel +
+                        "Side 검사 결과 수신 실패. 검사 NG가 아니라 Vision INSPECTRESULT 미수신입니다. camera=" + _sideChannel +
                         ", fb=" + Fb +
                         ", pickerNo=" + pickerNo +
                         ", collet=" + pickerNo +

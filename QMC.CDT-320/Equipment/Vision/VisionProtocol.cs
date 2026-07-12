@@ -151,8 +151,8 @@ namespace QMC.CDT320.VisionComm
 
     public static class VisionProtocolPushCommands
     {
-        public const string ExposureDone = "FPD";
-        public const string LegacyExposureDone = "EPD";
+        public const string ExposureDone = "EPD";
+        public const string LegacyExposureDone = "FPD";
         public const string Alarm = "ARM";
         public const string RecipeRequest = "RECIPEREQ";
         /// <summary>Bottom 외곽 종료(EventSearchDieEnd) XYT —

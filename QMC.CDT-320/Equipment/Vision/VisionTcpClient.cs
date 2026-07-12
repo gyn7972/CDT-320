@@ -346,9 +346,9 @@ namespace QMC.CDT320.VisionComm
             };
         }
 
-        // ── 비동기 매칭 (MATCHASYNC 1차 ACK=STARTED → 백그라운드 알고리즘 → MATCHRESULT 폴링) ──
-        /// <summary>비동기 매칭 시작 — 그랩 완료(1차 ACK=STARTED) 면 true. 핸들러는 이후 다음 스텝 진행 +
-        /// <see cref="PollMatchResultAsync"/> 로 알고리즘 완료를 폴링한다.</summary>
+        // ── 비동기 매칭 (MATCHASYNC STARTED는 그랩 전 응답 → EPD 후 모션 진행 → MATCHRESULT 폴링) ──
+        /// <summary>비동기 매칭 시작 명령의 STARTED 응답만 확인한다. STARTED는 그랩 전 응답이므로
+        /// 모션 진행 조건으로 사용하지 않고, 호출부가 EPD를 별도로 대기해야 한다.</summary>
         public async Task<bool> MatchAsyncStartAsync(string finder, int index = 0, int timeoutMs = 30000)
         {
             return await MatchAsyncStartAsync(finder, index, timeoutMs, CancellationToken.None).ConfigureAwait(false);
@@ -398,7 +398,7 @@ namespace QMC.CDT320.VisionComm
         // (신형) MATCHRESULT 폴링 키 = die_index — 기존 int 오버로드(PollMatchResultAsync(finder, index, ...))와 동일 와이어
         // "MODULE|MATCHRESULT|finder|die_index" 를 사용한다(chip_uid 폐기, 2026-07-06).
 
-        // ── 비동기 INSPECT (1차 ACK=STARTED → 백그라운드 그랩+검사 → INSPECTRESULT 폴링) ──
+        // ── 비동기 INSPECT (STARTED는 그랩 전 응답 → EPD 후 모션 진행 → INSPECTRESULT 폴링) ──
         /// <summary>비동기 검사 시작(구형 인덱스 규약, 수동/셋업용) — 키=index. 이후 PollInspectResultAsync(inspector, index)로 회수.</summary>
         public async Task<bool> InspectAsyncStartAsync(string inspector, int index = 0, int timeoutMs = 30000)
         {
@@ -600,7 +600,7 @@ namespace QMC.CDT320.VisionComm
                             LastRxUtc = DateTime.UtcNow;
                             LogMsg("RX: " + line);
                             VisionProtocolResponse response = VisionProtocolResponse.Parse(line);
-                            // 비동기 푸시 — FPD/EPD/ARM/RECIPEREQ는 응답 큐와 무관하다.
+                            // 비동기 푸시 — EPD/FPD(구버전)/ARM/RECIPEREQ/XYT는 응답 큐와 무관하다.
                             if (response.IsPush &&
                                 (string.Equals(response.Command, VisionProtocolPushCommands.ExposureDone, StringComparison.OrdinalIgnoreCase) ||
                                  string.Equals(response.Command, VisionProtocolPushCommands.LegacyExposureDone, StringComparison.OrdinalIgnoreCase)))

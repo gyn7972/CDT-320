@@ -37,6 +37,13 @@ ACK|MODULE|CMD|result
 ERR|MODULE|CMD|msg
 ```
 
+Vision 비동기 푸시:
+
+```text
+EPD|MODULE
+XYT|MODULE|fb|collet|die_index|x=...;y=...;t=...;ix=...;iy=...;valid=0|1;w=...;h=...
+```
+
 Vision TCP 서버의 주석과 실제 파싱이 이 포맷을 기준으로 한다.
 
 - `QMC.Vision/Equipment/Comm/VisionTcpServer.cs`: 요청/응답 포맷 주석
@@ -78,6 +85,20 @@ Vision 쪽 `ColletAddress.TryParseWire()`가 위 8파트를 그대로 파싱한�
 3. `parts[1]`을 `CMD`로 본다.
 4. `MATCHASYNC`/`INSPECTASYNC`는 먼저 `ACK|MODULE|CMD|STARTED`를 보낸다.
 5. 실제 Grab/검사/매칭은 백그라운드로 실행한다.
+
+`STARTED`는 Grab 전에 오는 접수 응답이다. Handler 자동운전은 이 응답으로 다음 모션을 시작하지 않는다.
+명령 전 해당 TCP 연결 모듈의 EPD 대기를 먼저 등록하고, `EPD|MODULE`을 수신한 뒤에만 다음 모션으로 진행한다.
+다른 모듈의 EPD는 인정하지 않는다. `FPD|MODULE`은 이전 버전 호환 수신만 유지한다.
+
+최종 데이터는 EPD에 포함되지 않는다.
+
+```text
+MATCHASYNC   -> EPD로 모션 진행 -> MATCHRESULT로 최종 매칭값 회수
+INSPECTASYNC -> EPD로 모션 진행 -> INSPECTRESULT로 최종 검사값 회수
+```
+
+DryRun/Simulation에서는 Vision 연결이 있을 때만 별도 `GRAB`을 보내고 결과는 시뮬레이션 값을 사용한다.
+정상 자동운전에서는 `GRAB`을 먼저 보내지 않고 `MATCHASYNC`/`INSPECTASYNC` 자체가 1회 촬상한다.
 
 `INSPECTASYNC`는 `DoInspectAsync()`에서 `ColletAddress.TryParseWire(parts, ...)`를 호출한다.
 
@@ -175,8 +196,12 @@ WaferVision|MATCHRESULT|DieFinder|123
 Bottom XYT push:
 
 ```text
-XYT|MODULE|fb|collet|die_index|x=...;y=...;t=...;ix=...;iy=...;valid=1
+XYT|MODULE|fb|collet|die_index|x=...;y=...;t=...;ix=...;iy=...;valid=1;w=...;h=...
 ```
+
+Bottom 외곽 검출이 끝나면 Vision은 최종 `INSPECTRESULT`보다 먼저 XYT/W/H를 푸시할 수 있다.
+Handler `VisionTcpClient`는 이 푸시를 응답 큐와 분리해 파싱하고 `BottomXytStore`에
+`(fb,collet)` 및 `die_index` 기준 최신값으로 저장한다. Side 공정은 이 저장값 도착을 확인한 뒤 진행한다.
 
 ## 정리 기준
 

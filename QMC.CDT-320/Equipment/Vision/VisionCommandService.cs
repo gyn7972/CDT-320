@@ -27,6 +27,14 @@ namespace QMC.CDT320.VisionComm
             }
         }
 
+        /// <summary>현재 명령을 실제로 전송할 TCP 연결의 모듈명.
+        /// Side 전용 연결이 없어서 BottomInspection 연결로 폴백한 경우에도 실제 EPD 모듈명과 일치한다.</summary>
+        public static string ResolveActiveModuleName(AutoVisionChannel channel)
+        {
+            VisionTcpClient client = ResolveClient(channel);
+            return client != null ? client.ModuleName : string.Empty;
+        }
+
         public static bool IsConnected(AutoVisionChannel channel)
         {
             VisionTcpClient client = ResolveClient(channel);
@@ -201,11 +209,11 @@ namespace QMC.CDT320.VisionComm
 
         /// <summary>다음 EPD(노출 종료) 푸시를 1회 대기하는 Task 생성 — 경합 방지를 위해 명령 전송 '전'에 만들어 둘 것.
         /// Vision 은 FOCUS_VAL 그랩의 노출이 끝나면 즉시 EPD 를 푸시하므로, 핸들러는 이를 받고 바로 다음 위치로
-        /// 이동을 시작할 수 있다(결과 ACK 는 채점 후 도착). 미연결이면 null.</summary>
+        /// 이동을 시작할 수 있다(결과 ACK 는 채점 후 도착). 현재 TCP 연결의 모듈 EPD만 인정한다. 미연결이면 null.</summary>
         public static Task<bool> WaitExposureDoneAsync(AutoVisionChannel channel, int timeoutMs)
         {
             VisionTcpClient client = ResolveClient(channel);
-            return client != null ? client.WaitExposureDoneAsync(timeoutMs) : null;
+            return client != null ? client.WaitExposureDoneAsync(timeoutMs, client.ModuleName) : null;
         }
 
         /// <summary>EPD 1회 대기(모듈 필터) — 지정 모듈의 EPD 만 인정(브로드캐스트 오인 방지). 미연결이면 null.</summary>

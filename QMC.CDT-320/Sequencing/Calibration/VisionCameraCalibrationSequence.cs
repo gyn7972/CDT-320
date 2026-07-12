@@ -1248,7 +1248,7 @@ namespace QMC.CDT320.Sequencing.Calibration
             if (started)
             {
                 EventLogger.Write(EventKind.Event, "CAL", "VISION-CAMERA-CAL-MATCHASYNC-STARTED",
-                    cameraName + " Vision ReticleFinder MATCHASYNC STARTED 응답 또는 bypass 허가를 받았습니다.");
+                    cameraName + " Vision ReticleFinder MATCHASYNC EPD 또는 bypass 허가를 받았습니다.");
 
                 return await WaitReticleMatchResultAsync(cameraName, channel, timeoutMs, ct).ConfigureAwait(false);
             }
@@ -1261,7 +1261,7 @@ namespace QMC.CDT320.Sequencing.Calibration
                 return new MatchResultDto
                 {
                     Success = false,
-                    RawError = cameraName + " ReticleFinder MATCHASYNC STARTED 응답을 받지 못했습니다."
+                    RawError = cameraName + " ReticleFinder MATCHASYNC EPD를 받지 못했습니다."
                 };
             }
 
