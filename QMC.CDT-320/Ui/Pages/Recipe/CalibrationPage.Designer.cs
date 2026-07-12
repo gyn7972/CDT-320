@@ -19,6 +19,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
         private Button btnPickUpZCal;
         private Button btnPlaceZCal;
         private Button btnNeedleZCal;
+        private Button btnAutoCalibration;
         private Label lblGuide;
         private Label lblStatus;
 
@@ -48,6 +49,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.btnPickUpZCal = new System.Windows.Forms.Button();
             this.btnPlaceZCal = new System.Windows.Forms.Button();
             this.btnNeedleZCal = new System.Windows.Forms.Button();
+            this.btnAutoCalibration = new System.Windows.Forms.Button();
             this.lblGuide = new System.Windows.Forms.Label();
             this.lblStatus = new System.Windows.Forms.Label();
             this.rootLayout.SuspendLayout();
@@ -133,14 +135,17 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.buttonLayout.Controls.Add(this.btnPickUpZCal, 0, 2);
             this.buttonLayout.Controls.Add(this.btnPlaceZCal, 1, 2);
             this.buttonLayout.Controls.Add(this.btnNeedleZCal, 2, 2);
+            this.buttonLayout.Controls.Add(this.btnAutoCalibration, 0, 3);
+            this.buttonLayout.SetColumnSpan(this.btnAutoCalibration, 3);
             this.buttonLayout.Dock = System.Windows.Forms.DockStyle.Fill;
             this.buttonLayout.Location = new System.Drawing.Point(6, 20);
             this.buttonLayout.Margin = new System.Windows.Forms.Padding(0);
             this.buttonLayout.Name = "buttonLayout";
-            this.buttonLayout.RowCount = 2;
-            this.buttonLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 33.33333F));
-            this.buttonLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 33.33333F));
-            this.buttonLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 33.33333F));
+            this.buttonLayout.RowCount = 4;
+            this.buttonLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 25F));
+            this.buttonLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 25F));
+            this.buttonLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 25F));
+            this.buttonLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 25F));
             this.buttonLayout.Size = new System.Drawing.Size(1664, 438);
             this.buttonLayout.TabIndex = 1;
             // 
@@ -296,6 +301,23 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.btnNeedleZCal.TabIndex = 8;
             this.btnNeedleZCal.Text = "NEEDLE Z CAL";
             this.btnNeedleZCal.UseVisualStyleBackColor = false;
+            //
+            // btnAutoCalibration
+            //
+            this.btnAutoCalibration.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(238)))), ((int)(((byte)(82)))), ((int)(((byte)(24)))));
+            this.btnAutoCalibration.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.btnAutoCalibration.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.btnAutoCalibration.FlatAppearance.BorderSize = 0;
+            this.btnAutoCalibration.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this.btnAutoCalibration.Font = new System.Drawing.Font("맑은 고딕", 13F, System.Drawing.FontStyle.Bold);
+            this.btnAutoCalibration.ForeColor = System.Drawing.Color.White;
+            this.btnAutoCalibration.Location = new System.Drawing.Point(8, 335);
+            this.btnAutoCalibration.Margin = new System.Windows.Forms.Padding(8);
+            this.btnAutoCalibration.Name = "btnAutoCalibration";
+            this.btnAutoCalibration.Size = new System.Drawing.Size(1648, 95);
+            this.btnAutoCalibration.TabIndex = 9;
+            this.btnAutoCalibration.Text = "AUTO CALIBRATION";
+            this.btnAutoCalibration.UseVisualStyleBackColor = false;
             // 
             // lblGuide
             // 
@@ -335,6 +357,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.btnPickUpZCal.Click += new System.EventHandler(this.btnPickUpZCal_Click);
             this.btnPlaceZCal.Click += new System.EventHandler(this.btnPlaceZCal_Click);
             this.btnNeedleZCal.Click += new System.EventHandler(this.btnNeedleZCal_Click);
+            this.btnAutoCalibration.Click += new System.EventHandler(this.btnAutoCalibration_Click);
             //
             // CalibrationPage
             //

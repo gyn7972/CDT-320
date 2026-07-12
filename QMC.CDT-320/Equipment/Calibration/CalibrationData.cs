@@ -4,6 +4,34 @@ using System.Runtime.Serialization;
 namespace QMC.CDT320.Calibration
 {
     [DataContract]
+    public sealed class AutoCalibrationSettings
+    {
+        [DataMember] public bool UseColletCalibration { get; set; } = true;
+        [DataMember] public bool UsePickUpZCalibration { get; set; } = true;
+        [DataMember] public bool UsePlaceZCalibration { get; set; } = true;
+
+        public AutoCalibrationSettings Clone()
+        {
+            try
+            {
+                return new AutoCalibrationSettings
+                {
+                    UseColletCalibration = UseColletCalibration,
+                    UsePickUpZCalibration = UsePickUpZCalibration,
+                    UsePlaceZCalibration = UsePlaceZCalibration
+                };
+            }
+            catch
+            {
+                return new AutoCalibrationSettings();
+            }
+            finally
+            {
+            }
+        }
+    }
+
+    [DataContract]
     public sealed class CalibrationMotionSettings
     {
         public const double DefaultMoveVelocity = 10.0;
@@ -604,6 +632,7 @@ namespace QMC.CDT320.Calibration
         [DataMember] public NeedleCalibrationData Needle { get; set; } = new NeedleCalibrationData();
         [DataMember] public PickUpZCalibrationData PickUpZ { get; set; } = new PickUpZCalibrationData();
         [DataMember] public PlaceZCalibrationData PlaceZ { get; set; } = new PlaceZCalibrationData();
+        [DataMember] public AutoCalibrationSettings AutoCalibration { get; set; } = new AutoCalibrationSettings();
         [DataMember] public DateTime UpdatedAt { get; set; }
         [DataMember] public string UpdatedBy { get; set; }
 
@@ -627,6 +656,8 @@ namespace QMC.CDT320.Calibration
                 PickUpZ = new PickUpZCalibrationData();
             if (PlaceZ == null)
                 PlaceZ = new PlaceZCalibrationData();
+            if (AutoCalibration == null)
+                AutoCalibration = new AutoCalibrationSettings();
 
             Camera.EnsureObjects();
             Collet.EnsureObjects();
