@@ -95,7 +95,7 @@ namespace QMC.Vision.Core
 
             var r = new InspectionResult { RoiName = Id, IsPass = true };
             LastValid = false;
-            byte[] rented1x = null, rented2x = null;   // 풀 대여 버퍼 추적 — finally 에서 반납(2026-07-12)
+            byte[] rented1x = null;   // 풀 대여 버퍼 추적 — finally 에서 반납(2026-07-12)
             try
             {
                 if (image == null) { r.ErrorMessage = "no image"; r.IsPass = false; return r; }
@@ -104,23 +104,13 @@ namespace QMC.Vision.Core
                 libRoi.Intersect(new Rectangle(0, 0, image.Width, image.Height));
                 if (libRoi.Width <= 4 || libRoi.Height <= 4) { r.ErrorMessage = "roi empty"; r.IsPass = false; return r; }
 
+                // 실제 검사 모드 계약(2026-07-12, 사용자 확정 — lib 의 bSimulate=false 고정):
+                // '1배 원본 전체' 그레이를 넣고, lib 가 FindChipCenter 로 ChipRoi 를 다이 중심에 재배치해
+                // 크롭 → GPU 2배 확장(ctx) → 검사한다. 여기서 미리 2배 확장하면 이중 확장(527MP)으로
+                // 검사가 수십 초로 느려지고 W/H·좌표가 2배 왜곡된다(2026-07-12 실장비 확인) — 사전 확장 금지.
                 int gw, gh;
-                byte[] gray = ToGray(image, libRoi, out gw, out gh);
+                byte[] gray = ToGray(image, new Rectangle(0, 0, image.Width, image.Height), out gw, out gh);
                 rented1x = gray;
-
-                // BottomInspect 규약: 크롭 → 2배 확장 → 처리 → (÷2·×0.5)로 원좌표 환원.
-                // bSimulate(단일 이미지) 경로는 '이미 2배 확장된 이미지'를 전제하고 확장을 건너뛰므로,
-                // 라이브 그랩의 1배 크롭을 그대로 넣으면 폭/높이/코너가 절반으로 나온다 — 여기서 2배 확장해 규약을 맞춘다(2026-07-11).
-                long px2x = (long)(gw * 2) * (gh * 2);
-                if (px2x > int.MaxValue)
-                {
-                    QMC.Common.Logging.EventLogger.Write(QMC.Common.Logging.EventKind.Event, "VISION", "BottomInspector",
-                        Id + " ROI 2배 확장 불가(크기 초과 " + gw + "x" + gh + ") → 레거시 검사");
-                    return InspectLegacy(image);
-                }
-                gray = Upscale2xBilinear(gray, gw, gh, out gw, out gh);
-                rented2x = gray;
-                ReturnBuf(rented1x); rented1x = null;   // 1배 크롭은 확장 완료 즉시 재사용 가능
 
                 // 이미지 저장 경로: 설정→일반(VisionSettings.ImageLogPath) 우선, 비어있으면 FileSavePath 폴백.
                 string saveRoot = QMC.Vision.Config.VisionConfigStore.Current?.ImageLogPath;
@@ -131,7 +121,7 @@ namespace QMC.Vision.Core
                     Images = new List<byte[]> { gray },
                     ImageWidth = gw,
                     ImageHeight = gh,
-                    ChipRoi = new Rectangle(0, 0, gw, gh),
+                    ChipRoi = libRoi,   // 위치는 lib 가 다이 중심으로 재배치 — 검사 창 크기(W/H)만 유효
                     Threshold = ChipThreshold,
                     SelectedChipType = DarkChip ? VI.InspectionParameterBase.ChipType.Black : VI.InspectionParameterBase.ChipType.White,
                     ChippingDepth = ChippingDepth,
@@ -176,7 +166,9 @@ namespace QMC.Vision.Core
                 }
 
                 _libNullStreak = 0;   // lib 성공 → 래치 해제
-                MapLibResult(br, r, libRoi, image.Width, image.Height);
+                // 실제모드에서 lib 결과 좌표는 (재배치된 ChipRoi 좌상단이 가산된) '1배 원본 전체' 좌표 —
+                // 추가 ROI 오프셋 불필요 → roi=(0,0) 전달.
+                MapLibResult(br, r, new Rectangle(0, 0, image.Width, image.Height), image.Width, image.Height);
                 LastValid = true;
                 return r;
             }
@@ -195,18 +187,18 @@ namespace QMC.Vision.Core
             }
             finally
             {
-                // 2배 버퍼는 BottomInspect 가 동기 완료(내부 2D 복사 후 사용) 후라 반환 시점에 참조 없음.
+                // 1배 원본 그레이는 BottomInspect 가 동기 완료(내부 크롭/확장 후 사용) 후라 반환 시점에 참조 없음.
                 ReturnBuf(rented1x);
-                ReturnBuf(rented2x);
             }
         }
 
-        /// <summary>원본 라이브러리 검사기 1회 생성 + VisionConfig(픽셀 사이즈) 주입. 단일 Bitmap 입력이므로 bSimulate=true(단일이미지 CPU 경로).</summary>
+        /// <summary>원본 라이브러리 검사기 1회 생성 + VisionConfig(픽셀 사이즈) 주입.
+        /// 설비 계약(2026-07-12): 실제 검사 모드(bSimulate=false) — 1배 원본 전체 입력, lib 가 크롭+2배 확장 수행.</summary>
         private VI.CDTInspector GetLibInspector()
         {
             if (_libInspector == null)
             {
-                _libInspector = new VI.CDTInspector { bSimulate = true };
+                _libInspector = new VI.CDTInspector { bSimulate = false };
                 var cfg = new VI.VisionConfig();
                 cfg.BottomVision.PixelSizeWidthMm = PixelSizeWidthMm;
                 cfg.BottomVision.PixelSizeHeightMm = PixelSizeHeightMm;
@@ -225,12 +217,10 @@ namespace QMC.Vision.Core
             AddItem(r, "Angle", br.Angle.ToString("F3"), true);
 
             // BottomOffset = '화면(그랩 이미지) 센터' 기준 mm(2026-07-12 확정).
-            // 종전 버그: lib 의 br.Offset 은 X↔Y 가 스왑된(Offset.X=다이중심 Y, Offset.Y=다이중심 X)
-            // 'ROI 크롭 좌표계' 픽셀인데, 스왑 해제 없이 ROI '중심'(전체 좌표)을 빼서 축·좌표계·기준점이
-            // 전부 어긋남 → -3/-5mm 대 상수 오차. 정정: 스왑 해제 → ROI 좌상단 가산(전체 이미지 좌표)
-            // → 이미지 센터 차감 → mm 변환.
-            double dieCxPx = roi.X + br.Offset.Y;   // 스왑 해제: Offset.Y = 다이 중심 X(px, 크롭 기준)
-            double dieCyPx = roi.Y + br.Offset.X;   //            Offset.X = 다이 중심 Y(px, 크롭 기준)
+            // lib br.Offset = 다이 중심(px, ROI 크롭 좌표계) — deece5d5('W/H 바꾸는 코드 삭제') 이후
+            // X/Y 스왑 없음. ROI 좌상단 가산(전체 이미지 좌표) → 이미지 센터 차감 → mm 변환.
+            double dieCxPx = roi.X + br.Offset.X;
+            double dieCyPx = roi.Y + br.Offset.Y;
             double offsetXmm = (dieCxPx - imageW / 2.0) * PixelSizeWidthMm;
             double offsetYmm = (dieCyPx - imageH / 2.0) * PixelSizeHeightMm;
             AddItem(r, "Offset X", offsetXmm.ToString("F4"), true);
