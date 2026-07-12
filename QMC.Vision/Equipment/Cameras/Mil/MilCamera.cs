@@ -26,8 +26,10 @@ namespace QMC.Vision.Cameras.Mil
         private int    _bands = 1;
         private MIL_DIG_HOOK_FUNCTION_PTR _liveHook;   // 라이브 프레임 콜백 델리게이트(GC 방지로 필드 보관)
         private MIL_DIG_HOOK_FUNCTION_PTR _exposureEndHook;   // 노출 종료(ExposureEnd) 훅 델리게이트(GC 방지로 필드 보관)
-        private MIL_DIG_HOOK_FUNCTION_PTR _frameStartHook;    // 프레임 전송 시작 훅 델리게이트(ExposureEnd 폴백용, GC 방지로 필드 보관)
-        private volatile bool _expEndHwFired;                  // HW ExposureEnd 훅이 한 번이라도 발화했는지(폴백 억제)
+        private MIL_DIG_HOOK_FUNCTION_PTR _frameStartHook;    // 프레임 전송 시작 훅 델리게이트(진단용, GC 방지로 필드 보관)
+        private MIL_DIG_HOOK_FUNCTION_PTR _gcEventHook;       // GenICam 카메라 이벤트(ExposureEnd) 훅 델리게이트 — CXP/Timed 노출용
+        private long _gcEventCount;                            // GenICam ExposureEnd 이벤트 발화 횟수(진단 로그용)
+        private volatile bool _expEndHwFired;                  // 실제 노출 종료 훅(그래버 or GenICam)이 한 번이라도 발화했는지
         private long _expEndCount;                             // 발화 횟수(진단 로그용)
         private long _frameStartCount;                         // FRAME_START 횟수(진단 로그용)
         private readonly System.Diagnostics.Stopwatch _liveSw = System.Diagnostics.Stopwatch.StartNew();
@@ -100,23 +102,56 @@ namespace QMC.Vision.Cameras.Mil
 
             IsOpen = true;
 
-            // ── ExposureEnd 훅 등록 ──────────────────────────────
-            // ① 카메라 GenICam 이벤트 알림 켜기 시도(Hik 과 동일 개념) — 미지원 카메라는 TryFeature 가 조용히 무시.
-            //    CXP 에서 노출을 카메라(Timed)가 제어하면 그래버 훅이 이 알림에 의존할 수 있다.
-            TryFeatureS("EventSelector", "ExposureEnd");
-            TryFeatureS("EventNotification", "On");
-
-            // ② 그래버 M_GRAB_EXPOSURE_END 훅 — 그래버가 노출 신호를 제어/수신하는 구성에서 발화.
+            // ── ExposureEnd(EPD) 발화 소스 등록 ──────────────────────────────
+            // EPD 는 '실제 노출 종료' 를 우선하고, 그런 소스가 없으면 FRAME_START 폴백으로 발화한다.
+            //   ② 그래버 M_GRAB_EXPOSURE_END : 그래버가 노출을 제어/측정(CameraLink 등)할 때 발화
+            //   ③ GenICam 카메라 ExposureEnd 이벤트(M_GC_EVENT) : 카메라가 노출 제어(CXP/Timed)하고 그 이벤트를 지원할 때
+            //   ④ FRAME_START 폴백 : ②③ 이 없는 카메라(예: VNP-576MX2 = EventSelector 에 ExposureEnd 없음)에서 발화
             _expEndHwFired = false;
             _expEndCount = 0;
             _frameStartCount = 0;
+            _gcEventCount = 0;
+
             _exposureEndHook = ExposureEndHook;
             try { MIL.MdigHookFunction(_dig, MIL.M_GRAB_EXPOSURE_END, _exposureEndHook, IntPtr.Zero); }
             catch (Exception ex) { _exposureEndHook = null; LiveLog("ExposureEnd 훅 등록 실패(미지원 가능): " + ex.Message); }
 
-            // ③ 폴백: M_GRAB_FRAME_START(그래버가 프레임 수신 시작 = 노출 종료 직후) —
-            //    HW ExposureEnd 훅이 한 번도 발화하지 않는 구성에서 이 시점으로 ExposureEnded 를 대체 발화한다.
-            //    (글로벌 셔터 기준 노출 종료 후 readout/전송이 시작되므로 '기구 동작 앞당김' 계약을 만족)
+            _gcEventHook = GcExposureEndHook;
+            try { MIL.MdigHookFunction(_dig, MIL.M_GC_EVENT, _gcEventHook, IntPtr.Zero); }
+            catch (Exception ex) { _gcEventHook = null; LiveLog("GenICam 이벤트 훅 등록 실패: " + ex.Message); }
+
+            // 카메라가 GenICam ExposureEnd 이벤트를 지원할 때만 알림을 켠다 — 미지원 카메라에서 다른 이벤트
+            //   (Test 등)를 켜두면 M_GC_EVENT 로 들어와 스퓨리어스 EPD 가 될 수 있으므로 Off 로 둔다(2026-07-13).
+            try
+            {
+                MIL_INT cnt = 0;
+                MIL.MdigInquireFeature(_dig, MIL.M_FEATURE_ENUM_ENTRY_COUNT, "EventSelector", MIL.M_TYPE_MIL_INT, ref cnt);
+                var names = new System.Collections.Generic.List<string>();
+                for (MIL_INT i = 0; i < cnt; i++)
+                {
+                    try
+                    {
+                        var sb = new System.Text.StringBuilder(256);
+                        MIL.MdigInquireFeature(_dig, MIL.M_FEATURE_ENUM_ENTRY_NAME + i, "EventSelector", MIL.M_TYPE_STRING, sb);
+                        names.Add(sb.ToString());
+                    }
+                    catch { }
+                }
+                bool hasExpEnd = names.Exists(x => string.Equals(x, "ExposureEnd", StringComparison.OrdinalIgnoreCase));
+                LiveLog("GenICam EventSelector 지원 이벤트(" + (long)cnt + "개): " + string.Join(", ", names)
+                    + " → ExposureEnd " + (hasExpEnd ? "지원(GenICam 이벤트로 실제 노출종료 EPD)" : "미지원 → FRAME_START 폴백으로 EPD(실제 노출종료 아님, 임시)"));
+                if (hasExpEnd)
+                {
+                    TryFeatureS("EventSelector", "ExposureEnd");
+                    TryFeatureS("EventNotification", "On");
+                }
+                else
+                {
+                    TryFeatureS("EventNotification", "Off");   // 스퓨리어스 EPD 방지 — GenICam 이벤트 미사용
+                }
+            }
+            catch (Exception exEv) { LiveLog("GenICam 이벤트 진단 예외: " + exEv.Message); }
+
             _frameStartHook = FrameStartHook;
             try { MIL.MdigHookFunction(_dig, MIL.M_GRAB_FRAME_START, _frameStartHook, IntPtr.Zero); }
             catch (Exception ex) { _frameStartHook = null; LiveLog("FRAME_START 훅 등록 실패: " + ex.Message); }
@@ -171,6 +206,8 @@ namespace QMC.Vision.Cameras.Mil
             if (!WaitHaltDone(3000)) LiveLog("Close: MdigHalt 미완료 상태로 해제 진행");
             try { if (_exposureEndHook != null) MIL.MdigHookFunction(_dig, MIL.M_GRAB_EXPOSURE_END + MIL.M_UNHOOK, _exposureEndHook, IntPtr.Zero); } catch { }
             _exposureEndHook = null;
+            try { if (_gcEventHook != null) MIL.MdigHookFunction(_dig, MIL.M_GC_EVENT + MIL.M_UNHOOK, _gcEventHook, IntPtr.Zero); } catch { }
+            _gcEventHook = null;
             try { if (_frameStartHook != null) MIL.MdigHookFunction(_dig, MIL.M_GRAB_FRAME_START + MIL.M_UNHOOK, _frameStartHook, IntPtr.Zero); } catch { }
             _frameStartHook = null;
             try { if (!IsNull(_buf)) MIL.MbufFree(_buf); } catch { }
@@ -548,16 +585,42 @@ namespace QMC.Vision.Cameras.Mil
             return 0;
         }
 
+        /// <summary>GenICam 카메라 이벤트 훅(M_GC_EVENT) — 카메라가 노출을 제어(Timed)하는 CXP/GenICam 구성에서
+        /// 카메라가 보내는 '실제 노출 종료(ExposureEnd)' 이벤트를 받아 즉시 ExposureEnded 를 발화한다.
+        /// EventSelector=ExposureEnd 만 켜므로 이 채널로는 ExposureEnd 만 도착한다(2026-07-13).</summary>
+        private MIL_INT GcExposureEndHook(MIL_INT hookType, MIL_ID eventId, IntPtr userPtr)
+        {
+            try
+            {
+                _expEndHwFired = true;   // 실제 노출 종료 소스 동작 확인
+                long n = System.Threading.Interlocked.Increment(ref _gcEventCount);
+                if (n == 1)
+                {
+                    long evType = -1;
+                    try { MIL_INT t = 0; MIL.MdigGetHookInfo(eventId, MIL.M_GC_EVENT_TYPE, ref t); evType = (long)t; } catch { }
+                    LiveLog("GenICam ExposureEnd 이벤트 첫 발화 확인 (M_GC_EVENT, type=" + evType + ") — EPD 를 실제 노출 종료에 발화");
+                }
+                var tsw = _grabTimingSw;
+                if (tsw != null && _grabExpEndMs < 0) _grabExpEndMs = tsw.ElapsedMilliseconds;   // 단발 그랩 계측(실제 노출 종료 시각)
+                if (IsOpen) RaiseExposureEnded();
+            }
+            catch (Exception ex) { LiveLog("GenICam ExposureEnd 발화 예외: " + ex.Message); }
+            return 0;
+        }
+
         /// <summary>프레임 전송 시작 훅(M_GRAB_FRAME_START) — ExposureEnd 폴백.
-        /// 그래버가 프레임 수신을 시작했다는 것은 센서 노출이 이미 끝났다는 뜻이므로,
-        /// HW ExposureEnd 훅이 동작하지 않는 구성에서 이 시점에 ExposureEnded 를 발화한다.</summary>
+        /// <para>실제 노출 종료 소스(그래버 M_GRAB_EXPOSURE_END ② or GenICam ExposureEnd 이벤트 ③)가 발화한
+        /// 카메라에서는 <see cref="_expEndHwFired"/> 로 억제된다. 그런 소스가 없는 카메라(VNP-576MX2 =
+        /// EventSelector 에 ExposureEnd 없음)에서만 이 시점에 ExposureEnded 를 대체 발화한다(2026-07-13, 임시).
+        /// 주의: FRAME_START 는 실제 노출 종료가 아니라 프레임그래버 수신 시작(strobe/Timed 노출에서 고정 오프셋)
+        /// 이므로, 실제 노출 종료 기반 EPD 가 필요하면 하드웨어(ExposureActive→그래버 입력) 또는 계산식이 필요하다.</para></summary>
         private MIL_INT FrameStartHook(MIL_INT hookType, MIL_ID eventId, IntPtr userPtr)
         {
             try
             {
                 long n = System.Threading.Interlocked.Increment(ref _frameStartCount);
-                if (n == 1) LiveLog("FRAME_START 훅 첫 발화 (HW ExposureEnd " + (_expEndHwFired ? "지원" : "미발화 → 폴백 사용") + ")");
-                if (_expEndHwFired) return 0;   // HW 훅이 살아있으면 중복 발화 방지
+                if (n == 1) LiveLog("FRAME_START 훅 첫 발화 (실제 노출종료 소스 " + (_expEndHwFired ? "있음 → 억제" : "없음 → FRAME_START 폴백으로 EPD") + ")");
+                if (_expEndHwFired) return 0;   // 실제 노출 종료 소스가 살아있으면 중복 발화 방지
                 var tsw = _grabTimingSw;
                 if (tsw != null && _grabExpEndMs < 0) _grabExpEndMs = tsw.ElapsedMilliseconds;   // 단발 그랩 계측(폴백)
                 if (IsOpen) RaiseExposureEnded();
