@@ -106,7 +106,13 @@ namespace QMC.CDT320.Ajin
                         s.SoftLimitMinus = src.SoftLimitMinus;
                         s.SoftLimitEnabled = src.SoftLimitEnabled;
                         if (IsPickerThetaAxisName(axis.Name))
+                        {
+                            s.SoftLimitMinus = -720.0;
+                            s.SoftLimitPlus = 720.0;
+                            s.SoftLimitEnabled = true;
+                            s.Stroke = 1440.0;
                             s.HomeOffset = src.HomeOffset;
+                        }
                         s.HomeDirection = src.HomeDirection;
                         s.HomeSignal = src.HomeSignal;
                         s.HomeTimeoutMs = src.HomeTimeoutMs;
@@ -318,10 +324,15 @@ namespace QMC.CDT320.Ajin
                         ? AxisUnitConverter.Degree
                         : axisDefault != null ? AxisUnitConverter.Normalize(axisDefault.Unit) : AxisUnitConverter.Millimeter,
                     IsEnabled = true,
-                    Stroke = axisDefault != null ? axisDefault.Stroke : 0.0,
+                    Stroke = IsPickerThetaAxisName(key)
+                        ? 1440.0
+                        : axisDefault != null ? axisDefault.Stroke : 0.0,
                     Brake = axisDefault != null && axisDefault.Brake,
-                    SoftLimitMinus = 0,
-                    SoftLimitPlus = axisDefault != null ? axisDefault.Stroke : 200.0,
+                    SoftLimitMinus = IsPickerThetaAxisName(key) ? -720.0 : 0.0,
+                    SoftLimitPlus = IsPickerThetaAxisName(key)
+                        ? 720.0
+                        : axisDefault != null ? axisDefault.Stroke : 200.0,
+                    SoftLimitEnabled = IsPickerThetaAxisName(key),
                     HomeDirection = axisDefault != null && string.Equals(axisDefault.HomeDir, "POS", StringComparison.OrdinalIgnoreCase)
                         ? HomeDirection.Cw
                         : HomeDirection.Ccw

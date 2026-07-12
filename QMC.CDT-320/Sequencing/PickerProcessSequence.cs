@@ -1092,23 +1092,27 @@ namespace QMC.CDT320.Sequencing
                 bool frontBlocking = IsPickerBlockingInputCameraPreInspection(true, out frontDetail);
                 string rearDetail;
                 bool rearBlocking = IsPickerBlockingInputCameraPreInspection(false, out rearDetail);
-                if (frontBlocking || rearBlocking)
+
+                string railContentionDetail;
+                bool exactTargetEvaluated;
+                bool railContended = IsSharedRailContendedForInputVisionStart(
+                    out railContentionDetail,
+                    out exactTargetEvaluated);
+                if (railContended)
                 {
-                    blockReason = "InputCamera 선행검사 시작 전 Picker Input 영역이 안전하게 비어있지 않습니다. " +
-                        "frontBlocking=" + frontBlocking +
-                        ", frontDetail=" + frontDetail +
-                        ", rearBlocking=" + rearBlocking +
-                        ", rearDetail=" + rearDetail;
+                    blockReason = "InputVisionX가 가장 가까운 검사 대기 다이까지 이동할 때 공용 레일 또는 모션 가드가 차단됩니다. " +
+                        railContentionDetail;
                     return false;
                 }
 
-                // FIX-D: zone/workArea 논리뿐 아니라 실제 PickerX 좌표 기준으로 공용 레일 경합을 확인한다.
-                // Rear가 Bottom workArea여도 물리 X가 InputVisionX 작업 전진 경로와 겹치면 시작을 보류한다.
-                string railContentionDetail;
-                if (IsSharedRailContendedForInputVisionStart(out railContentionDetail))
+                if ((frontBlocking || rearBlocking) && !exactTargetEvaluated)
                 {
-                    blockReason = "InputVisionX 작업 전진 경로가 공용 레일에서 상대 PickerX 실좌표와 겹쳐 선행검사 시작을 보류합니다. " +
-                        railContentionDetail;
+                    blockReason = "InputCamera 선행검사 시작 전 Picker Input 영역이 안전하게 비어있고, 실제 검사 다이 좌표까지 안전한지 확인되어야 합니다. " +
+                        "frontBlocking=" + frontBlocking +
+                        ", frontDetail=" + frontDetail +
+                        ", rearBlocking=" + rearBlocking +
+                        ", rearDetail=" + rearDetail +
+                        ", targetDetail=" + railContentionDetail;
                     return false;
                 }
 
@@ -1166,9 +1170,10 @@ namespace QMC.CDT320.Sequencing
 
         // FIX-D: InputVisionX가 작업(die)까지 전진할 때 공용 레일에서 상대 PickerX 실좌표와 겹치는지 dry-run으로 확인한다.
         // 실제 이동 인터락과 동일한 SharedRailX 충돌 판정을 사용하므로 zone 논리가 놓치는 물리 경합(예: Bottom 중 x=445.999)을 잡는다.
-        private bool IsSharedRailContendedForInputVisionStart(out string detail)
+        private bool IsSharedRailContendedForInputVisionStart(out string detail, out bool exactTargetEvaluated)
         {
             detail = string.Empty;
+            exactTargetEvaluated = false;
 
             try
             {
@@ -1178,33 +1183,136 @@ namespace QMC.CDT320.Sequencing
 
                 SharedRailXMotionService service = SharedRailXMotionRuntime.ResolveService(machine);
                 if (service == null)
+                {
+                    detail = "SharedRailX 서비스가 없어 실제 검사 다이 좌표 안전 확인을 수행할 수 없습니다.";
                     return false;
+                }
 
                 BaseAxis inputVisionX = machine.InputStageUnit != null ? machine.InputStageUnit.CameraX : null;
                 if (inputVisionX == null || !service.IsSharedRailAxis(inputVisionX))
+                {
+                    detail = "InputVisionX가 없거나 SharedRailX 축으로 등록되지 않아 실제 검사 다이 좌표 안전 확인을 수행할 수 없습니다.";
                     return false;
+                }
 
-                // InputVisionX가 작업 범위 끝(soft limit)까지 전진 가능한지 상대 PickerX 현재 좌표 기준으로 검사한다.
-                // 전진 여지가 없으면(전진 방향이 아니면) 판단을 보류하고 기존 zone 게이트에 위임한다.
-                double probeTarget = inputVisionX.Setup != null ? inputVisionX.Setup.SoftLimitPlus : 0.0;
-                if (probeTarget <= inputVisionX.ActualPosition)
+                List<InputStagePickTargetCandidate> candidates =
+                    MaterialStateService.GetReadyInputStagePickTargetCandidates();
+                if (candidates == null || candidates.Count == 0)
+                {
+                    detail = "검사 대기 다이가 없습니다.";
                     return false;
+                }
+
+                BaseAxis frontPickerX = machine.PickerFrontUnit != null
+                    ? machine.PickerFrontUnit.PickerX
+                    : null;
+                BaseAxis rearPickerX = machine.PickerRearUnit != null
+                    ? machine.PickerRearUnit.PickerX
+                    : null;
+
+                InputStagePickTargetCandidate nearestCandidate = null;
+                string nearestPicker = string.Empty;
+                double nearestPickerReference = 0.0;
+                double nearestDistance = double.MaxValue;
+                for (int i = 0; i < candidates.Count; i++)
+                {
+                    InputStagePickTargetCandidate candidate = candidates[i];
+                    if (candidate == null)
+                        continue;
+
+                    UpdateNearestInputVisionCandidate(
+                        candidate,
+                        frontPickerX,
+                        "FrontPickerX",
+                        ref nearestCandidate,
+                        ref nearestPicker,
+                        ref nearestPickerReference,
+                        ref nearestDistance);
+                    UpdateNearestInputVisionCandidate(
+                        candidate,
+                        rearPickerX,
+                        "RearPickerX",
+                        ref nearestCandidate,
+                        ref nearestPicker,
+                        ref nearestPickerReference,
+                        ref nearestDistance);
+                }
+
+                if (nearestCandidate == null)
+                {
+                    detail = "PickerX와 비교할 수 있는 검사 대기 다이를 찾지 못했습니다.";
+                    return false;
+                }
+
+                double probeTarget = nearestCandidate.TargetX;
+                exactTargetEvaluated = true;
 
                 string reason;
-                if (service.VerifySingleAxisMove(inputVisionX, probeTarget, out reason))
-                    return false;
+                if (!service.VerifySingleAxisMove(inputVisionX, probeTarget, out reason))
+                {
+                    detail = BuildNearestInputVisionTargetDetail(
+                        nearestCandidate,
+                        nearestPicker,
+                        nearestPickerReference,
+                        nearestDistance,
+                        probeTarget,
+                        inputVisionX,
+                        "SharedRailX: " + reason);
+                    return true;
+                }
 
-                detail = "probeTarget=" + probeTarget.ToString("F3") +
-                    ", inputVisionXActual=" + inputVisionX.ActualPosition.ToString("F3") +
-                    ", reason=" + reason;
-                return true;
+                string motionGuardReason;
+                if (!MotionGuardRuntime.CanAxisTeachingMove(
+                    inputVisionX,
+                    probeTarget,
+                    "InputCameraPreInspectionNearestDie;Die=" + nearestCandidate.DieId,
+                    out motionGuardReason))
+                {
+                    detail = BuildNearestInputVisionTargetDetail(
+                        nearestCandidate,
+                        nearestPicker,
+                        nearestPickerReference,
+                        nearestDistance,
+                        probeTarget,
+                        inputVisionX,
+                        "MotionGuard: " + motionGuardReason);
+                    return true;
+                }
+
+                detail = BuildNearestInputVisionTargetDetail(
+                    nearestCandidate,
+                    nearestPicker,
+                    nearestPickerReference,
+                    nearestDistance,
+                    probeTarget,
+                    inputVisionX,
+                    "Clear");
+                return false;
             }
             catch (Exception ex)
             {
-                // 안전측: 확인 실패 시 시작을 보류한다. 본 공정은 FIX-A/B로 계속 진행된다.
                 detail = "공용 레일 경합 확인 중 예외. error=" + ex.Message;
                 return true;
             }
+        }
+
+        private static string BuildNearestInputVisionTargetDetail(
+            InputStagePickTargetCandidate nearestCandidate,
+            string nearestPicker,
+            double nearestPickerReference,
+            double nearestDistance,
+            double probeTarget,
+            BaseAxis inputVisionX,
+            string result)
+        {
+            return "die=" + (nearestCandidate != null ? nearestCandidate.DieId : "-") +
+                    ", grid=(" + nearestCandidate.DieMapX + "," + nearestCandidate.DieMapY + ")" +
+                    ", nearestPicker=" + nearestPicker +
+                    ", pickerReferenceX=" + nearestPickerReference.ToString("F3") +
+                    ", distance=" + nearestDistance.ToString("F3") +
+                    ", probeTarget=" + probeTarget.ToString("F3") +
+                    ", inputVisionXActual=" + (inputVisionX != null ? inputVisionX.ActualPosition.ToString("F3") : "-") +
+                    ", result=" + result;
         }
 
         private static bool IsPickerInputZoneMotionRiskForProcess(PickerZoneTransportState state, bool xMoving, bool yMoving)
@@ -1916,6 +2024,31 @@ namespace QMC.CDT320.Sequencing
                 "side=" + Side +
                 ", reason=" + reason +
                 ", forceSafeYBeforePlaceResume=" + _forceSafeYBeforePlaceResume + " - Check");
+        }
+
+        private static void UpdateNearestInputVisionCandidate(
+            InputStagePickTargetCandidate candidate,
+            BaseAxis pickerX,
+            string pickerName,
+            ref InputStagePickTargetCandidate nearestCandidate,
+            ref string nearestPicker,
+            ref double nearestPickerReference,
+            ref double nearestDistance)
+        {
+            if (candidate == null || pickerX == null)
+                return;
+
+            double pickerReference = pickerX.IsMoving
+                ? pickerX.CommandPosition
+                : pickerX.ActualPosition;
+            double distance = Math.Abs(candidate.TargetX - pickerReference);
+            if (distance >= nearestDistance)
+                return;
+
+            nearestCandidate = candidate;
+            nearestPicker = pickerName;
+            nearestPickerReference = pickerReference;
+            nearestDistance = distance;
         }
 
         private void EnableContinuousPlaceEntryFromInspection(string reason)

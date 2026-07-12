@@ -30,6 +30,7 @@ namespace QMC.CDT320.Ui.Controls
         private Point _selectionEnd;
 
         public event Action<DieMapEntry> CellClicked;
+        public event Action<DieMapEntry> CellDoubleClicked;
         public event Action<IReadOnlyList<DieMapEntry>> SelectionRectangleCompleted;
 
         /// <summary>현재 표시 중인 다이 맵.</summary>
@@ -107,13 +108,16 @@ namespace QMC.CDT320.Ui.Controls
             SetStyle(ControlStyles.AllPaintingInWmPaint |
                      ControlStyles.OptimizedDoubleBuffer |
                      ControlStyles.ResizeRedraw |
-                     ControlStyles.UserPaint, true);
+                     ControlStyles.UserPaint |
+                     ControlStyles.StandardClick |
+                     ControlStyles.StandardDoubleClick, true);
             BackColor = Color.FromArgb(30, 30, 30);
             DoubleBuffered = true;
 
             MouseMove += OnMouseMoveEvt;
             MouseLeave += (s, e) => { _hover = null; Invalidate(); };
             MouseClick += OnMouseClick;
+            MouseDoubleClick += OnMouseDoubleClick;
             MouseDown += OnMouseDownEvt;
             MouseUp += OnMouseUpEvt;
             MouseWheel += OnMouseWheelEvt;
@@ -383,6 +387,22 @@ namespace QMC.CDT320.Ui.Controls
                 Invalidate();
                 try { CellClicked?.Invoke(hit); } catch { }
             }
+        }
+
+        private void OnMouseDoubleClick(object sender, MouseEventArgs e)
+        {
+            if (e.Button != MouseButtons.Left || _dragMoved)
+                return;
+
+            DieMapEntry hit = HitTest(e.X, e.Y);
+            if (hit == null)
+                return;
+
+            _selected = hit;
+            _selectedEntries.Clear();
+            _selectedEntries.Add(hit);
+            Invalidate();
+            try { CellDoubleClicked?.Invoke(hit); } catch { }
         }
 
         private void ToggleSelectedEntry(DieMapEntry entry)

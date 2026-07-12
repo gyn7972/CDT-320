@@ -129,6 +129,10 @@ namespace QMC.CDT320
         public int PickUpVacuumOnBeforePickDelayMs { get { return EnsurePickUpConfig().VacuumOnBeforePickDelayMs; } set { EnsurePickUpConfig().VacuumOnBeforePickDelayMs = value; } }
 
         [Category("PickUp")]
+        [DisplayName("PickUp Needle Vacuum Off Settle Before XY Ms")]
+        public int PickUpNeedleVacuumOffSettleBeforeXYMs { get { return EnsurePickUpConfig().NeedleVacuumOffSettleBeforeXYMs; } set { EnsurePickUpConfig().NeedleVacuumOffSettleBeforeXYMs = value; } }
+
+        [Category("PickUp")]
         [DisplayName("PickUp Sync Lift Settle Ms")]
         public int PickUpSyncLiftSettleMs { get { return EnsurePickUpConfig().SyncLiftSettleMs; } set { EnsurePickUpConfig().SyncLiftSettleMs = value; } }
 
