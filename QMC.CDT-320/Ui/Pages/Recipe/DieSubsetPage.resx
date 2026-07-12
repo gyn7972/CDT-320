@@ -117,4 +117,13 @@
   <resheader name="writer">
     <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
+  <data name="lblSaveSequence.Text" xml:space="preserve">
+    <value>권장 순서
+1. 위의 현재 Recipe 이름을 확인합니다.
+2. 기존 사양 사용 시 Spec library 선택 → LOAD SPEC.
+3. Width / Height / Thickness와 판정값을 수정합니다.
+4. 상단 SAVE로 현재 Recipe에 적용합니다.
+5. 연결 맵 재생성 시 Map Create에서 역할별 FINAL APPLY 합니다.
+6. 공용 사양으로 보관할 때 SAVE SPEC을 사용합니다.</value>
+  </data>
 </root>

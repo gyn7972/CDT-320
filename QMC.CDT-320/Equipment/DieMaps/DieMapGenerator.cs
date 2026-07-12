@@ -756,6 +756,10 @@ namespace QMC.CDT320.DieMaps
             if (!File.Exists(path))
                 throw new FileNotFoundException("WaferMap TXT 파일을 찾을 수 없습니다.", path);
 
+            DieMap placeGridMap;
+            if (TryLoadPlaceWaferGridText(path, out placeGridMap))
+                return placeGridMap;
+
             WaferMapTextHeader header = ReadWaferMapTextHeader(path);
             var points = new List<ExternalMapPoint>();
             Regex pointRegex = new Regex(@"^X=\s*(?<x>[-+]?\d+)\s+Y=\s*(?<y>[-+]?\d+)\s+B=\s*(?<b>[-+]?\d+)", RegexOptions.Compiled);
@@ -855,6 +859,140 @@ namespace QMC.CDT320.DieMaps
             }
 
             return Normalize(map);
+        }
+
+        private static bool TryLoadPlaceWaferGridText(string path, out DieMap map)
+        {
+            map = null;
+            var points = new List<ExternalMapPoint>();
+            bool headerFound = false;
+            int rowIndex = -1;
+            int colIndex = -1;
+            int lineNumber = 0;
+
+            foreach (string line in File.ReadLines(path))
+            {
+                lineNumber++;
+                string text = (line ?? "").Trim();
+                if (text.Length == 0)
+                    continue;
+
+                string[] tokens = text
+                    .Replace(",", "\t")
+                    .Split(new[] { '\t', ' ' }, StringSplitOptions.RemoveEmptyEntries);
+                if (tokens.Length < 2)
+                    continue;
+
+                if (!headerFound)
+                {
+                    for (int i = 0; i < tokens.Length; i++)
+                    {
+                        string token = tokens[i].Trim();
+                        if (token.Equals("PLACE_WAFER_ROW", StringComparison.OrdinalIgnoreCase))
+                            rowIndex = i;
+                        if (token.Equals("PLACE_WAFER_COL", StringComparison.OrdinalIgnoreCase) ||
+                            token.Equals("PLACE_WAFER_COLUMN", StringComparison.OrdinalIgnoreCase))
+                            colIndex = i;
+                    }
+
+                    if (rowIndex >= 0 && colIndex >= 0)
+                    {
+                        headerFound = true;
+                        continue;
+                    }
+
+                    return false;
+                }
+
+                if (rowIndex >= tokens.Length || colIndex >= tokens.Length)
+                    throw new InvalidDataException("PLACE_WAFER_ROW/COL data column count is invalid. line=" + lineNumber);
+
+                int row;
+                int col;
+                if (!int.TryParse(tokens[rowIndex], NumberStyles.Integer, CultureInfo.InvariantCulture, out row) ||
+                    !int.TryParse(tokens[colIndex], NumberStyles.Integer, CultureInfo.InvariantCulture, out col))
+                {
+                    throw new InvalidDataException("PLACE_WAFER_ROW/COL value is not numeric. line=" + lineNumber);
+                }
+
+                if (row <= 0 || col <= 0)
+                    throw new InvalidDataException("PLACE_WAFER_ROW/COL must be 1 or greater. line=" + lineNumber);
+
+                points.Add(new ExternalMapPoint { X = col, Y = row, Bin = 1 });
+            }
+
+            if (!headerFound)
+                return false;
+            if (points.Count == 0)
+                throw new InvalidDataException("PLACE_WAFER_ROW/COL record was not found.");
+
+            IGrouping<string, ExternalMapPoint> duplicate = points
+                .GroupBy(point => point.X.ToString(CultureInfo.InvariantCulture) + "," + point.Y.ToString(CultureInfo.InvariantCulture))
+                .FirstOrDefault(group => group.Count() > 1);
+            if (duplicate != null)
+                throw new InvalidDataException("PLACE_WAFER_ROW/COL has duplicate grid address: " + duplicate.Key);
+
+            int minX = points.Min(point => point.X);
+            int maxX = points.Max(point => point.X);
+            int minY = points.Min(point => point.Y);
+            int maxY = points.Max(point => point.Y);
+            int gridX = Math.Max(1, maxX - minX + 1);
+            int gridY = Math.Max(1, maxY - minY + 1);
+            double centerGridX = Math.Max(0, gridX - 1) / 2.0;
+            double centerGridY = Math.Max(0, gridY - 1) / 2.0;
+            string frameId = Path.GetFileNameWithoutExtension(path);
+            double pitchX = 1.0;
+            double pitchY = 1.0;
+
+            map = new DieMap
+            {
+                FrameObjId = string.IsNullOrWhiteSpace(frameId) ? "PLACE-GRID-TXT" : frameId,
+                DieMapX = gridX,
+                DieMapY = gridY,
+                PitchX = pitchX,
+                PitchY = pitchY,
+                DieSizeX = 0.0,
+                DieSizeY = 0.0,
+                OuterDiameterMm = Math.Max(gridX * pitchX, gridY * pitchY),
+                EdgeSkipMode = "ExternalMap",
+                OriginX = -centerGridX * pitchX,
+                OriginY = centerGridY * pitchY,
+                SourceFileName = Path.GetFileName(path),
+                SourceFormat = "PLACE GRID TXT",
+                SourcePitchFromFile = false,
+                SourceDeclaredCount = points.Count,
+                SourceFirstX = points[0].X,
+                SourceFirstY = points[0].Y,
+                CreatedAt = DateTime.Now
+            };
+
+            int index = 0;
+            foreach (ExternalMapPoint point in points.OrderByDescending(point => point.Y).ThenBy(point => point.X))
+            {
+                int localX = point.X - minX;
+                int localY = maxY - point.Y;
+                double equipmentGridX = localX - centerGridX;
+                double equipmentGridY = centerGridY - localY;
+                map.Entries.Add(new DieMapEntry
+                {
+                    Index = index++,
+                    DieMapX = localX,
+                    DieMapY = localY,
+                    OriginalMapX = point.X,
+                    OriginalMapY = point.Y,
+                    IsTarget = true,
+                    Result = DieResult.Unknown,
+                    BinCode = 1,
+                    EquipmentGridX = equipmentGridX,
+                    EquipmentGridY = equipmentGridY,
+                    PosX = equipmentGridX * pitchX,
+                    PosY = equipmentGridY * pitchY,
+                    DieUid = BuildExternalMapDieUid(frameId, point.X, point.Y)
+                });
+            }
+
+            map = Normalize(map);
+            return true;
         }
 
         private static WaferMapTextHeader ReadWaferMapTextHeader(string path)

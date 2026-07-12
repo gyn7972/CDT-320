@@ -1783,7 +1783,8 @@ namespace QMC.CDT320.Sequencing
                     transferAcceleration,
                     transferDeceleration,
                     "PickUp ContiNode StageY async target",
-                    ct);
+                    ct,
+                    BuildPickUpInputStageMoveTargetName(WaferStageAxis.WaferY, "PickUpContiNodeStageY"));
                 Task<int> needleXMoveTask = MoveInputStageAxisWithMotionAndVerifyAsync(
                     stage,
                     WaferStageAxis.NeedleX,
@@ -1792,7 +1793,8 @@ namespace QMC.CDT320.Sequencing
                     transferAcceleration,
                     transferDeceleration,
                     "PickUp ContiNode NeedleX async target",
-                    ct);
+                    ct,
+                    BuildPickUpInputStageMoveTargetName(WaferStageAxis.NeedleX, "PickUpContiNodeNeedleX"));
 
                 int[] transferResults = await Task.WhenAll(
                     pickerXMoveTask,
@@ -2569,6 +2571,18 @@ namespace QMC.CDT320.Sequencing
                 return AppendAutoProcessCorrectionTargetTag(targetName + ";PickerPhase=InspectionZHold;InspectionContinuous;From=Input;To=Input");
 
             return AppendAutoProcessCorrectionTargetTag(targetName);
+        }
+
+        private string BuildPickUpInputStageMoveTargetPrefix()
+        {
+            return "PickerPickUp;Side=" + Side + ";PickerZone=Input;Owner=" + Name;
+        }
+
+        private string BuildPickUpInputStageMoveTargetName(WaferStageAxis axis, string phase)
+        {
+            return BuildPickUpInputStageMoveTargetPrefix() +
+                ";StageAxis=" + axis +
+                ";Phase=" + (phase ?? string.Empty);
         }
 
         private async Task<int> EnsurePickerYAtAvoidBeforePickMoveAsync(CancellationToken ct)
@@ -5745,15 +5759,31 @@ namespace QMC.CDT320.Sequencing
             double acceleration,
             double deceleration,
             string description,
-            CancellationToken ct)
+            CancellationToken ct,
+            string guardTargetName = null)
         {
             try
             {
                 ct.ThrowIfCancellationRequested();
 
-                int commandResult = await AwaitStepWithCancellationAsync(
-                    stage.MoveInputStageAxisCommandWithMotion(axis, target, velocity, acceleration, deceleration),
-                    ct).ConfigureAwait(false);
+                int commandResult;
+                BaseAxis item = ResolveInputStageAxis(stage, axis);
+                if (item != null && !string.IsNullOrWhiteSpace(guardTargetName))
+                {
+                    using (MotionGuardRuntime.BeginAxisTeachingMove(item, target, guardTargetName))
+                    {
+                        commandResult = await AwaitStepWithCancellationAsync(
+                            stage.MoveInputStageAxisCommandWithMotion(axis, target, velocity, acceleration, deceleration),
+                            ct).ConfigureAwait(false);
+                    }
+                }
+                else
+                {
+                    commandResult = await AwaitStepWithCancellationAsync(
+                        stage.MoveInputStageAxisCommandWithMotion(axis, target, velocity, acceleration, deceleration),
+                        ct).ConfigureAwait(false);
+                }
+
                 if (commandResult != 0)
                 {
                     return Fail("PICKER-PICKUP-STAGE-MOVE", stage.Name,
@@ -7405,7 +7435,7 @@ namespace QMC.CDT320.Sequencing
                         workAreaVisionX,
                         target,
                         Options != null && Options.FineMove,
-                        "PickerPickUp",
+                        BuildPickUpInputStageMoveTargetPrefix(),
                         workAreaNeedleX),
                     ct).ConfigureAwait(false);
 

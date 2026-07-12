@@ -596,7 +596,7 @@ namespace QMC.CDT320.Interlocks
                     return CanAutoInputVisionX(request, out reason);
                 // 매뉴얼 이동 인터락 확인
                 case MotionGuardMoveKind.AxisMove:
-                    return CanManualInputVisionX(request.Machine, out reason);
+                    return CanManualInputVisionX(request, out reason);
                 // 홈 이동 인터락 확인
                 case MotionGuardMoveKind.AxisHome:
                     return CanHomeInputVisionX(request.Machine, out reason);
@@ -610,7 +610,7 @@ namespace QMC.CDT320.Interlocks
         {
             CDT320_Machine machine = request != null ? request.Machine : null;
             // 인터락 조건: 자동 InputVisionX 이동도 수동 InputVisionX 기본 안전 조건을 먼저 통과해야 한다.
-            if (!CanManualInputVisionX(machine, out reason))
+            if (!CanManualInputVisionX(request, out reason))
                 return false;
 
             // 인터락 조건: InputFeeder가 InputVisionX 이동과 간섭 없는 상태인지 확인한다.
@@ -671,18 +671,19 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
-        // InputVisionX 이동 전제 ②: Front/Rear Picker가 실제 Input 영역을 점유하거나 간섭하면 안 된다.
-        // 인터락 항목: InputVisionX 이동 전 Front/Rear Picker가 Input 존을 점유하지 않는지 확인한다.
-        private static bool VerifyFrontRearPickerInputZoneClearForInputVisionX(CDT320_Machine machine, out string reason)
+        // InputVisionX 이동 전제 ②: Front/Rear Picker가 실제 Input 영역을 점유하면 +방향 진입만 차단하고 Avoid/마이너스 방향 퇴피는 허용한다.
+        // 인터락 항목: InputVisionX 이동 전 Front/Rear Picker가 Input 존을 점유할 때 이동 방향을 확인한다.
+        private static bool VerifyFrontRearPickerInputZoneClearForInputVisionX(MotionGuardRuleContext request, out string reason)
         {
             reason = string.Empty;
+            CDT320_Machine machine = request != null ? request.Machine : null;
 
             try
             {
-                if (!VerifyPickerInputZoneClearForInputVisionX(machine, true, "Front", out reason))
+                if (!VerifyPickerInputZoneClearForInputVisionX(request, machine, true, "Front", out reason))
                     return false;
 
-                if (!VerifyPickerInputZoneClearForInputVisionX(machine, false, "Rear", out reason))
+                if (!VerifyPickerInputZoneClearForInputVisionX(request, machine, false, "Rear", out reason))
                     return false;
 
                 return true;
@@ -700,7 +701,7 @@ namespace QMC.CDT320.Interlocks
         }
 
         // 인터락 항목: InputVisionX 이동 전 지정 Picker의 Input 존 X/Y 이동 위험을 확인한다.
-        private static bool VerifyPickerInputZoneClearForInputVisionX(CDT320_Machine machine, bool isFront, string prefix, out string reason)
+        private static bool VerifyPickerInputZoneClearForInputVisionX(MotionGuardRuleContext request, CDT320_Machine machine, bool isFront, string prefix, out string reason)
         {
             reason = string.Empty;
             if (machine == null)
@@ -717,19 +718,55 @@ namespace QMC.CDT320.Interlocks
             bool yMoving = state != null && state.PickerY != null && state.PickerY.IsMoving;
             bool movingIntoOrInsideInput = IsPickerInputZoneMotionRisk(state, xMoving, yMoving);
             bool blocking = state != null && (state.BlocksTransport || movingIntoOrInsideInput);
+            string inputVisionMoveDetail;
+            bool inputVisionRetreat = IsInputVisionXAvoidOrNegativeDirectionMove(request, machine, out inputVisionMoveDetail);
             string detail =
                 "movingX=" + xMoving +
                 ", movingY=" + yMoving +
                 ", movingInputRisk=" + movingIntoOrInsideInput +
+                ", inputVisionRetreat=" + inputVisionRetreat +
+                ", " + inputVisionMoveDetail +
                 ", " + (state != null ? state.Describe() : "state=null");
 
             if (!blocking)
+                return true;
+
+            // 현재 기준: Picker가 정지 상태로 Input 존을 점유 중이어도 InputVisionX가 Avoid/마이너스 방향으로 빠지는 이동은 허용한다.
+            if (!movingIntoOrInsideInput && inputVisionRetreat)
                 return true;
 
             return MotionGuardRuleHelpers.Block(
                 "InputVisionX",
                 "InputVisionX 이동 불가: " + prefix + "Picker가 Input 영역을 점유하거나 간섭 중입니다. " + detail,
                 out reason);
+        }
+
+        // 인터락 기준: InputVisionX는 Picker Input 점유 중에도 Avoid 위치 이하 또는 마이너스 방향 퇴피 이동이면 허용한다.
+        private static bool IsInputVisionXAvoidOrNegativeDirectionMove(MotionGuardRuleContext request, CDT320_Machine machine, out string detail)
+        {
+            InputStageUnit stage = machine != null ? machine.InputStageUnit : null;
+            BaseAxis axis = stage != null ? stage.CameraX : null;
+            if (axis == null && request != null)
+                axis = request.GetAxis("InputVisionX") ?? request.GetAxis("InputCameraX") ?? request.GetAxis("CameraX");
+
+            double target = request != null ? request.TargetValue : 0.0;
+            double actual = axis != null ? axis.ActualPosition : target;
+            double avoid = stage != null && stage.Recipe != null && stage.Recipe.VisionX != null
+                ? stage.Recipe.VisionX.AvoidPosition
+                : 0.0;
+            double tolerance = ResolveAxisPositionTolerance(axis);
+            bool targetAtOrBehindAvoid = target <= avoid + tolerance;
+            bool negativeDirection = axis != null && target < actual - tolerance;
+
+            detail =
+                "inputVisionActual=" + actual.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture) +
+                ", inputVisionTarget=" + target.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture) +
+                ", inputVisionAvoid=" + avoid.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture) +
+                ", tolerance=" + tolerance.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture) +
+                ", targetAtOrBehindAvoid=" + targetAtOrBehindAvoid +
+                ", negativeDirection=" + negativeDirection;
+
+            return targetAtOrBehindAvoid || negativeDirection;
         }
 
         // 인터락 기준: Picker가 Input 존에 머물거나 진입/이탈 중인지 판단한다.
@@ -785,9 +822,10 @@ namespace QMC.CDT320.Interlocks
         }
 
         // 인터락 항목: 수동 InputVisionX 이동은 FeederY Avoid, Picker Input 존 간섭, Feeder Down 상태를 확인한다.
-        private static bool CanManualInputVisionX(CDT320_Machine machine, out string reason)
+        private static bool CanManualInputVisionX(MotionGuardRuleContext request, out string reason)
         {
             reason = string.Empty;
+            CDT320_Machine machine = request != null ? request.Machine : null;
 
             try
             {
@@ -799,7 +837,7 @@ namespace QMC.CDT320.Interlocks
                     return false;
 
                 // Picker 전체 Avoid를 강제하지 않는다. 실제 Input 존 점유/간섭만 차단한다.
-                if (!VerifyFrontRearPickerInputZoneClearForInputVisionX(machine, out reason))
+                if (!VerifyFrontRearPickerInputZoneClearForInputVisionX(request, out reason))
                     return false;
 
                 return true;
@@ -874,11 +912,11 @@ namespace QMC.CDT320.Interlocks
                     return false;
 
                 // 인터락 조건: FrontPicker가 Input 영역 위험 상태일 때만 Z축 Avoid를 강제한다.
-                if (!VerifyPickerZAxesAvoidWhenInputRisk(machine, true, "InputStageY", out reason))
+                if (!VerifyPickerZAxesAvoidWhenInputRisk(request, machine, true, "InputStageY", out reason))
                     return false;
 
                 // 인터락 조건: RearPicker가 Input 영역 위험 상태일 때만 Z축 Avoid를 강제한다.
-                if (!VerifyPickerZAxesAvoidWhenInputRisk(machine, false, "InputStageY", out reason))
+                if (!VerifyPickerZAxesAvoidWhenInputRisk(request, machine, false, "InputStageY", out reason))
                     return false;
 
                 return true;
@@ -920,11 +958,11 @@ namespace QMC.CDT320.Interlocks
                     return false;
 
                 // 인터락 조건: FrontPicker가 Input 영역 위험 상태일 때만 Z축 Avoid를 강제한다.
-                if (!VerifyPickerZAxesAvoidWhenInputRisk(machine, true, "InputStageT", out reason))
+                if (!VerifyPickerZAxesAvoidWhenInputRisk(null, machine, true, "InputStageT", out reason))
                     return false;
 
                 // 인터락 조건: RearPicker가 Input 영역 위험 상태일 때만 Z축 Avoid를 강제한다.
-                if (!VerifyPickerZAxesAvoidWhenInputRisk(machine, false, "InputStageT", out reason))
+                if (!VerifyPickerZAxesAvoidWhenInputRisk(null, machine, false, "InputStageT", out reason))
                     return false;
 
                 return true;
@@ -1586,6 +1624,7 @@ namespace QMC.CDT320.Interlocks
         private static bool IsWaferStageYMove(string movingName)
         {
             return string.Equals(movingName, "WaferStageY", System.StringComparison.OrdinalIgnoreCase) ||
+                   string.Equals(movingName, "InputStageY", System.StringComparison.OrdinalIgnoreCase) ||
                    string.Equals(movingName, "StageY", System.StringComparison.OrdinalIgnoreCase) ||
                    string.Equals(movingName, "WaferY", System.StringComparison.OrdinalIgnoreCase);
         }
@@ -1879,7 +1918,7 @@ namespace QMC.CDT320.Interlocks
         }
 
         // 인터락 항목: Picker가 Input 영역 위험 상태일 때만 해당 PickerZ 전체 Avoid를 강제한다.
-        private static bool VerifyPickerZAxesAvoidWhenInputRisk(CDT320_Machine machine, bool isFront, string movingName, out string reason)
+        private static bool VerifyPickerZAxesAvoidWhenInputRisk(MotionGuardRuleContext request, CDT320_Machine machine, bool isFront, string movingName, out string reason)
         {
             reason = string.Empty;
 
@@ -1891,7 +1930,10 @@ namespace QMC.CDT320.Interlocks
                     isFront,
                     PickerWorkZone.Input,
                     null,
-                    movingName + ";InputStagePickerZRiskCheck");
+                    ResolvePickerInputRiskTargetName(request, isFront, movingName));
+
+                if (IsSameAutoPickUpInputStageMove(request, isFront, movingName, state))
+                    return true;
 
                 if (!IsPickerInputRiskForZAvoid(state))
                     return true;
@@ -1922,6 +1964,78 @@ namespace QMC.CDT320.Interlocks
             finally
             {
             }
+        }
+
+        // 인터락 기준: InputStageY 요청 targetName이 특정 Picker side의 행위라면
+        // 반대 Picker의 target zone 판단에는 그 targetName을 사용하지 않는다.
+        private static string ResolvePickerInputRiskTargetName(MotionGuardRuleContext request, bool isFront, string movingName)
+        {
+            string fallback = movingName + ";InputStagePickerZRiskCheck";
+            if (request == null || string.IsNullOrWhiteSpace(request.TargetName))
+                return fallback;
+
+            string requestedSide;
+            if (request.Intent != null &&
+                request.Intent.TryGetValue("Side", out requestedSide) &&
+                !IsMatchingPickerSide(isFront, requestedSide))
+                return fallback;
+
+            return request.TargetName;
+        }
+
+        // 인터락 기준: 자동 PickUp이 같은 Input work area를 점유하고 수행 중인 StageY 이동은
+        // Encoder X 존 겹침보다 현재 행위(owner)를 우선해 PickerZ Avoid 강제 대상에서 제외한다.
+        private static bool IsSameAutoPickUpInputStageMove(
+            MotionGuardRuleContext request,
+            bool isFront,
+            string movingName,
+            PickerZoneTransportState state)
+        {
+            if (state == null)
+                return false;
+
+            if (!IsWaferStageYMove(movingName))
+                return false;
+
+            if (!state.HasWorkArea ||
+                !PickerZoneInterlockRules.IsSameInterlockZone(state.WorkAreaZone, PickerWorkZone.Input))
+                return false;
+
+            string expectedOwnerPrefix = isFront ? "FrontPickerPickUpSequence" : "RearPickerPickUpSequence";
+            if (string.IsNullOrWhiteSpace(state.WorkAreaOwner) ||
+                !state.WorkAreaOwner.StartsWith(expectedOwnerPrefix, System.StringComparison.OrdinalIgnoreCase))
+                return false;
+
+            bool activeAutoPickUpOwner =
+                state.WorkAreaOwner.EndsWith(":PickUp", System.StringComparison.OrdinalIgnoreCase) ||
+                state.WorkAreaOwner.EndsWith(":PickUp ContiNode", System.StringComparison.OrdinalIgnoreCase);
+            if (!activeAutoPickUpOwner)
+                return false;
+
+            if (request == null)
+                return true;
+
+            if (request.IsManualSequenceProcess)
+                return false;
+
+            string requestedSide;
+            if (request.Intent != null &&
+                request.Intent.TryGetValue("Side", out requestedSide) &&
+                !IsMatchingPickerSide(isFront, requestedSide))
+                return false;
+
+            return true;
+        }
+
+        // 인터락 기준: targetName의 Side 메타가 현재 검사 중인 Picker side와 같은지 판단한다.
+        private static bool IsMatchingPickerSide(bool isFront, string side)
+        {
+            if (string.IsNullOrWhiteSpace(side))
+                return false;
+
+            return isFront
+                ? side.Equals("Front", System.StringComparison.OrdinalIgnoreCase)
+                : side.Equals("Rear", System.StringComparison.OrdinalIgnoreCase);
         }
 
         // 인터락 기준: Input 영역에서 PickerY가 실제 돌출/이동 중이거나 작업영역/Unknown 위험이면 PickerZ Avoid 강제 대상이다.

@@ -1797,7 +1797,7 @@ namespace QMC.CDT320.Materials
                         if (slot == null)
                         {
                             slot = outputWafer.OutputReceiveSlots
-                                .Where(s => s != null && s.IsTarget && string.IsNullOrWhiteSpace(s.DieUid))
+                                .Where(s => IsOutputReceiveSlotPending(s))
                                 .OrderBy(s => s.OrderIndex)
                                 .FirstOrDefault();
                         }
@@ -2264,6 +2264,15 @@ namespace QMC.CDT320.Materials
 
             if (WaferMaterialStateText.Normalize(outputWafer.State) == WaferMaterialState.Finish)
                 return true;
+
+            if (outputWafer.OutputReceiveSlots != null && outputWafer.OutputReceiveSlots.Count > 0)
+            {
+                List<OutputReceiveSlotMaterial> targetSlots = outputWafer.OutputReceiveSlots
+                    .Where(s => s != null && s.IsTarget)
+                    .ToList();
+                if (targetSlots.Count > 0)
+                    return targetSlots.All(s => !IsOutputReceiveSlotPending(s));
+            }
 
             int total = outputWafer.OutputReceiveTotalCount;
             if (total <= 0)
@@ -2967,7 +2976,7 @@ namespace QMC.CDT320.Materials
             if (outputWafer.OutputReceiveSlots != null && outputWafer.OutputReceiveSlots.Count > 0)
             {
                 OutputReceiveSlotMaterial next = outputWafer.OutputReceiveSlots
-                    .Where(s => s != null && s.IsTarget && string.IsNullOrWhiteSpace(s.DieUid))
+                    .Where(s => IsOutputReceiveSlotPending(s))
                     .OrderBy(s => s.OrderIndex)
                     .FirstOrDefault();
                 if (next != null)
@@ -2981,6 +2990,15 @@ namespace QMC.CDT320.Materials
             return outputWafer.DieIds != null
                 ? outputWafer.DieIds.Count(id => !string.IsNullOrWhiteSpace(id))
                 : 0;
+        }
+
+        // 현재 기준: 수동 GOOD/NG 완료 슬롯은 실제 DieUid가 없어도 다음 place 대상에서 제외한다.
+        private static bool IsOutputReceiveSlotPending(OutputReceiveSlotMaterial slot)
+        {
+            return slot != null &&
+                   slot.IsTarget &&
+                   slot.Result == DieResult.Unknown &&
+                   string.IsNullOrWhiteSpace(slot.DieUid);
         }
 
         private static PickupSubset ResolveInputPickup(RecipeProject project)

@@ -95,7 +95,7 @@ namespace QMC.CDT320.Recipes
                 RecipeProjectConsistencyService.SynchronizeDieSpecification(project);
 
                 DieMap baseMap = PrepareBaseMap(project, parsed);
-                ApplyBaseDomainToFrames(project, baseMap);
+                ApplyBaseDomainToFrames(project, baseMap, false);
 
                 DieMap inputMap = BuildDerivedMap(project, baseMap, RecipeMapKind.Input, null);
                 DieMap goodMap = BuildDerivedMap(project, baseMap, RecipeMapKind.GoodBin, null);
@@ -170,7 +170,7 @@ namespace QMC.CDT320.Recipes
                     throw new InvalidDataException("Recipe Base WaferMap이 없어 파생 맵을 다시 만들 수 없습니다.");
 
                 baseMap = PrepareBaseMap(project, baseMap);
-                ApplyBaseDomainToFrames(project, baseMap);
+                ApplyBaseDomainToFrames(project, baseMap, true);
                 string canonicalBasePath = BuildMapPath(project, "BaseWaferMap");
                 var pendingMaps = new List<PendingMap>
                 {
@@ -379,8 +379,12 @@ namespace QMC.CDT320.Recipes
                 if (minX < 0 || minY < 0)
                     throw new InvalidDataException("음수 WaferMap 원본 주소는 현재 공정 주소 도메인에서 지원하지 않습니다.");
 
-                int gridX = Math.Max(1, maxX - minX + 1);
-                int gridY = Math.Max(1, maxY - minY + 1);
+                int sourceGridX = Math.Max(1, maxX - minX + 1);
+                int sourceGridY = Math.Max(1, maxY - minY + 1);
+                int gridX = Math.Max(sourceGridX, frame.DieMapX);
+                int gridY = Math.Max(sourceGridY, frame.DieMapY);
+                int localOffsetX = Math.Max(0, (gridX - sourceGridX) / 2);
+                int localOffsetY = Math.Max(0, (gridY - sourceGridY) / 2);
                 double centerGridX = Math.Max(0, gridX - 1) / 2.0;
                 double centerGridY = Math.Max(0, gridY - 1) / 2.0;
                 Dictionary<string, DieMapEntry> maskByAddress = BuildCompatibleMask(baseEntries, existingRoleMask);
@@ -420,8 +424,8 @@ namespace QMC.CDT320.Recipes
                     bool hasMask = maskByAddress.TryGetValue(BuildAddressKey(originalX, originalY), out mask);
                     bool isTarget = hasMask ? mask.IsTarget : source.IsTarget;
                     int binCode = hasMask ? mask.BinCode : source.BinCode;
-                    int localX = originalX - minX;
-                    int localY = maxY - originalY;
+                    int localX = localOffsetX + originalX - minX;
+                    int localY = localOffsetY + maxY - originalY;
                     double equipmentGridX = localX - centerGridX;
                     double equipmentGridY = centerGridY - localY;
 
@@ -535,7 +539,7 @@ namespace QMC.CDT320.Recipes
             return DieMapGenerator.Normalize(map);
         }
 
-        private static void ApplyBaseDomainToFrames(RecipeProject project, DieMap baseMap)
+        private static void ApplyBaseDomainToFrames(RecipeProject project, DieMap baseMap, bool preserveConfiguredGrid)
         {
             RecipeProjectConsistencyService.EnsureStructure(project);
             foreach (TapeFrameSubset frame in new[] { project.Frame, project.InputFrame, project.OutputFrame })
@@ -543,8 +547,12 @@ namespace QMC.CDT320.Recipes
                 if (frame == null)
                     continue;
 
-                frame.DieMapX = baseMap.DieMapX;
-                frame.DieMapY = baseMap.DieMapY;
+                frame.DieMapX = preserveConfiguredGrid
+                    ? Math.Max(Math.Max(1, frame.DieMapX), Math.Max(1, baseMap.DieMapX))
+                    : Math.Max(1, baseMap.DieMapX);
+                frame.DieMapY = preserveConfiguredGrid
+                    ? Math.Max(Math.Max(1, frame.DieMapY), Math.Max(1, baseMap.DieMapY))
+                    : Math.Max(1, baseMap.DieMapY);
                 frame.DieSizeX = project.Die.WidthMm;
                 frame.DieSizeY = project.Die.HeightMm;
                 frame.EdgeSkipMode = "ExternalMap";

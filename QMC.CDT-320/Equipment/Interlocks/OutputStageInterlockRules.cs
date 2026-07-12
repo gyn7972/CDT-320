@@ -446,10 +446,10 @@ namespace QMC.CDT320.Interlocks
             {
                 // 자동 이동 인터락 확인
                 case MotionGuardMoveKind.AxisTeachingMove:
-                    return CanAutoOutputVisionX(request.Machine, out reason);
+                    return CanAutoOutputVisionX(request, out reason);
                 // 매뉴얼 이동 인터락 확인
                 case MotionGuardMoveKind.AxisMove:
-                    return CanManualOutputVisionX(request.Machine, out reason);
+                    return CanManualOutputVisionX(request, out reason);
                 // 홈 이동 인터락 확인
                 case MotionGuardMoveKind.AxisHome:
                     return CanHomeOutputVisionX(request.Machine, out reason);
@@ -459,10 +459,16 @@ namespace QMC.CDT320.Interlocks
         }
 
         // 인터락 항목: 자동 OutputVisionX 이동은 OutputStage Busy 여부를 확인한다.
-        private static bool CanAutoOutputVisionX(CDT320_Machine machine, out string reason)
+        private static bool CanAutoOutputVisionX(MotionGuardRuleContext request, out string reason)
         {
+            CDT320_Machine machine = request != null ? request.Machine : null;
+
             // 인터락 조건: 자동 OutputVisionX 이동 전 홈 조건을 먼저 확인한다.
             if (!CanHomeOutputVisionX(machine, out reason))
+                return false;
+
+            // 인터락 조건: OutputCameraX는 Picker가 Output 영역을 점유 중이면 +방향 Avoid 퇴피만 허용한다.
+            if (!VerifyFrontRearPickerOutputZoneClearForOutputCameraX(request, out reason))
                 return false;
 
             // 인터락 조건: Picker/Feeder 등 Output transport 점유 상태가 해제되어 있는지 확인한다.
@@ -521,14 +527,20 @@ namespace QMC.CDT320.Interlocks
         }
 
         // 인터락 항목: 수동 OutputVisionX 이동은 OutputStage Busy와 Good/NG Stage 안전 위치를 확인한다.
-        private static bool CanManualOutputVisionX(CDT320_Machine machine, out string reason)
+        private static bool CanManualOutputVisionX(MotionGuardRuleContext request, out string reason)
         {
             reason = string.Empty;
 
             try
             {
-                // PickerX와 OutputVisionX 간 거리는 SharedRailX Pair Clearance 룰에서 판단한다.
-                return VerifyOutputFeederAvoidAndDownForOutputVisionX(machine, out reason);
+                CDT320_Machine machine = request != null ? request.Machine : null;
+
+                // 인터락 조건: OutputFeederY가 Avoid/Down 상태가 아니면 OutputCameraX 이동을 차단한다.
+                if (!VerifyOutputFeederAvoidAndDownForOutputVisionX(machine, out reason))
+                    return false;
+
+                // 인터락 조건: OutputCameraX는 Picker가 Output 영역을 점유 중이면 +방향 Avoid 퇴피만 허용한다.
+                return VerifyFrontRearPickerOutputZoneClearForOutputCameraX(request, out reason);
             }
             catch (System.Exception ex)
             {
@@ -541,6 +553,126 @@ namespace QMC.CDT320.Interlocks
             {
                 LogBlockedReason(reason);
             }
+        }
+
+        // 인터락 항목: OutputCameraX 이동 전 Front/Rear Picker의 Output 존 X/Y 이동 위험을 확인한다.
+        private static bool VerifyFrontRearPickerOutputZoneClearForOutputCameraX(MotionGuardRuleContext request, out string reason)
+        {
+            reason = string.Empty;
+            CDT320_Machine machine = request != null ? request.Machine : null;
+            if (machine == null)
+                return true;
+
+            try
+            {
+                if (!VerifyPickerOutputZoneClearForOutputCameraX(request, machine, true, "Front", out reason))
+                    return false;
+
+                if (!VerifyPickerOutputZoneClearForOutputCameraX(request, machine, false, "Rear", out reason))
+                    return false;
+
+                return true;
+            }
+            catch (System.Exception ex)
+            {
+                return MotionGuardRuleHelpers.Block(
+                    "OutputVisionX",
+                    "OutputCameraX 이동 전 Picker Output 영역 확인 중 예외가 발생했습니다. error=" + ex.Message,
+                    out reason);
+            }
+            finally
+            {
+            }
+        }
+
+        // 인터락 항목: OutputCameraX 이동 전 지정 Picker의 Output 존 점유와 퇴피 방향을 확인한다.
+        private static bool VerifyPickerOutputZoneClearForOutputCameraX(
+            MotionGuardRuleContext request,
+            CDT320_Machine machine,
+            bool isFront,
+            string prefix,
+            out string reason)
+        {
+            reason = string.Empty;
+
+            PickerZoneTransportState state = PickerZoneInterlockRules.ResolvePickerZoneTransportState(
+                machine,
+                isFront,
+                PickerWorkZone.Output,
+                null,
+                "OutputCameraX 이동 전 Picker Output 영역 확인");
+
+            bool xMoving = state != null && state.PickerX != null && state.PickerX.IsMoving;
+            bool yMoving = state != null && state.PickerY != null && state.PickerY.IsMoving;
+            bool movingIntoOrInsideOutput = IsPickerOutputZoneMotionRisk(state, xMoving, yMoving);
+            bool blocking = state != null && (state.BlocksTransport || movingIntoOrInsideOutput);
+            string outputCameraMoveDetail;
+            bool outputCameraRetreat = IsOutputCameraXAvoidOrPositiveDirectionMove(request, machine, out outputCameraMoveDetail);
+            string detail =
+                "movingX=" + xMoving +
+                ", movingY=" + yMoving +
+                ", movingOutputRisk=" + movingIntoOrInsideOutput +
+                ", outputCameraRetreat=" + outputCameraRetreat +
+                ", " + outputCameraMoveDetail +
+                ", " + (state != null ? state.Describe() : "state=null");
+
+            if (!blocking)
+                return true;
+
+            // 현재 기준: Picker가 정지 상태로 Output 존을 점유 중이어도 OutputCameraX가 +방향 Avoid로 빠지는 이동은 허용한다.
+            if (!movingIntoOrInsideOutput && outputCameraRetreat)
+                return true;
+
+            return MotionGuardRuleHelpers.Block(
+                "OutputVisionX",
+                "OutputCameraX 이동 불가: " + prefix + "Picker가 Output 영역을 점유하거나 간섭 중입니다. " + detail,
+                out reason);
+        }
+
+        // 인터락 기준: OutputCameraX는 +방향이 Avoid/퇴피 방향이고 -방향은 PickerX 접근 방향이다.
+        private static bool IsOutputCameraXAvoidOrPositiveDirectionMove(MotionGuardRuleContext request, CDT320_Machine machine, out string detail)
+        {
+            OutputStageUnit stage = machine != null ? machine.OutputStageUnit : null;
+            BaseAxis axis = stage != null ? stage.OutputCameraX : null;
+            if (axis == null && request != null)
+                axis = request.GetAxis("OutputVisionX") ?? request.GetAxis("OutputCameraX") ?? request.GetAxis("BinCameraX");
+
+            double target = request != null ? request.TargetValue : 0.0;
+            double actual = axis != null ? axis.ActualPosition : target;
+            double avoid = stage != null && stage.Recipe != null && stage.Recipe.VisionX != null
+                ? stage.Recipe.VisionX.AvoidPosition
+                : 0.0;
+            double tolerance = ResolveAxisPositionTolerance(axis);
+            bool positiveDirection = axis != null && target > actual + tolerance;
+            bool staysAtOrBeyondAvoid = actual >= avoid - tolerance && target >= avoid - tolerance;
+            bool targetAtOrBeyondAvoid = target >= avoid - tolerance;
+
+            detail =
+                "outputCameraActual=" + actual.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture) +
+                ", outputCameraTarget=" + target.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture) +
+                ", outputCameraAvoid=" + avoid.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture) +
+                ", tolerance=" + tolerance.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture) +
+                ", targetAtOrBeyondAvoid=" + targetAtOrBeyondAvoid +
+                ", positiveDirection=" + positiveDirection +
+                ", staysAtOrBeyondAvoid=" + staysAtOrBeyondAvoid;
+
+            return positiveDirection || staysAtOrBeyondAvoid;
+        }
+
+        // 인터락 기준: Picker가 Output 존에 머물거나 진입/이탈 중인지 판단한다.
+        private static bool IsPickerOutputZoneMotionRisk(PickerZoneTransportState state, bool xMoving, bool yMoving)
+        {
+            if (!xMoving && !yMoving)
+                return false;
+
+            if (state == null)
+                return true;
+
+            return state.CurrentZone == PickerWorkZone.Output ||
+                   state.TargetZone == PickerWorkZone.Output ||
+                   state.CurrentZone == PickerWorkZone.Unknown ||
+                   state.TargetZone == PickerWorkZone.Unknown ||
+                   state.UnknownUnsafe;
         }
 
         // 인터락 항목: OutputVisionX 홈은 OutputStage Busy와 Good/NG Stage 안전 위치를 확인한다.
@@ -1153,6 +1285,14 @@ namespace QMC.CDT320.Interlocks
                 : 0.01;
 
             return System.Math.Abs(target - position) <= tolerance;
+        }
+
+        // 인터락 기준: 축별 InPosition 허용오차를 우선 사용하고 없으면 기본 허용오차를 사용한다.
+        private static double ResolveAxisPositionTolerance(BaseAxis axis)
+        {
+            return axis != null && axis.Config != null && axis.Config.InPositionTolerance > 0.0
+                ? axis.Config.InPositionTolerance
+                : 0.01;
         }
 
         // 인터락 항목: OutputStage 내부 다른 축/실린더가 이동 중인지 확인한다.

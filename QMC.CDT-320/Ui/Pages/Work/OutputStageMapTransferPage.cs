@@ -1209,6 +1209,9 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     ApplyManualStateToOutputEntry(entries[i], state);
 
                 for (int i = 0; i < entries.Count; i++)
+                    SyncManualOutputReceiveSlotState(entries[i], state);
+
+                for (int i = 0; i < entries.Count; i++)
                     SyncManualOutputDieState(entries[i], "OutputMapManualDieState");
                 MaterialStateService.NotifyAndSave("OutputMapManualDieState");
 
@@ -1398,14 +1401,104 @@ namespace QMC.CDT_320.Ui.Pages.Work
             }
         }
 
-        private static void SyncManualOutputDieState(DieMapEntry entry, string reason)
+        private void SyncManualOutputReceiveSlotState(DieMapEntry entry, OutputDieManualState state)
         {
-            if (entry == null || string.IsNullOrWhiteSpace(entry.DieUid))
+            try
+            {
+                if (entry == null)
+                    return;
+
+                WaferMaterial wafer = GetSelectedOutputWafer();
+                if (wafer == null || wafer.OutputReceiveSlots == null)
+                    return;
+
+                OutputReceiveSlotMaterial slot = FindOutputReceiveSlotByEntry(wafer, entry);
+                if (slot == null)
+                    return;
+
+                // 현재 기준: 수동 GOOD/NG 완료 슬롯은 DieUid가 없어도 다음 place 대상에서 제외한다.
+                slot.IsTarget = entry.IsTarget;
+                slot.Result = entry.IsTarget ? entry.Result : DieResult.Unknown;
+                slot.BinCode = entry.IsTarget ? entry.BinCode : 0;
+                slot.IsOutputInspectionDone =
+                    state == OutputDieManualState.GoodComplete ||
+                    state == OutputDieManualState.NgComplete;
+                slot.IsOutputInspectionOk = state == OutputDieManualState.GoodComplete;
+                if (state == OutputDieManualState.Wait)
+                {
+                    slot.IsOutputInspectionDone = false;
+                    slot.IsOutputInspectionOk = false;
+                }
+                if (state == OutputDieManualState.Skip)
+                {
+                    slot.IsOutputInspectionDone = false;
+                    slot.IsOutputInspectionOk = false;
+                    slot.DieUid = "";
+                }
+
+                wafer.OutputReceiveNextIndex = CalculateNextOutputReceiveIndex(wafer.OutputReceiveSlots);
+                wafer.State = IsOutputReceiveCompleteForDisplay(wafer)
+                    ? WaferMaterialState.Finish
+                    : WaferMaterialState.Working;
+                wafer.UpdatedAt = DateTime.Now;
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Log.Write("Main", "SYSTEM", "OutputStageMapTransferPage",
+                    "Output Receive Slot 수동 상태 동기화 실패. die=" + (entry != null ? entry.DieUid ?? "" : "") +
+                    ", error=" + ex.Message + " - Failed");
+            }
+            finally
+            {
+            }
+        }
+
+        private OutputReceiveSlotMaterial FindOutputReceiveSlotByEntry(WaferMaterial wafer, DieMapEntry entry)
+        {
+            if (wafer == null || wafer.OutputReceiveSlots == null || entry == null)
+                return null;
+
+            int mapX = ResolveEntryMapX(entry);
+            int mapY = ResolveEntryMapY(entry);
+            OutputReceiveSlotMaterial slot = wafer.OutputReceiveSlots.FirstOrDefault(s =>
+                s != null &&
+                s.DieMapX == mapX &&
+                s.DieMapY == mapY);
+
+            if (slot != null)
+                return slot;
+
+            return wafer.OutputReceiveSlots.FirstOrDefault(s =>
+                s != null &&
+                s.OriginalMapX == DieMapGenerator.ResolveOriginalMapIndexX(entry) &&
+                s.OriginalMapY == DieMapGenerator.ResolveOriginalMapIndexY(entry));
+        }
+
+        private static bool IsOutputReceiveCompleteForDisplay(WaferMaterial wafer)
+        {
+            if (wafer == null || wafer.OutputReceiveSlots == null)
+                return false;
+
+            List<OutputReceiveSlotMaterial> targetSlots = wafer.OutputReceiveSlots
+                .Where(s => s != null && s.IsTarget)
+                .ToList();
+            return targetSlots.Count > 0 && targetSlots.All(s => !IsOutputReceiveSlotPending(s));
+        }
+
+        private void SyncManualOutputDieState(DieMapEntry entry, string reason)
+        {
+            if (entry == null)
+                return;
+
+            WaferMaterial wafer = GetSelectedOutputWafer();
+            OutputReceiveSlotMaterial slot = FindOutputReceiveSlotByEntry(wafer, entry);
+            string dieUid = slot != null ? slot.DieUid : "";
+            if (string.IsNullOrWhiteSpace(dieUid))
                 return;
 
             string message;
             bool ok = MaterialStateService.ApplyManualDieState(
-                entry.DieUid,
+                dieUid,
                 entry.IsTarget,
                 entry.IsTarget ? entry.Result : DieResult.Unknown,
                 entry.IsTarget ? entry.BinCode : 0,
@@ -1415,7 +1508,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             if (!ok)
             {
                 QMC.Common.Log.Write("Main", "SYSTEM", "OutputStageMapTransferPage",
-                    "Output Die 상태 공통 동기화 실패. die=" + (entry.DieUid ?? "") +
+                    "Output Die 상태 공통 동기화 실패. die=" + (dieUid ?? "") +
                     ", message=" + message + " - Failed");
             }
         }
@@ -3124,12 +3217,36 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     continue;
 
                 targetCount++;
-                // Output 수납 진행 위치는 검사 결과가 아니라 실제 DieUid가 비어있는 슬롯 기준으로 계산한다.
-                if (string.IsNullOrWhiteSpace(entry.DieUid))
+                // 현재 기준: 표시용 Output map의 DieUid는 맵 셀 UID일 수 있으므로 Result 기준으로 다음 place 대상을 계산한다.
+                if (entry.Result == DieResult.Unknown)
                     return index;
             }
 
             return targetCount > 0 ? targetCount : 0;
+        }
+
+        private static int CalculateNextOutputReceiveIndex(List<OutputReceiveSlotMaterial> slots)
+        {
+            if (slots == null || slots.Count <= 0)
+                return 0;
+
+            OutputReceiveSlotMaterial next = slots
+                .Where(s => s != null && s.IsTarget && IsOutputReceiveSlotPending(s))
+                .OrderBy(s => s.OrderIndex)
+                .FirstOrDefault();
+            if (next != null)
+                return next.OrderIndex;
+
+            int targetCount = slots.Count(s => s != null && s.IsTarget);
+            return targetCount > 0 ? targetCount : 0;
+        }
+
+        private static bool IsOutputReceiveSlotPending(OutputReceiveSlotMaterial slot)
+        {
+            return slot != null &&
+                   slot.IsTarget &&
+                   slot.Result == DieResult.Unknown &&
+                   string.IsNullOrWhiteSpace(slot.DieUid);
         }
 
         protected override void OnHandleDestroyed(EventArgs e)

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Drawing;
 using System.Globalization;
 using System.IO;
@@ -23,6 +23,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
         private bool _applyingPitchValues;
         private bool _currentRoleIsOutput;
         private string _pitchLoadNotice = "";
+        private string _lastGridCountPreview = "";
         private string _lastWaferStatus = "대기: Base Wafer Map을 불러오거나 현재 Recipe를 확인하세요.";
 
         public TapeFrameSubsetPage() : base("recipe.tapeFrameSubset")
@@ -41,6 +42,8 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             toolTipRecipeLocation.SetToolTip(_nPitchY, "다이 Y 중심 간격 = Recipe Die Height + Pitch Gap Y");
             _nPitchX.ValueChanged += OnPitchValueChanged;
             _nPitchY.ValueChanged += OnPitchValueChanged;
+            _nGridX.ValueChanged += OnGridValueChanged;
+            _nGridY.ValueChanged += OnGridValueChanged;
             UpdateEdgeSkipModeUi();
         }
 
@@ -277,6 +280,11 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             }
         }
 
+        private void btnGridMapCreate_Click(object sender, EventArgs e)
+        {
+            btnImportWaferMap_Click(sender, e);
+        }
+
         private static string ResolveWaferMapInitialDirectory()
         {
             string machineWaferMapDir = @"D:\CDT-320\Config\WaferMap";
@@ -370,12 +378,19 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             frame.DieSizeY = ResolveRecipeDieSizeY();
             frame.OuterDiameterMm = (double)_nDiameter.Value;
             frame.Rotate = _cbRotate.SelectedItem != null ? _cbRotate.SelectedItem.ToString() : "None";
-
-            if (IsBaseMapConnected())
-                return;
-
             frame.DieMapX = Math.Max(1, (int)_nGridX.Value);
             frame.DieMapY = Math.Max(1, (int)_nGridY.Value);
+
+            if (IsBaseMapConnected())
+            {
+                frame.EdgeSkipMode = "ExternalMap";
+                frame.SideEdgeSkip = 0;
+                frame.TopBottomEdgeSkip = 0;
+                frame.SideEdgeSkipMm = 0.0;
+                frame.TopBottomEdgeSkipMm = 0.0;
+                return;
+            }
+
             string edgeMode = GetSelectedEdgeSkipModeName();
             bool mmMode = string.Equals(edgeMode, "Millimeter", StringComparison.OrdinalIgnoreCase);
             bool externalMode = string.Equals(edgeMode, "ExternalMap", StringComparison.OrdinalIgnoreCase);
@@ -440,6 +455,8 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                     ? DieMapGenerator.Load(path)
                     : null;
                 if (roleMap == null ||
+                    roleMap.DieMapX != Math.Max(1, frame.DieMapX) ||
+                    roleMap.DieMapY != Math.Max(1, frame.DieMapY) ||
                     !NearlyEqual(roleMap.PitchX, expectedStepX) ||
                     !NearlyEqual(roleMap.PitchY, expectedStepY))
                 {
@@ -524,6 +541,49 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             _pitchLoadNotice = "";
             _lastWaferStatus = "[EDITING] 현재 화면의 Pitch Gap이 변경되었습니다. 실제 중심 간격은 Die Size + Gap이며 상단 SAVE 전에는 역할 맵 좌표에 적용되지 않습니다.";
             UpdateMapSourceInfo();
+        }
+
+        private void OnGridValueChanged(object sender, EventArgs e)
+        {
+            if (_loadingRole)
+                return;
+
+            _lastGridCountPreview = "";
+            _lastWaferStatus = "[EDITING] Grid X/Y changed. Press COUNT CHECK to preview count, then SAVE to rebuild role maps.";
+            if (lblGridCountResult != null)
+                lblGridCountResult.Text = "Count: -";
+            UpdateMapSourceInfo();
+        }
+
+        private void btnGridCountPreview_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                GridCountPreview preview = BuildGridCountPreview();
+                _lastGridCountPreview =
+                    "Grid          : " + preview.GridX + " x " + preview.GridY + Environment.NewLine +
+                    "Rect cells    : " + preview.RectCellCount + Environment.NewLine +
+                    "Center in dia : " + preview.CenterInsideWaferCount + " / wafer " + FormatNumber(preview.WaferDiameter) + " mm" + Environment.NewLine +
+                    "Full die in   : " + preview.FullDieInsideWaferCount + " / die " + FormatNumber(preview.DieSizeX) + " x " + FormatNumber(preview.DieSizeY) + " mm" + Environment.NewLine +
+                    "Center step   : " + FormatNumber(preview.CenterStepX) + " x " + FormatNumber(preview.CenterStepY) + " mm";
+                if (preview.LoadedTargetCount >= 0)
+                    _lastGridCountPreview += Environment.NewLine + "Loaded target : " + preview.LoadedTargetCount + " / raw " + preview.LoadedRawGridX + " x " + preview.LoadedRawGridY;
+
+                if (lblGridCountResult != null)
+                    lblGridCountResult.Text = "Count: " + preview.CenterInsideWaferCount + " / Rect: " + preview.RectCellCount;
+
+                _lastWaferStatus = "[GRID COUNT CHECK] " + preview.GridX + "x" + preview.GridY +
+                    " center-in-dia=" + preview.CenterInsideWaferCount +
+                    ", full-die-in-dia=" + preview.FullDieInsideWaferCount +
+                    ", rect=" + preview.RectCellCount + ".";
+                UpdateMapSourceInfo();
+            }
+            catch (Exception ex)
+            {
+                _lastWaferStatus = "[GRID COUNT CHECK FAILED] " + ex.Message;
+                UpdateMapSourceInfo();
+                MessageBox.Show("Grid count check failed: " + ex.Message, "Wafer Spec", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
         }
 
         private void ApplyPitchValuesToControls(double configuredPitchX, double configuredPitchY, string sourceName)
@@ -796,6 +856,13 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                     lines.Add("NG final apply: " + (ngApproved ? "APPROVED" : "PENDING - " + (ngMap == null ? "role map not found" : ngApprovalReason)));
                 }
                 lines.Add("");
+                if (!string.IsNullOrWhiteSpace(_lastGridCountPreview))
+                {
+                    lines.Add("[GRID COUNT CHECK]");
+                    foreach (string previewLine in _lastGridCountPreview.Split(new[] { Environment.NewLine }, StringSplitOptions.None))
+                        lines.Add(previewLine);
+                    lines.Add("");
+                }
                 AppendWaferApplyFlow(lines);
                 _tbMapSourceInfo.Text = string.Join(Environment.NewLine, lines);
             }
@@ -815,6 +882,113 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             lines.Add("4. INPUT DIE MAP CREATE: 현재 Input 맵/좌표 확인 -> APPLY");
             lines.Add("5. BIN DIE MAP CREATE: GOOD/NG 각각 확인 -> APPLY");
             lines.Add("※ LOAD SPEC은 화면만 변경하며 SAVE 전에는 Recipe에 적용되지 않습니다.");
+        }
+
+        private sealed class GridCountPreview
+        {
+            public int GridX;
+            public int GridY;
+            public int RectCellCount;
+            public int CenterInsideWaferCount;
+            public int FullDieInsideWaferCount;
+            public int LoadedTargetCount = -1;
+            public int LoadedRawGridX;
+            public int LoadedRawGridY;
+            public double WaferDiameter;
+            public double DieSizeX;
+            public double DieSizeY;
+            public double CenterStepX;
+            public double CenterStepY;
+        }
+
+        private GridCountPreview BuildGridCountPreview()
+        {
+            int gridX = Math.Max(1, (int)_nGridX.Value);
+            int gridY = Math.Max(1, (int)_nGridY.Value);
+            long rectCount = (long)gridX * gridY;
+            if (rectCount > 1000000L)
+                throw new InvalidOperationException("Grid is too large to preview safely: " + gridX + " x " + gridY);
+
+            double dieSizeX = ResolveRecipeDieSizeX();
+            double dieSizeY = ResolveRecipeDieSizeY();
+            double centerStepX = dieSizeX + (double)_nPitchX.Value;
+            double centerStepY = dieSizeY + (double)_nPitchY.Value;
+            double diameter = (double)_nDiameter.Value;
+            double radius = Math.Max(0.0, diameter / 2.0);
+            double centerGridX = Math.Max(0, gridX - 1) / 2.0;
+            double centerGridY = Math.Max(0, gridY - 1) / 2.0;
+            int centerInside = 0;
+            int fullDieInside = 0;
+
+            for (int y = 0; y < gridY; y++)
+            {
+                double equipmentGridY = centerGridY - y;
+                double posY = equipmentGridY * centerStepY;
+                for (int x = 0; x < gridX; x++)
+                {
+                    double equipmentGridX = x - centerGridX;
+                    double posX = equipmentGridX * centerStepX;
+                    if (Math.Sqrt(posX * posX + posY * posY) <= radius + 0.000001)
+                        centerInside++;
+
+                    bool fullInside = true;
+                    for (int sx = -1; sx <= 1 && fullInside; sx += 2)
+                    {
+                        for (int sy = -1; sy <= 1; sy += 2)
+                        {
+                            double cornerX = posX + sx * dieSizeX / 2.0;
+                            double cornerY = posY + sy * dieSizeY / 2.0;
+                            if (Math.Sqrt(cornerX * cornerX + cornerY * cornerY) > radius + 0.000001)
+                            {
+                                fullInside = false;
+                                break;
+                            }
+                        }
+                    }
+
+                    if (fullInside)
+                        fullDieInside++;
+                }
+            }
+
+            GridCountPreview preview = new GridCountPreview
+            {
+                GridX = gridX,
+                GridY = gridY,
+                RectCellCount = (int)rectCount,
+                CenterInsideWaferCount = centerInside,
+                FullDieInsideWaferCount = fullDieInside,
+                WaferDiameter = diameter,
+                DieSizeX = dieSizeX,
+                DieSizeY = dieSizeY,
+                CenterStepX = centerStepX,
+                CenterStepY = centerStepY
+            };
+
+            try
+            {
+                string basePath = _project != null ? RecipeMapPaths.ResolveBaseConfigured(_project) : "";
+                DieMap baseMap = !string.IsNullOrWhiteSpace(basePath) && File.Exists(basePath)
+                    ? DieMapGenerator.Load(basePath)
+                    : null;
+                if (baseMap != null && baseMap.Entries != null && baseMap.Entries.Count > 0)
+                {
+                    var entries = baseMap.Entries.Where(entry => entry != null).ToList();
+                    int minRawX = entries.Min(entry => entry.OriginalMapX >= 0 ? entry.OriginalMapX : entry.DieMapX);
+                    int maxRawX = entries.Max(entry => entry.OriginalMapX >= 0 ? entry.OriginalMapX : entry.DieMapX);
+                    int minRawY = entries.Min(entry => entry.OriginalMapY >= 0 ? entry.OriginalMapY : entry.DieMapY);
+                    int maxRawY = entries.Max(entry => entry.OriginalMapY >= 0 ? entry.OriginalMapY : entry.DieMapY);
+                    preview.LoadedRawGridX = Math.Max(1, maxRawX - minRawX + 1);
+                    preview.LoadedRawGridY = Math.Max(1, maxRawY - minRawY + 1);
+                    preview.LoadedTargetCount = entries.Count(entry => entry.IsTarget);
+                }
+            }
+            catch
+            {
+                preview.LoadedTargetCount = -1;
+            }
+
+            return preview;
         }
 
         private static string FormatNumber(double value)
@@ -853,12 +1027,12 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
         private void UpdateDerivedControlAccess()
         {
             bool baseConnected = IsBaseMapConnected();
-            _nGridX.Enabled = !baseConnected;
-            _nGridX.ReadOnly = baseConnected;
-            _nGridX.TabStop = !baseConnected;
-            _nGridY.Enabled = !baseConnected;
-            _nGridY.ReadOnly = baseConnected;
-            _nGridY.TabStop = !baseConnected;
+            _nGridX.Enabled = true;
+            _nGridX.ReadOnly = false;
+            _nGridX.TabStop = true;
+            _nGridY.Enabled = true;
+            _nGridY.ReadOnly = false;
+            _nGridY.TabStop = true;
             _cbEdgeSkipMode.Enabled = !baseConnected;
 
             bool externalMode = GetSelectedEdgeSkipModeName().IndexOf("External", StringComparison.OrdinalIgnoreCase) >= 0;
