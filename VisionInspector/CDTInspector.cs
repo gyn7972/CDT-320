@@ -1523,7 +1523,7 @@ namespace QMC.Vision.Inspector
         }
 
         private List<List<Point>> LinkForeignRegions(List<List<Point>> regions, int width, int height, int minSize, int linkDistance)
-        {
+        { 
             if (regions == null || regions.Count == 0)
             {
                 return new List<List<Point>>();
