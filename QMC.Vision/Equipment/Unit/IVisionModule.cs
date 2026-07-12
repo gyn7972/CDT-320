@@ -78,6 +78,10 @@ namespace QMC.Vision.Modules
         /// 조명 컨트롤러 배치 캐시가 동일 값이면 통신/안정화 대기를 생략한다. 라이브 시작 전에도 호출한다.</summary>
         void PrepareToolAcquisition(string toolId);
 
+        /// <summary>도구 조명만 적용(노출 불변) — 노출을 별도로 관리하는 경로(오토포커스 FOCUS_VAL 등)가
+        /// 그랩 직전 조명을 보장할 때 쓴다. 캐시 히트면 통신/대기 생략(스캔 중 반복 호출해도 무비용).</summary>
+        void EnsureToolLights(string toolId);
+
         void SetCamera(ICamera newCamera);
         void RaiseAlarm(string reason);
         Bitmap AcquireViewerFrame();
