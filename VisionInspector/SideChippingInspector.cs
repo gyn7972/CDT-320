@@ -51,6 +51,12 @@ namespace QMC.Vision.Inspector
                 // 회전된 이미지로 라인 검출
                 Line rotatedTopLine = _findChippingTool.FindTopLineOfChip(newWidth, newHeight, image, true,0.9);
 
+                // 기준 라인 서브픽셀 정련(2026-07-12): 정수 에지 포인트 기반 라인을 임계 교차
+                // 선형 보간(서브픽셀 에지)으로 재피팅 — 이후 치핑 깊이는 이 라인 기준 거리로 계산.
+                Line refinedTop = RefineTopLineSubPixel(image, newWidth, newHeight, rotatedTopLine, parameter.Threshold, 4);
+                if (refinedTop != null)
+                    rotatedTopLine = refinedTop;
+
                 //Line bottomLine = _findChippingTool.FindBottomLineOfChip(imageWidth, imageHeight, image, true);
 
                 double dOffset = parameter.ChipThickness / _visionConfig.SideVisionFront.PixelSizeWidthMm;
@@ -316,10 +322,12 @@ namespace QMC.Vision.Inspector
                     // 밝은 영역 복귀 (치핑 종료)
                     else if (pixelValue >= threshold && darkFound)
                     {
-                        int chippingDepth = y - darkStartY;
-                        if (chippingDepth > 0)
+                        // 서브픽셀 깊이(2026-07-12): 어두운 구간 픽셀 수(y - darkStartY, 정수)가 아니라
+                        // '밝음 복귀(치핑 끝) 픽셀 ~ 서브픽셀 기준 라인(startY)'의 거리로 계산.
+                        double chippingDepthPx = y - startY;
+                        if (chippingDepthPx > 0)
                         {
-                            double chippingSizeMM = ConvertPixelToMM(chippingDepth);
+                            double chippingSizeMM = ConvertPixelToMM(chippingDepthPx);
                             listValue.Add(chippingSizeMM);
                             listX.Add(x); listY0.Add(darkStartY); listY1.Add(y);
                             if (chippingSizeMM > maxChippingSize)
@@ -414,10 +422,12 @@ namespace QMC.Vision.Inspector
                     // 밝은 영역 복귀 (치핑 종료)
                     else if (pixelValue >= threshold && darkFound )
                     {
-                        int chippingDepth = darkStartY - y;
-                        if (chippingDepth > 0)
+                        // 서브픽셀 깊이(2026-07-12): 어두운 구간 픽셀 수(darkStartY - y, 정수)가 아니라
+                        // '치핑 잡은(밝음 복귀) 픽셀 ~ 서브픽셀 기준 라인(endY)'의 거리로 계산.
+                        double chippingDepthPx = endY - y;
+                        if (chippingDepthPx > 0)
                         {
-                            double chippingSizeMM = ConvertPixelToMM(chippingDepth);
+                            double chippingSizeMM = ConvertPixelToMM(chippingDepthPx);
 
                             ChippingInfo chippingInfo = new ChippingInfo();
                             chippingInfo.Depth = chippingSizeMM;
@@ -527,11 +537,92 @@ namespace QMC.Vision.Inspector
         /// </summary>
         private double ConvertPixelToMM(int pixels)
         {
+            return ConvertPixelToMM((double)pixels);
+        }
+
+        /// <summary>픽셀(서브픽셀 소수 포함)을 mm 로 변환(2026-07-12) — 기준 라인 거리 기반 깊이용.</summary>
+        private double ConvertPixelToMM(double pixels)
+        {
             if (_visionConfig?.SideVisionFront == null || pixels <= 0)
                 return 0;
             _visionConfig.SideVisionFront.PixelSizeHeightMm = 0.003125;
             _visionConfig.SideVisionFront.PixelSizeWidthMm = 0.003125;
             return pixels * _visionConfig.SideVisionFront.PixelSizeHeightMm;
+        }
+
+        /// <summary>기준(상단) 라인 서브픽셀 정련(2026-07-12).
+        /// <para>각 컬럼에서 코스 라인 주변 ±searchRadius 의 '어두움(위)→밝음(아래)' 임계 교차를
+        /// 선형 보간(ySub = y + (thr−I[y])/(I[y+1]−I[y]))으로 구해 서브픽셀 에지 표본을 만들고
+        /// 최소제곱 직선으로 재피팅한다. 잔차 1px 초과 표본(치핑/요철 컬럼)은 1회 제거 후 재피팅.
+        /// 유효 표본이 폭의 1/4 미만이면 null(코스 라인 유지) — 실패가 검사 흐름을 막지 않는다.</para></summary>
+        private Line RefineTopLineSubPixel(byte[,] image, int width, int height, Line coarse, int threshold, int searchRadius)
+        {
+            try
+            {
+                if (coarse == null || width < 32 || height < 4)
+                    return null;
+
+                var xs = new List<double>(width);
+                var ys = new List<double>(width);
+                for (int x = 0; x < width; x++)
+                {
+                    double y0 = coarse.GetY(x);
+                    int yFrom = (int)Math.Floor(y0) - searchRadius;
+                    int yTo = (int)Math.Floor(y0) + searchRadius;
+                    if (yFrom < 0) yFrom = 0;
+                    if (yTo > height - 2) yTo = height - 2;
+
+                    double best = double.NaN, bestDist = double.MaxValue;
+                    for (int y = yFrom; y <= yTo; y++)
+                    {
+                        int a = image[y, x], b = image[y + 1, x];
+                        if (a < threshold && b >= threshold)   // 상단 에지: 위=어두움, 아래=밝음
+                        {
+                            double sub = y + (double)(threshold - a) / (b - a);
+                            double d = Math.Abs(sub - y0);
+                            if (d < bestDist) { bestDist = d; best = sub; }
+                        }
+                    }
+                    if (!double.IsNaN(best)) { xs.Add(x); ys.Add(best); }
+                }
+
+                int minSamples = Math.Max(16, width / 4);
+                if (xs.Count < minSamples)
+                    return null;
+
+                double a1, b1;
+                FitLeastSquares(xs, ys, out a1, out b1);
+
+                // 이상치(치핑 컬럼 등) 1회 제거 후 재피팅 — 기준면이 치핑에 끌려가지 않게.
+                var xs2 = new List<double>(xs.Count);
+                var ys2 = new List<double>(ys.Count);
+                for (int i = 0; i < xs.Count; i++)
+                {
+                    if (Math.Abs(ys[i] - (a1 * xs[i] + b1)) <= 1.0) { xs2.Add(xs[i]); ys2.Add(ys[i]); }
+                }
+                if (xs2.Count >= minSamples)
+                    FitLeastSquares(xs2, ys2, out a1, out b1);
+
+                return new Line(a1, b1);
+            }
+            catch (Exception ex)
+            {
+                Log.Write("SideChippingInspector", "서브픽셀 라인 정련 실패(코스 라인 유지): " + ex.Message);
+                return null;
+            }
+        }
+
+        private static void FitLeastSquares(List<double> xs, List<double> ys, out double a, out double b)
+        {
+            double sx = 0, sy = 0, sxx = 0, sxy = 0;
+            int n = xs.Count;
+            for (int i = 0; i < n; i++)
+            {
+                sx += xs[i]; sy += ys[i]; sxx += xs[i] * xs[i]; sxy += xs[i] * ys[i];
+            }
+            double den = n * sxx - sx * sx;
+            if (Math.Abs(den) < 1e-9) { a = 0; b = n > 0 ? sy / n : 0; }
+            else { a = (n * sxy - sx * sy) / den; b = (sy - a * sx) / n; }
         }
 
         /// <summary>
