@@ -208,6 +208,18 @@ namespace QMC.CDT320.Calibration
         [DataMember] public RuntimeAutoFocusScanMode[] FrontRuntimeAutoFocusPendingModes { get; set; } = CreateRuntimeAutoFocusModes();
         [DataMember] public RuntimeAutoFocusScanMode[] RearRuntimeAutoFocusPendingModes { get; set; } = CreateRuntimeAutoFocusModes();
         [DataMember] public string RuntimeAutoFocusPendingReason { get; set; }
+        // Bottom 카메라 초점(Bottom AF Best Z)과 Side 카메라 광축 사이의 기계적 Z 옵셋(Front/Rear 공용).
+        // 사용 시 Side 촬영 PickerZ = 콜렛별 Bottom AF Best Z + 옵셋.
+        [DataMember] public bool UseBottomToSideZOffset { get; set; }
+        [DataMember] public double BottomToSideZOffsetMm { get; set; }
+        // Side 초점 보정(COC/다이 사이즈) 부호 — 실장비 테스트로 확정한다. 0을 넣으면 해당 항 비활성.
+        [DataMember] public bool SideFocusSignsInitialized { get; set; }
+        [DataMember] public double SideFocusSize90SignFront { get; set; }
+        [DataMember] public double SideFocusSize90SignRear { get; set; }
+        [DataMember] public double SideFocusCoc0SignFront { get; set; }
+        [DataMember] public double SideFocusCoc0SignRear { get; set; }
+        [DataMember] public double SideFocusCoc90SignFront { get; set; }
+        [DataMember] public double SideFocusCoc90SignRear { get; set; }
 
         [OnDeserialized]
         private void OnDeserialized(StreamingContext ctx)
@@ -244,6 +256,21 @@ namespace QMC.CDT320.Calibration
             if (RuntimeAutoFocusLastCompletedAt <= DateTime.MinValue.AddDays(1) ||
                 RuntimeAutoFocusLastCompletedAt >= DateTime.MaxValue.AddDays(-1))
                 RuntimeAutoFocusLastCompletedAt = SafeRuntimeUnsetDateTime;
+
+            if (double.IsNaN(BottomToSideZOffsetMm) || double.IsInfinity(BottomToSideZOffsetMm))
+                BottomToSideZOffsetMm = 0.0;
+            if (!SideFocusSignsInitialized)
+            {
+                // 기본 부호는 팀장님 예시 기준(가로>세로 die, COC 우측 편차: Front 90도 상쇄/Rear 90도 가산 구조).
+                // 실장비 테스트에서 방향이 다르면 다이얼로그에서 부호를 바꿔 확정한다.
+                SideFocusSize90SignFront = -1.0;
+                SideFocusSize90SignRear = 1.0;
+                SideFocusCoc0SignFront = 1.0;
+                SideFocusCoc0SignRear = 1.0;
+                SideFocusCoc90SignFront = 1.0;
+                SideFocusCoc90SignRear = 1.0;
+                SideFocusSignsInitialized = true;
+            }
 
             FrontSide0.EnsureDefaults();
             FrontSide90.EnsureDefaults();

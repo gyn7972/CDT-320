@@ -176,7 +176,7 @@ namespace QMC.Vision.Core
                 }
 
                 _libNullStreak = 0;   // lib 성공 → 래치 해제
-                MapLibResult(br, r, libRoi);
+                MapLibResult(br, r, libRoi, image.Width, image.Height);
                 LastValid = true;
                 return r;
             }
@@ -216,23 +216,23 @@ namespace QMC.Vision.Core
         }
 
         /// <summary>BottomResult → InspectionResult(Items/Defects/IsPass) 매핑. 합/불은 원본 DefectCode(0=양품) 기준.</summary>
-        private void MapLibResult(VI.BottomResult br, InspectionResult r, Rectangle roi)
+        private void MapLibResult(VI.BottomResult br, InspectionResult r, Rectangle roi, int imageW, int imageH)
         {
             bool sizePass = SpecOk(br.Width, ChipLowerSpecLimit.Width, ChipUpperSpecLimit.Width)
                          && SpecOk(br.Height, ChipLowerSpecLimit.Height, ChipUpperSpecLimit.Height);
             AddItem(r, "Width", br.Width.ToString("F4"), sizePass);
             AddItem(r, "Height", br.Height.ToString("F4"), sizePass);
             AddItem(r, "Angle", br.Angle.ToString("F3"), true);
-            double offsetXmm = br.Offset.X;
-            double offsetYmm = br.Offset.Y;
-            if (Math.Abs(offsetXmm) > 100.0 || Math.Abs(offsetYmm) > 100.0)
-            {
-                // 검사 라이브러리가 절대 픽셀 중심을 반환하는 버전은 ROI 중심 기준 mm 오프셋으로 변환합니다.
-                double nominalX = InspectionRoi != null ? InspectionRoi.CenterX : roi.X + roi.Width / 2.0;
-                double nominalY = InspectionRoi != null ? InspectionRoi.CenterY : roi.Y + roi.Height / 2.0;
-                offsetXmm = (br.Offset.X - nominalX) * PixelSizeWidthMm;
-                offsetYmm = (br.Offset.Y - nominalY) * PixelSizeHeightMm;
-            }
+
+            // BottomOffset = '화면(그랩 이미지) 센터' 기준 mm(2026-07-12 확정).
+            // 종전 버그: lib 의 br.Offset 은 X↔Y 가 스왑된(Offset.X=다이중심 Y, Offset.Y=다이중심 X)
+            // 'ROI 크롭 좌표계' 픽셀인데, 스왑 해제 없이 ROI '중심'(전체 좌표)을 빼서 축·좌표계·기준점이
+            // 전부 어긋남 → -3/-5mm 대 상수 오차. 정정: 스왑 해제 → ROI 좌상단 가산(전체 이미지 좌표)
+            // → 이미지 센터 차감 → mm 변환.
+            double dieCxPx = roi.X + br.Offset.Y;   // 스왑 해제: Offset.Y = 다이 중심 X(px, 크롭 기준)
+            double dieCyPx = roi.Y + br.Offset.X;   //            Offset.X = 다이 중심 Y(px, 크롭 기준)
+            double offsetXmm = (dieCxPx - imageW / 2.0) * PixelSizeWidthMm;
+            double offsetYmm = (dieCyPx - imageH / 2.0) * PixelSizeHeightMm;
             AddItem(r, "Offset X", offsetXmm.ToString("F4"), true);
             AddItem(r, "Offset Y", offsetYmm.ToString("F4"), true);
 
@@ -350,11 +350,12 @@ namespace QMC.Vision.Core
             AddItem(r, "Width",  widthMm.ToString("F4"),  sizePass);
             AddItem(r, "Height", heightMm.ToString("F4"), sizePass);
 
-            // 각도(상단 에지 기울기) + 오프셋(다이 중심 − 공칭/ROI 중심) — CDT-310 BottomResult.Angle/Offset 이식.
+            // 각도(상단 에지 기울기) + 오프셋(다이 중심 − '화면(그랩 이미지) 센터', 2026-07-12 확정 —
+            // 종전 ROI 중심 기준에서 변경: BottomOffset 은 화면 센터 기준 mm 로 나가야 한다. lib 경로(MapLibResult)와 동일 규약.
             double angleDeg = EdgeAngleDeg(topE, lx, rx);
             double cxImg = roi.X + (lx + rx) / 2.0, cyImg = roi.Y + (ty + by) / 2.0;
-            double nomX = (InspectionRoi != null) ? InspectionRoi.CenterX : (roi.X + w / 2.0);
-            double nomY = (InspectionRoi != null) ? InspectionRoi.CenterY : (roi.Y + h / 2.0);
+            double nomX = image.Width / 2.0;
+            double nomY = image.Height / 2.0;
             double offXmm = (cxImg - nomX) * PixelSizeWidthMm;
             double offYmm = (cyImg - nomY) * PixelSizeHeightMm;
             AddItem(r, "Angle",    angleDeg.ToString("F3"), true);   // [°] 정보(스펙 별도)

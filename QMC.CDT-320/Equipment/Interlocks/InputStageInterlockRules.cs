@@ -717,6 +717,20 @@ namespace QMC.CDT320.Interlocks
             bool xMoving = state != null && state.PickerX != null && state.PickerX.IsMoving;
             bool yMoving = state != null && state.PickerY != null && state.PickerY.IsMoving;
             bool movingIntoOrInsideInput = IsPickerInputZoneMotionRisk(state, xMoving, yMoving);
+
+            // 인터락 조건: InputVisionX가 Avoid 목표로 복귀하는 이동은 간섭이 없으므로(기구 확인 2026-07-12),
+            // PickerY가 Avoid(후퇴)이고 Picker X/Y가 정지 상태이며 작업영역 점유/Unknown이 없으면
+            // Picker가 Input 존 X 범위에 있어도 허용한다. Avoid 외 목표 이동은 기존대로 차단한다.
+            if (targetAtAvoid &&
+                state != null &&
+                state.YAvoid &&
+                !xMoving &&
+                !yMoving &&
+                !movingIntoOrInsideInput &&
+                !state.WorkAreaBlocksTransport &&
+                !state.UnknownUnsafe)
+                return true;
+
             bool blocking = state != null && (state.BlocksTransport || movingIntoOrInsideInput);
             string inputVisionMoveDetail;
             bool inputVisionRetreat = IsInputVisionXAvoidOrNegativeDirectionMove(request, machine, out inputVisionMoveDetail);
@@ -1338,6 +1352,34 @@ namespace QMC.CDT320.Interlocks
 
                 double tolerance = stage.EjectPinZ.Config != null && stage.EjectPinZ.Config.InPositionTolerance > 0.0
                     ? stage.EjectPinZ.Config.InPositionTolerance
+                    : 0.05;
+
+                return System.Math.Abs(request.TargetValue - pos.AvoidPosition) <= tolerance;
+            }
+            catch
+            {
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
+        // 인터락 기준: InputVisionX 이동 목표가 Avoid 티칭 위치인지 판단한다.
+        private static bool IsInputVisionXTargetAtAvoid(MotionGuardRuleContext request)
+        {
+            try
+            {
+                InputStageUnit stage = request != null && request.Machine != null ? request.Machine.InputStageUnit : null;
+                if (stage == null || stage.CameraX == null)
+                    return false;
+
+                var pos = stage.Recipe != null ? stage.Recipe.VisionX : null;
+                if (pos == null)
+                    return false;
+
+                double tolerance = stage.CameraX.Config != null && stage.CameraX.Config.InPositionTolerance > 0.0
+                    ? stage.CameraX.Config.InPositionTolerance
                     : 0.05;
 
                 return System.Math.Abs(request.TargetValue - pos.AvoidPosition) <= tolerance;

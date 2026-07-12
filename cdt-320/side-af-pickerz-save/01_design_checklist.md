@@ -75,6 +75,35 @@
 - 기준 좌표는 런타임 Align offset 미포함(다이얼로그 표시값과 동일). 자동/생산 경로와
   Align offset만큼 차이가 날 수 있으나 스캔 범위(±0.2mm)가 흡수 — 실장비 확인 항목
 
+## 추가 구현 (팀장님 컨펌 사양, 2026-07-12 저녁): Z옵셋 + COC 기반 Side 초점 보정
+
+- [x] F1. Bottom↔Side 공용 Z옵셋: `UseBottomToSideZOffset`/`BottomToSideZOffsetMm`
+      (VisionFocusCalibrationData 최상위). Side 촬영 PickerZ = 콜렛별 Bottom AF Best Z + 옵셋.
+      캘리브레이션 AF와 생산 Side 검사 모두 **BottomDie AF Best 레코드**를 공통 기준으로 사용
+      (캘리브레이션에서 레코드 없으면 FinalPickerZ 폴백, 로그에 소스 표기) — 검증 지적
+      "콜렛 AF vs 다이 AF Z 기준 불일치" 해소
+- [x] F2. Side 초점(카메라 Y) 보정을 Bottom 재측정 대신 **COC(회전 중심 편차 mm) + 레시피
+      다이 사이즈**로 계산: Focus0 = coc0Sign×cocY, Focus90 = size90Sign×(가로−세로)/2 + coc90Sign×cocX.
+      다이 사이즈는 RecipeProject.InputFrame(→Frame) 우선, Controller 기본값 폴백 — 검증 지적
+      "Controller.DieSizeXMm 하드코딩(8.12×6.12), 레시피 아님" 해소
+- [x] F3. 부호 6개(Front/Rear × size90/coc0/coc90)를 설정값으로 노출. 기본값은 팀장님 예제
+      구조(die 8×6, COC 우측 1mm → Front90=0, Rear90=+2): sizeF=−1, sizeR=+1, coc*=+1.
+      0 입력 시 해당 항 비활성. **실장비 테스트로 부호 확정 후 저장**
+- [x] F4. Side 다이얼로그 설정 그리드에 8행 추가(B->S Z Offset Use/값, Sign 6개) —
+      기존 패턴(enum/백킹/Load/Save/Refresh/Apply) 준수, SideOnly 프로파일에만 표시
+- [x] F5. 델타 검증(에이전트) 1회 + 지적 2건(다이 사이즈 소스, Z 기준 불일치) 수정 반영,
+      Clean Rebuild 통과
+
+동작 변경 요약: 자동 Side AF의 Y 시작 = Process 티칭 + COC/사이즈 보정(저장 Best는 생산
+소비/기록용), Z 시작 = 옵셋 사용 시 BottomDie AF Best + 옵셋 → 저장 PickerZ → 티칭 순.
+Bottom 재측정(InspectBottomDieForSideFocusAsync) 호출 제거 — 다이 미보유여도 Side AF 진행.
+
+실장비 부호 확정 절차: ① 다이얼로그에서 Z옵셋 입력+사용 ON ② Collet Cal AF 실행
+③ `ColletCalSideFocusFormula`/`ColletCalSideAutoFocus` 로그의 cocOffsetMm/sizeTerm90/
+focus0/focus90과 실제 초점 방향 대조 ④ 방향이 반대인 항은 다이얼로그에서 부호 반전 저장.
+Process90 티칭이 이미 90도 면 기준으로 잡혀 있으면 size 항이 이중이 되므로 Sign Size90을
+0으로 비활성.
+
 ## 미반영 권고 (팀장님 판단 필요)
 
 1. **저장값 무효화 경로 없음**: 저장된 PickerZ/Best는 티칭 재교시나 die/레시피 변경 후에도

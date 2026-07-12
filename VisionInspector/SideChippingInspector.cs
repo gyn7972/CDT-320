@@ -28,66 +28,95 @@ namespace QMC.Vision.Inspector
             SideInspectionParameter parameter)
         {
             var result = new SideChippingResult();
-            
+
             try
             {
-                _findChippingTool.SetChippingThreshold(parameter.Threshold);
-                
-                // 1. 칩의 상단 라인 검출
-                Line topLine = _findChippingTool.FindTopLineOfChip(imageWidth, imageHeight, image, true,0.9);
+                // ── 재설계(2026-07-12, 사용자 지시) ──
+                // 측면 영상에는 밝은 띠가 2개(Z1/Z2 블레이드) 있고, 그 사이 어두운 틈은 치핑이 아니다.
+                // 탑 치핑은 검사하지 않는다 — Bottom(최하단 에지) 치핑만 검사한다.
+                // 방식: 컬럼별로 '아래에서 처음 만나는 밝은 띠'의 하단 에지를 서브픽셀(임계 교차 선형 보간)로
+                // 찾고, 그 에지들을 최소제곱+이상치 제거로 피팅한 것이 기준 라인. 치핑 깊이 = 기준 라인에서
+                // 컬럼별 실제 에지(서브픽셀)까지의 거리(위로 파인 것만). 에지 위쪽(띠 내부/블레이드 틈)은
+                // 아예 보지 않으므로 틈 오검출이 원천 차단되고, 라인 피팅이 기울기를 흡수해 회전 보정도 불필요.
+                int thr = parameter.Threshold;
 
-                double angle = topLine.GetAngle();
-                var (rotatedImage, newWidth, newHeight) = RotateImage(image, imageWidth, imageHeight, angle);
-
-                // 회전된 이미지를 원본에 복사
-                for (int y = 0; y < imageHeight; y++)
+                // 1. 컬럼별 최하단 에지(서브픽셀) 수집
+                var colXs = new List<int>(imageWidth);
+                var colEdges = new List<double>(imageWidth);
+                for (int x = 0; x < imageWidth; x++)
                 {
-                    for (int x = 0; x < imageWidth; x++)
-                    {
-                        image[y, x] = rotatedImage[y, x];
-                    }
+                    double e = FindBottomEdgeSubPixel(image, imageWidth, imageHeight, x, thr);
+                    if (!double.IsNaN(e)) { colXs.Add(x); colEdges.Add(e); }
                 }
-
-                // 회전된 이미지로 라인 검출
-                Line rotatedTopLine = _findChippingTool.FindTopLineOfChip(newWidth, newHeight, image, true,0.9);
-
-                //Line bottomLine = _findChippingTool.FindBottomLineOfChip(imageWidth, imageHeight, image, true);
-
-                double dOffset = parameter.ChipThickness / _visionConfig.SideVisionFront.PixelSizeWidthMm;
-                
-                Line bottomLine = new Line(rotatedTopLine.mA, rotatedTopLine.mB+ dOffset );
-
-                if (rotatedTopLine == null || bottomLine == null)
+                if (colXs.Count < 64)
                 {
-                    Log.Write("SideChippingInspector", "상단/하단 라인 검출 실패");
+                    Log.Write("SideChippingInspector", "하단 에지 미검출(유효 컬럼 " + colXs.Count + "개) — 검사 불가");
                     result.IsSuccess = false;
                     return result;
                 }
 
-                // 2. 치핑 마진 계산 — 스펙(ChippingDepth)이 아닌 칩 두께 기반.
-                //    (스펙 유도 마진이면 스펙보다 깊은 칩핑이 '밝음 복귀'를 못 찾아 미검출되는 역설 발생)
-                double pxHmm = _visionConfig.SideVisionFront.PixelSizeHeightMm;
-                if (pxHmm <= 0) pxHmm = 0.003125;
-                int chippingMargin = (int)Math.Max(8, parameter.ChipThickness / pxHmm);
-                // 3. 상단 치핑 검사 (+스펙 초과 영역 수집 — 다중 칩핑 검출/실측 마커용)
-                var chipRegions = new List<ChippingRegion>();
-                double topChippingSize = InspectTopChipping(image, imageWidth, imageHeight, 
-                    rotatedTopLine, bottomLine, parameter.Threshold, chippingMargin, chipRegions, parameter.ChippingDepth);
+                // 2. 기준 라인 피팅 — 치핑 컬럼(에지가 위로 밀림)·버(아래로 튐)를 이상치로 걸러 기준면 유지.
+                double la = 0, lb = 0;
+                {
+                    var fx = new List<double>(colXs.Count);
+                    var fy = new List<double>(colEdges.Count);
+                    for (int i = 0; i < colXs.Count; i++) { fx.Add(colXs[i]); fy.Add(colEdges[i]); }
+                    FitLeastSquares(fx, fy, out la, out lb);
+                    for (int pass = 0; pass < 2; pass++)   // 깊은 치핑이 1차 피팅을 끌고 갔을 때를 위한 2회 트림
+                    {
+                        var tx = new List<double>(fx.Count);
+                        var ty = new List<double>(fy.Count);
+                        for (int i = 0; i < fx.Count; i++)
+                            if (Math.Abs(fy[i] - (la * fx[i] + lb)) <= 1.0) { tx.Add(fx[i]); ty.Add(fy[i]); }
+                        if (tx.Count < Math.Max(32, colXs.Count / 3)) break;   // 과도 트림 방지
+                        FitLeastSquares(tx, ty, out la, out lb);
+                        fx = tx; fy = ty;
+                    }
+                }
+                Line bottomRefLine = new Line(la, lb);
 
-                // 4. 하단 치핑 검사
-                ChippingInfo info = InspectBottomChipping(image, imageWidth, imageHeight, 
-                    rotatedTopLine, bottomLine, parameter.Threshold, chippingMargin, chipRegions, parameter.ChippingDepth);
-                double bottomChippingSize = info.Depth;
-                // 5. 결과 설정
-                result.TopChippingSize = topChippingSize;
-                result.BottomChippingSize = bottomChippingSize;
-                result.MaxChippingSize = Math.Max(topChippingSize, bottomChippingSize);
+                // 다이 기울기 감안(2026-07-12): 기준 라인 피팅이 기울기 자체는 흡수하지만, 세로 측정
+                // 거리는 실제 법선(에지 면 수직) 깊이보다 1/cos(θ) 커진다 — cos(atan(기울기))로 환산.
+                double tiltCos = Math.Cos(Math.Atan(la));
+
+                // 3. 치핑 깊이 = 기준 라인 − 컬럼 에지(서브픽셀)의 법선 환산 거리. 위로 파인(+) 것만 치핑.
+                //    기존 정책 유지: 유효 컬럼 양끝 15개 제외.
+                var chipRegions = new List<ChippingRegion>();
+                var vals = new List<double>(colXs.Count);
+                var xs = new List<int>(colXs.Count);
+                var y0s = new List<int>(colXs.Count);
+                var y1s = new List<int>(colXs.Count);
+                double maxChip = 0;
+                int maxIdx = -1;
+                for (int i = 0; i < colXs.Count; i++)
+                {
+                    double lineY = bottomRefLine.GetY(colXs[i]);
+                    double depthPx = (lineY - colEdges[i]) * tiltCos;   // 잡은 에지 픽셀 ~ 기준 라인 법선 거리
+                    double mm = depthPx > 0 ? ConvertPixelToMM(depthPx) : 0;
+                    vals.Add(mm);
+                    xs.Add(colXs[i]);
+                    y0s.Add((int)Math.Round(colEdges[i]));
+                    y1s.Add((int)Math.Round(lineY));
+                }
+                if (vals.Count >= 31)
+                {
+                    for (int i = 15; i < vals.Count - 15; i++)
+                    {
+                        if (vals[i] > maxChip) { maxChip = vals[i]; maxIdx = i; }
+                    }
+                }
+                CollectChippingRegions(vals, xs, y0s, y1s, parameter.ChippingDepth, false, chipRegions);
+
+                // 4. 결과 설정 — 탑 치핑은 미검사(0), Bottom 만 사용(2026-07-12 지시).
+                result.TopChippingSize = 0;
+                result.BottomChippingSize = maxChip;
+                result.MaxChippingSize = maxChip;
                 result.ChippingRegions = chipRegions;
                 result.IsSuccess = true;
 
                 // 6. 스펙 판정
                 double chippingSpec = parameter.ChippingDepth;
-                
+
                 result.IsDefect = result.MaxChippingSize > chippingSpec;
 
                 if (result.IsDefect)
@@ -106,40 +135,23 @@ namespace QMC.Vision.Inspector
                     strFileName += "_Y_" + parameter.IndexY.ToString();
                     strFileName += DateTime.Now.Ticks.ToString();
 
-                    int nMargin = 50;
-                    int cropWidth = (int)(info.Contour.Max(t => t.X) - info.Contour.Min(t => t.X)) + nMargin * 2;
-                    int cropHeight = (int)(info.Contour.Max(t => t.Y) - info.Contour.Min(t => t.Y)) + nMargin * 2;
-                    int cropX = Math.Max((int)info.Contour.Min(t => t.X) - nMargin, 0);
-                    int cropY = Math.Max((int)info.Contour.Min(t => t.Y) - nMargin, 0);
-
-                    byte[,] croppedImage = new byte[cropHeight, cropWidth];
-                    for (int y = 0; y < cropHeight; y++)
-                    {
-                        if (cropY + y >= imageHeight || y >= cropHeight) continue;
-                        Buffer.BlockCopy(image, (cropY + y) * imageWidth + cropX, croppedImage, y * cropWidth, Math.Min(cropWidth, imageWidth - cropX));
-                    }
-                    SaveImage(croppedImage, cropWidth, cropHeight, info, strFileName);
-                }
-                else
-                {
-                    //string strFileName = "d:\\Log\\Image\\Side";
-
-                    //CDTInspector.IfNotExistMakeFolder(strFileName);
-
-                    //strFileName += "\\" + parameter.WaferID;
-                    //CDTInspector.IfNotExistMakeFolder(strFileName);
-                    //strFileName += "\\OK\\";
-                    //CDTInspector.IfNotExistMakeFolder(strFileName);
-
-                    //strFileName += "X_" + parameter.IndexX.ToString();
-                    //strFileName += "_Y_" + parameter.IndexY.ToString();
-                    //strFileName += DateTime.Now.Ticks.ToString();
-                    //SaveImage(image, imageWidth, imageHeight, info, strFileName);
+                    // NG 저장(2026-07-12 지시): 측면 영상은 작으므로 크랍하지 않고 '전체 이미지'에
+                    // 스펙 초과 치핑 영역마다 박스 + 치핑 크기 텍스트를 그려 저장(바텀 불량 저장과 동일 취지).
+                    var saveRegions = chipRegions.Count > 0
+                        ? chipRegions
+                        : (maxIdx >= 0   // 영역 집계가 비어도 최대 치핑 위치 1개는 표시(방어)
+                            ? new List<ChippingRegion> { new ChippingRegion {
+                                  XStart = xs[maxIdx], XEnd = xs[maxIdx], X = xs[maxIdx],
+                                  StartY = Math.Min(y0s[maxIdx], y1s[maxIdx]), EndY = Math.Max(y0s[maxIdx], y1s[maxIdx]),
+                                  SizeMM = maxChip } }
+                            : new List<ChippingRegion>());
+                    SaveChippingNgImage(image, imageWidth, imageHeight, saveRegions, strFileName);
                 }
 
                     Log.Write("SideChippingInspector",
-                        $"검사 완료 - Top: {topChippingSize:F4}mm, Bottom: {bottomChippingSize:F4}mm, " +
-                        $"Max: {result.MaxChippingSize:F4}mm, Spec: {chippingSpec:F4}mm, Defect: {result.IsDefect}");
+                        $"검사 완료 - Bottom(최하단 에지): {result.BottomChippingSize:F4}mm (Top 미검사), " +
+                        $"기준라인 y={bottomRefLine.GetY(imageWidth / 2.0):F2}px(중앙), 기울기 {Math.Atan(la) * 180.0 / Math.PI:F4}°, " +
+                        $"유효컬럼 {colXs.Count}, Spec: {chippingSpec:F4}mm, Defect: {result.IsDefect}");
             }
             catch (Exception ex)
             {
@@ -151,197 +163,106 @@ namespace QMC.Vision.Inspector
             return result;
         }
 
-        private void SaveImage(byte[,] image, int width, int height, ChippingInfo info,string strFileName)
+        /// <summary>치핑 NG 이미지 저장(2026-07-12 지시) — 측면 영상은 작으므로 크랍 없이 '전체 이미지'에
+        /// 스펙 초과 치핑 영역마다 빨간 박스 + 치핑 크기(µm) 텍스트를 그려 저장한다(바텀 불량 저장과 동일 취지).
+        /// 이미지/영역은 사본으로 캡처하고 PNG 인코드·쓰기는 ImageSaveQueue(비동기) — 검사 흐름 비차단.</summary>
+        private void SaveChippingNgImage(byte[,] image, int width, int height, List<ChippingRegion> regions, string strFileName)
         {
-            SaveImageHelper helper = new SaveImageHelper
-            {
-                ShiftImage = image,
-                Width = width,
-                Height = height,
-                FileName = strFileName
-            };
-            int nMargin = 50;
-            // 저장 전용 큐(2026-07-12) — PNG 인코드를 검사 스레드풀에서 분리(내용/경로 동일, 타이밍만 분리).
+            if (image == null || width <= 0 || height <= 0 || string.IsNullOrWhiteSpace(strFileName))
+                return;
+
+            // 비동기 저장 전 사본 고정 — 원본 배열/목록이 이후 재사용·변경되어도 저장 내용 불변.
+            byte[,] copy = new byte[height, width];
+            Buffer.BlockCopy(image, 0, copy, 0, width * height);
+            var regionsCopy = regions != null ? regions.ToList() : new List<ChippingRegion>();
+
             ImageSaveQueue.Enqueue(() =>
             {
-                lock (this)
-                {
-                    double dsize = Math.Min(width, height);
-
-                }
-                SaveImageHelper saveHelper = helper;
-
-                string strOrginalFileName = saveHelper.FileName;
-                byte[,] shiftImage = saveHelper.ShiftImage;
-                int w = saveHelper.Width;
-                int h = saveHelper.Height;
-                string fileName = saveHelper.FileName;
-
                 try
                 {
-                    if (shiftImage == null)
-                        throw new ArgumentNullException(nameof(shiftImage));
-                    if (string.IsNullOrWhiteSpace(fileName))
-                        throw new ArgumentException("파일 이름이 올바르지 않습니다.", nameof(fileName));
-
-                    // 8비트 인덱스 비트맵 생성
-                    using (var bmp8bit = new Bitmap(w, h, System.Drawing.Imaging.PixelFormat.Format8bppIndexed))
+                    using (var bmp24 = new Bitmap(width, height, System.Drawing.Imaging.PixelFormat.Format24bppRgb))
                     {
-                        // 회색조 팔레트 설정
-                        var palette = bmp8bit.Palette;
-                        for (int i = 0; i < 256; i++)
-                        {
-                            palette.Entries[i] = Color.FromArgb(i, i, i);
-                        }
-                        bmp8bit.Palette = palette;
-
-                        // 픽셀 데이터 복사
-                        var rect = new Rectangle(0, 0, w, h);
-                        var bmpData = bmp8bit.LockBits(rect, System.Drawing.Imaging.ImageLockMode.WriteOnly, bmp8bit.PixelFormat);
+                        // 그레이 → 24bpp 직접 기록
+                        var rect = new Rectangle(0, 0, width, height);
+                        var data = bmp24.LockBits(rect, System.Drawing.Imaging.ImageLockMode.WriteOnly, bmp24.PixelFormat);
                         try
                         {
-                            int stride = bmpData.Stride;
                             unsafe
                             {
-                                fixed (byte* pSrc = &shiftImage[0, 0])
+                                fixed (byte* pSrc = &copy[0, 0])
                                 {
-                                    byte* ptr = (byte*)bmpData.Scan0;
-                                    int rowBytes = Math.Max(w, stride); // stride가 w보다 클 수 있음
-                                    for (int y = 0; y < h; y++)
+                                    byte* basePtr = (byte*)data.Scan0;
+                                    int stride = data.Stride;
+                                    for (int y = 0; y < height; y++)
                                     {
-                                        Buffer.MemoryCopy(
-                                            pSrc + y * w,      // 소스: shiftImage[y, 0]
-                                            ptr + y * stride,  // 타겟: Bitmap의 y번째 라인
-                                            rowBytes,          // 타겟 버퍼 크기
-                                            w                  // 복사할 바이트 수
-                                        );
+                                        byte* src = pSrc + (long)y * width;
+                                        byte* dst = basePtr + (long)y * stride;
+                                        for (int x = 0; x < width; x++)
+                                        {
+                                            byte v = src[x];
+                                            int o = x * 3;
+                                            dst[o] = v; dst[o + 1] = v; dst[o + 2] = v;
+                                        }
                                     }
                                 }
                             }
                         }
-                        finally
+                        finally { bmp24.UnlockBits(data); }
+
+                        using (Graphics g = Graphics.FromImage(bmp24))
+                        using (var pen = new Pen(Color.Red, 2f))
+                        using (var font = new Font("Arial", 12, FontStyle.Bold))
+                        using (var textBrush = new SolidBrush(Color.Red))
+                        using (var textBg = new SolidBrush(Color.FromArgb(160, 0, 0, 0)))
                         {
-                            bmp8bit.UnlockBits(bmpData);
-                        }
-
-                        // 24비트 컬러 비트맵으로 변환
-                        //using (var bmp24bit = new Bitmap(w, h, System.Drawing.Imaging.PixelFormat.Format24bppRgb))
-                        Bitmap bmp24bit = new Bitmap(w, h, System.Drawing.Imaging.PixelFormat.Format24bppRgb);
-                        {
-                            using (Graphics g = Graphics.FromImage(bmp24bit))
+                            foreach (var r in regionsCopy)
                             {
-                                // 8비트 비트맵을 그립니다.
-                                g.DrawImage(bmp8bit, 0, 0);
+                                if (r == null) continue;
+                                const int pad = 8;
+                                int x0 = Math.Max(0, r.XStart - pad);
+                                int y0 = Math.Max(0, r.StartY - pad);
+                                int x1 = Math.Min(width - 1, r.XEnd + pad);
+                                int y1 = Math.Min(height - 1, r.EndY + pad);
+                                g.DrawRectangle(pen, x0, y0, Math.Max(1, x1 - x0), Math.Max(1, y1 - y0));
 
-                                // 사각형 그리기
-                                using (Pen pen = new Pen(Color.Red, 2))
-                                {
-                                    g.DrawRectangle(pen, nMargin, nMargin, w - 2 * nMargin, h - 2 * nMargin);
-                                }
-
-                                // Width와 Height 텍스트 추가
-                                using (Font font = new Font("Arial", 10))
-                                using (Brush brush = new SolidBrush(Color.Red))
-                                {
-                                    double dWidth = w - nMargin * 2;
-                                    double dHeight = h - nMargin * 2;
-                                    dWidth *= _visionConfig.SideVisionFront.PixelSizeWidthMm  * 1000; // mm 단위로 변환
-                                    dHeight *= _visionConfig.SideVisionFront.PixelSizeHeightMm  * 1000; // mm 단위로 변환
-                                    // 텍스트 위치 조정
-                                    string text = $"W: {dWidth:F1} um, H: {dHeight:F1} um";
-
-                                    g.DrawString(text, font, brush, new PointF(50 + 5, nMargin - 30));
-                                }
-                            }
-
-                            
-
-                            string path = fileName  + ".png";
-                            bmp24bit.Save(path, System.Drawing.Imaging.ImageFormat.Png);
-                            lock (this)
-                            {
-                                double dsize = Math.Min(width, height);
-                               
+                                string txt = (r.SizeMM * 1000.0).ToString("F1") + " um";
+                                SizeF sz = g.MeasureString(txt, font);
+                                float tx = Math.Max(0, Math.Min(x0, width - sz.Width));
+                                float ty = y0 - sz.Height - 2;                       // 기본: 박스 위
+                                if (ty < 0) ty = Math.Min(height - sz.Height, y1 + 2);   // 위 공간 없으면 박스 아래
+                                g.FillRectangle(textBg, tx, ty, sz.Width, sz.Height);
+                                g.DrawString(txt, font, textBrush, tx, ty);
                             }
                         }
+
+                        bmp24.Save(strFileName + ".png", System.Drawing.Imaging.ImageFormat.Png);
                     }
                 }
                 catch (Exception ex)
                 {
                     Log.Write(ex);
-                    // SaveImage(shiftImage, w, h, strOrginalFileName + "Retry_");
-                }
-                finally
-                {
-
                 }
             });
         }
 
-        /// <summary>
-        /// 상단 치핑 검사
-        /// </summary>
-        private double InspectTopChipping(byte[,] image, int imageWidth, int imageHeight, 
-            Line topLine, Line bottomLine, int threshold, int chippingMargin,
-            List<ChippingRegion> regions = null, double specMM = 0)
+        /// <summary>컬럼 x 의 최하단 에지(서브픽셀) — '아래에서 처음 만나는 연속 2px 밝음(띠)'의 하단 경계를
+        /// 임계 교차 선형 보간으로 반환(2026-07-12). 띠가 없으면 NaN. 에지 위쪽(띠 내부/블레이드 틈)은 보지 않는다.</summary>
+        private static double FindBottomEdgeSubPixel(byte[,] image, int width, int height, int x, int threshold)
         {
-            double maxChippingSize = 0;
-            List<double> listValue = new List<double>();
-            List<int> listX = new List<int>(), listY0 = new List<int>(), listY1 = new List<int>();
-            for (int x = 0; x < imageWidth; x++)
+            int yb = -1;
+            for (int y = height - 1; y >= 1; y--)
             {
-                double startY = topLine.GetY(x);
-                double endY = bottomLine.GetY(x);
-
-                if (startY < 0 || endY >= imageHeight || startY >= endY)
-                    continue;
-
-                int topY = (int)startY;
-                bool darkFound = false;
-                int darkStartY = -1;
-                
-                // 상단에서 안쪽으로 스캔
-                for (int y = topY; y < Math.Min(topY + chippingMargin, (int)endY); y++)
+                if (image[y, x] >= threshold)
                 {
-                    if (y < 0 || y >= imageHeight) break;
-
-                    byte pixelValue = image[y, x];
-
-                    // 어두운 영역 감지 (치핑)
-                    if (pixelValue < threshold && !darkFound)
-                    {
-                        darkFound = true;
-                        darkStartY = y;
-                    }
-                    // 밝은 영역 복귀 (치핑 종료)
-                    else if (pixelValue >= threshold && darkFound)
-                    {
-                        int chippingDepth = y - darkStartY;
-                        if (chippingDepth > 0)
-                        {
-                            double chippingSizeMM = ConvertPixelToMM(chippingDepth);
-                            listValue.Add(chippingSizeMM);
-                            listX.Add(x); listY0.Add(darkStartY); listY1.Add(y);
-                            if (chippingSizeMM > maxChippingSize)
-                                maxChippingSize = chippingSizeMM;
-                        }
-                        darkFound = false;
-                        break;
-                    }
+                    if (image[y - 1, x] >= threshold) { yb = y; break; }   // 연속 2px 밝음 = 띠(고립 노이즈 배제)
                 }
             }
-            if(listValue.Count < 15)
-            {
-                return 0;
-            }
-            maxChippingSize = 0;
-            for (int iter = 15; iter < listValue.Count-15; iter ++)
-            {
-                if (listValue[iter] > maxChippingSize)
-                    maxChippingSize = listValue[iter];
-            }
-            CollectChippingRegions(listValue, listX, listY0, listY1, specMM, true, regions);
-            return maxChippingSize;
+            if (yb < 0) return double.NaN;
+            if (yb >= height - 1) return yb;              // 이미지 최하단까지 밝음 — 경계 그대로
+            int a = image[yb, x];                          // ≥ threshold (띠 하단 픽셀)
+            int b = image[yb + 1, x];                      // < threshold (아래는 전부 어두움 — 스캔 순서상 보장)
+            if (b >= threshold) return yb;                 // 방어(이론상 도달 불가)
+            return yb + (double)(a - threshold) / (a - b); // 임계 교차 위치(yb ~ yb+1 사이)
         }
 
         /// <summary>스펙(specMM) 초과 컬럼을 x-연속(간격≤5px) 그룹으로 묶어 칩핑 영역 목록에 추가 — 다중 칩핑 검출/실측 마커용.</summary>
@@ -375,157 +296,20 @@ namespace QMC.Vision.Inspector
             }
         }
 
-        /// <summary>
-        /// 하단 치핑 검사
-        /// </summary>
-        private ChippingInfo InspectBottomChipping(byte[,] image, int imageWidth, int imageHeight, 
-            Line topLine, Line bottomLine, int threshold, int chippingMargin,
-            List<ChippingRegion> regions = null, double specMM = 0)
-        {
-            double maxChippingSize = 0;
-
-            List<ChippingInfo> listValue = new List<ChippingInfo>();
-            List<double> bVals = new List<double>(); List<int> bXs = new List<int>(), bY0 = new List<int>(), bY1 = new List<int>();
-            for (int x = 0; x < imageWidth; x++)
-            {
-                double startY = topLine.GetY(x);
-                double endY = bottomLine.GetY(x);
-
-                if (startY < 0 || endY >= imageHeight || startY >= endY)
-                    continue;
-
-                int bottomY = (int)endY;
-                bool darkFound = false;
-                int darkStartY = -1;
-                int nScanDepth = 0;
-                // 하단에서 안쪽으로 스캔
-                for (int y = bottomY; y > Math.Min(bottomY - chippingMargin, (int)startY); y--)
-                {
-                    if (y < 0 || y >= imageHeight) break;
-
-                    byte pixelValue = image[y, x];
-
-                    // 어두운 영역 감지 (치핑)
-                    if (pixelValue < threshold && !darkFound)
-                    {
-                        darkFound = true;
-                        darkStartY = y;
-                    }
-                    // 밝은 영역 복귀 (치핑 종료)
-                    else if (pixelValue >= threshold && darkFound )
-                    {
-                        int chippingDepth = darkStartY - y;
-                        if (chippingDepth > 0)
-                        {
-                            double chippingSizeMM = ConvertPixelToMM(chippingDepth);
-
-                            ChippingInfo chippingInfo = new ChippingInfo();
-                            chippingInfo.Depth = chippingSizeMM;
-                            chippingInfo.Contour.Add(new PointF(x, y));
-                            chippingInfo.Contour.Add(new PointF(x, bottomY));
-                            listValue.Add(chippingInfo);
-                            bVals.Add(chippingSizeMM); bXs.Add(x); bY0.Add(y); bY1.Add(darkStartY);
-                        }
-                        darkFound = false;
-                        break;
-                    }
-                    else
-                    {
-                        nScanDepth++;
-                        if( nScanDepth > 100)
-                        {
-                            break;
-                        }
-                    }
-                }
-            }
-            CollectChippingRegions(bVals, bXs, bY0, bY1, specMM, false, regions);
-            ChippingInfo chippingInfoMax = new ChippingInfo();
-            if (listValue.Count < 15)
-            {
-                return chippingInfoMax;
-            }
-            maxChippingSize = 0;
-            int nMaxIndex = 0;
-            for (int iter = 15; iter < listValue.Count - 15; iter++)
-            {
-                if (listValue[iter].Depth > maxChippingSize)
-                {
-
-                    maxChippingSize = listValue[iter].Depth;
-                    chippingInfoMax = listValue[iter];
-                    nMaxIndex = iter;
-                }
-            }
-            int w = 0;
-            
-            for(int iter = 0 ; iter  < 100; iter ++)
-            {
-                int index = nMaxIndex - iter;
-                if(index  < 0)
-                {
-                    break;
-                }
-                if (listValue[index].Depth > 0.02)
-                {
-                    w = iter;
-                }
-                else
-                {
-                    break; 
-                }
-            }
-            int wL = 0;
-            for (int iter = 0; iter < 100; iter++)
-            {
-                int index = nMaxIndex + iter;
-                if (index >= listValue.Count )
-                {
-                    break;
-                }
-                if (listValue[index].Depth > 0.02)
-                {
-                    wL = iter;
-                }
-                else
-                {
-                    break;
-                }
-            }
-            if(chippingInfoMax.Contour.Count > 0)
-            {
-                int xRef = (int)chippingInfoMax.Contour[0].X;
-                var v = chippingInfoMax.Contour.ToList();
-                chippingInfoMax.Contour.Clear();
-                for (int iter = 0; iter < 2; iter++)
-                {
-                    chippingInfoMax.Contour.Add(new PointF(xRef - w, v[iter].Y));
-                    chippingInfoMax.Contour.Add(new PointF(xRef + wL, v[iter].Y));
-                }
-            }
-           
-
-            
-
-            return chippingInfoMax;
-        }
-
-        /// <summary>
-        /// 치핑 마진을 픽셀 단위로 계산
-        /// </summary>
-        private int CalculateChippingMargin(double chippingDepthMM)
-        {
-            if (_visionConfig?.BottomVision == null)
-                return 50; // 기본값
-
-            int margin = (int)(chippingDepthMM / _visionConfig.SideVisionBack.PixelSizeHeightMm);
-            return margin <= 0 ? 50 : margin;
-        }
+        // (2026-07-12) 구 상/하단 치핑 스캔(InspectTopChipping/InspectBottomChipping)·회전·마진 계산 제거 —
+        // 최하단 에지 서브픽셀 + 기준 라인 거리 방식(InspectChipping 본문)으로 대체.
+        // Z1/Z2 블레이드 사이 어두운 틈을 치핑으로 오검출하던 문제의 원천 차단.
 
         /// <summary>
         /// 픽셀을 mm로 변환
         /// </summary>
         private double ConvertPixelToMM(int pixels)
+        {
+            return ConvertPixelToMM((double)pixels);
+        }
+
+        /// <summary>픽셀(서브픽셀 소수 포함)을 mm 로 변환(2026-07-12) — 기준 라인 거리 기반 깊이용.</summary>
+        private double ConvertPixelToMM(double pixels)
         {
             if (_visionConfig?.SideVisionFront == null || pixels <= 0)
                 return 0;
@@ -534,62 +318,19 @@ namespace QMC.Vision.Inspector
             return pixels * _visionConfig.SideVisionFront.PixelSizeHeightMm;
         }
 
-        /// <summary>
-        /// 이미지를 지정된 각도로 회전
-        /// </summary>
-        private (byte[,], int, int) RotateImage(byte[,] original, int width, int height, double angle)
+        private static void FitLeastSquares(List<double> xs, List<double> ys, out double a, out double b)
         {
-            // 회전된 크기는 원본 크기로 유지
-            int newWidth = width;
-            int newHeight = height;
-
-            byte[,] rotated = new byte[newHeight, newWidth];
-
-            double angleRadians = angle * Math.PI / 180.0;
-            double centerX = newWidth / 2.0;
-            double centerY = newHeight / 2.0;
-
-            double cosAngle = Math.Cos(angleRadians);
-            double sinAngle = Math.Sin(angleRadians);
-
-            for (int newY = 0; newY < newHeight; newY++)
+            double sx = 0, sy = 0, sxx = 0, sxy = 0;
+            int n = xs.Count;
+            for (int i = 0; i < n; i++)
             {
-                for (int newX = 0; newX < newWidth; newX++)
-                {
-                    // 새로운 좌표를 원본 좌표계로 변환
-                    double relX = newX - centerX;
-                    double relY = newY - centerY;
-
-                    double origX = relX * cosAngle - relY * sinAngle + centerX;
-                    double origY = relX * sinAngle + relY * cosAngle + centerY;
-
-                    // bilinear interpolation
-                    if (origX >= 0 && origX < width - 1 && origY >= 0 && origY < height - 1)
-                    {
-                        int x1 = (int)origX;
-                        int y1 = (int)origY;
-                        int x2 = x1 + 1;
-                        int y2 = y1 + 1;
-
-                        double fx = origX - x1;
-                        double fy = origY - y1;
-
-                        double val = (1 - fx) * (1 - fy) * original[y1, x1] +
-                                     fx * (1 - fy) * original[y1, x2] +
-                                     (1 - fx) * fy * original[y2, x1] +
-                                     fx * fy * original[y2, x2];
-
-                        rotated[newY, newX] = (byte)Math.Round(val);
-                    }
-                    else
-                    {
-                        rotated[newY, newX] = 0; // 배경
-                    }
-                }
+                sx += xs[i]; sy += ys[i]; sxx += xs[i] * xs[i]; sxy += xs[i] * ys[i];
             }
-
-            return (rotated, newWidth, newHeight);
+            double den = n * sxx - sx * sx;
+            if (Math.Abs(den) < 1e-9) { a = 0; b = n > 0 ? sy / n : 0; }
+            else { a = (n * sxy - sx * sy) / den; b = (sy - a * sx) / n; }
         }
+
     }
 
     /// <summary>
