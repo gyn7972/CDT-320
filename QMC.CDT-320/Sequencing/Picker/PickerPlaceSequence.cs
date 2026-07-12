@@ -1751,7 +1751,7 @@ namespace QMC.CDT320.Sequencing
             }
 
             IList<PickerPlaceContiNode> nodes = BuildContiSegmentedPlaceNodes(stageY, pickerX, previousPickerZ, pickerZ, placeConfig);
-            if (nodes == null || nodes.Count == 0)
+            if (nodes == null || nodes.Count < 2)
             {
                 int pendingResult = await CompletePendingContiRetreatIfNeededAsync("Place ContiNode 노드 생성 실패로 기존 이동 전 이전 PickerZ Avoid 복귀", ct).ConfigureAwait(false);
                 if (pendingResult != 0)
@@ -1788,9 +1788,10 @@ namespace QMC.CDT320.Sequencing
             if (zReady != 0)
                 return zReady;
 
+            double prePlacePickerZ = nodes[nodes.Count - 2].PickerZ;
             double finalPickerZ = nodes[nodes.Count - 1].PickerZ;
             double originalPickerZTarget = _targetPickerZ;
-            _targetPickerZ = finalPickerZ;
+            _targetPickerZ = prePlacePickerZ;
 
             int previousRetreatResult = await CompletePendingContiRetreatIfNeededAsync(
                 "Place 비동기 접근 전 이전 PickerZ Avoid 복귀",
@@ -1818,7 +1819,7 @@ namespace QMC.CDT320.Sequencing
                 "Place ContiNode PickerX 비동기 이동",
                 ct,
                 placeTargetName);
-            Task<int> pickerZMove = MovePickerZPlaceAfterContiProgressAsync(
+            Task<int> pickerZPrePlaceMove = MovePickerZPlaceAfterContiProgressAsync(
                 yAxis,
                 stageY,
                 pickerX,
@@ -1827,19 +1828,19 @@ namespace QMC.CDT320.Sequencing
                 stageYMove,
                 pickerXMove,
                 currentPickerZAxis,
-                finalPickerZ,
+                prePlacePickerZ,
                 placeConfig,
                 ct);
 
-            int[] moveResults = await Task.WhenAll(stageYMove, pickerXMove, pickerZMove).ConfigureAwait(false);
+            int[] moveResults = await Task.WhenAll(stageYMove, pickerXMove, pickerZPrePlaceMove).ConfigureAwait(false);
             if (moveResults[0] != 0 || moveResults[1] != 0 || moveResults[2] != 0)
             {
                 _pickerZPlacedByContiSegmentedPlace = false;
                 return Fail("PICKER-PLACE-CONTI-ASYNC-MOVE", Name,
-                    "Place ContiNode 비동기 이동 실패. " +
+                    "Place ContiNode 비동기 PrePlace 이동 실패. " +
                     "stageYResult=" + moveResults[0] +
                     ", pickerXResult=" + moveResults[1] +
-                    ", pickerZResult=" + moveResults[2] +
+                    ", pickerZPrePlaceResult=" + moveResults[2] +
                     ", die=" + (_currentDie != null ? _currentDie.DieId : "-") +
                     ", pickerNo=" + _currentPickerNo +
                     ", outputSide=" + _currentOutputSide);
@@ -1855,11 +1856,26 @@ namespace QMC.CDT320.Sequencing
             if (finalWait != 0)
                 return finalWait;
 
+            // StageY와 PickerX 최종 도착 확인 후에만 PickerZ를 최종 Place 접촉 위치로 이동합니다.
+            _targetPickerZ = finalPickerZ;
+            int finalPlaceZResult = await MovePickerAxisAndVerifyAsync(
+                currentPickerZAxis,
+                finalPickerZ,
+                "Place ContiNode PickerZ PrePlace 후 최종 Place 하강",
+                ct,
+                BuildPickerTargetName("DiePlacePosition", _currentPickerIndex)).ConfigureAwait(false);
+            if (finalPlaceZResult != 0)
+            {
+                _pickerZPlacedByContiSegmentedPlace = false;
+                return finalPlaceZResult;
+            }
+
             WriteLog("PickerPlaceSequence",
                 Name + " Place ContiNode 비동기 이동 완료. die=" + (_currentDie != null ? _currentDie.DieId : "-") +
                 ", pickerNo=" + _currentPickerNo +
                 ", outputSide=" + _currentOutputSide +
                 ", basePickerZ=" + originalPickerZTarget.ToString("F3") +
+                ", prePlacePickerZ=" + prePlacePickerZ.ToString("F3") +
                 ", finalPickerZ=" + finalPickerZ.ToString("F3") +
                 ", stageYStart=" + stageYStart.ToString("F3") +
                 ", stageYTarget=" + _targetOutputStageY.ToString("F3") +
