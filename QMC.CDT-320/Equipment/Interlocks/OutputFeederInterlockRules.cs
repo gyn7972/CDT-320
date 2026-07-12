@@ -17,10 +17,22 @@ namespace QMC.CDT320.Interlocks
                 return true;
 
             if (MotionGuardRuleHelpers.IsMoving(request, "OutputFeederY", "FeederY_Output", "OutputFeederY"))
+            {
+                if (!PickerZoneInterlockRules.VerifyPickerXStoppedForClearanceMechanismMove(
+                    request.Machine, "OutputFeederY", out reason))
+                    return false;
+
                 return VerifyBinFeederY(request, out reason);
+            }
 
             if (MotionGuardRuleHelpers.IsMoving(request, "OutputFeederLift", "OutputFeeder Up/Down"))
+            {
+                if (!PickerZoneInterlockRules.VerifyPickerXStoppedForClearanceMechanismMove(
+                    request.Machine, "OutputFeederLift", out reason))
+                    return false;
+
                 return VerifyOutputFeederLift(request, out reason);
+            }
 
             if (MotionGuardRuleHelpers.IsMoving(request, "OutputFeederClamp", "OutputFeeder Clamp/UnClamp"))
                 return VerifyOutputFeederClamp(request, out reason);

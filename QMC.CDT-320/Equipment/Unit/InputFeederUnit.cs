@@ -103,6 +103,7 @@ namespace QMC.CDT320
         public BaseDigitalInput WaferFeederOverloadSensor { get; private set; }
         public BaseDigitalInput WaferFeeder8RingCheckSensor { get; private set; }
         public BaseDigitalInput WaferFeeder12RingCheckSensor { get; private set; }
+        public BaseDigitalInput WaferFeederAvoidPositionCheckSensor { get; private set; }
         public BaseDigitalInput WaferClampedSensor { get { return WaferFeederClampSensor; } }
         public BaseCylinder InputFeederLift { get; private set; }
         public BaseCylinder InputFeederClamp { get; private set; }
@@ -129,6 +130,7 @@ namespace QMC.CDT320
             WaferFeederOverloadSensor = AjinFactory.CreateDigitalInput(AjinIoCatalog.Inputs.WaferFeederOverloadCheck);
             WaferFeeder8RingCheckSensor = AjinFactory.CreateDigitalInput(AjinIoCatalog.Inputs.WaferFeeder8RingCheck);
             WaferFeeder12RingCheckSensor = AjinFactory.CreateDigitalInput(AjinIoCatalog.Inputs.WaferFeeder12RingCheck);
+            WaferFeederAvoidPositionCheckSensor = AjinFactory.CreateDigitalInput(AjinIoCatalog.Inputs.WaferFeederAvoidPositionCheck);
             InputFeederLift = CylinderManager.Get(AjinIoCatalog.CylinderRefs.InputFeederLift);
             InputFeederClamp = CylinderManager.Get(AjinIoCatalog.CylinderRefs.InputFeederClamp);
 
@@ -140,6 +142,7 @@ namespace QMC.CDT320
             Components.Add(WaferFeederOverloadSensor);
             Components.Add(WaferFeeder8RingCheckSensor);
             Components.Add(WaferFeeder12RingCheckSensor);
+            Components.Add(WaferFeederAvoidPositionCheckSensor);
             Components.Add(InputFeederLift);
             Components.Add(InputFeederClamp);
         }
@@ -607,12 +610,27 @@ namespace QMC.CDT320
 
         public bool IsWaferFeederInAvoidPosition()
         {
-            return IsWaferFeederYInPosition(Recipe.AvoidPosition, ResolveWaferFeederYInPositionTolerance());
+            // Feeder 자체 이동 완료는 엔코더 위치로 확인한다. Picker 간섭 안전 확인은 X090 Dog를 별도로 사용한다.
+            return IsWaferFeederYInPosition(
+                Recipe.AvoidPosition,
+                ResolveWaferFeederYInPositionTolerance());
         }
 
         public bool IsWaferFeederYInAvoidPosition()
         {
             return IsWaferFeederInAvoidPosition();
+        }
+
+        public bool IsWaferFeederAvoidPositionCheck()
+        {
+            // 실장비 Picker 안전 인터록용 Avoid Dog. Simulation/DryRun에는 물리 Dog가 없으므로 위치로 대체한다.
+            if (IsWaferFeederSimulationOrDryRun())
+                return IsWaferFeederYInPosition(
+                    Recipe.AvoidPosition,
+                    ResolveWaferFeederYInPositionTolerance());
+
+            return WaferFeederAvoidPositionCheckSensor != null &&
+                   WaferFeederAvoidPositionCheckSensor.IsOn;
         }
 
         public bool IsWaferFeederInCassetteLoadPosition(int slotIndex)
@@ -2063,6 +2081,7 @@ namespace QMC.CDT320
                     + ", Wafer=" + CurrentWaferId
                     + ", Ring=" + IsWaferFeederRingCheck()
                     + ", Overload=" + IsWaferFeederOverload()
+                    + ", AvoidCheck=" + IsWaferFeederAvoidPositionCheck()
                     + ", FeederY=" + BuildFeederYAxisSummary();
             }
             catch (Exception ex)

@@ -193,7 +193,9 @@ namespace QMC.CDT320.Sequencing
             SequenceResourceKind resource,
             string holder,
             int manualTimeoutMs,
-            CancellationToken ct)
+            CancellationToken ct,
+            bool allowCycleStopDrain = false,
+            string cycleStopDrainReason = null)
         {
             string safeHolder = string.IsNullOrWhiteSpace(holder) ? Name : holder;
             try
@@ -209,7 +211,10 @@ namespace QMC.CDT320.Sequencing
                 while (true)
                 {
                     ct.ThrowIfCancellationRequested();
-                    Context.StopIfCycleStopRequested(Name + ".AcquireResource:" + resource);
+                    Context.StopIfCycleStopRequested(
+                        Name + ".AcquireResource:" + resource,
+                        allowCycleStopDrain,
+                        cycleStopDrainReason);
 
                     SequenceResourceLease lease = await Context.Resources
                         .AcquireAsync(resource, safeHolder, 200, ct, false)

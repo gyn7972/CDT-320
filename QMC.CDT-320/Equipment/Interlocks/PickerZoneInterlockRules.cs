@@ -136,6 +136,181 @@ namespace QMC.CDT320.Interlocks
         private static DateTime lastFrontEncoderOverlapLogUtc = DateTime.MinValue;
         private static DateTime lastRearEncoderOverlapLogUtc = DateTime.MinValue;
 
+        // Picker X는 양쪽 Feeder가 Avoid/Down이고 Input/Output Stage Z가 하강 안전 범위일 때만 이동한다.
+        public static bool VerifyPickerXGlobalMachineClearance(
+            CDT320_Machine machine,
+            string movingName,
+            out string reason)
+        {
+            reason = string.Empty;
+            try
+            {
+                if (machine == null)
+                    return MotionGuardRuleHelpers.Block(
+                        movingName,
+                        "Picker X 전역 안전 조건을 확인할 장비 정보가 없습니다.",
+                        out reason);
+
+                InputFeederUnit inputFeeder = machine.InputFeederUnit;
+                if (inputFeeder == null || inputFeeder.FeederY == null || inputFeeder.Recipe == null)
+                    return MotionGuardRuleHelpers.Block(
+                        movingName,
+                        "InputFeederY Avoid/Down 상태를 확인할 수 없습니다.",
+                        out reason);
+
+                if (inputFeeder.FeederY.IsMoving)
+                    return MotionGuardRuleHelpers.Block(
+                        movingName,
+                        "InputFeederY가 이동 중이므로 Picker X 이동을 시작할 수 없습니다.",
+                        out reason);
+
+                if (!inputFeeder.IsWaferFeederAvoidPositionCheck())
+                    return MotionGuardRuleHelpers.Block(
+                        movingName,
+                        "InputFeeder Avoid Dog(X090)가 ON이 아닙니다. actual=" +
+                        inputFeeder.FeederY.ActualPosition.ToString("0.###", CultureInfo.InvariantCulture) +
+                        ", avoid=" + inputFeeder.Recipe.AvoidPosition.ToString("0.###", CultureInfo.InvariantCulture),
+                        out reason);
+
+                if (!inputFeeder.IsWaferFeederDown())
+                    return MotionGuardRuleHelpers.Block(
+                        movingName,
+                        "InputFeeder Lift가 정지된 Down 상태가 아닙니다.",
+                        out reason);
+
+                OutputFeederUnit outputFeeder = machine.OutputFeederUnit;
+                if (outputFeeder == null || outputFeeder.FeederY == null || outputFeeder.Recipe == null)
+                    return MotionGuardRuleHelpers.Block(
+                        movingName,
+                        "OutputFeederY Avoid/Down 상태를 확인할 수 없습니다.",
+                        out reason);
+
+                if (outputFeeder.FeederY.IsMoving)
+                    return MotionGuardRuleHelpers.Block(
+                        movingName,
+                        "OutputFeederY가 이동 중이므로 Picker X 이동을 시작할 수 없습니다.",
+                        out reason);
+
+                if (!outputFeeder.IsBinFeederAvoidPositionCheck())
+                    return MotionGuardRuleHelpers.Block(
+                        movingName,
+                        "OutputFeeder Avoid Dog(X091)가 ON이 아닙니다. actual=" +
+                        outputFeeder.FeederY.ActualPosition.ToString("0.###", CultureInfo.InvariantCulture) +
+                        ", avoid=" + outputFeeder.Recipe.AvoidPosition.ToString("0.###", CultureInfo.InvariantCulture),
+                        out reason);
+
+                if (!outputFeeder.IsFeederDown())
+                    return MotionGuardRuleHelpers.Block(
+                        movingName,
+                        "OutputFeeder Lift가 정지된 Down 상태가 아닙니다.",
+                        out reason);
+
+                InputStageUnit inputStage = machine.InputStageUnit;
+                if (inputStage == null || inputStage.ExpanderZ == null)
+                    return MotionGuardRuleHelpers.Block(
+                        movingName,
+                        "InputExpandingZ 상태를 확인할 수 없습니다.",
+                        out reason);
+
+                if (inputStage.ExpanderZ.IsMoving)
+                    return MotionGuardRuleHelpers.Block(
+                        movingName,
+                        "InputExpandingZ가 이동 중이므로 Picker X 이동을 시작할 수 없습니다.",
+                        out reason);
+
+                double inputStageTolerance = ResolveTolerance(inputStage.ExpanderZ);
+                if (inputStage.ExpanderZ.ActualPosition > inputStageTolerance)
+                    return MotionGuardRuleHelpers.Block(
+                        movingName,
+                        "InputExpandingZ가 0 이하가 아닙니다. actual=" +
+                        inputStage.ExpanderZ.ActualPosition.ToString("0.###", CultureInfo.InvariantCulture) +
+                        ", limit=0.000, tolerance=" + inputStageTolerance.ToString("0.###", CultureInfo.InvariantCulture),
+                        out reason);
+
+                OutputStageUnit outputStage = machine.OutputStageUnit;
+                BaseAxis outputGoodStageZ = outputStage != null && outputStage.GoodStage != null
+                    ? outputStage.GoodStage.StageZ
+                    : null;
+                if (outputGoodStageZ == null || outputStage.Recipe == null || outputStage.Recipe.GoodStageZ == null)
+                    return MotionGuardRuleHelpers.Block(
+                        movingName,
+                        "OutputGoodStageZ Process 위치를 확인할 수 없습니다.",
+                        out reason);
+
+                if (outputGoodStageZ.IsMoving)
+                    return MotionGuardRuleHelpers.Block(
+                        movingName,
+                        "OutputGoodStageZ가 이동 중이므로 Picker X 이동을 시작할 수 없습니다.",
+                        out reason);
+
+                double outputProcessPosition = outputStage.Recipe.GoodStageZ.ProcessPosition;
+                double outputStageTolerance = ResolveTolerance(outputGoodStageZ);
+                if (outputGoodStageZ.ActualPosition > outputProcessPosition + outputStageTolerance)
+                    return MotionGuardRuleHelpers.Block(
+                        movingName,
+                        "OutputGoodStageZ가 Process Position 이하가 아닙니다. actual=" +
+                        outputGoodStageZ.ActualPosition.ToString("0.###", CultureInfo.InvariantCulture) +
+                        ", process=" + outputProcessPosition.ToString("0.###", CultureInfo.InvariantCulture) +
+                        ", tolerance=" + outputStageTolerance.ToString("0.###", CultureInfo.InvariantCulture),
+                        out reason);
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                return MotionGuardRuleHelpers.Block(
+                    movingName,
+                    "Picker X 전역 안전 조건 확인 중 예외가 발생했습니다. error=" + ex.Message,
+                    out reason);
+            }
+            finally
+            {
+            }
+        }
+
+        // Feeder/Lift/Stage Z는 Front/Rear Picker X가 움직이는 동안 위치를 바꿀 수 없다.
+        public static bool VerifyPickerXStoppedForClearanceMechanismMove(
+            CDT320_Machine machine,
+            string movingName,
+            out string reason)
+        {
+            reason = string.Empty;
+            try
+            {
+                if (machine == null ||
+                    machine.PickerFrontUnit == null || machine.PickerFrontUnit.PickerX == null ||
+                    machine.PickerRearUnit == null || machine.PickerRearUnit.PickerX == null)
+                    return MotionGuardRuleHelpers.Block(
+                        movingName,
+                        "Front/Rear Picker X 정지 상태를 확인할 수 없습니다.",
+                        out reason);
+
+                if (machine.PickerFrontUnit.PickerX.IsMoving)
+                    return MotionGuardRuleHelpers.Block(
+                        movingName,
+                        "FrontPickerX가 이동 중이므로 안전 연동 기구를 움직일 수 없습니다.",
+                        out reason);
+
+                if (machine.PickerRearUnit.PickerX.IsMoving)
+                    return MotionGuardRuleHelpers.Block(
+                        movingName,
+                        "RearPickerX가 이동 중이므로 안전 연동 기구를 움직일 수 없습니다.",
+                        out reason);
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                return MotionGuardRuleHelpers.Block(
+                    movingName,
+                    "Picker X 정지 상태 확인 중 예외가 발생했습니다. error=" + ex.Message,
+                    out reason);
+            }
+            finally
+            {
+            }
+        }
+
         // 인터락 항목: PickerY 이동 중 활성 목표 존을 등록해 반대 Picker 진입을 제어한다.
         public static IDisposable BeginPickerZoneMove(string side, PickerAxis axis, string targetName)
         {

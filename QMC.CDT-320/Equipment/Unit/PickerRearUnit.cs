@@ -496,7 +496,8 @@ namespace QMC.CDT320
 
         public void SetRuntimeSideInspectionCorrection(
             int pickerIndex,
-            double sideVisionYOffset,
+            double sideVisionProcess0YOffset,
+            double sideVisionProcess90YOffset,
             double pickerZOffset,
             bool isValid,
             string sourceDieId)
@@ -505,7 +506,12 @@ namespace QMC.CDT320
             if (pickerIndex < 0 || pickerIndex >= RuntimeSideInspectionCorrections.Length)
                 return;
 
-            RuntimeSideInspectionCorrections[pickerIndex].Set(sideVisionYOffset, pickerZOffset, isValid, sourceDieId);
+            RuntimeSideInspectionCorrections[pickerIndex].Set(
+                sideVisionProcess0YOffset,
+                sideVisionProcess90YOffset,
+                pickerZOffset,
+                isValid,
+                sourceDieId);
         }
 
         public void RestoreRuntimeSideInspectionCorrection(int pickerIndex, PickerSideInspectionCorrection correction)

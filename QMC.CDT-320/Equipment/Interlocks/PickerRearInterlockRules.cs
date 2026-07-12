@@ -38,6 +38,12 @@ namespace QMC.CDT320.Interlocks
         {
             reason = string.Empty;
 
+            if (!PickerZoneInterlockRules.VerifyPickerXGlobalMachineClearance(
+                request != null ? request.Machine : null,
+                "RearPickerX",
+                out reason))
+                return false;
+
             // 인터락 항목: RearPickerX 조그는 Z 상승 조건을 확인한 뒤 목표 Zone 판정만 생략한다.
             if (MotionGuardRuleHelpers.IsJogMove(request))
                 return CanJogRearPickerX(request, out reason);
@@ -216,8 +222,8 @@ namespace QMC.CDT320.Interlocks
             if (!VerifyInputExpanderZAtOrBelowZero(machine != null ? machine.InputStageUnit : null, "RearPickerX", out reason))
                 return false;
 
-            // 현재 기준: Input 진입 전 InputFeederY는 Avoid 또는 0 이하 위치여야 한다.
-            if (!VerifyInputFeederYAtAvoidOrBelowZero(machine != null ? machine.InputFeederUnit : null, "RearPickerX", out reason))
+            // 현재 기준: Input 진입 전 InputFeeder Avoid Dog(X090)가 ON이어야 한다.
+            if (!VerifyInputFeederAvoidDog(machine != null ? machine.InputFeederUnit : null, "RearPickerX", out reason))
                 return false;
 
             // 현재 기준: Input 진입 전 InputFeeder Lift는 Down 상태여야 한다.
@@ -252,8 +258,8 @@ namespace QMC.CDT320.Interlocks
             if (!VerifyGoodStageZAtOrBelowProcess(machine != null ? machine.OutputStageUnit : null, "RearPickerX", out reason))
                 return false;
 
-            // 현재 기준: Output 진입 전 OutputFeederY는 Avoid 또는 0 이하 위치여야 한다.
-            if (!VerifyOutputFeederYAtAvoidOrBelowZero(machine != null ? machine.OutputFeederUnit : null, "RearPickerX", out reason))
+            // 현재 기준: Output 진입 전 OutputFeeder Avoid Dog(X091)가 ON이어야 한다.
+            if (!VerifyOutputFeederAvoidDog(machine != null ? machine.OutputFeederUnit : null, "RearPickerX", out reason))
                 return false;
 
             // 현재 기준: Output 진입 전 OutputFeeder Lift는 Down 상태여야 한다.
@@ -336,8 +342,8 @@ namespace QMC.CDT320.Interlocks
                 out reason);
         }
 
-        // 인터락 항목: Picker Input 진입 전 InputFeederY가 Avoid 또는 0 이하 위치인지 확인한다.
-        private static bool VerifyInputFeederYAtAvoidOrBelowZero(InputFeederUnit feeder, string movingName, out string reason)
+        // 인터락 항목: Picker Input 진입 전 InputFeeder Avoid Dog(X090)가 ON인지 확인한다.
+        private static bool VerifyInputFeederAvoidDog(InputFeederUnit feeder, string movingName, out string reason)
         {
             reason = string.Empty;
             // 방어 조건: InputFeeder 또는 FeederY 참조가 없으면 InputFeederY 조건을 적용하지 않는다.
@@ -348,14 +354,12 @@ namespace QMC.CDT320.Interlocks
             if (feeder.FeederY.IsMoving)
                 return MotionGuardRuleHelpers.Block(movingName, movingName + " 이동 불가: InputFeederY가 이동 중입니다.", out reason);
 
-            // 현재 기준: InputFeederY는 Avoid 위치이거나 ActualPosition이 0 이하이어야 한다.
-            if (feeder.IsWaferFeederYInAvoidPosition() ||
-                feeder.FeederY.ActualPosition <= ResolveAxisTolerance(feeder.FeederY))
+            if (feeder.IsWaferFeederAvoidPositionCheck())
                 return true;
 
             return MotionGuardRuleHelpers.Block(
                 movingName,
-                movingName + " 이동 불가: InputFeederY가 Avoid 또는 0 이하 위치가 아닙니다. actual=" + feeder.FeederY.ActualPosition.ToString("0.###"),
+                movingName + " 이동 불가: InputFeeder Avoid Dog(X090)가 ON이 아닙니다. actual=" + feeder.FeederY.ActualPosition.ToString("0.###"),
                 out reason);
         }
 
@@ -426,8 +430,8 @@ namespace QMC.CDT320.Interlocks
                 out reason);
         }
 
-        // 인터락 항목: Picker Output 진입 전 OutputFeederY가 Avoid 또는 0 이하 위치인지 확인한다.
-        private static bool VerifyOutputFeederYAtAvoidOrBelowZero(OutputFeederUnit feeder, string movingName, out string reason)
+        // 인터락 항목: Picker Output 진입 전 OutputFeeder Avoid Dog(X091)가 ON인지 확인한다.
+        private static bool VerifyOutputFeederAvoidDog(OutputFeederUnit feeder, string movingName, out string reason)
         {
             reason = string.Empty;
             // 방어 조건: OutputFeeder 또는 FeederY 참조가 없으면 OutputFeederY 조건을 적용하지 않는다.
@@ -438,14 +442,12 @@ namespace QMC.CDT320.Interlocks
             if (feeder.FeederY.IsMoving)
                 return MotionGuardRuleHelpers.Block(movingName, movingName + " 이동 불가: OutputFeederY가 이동 중입니다.", out reason);
 
-            // 현재 기준: OutputFeederY는 Avoid 위치이거나 ActualPosition이 0 이하이어야 한다.
-            if (feeder.IsBinFeederYInAvoidPosition() ||
-                feeder.FeederY.ActualPosition <= ResolveAxisTolerance(feeder.FeederY))
+            if (feeder.IsBinFeederAvoidPositionCheck())
                 return true;
 
             return MotionGuardRuleHelpers.Block(
                 movingName,
-                movingName + " 이동 불가: OutputFeederY가 Avoid 또는 0 이하 위치가 아닙니다. actual=" + feeder.FeederY.ActualPosition.ToString("0.###"),
+                movingName + " 이동 불가: OutputFeeder Avoid Dog(X091)가 ON이 아닙니다. actual=" + feeder.FeederY.ActualPosition.ToString("0.###"),
                 out reason);
         }
 

@@ -48,6 +48,20 @@ namespace QMC.CDT320.Calibration
         public string Formula { get; set; }
     }
 
+    public sealed class PickerSideFocusReferenceTarget
+    {
+        public VisionFocusPickerSide Side { get; set; }
+        public int SidePickerIndex { get; set; }
+        public int SideReferencePickerIndex { get; set; }
+        public PickerAxis PickerZAxis { get; set; }
+        public PickerAxis PickerTAxis { get; set; }
+        public double X { get; set; }
+        public double Y { get; set; }
+        public double Z { get; set; }
+        public double T { get; set; }
+        public string Formula { get; set; }
+    }
+
     public sealed class PickerCalibratedManualOutputTarget
     {
         public double OutputStageY { get; set; }
@@ -230,6 +244,43 @@ namespace QMC.CDT320.Calibration
             return target;
         }
 
+        public static PickerSideFocusReferenceTarget ResolveSideFocusReferenceTarget(
+            CDT320_Machine machine,
+            VisionFocusPickerSide side,
+            int sidePickerIndex)
+        {
+            int sideIndex = NormalizePickerIndex(sidePickerIndex);
+            PickerCalibratedZoneTarget sideReference = ResolvePickerZoneTarget(
+                machine,
+                side,
+                "DieSidePosition",
+                sideIndex,
+                null,
+                false,
+                true);
+
+            PickerSideFocusReferenceTarget target = new PickerSideFocusReferenceTarget
+            {
+                Side = side,
+                SidePickerIndex = sideIndex,
+                SideReferencePickerIndex = sideIndex,
+                PickerZAxis = sideReference != null ? sideReference.PickerZAxis : ResolvePickerZAxis(sideIndex),
+                PickerTAxis = sideReference != null ? sideReference.PickerTAxis : ResolvePickerTAxis(sideIndex),
+                X = sideReference != null ? sideReference.X : 0.0,
+                Y = sideReference != null ? sideReference.Y : 0.0,
+                Z = sideReference != null ? sideReference.Z : 0.0,
+                T = sideReference != null ? sideReference.T : 0.0
+            };
+            target.Formula =
+                "SidePicker" + (sideIndex + 1) + "->SidePicker" + (sideIndex + 1) +
+                " / X=" + F(target.X) + " (DieSidePosition)" +
+                " / Y=" + F(target.Y) + " (DieSidePosition," +
+                (side == VisionFocusPickerSide.Front ? "FrontPositive" : "RearNegative") + ")" +
+                " / Z=" + F(target.Z) + " (DieSidePosition)" +
+                " / T=" + F(target.T) + " (DieSidePosition)";
+            return target;
+        }
+
         public static PickerCalibratedManualInputTarget ResolveManualInputMapTarget(
             CDT320_Machine machine,
             VisionFocusPickerSide side,
@@ -383,7 +434,7 @@ namespace QMC.CDT320.Calibration
 
         private static double ResolvePickerPitchXOffset(string positionArrayName, int index, double pitchX)
         {
-            // Bottom/Side 검사는 Picker #4를 기준으로 보고, #3/#2/#1은 #4 기준 reverse pitch로 보정한다.
+            // Bottom/Side는 Picker #4를 기준으로 #4 -> #3 -> #2 -> #1 순서에서 X가 증가한다.
             int pitchIndex = IsReversePickerPitchZone(positionArrayName)
                 ? Math.Max(0, 3 - index)
                 : index;

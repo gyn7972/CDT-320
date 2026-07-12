@@ -341,7 +341,11 @@ namespace QMC.CDT320
             _machine = machine ?? throw new ArgumentNullException(nameof(machine));
             SharedRailX = new SharedRailXMotionService(_machine, CreateSharedRailXConfig());
             SharedRailXMotionRuntime.ServiceProvider = () => SharedRailX;
-            _axisInitializeInterlocks = new AxisInitializeInterlockService(_machine, EnumerateAxes);
+            _axisInitializeInterlocks = new AxisInitializeInterlockService(
+                _machine,
+                EnumerateAxes,
+                () => !IsSequenceRunning && _status != EquipmentStatus.AutoRunning,
+                () => !IsManualBusy);
             MotionGuardRuntime.ContextProvider = () =>
                 new MotionGuardContext(_machine, EnumerateAxes(), QMC.CDT320.Ajin.CylinderManager.Items.Values);
             BaseAxis.MotionGuard = VerifyAxisMotionGuard;
@@ -775,6 +779,8 @@ namespace QMC.CDT320
                 AlignOffsetT = offset.AlignOffsetT,
                 SideInspectionCorrectionValid = sideCorrection != null && sideCorrection.IsValid,
                 SideVisionYOffset = sideCorrection != null ? sideCorrection.SideVisionYOffset : 0.0,
+                SideVisionProcess0YOffset = sideCorrection != null ? sideCorrection.SideVisionProcess0YOffset : 0.0,
+                SideVisionProcess90YOffset = sideCorrection != null ? sideCorrection.SideVisionProcess90YOffset : 0.0,
                 PickerZOffset = sideCorrection != null ? sideCorrection.PickerZOffset : 0.0,
                 SideInspectionSourceDieId = sideCorrection != null ? sideCorrection.SourceDieId : string.Empty,
                 SideInspectionUpdatedAt = NormalizeOptionalRuntimeDateTime(
@@ -830,6 +836,8 @@ namespace QMC.CDT320
                     {
                         IsValid = saved.SideInspectionCorrectionValid,
                         SideVisionYOffset = saved.SideVisionYOffset,
+                        SideVisionProcess0YOffset = saved.SideVisionProcess0YOffset,
+                        SideVisionProcess90YOffset = saved.SideVisionProcess90YOffset,
                         PickerZOffset = saved.PickerZOffset,
                         SourceDieId = saved.SideInspectionSourceDieId,
                         UpdatedAt = saved.SideInspectionUpdatedAt

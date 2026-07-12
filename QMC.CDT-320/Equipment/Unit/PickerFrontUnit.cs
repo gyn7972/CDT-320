@@ -182,7 +182,9 @@ namespace QMC.CDT320
     public sealed class PickerSideInspectionCorrection
     {
         [DataMember] public bool IsValid { get; set; } // Bottom 검사에서 Side 검사 보정값을 정상 수신했는지 여부입니다.
-        [DataMember] public double SideVisionYOffset { get; set; } // SideVisionY Process 위치에 더할 Picker별 런타임 보정값입니다.
+        [DataMember] public double SideVisionYOffset { get; set; } // 구형 단일 보정값 호환 필드입니다. 신규 Side 모션에는 사용하지 않습니다.
+        [DataMember] public double SideVisionProcess0YOffset { get; set; } // Bottom Center X(mm)를 Side 0도 검사 위치에 더합니다.
+        [DataMember] public double SideVisionProcess90YOffset { get; set; } // Bottom Center Y(mm)를 Side 90도 검사 위치에 더합니다.
         [DataMember] public double PickerZOffset { get; set; } // Side 검사 PickerZ 티칭 위치에 더할 Picker별 런타임 보정값입니다.
         [DataMember] public string SourceDieId { get; set; } // 해당 보정값을 만든 Bottom 검사 Die ID입니다.
         [DataMember] public DateTime UpdatedAt { get; set; } // 보정값이 갱신된 시각입니다.
@@ -193,15 +195,24 @@ namespace QMC.CDT320
             {
                 IsValid = IsValid,
                 SideVisionYOffset = SideVisionYOffset,
+                SideVisionProcess0YOffset = SideVisionProcess0YOffset,
+                SideVisionProcess90YOffset = SideVisionProcess90YOffset,
                 PickerZOffset = PickerZOffset,
                 SourceDieId = SourceDieId,
                 UpdatedAt = UpdatedAt
             };
         }
 
-        public void Set(double sideVisionYOffset, double pickerZOffset, bool isValid, string sourceDieId)
+        public void Set(
+            double process0Offset,
+            double process90Offset,
+            double pickerZOffset,
+            bool isValid,
+            string sourceDieId)
         {
-            SideVisionYOffset = sideVisionYOffset;
+            SideVisionYOffset = 0.0;
+            SideVisionProcess0YOffset = process0Offset;
+            SideVisionProcess90YOffset = process90Offset;
             PickerZOffset = pickerZOffset;
             IsValid = isValid;
             SourceDieId = sourceDieId ?? string.Empty;
@@ -212,6 +223,8 @@ namespace QMC.CDT320
         {
             IsValid = false;
             SideVisionYOffset = 0.0;
+            SideVisionProcess0YOffset = 0.0;
+            SideVisionProcess90YOffset = 0.0;
             PickerZOffset = 0.0;
             SourceDieId = string.Empty;
             UpdatedAt = DateTime.MinValue;
@@ -717,7 +730,8 @@ namespace QMC.CDT320
 
         public void SetRuntimeSideInspectionCorrection(
             int pickerIndex,
-            double sideVisionYOffset,
+            double sideVisionProcess0YOffset,
+            double sideVisionProcess90YOffset,
             double pickerZOffset,
             bool isValid,
             string sourceDieId)
@@ -726,7 +740,12 @@ namespace QMC.CDT320
             if (pickerIndex < 0 || pickerIndex >= RuntimeSideInspectionCorrections.Length)
                 return;
 
-            RuntimeSideInspectionCorrections[pickerIndex].Set(sideVisionYOffset, pickerZOffset, isValid, sourceDieId);
+            RuntimeSideInspectionCorrections[pickerIndex].Set(
+                sideVisionProcess0YOffset,
+                sideVisionProcess90YOffset,
+                pickerZOffset,
+                isValid,
+                sourceDieId);
         }
 
         public void RestoreRuntimeSideInspectionCorrection(int pickerIndex, PickerSideInspectionCorrection correction)

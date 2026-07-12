@@ -188,6 +188,8 @@ namespace QMC.CDT320
             _diMap[m.InputCassetteUnit.ProtrusionSensor]    = "X061";
             _diMap[m.InputCassetteUnit.WaferDetectSensor]   = "X062";
             _diMap[m.InputFeederUnit.WaferClampedSensor]    = "X063";
+            _diMap[m.InputFeederUnit.WaferFeederAvoidPositionCheckSensor] = "X090";
+            _diMap[m.OutputFeederUnit.BinFeederAvoidPositionCheckSensor] = "X091";
         }
 
         // ──────────────────────────────────────────────

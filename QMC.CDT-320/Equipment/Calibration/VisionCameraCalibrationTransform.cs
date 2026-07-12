@@ -44,7 +44,10 @@ namespace QMC.CDT320.Calibration
                 OffsetX = 0.0,
                 OffsetY = 0.0,
                 OffsetT = ok ? match.AngleDeg : 0.0,
-                // TODO: SideVisionY/PickerZ 보정은 Bottom SurfaceInspector 원본 로그 확인 후 연결한다.
+                BottomCenterOffsetX = 0.0,
+                BottomCenterOffsetY = 0.0,
+                HasBottomCenterOffset = false,
+                // MATCH X/Y는 pixel 좌표이므로 Side 각도별 mm 보정에는 사용하지 않는다.
                 SideVisionYOffset = 0.0,
                 PickerZOffset = 0.0,
                 HasSideInspectionCorrection = false,
@@ -62,11 +65,36 @@ namespace QMC.CDT320.Calibration
                 // Bottom SurfaceInspector Angle 원본값이다. T 보정 적용 여부는 별도 검증 후 결정한다.
             }
 
-            // TODO: 실장비 로그 확인 후 아래 후보 중 하나를 SideVisionY / PickerZ 보정으로 연결한다.
-            // double sideVisionYOffset = ReadCandidate(result, "bottom_offset_y_mm", "bottom_item_offset_y");
-            // double pickerZOffset = ReadCandidate(result, "bottom_offset_x_mm", "bottom_item_offset_x");
+            // 기존 단일 SideVisionY/PickerZ 보정 계약은 사용하지 않는다.
+            // Bottom Center X/Y(mm)는 각도별 SideVisionY 보정 전용 필드로 분리한다.
             double sideVisionYOffset = 0.0;
             double pickerZOffset = 0.0;
+            double bottomCenterOffsetX = 0.0;
+            double bottomCenterOffsetY = 0.0;
+            bool hasBottomCenterOffsetX = result != null && result.TryGetDoubleValue(
+                out bottomCenterOffsetX,
+                "bottom_offset_x_mm",
+                "bottom_center_offset_x_mm",
+                "bottom_center_x_offset_mm",
+                "bottom_center_x_mm",
+                "center_offset_x_mm",
+                "center_x_offset_mm",
+                "center_x_mm",
+                "bottom_item_offset_x");
+            bool hasBottomCenterOffsetY = result != null && result.TryGetDoubleValue(
+                out bottomCenterOffsetY,
+                "bottom_offset_y_mm",
+                "bottom_center_offset_y_mm",
+                "bottom_center_y_offset_mm",
+                "bottom_center_y_mm",
+                "center_offset_y_mm",
+                "center_y_offset_mm",
+                "center_y_mm",
+                "bottom_item_offset_y");
+            bool hasBottomCenterOffset = hasBottomCenterOffsetX &&
+                                         hasBottomCenterOffsetY &&
+                                         IsFinite(bottomCenterOffsetX) &&
+                                         IsFinite(bottomCenterOffsetY);
 
             return new BottomVisionOffset
             {
@@ -75,6 +103,9 @@ namespace QMC.CDT320.Calibration
                 OffsetX = 0.0,
                 OffsetY = 0.0,
                 OffsetT = ok ? bottomAngleDeg : 0.0,
+                BottomCenterOffsetX = bottomCenterOffsetX,
+                BottomCenterOffsetY = bottomCenterOffsetY,
+                HasBottomCenterOffset = hasBottomCenterOffset,
                 SideVisionYOffset = sideVisionYOffset,
                 PickerZOffset = pickerZOffset,
                 HasSideInspectionCorrection = false,
@@ -184,6 +215,11 @@ namespace QMC.CDT320.Calibration
                     offsetY += data.OutputToBottomOffsetY;
                     break;
             }
+        }
+
+        private static bool IsFinite(double value)
+        {
+            return !double.IsNaN(value) && !double.IsInfinity(value);
         }
     }
 }
