@@ -19,6 +19,7 @@ namespace QMC.CDT320.VisionComm
         Train,
         Scale,
         RotationCenter,
+        ColletRotationCenter,
         Distort,
         CameraSwitch,
         FocusStart,
@@ -41,6 +42,7 @@ namespace QMC.CDT320.VisionComm
         public const string Train = "TRAIN";
         public const string Scale = "SCALE";
         public const string RotationCenter = "ROT_CENTER";
+        public const string ColletRotationCenter = "COC";
         public const string Distort = "DISTORT";
         public const string CameraSwitch = "CAM_SWITCH";
         public const string FocusStart = "FOCUS_START";
@@ -75,6 +77,8 @@ namespace QMC.CDT320.VisionComm
                     return Scale;
                 case VisionProtocolCommand.RotationCenter:
                     return RotationCenter;
+                case VisionProtocolCommand.ColletRotationCenter:
+                    return ColletRotationCenter;
                 case VisionProtocolCommand.Distort:
                     return Distort;
                 case VisionProtocolCommand.CameraSwitch:
@@ -122,6 +126,8 @@ namespace QMC.CDT320.VisionComm
                 return VisionProtocolCommand.Scale;
             if (string.Equals(value, RotationCenter, StringComparison.OrdinalIgnoreCase))
                 return VisionProtocolCommand.RotationCenter;
+            if (string.Equals(value, ColletRotationCenter, StringComparison.OrdinalIgnoreCase))
+                return VisionProtocolCommand.ColletRotationCenter;
             if (string.Equals(value, Distort, StringComparison.OrdinalIgnoreCase))
                 return VisionProtocolCommand.Distort;
             if (string.Equals(value, CameraSwitch, StringComparison.OrdinalIgnoreCase))
@@ -651,6 +657,47 @@ namespace QMC.CDT320.VisionComm
                             string.Equals(token, "ERR", StringComparison.OrdinalIgnoreCase) ||
                             token.StartsWith("fail", StringComparison.OrdinalIgnoreCase);
             result.Success = response.IsAck && !rejected;
+            return result;
+        }
+    }
+
+    public sealed class VisionCocResult
+    {
+        public bool Success { get; set; }
+        public bool Started { get; set; }
+        public double CenterPixelX { get; set; }
+        public double CenterPixelY { get; set; }
+        public double RadiusPixel { get; set; }
+        public int SampleCount { get; set; }
+        public int FrameCount { get; set; }
+        public string Raw { get; set; }
+
+        public static VisionCocResult Parse(string line)
+        {
+            VisionProtocolResponse response = VisionProtocolResponse.Parse(line);
+            var result = new VisionCocResult { Raw = line ?? string.Empty };
+            result.Started = response.IsAck &&
+                (response.IsResult("STARTED") || response.IsResult("OK"));
+
+            bool hasX = response.TryGetDoubleAny(
+                out double centerX,
+                "centerX", "center_x", "cx", "x", "x0");
+            bool hasY = response.TryGetDoubleAny(
+                out double centerY,
+                "centerY", "center_y", "cy", "y", "y0");
+            response.TryGetDoubleAny(out double radius, "radius", "radiusPixel", "r");
+
+            int samples = 0;
+            string sampleText = response.GetValueAny("frames", "frameCount", "samples", "sampleCount", "count");
+            if (!string.IsNullOrWhiteSpace(sampleText))
+                int.TryParse(sampleText, NumberStyles.Integer, CultureInfo.InvariantCulture, out samples);
+
+            result.CenterPixelX = centerX;
+            result.CenterPixelY = centerY;
+            result.RadiusPixel = radius;
+            result.SampleCount = samples;
+            result.FrameCount = samples;
+            result.Success = response.IsAck && response.IsResult("OK") && hasX && hasY;
             return result;
         }
     }

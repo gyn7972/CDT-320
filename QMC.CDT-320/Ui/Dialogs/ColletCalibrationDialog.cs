@@ -40,6 +40,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             MoveAcceleration,
             MoveDeceleration,
             MoveTimeout,
+            CocRotationVelocity,
             AutoFocus,
             ColletDieCalThickness,
             ColletFilmThickness,
@@ -90,6 +91,7 @@ namespace QMC.CDT_320.Ui.Dialogs
         private double _moveAcceleration = CalibrationMotionSettings.DefaultMoveAcceleration;
         private double _moveDeceleration = CalibrationMotionSettings.DefaultMoveDeceleration;
         private int _moveTimeoutMs = CalibrationMotionSettings.DefaultMoveTimeoutMs;
+        private double _cocRotationVelocityDegPerSec = 30.0;
         private bool _autoFocus = true;
         private ColletShapeType _colletType = ColletShapeType.Flat;
         private double _colletDieCalThicknessMm;
@@ -136,7 +138,7 @@ namespace QMC.CDT_320.Ui.Dialogs
         {
             CalibrationDialogButtonStyle.ApplyFooterButtons(
                 new[] { btnCheck, btnSaveBottomTeaching, btnApplyHomeOffset, btnMoveZForward, btnMoveYAvoid, btnSeqStop, btnReload, btnClose },
-                new[] { btnStart },
+                new[] { btnStart, btnCoc, btnCocCenter },
                 new[] { btnSave });
         }
 
@@ -293,6 +295,16 @@ namespace QMC.CDT_320.Ui.Dialogs
             await RunCalibrationAsync().ConfigureAwait(true);
         }
 
+        private async void btnCoc_Click(object sender, EventArgs e)
+        {
+            await RunCocCalibrationAsync(false).ConfigureAwait(true);
+        }
+
+        private async void btnCocCenter_Click(object sender, EventArgs e)
+        {
+            await RunCocCalibrationAsync(true).ConfigureAwait(true);
+        }
+
         private void btnSaveBottomTeaching_Click(object sender, EventArgs e)
         {
             SaveCurrentBottomTeachingPosition();
@@ -440,6 +452,178 @@ namespace QMC.CDT_320.Ui.Dialogs
                 SetButtonsEnabled(true);
                 UpdateStopButtonEnabled();
             }
+        }
+
+        private async Task RunCocCalibrationAsync(bool moveToStoredCenter)
+        {
+            if (_busy)
+                return;
+
+            Form1 host = null;
+            Action stopHandler = null;
+            IDisposable actionScope = null;
+            CancellationTokenSource runCts = null;
+
+            try
+            {
+                _busy = true;
+                SetButtonsEnabled(false);
+
+                string reason;
+                if (!CanRunManualCalibration(out reason))
+                {
+                    lblStatus.Text = reason;
+                    QMC.Common.MessageDialog.Show(this, reason, "COLLET COC", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                host = ResolveHost(out reason);
+                if (host == null)
+                {
+                    lblStatus.Text = reason;
+                    return;
+                }
+
+                if (!SaveSettingsFromUi(false))
+                    return;
+
+                if (moveToStoredCenter)
+                {
+                    ColletCalibrationRecord record = ResolveData(host.Machine).GetRecord(_side, _colletNo);
+                    if (record == null || !record.RotationCenterValid)
+                    {
+                        lblStatus.Text = "COC START로 선택 Collet의 1차 회전 중심을 먼저 검출하세요.";
+                        QMC.Common.MessageDialog.Show(this, lblStatus.Text, "COLLET COC", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        return;
+                    }
+
+                    if (string.IsNullOrWhiteSpace(host.CurrentRecipeName))
+                    {
+                        lblStatus.Text = "현재 활성 Recipe가 없어 회전 중심 기계 좌표를 저장할 수 없습니다.";
+                        QMC.Common.MessageDialog.Show(this, lblStatus.Text, "COLLET COC", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        return;
+                    }
+                }
+
+                runCts = BeginManualCalibrationRun(host, "ColletCOC", out actionScope, out stopHandler);
+                var context = new MachineSequenceContext(host.Controller, new SequenceSignalBus());
+                var sequence = new ColletRotationCenterCalibrationSequence(context, _side, _colletNo, moveToStoredCenter);
+                PickerSequenceOptions options = PickerSequenceOptions.Default();
+                options.RunMode = SequenceRunMode.Manual;
+                options.StartMode = SequenceStartMode.Restart;
+                options.PickerNo = _colletNo;
+                options.RestrictToPickerNo = _colletNo;
+
+                lblStatus.Text = moveToStoredCenter
+                    ? "저장된 회전 중심으로 X/Y 이동 후 COC를 다시 실행하고 있습니다."
+                    : "COC 실행 중입니다. 기존 Collet Calibration 위치에서 T축을 " +
+                      _cocRotationVelocityDegPerSec.ToString("F3") + " deg/s로 360도 회전합니다.";
+                int result = await sequence.RunAsync(runCts.Token, options).ConfigureAwait(true);
+                RefreshResultGrid();
+                if (result != 0)
+                {
+                    lblStatus.Text = "COC 실패. Alarm/Event Log를 확인하세요.";
+                    QMC.Common.MessageDialog.Show(this, lblStatus.Text, "COLLET COC", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    return;
+                }
+
+                string recipeSummary = string.Empty;
+                if (moveToStoredCenter)
+                {
+                    if (!SaveRotationCenterToRecipe(host, sequence.RotationCenterMachineX, sequence.RotationCenterMachineY, out recipeSummary))
+                    {
+                        lblStatus.Text = recipeSummary;
+                        QMC.Common.MessageDialog.Show(this, lblStatus.Text, "COLLET COC", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                        return;
+                    }
+                }
+
+                host.SaveMachineSettings();
+                string summary = (moveToStoredCenter ? "COC 중심 이동/재검출 완료. " : "COC 완료. ") + "Side=" + _side +
+                                  ", Collet=" + _colletNo +
+                                  ", CenterPixel=(" + sequence.Result.CenterPixelX.ToString("F3") +
+                                  ", " + sequence.Result.CenterPixelY.ToString("F3") + ")" +
+                                  ", Frames=" + sequence.Result.FrameCount +
+                                  (moveToStoredCenter
+                                      ? ", MachineCenter=(" + sequence.RotationCenterMachineX.ToString("F6") +
+                                        ", " + sequence.RotationCenterMachineY.ToString("F6") + ")"
+                                      : string.Empty);
+                lblStatus.Text = summary;
+                string[] history = string.IsNullOrWhiteSpace(recipeSummary)
+                    ? new[] { summary }
+                    : new[] { summary, recipeSummary };
+                AppendSaveHistory(history);
+                WriteSaveHistoryLog(history);
+            }
+            catch (OperationCanceledException)
+            {
+                lblStatus.Text = "COC가 정지 요청으로 중단되었습니다.";
+                EventLogger.Write(EventKind.Event, "CAL", "COLLET-COC-STOP", lblStatus.Text);
+            }
+            catch (SequenceStopException ex)
+            {
+                lblStatus.Text = "COC 정지: " + ex.Message;
+                EventLogger.Write(EventKind.Event, "CAL", "COLLET-COC-STOP", lblStatus.Text);
+            }
+            catch (Exception ex)
+            {
+                lblStatus.Text = "COC 실행 중 예외가 발생했습니다: " + ex.Message;
+                EventLogger.Write(EventKind.Alarm, "CAL", "COLLET-COC-RUN", lblStatus.Text);
+                QMC.Common.MessageDialog.Show(this, lblStatus.Text, "COLLET COC", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+                EndManualCalibrationRun(host, stopHandler, runCts, actionScope);
+                _busy = false;
+                SetButtonsEnabled(true);
+                UpdateStopButtonEnabled();
+            }
+        }
+
+        private bool SaveRotationCenterToRecipe(Form1 host, double centerX, double centerY, out string message)
+        {
+            message = string.Empty;
+            if (host == null || host.Machine == null || string.IsNullOrWhiteSpace(host.CurrentRecipeName))
+            {
+                message = "현재 활성 Recipe가 없어 Collet 회전 중심 좌표를 저장할 수 없습니다.";
+                return false;
+            }
+
+            int index = Math.Max(0, Math.Min(3, _colletNo - 1));
+            if (_side == VisionFocusPickerSide.Front)
+            {
+                if (host.Machine.PickerFrontUnit == null || host.Machine.PickerFrontUnit.Recipe == null)
+                {
+                    message = "Front Picker Recipe가 준비되지 않아 회전 중심 좌표를 저장할 수 없습니다.";
+                    return false;
+                }
+
+                host.Machine.PickerFrontUnit.Recipe.EnsurePositionObjects();
+                host.Machine.PickerFrontUnit.Recipe.ColletRotationCenterX[index] = centerX;
+                host.Machine.PickerFrontUnit.Recipe.ColletRotationCenterY[index] = centerY;
+                host.Machine.PickerFrontUnit.Recipe.ColletRotationCenterValid[index] = true;
+            }
+            else
+            {
+                if (host.Machine.PickerRearUnit == null || host.Machine.PickerRearUnit.Recipe == null)
+                {
+                    message = "Rear Picker Recipe가 준비되지 않아 회전 중심 좌표를 저장할 수 없습니다.";
+                    return false;
+                }
+
+                host.Machine.PickerRearUnit.Recipe.EnsurePositionObjects();
+                host.Machine.PickerRearUnit.Recipe.ColletRotationCenterX[index] = centerX;
+                host.Machine.PickerRearUnit.Recipe.ColletRotationCenterY[index] = centerY;
+                host.Machine.PickerRearUnit.Recipe.ColletRotationCenterValid[index] = true;
+            }
+
+            bool saved = host.SaveMachineRecipe(host.CurrentRecipeName);
+            message = "COC Recipe 저장: " + _side + " C" + _colletNo +
+                      ", X=" + centerX.ToString("F6") +
+                      ", Y=" + centerY.ToString("F6") +
+                      ", recipe=" + host.CurrentRecipeName +
+                      ", saved=" + saved;
+            return saved;
         }
 
         private async Task RunMoveZForwardAsync()
@@ -622,6 +806,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                 _moveAcceleration = settings.Motion.MoveAcceleration;
                 _moveDeceleration = settings.Motion.MoveDeceleration;
                 _moveTimeoutMs = settings.Motion.MoveTimeoutMs;
+                _cocRotationVelocityDegPerSec = settings.CocRotationVelocityDegPerSec;
                 _autoFocus = settings.RunAutoFocusAfterTheta;
 
                 RecipeProject project = LoadActiveProject(host);
@@ -688,6 +873,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                 data.Settings.Motion.MoveAcceleration = _moveAcceleration;
                 data.Settings.Motion.MoveDeceleration = _moveDeceleration;
                 data.Settings.Motion.MoveTimeoutMs = _moveTimeoutMs;
+                data.Settings.CocRotationVelocityDegPerSec = _cocRotationVelocityDegPerSec;
                 data.Settings.RunAutoFocusAfterTheta = _autoFocus;
                 data.Settings.EnsureDefaults();
                 _finder = data.Settings.BottomFinderName;
@@ -695,6 +881,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                 _moveAcceleration = data.Settings.Motion.MoveAcceleration;
                 _moveDeceleration = data.Settings.Motion.MoveDeceleration;
                 _moveTimeoutMs = data.Settings.Motion.MoveTimeoutMs;
+                _cocRotationVelocityDegPerSec = data.Settings.CocRotationVelocityDegPerSec;
                 string projectSaveMessage;
                 if (!SaveActiveProjectColletZ(host, false, out projectSaveMessage))
                 {
@@ -742,6 +929,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                     ", moveAcceleration=" + data.Settings.Motion.MoveAcceleration.ToString("F6") +
                     ", moveDeceleration=" + data.Settings.Motion.MoveDeceleration.ToString("F6") +
                     ", moveTimeoutMs=" + data.Settings.Motion.MoveTimeoutMs +
+                    ", cocRotationVelocityDegPerSec=" + data.Settings.CocRotationVelocityDegPerSec.ToString("F6") +
                     ", autoFocus=" + data.Settings.RunAutoFocusAfterTheta);
                 EventLogger.Write(EventKind.Event, "CAL", "COLLET-CAL-SAVE",
                     "Collet Calibration 설정 저장. side=" + _side +
@@ -864,6 +1052,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                 AddSettingRow(CreateNumber(SettingKey.MoveAcceleration, "Move Acc", "mm/s2", "Collet Calibration 전용 이동 가속도입니다. 축 인터락은 기존 규칙을 그대로 탑니다.", false), _moveAcceleration.ToString("F6"));
                 AddSettingRow(CreateNumber(SettingKey.MoveDeceleration, "Move Dec", "mm/s2", "Collet Calibration 전용 이동 감속도입니다. 축 인터락은 기존 규칙을 그대로 탑니다.", false), _moveDeceleration.ToString("F6"));
                 AddSettingRow(CreateNumber(SettingKey.MoveTimeout, "Move Timeout", "ms", "Collet Calibration 전용 이동 완료/인포지션 대기 시간입니다.", true), _moveTimeoutMs.ToString(CultureInfo.InvariantCulture));
+                AddSettingRow(CreateNumber(SettingKey.CocRotationVelocity, "COC T Speed", "deg/s", "COC START 실행 시 선택 콜렛 T축을 360도 회전할 속도입니다. 전체 콜렛에 공통 적용하며 기본값은 30 deg/s입니다.", false), _cocRotationVelocityDegPerSec.ToString("F6"));
                 AddSettingRow(CreateOption(SettingKey.AutoFocus, "AutoFocus", "True이면 Bottom 위치 진입 후 저장된 Focus Cal 기준에서 AutoFocus를 수행하고 Best Z로 이동한 뒤 Collet 검출을 시작합니다. False이면 저장된 Focus Cal Default Z만 사용합니다.", BoolOptions), _autoFocus ? "True" : "False");
                 AddSettingRow(CreateNumber(SettingKey.ColletDieCalThickness, "Die Thickness", "mm", "Collet Cal에서 AutoFocus 후 측정한 Best Z에 더할 다이 두께입니다. 저장 검사 Z = 측정 Z + Die Thickness + Film Thickness + 현재 Collet Type Offset입니다.", false), _colletDieCalThicknessMm.ToString("F6"));
                 AddSettingRow(CreateNumber(SettingKey.ColletRimOffsetFromFlat, "Rim Collet Offset", "mm", "Recipe Collet Type이 Rim일 때 측정 Z에 더할 콜렛 Offset입니다. 아래 방향은 -이고 위 방향은 +이므로 위로 올릴 값은 +로 입력합니다.", false), _colletRimOffsetFromFlatMm.ToString("F6"));
@@ -990,6 +1179,9 @@ namespace QMC.CDT_320.Ui.Dialogs
                     break;
                 case SettingKey.MoveTimeout:
                     _moveTimeoutMs = Math.Max(100, (int)Math.Round(value));
+                    break;
+                case SettingKey.CocRotationVelocity:
+                    _cocRotationVelocityDegPerSec = Math.Max(0.1, Math.Min(360.0, value));
                     break;
                 case SettingKey.ColletDieCalThickness:
                     _colletDieCalThicknessMm = Math.Max(0.0, value);
@@ -2092,6 +2284,8 @@ namespace QMC.CDT_320.Ui.Dialogs
             gridSettings.Enabled = enabled;
             btnCheck.Enabled = enabled;
             btnStart.Enabled = enabled;
+            btnCoc.Enabled = enabled;
+            btnCocCenter.Enabled = enabled;
             btnSaveBottomTeaching.Enabled = enabled;
             btnApplyHomeOffset.Enabled = enabled;
             btnMoveZForward.Enabled = enabled;

@@ -126,12 +126,66 @@ namespace QMC.Vision.Core
         /// dieIndex: 픽업 순서 1-base(=결과 매칭 키 chipUid, 2026-07-06). 0=없음, -1=다이 없는 메뉴얼 테스트(맵/집계 생략).
         /// gridX/gridY: 핸들러가 와이어로 직접 내려준 웨이퍼 격자 인덱스(신형 "gridx;gridy") —
         /// 0 이상이면 그대로 사용(맵 조회 대체), 음수(구형)만 PickupOrderResolver 폴백.</summary>
+        // 와이어 검사기 id 재해석 진단 로그 — 같은 (모듈|요청→해석) 조합은 1회만 기록(사이클 스팸 방지).
+        private static readonly System.Collections.Generic.HashSet<string> _aliasLogged =
+            new System.Collections.Generic.HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        /// <summary>와이어 검사기 id 해석 — 등록 id 와 정확히 일치하면 그대로, 아니면:
+        /// ① 측면 모듈: 핸들러 공용/구명칭 "…SurfaceInspector" 요청은 <b>칩핑 검사기</b>(원본
+        ///    QMc.Vision.Inspector.SideChippingInspector 를 사용하는 역할)로 해석한다(2026-07-11 확정 —
+        ///    Side 검사 = SideChippingInspector. 핸들러 id "SurfaceInspector" ↔ Vision 등록 id 불일치 해소).
+        /// ② 그 외: 꼬리 일치 유일 후보 폴백(접두 변형 흡수). 해석 실패 시 원문 유지(호출측이 기존 오류 반환).</summary>
+        public static string ResolveInspectorId(IVisionModule m, string insp)
+        {
+            if (m == null || string.IsNullOrEmpty(insp) || m.Inspectors.ContainsKey(insp)) return insp;
+
+            string resolved = null;
+
+            // ① 측면 모듈 — Side 검사는 칩핑 검사기(SideChippingInspector)로 수행.
+            if (insp.EndsWith("SurfaceInspector", StringComparison.OrdinalIgnoreCase))
+            {
+                foreach (var kv in m.Inspectors)
+                    if (kv.Value is SideAppearanceInspector s && s.IsChippingRole) { resolved = kv.Key; break; }
+            }
+
+            // ② 꼬리 일치 유일 후보(등록 id 가 요청으로 끝나거나 그 반대) — 접두 변형 흡수.
+            if (resolved == null)
+            {
+                foreach (var key in m.Inspectors.Keys)
+                {
+                    if (key.EndsWith(insp, StringComparison.OrdinalIgnoreCase) ||
+                        insp.EndsWith(key, StringComparison.OrdinalIgnoreCase))
+                    {
+                        if (resolved != null) { resolved = null; break; }   // 후보 2개 이상 → 모호(해석 포기)
+                        resolved = key;
+                    }
+                }
+            }
+
+            if (resolved == null) return insp;
+            string logKey = m.Name + "|" + insp + "→" + resolved;
+            lock (_aliasLogged)
+            {
+                if (_aliasLogged.Add(logKey))
+                {
+                    try
+                    {
+                        QMC.Common.Logging.EventLogger.Write(QMC.Common.Logging.EventKind.Event, "VISION", "InspectorAlias",
+                            m.Name + ": 검사기 id 재해석 '" + insp + "' → '" + resolved + "'");
+                    }
+                    catch { }
+                }
+            }
+            return resolved;
+        }
+
         public static string Start(IVisionModule m, VisionSettings cfg, string insp,
                                    int picker, string chipUid, int dieIndex, int channel,
                                    int gridX = -1, int gridY = -1)
         {
             if (m == null) return "fail:no module";
             if (string.IsNullOrEmpty(insp)) return "fail:no inspector";
+            insp = ResolveInspectorId(m, insp);   // 핸들러 공용 id → 등록 id (측면=칩핑 검사기)
             if (!m.Inspectors.ContainsKey(insp)) return "fail:inspector not found";
 
             int ix, iy;
@@ -189,6 +243,7 @@ namespace QMC.Vision.Core
         {
             if (m == null) return "fail:no module";
             if (string.IsNullOrEmpty(insp)) return "fail:no inspector";
+            insp = ResolveInspectorId(m, insp);   // 핸들러 공용 id → 등록 id (측면=칩핑 검사기)
             if (!m.Inspectors.ContainsKey(insp)) return "fail:inspector not found";
 
             int ix, iy;
@@ -252,6 +307,7 @@ namespace QMC.Vision.Core
         {
             if (m == null) return "fail:no module";
             if (string.IsNullOrEmpty(insp)) return "fail:no inspector";
+            insp = ResolveInspectorId(m, insp);   // 시작(GRAB/INSPECTASYNC)과 동일 해석 — 결과 키 일치 보장
 
             const int WaitMs = 6000;
             const int StepMs = 30;

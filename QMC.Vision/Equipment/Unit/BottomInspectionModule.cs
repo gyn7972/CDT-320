@@ -15,6 +15,7 @@ namespace QMC.Vision.Modules
         public IPatternFinder Focus            { get; }
         public IPatternFinder Scale            { get; }
         public IPatternFinder DistortionComp   { get; }
+        public IPatternFinder ColletRotCenter  { get; }
 
         public BottomInspectionModule(ICamera camera, IVisionBackend backend)
             : base("BottomInspection", camera, backend)
@@ -26,6 +27,9 @@ namespace QMC.Vision.Modules
             Focus          = AddFinder   <FinderAlgoSetup,    FinderAlgoConfig,    FinderAlgoRecipe>   ("FocusFinder");
             Scale          = AddFinder   <FinderAlgoSetup,    FinderAlgoConfig,    FinderAlgoRecipe>   ("ScaleFinder");
             DistortionComp = AddFinder   <FinderAlgoSetup,    FinderAlgoConfig,    FinderAlgoRecipe>   ("DistortionCompensation");
+            // 콜렛 회전 중심(COC) — 회전 누적 평균 영상의 대칭 중심 측정. 노출/조명 레시피 보유용 노드
+            // (검출 자체는 ColletRotationCenterCore 가 수행, finder MATCH 는 사용하지 않음).
+            ColletRotCenter = AddFinder <FinderAlgoSetup,    FinderAlgoConfig,    FinderAlgoRecipe>   (QMC.Vision.Core.ColletRotationCenterCore.ToolId);
         }
     }
 }

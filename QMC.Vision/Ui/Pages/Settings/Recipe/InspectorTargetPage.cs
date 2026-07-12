@@ -141,7 +141,27 @@ namespace QMC.Vision.Ui.Pages
                             foreach (var k in ov.Marks)
                                 marks.Add(new QMC.Common.Ui.Controls.OverlayMark(k.X, k.Y, k.Score, k.Angle, k.BoxW, k.BoxH));
                         }
+                        // 결과 마크(COC 회전중심 등, ModuleResultStore.RecordMark)도 병합 — 새 그랩 시 스토어가
+                        // 비워지므로(ClearMarks) 이전 프레임 좌표의 마크가 새 영상에 남지 않는다(2026-07-12).
+                        var extraMarks = QMC.Vision.Core.ModuleResultStore.GetMarks(_module.Name);
+                        if (extraMarks != null && extraMarks.Length > 0)
+                        {
+                            marks = marks ?? new System.Collections.Generic.List<QMC.Common.Ui.Controls.OverlayMark>(extraMarks.Length);
+                            foreach (var k in extraMarks)
+                                marks.Add(new QMC.Common.Ui.Controls.OverlayMark(k.X, k.Y, k.Score, 0, 0, 0));
+                        }
                         _cam.SetOverlay(rect, marks);
+                    }
+                    else
+                    {
+                        var extraMarks = QMC.Vision.Core.ModuleResultStore.GetMarks(_module.Name);
+                        if (extraMarks != null && extraMarks.Length > 0)
+                        {
+                            var marks = new System.Collections.Generic.List<QMC.Common.Ui.Controls.OverlayMark>(extraMarks.Length);
+                            foreach (var k in extraMarks)
+                                marks.Add(new QMC.Common.Ui.Controls.OverlayMark(k.X, k.Y, k.Score, 0, 0, 0));
+                            _cam.SetOverlay(System.Drawing.RectangleF.Empty, marks);
+                        }
                     }
                     // 검사 종류별 검출 기하(다이박스/갭/프로파일) — 모니터링 뷰와 동일 렌더러.
                     if (QMC.Vision.Core.InspectionOverlayStore.TryGet(_module.Name, out var geom))
@@ -154,6 +174,28 @@ namespace QMC.Vision.Ui.Pages
                     {
                         _cam.SetVerdict(pass ? "OK" : "NG", pass);
                         _cam.SetResultLines(lines);
+                    }
+                    // 통신(핸들러) 결과를 '검사 결과' 그리드에도 채움(2026-07-12) — 종전에는 페이지 수동 INSPECT
+                    // 만 그리드를 채워서, 핸들러가 돌린 검사/COC 결과가 이 패널에 항상 비어 보였다.
+                    if (QMC.Vision.Core.ModuleResultStore.TryGetEntries(_module.Name, out var entries))
+                    {
+                        _result.Rows.Clear();
+                        foreach (var en in entries)
+                        {
+                            string mark = en.Item2 ? "✓" : "✗";
+                            foreach (var tok in en.Item3.Split(';'))
+                            {
+                                var t = tok.Trim();
+                                if (t.Length == 0) continue;
+                                int eq = t.IndexOf('=');
+                                if (eq > 0) _result.Rows.Add(t.Substring(0, eq).Trim(), t.Substring(eq + 1).Trim(), mark);
+                                else _result.Rows.Add(t, "", mark);
+                            }
+                        }
+                        bool allPass = entries.TrueForAll(en => en.Item2);
+                        _lblVerdict.Text = allPass ? "PASS" : "FAIL";
+                        _lblVerdict.BackColor = allPass ? Color.FromArgb(40, 180, 90) : Color.FromArgb(220, 60, 60);
+                        _lblVerdict.ForeColor = Color.White;
                     }
                 }
             }
@@ -845,7 +887,7 @@ namespace QMC.Vision.Ui.Pages
                                               ?? (_inspector as QMC.Vision.Core.BottomInspector)?.LastCorners
                                               ?? (_inspector as QMC.Vision.Core.SideAppearanceInspector)?.LastCorners;
                     QMC.Vision.Core.InspectionResultStore.Record(
-                        QMC.Vision.Core.InspectionResultStore.FromResult(mode, 1, 0, 0, 0, r, img, box));
+                        QMC.Vision.Core.InspectionResultStore.FromResult(mode, 1, 0, 0, 0, r, img, box, null, _module?.Name));
 
                     string mod = _module?.Name;
                     if (!string.IsNullOrEmpty(mod))

@@ -280,6 +280,48 @@ namespace QMC.CDT320.VisionComm
             return VisionRotationCenterResult.Parse(response.RawLine);
         }
 
+        public static async Task<VisionCocResult> StartColletRotationCenterAsync(
+            AutoVisionChannel channel,
+            string side,
+            int colletNo,
+            int timeoutMs,
+            CancellationToken ct)
+        {
+            VisionTcpClient client = ResolveClient(channel);
+            if (client == null)
+                return new VisionCocResult { Raw = "Vision client is null." };
+
+            VisionProtocolResponse response = await client.SendCommandAsync(
+                VisionProtocolCommand.ColletRotationCenter,
+                timeoutMs,
+                ct,
+                "START",
+                side,
+                colletNo).ConfigureAwait(false);
+            return VisionCocResult.Parse(response.RawLine);
+        }
+
+        public static async Task<VisionCocResult> EndColletRotationCenterAsync(
+            AutoVisionChannel channel,
+            string side,
+            int colletNo,
+            int timeoutMs,
+            CancellationToken ct)
+        {
+            VisionTcpClient client = ResolveClient(channel);
+            if (client == null)
+                return new VisionCocResult { Raw = "Vision client is null." };
+
+            VisionProtocolResponse response = await client.SendCommandAsync(
+                VisionProtocolCommand.ColletRotationCenter,
+                timeoutMs,
+                ct,
+                "END",
+                side,
+                colletNo).ConfigureAwait(false);
+            return VisionCocResult.Parse(response.RawLine);
+        }
+
         public static async Task<bool> DistortAsync(AutoVisionChannel channel, int timeoutMs, CancellationToken ct)
         {
             VisionTcpClient client = ResolveClient(channel);

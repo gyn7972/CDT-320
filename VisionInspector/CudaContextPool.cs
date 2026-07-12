@@ -48,9 +48,15 @@ namespace QMC.Vision.Inspector
             }
         }
 
+        /// <summary>진단용 강제 비활성(2026-07-12) — 환경변수 QMC_CUDA_CTX_DISABLE=1 이면 풀을 쓰지 않고
+        /// 항상 무효 Lease 를 반환한다(레거시 호출마다-할당 경로로 고정). ctx 경로/레거시 경로 결과 대조용.</summary>
+        private static readonly bool _forceDisabled =
+            Environment.GetEnvironmentVariable("QMC_CUDA_CTX_DISABLE") == "1";
+
         /// <summary>컨텍스트 대여. 풀 비활성(무-CUDA/구 DLL)이거나 대기 한도 초과면 무효 Lease.</summary>
         public static Lease Rent()
         {
+            if (_forceDisabled) return new Lease();
             if (_state == 0) return new Lease();
             if (_state == -1) Initialize();
             if (_state != 1) return new Lease();

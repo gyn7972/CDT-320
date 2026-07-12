@@ -49,6 +49,7 @@
       <DependentUpon>MainForm.cs</DependentUpon>
     </Compile>
     <Compile Include="Program.cs" />
+    <Compile Include="InspectionRunner.cs" />
     <Compile Include="TestParameters.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
@@ -57,6 +58,9 @@
       <Project>{49EE7EBB-6263-4FEF-8278-817AB96A046D}</Project>
       <Name>QMc.Vision.Inspector</Name>
     </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="App.config" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- CUDA 네이티브 DLL 을 출력 폴더로 복사(비전 프로그램과 동일 소스 = NativeDeps) -->

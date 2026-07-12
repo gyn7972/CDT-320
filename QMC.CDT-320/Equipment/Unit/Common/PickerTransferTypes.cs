@@ -72,6 +72,7 @@ namespace QMC.CDT320
         [DataMember] public double PickerSafeForWaferStageDistance { get; set; } = MinimumPickerSafeForWaferStageDistance;
         [DataMember] public PickerPickUpSeparateMode SeparateMode { get; set; } = PickerPickUpSeparateMode.Simultaneous;
         [DataMember] public int VacuumOnBeforePickDelayMs { get; set; } = 0;
+        [DataMember] public int NeedleVacuumOffSettleBeforeXYMs { get; set; } = 100;
         [DataMember] public int SyncLiftSettleMs { get; set; } = 0;
         [DataMember] public int PickSettleMs { get; set; } = 0;
 
@@ -93,6 +94,7 @@ namespace QMC.CDT320
         {
             TransferContiSplineCurvePercent = 100.0;
             TransferContiUseGlobalSpeedScale = true;
+            NeedleVacuumOffSettleBeforeXYMs = 100;
         }
 
         [OnDeserialized]
@@ -151,6 +153,10 @@ namespace QMC.CDT320
 
             if (VacuumOnBeforePickDelayMs < 0)
                 VacuumOnBeforePickDelayMs = 0;
+            if (NeedleVacuumOffSettleBeforeXYMs < 0)
+                NeedleVacuumOffSettleBeforeXYMs = 0;
+            if (NeedleVacuumOffSettleBeforeXYMs > 60000)
+                NeedleVacuumOffSettleBeforeXYMs = 60000;
             if (SyncLiftSettleMs < 0)
                 SyncLiftSettleMs = 0;
             if (PickSettleMs < 0)

@@ -245,7 +245,8 @@ namespace QMC.CDT320.Sequencing
                 string waferKey = BuildAutoFocusWaferKey(die);
                 string reason;
                 RuntimeAutoFocusScanMode scanMode;
-                if (!data.TryReserveRuntimeAutoFocus(waferKey, out scanMode, out reason))
+                VisionFocusPickerSide focusSide = ResolveFocusPickerSide();
+                if (!data.TryReserveRuntimeAutoFocus(focusSide, pickerNo, waferKey, out scanMode, out reason))
                 {
                     WriteLog("PickerAutoFocus",
                         Name + " 생산 Bottom Die AutoFocus 조건이 없어 건너뜁니다. side=" + Side +
@@ -254,6 +255,7 @@ namespace QMC.CDT320.Sequencing
                         ", interval=" + settings.AutoFocusPickInterval +
                         ", wafer=" + waferKey +
                         ", lastWafer=" + (data.RuntimeAutoFocusLastWaferId ?? string.Empty) +
+                        ", pending=" + data.BuildRuntimeAutoFocusPendingText() +
                         " - Check");
                     return 0;
                 }
@@ -278,12 +280,14 @@ namespace QMC.CDT320.Sequencing
                         ", reason=" + reason +
                         ", totalCount=" + data.RuntimeAutoFocusTotalPickCount +
                         ", interval=" + settings.AutoFocusPickInterval +
-                        ", wafer=" + waferKey + " - Start");
+                        ", wafer=" + waferKey +
+                        ", pending=" + data.BuildRuntimeAutoFocusPendingText() +
+                        " - Start");
 
                     var request = new VisionFocusScanRequest
                     {
                         Kind = VisionFocusScanKind.BottomDie,
-                        PickerSide = ResolveFocusPickerSide(),
+                        PickerSide = focusSide,
                         PickerNo = pickerNo,
                         DefaultPosition = defaultPosition,
                         MinusRange = settings.MinusRange,
@@ -339,7 +343,7 @@ namespace QMC.CDT320.Sequencing
                         return result;
 
                     ApplyRuntimeBottomFocusPosition(pickerIndex, bestZ);
-                    data.CompleteRuntimeAutoFocus(waferKey);
+                    data.CompleteRuntimeAutoFocus(focusSide, pickerNo, waferKey);
                     SaveVisionFocusSettings("생산 Bottom Die AutoFocus 완료");
 
                     WriteLog("PickerAutoFocus",
@@ -350,7 +354,9 @@ namespace QMC.CDT320.Sequencing
                         ", score=" + sequence.Result.BestScore.ToString("F4") +
                         ", sample=" + sequence.Result.SampleCount +
                         ", scanMode=" + scanMode +
-                        ", wafer=" + waferKey + " - Ok");
+                        ", wafer=" + waferKey +
+                        ", pending=" + data.BuildRuntimeAutoFocusPendingText() +
+                        " - Ok");
                     return 0;
                 }
                 finally

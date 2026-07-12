@@ -171,6 +171,9 @@ namespace QMC.CDT320.Calibration
         private static readonly DateTime SafeRuntimeUnsetDateTime = new DateTime(2000, 1, 1);
         private object _runtimeAutoFocusSync;
         private bool _runtimeAutoFocusReserved;
+        private VisionFocusPickerSide _reservedRuntimeAutoFocusSide;
+        private int _reservedRuntimeAutoFocusPickerNo;
+        private RuntimeAutoFocusScanMode _reservedRuntimeAutoFocusMode;
         private RuntimeAutoFocusScanMode _startupAutoFocusMode;
 
         [DataMember] public VisionFocusScanSettings BottomColletScan { get; set; } = new VisionFocusScanSettings();
@@ -187,6 +190,9 @@ namespace QMC.CDT320.Calibration
         [DataMember] public int RuntimeAutoFocusTotalPickCount { get; set; }
         [DataMember] public string RuntimeAutoFocusLastWaferId { get; set; }
         [DataMember] public DateTime RuntimeAutoFocusLastCompletedAt { get; set; }
+        [DataMember] public RuntimeAutoFocusScanMode[] FrontRuntimeAutoFocusPendingModes { get; set; } = CreateRuntimeAutoFocusModes();
+        [DataMember] public RuntimeAutoFocusScanMode[] RearRuntimeAutoFocusPendingModes { get; set; } = CreateRuntimeAutoFocusModes();
+        [DataMember] public string RuntimeAutoFocusPendingReason { get; set; }
 
         [OnDeserialized]
         private void OnDeserialized(StreamingContext ctx)
@@ -212,7 +218,10 @@ namespace QMC.CDT320.Calibration
             if (RearSide0 == null) RearSide0 = new VisionFocusPositionRecord();
             if (RearSide90 == null) RearSide90 = new VisionFocusPositionRecord();
             if (RuntimeAutoFocusLastWaferId == null) RuntimeAutoFocusLastWaferId = string.Empty;
+            if (RuntimeAutoFocusPendingReason == null) RuntimeAutoFocusPendingReason = string.Empty;
             if (RuntimeAutoFocusTotalPickCount < 0) RuntimeAutoFocusTotalPickCount = 0;
+            FrontRuntimeAutoFocusPendingModes = EnsureRuntimeAutoFocusModes(FrontRuntimeAutoFocusPendingModes);
+            RearRuntimeAutoFocusPendingModes = EnsureRuntimeAutoFocusModes(RearRuntimeAutoFocusPendingModes);
             if (RuntimeAutoFocusLastCompletedAt <= DateTime.MinValue.AddDays(1) ||
                 RuntimeAutoFocusLastCompletedAt >= DateTime.MaxValue.AddDays(-1))
                 RuntimeAutoFocusLastCompletedAt = SafeRuntimeUnsetDateTime;
@@ -240,6 +249,8 @@ namespace QMC.CDT320.Calibration
         }
 
         public bool TryReserveRuntimeAutoFocus(
+            VisionFocusPickerSide side,
+            int pickerNo,
             string waferId,
             out RuntimeAutoFocusScanMode scanMode,
             out string reason)
@@ -255,48 +266,77 @@ namespace QMC.CDT320.Calibration
                 settings.EnsureDefaults();
                 if (_startupAutoFocusMode != RuntimeAutoFocusScanMode.None)
                 {
-                    scanMode = _startupAutoFocusMode;
-                    reason = "Start";
+                    ArmAllRuntimeAutoFocus(_startupAutoFocusMode, "Start", waferId);
                     _startupAutoFocusMode = RuntimeAutoFocusScanMode.None;
                 }
                 else if (settings.AutoFocusOnWaferChange &&
                          !string.IsNullOrWhiteSpace(waferId) &&
                          !string.Equals(RuntimeAutoFocusLastWaferId ?? string.Empty, waferId, StringComparison.OrdinalIgnoreCase))
                 {
-                    scanMode = RuntimeAutoFocusScanMode.RoughAndFine;
-                    reason = "WaferChanged";
+                    ArmAllRuntimeAutoFocus(RuntimeAutoFocusScanMode.RoughAndFine, "WaferChanged", waferId);
                 }
                 else if (settings.AutoFocusOnPickCountEnabled &&
                          settings.AutoFocusPickInterval > 0 &&
                          RuntimeAutoFocusTotalPickCount >= settings.AutoFocusPickInterval)
                 {
-                    scanMode = RuntimeAutoFocusScanMode.RoughAndFine;
-                    reason = "TotalPickCount";
+                    ArmAllRuntimeAutoFocus(RuntimeAutoFocusScanMode.RoughAndFine, "TotalPickCount", waferId);
                 }
 
+                RuntimeAutoFocusScanMode[] pendingModes = side == VisionFocusPickerSide.Rear
+                    ? RearRuntimeAutoFocusPendingModes
+                    : FrontRuntimeAutoFocusPendingModes;
+                int pickerIndex = NormalizePickerIndex(pickerNo);
+                scanMode = pendingModes[pickerIndex];
                 if (scanMode == RuntimeAutoFocusScanMode.None)
                     return false;
 
+                reason = RuntimeAutoFocusPendingReason ?? string.Empty;
+                pendingModes[pickerIndex] = RuntimeAutoFocusScanMode.None;
                 _runtimeAutoFocusReserved = true;
+                _reservedRuntimeAutoFocusSide = side;
+                _reservedRuntimeAutoFocusPickerNo = pickerNo;
+                _reservedRuntimeAutoFocusMode = scanMode;
                 return true;
             }
         }
 
-        public void CompleteRuntimeAutoFocus(string waferId)
+        public void CompleteRuntimeAutoFocus(VisionFocusPickerSide side, int pickerNo, string waferId)
         {
             lock (RuntimeAutoFocusSync)
             {
-                RuntimeAutoFocusTotalPickCount = 0;
-                RuntimeAutoFocusLastWaferId = waferId ?? string.Empty;
+                if (!_runtimeAutoFocusReserved ||
+                    _reservedRuntimeAutoFocusSide != side ||
+                    _reservedRuntimeAutoFocusPickerNo != pickerNo)
+                    return;
+
                 RuntimeAutoFocusLastCompletedAt = DateTime.Now;
                 _runtimeAutoFocusReserved = false;
+                _reservedRuntimeAutoFocusPickerNo = 0;
+                _reservedRuntimeAutoFocusMode = RuntimeAutoFocusScanMode.None;
             }
         }
 
         public void ReleaseRuntimeAutoFocusReservation()
         {
             lock (RuntimeAutoFocusSync)
+            {
+                if (_runtimeAutoFocusReserved &&
+                    _reservedRuntimeAutoFocusPickerNo >= 1 &&
+                    _reservedRuntimeAutoFocusPickerNo <= 4 &&
+                    _reservedRuntimeAutoFocusMode != RuntimeAutoFocusScanMode.None)
+                {
+                    RuntimeAutoFocusScanMode[] pendingModes =
+                        _reservedRuntimeAutoFocusSide == VisionFocusPickerSide.Rear
+                            ? RearRuntimeAutoFocusPendingModes
+                            : FrontRuntimeAutoFocusPendingModes;
+                    pendingModes[NormalizePickerIndex(_reservedRuntimeAutoFocusPickerNo)] =
+                        _reservedRuntimeAutoFocusMode;
+                }
+
                 _runtimeAutoFocusReserved = false;
+                _reservedRuntimeAutoFocusPickerNo = 0;
+                _reservedRuntimeAutoFocusMode = RuntimeAutoFocusScanMode.None;
+            }
         }
 
         public void ResetRuntimeAutoFocusTracking()
@@ -308,7 +348,63 @@ namespace QMC.CDT320.Calibration
                 RuntimeAutoFocusLastCompletedAt = SafeRuntimeUnsetDateTime;
                 _runtimeAutoFocusReserved = false;
                 _startupAutoFocusMode = RuntimeAutoFocusScanMode.None;
+                FrontRuntimeAutoFocusPendingModes = CreateRuntimeAutoFocusModes();
+                RearRuntimeAutoFocusPendingModes = CreateRuntimeAutoFocusModes();
+                RuntimeAutoFocusPendingReason = string.Empty;
             }
+        }
+
+        public string BuildRuntimeAutoFocusPendingText()
+        {
+            lock (RuntimeAutoFocusSync)
+            {
+                return "Front=" + BuildPendingModeText(FrontRuntimeAutoFocusPendingModes) +
+                       ", Rear=" + BuildPendingModeText(RearRuntimeAutoFocusPendingModes);
+            }
+        }
+
+        private void ArmAllRuntimeAutoFocus(RuntimeAutoFocusScanMode mode, string reason, string waferId)
+        {
+            FrontRuntimeAutoFocusPendingModes = EnsureRuntimeAutoFocusModes(FrontRuntimeAutoFocusPendingModes);
+            RearRuntimeAutoFocusPendingModes = EnsureRuntimeAutoFocusModes(RearRuntimeAutoFocusPendingModes);
+            for (int i = 0; i < 4; i++)
+            {
+                FrontRuntimeAutoFocusPendingModes[i] = mode;
+                RearRuntimeAutoFocusPendingModes[i] = mode;
+            }
+
+            RuntimeAutoFocusPendingReason = reason ?? string.Empty;
+            RuntimeAutoFocusTotalPickCount = 0;
+            if (!string.IsNullOrWhiteSpace(waferId))
+                RuntimeAutoFocusLastWaferId = waferId;
+        }
+
+        private static RuntimeAutoFocusScanMode[] EnsureRuntimeAutoFocusModes(RuntimeAutoFocusScanMode[] modes)
+        {
+            RuntimeAutoFocusScanMode[] result = CreateRuntimeAutoFocusModes();
+            if (modes == null)
+                return result;
+
+            int count = Math.Min(4, modes.Length);
+            for (int i = 0; i < count; i++)
+            {
+                result[i] = Enum.IsDefined(typeof(RuntimeAutoFocusScanMode), modes[i])
+                    ? modes[i]
+                    : RuntimeAutoFocusScanMode.None;
+            }
+            return result;
+        }
+
+        private static RuntimeAutoFocusScanMode[] CreateRuntimeAutoFocusModes()
+        {
+            return new RuntimeAutoFocusScanMode[4];
+        }
+
+        private static string BuildPendingModeText(RuntimeAutoFocusScanMode[] modes)
+        {
+            modes = EnsureRuntimeAutoFocusModes(modes);
+            return "P1=" + modes[0] + ",P2=" + modes[1] +
+                   ",P3=" + modes[2] + ",P4=" + modes[3];
         }
 
         private object RuntimeAutoFocusSync

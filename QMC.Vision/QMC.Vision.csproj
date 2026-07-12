@@ -111,6 +111,7 @@
     <Compile Include="Equipment\Core\VisionScale.cs" />
     <Compile Include="Equipment\Core\VisionCommandCore.cs" />
     <Compile Include="Equipment\Core\FlatColletFinder.cs" />
+    <Compile Include="Equipment\Core\ColletRotationCenterCore.cs" />
     <Compile Include="Equipment\Core\Collet\ColletStdDevFilter.cs" />
     <Compile Include="Equipment\Core\Collet\ColletBlobRectFinder.cs" />
     <Compile Include="Equipment\Core\Collet\ColletNativeCuda.cs" />
@@ -210,6 +211,12 @@
     </Compile>
     <Compile Include="Ui\Pages\Settings\Recipe\FocusTargetPage.Designer.cs">
       <DependentUpon>FocusTargetPage.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Ui\Pages\Settings\Recipe\ColletRotCenterPage.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Ui\Pages\Settings\Recipe\ColletRotCenterPage.Designer.cs">
+      <DependentUpon>ColletRotCenterPage.cs</DependentUpon>
     </Compile>
     <Compile Include="Ui\Pages\Settings\Recipe\InspectorTargetPage.cs">
       <SubType>UserControl</SubType>
@@ -529,6 +536,7 @@
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
+    <None Include="App.config" />
     <EmbeddedResource Include="Form1.resx">
       <DependentUpon>Form1.cs</DependentUpon>
     </EmbeddedResource>

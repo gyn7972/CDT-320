@@ -129,6 +129,10 @@ namespace QMC.CDT320
         public int PickUpVacuumOnBeforePickDelayMs { get { return EnsurePickUpConfig().VacuumOnBeforePickDelayMs; } set { EnsurePickUpConfig().VacuumOnBeforePickDelayMs = value; } }
 
         [Category("PickUp")]
+        [DisplayName("PickUp Needle Vacuum Off Settle Before XY Ms")]
+        public int PickUpNeedleVacuumOffSettleBeforeXYMs { get { return EnsurePickUpConfig().NeedleVacuumOffSettleBeforeXYMs; } set { EnsurePickUpConfig().NeedleVacuumOffSettleBeforeXYMs = value; } }
+
+        [Category("PickUp")]
         [DisplayName("PickUp Sync Lift Settle Ms")]
         public int PickUpSyncLiftSettleMs { get { return EnsurePickUpConfig().SyncLiftSettleMs; } set { EnsurePickUpConfig().SyncLiftSettleMs = value; } }
 
@@ -283,6 +287,9 @@ namespace QMC.CDT320
         [DataMember] public double PickLiftPosition { get; set; } = 2.0;
         [DataMember] public int PickLiftWaitMs { get; set; } = 50;
         [DataMember] public int PlaceDelayMs { get; set; } = 50;
+        [DataMember] public double[] ColletRotationCenterX { get; set; } = new double[4]; // Collet별 회전 중심의 PickerX 기계 좌표입니다.
+        [DataMember] public double[] ColletRotationCenterY { get; set; } = new double[4]; // Collet별 회전 중심의 PickerY 기계 좌표입니다.
+        [DataMember] public bool[] ColletRotationCenterValid { get; set; } = new bool[4]; // Collet별 회전 중심 좌표의 유효 상태입니다.
 
         [OnDeserialized]
         private void OnDeserialized(StreamingContext ctx)
@@ -313,6 +320,31 @@ namespace QMC.CDT320
             PickerZ1.EnsureArrays();
             PickerZ2.EnsureArrays();
             PickerZ3.EnsureArrays();
+            ColletRotationCenterX = EnsureArrayLength(ColletRotationCenterX, 4);
+            ColletRotationCenterY = EnsureArrayLength(ColletRotationCenterY, 4);
+            ColletRotationCenterValid = EnsureArrayLength(ColletRotationCenterValid, 4);
+        }
+
+        private static double[] EnsureArrayLength(double[] source, int length)
+        {
+            if (source != null && source.Length == length)
+                return source;
+
+            var result = new double[length];
+            if (source != null)
+                Array.Copy(source, result, Math.Min(source.Length, result.Length));
+            return result;
+        }
+
+        private static bool[] EnsureArrayLength(bool[] source, int length)
+        {
+            if (source != null && source.Length == length)
+                return source;
+
+            var result = new bool[length];
+            if (source != null)
+                Array.Copy(source, result, Math.Min(source.Length, result.Length));
+            return result;
         }
     }
 

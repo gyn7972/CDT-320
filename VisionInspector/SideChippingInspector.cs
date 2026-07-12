@@ -161,14 +161,15 @@ namespace QMC.Vision.Inspector
                 FileName = strFileName
             };
             int nMargin = 50;
-            Task.Factory.StartNew((obj) =>
+            // 저장 전용 큐(2026-07-12) — PNG 인코드를 검사 스레드풀에서 분리(내용/경로 동일, 타이밍만 분리).
+            ImageSaveQueue.Enqueue(() =>
             {
                 lock (this)
                 {
                     double dsize = Math.Min(width, height);
-                    
+
                 }
-                SaveImageHelper saveHelper = (SaveImageHelper)obj;
+                SaveImageHelper saveHelper = helper;
 
                 string strOrginalFileName = saveHelper.FileName;
                 byte[,] shiftImage = saveHelper.ShiftImage;
@@ -272,9 +273,9 @@ namespace QMC.Vision.Inspector
                 }
                 finally
                 {
-                    
+
                 }
-            }, helper);
+            });
         }
 
         /// <summary>

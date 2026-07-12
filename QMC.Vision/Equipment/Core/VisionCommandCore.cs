@@ -219,6 +219,7 @@ namespace QMC.Vision.Core
         {
             if (m == null) return "fail:no module";
             if (string.IsNullOrEmpty(inspId)) return "fail:no inspector";
+            inspId = AsyncInspectCore.ResolveInspectorId(m, inspId);   // 핸들러 공용 id → 등록 id (측면=칩핑 검사기)
             if (!m.Inspectors.TryGetValue(inspId, out var ins)) return "fail:inspector not found";
 
             // 검사기별 '검사 사용' 게이트 — 레시피 UseInspection=false 면 이 검사를 건너뛴다(PASS 처리).
@@ -324,7 +325,7 @@ namespace QMC.Vision.Core
                                               ?? (ins as BottomInspector)?.LastCorners
                                               ?? (ins as SideAppearanceInspector)?.LastCorners;
                     var ctx = new InspectCtx { Picker = ctxPicker, Channel = ctxChannel, IndexX = ctxIndexX, IndexY = ctxIndexY };
-                    var storeItem = InspectionResultStore.FromResult(mode, ctx.Picker, ctx.Channel, ctx.IndexX, ctx.IndexY, r, image, box, geom);
+                    var storeItem = InspectionResultStore.FromResult(mode, ctx.Picker, ctx.Channel, ctx.IndexX, ctx.IndexY, r, image, box, geom, m.Name);
                     InspectionResultStore.Record(storeItem);
                     // 진단(MapTrace): 기록 좌표/키 — Bottom 맵은 Width+Height 둘 다 있어야 셀이 생긴다.
                     try
@@ -805,6 +806,22 @@ namespace QMC.Vision.Core
                     t.Wait(timeoutMs);
             }
             catch { /* 이전 그랩 실패는 해당 샘플 누락으로 이미 처리 — 다음 샘플 진행 */ }
+        }
+
+        /// <summary>콜렛 회전 중심(COC) — "MODULE|COC|START" = 누적 라이브 시작,
+        /// "MODULE|COC|END" = 라이브 정지 + 누적 평균 영상의 대칭 중심(x,y) 계산·응답.
+        /// 실제 누적/계산은 <see cref="ColletRotationCenterCore"/> 위임.</summary>
+        public static string ColletRotationCenter(IVisionModule m, string[] parts)
+        {
+            if (m == null) return "fail:no module";
+            string sub = parts != null && parts.Length > 2 ? parts[2].Trim().ToUpperInvariant() : "";
+            switch (sub)
+            {
+                case "START": return ColletRotationCenterCore.Start(m);
+                case "END":
+                case "STOP":  return ColletRotationCenterCore.End(m);
+                default:      return "fail:need START|END";
+            }
         }
 
         /// <summary>init 인자 해석 — "1"/"INIT"/"TRUE"(대소문자 무시) 면 최초값.</summary>

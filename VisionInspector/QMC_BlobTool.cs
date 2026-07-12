@@ -740,20 +740,141 @@ namespace QMC.Vision.Inspector
         public void FindBlobBright(byte[] image, int w, int h, int stride, int nThreshold, int nMinSize, int nThreshold1
             , ref List<List<Point>> listlistPoint, List<Point> MaskPoints = null, int nLinkDistance = 1)
         {
+            FindBlobBright(image, w, h, stride, nThreshold, nMinSize, nThreshold1, ref listlistPoint, MaskPoints, nLinkDistance, 0, 0, -1, -1);
+        }
+
+        private struct SparseRun { public int Y; public int X0; public int X1; }
+
+        /// <summary>희소 8-연결 라벨링(2026-07-12) — OpenCV ConnectedComponents 는 이미지 크기에 비례
+        /// (85MP ≈ 140ms)하지만 칩핑 마스크는 백색 픽셀이 극소수다. 0-워드(64비트) 스킵으로 백색 런만 추출해
+        /// union-find 로 잇는다. 성분 정의는 완전 동일: '임계 초과' 픽셀의 8-연결 성분, 면적 [nMinSize, MaxArea]
+        /// 필터, 성분 목록·성분 내 점 모두 래스터 순. (임계>0 픽셀은 0-워드에 존재할 수 없어 스킵은 정확하다.)</summary>
+        public unsafe void FindBlobBrightSparse(byte[] image, int w, int h, int stride, int nThreshold, int nMinSize,
+            ref List<List<Point>> listlistPoint, int roiX, int roiY, int roiW, int roiH)
+        {
+            listlistPoint = listlistPoint ?? new List<List<Point>>();
+            listlistPoint.Clear();
+            if (roiW <= 0 || roiH <= 0) { roiX = 0; roiY = 0; roiW = w; roiH = h; }
+
+            var runs = new List<SparseRun>(1024);
+            var parents = new List<int>(1024);
+            int prevStart = 0, prevCount = 0;
+
+            fixed (byte* pImg = image)
+            {
+                for (int y = 0; y < roiH; y++)
+                {
+                    byte* row = pImg + (long)(roiY + y) * stride + roiX;
+                    int curStart = runs.Count;
+                    int x = 0;
+                    while (x < roiW)
+                    {
+                        if ((x & 7) == 0)
+                        {
+                            while (x + 8 <= roiW && *(ulong*)(row + x) == 0UL) x += 8;
+                            if (x >= roiW) break;
+                        }
+                        if (row[x] > nThreshold)
+                        {
+                            int xs = x;
+                            do { x++; } while (x < roiW && row[x] > nThreshold);
+                            parents.Add(runs.Count);
+                            runs.Add(new SparseRun { Y = y, X0 = xs, X1 = x - 1 });
+                        }
+                        else
+                        {
+                            x++;
+                        }
+                    }
+                    int curCount = runs.Count - curStart;
+
+                    // 이전 행 런들과 8-연결 병합(수평 간격 ≤ 1 이면 대각 포함 접촉)
+                    if (prevCount > 0 && curCount > 0)
+                    {
+                        int i = prevStart, iEnd = prevStart + prevCount;
+                        int j = curStart, jEnd = curStart + curCount;
+                        while (i < iEnd && j < jEnd)
+                        {
+                            SparseRun a = runs[i], b = runs[j];
+                            if (a.X1 + 1 >= b.X0 && b.X1 + 1 >= a.X0)
+                            {
+                                int ra = SparseFind(parents, i), rb = SparseFind(parents, j);
+                                if (ra != rb) parents[ra] = rb;
+                            }
+                            if (a.X1 < b.X1) i++; else j++;
+                        }
+                    }
+                    prevStart = curStart;
+                    prevCount = curCount;
+                }
+            }
+
+            int nRuns = runs.Count;
+            if (nRuns == 0) return;
+
+            var rootToList = new Dictionary<int, List<Point>>();
+            var order = new List<int>();
+            for (int i = 0; i < nRuns; i++)
+            {
+                int root = SparseFind(parents, i);
+                List<Point> lp;
+                if (!rootToList.TryGetValue(root, out lp))
+                {
+                    lp = new List<Point>();
+                    rootToList[root] = lp;
+                    order.Add(root);
+                }
+                SparseRun r = runs[i];
+                for (int x = r.X0; x <= r.X1; x++)
+                {
+                    lp.Add(new Point(x + roiX, r.Y + roiY));
+                }
+            }
+
+            foreach (int root in order)
+            {
+                var lp = rootToList[root];
+                if (lp.Count >= nMinSize && lp.Count <= MaxArea)
+                {
+                    listlistPoint.Add(lp);
+                }
+            }
+        }
+
+        private static int SparseFind(List<int> parents, int i)
+        {
+            int root = i;
+            while (parents[root] != root) root = parents[root];
+            while (parents[i] != root) { int next = parents[i]; parents[i] = root; i = next; }
+            return root;
+        }
+
+        /// <summary>서브 ROI 버전(2026-07-12) — roiW/roiH 가 양수면 (roiX,roiY,roiW,roiH) 창만 처리한다(버퍼 복사
+        /// 없이 포인터 오프셋 + stride 로 같은 메모리를 봄). 반환 좌표는 전체 좌표계로 환산. ROI 밖이 전부 0인
+        /// 마스크에서 창이 모든 백색 픽셀을 포함하면 전체 처리와 성분/점/순서가 동일하다(래스터 순서 보존).</summary>
+        public void FindBlobBright(byte[] image, int w, int h, int stride, int nThreshold, int nMinSize, int nThreshold1
+            , ref List<List<Point>> listlistPoint, List<Point> MaskPoints, int nLinkDistance, int roiX, int roiY, int roiW, int roiH)
+        {
             listlistPoint = listlistPoint ?? new List<List<Point>>();
             listlistPoint.Clear();
 
-            int left = 0;
-            int right = w;
-            int top = 0;
-            int bottom = h;
+            bool bSubRoi = roiW > 0 && roiH > 0;
+            int viewW = bSubRoi ? roiW : w;
+            int viewH = bSubRoi ? roiH : h;
+            int offX = bSubRoi ? roiX : 0;
+            int offY = bSubRoi ? roiY : 0;
 
-            GetRoi(w, h, ref top, ref bottom, ref left, ref right);
+            int left = 0;
+            int right = viewW;
+            int top = 0;
+            int bottom = viewH;
+
+            GetRoi(viewW, viewH, ref top, ref bottom, ref left, ref right);
 
             GCHandle handle = GCHandle.Alloc(image, GCHandleType.Pinned);
             try
             {
-                using (var src = OpenCvSharp.Mat.FromPixelData(h, w, OpenCvSharp.MatType.CV_8UC1, handle.AddrOfPinnedObject(), stride))
+                using (var src = OpenCvSharp.Mat.FromPixelData(viewH, viewW, OpenCvSharp.MatType.CV_8UC1, handle.AddrOfPinnedObject() + (offY * stride + offX), stride))
                 using (var binary = new OpenCvSharp.Mat())
                 using (var labels = new OpenCvSharp.Mat())
                 using (var stats = new OpenCvSharp.Mat())
@@ -763,7 +884,7 @@ namespace QMC.Vision.Inspector
 
                     if (UseROI)
                     {
-                        using (OpenCvSharp.Mat roiMask = OpenCvSharp.Mat.Zeros(h, w, OpenCvSharp.MatType.CV_8UC1))
+                        using (OpenCvSharp.Mat roiMask = OpenCvSharp.Mat.Zeros(viewH, viewW, OpenCvSharp.MatType.CV_8UC1))
                         {
                             int roiWidth = Math.Max(0, right - left);
                             int roiHeight = Math.Max(0, bottom - top);
@@ -784,9 +905,11 @@ namespace QMC.Vision.Inspector
                     {
                         foreach (var pt in MaskPoints)
                         {
-                            if (pt.X >= 0 && pt.X < w && pt.Y >= 0 && pt.Y < h)
+                            // 전체 좌표 → 창 좌표 환산(창 밖 마스크점은 창 밖 픽셀에만 영향 → 생략해도 동일)
+                            int mx = pt.X - offX, my = pt.Y - offY;
+                            if (mx >= 0 && mx < viewW && my >= 0 && my < viewH)
                             {
-                                binary.Set<byte>(pt.Y, pt.X, 0);
+                                binary.Set<byte>(my, mx, 0);
                             }
                         }
                     }
@@ -814,6 +937,51 @@ namespace QMC.Vision.Inspector
                         return;
                     }
 
+                    if (nLinkDistance <= 1)
+                    {
+                        // 고속 경로(2026-07-12): 링크 거리 1 이하면 모폴로지(Close)가 없으므로 유효 성분만 남긴
+                        // 마스크를 다시 라벨링(두 번째 ConnectedComponents)해도 성분 구성·래스터 순서가 그대로다
+                        // (라벨 번호만 재부여). 따라서 첫 라벨링 결과에서 바로 점을 수집하면 결과가 동일하고,
+                        // 131MP 기준 마스크 재구성 1패스 + 재라벨링 + 재스캔(약 500ms)이 통째로 사라진다.
+                        var fastBlobs = new List<Point>[count];
+                        for (int i = 1; i < count; i++)
+                        {
+                            if (valid[i])
+                            {
+                                int area = stats.Get<int>(i, (int)OpenCvSharp.ConnectedComponentsTypes.Area);
+                                fastBlobs[i] = new List<Point>(area);
+                            }
+                        }
+
+                        unsafe
+                        {
+                            int* labelPtr = (int*)labels.Data;
+                            long labelStep = labels.Step() / sizeof(int);
+                            for (int y = 0; y < viewH; y++)
+                            {
+                                int* rowPtr = labelPtr + y * labelStep;
+                                for (int x = 0; x < viewW; x++)
+                                {
+                                    int label = rowPtr[x];
+                                    if (label > 0 && label < count && valid[label])
+                                    {
+                                        fastBlobs[label].Add(new Point(x + offX, y + offY));
+                                    }
+                                }
+                            }
+                        }
+
+                        for (int i = 1; i < count; i++)
+                        {
+                            var blob = fastBlobs[i];
+                            if (blob != null && blob.Count >= nMinSize)
+                            {
+                                listlistPoint.Add(blob);
+                            }
+                        }
+                        return;
+                    }
+
                     using (var filtered = new OpenCvSharp.Mat(binary.Size(), OpenCvSharp.MatType.CV_8UC1, OpenCvSharp.Scalar.All(0)))
                     {
                         unsafe
@@ -823,11 +991,11 @@ namespace QMC.Vision.Inspector
                             long labelStep = labels.Step() / sizeof(int);
                             long filteredStep = filtered.Step();
 
-                            for (int y = 0; y < h; y++)
+                            for (int y = 0; y < viewH; y++)
                             {
                                 int* rowPtr = labelPtr + y * labelStep;
                                 byte* filteredRow = filteredPtr + y * filteredStep;
-                                for (int x = 0; x < w; x++)
+                                for (int x = 0; x < viewW; x++)
                                 {
                                     int label = rowPtr[x];
                                     if (label > 0 && label < count && valid[label])
@@ -881,15 +1049,15 @@ namespace QMC.Vision.Inspector
                                 int* labelPtr = (int*)finalLabels.Data;
                                 long step = finalLabels.Step() / sizeof(int);
 
-                                for (int y = 0; y < h; y++)
+                                for (int y = 0; y < viewH; y++)
                                 {
                                     int* rowPtr = labelPtr + y * step;
-                                    for (int x = 0; x < w; x++)
+                                    for (int x = 0; x < viewW; x++)
                                     {
                                         int label = rowPtr[x];
                                         if (label > 0 && label < finalCount && finalValid[label])
                                         {
-                                            blobLists[label].Add(new Point(x, y));
+                                            blobLists[label].Add(new Point(x + offX, y + offY));
                                         }
                                     }
                                 }

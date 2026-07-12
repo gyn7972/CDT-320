@@ -104,6 +104,8 @@
     <Compile Include="Line.cs" />
     <Compile Include="CudaWrapper.cs" />
     <Compile Include="CudaContextPool.cs" />
+    <Compile Include="ImageSaveQueue.cs" />
+    <Compile Include="BufferPool.cs" />
     <Compile Include="Log.cs" />
     <Compile Include="LogInfo.cs" />
     <Compile Include="LogManager.cs" />

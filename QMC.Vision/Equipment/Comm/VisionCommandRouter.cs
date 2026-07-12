@@ -35,6 +35,9 @@ namespace QMC.Vision.Comm
             if (!string.Equals(mod, moduleName, StringComparison.OrdinalIgnoreCase) || m == null)
                 return $"ERR|{mod}|{cmd}|unknown module";
 
+            if (ColletRotationCenterCore.IsRunning(m.Name) && cmd != "COC" && cmd != "PING")
+                return $"ERR|{mod}|{cmd}|COC 회전 중심 측정 중에는 다른 Vision 명령을 실행할 수 없습니다.";
+
             // RUN 게이트 — RUN 상태가 아니면 명령 거부. 단, PING(상태확인)과 단발 그랩(EXPOSE/GRAB)은 면제:
             // 단발 그랩은 모션을 유발하지 않는 카메라 촬상이라 셋업/수동 테스트를 위해 RUN 아닐 때도 허용한다.
             if (!IsGateExemptCommand(cmd) && isCommandAllowed != null && !isCommandAllowed())
@@ -58,6 +61,7 @@ namespace QMC.Vision.Comm
                     case "FOCUS_START":resp = VisionCommandCore.FocusStart(m, parts); break;
                     case "FOCUS_VAL":  resp = VisionCommandCore.FocusValue(m, parts); break;
                     case "FOCUS_BEST": resp = VisionCommandCore.FocusBest(m, parts); break;
+                    case "COC":        resp = VisionCommandCore.ColletRotationCenter(m, parts); break;   // 콜렛 회전 중심(START/END)
                     default:           resp = null;                  break;
                 }
                 if (resp == null) return $"ERR|{mod}|{cmd}|unknown command";
@@ -75,6 +79,7 @@ namespace QMC.Vision.Comm
         private static bool IsGateExemptCommand(string cmd)
             => cmd == "PING" || cmd == "EXPOSE" || cmd == "GRAB" || cmd == "CAM_SWITCH"
             || cmd == "MATCHASYNC" || cmd == "MATCHRESULT"
+            || cmd == "COC"
             || cmd == "FOCUS_START" || cmd == "FOCUS_VAL" || cmd == "FOCUS_BEST";   // 오토포커스=셋업/캘리브레이션, RUN 아닐 때도 허용(그랩만, 모션은 핸들러 책임)
 
         /// <summary>비동기 매칭 시작 — 요청 즉시 STARTED를 돌려주고 그랩/알고리즘은 백그라운드에서 수행한다.</summary>

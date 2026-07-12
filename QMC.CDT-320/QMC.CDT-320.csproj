@@ -382,6 +382,7 @@
     <Compile Include="Sequencing\Calibration\PickerPickUpZCalibrationSequence.cs" />
     <Compile Include="Sequencing\Calibration\PickerPlaceZCalibrationSequence.cs" />
     <Compile Include="Sequencing\Calibration\ColletCalibrationSequence.cs" />
+    <Compile Include="Sequencing\Calibration\ColletRotationCenterCalibrationSequence.cs" />
     <Compile Include="Sequencing\Calibration\ColletCalibrationStep.cs" />
     <Compile Include="Sequencing\Calibration\VisionFocusScanSequence.cs" />
     <Compile Include="Sequencing\InputCassette\InputCassetteSequenceKind.cs" />

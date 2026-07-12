@@ -136,7 +136,7 @@ namespace QMC.CDT320.Sequencing
                 }
 
                 double finalTarget = target.TargetX;
-                double velocity = ResolveVelocity(visionX);
+                MotionProfile motion = ResolveMotionProfile(visionX);
                 int moveTimeoutMs = ResolveMoveTimeout(options);
                 string finalTargetName = BuildTargetName(target, "Final");
                 string finalGuardReason;
@@ -148,6 +148,11 @@ namespace QMC.CDT320.Sequencing
                     ", grid=(" + target.DieMapX + "," + target.DieMapY + ")" +
                     ", actualX=" + visionX.ActualPosition.ToString("F6") +
                     ", finalX=" + finalTarget.ToString("F6") +
+                    ", speedScalePercent=" + MotionSpeedScale.ScalePercent.ToString("F3") +
+                    ", effectiveScaleFactor=" + MotionSpeedScale.EffectiveScaleFactor.ToString("F6") +
+                    ", velocity=" + motion.Velocity.ToString("F6") +
+                    ", acceleration=" + motion.Acceleration.ToString("F6") +
+                    ", deceleration=" + motion.Deceleration.ToString("F6") +
                     ", reason=" + Safe(reason) + " - Check");
 
                 if (IsAxisInPosition(visionX, finalTarget))
@@ -183,7 +188,7 @@ namespace QMC.CDT320.Sequencing
                             stage,
                             visionX,
                             finalTarget,
-                            velocity,
+                            motion,
                             moveTimeoutMs,
                             side,
                             target.DieId,
@@ -222,7 +227,12 @@ namespace QMC.CDT320.Sequencing
                             ", finalGuard=" + finalGuardReason +
                             ", detail=" + standbyDetail + " - Start");
 
-                        activeMoveTask = SharedRailXMotionRuntime.MoveAxisAsync(visionX, standbyTarget, velocity);
+                        // 스케일된 DefaultVelocity를 전달하면 Axis가 원본 Config의 가속/감속에
+                        // 동일한 Speed Scale을 정확히 한 번 적용한다.
+                        activeMoveTask = SharedRailXMotionRuntime.MoveAxisAsync(
+                            visionX,
+                            standbyTarget,
+                            motion.Velocity);
                         stopActiveMoveOnExit = true;
                         bool overrideIssued = false;
                         int standbyResult;
@@ -239,7 +249,7 @@ namespace QMC.CDT320.Sequencing
                                     int overrideResult = TryOverrideMovingAxisToFinal(
                                         visionX,
                                         finalTarget,
-                                        velocity,
+                                        motion,
                                         out string overrideDetail);
 
                                     if (overrideResult == 0)
@@ -346,7 +356,7 @@ namespace QMC.CDT320.Sequencing
                     visionX,
                     target,
                     finalTarget,
-                    velocity,
+                    motion,
                     moveTimeoutMs,
                     side,
                     ct).ConfigureAwait(false);
@@ -394,7 +404,7 @@ namespace QMC.CDT320.Sequencing
             BaseAxis visionX,
             InputStagePickTargetCandidate target,
             double finalTarget,
-            double velocity,
+            MotionProfile motion,
             int moveTimeoutMs,
             PickerSequenceSide side,
             CancellationToken ct)
@@ -452,7 +462,7 @@ namespace QMC.CDT320.Sequencing
                         stage,
                         visionX,
                         finalTarget,
-                        velocity,
+                        motion,
                         moveTimeoutMs,
                         side,
                         target.DieId,
@@ -467,7 +477,7 @@ namespace QMC.CDT320.Sequencing
             InputStageUnit stage,
             BaseAxis visionX,
             double target,
-            double velocity,
+            MotionProfile motion,
             int timeoutMs,
             PickerSequenceSide side,
             string dieId,
@@ -479,9 +489,16 @@ namespace QMC.CDT320.Sequencing
                 side + " InputVisionX " + description + " 명령을 시작합니다. " +
                 "die=" + dieId +
                 ", targetX=" + target.ToString("F6") +
-                ", actualX=" + visionX.ActualPosition.ToString("F6") + " - Start");
+                ", actualX=" + visionX.ActualPosition.ToString("F6") +
+                ", velocity=" + motion.Velocity.ToString("F6") +
+                ", acceleration=" + motion.Acceleration.ToString("F6") +
+                ", deceleration=" + motion.Deceleration.ToString("F6") + " - Start");
 
-            Task<int> moveTask = SharedRailXMotionRuntime.MoveAxisAsync(visionX, target, velocity);
+            // 일반 Move는 Axis의 Default motion scale 판정을 사용해 가속/감속을 한 번만 스케일한다.
+            Task<int> moveTask = SharedRailXMotionRuntime.MoveAxisAsync(
+                visionX,
+                target,
+                motion.Velocity);
             try
             {
                 while (!moveTask.IsCompleted)
@@ -510,7 +527,7 @@ namespace QMC.CDT320.Sequencing
         private static int TryOverrideMovingAxisToFinal(
             BaseAxis axis,
             double target,
-            double velocity,
+            MotionProfile motion,
             out string detail)
         {
             double previousActual = axis != null ? axis.ActualPosition : 0.0;
@@ -533,9 +550,11 @@ namespace QMC.CDT320.Sequencing
             AjinAxis ajinAxis = axis as AjinAxis;
             if (ajinAxis != null)
             {
-                double acceleration = axis.Config != null ? axis.Config.Acceleration : 0.0;
-                double deceleration = axis.Config != null ? axis.Config.Deceleration : 0.0;
-                result = ajinAxis.TryOverridePosition(target, velocity, acceleration, deceleration);
+                result = ajinAxis.TryOverridePosition(
+                    target,
+                    motion.Velocity,
+                    motion.Acceleration,
+                    motion.Deceleration);
             }
             else
             {
@@ -548,6 +567,9 @@ namespace QMC.CDT320.Sequencing
                      ", previousCommand=" + previousCommand.ToString("F6") +
                      ", newActual=" + axis.ActualPosition.ToString("F6") +
                      ", newCommand=" + axis.CommandPosition.ToString("F6") +
+                     ", velocity=" + motion.Velocity.ToString("F6") +
+                     ", acceleration=" + motion.Acceleration.ToString("F6") +
+                     ", deceleration=" + motion.Deceleration.ToString("F6") +
                      ", moving=" + axis.IsMoving;
             return result;
         }
@@ -710,11 +732,24 @@ namespace QMC.CDT320.Sequencing
             return candidates != null && candidates.Count > 0 ? candidates[0] : null;
         }
 
-        private static double ResolveVelocity(BaseAxis axis)
+        private static MotionProfile ResolveMotionProfile(BaseAxis axis)
         {
-            if (axis == null || axis.Config == null || axis.Config.DefaultVelocity <= 0.0)
-                return 1.0;
-            return axis.Config.DefaultVelocity;
+            double defaultVelocity = axis != null && axis.Config != null && axis.Config.DefaultVelocity > 0.0
+                ? axis.Config.DefaultVelocity
+                : 1.0;
+            double defaultAcceleration = axis != null && axis.Config != null && axis.Config.Acceleration > 0.0
+                ? axis.Config.Acceleration
+                : 1.0;
+            double defaultDeceleration = axis != null && axis.Config != null && axis.Config.Deceleration > 0.0
+                ? axis.Config.Deceleration
+                : 1.0;
+
+            return new MotionProfile
+            {
+                Velocity = MotionSpeedScale.ApplyDefaultVelocityScale(defaultVelocity),
+                Acceleration = MotionSpeedScale.ApplyDefaultAccelerationScale(defaultAcceleration),
+                Deceleration = MotionSpeedScale.ApplyDefaultAccelerationScale(defaultDeceleration)
+            };
         }
 
         private static int ResolveMoveTimeout(PickerSequenceOptions options)
@@ -766,6 +801,13 @@ namespace QMC.CDT320.Sequencing
         private static string Safe(string value)
         {
             return string.IsNullOrWhiteSpace(value) ? "-" : value.Trim();
+        }
+
+        private sealed class MotionProfile
+        {
+            public double Velocity { get; set; }
+            public double Acceleration { get; set; }
+            public double Deceleration { get; set; }
         }
 
         private static void ObserveMoveTask(Task<int> task, PickerSequenceSide side)

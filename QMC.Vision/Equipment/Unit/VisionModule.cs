@@ -298,6 +298,13 @@ namespace QMC.Vision.Modules
             return null;
         }
 
+        /// <summary>외부 계산 결과 영상(예: COC 누적 평균)을 뷰어 프레임으로 발행 — UI/원격뷰어에 표시.
+        /// 내부에서 복제하므로 호출자가 원본을 Dispose 해도 된다.</summary>
+        public void PublishViewerFrame(Bitmap bmp)
+        {
+            if (bmp != null) TapFrame(bmp);
+        }
+
         public long ViewerFrameSeq { get { lock (_tapLock) return _frameSeq; } }
 
         private int _savedFrameSeq;   // '저장 이미지로 그랩' 프레임 번호

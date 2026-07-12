@@ -13,7 +13,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
         private NeedlePinCalibrationDialog _needleDialog;
         private SideVisionFocusCalibrationDialog _sideVisionFocusDialog;
         private VisionFocusCalibrationDialog _visionFocusDialog;
-        private CalibrationSetupDialog _colletRotationCenterDialog;
+        private ColletCalibrationDialog _colletRotationCenterDialog;
         private PickUpZCalibrationDialog _pickUpZDialog;
         private PlaceZCalibrationDialog _placeZDialog;
         private NeedleCalibrationDialog _needleZDialog;
@@ -168,11 +168,23 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
 
         private void btnColletRotationCenterCal_Click(object sender, EventArgs e)
         {
-            ShowDialogOnce(
-                ref _colletRotationCenterDialog,
-                "COLLET ROTATION CENTER CAL",
-                "Bottom 카메라에서 콜렛 회전 각도별 위치를 측정해 회전 중심과 보정 오프셋을 계산하는 캘리브레이션입니다.",
-                "저장 제안: 콜렛별 회전 중심 보정값은 Config에 저장합니다.");
+            try
+            {
+                Form host = FindForm();
+                if (_colletRotationCenterDialog == null || _colletRotationCenterDialog.IsDisposed)
+                    _colletRotationCenterDialog = ColletCalibrationDialog.Open(host);
+
+                ActivateDialog(host, _colletRotationCenterDialog);
+                lblStatus.Text = "COLLET CAL 화면에서 COC START를 실행하세요.";
+            }
+            catch (Exception ex)
+            {
+                EventLogger.Write(EventKind.Alarm, "UI", "COLLET-COC-OPEN", "COLLET COC 화면 열기 실패: " + ex.Message);
+                QMC.Common.MessageDialog.Show(this, "COLLET COC 화면 열기 실패:\r\n" + ex.Message, "Calibration", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+            }
         }
 
         private void btnPickUpZCal_Click(object sender, EventArgs e)
