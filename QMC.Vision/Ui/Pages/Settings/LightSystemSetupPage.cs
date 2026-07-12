@@ -337,7 +337,7 @@ namespace QMC.Vision.Ui.Pages
                 if (cached == null) cached = LightSystemSetupStore.Current.GetController(port)?.ChannelLabels;
                 string vendor = r.Cells["Vendor"].Value?.ToString()?.Trim();
                 if (string.IsNullOrEmpty(vendor)) vendor = "LFine";
-                int settle = int.TryParse(r.Cells["SettleDelayMs"].Value?.ToString(), out var sd) && sd >= 0 ? sd : 30;
+                int settle = int.TryParse(r.Cells["SettleDelayMs"].Value?.ToString(), out var sd) && sd >= 0 ? sd : 200;
                 setup.Controllers.Add(new LightControllerEntry
                 {
                     PortName = port, Vendor = vendor, Name = Str(r, 1),

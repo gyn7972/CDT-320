@@ -38,6 +38,7 @@ namespace QMC.Vision.Config
             if (cam == null || m == null) { error = "camera or mapping is null"; return false; }
             var sb = new StringBuilder();
             try { cam.ExposureUs           = m.ExposureUs; } catch (Exception ex) { sb.Append("Exposure:" + ex.Message + "; "); }
+            try { cam.GrabBusyTimeoutMs    = m.GrabBusyTimeoutMs > 0 ? m.GrabBusyTimeoutMs : 1000; } catch (Exception ex) { sb.Append("GrabBusyTimeout:" + ex.Message + "; "); }
             try { cam.Gain                 = m.Gain;       } catch (Exception ex) { sb.Append("Gain:"     + ex.Message + "; "); }
             try { cam.AcquisitionFrameRate = m.FrameRate;  } catch (Exception ex) { sb.Append("FPS:"      + ex.Message + "; "); }
             try { cam.TriggerMode          = ParseTrigger(m.TriggerMode); } catch (Exception ex) { sb.Append("Trigger:" + ex.Message + "; "); }

@@ -37,6 +37,10 @@ namespace QMC.Vision.Core
         /// <summary>단발 촬영 — 트리거 모드가 Continuous 이면 최신 프레임 반환.</summary>
         GrabResult Grab(int timeoutMs = 3000);
 
+        /// <summary>그랩 재진입(busy) 대기 한도(ms). 이전 그랩이 진행 중이면 즉시 실패하지 않고
+        /// 10ms 간격으로 재시도하며 이 시간까지 기다린다(기본 1000). 카메라 설정에서 지정.</summary>
+        int GrabBusyTimeoutMs { get; set; }
+
         /// <summary>연속 촬영 시작. 프레임마다 <see cref="FrameReceived"/> 발행.</summary>
         void StartLive();
 

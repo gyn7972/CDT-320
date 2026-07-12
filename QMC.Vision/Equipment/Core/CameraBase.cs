@@ -15,6 +15,10 @@ namespace QMC.Vision.Core
         public bool IsOpen     { get; protected set; }
         public bool IsGrabbing { get; protected set; }
 
+        /// <summary>그랩 재진입(busy) 대기 한도(ms) — 기본 1000. 카메라 설정(AlgorithmCameraMapping)에서 주입.
+        /// 이전 그랩이 진행 중이면 즉시 실패하지 않고 10ms 간격 재시도 후 이 시간 초과 시에만 실패한다.</summary>
+        public int GrabBusyTimeoutMs { get; set; } = 1000;
+
         public event Action<GrabResult>           FrameReceived;
         public event Action<CameraConnectionEvent> ConnectionChanged;
         public event Action                        ExposureEnded;

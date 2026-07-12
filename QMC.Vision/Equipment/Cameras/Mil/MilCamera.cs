@@ -184,9 +184,19 @@ namespace QMC.Vision.Cameras.Mil
         public override GrabResult Grab(int timeoutMs = 3000)
         {
             if (!IsOpen) return GrabResult.Fail("camera not open", Info.Id);
-            // 재진입 가드 — 이전 그랩이 아직 진행 중이면 겹치지 않게 즉시 반환(연속 클릭/다중 경로 겹침 멈춤 방지).
-            if (System.Threading.Interlocked.Exchange(ref _grabBusy, 1) == 1)
-                return GrabResult.Fail("grab busy", Info.Id);
+            // 재진입 가드 — 이전 그랩이 진행 중이면 즉시 실패하지 않고 10ms 간격으로 재시도한다(2026-07-13).
+            //   명령이 촬상 간격보다 빨리 와도 앞 그랩이 끝나면 이어서 처리(불필요한 grab busy 실패 방지).
+            //   대기 한도(기본 1000ms)는 카메라 설정의 GrabBusyTimeoutMs 로 지정.
+            {
+                int busyTimeout = GrabBusyTimeoutMs > 0 ? GrabBusyTimeoutMs : 1000;
+                var busyWait = System.Diagnostics.Stopwatch.StartNew();
+                while (System.Threading.Interlocked.Exchange(ref _grabBusy, 1) == 1)
+                {
+                    if (busyWait.ElapsedMilliseconds >= busyTimeout)
+                        return GrabResult.Fail("grab busy (" + busyTimeout + "ms 대기 초과)", Info.Id);
+                    System.Threading.Thread.Sleep(10);
+                }
+            }
             try
             {
                 // 스텝별 계측(진단) — 노출 종료 시각은 ExposureEnd/FrameStart 훅이 기록.

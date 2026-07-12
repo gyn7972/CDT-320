@@ -248,6 +248,9 @@ namespace QMC.Vision.Modules
                     if (r.FirstPeekValueThreshold > 0) bi.FirstPeekValueThreshold = r.FirstPeekValueThreshold;
                     if (r.PeekValueThreshold > 0)      bi.PeekValueThreshold      = r.PeekValueThreshold;
                     if (r.Stdev > 0)                   bi.Stdev                   = r.Stdev;
+                    // 이물/오염 검사 파라미터 (BottomInspectionParameter 대응 — 절대 누락 금지)
+                    if (r.PortentiolDefactMinSize > 0) bi.PortentiolDefactMinSize = r.PortentiolDefactMinSize;
+                    bi.UseContaminationInspection = r.UseContaminationInspection;
                 }
                 else if (_inspector is QMC.Vision.Core.SideAppearanceInspector si)
                 {
@@ -351,6 +354,8 @@ namespace QMC.Vision.Modules
                     r.FirstPeekValueThreshold  = bi.FirstPeekValueThreshold;
                     r.PeekValueThreshold       = bi.PeekValueThreshold;
                     r.Stdev                    = bi.Stdev;
+                    r.PortentiolDefactMinSize    = bi.PortentiolDefactMinSize;
+                    r.UseContaminationInspection = bi.UseContaminationInspection;
                 }
                 else if (_inspector is QMC.Vision.Core.SideAppearanceInspector si)
                 {

@@ -64,12 +64,14 @@ namespace QMC.Common.Recipes
         [DataMember] public int    PageCount    { get; set; } = 1;     // 1 = 페이지 미사용
         [DataMember] public int    MaxPower     { get; set; } = 240;
         [DataMember] public int    MaxOnTimeUs  { get; set; } = 999;
-        /// <summary>조명 값 변경 송신 후 안정화 대기(ms). 같은 값(캐시 히트)이면 송신·대기 모두 생략된다.</summary>
-        [DataMember(EmitDefaultValue = false)] public int SettleDelayMs { get; set; } = 30;
+        /// <summary>조명 값 변경 송신 후 안정화 대기(ms) — 조명이 켜지는 시간을 확보한다. 기본 200ms.
+        /// 같은 값(캐시 히트)이면 송신·대기 모두 생략되어 그랩마다 조명을 적용해도 비용이 없다.
+        /// 컨트롤러별로 조명 설정 UI(안정화(ms) 컬럼)에서 개별 지정 가능.</summary>
+        [DataMember(EmitDefaultValue = false)] public int SettleDelayMs { get; set; } = 200;
         [DataMember] public List<LightChannelLabel> ChannelLabels { get; set; } = new List<LightChannelLabel>();
 
-        // Stage 79 — 구버전 JSON 에 키 없으면 Vendor=LFine 주입. SettleDelayMs 도 기본 30ms 주입.
-        [OnDeserializing] internal void OnDeserializing(StreamingContext c) { Vendor = "LFine"; SettleDelayMs = 30; }
+        // Stage 79 — 구버전 JSON 에 키 없으면 Vendor=LFine 주입. SettleDelayMs 도 기본 200ms 주입(조명 안정화 확보).
+        [OnDeserializing] internal void OnDeserializing(StreamingContext c) { Vendor = "LFine"; SettleDelayMs = 200; }
         [OnDeserialized]  internal void OnDeserialized (StreamingContext c) { if (string.IsNullOrEmpty(Vendor)) Vendor = "LFine"; if (SettleDelayMs < 0) SettleDelayMs = 0; }
 
         public LightControllerEntry Clone()
