@@ -17,7 +17,8 @@ namespace QMC.Vision.Core
         bool IsGrabbing { get; }
 
         // ─── 이벤트 ─────────────────────────────────
-        /// <summary>Live / HW Trigger 등으로 새 프레임이 도착했을 때.</summary>
+        /// <summary>Live / HW Trigger 등으로 새 프레임이 도착했을 때.
+        /// GrabResult 원본은 동기 콜백이 끝나면 해제되므로 이후 보관할 이미지는 콜백 안에서 복제해야 한다.</summary>
         event Action<GrabResult>          FrameReceived;
         /// <summary>연결 유실 / 재연결 등 상태 이벤트.</summary>
         event Action<CameraConnectionEvent> ConnectionChanged;

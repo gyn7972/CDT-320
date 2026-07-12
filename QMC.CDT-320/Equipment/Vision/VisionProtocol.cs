@@ -669,6 +669,7 @@ namespace QMC.CDT320.VisionComm
         public double CenterPixelY { get; set; }
         public double RadiusPixel { get; set; }
         public int SampleCount { get; set; }
+        public int FrameCount { get; set; }
         public string Raw { get; set; }
 
         public static VisionCocResult Parse(string line)
@@ -687,7 +688,7 @@ namespace QMC.CDT320.VisionComm
             response.TryGetDoubleAny(out double radius, "radius", "radiusPixel", "r");
 
             int samples = 0;
-            string sampleText = response.GetValueAny("samples", "sampleCount", "count");
+            string sampleText = response.GetValueAny("frames", "frameCount", "samples", "sampleCount", "count");
             if (!string.IsNullOrWhiteSpace(sampleText))
                 int.TryParse(sampleText, NumberStyles.Integer, CultureInfo.InvariantCulture, out samples);
 
@@ -695,6 +696,7 @@ namespace QMC.CDT320.VisionComm
             result.CenterPixelY = centerY;
             result.RadiusPixel = radius;
             result.SampleCount = samples;
+            result.FrameCount = samples;
             result.Success = response.IsAck && response.IsResult("OK") && hasX && hasY;
             return result;
         }

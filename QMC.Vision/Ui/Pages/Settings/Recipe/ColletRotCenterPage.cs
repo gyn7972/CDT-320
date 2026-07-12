@@ -31,6 +31,10 @@ namespace QMC.Vision.Ui.Pages
         private long _lastViewerSeq = -1;                // 모듈 뷰어 프레임 시퀀스 — 통신 COC 평균 영상 자동 표시용
         private long _lastResultSeq = -1;                // COC 결과 시퀀스 — 통신/수동 결과 변경 감지
         private PointF? _center;                         // 마지막 회전 중심(이미지 좌표) — 크로스 마크
+        private int _sourceWidth;
+        private int _sourceHeight;
+        private int _displayWidth;
+        private int _displayHeight;
 
         // ── Properties (ITargetPage) ───────────────────
         public bool IsDirty => _dirty;
@@ -276,6 +280,12 @@ namespace QMC.Vision.Ui.Pages
                 _lastResultSeq = seq;
 
                 _center = new PointF((float)x, (float)y);
+                ColletRotationCenterCore.TryGetLastDisplayInfo(
+                    _module.Name,
+                    out _sourceWidth,
+                    out _sourceHeight,
+                    out _displayWidth,
+                    out _displayHeight);
                 grid.Rows[0].Cells[1].Value = x.ToString("F2");
                 grid.Rows[1].Cells[1].Value = y.ToString("F2");
                 grid.Rows[2].Cells[1].Value = frames.ToString();
@@ -289,7 +299,14 @@ namespace QMC.Vision.Ui.Pages
         private void DrawCenterCross(Graphics g, Func<PointF, PointF> toScreen)
         {
             if (_center == null) return;
-            PointF c = toScreen(_center.Value);
+            PointF displayCenter = _center.Value;
+            if (_sourceWidth > 0 && _sourceHeight > 0 && _displayWidth > 0 && _displayHeight > 0)
+            {
+                displayCenter = new PointF(
+                    _center.Value.X * _displayWidth / _sourceWidth,
+                    _center.Value.Y * _displayHeight / _sourceHeight);
+            }
+            PointF c = toScreen(displayCenter);
             using (var pen = new Pen(Color.Lime, 2f))
             {
                 g.DrawLine(pen, c.X - 28, c.Y, c.X + 28, c.Y);

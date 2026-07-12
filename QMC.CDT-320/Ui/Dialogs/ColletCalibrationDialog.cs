@@ -507,8 +507,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                                  ", Collet=" + _colletNo +
                                  ", CenterPixel=(" + sequence.Result.CenterPixelX.ToString("F3") +
                                  ", " + sequence.Result.CenterPixelY.ToString("F3") + ")" +
-                                 ", RadiusPixel=" + sequence.Result.RadiusPixel.ToString("F3") +
-                                 ", Samples=" + sequence.Result.SampleCount;
+                                 ", Frames=" + sequence.Result.FrameCount;
                 lblStatus.Text = summary;
                 AppendSaveHistory(new[] { summary });
                 WriteSaveHistoryLog(new[] { summary });

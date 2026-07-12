@@ -14,6 +14,8 @@ namespace QMC.CDT320.Sequencing.Calibration
         private const double PositionToleranceMm = 0.05;
         private const int MinimumRotationTimeoutMs = 20000;
         private const int RotationTimeoutMarginMs = 5000;
+        private const int CocStartVisionTimeoutMs = 30000;
+        private const int CocEndVisionTimeoutMs = 30000;
 
         private readonly VisionFocusPickerSide _calibrationSide;
         private readonly int _colletNo;
@@ -189,7 +191,7 @@ namespace QMC.CDT320.Sequencing.Calibration
                 AutoVisionChannel.BottomInspection,
                 _calibrationSide == VisionFocusPickerSide.Front ? "F" : "R",
                 _colletNo,
-                5000,
+                CocStartVisionTimeoutMs,
                 ct).ConfigureAwait(false);
             if (start == null || !start.Started)
                 return Fail("COLLET-COC-START-ACK", "Vision", "COC START ACK를 받지 못했습니다. raw=" + (start != null ? start.Raw : "null"));
@@ -256,6 +258,7 @@ namespace QMC.CDT320.Sequencing.Calibration
                     CenterPixelX = _record.CenterPixelX,
                     CenterPixelY = _record.CenterPixelY,
                     SampleCount = 1,
+                    FrameCount = 1,
                     Raw = "SIMULATION:COC"
                 };
                 _cocEnded = true;
@@ -266,7 +269,7 @@ namespace QMC.CDT320.Sequencing.Calibration
                 AutoVisionChannel.BottomInspection,
                 _calibrationSide == VisionFocusPickerSide.Front ? "F" : "R",
                 _colletNo,
-                10000,
+                CocEndVisionTimeoutMs,
                 ct).ConfigureAwait(false);
             _cocEnded = true;
             if (Result == null || !Result.Success)
@@ -274,8 +277,7 @@ namespace QMC.CDT320.Sequencing.Calibration
 
             WriteLog("ColletCOC",
                 "Vision COC END 픽셀 결과 수신. centerPixel=(" + Result.CenterPixelX.ToString("F6") + "," + Result.CenterPixelY.ToString("F6") + ")" +
-                ", radiusPixel=" + Result.RadiusPixel.ToString("F6") +
-                ", samples=" + Result.SampleCount +
+                ", frames=" + Result.FrameCount +
                 ", raw=" + Result.Raw + " - Ok");
             return 0;
         }
@@ -285,7 +287,7 @@ namespace QMC.CDT320.Sequencing.Calibration
             _record.RotationCenterPixelX = Result.CenterPixelX;
             _record.RotationCenterPixelY = Result.CenterPixelY;
             _record.RotationCenterRadiusPixel = Result.RadiusPixel;
-            _record.RotationCenterSampleCount = Result.SampleCount;
+            _record.RotationCenterSampleCount = Result.FrameCount;
             _record.RotationCenterValid = true;
             _record.RotationCenterUpdatedAt = DateTime.Now;
             bool saved = Context.Machine.VisionUnit.SaveSettings();
@@ -300,14 +302,24 @@ namespace QMC.CDT320.Sequencing.Calibration
                 return;
             try
             {
-                await VisionCommandService.EndColletRotationCenterAsync(
+                VisionCocResult cleanup = await VisionCommandService.EndColletRotationCenterAsync(
                     AutoVisionChannel.BottomInspection,
                     _calibrationSide == VisionFocusPickerSide.Front ? "F" : "R",
                     _colletNo,
-                    7000,
+                    CocEndVisionTimeoutMs,
                     CancellationToken.None).ConfigureAwait(false);
                 _cocEnded = true;
-                WriteLog("ColletCOC", "COC 비정상 종료 정리를 위해 END 명령을 전송했습니다. - Check");
+                if (cleanup != null && (cleanup.Success || cleanup.Started))
+                {
+                    WriteLog("ColletCOC",
+                        "COC 비정상 종료 정리를 위해 END 명령을 전송했습니다. raw=" + cleanup.Raw + " - Check");
+                }
+                else
+                {
+                    WriteLog("ColletCOC",
+                        "COC 비정상 종료 END 응답을 확인하지 못했습니다. Vision 연결 종료 시 Vision 측 Abort로 Live를 정리합니다. raw=" +
+                        (cleanup != null ? cleanup.Raw : "null") + " - Failed");
+                }
             }
             catch (Exception ex)
             {

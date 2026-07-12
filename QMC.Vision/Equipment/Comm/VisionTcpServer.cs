@@ -94,6 +94,7 @@ namespace QMC.Vision.Comm
         public void Stop()
         {
             if (!IsRunning) return;
+            ColletRotationCenterCore.Abort(Module, "Vision TCP 서버 정지");
             _cts?.Cancel();
             try { _listener?.Stop(); } catch { }
             lock (_clients) { foreach (var c in _clients.ToList()) try { c.Close(); } catch { } _clients.Clear(); }
@@ -142,8 +143,15 @@ namespace QMC.Vision.Comm
             catch { }
             finally
             {
-                lock (_clients) _clients.Remove(client);
+                bool noClients;
+                lock (_clients)
+                {
+                    _clients.Remove(client);
+                    noClients = _clients.Count == 0;
+                }
                 try { client.Close(); } catch { }
+                if (noClients)
+                    ColletRotationCenterCore.Abort(Module, "핸들러 TCP 연결 종료");
                 LogMsg($"[{ModuleName}:{Port}] client disconnected");
             }
         }
@@ -161,6 +169,11 @@ namespace QMC.Vision.Comm
             if (!_modules.TryGetValue(mod, out var m))
             {
                 Send(stream, $"ERR|{mod}|{cmd}|unknown module");
+                return;
+            }
+            if (ColletRotationCenterCore.IsRunning(m.Name) && cmd != "COC" && cmd != "PING")
+            {
+                Send(stream, $"ERR|{mod}|{cmd}|COC 회전 중심 측정 중에는 다른 Vision 명령을 실행할 수 없습니다.");
                 return;
             }
             // RUN 게이트 — RUN 상태가 아니면 명령 거부. 단, PING(상태확인)과 단발 그랩(EXPOSE/GRAB)은 면제:
@@ -205,7 +218,6 @@ namespace QMC.Vision.Comm
                     case "TRAIN": resp = DoTrain(m, parts); break;
                     case "SCALE": resp = DoScale(m, parts); break;
                     case "ROT_CENTER": resp = DoRotCenter(m); break;
-                    case "COC": resp = ColletRotationCenterStore.Process(m, _cfg, parts); break;
                     case "DISTORT": resp = DoDistort(m); break;
                     case "CAM_SWITCH": resp = DoCamSwitch(m, parts); break;
                     case "CAM_SETTING":resp = DoCameraSetting(m); break;
