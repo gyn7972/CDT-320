@@ -793,13 +793,7 @@ namespace QMC.Vision.Inspector
                 result.Width *= _visionConfig.BottomVision.PixelSizeWidthMm / 2; // mm 단위로 변환
                 result.Height *= _visionConfig.BottomVision.PixelSizeHeightMm / 2; // mm 단위로 변환
 
-                if (result != null)
-                {
-                    double dTemp = result.Width;
-                    result.Width = result.Height;
-                    result.Height = dTemp;
-                    result.Offset = new PointF(result.Offset.Y, result.Offset.X);
-                }
+               
                 Log.Write("Data_" +bip.WaferID , bip.IndexX.ToString() 
                     + "," + bip.IndexY.ToString() 
                     + "," + result.Width 
@@ -2752,6 +2746,28 @@ namespace QMC.Vision.Inspector
             return roiImage;
         }
 
+        /// <summary>이웃 다이 진위 판정(2026-07-12) — 전이 지점에서 바깥 방향(dy,dx)으로 span 픽셀을 볼 때
+        /// 90% 이상이 임계 미만(어두움)이어야 '실제 옆다이'로 인정한다. 웨이퍼 위 먼지/섬유는 수 픽셀
+        /// 두께라 지속되지 않으므로 배제되고, 실제 다이(수백 px)는 통과한다. 경계까지 span 의 절반도
+        /// 확보되지 않으면 판정 불가로 다이가 아니라고 본다(경계 노이즈 배제).</summary>
+        private static bool IsNeighborDieDark(byte[,] image, int y, int x, int dy, int dx, int threshold, int span)
+        {
+            int height = image.GetLength(0), width = image.GetLength(1);
+            int dark = 0, total = 0;
+            for (int k = 0; k < span; k++)
+            {
+                int yy = y + dy * k, xx = x + dx * k;
+                if (yy < 0 || yy >= height || xx < 0 || xx >= width) break;
+                total++;
+                if (image[yy, xx] < threshold) dark++;
+            }
+            if (total < span / 2) return false;
+            return dark * 10 >= total * 9;
+        }
+
+        /// <summary>이웃 다이 지속성 검사 길이(px) — 먼지/섬유(수~수십 px)와 실제 다이(수백 px)를 가른다.</summary>
+        private const int NeighborDieSpanPx = 40;
+
         private Gap FindDieGapLeft(byte[,] image, int threshold, out double angle, out Line line)
         {
             int width = image.GetLength(1); // [y, x]
@@ -2804,11 +2820,12 @@ namespace QMC.Vision.Inspector
                 }
                 if (chipEdge > 0 && chipEdge < width - 1)
                 {
-                    // 옆칩의 오른쪽 엣지 찾기 
+                    // 옆칩의 오른쪽 엣지 찾기 — 먼지(수 px)는 어두움이 지속되지 않으므로 통과시키고 실제 다이만 인정(2026-07-12)
                     for (int x = chipEdge - 3; x > 4; x--)
                     {
 
-                        if (image[y, x] >= threshold && image[y, x - 3] < threshold) // [y, x]
+                        if (image[y, x] >= threshold && image[y, x - 3] < threshold // [y, x]
+                            && IsNeighborDieDark(image, y, x - 3, 0, -1, threshold, NeighborDieSpanPx))
                         {
                             int gap = chipEdge - x;
                             gaps.Add(gap);
@@ -2888,10 +2905,11 @@ namespace QMC.Vision.Inspector
                 }
                 if (chipEdge > 0 && chipEdge < width - 4)
                 {
-                    // 옆칩의 왼쪽 엣지
+                    // 옆칩의 왼쪽 엣지 — 먼지(수 px)는 어두움이 지속되지 않으므로 통과시키고 실제 다이만 인정(2026-07-12)
                     for (int x = chipEdge + 1; x < width - 4; x++)
                     {
-                        if (image[y, x] >= threshold && image[y, x + 3] < threshold) // [y, x]
+                        if (image[y, x] >= threshold && image[y, x + 3] < threshold // [y, x]
+                            && IsNeighborDieDark(image, y, x + 3, 0, 1, threshold, NeighborDieSpanPx))
                         {
                             int gap = x - chipEdge;
                             gaps.Add(gap);
@@ -2970,11 +2988,12 @@ namespace QMC.Vision.Inspector
                 }
                 if (chipEdge > 0 && chipEdge < height - 1)
                 {
-                    // 옆칩의 아래쪽 엣지 찾기 
+                    // 옆칩의 아래쪽 엣지 찾기 — 먼지(수 px)는 어두움이 지속되지 않으므로 통과시키고 실제 다이만 인정(2026-07-12)
                     for (int y = chipEdge - 3; y > 4; y--)
                     {
 
-                        if (image[y, x] >= threshold && image[y - 3, x] < threshold) // [y, x]
+                        if (image[y, x] >= threshold && image[y - 3, x] < threshold // [y, x]
+                            && IsNeighborDieDark(image, y - 3, x, -1, 0, threshold, NeighborDieSpanPx))
                         {
                             int gap = chipEdge - y;
                             gaps.Add(gap);
@@ -3059,11 +3078,12 @@ namespace QMC.Vision.Inspector
                 }
                 if (chipEdge > 0 && chipEdge < height - 1)
                 {
-                    // 옆칩의 위쪽 엣지 찾기 
+                    // 옆칩의 위쪽 엣지 찾기 — 먼지(수 px)는 어두움이 지속되지 않으므로 통과시키고 실제 다이만 인정(2026-07-12)
                     for (int y = chipEdge + 3; y < height - 4; y++)
                     {
 
-                        if (image[y, x] >= threshold && image[y + 3, x] < threshold) // [y, x]
+                        if (image[y, x] >= threshold && image[y + 3, x] < threshold // [y, x]
+                            && IsNeighborDieDark(image, y + 3, x, 1, 0, threshold, NeighborDieSpanPx))
                         {
                             int gap = y - chipEdge;
                             gaps.Add(gap);
