@@ -37,7 +37,6 @@ namespace QMC.CDT320.Sequencing
         public static async Task<InterpolatedMotionMoveResult> MoveStageYPickerXAndPickerZByNodesAsync(
             BaseAxis outputStageY,
             BaseAxis pickerX,
-            BaseAxis previousPickerZ,
             BaseAxis pickerZ,
             IList<PickerPlaceContiNode> nodes,
             PickerPlaceMotionConfig config,
@@ -46,6 +45,8 @@ namespace QMC.CDT320.Sequencing
             var result = new InterpolatedMotionMoveResult();
             Stopwatch watch = Stopwatch.StartNew();
             AjinVirtualCoordinateLease coordinateLease = null;
+            int activeCoordinate = -1;
+            bool pathBeginOpen = false;
 
             try
             {
@@ -62,24 +63,20 @@ namespace QMC.CDT320.Sequencing
                 string readyReason;
                 if (!IsAxisReady(outputStageY, "OutputStageY", out readyReason) ||
                     !IsAxisReady(pickerX, "PickerX", out readyReason) ||
-                    !IsAxisReady(previousPickerZ, "PreviousPickerZ", out readyReason) ||
                     !IsAxisReady(pickerZ, "PickerZ", out readyReason))
                 {
                     return MoveFail(result, -1, "Place ContiNode 이동 전 축 준비 상태가 맞지 않습니다. " + readyReason, watch);
                 }
 
-                if (nodes == null || nodes.Count == 0)
+                if (nodes == null || nodes.Count < 3)
                     return MoveFail(result, -1, "Place ContiNode 노드 목록이 비어 있습니다.", watch);
 
-                IList<PickerPlaceContiNode> motionNodes = ExpandSplineNodes(nodes, config.ContiSplineCurvePercent);
-                if (motionNodes == null || motionNodes.Count == 0)
-                    return MoveFail(result, -1, "Place ContiNode spline 노드 목록이 비어 있습니다.", watch);
+                IList<PickerPlaceContiNode> motionNodes = nodes;
 
                 int[] requestedAxes =
                 {
                     outputStageY.Setup.AxisNo,
                     pickerX.Setup.AxisNo,
-                    previousPickerZ.Setup.AxisNo,
                     pickerZ.Setup.AxisNo
                 };
 
@@ -105,6 +102,7 @@ namespace QMC.CDT320.Sequencing
                 }
 
                 int coordinate = coordinateLease.Coordinate;
+                activeCoordinate = coordinate;
                 result.Coordinate = coordinate;
 
                 int mapRetryCount = 0;
@@ -120,45 +118,36 @@ namespace QMC.CDT320.Sequencing
                 if (ret != 0)
                     return MoveFail(result, ret, "Place ContiNode 절대좌표 모드 설정 실패. coordinate=" + coordinate, watch);
 
-                ret = AXM.BeginPath(coordinate);
-                if (ret != 0)
-                    return MoveFail(result, ret, "Place ContiNode BeginPath 실패. coordinate=" + coordinate, watch);
-
-                PickerPlaceContiNode previousNode = new PickerPlaceContiNode(
-                    -1,
-                    outputStageY.ActualPosition,
-                    pickerX.ActualPosition,
-                    previousPickerZ.ActualPosition,
-                    pickerZ.ActualPosition);
-
-                for (int i = 0; i < motionNodes.Count; i++)
-                {
-                    PickerPlaceContiNode node = motionNodes[i];
-                    double[] mappedPosition = MapNodePosition(node, requestedAxes, mappedAxes);
-                    double segmentDistance = CalculateNodeDistance(previousNode, node);
-                    ContiNodeMotionProfile profile = ResolveDistanceLimitedProfile(node.Index, segmentDistance, config);
-                    ret = AXM.MoveLine(
-                        coordinate,
-                        mappedAxes,
-                        mappedPosition,
-                        profile.Velocity,
-                        profile.Acceleration,
-                        profile.Deceleration);
-                    if (ret != 0)
-                        return MoveFail(result, ret, "Place ContiNode node" + node.Index + " 등록 실패. coordinate=" + coordinate, watch);
-
-                    previousNode = node;
-                }
-
-                ret = AXM.EndPath(coordinate);
-                if (ret != 0)
-                    return MoveFail(result, ret, "Place ContiNode EndPath 실패. coordinate=" + coordinate, watch);
-
                 ret = ApplyContiAxisProfile(mappedAxes);
                 if (ret != 0)
                     return MoveFail(result, ret, "Place ContiNode S-Curve profile setup failed. coordinate=" + coordinate, watch);
 
-                ret = AXM.StartPath(coordinate, (uint)AXT_MOTION_CONTISTART_NODE.CONTI_NODE_MANUAL, 0);
+                double[] splineX = MapNodeAxisPositions(motionNodes, mappedAxes[0], requestedAxes);
+                double[] splineY = MapNodeAxisPositions(motionNodes, mappedAxes[1], requestedAxes);
+                double splineZ = GetNodeAxisPosition(motionNodes[motionNodes.Count - 1], mappedAxes[2], requestedAxes);
+                ret = AXM.BeginPath(coordinate);
+                if (ret != 0)
+                    return MoveFail(result, ret, "Place ContiNode BeginPath 실패. coordinate=" + coordinate, watch);
+                pathBeginOpen = true;
+
+                ret = AXM.SplineWrite(
+                    coordinate,
+                    splineX,
+                    splineY,
+                    splineZ,
+                    result.Velocity,
+                    result.Acceleration,
+                    result.Deceleration,
+                    1);
+                if (ret != 0)
+                    return MoveFail(result, ret, "Place ContiNode SplineWrite 실패. coordinate=" + coordinate, watch);
+
+                ret = AXM.EndPath(coordinate);
+                if (ret != 0)
+                    return MoveFail(result, ret, "Place ContiNode EndPath 실패. coordinate=" + coordinate, watch);
+                pathBeginOpen = false;
+
+                ret = AXM.StartPath(coordinate, (uint)AXT_MOTION_CONTISTART_NODE.CONTI_NODE_VELOCITY, 0);
                 if (ret != 0)
                     return MoveFail(result, ret, "Place ContiNode StartPath 실패. coordinate=" + coordinate, watch);
 
@@ -184,9 +173,7 @@ namespace QMC.CDT320.Sequencing
 
                         result.ResultCode = 0;
                         result.ElapsedMs = watch.ElapsedMilliseconds;
-                        result.Message = "Place ContiNode 구동 완료. nodeCount=" + motionNodes.Count +
-                            ", baseNodeCount=" + nodes.Count +
-                            ", splinePerSegment=" + SplineNodeCountPerSegment +
+                        result.Message = "Place ContiNode SplineWrite 구동 완료. nodeCount=" + motionNodes.Count +
                             ", coordinate=" + coordinate + " 반환 완료.";
                         return result;
                     }
@@ -206,6 +193,9 @@ namespace QMC.CDT320.Sequencing
             }
             finally
             {
+                if (pathBeginOpen && activeCoordinate >= 0)
+                    AXM.EndPath(activeCoordinate);
+
                 if (coordinateLease != null)
                     AjinInterpolatedMotionService.ReleasePathAndReturnCoordinateIfIdle(coordinateLease, out _);
             }
@@ -218,7 +208,6 @@ namespace QMC.CDT320.Sequencing
             {
                 values.Add(node.StageY);
                 values.Add(node.PickerX);
-                values.Add(node.PreviousPickerZ);
                 values.Add(node.PickerZ);
             }
 
@@ -267,10 +256,26 @@ namespace QMC.CDT320.Sequencing
             var positionByAxis = new Dictionary<int, double>();
             positionByAxis[requestedAxes[0]] = node.StageY;
             positionByAxis[requestedAxes[1]] = node.PickerX;
-            positionByAxis[requestedAxes[2]] = node.PreviousPickerZ;
-            positionByAxis[requestedAxes[3]] = node.PickerZ;
+            positionByAxis[requestedAxes[2]] = node.PickerZ;
 
             return mappedAxes.Select(axis => positionByAxis[axis]).ToArray();
+        }
+
+        private static double[] MapNodeAxisPositions(IList<PickerPlaceContiNode> nodes, int axis, int[] requestedAxes)
+        {
+            return nodes.Select(node => GetNodeAxisPosition(node, axis, requestedAxes)).ToArray();
+        }
+
+        private static double GetNodeAxisPosition(PickerPlaceContiNode node, int axis, int[] requestedAxes)
+        {
+            if (axis == requestedAxes[0])
+                return node.StageY;
+            if (axis == requestedAxes[1])
+                return node.PickerX;
+            if (axis == requestedAxes[2])
+                return node.PickerZ;
+
+            return 0.0;
         }
 
         private static ContiNodeMotionProfile ResolveDistanceLimitedProfile(

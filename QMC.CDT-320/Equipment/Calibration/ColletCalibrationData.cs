@@ -1,12 +1,13 @@
 using System;
 using System.Runtime.Serialization;
+using QMC.CDT320.VisionComm;
 
 namespace QMC.CDT320.Calibration
 {
     [DataContract]
     public sealed class ColletCalibrationSettings
     {
-        public const string DefaultBottomFinderName = "ColletFinder";
+        public const string DefaultBottomFinderName = VisionToolIds.BottomInspection.ColletFinder;
 
         [DataMember] public string BottomFinderName { get; set; } = DefaultBottomFinderName;
         [DataMember] public int VisionTimeoutMs { get; set; } = 5000;

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -220,6 +220,7 @@ namespace QMC.Common.Motion
 
         private static bool IsMoveDoneByTolerance(BaseAxis axis, double target, double tolerance)
         {
+            tolerance /= 2;
             return axis != null &&
                    axis.IsServoOn &&
                    !axis.IsAlarm &&

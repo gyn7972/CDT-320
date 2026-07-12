@@ -31,7 +31,7 @@ namespace QMC.CDT320.Sequencing.Calibration
 
     public sealed class VisionCameraCalibrationSequence
     {
-        private const string ReticleFinderName = "ReticleFinder";
+        private const string ReticleFinderName = VisionToolIds.BottomInspection.ReticleFinder;
         private const int ReticleFindRetryCount = 3;
         private const int ReticleMatchPollIntervalMs = 100;
         private const int ReticleMotionSettleDelayMs = 500;
@@ -1224,6 +1224,17 @@ namespace QMC.CDT320.Sequencing.Calibration
             AutoVisionChannel channel = ResolveAutoVisionChannel(target);
             int timeoutMs = ResolveCaptureTimeoutMs();
 
+            if (IsDryRunWithVisionConnected(channel))
+            {
+                await AutoVisionRequestService.GrabAsync(
+                    channel,
+                    0,
+                    timeoutMs,
+                    ct).ConfigureAwait(false);
+
+                return BuildSimulatedReticleMatch(target, channel, "DryRun 모드에서 Vision GRAB만 수행하고 시뮬레이션 결과를 사용합니다.");
+            }
+
             EventLogger.Write(EventKind.Event, "CAL", "VISION-CAMERA-CAL-MATCHASYNC-REQ",
                 cameraName + " Vision에 ReticleFinder MATCHASYNC 시작을 요청합니다.");
 
@@ -1471,6 +1482,25 @@ namespace QMC.CDT320.Sequencing.Calibration
         {
             AppSettings settings = AppSettingsStore.Current;
             return settings != null && settings.DryRunMode && !settings.UseVision;
+        }
+
+        private static bool IsDryRunWithVisionConnected(AutoVisionChannel channel)
+        {
+            try
+            {
+                AppSettings settings = AppSettingsStore.Current;
+                if (settings == null || !settings.DryRunMode || !settings.UseVision)
+                    return false;
+
+                return VisionCommandService.IsConnected(channel);
+            }
+            catch
+            {
+                return false;
+            }
+            finally
+            {
+            }
         }
 
         private static double NextSimulatedReticlePixel(double center, double maxAbsOffset)

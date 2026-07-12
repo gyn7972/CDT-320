@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Drawing;
+using System.Threading.Tasks;
 using System.Windows.Forms;
 using QMC.CDT320;
 using QMC.CDT320.Calibration;
@@ -37,6 +38,8 @@ namespace QMC.CDT_320.Ui.Controls
         private double _savedPixelScaleY;
         private double _savedWidthPixel;
         private double _savedHeightPixel;
+        private bool _liveOn;
+        private bool _liveSwitchBusy;
 
         public VisionMonitorControl()
         {
@@ -52,6 +55,8 @@ namespace QMC.CDT_320.Ui.Controls
 
             btnConnect.Click += (s, e) => Connect();
             btnDisconnect.Click += (s, e) => Disconnect();
+            btnLive.Click += async (s, e) => await ToggleVisionLiveAsync();
+            UpdateLiveButton();
         }
 
         private static bool IsDesignerMode()
@@ -85,6 +90,8 @@ namespace QMC.CDT_320.Ui.Controls
 
         public void Disconnect()
         {
+            StopVisionLiveForDisconnect();
+
             try
             {
                 if (_client != null)
@@ -102,8 +109,10 @@ namespace QMC.CDT_320.Ui.Controls
                 _client = null;
                 btnConnect.Enabled = true;
                 btnDisconnect.Enabled = false;
+                btnLive.Enabled = false;
                 cbModule.Enabled = true;
                 txtHost.Enabled = true;
+                UpdateLiveButton();
             }
         }
 
@@ -130,9 +139,129 @@ namespace QMC.CDT_320.Ui.Controls
 
             btnConnect.Enabled = false;
             btnDisconnect.Enabled = true;
+            VisionTcpClient commandClient = ResolveCommandClient();
+            btnLive.Enabled = commandClient != null && commandClient.IsConnected;
             cbModule.Enabled = false;
             txtHost.Enabled = false;
             lblStatus.Text = "연결 중...";
+            _liveOn = false;
+            UpdateLiveButton();
+        }
+
+        private async Task ToggleVisionLiveAsync()
+        {
+            if (_liveSwitchBusy)
+                return;
+
+            VisionTcpClient commandClient = ResolveCommandClient();
+            if (commandClient == null || !commandClient.IsConnected)
+            {
+                lblStatus.Text = "Vision 명령 채널이 연결되어 있지 않습니다.";
+                UpdateLiveButton();
+                return;
+            }
+
+            bool nextLive = !_liveOn;
+            _liveSwitchBusy = true;
+            btnLive.Enabled = false;
+            lblStatus.Text = nextLive ? "Vision Live 시작 요청..." : "Vision Live 정지 요청...";
+
+            try
+            {
+                // 현재 기준: Handler에서 Vision Live 명령은 VisionMonitorControl Live 버튼에서만 보낸다.
+                VisionCameraSwitchResult result = await commandClient
+                    .SwitchCameraAsync(commandClient.ModuleName, nextLive, 5000)
+                    .ConfigureAwait(true);
+
+                if (result == null || !result.Success)
+                {
+                    string raw = result != null ? result.Raw : "null";
+                    lblStatus.Text = "Vision Live 명령 거부: " + raw;
+                    return;
+                }
+
+                _liveOn = nextLive;
+                lblStatus.Text = _liveOn ? "Vision Live ON" : "Vision Live OFF";
+                LogVisionLiveSwitch(_liveOn, commandClient.ModuleName, result.Raw);
+            }
+            catch (Exception ex)
+            {
+                lblStatus.Text = "Vision Live 명령 실패: " + ex.Message;
+            }
+            finally
+            {
+                _liveSwitchBusy = false;
+                UpdateLiveButton();
+            }
+        }
+
+        private void StopVisionLiveForDisconnect()
+        {
+            if (!_liveOn)
+                return;
+
+            _liveOn = false;
+            VisionTcpClient commandClient = ResolveCommandClient();
+            try
+            {
+                if (commandClient != null && commandClient.IsConnected)
+                    commandClient.SwitchCameraAsync(commandClient.ModuleName, false, 3000).GetAwaiter().GetResult();
+            }
+            catch
+            {
+            }
+        }
+
+        private void UpdateLiveButton()
+        {
+            if (btnLive == null || btnLive.IsDisposed)
+                return;
+
+            btnLive.Text = _liveOn ? "Live ON" : "Live OFF";
+            if (!_liveSwitchBusy)
+            {
+                VisionTcpClient commandClient = ResolveCommandClient();
+                btnLive.Enabled = _client != null && commandClient != null && commandClient.IsConnected;
+            }
+        }
+
+        private VisionTcpClient ResolveCommandClient()
+        {
+            ModulePort selected = cbModule != null ? cbModule.SelectedItem as ModulePort : null;
+            string moduleName = selected != null ? selected.Name : null;
+
+            switch (moduleName)
+            {
+                case VisionModuleNames.Wafer:
+                    return VisionHub.Wafer;
+                case VisionModuleNames.BottomInspection:
+                    return VisionHub.Inspection;
+                case VisionModuleNames.Bin:
+                    return VisionHub.Bin;
+                case VisionModuleNames.FrontSide:
+                    return VisionHub.FrontSideVision;
+                case VisionModuleNames.RearSide:
+                    return VisionHub.RearSideVision;
+                default:
+                    return null;
+            }
+        }
+
+        private static void LogVisionLiveSwitch(bool liveOn, string moduleName, string raw)
+        {
+            try
+            {
+                QMC.Common.Logging.EventLogger.Write(
+                    QMC.Common.Logging.EventKind.Event,
+                    "VISION",
+                    "VISION-MONITOR-LIVE",
+                    "VisionMonitorControl Live " + (liveOn ? "ON" : "OFF") +
+                    ". module=" + moduleName +
+                    ", raw=" + (raw ?? string.Empty));
+            }
+            catch
+            {
+            }
         }
 
         private void OnFrame(VisionFrameMeta meta, Bitmap bitmap)

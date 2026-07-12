@@ -564,7 +564,7 @@ namespace QMC.CDT_320.Ui.Dialogs
         private string ResolveSetupPathText()
         {
             string side = _side == PickerSequenceSide.Front ? "PickerFrontUnit" : "PickerRearUnit";
-            return side + ".Setup.InputVisionToPicker.OffsetX/Y[" + _pickerIndex + "]";
+            return side + ".Setup.InputVisionToPicker.OffsetX/Y[P" + _pickerNo + "]";
         }
 
         private static NumericUpDown CreateNumberBox()

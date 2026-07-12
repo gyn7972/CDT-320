@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using QMC.Common;
 using QMC.Common.Alarms;
 using QMC.Common.Motion;
+using QMC.CDT320.Ajin;
 using QMC.CDT320.Calibration;
 using QMC.CDT320.Interlocks;
 using QMC.CDT320.Materials;
@@ -201,15 +202,15 @@ namespace QMC.CDT320.Sequencing
         {
             try
             {
-                VisionFocusPositionRecord record = ResolveBottomAutoFocusRecord(pickerNo);
-                if (record == null)
+                VisionFocusCalibrationData data = ResolveFocusCalibrationData();
+                if (data == null)
                     return;
 
-                record.RecordAutoFocusPick();
+                int totalCount = data.RecordRuntimeAutoFocusPick();
                 WriteLog("PickerAutoFocus",
-                    Name + " Bottom AutoFocus pick count updated. side=" + Side +
+                    Name + " 생산 AutoFocus 전체 Pick Die 누적 수를 갱신했습니다. side=" + Side +
                     ", pickerNo=" + pickerNo +
-                    ", count=" + record.AutoFocusPickCountSinceLast +
+                    ", totalCount=" + totalCount +
                     ", wafer=" + BuildAutoFocusWaferKey(die) + " - Check");
             }
             catch (Exception ex)
@@ -239,88 +240,123 @@ namespace QMC.CDT320.Sequencing
                 if (data == null)
                     return 0;
 
-                VisionFocusScanSettings settings = data.BottomColletScan;
+                VisionFocusScanSettings settings = data.BottomDieScan;
                 settings.EnsureDefaults();
-                VisionFocusPositionRecord record = ResolveBottomAutoFocusRecord(pickerNo);
-                if (record == null)
-                    return 0;
-
                 string waferKey = BuildAutoFocusWaferKey(die);
                 string reason;
-                if (!ShouldRunBottomAutoFocus(settings, record, waferKey, out reason))
+                RuntimeAutoFocusScanMode scanMode;
+                if (!data.TryReserveRuntimeAutoFocus(waferKey, out scanMode, out reason))
                 {
                     WriteLog("PickerAutoFocus",
-                        Name + " Bottom Runtime AutoFocus skip. side=" + Side +
+                        Name + " 생산 Bottom Die AutoFocus 조건이 없어 건너뜁니다. side=" + Side +
                         ", pickerNo=" + pickerNo +
-                        ", count=" + record.AutoFocusPickCountSinceLast +
+                        ", totalCount=" + data.RuntimeAutoFocusTotalPickCount +
                         ", interval=" + settings.AutoFocusPickInterval +
                         ", wafer=" + waferKey +
-                        ", lastWafer=" + (record.LastAutoFocusWaferId ?? string.Empty) +
+                        ", lastWafer=" + (data.RuntimeAutoFocusLastWaferId ?? string.Empty) +
                         " - Check");
                     return 0;
                 }
 
-                WriteLog("PickerAutoFocus",
-                    Name + " Bottom Runtime AutoFocus start. side=" + Side +
-                    ", pickerNo=" + pickerNo +
-                    ", pickerIndex=" + pickerIndex +
-                    ", defaultZ=" + defaultPosition.ToString("F6") +
-                    ", scan=FineOnly" +
-                    ", fineMinus=" + settings.FineMinusRange.ToString("F6") +
-                    ", finePlus=" + settings.FinePlusRange.ToString("F6") +
-                    ", fineStep=" + settings.FineStep.ToString("F6") +
-                    ", reason=" + reason +
-                    ", count=" + record.AutoFocusPickCountSinceLast +
-                    ", interval=" + settings.AutoFocusPickInterval +
-                    ", wafer=" + waferKey + " - Start");
-
-                var request = new VisionFocusScanRequest
+                try
                 {
-                    Kind = VisionFocusScanKind.BottomCollet,
-                    PickerSide = ResolveFocusPickerSide(),
-                    PickerNo = pickerNo,
-                    DefaultPosition = defaultPosition,
-                    MinusRange = settings.MinusRange,
-                    PlusRange = settings.PlusRange,
-                    Step = settings.Step,
-                    FineMinusRange = settings.FineMinusRange,
-                    FinePlusRange = settings.FinePlusRange,
-                    FineStep = settings.FineStep,
-                    RepeatCount = settings.RepeatCount,
-                    MoveVelocity = settings.MoveVelocity,
-                    MoveAcceleration = settings.MoveAcceleration,
-                    MoveDeceleration = settings.MoveDeceleration,
-                    SettleDelayMs = settings.SettleDelayMs,
-                    MotionTimeoutMs = settings.MotionTimeoutMs,
-                    VisionTimeoutMs = settings.VisionTimeoutMs,
-                    VisionBestTimeoutMs = settings.VisionBestTimeoutMs,
-                    FocusValueReceiveMode = settings.FocusValueReceiveMode,
-                    ReturnToDefaultAfterScan = false,
-                    SkipPrepareFocusPosition = true,
-                    FineOnlyScan = true,
-                    RuntimeReason = reason,
-                    UpdatedBy = "AutoBeforeBottom"
-                };
+                    if (!IsPickerSimulationOrDryRun() &&
+                        !QMC.CDT320.VisionComm.VisionCommandService.IsConnected(
+                            QMC.CDT320.VisionComm.AutoVisionChannel.BottomInspection))
+                    {
+                        return Fail("PICKER-BOTTOM-DIE-AUTOFOCUS-VISION", Name,
+                            "생산 Bottom Die AutoFocus를 시작할 수 없습니다. Bottom Vision 통신이 연결되어 있지 않습니다. " +
+                            "side=" + Side + ", pickerNo=" + pickerNo + ", reason=" + reason);
+                    }
 
-                var sequence = new VisionFocusScanSequence(Context.Machine, request);
-                int result = await sequence.RunAsync(ct, Options != null ? Options.RunMode : SequenceRunMode.Auto).ConfigureAwait(false);
-                if (result != 0)
-                    return result;
+                    bool fineOnly = scanMode == RuntimeAutoFocusScanMode.FineOnly;
+                    WriteLog("PickerAutoFocus",
+                        Name + " 생산 Bottom Die AutoFocus를 시작합니다. side=" + Side +
+                        ", pickerNo=" + pickerNo +
+                        ", defaultZ=" + defaultPosition.ToString("F6") +
+                        ", scanMode=" + scanMode +
+                        ", reason=" + reason +
+                        ", totalCount=" + data.RuntimeAutoFocusTotalPickCount +
+                        ", interval=" + settings.AutoFocusPickInterval +
+                        ", wafer=" + waferKey + " - Start");
 
-                double bestZ = sequence.Result.BestPosition;
-                ApplyRuntimeBottomFocusPosition(pickerIndex, bestZ);
-                record.MarkAutoFocusComplete(waferKey);
-                SaveVisionFocusSettings("Bottom Runtime AutoFocus complete");
+                    var request = new VisionFocusScanRequest
+                    {
+                        Kind = VisionFocusScanKind.BottomDie,
+                        PickerSide = ResolveFocusPickerSide(),
+                        PickerNo = pickerNo,
+                        DefaultPosition = defaultPosition,
+                        MinusRange = settings.MinusRange,
+                        PlusRange = settings.PlusRange,
+                        Step = settings.Step,
+                        FineMinusRange = settings.FineMinusRange,
+                        FinePlusRange = settings.FinePlusRange,
+                        FineStep = settings.FineStep,
+                        RepeatCount = settings.RepeatCount,
+                        MoveVelocity = settings.MoveVelocity,
+                        MoveAcceleration = settings.MoveAcceleration,
+                        MoveDeceleration = settings.MoveDeceleration,
+                        SettleDelayMs = settings.SettleDelayMs,
+                        MotionTimeoutMs = settings.MotionTimeoutMs,
+                        VisionTimeoutMs = settings.VisionTimeoutMs,
+                        VisionBestTimeoutMs = settings.VisionBestTimeoutMs,
+                        FocusValueReceiveMode = settings.FocusValueReceiveMode,
+                        ReturnToDefaultAfterScan = false,
+                        SkipPrepareFocusPosition = true,
+                        FineOnlyScan = fineOnly,
+                        RuntimeReason = reason,
+                        UpdatedBy = "RuntimeBottomDieAutoFocus"
+                    };
 
-                WriteLog("PickerAutoFocus",
-                    Name + " Bottom Runtime AutoFocus complete. side=" + Side +
-                    ", pickerNo=" + pickerNo +
-                    ", defaultZ=" + defaultPosition.ToString("F6") +
-                    ", bestZ=" + bestZ.ToString("F6") +
-                    ", score=" + sequence.Result.BestScore.ToString("F4") +
-                    ", sample=" + sequence.Result.SampleCount +
-                    ", wafer=" + waferKey + " - Ok");
-                return 0;
+                    var sequence = new VisionFocusScanSequence(Context.Machine, request);
+                    int result = await sequence.RunAsync(ct, Options != null ? Options.RunMode : SequenceRunMode.Auto).ConfigureAwait(false);
+                    if (result != 0)
+                        return result;
+
+                    double bestZ = sequence.Result.BestPosition;
+                    double minZ = fineOnly
+                        ? defaultPosition - settings.FineMinusRange
+                        : defaultPosition - settings.MinusRange - settings.FineMinusRange;
+                    double maxZ = fineOnly
+                        ? defaultPosition + settings.FinePlusRange
+                        : defaultPosition + settings.PlusRange + settings.FinePlusRange;
+                    if (double.IsNaN(bestZ) || double.IsInfinity(bestZ) || bestZ < minZ - 0.000001 || bestZ > maxZ + 0.000001)
+                    {
+                        return Fail("PICKER-BOTTOM-DIE-AUTOFOCUS-BEST-Z", Name,
+                            "생산 Bottom Die AutoFocus Best Z가 허용 스캔 범위를 벗어났습니다. " +
+                            "side=" + Side + ", pickerNo=" + pickerNo +
+                            ", bestZ=" + bestZ + ", minZ=" + minZ + ", maxZ=" + maxZ);
+                    }
+
+                    result = await MovePickerAxisAndVerifyAsync(
+                        GetPickerZAxis(pickerIndex),
+                        bestZ,
+                        "생산 Bottom Die AutoFocus Best Z 이동",
+                        ct,
+                        BuildPickerTargetName("BottomDieAutoFocusBestZ", pickerIndex),
+                        true).ConfigureAwait(false);
+                    if (result != 0)
+                        return result;
+
+                    ApplyRuntimeBottomFocusPosition(pickerIndex, bestZ);
+                    data.CompleteRuntimeAutoFocus(waferKey);
+                    SaveVisionFocusSettings("생산 Bottom Die AutoFocus 완료");
+
+                    WriteLog("PickerAutoFocus",
+                        Name + " 생산 Bottom Die AutoFocus를 완료하고 Best Z 이동을 확인했습니다. side=" + Side +
+                        ", pickerNo=" + pickerNo +
+                        ", defaultZ=" + defaultPosition.ToString("F6") +
+                        ", bestZ=" + bestZ.ToString("F6") +
+                        ", score=" + sequence.Result.BestScore.ToString("F4") +
+                        ", sample=" + sequence.Result.SampleCount +
+                        ", scanMode=" + scanMode +
+                        ", wafer=" + waferKey + " - Ok");
+                    return 0;
+                }
+                finally
+                {
+                    data.ReleaseRuntimeAutoFocusReservation();
+                }
             }
             catch (OperationCanceledException)
             {
@@ -342,43 +378,6 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
-        private bool ShouldRunBottomAutoFocus(
-            VisionFocusScanSettings settings,
-            VisionFocusPositionRecord record,
-            string waferKey,
-            out string reason)
-        {
-            reason = string.Empty;
-            if (settings == null || record == null)
-                return false;
-
-            if (!settings.AutoFocusBeforeBottomEnabled && !record.ForceNextAutoFocus)
-                return false;
-
-            if (record.ForceNextAutoFocus)
-            {
-                reason = "ForceNext";
-                return true;
-            }
-
-            if (settings.AutoFocusOnWaferChange &&
-                !string.IsNullOrWhiteSpace(waferKey) &&
-                !string.Equals(record.LastAutoFocusWaferId ?? string.Empty, waferKey, StringComparison.OrdinalIgnoreCase))
-            {
-                reason = "WaferChanged";
-                return true;
-            }
-
-            if (settings.AutoFocusPickInterval > 0 &&
-                record.AutoFocusPickCountSinceLast >= settings.AutoFocusPickInterval)
-            {
-                reason = "PickCount";
-                return true;
-            }
-
-            return false;
-        }
-
         private VisionFocusCalibrationData ResolveFocusCalibrationData()
         {
             if (Context == null || Context.Machine == null ||
@@ -391,14 +390,6 @@ namespace QMC.CDT320.Sequencing
             if (data != null)
                 data.EnsureObjects();
             return data;
-        }
-
-        private VisionFocusPositionRecord ResolveBottomAutoFocusRecord(int pickerNo)
-        {
-            VisionFocusCalibrationData data = ResolveFocusCalibrationData();
-            if (data == null)
-                return null;
-            return data.GetColletRecord(ResolveFocusPickerSide(), pickerNo);
         }
 
         private VisionFocusPickerSide ResolveFocusPickerSide()
@@ -592,7 +583,7 @@ namespace QMC.CDT320.Sequencing
                     {
                         WriteLog(ownerName,
                             Name + " picker has no die. pickerNo=" + pickerNo +
-                            ", pickerIndex=" + index + " - Check");
+                            " - Check");
                         continue;
                     }
 
@@ -600,7 +591,6 @@ namespace QMC.CDT320.Sequencing
                     WriteLog(ownerName,
                         Name + " picker loaded die selected. die=" + die.DieId +
                         ", pickerNo=" + pickerNo +
-                        ", pickerIndex=" + index +
                         ", result=" + die.Result +
                         ", location=" + (die.CurrentLocation != null ? die.CurrentLocation.ToString() : "-") +
                         " - Check");
@@ -634,6 +624,11 @@ namespace QMC.CDT320.Sequencing
             if (pickerNo >= 4)
                 return 3;
             return pickerNo - 1;
+        }
+
+        protected string BuildPickerTargetName(string positionArrayName, int pickerIndex)
+        {
+            return (positionArrayName ?? string.Empty) + "[P" + ToPickerNo(pickerIndex) + "]";
         }
 
         protected bool IsPickerIndexEnabled(int pickerIndex)
@@ -1745,7 +1740,7 @@ namespace QMC.CDT320.Sequencing
         protected async Task<int> MovePickerToDiePositionAndVerifyAsync(string positionArrayName, int pickerNo, string description, CancellationToken ct)
         {
             int index = pickerNo - 1;
-            string targetName = positionArrayName + "[" + index + "]";
+            string targetName = BuildPickerTargetName(positionArrayName, index);
 
             int result = await MoveAllPickerZToAvoidAndVerifyAsync(description + " pre Z avoid", ct).ConfigureAwait(false);
             if (result != 0)
@@ -1762,7 +1757,6 @@ namespace QMC.CDT320.Sequencing
                 Name + " picker zone target calculated. description=" + (description ?? string.Empty) +
                 ", targetName=" + targetName +
                 ", pickerNo=" + pickerNo +
-                ", pickerIndex=" + index +
                 ", policy=CarryRuntimeAndCollet" +
                 ", formula=" + zoneTarget.Formula +
                 " - Calc");
@@ -1786,7 +1780,6 @@ namespace QMC.CDT320.Sequencing
                 Name + " picker zone move complete. description=" + (description ?? string.Empty) +
                 ", targetName=" + targetName +
                 ", pickerNo=" + pickerNo +
-                ", pickerIndex=" + index +
                 ", formula=" + zoneTarget.Formula +
                 ", axisStates=" + BuildPickerAxesState(allTargets) +
                 " - Ok");
@@ -1993,14 +1986,20 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
-        protected async Task<int> MoveOppositePickerToAvoidAndVerifyAsync(string description, CancellationToken ct)
+        protected async Task<int> MoveOppositePickerToAvoidAndVerifyAsync(
+            string description,
+            CancellationToken ct,
+            bool allowOppositeOutputWorkZone = false)
         {
             try
             {
                 ct.ThrowIfCancellationRequested();
 
                 if (Options != null && Options.RunMode == SequenceRunMode.Auto)
-                    return await WaitOppositePickerReadyForAutoAsync(description, ct).ConfigureAwait(false);
+                    return await WaitOppositePickerReadyForAutoAsync(
+                        description,
+                        ct,
+                        allowOppositeOutputWorkZone).ConfigureAwait(false);
 
                 bool fine = Options != null && Options.FineMove;
 
@@ -2209,7 +2208,10 @@ namespace QMC.CDT320.Sequencing
             return targets;
         }
 
-        private async Task<int> WaitOppositePickerReadyForAutoAsync(string description, CancellationToken ct)
+        private async Task<int> WaitOppositePickerReadyForAutoAsync(
+            string description,
+            CancellationToken ct,
+            bool allowOppositeOutputWorkZone)
         {
             try
             {
@@ -2221,6 +2223,29 @@ namespace QMC.CDT320.Sequencing
                 while (true)
                 {
                     ct.ThrowIfCancellationRequested();
+
+                    PickerWorkZone oppositeZone;
+                    string oppositeOwner;
+                    bool oppositeWorkActive = PickerZoneInterlockRules.TryGetPickerWorkArea(
+                        Side != PickerSequenceSide.Front,
+                        out oppositeZone,
+                        out oppositeOwner);
+                    PickerWorkZone normalizedOppositeZone =
+                        PickerZoneInterlockRules.NormalizeInterlockZone(oppositeZone);
+
+                    // 반대 헤드가 Output Place 영역에 있으면 Bottom과 작업 존이 분리되므로 기존 모션 인터락에 맡기고 동시 진행한다.
+                    if (allowOppositeOutputWorkZone &&
+                        oppositeWorkActive &&
+                        normalizedOppositeZone == PickerWorkZone.Output)
+                    {
+                        WriteLog("PickerOppositeWait",
+                            Name + " auto continue. Opposite picker Output Place is allowed during Bottom inspection. " +
+                            "description=" + description +
+                            ", opposite=" + oppositeName +
+                            ", zone=" + oppositeZone +
+                            ", owner=" + oppositeOwner + " - Ok");
+                        return 0;
+                    }
 
                     string movingAxes;
                     if (IsOppositePickerMoving(out movingAxes))
@@ -2242,13 +2267,6 @@ namespace QMC.CDT320.Sequencing
                         await Task.Delay(1, ct).ConfigureAwait(false);
                         continue;
                     }
-
-                    PickerWorkZone oppositeZone;
-                    string oppositeOwner;
-                    bool oppositeWorkActive = PickerZoneInterlockRules.TryGetPickerWorkArea(
-                        Side != PickerSequenceSide.Front,
-                        out oppositeZone,
-                        out oppositeOwner);
 
                     if (oppositeWorkActive &&
                         PickerZoneInterlockRules.IsProcessZone(oppositeZone))
@@ -2761,14 +2779,14 @@ namespace QMC.CDT320.Sequencing
         {
             BaseAxis item = GetPickerAxis(axis);
             if (item == null)
-                return "axis=" + axis + ", target=" + target + ", state=axis-not-found";
+                return "axis=" + ToPickerAxisDisplayName(axis) + ", target=" + target + ", state=axis-not-found";
 
             double tolerance = item.Config != null && item.Config.InPositionTolerance > 0.0
                 ? item.Config.InPositionTolerance
                 : 0.001;
 
-            return "axis=" + axis +
-                   ", name=" + item.Name +
+            return "axis=" + ToPickerAxisDisplayName(axis) +
+                   ", name=" + AjinAxisDefaults.ToDisplayName(item.Name) +
                    ", servo=" + (item.IsServoOn ? "ON" : "OFF") +
                    ", alarm=" + (item.IsAlarm ? "ON" : "OFF") +
                    ", moving=" + (item.IsMoving ? "Y" : "N") +
@@ -2817,20 +2835,35 @@ namespace QMC.CDT320.Sequencing
         {
             BaseAxis item = GetPickerAxis(axis);
             if (item == null)
-                return "축=" + axis + ", 목표위치=" + target + ", 상태=축을 찾을 수 없음";
+                return "축=" + ToPickerAxisDisplayName(axis) + ", 목표위치=" + target + ", 상태=축을 찾을 수 없음";
 
             double tolerance = item.Config != null && item.Config.InPositionTolerance > 0.0
                 ? item.Config.InPositionTolerance
                 : 0.001;
 
-            return "축=" + axis +
-                   ", 축이름=" + item.Name +
+            return "축=" + ToPickerAxisDisplayName(axis) +
+                   ", 축이름=" + AjinAxisDefaults.ToDisplayName(item.Name) +
                    ", 서보=" + (item.IsServoOn ? "ON" : "OFF") +
                    ", 알람=" + (item.IsAlarm ? "ON" : "OFF") +
                    ", 이동중=" + (item.IsMoving ? "Y" : "N") +
                    ", 현재위치=" + item.ActualPosition +
                    ", 목표위치=" + target +
                    ", 허용오차=" + tolerance;
+        }
+
+        private static string ToPickerAxisDisplayName(PickerAxis axis)
+        {
+            string name = axis.ToString();
+            if ((name.StartsWith("PickerT", StringComparison.Ordinal) ||
+                 name.StartsWith("PickerZ", StringComparison.Ordinal)) &&
+                name.Length == 8)
+            {
+                char c = name[7];
+                if (c >= '0' && c <= '3')
+                    return name.Substring(0, 7) + ((c - '0') + 1).ToString();
+            }
+
+            return name;
         }
 
         private string BuildPickerLastMotionFailureReason(PickerAxis axis, int result)
@@ -3059,8 +3092,8 @@ namespace QMC.CDT320.Sequencing
                 return offsetX;
 
             WriteLog("PickerCoordinate",
-                Name + " failed to resolve InputVisionToPicker X offset. pickerIndex=" +
-                index + ", reason=" + reason + " - Failed");
+                Name + " failed to resolve InputVisionToPicker X offset. pickerNo=" +
+                ToPickerNo(index) + ", reason=" + reason + " - Failed");
             return 0.0;
         }
 
@@ -3073,8 +3106,8 @@ namespace QMC.CDT320.Sequencing
                 return offsetY;
 
             WriteLog("PickerCoordinate",
-                Name + " failed to resolve InputVisionToPicker Y offset. pickerIndex=" +
-                index + ", reason=" + reason + " - Failed");
+                Name + " failed to resolve InputVisionToPicker Y offset. pickerNo=" +
+                ToPickerNo(index) + ", reason=" + reason + " - Failed");
             return 0.0;
         }
 
@@ -3087,8 +3120,8 @@ namespace QMC.CDT320.Sequencing
                 return offsetX;
 
             WriteLog("PickerCoordinate",
-                Name + " failed to resolve OutputVisionToPicker X offset. pickerIndex=" +
-                index + ", reason=" + reason + " - Failed");
+                Name + " failed to resolve OutputVisionToPicker X offset. pickerNo=" +
+                ToPickerNo(index) + ", reason=" + reason + " - Failed");
             return 0.0;
         }
 
@@ -3101,8 +3134,8 @@ namespace QMC.CDT320.Sequencing
                 return offsetY;
 
             WriteLog("PickerCoordinate",
-                Name + " failed to resolve OutputVisionToPicker Y offset. pickerIndex=" +
-                index + ", reason=" + reason + " - Failed");
+                Name + " failed to resolve OutputVisionToPicker Y offset. pickerNo=" +
+                ToPickerNo(index) + ", reason=" + reason + " - Failed");
             return 0.0;
         }
 

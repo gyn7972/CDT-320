@@ -292,7 +292,7 @@ namespace QMC.CDT320.Initialization
                 // Z/T/Y/X 초기화는 우선 전부 축 단위 순차 스텝으로 표시/실행한다.
                 AddKnownStep(plan, axisByName, used, 10, "FrontPickerZ",
                     AxisInitializeRunMode.Parallel,
-                    "FrontPickerZ0~Z3 home together to secure vertical clearance.",
+                    "FrontPickerZ1~Z4 home together to secure vertical clearance.",
                     "FrontPickerZ0",
                     "FrontPickerZ1",
                     "FrontPickerZ2",
@@ -300,7 +300,7 @@ namespace QMC.CDT320.Initialization
 
                 AddKnownStep(plan, axisByName, used, 20, "RearPickerZ",
                     AxisInitializeRunMode.Parallel,
-                    "RearPickerZ0~Z3 home together to secure vertical clearance.",
+                    "RearPickerZ1~Z4 home together to secure vertical clearance.",
                     "RearPickerZ0",
                     "RearPickerZ1",
                     "RearPickerZ2",
@@ -328,7 +328,7 @@ namespace QMC.CDT320.Initialization
 
                 AddKnownStep(plan, axisByName, used, 70, "FrontPickerT",
                     AxisInitializeRunMode.Parallel,
-                    "FrontPickerT0~T3 home together to secure vertical clearance.",
+                    "FrontPickerT1~T4 home together to secure vertical clearance.",
                     "FrontPickerT0",
                     "FrontPickerT1",
                     "FrontPickerT2",
@@ -336,7 +336,7 @@ namespace QMC.CDT320.Initialization
 
                 AddKnownStep(plan, axisByName, used, 80, "RearPickerT",
                     AxisInitializeRunMode.Parallel,
-                    "RearPickerT0~T3 home together to secure vertical clearance.",
+                    "RearPickerT1~T4 home together to secure vertical clearance.",
                     "RearPickerT0",
                     "RearPickerT1",
                     "RearPickerT2",

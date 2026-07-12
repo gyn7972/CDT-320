@@ -148,7 +148,10 @@ namespace QMC.CDT320.Sequencing
             double pickerYTeaching,
             double pickerTTeaching,
             double pickerAlignOffsetT,
-            double pickerZTeaching)
+            double pickerZTeaching,
+            double bottomOffsetX = 0.0,
+            double bottomOffsetY = 0.0,
+            double bottomOffsetT = 0.0)
         {
             PlaceCoordinateResult result = new PlaceCoordinateResult();
             result.PickerY = pickerYTeaching;
@@ -156,17 +159,18 @@ namespace QMC.CDT320.Sequencing
             result.TargetSide = targetSide;
             // Place keeps PickerY on the taught transfer line; OutputStageY compensates the OutputVision->Picker Y gap
             // in the stage direction. The previous inverse sign doubled the camera offset error on the real stage.
-            result.OutputStageY = outputStageBaseY + receiveTargetY + pickerYTeaching - outputVisionToPickerY;
+            result.OutputStageY = outputStageBaseY + receiveTargetY + pickerYTeaching - outputVisionToPickerY + bottomOffsetY;
             // OutputCameraX와 PickerX는 Place 수령 방향이 같으므로 Output map X 오프셋은 PickerX에 더한다.
-            result.PickerX = outputVisionProcessX + receiveTargetX + outputVisionToPickerX + pickerAlignOffsetX;
-            result.PickerT = pickerTTeaching;
+            // Bottom 검사 보정은 이동축 기준으로 PickerX/T는 반대 부호, OutputStageY는 같은 부호를 적용한다.
+            result.PickerX = outputVisionProcessX + receiveTargetX + outputVisionToPickerX + pickerAlignOffsetX - bottomOffsetX;
+            result.PickerT = pickerTTeaching - bottomOffsetT;
             result.PickerZ = pickerZTeaching;
             result.Formula =
                 "targetSide = " + targetSide +
-                " / outputStageY = outputStageBaseY(" + F(outputStageBaseY) + ") + receiveTargetY(" + F(receiveTargetY) + ") + pickerYTeaching(" + F(pickerYTeaching) + ") - outputVisionToPickerY(" + F(outputVisionToPickerY) + ") = " + F(result.OutputStageY) +
+                " / outputStageY = outputStageBaseY(" + F(outputStageBaseY) + ") + receiveTargetY(" + F(receiveTargetY) + ") + pickerYTeaching(" + F(pickerYTeaching) + ") - outputVisionToPickerY(" + F(outputVisionToPickerY) + ") + bottomOffsetY(" + F(bottomOffsetY) + ") = " + F(result.OutputStageY) +
                 " / pickerYRuntimeOffset=" + F(pickerYRuntimeOffset) +
-                " / pickerX = outputVisionProcessX(" + F(outputVisionProcessX) + ") + receiveTargetX(" + F(receiveTargetX) + ") + outputVisionToPickerX(" + F(outputVisionToPickerX) + ") + runtimeOffsetX(" + F(pickerAlignOffsetX) + ") = " + F(result.PickerX) +
-                " / pickerT = placeTeachingT(" + F(pickerTTeaching) + ") [pickerAlignOffsetT ignored for place=" + F(pickerAlignOffsetT) + "] = " + F(result.PickerT) +
+                " / pickerX = outputVisionProcessX(" + F(outputVisionProcessX) + ") + receiveTargetX(" + F(receiveTargetX) + ") + outputVisionToPickerX(" + F(outputVisionToPickerX) + ") + runtimeOffsetX(" + F(pickerAlignOffsetX) + ") - bottomOffsetX(" + F(bottomOffsetX) + ") = " + F(result.PickerX) +
+                " / pickerT = placeTeachingT(" + F(pickerTTeaching) + ") - bottomOffsetT(" + F(bottomOffsetT) + ") [pickerAlignOffsetT ignored for place=" + F(pickerAlignOffsetT) + "] = " + F(result.PickerT) +
                 " / pickerY = fixed pickerYTeaching(" + F(pickerYTeaching) + ") [runtimeOffsetY logged separately=" + F(pickerAlignOffsetY) + "] = " + F(result.PickerY) +
                 " / pickerZ = " + F(result.PickerZ);
             LogFormula(sequenceName, "PLACE", side, pickerIndex, dieId, result.Formula);
@@ -192,9 +196,14 @@ namespace QMC.CDT320.Sequencing
                 (sequenceName ?? "UnknownSequence") +
                 " coordinate calculation. phase=" + phase +
                 ", side=" + side +
-                ", pickerIndex=" + pickerIndex +
+                ", pickerNo=" + ToPickerNo(pickerIndex) +
                 ", target=" + (targetId ?? string.Empty) +
                 ", formula: " + formula);
+        }
+
+        private static int ToPickerNo(int pickerIndex)
+        {
+            return pickerIndex + 1;
         }
 
         private static string F(double value)

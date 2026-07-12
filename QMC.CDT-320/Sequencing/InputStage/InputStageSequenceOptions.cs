@@ -1,3 +1,5 @@
+using QMC.CDT320.VisionComm;
+
 namespace QMC.CDT320.Sequencing
 {
     public sealed class InputStageSequenceOptions
@@ -34,9 +36,9 @@ namespace QMC.CDT320.Sequencing
                 AlignThetaToleranceDeg = 0.005,
                 AlignThetaCorrectionLimitDeg = 1.0,
                 AlignRetryCount = 3,
-                CenterAlignTargetId = "Center",
-                Ref1AlignTargetId = "Ref1",
-                Ref2AlignTargetId = "Ref2",
+                CenterAlignTargetId = VisionAlignTargetIds.Center,
+                Ref1AlignTargetId = VisionAlignTargetIds.Ref1,
+                Ref2AlignTargetId = VisionAlignTargetIds.Ref2,
                 DieMapVisionTargetId = "DieMapMark",
                 DieMapVisionRetryCount = 3,
                 RunMode = SequenceRunMode.Auto,

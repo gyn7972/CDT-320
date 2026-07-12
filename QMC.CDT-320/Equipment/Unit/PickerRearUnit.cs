@@ -144,18 +144,6 @@ namespace QMC.CDT320
         [DisplayName("Bottom Flying Z Down Distance")]
         public double BottomFlyingZDownDistance { get { return EnsureBottomInspectionConfig().FlyingZDownDistance; } set { EnsureBottomInspectionConfig().FlyingZDownDistance = value; } }
 
-        [Category("BottomInspection")]
-        [DisplayName("Bottom Flying Z Start Mode")]
-        public PickerBottomFlyingZStartMode BottomFlyingZStartMode { get { return EnsureBottomInspectionConfig().FlyingZStartMode; } set { EnsureBottomInspectionConfig().FlyingZStartMode = value; } }
-
-        [Category("BottomInspection")]
-        [DisplayName("Bottom Flying Z Start Delay Ms")]
-        public int BottomFlyingZStartDelayMs { get { return EnsureBottomInspectionConfig().FlyingZStartDelayMs; } set { EnsureBottomInspectionConfig().FlyingZStartDelayMs = value; } }
-
-        [Category("BottomInspection")]
-        [DisplayName("Bottom Flying Z Start X Remaining Distance")]
-        public double BottomFlyingZStartXRemainingDistance { get { return EnsureBottomInspectionConfig().FlyingZStartXRemainingDistance; } set { EnsureBottomInspectionConfig().FlyingZStartXRemainingDistance = value; } }
-
         [Category("Place")]
         [DisplayName("Place Motion Mode")]
         public PickerPlaceMotionMode PlaceMotionMode { get { return EnsurePlaceConfig().MotionMode; } set { EnsurePlaceConfig().MotionMode = value; } }
@@ -179,6 +167,10 @@ namespace QMC.CDT320
         [Category("Place")]
         [DisplayName("Place Release Dwell Ms")]
         public int PlaceReleaseDwellMs { get { return EnsurePlaceConfig().PlaceReleaseDwellMs; } set { EnsurePlaceConfig().PlaceReleaseDwellMs = Math.Max(0, value); } }
+
+        [Category("Place")]
+        [DisplayName("Place Blow Delay Ms")]
+        public int PlaceBlowDelayMs { get { return EnsurePlaceConfig().PlaceBlowDelayMs; } set { EnsurePlaceConfig().PlaceBlowDelayMs = Math.Max(0, value); } }
 
         [Category("Place")]
         [DisplayName("Place Conti Max Velocity")]
@@ -666,6 +658,87 @@ namespace QMC.CDT320
                 Log.Write("Main", "VISION", "PickerBottomInspect",
                     Name + " Bottom 검사 노출 요청 중 예외가 발생했습니다. pickerNo=" + pickerNo + ", error=" + ex.Message + " - Failed");
                 return false;
+            }
+            finally
+            {
+            }
+        }
+
+        public async Task<bool> StartBottomInspectionAsync(int pickerNo, int timeoutMs, CancellationToken ct)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+
+                if (IsVisionBypassed())
+                    return true;
+
+                if (vision == null)
+                {
+                    Log.Write("Main", "VISION", "PickerBottomInspect",
+                        Name + " Bottom VisionPC가 연결되어 있지 않습니다. pickerNo=" + pickerNo + " - Failed");
+                    return false;
+                }
+
+                bool started = await vision.StartBottomInspectAsync(pickerNo, timeoutMs, ct).ConfigureAwait(false);
+                if (!started)
+                {
+                    Log.Write("Main", "VISION", "PickerBottomInspect",
+                        Name + " Bottom 검사 시작 ACK 수신 실패. pickerNo=" + pickerNo + ", timeoutMs=" + timeoutMs + " - Failed");
+                }
+
+                return started;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                Log.Write("Main", "VISION", "PickerBottomInspect",
+                    Name + " Bottom 검사 시작 요청 중 예외가 발생했습니다. pickerNo=" + pickerNo + ", error=" + ex.Message + " - Failed");
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
+        public async Task<BottomVisionOffset> WaitBottomInspectionResultAsync(int pickerNo, int timeoutMs, CancellationToken ct)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+
+                if (IsVisionBypassed())
+                    return SimulateBottomInspectionResult(pickerNo);
+
+                if (vision == null)
+                {
+                    Log.Write("Main", "VISION", "PickerBottomInspect",
+                        Name + " Bottom VisionPC가 연결되어 있지 않습니다. pickerNo=" + pickerNo + " - Failed");
+                    return null;
+                }
+
+                BottomVisionOffset result = await vision.WaitBottomResultAsync(pickerNo, timeoutMs, ct).ConfigureAwait(false);
+                if (result == null)
+                {
+                    Log.Write("Main", "VISION", "PickerBottomInspect",
+                        Name + " Bottom 검사 결과 수신 실패. pickerNo=" + pickerNo + ", timeoutMs=" + timeoutMs + " - Failed");
+                    return null;
+                }
+
+                return result;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                Log.Write("Main", "VISION", "PickerBottomInspect",
+                    Name + " Bottom 검사 결과 수신 중 예외가 발생했습니다. pickerNo=" + pickerNo + ", error=" + ex.Message + " - Failed");
+                return null;
             }
             finally
             {
@@ -1692,7 +1765,6 @@ namespace QMC.CDT320
             // runtimeT is the current PickerAlignOffset.AlignOffsetT. Collet theta is already reflected in picker T home zero.
             EventLogger.Write(EventKind.Event, "QMC", "PK-T-OFFSET-CALC",
                 Name + " MovePickerTToOffset target calculated. pickerNo=" + pickerNo +
-                ", pickerIndex=" + index +
                 ", axis=" + axis +
                 ", formula=targetT=teachingT(" + teachingT.ToString("F6") +
                 ")+runtimeT(" + runtimeT.ToString("F6") +
@@ -1711,7 +1783,6 @@ namespace QMC.CDT320
             EventLogger.Write(EventKind.Event, "QMC", result == 0 ? "PK-T-OFFSET-OK" : "PK-T-OFFSET-FAIL",
                 Name + " MovePickerTToOffset move complete. result=" + result +
                 ", pickerNo=" + pickerNo +
-                ", pickerIndex=" + index +
                 ", formula=targetT=teachingT(" + teachingT.ToString("F6") +
                 ")+runtimeT(" + runtimeT.ToString("F6") +
                 ")+colletT(homeZeroApplied)(0.000000)=" + targetT.ToString("F6") +
@@ -2400,7 +2471,7 @@ namespace QMC.CDT320
             QMC.CDT320.VisionComm.InspectionResultDto inspection =
                 QMC.CDT320.VisionComm.AutoVisionRequestService.BuildSimulationInspectionResult(
                     QMC.CDT320.VisionComm.AutoVisionChannel.BottomInspection,
-                    "SurfaceInspector",
+                    QMC.CDT320.VisionComm.VisionToolIds.BottomInspection.SurfaceInspector,
                     pickerNo);
             return QMC.CDT320.Calibration.VisionCameraCalibrationTransform.ToBottomVisionOffset(pickerNo, inspection);
         }
@@ -2410,7 +2481,7 @@ namespace QMC.CDT320
             QMC.CDT320.VisionComm.InspectionResultDto inspection =
                 QMC.CDT320.VisionComm.AutoVisionRequestService.BuildSimulationInspectionResult(
                     QMC.CDT320.VisionComm.AutoVisionChannel.RearSide,
-                    "SurfaceInspector",
+                    QMC.CDT320.VisionComm.VisionToolIds.RearSide.SurfaceInspector,
                     pickerNo);
             bool pass = inspection != null && inspection.IsPass;
             return new SideVisionResult

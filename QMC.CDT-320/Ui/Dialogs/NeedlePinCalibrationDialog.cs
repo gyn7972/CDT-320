@@ -8,6 +8,7 @@ using QMC.CDT320;
 using QMC.CDT320.Calibration;
 using QMC.CDT320.Sequencing;
 using QMC.CDT320.Sequencing.Calibration;
+using QMC.CDT320.VisionComm;
 using QMC.CDT_320.Ui.Security;
 using QMC.Common.Logging;
 
@@ -665,7 +666,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                     return false;
 
                 stage.Recipe.EnsurePositionObjects();
-                stage.Setup.NeedlePinCalVisionTargetId = ReadString("Vision Target", "EjectPinFinder");
+                stage.Setup.NeedlePinCalVisionTargetId = ReadString("Vision Target", VisionToolIds.Wafer.EjectPinFinder);
                 stage.Setup.NeedlePinCalVisionTimeoutMs = Math.Max(1000, ReadInt("Vision Timeout", 5000));
                 NeedleCalibrationData needleData = ResolveNeedleCalibrationData();
                 if (needleData != null)

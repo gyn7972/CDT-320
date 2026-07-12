@@ -7,6 +7,7 @@ using QMC.CDT320.Lots;
 using QMC.CDT320.Materials;
 using QMC.CDT320.Motion.SharedRailX;
 using QMC.CDT320.Recipes;
+using QMC.CDT320.VisionComm;
 using QMC.Common.Motion;
 
 namespace QMC.CDT320.Sequencing
@@ -778,12 +779,12 @@ namespace QMC.CDT320.Sequencing
 
                 double baseX = Stage.CameraX != null ? Stage.CameraX.ActualPosition : 0.0;
                 double baseY = Stage.StageY != null ? Stage.StageY.ActualPosition : 0.0;
-                VisionAlignResult vision = await RequestVisionPcOffsetWithRetryAsync(ResolveTargetId(), "Center", ct).ConfigureAwait(false);
+                VisionAlignResult vision = await RequestVisionPcOffsetWithRetryAsync(ResolveTargetId(), VisionAlignTargetIds.Center, ct).ConfigureAwait(false);
                 if (vision == null)
                 {
                     vision = await SearchVisionMarkAroundCurrentPointAsync(
                         ResolveTargetId(),
-                        "Center",
+                        VisionAlignTargetIds.Center,
                         "Die Mapping Center",
                         baseX,
                         baseY,
@@ -799,9 +800,9 @@ namespace QMC.CDT320.Sequencing
                 _dieMapCenterSearchOffsetX = _dieMapCenterX - baseX;
                 _dieMapCenterSearchOffsetY = _dieMapCenterY - baseY;
 
-                _mappedPoints["Center"] = new MappedMarkPoint
+                _mappedPoints[VisionAlignTargetIds.Center] = new MappedMarkPoint
                 {
-                    Name = "Center",
+                    Name = VisionAlignTargetIds.Center,
                     X = _dieMapCenterX,
                     Y = _dieMapCenterY,
                     OffsetX = _dieMapCenterSearchOffsetX,
@@ -1049,7 +1050,7 @@ namespace QMC.CDT320.Sequencing
             try
             {
                 MappedMarkPoint center;
-                if (!TryGetMappedPoint("Center", out center))
+                if (!TryGetMappedPoint(VisionAlignTargetIds.Center, out center))
                 {
                     return Fail("IN-STAGE-DIEMAP-CENTER-POINT", "Vision",
                         "Die Mapping 계산에는 Center die 탐색 결과가 필요합니다.");
@@ -1769,7 +1770,13 @@ namespace QMC.CDT320.Sequencing
             {
                 ct.ThrowIfCancellationRequested();
                 if (IsSimulationOrDryRun())
+                {
+                    VisionAlignResult dryRunVisionResult = await RequestDryRunVisionOffsetAsync(targetId, stepName, ct).ConfigureAwait(false);
+                    if (dryRunVisionResult != null)
+                        return dryRunVisionResult;
+
                     return await RequestSimVisionOffsetAsync(targetId, stepName, ct).ConfigureAwait(false);
+                }
 
                 if (Stage.Vision == null)
                     return null;
@@ -1787,6 +1794,42 @@ namespace QMC.CDT320.Sequencing
             catch (Exception ex)
             {
                 WriteLog("InputStageDieMappingSequence", "Vision offset request exception. step=" + stepName + ": " + ex.Message + " - Failed");
+                return null;
+            }
+            finally
+            {
+            }
+        }
+
+        private async Task<VisionAlignResult> RequestDryRunVisionOffsetAsync(string targetId, string stepName, CancellationToken ct)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+                if (!IsDryRunWithVisionConnected())
+                    return null;
+
+                if (Stage == null || Stage.Vision == null)
+                    return null;
+
+                Task<VisionAlignResult> alignTask = Stage.Vision.TriggerAlignAsync(targetId);
+                if (alignTask == null)
+                    return null;
+
+                VisionAlignResult result = await SequenceAwaiter.AwaitAsync(alignTask, null, ct).ConfigureAwait(false);
+                WriteLog("InputStageDieMappingSequence",
+                    "DryRun Vision GRAB request completed. step=" + stepName +
+                    ", target=" + targetId +
+                    ", result=" + (result != null ? "OK" : "NG"));
+                return result;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                WriteLog("InputStageDieMappingSequence", "DryRun Vision GRAB request exception. step=" + stepName + ": " + ex.Message + " - SimFallback");
                 return null;
             }
             finally
@@ -1851,6 +1894,26 @@ namespace QMC.CDT320.Sequencing
         {
             AppSettings settings = AppSettingsStore.Current;
             return settings != null && settings.DryRunMode && !settings.UseVision;
+        }
+
+        private static bool IsDryRunWithVisionConnected()
+        {
+            try
+            {
+                AppSettings settings = AppSettingsStore.Current;
+                if (settings == null || !settings.DryRunMode || !settings.UseVision)
+                    return false;
+
+                return QMC.CDT320.VisionComm.VisionCommandService.IsConnected(
+                    QMC.CDT320.VisionComm.AutoVisionChannel.Wafer);
+            }
+            catch
+            {
+                return false;
+            }
+            finally
+            {
+            }
         }
 
         private async Task<int> MoveAxisCommandAsync(WaferStageAxis axis, double target, string description, CancellationToken ct)

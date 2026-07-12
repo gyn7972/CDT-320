@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
@@ -8,6 +8,7 @@ using QMC.CDT320;
 using QMC.CDT320.Calibration;
 using QMC.CDT320.Sequencing;
 using QMC.CDT320.VisionComm;
+using QMC.CDT_320.Equipment.Vision;
 using QMC.CDT_320.Ui.Controls;
 using QMC.CDT_320.Ui.Dialogs;
 using QMC.Common.Motion;
@@ -58,30 +59,18 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 actionPanel.Controls);
 
             // 버튼 전용(입력 없음) Head 비전 테스트 — 시퀀서(PickerUnit)와 동일한 TpuVisionAdapter 호출(수동==실제 시퀀스).
-            TpuVisionTestDialog.AddLaunchers(actionRightPanel.Controls, this, btnStop);
+            WireVisionButtons();
 
-            // STOP/비전 런처 버튼을 메인 액션 버튼과 동일 사이즈로 통일하고 그리드 셀에 배치.
-            // 배치: [빈칸][STOP] / [비전][비전] / [비전]
-            int visionIndex = 0;
-            foreach (Control control in actionRightPanel.Controls)
-            {
-                if (!(control is ActionButton button))
-                    continue;
+        }
 
-                button.Dock = DockStyle.Fill;
-                button.Margin = new Padding(3);
-                button.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
-
-                if (ReferenceEquals(button, btnStop))
-                {
-                    actionRightPanel.SetCellPosition(button, new TableLayoutPanelCellPosition(1, 0));
-                }
-                else
-                {
-                    actionRightPanel.SetCellPosition(button, new TableLayoutPanelCellPosition(visionIndex % 2, 1 + visionIndex / 2));
-                    visionIndex++;
-                }
-            }
+        private void WireVisionButtons()
+        {
+            btnVisionBottomInspect.Click += (s, e) =>
+                TpuVisionTestDialog.Open(this, "Bottom Inspection", TpuVisionTestDialog.Mode.BottomInspection);
+            btnVisionFrontSide.Click += (s, e) =>
+                TpuVisionTestDialog.Open(this, "FrontSideVision", TpuVisionTestDialog.Mode.Side, 1, () => VisionHub.FrontSideVision, VisionViewerPorts.FrontSideVision, VisionToolIds.FrontSide.SurfaceInspector);
+            btnVisionRearSide.Click += (s, e) =>
+                TpuVisionTestDialog.Open(this, "RearSideVision", TpuVisionTestDialog.Mode.Side, 1, () => VisionHub.RearSideVision, VisionViewerPorts.RearSideVision, VisionToolIds.RearSide.SurfaceInspector);
         }
 
         private Form1 GetHost()
@@ -181,10 +170,10 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 ResolveAxisNo(machine.PickerFrontUnit != null ? machine.PickerFrontUnit.PickerX : null, "FrontPickerX"),
                 new[]
                 {
-                    ResolveAxisNo(machine.PickerFrontUnit != null ? machine.PickerFrontUnit.PickerZ0 : null, "FrontPickerZ0"),
-                    ResolveAxisNo(machine.PickerFrontUnit != null ? machine.PickerFrontUnit.PickerZ1 : null, "FrontPickerZ1"),
-                    ResolveAxisNo(machine.PickerFrontUnit != null ? machine.PickerFrontUnit.PickerZ2 : null, "FrontPickerZ2"),
-                    ResolveAxisNo(machine.PickerFrontUnit != null ? machine.PickerFrontUnit.PickerZ3 : null, "FrontPickerZ3")
+                    ResolveAxisNo(machine.PickerFrontUnit != null ? machine.PickerFrontUnit.PickerZ0 : null, "FrontPickerZ1"),
+                    ResolveAxisNo(machine.PickerFrontUnit != null ? machine.PickerFrontUnit.PickerZ1 : null, "FrontPickerZ2"),
+                    ResolveAxisNo(machine.PickerFrontUnit != null ? machine.PickerFrontUnit.PickerZ2 : null, "FrontPickerZ3"),
+                    ResolveAxisNo(machine.PickerFrontUnit != null ? machine.PickerFrontUnit.PickerZ3 : null, "FrontPickerZ4")
                 });
 
             AddPickerLineMapTests(
@@ -195,10 +184,10 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 ResolveAxisNo(machine.PickerRearUnit != null ? machine.PickerRearUnit.PickerX : null, "RearPickerX"),
                 new[]
                 {
-                    ResolveAxisNo(machine.PickerRearUnit != null ? machine.PickerRearUnit.PickerZ0 : null, "RearPickerZ0"),
-                    ResolveAxisNo(machine.PickerRearUnit != null ? machine.PickerRearUnit.PickerZ1 : null, "RearPickerZ1"),
-                    ResolveAxisNo(machine.PickerRearUnit != null ? machine.PickerRearUnit.PickerZ2 : null, "RearPickerZ2"),
-                    ResolveAxisNo(machine.PickerRearUnit != null ? machine.PickerRearUnit.PickerZ3 : null, "RearPickerZ3")
+                    ResolveAxisNo(machine.PickerRearUnit != null ? machine.PickerRearUnit.PickerZ0 : null, "RearPickerZ1"),
+                    ResolveAxisNo(machine.PickerRearUnit != null ? machine.PickerRearUnit.PickerZ1 : null, "RearPickerZ2"),
+                    ResolveAxisNo(machine.PickerRearUnit != null ? machine.PickerRearUnit.PickerZ2 : null, "RearPickerZ3"),
+                    ResolveAxisNo(machine.PickerRearUnit != null ? machine.PickerRearUnit.PickerZ3 : null, "RearPickerZ4")
                 });
 
             return results;
@@ -433,7 +422,6 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             return await PickerPlaceContiSegmentedMotion.MoveStageYPickerXAndPickerZByNodesAsync(
                 axes.StageY,
                 axes.PickerX,
-                axes.PreviousPickerZ,
                 axes.PickerZ,
                 nodes,
                 placeConfig,
@@ -702,8 +690,8 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
 
             ResolveAxisNo(axes.StageY, "OutputGoodStageY");
             ResolveAxisNo(axes.PickerX, "FrontPickerX");
-            ResolveAxisNo(axes.PreviousPickerZ, "FrontPickerZ" + previousPickerIndex);
-            ResolveAxisNo(axes.PickerZ, "FrontPickerZ" + currentPickerIndex);
+            ResolveAxisNo(axes.PreviousPickerZ, "FrontPickerZ" + (previousPickerIndex + 1));
+            ResolveAxisNo(axes.PickerZ, "FrontPickerZ" + (currentPickerIndex + 1));
             return axes;
         }
 

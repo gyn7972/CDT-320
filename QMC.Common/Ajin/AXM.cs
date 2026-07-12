@@ -2022,6 +2022,19 @@ namespace QMC.Common.Motion.Ajin
             return ret;
         }
 
+        public static int SplineWrite(int coordinate, double[] positionsX, double[] positionsY, double positionZ, double velocity, double acceleration, double deceleration, int pointFactor)
+        {
+            int ret = 0;
+            if (positionsX == null || positionsY == null)
+                return -1;
+            if (positionsX.Length != positionsY.Length || positionsX.Length < 3)
+                return -1;
+
+            int normalizedPointFactor = pointFactor <= 0 ? 1 : pointFactor;
+            if ((ret = AXL.CheckErrorCode("AXM.AxmSplineWrite", AXM.AxmSplineWrite(coordinate, positionsX.Length, ref positionsX[0], ref positionsY[0], velocity, acceleration, deceleration, positionZ, normalizedPointFactor))) != 0) return ret;
+            return ret;
+        }
+
         public static int MoveArcRadius(int coordinate, int[] axes, double[] endPosition, double radius, double velocity, double acceleration, double deceleration, AXT_MOTION_MOVE_DIR direction, AXT_MOTION_RADIUS_DISTANCE shortDistance)
         {
             int ret = 0;

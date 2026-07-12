@@ -273,9 +273,8 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             AddStep(4, PickerPlaceManualStep.MovePickerZPlace, "Move PickerZ Place");
             AddStep(5, PickerPlaceManualStep.VacuumOffBlow, "Vacuum OFF / Blow");
             AddStep(6, PickerPlaceManualStep.MovePickerZToAvoid, "Move PickerZ Avoid");
-            AddStep(7, PickerPlaceManualStep.VerifyFlowOff, "Verify Flow OFF");
-            AddStep(8, PickerPlaceManualStep.UpdateMaterialToOutputStage, "Update Material / Output Map");
-            AddStep(9, PickerPlaceManualStep.RecoverAfterPlace, "Recover After Place");
+            AddStep(7, PickerPlaceManualStep.UpdateMaterialToOutputStage, "Update Material / Output Map");
+            AddStep(8, PickerPlaceManualStep.RecoverAfterPlace, "Recover After Place");
             if (_gridSteps.Rows.Count > 0)
                 _gridSteps.Rows[0].Selected = true;
         }

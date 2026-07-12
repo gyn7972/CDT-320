@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using QMC.CDT320.Calibration;
 using QMC.Common.Logging;
 
 namespace QMC.CDT320.VisionComm
@@ -31,7 +32,7 @@ namespace QMC.CDT320.VisionComm
             {
                 MatchResultDto result = await AutoVisionRequestService.MatchAsync(
                     AutoVisionChannel.Wafer,
-                    "DieFinder",
+                    VisionToolIds.Wafer.DieFinder,
                     dieIndex,
                     timeoutMs,
                     CancellationToken.None).ConfigureAwait(false);
@@ -55,13 +56,14 @@ namespace QMC.CDT320.VisionComm
 
             try
             {
-                bool grabbed = await AutoVisionRequestService.GrabAsync(
-                    AutoVisionChannel.Wafer,
-                    0,
-                    DefaultTimeoutMs,
-                    CancellationToken.None).ConfigureAwait(false);
-                if (!grabbed)
-                    return null;
+                if (IsDryRunMode())
+                {
+                    await AutoVisionRequestService.GrabAsync(
+                        AutoVisionChannel.Wafer,
+                        0,
+                        DefaultTimeoutMs,
+                        CancellationToken.None).ConfigureAwait(false);
+                }
 
                 VisionAlignResult align = await AutoVisionRequestService.MatchAlignAsync(
                     AutoVisionChannel.Wafer,
@@ -85,21 +87,15 @@ namespace QMC.CDT320.VisionComm
             }
         }
 
+        private static bool IsDryRunMode()
+        {
+            QMC.CDT320.AppSettings settings = QMC.CDT320.AppSettingsStore.Current;
+            return settings != null && settings.DryRunMode;
+        }
+
         private static string ResolveAlignFinder(string alignTargetId)
         {
-            switch (alignTargetId)
-            {
-                case "Center":
-                    return "AlignDieFinder";
-                case "Ref1":
-                    return "FirstReferenceFinder";
-                case "Ref2":
-                    return "SecondReferenceFinder";
-                case "InputPickDie":
-                    return "DieFinder";
-                default:
-                    return alignTargetId;
-            }
+            return VisionAlignTargetIds.ResolveWaferFinder(alignTargetId);
         }
     }
 
@@ -128,6 +124,11 @@ namespace QMC.CDT320.VisionComm
         private int Fb
         {
             get { return _sideChannel == AutoVisionChannel.RearSide ? 1 : 0; }
+        }
+
+        private string SideSurfaceInspector
+        {
+            get { return _sideChannel == AutoVisionChannel.RearSide ? VisionToolIds.RearSide.SurfaceInspector : VisionToolIds.FrontSide.SurfaceInspector; }
         }
 
         /// <summary>콜렛의 비전 주소(die_index/grid) 조회 — 시퀀스가 <see cref="VisionDieAddressStore"/> 에
@@ -168,6 +169,130 @@ namespace QMC.CDT320.VisionComm
                 ct);
         }
 
+        public async Task<bool> StartBottomInspectAsync(int pickerNo, int timeoutMs, CancellationToken ct)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+
+                if (pickerNo < 1 || pickerNo > 4)
+                {
+                    EventLogger.Write(EventKind.Alarm, "VISION", "AUTO-VISION-BOTTOM-INSPECTASYNC",
+                        "Bottom 검사 시작 요청 실패. Picker 번호가 올바르지 않습니다. fb=" + Fb +
+                        ", pickerNo=" + pickerNo);
+                    return false;
+                }
+
+                int dieIndex, gridX, gridY;
+                ResolveDieAddress(pickerNo, out dieIndex, out gridX, out gridY);
+                EventLogger.Write(EventKind.Event, "VISION", "AUTO-VISION-BOTTOM-INSPECTASYNC",
+                    "Bottom 검사 시작 요청. fb=" + Fb +
+                    ", pickerNo=" + pickerNo +
+                    ", collet=" + pickerNo +
+                    ", dieIndex=" + dieIndex +
+                    ", grid=" + gridX + ";" + gridY +
+                    ", timeoutMs=" + timeoutMs);
+
+                return await AutoVisionRequestService.StartInspectColletAsync(
+                    AutoVisionChannel.BottomInspection,
+                    VisionToolIds.BottomInspection.SurfaceInspector,
+                    Fb,
+                    pickerNo,
+                    dieIndex,
+                    0,
+                    gridX,
+                    gridY,
+                    timeoutMs,
+                    ct).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                EventLogger.Write(EventKind.Alarm, "VISION", "AUTO-VISION-BOTTOM-INSPECTASYNC",
+                    "Bottom 검사 시작 요청 중 예외 발생. fb=" + Fb +
+                    ", pickerNo=" + pickerNo +
+                    ", error=" + ex.Message);
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
+        public async Task<BottomVisionOffset> WaitBottomResultAsync(int pickerNo, int timeoutMs, CancellationToken ct)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+
+                if (pickerNo < 1 || pickerNo > 4)
+                {
+                    EventLogger.Write(EventKind.Alarm, "VISION", "AUTO-VISION-BOTTOM-INSPECTRESULT",
+                        "Bottom 검사 결과 대기 실패. Picker 번호가 올바르지 않습니다. fb=" + Fb +
+                        ", pickerNo=" + pickerNo);
+                    return null;
+                }
+
+                int dieIndex, gridX, gridY;
+                ResolveDieAddress(pickerNo, out dieIndex, out gridX, out gridY);
+                EventLogger.Write(EventKind.Event, "VISION", "AUTO-VISION-BOTTOM-INSPECTRESULT",
+                    "Bottom 검사 결과 대기. fb=" + Fb +
+                    ", pickerNo=" + pickerNo +
+                    ", collet=" + pickerNo +
+                    ", dieIndex=" + dieIndex +
+                    ", grid=" + gridX + ";" + gridY +
+                    ", timeoutMs=" + timeoutMs);
+
+                InspectionResultDto inspection = await AutoVisionRequestService.WaitInspectResultByDieAsync(
+                    AutoVisionChannel.BottomInspection,
+                    VisionToolIds.BottomInspection.SurfaceInspector,
+                    dieIndex,
+                    timeoutMs,
+                    ct).ConfigureAwait(false);
+
+                if (AutoVisionRequestService.IsInspectionResultTransportFailure(inspection))
+                {
+                    EventLogger.Write(EventKind.Alarm, "VISION", "AUTO-VISION-BOTTOM-INSPECTRESULT",
+                        "Bottom SurfaceInspector 결과 수신 실패. 검사 NG가 아니라 Vision ACK/RESULT 미수신입니다. fb=" + Fb +
+                        ", collet=" + pickerNo +
+                        ", dieIndex=" + dieIndex +
+                        ", raw=" + (inspection != null ? inspection.Raw : "null"));
+                    return null;
+                }
+
+                BottomVisionOffset offset = VisionCameraCalibrationTransform.ToBottomVisionOffset(pickerNo, inspection);
+                EventLogger.Write(EventKind.Event, "VISION", "AUTO-VISION-BOTTOM-INSPECT-CAL",
+                    "Bottom SurfaceInspector 결과 구조 적용. fb=" + Fb +
+                    ", collet=" + pickerNo +
+                    ", dieIndex=" + dieIndex +
+                    ", ok=" + (offset != null && offset.IsOk) +
+                    ", rawValues=" + (inspection != null ? inspection.DescribeValues() : "null") +
+                    ", sideVisionYOffsetMm=0.000000" +
+                    ", pickerZOffsetMm=0.000000" +
+                    ", sideCorrectionValid=False");
+
+                return offset;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                EventLogger.Write(EventKind.Alarm, "VISION", "AUTO-VISION-BOTTOM-INSPECTRESULT",
+                    "Bottom 검사 결과 대기 중 예외 발생. fb=" + Fb +
+                    ", pickerNo=" + pickerNo +
+                    ", error=" + ex.Message);
+                return null;
+            }
+            finally
+            {
+            }
+        }
+
         public async Task<BottomVisionOffset> GetBottomResultAsync(int pickerNo, int timeoutMs = 5000)
         {
             return await GetBottomResultAsync(pickerNo, timeoutMs, CancellationToken.None).ConfigureAwait(false);
@@ -200,7 +325,7 @@ namespace QMC.CDT320.VisionComm
                 return await AutoVisionRequestService.InspectBottomOffsetAsync(
                     Fb,
                     pickerNo,
-                    "SurfaceInspector",
+                    VisionToolIds.BottomInspection.SurfaceInspector,
                     dieIndex,
                     gridX,
                     gridY,
@@ -272,8 +397,10 @@ namespace QMC.CDT320.VisionComm
             int dieIndex, gridX, gridY;
             ResolveDieAddress(pickerNo, out dieIndex, out gridX, out gridY);
             int ch = sideNo == 2 ? 1 : 0;
+            string inspector = SideSurfaceInspector;
             EventLogger.Write(EventKind.Event, "VISION", "AUTO-VISION-SIDE-GRAB",
                 "Side GRAB 요청 키 확인. camera=" + _sideChannel +
+                ", inspector=" + inspector +
                 ", fb=" + Fb +
                 ", pickerNo=" + pickerNo +
                 ", collet=" + pickerNo +
@@ -285,7 +412,7 @@ namespace QMC.CDT320.VisionComm
 
             return AutoVisionRequestService.GrabInspectAsync(
                 _sideChannel,
-                "SurfaceInspector",
+                inspector,
                 Fb,
                 pickerNo,
                 dieIndex,
@@ -305,9 +432,11 @@ namespace QMC.CDT320.VisionComm
                 int dieIndex, gridX, gridY;
                 ResolveDieAddress(pickerNo, out dieIndex, out gridX, out gridY);
                 int ch = angleDeg == 90 ? 1 : 0;
+                string inspector = SideSurfaceInspector;
 
                 EventLogger.Write(EventKind.Event, "VISION", "AUTO-VISION-SIDE-INSPECTASYNC",
                     "Side 검사 시작 단건 요청. camera=" + _sideChannel +
+                    ", inspector=" + inspector +
                     ", fb=" + Fb +
                     ", pickerNo=" + pickerNo +
                     ", collet=" + pickerNo +
@@ -318,7 +447,7 @@ namespace QMC.CDT320.VisionComm
 
                 bool started = await AutoVisionRequestService.StartInspectColletAsync(
                     _sideChannel,
-                    "SurfaceInspector",
+                    inspector,
                     Fb,
                     pickerNo,
                     dieIndex,
@@ -373,6 +502,7 @@ namespace QMC.CDT320.VisionComm
 
                 EventLogger.Write(EventKind.Event, "VISION", "AUTO-VISION-SIDE-INSPECTRESULT",
                     "Side 검사 결과 대기. camera=" + _sideChannel +
+                    ", inspector=" + SideSurfaceInspector +
                     ", fb=" + Fb +
                     ", pickerNo=" + pickerNo +
                     ", collet=" + pickerNo +
@@ -382,7 +512,7 @@ namespace QMC.CDT320.VisionComm
 
                 InspectionResultDto inspection = await AutoVisionRequestService.WaitInspectResultByDieAsync(
                     _sideChannel,
-                    "SurfaceInspector",
+                    SideSurfaceInspector,
                     dieIndex,
                     timeoutMs,
                     ct).ConfigureAwait(false);
@@ -478,30 +608,42 @@ namespace QMC.CDT320.VisionComm
             if (QMC.CDT320.AppSettingsStore.Current != null && !QMC.CDT320.AppSettingsStore.Current.UseVision)
                 return QMC.CDT320.Calibration.VisionCameraCalibrationTransform.ToInspectionResult(
                     AutoVisionChannel.Bin,
-                    AutoVisionRequestService.BuildSimulationInspectionResult(AutoVisionChannel.Bin, "PlacementInspector", slotIndex));
+                    AutoVisionRequestService.BuildSimulationInspectionResult(AutoVisionChannel.Bin, VisionToolIds.Bin.PlacementInspector, slotIndex));
             if (VisionHub.Bin == null || !VisionHub.Bin.IsConnected)
                 return QMC.CDT320.Calibration.VisionCameraCalibrationTransform.ToInspectionResult(
                     AutoVisionChannel.Bin,
-                    AutoVisionRequestService.BuildSimulationInspectionResult(AutoVisionChannel.Bin, "PlacementInspector", slotIndex));
+                    AutoVisionRequestService.BuildSimulationInspectionResult(AutoVisionChannel.Bin, VisionToolIds.Bin.PlacementInspector, slotIndex));
 
             try
             {
-                bool grabbed = await AutoVisionRequestService.GrabAsync(
+                if (IsDryRunMode())
+                {
+                    await AutoVisionRequestService.GrabAsync(
+                        AutoVisionChannel.Bin,
+                        slotIndex,
+                        timeoutMs,
+                        ct).ConfigureAwait(false);
+
+                    return QMC.CDT320.Calibration.VisionCameraCalibrationTransform.ToInspectionResult(
+                        AutoVisionChannel.Bin,
+                        AutoVisionRequestService.BuildSimulationInspectionResult(AutoVisionChannel.Bin, VisionToolIds.Bin.PlacementInspector, slotIndex));
+                }
+
+                // 현재 기준: Output 안착 검사는 Vision Bin 시퀀스와 동일하게 PlacementInspector INSPECT를 사용한다.
+                InspectionResultDto inspection = await AutoVisionRequestService.InspectCalibratedAsync(
                     AutoVisionChannel.Bin,
+                    VisionToolIds.Bin.PlacementInspector,
                     slotIndex,
                     timeoutMs,
                     ct).ConfigureAwait(false);
-                if (!grabbed)
-                    return new InspectionResultDto { IsPass = false, Raw = "Bin vision GRAB failed." };
 
-                InspectionResultDto result = await AutoVisionRequestService.InspectCalibratedAsync(
-                    AutoVisionChannel.Bin,
-                    "PlacementInspector",
-                    slotIndex,
-                    timeoutMs,
-                    ct).ConfigureAwait(false);
+                if (inspection != null)
+                {
+                    inspection.SetValue("placement_inspector", VisionToolIds.Bin.PlacementInspector);
+                    inspection.SetValue("placement_slot_index", slotIndex);
+                }
 
-                return result;
+                return inspection;
             }
             catch (OperationCanceledException)
             {
@@ -514,6 +656,12 @@ namespace QMC.CDT320.VisionComm
             finally
             {
             }
+        }
+
+        private static bool IsDryRunMode()
+        {
+            QMC.CDT320.AppSettings settings = QMC.CDT320.AppSettingsStore.Current;
+            return settings != null && settings.DryRunMode;
         }
     }
 }

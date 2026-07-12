@@ -2173,7 +2173,7 @@ namespace QMC.CDT320
         /// <param name="finder">매칭에 사용할 Finder 이름(기본 ReticleFinder).</param>
         public async Task<bool> AlignWaferAsync(
             (double mx, double my)[] motorPts,
-            string finder = "ReticleFinder")
+            string finder = VisionComm.VisionToolIds.Wafer.ReticleFinder)
         {
             if (motorPts == null || motorPts.Length < 3)
             { Log("[ALIGN] need 3 motor points"); return false; }
@@ -2889,7 +2889,7 @@ namespace QMC.CDT320
 
         private async Task<int> PrepareFrontPickerXHomeConditionAsync()
         {
-            Log("[INIT] Check FrontPickerX home: InputVisionX / InputExpandingZ / FrontPickerY / FrontPickerZ0~Z3 / InputFeederY Avoid, feeder cylinder down.");
+            Log("[INIT] Check FrontPickerX home: InputVisionX / InputExpandingZ / FrontPickerY / FrontPickerZ1~Z4 / InputFeederY Avoid, feeder cylinder down.");
 
             var stage = _machine.InputStageUnit;
             if (stage != null && !stage.IsVisionXInAvoidPosition())
@@ -2941,7 +2941,7 @@ namespace QMC.CDT320
 
         private async Task<int> PrepareFrontPickerYHomeConditionAsync()
         {
-            Log("[INIT] Check FrontPickerY home: FrontPickerZ0~Z3 Home(0) or Avoid.");
+            Log("[INIT] Check FrontPickerY home: FrontPickerZ1~Z4 Home(0) or Avoid.");
 
             return await CheckFrontPickerZAxesHomeOrAvoidAsync().ConfigureAwait(false);
         }
@@ -3102,7 +3102,7 @@ namespace QMC.CDT320
 
         private async Task<int> PrepareRearPickerYHomeConditionAsync()
         {
-            Log("[INIT] Check RearPickerY home: RearPickerZ0~Z3 Home(0) or Avoid.");
+            Log("[INIT] Check RearPickerY home: RearPickerZ1~Z4 Home(0) or Avoid.");
 
             return await CheckRearPickerZAxesHomeOrAvoidAsync().ConfigureAwait(false);
         }
@@ -3114,7 +3114,7 @@ namespace QMC.CDT320
 
         private async Task<int> PrepareRearPickerXHomeConditionAsync()
         {
-            Log("[INIT] Check RearPickerX home: InputVisionX / InputExpandingZ / FrontPickerY / RearPickerY / RearPickerZ0~Z3 Avoid.");
+            Log("[INIT] Check RearPickerX home: InputVisionX / InputExpandingZ / FrontPickerY / RearPickerY / RearPickerZ1~Z4 Avoid.");
 
             var stage = _machine.InputStageUnit;
             if (stage != null && !stage.IsVisionXInAvoidPosition())
@@ -4293,7 +4293,7 @@ namespace QMC.CDT320
 
         private async Task<int> PrepareInputStageHomeAsync()
         {
-            Log("[INIT] Prepare InputStageY home: NeedleZ Home(0)/Avoid / Input-risk Front,RearPickerZ0~Z3 / InputFeederY Avoid check.");
+            Log("[INIT] Prepare InputStageY home: NeedleZ Home(0)/Avoid / Input-risk Front,RearPickerZ1~Z4 / InputFeederY Avoid check.");
 
             var stage = _machine.InputStageUnit;
             if (stage != null && !stage.IsNeedleZInHomeOrSafePosition())
@@ -4322,7 +4322,7 @@ namespace QMC.CDT320
 
         private async Task<int> PrepareInputStageTHomeAsync(BaseAxis axis)
         {
-            Log("[INIT] Prepare InputStageT home: EjectPinZ Home(0)/Avoid / Input-risk Front,RearPickerZ0~Z3 check.");
+            Log("[INIT] Prepare InputStageT home: EjectPinZ Home(0)/Avoid / Input-risk Front,RearPickerZ1~Z4 check.");
 
             var stage = _machine.InputStageUnit;
             string ejectPinZReason;
@@ -5748,7 +5748,24 @@ namespace QMC.CDT320
         }
 
         /// <summary>장비 START: Servo ON 후 현재 구성된 자동 시퀀스를 시작합니다.</summary>
-        public async Task<int> StartAsync()
+        public bool IsRuntimeAutoFocusOnStartEnabled()
+        {
+            try
+            {
+                if (Machine == null || Machine.VisionUnit == null || Machine.VisionUnit.Config == null)
+                    return false;
+
+                Machine.VisionUnit.Config.EnsureCalibrationObjects();
+                VisionFocusCalibrationData data = Machine.VisionUnit.Config.FocusCalibration;
+                return data != null && data.BottomDieScan != null && data.BottomDieScan.AutoFocusOnStartEnabled;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        public async Task<int> StartAsync(RuntimeAutoFocusScanMode? startupAutoFocusMode = null)
         {
             try
             {
@@ -5785,6 +5802,8 @@ namespace QMC.CDT320
                 if (!EnsureReticleAvoidForAutoStart("StartAsync"))
                     return -1;
 
+                ConfigureRuntimeAutoFocusForStart(startupAutoFocusMode);
+
                 //if (!EnsureCalibrationReadyForAutoStart("StartAsync"))
                 //    return -1;
 
@@ -5807,6 +5826,38 @@ namespace QMC.CDT320
             }
             finally
             {
+            }
+        }
+
+        private void ConfigureRuntimeAutoFocusForStart(RuntimeAutoFocusScanMode? requestedMode)
+        {
+            try
+            {
+                if (Machine == null || Machine.VisionUnit == null || Machine.VisionUnit.Config == null)
+                    return;
+
+                Machine.VisionUnit.Config.EnsureCalibrationObjects();
+                VisionFocusCalibrationData data = Machine.VisionUnit.Config.FocusCalibration;
+                if (data == null || data.BottomDieScan == null)
+                    return;
+
+                RuntimeAutoFocusScanMode mode = RuntimeAutoFocusScanMode.None;
+                if (data.BottomDieScan.AutoFocusOnStartEnabled)
+                {
+                    mode = requestedMode.HasValue
+                        ? requestedMode.Value
+                        : RuntimeAutoFocusScanMode.RoughAndFine;
+                }
+
+                data.SetStartupAutoFocusMode(mode);
+                QMC.Common.Log.Write("Main", "SYSTEM", "RuntimeAutoFocusStart",
+                    "생산 시작 AutoFocus 선택을 반영했습니다. enabled=" +
+                    data.BottomDieScan.AutoFocusOnStartEnabled + ", mode=" + mode + " - Check");
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Log.Write("Main", "SYSTEM", "RuntimeAutoFocusStart",
+                    "생산 시작 AutoFocus 선택 반영 중 예외가 발생했습니다. error=" + ex.Message + " - Failed");
             }
         }
 
@@ -8861,16 +8912,16 @@ namespace QMC.CDT320
                 {
                     offsets[p] = (0, 0);
                     // wafer 미연결 상태에서도 simulator flash는 송신합니다(시각 확인용).
-                    SimulatorBridge.Instance?.CameraExposeFlash("WAFER");
+                    SimulatorBridge.Instance?.CameraExposeFlash(VisionComm.VisionCameraIds.Wafer);
                     await Task.Delay(200, ct).ConfigureAwait(false);
                     continue;
                 }
 
                 try
                 {
-                    SimulatorBridge.Instance?.CameraExposeFlash("WAFER");
+                    SimulatorBridge.Instance?.CameraExposeFlash(VisionComm.VisionCameraIds.Wafer);
                     var m = await VisionComm.VisionHub.Wafer.MatchAsync(
-                        "DieFinder", dieBase + p, 1500);
+                        VisionComm.VisionToolIds.Wafer.DieFinder, dieBase + p, 1500);
                     if (m.Success && m.Score >= 0.7)
                     {
                         offsets[p] = (0, 0);
@@ -9122,7 +9173,7 @@ namespace QMC.CDT320
                         out inputVisionToPickerReason))
                     {
                         Log("[INPUT-VISION-PICKER-OFFSET] resolve failed. side=" +
-                            pickerSequenceSide + ", pickerIndex=" + p +
+                            pickerSequenceSide + ", pickerNo=" + (p + 1) +
                             ", reason=" + inputVisionToPickerReason +
                             ". fallback zero.");
                     }

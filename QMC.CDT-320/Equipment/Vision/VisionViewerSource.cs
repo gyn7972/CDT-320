@@ -10,7 +10,7 @@ namespace QMC.CDT320.VisionComm
     /// <summary>
     /// Vision 의 그랩 스트림 송출(GrabStreamServer, 와이어: [4바이트 int32 LE 길이][JPEG]) 에 접속해
     /// 프레임을 받는 CameraView 영상 소스. 핸들러에서 <c>cam.AttachSource(new VisionViewerSource(host, port))</c>
-    /// 로 연결하면 내장 툴바 Grab/Live 가 Vision 과 동일하게 동작한다.
+    /// 로 연결하면 Grab 이미지 수신을 사용하고, Live 명령은 명시적으로 허용된 화면에서만 보낸다.
     /// 뷰어 포트(모듈별): Wafer 5200 / BottomInspection 5201 / Bin 5203 / FrontSide 5205 / RearSide 5206.
     /// </summary>
     public sealed class VisionViewerSource : ICameraViewSource, IDisposable

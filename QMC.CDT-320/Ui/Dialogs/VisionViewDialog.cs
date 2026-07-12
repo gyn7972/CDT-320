@@ -31,16 +31,21 @@ namespace QMC.CDT_320.Ui.Dialogs
                 return;
 
             string host = VisionHub.Host;
-            _pnWafer.AllowLive = true;
-            _pnBottom.AllowLive = true;
-            _pnBin.AllowLive = true;
-            _pnSide.AllowLive = true;
+            EnableVisionLiveView();
             _pnWafer.Configure(host, VisionViewerPorts.Wafer, "Wafer", VisionHub.Wafer);
             _pnBottom.Configure(host, VisionViewerPorts.BottomInspection, "Bottom Inspection", VisionHub.Inspection);
             _pnBin.Configure(host, VisionViewerPorts.Bin, "Bin", VisionHub.Bin);
             _pnSide.Configure(host);
 
             SelectInitialTab(initialTab);
+        }
+
+        private void EnableVisionLiveView()
+        {
+            _pnWafer.AllowLive = true;
+            _pnBottom.AllowLive = true;
+            _pnBin.AllowLive = true;
+            _pnSide.AllowLive = true;
         }
 
         /// <summary>통합 Vision View 팝업을 연다.</summary>

@@ -240,14 +240,14 @@ namespace QMC.CDT320.Sequencing.Calibration
                 QMC.Common.Log.Write("Calibration", "SYSTEM", "ColletCalMove",
                     "Collet Calibration Bottom 진입 전 Z 안전 위치 확인. side=" + _calibrationSide +
                     ", colletNo=" + _colletNo +
-                    ", z0Actual=" + (GetPickerAxis(PickerAxis.PickerZ0) != null ? GetPickerAxis(PickerAxis.PickerZ0).ActualPosition.ToString("F6") : "null") +
-                    ", z1Actual=" + (GetPickerAxis(PickerAxis.PickerZ1) != null ? GetPickerAxis(PickerAxis.PickerZ1).ActualPosition.ToString("F6") : "null") +
-                    ", z2Actual=" + (GetPickerAxis(PickerAxis.PickerZ2) != null ? GetPickerAxis(PickerAxis.PickerZ2).ActualPosition.ToString("F6") : "null") +
-                    ", z3Actual=" + (GetPickerAxis(PickerAxis.PickerZ3) != null ? GetPickerAxis(PickerAxis.PickerZ3).ActualPosition.ToString("F6") : "null") +
-                    ", z0Avoid=" + GetPickerTeachingPosition(PickerAxis.PickerZ0, "AvoidPosition").ToString("F6") +
-                    ", z1Avoid=" + GetPickerTeachingPosition(PickerAxis.PickerZ1, "AvoidPosition").ToString("F6") +
-                    ", z2Avoid=" + GetPickerTeachingPosition(PickerAxis.PickerZ2, "AvoidPosition").ToString("F6") +
-                    ", z3Avoid=" + GetPickerTeachingPosition(PickerAxis.PickerZ3, "AvoidPosition").ToString("F6"));
+                    ", z1Actual=" + (GetPickerAxis(PickerAxis.PickerZ0) != null ? GetPickerAxis(PickerAxis.PickerZ0).ActualPosition.ToString("F6") : "null") +
+                    ", z2Actual=" + (GetPickerAxis(PickerAxis.PickerZ1) != null ? GetPickerAxis(PickerAxis.PickerZ1).ActualPosition.ToString("F6") : "null") +
+                    ", z3Actual=" + (GetPickerAxis(PickerAxis.PickerZ2) != null ? GetPickerAxis(PickerAxis.PickerZ2).ActualPosition.ToString("F6") : "null") +
+                    ", z4Actual=" + (GetPickerAxis(PickerAxis.PickerZ3) != null ? GetPickerAxis(PickerAxis.PickerZ3).ActualPosition.ToString("F6") : "null") +
+                    ", z1Avoid=" + GetPickerTeachingPosition(PickerAxis.PickerZ0, "AvoidPosition").ToString("F6") +
+                    ", z2Avoid=" + GetPickerTeachingPosition(PickerAxis.PickerZ1, "AvoidPosition").ToString("F6") +
+                    ", z3Avoid=" + GetPickerTeachingPosition(PickerAxis.PickerZ2, "AvoidPosition").ToString("F6") +
+                    ", z4Avoid=" + GetPickerTeachingPosition(PickerAxis.PickerZ3, "AvoidPosition").ToString("F6"));
 
                 result = await MoveCurrentPickerZAndYToAvoidForStartAsync(ct).ConfigureAwait(false);
                 if (result != 0)
@@ -1520,6 +1520,17 @@ namespace QMC.CDT320.Sequencing.Calibration
 
         private async Task<MatchResultDto> RequestColletMatchAsync(CancellationToken ct)
         {
+            if (IsDryRunWithBottomVisionConnected())
+            {
+                await AutoVisionRequestService.GrabAsync(
+                    AutoVisionChannel.BottomInspection,
+                    _colletNo,
+                    _settings != null ? _settings.VisionTimeoutMs : 5000,
+                    ct).ConfigureAwait(false);
+
+                return BuildSimulatedColletMatch();
+            }
+
             if (IsVisionResultSimulationAllowed())
                 return BuildSimulatedColletMatch();
 
@@ -1567,6 +1578,25 @@ namespace QMC.CDT320.Sequencing.Calibration
         {
             AppSettings settings = AppSettingsStore.Current;
             return settings != null && (!settings.UseVision || settings.DryRunMode || settings.SimulationMode || settings.BypassHardware);
+        }
+
+        private static bool IsDryRunWithBottomVisionConnected()
+        {
+            try
+            {
+                AppSettings settings = AppSettingsStore.Current;
+                if (settings == null || !settings.DryRunMode || !settings.UseVision)
+                    return false;
+
+                return VisionCommandService.IsConnected(AutoVisionChannel.BottomInspection);
+            }
+            catch
+            {
+                return false;
+            }
+            finally
+            {
+            }
         }
 
         private bool IsAxisRuntimeSimulationAllowed()

@@ -17,9 +17,9 @@ namespace QMC.CDT_320.Ui.Controls
             InitializeComponent();
 
             btnExpose.Click += async (s, e) => await RunExposeAsync().ConfigureAwait(true);
-            btnCenter.Click += async (s, e) => await RunAlignAsync("Center", btnCenter, lblCenter).ConfigureAwait(true);
-            btnRef1.Click += async (s, e) => await RunAlignAsync("Ref1", btnRef1, lblRef1).ConfigureAwait(true);
-            btnRef2.Click += async (s, e) => await RunAlignAsync("Ref2", btnRef2, lblRef2).ConfigureAwait(true);
+            btnCenter.Click += async (s, e) => await RunAlignAsync(VisionAlignTargetIds.Center, btnCenter, lblCenter).ConfigureAwait(true);
+            btnRef1.Click += async (s, e) => await RunAlignAsync(VisionAlignTargetIds.Ref1, btnRef1, lblRef1).ConfigureAwait(true);
+            btnRef2.Click += async (s, e) => await RunAlignAsync(VisionAlignTargetIds.Ref2, btnRef2, lblRef2).ConfigureAwait(true);
             btnDieCheck.Click += async (s, e) => await RunDieCheckAsync().ConfigureAwait(true);
         }
 

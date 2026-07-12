@@ -6,6 +6,7 @@ using QMC.Common.Motion;
 using QMC.CDT320.Interlocks;
 using QMC.CDT320.Materials;
 using QMC.CDT320.Motion.SharedRailX;
+using QMC.CDT320.VisionComm;
 
 namespace QMC.CDT320.Sequencing
 {
@@ -168,7 +169,6 @@ namespace QMC.CDT320.Sequencing
                         WriteLog("InputDieVisionPrepareSequence",
                             Name + " InputCamera 선행검사 모드: Picker가 Die를 들고 있지만 다음 PickUp 대상 예약을 허용합니다. " +
                             "pickerNo=" + pickerNo +
-                            ", pickerIndex=" + pickerIndex +
                             ", loadedDie=" + loadedDie.DieId + " - Check");
                         loadedDie = null;
                     }
@@ -178,7 +178,6 @@ namespace QMC.CDT320.Sequencing
                         WriteLog("InputDieVisionPrepareSequence",
                             Name + " Picker가 이미 Die를 가지고 있어 Input die vision 예약에서 제외합니다. " +
                             "pickerNo=" + pickerNo +
-                            ", pickerIndex=" + pickerIndex +
                             ", loadedDie=" + loadedDie.DieId + " - Check");
                         continue;
                     }
@@ -203,7 +202,6 @@ namespace QMC.CDT320.Sequencing
                     WriteLog("InputDieVisionPrepareSequence",
                         Name + " Input die vision 준비용 Die를 예약했습니다. die=" + dieId +
                         ", pickerNo=" + pickerNo +
-                        ", pickerIndex=" + pickerIndex +
                         ", grid=(" + target.DieMapX + "," + target.DieMapY + ")" +
                         ", inputVisionX=" + target.TargetX +
                         ", inputStageY=" + target.TargetY + " - Ok");
@@ -638,6 +636,62 @@ namespace QMC.CDT320.Sequencing
                         BuildBooleanMeasurement("InputVisionResult", true)
                     }
                 });
+
+                bool lastPreparedDie = _inspectionCursor == _preparedItems.Count - 1;
+                if (lastPreparedDie)
+                {
+                    double cameraOffsetX;
+                    double cameraOffsetY;
+                    if (!InputPickerPickTargetResolver.TryResolveInputCameraToBottomOffsets(
+                        Context != null ? Context.Machine : null,
+                        out cameraOffsetX,
+                        out cameraOffsetY))
+                    {
+                        cameraOffsetX = 0.0;
+                        cameraOffsetY = 0.0;
+                    }
+
+                    double pendingMapOffsetX = _visionOffset.DeltaX - cameraOffsetX;
+                    double pendingMapOffsetY = -(_visionOffset.DeltaY - cameraOffsetY);
+                    string limitReason;
+                    if (stage != null &&
+                        !stage.IsManualDieDetectOffsetWithinLimit(pendingMapOffsetX, pendingMapOffsetY, out limitReason))
+                    {
+                        return Fail("INPUT-DIE-VISION-PREPARE-PENDING-OFFSET-LIMIT", "Material",
+                            "마지막 Input Vision 보정값이 허용 범위를 벗어나 미촬영 Die 좌표에 적용할 수 없습니다. " +
+                            "referenceDie=" + _currentDieId +
+                            ", offsetX=" + pendingMapOffsetX.ToString("F6") +
+                            ", offsetY=" + pendingMapOffsetY.ToString("F6") +
+                            ", reason=" + limitReason);
+                    }
+
+                    int updatedCount;
+                    int skippedCount;
+                    string updateDetail;
+                    if (!MaterialStateService.TryApplyLastVisionOffsetToPendingInputDies(
+                        _currentDieId,
+                        pendingMapOffsetX,
+                        pendingMapOffsetY,
+                        "InputLastPreparedVisionOffset:" + _currentDieId,
+                        out updatedCount,
+                        out skippedCount,
+                        out updateDetail))
+                    {
+                        return Fail("INPUT-DIE-VISION-PREPARE-PENDING-OFFSET-APPLY", "Material", updateDetail);
+                    }
+
+                    WriteLog("InputDieVisionPrepareSequence",
+                        Name + " 예약 배치 마지막 촬영 결과를 아직 촬영하지 않은 Die 좌표에 적용했습니다. " +
+                        "referenceDie=" + _currentDieId +
+                        ", visionDeltaX=" + _visionOffset.DeltaX.ToString("F6") +
+                        ", visionDeltaY=" + _visionOffset.DeltaY.ToString("F6") +
+                        ", cameraOffsetX=" + cameraOffsetX.ToString("F6") +
+                        ", cameraOffsetY=" + cameraOffsetY.ToString("F6") +
+                        ", appliedOffsetX=" + pendingMapOffsetX.ToString("F6") +
+                        ", appliedOffsetY=" + pendingMapOffsetY.ToString("F6") +
+                        ", updated=" + updatedCount +
+                        ", skipped=" + skippedCount + " - Ok");
+                }
 
                 SaveCurrentStateToItem();
                 _inspectionCursor++;
@@ -1085,7 +1139,13 @@ namespace QMC.CDT320.Sequencing
                 return null;
 
             if (IsSimulationOrDryRun(stage))
+            {
+                VisionAlignResult dryRunVisionResult = await RequestDryRunInputVisionOffsetAsync(stage, ct, applySettleDelay).ConfigureAwait(false);
+                if (dryRunVisionResult != null)
+                    return dryRunVisionResult;
+
                 return SimulateInputVisionOffset();
+            }
 
             if (applySettleDelay)
                 await DelayBeforeVisionInspectionAsync(ct).ConfigureAwait(false);
@@ -1094,7 +1154,48 @@ namespace QMC.CDT320.Sequencing
                 return null;
 
             ct.ThrowIfCancellationRequested();
-            return await stage.Vision.TriggerAlignAsync("InputPickDie").ConfigureAwait(false);
+            return await stage.Vision.TriggerAlignAsync(VisionAlignTargetIds.InputPickDie).ConfigureAwait(false);
+        }
+
+        private async Task<VisionAlignResult> RequestDryRunInputVisionOffsetAsync(
+            InputStageUnit stage,
+            CancellationToken ct,
+            bool applySettleDelay)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+                if (!IsDryRunWithWaferVisionConnected())
+                    return null;
+
+                if (stage == null || stage.Vision == null)
+                    return null;
+
+                if (applySettleDelay)
+                    await DelayBeforeVisionInspectionAsync(ct).ConfigureAwait(false);
+
+                VisionAlignResult result = await stage.Vision.TriggerAlignAsync(VisionAlignTargetIds.InputPickDie).ConfigureAwait(false);
+                WriteLog(Name,
+                    "DryRun " + VisionAlignTargetIds.InputPickDie + " Vision GRAB request completed. die=" + _currentDieId +
+                    ", pickerNo=" + _currentPickerNo +
+                    ", result=" + (result != null ? "OK" : "NG"));
+                return result;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                WriteLog(Name,
+                    "DryRun " + VisionAlignTargetIds.InputPickDie + " Vision GRAB request exception. die=" + _currentDieId +
+                    ", pickerNo=" + _currentPickerNo +
+                    ", error=" + ex.Message + " - SimFallback");
+                return null;
+            }
+            finally
+            {
+            }
         }
 
         private async Task<int> EnsureInputStageZProcessForVisionAsync(
@@ -1438,6 +1539,26 @@ namespace QMC.CDT320.Sequencing
                 return true;
 
             return IsPickerSimulationOrDryRun();
+        }
+
+        private static bool IsDryRunWithWaferVisionConnected()
+        {
+            try
+            {
+                QMC.CDT320.AppSettings settings = QMC.CDT320.AppSettingsStore.Current;
+                if (settings == null || !settings.DryRunMode || !settings.UseVision)
+                    return false;
+
+                return QMC.CDT320.VisionComm.VisionCommandService.IsConnected(
+                    QMC.CDT320.VisionComm.AutoVisionChannel.Wafer);
+            }
+            catch
+            {
+                return false;
+            }
+            finally
+            {
+            }
         }
 
         private bool IsInputCameraPreInspectionMode()

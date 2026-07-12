@@ -33,14 +33,6 @@ namespace QMC.CDT320
         ToBottomPosition = 2
     }
 
-    public enum PickerBottomFlyingZStartMode
-    {
-        Immediate = 0,
-        // Legacy compatibility only. Runtime operation normalizes DelayMs to XRemainingDistance.
-        DelayMs = 1,
-        XRemainingDistance = 2
-    }
-
     public enum PickerPlaceMotionMode
     {
         Default = 0,
@@ -63,6 +55,7 @@ namespace QMC.CDT320
         [DataMember] public double TransferContiMaxVelocity { get; set; } = 500.0;
         [DataMember] public double TransferContiMaxAcceleration { get; set; } = 5000.0;
         [DataMember] public double TransferContiMaxDeceleration { get; set; } = 5000.0;
+        [DataMember] public bool TransferContiUseGlobalSpeedScale { get; set; } = true;
         [DataMember] public double TransferContiNode0SpeedPercent { get; set; } = 20.0;
         [DataMember] public double TransferContiNode1SpeedPercent { get; set; } = 100.0;
         [DataMember] public double TransferContiNode2SpeedPercent { get; set; } = 100.0;
@@ -99,6 +92,7 @@ namespace QMC.CDT320
         private void OnDeserializing(StreamingContext ctx)
         {
             TransferContiSplineCurvePercent = 100.0;
+            TransferContiUseGlobalSpeedScale = true;
         }
 
         [OnDeserialized]
@@ -165,17 +159,20 @@ namespace QMC.CDT320
 
         public double GetTransferContiNodeVelocity(int nodeIndex)
         {
-            return MotionSpeedScale.ApplyDefaultVelocityScale(TransferContiMaxVelocity * GetTransferContiNodeRatio(nodeIndex));
+            double velocity = TransferContiMaxVelocity * GetTransferContiNodeRatio(nodeIndex);
+            return TransferContiUseGlobalSpeedScale ? MotionSpeedScale.ApplyDefaultVelocityScale(velocity) : velocity;
         }
 
         public double GetTransferContiNodeAcceleration(int nodeIndex)
         {
-            return MotionSpeedScale.ApplyDefaultAccelerationScale(TransferContiMaxAcceleration * GetTransferContiNodeRatio(nodeIndex));
+            double acceleration = TransferContiMaxAcceleration * GetTransferContiNodeRatio(nodeIndex);
+            return TransferContiUseGlobalSpeedScale ? MotionSpeedScale.ApplyDefaultAccelerationScale(acceleration) : acceleration;
         }
 
         public double GetTransferContiNodeDeceleration(int nodeIndex)
         {
-            return MotionSpeedScale.ApplyDefaultAccelerationScale(TransferContiMaxDeceleration * GetTransferContiNodeRatio(nodeIndex));
+            double deceleration = TransferContiMaxDeceleration * GetTransferContiNodeRatio(nodeIndex);
+            return TransferContiUseGlobalSpeedScale ? MotionSpeedScale.ApplyDefaultAccelerationScale(deceleration) : deceleration;
         }
 
         public static double NormalizePercent(double percent, double fallback)
@@ -251,13 +248,8 @@ namespace QMC.CDT320
     [DataContract]
     public sealed class PickerBottomInspectionMotionConfig
     {
-        private const double DefaultFlyingZStartXRemainingDistance = 5.0;
-
         [DataMember] public PickerBottomFlyingZDownMode FlyingZDownMode { get; set; } = PickerBottomFlyingZDownMode.Off;
         [DataMember] public double FlyingZDownDistance { get; set; } = 2.0;
-        [DataMember] public PickerBottomFlyingZStartMode FlyingZStartMode { get; set; } = PickerBottomFlyingZStartMode.XRemainingDistance;
-        [DataMember] public int FlyingZStartDelayMs { get; set; } = 0;
-        [DataMember] public double FlyingZStartXRemainingDistance { get; set; } = 5.0;
 
         [OnDeserialized]
         private void OnDeserialized(StreamingContext ctx)
@@ -268,15 +260,41 @@ namespace QMC.CDT320
         public void Ensure()
         {
             FlyingZDownDistance = NormalizeDistance(FlyingZDownDistance);
-            if (FlyingZStartMode == PickerBottomFlyingZStartMode.DelayMs)
-                FlyingZStartMode = PickerBottomFlyingZStartMode.XRemainingDistance;
-            if (FlyingZStartDelayMs < 0)
-                FlyingZStartDelayMs = 0;
-            if (FlyingZStartMode != PickerBottomFlyingZStartMode.DelayMs)
-                FlyingZStartDelayMs = 0;
-            FlyingZStartXRemainingDistance = NormalizeDistance(FlyingZStartXRemainingDistance);
-            if (FlyingZStartMode == PickerBottomFlyingZStartMode.XRemainingDistance && FlyingZStartXRemainingDistance <= 0.0)
-                FlyingZStartXRemainingDistance = DefaultFlyingZStartXRemainingDistance;
+        }
+
+        public double ResolveFlyingZDownTarget(double avoid, double bottom)
+        {
+            Ensure();
+
+            switch (FlyingZDownMode)
+            {
+                case PickerBottomFlyingZDownMode.ToBottomPosition:
+                    return bottom;
+
+                case PickerBottomFlyingZDownMode.DownDistance:
+                    return ResolveFlyingZDownDistanceTarget(avoid, bottom);
+
+                case PickerBottomFlyingZDownMode.Off:
+                default:
+                    return avoid;
+            }
+        }
+
+        private double ResolveFlyingZDownDistanceTarget(double avoid, double bottom)
+        {
+            double distance = NormalizeDistance(FlyingZDownDistance);
+            if (distance <= 0.0)
+                return avoid;
+
+            double delta = bottom - avoid;
+            double total = Math.Abs(delta);
+            if (total <= 0.0001)
+                return bottom;
+
+            if (distance >= total)
+                return bottom;
+
+            return avoid + Math.Sign(delta) * distance;
         }
 
         public static double NormalizeDistance(double distance)
@@ -302,11 +320,13 @@ namespace QMC.CDT320
         [DataMember] public double ContiOverDrive { get; set; } = 0.03;
         [DataMember] public double PlaceZOverDrive { get; set; } = 0.0;
         [DataMember] public int PlaceReleaseDwellMs { get; set; } = 0;
+        [DataMember] public int PlaceBlowDelayMs { get; set; } = 100;
         [DataMember] public double ContiTapeThicknessFallback { get; set; } = 0.0;
         [DataMember] public double ContiDieThicknessFallback { get; set; } = 0.0;
         [DataMember] public double ContiMaxVelocity { get; set; } = 500.0;
         [DataMember] public double ContiMaxAcceleration { get; set; } = 5000.0;
         [DataMember] public double ContiMaxDeceleration { get; set; } = 5000.0;
+        [DataMember] public bool ContiUseGlobalSpeedScale { get; set; } = true;
         [DataMember] public double ContiNode0SpeedPercent { get; set; } = 1.0;
         [DataMember] public double ContiNode1SpeedPercent { get; set; } = 20.0;
         [DataMember] public double ContiNode2SpeedPercent { get; set; } = 100.0;
@@ -317,6 +337,8 @@ namespace QMC.CDT320
         private void OnDeserializing(StreamingContext ctx)
         {
             ContiSplineCurvePercent = 100.0;
+            ContiUseGlobalSpeedScale = true;
+            PlaceBlowDelayMs = 100;
         }
 
         [OnDeserialized]
@@ -347,6 +369,8 @@ namespace QMC.CDT320
             PlaceZOverDrive = NormalizeFinite(PlaceZOverDrive);
             if (PlaceReleaseDwellMs < 0)
                 PlaceReleaseDwellMs = 0;
+            if (PlaceBlowDelayMs < 0)
+                PlaceBlowDelayMs = 0;
             ContiTapeThicknessFallback = NormalizeNonNegative(ContiTapeThicknessFallback);
             ContiDieThicknessFallback = NormalizeNonNegative(ContiDieThicknessFallback);
             ContiMaxVelocity = PickerPickUpMotionConfig.NormalizePositive(ContiMaxVelocity, 500.0);
@@ -361,17 +385,20 @@ namespace QMC.CDT320
 
         public double GetContiNodeVelocity(int nodeIndex)
         {
-            return MotionSpeedScale.ApplyDefaultVelocityScale(ContiMaxVelocity * GetContiNodeRatio(nodeIndex));
+            double velocity = ContiMaxVelocity * GetContiNodeRatio(nodeIndex);
+            return ContiUseGlobalSpeedScale ? MotionSpeedScale.ApplyDefaultVelocityScale(velocity) : velocity;
         }
 
         public double GetContiNodeAcceleration(int nodeIndex)
         {
-            return MotionSpeedScale.ApplyDefaultAccelerationScale(ContiMaxAcceleration * GetContiNodeRatio(nodeIndex));
+            double acceleration = ContiMaxAcceleration * GetContiNodeRatio(nodeIndex);
+            return ContiUseGlobalSpeedScale ? MotionSpeedScale.ApplyDefaultAccelerationScale(acceleration) : acceleration;
         }
 
         public double GetContiNodeDeceleration(int nodeIndex)
         {
-            return MotionSpeedScale.ApplyDefaultAccelerationScale(ContiMaxDeceleration * GetContiNodeRatio(nodeIndex));
+            double deceleration = ContiMaxDeceleration * GetContiNodeRatio(nodeIndex);
+            return ContiUseGlobalSpeedScale ? MotionSpeedScale.ApplyDefaultAccelerationScale(deceleration) : deceleration;
         }
 
         private double GetContiNodeRatio(int nodeIndex)
@@ -450,6 +477,8 @@ namespace QMC.CDT320
     {
         Task<bool> TriggerBottomExposeAsync(int pickerNo, int timeoutMs = 1000);
         Task<bool> TriggerBottomExposeAsync(int pickerNo, int timeoutMs, CancellationToken ct);
+        Task<bool> StartBottomInspectAsync(int pickerNo, int timeoutMs, CancellationToken ct);
+        Task<BottomVisionOffset> WaitBottomResultAsync(int pickerNo, int timeoutMs, CancellationToken ct);
         Task<BottomVisionOffset> GetBottomResultAsync(int pickerNo, int timeoutMs = 5000);
         Task<BottomVisionOffset> GetBottomResultAsync(int pickerNo, int timeoutMs, CancellationToken ct);
         Task<BottomVisionOffset[]> GetBottomResultsAsync(int timeoutMs = 5000);

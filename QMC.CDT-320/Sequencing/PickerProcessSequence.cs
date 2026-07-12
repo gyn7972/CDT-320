@@ -27,6 +27,7 @@ namespace QMC.CDT320.Sequencing
         private bool _firstForwardTurnHandled;
         private bool _resumeDrainWaitHandled;
         private bool _resumeDrainTurnHeld;
+        private bool _pickerZStageSafeConfirmedByPickUp;
 
         public PickerProcessSequence(MachineSequenceContext context, PickerSequenceSide side)
             : base(context, side, PickerSequenceKind.Process, side == PickerSequenceSide.Front ? "FrontPickerSequence" : "RearPickerSequence")
@@ -47,6 +48,7 @@ namespace QMC.CDT320.Sequencing
                 ReleasePickerProcessPhase("Abort");
                 ReleasePickerWorkZone("Abort");
                 InputCameraPreInspectionCoordinator.Clear(Side);
+                InputVisionXPrePositionCoordinator.Cancel(Side);
 
                 if (_pickUpSequence != null)
                     _pickUpSequence.Abort();
@@ -72,6 +74,7 @@ namespace QMC.CDT320.Sequencing
                 _firstForwardTurnHandled = false;
                 _resumeDrainWaitHandled = false;
                 _resumeDrainTurnHeld = false;
+                _pickerZStageSafeConfirmedByPickUp = false;
                 CurrentStep = PickerProcessStep.Complete;
             }
             catch (Exception ex)
@@ -897,6 +900,9 @@ namespace QMC.CDT320.Sequencing
                 {
                     _pickUpSequence = null;
                     _resumePartialPickUpWithoutMarkPermission = false;
+                    // PickUp 완료 시 PickerZ가 Stage Safe 높이를 통과했으므로 다음 Bottom 진입에서 1회 사용한다.
+                    _pickerZStageSafeConfirmedByPickUp = true;
+                    StartInputVisionXPrePositionAfterPickUpComplete(ct);
                     WriteLog("PickerProcessSequence",
                         Name + " PickUp 완료 후 PickerProcessSequence가 비침습 InputCamera 선행검사를 예약합니다. " +
                         "선행검사는 Picker X/Y를 직접 이동하지 않고 Input 영역 이탈 확인 후 InputStage/InputVision만 사용합니다. side=" +
@@ -930,6 +936,51 @@ namespace QMC.CDT320.Sequencing
             {
                 return Fail("PICKER-PROCESS-PICKUP-EX", Name,
                     "PickUp 공정 실행 중 예외가 발생했습니다. side=" + Side + ", error=" + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private void StartInputVisionXPrePositionAfterPickUpComplete(CancellationToken ct)
+        {
+            try
+            {
+                if (Options == null || Options.RunMode != SequenceRunMode.Auto)
+                    return;
+                if (!IsBottomAndSidePipelineModeEnabled())
+                    return;
+
+                List<int> loadedPickerIndexes = BuildLoadedPickerIndexesInRunOrder("InputVisionXPrePosition");
+                if (loadedPickerIndexes == null || loadedPickerIndexes.Count == 0)
+                {
+                    WriteLog("InputVisionXPrePosition",
+                        Name + " PickUp 완료 후 InputVisionX 선행이동을 생략합니다. Picker에 제품이 없습니다. side=" + Side + " - Check");
+                    return;
+                }
+
+                bool started = InputVisionXPrePositionCoordinator.EnsureStarted(
+                    Context,
+                    Side,
+                    Options,
+                    ct,
+                    Name + ":PickUpCompleteToBottom");
+
+                WriteLog("InputVisionXPrePosition",
+                    Name + " PickUp 완료 후 InputVisionX 선행이동 요청 결과. " +
+                    "side=" + Side +
+                    ", loadedPickerCount=" + loadedPickerIndexes.Count +
+                    ", started=" + started + " - Check");
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                WriteLog("InputVisionXPrePosition",
+                    Name + " PickUp 완료 후 InputVisionX 선행이동 요청 중 예외가 발생했습니다. " +
+                    "side=" + Side + ", error=" + ex.Message + " - Failed");
             }
             finally
             {
@@ -1322,6 +1373,9 @@ namespace QMC.CDT320.Sequencing
                     _bottomAndSideInspectionSequence = new PickerBottomAndSideInspectionSequence(Context, Side);
 
                 _bottomAndSideInspectionSequence.ForceBottomInspectionBeforeSideResume = _forceBottomInspectionBeforeSideResume;
+                _bottomAndSideInspectionSequence.PickerZStageSafeConfirmedByPickUp =
+                    _pickerZStageSafeConfirmedByPickUp;
+                _pickerZStageSafeConfirmedByPickUp = false;
                 if (_forceBottomInspectionBeforeSideResume)
                 {
                     WriteLog("PickerProcessSequence",
@@ -1501,7 +1555,7 @@ namespace QMC.CDT320.Sequencing
                     Side == PickerSequenceSide.Front,
                     PickerAxis.PickerY,
                     bottomY,
-                    "DieBottomPosition[" + pickerIndex + "];PickerPhase=BottomEntry;OppositeSidePending",
+                    BuildPickerTargetName("DieBottomPosition", pickerIndex) + ";PickerPhase=BottomEntry;OppositeSidePending",
                     bottomX,
                     null,
                     out encoderDetail);
@@ -1510,7 +1564,7 @@ namespace QMC.CDT320.Sequencing
                     return false;
 
                 detail = pendingDetail +
-                         ", pickerIndex=" + pickerIndex +
+                         ", pickerNo=" + ToPickerNo(pickerIndex) +
                          ", bottomX=" + bottomX.ToString("0.###") +
                          ", bottomY=" + bottomY.ToString("0.###") +
                          ", encoder=" + encoderDetail;
@@ -1633,7 +1687,7 @@ namespace QMC.CDT320.Sequencing
                     bottomX,
                     "Bottom/Side 통합 검사 X 대기 위치 이동",
                     ct,
-                    "DieBottomPosition[" + pickerIndex + "];PickerPhase=BottomSideXWait;YHold").ConfigureAwait(false);
+                    BuildPickerTargetName("DieBottomPosition", pickerIndex) + ";PickerPhase=BottomSideXWait;YHold").ConfigureAwait(false);
                 if (result != 0)
                     return result;
 
@@ -1642,7 +1696,6 @@ namespace QMC.CDT320.Sequencing
                     "PickerY는 Avoid를 유지하고 PickerX만 Bottom 위치로 선행 이동했습니다. " +
                     "side=" + Side +
                     ", pickerNo=" + pickerNo +
-                    ", pickerIndex=" + pickerIndex +
                     ", bottomX=" + bottomX + " - Ok");
 
                 return 0;

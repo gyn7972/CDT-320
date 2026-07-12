@@ -62,7 +62,7 @@ namespace QMC.CDT320.Sequencing
 
                 if (pickerIndex < 0 || pickerIndex >= 4)
                 {
-                    reason = "picker index is out of range. pickerIndex=" + pickerIndex;
+                    reason = "picker no is out of range. pickerNo=" + ToPickerNo(pickerIndex) + ", valid=1..4";
                     return false;
                 }
 
@@ -74,7 +74,7 @@ namespace QMC.CDT320.Sequencing
             catch (Exception ex)
             {
                 reason = "offset resolve exception. side=" + side +
-                    ", pickerIndex=" + pickerIndex +
+                    ", pickerNo=" + ToPickerNo(pickerIndex) +
                     ", inputVision=" + inputVision +
                     ", error=" + ex.Message;
                 return false;
@@ -152,6 +152,11 @@ namespace QMC.CDT320.Sequencing
             offsetX = offsets.GetOffsetX(pickerIndex, rear.Setup.PickerPitchX);
             offsetY = offsets.GetOffsetY(pickerIndex, rear.Setup.PickerPitchY);
             return true;
+        }
+
+        private static int ToPickerNo(int pickerIndex)
+        {
+            return pickerIndex + 1;
         }
 
     }
