@@ -75,7 +75,11 @@ namespace QMC.Vision.Inspector
                 }
                 Line bottomRefLine = new Line(la, lb);
 
-                // 3. 치핑 깊이 = 기준 라인 − 컬럼 에지(서브픽셀). 위로 파인(+) 것만 치핑.
+                // 다이 기울기 감안(2026-07-12): 기준 라인 피팅이 기울기 자체는 흡수하지만, 세로 측정
+                // 거리는 실제 법선(에지 면 수직) 깊이보다 1/cos(θ) 커진다 — cos(atan(기울기))로 환산.
+                double tiltCos = Math.Cos(Math.Atan(la));
+
+                // 3. 치핑 깊이 = 기준 라인 − 컬럼 에지(서브픽셀)의 법선 환산 거리. 위로 파인(+) 것만 치핑.
                 //    기존 정책 유지: 유효 컬럼 양끝 15개 제외.
                 var chipRegions = new List<ChippingRegion>();
                 var vals = new List<double>(colXs.Count);
@@ -87,7 +91,7 @@ namespace QMC.Vision.Inspector
                 for (int i = 0; i < colXs.Count; i++)
                 {
                     double lineY = bottomRefLine.GetY(colXs[i]);
-                    double depthPx = lineY - colEdges[i];              // 잡은 에지 픽셀 ~ 서브픽셀 기준 라인 거리
+                    double depthPx = (lineY - colEdges[i]) * tiltCos;   // 잡은 에지 픽셀 ~ 기준 라인 법선 거리
                     double mm = depthPx > 0 ? ConvertPixelToMM(depthPx) : 0;
                     vals.Add(mm);
                     xs.Add(colXs[i]);
@@ -173,8 +177,8 @@ namespace QMC.Vision.Inspector
 
                     Log.Write("SideChippingInspector",
                         $"검사 완료 - Bottom(최하단 에지): {result.BottomChippingSize:F4}mm (Top 미검사), " +
-                        $"기준라인 y={bottomRefLine.GetY(imageWidth / 2.0):F2}px(중앙), 유효컬럼 {colXs.Count}, " +
-                        $"Spec: {chippingSpec:F4}mm, Defect: {result.IsDefect}");
+                        $"기준라인 y={bottomRefLine.GetY(imageWidth / 2.0):F2}px(중앙), 기울기 {Math.Atan(la) * 180.0 / Math.PI:F4}°, " +
+                        $"유효컬럼 {colXs.Count}, Spec: {chippingSpec:F4}mm, Defect: {result.IsDefect}");
             }
             catch (Exception ex)
             {
