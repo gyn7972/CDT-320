@@ -1428,6 +1428,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                 record.DefaultPosition.ToString("F3"),
                 record.BestPosition.ToString("F3"),
                 record.BestScore.ToString("F4"),
+                record.PickerZValid ? record.PickerZPosition.ToString("F3") : "-",
                 autoFocusCount ?? record.AutoFocusPickCountSinceLast.ToString(CultureInfo.InvariantCulture),
                 autoFocusWafer ?? record.LastAutoFocusWaferId ?? string.Empty,
                 record.Valid ? "Y" : "N");

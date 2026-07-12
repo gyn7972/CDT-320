@@ -419,7 +419,7 @@ namespace QMC.CDT320.Sequencing
                             ", reason=" + areaReason);
                     }
 
-                    int stageOnlyResult = await EnsureNeedleZSafeForCurrentStageTravelAsync(stage, "Input die vision 준비", ct).ConfigureAwait(false);
+                    int stageOnlyResult = await EnsureEjectPinZAvoidForStageTravelAsync(stage, "Input die vision 준비", ct).ConfigureAwait(false);
                     if (stageOnlyResult != 0)
                         return stageOnlyResult;
 
@@ -451,7 +451,7 @@ namespace QMC.CDT320.Sequencing
                         ", needleX=" + targetNeedleX.ToString("F6") +
                         ", reason=" + areaReason);
 
-                int result = await EnsureNeedleZSafeForCurrentStageTravelAsync(stage, "Input die vision 준비", ct).ConfigureAwait(false);
+                int result = await EnsureEjectPinZAvoidForStageTravelAsync(stage, "Input die vision 준비", ct).ConfigureAwait(false);
                 if (result != 0)
                     return result;
 
@@ -472,10 +472,7 @@ namespace QMC.CDT320.Sequencing
                 if (result != 0)
                     return result;
 
-                result = await EnsureNeedleZProcessForVisionAsync(stage, "Input die vision 검사", ct).ConfigureAwait(false);
-                if (result != 0)
-                    return result;
-
+                // 공정 중 NeedleZ는 이동하지 않는다. 픽업 준비 상승은 PickerPickUpSequence가 수행한다.
                 CurrentStep = InputDieVisionPrepareStep.RequestInputDieVisionInspection;
                 return 0;
             }
@@ -1325,7 +1322,7 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
-        private async Task<int> EnsureNeedleZProcessForVisionAsync(
+        private async Task<int> EnsureEjectPinZAvoidForStageTravelAsync(
             InputStageUnit stage,
             string description,
             CancellationToken ct)
@@ -1336,37 +1333,39 @@ namespace QMC.CDT320.Sequencing
 
                 if (stage == null)
                     return Fail("INPUT-DIE-VISION-PREPARE-STAGE-NO-UNIT", "InputStageUnit", "InputStageUnit이 없습니다.");
-                if (stage.Recipe == null || stage.Recipe.NeedleZ == null)
-                    return Fail("INPUT-DIE-VISION-PREPARE-NEEDLEZ-RECIPE", stage.Name,
-                        description + " 전 NeedleZ Process 위치 정보가 없습니다.");
+                if (stage.Recipe == null || stage.Recipe.EjectPinZ == null)
+                    return Fail("INPUT-DIE-VISION-PREPARE-EJECTPINZ-RECIPE", stage.Name,
+                        description + " 전 EjectPinZ 대기(Avoid) 위치 정보가 없습니다.");
 
-                double needleX = stage.NeedleBlockX != null ? stage.NeedleBlockX.ActualPosition : stage.Recipe.NeedleX.ProcessPosition;
-                double stageY = stage.StageY != null ? stage.StageY.ActualPosition : stage.ResolveWorkAreaCenterY();
-                string areaReason;
-                if (!stage.IsNeedleWorkPointInArea(needleX, stageY, out areaReason))
-                    return Fail("INPUT-DIE-VISION-PREPARE-NEEDLE-WORK-AREA", stage.Name,
-                        description + " 전 NeedleZ를 Process 위치로 올릴 수 없습니다. Needle 작업 원을 벗어났습니다. " +
-                        "needleX=" + needleX.ToString("F6") +
-                        ", stageY=" + stageY.ToString("F6") +
-                        ", reason=" + areaReason);
-
-                double target = stage.Recipe.NeedleZ.ProcessPosition;
-                if (!IsInputStageAxisAlreadyInPosition(stage, WaferStageAxis.NeedleZ, target))
+                // 공정 중 NeedleZ는 공정 위치를 유지하고, 스테이지 이동 전에는 EjectPinZ만 대기(Avoid) 위치로 내린다.
+                double target = stage.Recipe.EjectPinZ.AvoidPosition;
+                if (!IsInputStageAxisAlreadyInPosition(stage, WaferStageAxis.EjectPinZ, target))
                 {
+                    if (stage.NeedleVacuum != null && stage.NeedleVacuum.IsOn)
+                    {
+                        stage.NeedleVacuum.Off();
+                        if (stage.NeedleVacuum.IsOn)
+                            return Fail("INPUT-DIE-VISION-PREPARE-NEEDLE-VAC-OFF", stage.Name,
+                                description + " 전 EjectPinZ 하강을 위해 Needle Vacuum OFF를 명령했지만 출력이 계속 ON 상태입니다.");
+
+                        WriteLog("InputDieVisionPrepareSequence",
+                            Name + " " + description + " 전 EjectPinZ 하강을 위해 Needle Vacuum을 OFF 했습니다. - Ok");
+                    }
+
                     int result = await MoveInputStageAxisCommandAsync(
                         stage,
-                        WaferStageAxis.NeedleZ,
+                        WaferStageAxis.EjectPinZ,
                         target,
-                        description + " NeedleZ process",
+                        description + " EjectPinZ avoid",
                         ct).ConfigureAwait(false);
                     if (result != 0)
                         return result;
 
                     result = await WaitInputStageAxisInPositionResultAsync(
                         stage,
-                        WaferStageAxis.NeedleZ,
+                        WaferStageAxis.EjectPinZ,
                         target,
-                        description + " NeedleZ process",
+                        description + " EjectPinZ avoid",
                         ct).ConfigureAwait(false);
                     if (result != 0)
                         return result;
@@ -1374,9 +1373,9 @@ namespace QMC.CDT320.Sequencing
 
                 return CheckInputStageAxisInPosition(
                     stage,
-                    WaferStageAxis.NeedleZ,
+                    WaferStageAxis.EjectPinZ,
                     target,
-                    description + " NeedleZ process");
+                    description + " EjectPinZ avoid");
             }
             catch (OperationCanceledException)
             {
@@ -1384,71 +1383,8 @@ namespace QMC.CDT320.Sequencing
             }
             catch (Exception ex)
             {
-                return Fail("INPUT-DIE-VISION-PREPARE-NEEDLEZ-PROCESS-EX", stage != null ? stage.Name : "InputStageUnit",
-                    description + " 전 NeedleZ Process 위치 확인 중 예외가 발생했습니다. error=" + ex.Message);
-            }
-        }
-
-        private async Task<int> EnsureNeedleZSafeForCurrentStageTravelAsync(
-            InputStageUnit stage,
-            string description,
-            CancellationToken ct)
-        {
-            try
-            {
-                ct.ThrowIfCancellationRequested();
-
-                if (stage == null)
-                    return Fail("INPUT-DIE-VISION-PREPARE-STAGE-NO-UNIT", "InputStageUnit", "InputStageUnit이 없습니다.");
-                if (stage.Recipe == null || stage.Recipe.NeedleZ == null)
-                    return Fail("INPUT-DIE-VISION-PREPARE-NEEDLEZ-RECIPE", stage.Name,
-                        description + " 전 NeedleZ Avoid 위치 정보가 없습니다.");
-
-                double currentX = stage.NeedleBlockX != null ? stage.NeedleBlockX.ActualPosition : stage.ResolveNeedleWorkAreaCenterX();
-                double currentY = stage.StageY != null ? stage.StageY.ActualPosition : stage.ResolveWorkAreaCenterY();
-                string areaReason;
-                // 현재 기준: NeedleZ 하강 가능 여부는 CameraX가 아니라 NeedleX/StageY 실축 작업 원으로 확인한다.
-                if (stage.IsNeedleWorkPointInArea(currentX, currentY, out areaReason))
-                    return 0;
-                if (stage.IsNeedleZInSafePosition())
-                    return 0;
-
-                double target = stage.Recipe.NeedleZ.AvoidPosition;
-                int result = await MoveInputStageAxisCommandAsync(
-                    stage,
-                    WaferStageAxis.NeedleZ,
-                    target,
-                    description + " NeedleZ avoid",
-                    ct).ConfigureAwait(false);
-                if (result != 0)
-                    return result;
-
-                result = await WaitInputStageAxisInPositionResultAsync(
-                    stage,
-                    WaferStageAxis.NeedleZ,
-                    target,
-                    description + " NeedleZ avoid",
-                    ct).ConfigureAwait(false);
-                if (result != 0)
-                    return result;
-
-                return CheckInputStageAxisInPosition(
-                    stage,
-                    WaferStageAxis.NeedleZ,
-                    target,
-                    description + " NeedleZ avoid");
-            }
-            catch (OperationCanceledException)
-            {
-                throw;
-            }
-            catch (Exception ex)
-            {
-                return Fail("INPUT-DIE-VISION-PREPARE-NEEDLEZ-AVOID-EX", stage != null ? stage.Name : "InputStageUnit",
-                    description + " 전 NeedleZ Avoid 위치 확인 중 예외가 발생했습니다. error=" + ex.Message);
-            }
-            finally
-            {
+                return Fail("INPUT-DIE-VISION-PREPARE-EJECTPINZ-AVOID-EX", stage != null ? stage.Name : "InputStageUnit",
+                    description + " 전 EjectPinZ 대기(Avoid) 위치 확인 중 예외가 발생했습니다. error=" + ex.Message);
             }
         }
 
@@ -1488,7 +1424,7 @@ namespace QMC.CDT320.Sequencing
             {
                 ct.ThrowIfCancellationRequested();
 
-                int result = await EnsureNeedleZSafeForCurrentStageTravelAsync(
+                int result = await EnsureEjectPinZAvoidForStageTravelAsync(
                     stage,
                     "Picker Motion Only Test StageY 이동",
                     ct).ConfigureAwait(false);

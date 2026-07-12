@@ -1710,6 +1710,34 @@ namespace QMC.CDT320.Sequencing.Calibration
                     Result.SampleCount,
                     _request.UpdatedBy);
 
+                if (!IsBottomFocusKind())
+                {
+                    // Side AF는 촬영 당시 사용한 PickerZ 위치를 함께 저장해 이후 AF 시작 위치로 재사용한다.
+                    // Best(BestPosition)는 해당 Side Vision Y의 초점 위치다.
+                    // Picker 측 선택은 요청 PickerSide가 아니라 Kind 기준으로 결정한다(다이얼로그 측 선택 불일치 방지).
+                    bool frontSideKind = _request.Kind == VisionFocusScanKind.FrontSide0 ||
+                                         _request.Kind == VisionFocusScanKind.FrontSide90;
+                    BaseAxis pickerZ = frontSideKind
+                        ? ResolveFrontPickerAxis(ResolvePickerZAxis())
+                        : ResolveRearPickerAxis(ResolvePickerZAxis());
+                    if (pickerZ != null)
+                    {
+                        record.ApplyPickerZ(pickerZ.ActualPosition);
+                        QMC.Common.Log.Write("Calibration", "SYSTEM", "VisionFocusSideSave",
+                            "Side AF PickerZ/VisionY 저장. kind=" + _request.Kind +
+                            ", pickerNo=" + _request.PickerNo +
+                            ", pickerZ=" + record.PickerZPosition.ToString("F6") +
+                            ", visionYBest=" + record.BestPosition.ToString("F6") +
+                            ", score=" + record.BestScore.ToString("F6"));
+                    }
+                    else
+                    {
+                        QMC.Common.Log.Write("Calibration", "SYSTEM", "VisionFocusSideSave",
+                            "Side AF PickerZ 축을 확인할 수 없어 PickerZ 저장을 건너뜁니다. 기존 저장값을 유지합니다. kind=" + _request.Kind +
+                            ", pickerNo=" + _request.PickerNo);
+                    }
+                }
+
                 CurrentStep = _request.ReturnToDefaultAfterScan
                     ? VisionFocusScanStep.ReturnDefault
                     : VisionFocusScanStep.Complete;

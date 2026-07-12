@@ -24,6 +24,7 @@
         private System.Windows.Forms.DataGridViewTextBoxColumn colDefaultPos;
         private System.Windows.Forms.DataGridViewTextBoxColumn colBestPos;
         private System.Windows.Forms.DataGridViewTextBoxColumn colBestScore;
+        private System.Windows.Forms.DataGridViewTextBoxColumn colPickerZ;
         private System.Windows.Forms.DataGridViewTextBoxColumn colAutoFocusCount;
         private System.Windows.Forms.DataGridViewTextBoxColumn colAutoFocusWafer;
         private System.Windows.Forms.DataGridViewTextBoxColumn colValid;
@@ -72,6 +73,7 @@
             this.colDefaultPos = new System.Windows.Forms.DataGridViewTextBoxColumn();
             this.colBestPos = new System.Windows.Forms.DataGridViewTextBoxColumn();
             this.colBestScore = new System.Windows.Forms.DataGridViewTextBoxColumn();
+            this.colPickerZ = new System.Windows.Forms.DataGridViewTextBoxColumn();
             this.colAutoFocusCount = new System.Windows.Forms.DataGridViewTextBoxColumn();
             this.colAutoFocusWafer = new System.Windows.Forms.DataGridViewTextBoxColumn();
             this.colValid = new System.Windows.Forms.DataGridViewTextBoxColumn();
@@ -317,6 +319,7 @@
             this.colDefaultPos,
             this.colBestPos,
             this.colBestScore,
+            this.colPickerZ,
             this.colAutoFocusCount,
             this.colAutoFocusWafer,
             this.colValid});
@@ -366,6 +369,15 @@
             this.colBestScore.Name = "colBestScore";
             this.colBestScore.ReadOnly = true;
             this.colBestScore.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
+            // 
+            // colPickerZ
+            // 
+            this.colPickerZ.AutoSizeMode = System.Windows.Forms.DataGridViewAutoSizeColumnMode.Fill;
+            this.colPickerZ.FillWeight = 16F;
+            this.colPickerZ.HeaderText = "PICKER Z";
+            this.colPickerZ.Name = "colPickerZ";
+            this.colPickerZ.ReadOnly = true;
+            this.colPickerZ.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
             // 
             // colAutoFocusCount
             // 

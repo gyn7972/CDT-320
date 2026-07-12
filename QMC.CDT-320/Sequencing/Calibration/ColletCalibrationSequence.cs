@@ -1817,9 +1817,14 @@ namespace QMC.CDT320.Sequencing.Calibration
             VisionFocusScanSettings settings = focusData.SideVisionScan;
             settings.EnsureDefaults();
 
+            VisionFocusScanKind kind;
+            if (_calibrationSide == VisionFocusPickerSide.Front)
+                kind = angleDeg == 90 ? VisionFocusScanKind.FrontSide90 : VisionFocusScanKind.FrontSide0;
+            else
+                kind = angleDeg == 90 ? VisionFocusScanKind.RearSide90 : VisionFocusScanKind.RearSide0;
+
             PickerAxis zAxis = GetPickerZAxis(_colletIndex);
             PickerAxis tAxis = GetPickerTAxis(_colletIndex);
-            double sideZ = GetPickerTeachingPosition(zAxis, "SidePosition");
             double sideT0 = ResolvePickerZoneT("DieSidePosition", _colletIndex);
             double targetT = angleDeg == 90 ? sideT0 + 90.0 : sideT0;
             VisionAxis visionAxis = _calibrationSide == VisionFocusPickerSide.Front
@@ -1828,7 +1833,29 @@ namespace QMC.CDT320.Sequencing.Calibration
             string positionName = angleDeg == 90 ? "Process90Position" : "Process0Position";
             double teachingY = Context.Machine.VisionUnit.GetVisionTeachingPosition(visionAxis, positionName);
             double axisSign = _calibrationSide == VisionFocusPickerSide.Front ? 1.0 : -1.0;
-            double defaultY = teachingY + axisSign * focusCorrection;
+
+            // 저장된 Side AF 위치(PickerZ/VisionY)가 유효하면 그 값으로 AF를 시작한다.
+            // 없으면 기존 계약(PickerZ=SidePosition 티칭, Y=Process 티칭+보정)으로 시작한다.
+            VisionFocusPositionRecord savedRecord = focusData.GetSideRecord(kind, _colletNo);
+            bool useSavedZ = savedRecord != null && savedRecord.PickerZValid &&
+                             !double.IsNaN(savedRecord.PickerZPosition) &&
+                             !double.IsInfinity(savedRecord.PickerZPosition);
+            bool useSavedY = savedRecord != null && savedRecord.Valid &&
+                             !double.IsNaN(savedRecord.BestPosition) &&
+                             !double.IsInfinity(savedRecord.BestPosition);
+            double sideZ = useSavedZ ? savedRecord.PickerZPosition : GetPickerTeachingPosition(zAxis, "SidePosition");
+            double defaultY = useSavedY ? savedRecord.BestPosition : teachingY + axisSign * focusCorrection;
+
+            QMC.Common.Log.Write("Calibration", "SYSTEM", "ColletCalSideAutoFocus",
+                "Side AF 시작 위치 결정. side=" + _calibrationSide +
+                ", colletNo=" + _colletNo +
+                ", angle=" + angleDeg +
+                ", pickerZSource=" + (useSavedZ ? "SavedRecord" : "SidePositionTeaching") +
+                ", pickerZ=" + sideZ.ToString("F6") +
+                ", visionYSource=" + (useSavedY ? "SavedBest" : "TeachingPlusCorrection") +
+                ", defaultY=" + defaultY.ToString("F6") +
+                ", teachingY=" + teachingY.ToString("F6") +
+                ", focusCorrection=" + focusCorrection.ToString("F6"));
 
             int result = await MovePickerAxisAndVerifyAsync(
                 zAxis,
@@ -1849,12 +1876,6 @@ namespace QMC.CDT320.Sequencing.Calibration
                 true).ConfigureAwait(false);
             if (result != 0)
                 return result;
-
-            VisionFocusScanKind kind;
-            if (_calibrationSide == VisionFocusPickerSide.Front)
-                kind = angleDeg == 90 ? VisionFocusScanKind.FrontSide90 : VisionFocusScanKind.FrontSide0;
-            else
-                kind = angleDeg == 90 ? VisionFocusScanKind.RearSide90 : VisionFocusScanKind.RearSide0;
 
             var request = new VisionFocusScanRequest
             {
