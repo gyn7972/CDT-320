@@ -18,6 +18,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
         protected Panel         _editorPanel;
         protected Label         _lblProject;
         private bool            _editorBuilt;
+        private Button          _btnSave;
 
         public SubsetPageBase()
             : this("recipe.subset")
@@ -36,6 +37,19 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
         {
             base.OnCreateControl();
             EnsureEditorBuilt();
+        }
+
+        protected override void OnVisibleChanged(EventArgs e)
+        {
+            base.OnVisibleChanged(e);
+            if (!Visible || !_editorBuilt || IsDesignerMode())
+                return;
+
+            // Recipe 탭은 페이지를 캐시한다. 다른 Recipe 페이지에서 저장한 최신값을
+            // 재진입 시 다시 읽어 stale Project 전체가 덮어써지는 것을 막는다.
+            LoadCurrentProject();
+            if (_project != null)
+                SafeLoadFromRecipe();
         }
 
         private void EnsureEditorBuilt()
@@ -85,13 +99,13 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 Margin = Padding.Empty
             };
 
-            var btnSave = new Button
+            _btnSave = new Button
             {
                 Dock = DockStyle.Right, Width = 150, Text = "SAVE",
                 FlatStyle = FlatStyle.Flat, BackColor = UiTheme.Accent, ForeColor = Color.White,
                 Font = UiTheme.ButtonFont
             };
-            btnSave.Click += (s, e) => DoSave();
+            _btnSave.Click += (s, e) => DoSave();
 
             var btnLoad = new Button
             {
@@ -114,7 +128,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             // Dock=Right 두 버튼 먼저 추가 → Fill 라벨
             topBar.Controls.Add(_lblProject);
             topBar.Controls.Add(btnLoad);
-            topBar.Controls.Add(btnSave);
+            topBar.Controls.Add(_btnSave);
 
             headerHost.Controls.Add(topBar, 0, 1);
             Controls.Add(headerHost);
@@ -134,8 +148,12 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
 
         private void LoadCurrentProject()
         {
-            // Stage 61 — RecipeStore 의 마지막 프로젝트 마커 우선 → AppSettings → 첫 파일 순
-            string name = RecipeStore.GetLastProjectName();
+            // 화면 진입만으로 다른 Recipe를 활성화하지 않는다.
+            // Main 화면의 현재 Recipe가 있으면 그것을 편집 대상으로 삼고,
+            // 시작 직후처럼 활성 Recipe가 없을 때만 마지막 프로젝트로 fallback 한다.
+            var host = FindForm() as Form1;
+            string name = host != null ? host.CurrentRecipeName : null;
+            if (string.IsNullOrEmpty(name)) name = RecipeStore.GetLastProjectName();
             if (string.IsNullOrEmpty(name)) name = AppSettingsStore.Current.LastProject;
             if (string.IsNullOrEmpty(name))
             {
@@ -145,17 +163,6 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             if (string.IsNullOrEmpty(name)) { _project = null; _lblProject.Text = "(no project)"; return; }
             _project = RecipeStore.Load(name);
             _lblProject.Text = _project != null ? "Project: " + _project.FileName : "(load failed: " + name + ")";
-            try
-            {
-                var host = FindForm() as Form1;
-                host?.LoadMachineRecipe(_project != null ? _project.FileName : name);
-            }
-            catch
-            {
-            }
-            finally
-            {
-            }
 
             // 누락된 subset 자동 보충
             if (_project != null)
@@ -190,26 +197,21 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             try
             {
                 SafeSaveToRecipe();
-                RecipeStore.Save(_project);
-                try
+                if (!SaveToRecipePersistsProject && !RecipeStore.Save(_project))
+                    throw new InvalidOperationException("Project Recipe 파일 저장에 실패했습니다.");
+                var host = FindForm() as Form1;
+                if (!SaveToRecipeAppliesCurrentRecipe && host != null && host.Machine != null)
                 {
-                    var host = FindForm() as Form1;
-                    host?.SaveMachineRecipe(_project.FileName);
-                }
-                catch
-                {
-                }
-                finally
-                {
+                    if (!host.SaveMachineRecipe(_project.FileName))
+                    {
+                        throw new InvalidOperationException(
+                            "[CURRENT RECIPE APPLY] 장비 Unit Recipe 저장이 false를 반환했습니다. Project 파일은 저장됐지만 장비 적용을 완료하지 못했습니다. recipe=" + _project.FileName);
+                    }
+                    host.LoadMachineRecipe(_project.FileName);
                 }
                 // Stage 61 — 마지막 프로젝트 마커 + 상태바 갱신
                 RecipeStore.SaveLastProjectName(_project.FileName);
-                try
-                {
-                    var host = FindForm() as Form1;
-                    host?.RefreshProjectName(_project.FileName);
-                }
-                catch { }
+                host?.RefreshProjectName(_project.FileName);
                 QMC.Common.MessageDialog.Show($"Saved to {_project.FileName}.Project", "Recipe",
                                 MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
@@ -223,6 +225,8 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
         protected virtual void BuildEditor(Panel container) { }
         protected virtual void LoadFromRecipe() { }
         protected virtual void SaveToRecipe() { }
+        protected virtual bool SaveToRecipePersistsProject => false;
+        protected virtual bool SaveToRecipeAppliesCurrentRecipe => false;
 
         // ── 편의 ──
         protected Label MakeLabel(string text, int x, int y, int w = 200, int h = 26)

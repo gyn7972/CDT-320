@@ -28,7 +28,7 @@ namespace QMC.CDT320.Interlocks
                 return VerifyWaferExpandingZ(request, out reason);
             }
 
-            if (MotionGuardRuleHelpers.IsMoving(request, "InputVisionX", "CameraX"))
+            if (MotionGuardRuleHelpers.IsMoving(request, "InputVisionX", "InputCameraX", "CameraX"))
                 return VerifyWaferVisionX(request, out reason);
 
             if (MotionGuardRuleHelpers.IsMoving(request, "NeedleX", "NeedleBlockX"))
@@ -623,22 +623,32 @@ namespace QMC.CDT320.Interlocks
             return VerifyInputStageNotBusy(machine != null ? machine.InputStageUnit : null, "InputVisionX", out reason);
         }
 
-        // InputVisionX 이동 전제 ①: InputFeederY가 Avoid 위치 + Wafer Feeder Down 센서 감지. (둘 다 만족해야 함)
-        // 인터락 항목: InputVisionX 이동 전 InputFeederY Avoid와 Feeder Down 센서를 확인한다.
-        private static bool VerifyFeederYAvoidAndDownForInputVisionX(CDT320_Machine machine, out string reason)
+        // InputVisionX는 InputFeederY가 정지된 Avoid/Down 상태일 때만 HOME·수동·자동·Jog 이동한다.
+        private static bool VerifyInputFeederAvoidAndDownForInputVisionX(CDT320_Machine machine, out string reason)
         {
             reason = string.Empty;
 
             try
             {
                 InputFeederUnit feeder = machine != null ? machine.InputFeederUnit : null;
-                if (feeder == null)
-                    return true;
-
-                if (!feeder.IsWaferFeederYInAvoidPosition())
+                if (feeder == null || feeder.FeederY == null || feeder.Recipe == null)
                     return MotionGuardRuleHelpers.Block(
                         "InputVisionX",
-                        "InputVisionX 이동 불가: InputFeederY가 Avoid 위치가 아닙니다.",
+                        "InputVisionX 이동 불가: InputFeederY Avoid/Down 상태를 확인할 수 없습니다.",
+                        out reason);
+
+                if (feeder.FeederY.IsMoving)
+                    return MotionGuardRuleHelpers.Block(
+                        "InputVisionX",
+                        "InputVisionX 이동 불가: InputFeederY가 이동 중입니다.",
+                        out reason);
+
+                if (!feeder.IsWaferFeederAvoidPositionCheck())
+                    return MotionGuardRuleHelpers.Block(
+                        "InputVisionX",
+                        "InputVisionX 이동 불가: InputFeeder Avoid Dog(X090)가 ON이 아닙니다. actual=" +
+                        feeder.FeederY.ActualPosition.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture) +
+                        ", avoid=" + feeder.Recipe.AvoidPosition.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture),
                         out reason);
 
                 if (!feeder.IsWaferFeederDown())
@@ -653,7 +663,7 @@ namespace QMC.CDT320.Interlocks
             {
                 return MotionGuardRuleHelpers.Block(
                     "InputVisionX",
-                    "Exception occurred while verifying InputFeederY avoid/down for InputVisionX: " + ex.Message,
+                    "InputVisionX 이동 전 InputFeederY Avoid/Down 인터락 확인 중 예외가 발생했습니다. error=" + ex.Message,
                     out reason);
             }
             finally
@@ -781,20 +791,8 @@ namespace QMC.CDT320.Interlocks
 
             try
             {
-                InputFeederUnit feeder = machine != null ? machine.InputFeederUnit : null;
-                // 인터락 조건: InputFeederY가 Avoid 위치가 아니면 InputVisionX 수동 이동을 차단한다.
-                if (feeder != null && !feeder.IsWaferFeederInAvoidPosition())
-                    return MotionGuardRuleHelpers.Block(
-                        "InputVisionX",
-                        "InputVisionX HOME blocked. InputFeederY must be at Avoid position.",
-                        out reason);
-
-                // 인터락 조건: Feeder Lift가 Down 상태가 아니면 InputVisionX 수동 이동을 차단한다.
-                if (feeder != null && !feeder.IsWaferFeederDown())
-                    return MotionGuardRuleHelpers.Block(
-                        "InputVisionX",
-                        "InputVisionX HOME blocked. InputFeeder lift cylinder must be down.",
-                        out reason);
+                if (!VerifyInputFeederAvoidAndDownForInputVisionX(machine, out reason))
+                    return false;
 
                 // 인터락 조건: ExpanderZ가 Load/Unload 높이에 있으면 InputVisionX 수동 이동을 차단한다.
                 if (!VerifyExpanderZNotLoadOrUnloadForStagePlaneMove(machine, "InputVisionX", out reason))
@@ -819,26 +817,14 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
-        // 인터락 항목: InputVisionX 홈은 FeederY Avoid와 Picker Input 존 간섭을 확인한다.
+        // 인터락 항목: InputVisionX 홈은 InputFeederY가 정지된 Avoid/Down 상태인지 확인한다.
         private static bool CanHomeInputVisionX(CDT320_Machine machine, out string reason)
         {
             reason = string.Empty;
 
             try
             {
-                InputFeederUnit feeder = machine != null ? machine.InputFeederUnit : null;
-                // 인터락 조건: InputVisionX 홈 전 InputFeederY가 Home(0) 또는 Avoid 위치인지 확인한다.
-                if (!VerifyInputFeederYHomeOrAvoid(machine, "InputVisionX", out reason))
-                    return false;
-
-                // 인터락 조건: Feeder Lift가 Down 상태가 아니면 InputVisionX 홈 이동을 차단한다.
-                if (feeder != null && !feeder.IsWaferFeederDown())
-                    return MotionGuardRuleHelpers.Block(
-                        "InputVisionX",
-                        "InputVisionX HOME blocked. InputFeeder lift cylinder must be down.",
-                        out reason);
-
-                return true;
+                return VerifyInputFeederAvoidAndDownForInputVisionX(machine, out reason);
             }
             catch (System.Exception ex)
             {

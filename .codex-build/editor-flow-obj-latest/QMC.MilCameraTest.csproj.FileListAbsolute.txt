@@ -1,0 +1,11 @@
+D:\00.PROJECT\CDT-320\Source\CDT320Simulator\QMC.CDT-320\.codex-build\editor-flow-verify-latest\dll\x86\OpenCvSharpExtern.dll
+D:\00.PROJECT\CDT-320\Source\CDT320Simulator\QMC.CDT-320\.codex-build\editor-flow-verify-latest\dll\x86\opencv_videoio_ffmpeg4110.dll
+D:\00.PROJECT\CDT-320\Source\CDT320Simulator\QMC.CDT-320\.codex-build\editor-flow-verify-latest\dll\x64\OpenCvSharpExtern.dll
+D:\00.PROJECT\CDT-320\Source\CDT320Simulator\QMC.CDT-320\.codex-build\editor-flow-verify-latest\dll\x64\opencv_videoio_ffmpeg4110_64.dll
+D:\00.PROJECT\CDT-320\Source\CDT320Simulator\QMC.CDT-320\.codex-build\editor-flow-verify-latest\QMC.MilCameraTest.exe
+D:\00.PROJECT\CDT-320\Source\CDT320Simulator\QMC.CDT-320\.codex-build\editor-flow-verify-latest\QMC.MilCameraTest.pdb
+D:\00.PROJECT\CDT-320\Source\CDT320Simulator\QMC.CDT-320\.codex-build\editor-flow-obj-latest\QMC.MilCameraTest.csproj.AssemblyReference.cache
+D:\00.PROJECT\CDT-320\Source\CDT320Simulator\QMC.CDT-320\.codex-build\editor-flow-obj-latest\QMC.MilCameraTest.csproj.CoreCompileInputs.cache
+D:\00.PROJECT\CDT-320\Source\CDT320Simulator\QMC.CDT-320\.codex-build\editor-flow-obj-latest\QMC.MilC.60D80FFD.Up2Date
+D:\00.PROJECT\CDT-320\Source\CDT320Simulator\QMC.CDT-320\.codex-build\editor-flow-obj-latest\QMC.MilCameraTest.exe
+D:\00.PROJECT\CDT-320\Source\CDT320Simulator\QMC.CDT-320\.codex-build\editor-flow-obj-latest\QMC.MilCameraTest.pdb

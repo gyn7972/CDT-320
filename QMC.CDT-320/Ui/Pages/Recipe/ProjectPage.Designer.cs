@@ -346,7 +346,7 @@
             this.grpGlobal.Size = new System.Drawing.Size(617, 286);
             this.grpGlobal.TabIndex = 1;
             this.grpGlobal.TabStop = false;
-            this.grpGlobal.Text = "GLOBAL OPTION";
+            this.grpGlobal.Text = "OTHER / ADVANCED (LEGACY COMPATIBILITY)";
             // 
             // gridGlobal
             // 
@@ -376,7 +376,7 @@
             this.grpProjectOption.Size = new System.Drawing.Size(617, 272);
             this.grpProjectOption.TabIndex = 2;
             this.grpProjectOption.TabStop = false;
-            this.grpProjectOption.Text = "PROJECT OPTION";
+            this.grpProjectOption.Text = "DIE / WAFER REFERENCE (READ ONLY)";
             // 
             // gridProject
             // 
@@ -425,7 +425,7 @@
             this.grpMap.Size = new System.Drawing.Size(673, 262);
             this.grpMap.TabIndex = 0;
             this.grpMap.TabStop = false;
-            this.grpMap.Text = "MAP FILE";
+            this.grpMap.Text = "BASE / DERIVED MAP";
             // 
             // gridMap
             // 
@@ -581,7 +581,7 @@
             this.btnBrowseMap.Name = "btnBrowseMap";
             this.btnBrowseMap.Size = new System.Drawing.Size(114, 36);
             this.btnBrowseMap.TabIndex = 3;
-            this.btnBrowseMap.Text = "MAP BROWSE";
+            this.btnBrowseMap.Text = "SET IN WAFER SPEC";
             // 
             // btnOpenMap
             // 

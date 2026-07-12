@@ -639,8 +639,8 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 Row("TapeFrame Spec", specName, "TapeFrameSpecName", mapped),
                 Row("Spec Grid X", spec != null ? spec.DieMapX.ToString() : "", "", false),
                 Row("Spec Grid Y", spec != null ? spec.DieMapY.ToString() : "", "", false),
-                Row("Spec Pitch X", spec != null ? spec.PitchX.ToString("0.###") : "", "", false),
-                Row("Spec Pitch Y", spec != null ? spec.PitchY.ToString("0.###") : "", "", false),
+                Row("Spec Pitch Gap X", spec != null ? spec.PitchX.ToString("0.###") : "", "", false),
+                Row("Spec Pitch Gap Y", spec != null ? spec.PitchY.ToString("0.###") : "", "", false),
                 Row("Spec Diameter", spec != null ? spec.OuterDiameterMm.ToString("0.###") : "", "", false),
                 Row("Die Spec", spec != null ? spec.DieSpecName : "", "", false),
                 Row("Updated", wafer != null ? wafer.UpdatedAt.ToString("yyyy-MM-dd HH:mm:ss") : "", "", false)

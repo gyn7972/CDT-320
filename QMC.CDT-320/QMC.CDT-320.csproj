@@ -450,6 +450,8 @@
     <!-- Equipment / Recipes -->
     <Compile Include="Equipment\Recipes\RecipeMapPaths.cs" />
     <Compile Include="Equipment\Recipes\RecipeDieMapResolver.cs" />
+    <Compile Include="Equipment\Recipes\RecipeMapBuildService.cs" />
+    <Compile Include="Equipment\Recipes\RecipeProjectConsistencyService.cs" />
     <Compile Include="Equipment\Recipes\RecipeProjectCloneService.cs" />
     <Compile Include="Equipment\Recipes\RecipeColletZApplyService.cs" />
     <Compile Include="Equipment\Recipes\RecipeStore.cs" />

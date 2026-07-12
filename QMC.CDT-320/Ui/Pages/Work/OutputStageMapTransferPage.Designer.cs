@@ -46,13 +46,14 @@ namespace QMC.CDT_320.Ui.Pages.Work
         private Label lblDieNum;
         private GroupBox grpMode;
         private TableLayoutPanel modeLayout;
+        private GroupBox grpOutputDieState;
+        private TableLayoutPanel outputDieStateLayout;
         private RadioButton rbStandard;
         private RadioButton rbStartIndex;
         private RadioButton rbSelectPickStatus;
         private RadioButton rbDragPickStatus;
         private RadioButton rdoOutputStateGood;
         private RadioButton rdoOutputStateNg;
-        private ComboBox cmbOutputDieState;
         private Button btnPickStatusSave;
         private Button btnReloadActiveMap;
         private Button btnApplyOutputDieState;
@@ -78,6 +79,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.mapInfoLayout = new System.Windows.Forms.TableLayoutPanel();
             this.grpMode = new System.Windows.Forms.GroupBox();
             this.modeLayout = new System.Windows.Forms.TableLayoutPanel();
+            this.grpOutputDieState = new System.Windows.Forms.GroupBox();
+            this.outputDieStateLayout = new System.Windows.Forms.TableLayoutPanel();
             this.grpAction = new System.Windows.Forms.GroupBox();
             this.actionLayout = new System.Windows.Forms.TableLayoutPanel();
             this.lblHeader = new System.Windows.Forms.Label();
@@ -112,7 +115,6 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.rbDragPickStatus = new System.Windows.Forms.RadioButton();
             this.rdoOutputStateGood = new System.Windows.Forms.RadioButton();
             this.rdoOutputStateNg = new System.Windows.Forms.RadioButton();
-            this.cmbOutputDieState = new System.Windows.Forms.ComboBox();
             this.btnReloadActiveMap = new System.Windows.Forms.Button();
             this.btnPickStatusSave = new System.Windows.Forms.Button();
             this.btnApplyOutputDieState = new System.Windows.Forms.Button();
@@ -140,6 +142,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.mapInfoLayout.SuspendLayout();
             this.grpMode.SuspendLayout();
             this.modeLayout.SuspendLayout();
+            this.grpOutputDieState.SuspendLayout();
+            this.outputDieStateLayout.SuspendLayout();
             this.grpAction.SuspendLayout();
             this.actionLayout.SuspendLayout();
             this.SuspendLayout();
@@ -462,7 +466,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.lblPitchXCaption.Margin = new System.Windows.Forms.Padding(1);
             this.lblPitchXCaption.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
             this.lblPitchXCaption.TabIndex = 10;
-            this.lblPitchXCaption.Text = "Pitch X";
+            this.lblPitchXCaption.Text = "Center Step X";
             this.lblPitchXCaption.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             this.lblPitchX.AutoEllipsis = true;
             this.lblPitchX.BackColor = System.Drawing.Color.White;
@@ -484,7 +488,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.lblPitchYCaption.Margin = new System.Windows.Forms.Padding(1);
             this.lblPitchYCaption.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
             this.lblPitchYCaption.TabIndex = 12;
-            this.lblPitchYCaption.Text = "Pitch Y";
+            this.lblPitchYCaption.Text = "Center Step Y";
             this.lblPitchYCaption.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             this.lblPitchY.AutoEllipsis = true;
             this.lblPitchY.BackColor = System.Drawing.Color.White;
@@ -619,7 +623,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.grpMode.Padding = new System.Windows.Forms.Padding(3);
             this.grpMode.TabStop = false;
             this.grpMode.Text = "OUTPUT STAGE";
-            this.grpMode.Size = new System.Drawing.Size(410, 246);
+            this.grpMode.Size = new System.Drawing.Size(410, 368);
             //
             // modeLayout
             //
@@ -631,29 +635,23 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.modeLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 25F));
             this.modeLayout.Controls.Add(this.rbStandard, 2, 0);
             this.modeLayout.Controls.Add(this.rbStartIndex, 3, 0);
-            this.modeLayout.Controls.Add(this.cmbOutputDieState, 0, 2);
-            this.modeLayout.Controls.Add(this.btnApplyOutputDieState, 0, 3);
-            this.modeLayout.Controls.Add(this.btnReloadActiveMap, 0, 4);
-            this.modeLayout.Controls.Add(this.btnPickStatusSave, 2, 4);
+            this.modeLayout.Controls.Add(this.grpOutputDieState, 0, 1);
+            this.modeLayout.Controls.Add(this.btnReloadActiveMap, 0, 2);
+            this.modeLayout.Controls.Add(this.btnPickStatusSave, 2, 2);
             this.modeLayout.Dock = System.Windows.Forms.DockStyle.Fill;
             this.modeLayout.Location = new System.Drawing.Point(6, 24);
             this.modeLayout.Margin = new System.Windows.Forms.Padding(0);
             this.modeLayout.Name = "modeLayout";
             this.modeLayout.Padding = new System.Windows.Forms.Padding(10, 8, 10, 8);
-            this.modeLayout.RowCount = 5;
-            this.modeLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 30F));
-            this.modeLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 30F));
-            this.modeLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 34F));
+            this.modeLayout.RowCount = 3;
+            this.modeLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 62F));
+            this.modeLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 216F));
             this.modeLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 44F));
-            this.modeLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 44F));
-            this.modeLayout.Size = new System.Drawing.Size(398, 216);
+            this.modeLayout.Size = new System.Drawing.Size(398, 338);
             this.modeLayout.TabIndex = 0;
             this.modeLayout.SetColumnSpan(this.rbStandard, 1);
-            this.modeLayout.SetRowSpan(this.rbStandard, 2);
             this.modeLayout.SetColumnSpan(this.rbStartIndex, 1);
-            this.modeLayout.SetRowSpan(this.rbStartIndex, 2);
-            this.modeLayout.SetColumnSpan(this.cmbOutputDieState, 4);
-            this.modeLayout.SetColumnSpan(this.btnApplyOutputDieState, 4);
+            this.modeLayout.SetColumnSpan(this.grpOutputDieState, 4);
             this.modeLayout.SetColumnSpan(this.btnReloadActiveMap, 2);
             this.modeLayout.SetColumnSpan(this.btnPickStatusSave, 2);
             //
@@ -767,20 +765,40 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.rdoOutputStateNg.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             this.rdoOutputStateNg.UseVisualStyleBackColor = true;
             //
-            // cmbOutputDieState
+            // grpOutputDieState
             //
-            this.cmbOutputDieState.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.cmbOutputDieState.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
-            this.cmbOutputDieState.Font = new System.Drawing.Font("맑은 고딕", 9F);
-            this.cmbOutputDieState.FormattingEnabled = true;
-            this.cmbOutputDieState.Items.AddRange(new object[] {
-            "WAIT / 대기",
-            "GOOD / 완료",
-            "NG / 불량",
-            "SKIP / 제외"});
-            this.cmbOutputDieState.Margin = new System.Windows.Forms.Padding(3);
-            this.cmbOutputDieState.TabIndex = 4;
+            this.grpOutputDieState.BackColor = System.Drawing.Color.White;
+            this.grpOutputDieState.Controls.Add(this.outputDieStateLayout);
+            this.grpOutputDieState.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.grpOutputDieState.Font = new System.Drawing.Font("맑은 고딕", 11F, System.Drawing.FontStyle.Bold);
+            this.grpOutputDieState.ForeColor = System.Drawing.Color.Black;
+            this.grpOutputDieState.Margin = new System.Windows.Forms.Padding(0);
+            this.grpOutputDieState.Padding = new System.Windows.Forms.Padding(3);
+            this.grpOutputDieState.TabStop = false;
+            this.grpOutputDieState.Text = "DIE STATE EDIT";
             //
+            // outputDieStateLayout
+            //
+            this.outputDieStateLayout.ColumnCount = 1;
+            this.outputDieStateLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.outputDieStateLayout.Controls.Add(this.rbSelectPickStatus, 0, 0);
+            this.outputDieStateLayout.Controls.Add(this.rdoOutputStateGood, 0, 1);
+            this.outputDieStateLayout.Controls.Add(this.rdoOutputStateNg, 0, 2);
+            this.outputDieStateLayout.Controls.Add(this.rbDragPickStatus, 0, 3);
+            this.outputDieStateLayout.Controls.Add(this.btnApplyOutputDieState, 0, 4);
+            this.outputDieStateLayout.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.outputDieStateLayout.Location = new System.Drawing.Point(3, 23);
+            this.outputDieStateLayout.Margin = new System.Windows.Forms.Padding(0);
+            this.outputDieStateLayout.Name = "outputDieStateLayout";
+            this.outputDieStateLayout.Padding = new System.Windows.Forms.Padding(10, 8, 10, 8);
+            this.outputDieStateLayout.RowCount = 5;
+            this.outputDieStateLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 30F));
+            this.outputDieStateLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 30F));
+            this.outputDieStateLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 30F));
+            this.outputDieStateLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 30F));
+            this.outputDieStateLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 44F));
+            this.outputDieStateLayout.Size = new System.Drawing.Size(382, 190);
+            this.outputDieStateLayout.TabIndex = 0;
             // btnReloadActiveMap
             //
             this.btnReloadActiveMap.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(233)))), ((int)(((byte)(238)))), ((int)(((byte)(244)))));
@@ -1036,7 +1054,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.mapInfoLayout.ResumeLayout(false);
             this.grpMode.ResumeLayout(false);
             this.modeLayout.ResumeLayout(false);
-            this.modeLayout.PerformLayout();
+            this.grpOutputDieState.ResumeLayout(false);
+            this.outputDieStateLayout.ResumeLayout(false);
             this.grpAction.ResumeLayout(false);
             this.actionLayout.ResumeLayout(false);
             this.ResumeLayout(false);
@@ -1050,6 +1069,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.grpAction.Name = "grpAction";
             this.grpMapInfo.Name = "grpMapInfo";
             this.grpMode.Name = "grpMode";
+            this.grpOutputDieState.Name = "grpOutputDieState";
+            this.outputDieStateLayout.Name = "outputDieStateLayout";
             this.lblProjectCaption.Name = "lblProjectCaption";
             this.lblProjectValue.Name = "lblProjectValue";
             this.lblBarcodeCaption.Name = "lblBarcodeCaption";
@@ -1080,7 +1101,6 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.rbDragPickStatus.Name = "rbDragPickStatus";
             this.rdoOutputStateGood.Name = "rdoOutputStateGood";
             this.rdoOutputStateNg.Name = "rdoOutputStateNg";
-            this.cmbOutputDieState.Name = "cmbOutputDieState";
             this.btnReloadActiveMap.Name = "btnReloadActiveMap";
             this.btnPickStatusSave.Name = "btnPickStatusSave";
             this.btnApplyOutputDieState.Name = "btnApplyOutputDieState";

@@ -623,14 +623,35 @@ namespace QMC.CDT320
 
         public bool IsWaferFeederAvoidPositionCheck()
         {
-            // 실장비 Picker 안전 인터록용 Avoid Dog. Simulation/DryRun에는 물리 Dog가 없으므로 위치로 대체한다.
-            if (IsWaferFeederSimulationOrDryRun())
+            // 실장비 DryRun도 X090 실제 Dog를 확인한다. 순수 Simulation/보드 미사용일 때만 엔코더 위치로 대체한다.
+            if (ShouldUseVirtualWaferFeederAvoidPositionCheck())
                 return IsWaferFeederYInPosition(
                     Recipe.AvoidPosition,
                     ResolveWaferFeederYInPositionTolerance());
 
             return WaferFeederAvoidPositionCheckSensor != null &&
                    WaferFeederAvoidPositionCheckSensor.IsOn;
+        }
+
+        private bool ShouldUseVirtualWaferFeederAvoidPositionCheck()
+        {
+            try
+            {
+                AppSettings settings = AppSettingsStore.Current;
+                bool appSimulation = settings != null &&
+                    (settings.SimulationMode || settings.BypassHardware || !settings.UseAjin);
+                bool unitSimulation = Setup != null && Setup.IsSimulationMode;
+                return appSimulation || unitSimulation || !AjinFactory.IsRealBoardReady;
+            }
+            catch (Exception ex)
+            {
+                EventLogger.Write(EventKind.Warning, "QMC", "WF-AVOID-MODE",
+                    "WaferFeeder Avoid check mode resolve failed: " + ex.Message);
+                return !AjinFactory.IsRealBoardReady;
+            }
+            finally
+            {
+            }
         }
 
         public bool IsWaferFeederInCassetteLoadPosition(int slotIndex)

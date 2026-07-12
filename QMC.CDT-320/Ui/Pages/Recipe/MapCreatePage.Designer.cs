@@ -32,8 +32,14 @@
         private System.Windows.Forms.NumericUpDown _nPitchX;
         private System.Windows.Forms.Label lblWaferDiameterKey;
         private System.Windows.Forms.NumericUpDown _nPitchY;
+        private System.Windows.Forms.Label _lblDieSizeXKey;
+        private System.Windows.Forms.NumericUpDown _nDieSizeX;
+        private System.Windows.Forms.Label _lblDieSizeYKey;
+        private System.Windows.Forms.NumericUpDown _nDieSizeY;
         private System.Windows.Forms.Label lblAxisXKey;
         private System.Windows.Forms.NumericUpDown _nDiameter;
+        private System.Windows.Forms.Label _lblEdgeSkipModeKey;
+        private System.Windows.Forms.ComboBox _cbEdgeSkipMode;
         private System.Windows.Forms.Label lblAxisYKey;
         private System.Windows.Forms.TableLayoutPanel edgeSkipPanel;
         private System.Windows.Forms.NumericUpDown _nSideEdgeSkip;
@@ -53,12 +59,14 @@
         private System.Windows.Forms.RadioButton rbBinNg;
         private System.Windows.Forms.TableLayoutPanel actionSection;
         private System.Windows.Forms.Label lblActionTitle;
+        private System.Windows.Forms.TextBox _tbMapApplyInfo;
         private QMC.CDT_320.Ui.Controls.ActionButton btnCreate;
         private QMC.CDT_320.Ui.Controls.ActionButton btnSave;
         private QMC.CDT_320.Ui.Controls.ActionButton btnFirstDieMoveComplete;
         private QMC.CDT_320.Ui.Controls.ActionButton btnAutoMatch;
         private QMC.CDT_320.Ui.Controls.ActionButton btnThetaMatchMove;
         private QMC.CDT_320.Ui.Controls.ActionButton btnXyMatchMove;
+        private System.Windows.Forms.ToolTip _recipeLocationToolTip;
 
         protected override void Dispose(bool disposing)
         {
@@ -69,6 +77,7 @@
 
         private void InitializeComponent()
         {
+            this.components = new System.ComponentModel.Container();
             this.mainLayout = new System.Windows.Forms.TableLayoutPanel();
             this.lblHeader = new System.Windows.Forms.Label();
             this.contentLayout = new System.Windows.Forms.TableLayoutPanel();
@@ -94,8 +103,14 @@
             this._nPitchX = new System.Windows.Forms.NumericUpDown();
             this.lblWaferDiameterKey = new System.Windows.Forms.Label();
             this._nPitchY = new System.Windows.Forms.NumericUpDown();
+            this._lblDieSizeXKey = new System.Windows.Forms.Label();
+            this._nDieSizeX = new System.Windows.Forms.NumericUpDown();
+            this._lblDieSizeYKey = new System.Windows.Forms.Label();
+            this._nDieSizeY = new System.Windows.Forms.NumericUpDown();
             this.lblAxisXKey = new System.Windows.Forms.Label();
             this._nDiameter = new System.Windows.Forms.NumericUpDown();
+            this._lblEdgeSkipModeKey = new System.Windows.Forms.Label();
+            this._cbEdgeSkipMode = new System.Windows.Forms.ComboBox();
             this.lblAxisYKey = new System.Windows.Forms.Label();
             this.edgeSkipPanel = new System.Windows.Forms.TableLayoutPanel();
             this._nSideEdgeSkip = new System.Windows.Forms.NumericUpDown();
@@ -115,12 +130,14 @@
             this.rbBinNg = new System.Windows.Forms.RadioButton();
             this.actionSection = new System.Windows.Forms.TableLayoutPanel();
             this.lblActionTitle = new System.Windows.Forms.Label();
+            this._tbMapApplyInfo = new System.Windows.Forms.TextBox();
             this.btnCreate = new QMC.CDT_320.Ui.Controls.ActionButton();
             this.btnSave = new QMC.CDT_320.Ui.Controls.ActionButton();
             this.btnFirstDieMoveComplete = new QMC.CDT_320.Ui.Controls.ActionButton();
             this.btnAutoMatch = new QMC.CDT_320.Ui.Controls.ActionButton();
             this.btnThetaMatchMove = new QMC.CDT_320.Ui.Controls.ActionButton();
             this.btnXyMatchMove = new QMC.CDT_320.Ui.Controls.ActionButton();
+            this._recipeLocationToolTip = new System.Windows.Forms.ToolTip(this.components);
             this._btnMapNew = new System.Windows.Forms.Button();
             this._btnMapRename = new System.Windows.Forms.Button();
             this._btnMapDelete = new System.Windows.Forms.Button();
@@ -137,6 +154,8 @@
             ((System.ComponentModel.ISupportInitialize)(this._nGridY)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this._nPitchX)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this._nPitchY)).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)(this._nDieSizeX)).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)(this._nDieSizeY)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this._nDiameter)).BeginInit();
             this.edgeSkipPanel.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this._nSideEdgeSkip)).BeginInit();
@@ -362,17 +381,26 @@
             this.settingSection.Controls.Add(this._nPitchX, 1, 4);
             this.settingSection.Controls.Add(this.lblWaferDiameterKey, 0, 5);
             this.settingSection.Controls.Add(this._nPitchY, 1, 5);
-            this.settingSection.Controls.Add(this.lblAxisXKey, 0, 6);
-            this.settingSection.Controls.Add(this._nDiameter, 1, 6);
-            this.settingSection.Controls.Add(this.lblAxisYKey, 0, 7);
-            this.settingSection.Controls.Add(this.edgeSkipPanel, 1, 7);
+            this.settingSection.Controls.Add(this._lblDieSizeXKey, 0, 6);
+            this.settingSection.Controls.Add(this._nDieSizeX, 1, 6);
+            this.settingSection.Controls.Add(this._lblDieSizeYKey, 0, 7);
+            this.settingSection.Controls.Add(this._nDieSizeY, 1, 7);
+            this.settingSection.Controls.Add(this.lblAxisXKey, 0, 8);
+            this.settingSection.Controls.Add(this._nDiameter, 1, 8);
+            this.settingSection.Controls.Add(this._lblEdgeSkipModeKey, 0, 9);
+            this.settingSection.Controls.Add(this._cbEdgeSkipMode, 1, 9);
+            this.settingSection.Controls.Add(this.lblAxisYKey, 0, 10);
+            this.settingSection.Controls.Add(this.edgeSkipPanel, 1, 10);
             this.settingSection.Dock = System.Windows.Forms.DockStyle.Fill;
             this.settingSection.Location = new System.Drawing.Point(0, 0);
             this.settingSection.Margin = new System.Windows.Forms.Padding(0, 0, 0, 1);
             this.settingSection.Name = "settingSection";
             this.settingSection.Padding = new System.Windows.Forms.Padding(0, 0, 0, 1);
-            this.settingSection.RowCount = 8;
+            this.settingSection.RowCount = 11;
             this.settingSection.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 26F));
+            this.settingSection.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 30F));
+            this.settingSection.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 30F));
+            this.settingSection.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 30F));
             this.settingSection.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 30F));
             this.settingSection.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 30F));
             this.settingSection.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 30F));
@@ -382,6 +410,7 @@
             this.settingSection.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 30F));
             this.settingSection.Size = new System.Drawing.Size(420, 247);
             this.settingSection.TabIndex = 0;
+            this._recipeLocationToolTip.SetToolTip(this.settingSection, "Die는 Recipe → 다이 사양, Wafer/Pitch는 Recipe → 웨이퍼 사양에서 변경합니다.");
             // 
             // lblSettingTitle
             // 
@@ -413,6 +442,7 @@
             this.lblChipCountXKey.TabIndex = 1;
             this.lblChipCountXKey.Text = "FRAME SPEC NAME";
             this.lblChipCountXKey.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            this._recipeLocationToolTip.SetToolTip(this.lblChipCountXKey, "Recipe → 웨이퍼 사양 → Spec name에서 설정합니다.");
             // 
             // _tbFrameSpecName
             // 
@@ -425,6 +455,7 @@
             this._tbFrameSpecName.Size = new System.Drawing.Size(242, 23);
             this._tbFrameSpecName.TabIndex = 2;
             this._tbFrameSpecName.TextAlign = System.Windows.Forms.HorizontalAlignment.Right;
+            this._recipeLocationToolTip.SetToolTip(this._tbFrameSpecName, "Recipe → 웨이퍼 사양 → Spec name에서 설정합니다.");
             // 
             // lblChipCountYKey
             // 
@@ -440,6 +471,7 @@
             this.lblChipCountYKey.TabIndex = 3;
             this.lblChipCountYKey.Text = "GRID X";
             this.lblChipCountYKey.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            this._recipeLocationToolTip.SetToolTip(this.lblChipCountYKey, "Recipe → 웨이퍼 사양 → LOAD WAFER MAP에서 결정됩니다.");
             // 
             // _nGridX
             // 
@@ -470,6 +502,7 @@
             0,
             0,
             0});
+            this._recipeLocationToolTip.SetToolTip(this._nGridX, "Recipe → 웨이퍼 사양 → LOAD WAFER MAP에서 결정됩니다.");
             // 
             // lblChipPitchXKey
             // 
@@ -485,6 +518,7 @@
             this.lblChipPitchXKey.TabIndex = 5;
             this.lblChipPitchXKey.Text = "GRID Y";
             this.lblChipPitchXKey.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            this._recipeLocationToolTip.SetToolTip(this.lblChipPitchXKey, "Recipe → 웨이퍼 사양 → LOAD WAFER MAP에서 결정됩니다.");
             // 
             // _nGridY
             // 
@@ -515,6 +549,7 @@
             0,
             0,
             0});
+            this._recipeLocationToolTip.SetToolTip(this._nGridY, "Recipe → 웨이퍼 사양 → LOAD WAFER MAP에서 결정됩니다.");
             // 
             // lblChipPitchYKey
             // 
@@ -528,8 +563,9 @@
             this.lblChipPitchYKey.Padding = new System.Windows.Forms.Padding(6, 0, 6, 0);
             this.lblChipPitchYKey.Size = new System.Drawing.Size(174, 28);
             this.lblChipPitchYKey.TabIndex = 7;
-            this.lblChipPitchYKey.Text = "PITCH X";
+            this.lblChipPitchYKey.Text = "PITCH GAP X";
             this.lblChipPitchYKey.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            this._recipeLocationToolTip.SetToolTip(this.lblChipPitchYKey, "Recipe → 웨이퍼 사양 → Pitch X에서 설정합니다.");
             // 
             // _nPitchX
             // 
@@ -546,7 +582,7 @@
             0,
             0});
             this._nPitchX.Minimum = new decimal(new int[] {
-            1,
+            0,
             0,
             0,
             196608});
@@ -561,6 +597,7 @@
             0,
             0,
             0});
+            this._recipeLocationToolTip.SetToolTip(this._nPitchX, "Recipe → 웨이퍼 사양 → Pitch X에서 설정합니다.");
             // 
             // lblWaferDiameterKey
             // 
@@ -574,8 +611,9 @@
             this.lblWaferDiameterKey.Padding = new System.Windows.Forms.Padding(6, 0, 6, 0);
             this.lblWaferDiameterKey.Size = new System.Drawing.Size(174, 28);
             this.lblWaferDiameterKey.TabIndex = 9;
-            this.lblWaferDiameterKey.Text = "PITCH Y";
+            this.lblWaferDiameterKey.Text = "PITCH GAP Y";
             this.lblWaferDiameterKey.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            this._recipeLocationToolTip.SetToolTip(this.lblWaferDiameterKey, "Recipe → 웨이퍼 사양 → Pitch Y에서 설정합니다.");
             // 
             // _nPitchY
             // 
@@ -592,7 +630,7 @@
             0,
             0});
             this._nPitchY.Minimum = new decimal(new int[] {
-            1,
+            0,
             0,
             0,
             196608});
@@ -607,6 +645,71 @@
             0,
             0,
             0});
+            this._recipeLocationToolTip.SetToolTip(this._nPitchY, "Recipe → 웨이퍼 사양 → Pitch Y에서 설정합니다.");
+            //
+            // _lblDieSizeXKey
+            //
+            this._lblDieSizeXKey.BackColor = System.Drawing.Color.Gainsboro;
+            this._lblDieSizeXKey.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            this._lblDieSizeXKey.Dock = System.Windows.Forms.DockStyle.Fill;
+            this._lblDieSizeXKey.Font = new System.Drawing.Font("맑은 고딕", 9F);
+            this._lblDieSizeXKey.Margin = new System.Windows.Forms.Padding(1);
+            this._lblDieSizeXKey.Name = "_lblDieSizeXKey";
+            this._lblDieSizeXKey.Padding = new System.Windows.Forms.Padding(6, 0, 6, 0);
+            this._lblDieSizeXKey.TabIndex = 11;
+            this._lblDieSizeXKey.Text = "DIE SIZE X";
+            this._lblDieSizeXKey.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            this._recipeLocationToolTip.SetToolTip(this._lblDieSizeXKey, "Recipe → 다이 사양 → Width에서 설정합니다.");
+            //
+            // _nDieSizeX
+            //
+            this._nDieSizeX.DecimalPlaces = 4;
+            this._nDieSizeX.Dock = System.Windows.Forms.DockStyle.Fill;
+            this._nDieSizeX.Enabled = false;
+            this._nDieSizeX.Font = new System.Drawing.Font("Consolas", 10F);
+            this._nDieSizeX.InterceptArrowKeys = false;
+            this._nDieSizeX.Margin = new System.Windows.Forms.Padding(1);
+            this._nDieSizeX.Maximum = new decimal(new int[] { 1000, 0, 0, 0 });
+            this._nDieSizeX.Minimum = new decimal(new int[] { 1, 0, 0, 196608 });
+            this._nDieSizeX.Name = "_nDieSizeX";
+            this._nDieSizeX.ReadOnly = true;
+            this._nDieSizeX.TabIndex = 12;
+            this._nDieSizeX.TabStop = false;
+            this._nDieSizeX.TextAlign = System.Windows.Forms.HorizontalAlignment.Right;
+            this._nDieSizeX.Value = new decimal(new int[] { 1, 0, 0, 0 });
+            this._recipeLocationToolTip.SetToolTip(this._nDieSizeX, "Recipe → 다이 사양 → Width에서 설정합니다.");
+            //
+            // _lblDieSizeYKey
+            //
+            this._lblDieSizeYKey.BackColor = System.Drawing.Color.Gainsboro;
+            this._lblDieSizeYKey.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            this._lblDieSizeYKey.Dock = System.Windows.Forms.DockStyle.Fill;
+            this._lblDieSizeYKey.Font = new System.Drawing.Font("맑은 고딕", 9F);
+            this._lblDieSizeYKey.Margin = new System.Windows.Forms.Padding(1);
+            this._lblDieSizeYKey.Name = "_lblDieSizeYKey";
+            this._lblDieSizeYKey.Padding = new System.Windows.Forms.Padding(6, 0, 6, 0);
+            this._lblDieSizeYKey.TabIndex = 13;
+            this._lblDieSizeYKey.Text = "DIE SIZE Y";
+            this._lblDieSizeYKey.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            this._recipeLocationToolTip.SetToolTip(this._lblDieSizeYKey, "Recipe → 다이 사양 → Height에서 설정합니다.");
+            //
+            // _nDieSizeY
+            //
+            this._nDieSizeY.DecimalPlaces = 4;
+            this._nDieSizeY.Dock = System.Windows.Forms.DockStyle.Fill;
+            this._nDieSizeY.Enabled = false;
+            this._nDieSizeY.Font = new System.Drawing.Font("Consolas", 10F);
+            this._nDieSizeY.InterceptArrowKeys = false;
+            this._nDieSizeY.Margin = new System.Windows.Forms.Padding(1);
+            this._nDieSizeY.Maximum = new decimal(new int[] { 1000, 0, 0, 0 });
+            this._nDieSizeY.Minimum = new decimal(new int[] { 1, 0, 0, 196608 });
+            this._nDieSizeY.Name = "_nDieSizeY";
+            this._nDieSizeY.ReadOnly = true;
+            this._nDieSizeY.TabIndex = 14;
+            this._nDieSizeY.TabStop = false;
+            this._nDieSizeY.TextAlign = System.Windows.Forms.HorizontalAlignment.Right;
+            this._nDieSizeY.Value = new decimal(new int[] { 1, 0, 0, 0 });
+            this._recipeLocationToolTip.SetToolTip(this._nDieSizeY, "Recipe → 다이 사양 → Height에서 설정합니다.");
             // 
             // lblAxisXKey
             // 
@@ -622,6 +725,7 @@
             this.lblAxisXKey.TabIndex = 11;
             this.lblAxisXKey.Text = "WAFER DIAMETER";
             this.lblAxisXKey.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            this._recipeLocationToolTip.SetToolTip(this.lblAxisXKey, "Recipe → 웨이퍼 사양 → Outer diameter에서 설정합니다.");
             // 
             // _nDiameter
             // 
@@ -653,6 +757,37 @@
             0,
             0,
             0});
+            this._recipeLocationToolTip.SetToolTip(this._nDiameter, "Recipe → 웨이퍼 사양 → Outer diameter에서 설정합니다.");
+            //
+            // _lblEdgeSkipModeKey
+            //
+            this._lblEdgeSkipModeKey.BackColor = System.Drawing.Color.Gainsboro;
+            this._lblEdgeSkipModeKey.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            this._lblEdgeSkipModeKey.Dock = System.Windows.Forms.DockStyle.Fill;
+            this._lblEdgeSkipModeKey.Font = new System.Drawing.Font("맑은 고딕", 9F);
+            this._lblEdgeSkipModeKey.Margin = new System.Windows.Forms.Padding(1);
+            this._lblEdgeSkipModeKey.Name = "_lblEdgeSkipModeKey";
+            this._lblEdgeSkipModeKey.Padding = new System.Windows.Forms.Padding(6, 0, 6, 0);
+            this._lblEdgeSkipModeKey.TabIndex = 17;
+            this._lblEdgeSkipModeKey.Text = "EDGE SKIP MODE";
+            this._lblEdgeSkipModeKey.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            this._recipeLocationToolTip.SetToolTip(this._lblEdgeSkipModeKey, "Recipe → 웨이퍼 사양 → Edge skip mode에서 설정합니다.");
+            //
+            // _cbEdgeSkipMode
+            //
+            this._cbEdgeSkipMode.Dock = System.Windows.Forms.DockStyle.Fill;
+            this._cbEdgeSkipMode.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
+            this._cbEdgeSkipMode.Enabled = false;
+            this._cbEdgeSkipMode.Font = new System.Drawing.Font("Consolas", 10F);
+            this._cbEdgeSkipMode.FormattingEnabled = true;
+            this._cbEdgeSkipMode.Items.AddRange(new object[] {
+            "GRID COUNT",
+            "MM",
+            "EXTERNAL MAP"});
+            this._cbEdgeSkipMode.Margin = new System.Windows.Forms.Padding(1);
+            this._cbEdgeSkipMode.Name = "_cbEdgeSkipMode";
+            this._cbEdgeSkipMode.TabIndex = 18;
+            this._recipeLocationToolTip.SetToolTip(this._cbEdgeSkipMode, "Recipe → 웨이퍼 사양 → Edge skip mode에서 설정합니다.");
             // 
             // lblAxisYKey
             // 
@@ -668,6 +803,7 @@
             this.lblAxisYKey.TabIndex = 13;
             this.lblAxisYKey.Text = "EDGE SKIP L/R, T/B";
             this.lblAxisYKey.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            this._recipeLocationToolTip.SetToolTip(this.lblAxisYKey, "Recipe → 웨이퍼 사양 → Edge skip에서 설정합니다.");
             // 
             // edgeSkipPanel
             // 
@@ -724,6 +860,8 @@
             this._nTopBottomEdgeSkip.TabIndex = 1;
             this._nTopBottomEdgeSkip.TabStop = false;
             this._nTopBottomEdgeSkip.TextAlign = System.Windows.Forms.HorizontalAlignment.Right;
+            this._recipeLocationToolTip.SetToolTip(this._nSideEdgeSkip, "Recipe → 웨이퍼 사양 → Edge skip에서 설정합니다.");
+            this._recipeLocationToolTip.SetToolTip(this._nTopBottomEdgeSkip, "Recipe → 웨이퍼 사양 → Edge skip에서 설정합니다.");
             // 
             // modeSection
             // 
@@ -906,18 +1044,21 @@
             this.actionSection.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 50F));
             this.actionSection.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 50F));
             this.actionSection.Controls.Add(this.lblActionTitle, 0, 0);
-            this.actionSection.Controls.Add(this.btnCreate, 0, 1);
-            this.actionSection.Controls.Add(this.btnSave, 1, 1);
-            this.actionSection.Controls.Add(this.btnFirstDieMoveComplete, 0, 2);
-            this.actionSection.Controls.Add(this.btnAutoMatch, 1, 2);
-            this.actionSection.Controls.Add(this.btnThetaMatchMove, 0, 3);
-            this.actionSection.Controls.Add(this.btnXyMatchMove, 1, 3);
+            this.actionSection.Controls.Add(this._tbMapApplyInfo, 0, 1);
+            this.actionSection.SetColumnSpan(this._tbMapApplyInfo, 2);
+            this.actionSection.Controls.Add(this.btnCreate, 0, 2);
+            this.actionSection.Controls.Add(this.btnSave, 1, 2);
+            this.actionSection.Controls.Add(this.btnFirstDieMoveComplete, 0, 3);
+            this.actionSection.Controls.Add(this.btnAutoMatch, 1, 3);
+            this.actionSection.Controls.Add(this.btnThetaMatchMove, 0, 4);
+            this.actionSection.Controls.Add(this.btnXyMatchMove, 1, 4);
             this.actionSection.Dock = System.Windows.Forms.DockStyle.Fill;
             this.actionSection.Location = new System.Drawing.Point(0, 571);
             this.actionSection.Margin = new System.Windows.Forms.Padding(0, 0, 0, 1);
             this.actionSection.Name = "actionSection";
-            this.actionSection.RowCount = 4;
+            this.actionSection.RowCount = 5;
             this.actionSection.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 26F));
+            this.actionSection.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 120F));
             this.actionSection.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 33.33F));
             this.actionSection.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 33.34F));
             this.actionSection.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 33.33F));
@@ -939,6 +1080,23 @@
             this.lblActionTitle.TabIndex = 0;
             this.lblActionTitle.Text = "ACTION";
             this.lblActionTitle.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            //
+            // _tbMapApplyInfo
+            //
+            this._tbMapApplyInfo.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(248)))), ((int)(((byte)(249)))), ((int)(((byte)(251)))));
+            this._tbMapApplyInfo.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            this._tbMapApplyInfo.Dock = System.Windows.Forms.DockStyle.Fill;
+            this._tbMapApplyInfo.Font = new System.Drawing.Font("Consolas", 8.75F);
+            this._tbMapApplyInfo.Location = new System.Drawing.Point(4, 30);
+            this._tbMapApplyInfo.Margin = new System.Windows.Forms.Padding(4);
+            this._tbMapApplyInfo.Multiline = true;
+            this._tbMapApplyInfo.Name = "_tbMapApplyInfo";
+            this._tbMapApplyInfo.ReadOnly = true;
+            this._tbMapApplyInfo.ScrollBars = System.Windows.Forms.ScrollBars.Vertical;
+            this._tbMapApplyInfo.Size = new System.Drawing.Size(412, 112);
+            this._tbMapApplyInfo.TabIndex = 1;
+            this._tbMapApplyInfo.TabStop = false;
+            this._tbMapApplyInfo.Text = "No Recipe map loaded.";
             // 
             // btnCreate
             // 
@@ -1095,6 +1253,8 @@
             ((System.ComponentModel.ISupportInitialize)(this._nGridY)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this._nPitchX)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this._nPitchY)).EndInit();
+            ((System.ComponentModel.ISupportInitialize)(this._nDieSizeX)).EndInit();
+            ((System.ComponentModel.ISupportInitialize)(this._nDieSizeY)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this._nDiameter)).EndInit();
             this.edgeSkipPanel.ResumeLayout(false);
             ((System.ComponentModel.ISupportInitialize)(this._nSideEdgeSkip)).EndInit();

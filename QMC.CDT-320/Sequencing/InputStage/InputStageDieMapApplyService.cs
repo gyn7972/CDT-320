@@ -94,7 +94,13 @@ namespace QMC.CDT320.Sequencing
 
                 int fullDieCount = CountMapEntries(request.DieMap);
                 int targetDieCount = ApplyDieMaterials(request.DieMap, wafer);
-                ApplyWaferDieMapResult(request.Stage, wafer, request.DieMap, mappingOffsetX, mappingOffsetY);
+                ApplyWaferDieMapResult(
+                    request.Stage,
+                    wafer,
+                    request.DieMap,
+                    mappingOffsetX,
+                    mappingOffsetY,
+                    ResolveInputMapApprovalHash(request.Controller));
 
                 MaterialStateService.NotifyAndSave(string.IsNullOrWhiteSpace(request.SaveReason)
                     ? "InputStageDieMapping"
@@ -210,7 +216,8 @@ namespace QMC.CDT320.Sequencing
             WaferMaterial wafer,
             DieMap map,
             double mappingOffsetX,
-            double mappingOffsetY)
+            double mappingOffsetY,
+            string inputMapApprovalHash)
         {
             if (wafer == null || map == null)
                 return;
@@ -224,6 +231,9 @@ namespace QMC.CDT320.Sequencing
             wafer.InputStageAlignOriginY = map.OriginY;
             wafer.InputStageAlignPitchX = map.PitchX;
             wafer.InputStageAlignPitchY = map.PitchY;
+            wafer.InputStageDieSizeX = map.DieSizeX;
+            wafer.InputStageDieSizeY = map.DieSizeY;
+            wafer.InputStageOuterDiameterMm = map.OuterDiameterMm;
 
             if (stage != null)
             {
@@ -241,8 +251,29 @@ namespace QMC.CDT320.Sequencing
             wafer.HasInputStageDieMappingResult = true;
             wafer.InputStageDieMappingOffsetX = mappingOffsetX;
             wafer.InputStageDieMappingOffsetY = mappingOffsetY;
+            wafer.InputMapApprovalHashAtMapping = inputMapApprovalHash ?? "";
             wafer.State = WaferMaterialState.Working;
             wafer.UpdatedAt = DateTime.Now;
+        }
+
+        private static string ResolveInputMapApprovalHash(MachineController controller)
+        {
+            try
+            {
+                RecipeProject project = controller != null && !string.IsNullOrWhiteSpace(controller.ActiveRecipeName)
+                    ? RecipeStore.Load(controller.ActiveRecipeName)
+                    : RecipeStore.LoadLastOrDefault();
+                return project != null && project.MapApprovalVersion > 0
+                    ? project.InputMapApprovalHash ?? ""
+                    : "";
+            }
+            catch
+            {
+                return "";
+            }
+            finally
+            {
+            }
         }
 
         private static int ApplyDieMaterials(DieMap map, WaferMaterial wafer)
@@ -264,6 +295,8 @@ namespace QMC.CDT320.Sequencing
 
                 int mapX = DieMapGenerator.ResolveMapIndexX(entry);
                 int mapY = DieMapGenerator.ResolveMapIndexY(entry);
+                int originalX = DieMapGenerator.ResolveOriginalMapIndexX(entry);
+                int originalY = DieMapGenerator.ResolveOriginalMapIndexY(entry);
                 string dieId = string.IsNullOrWhiteSpace(entry.DieUid)
                     ? BuildDieId(wafer, mapY, mapX)
                     : entry.DieUid;
@@ -271,14 +304,16 @@ namespace QMC.CDT320.Sequencing
                 entry.DieUid = dieId;
                 entry.DieMapX = mapX;
                 entry.DieMapY = mapY;
-                entry.OriginalMapX = mapX;
-                entry.OriginalMapY = mapY;
+                entry.OriginalMapX = originalX;
+                entry.OriginalMapY = originalY;
 
                 DieMaterial die = MaterialStateService.GetOrCreateDieMaterial(dieId);
                 die.WaferID_Input = wafer.WaferId;
                 die.WaferID_Output = "";
                 die.Wafer_IndexX = mapX;
                 die.Wafer_IndexY = mapY;
+                die.Wafer_OriginalIndexX = originalX;
+                die.Wafer_OriginalIndexY = originalY;
                 die.InputSequenceNo = entry.SequenceNo;
                 die.Input_BinCode = entry.IsTarget ? entry.BinCode : 0;
                 die.IsInputTarget = entry.IsTarget;

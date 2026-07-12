@@ -44,6 +44,7 @@ namespace QMC.CDT320.Sequencing
         private WaferMapData _map;
         private WaferMaterial _wafer;
         private TapeFrameSpec _frameSpec;
+        private bool _resolvedAlignMapIsExternal;
         private VisionAlignResult _centerResult;
         private VisionAlignResult _verifyCenterResult;
         private VisionAlignResult _ref1Result;
@@ -1571,11 +1572,16 @@ namespace QMC.CDT320.Sequencing
                 if (map == null || spec == null)
                     return;
 
+                bool externalMap = _resolvedAlignMapIsExternal ||
+                                   (!string.IsNullOrWhiteSpace(spec.EdgeSkipMode) &&
+                                    spec.EdgeSkipMode.IndexOf("External", StringComparison.OrdinalIgnoreCase) >= 0);
                 bool fallbackMap = map.RowCount <= 1 && map.ColumnCount <= 1;
-                bool pitchGridResolved = TryResolvePitchBasedGrid(spec, out int pitchGridX, out int pitchGridY);
-                bool pitchGridMismatch = pitchGridResolved &&
+                int pitchGridX = 0;
+                int pitchGridY = 0;
+                bool pitchGridResolved = !externalMap && TryResolvePitchBasedGrid(spec, out pitchGridX, out pitchGridY);
+                bool pitchGridMismatch = !externalMap && pitchGridResolved &&
                                          (map.ColumnCount != pitchGridX || map.RowCount != pitchGridY);
-                if (fallbackMap || pitchGridMismatch)
+                if (!externalMap && (fallbackMap || pitchGridMismatch))
                 {
                     int columnCount = pitchGridResolved ? pitchGridX : Math.Max(1, spec.DieMapX);
                     int rowCount = pitchGridResolved ? pitchGridY : Math.Max(1, spec.DieMapY);
@@ -1583,7 +1589,7 @@ namespace QMC.CDT320.Sequencing
                 }
 
                 bool invalidRefPair = map.Ref1Row == map.Ref2Row && map.Ref1Col == map.Ref2Col;
-                if (fallbackMap || pitchGridMismatch || invalidRefPair)
+                if ((!externalMap && (fallbackMap || pitchGridMismatch)) || invalidRefPair)
                     ApplyDefaultRefPair(map);
 
                 WriteLog("InputStageAlignSequence",
@@ -1592,8 +1598,11 @@ namespace QMC.CDT320.Sequencing
                     ", dieMapY=" + spec.DieMapY +
                     ", alignMapX=" + map.ColumnCount +
                     ", alignMapY=" + map.RowCount +
-                    ", pitchX=" + spec.PitchX.ToString("F6") +
-                    ", pitchY=" + spec.PitchY.ToString("F6") + " - Ok");
+                    ", externalMap=" + externalMap +
+                    ", pitchGapX=" + spec.PitchX.ToString("F6") +
+                    ", pitchGapY=" + spec.PitchY.ToString("F6") +
+                    ", centerStepX=" + DieMapGenerator.CalculateCenterStep(spec.DieSizeX, spec.PitchX).ToString("F6") +
+                    ", centerStepY=" + DieMapGenerator.CalculateCenterStep(spec.DieSizeY, spec.PitchY).ToString("F6") + " - Ok");
             }
             catch (Exception ex)
             {
@@ -1610,12 +1619,16 @@ namespace QMC.CDT320.Sequencing
             gridY = 0;
             if (spec == null ||
                 spec.OuterDiameterMm <= 0.0 ||
-                spec.PitchX <= 0.0 ||
-                spec.PitchY <= 0.0)
+                spec.DieSizeX <= 0.0 ||
+                spec.DieSizeY <= 0.0 ||
+                double.IsNaN(spec.PitchX) || double.IsInfinity(spec.PitchX) || spec.PitchX < 0.0 ||
+                double.IsNaN(spec.PitchY) || double.IsInfinity(spec.PitchY) || spec.PitchY < 0.0)
                 return false;
 
-            gridX = DieMapGenerator.CalculateWaferGridCount(spec.OuterDiameterMm, spec.PitchX, spec.PitchX);
-            gridY = DieMapGenerator.CalculateWaferGridCount(spec.OuterDiameterMm, spec.PitchY, spec.PitchY);
+            double centerStepX = DieMapGenerator.CalculateCenterStep(spec.DieSizeX, spec.PitchX);
+            double centerStepY = DieMapGenerator.CalculateCenterStep(spec.DieSizeY, spec.PitchY);
+            gridX = DieMapGenerator.CalculateWaferGridCount(spec.OuterDiameterMm, centerStepX, spec.DieSizeX);
+            gridY = DieMapGenerator.CalculateWaferGridCount(spec.OuterDiameterMm, centerStepY, spec.DieSizeY);
             return gridX > 0 && gridY > 0;
         }
 
@@ -1680,15 +1693,17 @@ namespace QMC.CDT320.Sequencing
 
         private double ResolveConfiguredAlignPitchX()
         {
-            if (_frameSpec != null && _frameSpec.PitchX > 0.0)
-                return _frameSpec.PitchX;
+            if (_frameSpec != null && _frameSpec.DieSizeX > 0.0 &&
+                !double.IsNaN(_frameSpec.PitchX) && !double.IsInfinity(_frameSpec.PitchX) && _frameSpec.PitchX >= 0.0)
+                return DieMapGenerator.CalculateCenterStep(_frameSpec.DieSizeX, _frameSpec.PitchX);
             return Stage != null ? Stage.ResolveAlignPitchX(null, null) : 0.0;
         }
 
         private double ResolveConfiguredAlignPitchY()
         {
-            if (_frameSpec != null && _frameSpec.PitchY > 0.0)
-                return _frameSpec.PitchY;
+            if (_frameSpec != null && _frameSpec.DieSizeY > 0.0 &&
+                !double.IsNaN(_frameSpec.PitchY) && !double.IsInfinity(_frameSpec.PitchY) && _frameSpec.PitchY >= 0.0)
+                return DieMapGenerator.CalculateCenterStep(_frameSpec.DieSizeY, _frameSpec.PitchY);
             return Stage != null ? Stage.ResolveAlignPitchY(null, null) : 0.0;
         }
 
@@ -1971,15 +1986,29 @@ namespace QMC.CDT320.Sequencing
         {
             try
             {
+                _resolvedAlignMapIsExternal = false;
                 DieMap sourceMap = ResolveSourceInputDieMap(_wafer);
                 if (IsUsableSourceMap(sourceMap))
+                {
+                    _resolvedAlignMapIsExternal = RecipeDieMapResolver.IsExternalMap(sourceMap);
                     return ConvertDieMapToWaferMap(sourceMap, waferId);
+                }
+
+                if (IsManagedInputMapApprovalRequired())
+                {
+                    WriteLog("InputStageAlignSequence",
+                        "Managed Recipe input map is not FINAL APPLY approved. Align fallback map is blocked. - Failed");
+                    return null;
+                }
 
                 return Stage.EnsureWaferMapForAlign(waferId, Options.AllowFallbackMap);
             }
             catch (Exception ex)
             {
+                _resolvedAlignMapIsExternal = false;
                 WriteLog("InputStageAlignSequence", "Align wafer map resolve failed: " + ex.Message + " - Failed");
+                if (IsManagedInputMapApprovalRequired())
+                    return null;
                 return Stage.EnsureWaferMapForAlign(waferId, Options.AllowFallbackMap);
             }
             finally
@@ -1995,6 +2024,9 @@ namespace QMC.CDT320.Sequencing
                 DieMap recipeMap = LoadRecipeInputDieMap();
                 if (IsUsableSourceMap(recipeMap))
                     return recipeMap;
+
+                if (IsManagedInputMapApprovalRequired())
+                    return null;
 
                 DieMap materialMap = MaterialStateService.BuildDieMapFromWafer(wafer);
                 if (IsUsableSourceMap(materialMap))
@@ -2021,16 +2053,16 @@ namespace QMC.CDT320.Sequencing
             try
             {
                 RecipeProject project = RecipeStore.LoadLastOrDefault();
-                if (project == null || string.IsNullOrWhiteSpace(project.InputDieMapFileName))
+                if (project == null)
                     return null;
 
-                string path = project.InputDieMapFileName;
-                if (!System.IO.Path.IsPathRooted(path))
-                    path = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, path);
-
-                DieMap map = DieMapGenerator.Load(path);
+                string path;
+                string reason;
+                DieMap map = RecipeDieMapResolver.LoadCompatibleMap(project, RecipeMapKind.Input, out path, out reason);
                 if (map != null)
                     WriteLog("InputStageAlignSequence", "Recipe input die map loaded for align. path=" + path + " - Ok");
+                else if (!string.IsNullOrWhiteSpace(reason))
+                    WriteLog("InputStageAlignSequence", "Recipe input die map blocked for align. reason=" + reason + " - Failed");
                 return map;
             }
             catch (Exception ex)
@@ -2040,6 +2072,19 @@ namespace QMC.CDT320.Sequencing
             }
             finally
             {
+            }
+        }
+
+        private static bool IsManagedInputMapApprovalRequired()
+        {
+            try
+            {
+                RecipeProject project = RecipeStore.LoadLastOrDefault();
+                return project != null && project.MapApprovalVersion > 0;
+            }
+            catch
+            {
+                return false;
             }
         }
 

@@ -1,0 +1,11 @@
+D:\00.PROJECT\CDT-320\Source\CDT320Simulator\QMC.CDT-320\.codex-build\work-map-physical\dll\x86\OpenCvSharpExtern.dll
+D:\00.PROJECT\CDT-320\Source\CDT320Simulator\QMC.CDT-320\.codex-build\work-map-physical\dll\x86\opencv_videoio_ffmpeg4110.dll
+D:\00.PROJECT\CDT-320\Source\CDT320Simulator\QMC.CDT-320\.codex-build\work-map-physical\dll\x64\OpenCvSharpExtern.dll
+D:\00.PROJECT\CDT-320\Source\CDT320Simulator\QMC.CDT-320\.codex-build\work-map-physical\dll\x64\opencv_videoio_ffmpeg4110_64.dll
+D:\00.PROJECT\CDT-320\Source\CDT320Simulator\QMC.CDT-320\.codex-build\work-map-physical\QMc.Vision.Inspector.dll
+D:\00.PROJECT\CDT-320\Source\CDT320Simulator\QMC.CDT-320\.codex-build\work-map-physical\QMc.Vision.Inspector.pdb
+D:\00.PROJECT\CDT-320\Source\CDT320Simulator\QMC.CDT-320\.codex-obj\work-map-physical\QMc.Vision.Inspector.csproj.AssemblyReference.cache
+D:\00.PROJECT\CDT-320\Source\CDT320Simulator\QMC.CDT-320\.codex-obj\work-map-physical\QMc.Vision.Inspector.csproj.CoreCompileInputs.cache
+D:\00.PROJECT\CDT-320\Source\CDT320Simulator\QMC.CDT-320\.codex-obj\work-map-physical\QMc.Visi.89046A24.Up2Date
+D:\00.PROJECT\CDT-320\Source\CDT320Simulator\QMC.CDT-320\.codex-obj\work-map-physical\QMc.Vision.Inspector.dll
+D:\00.PROJECT\CDT-320\Source\CDT320Simulator\QMC.CDT-320\.codex-obj\work-map-physical\QMc.Vision.Inspector.pdb

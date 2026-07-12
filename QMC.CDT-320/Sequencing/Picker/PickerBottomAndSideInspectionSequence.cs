@@ -345,7 +345,7 @@ namespace QMC.CDT320.Sequencing
 
                     bottomTargetPositions[pickerIndex] = new SideTargetPosition
                     {
-                        X = targetX,
+                        X = bottomTarget.X,
                         Y = bottomTarget.Y
                     };
 

@@ -272,6 +272,8 @@ namespace QMC.CDT320.Materials
         [DataMember] public int SequenceNo { get; set; }
         [DataMember] public int DieMapX { get; set; }
         [DataMember] public int DieMapY { get; set; }
+        [DataMember] public int OriginalMapX { get; set; } = -1;
+        [DataMember] public int OriginalMapY { get; set; } = -1;
         [DataMember] public bool IsTarget { get; set; } = true;
         [DataMember] public DieResult Result { get; set; } = DieResult.Unknown;
         [DataMember] public int BinCode { get; set; }
@@ -284,6 +286,13 @@ namespace QMC.CDT320.Materials
         [DataMember] public double OutputInspectionOffsetY { get; set; }
         [DataMember] public double OutputInspectionOffsetT { get; set; }
         [DataMember] public string OutputInspectionRaw { get; set; } = "";
+
+        [OnDeserializing]
+        private void OnDeserializing(StreamingContext context)
+        {
+            OriginalMapX = -1;
+            OriginalMapY = -1;
+        }
     }
 
     [DataContract]
@@ -309,6 +318,12 @@ namespace QMC.CDT320.Materials
         [DataMember] public double InputStageAlignOriginY { get; set; }
         [DataMember] public double InputStageAlignPitchX { get; set; }
         [DataMember] public double InputStageAlignPitchY { get; set; }
+        /// <summary>Input Die Mapping에 사용한 승인 역할 맵의 Die X 크기(mm) 스냅샷.</summary>
+        [DataMember] public double InputStageDieSizeX { get; set; }
+        /// <summary>Input Die Mapping에 사용한 승인 역할 맵의 Die Y 크기(mm) 스냅샷.</summary>
+        [DataMember] public double InputStageDieSizeY { get; set; }
+        /// <summary>Input Die Mapping에 사용한 웨이퍼 외경(mm) 스냅샷.</summary>
+        [DataMember] public double InputStageOuterDiameterMm { get; set; }
         [DataMember] public double InputStageAlignOffsetX { get; set; }
         [DataMember] public double InputStageAlignOffsetY { get; set; }
         [DataMember] public bool HasInputStageThetaAlignResult { get; set; }
@@ -318,11 +333,19 @@ namespace QMC.CDT320.Materials
         [DataMember] public bool HasInputStageDieMappingResult { get; set; }
         [DataMember] public double InputStageDieMappingOffsetX { get; set; }
         [DataMember] public double InputStageDieMappingOffsetY { get; set; }
+        /// <summary>이 Wafer의 절대좌표 Mapping을 만들 때 승인된 Input 역할 맵 hash.</summary>
+        [DataMember] public string InputMapApprovalHashAtMapping { get; set; } = "";
         [DataMember] public string OutputReceiveSourceWaferId { get; set; } = "";
         [DataMember] public int OutputReceiveDieMapX { get; set; }
         [DataMember] public int OutputReceiveDieMapY { get; set; }
         [DataMember] public double OutputReceivePitchX { get; set; }
         [DataMember] public double OutputReceivePitchY { get; set; }
+        /// <summary>Output receive plan에 사용한 승인 역할 맵의 Die X 크기(mm) 스냅샷.</summary>
+        [DataMember] public double OutputReceiveDieSizeX { get; set; }
+        /// <summary>Output receive plan에 사용한 승인 역할 맵의 Die Y 크기(mm) 스냅샷.</summary>
+        [DataMember] public double OutputReceiveDieSizeY { get; set; }
+        /// <summary>Output receive plan에 사용한 웨이퍼 외경(mm) 스냅샷.</summary>
+        [DataMember] public double OutputReceiveOuterDiameterMm { get; set; }
         [DataMember] public double OutputReceiveOriginX { get; set; }
         [DataMember] public double OutputReceiveOriginY { get; set; }
         [DataMember] public int OutputReceiveNextIndex { get; set; }
@@ -340,6 +363,7 @@ namespace QMC.CDT320.Materials
         {
             SourceCassetteSlotPosition = double.NaN;
             CurrentCassetteSlotPosition = double.NaN;
+            InputMapApprovalHashAtMapping = "";
         }
     }
 
@@ -354,6 +378,8 @@ namespace QMC.CDT320.Materials
         [DataMember] public int Output_BinCode { get; set; }
         [DataMember] public int Wafer_IndexX { get; set; } = -1;
         [DataMember] public int Wafer_IndexY { get; set; } = -1;
+        [DataMember] public int Wafer_OriginalIndexX { get; set; } = -1;
+        [DataMember] public int Wafer_OriginalIndexY { get; set; } = -1;
         [DataMember] public int InputSequenceNo { get; set; }
         [DataMember] public int Bin_IndexX { get; set; } = -1;
         [DataMember] public int Bin_IndexY { get; set; } = -1;
@@ -370,6 +396,19 @@ namespace QMC.CDT320.Materials
         [DataMember] public List<DieInspectionRecord> Inspections { get; set; } = new List<DieInspectionRecord>();
         [DataMember] public DateTime CreatedAt { get; set; } = DateTime.Now;
         [DataMember] public DateTime UpdatedAt { get; set; } = DateTime.Now;
+
+        [OnDeserializing]
+        private void OnDeserializing(StreamingContext context)
+        {
+            Wafer_IndexX = -1;
+            Wafer_IndexY = -1;
+            Wafer_OriginalIndexX = -1;
+            Wafer_OriginalIndexY = -1;
+            Bin_IndexX = -1;
+            Bin_IndexY = -1;
+            ReservedPickerNo = -1;
+            PickedPickerNo = -1;
+        }
     }
 
     public sealed class OutputStageReceiveTarget

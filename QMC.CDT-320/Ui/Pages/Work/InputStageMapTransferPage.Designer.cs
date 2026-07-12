@@ -362,7 +362,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.lblPitchXCaption.Name = "lblPitchXCaption";
             this.lblPitchXCaption.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
             this.lblPitchXCaption.TabIndex = 4;
-            this.lblPitchXCaption.Text = "Pitch X";
+            this.lblPitchXCaption.Text = "Center Step X";
             this.lblPitchXCaption.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             //
             // lblPitchX
@@ -392,7 +392,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.lblPitchYCaption.Name = "lblPitchYCaption";
             this.lblPitchYCaption.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
             this.lblPitchYCaption.TabIndex = 6;
-            this.lblPitchYCaption.Text = "Pitch Y";
+            this.lblPitchYCaption.Text = "Center Step Y";
             this.lblPitchYCaption.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             //
             // lblPitchY

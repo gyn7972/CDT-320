@@ -1,0 +1,17 @@
+FrameObjId,CSV-ROUNDTRIP
+DieMapX,201
+DieMapY,228
+PitchX,8.12
+PitchY,6.12
+DieSizeX,5
+DieSizeY,6
+OuterDiameterMm,300
+EdgeSkipMode,ExternalMap
+SideEdgeSkip,2
+TopBottomEdgeSkip,3
+OriginX,0
+OriginY,0
+CreatedAt,2020-01-02 03:04:05
+
+Index,SequenceNo,DieMapX,DieMapY,OriginalMapX,OriginalMapY,IsTarget,Result,BinCode,X,Y,DieUid
+0,0,166,181,166,181,True,Unknown,7,1.25,-2.5,UID,WITH,COMMA

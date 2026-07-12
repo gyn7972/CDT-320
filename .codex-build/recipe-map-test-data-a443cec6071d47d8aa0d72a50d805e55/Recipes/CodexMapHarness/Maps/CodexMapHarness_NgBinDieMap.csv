@@ -1,0 +1,27 @@
+FrameObjId,CodexMapHarness-NG-BIN-MAP
+DieMapX,35
+DieMapY,47
+PitchX,6
+PitchY,7
+DieSizeX,1.25
+DieSizeY,2.5
+OuterDiameterMm,200
+EdgeSkipMode,ExternalMap
+SideEdgeSkip,0
+TopBottomEdgeSkip,0
+OriginX,-102
+OriginY,161
+SourceFileName,source.csv
+SourceFormat,CSV
+SourcePitchFromFile,False
+SourceDeclaredCount,0
+SourceFirstX,-1
+SourceFirstY,-1
+SourceFirstPosX,NaN
+SourceFirstPosY,NaN
+CreatedAt,2026-07-12 18:14:11
+
+Index,SequenceNo,DieMapX,DieMapY,OriginalMapX,OriginalMapY,IsTarget,Result,BinCode,X,Y,EquipmentGridX,EquipmentGridY,DieUid
+0,1,34,0,200,227,True,Unknown,1,102,161,17,23,CodexMapHarness-NG-BIN-MAP-X0200-Y0227
+1,2,0,46,166,181,True,Unknown,1,-102,-161,-17,-23,CodexMapHarness-NG-BIN-MAP-X0166-Y0181
+2,0,1,46,167,181,False,NG,255,-96,-161,-16,-23,CodexMapHarness-NG-BIN-MAP-X0167-Y0181

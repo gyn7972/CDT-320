@@ -1,7 +1,8 @@
-﻿using System;
-using System.Collections.Generic;
+using System;
 using System.Drawing;
+using System.Globalization;
 using System.IO;
+using System.Linq;
 using System.Windows.Forms;
 using QMC.CDT320.DieMaps;
 using QMC.CDT320.Materials;
@@ -12,20 +13,34 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
 {
     public partial class TapeFrameSubsetPage : SubsetPageBase
     {
-        private const string InputWaferText = "INPUT WAFER";
-        private const string OutputWaferText = "OUTPUT WAFER";
+        protected override bool SaveToRecipePersistsProject => true;
+
         private const string EdgeSkipGridText = "GRID COUNT";
         private const string EdgeSkipMmText = "MM";
         private const string EdgeSkipExternalMapText = "EXTERNAL MAP";
 
         private bool _loadingRole;
+        private bool _applyingPitchValues;
         private bool _currentRoleIsOutput;
+        private string _pitchLoadNotice = "";
+        private string _lastWaferStatus = "대기: Base Wafer Map을 불러오거나 현재 Recipe를 확인하세요.";
 
         public TapeFrameSubsetPage() : base("recipe.tapeFrameSubset")
         {
             InitializeComponent();
             _nGridX.Maximum = 9999;
             _nGridY.Maximum = 9999;
+            // Recipe Pitch는 center-to-center가 아니라 Die 사이 Gap이다. 접촉 배치는 0 mm가 정상값이다.
+            _nPitchX.Minimum = 0M;
+            _nPitchY.Minimum = 0M;
+            _nPitchX.Value = 0M;
+            _nPitchY.Value = 0M;
+            lblPitchX.Text = "Pitch Gap X (mm)";
+            lblPitchY.Text = "Pitch Gap Y (mm)";
+            toolTipRecipeLocation.SetToolTip(_nPitchX, "다이 X 중심 간격 = Recipe Die Width + Pitch Gap X");
+            toolTipRecipeLocation.SetToolTip(_nPitchY, "다이 Y 중심 간격 = Recipe Die Height + Pitch Gap Y");
+            _nPitchX.ValueChanged += OnPitchValueChanged;
+            _nPitchY.ValueChanged += OnPitchValueChanged;
             UpdateEdgeSkipModeUi();
         }
 
@@ -36,24 +51,26 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
 
         protected override void BuildEditor(Panel c)
         {
-            // 편집영역 배경 흰색 통일 (그룹박스 배치는 Designer)
             if (c != null)
-                c.BackColor = System.Drawing.Color.White;
+                c.BackColor = Color.White;
         }
 
         protected override void LoadFromRecipe()
         {
-            EnsureRecipeFrames();
+            RecipeProjectConsistencyService.EnsureStructure(_project);
             _loadingRole = true;
             try
             {
                 if (_cbWaferRole.SelectedIndex < 0)
                     _cbWaferRole.SelectedIndex = 0;
+
                 _currentRoleIsOutput = IsOutputRoleSelected();
                 TapeFrameSubset frame = ResolveRoleFrame(_currentRoleIsOutput) ?? new TapeFrameSubset();
                 RefreshSpecList(frame.FrameSpecName);
                 ApplyFrameToControls(frame);
                 UpdateMapFileLabel();
+                UpdateDerivedControlAccess();
+                UpdateMapSourceInfo();
             }
             finally
             {
@@ -63,10 +80,37 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
 
         protected override void SaveToRecipe()
         {
-            SaveControlsToSelectedRole();
-            MaterialStateService.SyncRecipeTapeFrameSpec(_project);
-            RefreshSpecList(ResolveRoleFrame(_currentRoleIsOutput)?.FrameSpecName);
-            UpdateMapFileLabel();
+            try
+            {
+                SaveControlsToSelectedRole();
+                if (!RebuildConfiguredMaps() && !RecipeStore.Save(_project))
+                    throw new IOException("[PROJECT FILE SAVE] Recipe Project 파일을 저장할 수 없습니다.");
+
+                _loadingRole = true;
+                try
+                {
+                    TapeFrameSubset frame = ResolveRoleFrame(_currentRoleIsOutput);
+                    RefreshSpecList(frame != null ? frame.FrameSpecName : "");
+                    ApplyFrameToControls(frame);
+                    UpdateMapFileLabel();
+                    UpdateDerivedControlAccess();
+                    _lastWaferStatus = "[SAVE OK] " + (_currentRoleIsOutput ? "OUTPUT" : "INPUT") +
+                        " Pitch Gap을 Recipe에 저장하고 Die Size + Gap 중심 간격으로 역할 맵 좌표를 다시 계산했습니다.";
+                    if (!string.IsNullOrWhiteSpace(_project.BaseWaferMapFileName))
+                        _lastWaferStatus += " 공정 사용 전 Map Create에서 역할별 FINAL APPLY가 필요합니다.";
+                    UpdateMapSourceInfo();
+                }
+                finally
+                {
+                    _loadingRole = false;
+                }
+            }
+            catch (Exception ex)
+            {
+                _lastWaferStatus = "[SAVE FAILED] " + ex.Message;
+                UpdateMapSourceInfo();
+                throw;
+            }
         }
 
         private void OnWaferRoleChanged(object sender, EventArgs e)
@@ -76,17 +120,34 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
 
             try
             {
-                if (_project != null)
-                    SaveControlsToRole(_currentRoleIsOutput);
+                // ComboBox는 이미 새 역할을 표시하지만 이 필드는 직전 역할을 유지한다.
+                // 따라서 전환 전에 직전 역할의 미저장 편집값을 Recipe 메모리에 보존한다.
+                SaveControlsToRole(_currentRoleIsOutput);
 
                 _currentRoleIsOutput = IsOutputRoleSelected();
                 TapeFrameSubset frame = ResolveRoleFrame(_currentRoleIsOutput) ?? new TapeFrameSubset();
                 RefreshSpecList(frame.FrameSpecName);
                 ApplyFrameToControls(frame);
                 UpdateMapFileLabel();
+                UpdateDerivedControlAccess();
+                _lastWaferStatus = "역할 전환: " + (_currentRoleIsOutput ? "OUTPUT" : "INPUT") +
+                    " 설정과 생성 맵 정보를 표시합니다. 미저장 Pitch Gap은 화면 값으로만 유지됩니다." +
+                    (string.IsNullOrWhiteSpace(_pitchLoadNotice) ? "" : " " + _pitchLoadNotice);
+                UpdateMapSourceInfo();
             }
-            catch
+            catch (Exception ex)
             {
+                _loadingRole = true;
+                try
+                {
+                    _cbWaferRole.SelectedIndex = _currentRoleIsOutput ? 1 : 0;
+                }
+                finally
+                {
+                    _loadingRole = false;
+                }
+
+                MessageBox.Show("Wafer 역할 전환 실패: " + ex.Message, "Wafer Spec", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
 
@@ -95,18 +156,23 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             try
             {
                 string specName = _cbSpecLibrary.SelectedItem != null ? _cbSpecLibrary.SelectedItem.ToString() : "";
-                var spec = MaterialSpecs.FindFrame(specName);
+                TapeFrameSpec spec = MaterialSpecs.FindFrame(specName);
                 if (spec == null)
                 {
-                    MessageBox.Show("선택된 TapeFrame Spec을 찾을 수 없습니다.", "TapeFrame Spec", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    MessageBox.Show("선택된 Wafer/Frame Spec을 찾을 수 없습니다.", "Wafer Spec", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
 
                 ApplySpecToControls(spec);
+                _lastWaferStatus = "[LOAD SPEC] 선택 Spec을 화면에만 불러왔습니다. 상단 SAVE 또는 SAVE SPEC 전에는 Recipe에 적용되지 않습니다." +
+                    (string.IsNullOrWhiteSpace(_pitchLoadNotice) ? "" : " " + _pitchLoadNotice);
+                UpdateMapSourceInfo();
             }
             catch (Exception ex)
             {
-                MessageBox.Show("TapeFrame Spec 불러오기 실패: " + ex.Message, "TapeFrame Spec", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                _lastWaferStatus = "[LOAD SPEC FAILED] " + ex.Message;
+                UpdateMapSourceInfo();
+                MessageBox.Show("Wafer/Frame Spec 불러오기 실패: " + ex.Message, "Wafer Spec", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
 
@@ -114,22 +180,32 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
         {
             try
             {
-                SaveControlsToSelectedRole();
-                MaterialStateService.SyncRecipeTapeFrameSpec(_project);
-                RecipeStore.Save(_project);
+                SaveToRecipe();
+                SaveFrameSpec(ResolveRoleFrame(_currentRoleIsOutput), ResolveRoleMapFileName(_currentRoleIsOutput));
+
                 RecipeStore.SaveLastProjectName(_project.FileName);
                 var host = FindForm() as Form1;
+                if (host != null && !host.SaveMachineRecipe(_project.FileName))
+                    throw new IOException("[CURRENT RECIPE APPLY] 장비 Recipe 저장/적용에 실패했습니다: " + _project.FileName);
+
                 if (host != null)
-                    host.SaveMachineRecipe(_project.FileName);
+                {
+                    host.LoadMachineRecipe(_project.FileName);
+                    host.RefreshProjectName(_project.FileName);
+                }
 
                 TapeFrameSubset frame = ResolveRoleFrame(_currentRoleIsOutput);
                 RefreshSpecList(frame != null ? frame.FrameSpecName : "");
                 UpdateMapFileLabel();
-                MessageBox.Show("TapeFrame Spec 저장 및 Recipe 연동 완료.", "TapeFrame Spec", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                _lastWaferStatus = "[SAVE SPEC OK] 현재 역할 Spec library와 Recipe를 함께 저장했습니다.";
+                UpdateMapSourceInfo();
+                MessageBox.Show("Wafer/Frame Spec 저장 및 Recipe 연동 완료.", "Wafer Spec", MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
             catch (Exception ex)
             {
-                MessageBox.Show("TapeFrame Spec 저장 실패: " + ex.Message, "TapeFrame Spec", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                _lastWaferStatus = "[SAVE SPEC FAILED] " + ex.Message;
+                UpdateMapSourceInfo();
+                MessageBox.Show("Wafer/Frame Spec 저장 실패: " + ex.Message, "Wafer Spec", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
 
@@ -137,147 +213,104 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
         {
             try
             {
-                using (var dlg = new OpenFileDialog
+                using (var dialog = new OpenFileDialog
                 {
-                    Title = "Load Wafer Map",
+                    Title = "Load Base Wafer Map",
                     Filter = "Wafer map files|*.txt;*.json;*.csv|WaferMap TXT|*.txt|JSON|*.json|CSV|*.csv|All files|*.*",
                     InitialDirectory = ResolveWaferMapInitialDirectory()
                 })
                 {
-                    if (dlg.ShowDialog(this) != DialogResult.OK)
+                    if (dialog.ShowDialog(this) != DialogResult.OK)
                         return;
 
-                    DieMap map = DieMapGenerator.Load(dlg.FileName);
-                    if (map == null)
+                    // Base 파싱 전에 현재 역할의 Pitch/Frame 편집값을 먼저 반영한다.
+                    SaveControlsToSelectedRole();
+                    RecipeMapBuildResult result = RecipeMapBuildService.ImportBaseAndBuildAll(
+                        _project,
+                        dialog.FileName,
+                        RecipeStore.Save);
+                    if (!result.Success)
+                        throw new InvalidOperationException(result.Message);
+
+                    SaveAllFrameSpecs();
+                    RecipeStore.SaveLastProjectName(_project.FileName);
+                    var host = FindForm() as Form1;
+                    if (host != null && !host.SaveMachineRecipe(_project.FileName))
+                        throw new IOException("[CURRENT RECIPE APPLY] 장비 Recipe 저장/적용에 실패했습니다: " + _project.FileName);
+
+                    if (host != null)
                     {
-                        MessageBox.Show("Wafer Map 파일을 읽을 수 없습니다.", "Wafer Map", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                        return;
+                        host.LoadMachineRecipe(_project.FileName);
+                        host.RefreshProjectName(_project.FileName);
                     }
 
-                    ApplyImportedMapToControls(map, dlg.FileName);
-                    SaveImportedMapToRecipe(map);
-                    MessageBox.Show("Wafer Map 불러오기 및 Recipe 연결 완료.\r\n" + BuildImportedMapMessage(), "Wafer Map", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    _loadingRole = true;
+                    try
+                    {
+                        ApplyFrameToControls(ResolveRoleFrame(_currentRoleIsOutput));
+                        UpdateMapFileLabel();
+                        UpdateDerivedControlAccess();
+                        _lastWaferStatus = "[LOAD WAFER MAP OK] " + Path.GetFileName(dialog.FileName) +
+                            "을 Base로 저장하고 Input/Good/NG 역할 맵을 생성했습니다. Map Create에서 확인 후 APPLY 하세요.";
+                        UpdateMapSourceInfo();
+                    }
+                    finally
+                    {
+                        _loadingRole = false;
+                    }
+
+                    MessageBox.Show(
+                        string.Format(
+                            "Base/Input/Good/NG Wafer Map 생성 완료.\r\n주소 수: {0}\r\n\r\n" +
+                            "공정 사용 전 INPUT DIE MAP CREATE와 BIN DIE MAP CREATE에서 각 역할을 확인하고 FINAL APPLY 하세요.",
+                            result.AddressCount),
+                        "Wafer Map",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Information);
                 }
             }
             catch (Exception ex)
             {
+                _lastWaferStatus = "[LOAD WAFER MAP FAILED] " + ex.Message;
+                UpdateMapSourceInfo();
                 MessageBox.Show("Wafer Map 불러오기 실패: " + ex.Message, "Wafer Map", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
 
         private static string ResolveWaferMapInitialDirectory()
         {
-            string appWaferMapDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Config", "WaferMap");
-            if (Directory.Exists(appWaferMapDir))
-                return appWaferMapDir;
-
             string machineWaferMapDir = @"D:\CDT-320\Config\WaferMap";
             if (Directory.Exists(machineWaferMapDir))
                 return machineWaferMapDir;
 
+            string appWaferMapDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Config", "WaferMap");
+            if (Directory.Exists(appWaferMapDir))
+                return appWaferMapDir;
+
             return RecipeMapPaths.GetDieMapDirectory();
-        }
-
-        private void ApplyImportedMapToControls(DieMap map, string sourcePath)
-        {
-            if (map == null)
-                return;
-
-            string baseName = Path.GetFileNameWithoutExtension(sourcePath);
-            string roleName = _currentRoleIsOutput ? "OutputWafer" : "InputWafer";
-            _tbName.Text = RecipeMapPaths.SanitizeFileName(baseName + "_" + roleName);
-            _nGridX.Value = ClampDecimal(map.DieMapX, _nGridX.Minimum, _nGridX.Maximum);
-            _nGridY.Value = ClampDecimal(map.DieMapY, _nGridY.Minimum, _nGridY.Maximum);
-            _nPitchX.Value = ClampDecimal((decimal)Math.Max(0.001, map.PitchX), _nPitchX.Minimum, _nPitchX.Maximum);
-            _nPitchY.Value = ClampDecimal((decimal)Math.Max(0.001, map.PitchY), _nPitchY.Minimum, _nPitchY.Maximum);
-            _nDieSizeX.Value = ClampDecimal((decimal)Math.Max(0.001, map.DieSizeX > 0.0 ? map.DieSizeX : map.PitchX), _nDieSizeX.Minimum, _nDieSizeX.Maximum);
-            _nDieSizeY.Value = ClampDecimal((decimal)Math.Max(0.001, map.DieSizeY > 0.0 ? map.DieSizeY : map.PitchY), _nDieSizeY.Minimum, _nDieSizeY.Maximum);
-            _nDiameter.Value = ClampDecimal((decimal)ResolveOuterDiameter(map), _nDiameter.Minimum, _nDiameter.Maximum);
-            SetSelectedEdgeSkipMode(map.EdgeSkipMode);
-            _nSideEdgeSkip.Value = ClampDecimal((decimal)Math.Max(0.0, map.SideEdgeSkip), _nSideEdgeSkip.Minimum, _nSideEdgeSkip.Maximum);
-            _nTopBottomEdgeSkip.Value = ClampDecimal((decimal)Math.Max(0.0, map.TopBottomEdgeSkip), _nTopBottomEdgeSkip.Minimum, _nTopBottomEdgeSkip.Maximum);
-        }
-
-        private void SaveImportedMapToRecipe(DieMap map)
-        {
-            if (_project == null || map == null)
-                return;
-
-            SaveControlsToSelectedRole();
-
-            if (_currentRoleIsOutput)
-            {
-                SaveImportedMapForKind(map, RecipeMapKind.GoodBin);
-                SaveImportedMapForKind(map, RecipeMapKind.NgBin);
-            }
-            else
-            {
-                SaveImportedMapForKind(map, RecipeMapKind.Input);
-            }
-
-            // 현재 기준: wafer spec import 시 map 파일과 frame spec을 동시에 recipe에 고정한다.
-            MaterialStateService.SyncRecipeTapeFrameSpec(_project);
-            RecipeStore.Save(_project);
-            RecipeStore.SaveLastProjectName(_project.FileName);
-            var host = FindForm() as Form1;
-            if (host != null)
-                host.SaveMachineRecipe(_project.FileName);
-            UpdateMapFileLabel();
-        }
-
-        private void SaveImportedMapForKind(DieMap map, RecipeMapKind kind)
-        {
-            string path = RecipeMapPaths.BuildDefaultPath(_project, kind);
-            string dir = Path.GetDirectoryName(path);
-            if (!string.IsNullOrWhiteSpace(dir))
-                Directory.CreateDirectory(dir);
-
-            DieMap normalized = DieMapGenerator.Normalize(map);
-            normalized.FrameObjId = Path.GetFileNameWithoutExtension(path);
-            DieMapGenerator.Save(normalized, path);
-            if (!string.Equals(Path.GetExtension(path), ".csv", StringComparison.OrdinalIgnoreCase))
-                DieMapGenerator.SaveCsv(normalized, Path.ChangeExtension(path, ".csv"));
-
-            string relativePath = RecipeMapPaths.MakeConfigRelativePath(path);
-            RecipeMapPaths.SetConfiguredFileName(_project, kind, relativePath);
-        }
-
-        private string BuildImportedMapMessage()
-        {
-            if (!_currentRoleIsOutput)
-                return "Input map: " + (_project != null ? _project.InputDieMapFileName : "-");
-
-            return "Good map: " + (_project != null ? _project.GoodBinDieMapFileName : "-") +
-                   "\r\nNG map: " + (_project != null ? _project.NgBinDieMapFileName : "-");
         }
 
         private void RefreshSpecList(string selectedName)
         {
-            try
+            string selected = selectedName ?? "";
+            _cbSpecLibrary.Items.Clear();
+            MaterialSpecs.Load();
+            if (MaterialSpecs.Data != null && MaterialSpecs.Data.Frames != null)
             {
-                string selected = selectedName ?? "";
-                _cbSpecLibrary.Items.Clear();
-                MaterialSpecs.Load();
-                if (MaterialSpecs.Data != null && MaterialSpecs.Data.Frames != null)
+                foreach (TapeFrameSpec spec in MaterialSpecs.Data.Frames)
                 {
-                    foreach (var spec in MaterialSpecs.Data.Frames)
-                    {
-                        if (spec != null && !string.IsNullOrWhiteSpace(spec.Name))
-                            _cbSpecLibrary.Items.Add(spec.Name);
-                    }
+                    if (spec != null && !string.IsNullOrWhiteSpace(spec.Name))
+                        _cbSpecLibrary.Items.Add(spec.Name);
                 }
-
-                if (!string.IsNullOrWhiteSpace(selected) && !_cbSpecLibrary.Items.Contains(selected))
-                    _cbSpecLibrary.Items.Add(selected);
-
-                if (!string.IsNullOrWhiteSpace(selected))
-                    _cbSpecLibrary.SelectedItem = selected;
-                if (_cbSpecLibrary.SelectedIndex < 0 && _cbSpecLibrary.Items.Count > 0)
-                    _cbSpecLibrary.SelectedIndex = 0;
             }
-            catch
-            {
-            }
+
+            if (!string.IsNullOrWhiteSpace(selected) && !_cbSpecLibrary.Items.Contains(selected))
+                _cbSpecLibrary.Items.Add(selected);
+
+            if (!string.IsNullOrWhiteSpace(selected))
+                _cbSpecLibrary.SelectedItem = selected;
+            if (_cbSpecLibrary.SelectedIndex < 0 && _cbSpecLibrary.Items.Count > 0)
+                _cbSpecLibrary.SelectedIndex = 0;
         }
 
         private void ApplySpecToControls(TapeFrameSpec spec)
@@ -286,16 +319,20 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 return;
 
             _tbName.Text = spec.Name ?? "";
-            _nGridX.Value = ClampDecimal(spec.DieMapX, _nGridX.Minimum, _nGridX.Maximum);
-            _nGridY.Value = ClampDecimal(spec.DieMapY, _nGridY.Minimum, _nGridY.Maximum);
-            _nPitchX.Value = ClampDecimal((decimal)spec.PitchX, _nPitchX.Minimum, _nPitchX.Maximum);
-            _nPitchY.Value = ClampDecimal((decimal)spec.PitchY, _nPitchY.Minimum, _nPitchY.Maximum);
-            _nDieSizeX.Value = ClampDecimal((decimal)(spec.DieSizeX > 0.0 ? spec.DieSizeX : spec.PitchX), _nDieSizeX.Minimum, _nDieSizeX.Maximum);
-            _nDieSizeY.Value = ClampDecimal((decimal)(spec.DieSizeY > 0.0 ? spec.DieSizeY : spec.PitchY), _nDieSizeY.Minimum, _nDieSizeY.Maximum);
+            ApplyPitchValuesToControls(spec.PitchX, spec.PitchY, "선택 Spec");
             _nDiameter.Value = ClampDecimal((decimal)spec.OuterDiameterMm, _nDiameter.Minimum, _nDiameter.Maximum);
-            SetSelectedEdgeSkipMode(spec.EdgeSkipMode);
-            _nSideEdgeSkip.Value = ClampDecimal(GetEdgeSkipControlValue(spec), _nSideEdgeSkip.Minimum, _nSideEdgeSkip.Maximum);
-            _nTopBottomEdgeSkip.Value = ClampDecimal(GetTopBottomEdgeSkipControlValue(spec), _nTopBottomEdgeSkip.Minimum, _nTopBottomEdgeSkip.Maximum);
+
+            if (!IsBaseMapConnected())
+            {
+                _nGridX.Value = ClampDecimal(spec.DieMapX, _nGridX.Minimum, _nGridX.Maximum);
+                _nGridY.Value = ClampDecimal(spec.DieMapY, _nGridY.Minimum, _nGridY.Maximum);
+                SetSelectedEdgeSkipMode(spec.EdgeSkipMode);
+                _nSideEdgeSkip.Value = ClampDecimal(GetEdgeSkipControlValue(spec), _nSideEdgeSkip.Minimum, _nSideEdgeSkip.Maximum);
+                _nTopBottomEdgeSkip.Value = ClampDecimal(GetTopBottomEdgeSkipControlValue(spec), _nTopBottomEdgeSkip.Minimum, _nTopBottomEdgeSkip.Maximum);
+            }
+
+            ApplyRecipeDieSizeToControls();
+            UpdateDerivedControlAccess();
         }
 
         private void ApplyFrameToControls(TapeFrameSubset frame)
@@ -306,16 +343,15 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             _tbName.Text = frame.FrameSpecName ?? "";
             _nGridX.Value = ClampDecimal(frame.DieMapX, _nGridX.Minimum, _nGridX.Maximum);
             _nGridY.Value = ClampDecimal(frame.DieMapY, _nGridY.Minimum, _nGridY.Maximum);
-            _nPitchX.Value = ClampDecimal((decimal)frame.PitchX, _nPitchX.Minimum, _nPitchX.Maximum);
-            _nPitchY.Value = ClampDecimal((decimal)frame.PitchY, _nPitchY.Minimum, _nPitchY.Maximum);
-            _nDieSizeX.Value = ClampDecimal((decimal)(frame.DieSizeX > 0.0 ? frame.DieSizeX : frame.PitchX), _nDieSizeX.Minimum, _nDieSizeX.Maximum);
-            _nDieSizeY.Value = ClampDecimal((decimal)(frame.DieSizeY > 0.0 ? frame.DieSizeY : frame.PitchY), _nDieSizeY.Minimum, _nDieSizeY.Maximum);
+            ApplyPitchValuesToControls(frame.PitchX, frame.PitchY, "저장된 " + (_currentRoleIsOutput ? "OUTPUT" : "INPUT") + " 역할");
+            ApplyRecipeDieSizeToControls();
             _nDiameter.Value = ClampDecimal((decimal)frame.OuterDiameterMm, _nDiameter.Minimum, _nDiameter.Maximum);
             SetSelectedEdgeSkipMode(frame.EdgeSkipMode);
             _nSideEdgeSkip.Value = ClampDecimal(GetEdgeSkipControlValue(frame), _nSideEdgeSkip.Minimum, _nSideEdgeSkip.Maximum);
             _nTopBottomEdgeSkip.Value = ClampDecimal(GetTopBottomEdgeSkipControlValue(frame), _nTopBottomEdgeSkip.Minimum, _nTopBottomEdgeSkip.Maximum);
             _cbRotate.SelectedItem = frame.Rotate ?? "None";
-            if (_cbRotate.SelectedIndex < 0) _cbRotate.SelectedIndex = 0;
+            if (_cbRotate.SelectedIndex < 0)
+                _cbRotate.SelectedIndex = 0;
         }
 
         private void ApplyControlsToFrame(TapeFrameSubset frame)
@@ -323,33 +359,31 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             if (frame == null)
                 return;
 
-            string edgeMode = GetSelectedEdgeSkipModeName();
-            bool mmMode = string.Equals(edgeMode, "Millimeter", StringComparison.OrdinalIgnoreCase);
+            double pitchX = (double)_nPitchX.Value;
+            double pitchY = (double)_nPitchY.Value;
+            ValidatePitchForSave(pitchX, pitchY);
 
             frame.FrameSpecName = string.IsNullOrWhiteSpace(_tbName.Text) ? "8inch_5x5" : _tbName.Text.Trim();
-            frame.PitchX = (double)_nPitchX.Value;
-            frame.PitchY = (double)_nPitchY.Value;
-            frame.DieSizeX = (double)_nDieSizeX.Value;
-            frame.DieSizeY = (double)_nDieSizeY.Value;
+            frame.PitchX = pitchX;
+            frame.PitchY = pitchY;
+            frame.DieSizeX = ResolveRecipeDieSizeX();
+            frame.DieSizeY = ResolveRecipeDieSizeY();
             frame.OuterDiameterMm = (double)_nDiameter.Value;
-            frame.DieMapX = ResolvePitchBasedGridCount(frame.OuterDiameterMm, frame.PitchX, (int)_nGridX.Value);
-            frame.DieMapY = ResolvePitchBasedGridCount(frame.OuterDiameterMm, frame.PitchY, (int)_nGridY.Value);
+            frame.Rotate = _cbRotate.SelectedItem != null ? _cbRotate.SelectedItem.ToString() : "None";
+
+            if (IsBaseMapConnected())
+                return;
+
+            frame.DieMapX = Math.Max(1, (int)_nGridX.Value);
+            frame.DieMapY = Math.Max(1, (int)_nGridY.Value);
+            string edgeMode = GetSelectedEdgeSkipModeName();
+            bool mmMode = string.Equals(edgeMode, "Millimeter", StringComparison.OrdinalIgnoreCase);
+            bool externalMode = string.Equals(edgeMode, "ExternalMap", StringComparison.OrdinalIgnoreCase);
             frame.EdgeSkipMode = edgeMode;
-            frame.SideEdgeSkip = !mmMode ? Math.Max(0, (int)Math.Floor(_nSideEdgeSkip.Value)) : 0;
-            frame.TopBottomEdgeSkip = !mmMode ? Math.Max(0, (int)Math.Floor(_nTopBottomEdgeSkip.Value)) : 0;
+            frame.SideEdgeSkip = !mmMode && !externalMode ? Math.Max(0, (int)Math.Floor(_nSideEdgeSkip.Value)) : 0;
+            frame.TopBottomEdgeSkip = !mmMode && !externalMode ? Math.Max(0, (int)Math.Floor(_nTopBottomEdgeSkip.Value)) : 0;
             frame.SideEdgeSkipMm = mmMode ? Math.Max(0.0, (double)_nSideEdgeSkip.Value) : 0.0;
             frame.TopBottomEdgeSkipMm = mmMode ? Math.Max(0.0, (double)_nTopBottomEdgeSkip.Value) : 0.0;
-            frame.Rotate = _cbRotate.SelectedItem != null ? _cbRotate.SelectedItem.ToString() : "None";
-            _nGridX.Value = ClampDecimal(frame.DieMapX, _nGridX.Minimum, _nGridX.Maximum);
-            _nGridY.Value = ClampDecimal(frame.DieMapY, _nGridY.Minimum, _nGridY.Maximum);
-        }
-
-        private static int ResolvePitchBasedGridCount(double outerDiameterMm, double pitchMm, int fallback)
-        {
-            if (outerDiameterMm <= 0.0 || pitchMm <= 0.0)
-                return Math.Max(1, fallback);
-
-            return DieMapGenerator.CalculateWaferGridCount(outerDiameterMm, pitchMm, pitchMm);
         }
 
         private void SaveControlsToSelectedRole()
@@ -362,23 +396,94 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             if (_project == null)
                 return;
 
-            TapeFrameSubset frame = EnsureRoleFrame(output);
+            RecipeProjectConsistencyService.EnsureStructure(_project);
+            TapeFrameSubset frame = output ? _project.OutputFrame : _project.InputFrame;
             ApplyControlsToFrame(frame);
             if (!output)
-                _project.Frame = CloneFrame(frame);
+                _project.Frame = RecipeProjectConsistencyService.CloneFrame(frame);
         }
 
-        private void EnsureRecipeFrames()
+        private bool RebuildConfiguredMaps()
         {
-            if (_project == null)
+            if (!IsBaseMapConnected())
+                return false;
+
+            bool rebuildInput = !_currentRoleIsOutput || RoleMapNeedsRebuild(false);
+            bool rebuildOutput = _currentRoleIsOutput || RoleMapNeedsRebuild(true);
+            RecipeMapBuildResult result = RecipeMapBuildService.RebuildDerivedMaps(
+                _project,
+                rebuildInput,
+                rebuildOutput,
+                true,
+                RecipeStore.Save);
+            if (!result.Success)
+                throw new InvalidOperationException(result.Message);
+            return true;
+        }
+
+        private bool RoleMapNeedsRebuild(bool output)
+        {
+            TapeFrameSubset frame = ResolveRoleFrame(output);
+            if (frame == null || !IsPitchGapValid(frame.PitchX) || !IsPitchGapValid(frame.PitchY))
+                return true;
+
+            double expectedStepX = ResolveRecipeDieSizeX() + frame.PitchX;
+            double expectedStepY = ResolveRecipeDieSizeY() + frame.PitchY;
+            RecipeMapKind[] kinds = output
+                ? new[] { RecipeMapKind.GoodBin, RecipeMapKind.NgBin }
+                : new[] { RecipeMapKind.Input };
+            foreach (RecipeMapKind kind in kinds)
+            {
+                string configured = RecipeMapPaths.ExactConfiguredFileName(_project, kind);
+                string path = RecipeMapPaths.ResolveConfiguredPath(configured);
+                DieMap roleMap = !string.IsNullOrWhiteSpace(path) && File.Exists(path)
+                    ? DieMapGenerator.Load(path)
+                    : null;
+                if (roleMap == null ||
+                    !NearlyEqual(roleMap.PitchX, expectedStepX) ||
+                    !NearlyEqual(roleMap.PitchY, expectedStepY))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private void SaveAllFrameSpecs()
+        {
+            SaveFrameSpec(_project != null ? _project.InputFrame : null, _project != null ? _project.InputDieMapFileName : "");
+            SaveFrameSpec(_project != null ? _project.OutputFrame : null, _project != null ? _project.GoodBinDieMapFileName : "");
+        }
+
+        private void SaveFrameSpec(TapeFrameSubset frame, string mapFileName)
+        {
+            if (frame == null)
                 return;
 
-            if (_project.Frame == null)
-                _project.Frame = new TapeFrameSubset();
-            if (_project.InputFrame == null)
-                _project.InputFrame = CloneFrame(_project.Frame);
-            if (_project.OutputFrame == null)
-                _project.OutputFrame = CloneFrame(_project.Frame);
+            MaterialSpecs.UpsertFrame(
+                frame.FrameSpecName,
+                frame.DieMapX,
+                frame.DieMapY,
+                frame.PitchX,
+                frame.PitchY,
+                ResolveRecipeDieSizeX(),
+                ResolveRecipeDieSizeY(),
+                frame.OuterDiameterMm,
+                frame.EdgeSkipMode,
+                frame.SideEdgeSkip,
+                frame.TopBottomEdgeSkip,
+                frame.SideEdgeSkipMm,
+                frame.TopBottomEdgeSkipMm,
+                mapFileName ?? "",
+                _project != null && _project.Die != null ? _project.Die.DieSpecName ?? "" : "");
+        }
+
+        private string ResolveRoleMapFileName(bool output)
+        {
+            if (_project == null)
+                return "";
+            return output ? _project.GoodBinDieMapFileName : _project.InputDieMapFileName;
         }
 
         private TapeFrameSubset ResolveRoleFrame(bool output)
@@ -389,19 +494,16 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             return output ? (_project.OutputFrame ?? _project.Frame) : (_project.InputFrame ?? _project.Frame);
         }
 
-        private TapeFrameSubset EnsureRoleFrame(bool output)
-        {
-            EnsureRecipeFrames();
-            if (output)
-                return _project.OutputFrame ?? (_project.OutputFrame = CloneFrame(_project.Frame));
-            return _project.InputFrame ?? (_project.InputFrame = CloneFrame(_project.Frame));
-        }
-
         private bool IsOutputRoleSelected()
         {
             return _cbWaferRole != null &&
                    _cbWaferRole.SelectedItem != null &&
                    _cbWaferRole.SelectedItem.ToString().IndexOf("OUTPUT", StringComparison.OrdinalIgnoreCase) >= 0;
+        }
+
+        private bool IsBaseMapConnected()
+        {
+            return _project != null && !string.IsNullOrWhiteSpace(_project.BaseWaferMapFileName);
         }
 
         private void UpdateMapFileLabel()
@@ -410,13 +512,368 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 return;
 
             _lblMapFileValue.Text = _currentRoleIsOutput
-                ? "GOOD=" + EmptyDash(_project.GoodBinDieMapFileName) + " / NG=" + EmptyDash(_project.NgBinDieMapFileName)
-                : EmptyDash(_project.InputDieMapFileName);
+                ? "BASE=" + EmptyDash(_project.BaseWaferMapFileName) + " / GOOD=" + EmptyDash(_project.GoodBinDieMapFileName) + " / NG=" + EmptyDash(_project.NgBinDieMapFileName)
+                : "BASE=" + EmptyDash(_project.BaseWaferMapFileName) + " / INPUT=" + EmptyDash(_project.InputDieMapFileName);
+        }
+
+        private void OnPitchValueChanged(object sender, EventArgs e)
+        {
+            if (_loadingRole || _applyingPitchValues)
+                return;
+
+            _pitchLoadNotice = "";
+            _lastWaferStatus = "[EDITING] 현재 화면의 Pitch Gap이 변경되었습니다. 실제 중심 간격은 Die Size + Gap이며 상단 SAVE 전에는 역할 맵 좌표에 적용되지 않습니다.";
+            UpdateMapSourceInfo();
+        }
+
+        private void ApplyPitchValuesToControls(double configuredPitchX, double configuredPitchY, string sourceName)
+        {
+            double dieSizeX = ResolveRecipeDieSizeX();
+            double dieSizeY = ResolveRecipeDieSizeY();
+            double baseCenterStepX;
+            double baseCenterStepY;
+            bool hasBaseSourcePitch = TryResolveBaseSourcePitch(out baseCenterStepX, out baseCenterStepY);
+            bool baseXValid = hasBaseSourcePitch && IsSourceCenterStepValid(baseCenterStepX, dieSizeX);
+            bool baseYValid = hasBaseSourcePitch && IsSourceCenterStepValid(baseCenterStepY, dieSizeY);
+            double baseGapX = baseXValid ? Math.Max(0.0, baseCenterStepX - dieSizeX) : 0.0;
+            double baseGapY = baseYValid ? Math.Max(0.0, baseCenterStepY - dieSizeY) : 0.0;
+            bool configuredXValid = IsPitchGapValid(configuredPitchX);
+            bool configuredYValid = IsPitchGapValid(configuredPitchY);
+
+            // 기존 NumericUpDown 최소값(0.001)이 정상 Gap 0을 0.001로 올려 저장한 Recipe를 복구한다.
+            bool legacyMinimumClampX = baseXValid && NearlyEqual(configuredPitchX, 0.001) &&
+                                       NearlyEqual(baseGapX, 0.0) &&
+                                       IsLegacyRoleMapPitch(configuredPitchX, dieSizeX, true, sourceName);
+            bool legacyMinimumClampY = baseYValid && NearlyEqual(configuredPitchY, 0.001) &&
+                                       NearlyEqual(baseGapY, 0.0) &&
+                                       IsLegacyRoleMapPitch(configuredPitchY, dieSizeY, false, sourceName);
+            bool recoverX = !configuredXValid || legacyMinimumClampX;
+            bool recoverY = !configuredYValid || legacyMinimumClampY;
+            double displayPitchX = recoverX ? (baseXValid ? baseGapX : 0.0) : configuredPitchX;
+            double displayPitchY = recoverY ? (baseYValid ? baseGapY : 0.0) : configuredPitchY;
+
+            _applyingPitchValues = true;
+            try
+            {
+                _nPitchX.Value = ClampDecimal(ToSafeDecimal(displayPitchX, _nPitchX.Minimum), _nPitchX.Minimum, _nPitchX.Maximum);
+                _nPitchY.Value = ClampDecimal(ToSafeDecimal(displayPitchY, _nPitchY.Minimum), _nPitchY.Minimum, _nPitchY.Maximum);
+            }
+            finally
+            {
+                _applyingPitchValues = false;
+            }
+
+            if (!recoverX && !recoverY)
+            {
+                _pitchLoadNotice = "";
+                return;
+            }
+
+            string configuredText = "(" + FormatNumber(configuredPitchX) + ", " + FormatNumber(configuredPitchY) + ") mm";
+            if ((!recoverX || baseXValid) && (!recoverY || baseYValid))
+            {
+                _pitchLoadNotice = "[PITCH GAP RECOVERY] " + sourceName + " Gap " + configuredText +
+                    "을 Base RAD 중심 간격 (" + FormatNumber(baseCenterStepX) + ", " +
+                    FormatNumber(baseCenterStepY) + ") - Die Size (" + FormatNumber(dieSizeX) + ", " +
+                    FormatNumber(dieSizeY) + ")로 계산한 Gap (" + FormatNumber(displayPitchX) + ", " +
+                    FormatNumber(displayPitchY) + ") mm로 표시합니다. 상단 SAVE 시 역할 맵을 다시 계산합니다.";
+                return;
+            }
+
+            _pitchLoadNotice = "[PITCH GAP INVALID] " + sourceName + " Gap " + configuredText +
+                "이 유효하지 않고 사용할 수 있는 Base RAD 중심 간격도 없어 0 mm로 표시합니다. " +
+                "Gap은 0 이상의 값으로 저장됩니다.";
+        }
+
+        private bool IsLegacyRoleMapPitch(double configuredGap, double dieSize, bool xAxis, string sourceName)
+        {
+            if (string.IsNullOrWhiteSpace(sourceName) ||
+                !sourceName.StartsWith("저장된 ", StringComparison.Ordinal))
+            {
+                return false;
+            }
+
+            try
+            {
+                string configuredPath = ResolveRoleMapFileName(_currentRoleIsOutput);
+                string absolutePath = RecipeMapPaths.ResolveConfiguredPath(configuredPath);
+                DieMap roleMap = !string.IsNullOrWhiteSpace(absolutePath) && File.Exists(absolutePath)
+                    ? DieMapGenerator.Load(absolutePath)
+                    : null;
+                if (roleMap == null)
+                    return false;
+
+                double storedMapStep = xAxis ? roleMap.PitchX : roleMap.PitchY;
+                return NearlyEqual(storedMapStep, configuredGap) &&
+                       storedMapStep + 0.000000001 < dieSize;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        private bool TryResolveBaseSourcePitch(out double pitchX, out double pitchY)
+        {
+            pitchX = 0.0;
+            pitchY = 0.0;
+            try
+            {
+                if (_project == null)
+                    return false;
+
+                string basePath = RecipeMapPaths.ResolveBaseConfigured(_project);
+                if (string.IsNullOrWhiteSpace(basePath) || !File.Exists(basePath))
+                    return false;
+
+                DieMap baseMap = DieMapGenerator.Load(basePath);
+                if (baseMap == null || !baseMap.SourcePitchFromFile)
+                    return false;
+
+                pitchX = baseMap.PitchX;
+                pitchY = baseMap.PitchY;
+                return true;
+            }
+            catch
+            {
+                pitchX = 0.0;
+                pitchY = 0.0;
+                return false;
+            }
+        }
+
+        private void ValidatePitchForSave(double pitchX, double pitchY)
+        {
+            if (!IsPitchGapValid(pitchX) || !IsPitchGapValid(pitchY))
+            {
+                throw new InvalidOperationException(
+                    "[PITCH GAP VALIDATION] Pitch Gap은 유한한 0 이상의 값이어야 합니다. " +
+                    "Gap=(" + FormatNumber(pitchX) + ", " + FormatNumber(pitchY) + ") mm.");
+            }
+        }
+
+        private static bool IsPitchGapValid(double pitchGap)
+        {
+            return !double.IsNaN(pitchGap) && !double.IsInfinity(pitchGap) && pitchGap >= 0.0;
+        }
+
+        private static bool IsSourceCenterStepValid(double centerStep, double dieSize)
+        {
+            return !double.IsNaN(centerStep) && !double.IsInfinity(centerStep) && centerStep > 0.0 &&
+                   !double.IsNaN(dieSize) && !double.IsInfinity(dieSize) && dieSize > 0.0 &&
+                   centerStep + 0.000000001 >= dieSize;
+        }
+
+        private static bool NearlyEqual(double left, double right)
+        {
+            return Math.Abs(left - right) <= 0.000001;
+        }
+
+        private static decimal ToSafeDecimal(double value, decimal fallback)
+        {
+            if (double.IsNaN(value) || double.IsInfinity(value) || value < (double)decimal.MinValue || value > (double)decimal.MaxValue)
+                return fallback;
+            return (decimal)value;
+        }
+
+        private void UpdateMapSourceInfo()
+        {
+            if (_tbMapSourceInfo == null)
+                return;
+
+            try
+            {
+                string role = _currentRoleIsOutput ? "OUTPUT" : "INPUT";
+                string axisX = _currentRoleIsOutput ? "Output Camera X" : "Input Camera X";
+                string axisY = _currentRoleIsOutput ? "Output Stage Y" : "Input Stage Y";
+                string projectName = _project != null ? _project.FileName ?? "-" : "-";
+                string basePath = _project != null ? RecipeMapPaths.ResolveBaseConfigured(_project) : "";
+                DieMap map = !string.IsNullOrWhiteSpace(basePath) && File.Exists(basePath)
+                    ? DieMapGenerator.Load(basePath)
+                    : null;
+
+                var lines = new System.Collections.Generic.List<string>
+                {
+                    "[CURRENT RECIPE]",
+                    "Project       : " + projectName,
+                    "Wafer role    : " + role,
+                    "Axis mapping  : X = " + axisX + " / Y = " + axisY,
+                    "Status        : " + (_lastWaferStatus ?? "-"),
+                    ""
+                };
+
+                if (map == null || map.Entries == null || map.Entries.Count == 0)
+                {
+                    lines.Add("[ORIGINAL WAFER MAP]");
+                    lines.Add(string.IsNullOrWhiteSpace(basePath)
+                        ? "Base map      : NOT CONNECTED"
+                        : "Base map      : READ FAILED - " + basePath);
+                    lines.Add("Source folder : D:\\CDT-320\\Config\\WaferMap");
+                    lines.Add("");
+                    AppendWaferApplyFlow(lines);
+                    _tbMapSourceInfo.Text = string.Join(Environment.NewLine, lines);
+                    return;
+                }
+
+                DieMapGenerator.Normalize(map);
+                var entries = map.Entries.Where(entry => entry != null).ToList();
+                int minRawX = entries.Min(entry => entry.OriginalMapX >= 0 ? entry.OriginalMapX : entry.DieMapX);
+                int maxRawX = entries.Max(entry => entry.OriginalMapX >= 0 ? entry.OriginalMapX : entry.DieMapX);
+                int minRawY = entries.Min(entry => entry.OriginalMapY >= 0 ? entry.OriginalMapY : entry.DieMapY);
+                int maxRawY = entries.Max(entry => entry.OriginalMapY >= 0 ? entry.OriginalMapY : entry.DieMapY);
+                double centerRawX = (minRawX + maxRawX) / 2.0;
+                double centerRawY = (minRawY + maxRawY) / 2.0;
+                int targetCount = entries.Count(entry => entry.IsTarget);
+                double roleGapX = _nPitchX != null ? (double)_nPitchX.Value : 0.0;
+                double roleGapY = _nPitchY != null ? (double)_nPitchY.Value : 0.0;
+                double roleCenterStepX = ResolveRecipeDieSizeX() + roleGapX;
+                double roleCenterStepY = ResolveRecipeDieSizeY() + roleGapY;
+                RecipeMapKind roleKind = _currentRoleIsOutput ? RecipeMapKind.GoodBin : RecipeMapKind.Input;
+                string roleConfiguredPath = ResolveRoleMapFileName(_currentRoleIsOutput);
+                string roleAbsolutePath = RecipeMapPaths.ResolveConfiguredPath(roleConfiguredPath);
+                DieMap savedRoleMap = !string.IsNullOrWhiteSpace(roleAbsolutePath) && File.Exists(roleAbsolutePath)
+                    ? DieMapGenerator.Load(roleAbsolutePath)
+                    : null;
+                bool screenPitchUnsaved = savedRoleMap == null ||
+                    Math.Abs(savedRoleMap.PitchX - roleCenterStepX) > 0.000001 ||
+                    Math.Abs(savedRoleMap.PitchY - roleCenterStepY) > 0.000001;
+                double firstCalculatedX = map.SourceFirstX >= 0 ? (map.SourceFirstX - centerRawX) * map.PitchX : double.NaN;
+                double firstCalculatedY = map.SourceFirstY >= 0 ? (map.SourceFirstY - centerRawY) * map.PitchY : double.NaN;
+                bool localDomainMatches = map.DieMapX == maxRawX - minRawX + 1 &&
+                                          map.DieMapY == maxRawY - minRawY + 1;
+
+                lines.Add("[ORIGINAL WAFER MAP]");
+                lines.Add("Source file   : " + EmptyDash(map.SourceFileName));
+                lines.Add("Format        : " + EmptyDash(map.SourceFormat));
+                lines.Add("Stored Base   : " + basePath);
+                lines.Add("Records       : " + entries.Count + " / Target " + targetCount +
+                          (map.SourceDeclaredCount > 0 ? " / Header " + map.SourceDeclaredCount : ""));
+                lines.Add("Raw index X   : " + minRawX + " .. " + maxRawX);
+                lines.Add("Raw index Y   : " + minRawY + " .. " + maxRawY);
+                lines.Add("Raw center    : (" + FormatNumber(centerRawX) + ", " + FormatNumber(centerRawY) + ") -> Equipment Grid (0,0)");
+                lines.Add("Local array   : " + map.DieMapX + " x " + map.DieMapY +
+                          (localDomainMatches ? " (normalized)" : " (LEGACY RAW/LOCAL MIXED - SAVE REQUIRED)"));
+                lines.Add("Header step   : " + (map.SourcePitchFromFile
+                    ? FormatNumber(map.PitchX) + " x " + FormatNumber(map.PitchY) + " mm (source center-step)"
+                    : "not provided; Die Size + role Gap is used"));
+                lines.Add("Die size      : " + FormatNumber(ResolveRecipeDieSizeX()) + " x " +
+                          FormatNumber(ResolveRecipeDieSizeY()) + " mm (Recipe -> Die Spec)");
+                if (map.SourceFirstX >= 0 && map.SourceFirstY >= 0)
+                {
+                    lines.Add("Header FIRST  : raw(" + map.SourceFirstX + "," + map.SourceFirstY + ")");
+                    if (!double.IsNaN(map.SourceFirstPosX) && !double.IsNaN(map.SourceFirstPosY))
+                    {
+                        lines.Add("Header FX/FY  : (" + FormatNumber(map.SourceFirstPosX) + ", " +
+                                  FormatNumber(map.SourceFirstPosY) + ") mm");
+                        lines.Add("Grid calc     : (" + FormatNumber(firstCalculatedX) + ", " +
+                                  FormatNumber(firstCalculatedY) + ") mm");
+                    }
+                }
+
+                lines.Add("");
+                lines.Add("[" + role + " ROLE MAP]");
+                lines.Add("Pitch gap     : " + FormatNumber(roleGapX) + " x " + FormatNumber(roleGapY) + " mm");
+                lines.Add("Center step   : " + FormatNumber(roleCenterStepX) + " x " + FormatNumber(roleCenterStepY) + " mm" +
+                          (screenPitchUnsaved ? " (UNSAVED)" : " (same as saved map)"));
+                lines.Add("Saved map step: " + (savedRoleMap != null
+                    ? FormatNumber(savedRoleMap.PitchX) + " x " + FormatNumber(savedRoleMap.PitchY) + " mm (actual role file)"
+                    : "role map not found"));
+                lines.Add("Grid control  : center (0,0), Left-/Right+, Down-/Up+");
+                lines.Add("Axis reference: X offset -> " + axisX + ", Y offset -> " + axisY);
+                if (_currentRoleIsOutput)
+                    lines.Add("Output place  : Camera X 기준좌표를 Picker X 배치좌표로 변환");
+                lines.Add("Map path      : " + roleAbsolutePath);
+                string approvalReason = "";
+                bool approved = savedRoleMap != null && RecipeMapPaths.IsMapApproved(_project, roleKind, savedRoleMap, out approvalReason);
+                lines.Add("Final apply   : " + (approved ? "APPROVED" : "PENDING - " + (savedRoleMap == null ? "role map not found" : approvalReason)));
+                if (_currentRoleIsOutput && _project != null)
+                {
+                    string ngPath = RecipeMapPaths.ResolveConfiguredPath(_project.NgBinDieMapFileName);
+                    DieMap ngMap = !string.IsNullOrWhiteSpace(ngPath) && File.Exists(ngPath) ? DieMapGenerator.Load(ngPath) : null;
+                    string ngApprovalReason = "";
+                    bool ngApproved = ngMap != null && RecipeMapPaths.IsMapApproved(_project, RecipeMapKind.NgBin, ngMap, out ngApprovalReason);
+                    lines.Add("NG map path   : " + ngPath);
+                    lines.Add("NG final apply: " + (ngApproved ? "APPROVED" : "PENDING - " + (ngMap == null ? "role map not found" : ngApprovalReason)));
+                }
+                lines.Add("");
+                AppendWaferApplyFlow(lines);
+                _tbMapSourceInfo.Text = string.Join(Environment.NewLine, lines);
+            }
+            catch (Exception ex)
+            {
+                _tbMapSourceInfo.Text = "[WAFER MAP INFO FAILED]" + Environment.NewLine + ex.Message +
+                    Environment.NewLine + Environment.NewLine + (_lastWaferStatus ?? "");
+            }
+        }
+
+        private static void AppendWaferApplyFlow(System.Collections.Generic.ICollection<string> lines)
+        {
+            lines.Add("[SAVE / LOAD / FINAL APPLY]");
+            lines.Add("1. LOAD WAFER MAP: RAD/CSV/JSON 원본을 Base로 연결");
+            lines.Add("2. INPUT WAFER 선택 -> Pitch Gap 입력 -> top SAVE");
+            lines.Add("3. OUTPUT WAFER 선택 -> Pitch Gap 입력 -> top SAVE");
+            lines.Add("4. INPUT DIE MAP CREATE: 현재 Input 맵/좌표 확인 -> APPLY");
+            lines.Add("5. BIN DIE MAP CREATE: GOOD/NG 각각 확인 -> APPLY");
+            lines.Add("※ LOAD SPEC은 화면만 변경하며 SAVE 전에는 Recipe에 적용되지 않습니다.");
+        }
+
+        private static string FormatNumber(double value)
+        {
+            return value.ToString("0.###", CultureInfo.InvariantCulture);
         }
 
         private static string EmptyDash(string value)
         {
             return string.IsNullOrWhiteSpace(value) ? "-" : value;
+        }
+
+        private void ApplyRecipeDieSizeToControls()
+        {
+            if (_nDieSizeX == null || _nDieSizeY == null)
+                return;
+
+            _nDieSizeX.Value = ClampDecimal((decimal)ResolveRecipeDieSizeX(), _nDieSizeX.Minimum, _nDieSizeX.Maximum);
+            _nDieSizeY.Value = ClampDecimal((decimal)ResolveRecipeDieSizeY(), _nDieSizeY.Minimum, _nDieSizeY.Maximum);
+        }
+
+        private double ResolveRecipeDieSizeX()
+        {
+            return _project != null && _project.Die != null && _project.Die.WidthMm > 0.0
+                ? _project.Die.WidthMm
+                : 1.0;
+        }
+
+        private double ResolveRecipeDieSizeY()
+        {
+            return _project != null && _project.Die != null && _project.Die.HeightMm > 0.0
+                ? _project.Die.HeightMm
+                : 1.0;
+        }
+
+        private void UpdateDerivedControlAccess()
+        {
+            bool baseConnected = IsBaseMapConnected();
+            _nGridX.Enabled = !baseConnected;
+            _nGridX.ReadOnly = baseConnected;
+            _nGridX.TabStop = !baseConnected;
+            _nGridY.Enabled = !baseConnected;
+            _nGridY.ReadOnly = baseConnected;
+            _nGridY.TabStop = !baseConnected;
+            _cbEdgeSkipMode.Enabled = !baseConnected;
+
+            bool externalMode = GetSelectedEdgeSkipModeName().IndexOf("External", StringComparison.OrdinalIgnoreCase) >= 0;
+            _nSideEdgeSkip.Enabled = !baseConnected && !externalMode;
+            _nSideEdgeSkip.TabStop = _nSideEdgeSkip.Enabled;
+            _nTopBottomEdgeSkip.Enabled = !baseConnected && !externalMode;
+            _nTopBottomEdgeSkip.TabStop = _nTopBottomEdgeSkip.Enabled;
+
+            string derivedTip = baseConnected
+                ? "LOAD WAFER MAP으로 연결한 Base Map의 주소 영역에서 자동 결정됩니다."
+                : "Base Map이 연결되지 않은 Recipe에서 직접 설정합니다.";
+            toolTipRecipeLocation.SetToolTip(lblGridX, derivedTip);
+            toolTipRecipeLocation.SetToolTip(_nGridX, derivedTip);
+            toolTipRecipeLocation.SetToolTip(lblGridY, derivedTip);
+            toolTipRecipeLocation.SetToolTip(_nGridY, derivedTip);
         }
 
         private void UpdateEdgeSkipModeUi()
@@ -432,6 +889,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             decimal max = mmMode ? Math.Max(0.001M, _nDiameter.Value / 2M) : 500M;
             _nSideEdgeSkip.Maximum = max;
             _nTopBottomEdgeSkip.Maximum = max;
+            UpdateDerivedControlAccess();
         }
 
         private void SetSelectedEdgeSkipMode(string mode)
@@ -495,64 +953,12 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             return (decimal)(mmMode ? frame.TopBottomEdgeSkipMm : frame.TopBottomEdgeSkip);
         }
 
-        private static TapeFrameSubset CloneFrame(TapeFrameSubset source)
-        {
-            if (source == null)
-                return new TapeFrameSubset();
-
-            return new TapeFrameSubset
-            {
-                FrameSpecName = source.FrameSpecName,
-                DieMapX = source.DieMapX,
-                DieMapY = source.DieMapY,
-                PitchX = source.PitchX,
-                PitchY = source.PitchY,
-                DieSizeX = source.DieSizeX,
-                DieSizeY = source.DieSizeY,
-                Rotate = source.Rotate,
-                OuterDiameterMm = source.OuterDiameterMm,
-                EdgeSkipMode = source.EdgeSkipMode,
-                SideEdgeSkip = source.SideEdgeSkip,
-                TopBottomEdgeSkip = source.TopBottomEdgeSkip,
-                SideEdgeSkipMm = source.SideEdgeSkipMm,
-                TopBottomEdgeSkipMm = source.TopBottomEdgeSkipMm
-            };
-        }
-
-        private static double ResolveOuterDiameter(DieMap map)
-        {
-            if (map == null)
-                return 200.0;
-            if (map.OuterDiameterMm > 0.0)
-                return map.OuterDiameterMm;
-            if (map.Entries == null || map.Entries.Count == 0)
-                return 200.0;
-
-            int minX = int.MaxValue;
-            int maxX = int.MinValue;
-            int minY = int.MaxValue;
-            int maxY = int.MinValue;
-            foreach (DieMapEntry entry in map.Entries)
-            {
-                if (entry == null)
-                    continue;
-                int x = entry.OriginalMapX >= 0 ? entry.OriginalMapX : entry.DieMapX;
-                int y = entry.OriginalMapY >= 0 ? entry.OriginalMapY : entry.DieMapY;
-                minX = Math.Min(minX, x);
-                maxX = Math.Max(maxX, x);
-                minY = Math.Min(minY, y);
-                maxY = Math.Max(maxY, y);
-            }
-
-            if (minX == int.MaxValue || minY == int.MaxValue)
-                return 200.0;
-            return Math.Max((maxX - minX + 1) * Math.Max(0.001, map.PitchX), (maxY - minY + 1) * Math.Max(0.001, map.PitchY));
-        }
-
         private static decimal ClampDecimal(decimal value, decimal min, decimal max)
         {
-            if (value < min) return min;
-            if (value > max) return max;
+            if (value < min)
+                return min;
+            if (value > max)
+                return max;
             return value;
         }
     }

@@ -335,8 +335,12 @@ namespace QMC.CDT320.Sequencing
                 bool hasAlign = _wafer != null && _wafer.HasInputStageAlignResult;
                 double waferPitchX = _wafer != null ? _wafer.InputStageAlignPitchX : 0.0;
                 double waferPitchY = _wafer != null ? _wafer.InputStageAlignPitchY : 0.0;
-                double framePitchX = _frameSpec != null ? _frameSpec.PitchX : 0.0;
-                double framePitchY = _frameSpec != null ? _frameSpec.PitchY : 0.0;
+                double framePitchX = _frameSpec != null
+                    ? DieMapGenerator.CalculateCenterStep(_frameSpec.DieSizeX, _frameSpec.PitchX)
+                    : 0.0;
+                double framePitchY = _frameSpec != null
+                    ? DieMapGenerator.CalculateCenterStep(_frameSpec.DieSizeY, _frameSpec.PitchY)
+                    : 0.0;
 
                 return "InputStage Align 결과가 없어 Die Mapping을 시작할 수 없습니다. " +
                        "Die Mapping 전에 Wafer Align을 완료해야 합니다. " +
@@ -347,8 +351,10 @@ namespace QMC.CDT320.Sequencing
                        ", waferPitchX=" + waferPitchX +
                        ", waferPitchY=" + waferPitchY +
                        ", frameSpec=" + (_frameSpec != null ? _frameSpec.Name : "-") +
-                       ", framePitchX=" + framePitchX +
-                       ", framePitchY=" + framePitchY;
+                       ", frameGapX=" + (_frameSpec != null ? _frameSpec.PitchX : 0.0) +
+                       ", frameGapY=" + (_frameSpec != null ? _frameSpec.PitchY : 0.0) +
+                       ", frameCenterStepX=" + framePitchX +
+                       ", frameCenterStepY=" + framePitchY;
             }
             catch (Exception ex)
             {
@@ -1071,9 +1077,9 @@ namespace QMC.CDT320.Sequencing
                 bool sourceMapIsExternal = IsExternalInputDieMap(sourceMap);
                 Dictionary<string, DieMapEntry> sourceCellMap = BuildSourceCellMap(sourceMap);
                 if (pitchX <= 0.0 && _frameSpec != null)
-                    pitchX = _frameSpec.PitchX;
+                    pitchX = DieMapGenerator.CalculateCenterStep(_frameSpec.DieSizeX, _frameSpec.PitchX);
                 if (pitchY <= 0.0 && _frameSpec != null)
-                    pitchY = _frameSpec.PitchY;
+                    pitchY = DieMapGenerator.CalculateCenterStep(_frameSpec.DieSizeY, _frameSpec.PitchY);
                 if (pitchX <= 0.0 || pitchY <= 0.0)
                     return Fail("IN-STAGE-DIEMAP-PITCH", "InputStageDieMappingSequence", "Die map pitch is invalid.");
 
@@ -1109,6 +1115,14 @@ namespace QMC.CDT320.Sequencing
                     TopBottomEdgeSkip = sourceMap != null ? sourceMap.TopBottomEdgeSkip : 0.0,
                     OriginX = originX,
                     OriginY = originY,
+                    SourceFileName = sourceMap != null ? sourceMap.SourceFileName : "",
+                    SourceFormat = sourceMap != null ? sourceMap.SourceFormat : "",
+                    SourcePitchFromFile = sourceMap != null && sourceMap.SourcePitchFromFile,
+                    SourceDeclaredCount = sourceMap != null ? sourceMap.SourceDeclaredCount : 0,
+                    SourceFirstX = sourceMap != null ? sourceMap.SourceFirstX : -1,
+                    SourceFirstY = sourceMap != null ? sourceMap.SourceFirstY : -1,
+                    SourceFirstPosX = sourceMap != null ? sourceMap.SourceFirstPosX : double.NaN,
+                    SourceFirstPosY = sourceMap != null ? sourceMap.SourceFirstPosY : double.NaN,
                     CreatedAt = DateTime.Now
                 };
 
@@ -1157,6 +1171,8 @@ namespace QMC.CDT320.Sequencing
                         // 현재 기준: 외부 웨이퍼맵 X/Y 인덱스는 표시/제어/MaterialState까지 그대로 유지한다.
                         int mapX = sourceEntry != null ? DieMapGenerator.ResolveMapIndexX(sourceEntry) : col;
                         int mapY = sourceEntry != null ? DieMapGenerator.ResolveMapIndexY(sourceEntry) : row;
+                        int originalX = sourceEntry != null ? DieMapGenerator.ResolveOriginalMapIndexX(sourceEntry) : mapX;
+                        int originalY = sourceEntry != null ? DieMapGenerator.ResolveOriginalMapIndexY(sourceEntry) : mapY;
                         _waferMap.DieMap[row, col] = target;
                         _dieMap.Entries.Add(new DieMapEntry
                         {
@@ -1164,11 +1180,13 @@ namespace QMC.CDT320.Sequencing
                             SequenceNo = sourceEntry != null ? sourceEntry.SequenceNo : 0,
                             DieMapX = mapX,
                             DieMapY = mapY,
-                            OriginalMapX = mapX,
-                            OriginalMapY = mapY,
+                            OriginalMapX = originalX,
+                            OriginalMapY = originalY,
                             IsTarget = target,
                             Result = DieResult.Unknown,
                             BinCode = target ? (sourceEntry != null ? sourceEntry.BinCode : 0) : 0,
+                            EquipmentGridX = sourceEntry != null ? sourceEntry.EquipmentGridX : mapX - Math.Max(0, dieMapX - 1) / 2.0,
+                            EquipmentGridY = sourceEntry != null ? sourceEntry.EquipmentGridY : Math.Max(0, dieMapY - 1) / 2.0 - mapY,
                             PosX = x,
                             PosY = y,
                             DieUid = sourceEntry != null && !string.IsNullOrWhiteSpace(sourceEntry.DieUid)
@@ -1380,6 +1398,14 @@ namespace QMC.CDT320.Sequencing
                 DieMap recipeMap = LoadRecipeInputDieMap(frameSpec);
                 if (IsUsableSourceMap(recipeMap))
                     return ApplyInputPickupSequence(recipeMap);
+
+                if (IsManagedInputMapApprovalRequired())
+                {
+                    WriteLog("InputStageDieMappingSequence",
+                        "Managed Recipe input map is not FINAL APPLY approved. Material/Active fallback is blocked. reason=" +
+                        LastSourceInputDieMapFailure + " - Failed");
+                    return null;
+                }
 
                 DieMap materialMap = MaterialStateService.BuildDieMapFromWafer(wafer);
                 if (IsUsableSourceMap(materialMap))
@@ -1663,20 +1689,23 @@ namespace QMC.CDT320.Sequencing
                     if (entry == null)
                         continue;
 
-                    // 현재 기준: DieMaterial의 Wafer_IndexX/Y는 웨이퍼맵 원본 인덱스이다.
                     int mapX = DieMapGenerator.ResolveMapIndexX(entry);
                     int mapY = DieMapGenerator.ResolveMapIndexY(entry);
+                    int originalX = DieMapGenerator.ResolveOriginalMapIndexX(entry);
+                    int originalY = DieMapGenerator.ResolveOriginalMapIndexY(entry);
                     string dieId = string.IsNullOrWhiteSpace(entry.DieUid) ? BuildDieId(wafer, mapY, mapX) : entry.DieUid;
                     entry.DieUid = dieId;
                     entry.DieMapX = mapX;
                     entry.DieMapY = mapY;
-                    entry.OriginalMapX = mapX;
-                    entry.OriginalMapY = mapY;
+                    entry.OriginalMapX = originalX;
+                    entry.OriginalMapY = originalY;
                     DieMaterial die = MaterialStateService.GetOrCreateDieMaterial(dieId);
                     die.WaferID_Input = wafer.WaferId;
                     die.WaferID_Output = "";
                     die.Wafer_IndexX = mapX;
                     die.Wafer_IndexY = mapY;
+                    die.Wafer_OriginalIndexX = originalX;
+                    die.Wafer_OriginalIndexY = originalY;
                     die.InputSequenceNo = entry.SequenceNo;
                     die.Input_BinCode = entry.IsTarget ? entry.BinCode : 0;
                     die.IsInputTarget = entry.IsTarget;
@@ -1798,6 +1827,19 @@ namespace QMC.CDT320.Sequencing
             }
             finally
             {
+            }
+        }
+
+        private static bool IsManagedInputMapApprovalRequired()
+        {
+            try
+            {
+                RecipeProject project = RecipeStore.LoadLastOrDefault();
+                return project != null && project.MapApprovalVersion > 0;
+            }
+            catch
+            {
+                return false;
             }
         }
 
@@ -2056,24 +2098,36 @@ namespace QMC.CDT320.Sequencing
                     // 현재 기준: Recipe Input DieMap은 분리 저장된 InputFrame 기준으로 먼저 검증한다.
                     frameDieMapX = Math.Max(1, inputFrame.DieMapX);
                     frameDieMapY = Math.Max(1, inputFrame.DieMapY);
-                    framePitchX = inputFrame.PitchX;
-                    framePitchY = inputFrame.PitchY;
+                    double dieSizeX = project != null && project.Die != null && project.Die.WidthMm > 0.0
+                        ? project.Die.WidthMm
+                        : inputFrame.DieSizeX;
+                    double dieSizeY = project != null && project.Die != null && project.Die.HeightMm > 0.0
+                        ? project.Die.HeightMm
+                        : inputFrame.DieSizeY;
+                    framePitchX = DieMapGenerator.CalculateCenterStep(dieSizeX, inputFrame.PitchX);
+                    framePitchY = DieMapGenerator.CalculateCenterStep(dieSizeY, inputFrame.PitchY);
                     frameName = inputFrame.FrameSpecName ?? "";
                 }
                 else if (frameSpec != null)
                 {
                     frameDieMapX = Math.Max(1, frameSpec.DieMapX);
                     frameDieMapY = Math.Max(1, frameSpec.DieMapY);
-                    framePitchX = frameSpec.PitchX;
-                    framePitchY = frameSpec.PitchY;
+                    framePitchX = DieMapGenerator.CalculateCenterStep(frameSpec.DieSizeX, frameSpec.PitchX);
+                    framePitchY = DieMapGenerator.CalculateCenterStep(frameSpec.DieSizeY, frameSpec.PitchY);
                     frameName = frameSpec.Name ?? "";
                 }
                 else if (project != null && project.Frame != null)
                 {
                     frameDieMapX = Math.Max(1, project.Frame.DieMapX);
                     frameDieMapY = Math.Max(1, project.Frame.DieMapY);
-                    framePitchX = project.Frame.PitchX;
-                    framePitchY = project.Frame.PitchY;
+                    double dieSizeX = project.Die != null && project.Die.WidthMm > 0.0
+                        ? project.Die.WidthMm
+                        : project.Frame.DieSizeX;
+                    double dieSizeY = project.Die != null && project.Die.HeightMm > 0.0
+                        ? project.Die.HeightMm
+                        : project.Frame.DieSizeY;
+                    framePitchX = DieMapGenerator.CalculateCenterStep(dieSizeX, project.Frame.PitchX);
+                    framePitchY = DieMapGenerator.CalculateCenterStep(dieSizeY, project.Frame.PitchY);
                     frameName = project.Frame.FrameSpecName ?? "";
                 }
 
@@ -2095,7 +2149,7 @@ namespace QMC.CDT320.Sequencing
                     ", mapDie=" + map.DieMapX + "x" + map.DieMapY +
                     ", frameDieMap=" + frameDieMapX + "x" + frameDieMapY +
                     ", mapPitch=(" + map.PitchX.ToString("F6") + "," + map.PitchY.ToString("F6") + ")" +
-                    ", framePitch=(" + framePitchX.ToString("F6") + "," + framePitchY.ToString("F6") + ").";
+                    ", frameCenterStep=(" + framePitchX.ToString("F6") + "," + framePitchY.ToString("F6") + ").";
                 WriteLog("InputStageDieMappingSequence", LastSourceInputDieMapFailure + " - Failed");
                 return false;
             }
@@ -2235,27 +2289,31 @@ namespace QMC.CDT320.Sequencing
                     return;
 
                 bool changed = false;
-                if (ShouldUseFramePitch(_wafer.InputStageAlignPitchX, _frameSpec.PitchX))
+                double frameStepX = DieMapGenerator.CalculateCenterStep(_frameSpec.DieSizeX, _frameSpec.PitchX);
+                double frameStepY = DieMapGenerator.CalculateCenterStep(_frameSpec.DieSizeY, _frameSpec.PitchY);
+                if (ShouldUseFramePitch(_wafer.InputStageAlignPitchX, frameStepX))
                 {
                     WriteLog("InputStageDieMappingSequence",
                         "Stored align pitch X is outside configured tolerance. frame pitch is used. wafer=" +
                         _wafer.WaferId +
                         ", stored=" + _wafer.InputStageAlignPitchX.ToString("F6") +
-                        ", frame=" + _frameSpec.PitchX.ToString("F6") +
+                        ", frameGap=" + _frameSpec.PitchX.ToString("F6") +
+                        ", frameCenterStep=" + frameStepX.ToString("F6") +
                         ", tolerance=" + AlignPitchCompareToleranceMm.ToString("F6") + " - Check");
-                    _wafer.InputStageAlignPitchX = _frameSpec.PitchX;
+                    _wafer.InputStageAlignPitchX = frameStepX;
                     changed = true;
                 }
 
-                if (ShouldUseFramePitch(_wafer.InputStageAlignPitchY, _frameSpec.PitchY))
+                if (ShouldUseFramePitch(_wafer.InputStageAlignPitchY, frameStepY))
                 {
                     WriteLog("InputStageDieMappingSequence",
                         "Stored align pitch Y is outside configured tolerance. frame pitch is used. wafer=" +
                         _wafer.WaferId +
                         ", stored=" + _wafer.InputStageAlignPitchY.ToString("F6") +
-                        ", frame=" + _frameSpec.PitchY.ToString("F6") +
+                        ", frameGap=" + _frameSpec.PitchY.ToString("F6") +
+                        ", frameCenterStep=" + frameStepY.ToString("F6") +
                         ", tolerance=" + AlignPitchCompareToleranceMm.ToString("F6") + " - Check");
-                    _wafer.InputStageAlignPitchY = _frameSpec.PitchY;
+                    _wafer.InputStageAlignPitchY = frameStepY;
                     changed = true;
                 }
 
@@ -2334,8 +2392,9 @@ namespace QMC.CDT320.Sequencing
         {
             try
             {
-                if (_frameSpec != null && _frameSpec.PitchX > 0.0)
-                    return _frameSpec.PitchX;
+                if (_frameSpec != null && _frameSpec.DieSizeX > 0.0 &&
+                    !double.IsNaN(_frameSpec.PitchX) && !double.IsInfinity(_frameSpec.PitchX) && _frameSpec.PitchX >= 0.0)
+                    return DieMapGenerator.CalculateCenterStep(_frameSpec.DieSizeX, _frameSpec.PitchX);
                 if (Stage != null && Stage.PitchX > 0.0)
                     return Stage.PitchX;
             }
@@ -2353,8 +2412,9 @@ namespace QMC.CDT320.Sequencing
         {
             try
             {
-                if (_frameSpec != null && _frameSpec.PitchY > 0.0)
-                    return _frameSpec.PitchY;
+                if (_frameSpec != null && _frameSpec.DieSizeY > 0.0 &&
+                    !double.IsNaN(_frameSpec.PitchY) && !double.IsInfinity(_frameSpec.PitchY) && _frameSpec.PitchY >= 0.0)
+                    return DieMapGenerator.CalculateCenterStep(_frameSpec.DieSizeY, _frameSpec.PitchY);
                 if (Stage != null && Stage.PitchY > 0.0)
                     return Stage.PitchY;
             }

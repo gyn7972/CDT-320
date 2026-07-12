@@ -1,0 +1,11 @@
+D:\00.PROJECT\CDT-320\Source\CDT320Simulator\QMC.CDT-320\.codex-build\work-map-physical\QMC.Common.dll
+D:\00.PROJECT\CDT-320\Source\CDT320Simulator\QMC.CDT-320\.codex-build\work-map-physical\QMC.Common.pdb
+D:\00.PROJECT\CDT-320\Source\CDT320Simulator\QMC.CDT-320\.codex-obj\work-map-physical\QMC.Common.csproj.AssemblyReference.cache
+D:\00.PROJECT\CDT-320\Source\CDT320Simulator\QMC.CDT-320\.codex-obj\work-map-physical\QMC.Common.MessageBoxOk.resources
+D:\00.PROJECT\CDT-320\Source\CDT320Simulator\QMC.CDT-320\.codex-obj\work-map-physical\QMC.Common.MessageBoxRetrySkip.resources
+D:\00.PROJECT\CDT-320\Source\CDT320Simulator\QMC.CDT-320\.codex-obj\work-map-physical\QMC.Common.MessageBoxYesNo.resources
+D:\00.PROJECT\CDT-320\Source\CDT320Simulator\QMC.CDT-320\.codex-obj\work-map-physical\QMC.Common.MessageBoxYesNoRetry.resources
+D:\00.PROJECT\CDT-320\Source\CDT320Simulator\QMC.CDT-320\.codex-obj\work-map-physical\QMC.Common.csproj.GenerateResource.cache
+D:\00.PROJECT\CDT-320\Source\CDT320Simulator\QMC.CDT-320\.codex-obj\work-map-physical\QMC.Common.csproj.CoreCompileInputs.cache
+D:\00.PROJECT\CDT-320\Source\CDT320Simulator\QMC.CDT-320\.codex-obj\work-map-physical\QMC.Common.dll
+D:\00.PROJECT\CDT-320\Source\CDT320Simulator\QMC.CDT-320\.codex-obj\work-map-physical\QMC.Common.pdb

@@ -66,6 +66,7 @@ namespace QMC.CDT_320.Ui.Controls
             // 현재 기준: 작업 메인도 Input/Output 전환 화면과 같은 DieMapView 렌더러를 사용한다.
             CompactUsedBounds = true;
             ShowWaferOutline = true;
+            ShowEquipmentAxes = true;
             EntryVisibilityPredicate = entry => entry != null && entry.IsTarget;
             CellColorResolver = ResolveLiveEntryColor;
             CellStatusResolver = ResolveLiveEntryStatusText;
@@ -429,8 +430,8 @@ namespace QMC.CDT_320.Ui.Controls
                         entry.SequenceNo = slot.SequenceNo;
                         entry.DieMapX = slot.DieMapX;
                         entry.DieMapY = slot.DieMapY;
-                        entry.OriginalMapX = slot.DieMapX;
-                        entry.OriginalMapY = slot.DieMapY;
+                        entry.OriginalMapX = slot.OriginalMapX >= 0 ? slot.OriginalMapX : slot.DieMapX;
+                        entry.OriginalMapY = slot.OriginalMapY >= 0 ? slot.OriginalMapY : slot.DieMapY;
                         entry.IsTarget = slot.IsTarget;
                         entry.Result = slot.Result;
                         entry.BinCode = slot.BinCode;
@@ -479,6 +480,14 @@ namespace QMC.CDT_320.Ui.Controls
                 TopBottomEdgeSkip = source.TopBottomEdgeSkip,
                 OriginX = source.OriginX,
                 OriginY = source.OriginY,
+                SourceFileName = source.SourceFileName,
+                SourceFormat = source.SourceFormat,
+                SourcePitchFromFile = source.SourcePitchFromFile,
+                SourceDeclaredCount = source.SourceDeclaredCount,
+                SourceFirstX = source.SourceFirstX,
+                SourceFirstY = source.SourceFirstY,
+                SourceFirstPosX = source.SourceFirstPosX,
+                SourceFirstPosY = source.SourceFirstPosY,
                 CreatedAt = source.CreatedAt
             };
 
@@ -502,6 +511,8 @@ namespace QMC.CDT_320.Ui.Controls
                         BinCode = entry.BinCode,
                         PosX = entry.PosX,
                         PosY = entry.PosY,
+                        EquipmentGridX = entry.EquipmentGridX,
+                        EquipmentGridY = entry.EquipmentGridY,
                         DieUid = entry.DieUid
                     });
                 }
@@ -537,6 +548,13 @@ namespace QMC.CDT_320.Ui.Controls
                     h = h * 31 + BuildStringHash(map.FrameObjId);
                     h = h * 31 + map.DieMapX;
                     h = h * 31 + map.DieMapY;
+                    h = h * 31 + map.PitchX.GetHashCode();
+                    h = h * 31 + map.PitchY.GetHashCode();
+                    h = h * 31 + map.DieSizeX.GetHashCode();
+                    h = h * 31 + map.DieSizeY.GetHashCode();
+                    h = h * 31 + map.OuterDiameterMm.GetHashCode();
+                    h = h * 31 + map.OriginX.GetHashCode();
+                    h = h * 31 + map.OriginY.GetHashCode();
                     foreach (var entry in map.Entries)
                     {
                         if (entry == null)
@@ -545,6 +563,14 @@ namespace QMC.CDT_320.Ui.Controls
                         h = h * 31 + (entry.IsTarget ? 1 : 0);
                         h = h * 31 + (int)entry.Result;
                         h = h * 31 + entry.BinCode;
+                        h = h * 31 + entry.DieMapX;
+                        h = h * 31 + entry.DieMapY;
+                        h = h * 31 + entry.OriginalMapX;
+                        h = h * 31 + entry.OriginalMapY;
+                        h = h * 31 + entry.EquipmentGridX.GetHashCode();
+                        h = h * 31 + entry.EquipmentGridY.GetHashCode();
+                        h = h * 31 + entry.PosX.GetHashCode();
+                        h = h * 31 + entry.PosY.GetHashCode();
 
                         LiveDieMapCellState state;
                         if (states != null && states.TryGetValue(BuildEntryGridKey(entry), out state))

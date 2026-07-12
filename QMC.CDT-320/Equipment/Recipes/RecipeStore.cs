@@ -49,7 +49,7 @@ namespace QMC.CDT320.Recipes
                     Frame = new TapeFrameSubset
                     {
                         FrameSpecName = "8inch_50x50",
-                        DieMapX = 50, DieMapY = 50, PitchX = 1.0, PitchY = 1.0,
+                        DieMapX = 50, DieMapY = 50, PitchX = 0.0, PitchY = 0.0,
                         OuterDiameterMm = 200, Rotate = "None",
                     }
                 });
@@ -71,7 +71,7 @@ namespace QMC.CDT320.Recipes
                     Frame = new TapeFrameSubset
                     {
                         FrameSpecName = "12inch_100x100",
-                        DieMapX = 100, DieMapY = 100, PitchX = 0.5, PitchY = 0.5,
+                        DieMapX = 100, DieMapY = 100, PitchX = 0.0, PitchY = 0.0,
                         OuterDiameterMm = 300, Rotate = "None",
                     }
                 });
@@ -93,7 +93,7 @@ namespace QMC.CDT320.Recipes
                     Frame = new TapeFrameSubset
                     {
                         FrameSpecName = "8inch_15x15",
-                        DieMapX = 15, DieMapY = 15, PitchX = 3.0, PitchY = 3.0,
+                        DieMapX = 15, DieMapY = 15, PitchX = 0.0, PitchY = 0.0,
                         OuterDiameterMm = 200, Rotate = "None",
                     }
                 });
@@ -103,7 +103,7 @@ namespace QMC.CDT320.Recipes
                 {
                     FileName = "SAMPLE-DEMO",
                     Die = new DieSubset { DieSpecName = "Default", WidthMm = 1.0, HeightMm = 1.0 },
-                    Frame = new TapeFrameSubset { FrameSpecName = "Demo_5x5", DieMapX = 5, DieMapY = 5, PitchX = 1.0, PitchY = 1.0 },
+                    Frame = new TapeFrameSubset { FrameSpecName = "Demo_5x5", DieMapX = 5, DieMapY = 5, PitchX = 0.0, PitchY = 0.0 },
                 });
             }
         }
@@ -150,21 +150,68 @@ namespace QMC.CDT320.Recipes
             EnsureDefaults(p);
             var name = p.FileName + ".Project";
             var path = Path.Combine(Dir, name);
+            string transactionId = Guid.NewGuid().ToString("N");
+            string tempPath = path + "." + transactionId + ".tmp";
+            string backupPath = path + "." + transactionId + ".bak";
+            bool hadOriginal = File.Exists(path);
+            bool committed = false;
             try
             {
-                using (var fs = File.Create(path))
+                using (var fs = File.Create(tempPath))
                 {
                     JsonPrettySerializer.WriteObject(fs, typeof(RecipeProject), p);
                 }
+
+                using (var fs = File.OpenRead(tempPath))
+                {
+                    var verifier = new DataContractJsonSerializer(typeof(RecipeProject));
+                    if (verifier.ReadObject(fs) == null)
+                        throw new InvalidDataException("저장 검증용 Project를 다시 읽을 수 없습니다.");
+                }
+
+                if (hadOriginal)
+                    File.Replace(tempPath, path, backupPath, true);
+                else
+                    File.Move(tempPath, path);
+                committed = true;
+
                 EventLogger.Write(EventKind.Event, "DATA", "PROJECT-RECIPE-SAVE",
                     "Project recipe 저장 완료. path=" + path);
+                if (File.Exists(backupPath))
+                    File.Delete(backupPath);
                 return true;
             }
             catch (Exception ex)
             {
+                try
+                {
+                    if (committed)
+                    {
+                        if (File.Exists(path))
+                            File.Delete(path);
+                        if (hadOriginal && File.Exists(backupPath))
+                            File.Move(backupPath, path);
+                    }
+                }
+                catch (Exception rollbackEx)
+                {
+                    EventLogger.Write(EventKind.Alarm, "DATA", "PROJECT-RECIPE-SAVE-ROLLBACK",
+                        "Project recipe 저장 롤백 실패. path=" + path + ", error=" + rollbackEx.Message);
+                }
                 EventLogger.Write(EventKind.Alarm, "DATA", "PROJECT-RECIPE-SAVE",
                     "Project recipe 저장 실패. path=" + path + ", error=" + ex.Message);
                 return false;
+            }
+            finally
+            {
+                try
+                {
+                    if (File.Exists(tempPath))
+                        File.Delete(tempPath);
+                }
+                catch
+                {
+                }
             }
         }
 
@@ -172,6 +219,8 @@ namespace QMC.CDT320.Recipes
         {
             if (project == null)
                 return null;
+
+            RecipeProjectConsistencyService.EnsureStructure(project);
 
             if (project.Pickup == null)
                 project.Pickup = new PickupSubset();
@@ -191,7 +240,14 @@ namespace QMC.CDT320.Recipes
                 project.GoodBinDieMapFileName = "";
             if (project.NgBinDieMapFileName == null)
                 project.NgBinDieMapFileName = "";
+            if (project.InputMapApprovalHash == null)
+                project.InputMapApprovalHash = "";
+            if (project.GoodBinMapApprovalHash == null)
+                project.GoodBinMapApprovalHash = "";
+            if (project.NgBinMapApprovalHash == null)
+                project.NgBinMapApprovalHash = "";
             project.ColletZ.Ensure();
+            // 로드 시에는 구조와 null 기본값만 보완한다. Die 단일 기준 미러는 명시적 Save/Apply에서만 적용한다.
             return project;
         }
 
@@ -294,6 +350,12 @@ namespace QMC.CDT320.Recipes
         [DataMember] public string OutputDieMapFileName { get; set; } = "";
         [DataMember] public string GoodBinDieMapFileName { get; set; } = "";
         [DataMember] public string NgBinDieMapFileName { get; set; } = "";
+        // 0은 기존 Recipe 호환(기존 연결 맵을 승인된 것으로 취급).
+        // 1부터는 Wafer/Die 변경 후 Map Create의 FINAL APPLY hash가 일치해야 공정에서 사용한다.
+        [DataMember] public int MapApprovalVersion { get; set; }
+        [DataMember] public string InputMapApprovalHash { get; set; } = "";
+        [DataMember] public string GoodBinMapApprovalHash { get; set; } = "";
+        [DataMember] public string NgBinMapApprovalHash { get; set; } = "";
         [DataMember] public int    InputCassetteLevelCount { get; set; } = 1;
         [DataMember] public int    GoodCassetteLevelCount  { get; set; } = 1;
         [DataMember] public string ColletModelNum     { get; set; }
@@ -438,8 +500,9 @@ namespace QMC.CDT320.Recipes
         [DataMember] public string FrameSpecName { get; set; } = "8inch_5x5";
         [DataMember] public int    DieMapX  { get; set; } = 5;
         [DataMember] public int    DieMapY  { get; set; } = 5;
-        [DataMember] public double PitchX { get; set; } = 1.0;
-        [DataMember] public double PitchY { get; set; } = 1.0;
+        /// <summary>Die 사이 gap(mm). 0이면 Die Size가 곧 중심 간격이다.</summary>
+        [DataMember] public double PitchX { get; set; } = 0.0;
+        [DataMember] public double PitchY { get; set; } = 0.0;
         [DataMember] public double DieSizeX { get; set; } = 1.0;
         [DataMember] public double DieSizeY { get; set; } = 1.0;
         [DataMember] public string Rotate { get; set; } = "None";
