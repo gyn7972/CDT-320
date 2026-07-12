@@ -32,6 +32,8 @@ namespace QMC.Vision.Cameras.Mil
         private long _frameStartCount;                         // FRAME_START 횟수(진단 로그용)
         private readonly System.Diagnostics.Stopwatch _liveSw = System.Diagnostics.Stopwatch.StartNew();
         private long _lastLiveTickMs;
+        private volatile System.Diagnostics.Stopwatch _grabTimingSw;   // 단발 그랩 스텝 계측(진단) — 그랩 동안만 non-null
+        private long _grabExpEndMs = -1;                               // 계측 기준 노출 종료 시각(ms) — 훅이 기록
         private readonly string _tmpPath;
         private byte[] _hostBuf;   // Mono 프레임 호스트 복사 버퍼(재사용 — GC 압박 감소)
         private int    _diskFallbackStreak;   // 디스크 폴백 연속 횟수 — 라이브에서 디스크 I/O 폭주 방지
@@ -187,30 +189,53 @@ namespace QMC.Vision.Cameras.Mil
                 return GrabResult.Fail("grab busy", Info.Id);
             try
             {
+                // 스텝별 계측(진단) — 노출 종료 시각은 ExposureEnd/FrameStart 훅이 기록.
+                var sw = System.Diagnostics.Stopwatch.StartNew();
+                _grabExpEndMs = -1;
+                _grabTimingSw = sw;
+
                 // 직전 Live 정지의 MdigHalt 가 아직 백그라운드에서 진행 중이면 완료까지 잠깐 대기 — 미완료면
                 // 즉시 실패 반환(그대로 MdigHalt/MdigGrab 에 들어가면 무한 블록 → UI Grab 버튼이 영구 비활성).
                 if (!WaitHaltDone(2000))
                     return GrabResult.Fail("이전 Live 정지(MdigHalt) 미완료 — 잠시 후 다시 시도하세요", Info.Id);
+                long tHaltWait = sw.ElapsedMilliseconds;
 
                 try { MIL.MdigControl(_dig, MIL.M_GRAB_TIMEOUT, (double)timeoutMs); } catch { }
                 // 동기 그랩 — MdigGrab 이 프레임 완료까지 블록한다.
                 try { MIL.MdigControl(_dig, MIL.M_GRAB_MODE, (double)MIL.M_SYNCHRONOUS); } catch { }
+                long tCtrl = sw.ElapsedMilliseconds;
                 // 라이브 중이 아니면 직전 단발 획득을 확실히 정지 → 다음 그랩이 깨끗이 재-arm.
                 //   MdigHalt 는 획득 상태가 꼬이면 무한 블록하므로 직접 호출하지 않고 타임아웃 보호.
                 if (!_continuousOn && !HaltWithTimeout(2000))
                     return GrabResult.Fail("MdigHalt 타임아웃 — 카메라 획득 상태 확인 필요(Event 로그 MilLive 참조)", Info.Id);
+                long tHalt = sw.ElapsedMilliseconds;
                 EnsureSingleFrameGrabMode();
+                long tMode = sw.ElapsedMilliseconds;
 
                 // 단발 촬상 = AcquisitionMode SingleFrame + AcquisitionStart(=MdigGrab) → 1프레임.
                 //   (노출 Timed, 스트로브는 DCF). 동기라 완료까지 블록한다.
                 MIL.MdigGrab(_dig, _buf);
+                long tGrab = sw.ElapsedMilliseconds;
 
                 var bmp = BufferToBitmap();
+                long tBmp = sw.ElapsedMilliseconds;
+                long exp = _grabExpEndMs;
+                LiveLog("단발그랩 타이밍(ms): haltWait=" + tHaltWait +
+                        " ctrl=" + (tCtrl - tHaltWait) +
+                        " halt=" + (tHalt - tCtrl) +
+                        " mode=" + (tMode - tHalt) +
+                        " start→expEnd=" + (exp >= 0 ? (exp - tMode).ToString() : "?") +
+                        " expEnd→grabRet=" + (exp >= 0 ? (tGrab - exp).ToString() : "?") +
+                        " bmp=" + (tBmp - tGrab) + " total=" + tBmp);
                 if (bmp == null) return GrabResult.Fail("buffer→bitmap 실패", Info.Id);
                 return new GrabResult(bmp, 0, Info.Id);
             }
             catch (Exception ex) { return GrabResult.Fail("MdigGrab: " + ex.Message, Info.Id); }
-            finally { System.Threading.Interlocked.Exchange(ref _grabBusy, 0); }
+            finally
+            {
+                _grabTimingSw = null;
+                System.Threading.Interlocked.Exchange(ref _grabBusy, 0);
+            }
         }
 
         private volatile bool _continuousOn;
@@ -505,6 +530,8 @@ namespace QMC.Vision.Cameras.Mil
                 _expEndHwFired = true;   // HW 훅 동작 확인 → FRAME_START 폴백 영구 억제
                 long n = System.Threading.Interlocked.Increment(ref _expEndCount);
                 if (n == 1) LiveLog("ExposureEnd HW 훅 첫 발화 확인");
+                var tsw = _grabTimingSw;
+                if (tsw != null && _grabExpEndMs < 0) _grabExpEndMs = tsw.ElapsedMilliseconds;   // 단발 그랩 계측
                 if (IsOpen) RaiseExposureEnded();
             }
             catch (Exception ex) { LiveLog("ExposureEnd 발화 예외: " + ex.Message); }
@@ -521,6 +548,8 @@ namespace QMC.Vision.Cameras.Mil
                 long n = System.Threading.Interlocked.Increment(ref _frameStartCount);
                 if (n == 1) LiveLog("FRAME_START 훅 첫 발화 (HW ExposureEnd " + (_expEndHwFired ? "지원" : "미발화 → 폴백 사용") + ")");
                 if (_expEndHwFired) return 0;   // HW 훅이 살아있으면 중복 발화 방지
+                var tsw = _grabTimingSw;
+                if (tsw != null && _grabExpEndMs < 0) _grabExpEndMs = tsw.ElapsedMilliseconds;   // 단발 그랩 계측(폴백)
                 if (IsOpen) RaiseExposureEnded();
             }
             catch (Exception ex) { LiveLog("FRAME_START 폴백 발화 예외: " + ex.Message); }

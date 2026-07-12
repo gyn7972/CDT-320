@@ -708,7 +708,9 @@ namespace QMC.CDT320.VisionComm
             int gridX,
             int gridY,
             int timeoutMs,
-            CancellationToken ct)
+            CancellationToken ct,
+            bool proceedOnExposureDone = false,
+            string exposureModuleName = null)
         {
             try
             {
@@ -729,7 +731,33 @@ namespace QMC.CDT320.VisionComm
                     ", grid=" + gridX + ";" + gridY +
                     ", timeoutMs=" + timeoutMs);
 
-                bool started = await VisionCommandService.InspectAsyncStartAsync(channel, inspector, fb, collet, dieIndex, visionChannel, gridX, gridY, timeoutMs, ct).ConfigureAwait(false);
+                // EPD(노출 종료) 선등록 — 반드시 명령 전송 '전'에 등록해야 푸시를 놓치지 않는다(모션 안전 규약).
+                // 미연결이면 null → 기존 ACK 대기 경로로 폴백.
+                Task<bool> epdTask = proceedOnExposureDone
+                    ? VisionCommandService.WaitExposureDoneAsync(channel, timeoutMs, exposureModuleName)
+                    : null;
+
+                Task<bool> ackTask = VisionCommandService.InspectAsyncStartAsync(channel, inspector, fb, collet, dieIndex, visionChannel, gridX, gridY, timeoutMs, ct);
+
+                if (epdTask != null)
+                {
+                    Task<bool> first = await Task.WhenAny(ackTask, epdTask).ConfigureAwait(false);
+                    if (first == epdTask && epdTask.Result)
+                    {
+                        // 노출 종료 = 다이 촬상은 이미 끝남 → ACK(영상 카피 완료 회신)를 기다리지 않고 진행해
+                        // 픽커 이동을 앞당긴다(실측 EPD→ACK ≈ 88ms/장). ACK 는 백그라운드에서 검증만 하고,
+                        // 실제 실패는 INSPECTRESULT 회수 실패 알람이 최종 방어한다.
+                        ObserveInspectAckInBackground(ackTask, channel, inspector, fb, collet, dieIndex, visionChannel);
+                        EventLogger.Write(EventKind.Event, "VISION", "AUTO-VISION-INSPECTASYNC",
+                            "Vision EPD(노출 종료) 수신 — STARTED ACK 대기 없이 진행. channel=" + channel +
+                            ", inspector=" + inspector +
+                            ", fb=" + fb + ", collet=" + collet + ", dieIndex=" + dieIndex + ", ch=" + visionChannel);
+                        return true;
+                    }
+                    // EPD 타임아웃 또는 ACK 선도착 → 기존 ACK 결과 경로로 판정.
+                }
+
+                bool started = await ackTask.ConfigureAwait(false);
                 if (!started)
                 {
                     EventLogger.Write(EventKind.Alarm, "VISION", "AUTO-VISION-INSPECTASYNC",
@@ -755,6 +783,33 @@ namespace QMC.CDT320.VisionComm
             finally
             {
             }
+        }
+
+        /// <summary>EPD 선진행 후 STARTED ACK 를 백그라운드에서 관찰 — 실패/예외 시 알람 로그만 남긴다
+        /// (시퀀스는 이미 진행 중이므로 여기서 멈추지 않는다. 최종 방어 = INSPECTRESULT 회수 실패 알람).</summary>
+        private static void ObserveInspectAckInBackground(
+            Task<bool> ackTask, AutoVisionChannel channel, string inspector, int fb, int collet, int dieIndex, int visionChannel)
+        {
+            ackTask.ContinueWith(t =>
+            {
+                try
+                {
+                    if (t.IsFaulted)
+                        EventLogger.Write(EventKind.Alarm, "VISION", "AUTO-VISION-INSPECTASYNC",
+                            "EPD 선진행 후 STARTED ACK 백그라운드 예외. channel=" + channel +
+                            ", inspector=" + inspector +
+                            ", fb=" + fb + ", collet=" + collet + ", dieIndex=" + dieIndex + ", ch=" + visionChannel +
+                            ", error=" + (t.Exception != null ? t.Exception.GetBaseException().Message : "unknown"));
+                    else if (t.IsCanceled || !t.Result)
+                        EventLogger.Write(EventKind.Alarm, "VISION", "AUTO-VISION-INSPECTASYNC",
+                            "EPD 선진행 후 STARTED ACK 실패/취소. 검사 결과 회수 단계에서 재확인됩니다. channel=" + channel +
+                            ", inspector=" + inspector +
+                            ", fb=" + fb + ", collet=" + collet + ", dieIndex=" + dieIndex + ", ch=" + visionChannel);
+                }
+                catch
+                {
+                }
+            }, TaskScheduler.Default);
         }
 
         /// <summary>die_index 기준 INSPECTRESULT 대기(신형) — 서버 대기형 응답(최대 6s/회) + 만료 재요청.</summary>

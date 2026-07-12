@@ -421,10 +421,22 @@ namespace QMC.CDT320.VisionComm
         /// 이 EPD 를 받고 픽커를 다음 위치로 움직여야 한다(촬상 전 이동 → 흔들림/빈 촬상 방지).
         /// 경합 방지를 위해 InspectAsyncStartAsync 호출 '전'에 이 Task 를 만들어 두고 이후 await 할 것.</summary>
         public Task<bool> WaitExposureDoneAsync(int timeoutMs = 5000)
+            => WaitExposureDoneAsync(timeoutMs, null);
+
+        /// <summary>다음 EPD 푸시를 1회 대기(모듈 필터) — moduleName 지정 시 그 모듈의 EPD 만 인정한다.
+        /// EPD 는 Vision 이 전 연결에 브로드캐스트하므로, 자동 운전 중 동시에 그랩하는 다른 모듈의
+        /// EPD 를 이번 촬상의 노출 종료로 오인하지 않게 한다. null=모듈 무관(단일 그랩 상황 전용).</summary>
+        public Task<bool> WaitExposureDoneAsync(int timeoutMs, string moduleName)
         {
             var tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
             Action<string> h = null;
-            h = _m => { ExposureDone -= h; tcs.TrySetResult(true); };
+            h = m =>
+            {
+                if (!string.IsNullOrEmpty(moduleName) && !string.Equals(m, moduleName, StringComparison.OrdinalIgnoreCase))
+                    return;
+                ExposureDone -= h;
+                tcs.TrySetResult(true);
+            };
             ExposureDone += h;
             var timer = new System.Threading.Timer(_s => { ExposureDone -= h; tcs.TrySetResult(false); },
                                                    null, timeoutMs, System.Threading.Timeout.Infinite);
