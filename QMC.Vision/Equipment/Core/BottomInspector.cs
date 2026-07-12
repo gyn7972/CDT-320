@@ -95,6 +95,7 @@ namespace QMC.Vision.Core
 
             var r = new InspectionResult { RoiName = Id, IsPass = true };
             LastValid = false;
+            byte[] rented1x = null, rented2x = null;   // 풀 대여 버퍼 추적 — finally 에서 반납(2026-07-12)
             try
             {
                 if (image == null) { r.ErrorMessage = "no image"; r.IsPass = false; return r; }
@@ -105,6 +106,7 @@ namespace QMC.Vision.Core
 
                 int gw, gh;
                 byte[] gray = ToGray(image, libRoi, out gw, out gh);
+                rented1x = gray;
 
                 // BottomInspect 규약: 크롭 → 2배 확장 → 처리 → (÷2·×0.5)로 원좌표 환원.
                 // bSimulate(단일 이미지) 경로는 '이미 2배 확장된 이미지'를 전제하고 확장을 건너뛰므로,
@@ -117,6 +119,8 @@ namespace QMC.Vision.Core
                     return InspectLegacy(image);
                 }
                 gray = Upscale2xBilinear(gray, gw, gh, out gw, out gh);
+                rented2x = gray;
+                ReturnBuf(rented1x); rented1x = null;   // 1배 크롭은 확장 완료 즉시 재사용 가능
 
                 // 이미지 저장 경로: 설정→일반(VisionSettings.ImageLogPath) 우선, 비어있으면 FileSavePath 폴백.
                 string saveRoot = QMC.Vision.Config.VisionConfigStore.Current?.ImageLogPath;
@@ -188,6 +192,12 @@ namespace QMC.Vision.Core
                     QMC.Common.Logging.EventLogger.Write(QMC.Common.Logging.EventKind.Event, "VISION", "BottomInspector", Id + " 레거시 폴백도 실패: " + ex2.Message);
                     return new InspectionResult { RoiName = Id, IsPass = false, ErrorMessage = "Bottom 검사 실패: " + ex2.Message };
                 }
+            }
+            finally
+            {
+                // 2배 버퍼는 BottomInspect 가 동기 완료(내부 2D 복사 후 사용) 후라 반환 시점에 참조 없음.
+                ReturnBuf(rented1x);
+                ReturnBuf(rented2x);
             }
         }
 
@@ -650,7 +660,7 @@ namespace QMC.Vision.Core
         private static byte[] Upscale2xBilinear(byte[] src, int w, int h, out int w2, out int h2)
         {
             w2 = w * 2; h2 = h * 2;
-            var dst = new byte[w2 * h2];
+            var dst = RentBuf(w2 * h2);   // 전 픽셀을 아래에서 덮어쓰므로 재사용 버퍼여도 결과 동일
             int dw = w2;
             Parallel.For(0, h2, y =>
             {
@@ -683,11 +693,11 @@ namespace QMC.Vision.Core
         {
             rect.Intersect(new Rectangle(0, 0, bmp.Width, bmp.Height));
             w = rect.Width; h = rect.Height;
-            var gray = new byte[w * h];
+            var gray = RentBuf(w * h);
             int lw = w, lh = h;
             BitmapData data = bmp.LockBits(rect, ImageLockMode.ReadOnly, PixelFormat.Format24bppRgb);
             int stride = data.Stride;
-            var buf = new byte[stride * lh];
+            var buf = RentBuf(stride * lh);
             try { Marshal.Copy(data.Scan0, buf, 0, buf.Length); }   // 전체 1회 복사 후 unlock → 그레이 변환은 병렬
             finally { bmp.UnlockBits(data); }
             // 144M 픽셀(12000²) 그레이 변환을 행 단위 병렬화.
@@ -700,7 +710,32 @@ namespace QMC.Vision.Core
                     gray[gi + x] = (byte)((buf[o] + buf[o + 1] + buf[o + 2]) / 3);
                 }
             });
+            ReturnBuf(buf);   // 스트라이드 중간 버퍼는 이 함수 안에서만 사용 → 즉시 풀 반납
             return gray;
+        }
+
+        // ── 대형 버퍼 풀(2026-07-12) ──
+        // 검사 1회마다 131MP급 byte[](그레이 1배 ≈131MB, 스트라이드 버퍼 ≈393MB, 2배 확장 ≈524MB)를
+        // 새로 할당하면 LOH 할당·GC 압박으로 병렬 검사 tact 가 불안정해진다. '정확히 같은 길이'의 버퍼만
+        // 재사용하고 소비자(ToGray/Upscale)가 전 픽셀을 덮어쓰므로 계산 결과에는 영향이 없다.
+        // 반납 누락은 누수가 아니라 단순 미재사용(GC 회수)이라 실패 모드도 안전하다.
+        private static readonly System.Collections.Concurrent.ConcurrentDictionary<int, System.Collections.Concurrent.ConcurrentBag<byte[]>> _bufPool
+            = new System.Collections.Concurrent.ConcurrentDictionary<int, System.Collections.Concurrent.ConcurrentBag<byte[]>>();
+        private const int MaxPooledPerSize = 6;
+
+        private static byte[] RentBuf(int length)
+        {
+            System.Collections.Concurrent.ConcurrentBag<byte[]> bag;
+            byte[] buf;
+            if (_bufPool.TryGetValue(length, out bag) && bag.TryTake(out buf)) return buf;
+            return new byte[length];
+        }
+
+        private static void ReturnBuf(byte[] buf)
+        {
+            if (buf == null) return;
+            var bag = _bufPool.GetOrAdd(buf.Length, _ => new System.Collections.Concurrent.ConcurrentBag<byte[]>());
+            if (bag.Count < MaxPooledPerSize) bag.Add(buf);   // 초과분은 GC에 맡김
         }
     }
 }

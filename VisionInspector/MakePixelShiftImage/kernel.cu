@@ -1028,6 +1028,12 @@ cudaError_t FindChippingCtx(
     status = cudaMemcpyAsync(d_input, h_inputImage, requiredSize, cudaMemcpyHostToDevice, s);
     if (status != cudaSuccess) return status;
 
+    // 출력 마스크 제로화(2026-07-12): Fused 커널은 isInside 픽셀만 outputMask 에 쓴다 — 레거시(FindChipping)는
+    // 호출마다 fresh cudaMalloc 이라 바깥 픽셀이 0 이지만, 재사용 슬롯엔 직전 검사 마스크가 남아
+    // 유령 칩핑(오검출)을 만든다. memset 으로 레거시와 동일 의미 보장(결과 비트 동일 확인).
+    status = cudaMemsetAsync(d_output, 0, requiredSize, s);
+    if (status != cudaSuccess) return status;
+
     topHatRadius = topHatRadius < 1 ? 1 : topHatRadius;
     int blockX = 256;
     size_t sharedMemSize = (blockX + 2 * topHatRadius) * sizeof(uint8_t);

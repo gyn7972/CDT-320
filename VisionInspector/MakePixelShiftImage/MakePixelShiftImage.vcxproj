@@ -69,6 +69,9 @@
       <TargetMachinePlatform>64</TargetMachinePlatform>
       <!-- CUDA 13.x Thrust 는 C++17 필수 -->
       <AdditionalOptions>-std=c++17 %(AdditionalOptions)</AdditionalOptions>
+      <!-- 실 SASS 포함(2026-07-12): 드라이버(CUDA 13.0)가 13.1 PTX 를 JIT 못해 cudaError 222 로 전 CUDA 호출이
+           무력화되던 문제 수정. sm_120=RTX 50(장비 비전PC), sm_86/89=RTX 30/40 호환. 마지막 PTX 는 미래 GPU 용. -->
+      <CodeGeneration>compute_86,sm_86;compute_89,sm_89;compute_120,sm_120;compute_120,compute_120</CodeGeneration>
     </CudaCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -91,6 +94,9 @@
       <TargetMachinePlatform>64</TargetMachinePlatform>
       <!-- CUDA 13.x Thrust 는 C++17 필수 -->
       <AdditionalOptions>-std=c++17 %(AdditionalOptions)</AdditionalOptions>
+      <!-- 실 SASS 포함(2026-07-12): 드라이버(CUDA 13.0)가 13.1 PTX 를 JIT 못해 cudaError 222 로 전 CUDA 호출이
+           무력화되던 문제 수정. sm_120=RTX 50(장비 비전PC), sm_86/89=RTX 30/40 호환. 마지막 PTX 는 미래 GPU 용. -->
+      <CodeGeneration>compute_86,sm_86;compute_89,sm_89;compute_120,sm_120;compute_120,compute_120</CodeGeneration>
     </CudaCompile>
   </ItemDefinitionGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

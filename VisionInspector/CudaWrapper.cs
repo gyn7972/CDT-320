@@ -118,6 +118,93 @@ public class CudaWrapper
     public (byte[,] mask1, byte[,] mask2) DetectChippingWithCuda(byte[,] imageArray, Line csharpLineTop, Line csharpLineBottom, Line csharpLineLeft, Line csharpLineRight, byte threshold, int margin, int topHatRadius, byte topHatThreshold)
         => DetectChippingWithCuda(IntPtr.Zero, imageArray, csharpLineTop, csharpLineBottom, csharpLineLeft, csharpLineRight, threshold, margin, topHatRadius, topHatThreshold);
 
+    /// <summary>mask1 전용 1차원 버전(2026-07-12) — mask2 는 소비처가 없어 D2H 복사(131MB)와 할당을 생략하고,
+    /// mask1 은 BufferPool 대여 1차원 배열로 받는다(전 구간 D2H 로 덮어씀 — 실패 경로는 명시적 제로화로
+    /// 기존 '새 배열=0' 의미 유지). 계산/커널/인자는 2차원 버전과 동일 — 결과 불변. 사용 후 BufferPool.Return 권장.</summary>
+    public byte[] DetectChippingMask1WithCuda(IntPtr cudaCtx, byte[,] imageArray, Line csharpLineTop, Line csharpLineBottom, Line csharpLineLeft, Line csharpLineRight, byte threshold, int margin, int topHatRadius, byte topHatThreshold)
+    {
+        int height = imageArray.GetLength(0);
+        int width = imageArray.GetLength(1);
+        byte[] outputMask = BufferPool.Rent(width * height);
+
+        if (SkipCuda)
+        {
+            Array.Clear(outputMask, 0, outputMask.Length);   // 기존 '빈 마스크(0)' 의미 유지
+            return outputMask;
+        }
+
+        LineParams cudaLineTop = new LineParams { slope = (float)csharpLineTop.mA, intercept = (float)csharpLineTop.mB };
+        LineParams cudaLineBottom = new LineParams { slope = (float)csharpLineBottom.mA, intercept = (float)csharpLineBottom.mB };
+        LineParams cudaLineLeft = new LineParams { slope = (float)csharpLineLeft.mA, intercept = (float)csharpLineLeft.mB };
+        LineParams cudaLineRight = new LineParams { slope = (float)csharpLineRight.mA, intercept = (float)csharpLineRight.mB };
+
+        GCHandle hInput = GCHandle.Alloc(imageArray, GCHandleType.Pinned);
+        GCHandle hOutput1 = GCHandle.Alloc(outputMask, GCHandleType.Pinned);
+        try
+        {
+            IntPtr ptrInput = hInput.AddrOfPinnedObject();
+            IntPtr ptrOutput1 = hOutput1.AddrOfPinnedObject();
+
+            int cudaStatus;
+            try
+            {
+                if (cudaCtx != IntPtr.Zero)
+                {
+                    try
+                    {
+                        cudaStatus = FindChippingCtx(
+                            cudaCtx,
+                            ptrInput, ptrOutput1, IntPtr.Zero,   // mask2 미요청 — 네이티브가 nullptr 체크 후 D2H 생략
+                            width, height,
+                            cudaLineTop, cudaLineBottom, cudaLineLeft, cudaLineRight,
+                            threshold, margin, topHatRadius, topHatThreshold);
+                    }
+                    catch (EntryPointNotFoundException)
+                    {
+                        cudaStatus = FindChipping(
+                            ptrInput, ptrOutput1, IntPtr.Zero,
+                            width, height,
+                            cudaLineTop, cudaLineBottom, cudaLineLeft, cudaLineRight,
+                            threshold, margin, topHatRadius, topHatThreshold);
+                    }
+                }
+                else
+                {
+                    cudaStatus = FindChipping(
+                        ptrInput, ptrOutput1, IntPtr.Zero,
+                        width, height,
+                        cudaLineTop, cudaLineBottom, cudaLineLeft, cudaLineRight,
+                        threshold, margin, topHatRadius, topHatThreshold);
+                }
+            }
+            catch (Exception ex)
+            {
+                MarkCuda(false);
+                Console.WriteLine($"CUDA unavailable -> CPU/skip fixed: {ex.GetType().Name}: {ex.Message}");
+                Array.Clear(outputMask, 0, outputMask.Length);
+                return outputMask;
+            }
+
+            if (cudaStatus != 0)
+            {
+                MarkCuda(false);
+                Console.WriteLine($"CUDA error 1: {cudaStatus} -> skip subsequent CUDA calls (no-CUDA PC)");
+                Array.Clear(outputMask, 0, outputMask.Length);   // 실패 시 기존(새 배열=0)과 동일 의미
+            }
+            else
+            {
+                MarkCuda(true);
+            }
+        }
+        finally
+        {
+            if (hInput.IsAllocated) hInput.Free();
+            if (hOutput1.IsAllocated) hOutput1.Free();
+        }
+
+        return outputMask;
+    }
+
     /// <summary>컨텍스트 버전(2026-07-11) — cudaCtx(CudaContextPool 대여 핸들)가 유효하면 디바이스 버퍼를
     /// 재사용하는 FindChippingCtx 로 호출(호출마다 cudaMalloc 없음). Zero/구 DLL 이면 기존 경로.</summary>
     public (byte[,] mask1, byte[,] mask2) DetectChippingWithCuda(IntPtr cudaCtx, byte[,] imageArray, Line csharpLineTop, Line csharpLineBottom, Line csharpLineLeft, Line csharpLineRight, byte threshold, int margin, int topHatRadius, byte topHatThreshold)

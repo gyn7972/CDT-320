@@ -808,6 +808,22 @@ namespace QMC.Vision.Core
             catch { /* 이전 그랩 실패는 해당 샘플 누락으로 이미 처리 — 다음 샘플 진행 */ }
         }
 
+        /// <summary>콜렛 회전 중심(COC) — "MODULE|COC|START" = 누적 라이브 시작,
+        /// "MODULE|COC|END" = 라이브 정지 + 누적 평균 영상의 대칭 중심(x,y) 계산·응답.
+        /// 실제 누적/계산은 <see cref="ColletRotationCenterCore"/> 위임.</summary>
+        public static string ColletRotationCenter(IVisionModule m, string[] parts)
+        {
+            if (m == null) return "fail:no module";
+            string sub = parts != null && parts.Length > 2 ? parts[2].Trim().ToUpperInvariant() : "";
+            switch (sub)
+            {
+                case "START": return ColletRotationCenterCore.Start(m);
+                case "END":
+                case "STOP":  return ColletRotationCenterCore.End(m);
+                default:      return "fail:need START|END";
+            }
+        }
+
         /// <summary>init 인자 해석 — "1"/"INIT"/"TRUE"(대소문자 무시) 면 최초값.</summary>
         private static bool IsInitFlag(string s)
         {
