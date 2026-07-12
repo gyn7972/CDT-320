@@ -35,10 +35,34 @@ namespace QMC.Vision.Core
             public int Busy;       // 0/1 — 프레임 처리 중이면 새 프레임 드롭(누적 평균이라 드롭 무해)
         }
 
+        private sealed class LastResult
+        {
+            public double X, Y;
+            public int Frames;
+            public DateTime Time;
+            public long Seq;   // 결과 갱신 시퀀스 — UI 폴링이 변경 감지에 사용
+        }
+
         private static readonly ConcurrentDictionary<string, Session> _sessions =
             new ConcurrentDictionary<string, Session>(StringComparer.OrdinalIgnoreCase);
+        private static readonly ConcurrentDictionary<string, LastResult> _last =
+            new ConcurrentDictionary<string, LastResult>(StringComparer.OrdinalIgnoreCase);
+        private static long _seq;
 
         // ── Public Methods ──────────────────────────────────────────
+
+        /// <summary>모듈의 COC 누적 세션이 진행 중인지(START~END 사이). UI 상태 표시용.</summary>
+        public static bool IsRunning(string moduleName)
+            => !string.IsNullOrEmpty(moduleName) && _sessions.ContainsKey(moduleName);
+
+        /// <summary>모듈의 마지막 COC 결과(통신/수동 공통). seq 는 결과마다 증가 — 변경 감지용. 결과 없으면 false.</summary>
+        public static bool TryGetLast(string moduleName, out double x, out double y, out int frames, out DateTime time, out long seq)
+        {
+            x = y = 0; frames = 0; time = DateTime.MinValue; seq = 0;
+            if (string.IsNullOrEmpty(moduleName) || !_last.TryGetValue(moduleName, out var r)) return false;
+            x = r.X; y = r.Y; frames = r.Frames; time = r.Time; seq = r.Seq;
+            return true;
+        }
 
         /// <summary>COC 시작 — 도구 노출/조명 적용 후 카메라 라이브 시작 + 프레임 누적 구독.</summary>
         public static string Start(IVisionModule m)
@@ -115,6 +139,12 @@ namespace QMC.Vision.Core
                         m.PublishViewerFrame(avg);
                 }
                 catch { }
+
+                _last[m.Name] = new LastResult
+                {
+                    X = cx, Y = cy, Frames = s.Count, Time = DateTime.Now,
+                    Seq = Interlocked.Increment(ref _seq)
+                };
 
                 var inv = System.Globalization.CultureInfo.InvariantCulture;
                 string items = "x=" + cx.ToString("F2", inv) + ";y=" + cy.ToString("F2", inv) + ";frames=" + s.Count;

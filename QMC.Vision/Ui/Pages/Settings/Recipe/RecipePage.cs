@@ -360,6 +360,13 @@ namespace QMC.Vision.Ui.Pages
                     ftp.DirtyChanged += (snd, ev) => { UpdateSettingDot(k); UpdateAlgoDot(s.Module); };
                     page = ftp;
                 }
+                else if (s.IsFinder && s.Id == QMC.Vision.Core.ColletRotationCenterCore.ToolId)
+                {
+                    // '회전 중심'(COC)은 패턴 매칭을 사용하지 않는다 — 누적 라이브 + 대칭 중심 전용 페이지.
+                    var cp = new ColletRotCenterPage(s.Module, CurrentRecipeName()) { Dock = DockStyle.Fill, Visible = false };
+                    cp.DirtyChanged += (snd, ev) => { UpdateSettingDot(k); UpdateAlgoDot(s.Module); };
+                    page = cp;
+                }
                 else if (s.IsFinder)
                 {
                     var vtp = new VisionTargetPage(s.Module, s.Finder, CurrentRecipeName()) { Dock = DockStyle.Fill, Visible = false };

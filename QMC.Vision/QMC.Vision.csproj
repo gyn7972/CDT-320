@@ -213,6 +213,12 @@
     <Compile Include="Ui\Pages\Settings\Recipe\FocusTargetPage.Designer.cs">
       <DependentUpon>FocusTargetPage.cs</DependentUpon>
     </Compile>
+    <Compile Include="Ui\Pages\Settings\Recipe\ColletRotCenterPage.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Ui\Pages\Settings\Recipe\ColletRotCenterPage.Designer.cs">
+      <DependentUpon>ColletRotCenterPage.cs</DependentUpon>
+    </Compile>
     <Compile Include="Ui\Pages\Settings\Recipe\InspectorTargetPage.cs">
       <SubType>UserControl</SubType>
     </Compile>

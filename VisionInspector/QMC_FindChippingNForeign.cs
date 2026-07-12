@@ -116,16 +116,26 @@ namespace QMC.Vision.Inspector
             get { return new ParallelOptions { MaxDegreeOfParallelism = Math.Max(1, MaxParallelism) }; }
         }
 
+        /// <summary>피크 기록용 값 타입(2026-07-12) — 종전 PeekValue 클래스는 열/행마다 수백 개씩 힙 할당되어
+        /// (검사 1건당 수백만 개) GC 정지가 스캔 시간을 지배했다. 필드/값/연산은 동일 — 결과 불변.</summary>
+        private struct PeekValueS
+        {
+            public int nX;
+            public int nY;
+            public double dValue;
+            public PeekValueS(int x, int y, double value) { nX = x; nY = y; dValue = value; }
+        }
+
         /// <summary>LINQ Where+OrderBy 대체(2026-07-12) — listPeek 는 스캔 진행 방향으로 키(nY/nX)가 단조로
         /// 추가되므로 '임계 초과 중 최소(최대) 키 원소' = '삽입 순서상 첫 임계 초과 원소'다(OrderBy 는 안정 정렬,
         /// 키 단조). 선형 첫-일치 탐색은 기존과 동일한 원소를 반환하며 열/행마다의 정렬·열거자 할당이 사라진다.</summary>
-        private static PeekValue FirstPeekOver(List<PeekValue> listPeek, double threshold)
+        private static int FirstPeekOverIdx(List<PeekValueS> listPeek, double threshold)
         {
             for (int i = 0; i < listPeek.Count; i++)
             {
-                if (listPeek[i].dValue > threshold) return listPeek[i];
+                if (listPeek[i].dValue > threshold) return i;
             }
-            return null;
+            return -1;
         }
 
         /// <summary>밴드 전치(2026-07-12) — Top/Bottom 라인 탐색은 열 단위 세로 스캔이라 row-major 배열에서
@@ -984,7 +994,7 @@ namespace QMC.Vision.Inspector
                         int nMax = 0;
                         int nMin = 255;
 
-                        List<PeekValue> listPeek = new List<PeekValue>();
+                        List<PeekValueS> listPeek = new List<PeekValueS>();
                         bool bFind = false;
                         int nEndY =Math.Max(10,(int)( nHeight * dMagin - 10));
                         int cb = x * bandH - 8;   // tp[cb + y] == imageArray[y, x] (밴드 내)
@@ -1018,7 +1028,7 @@ namespace QMC.Vision.Inspector
                                         bFind = true;
                                         break;
                                     }
-                                    listPeek.Add(new PeekValue(x, y, nMax - nMin));
+                                    listPeek.Add(new PeekValueS(x, y, nMax - nMin));
                                 }
 
                             }
@@ -1044,6 +1054,7 @@ namespace QMC.Vision.Inspector
                                     {
                                         var peek = listPeek[listPeek.Count - 1];
                                         peek.dValue += nMax - nMin;
+                                        listPeek[listPeek.Count - 1] = peek;   // struct 재기록(값 동일)
 
                                     }
 
@@ -1052,10 +1063,10 @@ namespace QMC.Vision.Inspector
                             if (tp[cb + y] > m_nChippingThreshold && tp[cb + y - 1] <= m_nChippingThreshold && tp[cb + y - 2] <= m_nChippingThreshold)
                             {
 
-                                var v = FirstPeekOver(listPeek, PeekValueThreshold);
-                                if (v != null && v.dValue > PeekValueThreshold)
+                                int vi = FirstPeekOverIdx(listPeek, PeekValueThreshold);
+                                if (vi >= 0)
                                 {
-                                    bag.Add(new PointF(v.nX, v.nY));
+                                    bag.Add(new PointF(listPeek[vi].nX, listPeek[vi].nY));
                                 }
                                 else
                                 {
@@ -1067,10 +1078,10 @@ namespace QMC.Vision.Inspector
                         }
                         if (bFind == false)
                         {
-                            var v = FirstPeekOver(listPeek, PeekValueThreshold);
-                            if (v != null && v.dValue > PeekValueThreshold)
+                            int vi = FirstPeekOverIdx(listPeek, PeekValueThreshold);
+                            if (vi >= 0)
                             {
-                                bag.Add(new PointF(v.nX, v.nY));
+                                bag.Add(new PointF(listPeek[vi].nX, listPeek[vi].nY));
                             }
                         }
                     }
@@ -1279,7 +1290,7 @@ namespace QMC.Vision.Inspector
                         bool bMax = false;
                         int nMax = 0;
                         int nMin = 255;
-                        List<PeekValue> listPeek = new List<PeekValue>();
+                        List<PeekValueS> listPeek = new List<PeekValueS>();
                         bool bFind = false;
                         int cb = x * bandH - bandY0;   // tp[cb + y] == imageArray[y, x] (밴드 내)
                         for (int y = nHeight - 10; y > nHeight * 0.7 + 10; y--)
@@ -1311,7 +1322,7 @@ namespace QMC.Vision.Inspector
                                         bFind = true;
                                         break;
                                     }
-                                    listPeek.Add(new PeekValue(x, y, nMax - nMin));
+                                    listPeek.Add(new PeekValueS(x, y, nMax - nMin));
                                 }
 
                             }
@@ -1337,6 +1348,7 @@ namespace QMC.Vision.Inspector
                                     {
                                         var peek = listPeek[listPeek.Count - 1];
                                         peek.dValue += nMax - nMin;
+                                        listPeek[listPeek.Count - 1] = peek;   // struct 재기록(값 동일)
 
                                     }
 
@@ -1344,10 +1356,10 @@ namespace QMC.Vision.Inspector
                             }
                             if (tp[cb + y] > m_nChippingThreshold && tp[cb + y + 1] <= m_nChippingThreshold && tp[cb + y + 2] <= m_nChippingThreshold)
                             {
-                                var v = FirstPeekOver(listPeek, PeekValueThreshold);
-                                if (v != null && v.dValue > PeekValueThreshold)
+                                int vi = FirstPeekOverIdx(listPeek, PeekValueThreshold);
+                                if (vi >= 0)
                                 {
-                                    bag.Add(new PointF(v.nX, v.nY));
+                                    bag.Add(new PointF(listPeek[vi].nX, listPeek[vi].nY));
                                 }
                                 else
                                 {
@@ -1359,10 +1371,10 @@ namespace QMC.Vision.Inspector
                         }
                         if (bFind == false)
                         {
-                            var v = FirstPeekOver(listPeek, PeekValueThreshold);
-                            if (v != null && v.dValue > PeekValueThreshold)
+                            int vi = FirstPeekOverIdx(listPeek, PeekValueThreshold);
+                            if (vi >= 0)
                             {
-                                bag.Add(new PointF(v.nX, v.nY));
+                                bag.Add(new PointF(listPeek[vi].nX, listPeek[vi].nY));
                             }
                         }
                     }
@@ -1371,7 +1383,7 @@ namespace QMC.Vision.Inspector
                         bool bMin = false;
                         int nMin = 255;
                         int nMax = 0;
-                        List<PeekValue> listPeek = new List<PeekValue>();
+                        List<PeekValueS> listPeek = new List<PeekValueS>();
                         int cb = x * bandH - bandY0;   // tp[cb + y] == imageArray[y, x] (밴드 내)
                         for (int y = nHeight - 10; y > nHeight * 0.7 + 10; y--)
                         {
@@ -1380,7 +1392,7 @@ namespace QMC.Vision.Inspector
                                 bMin = GetMinValue(tp[cb + y], tp[cb + y - 1], ref nMin);
                                 if (bMin == false)
                                 {
-                                    listPeek.Add(new PeekValue(x, y, nMax - nMin));
+                                    listPeek.Add(new PeekValueS(x, y, nMax - nMin));
                                 }
                             }
                             else
@@ -1392,6 +1404,7 @@ namespace QMC.Vision.Inspector
                                     {
                                         var peek = listPeek[listPeek.Count - 1];
                                         peek.dValue += nMax - nMin;
+                                        listPeek[listPeek.Count - 1] = peek;   // struct 재기록(값 동일)
                                     }
                                 }
                             }
@@ -1461,7 +1474,7 @@ namespace QMC.Vision.Inspector
                     int nMin = 255;
                     bool bMax = false;
                     // 칩의 Left 부분을 검사 합니다.
-                    List<PeekValue> listPeek = new List<PeekValue>();
+                    List<PeekValueS> listPeek = new List<PeekValueS>();
                     bool bFind = false;
                     for (int x = 10; x < nWidth * 0.3 - 10; x++)
                     {
@@ -1493,7 +1506,7 @@ namespace QMC.Vision.Inspector
                             if (bMax == false)
                             {
 
-                                listPeek.Add(new PeekValue(x, y, nMax - nMin));
+                                listPeek.Add(new PeekValueS(x, y, nMax - nMin));
                             }
 
                         }
@@ -1519,6 +1532,7 @@ namespace QMC.Vision.Inspector
                                 {
                                     var peek = listPeek[listPeek.Count - 1];
                                     peek.dValue += nMax - nMin;
+                                    listPeek[listPeek.Count - 1] = peek;   // struct 재기록(값 동일)
 
                                 }
 
@@ -1530,10 +1544,10 @@ namespace QMC.Vision.Inspector
                                 continue;
 
 
-                            var v = FirstPeekOver(listPeek, PeekValueThreshold);
-                            if (v != null && v.dValue > PeekValueThreshold)
+                            int vi = FirstPeekOverIdx(listPeek, PeekValueThreshold);
+                            if (vi >= 0)
                             {
-                                bag.Add(new PointF(v.nX, v.nY));
+                                bag.Add(new PointF(listPeek[vi].nX, listPeek[vi].nY));
                             }
                             else
                             {
@@ -1545,10 +1559,10 @@ namespace QMC.Vision.Inspector
                     }
                     if (bFind == false)
                     {
-                        var v = FirstPeekOver(listPeek, PeekValueThreshold);
-                        if (v != null && v.dValue > PeekValueThreshold)
+                        int vi = FirstPeekOverIdx(listPeek, PeekValueThreshold);
+                        if (vi >= 0)
                         {
-                            bag.Add(new PointF(v.nX, v.nY));
+                            bag.Add(new PointF(listPeek[vi].nX, listPeek[vi].nY));
                         }
                     }
 
@@ -1625,7 +1639,7 @@ namespace QMC.Vision.Inspector
                     int nMin = 255;
                     bool bMax = false;
                     // 칩의 Right 부분을 검사 합니다.
-                    List<PeekValue> listPeek = new List<PeekValue>();
+                    List<PeekValueS> listPeek = new List<PeekValueS>();
                     bool bFind = false;
                     for (int x = nWidth - 10; x > nWidth * 0.7 + 10; x--)
                     {
@@ -1656,7 +1670,7 @@ namespace QMC.Vision.Inspector
                             if (bMax == false)
                             {
 
-                                listPeek.Add(new PeekValue(x, y, nMax - nMin));
+                                listPeek.Add(new PeekValueS(x, y, nMax - nMin));
                             }
 
                         }
@@ -1682,6 +1696,7 @@ namespace QMC.Vision.Inspector
                                 {
                                     var peek = listPeek[listPeek.Count - 1];
                                     peek.dValue += nMax - nMin;
+                                    listPeek[listPeek.Count - 1] = peek;   // struct 재기록(값 동일)
 
                                 }
 
@@ -1691,10 +1706,10 @@ namespace QMC.Vision.Inspector
                         {
                             if (y <= nTop || y >= nBottom)
                                 continue;
-                            var v = FirstPeekOver(listPeek, PeekValueThreshold);
-                            if (v != null && v.dValue > PeekValueThreshold)
+                            int vi = FirstPeekOverIdx(listPeek, PeekValueThreshold);
+                            if (vi >= 0)
                             {
-                                bag.Add(new PointF(v.nX, v.nY));
+                                bag.Add(new PointF(listPeek[vi].nX, listPeek[vi].nY));
                             }
                             else
                             {
@@ -1706,10 +1721,10 @@ namespace QMC.Vision.Inspector
                     }
                     if (bFind == false)
                     {
-                        var v = FirstPeekOver(listPeek, PeekValueThreshold);
-                        if (v != null && v.dValue > PeekValueThreshold)
+                        int vi = FirstPeekOverIdx(listPeek, PeekValueThreshold);
+                        if (vi >= 0)
                         {
-                            bag.Add(new PointF(v.nX, v.nY));
+                            bag.Add(new PointF(listPeek[vi].nX, listPeek[vi].nY));
                         }
                     }
                     }
