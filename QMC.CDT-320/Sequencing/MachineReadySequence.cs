@@ -50,10 +50,13 @@ namespace QMC.CDT320.Sequencing
 
             AddReadyStep(steps, ReadyStepId.InputStageNeedleEjectZAvoid, "InputStage Needle/Eject Z Avoid", MoveInputStageNeedleEjectZAvoidAsync);
             AddReadyStep(steps, ReadyStepId.UpperHeadMoveSafetyCheck, "Upper Head Move Safety Check", CheckUpperHeadMoveSafetyAsync);
-            AddReadyStep(steps, ReadyStepId.OutputVisionXAvoid, "Input/Output VisionX Avoid", MoveInputOutputVisionXOnlyAvoidAsync);
-            AddReadyStep(steps, ReadyStepId.ReticleAvoid, "Reticle Avoid", MoveReticleAvoidAsync);
+            // 현재 기준(2026-07-12): Picker가 Input 영역에 남아 있으면 InputVisionX Avoid 이동이
+            // 인터락에 차단되므로, 각 헤드 PickerZ 전체 상승 -> PickerY Avoid를 먼저 수행해
+            // Input 영역을 비운 뒤 VisionX/Reticle/T/X 순서를 진행한다.
             AddReadyStep(steps, ReadyStepId.PickerZAvoid, "Front/Rear Picker Z Avoid", MoveFrontRearPickerZAxesAvoidAsync);
             AddReadyStep(steps, ReadyStepId.PickerYAvoid, "Front/Rear Picker Y Avoid", MoveFrontRearPickerYAxesAvoidAsync);
+            AddReadyStep(steps, ReadyStepId.OutputVisionXAvoid, "Input/Output VisionX Avoid", MoveInputOutputVisionXOnlyAvoidAsync);
+            AddReadyStep(steps, ReadyStepId.ReticleAvoid, "Reticle Avoid", MoveReticleAvoidAsync);
             AddReadyStep(steps, ReadyStepId.PickerTAvoid, "Front/Rear Picker T Avoid", MoveFrontRearPickerTAxesAvoidAsync);
             AddReadyStep(steps, ReadyStepId.PickerXAvoid, "Front/Rear Picker X Avoid", MoveFrontRearPickerXAxesAvoidAsync);
 

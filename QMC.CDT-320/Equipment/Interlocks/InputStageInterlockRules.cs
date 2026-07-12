@@ -596,7 +596,7 @@ namespace QMC.CDT320.Interlocks
                     return CanAutoInputVisionX(request, out reason);
                 // 매뉴얼 이동 인터락 확인
                 case MotionGuardMoveKind.AxisMove:
-                    return CanManualInputVisionX(request.Machine, out reason);
+                    return CanManualInputVisionX(request.Machine, IsInputVisionXTargetAtAvoid(request), out reason);
                 // 홈 이동 인터락 확인
                 case MotionGuardMoveKind.AxisHome:
                     return CanHomeInputVisionX(request.Machine, out reason);
@@ -610,7 +610,7 @@ namespace QMC.CDT320.Interlocks
         {
             CDT320_Machine machine = request != null ? request.Machine : null;
             // 인터락 조건: 자동 InputVisionX 이동도 수동 InputVisionX 기본 안전 조건을 먼저 통과해야 한다.
-            if (!CanManualInputVisionX(machine, out reason))
+            if (!CanManualInputVisionX(machine, IsInputVisionXTargetAtAvoid(request), out reason))
                 return false;
 
             // 인터락 조건: InputFeeder가 InputVisionX 이동과 간섭 없는 상태인지 확인한다.
@@ -663,16 +663,16 @@ namespace QMC.CDT320.Interlocks
 
         // InputVisionX 이동 전제 ②: Front/Rear Picker가 실제 Input 영역을 점유하거나 간섭하면 안 된다.
         // 인터락 항목: InputVisionX 이동 전 Front/Rear Picker가 Input 존을 점유하지 않는지 확인한다.
-        private static bool VerifyFrontRearPickerInputZoneClearForInputVisionX(CDT320_Machine machine, out string reason)
+        private static bool VerifyFrontRearPickerInputZoneClearForInputVisionX(CDT320_Machine machine, bool targetAtAvoid, out string reason)
         {
             reason = string.Empty;
 
             try
             {
-                if (!VerifyPickerInputZoneClearForInputVisionX(machine, true, "Front", out reason))
+                if (!VerifyPickerInputZoneClearForInputVisionX(machine, true, "Front", targetAtAvoid, out reason))
                     return false;
 
-                if (!VerifyPickerInputZoneClearForInputVisionX(machine, false, "Rear", out reason))
+                if (!VerifyPickerInputZoneClearForInputVisionX(machine, false, "Rear", targetAtAvoid, out reason))
                     return false;
 
                 return true;
@@ -690,7 +690,7 @@ namespace QMC.CDT320.Interlocks
         }
 
         // 인터락 항목: InputVisionX 이동 전 지정 Picker의 Input 존 X/Y 이동 위험을 확인한다.
-        private static bool VerifyPickerInputZoneClearForInputVisionX(CDT320_Machine machine, bool isFront, string prefix, out string reason)
+        private static bool VerifyPickerInputZoneClearForInputVisionX(CDT320_Machine machine, bool isFront, string prefix, bool targetAtAvoid, out string reason)
         {
             reason = string.Empty;
             if (machine == null)
@@ -706,11 +706,26 @@ namespace QMC.CDT320.Interlocks
             bool xMoving = state != null && state.PickerX != null && state.PickerX.IsMoving;
             bool yMoving = state != null && state.PickerY != null && state.PickerY.IsMoving;
             bool movingIntoOrInsideInput = IsPickerInputZoneMotionRisk(state, xMoving, yMoving);
+
+            // 인터락 조건: InputVisionX가 Avoid 목표로 복귀하는 이동은 간섭이 없으므로(기구 확인 2026-07-12),
+            // PickerY가 Avoid(후퇴)이고 Picker X/Y가 정지 상태이며 작업영역 점유/Unknown이 없으면
+            // Picker가 Input 존 X 범위에 있어도 허용한다. Avoid 외 목표 이동은 기존대로 차단한다.
+            if (targetAtAvoid &&
+                state != null &&
+                state.YAvoid &&
+                !xMoving &&
+                !yMoving &&
+                !movingIntoOrInsideInput &&
+                !state.WorkAreaBlocksTransport &&
+                !state.UnknownUnsafe)
+                return true;
+
             bool blocking = state != null && (state.BlocksTransport || movingIntoOrInsideInput);
             string detail =
                 "movingX=" + xMoving +
                 ", movingY=" + yMoving +
                 ", movingInputRisk=" + movingIntoOrInsideInput +
+                ", targetAtAvoid=" + targetAtAvoid +
                 ", " + (state != null ? state.Describe() : "state=null");
 
             if (!blocking)
@@ -775,7 +790,7 @@ namespace QMC.CDT320.Interlocks
         }
 
         // 인터락 항목: 수동 InputVisionX 이동은 FeederY Avoid, Picker Input 존 간섭, Feeder Down 상태를 확인한다.
-        private static bool CanManualInputVisionX(CDT320_Machine machine, out string reason)
+        private static bool CanManualInputVisionX(CDT320_Machine machine, bool targetAtAvoid, out string reason)
         {
             reason = string.Empty;
 
@@ -801,7 +816,7 @@ namespace QMC.CDT320.Interlocks
                     return false;
 
                 // Picker 전체 Avoid를 강제하지 않는다. 실제 Input 존 점유/간섭만 차단한다.
-                if (!VerifyFrontRearPickerInputZoneClearForInputVisionX(machine, out reason))
+                if (!VerifyFrontRearPickerInputZoneClearForInputVisionX(machine, targetAtAvoid, out reason))
                     return false;
 
                 return true;
@@ -1314,6 +1329,34 @@ namespace QMC.CDT320.Interlocks
 
                 double tolerance = stage.EjectPinZ.Config != null && stage.EjectPinZ.Config.InPositionTolerance > 0.0
                     ? stage.EjectPinZ.Config.InPositionTolerance
+                    : 0.05;
+
+                return System.Math.Abs(request.TargetValue - pos.AvoidPosition) <= tolerance;
+            }
+            catch
+            {
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
+        // 인터락 기준: InputVisionX 이동 목표가 Avoid 티칭 위치인지 판단한다.
+        private static bool IsInputVisionXTargetAtAvoid(MotionGuardRuleContext request)
+        {
+            try
+            {
+                InputStageUnit stage = request != null && request.Machine != null ? request.Machine.InputStageUnit : null;
+                if (stage == null || stage.CameraX == null)
+                    return false;
+
+                var pos = stage.Recipe != null ? stage.Recipe.VisionX : null;
+                if (pos == null)
+                    return false;
+
+                double tolerance = stage.CameraX.Config != null && stage.CameraX.Config.InPositionTolerance > 0.0
+                    ? stage.CameraX.Config.InPositionTolerance
                     : 0.05;
 
                 return System.Math.Abs(request.TargetValue - pos.AvoidPosition) <= tolerance;
