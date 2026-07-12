@@ -98,6 +98,57 @@ namespace QMC.BottomInspectTest
             public double ResWmm, ResHmm;
             public double LoadMs, InspectMs;
             public int Worker;
+            // 확장 결과 필드(2026-07-12) — 치핑/이물 사이즈까지 결과 동일성 대조용
+            public double Angle;
+            public double ChpTop, ChpBottom, ChpLeft, ChpRight;
+            public double Ch1Chip, Ch2Chip, MaxDefact;
+            public double ForeignSize, ForeignArea;
+            public int NChip, NForeign;
+            public string DetailHash = "";
+        }
+
+        /// <summary>디펙 상세(치핑 깊이/길이/컨투어, 이물 사각형/크기/면적/판정, 코너/오프셋/각도)의 다이제스트.
+        /// 개별 항목 문자열을 정렬 후 해시 — 목록 순서와 무관하게 '내용'이 1비트라도 다르면 값이 달라진다.</summary>
+        private static string DetailDigest(BottomResult r)
+        {
+            var parts = new List<string>();
+            if (r.ChippingInfos != null)
+            {
+                foreach (var ci in r.ChippingInfos)
+                {
+                    if (ci == null) continue;
+                    var sb1 = new StringBuilder();
+                    sb1.Append("C:").Append(ci.Depth.ToString("F6")).Append(',').Append(ci.Length.ToString("F6"));
+                    if (ci.Contour != null)
+                    {
+                        sb1.Append(',').Append(ci.Contour.Count);
+                        foreach (var pt in ci.Contour) sb1.Append(':').Append(pt.X.ToString("F2")).Append(',').Append(pt.Y.ToString("F2"));
+                    }
+                    parts.Add(sb1.ToString());
+                }
+            }
+            if (r.ForeignInfos != null)
+            {
+                foreach (var fi in r.ForeignInfos)
+                {
+                    if (fi == null) continue;
+                    parts.Add("F:" + fi.Rect.X.ToString("F2") + "," + fi.Rect.Y.ToString("F2") + ","
+                        + fi.Rect.Width.ToString("F2") + "," + fi.Rect.Height.ToString("F2") + ","
+                        + fi.SizeMm.ToString("F6") + "," + fi.Area + "," + (fi.IsNg ? 1 : 0));
+                }
+            }
+            parts.Sort(StringComparer.Ordinal);
+            var sb = new StringBuilder();
+            sb.Append(r.Angle.ToString("F6")).Append('|');
+            sb.Append(r.Offset.X.ToString("F4")).Append(',').Append(r.Offset.Y.ToString("F4")).Append('|');
+            if (r.Corners != null) foreach (var c in r.Corners) sb.Append(c.X.ToString("F3")).Append(',').Append(c.Y.ToString("F3")).Append(';');
+            sb.Append('|');
+            foreach (var s in parts) sb.Append(s).Append('\n');
+            using (var md5 = System.Security.Cryptography.MD5.Create())
+            {
+                byte[] hb = md5.ComputeHash(Encoding.UTF8.GetBytes(sb.ToString()));
+                return BitConverter.ToString(hb, 0, 8).Replace("-", "");
+            }
         }
 
         /// <summary>헤드리스 배치 검사 — 이미지별 로드/검사 시간(ms) CSV 리포트 생성.</summary>
@@ -157,6 +208,15 @@ namespace QMC.BottomInspectTest
                             {
                                 rec.Verdict = r.DefectCode == 0 ? "OK" : "NG" + r.DefectCode;
                                 rec.ResWmm = r.Width; rec.ResHmm = r.Height;
+                                rec.Angle = r.Angle;
+                                rec.ChpTop = r.ChppingTopSize; rec.ChpBottom = r.ChppingBottomSize;
+                                rec.ChpLeft = r.ChppingLeftSize; rec.ChpRight = r.ChppingRightSize;
+                                rec.Ch1Chip = r.Channel1ChippingSize; rec.Ch2Chip = r.Channel2ChippingSize;
+                                rec.MaxDefact = r.MaxDefactSize;
+                                rec.ForeignSize = r.ForeingSize; rec.ForeignArea = r.ForeingArea;
+                                rec.NChip = r.ChippingInfos != null ? r.ChippingInfos.Count : 0;
+                                rec.NForeign = r.ForeignInfos != null ? r.ForeignInfos.Count : 0;
+                                rec.DetailHash = DetailDigest(r);
                             }
                         }
                         catch (Exception ex)
@@ -171,13 +231,19 @@ namespace QMC.BottomInspectTest
             swTotal.Stop();
 
             var sb = new StringBuilder();
-            sb.AppendLine("index,file,img_w,img_h,verdict,res_w_mm,res_h_mm,load_ms,inspect_ms,total_ms,worker");
+            sb.AppendLine("index,file,img_w,img_h,verdict,res_w_mm,res_h_mm,load_ms,inspect_ms,total_ms,worker,"
+                + "angle,chp_top,chp_bottom,chp_left,chp_right,ch1_chip,ch2_chip,max_defact,foreign_size,foreign_area,n_chip,n_foreign,detail_hash");
             foreach (var r in records.Where(r => r != null))
                 sb.AppendLine(string.Join(",",
                     r.Index, r.File, r.Width, r.Height, r.Verdict,
                     r.ResWmm.ToString("F4"), r.ResHmm.ToString("F4"),
                     r.LoadMs.ToString("F1"), r.InspectMs.ToString("F1"),
-                    (r.LoadMs + r.InspectMs).ToString("F1"), r.Worker));
+                    (r.LoadMs + r.InspectMs).ToString("F1"), r.Worker,
+                    r.Angle.ToString("F6"),
+                    r.ChpTop.ToString("F6"), r.ChpBottom.ToString("F6"), r.ChpLeft.ToString("F6"), r.ChpRight.ToString("F6"),
+                    r.Ch1Chip.ToString("F6"), r.Ch2Chip.ToString("F6"), r.MaxDefact.ToString("F6"),
+                    r.ForeignSize.ToString("F6"), r.ForeignArea.ToString("F6"),
+                    r.NChip, r.NForeign, r.DetailHash));
 
             var ok = records.Where(r => r != null && (r.Verdict == "OK" || r.Verdict.StartsWith("NG") || r.Verdict == "NULL")).ToList();
             sb.AppendLine();
