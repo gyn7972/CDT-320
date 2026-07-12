@@ -1,0 +1,17 @@
+FrameObjId,"CSV,FRAME"
+DieMapX,3
+DieMapY,1
+PitchX,1.25
+PitchY,2.5
+DieSizeX,1
+DieSizeY,2
+OuterDiameterMm,0
+EdgeSkipMode,
+SideEdgeSkip,0
+TopBottomEdgeSkip,0
+OriginX,0
+OriginY,0
+CreatedAt,2026-07-12 16:00:21
+
+Index,SequenceNo,DieMapX,DieMapY,OriginalMapX,OriginalMapY,IsTarget,Result,BinCode,X,Y,DieUid
+0,0,1,0,1,0,True,Unknown,1,0,0,"UID,WITH,COMMA"

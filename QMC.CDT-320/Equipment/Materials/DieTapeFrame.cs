@@ -66,7 +66,7 @@ namespace QMC.CDT320.Materials
         /// <summary>격자 (X 다이 수, Y 다이 수).</summary>
         [DataMember] public int    DieMapX  { get; set; } = 1;
         [DataMember] public int    DieMapY  { get; set; } = 1;
-        /// <summary>다이 간격 (mm).</summary>
+        /// <summary>장비 좌표에서 다이 중심 간격(center step, mm). Recipe의 Pitch Gap과 구분한다.</summary>
         [DataMember] public double PitchX { get; set; } = 1.0;
         [DataMember] public double PitchY { get; set; } = 1.0;
         /// <summary>웨이퍼 좌상단 기준 좌표 (모터 mm).</summary>

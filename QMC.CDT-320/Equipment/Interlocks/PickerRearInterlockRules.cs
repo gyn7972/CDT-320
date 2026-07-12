@@ -930,6 +930,13 @@ namespace QMC.CDT320.Interlocks
 
             try
             {
+                if (!PickerZoneInterlockRules.VerifyPickerYHomePairSafety(
+                    machine,
+                    false,
+                    "RearPickerY",
+                    out reason))
+                    return false;
+
                 // 현재 기준: RearPickerY Home 전 Z0~Z3는 Home(0) 또는 Avoid 위치여야 한다.
                 if (!VerifyRearPickerZAxesHomeOrAvoid(machine != null ? machine.PickerRearUnit : null, "RearPickerY", out reason))
                     return false;

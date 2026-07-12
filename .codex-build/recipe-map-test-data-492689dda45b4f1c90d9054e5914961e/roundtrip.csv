@@ -1,0 +1,27 @@
+FrameObjId,"CSV,FRAME
+TWO"
+DieMapX,3
+DieMapY,1
+PitchX,1.25
+PitchY,2.5
+DieSizeX,1
+DieSizeY,2
+OuterDiameterMm,0
+EdgeSkipMode,
+SideEdgeSkip,0
+TopBottomEdgeSkip,0
+OriginX,0
+OriginY,0
+SourceFileName,
+SourceFormat,
+SourcePitchFromFile,False
+SourceDeclaredCount,0
+SourceFirstX,-1
+SourceFirstY,-1
+SourceFirstPosX,NaN
+SourceFirstPosY,NaN
+CreatedAt,2026-07-12 17:57:15
+
+Index,SequenceNo,DieMapX,DieMapY,OriginalMapX,OriginalMapY,IsTarget,Result,BinCode,X,Y,EquipmentGridX,EquipmentGridY,DieUid
+0,0,1,0,1,0,True,Unknown,1,0,0,0,0,"UID,WITH,COMMA
+TWO"

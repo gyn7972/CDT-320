@@ -268,6 +268,106 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
+        // Picker Y HOME은 두 Y를 모두 Servo Off한 뒤 선택 축 하나만 Servo On한 상태에서 수행한다.
+        public static bool VerifyPickerYHomePairSafety(
+            CDT320_Machine machine,
+            bool isFront,
+            string movingName,
+            out string reason)
+        {
+            reason = string.Empty;
+            try
+            {
+                if (machine == null)
+                    return MotionGuardRuleHelpers.Block(
+                        movingName,
+                        "Picker Y HOME 페어 상태를 확인할 장비 정보가 없습니다.",
+                        out reason);
+
+                BaseAxis frontY = GetPickerY(machine, true);
+                BaseAxis rearY = GetPickerY(machine, false);
+                BaseAxis ownY = isFront ? frontY : rearY;
+                BaseAxis otherY = isFront ? rearY : frontY;
+                if (frontY == null || rearY == null || ownY == null || otherY == null)
+                    return MotionGuardRuleHelpers.Block(
+                        movingName,
+                        "Picker Y HOME 페어 축 정보를 확인할 수 없습니다.",
+                        out reason);
+
+                if (frontY.IsMoving || rearY.IsMoving)
+                    return MotionGuardRuleHelpers.Block(
+                        movingName,
+                        "Picker Y HOME 불가: Front/Rear PickerY 중 이동 중인 축이 있습니다. frontMoving=" +
+                        frontY.IsMoving + ", rearMoving=" + rearY.IsMoving,
+                        out reason);
+
+                BaseAxis frontX = GetPickerX(machine, true);
+                BaseAxis rearX = GetPickerX(machine, false);
+                if (frontX == null || rearX == null)
+                    return MotionGuardRuleHelpers.Block(
+                        movingName,
+                        "Picker Y HOME 전 Front/Rear PickerX 거리 상태를 확인할 수 없습니다.",
+                        out reason);
+
+                if (frontX.IsMoving || rearX.IsMoving)
+                    return MotionGuardRuleHelpers.Block(
+                        movingName,
+                        "Picker Y HOME 불가: Front/Rear PickerX가 이동 중입니다. frontXMoving=" +
+                        frontX.IsMoving + ", rearXMoving=" + rearX.IsMoving,
+                        out reason);
+
+                bool frontNearHomeOrAvoid = IsPickerYAtAvoid(machine, true);
+                bool rearNearHomeOrAvoid = IsPickerYAtAvoid(machine, false);
+                double xDistance = Math.Abs(frontX.ActualPosition - rearX.ActualPosition);
+                double xClearance = ResolvePickerYFacingXClearance(machine);
+
+                // Home/Avoid 근처에서 양쪽 Servo가 동시에 켜지면 서로 밀지 못하므로 먼저 차단한다.
+                if (otherY.IsServoOn &&
+                    (frontNearHomeOrAvoid || rearNearHomeOrAvoid) &&
+                    xDistance <= xClearance + DefaultTolerance)
+                {
+                    return MotionGuardRuleHelpers.Block(
+                        movingName,
+                        "Picker Y HOME 불가: PickerX가 대향 안전거리 안이고 PickerY 한 축 이상이 Home(0)/Avoid 근처인데 " +
+                        "반대 PickerY Servo가 ON입니다. 두 PickerY를 모두 Servo Off한 뒤 선택 축 하나만 Servo On하여 HOME하십시오. " +
+                        "frontX=" + frontX.ActualPosition.ToString("0.###", CultureInfo.InvariantCulture) +
+                        ", rearX=" + rearX.ActualPosition.ToString("0.###", CultureInfo.InvariantCulture) +
+                        ", xDistance=" + xDistance.ToString("0.###", CultureInfo.InvariantCulture) +
+                        ", clearance=" + xClearance.ToString("0.###", CultureInfo.InvariantCulture) +
+                        ", frontY=" + frontY.ActualPosition.ToString("0.###", CultureInfo.InvariantCulture) +
+                        ", rearY=" + rearY.ActualPosition.ToString("0.###", CultureInfo.InvariantCulture),
+                        out reason);
+                }
+
+                if (otherY.IsServoOn)
+                    return MotionGuardRuleHelpers.Block(
+                        movingName,
+                        "Picker Y HOME 불가: 반대 PickerY Servo가 ON입니다. 두 PickerY를 모두 Servo Off한 뒤 선택 축 하나만 Servo On하십시오. " +
+                        "otherAxis=" + otherY.Name +
+                        ", frontY=" + frontY.ActualPosition.ToString("0.###", CultureInfo.InvariantCulture) +
+                        ", rearY=" + rearY.ActualPosition.ToString("0.###", CultureInfo.InvariantCulture),
+                        out reason);
+
+                if (!ownY.IsServoOn)
+                    return MotionGuardRuleHelpers.Block(
+                        movingName,
+                        "Picker Y HOME 불가: 선택한 PickerY Servo가 ON이 아닙니다. axis=" + ownY.Name,
+                        out reason);
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                return MotionGuardRuleHelpers.Block(
+                    movingName,
+                    "Picker Y HOME 페어 인터락 확인 중 예외가 발생했습니다. error=" + ex.Message,
+                    out reason);
+            }
+            finally
+            {
+            }
+        }
+
         // Feeder/Lift/Stage Z는 Front/Rear Picker X가 움직이는 동안 위치를 바꿀 수 없다.
         public static bool VerifyPickerXStoppedForClearanceMechanismMove(
             CDT320_Machine machine,

@@ -67,6 +67,9 @@ namespace QMC.CDT320.Ui.Controls
 
         public bool ShowWaferOutline { get; set; }
 
+        /// <summary>웨이퍼 중심 (0,0)과 장비 좌표 방향(+X 우측, +Y 위쪽)을 표시한다.</summary>
+        public bool ShowEquipmentAxes { get; set; }
+
         public bool EnableRectangleSelection { get; set; }
 
         [Browsable(false)]
@@ -151,18 +154,10 @@ namespace QMC.CDT320.Ui.Controls
             }
 
             RectangleF mapRect;
+            RectangleF contentRect;
             CellMetrics cell;
             VisibleBounds bounds;
-            GetMapLayout(out mapRect, out cell, out bounds);
-
-            if (ShowWaferOutline)
-            {
-                float radius = Math.Max(mapRect.Width, mapRect.Height) / 2.0F;
-                float cx = mapRect.Left + mapRect.Width / 2.0F;
-                float cy = mapRect.Top + mapRect.Height / 2.0F;
-                using (var pen = new Pen(WaferOutlineColor, 1.4f))
-                    g.DrawEllipse(pen, cx - radius, cy - radius, radius * 2.0F, radius * 2.0F);
-            }
+            GetMapLayout(out mapRect, out contentRect, out cell, out bounds);
 
             // 셀 그리기
             foreach (var entry in _map.Entries)
@@ -174,13 +169,19 @@ namespace QMC.CDT320.Ui.Controls
 
                 float x = mapRect.Left + ToViewX(entry, bounds) * cell.Width;
                 float y = mapRect.Top + ToViewY(entry, bounds) * cell.Height;
-                if (x > Width || y > Height || x + cell.Width < 0 || y + cell.Height < 0)
-                    continue;
-
                 RectangleF dieRect = GetDieRect(x, y, cell);
+                if (dieRect.Left > Width || dieRect.Top > Height || dieRect.Right < 0 || dieRect.Bottom < 0)
+                    continue;
                 Color c = ResolveCellColor(entry);
                 using (var br = new SolidBrush(c))
                     g.FillRectangle(br, dieRect);
+                if (dieRect.Width >= 2.0F && dieRect.Height >= 2.0F)
+                {
+                    using (var gridPen = new Pen(Color.FromArgb(75, ResolveOverlayTextColor()), 0.7F))
+                        g.DrawRectangle(gridPen, dieRect.X, dieRect.Y,
+                            Math.Max(0.1F, dieRect.Width - 0.5F),
+                            Math.Max(0.1F, dieRect.Height - 0.5F));
+                }
 
                 string cellText = CellTextResolver != null
                     ? CellTextResolver(entry)
@@ -197,6 +198,13 @@ namespace QMC.CDT320.Ui.Controls
                     }
                 }
             }
+
+            // 실제 외경은 셀 위에 그려야 Target 셀이 외곽선을 덮지 않는다.
+            if (ShowWaferOutline)
+                DrawPhysicalWaferOutline(g, mapRect, cell, bounds);
+
+            if (ShowEquipmentAxes)
+                DrawEquipmentAxes(g, mapRect, contentRect, cell, bounds);
 
             DrawSelectedEntries(g, mapRect, cell, bounds);
 
@@ -229,20 +237,72 @@ namespace QMC.CDT320.Ui.Controls
                 if (ShowTechnicalInfoLine)
                 {
                     string dieSizeInfo = FormatDieSizeInfo();
+                    string waferInfo = _map.OuterDiameterMm > 0.0
+                        ? $"wafer={_map.OuterDiameterMm:F2}mm"
+                        : "wafer=(not set)";
                     string info = bounds.Compacted
-                        ? $"{bounds.Width}×{bounds.Height} display={bounds.VisibleCount}  source={_map.DieMapX}×{_map.DieMapY}  pitch=({_map.PitchX:F2},{_map.PitchY:F2})mm  {dieSizeInfo}  zoom={_zoom * 100.0F:F0}%"
-                        : $"{_map.DieMapX}×{_map.DieMapY}  pitch=({_map.PitchX:F2},{_map.PitchY:F2})mm  {dieSizeInfo}  total={_map.TotalCells}  zoom={_zoom * 100.0F:F0}%";
+                        ? $"{bounds.Width}×{bounds.Height} display={bounds.VisibleCount}  source={_map.DieMapX}×{_map.DieMapY}  step=({_map.PitchX:F3},{_map.PitchY:F3})mm  {dieSizeInfo}  {waferInfo}  zoom={_zoom * 100.0F:F0}%"
+                        : $"{_map.DieMapX}×{_map.DieMapY}  step=({_map.PitchX:F3},{_map.PitchY:F3})mm  {dieSizeInfo}  {waferInfo}  total={_map.TotalCells}  zoom={_zoom * 100.0F:F0}%";
+                    if (ShowEquipmentAxes)
+                        info += "  center=(0,0) X:L-/R+ Y:D-/U+";
                     g.DrawString(info, f, br, 8, 24);
                 }
                 if (_hover != null && IsEntryVisible(_hover))
                 {
                     string status = CellStatusResolver != null ? CellStatusResolver(_hover) : _hover.Result.ToString();
-                    string h = $"seq={_hover.SequenceNo} [{ResolveEntryMapX(_hover)},{ResolveEntryMapY(_hover)}] xy=({_hover.PosX:F3},{_hover.PosY:F3}) state={status} bin={_hover.BinCode} uid={_hover.DieUid}";
+                    int rawX = _hover.OriginalMapX >= 0 ? _hover.OriginalMapX : _hover.DieMapX;
+                    int rawY = _hover.OriginalMapY >= 0 ? _hover.OriginalMapY : _hover.DieMapY;
+                    string h = $"seq={_hover.SequenceNo} local=[{_hover.DieMapX},{_hover.DieMapY}] raw=[{rawX},{rawY}] grid=({_hover.EquipmentGridX:F1},{_hover.EquipmentGridY:F1}) axis=({_hover.PosX:F3},{_hover.PosY:F3}) state={status} bin={_hover.BinCode}";
                     g.DrawString(h, f, br, 8, Height - 18);
                 }
             }
 
-            DrawLegend(g, (int)mapRect.Width, (int)mapRect.Left, (int)(mapRect.Bottom + 6.0F));
+            DrawLegend(g, (int)contentRect.Width, (int)contentRect.Left, (int)(contentRect.Bottom + 6.0F));
+        }
+
+        private void DrawPhysicalWaferOutline(Graphics g, RectangleF mapRect, CellMetrics cell, VisibleBounds bounds)
+        {
+            if (_map == null)
+                return;
+
+            double pitchX = ResolvePhysicalCellX();
+            double pitchY = ResolvePhysicalCellY();
+            float scaleX = cell.Width / (float)Math.Max(0.000001, pitchX);
+            float scaleY = cell.Height / (float)Math.Max(0.000001, pitchY);
+            float scale = Math.Min(scaleX, scaleY);
+            double diameterMm = ResolveWaferDiameterMm();
+            if (diameterMm <= 0.0)
+                return;
+
+            float diameter = (float)(diameterMm * scale);
+            float centerX = mapRect.Left + (float)(Math.Max(0, _map.DieMapX - 1) / 2.0 - bounds.MinX + 0.5) * cell.Width;
+            float centerY = mapRect.Top + (float)(Math.Max(0, _map.DieMapY - 1) / 2.0 - bounds.MinY + 0.5) * cell.Height;
+            using (var pen = new Pen(WaferOutlineColor, 1.4F))
+                g.DrawEllipse(pen, centerX - diameter / 2.0F, centerY - diameter / 2.0F, diameter, diameter);
+        }
+
+        private void DrawEquipmentAxes(Graphics g, RectangleF mapRect, RectangleF contentRect, CellMetrics cell, VisibleBounds bounds)
+        {
+            if (_map == null)
+                return;
+
+            double centerX = Math.Max(0, _map.DieMapX - 1) / 2.0;
+            double centerY = Math.Max(0, _map.DieMapY - 1) / 2.0;
+            float zeroX = mapRect.Left + (float)(centerX - bounds.MinX + 0.5) * cell.Width;
+            float zeroY = mapRect.Top + (float)(centerY - bounds.MinY + 0.5) * cell.Height;
+            Color axisColor = Color.FromArgb(190, 255, 215, 0);
+            using (var pen = new Pen(axisColor, 1.2F))
+            using (var brush = new SolidBrush(axisColor))
+            using (var font = new Font(OverlayFontFamily, 8.5F, FontStyle.Bold))
+            {
+                g.DrawLine(pen, contentRect.Left, zeroY, contentRect.Right, zeroY);
+                g.DrawLine(pen, zeroX, contentRect.Bottom, zeroX, contentRect.Top);
+                g.DrawString("-X", font, brush, contentRect.Left - 2F, zeroY + 2F);
+                g.DrawString("+X", font, brush, contentRect.Right - 20F, zeroY + 2F);
+                g.DrawString("+Y", font, brush, zeroX + 3F, contentRect.Top - 16F);
+                g.DrawString("-Y", font, brush, zeroX + 3F, contentRect.Bottom + 1F);
+                g.DrawString("0,0", font, brush, zeroX + 3F, zeroY + 2F);
+            }
         }
 
         public void ResetView()
@@ -326,11 +386,30 @@ namespace QMC.CDT320.Ui.Controls
             VisibleBounds bounds;
             GetMapLayout(out mapRect, out cell, out bounds);
 
-            int gx = (int)Math.Floor((mouseX - mapRect.Left) / cell.Width);
-            int gy = (int)Math.Floor((mouseY - mapRect.Top) / cell.Height);
-            if (gx < 0 || gx >= bounds.Width || gy < 0 || gy >= bounds.Height) return null;
-            DieMapEntry hit = FindCellByMapIndex(bounds.MinX + gx, bounds.MinY + gy);
-            return IsEntryVisible(hit) ? hit : null;
+            DieMapEntry hit = null;
+            double nearestDistance = double.MaxValue;
+            foreach (DieMapEntry entry in _map.Entries)
+            {
+                if (!IsEntryVisible(entry))
+                    continue;
+
+                float x = mapRect.Left + ToViewX(entry, bounds) * cell.Width;
+                float y = mapRect.Top + ToViewY(entry, bounds) * cell.Height;
+                RectangleF dieRect = GetDieRect(x, y, cell);
+                if (!dieRect.Contains(mouseX, mouseY))
+                    continue;
+
+                double dx = mouseX - (dieRect.Left + dieRect.Width / 2.0F);
+                double dy = mouseY - (dieRect.Top + dieRect.Height / 2.0F);
+                double distance = dx * dx + dy * dy;
+                if (distance < nearestDistance)
+                {
+                    hit = entry;
+                    nearestDistance = distance;
+                }
+            }
+
+            return hit;
         }
 
         private void OnMouseMoveEvt(object s, MouseEventArgs e)
@@ -503,11 +582,22 @@ namespace QMC.CDT320.Ui.Controls
 
         private void GetMapLayout(out RectangleF mapRect, out CellMetrics cell)
         {
+            RectangleF contentRect;
             VisibleBounds bounds;
-            GetMapLayout(out mapRect, out cell, out bounds);
+            GetMapLayout(out mapRect, out contentRect, out cell, out bounds);
         }
 
         private void GetMapLayout(out RectangleF mapRect, out CellMetrics cell, out VisibleBounds bounds)
+        {
+            RectangleF contentRect;
+            GetMapLayout(out mapRect, out contentRect, out cell, out bounds);
+        }
+
+        private void GetMapLayout(
+            out RectangleF mapRect,
+            out RectangleF contentRect,
+            out CellMetrics cell,
+            out VisibleBounds bounds)
         {
             int margin = 30;
             int titleH = 48;
@@ -517,46 +607,51 @@ namespace QMC.CDT320.Ui.Controls
             int availableH = Math.Max(1, Height - titleH - legendH - margin);
             double physicalCellX = ResolvePhysicalCellX();
             double physicalCellY = ResolvePhysicalCellY();
-            float baseScale = Math.Max(0.01F, Math.Min(
-                availableW / Math.Max(1.0F, (float)(bounds.Width * physicalCellX)),
-                availableH / Math.Max(1.0F, (float)(bounds.Height * physicalCellY))));
-            float scale = Math.Max(0.01F, baseScale * _zoom);
+            PhysicalBounds physicalBounds = CalculatePhysicalContentBounds(bounds, physicalCellX, physicalCellY);
+            float baseScale = Math.Min(
+                availableW / Math.Max(0.000001F, (float)physicalBounds.Width),
+                availableH / Math.Max(0.000001F, (float)physicalBounds.Height));
+            if (float.IsNaN(baseScale) || float.IsInfinity(baseScale) || baseScale <= 0.0F)
+                baseScale = 1.0F;
+            float scale = Math.Max(0.000001F, baseScale * _zoom);
             cell = BuildCellMetrics(physicalCellX, physicalCellY, scale);
 
-            float totalW = cell.Width * bounds.Width;
-            float totalH = cell.Height * bounds.Height;
-            float x0 = (Width - totalW) / 2.0F + _panX;
-            float y0 = titleH + (availableH - totalH) / 2.0F + _panY;
-            mapRect = new RectangleF(x0, y0, totalW, totalH);
+            float contentW = (float)(physicalBounds.Width * scale);
+            float contentH = (float)(physicalBounds.Height * scale);
+            float contentX = (Width - contentW) / 2.0F + _panX;
+            float contentY = titleH + (availableH - contentH) / 2.0F + _panY;
+            contentRect = new RectangleF(contentX, contentY, contentW, contentH);
+
+            float mapX = contentX - (float)(physicalBounds.MinX * scale);
+            float mapY = contentY - (float)(physicalBounds.MinY * scale);
+            mapRect = new RectangleF(
+                mapX,
+                mapY,
+                (float)(bounds.Width * physicalCellX * scale),
+                (float)(bounds.Height * physicalCellY * scale));
         }
 
         private CellMetrics BuildCellMetrics(double physicalCellX, double physicalCellY, float scale)
         {
-            float cellWidth = Math.Max(1.0F, (float)(physicalCellX * scale));
-            float cellHeight = Math.Max(1.0F, (float)(physicalCellY * scale));
-            double pitchX = _map != null && _map.PitchX > 0.0 ? _map.PitchX : physicalCellX;
-            double pitchY = _map != null && _map.PitchY > 0.0 ? _map.PitchY : physicalCellY;
+            float cellWidth = Math.Max(0.000001F, (float)(physicalCellX * scale));
+            float cellHeight = Math.Max(0.000001F, (float)(physicalCellY * scale));
             double dieSizeX = _map != null && _map.DieSizeX > 0.0 ? _map.DieSizeX : physicalCellX;
             double dieSizeY = _map != null && _map.DieSizeY > 0.0 ? _map.DieSizeY : physicalCellY;
-            float dieWidth = cellWidth * (float)Clamp(dieSizeX / Math.Max(0.001, pitchX), 0.05, 1.0);
-            float dieHeight = cellHeight * (float)Clamp(dieSizeY / Math.Max(0.001, pitchY), 0.05, 1.0);
-            float gapX = cellWidth >= 3.0F ? Math.Min(1.0F, cellWidth * 0.08F) : 0.0F;
-            float gapY = cellHeight >= 3.0F ? Math.Min(1.0F, cellHeight * 0.08F) : 0.0F;
 
             return new CellMetrics
             {
                 Width = cellWidth,
                 Height = cellHeight,
-                DieWidth = Math.Max(1.0F, dieWidth - gapX),
-                DieHeight = Math.Max(1.0F, dieHeight - gapY)
+                DieWidth = Math.Max(0.5F, (float)(dieSizeX * scale)),
+                DieHeight = Math.Max(0.5F, (float)(dieSizeY * scale))
             };
         }
 
         private RectangleF GetDieRect(float cellX, float cellY, CellMetrics cell)
         {
             // 현재 기준: Map 격자는 Pitch 간격, 표시 다이는 DieSizeX/Y 비율로 셀 중앙에 그린다.
-            float width = Math.Min(cell.Width, cell.DieWidth);
-            float height = Math.Min(cell.Height, cell.DieHeight);
+            float width = cell.DieWidth;
+            float height = cell.DieHeight;
             return new RectangleF(
                 cellX + (cell.Width - width) / 2.0F,
                 cellY + (cell.Height - height) / 2.0F,
@@ -582,20 +677,55 @@ namespace QMC.CDT320.Ui.Controls
             return 1.0;
         }
 
+        private double ResolveWaferDiameterMm()
+        {
+            if (_map == null || double.IsNaN(_map.OuterDiameterMm) ||
+                double.IsInfinity(_map.OuterDiameterMm) || _map.OuterDiameterMm <= 0.0)
+                return 0.0;
+            return _map.OuterDiameterMm;
+        }
+
+        private PhysicalBounds CalculatePhysicalContentBounds(
+            VisibleBounds bounds,
+            double pitchX,
+            double pitchY)
+        {
+            double dieSizeX = _map != null && _map.DieSizeX > 0.0 ? _map.DieSizeX : pitchX;
+            double dieSizeY = _map != null && _map.DieSizeY > 0.0 ? _map.DieSizeY : pitchY;
+            var result = new PhysicalBounds
+            {
+                MinX = pitchX / 2.0 - dieSizeX / 2.0,
+                MinY = pitchY / 2.0 - dieSizeY / 2.0,
+                MaxX = (bounds.Width - 0.5) * pitchX + dieSizeX / 2.0,
+                MaxY = (bounds.Height - 0.5) * pitchY + dieSizeY / 2.0
+            };
+
+            double diameter = ShowWaferOutline ? ResolveWaferDiameterMm() : 0.0;
+            if (diameter > 0.0 && _map != null)
+            {
+                double waferCenterX =
+                    (Math.Max(0, _map.DieMapX - 1) / 2.0 - bounds.MinX + 0.5) * pitchX;
+                double waferCenterY =
+                    (Math.Max(0, _map.DieMapY - 1) / 2.0 - bounds.MinY + 0.5) * pitchY;
+                double radius = diameter / 2.0;
+                result.MinX = Math.Min(result.MinX, waferCenterX - radius);
+                result.MinY = Math.Min(result.MinY, waferCenterY - radius);
+                result.MaxX = Math.Max(result.MaxX, waferCenterX + radius);
+                result.MaxY = Math.Max(result.MaxY, waferCenterY + radius);
+            }
+
+            if (result.MaxX <= result.MinX)
+                result.MaxX = result.MinX + Math.Max(0.000001, pitchX);
+            if (result.MaxY <= result.MinY)
+                result.MaxY = result.MinY + Math.Max(0.000001, pitchY);
+            return result;
+        }
+
         private string FormatDieSizeInfo()
         {
             double dieSizeX = _map != null && _map.DieSizeX > 0.0 ? _map.DieSizeX : ResolvePhysicalCellX();
             double dieSizeY = _map != null && _map.DieSizeY > 0.0 ? _map.DieSizeY : ResolvePhysicalCellY();
             return $"die=({dieSizeX:F2},{dieSizeY:F2})mm";
-        }
-
-        private static double Clamp(double value, double min, double max)
-        {
-            if (value < min)
-                return min;
-            if (value > max)
-                return max;
-            return value;
         }
 
         private VisibleBounds CalculateVisibleBounds()
@@ -617,29 +747,34 @@ namespace QMC.CDT320.Ui.Controls
             int minY = int.MaxValue;
             int maxX = int.MinValue;
             int maxY = int.MinValue;
-            int count = 0;
+            int geometryCount = 0;
+            int visibleCount = 0;
             foreach (DieMapEntry entry in _map.Entries)
             {
-                if (!IsEntryVisible(entry))
+                if (entry == null)
                     continue;
 
                 int mapX = ResolveEntryMapX(entry);
                 int mapY = ResolveEntryMapY(entry);
+                if (mapX < 0 || mapY < 0)
+                    continue;
                 minX = Math.Min(minX, mapX);
                 minY = Math.Min(minY, mapY);
                 maxX = Math.Max(maxX, mapX);
                 maxY = Math.Max(maxY, mapY);
-                count++;
+                geometryCount++;
+                if (IsEntryVisible(entry))
+                    visibleCount++;
             }
 
-            if (count <= 0 || minX == int.MaxValue || minY == int.MaxValue)
+            if (geometryCount <= 0 || minX == int.MaxValue || minY == int.MaxValue)
                 return bounds;
 
             bounds.MinX = minX;
             bounds.MinY = minY;
             bounds.Width = Math.Max(1, maxX - minX + 1);
             bounds.Height = Math.Max(1, maxY - minY + 1);
-            bounds.VisibleCount = count;
+            bounds.VisibleCount = visibleCount;
             bounds.Compacted = true;
             return bounds;
         }
@@ -803,6 +938,16 @@ namespace QMC.CDT320.Ui.Controls
             public float Height;
             public float DieWidth;
             public float DieHeight;
+        }
+
+        private struct PhysicalBounds
+        {
+            public double MinX;
+            public double MinY;
+            public double MaxX;
+            public double MaxY;
+            public double Width => Math.Max(0.000001, MaxX - MinX);
+            public double Height => Math.Max(0.000001, MaxY - MinY);
         }
 
         private Color ResolveCellColor(DieMapEntry entry)

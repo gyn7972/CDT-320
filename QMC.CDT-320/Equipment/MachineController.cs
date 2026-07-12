@@ -63,7 +63,9 @@ namespace QMC.CDT320
         private readonly AxisInitializeInterlockService _axisInitializeInterlocks;
         private readonly object _initializeHomedAxisLock = new object();
         private HashSet<string> _initializeHomedAxisNames;
+        private readonly SemaphoreSlim _pickerYHomeGate = new SemaphoreSlim(1, 1);
         private readonly object _axisInitializeStepStateLock = new object();
+        private readonly object _machineRuntimeStateSaveLock = new object();
         private readonly Dictionary<string, AxisInitializeStepProgress> _axisInitializeStepStates =
             new Dictionary<string, AxisInitializeStepProgress>(StringComparer.OrdinalIgnoreCase);
         private bool _restoringAxisInitializeStepState;
@@ -71,6 +73,124 @@ namespace QMC.CDT320
         private string _lastOperatorMessageKey = string.Empty;
         private DateTime _lastOperatorMessageTimeUtc = DateTime.MinValue;
         public SharedRailXMotionService SharedRailX { get; private set; }
+
+        private sealed class PickerYHomeServoRestoreState
+        {
+            public BaseAxis TargetAxis { get; set; }
+            public BaseAxis PairedAxis { get; set; }
+            public bool RestoreServoOn { get; set; }
+            public bool RestoreHomeDone { get; set; }
+            public bool Restored { get; set; }
+        }
+
+        private sealed class ParallelInitializeLaneFailure
+        {
+            public string LaneName { get; set; }
+            public int StepNo { get; set; }
+            public string GroupName { get; set; }
+            public int ResultCode { get; set; }
+            public string Message { get; set; }
+        }
+
+        private sealed class ParallelInitializeLaneExecutionState : IDisposable
+        {
+            private readonly object _failureLock = new object();
+            private readonly CancellationTokenSource _cancellation = new CancellationTokenSource();
+            private ParallelInitializeLaneFailure _failure;
+            private int _axisStopRequested;
+
+            public CancellationToken Token
+            {
+                get { return _cancellation.Token; }
+            }
+
+            public bool TrySetFailure(ParallelInitializeLaneFailure failure)
+            {
+                try
+                {
+                    if (failure == null)
+                        return false;
+
+                    lock (_failureLock)
+                    {
+                        if (_failure != null)
+                            return false;
+
+                        _failure = failure;
+                        return true;
+                    }
+                }
+                catch
+                {
+                    return false;
+                }
+                finally
+                {
+                }
+            }
+
+            public ParallelInitializeLaneFailure GetFailure()
+            {
+                try
+                {
+                    lock (_failureLock)
+                    {
+                        return _failure;
+                    }
+                }
+                catch
+                {
+                    return null;
+                }
+                finally
+                {
+                }
+            }
+
+            public void Cancel()
+            {
+                try
+                {
+                    if (!_cancellation.IsCancellationRequested)
+                        _cancellation.Cancel();
+                }
+                catch
+                {
+                }
+                finally
+                {
+                }
+            }
+
+            public bool TryRequestAxisStop()
+            {
+                try
+                {
+                    return Interlocked.CompareExchange(ref _axisStopRequested, 1, 0) == 0;
+                }
+                catch
+                {
+                    return false;
+                }
+                finally
+                {
+                }
+            }
+
+            public void Dispose()
+            {
+                try
+                {
+                    _cancellation.Dispose();
+                }
+                catch
+                {
+                }
+                finally
+                {
+                }
+            }
+        }
 
         public event Action<EquipmentStatus> StatusChanged;
         public event Action<string> LogMessage;
@@ -606,12 +726,15 @@ namespace QMC.CDT320
         {
             try
             {
-                var state = CaptureMachineRuntimeState(reason);
-                bool ok = MachineRuntimeStateStore.Save(state);
-                QMC.Common.Log.Write("Main", "SYSTEM", "MachineRuntimeStateSave",
-                    "Machine runtime state save. reason=" + reason + ", file=" + MachineRuntimeStateStore.StatePath +
-                    (ok ? " - Ok" : " - Failed"));
-                return ok;
+                lock (_machineRuntimeStateSaveLock)
+                {
+                    var state = CaptureMachineRuntimeState(reason);
+                    bool ok = MachineRuntimeStateStore.Save(state);
+                    QMC.Common.Log.Write("Main", "SYSTEM", "MachineRuntimeStateSave",
+                        "Machine runtime state save. reason=" + reason + ", file=" + MachineRuntimeStateStore.StatePath +
+                        (ok ? " - Ok" : " - Failed"));
+                    return ok;
+                }
             }
             catch (Exception ex)
             {
@@ -1448,6 +1571,57 @@ namespace QMC.CDT320
             catch (Exception ex)
             {
                 reason = ex.Message;
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
+        private bool VerifyInitializeCompletionSafety(out string reason)
+        {
+            reason = string.Empty;
+            try
+            {
+                if (!AreAllAxesInitializedAndReady(out reason))
+                    return false;
+
+                if (!MotionGuardRuleHelpers.IsReticleRetracted(_machine))
+                {
+                    reason = "Reticle이 Down 및 Front/Rear Slide Bwd 안전 복귀 상태가 아닙니다.";
+                    return false;
+                }
+
+                OutputStageUnit outputStage = _machine != null ? _machine.OutputStageUnit : null;
+                if (outputStage == null)
+                {
+                    reason = "OutputStageUnit을 찾을 수 없습니다.";
+                    return false;
+                }
+
+                if (!OutputStageInterlockRules.VerifyNgClampSafeForStageMove(
+                    outputStage,
+                    "InitializeComplete",
+                    out reason))
+                    return false;
+
+                if (!outputStage.IsBinGuideDown(BinSide.Good))
+                {
+                    reason = "Good Bin Guide Lift가 Down 상태가 아닙니다.";
+                    return false;
+                }
+
+                if (!PickerZoneInterlockRules.VerifyPickerXGlobalMachineClearance(
+                    _machine,
+                    "InitializeComplete",
+                    out reason))
+                    return false;
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                reason = "전체 초기화 완료 안전 확인 중 예외가 발생했습니다. error=" + ex.Message;
                 return false;
             }
             finally
@@ -2390,6 +2564,22 @@ namespace QMC.CDT320
                     return initResult;
                 }
 
+                string completionReason;
+                if (!VerifyInitializeCompletionSafety(out completionReason))
+                {
+                    LastActionFailureMessage = "전체 초기화 완료 안전 확인 실패: " + completionReason;
+                    QMC.Common.Log.Write("Main", "SYSTEM", "InitializeAllAxes",
+                        LastActionFailureMessage + " - Failed");
+                    AlarmManager.Raise(
+                        AlarmSeverity.Error,
+                        "INIT-FINAL-SAFETY",
+                        "MachineController",
+                        LastActionFailureMessage);
+                    SetMachineInitialized(false, "InitializeAllAxesFinalSafetyFailed", true);
+                    SetStatus(EquipmentStatus.Alarm);
+                    return -1;
+                }
+
                 if (markMachineReady)
                 {
                     SetMachineInitialized(true, "InitializeAllAxesComplete", true);
@@ -2543,6 +2733,8 @@ namespace QMC.CDT320
         //홈잡을때 사용함.!
         private async Task<int> InitializeAxisCoreAsync(BaseAxis axis)
         {
+            bool pickerYHomeGateEntered = false;
+            PickerYHomeServoRestoreState pickerYServoState = null;
             try
             {
                 if (axis == null)
@@ -2560,6 +2752,13 @@ namespace QMC.CDT320
                     return 0;
                 }
 
+                bool isPickerYHome = IsPickerYHomeAxis(axis);
+                if (isPickerYHome)
+                {
+                    await _pickerYHomeGate.WaitAsync().ConfigureAwait(false);
+                    pickerYHomeGateEntered = true;
+                }
+
                 QMC.Common.Log.Write("Main", "SYSTEM", "InitializeAxisCore",
                     "Axis initialize requested. axis=" + axis.Name + " - Start");
 
@@ -2575,8 +2774,21 @@ namespace QMC.CDT320
                         ", error=" + stopEx.Message + " - Failed");
                 }
 
-                axis.ServoOff();
-                Thread.Sleep(500);
+                if (isPickerYHome)
+                {
+                    int pickerYPrepareResult = PreparePickerYHomeServoPair(axis, out pickerYServoState);
+                    if (pickerYPrepareResult != 0)
+                        return pickerYPrepareResult;
+                }
+                else
+                {
+                    int servoOffSettleMs = IsPickerZHomeAxis(axis) ? 1000 : 500;
+                    axis.ServoOff();
+                    QMC.Common.Log.Write("Main", "SYSTEM", "InitializeAxisCore",
+                        "Axis Servo OFF settle before HOME. axis=" + axis.Name +
+                        ", waitMs=" + servoOffSettleMs + " - Start");
+                    await Task.Delay(servoOffSettleMs).ConfigureAwait(false);
+                }
 
                 axis.ResetAlarm();
                 Thread.Sleep(500);
@@ -2591,6 +2803,15 @@ namespace QMC.CDT320
                         "Axis initialize failed: servo is off. axis=" + axis.Name + " - Failed");
                     AlarmManager.Raise(AlarmSeverity.Error, "INIT-SERVO-" + axis.Name, axis.Name, LastActionFailureMessage);
                     return -1;
+                }
+
+                if (pickerYServoState != null &&
+                    pickerYServoState.PairedAxis != null &&
+                    pickerYServoState.PairedAxis.IsServoOn)
+                {
+                    return FailInitializePreparation(
+                        axis.Name + " HOME 불가: 반대 PickerY Servo가 OFF 상태를 유지하지 못했습니다. pairedAxis=" +
+                        pickerYServoState.PairedAxis.Name);
                 }
 
                 int homeResult = await axis.HomeSearchAsync().ConfigureAwait(false);
@@ -2623,6 +2844,15 @@ namespace QMC.CDT320
                     return -1;
                 }
 
+                if (pickerYServoState != null)
+                {
+                    int pickerYRestoreResult = RestorePairedPickerYServoAfterHome(
+                        pickerYServoState,
+                        true);
+                    if (pickerYRestoreResult != 0)
+                        return pickerYRestoreResult;
+                }
+
 
                 // 홈 잡고 Avoid로 움직이는 부분 막자.
                 // 홈 시컨스에서 제어 하도록 하고 메뉴얼로 할떄는 홈잡고 멈춰야한다!
@@ -2642,6 +2872,222 @@ namespace QMC.CDT320
                     "Axis initialize failed. axis=" + (axis != null ? axis.Name : "-") +
                     ", error=" + ex.Message + " - Failed");
                 AlarmManager.Raise(AlarmSeverity.Error, "INIT-AXIS-CORE-EX", "MachineController", LastActionFailureMessage);
+                return -1;
+            }
+            finally
+            {
+                if (pickerYServoState != null && !pickerYServoState.Restored)
+                    RestorePairedPickerYServoAfterHome(pickerYServoState, false);
+
+                if (pickerYHomeGateEntered)
+                    _pickerYHomeGate.Release();
+            }
+        }
+
+        private static bool IsPickerYHomeAxis(BaseAxis axis)
+        {
+            try
+            {
+                if (axis == null)
+                    return false;
+
+                return string.Equals(axis.Name, "FrontPickerY", StringComparison.OrdinalIgnoreCase) ||
+                       string.Equals(axis.Name, "RearPickerY", StringComparison.OrdinalIgnoreCase);
+            }
+            catch
+            {
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
+        private static bool IsPickerZHomeAxis(BaseAxis axis)
+        {
+            try
+            {
+                if (axis == null || string.IsNullOrWhiteSpace(axis.Name))
+                    return false;
+
+                return axis.Name.StartsWith("FrontPickerZ", StringComparison.OrdinalIgnoreCase) ||
+                       axis.Name.StartsWith("RearPickerZ", StringComparison.OrdinalIgnoreCase);
+            }
+            catch
+            {
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
+        private int PreparePickerYHomeServoPair(
+            BaseAxis targetAxis,
+            out PickerYHomeServoRestoreState restoreState)
+        {
+            restoreState = null;
+            try
+            {
+                BaseAxis frontY = _machine != null && _machine.PickerFrontUnit != null
+                    ? _machine.PickerFrontUnit.PickerY
+                    : null;
+                BaseAxis rearY = _machine != null && _machine.PickerRearUnit != null
+                    ? _machine.PickerRearUnit.PickerY
+                    : null;
+                if (frontY == null || rearY == null || targetAxis == null)
+                    return FailInitializePreparation(
+                        "Picker Y HOME Servo 준비 실패: Front/Rear PickerY 축 정보를 확인할 수 없습니다.");
+
+                bool targetIsFront = ReferenceEquals(targetAxis, frontY) ||
+                    string.Equals(targetAxis.Name, "FrontPickerY", StringComparison.OrdinalIgnoreCase);
+                bool targetIsRear = ReferenceEquals(targetAxis, rearY) ||
+                    string.Equals(targetAxis.Name, "RearPickerY", StringComparison.OrdinalIgnoreCase);
+                if (!targetIsFront && !targetIsRear)
+                    return FailInitializePreparation(
+                        "Picker Y HOME Servo 준비 실패: 선택 축이 Front/Rear PickerY가 아닙니다. axis=" + targetAxis.Name);
+
+                BaseAxis pairedAxis = targetIsFront ? rearY : frontY;
+                restoreState = new PickerYHomeServoRestoreState
+                {
+                    TargetAxis = targetAxis,
+                    PairedAxis = pairedAxis,
+                    RestoreServoOn = pairedAxis.IsServoOn,
+                    RestoreHomeDone = pairedAxis.IsHomeDone,
+                    Restored = false
+                };
+
+                frontY.Stop();
+                rearY.Stop();
+                Thread.Sleep(100);
+
+                frontY.ServoOff();
+                rearY.ServoOff();
+                Thread.Sleep(500);
+
+                try { frontY.UpdateStatus(); } catch { }
+                try { rearY.UpdateStatus(); } catch { }
+
+                if (frontY.IsMoving || rearY.IsMoving)
+                    return FailInitializePreparation(
+                        "Picker Y HOME Servo 준비 실패: 두 PickerY 정지가 확인되지 않았습니다. frontMoving=" +
+                        frontY.IsMoving + ", rearMoving=" + rearY.IsMoving);
+
+                if (frontY.IsServoOn || rearY.IsServoOn)
+                    return FailInitializePreparation(
+                        "Picker Y HOME Servo 준비 실패: 두 PickerY Servo OFF가 확인되지 않았습니다. frontServo=" +
+                        (frontY.IsServoOn ? "ON" : "OFF") +
+                        ", rearServo=" + (rearY.IsServoOn ? "ON" : "OFF"));
+
+                QMC.Common.Log.Write("Main", "SYSTEM", "PreparePickerYHomeServoPair",
+                    "Picker Y pair stopped and Servo OFF before single-axis HOME. target=" + targetAxis.Name +
+                    ", paired=" + pairedAxis.Name +
+                    ", pairedRestoreServoOn=" + restoreState.RestoreServoOn +
+                    ", pairedRestoreHomeDone=" + restoreState.RestoreHomeDone +
+                    ", frontY=" + frontY.ActualPosition.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture) +
+                    ", rearY=" + rearY.ActualPosition.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture) +
+                    " - Ok");
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                return FailInitializePreparation(
+                    "Picker Y HOME Servo 준비 중 예외가 발생했습니다. axis=" +
+                    (targetAxis != null ? targetAxis.Name : "-") +
+                    ", error=" + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private int RestorePairedPickerYServoAfterHome(
+            PickerYHomeServoRestoreState restoreState,
+            bool reportFailure)
+        {
+            try
+            {
+                if (restoreState == null || restoreState.Restored)
+                    return 0;
+
+                if (restoreState.TargetAxis != null && restoreState.TargetAxis.IsMoving)
+                {
+                    restoreState.TargetAxis.Stop();
+                    Thread.Sleep(100);
+                }
+
+                if (!restoreState.RestoreServoOn)
+                {
+                    restoreState.Restored = true;
+                    return 0;
+                }
+
+                BaseAxis pairedAxis = restoreState.PairedAxis;
+                if (pairedAxis == null)
+                    return ReportPickerYServoRestoreFailure(
+                        "반대 PickerY 축 정보가 없습니다.",
+                        reportFailure);
+
+                if (pairedAxis.IsAlarm)
+                    return ReportPickerYServoRestoreFailure(
+                        "반대 PickerY에 Alarm이 있어 Servo 상태를 복원할 수 없습니다. axis=" + pairedAxis.Name +
+                        ", alarmCode=" + pairedAxis.AlarmCode,
+                        reportFailure);
+
+                pairedAxis.ServoOn();
+                Thread.Sleep(500);
+                try { pairedAxis.UpdateStatus(); } catch { }
+
+                if (!pairedAxis.IsServoOn)
+                    return ReportPickerYServoRestoreFailure(
+                        "반대 PickerY Servo ON 복원에 실패했습니다. axis=" + pairedAxis.Name,
+                        reportFailure);
+
+                if (restoreState.RestoreHomeDone)
+                {
+                    QMC.CDT320.Ajin.AjinAxis ajinAxis = pairedAxis as QMC.CDT320.Ajin.AjinAxis;
+                    if (ajinAxis != null)
+                        ajinAxis.RestoreHomeDoneSignal(true, false);
+
+                    if (!pairedAxis.IsHomeDone)
+                        return ReportPickerYServoRestoreFailure(
+                            "반대 PickerY HomeDone 상태 복원에 실패했습니다. axis=" + pairedAxis.Name,
+                            reportFailure);
+                }
+
+                restoreState.Restored = true;
+                QMC.Common.Log.Write("Main", "SYSTEM", "RestorePairedPickerYServoAfterHome",
+                    "Paired PickerY state restored after single-axis HOME. target=" +
+                    (restoreState.TargetAxis != null ? restoreState.TargetAxis.Name : "-") +
+                    ", paired=" + pairedAxis.Name +
+                    ", servo=ON, homeDone=" + pairedAxis.IsHomeDone + " - Ok");
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                return ReportPickerYServoRestoreFailure(
+                    "반대 PickerY 상태 복원 중 예외가 발생했습니다. error=" + ex.Message,
+                    reportFailure);
+            }
+            finally
+            {
+            }
+        }
+
+        private int ReportPickerYServoRestoreFailure(string message, bool reportFailure)
+        {
+            try
+            {
+                string fullMessage = "Picker Y HOME 후 상태 복원 실패: " + message;
+                if (reportFailure)
+                    return FailInitializePreparation(fullMessage);
+
+                QMC.Common.Log.Write("Main", "SYSTEM", "RestorePairedPickerYServoAfterHome",
+                    fullMessage + " - Failed");
+                return -1;
+            }
+            catch
+            {
                 return -1;
             }
             finally
@@ -3379,34 +3825,7 @@ namespace QMC.CDT320
                     .ToList();
                 ResetAxisInitializeStepProgressForRun(enabledSteps);
 
-                foreach (var batch in enabledSteps.GroupBy(x => x.StepNo))
-                {
-                    var batchSteps = batch.ToList();
-                    if (batchSteps.Count == 1)
-                    {
-                        int singleResult = await ExecuteInitializeSingleStepAsync(batchSteps[0]).ConfigureAwait(false);
-                        if (singleResult != 0)
-                            return singleResult;
-                    }
-                    else
-                    {
-                        QMC.Common.Log.Write("Main", "SYSTEM", "ExecuteInitializeSteps",
-                            "Axis initialize same-step serial batch start. step=" + batch.Key +
-                            ", groups=" + string.Join(",", batchSteps.Select(x => x.GroupName).ToArray()) + " - Start");
-
-                        foreach (AxisInitializeStep batchStep in batchSteps)
-                        {
-                            int serialResult = await ExecuteInitializeSingleStepAsync(batchStep).ConfigureAwait(false);
-                            if (serialResult != 0)
-                                return serialResult;
-                        }
-
-                        QMC.Common.Log.Write("Main", "SYSTEM", "ExecuteInitializeSteps",
-                            "Axis initialize same-step serial batch completed. step=" + batch.Key + " - Ok");
-                    }
-                }
-
-                return 0;
+                return await ExecuteInitializePlanWithParallelLanesAsync(enabledSteps).ConfigureAwait(false);
             }
             catch (Exception ex)
             {
@@ -3421,7 +3840,564 @@ namespace QMC.CDT320
             }
         }
 
+        private async Task<int> ExecuteInitializePlanWithParallelLanesAsync(
+            IList<AxisInitializeStep> enabledSteps)
+        {
+            try
+            {
+                var inputLaneSteps = enabledSteps
+                    .Where(x => x != null && AxisInitializeParallelLane.Is(
+                        x.ParallelLane,
+                        AxisInitializeParallelLane.Input))
+                    .OrderBy(x => x.StepNo)
+                    .ThenBy(x => x.GroupName)
+                    .ToList();
+                var outputLaneSteps = enabledSteps
+                    .Where(x => x != null && AxisInitializeParallelLane.Is(
+                        x.ParallelLane,
+                        AxisInitializeParallelLane.Output))
+                    .OrderBy(x => x.StepNo)
+                    .ThenBy(x => x.GroupName)
+                    .ToList();
+
+                if (inputLaneSteps.Count == 0 || outputLaneSteps.Count == 0)
+                {
+                    QMC.Common.Log.Write("Main", "SYSTEM", "ExecuteInitializeParallelLanes",
+                        "Initialize parallel lane metadata is incomplete. Serial fallback selected. inputSteps=" +
+                        inputLaneSteps.Count + ", outputSteps=" + outputLaneSteps.Count + " - Ok");
+                    return await ExecuteInitializeStepBatchesSerialAsync(
+                        enabledSteps,
+                        "SerialFallback").ConfigureAwait(false);
+                }
+
+                int firstLaneStepNo = Math.Min(
+                    inputLaneSteps.Min(x => x.StepNo),
+                    outputLaneSteps.Min(x => x.StepNo));
+                int lastLaneStepNo = Math.Max(
+                    inputLaneSteps.Max(x => x.StepNo),
+                    outputLaneSteps.Max(x => x.StepNo));
+                var unlabeledStepsInsideLaneBarrier = enabledSteps
+                    .Where(x => x != null &&
+                        x.StepNo >= firstLaneStepNo &&
+                        x.StepNo <= lastLaneStepNo &&
+                        !AxisInitializeParallelLane.Is(x.ParallelLane, AxisInitializeParallelLane.Input) &&
+                        !AxisInitializeParallelLane.Is(x.ParallelLane, AxisInitializeParallelLane.Output))
+                    .ToList();
+                if (unlabeledStepsInsideLaneBarrier.Count > 0)
+                {
+                    return FailInitializePreparation(
+                        "병렬 초기화 Lane 구간 안에 Lane이 지정되지 않은 Step이 있습니다. steps=" +
+                        string.Join(",", unlabeledStepsInsideLaneBarrier.Select(x =>
+                            x.StepNo + ":" + x.GroupName).ToArray()));
+                }
+
+                var preLaneSteps = enabledSteps
+                    .Where(x => x != null && x.StepNo < firstLaneStepNo)
+                    .ToList();
+                var postLaneSteps = enabledSteps
+                    .Where(x => x != null && x.StepNo > lastLaneStepNo)
+                    .ToList();
+
+                int preResult = await ExecuteInitializeStepBatchesSerialAsync(
+                    preLaneSteps,
+                    "CommonPreLane").ConfigureAwait(false);
+                if (preResult != 0)
+                    return preResult;
+
+                int parallelResult = await ExecuteInitializeParallelLanesAsync(
+                    inputLaneSteps,
+                    outputLaneSteps).ConfigureAwait(false);
+                if (parallelResult != 0)
+                    return parallelResult;
+
+                return await ExecuteInitializeStepBatchesSerialAsync(
+                    postLaneSteps,
+                    "SharedRailPostLane").ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                LastActionFailureMessage = "병렬 초기화 플랜 실행 실패: " + ex.Message;
+                QMC.Common.Log.Write("Main", "SYSTEM", "ExecuteInitializeParallelLanes",
+                    LastActionFailureMessage + " - Failed");
+                AlarmManager.Raise(
+                    AlarmSeverity.Error,
+                    "INIT-PARALLEL-PLAN-EX",
+                    "MachineController",
+                    LastActionFailureMessage);
+                return -1;
+            }
+            finally
+            {
+            }
+        }
+
+        private async Task<int> ExecuteInitializeStepBatchesSerialAsync(
+            IList<AxisInitializeStep> steps,
+            string phase)
+        {
+            try
+            {
+                if (steps == null || steps.Count == 0)
+                    return 0;
+
+                foreach (var batch in steps
+                    .Where(x => x != null && x.Enabled)
+                    .OrderBy(x => x.StepNo)
+                    .GroupBy(x => x.StepNo))
+                {
+                    var batchSteps = batch.OrderBy(x => x.GroupName).ToList();
+                    if (batchSteps.Count == 1)
+                    {
+                        int singleResult = await ExecuteInitializeSingleStepAsync(batchSteps[0]).ConfigureAwait(false);
+                        if (singleResult != 0)
+                            return singleResult;
+                        continue;
+                    }
+
+                    QMC.Common.Log.Write("Main", "SYSTEM", "ExecuteInitializeSteps",
+                        "Axis initialize same-step serial batch start. phase=" + phase +
+                        ", step=" + batch.Key +
+                        ", groups=" + string.Join(",", batchSteps.Select(x => x.GroupName).ToArray()) + " - Start");
+                    foreach (AxisInitializeStep batchStep in batchSteps)
+                    {
+                        int serialResult = await ExecuteInitializeSingleStepAsync(batchStep).ConfigureAwait(false);
+                        if (serialResult != 0)
+                            return serialResult;
+                    }
+
+                    QMC.Common.Log.Write("Main", "SYSTEM", "ExecuteInitializeSteps",
+                        "Axis initialize same-step serial batch completed. phase=" + phase +
+                        ", step=" + batch.Key + " - Ok");
+                }
+
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                LastActionFailureMessage = "직렬 초기화 구간 실행 실패: phase=" + phase +
+                    ", error=" + ex.Message;
+                QMC.Common.Log.Write("Main", "SYSTEM", "ExecuteInitializeSteps",
+                    LastActionFailureMessage + " - Failed");
+                return -1;
+            }
+            finally
+            {
+            }
+        }
+
+        private async Task<int> ExecuteInitializeParallelLanesAsync(
+            IList<AxisInitializeStep> inputLaneSteps,
+            IList<AxisInitializeStep> outputLaneSteps)
+        {
+            ParallelInitializeLaneExecutionState executionState = null;
+            var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+            try
+            {
+                HashSet<string> inputLaneAxisNames = ResolveInitializeLaneAxisNames(inputLaneSteps);
+                HashSet<string> outputLaneAxisNames = ResolveInitializeLaneAxisNames(outputLaneSteps);
+                var overlappingAxes = inputLaneAxisNames
+                    .Intersect(outputLaneAxisNames, StringComparer.OrdinalIgnoreCase)
+                    .ToList();
+                if (overlappingAxes.Count > 0)
+                {
+                    return FailInitializePreparation(
+                        "Input/Output 병렬 초기화 Lane에 중복 축이 있습니다. axes=" +
+                        string.Join(",", overlappingAxes.ToArray()));
+                }
+
+                AxisInitializeStep firstInputStep = inputLaneSteps
+                    .OrderBy(x => x.StepNo)
+                    .ThenBy(x => x.GroupName)
+                    .FirstOrDefault();
+                AxisInitializeStep firstOutputStep = outputLaneSteps
+                    .OrderBy(x => x.StepNo)
+                    .ThenBy(x => x.GroupName)
+                    .FirstOrDefault();
+                string preflightReason;
+                if (_axisInitializeInterlocks != null &&
+                    !_axisInitializeInterlocks.VerifyStep(firstInputStep, out preflightReason))
+                {
+                    LastActionFailureMessage = preflightReason;
+                    RaiseAxisInitializeStepProgress(
+                        firstInputStep,
+                        AxisInitializeStepStatus.Failed,
+                        LastActionFailureMessage);
+                    return -1;
+                }
+
+                if (_axisInitializeInterlocks != null &&
+                    !_axisInitializeInterlocks.VerifyStep(firstOutputStep, out preflightReason))
+                {
+                    LastActionFailureMessage = preflightReason;
+                    RaiseAxisInitializeStepProgress(
+                        firstOutputStep,
+                        AxisInitializeStepStatus.Failed,
+                        LastActionFailureMessage);
+                    return -1;
+                }
+
+                executionState = new ParallelInitializeLaneExecutionState();
+                QMC.Common.Log.Write("Main", "SYSTEM", "ExecuteInitializeParallelLanes",
+                    "Input/Output initialize lanes start concurrently. inputSteps=" +
+                    string.Join(",", inputLaneSteps.Select(x => x.StepNo + ":" + x.GroupName).ToArray()) +
+                    ", outputSteps=" +
+                    string.Join(",", outputLaneSteps.Select(x => x.StepNo + ":" + x.GroupName).ToArray()) +
+                    ", inputAxes=" + string.Join(",", inputLaneAxisNames.ToArray()) +
+                    ", outputAxes=" + string.Join(",", outputLaneAxisNames.ToArray()) + " - Start");
+
+                Task<int> inputTask = Task.Run(() => ExecuteInitializeLaneAsync(
+                    AxisInitializeParallelLane.Input,
+                    inputLaneSteps,
+                    outputLaneAxisNames,
+                    executionState));
+                Task<int> outputTask = Task.Run(() => ExecuteInitializeLaneAsync(
+                    AxisInitializeParallelLane.Output,
+                    outputLaneSteps,
+                    inputLaneAxisNames,
+                    executionState));
+                int[] results = await Task.WhenAll(inputTask, outputTask).ConfigureAwait(false);
+
+                ParallelInitializeLaneFailure failure = executionState.GetFailure();
+                if (failure != null)
+                {
+                    LastActionFailureMessage = failure.Message;
+                    QMC.Common.Log.Write("Main", "SYSTEM", "ExecuteInitializeParallelLanes",
+                        "Input/Output initialize lanes failed. firstFailureLane=" + failure.LaneName +
+                        ", step=" + failure.StepNo +
+                        ", group=" + failure.GroupName +
+                        ", elapsedMs=" + stopwatch.ElapsedMilliseconds +
+                        ", message=" + failure.Message + " - Failed");
+                    return failure.ResultCode != 0 ? failure.ResultCode : -1;
+                }
+
+                int failedResult = results.FirstOrDefault(x => x != 0);
+                if (failedResult != 0)
+                {
+                    LastActionFailureMessage = "병렬 초기화 Lane이 실패했지만 상세 실패 정보가 없습니다.";
+                    return failedResult;
+                }
+
+                QMC.Common.Log.Write("Main", "SYSTEM", "ExecuteInitializeParallelLanes",
+                    "Input/Output initialize lanes completed concurrently. elapsedMs=" +
+                    stopwatch.ElapsedMilliseconds + " - Ok");
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                if (executionState != null)
+                {
+                    executionState.Cancel();
+                    if (executionState.TryRequestAxisStop())
+                        await StopAllAxesAsync(false).ConfigureAwait(false);
+                }
+
+                LastActionFailureMessage = "병렬 초기화 Lane 실행 예외: " + ex.Message;
+                QMC.Common.Log.Write("Main", "SYSTEM", "ExecuteInitializeParallelLanes",
+                    LastActionFailureMessage + " - Failed");
+                AlarmManager.Raise(
+                    AlarmSeverity.Error,
+                    "INIT-PARALLEL-LANE-EX",
+                    "MachineController",
+                    LastActionFailureMessage);
+                return -1;
+            }
+            finally
+            {
+                stopwatch.Stop();
+                if (executionState != null)
+                    executionState.Dispose();
+            }
+        }
+
+        private async Task<int> ExecuteInitializeLaneAsync(
+            string laneName,
+            IList<AxisInitializeStep> laneSteps,
+            ISet<string> allowedConcurrentAxisNames,
+            ParallelInitializeLaneExecutionState executionState)
+        {
+            AxisInitializeStep currentStep = null;
+            try
+            {
+                var orderedSteps = (laneSteps ?? new AxisInitializeStep[0])
+                    .Where(x => x != null && x.Enabled)
+                    .OrderBy(x => x.StepNo)
+                    .ThenBy(x => x.GroupName)
+                    .ToList();
+                for (int i = 0; i < orderedSteps.Count; i++)
+                {
+                    currentStep = orderedSteps[i];
+                    if (executionState != null && executionState.Token.IsCancellationRequested)
+                    {
+                        MarkInitializeLaneStepsCancelled(
+                            orderedSteps,
+                            i,
+                            "반대 Lane 실패로 병렬 초기화가 중단되었습니다. lane=" + laneName);
+                        return -1;
+                    }
+
+                    int result = await ExecuteInitializeSingleStepAsync(
+                        currentStep,
+                        allowedConcurrentAxisNames).ConfigureAwait(false);
+                    if (result == 0 &&
+                        executionState != null &&
+                        executionState.Token.IsCancellationRequested)
+                    {
+                        RaiseAxisInitializeStepProgress(
+                            currentStep,
+                            AxisInitializeStepStatus.ReinitializeRequired,
+                            "반대 Lane 실패 중 동작이 정지되었으므로 재초기화가 필요합니다. lane=" + laneName);
+                        MarkInitializeLaneStepsCancelled(
+                            orderedSteps,
+                            i + 1,
+                            "반대 Lane 실패로 병렬 초기화가 중단되었습니다. lane=" + laneName);
+                        return -1;
+                    }
+
+                    if (result == 0)
+                        continue;
+
+                    string failureMessage = ResolveInitializeStepFailureMessage(
+                        currentStep,
+                        laneName,
+                        result);
+                    await ReportParallelInitializeLaneFailureAsync(
+                        executionState,
+                        laneName,
+                        currentStep,
+                        result,
+                        failureMessage).ConfigureAwait(false);
+                    return result;
+                }
+
+                QMC.Common.Log.Write("Main", "SYSTEM", "ExecuteInitializeLane",
+                    "Initialize parallel lane completed. lane=" + laneName + " - Ok");
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                string failureMessage = "병렬 초기화 Lane 예외. lane=" + laneName +
+                    ", step=" + (currentStep != null ? currentStep.StepNo : 0) +
+                    ", group=" + (currentStep != null ? currentStep.GroupName : "-") +
+                    ", error=" + ex.Message;
+                await ReportParallelInitializeLaneFailureAsync(
+                    executionState,
+                    laneName,
+                    currentStep,
+                    -1,
+                    failureMessage).ConfigureAwait(false);
+                return -1;
+            }
+            finally
+            {
+            }
+        }
+
+        private async Task ReportParallelInitializeLaneFailureAsync(
+            ParallelInitializeLaneExecutionState executionState,
+            string laneName,
+            AxisInitializeStep step,
+            int resultCode,
+            string failureMessage)
+        {
+            try
+            {
+                if (executionState == null)
+                    return;
+
+                var failure = new ParallelInitializeLaneFailure
+                {
+                    LaneName = laneName ?? "-",
+                    StepNo = step != null ? step.StepNo : 0,
+                    GroupName = step != null ? step.GroupName : "-",
+                    ResultCode = resultCode != 0 ? resultCode : -1,
+                    Message = failureMessage ?? "병렬 초기화 Lane 실패"
+                };
+                bool firstFailure = executionState.TrySetFailure(failure);
+                executionState.Cancel();
+
+                if (executionState.TryRequestAxisStop())
+                {
+                    int stopResult = await StopAllAxesAsync(false).ConfigureAwait(false);
+                    QMC.Common.Log.Write("Main", "SYSTEM", "ExecuteInitializeParallelLanes",
+                        "Parallel lane peer-stop requested. lane=" + laneName +
+                        ", step=" + failure.StepNo +
+                        ", stopResult=" + stopResult +
+                        (stopResult == 0 ? " - Ok" : " - Failed"));
+                }
+
+                if (firstFailure)
+                {
+                    QMC.Common.Log.Write("Main", "SYSTEM", "ExecuteInitializeParallelLanes",
+                        failure.Message + " - Failed");
+                    AlarmManager.Raise(
+                        AlarmSeverity.Error,
+                        "INIT-PARALLEL-" + (laneName ?? "LANE").ToUpperInvariant(),
+                        "MachineController",
+                        failure.Message);
+                }
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Log.Write("Main", "SYSTEM", "ExecuteInitializeParallelLanes",
+                    "Parallel lane failure handling failed. error=" + ex.Message + " - Failed");
+            }
+            finally
+            {
+            }
+        }
+
+        private HashSet<string> ResolveInitializeLaneAxisNames(IList<AxisInitializeStep> laneSteps)
+        {
+            var axisNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            try
+            {
+                foreach (AxisInitializeStep step in laneSteps ?? new AxisInitializeStep[0])
+                {
+                    foreach (BaseAxis axis in ResolveAxesByNames(step != null ? step.AxisNames : null))
+                    {
+                        if (axis != null && !string.IsNullOrWhiteSpace(axis.Name))
+                            axisNames.Add(axis.Name);
+                    }
+
+                    AddInitializeActionAxisNames(axisNames, step != null ? step.PreActions : null);
+                    AddInitializeActionAxisNames(axisNames, step != null ? step.PostActions : null);
+                }
+
+                return axisNames;
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Log.Write("Main", "SYSTEM", "ResolveInitializeLaneAxes",
+                    "Initialize lane axis resolve failed. error=" + ex.Message + " - Failed");
+                return axisNames;
+            }
+            finally
+            {
+            }
+        }
+
+        private void AddInitializeActionAxisNames(
+            ISet<string> axisNames,
+            IList<AxisInitializeAction> actions)
+        {
+            try
+            {
+                if (axisNames == null || actions == null)
+                    return;
+
+                foreach (AxisInitializeAction action in actions)
+                {
+                    if (action == null || !action.Enabled ||
+                        !string.Equals(
+                            action.TargetType,
+                            AxisInitializeInterlockTarget.Axis,
+                            StringComparison.OrdinalIgnoreCase))
+                        continue;
+
+                    BaseAxis axis = FindInitializeActionAxis(action.Name);
+                    if (axis != null && !string.IsNullOrWhiteSpace(axis.Name))
+                        axisNames.Add(axis.Name);
+                }
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Log.Write("Main", "SYSTEM", "ResolveInitializeLaneAxes",
+                    "Initialize lane action axis resolve failed. error=" + ex.Message + " - Failed");
+            }
+            finally
+            {
+            }
+        }
+
+        private string ResolveInitializeStepFailureMessage(
+            AxisInitializeStep step,
+            string laneName,
+            int resultCode)
+        {
+            try
+            {
+                string stepMessage = "";
+                lock (_axisInitializeStepStateLock)
+                {
+                    AxisInitializeStepProgress progress;
+                    if (step != null && _axisInitializeStepStates.TryGetValue(
+                        GetAxisInitializeStepStateKey(step),
+                        out progress))
+                    {
+                        stepMessage = progress != null ? progress.Message : "";
+                    }
+                }
+
+                if (string.IsNullOrWhiteSpace(stepMessage))
+                    stepMessage = LastActionFailureMessage;
+                if (string.IsNullOrWhiteSpace(stepMessage))
+                    stepMessage = "상세 실패 원인이 없습니다.";
+
+                return "병렬 초기화 Lane 실패. lane=" + laneName +
+                    ", step=" + (step != null ? step.StepNo : 0) +
+                    ", group=" + (step != null ? step.GroupName : "-") +
+                    ", result=" + resultCode +
+                    ", reason=" + stepMessage;
+            }
+            catch (Exception ex)
+            {
+                return "병렬 초기화 Lane 실패 원인 확인 중 예외가 발생했습니다. lane=" + laneName +
+                    ", error=" + ex.Message;
+            }
+            finally
+            {
+            }
+        }
+
+        private void MarkInitializeLaneStepsCancelled(
+            IList<AxisInitializeStep> orderedSteps,
+            int startIndex,
+            string message)
+        {
+            try
+            {
+                if (orderedSteps == null)
+                    return;
+
+                for (int i = Math.Max(0, startIndex); i < orderedSteps.Count; i++)
+                {
+                    RaiseAxisInitializeStepProgress(
+                        orderedSteps[i],
+                        AxisInitializeStepStatus.ReinitializeRequired,
+                        message);
+                }
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Log.Write("Main", "SYSTEM", "ExecuteInitializeParallelLanes",
+                    "Cancelled lane progress update failed. error=" + ex.Message + " - Failed");
+            }
+            finally
+            {
+            }
+        }
+
         private async Task<int> ExecuteInitializeSingleStepAsync(AxisInitializeStep step)
+        {
+            try
+            {
+                return await ExecuteInitializeSingleStepAsync(step, null).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                LastActionFailureMessage = "초기화 Step 실행 위임 실패: " + ex.Message;
+                QMC.Common.Log.Write("Main", "SYSTEM", "ExecuteInitializeStep",
+                    LastActionFailureMessage + " - Failed");
+                return -1;
+            }
+            finally
+            {
+            }
+        }
+
+        private async Task<int> ExecuteInitializeSingleStepAsync(
+            AxisInitializeStep step,
+            ISet<string> allowedConcurrentAxisNames)
         {
             try
             {
@@ -3445,6 +4421,7 @@ namespace QMC.CDT320
                     "Axis initialize step start. step=" + step.StepNo +
                     ", group=" + step.GroupName +
                     ", mode=" + step.RunMode +
+                    ", parallelLane=" + (string.IsNullOrWhiteSpace(step.ParallelLane) ? "-" : step.ParallelLane) +
                     ", interlockGroup=" + step.InterlockGroup +
                     ", axes=" + string.Join(",", axes.Select(x => x.Name).ToArray()) + " - Start");
                 RaiseAxisInitializeStepProgress(step, AxisInitializeStepStatus.Running, "");
@@ -3458,7 +4435,10 @@ namespace QMC.CDT320
 
                 string interlockReason;
                 if (_axisInitializeInterlocks != null &&
-                    !_axisInitializeInterlocks.VerifyStep(step, out interlockReason))
+                    !_axisInitializeInterlocks.VerifyStep(
+                        step,
+                        allowedConcurrentAxisNames,
+                        out interlockReason))
                 {
                     LastActionFailureMessage = interlockReason;
                     RaiseAxisInitializeStepProgress(step, AxisInitializeStepStatus.Failed, LastActionFailureMessage);
@@ -5307,21 +6287,93 @@ namespace QMC.CDT320
             return value;
         }
 
-        private Task<int> ExecuteCustomInitializeActionAsync(
+        private async Task<int> ExecuteCustomInitializeActionAsync(
             AxisInitializeStep step,
             AxisInitializeAction action,
             string phase)
         {
             try
             {
-                // TODO: 축/유닛별로 특수 준비 동작이 필요하면 여기에서 action.Name 또는 action.Description 기준으로 채우면 됩니다.
-                // 예: if (action.Name == "OpenSomeGuide") { ...; return Task.FromResult(0); }
-                return Task.FromResult(0);
+                if (action == null)
+                    return FailInitializePreparation("Custom 초기화 Action 정보가 없습니다.");
+
+                if (string.Equals(
+                    action.Name,
+                    AxisInitializeActionName.PrepareOutputStageNgClamp,
+                    StringComparison.OrdinalIgnoreCase))
+                    return await PrepareOutputStageNgClampForInitializeAsync(action).ConfigureAwait(false);
+
+                return FailInitializePreparation("지원하지 않는 Custom 초기화 Action입니다. action=" +
+                    action.Name + ", phase=" + phase);
             }
             catch (Exception ex)
             {
-                return Task.FromResult(FailInitializePreparation("Custom 초기화 Action 예외. action=" +
-                    (action != null ? action.Name : "-") + ", error=" + ex.Message));
+                return FailInitializePreparation("Custom 초기화 Action 예외. action=" +
+                    (action != null ? action.Name : "-") + ", error=" + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private async Task<int> PrepareOutputStageNgClampForInitializeAsync(AxisInitializeAction action)
+        {
+            try
+            {
+                OutputStageUnit outputStage = _machine != null ? _machine.OutputStageUnit : null;
+                if (outputStage == null)
+                    return FailInitializePreparation("NG Clamp 초기화 준비 실패: OutputStageUnit을 찾을 수 없습니다.");
+
+                bool materialPresent;
+                string detectionReason;
+                if (!OutputStageInterlockRules.TryGetNgStageMaterialPresence(
+                    outputStage,
+                    "InitializePrepareNgClamp",
+                    out materialPresent,
+                    out detectionReason))
+                {
+                    return FailInitializePreparation("NG Clamp 초기화 준비 실패: " + detectionReason);
+                }
+
+                WaferMaterial storedMaterial = MaterialStateService.GetWaferAtLocation(
+                    MaterialLocationKind.OutputStageNg);
+                bool ringDetected = outputStage.NgBinRingSensor != null &&
+                    outputStage.NgBinRingSensor.IsOn;
+                if (materialPresent)
+                {
+                    QMC.Common.Log.Write("Main", "SYSTEM", "PrepareOutputStageNgClamp",
+                        "NG Stage product detected. Clamp Bwd skipped and current clamp state preserved." +
+                        " storedWafer=" + (storedMaterial != null ? storedMaterial.WaferId : "-") +
+                        ", ringDetected=" + ringDetected + " - Ok");
+                    return 0;
+                }
+
+                var releaseAction = new AxisInitializeAction
+                {
+                    TargetType = AxisInitializeInterlockTarget.Cylinder,
+                    Name = "NGBinGuideClamp",
+                    Command = AxisInitializeActionCommand.CylinderBwd,
+                    TimeoutMs = action != null ? action.TimeoutMs : 0,
+                    Enabled = true,
+                    Description = "NG Stage empty: Clamp Bwd before ClampLift Up."
+                };
+
+                int result = await ExecuteInitializeCylinderActionAsync(releaseAction).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                if (!outputStage.IsBinGuideUnclamped(BinSide.Ng))
+                    return FailInitializePreparation(
+                        "NG Stage가 비어 있지만 NG Bin Clamp가 Bwd/Unclamp 상태에 도달하지 못했습니다.");
+
+                QMC.Common.Log.Write("Main", "SYSTEM", "PrepareOutputStageNgClamp",
+                    "NG Stage empty. Clamp moved to Bwd/Unclamp before ClampLift Up." +
+                    " storedWafer=-, ringDetected=false - Ok");
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                return FailInitializePreparation("NG Clamp 조건부 초기화 준비 예외. error=" + ex.Message);
             }
             finally
             {
@@ -8321,10 +9373,78 @@ namespace QMC.CDT320
         // 바로 삭제하지 않고 아래쪽에 모아 둡니다. 참조 제거가 확인되면 삭제 검토 대상입니다.
         // ------------------------------------------------------------------
 
+        private bool TryPrepareManagedLegacyInputMap(out string reason)
+        {
+            reason = "";
+            try
+            {
+                RecipeProject project = !string.IsNullOrWhiteSpace(ActiveRecipeName)
+                    ? RecipeStore.Load(ActiveRecipeName)
+                    : RecipeStore.LoadLastOrDefault();
+                if (project == null || project.MapApprovalVersion <= 0)
+                    return true;
+
+                string sourcePath;
+                string resolveReason;
+                QMC.CDT320.DieMaps.DieMap approved = RecipeDieMapResolver.LoadCompatibleMap(
+                    project,
+                    RecipeMapKind.Input,
+                    out sourcePath,
+                    out resolveReason);
+                if (approved == null)
+                {
+                    reason = "Legacy Cycle 차단: Input 역할 맵이 FINAL APPLY 승인 상태가 아닙니다. " + resolveReason;
+                    return false;
+                }
+
+                WaferMaterial wafer = MaterialStateService.GetWaferAtLocation(MaterialLocationKind.InputStage);
+                if (wafer == null || !wafer.HasInputStageDieMappingResult)
+                {
+                    reason = "Legacy Cycle 차단: InputStage Wafer의 절대좌표 Die Mapping 결과가 없습니다.";
+                    return false;
+                }
+                if (string.IsNullOrWhiteSpace(wafer.InputMapApprovalHashAtMapping) ||
+                    !string.Equals(wafer.InputMapApprovalHashAtMapping, project.InputMapApprovalHash,
+                        StringComparison.OrdinalIgnoreCase))
+                {
+                    reason = "Legacy Cycle 차단: Wafer Mapping 이후 Input 역할 맵 승인이 변경되었습니다. 새 Mapping이 필요합니다.";
+                    return false;
+                }
+
+                QMC.CDT320.DieMaps.DieMap mapped = MaterialStateService.BuildDieMapFromWafer(wafer);
+                string compatibilityReason;
+                if (!RecipeDieMapResolver.IsMappedInputCompatibleWithRecipe(mapped, approved, out compatibilityReason))
+                {
+                    reason = "Legacy Cycle 차단: Mapping 절대좌표 맵이 승인 Recipe 맵과 다릅니다. " + compatibilityReason;
+                    return false;
+                }
+
+                ApplyInputDieMap(mapped, "MachineController.ManagedLegacyCycleGuard");
+                return true;
+            }
+            catch (Exception ex)
+            {
+                reason = "Legacy Cycle Input map guard failed: " + ex.Message;
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
         public async Task CycleRunAsync(int totalDies = -1)
         {
             if (!EnsureMachineInitializedForRun("CycleRunAsync"))
                 return;
+
+            string managedMapReason;
+            if (!TryPrepareManagedLegacyInputMap(out managedMapReason))
+            {
+                LastActionFailureMessage = managedMapReason;
+                Log("[CYCLE] " + managedMapReason);
+                AlarmManager.Raise(AlarmSeverity.Error, "INPUT-MAP-APPROVAL", "MachineController", managedMapReason);
+                return;
+            }
 
             if (_status == EquipmentStatus.AutoRunning) { Log("[CYCLE] already running"); return; }
             // Ready/Running 외에도 Stopped에서 재시작을 허용합니다(CYCLE STOP 재개).

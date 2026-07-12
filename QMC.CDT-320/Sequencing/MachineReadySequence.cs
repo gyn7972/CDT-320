@@ -50,10 +50,11 @@ namespace QMC.CDT320.Sequencing
 
             AddReadyStep(steps, ReadyStepId.InputStageNeedleEjectZAvoid, "InputStage Needle/Eject Z Avoid", MoveInputStageNeedleEjectZAvoidAsync);
             AddReadyStep(steps, ReadyStepId.UpperHeadMoveSafetyCheck, "Upper Head Move Safety Check", CheckUpperHeadMoveSafetyAsync);
-            AddReadyStep(steps, ReadyStepId.OutputVisionXAvoid, "Input/Output VisionX Avoid", MoveInputOutputVisionXOnlyAvoidAsync);
-            AddReadyStep(steps, ReadyStepId.ReticleAvoid, "Reticle Avoid", MoveReticleAvoidAsync);
+            // 현재 기준: Ready 복귀는 Picker Z/Y를 먼저 빼고 Input/Output VisionX를 Avoid로 이동한다.
             AddReadyStep(steps, ReadyStepId.PickerZAvoid, "Front/Rear Picker Z Avoid", MoveFrontRearPickerZAxesAvoidAsync);
             AddReadyStep(steps, ReadyStepId.PickerYAvoid, "Front/Rear Picker Y Avoid", MoveFrontRearPickerYAxesAvoidAsync);
+            AddReadyStep(steps, ReadyStepId.OutputVisionXAvoid, "Input/Output VisionX Avoid", MoveInputOutputVisionXOnlyAvoidAsync);
+            AddReadyStep(steps, ReadyStepId.ReticleAvoid, "Reticle Avoid", MoveReticleAvoidAsync);
             AddReadyStep(steps, ReadyStepId.PickerTAvoid, "Front/Rear Picker T Avoid", MoveFrontRearPickerTAxesAvoidAsync);
             AddReadyStep(steps, ReadyStepId.PickerXAvoid, "Front/Rear Picker X Avoid", MoveFrontRearPickerXAxesAvoidAsync);
 

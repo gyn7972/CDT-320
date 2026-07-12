@@ -3584,44 +3584,12 @@ namespace QMC.CDT320
                     ? "InputStageUnit.MoveVisionPointSafelyAsync"
                     : source;
 
-                string areaReason;
-                if (!IsInputStageWorkPointInArea(targetX, targetY, out areaReason))
-                {
-                    return RaiseStageAlarm(AlarmSeverity.Error, "IN-STAGE-VISION-AREA", moveSource,
-                        "Vision target is outside input stage work area. targetX=" + targetX.ToString("F6") +
-                        ", targetY=" + targetY.ToString("F6") + ". " + areaReason);
-                }
+                // 현재 기준: VisionX는 작업영역 원형 경계와 무관하고, StageY는 NeedleX/StageY/NeedleZ 인터락에서 판단한다.
+                int result = await moveAxisAsync(WaferStageAxis.WaferY, targetY).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
 
-                double currentX = CameraX != null ? CameraX.ActualPosition : targetX;
-                double currentY = StageY != null ? StageY.ActualPosition : targetY;
-
-                string xFirstReason;
-                if (IsInputStageWorkPointInArea(targetX, currentY, out xFirstReason))
-                {
-                    int result = await moveAxisAsync(WaferStageAxis.VisionX, targetX).ConfigureAwait(false);
-                    if (result != 0)
-                        return result;
-
-                    return await moveAxisAsync(WaferStageAxis.WaferY, targetY).ConfigureAwait(false);
-                }
-
-                string yFirstReason;
-                if (IsInputStageWorkPointInArea(currentX, targetY, out yFirstReason))
-                {
-                    int result = await moveAxisAsync(WaferStageAxis.WaferY, targetY).ConfigureAwait(false);
-                    if (result != 0)
-                        return result;
-
-                    return await moveAxisAsync(WaferStageAxis.VisionX, targetX).ConfigureAwait(false);
-                }
-
-                return RaiseStageAlarm(AlarmSeverity.Error, "IN-STAGE-VISION-PATH", moveSource,
-                    "Vision point has no safe L-path inside input stage work area. currentX=" + currentX.ToString("F6") +
-                    ", currentY=" + currentY.ToString("F6") +
-                    ", targetX=" + targetX.ToString("F6") +
-                    ", targetY=" + targetY.ToString("F6") +
-                    ", xFirst=" + xFirstReason +
-                    ", yFirst=" + yFirstReason);
+                return await moveAxisAsync(WaferStageAxis.VisionX, targetX).ConfigureAwait(false);
             }
             catch (Exception ex)
             {
@@ -3655,11 +3623,7 @@ namespace QMC.CDT320
                 double targetX = origX + col * pitchX;
                 double targetY = origY + row * pitchY;
 
-                string areaReason;
-                if (!IsInputStageWorkPointInArea(targetX, targetY, out areaReason))
-                    return RaiseStageAlarm(AlarmSeverity.Error, "IS-MOVE-DIE-AREA", "InputStageUnit.MoveToDieAsync",
-                        "Die target is outside input stage work area. row=" + row + ", col=" + col + ". " + areaReason);
-
+                // 현재 기준: 다이 Vision 좌표는 CameraX 작업 원으로 차단하지 않고 StageY 축 인터락에서 안전성을 확인한다.
                 return await MoveVisionPointSafelyAsync(targetX, targetY, bFine, "InputStageUnit.MoveToDieAsync").ConfigureAwait(false);
             }
             catch (Exception ex)

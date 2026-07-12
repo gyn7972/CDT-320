@@ -29,7 +29,7 @@ namespace QMC.CDT320.Interlocks
             if (MotionGuardRuleHelpers.IsMoving(request, "OutputNGStageY", "NgBinY", "NgStage_StageY"))
                 return VerifyBinNgY(request, out reason);
 
-            if (MotionGuardRuleHelpers.IsMoving(request, "OutputVisionX", "OutputVisionX"))
+            if (MotionGuardRuleHelpers.IsMoving(request, "OutputVisionX", "OutputCameraX", "BinCameraX"))
                 return VerifyBinVisionX(request, out reason);
 
             if (MotionGuardRuleHelpers.IsMoving(request, "GoodBinGuideLift"))
@@ -101,7 +101,7 @@ namespace QMC.CDT320.Interlocks
                 return false;
 
             // 인터락 조건: NG Clamp Lift가 Up 상태가 아니면 GoodStageY 자동 이동을 차단한다.
-            if (!VerifyNgClampLiftUpForGoodStageMove(stage, "OutputGoodStageY", out reason))
+            if (!VerifyNgClampSafeForStageMove(stage, "OutputGoodStageY", out reason))
                 return false;
 
             // 인터락 조건: Picker/Feeder 등 Output transport 점유 상태가 해제되어 있는지 확인한다.
@@ -300,7 +300,7 @@ namespace QMC.CDT320.Interlocks
         {
             reason = string.Empty;
             // 인터락 조건: NG Clamp Lift가 Up 상태가 아니면 GoodStageZ 홈 이동을 차단한다.
-            if (!VerifyNgClampLiftUpForGoodStageMove(machine != null ? machine.OutputStageUnit : null, "OutputGoodStageZ", out reason))
+            if (!VerifyNgClampSafeForStageMove(machine != null ? machine.OutputStageUnit : null, "OutputGoodStageZ", out reason))
                 return false;
 
             // OutputFeeder 상태 — 세 조건 개별 확인.
@@ -324,7 +324,7 @@ namespace QMC.CDT320.Interlocks
             reason = string.Empty;
             CDT320_Machine machine = request != null ? request.Machine : null;
             // 인터락 조건: NG Clamp Lift가 Up 상태가 아니면 GoodStageZ 수동 이동을 차단한다.
-            if (!VerifyNgClampLiftUpForGoodStageMove(machine != null ? machine.OutputStageUnit : null, "OutputGoodStageZ", out reason))
+            if (!VerifyNgClampSafeForStageMove(machine != null ? machine.OutputStageUnit : null, "OutputGoodStageZ", out reason))
                 return false;
 
             // 인터락 조건: GoodStageZ 비Avoid 이동이 NG/Guide와 간섭 없는지 확인한다.
@@ -446,10 +446,10 @@ namespace QMC.CDT320.Interlocks
             {
                 // 자동 이동 인터락 확인
                 case MotionGuardMoveKind.AxisTeachingMove:
-                    return CanAutoOutputVisionX(request.Machine, out reason);
+                    return CanAutoOutputVisionX(request, out reason);
                 // 매뉴얼 이동 인터락 확인
                 case MotionGuardMoveKind.AxisMove:
-                    return CanManualOutputVisionX(request.Machine, out reason);
+                    return CanManualOutputVisionX(request, out reason);
                 // 홈 이동 인터락 확인
                 case MotionGuardMoveKind.AxisHome:
                     return CanHomeOutputVisionX(request.Machine, out reason);
@@ -459,10 +459,16 @@ namespace QMC.CDT320.Interlocks
         }
 
         // 인터락 항목: 자동 OutputVisionX 이동은 OutputStage Busy 여부를 확인한다.
-        private static bool CanAutoOutputVisionX(CDT320_Machine machine, out string reason)
+        private static bool CanAutoOutputVisionX(MotionGuardRuleContext request, out string reason)
         {
+            CDT320_Machine machine = request != null ? request.Machine : null;
+
             // 인터락 조건: 자동 OutputVisionX 이동 전 홈 조건을 먼저 확인한다.
             if (!CanHomeOutputVisionX(machine, out reason))
+                return false;
+
+            // 인터락 조건: OutputCameraX는 Picker가 Output 영역을 점유 중이면 +방향 Avoid 퇴피만 허용한다.
+            if (!VerifyFrontRearPickerOutputZoneClearForOutputCameraX(request, out reason))
                 return false;
 
             // 인터락 조건: Picker/Feeder 등 Output transport 점유 상태가 해제되어 있는지 확인한다.
@@ -472,31 +478,69 @@ namespace QMC.CDT320.Interlocks
             return VerifyOutputStageNotBusy(machine != null ? machine.OutputStageUnit : null, "OutputVisionX", out reason);
         }
 
-        // 인터락 항목: 수동 OutputVisionX 이동은 OutputStage Busy와 Good/NG Stage 안전 위치를 확인한다.
-        private static bool CanManualOutputVisionX(CDT320_Machine machine, out string reason)
+        // OutputVisionX는 OutputFeederY가 정지된 Avoid/Down 상태일 때만 HOME·수동·자동·Jog 이동한다.
+        private static bool VerifyOutputFeederAvoidAndDownForOutputVisionX(CDT320_Machine machine, out string reason)
         {
             reason = string.Empty;
 
             try
             {
-                // PickerX와 OutputVisionX 간 거리는 SharedRailX Pair Clearance 룰에서 판단한다.
-
-                OutputFeederUnit outputFeeder = machine != null ? machine.OutputFeederUnit : null;
-                // 인터락 조건: OutputFeederY가 Avoid 위치가 아니면 OutputVisionX 수동 이동을 차단한다.
-                if (outputFeeder != null && !outputFeeder.IsBinFeederYInAvoidPosition())
+                OutputFeederUnit feeder = machine != null ? machine.OutputFeederUnit : null;
+                if (feeder == null || feeder.FeederY == null || feeder.Recipe == null)
                     return MotionGuardRuleHelpers.Block(
                         "OutputVisionX",
-                        "OutputVisionX HOME blocked. OutputFeederY must be at Avoid position.",
+                        "OutputVisionX 이동 불가: OutputFeederY Avoid/Down 상태를 확인할 수 없습니다.",
                         out reason);
 
-                // 인터락 조건: OutputFeeder Lift가 Down 상태가 아니면 OutputVisionX 수동 이동을 차단한다.
-                if (outputFeeder != null && !outputFeeder.IsFeederDown())
+                if (feeder.FeederY.IsMoving)
                     return MotionGuardRuleHelpers.Block(
                         "OutputVisionX",
-                        "OutputVisionX HOME blocked. OutputFeeder lift cylinder must be down.",
+                        "OutputVisionX 이동 불가: OutputFeederY가 이동 중입니다.",
+                        out reason);
+
+                if (!feeder.IsBinFeederAvoidPositionCheck())
+                    return MotionGuardRuleHelpers.Block(
+                        "OutputVisionX",
+                        "OutputVisionX 이동 불가: OutputFeeder Avoid Dog(X091)가 ON이 아닙니다. actual=" +
+                        feeder.FeederY.ActualPosition.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture) +
+                        ", avoid=" + feeder.Recipe.AvoidPosition.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture),
+                        out reason);
+
+                if (!feeder.IsFeederDown())
+                    return MotionGuardRuleHelpers.Block(
+                        "OutputVisionX",
+                        "OutputVisionX 이동 불가: OutputFeeder Lift가 정지된 Down 상태가 아닙니다.",
                         out reason);
 
                 return true;
+            }
+            catch (System.Exception ex)
+            {
+                return MotionGuardRuleHelpers.Block(
+                    "OutputVisionX",
+                    "OutputVisionX 이동 전 OutputFeederY Avoid/Down 인터락 확인 중 예외가 발생했습니다. error=" + ex.Message,
+                    out reason);
+            }
+            finally
+            {
+            }
+        }
+
+        // 인터락 항목: 수동 OutputVisionX 이동은 OutputStage Busy와 Good/NG Stage 안전 위치를 확인한다.
+        private static bool CanManualOutputVisionX(MotionGuardRuleContext request, out string reason)
+        {
+            reason = string.Empty;
+
+            try
+            {
+                CDT320_Machine machine = request != null ? request.Machine : null;
+
+                // 인터락 조건: OutputFeederY가 Avoid/Down 상태가 아니면 OutputCameraX 이동을 차단한다.
+                if (!VerifyOutputFeederAvoidAndDownForOutputVisionX(machine, out reason))
+                    return false;
+
+                // 인터락 조건: OutputCameraX는 Picker가 Output 영역을 점유 중이면 +방향 Avoid 퇴피만 허용한다.
+                return VerifyFrontRearPickerOutputZoneClearForOutputCameraX(request, out reason);
             }
             catch (System.Exception ex)
             {
@@ -511,6 +555,126 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
+        // 인터락 항목: OutputCameraX 이동 전 Front/Rear Picker의 Output 존 X/Y 이동 위험을 확인한다.
+        private static bool VerifyFrontRearPickerOutputZoneClearForOutputCameraX(MotionGuardRuleContext request, out string reason)
+        {
+            reason = string.Empty;
+            CDT320_Machine machine = request != null ? request.Machine : null;
+            if (machine == null)
+                return true;
+
+            try
+            {
+                if (!VerifyPickerOutputZoneClearForOutputCameraX(request, machine, true, "Front", out reason))
+                    return false;
+
+                if (!VerifyPickerOutputZoneClearForOutputCameraX(request, machine, false, "Rear", out reason))
+                    return false;
+
+                return true;
+            }
+            catch (System.Exception ex)
+            {
+                return MotionGuardRuleHelpers.Block(
+                    "OutputVisionX",
+                    "OutputCameraX 이동 전 Picker Output 영역 확인 중 예외가 발생했습니다. error=" + ex.Message,
+                    out reason);
+            }
+            finally
+            {
+            }
+        }
+
+        // 인터락 항목: OutputCameraX 이동 전 지정 Picker의 Output 존 점유와 퇴피 방향을 확인한다.
+        private static bool VerifyPickerOutputZoneClearForOutputCameraX(
+            MotionGuardRuleContext request,
+            CDT320_Machine machine,
+            bool isFront,
+            string prefix,
+            out string reason)
+        {
+            reason = string.Empty;
+
+            PickerZoneTransportState state = PickerZoneInterlockRules.ResolvePickerZoneTransportState(
+                machine,
+                isFront,
+                PickerWorkZone.Output,
+                null,
+                "OutputCameraX 이동 전 Picker Output 영역 확인");
+
+            bool xMoving = state != null && state.PickerX != null && state.PickerX.IsMoving;
+            bool yMoving = state != null && state.PickerY != null && state.PickerY.IsMoving;
+            bool movingIntoOrInsideOutput = IsPickerOutputZoneMotionRisk(state, xMoving, yMoving);
+            bool blocking = state != null && (state.BlocksTransport || movingIntoOrInsideOutput);
+            string outputCameraMoveDetail;
+            bool outputCameraRetreat = IsOutputCameraXAvoidOrPositiveDirectionMove(request, machine, out outputCameraMoveDetail);
+            string detail =
+                "movingX=" + xMoving +
+                ", movingY=" + yMoving +
+                ", movingOutputRisk=" + movingIntoOrInsideOutput +
+                ", outputCameraRetreat=" + outputCameraRetreat +
+                ", " + outputCameraMoveDetail +
+                ", " + (state != null ? state.Describe() : "state=null");
+
+            if (!blocking)
+                return true;
+
+            // 현재 기준: Picker가 정지 상태로 Output 존을 점유 중이어도 OutputCameraX가 +방향 Avoid로 빠지는 이동은 허용한다.
+            if (!movingIntoOrInsideOutput && outputCameraRetreat)
+                return true;
+
+            return MotionGuardRuleHelpers.Block(
+                "OutputVisionX",
+                "OutputCameraX 이동 불가: " + prefix + "Picker가 Output 영역을 점유하거나 간섭 중입니다. " + detail,
+                out reason);
+        }
+
+        // 인터락 기준: OutputCameraX는 +방향이 Avoid/퇴피 방향이고 -방향은 PickerX 접근 방향이다.
+        private static bool IsOutputCameraXAvoidOrPositiveDirectionMove(MotionGuardRuleContext request, CDT320_Machine machine, out string detail)
+        {
+            OutputStageUnit stage = machine != null ? machine.OutputStageUnit : null;
+            BaseAxis axis = stage != null ? stage.OutputCameraX : null;
+            if (axis == null && request != null)
+                axis = request.GetAxis("OutputVisionX") ?? request.GetAxis("OutputCameraX") ?? request.GetAxis("BinCameraX");
+
+            double target = request != null ? request.TargetValue : 0.0;
+            double actual = axis != null ? axis.ActualPosition : target;
+            double avoid = stage != null && stage.Recipe != null && stage.Recipe.VisionX != null
+                ? stage.Recipe.VisionX.AvoidPosition
+                : 0.0;
+            double tolerance = ResolveAxisPositionTolerance(axis);
+            bool positiveDirection = axis != null && target > actual + tolerance;
+            bool staysAtOrBeyondAvoid = actual >= avoid - tolerance && target >= avoid - tolerance;
+            bool targetAtOrBeyondAvoid = target >= avoid - tolerance;
+
+            detail =
+                "outputCameraActual=" + actual.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture) +
+                ", outputCameraTarget=" + target.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture) +
+                ", outputCameraAvoid=" + avoid.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture) +
+                ", tolerance=" + tolerance.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture) +
+                ", targetAtOrBeyondAvoid=" + targetAtOrBeyondAvoid +
+                ", positiveDirection=" + positiveDirection +
+                ", staysAtOrBeyondAvoid=" + staysAtOrBeyondAvoid;
+
+            return positiveDirection || staysAtOrBeyondAvoid;
+        }
+
+        // 인터락 기준: Picker가 Output 존에 머물거나 진입/이탈 중인지 판단한다.
+        private static bool IsPickerOutputZoneMotionRisk(PickerZoneTransportState state, bool xMoving, bool yMoving)
+        {
+            if (!xMoving && !yMoving)
+                return false;
+
+            if (state == null)
+                return true;
+
+            return state.CurrentZone == PickerWorkZone.Output ||
+                   state.TargetZone == PickerWorkZone.Output ||
+                   state.CurrentZone == PickerWorkZone.Unknown ||
+                   state.TargetZone == PickerWorkZone.Unknown ||
+                   state.UnknownUnsafe;
+        }
+
         // 인터락 항목: OutputVisionX 홈은 OutputStage Busy와 Good/NG Stage 안전 위치를 확인한다.
         private static bool CanHomeOutputVisionX(CDT320_Machine machine, out string reason)
         {
@@ -519,20 +683,7 @@ namespace QMC.CDT320.Interlocks
             try
             {
                 // PickerX와 OutputVisionX 간 거리는 SharedRailX Pair Clearance 룰에서 판단한다.
-
-                OutputFeederUnit outputFeeder = machine != null ? machine.OutputFeederUnit : null;
-                // 인터락 조건: OutputVisionX 홈 전 OutputFeederY가 Home(0) 또는 Avoid 위치인지 확인한다.
-                if (!VerifyOutputFeederYHomeOrAvoid(machine, "OutputVisionX", out reason))
-                    return false;
-
-                // 인터락 조건: OutputFeeder Lift가 Down 상태가 아니면 OutputVisionX 홈 이동을 차단한다.
-                if (outputFeeder != null && !outputFeeder.IsFeederDown())
-                    return MotionGuardRuleHelpers.Block(
-                        "OutputVisionX",
-                        "OutputVisionX HOME blocked. OutputFeeder lift cylinder must be down.",
-                        out reason);
-
-                return true;
+                return VerifyOutputFeederAvoidAndDownForOutputVisionX(machine, out reason);
             }
             catch (System.Exception ex)
             {
@@ -561,7 +712,7 @@ namespace QMC.CDT320.Interlocks
                     return false;
 
                 // 인터락 조건: NG Clamp Lift가 Up 상태가 아니면 GoodStageY 수동 이동을 차단한다.
-                if (!VerifyNgClampLiftUpForGoodStageMove(outputStage, "OutputGoodStageY", out reason))
+                if (!VerifyNgClampSafeForStageMove(outputStage, "OutputGoodStageY", out reason))
                     return false;
 
                 // OutputFeederY가 Home(0) 또는 Avoid 위치여야 홈 이동 가능.
@@ -609,7 +760,7 @@ namespace QMC.CDT320.Interlocks
                     return false;
 
                 // 인터락 조건: NG Clamp Lift가 Up 상태가 아니면 GoodStageY 홈 이동을 차단한다.
-                if (!VerifyNgClampLiftUpForGoodStageMove(outputStage, "OutputGoodStageY", out reason))
+                if (!VerifyNgClampSafeForStageMove(outputStage, "OutputGoodStageY", out reason))
                     return false;
 
                 // OutputFeederY가 Avoid 위치여야 이동 가능.
@@ -674,17 +825,9 @@ namespace QMC.CDT320.Interlocks
                         "OutputNGStageY 이동 불가: NG StageY 이동 전 Good Bin Guide가 반드시 Down 상태여야 합니다.",
                         out reason);
 
-                // 인터락 조건: NgBinClampUp 센서를 갱신할 수 없으면 NGStageY 수동 이동을 차단한다.
-                if (!RefreshRequiredHardwareInput(outputStage.NgBinClampUpSensor, "OutputNGStageY", "NgBinClampUp", out reason))
+                // 인터락 조건: NG 제품 유무에 따른 Clamp 조건과 Clamp Lift Up을 확인한다.
+                if (!VerifyNgClampSafeForStageMove(outputStage, "OutputNGStageY", out reason))
                     return false;
-                // 인터락 조건: NG Bin Clamp Lift가 Up 상태가 아니면 NGStageY 수동 이동을 차단한다.
-                if (outputStage.NgBinClampUpSensor != null &&
-                    !IsDryRunInput(outputStage.NgBinClampUpSensor) &&
-                    !outputStage.NgBinClampUpSensor.IsOn)
-                    return MotionGuardRuleHelpers.Block(
-                        "OutputNGStageY",
-                        "OutputNGStageY 이동 불가: NG StageY 이동 전 NG Bin Clamp Lift가 반드시 Up 상태여야 합니다.",
-                        out reason);
 
                 // OutputFeederY가 Avoid 위치여야 이동 가능.
                 if (!VerifyOutputFeederYAvoidForGoodStageY(machine, "OutputNGStageY", out reason))
@@ -748,17 +891,9 @@ namespace QMC.CDT320.Interlocks
                         "OutputNGStageY 이동 불가: NG StageY 이동 전 Good Bin Guide가 반드시 Down 상태여야 합니다.",
                         out reason);
 
-                // 인터락 조건: NgBinClampUp 센서를 갱신할 수 없으면 NGStageY 홈 이동을 차단한다.
-                if (!RefreshRequiredHardwareInput(outputStage.NgBinClampUpSensor, "OutputNGStageY", "NgBinClampUp", out reason))
+                // 인터락 조건: NG 제품 유무에 따른 Clamp 조건과 Clamp Lift Up을 확인한다.
+                if (!VerifyNgClampSafeForStageMove(outputStage, "OutputNGStageY", out reason))
                     return false;
-                // 인터락 조건: NG Bin Clamp Lift가 Up 상태가 아니면 NGStageY 홈 이동을 차단한다.
-                if (outputStage.NgBinClampUpSensor != null &&
-                    !IsDryRunInput(outputStage.NgBinClampUpSensor) &&
-                    !outputStage.NgBinClampUpSensor.IsOn)
-                    return MotionGuardRuleHelpers.Block(
-                        "OutputNGStageY",
-                        "OutputNGStageY 이동 불가: NG StageY 이동 전 NG Bin Clamp Lift가 반드시 Up 상태여야 합니다.",
-                        out reason);
 
                 // OutputFeederY가 Home(0) 또는 Avoid 위치여야 홈 이동 가능.
                 if (!VerifyOutputFeederYHomeOrAvoid(machine, "OutputNGStageY", out reason))
@@ -888,23 +1023,87 @@ namespace QMC.CDT320.Interlocks
             return targetValue >= 0.5 ? fwdText : bwdText;
         }
 
-        // 인터락 항목: GoodStageY 이동 전 NG Clamp Lift가 Up 상태인지 확인한다.
-        private static bool VerifyNgClampLiftUpForGoodStageMove(OutputStageUnit outputStage, string movingName, out string reason)
+        public static bool TryGetNgStageMaterialPresence(
+            OutputStageUnit outputStage,
+            string operationName,
+            out bool materialPresent,
+            out string reason)
+        {
+            materialPresent = false;
+            reason = string.Empty;
+
+            try
+            {
+                if (outputStage == null)
+                {
+                    reason = "OutputStageUnit을 찾을 수 없습니다.";
+                    return false;
+                }
+
+                if (!RefreshRequiredHardwareInput(
+                    outputStage.NgBinRingSensor,
+                    operationName,
+                    "NgBinRing",
+                    out reason))
+                    return false;
+
+                WaferMaterial storedMaterial = MaterialStateService.GetWaferAtLocation(
+                    MaterialLocationKind.OutputStageNg);
+                bool ringDetected = outputStage.NgBinRingSensor != null &&
+                    outputStage.NgBinRingSensor.IsOn;
+                materialPresent = storedMaterial != null || ringDetected;
+                return true;
+            }
+            catch (System.Exception ex)
+            {
+                reason = "NG Stage 제품 감지 확인 중 예외가 발생했습니다. operation=" +
+                    operationName + ", error=" + ex.Message;
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
+        // 인터락 항목: NG Stage 제품 유무에 따른 Clamp 상태와 Clamp Lift Up을 확인한다.
+        public static bool VerifyNgClampSafeForStageMove(OutputStageUnit outputStage, string movingName, out string reason)
         {
             reason = string.Empty;
-            if (outputStage == null)
+            try
+            {
+                bool materialPresent;
+                if (!TryGetNgStageMaterialPresence(outputStage, movingName, out materialPresent, out reason))
+                    return false;
+
+                if (!materialPresent && !outputStage.IsBinGuideUnclamped(BinSide.Ng))
+                    return MotionGuardRuleHelpers.Block(
+                        movingName,
+                        movingName + " 이동 불가: NG Stage가 비어 있으므로 NG Bin Clamp를 " +
+                        "Bwd/Unclamp 한 후 Clamp Lift를 Up으로 이동하십시오.",
+                        out reason);
+
+                if (!RefreshRequiredHardwareInput(outputStage.NgBinClampUpSensor, movingName, "NgBinClampUp", out reason))
+                    return false;
+
+                if (!outputStage.IsBinGuideClampLiftUp(BinSide.Ng))
+                    return MotionGuardRuleHelpers.Block(
+                        movingName,
+                        movingName + " 이동 불가: NG Stage 제품 유무와 관계없이 " +
+                        "NG Bin Clamp Lift가 Up 상태여야 합니다. materialPresent=" + materialPresent,
+                        out reason);
+
                 return true;
-
-            if (!RefreshRequiredHardwareInput(outputStage.NgBinClampUpSensor, movingName, "NgBinClampUp", out reason))
-                return false;
-
-            if (!outputStage.IsBinGuideClampLiftUp(BinSide.Ng))
+            }
+            catch (System.Exception ex)
+            {
                 return MotionGuardRuleHelpers.Block(
                     movingName,
-                    movingName + " move blocked. NG Bin Clamp Lift must be up before GoodStage movement.",
+                    movingName + " NG Clamp 안전 조건 확인 중 예외가 발생했습니다. error=" + ex.Message,
                     out reason);
-
-            return true;
+            }
+            finally
+            {
+            }
         }
 
         // 인터락 항목: GoodStageY 이동 전 GoodStageZ 하강/NGStageY 위치에 따른 기구 간섭을 확인한다.
@@ -1022,15 +1221,8 @@ namespace QMC.CDT320.Interlocks
                     movingName + " 이동 불가: NG StageY 이동 전 Good Bin Guide가 반드시 Down 상태여야 합니다.",
                     out reason);
 
-            if (!RefreshRequiredHardwareInput(outputStage.NgBinClampUpSensor, movingName, "NgBinClampUp", out reason))
+            if (!VerifyNgClampSafeForStageMove(outputStage, movingName, out reason))
                 return false;
-            if (outputStage.NgBinClampUpSensor != null &&
-                !IsDryRunInput(outputStage.NgBinClampUpSensor) &&
-                !outputStage.NgBinClampUpSensor.IsOn)
-                return MotionGuardRuleHelpers.Block(
-                    movingName,
-                    movingName + " 이동 불가: NG StageY 이동 전 NG Bin Clamp Lift가 반드시 Up 상태여야 합니다.",
-                    out reason);
 
             return true;
         }
@@ -1093,6 +1285,14 @@ namespace QMC.CDT320.Interlocks
                 : 0.01;
 
             return System.Math.Abs(target - position) <= tolerance;
+        }
+
+        // 인터락 기준: 축별 InPosition 허용오차를 우선 사용하고 없으면 기본 허용오차를 사용한다.
+        private static double ResolveAxisPositionTolerance(BaseAxis axis)
+        {
+            return axis != null && axis.Config != null && axis.Config.InPositionTolerance > 0.0
+                ? axis.Config.InPositionTolerance
+                : 0.01;
         }
 
         // 인터락 항목: OutputStage 내부 다른 축/실린더가 이동 중인지 확인한다.

@@ -954,6 +954,13 @@ namespace QMC.CDT320.Interlocks
 
             try
             {
+                if (!PickerZoneInterlockRules.VerifyPickerYHomePairSafety(
+                    machine,
+                    true,
+                    "FrontPickerY",
+                    out reason))
+                    return false;
+
                 // 현재 기준: FrontPickerY Home 전 Z0~Z3는 Home(0) 또는 Avoid 위치여야 한다.
                 if (!VerifyFrontPickerZAxesHomeOrAvoid(machine != null ? machine.PickerFrontUnit : null, "FrontPickerY", out reason))
                     return false;

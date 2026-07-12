@@ -18,7 +18,12 @@ namespace QMC.CDT320.Recipes
             {
                 TapeFrameSubset frame = ResolveFrame(project, kind);
 
-                string configuredPath = RecipeMapPaths.ResolveConfigured(project, kind);
+                // 관리형 Recipe는 역할별 파일이 비어 있을 때 다른 역할 맵으로 fallback하면 안 된다.
+                // Input/Good/NG가 같은 원본 주소 영역을 사용해도 Pitch/Mask/승인은 각각 독립이다.
+                string configuredFileName = project != null && project.MapApprovalVersion > 0
+                    ? RecipeMapPaths.ExactConfiguredFileName(project, kind)
+                    : RecipeMapPaths.ConfiguredFileName(project, kind);
+                string configuredPath = RecipeMapPaths.ResolveConfiguredPath(configuredFileName);
                 if (!string.IsNullOrWhiteSpace(configuredPath) && File.Exists(configuredPath))
                 {
                     DieMap configuredMap = DieMapGenerator.Load(configuredPath);
@@ -27,11 +32,20 @@ namespace QMC.CDT320.Recipes
                         string mismatch;
                         if (IsCompatibleWithFrame(configuredMap, frame, out mismatch))
                         {
-                            sourcePath = configuredPath;
-                            return DieMapGenerator.Normalize(configuredMap);
-                        }
+                            configuredMap = DieMapGenerator.Normalize(configuredMap);
+                            string approvalReason;
+                            if (RecipeMapPaths.IsMapApproved(project, kind, configuredMap, out approvalReason))
+                            {
+                                sourcePath = configuredPath;
+                                return configuredMap;
+                            }
 
-                        reason = "configured map mismatch. path=" + configuredPath + ", " + mismatch;
+                            reason = "configured map approval blocked. path=" + configuredPath + ", " + approvalReason;
+                        }
+                        else
+                        {
+                            reason = "configured map mismatch. path=" + configuredPath + ", " + mismatch;
+                        }
                     }
                     else
                     {
@@ -43,8 +57,15 @@ namespace QMC.CDT320.Recipes
                     DieMap sidecarCsvMap = LoadCompatibleSidecarCsv(configuredPath, frame, out sidecarCsvPath, out sidecarCsvReason);
                     if (IsUsableMap(sidecarCsvMap))
                     {
-                        sourcePath = sidecarCsvPath;
-                        return DieMapGenerator.Normalize(sidecarCsvMap);
+                        sidecarCsvMap = DieMapGenerator.Normalize(sidecarCsvMap);
+                        string approvalReason;
+                        if (RecipeMapPaths.IsMapApproved(project, kind, sidecarCsvMap, out approvalReason))
+                        {
+                            sourcePath = sidecarCsvPath;
+                            return sidecarCsvMap;
+                        }
+
+                        reason = AppendReason(reason, "configured sidecar approval blocked. path=" + sidecarCsvPath + ", " + approvalReason);
                     }
 
                     if (!string.IsNullOrWhiteSpace(sidecarCsvReason))
@@ -53,6 +74,15 @@ namespace QMC.CDT320.Recipes
                 else if (!string.IsNullOrWhiteSpace(configuredPath))
                 {
                     reason = "configured map file not found. path=" + configuredPath;
+                }
+
+                // 새 관리형 Recipe는 Base/원본 map을 공정 역할 map으로 fallback하지 않는다.
+                // Wafer/Die 변경 뒤 Map Create FINAL APPLY 전에는 명시적으로 차단해야 한다.
+                if (project != null && project.MapApprovalVersion > 0)
+                {
+                    if (string.IsNullOrWhiteSpace(reason))
+                        reason = kind + " configured role map is not FINAL APPLY approved.";
+                    return null;
                 }
 
                 if (IsExternalFrame(frame))
@@ -167,11 +197,20 @@ namespace QMC.CDT320.Recipes
                 int frameY = Math.Max(1, frame.DieMapY);
                 int mapX = ResolveMapSizeX(map);
                 int mapY = ResolveMapSizeY(map);
+                double dieSizeX = frame.DieSizeX > 0.0
+                    ? frame.DieSizeX
+                    : (map.DieSizeX > 0.0 ? map.DieSizeX : 1.0);
+                double dieSizeY = frame.DieSizeY > 0.0
+                    ? frame.DieSizeY
+                    : (map.DieSizeY > 0.0 ? map.DieSizeY : 1.0);
+                double expectedStepX = DieMapGenerator.CalculateCenterStep(dieSizeX, frame.PitchX);
+                double expectedStepY = DieMapGenerator.CalculateCenterStep(dieSizeY, frame.PitchY);
 
                 bool sizeMismatch = mapX != frameX || mapY != frameY;
                 bool pitchMismatch =
-                    (frame.PitchX > 0.0 && map.PitchX > 0.0 && Math.Abs(map.PitchX - frame.PitchX) > 1e-6) ||
-                    (frame.PitchY > 0.0 && map.PitchY > 0.0 && Math.Abs(map.PitchY - frame.PitchY) > 1e-6);
+                    map.PitchX <= 0.0 || map.PitchY <= 0.0 ||
+                    Math.Abs(map.PitchX - expectedStepX) > 1e-6 ||
+                    Math.Abs(map.PitchY - expectedStepY) > 1e-6;
 
                 if (!sizeMismatch && !pitchMismatch)
                     return true;
@@ -181,13 +220,77 @@ namespace QMC.CDT320.Recipes
                     "frame=" + (frame.FrameSpecName ?? "") +
                     ", frameDie=" + frameX + "x" + frameY +
                     ", mapDie=" + mapX + "x" + mapY +
-                    ", framePitch=(" + frame.PitchX.ToString("F6") + "," + frame.PitchY.ToString("F6") + ")" +
-                    ", mapPitch=(" + map.PitchX.ToString("F6") + "," + map.PitchY.ToString("F6") + ")";
+                    ", frameGap=(" + frame.PitchX.ToString("F6") + "," + frame.PitchY.ToString("F6") + ")" +
+                    ", dieSize=(" + dieSizeX.ToString("F6") + "," + dieSizeY.ToString("F6") + ")" +
+                    ", expectedStep=(" + expectedStepX.ToString("F6") + "," + expectedStepY.ToString("F6") + ")" +
+                    ", mapStep=(" + map.PitchX.ToString("F6") + "," + map.PitchY.ToString("F6") + ")";
                 return false;
             }
             catch (Exception ex)
             {
                 reason = "compatibility check failed: " + ex.Message;
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Center-relative 승인 역할 맵과 Mapping 완료 절대좌표 맵이 같은 Grid/Pitch/원본 주소인지 확인한다.
+        /// Runtime의 Result/Target 상태는 공정 중 바뀔 수 있으므로 좌표 domain만 비교한다.
+        /// </summary>
+        public static bool IsMappedInputCompatibleWithRecipe(DieMap mapped, DieMap approved, out string reason)
+        {
+            reason = "";
+            try
+            {
+                if (!IsUsableMap(mapped) || !IsUsableMap(approved))
+                {
+                    reason = "mapped 또는 approved Input 맵이 비어 있습니다.";
+                    return false;
+                }
+
+                DieMapGenerator.Normalize(mapped);
+                DieMapGenerator.Normalize(approved);
+                if (mapped.DieMapX != approved.DieMapX || mapped.DieMapY != approved.DieMapY ||
+                    Math.Abs(mapped.PitchX - approved.PitchX) > 0.000001 ||
+                    Math.Abs(mapped.PitchY - approved.PitchY) > 0.000001 ||
+                    mapped.Entries.Count != approved.Entries.Count)
+                {
+                    reason = "Grid/Pitch/record 수가 승인 Input 맵과 다릅니다.";
+                    return false;
+                }
+
+                var mappedByRaw = mapped.Entries
+                    .Where(entry => entry != null)
+                    .GroupBy(entry => DieMapGenerator.ResolveOriginalMapIndexX(entry) + "," +
+                                      DieMapGenerator.ResolveOriginalMapIndexY(entry))
+                    .ToDictionary(group => group.Key, group => group.First(), StringComparer.Ordinal);
+                if (mappedByRaw.Count != mapped.Entries.Count(entry => entry != null))
+                {
+                    reason = "Mapping 완료 맵에 중복 Original index가 있습니다.";
+                    return false;
+                }
+
+                foreach (DieMapEntry approvedEntry in approved.Entries.Where(entry => entry != null))
+                {
+                    string key = DieMapGenerator.ResolveOriginalMapIndexX(approvedEntry) + "," +
+                                 DieMapGenerator.ResolveOriginalMapIndexY(approvedEntry);
+                    DieMapEntry mappedEntry;
+                    if (!mappedByRaw.TryGetValue(key, out mappedEntry) ||
+                        mappedEntry.DieMapX != approvedEntry.DieMapX ||
+                        mappedEntry.DieMapY != approvedEntry.DieMapY ||
+                        Math.Abs(mappedEntry.EquipmentGridX - approvedEntry.EquipmentGridX) > 0.000001 ||
+                        Math.Abs(mappedEntry.EquipmentGridY - approvedEntry.EquipmentGridY) > 0.000001)
+                    {
+                        reason = "Original/Local/Equipment Grid domain이 승인 Input 맵과 다릅니다. raw=" + key;
+                        return false;
+                    }
+                }
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                reason = "mapped Input map compatibility check failed: " + ex.Message;
                 return false;
             }
         }

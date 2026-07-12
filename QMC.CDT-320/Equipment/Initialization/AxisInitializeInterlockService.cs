@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Linq;
 using System.Reflection;
 using QMC.Common;
 using QMC.Common.Alarms;
@@ -8,6 +9,7 @@ using QMC.Common.IO;
 using QMC.Common.Motion;
 using QMC.Common.Motion.Ajin;
 using QMC.CDT320.Ajin;
+using QMC.CDT320.Interlocks;
 using QMC.CDT320.Materials;
 using QMC.CDT320.Motion.SharedRailX;
 
@@ -20,8 +22,11 @@ namespace QMC.CDT320.Initialization
         private readonly Func<bool> _autoStoppedProvider;
         private readonly Func<bool> _manualStoppedProvider;
         private readonly object _digitalInputGate = new object();
+        private readonly object _physicalIoBypassLogGate = new object();
         private readonly Dictionary<string, BaseDigitalInput> _digitalInputs =
             new Dictionary<string, BaseDigitalInput>(StringComparer.OrdinalIgnoreCase);
+        private readonly HashSet<string> _physicalIoBypassLogKeys =
+            new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         public AxisInitializeInterlockService(
             CDT320_Machine machine,
@@ -44,6 +49,14 @@ namespace QMC.CDT320.Initialization
 
         public bool VerifyStep(AxisInitializeStep step, out string reason)
         {
+            return VerifyStep(step, null, out reason);
+        }
+
+        public bool VerifyStep(
+            AxisInitializeStep step,
+            ISet<string> allowedConcurrentAxisNames,
+            out string reason)
+        {
             reason = "";
             try
             {
@@ -55,7 +68,7 @@ namespace QMC.CDT320.Initialization
                     if (rule == null || !rule.Enabled)
                         continue;
 
-                    if (!VerifyRule(rule, out reason))
+                    if (!VerifyRule(rule, allowedConcurrentAxisNames, out reason))
                     {
                         string correctiveAction = string.IsNullOrWhiteSpace(rule.Description)
                             ? ""
@@ -87,7 +100,10 @@ namespace QMC.CDT320.Initialization
             }
         }
 
-        private bool VerifyRule(AxisInitializeInterlockRule rule, out string reason)
+        private bool VerifyRule(
+            AxisInitializeInterlockRule rule,
+            ISet<string> allowedConcurrentAxisNames,
+            out string reason)
         {
             reason = "";
             try
@@ -102,7 +118,7 @@ namespace QMC.CDT320.Initialization
                 if (string.Equals(targetType, AxisInitializeInterlockTarget.Resource, StringComparison.OrdinalIgnoreCase))
                     return VerifyResourceRule(rule, out reason);
                 if (string.Equals(targetType, AxisInitializeInterlockTarget.Machine, StringComparison.OrdinalIgnoreCase))
-                    return VerifyMachineRule(rule, out reason);
+                    return VerifyMachineRule(rule, allowedConcurrentAxisNames, out reason);
                 if (string.Equals(targetType, AxisInitializeInterlockTarget.Material, StringComparison.OrdinalIgnoreCase))
                     return VerifyMaterialRule(rule, out reason);
 
@@ -140,6 +156,31 @@ namespace QMC.CDT320.Initialization
                     return Check(!axis.IsAlarm, "축 Alarm 상태입니다. axis=" + axis.Name + ", code=" + axis.AlarmCode, out reason);
                 if (string.Equals(state, AxisInitializeInterlockState.Stopped, StringComparison.OrdinalIgnoreCase))
                     return Check(!axis.IsMoving, "축이 정지 상태가 아닙니다. axis=" + axis.Name, out reason);
+                if (string.Equals(state, AxisInitializeInterlockState.HomeOrAvoid, StringComparison.OrdinalIgnoreCase))
+                {
+                    InputStageUnit inputStage = _machine != null ? _machine.InputStageUnit : null;
+                    if (!IsAxisName(axis, "NeedleZ") || inputStage == null ||
+                        inputStage.NeedleZ == null || inputStage.Recipe == null)
+                    {
+                        reason = "HomeOrAvoid 상태를 확인할 NeedleZ 축 정보를 찾을 수 없습니다. axis=" + axis.Name;
+                        return false;
+                    }
+
+                    inputStage.Recipe.EnsurePositionObjects();
+                    double avoidPosition = inputStage.Recipe.NeedleZ.AvoidPosition;
+                    double tolerance = axis.Config != null && axis.Config.InPositionTolerance > 0.0
+                        ? axis.Config.InPositionTolerance
+                        : 0.01;
+                    bool isHomeOrAvoid = inputStage.IsNeedleZInHomeOrSafePosition();
+                    return Check(
+                        isHomeOrAvoid,
+                        "NeedleZ가 Home(0) 또는 Avoid 위치가 아닙니다." +
+                        " actual=" + axis.ActualPosition.ToString("0.###", CultureInfo.InvariantCulture) +
+                        ", avoid=" + avoidPosition.ToString("0.###", CultureInfo.InvariantCulture) +
+                        ", tolerance=" + tolerance.ToString("0.###", CultureInfo.InvariantCulture) +
+                        ", homeDone=" + axis.IsHomeDone,
+                        out reason);
+                }
                 bool requiresExactPosition = string.Equals(
                     state,
                     AxisInitializeInterlockState.AtPosition,
@@ -206,6 +247,20 @@ namespace QMC.CDT320.Initialization
                 }
 
                 string state = rule.ExpectedState ?? "";
+                if (string.Equals(state, AxisInitializeInterlockState.SafeForStageMove, StringComparison.OrdinalIgnoreCase))
+                {
+                    if (!string.Equals(rule.Name, "NGBinGuideClamp", StringComparison.OrdinalIgnoreCase))
+                    {
+                        reason = "SafeForStageMove를 지원하지 않는 실린더입니다. cylinder=" + cylinder.Name;
+                        return false;
+                    }
+
+                    return OutputStageInterlockRules.VerifyNgClampSafeForStageMove(
+                        _machine != null ? _machine.OutputStageUnit : null,
+                        "Initialize:" + cylinder.Name,
+                        out reason);
+                }
+
                 if (string.Equals(state, AxisInitializeInterlockState.Fwd, StringComparison.OrdinalIgnoreCase))
                     return Check(cylinder.IsFwd, "실린더가 전진 상태가 아닙니다. cylinder=" + cylinder.Name, out reason);
                 if (string.Equals(state, AxisInitializeInterlockState.Bwd, StringComparison.OrdinalIgnoreCase))
@@ -248,6 +303,17 @@ namespace QMC.CDT320.Initialization
                         out reason);
                 }
 
+                string modeDetail;
+                if (IsVirtualPhysicalIoMode(out modeDetail))
+                {
+                    LogPhysicalIoBypass(
+                        AxisInitializeInterlockTarget.DigitalInput,
+                        rule.Name,
+                        state,
+                        modeDetail);
+                    return true;
+                }
+
                 BaseDigitalInput input = FindDigitalInput(rule.Name);
                 if (input == null)
                 {
@@ -280,8 +346,21 @@ namespace QMC.CDT320.Initialization
             {
                 string state = rule.ExpectedState ?? "";
                 if (string.Equals(state, AxisInitializeInterlockState.AllOk, StringComparison.OrdinalIgnoreCase))
+                {
+                    string modeDetail;
+                    if (IsVirtualPhysicalIoMode(out modeDetail))
+                    {
+                        LogPhysicalIoBypass(
+                            AxisInitializeInterlockTarget.Resource,
+                            rule.Name,
+                            state,
+                            modeDetail);
+                        return true;
+                    }
+
                     return Check(_machine != null && _machine.ResourcesUnit != null && _machine.ResourcesUnit.AllOk,
                         "Resource 상태가 정상(AllOk)이 아닙니다.", out reason);
+                }
 
                 reason = "지원하지 않는 Resource ExpectedState입니다. state=" + state;
                 return false;
@@ -296,7 +375,95 @@ namespace QMC.CDT320.Initialization
             }
         }
 
-        private bool VerifyMachineRule(AxisInitializeInterlockRule rule, out string reason)
+        private bool IsVirtualPhysicalIoMode(out string modeDetail)
+        {
+            modeDetail = "";
+            try
+            {
+                AppSettings settings = AppSettingsStore.Current ?? AppSettingsStore.Load();
+                bool realBoardReady = AjinFactory.IsRealBoardReady;
+                bool virtualMode = IsVirtualPhysicalIoMode(settings, realBoardReady);
+                modeDetail = "simulationMode=" + (settings != null && settings.SimulationMode) +
+                    ", dryRunMode=" + (settings != null && settings.DryRunMode) +
+                    ", useAjin=" + (settings != null && settings.UseAjin) +
+                    ", realBoardReady=" + realBoardReady +
+                    ", physicalIo=" + (virtualMode ? "Virtual" : "Required");
+                return virtualMode;
+            }
+            catch (Exception ex)
+            {
+                bool realBoardReady = AjinFactory.IsRealBoardReady;
+                modeDetail = "modeResolveError=" + ex.Message +
+                    ", realBoardReady=" + realBoardReady +
+                    ", physicalIo=" + (realBoardReady ? "Required" : "Virtual");
+                Log.Write("Main", "SYSTEM", "AxisInitializeInterlock",
+                    "Initialize physical IO mode resolve failed. " + modeDetail + " - Failed");
+                return !realBoardReady;
+            }
+            finally
+            {
+            }
+        }
+
+        private static bool IsVirtualPhysicalIoMode(AppSettings settings, bool realBoardReady)
+        {
+            try
+            {
+                if (settings == null)
+                    return !realBoardReady;
+
+                return settings.SimulationMode ||
+                       settings.BypassHardware ||
+                       !settings.UseAjin ||
+                       !realBoardReady;
+            }
+            catch (Exception ex)
+            {
+                Log.Write("Main", "SYSTEM", "AxisInitializeInterlock",
+                    "Virtual physical IO policy check failed. error=" + ex.Message + " - Failed");
+                return !realBoardReady;
+            }
+            finally
+            {
+            }
+        }
+
+        private void LogPhysicalIoBypass(
+            string targetType,
+            string targetName,
+            string expectedState,
+            string modeDetail)
+        {
+            try
+            {
+                string logKey = (targetType ?? "") + ":" + (targetName ?? "") + ":" +
+                    (expectedState ?? "");
+                lock (_physicalIoBypassLogGate)
+                {
+                    if (!_physicalIoBypassLogKeys.Add(logKey))
+                        return;
+                }
+
+                Log.Write("Main", "SYSTEM", "AxisInitializeInterlock",
+                    "Initialize physical IO interlock bypassed in virtual mode." +
+                    " target=" + targetType + ":" + targetName +
+                    ", expected=" + expectedState +
+                    ", " + modeDetail + " - Bypassed");
+            }
+            catch (Exception ex)
+            {
+                Log.Write("Main", "SYSTEM", "AxisInitializeInterlock",
+                    "Initialize physical IO bypass log failed. error=" + ex.Message + " - Failed");
+            }
+            finally
+            {
+            }
+        }
+
+        private bool VerifyMachineRule(
+            AxisInitializeInterlockRule rule,
+            ISet<string> allowedConcurrentAxisNames,
+            out string reason)
         {
             reason = "";
             try
@@ -315,7 +482,7 @@ namespace QMC.CDT320.Initialization
                 }
 
                 if (string.Equals(state, AxisInitializeInterlockState.AllAxesStopped, StringComparison.OrdinalIgnoreCase))
-                    return VerifyAllAxesStopped(out reason);
+                    return VerifyAllAxesStopped(allowedConcurrentAxisNames, out reason);
 
                 reason = "지원하지 않는 Machine ExpectedState입니다. state=" + state;
                 return false;
@@ -353,6 +520,10 @@ namespace QMC.CDT320.Initialization
                     return VerifyInputFeederEmpty(out reason);
                 if (location == MaterialLocationKind.OutputFeeder)
                     return VerifyOutputFeederEmpty(out reason);
+                if (location == MaterialLocationKind.OutputStageGood)
+                    return VerifyOutputStageEmpty(BinSide.Good, out reason);
+                if (location == MaterialLocationKind.OutputStageNg)
+                    return VerifyOutputStageEmpty(BinSide.Ng, out reason);
 
                 WaferMaterial wafer = MaterialStateService.GetWaferAtLocation(location);
                 return Check(wafer == null,
@@ -371,7 +542,58 @@ namespace QMC.CDT320.Initialization
             }
         }
 
-        private bool VerifyAllAxesStopped(out string reason)
+        private bool VerifyOutputStageEmpty(BinSide side, out string reason)
+        {
+            reason = "";
+            try
+            {
+                OutputStageUnit stage = _machine != null ? _machine.OutputStageUnit : null;
+                if (stage == null)
+                {
+                    reason = "OutputStageUnit을 찾을 수 없습니다. side=" + side;
+                    return false;
+                }
+
+                MaterialLocationKind location = side == BinSide.Ng
+                    ? MaterialLocationKind.OutputStageNg
+                    : MaterialLocationKind.OutputStageGood;
+                BaseDigitalInput ringSensor = side == BinSide.Ng
+                    ? stage.NgBinRingSensor
+                    : stage.GoodBinRingSensor;
+                if (ringSensor == null)
+                {
+                    reason = "Output Stage Ring 센서를 찾을 수 없습니다. side=" + side;
+                    return false;
+                }
+
+                WaferMaterial wafer = MaterialStateService.GetWaferAtLocation(location);
+                bool dataEmpty = wafer == null;
+                bool ringDetected = ringSensor.IsOn;
+                if (dataEmpty && !ringDetected)
+                    return true;
+
+                reason = "Output Stage가 비어 있지 않거나 자재 데이터와 Ring 센서 상태가 일치하지 않습니다." +
+                    " side=" + side +
+                    ", location=" + location +
+                    ", storedWafer=" + (wafer != null ? wafer.WaferId : "-") +
+                    ", ringSensor=" + ringSensor.Name +
+                    ", ringDetected=" + ringDetected;
+                return false;
+            }
+            catch (Exception ex)
+            {
+                reason = "Output Stage 자재 확인 중 예외가 발생했습니다. side=" + side +
+                    ", error=" + ex.Message;
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
+        private bool VerifyAllAxesStopped(
+            ISet<string> allowedConcurrentAxisNames,
+            out string reason)
         {
             reason = "";
             try
@@ -390,7 +612,9 @@ namespace QMC.CDT320.Initialization
                         continue;
 
                     axisCount++;
-                    if (axis.IsMoving)
+                    bool allowedConcurrentMove = allowedConcurrentAxisNames != null &&
+                        allowedConcurrentAxisNames.Contains(axis.Name);
+                    if (axis.IsMoving && !allowedConcurrentMove)
                         movingAxes.Add(axis.Name);
                 }
 
@@ -400,8 +624,12 @@ namespace QMC.CDT320.Initialization
                     return false;
                 }
 
+                string allowedAxes = allowedConcurrentAxisNames != null && allowedConcurrentAxisNames.Count > 0
+                    ? string.Join(",", allowedConcurrentAxisNames.ToArray())
+                    : "-";
                 return Check(movingAxes.Count == 0,
-                    "이동 중인 축이 있습니다. axes=" + string.Join(",", movingAxes.ToArray()),
+                    "병렬 허용 Lane 외 이동 중인 축이 있습니다. axes=" + string.Join(",", movingAxes.ToArray()) +
+                    ", allowedConcurrentAxes=" + allowedAxes,
                     out reason);
             }
             catch (Exception ex)
@@ -685,9 +913,16 @@ namespace QMC.CDT320.Initialization
                 if (string.IsNullOrWhiteSpace(axisName) || _axesProvider == null)
                     return null;
 
+                string requestedName = axisName.Trim();
+                string canonicalName = AjinAxisDefaults.ResolveName(requestedName);
                 foreach (var axis in _axesProvider())
                 {
-                    if (axis != null && string.Equals(axis.Name, axisName.Trim(), StringComparison.OrdinalIgnoreCase))
+                    if (axis == null)
+                        continue;
+
+                    if (string.Equals(axis.Name, requestedName, StringComparison.OrdinalIgnoreCase) ||
+                        string.Equals(axis.Name, canonicalName, StringComparison.OrdinalIgnoreCase) ||
+                        string.Equals(AjinAxisDefaults.ResolveName(axis.Name), canonicalName, StringComparison.OrdinalIgnoreCase))
                         return axis;
                 }
 

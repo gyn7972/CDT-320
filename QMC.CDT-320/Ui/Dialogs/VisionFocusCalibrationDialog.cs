@@ -52,7 +52,15 @@ namespace QMC.CDT_320.Ui.Dialogs
             AutoFocusOnStart,
             AutoFocusOnWaferChange,
             AutoFocusOnPickCount,
-            AutoFocusPickInterval
+            AutoFocusPickInterval,
+            UseBottomToSideZOffset,
+            BottomToSideZOffset,
+            SideFocusSize90SignFront,
+            SideFocusSize90SignRear,
+            SideFocusCoc0SignFront,
+            SideFocusCoc0SignRear,
+            SideFocusCoc90SignFront,
+            SideFocusCoc90SignRear
         }
 
         private sealed class SettingRowInfo
@@ -135,6 +143,15 @@ namespace QMC.CDT_320.Ui.Dialogs
         private bool _autoFocusOnWaferChange = true;
         private bool _autoFocusOnPickCountEnabled;
         private int _autoFocusPickInterval;
+        // Side 전용: Bottom↔Side 공용 Z옵셋과 COC/다이사이즈 보정 부호 (VisionFocusCalibrationData 최상위 저장)
+        private bool _useBottomToSideZOffset;
+        private double _bottomToSideZOffsetMm;
+        private double _sideFocusSize90SignFront = -1.0;
+        private double _sideFocusSize90SignRear = 1.0;
+        private double _sideFocusCoc0SignFront = 1.0;
+        private double _sideFocusCoc0SignRear = 1.0;
+        private double _sideFocusCoc90SignFront = 1.0;
+        private double _sideFocusCoc90SignRear = 1.0;
         private CancellationTokenSource _runCts;
         private Action _activeStopRequest;
         private System.Windows.Forms.Timer _runtimeRefreshTimer;
@@ -920,6 +937,17 @@ namespace QMC.CDT_320.Ui.Dialogs
                 _autoFocusOnWaferChange = settings.AutoFocusOnWaferChange;
                 _autoFocusOnPickCountEnabled = settings.AutoFocusOnPickCountEnabled;
                 _autoFocusPickInterval = settings.AutoFocusPickInterval;
+
+                VisionFocusCalibrationData focusData = host.Machine.VisionUnit.Config.FocusCalibration;
+                focusData.EnsureObjects();
+                _useBottomToSideZOffset = focusData.UseBottomToSideZOffset;
+                _bottomToSideZOffsetMm = focusData.BottomToSideZOffsetMm;
+                _sideFocusSize90SignFront = focusData.SideFocusSize90SignFront;
+                _sideFocusSize90SignRear = focusData.SideFocusSize90SignRear;
+                _sideFocusCoc0SignFront = focusData.SideFocusCoc0SignFront;
+                _sideFocusCoc0SignRear = focusData.SideFocusCoc0SignRear;
+                _sideFocusCoc90SignFront = focusData.SideFocusCoc90SignFront;
+                _sideFocusCoc90SignRear = focusData.SideFocusCoc90SignRear;
                 _defaultPosition = ResolveSavedDefaultPosition(host.Machine);
                 LoadSelectedPickerReference(host.Machine);
             }
@@ -984,6 +1012,17 @@ namespace QMC.CDT_320.Ui.Dialogs
                 settings.AutoFocusOnWaferChange = _autoFocusOnWaferChange;
                 settings.AutoFocusOnPickCountEnabled = _autoFocusOnPickCountEnabled;
                 settings.AutoFocusPickInterval = _autoFocusPickInterval;
+
+                VisionFocusCalibrationData focusData = host.Machine.VisionUnit.Config.FocusCalibration;
+                focusData.EnsureObjects();
+                focusData.UseBottomToSideZOffset = _useBottomToSideZOffset;
+                focusData.BottomToSideZOffsetMm = _bottomToSideZOffsetMm;
+                focusData.SideFocusSize90SignFront = _sideFocusSize90SignFront;
+                focusData.SideFocusSize90SignRear = _sideFocusSize90SignRear;
+                focusData.SideFocusCoc0SignFront = _sideFocusCoc0SignFront;
+                focusData.SideFocusCoc0SignRear = _sideFocusCoc0SignRear;
+                focusData.SideFocusCoc90SignFront = _sideFocusCoc90SignFront;
+                focusData.SideFocusCoc90SignRear = _sideFocusCoc90SignRear;
 
                 VisionFocusPositionRecord record = ResolveSelectedRecord(host.Machine);
                 if (record != null)
@@ -1165,6 +1204,17 @@ namespace QMC.CDT_320.Ui.Dialogs
                 AddSettingRow(CreateOptionInfo(FocusSettingKey.AutoFocusOnWaferChange, "AF On Wafer Change", "새 Input Wafer의 Die가 처음 Bottom 촬영에 진입할 때 Rough+Fine AutoFocus를 실행합니다. 다른 조건과 동시에 사용할 수 있습니다.", BoolOptions), _autoFocusOnWaferChange ? "True" : "False", runtimeBottomFocus);
                 AddSettingRow(CreateOptionInfo(FocusSettingKey.AutoFocusOnPickCount, "AF By Total Pick Count", "Front/Rear 전체 Pick 완료 Die 누적 수가 설정 횟수에 도달하면 Rough+Fine AutoFocus를 실행합니다. 다른 조건과 동시에 사용할 수 있습니다.", BoolOptions), _autoFocusOnPickCountEnabled ? "True" : "False", runtimeBottomFocus);
                 AddSettingRow(CreateNumberInfo(FocusSettingKey.AutoFocusPickInterval, "AF Total Pick Interval (ea)", "ea", "Front/Rear 전체에서 Pick 완료한 총 Die 수 기준 AutoFocus 실행 간격입니다.", true), _autoFocusPickInterval.ToString(CultureInfo.InvariantCulture), runtimeBottomFocus);
+                if (IsSideOnlyProfile)
+                {
+                    AddSettingRow(CreateOptionInfo(FocusSettingKey.UseBottomToSideZOffset, "B->S Z Offset Use", "사용 시 Side 촬영 PickerZ를 SidePosition 티칭 대신 '콜렛별 Bottom AF Best Z + Z Offset'으로 계산합니다(Front/Rear 공용).", BoolOptions), _useBottomToSideZOffset ? "True" : "False", true);
+                    AddSettingRow(CreateNumberInfo(FocusSettingKey.BottomToSideZOffset, "B->S Z Offset (mm)", "mm", "Bottom 카메라 초점 Z와 Side 카메라 광축 사이의 기계적 Z 옵셋입니다(Front/Rear 공용).", false), FormatDouble(_bottomToSideZOffsetMm), true);
+                    AddSettingRow(CreateNumberInfo(FocusSettingKey.SideFocusSize90SignFront, "Sign Size90 Front", "", "90도 다이사이즈 항((가로-세로)/2) 부호(Front). -1/0/+1. 0은 항 비활성. 실장비 테스트로 확정합니다.", false), FormatDouble(_sideFocusSize90SignFront), true);
+                    AddSettingRow(CreateNumberInfo(FocusSettingKey.SideFocusSize90SignRear, "Sign Size90 Rear", "", "90도 다이사이즈 항((가로-세로)/2) 부호(Rear). -1/0/+1.", false), FormatDouble(_sideFocusSize90SignRear), true);
+                    AddSettingRow(CreateNumberInfo(FocusSettingKey.SideFocusCoc0SignFront, "Sign COC0 Front", "", "0도 COC(Y성분) 항 부호(Front). -1/0/+1.", false), FormatDouble(_sideFocusCoc0SignFront), true);
+                    AddSettingRow(CreateNumberInfo(FocusSettingKey.SideFocusCoc0SignRear, "Sign COC0 Rear", "", "0도 COC(Y성분) 항 부호(Rear). -1/0/+1.", false), FormatDouble(_sideFocusCoc0SignRear), true);
+                    AddSettingRow(CreateNumberInfo(FocusSettingKey.SideFocusCoc90SignFront, "Sign COC90 Front", "", "90도 COC(X성분, 회전 후) 항 부호(Front). -1/0/+1.", false), FormatDouble(_sideFocusCoc90SignFront), true);
+                    AddSettingRow(CreateNumberInfo(FocusSettingKey.SideFocusCoc90SignRear, "Sign COC90 Rear", "", "90도 COC(X성분, 회전 후) 항 부호(Rear). -1/0/+1.", false), FormatDouble(_sideFocusCoc90SignRear), true);
+                }
 
                 _loading = oldLoading;
             }
@@ -1253,6 +1303,9 @@ namespace QMC.CDT_320.Ui.Dialogs
                     break;
                 case FocusSettingKey.FocusValueMode:
                     _focusValueReceiveMode = TextToFocusValueMode(value);
+                    break;
+                case FocusSettingKey.UseBottomToSideZOffset:
+                    _useBottomToSideZOffset = value == "True";
                     break;
             }
         }
@@ -1372,6 +1425,27 @@ namespace QMC.CDT_320.Ui.Dialogs
                     break;
                 case FocusSettingKey.MoveDeceleration:
                     _moveDeceleration = Clamp(value, 0.001, 100000.0);
+                    break;
+                case FocusSettingKey.BottomToSideZOffset:
+                    _bottomToSideZOffsetMm = Clamp(value, -100.0, 100.0);
+                    break;
+                case FocusSettingKey.SideFocusSize90SignFront:
+                    _sideFocusSize90SignFront = Clamp(value, -1.0, 1.0);
+                    break;
+                case FocusSettingKey.SideFocusSize90SignRear:
+                    _sideFocusSize90SignRear = Clamp(value, -1.0, 1.0);
+                    break;
+                case FocusSettingKey.SideFocusCoc0SignFront:
+                    _sideFocusCoc0SignFront = Clamp(value, -1.0, 1.0);
+                    break;
+                case FocusSettingKey.SideFocusCoc0SignRear:
+                    _sideFocusCoc0SignRear = Clamp(value, -1.0, 1.0);
+                    break;
+                case FocusSettingKey.SideFocusCoc90SignFront:
+                    _sideFocusCoc90SignFront = Clamp(value, -1.0, 1.0);
+                    break;
+                case FocusSettingKey.SideFocusCoc90SignRear:
+                    _sideFocusCoc90SignRear = Clamp(value, -1.0, 1.0);
                     break;
             }
         }

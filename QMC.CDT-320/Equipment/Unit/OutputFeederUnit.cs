@@ -573,14 +573,35 @@ namespace QMC.CDT320
 
         public bool IsBinFeederAvoidPositionCheck()
         {
-            // 실장비 Picker 안전 인터록용 Avoid Dog. Simulation/DryRun에는 물리 Dog가 없으므로 위치로 대체한다.
-            if (IsOutputFeederSimulationOrDryRun())
+            // 실장비 DryRun도 X091 실제 Dog를 확인한다. 순수 Simulation/보드 미사용일 때만 엔코더 위치로 대체한다.
+            if (ShouldUseVirtualBinFeederAvoidPositionCheck())
                 return IsBinFeederYInPosition(
                     Recipe.AvoidPosition,
                     ResolveBinFeederYInPositionTolerance());
 
             return BinFeederAvoidPositionCheckSensor != null &&
                    BinFeederAvoidPositionCheckSensor.IsOn;
+        }
+
+        private bool ShouldUseVirtualBinFeederAvoidPositionCheck()
+        {
+            try
+            {
+                AppSettings settings = AppSettingsStore.Current;
+                bool appSimulation = settings != null &&
+                    (settings.SimulationMode || settings.BypassHardware || !settings.UseAjin);
+                bool unitSimulation = Setup != null && Setup.IsSimulationMode;
+                return appSimulation || unitSimulation || !AjinFactory.IsRealBoardReady;
+            }
+            catch (Exception ex)
+            {
+                EventLogger.Write(EventKind.Warning, "QMC", "BF-AVOID-MODE",
+                    "BinFeeder Avoid check mode resolve failed: " + ex.Message);
+                return !AjinFactory.IsRealBoardReady;
+            }
+            finally
+            {
+            }
         }
         public bool IsBinFeederYInCassetteLoadPosition(BinSide side) { return IsBinFeederYInPosition(GetSidePosition(side, FeederPositionType.CassetteLoad), ResolveBinFeederYInPositionTolerance()); }
         public bool IsBinFeederInCassetteLoadPosition(int slotIndex) { return IsBinFeederYInCassetteLoadPosition(BinSide.Good); }

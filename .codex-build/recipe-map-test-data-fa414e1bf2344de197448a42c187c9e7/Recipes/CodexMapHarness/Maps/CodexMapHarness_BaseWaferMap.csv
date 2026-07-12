@@ -1,0 +1,27 @@
+FrameObjId,CodexMapHarness-BASE-WAFER-MAP
+DieMapX,35
+DieMapY,47
+PitchX,1
+PitchY,1
+DieSizeX,1.25
+DieSizeY,2.5
+OuterDiameterMm,300
+EdgeSkipMode,ExternalMap
+SideEdgeSkip,0
+TopBottomEdgeSkip,0
+OriginX,-17
+OriginY,23
+SourceFileName,source.csv
+SourceFormat,CSV
+SourcePitchFromFile,False
+SourceDeclaredCount,0
+SourceFirstX,-1
+SourceFirstY,-1
+SourceFirstPosX,NaN
+SourceFirstPosY,NaN
+CreatedAt,2026-07-12 18:14:45
+
+Index,SequenceNo,DieMapX,DieMapY,OriginalMapX,OriginalMapY,IsTarget,Result,BinCode,X,Y,EquipmentGridX,EquipmentGridY,DieUid
+0,0,34,0,200,227,True,Unknown,1,17,23,17,23,CodexMapHarness-BASE-X0200-Y0227
+1,0,0,46,166,181,True,Unknown,1,-17,-23,-17,-23,CodexMapHarness-BASE-X0166-Y0181
+2,0,1,46,167,181,False,NG,255,-16,-23,-16,-23,CodexMapHarness-BASE-X0167-Y0181

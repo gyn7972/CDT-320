@@ -18,6 +18,8 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
         private const int KeyColumnIndex = 0;
         private const int NameColumnIndex = 1;
         private const int ValueColumnIndex = 2;
+        private const string DieOwnerToolTip = "Recipe → 다이 사양 페이지에서 설정합니다.";
+        private const string WaferOwnerToolTip = "Recipe → 웨이퍼 사양 페이지에서 설정합니다.";
 
         private RecipeProject _current;
         private string _loadedProjectName = string.Empty;
@@ -40,6 +42,22 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 LoadProject(listProjects.Items[0] as string);
             else
                 LoadProject(new RecipeProject { FileName = "NEW" }, false);
+        }
+
+        protected override void OnVisibleChanged(EventArgs e)
+        {
+            base.OnVisibleChanged(e);
+            if (!Visible || _loading || listProjects == null || gridProject == null ||
+                LicenseManager.UsageMode == LicenseUsageMode.Designtime)
+                return;
+
+            string name = GetCurrentProjectName();
+            if (string.IsNullOrWhiteSpace(name))
+                return;
+
+            RecipeProject latest = RecipeStore.Load(name);
+            if (latest != null)
+                LoadProject(latest, false);
         }
 
         /// <summary>모든 그리드의 헤더 클릭 정렬(오름/내림차순) 기능을 끈다.</summary>
@@ -93,7 +111,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
 
             gridMap.Columns.Add(new DataGridViewTextBoxColumn { Name = "Key", HeaderText = "Key", Visible = false });
             gridMap.Columns.Add(new DataGridViewTextBoxColumn { Name = "Map", HeaderText = "Map", FillWeight = 22, ReadOnly = true });
-            gridMap.Columns.Add(new DataGridViewTextBoxColumn { Name = "Configured", HeaderText = "Configured File", FillWeight = 44 });
+            gridMap.Columns.Add(new DataGridViewTextBoxColumn { Name = "Configured", HeaderText = "Project Map File", FillWeight = 44 });
             gridMap.Columns.Add(new DataGridViewTextBoxColumn { Name = "Resolved", HeaderText = "Resolved Path", FillWeight = 54, ReadOnly = true });
             gridMap.Columns.Add(new DataGridViewTextBoxColumn { Name = "Status", HeaderText = "Status", FillWeight = 18, ReadOnly = true });
         }
@@ -249,15 +267,43 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             AddRow(gridGlobal, "AlignConfirmEnable", "ALIGN CONFIRM", ToEnableText(project.AlignConfirmEnable));
             AddRow(gridGlobal, "NeedleCheckMode", "NEEDLE CHECK", ToEnableText(project.NeedleCheckMode));
             AddRow(gridGlobal, "AutoPositionDeviationLimit", "AUTO POSITION DEVIATION LIMIT", project.AutoPositionDeviationLimit.ToString("0.###", CultureInfo.InvariantCulture));
+            AddReadOnlyRow(gridGlobal, "ChipThickness", "CHIP THICKNESS (um, DIE에서 자동)", project.ChipThickness.ToString("0.###", CultureInfo.InvariantCulture),
+                "Recipe → 다이 사양 → Thickness (mm)에서 자동 계산됩니다.");
+            AddRow(gridGlobal, "MasterChipThickness", "MASTER CHIP THICKNESS", project.MasterChipThickness.ToString("0.###", CultureInfo.InvariantCulture));
+            AddRow(gridGlobal, "TapeThickness", "TAPE THICKNESS", project.TapeThickness.ToString("0.###", CultureInfo.InvariantCulture));
+            AddComboRow(gridGlobal, "ColletType", "COLLET TYPE", project.ColletZ.ColletType.ToString(), ColletTypeOptions);
+            AddRow(gridGlobal, "BinSortNumber", "BIN SORT NUMBER", project.BinSortNumber.ToString(CultureInfo.InvariantCulture));
+            AddRow(gridGlobal, "InputCassetteLevelCount", "INPUT CASSETTE LEVEL COUNT", project.InputCassetteLevelCount.ToString(CultureInfo.InvariantCulture));
+            AddRow(gridGlobal, "GoodCassetteLevelCount", "GOOD CASSETTE LEVEL COUNT", project.GoodCassetteLevelCount.ToString(CultureInfo.InvariantCulture));
+            AddReadOnlyRow(gridGlobal, "LegacyOutputDieMapFileName", "LEGACY OUTPUT DIE MAP", project.OutputDieMapFileName, WaferOwnerToolTip);
+            AddReadOnlyRow(gridGlobal, "InputFrameSpecName", "INPUT FRAME SPEC NAME", project.InputFrame.FrameSpecName, WaferOwnerToolTip);
+            AddReadOnlyRow(gridGlobal, "OutputFrameSpecName", "OUTPUT FRAME SPEC NAME", project.OutputFrame.FrameSpecName, WaferOwnerToolTip);
+            AddReadOnlyRow(gridGlobal, "InputOuterDiameterMm", "INPUT WAFER DIAMETER (mm)", project.InputFrame.OuterDiameterMm.ToString("0.###", CultureInfo.InvariantCulture), WaferOwnerToolTip);
+            AddReadOnlyRow(gridGlobal, "OutputOuterDiameterMm", "OUTPUT WAFER DIAMETER (mm)", project.OutputFrame.OuterDiameterMm.ToString("0.###", CultureInfo.InvariantCulture), WaferOwnerToolTip);
+            AddReadOnlyRow(gridGlobal, "InputRotate", "INPUT FRAME ROTATE (RESERVED)", project.InputFrame.Rotate,
+                WaferOwnerToolTip + " 현재 공정 좌표에는 아직 적용되지 않습니다.");
+            AddReadOnlyRow(gridGlobal, "OutputRotate", "OUTPUT FRAME ROTATE (RESERVED)", project.OutputFrame.Rotate,
+                WaferOwnerToolTip + " 현재 공정 좌표에는 아직 적용되지 않습니다.");
+            AddReadOnlyRow(gridGlobal, "InputEdgeSkipMode", "INPUT EDGE SKIP MODE", project.InputFrame.EdgeSkipMode, WaferOwnerToolTip);
+            AddReadOnlyRow(gridGlobal, "OutputEdgeSkipMode", "OUTPUT EDGE SKIP MODE", project.OutputFrame.EdgeSkipMode, WaferOwnerToolTip);
+            AddReadOnlyRow(gridGlobal, "InputSideEdgeSkip", "INPUT EDGE SKIP L/R (grid)", project.InputFrame.SideEdgeSkip.ToString(CultureInfo.InvariantCulture), WaferOwnerToolTip);
+            AddReadOnlyRow(gridGlobal, "InputTopBottomEdgeSkip", "INPUT EDGE SKIP T/B (grid)", project.InputFrame.TopBottomEdgeSkip.ToString(CultureInfo.InvariantCulture), WaferOwnerToolTip);
+            AddReadOnlyRow(gridGlobal, "OutputSideEdgeSkip", "OUTPUT EDGE SKIP L/R (grid)", project.OutputFrame.SideEdgeSkip.ToString(CultureInfo.InvariantCulture), WaferOwnerToolTip);
+            AddReadOnlyRow(gridGlobal, "OutputTopBottomEdgeSkip", "OUTPUT EDGE SKIP T/B (grid)", project.OutputFrame.TopBottomEdgeSkip.ToString(CultureInfo.InvariantCulture), WaferOwnerToolTip);
+            AddReadOnlyRow(gridGlobal, "InputSideEdgeSkipMm", "INPUT EDGE SKIP L/R (mm)", project.InputFrame.SideEdgeSkipMm.ToString("0.###", CultureInfo.InvariantCulture), WaferOwnerToolTip);
+            AddReadOnlyRow(gridGlobal, "InputTopBottomEdgeSkipMm", "INPUT EDGE SKIP T/B (mm)", project.InputFrame.TopBottomEdgeSkipMm.ToString("0.###", CultureInfo.InvariantCulture), WaferOwnerToolTip);
+            AddReadOnlyRow(gridGlobal, "OutputSideEdgeSkipMm", "OUTPUT EDGE SKIP L/R (mm)", project.OutputFrame.SideEdgeSkipMm.ToString("0.###", CultureInfo.InvariantCulture), WaferOwnerToolTip);
+            AddReadOnlyRow(gridGlobal, "OutputTopBottomEdgeSkipMm", "OUTPUT EDGE SKIP T/B (mm)", project.OutputFrame.TopBottomEdgeSkipMm.ToString("0.###", CultureInfo.InvariantCulture), WaferOwnerToolTip);
 
             gridProject.Rows.Clear();
-            AddRow(gridProject, "ChipThickness", "CHIP THICKNESS", project.ChipThickness.ToString("0.###", CultureInfo.InvariantCulture));
-            AddRow(gridProject, "MasterChipThickness", "MASTER CHIP THICKNESS", project.MasterChipThickness.ToString("0.###", CultureInfo.InvariantCulture));
-            AddRow(gridProject, "TapeThickness", "TAPE THICKNESS", project.TapeThickness.ToString("0.###", CultureInfo.InvariantCulture));
-            AddComboRow(gridProject, "ColletType", "COLLET TYPE", project.ColletZ.ColletType.ToString(), ColletTypeOptions);
-            AddRow(gridProject, "BinSortNumber", "BIN SORT NUMBER", project.BinSortNumber.ToString(CultureInfo.InvariantCulture));
-            AddRow(gridProject, "InputCassetteLevelCount", "INPUT CASSETTE LEVEL COUNT", project.InputCassetteLevelCount.ToString(CultureInfo.InvariantCulture));
-            AddRow(gridProject, "GoodCassetteLevelCount", "GOOD CASSETTE LEVEL COUNT", project.GoodCassetteLevelCount.ToString(CultureInfo.InvariantCulture));
+            AddReadOnlyRow(gridProject, "DieSpecName", "DIE SPEC NAME", project.Die.DieSpecName, DieOwnerToolTip);
+            AddReadOnlyRow(gridProject, "DieWidthMm", "DIE WIDTH (mm)", project.Die.WidthMm.ToString("0.######", CultureInfo.InvariantCulture), DieOwnerToolTip);
+            AddReadOnlyRow(gridProject, "DieHeightMm", "DIE HEIGHT (mm)", project.Die.HeightMm.ToString("0.######", CultureInfo.InvariantCulture), DieOwnerToolTip);
+            AddReadOnlyRow(gridProject, "DieThicknessMm", "DIE THICKNESS (mm)", project.Die.ThicknessMm.ToString("0.######", CultureInfo.InvariantCulture), DieOwnerToolTip);
+            AddReadOnlyRow(gridProject, "InputPitchX", "INPUT PITCH GAP X (mm)", project.InputFrame.PitchX.ToString("0.######", CultureInfo.InvariantCulture), WaferOwnerToolTip);
+            AddReadOnlyRow(gridProject, "InputPitchY", "INPUT PITCH GAP Y (mm)", project.InputFrame.PitchY.ToString("0.######", CultureInfo.InvariantCulture), WaferOwnerToolTip);
+            AddReadOnlyRow(gridProject, "OutputPitchX", "OUTPUT PITCH GAP X (mm)", project.OutputFrame.PitchX.ToString("0.######", CultureInfo.InvariantCulture), WaferOwnerToolTip);
+            AddReadOnlyRow(gridProject, "OutputPitchY", "OUTPUT PITCH GAP Y (mm)", project.OutputFrame.PitchY.ToString("0.######", CultureInfo.InvariantCulture), WaferOwnerToolTip);
 
             gridXml.Rows.Clear();
             AddRow(gridXml, "InputCassetteId", "INPUT CASSETTE ID", project.InputCassetteId);
@@ -267,11 +313,10 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             AddRow(gridXml, "XmlPath", "XML PATH", project.XmlPath);
 
             gridMap.Rows.Clear();
-            AddMapRow("Base", "BASE WAFER MAP", project.BaseWaferMapFileName, ResolveBaseWaferMapPath(project));
-            AddMapRow("Input", "INPUT DIE MAP", project.InputDieMapFileName, RecipeMapPaths.ResolveConfigured(project, RecipeMapKind.Input));
-            AddMapRow("GoodBin", "GOOD BIN DIE MAP", project.GoodBinDieMapFileName, RecipeMapPaths.ResolveConfigured(project, RecipeMapKind.GoodBin));
-            AddMapRow("NgBin", "NG BIN DIE MAP", project.NgBinDieMapFileName, RecipeMapPaths.ResolveConfigured(project, RecipeMapKind.NgBin));
-            AddMapRow("LegacyOutput", "LEGACY OUTPUT DIE MAP", project.OutputDieMapFileName, ResolveConfiguredRaw(project.OutputDieMapFileName));
+            AddMapRow("Base", "BASE WAFER MAP", project.BaseWaferMapFileName, ResolveBaseWaferMapPath(project), true);
+            AddMapRow("Input", "INPUT DIE MAP (AUTO)", project.InputDieMapFileName, RecipeMapPaths.ResolveConfigured(project, RecipeMapKind.Input), true);
+            AddMapRow("GoodBin", "GOOD BIN DIE MAP (AUTO)", project.GoodBinDieMapFileName, RecipeMapPaths.ResolveConfigured(project, RecipeMapKind.GoodBin), true);
+            AddMapRow("NgBin", "NG BIN DIE MAP (AUTO)", project.NgBinDieMapFileName, RecipeMapPaths.ResolveConfigured(project, RecipeMapKind.NgBin), true);
 
             UpdateMapStatus();
             UpdateRecipeStatus(project);
@@ -282,6 +327,17 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             int row = grid.Rows.Add(key, name, value == null ? "" : value.ToString());
             grid.Rows[row].Cells[NameColumnIndex].Style.BackColor = Color.FromArgb(224, 224, 224);
             grid.Rows[row].Cells[NameColumnIndex].Style.Font = new Font("맑은 고딕", 9F, FontStyle.Bold);
+        }
+
+        private static void AddReadOnlyRow(DataGridView grid, string key, string name, object value, string toolTip)
+        {
+            int row = grid.Rows.Add(key, name, value == null ? "" : value.ToString());
+            grid.Rows[row].Cells[NameColumnIndex].Style.BackColor = Color.FromArgb(224, 224, 224);
+            grid.Rows[row].Cells[NameColumnIndex].Style.Font = new Font("맑은 고딕", 9F, FontStyle.Bold);
+            grid.Rows[row].Cells[ValueColumnIndex].ReadOnly = true;
+            grid.Rows[row].Cells[ValueColumnIndex].Style.BackColor = Color.FromArgb(238, 238, 238);
+            grid.Rows[row].Cells[NameColumnIndex].ToolTipText = toolTip ?? "";
+            grid.Rows[row].Cells[ValueColumnIndex].ToolTipText = toolTip ?? "";
         }
 
         private static void AddComboRow(DataGridView grid, string key, string name, string value, string[] options)
@@ -302,11 +358,25 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             grid.Rows[row].Cells[ValueColumnIndex] = combo;
         }
 
-        private void AddMapRow(string key, string name, string configured, string resolved)
+        private void AddMapRow(string key, string name, string configured, string resolved, bool configuredReadOnly)
         {
             int row = gridMap.Rows.Add(key, name, configured ?? "", resolved ?? "", "");
             gridMap.Rows[row].Cells[1].Style.BackColor = Color.FromArgb(224, 224, 224);
             gridMap.Rows[row].Cells[1].Style.Font = new Font("맑은 고딕", 9F, FontStyle.Bold);
+            gridMap.Rows[row].Cells[2].ReadOnly = configuredReadOnly;
+            if (configuredReadOnly)
+            {
+                gridMap.Rows[row].Cells[2].Style.BackColor = Color.FromArgb(238, 238, 238);
+                string toolTip = string.Equals(key, "Base", StringComparison.OrdinalIgnoreCase)
+                    ? "Recipe → 웨이퍼 사양 → LOAD WAFER MAP에서 설정합니다."
+                    : "Base WaferMap과 Recipe → 웨이퍼 사양의 Role별 Pitch로 자동 생성됩니다.";
+                gridMap.Rows[row].Cells[1].ToolTipText = toolTip;
+                gridMap.Rows[row].Cells[2].ToolTipText = toolTip;
+            }
+            else
+            {
+                gridMap.Rows[row].Cells[2].ToolTipText = "MAP BROWSE 버튼으로 원본 WaferMap을 불러옵니다.";
+            }
         }
 
         private void UpdateMapStatus()
@@ -359,6 +429,19 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
 
             List<string> unitFiles = RecipeDataStore.ListUnits(name);
             AddStatus("Unit Recipe Count", unitFiles.Count > 0, unitFiles.Count.ToString(CultureInfo.InvariantCulture) + " files");
+
+            bool dieSizeConsistent = project.Die != null && project.InputFrame != null && project.OutputFrame != null &&
+                                     NearlyEqual(project.Die.WidthMm, project.InputFrame.DieSizeX) &&
+                                     NearlyEqual(project.Die.HeightMm, project.InputFrame.DieSizeY) &&
+                                     NearlyEqual(project.Die.WidthMm, project.OutputFrame.DieSizeX) &&
+                                     NearlyEqual(project.Die.HeightMm, project.OutputFrame.DieSizeY);
+            string dieSizeDetail = project.Die == null
+                ? "Project Die 없음"
+                : "Project=" + project.Die.WidthMm.ToString("0.######", CultureInfo.InvariantCulture) + "x" +
+                  project.Die.HeightMm.ToString("0.######", CultureInfo.InvariantCulture) +
+                  ", InputFrame=" + FormatFrameDieSize(project.InputFrame) +
+                  ", OutputFrame=" + FormatFrameDieSize(project.OutputFrame);
+            AddStatus("Die Size Consistency", dieSizeConsistent, dieSizeDetail);
 
             foreach (string key in new[] { "CDT-320", "InputStageUnit", "PickerFrontUnit", "PickerRearUnit", "VisionUnit", "OutputStageUnit" })
             {
@@ -543,7 +626,8 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             {
                 EnsureProjectObjects(project);
                 project.FileName = NormalizeProjectName(project.FileName);
-                RecipeStore.Save(project);
+                if (!RecipeStore.Save(project))
+                    throw new IOException("Project 파일 저장에 실패했습니다.");
                 SaveMachineRecipe(project.FileName);
                 MarkCurrentProject(project.FileName);
 
@@ -569,14 +653,44 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
 
         private void OnApplyCurrent()
         {
-            RecipeProject project = CollectFromUi();
-            if (project == null || string.IsNullOrWhiteSpace(project.FileName))
-                return;
+            try
+            {
+                RecipeProject project = CollectFromUi();
+                if (project == null || string.IsNullOrWhiteSpace(project.FileName))
+                    return;
 
-            ApplyProjectToMachine(project);
-            UpdateRecipeStatus(project);
-            QMC.Common.MessageDialog.Show("현재 프로젝트를 장비에 적용했습니다.\r\nProject=" + project.FileName,
-                "Project", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                if (!RecipeStore.Save(project))
+                    throw new IOException("Project 파일 저장에 실패했습니다.");
+                _current = project;
+                PopulateProjectToUi(project);
+                ApplyProjectToMachine(project);
+                UpdateRecipeStatus(project);
+                QMC.Common.MessageDialog.Show("현재 프로젝트를 장비에 적용했습니다.\r\nProject=" + project.FileName,
+                    "Project", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+            catch (Exception ex)
+            {
+                EventLogger.Write(EventKind.Alarm, Security.UserSession.Name, "RECIPE-APPLY",
+                    "프로젝트 적용 준비 실패: " + ex.Message);
+                QMC.Common.MessageDialog.Show("프로젝트 적용 실패:\r\n" + ex.Message, "Project",
+                    MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+            }
+        }
+
+        private static bool NearlyEqual(double left, double right)
+        {
+            return Math.Abs(left - right) <= 0.000001;
+        }
+
+        private static string FormatFrameDieSize(TapeFrameSubset frame)
+        {
+            return frame == null
+                ? "-"
+                : frame.DieSizeX.ToString("0.######", CultureInfo.InvariantCulture) + "x" +
+                  frame.DieSizeY.ToString("0.######", CultureInfo.InvariantCulture);
         }
 
         private void OnOpenRecipeFolder()
@@ -590,24 +704,9 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
 
         private void OnBrowseMap()
         {
-            if (gridMap.CurrentRow == null)
-            {
-                QMC.Common.MessageDialog.Show("맵 행을 선택하세요.", "Map", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                return;
-            }
-
-            using (var dialog = new OpenFileDialog())
-            {
-                dialog.Title = "Select Die Map";
-                dialog.Filter = "DieMap files|*.json;*.csv;*.txt|JSON|*.json|CSV|*.csv|WaferMap TXT|*.txt|All files|*.*";
-                string waferMapDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Config", "WaferMap");
-                dialog.InitialDirectory = Directory.Exists(waferMapDir) ? waferMapDir : RecipeMapPaths.GetDieMapDirectory();
-                if (dialog.ShowDialog(this) != DialogResult.OK)
-                    return;
-
-                gridMap.CurrentRow.Cells[2].Value = RecipeMapPaths.MakeConfigRelativePath(dialog.FileName);
-                UpdateMapStatus();
-            }
+            QMC.Common.MessageDialog.Show(
+                "Base WaferMap은 Recipe → 웨이퍼 사양 → LOAD WAFER MAP에서 불러옵니다.",
+                "Map", MessageBoxButtons.OK, MessageBoxIcon.Information);
         }
 
         private void OnOpenMap()
@@ -638,9 +737,22 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             }
         }
 
+        private RecipeProject LoadLatestProjectForEditing()
+        {
+            string sourceName = NormalizeProjectName(_loadedProjectName);
+            if (!string.IsNullOrWhiteSpace(sourceName))
+            {
+                RecipeProject latest = RecipeStore.Load(sourceName);
+                if (latest != null)
+                    return latest;
+            }
+
+            return _current ?? new RecipeProject();
+        }
+
         private RecipeProject CollectFromUi()
         {
-            RecipeProject project = _current ?? new RecipeProject();
+            RecipeProject project = LoadLatestProjectForEditing();
             EnsureProjectObjects(project);
 
             project.FileName = NormalizeProjectName(GetValue(gridSummary, "FileName"));
@@ -660,25 +772,17 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             project.NeedleCheckMode = ParseEnable(GetValue(gridGlobal, "NeedleCheckMode"));
             project.AutoPositionDeviationLimit = ParseDouble(GetValue(gridGlobal, "AutoPositionDeviationLimit"), project.AutoPositionDeviationLimit);
 
-            project.ChipThickness = ParseDouble(GetValue(gridProject, "ChipThickness"), project.ChipThickness);
-            project.MasterChipThickness = ParseDouble(GetValue(gridProject, "MasterChipThickness"), project.MasterChipThickness);
-            project.TapeThickness = ParseDouble(GetValue(gridProject, "TapeThickness"), project.TapeThickness);
-            project.ColletZ.ColletType = ParseColletType(GetValue(gridProject, "ColletType"), project.ColletZ.ColletType);
-            project.BinSortNumber = ParseInt(GetValue(gridProject, "BinSortNumber"), project.BinSortNumber);
-            project.InputCassetteLevelCount = Clamp(ParseInt(GetValue(gridProject, "InputCassetteLevelCount"), project.InputCassetteLevelCount), 1, 2);
-            project.GoodCassetteLevelCount = Clamp(ParseInt(GetValue(gridProject, "GoodCassetteLevelCount"), project.GoodCassetteLevelCount), 1, 2);
-
+            project.MasterChipThickness = ParseDouble(GetValue(gridGlobal, "MasterChipThickness"), project.MasterChipThickness);
+            project.TapeThickness = ParseDouble(GetValue(gridGlobal, "TapeThickness"), project.TapeThickness);
+            project.ColletZ.ColletType = ParseColletType(GetValue(gridGlobal, "ColletType"), project.ColletZ.ColletType);
+            project.BinSortNumber = ParseInt(GetValue(gridGlobal, "BinSortNumber"), project.BinSortNumber);
+            project.InputCassetteLevelCount = Clamp(ParseInt(GetValue(gridGlobal, "InputCassetteLevelCount"), project.InputCassetteLevelCount), 1, 2);
+            project.GoodCassetteLevelCount = Clamp(ParseInt(GetValue(gridGlobal, "GoodCassetteLevelCount"), project.GoodCassetteLevelCount), 1, 2);
             project.InputCassetteId = GetValue(gridXml, "InputCassetteId");
             project.OutputCassetteId = GetValue(gridXml, "OutputCassetteId");
             project.ColletModelNum = GetValue(gridXml, "ColletModelNum");
             project.ColletLotNum = GetValue(gridXml, "ColletLotNum");
             project.XmlPath = GetValue(gridXml, "XmlPath");
-
-            project.InputDieMapFileName = GetMapConfigured("Input");
-            project.BaseWaferMapFileName = GetMapConfigured("Base");
-            project.GoodBinDieMapFileName = GetMapConfigured("GoodBin");
-            project.NgBinDieMapFileName = GetMapConfigured("NgBin");
-            project.OutputDieMapFileName = GetMapConfigured("LegacyOutput");
 
             return project;
         }
@@ -761,10 +865,9 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
         {
             if (project == null)
                 return;
+            RecipeProjectConsistencyService.EnsureStructure(project);
             if (project.ColletZ == null) project.ColletZ = new ColletZConfigSubset();
             project.ColletZ.Ensure();
-            if (project.Die == null) project.Die = new DieSubset();
-            if (project.Frame == null) project.Frame = new TapeFrameSubset();
             if (project.LoadFrame == null) project.LoadFrame = new LoadTapeFrameSubset();
             if (project.UnloadFrame == null) project.UnloadFrame = new UnloadTapeFrameSubset();
             if (project.Module == null) project.Module = new ModuleSubset();
@@ -836,10 +939,9 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
         private static double ParseDouble(string value, double fallback)
         {
             double result;
-            return double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out result) ||
-                   double.TryParse(value, NumberStyles.Float, CultureInfo.CurrentCulture, out result)
-                ? result
-                : fallback;
+            bool parsed = double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out result) ||
+                          double.TryParse(value, NumberStyles.Float, CultureInfo.CurrentCulture, out result);
+            return parsed && !double.IsNaN(result) && !double.IsInfinity(result) ? result : fallback;
         }
 
         private static int ParseInt(string value, int fallback)
@@ -890,12 +992,6 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             }
 
             return null;
-        }
-
-        private string GetMapConfigured(string key)
-        {
-            DataGridViewRow row = FindMapRow(key);
-            return row == null ? "" : CellText(row, 2);
         }
 
         private DataGridViewRow FindMapRow(string key)

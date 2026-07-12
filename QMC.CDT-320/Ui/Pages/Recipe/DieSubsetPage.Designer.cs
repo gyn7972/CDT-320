@@ -12,6 +12,13 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
         private TableLayoutPanel tlpTol;
         private GroupBox grpVision;
         private TableLayoutPanel tlpVis;
+        private GroupBox grpSaveGuide;
+        private TableLayoutPanel tlpSaveGuide;
+        private Label _lblCurrentRecipeInfo;
+        private Label lblSaveSequence;
+        private Label lblButtonMeaning;
+        private GroupBox grpOperationStatus;
+        private TextBox _txtOperationStatus;
         private Label lblSpecLibrary;
         private ComboBox _cbSpecLibrary;
         private Button btnLoadSpec;
@@ -41,6 +48,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
 
         private void InitializeComponent()
         {
+            System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(DieSubsetPage));
             this.dieEditorLayout = new System.Windows.Forms.TableLayoutPanel();
             this.grpDieSpec = new System.Windows.Forms.GroupBox();
             this.tlpDie = new System.Windows.Forms.TableLayoutPanel();
@@ -74,6 +82,13 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this._nChipLen = new System.Windows.Forms.NumericUpDown();
             this.lblForeignSize = new System.Windows.Forms.Label();
             this._nForeign = new System.Windows.Forms.NumericUpDown();
+            this.grpSaveGuide = new System.Windows.Forms.GroupBox();
+            this.tlpSaveGuide = new System.Windows.Forms.TableLayoutPanel();
+            this._lblCurrentRecipeInfo = new System.Windows.Forms.Label();
+            this.lblSaveSequence = new System.Windows.Forms.Label();
+            this.lblButtonMeaning = new System.Windows.Forms.Label();
+            this.grpOperationStatus = new System.Windows.Forms.GroupBox();
+            this._txtOperationStatus = new System.Windows.Forms.TextBox();
             this._editorPanel.SuspendLayout();
             this.dieEditorLayout.SuspendLayout();
             this.grpDieSpec.SuspendLayout();
@@ -92,6 +107,9 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             ((System.ComponentModel.ISupportInitialize)(this._nChipDepth)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this._nChipLen)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this._nForeign)).BeginInit();
+            this.grpSaveGuide.SuspendLayout();
+            this.tlpSaveGuide.SuspendLayout();
+            this.grpOperationStatus.SuspendLayout();
             this.SuspendLayout();
             // 
             // _editorPanel
@@ -113,6 +131,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.dieEditorLayout.Controls.Add(this.grpDieSpec, 0, 0);
             this.dieEditorLayout.Controls.Add(this.grpTolerance, 0, 2);
             this.dieEditorLayout.Controls.Add(this.grpVision, 0, 4);
+            this.dieEditorLayout.Controls.Add(this.grpSaveGuide, 1, 0);
             this.dieEditorLayout.Dock = System.Windows.Forms.DockStyle.Fill;
             this.dieEditorLayout.Location = new System.Drawing.Point(8, 12);
             this.dieEditorLayout.Margin = new System.Windows.Forms.Padding(0);
@@ -640,6 +659,120 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this._nForeign.Size = new System.Drawing.Size(301, 23);
             this._nForeign.TabIndex = 24;
             // 
+            // grpSaveGuide
+            // 
+            this.grpSaveGuide.BackColor = System.Drawing.Color.White;
+            this.grpSaveGuide.Controls.Add(this.tlpSaveGuide);
+            this.grpSaveGuide.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.grpSaveGuide.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
+            this.grpSaveGuide.Location = new System.Drawing.Point(559, 0);
+            this.grpSaveGuide.Margin = new System.Windows.Forms.Padding(20, 0, 4, 0);
+            this.grpSaveGuide.Name = "grpSaveGuide";
+            this.grpSaveGuide.Padding = new System.Windows.Forms.Padding(12, 8, 12, 12);
+            this.dieEditorLayout.SetRowSpan(this.grpSaveGuide, 5);
+            this.grpSaveGuide.Size = new System.Drawing.Size(515, 656);
+            this.grpSaveGuide.TabIndex = 3;
+            this.grpSaveGuide.TabStop = false;
+            this.grpSaveGuide.Text = "저장 / 불러오기 순서";
+            // 
+            // tlpSaveGuide
+            // 
+            this.tlpSaveGuide.BackColor = System.Drawing.Color.White;
+            this.tlpSaveGuide.ColumnCount = 1;
+            this.tlpSaveGuide.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.tlpSaveGuide.Controls.Add(this._lblCurrentRecipeInfo, 0, 0);
+            this.tlpSaveGuide.Controls.Add(this.lblSaveSequence, 0, 1);
+            this.tlpSaveGuide.Controls.Add(this.lblButtonMeaning, 0, 2);
+            this.tlpSaveGuide.Controls.Add(this.grpOperationStatus, 0, 3);
+            this.tlpSaveGuide.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.tlpSaveGuide.Location = new System.Drawing.Point(12, 26);
+            this.tlpSaveGuide.Name = "tlpSaveGuide";
+            this.tlpSaveGuide.Padding = new System.Windows.Forms.Padding(2);
+            this.tlpSaveGuide.RowCount = 4;
+            this.tlpSaveGuide.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 100F));
+            this.tlpSaveGuide.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 215F));
+            this.tlpSaveGuide.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 135F));
+            this.tlpSaveGuide.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.tlpSaveGuide.Size = new System.Drawing.Size(491, 618);
+            this.tlpSaveGuide.TabIndex = 0;
+            // 
+            // _lblCurrentRecipeInfo
+            // 
+            this._lblCurrentRecipeInfo.AutoEllipsis = true;
+            this._lblCurrentRecipeInfo.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(242)))), ((int)(((byte)(245)))), ((int)(((byte)(248)))));
+            this._lblCurrentRecipeInfo.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            this._lblCurrentRecipeInfo.Dock = System.Windows.Forms.DockStyle.Fill;
+            this._lblCurrentRecipeInfo.Font = new System.Drawing.Font("맑은 고딕", 9.5F, System.Drawing.FontStyle.Bold);
+            this._lblCurrentRecipeInfo.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(45)))), ((int)(((byte)(55)))), ((int)(((byte)(70)))));
+            this._lblCurrentRecipeInfo.Location = new System.Drawing.Point(2, 5);
+            this._lblCurrentRecipeInfo.Margin = new System.Windows.Forms.Padding(0, 3, 0, 8);
+            this._lblCurrentRecipeInfo.Name = "_lblCurrentRecipeInfo";
+            this._lblCurrentRecipeInfo.Padding = new System.Windows.Forms.Padding(10, 8, 10, 8);
+            this._lblCurrentRecipeInfo.Size = new System.Drawing.Size(487, 89);
+            this._lblCurrentRecipeInfo.TabIndex = 0;
+            this._lblCurrentRecipeInfo.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            // 
+            // lblSaveSequence
+            // 
+            this.lblSaveSequence.BackColor = System.Drawing.Color.White;
+            this.lblSaveSequence.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            this.lblSaveSequence.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.lblSaveSequence.Font = new System.Drawing.Font("맑은 고딕", 9.5F);
+            this.lblSaveSequence.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(45)))), ((int)(((byte)(45)))), ((int)(((byte)(45)))));
+            this.lblSaveSequence.Location = new System.Drawing.Point(2, 102);
+            this.lblSaveSequence.Margin = new System.Windows.Forms.Padding(0, 0, 0, 8);
+            this.lblSaveSequence.Name = "lblSaveSequence";
+            this.lblSaveSequence.Padding = new System.Windows.Forms.Padding(10, 8, 10, 8);
+            this.lblSaveSequence.Size = new System.Drawing.Size(487, 207);
+            this.lblSaveSequence.TabIndex = 1;
+            this.lblSaveSequence.Text = resources.GetString("lblSaveSequence.Text");
+            // 
+            // lblButtonMeaning
+            // 
+            this.lblButtonMeaning.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(253)))), ((int)(((byte)(248)))), ((int)(((byte)(238)))));
+            this.lblButtonMeaning.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            this.lblButtonMeaning.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.lblButtonMeaning.Font = new System.Drawing.Font("맑은 고딕", 9.25F);
+            this.lblButtonMeaning.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(70)))), ((int)(((byte)(55)))), ((int)(((byte)(35)))));
+            this.lblButtonMeaning.Location = new System.Drawing.Point(2, 317);
+            this.lblButtonMeaning.Margin = new System.Windows.Forms.Padding(0, 0, 0, 8);
+            this.lblButtonMeaning.Name = "lblButtonMeaning";
+            this.lblButtonMeaning.Padding = new System.Windows.Forms.Padding(10, 8, 10, 8);
+            this.lblButtonMeaning.Size = new System.Drawing.Size(487, 127);
+            this.lblButtonMeaning.TabIndex = 2;
+            this.lblButtonMeaning.Text = "버튼 의미\r\n• LOAD SPEC : library → 화면 (아직 미적용)\r\n• 상단 SAVE : 화면 → 현재 Recipe + 연결 맵 재생성" +
+    "\r\n• SAVE SPEC : library 저장 + 현재 Recipe 적용\r\n• Reload : 저장하지 않은 변경을 버리고 Recipe 재로드" +
+    "";
+            // 
+            // grpOperationStatus
+            // 
+            this.grpOperationStatus.Controls.Add(this._txtOperationStatus);
+            this.grpOperationStatus.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.grpOperationStatus.Font = new System.Drawing.Font("맑은 고딕", 9.5F, System.Drawing.FontStyle.Bold);
+            this.grpOperationStatus.Location = new System.Drawing.Point(2, 452);
+            this.grpOperationStatus.Margin = new System.Windows.Forms.Padding(0);
+            this.grpOperationStatus.Name = "grpOperationStatus";
+            this.grpOperationStatus.Padding = new System.Windows.Forms.Padding(8, 4, 8, 8);
+            this.grpOperationStatus.Size = new System.Drawing.Size(487, 164);
+            this.grpOperationStatus.TabIndex = 3;
+            this.grpOperationStatus.TabStop = false;
+            this.grpOperationStatus.Text = "현재 상태 / 저장 결과";
+            // 
+            // _txtOperationStatus
+            // 
+            this._txtOperationStatus.BackColor = System.Drawing.Color.White;
+            this._txtOperationStatus.BorderStyle = System.Windows.Forms.BorderStyle.None;
+            this._txtOperationStatus.Dock = System.Windows.Forms.DockStyle.Fill;
+            this._txtOperationStatus.Font = new System.Drawing.Font("맑은 고딕", 9.25F);
+            this._txtOperationStatus.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(45)))), ((int)(((byte)(55)))), ((int)(((byte)(70)))));
+            this._txtOperationStatus.Location = new System.Drawing.Point(8, 21);
+            this._txtOperationStatus.Multiline = true;
+            this._txtOperationStatus.Name = "_txtOperationStatus";
+            this._txtOperationStatus.ReadOnly = true;
+            this._txtOperationStatus.ScrollBars = System.Windows.Forms.ScrollBars.Vertical;
+            this._txtOperationStatus.Size = new System.Drawing.Size(471, 135);
+            this._txtOperationStatus.TabIndex = 0;
+            // 
             // DieSubsetPage
             // 
             this.Name = "DieSubsetPage";
@@ -664,6 +797,10 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             ((System.ComponentModel.ISupportInitialize)(this._nChipDepth)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this._nChipLen)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this._nForeign)).EndInit();
+            this.grpSaveGuide.ResumeLayout(false);
+            this.tlpSaveGuide.ResumeLayout(false);
+            this.grpOperationStatus.ResumeLayout(false);
+            this.grpOperationStatus.PerformLayout();
             this.ResumeLayout(false);
 
         }

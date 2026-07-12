@@ -1582,16 +1582,12 @@ namespace QMC.CDT320.Sequencing.Calibration
                 if (result != 0)
                     return result;
 
-                BottomVisionOffset bottomOffset = await InspectBottomDieForSideFocusAsync(ct).ConfigureAwait(false);
-                if (bottomOffset == null)
-                    return Fail("COLLET-CAL-SIDE-AF-BOTTOM", Name,
-                        "Side AutoFocus에 사용할 Bottom Die Offset을 취득하지 못했습니다. side=" +
-                        _calibrationSide + ", colletNo=" + _colletNo);
-
+                // 현재 기준: Side 초점 보정은 Bottom 재측정 값을 쓰지 않고 COC(회전 중심 편차) + 레시피 다이 사이즈로만 계산한다.
+                // (Bottom 검사 결과가 Side 위치에 영향을 주지 않도록 하는 정책과 동일 계약)
                 SideFocusCorrection correction;
-                if (!TryBuildSideFocusCorrection(bottomOffset, out correction))
+                if (!TryBuildSideFocusCorrectionFromCoc(out correction))
                     return Fail("COLLET-CAL-SIDE-AF-CORRECTION", Name,
-                        "Bottom Die Offset/COC/Die Size로 Side Focus 보정량을 계산하지 못했습니다. side=" +
+                        "COC/Die Size로 Side Focus 보정량을 계산하지 못했습니다. side=" +
                         _calibrationSide + ", colletNo=" + _colletNo);
 
                 result = await RunSideAutoFocusAsync(0, correction.Focus0, ct).ConfigureAwait(false);
@@ -1728,6 +1724,88 @@ namespace QMC.CDT320.Sequencing.Calibration
             public double Focus90;
         }
 
+        private bool TryBuildSideFocusCorrectionFromCoc(out SideFocusCorrection correction)
+        {
+            correction = null;
+            try
+            {
+                if (ResultRecord == null || !ResultRecord.RotationCenterValid)
+                    return false;
+
+                VisionFocusCalibrationData focusData = Context.Machine.VisionUnit.Config.FocusCalibration;
+                focusData.EnsureObjects();
+
+                VisionCameraPixelCalibration camera = VisionCameraCalibrationTransform.ResolveCamera(
+                    Context.Machine.VisionUnit.Config.CalibrationData.Camera,
+                    AutoVisionChannel.BottomInspection);
+                // COC 편차(mm): 회전 중심이 콜렛(영상 기준 중심) 대비 얼마나 밀려 있는지.
+                double cocXmm = camera.PixelToMmOffsetX(ResultRecord.RotationCenterPixelX);
+                double cocYmm = camera.PixelToMmOffsetY(ResultRecord.RotationCenterPixelY);
+                if (double.IsNaN(cocXmm) || double.IsInfinity(cocXmm) ||
+                    double.IsNaN(cocYmm) || double.IsInfinity(cocYmm))
+                    return false;
+
+                // 다이 사이즈는 레시피(Input Frame) 값을 우선 사용한다. 없으면 Controller 기본값 폴백.
+                double dieSizeX = 0.0;
+                double dieSizeY = 0.0;
+                string dieSizeSource = "None";
+                QMC.CDT320.Recipes.RecipeProject recipe = QMC.CDT320.Recipes.RecipeStore.LoadLastOrDefault();
+                QMC.CDT320.Recipes.TapeFrameSubset frame = recipe != null
+                    ? (recipe.InputFrame ?? recipe.Frame)
+                    : null;
+                if (frame != null && frame.DieSizeX > 0.0 && frame.DieSizeY > 0.0)
+                {
+                    dieSizeX = frame.DieSizeX;
+                    dieSizeY = frame.DieSizeY;
+                    dieSizeSource = "RecipeInputFrame";
+                }
+                else if (Context.Controller != null)
+                {
+                    dieSizeX = Context.Controller.DieSizeXMm;
+                    dieSizeY = Context.Controller.DieSizeYMm;
+                    dieSizeSource = "ControllerDefault";
+                }
+                if (dieSizeX <= 0.0 || dieSizeY <= 0.0)
+                    return false;
+                // 90도 회전 시 촬영면-중심 거리 변화량: (가로-세로)/2.
+                double sizeTerm90 = (dieSizeX - dieSizeY) / 2.0;
+
+                bool front = _calibrationSide == VisionFocusPickerSide.Front;
+                double size90Sign = front ? focusData.SideFocusSize90SignFront : focusData.SideFocusSize90SignRear;
+                double coc0Sign = front ? focusData.SideFocusCoc0SignFront : focusData.SideFocusCoc0SignRear;
+                double coc90Sign = front ? focusData.SideFocusCoc90SignFront : focusData.SideFocusCoc90SignRear;
+
+                // 0도: COC의 카메라축 성분(cocY)만 영향. 90도: 회전 매트릭스로 cocX가 카메라축으로 오고 다이 사이즈 항이 추가.
+                correction = new SideFocusCorrection
+                {
+                    Focus0 = coc0Sign * cocYmm,
+                    Focus90 = size90Sign * sizeTerm90 + coc90Sign * cocXmm
+                };
+
+                QMC.Common.Log.Write("Calibration", "SYSTEM", "ColletCalSideFocusFormula",
+                    "Side AF 보정 계산(COC/DieSize). side=" + _calibrationSide +
+                    ", colletNo=" + _colletNo +
+                    ", cocOffsetMm=(" + cocXmm.ToString("F6") + "," + cocYmm.ToString("F6") + ")" +
+                    ", dieSize=(" + dieSizeX.ToString("F6") + "," + dieSizeY.ToString("F6") + ", source=" + dieSizeSource + ")" +
+                    ", sizeTerm90=(X-Y)/2=" + sizeTerm90.ToString("F6") +
+                    ", signs(size90=" + size90Sign.ToString("F1") +
+                    ", coc0=" + coc0Sign.ToString("F1") +
+                    ", coc90=" + coc90Sign.ToString("F1") + ")" +
+                    ", focus0=" + correction.Focus0.ToString("F6") +
+                    ", focus90=" + correction.Focus90.ToString("F6"));
+                return true;
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Log.Write("Calibration", "SYSTEM", "ColletCalSideFocusFormula",
+                    "Side AF 보정 계산(COC/DieSize) 예외. side=" + _calibrationSide +
+                    ", colletNo=" + _colletNo +
+                    ", error=" + ex.Message);
+                correction = null;
+                return false;
+            }
+        }
+
         private bool TryBuildSideFocusCorrection(BottomVisionOffset bottom, out SideFocusCorrection correction)
         {
             correction = null;
@@ -1834,27 +1912,70 @@ namespace QMC.CDT320.Sequencing.Calibration
             double teachingY = Context.Machine.VisionUnit.GetVisionTeachingPosition(visionAxis, positionName);
             double axisSign = _calibrationSide == VisionFocusPickerSide.Front ? 1.0 : -1.0;
 
-            // 저장된 Side AF 위치(PickerZ/VisionY)가 유효하면 그 값으로 AF를 시작한다.
-            // 없으면 기존 계약(PickerZ=SidePosition 티칭, Y=Process 티칭+보정)으로 시작한다.
+            // PickerZ 우선순위: (1) Bottom AF Best Z + 공용 Z옵셋(사용 설정 시) (2) 저장된 Side AF PickerZ (3) SidePosition 티칭.
             VisionFocusPositionRecord savedRecord = focusData.GetSideRecord(kind, _colletNo);
             // 초점 신호가 없던 스캔(score<=0)의 저장값은 시작 위치로 쓰지 않는다.
             bool savedFocusMeaningful = savedRecord != null && savedRecord.BestScore > 0.0;
             bool useSavedZ = savedFocusMeaningful && savedRecord.PickerZValid &&
                              !double.IsNaN(savedRecord.PickerZPosition) &&
                              !double.IsInfinity(savedRecord.PickerZPosition);
-            bool useSavedY = savedFocusMeaningful && savedRecord.Valid &&
-                             !double.IsNaN(savedRecord.BestPosition) &&
-                             !double.IsInfinity(savedRecord.BestPosition);
-            double sideZ = useSavedZ ? savedRecord.PickerZPosition : GetPickerTeachingPosition(zAxis, "SidePosition");
-            double defaultY = useSavedY ? savedRecord.BestPosition : teachingY + axisSign * focusCorrection;
+            // Z옵셋 기준 Z: 생산과 동일 기준을 위해 콜렛별 Bottom Die AF Best를 우선 사용하고,
+            // 없으면 이번 캘리브레이션의 Bottom AF 최종 Z(FinalPickerZ)를 사용한다.
+            bool useBottomZOffset = false;
+            double bottomBestZ = 0.0;
+            string bottomBestZSource = "None";
+            if (focusData.UseBottomToSideZOffset)
+            {
+                VisionFocusPositionRecord bottomDieRecord = focusData.GetBottomRecord(
+                    VisionFocusScanKind.BottomDie, _calibrationSide, _colletNo);
+                if (bottomDieRecord != null && bottomDieRecord.Valid && bottomDieRecord.BestScore > 0.0 &&
+                    !double.IsNaN(bottomDieRecord.BestPosition) && !double.IsInfinity(bottomDieRecord.BestPosition))
+                {
+                    bottomBestZ = bottomDieRecord.BestPosition;
+                    bottomBestZSource = "BottomDieAfRecord";
+                    useBottomZOffset = true;
+                }
+                else if (ResultRecord != null &&
+                         !double.IsNaN(ResultRecord.FinalPickerZ) &&
+                         !double.IsInfinity(ResultRecord.FinalPickerZ))
+                {
+                    bottomBestZ = ResultRecord.FinalPickerZ;
+                    bottomBestZSource = "ColletCalFinalZ";
+                    useBottomZOffset = true;
+                }
+            }
+            double sideZ;
+            string sideZSource;
+            if (useBottomZOffset)
+            {
+                // Bottom AF가 찾은 초점 Z에 Bottom↔Side 기계 옵셋을 더해 Side 촬영 Z를 만든다.
+                sideZ = bottomBestZ + focusData.BottomToSideZOffsetMm;
+                sideZSource = "BottomBestZ+Offset(" + bottomBestZSource + ")";
+            }
+            else if (useSavedZ)
+            {
+                sideZ = savedRecord.PickerZPosition;
+                sideZSource = "SavedRecord";
+            }
+            else
+            {
+                sideZ = GetPickerTeachingPosition(zAxis, "SidePosition");
+                sideZSource = "SidePositionTeaching";
+            }
+
+            // Side 카메라 Y 시작 = Process 티칭 + COC/다이사이즈 보정(부호는 설정값, 실장비 테스트로 확정).
+            double defaultY = teachingY + axisSign * focusCorrection;
 
             QMC.Common.Log.Write("Calibration", "SYSTEM", "ColletCalSideAutoFocus",
                 "Side AF 시작 위치 결정. side=" + _calibrationSide +
                 ", colletNo=" + _colletNo +
                 ", angle=" + angleDeg +
-                ", pickerZSource=" + (useSavedZ ? "SavedRecord" : "SidePositionTeaching") +
+                ", pickerZSource=" + sideZSource +
                 ", pickerZ=" + sideZ.ToString("F6") +
-                ", visionYSource=" + (useSavedY ? "SavedBest" : "TeachingPlusCorrection") +
+                ", bottomBestZ=" + bottomBestZ.ToString("F6") + "(" + bottomBestZSource + ")" +
+                ", zOffsetMm=" + focusData.BottomToSideZOffsetMm.ToString("F6") +
+                ", zOffsetUse=" + focusData.UseBottomToSideZOffset +
+                ", visionYSource=TeachingPlusCocCorrection" +
                 ", defaultY=" + defaultY.ToString("F6") +
                 ", teachingY=" + teachingY.ToString("F6") +
                 ", focusCorrection=" + focusCorrection.ToString("F6"));

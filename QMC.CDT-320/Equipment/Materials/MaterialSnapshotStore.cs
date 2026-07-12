@@ -1179,6 +1179,9 @@ namespace QMC.CDT320.Materials
                 wafer.InputStageAlignOriginY = NormalizeJsonDouble(wafer.InputStageAlignOriginY, 0.0);
                 wafer.InputStageAlignPitchX = NormalizeJsonDouble(wafer.InputStageAlignPitchX, 0.0);
                 wafer.InputStageAlignPitchY = NormalizeJsonDouble(wafer.InputStageAlignPitchY, 0.0);
+                wafer.InputStageDieSizeX = NormalizeJsonDouble(wafer.InputStageDieSizeX, 0.0);
+                wafer.InputStageDieSizeY = NormalizeJsonDouble(wafer.InputStageDieSizeY, 0.0);
+                wafer.InputStageOuterDiameterMm = NormalizeJsonDouble(wafer.InputStageOuterDiameterMm, 0.0);
                 wafer.InputStageAlignOffsetX = NormalizeJsonDouble(wafer.InputStageAlignOffsetX, 0.0);
                 wafer.InputStageAlignOffsetY = NormalizeJsonDouble(wafer.InputStageAlignOffsetY, 0.0);
                 wafer.InputStageAlignReferenceT = NormalizeJsonDouble(wafer.InputStageAlignReferenceT, 0.0);
@@ -1188,6 +1191,9 @@ namespace QMC.CDT320.Materials
                 wafer.InputStageDieMappingOffsetY = NormalizeJsonDouble(wafer.InputStageDieMappingOffsetY, 0.0);
                 wafer.OutputReceivePitchX = NormalizeJsonDouble(wafer.OutputReceivePitchX, 0.0);
                 wafer.OutputReceivePitchY = NormalizeJsonDouble(wafer.OutputReceivePitchY, 0.0);
+                wafer.OutputReceiveDieSizeX = NormalizeJsonDouble(wafer.OutputReceiveDieSizeX, 0.0);
+                wafer.OutputReceiveDieSizeY = NormalizeJsonDouble(wafer.OutputReceiveDieSizeY, 0.0);
+                wafer.OutputReceiveOuterDiameterMm = NormalizeJsonDouble(wafer.OutputReceiveOuterDiameterMm, 0.0);
                 wafer.OutputReceiveOriginX = NormalizeJsonDouble(wafer.OutputReceiveOriginX, 0.0);
                 wafer.OutputReceiveOriginY = NormalizeJsonDouble(wafer.OutputReceiveOriginY, 0.0);
 

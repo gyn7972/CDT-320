@@ -32,8 +32,9 @@ namespace QMC.CDT320.Materials
         [DataMember] public string Name    { get; set; } = "";
         [DataMember] public int    DieMapX   { get; set; } = 1;
         [DataMember] public int    DieMapY   { get; set; } = 1;
-        [DataMember] public double PitchX  { get; set; } = 1.0;
-        [DataMember] public double PitchY  { get; set; } = 1.0;
+        /// <summary>Die 사이 X/Y gap(mm). 0은 Die가 간격 없이 접하는 유효값이다.</summary>
+        [DataMember] public double PitchX  { get; set; } = 0.0;
+        [DataMember] public double PitchY  { get; set; } = 0.0;
         [DataMember] public double DieSizeX { get; set; } = 1.0;
         [DataMember] public double DieSizeY { get; set; } = 1.0;
         [DataMember] public double OuterDiameterMm { get; set; } = 200; // 8inch=200, 12inch=300
@@ -65,8 +66,8 @@ namespace QMC.CDT320.Materials
                 },
                 Frames = new List<TapeFrameSpec>
                 {
-                    new TapeFrameSpec { Name="8inch_5x5",   DieMapX=5,   DieMapY=5,   PitchX=1.0, PitchY=1.0, OuterDiameterMm=200, DieSpecName="Default" },
-                    new TapeFrameSpec { Name="12inch_50x50",DieMapX=50,  DieMapY=50,  PitchX=1.0, PitchY=1.0, OuterDiameterMm=300, DieSpecName="Default" },
+                    new TapeFrameSpec { Name="8inch_5x5",   DieMapX=5,   DieMapY=5,   PitchX=0.0, PitchY=0.0, OuterDiameterMm=200, DieSpecName="Default" },
+                    new TapeFrameSpec { Name="12inch_50x50",DieMapX=50,  DieMapY=50,  PitchX=0.0, PitchY=0.0, OuterDiameterMm=300, DieSpecName="Default" },
                 }
             };
         }
@@ -163,14 +164,17 @@ namespace QMC.CDT320.Materials
 
         public static TapeFrameSpec UpsertFrame(string name, int dieMapX, int dieMapY, double pitchX, double pitchY, double outerDiameterMm, string dieSpecName)
         {
+            DieSpec dieSpec = FindDie(dieSpecName);
+            double dieSizeX = dieSpec != null && dieSpec.WidthMm > 0.0 ? dieSpec.WidthMm : 1.0;
+            double dieSizeY = dieSpec != null && dieSpec.HeightMm > 0.0 ? dieSpec.HeightMm : 1.0;
             return UpsertFrame(
                 name,
                 dieMapX,
                 dieMapY,
                 pitchX,
                 pitchY,
-                pitchX,
-                pitchY,
+                dieSizeX,
+                dieSizeY,
                 outerDiameterMm,
                 "Grid",
                 0,
@@ -214,10 +218,10 @@ namespace QMC.CDT320.Materials
 
             spec.DieMapX = Math.Max(1, dieMapX);
             spec.DieMapY = Math.Max(1, dieMapY);
-            spec.PitchX = pitchX > 0.0 ? pitchX : 1.0;
-            spec.PitchY = pitchY > 0.0 ? pitchY : 1.0;
-            spec.DieSizeX = dieSizeX > 0.0 ? dieSizeX : spec.PitchX;
-            spec.DieSizeY = dieSizeY > 0.0 ? dieSizeY : spec.PitchY;
+            spec.PitchX = !double.IsNaN(pitchX) && !double.IsInfinity(pitchX) && pitchX >= 0.0 ? pitchX : 0.0;
+            spec.PitchY = !double.IsNaN(pitchY) && !double.IsInfinity(pitchY) && pitchY >= 0.0 ? pitchY : 0.0;
+            spec.DieSizeX = dieSizeX > 0.0 ? dieSizeX : 1.0;
+            spec.DieSizeY = dieSizeY > 0.0 ? dieSizeY : 1.0;
             spec.OuterDiameterMm = outerDiameterMm > 0.0 ? outerDiameterMm : 200.0;
             spec.EdgeSkipMode = string.IsNullOrWhiteSpace(edgeSkipMode) ? "Grid" : edgeSkipMode.Trim();
             spec.SideEdgeSkip = Math.Max(0, sideEdgeSkip);

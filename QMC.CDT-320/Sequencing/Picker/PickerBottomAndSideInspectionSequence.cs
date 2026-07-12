@@ -1471,7 +1471,7 @@ namespace QMC.CDT320.Sequencing
                                    !string.IsNullOrWhiteSpace(die.DieId) &&
                                    !string.IsNullOrWhiteSpace(correction.SourceDieId) &&
                                    string.Equals(correction.SourceDieId, die.DieId, StringComparison.Ordinal);
-            double baseZ = GetPickerTeachingPosition(GetPickerZAxis(pickerIndex), "SidePosition");
+            double baseZ = ResolveSidePickerZBase(pickerIndex, pickerNo);
             double zOffset = correctionValid ? correction.PickerZOffset : 0.0;
             double sideVisionProcess0YOffset = correctionValid ? correction.SideVisionProcess0YOffset : 0.0;
             double sideVisionProcess90YOffset = correctionValid ? correction.SideVisionProcess90YOffset : 0.0;
@@ -1536,6 +1536,50 @@ namespace QMC.CDT320.Sequencing
         private VisionAxis ResolveSideVisionAxis()
         {
             return Side == PickerSequenceSide.Front ? VisionAxis.FrontSideVisionY : VisionAxis.RearSideVisionY;
+        }
+
+        private double ResolveSidePickerZBase(int pickerIndex, int pickerNo)
+        {
+            double teachingZ = GetPickerTeachingPosition(GetPickerZAxis(pickerIndex), "SidePosition");
+            try
+            {
+                // 사용 설정 시 Side 촬영 PickerZ = 콜렛별 Bottom Die AF Best Z + 공용 Z옵셋.
+                VisionUnit vision = Context != null && Context.Machine != null ? Context.Machine.VisionUnit : null;
+                VisionFocusCalibrationData focusData = vision != null && vision.Config != null ? vision.Config.FocusCalibration : null;
+                if (focusData == null || !focusData.UseBottomToSideZOffset)
+                    return teachingZ;
+
+                focusData.EnsureObjects();
+                VisionFocusPositionRecord bottomRecord = focusData.GetBottomRecord(
+                    VisionFocusScanKind.BottomDie,
+                    Side == PickerSequenceSide.Front ? VisionFocusPickerSide.Front : VisionFocusPickerSide.Rear,
+                    pickerNo);
+                if (bottomRecord == null || !bottomRecord.Valid || bottomRecord.BestScore <= 0.0 ||
+                    double.IsNaN(bottomRecord.BestPosition) || double.IsInfinity(bottomRecord.BestPosition))
+                {
+                    WriteLog("PickerBottomAndSideInspectionSequence",
+                        Name + " Side PickerZ 산출: Bottom Die AF Best가 유효하지 않아 SidePosition 티칭을 사용합니다. " +
+                        "side=" + Side + ", pickerNo=" + pickerNo + " - Check");
+                    return teachingZ;
+                }
+
+                double baseZ = bottomRecord.BestPosition + focusData.BottomToSideZOffsetMm;
+                WriteLog("PickerBottomAndSideInspectionSequence",
+                    Name + " Side PickerZ 산출: Bottom AF Best Z + Z옵셋 적용. " +
+                    "side=" + Side +
+                    ", pickerNo=" + pickerNo +
+                    ", bottomBestZ=" + bottomRecord.BestPosition.ToString("F6") +
+                    ", zOffsetMm=" + focusData.BottomToSideZOffsetMm.ToString("F6") +
+                    ", sideZ=" + baseZ.ToString("F6") +
+                    ", teachingZ(미사용)=" + teachingZ.ToString("F6") + " - Ok");
+                return baseZ;
+            }
+            catch (Exception ex)
+            {
+                WriteLog("PickerBottomAndSideInspectionSequence",
+                    Name + " Side PickerZ 산출 중 예외가 발생해 SidePosition 티칭을 사용합니다. error=" + ex.Message + " - Check");
+                return teachingZ;
+            }
         }
 
         private double ResolveSideVisionBasePosition(int angleDeg, int pickerNo, out bool focusCalibrationValid)
@@ -2080,6 +2124,24 @@ namespace QMC.CDT320.Sequencing
             return settings != null && settings.DryRunMode;
         }
 
+        // 현재 기준: 시뮬/드라이런에서는 Vision의 Bottom XYT push가 없을 수 있으므로 Side 게이트만 통과시킨다.
+        private bool ShouldBypassBottomXytGateForSimulation()
+        {
+            if (Options != null && Options.SimulateVisionResult)
+                return true;
+
+            AppSettings settings = AppSettingsStore.Current;
+            if (settings != null &&
+                (settings.SimulationMode ||
+                 settings.DryRunMode ||
+                 settings.BypassHardware ||
+                 !settings.UseVision ||
+                 !settings.UseAjin))
+                return true;
+
+            return IsPickerSimulationOrDryRun();
+        }
+
         private bool IsVisionConnected(QMC.CDT320.VisionComm.AutoVisionChannel channel)
         {
             return QMC.CDT320.VisionComm.VisionCommandService.IsConnected(channel);
@@ -2139,6 +2201,18 @@ namespace QMC.CDT320.Sequencing
             int fb = Side == PickerSequenceSide.Front ? 0 : 1;
             int timeoutMs = ResolveVisionInspectionTimeout();
             var sw = System.Diagnostics.Stopwatch.StartNew();
+
+            if (ShouldBypassBottomXytGateForSimulation())
+            {
+                WriteLog("PickerBottomAndSideInspectionSequence",
+                    Name + " Side 진입 — 시뮬/드라이런 조건으로 Bottom XYT push 게이트를 통과합니다. " +
+                    "실장비/비전 사용 조건에서는 push 미도착 시 알람 정지합니다. " +
+                    "die=" + (target.Die != null ? target.Die.DieId : "-") +
+                    ", fb=" + fb +
+                    ", collet=" + target.PickerNo +
+                    ", timeoutMs=" + timeoutMs + " - Check");
+                return 0;
+            }
 
             QMC.CDT320.VisionComm.BottomXytPush xyt;
             while (!QMC.CDT320.VisionComm.BottomXytStore.TryGet(fb, target.PickerNo, out xyt))
