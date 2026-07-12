@@ -2025,7 +2025,7 @@ namespace QMC.CDT320.Sequencing.Calibration
             if (IsBottomFocusKind())
                 return data.GetBottomRecord(_request.Kind, _request.PickerSide, _request.PickerNo);
 
-            return data.GetSideRecord(_request.Kind);
+            return data.GetSideRecord(_request.Kind, _request.PickerNo);
         }
 
         private AutoVisionChannel ResolveChannel()

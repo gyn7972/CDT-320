@@ -62,6 +62,9 @@ namespace QMC.CDT320.Calibration
                 // Bottom SurfaceInspector Angle 원본값이다. T 보정 적용 여부는 별도 검증 후 결정한다.
             }
 
+            double bottomOffsetX = ReadValidatedBottomOffset(result, "bottom_offset_x_mm", "bottom_item_offset_x");
+            double bottomOffsetY = ReadValidatedBottomOffset(result, "bottom_offset_y_mm", "bottom_item_offset_y");
+
             // TODO: 실장비 로그 확인 후 아래 후보 중 하나를 SideVisionY / PickerZ 보정으로 연결한다.
             // double sideVisionYOffset = ReadCandidate(result, "bottom_offset_y_mm", "bottom_item_offset_y");
             // double pickerZOffset = ReadCandidate(result, "bottom_offset_x_mm", "bottom_item_offset_x");
@@ -71,9 +74,8 @@ namespace QMC.CDT320.Calibration
             return new BottomVisionOffset
             {
                 PickerNo = pickerNo,
-                // 현재 Bottom Vision X/Y는 Side 검사 보정 계산에 사용하지 않으므로 0으로 고정한다.
-                OffsetX = 0.0,
-                OffsetY = 0.0,
+                OffsetX = bottomOffsetX,
+                OffsetY = bottomOffsetY,
                 OffsetT = ok ? bottomAngleDeg : 0.0,
                 SideVisionYOffset = sideVisionYOffset,
                 PickerZOffset = pickerZOffset,
@@ -84,6 +86,20 @@ namespace QMC.CDT320.Calibration
                     ? new System.Collections.Generic.Dictionary<string, string>(result.Values, StringComparer.OrdinalIgnoreCase)
                     : new System.Collections.Generic.Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
             };
+        }
+
+        private static double ReadValidatedBottomOffset(InspectionResultDto result, params string[] keys)
+        {
+            if (result == null || keys == null)
+                return 0.0;
+
+            double value;
+            if (!result.TryGetDoubleValue(out value, keys) ||
+                double.IsNaN(value) || double.IsInfinity(value))
+                return 0.0;
+
+            // Bottom Die 중심 오프셋은 mm 단위의 소량 값만 허용하고 절대 픽셀 좌표 유입은 차단합니다.
+            return Math.Abs(value) <= 50.0 ? value : 0.0;
         }
 
         public static InspectionResultDto ToInspectionResult(AutoVisionChannel channel, InspectionResultDto result)

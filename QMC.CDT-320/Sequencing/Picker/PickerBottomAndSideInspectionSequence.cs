@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using QMC.CDT320;
+using QMC.CDT320.Calibration;
 using QMC.CDT320.Interlocks;
 using QMC.CDT320.Materials;
 using QMC.Common.Diagnostics.TactTime;
@@ -48,6 +49,8 @@ namespace QMC.CDT320.Sequencing
             public double SideVisionProcess90BaseY;
             public double SideVisionProcess0Y;
             public double SideVisionProcess90Y;
+            public bool SideFocus0CalibrationValid;
+            public bool SideFocus90CalibrationValid;
             public string SideCorrectionSourceDieId;
         }
 
@@ -1430,8 +1433,10 @@ namespace QMC.CDT320.Sequencing
             double baseZ = GetPickerTeachingPosition(GetPickerZAxis(pickerIndex), "SidePosition");
             double zOffset = correction != null && correction.IsValid ? correction.PickerZOffset : 0.0;
             double sideYOffset = correction != null && correction.IsValid ? correction.SideVisionYOffset : 0.0;
-            double process0BaseY = ResolveSideVisionBasePosition(0);
-            double process90BaseY = ResolveSideVisionBasePosition(90);
+            bool sideFocus0CalibrationValid;
+            bool sideFocus90CalibrationValid;
+            double process0BaseY = ResolveSideVisionBasePosition(0, pickerNo, out sideFocus0CalibrationValid);
+            double process90BaseY = ResolveSideVisionBasePosition(90, pickerNo, out sideFocus90CalibrationValid);
             double t0 = ResolvePickerZoneT("DieSidePosition", pickerIndex);
             double sideTeachingX = ResolvePickerZoneX("DieSidePosition", pickerIndex);
             double sideTeachingY = ResolvePickerZoneY("DieSidePosition", pickerIndex);
@@ -1483,6 +1488,8 @@ namespace QMC.CDT320.Sequencing
                 SideVisionProcess90BaseY = process90BaseY,
                 SideVisionProcess0Y = process0BaseY + sideYOffset,
                 SideVisionProcess90Y = process90BaseY + sideYOffset,
+                SideFocus0CalibrationValid = sideFocus0CalibrationValid,
+                SideFocus90CalibrationValid = sideFocus90CalibrationValid,
                 SideCorrectionSourceDieId = correction != null ? correction.SourceDieId : string.Empty
             };
         }
@@ -1492,8 +1499,9 @@ namespace QMC.CDT320.Sequencing
             return Side == PickerSequenceSide.Front ? VisionAxis.FrontSideVisionY : VisionAxis.RearSideVisionY;
         }
 
-        private double ResolveSideVisionBasePosition(int angleDeg)
+        private double ResolveSideVisionBasePosition(int angleDeg, int pickerNo, out bool focusCalibrationValid)
         {
+            focusCalibrationValid = false;
             try
             {
                 VisionUnit vision = Context != null && Context.Machine != null ? Context.Machine.VisionUnit : null;
@@ -1501,7 +1509,25 @@ namespace QMC.CDT320.Sequencing
                     return 0.0;
 
                 string positionName = angleDeg == 90 ? "Process90Position" : "Process0Position";
-                return vision.GetVisionTeachingPosition(ResolveSideVisionAxis(), positionName);
+                double teachingY = vision.GetVisionTeachingPosition(ResolveSideVisionAxis(), positionName);
+                VisionFocusCalibrationData focusData = vision.Config != null ? vision.Config.FocusCalibration : null;
+                if (focusData == null)
+                    return teachingY;
+
+                focusData.EnsureObjects();
+                VisionFocusScanKind kind;
+                if (Side == PickerSequenceSide.Front)
+                    kind = angleDeg == 90 ? VisionFocusScanKind.FrontSide90 : VisionFocusScanKind.FrontSide0;
+                else
+                    kind = angleDeg == 90 ? VisionFocusScanKind.RearSide90 : VisionFocusScanKind.RearSide0;
+
+                VisionFocusPositionRecord record = focusData.GetSideRecord(kind, pickerNo);
+                if (record == null || !record.Valid ||
+                    double.IsNaN(record.BestPosition) || double.IsInfinity(record.BestPosition))
+                    return teachingY;
+
+                focusCalibrationValid = true;
+                return record.BestPosition;
             }
             catch
             {
@@ -1515,7 +1541,10 @@ namespace QMC.CDT320.Sequencing
         private double ResolveSideVisionTargetY(InspectionTarget target, int angleDeg)
         {
             if (target == null)
-                return ResolveSideVisionBasePosition(angleDeg);
+            {
+                bool focusCalibrationValid;
+                return ResolveSideVisionBasePosition(angleDeg, 1, out focusCalibrationValid);
+            }
 
             if (angleDeg == 90)
                 return target.SideVisionProcess90Y;
@@ -1970,6 +1999,8 @@ namespace QMC.CDT320.Sequencing
                     ", die=" + target.Die.DieId +
                     ", angle=" + angleDeg +
                     ", baseY=" + baseY.ToString("F6") +
+                    ", focusCalBaseY=" + (angleDeg == 90 ? target.SideVisionProcess90BaseY : target.SideVisionProcess0BaseY).ToString("F6") +
+                    ", focusCalValid=" + (angleDeg == 90 ? target.SideFocus90CalibrationValid : target.SideFocus0CalibrationValid) +
                     ", offsetY=" + target.SideVisionYOffset.ToString("F6") +
                     ", finalY=" + targetY.ToString("F6") +
                     ", correctionValid=" + target.SideCorrectionValid +
@@ -1985,6 +2016,8 @@ namespace QMC.CDT320.Sequencing
                         ", axis=" + axis +
                         ", pickerNo=" + target.PickerNo +
                         ", baseY=" + baseY.ToString("F6") +
+                        ", focusCalBaseY=" + (angleDeg == 90 ? target.SideVisionProcess90BaseY : target.SideVisionProcess0BaseY).ToString("F6") +
+                        ", focusCalValid=" + (angleDeg == 90 ? target.SideFocus90CalibrationValid : target.SideFocus0CalibrationValid) +
                         ", offsetY=" + target.SideVisionYOffset.ToString("F6") +
                         ", finalY=" + targetY.ToString("F6"));
 

@@ -180,6 +180,10 @@ namespace QMC.CDT320.Calibration
         [DataMember] public VisionFocusPositionRecord FrontSide90 { get; set; } = new VisionFocusPositionRecord();
         [DataMember] public VisionFocusPositionRecord RearSide0 { get; set; } = new VisionFocusPositionRecord();
         [DataMember] public VisionFocusPositionRecord RearSide90 { get; set; } = new VisionFocusPositionRecord();
+        [DataMember] public VisionFocusPositionRecord[] FrontSide0Collets { get; set; }
+        [DataMember] public VisionFocusPositionRecord[] FrontSide90Collets { get; set; }
+        [DataMember] public VisionFocusPositionRecord[] RearSide0Collets { get; set; }
+        [DataMember] public VisionFocusPositionRecord[] RearSide90Collets { get; set; }
         [DataMember] public int RuntimeAutoFocusTotalPickCount { get; set; }
         [DataMember] public string RuntimeAutoFocusLastWaferId { get; set; }
         [DataMember] public DateTime RuntimeAutoFocusLastCompletedAt { get; set; }
@@ -210,6 +214,10 @@ namespace QMC.CDT320.Calibration
             if (FrontSide90 == null) FrontSide90 = new VisionFocusPositionRecord();
             if (RearSide0 == null) RearSide0 = new VisionFocusPositionRecord();
             if (RearSide90 == null) RearSide90 = new VisionFocusPositionRecord();
+            FrontSide0Collets = EnsureSidePickerRecords(FrontSide0Collets, FrontSide0);
+            FrontSide90Collets = EnsureSidePickerRecords(FrontSide90Collets, FrontSide90);
+            RearSide0Collets = EnsureSidePickerRecords(RearSide0Collets, RearSide0);
+            RearSide90Collets = EnsureSidePickerRecords(RearSide90Collets, RearSide90);
             if (RuntimeAutoFocusLastWaferId == null) RuntimeAutoFocusLastWaferId = string.Empty;
             if (RuntimeAutoFocusPendingReason == null) RuntimeAutoFocusPendingReason = string.Empty;
             if (RuntimeAutoFocusTotalPickCount < 0) RuntimeAutoFocusTotalPickCount = 0;
@@ -223,6 +231,10 @@ namespace QMC.CDT320.Calibration
             FrontSide90.EnsureDefaults();
             RearSide0.EnsureDefaults();
             RearSide90.EnsureDefaults();
+            EnsureRecordDefaults(FrontSide0Collets);
+            EnsureRecordDefaults(FrontSide90Collets);
+            EnsureRecordDefaults(RearSide0Collets);
+            EnsureRecordDefaults(RearSide90Collets);
         }
 
         public int RecordRuntimeAutoFocusPick()
@@ -444,6 +456,20 @@ namespace QMC.CDT320.Calibration
             }
         }
 
+        public VisionFocusPositionRecord GetSideRecord(VisionFocusScanKind kind, int pickerNo)
+        {
+            EnsureObjects();
+            int index = NormalizePickerIndex(pickerNo);
+            switch (kind)
+            {
+                case VisionFocusScanKind.FrontSide0: return FrontSide0Collets[index];
+                case VisionFocusScanKind.FrontSide90: return FrontSide90Collets[index];
+                case VisionFocusScanKind.RearSide0: return RearSide0Collets[index];
+                case VisionFocusScanKind.RearSide90: return RearSide90Collets[index];
+                default: return FrontSide0Collets[index];
+            }
+        }
+
         private static int NormalizePickerIndex(int pickerNo)
         {
             if (pickerNo < 1) return 0;
@@ -477,6 +503,60 @@ namespace QMC.CDT320.Calibration
             }
 
             return records;
+        }
+
+        private static VisionFocusPositionRecord[] EnsureSidePickerRecords(
+            VisionFocusPositionRecord[] records,
+            VisionFocusPositionRecord legacy)
+        {
+            bool createFromLegacy = records == null || records.Length != 4;
+            records = EnsurePickerRecords(records);
+            if (!createFromLegacy || legacy == null || !legacy.Valid)
+                return records;
+
+            for (int i = 0; i < records.Length; i++)
+            {
+                if (records[i] != null && records[i].Valid)
+                    continue;
+
+                records[i] = ClonePositionRecord(legacy);
+            }
+
+            return records;
+        }
+
+        private static VisionFocusPositionRecord ClonePositionRecord(VisionFocusPositionRecord source)
+        {
+            if (source == null)
+                return new VisionFocusPositionRecord();
+
+            return new VisionFocusPositionRecord
+            {
+                DefaultPosition = source.DefaultPosition,
+                BestPosition = source.BestPosition,
+                BestScore = source.BestScore,
+                SampleCount = source.SampleCount,
+                Valid = source.Valid,
+                UpdatedAt = source.UpdatedAt,
+                UpdatedBy = source.UpdatedBy,
+                AutoFocusPickCountSinceLast = source.AutoFocusPickCountSinceLast,
+                LastAutoFocusWaferId = source.LastAutoFocusWaferId,
+                LastAutoFocusAt = source.LastAutoFocusAt,
+                ForceNextAutoFocus = source.ForceNextAutoFocus
+            };
+        }
+
+        private static void EnsureRecordDefaults(VisionFocusPositionRecord[] records)
+        {
+            if (records == null)
+                return;
+
+            for (int i = 0; i < records.Length; i++)
+            {
+                if (records[i] == null)
+                    records[i] = new VisionFocusPositionRecord();
+                records[i].EnsureDefaults();
+            }
         }
 
         private static VisionFocusPositionRecord[] CreatePickerRecords()

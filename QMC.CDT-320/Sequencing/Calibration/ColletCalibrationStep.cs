@@ -11,6 +11,7 @@ namespace QMC.CDT320.Sequencing.Calibration
         FindColletAgain,
         CalculateOffset,
         SaveColletCalibration,
+        RunCocAndSideAutoFocus,
         Complete,
         Error
     }

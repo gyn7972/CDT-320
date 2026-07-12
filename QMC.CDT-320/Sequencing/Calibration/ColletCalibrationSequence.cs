@@ -4,6 +4,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using QMC.CDT320.Calibration;
 using QMC.CDT320.Interlocks;
+using QMC.CDT320.Materials;
 using QMC.CDT320.Recipes;
 using QMC.CDT320.VisionComm;
 using QMC.Common.Motion;
@@ -151,6 +152,8 @@ namespace QMC.CDT320.Sequencing.Calibration
                     return Task.FromResult(CalculateOffset());
                 case ColletCalibrationStep.SaveColletCalibration:
                     return Task.FromResult(SaveColletCalibration());
+                case ColletCalibrationStep.RunCocAndSideAutoFocus:
+                    return RunCocAndSideAutoFocusAsync(ct);
                 default:
                     CurrentStep = ColletCalibrationStep.Complete;
                     return Task.FromResult(0);
@@ -1506,7 +1509,9 @@ namespace QMC.CDT320.Sequencing.Calibration
                     ", thetaOffset=" + target.ThetaOffset.ToString("F6") +
                     ", tZeroHomeOffset=" + target.TZeroHomeOffset.ToString("F6") + " - Ok");
 
-                CurrentStep = ColletCalibrationStep.Complete;
+                CurrentStep = _settings != null && _settings.RunAutoFocusAfterTheta
+                    ? ColletCalibrationStep.RunCocAndSideAutoFocus
+                    : ColletCalibrationStep.Complete;
                 return 0;
             }
             catch (Exception ex)
@@ -1516,6 +1521,408 @@ namespace QMC.CDT320.Sequencing.Calibration
             finally
             {
             }
+        }
+
+        private async Task<int> RunCocAndSideAutoFocusAsync(CancellationToken ct)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+                if (_settings == null || !_settings.RunAutoFocusAfterTheta)
+                {
+                    CurrentStep = ColletCalibrationStep.Complete;
+                    return 0;
+                }
+
+                // COC 하위 시퀀스가 동일 검사영역 리소스를 사용하므로 Collet Cal 점유를 먼저 해제한다.
+                ReleaseCalibrationArea();
+
+                WriteLog("ColletCalibrationSequence",
+                    Name + " Bottom AF/Collet 보정 완료 후 COC 및 Side AF를 시작합니다. side=" +
+                    _calibrationSide + ", colletNo=" + _colletNo + " - Start");
+
+                var coc = new ColletRotationCenterCalibrationSequence(
+                    Context,
+                    _calibrationSide,
+                    _colletNo,
+                    false);
+                int result = await coc.RunAsync(
+                    ct,
+                    Options ?? PickerSequenceOptions.Default()).ConfigureAwait(false);
+                if (result != 0)
+                    return Fail("COLLET-CAL-COC", Name,
+                        "Collet Calibration 후 COC 회전 중심 검출에 실패했습니다. side=" +
+                        _calibrationSide + ", colletNo=" + _colletNo + ", result=" + result);
+
+                result = SaveAndApplyRotationCenter(coc.RotationCenterMachineX, coc.RotationCenterMachineY);
+                if (result != 0)
+                    return result;
+
+                var centerTargets = new Dictionary<PickerAxis, double>
+                {
+                    { PickerAxis.PickerX, coc.RotationCenterMachineX },
+                    { PickerAxis.PickerY, coc.RotationCenterMachineY }
+                };
+                result = await MovePickerXTThenYAndVerifyAsync(
+                    centerTargets,
+                    "COC 회전 중심 XY 적용",
+                    ct,
+                    FineAlignTargetName,
+                    true).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                result = await MovePickerAxisAndVerifyAsync(
+                    GetPickerTAxis(_colletIndex),
+                    ResultRecord.FinalPickerT,
+                    "COC 후 Bottom T 기준 복귀",
+                    ct,
+                    BottomFinderTargetName,
+                    true).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                BottomVisionOffset bottomOffset = await InspectBottomDieForSideFocusAsync(ct).ConfigureAwait(false);
+                if (bottomOffset == null)
+                    return Fail("COLLET-CAL-SIDE-AF-BOTTOM", Name,
+                        "Side AutoFocus에 사용할 Bottom Die Offset을 취득하지 못했습니다. side=" +
+                        _calibrationSide + ", colletNo=" + _colletNo);
+
+                SideFocusCorrection correction;
+                if (!TryBuildSideFocusCorrection(bottomOffset, out correction))
+                    return Fail("COLLET-CAL-SIDE-AF-CORRECTION", Name,
+                        "Bottom Die Offset/COC/Die Size로 Side Focus 보정량을 계산하지 못했습니다. side=" +
+                        _calibrationSide + ", colletNo=" + _colletNo);
+
+                result = await RunSideAutoFocusAsync(0, correction.Focus0, ct).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                result = await RunSideAutoFocusAsync(90, correction.Focus90, ct).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                result = await MovePickerAxisAndVerifyAsync(
+                    GetPickerTAxis(_colletIndex),
+                    ResultRecord.FinalPickerT,
+                    "Side AF 후 Bottom T 복귀",
+                    ct,
+                    BottomFinderTargetName,
+                    true).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                result = await MovePickerAxisAndVerifyAsync(
+                    GetPickerZAxis(_colletIndex),
+                    ResultRecord.FinalPickerZ,
+                    "Side AF 후 Bottom Z 복귀",
+                    ct,
+                    BottomFinderTargetName,
+                    true).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                if (!Context.Machine.VisionUnit.SaveSettings())
+                    return Fail("COLLET-CAL-SIDE-AF-SAVE", Name,
+                        "COC 및 Side AutoFocus 결과를 설정 파일에 저장하지 못했습니다. side=" +
+                        _calibrationSide + ", colletNo=" + _colletNo);
+
+                CurrentStep = ColletCalibrationStep.Complete;
+                WriteLog("ColletCalibrationSequence",
+                    Name + " COC 적용 및 Side 0/90 AutoFocus 완료. side=" + _calibrationSide +
+                    ", colletNo=" + _colletNo +
+                    ", center=(" + coc.RotationCenterMachineX.ToString("F6") + "," +
+                    coc.RotationCenterMachineY.ToString("F6") + ")" +
+                    ", focusCorrection0=" + correction.Focus0.ToString("F6") +
+                    ", focusCorrection90=" + correction.Focus90.ToString("F6") + " - Ok");
+                return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (SequenceStopException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("COLLET-CAL-COC-SIDE-AF-EX", Name,
+                    "COC 및 Side AutoFocus 중 예외가 발생했습니다. side=" + _calibrationSide +
+                    ", colletNo=" + _colletNo + ", error=" + ex.Message);
+            }
+        }
+
+        private int SaveAndApplyRotationCenter(double centerX, double centerY)
+        {
+            if (Context == null || Context.Machine == null || Context.Controller == null)
+                return Fail("COLLET-CAL-COC-NO-CONTEXT", Name, "COC 회전 중심을 저장할 장비 Context가 없습니다.");
+
+            if (_calibrationSide == VisionFocusPickerSide.Front)
+            {
+                FrontPicker.Recipe.EnsurePositionObjects();
+                FrontPicker.Recipe.ColletRotationCenterX[_colletIndex] = centerX;
+                FrontPicker.Recipe.ColletRotationCenterY[_colletIndex] = centerY;
+                FrontPicker.Recipe.ColletRotationCenterValid[_colletIndex] = true;
+            }
+            else
+            {
+                RearPicker.Recipe.EnsurePositionObjects();
+                RearPicker.Recipe.ColletRotationCenterX[_colletIndex] = centerX;
+                RearPicker.Recipe.ColletRotationCenterY[_colletIndex] = centerY;
+                RearPicker.Recipe.ColletRotationCenterValid[_colletIndex] = true;
+            }
+
+            string recipeName = Context.Controller.ActiveRecipeName;
+            if (string.IsNullOrWhiteSpace(recipeName) || !Context.Machine.SaveRecipe(recipeName))
+                return Fail("COLLET-CAL-COC-RECIPE-SAVE", Name,
+                    "COC 회전 중심 Recipe 저장에 실패했습니다. recipe=" + (recipeName ?? string.Empty));
+
+            QMC.Common.Log.Write("Calibration", "SYSTEM", "ColletCalCocCenter",
+                "Collet Calibration COC 회전 중심 저장/적용. side=" + _calibrationSide +
+                ", colletNo=" + _colletNo +
+                ", centerX=" + centerX.ToString("F6") +
+                ", centerY=" + centerY.ToString("F6") +
+                ", recipe=" + recipeName);
+            return 0;
+        }
+
+        private async Task<BottomVisionOffset> InspectBottomDieForSideFocusAsync(CancellationToken ct)
+        {
+            DieMaterial die = MaterialStateService.GetDieAtPicker(PickerLocationKind, _colletNo);
+            if (die == null && !IsPickerSimulationOrDryRun())
+                return null;
+
+            int fb = _calibrationSide == VisionFocusPickerSide.Front ? 0 : 1;
+            int dieIndex = die != null ? die.InputSequenceNo : _colletNo;
+            int gridX = die != null ? die.Wafer_IndexX : 0;
+            int gridY = die != null ? die.Wafer_IndexY : 0;
+            string dieId = die != null ? die.DieId : "SIM-C" + _colletNo;
+            VisionDieAddressStore.Set(fb, _colletNo, dieIndex, gridX, gridY, dieId);
+
+            int timeoutMs = _settings != null ? _settings.VisionTimeoutMs : 5000;
+            bool started = _calibrationSide == VisionFocusPickerSide.Front
+                ? await FrontPicker.StartBottomInspectionAsync(_colletNo, timeoutMs, ct).ConfigureAwait(false)
+                : await RearPicker.StartBottomInspectionAsync(_colletNo, timeoutMs, ct).ConfigureAwait(false);
+            if (!started)
+                return null;
+
+            BottomVisionOffset result = _calibrationSide == VisionFocusPickerSide.Front
+                ? await FrontPicker.WaitBottomInspectionResultAsync(_colletNo, timeoutMs, ct).ConfigureAwait(false)
+                : await RearPicker.WaitBottomInspectionResultAsync(_colletNo, timeoutMs, ct).ConfigureAwait(false);
+
+            WriteLog("ColletCalibrationSequence",
+                Name + " Side AF용 Bottom Die 결과 수신. side=" + _calibrationSide +
+                ", colletNo=" + _colletNo +
+                ", die=" + dieId +
+                ", ok=" + (result != null && result.IsOk) +
+                ", offset=(" + (result != null ? result.OffsetX.ToString("F6") : "null") + "," +
+                (result != null ? result.OffsetY.ToString("F6") : "null") + ") - Check");
+            return result;
+        }
+
+        private sealed class SideFocusCorrection
+        {
+            public double Focus0;
+            public double Focus90;
+        }
+
+        private bool TryBuildSideFocusCorrection(BottomVisionOffset bottom, out SideFocusCorrection correction)
+        {
+            correction = null;
+            if (bottom == null || ResultRecord == null || !ResultRecord.RotationCenterValid)
+                return false;
+
+            double width;
+            double height;
+            if (!TryReadBottomValue(bottom, out width, "bottom_width_mm", "bottom_item_width") ||
+                !TryReadBottomValue(bottom, out height, "bottom_height_mm", "bottom_item_height"))
+                return false;
+
+            double rawOffsetX;
+            double rawOffsetY;
+            if (!TryReadFiniteBottomValue(bottom, out rawOffsetX, "bottom_offset_x_mm", "bottom_item_offset_x") ||
+                !TryReadFiniteBottomValue(bottom, out rawOffsetY, "bottom_offset_y_mm", "bottom_item_offset_y") ||
+                Math.Abs(rawOffsetX) > 50.0 || Math.Abs(rawOffsetY) > 50.0)
+                return false;
+
+            double referenceWidth = Context.Controller != null && Context.Controller.DieSizeXMm > 0.0
+                ? Context.Controller.DieSizeXMm
+                : width;
+            double referenceHeight = Context.Controller != null && Context.Controller.DieSizeYMm > 0.0
+                ? Context.Controller.DieSizeYMm
+                : height;
+            double normalError = Math.Abs(width - referenceWidth) + Math.Abs(height - referenceHeight);
+            double swappedError = Math.Abs(width - referenceHeight) + Math.Abs(height - referenceWidth);
+            if (swappedError < normalError)
+            {
+                double swap = width;
+                width = height;
+                height = swap;
+            }
+
+            VisionCameraPixelCalibration camera = VisionCameraCalibrationTransform.ResolveCamera(
+                Context.Machine.VisionUnit.Config.CalibrationData.Camera,
+                AutoVisionChannel.BottomInspection);
+            double cocResidualX = camera.PixelToMmOffsetX(ResultRecord.RotationCenterPixelX);
+            double cocResidualY = camera.PixelToMmOffsetY(ResultRecord.RotationCenterPixelY);
+            double dieX = bottom.OffsetX;
+            double dieY = bottom.OffsetY;
+
+            // COC 기계 중심으로 XY 이동한 뒤 다시 측정했으므로 영상상의 회전 중심은 (0,0)으로 적용합니다.
+            double rotatedY = dieX;
+            double size0 = (height - referenceHeight) / 2.0;
+            double size90 = (width - referenceWidth) / 2.0;
+            correction = new SideFocusCorrection
+            {
+                Focus0 = dieY + size0,
+                Focus90 = rotatedY + size90
+            };
+
+            QMC.Common.Log.Write("Calibration", "SYSTEM", "ColletCalSideFocusFormula",
+                "Side AF 보정 계산. side=" + _calibrationSide +
+                ", colletNo=" + _colletNo +
+                ", dieOffset=(" + dieX.ToString("F6") + "," + dieY.ToString("F6") + ")" +
+                ", cocResidualBeforeMove=(" + cocResidualX.ToString("F6") + "," + cocResidualY.ToString("F6") + ")" +
+                ", cocCenterAfterMove=(0.000000,0.000000)" +
+                ", measuredSize=(" + width.ToString("F6") + "," + height.ToString("F6") + ")" +
+                ", referenceSize=(" + referenceWidth.ToString("F6") + "," + referenceHeight.ToString("F6") + ")" +
+                ", rotatedY=Dx=" + rotatedY.ToString("F6") +
+                ", focus0=Dy+(H-Href)/2=" + correction.Focus0.ToString("F6") +
+                ", focus90=RotY+(W-Wref)/2=" + correction.Focus90.ToString("F6"));
+            return true;
+        }
+
+        private static bool TryReadBottomValue(BottomVisionOffset bottom, out double value, params string[] keys)
+        {
+            value = 0.0;
+            if (bottom == null || bottom.Values == null || keys == null)
+                return false;
+
+            for (int i = 0; i < keys.Length; i++)
+            {
+                string raw;
+                if (bottom.Values.TryGetValue(keys[i], out raw) &&
+                    double.TryParse(raw, System.Globalization.NumberStyles.Float,
+                        System.Globalization.CultureInfo.InvariantCulture, out value))
+                    return !double.IsNaN(value) && !double.IsInfinity(value) && value > 0.0;
+            }
+
+            return false;
+        }
+
+        private static bool TryReadFiniteBottomValue(BottomVisionOffset bottom, out double value, params string[] keys)
+        {
+            value = 0.0;
+            if (bottom == null || bottom.Values == null || keys == null)
+                return false;
+
+            for (int i = 0; i < keys.Length; i++)
+            {
+                string raw;
+                if (bottom.Values.TryGetValue(keys[i], out raw) &&
+                    double.TryParse(raw, System.Globalization.NumberStyles.Float,
+                        System.Globalization.CultureInfo.InvariantCulture, out value))
+                    return !double.IsNaN(value) && !double.IsInfinity(value);
+            }
+
+            return false;
+        }
+
+        private async Task<int> RunSideAutoFocusAsync(int angleDeg, double focusCorrection, CancellationToken ct)
+        {
+            VisionFocusCalibrationData focusData = Context.Machine.VisionUnit.Config.FocusCalibration;
+            focusData.EnsureObjects();
+            VisionFocusScanSettings settings = focusData.SideVisionScan;
+            settings.EnsureDefaults();
+
+            PickerAxis zAxis = GetPickerZAxis(_colletIndex);
+            PickerAxis tAxis = GetPickerTAxis(_colletIndex);
+            double sideZ = GetPickerTeachingPosition(zAxis, "SidePosition");
+            double sideT0 = ResolvePickerZoneT("DieSidePosition", _colletIndex);
+            double targetT = angleDeg == 90 ? sideT0 + 90.0 : sideT0;
+            VisionAxis visionAxis = _calibrationSide == VisionFocusPickerSide.Front
+                ? VisionAxis.FrontSideVisionY
+                : VisionAxis.RearSideVisionY;
+            string positionName = angleDeg == 90 ? "Process90Position" : "Process0Position";
+            double teachingY = Context.Machine.VisionUnit.GetVisionTeachingPosition(visionAxis, positionName);
+            double axisSign = _calibrationSide == VisionFocusPickerSide.Front ? 1.0 : -1.0;
+            double defaultY = teachingY + axisSign * focusCorrection;
+
+            int result = await MovePickerAxisAndVerifyAsync(
+                zAxis,
+                sideZ,
+                "Side AF PickerZ 위치",
+                ct,
+                "ColletCalibration;PickerZone=Bottom",
+                true).ConfigureAwait(false);
+            if (result != 0)
+                return result;
+
+            result = await MovePickerAxisAndVerifyAsync(
+                tAxis,
+                targetT,
+                "Side AF PickerT " + angleDeg + "도",
+                ct,
+                "ColletCalibration;PickerZone=Bottom",
+                true).ConfigureAwait(false);
+            if (result != 0)
+                return result;
+
+            VisionFocusScanKind kind;
+            if (_calibrationSide == VisionFocusPickerSide.Front)
+                kind = angleDeg == 90 ? VisionFocusScanKind.FrontSide90 : VisionFocusScanKind.FrontSide0;
+            else
+                kind = angleDeg == 90 ? VisionFocusScanKind.RearSide90 : VisionFocusScanKind.RearSide0;
+
+            var request = new VisionFocusScanRequest
+            {
+                Kind = kind,
+                PickerSide = _calibrationSide,
+                PickerNo = _colletNo,
+                DefaultPosition = defaultY,
+                MinusRange = settings.MinusRange,
+                PlusRange = settings.PlusRange,
+                Step = settings.Step,
+                FineMinusRange = settings.FineMinusRange,
+                FinePlusRange = settings.FinePlusRange,
+                FineStep = settings.FineStep,
+                RepeatCount = settings.RepeatCount,
+                MoveVelocity = settings.MoveVelocity,
+                MoveAcceleration = settings.MoveAcceleration,
+                MoveDeceleration = settings.MoveDeceleration,
+                SettleDelayMs = settings.SettleDelayMs,
+                MotionTimeoutMs = settings.MotionTimeoutMs,
+                VisionTimeoutMs = settings.VisionTimeoutMs,
+                VisionBestTimeoutMs = settings.VisionBestTimeoutMs,
+                FocusValueReceiveMode = settings.FocusValueReceiveMode,
+                ReturnToDefaultAfterScan = false,
+                UpdatedBy = "ColletCalibrationSideAutoFocus"
+            };
+
+            var focus = new VisionFocusScanSequence(Context.Machine, request);
+            result = await focus.RunAsync(
+                ct,
+                Options != null ? Options.RunMode : SequenceRunMode.Manual).ConfigureAwait(false);
+            if (result != 0)
+                return Fail("COLLET-CAL-SIDE-AUTO-FOCUS", Name,
+                    "Side AutoFocus 실행에 실패했습니다. side=" + _calibrationSide +
+                    ", colletNo=" + _colletNo +
+                    ", angle=" + angleDeg +
+                    ", message=" + focus.Result.Message);
+
+            QMC.Common.Log.Write("Calibration", "SYSTEM", "ColletCalSideAutoFocus",
+                "Side AutoFocus Best 적용. side=" + _calibrationSide +
+                ", colletNo=" + _colletNo +
+                ", angle=" + angleDeg +
+                ", teachingY=" + teachingY.ToString("F6") +
+                ", axisSign=" + axisSign.ToString("F0") +
+                ", focusCorrection=" + focusCorrection.ToString("F6") +
+                ", defaultY=" + defaultY.ToString("F6") +
+                ", bestY=" + focus.Result.BestPosition.ToString("F6") +
+                ", score=" + focus.Result.BestScore.ToString("F6") +
+                ", sample=" + focus.Result.SampleCount);
+            return 0;
         }
 
         private async Task<MatchResultDto> RequestColletMatchAsync(CancellationToken ct)
