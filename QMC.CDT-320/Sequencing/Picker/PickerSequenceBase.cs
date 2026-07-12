@@ -424,12 +424,69 @@ namespace QMC.CDT320.Sequencing
             return string.Empty;
         }
 
+        private static readonly object RuntimeBottomFocusRecipeSaveLock = new object();
+
         private void ApplyRuntimeBottomFocusPosition(int pickerIndex, double bestZ)
         {
             if (Side == PickerSequenceSide.Front)
                 FrontPicker.SetRuntimePickerZPosition(pickerIndex, "FocusPosition", bestZ);
             else
                 RearPicker.SetRuntimePickerZPosition(pickerIndex, "FocusPosition", bestZ);
+
+            // Runtime AutoFocus Best Z는 Recipe PickerZ BottomPosition에 반영되므로 파일까지 저장해
+            // 재시작 후에도 유지되게 한다.
+            SaveRuntimeBottomFocusRecipe(pickerIndex, bestZ);
+        }
+
+        private void SaveRuntimeBottomFocusRecipe(int pickerIndex, double bestZ)
+        {
+            try
+            {
+                string recipeName = Context != null && Context.Controller != null
+                    ? Context.Controller.ActiveRecipeName
+                    : null;
+                if (string.IsNullOrWhiteSpace(recipeName) || Context.Machine == null)
+                {
+                    WriteLog("PickerAutoFocus",
+                        Name + " Runtime Bottom AutoFocus Best Z Recipe 저장 생략. 활성 Recipe 이름을 확인할 수 없습니다. " +
+                        "pickerNo=" + (pickerIndex + 1) +
+                        ", bestZ=" + bestZ.ToString("F6") + " - Failed");
+                    return;
+                }
+
+                bool saved;
+                lock (RuntimeBottomFocusRecipeSaveLock)
+                {
+                    saved = Context.Machine.SaveRecipe(recipeName);
+                }
+
+                if (!saved)
+                {
+                    WriteLog("PickerAutoFocus",
+                        Name + " Runtime Bottom AutoFocus Best Z Recipe 저장 실패. 메모리 값은 적용되어 이번 런에는 사용되지만 " +
+                        "재시작 시 이전 값으로 복원됩니다. pickerNo=" + (pickerIndex + 1) +
+                        ", bestZ=" + bestZ.ToString("F6") +
+                        ", recipe=" + recipeName + " - Failed");
+                    return;
+                }
+
+                WriteLog("PickerAutoFocus",
+                    Name + " Runtime Bottom AutoFocus Best Z를 Recipe BottomPosition에 저장했습니다. " +
+                    "side=" + Side +
+                    ", pickerNo=" + (pickerIndex + 1) +
+                    ", bestZ=" + bestZ.ToString("F6") +
+                    ", recipe=" + recipeName + " - Ok");
+            }
+            catch (Exception ex)
+            {
+                WriteLog("PickerAutoFocus",
+                    Name + " Runtime Bottom AutoFocus Best Z Recipe 저장 중 예외. pickerNo=" + (pickerIndex + 1) +
+                    ", bestZ=" + bestZ.ToString("F6") +
+                    ", error=" + ex.Message + " - Failed");
+            }
+            finally
+            {
+            }
         }
 
         private void SaveVisionFocusSettings(string reason)
@@ -3006,6 +3063,91 @@ namespace QMC.CDT320.Sequencing
             if (Side == PickerSequenceSide.Front)
                 return FrontPicker.GetPickerTeachingPosition(axis, positionName);
             return RearPicker.GetPickerTeachingPosition(axis, positionName);
+        }
+
+        protected double ResolveSideInspectionPickerZFromBottomBest(int pickerIndex, int pickerNo, string source)
+        {
+            double bottomTeachingZ = GetPickerTeachingPosition(GetPickerZAxis(pickerIndex), "BottomPosition");
+            double sideTeachingZ = GetPickerTeachingPosition(GetPickerZAxis(pickerIndex), "SidePosition");
+            double offsetMm = 0.0;
+
+            try
+            {
+                VisionFocusCalibrationData focusData = Context != null &&
+                    Context.Machine != null &&
+                    Context.Machine.VisionUnit != null &&
+                    Context.Machine.VisionUnit.Config != null
+                        ? Context.Machine.VisionUnit.Config.FocusCalibration
+                        : null;
+
+                if (focusData != null)
+                {
+                    focusData.EnsureObjects();
+                    offsetMm = SanitizeSideInspectionZOffset(focusData.BottomToSideZOffsetMm);
+
+                    VisionFocusPositionRecord bottomRecord = focusData.GetBottomRecord(
+                        VisionFocusScanKind.BottomDie,
+                        Side == PickerSequenceSide.Front ? VisionFocusPickerSide.Front : VisionFocusPickerSide.Rear,
+                        pickerNo);
+
+                    if (bottomRecord != null &&
+                        bottomRecord.Valid &&
+                        bottomRecord.BestScore > 0.0 &&
+                        IsFiniteSideInspectionZ(bottomRecord.BestPosition))
+                    {
+                        double finalZ = bottomRecord.BestPosition + offsetMm;
+                        WriteLog(source ?? "PickerSideZ",
+                            Name + " Side 검사 PickerZ 산출: Bottom AF Best Z + BottomToSideZOffsetMm 적용. " +
+                            "side=" + Side +
+                            ", pickerNo=" + pickerNo +
+                            ", bottomBestZ=" + bottomRecord.BestPosition.ToString("F6") +
+                            ", bottomToSideZOffsetMm=" + offsetMm.ToString("F6") +
+                            ", finalSideZ=" + finalZ.ToString("F6") +
+                            ", useFlag=" + focusData.UseBottomToSideZOffset +
+                            ", sidePositionTeaching(미사용)=" + sideTeachingZ.ToString("F6") + " - Ok");
+                        return finalZ;
+                    }
+
+                    double fallbackZ = bottomTeachingZ + offsetMm;
+                    WriteLog(source ?? "PickerSideZ",
+                        Name + " Side 검사 PickerZ 산출: Bottom AF Best가 유효하지 않아 BottomPosition + BottomToSideZOffsetMm로 대체합니다. " +
+                        "side=" + Side +
+                        ", pickerNo=" + pickerNo +
+                        ", bottomPosition=" + bottomTeachingZ.ToString("F6") +
+                        ", bottomToSideZOffsetMm=" + offsetMm.ToString("F6") +
+                        ", finalSideZ=" + fallbackZ.ToString("F6") +
+                        ", sidePositionTeaching(미사용)=" + sideTeachingZ.ToString("F6") + " - Check");
+                    return fallbackZ;
+                }
+
+                WriteLog(source ?? "PickerSideZ",
+                    Name + " Side 검사 PickerZ 산출: Vision Focus 설정이 없어 BottomPosition을 사용합니다. " +
+                    "side=" + Side +
+                    ", pickerNo=" + pickerNo +
+                    ", bottomPosition=" + bottomTeachingZ.ToString("F6") +
+                    ", sidePositionTeaching(미사용)=" + sideTeachingZ.ToString("F6") + " - Check");
+                return bottomTeachingZ;
+            }
+            catch (Exception ex)
+            {
+                WriteLog(source ?? "PickerSideZ",
+                    Name + " Side 검사 PickerZ 산출 중 예외가 발생해 BottomPosition을 사용합니다. " +
+                    "side=" + Side +
+                    ", pickerNo=" + pickerNo +
+                    ", bottomPosition=" + bottomTeachingZ.ToString("F6") +
+                    ", error=" + ex.Message + " - Failed");
+                return bottomTeachingZ;
+            }
+        }
+
+        private static bool IsFiniteSideInspectionZ(double value)
+        {
+            return !double.IsNaN(value) && !double.IsInfinity(value);
+        }
+
+        private static double SanitizeSideInspectionZOffset(double value)
+        {
+            return IsFiniteSideInspectionZ(value) ? value : 0.0;
         }
 
         protected double ResolvePickerZoneX(string positionArrayName, int pickerIndex)
