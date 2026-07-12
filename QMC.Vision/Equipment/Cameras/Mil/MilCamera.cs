@@ -26,9 +26,14 @@ namespace QMC.Vision.Cameras.Mil
         private int    _bands = 1;
         private MIL_DIG_HOOK_FUNCTION_PTR _liveHook;   // 라이브 프레임 콜백 델리게이트(GC 방지로 필드 보관)
         private MIL_DIG_HOOK_FUNCTION_PTR _exposureEndHook;   // 노출 종료(ExposureEnd) 훅 델리게이트(GC 방지로 필드 보관)
-        private MIL_DIG_HOOK_FUNCTION_PTR _frameStartHook;    // 프레임 전송 시작 훅 델리게이트(진단용, GC 방지로 필드 보관)
+        private MIL_DIG_HOOK_FUNCTION_PTR _exposureStartHook; // 노출 시작(ExposureStart) 훅 — 계산식 EPD(노출시작+ExposureTime) 기준점
+        private MIL_DIG_HOOK_FUNCTION_PTR _frameStartHook;    // 프레임 전송 시작 훅 델리게이트(EPD 폴백, GC 방지로 필드 보관)
         private MIL_DIG_HOOK_FUNCTION_PTR _gcEventHook;       // GenICam 카메라 이벤트(ExposureEnd) 훅 델리게이트 — CXP/Timed 노출용
         private long _gcEventCount;                            // GenICam ExposureEnd 이벤트 발화 횟수(진단 로그용)
+        private long _expStartCount;                           // 노출 시작(ExposureStart) 훅 발화 횟수(진단 로그용)
+        private volatile bool _expStartHandled;               // 이번 그랩에서 ExposureStart 로 계산식 EPD 를 arm 했는지(FRAME_START 폴백 억제)
+        private int _epdArmGuard;                              // 이번 그랩에서 EPD 를 1회만 arm 하도록(Interlocked 0→1)
+        private System.Threading.CancellationTokenSource _epdCts;   // 계산식 EPD 타이머 취소(그랩 시작 실패 시)
         private volatile bool _expEndHwFired;                  // 실제 노출 종료 훅(그래버 or GenICam)이 한 번이라도 발화했는지
         private long _expEndCount;                             // 발화 횟수(진단 로그용)
         private long _frameStartCount;                         // FRAME_START 횟수(진단 로그용)
@@ -115,6 +120,14 @@ namespace QMC.Vision.Cameras.Mil
             _exposureEndHook = ExposureEndHook;
             try { MIL.MdigHookFunction(_dig, MIL.M_GRAB_EXPOSURE_END, _exposureEndHook, IntPtr.Zero); }
             catch (Exception ex) { _exposureEndHook = null; LiveLog("ExposureEnd 훅 등록 실패(미지원 가능): " + ex.Message); }
+
+            // ②' 그래버 M_GRAB_EXPOSURE_START 훅 — '실제 노출 시작' 시점. 노출이 Timed(카메라 제어)라
+            //    노출종료 = 노출시작 + ExposureTime 으로 결정적. 이 훅에서 계산식 EPD 를 arm 한다(그랩이
+            //    실제 노출을 시작할 때만 발화하므로 '그랩 시작 실패 시 EPD 미발화'가 자연히 보장된다).
+            _expStartCount = 0;
+            _exposureStartHook = ExposureStartHook;
+            try { MIL.MdigHookFunction(_dig, MIL.M_GRAB_EXPOSURE_START, _exposureStartHook, IntPtr.Zero); }
+            catch (Exception ex) { _exposureStartHook = null; LiveLog("ExposureStart 훅 등록 실패(미지원 가능): " + ex.Message); }
 
             _gcEventHook = GcExposureEndHook;
             try { MIL.MdigHookFunction(_dig, MIL.M_GC_EVENT, _gcEventHook, IntPtr.Zero); }
@@ -206,6 +219,8 @@ namespace QMC.Vision.Cameras.Mil
             if (!WaitHaltDone(3000)) LiveLog("Close: MdigHalt 미완료 상태로 해제 진행");
             try { if (_exposureEndHook != null) MIL.MdigHookFunction(_dig, MIL.M_GRAB_EXPOSURE_END + MIL.M_UNHOOK, _exposureEndHook, IntPtr.Zero); } catch { }
             _exposureEndHook = null;
+            try { if (_exposureStartHook != null) MIL.MdigHookFunction(_dig, MIL.M_GRAB_EXPOSURE_START + MIL.M_UNHOOK, _exposureStartHook, IntPtr.Zero); } catch { }
+            _exposureStartHook = null;
             try { if (_gcEventHook != null) MIL.MdigHookFunction(_dig, MIL.M_GC_EVENT + MIL.M_UNHOOK, _gcEventHook, IntPtr.Zero); } catch { }
             _gcEventHook = null;
             try { if (_frameStartHook != null) MIL.MdigHookFunction(_dig, MIL.M_GRAB_FRAME_START + MIL.M_UNHOOK, _frameStartHook, IntPtr.Zero); } catch { }
@@ -236,28 +251,44 @@ namespace QMC.Vision.Cameras.Mil
             }
             try
             {
-                // 스텝별 계측(진단) — 노출 종료 시각은 ExposureEnd/FrameStart 훅이 기록.
+                // 스텝별 계측(진단) — 노출 종료 시각은 ExposureStart(계산식)/FrameStart(폴백) 훅이 기록.
                 var sw = System.Diagnostics.Stopwatch.StartNew();
                 _grabExpEndMs = -1;
                 _grabTimingSw = sw;
+                // 계산식 EPD 상태 리셋(그랩 1건당 EPD 1회) — ExposureStart 훅이 이 그랩 동안 arm 한다.
+                _expStartHandled = false;
+                System.Threading.Interlocked.Exchange(ref _epdArmGuard, 0);
+                _epdCts = new System.Threading.CancellationTokenSource();
 
-                // 직전 Live 정지의 MdigHalt 가 아직 백그라운드에서 진행 중이면 완료까지 잠깐 대기 — 미완료면
-                // 즉시 실패 반환(그대로 MdigHalt/MdigGrab 에 들어가면 무한 블록 → UI Grab 버튼이 영구 비활성).
-                if (!WaitHaltDone(2000))
-                    return GrabResult.Fail("이전 Live 정지(MdigHalt) 미완료 — 잠시 후 다시 시도하세요", Info.Id);
+                // 그랩 시작 전처리 실패(직전 Live 정지 MdigHalt 미완료 등)는 timeoutMs 만큼 10ms 간격 재시도한다
+                //   — '그랩 시작 명령이 실패하면 타임아웃만큼 재시도'(2026-07-13, 사용자 지정). 시작 못하면 EPD 미발화.
+                while (!WaitHaltDone(2000))
+                {
+                    if (sw.ElapsedMilliseconds >= timeoutMs)
+                    { _epdCts.Cancel(); return GrabResult.Fail("이전 Live 정지(MdigHalt) 미완료 (재시도 " + timeoutMs + "ms 초과)", Info.Id); }
+                    System.Threading.Thread.Sleep(10);
+                }
                 long tHaltWait = sw.ElapsedMilliseconds;
 
                 try { MIL.MdigControl(_dig, MIL.M_GRAB_TIMEOUT, (double)timeoutMs); } catch { }
                 // 동기 그랩 — MdigGrab 이 프레임 완료까지 블록한다.
                 try { MIL.MdigControl(_dig, MIL.M_GRAB_MODE, (double)MIL.M_SYNCHRONOUS); } catch { }
                 long tCtrl = sw.ElapsedMilliseconds;
-                // 라이브 중이 아니면 직전 단발 획득을 확실히 정지 → 다음 그랩이 깨끗이 재-arm.
-                //   MdigHalt 는 획득 상태가 꼬이면 무한 블록하므로 직접 호출하지 않고 타임아웃 보호.
-                if (!_continuousOn && !HaltWithTimeout(2000))
-                    return GrabResult.Fail("MdigHalt 타임아웃 — 카메라 획득 상태 확인 필요(Event 로그 MilLive 참조)", Info.Id);
+                // 라이브 중이 아니면 직전 단발 획득을 확실히 정지 → 다음 그랩이 깨끗이 재-arm(실패 시 timeoutMs 재시도).
+                while (!_continuousOn && !HaltWithTimeout(2000))
+                {
+                    if (sw.ElapsedMilliseconds >= timeoutMs)
+                    { _epdCts.Cancel(); return GrabResult.Fail("MdigHalt 타임아웃 (재시도 " + timeoutMs + "ms 초과)", Info.Id); }
+                    System.Threading.Thread.Sleep(10);
+                }
                 long tHalt = sw.ElapsedMilliseconds;
                 EnsureSingleFrameGrabMode();
                 long tMode = sw.ElapsedMilliseconds;
+
+                // 계산식 EPD arm — 전처리를 모두 통과했으므로 '그랩 시작 성공'. 노출은 Timed 라 MdigGrab
+                //   직후 시작 → 노출종료 = 지금 + ExposureTime 으로 결정적. (그래버 ExposureStart 훅이 발화하는
+                //   카메라면 그 훅이 이미 arm 해 이 호출은 guard 로 무시됨.) 전처리 실패 시 여기 못 와 EPD 미발화.
+                ArmComputedEpd(tMode, "GrabLaunch");
 
                 // 단발 촬상 = AcquisitionMode SingleFrame + AcquisitionStart(=MdigGrab) → 1프레임.
                 //   (노출 Timed, 스트로브는 DCF). 동기라 완료까지 블록한다.
@@ -271,13 +302,18 @@ namespace QMC.Vision.Cameras.Mil
                         " ctrl=" + (tCtrl - tHaltWait) +
                         " halt=" + (tHalt - tCtrl) +
                         " mode=" + (tMode - tHalt) +
-                        " start→expEnd=" + (exp >= 0 ? (exp - tMode).ToString() : "?") +
-                        " expEnd→grabRet=" + (exp >= 0 ? (tGrab - exp).ToString() : "?") +
+                        " expStart=" + (_expStartHandled ? "O" : "X(폴백)") +
+                        " start→epd=" + (exp >= 0 ? (exp - tMode).ToString() : "?") +
+                        " epd→grabRet=" + (exp >= 0 ? (tGrab - exp).ToString() : "?") +
                         " bmp=" + (tBmp - tGrab) + " total=" + tBmp);
                 if (bmp == null) return GrabResult.Fail("buffer→bitmap 실패", Info.Id);
                 return new GrabResult(bmp, 0, Info.Id);
             }
-            catch (Exception ex) { return GrabResult.Fail("MdigGrab: " + ex.Message, Info.Id); }
+            catch (Exception ex)
+            {
+                try { _epdCts?.Cancel(); } catch { }   // 그랩 실행 실패 → 아직 안 쏜 계산식 EPD 취소
+                return GrabResult.Fail("MdigGrab: " + ex.Message, Info.Id);
+            }
             finally
             {
                 _grabTimingSw = null;
@@ -608,19 +644,65 @@ namespace QMC.Vision.Cameras.Mil
             return 0;
         }
 
-        /// <summary>프레임 전송 시작 훅(M_GRAB_FRAME_START) — ExposureEnd 폴백.
-        /// <para>실제 노출 종료 소스(그래버 M_GRAB_EXPOSURE_END ② or GenICam ExposureEnd 이벤트 ③)가 발화한
-        /// 카메라에서는 <see cref="_expEndHwFired"/> 로 억제된다. 그런 소스가 없는 카메라(VNP-576MX2 =
-        /// EventSelector 에 ExposureEnd 없음)에서만 이 시점에 ExposureEnded 를 대체 발화한다(2026-07-13, 임시).
-        /// 주의: FRAME_START 는 실제 노출 종료가 아니라 프레임그래버 수신 시작(strobe/Timed 노출에서 고정 오프셋)
-        /// 이므로, 실제 노출 종료 기반 EPD 가 필요하면 하드웨어(ExposureActive→그래버 입력) 또는 계산식이 필요하다.</para></summary>
+        /// <summary>노출 시작 훅(M_GRAB_EXPOSURE_START) — 그래버가 아는 '실제 노출 시작' 시점.
+        /// <para>노출이 Timed(카메라 제어)라 노출종료 = 노출시작 + ExposureTime 으로 결정적이므로, 여기서
+        /// 계산식 EPD 를 arm 한다(노출시작 + 현재 ExposureUs 후 ExposureEnded 발화, 2026-07-13, 사용자 지정).
+        /// 이 훅은 그랩이 실제 노출을 시작할 때만 발화하므로, 그랩 시작이 실패하면 EPD 도 발화하지 않는다.</para></summary>
+        private MIL_INT ExposureStartHook(MIL_INT hookType, MIL_ID eventId, IntPtr userPtr)
+        {
+            try
+            {
+                var tsw = _grabTimingSw;
+                if (tsw == null) return 0;   // 단발 그랩 컨텍스트 밖(라이브 등)은 무시
+                long n = System.Threading.Interlocked.Increment(ref _expStartCount);
+                if (n == 1) LiveLog("ExposureStart HW 훅 첫 발화 확인 (t=" + tsw.ElapsedMilliseconds + "ms) — 계산식 EPD(노출시작+ExposureTime) 사용");
+                _expStartHandled = true;   // FRAME_START 폴백 억제
+                ArmComputedEpd(tsw.ElapsedMilliseconds, "ExposureStart");
+            }
+            catch (Exception ex) { LiveLog("ExposureStart 훅 예외: " + ex.Message); }
+            return 0;
+        }
+
+        /// <summary>계산식 EPD arm — 노출 시작 시점 기준 ExposureTime(현재 ExposureUs) 후 ExposureEnded 를 발화한다.
+        /// 이번 그랩에서 1회만 arm(Interlocked). 그랩 시작 실패 시 <see cref="_epdCts"/> 로 취소된다.</summary>
+        private void ArmComputedEpd(long exposureStartMs, string src)
+        {
+            if (System.Threading.Interlocked.Exchange(ref _epdArmGuard, 1) == 1) return;   // 이미 arm
+            _expStartHandled = true;   // 계산식 EPD arm 됨 → FRAME_START 폴백 억제
+            double expMs = Math.Max(1.0, ExposureUs / 1000.0);
+            int delayMs = (int)Math.Ceiling(expMs);
+            var cts = _epdCts;
+            var tsw = _grabTimingSw;
+            System.Threading.Tasks.Task.Run(async () =>
+            {
+                try
+                {
+                    if (cts != null) await System.Threading.Tasks.Task.Delay(delayMs, cts.Token).ConfigureAwait(false);
+                    else await System.Threading.Tasks.Task.Delay(delayMs).ConfigureAwait(false);
+                    if (IsOpen)
+                    {
+                        if (tsw != null && _grabExpEndMs < 0) _grabExpEndMs = tsw.ElapsedMilliseconds;
+                        RaiseExposureEnded();
+                    }
+                }
+                catch (System.Threading.Tasks.TaskCanceledException) { }   // 그랩 시작 실패 → EPD 미발화
+                catch (OperationCanceledException) { }
+                catch (Exception ex) { LiveLog("계산식 EPD 타이머 예외: " + ex.Message); }
+            });
+        }
+
+        /// <summary>프레임 전송 시작 훅(M_GRAB_FRAME_START) — 계산식 EPD(ExposureStart) 가 없는 카메라의 EPD 폴백.
+        /// <para>ExposureStart(②') 또는 실 노출종료 소스(②③)가 발화한 카메라에서는 억제된다. 그런 소스가 없는
+        /// 카메라(VNP-576MX2)에서만 이 시점에 ExposureEnded 를 발화한다(2026-07-13). FRAME_START 는 실제
+        /// 노출 종료가 아니라 프레임그래버 수신 시작이므로, 그럴 땐 하드웨어(ExposureActive→그래버 입력)나
+        /// ExposureStart 훅 지원이 있어야 계산식(실 노출종료) EPD 가 가능하다.</para></summary>
         private MIL_INT FrameStartHook(MIL_INT hookType, MIL_ID eventId, IntPtr userPtr)
         {
             try
             {
                 long n = System.Threading.Interlocked.Increment(ref _frameStartCount);
-                if (n == 1) LiveLog("FRAME_START 훅 첫 발화 (실제 노출종료 소스 " + (_expEndHwFired ? "있음 → 억제" : "없음 → FRAME_START 폴백으로 EPD") + ")");
-                if (_expEndHwFired) return 0;   // 실제 노출 종료 소스가 살아있으면 중복 발화 방지
+                if (n == 1) LiveLog("FRAME_START 훅 첫 발화 (계산식/실노출종료 소스 " + ((_expStartHandled || _expEndHwFired) ? "있음 → 억제" : "없음 → FRAME_START 폴백으로 EPD") + ")");
+                if (_expStartHandled || _expEndHwFired) return 0;   // 계산식(ExposureStart) or 실 노출종료 소스가 처리 → 중복 방지
                 var tsw = _grabTimingSw;
                 if (tsw != null && _grabExpEndMs < 0) _grabExpEndMs = tsw.ElapsedMilliseconds;   // 단발 그랩 계측(폴백)
                 if (IsOpen) RaiseExposureEnded();
