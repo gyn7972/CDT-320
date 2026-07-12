@@ -878,9 +878,9 @@ namespace QMC.CDT320.Sequencing
                         ", pickerNo=" + _currentPickerNo);
                 }
 
-                int result = angleDeg == 90
-                    ? await vision.MoveBothSideVisionProcess90PositionAsync(Options != null && Options.FineMove).ConfigureAwait(false)
-                    : await vision.MoveBothSideVisionProcess0PositionAsync(Options != null && Options.FineMove).ConfigureAwait(false);
+                // Side 0/90도 모두 동일한 카메라 초점 기준 위치를 사용한다.
+                int result = await vision.MoveBothSideVisionProcess0PositionAsync(
+                    Options != null && Options.FineMove).ConfigureAwait(false);
 
                 if (result != 0)
                 {
@@ -913,9 +913,8 @@ namespace QMC.CDT320.Sequencing
                 if (vision == null)
                     return false;
 
-                string positionName = angleDeg == 90 ? "Process90Position" : "Process0Position";
-                return vision.IsVisionAxisInTeachingPosition(VisionAxis.FrontSideVisionY, positionName) &&
-                       vision.IsVisionAxisInTeachingPosition(VisionAxis.RearSideVisionY, positionName);
+                return vision.IsVisionAxisInTeachingPosition(VisionAxis.FrontSideVisionY, "Process0Position") &&
+                       vision.IsVisionAxisInTeachingPosition(VisionAxis.RearSideVisionY, "Process0Position");
             }
             catch
             {

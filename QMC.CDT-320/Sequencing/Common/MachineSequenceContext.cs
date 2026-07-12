@@ -36,6 +36,7 @@ namespace QMC.CDT320.Sequencing
             AutoSequenceGate = new AutoSequenceCoordinatorGate(this);
             AutoLoaderGate = AutoSequenceGate;
             OutputPostPlaceInspections = new OutputPostPlaceInspectionQueue(this);
+            WaferCompletion = new WaferCompletionRunCoordinator(this);
         }
 
         /// <summary>4개 유닛(INPUT/FRONT/REAR/OUTPUT)의 동작 상태를 보관하는 공식 상태 객체입니다.</summary>
@@ -59,6 +60,7 @@ namespace QMC.CDT320.Sequencing
         internal AutoSequenceCoordinatorGate AutoSequenceGate { get; private set; }
         internal AutoSequenceCoordinatorGate AutoLoaderGate { get; private set; }
         internal OutputPostPlaceInspectionQueue OutputPostPlaceInspections { get; private set; }
+        internal WaferCompletionRunCoordinator WaferCompletion { get; private set; }
         private int _cycleStopRequested;
 
         /// <summary>현재 자동 시퀀스가 사이클 경계에서 정지해야 하는지 여부입니다.</summary>

@@ -111,6 +111,13 @@ namespace QMC.CDT320.Sequencing
             {
                 while (!ct.IsCancellationRequested)
                 {
+                    if (await WaitForStopAfterDrainCompletionIfRequestedAsync(
+                        "OutputSequence.AutoLoop",
+                        ct).ConfigureAwait(false))
+                    {
+                        return;
+                    }
+
                     int result = await ExecuteNextOutputStepAsync(ct, false, 0, SequenceStartMode.Resume).ConfigureAwait(false);
                     if (result != 0)
                         throw new InvalidOperationException(
@@ -424,6 +431,15 @@ namespace QMC.CDT320.Sequencing
             int moveTimeoutMs,
             SequenceStartMode startMode)
         {
+            if (action != OutputSequenceAutoAction.ResumeOccupiedFeeder &&
+                IsStopAfterDrainRequested())
+            {
+                WriteLog("WaferCompletionRun",
+                    "Stop After Drain 요청으로 새 Output Wafer 교체 작업을 시작하지 않습니다. action=" +
+                    action + " - Ok");
+                return 0;
+            }
+
             switch (action)
             {
                 case OutputSequenceAutoAction.StoreNgStageToCassette:
@@ -473,6 +489,16 @@ namespace QMC.CDT320.Sequencing
                         "OutputSequence",
                         "Output Loader batch에서 처리할 수 없는 작업입니다. action=" + action);
             }
+        }
+
+        private bool IsStopAfterDrainRequested()
+        {
+            WaferCompletionRunCoordinator completion = Context != null ? Context.WaferCompletion : null;
+            if (completion == null || !completion.Enabled)
+                return false;
+
+            completion.ObserveCompletionSignals();
+            return completion.IsDrainRequested;
         }
 
         private static bool IsOutputLoaderWorkAction(OutputSequenceAutoAction action)
@@ -586,10 +612,24 @@ namespace QMC.CDT320.Sequencing
 
         private OutputSequenceAutoAction ResolveNextOutputAction()
         {
-            if (IsStageReceiveComplete(BinSide.Ng))
+            WaferCompletionRunCoordinator completion = Context != null ? Context.WaferCompletion : null;
+            if (completion != null && completion.Enabled)
+            {
+                completion.ObserveCompletionSignals();
+                if (completion.IsDrainRequested)
+                {
+                    // 이미 OutputFeeder에 올라온 자재는 중간에 방치하지 않고 현재 이송만 안전하게 마무리합니다.
+                    if (MaterialStateService.GetWaferAtLocation(MaterialLocationKind.OutputFeeder) != null)
+                        return OutputSequenceAutoAction.ResumeOccupiedFeeder;
+
+                    return OutputSequenceAutoAction.WaitOutputStageReceiveComplete;
+                }
+            }
+
+            if (IsOutputStageCompletionSignalSet(BinSide.Ng))
                 return OutputSequenceAutoAction.StoreNgStageToCassette;
 
-            if (IsStageReceiveComplete(BinSide.Good))
+            if (IsOutputStageCompletionSignalSet(BinSide.Good))
                 return OutputSequenceAutoAction.StoreGoodStageToCassette;
 
             if (MaterialStateService.GetWaferAtLocation(MaterialLocationKind.OutputFeeder) != null)
@@ -638,6 +678,55 @@ namespace QMC.CDT320.Sequencing
 
             return MaterialStateService.GetWaferAtLocation(location) != null &&
                    MaterialStateService.IsOutputStageReceiveComplete(side);
+        }
+
+        private bool IsOutputStageCompletionSignalSet(BinSide side)
+        {
+            string signal = side == BinSide.Ng
+                ? "OutputNgStageReceiveComplete"
+                : "OutputGoodStageReceiveComplete";
+
+            return Context != null && Context.Bus != null && Context.Bus.IsSet(signal);
+        }
+
+        private async Task<bool> TryRestoreOutputStageCompletionSignalAfterSafeRecoveryAsync(
+            BinSide side,
+            CancellationToken ct)
+        {
+            if (!IsStageReceiveComplete(side))
+                return false;
+
+            string reason;
+            if (!AreOutputPickersAvoidAndStopped(out reason))
+                return false;
+
+            if (Context == null || Context.Bus == null)
+                return false;
+
+            if (Context.OutputPostPlaceInspections != null)
+            {
+                int idleResult = await Context.OutputPostPlaceInspections.WaitUntilIdleAsync(
+                    "OutputSequenceRecovery:" + side,
+                    0,
+                    ct).ConfigureAwait(false);
+                if (idleResult != 0)
+                {
+                    throw new InvalidOperationException(
+                        side + " OutputStage 교체 준비 신호 복구 전 후검사 완료 대기 실패. result=" + idleResult);
+                }
+            }
+
+            if (!IsStageReceiveComplete(side) || !AreOutputPickersAvoidAndStopped(out reason))
+                return false;
+
+            string signal = side == BinSide.Ng
+                ? "OutputNgStageReceiveComplete"
+                : "OutputGoodStageReceiveComplete";
+            Context.Bus.Set(signal);
+            WriteLog("OutputStageCompletionSignal",
+                side + " OutputStage 복구 시 Material 완료, Front/Rear Picker 전체 Avoid, 후검사 완료를 확인한 후 교체 준비 신호를 복구했습니다. " +
+                "signal=" + signal + " - Ok");
+            return true;
         }
 
         private async Task<int> ExecuteCompletedStageStoreAsync(
@@ -696,18 +785,23 @@ namespace QMC.CDT320.Sequencing
                 {
                     SetOutputStageReadySignals();
 
-                    if (Context.Bus.IsSet("OutputGoodStageReceiveComplete") ||
-                        IsStageReceiveComplete(BinSide.Good))
+                    if (await WaitForStopAfterDrainCompletionIfRequestedAsync(
+                        "OutputSequence.WaitReceiveComplete",
+                        ct).ConfigureAwait(false))
                     {
-                        Context.Bus.Set("OutputGoodStageReceiveComplete");
+                        return;
+                    }
+
+                    if (IsOutputStageCompletionSignalSet(BinSide.Good) ||
+                        await TryRestoreOutputStageCompletionSignalAfterSafeRecoveryAsync(BinSide.Good, ct).ConfigureAwait(false))
+                    {
                         WriteLog("WaitAnyOutputReceiveCompleteAsync", "GOOD OutputStage 수령 완료 신호를 확인했습니다. - Ok");
                         return;
                     }
 
-                    if (Context.Bus.IsSet("OutputNgStageReceiveComplete") ||
-                        IsStageReceiveComplete(BinSide.Ng))
+                    if (IsOutputStageCompletionSignalSet(BinSide.Ng) ||
+                        await TryRestoreOutputStageCompletionSignalAfterSafeRecoveryAsync(BinSide.Ng, ct).ConfigureAwait(false))
                     {
-                        Context.Bus.Set("OutputNgStageReceiveComplete");
                         WriteLog("WaitAnyOutputReceiveCompleteAsync", "NG OutputStage 수령 완료 신호를 확인했습니다. - Ok");
                         return;
                     }
@@ -739,6 +833,35 @@ namespace QMC.CDT320.Sequencing
             finally
             {
             }
+        }
+
+        private async Task<bool> WaitForStopAfterDrainCompletionIfRequestedAsync(
+            string boundary,
+            CancellationToken ct)
+        {
+            WaferCompletionRunCoordinator completion = Context != null ? Context.WaferCompletion : null;
+            if (completion == null || !completion.Enabled)
+                return false;
+
+            completion.ObserveCompletionSignals();
+            if (!completion.IsDrainRequested)
+                return false;
+
+            WriteLog("WaferCompletionRun",
+                "Stop After Drain 요청으로 Output Wafer 교체를 중단하고 Picker 보유 제품 Place/후검사 완료를 기다립니다. " +
+                "boundary=" + (boundary ?? "-") + " - Wait");
+
+            while (!completion.IsRunComplete)
+            {
+                ct.ThrowIfCancellationRequested();
+                SetOutputStageReadySignals();
+                await Task.Delay(50, ct).ConfigureAwait(false);
+            }
+
+            WriteLog("WaferCompletionRun",
+                "Stop After Drain 안전 배출 완료를 확인하여 Output 자동 시퀀스를 종료합니다. " +
+                "boundary=" + (boundary ?? "-") + " - Ok");
+            return true;
         }
 
         private int StopOutputAutoNoBinWork()

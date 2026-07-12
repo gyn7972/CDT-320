@@ -40,6 +40,7 @@ namespace QMC.CDT320.Sequencing
         private IDisposable pickerWorkAreaScope;
         private PickerWorkZone pickerWorkAreaZone = PickerWorkZone.Unknown;
         private bool safetyRetreatMoveActive;
+        private bool runtimeBottomAutoFocusCompletedForNextGrab;
 
         protected PickerFrontUnit FrontPicker
         {
@@ -234,6 +235,7 @@ namespace QMC.CDT320.Sequencing
         {
             try
             {
+                runtimeBottomAutoFocusCompletedForNextGrab = false;
                 ct.ThrowIfCancellationRequested();
 
                 VisionFocusCalibrationData data = ResolveFocusCalibrationData();
@@ -345,6 +347,7 @@ namespace QMC.CDT320.Sequencing
                     ApplyRuntimeBottomFocusPosition(pickerIndex, bestZ);
                     data.CompleteRuntimeAutoFocus(focusSide, pickerNo, waferKey);
                     SaveVisionFocusSettings("생산 Bottom Die AutoFocus 완료");
+                    runtimeBottomAutoFocusCompletedForNextGrab = true;
 
                     WriteLog("PickerAutoFocus",
                         Name + " 생산 Bottom Die AutoFocus를 완료하고 Best Z 이동을 확인했습니다. side=" + Side +
@@ -357,6 +360,7 @@ namespace QMC.CDT320.Sequencing
                         ", wafer=" + waferKey +
                         ", pending=" + data.BuildRuntimeAutoFocusPendingText() +
                         " - Ok");
+
                     return 0;
                 }
                 finally
@@ -3138,6 +3142,35 @@ namespace QMC.CDT320.Sequencing
                     ", error=" + ex.Message + " - Failed");
                 return bottomTeachingZ;
             }
+        }
+
+        protected async Task DelayAfterRuntimeAutoFocusBottomGrabAckAsync(int pickerNo, CancellationToken ct)
+        {
+            if (!runtimeBottomAutoFocusCompletedForNextGrab)
+                return;
+
+            runtimeBottomAutoFocusCompletedForNextGrab = false;
+            int delayMs = 300;
+            if (Context != null && Context.Machine != null && Context.Machine.VisionUnit != null &&
+                Context.Machine.VisionUnit.Recipe != null)
+            {
+                Context.Machine.VisionUnit.Recipe.EnsurePositionObjects();
+                delayMs = Context.Machine.VisionUnit.Recipe.RuntimeAutoFocusToBottomInspectionDelayMs;
+            }
+
+            delayMs = Math.Max(0, Math.Min(60000, delayMs));
+            if (delayMs <= 0)
+                return;
+
+            WriteLog("PickerAutoFocus",
+                Name + " Runtime AutoFocus 후 Bottom Grab ACK 수신 완료 대기를 시작합니다. side=" + Side +
+                ", pickerNo=" + pickerNo +
+                ", delayMs=" + delayMs + " - Start");
+            await Task.Delay(delayMs, ct).ConfigureAwait(false);
+            WriteLog("PickerAutoFocus",
+                Name + " Runtime AutoFocus 후 Bottom Grab ACK 대기를 완료했습니다. side=" + Side +
+                ", pickerNo=" + pickerNo +
+                ", delayMs=" + delayMs + " - Ok");
         }
 
         private static bool IsFiniteSideInspectionZ(double value)

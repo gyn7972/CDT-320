@@ -53,6 +53,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             AutoFocusOnWaferChange,
             AutoFocusOnPickCount,
             AutoFocusPickInterval,
+            AutoFocusToBottomInspectionDelay,
             UseBottomToSideZOffset,
             BottomToSideZOffset,
             SideFocusSize90SignFront,
@@ -143,6 +144,7 @@ namespace QMC.CDT_320.Ui.Dialogs
         private bool _autoFocusOnWaferChange = true;
         private bool _autoFocusOnPickCountEnabled;
         private int _autoFocusPickInterval;
+        private int _autoFocusToBottomInspectionDelayMs = 300;
         // Side 전용: Bottom↔Side 공용 Z옵셋과 COC/다이사이즈 보정 부호 (VisionFocusCalibrationData 최상위 저장)
         private bool _useBottomToSideZOffset;
         private double _bottomToSideZOffsetMm;
@@ -937,6 +939,8 @@ namespace QMC.CDT_320.Ui.Dialogs
                 _autoFocusOnWaferChange = settings.AutoFocusOnWaferChange;
                 _autoFocusOnPickCountEnabled = settings.AutoFocusOnPickCountEnabled;
                 _autoFocusPickInterval = settings.AutoFocusPickInterval;
+                host.Machine.VisionUnit.Recipe.EnsurePositionObjects();
+                _autoFocusToBottomInspectionDelayMs = host.Machine.VisionUnit.Recipe.RuntimeAutoFocusToBottomInspectionDelayMs;
 
                 VisionFocusCalibrationData focusData = host.Machine.VisionUnit.Config.FocusCalibration;
                 focusData.EnsureObjects();
@@ -1012,6 +1016,9 @@ namespace QMC.CDT_320.Ui.Dialogs
                 settings.AutoFocusOnWaferChange = _autoFocusOnWaferChange;
                 settings.AutoFocusOnPickCountEnabled = _autoFocusOnPickCountEnabled;
                 settings.AutoFocusPickInterval = _autoFocusPickInterval;
+                host.Machine.VisionUnit.Recipe.EnsurePositionObjects();
+                host.Machine.VisionUnit.Recipe.RuntimeAutoFocusToBottomInspectionDelayMs = _autoFocusToBottomInspectionDelayMs;
+                host.Machine.VisionUnit.Recipe.RuntimeAutoFocusToBottomInspectionDelayInitialized = true;
 
                 VisionFocusCalibrationData focusData = host.Machine.VisionUnit.Config.FocusCalibration;
                 focusData.EnsureObjects();
@@ -1032,10 +1039,15 @@ namespace QMC.CDT_320.Ui.Dialogs
                     record.UpdatedBy = UserSession.Name ?? string.Empty;
                 }
 
+                if (string.IsNullOrWhiteSpace(host.CurrentRecipeName) || !host.SaveMachineRecipe(host.CurrentRecipeName))
+                {
+                    lblStatus.Text = "AF To Bottom Delay Recipe 저장에 실패했습니다. 활성 Recipe를 확인하세요.";
+                    return false;
+                }
                 host.SaveMachineSettings();
                 RefreshSavedGrid();
                 if (showMessage)
-                    lblStatus.Text = "Vision Focus Cal 설정값/Focus 기준값을 저장했습니다. 실제 Recipe/Teaching Z는 변경하지 않았습니다.";
+                    lblStatus.Text = "Vision Focus Cal 설정값과 AF To Bottom Delay Recipe 값을 저장했습니다. Teaching Z는 변경하지 않았습니다.";
                 return true;
             }
             catch (Exception ex)
@@ -1204,6 +1216,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                 AddSettingRow(CreateOptionInfo(FocusSettingKey.AutoFocusOnWaferChange, "AF On Wafer Change", "새 Input Wafer의 Die가 처음 Bottom 촬영에 진입할 때 Rough+Fine AutoFocus를 실행합니다. 다른 조건과 동시에 사용할 수 있습니다.", BoolOptions), _autoFocusOnWaferChange ? "True" : "False", runtimeBottomFocus);
                 AddSettingRow(CreateOptionInfo(FocusSettingKey.AutoFocusOnPickCount, "AF By Total Pick Count", "Front/Rear 전체 Pick 완료 Die 누적 수가 설정 횟수에 도달하면 Rough+Fine AutoFocus를 실행합니다. 다른 조건과 동시에 사용할 수 있습니다.", BoolOptions), _autoFocusOnPickCountEnabled ? "True" : "False", runtimeBottomFocus);
                 AddSettingRow(CreateNumberInfo(FocusSettingKey.AutoFocusPickInterval, "AF Total Pick Interval (ea)", "ea", "Front/Rear 전체에서 Pick 완료한 총 Die 수 기준 AutoFocus 실행 간격입니다.", true), _autoFocusPickInterval.ToString(CultureInfo.InvariantCulture), runtimeBottomFocus);
+                AddSettingRow(CreateNumberInfo(FocusSettingKey.AutoFocusToBottomInspectionDelay, "AF To Bottom Delay (ms)", "ms", "런타임 AutoFocus 후 Bottom Grab 명령의 ACK를 받은 다음, 다음 모션을 시작하기 전에 대기할 시간입니다.", true), _autoFocusToBottomInspectionDelayMs.ToString(CultureInfo.InvariantCulture), runtimeBottomFocus);
                 if (IsSideOnlyProfile)
                 {
                     AddSettingRow(CreateOptionInfo(FocusSettingKey.UseBottomToSideZOffset, "B->S Z Offset Use", "사용 시 Side 촬영 PickerZ를 SidePosition 티칭 대신 '콜렛별 Bottom AF Best Z + Z Offset'으로 계산합니다(Front/Rear 공용).", BoolOptions), _useBottomToSideZOffset ? "True" : "False", true);
@@ -1344,6 +1357,9 @@ namespace QMC.CDT_320.Ui.Dialogs
                     break;
                 case FocusSettingKey.AutoFocusPickInterval:
                     _autoFocusPickInterval = Clamp(value, 0, 1000000);
+                    break;
+                case FocusSettingKey.AutoFocusToBottomInspectionDelay:
+                    _autoFocusToBottomInspectionDelayMs = Clamp(value, 0, 60000);
                     break;
             }
         }

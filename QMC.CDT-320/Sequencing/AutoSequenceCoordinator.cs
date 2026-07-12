@@ -44,6 +44,9 @@ namespace QMC.CDT320.Sequencing
         {
             _options = options ?? SequenceRunOptions.FullAuto();
             _ctx.ResetCycleStopRequest();
+            _ctx.WaferCompletion.Configure(
+                _options.Mode == SequenceRunMode.Auto &&
+                AppSettingsStore.Current.WaferCompleteRunMode == WaferCompleteRunMode.StopAfterDrain);
             _active.Clear();
 
             foreach (var item in _factories)
@@ -93,6 +96,8 @@ namespace QMC.CDT320.Sequencing
             var tasks = new List<Task>();
             foreach (var sequence in _active.Values)
                 tasks.Add(Task.Run(() => sequence.RunAsync(childrenToken), childrenToken));
+            if (_ctx.WaferCompletion.Enabled)
+                tasks.Add(Task.Run(() => _ctx.WaferCompletion.RunMonitorAsync(childrenToken), childrenToken));
 
             _ctx.LogPublic("[SEQ] Run start (" + tasks.Count + " units)");
             try

@@ -212,19 +212,39 @@ namespace QMC.CDT320.Recipes
                     Math.Abs(map.PitchX - expectedStepX) > 1e-6 ||
                     Math.Abs(map.PitchY - expectedStepY) > 1e-6;
 
-                if (!sizeMismatch && !pitchMismatch)
-                    return true;
+                if (sizeMismatch || pitchMismatch)
+                {
+                    // 현재 기준: ExternalMap은 원본 wafer map index 범위가 frame grid와 같아야 한다.
+                    reason =
+                        "frame=" + (frame.FrameSpecName ?? "") +
+                        ", frameDie=" + frameX + "x" + frameY +
+                        ", mapDie=" + mapX + "x" + mapY +
+                        ", frameGap=(" + frame.PitchX.ToString("F6") + "," + frame.PitchY.ToString("F6") + ")" +
+                        ", dieSize=(" + dieSizeX.ToString("F6") + "," + dieSizeY.ToString("F6") + ")" +
+                        ", expectedStep=(" + expectedStepX.ToString("F6") + "," + expectedStepY.ToString("F6") + ")" +
+                        ", mapStep=(" + map.PitchX.ToString("F6") + "," + map.PitchY.ToString("F6") + ")";
+                    return false;
+                }
 
-                // 현재 기준: ExternalMap은 원본 wafer map index 범위가 frame grid와 같아야 한다.
-                reason =
-                    "frame=" + (frame.FrameSpecName ?? "") +
-                    ", frameDie=" + frameX + "x" + frameY +
-                    ", mapDie=" + mapX + "x" + mapY +
-                    ", frameGap=(" + frame.PitchX.ToString("F6") + "," + frame.PitchY.ToString("F6") + ")" +
-                    ", dieSize=(" + dieSizeX.ToString("F6") + "," + dieSizeY.ToString("F6") + ")" +
-                    ", expectedStep=(" + expectedStepX.ToString("F6") + "," + expectedStepY.ToString("F6") + ")" +
-                    ", mapStep=(" + map.PitchX.ToString("F6") + "," + map.PitchY.ToString("F6") + ")";
-                return false;
+                foreach (DieMapEntry entry in map.Entries.Where(item => item != null))
+                {
+                    double expectedGridY = DieMapGenerator.CalculateEquipmentGridY(entry.DieMapY, mapY);
+                    double expectedPosY = expectedGridY * map.PitchY;
+                    if (Math.Abs(entry.EquipmentGridY - expectedGridY) <= 0.000001 &&
+                        Math.Abs(entry.PosY - expectedPosY) <= 0.000001)
+                    {
+                        continue;
+                    }
+
+                    reason = "맵 Y 장비좌표가 현재 엔코더 방향(위-/아래+)과 일치하지 않습니다. " +
+                             "localY=" + entry.DieMapY +
+                             ", gridY=" + entry.EquipmentGridY.ToString("F6") +
+                             ", expectedGridY=" + expectedGridY.ToString("F6") +
+                             ". Wafer Spec에서 맵을 다시 SAVE/APPLY 하세요.";
+                    return false;
+                }
+
+                return true;
             }
             catch (Exception ex)
             {

@@ -268,7 +268,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                     "현재 Recipe '" + _project.FileName + "'에 " + die.WidthMm.ToString("0.####") + " x " +
                     die.HeightMm.ToString("0.####") + " x " + die.ThicknessMm.ToString("0.####") +
                     " mm를 적용했습니다. " + mapResult,
-                    false);
+                    false); 
             }
             catch (Exception ex)
             {

@@ -794,6 +794,12 @@ namespace QMC.CDT320.Sequencing
         {
             try
             {
+                if (ShouldBlockNewPickForWaferCompletion())
+                {
+                    CompleteProcessWithoutNewPick("BeforeInputCameraMarkInspection");
+                    return 0;
+                }
+
                 int readyResult = await EnterOrTransitionPickerPhaseAsync(
                     PickerProcessPhase.PickUp,
                     "InputCameraMarkInspection",
@@ -808,6 +814,12 @@ namespace QMC.CDT320.Sequencing
                         BuildChildSequenceOptions(),
                         ct,
                         Name + ":PickUpReady").ConfigureAwait(false);
+
+                if (ShouldBlockNewPickForWaferCompletion())
+                {
+                    CompleteProcessWithoutNewPick("AfterInputCameraMarkInspection");
+                    return 0;
+                }
 
                 if (waitResult.Status == InputCameraPreInspectionWaitStatus.Failed)
                 {
@@ -864,6 +876,13 @@ namespace QMC.CDT320.Sequencing
         {
             try
             {
+                if ((_pickUpSequence == null || _pickUpSequence.IsComplete) &&
+                    ShouldBlockNewPickForWaferCompletion())
+                {
+                    CompleteProcessWithoutNewPick("BeforePickUpSequence");
+                    return 0;
+                }
+
                 if (_pickUpSequence == null || _pickUpSequence.IsComplete)
                 {
                     int readyResult = await EnterOrTransitionPickerPhaseAsync(PickerProcessPhase.PickUp, "PickUp", ct).ConfigureAwait(false);
@@ -900,6 +919,13 @@ namespace QMC.CDT320.Sequencing
                 {
                     _pickUpSequence = null;
                     _resumePartialPickUpWithoutMarkPermission = false;
+
+                    if (ShouldBlockNewPickForWaferCompletion() && !HasTargetDieOnThisPicker())
+                    {
+                        CompleteProcessWithoutNewPick("PickUpCompletedWithoutDie");
+                        return 0;
+                    }
+
                     // PickUp 완료 시 PickerZ가 Stage Safe 높이를 통과했으므로 다음 Bottom 진입에서 1회 사용한다.
                     _pickerZStageSafeConfirmedByPickUp = true;
                     StartInputVisionXPrePositionAfterPickUpComplete(ct);
@@ -940,6 +966,29 @@ namespace QMC.CDT320.Sequencing
             finally
             {
             }
+        }
+
+        private bool ShouldBlockNewPickForWaferCompletion()
+        {
+            if (Options != null && Options.RunMode != SequenceRunMode.Auto)
+                return false;
+
+            WaferCompletionRunCoordinator completion = Context != null ? Context.WaferCompletion : null;
+            if (completion == null || !completion.Enabled)
+                return false;
+
+            completion.ObserveCompletionSignals();
+            return completion.IsDrainRequested;
+        }
+
+        private void CompleteProcessWithoutNewPick(string boundary)
+        {
+            InputCameraPickUpPermissionStore.Clear(Side);
+            ReleasePickerProcessPhase("StopAfterDrain:" + (boundary ?? "-"));
+            CurrentStep = PickerProcessStep.Complete;
+            WriteLog("WaferCompletionRun",
+                Name + " Stop After Drain 요청으로 신규 Pick 공정을 시작하지 않습니다. " +
+                "side=" + Side + ", boundary=" + (boundary ?? "-") + " - Ok");
         }
 
         private void StartInputVisionXPrePositionAfterPickUpComplete(CancellationToken ct)

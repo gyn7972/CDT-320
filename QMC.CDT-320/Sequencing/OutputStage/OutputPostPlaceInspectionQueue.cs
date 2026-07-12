@@ -55,6 +55,20 @@ namespace QMC.CDT320.Sequencing
             _context = context ?? throw new ArgumentNullException("context");
         }
 
+        public bool IsIdle
+        {
+            get
+            {
+                return Volatile.Read(ref _pendingOrRunning) <= 0 &&
+                       Volatile.Read(ref _batchDepth) <= 0;
+            }
+        }
+
+        public bool HasFailure
+        {
+            get { return Volatile.Read(ref _failed) != 0; }
+        }
+
         public void BeginBatch(string owner)
         {
             int depth = Interlocked.Increment(ref _batchDepth);

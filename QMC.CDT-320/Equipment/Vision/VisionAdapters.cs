@@ -193,8 +193,8 @@ namespace QMC.CDT320.VisionComm
                     ", grid=" + gridX + ";" + gridY +
                     ", timeoutMs=" + timeoutMs);
 
-                // EPD(노출 종료) 수신 즉시 true 리턴 — ACK(영상 카피 완료)까지 기다리지 않아
-                // 픽커가 촬상 직후 바로 다음 위치로 이동한다(실측 EPD→ACK ≈ 88ms/장 단축).
+                // BottomInspection EPD(노출 종료) 수신만 진행 조건으로 사용한다.
+                // STARTED ACK 는 무시하며, EPD 타임아웃 시 다음 픽커 이동을 차단한다.
                 return await AutoVisionRequestService.StartInspectColletAsync(
                     AutoVisionChannel.BottomInspection,
                     VisionToolIds.BottomInspection.SurfaceInspector,

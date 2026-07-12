@@ -7709,6 +7709,7 @@ namespace QMC.CDT320
                 var coordinator = _coordinator;
                 var cts = _autoCts;
                 var runMode = options.Mode;
+                var waferCompletion = _seqContext.WaferCompletion;
                 _coordinatorTask = Task.Run(async () =>
                 {
                     IDisposable sequenceScope = null;
@@ -7722,6 +7723,14 @@ namespace QMC.CDT320
                             if (ActiveSequenceRunMode == QMC.CDT320.Sequencing.SequenceRunMode.Auto)
                                 EndAutoProductionStats();
                             SetStatus(EquipmentStatus.Ready);
+                            if (runMode == QMC.CDT320.Sequencing.SequenceRunMode.Auto &&
+                                waferCompletion != null &&
+                                waferCompletion.IsRunComplete)
+                            {
+                                RequestOperatorMessage(
+                                    "테스트 운전 완료",
+                                    waferCompletion.BuildCompletionMessage());
+                            }
                         }
                     }
                     catch (QMC.CDT320.Sequencing.SequenceStopException ex)

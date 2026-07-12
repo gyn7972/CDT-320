@@ -1185,6 +1185,7 @@ namespace QMC.CDT320.Sequencing
             if (IsDryRunMode())
             {
                 await TriggerDryRunBottomGrabIfConnectedAsync(target, timeoutMs, ct).ConfigureAwait(false);
+                await DelayAfterRuntimeAutoFocusBottomGrabAckAsync(target.PickerNo, ct).ConfigureAwait(false);
                 return 0;
             }
 
@@ -1195,15 +1196,16 @@ namespace QMC.CDT320.Sequencing
             if (!started)
             {
                 return Fail("PICKER-BOTTOM-SIDE-BOTTOM-TRIGGER", "Vision",
-                    "Bottom 검사 시작 ACK 수신 실패. die=" + target.Die.DieId +
+                    "Bottom 검사 EPD 수신 실패. die=" + target.Die.DieId +
                     ", pickerNo=" + target.PickerNo +
                     ", timeoutMs=" + timeoutMs);
             }
 
             WriteLog("PickerBottomAndSideInspectionSequence",
-                Name + " Bottom 검사 시작 ACK 수신 완료. die=" + target.Die.DieId +
+                Name + " Bottom 검사 EPD 수신 완료. die=" + target.Die.DieId +
                 ", pickerNo=" + target.PickerNo +
                 ", pendingResult=" + (_pendingBottomShots.Count + 1) + " - Ok");
+            await DelayAfterRuntimeAutoFocusBottomGrabAckAsync(target.PickerNo, ct).ConfigureAwait(false);
             return 0;
         }
 
@@ -1740,8 +1742,8 @@ namespace QMC.CDT320.Sequencing
                 if (vision == null)
                     return 0.0;
 
-                string positionName = angleDeg == 90 ? "Process90Position" : "Process0Position";
-                double teachingY = vision.GetVisionTeachingPosition(ResolveSideVisionAxis(), positionName);
+                // Side 0/90도 저장 AF가 없을 때는 공통 Process0 티칭 위치를 기준으로 사용한다.
+                double teachingY = vision.GetVisionTeachingPosition(ResolveSideVisionAxis(), "Process0Position");
                 VisionFocusCalibrationData focusData = vision.Config != null ? vision.Config.FocusCalibration : null;
                 if (focusData == null)
                     return teachingY;
@@ -1756,7 +1758,24 @@ namespace QMC.CDT320.Sequencing
                 VisionFocusPositionRecord record = focusData.GetSideRecord(kind, pickerNo);
                 if (record == null || !record.Valid ||
                     double.IsNaN(record.BestPosition) || double.IsInfinity(record.BestPosition))
-                    return teachingY;
+                {
+                    double fallbackCorrection;
+                    if (!TryResolveSideFocusFallbackCorrection(angleDeg, pickerNo, focusData, out fallbackCorrection))
+                        return teachingY;
+
+                    double axisSign = Side == PickerSequenceSide.Front ? 1.0 : -1.0;
+                    double fallbackY = teachingY + axisSign * fallbackCorrection;
+                    WriteLog("PickerBottomAndSideInspectionSequence",
+                        Name + " Side AF 저장값이 없어 Process0+COC/DieSize 폴백을 적용합니다. " +
+                        "side=" + Side +
+                        ", pickerNo=" + pickerNo +
+                        ", angle=" + angleDeg +
+                        ", process0Y=" + teachingY.ToString("F6") +
+                        ", axisSign=" + axisSign.ToString("F1") +
+                        ", correction=" + fallbackCorrection.ToString("F6") +
+                        ", fallbackY=" + fallbackY.ToString("F6") + " - Check");
+                    return fallbackY;
+                }
 
                 focusCalibrationValid = true;
                 return record.BestPosition;
@@ -1767,6 +1786,83 @@ namespace QMC.CDT320.Sequencing
             }
             finally
             {
+            }
+        }
+
+        private bool TryResolveSideFocusFallbackCorrection(
+            int angleDeg,
+            int pickerNo,
+            VisionFocusCalibrationData focusData,
+            out double correction)
+        {
+            correction = 0.0;
+            try
+            {
+                if (Context == null || Context.Machine == null || Context.Machine.VisionUnit == null ||
+                    Context.Machine.VisionUnit.Config == null ||
+                    Context.Machine.VisionUnit.Config.CalibrationData == null)
+                    return false;
+
+                VisionFocusPickerSide focusSide = Side == PickerSequenceSide.Front
+                    ? VisionFocusPickerSide.Front
+                    : VisionFocusPickerSide.Rear;
+                ColletCalibrationData colletData = Context.Machine.VisionUnit.Config.CalibrationData.Collet;
+                if (colletData == null)
+                    return false;
+
+                ColletCalibrationRecord record = colletData.GetRecord(focusSide, pickerNo);
+                if (record == null || !record.RotationCenterValid)
+                    return false;
+
+                VisionCameraPixelCalibration camera = VisionCameraCalibrationTransform.ResolveCamera(
+                    Context.Machine.VisionUnit.Config.CalibrationData.Camera,
+                    QMC.CDT320.VisionComm.AutoVisionChannel.BottomInspection);
+                double cocXmm = camera.PixelToMmOffsetX(record.RotationCenterPixelX);
+                double cocYmm = camera.PixelToMmOffsetY(record.RotationCenterPixelY);
+                if (double.IsNaN(cocXmm) || double.IsInfinity(cocXmm) ||
+                    double.IsNaN(cocYmm) || double.IsInfinity(cocYmm))
+                    return false;
+
+                bool front = Side == PickerSequenceSide.Front;
+                if (angleDeg != 90)
+                {
+                    double coc0Sign = front ? focusData.SideFocusCoc0SignFront : focusData.SideFocusCoc0SignRear;
+                    correction = coc0Sign * cocYmm;
+                    return true;
+                }
+
+                double dieSizeX = 0.0;
+                double dieSizeY = 0.0;
+                QMC.CDT320.Recipes.RecipeProject recipe = QMC.CDT320.Recipes.RecipeStore.LoadLastOrDefault();
+                QMC.CDT320.Recipes.TapeFrameSubset frame = recipe != null
+                    ? (recipe.InputFrame ?? recipe.Frame)
+                    : null;
+                if (frame != null)
+                {
+                    dieSizeX = frame.DieSizeX;
+                    dieSizeY = frame.DieSizeY;
+                }
+                if ((dieSizeX <= 0.0 || dieSizeY <= 0.0) && Context.Controller != null)
+                {
+                    dieSizeX = Context.Controller.DieSizeXMm;
+                    dieSizeY = Context.Controller.DieSizeYMm;
+                }
+                if (dieSizeX <= 0.0 || dieSizeY <= 0.0)
+                    return false;
+
+                double sizeTerm90 = (dieSizeX - dieSizeY) / 2.0;
+                double size90Sign = front ? focusData.SideFocusSize90SignFront : focusData.SideFocusSize90SignRear;
+                double coc90Sign = front ? focusData.SideFocusCoc90SignFront : focusData.SideFocusCoc90SignRear;
+                correction = size90Sign * sizeTerm90 + coc90Sign * cocXmm;
+                return true;
+            }
+            catch (Exception ex)
+            {
+                WriteLog("PickerBottomAndSideInspectionSequence",
+                    Name + " Side Process0+COC/DieSize 폴백 계산 중 예외가 발생했습니다. " +
+                    "side=" + Side + ", pickerNo=" + pickerNo + ", angle=" + angleDeg +
+                    ", error=" + ex.Message + " - Failed");
+                return false;
             }
         }
 
@@ -2218,8 +2314,7 @@ namespace QMC.CDT320.Sequencing
                     return Fail("PICKER-BOTTOM-SIDE-VISION-UNIT", "Vision", "Side 검사 카메라 이동 실패. VisionUnit을 찾을 수 없습니다. angle=" + angleDeg + ", pickerNo=" + target.PickerNo);
 
                 VisionAxis axis = ResolveSideVisionAxis();
-                string positionName = angleDeg == 90 ? "Process90Position" : "Process0Position";
-                double baseY = vision.GetVisionTeachingPosition(axis, positionName);
+                double baseY = vision.GetVisionTeachingPosition(axis, "Process0Position");
                 double targetY = ResolveSideVisionTargetY(target, angleDeg);
                 double correctionYOffset = angleDeg == 90
                     ? target.SideVisionProcess90YOffset

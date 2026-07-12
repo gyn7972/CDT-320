@@ -427,7 +427,6 @@ namespace QMC.CDT320.Recipes
                 int localOffsetX = Math.Max(0, (gridX - sourceGridX) / 2);
                 int localOffsetY = Math.Max(0, (gridY - sourceGridY) / 2);
                 double centerGridX = Math.Max(0, gridX - 1) / 2.0;
-                double centerGridY = Math.Max(0, gridY - 1) / 2.0;
                 Dictionary<string, DieMapEntry> maskByAddress = BuildCompatibleMask(baseEntries, existingRoleMask);
 
                 var map = new DieMap
@@ -444,7 +443,7 @@ namespace QMC.CDT320.Recipes
                     SideEdgeSkip = baseMap.SideEdgeSkip,
                     TopBottomEdgeSkip = baseMap.TopBottomEdgeSkip,
                     OriginX = -centerGridX * pitchX,
-                    OriginY = centerGridY * pitchY,
+                    OriginY = DieMapGenerator.CalculateCenteredOriginY(gridY, pitchY),
                     SourceFileName = baseMap.SourceFileName,
                     SourceFormat = baseMap.SourceFormat,
                     SourcePitchFromFile = baseMap.SourcePitchFromFile,
@@ -468,7 +467,7 @@ namespace QMC.CDT320.Recipes
                     int localX = localOffsetX + originalX - minX;
                     int localY = localOffsetY + maxY - originalY;
                     double equipmentGridX = localX - centerGridX;
-                    double equipmentGridY = centerGridY - localY;
+                    double equipmentGridY = DieMapGenerator.CalculateEquipmentGridY(localY, gridY);
 
                     map.Entries.Add(new DieMapEntry
                     {
@@ -522,7 +521,6 @@ namespace QMC.CDT320.Recipes
             int gridX = Math.Max(1, maxX - minX + 1);
             int gridY = Math.Max(1, maxY - minY + 1);
             double centerGridX = Math.Max(0, gridX - 1) / 2.0;
-            double centerGridY = Math.Max(0, gridY - 1) / 2.0;
             var map = new DieMap
             {
                 FrameObjId = RecipeMapPaths.SanitizeFileName(project.FileName) + "-BASE-WAFER-MAP",
@@ -537,7 +535,7 @@ namespace QMC.CDT320.Recipes
                 SideEdgeSkip = source.SideEdgeSkip,
                 TopBottomEdgeSkip = source.TopBottomEdgeSkip,
                 OriginX = -centerGridX * pitchX,
-                OriginY = centerGridY * pitchY,
+                OriginY = DieMapGenerator.CalculateCenteredOriginY(gridY, pitchY),
                 SourceFileName = source.SourceFileName,
                 SourceFormat = source.SourceFormat,
                 SourcePitchFromFile = source.SourcePitchFromFile,
@@ -557,7 +555,7 @@ namespace QMC.CDT320.Recipes
                 int localX = originalX - minX;
                 int localY = maxY - originalY;
                 double equipmentGridX = localX - centerGridX;
-                double equipmentGridY = centerGridY - localY;
+                double equipmentGridY = DieMapGenerator.CalculateEquipmentGridY(localY, gridY);
                 map.Entries.Add(new DieMapEntry
                 {
                     Index = index++,

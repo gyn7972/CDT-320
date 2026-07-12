@@ -23,6 +23,9 @@ namespace QMC.CDT320.Sequencing
                 while (!ct.IsCancellationRequested)
                 {
                     await WaitForPickerWorkAsync(ct).ConfigureAwait(false);
+                    if (IsWaferCompletionRunComplete())
+                        return;
+
                     await WaitForLoaderInactiveBeforePickerProcessAsync(ct).ConfigureAwait(false);
 
                     PickerSequenceOptions options = BuildSequenceOptions();
@@ -189,6 +192,11 @@ namespace QMC.CDT320.Sequencing
                     Context.StopIfCycleStopRequested("FrontPickerSequence.WaitForWork");
 
                     await EnsureIdlePickerAvoidAsync(ct).ConfigureAwait(false);
+                    TryPublishInputStageExchangeReadyWithoutPickTarget();
+                    ObserveWaferCompletionRun();
+                    if (IsWaferCompletionRunComplete())
+                        return;
+
                     await Task.Delay(1, ct).ConfigureAwait(false);
                 }
             }
@@ -392,6 +400,9 @@ namespace QMC.CDT320.Sequencing
                 if (HasLoadedDieOnPicker())
                     return true;
 
+                if (ShouldBlockNewPickForWaferCompletion())
+                    return false;
+
                 if (!IsFrontPickerEnabled())
                     return false;
 
@@ -418,6 +429,54 @@ namespace QMC.CDT320.Sequencing
             finally
             {
             }
+        }
+
+        private void TryPublishInputStageExchangeReadyWithoutPickTarget()
+        {
+            try
+            {
+                if (Mode != SequenceRunMode.Auto || Context == null || Context.Bus == null)
+                    return;
+                if (!Context.Bus.IsSet("InputStageReady") || Context.Bus.IsSet("InputStageDieComplete"))
+                    return;
+                if (!MaterialStateService.IsInputStagePickComplete() || MaterialStateService.HasReadyInputStagePickTarget())
+                    return;
+
+                PickerFrontUnit front = Context.Machine != null ? Context.Machine.PickerFrontUnit : null;
+                if (!IsFrontPickerEnabled() || front == null || !front.IsFrontPickerInAvoidPosition())
+                    return;
+
+                Context.Bus.Set("InputStageDieComplete");
+                WriteLog("InputStageExchangeReady",
+                    "FrontPicker가 InputStage Pick 대상 없음과 자기 Picker 전체 Avoid를 확인하고 교체 준비 신호를 발행했습니다. " +
+                    "signal=InputStageDieComplete - Ok");
+            }
+            catch (Exception ex)
+            {
+                WriteLog("InputStageExchangeReady",
+                    "FrontPicker InputStage 교체 준비 신호 판단 중 예외가 발생했습니다. error=" + ex.Message + " - Failed");
+            }
+        }
+
+        private void ObserveWaferCompletionRun()
+        {
+            WaferCompletionRunCoordinator completion = Context != null ? Context.WaferCompletion : null;
+            if (completion != null && completion.Enabled)
+                completion.ObserveCompletionSignals();
+        }
+
+        private bool ShouldBlockNewPickForWaferCompletion()
+        {
+            ObserveWaferCompletionRun();
+            WaferCompletionRunCoordinator completion = Context != null ? Context.WaferCompletion : null;
+            return completion != null && completion.Enabled && completion.IsDrainRequested;
+        }
+
+        private bool IsWaferCompletionRunComplete()
+        {
+            ObserveWaferCompletionRun();
+            WaferCompletionRunCoordinator completion = Context != null ? Context.WaferCompletion : null;
+            return completion != null && completion.Enabled && completion.IsRunComplete;
         }
 
         private bool IsFrontPickerEnabled()

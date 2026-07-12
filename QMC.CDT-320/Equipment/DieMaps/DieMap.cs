@@ -27,7 +27,7 @@ namespace QMC.CDT320.DieMaps
         [DataMember] public double    PosY        { get; set; }
         /// <summary>웨이퍼 중심을 0으로 한 장비 Grid X. 좌측 -, 우측 +.</summary>
         [DataMember] public double    EquipmentGridX { get; set; } = double.NaN;
-        /// <summary>웨이퍼 중심을 0으로 한 장비 Grid Y. 아래 -, 위 +.</summary>
+        /// <summary>웨이퍼 중심을 0으로 한 장비 Grid Y. 위 -, 아래 +.</summary>
         [DataMember] public double    EquipmentGridY { get; set; } = double.NaN;
         /// <summary>해당 셀에 매핑된 Die.Uid (없으면 빈 문자열).</summary>
         [DataMember] public string    DieUid   { get; set; } = "";

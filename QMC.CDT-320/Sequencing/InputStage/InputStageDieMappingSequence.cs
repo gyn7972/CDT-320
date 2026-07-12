@@ -1186,7 +1186,9 @@ namespace QMC.CDT320.Sequencing
                             Result = DieResult.Unknown,
                             BinCode = target ? (sourceEntry != null ? sourceEntry.BinCode : 0) : 0,
                             EquipmentGridX = sourceEntry != null ? sourceEntry.EquipmentGridX : mapX - Math.Max(0, dieMapX - 1) / 2.0,
-                            EquipmentGridY = sourceEntry != null ? sourceEntry.EquipmentGridY : Math.Max(0, dieMapY - 1) / 2.0 - mapY,
+                            EquipmentGridY = sourceEntry != null
+                                ? sourceEntry.EquipmentGridY
+                                : DieMapGenerator.CalculateEquipmentGridY(mapY, dieMapY),
                             PosX = x,
                             PosY = y,
                             DieUid = sourceEntry != null && !string.IsNullOrWhiteSpace(sourceEntry.DieUid)

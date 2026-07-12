@@ -370,6 +370,7 @@
     <Compile Include="Sequencing\Common\SequenceStopException.cs" />
     <Compile Include="Sequencing\Common\SequenceFailureStore.cs" />
     <Compile Include="Sequencing\Common\MachineSequenceContext.cs" />
+    <Compile Include="Sequencing\Common\WaferCompletionRunCoordinator.cs" />
     <Compile Include="Sequencing\Common\SequenceLog.cs" />
     <Compile Include="Sequencing\Common\SequenceTrace.cs" />
     <Compile Include="Sequencing\Common\SequenceTactTimeExtensions.cs" />
