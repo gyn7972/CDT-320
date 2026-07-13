@@ -41,6 +41,7 @@ namespace QMC.CDT320.Sequencing
         private static readonly object SimVisionRandomLock = new object();
         private static readonly Random SimVisionRandom = new Random();
         private const double AlignPitchCompareToleranceMm = 0.05;
+        private const double AlignCenterToleranceMm = 0.05;
         private WaferMapData _map;
         private WaferMaterial _wafer;
         private TapeFrameSpec _frameSpec;
@@ -67,6 +68,13 @@ namespace QMC.CDT320.Sequencing
         private int _alignAnchorCol;
         private double _alignAnchorX;
         private double _alignAnchorY;
+        private bool _alignProcessReferenceReady;
+        private double _alignProcessReferenceX;
+        private double _alignProcessReferenceY;
+        private bool _finalAlignOffsetReady;
+        private double _finalAlignOffsetX;
+        private double _finalAlignOffsetY;
+        private bool _preserveThetaOnProcessMove;
         private Task<VisionAlignResult> _pendingVisionTask;
         private CancellationTokenSource _pendingVisionCts;
         private string _pendingVisionStepName;
@@ -204,7 +212,6 @@ namespace QMC.CDT320.Sequencing
 
                 Stage.ClearWaferAlignThetaResult();
                 MaterialStateService.ResetInputStageThetaAlignResult(_wafer, "InputStageAlignStartThetaReset");
-                CaptureAlignThetaReference("CheckUnit");
 
                 _frameSpec = ResolveFrameSpecForWafer(_wafer);
                 string waferId = !string.IsNullOrWhiteSpace(Options.WaferId) ? Options.WaferId : _wafer.WaferId;
@@ -262,6 +269,13 @@ namespace QMC.CDT320.Sequencing
             _alignAnchorCol = 0;
             _alignAnchorX = 0.0;
             _alignAnchorY = 0.0;
+            _alignProcessReferenceReady = false;
+            _alignProcessReferenceX = 0.0;
+            _alignProcessReferenceY = 0.0;
+            _finalAlignOffsetReady = false;
+            _finalAlignOffsetX = 0.0;
+            _finalAlignOffsetY = 0.0;
+            _preserveThetaOnProcessMove = false;
             ClearPendingVisionRequest();
         }
 
@@ -275,6 +289,21 @@ namespace QMC.CDT320.Sequencing
                     int result = await PrepareVisionProcessPlaneForAlignAsync(ct).ConfigureAwait(false);
                     if (result != 0) return result;
                 }
+
+                if (!_alignThetaReferenceReady)
+                {
+                    CaptureAlignThetaReference(Options.EnableMotion ? "StageTProcessPosition" : "MotionDisabled");
+                }
+                else
+                {
+                    WriteLog("InputStageAlignSequence",
+                        "Align theta reference is preserved across correction retry. referenceT=" +
+                        _alignThetaReferenceT.ToString("F6") +
+                        ", actualT=" + (Stage.StageT != null ? Stage.StageT.ActualPosition.ToString("F6") : "0.000000") +
+                        " - Ok");
+                }
+
+                _preserveThetaOnProcessMove = false;
 
                 CurrentStep = InputStageAlignStep.MoveCenterMarkPosition;
                 return 0;
@@ -302,33 +331,26 @@ namespace QMC.CDT320.Sequencing
             bool stageZAtProcess = Stage.Recipe.WaferZ != null &&
                 IsAxisInPosition(ResolveStageAxis(WaferStageAxis.WaferExpandingZ), Stage.Recipe.WaferZ.ProcessPosition);
 
-            if (stageZAtProcess)
+            if (!stageZAtProcess)
             {
-                result = await MoveAxisAndVerifyAsync(
-                    WaferStageAxis.NeedleX,
-                    Stage.Recipe.NeedleX.AvoidPosition,
-                    "NeedleX avoid before process plane move",
-                    ct).ConfigureAwait(false);
+                result = await EnsureStageTFixedBeforeExpanderZMoveAsync(ct).ConfigureAwait(false);
                 if (result != 0) return result;
 
-                WriteLog("InputStageAlignSequence",
-                    "StageZ already at process position. Skip StageZ avoid/process move before align process plane move. " +
-                    BuildAxisState(WaferStageAxis.WaferExpandingZ, Stage.Recipe.WaferZ.ProcessPosition) + " - Ok");
-
-                return await MoveVisionProcessPlaneAxesAsync(ct).ConfigureAwait(false);
+                if (Stage.Recipe.WaferZ != null)
+                {
+                    result = await MoveAxisAndVerifyAsync(
+                        WaferStageAxis.WaferExpandingZ,
+                        Stage.Recipe.WaferZ.ProcessPosition,
+                        "StageZ process before process plane move",
+                        ct).ConfigureAwait(false);
+                    if (result != 0) return result;
+                }
             }
-
-            result = await EnsureStageTFixedBeforeExpanderZMoveAsync(ct).ConfigureAwait(false);
-            if (result != 0) return result;
-
-            if (Stage.Recipe.WaferZ != null)
+            else
             {
-                result = await MoveAxisAndVerifyAsync(
-                    WaferStageAxis.WaferExpandingZ,
-                    Stage.Recipe.WaferZ.AvoidPosition,
-                    "StageZ avoid before process plane move",
-                    ct).ConfigureAwait(false);
-                if (result != 0) return result;
+                WriteLog("InputStageAlignSequence",
+                    "StageZ already at process position. Skip StageZ process move before align process plane move. " +
+                    BuildAxisState(WaferStageAxis.WaferExpandingZ, Stage.Recipe.WaferZ.ProcessPosition) + " - Ok");
             }
 
             result = await MoveAxisAndVerifyAsync(
@@ -341,12 +363,24 @@ namespace QMC.CDT320.Sequencing
             result = await MoveVisionProcessPlaneAxesAsync(ct).ConfigureAwait(false);
             if (result != 0) return result;
 
-            if (Stage.Recipe.WaferZ != null)
+            if (!IsExpanderZSafeForStageTProcessMove())
+                return Fail("IN-STAGE-ALIGN-STAGE-T-SAFETY", Stage.Name,
+                    "StageT process move requires ExpanderZ at Process or at/below Avoid. " +
+                    BuildAxisState(WaferStageAxis.WaferExpandingZ, Stage.Recipe.WaferZ.ProcessPosition));
+
+            if (_preserveThetaOnProcessMove)
+            {
+                WriteLog("InputStageAlignSequence",
+                    "StageT process move skipped to preserve the applied two point correction. actualT=" +
+                    (Stage.StageT != null ? Stage.StageT.ActualPosition.ToString("F6") : "0.000000") +
+                    ", recipeProcessT=" + Stage.Recipe.WaferT.ProcessPosition.ToString("F6") + " - Ok");
+            }
+            else
             {
                 result = await MoveAxisAndVerifyAsync(
-                    WaferStageAxis.WaferExpandingZ,
-                    Stage.Recipe.WaferZ.ProcessPosition,
-                    "StageZ process",
+                    WaferStageAxis.WaferT,
+                    Stage.Recipe.WaferT.ProcessPosition,
+                    "StageT process before align",
                     ct).ConfigureAwait(false);
                 if (result != 0) return result;
             }
@@ -439,6 +473,29 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
+        private bool IsExpanderZSafeForStageTProcessMove()
+        {
+            try
+            {
+                Stage.Recipe.EnsurePositionObjects();
+
+                QMC.Common.Motion.BaseAxis expanderZ = ResolveStageAxis(WaferStageAxis.WaferExpandingZ);
+                if (expanderZ == null || Stage.Recipe.WaferZ == null || expanderZ.IsMoving || expanderZ.IsAlarm)
+                    return false;
+
+                return IsAxisInPosition(expanderZ, Stage.Recipe.WaferZ.ProcessPosition) ||
+                    IsAxisInPosition(expanderZ, Stage.Recipe.WaferZ.AvoidPosition) ||
+                    expanderZ.ActualPosition <= 0.0;
+            }
+            catch
+            {
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
         private Task<int> MoveCenterMarkPositionAsync(CancellationToken ct)
         {
             try
@@ -452,6 +509,7 @@ namespace QMC.CDT320.Sequencing
 
                     int centerRow = _map != null ? _map.RowCount / 2 : 0;
                     int centerCol = _map != null ? _map.ColumnCount / 2 : 0;
+                    CaptureAlignProcessReferenceIfNeeded("center mark process position");
                     CaptureAlignAnchorFromCurrentPosition(centerRow, centerCol, "center mark");
                 }
 
@@ -513,7 +571,13 @@ namespace QMC.CDT320.Sequencing
                     return Fail("IN-STAGE-ALIGN-CENTER", "Vision",
                         "Wafer Align Center 다이를 찾지 못했습니다. 센터와 주변 8방향 탐색을 모두 실패했습니다.");
 
-                CaptureAlignAnchorFromVisionResult(_centerResult, VisionAlignTargetIds.Center);
+                int centerMoveResult = await ApplyCenterVisionCorrectionAsync(
+                    _centerResult,
+                    VisionAlignTargetIds.Center,
+                    ct).ConfigureAwait(false);
+                if (centerMoveResult != 0)
+                    return centerMoveResult;
+
                 CurrentStep = InputStageAlignStep.CorrectTheta;
                 return 0;
             }
@@ -542,11 +606,19 @@ namespace QMC.CDT320.Sequencing
                 }
 
                 double deltaTheta = _centerResult != null ? _centerResult.DeltaTheta : 0.0;
-                int limitResult = CheckThetaCorrectionLimit(deltaTheta, VisionAlignTargetIds.Center);
+                double correctionTheta = -deltaTheta;
+                int limitResult = CheckThetaCorrectionLimit(correctionTheta, VisionAlignTargetIds.Center);
                 if (limitResult != 0)
                     return limitResult;
 
-                double targetT = Stage.StageT.ActualPosition + deltaTheta;
+                double currentT = Stage.StageT.ActualPosition;
+                double targetT = currentT + correctionTheta;
+                WriteLog("InputStageAlignSequence",
+                    "Center theta correction formula. currentT=" + currentT.ToString("F6") +
+                    ", visionDeltaTheta=" + deltaTheta.ToString("F6") +
+                    ", correctionTheta=-visionDeltaTheta=" + correctionTheta.ToString("F6") +
+                    ", targetT=currentT+correctionTheta=" + targetT.ToString("F6") + " - Start");
+
                 int result = await MoveAxisAndVerifyAsync(WaferStageAxis.WaferT, targetT, "StageT theta correction", ct, true).ConfigureAwait(false);
                 if (result != 0) return result;
 
@@ -608,7 +680,13 @@ namespace QMC.CDT320.Sequencing
                     return Fail("IN-STAGE-ALIGN-THETA-VERIFY", "Vision",
                         "Wafer Align T 보정 확인용 Center 다이를 찾지 못했습니다. 센터와 주변 8방향 탐색을 모두 실패했습니다.");
 
-                CaptureAlignAnchorFromVisionResult(_verifyCenterResult, VisionAlignTargetIds.CenterVerify);
+                int centerMoveResult = await ApplyCenterVisionCorrectionAsync(
+                    _verifyCenterResult,
+                    VisionAlignTargetIds.CenterVerify,
+                    ct).ConfigureAwait(false);
+                if (centerMoveResult != 0)
+                    return centerMoveResult;
+
                 double theta = Math.Abs(_verifyCenterResult.DeltaTheta);
                 double tolerance = ResolveThetaTolerance();
                 if (theta <= tolerance)
@@ -701,8 +779,11 @@ namespace QMC.CDT320.Sequencing
                 if (_ref1Result == null)
                     return Fail("IN-STAGE-ALIGN-REF1", "Vision", "Ref1 vision offset receive failed.");
 
-                _ref1X = Stage.CameraX.ActualPosition + _ref1Result.DeltaX;
-                _ref1Y = Stage.StageY.ActualPosition + _ref1Result.DeltaY;
+                ResolveAlignPointFromVisionResult(
+                    _ref1Result,
+                    VisionAlignTargetIds.Ref1,
+                    out _ref1X,
+                    out _ref1Y);
                 CurrentStep = InputStageAlignStep.MoveRef2Position;
                 return 0;
             }
@@ -778,8 +859,11 @@ namespace QMC.CDT320.Sequencing
                 if (_ref2Result == null)
                     return Fail("IN-STAGE-ALIGN-REF2", "Vision", "Ref2 vision offset receive failed.");
 
-                _ref2X = Stage.CameraX.ActualPosition + _ref2Result.DeltaX;
-                _ref2Y = Stage.StageY.ActualPosition + _ref2Result.DeltaY;
+                ResolveAlignPointFromVisionResult(
+                    _ref2Result,
+                    VisionAlignTargetIds.Ref2,
+                    out _ref2X,
+                    out _ref2Y);
                 CurrentStep = InputStageAlignStep.CalculateAlignResult;
                 return 0;
             }
@@ -832,6 +916,23 @@ namespace QMC.CDT320.Sequencing
                 _originY = _ref1Y - (_map.Ref1Row * _pitchY);
 
                 _thetaFromTwoPoint = Math.Atan2(_ref2Y - _ref1Y, _ref2X - _ref1X) * 180.0 / Math.PI;
+                WriteLog("InputStageAlignSequence",
+                    "Two point align formula. ref1Row=" + _map.Ref1Row +
+                    ", ref1Col=" + _map.Ref1Col +
+                    ", ref1X=" + _ref1X.ToString("F6") +
+                    ", ref1Y=" + _ref1Y.ToString("F6") +
+                    ", ref2Row=" + _map.Ref2Row +
+                    ", ref2Col=" + _map.Ref2Col +
+                    ", ref2X=" + _ref2X.ToString("F6") +
+                    ", ref2Y=" + _ref2Y.ToString("F6") +
+                    ", deltaX=ref2X-ref1X=" + (_ref2X - _ref1X).ToString("F6") +
+                    ", deltaY=ref2Y-ref1Y=" + (_ref2Y - _ref1Y).ToString("F6") +
+                    ", theta=atan2(deltaY,deltaX)=" + _thetaFromTwoPoint.ToString("F6") +
+                    ", pitchX=" + _pitchX.ToString("F6") +
+                    ", pitchY=" + _pitchY.ToString("F6") +
+                    ", originX=ref1X-ref1Col*pitchX=" + _originX.ToString("F6") +
+                    ", originY=ref1Y-ref1Row*pitchY=" + _originY.ToString("F6") + " - Check");
+
                 double thetaTolerance = ResolveThetaTolerance();
                 double thetaAbs = Math.Abs(_thetaFromTwoPoint);
                 if (ShouldCorrectTwoPointTheta(thetaAbs, thetaTolerance))
@@ -922,6 +1023,7 @@ namespace QMC.CDT320.Sequencing
 
                 ClearRefAlignRuntimeState();
                 _thetaRetryCount = 0;
+                _preserveThetaOnProcessMove = true;
                 CurrentStep = InputStageAlignStep.MoveVisionProcessPosition;
                 return 0;
             }
@@ -971,6 +1073,14 @@ namespace QMC.CDT320.Sequencing
                         ct).ConfigureAwait(false);
                     if (result != 0)
                         return result;
+
+                    result = await VerifyFinalCenterAsync(ct).ConfigureAwait(false);
+                    if (result != 0)
+                        return result;
+                }
+                else
+                {
+                    CaptureFinalAlignOffsets("MotionDisabled");
                 }
 
                 CurrentStep = InputStageAlignStep.ApplyAlignResult;
@@ -1012,8 +1122,11 @@ namespace QMC.CDT320.Sequencing
         {
             try
             {
-                double offsetX = _centerResult != null ? _centerResult.DeltaX : 0.0;
-                double offsetY = _centerResult != null ? _centerResult.DeltaY : 0.0;
+                if (!_finalAlignOffsetReady)
+                    CaptureFinalAlignOffsets("ApplyAlignResultFallback");
+
+                double offsetX = _finalAlignOffsetX;
+                double offsetY = _finalAlignOffsetY;
                 double referenceT = ResolveAlignThetaReference();
                 double correctedT = Stage.StageT != null ? Stage.StageT.ActualPosition : referenceT;
                 double offsetT = NormalizeThetaOffset(correctedT - referenceT);
@@ -1031,6 +1144,17 @@ namespace QMC.CDT320.Sequencing
                 if (!Stage.IsWaferAlignThetaOffsetWithinLimit(offsetT, out thetaReadyReason))
                     return FailAndResetAlignRuntimeState("IN-STAGE-ALIGN-THETA-LIMIT", Stage.Name,
                         "Final theta offset is outside limit. " + thetaReadyReason);
+
+                WriteLog("InputStageAlignSequence",
+                    "Final align result formula. processReferenceX=" + _alignProcessReferenceX.ToString("F6") +
+                    ", processReferenceY=" + _alignProcessReferenceY.ToString("F6") +
+                    ", finalCenterX=" + (Stage.CameraX != null ? Stage.CameraX.ActualPosition.ToString("F6") : "0.000000") +
+                    ", finalCenterY=" + (Stage.StageY != null ? Stage.StageY.ActualPosition.ToString("F6") : "0.000000") +
+                    ", offsetX=finalCenterX-processReferenceX=" + offsetX.ToString("F6") +
+                    ", offsetY=finalCenterY-processReferenceY=" + offsetY.ToString("F6") +
+                    ", referenceT=" + referenceT.ToString("F6") +
+                    ", correctedT=" + correctedT.ToString("F6") +
+                    ", offsetT=correctedT-referenceT=" + offsetT.ToString("F6") + " - Ok");
 
                 Stage.ApplyWaferAlignResult(_originX, _originY, _pitchX, _pitchY, offsetX, offsetY);
                 Stage.ApplyWaferAlignThetaResult(referenceT, correctedT, offsetT);
@@ -1800,6 +1924,63 @@ namespace QMC.CDT320.Sequencing
                 ", anchorY=" + _alignAnchorY.ToString("F6") + " - Ok");
         }
 
+        private void CaptureAlignProcessReferenceIfNeeded(string description)
+        {
+            if (_alignProcessReferenceReady)
+                return;
+
+            _alignProcessReferenceX = Stage != null && Stage.CameraX != null ? Stage.CameraX.ActualPosition : 0.0;
+            _alignProcessReferenceY = Stage != null && Stage.StageY != null ? Stage.StageY.ActualPosition : 0.0;
+            _alignProcessReferenceReady = true;
+
+            WriteLog("InputStageAlignSequence",
+                "Align process reference captured. description=" + description +
+                ", processReferenceX=" + _alignProcessReferenceX.ToString("F6") +
+                ", processReferenceY=" + _alignProcessReferenceY.ToString("F6") + " - Ok");
+        }
+
+        private void ResolveInputCameraMotorCorrection(
+            VisionAlignResult result,
+            string description,
+            out double inputDeltaX,
+            out double inputDeltaY,
+            out double moveDeltaX,
+            out double moveDeltaY)
+        {
+            inputDeltaX = 0.0;
+            inputDeltaY = 0.0;
+            moveDeltaX = 0.0;
+            moveDeltaY = 0.0;
+            if (result == null)
+                return;
+
+            double inputToBottomOffsetX = 0.0;
+            double inputToBottomOffsetY = 0.0;
+            bool resultIncludesBottomReference = !IsSimulationOrDryRun() || IsDryRunWithVisionConnected();
+            bool bottomReferenceRemoved = resultIncludesBottomReference &&
+                InputPickerPickTargetResolver.TryResolveInputCameraToBottomOffsets(
+                    Context != null ? Context.Machine : null,
+                    out inputToBottomOffsetX,
+                    out inputToBottomOffsetY);
+
+            inputDeltaX = result.DeltaX - (bottomReferenceRemoved ? inputToBottomOffsetX : 0.0);
+            inputDeltaY = result.DeltaY - (bottomReferenceRemoved ? inputToBottomOffsetY : 0.0);
+            moveDeltaX = inputDeltaX;
+            moveDeltaY = -inputDeltaY;
+
+            WriteLog("InputStageAlignSequence",
+                "Input camera motor correction formula. description=" + description +
+                ", rawVisionDx=" + result.DeltaX.ToString("F6") +
+                ", rawVisionDy=" + result.DeltaY.ToString("F6") +
+                ", bottomReferenceRemoved=" + bottomReferenceRemoved +
+                ", inputToBottomOffsetX=" + inputToBottomOffsetX.ToString("F6") +
+                ", inputToBottomOffsetY=" + inputToBottomOffsetY.ToString("F6") +
+                ", inputDeltaX=rawDx-offsetX=" + inputDeltaX.ToString("F6") +
+                ", inputDeltaY=rawDy-offsetY=" + inputDeltaY.ToString("F6") +
+                ", moveDeltaX=inputDeltaX=" + moveDeltaX.ToString("F6") +
+                ", moveDeltaY=-inputDeltaY=" + moveDeltaY.ToString("F6") + " - Ok");
+        }
+
         private void CaptureAlignAnchorFromVisionResult(VisionAlignResult result, string description)
         {
             if (result == null || Stage == null)
@@ -1812,17 +1993,207 @@ namespace QMC.CDT320.Sequencing
                 CaptureAlignAnchorFromCurrentPosition(centerRow, centerCol, description);
             }
 
-            _alignAnchorX = (Stage.CameraX != null ? Stage.CameraX.ActualPosition : 0.0) + result.DeltaX;
-            _alignAnchorY = (Stage.StageY != null ? Stage.StageY.ActualPosition : 0.0) + result.DeltaY;
+            double inputDeltaX;
+            double inputDeltaY;
+            double moveDeltaX;
+            double moveDeltaY;
+            ResolveInputCameraMotorCorrection(
+                result,
+                description,
+                out inputDeltaX,
+                out inputDeltaY,
+                out moveDeltaX,
+                out moveDeltaY);
+
+            double currentX = Stage.CameraX != null ? Stage.CameraX.ActualPosition : 0.0;
+            double currentY = Stage.StageY != null ? Stage.StageY.ActualPosition : 0.0;
+            _alignAnchorX = currentX + moveDeltaX;
+            _alignAnchorY = currentY + moveDeltaY;
 
             WriteLog("InputStageAlignSequence",
                 "Align anchor updated from vision result. description=" + description +
                 ", row=" + _alignAnchorRow +
                 ", col=" + _alignAnchorCol +
+                ", currentX=" + currentX.ToString("F6") +
+                ", currentY=" + currentY.ToString("F6") +
                 ", anchorX=" + _alignAnchorX.ToString("F6") +
                 ", anchorY=" + _alignAnchorY.ToString("F6") +
-                ", dx=" + result.DeltaX.ToString("F6") +
-                ", dy=" + result.DeltaY.ToString("F6") + " - Ok");
+                ", formulaX=currentX+inputDeltaX" +
+                ", formulaY=currentY-inputDeltaY" +
+                ", inputDeltaX=" + inputDeltaX.ToString("F6") +
+                ", inputDeltaY=" + inputDeltaY.ToString("F6") + " - Ok");
+        }
+
+        private async Task<int> ApplyCenterVisionCorrectionAsync(
+            VisionAlignResult result,
+            string description,
+            CancellationToken ct)
+        {
+            CaptureAlignAnchorFromVisionResult(result, description);
+            if (!Options.EnableMotion)
+                return 0;
+
+            string areaReason;
+            if (!Stage.IsInputStageWorkPointInArea(_alignAnchorX, _alignAnchorY, out areaReason))
+                return Fail("IN-STAGE-ALIGN-CENTER-WORK-AREA", Stage.Name,
+                    description + " center correction target is outside input stage work area. targetX=" +
+                    _alignAnchorX.ToString("F6") +
+                    ", targetY=" + _alignAnchorY.ToString("F6") +
+                    ", reason=" + areaReason);
+
+            WriteLog("InputStageAlignSequence",
+                "Apply center motor correction. description=" + description +
+                ", targetX=currentX+inputDeltaX=" + _alignAnchorX.ToString("F6") +
+                ", targetY=currentY-inputDeltaY=" + _alignAnchorY.ToString("F6") + " - Start");
+
+            int resultCode = await MoveVisionXYPointSafelyAsync(
+                _alignAnchorX,
+                _alignAnchorY,
+                description + " center correction",
+                ct).ConfigureAwait(false);
+            if (resultCode != 0)
+                return resultCode;
+
+            WriteLog("InputStageAlignSequence",
+                "Center motor correction completed. description=" + description +
+                ", actualX=" + (Stage.CameraX != null ? Stage.CameraX.ActualPosition.ToString("F6") : "0.000000") +
+                ", actualY=" + (Stage.StageY != null ? Stage.StageY.ActualPosition.ToString("F6") : "0.000000") +
+                ", targetX=" + _alignAnchorX.ToString("F6") +
+                ", targetY=" + _alignAnchorY.ToString("F6") + " - Ok");
+            return 0;
+        }
+
+        private void ResolveAlignPointFromVisionResult(
+            VisionAlignResult result,
+            string description,
+            out double pointX,
+            out double pointY)
+        {
+            double inputDeltaX;
+            double inputDeltaY;
+            double moveDeltaX;
+            double moveDeltaY;
+            ResolveInputCameraMotorCorrection(
+                result,
+                description,
+                out inputDeltaX,
+                out inputDeltaY,
+                out moveDeltaX,
+                out moveDeltaY);
+
+            double currentX = Stage != null && Stage.CameraX != null ? Stage.CameraX.ActualPosition : 0.0;
+            double currentY = Stage != null && Stage.StageY != null ? Stage.StageY.ActualPosition : 0.0;
+            pointX = currentX + moveDeltaX;
+            pointY = currentY + moveDeltaY;
+
+            WriteLog("InputStageAlignSequence",
+                "Align reference point formula. description=" + description +
+                ", pointX=currentX+inputDeltaX=" + pointX.ToString("F6") +
+                ", pointY=currentY-inputDeltaY=" + pointY.ToString("F6") +
+                ", currentX=" + currentX.ToString("F6") +
+                ", currentY=" + currentY.ToString("F6") +
+                ", inputDeltaX=" + inputDeltaX.ToString("F6") +
+                ", inputDeltaY=" + inputDeltaY.ToString("F6") + " - Ok");
+        }
+
+        private async Task<int> VerifyFinalCenterAsync(CancellationToken ct)
+        {
+            int maxCorrectionMoves = Math.Max(1, Options.AlignRetryCount);
+            string targetId = ResolveTargetId(Options.CenterAlignTargetId, VisionAlignTargetIds.Center);
+
+            for (int attempt = 1; attempt <= maxCorrectionMoves + 1; attempt++)
+            {
+                ct.ThrowIfCancellationRequested();
+                VisionAlignResult result = await RequestVisionPcOffsetWithRetryAsync(
+                    targetId,
+                    "FinalCenterVerify" + attempt,
+                    ct).ConfigureAwait(false);
+                if (result == null)
+                    return Fail("IN-STAGE-ALIGN-FINAL-CENTER-VISION", "Vision",
+                        "Final center verification vision result was not received. attempt=" + attempt);
+
+                double inputDeltaX;
+                double inputDeltaY;
+                double moveDeltaX;
+                double moveDeltaY;
+                ResolveInputCameraMotorCorrection(
+                    result,
+                    "FinalCenterVerify" + attempt,
+                    out inputDeltaX,
+                    out inputDeltaY,
+                    out moveDeltaX,
+                    out moveDeltaY);
+
+                double thetaAbs = Math.Abs(result.DeltaTheta);
+                double thetaTolerance = ResolveThetaTolerance();
+                bool centerOk = Math.Abs(moveDeltaX) <= AlignCenterToleranceMm &&
+                    Math.Abs(moveDeltaY) <= AlignCenterToleranceMm;
+                bool thetaOk = thetaAbs <= thetaTolerance;
+
+                WriteLog("InputStageAlignSequence",
+                    "Final center verification. attempt=" + attempt +
+                    ", maxCorrectionMoves=" + maxCorrectionMoves +
+                    ", moveDeltaX=" + moveDeltaX.ToString("F6") +
+                    ", moveDeltaY=" + moveDeltaY.ToString("F6") +
+                    ", centerTolerance=" + AlignCenterToleranceMm.ToString("F6") +
+                    ", deltaTheta=" + result.DeltaTheta.ToString("F6") +
+                    ", thetaTolerance=" + thetaTolerance.ToString("F6") +
+                    ", centerOk=" + centerOk +
+                    ", thetaOk=" + thetaOk + " - Check");
+
+                if (!thetaOk)
+                    return Fail("IN-STAGE-ALIGN-FINAL-THETA-TOL", Stage.Name,
+                        "Final center theta is out of tolerance. deltaTheta=" + result.DeltaTheta.ToString("F6") +
+                        ", tolerance=" + thetaTolerance.ToString("F6"));
+
+                if (centerOk)
+                {
+                    int centerRow = _map != null ? _map.RowCount / 2 : _alignAnchorRow;
+                    int centerCol = _map != null ? _map.ColumnCount / 2 : _alignAnchorCol;
+                    CaptureAlignAnchorFromCurrentPosition(centerRow, centerCol, "final center verified");
+                    CaptureFinalAlignOffsets("FinalCenterVerify" + attempt);
+                    return 0;
+                }
+
+                if (attempt > maxCorrectionMoves)
+                    return Fail("IN-STAGE-ALIGN-FINAL-CENTER-TOL", Stage.Name,
+                        "Final center offset is out of tolerance after correction. moveDeltaX=" +
+                        moveDeltaX.ToString("F6") +
+                        ", moveDeltaY=" + moveDeltaY.ToString("F6") +
+                        ", tolerance=" + AlignCenterToleranceMm.ToString("F6") +
+                        ", correctionMoves=" + maxCorrectionMoves);
+
+                int moveResult = await ApplyCenterVisionCorrectionAsync(
+                    result,
+                    "FinalCenterCorrection" + attempt,
+                    ct).ConfigureAwait(false);
+                if (moveResult != 0)
+                    return moveResult;
+            }
+
+            return Fail("IN-STAGE-ALIGN-FINAL-CENTER", Stage.Name,
+                "Final center verification ended without a valid result.");
+        }
+
+        private void CaptureFinalAlignOffsets(string description)
+        {
+            if (!_alignProcessReferenceReady)
+                CaptureAlignProcessReferenceIfNeeded(description + " fallback");
+
+            double finalX = Stage != null && Stage.CameraX != null ? Stage.CameraX.ActualPosition : _alignAnchorX;
+            double finalY = Stage != null && Stage.StageY != null ? Stage.StageY.ActualPosition : _alignAnchorY;
+            _finalAlignOffsetX = finalX - _alignProcessReferenceX;
+            _finalAlignOffsetY = finalY - _alignProcessReferenceY;
+            _finalAlignOffsetReady = true;
+
+            WriteLog("InputStageAlignSequence",
+                "Final align offsets captured. description=" + description +
+                ", finalX=" + finalX.ToString("F6") +
+                ", finalY=" + finalY.ToString("F6") +
+                ", processReferenceX=" + _alignProcessReferenceX.ToString("F6") +
+                ", processReferenceY=" + _alignProcessReferenceY.ToString("F6") +
+                ", offsetX=finalX-processReferenceX=" + _finalAlignOffsetX.ToString("F6") +
+                ", offsetY=finalY-processReferenceY=" + _finalAlignOffsetY.ToString("F6") + " - Ok");
         }
 
         private void ResolveVisionPointTarget(int row, int col, out double targetX, out double targetY)

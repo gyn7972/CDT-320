@@ -267,12 +267,12 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             if (feederResult != 0)
                 return false;
 
-            int readyResult = await RunReadyBeforeStagePrepareAsync(host, ct, "WAFER BARCODE").ConfigureAwait(true);
-            if (readyResult != 0)
-                return false;
-
             int axisResult = await PrepareInputStageButtonProcessPlaneAsync(host, ct, "WAFER BARCODE").ConfigureAwait(true);
             if (axisResult != 0)
+                return false;
+
+            int readyResult = await RunReadyBeforeStagePrepareAsync(host, ct, "WAFER BARCODE").ConfigureAwait(true);
+            if (readyResult != 0)
                 return false;
 
             int stageResult = await CreateSequence(host).RunPrepareLoadAsync(ct, BuildOptions(host)).ConfigureAwait(true);
@@ -309,12 +309,12 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             if (feederResult != 0)
                 return false;
 
-            int readyResult = await RunReadyBeforeStagePrepareAsync(host, ct, "ALIGN").ConfigureAwait(true);
-            if (readyResult != 0)
-                return false;
-
             int axisResult = await PrepareInputStageButtonProcessPlaneAsync(host, ct, "ALIGN").ConfigureAwait(true);
             if (axisResult != 0)
+                return false;
+
+            int readyResult = await RunReadyBeforeStagePrepareAsync(host, ct, "ALIGN").ConfigureAwait(true);
+            if (readyResult != 0)
                 return false;
 
             return await CreateSequence(host).RunAlignAsync(ct, BuildOptions(host)).ConfigureAwait(true) == 0;
@@ -331,12 +331,12 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             if (feederResult != 0)
                 return false;
 
-            int readyResult = await RunReadyBeforeStagePrepareAsync(host, ct, "DIE MAPPING").ConfigureAwait(true);
-            if (readyResult != 0)
-                return false;
-
             int axisResult = await PrepareInputStageButtonProcessPlaneAsync(host, ct, "DIE MAPPING").ConfigureAwait(true);
             if (axisResult != 0)
+                return false;
+
+            int readyResult = await RunReadyBeforeStagePrepareAsync(host, ct, "DIE MAPPING").ConfigureAwait(true);
+            if (readyResult != 0)
                 return false;
 
             return await CreateSequence(host).RunDieMappingAsync(ct, BuildOptions(host)).ConfigureAwait(true) == 0;
@@ -372,12 +372,12 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             if (feederResult != 0)
                 return false;
 
-            int readyResult = await RunReadyBeforeStagePrepareAsync(host, ct, "AVOID").ConfigureAwait(true);
-            if (readyResult != 0)
-                return false;
-
             int axisResult = await PrepareInputStageButtonProcessPlaneAsync(host, ct, "AVOID").ConfigureAwait(true);
             if (axisResult != 0)
+                return false;
+
+            int readyResult = await RunReadyBeforeStagePrepareAsync(host, ct, "AVOID").ConfigureAwait(true);
+            if (readyResult != 0)
                 return false;
 
             return await CreateSequence(host).RunMoveAvoidAsync(ct, BuildOptions(host)).ConfigureAwait(true) == 0;
