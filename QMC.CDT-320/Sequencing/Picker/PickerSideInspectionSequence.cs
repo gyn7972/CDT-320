@@ -1581,10 +1581,10 @@ namespace QMC.CDT320.Sequencing
 
         private bool IsSideVisionConnected()
         {
-            QMC.CDT320.VisionComm.AutoVisionChannel channel = Side == PickerSequenceSide.Front
-                ? QMC.CDT320.VisionComm.AutoVisionChannel.FrontSide
-                : QMC.CDT320.VisionComm.AutoVisionChannel.RearSide;
-            return QMC.CDT320.VisionComm.VisionCommandService.IsConnected(channel);
+            return QMC.CDT320.VisionComm.VisionCommandService.IsConnected(
+                       QMC.CDT320.VisionComm.AutoVisionChannel.FrontSide) &&
+                   QMC.CDT320.VisionComm.VisionCommandService.IsConnected(
+                       QMC.CDT320.VisionComm.AutoVisionChannel.RearSide);
         }
 
         private TactTimeScope BeginDetailedTactScope(TactTimeCategory category, string processName, string stepName)

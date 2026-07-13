@@ -624,7 +624,7 @@ namespace QMC.CDT320
         public PickerFrontUnit() : base("PickerFrontUnit")
         {
             side = "Front";
-            vision = new QMC.CDT320.VisionComm.TpuVisionAdapter(QMC.CDT320.VisionComm.AutoVisionChannel.FrontSide);
+            vision = new QMC.CDT320.VisionComm.TpuVisionAdapter(0);
 
             PickerX = RegisterAxis(PickerAxis.PickerX, side + "PickerX");
             PickerY = RegisterAxis(PickerAxis.PickerY, side + "PickerY");
@@ -802,7 +802,7 @@ namespace QMC.CDT320
 
         public void SetRuntimePickerZPosition(int pickerIndex, string positionName, double position)
         {
-            PickerAxisPositionSet zPosition = GetPositionSet(GetPickerZAxis(pickerIndex));
+            PickerAxisPositionSet zPosition = GetPositionSet(GetPickerZAxis(pickerIndex + 1));
 
             if (string.Equals(positionName, "PickPosition", StringComparison.OrdinalIgnoreCase))
                 zPosition.PickPosition = position;

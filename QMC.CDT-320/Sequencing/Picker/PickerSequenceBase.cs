@@ -344,7 +344,12 @@ namespace QMC.CDT320.Sequencing
                     if (result != 0)
                         return result;
 
-                    ApplyRuntimeBottomFocusPosition(pickerIndex, bestZ);
+                    if (!ApplyRuntimeBottomFocusPosition(pickerIndex, bestZ))
+                    {
+                        return Fail("PICKER-BOTTOM-DIE-AUTOFOCUS-SAVE", Name,
+                            "생산 Bottom Die AutoFocus Best Z를 Picker별 BottomPosition에 저장하지 못했습니다. " +
+                            "side=" + Side + ", pickerNo=" + pickerNo + ", bestZ=" + bestZ.ToString("F6"));
+                    }
                     data.CompleteRuntimeAutoFocus(focusSide, pickerNo, waferKey);
                     SaveVisionFocusSettings("생산 Bottom Die AutoFocus 완료");
                     runtimeBottomAutoFocusCompletedForNextGrab = true;
@@ -430,19 +435,44 @@ namespace QMC.CDT320.Sequencing
 
         private static readonly object RuntimeBottomFocusRecipeSaveLock = new object();
 
-        private void ApplyRuntimeBottomFocusPosition(int pickerIndex, double bestZ)
+        private bool ApplyRuntimeBottomFocusPosition(int pickerIndex, double bestZ)
         {
-            if (Side == PickerSequenceSide.Front)
-                FrontPicker.SetRuntimePickerZPosition(pickerIndex, "FocusPosition", bestZ);
-            else
-                RearPicker.SetRuntimePickerZPosition(pickerIndex, "FocusPosition", bestZ);
+            try
+            {
+                if (Side == PickerSequenceSide.Front)
+                    FrontPicker.SetRuntimePickerZPosition(pickerIndex, "FocusPosition", bestZ);
+                else
+                    RearPicker.SetRuntimePickerZPosition(pickerIndex, "FocusPosition", bestZ);
 
-            // Runtime AutoFocus Best Z는 Recipe PickerZ BottomPosition에 반영되므로 파일까지 저장해
-            // 재시작 후에도 유지되게 한다.
-            SaveRuntimeBottomFocusRecipe(pickerIndex, bestZ);
+                double appliedZ = GetPickerTeachingPosition(GetPickerZAxis(pickerIndex), "BottomPosition");
+                if (Math.Abs(appliedZ - bestZ) > 0.000001)
+                {
+                    WriteLog("PickerAutoFocus",
+                        Name + " Runtime Bottom AutoFocus Best Z BottomPosition readback 불일치. " +
+                        "side=" + Side +
+                        ", pickerNo=" + (pickerIndex + 1) +
+                        ", bestZ=" + bestZ.ToString("F6") +
+                        ", appliedZ=" + appliedZ.ToString("F6") + " - Failed");
+                    return false;
+                }
+
+                // Runtime AutoFocus Best Z는 Picker별 Recipe BottomPosition에 반영하고 파일까지 저장해
+                // 다음 검사와 프로그램 재시작 후에도 같은 Z를 시작 기준으로 사용한다.
+                return SaveRuntimeBottomFocusRecipe(pickerIndex, bestZ);
+            }
+            catch (Exception ex)
+            {
+                WriteLog("PickerAutoFocus",
+                    Name + " Runtime Bottom AutoFocus Best Z BottomPosition 적용 중 예외. " +
+                    "side=" + Side +
+                    ", pickerNo=" + (pickerIndex + 1) +
+                    ", bestZ=" + bestZ.ToString("F6") +
+                    ", error=" + ex.Message + " - Failed");
+                return false;
+            }
         }
 
-        private void SaveRuntimeBottomFocusRecipe(int pickerIndex, double bestZ)
+        private bool SaveRuntimeBottomFocusRecipe(int pickerIndex, double bestZ)
         {
             try
             {
@@ -455,7 +485,7 @@ namespace QMC.CDT320.Sequencing
                         Name + " Runtime Bottom AutoFocus Best Z Recipe 저장 생략. 활성 Recipe 이름을 확인할 수 없습니다. " +
                         "pickerNo=" + (pickerIndex + 1) +
                         ", bestZ=" + bestZ.ToString("F6") + " - Failed");
-                    return;
+                    return false;
                 }
 
                 bool saved;
@@ -471,7 +501,7 @@ namespace QMC.CDT320.Sequencing
                         "재시작 시 이전 값으로 복원됩니다. pickerNo=" + (pickerIndex + 1) +
                         ", bestZ=" + bestZ.ToString("F6") +
                         ", recipe=" + recipeName + " - Failed");
-                    return;
+                    return false;
                 }
 
                 WriteLog("PickerAutoFocus",
@@ -480,6 +510,7 @@ namespace QMC.CDT320.Sequencing
                     ", pickerNo=" + (pickerIndex + 1) +
                     ", bestZ=" + bestZ.ToString("F6") +
                     ", recipe=" + recipeName + " - Ok");
+                return true;
             }
             catch (Exception ex)
             {
@@ -487,6 +518,7 @@ namespace QMC.CDT320.Sequencing
                     Name + " Runtime Bottom AutoFocus Best Z Recipe 저장 중 예외. pickerNo=" + (pickerIndex + 1) +
                     ", bestZ=" + bestZ.ToString("F6") +
                     ", error=" + ex.Message + " - Failed");
+                return false;
             }
             finally
             {

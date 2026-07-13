@@ -4938,6 +4938,7 @@ namespace QMC.CDT320.Sequencing
                 return result;
 
             await WaitAfterSyncLiftSettleAsync(config, ct).ConfigureAwait(false);
+            // Sync Lift는 이동 완료/InPosition 대기 결과를 사용하고 동일 목표의 최종 중복 체크는 수행하지 않는다.
             return 0;
         }
 
@@ -5050,7 +5051,8 @@ namespace QMC.CDT320.Sequencing
                 stage.Config.PickUpNeedleSyncLiftDec,
                 "PickUp PickerZ/EjectPinZ 개별 비동기 상승 PickerZ",
                 "PickUpSyncLift",
-                ct);
+                ct,
+                true);
             Task<int> ejectPinMove = MoveInputStageAxisWithMotionAndVerifyAsync(
                 stage,
                 WaferStageAxis.EjectPinZ,
@@ -5059,7 +5061,9 @@ namespace QMC.CDT320.Sequencing
                 stage.Config.PickUpNeedleSyncLiftAcc,
                 stage.Config.PickUpNeedleSyncLiftDec,
                 "PickUp PickerZ/EjectPinZ 개별 비동기 상승 EjectPinZ",
-                ct);
+                ct,
+                null,
+                true);
 
             int[] results = await Task.WhenAll(pickerMove, ejectPinMove).ConfigureAwait(false);
             if (results[0] != 0 || results[1] != 0)
@@ -5078,12 +5082,12 @@ namespace QMC.CDT320.Sequencing
                 return check;
 
             WriteLog("PickerPickUpSyncLift",
-                Name + " PickUp PickerZ/EjectPinZ async lift complete. pickerNo=" + _currentPickerNo +
+                Name + " PickUp PickerZ/EjectPinZ async lift move wait complete. pickerNo=" + _currentPickerNo +
                 ", ejectPinSyncLiftOffset=" + syncTargets.EjectPinSyncLiftOffset.ToString("F6") +
                 ", pickerZState=" + BuildPickerAxisState(pickerZ, syncTargets.PickerZ) +
                 ", ejectPinZState=" + BuildInputStageAxisState(stage, WaferStageAxis.EjectPinZ, syncTargets.EjectPinZ) +
                 ", needleZHoldState=" + BuildInputStageAxisState(stage, WaferStageAxis.NeedleZ, syncTargets.NeedleZ) +
-                " - Ok");
+                " - WaitSettle");
 
             return 0;
         }
@@ -5730,7 +5734,8 @@ namespace QMC.CDT320.Sequencing
             double deceleration,
             string description,
             string targetName,
-            CancellationToken ct)
+            CancellationToken ct,
+            bool deferFinalPositionCheck = false)
         {
             try
             {
@@ -5748,6 +5753,9 @@ namespace QMC.CDT320.Sequencing
                 int waitResult = await WaitPickerAxisInPositionResultAsync(axis, target, description, ct).ConfigureAwait(false);
                 if (waitResult != 0)
                     return waitResult;
+
+                if (deferFinalPositionCheck)
+                    return 0;
 
                 return CheckPickerAxisInPosition(axis, target, description);
             }
@@ -5774,7 +5782,8 @@ namespace QMC.CDT320.Sequencing
             double deceleration,
             string description,
             CancellationToken ct,
-            string guardTargetName = null)
+            string guardTargetName = null,
+            bool deferFinalPositionCheck = false)
         {
             try
             {
@@ -5812,6 +5821,9 @@ namespace QMC.CDT320.Sequencing
                 int waitResult = await WaitInputStageAxisInPositionResultAsync(stage, axis, target, description, ct).ConfigureAwait(false);
                 if (waitResult != 0)
                     return waitResult;
+
+                if (deferFinalPositionCheck)
+                    return 0;
 
                 return CheckInputStageAxisInPosition(stage, axis, target, description);
             }

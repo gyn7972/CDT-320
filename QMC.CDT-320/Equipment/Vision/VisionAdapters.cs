@@ -101,34 +101,50 @@ namespace QMC.CDT320.VisionComm
 
     /// <summary>
     /// Picker bottom/side vision adapter.
-    /// Bottom은 BottomInspection 채널을 사용하고, Side는 생성 시 전달받은 Front/Rear side 채널을 사용한다.
-    /// <para>8콜렛 규약: 이 어댑터의 side 채널이 곧 콜렛 그룹(fb)이다 — FrontSide=fb0, RearSide=fb1.
+    /// Bottom은 BottomInspection 채널을 사용하고, Side는 FrontSide/RearSide 두 카메라를 동시에 사용한다.
+    /// <para>8콜렛 규약: fb는 Picker 그룹(0=Front, 1=Rear)이며 카메라 채널과 독립적이다.
+    /// Side 0도는 channel=0, Side 90도는 channel=1을 두 카메라에 동일하게 전송한다.
     /// Vision 요청은 신형 고정 8파트("tool|fb|collet|die_index|channel|gridx;gridy")로 전송한다(키=die_index, 2026-07-06).</para>
     /// </summary>
     public class TpuVisionAdapter : IVisionTpuClient
     {
         private const double MatchScoreThreshold = 0.7;
-        private readonly AutoVisionChannel _sideChannel;
+        private readonly int _fb;
 
         public TpuVisionAdapter()
-            : this(AutoVisionChannel.BottomInspection)
+            : this(0)
         {
         }
 
-        public TpuVisionAdapter(AutoVisionChannel sideChannel)
+        public TpuVisionAdapter(int fb)
         {
-            _sideChannel = sideChannel;
+            if (fb < 0 || fb > 1)
+                throw new ArgumentOutOfRangeException("fb", "Picker group must be 0(Front) or 1(Rear).");
+
+            _fb = fb;
         }
 
-        /// <summary>콜렛 그룹 — 0=Front / 1=Back(Rear). side 채널 기준(SSOT=유닛 생성부).</summary>
+        public TpuVisionAdapter(AutoVisionChannel pickerGroupChannel)
+            : this(pickerGroupChannel == AutoVisionChannel.RearSide ? 1 : 0)
+        {
+        }
+
+        /// <summary>콜렛 그룹 — 0=Front / 1=Back(Rear). 카메라 채널과 독립적이다.</summary>
         private int Fb
         {
-            get { return _sideChannel == AutoVisionChannel.RearSide ? 1 : 0; }
+            get { return _fb; }
         }
 
-        private string SideSurfaceInspector
+        private static string ResolveSideSurfaceInspector(AutoVisionChannel cameraChannel)
         {
-            get { return _sideChannel == AutoVisionChannel.RearSide ? VisionToolIds.RearSide.SurfaceInspector : VisionToolIds.FrontSide.SurfaceInspector; }
+            return cameraChannel == AutoVisionChannel.RearSide
+                ? VisionToolIds.RearSide.SurfaceInspector
+                : VisionToolIds.FrontSide.SurfaceInspector;
+        }
+
+        private static int ResolveSideChannel(int angleDegOrSideNo)
+        {
+            return angleDegOrSideNo == 90 || angleDegOrSideNo == 2 ? 1 : 0;
         }
 
         /// <summary>콜렛의 비전 주소(die_index/grid) 조회 — 시퀀스가 <see cref="VisionDieAddressStore"/> 에
@@ -394,15 +410,13 @@ namespace QMC.CDT320.VisionComm
             return TriggerSideExposeAsync(pickerNo, sideNo, timeoutMs, CancellationToken.None);
         }
 
-        public Task<bool> TriggerSideExposeAsync(int pickerNo, int sideNo, int timeoutMs, CancellationToken ct)
+        public async Task<bool> TriggerSideExposeAsync(int pickerNo, int sideNo, int timeoutMs, CancellationToken ct)
         {
             int dieIndex, gridX, gridY;
             ResolveDieAddress(pickerNo, out dieIndex, out gridX, out gridY);
-            int ch = sideNo == 2 ? 1 : 0;
-            string inspector = SideSurfaceInspector;
+            int ch = ResolveSideChannel(sideNo);
             EventLogger.Write(EventKind.Event, "VISION", "AUTO-VISION-SIDE-GRAB",
-                "Side GRAB 요청 키 확인. camera=" + _sideChannel +
-                ", inspector=" + inspector +
+                "Side 양쪽 카메라 GRAB 요청 키 확인. cameras=FrontSide,RearSide" +
                 ", fb=" + Fb +
                 ", pickerNo=" + pickerNo +
                 ", collet=" + pickerNo +
@@ -412,17 +426,17 @@ namespace QMC.CDT320.VisionComm
                 ", grabIndex=" + (pickerNo * 10 + sideNo) +
                 ", timeoutMs=" + timeoutMs);
 
-            return AutoVisionRequestService.GrabInspectAsync(
-                _sideChannel,
-                inspector,
-                Fb,
-                pickerNo,
-                dieIndex,
-                ch,
-                gridX,
-                gridY,
-                timeoutMs,
-                ct);
+            Task<bool> frontTask = AutoVisionRequestService.GrabInspectAsync(
+                AutoVisionChannel.FrontSide,
+                ResolveSideSurfaceInspector(AutoVisionChannel.FrontSide),
+                Fb, pickerNo, dieIndex, ch, gridX, gridY, timeoutMs, ct);
+            Task<bool> rearTask = AutoVisionRequestService.GrabInspectAsync(
+                AutoVisionChannel.RearSide,
+                ResolveSideSurfaceInspector(AutoVisionChannel.RearSide),
+                Fb, pickerNo, dieIndex, ch, gridX, gridY, timeoutMs, ct);
+
+            bool[] results = await Task.WhenAll(frontTask, rearTask).ConfigureAwait(false);
+            return results.Length == 2 && results[0] && results[1];
         }
 
         public async Task<bool> StartSideInspectAsync(int pickerNo, int angleDeg, int timeoutMs, CancellationToken ct)
@@ -433,12 +447,12 @@ namespace QMC.CDT320.VisionComm
 
                 int dieIndex, gridX, gridY;
                 ResolveDieAddress(pickerNo, out dieIndex, out gridX, out gridY);
-                int ch = angleDeg == 90 ? 1 : 0;
-                string inspector = SideSurfaceInspector;
+                int ch = ResolveSideChannel(angleDeg);
 
                 EventLogger.Write(EventKind.Event, "VISION", "AUTO-VISION-SIDE-INSPECTASYNC",
-                    "Side 검사 시작 단건 요청. camera=" + _sideChannel +
-                    ", inspector=" + inspector +
+                    "Side 양쪽 카메라 검사 시작 요청. cameras=FrontSide,RearSide" +
+                    ", frontInspector=" + ResolveSideSurfaceInspector(AutoVisionChannel.FrontSide) +
+                    ", rearInspector=" + ResolveSideSurfaceInspector(AutoVisionChannel.RearSide) +
                     ", fb=" + Fb +
                     ", pickerNo=" + pickerNo +
                     ", collet=" + pickerNo +
@@ -447,22 +461,24 @@ namespace QMC.CDT320.VisionComm
                     ", grid=" + gridX + ";" + gridY +
                     ", timeoutMs=" + timeoutMs);
 
-                bool started = await AutoVisionRequestService.StartInspectColletAsync(
-                    _sideChannel,
-                    inspector,
-                    Fb,
-                    pickerNo,
-                    dieIndex,
-                    ch,
-                    gridX,
-                    gridY,
-                    timeoutMs,
-                    ct).ConfigureAwait(false);
+                Task<bool> frontTask = AutoVisionRequestService.StartInspectColletAsync(
+                    AutoVisionChannel.FrontSide,
+                    ResolveSideSurfaceInspector(AutoVisionChannel.FrontSide),
+                    Fb, pickerNo, dieIndex, ch, gridX, gridY, timeoutMs, ct);
+                Task<bool> rearTask = AutoVisionRequestService.StartInspectColletAsync(
+                    AutoVisionChannel.RearSide,
+                    ResolveSideSurfaceInspector(AutoVisionChannel.RearSide),
+                    Fb, pickerNo, dieIndex, ch, gridX, gridY, timeoutMs, ct);
+
+                bool[] startResults = await Task.WhenAll(frontTask, rearTask).ConfigureAwait(false);
+                bool started = startResults.Length == 2 && startResults[0] && startResults[1];
 
                 if (!started)
                 {
                     EventLogger.Write(EventKind.Alarm, "VISION", "AUTO-VISION-SIDE-INSPECTASYNC",
-                        "Side 검사 시작 EPD 수신 실패. 검사 NG가 아니라 Vision 촬상 완료 미수신입니다. camera=" + _sideChannel +
+                        "Side 검사 시작 EPD 수신 실패. 두 카메라 중 촬상 완료 미수신이 있습니다. " +
+                        "frontEpd=" + (startResults.Length > 0 && startResults[0]) +
+                        ", rearEpd=" + (startResults.Length > 1 && startResults[1]) +
                         ", fb=" + Fb +
                         ", pickerNo=" + pickerNo +
                         ", collet=" + pickerNo +
@@ -470,6 +486,17 @@ namespace QMC.CDT320.VisionComm
                         ", ch=" + ch +
                         ", grid=" + gridX + ";" + gridY +
                         ", timeoutMs=" + timeoutMs);
+                }
+                else
+                {
+                    EventLogger.Write(EventKind.Event, "VISION", "AUTO-VISION-SIDE-INSPECTASYNC",
+                        "Side 양쪽 카메라 EPD 수신 완료. frontEpd=" + startResults[0] +
+                        ", rearEpd=" + startResults[1] +
+                        ", fb=" + Fb +
+                        ", collet=" + pickerNo +
+                        ", dieIndex=" + dieIndex +
+                        ", channel=" + ch +
+                        ", grid=" + gridX + ";" + gridY);
                 }
 
                 return started;
@@ -481,8 +508,7 @@ namespace QMC.CDT320.VisionComm
             catch (Exception ex)
             {
                 EventLogger.Write(EventKind.Alarm, "VISION", "AUTO-VISION-SIDE-INSPECTASYNC",
-                    "Side 검사 시작 단건 요청 중 예외 발생. camera=" + _sideChannel +
-                    ", fb=" + Fb +
+                    "Side 양쪽 카메라 검사 시작 요청 중 예외 발생. fb=" + Fb +
                     ", pickerNo=" + pickerNo +
                     ", angleDeg=" + angleDeg +
                     ", error=" + ex.Message);
@@ -503,8 +529,7 @@ namespace QMC.CDT320.VisionComm
                 ResolveDieAddress(pickerNo, out dieIndex, out gridX, out gridY);
 
                 EventLogger.Write(EventKind.Event, "VISION", "AUTO-VISION-SIDE-INSPECTRESULT",
-                    "Side 검사 결과 대기. camera=" + _sideChannel +
-                    ", inspector=" + SideSurfaceInspector +
+                    "Side 양쪽 카메라 검사 결과 대기. cameras=FrontSide,RearSide" +
                     ", fb=" + Fb +
                     ", pickerNo=" + pickerNo +
                     ", collet=" + pickerNo +
@@ -512,38 +537,58 @@ namespace QMC.CDT320.VisionComm
                     ", grid=" + gridX + ";" + gridY +
                     ", timeoutMs=" + timeoutMs);
 
-                InspectionResultDto inspection = await AutoVisionRequestService.WaitInspectResultByDieAsync(
-                    _sideChannel,
-                    SideSurfaceInspector,
-                    dieIndex,
-                    timeoutMs,
-                    ct).ConfigureAwait(false);
+                Task<InspectionResultDto> frontTask = AutoVisionRequestService.WaitInspectResultByDieAsync(
+                    AutoVisionChannel.FrontSide,
+                    ResolveSideSurfaceInspector(AutoVisionChannel.FrontSide),
+                    dieIndex, timeoutMs, ct);
+                Task<InspectionResultDto> rearTask = AutoVisionRequestService.WaitInspectResultByDieAsync(
+                    AutoVisionChannel.RearSide,
+                    ResolveSideSurfaceInspector(AutoVisionChannel.RearSide),
+                    dieIndex, timeoutMs, ct);
 
-                if (AutoVisionRequestService.IsInspectionResultTransportFailure(inspection))
+                InspectionResultDto[] inspections = await Task.WhenAll(frontTask, rearTask).ConfigureAwait(false);
+                InspectionResultDto frontInspection = inspections.Length > 0 ? inspections[0] : null;
+                InspectionResultDto rearInspection = inspections.Length > 1 ? inspections[1] : null;
+                bool frontTransportFailed = AutoVisionRequestService.IsInspectionResultTransportFailure(frontInspection);
+                bool rearTransportFailed = AutoVisionRequestService.IsInspectionResultTransportFailure(rearInspection);
+                if (frontTransportFailed || rearTransportFailed)
                 {
                     EventLogger.Write(EventKind.Alarm, "VISION", "AUTO-VISION-SIDE-INSPECTRESULT",
-                        "Side 검사 결과 수신 실패. 검사 NG가 아니라 Vision INSPECTRESULT 미수신입니다. camera=" + _sideChannel +
+                        "Side 검사 결과 수신 실패. 두 카메라 중 INSPECTRESULT 미수신이 있습니다. " +
+                        "frontMissing=" + frontTransportFailed +
+                        ", rearMissing=" + rearTransportFailed +
                         ", fb=" + Fb +
                         ", pickerNo=" + pickerNo +
                         ", collet=" + pickerNo +
                         ", dieIndex=" + dieIndex +
                         ", timeoutMs=" + timeoutMs +
-                        ", raw=" + (inspection != null ? inspection.Raw : "null"));
+                        ", frontRaw=" + (frontInspection != null ? frontInspection.Raw : "null") +
+                        ", rearRaw=" + (rearInspection != null ? rearInspection.Raw : "null"));
                     return null;
                 }
 
-                bool pass = inspection != null && inspection.IsPass;
+                bool frontPass = frontInspection != null && frontInspection.IsPass;
+                bool rearPass = rearInspection != null && rearInspection.IsPass;
+                Dictionary<string, string> values = MergeSideInspectionValues(frontInspection, rearInspection);
+                EventLogger.Write(EventKind.Event, "VISION", "AUTO-VISION-SIDE-INSPECTRESULT",
+                    "Side 양쪽 카메라 집계 결과 수신 완료. fb=" + Fb +
+                    ", collet=" + pickerNo +
+                    ", dieIndex=" + dieIndex +
+                    ", frontPass=" + frontPass +
+                    ", rearPass=" + rearPass +
+                    ", allPass=" + (frontPass && rearPass) +
+                    ", frontRaw=" + (frontInspection != null ? frontInspection.Raw : string.Empty) +
+                    ", rearRaw=" + (rearInspection != null ? rearInspection.Raw : string.Empty));
                 return new SideVisionResult
                 {
                     PickerNo = pickerNo,
-                    Side1Ok = pass,
-                    Side2Ok = pass,
-                    Side3Ok = true,
-                    Side4Ok = true,
-                    Raw = inspection != null ? inspection.Raw : string.Empty,
-                    Values = inspection != null && inspection.Values != null
-                        ? new Dictionary<string, string>(inspection.Values, StringComparer.OrdinalIgnoreCase)
-                        : new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+                    Side1Ok = frontPass,
+                    Side2Ok = rearPass,
+                    Side3Ok = frontPass,
+                    Side4Ok = rearPass,
+                    Raw = "FrontSide=" + (frontInspection != null ? frontInspection.Raw : string.Empty) +
+                          " | RearSide=" + (rearInspection != null ? rearInspection.Raw : string.Empty),
+                    Values = values
                 };
             }
             catch (OperationCanceledException)
@@ -553,8 +598,7 @@ namespace QMC.CDT320.VisionComm
             catch (Exception ex)
             {
                 EventLogger.Write(EventKind.Alarm, "VISION", "AUTO-VISION-SIDE-INSPECTRESULT",
-                    "Side 검사 결과 대기 중 예외 발생. camera=" + _sideChannel +
-                    ", fb=" + Fb +
+                    "Side 양쪽 카메라 검사 결과 대기 중 예외 발생. fb=" + Fb +
                     ", pickerNo=" + pickerNo +
                     ", error=" + ex.Message);
                 return null;
@@ -562,6 +606,32 @@ namespace QMC.CDT320.VisionComm
             finally
             {
             }
+        }
+
+        private static Dictionary<string, string> MergeSideInspectionValues(
+            InspectionResultDto frontInspection,
+            InspectionResultDto rearInspection)
+        {
+            var values = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            AppendSideInspectionValues(values, "FrontSide", frontInspection);
+            AppendSideInspectionValues(values, "RearSide", rearInspection);
+            return values;
+        }
+
+        private static void AppendSideInspectionValues(
+            Dictionary<string, string> target,
+            string prefix,
+            InspectionResultDto inspection)
+        {
+            if (target == null || inspection == null)
+                return;
+
+            target[prefix + ".Pass"] = inspection.IsPass ? "1" : "0";
+            if (inspection.Values == null)
+                return;
+
+            foreach (KeyValuePair<string, string> pair in inspection.Values)
+                target[prefix + "." + pair.Key] = pair.Value;
         }
 
         public async Task<SideVisionResult> GetSideResultAsync(int pickerNo, int timeoutMs = 5000)

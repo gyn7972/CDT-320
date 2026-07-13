@@ -1045,13 +1045,51 @@ namespace QMC.CDT320.VisionComm
                 if (!IsReady(channel, VisionProtocolCommand.InspectAsync, inspector, index))
                     return new InspectionResultDto { IsPass = false, Raw = "Vision client is not connected." };
 
-                EventLogger.Write(EventKind.Event, "VISION", "AUTO-VISION-INSPECT",
-                    "Vision INSPECT 요청. channel=" + channel +
+                EventLogger.Write(EventKind.Event, "VISION", "AUTO-VISION-INSPECTASYNC",
+                    "Vision INSPECTASYNC(인덱스) 시작 요청. channel=" + channel +
                     ", inspector=" + inspector +
                     ", index=" + index +
                     ", timeoutMs=" + timeoutMs);
 
-                InspectionResultDto result = await VisionCommandService.InspectAsync(channel, inspector, index, timeoutMs, ct).ConfigureAwait(false);
+                string exposureModuleName = VisionCommandService.ResolveActiveModuleName(channel);
+                Task<bool> epdTask = VisionCommandService.WaitExposureDoneAsync(channel, timeoutMs, exposureModuleName);
+                if (epdTask == null)
+                {
+                    EventLogger.Write(EventKind.Alarm, "VISION", "AUTO-VISION-INSPECTASYNC",
+                        "Vision EPD 대기 등록 실패. channel=" + channel +
+                        ", inspector=" + inspector +
+                        ", index=" + index +
+                        ", exposureModule=" + (exposureModuleName ?? string.Empty));
+                    return null;
+                }
+
+                Task<bool> ackTask = VisionCommandService.InspectAsyncStartAsync(
+                    channel, inspector, index, timeoutMs, ct);
+                ObserveAsyncStartAckInBackground(
+                    ackTask,
+                    "AUTO-VISION-INSPECTASYNC",
+                    "channel=" + channel + ", inspector=" + inspector + ", index=" + index);
+
+                bool epdReceived = await epdTask.ConfigureAwait(false);
+                if (!epdReceived)
+                {
+                    EventLogger.Write(EventKind.Alarm, "VISION", "AUTO-VISION-INSPECTASYNC",
+                        "Vision INSPECTASYNC(인덱스) EPD 타임아웃. channel=" + channel +
+                        ", inspector=" + inspector +
+                        ", index=" + index +
+                        ", exposureModule=" + (exposureModuleName ?? string.Empty) +
+                        ", timeoutMs=" + timeoutMs);
+                    return null;
+                }
+
+                EventLogger.Write(EventKind.Event, "VISION", "AUTO-VISION-INSPECTASYNC",
+                    "Vision INSPECTASYNC(인덱스) EPD 수신. STARTED ACK와 무관하게 결과를 회수합니다. channel=" + channel +
+                    ", inspector=" + inspector +
+                    ", index=" + index +
+                    ", exposureModule=" + (exposureModuleName ?? string.Empty));
+
+                InspectionResultDto result = await WaitInspectResultByDieAsync(
+                    channel, inspector, index, timeoutMs, ct).ConfigureAwait(false);
                 if (IsInspectionResultTransportFailure(result))
                 {
                     EventLogger.Write(EventKind.Alarm, "VISION", "AUTO-VISION-INSPECT",
