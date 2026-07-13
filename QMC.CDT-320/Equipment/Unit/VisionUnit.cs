@@ -114,6 +114,7 @@ namespace QMC.CDT320
         [DataMember] public int MoveTimeoutMs { get; set; } = 5000;
         [DataMember] public int IoTimeoutMs { get; set; } = 1000;
         [DataMember] public int CaptureTimeoutMs { get; set; } = 5000;
+        [DataMember] public int BottomVisionPreGrabDelayMs { get; set; }
         [DataMember] public int RuntimeAutoFocusToBottomInspectionDelayMs { get; set; } = 300;
         [DataMember] public bool RuntimeAutoFocusToBottomInspectionDelayInitialized { get; set; }
 
@@ -129,6 +130,7 @@ namespace QMC.CDT320
             if (RearSideVision == null) RearSideVision = new VisionAxisPositions();
             FrontSideVision.EnsureRotationCenterObjects();
             RearSideVision.EnsureRotationCenterObjects();
+            BottomVisionPreGrabDelayMs = Math.Max(0, Math.Min(60000, BottomVisionPreGrabDelayMs));
             if (!RuntimeAutoFocusToBottomInspectionDelayInitialized)
             {
                 RuntimeAutoFocusToBottomInspectionDelayMs = 300;

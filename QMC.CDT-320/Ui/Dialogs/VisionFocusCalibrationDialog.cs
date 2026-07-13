@@ -53,6 +53,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             AutoFocusOnWaferChange,
             AutoFocusOnPickCount,
             AutoFocusPickInterval,
+            BottomVisionDelay,
             AutoFocusToBottomInspectionDelay,
             UseBottomToSideZOffset,
             BottomToSideZOffset,
@@ -144,6 +145,7 @@ namespace QMC.CDT_320.Ui.Dialogs
         private bool _autoFocusOnWaferChange = true;
         private bool _autoFocusOnPickCountEnabled;
         private int _autoFocusPickInterval;
+        private int _bottomVisionDelayMs;
         private int _autoFocusToBottomInspectionDelayMs = 300;
         // Side 전용: Bottom↔Side 공용 Z옵셋과 COC/다이사이즈 보정 부호 (VisionFocusCalibrationData 최상위 저장)
         private bool _useBottomToSideZOffset;
@@ -271,6 +273,20 @@ namespace QMC.CDT_320.Ui.Dialogs
             colSettingUnit.ReadOnly = true;
         }
 
+        private void gridSettings_CellClick(object sender, DataGridViewCellEventArgs e)
+        {
+            if (_busy || e.RowIndex < 0 || e.ColumnIndex != colSettingValue.Index)
+                return;
+
+            DataGridViewComboBoxCell comboCell = gridSettings.Rows[e.RowIndex].Cells[e.ColumnIndex] as DataGridViewComboBoxCell;
+            if (comboCell == null || comboCell.ReadOnly)
+                return;
+
+            gridSettings.CurrentCell = comboCell;
+            if (gridSettings.BeginEdit(true) && gridSettings.EditingControl is ComboBox combo)
+                combo.DroppedDown = true;
+        }
+
         private void gridSettings_CurrentCellDirtyStateChanged(object sender, EventArgs e)
         {
             if (gridSettings.IsCurrentCellDirty)
@@ -303,7 +319,15 @@ namespace QMC.CDT_320.Ui.Dialogs
                 ApplySettingValue(row);
                 if (info.Key == FocusSettingKey.Mode)
                 {
-                    LoadSettingsToUi();
+                    if (IsSideOnlyProfile)
+                    {
+                        ReloadSelectedTargetReference();
+                        RefreshSettingGrid();
+                    }
+                    else
+                    {
+                        LoadSettingsToUi();
+                    }
                     RefreshSavedGrid();
                 }
                 else if (info.Key == FocusSettingKey.PickerSide ||
@@ -372,6 +396,103 @@ namespace QMC.CDT_320.Ui.Dialogs
             SettingRowInfo info = gridSettings.Rows[e.RowIndex].Tag as SettingRowInfo;
             if (info != null)
                 e.ToolTipText = info.ToolTip;
+        }
+
+        private void gridSaved_CellDoubleClick(object sender, DataGridViewCellEventArgs e)
+        {
+            if (_busy || !IsSideOnlyProfile || e.RowIndex < 0 || e.ColumnIndex != colBestPos.Index)
+                return;
+
+            DataGridViewRow row = gridSaved.Rows[e.RowIndex];
+            VisionFocusPositionRecord record = row != null ? row.Tag as VisionFocusPositionRecord : null;
+            if (record == null)
+                return;
+
+            _busy = true;
+            try
+            {
+                string reason;
+                Form1 host = ResolveHost(out reason);
+                if (host == null || host.Machine == null || host.Machine.VisionUnit == null)
+                {
+                    lblStatus.Text = reason;
+                    return;
+                }
+
+                string itemName = Convert.ToString(row.Cells[colItem.Index].Value, CultureInfo.InvariantCulture);
+                string current = record.BestPosition.ToString("0.###", CultureInfo.InvariantCulture);
+                using (NumericKeypadDialog dialog = new NumericKeypadDialog(itemName + " BEST", current, "mm"))
+                {
+                    if (dialog.ShowDialog(this) != DialogResult.OK)
+                        return;
+
+                    double bestPosition;
+                    if (!double.TryParse(dialog.ValueText, NumberStyles.Float, CultureInfo.InvariantCulture, out bestPosition) ||
+                        double.IsNaN(bestPosition) || double.IsInfinity(bestPosition))
+                    {
+                        lblStatus.Text = "BEST 입력값이 올바른 숫자가 아닙니다. value=" + dialog.ValueText;
+                        QMC.Common.MessageDialog.Show(this, lblStatus.Text, "SIDE VISION FOCUS CAL",
+                            MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        return;
+                    }
+
+                    bool frontCamera = _selectedKind == VisionFocusScanKind.FrontSide0 ||
+                                       _selectedKind == VisionFocusScanKind.FrontSide90;
+                    var axis = frontCamera
+                        ? host.Machine.VisionUnit.FrontSideVisionY
+                        : host.Machine.VisionUnit.RearSideVisionY;
+                    if (axis != null && axis.Setup != null && axis.Setup.SoftLimitEnabled &&
+                        (bestPosition < axis.Setup.SoftLimitMinus || bestPosition > axis.Setup.SoftLimitPlus))
+                    {
+                        lblStatus.Text = "BEST 입력값이 " + axis.Name + " 소프트리밋을 벗어났습니다. target=" +
+                                         bestPosition.ToString("F3") +
+                                         ", min=" + axis.Setup.SoftLimitMinus.ToString("F3") +
+                                         ", max=" + axis.Setup.SoftLimitPlus.ToString("F3");
+                        QMC.Common.MessageDialog.Show(this, lblStatus.Text, "SIDE VISION FOCUS CAL",
+                            MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        return;
+                    }
+
+                    double oldBestPosition = record.BestPosition;
+                    bool oldValid = record.Valid;
+                    DateTime oldUpdatedAt = record.UpdatedAt;
+                    string oldUpdatedBy = record.UpdatedBy;
+
+                    record.BestPosition = bestPosition;
+                    record.Valid = true;
+                    record.UpdatedAt = DateTime.Now;
+                    record.UpdatedBy = UserSession.Name ?? string.Empty;
+                    if (!host.Machine.SaveSettings())
+                    {
+                        record.BestPosition = oldBestPosition;
+                        record.Valid = oldValid;
+                        record.UpdatedAt = oldUpdatedAt;
+                        record.UpdatedBy = oldUpdatedBy;
+                        RefreshSavedGrid();
+                        lblStatus.Text = "BEST 수동 입력값 저장에 실패했습니다. Machine 설정 저장 상태를 확인하세요.";
+                        QMC.Common.MessageDialog.Show(this, lblStatus.Text, "SIDE VISION FOCUS CAL",
+                            MessageBoxButtons.OK, MessageBoxIcon.Error);
+                        return;
+                    }
+
+                    RefreshSavedGrid();
+                    lblStatus.Text = itemName + " BEST 수동 입력 저장 완료. old=" +
+                                     oldBestPosition.ToString("F3") + ", new=" + bestPosition.ToString("F3");
+                    EventLogger.Write(EventKind.Event, "CAL", "VISION-FOCUS-CAL-BEST-MANUAL",
+                        lblStatus.Text + ", kind=" + _selectedKind +
+                        ", pickerSide=" + _selectedPickerSide +
+                        ", valid=True");
+                }
+            }
+            catch (Exception ex)
+            {
+                lblStatus.Text = "BEST 수동 입력 처리 실패: " + ex.Message;
+                EventLogger.Write(EventKind.Alarm, "CAL", "VISION-FOCUS-CAL-BEST-MANUAL-EX", lblStatus.Text);
+            }
+            finally
+            {
+                _busy = false;
+            }
         }
 
         private void btnCheck_Click(object sender, EventArgs e)
@@ -940,6 +1061,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                 _autoFocusOnPickCountEnabled = settings.AutoFocusOnPickCountEnabled;
                 _autoFocusPickInterval = settings.AutoFocusPickInterval;
                 host.Machine.VisionUnit.Recipe.EnsurePositionObjects();
+                _bottomVisionDelayMs = host.Machine.VisionUnit.Recipe.BottomVisionPreGrabDelayMs;
                 _autoFocusToBottomInspectionDelayMs = host.Machine.VisionUnit.Recipe.RuntimeAutoFocusToBottomInspectionDelayMs;
 
                 VisionFocusCalibrationData focusData = host.Machine.VisionUnit.Config.FocusCalibration;
@@ -1017,6 +1139,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                 settings.AutoFocusOnPickCountEnabled = _autoFocusOnPickCountEnabled;
                 settings.AutoFocusPickInterval = _autoFocusPickInterval;
                 host.Machine.VisionUnit.Recipe.EnsurePositionObjects();
+                host.Machine.VisionUnit.Recipe.BottomVisionPreGrabDelayMs = _bottomVisionDelayMs;
                 host.Machine.VisionUnit.Recipe.RuntimeAutoFocusToBottomInspectionDelayMs = _autoFocusToBottomInspectionDelayMs;
                 host.Machine.VisionUnit.Recipe.RuntimeAutoFocusToBottomInspectionDelayInitialized = true;
 
@@ -1041,13 +1164,13 @@ namespace QMC.CDT_320.Ui.Dialogs
 
                 if (string.IsNullOrWhiteSpace(host.CurrentRecipeName) || !host.SaveMachineRecipe(host.CurrentRecipeName))
                 {
-                    lblStatus.Text = "AF To Bottom Delay Recipe 저장에 실패했습니다. 활성 Recipe를 확인하세요.";
+                    lblStatus.Text = "Bottom Vision/AF To Bottom Delay Recipe 저장에 실패했습니다. 활성 Recipe를 확인하세요.";
                     return false;
                 }
                 host.SaveMachineSettings();
                 RefreshSavedGrid();
                 if (showMessage)
-                    lblStatus.Text = "Vision Focus Cal 설정값과 AF To Bottom Delay Recipe 값을 저장했습니다. Teaching Z는 변경하지 않았습니다.";
+                    lblStatus.Text = "Vision Focus Cal 설정값과 Bottom Vision/AF To Bottom Delay Recipe 값을 저장했습니다. Teaching Z는 변경하지 않았습니다.";
                 return true;
             }
             catch (Exception ex)
@@ -1216,6 +1339,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                 AddSettingRow(CreateOptionInfo(FocusSettingKey.AutoFocusOnWaferChange, "AF On Wafer Change", "새 Input Wafer의 Die가 처음 Bottom 촬영에 진입할 때 Rough+Fine AutoFocus를 실행합니다. 다른 조건과 동시에 사용할 수 있습니다.", BoolOptions), _autoFocusOnWaferChange ? "True" : "False", runtimeBottomFocus);
                 AddSettingRow(CreateOptionInfo(FocusSettingKey.AutoFocusOnPickCount, "AF By Total Pick Count", "Front/Rear 전체 Pick 완료 Die 누적 수가 설정 횟수에 도달하면 Rough+Fine AutoFocus를 실행합니다. 다른 조건과 동시에 사용할 수 있습니다.", BoolOptions), _autoFocusOnPickCountEnabled ? "True" : "False", runtimeBottomFocus);
                 AddSettingRow(CreateNumberInfo(FocusSettingKey.AutoFocusPickInterval, "AF Total Pick Interval (ea)", "ea", "Front/Rear 전체에서 Pick 완료한 총 Die 수 기준 AutoFocus 실행 간격입니다.", true), _autoFocusPickInterval.ToString(CultureInfo.InvariantCulture), runtimeBottomFocus);
+                AddSettingRow(CreateNumberInfo(FocusSettingKey.BottomVisionDelay, "Bottom Vision Delay (ms)", "ms", "생산 Bottom Vision 검사에서 INSPECTASYNC/Grab 명령을 보내기 전에 대기할 시간입니다. Front/Rear 공통 Recipe 값입니다.", true), _bottomVisionDelayMs.ToString(CultureInfo.InvariantCulture), runtimeBottomFocus);
                 AddSettingRow(CreateNumberInfo(FocusSettingKey.AutoFocusToBottomInspectionDelay, "AF To Bottom Delay (ms)", "ms", "런타임 AutoFocus 후 Bottom Grab 명령의 ACK를 받은 다음, 다음 모션을 시작하기 전에 대기할 시간입니다.", true), _autoFocusToBottomInspectionDelayMs.ToString(CultureInfo.InvariantCulture), runtimeBottomFocus);
                 if (IsSideOnlyProfile)
                 {
@@ -1298,6 +1422,14 @@ namespace QMC.CDT_320.Ui.Dialogs
                     break;
                 case FocusSettingKey.PickerSide:
                     _selectedPickerSide = value == "Rear" ? VisionFocusPickerSide.Rear : VisionFocusPickerSide.Front;
+                    if (IsSideOnlyProfile && IsSideFocusKind(_selectedKind))
+                    {
+                        bool angle90 = _selectedKind == VisionFocusScanKind.FrontSide90 ||
+                                       _selectedKind == VisionFocusScanKind.RearSide90;
+                        _selectedKind = _selectedPickerSide == VisionFocusPickerSide.Front
+                            ? (angle90 ? VisionFocusScanKind.FrontSide90 : VisionFocusScanKind.FrontSide0)
+                            : (angle90 ? VisionFocusScanKind.RearSide90 : VisionFocusScanKind.RearSide0);
+                    }
                     break;
                 case FocusSettingKey.ColletNo:
                     _selectedPickerNo = Clamp(ParseInt(value, _selectedPickerNo), 1, 4);
@@ -1357,6 +1489,9 @@ namespace QMC.CDT_320.Ui.Dialogs
                     break;
                 case FocusSettingKey.AutoFocusPickInterval:
                     _autoFocusPickInterval = Clamp(value, 0, 1000000);
+                    break;
+                case FocusSettingKey.BottomVisionDelay:
+                    _bottomVisionDelayMs = Clamp(value, 0, 60000);
                     break;
                 case FocusSettingKey.AutoFocusToBottomInspectionDelay:
                     _autoFocusToBottomInspectionDelayMs = Clamp(value, 0, 60000);
@@ -1515,7 +1650,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             if (record == null)
                 return;
 
-            gridSaved.Rows.Add(
+            int rowIndex = gridSaved.Rows.Add(
                 name,
                 record.DefaultPosition.ToString("F3"),
                 record.BestPosition.ToString("F3"),
@@ -1524,6 +1659,10 @@ namespace QMC.CDT_320.Ui.Dialogs
                 autoFocusCount ?? record.AutoFocusPickCountSinceLast.ToString(CultureInfo.InvariantCulture),
                 autoFocusWafer ?? record.LastAutoFocusWaferId ?? string.Empty,
                 record.Valid ? "Y" : "N");
+            DataGridViewRow row = gridSaved.Rows[rowIndex];
+            row.Tag = record;
+            if (IsSideOnlyProfile)
+                row.Cells[colBestPos.Index].ToolTipText = "더블클릭하여 BEST 위치를 수동 입력합니다.";
         }
 
         private void PopulateSamples(VisionFocusScanResult result)

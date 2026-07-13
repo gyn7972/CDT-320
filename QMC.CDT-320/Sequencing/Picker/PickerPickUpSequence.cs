@@ -1863,13 +1863,15 @@ namespace QMC.CDT320.Sequencing
                 if (finalWait != 0)
                     return finalWait;
 
-                int ejectCheck = CheckInputStageAxisInPosition(
-                    stage,
-                    WaferStageAxis.EjectPinZ,
-                    _targetEjectPinZ,
-                    "PickUp ContiNode EjectPinZ pick ready final");
-                if (ejectCheck != 0)
-                    return ejectCheck;
+                // MoveInputStageAxisCommandAsync already completes the move/in-position wait.
+                // Bypass this immediate duplicate snapshot check to avoid encoder-jitter false alarms.
+                // int ejectCheck = CheckInputStageAxisInPosition(
+                //     stage,
+                //     WaferStageAxis.EjectPinZ,
+                //     _targetEjectPinZ,
+                //     "PickUp ContiNode EjectPinZ pick ready final");
+                // if (ejectCheck != 0)
+                //     return ejectCheck;
 
                 WriteLog("PickerPickUpSequence",
                     Name + " PickUp ContiNode async transfer/contact complete. " +

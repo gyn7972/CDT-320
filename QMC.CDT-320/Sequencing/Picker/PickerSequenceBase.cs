@@ -771,7 +771,8 @@ namespace QMC.CDT320.Sequencing
             string description,
             CancellationToken ct,
             string targetName = null,
-            bool forceMove = false)
+            bool forceMove = false,
+            bool skipFinalPositionCheck = false)
         {
             Stopwatch totalWatch = Stopwatch.StartNew();
             long commandMs = 0;
@@ -873,7 +874,8 @@ namespace QMC.CDT320.Sequencing
                         FormatAxisMoveWaitResult(waitResult, BuildPickerAxisState(axis, target)));
                 }
 
-                if (!IsPickerAxisInPosition(axis, target))
+                // 일부 공정은 위 move/in-position 대기 결과를 사용하고 동일 목표의 즉시 중복 검사를 생략한다.
+                if (!skipFinalPositionCheck && !IsPickerAxisInPosition(axis, target))
                 {
                     //WritePickerSequenceMoveElapsed(axisDetail, targetName, description, result, commandMs, waitMs, totalWatch.ElapsedMilliseconds, waitResult);
                     SequenceTrace.MotionEnd("PickerMove", -1,
@@ -892,6 +894,7 @@ namespace QMC.CDT320.Sequencing
                     "target=" + target,
                     "actual=" + (GetPickerAxis(axis) != null ? GetPickerAxis(axis).ActualPosition.ToString() : ""),
                     "description=" + description,
+                    "finalPositionCheck=" + (skipFinalPositionCheck ? "Skipped" : "Checked"),
                     "commandMs=" + commandMs,
                     "waitMs=" + waitMs,
                     "elapsedMs=" + totalWatch.ElapsedMilliseconds);
@@ -901,6 +904,7 @@ namespace QMC.CDT320.Sequencing
                     ", commandMs=" + commandMs +
                     ", waitMs=" + waitMs +
                     ", elapsedMs=" + totalWatch.ElapsedMilliseconds +
+                    ", finalPositionCheck=" + (skipFinalPositionCheck ? "Skipped" : "Checked") +
                     ", " + BuildPickerAxisState(axis, target) +
                     " - Ok");
                 ct.ThrowIfCancellationRequested();
@@ -2832,6 +2836,27 @@ namespace QMC.CDT320.Sequencing
                 await Task.Delay(delayMs, ct).ConfigureAwait(false);
         }
 
+        protected async Task DelayBeforeBottomVisionInspectionAsync(int pickerNo, CancellationToken ct)
+        {
+            if (ShouldSkipVisionInspectionDelay())
+                return;
+
+            int delayMs = ResolveBottomVisionPreGrabDelayMs();
+            if (delayMs <= 0)
+                return;
+
+            WriteLog("PickerBottomVisionDelay",
+                Name + " Bottom Vision 검사 전 대기를 시작합니다. side=" + Side +
+                ", pickerNo=" + pickerNo +
+                ", delayMs=" + delayMs +
+                ", source=VisionRecipe.BottomVisionPreGrabDelayMs - Start");
+            await Task.Delay(delayMs, ct).ConfigureAwait(false);
+            WriteLog("PickerBottomVisionDelay",
+                Name + " Bottom Vision 검사 전 대기를 완료했습니다. 다음 명령=INSPECTASYNC/Grab. side=" + Side +
+                ", pickerNo=" + pickerNo +
+                ", delayMs=" + delayMs + " - Ok");
+        }
+
         protected async Task DelaySideInspectionTurnSettleAsync(CancellationToken ct)
         {
             if (ShouldSkipVisionInspectionDelay())
@@ -2869,6 +2894,16 @@ namespace QMC.CDT320.Sequencing
                 value = RearPicker.Config.VisionInspectionSettleMs;
 
             return value > 0 ? value : 0;
+        }
+
+        private int ResolveBottomVisionPreGrabDelayMs()
+        {
+            if (Context == null || Context.Machine == null || Context.Machine.VisionUnit == null ||
+                Context.Machine.VisionUnit.Recipe == null)
+                return 0;
+
+            Context.Machine.VisionUnit.Recipe.EnsurePositionObjects();
+            return Math.Max(0, Math.Min(60000, Context.Machine.VisionUnit.Recipe.BottomVisionPreGrabDelayMs));
         }
 
         private int ResolveSideInspectionTurnSettleMs()

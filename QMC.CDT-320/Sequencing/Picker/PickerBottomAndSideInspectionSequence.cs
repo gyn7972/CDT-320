@@ -1185,7 +1185,7 @@ namespace QMC.CDT320.Sequencing
         private async Task<int> StartBottomInspectionAsync(InspectionTarget target, CancellationToken ct, bool skipDelay = false)
         {
             if (!skipDelay)
-                await DelayBeforeVisionInspectionAsync(ct).ConfigureAwait(false);
+                await DelayBeforeBottomVisionInspectionAsync(target.PickerNo, ct).ConfigureAwait(false);
 
             RegisterVisionDieAddress(target);   // 신형 와이어(die_index/gridx;gridy) 구성용 — 어댑터가 조회
 
@@ -1219,7 +1219,7 @@ namespace QMC.CDT320.Sequencing
 
         private async Task<int[]> StartBottomAndPreparedSide0InspectionAsync(InspectionTarget bottomTarget, InspectionTarget sideTarget, CancellationToken ct)
         {
-            await DelayBeforeVisionInspectionAsync(ct).ConfigureAwait(false);
+            await DelayBeforeBottomVisionInspectionAsync(bottomTarget.PickerNo, ct).ConfigureAwait(false);
 
             WriteLog("PickerBottomAndSideInspectionSequence",
                 Name + " Bottom #1 / Side #4 검사 시작 명령을 같은 대기 조건에서 연속 발행합니다. " +

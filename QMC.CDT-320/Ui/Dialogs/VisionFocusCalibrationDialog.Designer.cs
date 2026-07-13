@@ -189,6 +189,7 @@
             this.gridSettings.Size = new System.Drawing.Size(454, 324);
             this.gridSettings.TabIndex = 0;
             this.gridSettings.CellBeginEdit += new System.Windows.Forms.DataGridViewCellCancelEventHandler(this.gridSettings_CellBeginEdit);
+            this.gridSettings.CellClick += new System.Windows.Forms.DataGridViewCellEventHandler(this.gridSettings_CellClick);
             this.gridSettings.CellDoubleClick += new System.Windows.Forms.DataGridViewCellEventHandler(this.gridSettings_CellDoubleClick);
             this.gridSettings.CellToolTipTextNeeded += new System.Windows.Forms.DataGridViewCellToolTipTextNeededEventHandler(this.gridSettings_CellToolTipTextNeeded);
             this.gridSettings.CellValueChanged += new System.Windows.Forms.DataGridViewCellEventHandler(this.gridSettings_CellValueChanged);
@@ -333,6 +334,7 @@
             this.gridSaved.SelectionMode = System.Windows.Forms.DataGridViewSelectionMode.FullRowSelect;
             this.gridSaved.Size = new System.Drawing.Size(454, 178);
             this.gridSaved.TabIndex = 0;
+            this.gridSaved.CellDoubleClick += new System.Windows.Forms.DataGridViewCellEventHandler(this.gridSaved_CellDoubleClick);
             // 
             // colItem
             // 

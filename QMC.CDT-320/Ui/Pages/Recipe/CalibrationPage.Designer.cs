@@ -34,7 +34,6 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
 
         private void InitializeComponent()
         {
-            System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(CalibrationPage));
             this.rootLayout = new System.Windows.Forms.TableLayoutPanel();
             this.headerPanel = new System.Windows.Forms.Panel();
             this.lblHeader = new System.Windows.Forms.Label();
@@ -331,7 +330,14 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.lblGuide.Padding = new System.Windows.Forms.Padding(16);
             this.lblGuide.Size = new System.Drawing.Size(1676, 347);
             this.lblGuide.TabIndex = 2;
-            this.lblGuide.Text = resources.GetString("lblGuide.Text");
+            this.lblGuide.Text = "캘리브레이션 허브 화면입니다.\r\n\r\n" +
+                "- 각 버튼은 별도 모달리스 설정창을 엽니다.\r\n" +
+                "- BOTTOM COLLET 1:1 CAL은 Bottom Camera 기준으로 Front/Rear Picker 1~4번 콜렛의 T 성분을 0으로 보정합니다.\r\n" +
+                "- PICKUP Z CAL은 웨이퍼 필름 위에서 PickerZ를 하강시키며 Vacuum/Flow 신호가 들어온 위치를 PickPosition으로 저장합니다.\r\n" +
+                "- PLACE Z CAL은 Output Place 위치에서 PickerZ를 하강시키며 Vacuum/Flow 신호가 들어온 위치를 PlacePosition으로 저장합니다.\r\n" +
+                "- NEEDLE Z CAL은 WaferStageTouchSensor 기준으로 NeedleCap Touch, NeedlePin Flush, NeedlePin Ready 위치를 계산합니다.\r\n" +
+                "- VISION CAMERA CAL / VISION FOCUS CAL / SIDE VISION FOCUS CAL은 별도 전용 설정창에서 실행합니다.\r\n" +
+                "- 실장비 안전 인터락, phase gate, resource gate는 우회하지 않습니다.";
             // 
             // lblStatus
             // 

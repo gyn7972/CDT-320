@@ -1891,7 +1891,8 @@ namespace QMC.CDT320.Sequencing
                 finalPickerZ,
                 "Place ContiNode PickerZ PrePlace 후 최종 Place 하강",
                 ct,
-                BuildPickerTargetName("DiePlacePosition", _currentPickerIndex)).ConfigureAwait(false);
+                BuildPickerTargetName("DiePlacePosition", _currentPickerIndex),
+                skipFinalPositionCheck: true).ConfigureAwait(false);
             if (finalPlaceZResult != 0)
             {
                 _pickerZPlacedByContiSegmentedPlace = false;
@@ -2518,7 +2519,8 @@ namespace QMC.CDT320.Sequencing
                     pickerZTarget,
                     "Place ContiNode PickerZ 비동기 하강",
                     ct,
-                    BuildPickerTargetName("DiePlacePosition", _currentPickerIndex)).ConfigureAwait(false);
+                    BuildPickerTargetName("DiePlacePosition", _currentPickerIndex),
+                    skipFinalPositionCheck: true).ConfigureAwait(false);
             }
             catch (OperationCanceledException)
             {
@@ -2766,7 +2768,8 @@ namespace QMC.CDT320.Sequencing
                 _targetPickerZ,
                 "place picker Z",
                 ct,
-                BuildPickerTargetName("DiePlacePosition", _currentPickerIndex)).ConfigureAwait(false);
+                BuildPickerTargetName("DiePlacePosition", _currentPickerIndex),
+                skipFinalPositionCheck: true).ConfigureAwait(false);
             if (result != 0)
                 return result;
 

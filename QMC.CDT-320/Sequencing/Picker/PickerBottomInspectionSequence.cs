@@ -886,7 +886,7 @@ namespace QMC.CDT320.Sequencing
                 return true;
             }
 
-            await DelayBeforeVisionInspectionAsync(ct).ConfigureAwait(false);
+            await DelayBeforeBottomVisionInspectionAsync(_currentPickerNo, ct).ConfigureAwait(false);
 
             ct.ThrowIfCancellationRequested();
             RegisterVisionDieAddress();
@@ -997,7 +997,7 @@ namespace QMC.CDT320.Sequencing
                 return;
             }
 
-            await DelayBeforeVisionInspectionAsync(ct).ConfigureAwait(false);
+            await DelayBeforeBottomVisionInspectionAsync(_currentPickerNo, ct).ConfigureAwait(false);
             ct.ThrowIfCancellationRequested();
 
             int timeoutMs = ResolveTimeout();
