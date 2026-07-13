@@ -475,6 +475,10 @@ namespace QMC.CDT320.Sequencing
                 if (result != 0)
                     return result;
 
+                result = await prepareSequence.CollectVisionResultsAsync(ct).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
                 IList<InputDieVisionPreparedItem> preparedItems = prepareSequence.PreparedItems;
                 for (int i = 0; i < preparedItems.Count; i++)
                 {

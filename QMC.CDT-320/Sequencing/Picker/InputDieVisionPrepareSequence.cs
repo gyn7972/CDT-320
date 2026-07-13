@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using QMC.Common.Motion;
+using QMC.CDT320.Calibration;
 using QMC.CDT320.Interlocks;
 using QMC.CDT320.Materials;
 using QMC.CDT320.Motion.SharedRailX;
@@ -14,6 +15,7 @@ namespace QMC.CDT320.Sequencing
     {
         private static readonly object SimVisionRandomLock = new object();
         private static readonly Random SimVisionRandom = new Random();
+        private const int InputVisionTimeoutMs = 5000;
         private readonly List<int> _enabledPickerIndexes;
         private readonly List<InputDieVisionPreparedItem> _preparedItems = new List<InputDieVisionPreparedItem>();
         private readonly HashSet<int> _preInspectionOccupiedPickerNos = new HashSet<int>();
@@ -47,6 +49,11 @@ namespace QMC.CDT320.Sequencing
         public IList<InputDieVisionPreparedItem> PreparedItems
         {
             get { return _preparedItems.AsReadOnly(); }
+        }
+
+        public void ReleasePreparedReservations()
+        {
+            ReleasePreparedReservationsIfNeeded();
         }
 
         protected override async Task<int> ExecuteAsync(CancellationToken ct)
@@ -104,8 +111,8 @@ namespace QMC.CDT320.Sequencing
                     return MovePickersToAvoidForInputVisionMoveAsync(ct);
                 case InputDieVisionPrepareStep.MoveInputStageAndVisionToDie:
                     return MoveInputStageAndVisionToDieAsync(ct);
-                case InputDieVisionPrepareStep.RequestInputDieVisionInspection:
-                    return RequestInputDieVisionInspectionAsync(ct);
+                case InputDieVisionPrepareStep.StartInputDieVisionInspection:
+                    return StartInputDieVisionInspectionAsync(ct);
                 case InputDieVisionPrepareStep.ApplyInputDieVisionOffset:
                     return Task.FromResult(ApplyInputDieVisionOffset());
                 default:
@@ -473,7 +480,7 @@ namespace QMC.CDT320.Sequencing
                     return result;
 
                 // 공정 중 NeedleZ는 이동하지 않는다. 픽업 준비 상승은 PickerPickUpSequence가 수행한다.
-                CurrentStep = InputDieVisionPrepareStep.RequestInputDieVisionInspection;
+                CurrentStep = InputDieVisionPrepareStep.StartInputDieVisionInspection;
                 return 0;
             }
             catch (OperationCanceledException)
@@ -490,46 +497,63 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
-        private async Task<int> RequestInputDieVisionInspectionAsync(CancellationToken ct)
+        private async Task<int> StartInputDieVisionInspectionAsync(CancellationToken ct)
         {
             try
             {
-                int retryCount = Options != null && Options.VisionRetryCount > 0 ? Options.VisionRetryCount : 3;
-                for (int attempt = 1; attempt <= retryCount; attempt++)
+                if (_currentItem == null || _pickTarget == null)
                 {
-                    ct.ThrowIfCancellationRequested();
+                    return Fail("INPUT-DIE-VISION-PREPARE-VISION-TARGET", "Vision",
+                        "Input die vision 촬영 대상 정보가 없습니다. die=" + _currentDieId +
+                        ", pickerNo=" + _currentPickerNo);
+                }
 
-                    _visionOffset = await RequestInputVisionOffsetAsync(ct, attempt == 1).ConfigureAwait(false);
-                    if (_visionOffset != null)
+                ct.ThrowIfCancellationRequested();
+                await DelayBeforeVisionInspectionAsync(ct).ConfigureAwait(false);
+
+                int requestIndex = ResolveInputVisionRequestIndex(_currentItem);
+                _currentItem.VisionRequestIndex = requestIndex;
+
+                InputStageUnit stage = ResolveInputStage();
+                bool useConnectedDryRunVision = IsDryRunWithWaferVisionConnected();
+                if (IsSimulationOrDryRun(stage) && !useConnectedDryRunVision)
+                {
+                    _visionOffset = SimulateInputVisionOffset();
+                    _currentItem.VisionOffset = _visionOffset;
+                    _currentItem.ExposureCompleted = true;
+                }
+                else
+                {
+                    string finder = VisionAlignTargetIds.ResolveWaferFinder(VisionAlignTargetIds.InputPickDie);
+                    bool exposureCompleted = await AutoVisionRequestService.StartMatchAsync(
+                        AutoVisionChannel.Wafer,
+                        finder,
+                        requestIndex,
+                        InputVisionTimeoutMs,
+                        ct).ConfigureAwait(false);
+                    if (!exposureCompleted)
                     {
-                        WriteLog("InputDieVisionPrepareSequence",
-                            Name + " Input die vision offset 확인 완료. die=" + _currentDieId +
+                        return Fail("INPUT-DIE-VISION-PREPARE-EPD", "Vision",
+                            "Input die vision 촬영 EPD를 받지 못했습니다. 다음 위치 이동을 차단합니다. die=" + _currentDieId +
                             ", pickerNo=" + _currentPickerNo +
-                            ", attempt=" + attempt +
-                            ", dx=" + _visionOffset.DeltaX +
-                            ", dy=" + _visionOffset.DeltaY +
-                            ", dt=" + _visionOffset.DeltaTheta + " - Ok");
-
-                        CurrentStep = InputDieVisionPrepareStep.ApplyInputDieVisionOffset;
-                        return 0;
+                            ", requestIndex=" + requestIndex);
                     }
 
-                    WriteLog("InputDieVisionPrepareSequence",
-                        Name + " Input die vision offset 재시도. die=" + _currentDieId +
-                        ", pickerNo=" + _currentPickerNo +
-                        ", attempt=" + attempt + " - Check");
+                    _currentItem.ExposureCompleted = true;
                 }
 
-                if (Options != null &&
-                    Options.InputDieVisionFailureAction == InputDieVisionFailureAction.Alarm)
-                {
-                    return Fail("INPUT-DIE-VISION-PREPARE-VISION-NG", "Vision",
-                        "Input die vision 검사에 실패했습니다. die=" + _currentDieId +
-                        ", pickerNo=" + _currentPickerNo +
-                        ", retryCount=" + retryCount);
-                }
+                WriteLog("InputDieVisionPrepareSequence",
+                    Name + " Input die vision 촬영 EPD 확인 완료. Result를 기다리지 않고 다음 촬영으로 진행합니다. die=" +
+                    _currentDieId +
+                    ", pickerNo=" + _currentPickerNo +
+                    ", requestIndex=" + requestIndex + " - Ok");
 
-                return SkipCurrentVisionFailedDieAndContinue(retryCount);
+                SaveCurrentStateToItem();
+                _inspectionCursor++;
+                ReleasePreInspectionInputStageArea();
+                ClearCurrentContext();
+                CurrentStep = InputDieVisionPrepareStep.SelectNextInspectionTarget;
+                return 0;
             }
             catch (OperationCanceledException)
             {
@@ -538,11 +562,123 @@ namespace QMC.CDT320.Sequencing
             catch (Exception ex)
             {
                 return Fail("INPUT-DIE-VISION-PREPARE-VISION-EX", "Vision",
-                    "Input die vision 검사 중 예외가 발생했습니다. error=" + ex.Message);
+                    "Input die vision EPD 촬영 중 예외가 발생했습니다. error=" + ex.Message);
             }
             finally
             {
             }
+        }
+
+        public async Task<int> CollectVisionResultsAsync(CancellationToken ct)
+        {
+            bool completed = false;
+            try
+            {
+                _inspectionCursor = 0;
+                while (_inspectionCursor < _preparedItems.Count)
+                {
+                    ct.ThrowIfCancellationRequested();
+                    SetCurrentItem(_preparedItems[_inspectionCursor]);
+
+                    if (_currentItem == null || !_currentItem.ExposureCompleted)
+                    {
+                        int skipResult = SkipCurrentVisionFailedDieAndContinue(1);
+                        if (skipResult != 0)
+                            return skipResult;
+                        continue;
+                    }
+
+                    if (_currentItem.VisionOffset == null)
+                    {
+                        string finder = VisionAlignTargetIds.ResolveWaferFinder(VisionAlignTargetIds.InputPickDie);
+                        MatchResultDto match = await AutoVisionRequestService.WaitMatchResultAsync(
+                            AutoVisionChannel.Wafer,
+                            finder,
+                            _currentItem.VisionRequestIndex,
+                            InputVisionTimeoutMs,
+                            ct).ConfigureAwait(false);
+
+                        _visionOffset = VisionCameraCalibrationTransform.ToAlignResult(
+                            AutoVisionChannel.Wafer,
+                            match,
+                            0.0);
+                        _currentItem.VisionOffset = _visionOffset;
+
+                        if (_visionOffset != null)
+                        {
+                            QMC.CDT_320.Equipment.Vision.WaferVisionResultStore.RecordAlign(
+                                VisionAlignTargetIds.InputPickDie,
+                                _visionOffset);
+                        }
+                    }
+                    else
+                    {
+                        _visionOffset = _currentItem.VisionOffset;
+                    }
+
+                    if (_visionOffset == null)
+                    {
+                        WriteLog("InputDieVisionPrepareSequence",
+                            Name + " Input die vision Result 실패로 Die를 SKIP 처리합니다. die=" + _currentDieId +
+                            ", pickerNo=" + _currentPickerNo +
+                            ", requestIndex=" + _currentItem.VisionRequestIndex + " - Skip");
+
+                        int skipResult = SkipCurrentVisionFailedDieAndContinue(1);
+                        if (skipResult != 0)
+                            return skipResult;
+                        continue;
+                    }
+
+                    WriteLog("InputDieVisionPrepareSequence",
+                        Name + " Input die vision Result 회수 완료. die=" + _currentDieId +
+                        ", pickerNo=" + _currentPickerNo +
+                        ", requestIndex=" + _currentItem.VisionRequestIndex +
+                        ", dx=" + _visionOffset.DeltaX +
+                        ", dy=" + _visionOffset.DeltaY +
+                        ", dt=" + _visionOffset.DeltaTheta + " - Ok");
+
+                    _inspectionCursor++;
+                }
+
+                ClearCurrentContext();
+                _inspectionCursor = 0;
+                while (_inspectionCursor < _preparedItems.Count)
+                {
+                    ct.ThrowIfCancellationRequested();
+                    SetCurrentItem(_preparedItems[_inspectionCursor]);
+                    _visionOffset = _currentItem != null ? _currentItem.VisionOffset : null;
+
+                    int applyResult = ApplyInputDieVisionOffset();
+                    if (applyResult != 0)
+                        return applyResult;
+                }
+
+                ClearCurrentContext();
+                completed = true;
+                return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("INPUT-DIE-VISION-PREPARE-RESULT-EX", "Vision",
+                    "Input die vision Result 회수 중 예외가 발생했습니다. error=" + ex.Message);
+            }
+            finally
+            {
+                if (!completed)
+                    ReleasePreparedReservationsIfNeeded();
+            }
+        }
+
+        private static int ResolveInputVisionRequestIndex(InputDieVisionPreparedItem item)
+        {
+            if (item != null && item.PickTarget != null && item.PickTarget.OrderIndex >= 0)
+                return item.PickTarget.OrderIndex + 1;
+
+            return item != null && item.PickerNo > 0 ? item.PickerNo : 1;
         }
 
         private int SkipCurrentVisionFailedDieAndContinue(int retryCount)
@@ -1127,72 +1263,6 @@ namespace QMC.CDT320.Sequencing
                 ", alarm=" + axis.IsAlarm +
                 ", moving=" + axis.IsMoving +
                 ", actual=" + axis.ActualPosition + ");";
-        }
-
-        private async Task<VisionAlignResult> RequestInputVisionOffsetAsync(CancellationToken ct, bool applySettleDelay)
-        {
-            InputStageUnit stage = ResolveInputStage();
-            if (stage == null)
-                return null;
-
-            if (IsSimulationOrDryRun(stage))
-            {
-                VisionAlignResult dryRunVisionResult = await RequestDryRunInputVisionOffsetAsync(stage, ct, applySettleDelay).ConfigureAwait(false);
-                if (dryRunVisionResult != null)
-                    return dryRunVisionResult;
-
-                return SimulateInputVisionOffset();
-            }
-
-            if (applySettleDelay)
-                await DelayBeforeVisionInspectionAsync(ct).ConfigureAwait(false);
-
-            if (stage.Vision == null)
-                return null;
-
-            ct.ThrowIfCancellationRequested();
-            return await stage.Vision.TriggerAlignAsync(VisionAlignTargetIds.InputPickDie).ConfigureAwait(false);
-        }
-
-        private async Task<VisionAlignResult> RequestDryRunInputVisionOffsetAsync(
-            InputStageUnit stage,
-            CancellationToken ct,
-            bool applySettleDelay)
-        {
-            try
-            {
-                ct.ThrowIfCancellationRequested();
-                if (!IsDryRunWithWaferVisionConnected())
-                    return null;
-
-                if (stage == null || stage.Vision == null)
-                    return null;
-
-                if (applySettleDelay)
-                    await DelayBeforeVisionInspectionAsync(ct).ConfigureAwait(false);
-
-                VisionAlignResult result = await stage.Vision.TriggerAlignAsync(VisionAlignTargetIds.InputPickDie).ConfigureAwait(false);
-                WriteLog(Name,
-                    "DryRun " + VisionAlignTargetIds.InputPickDie + " Vision GRAB request completed. die=" + _currentDieId +
-                    ", pickerNo=" + _currentPickerNo +
-                    ", result=" + (result != null ? "OK" : "NG"));
-                return result;
-            }
-            catch (OperationCanceledException)
-            {
-                throw;
-            }
-            catch (Exception ex)
-            {
-                WriteLog(Name,
-                    "DryRun " + VisionAlignTargetIds.InputPickDie + " Vision GRAB request exception. die=" + _currentDieId +
-                    ", pickerNo=" + _currentPickerNo +
-                    ", error=" + ex.Message + " - SimFallback");
-                return null;
-            }
-            finally
-            {
-            }
         }
 
         private async Task<int> EnsureInputStageZProcessForVisionAsync(

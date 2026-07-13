@@ -1989,6 +1989,11 @@ namespace QMC.CDT320.Sequencing
                     _placeSequence = new PickerPlaceSequence(Context, Side);
                     _placeSequence.ForceSafeYBeforeFirstPlaceMove = _forceSafeYBeforePlaceResume;
                     _placeSequence.KeepPickerYForwardDuringPlaceReadyWait = _keepPickerYForwardForContinuousPlace;
+                    _placeSequence.ReleaseParentOutputWorkZoneAfterSafeAvoid = delegate(string description)
+                    {
+                        ReleasePickerWorkZone("PlaceSafeAvoid:" + (description ?? "-"));
+                        return _workZoneLease == null;
+                    };
                     if (_forceSafeYBeforePlaceResume)
                     {
                         WriteLog("PickerProcessSequence",

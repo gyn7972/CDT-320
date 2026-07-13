@@ -130,7 +130,8 @@ namespace QMC.CDT320.Sequencing
 
         public string BuildCompletionMessage()
         {
-            return "테스트 운전이 완료되었습니다.\r\n" +
+            return "Wafer 작업이 완료되었습니다.\r\n" +
+                   "STOP AFTER DRAIN 설정에 따라 Picker 보유 제품 배출과 Output 후검사를 완료하고 자동 운전을 종료했습니다.\r\n" +
                    "완료 원인: " + BuildCompletionReasonText() + "\r\n" +
                    "Picker 보유 제품: 없음\r\n" +
                    "Wafer 교체 후 다시 시작하십시오.";

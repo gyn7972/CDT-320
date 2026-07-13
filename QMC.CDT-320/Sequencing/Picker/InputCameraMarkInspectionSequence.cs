@@ -203,6 +203,36 @@ namespace QMC.CDT320.Sequencing
                 if (result != 0)
                     return result;
 
+                if (prepareSequence.PreparedItems.Count == 0)
+                {
+                    CurrentStep = InputCameraMarkInspectionStep.Complete;
+                    return 0;
+                }
+
+                int[] pipelineResults;
+                try
+                {
+                    Task<int> resultCollectionTask = prepareSequence.CollectVisionResultsAsync(ct);
+                    Task<int> visionAvoidTask = MoveInputVisionXToAvoidAsync(ct);
+                    pipelineResults = await Task.WhenAll(resultCollectionTask, visionAvoidTask).ConfigureAwait(false);
+                }
+                catch
+                {
+                    prepareSequence.ReleasePreparedReservations();
+                    throw;
+                }
+
+                if (pipelineResults[1] != 0)
+                {
+                    prepareSequence.ReleasePreparedReservations();
+                    return pipelineResults[1];
+                }
+                if (pipelineResults[0] != 0)
+                {
+                    prepareSequence.ReleasePreparedReservations();
+                    return pipelineResults[0];
+                }
+
                 _inspectedItems.Clear();
                 IList<InputDieVisionPreparedItem> preparedItems = prepareSequence.PreparedItems;
                 for (int i = 0; i < preparedItems.Count; i++)
@@ -213,7 +243,7 @@ namespace QMC.CDT320.Sequencing
                     _inspectedItems.Count + ", side=" + Side + " - Ok");
 
                 CurrentStep = _inspectedItems.Count > 0
-                    ? InputCameraMarkInspectionStep.MoveInputVisionXToAvoid
+                    ? InputCameraMarkInspectionStep.GrantPickUpPermission
                     : InputCameraMarkInspectionStep.Complete;
                 return 0;
             }

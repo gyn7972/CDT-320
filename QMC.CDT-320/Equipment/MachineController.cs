@@ -7728,7 +7728,7 @@ namespace QMC.CDT320
                                 waferCompletion.IsRunComplete)
                             {
                                 RequestOperatorMessage(
-                                    "테스트 운전 완료",
+                                    "Wafer 작업 완료",
                                     waferCompletion.BuildCompletionMessage());
                             }
                         }

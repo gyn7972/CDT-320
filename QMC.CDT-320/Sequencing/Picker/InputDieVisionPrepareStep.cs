@@ -9,7 +9,7 @@ namespace QMC.CDT320.Sequencing
         VerifyReservedInputDie,
         MovePickersToAvoidForInputVisionMove,
         MoveInputStageAndVisionToDie,
-        RequestInputDieVisionInspection,
+        StartInputDieVisionInspection,
         ApplyInputDieVisionOffset,
         Complete,
         Error

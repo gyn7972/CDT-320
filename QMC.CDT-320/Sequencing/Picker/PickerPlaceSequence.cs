@@ -43,9 +43,11 @@ namespace QMC.CDT320.Sequencing
         private bool _suppressOutputPostPlaceInspection;
         private bool _placeBlowHoldUntilAvoid;
         private bool _placeTargetPrepared;
+        private bool _parentOutputWorkZoneReleaseNotified;
 
         public bool ForceSafeYBeforeFirstPlaceMove { get; set; }
         public bool KeepPickerYForwardDuringPlaceReadyWait { get; set; }
+        internal Func<string, bool> ReleaseParentOutputWorkZoneAfterSafeAvoid { get; set; }
 
         public PickerPlaceSequence(MachineSequenceContext context, PickerSequenceSide side)
             : base(context, side, PickerSequenceKind.UnloadToOutput, side == PickerSequenceSide.Front ? "FrontPickerPlaceSequence" : "RearPickerPlaceSequence")
@@ -3104,6 +3106,11 @@ namespace QMC.CDT320.Sequencing
             ReleaseOutputFeederArea();
             EndOutputPostPlaceInspectionBatch();
 
+            int workZoneReleaseResult = ReleaseParentOutputWorkZoneAfterSafeAvoidIfNeeded(
+                "OutputStage 마지막 Place 후 교체 준비");
+            if (workZoneReleaseResult != 0)
+                return workZoneReleaseResult;
+
             return await PublishOutputStageExchangeReadyAfterSafeCompletionAsync(ct).ConfigureAwait(false);
         }
 
@@ -3266,6 +3273,11 @@ namespace QMC.CDT320.Sequencing
                 ReleaseOutputFeederArea();
                 EndOutputPostPlaceInspectionBatch();
 
+                int workZoneReleaseResult = ReleaseParentOutputWorkZoneAfterSafeAvoidIfNeeded(
+                    "Place 완료 후 후검사 대기 전");
+                if (workZoneReleaseResult != 0)
+                    return workZoneReleaseResult;
+
                 int completionResult = await PublishOutputStageExchangeReadyAfterSafeCompletionAsync(ct).ConfigureAwait(false);
                 if (completionResult != 0)
                     return completionResult;
@@ -3285,6 +3297,41 @@ namespace QMC.CDT320.Sequencing
             }
             finally
             {
+            }
+        }
+
+        private int ReleaseParentOutputWorkZoneAfterSafeAvoidIfNeeded(string description)
+        {
+            if (_parentOutputWorkZoneReleaseNotified)
+                return 0;
+
+            Func<string, bool> release = ReleaseParentOutputWorkZoneAfterSafeAvoid;
+            if (release == null)
+                return 0;
+
+            try
+            {
+                bool released = release(description);
+                if (!released)
+                {
+                    return Fail("PICKER-PLACE-PARENT-WORK-ZONE-RELEASE", Name,
+                        "Place 완료 후 Output camera 후검사 대기 전 부모 Picker Output 작업영역을 해제하지 못했습니다. " +
+                        "side=" + Side + ", description=" + description);
+                }
+
+                _parentOutputWorkZoneReleaseNotified = true;
+                WriteLog("PickerPlaceSequence",
+                    Name + " Picker 전체 Avoid 확인 후 Output camera 후검사 대기 전에 " +
+                    "부모 Picker Output 작업영역을 해제했습니다. side=" + Side +
+                    ", description=" + description + " - Ok");
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                return Fail("PICKER-PLACE-PARENT-WORK-ZONE-RELEASE-EX", Name,
+                    "Place 완료 후 부모 Picker Output 작업영역 해제 중 예외가 발생했습니다. " +
+                    "side=" + Side + ", description=" + description +
+                    ", error=" + ex.Message);
             }
         }
 

@@ -8,6 +8,8 @@ namespace QMC.CDT320.Sequencing
         public int PickerNo { get; set; }
         public string DieId { get; set; }
         public InputStagePickTarget PickTarget { get; set; }
+        public int VisionRequestIndex { get; set; }
+        public bool ExposureCompleted { get; set; }
         public VisionAlignResult VisionOffset { get; set; }
         public bool DiePicked { get; set; }
     }
