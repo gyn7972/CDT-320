@@ -142,6 +142,17 @@ namespace QMC.CDT320.Sequencing
                     return Fail("OUT-STAGE-FEEDER-NO-UNIT", "BinFeederUnit",
                         "OutputStage Load 준비 중 OutputFeederUnit을 찾을 수 없습니다. side=" + Options.Side);
 
+                if (!Options.AllowOutputFeederActuation)
+                {
+                    if (!feeder.IsBinFeederYInAvoidPosition())
+                        return Fail("OUT-STAGE-FEEDER-Y-MANUAL-POS", feeder.Name,
+                            "메뉴얼 OutputStage Load는 OutputFeederY를 이동하지 않습니다. 시작 전 FeederY를 Avoid 위치로 이동하십시오. side=" +
+                            Options.Side + ", " + feeder.DescribeBinFeederYMoveDoneState());
+
+                    CurrentStep = OutputStagePrepareLoadStep.MoveOppositeStageZToAvoid;
+                    return 0;
+                }
+
                 if (!feeder.IsFeederUnclamped())
                 {
                     int result = await feeder.SetFeederClampAsync(false, ResolveTimeout(), ct).ConfigureAwait(false);

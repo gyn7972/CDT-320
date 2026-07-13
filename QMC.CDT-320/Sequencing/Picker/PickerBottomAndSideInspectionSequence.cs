@@ -701,16 +701,9 @@ namespace QMC.CDT320.Sequencing
                 if (result != 0)
                     return result;
 
-                // 다음 PickerZ 선행 하강은 AutoFocus 시작 전에 명령과 완료 확인까지 끝냅니다.
+                // 다음 PickerZ는 현재 Bottom 검사와 겹쳐 선행 하강합니다.
+                // 완료 확인은 다음 Picker 검사 진입 시 수행하여 현재 검사를 지연시키지 않습니다.
                 StartNextBottomZDownCommand(i + 1);
-                if (i + 1 < _pickedPickerIndexes.Count)
-                {
-                    result = await CompletePendingBottomZDownForPickerAsync(
-                        _pickedPickerIndexes[i + 1],
-                        ct).ConfigureAwait(false);
-                    if (result != 0)
-                        return result;
-                }
 
                 result = await RunAutoFocusBeforeBottomInspectionAsync(target, ct).ConfigureAwait(false);
                 if (result != 0)

@@ -1646,7 +1646,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             }
         }
 
-        private DieMap CreateMachineAbsoluteInputMapFromPreview(DieMap source)
+        private DieMap CloneInputMapForManualApply(DieMap source, bool convertPreviewToAbsolute)
         {
             if (source == null)
                 return null;
@@ -1669,8 +1669,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 EdgeSkipMode = source.EdgeSkipMode,
                 SideEdgeSkip = source.SideEdgeSkip,
                 TopBottomEdgeSkip = source.TopBottomEdgeSkip,
-                OriginX = centerX + source.OriginX,
-                OriginY = centerY + source.OriginY,
+                OriginX = convertPreviewToAbsolute ? centerX + source.OriginX : source.OriginX,
+                OriginY = convertPreviewToAbsolute ? centerY + source.OriginY : source.OriginY,
                 SourceFileName = source.SourceFileName,
                 SourceFormat = source.SourceFormat,
                 SourcePitchFromFile = source.SourcePitchFromFile,
@@ -1698,8 +1698,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     IsTarget = entry.IsTarget,
                     Result = entry.Result,
                     BinCode = entry.BinCode,
-                    PosX = ResolveInputDisplayProcessX(source, entry),
-                    PosY = ResolveInputDisplayProcessY(source, entry),
+                    PosX = convertPreviewToAbsolute ? ResolveInputDisplayProcessX(source, entry) : entry.PosX,
+                    PosY = convertPreviewToAbsolute ? ResolveInputDisplayProcessY(source, entry) : entry.PosY,
                     EquipmentGridX = entry.EquipmentGridX,
                     EquipmentGridY = entry.EquipmentGridY,
                     DieUid = entry.DieUid
@@ -2000,18 +2000,26 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 {
                     wafer.DieMapFrameObjId = map.FrameObjId ?? "";
                     wafer.HasInputStageAlignResult = true;
-                    wafer.InputStageAlignOriginX = map.OriginX;
-                    wafer.InputStageAlignOriginY = map.OriginY;
                     wafer.InputStageAlignPitchX = map.PitchX;
                     wafer.InputStageAlignPitchY = map.PitchY;
                     wafer.InputStageDieSizeX = map.DieSizeX;
                     wafer.InputStageDieSizeY = map.DieSizeY;
                     wafer.InputStageOuterDiameterMm = map.OuterDiameterMm;
                     wafer.HasInputStageDieMappingResult = true;
+                    wafer.HasInputStageDieMappingOrigin = true;
+                    wafer.InputStageDieMappingOriginX = map.OriginX;
+                    wafer.InputStageDieMappingOriginY = map.OriginY;
+                    wafer.HasInputStageDieMappingThetaSnapshot = wafer.HasInputStageThetaAlignResult;
+                    wafer.InputStageDieMappingCorrectedT = wafer.InputStageAlignCorrectedT;
+                    wafer.InputStageDieMappingInvalidatedByAlignChange = false;
                     if (mappingOffsetX.HasValue)
                         wafer.InputStageDieMappingOffsetX = mappingOffsetX.Value;
+                    else
+                        wafer.InputStageDieMappingOffsetX = map.OriginX - wafer.InputStageAlignOriginX;
                     if (mappingOffsetY.HasValue)
                         wafer.InputStageDieMappingOffsetY = mappingOffsetY.Value;
+                    else
+                        wafer.InputStageDieMappingOffsetY = map.OriginY - wafer.InputStageAlignOriginY;
                     wafer.UpdatedAt = DateTime.Now;
                     if (wafer.DieIds == null)
                         wafer.DieIds = new System.Collections.Generic.List<string>();
@@ -2750,14 +2758,18 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 double appliedOffsetX = _manualDieDetectOffsetX;
                 double appliedOffsetY = _manualDieDetectOffsetY;
                 bool materializedFromPreview = !_mapPositionsAreMachineAbsolute;
+                WaferMaterial stageWafer = MaterialStateService.GetWaferAtLocation(MaterialLocationKind.InputStage);
+                bool finalizeMapping = materializedFromPreview ||
+                                       stageWafer == null ||
+                                       !stageWafer.HasInputStageDieMappingResult;
                 int updatedDieCount;
                 string coordinateUpdateDetail;
                 double mappingOffsetX;
                 double mappingOffsetY;
 
-                if (materializedFromPreview)
+                if (finalizeMapping)
                 {
-                    DieMap absoluteMap = CreateMachineAbsoluteInputMapFromPreview(map);
+                    DieMap absoluteMap = CloneInputMapForManualApply(map, materializedFromPreview);
                     if (absoluteMap == null || absoluteMap.Entries == null || absoluteMap.Entries.Count == 0)
                     {
                         QMC.Common.MessageDialog.Show(this,
@@ -2767,7 +2779,6 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     }
 
                     ApplyInputMapCoordinateOffset(absoluteMap, appliedOffsetX, appliedOffsetY);
-                    WaferMaterial expectedWafer = MaterialStateService.GetWaferAtLocation(MaterialLocationKind.InputStage);
                     InputStageDieMapApplyResult applyResult = InputStageDieMapApplyService.Apply(
                         new InputStageDieMapApplyRequest
                         {
@@ -2776,7 +2787,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
                             Bus = null,
                             DieMap = absoluteMap,
                             WaferMap = null,
-                            ExpectedWafer = expectedWafer,
+                            ExpectedWafer = stageWafer,
                             PickupOptions = ResolveInputPickupSubsetFromRecipe(),
                             Source = "InputStageMapTransferPage.ManualInputDieMapOffsetApply",
                             SaveReason = "InputStageManualDieDetectOffsetApply",
@@ -2813,9 +2824,15 @@ namespace QMC.CDT_320.Ui.Pages.Work
                         return;
                     }
 
-                    mappingOffsetX = map.OriginX - stage.OriginX;
-                    mappingOffsetY = map.OriginY - stage.OriginY;
                     WaferMaterial currentWafer = MaterialStateService.GetWaferAtLocation(MaterialLocationKind.InputStage);
+                    double alignOriginX = currentWafer != null && currentWafer.HasInputStageAlignResult
+                        ? currentWafer.InputStageAlignOriginX
+                        : stage.OriginX;
+                    double alignOriginY = currentWafer != null && currentWafer.HasInputStageAlignResult
+                        ? currentWafer.InputStageAlignOriginY
+                        : stage.OriginY;
+                    mappingOffsetX = map.OriginX - alignOriginX;
+                    mappingOffsetY = map.OriginY - alignOriginY;
                     WaferMapData waferMap = BuildWaferMapDataFromDieMap(map, currentWafer);
                     stage.ApplyDieMappingResult(
                         waferMap,
@@ -2847,17 +2864,18 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     ", mappingOffsetY=" + mappingOffsetY.ToString("F6") +
                     ", updatedDieCount=" + updatedDieCount +
                     ", materializedFromPreview=" + materializedFromPreview +
+                    ", finalizeMapping=" + finalizeMapping +
                     ", finishComplete=" + finishComplete +
                     ", finishReason=" + finishReason +
                     ", detail=" + coordinateUpdateDetail +
-                    ", dieStatePreserved=True - Ok");
+                    ", dieStatePreserved=" + (!finalizeMapping) + " - Ok");
 
                 ClearPendingManualInputDieDetectOffset();
 
                 QMC.Common.MessageDialog.Show(this,
                     "Offset 적용 완료.\r\n" +
                     "Offset X=" + mappingOffsetX.ToString("F6") + " mm, Y=" + mappingOffsetY.ToString("F6") + " mm\r\n" +
-                    (materializedFromPreview
+                    (finalizeMapping
                         ? "절대좌표 Die Map과 Mapping 완료 상태를 저장했습니다."
                         : "기존 Die 상태와 검사 이력은 유지했습니다."),
                     "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Information);
@@ -3279,6 +3297,9 @@ namespace QMC.CDT_320.Ui.Pages.Work
 
                 InputStageUnit stage = host.Machine.InputStageUnit;
                 DieMap map = mapView != null ? mapView.Map : null;
+                double processCenterX;
+                double processCenterY;
+                ResolveInputProcessCenter(out processCenterX, out processCenterY);
                 double targetX;
                 double targetY;
                 string targetDescription;
@@ -3297,7 +3318,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 }
                 else
                 {
-                    ResolveInputProcessCenter(out targetX, out targetY);
+                    targetX = processCenterX;
+                    targetY = processCenterY;
                     targetDescription = "Input PROCESS CENTER";
                     targetSource = "PROCESS_CENTER_FALLBACK";
                 }
@@ -3327,6 +3349,14 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     "Manual input MOVE VISION target resolved. source=" + targetSource +
                     ", die=" + (entry != null ? BuildSelectedDieText(entry) : "none") +
                     ", mapAbsolute=" + _mapPositionsAreMachineAbsolute +
+                    ", processCenterX=" + processCenterX.ToString("F6") +
+                    ", processCenterY=" + processCenterY.ToString("F6") +
+                    ", equipmentGridX=" + (entry != null ? entry.EquipmentGridX.ToString("F6") : "none") +
+                    ", equipmentGridY=" + (entry != null ? entry.EquipmentGridY.ToString("F6") : "none") +
+                    ", pitchX=" + (map != null ? map.PitchX.ToString("F6") : "none") +
+                    ", pitchY=" + (map != null ? map.PitchY.ToString("F6") : "none") +
+                    ", relativePosX=" + (entry != null ? entry.PosX.ToString("F6") : "none") +
+                    ", relativePosY=" + (entry != null ? entry.PosY.ToString("F6") : "none") +
                     ", targetX=" + targetX.ToString("F6") +
                     ", targetY=" + targetY.ToString("F6") + " - Start");
 

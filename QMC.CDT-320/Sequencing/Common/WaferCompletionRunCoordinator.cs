@@ -107,6 +107,14 @@ namespace QMC.CDT320.Sequencing
 
             while (!ct.IsCancellationRequested)
             {
+                if (_context.IsCycleStopRequested)
+                {
+                    _context.LogPublic("[WAFER-COMPLETE] Cycle Stop 요청을 감지하여 완료 감시를 종료합니다.");
+                    QMC.Common.Log.Write("Main", "SYSTEM", "WaferCompletionRun",
+                        "Wafer completion monitor stopped by cycle stop request. - Stopped");
+                    return;
+                }
+
                 ObserveCompletionSignals();
                 if (TryCompleteDrain())
                     return;

@@ -93,16 +93,32 @@ namespace QMC.CDT320.Sequencing
             CancellationTokenSource childrenCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
             _childrenCts = childrenCts;
             CancellationToken childrenToken = childrenCts.Token;
-            var tasks = new List<Task>();
+            var unitTasks = new List<Task>();
             foreach (var sequence in _active.Values)
-                tasks.Add(Task.Run(() => sequence.RunAsync(childrenToken), childrenToken));
-            if (_ctx.WaferCompletion.Enabled)
-                tasks.Add(Task.Run(() => _ctx.WaferCompletion.RunMonitorAsync(childrenToken), childrenToken));
+                unitTasks.Add(Task.Run(() => sequence.RunAsync(childrenToken), childrenToken));
 
-            _ctx.LogPublic("[SEQ] Run start (" + tasks.Count + " units)");
+            CancellationTokenSource waferMonitorCts = null;
+            Task waferMonitorTask = null;
+            if (_ctx.WaferCompletion.Enabled)
+            {
+                waferMonitorCts = CancellationTokenSource.CreateLinkedTokenSource(childrenToken);
+                CancellationToken waferMonitorToken = waferMonitorCts.Token;
+                waferMonitorTask = Task.Run(
+                    () => _ctx.WaferCompletion.RunMonitorAsync(waferMonitorToken),
+                    waferMonitorToken);
+            }
+
+            _ctx.LogPublic("[SEQ] Run start (unitTasks=" + unitTasks.Count +
+                           ", waferCompletionMonitor=" + (waferMonitorTask != null) + ")");
+            QMC.Common.Log.Write("Main", "SYSTEM", "AutoSequenceCoordinator",
+                "Coordinator run start. unitTasks=" + unitTasks.Count +
+                ", waferCompletionMonitor=" + (waferMonitorTask != null) + " - Start");
             try
             {
-                await WaitAllOrCancelOnFirstFailureAsync(tasks, childrenToken).ConfigureAwait(false);
+                await WaitUnitsWithWaferMonitorAsync(
+                    unitTasks,
+                    waferMonitorTask,
+                    childrenToken).ConfigureAwait(false);
                 _ctx.LogPublic("[SEQ] Run complete");
                 tactScope.Complete();
             }
@@ -110,7 +126,7 @@ namespace QMC.CDT320.Sequencing
             {
                 _ctx.LogPublic("[SEQ] Run stopped");
                 tactScope.Stop("", "시퀀스가 Cycle Stop 경계에서 정지되었습니다.");
-                await AwaitPendingAfterCycleStopAsync(tasks, false).ConfigureAwait(false);
+                await AwaitPendingAfterCycleStopAsync(unitTasks, false).ConfigureAwait(false);
                 throw;
             }
             catch (OperationCanceledException)
@@ -118,7 +134,7 @@ namespace QMC.CDT320.Sequencing
                 _ctx.LogPublic("[SEQ] Run canceled");
                 tactScope.Cancel("시퀀스가 취소되었습니다.");
                 AbortChildren();
-                await AwaitPendingAfterAbortAsync(tasks).ConfigureAwait(false);
+                await AwaitPendingAfterAbortAsync(unitTasks).ConfigureAwait(false);
                 throw;
             }
             catch (Exception ex)
@@ -128,11 +144,112 @@ namespace QMC.CDT320.Sequencing
             }
             finally
             {
+                await StopWaferCompletionMonitorAsync(
+                    waferMonitorCts,
+                    waferMonitorTask).ConfigureAwait(false);
+
                 if (_childrenCts == childrenCts)
                     _childrenCts = null;
 
                 childrenCts.Dispose();
             }
+            }
+        }
+
+        private async Task WaitUnitsWithWaferMonitorAsync(
+            List<Task> unitTasks,
+            Task waferMonitorTask,
+            CancellationToken ct)
+        {
+            Task unitCompletionTask = WaitAllOrCancelOnFirstFailureAsync(unitTasks, ct);
+            if (waferMonitorTask == null)
+            {
+                await unitCompletionTask.ConfigureAwait(false);
+                return;
+            }
+
+            Task first = await Task.WhenAny(unitCompletionTask, waferMonitorTask).ConfigureAwait(false);
+            if (first == waferMonitorTask && waferMonitorTask.IsFaulted)
+            {
+                Exception monitorError = waferMonitorTask.Exception != null
+                    ? waferMonitorTask.Exception.GetBaseException()
+                    : null;
+                _ctx.LogPublic("[SEQ] WaferCompletion 감시 작업 실패로 유닛 시퀀스를 취소합니다. error=" +
+                               (monitorError != null ? monitorError.Message : "unknown"));
+                QMC.Common.Log.Write("Main", "SYSTEM", "WaferCompletionRun",
+                    "Wafer completion monitor failed. error=" +
+                    (monitorError != null ? monitorError.Message : "unknown") + " - Failed");
+                AbortChildren();
+                try
+                {
+                    await unitCompletionTask.ConfigureAwait(false);
+                }
+                catch
+                {
+                }
+
+                await waferMonitorTask.ConfigureAwait(false);
+                return;
+            }
+
+            if (first == waferMonitorTask && waferMonitorTask.IsCanceled && !ct.IsCancellationRequested)
+            {
+                AbortChildren();
+                try
+                {
+                    await unitCompletionTask.ConfigureAwait(false);
+                }
+                catch
+                {
+                }
+
+                throw new InvalidOperationException("WaferCompletion 감시 작업이 예기치 않게 취소되었습니다.");
+            }
+
+            await unitCompletionTask.ConfigureAwait(false);
+            if (waferMonitorTask.IsFaulted)
+                await waferMonitorTask.ConfigureAwait(false);
+        }
+
+        private async Task StopWaferCompletionMonitorAsync(
+            CancellationTokenSource waferMonitorCts,
+            Task waferMonitorTask)
+        {
+            if (waferMonitorTask == null)
+            {
+                if (waferMonitorCts != null)
+                    waferMonitorCts.Dispose();
+                return;
+            }
+
+            try
+            {
+                if (!waferMonitorTask.IsCompleted &&
+                    waferMonitorCts != null &&
+                    !waferMonitorCts.IsCancellationRequested)
+                {
+                    _ctx.LogPublic("[SEQ] 유닛 시퀀스 종료 후 WaferCompletion 감시 작업을 종료합니다.");
+                    waferMonitorCts.Cancel();
+                }
+
+                await waferMonitorTask.ConfigureAwait(false);
+                QMC.Common.Log.Write("Main", "SYSTEM", "WaferCompletionRun",
+                    "Wafer completion monitor terminated. canceled=False - Ok");
+            }
+            catch (OperationCanceledException)
+            {
+                QMC.Common.Log.Write("Main", "SYSTEM", "WaferCompletionRun",
+                    "Wafer completion monitor terminated. canceled=True - Stopped");
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Log.Write("Main", "SYSTEM", "WaferCompletionRun",
+                    "Wafer completion monitor termination failed. error=" + ex.Message + " - Failed");
+            }
+            finally
+            {
+                if (waferMonitorCts != null)
+                    waferMonitorCts.Dispose();
             }
         }
 

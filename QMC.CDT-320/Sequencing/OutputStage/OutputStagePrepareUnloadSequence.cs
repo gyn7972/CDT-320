@@ -9,6 +9,7 @@ namespace QMC.CDT320.Sequencing
         Idle,
         CheckUnit,
         CheckTargetSide,
+        EnsureOutputFeederSafeBeforeStageMove,
         MoveTargetStageZToAvoid,
         CheckTargetStageZAvoid,
         MoveTargetStageYToUnload,
@@ -44,6 +45,10 @@ namespace QMC.CDT320.Sequencing
                     // 대상 사이드 확인
                     case OutputStagePrepareUnloadStep.CheckTargetSide:
                         return CheckTargetSideAsync(ct);
+
+                    // 메뉴얼 동작에서는 피더 Y를 움직이지 않고 어보이드 위치만 재확인
+                    case OutputStagePrepareUnloadStep.EnsureOutputFeederSafeBeforeStageMove:
+                        return Task.FromResult(EnsureOutputFeederSafeBeforeStageMove());
 
                     // 대상 스테이지 Z로 어보이드 이동
                     case OutputStagePrepareUnloadStep.MoveTargetStageZToAvoid:
@@ -87,12 +92,45 @@ namespace QMC.CDT320.Sequencing
                 if (pickerReady != 0)
                     return pickerReady;
 
-                CurrentStep = OutputStagePrepareUnloadStep.MoveTargetStageZToAvoid;
+                CurrentStep = OutputStagePrepareUnloadStep.EnsureOutputFeederSafeBeforeStageMove;
                 return 0;
             }
             catch (Exception ex)
             {
                 return Fail("OUT-STAGE-SIDE-EX", Name, "Target side check failed: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private int EnsureOutputFeederSafeBeforeStageMove()
+        {
+            try
+            {
+                if (Options.AllowOutputFeederActuation)
+                {
+                    CurrentStep = OutputStagePrepareUnloadStep.MoveTargetStageZToAvoid;
+                    return 0;
+                }
+
+                if (OutputFeeder == null)
+                    return Fail("OUT-STAGE-FEEDER-NO-UNIT", "OutputFeederUnit",
+                        "OutputStage Unload 준비 중 OutputFeederUnit을 찾을 수 없습니다. side=" + Options.Side);
+
+                if (!OutputFeeder.IsBinFeederYInAvoidPosition())
+                    return Fail("OUT-STAGE-FEEDER-Y-MANUAL-POS", OutputFeeder.Name,
+                        "메뉴얼 OutputStage Unload는 OutputFeederY를 이동하지 않습니다. 시작 전 FeederY를 Avoid 위치로 이동하십시오. side=" +
+                        Options.Side + ", " + OutputFeeder.DescribeBinFeederYMoveDoneState());
+
+                CurrentStep = OutputStagePrepareUnloadStep.MoveTargetStageZToAvoid;
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                return Fail("OUT-STAGE-FEEDER-SAFE-EX", "OutputFeederUnit",
+                    "OutputStage Unload 전 OutputFeeder 안전 위치 확인 중 예외가 발생했습니다. side=" +
+                    Options.Side + ", error=" + ex.Message);
             }
             finally
             {

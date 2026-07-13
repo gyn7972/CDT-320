@@ -69,8 +69,14 @@ namespace QMC.CDT320.Sequencing
                 DieMapGenerator.Normalize(request.DieMap);
 
                 WaferMapData waferMap = request.WaferMap ?? BuildWaferMapDataFromDieMap(request.DieMap, wafer);
-                double mappingOffsetX = request.DieMap.OriginX - request.Stage.OriginX;
-                double mappingOffsetY = request.DieMap.OriginY - request.Stage.OriginY;
+                double alignOriginX = wafer.HasInputStageAlignResult
+                    ? wafer.InputStageAlignOriginX
+                    : request.Stage.OriginX;
+                double alignOriginY = wafer.HasInputStageAlignResult
+                    ? wafer.InputStageAlignOriginY
+                    : request.Stage.OriginY;
+                double mappingOffsetX = request.DieMap.OriginX - alignOriginX;
+                double mappingOffsetY = request.DieMap.OriginY - alignOriginY;
 
                 request.Stage.ApplyDieMappingResult(
                     waferMap,
@@ -121,6 +127,10 @@ namespace QMC.CDT320.Sequencing
                     ", dieMapY=" + request.DieMap.DieMapY +
                     ", targetDieCount=" + targetDieCount +
                     ", fullDieCount=" + fullDieCount +
+                    ", alignOriginX=" + alignOriginX.ToString("F6") +
+                    ", alignOriginY=" + alignOriginY.ToString("F6") +
+                    ", mappingOriginX=" + request.DieMap.OriginX.ToString("F6") +
+                    ", mappingOriginY=" + request.DieMap.OriginY.ToString("F6") +
                     ", offsetX=" + mappingOffsetX.ToString("F6") +
                     ", offsetY=" + mappingOffsetY.ToString("F6") + " - Ok");
 
@@ -227,8 +237,6 @@ namespace QMC.CDT320.Sequencing
             if (!string.IsNullOrWhiteSpace(inputSpecName))
                 wafer.TapeFrameSpecName = inputSpecName;
             wafer.HasInputStageAlignResult = true;
-            wafer.InputStageAlignOriginX = map.OriginX;
-            wafer.InputStageAlignOriginY = map.OriginY;
             wafer.InputStageAlignPitchX = map.PitchX;
             wafer.InputStageAlignPitchY = map.PitchY;
             wafer.InputStageDieSizeX = map.DieSizeX;
@@ -251,6 +259,12 @@ namespace QMC.CDT320.Sequencing
             wafer.HasInputStageDieMappingResult = true;
             wafer.InputStageDieMappingOffsetX = mappingOffsetX;
             wafer.InputStageDieMappingOffsetY = mappingOffsetY;
+            wafer.HasInputStageDieMappingOrigin = true;
+            wafer.InputStageDieMappingOriginX = map.OriginX;
+            wafer.InputStageDieMappingOriginY = map.OriginY;
+            wafer.HasInputStageDieMappingThetaSnapshot = wafer.HasInputStageThetaAlignResult;
+            wafer.InputStageDieMappingCorrectedT = wafer.InputStageAlignCorrectedT;
+            wafer.InputStageDieMappingInvalidatedByAlignChange = false;
             wafer.InputMapApprovalHashAtMapping = inputMapApprovalHash ?? "";
             wafer.State = WaferMaterialState.Working;
             wafer.UpdatedAt = DateTime.Now;

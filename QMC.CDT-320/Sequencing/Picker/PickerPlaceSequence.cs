@@ -1946,7 +1946,7 @@ namespace QMC.CDT320.Sequencing
             double previousZNearAvoid = ResolveNearAvoidPosition(previousAvoid, previousPlaceBase, placeConfig.ContiNearAvoidDistance);
             double currentZNearAvoid = ResolveNearAvoidPosition(currentAvoid, currentPlaceBase, placeConfig.ContiNearAvoidDistance);
             double currentZNode3 = currentMaterialBase + placeConfig.ContiZ1Step1Clearance + placeConfig.ContiZ1Step2Clearance;
-            double currentZFinal = currentMaterialBase - placeConfig.ContiOverDrive;
+            double currentZFinal = currentPlaceBase - placeConfig.ContiOverDrive;
 
             double ratio = placeConfig.ContiXYMidRatio;
             double stageYMid = stageY.ActualPosition + ((_targetOutputStageY - stageY.ActualPosition) * ratio);

@@ -39,7 +39,7 @@ namespace QMC.CDT320.Sequencing
                 CenterAlignTargetId = VisionAlignTargetIds.Center,
                 Ref1AlignTargetId = VisionAlignTargetIds.Ref1,
                 Ref2AlignTargetId = VisionAlignTargetIds.Ref2,
-                DieMapVisionTargetId = "DieMapMark",
+                DieMapVisionTargetId = VisionAlignTargetIds.Center,
                 DieMapVisionRetryCount = 3,
                 RunMode = SequenceRunMode.Auto,
                 StartMode = SequenceStartMode.Resume

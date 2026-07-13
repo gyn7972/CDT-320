@@ -126,6 +126,12 @@ namespace QMC.CDT320
         /// <summary>수동 Die 검출로 전체 Input Die Map에 적용할 수 있는 Y Offset 최대값 [mm].</summary>
         [DataMember] public double ManualDieDetectOffsetLimitY { get; set; } = 20.0;
 
+        /// <summary>Align 예상 Anchor에서 Die Mapping이 허용할 X 미세 보정 최대값 [mm].</summary>
+        [DataMember] public double DieMapFineOffsetLimitX { get; set; } = 2.0;
+
+        /// <summary>Align 예상 Anchor에서 Die Mapping이 허용할 Y 미세 보정 최대값 [mm].</summary>
+        [DataMember] public double DieMapFineOffsetLimitY { get; set; } = 2.0;
+
         /// <summary>PickUp 전 Input Die Vision 검사 재시도 횟수.</summary>
         [DataMember] public int InputDieVisionRetryCount { get; set; } = 3;
 
@@ -148,6 +154,10 @@ namespace QMC.CDT320
                 ManualDieDetectOffsetLimitX = 20.0;
             if (ManualDieDetectOffsetLimitY <= 0.0)
                 ManualDieDetectOffsetLimitY = 20.0;
+            if (DieMapFineOffsetLimitX <= 0.0)
+                DieMapFineOffsetLimitX = 2.0;
+            if (DieMapFineOffsetLimitY <= 0.0)
+                DieMapFineOffsetLimitY = 2.0;
             if (PickUpNeedleSyncLiftDistance <= 0.0)
                 PickUpNeedleSyncLiftDistance = 2.0;
             if (PickUpNeedleSyncLiftVelocity <= 0.0)
@@ -203,7 +213,7 @@ namespace QMC.CDT320
         [DataMember] public InputStageDieMapMarkPoint Bottom { get; set; } = new InputStageDieMapMarkPoint { Name = "Bottom" };
         [DataMember] public InputStageDieMapMarkPoint Left { get; set; } = new InputStageDieMapMarkPoint { Name = "Left" };
         [DataMember] public InputStageDieMapMarkPoint Right { get; set; } = new InputStageDieMapMarkPoint { Name = "Right" };
-        [DataMember] public string VisionTargetId { get; set; } = "DieMapMark";
+        [DataMember] public string VisionTargetId { get; set; } = VisionAlignTargetIds.Center;
         [DataMember] public int VisionRetryCount { get; set; } = 3;
 
         [OnDeserialized]
@@ -223,7 +233,9 @@ namespace QMC.CDT320
             if (string.IsNullOrWhiteSpace(Left.Name)) Left.Name = "Left";
             if (string.IsNullOrWhiteSpace(Right.Name)) Right.Name = "Right";
             if (VisionRetryCount <= 0) VisionRetryCount = 3;
-            if (string.IsNullOrWhiteSpace(VisionTargetId)) VisionTargetId = "DieMapMark";
+            if (string.IsNullOrWhiteSpace(VisionTargetId) ||
+                string.Equals(VisionTargetId, "DieMapMark", StringComparison.OrdinalIgnoreCase))
+                VisionTargetId = VisionAlignTargetIds.Center;
         }
 
         public InputStageDieMapMarkPoint[] Points()
@@ -2893,6 +2905,40 @@ namespace QMC.CDT320
             {
                 reason = "InputStage manual die detect offset limit check failed: " + ex.Message;
                 return false;
+            }
+            finally
+            {
+            }
+        }
+
+        public double ResolveDieMapFineOffsetLimitX()
+        {
+            try
+            {
+                return Config != null && Config.DieMapFineOffsetLimitX > 0.0
+                    ? Config.DieMapFineOffsetLimitX
+                    : 2.0;
+            }
+            catch
+            {
+                return 2.0;
+            }
+            finally
+            {
+            }
+        }
+
+        public double ResolveDieMapFineOffsetLimitY()
+        {
+            try
+            {
+                return Config != null && Config.DieMapFineOffsetLimitY > 0.0
+                    ? Config.DieMapFineOffsetLimitY
+                    : 2.0;
+            }
+            catch
+            {
+                return 2.0;
             }
             finally
             {

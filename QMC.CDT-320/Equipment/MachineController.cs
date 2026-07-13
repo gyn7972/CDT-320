@@ -2131,12 +2131,37 @@ namespace QMC.CDT320
 
         /// <summary>RESET ALARM: 모든 축 알람 리셋 + AlarmManager 활성 알람 해제.
         /// 알람 해제 후 전체 축이 정상 상태이면 총괄 초기화 상태를 복구한다.</summary>
-        public Task ResetAlarmAsync()
+        public async Task ResetAlarmAsync()
         {
             Log("[RESET-ALARM] Alarm reset start...");
             int axisCount = 0, axisFail = 0;
             try
             {
+                if (IsSequenceRunning)
+                {
+                    Task runningTask = _coordinatorTask;
+                    string taskStatus = runningTask != null ? runningTask.Status.ToString() : "null";
+                    Log("[RESET-ALARM] Active sequence cancellation wait start. taskStatus=" + taskStatus);
+                    QMC.Common.Log.Write("Main", "SYSTEM", "ResetAlarm",
+                        "Alarm reset waits for active sequence cancellation. taskStatus=" + taskStatus + " - Wait");
+
+                    int stopResult = await StopSequenceForAlarmAsync("RESET-ALARM").ConfigureAwait(false);
+                    if (stopResult != 0 || IsSequenceRunning)
+                    {
+                        LastActionFailureMessage = "알람 리셋 전 자동 시퀀스를 완전히 정지하지 못했습니다.";
+                        Log("[RESET-ALARM] " + LastActionFailureMessage +
+                            " result=" + stopResult + ", sequenceRunning=" + IsSequenceRunning);
+                        QMC.Common.Log.Write("Main", "SYSTEM", "ResetAlarm",
+                            LastActionFailureMessage + " result=" + stopResult +
+                            ", sequenceRunning=" + IsSequenceRunning + " - Failed");
+                        return;
+                    }
+
+                    Log("[RESET-ALARM] Active sequence cancellation wait complete.");
+                    QMC.Common.Log.Write("Main", "SYSTEM", "ResetAlarm",
+                        "Active sequence terminated before alarm reset. - Ok");
+                }
+
                 foreach (var ax in EnumerateAxes())
                 {
                     try { ax.ResetAlarm(); axisCount++; }
@@ -2159,7 +2184,6 @@ namespace QMC.CDT320
             {
                 Log("[RESET-ALARM] exception: " + ex.Message);
             }
-            return Task.CompletedTask;
         }
 
         /// <summary>
@@ -6846,9 +6870,16 @@ namespace QMC.CDT320
                 if (IsSequenceRunning)
                 {
                     LastActionFailureMessage = "Sequence가 이미 실행 중입니다.";
-                    QMC.Common.Log.Write("Main", "SYSTEM", "StartAsync", "Start failed: sequence is already running. - Failed");
+                    Task runningTask = _coordinatorTask;
+                    string runningDetail = "taskStatus=" +
+                        (runningTask != null ? runningTask.Status.ToString() : "null") +
+                        ", coordinator=" + (_coordinator != null) +
+                        ", cycleStopRequested=" + (_seqContext != null && _seqContext.IsCycleStopRequested) +
+                        ", equipmentStatus=" + _status;
+                    QMC.Common.Log.Write("Main", "SYSTEM", "StartAsync",
+                        "Start failed: sequence is already running. " + runningDetail + " - Failed");
                     AlarmManager.Raise(AlarmSeverity.Error, "START-RUNNING", "MachineController", "Sequence가 이미 실행 중입니다.");
-                    Log("[START] failed: sequence is already running");
+                    Log("[START] failed: sequence is already running. " + runningDetail);
                     return -1;
                 }
 
@@ -8003,6 +8034,11 @@ namespace QMC.CDT320
                 var cts = _autoCts;
                 var task = _coordinatorTask;
 
+                QMC.Common.Log.Write("Main", "SYSTEM", "StopSequenceForAlarm",
+                    "Immediate sequence cancellation start. code=" + alarmCode +
+                    ", taskStatus=" + (task != null ? task.Status.ToString() : "null") +
+                    ", coordinator=" + (coordinator != null) + " - Start");
+
                 if (coordinator != null)
                     coordinator.AbortChildren();
                 if (cts != null && !cts.IsCancellationRequested)
@@ -8019,6 +8055,10 @@ namespace QMC.CDT320
                         Log("[SEQ] alarm stop canceled. code=" + alarmCode);
                     }
                 }
+
+                QMC.Common.Log.Write("Main", "SYSTEM", "StopSequenceForAlarm",
+                    "Immediate sequence cancellation join complete. code=" + alarmCode +
+                    ", taskCompleted=" + (task == null || task.IsCompleted) + " - Check");
 
                 _coordinatorTask = null;
                 _coordinator = null;

@@ -149,6 +149,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             this._targetId.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Left | System.Windows.Forms.AnchorStyles.Right)));
             this._targetId.Location = new System.Drawing.Point(108, 10);
             this._targetId.Name = "_targetId";
+            this._targetId.ReadOnly = true;
             this._targetId.Size = new System.Drawing.Size(549, 25);
             this._targetId.TabIndex = 1;
             // 

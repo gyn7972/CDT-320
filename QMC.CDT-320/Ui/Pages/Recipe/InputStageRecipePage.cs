@@ -1437,6 +1437,8 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 items.Add(ParameterGridItem.Double("ALIGN T LIMIT", "deg", ParameterGridScope.Config, () => unit.Config.AlignThetaCorrectionLimitDeg, v => unit.Config.AlignThetaCorrectionLimitDeg = Math.Max(0.001, v)));
                 items.Add(ParameterGridItem.Double("MANUAL DIE OFFSET X LIMIT", "mm", ParameterGridScope.Config, () => unit.Config.ManualDieDetectOffsetLimitX, v => unit.Config.ManualDieDetectOffsetLimitX = Math.Max(0.001, v)));
                 items.Add(ParameterGridItem.Double("MANUAL DIE OFFSET Y LIMIT", "mm", ParameterGridScope.Config, () => unit.Config.ManualDieDetectOffsetLimitY, v => unit.Config.ManualDieDetectOffsetLimitY = Math.Max(0.001, v)));
+                items.Add(ParameterGridItem.Double("DIE MAP FINE OFFSET X LIMIT", "mm", ParameterGridScope.Config, () => unit.Config.DieMapFineOffsetLimitX, v => unit.Config.DieMapFineOffsetLimitX = Math.Max(0.001, v)));
+                items.Add(ParameterGridItem.Double("DIE MAP FINE OFFSET Y LIMIT", "mm", ParameterGridScope.Config, () => unit.Config.DieMapFineOffsetLimitY, v => unit.Config.DieMapFineOffsetLimitY = Math.Max(0.001, v)));
                 items.Add(ParameterGridItem.Bool("CONFIG DRY RUN", ParameterGridScope.Config, () => unit.Config.bDryRun, v => unit.Config.bDryRun = v));
                 items.Add(ParameterGridItem.Bool("SETUP SIMULATION MODE", ParameterGridScope.Setup, () => unit.Setup.IsSimulationMode, v => unit.Setup.IsSimulationMode = v));
                 return items;

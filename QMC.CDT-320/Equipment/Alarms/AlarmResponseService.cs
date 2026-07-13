@@ -68,7 +68,20 @@ namespace QMC.CDT320.Alarms
                 if (alarm == null)
                     return;
 
-                Task.Run(async () => await HandleAlarmAsync(alarm).ConfigureAwait(false));
+                AlarmResponsePolicy policy = _policyStore.Resolve(alarm);
+                if (policy != null && policy.SetMachineAlarmStatus)
+                    _controller.SetAlarmStateFromAlarmResponse(alarm.Code);
+
+                Task<int> responseTask = HandleAlarmAsync(alarm, policy);
+                responseTask.ContinueWith(
+                    task => Log.Write("Main", "SYSTEM", "AlarmResponseService",
+                        "Alarm response background task faulted. code=" + alarm.Code +
+                        ", error=" + (task.Exception != null
+                            ? task.Exception.GetBaseException().Message
+                            : "unknown") + " - Failed"),
+                    CancellationToken.None,
+                    TaskContinuationOptions.OnlyOnFaulted,
+                    TaskScheduler.Default);
             }
             catch (Exception ex)
             {
@@ -79,11 +92,10 @@ namespace QMC.CDT320.Alarms
             }
         }
 
-        private async Task<int> HandleAlarmAsync(AlarmRecord alarm)
+        private async Task<int> HandleAlarmAsync(AlarmRecord alarm, AlarmResponsePolicy policy)
         {
             try
             {
-                var policy = _policyStore.Resolve(alarm);
                 if (policy == null || policy.StopScope == AlarmStopScope.None && !policy.StopSequence)
                 {
                     Log.Write("Main", "SYSTEM", "AlarmResponseService",
@@ -102,9 +114,6 @@ namespace QMC.CDT320.Alarms
                     : 0;
                 if (sequenceResult != 0 && stopResult == 0)
                     stopResult = sequenceResult;
-
-                if (policy.SetMachineAlarmStatus)
-                    _controller.SetAlarmStateFromAlarmResponse(alarm.Code);
 
                 Log.Write("Main", "SYSTEM", "AlarmResponseService",
                     "Alarm response complete. code=" + alarm.Code + ", result=" + stopResult + " - Ok");
@@ -129,14 +138,23 @@ namespace QMC.CDT320.Alarms
                     return 0;
 
                 string code = alarm != null ? alarm.Code : "";
-                if (policy.StopScope == AlarmStopScope.None && !policy.UseEmergencyStop)
+                bool immediateSequenceStop = alarm != null &&
+                    (alarm.Severity == AlarmSeverity.Error || alarm.Severity == AlarmSeverity.Critical);
+                if (!immediateSequenceStop &&
+                    policy.StopScope == AlarmStopScope.None &&
+                    !policy.UseEmergencyStop)
                 {
                     await _controller.RequestCycleStopSequenceAsync().ConfigureAwait(false);
                     Log.Write("Main", "SYSTEM", "AlarmResponseService",
-                        "Alarm response requested cycle stop. code=" + code + " - Requested");
+                        "Alarm response requested graceful cycle stop. code=" + code +
+                        ", severity=" + (alarm != null ? alarm.Severity.ToString() : "-") + " - Requested");
                     return 0;
                 }
 
+                Log.Write("Main", "SYSTEM", "AlarmResponseService",
+                    "Alarm response requested immediate sequence cancellation. code=" + code +
+                    ", severity=" + (alarm != null ? alarm.Severity.ToString() : "-") +
+                    ", scope=" + policy.StopScope + " - Requested");
                 return await _controller.StopSequenceForAlarmAsync(code).ConfigureAwait(false);
             }
             catch (Exception ex)

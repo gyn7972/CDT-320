@@ -7,6 +7,7 @@ using System.Windows.Forms;
 using QMC.Common.Alarms;
 using QMC.Common.Motion;
 using QMC.CDT320;
+using QMC.CDT320.VisionComm;
 
 namespace QMC.CDT_320.Ui.Dialogs
 {
@@ -35,7 +36,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             {
                 var recipe = _stage.Recipe.DieMap;
                 recipe.EnsurePoints();
-                _targetId.Text = recipe.VisionTargetId;
+                _targetId.Text = VisionAlignTargetIds.Center;
                 _retryCount.Value = Math.Max(_retryCount.Minimum, Math.Min(_retryCount.Maximum, recipe.VisionRetryCount));
                 _grid.Rows.Clear();
                 foreach (var point in recipe.Points())
@@ -58,7 +59,7 @@ namespace QMC.CDT_320.Ui.Dialogs
         {
             var recipe = _stage.Recipe.DieMap;
             recipe.EnsurePoints();
-            recipe.VisionTargetId = string.IsNullOrWhiteSpace(_targetId.Text) ? "DieMapMark" : _targetId.Text.Trim();
+            recipe.VisionTargetId = VisionAlignTargetIds.Center;
             recipe.VisionRetryCount = (int)_retryCount.Value;
             var points = recipe.Points();
             for (int i = 0; i < points.Length && i < _grid.Rows.Count; i++)

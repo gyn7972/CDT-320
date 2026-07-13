@@ -27,6 +27,7 @@ namespace QMC.CDT320.Materials
         private const int MaterialSaveMinimumIntervalMs = 5000;
         private const int MaterialStateChangedQuietMs = 200;
         private const double InputStageThetaOffsetReadyEpsilon = 0.000001;
+        private const double InputStageThetaMappingSnapshotToleranceDeg = 0.000001;
         private const double ProcessTestThetaAlignOffsetDeg = 0.000010;
         private static bool _saveWorkerRunning;
         private static bool _saveRequested;
@@ -927,6 +928,12 @@ namespace QMC.CDT320.Materials
                     inputStageWafer.HasInputStageDieMappingResult = true;
                     inputStageWafer.InputStageDieMappingOffsetX = 0.0;
                     inputStageWafer.InputStageDieMappingOffsetY = 0.0;
+                    inputStageWafer.HasInputStageDieMappingOrigin = true;
+                    inputStageWafer.InputStageDieMappingOriginX = inputMap.OriginX;
+                    inputStageWafer.InputStageDieMappingOriginY = inputMap.OriginY;
+                    inputStageWafer.HasInputStageDieMappingThetaSnapshot = true;
+                    inputStageWafer.InputStageDieMappingCorrectedT = inputStageWafer.InputStageAlignCorrectedT;
+                    inputStageWafer.InputStageDieMappingInvalidatedByAlignChange = false;
                     inputStageWafer.InputMapApprovalHashAtMapping = project != null && project.MapApprovalVersion > 0
                         ? project.InputMapApprovalHash ?? ""
                         : "";
@@ -3767,6 +3774,22 @@ namespace QMC.CDT320.Materials
             if (!IsInputStageThetaAlignCompleteNoLock(wafer, out reason))
                 return false;
 
+            if (wafer.InputStageDieMappingInvalidatedByAlignChange)
+            {
+                reason = "InputStage die mapping was invalidated by align/theta change. waferId=" + wafer.WaferId;
+                return false;
+            }
+
+            if (wafer.HasInputStageDieMappingThetaSnapshot &&
+                Math.Abs(wafer.InputStageDieMappingCorrectedT - wafer.InputStageAlignCorrectedT) >
+                    InputStageThetaMappingSnapshotToleranceDeg)
+            {
+                reason = "InputStage theta changed after die mapping. waferId=" + wafer.WaferId +
+                         ", mappedT=" + wafer.InputStageDieMappingCorrectedT.ToString("F6") +
+                         ", currentT=" + wafer.InputStageAlignCorrectedT.ToString("F6");
+                return false;
+            }
+
             if (!wafer.HasInputStageDieMappingResult)
             {
                 reason = "InputStage die mapping is not complete. waferId=" + wafer.WaferId;
@@ -4072,6 +4095,23 @@ namespace QMC.CDT320.Materials
             }
         }
 
+        private static void InvalidateInputStageDieMappingNoLock(WaferMaterial wafer, bool alignOrThetaChanged)
+        {
+            if (wafer == null)
+                return;
+
+            wafer.HasInputStageDieMappingResult = false;
+            wafer.InputStageDieMappingOffsetX = 0.0;
+            wafer.InputStageDieMappingOffsetY = 0.0;
+            wafer.HasInputStageDieMappingOrigin = false;
+            wafer.InputStageDieMappingOriginX = 0.0;
+            wafer.InputStageDieMappingOriginY = 0.0;
+            wafer.HasInputStageDieMappingThetaSnapshot = false;
+            wafer.InputStageDieMappingCorrectedT = 0.0;
+            wafer.InputStageDieMappingInvalidatedByAlignChange = alignOrThetaChanged;
+            wafer.InputMapApprovalHashAtMapping = "";
+        }
+
         public static void SaveInputStageAlignResult(WaferMaterial wafer, double originX, double originY, double pitchX, double pitchY, double offsetX, double offsetY)
         {
             SaveInputStageAlignResult(wafer, originX, originY, pitchX, pitchY, offsetX, offsetY, false, 0.0, 0.0, 0.0);
@@ -4109,10 +4149,7 @@ namespace QMC.CDT320.Materials
                     wafer.InputStageAlignCorrectedT = correctedT;
                     wafer.InputStageAlignOffsetT = offsetT;
                 }
-                wafer.HasInputStageDieMappingResult = false;
-                wafer.InputStageDieMappingOffsetX = 0.0;
-                wafer.InputStageDieMappingOffsetY = 0.0;
-                wafer.InputMapApprovalHashAtMapping = "";
+                InvalidateInputStageDieMappingNoLock(wafer, true);
                 wafer.State = WaferMaterialStateText.Normalize(WaferMaterialState.Working);
                 wafer.UpdatedAt = DateTime.Now;
                 NotifyAndSave("InputStageAlignResult");
@@ -4134,24 +4171,17 @@ namespace QMC.CDT320.Materials
                 if (wafer == null)
                     return;
 
+                bool thetaChanged = !wafer.HasInputStageThetaAlignResult ||
+                    Math.Abs(wafer.InputStageAlignReferenceT - referenceT) > InputStageThetaMappingSnapshotToleranceDeg ||
+                    Math.Abs(wafer.InputStageAlignCorrectedT - correctedT) > InputStageThetaMappingSnapshotToleranceDeg ||
+                    Math.Abs(wafer.InputStageAlignOffsetT - offsetT) > InputStageThetaMappingSnapshotToleranceDeg;
+
                 wafer.HasInputStageThetaAlignResult = true;
                 wafer.InputStageAlignReferenceT = referenceT;
                 wafer.InputStageAlignCorrectedT = correctedT;
                 wafer.InputStageAlignOffsetT = offsetT;
-                string dieMapReason;
-                if (CanRestoreInputStageDieMappingCompleteNoLock(wafer, out dieMapReason))
-                {
-                    wafer.HasInputStageDieMappingResult = true;
-                    wafer.InputStageDieMappingOffsetX = NormalizeFinite(wafer.InputStageDieMappingOffsetX);
-                    wafer.InputStageDieMappingOffsetY = NormalizeFinite(wafer.InputStageDieMappingOffsetY);
-                }
-                else
-                {
-                    wafer.HasInputStageDieMappingResult = false;
-                    wafer.InputStageDieMappingOffsetX = 0.0;
-                    wafer.InputStageDieMappingOffsetY = 0.0;
-                    wafer.InputMapApprovalHashAtMapping = "";
-                }
+                if (thetaChanged)
+                    InvalidateInputStageDieMappingNoLock(wafer, true);
                 wafer.State = WaferMaterialStateText.Normalize(WaferMaterialState.Working);
                 wafer.UpdatedAt = DateTime.Now;
                 NotifyAndSave("InputStageThetaAlignResult");
@@ -4183,6 +4213,22 @@ namespace QMC.CDT320.Materials
                     wafer.HasInputStageDieMappingResult = true;
                     wafer.InputStageDieMappingOffsetX = NormalizeFinite(wafer.InputStageDieMappingOffsetX);
                     wafer.InputStageDieMappingOffsetY = NormalizeFinite(wafer.InputStageDieMappingOffsetY);
+                    if (!wafer.HasInputStageDieMappingOrigin)
+                    {
+                        DieMap restoredMap = BuildDieMapFromWafer(wafer);
+                        if (restoredMap != null)
+                        {
+                            wafer.HasInputStageDieMappingOrigin = true;
+                            wafer.InputStageDieMappingOriginX = restoredMap.OriginX;
+                            wafer.InputStageDieMappingOriginY = restoredMap.OriginY;
+                        }
+                    }
+                    if (!wafer.HasInputStageDieMappingThetaSnapshot)
+                    {
+                        wafer.HasInputStageDieMappingThetaSnapshot = true;
+                        wafer.InputStageDieMappingCorrectedT = wafer.InputStageAlignCorrectedT;
+                    }
+                    wafer.InputStageDieMappingInvalidatedByAlignChange = false;
                     wafer.State = WaferMaterialStateText.Normalize(WaferMaterialState.Working);
                     wafer.UpdatedAt = DateTime.Now;
 
@@ -4229,6 +4275,22 @@ namespace QMC.CDT320.Materials
                 return false;
             }
 
+            if (wafer.InputStageDieMappingInvalidatedByAlignChange)
+            {
+                reason = "die mapping was invalidated by align/theta change.";
+                return false;
+            }
+
+            if (wafer.HasInputStageDieMappingThetaSnapshot &&
+                Math.Abs(wafer.InputStageDieMappingCorrectedT - wafer.InputStageAlignCorrectedT) >
+                    InputStageThetaMappingSnapshotToleranceDeg)
+            {
+                reason = "theta align value changed after die mapping. mappedT=" +
+                         wafer.InputStageDieMappingCorrectedT.ToString("F6") +
+                         ", currentT=" + wafer.InputStageAlignCorrectedT.ToString("F6");
+                return false;
+            }
+
             if (wafer.DieIds == null || wafer.DieIds.Count == 0)
             {
                 reason = "die id list is empty.";
@@ -4263,10 +4325,7 @@ namespace QMC.CDT320.Materials
                 wafer.InputStageAlignReferenceT = 0.0;
                 wafer.InputStageAlignCorrectedT = 0.0;
                 wafer.InputStageAlignOffsetT = 0.0;
-                wafer.HasInputStageDieMappingResult = false;
-                wafer.InputStageDieMappingOffsetX = 0.0;
-                wafer.InputStageDieMappingOffsetY = 0.0;
-                wafer.InputMapApprovalHashAtMapping = "";
+                InvalidateInputStageDieMappingNoLock(wafer, true);
                 wafer.UpdatedAt = DateTime.Now;
                 NotifyAndSave(string.IsNullOrWhiteSpace(reason) ? "InputStageThetaAlignReset" : reason);
             }
@@ -4315,8 +4374,12 @@ namespace QMC.CDT320.Materials
 
                 double pitchX = wafer.InputStageAlignPitchX > 0.0 ? wafer.InputStageAlignPitchX : ResolvePitch(dies, true);
                 double pitchY = wafer.InputStageAlignPitchY > 0.0 ? wafer.InputStageAlignPitchY : ResolvePitch(dies, false);
-                double originX = wafer.HasInputStageAlignResult ? wafer.InputStageAlignOriginX : ResolveOrigin(dies, true);
-                double originY = wafer.HasInputStageAlignResult ? wafer.InputStageAlignOriginY : ResolveOrigin(dies, false);
+                double originX = wafer.HasInputStageDieMappingOrigin
+                    ? wafer.InputStageDieMappingOriginX
+                    : (wafer.HasInputStageAlignResult ? wafer.InputStageAlignOriginX : ResolveOrigin(dies, true));
+                double originY = wafer.HasInputStageDieMappingOrigin
+                    ? wafer.InputStageDieMappingOriginY
+                    : (wafer.HasInputStageAlignResult ? wafer.InputStageAlignOriginY : ResolveOrigin(dies, false));
                 double dieSizeX = wafer.InputStageDieSizeX;
                 double dieSizeY = wafer.InputStageDieSizeY;
                 double outerDiameterMm = wafer.InputStageOuterDiameterMm;
@@ -4861,10 +4924,17 @@ namespace QMC.CDT320.Materials
                     WaferMaterial wafer = GetWaferAtLocation(MaterialLocationKind.InputStage);
                     if (wafer != null)
                     {
-                        wafer.InputStageAlignOriginX = map.OriginX;
-                        wafer.InputStageAlignOriginY = map.OriginY;
-                        wafer.InputStageDieMappingOffsetX += offsetX;
-                        wafer.InputStageDieMappingOffsetY += offsetY;
+                        double alignOriginX = wafer.HasInputStageAlignResult
+                            ? wafer.InputStageAlignOriginX
+                            : map.OriginX;
+                        double alignOriginY = wafer.HasInputStageAlignResult
+                            ? wafer.InputStageAlignOriginY
+                            : map.OriginY;
+                        wafer.HasInputStageDieMappingOrigin = true;
+                        wafer.InputStageDieMappingOriginX = map.OriginX;
+                        wafer.InputStageDieMappingOriginY = map.OriginY;
+                        wafer.InputStageDieMappingOffsetX = map.OriginX - alignOriginX;
+                        wafer.InputStageDieMappingOffsetY = map.OriginY - alignOriginY;
                         wafer.UpdatedAt = DateTime.Now;
                     }
 

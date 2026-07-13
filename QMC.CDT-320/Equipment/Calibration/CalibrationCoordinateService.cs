@@ -331,6 +331,7 @@ namespace QMC.CDT320.Calibration
             double pickerYTarget = pickerYTeaching;
             double pickerYForward = Math.Abs(pickerYTarget);
             double pickerYRuntimeOffset = runtimeY;
+            double outputVisionToPickerYGap = Math.Abs(outputVisionToPickerY - pickerYTeaching);
             PickerCalibratedManualOutputTarget target = new PickerCalibratedManualOutputTarget
             {
                 OutputVisionToPickerX = outputVisionToPickerX,
@@ -343,14 +344,15 @@ namespace QMC.CDT320.Calibration
                 ColletOffsetY = collet.Y,
                 ColletOffsetT = appliedColletT
             };
-            // Place keeps PickerY on the taught transfer line; OutputStageY uses the signed Pick-style Y basis.
-            target.OutputStageY = slotY + pickerYTeaching - outputVisionToPickerY;
+            // PickerY remains on the taught transfer line, so OutputStageY absorbs the camera-to-picker Y gap.
+            target.OutputStageY = slotY + outputVisionToPickerYGap;
             // OutputCameraX와 PickerX는 Place 수령 방향이 같으므로 Output map X 오프셋은 PickerX에 더한다.
             target.PickerX = slotX + outputVisionToPickerX + runtimeX;
             target.PickerY = pickerYTarget;
             target.PickerT = pickerTTeaching + runtimeT + appliedColletT;
             target.Formula =
-                "OutputStageY=slotY(" + F(slotY) + ")+pickerYTeaching(" + F(pickerYTeaching) + ")-outputVisionToPickerY(" + F(outputVisionToPickerY) + ")=" + F(target.OutputStageY) +
+                "OutputVisionToPickerYGap=abs(outputVisionToPickerY(" + F(outputVisionToPickerY) + ")-pickerYTeaching(" + F(pickerYTeaching) + "))=" + F(outputVisionToPickerYGap) +
+                " / OutputStageY=slotY(" + F(slotY) + ")+outputVisionToPickerYGap(" + F(outputVisionToPickerYGap) + ")=" + F(target.OutputStageY) +
                 " / pickerYRuntimeOffset=" + F(pickerYRuntimeOffset) +
                 " / PickerX=slotX(" + F(slotX) + ")+outputVisionToPickerX(" + F(outputVisionToPickerX) + ")+runtimeX(" + F(runtimeX) + ") [colletX already in OutputVisionToPicker=" + F(collet.X) + "]=" + F(target.PickerX) +
                 " / PickerY=fixed teachingY(" + F(pickerYTeaching) + ") [runtimeY logged separately=" + F(runtimeY) + ", colletY already in OutputVisionToPicker=" + F(collet.Y) + "]=" + F(target.PickerY) +

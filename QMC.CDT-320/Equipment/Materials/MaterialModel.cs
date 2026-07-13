@@ -333,6 +333,15 @@ namespace QMC.CDT320.Materials
         [DataMember] public bool HasInputStageDieMappingResult { get; set; }
         [DataMember] public double InputStageDieMappingOffsetX { get; set; }
         [DataMember] public double InputStageDieMappingOffsetY { get; set; }
+        /// <summary>원래 Align Origin과 분리하여 저장한 최종 Input Die Map 절대좌표 Origin.</summary>
+        [DataMember] public bool HasInputStageDieMappingOrigin { get; set; }
+        [DataMember] public double InputStageDieMappingOriginX { get; set; }
+        [DataMember] public double InputStageDieMappingOriginY { get; set; }
+        /// <summary>Die Mapping 확정 시 사용한 T 보정값 스냅샷.</summary>
+        [DataMember] public bool HasInputStageDieMappingThetaSnapshot { get; set; }
+        [DataMember] public double InputStageDieMappingCorrectedT { get; set; }
+        /// <summary>Align/T 변경 후 이전 Mapping 데이터의 자동 복원을 차단한다.</summary>
+        [DataMember] public bool InputStageDieMappingInvalidatedByAlignChange { get; set; }
         /// <summary>이 Wafer의 절대좌표 Mapping을 만들 때 승인된 Input 역할 맵 hash.</summary>
         [DataMember] public string InputMapApprovalHashAtMapping { get; set; } = "";
         [DataMember] public string OutputReceiveSourceWaferId { get; set; } = "";
@@ -364,6 +373,12 @@ namespace QMC.CDT320.Materials
             SourceCassetteSlotPosition = double.NaN;
             CurrentCassetteSlotPosition = double.NaN;
             InputMapApprovalHashAtMapping = "";
+            HasInputStageDieMappingOrigin = false;
+            InputStageDieMappingOriginX = 0.0;
+            InputStageDieMappingOriginY = 0.0;
+            HasInputStageDieMappingThetaSnapshot = false;
+            InputStageDieMappingCorrectedT = 0.0;
+            InputStageDieMappingInvalidatedByAlignChange = false;
         }
     }
 

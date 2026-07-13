@@ -13,6 +13,7 @@ namespace QMC.CDT320.Sequencing
         public SequenceRunMode RunMode { get; set; }
         public SequenceStartMode StartMode { get; set; }
         public bool KeepVisionXAvoidOnProcessMove { get; set; }
+        public bool AllowOutputFeederActuation { get; set; }
 
         public static OutputStageSequenceOptions Default()
         {
@@ -28,7 +29,8 @@ namespace QMC.CDT320.Sequencing
                 MoveTimeoutMs = 300000,
                 RunMode = SequenceRunMode.Auto,
                 StartMode = SequenceStartMode.Resume,
-                KeepVisionXAvoidOnProcessMove = false
+                KeepVisionXAvoidOnProcessMove = false,
+                AllowOutputFeederActuation = true
             };
         }
     }

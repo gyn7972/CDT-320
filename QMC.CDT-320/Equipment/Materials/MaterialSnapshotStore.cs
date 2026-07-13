@@ -1189,6 +1189,9 @@ namespace QMC.CDT320.Materials
                 wafer.InputStageAlignOffsetT = NormalizeJsonDouble(wafer.InputStageAlignOffsetT, 0.0);
                 wafer.InputStageDieMappingOffsetX = NormalizeJsonDouble(wafer.InputStageDieMappingOffsetX, 0.0);
                 wafer.InputStageDieMappingOffsetY = NormalizeJsonDouble(wafer.InputStageDieMappingOffsetY, 0.0);
+                wafer.InputStageDieMappingOriginX = NormalizeJsonDouble(wafer.InputStageDieMappingOriginX, 0.0);
+                wafer.InputStageDieMappingOriginY = NormalizeJsonDouble(wafer.InputStageDieMappingOriginY, 0.0);
+                wafer.InputStageDieMappingCorrectedT = NormalizeJsonDouble(wafer.InputStageDieMappingCorrectedT, 0.0);
                 wafer.OutputReceivePitchX = NormalizeJsonDouble(wafer.OutputReceivePitchX, 0.0);
                 wafer.OutputReceivePitchY = NormalizeJsonDouble(wafer.OutputReceivePitchY, 0.0);
                 wafer.OutputReceiveDieSizeX = NormalizeJsonDouble(wafer.OutputReceiveDieSizeX, 0.0);

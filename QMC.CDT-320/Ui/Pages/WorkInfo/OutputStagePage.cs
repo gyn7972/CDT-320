@@ -308,11 +308,18 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             if (readyResult != 0)
                 return false;
 
-            int stageResult = await CreateSequence(host).RunPrepareLoadAsync(ct, BuildOptions(side, ResolveGrade(side))).ConfigureAwait(true);
+            int stageResult = await CreateSequence(host)
+                .RunPrepareLoadAsync(ct, BuildOptions(side, ResolveGrade(side)))
+                .ConfigureAwait(true);
             if (stageResult != 0)
                 return false;
 
-            int feederResult = await MoveOutputFeederToStageAndLiftUpAsync(host, ct, side, true, "LOAD " + side).ConfigureAwait(true);
+            int feederResult = await LiftOutputFeederUpAtAvoidAsync(
+                host,
+                ct,
+                side,
+                true,
+                "LOAD " + side).ConfigureAwait(true);
             return feederResult == 0;
         }
 
@@ -346,11 +353,18 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             if (readyResult != 0)
                 return false;
 
-            int stageResult = await CreateSequence(host).RunPrepareUnloadAsync(ct, BuildOptions(side, ResolveGrade(side))).ConfigureAwait(true);
+            int stageResult = await CreateSequence(host)
+                .RunPrepareUnloadAsync(ct, BuildOptions(side, ResolveGrade(side)))
+                .ConfigureAwait(true);
             if (stageResult != 0)
                 return false;
 
-            int feederResult = await MoveOutputFeederToStageAndLiftUpAsync(host, ct, side, false, "UNLOAD " + side).ConfigureAwait(true);
+            int feederResult = await LiftOutputFeederUpAtAvoidAsync(
+                host,
+                ct,
+                side,
+                false,
+                "UNLOAD " + side).ConfigureAwait(true);
             return feederResult == 0;
         }
 
@@ -378,8 +392,8 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
 
         private OutputStageSequence CreateSequence(Form1 host)
         {
-            var ctx = new MachineSequenceContext(host.Controller, new SequenceSignalBus());
-            return new OutputStageSequence(ctx);
+            var context = new MachineSequenceContext(host.Controller, new SequenceSignalBus());
+            return new OutputStageSequence(context);
         }
 
         private async Task<int> RunReadyBeforeOutputStageActionAsync(Form1 host, CancellationToken ct, string actionName)
@@ -434,17 +448,16 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 if (feeder == null)
                     return 0;
 
-                if (feeder.IsBinFeederInAvoidPosition() && feeder.IsFeederDown())
-                    return 0;
-
-                if (feeder.IsFeederUp())
+                if (!feeder.IsBinFeederInAvoidPosition())
                 {
-                    if (!IsOutputFeederAtStageTransferPosition(feeder))
-                    {
-                        WriteAlarm("OUTPUT-STAGE-READY-FEEDER-UP-POS", actionName + " 전 Ready 준비 차단: OutputFeeder가 Up 상태인데 Stage Load/Unload 계열 위치가 아닙니다. " + feeder.DescribeFeederCylinderState() + ", " + feeder.DescribeBinFeederYMoveDoneState());
-                        return -1;
-                    }
+                    WriteAlarm(
+                        "OUTPUT-STAGE-READY-FEEDER-Y-POS",
+                        actionName + " 전 Ready 준비 차단: OutputFeederY가 Avoid 위치가 아닙니다. 메뉴얼 OutputStage 버튼은 OutputFeederY를 자동 이동하지 않습니다. " + feeder.DescribeBinFeederYMoveDoneState());
+                    return -1;
+                }
 
+                if (!feeder.IsFeederDown())
+                {
                     int downTimeoutMs = ResolveOutputFeederLiftTimeoutMs(feeder, false);
                     WriteEvent("OUTPUT-STAGE-READY-FEEDER-DOWN", actionName + " 전 OutputFeeder Lift Down 시작. timeoutMs=" + downTimeoutMs);
                     int downResult = await feeder.SetFeederUpDownAsync(false, downTimeoutMs, ct).ConfigureAwait(true);
@@ -452,34 +465,6 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                     {
                         WriteAlarm("OUTPUT-STAGE-READY-FEEDER-DOWN-FAIL", actionName + " 전 OutputFeeder Lift Down 실패. result=" + downResult + ", " + feeder.DescribeFeederCylinderState());
                         return downResult != 0 ? downResult : -1;
-                    }
-                }
-
-                if (!feeder.IsBinFeederInAvoidPosition())
-                {
-                    string readyReason;
-                    if (!feeder.CheckBinFeederYMoveReady(out readyReason))
-                    {
-                        WriteAlarm("OUTPUT-STAGE-READY-FEEDER-Y-READY", actionName + " 전 OutputFeederY Avoid 이동 차단: " + readyReason);
-                        return -1;
-                    }
-
-                    WriteEvent("OUTPUT-STAGE-READY-FEEDER-Y-AVOID", actionName + " 전 OutputFeederY Avoid 이동 시작.");
-                    int moveResult = await feeder.MoveToFeederAvoidPosition(false).ConfigureAwait(true);
-                    if (moveResult != 0)
-                    {
-                        WriteAlarm("OUTPUT-STAGE-READY-FEEDER-Y-AVOID-FAIL", actionName + " 전 OutputFeederY Avoid 이동 실패. result=" + moveResult + ", " + feeder.DescribeBinFeederYMoveDoneState() + feeder.DescribeBinFeederYLastMotionFailure());
-                        return moveResult;
-                    }
-
-                    AxisMoveWaitResult waitResult = await feeder.WaitBinFeederYMoveDoneInPosition(
-                        feeder.Recipe.AvoidPosition,
-                        ResolveOutputFeederMoveTimeoutMs(feeder),
-                        ct).ConfigureAwait(true);
-                    if (waitResult == null || !waitResult.Success || !feeder.IsBinFeederInAvoidPosition())
-                    {
-                        WriteAlarm("OUTPUT-STAGE-READY-FEEDER-Y-AVOID-WAIT", actionName + " 전 OutputFeederY Avoid 위치 확인 실패. " + AxisMoveWaiter.FormatResult(waitResult, feeder.DescribeBinFeederYMoveDoneState()));
-                        return -1;
                     }
                 }
 
@@ -506,100 +491,48 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             }
         }
 
-        private static bool IsOutputFeederAtStageTransferPosition(OutputFeederUnit feeder)
-        {
-            if (feeder == null)
-                return false;
-
-            return feeder.IsBinFeederInAvoidPosition() ||
-                   feeder.IsBinFeederYInStageLoadPosition(BinSide.Good) ||
-                   feeder.IsBinFeederYInStageLoadPosition(BinSide.Ng) ||
-                   feeder.IsBinFeederYInStageLoadAvoidPosition(BinSide.Good) ||
-                   feeder.IsBinFeederYInStageLoadAvoidPosition(BinSide.Ng) ||
-                   feeder.IsBinFeederYInStageUnloadPosition(BinSide.Good) ||
-                   feeder.IsBinFeederYInStageUnloadPosition(BinSide.Ng) ||
-                   feeder.IsBinFeederYInStageUnloadAvoidPosition(BinSide.Good) ||
-                   feeder.IsBinFeederYInStageUnloadAvoidPosition(BinSide.Ng);
-        }
-
-        private async Task<int> MoveOutputFeederToStageAndLiftUpAsync(Form1 host, CancellationToken ct, BinSide side, bool load, string actionName)
+        private async Task<int> LiftOutputFeederUpAtAvoidAsync(
+            Form1 host,
+            CancellationToken ct,
+            BinSide side,
+            bool load,
+            string actionName)
         {
             try
             {
                 OutputStageUnit stage = host != null && host.Machine != null ? host.Machine.OutputStageUnit : null;
                 OutputFeederUnit feeder = host != null && host.Machine != null ? host.Machine.OutputFeederUnit : null;
-                if (stage == null)
+                if (stage == null || feeder == null)
                 {
-                    WriteAlarm("OUTPUT-STAGE-FEEDER-UP-NO-STAGE", actionName + " 마지막 Feeder Up 실패: OutputStage 유닛을 찾을 수 없습니다.");
-                    return -1;
-                }
-
-                if (feeder == null)
-                {
-                    WriteAlarm("OUTPUT-STAGE-FEEDER-UP-NO-FEEDER", actionName + " 마지막 Feeder Up 실패: OutputFeeder 유닛을 찾을 수 없습니다.");
+                    WriteAlarm("OUTPUT-STAGE-FEEDER-UP-MISSING", actionName + " 마지막 Feeder Up 실패: OutputStage 또는 OutputFeeder 유닛을 찾을 수 없습니다.");
                     return -1;
                 }
 
                 bool stageReady = load ? stage.IsStageInLoadPosition(side) : stage.IsStageInUnloadPosition(side);
                 if (!stageReady)
                 {
-                    WriteAlarm("OUTPUT-STAGE-FEEDER-UP-STAGE-POS", actionName + " 마지막 Feeder Up 차단: OutputStage가 " + (load ? "Load" : "Unload") + " 위치가 아닙니다. side=" + side + ", " + (load ? stage.DescribeStageLoadMoveState(side) : stage.DescribeOutputStageInterlockState(side)));
+                    WriteAlarm(
+                        "OUTPUT-STAGE-FEEDER-UP-STAGE-POS",
+                        actionName + " 마지막 Feeder Up 차단: OutputStage가 " + (load ? "Load" : "Unload") + " 위치가 아닙니다. side=" + side);
                     return -1;
                 }
 
-                Func<OutputFeederUnit, bool> isTargetPosition = load
-                    ? new Func<OutputFeederUnit, bool>(f => f.IsBinFeederYInStageLoadPosition(side))
-                    : new Func<OutputFeederUnit, bool>(f => f.IsBinFeederYInStageUnloadPosition(side));
+                if (!feeder.IsBinFeederInAvoidPosition())
+                {
+                    WriteAlarm(
+                        "OUTPUT-STAGE-FEEDER-UP-Y-POS",
+                        actionName + " 마지막 Feeder Up 차단: OutputFeederY가 Avoid 위치가 아닙니다. 메뉴얼 동작에서는 OutputFeederY를 이동하지 않습니다. " + feeder.DescribeBinFeederYMoveDoneState());
+                    return -1;
+                }
 
                 if (feeder.IsFeederUp())
                 {
-                    if (!isTargetPosition(feeder))
-                    {
-                        WriteAlarm("OUTPUT-STAGE-FEEDER-UP-Y", actionName + " 마지막 Feeder Up 차단: 이미 Up 상태이지만 OutputFeederY가 Stage " + (load ? "Load" : "Unload") + " 위치가 아닙니다. side=" + side + ", " + feeder.DescribeBinFeederYMoveDoneState());
-                        return -1;
-                    }
-
                     WriteEvent("OUTPUT-STAGE-FEEDER-UP-SKIP", actionName + " 마지막 Feeder Up 생략: 이미 Up 상태입니다.");
                     return 0;
                 }
 
-                if (!feeder.IsFeederDown())
-                {
-                    int downTimeoutMs = ResolveOutputFeederLiftTimeoutMs(feeder, false);
-                    WriteEvent("OUTPUT-STAGE-FEEDER-DOWN", actionName + " 마지막 FeederY 이동 전 Lift Down 시작. timeoutMs=" + downTimeoutMs);
-                    int downResult = await feeder.SetFeederUpDownAsync(false, downTimeoutMs, ct).ConfigureAwait(true);
-                    if (downResult != 0 || !feeder.IsFeederDown())
-                    {
-                        WriteAlarm("OUTPUT-STAGE-FEEDER-DOWN-FAIL", actionName + " 마지막 FeederY 이동 전 Lift Down 실패. result=" + downResult + ", " + feeder.DescribeFeederCylinderState());
-                        return downResult != 0 ? downResult : -1;
-                    }
-                }
-
-                string readyReason;
-                if (!feeder.CheckBinFeederYMoveReady(out readyReason))
-                {
-                    WriteAlarm("OUTPUT-STAGE-FEEDER-Y-READY", actionName + " 마지막 FeederY 이동 차단: " + readyReason);
-                    return -1;
-                }
-
-                WriteEvent("OUTPUT-STAGE-FEEDER-Y-MOVE", actionName + " 마지막 OutputFeederY Stage " + (load ? "Load" : "Unload") + " 위치 이동 시작. side=" + side);
-                int moveResult = load
-                    ? await feeder.MoveToFeederStageLoadPosition(side, false).ConfigureAwait(true)
-                    : await feeder.MoveToFeederStageUnloadPosition(side, false).ConfigureAwait(true);
-                if (moveResult != 0)
-                {
-                    WriteAlarm("OUTPUT-STAGE-FEEDER-Y-MOVE-FAIL", actionName + " 마지막 OutputFeederY Stage " + (load ? "Load" : "Unload") + " 위치 이동 실패. result=" + moveResult + ", side=" + side + ", " + feeder.DescribeBinFeederYMoveDoneState() + feeder.DescribeBinFeederYLastMotionFailure());
-                    return moveResult;
-                }
-
-                if (!isTargetPosition(feeder))
-                {
-                    WriteAlarm("OUTPUT-STAGE-FEEDER-Y-CHECK", actionName + " 마지막 OutputFeederY Stage " + (load ? "Load" : "Unload") + " 위치 확인 실패. side=" + side + ", " + feeder.DescribeBinFeederYMoveDoneState());
-                    return -1;
-                }
-
                 int upTimeoutMs = ResolveOutputFeederLiftTimeoutMs(feeder, true);
-                WriteEvent("OUTPUT-STAGE-FEEDER-UP-START", actionName + " 마지막 Feeder Up 시작. timeoutMs=" + upTimeoutMs);
+                WriteEvent("OUTPUT-STAGE-FEEDER-UP-START", actionName + " 마지막 Feeder Up 시작. OutputFeederY는 Avoid 위치를 유지합니다. timeoutMs=" + upTimeoutMs);
                 int upResult = await feeder.SetFeederUpDownAsync(true, upTimeoutMs, ct).ConfigureAwait(true);
                 if (upResult != 0 || !feeder.IsFeederUp())
                 {
@@ -607,7 +540,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                     return upResult != 0 ? upResult : -1;
                 }
 
-                WriteEvent("OUTPUT-STAGE-FEEDER-UP-OK", actionName + " 마지막 Feeder Up 완료.");
+                WriteEvent("OUTPUT-STAGE-FEEDER-UP-OK", actionName + " 마지막 Feeder Up 완료. OutputFeederY 이동 없음.");
                 return 0;
             }
             catch (OperationCanceledException)
@@ -646,24 +579,6 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             return 3000;
         }
 
-        private static int ResolveOutputFeederMoveTimeoutMs(OutputFeederUnit feeder)
-        {
-            try
-            {
-                if (feeder != null && feeder.FeederY != null && feeder.FeederY.Setup != null && feeder.FeederY.Setup.MoveTimeoutMs > 0)
-                    return feeder.FeederY.Setup.MoveTimeoutMs;
-
-                return 60000;
-            }
-            catch
-            {
-                return 60000;
-            }
-            finally
-            {
-            }
-        }
-
         private OutputStageSequenceOptions BuildOptions(BinSide side, DieGrade grade)
         {
             OutputStageSequenceOptions options = OutputStageSequenceOptions.Default();
@@ -672,6 +587,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             options.Side = side;
             options.Grade = grade;
             options.FineMove = false;
+            options.AllowOutputFeederActuation = false;
             return options;
         }
 

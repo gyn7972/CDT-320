@@ -280,6 +280,7 @@ namespace QMC.CDT320.Sequencing
                 side,
                 CalibrationCoordinateService.ResolvePickerZAxis(pickerIndex),
                 "PlacePosition");
+            double outputVisionToPickerYGap = System.Math.Abs(outputVisionToPickerY - pickerYTeaching);
 
             PlaceCoordinateResult result = DieCoordinateTransformService.CalculatePlaceTarget(
                 sequenceName,
@@ -353,8 +354,8 @@ namespace QMC.CDT320.Sequencing
                 ", pickerXIfColletDoubleAdded=" + F(result.PickerX + colletOffsetX) +
                 ", formulaOutputStageY=outputStageBaseY(" + F(outputStageBaseY) +
                 ")+receiveTargetY(" + F(receiveTargetY) +
-                ")+pickerYTeaching(" + F(pickerYTeaching) +
-                ")-outputVisionToPickerY(" + F(outputVisionToPickerY) +
+                ")+outputVisionToPickerYGap(abs(" + F(outputVisionToPickerY) +
+                "-" + F(pickerYTeaching) + ")=" + F(outputVisionToPickerYGap) +
                 ")+bottomOffsetY(" + F(bottomOffsetY) +
                 ")=" + F(result.OutputStageY) +
                 ", runtimeOffsetYLoggedOnly=" + F(runtimeOffsetY) +
