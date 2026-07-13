@@ -42,6 +42,7 @@ namespace QMC.CDT320.Sequencing
         private static readonly Random SimVisionRandom = new Random();
         private const double AlignPitchCompareToleranceMm = 0.05;
         private const double AlignCenterToleranceMm = 0.05;
+        private const double MaxEffectiveThetaToleranceDeg = 0.01;
         private WaferMapData _map;
         private WaferMaterial _wafer;
         private TapeFrameSpec _frameSpec;
@@ -212,6 +213,14 @@ namespace QMC.CDT320.Sequencing
 
                 Stage.ClearWaferAlignThetaResult();
                 MaterialStateService.ResetInputStageThetaAlignResult(_wafer, "InputStageAlignStartThetaReset");
+
+                WriteLog("InputStageAlignSequence",
+                    "Align theta tolerance resolved. requested=" + Options.AlignThetaToleranceDeg.ToString("F6") +
+                    ", stageConfig=" + (Stage.Config != null
+                        ? Stage.Config.AlignConvergenceThresholdDeg.ToString("F6")
+                        : "-") +
+                    ", effective=" + ResolveThetaTolerance().ToString("F6") +
+                    ", maximumEffective=" + MaxEffectiveThetaToleranceDeg.ToString("F6") + " - Ok");
 
                 _frameSpec = ResolveFrameSpecForWafer(_wafer);
                 string waferId = !string.IsNullOrWhiteSpace(Options.WaferId) ? Options.WaferId : _wafer.WaferId;
@@ -680,12 +689,24 @@ namespace QMC.CDT320.Sequencing
                     return Fail("IN-STAGE-ALIGN-THETA-VERIFY", "Vision",
                         "Wafer Align T 보정 확인용 Center 다이를 찾지 못했습니다. 센터와 주변 8방향 탐색을 모두 실패했습니다.");
 
-                int centerMoveResult = await ApplyCenterVisionCorrectionAsync(
+                double inputDeltaX;
+                double inputDeltaY;
+                double moveDeltaX;
+                double moveDeltaY;
+                ResolveInputCameraMotorCorrection(
                     _verifyCenterResult,
                     VisionAlignTargetIds.CenterVerify,
-                    ct).ConfigureAwait(false);
-                if (centerMoveResult != 0)
-                    return centerMoveResult;
+                    out inputDeltaX,
+                    out inputDeltaY,
+                    out moveDeltaX,
+                    out moveDeltaY);
+
+                WriteLog("InputStageAlignSequence",
+                    "Center theta verification keeps the first center XY. " +
+                    "observedMoveDeltaX=" + moveDeltaX.ToString("F6") +
+                    ", observedMoveDeltaY=" + moveDeltaY.ToString("F6") +
+                    ", visionDeltaTheta=" + _verifyCenterResult.DeltaTheta.ToString("F6") +
+                    ", xyCorrectionApplied=False - Check");
 
                 double theta = Math.Abs(_verifyCenterResult.DeltaTheta);
                 double tolerance = ResolveThetaTolerance();
@@ -964,13 +985,7 @@ namespace QMC.CDT320.Sequencing
         {
             try
             {
-                if (thetaAbs <= 1e-9)
-                    return false;
-
-                if (thetaAbs > tolerance)
-                    return true;
-
-                return _twoPointThetaRetryCount == 0 && Math.Max(0, Options.AlignRetryCount) > 0;
+                return thetaAbs > tolerance;
             }
             catch
             {
@@ -987,7 +1002,6 @@ namespace QMC.CDT320.Sequencing
             {
                 ct.ThrowIfCancellationRequested();
                 double tolerance = ResolveThetaTolerance();
-                bool isResidualCorrection = Math.Abs(_thetaFromTwoPoint) <= tolerance;
                 double correctionTheta = -_thetaFromTwoPoint;
 
                 int limitResult = CheckThetaCorrectionLimit(correctionTheta, VisionAlignTargetIds.Ref1Ref2);
@@ -1013,7 +1027,7 @@ namespace QMC.CDT320.Sequencing
                     ", tolerance=" + tolerance.ToString("F6") +
                     ", correction=" + correctionTheta.ToString("F6") +
                     ", targetT=" + targetT.ToString("F6") +
-                    ", mode=" + (isResidualCorrection ? "Residual" : "OutOfTolerance") +
+                    ", mode=OutOfTolerance" +
                     ", retry=" + _twoPointThetaRetryCount +
                     "/" + Options.AlignRetryCount + " - Start");
 
@@ -1023,8 +1037,13 @@ namespace QMC.CDT320.Sequencing
 
                 ClearRefAlignRuntimeState();
                 _thetaRetryCount = 0;
-                _preserveThetaOnProcessMove = true;
-                CurrentStep = InputStageAlignStep.MoveVisionProcessPosition;
+                WriteLog("InputStageAlignSequence",
+                    "Two point theta correction completed. Keep the first center XY and remeasure Ref1/Ref2 only. " +
+                    "centerX=" + _alignAnchorX.ToString("F6") +
+                    ", centerY=" + _alignAnchorY.ToString("F6") +
+                    ", actualT=" + (Stage.StageT != null ? Stage.StageT.ActualPosition.ToString("F6") : "0.000000") +
+                    ", centerPipelineRepeated=False - Ok");
+                CurrentStep = InputStageAlignStep.MoveRef1Position;
                 return 0;
             }
             catch (OperationCanceledException)
@@ -2098,81 +2117,61 @@ namespace QMC.CDT320.Sequencing
 
         private async Task<int> VerifyFinalCenterAsync(CancellationToken ct)
         {
-            int maxCorrectionMoves = Math.Max(1, Options.AlignRetryCount);
             string targetId = ResolveTargetId(Options.CenterAlignTargetId, VisionAlignTargetIds.Center);
+            ct.ThrowIfCancellationRequested();
+            VisionAlignResult result = await RequestVisionPcOffsetWithRetryAsync(
+                targetId,
+                "FinalCenterVerify",
+                ct).ConfigureAwait(false);
+            if (result == null)
+                return Fail("IN-STAGE-ALIGN-FINAL-CENTER-VISION", "Vision",
+                    "Final center verification vision result was not received.");
 
-            for (int attempt = 1; attempt <= maxCorrectionMoves + 1; attempt++)
-            {
-                ct.ThrowIfCancellationRequested();
-                VisionAlignResult result = await RequestVisionPcOffsetWithRetryAsync(
-                    targetId,
-                    "FinalCenterVerify" + attempt,
-                    ct).ConfigureAwait(false);
-                if (result == null)
-                    return Fail("IN-STAGE-ALIGN-FINAL-CENTER-VISION", "Vision",
-                        "Final center verification vision result was not received. attempt=" + attempt);
+            double inputDeltaX;
+            double inputDeltaY;
+            double moveDeltaX;
+            double moveDeltaY;
+            ResolveInputCameraMotorCorrection(
+                result,
+                "FinalCenterVerify",
+                out inputDeltaX,
+                out inputDeltaY,
+                out moveDeltaX,
+                out moveDeltaY);
 
-                double inputDeltaX;
-                double inputDeltaY;
-                double moveDeltaX;
-                double moveDeltaY;
-                ResolveInputCameraMotorCorrection(
-                    result,
-                    "FinalCenterVerify" + attempt,
-                    out inputDeltaX,
-                    out inputDeltaY,
-                    out moveDeltaX,
-                    out moveDeltaY);
+            double thetaTolerance = ResolveThetaTolerance();
+            bool centerOk = Math.Abs(moveDeltaX) <= AlignCenterToleranceMm &&
+                Math.Abs(moveDeltaY) <= AlignCenterToleranceMm;
+            bool refThetaOk = Math.Abs(_thetaFromTwoPoint) <= thetaTolerance;
 
-                double thetaAbs = Math.Abs(result.DeltaTheta);
-                double thetaTolerance = ResolveThetaTolerance();
-                bool centerOk = Math.Abs(moveDeltaX) <= AlignCenterToleranceMm &&
-                    Math.Abs(moveDeltaY) <= AlignCenterToleranceMm;
-                bool thetaOk = thetaAbs <= thetaTolerance;
+            WriteLog("InputStageAlignSequence",
+                "Final center verification without correction. moveDeltaX=" + moveDeltaX.ToString("F6") +
+                ", moveDeltaY=" + moveDeltaY.ToString("F6") +
+                ", centerTolerance=" + AlignCenterToleranceMm.ToString("F6") +
+                ", centerVisionDeltaTheta=" + result.DeltaTheta.ToString("F6") +
+                ", finalRefTheta=" + _thetaFromTwoPoint.ToString("F6") +
+                ", thetaTolerance=" + thetaTolerance.ToString("F6") +
+                ", centerOk=" + centerOk +
+                ", refThetaOk=" + refThetaOk +
+                ", xyCorrectionApplied=False - Check");
 
-                WriteLog("InputStageAlignSequence",
-                    "Final center verification. attempt=" + attempt +
-                    ", maxCorrectionMoves=" + maxCorrectionMoves +
-                    ", moveDeltaX=" + moveDeltaX.ToString("F6") +
+            if (!refThetaOk)
+                return Fail("IN-STAGE-ALIGN-FINAL-REF-THETA-TOL", Stage.Name,
+                    "Final Ref1/Ref2 theta is out of tolerance. theta=" + _thetaFromTwoPoint.ToString("F6") +
+                    ", tolerance=" + thetaTolerance.ToString("F6"));
+
+            if (!centerOk)
+                return Fail("IN-STAGE-ALIGN-FINAL-CENTER-TOL", Stage.Name,
+                    "Final center offset is out of tolerance. XY correction is not applied after the first center. " +
+                    "moveDeltaX=" + moveDeltaX.ToString("F6") +
                     ", moveDeltaY=" + moveDeltaY.ToString("F6") +
-                    ", centerTolerance=" + AlignCenterToleranceMm.ToString("F6") +
-                    ", deltaTheta=" + result.DeltaTheta.ToString("F6") +
-                    ", thetaTolerance=" + thetaTolerance.ToString("F6") +
-                    ", centerOk=" + centerOk +
-                    ", thetaOk=" + thetaOk + " - Check");
+                    ", tolerance=" + AlignCenterToleranceMm.ToString("F6"));
 
-                if (!thetaOk)
-                    return Fail("IN-STAGE-ALIGN-FINAL-THETA-TOL", Stage.Name,
-                        "Final center theta is out of tolerance. deltaTheta=" + result.DeltaTheta.ToString("F6") +
-                        ", tolerance=" + thetaTolerance.ToString("F6"));
-
-                if (centerOk)
-                {
-                    int centerRow = _map != null ? _map.RowCount / 2 : _alignAnchorRow;
-                    int centerCol = _map != null ? _map.ColumnCount / 2 : _alignAnchorCol;
-                    CaptureAlignAnchorFromCurrentPosition(centerRow, centerCol, "final center verified");
-                    CaptureFinalAlignOffsets("FinalCenterVerify" + attempt);
-                    return 0;
-                }
-
-                if (attempt > maxCorrectionMoves)
-                    return Fail("IN-STAGE-ALIGN-FINAL-CENTER-TOL", Stage.Name,
-                        "Final center offset is out of tolerance after correction. moveDeltaX=" +
-                        moveDeltaX.ToString("F6") +
-                        ", moveDeltaY=" + moveDeltaY.ToString("F6") +
-                        ", tolerance=" + AlignCenterToleranceMm.ToString("F6") +
-                        ", correctionMoves=" + maxCorrectionMoves);
-
-                int moveResult = await ApplyCenterVisionCorrectionAsync(
-                    result,
-                    "FinalCenterCorrection" + attempt,
-                    ct).ConfigureAwait(false);
-                if (moveResult != 0)
-                    return moveResult;
-            }
-
-            return Fail("IN-STAGE-ALIGN-FINAL-CENTER", Stage.Name,
-                "Final center verification ended without a valid result.");
+            int centerRow = _map != null ? _map.RowCount / 2 : _alignAnchorRow;
+            int centerCol = _map != null ? _map.ColumnCount / 2 : _alignAnchorCol;
+            CaptureAlignAnchorFromCurrentPosition(centerRow, centerCol, "final center verified without correction");
+            CaptureFinalAlignOffsets("FinalCenterVerify");
+            return 0;
         }
 
         private void CaptureFinalAlignOffsets(string description)
@@ -2804,9 +2803,13 @@ namespace QMC.CDT320.Sequencing
         {
             try
             {
-                return Options.AlignThetaToleranceDeg > 0.0
+                double configured = Options.AlignThetaToleranceDeg > 0.0
                     ? Options.AlignThetaToleranceDeg
                     : (Stage.Config != null ? Stage.Config.AlignConvergenceThresholdDeg : 0.005);
+                if (configured <= 0.0)
+                    configured = 0.005;
+
+                return Math.Min(configured, MaxEffectiveThetaToleranceDeg);
             }
             catch
             {
