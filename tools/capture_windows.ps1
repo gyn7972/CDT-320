@@ -49,5 +49,4 @@ function Capture-WindowByProcess {
 }
 
 Capture-WindowByProcess -ProcessName "QMC.CDT-320"     -FileName "demo_handler.png"
-Capture-WindowByProcess -ProcessName "QMC.Vision"      -FileName "demo_vision.png"
 Capture-WindowByProcess -ProcessName "CDT320Simulator" -FileName "demo_simulator.png"

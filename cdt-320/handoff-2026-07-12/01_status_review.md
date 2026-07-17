@@ -1,4 +1,4 @@
-# CDT-320 인계 상태 점검 (2026-07-12)
+﻿# CDT-320 인계 상태 점검 (2026-07-12)
 
 ## 점검 목적
 
@@ -8,8 +8,7 @@
 
 ## 소스 문서
 
-- `CLAUDE.md` — 진입점, 인계 문서 우선 참조 지시
-- `AGENTS.md` — 고정 코딩 규칙 (Designer, 예외/로그/알람, Task<int> 모션, 인코딩 등)
+- `AGENTS.md` — 현재 단일 규칙 정본 (Designer, 예외/로그/알람, Task<int> 모션, 인코딩 등)
 - `HANDOFF_TO_CLAUDE_2026-07-12.md` — Codex 인계 본문
 
 ## Git 상태 (점검 시점)
@@ -18,7 +17,7 @@
 branch: master == origin/master
 HEAD:   f595e603 오토포커스 구연완료.... 테스트전   ← 인계 문서 작성 이후 커밋
         e57f7532 Merge latest origin/master Side gate updates  ← 인계 시점 HEAD
-working tree: CLAUDE.md 수정(인계 안내 추가), HANDOFF 문서 untracked
+당시 working tree: 규칙 진입 파일 수정, HANDOFF 문서 untracked
 ```
 
 ## 핵심 확인 결과

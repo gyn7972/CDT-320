@@ -301,9 +301,9 @@
             this.lblUseVision.TabIndex = 14;
             this.lblUseVision.Text = "VISION USE";
             this.lblUseVision.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            //
+            // 
             // lblWaferCompleteRunMode
-            //
+            // 
             this.lblWaferCompleteRunMode.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(208)))), ((int)(((byte)(208)))), ((int)(((byte)(208)))));
             this.lblWaferCompleteRunMode.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblWaferCompleteRunMode.Font = new System.Drawing.Font("맑은 고딕", 9F);
@@ -411,9 +411,9 @@
             this._cbUseVision.Size = new System.Drawing.Size(645, 23);
             this._cbUseVision.TabIndex = 15;
             this._cbUseVision.SelectedIndexChanged += new System.EventHandler(this._cbUseVision_SelectedIndexChanged);
-            //
+            // 
             // _cbWaferCompleteRunMode
-            //
+            // 
             this._cbWaferCompleteRunMode.Dock = System.Windows.Forms.DockStyle.Fill;
             this._cbWaferCompleteRunMode.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
             this._cbWaferCompleteRunMode.Font = new System.Drawing.Font("맑은 고딕", 9F);

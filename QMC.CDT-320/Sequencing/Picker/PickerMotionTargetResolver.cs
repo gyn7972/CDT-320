@@ -280,8 +280,6 @@ namespace QMC.CDT320.Sequencing
                 side,
                 CalibrationCoordinateService.ResolvePickerZAxis(pickerIndex),
                 "PlacePosition");
-            double outputVisionToPickerYGap = System.Math.Abs(outputVisionToPickerY - pickerYTeaching);
-
             PlaceCoordinateResult result = DieCoordinateTransformService.CalculatePlaceTarget(
                 sequenceName,
                 side,
@@ -294,6 +292,7 @@ namespace QMC.CDT320.Sequencing
                 receiveTargetX,
                 outputVisionToPickerX,
                 outputVisionToPickerY,
+                colletOffsetY,
                 runtimeOffsetX,
                 runtimeOffsetY,
                 pickerYTeaching,
@@ -316,7 +315,7 @@ namespace QMC.CDT320.Sequencing
                 ", runtimeOffsetY=" + F(runtimeOffsetY) +
                 ", runtimeT=" + F(runtimeOffsetT) +
                 ", colletXAlreadyInOutputVisionToPicker=" + F(colletOffsetX) +
-                ", colletYAlreadyInOutputVisionToPicker=" + F(colletOffsetY) +
+                ", colletYAppliedOnceToOutputStageY=" + F(colletOffsetY) +
                 ", colletTAppliedToMove=0.000000" +
                 ", outputStageBaseY=" + F(outputStageBaseY) +
                 ", receiveTargetX=" + F(receiveTargetX) +
@@ -354,13 +353,12 @@ namespace QMC.CDT320.Sequencing
                 ", pickerXIfColletDoubleAdded=" + F(result.PickerX + colletOffsetX) +
                 ", formulaOutputStageY=outputStageBaseY(" + F(outputStageBaseY) +
                 ")+receiveTargetY(" + F(receiveTargetY) +
-                ")+outputVisionToPickerYGap(abs(" + F(outputVisionToPickerY) +
-                "-" + F(pickerYTeaching) + ")=" + F(outputVisionToPickerYGap) +
-                ")+bottomOffsetY(" + F(bottomOffsetY) +
+                ")-bottomOffsetY(" + F(bottomOffsetY) +
+                ")-pickerColletOffsetY(" + F(colletOffsetY) +
                 ")=" + F(result.OutputStageY) +
+                ", outputVisionToPickerYNotUsedForPlaceStageY=" + F(outputVisionToPickerY) +
                 ", runtimeOffsetYLoggedOnly=" + F(runtimeOffsetY) +
-                ", colletYAlreadyInOutputVisionToPicker=" + F(colletOffsetY) +
-                ", colletYNotAddedAgain=True" +
+                ", colletYAppliedOnceToOutputStageY=" + F(colletOffsetY) +
                 ", pickerYFixed=" + F(result.PickerY) +
                 ", pickerT=placeTeachingT(" + F(pickerTTeaching) +
                 ")-bottomOffsetT(" + F(bottomOffsetT) +

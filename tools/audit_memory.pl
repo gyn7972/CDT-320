@@ -20,7 +20,6 @@ sub scan_dir {
 
 my @cs;
 push @cs, scan_dir("$ROOT/QMC.CDT-320");
-push @cs, scan_dir("$ROOT/QMC.Vision");
 push @cs, scan_dir("$ROOT/QMC.Common");
 
 my $totalUsing       = 0;

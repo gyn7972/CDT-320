@@ -22,6 +22,16 @@ namespace QMC.CDT320.Sequencing
 
         public OutputStageReceiveTarget ReceiveTarget { get; set; }
 
+        public bool HasPlacedDieCameraTarget { get; set; }
+
+        public int PickerNo { get; set; }
+
+        public double PlacedStageY { get; set; }
+
+        public double PlacedPickerY { get; set; }
+
+        public double OutputVisionToPickerY { get; set; }
+
         public bool FineMove { get; set; }
 
         public int MoveTimeoutMs { get; set; }
@@ -62,6 +72,16 @@ namespace QMC.CDT320.Sequencing
                 return Volatile.Read(ref _pendingOrRunning) <= 0 &&
                        Volatile.Read(ref _batchDepth) <= 0;
             }
+        }
+
+        public bool IsSafelyIdleForDrain(out string reason)
+        {
+            bool safelyIdle = Volatile.Read(ref _pendingOrRunning) <= 0 &&
+                              Volatile.Read(ref _batchDepth) <= 0 &&
+                              Volatile.Read(ref _workerRunning) <= 0 &&
+                              _queue.IsEmpty;
+            reason = safelyIdle ? string.Empty : BuildWaitStateMessage();
+            return safelyIdle;
         }
 
         public bool HasFailure
@@ -164,6 +184,11 @@ namespace QMC.CDT320.Sequencing
                 ", orderIndex=" + (request.ReceiveTarget != null ? request.ReceiveTarget.OrderIndex.ToString() : "-") +
                 ", targetX=" + (request.ReceiveTarget != null ? request.ReceiveTarget.TargetX.ToString("F6") : "-") +
                 ", targetY=" + (request.ReceiveTarget != null ? request.ReceiveTarget.TargetY.ToString("F6") : "-") +
+                ", hasPlacedDieCameraTarget=" + request.HasPlacedDieCameraTarget +
+                ", pickerNo=" + request.PickerNo +
+                ", placedStageY=" + request.PlacedStageY.ToString("F6") +
+                ", placedPickerY=" + request.PlacedPickerY.ToString("F6") +
+                ", outputVisionToPickerY=" + request.OutputVisionToPickerY.ToString("F6") +
                 ", owner=" + request.Owner + " - Ok");
             if (Volatile.Read(ref _batchDepth) <= 0)
             {
@@ -665,7 +690,33 @@ namespace QMC.CDT320.Sequencing
                     ? stage.Recipe.NGStageY.ProcessPosition
                     : stage.Recipe.GoodStageY.ProcessPosition;
                 double targetVisionX = stage.Recipe.VisionX.ProcessPosition + request.ReceiveTarget.TargetX;
-                double targetStageY = baseY + request.ReceiveTarget.TargetY;
+                double cameraToPickerY = 0.0;
+                double targetStageY;
+                string targetStageYFormula;
+                if (request.HasPlacedDieCameraTarget)
+                {
+                    cameraToPickerY = request.OutputVisionToPickerY - request.PlacedPickerY;
+                    targetStageY = request.PlacedStageY - cameraToPickerY;
+                    targetStageYFormula =
+                        "placedStageY(" + request.PlacedStageY.ToString("F6") +
+                        ") - cameraToPickerY(outputVisionToPickerY(" + request.OutputVisionToPickerY.ToString("F6") +
+                        ") - placedPickerY(" + request.PlacedPickerY.ToString("F6") +
+                        ") = " + cameraToPickerY.ToString("F6") + ")";
+                }
+                else
+                {
+                    targetStageY = baseY + request.ReceiveTarget.TargetY;
+                    targetStageYFormula =
+                        "fallback baseY(" + baseY.ToString("F6") +
+                        ") + receiveTargetY(" + request.ReceiveTarget.TargetY.ToString("F6") + ")";
+                }
+                Log.Write("Main", "SYSTEM", "OutputPostPlaceInspection",
+                    "Output camera 후검사 StageY 계산. die=" + request.DieId +
+                    ", side=" + request.OutputSide +
+                    ", pickerNo=" + request.PickerNo +
+                    ", hasPlacedDieCameraTarget=" + request.HasPlacedDieCameraTarget +
+                    ", formula=" + targetStageYFormula +
+                    ", targetStageY=" + targetStageY.ToString("F6") + " - Calc");
                 int readyResult = await EnsureStageReadyForInspectionAsync(
                     stage,
                     request,
@@ -743,7 +794,9 @@ namespace QMC.CDT320.Sequencing
                     ", offsetY=" + offset.Y.ToString("F6") +
                     ", offsetT=" + offset.R.ToString("F6") +
                     ", visionX=" + targetVisionX.ToString("F6") +
-                    ", stageY=" + targetStageY.ToString("F6") + " - Ok");
+                    ", stageY=" + targetStageY.ToString("F6") +
+                    ", cameraToPickerY=" + cameraToPickerY.ToString("F6") +
+                    ", stageYFormula=" + targetStageYFormula + " - Ok");
                 return 0;
             }
             catch (OperationCanceledException)

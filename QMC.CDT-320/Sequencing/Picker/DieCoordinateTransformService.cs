@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using QMC.Common.Logging;
 
 namespace QMC.CDT320.Sequencing
@@ -144,6 +144,7 @@ namespace QMC.CDT320.Sequencing
             double receiveTargetX,
             double outputVisionToPickerX,
             double outputVisionToPickerY,
+            double pickerColletOffsetY,
             double pickerAlignOffsetX,
             double pickerAlignOffsetY,
             double pickerYTeaching,
@@ -157,19 +158,20 @@ namespace QMC.CDT320.Sequencing
             PlaceCoordinateResult result = new PlaceCoordinateResult();
             result.PickerY = pickerYTeaching;
             double pickerYRuntimeOffset = pickerAlignOffsetY;
-            double outputVisionToPickerYGap = Math.Abs(outputVisionToPickerY - pickerYTeaching);
             result.TargetSide = targetSide;
-            // PickerY remains on the taught transfer line, so OutputStageY absorbs the camera-to-picker Y gap.
-            result.OutputStageY = outputStageBaseY + receiveTargetY + outputVisionToPickerYGap + bottomOffsetY;
+            // Preserve the recipe Y direction and apply Bottom/collet corrections once on OutputStageY.
+            result.OutputStageY = outputStageBaseY + receiveTargetY - bottomOffsetY - pickerColletOffsetY;
+
             // OutputCameraX와 PickerX는 Place 수령 방향이 같으므로 Output map X 오프셋은 PickerX에 더한다.
-            // Bottom 검사 보정은 이동축 기준으로 PickerX/T는 반대 부호, OutputStageY는 같은 부호를 적용한다.
+            // Bottom 검사 보정은 이동축 기준으로 PickerX/T와 OutputStageY에서 감산한다.
             result.PickerX = outputVisionProcessX + receiveTargetX + outputVisionToPickerX + pickerAlignOffsetX - bottomOffsetX;
+
             result.PickerT = pickerTTeaching - bottomOffsetT;
             result.PickerZ = pickerZTeaching;
             result.Formula =
                 "targetSide = " + targetSide +
-                " / outputVisionToPickerYGap = abs(outputVisionToPickerY(" + F(outputVisionToPickerY) + ") - pickerYTeaching(" + F(pickerYTeaching) + ")) = " + F(outputVisionToPickerYGap) +
-                " / outputStageY = outputStageBaseY(" + F(outputStageBaseY) + ") + receiveTargetY(" + F(receiveTargetY) + ") + outputVisionToPickerYGap(" + F(outputVisionToPickerYGap) + ") + bottomOffsetY(" + F(bottomOffsetY) + ") = " + F(result.OutputStageY) +
+                " / outputStageY = outputStageBaseY(" + F(outputStageBaseY) + ") + receiveTargetY(" + F(receiveTargetY) + ") - bottomOffsetY(" + F(bottomOffsetY) + ") - pickerColletOffsetY(" + F(pickerColletOffsetY) + ") = " + F(result.OutputStageY) +
+                " / outputVisionToPickerY(" + F(outputVisionToPickerY) + ") is not used for PlaceStageY" +
                 " / pickerYRuntimeOffset=" + F(pickerYRuntimeOffset) +
                 " / pickerX = outputVisionProcessX(" + F(outputVisionProcessX) + ") + receiveTargetX(" + F(receiveTargetX) + ") + outputVisionToPickerX(" + F(outputVisionToPickerX) + ") + runtimeOffsetX(" + F(pickerAlignOffsetX) + ") - bottomOffsetX(" + F(bottomOffsetX) + ") = " + F(result.PickerX) +
                 " / pickerT = placeTeachingT(" + F(pickerTTeaching) + ") - bottomOffsetT(" + F(bottomOffsetT) + ") [pickerAlignOffsetT ignored for place=" + F(pickerAlignOffsetT) + "] = " + F(result.PickerT) +

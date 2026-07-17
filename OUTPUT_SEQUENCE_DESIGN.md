@@ -1,9 +1,9 @@
-# OutputSequence 구현 설계서 — Bin Data 기반 좌표 생성
+﻿# OutputSequence 구현 설계서 — Bin Data 기반 좌표 생성
 
 > 목적: 로딩된 OK/NG 아웃스테이지에 대해, **bin data**를 기준으로 픽커가 die를 OK/NG로 플레이스할 때
 > 사용할 **수령 좌표를 아웃스테이지 ProcessPosition(센터) 기준으로 생성**하도록 OutputSequence를 완성한다.
 > 이 문서는 Claude Code로 구현하기 위한 설계 명세이며, 실제 `.cs` 수정은 별도로 진행한다.
-> 작성 규칙은 `AGENTS.md` / `SEQUENCE_RECOVERY_RULES.md`를 따른다.
+> 작성 규칙은 단일 정본인 `AGENTS.md`를 따른다.
 
 ---
 

@@ -1,17 +1,16 @@
 ﻿# QMC CDT-320 — 다이 트랜스퍼 시스템
 
-> **CDT-320 듀얼 픽커 다이 본더 핸들러** + Vision PC + 3D 시뮬레이터의 통합 솔루션.
+> CDT-320 듀얼 픽커 다이 본더 Handler 소스 저장소. Vision PC는 외부 시스템으로 TCP 인터페이스만 유지하며, Vision 실행 프로젝트와 검사 구현은 이 저장소에 포함하지 않는다.
 
 ## 구성
 
 ```
 QMC.CDT-320/
-├─ QMC.CDT-320/         # 메인 핸들러 (WinForms, .NET 4.7.2)
-├─ QMC.Vision/          # 비전 PC (별도 프로세스 — TCP 5100/5101/5103)
-├─ QMC.Common/          # 공용 라이브러리 (Motion/IO 추상)
-├─ CDT320Simulator/     # 3D 시뮬레이터 (WPF + HelixToolkit)
-├─ tools/               # Perl 자동 검증 스크립트 + PowerShell 자동화
-└─ *.md                 # 단계별 PLAN/CHECKLIST/REPORT
+├─ QMC.CDT-320/         # 메인 Handler (WinForms, .NET Framework 4.7.2)
+├─ QMC.Common/          # Handler 공용 라이브러리
+├─ tools/               # Handler 진단·자동화 도구
+├─ docs/                # 설계·인터페이스 문서
+└─ QMC.CDT-320.sln      # Handler + QMC.Common
 ```
 
 ## 핵심 기능
@@ -37,77 +36,44 @@ QMC.CDT-320/
   - **Remote Viewer**: TCP 화면 캡처 송신 + 자체 미리보기
   - **Sensors**: IonizerSensor
 
-### Vision (`QMC.Vision/`)
-- **3 모듈** — Wafer (포트 5100) / BottomInspection (5101) / Bin (5103)
-- **카메라 추상** (`ICamera`) — Hikvision GigE / Sim
-- **백엔드 추상** (`IVisionBackend`) — Cognex / OpenCV / Sim 자동 fallback
-- **Cognex VisionPro 25.2.0** 동적 로드 (Reflection)
-  - PMAlign, Blob, Caliper, Histogram, ColorMatch, ImageProcessing
-- **5종 Inspection Parameters** + JSON 영속화
-- **MaterialTracker** 다이별 검사 결과 누적
-- **DataLogSaver** (30 칼럼 CSV) + ImageLogSaver
-- **UI**: 5 탭 — Operation / Configuration / Maintenance / Recipe / DataLog
-  - **FinderPage** — GRAB / LOAD / SAVE / TRAIN / MATCH + ROI 마우스 드래그
-  - **InspectorPage** — 검사기 실행 + PASS/FAIL + 결과 키-값 테이블
-  - **SpcChartPage** — X-bar 차트 + LSL/USL + Avg/Stdev
-  - **ParameterEditorHost** — 5 tool 콤보 + 편집기
-  - **ZoomDialog** — 휠 줌 + 드래그 팬
-
-### Simulator (`CDT320Simulator/`)
-- **WPF + HelixToolkit 3D**
-- **37 축 시뮬레이션** (CDT-320 IO map 기반)
-- **TCP 서버** (포트 7001) — JSON 명령
-- **Master/Viewer 모드** — HELLO 메시지로 자동 결정
+### 외부 Vision PC 인터페이스
+- 명령 채널: Wafer 5100, BottomInspection 5101, Bin 5103, Main 5104, FrontSide 5105, RearSide 5106
+- 영상 채널: 5200, 5201, 5203, 5205, 5206
+- 라인 프로토콜: `MODULE|CMD|args...`
+- Handler의 연결·명령·결과·Viewer·시퀀스 코드는 `QMC.CDT-320`에 유지한다.
+- 외부 Vision 프로그램의 소스·SDK·검사 엔진은 별도 관리한다.
 
 ## 빌드
 
 요구사항:
 - **Visual Studio 2022** (Community/Pro/Enterprise)
 - **.NET Framework 4.7.2 Developer Pack**
-- **Cognex VisionPro 25.2.0** (선택 — 미설치 시 OpenCV/Sim fallback)
 
 ```powershell
 $MSB = "C:\Program Files\Microsoft Visual Studio\2022\Professional\MSBuild\Current\Bin\MSBuild.exe"
 & $MSB "QMC.Common\QMC.Common.csproj"   /t:Build /p:Configuration=Debug
 & $MSB "QMC.CDT-320\QMC.CDT-320.csproj" /t:Build /p:Configuration=Debug
-& $MSB "QMC.Vision\QMC.Vision.csproj"   /t:Build /p:Configuration=Debug
 ```
+
+일부 프로젝트 구성의 기본 `OutputPath`가 운영 폴더를 가리킬 수 있으므로 실제 검증은 `AGENTS.md`에 따라 격리 복제본과 별도 `OutDir`를 사용한다.
 
 ## 실행
 
-### 1) Vision 먼저 실행
-`QMC.Vision\bin\Debug\QMC.Vision.exe` — TCP 5100/5101/5103 listen 시작.
-
-### 2) Simulator 실행 (선택)
-`CDT320Simulator\bin\Debug\CDT320Simulator.exe` — UI 의 [TCP START] 버튼 클릭하여 7001 listen.
-
-### 3) Handler 실행
-`QMC.CDT-320\bin\Debug\QMC.CDT-320.exe` — Vision 자동 연결 + Sim 자동 연결 (설정에 따라).
+1. 필요하면 외부 Vision PC를 먼저 준비한다.
+2. `QMC.CDT-320.exe`를 실행한다.
+3. `UseVision=true`이면 설정된 외부 Vision에 자동 연결하고, `UseVision=false`이면 Handler의 Vision 바이패스 정책을 사용한다.
 
 ## 자동 검증
 
-`tools/` 디렉토리:
-- **`verify_all.pl` — 모든 Stage 통합 회귀 (현재 117/118 PASS, 0 FAIL)**
-- `verify_comm.pl` — Vision↔Handler↔Sim 종단 통신 검증 (30 항목)
-- `verify_vision_features.pl` — Vision 기능 검증 (21 항목)
-- `verify_handler_features.pl` — Handler 310 이식 검증 (25 항목)
-- `verify_stage2.pl` ~ `verify_stage25.pl` — 단계별 추가 검증
-- `verify_cognex_runtime.pl` — Cognex 동글 활성 후 실 검증
-- `runtime_cycle_test.pl` — 환경 + 기동 안정성 + Cycle 결과 (`RUN_GUI_CYCLE=1`)
-- `gui_cycle_automation.ps1` — UI Automation 으로 사이클 실행 (Stage 5)
-- `remote_viewer_client.ps1` — Handler Remote Viewer 화면 받기 (Stage 17)
-- `audit_threading.pl` / `audit_memory.pl` — 정적 audit
+기본 검증:
+- 격리된 Handler/Common Rebuild
+- `git diff --check`
+- `tools/audit_threading.pl`, `tools/audit_memory.pl`
+- 외부 Vision이 준비된 환경에서는 Handler TCP 연결·명령·프레임 왕복 확인
 
 자동 사이클 실 동작 (Stage 24):
 ```bash
 QMC.CDT-320.exe --auto-cycle 10  # Init → CycleRun(10) → 종료. Lot JSON 자동 저장.
-```
-
-```bash
-perl tools/verify_all.pl                    # 117/118 PASS
-perl tools/verify_handler_features.pl       # 25/25
-perl tools/verify_vision_features.pl        # 21/21 (Vision exe 실행 시)
-RUN_GUI_CYCLE=1 perl tools/runtime_cycle_test.pl  # GUI 자동화 + Cycle 검증
 ```
 
 ## 라이선스
@@ -117,13 +83,9 @@ Proprietary — © QMC
 ## 개발 단계 문서
 
 - `STAGE1_CHECKLIST.md` — UI 연결 + Recipe Subset
-- `STAGE2_CHECKLIST.md` — SPC + Editors + Zoom + Cognex 진단
 - `STAGE3_CHECKLIST.md` — Lot + Reject + 5 Interlock + HSMS + Remote + Ionizer
-- `STAGE4_CHECKLIST.md` — RemoteViewerDialog + ActiveLotPage + SecsHost UseHsms + Cognex test
+- `STAGE4_CHECKLIST.md` — RemoteViewerDialog + ActiveLotPage + SecsHost UseHsms
 - `STAGE5_CHECKLIST.md` — GUI Cycle 자동화 (UIA)
-- `STAGE6_PLAN.md` — Cognex Caliper / Histogram / ColorMatch
-- `STAGE7~10` — overnight 추가 작업
-- `OVERNIGHT_REPORT.md` — 자율 작업 결과 종합 (최종)
 
 ## 아키텍처 + 사용자 가이드
 

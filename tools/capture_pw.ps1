@@ -46,5 +46,4 @@ function Capture-WindowPW {
 }
 
 Capture-WindowPW -ProcessName "QMC.CDT-320"     -FileName "demo_pw_handler.png"
-Capture-WindowPW -ProcessName "QMC.Vision"      -FileName "demo_pw_vision.png"
 Capture-WindowPW -ProcessName "CDT320Simulator" -FileName "demo_pw_simulator.png"

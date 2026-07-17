@@ -1,4 +1,4 @@
-# Auto Sequence 구현 작업 프롬프트 (Codex / 코딩 에이전트용)
+﻿# Auto Sequence 구현 작업 프롬프트 (Codex / 코딩 에이전트용)
 
 > 이 문서는 `QMC.CDT-320` 핸들러의 **Input / Output / Front·Rear Picker** 4개 유닛 시퀀스의
 > Auto(자동) 로직을 코드베이스 규칙에 맞게 구현·정리하기 위한 작업 지시 프롬프트다.
@@ -8,8 +8,8 @@
 
 ## 0. 작업 전 필수 확인
 
-1. **코드 수정 전 `AGENTS.md`를 먼저 읽고 그 규칙을 100% 따른다.** (`CLAUDE.md`가 진입점)
-2. 관련 규칙 문서: `MATERIAL_ARCHITECTURE_PLAN.md`, `SEQUENCE_RECOVERY_RULES.md`, `OUTPUT_SEQUENCE_DESIGN.md`.
+1. **코드 수정 전 단일 규칙 정본인 `AGENTS.md`를 먼저 읽고 따른다.**
+2. 관련 설계 문서: `MATERIAL_ARCHITECTURE_PLAN.md`, `OUTPUT_SEQUENCE_DESIGN.md`.
 3. 기존 시퀀스 아키텍처를 **재설계하지 말고 그대로 확장**한다. 아래 클래스/패턴이 이미 존재한다.
 
 ### 고정 규칙 요약 (AGENTS.md)
@@ -196,17 +196,14 @@ private int StopAutoSequence(string reason)
 
 ## 8. 완료 기준 (Definition of Done)
 
-1. **빌드 통과** (`CLAUDE.md`의 MSBuild 명령):
+1. **빌드 통과** (`AGENTS.md`의 안전한 별도 `OutDir` 빌드 규칙 적용):
    ```powershell
-   & $MSB "QMC.Common\QMC.Common.csproj"   /t:Build /p:Configuration=Debug
-   & $MSB "QMC.CDT-320\QMC.CDT-320.csproj" /t:Build /p:Configuration=Debug
+   $repo = (git rev-parse --show-toplevel).Trim()
+   $verify = Join-Path $env:TEMP ("CDT-320-verify-" + [guid]::NewGuid())
+   & $MSB (Join-Path $repo "QMC.CDT-320.sln") /t:Build `
+     /p:Configuration=Debug '/p:Platform=Any CPU' "/p:OutDir=$verify\"
    ```
-2. **검증 스크립트 통과:**
-   ```powershell
-   perl tools/verify_all.pl
-   perl tools/verify_handler_features.pl
-   $env:RUN_GUI_CYCLE=1; perl tools/runtime_cycle_test.pl
-   ```
+2. **Handler 전용 검증 통과:** `git diff --check`와 `AGENTS.md`의 격리된 Handler/Common Rebuild를 수행한다.
 3. `QMC.CDT-320.exe --auto-cycle 10` 자동 사이클이 Init→CycleRun(10)→Lot JSON 저장까지 정지 없이 완주.
 4. Front/Rear **병렬 사이클에서 인터락 위반(동시 Pickup/Place 충돌)·데드락이 발생하지 않음** — Sim 모드로 반복 사이클 확인.
 5. Auto에서 검증한 선행 조건이 Manual/Step에서도 동일하게 적용됨.

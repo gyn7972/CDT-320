@@ -168,10 +168,16 @@ namespace QMC.CDT320.Sequencing
             string heldPickerProducts = BuildHeldPickerProducts();
             string pickerReason;
             bool pickersSafe = AreAllEnabledPickersAvoidAndStopped(out pickerReason);
-            bool outputInspectionIdle = _context.OutputPostPlaceInspections == null ||
-                                        _context.OutputPostPlaceInspections.IsIdle;
+            string outputInspectionReason = _context.OutputPostPlaceInspections == null
+                ? "OutputPostPlaceInspectionQueue가 없습니다."
+                : string.Empty;
+            bool outputInspectionIdle = _context.OutputPostPlaceInspections != null &&
+                                        _context.OutputPostPlaceInspections.IsSafelyIdleForDrain(
+                                            out outputInspectionReason);
             bool outputInspectionFailed = _context.OutputPostPlaceInspections != null &&
                                           _context.OutputPostPlaceInspections.HasFailure;
+            string outputVisionReason;
+            bool outputVisionSafe = IsOutputVisionAvoidAndStopped(out outputVisionReason);
             bool loaderIdle = !_context.Bus.IsSet("InputLoaderActive") &&
                               !_context.Bus.IsSet("OutputLoaderActive");
 
@@ -179,6 +185,7 @@ namespace QMC.CDT320.Sequencing
                             pickersSafe &&
                             outputInspectionIdle &&
                             !outputInspectionFailed &&
+                            outputVisionSafe &&
                             loaderIdle;
             if (!complete)
             {
@@ -186,7 +193,10 @@ namespace QMC.CDT320.Sequencing
                     heldPickerProducts,
                     pickerReason,
                     outputInspectionIdle,
+                    outputInspectionReason,
                     outputInspectionFailed,
+                    outputVisionSafe,
+                    outputVisionReason,
                     loaderIdle);
                 return false;
             }
@@ -196,7 +206,8 @@ namespace QMC.CDT320.Sequencing
 
             _context.Bus.Set(CompletionSignal);
             string message = "Stop After Drain 완료. reason=" + BuildCompletionReasonText() +
-                             ", pickerProducts=none, pickersAvoid=True, outputInspectionIdle=True, loaderIdle=True";
+                             ", pickerProducts=none, pickersAvoid=True, outputInspectionSafeIdle=True" +
+                             ", outputVisionAvoid=True, loaderIdle=True";
             _context.LogPublic("[WAFER-COMPLETE] " + message);
             QMC.Common.Log.Write("Main", "SYSTEM", "WaferCompletionRun", message + " - Ok");
             return true;
@@ -206,7 +217,10 @@ namespace QMC.CDT320.Sequencing
             string heldPickerProducts,
             string pickerReason,
             bool outputInspectionIdle,
+            string outputInspectionReason,
             bool outputInspectionFailed,
+            bool outputVisionSafe,
+            string outputVisionReason,
             bool loaderIdle)
         {
             int now = Environment.TickCount;
@@ -223,8 +237,59 @@ namespace QMC.CDT320.Sequencing
                 ", pickerSafe=" + string.IsNullOrWhiteSpace(pickerReason) +
                 ", pickerReason=" + (string.IsNullOrWhiteSpace(pickerReason) ? "-" : pickerReason) +
                 ", outputInspectionIdle=" + outputInspectionIdle +
+                ", outputInspectionReason=" +
+                    (string.IsNullOrWhiteSpace(outputInspectionReason) ? "-" : outputInspectionReason) +
                 ", outputInspectionFailed=" + outputInspectionFailed +
+                ", outputVisionSafe=" + outputVisionSafe +
+                ", outputVisionReason=" +
+                    (string.IsNullOrWhiteSpace(outputVisionReason) ? "-" : outputVisionReason) +
                 ", loaderIdle=" + loaderIdle + " - Wait");
+        }
+
+        private bool IsOutputVisionAvoidAndStopped(out string reason)
+        {
+            reason = string.Empty;
+            try
+            {
+                CDT320_Machine machine = _context.Machine;
+                if (machine == null || machine.OutputStageUnit == null)
+                {
+                    reason = "OutputStageUnit이 없습니다.";
+                    return false;
+                }
+
+                var outputStage = machine.OutputStageUnit;
+                BaseAxis outputVisionX = outputStage.OutputCameraX;
+                if (outputVisionX == null || outputStage.Recipe == null)
+                {
+                    reason = "OutputVisionX 축 또는 OutputStage Recipe가 없습니다.";
+                    return false;
+                }
+
+                outputVisionX.UpdateStatus();
+                if (outputVisionX.IsAlarm)
+                {
+                    reason = "OutputVisionX 축이 Alarm 상태입니다.";
+                    return false;
+                }
+                if (outputVisionX.IsMoving)
+                {
+                    reason = "OutputVisionX 축이 이동 중입니다.";
+                    return false;
+                }
+                if (!outputStage.IsVisionXInAvoidPosition())
+                {
+                    reason = "OutputVisionX가 Avoid 위치가 아닙니다.";
+                    return false;
+                }
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                reason = "OutputVisionX 안전 상태 확인 실패: " + ex.Message;
+                return false;
+            }
         }
 
         private string BuildHeldPickerProducts()

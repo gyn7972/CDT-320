@@ -1,4 +1,6 @@
-# CDT-320 Claude 인계 문서
+﻿# CDT-320 Claude 인계 문서
+
+> 이 문서는 2026-07-12 시점의 작업 이력이다. 현재 상시 규칙의 단일 정본은 `AGENTS.md`이며, 경로·브랜치·빌드 상태는 현재 저장소에서 다시 확인한다.
 
 - 작성일: 2026-07-12
 - 인계 대상: Claude Code
@@ -14,11 +16,9 @@
 
 다음 순서로 문서를 읽는다.
 
-1. `CLAUDE.md`
-2. `AGENTS.md`
-3. 이 문서 `HANDOFF_TO_CLAUDE_2026-07-12.md`
-4. Material을 수정할 때 `MATERIAL_ARCHITECTURE_PLAN.md`
-5. 시퀀스 재개/정지를 수정할 때 `SEQUENCE_RECOVERY_RULES.md`
+1. 단일 규칙 정본 `AGENTS.md`
+2. 이 문서 `HANDOFF_TO_CLAUDE_2026-07-12.md`
+3. Material 상세 설계가 필요할 때 `MATERIAL_ARCHITECTURE_PLAN.md`
 
 이 저장소는 Handler, Vision PC, 공용 Motion/IO, 시뮬레이터가 함께 있는 실장비 제어 프로젝트다. 코드가 컴파일된다는 이유만으로 모션 변경을 승인된 것으로 간주하면 안 된다.
 
@@ -791,7 +791,7 @@ Side 보정에 사용하도록 수정하는 방향이 가장 일관적입니다.
 
 ## 15. 마지막 체크리스트
 
-- [ ] `CLAUDE.md`, `AGENTS.md`를 읽었는가
+- [ ] 단일 규칙 정본 `AGENTS.md`를 읽었는가
 - [ ] `git status --short --branch`를 확인했는가
 - [ ] 팀장님이 코드 수정을 명시적으로 지시했는가
 - [ ] 인터락 변경 여부를 확인했는가
@@ -799,7 +799,7 @@ Side 보정에 사용하도록 수정하는 방향이 가장 일관적입니다.
 - [ ] Picker 번호를 사용자에게 1~4로 표시했는가
 - [ ] Signed Scale에 `abs`를 적용하지 않았는가
 - [ ] Motion Command와 Wait/Final Check를 분리했는가
-- [ ] Clean Rebuild를 수행했는가
+- [ ] `AGENTS.md`에 따라 운영 폴더와 분리된 임시 복제본에서 Rebuild했는가
 - [ ] Handler와 Vision을 모두 검증했는가
 - [ ] 실장비 로그의 값과 단위를 확인했는가
 

@@ -2991,6 +2991,11 @@ namespace QMC.CDT320.Sequencing
                         DieId = _placedDieId,
                         OutputSide = _placedOutputSide,
                         ReceiveTarget = _placedReceiveTarget,
+                        HasPlacedDieCameraTarget = true,
+                        PickerNo = _currentPickerNo,
+                        PlacedStageY = _targetOutputStageY,
+                        PlacedPickerY = _targetPickerY,
+                        OutputVisionToPickerY = _outputVisionToPickerY,
                         FineMove = Options != null && Options.FineMove,
                         MoveTimeoutMs = ResolveTimeout(),
                         Owner = Name,
@@ -3003,7 +3008,10 @@ namespace QMC.CDT320.Sequencing
                 WriteLog("PickerPlaceSequence",
                     Name + " Output camera 후검사 요청 등록 완료. die=" + _placedDieId +
                     ", side=" + _placedOutputSide +
-                    ", pickerNo=" + _currentPickerNo + " - Ok");
+                    ", pickerNo=" + _currentPickerNo +
+                    ", placedStageY=" + _targetOutputStageY.ToString("F6") +
+                    ", placedPickerY=" + _targetPickerY.ToString("F6") +
+                    ", outputVisionToPickerY=" + _outputVisionToPickerY.ToString("F6") + " - Ok");
                 return 0;
             }
             catch (Exception ex)

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 
 namespace QMC.CDT320.Calibration
 {
@@ -357,6 +357,7 @@ namespace QMC.CDT320.Calibration
                 " / PickerX=slotX(" + F(slotX) + ")+outputVisionToPickerX(" + F(outputVisionToPickerX) + ")+runtimeX(" + F(runtimeX) + ") [colletX already in OutputVisionToPicker=" + F(collet.X) + "]=" + F(target.PickerX) +
                 " / PickerY=fixed teachingY(" + F(pickerYTeaching) + ") [runtimeY logged separately=" + F(runtimeY) + ", colletY already in OutputVisionToPicker=" + F(collet.Y) + "]=" + F(target.PickerY) +
                 " / PickerT=teachingT(" + F(pickerTTeaching) + ")+runtimeT(" + F(runtimeT) + ")+colletT(homeZeroApplied)(" + F(appliedColletT) + ")=" + F(target.PickerT);
+
             return target;
         }
 
