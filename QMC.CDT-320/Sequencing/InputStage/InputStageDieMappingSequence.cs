@@ -233,7 +233,8 @@ namespace QMC.CDT320.Sequencing
                 if (!TryResolveMappingAnchor(_sourceMap, out anchorReason))
                     return Fail("IN-STAGE-DIEMAP-ANCHOR", "InputStageDieMappingSequence", anchorReason);
 
-                if (Options.RequireVisionAlign && Stage.Vision == null && !IsSimulationOrDryRun())
+                if (Options.RequireVisionAlign && Stage.Vision == null &&
+                    (!IsSimulationOrDryRun() || AutoVisionRequestService.IsRealVisionInSimulationActive()))
                     return Fail("IN-STAGE-DIEMAP-VISION", Stage.Name, "Vision client is required but not available.");
 
                 _mappedPoints.Clear();
@@ -1034,7 +1035,9 @@ namespace QMC.CDT320.Sequencing
 
             double inputToBottomOffsetX = 0.0;
             double inputToBottomOffsetY = 0.0;
-            bool resultIncludesBottomReference = !IsSimulationOrDryRun() || IsDryRunWithVisionConnected();
+            bool resultIncludesBottomReference = !IsSimulationOrDryRun() ||
+                                                 IsDryRunWithVisionConnected() ||
+                                                 AutoVisionRequestService.IsRealVisionInSimulationActive();
             bool bottomReferenceRemoved = resultIncludesBottomReference &&
                 InputPickerPickTargetResolver.TryResolveInputCameraToBottomOffsets(
                     Context != null ? Context.Machine : null,
@@ -2322,7 +2325,7 @@ namespace QMC.CDT320.Sequencing
             try
             {
                 ct.ThrowIfCancellationRequested();
-                if (IsSimulationOrDryRun())
+                if (IsSimulationOrDryRun() && !AutoVisionRequestService.IsRealVisionInSimulationActive())
                 {
                     VisionAlignResult dryRunVisionResult = await RequestDryRunVisionOffsetAsync(targetId, stepName, ct).ConfigureAwait(false);
                     if (dryRunVisionResult != null)

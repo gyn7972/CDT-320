@@ -1015,7 +1015,9 @@ namespace QMC.CDT320.Sequencing
         private bool IsDryRunMode()
         {
             AppSettings settings = AppSettingsStore.Current;
-            return settings != null && settings.DryRunMode;
+            return settings != null &&
+                   settings.DryRunMode &&
+                   !QMC.CDT320.VisionComm.AutoVisionRequestService.IsRealVisionInSimulationActive();
         }
 
         private bool IsBottomVisionConnected()
@@ -1036,6 +1038,9 @@ namespace QMC.CDT320.Sequencing
 
         private bool ShouldUseSimulatedBottomVision()
         {
+            if (QMC.CDT320.VisionComm.AutoVisionRequestService.IsRealVisionInSimulationActive())
+                return false;
+
             if (Options != null && Options.SimulateVisionResult)
                 return true;
 

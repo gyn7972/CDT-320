@@ -1576,7 +1576,9 @@ namespace QMC.CDT320.Sequencing
         private bool IsDryRunMode()
         {
             AppSettings settings = AppSettingsStore.Current;
-            return settings != null && settings.DryRunMode;
+            return settings != null &&
+                   settings.DryRunMode &&
+                   !QMC.CDT320.VisionComm.AutoVisionRequestService.IsRealVisionInSimulationActive();
         }
 
         private bool IsSideVisionConnected()

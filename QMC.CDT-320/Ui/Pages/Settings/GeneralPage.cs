@@ -37,6 +37,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             lblPickerMotionOnlyTestMode.Text = "PICKER MOTION ONLY TEST";
             lblWaferCompleteRunMode.Text = "WAFER COMPLETE RUN MODE";
             lblUseVision.Text = "VISION USE";
+            lblUseRealVisionInSimulation.Text = "REAL VISION IN SIMULATION";
 
             grpAjin.Tag = "level:Maintenance";
         }
@@ -69,6 +70,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                 ResetEnableDisableItems(_cbDeveloperMode);
                 ResetEnableDisableItems(_cbPickerMotionOnlyTestMode);
                 ResetEnableDisableItems(_cbUseVision);
+                ResetEnableDisableItems(_cbUseRealVisionInSimulation);
                 _cbWaferCompleteRunMode.Items.Clear();
                 _cbWaferCompleteRunMode.Items.Add("CONTINUE");
                 _cbWaferCompleteRunMode.Items.Add("STOP AFTER DRAIN");
@@ -80,6 +82,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                 _cbDeveloperMode.SelectedIndex = cfg.DeveloperMode ? 0 : 1;
                 _cbPickerMotionOnlyTestMode.SelectedIndex = cfg.PickerMotionOnlyTestMode ? 0 : 1;
                 _cbUseVision.SelectedIndex = cfg.UseVision ? 0 : 1;
+                _cbUseRealVisionInSimulation.SelectedIndex = cfg.UseRealVisionInSimulation ? 0 : 1;
                 _cbWaferCompleteRunMode.SelectedIndex = cfg.WaferCompleteRunMode == WaferCompleteRunMode.StopAfterDrain
                     ? 1
                     : 0;
@@ -180,6 +183,13 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             // 비전 미사용 → 기존 연결을 끊어 미연결 상태로 동작(자동 시퀀스는 바이패스로 통과).
             if (!use)
                 QMC.CDT320.VisionComm.VisionHub.DisconnectAll();
+        }
+
+        private void _cbUseRealVisionInSimulation_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            if (_loadingSettings) return;
+            AppSettingsStore.Current.UseRealVisionInSimulation = _cbUseRealVisionInSimulation.SelectedIndex == 0;
+            AppSettingsStore.Save();
         }
 
         private void _cbAjin_CheckedChanged(object sender, EventArgs e)

@@ -60,8 +60,12 @@ namespace QMC.CDT320
         [DataMember] public bool   VisionAutoConnect    { get; set; } = true;
 
         /// <summary>비전 사용 여부. false 면 핸들러가 Vision PC 에 연결하지 않고, 자동 시퀀스의 GRAB/MATCH/INSPECT 는
-        /// 통과 처리(bypass)하여 비전 없이도 동작한다(시뮬/DryRun 바이패스와 동일 경로). 기본 true.</summary>
+        /// 통과 처리(bypass)하여 비전 없이도 동작한다. 기본 true.</summary>
         [DataMember] public bool   UseVision            { get; set; } = true;
+
+        /// <summary>Simulation 모드에서도 연결된 외부 Vision PC와 실제 MATCH/INSPECT 프로토콜을 수행할지 여부.
+        /// 모션과 IO의 Simulation 상태는 변경하지 않는다.</summary>
+        [DataMember] public bool   UseRealVisionInSimulation { get; set; } = true;
 
         /// <summary>뷰어 측정 스케일 계수 — 표시 mm/px = 저장 스케일(mm/px) × 이 계수.
         /// Vision 이 뷰어 이미지를 다운스케일(원본→표시)하면 표시 1px 가 더 넓어지므로 계수=원본폭/표시폭(예 5120/1600=3.2)로 보정한다.
@@ -132,6 +136,7 @@ namespace QMC.CDT320
         internal void OnDeserializing(StreamingContext ctx)
         {
             UseVision = true;
+            UseRealVisionInSimulation = true;
             WaferCompleteRunMode = WaferCompleteRunMode.Continue;
             ViewerMeasureScaleFactor = 1.0;   // 구 settings.json 에 키 없으면 0 으로 로드되는 것 방지(기본=저장 스케일 그대로)
             FileLogHistoryEnabled = true;   // 구 settings.json 에 키가 없으면 false 로 로드되어 이력 화면이 꺼지는 문제 방지

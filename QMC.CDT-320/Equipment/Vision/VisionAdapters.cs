@@ -56,7 +56,7 @@ namespace QMC.CDT320.VisionComm
 
             try
             {
-                if (IsDryRunMode())
+                if (IsDryRunMode() && !AutoVisionRequestService.IsRealVisionInSimulationActive())
                 {
                     await AutoVisionRequestService.GrabAsync(
                         AutoVisionChannel.Wafer,
@@ -682,13 +682,26 @@ namespace QMC.CDT320.VisionComm
                     AutoVisionChannel.Bin,
                     AutoVisionRequestService.BuildSimulationInspectionResult(AutoVisionChannel.Bin, VisionToolIds.Bin.PlacementInspector, slotIndex));
             if (VisionHub.Bin == null || !VisionHub.Bin.IsConnected)
+            {
+                if (AutoVisionRequestService.IsRealVisionInSimulationActive())
+                {
+                    EventLogger.Write(EventKind.Alarm, "VISION", "AUTO-VISION-BIN-NOT-CONNECTED",
+                        "Simulation 실제 Vision 사용 중 Bin Vision이 연결되지 않아 배치 검사를 수행할 수 없습니다. slotIndex=" + slotIndex);
+                    return new InspectionResultDto
+                    {
+                        IsPass = false,
+                        Raw = "Simulation real Vision is enabled, but Bin Vision is not connected."
+                    };
+                }
+
                 return QMC.CDT320.Calibration.VisionCameraCalibrationTransform.ToInspectionResult(
                     AutoVisionChannel.Bin,
                     AutoVisionRequestService.BuildSimulationInspectionResult(AutoVisionChannel.Bin, VisionToolIds.Bin.PlacementInspector, slotIndex));
+            }
 
             try
             {
-                if (IsDryRunMode())
+                if (IsDryRunMode() && !AutoVisionRequestService.IsRealVisionInSimulationActive())
                 {
                     await AutoVisionRequestService.GrabAsync(
                         AutoVisionChannel.Bin,

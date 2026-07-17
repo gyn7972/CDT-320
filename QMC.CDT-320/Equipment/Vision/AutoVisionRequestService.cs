@@ -30,7 +30,8 @@ namespace QMC.CDT320.VisionComm
                 ct.ThrowIfCancellationRequested();
 
                 // UseVision=false는 Vision 요청 자체를 생략한다.
-                // DryRun은 실제 Vision 연결이 있으면 GRAB만 요청하고 결과 요청은 생략한다.
+                // DryRun은 실제 Vision 연결이 있으면 GRAB만 요청하되,
+                // Simulation 실제 Vision 사용 설정이 켜진 경우에는 정상 프로토콜을 사용한다.
                 if (IsVisionDisabled())
                 {
                     EventLogger.Write(EventKind.Event, "VISION", "AUTO-VISION-GRAB-BYPASS",
@@ -38,7 +39,7 @@ namespace QMC.CDT320.VisionComm
                     return Task.FromResult(true);
                 }
 
-                if (IsDryRunMode())
+                if (IsDryRunMode() && !IsRealVisionInSimulationActive())
                     return RunDryRunGrabAsync(channel, index, timeoutMs, ct);
 
                 if (!IsReady(channel, VisionProtocolCommand.Grab, string.Empty, index))
@@ -91,7 +92,7 @@ namespace QMC.CDT320.VisionComm
                 }
 
                 int readyIndex = fb * 4 + collet;
-                if (IsDryRunMode())
+                if (IsDryRunMode() && !IsRealVisionInSimulationActive())
                     return RunDryRunGrabAsync(channel, collet * 10 + (visionChannel == 1 ? 2 : 1), timeoutMs, ct);
 
                 if (!IsReady(channel, VisionProtocolCommand.Grab, inspector, readyIndex))
@@ -1304,6 +1305,19 @@ namespace QMC.CDT320.VisionComm
             return settings != null && (settings.SimulationMode || settings.BypassHardware);
         }
 
+        /// <summary>
+        /// 모션/IO는 Simulation으로 유지하면서 외부 Vision PC의 실제 프로토콜과 결과를 사용할지 확인한다.
+        /// 활성 상태에서는 연결 실패를 합성 결과로 바꾸지 않고 기존 통신 실패 경로로 처리한다.
+        /// </summary>
+        public static bool IsRealVisionInSimulationActive()
+        {
+            AppSettings settings = AppSettingsStore.Current;
+            return settings != null &&
+                   settings.UseVision &&
+                   settings.UseRealVisionInSimulation &&
+                   (settings.SimulationMode || settings.BypassHardware);
+        }
+
         private static bool IsDryRunMode()
         {
             AppSettings settings = AppSettingsStore.Current;
@@ -1319,7 +1333,13 @@ namespace QMC.CDT320.VisionComm
 
         private static bool ShouldBypassVisionResultRequests()
         {
-            return IsDryRunMode() || IsSimulationVisionBypassed() || IsVisionDisabled();
+            if (IsVisionDisabled())
+                return true;
+
+            if (IsRealVisionInSimulationActive())
+                return false;
+
+            return IsDryRunMode() || IsSimulationVisionBypassed();
         }
 
         /// <summary>바이패스 로그에 사용할 사유 문자열.</summary>

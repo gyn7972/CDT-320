@@ -126,6 +126,9 @@ namespace QMC.CDT320.Sequencing
         {
             try
             {
+                if (QMC.CDT320.VisionComm.AutoVisionRequestService.IsRealVisionInSimulationActive())
+                    return false;
+
                 QMC.CDT320.AppSettings settings = QMC.CDT320.AppSettingsStore.Current;
                 if (settings != null &&
                     (settings.SimulationMode || settings.BypassHardware || !settings.UseAjin))

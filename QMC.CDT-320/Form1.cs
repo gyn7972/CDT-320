@@ -182,7 +182,7 @@ namespace QMC.CDT_320
                     QMC.Common.Logging.EventKind.Event,
                     UserSession.Name,
                     "RUNTIME-MODE",
-                    $"Simulation={cfg.SimulationMode}, DryRun={cfg.DryRunMode}, UseAjin={cfg.UseAjin}, HardwareBypass={bypassHardware}");
+                    $"Simulation={cfg.SimulationMode}, DryRun={cfg.DryRunMode}, UseAjin={cfg.UseAjin}, HardwareBypass={bypassHardware}, UseVision={cfg.UseVision}, UseRealVisionInSimulation={cfg.UseRealVisionInSimulation}");
             }
             catch (Exception ex)
             {

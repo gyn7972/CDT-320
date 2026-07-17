@@ -6696,6 +6696,9 @@ namespace QMC.CDT320.Sequencing
             if (QMC.CDT320.AppSettingsStore.Current != null && !QMC.CDT320.AppSettingsStore.Current.UseVision)
                 return true;
 
+            if (QMC.CDT320.VisionComm.AutoVisionRequestService.IsRealVisionInSimulationActive())
+                return false;
+
             if (Options != null && Options.SimulateVisionResult)
                 return true;
 

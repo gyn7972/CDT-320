@@ -1384,7 +1384,7 @@ namespace QMC.CDT320.Sequencing
             try
             {
                 ct.ThrowIfCancellationRequested();
-                if (IsSimulationOrDryRun())
+                if (IsSimulationOrDryRun() && !AutoVisionRequestService.IsRealVisionInSimulationActive())
                 {
                     VisionAlignResult dryRunVisionResult = await RequestDryRunVisionOffsetAsync(targetId, stepName, ct).ConfigureAwait(false);
                     if (dryRunVisionResult != null)
@@ -1983,7 +1983,9 @@ namespace QMC.CDT320.Sequencing
 
             double inputToBottomOffsetX = 0.0;
             double inputToBottomOffsetY = 0.0;
-            bool resultIncludesBottomReference = !IsSimulationOrDryRun() || IsDryRunWithVisionConnected();
+            bool resultIncludesBottomReference = !IsSimulationOrDryRun() ||
+                                                 IsDryRunWithVisionConnected() ||
+                                                 AutoVisionRequestService.IsRealVisionInSimulationActive();
             bool bottomReferenceRemoved = resultIncludesBottomReference &&
                 InputPickerPickTargetResolver.TryResolveInputCameraToBottomOffsets(
                     Context != null ? Context.Machine : null,

@@ -2582,12 +2582,18 @@ namespace QMC.CDT320.Sequencing
         private bool IsDryRunMode()
         {
             AppSettings settings = AppSettingsStore.Current;
-            return settings != null && settings.DryRunMode;
+            return settings != null &&
+                   settings.DryRunMode &&
+                   !QMC.CDT320.VisionComm.AutoVisionRequestService.IsRealVisionInSimulationActive();
         }
 
-        // 현재 기준: 시뮬/드라이런에서는 Vision의 Bottom XYT push가 없을 수 있으므로 Side 게이트만 통과시킨다.
+        // 시뮬/드라이런 합성 비전에서는 Bottom XYT push가 없을 수 있으므로 Side 게이트만 통과시킨다.
+        // Simulation 실제 Vision 사용 시에는 실장비와 동일하게 Bottom XYT push를 진행 조건으로 사용한다.
         private bool ShouldBypassBottomXytGateForSimulation()
         {
+            if (QMC.CDT320.VisionComm.AutoVisionRequestService.IsRealVisionInSimulationActive())
+                return false;
+
             if (Options != null && Options.SimulateVisionResult)
                 return true;
 
