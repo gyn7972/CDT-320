@@ -7,6 +7,7 @@ using QMC.Common.Logging;
 using QMC.Common.Motion;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
@@ -224,6 +225,24 @@ namespace QMC.CDT320.Sequencing
                     return Fail("IN-CST-MAP-FEEDER-OCCUPIED",
                         feeder != null ? feeder.Name : "InputFeeder",
                         "InputFeeder에 제품이 있어 카세트 매핑을 시작할 수 없습니다. 제품 배출/정리 후 매핑을 다시 실행하세요. " + feederOccupiedReason);
+
+                WaferMaterial activeWafer = MaterialStateService.State.Wafers.FirstOrDefault(w =>
+                    w != null &&
+                    (w.SourceCassetteRole == CassetteMaterialRole.Input1 || w.SourceCassetteRole == CassetteMaterialRole.Input2) &&
+                    WaferMaterialStateText.Normalize(w.State) != WaferMaterialState.Empty &&
+                    (w.CurrentLocation == null ||
+                     w.CurrentLocation.Kind != MaterialLocationKind.InputCassette ||
+                     w.CurrentLocation.CassetteRole != w.SourceCassetteRole ||
+                     w.CurrentLocation.SlotNumber != w.SourceSlotNumber));
+                if (activeWafer != null)
+                {
+                    return Fail("IN-CST-MAP-MATERIAL-ACTIVE", "Material",
+                        "공정 중 Input wafer가 cassette 밖에 있어 재매핑을 시작할 수 없습니다. wafer=" + activeWafer.WaferId +
+                        ", sourceRole=" + activeWafer.SourceCassetteRole +
+                        ", sourceSlot=" + (activeWafer.SourceSlotNumber + 1).ToString("00") +
+                        ", state=" + activeWafer.State +
+                        ", location=" + activeWafer.CurrentLocation);
+                }
 
                 string readyReason;
                 bool ready = cassette.CheckWaferCassetteMappingReady(out readyReason);
@@ -753,6 +772,21 @@ namespace QMC.CDT320.Sequencing
                 if (cassette.WaferMap == null)
                 {
                     WriteLog("RegisterMappingResult", "Input cassette wafer map is not available. - Failed");
+                    cassette.RollbackWaferMapping();
+                    return -1;
+                }
+
+                int slotCount = cassette.Config != null ? cassette.Config.SlotCount : 0;
+                int levelCount = ResolveInputCassetteLevelCount(cassette);
+                int expectedMapCount = slotCount * levelCount;
+                if (slotCount <= 0 || cassette.WaferMap.Count != expectedMapCount)
+                {
+                    WriteLog("RegisterMappingResult",
+                        "Input cassette mapping result length does not match SlotCount/level count. slotCount=" + slotCount +
+                        ", levelCount=" + levelCount +
+                        ", expected=" + expectedMapCount +
+                        ", actual=" + cassette.WaferMap.Count + " - Failed");
+                    cassette.RollbackWaferMapping();
                     return -1;
                 }
 
@@ -760,26 +794,30 @@ namespace QMC.CDT320.Sequencing
                 for (int i = 0; i < arr.Length; i++)
                     arr[i] = cassette.WaferMap[i];
 
-                IReadOnlyList<bool> level1Map = BuildCassetteLevelMap(cassette.WaferMap, cassette.Config != null ? cassette.Config.SlotCount : arr.Length, 1);
-                IReadOnlyList<bool> level2Map = BuildCassetteLevelMap(cassette.WaferMap, cassette.Config != null ? cassette.Config.SlotCount : arr.Length, 2);
+                IReadOnlyList<bool> level1Map = BuildCassetteLevelMap(cassette.WaferMap, slotCount, 1);
+                IReadOnlyList<bool> level2Map = BuildCassetteLevelMap(cassette.WaferMap, slotCount, 2);
 
                 SlotMapperRegistry.Update("InputCassette", arr);
                 int inchSelect = cassette.Config != null ? cassette.Config.InchSelect : 0;
                 MaterialStateService.UpdateInputCassetteMapping(
-                    ResolveInputCassetteLevelCount(cassette),
-                    cassette.Config != null ? cassette.Config.SlotCount : arr.Length,
+                    levelCount,
+                    slotCount,
                     level1Map,
                     level2Map,
                     BuildCassetteLevelSlotPositions(cassette, 1),
                     BuildCassetteLevelSlotPositions(cassette, 2),
                     LotStorage.ActiveLot != null ? LotStorage.ActiveLot.LotID : "",
                     MaterialStateService.ResolveInputTapeFrameSpecName(inchSelect));
+                cassette.ApplyRegisteredWaferMappingState();
+                cassette.CommitWaferMapping();
                 Context.Controller.ApplyInputCassetteMappingCompleted();
                 WriteLog("RegisterMappingResult", "Input cassette material mapping result registered. - Ok");
                 return 0;
             }
             catch (Exception ex)
             {
+                if (cassette != null)
+                    cassette.RollbackWaferMapping();
                 WriteLog("RegisterMappingResult", "Input cassette material mapping result registration exception: " + ex.Message + " - Failed");
                 return -1;
             }

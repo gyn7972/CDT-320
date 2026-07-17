@@ -290,9 +290,29 @@ namespace QMC.CDT320.Sequencing
             if (wafer == null)
                 return Fail("OUT-FEEDER-MATERIAL-MOVE", "Material", "Output feeder wafer data was not found for cassette material move.");
 
+            CassetteMaterialRole targetRole = ResolveOutputCassetteRole();
+            if (wafer.SourceCassetteRole != targetRole || wafer.SourceSlotNumber != Options.SlotIndex)
+                return Fail("OUT-FEEDER-MATERIAL-SOURCE", "Material", "물리 배출 후 Material 갱신 직전에 원본 cassette/slot 불일치가 확인되었습니다. wafer=" + wafer.WaferId +
+                    ", sourceRole=" + wafer.SourceCassetteRole + ", sourceSlot=" + (wafer.SourceSlotNumber + 1).ToString("00") +
+                    ", targetRole=" + targetRole + ", targetSlot=" + (Options.SlotIndex + 1).ToString("00"));
+
+            if ((Options.Side == BinSide.Ng && targetRole != CassetteMaterialRole.Ng1) ||
+                (Options.Side == BinSide.Good && targetRole != CassetteMaterialRole.Good1 && targetRole != CassetteMaterialRole.Good2) ||
+                (wafer.OutputGrade == DieResult.NG && targetRole != CassetteMaterialRole.Ng1) ||
+                (wafer.OutputGrade == DieResult.Good && targetRole == CassetteMaterialRole.Ng1))
+            {
+                return Fail("OUT-FEEDER-MATERIAL-GRADE", "Material", "Output grade/side와 복귀 cassette role이 일치하지 않습니다. wafer=" + wafer.WaferId +
+                    ", side=" + Options.Side + ", grade=" + wafer.OutputGrade + ", targetRole=" + targetRole);
+            }
+
+            WaferMaterial targetWafer = ResolveCassetteWafer();
+            if (targetWafer != null && !string.Equals(targetWafer.WaferId, wafer.WaferId, StringComparison.OrdinalIgnoreCase))
+                return Fail("OUT-FEEDER-MATERIAL-TARGET", "Material", "물리 배출 후 대상 cassette slot에 다른 Material이 확인되어 데이터를 덮어쓰지 않습니다. movingWafer=" + wafer.WaferId +
+                    ", targetWafer=" + targetWafer.WaferId + ", targetRole=" + targetRole + ", targetSlot=" + (Options.SlotIndex + 1).ToString("00"));
+
             MaterialStateService.PutWaferInCassette(
                 wafer.WaferId,
-                ResolveOutputCassetteRole(),
+                targetRole,
                 Options.SlotIndex,
                 wafer.CassetteLotId,
                 wafer.SourceCassetteSlotPosition,
@@ -345,6 +365,15 @@ namespace QMC.CDT320.Sequencing
         {
             try
             {
+                string consistencyReason;
+                if (!OutputSlotPlanner.ValidateSupplyCassetteConsistency(Options.Side, out consistencyReason))
+                {
+                    WriteLog("OutputFeederUnloadToCassetteSequence",
+                        "출력 카세트 센서/Material 데이터 불일치로 교체 완료 상태를 확정하지 않습니다. side=" +
+                        Options.Side + ", reason=" + consistencyReason + " - Failed");
+                    return false;
+                }
+
                 OutputSlotPlan plan;
                 if (OutputSlotPlanner.TryResolveNextSupplySlot(Options.Side, out plan))
                     return false;

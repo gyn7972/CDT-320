@@ -72,6 +72,10 @@ namespace QMC.CDT320
         private readonly object _operatorMessageLock = new object();
         private string _lastOperatorMessageKey = string.Empty;
         private DateTime _lastOperatorMessageTimeUtc = DateTime.MinValue;
+        private readonly object _outputFullPreparationLock = new object();
+        private bool _outputFullPreparationRequested = true;
+        private string _outputFullPreparationReason = "InitialStart";
+        private string _outputFullPreparationRecipeName = string.Empty;
         public SharedRailXMotionService SharedRailX { get; private set; }
 
         private sealed class PickerYHomeServoRestoreState
@@ -253,6 +257,16 @@ namespace QMC.CDT320
         public bool CanRunEquipment => IsMachineInitialized && _status != EquipmentStatus.Alarm && !IsSequenceRunning;
         public QMC.CDT320.Sequencing.SequenceRunMode? ActiveSequenceRunMode { get; private set; }
         public string ActiveRecipeName { get; private set; } = string.Empty;
+        public bool IsOutputFullPreparationRequested
+        {
+            get
+            {
+                lock (_outputFullPreparationLock)
+                {
+                    return _outputFullPreparationRequested;
+                }
+            }
+        }
         public int CycleTotal { get; private set; }
         public int CycleDone { get; private set; }
         public int GoodCount { get; private set; }
@@ -474,6 +488,7 @@ namespace QMC.CDT320
 
         public void SetActiveRecipeName(string recipeName)
         {
+            string previousRecipeName = ActiveRecipeName ?? string.Empty;
             if (string.IsNullOrWhiteSpace(recipeName))
             {
                 ActiveRecipeName = string.Empty;
@@ -481,9 +496,67 @@ namespace QMC.CDT320
             }
 
             string normalized = recipeName.Trim();
-            ActiveRecipeName = string.Equals(normalized, "-", StringComparison.OrdinalIgnoreCase)
+            string nextRecipeName = string.Equals(normalized, "-", StringComparison.OrdinalIgnoreCase)
                 ? string.Empty
                 : normalized;
+            ActiveRecipeName = nextRecipeName;
+
+            if (!string.Equals(previousRecipeName, nextRecipeName, StringComparison.OrdinalIgnoreCase) &&
+                !string.IsNullOrWhiteSpace(nextRecipeName))
+            {
+                string reason = string.IsNullOrWhiteSpace(previousRecipeName)
+                    ? "InitialRecipe:" + nextRecipeName
+                    : "RecipeChange:" + previousRecipeName + "->" + nextRecipeName;
+                RequestOutputFullPreparation(reason, nextRecipeName);
+            }
+        }
+
+        public void RequestOutputFullPreparation(string reason, string recipeName)
+        {
+            lock (_outputFullPreparationLock)
+            {
+                _outputFullPreparationRequested = true;
+                _outputFullPreparationReason = string.IsNullOrWhiteSpace(reason) ? "Requested" : reason;
+                _outputFullPreparationRecipeName = string.IsNullOrWhiteSpace(recipeName)
+                    ? (ActiveRecipeName ?? string.Empty)
+                    : recipeName.Trim();
+            }
+
+            QMC.Common.Log.Write("Main", "SYSTEM", "OutputFullPreparation",
+                "Output GOOD/NG 전체 준비가 요청되었습니다. reason=" + _outputFullPreparationReason +
+                ", recipe=" + _outputFullPreparationRecipeName + " - Set");
+        }
+
+        public bool TryGetOutputFullPreparationRequest(out string reason, out string recipeName)
+        {
+            lock (_outputFullPreparationLock)
+            {
+                reason = _outputFullPreparationReason ?? string.Empty;
+                recipeName = _outputFullPreparationRecipeName ?? string.Empty;
+                return _outputFullPreparationRequested;
+            }
+        }
+
+        public bool CompleteOutputFullPreparation(string recipeName)
+        {
+            lock (_outputFullPreparationLock)
+            {
+                string completedRecipeName = recipeName ?? string.Empty;
+                if (!string.Equals(ActiveRecipeName ?? string.Empty, completedRecipeName, StringComparison.OrdinalIgnoreCase) ||
+                    (!string.IsNullOrWhiteSpace(_outputFullPreparationRecipeName) &&
+                     !string.Equals(_outputFullPreparationRecipeName, completedRecipeName, StringComparison.OrdinalIgnoreCase)))
+                {
+                    return false;
+                }
+
+                _outputFullPreparationRequested = false;
+                _outputFullPreparationReason = string.Empty;
+                _outputFullPreparationRecipeName = completedRecipeName;
+            }
+
+            QMC.Common.Log.Write("Main", "SYSTEM", "OutputFullPreparation",
+                "Output GOOD/NG 전체 준비가 완료되었습니다. recipe=" + (recipeName ?? string.Empty) + " - Reset");
+            return true;
         }
 
         private static SharedRailXConfig CreateSharedRailXConfig()

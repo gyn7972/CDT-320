@@ -412,12 +412,10 @@ $check = @(
         "02_CDT320_개발계획서.pptx — 27 Stage 로드맵 + 위험 + 일정",
         "03_CDT320_체크리스트.pptx — 검증 결과 + 정합성 매트릭스",
         "",
-        "## Markdown 부속",
-        "STAGE26_LOTPORT_PLAN.md — Stage 26 계획",
-        "STAGE27_FEEDER_PLAN.md — Stage 27 계획",
-        "STAGE27_FEEDER_CHECKLIST_RESULT.md — 본 체크리스트 원본",
-        "OVERNIGHT_REPORT.md — 자율 작업 결과",
-        "ARCHITECTURE.md / USER_GUIDE.md"
+        "## 상시 문서",
+        "AGENTS.md — 작업 규칙 단일 정본",
+        "README.md — 프로젝트 구조·아키텍처·빌드 안내",
+        "docs\ — 상세 기술 자료"
     ) }
 
     @{ kind="section"; title="§5. 결론"; subtitle="Final Verdict" }

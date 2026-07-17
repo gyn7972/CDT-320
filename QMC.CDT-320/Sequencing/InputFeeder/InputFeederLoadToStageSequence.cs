@@ -366,6 +366,15 @@ namespace QMC.CDT320.Sequencing
             if (wafer == null)
                 return Fail("IN-FEEDER-MATERIAL-MOVE", "Material", "Input feeder wafer data was not found for stage material move.");
 
+            if (!string.IsNullOrWhiteSpace(Options.ExpectedWaferId) &&
+                !string.Equals(Options.ExpectedWaferId, wafer.WaferId, StringComparison.OrdinalIgnoreCase))
+                return Fail("IN-FEEDER-MATERIAL-WAFER", "Material", "물리 이송 후 InputStage Material 갱신 직전에 Wafer ID가 변경되었습니다. expected=" + Options.ExpectedWaferId + ", actual=" + wafer.WaferId);
+
+            if (wafer.SourceCassetteRole != Options.CassetteRole || wafer.SourceSlotNumber != Options.SlotIndex)
+                return Fail("IN-FEEDER-MATERIAL-SOURCE", "Material", "Input wafer의 원본 cassette/slot 정보가 sequence option과 다릅니다. wafer=" + wafer.WaferId +
+                    ", sourceRole=" + wafer.SourceCassetteRole + ", sourceSlot=" + (wafer.SourceSlotNumber + 1).ToString("00") +
+                    ", optionRole=" + Options.CassetteRole + ", optionSlot=" + (Options.SlotIndex + 1).ToString("00"));
+
             // 현재 기준: 새 wafer를 Stage에 올리기 전 이전 Input active map을 지워 stale map 표시/재사용을 막는다.
             if (Context != null && Context.Controller != null)
                 Context.Controller.ClearInputDieMap("InputFeederLoadToStageSequence.MoveMaterialDataToStage");

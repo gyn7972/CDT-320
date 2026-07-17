@@ -10,10 +10,14 @@ namespace QMC.CDT320.Sequencing
         CheckUnit,
         CheckTargetSide,
         EnsureOutputFeederSafeBeforeStageMove,
+        MoveOppositeStageToAvoid,
+        CheckOppositeStageAvoid,
         MoveTargetStageZToAvoid,
         CheckTargetStageZAvoid,
         MoveTargetStageYToUnload,
         CheckTargetStageYUnload,
+        MoveTargetStageZToUnload,
+        CheckTargetStageZUnload,
         Complete,
         Error
     }
@@ -50,6 +54,14 @@ namespace QMC.CDT320.Sequencing
                     case OutputStagePrepareUnloadStep.EnsureOutputFeederSafeBeforeStageMove:
                         return Task.FromResult(EnsureOutputFeederSafeBeforeStageMove());
 
+                    // 대상 스테이지 이동 전 반대쪽 스테이지를 어보이드로 이동
+                    case OutputStagePrepareUnloadStep.MoveOppositeStageToAvoid:
+                        return MoveOppositeStageToAvoidAsync(ct);
+
+                    // 반대쪽 스테이지 어보이드 확인
+                    case OutputStagePrepareUnloadStep.CheckOppositeStageAvoid:
+                        return Task.FromResult(CheckOppositeStageAvoid());
+
                     // 대상 스테이지 Z로 어보이드 이동
                     case OutputStagePrepareUnloadStep.MoveTargetStageZToAvoid:
                         return MoveTargetStageZToAvoidAsync(ct);
@@ -65,6 +77,14 @@ namespace QMC.CDT320.Sequencing
                     // 대상 스테이지 Y 언로드 확인
                     case OutputStagePrepareUnloadStep.CheckTargetStageYUnload:
                         return Task.FromResult(CheckTargetStageYUnload());
+
+                    // 대상 스테이지 Z로 언로드 이동
+                    case OutputStagePrepareUnloadStep.MoveTargetStageZToUnload:
+                        return MoveTargetStageZToUnloadAsync(ct);
+
+                    // 대상 스테이지 Z 언로드 확인
+                    case OutputStagePrepareUnloadStep.CheckTargetStageZUnload:
+                        return Task.FromResult(CheckTargetStageZUnload());
 
                     default:
                         return Task.FromResult(FailUnsupportedStep());
@@ -110,7 +130,7 @@ namespace QMC.CDT320.Sequencing
             {
                 if (Options.AllowOutputFeederActuation)
                 {
-                    CurrentStep = OutputStagePrepareUnloadStep.MoveTargetStageZToAvoid;
+                    CurrentStep = OutputStagePrepareUnloadStep.MoveOppositeStageToAvoid;
                     return 0;
                 }
 
@@ -123,7 +143,7 @@ namespace QMC.CDT320.Sequencing
                         "메뉴얼 OutputStage Unload는 OutputFeederY를 이동하지 않습니다. 시작 전 FeederY를 Avoid 위치로 이동하십시오. side=" +
                         Options.Side + ", " + OutputFeeder.DescribeBinFeederYMoveDoneState());
 
-                CurrentStep = OutputStagePrepareUnloadStep.MoveTargetStageZToAvoid;
+                CurrentStep = OutputStagePrepareUnloadStep.MoveOppositeStageToAvoid;
                 return 0;
             }
             catch (Exception ex)
@@ -131,6 +151,73 @@ namespace QMC.CDT320.Sequencing
                 return Fail("OUT-STAGE-FEEDER-SAFE-EX", "OutputFeederUnit",
                     "OutputStage Unload 전 OutputFeeder 안전 위치 확인 중 예외가 발생했습니다. side=" +
                     Options.Side + ", error=" + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private async Task<int> MoveOppositeStageToAvoidAsync(CancellationToken ct)
+        {
+            try
+            {
+                BinSide opposite = Options.Side == BinSide.Ng ? BinSide.Good : BinSide.Ng;
+                BinStageAxis axis = opposite == BinSide.Ng
+                    ? ResolveYAxis(BinSide.Ng)
+                    : ResolveZAxis(BinSide.Good);
+                double target = opposite == BinSide.Ng
+                    ? ResolveSideTarget(BinSide.Ng, "Avoid")
+                    : ResolveSideZTarget(BinSide.Good, "Avoid");
+
+                int result = await MoveAxisAndVerifyAsync(
+                    axis,
+                    target,
+                    opposite + " stage avoid before " + Options.Side + " unload",
+                    ct).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                CurrentStep = OutputStagePrepareUnloadStep.CheckOppositeStageAvoid;
+                return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("OUT-STAGE-UNLOAD-OPP-AVOID-EX", Name,
+                    "Opposite stage avoid before unload failed. side=" + Options.Side + ", error=" + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private int CheckOppositeStageAvoid()
+        {
+            try
+            {
+                BinSide opposite = Options.Side == BinSide.Ng ? BinSide.Good : BinSide.Ng;
+                BinStageAxis axis = opposite == BinSide.Ng
+                    ? ResolveYAxis(BinSide.Ng)
+                    : ResolveZAxis(BinSide.Good);
+                double target = opposite == BinSide.Ng
+                    ? ResolveSideTarget(BinSide.Ng, "Avoid")
+                    : ResolveSideZTarget(BinSide.Good, "Avoid");
+
+                if (!Stage.IsStageAxisInPosition(axis, target, ResolveTolerance(axis)))
+                    return Fail("OUT-STAGE-UNLOAD-OPP-AVOID-CHECK", Stage.Name,
+                        "Opposite stage avoid final check failed before unload. side=" + Options.Side + ". " +
+                        BuildAxisState(axis, target));
+
+                CurrentStep = OutputStagePrepareUnloadStep.MoveTargetStageZToAvoid;
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                return Fail("OUT-STAGE-UNLOAD-OPP-AVOID-CHECK-EX", Name,
+                    "Opposite stage avoid check before unload failed. side=" + Options.Side + ", error=" + ex.Message);
             }
             finally
             {
@@ -235,12 +322,77 @@ namespace QMC.CDT320.Sequencing
                         Options.Side + " Y unload final check failed. target=" + target + ". " +
                         BuildAxisState(axis, target));
 
-                CurrentStep = OutputStagePrepareUnloadStep.Complete;
+                CurrentStep = OutputStagePrepareUnloadStep.MoveTargetStageZToUnload;
                 return 0;
             }
             catch (Exception ex)
             {
                 return Fail("OUT-STAGE-Y-UNLOAD-CHECK-EX", Name, "Target stage Y unload check failed: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private async Task<int> MoveTargetStageZToUnloadAsync(CancellationToken ct)
+        {
+            try
+            {
+                if (SkipMissingSideZAxis(Options.Side, Options.Side + " Z unload"))
+                {
+                    CurrentStep = OutputStagePrepareUnloadStep.Complete;
+                    return 0;
+                }
+
+                int result = await MoveAxisAndVerifyAsync(
+                    ResolveZAxis(Options.Side),
+                    ResolveSideZTarget(Options.Side, "Unload"),
+                    Options.Side + " Z unload",
+                    ct).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                CurrentStep = OutputStagePrepareUnloadStep.CheckTargetStageZUnload;
+                return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("OUT-STAGE-Z-UNLOAD-EX", Name,
+                    "Target stage Z unload move failed. side=" + Options.Side + ", error=" + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private int CheckTargetStageZUnload()
+        {
+            try
+            {
+                if (SkipMissingSideZAxis(Options.Side, Options.Side + " Z unload final check"))
+                {
+                    CurrentStep = OutputStagePrepareUnloadStep.Complete;
+                    return 0;
+                }
+
+                BinStageAxis axis = ResolveZAxis(Options.Side);
+                double target = ResolveSideZTarget(Options.Side, "Unload");
+                if (!Stage.IsStageAxisInPosition(axis, target, ResolveTolerance(axis)))
+                    return Fail("OUT-STAGE-Z-UNLOAD-CHECK", Stage.Name,
+                        Options.Side + " Z unload final check failed. target=" + target + ". " +
+                        BuildAxisState(axis, target));
+
+                CurrentStep = OutputStagePrepareUnloadStep.Complete;
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                return Fail("OUT-STAGE-Z-UNLOAD-CHECK-EX", Name,
+                    "Target stage Z unload check failed. side=" + Options.Side + ", error=" + ex.Message);
             }
             finally
             {

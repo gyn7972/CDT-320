@@ -1,4 +1,4 @@
-using QMC.CDT320.Materials;
+﻿using QMC.CDT320.Materials;
 
 namespace QMC.CDT320.Sequencing
 {
@@ -13,6 +13,7 @@ namespace QMC.CDT320.Sequencing
         public int SlotIndex { get; set; }
         public int NextSlotIndex { get; set; }
         public CassetteMaterialRole CassetteRole { get; set; }
+        public string ExpectedWaferId { get; set; }
         public int WaferSize { get; set; }
         public int MoveTimeoutMs { get; set; }
         public bool FineMove { get; set; }
@@ -32,6 +33,7 @@ namespace QMC.CDT320.Sequencing
                 SlotIndex = 0,
                 NextSlotIndex = 0,
                 CassetteRole = CassetteMaterialRole.Input1,
+                ExpectedWaferId = "",
                 WaferSize = 12,
                 MoveTimeoutMs = 10000,
                 FineMove = false,

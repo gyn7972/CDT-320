@@ -1,7 +1,9 @@
-# capture_tabs_xy.ps1 - Click each bottom nav button by coordinate, capture screenshot.
+﻿# capture_tabs_xy.ps1 - Click each bottom nav button by coordinate, capture screenshot.
 # ASCII-only. Uses window-relative offsets that work for any window size
 # (left buttons anchor-left, right buttons anchor-right per Form1.Designer.cs).
-param([string]$OutDir = ".")
+param([string]$OutDir = (Join-Path $PSScriptRoot "..\reports\screenshots"))
+
+New-Item -ItemType Directory -Path $OutDir -Force | Out-Null
 
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing

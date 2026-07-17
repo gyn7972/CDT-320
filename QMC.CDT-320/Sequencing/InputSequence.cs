@@ -1480,6 +1480,28 @@ namespace QMC.CDT320.Sequencing
                 if (result != 0)
                     return Fail("SEQ-IN-FEEDER-CST-UNLOAD", "InputSequence", "InputFeeder -> 카세트 언로딩 실패. result=" + result);
 
+                // Feeder가 카세트 이송을 마치고 Avoid로 복귀한 뒤에만 빈 InputStage를 Avoid로 복귀시킨다.
+                result = await ExecuteWithInputPickerAvoidGateAsync("InputStageMoveAvoidAfterUnload", ct, async () =>
+                {
+                    using (SequenceResourceLease lease = await AcquireInputStageAreaAsync("InputStageMoveAvoidAfterUnload", ct).ConfigureAwait(false))
+                    {
+                        if (lease == null)
+                            return Fail("SEQ-IN-RESOURCE-STAGE", "InputSequence", "Unload 완료 후 InputStage Avoid 복귀 중 InputStageArea 리소스 점유에 실패했습니다.");
+
+                        var stageSequence = new InputStageSequence(Context);
+                        int stageResult = await SequenceTrace.ChildAsync("InputStageSequence", "MoveAvoidAfterUnload",
+                            () => stageSequence.RunMoveAvoidAsync(ct, BuildStageSequenceOptions(bFine, startMode, false, ResolveInputWaferId(slotIndex), false)),
+                            "slot=" + slotIndex).ConfigureAwait(false);
+                        if (stageResult != 0)
+                            return Fail("SEQ-IN-STAGE-AVOID", "InputStage",
+                                "InputFeeder 안전 복귀 후 InputStage Avoid 복귀 실패. result=" + stageResult);
+                    }
+
+                    return 0;
+                }).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
                 // slot을 Done으로 표시하고 Stage runtime 정보를 비워 다음 cycle과 섞이지 않게 한다.
                 UpdateInputSlotState(slotIndex, SlotPresence.Exist, ProcessState.Done);
                 ClearInputStageRuntime();
@@ -1980,6 +2002,8 @@ namespace QMC.CDT320.Sequencing
             var options = InputFeederSequenceOptions.Default();
             options.SlotIndex = slotIndex;
             options.NextSlotIndex = nextSlotIndex;
+            options.CassetteRole = ResolveInputCassetteRole(slotIndex);
+            options.ExpectedWaferId = ResolveInputWaferId(slotIndex);
             options.WaferSize = ResolveInputWaferSize();
             options.FineMove = bFine;
             options.MoveTimeoutMs = moveTimeoutMs > 0 ? moveTimeoutMs : options.MoveTimeoutMs;
@@ -2034,7 +2058,33 @@ namespace QMC.CDT320.Sequencing
 
         private string ResolveInputWaferId(int slotIndex)
         {
-            return "INPUT-SLOT-" + (slotIndex + 1).ToString("00");
+            WaferMaterial wafer = ResolveFeederWaferFromRuntimeState();
+            if (wafer == null)
+                wafer = ResolveStageWaferFromRuntimeState();
+            if (wafer != null && wafer.SourceSlotNumber == slotIndex)
+                return wafer.WaferId ?? "";
+
+            wafer = MaterialStateService.GetWaferInCassette(CassetteMaterialRole.Input1, slotIndex);
+            if (wafer == null)
+                wafer = MaterialStateService.GetWaferInCassette(CassetteMaterialRole.Input2, slotIndex);
+            return wafer != null ? (wafer.WaferId ?? "") : "";
+        }
+
+        private CassetteMaterialRole ResolveInputCassetteRole(int slotIndex)
+        {
+            WaferMaterial wafer = ResolveFeederWaferFromRuntimeState();
+            if (wafer == null)
+                wafer = ResolveStageWaferFromRuntimeState();
+            if (wafer != null &&
+                wafer.SourceSlotNumber == slotIndex &&
+                (wafer.SourceCassetteRole == CassetteMaterialRole.Input1 || wafer.SourceCassetteRole == CassetteMaterialRole.Input2))
+                return wafer.SourceCassetteRole;
+
+            if (MaterialStateService.GetWaferInCassette(CassetteMaterialRole.Input1, slotIndex) != null)
+                return CassetteMaterialRole.Input1;
+            if (MaterialStateService.GetWaferInCassette(CassetteMaterialRole.Input2, slotIndex) != null)
+                return CassetteMaterialRole.Input2;
+            return CassetteMaterialRole.Input1;
         }
 
         private void UpdateInputSlotState(int slotIndex, SlotPresence presence, ProcessState state)

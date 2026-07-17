@@ -1,6 +1,8 @@
-# test_lotport_ui.ps1
+﻿# test_lotport_ui.ps1
 # Click LIFT WAFER MAPPING button → wait → capture screenshot showing green slot LEDs.
-param([string]$OutDir = ".")
+param([string]$OutDir = (Join-Path $PSScriptRoot "..\reports\screenshots"))
+
+New-Item -ItemType Directory -Path $OutDir -Force | Out-Null
 
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing

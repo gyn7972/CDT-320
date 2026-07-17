@@ -3,6 +3,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using QMC.CDT320.Interlocks;
 using QMC.CDT320.Materials;
+using QMC.Common.Alarms;
 using QMC.Common.Motion;
 
 namespace QMC.CDT320.Sequencing
@@ -276,6 +277,7 @@ namespace QMC.CDT320.Sequencing
             try
             {
                 ct.ThrowIfCancellationRequested();
+                ThrowIfAlarmStopActive(ct, "RearPicker Idle Avoid 시작 전");
 
                 if (Mode != SequenceRunMode.Auto || HasLoadedDieOnPicker() || !IsRearPickerEnabled())
                     return;
@@ -314,12 +316,16 @@ namespace QMC.CDT320.Sequencing
                         return;
                     }
 
+                    ThrowIfAlarmStopActive(ct, "RearPicker Idle Avoid 이동 직전");
                     WriteLog("EnsureIdlePickerAvoidAsync", "RearPicker 작업 대기 중이므로 Avoid 위치로 이동합니다. - Start");
                     int result = await rear.MoveToRearPickerAvoidPosition(false).ConfigureAwait(false);
                     if (result != 0 || !rear.IsRearPickerInAvoidPosition())
+                    {
+                        ThrowIfAlarmStopActive(ct, "RearPicker Idle Avoid 이동 중");
                         throw new InvalidOperationException(
                             "RearPicker 작업 대기 중 Avoid 이동 실패. result=" + result +
                             ", finalAvoid=" + rear.IsRearPickerInAvoidPosition());
+                    }
                 }
 
                 WriteLog("EnsureIdlePickerAvoidAsync", "RearPicker 작업 대기 중 Avoid 위치 이동 완료. - Ok");
@@ -336,6 +342,36 @@ namespace QMC.CDT320.Sequencing
             {
                 WriteLog("EnsureIdlePickerAvoidAsync", "RearPicker 작업 대기 중 Avoid 이동 예외 발생: " + ex.Message + " - Failed");
                 throw;
+            }
+            finally
+            {
+            }
+        }
+
+        private void ThrowIfAlarmStopActive(CancellationToken ct, string phase)
+        {
+            if (!IsAlarmStopActive())
+                return;
+
+            throw new OperationCanceledException(
+                phase + " 활성 알람으로 이동을 시작하지 않고 시퀀스를 취소합니다.",
+                ct);
+        }
+
+        private bool IsAlarmStopActive()
+        {
+            try
+            {
+                if (AlarmManager.HasActive)
+                    return true;
+
+                return Context != null &&
+                       Context.Controller != null &&
+                       Context.Controller.Status == EquipmentStatus.Alarm;
+            }
+            catch
+            {
+                return true;
             }
             finally
             {

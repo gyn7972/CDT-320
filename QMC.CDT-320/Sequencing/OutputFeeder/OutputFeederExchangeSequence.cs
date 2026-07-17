@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Threading;
 using System.Threading.Tasks;
+using QMC.CDT320.Materials;
 
 namespace QMC.CDT320.Sequencing
 {
@@ -101,6 +102,8 @@ namespace QMC.CDT320.Sequencing
         {
             OutputFeederSequenceOptions loadOptions = CloneOptions();
             loadOptions.SlotIndex = Options.NextSlotIndex;
+            WaferMaterial nextWafer = MaterialStateService.GetWaferInCassette(loadOptions.CassetteRole, loadOptions.SlotIndex);
+            loadOptions.ExpectedWaferId = nextWafer != null ? (nextWafer.WaferId ?? "") : "";
             loadOptions.StartMode = Options.StartMode;
             int result = await new OutputFeederLoadFromCassetteSequence(Context).RunAsync(ct, loadOptions).ConfigureAwait(false);
             if (result != 0)
@@ -133,6 +136,7 @@ namespace QMC.CDT320.Sequencing
                 NextSlotIndex = Options.NextSlotIndex,
                 Side = Options.Side,
                 CassetteRole = Options.CassetteRole,
+                ExpectedWaferId = Options.ExpectedWaferId,
                 MoveTimeoutMs = Options.MoveTimeoutMs,
                 FineMove = Options.FineMove,
                 UseBarcode = Options.UseBarcode,

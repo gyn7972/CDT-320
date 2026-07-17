@@ -209,7 +209,17 @@ namespace QMC.CDT320.Sequencing
             result = CheckStageAxisReady(stage, WaferStageAxis.WaferExpandingZ, "StageZ");
             if (result != 0) return result;
 
-            CurrentStep = InputFeederUnloadFromStageStep.MoveStageToAvoidPosition;
+            // Stage unload 위치 이동은 InputStagePrepareUnloadSequence에서 Feeder 접근 전에 완료한다.
+            result = CheckStageAxisInPosition(stage, WaferStageAxis.WaferY, stage.Recipe.WaferY.UnloadPosition, "StageY unload");
+            if (result != 0) return result;
+
+            result = CheckStageAxisInPosition(stage, WaferStageAxis.WaferT, stage.Recipe.WaferT.UnloadPosition, "StageT unload");
+            if (result != 0) return result;
+
+            result = CheckStageAxisInPosition(stage, WaferStageAxis.WaferExpandingZ, stage.Recipe.WaferZ.UnloadPosition, "StageZ unload");
+            if (result != 0) return result;
+
+            CurrentStep = InputFeederUnloadFromStageStep.VerifyFeederReadyAtAvoid;
             return 0;
         }
 
@@ -427,6 +437,15 @@ namespace QMC.CDT320.Sequencing
             WaferMaterial wafer = ResolveStageWafer();
             if (wafer == null)
                 return Fail("IN-FEEDER-MATERIAL-MOVE", "Material", "InputStage wafer data was not found for feeder material move.");
+
+            if (!string.IsNullOrWhiteSpace(Options.ExpectedWaferId) &&
+                !string.Equals(Options.ExpectedWaferId, wafer.WaferId, StringComparison.OrdinalIgnoreCase))
+                return Fail("IN-FEEDER-MATERIAL-WAFER", "Material", "물리 이송 후 InputFeeder Material 갱신 직전에 Wafer ID가 변경되었습니다. expected=" + Options.ExpectedWaferId + ", actual=" + wafer.WaferId);
+
+            if (wafer.SourceCassetteRole != Options.CassetteRole || wafer.SourceSlotNumber != Options.SlotIndex)
+                return Fail("IN-FEEDER-MATERIAL-SOURCE", "Material", "InputStage wafer의 원본 cassette/slot 정보가 sequence option과 다릅니다. wafer=" + wafer.WaferId +
+                    ", sourceRole=" + wafer.SourceCassetteRole + ", sourceSlot=" + (wafer.SourceSlotNumber + 1).ToString("00") +
+                    ", optionRole=" + Options.CassetteRole + ", optionSlot=" + (Options.SlotIndex + 1).ToString("00"));
 
             // 현재 기준: Stage에서 wafer를 빼는 순간 input live map/cache도 같이 비운다.
             if (Context != null && Context.Controller != null)

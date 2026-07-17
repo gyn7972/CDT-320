@@ -20,7 +20,6 @@ namespace QMC.CDT320.Sequencing
         EnsureOutputStageUnclamp,
         EnsureOutputStageClampLiftDown,
         VerifyOutputStageUnloadReady,
-        EnsureFeederLiftDownAtStart,
         VerifyFeederReadyAtAvoid,
         PrepareFeederUnclamp,
         PrepareFeederLiftUp,
@@ -103,10 +102,6 @@ namespace QMC.CDT320.Sequencing
                     // 아웃풋 스테이지 언로드 준비 검증
                     case OutputFeederUnloadFromStageStep.VerifyOutputStageUnloadReady:
                         return Task.FromResult(VerifyOutputStageUnloadReady());
-
-                    // 피더 시작 위치 리프트 다운 정규화
-                    case OutputFeederUnloadFromStageStep.EnsureFeederLiftDownAtStart:
-                        return EnsureFeederLiftDownAtStartAsync(ct);
 
                     // 피더 어보이드 준비 검증
                     case OutputFeederUnloadFromStageStep.VerifyFeederReadyAtAvoid:
@@ -236,34 +231,45 @@ namespace QMC.CDT320.Sequencing
 
         private async Task<int> EnsureStageMutualInterlockAsync(CancellationToken ct)
         {
-            int result = await Stage.EnsureStageMutualInterlockForLoadAsync(Options.Side, ResolveTimeout(), Options.FineMove, ct).ConfigureAwait(false);
+            ct.ThrowIfCancellationRequested();
+
+            // Stage 위치 이동은 OutputStagePrepareUnloadSequence에서 Feeder 접근 전에 끝나야 한다.
+            // Stage -> Feeder 이송 단계에서는 준비된 Unload 위치를 유지하고 위치만 검증한다.
+            if (!Stage.IsStageInUnloadPosition(Options.Side))
+                return Fail("OUT-STAGE-UNLOAD-POS", Stage.Name,
+                    "OutputStage가 Feeder 이송 시작 전에 Unload 위치에 준비되지 않았습니다. side=" + Options.Side + ", " +
+                    Stage.DescribeOutputStageInterlockState(Options.Side));
+
+            int result = await Stage.EnsureBinGuideClampLiftUpAsync(BinSide.Ng, ResolveTimeout(), ct).ConfigureAwait(false);
             if (result != 0)
-                return Fail("OUT-STAGE-UNLOAD-INTERLOCK", Stage.Name, "Output stage mutual interlock failed before stage unload. side=" + Options.Side + ", result=" + result + ", " + Stage.DescribeOutputStageInterlockState(Options.Side));
+                return Fail("OUT-STAGE-NG-CLAMP-UP", Stage.Name,
+                    "NG stage clamp lift up failed before feeder transfer. side=" + Options.Side + ", result=" + result + ", " +
+                    Stage.DescribeOutputStageInterlockState(Options.Side));
 
             if (!Stage.IsBinGuideClampLiftUp(BinSide.Ng))
                 return Fail("OUT-STAGE-NG-CLAMP-UP", Stage.Name, "NG stage clamp lift must be up before stage unload movement. " + Stage.DescribeOutputStageInterlockState(Options.Side));
 
-            if (!Stage.IsGoodStageZInAvoidOrProcessPosition())
-                return Fail("OUT-STAGE-GOOD-Z-SAFE", Stage.Name, "Good stage Z must be avoid or process before stage unload movement. " + Stage.DescribeOutputStageInterlockState(Options.Side));
+            if (Options.Side == BinSide.Ng && !Stage.IsGoodStageZInAvoidPosition())
+                return Fail("OUT-STAGE-GOOD-Z-AVOID", Stage.Name,
+                    "NG Stage Unload 전 GoodStageZ가 Avoid 위치가 아닙니다. " + Stage.DescribeOutputStageInterlockState(Options.Side));
 
             if (Options.Side != BinSide.Ng && !Stage.IsNgStageInAvoidPosition())
                 return Fail("OUT-STAGE-NG-AVOID", Stage.Name, "NG stage must be avoid before GOOD stage unload. " + Stage.DescribeOutputStageInterlockState(Options.Side));
 
-            CurrentStep = OutputFeederUnloadFromStageStep.MoveOutputStageUnloadPosition;
+            CurrentStep = OutputFeederUnloadFromStageStep.EnsureOutputStageGuideUp;
             return 0;
         }
 
-        private async Task<int> MoveOutputStageUnloadPositionAsync(CancellationToken ct)
+        private Task<int> MoveOutputStageUnloadPositionAsync(CancellationToken ct)
         {
-            int result = await Stage.MoveToStageUnloadPositionAndVerifyAsync(Options.Side, ResolveTimeout(), Options.FineMove, ct).ConfigureAwait(false);
-            if (result != 0)
-                return Fail("OUT-STAGE-UNLOAD-POS", Stage.Name, "Output stage unload position move failed. side=" + Options.Side + ", result=" + result);
+            ct.ThrowIfCancellationRequested();
 
             if (!Stage.IsStageInUnloadPosition(Options.Side))
-                return Fail("OUT-STAGE-UNLOAD-POS", Stage.Name, "Output stage is not in unload position after move. side=" + Options.Side);
+                return Task.FromResult(Fail("OUT-STAGE-UNLOAD-POS", Stage.Name,
+                    "OutputStage가 Feeder 이송 시작 전에 Unload 위치에 준비되지 않았습니다. side=" + Options.Side));
 
             CurrentStep = OutputFeederUnloadFromStageStep.EnsureOutputStageGuideUp;
-            return 0;
+            return Task.FromResult(0);
         }
 
         private async Task<int> EnsureOutputStageGuideUpAsync(CancellationToken ct)
@@ -328,63 +334,8 @@ namespace QMC.CDT320.Sequencing
                     "Output stage bin guide must be unclamped before feeder starts stage unload. side=" + Options.Side + ", " +
                     Stage.DescribeOutputStageInterlockState(Options.Side));
 
-            CurrentStep = OutputFeederUnloadFromStageStep.EnsureFeederLiftDownAtStart;
+            CurrentStep = OutputFeederUnloadFromStageStep.VerifyFeederReadyAtAvoid;
             return 0;
-        }
-
-        private async Task<int> EnsureFeederLiftDownAtStartAsync(CancellationToken ct)
-        {
-            try
-            {
-                ct.ThrowIfCancellationRequested();
-
-                if (!IsFeederReadyForStageUnloadStart())
-                    return Fail("OUT-FEEDER-AVOID-CHECK", Feeder.Name,
-                        "Output feeder lift down 전 위치 확인 실패. Stage unload 시작 전에는 Feeder가 Avoid 또는 StageUnloadAvoid 위치여야 합니다. side=" + Options.Side + ", " +
-                        Feeder.DescribeBinFeederYMoveDoneState());
-
-                if (!IsHardwareBypass() && !Feeder.IsFeederEmpty())
-                    return Fail("OUT-FEEDER-LIFT-DOWN-SAFE-CHECK", Feeder.Name,
-                        "Output feeder lift down 전 자재 감지 상태가 안전하지 않습니다. side=" + Options.Side + ", " +
-                        Feeder.DescribeFeederCylinderState());
-
-                if (Feeder.IsFeederOverload())
-                    return Fail("OUT-FEEDER-LIFT-DOWN-SAFE-CHECK", Feeder.Name,
-                        "Output feeder lift down 전 과부하 센서가 감지되었습니다. side=" + Options.Side + ", " +
-                        Feeder.DescribeFeederCylinderState());
-
-                if (Feeder.IsFeederDown())
-                {
-                    CurrentStep = OutputFeederUnloadFromStageStep.VerifyFeederReadyAtAvoid;
-                    return 0;
-                }
-
-                int result = await Feeder.SetFeederUpDownAsync(false, ResolveTimeout(), ct).ConfigureAwait(false);
-                if (result != 0)
-                    return Fail("OUT-FEEDER-LIFT-DOWN-START", Feeder.Name,
-                        "Stage unload 시작 전 Output feeder lift down 명령 실패. side=" + Options.Side +
-                        ", result=" + result + ", " + Feeder.DescribeFeederCylinderState());
-
-                if (!Feeder.IsFeederDown())
-                    return Fail("OUT-FEEDER-LIFT-DOWN-START", Feeder.Name,
-                        "Stage unload 시작 전 Output feeder lift down 최종 확인 실패. side=" + Options.Side +
-                        ", " + Feeder.DescribeFeederCylinderState());
-
-                CurrentStep = OutputFeederUnloadFromStageStep.VerifyFeederReadyAtAvoid;
-                return 0;
-            }
-            catch (OperationCanceledException)
-            {
-                throw;
-            }
-            catch (Exception ex)
-            {
-                return Fail("OUT-FEEDER-LIFT-DOWN-START-EX", Feeder != null ? Feeder.Name : "BinFeederUnit",
-                    "Stage unload 시작 전 Output feeder lift down 처리 중 예외가 발생했습니다: " + ex.Message);
-            }
-            finally
-            {
-            }
         }
 
         private int VerifyFeederReadyAtAvoid()
@@ -545,6 +496,15 @@ namespace QMC.CDT320.Sequencing
                 return Fail("OUT-FEEDER-MATERIAL-MOVE", "Material", "Output stage wafer data was not found for feeder material move. side=" + Options.Side);
             if (ResolveFeederWafer() != null)
                 return Fail("OUT-FEEDER-DATA-OCCUPIED", "Material", "Output feeder data became occupied before stage to feeder material move.");
+
+            if (!string.IsNullOrWhiteSpace(Options.ExpectedWaferId) &&
+                !string.Equals(Options.ExpectedWaferId, wafer.WaferId, StringComparison.OrdinalIgnoreCase))
+                return Fail("OUT-FEEDER-MATERIAL-WAFER", "Material", "물리 이송 후 Feeder Material 갱신 직전에 Bin ID가 변경되었습니다. expected=" + Options.ExpectedWaferId + ", actual=" + wafer.WaferId);
+
+            CassetteMaterialRole sourceRole = wafer.SourceCassetteRole;
+            if ((Options.Side == BinSide.Ng && sourceRole != CassetteMaterialRole.Ng1) ||
+                (Options.Side == BinSide.Good && sourceRole != CassetteMaterialRole.Good1 && sourceRole != CassetteMaterialRole.Good2))
+                return Fail("OUT-FEEDER-MATERIAL-SIDE", "Material", "Output side와 source cassette role이 일치하지 않습니다. wafer=" + wafer.WaferId + ", side=" + Options.Side + ", sourceRole=" + sourceRole);
 
             MaterialStateService.MoveWafer(wafer.WaferId, new MaterialLocation { Kind = MaterialLocationKind.OutputFeeder }, WaferMaterialState.WorkReady);
             Feeder.UpdateFeederMaterialState(MaterialState.Occupied);

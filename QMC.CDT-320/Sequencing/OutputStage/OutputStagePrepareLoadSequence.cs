@@ -12,6 +12,7 @@ namespace QMC.CDT320.Sequencing
         CheckUnit,
         CheckTargetSide,
         EnsureOutputFeederSafeBeforeStageMove,
+        EnsureNgClampLiftUpBeforeStageMove,
         MoveOppositeStageZToAvoid,
         CheckOppositeStageZAvoid,
         EnsureGoodGuideDownBeforeNgYMove,
@@ -56,6 +57,10 @@ namespace QMC.CDT320.Sequencing
                     // Stage Z/Y 이동 전 OutputFeeder 안전 위치 확보
                     case OutputStagePrepareLoadStep.EnsureOutputFeederSafeBeforeStageMove:
                         return EnsureOutputFeederSafeBeforeStageMoveAsync(ct);
+
+                    // Good Z/NG Y 이동 전 NG Clamp Lift Up 확보
+                    case OutputStagePrepareLoadStep.EnsureNgClampLiftUpBeforeStageMove:
+                        return EnsureNgClampLiftUpBeforeStageMoveAsync(ct);
 
                     // 반대쪽 스테이지 Z로 어보이드 이동
                     case OutputStagePrepareLoadStep.MoveOppositeStageZToAvoid:
@@ -149,7 +154,7 @@ namespace QMC.CDT320.Sequencing
                             "메뉴얼 OutputStage Load는 OutputFeederY를 이동하지 않습니다. 시작 전 FeederY를 Avoid 위치로 이동하십시오. side=" +
                             Options.Side + ", " + feeder.DescribeBinFeederYMoveDoneState());
 
-                    CurrentStep = OutputStagePrepareLoadStep.MoveOppositeStageZToAvoid;
+                    CurrentStep = OutputStagePrepareLoadStep.EnsureNgClampLiftUpBeforeStageMove;
                     return 0;
                 }
 
@@ -191,7 +196,7 @@ namespace QMC.CDT320.Sequencing
                         "OutputStage Load 전 OutputFeederY Avoid 최종 확인 실패. side=" + Options.Side +
                         ", " + feeder.DescribeBinFeederYMoveDoneState());
 
-                CurrentStep = OutputStagePrepareLoadStep.MoveOppositeStageZToAvoid;
+                CurrentStep = OutputStagePrepareLoadStep.EnsureNgClampLiftUpBeforeStageMove;
                 return 0;
             }
             catch (OperationCanceledException)
@@ -209,11 +214,70 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
+        private async Task<int> EnsureNgClampLiftUpBeforeStageMoveAsync(CancellationToken ct)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+
+                int liftResult = await Stage.EnsureBinGuideClampLiftUpAsync(
+                    BinSide.Ng,
+                    ResolveTimeout(),
+                    ct).ConfigureAwait(false);
+                if (liftResult != 0)
+                {
+                    return Fail("OUT-STAGE-NG-CLAMP-UP-BEFORE-MOVE", Stage.Name,
+                        "OutputStage Load 이동 준비 중 NG Bin Clamp Lift Up 명령 실패. result=" +
+                        liftResult + ", side=" + Options.Side + ", " +
+                        Stage.DescribeOutputStageInterlockState(BinSide.Ng));
+                }
+
+                if (!Stage.IsBinGuideClampLiftUp(BinSide.Ng))
+                {
+                    return Fail("OUT-STAGE-NG-CLAMP-UP-CHECK-BEFORE-MOVE", Stage.Name,
+                        "OutputStage Load 이동 준비 중 NG Bin Clamp Lift Up 최종 확인 실패. side=" +
+                        Options.Side + ", " +
+                        Stage.DescribeOutputStageInterlockState(BinSide.Ng));
+                }
+
+                CurrentStep = OutputStagePrepareLoadStep.MoveOppositeStageZToAvoid;
+                return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("OUT-STAGE-NG-CLAMP-UP-PREP-EX", Name,
+                    "OutputStage Load 전 NG Clamp Lift Up 확보 중 예외가 발생했습니다. side=" +
+                    Options.Side + ", error=" + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
         private async Task<int> MoveOppositeStageZToAvoidAsync(CancellationToken ct)
         {
             try
             {
                 BinSide opposite = Options.Side == BinSide.Ng ? BinSide.Good : BinSide.Ng;
+                if (opposite == BinSide.Ng)
+                {
+                    int ngResult = await MoveAxisAndVerifyAsync(
+                        ResolveYAxis(BinSide.Ng),
+                        ResolveSideTarget(BinSide.Ng, "Avoid"),
+                        "NG Y avoid before Good load",
+                        ct).ConfigureAwait(false);
+
+                    if (ngResult != 0)
+                        return ngResult;
+
+                    CurrentStep = OutputStagePrepareLoadStep.CheckOppositeStageZAvoid;
+                    return 0;
+                }
+
                 if (SkipMissingSideZAxis(opposite, opposite + " Z avoid before load"))
                 {
                     CurrentStep = OutputStagePrepareLoadStep.EnsureGoodGuideDownBeforeNgYMove;
@@ -246,6 +310,17 @@ namespace QMC.CDT320.Sequencing
             try
             {
                 BinSide opposite = Options.Side == BinSide.Ng ? BinSide.Good : BinSide.Ng;
+                if (opposite == BinSide.Ng)
+                {
+                    if (!Stage.IsNgStageInAvoidPosition())
+                        return Fail("OUT-STAGE-OPP-NG-Y-CHECK", Stage.Name,
+                            "NG Y avoid final check before Good load failed. " +
+                            BuildAxisState(ResolveYAxis(BinSide.Ng), ResolveSideTarget(BinSide.Ng, "Avoid")));
+
+                    CurrentStep = OutputStagePrepareLoadStep.EnsureGoodGuideDownBeforeNgYMove;
+                    return 0;
+                }
+
                 if (SkipMissingSideZAxis(opposite, opposite + " Z avoid final check before load"))
                 {
                     CurrentStep = OutputStagePrepareLoadStep.EnsureGoodGuideDownBeforeNgYMove;

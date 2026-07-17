@@ -119,6 +119,10 @@ namespace QMC.CDT320
     public class InputCassetteUnit : BaseUnit<InputCassetteSetup, InputCassetteConfig, InputCassetteRecipe>, IUnitJogController
     {
         private readonly Dictionary<int, WaferSlotState> slotStates = new Dictionary<int, WaferSlotState>();
+        private readonly Dictionary<int, WaferSlotState> mappingPreviousSlotStates = new Dictionary<int, WaferSlotState>();
+        private IReadOnlyList<bool> mappingPreviousWaferMap;
+        private double[] mappingPreviousSlotPositions;
+        private bool mappingSnapshotActive;
 
         public BaseAxis InputLifterZ { get; private set; }
 
@@ -854,6 +858,7 @@ namespace QMC.CDT320
         public async Task<int> WaferScan(int timeoutMs, bool bFine, CancellationToken ct)
         {
             bool mappingStarted = false;
+            bool mappingSucceeded = false;
             try
             {
                 ct.ThrowIfCancellationRequested();
@@ -866,7 +871,9 @@ namespace QMC.CDT320
 
                 BeginWaferMapping();
                 mappingStarted = true;
-                return await ScanCassetteAsync(ResolveMappingSlotCount(), Config.SlotPitch, ct).ConfigureAwait(false);
+                int result = await ScanCassetteAsync(ResolveMappingSlotCount(), Config.SlotPitch, ct).ConfigureAwait(false);
+                mappingSucceeded = result == 0;
+                return result;
             }
             catch (OperationCanceledException)
             {
@@ -880,7 +887,12 @@ namespace QMC.CDT320
             finally
             {
                 if (mappingStarted)
-                    EndWaferMapping();
+                {
+                    if (mappingSucceeded)
+                        EndWaferMapping();
+                    else
+                        RollbackWaferMapping();
+                }
             }
         }
 
@@ -892,6 +904,7 @@ namespace QMC.CDT320
         public async Task<int> WaferScanFromCurrentStart(int timeoutMs, bool bFine, CancellationToken ct)
         {
             bool mappingStarted = false;
+            bool mappingSucceeded = false;
             try
             {
                 ct.ThrowIfCancellationRequested();
@@ -904,7 +917,9 @@ namespace QMC.CDT320
 
                 BeginWaferMapping();
                 mappingStarted = true;
-                return await ScanCassetteFromCurrentStartAsync(ResolveMappingSlotCount(), Config.SlotPitch, timeoutMs, ct).ConfigureAwait(false);
+                int result = await ScanCassetteFromCurrentStartAsync(ResolveMappingSlotCount(), Config.SlotPitch, timeoutMs, ct).ConfigureAwait(false);
+                mappingSucceeded = result == 0;
+                return result;
             }
             catch (OperationCanceledException)
             {
@@ -918,7 +933,12 @@ namespace QMC.CDT320
             finally
             {
                 if (mappingStarted)
-                    EndWaferMapping();
+                {
+                    if (mappingSucceeded)
+                        EndWaferMapping();
+                    else
+                        RollbackWaferMapping();
+                }
             }
         }
 
@@ -1293,9 +1313,10 @@ namespace QMC.CDT320
 
         public void BeginWaferMapping()
         {
-            slotStates.Clear();
-            WaferMap = new List<bool>().AsReadOnly();
-            Recipe.ResizeSlotPositions(ResolveMappingSlotCount());
+            CaptureWaferMappingSnapshot();
+            // Mapping scan이 실패/취소되기 전까지 마지막 정상 map과 공정 상태를 유지한다.
+            // 새 결과는 scan 완료 후 WaferMap에 한 번에 반영된다.
+            EnsureSlotPositionBuffer();
         }
 
         public void EndWaferMapping()
@@ -1303,7 +1324,98 @@ namespace QMC.CDT320
             var map = new List<bool>(WaferMap);
             int count = Math.Min(Config != null ? Config.SlotCount : 0, map.Count);
             for (int i = 0; i < count; i++)
+            {
+                WaferSlotState previous;
+                if (slotStates.TryGetValue(i, out previous) &&
+                    previous != null &&
+                    (previous.Process == ProcessState.Processing || previous.Process == ProcessState.Done))
+                {
+                    continue;
+                }
+
                 UpdateWaferCassetteSlotState(i, map[i] ? SlotPresence.Exist : SlotPresence.Empty, ProcessState.Ready);
+                if (!map[i] && Recipe.SlotPosition != null && i < Recipe.SlotPosition.Length)
+                    Recipe.UpdateSlotPosition(i, double.NaN);
+            }
+        }
+
+        public void ApplyRegisteredWaferMappingState()
+        {
+            var map = new List<bool>(WaferMap ?? new List<bool>().AsReadOnly());
+            int count = Math.Min(Config != null ? Config.SlotCount : 0, map.Count);
+            for (int i = 0; i < count; i++)
+            {
+                if (!map[i])
+                {
+                    UpdateWaferCassetteSlotState(i, SlotPresence.Empty, ProcessState.Ready);
+                    if (Recipe.SlotPosition != null && i < Recipe.SlotPosition.Length)
+                        Recipe.UpdateSlotPosition(i, double.NaN);
+                    continue;
+                }
+
+                WaferMaterial wafer = MaterialStateService.GetWaferInCassette(CassetteMaterialRole.Input1, i);
+                ProcessState process = wafer != null && WaferMaterialStateText.Normalize(wafer.State) == WaferMaterialState.Finish
+                    ? ProcessState.Done
+                    : ProcessState.Ready;
+                UpdateWaferCassetteSlotState(i, SlotPresence.Exist, process);
+            }
+        }
+
+        public void CommitWaferMapping()
+        {
+            mappingPreviousSlotStates.Clear();
+            mappingPreviousWaferMap = null;
+            mappingPreviousSlotPositions = null;
+            mappingSnapshotActive = false;
+        }
+
+        public void RollbackWaferMapping()
+        {
+            if (!mappingSnapshotActive)
+                return;
+
+            WaferMap = mappingPreviousWaferMap != null
+                ? new List<bool>(mappingPreviousWaferMap).AsReadOnly()
+                : new List<bool>().AsReadOnly();
+
+            slotStates.Clear();
+            foreach (KeyValuePair<int, WaferSlotState> pair in mappingPreviousSlotStates)
+            {
+                WaferSlotState previous = pair.Value;
+                slotStates[pair.Key] = previous != null
+                    ? new WaferSlotState { Presence = previous.Presence, Process = previous.Process }
+                    : null;
+            }
+
+            int positionCount = mappingPreviousSlotPositions != null ? mappingPreviousSlotPositions.Length : 0;
+            Recipe.ResizeSlotPositions(positionCount);
+            for (int i = 0; i < positionCount; i++)
+                Recipe.UpdateSlotPosition(i, mappingPreviousSlotPositions[i]);
+
+            CommitWaferMapping();
+        }
+
+        private void CaptureWaferMappingSnapshot()
+        {
+            if (mappingSnapshotActive)
+                RollbackWaferMapping();
+
+            mappingPreviousWaferMap = WaferMap != null
+                ? new List<bool>(WaferMap).AsReadOnly()
+                : new List<bool>().AsReadOnly();
+            mappingPreviousSlotStates.Clear();
+            foreach (KeyValuePair<int, WaferSlotState> pair in slotStates)
+            {
+                WaferSlotState state = pair.Value;
+                mappingPreviousSlotStates[pair.Key] = state != null
+                    ? new WaferSlotState { Presence = state.Presence, Process = state.Process }
+                    : null;
+            }
+
+            mappingPreviousSlotPositions = Recipe.SlotPosition != null
+                ? (double[])Recipe.SlotPosition.Clone()
+                : new double[0];
+            mappingSnapshotActive = true;
         }
 
         public void BuildSimulatedWaferMap()
@@ -1448,11 +1560,12 @@ namespace QMC.CDT320
                         UpdateSlotPosition(i, slotPositions[i]);
                 }
 
-                if (map.Count(x => x) <= 0)
-                    return FailMappingScan("IN-CST-MAP-NO-WAFER", "No wafer was detected during mapping scan.");
-
                 WaferMap = map.AsReadOnly();
-                Log.Write("Main", "SYSTEM", "InputCassetteMapping", "Mapping scan completed. detected=" + detectedPositions.Count + ", slots=" + map.Count(x => x) + " - Ok");
+                int occupiedCount = map.Count(x => x);
+                Log.Write("Main", "SYSTEM", "InputCassetteMapping",
+                    occupiedCount > 0
+                        ? "Mapping scan completed. detected=" + detectedPositions.Count + ", slots=" + occupiedCount + " - Ok"
+                        : "Mapping scan completed with an empty cassette. detected=" + detectedPositions.Count + ", slots=0 - Ok");
                 return 0;
             }
             catch (OperationCanceledException)

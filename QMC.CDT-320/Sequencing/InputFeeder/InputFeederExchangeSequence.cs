@@ -183,6 +183,8 @@ namespace QMC.CDT320.Sequencing
         {
             InputFeederSequenceOptions loadOptions = CloneOptions();
             loadOptions.SlotIndex = Options.NextSlotIndex;
+            WaferMaterial nextWafer = MaterialStateService.GetWaferInCassette(loadOptions.CassetteRole, loadOptions.SlotIndex);
+            loadOptions.ExpectedWaferId = nextWafer != null ? (nextWafer.WaferId ?? "") : "";
             loadOptions.StartMode = Options.StartMode;
             loadOptions.PostUnloadMove = InputFeederPostUnloadMove.Avoid;
             loadOptions.ReturnCassetteToUnloadSlotAfterUnload = true;
@@ -291,6 +293,7 @@ namespace QMC.CDT320.Sequencing
                 SlotIndex = Options.SlotIndex,
                 NextSlotIndex = Options.NextSlotIndex,
                 CassetteRole = Options.CassetteRole,
+                ExpectedWaferId = Options.ExpectedWaferId,
                 WaferSize = Options.WaferSize,
                 MoveTimeoutMs = Options.MoveTimeoutMs,
                 FineMove = Options.FineMove,

@@ -360,6 +360,10 @@ namespace QMC.CDT320.Sequencing
                 CurrentStep = nextStep;
                 return 0;
             }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
             catch (Exception ex)
             {
                 return Fail("OUT-CST-SCAN-EX", Name, "Scan slots exception: " + ex.Message);
@@ -564,8 +568,14 @@ namespace QMC.CDT320.Sequencing
                 int slotCount = cassette.Config != null ? cassette.Config.SlotCount : 0;
                 string goodReason;
                 string ngReason;
-                bool updateGood = CanUpdateOutputCassetteMapping(BinSide.Good, out goodReason);
-                bool updateNg = CanUpdateOutputCassetteMapping(BinSide.Ng, out ngReason);
+                bool goodConsistencyFailure;
+                bool ngConsistencyFailure;
+                bool updateGood = CanUpdateOutputCassetteMapping(BinSide.Good, out goodReason, out goodConsistencyFailure);
+                bool updateNg = CanUpdateOutputCassetteMapping(BinSide.Ng, out ngReason, out ngConsistencyFailure);
+                if (goodConsistencyFailure || ngConsistencyFailure)
+                    return Fail("OUT-CST-MAP-DATA-MISMATCH", Name,
+                        "Output cassette mapping 중 센서/Material 데이터 불일치가 확인되었습니다. goodReason=" + goodReason +
+                        ", ngReason=" + ngReason);
                 if (!updateGood && !updateNg)
                     return Fail("OUT-CST-MAP-SIDE-BLOCK", Name,
                         "Output cassette mapping 결과를 반영할 수 있는 side가 없습니다. goodReason=" + goodReason +
@@ -601,8 +611,9 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
-        private bool CanUpdateOutputCassetteMapping(BinSide side, out string reason)
+        private bool CanUpdateOutputCassetteMapping(BinSide side, out string reason, out bool consistencyFailure)
         {
+            consistencyFailure = false;
             try
             {
                 MaterialLocationKind stageLocation = side == BinSide.Ng
@@ -623,6 +634,14 @@ namespace QMC.CDT320.Sequencing
                     return false;
                 }
 
+                string consistencyReason;
+                if (!OutputSlotPlanner.ValidateSupplyCassetteConsistency(side, out consistencyReason))
+                {
+                    consistencyFailure = true;
+                    reason = FormatOutputSideName(side) + " 출력 카세트 센서/Material 데이터가 불일치하여 mapping을 반영할 수 없습니다. " + consistencyReason;
+                    return false;
+                }
+
                 OutputSlotPlan plan;
                 if (OutputSlotPlanner.TryResolveNextSupplySlot(side, out plan))
                 {
@@ -636,6 +655,7 @@ namespace QMC.CDT320.Sequencing
             }
             catch (Exception ex)
             {
+                consistencyFailure = true;
                 reason = FormatOutputSideName(side) + " mapping 반영 조건 확인 중 예외가 발생했습니다. error=" + ex.Message;
                 return false;
             }

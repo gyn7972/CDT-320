@@ -109,6 +109,20 @@ namespace QMC.CDT320.Sequencing
         {
             try
             {
+                int preparationResult = await EnsureInitialOrRecipeOutputPreparationAsync(
+                    ct,
+                    false,
+                    0,
+                    SequenceStartMode.Resume).ConfigureAwait(false);
+                if (preparationResult != 0)
+                {
+                    throw new InvalidOperationException(
+                        SequenceFailureStore.AppendRecentDetail(
+                            "Output 초기/레시피 변경 전체 준비 실패. result=" + preparationResult,
+                            "OutputSequence",
+                            "OUTPUT-FULL-PREPARATION"));
+                }
+
                 while (!ct.IsCancellationRequested)
                 {
                     if (await WaitForStopAfterDrainCompletionIfRequestedAsync(
@@ -185,10 +199,14 @@ namespace QMC.CDT320.Sequencing
             {
                 ct.ThrowIfCancellationRequested();
 
+                string consistencyReason;
+                if (!ValidateOutputSupplyConsistency(out consistencyReason))
+                    return Fail("OUT-SLOT-CONSISTENCY", "OutputSequence", consistencyReason);
+
                 OutputSequenceAutoAction action = ResolveNextOutputAction();
                 Context.LogPublic("[OUTPUT] next action=" + action);
 
-                // 현재 기준: Auto 교체 작업은 실제 필요한 GOOD/NG만 하나의 Loader lease 안에서 연속 처리한다.
+                // 일반 Auto 운전 중에는 선택된 GOOD 또는 NG 한쪽의 언로드/재로드만 한 묶음으로 처리한다.
                 if (Mode == SequenceRunMode.Auto && IsOutputLoaderWorkAction(action))
                 {
                     return await ExecuteCoordinatorOutputLoaderBatchAsync(
@@ -353,12 +371,22 @@ namespace QMC.CDT320.Sequencing
                     Interlocked.Increment(ref _autoOutputLoaderBatchDepth);
                     try
                     {
-                        // 현재 기준: Picker 대기 중 바뀐 자재 상태를 반영하도록 lease 획득 직후 작업 계획을 다시 계산한다.
+                        // Picker 대기 중 바뀐 자재 상태를 반영하되, 일반 운전 중에는 최초 선택 side만 완료한다.
                         OutputSequenceAutoAction action = ResolveNextOutputAction();
+                        BinSide batchSide;
+                        if (!TryResolveOutputActionSide(action, out batchSide))
+                        {
+                            return Fail(
+                                "OUT-LOADER-BATCH-SIDE",
+                                "OutputSequence",
+                                "Output Loader 단일 side batch의 GOOD/NG 구분을 확인할 수 없습니다. " +
+                                "firstAction=" + firstAction + ", resolvedAction=" + action);
+                        }
                         int actionCount = 0;
 
                         Context.LogPublic(
-                            "[OUTPUT] Loader batch start. firstAction=" + firstAction +
+                            "[OUTPUT] Loader single-side batch start. side=" + batchSide +
+                            ", firstAction=" + firstAction +
                             ", resolvedAction=" + action +
                             ", canSupplyGood=" + CanSupplyOutputStage(BinSide.Good) +
                             ", canSupplyNg=" + CanSupplyOutputStage(BinSide.Ng));
@@ -391,9 +419,14 @@ namespace QMC.CDT320.Sequencing
                             if (result != 0)
                                 return result;
 
-                            OutputSequenceAutoAction nextAction = ResolveNextOutputAction();
+                            string consistencyReason;
+                            if (!ValidateOutputSupplyConsistency(out consistencyReason))
+                                return Fail("OUT-SLOT-CONSISTENCY", "OutputSequence", consistencyReason);
+
+                            OutputSequenceAutoAction nextAction = ResolveNextOutputActionForSide(batchSide);
                             Context.LogPublic(
                                 "[OUTPUT] Loader batch action complete. index=" + actionCount +
+                                ", side=" + batchSide +
                                 ", action=" + action +
                                 ", nextAction=" + nextAction);
 
@@ -413,7 +446,8 @@ namespace QMC.CDT320.Sequencing
                         // 현재 기준: 중간 Ready 공개는 막고 교체 묶음의 최종 안전 자세 완료 후 한 번만 공개한다.
                         SetOutputStageReadySignals();
                         Context.LogPublic(
-                            "[OUTPUT] Loader batch complete. actionCount=" + actionCount +
+                            "[OUTPUT] Loader single-side batch complete. side=" + batchSide +
+                            ", actionCount=" + actionCount +
                             ", nextAction=" + action);
                         return 0;
                     }
@@ -422,6 +456,254 @@ namespace QMC.CDT320.Sequencing
                         Interlocked.Decrement(ref _autoOutputLoaderBatchDepth);
                     }
                 }).ConfigureAwait(false);
+        }
+
+        private async Task<int> EnsureInitialOrRecipeOutputPreparationAsync(
+            CancellationToken ct,
+            bool bFine,
+            int moveTimeoutMs,
+            SequenceStartMode startMode)
+        {
+            MachineController controller = Context != null ? Context.Controller : null;
+            string requestReason = string.Empty;
+            string requestRecipeName = controller != null ? controller.ActiveRecipeName : string.Empty;
+            bool requested = controller != null &&
+                             controller.TryGetOutputFullPreparationRequest(out requestReason, out requestRecipeName);
+            if (string.IsNullOrWhiteSpace(requestRecipeName) && controller != null)
+                requestRecipeName = controller.ActiveRecipeName ?? string.Empty;
+            bool outputMapped = AreRequiredOutputCassettesMapped();
+
+            if (!requested && outputMapped)
+                return 0;
+
+            if (!requested && controller != null)
+            {
+                requestReason = "InitialUnmappedOutputCassette";
+                requestRecipeName = controller.ActiveRecipeName ?? string.Empty;
+                controller.RequestOutputFullPreparation(requestReason, requestRecipeName);
+                requested = true;
+            }
+
+            string materialRecipeName;
+            bool materialRecipeChanged = IsMaterialRecipeDifferent(requestRecipeName, out materialRecipeName);
+            bool recipeChange = requestReason.StartsWith("RecipeChange:", StringComparison.OrdinalIgnoreCase) ||
+                                materialRecipeChanged;
+            if (materialRecipeChanged)
+            {
+                requestReason = (requestReason ?? string.Empty) +
+                                ";MaterialRecipeChange:" + materialRecipeName + "->" + requestRecipeName;
+            }
+            if (!recipeChange && HasOutputActiveMaterial())
+            {
+                Context.LogPublic(
+                    "[OUTPUT] 초기 전체 준비 요청이 있으나 복구할 진행 자재가 있어 기존 단일 side 재개 흐름을 유지합니다. " +
+                    "reason=" + requestReason + ", recipe=" + requestRecipeName);
+                if (controller != null)
+                    controller.CompleteOutputFullPreparation(controller.ActiveRecipeName ?? string.Empty);
+                return 0;
+            }
+
+            Context.LogPublic(
+                "[OUTPUT] GOOD/NG 전체 준비 시작. reason=" + requestReason +
+                ", recipe=" + requestRecipeName +
+                ", recipeChange=" + recipeChange +
+                ", outputMapped=" + outputMapped);
+
+            return await ExecuteCoordinatorOutputLoaderWorkAsync(
+                "OutputFullPreparation",
+                ct,
+                async () =>
+                {
+                    Interlocked.Increment(ref _autoOutputLoaderBatchDepth);
+                    try
+                    {
+                        int result = await ExecuteFullOutputPreparationCoreAsync(
+                            ct,
+                            recipeChange,
+                            bFine,
+                            moveTimeoutMs,
+                            startMode).ConfigureAwait(false);
+                        if (result != 0)
+                            return result;
+
+                        WaferMaterial goodStage = MaterialStateService.GetWaferAtLocation(MaterialLocationKind.OutputStageGood);
+                        WaferMaterial ngStage = MaterialStateService.GetWaferAtLocation(MaterialLocationKind.OutputStageNg);
+                        if (goodStage == null || ngStage == null)
+                        {
+                            return Fail(
+                                "OUT-FULL-PREP-STAGE",
+                                "OutputSequence",
+                                "초기/레시피 변경 Output 전체 준비 후 GOOD/NG Stage가 모두 채워지지 않았습니다. " +
+                                "goodStage=" + (goodStage != null ? goodStage.WaferId : "-") +
+                                ", ngStage=" + (ngStage != null ? ngStage.WaferId : "-") +
+                                ", reason=" + requestReason);
+                        }
+
+                        SetOutputStageReadySignals();
+                        if (controller != null &&
+                            !string.Equals(controller.ActiveRecipeName ?? string.Empty, requestRecipeName ?? string.Empty, StringComparison.OrdinalIgnoreCase))
+                        {
+                            return Fail(
+                                "OUT-FULL-PREP-RECIPE-CHANGED",
+                                "OutputSequence",
+                                "Output 전체 준비 중 활성 Recipe가 다시 변경되어 완료 상태를 확정하지 않았습니다. " +
+                                "requestedRecipe=" + requestRecipeName +
+                                ", activeRecipe=" + controller.ActiveRecipeName);
+                        }
+
+                        if (controller != null)
+                        {
+                            MaterialStateService.UpdateRecipeContext(
+                                requestRecipeName,
+                                "OutputFullPreparationComplete");
+                        }
+                        if (controller != null &&
+                            !controller.CompleteOutputFullPreparation(requestRecipeName))
+                        {
+                            return Fail(
+                                "OUT-FULL-PREP-RECIPE-CHANGED",
+                                "OutputSequence",
+                                "Output 전체 준비 중 활성 Recipe가 다시 변경되어 완료 상태를 확정하지 않았습니다. " +
+                                "requestedRecipe=" + requestRecipeName +
+                                ", activeRecipe=" + controller.ActiveRecipeName);
+                        }
+
+                        Context.LogPublic(
+                            "[OUTPUT] GOOD/NG 전체 준비 완료. goodWafer=" + goodStage.WaferId +
+                            ", ngWafer=" + ngStage.WaferId +
+                            ", reason=" + requestReason);
+                        return 0;
+                    }
+                    finally
+                    {
+                        Interlocked.Decrement(ref _autoOutputLoaderBatchDepth);
+                    }
+                }).ConfigureAwait(false);
+        }
+
+        private static bool IsMaterialRecipeDifferent(string activeRecipeName, out string materialRecipeName)
+        {
+            MaterialSnapshot state = MaterialStateService.State;
+            materialRecipeName = state != null ? (state.RecipeName ?? string.Empty).Trim() : string.Empty;
+            string active = (activeRecipeName ?? string.Empty).Trim();
+            return !string.IsNullOrWhiteSpace(materialRecipeName) &&
+                   !string.IsNullOrWhiteSpace(active) &&
+                   !string.Equals(materialRecipeName, active, StringComparison.OrdinalIgnoreCase);
+        }
+
+        private async Task<int> ExecuteFullOutputPreparationCoreAsync(
+            CancellationToken ct,
+            bool recipeChange,
+            bool bFine,
+            int moveTimeoutMs,
+            SequenceStartMode startMode)
+        {
+            if (recipeChange)
+            {
+                if (!AreRequiredOutputCassettesMapped() && HasOutputActiveMaterial())
+                {
+                    return Fail(
+                        "OUT-FULL-PREP-UNMAPPED-ACTIVE",
+                        "OutputSequence",
+                        "Recipe 변경 전체 교체 대상 Bin이 있지만 원본 Output cassette mapping 정보가 없습니다. " +
+                        "자동 복귀를 중단하고 Material/cassette 상태를 확인하세요.");
+                }
+
+                WaferMaterial feederWafer = MaterialStateService.GetWaferAtLocation(MaterialLocationKind.OutputFeeder);
+                if (feederWafer != null)
+                {
+                    BinSide feederSide;
+                    if (!TryResolveBinSide(feederWafer, out feederSide))
+                        return Fail("OUT-FULL-PREP-FEEDER-SIDE", "Material", "Recipe 변경 시 OutputFeeder Bin의 GOOD/NG를 확인할 수 없습니다. wafer=" + feederWafer.WaferId);
+
+                    int feederResult = await ExecuteOutputFeederStoreToCassetteAsync(
+                        feederWafer,
+                        feederSide,
+                        ct,
+                        bFine,
+                        moveTimeoutMs,
+                        startMode).ConfigureAwait(false);
+                    if (feederResult != 0)
+                        return feederResult;
+                }
+
+                if (MaterialStateService.GetWaferAtLocation(MaterialLocationKind.OutputStageNg) != null)
+                {
+                    int ngUnloadResult = await ExecuteCompletedStageStoreAsync(
+                        ct,
+                        BinSide.Ng,
+                        DieGrade.Ng,
+                        bFine,
+                        moveTimeoutMs,
+                        startMode).ConfigureAwait(false);
+                    if (ngUnloadResult != 0)
+                        return ngUnloadResult;
+                }
+
+                if (MaterialStateService.GetWaferAtLocation(MaterialLocationKind.OutputStageGood) != null)
+                {
+                    int goodUnloadResult = await ExecuteCompletedStageStoreAsync(
+                        ct,
+                        BinSide.Good,
+                        DieGrade.Good,
+                        bFine,
+                        moveTimeoutMs,
+                        startMode).ConfigureAwait(false);
+                    if (goodUnloadResult != 0)
+                        return goodUnloadResult;
+                }
+            }
+
+            if (!AreRequiredOutputCassettesMapped())
+            {
+                int mappingResult = await ExecuteCassetteMappingAsync(
+                    ct,
+                    bFine,
+                    moveTimeoutMs,
+                    startMode).ConfigureAwait(false);
+                if (mappingResult != 0)
+                    return mappingResult;
+            }
+
+            string consistencyReason;
+            if (!ValidateOutputSupplyConsistency(out consistencyReason))
+                return Fail("OUT-FULL-PREP-CONSISTENCY", "OutputSequence", consistencyReason);
+
+            if (MaterialStateService.GetWaferAtLocation(MaterialLocationKind.OutputStageNg) == null)
+            {
+                OutputSlotPlan ngPlan;
+                string ngReason;
+                if (!OutputSlotPlanner.TryResolveNextSupplySlot(BinSide.Ng, out ngPlan, out ngReason))
+                    return Fail("OUT-FULL-PREP-NG-NO-READY", "OutputSequence", "NG Stage 전체 준비용 Ready Bin이 없습니다. reason=" + ngReason);
+
+                int ngLoadResult = await ExecuteSupplyCassetteToStageAsync(
+                    ct,
+                    BinSide.Ng,
+                    bFine,
+                    moveTimeoutMs,
+                    startMode).ConfigureAwait(false);
+                if (ngLoadResult != 0)
+                    return ngLoadResult;
+            }
+
+            if (MaterialStateService.GetWaferAtLocation(MaterialLocationKind.OutputStageGood) == null)
+            {
+                OutputSlotPlan goodPlan;
+                string goodReason;
+                if (!OutputSlotPlanner.TryResolveNextSupplySlot(BinSide.Good, out goodPlan, out goodReason))
+                    return Fail("OUT-FULL-PREP-GOOD-NO-READY", "OutputSequence", "GOOD Stage 전체 준비용 Ready Bin이 없습니다. reason=" + goodReason);
+
+                int goodLoadResult = await ExecuteSupplyCassetteToStageAsync(
+                    ct,
+                    BinSide.Good,
+                    bFine,
+                    moveTimeoutMs,
+                    startMode).ConfigureAwait(false);
+                if (goodLoadResult != 0)
+                    return goodLoadResult;
+            }
+
+            return 0;
         }
 
         private async Task<int> ExecuteOutputLoaderActionCoreAsync(
@@ -651,6 +933,113 @@ namespace QMC.CDT320.Sequencing
                 return OutputSequenceAutoAction.StopNoOutputBinWork;
 
             return OutputSequenceAutoAction.WaitOutputStageReceiveComplete;
+        }
+
+        private OutputSequenceAutoAction ResolveNextOutputActionForSide(BinSide side)
+        {
+            WaferCompletionRunCoordinator completion = Context != null ? Context.WaferCompletion : null;
+            if (completion != null && completion.Enabled)
+            {
+                completion.ObserveCompletionSignals();
+                if (completion.IsDrainRequested)
+                {
+                    WaferMaterial drainFeederWafer = MaterialStateService.GetWaferAtLocation(MaterialLocationKind.OutputFeeder);
+                    BinSide drainFeederSide;
+                    if (drainFeederWafer != null &&
+                        TryResolveBinSide(drainFeederWafer, out drainFeederSide) &&
+                        drainFeederSide == side)
+                    {
+                        return OutputSequenceAutoAction.ResumeOccupiedFeeder;
+                    }
+
+                    return OutputSequenceAutoAction.None;
+                }
+            }
+
+            if (IsOutputStageCompletionSignalSet(side))
+            {
+                return side == BinSide.Ng
+                    ? OutputSequenceAutoAction.StoreNgStageToCassette
+                    : OutputSequenceAutoAction.StoreGoodStageToCassette;
+            }
+
+            WaferMaterial feederWafer = MaterialStateService.GetWaferAtLocation(MaterialLocationKind.OutputFeeder);
+            if (feederWafer != null)
+            {
+                BinSide feederSide;
+                if (TryResolveBinSide(feederWafer, out feederSide) && feederSide == side)
+                    return OutputSequenceAutoAction.ResumeOccupiedFeeder;
+                return OutputSequenceAutoAction.None;
+            }
+
+            if (CanSupplyOutputStage(side))
+            {
+                return side == BinSide.Ng
+                    ? OutputSequenceAutoAction.SupplyNgCassetteToStage
+                    : OutputSequenceAutoAction.SupplyGoodCassetteToStage;
+            }
+
+            return OutputSequenceAutoAction.None;
+        }
+
+        private bool TryResolveOutputActionSide(OutputSequenceAutoAction action, out BinSide side)
+        {
+            side = BinSide.Good;
+            switch (action)
+            {
+                case OutputSequenceAutoAction.StoreNgStageToCassette:
+                case OutputSequenceAutoAction.SupplyNgCassetteToStage:
+                    side = BinSide.Ng;
+                    return true;
+
+                case OutputSequenceAutoAction.StoreGoodStageToCassette:
+                case OutputSequenceAutoAction.SupplyGoodCassetteToStage:
+                    side = BinSide.Good;
+                    return true;
+
+                case OutputSequenceAutoAction.ResumeOccupiedFeeder:
+                    return TryResolveBinSide(
+                        MaterialStateService.GetWaferAtLocation(MaterialLocationKind.OutputFeeder),
+                        out side);
+
+                default:
+                    return false;
+            }
+        }
+
+        private static bool AreRequiredOutputCassettesMapped()
+        {
+            MaterialSnapshot state = MaterialStateService.State;
+            if (state == null || state.Cassettes == null)
+                return false;
+
+            CassetteMaterial good1 = null;
+            CassetteMaterial good2 = null;
+            CassetteMaterial ng1 = null;
+            foreach (CassetteMaterial cassette in state.Cassettes)
+            {
+                if (cassette == null)
+                    continue;
+
+                if (cassette.Role == CassetteMaterialRole.Good1)
+                    good1 = cassette;
+                else if (cassette.Role == CassetteMaterialRole.Good2)
+                    good2 = cassette;
+                else if (cassette.Role == CassetteMaterialRole.Ng1)
+                    ng1 = cassette;
+            }
+
+            if (!IsOutputCassetteMapped(good1) || !IsOutputCassetteMapped(ng1))
+                return false;
+            if (good2 != null && good2.IsEnabled && !IsOutputCassetteMapped(good2))
+                return false;
+
+            return true;
+        }
+
+        private static bool IsOutputCassetteMapped(CassetteMaterial cassette)
+        {
+            return cassette != null && cassette.IsEnabled && cassette.IsPresent && cassette.IsMapped;
         }
 
         private static bool AreBothOutputStagesEmpty()
@@ -1179,10 +1568,38 @@ namespace QMC.CDT320.Sequencing
 
         public Task<int> ExecuteFeederLoadFromCassetteAsync(CancellationToken ct, int slotIndex, CassetteMaterialRole cassetteRole, bool bFine = false, int moveTimeoutMs = 0, SequenceStartMode startMode = SequenceStartMode.Resume)
         {
+            return ExecuteFeederLoadFromCassetteAsync(ct, slotIndex, cassetteRole, "", bFine, moveTimeoutMs, startMode);
+        }
+
+        private static bool ValidateOutputSupplyConsistency(out string reason)
+        {
+            string goodReason;
+            if (!OutputSlotPlanner.ValidateSupplyCassetteConsistency(BinSide.Good, out goodReason))
+            {
+                reason = "GOOD 출력 카세트 센서/Material 데이터가 불일치합니다. " + goodReason;
+                return false;
+            }
+
+            string ngReason;
+            if (!OutputSlotPlanner.ValidateSupplyCassetteConsistency(BinSide.Ng, out ngReason))
+            {
+                reason = "NG 출력 카세트 센서/Material 데이터가 불일치합니다. " + ngReason;
+                return false;
+            }
+
+            reason = "";
+            return true;
+        }
+
+        public Task<int> ExecuteFeederLoadFromCassetteAsync(CancellationToken ct, int slotIndex, CassetteMaterialRole cassetteRole, string expectedWaferId, bool bFine = false, int moveTimeoutMs = 0, SequenceStartMode startMode = SequenceStartMode.Resume)
+        {
             var sequence = new OutputFeederSequence(Context);
             BinSide side = cassetteRole == CassetteMaterialRole.Ng1 ? BinSide.Ng : BinSide.Good;
             var options = BuildFeederOptions(slotIndex, slotIndex, side, bFine, moveTimeoutMs, startMode);
             options.CassetteRole = cassetteRole;
+            options.ExpectedWaferId = string.IsNullOrWhiteSpace(expectedWaferId)
+                ? ResolveExpectedOutputWaferId(side, cassetteRole, slotIndex)
+                : expectedWaferId;
             return SequenceTrace.ChildAsync("OutputFeederSequence", "LoadFromCassette",
                 () => sequence.RunLoadFromCassetteAsync(ct, options),
                 "side=" + side,
@@ -1321,10 +1738,6 @@ namespace QMC.CDT320.Sequencing
                             () => ExecuteFeederUnloadFromStageAsync(ct, plan.Side, bFine, moveTimeoutMs, startMode)).ConfigureAwait(false);
                         if (result != 0) return result;
 
-                        result = await ExecuteWithOutputPickerAvoidGateAsync("OutputStore.CassetteMoveToSlot", ct,
-                            () => ExecuteCassetteMoveToSlotAsync(ct, plan.TargetCassette, plan.SlotIndex, bFine, moveTimeoutMs, startMode)).ConfigureAwait(false);
-                        if (result != 0) return result;
-
                         result = await ExecuteWithOutputPickerAvoidGateAsync("OutputStore.FeederUnloadToCassette", ct,
                             () => ExecuteFeederUnloadToCassetteAsync(ct, plan.SlotIndex, plan.CassetteRole, bFine, moveTimeoutMs, startMode)).ConfigureAwait(false);
                         if (result != 0) return result;
@@ -1395,14 +1808,18 @@ namespace QMC.CDT320.Sequencing
                             () => ExecuteFeederLoadToStageAsync(ct, side, bFine, moveTimeoutMs, startMode)).ConfigureAwait(false);
                         if (result != 0) return result;
 
-                        result = await ExecuteOutputCompletePostureAsync(
-                            "OutputFeederResumeLoad.CompletePosture",
-                            side,
-                            ct,
-                            bFine,
-                            moveTimeoutMs,
-                            startMode).ConfigureAwait(false);
-                        if (result != 0) return result;
+                        if (side == BinSide.Ng && !CanSupplyOutputStage(BinSide.Good))
+                        {
+                            result = await ExecuteOutputCompletePostureAsync(
+                                "OutputFeederResumeLoad.RestoreGoodProcess",
+                                side,
+                                ct,
+                                bFine,
+                                moveTimeoutMs,
+                                startMode).ConfigureAwait(false);
+                            if (result != 0) return result;
+                        }
+
                     }
                 }
 
@@ -1440,11 +1857,7 @@ namespace QMC.CDT320.Sequencing
                 loaderActive = true;
                 SetOutputLoaderActive(loaderActive, "OutputFeederStoreToCassette");
 
-                int result = await ExecuteWithOutputPickerAvoidGateAsync("OutputFeederStore.CassetteMoveToSlot", ct,
-                    () => ExecuteCassetteMoveToSlotAsync(ct, target, feederWafer.SourceSlotNumber, bFine, moveTimeoutMs, startMode)).ConfigureAwait(false);
-                if (result != 0) return result;
-
-                result = await ExecuteWithOutputPickerAvoidGateAsync("OutputFeederStore.FeederUnloadToCassette", ct,
+                int result = await ExecuteWithOutputPickerAvoidGateAsync("OutputFeederStore.FeederUnloadToCassette", ct,
                     () => ExecuteFeederUnloadToCassetteAsync(ct, feederWafer.SourceSlotNumber, role, bFine, moveTimeoutMs, startMode)).ConfigureAwait(false);
                 if (result != 0) return result;
 
@@ -1471,8 +1884,13 @@ namespace QMC.CDT320.Sequencing
             try
             {
                 OutputSlotPlan plan;
-                if (!OutputSlotPlanner.TryResolveNextSupplySlot(side, out plan))
-                    return StopAutoSequence("Output cassette has no ready slot. side=" + side);
+                string consistencyReason;
+                if (!OutputSlotPlanner.ValidateSupplyCassetteConsistency(side, out consistencyReason))
+                    return Fail("OUT-SLOT-CONSISTENCY", "OutputSequence", "Output cassette 센서/Material 데이터가 불일치합니다. side=" + side + ", reason=" + consistencyReason);
+
+                string slotPlanReason;
+                if (!OutputSlotPlanner.TryResolveNextSupplySlot(side, out plan, out slotPlanReason))
+                    return StopAutoSequence("Output cassette has no ready slot. side=" + side + ", reason=" + slotPlanReason);
 
                 loaderActive = true;
                 SetOutputLoaderActive(loaderActive, "OutputSupply");
@@ -1491,38 +1909,33 @@ namespace QMC.CDT320.Sequencing
                             () => ExecuteStagePrepareLoadAsync(ct, plan.Side, bFine, moveTimeoutMs, startMode)).ConfigureAwait(false);
                         if (result != 0) return result;
 
-                        result = await ExecuteWithOutputPickerAvoidGateAsync("OutputSupply.CassetteMoveToSlot", ct,
-                            () => ExecuteCassetteMoveToSlotAsync(ct, plan.TargetCassette, plan.SlotIndex, bFine, moveTimeoutMs, startMode)).ConfigureAwait(false);
-                        if (result != 0) return result;
-
                         result = await ExecuteWithOutputPickerAvoidGateAsync("OutputSupply.FeederLoadFromCassette", ct,
-                            () => ExecuteFeederLoadFromCassetteAsync(ct, plan.SlotIndex, plan.CassetteRole, bFine, moveTimeoutMs, startMode)).ConfigureAwait(false);
+                            () => ExecuteFeederLoadFromCassetteAsync(ct, plan.SlotIndex, plan.CassetteRole, plan.WaferId, bFine, moveTimeoutMs, startMode)).ConfigureAwait(false);
                         if (result != 0) return result;
 
                         result = await ExecuteWithOutputPickerAvoidGateAsync("OutputSupply.FeederLoadToStage", ct,
                             () => ExecuteFeederLoadToStageAsync(ct, plan.Side, bFine, moveTimeoutMs, startMode)).ConfigureAwait(false);
                         if (result != 0) return result;
 
-                        result = await ExecuteWithOutputPickerAvoidGateAsync("OutputSupply.Recover", ct,
-                            () => ExecuteRecoverAsync(ct, plan.Side, bFine, moveTimeoutMs, startMode)).ConfigureAwait(false);
-                        if (result != 0) return result;
+                        if (plan.Side == BinSide.Ng)
+                        {
+                            if (CanSupplyOutputStage(BinSide.Good))
+                            {
+                                Context.LogPublic("[OUTPUT] NG Bin 교체 완료: NG Stage는 Avoid를 유지하고 GOOD Bin 연속 로딩을 진행합니다.");
+                            }
+                            else
+                            {
+                                result = await ExecuteOutputCompletePostureAsync(
+                                    "OutputSupply.RestoreGoodProcessAfterNgLoad",
+                                    plan.Side,
+                                    ct,
+                                    bFine,
+                                    moveTimeoutMs,
+                                    startMode).ConfigureAwait(false);
+                                if (result != 0) return result;
+                            }
+                        }
 
-                        if (ShouldSkipOutputCompletePostureAfterSupply(plan.Side))
-                        {
-                            Context.LogPublic("[OUTPUT] OutputSupply.CompletePosture skipped. loadedSide=" +
-                                plan.Side + ", reason=Good stage supply is next; keep GoodStageZ at Avoid");
-                        }
-                        else
-                        {
-                            result = await ExecuteOutputCompletePostureAsync(
-                                "OutputSupply.CompletePosture",
-                                plan.Side,
-                                ct,
-                                bFine,
-                                moveTimeoutMs,
-                                startMode).ConfigureAwait(false);
-                            if (result != 0) return result;
-                        }
                     }
                 }
 
@@ -1548,11 +1961,6 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
-        private static bool ShouldSkipOutputCompletePostureAfterSupply(BinSide loadedSide)
-        {
-            return loadedSide == BinSide.Ng && CanSupplyOutputStage(BinSide.Good);
-        }
-
         private OutputFeederSequenceOptions BuildFeederOptions(int slotIndex, int nextSlotIndex, BinSide side, bool bFine, int moveTimeoutMs, SequenceStartMode startMode)
         {
             var options = OutputFeederSequenceOptions.Default();
@@ -1560,11 +1968,27 @@ namespace QMC.CDT320.Sequencing
             options.NextSlotIndex = nextSlotIndex;
             options.Side = side;
             options.CassetteRole = side == BinSide.Ng ? CassetteMaterialRole.Ng1 : CassetteMaterialRole.Good1;
+            options.ExpectedWaferId = ResolveExpectedOutputWaferId(side, options.CassetteRole, slotIndex);
             options.FineMove = bFine;
             options.MoveTimeoutMs = moveTimeoutMs > 0 ? moveTimeoutMs : options.MoveTimeoutMs;
             options.RunMode = Mode;
             options.StartMode = startMode;
             return options;
+        }
+
+        private static string ResolveExpectedOutputWaferId(BinSide side, CassetteMaterialRole cassetteRole, int slotIndex)
+        {
+            WaferMaterial wafer = MaterialStateService.GetWaferAtLocation(MaterialLocationKind.OutputFeeder);
+            if (wafer == null)
+            {
+                MaterialLocationKind stageLocation = side == BinSide.Ng
+                    ? MaterialLocationKind.OutputStageNg
+                    : MaterialLocationKind.OutputStageGood;
+                wafer = MaterialStateService.GetWaferAtLocation(stageLocation);
+            }
+            if (wafer == null && slotIndex >= 0)
+                wafer = MaterialStateService.GetWaferInCassette(cassetteRole, slotIndex);
+            return wafer != null ? (wafer.WaferId ?? "") : "";
         }
 
         private static bool TryResolveBinSide(WaferMaterial wafer, out BinSide side)

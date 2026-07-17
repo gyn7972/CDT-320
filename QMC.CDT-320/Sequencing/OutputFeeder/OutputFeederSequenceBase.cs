@@ -148,8 +148,29 @@ namespace QMC.CDT320.Sequencing
                     ", slot=" + Options.SlotIndex + ", side=" + Options.Side);
 
             WaferMaterialState state = WaferMaterialStateText.Normalize(wafer.State);
-            if (state != WaferMaterialState.Ready && state != WaferMaterialState.WorkReady)
+            if (state != WaferMaterialState.Ready)
                 return Fail("OUT-FEEDER-CST-STATE", "Material", "Output cassette source slot is not ready. waferId=" + wafer.WaferId + ", state=" + state);
+
+            if (!string.IsNullOrWhiteSpace(Options.ExpectedWaferId) &&
+                !string.Equals(Options.ExpectedWaferId, wafer.WaferId, StringComparison.OrdinalIgnoreCase))
+            {
+                return Fail("OUT-FEEDER-CST-WAFER-MISMATCH", "Material",
+                    "선택 계획과 현재 cassette slot의 Bin ID가 다릅니다. role=" + ResolveOutputCassetteRole() +
+                    ", slot=" + Options.SlotIndex +
+                    ", displaySlot=" + (Options.SlotIndex + 1).ToString("00") +
+                    ", expectedWafer=" + Options.ExpectedWaferId +
+                    ", actualWafer=" + wafer.WaferId);
+            }
+
+            if (wafer.SourceCassetteRole != ResolveOutputCassetteRole() || wafer.SourceSlotNumber != Options.SlotIndex)
+            {
+                return Fail("OUT-FEEDER-CST-SOURCE-MISMATCH", "Material",
+                    "Output Bin의 원본 cassette/slot 정보가 선택 slot과 다릅니다. wafer=" + wafer.WaferId +
+                    ", sourceRole=" + wafer.SourceCassetteRole +
+                    ", sourceSlot=" + (wafer.SourceSlotNumber + 1).ToString("00") +
+                    ", targetRole=" + ResolveOutputCassetteRole() +
+                    ", targetSlot=" + (Options.SlotIndex + 1).ToString("00"));
+            }
 
             WaferMaterial feederWafer = ResolveFeederWafer();
             if (feederWafer != null)
@@ -219,6 +240,26 @@ namespace QMC.CDT320.Sequencing
             if (feederWafer == null)
                 return Fail("OUT-FEEDER-DATA-MISSING", "Material",
                     "Output feeder data was not found before cassette unload. location=OutputFeeder empty.");
+
+            if (!string.IsNullOrWhiteSpace(Options.ExpectedWaferId) &&
+                !string.Equals(Options.ExpectedWaferId, feederWafer.WaferId, StringComparison.OrdinalIgnoreCase))
+            {
+                return Fail("OUT-FEEDER-UNLOAD-WAFER-MISMATCH", "Material",
+                    "언로딩 계획과 현재 OutputFeeder Bin ID가 다릅니다. expectedWafer=" + Options.ExpectedWaferId +
+                    ", actualWafer=" + feederWafer.WaferId +
+                    ", targetRole=" + ResolveOutputCassetteRole() +
+                    ", targetSlot=" + (Options.SlotIndex + 1).ToString("00"));
+            }
+
+            if (feederWafer.SourceCassetteRole != ResolveOutputCassetteRole() || feederWafer.SourceSlotNumber != Options.SlotIndex)
+            {
+                return Fail("OUT-FEEDER-UNLOAD-SOURCE-MISMATCH", "Material",
+                    "OutputFeeder Bin은 원본 cassette/slot으로만 복귀할 수 있습니다. wafer=" + feederWafer.WaferId +
+                    ", sourceRole=" + feederWafer.SourceCassetteRole +
+                    ", sourceSlot=" + (feederWafer.SourceSlotNumber + 1).ToString("00") +
+                    ", targetRole=" + ResolveOutputCassetteRole() +
+                    ", targetSlot=" + (Options.SlotIndex + 1).ToString("00"));
+            }
 
             WaferMaterial cassetteWafer = ResolveCassetteWafer();
             if (cassetteWafer != null && WaferMaterialStateText.Normalize(cassetteWafer.State) != WaferMaterialState.Empty)

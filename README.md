@@ -1,93 +1,74 @@
-﻿# QMC CDT-320 — 다이 트랜스퍼 시스템
+﻿# QMC CDT-320
 
-> CDT-320 듀얼 픽커 다이 본더 Handler 소스 저장소. Vision PC는 외부 시스템으로 TCP 인터페이스만 유지하며, Vision 실행 프로젝트와 검사 구현은 이 저장소에 포함하지 않는다.
+CDT-320 듀얼 픽커 다이 본더 Handler 소스 저장소다. Handler는 모션·IO·Material·Recipe·자동 시퀀스·UI를 담당하며, 외부 Vision PC와는 TCP 계약으로 연동한다. Vision 실행 프로그램, 카메라 SDK, 검사 엔진은 이 저장소에 포함하지 않는다.
 
-## 구성
+## 저장소 구성
 
-```
+```text
 QMC.CDT-320/
-├─ QMC.CDT-320/         # 메인 Handler (WinForms, .NET Framework 4.7.2)
-├─ QMC.Common/          # Handler 공용 라이브러리
-├─ tools/               # Handler 진단·자동화 도구
-├─ docs/                # 설계·인터페이스 문서
-└─ QMC.CDT-320.sln      # Handler + QMC.Common
+├─ QMC.CDT-320/      메인 Handler WinForms 애플리케이션
+├─ QMC.Common/       모션, IO, Alarm, Logging, 공용 UI
+├─ docs/             현재 유효한 상세 설계와 인터페이스 자료
+├─ tools/            정적 검사와 개발 보조 도구
+├─ AGENTS.md         저장소 전체 작업 규칙의 단일 정본
+├─ README.md         프로젝트 개요와 개발 진입점
+└─ QMC.CDT-320.sln   Handler + QMC.Common 솔루션
 ```
 
-## 핵심 기능
+## 기술 구성
 
-### 메인 핸들러 (`QMC.CDT-320/`)
-- **CDT-300 스타일 1920×1080 UI** (6 탭 × 50+ 페이지 + 17 다이얼로그)
-- **5단계 사용자 권한** (None / Operator / Engineer / Maintenance / Admin)
-- **다국어 지원** (ko / en / 향후 zh-CN)
-- **AJINEXTEK AXL** 실보드 (P/Invoke + JSON 설정) + Sim 모드
-- **시뮬레이터 통신** (B-plan: master/viewer with HELLO message)
-- **비전 통신** (Wafer/Inspection/Bin TCP — `MODULE|CMD|args` 라인 프로토콜)
-- **310 이식 기능**:
-  - **Materials**: Die / DieTapeFrame / MaterialStorage / MaterialSpecs
-  - **Bin**: BinCodeMap (NG → bin → color)
-  - **DieMap**: 격자 생성기 + 시각화 (DieMapView)
-  - **Job**: JobOrder + JobQueue (Pending + History)
-  - **Interlock**: 15 종 (5 standard + 5 extended + 5 stage8)
-  - **Vision Alignment**: 3-point AlignmentSolver + CoordinateMap
-  - **Pick Retry**: DoOneDieAsync 내부 3회 재시도
-  - **Recipe Subset** (Die/Frame/Load/Unload/Module)
-  - **SECS/GEM**: SecsHost (line + HSMS dual mode), 13 표준 메시지
-  - **Lot 추적**: LotStorage + ActiveLotPage
-  - **Remote Viewer**: TCP 화면 캡처 송신 + 자체 미리보기
-  - **Sensors**: IonizerSensor
+- C# WinForms, .NET Framework 4.7.2, Visual Studio 2022
+- AJINEXTEK AXL 기반 모션·IO와 Sim 모드
+- 듀얼 픽커 자동 시퀀스와 충돌 방지 인터락
+- Cassette → Wafer → Die Material 상태 추적
+- Recipe, DieMap, Job/Lot, Alarm, Logging, 사용자 권한, 다국어 UI
+- 외부 Vision 명령·결과·프레임 TCP 통신
+- SECS/GEM Host와 Remote Viewer
 
-### 외부 Vision PC 인터페이스
+## 아키텍처
+
+`QMC.CDT-320`은 UI, Equipment, Sequencing의 세 영역으로 나뉜다.
+
+- `Ui`: 작업 화면, 설정, Recipe, 이력, 사용자 권한, 장비 조작 화면
+- `Equipment`: MachineController, 축·IO, 인터락, Material, Vision 통신, SECS, 영속 상태
+- `Sequencing`: Input/Output Cassette·Feeder·Stage, Picker, 검사, Calibration 자동 흐름
+- `QMC.Common`: 장비 공용 축·IO 추상화, Alarm, Logging, Persistence, 공용 WinForms 컨트롤
+
+일반 생산 흐름은 카세트 공급 → Input Stage → Wafer 정렬 → Die Pickup → Bottom/Side 검사 → Output Place → 결과 저장 → Wafer 배출 순서다. 두 픽커와 검사 존의 공유 자원은 시퀀스 락과 모션 인터락을 함께 사용한다.
+
+## 외부 Vision 계약
+
 - 명령 채널: Wafer 5100, BottomInspection 5101, Bin 5103, Main 5104, FrontSide 5105, RearSide 5106
 - 영상 채널: 5200, 5201, 5203, 5205, 5206
 - 라인 프로토콜: `MODULE|CMD|args...`
 - Handler의 연결·명령·결과·Viewer·시퀀스 코드는 `QMC.CDT-320`에 유지한다.
-- 외부 Vision 프로그램의 소스·SDK·검사 엔진은 별도 관리한다.
+- 모듈명, 명령 토큰, 포트, AlgorithmKey, CameraId와 직렬화 키는 외부 시스템 계약이므로 임의로 변경하지 않는다.
 
-## 빌드
+## 빌드와 검증
 
-요구사항:
-- **Visual Studio 2022** (Community/Pro/Enterprise)
-- **.NET Framework 4.7.2 Developer Pack**
+Visual Studio 2022와 .NET Framework 4.7.2 Developer Pack이 필요하다. 기본 솔루션은 `QMC.CDT-320.sln`이다.
+
+원본 저장소에서 `Clean` 또는 `Rebuild`를 실행하면 과거 출력 목록을 따라 운영 폴더의 파일을 건드릴 수 있다. 검증은 `AGENTS.md`의 절차를 따라 별도 `OutDir`을 지정한 `Build`만 사용한다.
 
 ```powershell
-$MSB = "C:\Program Files\Microsoft Visual Studio\2022\Professional\MSBuild\Current\Bin\MSBuild.exe"
-& $MSB "QMC.Common\QMC.Common.csproj"   /t:Build /p:Configuration=Debug
-& $MSB "QMC.CDT-320\QMC.CDT-320.csproj" /t:Build /p:Configuration=Debug
+$repo = (git rev-parse --show-toplevel).Trim()
+$msbuild = 'C:\Program Files\Microsoft Visual Studio\2022\Professional\MSBuild\Current\Bin\MSBuild.exe'
+$out = Join-Path $repo '_build_check_handler\out'
+
+& $msbuild (Join-Path $repo 'QMC.CDT-320.sln') `
+  /t:Build /p:Configuration=Debug '/p:Platform=Any CPU' `
+  "/p:OutDir=$out\" /m /v:minimal
 ```
 
-일부 프로젝트 구성의 기본 `OutputPath`가 운영 폴더를 가리킬 수 있으므로 실제 검증은 `AGENTS.md`에 따라 격리 복제본과 별도 `OutDir`를 사용한다.
+코드 변경 시 최소한 `git diff --check`, 관련 정적 검사, 별도 출력 폴더 컴파일을 수행한다. 실제 축 이동, IO 출력, 카메라 연결, 자동 사이클은 현장 상태 확인과 명시적 승인이 있을 때만 실행한다.
 
-## 실행
+## 작업 시작
 
-1. 필요하면 외부 Vision PC를 먼저 준비한다.
-2. `QMC.CDT-320.exe`를 실행한다.
-3. `UseVision=true`이면 설정된 외부 Vision에 자동 연결하고, `UseVision=false`이면 Handler의 Vision 바이패스 정책을 사용한다.
-
-## 자동 검증
-
-기본 검증:
-- 격리된 Handler/Common Rebuild
-- `git diff --check`
-- `tools/audit_threading.pl`, `tools/audit_memory.pl`
-- 외부 Vision이 준비된 환경에서는 Handler TCP 연결·명령·프레임 왕복 확인
-
-자동 사이클 실 동작 (Stage 24):
-```bash
-QMC.CDT-320.exe --auto-cycle 10  # Init → CycleRun(10) → 종료. Lot JSON 자동 저장.
-```
+1. `git rev-parse --show-toplevel`로 현재 저장소를 확인한다.
+2. `git status --short --branch`로 브랜치와 기존 변경을 확인한다.
+3. 작업 전에 `AGENTS.md`를 읽고 장비 안전·빌드·인코딩 규칙을 따른다.
+4. 상세 설계가 필요하면 `docs`에서 현재 코드와 일치하는 문서를 선택하되, 코드와 충돌하면 코드와 `AGENTS.md`를 우선한다.
 
 ## 라이선스
 
 Proprietary — © QMC
-
-## 개발 단계 문서
-
-- `STAGE1_CHECKLIST.md` — UI 연결 + Recipe Subset
-- `STAGE3_CHECKLIST.md` — Lot + Reject + 5 Interlock + HSMS + Remote + Ionizer
-- `STAGE4_CHECKLIST.md` — RemoteViewerDialog + ActiveLotPage + SecsHost UseHsms
-- `STAGE5_CHECKLIST.md` — GUI Cycle 자동화 (UIA)
-
-## 아키텍처 + 사용자 가이드
-
-- `ARCHITECTURE.md` — 컴포넌트 + 통신 다이어그램
-- `USER_GUIDE.md` — 운영 매뉴얼 (Init → Cycle → 결과 확인)

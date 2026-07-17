@@ -1916,6 +1916,14 @@ namespace QMC.CDT320.Sequencing
         {
             try
             {
+                AppSettings settings = AppSettingsStore.Current;
+                if (settings != null && (settings.SimulationMode || settings.DryRunMode || settings.BypassHardware))
+                    return true;
+
+                if (Context != null && Context.Controller != null &&
+                    (Context.Controller.GlobalDryRun || Context.Controller.DryRun))
+                    return true;
+
                 return Stage != null && Stage.IsInputStageSimulationOrDryRun();
             }
             catch

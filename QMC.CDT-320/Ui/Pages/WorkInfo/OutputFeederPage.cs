@@ -172,8 +172,13 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
         {
             OutputSlotPlan plan;
             BinSide side = ResolveSelectedSide();
-            if (!OutputSlotPlanner.TryResolveNextSupplySlot(side, out plan))
+            string reason;
+            if (!OutputSlotPlanner.TryResolveNextSupplySlot(side, out plan, out reason))
+            {
+                EventLogger.Write(EventKind.Alarm, "QMC", "OUTPUT-FEEDER-SLOT-PLAN",
+                    "Output cassette 공급 slot을 선택할 수 없습니다. side=" + side + ", reason=" + reason);
                 return false;
+            }
 
             var options = BuildOptions(host, plan);
             return await CreateSequence(host).RunLoadFromCassetteAsync(host.Controller.ManualOperationToken, options) == 0;
@@ -216,7 +221,10 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
 
         private OutputFeederSequenceOptions BuildOptions(Form1 host, OutputSlotPlan plan)
         {
-            return BuildOptions(host, plan != null ? plan.Side : BinSide.Good, plan != null ? plan.CassetteRole : CassetteMaterialRole.Good1, plan != null ? plan.SlotIndex : 0);
+            OutputFeederSequenceOptions options = BuildOptions(host, plan != null ? plan.Side : BinSide.Good, plan != null ? plan.CassetteRole : CassetteMaterialRole.Good1, plan != null ? plan.SlotIndex : 0);
+            if (plan != null && !string.IsNullOrWhiteSpace(plan.WaferId))
+                options.ExpectedWaferId = plan.WaferId;
+            return options;
         }
 
         private OutputFeederSequenceOptions BuildOptions(Form1 host, BinSide side, CassetteMaterialRole role, int slotIndex)
@@ -228,6 +236,12 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             options.CassetteRole = role;
             options.SlotIndex = Math.Max(0, slotIndex);
             options.NextSlotIndex = options.SlotIndex;
+            WaferMaterial wafer = MaterialStateService.GetWaferAtLocation(MaterialLocationKind.OutputFeeder);
+            if (wafer == null)
+                wafer = MaterialStateService.GetWaferAtLocation(side == BinSide.Ng ? MaterialLocationKind.OutputStageNg : MaterialLocationKind.OutputStageGood);
+            if (wafer == null)
+                wafer = MaterialStateService.GetWaferInCassette(role, options.SlotIndex);
+            options.ExpectedWaferId = wafer != null ? (wafer.WaferId ?? "") : "";
             options.MoveTimeoutMs = ResolveMoveTimeoutMs(host);
             options.FineMove = false;
             return options;

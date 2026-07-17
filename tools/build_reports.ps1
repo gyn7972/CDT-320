@@ -386,12 +386,12 @@ $slides3 = @(
         "tools/capture_tabs_xy.ps1 — 좌표 기반 자동 클릭 + 캡처",
         "",
         "결과 (모두 OK):",
-        "   tab_work.png      — 작업 탭 (메인 화면 + 21개 사이드바)",
-        "   tab_workinfo.png  — 작업정보 탭 (LIFTER + 6 슬롯 + LOGIC)",
-        "   tab_history.png   — 이력 탭 (알람 그리드 + 5 사이드바)",
-        "   tab_recipe.png    — 레시피 탭 (프로젝트 + 16 사이드바)",
-        "   tab_settings.png  — 설정 탭 (GENERAL ~ 원격뷰어 통합)",
-        "   tab_user.png      — 사용자 탭 (USER LOGIN)"
+        "   reports/screenshots/tab_work.png      — 작업 탭 (메인 화면 + 21개 사이드바)",
+        "   reports/screenshots/tab_workinfo.png  — 작업정보 탭 (LIFTER + 6 슬롯 + LOGIC)",
+        "   reports/screenshots/tab_history.png   — 이력 탭 (알람 그리드 + 5 사이드바)",
+        "   reports/screenshots/tab_recipe.png    — 레시피 탭 (프로젝트 + 16 사이드바)",
+        "   reports/screenshots/tab_settings.png  — 설정 탭 (GENERAL ~ 원격뷰어 통합)",
+        "   reports/screenshots/tab_user.png      — 사용자 탭 (USER LOGIN)"
     ) }
 
     @{ title="회귀 검증"; lines=@(

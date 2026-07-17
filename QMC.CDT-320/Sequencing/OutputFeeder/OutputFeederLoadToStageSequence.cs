@@ -147,11 +147,11 @@ namespace QMC.CDT320.Sequencing
                     case OutputFeederLoadToStageStep.PrepareFeederLiftDownAfterAvoid:
                         return PrepareFeederLiftDownAfterAvoidAsync(ct);
 
-                    // NG 스테이지 어보이드 후 로드 이동
+                    // NG Bin 교체 완료 후 NG 스테이지를 무조건 어보이드로 이동
                     case OutputFeederLoadToStageStep.MoveNgStageAvoidAfterLoad:
                         return MoveNgStageAvoidAfterLoadAsync(ct);
 
-                    // NG 스테이지 어보이드 후 가이드 다운
+                    // NG 스테이지 어보이드 도착 후 가이드 다운
                     case OutputFeederLoadToStageStep.LowerNgStageGuideAfterAvoid:
                         return LowerNgStageGuideAfterAvoidAsync(ct);
 
@@ -243,9 +243,20 @@ namespace QMC.CDT320.Sequencing
 
         private async Task<int> EnsureStageMutualInterlockAsync(CancellationToken ct)
         {
-            int result = await Stage.EnsureStageMutualInterlockForLoadAsync(Options.Side, ResolveTimeout(), Options.FineMove, ct).ConfigureAwait(false);
+            ct.ThrowIfCancellationRequested();
+
+            // Stage 위치 이동은 OutputStagePrepareLoadSequence에서 Feeder가 카세트로 가기 전에 끝나야 한다.
+            // 이 시점에는 Feeder가 Bin을 Clamp하고 있으므로 Stage 축을 보정 이동하지 않고 도착 상태만 검증한다.
+            if (!Stage.IsStageInLoadPosition(Options.Side))
+                return Fail("OUT-STAGE-LOAD-POS", Stage.Name,
+                    "OutputStage가 Feeder 이송 시작 전에 Load 위치에 준비되지 않았습니다. side=" + Options.Side + ", " +
+                    Stage.DescribeStageLoadMoveState(Options.Side));
+
+            int result = await Stage.EnsureBinGuideClampLiftUpAsync(BinSide.Ng, ResolveTimeout(), ct).ConfigureAwait(false);
             if (result != 0)
-                return Fail("OUT-STAGE-LOAD-INTERLOCK", Stage.Name, "Output stage mutual interlock failed before feeder to stage load. side=" + Options.Side + ", result=" + result + ", " + Stage.DescribeOutputStageInterlockState(Options.Side));
+                return Fail("OUT-STAGE-NG-CLAMP-UP", Stage.Name,
+                    "NG stage clamp lift up failed before feeder transfer. side=" + Options.Side + ", result=" + result + ", " +
+                    Stage.DescribeOutputStageInterlockState(Options.Side));
 
             if (!Stage.IsBinGuideClampLiftUp(BinSide.Ng))
                 return Fail("OUT-STAGE-NG-CLAMP-UP", Stage.Name, "NG stage clamp lift must be up before stage load movement. " + Stage.DescribeOutputStageInterlockState(Options.Side));
@@ -255,37 +266,28 @@ namespace QMC.CDT320.Sequencing
                 if (!Stage.IsGoodStageZInAvoidPosition())
                     return Fail("OUT-STAGE-GOOD-Z-AVOID", Stage.Name, "NG Stage Load 이동 전 GoodStageZ가 Avoid 위치가 아닙니다. " + Stage.DescribeOutputStageInterlockState(Options.Side));
             }
-            else if (!Stage.IsGoodStageZInAvoidOrProcessPosition())
-            {
-                return Fail("OUT-STAGE-GOOD-Z-SAFE", Stage.Name, "Good stage Z must be avoid or process before stage load movement. " + Stage.DescribeOutputStageInterlockState(Options.Side));
-            }
-
             if (Options.Side != BinSide.Ng && !Stage.IsNgStageInAvoidPosition())
                 return Fail("OUT-STAGE-NG-AVOID", Stage.Name, "NG stage must be avoid before GOOD stage receives bin. " + Stage.DescribeOutputStageInterlockState(Options.Side));
 
             CurrentStep = Options.Side == BinSide.Good
                 ? OutputFeederLoadToStageStep.EnsureOutputStageUnclamp
-                : OutputFeederLoadToStageStep.MoveOutputStageLoadPosition;
+                : OutputFeederLoadToStageStep.EnsureOutputStageGuideUp;
             return 0;
         }
 
-        private async Task<int> MoveOutputStageLoadPositionAsync(CancellationToken ct)
+        private Task<int> MoveOutputStageLoadPositionAsync(CancellationToken ct)
         {
-            int result = await Stage.MoveToStageLoadPositionAndVerifyAsync(Options.Side, ResolveTimeout(), Options.FineMove, ct).ConfigureAwait(false);
-            if (result != 0)
-                return Fail("OUT-STAGE-LOAD-POS", Stage.Name,
-                    "OutputStage Load 위치 이동 실패. side=" + Options.Side +
-                    ", result=" + result + ", " + Stage.DescribeStageLoadMoveState(Options.Side));
+            ct.ThrowIfCancellationRequested();
 
             if (!Stage.IsStageInLoadPosition(Options.Side))
-                return Fail("OUT-STAGE-LOAD-POS", Stage.Name,
-                    "OutputStage가 Load 위치에 도착하지 않았습니다. side=" + Options.Side +
-                    ", " + Stage.DescribeStageLoadMoveState(Options.Side));
+                return Task.FromResult(Fail("OUT-STAGE-LOAD-POS", Stage.Name,
+                    "OutputStage가 Feeder 이송 시작 전에 Load 위치에 준비되지 않았습니다. side=" + Options.Side +
+                    ", " + Stage.DescribeStageLoadMoveState(Options.Side)));
 
             CurrentStep = Options.Side == BinSide.Good
                 ? OutputFeederLoadToStageStep.VerifyOutputStageReceiveReady
                 : OutputFeederLoadToStageStep.EnsureOutputStageGuideUp;
-            return 0;
+            return Task.FromResult(0);
         }
 
         private async Task<int> EnsureOutputStageGuideUpAsync(CancellationToken ct)
@@ -311,7 +313,7 @@ namespace QMC.CDT320.Sequencing
                 return Fail("OUT-STAGE-CLAMP-DOWN", Stage.Name, "Output stage bin clamp lift is not down. " + Stage.DescribeOutputStageInterlockState(Options.Side));
 
             CurrentStep = Options.Side == BinSide.Good
-                ? OutputFeederLoadToStageStep.MoveOutputStageLoadPosition
+                ? OutputFeederLoadToStageStep.VerifyOutputStageReceiveReady
                 : OutputFeederLoadToStageStep.EnsureOutputStageUnclamp;
             return 0;
         }
@@ -370,32 +372,22 @@ namespace QMC.CDT320.Sequencing
             return 0;
         }
 
-        private async Task<int> VerifyFeederHoldingBinAsync(CancellationToken ct)
+        private Task<int> VerifyFeederHoldingBinAsync(CancellationToken ct)
         {
-            int result = await Feeder.SetFeederClampAsync(true, ResolveTimeout(), ct).ConfigureAwait(false);
-            if (result != 0)
-                return Fail("OUT-FEEDER-CLAMP-CHECK", Feeder.Name,
-                    "OutputFeeder가 BIN을 Stage로 이송하기 전 Clamp 구동에 실패했습니다. side=" + Options.Side +
-                    ", result=" + result + ", " + Feeder.DescribeFeederCylinderState());
+            ct.ThrowIfCancellationRequested();
 
             if (Feeder.IsFeederUnclamped())
-                return Fail("OUT-FEEDER-CLAMP-CHECK", Feeder.Name,
+                return Task.FromResult(Fail("OUT-FEEDER-CLAMP-CHECK", Feeder.Name,
                     "OutputFeeder가 BIN을 Stage로 이송하기 전 Clamp 상태가 아닙니다. side=" + Options.Side + ", " +
-                    Feeder.DescribeFeederCylinderState());
-
-            result = await Feeder.SetFeederUpDownAsync(false, ResolveTimeout(), ct).ConfigureAwait(false);
-            if (result != 0)
-                return Fail("OUT-FEEDER-LIFT-DOWN-CHECK", Feeder.Name,
-                    "OutputFeeder가 BIN을 Stage로 이송하기 전 Lift Down 구동에 실패했습니다. side=" + Options.Side +
-                    ", result=" + result + ", " + Feeder.DescribeFeederCylinderState());
+                    Feeder.DescribeFeederCylinderState()));
 
             if (!Feeder.IsFeederDown())
-                return Fail("OUT-FEEDER-LIFT-DOWN-CHECK", Feeder.Name,
+                return Task.FromResult(Fail("OUT-FEEDER-LIFT-DOWN-CHECK", Feeder.Name,
                     "OutputFeeder가 BIN을 Stage로 이송하기 전 Down 상태가 아닙니다. side=" + Options.Side + ", " +
-                    Feeder.DescribeFeederCylinderState());
+                    Feeder.DescribeFeederCylinderState()));
 
             CurrentStep = OutputFeederLoadToStageStep.MoveFeederStageLoadPosition;
-            return 0;
+            return Task.FromResult(0);
         }
 
         private async Task<int> MoveFeederStageLoadPositionAsync(CancellationToken ct)
@@ -528,10 +520,14 @@ namespace QMC.CDT320.Sequencing
         {
             int result = await Stage.MoveNgStageToAvoidAndVerifyAsync(ResolveTimeout(), Options.FineMove, ct).ConfigureAwait(false);
             if (result != 0)
-                return Fail("OUT-STAGE-NG-AVOID-AFTER-LOAD", Stage.Name, "NG stage avoid move failed after bin load. result=" + result + ", " + Stage.DescribeOutputStageInterlockState(Options.Side));
+                return Fail("OUT-STAGE-NG-AVOID-AFTER-LOAD", Stage.Name,
+                    "NG Bin 교체 후 NG Stage Avoid 이동 실패. result=" + result + ", " +
+                    Stage.DescribeOutputStageInterlockState(Options.Side));
 
             if (!Stage.IsNgStageInAvoidPosition())
-                return Fail("OUT-STAGE-NG-AVOID-AFTER-LOAD", Stage.Name, "NG stage is not at avoid after bin load. " + Stage.DescribeOutputStageInterlockState(Options.Side));
+                return Fail("OUT-STAGE-NG-AVOID-AFTER-LOAD", Stage.Name,
+                    "NG Bin 교체 후 NG Stage가 Avoid 위치가 아닙니다. " +
+                    Stage.DescribeOutputStageInterlockState(Options.Side));
 
             CurrentStep = OutputFeederLoadToStageStep.LowerNgStageGuideAfterAvoid;
             return 0;
@@ -541,10 +537,14 @@ namespace QMC.CDT320.Sequencing
         {
             int result = await Stage.EnsureBinGuideDownAsync(BinSide.Ng, ResolveTimeout(), ct).ConfigureAwait(false);
             if (result != 0)
-                return Fail("OUT-STAGE-NG-GUIDE-DOWN", Stage.Name, "NG stage guide down failed after avoid. result=" + result + ", " + Stage.DescribeOutputStageInterlockState(Options.Side));
+                return Fail("OUT-STAGE-NG-GUIDE-DOWN", Stage.Name,
+                    "NG Stage Avoid 이동 후 Guide Down 실패. result=" + result + ", " +
+                    Stage.DescribeOutputStageInterlockState(Options.Side));
 
             if (!Stage.IsBinGuideDown(BinSide.Ng))
-                return Fail("OUT-STAGE-NG-GUIDE-DOWN", Stage.Name, "NG stage guide is not down after avoid. " + Stage.DescribeOutputStageInterlockState(Options.Side));
+                return Fail("OUT-STAGE-NG-GUIDE-DOWN", Stage.Name,
+                    "NG Stage Avoid 이동 후 Guide가 Down 상태가 아닙니다. " +
+                    Stage.DescribeOutputStageInterlockState(Options.Side));
 
             CurrentStep = OutputFeederLoadToStageStep.VerifyBinTransferredToStage;
             return 0;
@@ -622,6 +622,15 @@ namespace QMC.CDT320.Sequencing
             if (ResolveStageWafer() != null)
                 return Fail("OUT-STAGE-DATA-OCCUPIED", "Material", "Output stage data became occupied before feeder to stage material move. side=" + Options.Side);
 
+            if (!string.IsNullOrWhiteSpace(Options.ExpectedWaferId) &&
+                !string.Equals(Options.ExpectedWaferId, wafer.WaferId, StringComparison.OrdinalIgnoreCase))
+                return Fail("OUT-STAGE-MATERIAL-WAFER", "Material", "물리 이송 후 Stage Material 갱신 직전에 Bin ID가 변경되었습니다. expected=" + Options.ExpectedWaferId + ", actual=" + wafer.WaferId);
+
+            CassetteMaterialRole sourceRole = wafer.SourceCassetteRole;
+            if ((Options.Side == BinSide.Ng && sourceRole != CassetteMaterialRole.Ng1) ||
+                (Options.Side == BinSide.Good && sourceRole != CassetteMaterialRole.Good1 && sourceRole != CassetteMaterialRole.Good2))
+                return Fail("OUT-STAGE-MATERIAL-SIDE", "Material", "Output side와 source cassette role이 일치하지 않습니다. wafer=" + wafer.WaferId + ", side=" + Options.Side + ", sourceRole=" + sourceRole);
+
             MaterialStateService.MoveWafer(wafer.WaferId, new MaterialLocation { Kind = ResolveOutputStageLocation() }, WaferMaterialState.Working);
             MaterialStateService.InitializeOutputStageReceivePlan(Options.Side);
             Feeder.ClearFeederMaterialState();
@@ -636,6 +645,11 @@ namespace QMC.CDT320.Sequencing
 
             if (ResolveStageWafer() == null)
                 return Fail("OUT-STAGE-DATA-MISSING", "Material", "Output stage data was not created after feeder to stage load. side=" + Options.Side);
+
+            if (Options.Side == BinSide.Ng && !Stage.IsNgStageInAvoidPosition())
+                return Fail("OUT-STAGE-NG-AVOID-FINAL", Stage.Name,
+                    "NG Bin 교체 완료 시 NG Stage는 반드시 Avoid 위치여야 합니다. " +
+                    Stage.DescribeOutputStageInterlockState(Options.Side));
 
             Context.Bus.Set("OutputFeederEmpty");
             Context.Bus.Set("OutputStageOccupied");

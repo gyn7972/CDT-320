@@ -14,7 +14,7 @@
           ["6",  "Cognex Caliper / Histogram / ColorMatch", "CognexCaliper/Histogram/ColorMatch + IEdgeFinder",             "5/5"],
           ["7",  "SECS 13 표준 메시지 + AlarmManager",       "S1F1~S9F5 헬퍼 + AlarmManager → S5F1 자동",                    "3/3"],
           ["8",  "추가 5 Interlock (총 15)",                "ExtendedInterlocks2 — Lifter/Barcode/SubPort/Cleaner/EStop",    "2/2"],
-          ["9",  "문서화 (README + ARCHITECTURE)",           "README.md / ARCHITECTURE.md / audit_threading.pl",              "4/4"],
+          ["9",  "문서화 (README + AGENTS)",                 "README.md / AGENTS.md / audit_threading.pl",                    "4/4"],
           ["10", "정적 Audit (audit_memory + threading)",   "audit_memory.pl / audit_threading.pl (Bitmap/Concurrent 검사)", "4/4"]
         ]
       },

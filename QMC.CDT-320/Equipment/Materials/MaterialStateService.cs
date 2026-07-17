@@ -45,6 +45,25 @@ namespace QMC.CDT320.Materials
             NotifyAndSave("InitializeForRecipe");
         }
 
+        public static void UpdateRecipeContext(string recipeName, string reason)
+        {
+            string normalizedRecipeName = string.IsNullOrWhiteSpace(recipeName) ? "" : recipeName.Trim();
+            bool changed;
+            lock (_stateSync)
+            {
+                changed = !string.Equals(State.RecipeName ?? "", normalizedRecipeName, StringComparison.OrdinalIgnoreCase);
+                State.RecipeName = normalizedRecipeName;
+            }
+
+            if (changed)
+            {
+                NotifyAndSave(string.IsNullOrWhiteSpace(reason) ? "UpdateRecipeContext" : reason);
+                Log.Write("Main", "SYSTEM", "MaterialRecipeContext",
+                    "Material Recipe 문맥을 갱신했습니다. recipe=" + normalizedRecipeName +
+                    ", reason=" + (reason ?? "") + " - Ok");
+            }
+        }
+
         public static WaferMaterial GetOrCreateWafer(string waferId)
         {
             if (string.IsNullOrEmpty(waferId))
@@ -715,15 +734,20 @@ namespace QMC.CDT320.Materials
         {
             if (levelCount < 1) levelCount = 1;
             if (levelCount > 2) levelCount = 2;
-            if (slotCount < 0) slotCount = 0;
 
             if (levelCount >= 2 && level2Map == null)
                 level2Map = level1Map;
 
-            UpdateCassetteMapping(CassetteMaterialRole.Input1, true, slotCount, level1Map, level1SlotPositions, cassetteLotId, tapeFrameSpecName);
-            UpdateCassetteMapping(CassetteMaterialRole.Input2, levelCount >= 2, slotCount, level2Map, level2SlotPositions, cassetteLotId, tapeFrameSpecName);
+            lock (_stateSync)
+            {
+                ValidateCassetteMappingRequest(CassetteMaterialRole.Input1, true, slotCount, level1Map, level1SlotPositions);
+                ValidateCassetteMappingRequest(CassetteMaterialRole.Input2, levelCount >= 2, slotCount, level2Map, level2SlotPositions);
 
-            State.LotId = cassetteLotId ?? State.LotId;
+                UpdateCassetteMapping(CassetteMaterialRole.Input1, true, slotCount, level1Map, level1SlotPositions, cassetteLotId, tapeFrameSpecName);
+                UpdateCassetteMapping(CassetteMaterialRole.Input2, levelCount >= 2, slotCount, level2Map, level2SlotPositions, cassetteLotId, tapeFrameSpecName);
+
+                State.LotId = cassetteLotId ?? State.LotId;
+            }
             NotifyAndSave("InputCassetteMapping");
         }
 
@@ -741,13 +765,19 @@ namespace QMC.CDT320.Materials
         {
             if (goodLevelCount < 1) goodLevelCount = 1;
             if (goodLevelCount > 2) goodLevelCount = 2;
-            if (slotCount < 0) slotCount = 0;
 
-            UpdateCassetteMapping(CassetteMaterialRole.Good1, true, slotCount, good1Map, good1SlotPositions, cassetteLotId, tapeFrameSpecName);
-            UpdateCassetteMapping(CassetteMaterialRole.Good2, goodLevelCount >= 2, slotCount, good2Map, good2SlotPositions, cassetteLotId, tapeFrameSpecName);
-            UpdateCassetteMapping(CassetteMaterialRole.Ng1, true, slotCount, ngMap, ngSlotPositions, cassetteLotId, tapeFrameSpecName);
+            lock (_stateSync)
+            {
+                ValidateCassetteMappingRequest(CassetteMaterialRole.Good1, true, slotCount, good1Map, good1SlotPositions);
+                ValidateCassetteMappingRequest(CassetteMaterialRole.Good2, goodLevelCount >= 2, slotCount, good2Map, good2SlotPositions);
+                ValidateCassetteMappingRequest(CassetteMaterialRole.Ng1, true, slotCount, ngMap, ngSlotPositions);
 
-            State.LotId = cassetteLotId ?? State.LotId;
+                UpdateCassetteMapping(CassetteMaterialRole.Good1, true, slotCount, good1Map, good1SlotPositions, cassetteLotId, tapeFrameSpecName);
+                UpdateCassetteMapping(CassetteMaterialRole.Good2, goodLevelCount >= 2, slotCount, good2Map, good2SlotPositions, cassetteLotId, tapeFrameSpecName);
+                UpdateCassetteMapping(CassetteMaterialRole.Ng1, true, slotCount, ngMap, ngSlotPositions, cassetteLotId, tapeFrameSpecName);
+
+                State.LotId = cassetteLotId ?? State.LotId;
+            }
             NotifyAndSave("OutputCassetteMapping");
         }
 
@@ -767,18 +797,29 @@ namespace QMC.CDT320.Materials
         {
             if (goodLevelCount < 1) goodLevelCount = 1;
             if (goodLevelCount > 2) goodLevelCount = 2;
-            if (slotCount < 0) slotCount = 0;
 
-            if (updateGood)
+            lock (_stateSync)
             {
-                UpdateCassetteMapping(CassetteMaterialRole.Good1, true, slotCount, good1Map, good1SlotPositions, cassetteLotId, tapeFrameSpecName);
-                UpdateCassetteMapping(CassetteMaterialRole.Good2, goodLevelCount >= 2, slotCount, good2Map, good2SlotPositions, cassetteLotId, tapeFrameSpecName);
+                if (updateGood)
+                {
+                    ValidateCassetteMappingRequest(CassetteMaterialRole.Good1, true, slotCount, good1Map, good1SlotPositions);
+                    ValidateCassetteMappingRequest(CassetteMaterialRole.Good2, goodLevelCount >= 2, slotCount, good2Map, good2SlotPositions);
+                }
+
+                if (updateNg)
+                    ValidateCassetteMappingRequest(CassetteMaterialRole.Ng1, true, slotCount, ngMap, ngSlotPositions);
+
+                if (updateGood)
+                {
+                    UpdateCassetteMapping(CassetteMaterialRole.Good1, true, slotCount, good1Map, good1SlotPositions, cassetteLotId, tapeFrameSpecName);
+                    UpdateCassetteMapping(CassetteMaterialRole.Good2, goodLevelCount >= 2, slotCount, good2Map, good2SlotPositions, cassetteLotId, tapeFrameSpecName);
+                }
+
+                if (updateNg)
+                    UpdateCassetteMapping(CassetteMaterialRole.Ng1, true, slotCount, ngMap, ngSlotPositions, cassetteLotId, tapeFrameSpecName);
+
+                State.LotId = cassetteLotId ?? State.LotId;
             }
-
-            if (updateNg)
-                UpdateCassetteMapping(CassetteMaterialRole.Ng1, true, slotCount, ngMap, ngSlotPositions, cassetteLotId, tapeFrameSpecName);
-
-            State.LotId = cassetteLotId ?? State.LotId;
             NotifyAndSave("OutputCassetteMappingSelective");
         }
 
@@ -1220,39 +1261,117 @@ namespace QMC.CDT320.Materials
             bool updateState,
             WaferMaterialState state)
         {
-            var cassette = State.Cassettes.FirstOrDefault(c => c.Role == cassetteRole);
-            if (cassette == null) return;
-            cassette.EnsureSlots();
-            if (slotNumber < 0 || slotNumber >= cassette.Slots.Count) return;
+            lock (_stateSync)
+            {
+                if (string.IsNullOrWhiteSpace(waferId))
+                    throw new InvalidOperationException("Cassette에 저장할 Wafer/Bin ID가 없습니다.");
 
-            var wafer = GetOrCreateWafer(waferId);
-            MaterialLocation previousLocation = wafer.CurrentLocation;
-            wafer.CassetteLotId = cassetteLotId ?? "";
-            wafer.CurrentLocation = MaterialLocation.Cassette(
-                cassetteRole == CassetteMaterialRole.Input1 || cassetteRole == CassetteMaterialRole.Input2
-                    ? MaterialLocationKind.InputCassette
-                    : MaterialLocationKind.OutputCassette,
-                cassetteRole,
-                slotNumber);
-            ApplyWaferCassettePosition(wafer, slotPosition);
-            if (updateState)
-                wafer.State = WaferMaterialStateText.Normalize(state);
-            wafer.UpdatedAt = DateTime.Now;
+                var cassette = State.Cassettes.FirstOrDefault(c => c.Role == cassetteRole);
+                if (cassette == null || !cassette.IsEnabled || !cassette.IsPresent || !cassette.IsMapped)
+                    throw new InvalidOperationException("대상 cassette가 활성화 또는 mapping 상태가 아닙니다. cassette=" + cassetteRole);
 
-            cassette.CassetteLotId = cassetteLotId ?? cassette.CassetteLotId;
-            cassette.Slots[slotNumber].WaferId = wafer.WaferId;
-            cassette.Slots[slotNumber].HasWafer = true;
-            cassette.IsMapped = true;
-            cassette.LastScanTime = DateTime.Now;
+                cassette.EnsureSlots();
+                if (slotNumber < 0 || slotNumber >= cassette.Slots.Count)
+                    throw new ArgumentOutOfRangeException("slotNumber", "Cassette slot 범위를 벗어났습니다. cassette=" + cassetteRole + ", slot=" + (slotNumber + 1));
 
-            SequenceTrace.MaterialChange(
-                "PutWaferInCassette",
-                "wafer=" + wafer.WaferId,
-                "from=" + previousLocation,
-                "to=" + wafer.CurrentLocation,
-                "state=" + wafer.State,
-                "slot=" + slotNumber,
-                "cassette=" + cassetteRole);
+                CassetteSlotMaterial targetSlot = cassette.Slots[slotNumber];
+                if (targetSlot == null)
+                    throw new InvalidOperationException("대상 cassette slot 데이터가 없습니다. cassette=" + cassetteRole + ", slot=" + (slotNumber + 1));
+
+                bool targetHasWaferId = !string.IsNullOrWhiteSpace(targetSlot.WaferId);
+                if (targetSlot.HasWafer != targetHasWaferId)
+                    throw new InvalidOperationException("대상 cassette slot의 점유/Material ID가 불일치합니다. cassette=" + cassetteRole +
+                                                        ", slot=" + (slotNumber + 1) +
+                                                        ", hasWafer=" + targetSlot.HasWafer +
+                                                        ", waferId=" + targetSlot.WaferId);
+
+                if (targetSlot.HasWafer && !string.Equals(targetSlot.WaferId, waferId, StringComparison.OrdinalIgnoreCase))
+                    throw new InvalidOperationException("대상 cassette slot에 다른 자재가 있어 덮어쓸 수 없습니다. cassette=" + cassetteRole +
+                                                        ", slot=" + (slotNumber + 1) +
+                                                        ", targetWafer=" + targetSlot.WaferId +
+                                                        ", movingWafer=" + waferId);
+
+                var wafer = GetOrCreateWafer(waferId);
+                WaferMaterialState previousState = WaferMaterialStateText.Normalize(wafer.State);
+                if (targetSlot.HasWafer && !IsWaferAtCassetteSlot(wafer, cassetteRole, slotNumber))
+                {
+                    throw new InvalidOperationException("대상 cassette slot과 이동 자재의 현재 위치가 중복/불일치 상태입니다. cassette=" + cassetteRole +
+                                                        ", slot=" + (slotNumber + 1) +
+                                                        ", wafer=" + wafer.WaferId +
+                                                        ", currentLocation=" + wafer.CurrentLocation);
+                }
+
+                MaterialLocation targetLocation = MaterialLocation.Cassette(
+                    IsOutputCassetteRole(cassetteRole) ? MaterialLocationKind.OutputCassette : MaterialLocationKind.InputCassette,
+                    cassetteRole,
+                    slotNumber);
+                WaferMaterial otherAtTarget = FindOtherWaferAtLocation(wafer.WaferId, targetLocation);
+                if (otherAtTarget != null)
+                {
+                    throw new InvalidOperationException("대상 cassette slot에 다른 Material 위치 데이터가 있어 덮어쓸 수 없습니다. cassette=" + cassetteRole +
+                                                        ", slot=" + (slotNumber + 1) +
+                                                        ", targetWafer=" + otherAtTarget.WaferId +
+                                                        ", movingWafer=" + wafer.WaferId);
+                }
+
+                if (wafer.SourceSlotNumber >= 0 &&
+                    previousState != WaferMaterialState.Empty &&
+                    (wafer.SourceCassetteRole != cassetteRole || wafer.SourceSlotNumber != slotNumber))
+                {
+                    throw new InvalidOperationException("자재를 원본 cassette/slot이 아닌 위치로 반환할 수 없습니다. wafer=" + wafer.WaferId +
+                                                        ", source=" + wafer.SourceCassetteRole + "/" + (wafer.SourceSlotNumber + 1) +
+                                                        ", target=" + cassetteRole + "/" + (slotNumber + 1));
+                }
+
+                MaterialLocation previousLocation = wafer.CurrentLocation;
+                RemoveWaferFromCassetteSlot(wafer.WaferId);
+
+                if (wafer.SourceSlotNumber < 0 || previousState == WaferMaterialState.Empty)
+                {
+                    wafer.SourceCassetteId = cassette.CassetteId;
+                    wafer.SourceCassetteRole = cassetteRole;
+                    wafer.SourceSlotNumber = slotNumber;
+                    if (double.IsNaN(wafer.SourceCassetteSlotPosition) && !double.IsNaN(slotPosition))
+                        wafer.SourceCassetteSlotPosition = slotPosition;
+                }
+
+                wafer.CassetteLotId = string.IsNullOrWhiteSpace(wafer.CassetteLotId)
+                    ? (cassetteLotId ?? "")
+                    : wafer.CassetteLotId;
+                wafer.CurrentLocation = MaterialLocation.Cassette(
+                    cassetteRole == CassetteMaterialRole.Input1 || cassetteRole == CassetteMaterialRole.Input2
+                        ? MaterialLocationKind.InputCassette
+                        : MaterialLocationKind.OutputCassette,
+                    cassetteRole,
+                    slotNumber);
+                if (IsOutputCassetteRole(cassetteRole))
+                {
+                    wafer.OutputCassetteId = cassette.CassetteId;
+                    wafer.OutputCassetteRole = cassetteRole;
+                    wafer.OutputSlotNumber = slotNumber;
+                }
+                if (!double.IsNaN(slotPosition))
+                    wafer.CurrentCassetteSlotPosition = slotPosition;
+                if (updateState)
+                    wafer.State = WaferMaterialStateText.Normalize(state);
+                wafer.UpdatedAt = DateTime.Now;
+
+                cassette.CassetteLotId = string.IsNullOrWhiteSpace(cassette.CassetteLotId)
+                    ? (cassetteLotId ?? "")
+                    : cassette.CassetteLotId;
+                targetSlot.WaferId = wafer.WaferId;
+                targetSlot.HasWafer = true;
+                cassette.LastScanTime = DateTime.Now;
+
+                SequenceTrace.MaterialChange(
+                    "PutWaferInCassette",
+                    "wafer=" + wafer.WaferId,
+                    "from=" + previousLocation,
+                    "to=" + wafer.CurrentLocation,
+                    "state=" + wafer.State,
+                    "slot=" + slotNumber,
+                    "cassette=" + cassetteRole);
+            }
             NotifyAndSave("PutWaferInCassette");
         }
 
@@ -1613,18 +1732,33 @@ namespace QMC.CDT320.Materials
 
         public static void MoveWafer(string waferId, MaterialLocation location, WaferMaterialState state)
         {
-            var wafer = GetOrCreateWafer(waferId);
-            MaterialLocation previousLocation = wafer.CurrentLocation;
-            RemoveWaferFromCassetteSlot(wafer.WaferId);
-            wafer.CurrentLocation = location ?? MaterialLocation.Unknown();
-            wafer.State = WaferMaterialStateText.Normalize(state);
-            wafer.UpdatedAt = DateTime.Now;
-            SequenceTrace.MaterialChange(
-                "MoveWafer",
-                "wafer=" + wafer.WaferId,
-                "from=" + previousLocation,
-                "to=" + wafer.CurrentLocation,
-                "state=" + wafer.State);
+            lock (_stateSync)
+            {
+                if (string.IsNullOrWhiteSpace(waferId))
+                    throw new InvalidOperationException("이동할 Wafer/Bin ID가 없습니다.");
+
+                MaterialLocation targetLocation = location ?? MaterialLocation.Unknown();
+                WaferMaterial occupied = FindOtherWaferAtLocation(waferId, targetLocation);
+                if (occupied != null)
+                {
+                    throw new InvalidOperationException("대상 Material 위치에 다른 자재가 있어 이동할 수 없습니다. target=" + targetLocation +
+                                                        ", targetWafer=" + occupied.WaferId +
+                                                        ", movingWafer=" + waferId);
+                }
+
+                var wafer = GetOrCreateWafer(waferId);
+                MaterialLocation previousLocation = wafer.CurrentLocation;
+                RemoveWaferFromCassetteSlot(wafer.WaferId);
+                wafer.CurrentLocation = targetLocation;
+                wafer.State = WaferMaterialStateText.Normalize(state);
+                wafer.UpdatedAt = DateTime.Now;
+                SequenceTrace.MaterialChange(
+                    "MoveWafer",
+                    "wafer=" + wafer.WaferId,
+                    "from=" + previousLocation,
+                    "to=" + wafer.CurrentLocation,
+                    "state=" + wafer.State);
+            }
             NotifyAndSave("MoveWafer");
         }
 
@@ -5794,6 +5928,165 @@ namespace QMC.CDT320.Materials
             }
         }
 
+        private static WaferMaterial FindOtherWaferAtLocation(string waferId, MaterialLocation targetLocation)
+        {
+            if (targetLocation == null || targetLocation.Kind == MaterialLocationKind.Unknown)
+                return null;
+
+            return State.Wafers.FirstOrDefault(w =>
+                w != null &&
+                !string.Equals(w.WaferId, waferId, StringComparison.OrdinalIgnoreCase) &&
+                WaferMaterialStateText.Normalize(w.State) != WaferMaterialState.Empty &&
+                IsSameMaterialLocation(w.CurrentLocation, targetLocation));
+        }
+
+        private static bool IsSameMaterialLocation(MaterialLocation left, MaterialLocation right)
+        {
+            if (left == null || right == null || left.Kind != right.Kind)
+                return false;
+
+            if (left.Kind == MaterialLocationKind.InputCassette || left.Kind == MaterialLocationKind.OutputCassette)
+                return left.CassetteRole == right.CassetteRole && left.SlotNumber == right.SlotNumber;
+
+            if (left.Kind == MaterialLocationKind.PickerFront || left.Kind == MaterialLocationKind.PickerRear)
+                return left.PickerNo == right.PickerNo;
+
+            return true;
+        }
+
+        private static void ValidateCassetteMappingRequest(
+            CassetteMaterialRole role,
+            bool enabled,
+            int slotCount,
+            IReadOnlyList<bool> map,
+            IReadOnlyList<double> slotPositions)
+        {
+            if (slotCount <= 0)
+                throw new InvalidOperationException("Cassette SlotCount가 유효하지 않습니다. cassette=" + role + ", slotCount=" + slotCount);
+
+            if (!enabled)
+            {
+                WaferMaterial disabledRoleWafer = State.Wafers.FirstOrDefault(w =>
+                    w != null &&
+                    w.SourceCassetteRole == role &&
+                    WaferMaterialStateText.Normalize(w.State) != WaferMaterialState.Empty);
+                if (disabledRoleWafer != null)
+                {
+                    throw new InvalidOperationException("진행 또는 보관 중인 자재가 있어 cassette role을 비활성화할 수 없습니다. cassette=" + role +
+                                                        ", wafer=" + disabledRoleWafer.WaferId +
+                                                        ", state=" + disabledRoleWafer.State +
+                                                        ", location=" + disabledRoleWafer.CurrentLocation);
+                }
+                return;
+            }
+
+            if (map == null || map.Count != slotCount)
+                throw new InvalidOperationException("Cassette mapping 결과 길이가 SlotCount와 다릅니다. cassette=" + role +
+                                                    ", slotCount=" + slotCount +
+                                                    ", mapCount=" + (map != null ? map.Count : 0));
+
+            if (slotPositions == null || slotPositions.Count != slotCount)
+                throw new InvalidOperationException("Cassette slot 위치 수가 SlotCount와 다릅니다. cassette=" + role +
+                                                    ", slotCount=" + slotCount +
+                                                    ", positionCount=" + (slotPositions != null ? slotPositions.Count : 0));
+
+            for (int i = 0; i < slotPositions.Count; i++)
+            {
+                if (double.IsNaN(slotPositions[i]) || double.IsInfinity(slotPositions[i]))
+                    throw new InvalidOperationException("Cassette slot 물리 위치가 유효하지 않습니다. cassette=" + role +
+                                                        ", slot=" + (i + 1) + ", position=" + slotPositions[i]);
+            }
+
+            CassetteMaterial cassette = State.Cassettes.FirstOrDefault(c => c.Role == role);
+            if (cassette != null && cassette.Slots != null)
+            {
+                for (int i = 0; i < cassette.Slots.Count; i++)
+                {
+                    CassetteSlotMaterial slot = cassette.Slots[i];
+                    if (slot == null)
+                        throw new InvalidOperationException("기존 cassette slot 데이터가 없습니다. cassette=" + role + ", slot=" + (i + 1));
+
+                    bool hasWaferId = !string.IsNullOrWhiteSpace(slot.WaferId);
+                    if (slot.HasWafer != hasWaferId)
+                    {
+                        throw new InvalidOperationException("기존 cassette slot 점유 상태와 Wafer ID가 불일치합니다. cassette=" + role +
+                                                            ", slot=" + (i + 1) +
+                                                            ", hasWafer=" + slot.HasWafer +
+                                                            ", waferId=" + slot.WaferId);
+                    }
+
+                    if (!slot.HasWafer)
+                        continue;
+
+                    WaferMaterial slotWafer = State.Wafers.FirstOrDefault(w =>
+                        w != null && string.Equals(w.WaferId, slot.WaferId, StringComparison.OrdinalIgnoreCase));
+                    if (slotWafer == null)
+                    {
+                        throw new InvalidOperationException("기존 cassette 점유 slot의 Material 데이터가 없습니다. cassette=" + role +
+                                                            ", slot=" + (i + 1) + ", waferId=" + slot.WaferId);
+                    }
+
+                    WaferMaterialState slotWaferState = WaferMaterialStateText.Normalize(slotWafer.State);
+                    if (slotWaferState == WaferMaterialState.Empty ||
+                        !IsWaferAtCassetteSlot(slotWafer, role, i) ||
+                        slotWafer.SourceCassetteRole != role ||
+                        slotWafer.SourceSlotNumber != i)
+                    {
+                        throw new InvalidOperationException("기존 cassette slot과 Material 위치/source 정보가 불일치합니다. cassette=" + role +
+                                                            ", slot=" + (i + 1) +
+                                                            ", waferId=" + slotWafer.WaferId +
+                                                            ", state=" + slotWaferState +
+                                                            ", sourceRole=" + slotWafer.SourceCassetteRole +
+                                                            ", sourceSlot=" + (slotWafer.SourceSlotNumber + 1) +
+                                                            ", location=" + slotWafer.CurrentLocation);
+                    }
+                }
+            }
+
+            MaterialLocationKind cassetteLocation = IsOutputCassetteRole(role)
+                ? MaterialLocationKind.OutputCassette
+                : MaterialLocationKind.InputCassette;
+            foreach (WaferMaterial wafer in State.Wafers)
+            {
+                if (wafer == null || wafer.SourceCassetteRole != role)
+                    continue;
+
+                WaferMaterialState state = WaferMaterialStateText.Normalize(wafer.State);
+                if (state == WaferMaterialState.Empty)
+                    continue;
+
+                MaterialLocation location = wafer.CurrentLocation;
+                bool atSourceCassette = location != null &&
+                                        location.Kind == cassetteLocation &&
+                                        location.CassetteRole == role &&
+                                        location.SlotNumber == wafer.SourceSlotNumber;
+                if (!atSourceCassette)
+                {
+                    throw new InvalidOperationException("공정 중 자재가 cassette 밖에 있어 재매핑할 수 없습니다. cassette=" + role +
+                                                        ", wafer=" + wafer.WaferId +
+                                                        ", sourceSlot=" + (wafer.SourceSlotNumber + 1) +
+                                                        ", state=" + state +
+                                                        ", location=" + location);
+                }
+
+                if (wafer.SourceSlotNumber < 0 || wafer.SourceSlotNumber >= slotCount)
+                {
+                    throw new InvalidOperationException("기존 자재의 source slot이 새 SlotCount 범위를 벗어납니다. cassette=" + role +
+                                                        ", wafer=" + wafer.WaferId +
+                                                        ", sourceSlot=" + (wafer.SourceSlotNumber + 1) +
+                                                        ", slotCount=" + slotCount);
+                }
+
+                if (!map[wafer.SourceSlotNumber] && state != WaferMaterialState.Finish)
+                {
+                    throw new InvalidOperationException("Mapping 센서는 빈 slot이지만 처리 전 자재 데이터가 남아 있습니다. cassette=" + role +
+                                                        ", slot=" + (wafer.SourceSlotNumber + 1) +
+                                                        ", wafer=" + wafer.WaferId +
+                                                        ", state=" + state);
+                }
+            }
+        }
+
         private static void UpdateCassetteMapping(
             CassetteMaterialRole role,
             bool enabled,
@@ -5812,57 +6105,115 @@ namespace QMC.CDT320.Materials
             cassette.SlotCount = slotCount;
             cassette.EnsureSlots();
 
-            foreach (var slot in cassette.Slots)
+            for (int i = 0; i < cassette.Slots.Count; i++)
             {
-                slot.WaferId = "";
-                slot.HasWafer = false;
+                CassetteSlotMaterial slot = cassette.Slots[i];
+                bool mappedOccupied = enabled && map != null && i < map.Count && map[i];
+                if (mappedOccupied)
+                    continue;
+
+                WaferMaterial removedWafer = slot != null && !string.IsNullOrWhiteSpace(slot.WaferId)
+                    ? State.Wafers.FirstOrDefault(w => string.Equals(w.WaferId, slot.WaferId, StringComparison.OrdinalIgnoreCase))
+                    : null;
+                if (removedWafer != null && IsFinishedOutputBinWafer(role, removedWafer))
+                {
+                    RemoveFinishedOutputBinWaferForNewCassetteMapping(removedWafer);
+                }
+                else if (removedWafer != null &&
+                         IsWaferAtCassetteSlot(removedWafer, role, i) &&
+                         WaferMaterialStateText.Normalize(removedWafer.State) == WaferMaterialState.Finish)
+                {
+                    removedWafer.CurrentLocation = MaterialLocation.Unknown();
+                    removedWafer.State = WaferMaterialState.Empty;
+                    removedWafer.UpdatedAt = DateTime.Now;
+                }
+
+                if (slot != null)
+                {
+                    slot.WaferId = "";
+                    slot.HasWafer = false;
+                }
             }
 
             if (!enabled || map == null)
                 return;
 
-            int count = Math.Min(slotCount, map.Count);
-            for (int i = 0; i < count; i++)
+            for (int i = 0; i < slotCount; i++)
             {
                 if (!map[i])
                     continue;
 
-                string waferId = BuildGeneratedWaferId(role, i);
-                var wafer = State.Wafers.FirstOrDefault(w => w.WaferId == waferId);
+                CassetteSlotMaterial slot = cassette.Slots[i];
+                WaferMaterial wafer = slot != null && !string.IsNullOrWhiteSpace(slot.WaferId)
+                    ? State.Wafers.FirstOrDefault(w => string.Equals(w.WaferId, slot.WaferId, StringComparison.OrdinalIgnoreCase))
+                    : null;
+                bool preserveExisting = wafer != null &&
+                                        IsWaferAtCassetteSlot(wafer, role, i) &&
+                                        WaferMaterialStateText.Normalize(wafer.State) != WaferMaterialState.Empty &&
+                                        !IsFinishedOutputBinWafer(role, wafer);
+
                 if (IsFinishedOutputBinWafer(role, wafer))
                 {
                     RemoveFinishedOutputBinWaferForNewCassetteMapping(wafer);
                     wafer = null;
                 }
 
-                if (wafer == null)
+                if (!preserveExisting)
                 {
-                    wafer = new WaferMaterial
+                    string waferId = BuildGeneratedWaferId(role, i);
+                    wafer = State.Wafers.FirstOrDefault(w => string.Equals(w.WaferId, waferId, StringComparison.OrdinalIgnoreCase));
+                    if (wafer == null)
                     {
-                        WaferId = waferId,
-                        CreatedAt = DateTime.Now
-                    };
-                    State.Wafers.Add(wafer);
-                }
+                        wafer = new WaferMaterial
+                        {
+                            WaferId = waferId,
+                            CreatedAt = DateTime.Now
+                        };
+                        State.Wafers.Add(wafer);
+                    }
 
-                wafer.CassetteLotId = cassetteLotId ?? "";
-                wafer.SourceCassetteId = cassette.CassetteId;
-                wafer.SourceCassetteRole = role;
-                wafer.SourceSlotNumber = i;
-                ApplyWaferCassettePosition(wafer, ResolveSlotPosition(slotPositions, i));
-                wafer.CurrentLocation = MaterialLocation.Cassette(
-                    role == CassetteMaterialRole.Input1 || role == CassetteMaterialRole.Input2
-                        ? MaterialLocationKind.InputCassette
-                        : MaterialLocationKind.OutputCassette,
-                    role,
-                    i);
-                wafer.State = WaferMaterialState.Ready;
-                wafer.TapeFrameSpecName = tapeFrameSpecName ?? "";
+                    wafer.CassetteLotId = cassetteLotId ?? "";
+                    wafer.SourceCassetteId = cassette.CassetteId;
+                    wafer.SourceCassetteRole = role;
+                    wafer.SourceSlotNumber = i;
+                    ApplyWaferCassettePosition(wafer, ResolveSlotPosition(slotPositions, i));
+                    wafer.CurrentLocation = MaterialLocation.Cassette(
+                        role == CassetteMaterialRole.Input1 || role == CassetteMaterialRole.Input2
+                            ? MaterialLocationKind.InputCassette
+                            : MaterialLocationKind.OutputCassette,
+                        role,
+                        i);
+                    wafer.State = WaferMaterialState.Ready;
+                    wafer.TapeFrameSpecName = tapeFrameSpecName ?? "";
+                }
+                else
+                {
+                    wafer.CurrentCassetteSlotPosition = ResolveSlotPosition(slotPositions, i);
+                }
+                if (IsOutputCassetteRole(role))
+                {
+                    wafer.OutputCassetteId = cassette.CassetteId;
+                    wafer.OutputCassetteRole = role;
+                    wafer.OutputSlotNumber = i;
+                }
                 wafer.UpdatedAt = DateTime.Now;
 
-                cassette.Slots[i].WaferId = wafer.WaferId;
-                cassette.Slots[i].HasWafer = true;
+                slot.WaferId = wafer.WaferId;
+                slot.HasWafer = true;
             }
+        }
+
+        private static bool IsWaferAtCassetteSlot(WaferMaterial wafer, CassetteMaterialRole role, int slotNumber)
+        {
+            if (wafer == null || wafer.CurrentLocation == null)
+                return false;
+
+            MaterialLocationKind expectedKind = IsOutputCassetteRole(role)
+                ? MaterialLocationKind.OutputCassette
+                : MaterialLocationKind.InputCassette;
+            return wafer.CurrentLocation.Kind == expectedKind &&
+                   wafer.CurrentLocation.CassetteRole == role &&
+                   wafer.CurrentLocation.SlotNumber == slotNumber;
         }
 
         private static bool IsFinishedOutputBinWafer(CassetteMaterialRole role, WaferMaterial wafer)

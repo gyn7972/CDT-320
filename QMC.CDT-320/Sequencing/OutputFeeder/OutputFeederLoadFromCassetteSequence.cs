@@ -348,6 +348,14 @@ namespace QMC.CDT320.Sequencing
             if (wafer == null)
                 return Fail("OUT-FEEDER-MATERIAL-MOVE", "Material", "Output cassette wafer data was not found for feeder material move. role=" + ResolveOutputCassetteRole() + ", slot=" + Options.SlotIndex);
 
+            WaferMaterialState state = WaferMaterialStateText.Normalize(wafer.State);
+            if (state != WaferMaterialState.Ready)
+                return Fail("OUT-FEEDER-MATERIAL-STATE", "Material", "물리 이송 후 Material 위치 변경 직전에 source Bin 상태가 변경되었습니다. wafer=" + wafer.WaferId + ", state=" + state);
+
+            if (!string.IsNullOrWhiteSpace(Options.ExpectedWaferId) &&
+                !string.Equals(Options.ExpectedWaferId, wafer.WaferId, StringComparison.OrdinalIgnoreCase))
+                return Fail("OUT-FEEDER-MATERIAL-WAFER", "Material", "물리 이송 후 Material 위치 변경 직전에 Bin ID가 변경되었습니다. expected=" + Options.ExpectedWaferId + ", actual=" + wafer.WaferId);
+
             MaterialStateService.MoveWafer(wafer.WaferId, new MaterialLocation { Kind = MaterialLocationKind.OutputFeeder }, WaferMaterialState.WorkReady);
             Feeder.UpdateFeederMaterialState(MaterialState.Occupied);
             Context.Bus.Set("OutputFeederOccupied");

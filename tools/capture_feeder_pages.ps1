@@ -1,5 +1,7 @@
-# capture_feeder_pages.ps1 - UIA navigation to InputFeeder + OutputFeeder pages.
-param([string]$OutDir = ".")
+﻿# capture_feeder_pages.ps1 - UIA navigation to InputFeeder + OutputFeeder pages.
+param([string]$OutDir = (Join-Path $PSScriptRoot "..\reports\screenshots"))
+
+New-Item -ItemType Directory -Path $OutDir -Force | Out-Null
 
 Add-Type -AssemblyName UIAutomationClient
 Add-Type -AssemblyName UIAutomationTypes

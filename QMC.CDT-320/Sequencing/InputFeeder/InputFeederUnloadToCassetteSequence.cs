@@ -139,6 +139,15 @@ namespace QMC.CDT320.Sequencing
             if (wafer == null)
                 return Fail("IN-FEEDER-WAFER-DATA", "Material", "InputFeeder wafer data was not found before cassette unload.");
 
+            if (!string.IsNullOrWhiteSpace(Options.ExpectedWaferId) &&
+                !string.Equals(Options.ExpectedWaferId, wafer.WaferId, StringComparison.OrdinalIgnoreCase))
+                return Fail("IN-FEEDER-WAFER-MISMATCH", "Material", "언로딩 계획과 현재 InputFeeder Wafer ID가 다릅니다. expected=" + Options.ExpectedWaferId + ", actual=" + wafer.WaferId);
+
+            if (wafer.SourceCassetteRole != Options.CassetteRole || wafer.SourceSlotNumber != Options.SlotIndex)
+                return Fail("IN-FEEDER-WAFER-SOURCE", "Material", "Input wafer는 원본 cassette/slot으로만 복귀할 수 있습니다. wafer=" + wafer.WaferId +
+                    ", sourceRole=" + wafer.SourceCassetteRole + ", sourceSlot=" + (wafer.SourceSlotNumber + 1).ToString("00") +
+                    ", targetRole=" + Options.CassetteRole + ", targetSlot=" + (Options.SlotIndex + 1).ToString("00"));
+
             CurrentStep = InputFeederUnloadToCassetteStep.CheckCassetteSlotEmpty;
             return 0;
         }
@@ -273,6 +282,16 @@ namespace QMC.CDT320.Sequencing
             InputCassetteUnit cassette = ResolveCassette();
             int unloadSlot = ResolveUnloadSlotIndex(wafer);
             double slotPosition = cassette != null ? cassette.CalculateWaferCassetteSlotTargetPosition(unloadSlot) : wafer.SourceCassetteSlotPosition;
+
+            if (wafer.SourceCassetteRole != Options.CassetteRole || wafer.SourceSlotNumber != unloadSlot)
+                return Fail("IN-FEEDER-MATERIAL-SOURCE", "Material", "물리 배출 후 Material 갱신 직전에 원본 cassette/slot 불일치가 확인되었습니다. wafer=" + wafer.WaferId +
+                    ", sourceRole=" + wafer.SourceCassetteRole + ", sourceSlot=" + (wafer.SourceSlotNumber + 1).ToString("00") +
+                    ", targetRole=" + Options.CassetteRole + ", targetSlot=" + (unloadSlot + 1).ToString("00"));
+
+            WaferMaterial targetWafer = MaterialStateService.GetWaferInCassette(Options.CassetteRole, unloadSlot);
+            if (targetWafer != null && !string.Equals(targetWafer.WaferId, wafer.WaferId, StringComparison.OrdinalIgnoreCase))
+                return Fail("IN-FEEDER-MATERIAL-TARGET", "Material", "물리 배출 후 대상 cassette slot에 다른 Material이 확인되어 데이터를 덮어쓰지 않습니다. movingWafer=" + wafer.WaferId +
+                    ", targetWafer=" + targetWafer.WaferId + ", targetRole=" + Options.CassetteRole + ", targetSlot=" + (unloadSlot + 1).ToString("00"));
 
             MaterialStateService.PutWaferInCassette(
                 wafer.WaferId,
@@ -426,8 +445,8 @@ namespace QMC.CDT320.Sequencing
 
             WaferMaterial feederWafer = ResolveFeederWafer();
             WaferMaterial cassetteWafer = MaterialStateService.GetWaferInCassette(Options.CassetteRole, slotIndex);
-            if (cassetteWafer != null && feederWafer != null && string.Equals(cassetteWafer.WaferId, feederWafer.WaferId, StringComparison.OrdinalIgnoreCase))
-                return true;
+            if (cassetteWafer != null && WaferMaterialStateText.Normalize(cassetteWafer.State) != WaferMaterialState.Empty)
+                return false;
 
             WaferCassetteMaterial material = cassette.GetWaferMaterialCassette();
             if (material == null || material.Slots == null || slotIndex >= material.Slots.Count)
@@ -438,8 +457,11 @@ namespace QMC.CDT320.Sequencing
                 return false;
 
             return state.Presence == SlotPresence.Empty ||
-                   (state.Presence == SlotPresence.Exist && state.Process == ProcessState.Processing && feederWafer != null) ||
-                   cassetteWafer == null;
+                   (state.Presence == SlotPresence.Exist &&
+                    state.Process == ProcessState.Processing &&
+                    feederWafer != null &&
+                    feederWafer.SourceCassetteRole == Options.CassetteRole &&
+                    feederWafer.SourceSlotNumber == slotIndex);
         }
 
         private double ResolveCassetteUnloadOffset(InputCassetteUnit cassette)

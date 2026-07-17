@@ -165,6 +165,18 @@ namespace QMC.CDT320.Sequencing
             if (wafer == null)
                 return Fail("IN-FEEDER-CST-WAFER-DATA", "Material", "Mapped cassette wafer data was not found. role=" + Options.CassetteRole + ", slot=" + Options.SlotIndex);
 
+            if (WaferMaterialStateText.Normalize(wafer.State) != WaferMaterialState.Ready)
+                return Fail("IN-FEEDER-CST-WAFER-STATE", "Material", "선택한 Input cassette wafer가 Ready 상태가 아닙니다. wafer=" + wafer.WaferId + ", state=" + wafer.State);
+
+            if (wafer.SourceCassetteRole != Options.CassetteRole || wafer.SourceSlotNumber != Options.SlotIndex)
+                return Fail("IN-FEEDER-CST-WAFER-SOURCE", "Material", "선택한 Input wafer의 원본 cassette/slot 정보가 현재 slot과 다릅니다. wafer=" + wafer.WaferId +
+                    ", sourceRole=" + wafer.SourceCassetteRole + ", sourceSlot=" + (wafer.SourceSlotNumber + 1).ToString("00") +
+                    ", targetRole=" + Options.CassetteRole + ", targetSlot=" + (Options.SlotIndex + 1).ToString("00"));
+
+            if (!string.IsNullOrWhiteSpace(Options.ExpectedWaferId) &&
+                !string.Equals(Options.ExpectedWaferId, wafer.WaferId, StringComparison.OrdinalIgnoreCase))
+                return Fail("IN-FEEDER-CST-WAFER-MISMATCH", "Material", "선택 계획과 현재 Input cassette slot의 Wafer ID가 다릅니다. expected=" + Options.ExpectedWaferId + ", actual=" + wafer.WaferId);
+
             CurrentStep = InputFeederLoadFromCassetteStep.MoveCassetteToWaferSlot;
             return 0;
         }
@@ -503,6 +515,19 @@ namespace QMC.CDT320.Sequencing
             WaferMaterial wafer = ResolveCassetteWafer();
             if (wafer == null)
                 return Fail("IN-FEEDER-MATERIAL-MOVE", "Material", "Cassette wafer data was not found for feeder material move.");
+
+            if (WaferMaterialStateText.Normalize(wafer.State) != WaferMaterialState.Ready ||
+                wafer.SourceCassetteRole != Options.CassetteRole ||
+                wafer.SourceSlotNumber != Options.SlotIndex ||
+                (!string.IsNullOrWhiteSpace(Options.ExpectedWaferId) &&
+                 !string.Equals(Options.ExpectedWaferId, wafer.WaferId, StringComparison.OrdinalIgnoreCase)))
+            {
+                return Fail("IN-FEEDER-MATERIAL-REVALIDATE", "Material", "물리 이송 후 Material 갱신 직전에 Input wafer 정보가 선택 계획과 달라졌습니다. wafer=" + wafer.WaferId +
+                    ", state=" + wafer.State + ", sourceRole=" + wafer.SourceCassetteRole +
+                    ", sourceSlot=" + (wafer.SourceSlotNumber + 1).ToString("00") +
+                    ", expectedWafer=" + Options.ExpectedWaferId + ", targetRole=" + Options.CassetteRole +
+                    ", targetSlot=" + (Options.SlotIndex + 1).ToString("00"));
+            }
 
             Feeder.SetCurrentWaferMaterial(wafer);
             MaterialStateService.MoveWaferToInputFeeder(wafer);

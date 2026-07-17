@@ -825,7 +825,7 @@ namespace QMC.CDT320.Interlocks
                         "OutputNGStageY 이동 불가: NG StageY 이동 전 Good Bin Guide가 반드시 Down 상태여야 합니다.",
                         out reason);
 
-                // 인터락 조건: NG 제품 유무에 따른 Clamp 조건과 Clamp Lift Up을 확인한다.
+                // 인터락 조건: NG Clamp/Unclamp 상태와 관계없이 Clamp Lift Up만 확인한다.
                 if (!VerifyNgClampSafeForStageMove(outputStage, "OutputNGStageY", out reason))
                     return false;
 
@@ -891,7 +891,7 @@ namespace QMC.CDT320.Interlocks
                         "OutputNGStageY 이동 불가: NG StageY 이동 전 Good Bin Guide가 반드시 Down 상태여야 합니다.",
                         out reason);
 
-                // 인터락 조건: NG 제품 유무에 따른 Clamp 조건과 Clamp Lift Up을 확인한다.
+                // 인터락 조건: NG Clamp/Unclamp 상태와 관계없이 Clamp Lift Up만 확인한다.
                 if (!VerifyNgClampSafeForStageMove(outputStage, "OutputNGStageY", out reason))
                     return false;
 
@@ -1065,21 +1065,16 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
-        // 인터락 항목: NG Stage 제품 유무에 따른 Clamp 상태와 Clamp Lift Up을 확인한다.
+        // 인터락 항목: NG Stage Clamp/Unclamp 상태와 관계없이 Clamp Lift Up만 확인한다.
         public static bool VerifyNgClampSafeForStageMove(OutputStageUnit outputStage, string movingName, out string reason)
         {
             reason = string.Empty;
             try
             {
-                bool materialPresent;
-                if (!TryGetNgStageMaterialPresence(outputStage, movingName, out materialPresent, out reason))
-                    return false;
-
-                if (!materialPresent && !outputStage.IsBinGuideUnclamped(BinSide.Ng))
+                if (outputStage == null)
                     return MotionGuardRuleHelpers.Block(
                         movingName,
-                        movingName + " 이동 불가: NG Stage가 비어 있으므로 NG Bin Clamp를 " +
-                        "Bwd/Unclamp 한 후 Clamp Lift를 Up으로 이동하십시오.",
+                        movingName + " 이동 불가: OutputStageUnit을 찾을 수 없습니다.",
                         out reason);
 
                 if (!RefreshRequiredHardwareInput(outputStage.NgBinClampUpSensor, movingName, "NgBinClampUp", out reason))
@@ -1088,8 +1083,8 @@ namespace QMC.CDT320.Interlocks
                 if (!outputStage.IsBinGuideClampLiftUp(BinSide.Ng))
                     return MotionGuardRuleHelpers.Block(
                         movingName,
-                        movingName + " 이동 불가: NG Stage 제품 유무와 관계없이 " +
-                        "NG Bin Clamp Lift가 Up 상태여야 합니다. materialPresent=" + materialPresent,
+                        movingName + " 이동 불가: NG Bin Clamp Lift가 Up 상태여야 합니다. " +
+                        "NG Bin Clamp의 Clamp/Unclamp 상태는 이동 조건에 포함되지 않습니다.",
                         out reason);
 
                 return true;
