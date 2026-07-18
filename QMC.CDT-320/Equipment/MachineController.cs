@@ -5974,17 +5974,96 @@ namespace QMC.CDT320
 
                 var axes = ResolveAxesByGroup(step.InterlockGroup)
                     .Select(x => x.Name)
+                    .Where(x => !string.IsNullOrWhiteSpace(x))
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
                     .ToList();
+                string resolutionSource = "UnitName";
 
                 if (axes.Count == 0)
-                    axes = _axisInterferenceMap.ResolveInterferenceAxes(step.InterlockGroup).ToList();
+                {
+                    var mappedAxisNames = _axisInterferenceMap
+                        .ResolveInterferenceAxes(step.InterlockGroup)
+                        .Where(x => !string.IsNullOrWhiteSpace(x))
+                        .Select(x => x.Trim())
+                        .Distinct(StringComparer.OrdinalIgnoreCase)
+                        .ToList();
+                    var mappedAxes = new List<string>();
+                    var unresolvedMappedAxes = new List<string>();
+
+                    foreach (string mappedAxisName in mappedAxisNames)
+                    {
+                        BaseAxis mappedAxis = FindAxisByName(mappedAxisName);
+                        if (mappedAxis != null)
+                            mappedAxes.Add(mappedAxis.Name);
+                        else
+                            unresolvedMappedAxes.Add(mappedAxisName);
+                    }
+
+                    if (mappedAxes.Count > 0)
+                    {
+                        if (unresolvedMappedAxes.Count > 0)
+                        {
+                            return FailInitializeAxisStop(
+                                "초기화 Step 간섭 그룹 축 해석. step=" + step.StepNo +
+                                ", group=" + step.GroupName +
+                                ", interlockGroup=" + step.InterlockGroup,
+                                "간섭맵에 등록되지 않은 축이 포함되어 있습니다. unresolved=" +
+                                string.Join(",", unresolvedMappedAxes.ToArray()));
+                        }
+
+                        axes = mappedAxes;
+                        resolutionSource = "InterferenceMap";
+                    }
+                }
+
+                // InterlockGroup은 FrontPickerZ처럼 실제 UnitName/축명이 아닌 논리 그룹명일 수 있다.
+                // 이 경우 초기화 계획이 보유한 AxisNames를 실제 등록 축으로 재검증해 정지한다.
+                if (axes.Count == 0)
+                {
+                    var stepAxisNames = (step.AxisNames ?? new List<string>())
+                        .Where(x => !string.IsNullOrWhiteSpace(x))
+                        .Select(x => x.Trim())
+                        .Distinct(StringComparer.OrdinalIgnoreCase)
+                        .ToList();
+                    var resolvedStepAxes = new List<string>();
+                    var unresolvedStepAxes = new List<string>();
+
+                    foreach (string stepAxisName in stepAxisNames)
+                    {
+                        BaseAxis stepAxis = FindAxisByName(stepAxisName);
+                        if (stepAxis != null)
+                            resolvedStepAxes.Add(stepAxis.Name);
+                        else
+                            unresolvedStepAxes.Add(stepAxisName);
+                    }
+
+                    if (unresolvedStepAxes.Count > 0)
+                    {
+                        return FailInitializeAxisStop(
+                            "초기화 Step 간섭 그룹 축 해석. step=" + step.StepNo +
+                            ", group=" + step.GroupName +
+                            ", interlockGroup=" + step.InterlockGroup,
+                            "초기화 계획의 축이 현재 장비에 등록되어 있지 않습니다. unresolved=" +
+                            string.Join(",", unresolvedStepAxes.ToArray()));
+                    }
+
+                    axes = resolvedStepAxes;
+                    resolutionSource = "StepAxisNames";
+                }
 
                 if (axes.Count == 0)
-                    return 0;
+                {
+                    return FailInitializeAxisStop(
+                        "초기화 Step 간섭 그룹 축 해석. step=" + step.StepNo +
+                        ", group=" + step.GroupName +
+                        ", interlockGroup=" + step.InterlockGroup,
+                        "정지할 실제 등록 축을 찾지 못했습니다.");
+                }
 
                 QMC.Common.Log.Write("Main", "SYSTEM", "StopInitializeInterlockGroup",
                     "Initialize interlock group stop requested. step=" + step.StepNo +
                     ", interlockGroup=" + step.InterlockGroup +
+                    ", resolutionSource=" + resolutionSource +
                     ", axes=" + string.Join(",", axes.ToArray()) + " - Start");
 
                 return await StopAxesAndWaitUntilStoppedAsync(

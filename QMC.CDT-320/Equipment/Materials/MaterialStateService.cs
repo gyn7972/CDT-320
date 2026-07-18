@@ -3994,13 +3994,6 @@ namespace QMC.CDT320.Materials
                 return false;
             }
 
-            if (Math.Abs(wafer.InputStageAlignOffsetT) <= InputStageThetaOffsetReadyEpsilon)
-            {
-                reason = "InputStage theta align offset is zero. waferId=" + wafer.WaferId +
-                         ", offsetT=" + wafer.InputStageAlignOffsetT.ToString("F6");
-                return false;
-            }
-
             reason = "InputStage theta align complete. waferId=" + wafer.WaferId +
                      ", referenceT=" + wafer.InputStageAlignReferenceT.ToString("F6") +
                      ", correctedT=" + wafer.InputStageAlignCorrectedT.ToString("F6") +

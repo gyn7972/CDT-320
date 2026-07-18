@@ -1149,11 +1149,6 @@ namespace QMC.CDT320.Sequencing
                 double referenceT = ResolveAlignThetaReference();
                 double correctedT = Stage.StageT != null ? Stage.StageT.ActualPosition : referenceT;
                 double offsetT = NormalizeThetaOffset(correctedT - referenceT);
-                if (Math.Abs(offsetT) <= 0.000001)
-                    return FailAndResetAlignRuntimeState("IN-STAGE-ALIGN-THETA-ZERO", Stage.Name,
-                        "Final theta offset is zero. referenceT=" + referenceT.ToString("F6") +
-                        ", correctedT=" + correctedT.ToString("F6") +
-                        ", offsetT=" + offsetT.ToString("F6"));
 
                 int finalThetaLimitResult = CheckThetaCorrectionLimit(offsetT, "FinalOffset");
                 if (finalThetaLimitResult != 0)
