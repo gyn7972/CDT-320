@@ -285,6 +285,125 @@ namespace QMC.CDT320.VisionComm
             }
         }
 
+        public async Task<BottomVisionOffset> WaitBottomMResultAsync(int pickerNo, int timeoutMs, CancellationToken ct)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+
+                if (pickerNo < 1 || pickerNo > 4)
+                {
+                    EventLogger.Write(EventKind.Alarm, "VISION", "AUTO-VISION-BOTTOM-MRESULT",
+                        "Bottom MRESULT 대기 실패. Picker 번호가 올바르지 않습니다. fb=" + Fb +
+                        ", pickerNo=" + pickerNo);
+                    return null;
+                }
+
+                VisionRequestHandle handle;
+                lock (_inspectionRequestLock)
+                    _bottomInspectionRequests.TryGetValue(pickerNo, out handle);
+                if (handle == null)
+                {
+                    EventLogger.Write(EventKind.Alarm, "VISION", "AUTO-VISION-BOTTOM-MRESULT-HANDLE",
+                        "Bottom MRESULT와 연결할 요청 Handle이 없습니다. fb=" + Fb + ", pickerNo=" + pickerNo);
+                    return null;
+                }
+
+                InspectionResultDto inspection = await AutoVisionRequestService.WaitBottomMResultAsync(
+                    handle,
+                    timeoutMs,
+                    ct).ConfigureAwait(false);
+                if (AutoVisionRequestService.IsInspectionResultTransportFailure(inspection))
+                    return null;
+
+                BottomVisionOffset offset = VisionCameraCalibrationTransform.ToBottomVisionOffset(pickerNo, inspection);
+                EventLogger.Write(EventKind.Event, "VISION", "AUTO-VISION-BOTTOM-MRESULT",
+                    "Bottom MRESULT 보정값 수신 완료. fb=" + Fb +
+                    ", pickerNo=" + pickerNo +
+                    ", dieIndex=" + handle.Request.DieIndex +
+                    ", requestId=" + handle.Request.RequestId +
+                    ", groupId=" + handle.Request.GroupId +
+                    ", offsetYmm=" + (offset != null ? offset.OffsetY.ToString("F6") : "null") +
+                    ", 최종 RESULT Handle은 유지합니다.");
+                return offset;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                EventLogger.Write(EventKind.Alarm, "VISION", "AUTO-VISION-BOTTOM-MRESULT",
+                    "Bottom MRESULT 대기 중 예외 발생. fb=" + Fb +
+                    ", pickerNo=" + pickerNo +
+                    ", error=" + ex.Message);
+                return null;
+            }
+        }
+
+        public async Task<BottomVisionOffset> WaitBottomFinalResultAsync(int pickerNo, int timeoutMs, CancellationToken ct)
+        {
+            VisionRequestHandle handle = null;
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+
+                if (pickerNo < 1 || pickerNo > 4)
+                    return null;
+
+                lock (_inspectionRequestLock)
+                    _bottomInspectionRequests.TryGetValue(pickerNo, out handle);
+                if (handle == null)
+                {
+                    EventLogger.Write(EventKind.Alarm, "VISION", "AUTO-VISION-BOTTOM-RESULT-HANDLE",
+                        "Bottom 최종 RESULT와 연결할 요청 Handle이 없습니다. fb=" + Fb + ", pickerNo=" + pickerNo);
+                    return null;
+                }
+
+                InspectionResultDto inspection = await AutoVisionRequestService.WaitBottomFinalResultAsync(
+                    handle,
+                    timeoutMs,
+                    ct).ConfigureAwait(false);
+                if (AutoVisionRequestService.IsInspectionResultTransportFailure(inspection))
+                    return null;
+
+                BottomVisionOffset offset = VisionCameraCalibrationTransform.ToBottomVisionOffset(pickerNo, inspection);
+                EventLogger.Write(EventKind.Event, "VISION", "AUTO-VISION-BOTTOM-FINAL-RESULT",
+                    "Bottom 최종 RESULT 수신 완료. fb=" + Fb +
+                    ", pickerNo=" + pickerNo +
+                    ", dieIndex=" + handle.Request.DieIndex +
+                    ", requestId=" + handle.Request.RequestId +
+                    ", groupId=" + handle.Request.GroupId +
+                    ", ok=" + (offset != null && offset.IsOk));
+                return offset;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                EventLogger.Write(EventKind.Alarm, "VISION", "AUTO-VISION-BOTTOM-FINAL-RESULT",
+                    "Bottom 최종 RESULT 대기 중 예외 발생. fb=" + Fb +
+                    ", pickerNo=" + pickerNo +
+                    ", error=" + ex.Message);
+                return null;
+            }
+            finally
+            {
+                if (handle != null)
+                {
+                    lock (_inspectionRequestLock)
+                    {
+                        VisionRequestHandle current;
+                        if (_bottomInspectionRequests.TryGetValue(pickerNo, out current) &&
+                            object.ReferenceEquals(current, handle))
+                            _bottomInspectionRequests.Remove(pickerNo);
+                    }
+                }
+            }
+        }
+
         public async Task<BottomVisionOffset> WaitBottomResultAsync(int pickerNo, int timeoutMs, CancellationToken ct)
         {
             VisionRequestHandle handle = null;

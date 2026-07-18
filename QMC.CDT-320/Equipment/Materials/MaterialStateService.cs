@@ -2008,6 +2008,15 @@ namespace QMC.CDT320.Materials
 
         public static bool MoveDieToOutputStage(string dieId, QMC.CDT320.BinSide side, OutputStageReceiveTarget receiveTarget)
         {
+            return MoveDieToOutputStage(dieId, side, receiveTarget, false);
+        }
+
+        public static bool MoveDieToOutputStage(
+            string dieId,
+            QMC.CDT320.BinSide side,
+            OutputStageReceiveTarget receiveTarget,
+            bool preserveInspectionResult)
+        {
             try
             {
                 lock (_stateSync)
@@ -2025,9 +2034,21 @@ namespace QMC.CDT320.Materials
                     }
 
                     DieMaterial die = GetOrCreateDieMaterial(dieId);
+                    if (preserveInspectionResult &&
+                        die.Result != DieResult.Good &&
+                        die.Result != DieResult.NG)
+                    {
+                        Log.Write("Main", "SYSTEM", "MaterialStateService",
+                            "Move die to output stage failed: final inspection result is not ready. die=" + dieId +
+                            ", result=" + die.Result +
+                            ", side=" + side + " - Failed");
+                        return false;
+                    }
+
                     MaterialLocation previousLocation = die.CurrentLocation;
                     die.CurrentLocation = new MaterialLocation { Kind = stageLocation };
-                    die.Result = side == QMC.CDT320.BinSide.Ng ? DieResult.NG : DieResult.Good;
+                    if (!preserveInspectionResult)
+                        die.Result = side == QMC.CDT320.BinSide.Ng ? DieResult.NG : DieResult.Good;
                     die.WaferID_Output = outputWafer.WaferId;
                     if (receiveTarget != null)
                     {
@@ -2063,7 +2084,8 @@ namespace QMC.CDT320.Materials
                         "state=" + outputWafer.State,
                         "side=" + side,
                         "order=" + outputWafer.OutputReceiveNextIndex,
-                        "result=" + die.Result);
+                        "result=" + die.Result,
+                        "preserveInspectionResult=" + preserveInspectionResult);
                     OutputWaferCsvSnapshotWriter.EnqueuePlacedDie(
                         "Place",
                         State != null ? State.RecipeName : "",

@@ -1,4 +1,4 @@
-CDT-320 VISION PC COPILOT 수정 지시서
+﻿CDT-320 VISION PC COPILOT 수정 지시서
 기준일: 2026-07-18
 목적: 현재 Handler canonical 통신 구현과 Vision PC를 정확히 맞추고, Handler 선행 수정이 필요한 통합 Gate를 우회 없이 분리한다.
 
@@ -80,6 +80,7 @@ CDT-320 VISION PC COPILOT 수정 지시서
 - 중복 요청 멱등성
 - 다중 Picker 및 여러 Camera의 동시 outstanding 요청
 - SCALE 응답의 canonical scaleX/scaleY
+- MainComm RECIPE의 레시피명 단독 동기화
 
 범위 밖:
 
@@ -139,6 +140,22 @@ Handler 기본 설정 포트와 Wire CAMERA 이름:
 위 포트 번호는 Handler AppSettings의 기본값이다.
 현장 배포 설정에서 포트를 override할 수 있으므로 Vision PC에 숫자를 중복 hard-code하지 말고 실제 Handler/Vision 배포 설정을 사용한다.
 반면 correlated Wire의 CAMERA 문자열 WAFER/BOTTOM/BIN/FRONTSIDE/REARSIDE는 포트 설정과 무관하게 이 문서 표기 그대로 유지한다.
+
+MainComm RECIPE 확정 규칙:
+
+- Handler 송신 Wire는 정확히 MainComm|RECIPE|<RECIPE_NAME> 이다.
+- RECIPE_NAME은 Handler의 현재 활성 레시피명이며 .Project 확장자를 제외한 이름이다.
+- 전체 토큰은 MainComm, RECIPE, RECIPE_NAME의 정확히 3개다.
+- recipeNo, recipeId, lotId, waferId 또는 META를 추가하지 않는다.
+- 과거 MainComm|RECIPE|<RECIPE_NO>|<RECIPE_NAME> 형식을 신규 Handler 연결에서 사용하지 않는다.
+- Vision PC는 받은 RECIPE_NAME과 같은 이름의 로컬 레시피를 선택한다.
+- 정상 적용 응답은 ACK|MainComm|RECIPE|OK 로 반환한다.
+- 적용 실패 시 ACK를 보내지 말고 기존 MainComm RECIPE 오류 응답 정책에 따라 ERR를 반환한다.
+- Vision PC가 현재 레시피를 다시 요청할 때는 RECIPEREQ|MainComm 을 Push한다.
+- Handler는 활성 레시피 로드, RECIPEREQ 수신, Vision 재연결 성공 시 같은 이름 단독 Wire를 송신한다.
+- 빈 레시피명은 Handler가 송신하지 않는다.
+- 이 규칙은 MainComm RECIPE 동기화에만 적용한다.
+- correlated 검사 REQ/EPD/RESULT/ERR의 WAFER_ID/RECIPE_ID/LOT_ID는 오매칭 방지 Context이므로 제거하거나 빈 값으로 만들지 않는다.
 
 전송 규칙:
 
@@ -1199,6 +1216,14 @@ V-024 STATUS와 metric 판정 일관성
 - 어떤 유효/전송 metric의 *_pass라도 0이면 최종 STATUS=FAIL인지 확인한다.
 - Side ch0/ch1 중 하나라도 판정 불가이면 measure_valid=0, STATUS=FAIL, fail_code/fail_message로 귀결되는지 확인한다.
 
+V-025 MainComm RECIPE 이름 단독 동기화
+- Handler mock 송신이 정확히 MainComm|RECIPE|RecipeA 인지 확인한다.
+- 토큰 수가 3개이며 recipeNo/lotId/waferId가 없는지 확인한다.
+- RecipeA.Project를 적용해도 Wire에는 RecipeA만 포함되는지 확인한다.
+- 한글 레시피명이 UTF-8로 손상되지 않는지 확인한다.
+- ACK|MainComm|RECIPE|OK 응답에서 정상 완료되는지 확인한다.
+- RECIPEREQ|MainComm 수신 후 현재 활성 레시피 이름이 같은 형식으로 재전송되는지 확인한다.
+
 ======================================================================
 22. 구현 설계 요구사항
 ======================================================================
@@ -1262,8 +1287,8 @@ Handler 기준 repository:
 
 - Root: D:\Source\CDT-320_New
 - Branch: master
-- Base HEAD: b46023d562ce4ca1c70973beff3f2a6ce8a7b623
-- 주의: 통신 수정은 working tree에 적용된 상태이므로 HEAD만으로 규약을 판단하면 안 된다.
+- Base HEAD: c19b6ee441ebd8246688435380f9ec113d6a044e
+- 주의: MainComm RECIPE 이름 단독 변경은 working tree에 적용된 상태이므로 HEAD만으로 최종 Wire를 판단하면 안 된다.
 
 2026-07-18 현재 Handler 핵심 파일 SHA-256:
 
@@ -1272,13 +1297,17 @@ Handler 기준 repository:
 - VisionInspectionProtocol.cs
   7198BBDA4021B6D97459E6FB6D3366B89E269DFF442A01811ED2FCD20B532049
 - VisionTcpClient.cs
-  2928A9F98A77FB16FA1EB769C968A64632B9A1BB1B20DC47145392DEA68D61CE
+  B44F77AC5C96EB351D49FD66E2532A84BA448540427E925DAD1910CEE0607DEA
 - VisionTcpClient.Correlated.cs
   616C5A5A44CB648BF8EE98661E7FC44A78EF4022574559A26857B17546CCF037
 - AutoVisionRequestService.cs
   108ACBD4AF6A9591761269B6DD8A9E4AE0412399820B45F188E4AB22C528F8E2
 - AutoVisionRequestService.Correlated.cs
   4881705D14FE3D5379802A3B6B50A71C5F1A88A88B892786022B4BD83E49583F
+- VisionHub.cs
+  8C8C4FD634CF0686CA726B7323E6148B3E155AF1AF9817A4C4DB8EB9610B824D
+- Form1.cs
+  3B9CD42F0D731B5C03E23103F4778790EB8AF5AE57917C3D96286F0832AB8FB2
 
 Handler 오프라인 canonical 회귀검증:
 
@@ -1302,6 +1331,15 @@ Handler 오프라인 canonical 회귀검증:
 - ROLE/operation 사전 차단
 - Side IMMEDIATE channel echo
 - Side DEFERRED aggregate CHANNEL=0
+
+MainComm RECIPE 이름 단독 Loopback 회귀검증:
+
+- 총 12건
+- PASS 12
+- FAIL 0
+- 원문 Summary: SUMMARY total=12 pass=12 fail=0
+- 검증 Wire: MainComm|RECIPE|RecipeA
+- ACK/ERR/timeout/RECIPEREQ/UTF-8/재연결/미연결/빈 이름/API signature 검증
 
 ======================================================================
 25. 아직 임의 구현하면 안 되는 항목

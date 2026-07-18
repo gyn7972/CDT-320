@@ -526,20 +526,20 @@ namespace QMC.CDT320.VisionComm
 
         /// <summary>
         /// 전역 레시피 변경 통보. 핸들러에서 활성 레시피가 바뀌면 Vision 측이
-        /// 같은 이름의 로컬 레시피로 자동 전환하도록 "MODULE|RECIPE|번호|명칭"을 전송한다.
+        /// 같은 이름의 로컬 레시피로 자동 전환하도록 "MODULE|RECIPE|명칭"을 전송한다.
         /// Vision 측 응답이 ACK 이면 true 를 반환한다.
         /// </summary>
-        public async Task<bool> SendRecipeAsync(int recipeNo, string recipeName, int timeoutMs = 5000)
+        public async Task<bool> SendRecipeAsync(string recipeName, int timeoutMs = 5000)
         {
-            return await SendRecipeAsync(recipeNo, recipeName, timeoutMs, CancellationToken.None).ConfigureAwait(false);
+            return await SendRecipeAsync(recipeName, timeoutMs, CancellationToken.None).ConfigureAwait(false);
         }
 
-        public async Task<bool> SendRecipeAsync(int recipeNo, string recipeName, int timeoutMs, CancellationToken ct)
+        public async Task<bool> SendRecipeAsync(string recipeName, int timeoutMs, CancellationToken ct)
         {
             if (string.IsNullOrWhiteSpace(recipeName))
                 throw new ArgumentException("recipeName is empty", nameof(recipeName));
 
-            VisionProtocolResponse response = await SendCommandAsync(VisionProtocolCommand.Recipe, timeoutMs, ct, recipeNo, recipeName).ConfigureAwait(false);
+            VisionProtocolResponse response = await SendCommandAsync(VisionProtocolCommand.Recipe, timeoutMs, ct, recipeName).ConfigureAwait(false);
             return response.IsAck;
         }
 

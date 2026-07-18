@@ -48,6 +48,7 @@ namespace QMC.CDT320.Sequencing
         public bool ForceSafeYBeforeFirstPlaceMove { get; set; }
         public bool KeepPickerYForwardDuringPlaceReadyWait { get; set; }
         internal Func<string, bool> ReleaseParentOutputWorkZoneAfterSafeAvoid { get; set; }
+        internal Func<int, string, CancellationToken, Task<int>> WaitInspectionResultsBeforePlaceDownAsync { get; set; }
 
         public PickerPlaceSequence(MachineSequenceContext context, PickerSequenceSide side)
             : base(context, side, PickerSequenceKind.UnloadToOutput, side == PickerSequenceSide.Front ? "FrontPickerPlaceSequence" : "RearPickerPlaceSequence")
@@ -583,7 +584,14 @@ namespace QMC.CDT320.Sequencing
 
             string unknownReason;
             if (HasUnknownResultDieBeforePlace(out unknownReason))
-                return Fail("PICKER-PLACE-DIE-RESULT-UNKNOWN", "Material", unknownReason);
+            {
+                if (WaitInspectionResultsBeforePlaceDownAsync == null)
+                    return Fail("PICKER-PLACE-DIE-RESULT-UNKNOWN", "Material", unknownReason);
+
+                WriteLog("PickerPlaceSequence",
+                    Name + " Bottom/Side 최종 RESULT가 아직 완료되지 않았지만 Place 접근을 시작합니다. " +
+                    "각 PickerZ 최초 하강 직전에 해당 Picker 결과만 기다립니다. detail=" + unknownReason + " - Check");
+            }
 
             BeginOutputPostPlaceInspectionBatch();
             CurrentStep = PickerPlaceStep.VerifyPickedPickerFlow;
@@ -807,13 +815,25 @@ namespace QMC.CDT320.Sequencing
         {
             if (!IsInspectionFlowComplete(_currentDie))
             {
-                return Fail("PICKER-PLACE-INSPECTION-INCOMPLETE", "Material",
-                    "Place 전 Bottom/Side 검사 흐름이 완료되지 않았습니다. 검사 NG는 정지 조건이 아니며 현재 정책상 모든 검사를 완료한 뒤 Good Stage 순번으로 Place해야 합니다. " +
+                if (WaitInspectionResultsBeforePlaceDownAsync == null)
+                {
+                    return Fail("PICKER-PLACE-INSPECTION-INCOMPLETE", "Material",
+                        "Place 전 Bottom/Side 검사 흐름이 완료되지 않았습니다. " +
+                        "die=" + (_currentDie != null ? _currentDie.DieId : "-") +
+                        ", pickerNo=" + _currentPickerNo +
+                        ", bottomDone=" + HasInspectionResult(_currentDie, "Bottom") +
+                        ", side0Done=" + HasInspectionResult(_currentDie, "Side0") +
+                        ", side90Done=" + HasInspectionResult(_currentDie, "Side90"));
+                }
+
+                _currentOutputSide = BinSide.Good;
+                WriteLog("PickerPlaceSequence",
+                    Name + " 지연 RESULT 모드이므로 현재 정책의 Good Stage 접근을 먼저 진행합니다. " +
+                    "실제 Bottom/Side 판정은 PickerZ 하강 직전 반영합니다. " +
                     "die=" + (_currentDie != null ? _currentDie.DieId : "-") +
-                    ", pickerNo=" + _currentPickerNo +
-                    ", bottomDone=" + HasInspectionResult(_currentDie, "Bottom") +
-                    ", side0Done=" + HasInspectionResult(_currentDie, "Side0") +
-                    ", side90Done=" + HasInspectionResult(_currentDie, "Side90"));
+                    ", pickerNo=" + _currentPickerNo + " - Check");
+                CurrentStep = PickerPlaceStep.VerifyOutputStageReady;
+                return 0;
             }
 
             if (_currentDie.Result == DieResult.Good || _currentDie.Result == DieResult.NG)
@@ -1415,16 +1435,16 @@ namespace QMC.CDT320.Sequencing
         private int CalculatePlaceTargetValues()
         {
             string dieId = _currentDie != null ? _currentDie.DieId : string.Empty;
-            VisionOffset bottomOffset;
-            string bottomOffsetReason;
-            if (!TryResolveBottomPlaceOffset(_currentDie, out bottomOffset, out bottomOffsetReason))
+            // Bottom MRESULT OffsetY는 Side Vision Y 전용으로만 보관/사용한다.
+            // 정상 연속, Stop/Resume, 수동 재개 여부와 관계없이 Picker Place XYT에는 적용하지 않는다.
+            VisionOffset bottomOffset = new VisionOffset
             {
-                return Fail("PICKER-PLACE-BOTTOM-OFFSET", "Material",
-                    "Place 좌표에 적용할 Bottom 검사 보정값을 찾을 수 없습니다. " +
-                    "die=" + dieId +
-                    ", pickerNo=" + _currentPickerNo +
-                    ", reason=" + bottomOffsetReason);
-            }
+                X = 0.0,
+                Y = 0.0,
+                R = 0.0,
+                IsValid = true
+            };
+            const string bottomOffsetReason = "BottomMResultOffsetYReservedForSideVisionOnly;PickerPlaceOffsetNotApplied";
 
             double outputStageBaseY = _currentOutputSide == BinSide.Ng
                 ? OutputStage.Recipe.NGStageY.ProcessPosition
@@ -1477,79 +1497,9 @@ namespace QMC.CDT320.Sequencing
                 ", bottomOffsetX=" + bottomOffset.X +
                 ", bottomOffsetY=" + bottomOffset.Y +
                 ", bottomOffsetT=" + bottomOffset.R +
+                ", bottomOffsetMode=" + bottomOffsetReason +
                 ", formula=" + _targetFormula + " - Ok");
             return 0;
-        }
-
-        private static bool TryResolveBottomPlaceOffset(
-            DieMaterial die,
-            out VisionOffset offset,
-            out string reason)
-        {
-            offset = null;
-            reason = string.Empty;
-            try
-            {
-                if (die == null)
-                {
-                    reason = "Die Material 데이터가 없습니다.";
-                    return false;
-                }
-
-                if (die.Inspections == null || die.Inspections.Count == 0)
-                {
-                    reason = "검사 기록이 없습니다.";
-                    return false;
-                }
-
-                DieInspectionRecord latest = null;
-                for (int i = 0; i < die.Inspections.Count; i++)
-                {
-                    DieInspectionRecord record = die.Inspections[i];
-                    if (record == null ||
-                        !string.Equals(record.InspectionType, "Bottom", StringComparison.OrdinalIgnoreCase) ||
-                        record.Result == MaterialInspectionResult.Unknown ||
-                        record.Offset == null ||
-                        !record.Offset.IsValid)
-                    {
-                        continue;
-                    }
-
-                    if (latest == null || record.UpdatedAt >= latest.UpdatedAt)
-                        latest = record;
-                }
-
-                if (latest == null)
-                {
-                    reason = "유효한 Bottom 검사 Offset 기록이 없습니다.";
-                    return false;
-                }
-
-                if (double.IsNaN(latest.Offset.X) || double.IsInfinity(latest.Offset.X) ||
-                    double.IsNaN(latest.Offset.Y) || double.IsInfinity(latest.Offset.Y) ||
-                    double.IsNaN(latest.Offset.R) || double.IsInfinity(latest.Offset.R))
-                {
-                    reason = "Bottom 검사 Offset에 사용할 수 없는 숫자가 포함되어 있습니다.";
-                    return false;
-                }
-
-                offset = new VisionOffset
-                {
-                    X = latest.Offset.X,
-                    Y = latest.Offset.Y,
-                    R = latest.Offset.R,
-                    IsValid = true
-                };
-                return true;
-            }
-            catch (Exception ex)
-            {
-                reason = "Bottom 검사 Offset 확인 실패: " + ex.Message;
-                return false;
-            }
-            finally
-            {
-            }
         }
 
         private async Task<int> MovePickerXYAndTToPlaceAsync(CancellationToken ct)
@@ -1887,6 +1837,13 @@ namespace QMC.CDT320.Sequencing
                 return finalWait;
 
             // StageY와 PickerX 최종 도착 확인 후에만 PickerZ를 최종 Place 접촉 위치로 이동합니다.
+            int inspectionGateResult = await EnsureInspectionResultsReadyBeforePlaceDownAsync(ct).ConfigureAwait(false);
+            if (inspectionGateResult != 0)
+            {
+                _pickerZPlacedByContiSegmentedPlace = false;
+                return inspectionGateResult;
+            }
+
             _targetPickerZ = finalPickerZ;
             int finalPlaceZResult = await MovePickerAxisAndVerifyAsync(
                 currentPickerZAxis,
@@ -2516,6 +2473,10 @@ namespace QMC.CDT320.Sequencing
                     ", pickerZTarget=" + pickerZTarget.ToString("F6") +
                     " - Start");
 
+                int inspectionGateResult = await EnsureInspectionResultsReadyBeforePlaceDownAsync(ct).ConfigureAwait(false);
+                if (inspectionGateResult != 0)
+                    return inspectionGateResult;
+
                 return await MovePickerAxisAndVerifyAsync(
                     pickerZAxis,
                     pickerZTarget,
@@ -2757,8 +2718,66 @@ namespace QMC.CDT320.Sequencing
             return 0;
         }
 
+        private async Task<int> EnsureInspectionResultsReadyBeforePlaceDownAsync(CancellationToken ct)
+        {
+            ct.ThrowIfCancellationRequested();
+
+            if (WaitInspectionResultsBeforePlaceDownAsync == null)
+                return 0;
+
+            if (_currentDie == null || string.IsNullOrWhiteSpace(_currentDie.DieId))
+            {
+                return Fail("PICKER-PLACE-INSPECTION-GATE-DIE", "Material",
+                    "PickerZ 하강 전 Bottom/Side 최종 RESULT와 연결할 Place 제품이 없습니다. " +
+                    "side=" + Side + ", pickerNo=" + _currentPickerNo + ".");
+            }
+
+            WriteLog("PickerPlaceSequence",
+                Name + " PickerZ 하강 직전 해당 Picker Bottom/Side 최종 RESULT를 기다립니다. " +
+                "다른 Picker 결과는 기다리지 않습니다. pickerNo=" + _currentPickerNo +
+                ", die=" + _currentDie.DieId + " - Start");
+
+            int result = await WaitInspectionResultsBeforePlaceDownAsync(
+                _currentPickerNo,
+                _currentDie.DieId,
+                ct).ConfigureAwait(false);
+            if (result != 0)
+            {
+                return Fail("PICKER-PLACE-INSPECTION-GATE", "Vision",
+                    "Bottom/Side 최종 RESULT 미수신 또는 불일치로 PickerZ 하강을 차단합니다. " +
+                    "side=" + Side +
+                    ", pickerNo=" + _currentPickerNo +
+                    ", die=" + _currentDie.DieId +
+                    ", result=" + result);
+            }
+
+            if (!IsInspectionFlowComplete(_currentDie) ||
+                (_currentDie.Result != DieResult.Good && _currentDie.Result != DieResult.NG))
+            {
+                return Fail("PICKER-PLACE-INSPECTION-GATE-STATE", "Material",
+                    "Bottom/Side 최종 RESULT Task는 완료됐지만 Material 판정 반영이 완료되지 않았습니다. " +
+                    "pickerNo=" + _currentPickerNo +
+                    ", die=" + _currentDie.DieId +
+                    ", result=" + _currentDie.Result +
+                    ", bottomDone=" + HasInspectionResult(_currentDie, "Bottom") +
+                    ", side0Done=" + HasInspectionResult(_currentDie, "Side0") +
+                    ", side90Done=" + HasInspectionResult(_currentDie, "Side90"));
+            }
+
+            WriteLog("PickerPlaceSequence",
+                Name + " PickerZ 하강 직전 Bottom/Side 최종 RESULT 확인 완료. " +
+                "pickerNo=" + _currentPickerNo +
+                ", die=" + _currentDie.DieId +
+                ", inspectionResult=" + _currentDie.Result + " - Ok");
+            return 0;
+        }
+
         private async Task<int> MovePickerZPlaceAsync(CancellationToken ct)
         {
+            int inspectionGateResult = await EnsureInspectionResultsReadyBeforePlaceDownAsync(ct).ConfigureAwait(false);
+            if (inspectionGateResult != 0)
+                return inspectionGateResult;
+
             if (_pickerZPlacedByContiSegmentedPlace)
             {
                 CurrentStep = PickerPlaceStep.VacuumOff;
@@ -2927,12 +2946,19 @@ namespace QMC.CDT320.Sequencing
 
         private int UpdateMaterialToOutputStage(CancellationToken ct)
         {
-            if (!MaterialStateService.MoveDieToOutputStage(_currentDie.DieId, _currentOutputSide, _receiveTarget))
+            bool preserveInspectionResult = IsInspectionFlowComplete(_currentDie) &&
+                                            (_currentDie.Result == DieResult.Good || _currentDie.Result == DieResult.NG);
+            if (!MaterialStateService.MoveDieToOutputStage(
+                _currentDie.DieId,
+                _currentOutputSide,
+                _receiveTarget,
+                preserveInspectionResult))
             {
                 return Fail("PICKER-PLACE-MATERIAL", "Material",
                     "Move die to output stage failed. die=" + _currentDie.DieId +
                     ", side=" + _currentOutputSide +
-                    ", pickerNo=" + _currentPickerNo);
+                    ", pickerNo=" + _currentPickerNo +
+                    ", preserveInspectionResult=" + preserveInspectionResult);
             }
 
             WriteLog("PickerPlaceSequence",
@@ -2940,7 +2966,9 @@ namespace QMC.CDT320.Sequencing
                 ", side=" + _currentOutputSide +
                 ", pickerNo=" + _currentPickerNo +
                 ", outputWafer=" + (_receiveTarget != null ? _receiveTarget.OutputWaferId : "-") +
-                ", order=" + (_receiveTarget != null ? _receiveTarget.OrderIndex.ToString() : "-") + " - Ok");
+                ", order=" + (_receiveTarget != null ? _receiveTarget.OrderIndex.ToString() : "-") +
+                ", inspectionResult=" + _currentDie.Result +
+                ", preserveInspectionResult=" + preserveInspectionResult + " - Ok");
 
             if (Context != null && Context.Controller != null)
             {

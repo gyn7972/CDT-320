@@ -2,10 +2,13 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
+using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading;
 using QMC.CDT320.Materials;
+using QMC.CDT320.Recipes;
+using QMC.Common.Logging;
 
 namespace QMC.CDT320.VisionComm
 {
@@ -138,6 +141,17 @@ namespace QMC.CDT320.VisionComm
 
     public static class VisionInspectionContextFactory
     {
+        private static readonly object _recipeLotCacheSync = new object();
+        private static readonly Dictionary<string, RecipeLotCacheEntry> _recipeLotCache =
+            new Dictionary<string, RecipeLotCacheEntry>(StringComparer.OrdinalIgnoreCase);
+
+        private sealed class RecipeLotCacheEntry
+        {
+            public DateTime LastWriteTimeUtc { get; set; }
+            public long FileLength { get; set; }
+            public string LotId { get; set; }
+        }
+
         public static VisionInspectionRequestContext CreateManual(
             AutoVisionChannel channel,
             string finder,
@@ -238,6 +252,9 @@ namespace QMC.CDT320.VisionComm
                     lotId = wafer.CassetteLotId;
             }
 
+            if (string.IsNullOrWhiteSpace(lotId))
+                lotId = ResolveRecipeLotId(recipeId);
+
             return new VisionInspectionRequestContext(
                 channel,
                 finder,
@@ -255,6 +272,60 @@ namespace QMC.CDT320.VisionComm
                 resultTiming,
                 groupId,
                 true);
+        }
+
+        private static string ResolveRecipeLotId(string recipeId)
+        {
+            if (string.IsNullOrWhiteSpace(recipeId))
+                return string.Empty;
+
+            try
+            {
+                string normalizedRecipeId = recipeId.Trim();
+                string recipeFileName = normalizedRecipeId.EndsWith(".Project", StringComparison.OrdinalIgnoreCase)
+                    ? normalizedRecipeId
+                    : normalizedRecipeId + ".Project";
+                string recipePath = Path.Combine(RecipeStore.Dir, recipeFileName);
+                bool recipeExists = File.Exists(recipePath);
+                DateTime lastWriteTimeUtc = recipeExists ? File.GetLastWriteTimeUtc(recipePath) : DateTime.MinValue;
+                long fileLength = recipeExists ? new FileInfo(recipePath).Length : -1L;
+
+                lock (_recipeLotCacheSync)
+                {
+                    RecipeLotCacheEntry cached;
+                    if (_recipeLotCache.TryGetValue(normalizedRecipeId, out cached) &&
+                        cached.LastWriteTimeUtc == lastWriteTimeUtc &&
+                        cached.FileLength == fileLength)
+                    {
+                        return cached.LotId;
+                    }
+
+                    RecipeProject recipe = RecipeStore.Load(normalizedRecipeId);
+                    string lotId = recipe != null && !string.IsNullOrWhiteSpace(recipe.LotId)
+                        ? recipe.LotId.Trim()
+                        : string.Empty;
+                    if (recipe != null || !recipeExists)
+                    {
+                        _recipeLotCache[normalizedRecipeId] = new RecipeLotCacheEntry
+                        {
+                            LastWriteTimeUtc = lastWriteTimeUtc,
+                            FileLength = fileLength,
+                            LotId = lotId
+                        };
+                    }
+                    return lotId;
+                }
+            }
+            catch (Exception ex)
+            {
+                EventLogger.Write(
+                    EventKind.Warning,
+                    "VISION",
+                    "AUTO-VISION-RECIPE-LOT",
+                    "자동 Vision LOT ID Recipe fallback 로드 실패. recipeId=" + recipeId +
+                    ", error=" + ex.Message);
+                return string.Empty;
+            }
         }
     }
 

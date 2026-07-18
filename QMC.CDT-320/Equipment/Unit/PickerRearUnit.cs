@@ -765,6 +765,56 @@ namespace QMC.CDT320
             }
         }
 
+        public async Task<BottomVisionOffset> WaitBottomInspectionMResultAsync(int pickerNo, int timeoutMs, CancellationToken ct)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+
+                if (IsVisionBypassed())
+                    return SimulateBottomInspectionResult(pickerNo);
+                if (vision == null)
+                    return null;
+
+                return await vision.WaitBottomMResultAsync(pickerNo, timeoutMs, ct).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                Log.Write("Main", "VISION", "PickerBottomMResult",
+                    Name + " Bottom MRESULT 수신 중 예외가 발생했습니다. pickerNo=" + pickerNo + ", error=" + ex.Message + " - Failed");
+                return null;
+            }
+        }
+
+        public async Task<BottomVisionOffset> WaitBottomInspectionFinalResultAsync(int pickerNo, int timeoutMs, CancellationToken ct)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+
+                if (IsVisionBypassed())
+                    return SimulateBottomInspectionResult(pickerNo);
+                if (vision == null)
+                    return null;
+
+                return await vision.WaitBottomFinalResultAsync(pickerNo, timeoutMs, ct).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                Log.Write("Main", "VISION", "PickerBottomFinalResult",
+                    Name + " Bottom 최종 RESULT 수신 중 예외가 발생했습니다. pickerNo=" + pickerNo + ", error=" + ex.Message + " - Failed");
+                return null;
+            }
+        }
+
         public async Task<BottomVisionOffset> WaitBottomInspectionResultAsync(int pickerNo, int timeoutMs, CancellationToken ct)
         {
             try

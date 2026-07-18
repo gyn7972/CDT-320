@@ -213,16 +213,21 @@ namespace QMC.CDT320.VisionComm
             }
         }
 
-        public static async Task<InspectionResultDto> CompleteBottomInspectionAsync(
+        public static async Task<InspectionResultDto> WaitBottomMResultAsync(
             VisionRequestHandle handle,
             int timeoutMs,
             CancellationToken ct)
         {
-            VisionInspectionResult mresult = await WaitInspectionStageAsync(
-                handle,
-                VisionInspectionCommands.MResult,
-                timeoutMs,
-                ct).ConfigureAwait(false);
+            if (handle == null || handle.Request == null)
+                return null;
+
+            VisionInspectionResult mresult = handle.IsMResultDone
+                ? handle.MResult
+                : await WaitInspectionStageAsync(
+                    handle,
+                    VisionInspectionCommands.MResult,
+                    timeoutMs,
+                    ct).ConfigureAwait(false);
             if (mresult == null)
                 return null;
             if (!IsBottomMResultSuccessStatus(mresult.Status))
@@ -230,7 +235,7 @@ namespace QMC.CDT320.VisionComm
                 string statusError = "MRESULT 완료 상태가 아닙니다. status=" + (mresult.Status ?? string.Empty);
                 handle.MarkError(statusError);
                 EventLogger.Write(EventKind.Alarm, "VISION", "AUTO-VISION-BOTTOM-MRESULT",
-                    "Bottom MRESULT 상태 오류. RESULT를 조회하지 않습니다. groupId=" + handle.Request.GroupId +
+                    "Bottom MRESULT 상태 오류. groupId=" + handle.Request.GroupId +
                     ", error=" + statusError +
                     ", raw=" + (mresult.Raw ?? string.Empty));
                 return null;
@@ -242,31 +247,88 @@ namespace QMC.CDT320.VisionComm
                     "Bottom MRESULT 검증 실패. groupId=" + handle.Request.GroupId +
                     ", error=" + mresultError +
                     ", raw=" + (mresult.Raw ?? string.Empty));
+                return null;
+            }
 
-                // MRESULT reached a terminal response, so drain the final RESULT for the same group.
-                // The original MRESULT validation failure remains authoritative and is returned as failure.
-                await WaitInspectionStageAsync(
-                    handle,
-                    VisionInspectionCommands.Result,
-                    timeoutMs,
-                    ct).ConfigureAwait(false);
+            InspectionResultDto intermediate = mresult.InspectionResult;
+            if (intermediate == null)
+            {
+                string payloadError = "MRESULT 검사 데이터가 없습니다.";
+                handle.MarkError(payloadError);
+                EventLogger.Write(EventKind.Alarm, "VISION", "AUTO-VISION-BOTTOM-MRESULT",
+                    "Bottom MRESULT payload 오류. groupId=" + handle.Request.GroupId +
+                    ", error=" + payloadError +
+                    ", raw=" + (mresult.Raw ?? string.Empty));
+                return null;
+            }
+
+            intermediate.Raw = mresult.Raw ?? string.Empty;
+            intermediate.SetValue("mresult_raw", mresult.Raw ?? string.Empty);
+            return intermediate;
+        }
+
+        public static async Task<InspectionResultDto> WaitBottomFinalResultAsync(
+            VisionRequestHandle handle,
+            int timeoutMs,
+            CancellationToken ct)
+        {
+            if (handle == null || handle.Request == null || !handle.IsMResultDone || handle.MResult == null)
+            {
+                EventLogger.Write(EventKind.Alarm, "VISION", "AUTO-VISION-BOTTOM-RESULT",
+                    "Bottom 최종 RESULT 전에 동일 Handle의 MRESULT가 완료되지 않았습니다. groupId=" +
+                    (handle != null && handle.Request != null ? handle.Request.GroupId : string.Empty));
+                return null;
+            }
+
+            string mresultError;
+            if (!IsValidBottomMResult(handle.MResult, out mresultError))
+            {
                 handle.MarkError(mresultError);
                 return null;
             }
 
-            VisionInspectionResult finalResult = await WaitInspectionStageAsync(
-                handle,
-                VisionInspectionCommands.Result,
-                timeoutMs,
-                ct).ConfigureAwait(false);
+            VisionInspectionResult finalResult = handle.IsResultDone
+                ? handle.Result
+                : await WaitInspectionStageAsync(
+                    handle,
+                    VisionInspectionCommands.Result,
+                    timeoutMs,
+                    ct).ConfigureAwait(false);
             if (finalResult == null || finalResult.InspectionResult == null)
                 return null;
 
             InspectionResultDto merged = finalResult.InspectionResult;
-            MergeBottomMResultValues(merged, mresult);
-            merged.SetValue("mresult_raw", mresult.Raw ?? string.Empty);
+            MergeBottomMResultValues(merged, handle.MResult);
+            merged.SetValue("mresult_raw", handle.MResult.Raw ?? string.Empty);
             merged.SetValue("result_raw", finalResult.Raw ?? string.Empty);
             return merged;
+        }
+
+        public static async Task<InspectionResultDto> CompleteBottomInspectionAsync(
+            VisionRequestHandle handle,
+            int timeoutMs,
+            CancellationToken ct)
+        {
+            InspectionResultDto intermediate = await WaitBottomMResultAsync(
+                handle,
+                timeoutMs,
+                ct).ConfigureAwait(false);
+            if (intermediate == null)
+            {
+                // 기존 동기 호출 경로는 terminal MRESULT 이후 최종 RESULT를 배출해
+                // 같은 group_id가 Vision PC에 남지 않도록 정리한다.
+                if (handle != null && handle.IsMResultDone)
+                {
+                    await WaitInspectionStageAsync(
+                        handle,
+                        VisionInspectionCommands.Result,
+                        timeoutMs,
+                        ct).ConfigureAwait(false);
+                }
+                return null;
+            }
+
+            return await WaitBottomFinalResultAsync(handle, timeoutMs, ct).ConfigureAwait(false);
         }
 
         public static async Task<MatchResultDto> RunSyncMatchAsync(
