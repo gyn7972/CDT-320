@@ -31,6 +31,9 @@ namespace QMC.CDT320
     /// </summary>
     public class MachineController
     {
+        private const int InitializeAxisStopWaitTimeoutMs = 5000;
+        private const int InitializeAxisStopPollIntervalMs = 20;
+
         private readonly CDT320_Machine _machine;
         private EquipmentStatus _status = EquipmentStatus.Idle;
         private CancellationTokenSource _cycleCts;
@@ -2526,6 +2529,55 @@ namespace QMC.CDT320
                     return -1;
                 }
 
+                AxisInitializePlan plan = AxisInitializePlanStore.LoadOrCreateDefault(EnumerateAxes());
+                string planStepReason;
+                AxisInitializeStep planStep = ResolveSingleEnabledInitializeStepForAxis(
+                    plan,
+                    axis.Name,
+                    out planStepReason);
+                if (planStep == null)
+                {
+                    LastActionFailureMessage = planStepReason;
+                    QMC.Common.Log.Write("Main", "SYSTEM", "InitializeAxis",
+                        LastActionFailureMessage + " - Failed");
+                    AlarmManager.Raise(
+                        AlarmSeverity.Error,
+                        "INIT-AXIS-PLAN-" + axis.Name,
+                        "MachineController",
+                        LastActionFailureMessage);
+                    return -1;
+                }
+
+                if (_axisInitializeInterlocks == null)
+                {
+                    LastActionFailureMessage = "개별축 HOME 차단: 초기화 계획 인터락 서비스를 찾을 수 없습니다. axis=" +
+                        axis.Name + ", step=" + planStep.StepNo + ", group=" + planStep.GroupName;
+                    QMC.Common.Log.Write("Main", "SYSTEM", "InitializeAxis",
+                        LastActionFailureMessage + " - Failed");
+                    AlarmManager.Raise(
+                        AlarmSeverity.Error,
+                        "INIT-AXIS-INTERLOCK-SERVICE-" + axis.Name,
+                        "MachineController",
+                        LastActionFailureMessage);
+                    return -1;
+                }
+
+                string interlockReason;
+                if (!_axisInitializeInterlocks.VerifyStep(planStep, out interlockReason))
+                {
+                    LastActionFailureMessage = "개별축 HOME 초기화 계획 인터락 실패. axis=" + axis.Name +
+                        ", step=" + planStep.StepNo + ", group=" + planStep.GroupName +
+                        ", detail=" + interlockReason;
+                    QMC.Common.Log.Write("Main", "SYSTEM", "InitializeAxis",
+                        LastActionFailureMessage + " - Failed");
+                    return -1;
+                }
+
+                QMC.Common.Log.Write("Main", "SYSTEM", "InitializeAxis",
+                    "Single axis initialize plan interlock verified. axis=" + axis.Name +
+                    ", step=" + planStep.StepNo + ", group=" + planStep.GroupName +
+                    ", preActions=Skipped, postActions=Skipped - Ok");
+
                 SetMachineInitialized(false, "InitializeAxisStart:" + axis.Name, false);
                 SetStatus(EquipmentStatus.Initializing);
                 int result = await InitializeAxisCoreAsync(axis).ConfigureAwait(false);
@@ -2859,17 +2911,23 @@ namespace QMC.CDT320
                 QMC.Common.Log.Write("Main", "SYSTEM", "InitializeAxisCore",
                     "Axis initialize requested. axis=" + axis.Name + " - Start");
 
-                try
+                string homeInterlockReason;
+                if (!MotionGuardRuntime.VerifyAxisHome(axis, out homeInterlockReason))
                 {
-                    var stopAxes = _axisInterferenceMap.ResolveInterferenceAxes(axis.Name);
-                    await StopAxesAsync(stopAxes, false).ConfigureAwait(false);
-                }
-                catch (Exception stopEx)
-                {
+                    LastActionFailureMessage = "축 HOME 사전 MotionGuard 인터락 실패. axis=" + axis.Name +
+                        ", reason=" + homeInterlockReason;
                     QMC.Common.Log.Write("Main", "SYSTEM", "InitializeAxisCore",
-                        "Axis interference stop failed before initialize. axis=" + axis.Name +
-                        ", error=" + stopEx.Message + " - Failed");
+                        LastActionFailureMessage + " - Failed");
+                    return -11;
                 }
+
+                var stopAxes = _axisInterferenceMap.ResolveInterferenceAxes(axis.Name);
+                int stopResult = await StopAxesAndWaitUntilStoppedAsync(
+                    stopAxes,
+                    false,
+                    "HOME 전 간섭축 정지. axis=" + axis.Name).ConfigureAwait(false);
+                if (stopResult != 0)
+                    return stopResult;
 
                 if (isPickerYHome)
                 {
@@ -4542,7 +4600,12 @@ namespace QMC.CDT320
                     return -1;
                 }
 
-                await StopInitializeInterlockGroupAsync(step).ConfigureAwait(false);
+                int stopInterlockGroupResult = await StopInitializeInterlockGroupAsync(step).ConfigureAwait(false);
+                if (stopInterlockGroupResult != 0)
+                {
+                    RaiseAxisInitializeStepProgress(step, AxisInitializeStepStatus.Failed, LastActionFailureMessage);
+                    return stopInterlockGroupResult;
+                }
 
                 int preActionResult = await ExecuteInitializeActionsAsync(step, step.PreActions, "PreActions").ConfigureAwait(false);
                 if (preActionResult != 0)
@@ -5924,18 +5987,132 @@ namespace QMC.CDT320
                     ", interlockGroup=" + step.InterlockGroup +
                     ", axes=" + string.Join(",", axes.ToArray()) + " - Start");
 
-                return await StopAxesAsync(axes, false).ConfigureAwait(false);
+                return await StopAxesAndWaitUntilStoppedAsync(
+                    axes,
+                    false,
+                    "초기화 Step 간섭 그룹 정지. step=" + step.StepNo +
+                    ", group=" + step.GroupName +
+                    ", interlockGroup=" + step.InterlockGroup).ConfigureAwait(false);
             }
             catch (Exception ex)
             {
+                LastActionFailureMessage = "초기화 Step 간섭 그룹 정지 실패. step=" +
+                    (step != null ? step.StepNo : 0) + ", group=" +
+                    (step != null ? step.GroupName : "-") + ", error=" + ex.Message;
                 QMC.Common.Log.Write("Main", "SYSTEM", "StopInitializeInterlockGroup",
-                    "Initialize interlock group stop failed. step=" + (step != null ? step.StepNo : 0) +
-                    ", error=" + ex.Message + " - Failed");
+                    LastActionFailureMessage + " - Failed");
                 return -1;
             }
             finally
             {
             }
+        }
+
+        private async Task<int> StopAxesAndWaitUntilStoppedAsync(
+            IEnumerable<string> axisNames,
+            bool emergencyStop,
+            string context)
+        {
+            try
+            {
+                var names = (axisNames ?? Enumerable.Empty<string>())
+                    .Where(x => !string.IsNullOrWhiteSpace(x))
+                    .Select(x => x.Trim())
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .ToList();
+                if (names.Count == 0)
+                    return 0;
+
+                int stopResult = await StopAxesAsync(names, emergencyStop).ConfigureAwait(false);
+                if (stopResult != 0)
+                    return FailInitializeAxisStop(
+                        context,
+                        "Stop 요청 실패. axes=" + string.Join(",", names.ToArray()) +
+                        ", result=" + stopResult);
+
+                var axes = new List<BaseAxis>();
+                foreach (string name in names)
+                {
+                    BaseAxis axis = FindAxisByName(name);
+                    if (axis == null)
+                        return FailInitializeAxisStop(context, "정지 확인 축을 찾을 수 없습니다. axis=" + name);
+                    axes.Add(axis);
+                }
+
+                var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+                while (true)
+                {
+                    var movingStates = new List<string>();
+                    foreach (BaseAxis axis in axes)
+                    {
+                        try
+                        {
+                            axis.UpdateStatus();
+                        }
+                        catch (Exception statusEx)
+                        {
+                            return FailInitializeAxisStop(
+                                context,
+                                "정지 상태 갱신 실패. axis=" + axis.Name + ", error=" + statusEx.Message);
+                        }
+
+                        if (axis.IsMoving)
+                            movingStates.Add(BuildInitializeAxisStopState(axis));
+                    }
+
+                    if (movingStates.Count == 0)
+                    {
+                        QMC.Common.Log.Write("Main", "SYSTEM", "InitializeAxisStop",
+                            "Axis stop verified. context=" + context +
+                            ", axes=" + string.Join(",", names.ToArray()) +
+                            ", elapsedMs=" + stopwatch.ElapsedMilliseconds + " - Ok");
+                        return 0;
+                    }
+
+                    if (stopwatch.ElapsedMilliseconds >= InitializeAxisStopWaitTimeoutMs)
+                    {
+                        return FailInitializeAxisStop(
+                            context,
+                            "Stop 후 정지 확인 시간 초과. timeoutMs=" + InitializeAxisStopWaitTimeoutMs +
+                            ", movingAxes=" + string.Join(" | ", movingStates.ToArray()));
+                    }
+
+                    await Task.Delay(InitializeAxisStopPollIntervalMs).ConfigureAwait(false);
+                }
+            }
+            catch (Exception ex)
+            {
+                return FailInitializeAxisStop(context, "Stop 및 정지 확인 중 예외. error=" + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private int FailInitializeAxisStop(string context, string detail)
+        {
+            LastActionFailureMessage = "축 초기화 정지 확인 실패. context=" + context + ", detail=" + detail;
+            QMC.Common.Log.Write("Main", "SYSTEM", "InitializeAxisStop",
+                LastActionFailureMessage + " - Failed");
+            AlarmManager.Raise(
+                AlarmSeverity.Error,
+                "INIT-AXIS-STOP",
+                "MachineController",
+                LastActionFailureMessage);
+            return -1;
+        }
+
+        private static string BuildInitializeAxisStopState(BaseAxis axis)
+        {
+            if (axis == null)
+                return "axis=null";
+
+            return "axis=" + axis.Name +
+                ", moving=" + axis.IsMoving +
+                ", servo=" + (axis.IsServoOn ? "ON" : "OFF") +
+                ", alarm=" + (axis.IsAlarm ? "ON" : "OFF") +
+                ", actual=" + axis.ActualPosition.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture) +
+                ", command=" + axis.CommandPosition.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture);
         }
 
         private bool HasEnabledInitializeActions(AxisInitializeStep step)
@@ -6547,6 +6724,59 @@ namespace QMC.CDT320
             catch
             {
                 return new List<AxisInitializeStep>();
+            }
+            finally
+            {
+            }
+        }
+
+        private AxisInitializeStep ResolveSingleEnabledInitializeStepForAxis(
+            AxisInitializePlan plan,
+            string axisName,
+            out string reason)
+        {
+            reason = "";
+            try
+            {
+                if (plan == null || plan.Steps == null)
+                {
+                    reason = "개별축 HOME 차단: 활성 초기화 계획 정보가 없습니다. axis=" + axisName;
+                    return null;
+                }
+
+                string requestedCanonicalName = AjinAxisDefaults.ResolveName(axisName ?? "");
+                List<AxisInitializeStep> matches = plan.Steps
+                    .Where(step => step != null && step.Enabled && step.AxisNames != null &&
+                        step.AxisNames.Any(candidate =>
+                            !string.IsNullOrWhiteSpace(candidate) &&
+                            string.Equals(
+                                AjinAxisDefaults.ResolveName(candidate.Trim()),
+                                requestedCanonicalName,
+                                StringComparison.OrdinalIgnoreCase)))
+                    .OrderBy(step => step.StepNo)
+                    .ToList();
+
+                if (matches.Count == 1)
+                    return matches[0];
+
+                if (matches.Count == 0)
+                {
+                    reason = "개별축 HOME 차단: 활성 초기화 계획에서 선택 축이 포함된 Step을 찾을 수 없습니다. axis=" +
+                        axisName + ", planVersion=" + plan.Version;
+                    return null;
+                }
+
+                reason = "개별축 HOME 차단: 선택 축이 둘 이상의 활성 초기화 Step에 중복 등록되어 있습니다. axis=" +
+                    axisName + ", steps=" + string.Join(",", matches
+                        .Select(step => step.StepNo + ":" + (step.GroupName ?? "-"))
+                        .ToArray());
+                return null;
+            }
+            catch (Exception ex)
+            {
+                reason = "개별축 HOME 차단: 활성 초기화 Step 확인 중 예외가 발생했습니다. axis=" +
+                    axisName + ", error=" + ex.Message;
+                return null;
             }
             finally
             {

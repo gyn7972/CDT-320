@@ -264,7 +264,7 @@ namespace QMC.CDT_320.Ui.Controls
             Stopwatch totalTact = Stopwatch.StartNew();
             try
             {
-                bool epdReceived = await AutoVisionRequestService.StartMatchAsync(
+                bool epdReceived = await AutoVisionRequestService.StaMatchAsync(
                     AutoVisionChannel.Wafer,
                     finder,
                     0,
