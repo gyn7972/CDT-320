@@ -89,7 +89,55 @@ namespace QMC.CDT320.Sequencing
             {
                 ReleasePreInspectionInputStageArea();
                 if (!_completedSuccessfully)
+                {
+                    await DrainOutstandingWaferResultsAfterFailureAsync(ct).ConfigureAwait(false);
                     ReleasePreparedReservationsIfNeeded();
+                }
+            }
+        }
+
+        private async Task DrainOutstandingWaferResultsAfterFailureAsync(CancellationToken ct)
+        {
+            for (int i = 0; i < _preparedItems.Count; i++)
+            {
+                InputDieVisionPreparedItem item = _preparedItems[i];
+                VisionRequestHandle handle = item != null ? item.VisionRequest : null;
+                if (handle == null || handle.IsResultDone || !string.IsNullOrWhiteSpace(handle.Error))
+                    continue;
+
+                if (ct.IsCancellationRequested)
+                {
+                    handle.MarkError("Input die vision 준비 취소로 RESULT를 회수하지 못했습니다.");
+                    continue;
+                }
+
+                try
+                {
+                    VisionInspectionResult result = await AutoVisionRequestService.WaitInspectionStageAsync(
+                        handle,
+                        VisionInspectionCommands.Result,
+                        InputVisionTimeoutMs,
+                        ct).ConfigureAwait(false);
+                    if (result == null && string.IsNullOrWhiteSpace(handle.Error))
+                        handle.MarkError("Input die vision 실패 정리 중 RESULT를 회수하지 못했습니다.");
+                    WriteLog("InputDieVisionPrepareSequence",
+                        Name + " 실패 전 EPD 완료 WAFER RESULT 정리. die=" + (item.DieId ?? string.Empty) +
+                        ", pickerNo=" + item.PickerNo +
+                        ", groupId=" + handle.Request.GroupId +
+                        ", received=" + (result != null) + " - Check");
+                }
+                catch (OperationCanceledException)
+                {
+                    handle.MarkError("Input die vision 실패 정리 중 취소되었습니다.");
+                    break;
+                }
+                catch (Exception ex)
+                {
+                    handle.MarkError("Input die vision 실패 정리 예외. " + ex.Message);
+                    WriteLog("InputDieVisionPrepareSequence",
+                        Name + " 실패 전 WAFER RESULT 정리 예외. groupId=" + handle.Request.GroupId +
+                        ", error=" + ex.Message + " - Check");
+                }
             }
         }
 
@@ -524,14 +572,40 @@ namespace QMC.CDT320.Sequencing
                 }
                 else
                 {
+                    string materialReason;
+                    if (!MaterialStateService.ValidateInputStagePickTarget(
+                        _currentDieId,
+                        PickerLocationKind,
+                        _currentPickerNo,
+                        out materialReason))
+                    {
+                        return Fail("INPUT-DIE-VISION-PREPARE-CONTEXT-CHANGED", "Material",
+                            "Vision 요청 직전 Input die 자재 문맥이 변경되었습니다. 전송을 차단합니다. die=" + _currentDieId +
+                            ", pickerNo=" + _currentPickerNo +
+                            ", reason=" + materialReason);
+                    }
+
                     string finder = VisionAlignTargetIds.ResolveWaferFinder(VisionAlignTargetIds.InputPickDie);
-                    bool exposureCompleted = await AutoVisionRequestService.StartMatchAsync(
+                    int fb = Side == PickerSequenceSide.Front ? 0 : 1;
+                    VisionInspectionRequestContext requestContext = VisionInspectionContextFactory.CreateAuto(
                         AutoVisionChannel.Wafer,
                         finder,
+                        fb,
+                        _currentPickerNo,
                         requestIndex,
+                        _pickTarget.DieMapX,
+                        _pickTarget.DieMapY,
+                        0,
+                        _currentDieId,
+                        _pickTarget.WaferId,
+                        VisionInspectionOperations.Match,
+                        VisionResultTimings.Deferred,
+                        string.Empty);
+                    VisionRequestHandle requestHandle = await AutoVisionRequestService.StartInspectionRequestAsync(
+                        requestContext,
                         InputVisionTimeoutMs,
                         ct).ConfigureAwait(false);
-                    if (!exposureCompleted)
+                    if (requestHandle == null)
                     {
                         return Fail("INPUT-DIE-VISION-PREPARE-EPD", "Vision",
                             "Input die vision 촬영 EPD를 받지 못했습니다. 다음 위치 이동을 차단합니다. die=" + _currentDieId +
@@ -539,6 +613,7 @@ namespace QMC.CDT320.Sequencing
                             ", requestIndex=" + requestIndex);
                     }
 
+                    _currentItem.VisionRequest = requestHandle;
                     _currentItem.ExposureCompleted = true;
                 }
 
@@ -590,13 +665,12 @@ namespace QMC.CDT320.Sequencing
 
                     if (_currentItem.VisionOffset == null)
                     {
-                        string finder = VisionAlignTargetIds.ResolveWaferFinder(VisionAlignTargetIds.InputPickDie);
-                        MatchResultDto match = await AutoVisionRequestService.WaitMatchResultAsync(
-                            AutoVisionChannel.Wafer,
-                            finder,
-                            _currentItem.VisionRequestIndex,
+                        VisionInspectionResult correlatedResult = await AutoVisionRequestService.WaitInspectionStageAsync(
+                            _currentItem.VisionRequest,
+                            VisionInspectionCommands.Result,
                             InputVisionTimeoutMs,
                             ct).ConfigureAwait(false);
+                        MatchResultDto match = correlatedResult != null ? correlatedResult.MatchResult : null;
 
                         _visionOffset = VisionCameraCalibrationTransform.ToAlignResult(
                             AutoVisionChannel.Wafer,

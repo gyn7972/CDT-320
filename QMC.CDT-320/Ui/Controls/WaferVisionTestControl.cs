@@ -152,7 +152,7 @@ namespace QMC.CDT_320.Ui.Controls
             SetVisionCommandButtonsEnabled(false);
             label.ForeColor = Color.DimGray;
             string finder = VisionAlignTargetIds.ResolveWaferFinder(targetId);
-            label.Text = "MATCHASYNC 요청/EPD 대기 중...";
+            label.Text = "INSPECT_SYNC 요청/EPD 대기 중...";
             Stopwatch matchTact = Stopwatch.StartNew();
             try
             {
@@ -163,19 +163,38 @@ namespace QMC.CDT_320.Ui.Controls
                     5000,
                     CancellationToken.None).ConfigureAwait(true);
 
-                matchTact.Stop();
                 long epdElapsedMilliseconds = matchTact.ElapsedMilliseconds;
-                label.ForeColor = epdReceived ? Color.SeaGreen : Color.Firebrick;
-                label.Text = epdReceived
-                    ? "REQ→EPD " + epdElapsedMilliseconds + " ms" + Environment.NewLine + "EPD 수신 완료 (단독 테스트)"
-                    : "REQ→EPD " + epdElapsedMilliseconds + " ms" + Environment.NewLine + "실패 또는 EPD 타임아웃";
+                if (!epdReceived)
+                {
+                    matchTact.Stop();
+                    label.ForeColor = Color.Firebrick;
+                    label.Text = "REQ→EPD " + epdElapsedMilliseconds + " ms" + Environment.NewLine +
+                                 "실패 또는 EPD 타임아웃";
+                    return;
+                }
+
+                Stopwatch resultTact = Stopwatch.StartNew();
+                MatchResultDto result = await AutoVisionRequestService.WaitMatchResultAsync(
+                    AutoVisionChannel.Wafer,
+                    finder,
+                    0,
+                    5000,
+                    CancellationToken.None).ConfigureAwait(true);
+                resultTact.Stop();
+                matchTact.Stop();
+                bool completed = result != null && result.Success;
+                label.ForeColor = completed ? Color.SeaGreen : Color.Firebrick;
+                label.Text = "REQ→EPD " + epdElapsedMilliseconds + " ms" + Environment.NewLine +
+                             "EPD→RESULT " + resultTact.ElapsedMilliseconds + " ms" + Environment.NewLine +
+                             "전체 " + matchTact.ElapsedMilliseconds + " ms | " +
+                             (completed ? "DONE" : "RESULT 실패");
             }
             catch (Exception ex)
             {
                 matchTact.Stop();
                 label.ForeColor = Color.Firebrick;
                 label.Text = "REQ→EPD " + matchTact.ElapsedMilliseconds + " ms" + Environment.NewLine +
-                             "MATCHASYNC 실패: " + ex.Message;
+                             "INSPECT_SYNC 실패: " + ex.Message;
             }
             finally
             {
@@ -190,7 +209,7 @@ namespace QMC.CDT_320.Ui.Controls
 
             SetVisionCommandButtonsEnabled(false);
             label.ForeColor = Color.DimGray;
-            label.Text = "MATCHASYNC 요청/EPD 대기 중...";
+            label.Text = "INSPECT_SYNC 요청/EPD 대기 중...";
             string finder = VisionAlignTargetIds.ResolveWaferFinder(targetId);
             Stopwatch totalTact = Stopwatch.StartNew();
             try
@@ -209,12 +228,12 @@ namespace QMC.CDT_320.Ui.Controls
                     label.ForeColor = Color.Firebrick;
                     label.Text = "REQ→EPD " + epdElapsedMilliseconds + " ms" + Environment.NewLine +
                                  "전체 " + totalTact.ElapsedMilliseconds + " ms" + Environment.NewLine +
-                                 "MATCHASYNC 실패 또는 EPD 타임아웃";
+                                 "INSPECT_SYNC 실패 또는 EPD 타임아웃";
                     return;
                 }
 
                 label.Text = "REQ→EPD " + epdElapsedMilliseconds + " ms" + Environment.NewLine +
-                             "MATCHRESULT 최종 결과 대기 중...";
+                             "RESULT 최종 결과 대기 중...";
                 Stopwatch resultTact = Stopwatch.StartNew();
                 MatchResultDto result = await AutoVisionRequestService.WaitMatchResultAsync(
                     AutoVisionChannel.Wafer,
@@ -253,14 +272,14 @@ namespace QMC.CDT_320.Ui.Controls
                 label.Text = "REQ→EPD " + epdElapsedMilliseconds + " ms" + Environment.NewLine +
                              "EPD→RESULT " + resultTact.ElapsedMilliseconds + " ms" + Environment.NewLine +
                              "전체 " + totalTact.ElapsedMilliseconds + " ms | DONE score=" + result.Score.ToString("F3");
-                LogLiveAutoStartBlocked("ALIGN MATCHASYNC + RESULT 완료 후 자동 Live 시작 차단");
+                LogLiveAutoStartBlocked("ALIGN INSPECT_SYNC + RESULT 완료 후 자동 Live 시작 차단");
             }
             catch (Exception ex)
             {
                 totalTact.Stop();
                 label.ForeColor = Color.Firebrick;
                 label.Text = "전체 " + totalTact.ElapsedMilliseconds + " ms" + Environment.NewLine +
-                             "MATCHASYNC + RESULT 실패: " + ex.Message;
+                             "INSPECT_SYNC + RESULT 실패: " + ex.Message;
             }
             finally
             {
@@ -276,7 +295,7 @@ namespace QMC.CDT_320.Ui.Controls
 
             SetVisionCommandButtonsEnabled(false);
             label.ForeColor = Color.DimGray;
-            label.Text = "MATCHASYNC 요청/EPD 대기 중...";
+            label.Text = "INSPECT_SYNC 요청/EPD 대기 중...";
             string finder = VisionAlignTargetIds.ResolveWaferFinder(targetId);
             Stopwatch totalTact = Stopwatch.StartNew();
             try
@@ -295,12 +314,12 @@ namespace QMC.CDT_320.Ui.Controls
                     label.ForeColor = Color.Firebrick;
                     label.Text = "REQ→EPD " + epdElapsedMilliseconds + " ms" + Environment.NewLine +
                                  "전체 " + totalTact.ElapsedMilliseconds + " ms" + Environment.NewLine +
-                                 "MATCHASYNC 실패 또는 EPD 타임아웃";
+                                 "INSPECT_SYNC 실패 또는 EPD 타임아웃";
                     return;
                 }
 
                 label.Text = "REQ→EPD " + epdElapsedMilliseconds + " ms" + Environment.NewLine +
-                             "MATCHRESULT 최종 결과 대기 중...";
+                             "RESULT 최종 결과 대기 중...";
                 Stopwatch resultTact = Stopwatch.StartNew();
                 MatchResultDto result = await AutoVisionRequestService.WaitMatchResultAsync(
                     AutoVisionChannel.Wafer,
@@ -334,7 +353,7 @@ namespace QMC.CDT_320.Ui.Controls
                 totalTact.Stop();
                 label.ForeColor = Color.Firebrick;
                 label.Text = "전체 " + totalTact.ElapsedMilliseconds + " ms" + Environment.NewLine +
-                             "MATCHASYNC + RESULT 실패: " + ex.Message;
+                             "INSPECT_SYNC + RESULT 실패: " + ex.Message;
             }
             finally
             {

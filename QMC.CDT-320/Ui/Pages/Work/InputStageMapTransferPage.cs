@@ -2944,20 +2944,6 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     ", index=" + ManualInputDieDetectVisionIndex +
                     ", timeoutMs=" + ManualInputDieDetectVisionTimeoutMs + " - Start");
 
-                bool grabbed = await QMC.CDT320.VisionComm.AutoVisionRequestService.GrabAsync(
-                    QMC.CDT320.VisionComm.AutoVisionChannel.Wafer,
-                    ManualInputDieDetectVisionIndex,
-                    ManualInputDieDetectVisionTimeoutMs,
-                    System.Threading.CancellationToken.None).ConfigureAwait(true);
-                if (!grabbed)
-                {
-                    QMC.Common.Log.Write("Main", "SYSTEM", "InputStageMapTransferPage",
-                        "Manual input die detect Vision GRAB failed. channel=Wafer" +
-                        ", finder=" + ManualInputDieDetectFinderName +
-                        ", index=" + ManualInputDieDetectVisionIndex + " - Failed");
-                    return null;
-                }
-
                 QMC.CDT320.VisionComm.MatchResultDto match = await QMC.CDT320.VisionComm.AutoVisionRequestService.MatchAsync(
                     QMC.CDT320.VisionComm.AutoVisionChannel.Wafer,
                     ManualInputDieDetectFinderName,

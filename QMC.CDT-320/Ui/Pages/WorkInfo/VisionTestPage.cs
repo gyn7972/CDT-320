@@ -117,8 +117,17 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             _lblMatchResult.Text = $"{name} MATCH({finder}) 중...";
             try
             {
-                MatchResultDto r = await c.MatchAsync(finder);
-                if (r.Success)
+                AutoVisionChannel channel;
+                if (!VisionModuleNames.TryResolveByModule(c.ModuleName, out channel) || channel == AutoVisionChannel.Main)
+                    throw new InvalidOperationException("신규 검사 규약을 지원하는 Vision 카메라 채널이 아닙니다.");
+
+                MatchResultDto r = await AutoVisionRequestService.MatchAsync(
+                    channel,
+                    finder,
+                    0,
+                    30000,
+                    System.Threading.CancellationToken.None);
+                if (r != null && r.Success)
                 {
                     _lblMatchResult.ForeColor = System.Drawing.Color.SeaGreen;
                     _lblMatchResult.Text = $"{c.ModuleName} MATCH OK  x={r.X:F2}  y={r.Y:F2}  θ={r.AngleDeg:F3}  score={r.Score:F3}";
@@ -126,7 +135,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 else
                 {
                     _lblMatchResult.ForeColor = System.Drawing.Color.Firebrick;
-                    _lblMatchResult.Text = $"{c.ModuleName} MATCH 실패: {(string.IsNullOrEmpty(r.RawError) ? "no match" : r.RawError)}";
+                    _lblMatchResult.Text = $"{c.ModuleName} MATCH 실패: {(r == null || string.IsNullOrEmpty(r.RawError) ? "no response" : r.RawError)}";
                 }
             }
             catch (Exception ex)
@@ -166,9 +175,17 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             _lblInspectResult.Text = $"{name} INSPECT({inspector}) 중...";
             try
             {
-                InspectionResultDto r = await c.InspectAsync(inspector);
-                bool acked = r.Raw != null && r.Raw.StartsWith("ACK|");
-                if (acked)
+                AutoVisionChannel channel;
+                if (!VisionModuleNames.TryResolveByModule(c.ModuleName, out channel) || channel == AutoVisionChannel.Main)
+                    throw new InvalidOperationException("신규 검사 규약을 지원하는 Vision 카메라 채널이 아닙니다.");
+
+                InspectionResultDto r = await AutoVisionRequestService.InspectAsync(
+                    channel,
+                    inspector,
+                    0,
+                    30000,
+                    System.Threading.CancellationToken.None);
+                if (r != null)
                 {
                     _lblInspectResult.ForeColor = r.IsPass ? System.Drawing.Color.SeaGreen : System.Drawing.Color.Firebrick;
                     _lblInspectResult.Text = $"{c.ModuleName} INSPECT: {(r.IsPass ? "PASS" : "FAIL")}   ({r.Raw})";
@@ -176,7 +193,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 else
                 {
                     _lblInspectResult.ForeColor = System.Drawing.Color.Firebrick;
-                    _lblInspectResult.Text = $"{c.ModuleName} INSPECT 실패: {r.Raw}";
+                    _lblInspectResult.Text = $"{c.ModuleName} INSPECT 실패: no response";
                 }
             }
             catch (Exception ex)

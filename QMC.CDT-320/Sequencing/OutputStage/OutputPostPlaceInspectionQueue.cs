@@ -1,5 +1,6 @@
-using System;
+﻿using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using QMC.CDT320.Interlocks;
@@ -26,6 +27,10 @@ namespace QMC.CDT320.Sequencing
 
         public int PickerNo { get; set; }
 
+        public PickerSequenceSide PickerSide { get; set; }
+
+        public bool HasPickerContext { get; set; }
+
         public double PlacedStageY { get; set; }
 
         public double PlacedPickerY { get; set; }
@@ -39,6 +44,10 @@ namespace QMC.CDT320.Sequencing
         public string Owner { get; set; } = "";
 
         public bool SkipInspection { get; set; }
+
+        public VisionRequestHandle VisionRequest { get; set; }
+
+        public InspectionResultDto InspectionResult { get; set; }
     }
 
     internal sealed class OutputPostPlaceInspectionQueue
@@ -310,21 +319,30 @@ namespace QMC.CDT320.Sequencing
                     return existing;
                 }
 
+                string batchOwner = string.IsNullOrWhiteSpace(owner) ? "MaterialPendingRestore" : owner;
                 int restored = 0;
-                restored += EnqueuePendingMaterialInspectionsForSide(
-                    BinSide.Good,
-                    MaterialLocationKind.OutputStageGood,
-                    owner,
-                    fineMove,
-                    moveTimeoutMs,
-                    ct);
-                restored += EnqueuePendingMaterialInspectionsForSide(
-                    BinSide.Ng,
-                    MaterialLocationKind.OutputStageNg,
-                    owner,
-                    fineMove,
-                    moveTimeoutMs,
-                    ct);
+                BeginBatch(batchOwner);
+                try
+                {
+                    restored += EnqueuePendingMaterialInspectionsForSide(
+                        BinSide.Good,
+                        MaterialLocationKind.OutputStageGood,
+                        owner,
+                        fineMove,
+                        moveTimeoutMs,
+                        ct);
+                    restored += EnqueuePendingMaterialInspectionsForSide(
+                        BinSide.Ng,
+                        MaterialLocationKind.OutputStageNg,
+                        owner,
+                        fineMove,
+                        moveTimeoutMs,
+                        ct);
+                }
+                finally
+                {
+                    EndBatch(batchOwner);
+                }
 
                 if (restored > 0)
                 {
@@ -370,15 +388,29 @@ namespace QMC.CDT320.Sequencing
                 if (string.IsNullOrWhiteSpace(slot.DieUid))
                     continue;
 
+                DieMaterial die = MaterialStateService.GetDieMaterial(slot.DieUid);
+                bool hasPickerContext = die != null &&
+                    die.PickedPickerNo >= 1 && die.PickedPickerNo <= 4 &&
+                    (die.PickedPickerLocation == MaterialLocationKind.PickerFront ||
+                     die.PickedPickerLocation == MaterialLocationKind.PickerRear);
+                PickerSequenceSide pickerSide = die != null &&
+                    die.PickedPickerLocation == MaterialLocationKind.PickerRear
+                    ? PickerSequenceSide.Rear
+                    : PickerSequenceSide.Front;
+
                 int result = Enqueue(
                     new OutputPostPlaceInspectionRequest
                     {
                         DieId = slot.DieUid,
                         OutputSide = side,
+                        PickerNo = die != null ? die.PickedPickerNo : -1,
+                        PickerSide = pickerSide,
+                        HasPickerContext = hasPickerContext,
                         ReceiveTarget = new OutputStageReceiveTarget
                         {
                             StageLocation = stageLocation,
                             OutputWaferId = wafer.WaferId,
+                            SourceWaferId = wafer.OutputReceiveSourceWaferId,
                             OrderIndex = slot.OrderIndex,
                             DieMapX = slot.DieMapX,
                             DieMapY = slot.DieMapY,
@@ -507,6 +539,7 @@ namespace QMC.CDT320.Sequencing
         {
             SequenceResourceLease placeLease = null;
             AutoSequenceCameraWorkZoneLease cameraWorkLease = null;
+            var capturedRequests = new List<OutputPostPlaceInspectionRequest>();
             OutputPostPlaceInspectionRequest lastRequest = null;
             bool shouldMoveVisionAvoid = false;
             int inspectedCount = 0;
@@ -564,33 +597,32 @@ namespace QMC.CDT320.Sequencing
                 OutputPostPlaceInspectionRequest request = firstRequest;
                 while (request != null)
                 {
+                    capturedRequests.Add(request);
                     if (IsStopOrAlarmActive())
                     {
-                        CompleteRequest(request);
-                        if (object.ReferenceEquals(request, firstRequest))
-                            firstRequestCompleted = true;
                         DrainQueuedRequests("활성 알람 상태라 Output camera 후검사 묶음을 정리합니다.");
                         return StopRequestedResult;
                     }
                     lastRequest = request;
-                    int result = -1;
-                    try
-                    {
-                        result = await InspectPlacedDieAsync(stage, request, ct).ConfigureAwait(false);
-                    }
-                    finally
-                    {
-                        CompleteRequest(request);
-                        if (object.ReferenceEquals(request, firstRequest))
-                            firstRequestCompleted = true;
-                    }
+                    int result = await CapturePlacedDieAsync(stage, request, ct).ConfigureAwait(false);
                     if (result != 0)
+                    {
+                        await DrainCapturedBinResultsAfterFailureAsync(
+                            capturedRequests,
+                            ct,
+                            "BIN capture failure. result=" + result).ConfigureAwait(false);
                         return result;
+                    }
                     shouldMoveVisionAvoid = true;
                     inspectedCount++;
                     OutputPostPlaceInspectionRequest next;
                     request = _queue.TryDequeue(out next) ? next : null;
                 }
+
+                int collectResult = await CollectPlacedDieResultsAsync(capturedRequests, ct).ConfigureAwait(false);
+                if (collectResult != 0)
+                    return collectResult;
+
                 if (shouldMoveVisionAvoid && lastRequest != null)
                 {
                     if (IsStopOrAlarmActive())
@@ -610,25 +642,28 @@ namespace QMC.CDT320.Sequencing
             }
             catch (OperationCanceledException)
             {
-                if (!firstRequestCompleted && firstRequest != null)
-                    CompleteRequest(firstRequest);
                 throw;
             }
             catch (SequenceStopException)
             {
-                if (!firstRequestCompleted && firstRequest != null)
-                    CompleteRequest(firstRequest);
                 return StopRequestedResult;
             }
             catch (Exception ex)
             {
-                if (!firstRequestCompleted && firstRequest != null)
-                    CompleteRequest(firstRequest);
                 return RaiseFailure("OUT-POST-INSPECT-BATCH-EX", "OutputPostPlaceInspection",
                     "Output camera 후검사 묶음 처리 중 예외가 발생했습니다. error=" + ex.Message);
             }
             finally
             {
+                for (int i = 0; i < capturedRequests.Count; i++)
+                {
+                    OutputPostPlaceInspectionRequest captured = capturedRequests[i];
+                    CompleteRequest(captured);
+                    if (object.ReferenceEquals(captured, firstRequest))
+                        firstRequestCompleted = true;
+                }
+                if (!firstRequestCompleted && firstRequest != null)
+                    CompleteRequest(firstRequest);
                 if (placeLease != null)
                     placeLease.Dispose();
                 if (cameraWorkLease != null)
@@ -636,7 +671,7 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
-        private async Task<int> InspectPlacedDieAsync(
+        private async Task<int> CapturePlacedDieAsync(
             OutputStageUnit stage,
             OutputPostPlaceInspectionRequest request,
             CancellationToken ct)
@@ -764,35 +799,48 @@ namespace QMC.CDT320.Sequencing
                     return result;
                 if (IsStopOrAlarmActive())
                     return StopRequestedResult;
-                int slotIndex = request.ReceiveTarget.OrderIndex;
-                InspectionResultDto inspection = await SequenceAwaiter.AwaitAsync(
-                    BinVisionHelper.CheckPlacementAsync(slotIndex, timeout, ct),
-                    null,
-                    ct).ConfigureAwait(false);
-                bool inspectionOk = inspection != null && inspection.IsPass;
-                VisionOffset offset = new VisionOffset
+                if (!request.HasPickerContext || request.PickerNo < 1 || request.PickerNo > 4)
                 {
-                    X = inspection != null ? inspection.OffsetX : 0.0,
-                    Y = inspection != null ? inspection.OffsetY : 0.0,
-                    R = inspection != null ? inspection.OffsetT : 0.0,
-                    IsValid = inspection != null && inspection.HasOffset
-                };
-                MaterialStateService.UpdateOutputStageDieInspection(
+                    return RaiseFailure("OUT-POST-INSPECT-PICKER-CONTEXT", "Material",
+                        "BIN 신규 규약 요청에 필요한 Picker 문맥이 없습니다. die=" + request.DieId +
+                        ", pickerSide=" + request.PickerSide +
+                        ", pickerNo=" + request.PickerNo);
+                }
+
+                int slotIndex = request.ReceiveTarget.OrderIndex;
+                int fb = request.PickerSide == PickerSequenceSide.Front ? 0 : 1;
+                VisionInspectionRequestContext visionContext = VisionInspectionContextFactory.CreateAuto(
+                    AutoVisionChannel.Bin,
+                    VisionToolIds.Bin.PlacementInspector,
+                    fb,
+                    request.PickerNo,
+                    slotIndex,
+                    request.ReceiveTarget.DieMapX,
+                    request.ReceiveTarget.DieMapY,
+                    0,
                     request.DieId,
-                    request.OutputSide,
-                    request.ReceiveTarget,
-                    inspectionOk,
-                    offset,
-                    inspection != null ? inspection.Raw : "",
-                    inspection != null ? inspection.Values : null);
+                    request.ReceiveTarget.OutputWaferId,
+                    VisionInspectionOperations.Inspect,
+                    VisionResultTimings.Deferred,
+                    string.Empty);
+                request.VisionRequest = await AutoVisionRequestService.StartInspectionRequestAsync(
+                    visionContext,
+                    timeout,
+                    ct).ConfigureAwait(false);
+                if (request.VisionRequest == null)
+                {
+                    return RaiseFailure("OUT-POST-INSPECT-VISION-EPD", "Vision",
+                        "BIN 검사 REQ/EPD 단계가 실패했습니다. die=" + request.DieId +
+                        ", side=" + request.OutputSide +
+                        ", slotIndex=" + slotIndex);
+                }
+
                 Log.Write("Main", "SYSTEM", "OutputPostPlaceInspection",
-                    "Output camera 후검사 완료. die=" + request.DieId +
+                    "Output camera BIN REQ/EPD 완료. RESULT는 전체 측정 후 수집합니다. die=" + request.DieId +
                     ", side=" + request.OutputSide +
                     ", slotIndex=" + slotIndex +
-                    ", ok=" + inspectionOk +
-                    ", offsetX=" + offset.X.ToString("F6") +
-                    ", offsetY=" + offset.Y.ToString("F6") +
-                    ", offsetT=" + offset.R.ToString("F6") +
+                    ", requestId=" + request.VisionRequest.Request.RequestId +
+                    ", groupId=" + request.VisionRequest.Request.GroupId +
                     ", visionX=" + targetVisionX.ToString("F6") +
                     ", stageY=" + targetStageY.ToString("F6") +
                     ", cameraToPickerY=" + cameraToPickerY.ToString("F6") +
@@ -817,6 +865,133 @@ namespace QMC.CDT320.Sequencing
                 if (feederLease != null)
                     feederLease.Dispose();
             }
+        }
+
+        private async Task<int> CollectPlacedDieResultsAsync(
+            IList<OutputPostPlaceInspectionRequest> capturedRequests,
+            CancellationToken ct)
+        {
+            var failed = new List<string>();
+            for (int i = 0; i < capturedRequests.Count; i++)
+            {
+                if (IsStopOrAlarmActive())
+                    return StopRequestedResult;
+
+                OutputPostPlaceInspectionRequest request = capturedRequests[i];
+                int timeout = request.MoveTimeoutMs > 0 ? request.MoveTimeoutMs : 10000;
+                VisionInspectionResult result = await AutoVisionRequestService.WaitInspectionStageAsync(
+                    request.VisionRequest,
+                    VisionInspectionCommands.Result,
+                    timeout,
+                    ct).ConfigureAwait(false);
+                if (result == null || result.InspectionResult == null)
+                {
+                    failed.Add("die=" + request.DieId +
+                               ", groupId=" + (request.VisionRequest != null && request.VisionRequest.Request != null
+                                   ? request.VisionRequest.Request.GroupId
+                                   : "-"));
+                    continue;
+                }
+
+                request.InspectionResult = result.InspectionResult;
+            }
+
+            if (failed.Count > 0)
+            {
+                return RaiseFailure("OUT-POST-INSPECT-VISION-RESULT", "Vision",
+                    "BIN 전체 측정 후 RESULT 수집에 실패했습니다. Material 결과는 갱신하지 않습니다. failed=" +
+                    string.Join("; ", failed.ToArray()));
+            }
+
+            for (int i = 0; i < capturedRequests.Count; i++)
+                ApplyPlacedDieResult(capturedRequests[i]);
+
+            Log.Write("Main", "SYSTEM", "OutputPostPlaceInspection",
+                "BIN 전체 REQ/EPD 완료 후 RESULT 일괄 수집 및 Material 반영 완료. count=" +
+                capturedRequests.Count + " - Ok");
+            return 0;
+        }
+
+        private async Task DrainCapturedBinResultsAfterFailureAsync(
+            IList<OutputPostPlaceInspectionRequest> capturedRequests,
+            CancellationToken ct,
+            string reason)
+        {
+            if (capturedRequests == null)
+                return;
+
+            for (int i = 0; i < capturedRequests.Count; i++)
+            {
+                OutputPostPlaceInspectionRequest request = capturedRequests[i];
+                VisionRequestHandle handle = request != null ? request.VisionRequest : null;
+                if (handle == null || handle.IsResultDone || !string.IsNullOrWhiteSpace(handle.Error))
+                    continue;
+
+                if (ct.IsCancellationRequested)
+                {
+                    handle.MarkError("BIN RESULT cleanup canceled. " + (reason ?? string.Empty));
+                    continue;
+                }
+
+                try
+                {
+                    int timeout = request.MoveTimeoutMs > 0 ? request.MoveTimeoutMs : 10000;
+                    VisionInspectionResult result = await AutoVisionRequestService.WaitInspectionStageAsync(
+                        handle,
+                        VisionInspectionCommands.Result,
+                        timeout,
+                        ct).ConfigureAwait(false);
+                    if (result == null && string.IsNullOrWhiteSpace(handle.Error))
+                        handle.MarkError("BIN RESULT cleanup failed. " + (reason ?? string.Empty));
+                    Log.Write("Main", "SYSTEM", "OutputPostPlaceInspection",
+                        "BIN 실패 전 EPD 완료 RESULT 정리. die=" + (request.DieId ?? string.Empty) +
+                        ", groupId=" + handle.Request.GroupId +
+                        ", received=" + (result != null) +
+                        ", reason=" + (reason ?? string.Empty) + " - Check");
+                }
+                catch (OperationCanceledException)
+                {
+                    handle.MarkError("BIN RESULT cleanup canceled. " + (reason ?? string.Empty));
+                    break;
+                }
+                catch (Exception ex)
+                {
+                    handle.MarkError("BIN RESULT cleanup exception. " + ex.Message);
+                    Log.Write("Main", "SYSTEM", "OutputPostPlaceInspection",
+                        "BIN 실패 전 RESULT 정리 예외. groupId=" + handle.Request.GroupId +
+                        ", reason=" + (reason ?? string.Empty) +
+                        ", error=" + ex.Message + " - Check");
+                }
+            }
+        }
+
+        private static void ApplyPlacedDieResult(OutputPostPlaceInspectionRequest request)
+        {
+            InspectionResultDto inspection = request.InspectionResult;
+            bool inspectionOk = inspection != null && inspection.IsPass;
+            VisionOffset offset = new VisionOffset
+            {
+                X = inspection != null ? inspection.OffsetX : 0.0,
+                Y = inspection != null ? inspection.OffsetY : 0.0,
+                R = inspection != null ? inspection.OffsetT : 0.0,
+                IsValid = inspection != null && inspection.HasOffset
+            };
+            MaterialStateService.UpdateOutputStageDieInspection(
+                request.DieId,
+                request.OutputSide,
+                request.ReceiveTarget,
+                inspectionOk,
+                offset,
+                inspection != null ? inspection.Raw : string.Empty,
+                inspection != null ? inspection.Values : null);
+            Log.Write("Main", "SYSTEM", "OutputPostPlaceInspection",
+                "Output camera BIN RESULT 반영 완료. die=" + request.DieId +
+                ", side=" + request.OutputSide +
+                ", slotIndex=" + (request.ReceiveTarget != null ? request.ReceiveTarget.OrderIndex : -1) +
+                ", ok=" + inspectionOk +
+                ", offsetX=" + offset.X.ToString("F6") +
+                ", offsetY=" + offset.Y.ToString("F6") +
+                ", offsetT=" + offset.R.ToString("F6") + " - Ok");
         }
 
         private async Task<int> WaitOutputVisionXSharedRailClearAsync(

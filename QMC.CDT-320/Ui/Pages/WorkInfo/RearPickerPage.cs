@@ -59,11 +59,11 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
         private void WireVisionButtons()
         {
             btnVisionBottomInspect.Click += (s, e) =>
-                TpuVisionTestDialog.Open(this, "Bottom Inspection", TpuVisionTestDialog.Mode.BottomInspection);
+                TpuVisionTestDialog.Open(this, "Bottom Inspection", TpuVisionTestDialog.Mode.BottomInspection, pickerFb: 1);
             btnVisionFrontSide.Click += (s, e) =>
-                TpuVisionTestDialog.Open(this, "FrontSideVision", TpuVisionTestDialog.Mode.Side, 1, () => VisionHub.FrontSideVision, VisionViewerPorts.FrontSideVision, VisionToolIds.FrontSide.SurfaceInspector);
+                TpuVisionTestDialog.Open(this, "FrontSideVision", TpuVisionTestDialog.Mode.Side, 1, () => VisionHub.FrontSideVision, VisionViewerPorts.FrontSideVision, VisionToolIds.FrontSide.SurfaceInspector, pickerFb: 1);
             btnVisionRearSide.Click += (s, e) =>
-                TpuVisionTestDialog.Open(this, "RearSideVision", TpuVisionTestDialog.Mode.Side, 1, () => VisionHub.RearSideVision, VisionViewerPorts.RearSideVision, VisionToolIds.RearSide.SurfaceInspector);
+                TpuVisionTestDialog.Open(this, "RearSideVision", TpuVisionTestDialog.Mode.Side, 1, () => VisionHub.RearSideVision, VisionViewerPorts.RearSideVision, VisionToolIds.RearSide.SurfaceInspector, pickerFb: 1);
         }
 
         private Form1 GetHost()

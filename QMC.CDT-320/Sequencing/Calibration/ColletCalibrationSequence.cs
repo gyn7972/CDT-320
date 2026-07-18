@@ -1733,7 +1733,14 @@ namespace QMC.CDT320.Sequencing.Calibration
             int gridX = die != null ? die.Wafer_IndexX : 0;
             int gridY = die != null ? die.Wafer_IndexY : 0;
             string dieId = die != null ? die.DieId : "SIM-C" + _colletNo;
-            VisionDieAddressStore.Set(fb, _colletNo, dieIndex, gridX, gridY, dieId);
+            VisionDieAddressStore.Set(
+                fb,
+                _colletNo,
+                dieIndex,
+                gridX,
+                gridY,
+                dieId,
+                die != null ? die.WaferID_Input : string.Empty);
 
             int timeoutMs = _settings != null ? _settings.VisionTimeoutMs : 5000;
             bool started = _calibrationSide == VisionFocusPickerSide.Front

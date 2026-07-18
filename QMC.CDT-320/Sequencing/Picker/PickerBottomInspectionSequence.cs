@@ -972,7 +972,8 @@ namespace QMC.CDT320.Sequencing
                     _currentDie.InputSequenceNo,
                     _currentDie.Wafer_IndexX,
                     _currentDie.Wafer_IndexY,
-                    _currentDie.DieId);
+                    _currentDie.DieId,
+                    _currentDie.WaferID_Input);
             }
             catch (Exception ex)
             {

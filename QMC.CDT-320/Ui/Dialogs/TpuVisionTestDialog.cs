@@ -22,19 +22,21 @@ namespace QMC.CDT_320.Ui.Dialogs
             int pickerNo = 1,
             Func<VisionTcpClient> sideClient = null,
             int sideViewerPort = 0,
-            string sideInspectorId = null)
+            string sideInspectorId = null,
+            int pickerFb = 0)
         {
             string key = "TpuVisionTestDialog:" +
                          (title ?? "Unknown") + ":" +
                          mode + ":" +
                          pickerNo + ":" +
+                         pickerFb + ":" +
                          sideViewerPort + ":" +
                          (sideInspectorId ?? string.Empty);
 
             ModelessDialogHost.Show(
                 key,
                 owner,
-                () => new TpuVisionTestDialog(title, mode, pickerNo, sideClient, sideViewerPort, sideInspectorId));
+                () => new TpuVisionTestDialog(title, mode, pickerNo, sideClient, sideViewerPort, sideInspectorId, pickerFb));
         }
 
         public static void AddLaunchers(Control.ControlCollection actions, IWin32Window owner, Control stopButton)
@@ -75,7 +77,8 @@ namespace QMC.CDT_320.Ui.Dialogs
             int pickerNo,
             Func<VisionTcpClient> sideClient,
             int sideViewerPort,
-            string sideInspectorId)
+            string sideInspectorId,
+            int pickerFb)
         {
             InitializeComponent();
 
@@ -87,7 +90,8 @@ namespace QMC.CDT_320.Ui.Dialogs
                 pickerNo,
                 sideClient,
                 sideViewerPort,
-                sideInspectorId);
+                sideInspectorId,
+                pickerFb);
 
             Text = tpuVisionTestControl.DialogTitle;
         }

@@ -33,7 +33,6 @@ namespace QMC.CDT320.Sequencing.Calibration
     {
         private const string ReticleFinderName = VisionToolIds.BottomInspection.ReticleFinder;
         private const int ReticleFindRetryCount = 3;
-        private const int ReticleMatchPollIntervalMs = 100;
         private const int ReticleMotionSettleDelayMs = 500;
         private const double CalibrationAxisTolerance = 0.01;
         private const double SimReticleMaxPixelOffset = 25.0;
@@ -1236,7 +1235,7 @@ namespace QMC.CDT320.Sequencing.Calibration
             }
 
             EventLogger.Write(EventKind.Event, "CAL", "VISION-CAMERA-CAL-MATCHASYNC-REQ",
-                cameraName + " Vision에 ReticleFinder MATCHASYNC 시작을 요청합니다.");
+                cameraName + " Vision에 ReticleFinder INSPECT_SYNC 시작을 요청합니다.");
 
             bool started = await AutoVisionRequestService.StartMatchAsync(
                 channel,
@@ -1248,20 +1247,20 @@ namespace QMC.CDT320.Sequencing.Calibration
             if (started)
             {
                 EventLogger.Write(EventKind.Event, "CAL", "VISION-CAMERA-CAL-MATCHASYNC-STARTED",
-                    cameraName + " Vision ReticleFinder MATCHASYNC EPD 또는 bypass 허가를 받았습니다.");
+                    cameraName + " Vision ReticleFinder INSPECT_SYNC EPD 또는 bypass 허가를 받았습니다.");
 
                 return await WaitReticleMatchResultAsync(cameraName, channel, timeoutMs, ct).ConfigureAwait(false);
             }
 
             if (IsVisionResultSimulationAllowed())
-                return BuildSimulatedReticleMatch(target, channel, "MATCHASYNC 시작 실패 후 시뮬레이션 결과를 사용합니다.");
+                return BuildSimulatedReticleMatch(target, channel, "INSPECT_SYNC 시작 실패 후 시뮬레이션 결과를 사용합니다.");
 
             if (VisionCommandService.IsConnected(channel))
             {
                 return new MatchResultDto
                 {
                     Success = false,
-                    RawError = cameraName + " ReticleFinder MATCHASYNC EPD를 받지 못했습니다."
+                    RawError = cameraName + " ReticleFinder INSPECT_SYNC EPD를 받지 못했습니다."
                 };
             }
 
@@ -1279,64 +1278,30 @@ namespace QMC.CDT320.Sequencing.Calibration
             {
                 ct.ThrowIfCancellationRequested();
 
-                DateTime timeoutAt = DateTime.UtcNow.AddMilliseconds(timeoutMs);
-                while (DateTime.UtcNow < timeoutAt)
+                MatchResultDto result = await AutoVisionRequestService.WaitMatchResultAsync(
+                    channel,
+                    ReticleFinderName,
+                    0,
+                    timeoutMs,
+                    ct).ConfigureAwait(false);
+
+                if (result != null && result.Success)
                 {
-                    ct.ThrowIfCancellationRequested();
-
-                    int remainMs = (int)Math.Max(1, (timeoutAt - DateTime.UtcNow).TotalMilliseconds);
-                    int pollTimeoutMs = Math.Min(1000, remainMs);
-                    AsyncMatchPoll poll = await AutoVisionRequestService.PollMatchResultAsync(
-                        channel,
-                        ReticleFinderName,
-                        0,
-                        pollTimeoutMs,
-                        ct).ConfigureAwait(false);
-
-                    if (poll == null)
-                    {
-                        return new MatchResultDto
-                        {
-                            Success = false,
-                            RawError = cameraName + " ReticleFinder MATCHRESULT 응답이 없습니다."
-                        };
-                    }
-
-                    if (poll.Error)
-                    {
-                        return new MatchResultDto
-                        {
-                            Success = false,
-                            RawError = cameraName + " ReticleFinder MATCHRESULT 실패: " + (poll.Raw ?? string.Empty)
-                        };
-                    }
-
-                    if (poll.Done)
-                    {
-                        if (poll.Result != null && poll.Result.Success)
-                        {
-                            EventLogger.Write(EventKind.Event, "CAL", "VISION-CAMERA-CAL-MATCHRESULT-DONE",
-                                cameraName + " Vision ReticleFinder MATCHRESULT 완료. x=" + poll.Result.X.ToString("0.###") +
-                                ", y=" + poll.Result.Y.ToString("0.###") +
-                                ", r=" + poll.Result.AngleDeg.ToString("0.###") +
-                                ", score=" + poll.Result.Score.ToString("0.###"));
-                            return poll.Result;
-                        }
-
-                        return new MatchResultDto
-                        {
-                            Success = false,
-                            RawError = cameraName + " ReticleFinder MATCHRESULT 완료 응답 파싱 실패: " + (poll.Raw ?? string.Empty)
-                        };
-                    }
-
-                    await Task.Delay(ReticleMatchPollIntervalMs, ct).ConfigureAwait(false);
+                    EventLogger.Write(EventKind.Event, "CAL", "VISION-CAMERA-CAL-MATCHRESULT-DONE",
+                        cameraName + " Vision ReticleFinder RESULT 완료. x=" + result.X.ToString("0.###") +
+                        ", y=" + result.Y.ToString("0.###") +
+                        ", r=" + result.AngleDeg.ToString("0.###") +
+                        ", score=" + result.Score.ToString("0.###"));
+                    return result;
                 }
 
                 return new MatchResultDto
                 {
                     Success = false,
-                    RawError = cameraName + " ReticleFinder MATCHRESULT 대기 시간이 초과되었습니다. timeoutMs=" + timeoutMs
+                    RawError = cameraName + " ReticleFinder RESULT 실패: " +
+                               (result != null && !string.IsNullOrWhiteSpace(result.RawError)
+                                   ? result.RawError
+                                   : "응답이 없습니다.")
                 };
             }
             catch (OperationCanceledException)
@@ -1348,7 +1313,7 @@ namespace QMC.CDT320.Sequencing.Calibration
                 return new MatchResultDto
                 {
                     Success = false,
-                    RawError = cameraName + " ReticleFinder MATCHRESULT 처리 중 예외 발생: " + ex.Message
+                    RawError = cameraName + " ReticleFinder RESULT 처리 중 예외 발생: " + ex.Message
                 };
             }
             finally

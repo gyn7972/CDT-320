@@ -16,7 +16,7 @@ namespace QMC.CDT320.VisionComm
         RearSide
     }
 
-    public static class AutoVisionRequestService
+    public static partial class AutoVisionRequestService
     {
         private static readonly object SimVisionRandomLock = new object();
         private static readonly Random SimVisionRandom = new Random();
@@ -139,29 +139,33 @@ namespace QMC.CDT320.VisionComm
             try
             {
                 ct.ThrowIfCancellationRequested();
-
-                if (ShouldBypassVisionResultRequests())
-                    return BuildBypassMatchResult(channel, finder, index);
-
-                bool started = await StartMatchAsync(channel, finder, index, timeoutMs, ct).ConfigureAwait(false);
-                if (!started)
-                    return BuildMatchFailure("MATCHASYNC EPD timeout.");
-
-                MatchResultDto result = await WaitMatchResultAsync(channel, finder, index, timeoutMs, ct).ConfigureAwait(false);
+                int dieIndex = index >= 0 ? index : 0;
+                VisionInspectionRequestContext context = VisionInspectionContextFactory.CreateManual(
+                    channel,
+                    finder,
+                    0,
+                    1,
+                    dieIndex,
+                    0,
+                    0,
+                    0,
+                    VisionInspectionOperations.Match,
+                    VisionResultTimings.Immediate);
+                MatchResultDto result = await RunSyncMatchAsync(context, timeoutMs, ct).ConfigureAwait(false);
                 if (result == null || !result.Success)
                 {
                     EventLogger.Write(EventKind.Alarm, "VISION", "AUTO-VISION-MATCH",
-                        "Vision MATCHRESULT 실패. channel=" + channel +
+                        "Vision 신규 INSPECT_SYNC/RESULT 실패. channel=" + channel +
                         ", finder=" + finder +
-                        ", index=" + index +
+                        ", index=" + dieIndex +
                         ", raw=" + (result != null ? result.RawError : "null"));
                 }
                 else
                 {
                     EventLogger.Write(EventKind.Event, "VISION", "AUTO-VISION-MATCH",
-                        "Vision MATCHRESULT 완료. channel=" + channel +
+                        "Vision 신규 INSPECT_SYNC/RESULT 완료. channel=" + channel +
                         ", finder=" + finder +
-                        ", index=" + index +
+                        ", index=" + dieIndex +
                         ", pixelX=" + result.X.ToString("F6") +
                         ", pixelY=" + result.Y.ToString("F6") +
                         ", t=" + result.AngleDeg.ToString("F6") +
@@ -177,7 +181,7 @@ namespace QMC.CDT320.VisionComm
             catch (Exception ex)
             {
                 EventLogger.Write(EventKind.Alarm, "VISION", "AUTO-VISION-MATCH",
-                    "Vision MATCHASYNC/MATCHRESULT 예외 발생. channel=" + channel +
+                    "Vision 신규 INSPECT_SYNC/RESULT 예외 발생. channel=" + channel +
                     ", finder=" + finder +
                     ", index=" + index +
                     ", error=" + ex.Message);
@@ -198,60 +202,28 @@ namespace QMC.CDT320.VisionComm
             try
             {
                 ct.ThrowIfCancellationRequested();
-
-                if (ShouldBypassVisionResultRequests())
-                {
-                    EventLogger.Write(EventKind.Event, "VISION", "AUTO-VISION-MATCH-BYPASS",
-                        BypassReason() + " Vision MATCHASYNC 시작 요청을 생략합니다. channel=" + channel +
-                        ", finder=" + finder +
-                        ", index=" + index);
-                    return true;
-                }
-
-                if (!IsReady(channel, VisionProtocolCommand.MatchAsync, finder, index))
+                int dieIndex = index >= 0 ? index : 0;
+                VisionInspectionRequestContext context = VisionInspectionContextFactory.CreateManual(
+                    channel,
+                    finder,
+                    0,
+                    1,
+                    dieIndex,
+                    0,
+                    0,
+                    0,
+                    VisionInspectionOperations.Match,
+                    VisionResultTimings.Immediate);
+                VisionRequestHandle handle = await StartInspectionRequestAsync(context, timeoutMs, ct).ConfigureAwait(false);
+                if (handle == null)
                     return false;
-
-                EventLogger.Write(EventKind.Event, "VISION", "AUTO-VISION-MATCHASYNC",
-                    "Vision MATCHASYNC 시작 요청. channel=" + channel +
-                    ", finder=" + finder +
-                    ", index=" + index +
-                    ", timeoutMs=" + timeoutMs);
-
-                string exposureModuleName = VisionCommandService.ResolveActiveModuleName(channel);
-                Task<bool> epdTask = VisionCommandService.WaitExposureDoneAsync(channel, timeoutMs, exposureModuleName);
-                if (epdTask == null)
+                if (!TryStoreSyncMatchHandle(channel, finder, dieIndex, handle))
                 {
-                    EventLogger.Write(EventKind.Alarm, "VISION", "AUTO-VISION-MATCHASYNC",
-                        "Vision EPD 대기 등록 실패 — 다음 모션을 차단합니다. channel=" + channel +
-                        ", finder=" + finder +
-                        ", index=" + index +
-                        ", exposureModule=" + exposureModuleName);
+                    EventLogger.Write(EventKind.Alarm, "VISION", "AUTO-VISION-SYNC-HANDLE",
+                        "동일한 수동 Sync MATCH Handle이 이미 대기 중입니다. channel=" + channel +
+                        ", finder=" + finder + ", dieIndex=" + dieIndex);
                     return false;
                 }
-
-                Task<bool> ackTask = VisionCommandService.StartMatchAsync(channel, finder, index, timeoutMs, ct);
-                ObserveAsyncStartAckInBackground(
-                    ackTask,
-                    "AUTO-VISION-MATCHASYNC",
-                    "channel=" + channel + ", finder=" + finder + ", index=" + index);
-
-                bool epdReceived = await epdTask.ConfigureAwait(false);
-                if (!epdReceived)
-                {
-                    EventLogger.Write(EventKind.Alarm, "VISION", "AUTO-VISION-MATCHASYNC",
-                        "Vision MATCHASYNC EPD 타임아웃 — 다음 모션을 차단합니다. channel=" + channel +
-                        ", finder=" + finder +
-                        ", index=" + index +
-                        ", exposureModule=" + exposureModuleName +
-                        ", timeoutMs=" + timeoutMs);
-                    return false;
-                }
-
-                EventLogger.Write(EventKind.Event, "VISION", "AUTO-VISION-MATCHASYNC",
-                    "Vision MATCHASYNC EPD 수신 — STARTED ACK와 무관하게 진행. channel=" + channel +
-                    ", finder=" + finder +
-                    ", index=" + index +
-                    ", exposureModule=" + exposureModuleName);
                 return true;
             }
             catch (OperationCanceledException)
@@ -260,8 +232,8 @@ namespace QMC.CDT320.VisionComm
             }
             catch (Exception ex)
             {
-                EventLogger.Write(EventKind.Alarm, "VISION", "AUTO-VISION-MATCHASYNC",
-                    "Vision MATCHASYNC 시작 예외 발생. channel=" + channel +
+                EventLogger.Write(EventKind.Alarm, "VISION", "AUTO-VISION-SYNC-START",
+                    "Vision 신규 INSPECT_SYNC/EPD 시작 예외 발생. channel=" + channel +
                     ", finder=" + finder +
                     ", index=" + index +
                     ", error=" + ex.Message);
@@ -326,33 +298,15 @@ namespace QMC.CDT320.VisionComm
             try
             {
                 ct.ThrowIfCancellationRequested();
-
-                DateTime timeoutAt = DateTime.UtcNow.AddMilliseconds(timeoutMs);
-                while (DateTime.UtcNow < timeoutAt)
-                {
-                    ct.ThrowIfCancellationRequested();
-
-                    int remainMs = (int)Math.Max(1, (timeoutAt - DateTime.UtcNow).TotalMilliseconds);
-                    int pollTimeoutMs = Math.Min(1000, remainMs);
-                    AsyncMatchPoll poll = await PollMatchResultAsync(channel, finder, index, pollTimeoutMs, ct).ConfigureAwait(false);
-                    if (poll == null)
-                        return BuildMatchFailure("MATCHRESULT response is null.");
-
-                    if (poll.Error)
-                        return BuildMatchFailure(poll.Raw);
-
-                    if (poll.Done)
-                    {
-                        if (poll.Result != null)
-                            return poll.Result;
-
-                        return BuildMatchFailure("MATCHRESULT completed but result is null.");
-                    }
-
-                    await Task.Delay(100, ct).ConfigureAwait(false);
-                }
-
-                return BuildMatchFailure("MATCHRESULT timeout. channel=" + channel + ", finder=" + finder + ", index=" + index + ", timeoutMs=" + timeoutMs);
+                int dieIndex = index >= 0 ? index : 0;
+                VisionRequestHandle handle = TakeSyncMatchHandle(channel, finder, dieIndex);
+                if (handle == null)
+                    return BuildMatchFailure("신규 Sync MATCH Handle이 없습니다. 먼저 REQ/EPD 단계를 수행해야 합니다.");
+                MatchResultDto result = await CompleteSyncMatchHandleAsync(handle, timeoutMs, ct).ConfigureAwait(false);
+                return result ?? BuildMatchFailure(
+                    "신규 RESULT 수신 실패. channel=" + channel +
+                    ", finder=" + finder +
+                    ", dieIndex=" + dieIndex);
             }
             catch (OperationCanceledException)
             {
@@ -492,65 +446,25 @@ namespace QMC.CDT320.VisionComm
             try
             {
                 ct.ThrowIfCancellationRequested();
-
-                if (ShouldBypassVisionResultRequests())
-                    return BuildBypassMatchResult(channel, finder, fb * 4 + collet);
-
-                if (!IsReady(channel, VisionProtocolCommand.MatchAsync, finder, fb * 4 + collet))
-                    return BuildMatchFailure("Vision client is not connected.");
-
-                EventLogger.Write(EventKind.Event, "VISION", "AUTO-VISION-MATCHASYNC",
-                    "Vision MATCHASYNC(8콜렛) 시작 요청. channel=" + channel +
-                    ", finder=" + finder +
-                    ", fb=" + fb + ", collet=" + collet +
-                    ", dieIndex=" + dieIndex +
-                    ", grid=" + gridX + ";" + gridY +
-                    ", timeoutMs=" + timeoutMs);
-
-                string exposureModuleName = VisionCommandService.ResolveActiveModuleName(channel);
-                Task<bool> epdTask = VisionCommandService.WaitExposureDoneAsync(channel, timeoutMs, exposureModuleName);
-                if (epdTask == null)
-                {
-                    EventLogger.Write(EventKind.Alarm, "VISION", "AUTO-VISION-MATCHASYNC",
-                        "Vision MATCHASYNC(8콜렛) EPD 대기 등록 실패. channel=" + channel +
-                        ", finder=" + finder + ", fb=" + fb + ", collet=" + collet + ", dieIndex=" + dieIndex +
-                        ", exposureModule=" + exposureModuleName);
-                    return BuildMatchFailure("MATCHASYNC EPD registration failed.");
-                }
-
-                Task<bool> ackTask = VisionCommandService.StartMatchAsync(
-                    channel, finder, fb, collet, dieIndex, 0, gridX, gridY, timeoutMs, ct);   // Bottom/Bin MATCH 채널은 0
-                ObserveAsyncStartAckInBackground(
-                    ackTask,
-                    "AUTO-VISION-MATCHASYNC",
-                    "channel=" + channel + ", finder=" + finder + ", fb=" + fb + ", collet=" + collet +
-                    ", dieIndex=" + dieIndex + ", grid=" + gridX + ";" + gridY);
-
-                bool epdReceived = await epdTask.ConfigureAwait(false);
-                if (!epdReceived)
-                {
-                    EventLogger.Write(EventKind.Alarm, "VISION", "AUTO-VISION-MATCHASYNC",
-                        "Vision MATCHASYNC(8콜렛) EPD 타임아웃 — 다음 모션을 차단합니다. channel=" + channel +
-                        ", finder=" + finder + ", fb=" + fb + ", collet=" + collet + ", dieIndex=" + dieIndex +
-                        ", grid=" + gridX + ";" + gridY +
-                        ", exposureModule=" + exposureModuleName +
-                        ", timeoutMs=" + timeoutMs);
-                    return BuildMatchFailure("MATCHASYNC EPD timeout.");
-                }
-
-                EventLogger.Write(EventKind.Event, "VISION", "AUTO-VISION-MATCHASYNC",
-                    "Vision MATCHASYNC(8콜렛) EPD 수신 — STARTED ACK와 무관하게 진행. channel=" + channel +
-                    ", finder=" + finder + ", fb=" + fb + ", collet=" + collet + ", dieIndex=" + dieIndex +
-                    ", grid=" + gridX + ";" + gridY +
-                    ", exposureModule=" + exposureModuleName);
-
-                MatchResultDto result = await WaitMatchResultByDieAsync(channel, finder, dieIndex, timeoutMs, ct).ConfigureAwait(false);
+                int normalizedDieIndex = dieIndex >= 0 ? dieIndex : 0;
+                VisionInspectionRequestContext context = VisionInspectionContextFactory.CreateManual(
+                    channel,
+                    finder,
+                    fb,
+                    collet,
+                    normalizedDieIndex,
+                    gridX,
+                    gridY,
+                    0,
+                    VisionInspectionOperations.Match,
+                    VisionResultTimings.Immediate);
+                MatchResultDto result = await RunSyncMatchAsync(context, timeoutMs, ct).ConfigureAwait(false);
                 if (result == null || !result.Success)
                 {
                     EventLogger.Write(EventKind.Alarm, "VISION", "AUTO-VISION-MATCH",
-                        "Vision MATCHRESULT(8콜렛) 실패. channel=" + channel +
+                        "Vision 신규 INSPECT_SYNC/RESULT(콜렛) 실패. channel=" + channel +
                         ", finder=" + finder + ", fb=" + fb + ", collet=" + collet +
-                        ", dieIndex=" + dieIndex +
+                        ", dieIndex=" + normalizedDieIndex +
                         ", raw=" + (result != null ? result.RawError : "null"));
                 }
                 return result;
@@ -562,7 +476,7 @@ namespace QMC.CDT320.VisionComm
             catch (Exception ex)
             {
                 EventLogger.Write(EventKind.Alarm, "VISION", "AUTO-VISION-MATCH",
-                    "Vision MATCHASYNC(8콜렛) 예외 발생. channel=" + channel +
+                    "Vision 신규 INSPECT_SYNC/RESULT(콜렛) 예외 발생. channel=" + channel +
                     ", finder=" + finder + ", fb=" + fb + ", collet=" + collet +
                     ", error=" + ex.Message);
                 return BuildMatchFailure(ex.Message);
@@ -977,34 +891,32 @@ namespace QMC.CDT320.VisionComm
             try
             {
                 ct.ThrowIfCancellationRequested();
-
-                if (ShouldBypassVisionResultRequests())
-                    return BuildBypassInspectionResult(channel, inspector, fb * 4 + collet);
-
-                bool started = await StartInspectColletAsync(channel, inspector, fb, collet, dieIndex, visionChannel, gridX, gridY, timeoutMs, ct).ConfigureAwait(false);
-                if (!started)
-                {
-                    EventLogger.Write(EventKind.Alarm, "VISION", "AUTO-VISION-INSPECTASYNC",
-                        "Vision INSPECTASYNC EPD를 받지 못했습니다. 검사 NG가 아니라 촬상 진행 실패입니다. channel=" + channel +
-                        ", inspector=" + inspector +
-                        ", fb=" + fb + ", collet=" + collet + ", dieIndex=" + dieIndex + ", ch=" + visionChannel);
-                    return null;
-                }
-
-                InspectionResultDto result = await WaitInspectResultByDieAsync(channel, inspector, dieIndex, timeoutMs, ct).ConfigureAwait(false);
+                int normalizedDieIndex = dieIndex >= 0 ? dieIndex : 0;
+                VisionInspectionRequestContext context = VisionInspectionContextFactory.CreateManual(
+                    channel,
+                    inspector,
+                    fb,
+                    collet,
+                    normalizedDieIndex,
+                    gridX,
+                    gridY,
+                    visionChannel,
+                    VisionInspectionOperations.Inspect,
+                    VisionResultTimings.Immediate);
+                InspectionResultDto result = await RunSyncInspectionAsync(context, timeoutMs, ct).ConfigureAwait(false);
                 if (IsInspectionResultTransportFailure(result))
                 {
                     EventLogger.Write(EventKind.Alarm, "VISION", "AUTO-VISION-INSPECT",
-                        "Vision INSPECTRESULT(8콜렛) 수신 실패. ACK/RESULT 미수신으로 시퀀스를 정지해야 합니다. channel=" + channel +
+                        "Vision 신규 INSPECT_SYNC/RESULT(콜렛) 수신 실패. channel=" + channel +
                         ", inspector=" + inspector +
-                        ", fb=" + fb + ", collet=" + collet + ", dieIndex=" + dieIndex + ", ch=" + visionChannel +
+                        ", fb=" + fb + ", collet=" + collet + ", dieIndex=" + normalizedDieIndex + ", ch=" + visionChannel +
                         ", raw=" + (result != null ? result.Raw : "null"));
                     return null;
                 }
                 else if (!result.IsPass)
                 {
                     EventLogger.Write(EventKind.Event, "VISION", "AUTO-VISION-INSPECT",
-                        "Vision INSPECTRESULT(8콜렛) NG 결과 수신. 통신 실패가 아니라 검사 판정 NG입니다. channel=" + channel +
+                        "Vision 신규 INSPECT_SYNC/RESULT(콜렛) NG 결과 수신. 통신 실패가 아니라 검사 판정 NG입니다. channel=" + channel +
                         ", inspector=" + inspector +
                         ", fb=" + fb + ", collet=" + collet + ", dieIndex=" + dieIndex + ", ch=" + visionChannel +
                         ", raw=" + (result.Raw ?? string.Empty));
@@ -1018,7 +930,7 @@ namespace QMC.CDT320.VisionComm
             catch (Exception ex)
             {
                 EventLogger.Write(EventKind.Alarm, "VISION", "AUTO-VISION-INSPECT",
-                    "Vision INSPECTASYNC(8콜렛) 예외 발생. channel=" + channel +
+                    "Vision 신규 INSPECT_SYNC/RESULT(콜렛) 예외 발생. channel=" + channel +
                     ", inspector=" + inspector +
                     ", fb=" + fb + ", collet=" + collet +
                     ", error=" + ex.Message);
@@ -1039,71 +951,32 @@ namespace QMC.CDT320.VisionComm
             try
             {
                 ct.ThrowIfCancellationRequested();
-
-                if (ShouldBypassVisionResultRequests())
-                    return BuildBypassInspectionResult(channel, inspector, index);
-
-                if (!IsReady(channel, VisionProtocolCommand.InspectAsync, inspector, index))
-                    return new InspectionResultDto { IsPass = false, Raw = "Vision client is not connected." };
-
-                EventLogger.Write(EventKind.Event, "VISION", "AUTO-VISION-INSPECTASYNC",
-                    "Vision INSPECTASYNC(인덱스) 시작 요청. channel=" + channel +
-                    ", inspector=" + inspector +
-                    ", index=" + index +
-                    ", timeoutMs=" + timeoutMs);
-
-                string exposureModuleName = VisionCommandService.ResolveActiveModuleName(channel);
-                Task<bool> epdTask = VisionCommandService.WaitExposureDoneAsync(channel, timeoutMs, exposureModuleName);
-                if (epdTask == null)
-                {
-                    EventLogger.Write(EventKind.Alarm, "VISION", "AUTO-VISION-INSPECTASYNC",
-                        "Vision EPD 대기 등록 실패. channel=" + channel +
-                        ", inspector=" + inspector +
-                        ", index=" + index +
-                        ", exposureModule=" + (exposureModuleName ?? string.Empty));
-                    return null;
-                }
-
-                Task<bool> ackTask = VisionCommandService.InspectAsyncStartAsync(
-                    channel, inspector, index, timeoutMs, ct);
-                ObserveAsyncStartAckInBackground(
-                    ackTask,
-                    "AUTO-VISION-INSPECTASYNC",
-                    "channel=" + channel + ", inspector=" + inspector + ", index=" + index);
-
-                bool epdReceived = await epdTask.ConfigureAwait(false);
-                if (!epdReceived)
-                {
-                    EventLogger.Write(EventKind.Alarm, "VISION", "AUTO-VISION-INSPECTASYNC",
-                        "Vision INSPECTASYNC(인덱스) EPD 타임아웃. channel=" + channel +
-                        ", inspector=" + inspector +
-                        ", index=" + index +
-                        ", exposureModule=" + (exposureModuleName ?? string.Empty) +
-                        ", timeoutMs=" + timeoutMs);
-                    return null;
-                }
-
-                EventLogger.Write(EventKind.Event, "VISION", "AUTO-VISION-INSPECTASYNC",
-                    "Vision INSPECTASYNC(인덱스) EPD 수신. STARTED ACK와 무관하게 결과를 회수합니다. channel=" + channel +
-                    ", inspector=" + inspector +
-                    ", index=" + index +
-                    ", exposureModule=" + (exposureModuleName ?? string.Empty));
-
-                InspectionResultDto result = await WaitInspectResultByDieAsync(
-                    channel, inspector, index, timeoutMs, ct).ConfigureAwait(false);
+                int dieIndex = index >= 0 ? index : 0;
+                VisionInspectionRequestContext context = VisionInspectionContextFactory.CreateManual(
+                    channel,
+                    inspector,
+                    0,
+                    1,
+                    dieIndex,
+                    0,
+                    0,
+                    0,
+                    VisionInspectionOperations.Inspect,
+                    VisionResultTimings.Immediate);
+                InspectionResultDto result = await RunSyncInspectionAsync(context, timeoutMs, ct).ConfigureAwait(false);
                 if (IsInspectionResultTransportFailure(result))
                 {
                     EventLogger.Write(EventKind.Alarm, "VISION", "AUTO-VISION-INSPECT",
-                        "Vision INSPECT 결과 수신 실패. ACK/RESULT 미수신으로 시퀀스를 정지해야 합니다. channel=" + channel +
+                        "Vision 신규 INSPECT_SYNC/RESULT 수신 실패. channel=" + channel +
                         ", inspector=" + inspector +
-                        ", index=" + index +
+                        ", index=" + dieIndex +
                         ", raw=" + (result != null ? result.Raw : "null"));
                     return null;
                 }
                 else if (!result.IsPass)
                 {
                     EventLogger.Write(EventKind.Event, "VISION", "AUTO-VISION-INSPECT",
-                        "Vision INSPECT NG 결과 수신. 통신 실패가 아니라 검사 판정 NG입니다. channel=" + channel +
+                        "Vision 신규 INSPECT_SYNC/RESULT NG 결과 수신. 통신 실패가 아니라 검사 판정 NG입니다. channel=" + channel +
                         ", inspector=" + inspector +
                         ", index=" + index +
                         ", raw=" + (result.Raw ?? string.Empty));
@@ -1111,7 +984,7 @@ namespace QMC.CDT320.VisionComm
                 else
                 {
                     EventLogger.Write(EventKind.Event, "VISION", "AUTO-VISION-INSPECT",
-                        "Vision INSPECT 완료. channel=" + channel +
+                        "Vision 신규 INSPECT_SYNC/RESULT 완료. channel=" + channel +
                         ", inspector=" + inspector +
                         ", index=" + index +
                         ", pass=" + result.IsPass +
@@ -1130,7 +1003,7 @@ namespace QMC.CDT320.VisionComm
             catch (Exception ex)
             {
                 EventLogger.Write(EventKind.Alarm, "VISION", "AUTO-VISION-INSPECT",
-                    "Vision INSPECT 예외 발생. channel=" + channel +
+                    "Vision 신규 INSPECT_SYNC/RESULT 예외 발생. channel=" + channel +
                     ", inspector=" + inspector +
                     ", index=" + index +
                     ", error=" + ex.Message);
@@ -1207,8 +1080,14 @@ namespace QMC.CDT320.VisionComm
                 return false;
 
             VisionProtocolResponse response = VisionProtocolResponse.Parse(raw);
-            if (!response.IsAck)
+            if (!response.IsAck && !response.IsInspectionResult)
                 return true;
+
+            if (response.IsInspectionResult)
+            {
+                string status = VisionInspectionResult.ResolveStatus(response);
+                return !VisionInspectionResult.IsKnownFinalStatus(status);
+            }
 
             if (!string.Equals(response.Command, VisionProtocolCommands.Inspect, StringComparison.OrdinalIgnoreCase))
                 return false;

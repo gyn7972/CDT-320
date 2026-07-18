@@ -830,16 +830,39 @@ namespace QMC.CDT320
 
         public async Task<Tuple<BottomVisionOffset[], SideVisionResult[]>> InspectBottomAndSideAsync(double dieSizeX, double dieSizeY)
         {
-            BottomVisionOffset[] bottom = new BottomVisionOffset[MaxPickerCount];
-            SideVisionResult[] sideResults = new SideVisionResult[MaxPickerCount];
-            for (int i = 0; i < MaxPickerCount; i++)
+            return await InspectBottomAndSideAsync(
+                dieSizeX,
+                dieSizeY,
+                new[] { true, true, true, true },
+                CancellationToken.None).ConfigureAwait(false);
+        }
+
+        public async Task<Tuple<BottomVisionOffset[], SideVisionResult[]>> InspectBottomAndSideAsync(
+            double dieSizeX,
+            double dieSizeY,
+            bool[] loadedPickers,
+            CancellationToken ct)
+        {
+            if (IsVisionBypassed())
             {
-                int pickerNo = i + 1;
-                bottom[i] = await RequestBottomInspectionAsync(pickerNo, ResolvePickerIoTimeoutMs(pickerNo)).ConfigureAwait(false);
-                sideResults[i] = await RequestSideInspectionAsync(pickerNo, 0, ResolvePickerIoTimeoutMs(pickerNo)).ConfigureAwait(false);
+                var simulatedBottom = new BottomVisionOffset[MaxPickerCount];
+                var simulatedSide = new SideVisionResult[MaxPickerCount];
+                for (int i = 0; i < MaxPickerCount; i++)
+                {
+                    if (loadedPickers != null && (i >= loadedPickers.Length || !loadedPickers[i]))
+                        continue;
+                    simulatedBottom[i] = SimulateBottomInspectionResult(i + 1);
+                    simulatedSide[i] = SimulateSideInspectionResult(i + 1);
+                }
+                return Tuple.Create(simulatedBottom, simulatedSide);
             }
 
-            return Tuple.Create(bottom, sideResults);
+            return await QMC.CDT320.VisionComm.TpuVisionAutoBatchCoordinator.RunAsync(
+                vision,
+                0,
+                loadedPickers,
+                ResolvePickerIoTimeoutMs,
+                ct).ConfigureAwait(false);
         }
 
         public Task<BottomVisionOffset> RequestBottomInspectionAsync(int pickerNo, int timeoutMs)
@@ -1289,6 +1312,11 @@ namespace QMC.CDT320
             finally
             {
             }
+        }
+
+        public void AbandonPendingVisionInspection(int pickerNo, string reason)
+        {
+            vision.AbandonPendingInspection(pickerNo, reason);
         }
 
         public IReadOnlyDictionary<PickerAxis, BaseAxis> Axes { get { return axes; } }
