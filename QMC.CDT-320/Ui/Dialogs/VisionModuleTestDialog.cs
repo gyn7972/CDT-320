@@ -154,7 +154,16 @@ namespace QMC.CDT_320.Ui.Dialogs
 
             try
             {
-                MatchResultDto result = await _client.MatchAsync(finder, 0, 30000).ConfigureAwait(true);
+                AutoVisionChannel channel;
+                if (!TryResolveInspectionChannel(_lblMatch, out channel))
+                    return;
+
+                MatchResultDto result = await AutoVisionRequestService.MatchAsync(
+                    channel,
+                    finder,
+                    0,
+                    30000,
+                    System.Threading.CancellationToken.None).ConfigureAwait(true);
                 if (result != null && result.Success)
                 {
                     _lblMatch.ForeColor = Color.SeaGreen;
@@ -201,9 +210,17 @@ namespace QMC.CDT_320.Ui.Dialogs
 
             try
             {
-                InspectionResultDto result = await _client.InspectAsync(inspector, 0, 30000).ConfigureAwait(true);
-                bool ack = result != null && result.Raw != null && result.Raw.StartsWith("ACK|", StringComparison.OrdinalIgnoreCase);
-                if (ack)
+                AutoVisionChannel channel;
+                if (!TryResolveInspectionChannel(_lblInsp, out channel))
+                    return;
+
+                InspectionResultDto result = await AutoVisionRequestService.InspectAsync(
+                    channel,
+                    inspector,
+                    0,
+                    30000,
+                    System.Threading.CancellationToken.None).ConfigureAwait(true);
+                if (result != null)
                 {
                     _lblInsp.ForeColor = result.IsPass ? Color.SeaGreen : Color.Firebrick;
                     _lblInsp.Text = (result.IsPass ? "PASS" : "FAIL") + "   (" + result.Raw + ")";
@@ -223,6 +240,19 @@ namespace QMC.CDT_320.Ui.Dialogs
             {
                 _btnInspect.Enabled = true;
             }
+        }
+
+        private bool TryResolveInspectionChannel(Label target, out AutoVisionChannel channel)
+        {
+            channel = AutoVisionChannel.Wafer;
+            if (_client != null &&
+                VisionModuleNames.TryResolveByModule(_client.ModuleName, out channel) &&
+                channel != AutoVisionChannel.Main)
+                return true;
+
+            target.ForeColor = Color.Firebrick;
+            target.Text = "신규 검사 규약을 지원하는 Vision 카메라 채널이 아닙니다.";
+            return false;
         }
 
         private bool CheckReady(Label target)

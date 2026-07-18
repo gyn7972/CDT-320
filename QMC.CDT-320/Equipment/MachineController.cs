@@ -2473,7 +2473,12 @@ namespace QMC.CDT320
                 {
                     Log($"[ALIGN] point {i + 1}/3 move motor -> ({motorPts[i].mx:F2}, {motorPts[i].my:F2})");
                     // 실제 모션은 운영 환경에서 추가합니다. 현재는 매칭 호출만 수행합니다.
-                    var m = await VisionComm.VisionHub.Wafer.MatchAsync(finder, i, 1500);
+                    var m = await VisionComm.AutoVisionRequestService.MatchAsync(
+                        VisionComm.AutoVisionChannel.Wafer,
+                        finder,
+                        i,
+                        1500,
+                        CancellationToken.None).ConfigureAwait(false);
                     if (!m.Success)
                     {
                         Log($"[ALIGN] point {i + 1} match failed: {m.RawError}");
@@ -10345,7 +10350,10 @@ namespace QMC.CDT320
         {
             var stage = _machine.InputStageUnit;
             var offsets = new (double X, double Y)[pickers];
+            var visionRequests = new VisionComm.VisionRequestHandle[pickers];
+            var resultCollectionFailures = new List<string>();
             int dieBase = cycleIdx * pickers;
+            int pickerFb = DualArmMode && (dieBase % 2 == 1) ? 1 : 0;
 
             try { stage.CameraX?.ServoOn(); stage.StageY?.ServoOn(); } catch { }
 
@@ -10382,6 +10390,11 @@ namespace QMC.CDT320
                 catch (Exception ex)
                 {
                     Log($"[CAPTURE-XY p{p}] ex: " + ex.Message);
+                    await DrainPendingWaferVisionResultsAsync(
+                        visionRequests,
+                        1500,
+                        ct,
+                        "wafer capture motion failure").ConfigureAwait(false);
                     throw;
                 }
 
@@ -10400,31 +10413,143 @@ namespace QMC.CDT320
                 try
                 {
                     SimulatorBridge.Instance?.CameraExposeFlash(VisionComm.VisionCameraIds.Wafer);
-                    var m = await VisionComm.VisionHub.Wafer.MatchAsync(
-                        VisionComm.VisionToolIds.Wafer.DieFinder, dieBase + p, 1500);
-                    if (m.Success && m.Score >= 0.7)
+                    int requestIndex = dieBase + p + 1;
+                    VisionComm.VisionInspectionRequestContext requestContext =
+                        VisionComm.VisionInspectionContextFactory.CreateAuto(
+                            VisionComm.AutoVisionChannel.Wafer,
+                            VisionComm.VisionToolIds.Wafer.DieFinder,
+                            pickerFb,
+                            p + 1,
+                            requestIndex,
+                            d.DieMapX,
+                            d.DieMapY,
+                            0,
+                            d.DieUid,
+                            stage.CurrentWaferId,
+                            VisionComm.VisionInspectionOperations.Match,
+                            VisionComm.VisionResultTimings.Deferred,
+                            string.Empty);
+                    visionRequests[p] = await VisionComm.AutoVisionRequestService.StartInspectionRequestAsync(
+                        requestContext,
+                        1500,
+                        ct).ConfigureAwait(false);
+                    if (visionRequests[p] == null)
                     {
-                        offsets[p] = (0, 0);
-                        Log($"[CAPTURE p{p}] OK score={m.Score:F2} offset=({offsets[p].X:F3},{offsets[p].Y:F3})mm");
+                        throw new InvalidOperationException(
+                            "WAFER INSPECT_ASYNC REQ/EPD failed. pickerNo=" + (p + 1) +
+                            ", dieIndex=" + requestIndex +
+                            ", die=" + (d.DieUid ?? string.Empty));
                     }
-                    else
-                    {
-                        offsets[p] = (0, 0);
-                        Log($"[CAPTURE p{p}] NG match (score={m.Score:F2}). offset=0");
-                    }
+                    Log($"[CAPTURE p{p}] WAFER REQ/EPD complete. requestId={visionRequests[p].Request.RequestId}, groupId={visionRequests[p].Request.GroupId}. RESULT deferred.");
                 }
                 catch (Exception ex)
                 {
                     offsets[p] = (0, 0);
                     Log($"[CAPTURE p{p}] vision ex: " + ex.Message);
+                    await DrainPendingWaferVisionResultsAsync(
+                        visionRequests,
+                        1500,
+                        ct,
+                        "wafer request/EPD failure").ConfigureAwait(false);
+                    throw;
                 }
 
                 // 다음 다이로 이동하기 전 150ms 대기하여 flash가 시각적으로 구분되도록 합니다.
                 await Task.Delay(150, ct).ConfigureAwait(false);
             }
 
-            Log($"[CAPTURE] Cycle {cycleIdx + 1}: capture complete.");
+            // 일반 Auto Async 규약: 모든 위치의 REQ/EPD가 끝난 뒤에만 RESULT를 수집한다.
+            for (int p = 0; p < visionRequests.Length; p++)
+            {
+                VisionComm.VisionRequestHandle handle = visionRequests[p];
+                if (handle == null)
+                    continue;
+
+                VisionComm.VisionInspectionResult result =
+                    await VisionComm.AutoVisionRequestService.WaitInspectionStageAsync(
+                        handle,
+                        VisionComm.VisionInspectionCommands.Result,
+                        1500,
+                        ct).ConfigureAwait(false);
+                VisionComm.MatchResultDto match = result != null ? result.MatchResult : null;
+                if (match == null)
+                {
+                    resultCollectionFailures.Add(
+                        "pickerNo=" + (p + 1) +
+                        ",groupId=" + handle.Request.GroupId);
+                    continue;
+                }
+
+                offsets[p] = (0, 0);
+                if (match.Success && match.Score >= 0.7)
+                {
+                    Log($"[CAPTURE p{p}] RESULT OK score={match.Score:F2} offset=({offsets[p].X:F3},{offsets[p].Y:F3})mm groupId={handle.Request.GroupId}");
+                }
+                else
+                {
+                    Log($"[CAPTURE p{p}] RESULT NG match (score={match.Score:F2}). offset=0 groupId={handle.Request.GroupId}");
+                }
+            }
+
+            if (resultCollectionFailures.Count > 0)
+            {
+                throw new InvalidOperationException(
+                    "WAFER final RESULT collection failed after remaining handles were drained. failed=" +
+                    string.Join(";", resultCollectionFailures.ToArray()));
+            }
+
+            Log($"[CAPTURE] Cycle {cycleIdx + 1}: all EPD and final RESULT collection complete.");
             return offsets;
+        }
+
+        private async Task DrainPendingWaferVisionResultsAsync(
+            VisionComm.VisionRequestHandle[] handles,
+            int timeoutMs,
+            CancellationToken ct,
+            string reason)
+        {
+            if (handles == null)
+                return;
+
+            for (int i = 0; i < handles.Length; i++)
+            {
+                VisionComm.VisionRequestHandle handle = handles[i];
+                if (handle == null || handle.IsResultDone || !string.IsNullOrWhiteSpace(handle.Error))
+                    continue;
+
+                if (ct.IsCancellationRequested)
+                {
+                    handle.MarkError("WAFER RESULT cleanup canceled. reason=" + (reason ?? string.Empty));
+                    continue;
+                }
+
+                try
+                {
+                    VisionComm.VisionInspectionResult result =
+                        await VisionComm.AutoVisionRequestService.WaitInspectionStageAsync(
+                            handle,
+                            VisionComm.VisionInspectionCommands.Result,
+                            timeoutMs,
+                            ct).ConfigureAwait(false);
+                    if (result == null && string.IsNullOrWhiteSpace(handle.Error))
+                        handle.MarkError("WAFER RESULT cleanup failed. reason=" + (reason ?? string.Empty));
+                    Log("[CAPTURE-CLEANUP] WAFER RESULT groupId=" + handle.Request.GroupId +
+                        ", received=" + (result != null) +
+                        ", reason=" + (reason ?? string.Empty));
+                }
+                catch (OperationCanceledException)
+                {
+                    handle.MarkError("WAFER RESULT cleanup canceled. reason=" + (reason ?? string.Empty));
+                    break;
+                }
+                catch (Exception ex)
+                {
+                    handle.MarkError("WAFER RESULT cleanup exception. " + ex.Message);
+                    Log("[CAPTURE-CLEANUP] WAFER RESULT exception. groupId=" + handle.Request.GroupId +
+                        ", reason=" + (reason ?? string.Empty) +
+                        ", error=" + ex.Message);
+                }
+            }
         }
 
         private async Task DoOneDieAsync(int cycleIdx, int totalCycles, CancellationToken ct)
@@ -10758,19 +10883,49 @@ namespace QMC.CDT320
             //   - 각 picker Z는 Bottom 직전, Z는 Side 끝에서 발생합니다.
             BottomVisionOffset[] bottomResults = null;
             SideVisionResult[] sideResults = null;
+            int inspectionFb = useRearPicker ? 1 : 0;
+            var loadedForInspection = new bool[4];
+            for (int p = 0; p < 4; p++)
+                VisionComm.VisionDieAddressStore.Clear(inspectionFb, p + 1);
+            for (int p = 0; p < pickers && p < loadedForInspection.Length; p++)
+            {
+                loadedForInspection[p] = pickupOk[p];
+                if (!loadedForInspection[p])
+                    continue;
+
+                int gridX = mapEntries[p] != null ? mapEntries[p].DieMapX : dies[p].WaferIndexX;
+                int gridY = mapEntries[p] != null ? mapEntries[p].DieMapY : dies[p].WaferIndeY;
+                VisionComm.VisionDieAddressStore.Set(
+                    inspectionFb,
+                    p + 1,
+                    dieBase + p + 1,
+                    gridX,
+                    gridY,
+                    dies[p].Uid,
+                    stage.CurrentWaferId);
+            }
             // 비전 미사용(UseVision=false) 이면 Bottom/Side 검사를 수행하지 않고 PASS 처리(아래 else 분기로).
             bool visionUse = AppSettingsStore.Current == null || AppSettingsStore.Current.UseVision;
             bool visionConnected = visionUse
                                 && VisionComm.VisionHub.Inspection != null
-                                && VisionComm.VisionHub.Inspection.IsConnected;
+                                && VisionComm.VisionHub.Inspection.IsConnected
+                                && VisionComm.VisionHub.FrontSideVision != null
+                                && VisionComm.VisionHub.FrontSideVision.IsConnected
+                                && VisionComm.VisionHub.RearSideVision != null
+                                && VisionComm.VisionHub.RearSideVision.IsConnected;
             try
             {
                 if (visionConnected)
                 {
                     if (front.SideVisionY != null) front.SideVisionY.ServoOn();
 
-                    Log("[VISION] Bottom+Side parallel pipeline start (4 picker)...");
-                    var both = await front.InspectBottomAndSideAsync(DieSizeXMm, DieSizeYMm);
+                    Log("[VISION] Bottom+Side 신규 규약 pipeline start. loaded=" +
+                        string.Join(",", loadedForInspection.Select((loaded, indexValue) => loaded ? (indexValue + 1).ToString() : "-").ToArray()));
+                    Tuple<BottomVisionOffset[], SideVisionResult[]> both = useRearPicker
+                        ? await _machine.PickerRearUnit.InspectBottomAndSideAsync(
+                            DieSizeXMm, DieSizeYMm, loadedForInspection, ct).ConfigureAwait(false)
+                        : await _machine.PickerFrontUnit.InspectBottomAndSideAsync(
+                            DieSizeXMm, DieSizeYMm, loadedForInspection, ct).ConfigureAwait(false);
                     if (both != null)
                     {
                         bottomResults = both.Item1;
@@ -10781,7 +10936,12 @@ namespace QMC.CDT320
                         {
                             for (int p = 0; p < pickers && p < bottomResults.Length; p++)
                             {
-                                if (bottomResults[p] == null) continue;
+                                if (!loadedForInspection[p]) continue;
+                                if (bottomResults[p] == null)
+                                {
+                                    inspPass[p] = false;
+                                    continue;
+                                }
                                 dieOffsets[p].X += bottomResults[p].OffsetX;
                                 dieOffsets[p].Y += bottomResults[p].OffsetY;
                                 if (!bottomResults[p].IsOk) inspPass[p] = false;
@@ -10796,7 +10956,12 @@ namespace QMC.CDT320
                         {
                             for (int p = 0; p < pickers && p < sideResults.Length; p++)
                             {
-                                if (sideResults[p] == null) continue;
+                                if (!loadedForInspection[p]) continue;
+                                if (sideResults[p] == null)
+                                {
+                                    inspPass[p] = false;
+                                    continue;
+                                }
                                 if (!sideResults[p].IsAllOk) inspPass[p] = false;
                             }
                             int okCnt = 0;
@@ -10804,13 +10969,37 @@ namespace QMC.CDT320
                             Log($"[VISION] Side {okCnt}/{pickers} ok");
                         }
                     }
+                    else
+                    {
+                        for (int p = 0; p < pickers; p++)
+                            if (loadedForInspection[p]) inspPass[p] = false;
+                    }
                 }
                 else
                 {
-                    Log("[VISION] Inspection not connected. Bottom/Side check simulated as pass.");
+                    if (visionUse)
+                    {
+                        Log("[VISION] Bottom/FrontSide/RearSide 중 하나 이상 연결되지 않아 실제 검사 대상은 fail-closed 처리합니다.");
+                        for (int p = 0; p < pickers; p++)
+                            if (loadedForInspection[p]) inspPass[p] = false;
+                    }
+                    else
+                    {
+                        Log("[VISION] UseVision=false. Bottom/Side check bypassed.");
+                    }
                 }
             }
-            catch (Exception ex) { Log("[VISION] Bottom+Side ex: " + ex.Message); }
+            catch (Exception ex)
+            {
+                Log("[VISION] Bottom+Side ex: " + ex.Message + ". 실제 검사 대상은 fail-closed 처리합니다.");
+                for (int p = 0; p < pickers; p++)
+                    if (loadedForInspection[p]) inspPass[p] = false;
+            }
+            finally
+            {
+                for (int p = 0; p < 4; p++)
+                    VisionComm.VisionDieAddressStore.Clear(inspectionFb, p + 1);
+            }
 
             // 19) PLACE 위치 이동 및 ArmX 이동과 4개 picker Z 대기 위치 복귀를 병렬 수행합니다.
             double placeArmX = front.GetPickerTeachingPosition(PickerAxis.PickerX, "PlacePosition");

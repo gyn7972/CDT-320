@@ -115,8 +115,13 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                     case "MATCH":
                         if (wafer != null && wafer.IsConnected)
                         {
-                            var result = await wafer.MatchAsync(VisionToolIds.Wafer.ReticleFinder, 0, 5000);
-                            string msg = result == null
+                            var result = await AutoVisionRequestService.MatchAsync(
+                                AutoVisionChannel.Wafer,
+                                VisionToolIds.Wafer.ReticleFinder,
+                                0,
+                                5000,
+                                System.Threading.CancellationToken.None);
+                            string msg = result == null || !result.Success
                                 ? "MATCH failed. Result is null."
                                 : "MATCH result: x=" + result.X.ToString("F2") +
                                   ", y=" + result.Y.ToString("F2") +
@@ -124,8 +129,8 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                                   ", score=" + result.Score.ToString("F2");
                             QMC.Common.MessageDialog.Show(msg, "Vision MATCH",
                                 MessageBoxButtons.OK,
-                                result != null ? MessageBoxIcon.Information : MessageBoxIcon.Warning);
-                            return result != null ? 0 : -1;
+                                result != null && result.Success ? MessageBoxIcon.Information : MessageBoxIcon.Warning);
+                            return result != null && result.Success ? 0 : -1;
                         }
                         else
                         {

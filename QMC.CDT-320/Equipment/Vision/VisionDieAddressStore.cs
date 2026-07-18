@@ -18,6 +18,8 @@ namespace QMC.CDT320.VisionComm
         public int GridY { get; set; } = -1;
         /// <summary>자재 고유 ID(로그 추적용 — 와이어에는 싣지 않는다, 2026-07-06 chip_uid 파트 폐기).</summary>
         public string DieId { get; set; } = "";
+        /// <summary>자동 검사 요청의 WAFER_ID 문맥.</summary>
+        public string WaferId { get; set; } = "";
         public DateTime SetAt { get; set; } = DateTime.Now;
     }
 
@@ -34,7 +36,14 @@ namespace QMC.CDT320.VisionComm
         private static readonly Dictionary<int, VisionDieAddress> _byCollet = new Dictionary<int, VisionDieAddress>();   // key = fb*4+collet
 
         /// <summary>다이 주소 기록 — 픽업/검사 진입 시점에 시퀀스가 호출.</summary>
-        public static void Set(int fb, int collet, int dieIndex, int gridX, int gridY, string dieId = "")
+        public static void Set(
+            int fb,
+            int collet,
+            int dieIndex,
+            int gridX,
+            int gridY,
+            string dieId = "",
+            string waferId = "")
         {
             if (fb < 0 || collet < 1 || collet > 4)
                 return;
@@ -44,7 +53,8 @@ namespace QMC.CDT320.VisionComm
                 {
                     Fb = fb, Collet = collet,
                     DieIndex = dieIndex, GridX = gridX, GridY = gridY,
-                    DieId = dieId ?? ""
+                    DieId = dieId ?? "",
+                    WaferId = waferId ?? ""
                 };
             }
         }

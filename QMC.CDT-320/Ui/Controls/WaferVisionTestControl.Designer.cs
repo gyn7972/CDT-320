@@ -146,7 +146,7 @@
             this.btnCenterMatchAsync.Margin = new System.Windows.Forms.Padding(3, 5, 12, 5);
             this.btnCenterMatchAsync.Name = "btnCenterMatchAsync";
             this.btnCenterMatchAsync.TabIndex = 2;
-            this.btnCenterMatchAsync.Text = "ALIGN: Center MATCHASYNC";
+            this.btnCenterMatchAsync.Text = "ALIGN: Center INSPECT_SYNC 확인";
             this.btnCenterMatchAsync.UseVisualStyleBackColor = false;
             this.btnCenterMatchAsync.Click += new System.EventHandler(this.btnCenterMatchAsync_Click);
             this.btnCenterMatchResult.BackColor = System.Drawing.Color.FromArgb(82, 82, 82);
@@ -157,7 +157,7 @@
             this.btnCenterMatchResult.Margin = new System.Windows.Forms.Padding(3, 5, 12, 5);
             this.btnCenterMatchResult.Name = "btnCenterMatchResult";
             this.btnCenterMatchResult.TabIndex = 4;
-            this.btnCenterMatchResult.Text = "ALIGN: Center MATCHASYNC + RESULT";
+            this.btnCenterMatchResult.Text = "ALIGN: Center INSPECT_SYNC + 적용";
             this.btnCenterMatchResult.UseVisualStyleBackColor = false;
             this.btnCenterMatchResult.Click += new System.EventHandler(this.btnCenterMatchResult_Click);
             this.btnRef1MatchAsync.BackColor = System.Drawing.Color.FromArgb(60, 60, 60);
@@ -168,7 +168,7 @@
             this.btnRef1MatchAsync.Margin = new System.Windows.Forms.Padding(3, 5, 12, 5);
             this.btnRef1MatchAsync.Name = "btnRef1MatchAsync";
             this.btnRef1MatchAsync.TabIndex = 6;
-            this.btnRef1MatchAsync.Text = "ALIGN: Ref1 MATCHASYNC";
+            this.btnRef1MatchAsync.Text = "ALIGN: Ref1 INSPECT_SYNC 확인";
             this.btnRef1MatchAsync.UseVisualStyleBackColor = false;
             this.btnRef1MatchAsync.Click += new System.EventHandler(this.btnRef1MatchAsync_Click);
             this.btnRef1MatchResult.BackColor = System.Drawing.Color.FromArgb(82, 82, 82);
@@ -179,7 +179,7 @@
             this.btnRef1MatchResult.Margin = new System.Windows.Forms.Padding(3, 5, 12, 5);
             this.btnRef1MatchResult.Name = "btnRef1MatchResult";
             this.btnRef1MatchResult.TabIndex = 8;
-            this.btnRef1MatchResult.Text = "ALIGN: Ref1 MATCHASYNC + RESULT";
+            this.btnRef1MatchResult.Text = "ALIGN: Ref1 INSPECT_SYNC + 적용";
             this.btnRef1MatchResult.UseVisualStyleBackColor = false;
             this.btnRef1MatchResult.Click += new System.EventHandler(this.btnRef1MatchResult_Click);
             this.btnRef2MatchAsync.BackColor = System.Drawing.Color.FromArgb(60, 60, 60);
@@ -190,7 +190,7 @@
             this.btnRef2MatchAsync.Margin = new System.Windows.Forms.Padding(3, 5, 12, 5);
             this.btnRef2MatchAsync.Name = "btnRef2MatchAsync";
             this.btnRef2MatchAsync.TabIndex = 10;
-            this.btnRef2MatchAsync.Text = "ALIGN: Ref2 MATCHASYNC";
+            this.btnRef2MatchAsync.Text = "ALIGN: Ref2 INSPECT_SYNC 확인";
             this.btnRef2MatchAsync.UseVisualStyleBackColor = false;
             this.btnRef2MatchAsync.Click += new System.EventHandler(this.btnRef2MatchAsync_Click);
             this.btnRef2MatchResult.BackColor = System.Drawing.Color.FromArgb(82, 82, 82);
@@ -201,7 +201,7 @@
             this.btnRef2MatchResult.Margin = new System.Windows.Forms.Padding(3, 5, 12, 5);
             this.btnRef2MatchResult.Name = "btnRef2MatchResult";
             this.btnRef2MatchResult.TabIndex = 12;
-            this.btnRef2MatchResult.Text = "ALIGN: Ref2 MATCHASYNC + RESULT";
+            this.btnRef2MatchResult.Text = "ALIGN: Ref2 INSPECT_SYNC + 적용";
             this.btnRef2MatchResult.UseVisualStyleBackColor = false;
             this.btnRef2MatchResult.Click += new System.EventHandler(this.btnRef2MatchResult_Click);
             this.btnDieCheckMatchAsync.BackColor = System.Drawing.Color.FromArgb(60, 60, 60);
@@ -212,7 +212,7 @@
             this.btnDieCheckMatchAsync.Margin = new System.Windows.Forms.Padding(3, 5, 12, 5);
             this.btnDieCheckMatchAsync.Name = "btnDieCheckMatchAsync";
             this.btnDieCheckMatchAsync.TabIndex = 14;
-            this.btnDieCheckMatchAsync.Text = "DIE CHECK MATCHASYNC";
+            this.btnDieCheckMatchAsync.Text = "DIE CHECK INSPECT_SYNC 확인";
             this.btnDieCheckMatchAsync.UseVisualStyleBackColor = false;
             this.btnDieCheckMatchAsync.Click += new System.EventHandler(this.btnDieCheckMatchAsync_Click);
             this.btnDieCheckMatchResult.BackColor = System.Drawing.Color.FromArgb(82, 82, 82);
@@ -223,7 +223,7 @@
             this.btnDieCheckMatchResult.Margin = new System.Windows.Forms.Padding(3, 5, 12, 5);
             this.btnDieCheckMatchResult.Name = "btnDieCheckMatchResult";
             this.btnDieCheckMatchResult.TabIndex = 16;
-            this.btnDieCheckMatchResult.Text = "DIE CHECK MATCHASYNC + RESULT";
+            this.btnDieCheckMatchResult.Text = "DIE CHECK INSPECT_SYNC + 판정";
             this.btnDieCheckMatchResult.UseVisualStyleBackColor = false;
             this.btnDieCheckMatchResult.Click += new System.EventHandler(this.btnDieCheckMatchResult_Click);
             // 
@@ -241,56 +241,56 @@
             this.lblCenterMatchAsync.ForeColor = System.Drawing.Color.DimGray;
             this.lblCenterMatchAsync.Name = "lblCenterMatchAsync";
             this.lblCenterMatchAsync.TabIndex = 3;
-            this.lblCenterMatchAsync.Text = "MATCHASYNC 대기";
+            this.lblCenterMatchAsync.Text = "INSPECT_SYNC 대기";
             this.lblCenterMatchAsync.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             this.lblCenterMatchResult.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblCenterMatchResult.Font = new System.Drawing.Font("Consolas", 9F);
             this.lblCenterMatchResult.ForeColor = System.Drawing.Color.DimGray;
             this.lblCenterMatchResult.Name = "lblCenterMatchResult";
             this.lblCenterMatchResult.TabIndex = 5;
-            this.lblCenterMatchResult.Text = "MATCHASYNC + RESULT 대기";
+            this.lblCenterMatchResult.Text = "INSPECT_SYNC + 적용 대기";
             this.lblCenterMatchResult.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             this.lblRef1MatchAsync.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblRef1MatchAsync.Font = new System.Drawing.Font("Consolas", 9F);
             this.lblRef1MatchAsync.ForeColor = System.Drawing.Color.DimGray;
             this.lblRef1MatchAsync.Name = "lblRef1MatchAsync";
             this.lblRef1MatchAsync.TabIndex = 7;
-            this.lblRef1MatchAsync.Text = "MATCHASYNC 대기";
+            this.lblRef1MatchAsync.Text = "INSPECT_SYNC 대기";
             this.lblRef1MatchAsync.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             this.lblRef1MatchResult.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblRef1MatchResult.Font = new System.Drawing.Font("Consolas", 9F);
             this.lblRef1MatchResult.ForeColor = System.Drawing.Color.DimGray;
             this.lblRef1MatchResult.Name = "lblRef1MatchResult";
             this.lblRef1MatchResult.TabIndex = 9;
-            this.lblRef1MatchResult.Text = "MATCHASYNC + RESULT 대기";
+            this.lblRef1MatchResult.Text = "INSPECT_SYNC + 적용 대기";
             this.lblRef1MatchResult.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             this.lblRef2MatchAsync.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblRef2MatchAsync.Font = new System.Drawing.Font("Consolas", 9F);
             this.lblRef2MatchAsync.ForeColor = System.Drawing.Color.DimGray;
             this.lblRef2MatchAsync.Name = "lblRef2MatchAsync";
             this.lblRef2MatchAsync.TabIndex = 11;
-            this.lblRef2MatchAsync.Text = "MATCHASYNC 대기";
+            this.lblRef2MatchAsync.Text = "INSPECT_SYNC 대기";
             this.lblRef2MatchAsync.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             this.lblRef2MatchResult.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblRef2MatchResult.Font = new System.Drawing.Font("Consolas", 9F);
             this.lblRef2MatchResult.ForeColor = System.Drawing.Color.DimGray;
             this.lblRef2MatchResult.Name = "lblRef2MatchResult";
             this.lblRef2MatchResult.TabIndex = 13;
-            this.lblRef2MatchResult.Text = "MATCHASYNC + RESULT 대기";
+            this.lblRef2MatchResult.Text = "INSPECT_SYNC + 적용 대기";
             this.lblRef2MatchResult.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             this.lblDieCheckMatchAsync.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblDieCheckMatchAsync.Font = new System.Drawing.Font("Consolas", 9F);
             this.lblDieCheckMatchAsync.ForeColor = System.Drawing.Color.DimGray;
             this.lblDieCheckMatchAsync.Name = "lblDieCheckMatchAsync";
             this.lblDieCheckMatchAsync.TabIndex = 15;
-            this.lblDieCheckMatchAsync.Text = "MATCHASYNC 대기";
+            this.lblDieCheckMatchAsync.Text = "INSPECT_SYNC 대기";
             this.lblDieCheckMatchAsync.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             this.lblDieCheckMatchResult.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblDieCheckMatchResult.Font = new System.Drawing.Font("Consolas", 9F);
             this.lblDieCheckMatchResult.ForeColor = System.Drawing.Color.DimGray;
             this.lblDieCheckMatchResult.Name = "lblDieCheckMatchResult";
             this.lblDieCheckMatchResult.TabIndex = 17;
-            this.lblDieCheckMatchResult.Text = "MATCHASYNC + RESULT 대기";
+            this.lblDieCheckMatchResult.Text = "INSPECT_SYNC + 판정 대기";
             this.lblDieCheckMatchResult.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             this.lblSummary.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblSummary.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -307,7 +307,7 @@
             this.lblHint.Name = "lblHint";
             this.lblHint.Padding = new System.Windows.Forms.Padding(0, 8, 0, 0);
             this.lblHint.TabIndex = 19;
-            this.lblHint.Text = "단독 MATCHASYNC는 EPD까지만 확인합니다. 각 MATCHASYNC + RESULT 버튼은 EPD 후 최종 결과까지 자동 요청하며 전체 택을 표시합니다.";
+            this.lblHint.Text = "모든 버튼은 INSPECT_SYNC 요청 후 request_id EPD와 RESULT까지 확인합니다. 적용/판정 버튼은 결과를 Handler 상태에도 반영하며 전체 택을 표시합니다.";
             // 
             // viewer
             // 

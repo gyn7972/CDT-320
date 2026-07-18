@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Threading;
@@ -18,9 +18,10 @@ namespace QMC.CDT_320.Ui.Controls
             Side
         }
 
-        private readonly TpuVisionAdapter _adapter = new TpuVisionAdapter();
+        private TpuVisionAdapter _adapter = new TpuVisionAdapter(0);
         private Mode _mode = Mode.BottomInspection;
         private int _pickerNo = 1;
+        private int _pickerFb;
         private Func<VisionTcpClient> _sideClientGetter;
         private int _sideViewerPort;
         private string _sideInspectorId;
@@ -41,10 +42,13 @@ namespace QMC.CDT_320.Ui.Controls
             int pickerNo = 1,
             Func<VisionTcpClient> sideClient = null,
             int sideViewerPort = 0,
-            string sideInspectorId = null)
+            string sideInspectorId = null,
+            int pickerFb = 0)
         {
             _mode = mode;
             _pickerNo = pickerNo;
+            _pickerFb = pickerFb == 1 ? 1 : 0;
+            _adapter = new TpuVisionAdapter(_pickerFb);
             _sideClientGetter = sideClient;
             _sideViewerPort = sideViewerPort;
             _sideInspectorId = sideInspectorId;
@@ -216,13 +220,30 @@ namespace QMC.CDT_320.Ui.Controls
                 return;
             }
 
-            InspectionResultDto result = await client.InspectAsync(_sideInspectorId, 0, 30000).ConfigureAwait(true);
-            bool acked = result != null && !string.IsNullOrEmpty(result.Raw) &&
-                         result.Raw.StartsWith("ACK|", StringComparison.OrdinalIgnoreCase);
-            if (!acked)
+            AutoVisionChannel channel;
+            if (!VisionModuleNames.TryResolveByModule(client.ModuleName, out channel) ||
+                (channel != AutoVisionChannel.FrontSide && channel != AutoVisionChannel.RearSide))
             {
                 lblResult.ForeColor = Color.Firebrick;
-                lblResult.Text = "INSPECT 실패: " + (result != null ? result.Raw : "no response");
+                lblResult.Text = "Side Vision 카메라 채널을 확인할 수 없습니다.";
+                return;
+            }
+
+            InspectionResultDto result = await AutoVisionRequestService.InspectColletAsync(
+                channel,
+                _sideInspectorId,
+                _pickerFb,
+                _pickerNo,
+                0,
+                0,
+                0,
+                0,
+                30000,
+                CancellationToken.None).ConfigureAwait(true);
+            if (result == null)
+            {
+                lblResult.ForeColor = Color.Firebrick;
+                lblResult.Text = "INSPECT 실패: no response";
                 return;
             }
 

@@ -28,6 +28,24 @@ namespace QMC.CDT320.Sequencing
         private bool _inspectionYPositionReady;
         private SequenceResourceLease _inspectionAreaLease;
         private readonly List<PendingT0Return> _pendingT0Returns = new List<PendingT0Return>();
+        private readonly List<CapturedSideInspection> _capturedSideInspections = new List<CapturedSideInspection>();
+
+        private sealed class CapturedSideInspection
+        {
+            public int PickerIndex;
+            public int PickerNo;
+            public DieMaterial Die;
+            public SideVisionResult Side0Result;
+            public SideVisionResult Side90Result;
+            public bool Side0Started;
+            public bool Side90Started;
+            public double TargetPickerX;
+            public double TargetPickerY;
+            public double TargetPickerZ;
+            public double TargetPickerT0;
+            public double TargetPickerT90;
+            public bool ResultApplied;
+        }
 
         private sealed class PendingT0Return
         {
@@ -51,6 +69,7 @@ namespace QMC.CDT320.Sequencing
         {
             try
             {
+                AbandonPendingVisionInspections("Picker Side 검사 Abort로 미완료 요청을 정리합니다.");
                 ReleaseInspectionArea();
                 ClearPendingT0Return();
                 CurrentStep = PickerSideInspectionStep.Complete;
@@ -103,7 +122,76 @@ namespace QMC.CDT320.Sequencing
             finally
             {
                 if (!keepCurrentState)
+                {
+                    if (CurrentStep != PickerSideInspectionStep.Complete)
+                    {
+                        try
+                        {
+                            await DrainCapturedSideResultsAfterFailureAsync(ct).ConfigureAwait(false);
+                            AbandonPendingVisionInspections("Picker Side 검사 실패/중단으로 미완료 요청을 정리합니다.");
+                        }
+                        catch (Exception ex)
+                        {
+                            WriteLog("PickerSideInspectionSequence",
+                                Name + " 실패 후 Vision Handle 정리 예외. error=" + ex.Message + " - Check");
+                        }
+                    }
                     ReleaseInspectionArea();
+                }
+            }
+        }
+
+        private async Task DrainCapturedSideResultsAfterFailureAsync(CancellationToken ct)
+        {
+            if (ct.IsCancellationRequested || IsVisionBypassed() || IsDryRunMode())
+                return;
+
+            for (int i = 0; i < _capturedSideInspections.Count; i++)
+            {
+                CapturedSideInspection captured = _capturedSideInspections[i];
+                if (captured == null || captured.ResultApplied ||
+                    (!captured.Side0Started && !captured.Side90Started) ||
+                    (captured.Side0Result != null && captured.Side90Result != null))
+                    continue;
+
+                try
+                {
+                    SideVisionResult result = await WaitSideInspectionResultAsync(captured.PickerNo, ct).ConfigureAwait(false);
+                    if (result != null)
+                    {
+                        if (captured.Side0Result == null)
+                            captured.Side0Result = result;
+                        if (captured.Side90Result == null)
+                            captured.Side90Result = result;
+                    }
+                }
+                catch (OperationCanceledException)
+                {
+                    break;
+                }
+                catch (Exception ex)
+                {
+                    WriteLog("PickerSideInspectionSequence",
+                        Name + " 실패 정리 중 Side RESULT 회수 예외. pickerNo=" + captured.PickerNo +
+                        ", error=" + ex.Message + " - Check");
+                }
+            }
+        }
+
+        private void AbandonPendingVisionInspections(string reason)
+        {
+            var pickerNos = new HashSet<int>();
+            for (int i = 0; i < _pickedPickerIndexes.Count; i++)
+                pickerNos.Add(ToPickerNo(_pickedPickerIndexes[i]));
+            if (_currentPickerNo >= 1 && _currentPickerNo <= 4)
+                pickerNos.Add(_currentPickerNo);
+
+            foreach (int pickerNo in pickerNos)
+            {
+                if (Side == PickerSequenceSide.Front)
+                    FrontPicker.AbandonPendingVisionInspection(pickerNo, reason);
+                else
+                    RearPicker.AbandonPendingVisionInspection(pickerNo, reason);
             }
         }
 
@@ -221,6 +309,7 @@ namespace QMC.CDT320.Sequencing
             _pickerCursor = 0;
             _inspectionYPositionReady = false;
             ClearPendingT0Return();
+            _capturedSideInspections.Clear();
 
             if (_pickedPickerIndexes.Count == 0)
             {
@@ -383,8 +472,10 @@ namespace QMC.CDT320.Sequencing
 
             if (_currentDie == null)
             {
-                CurrentStep = PickerSideInspectionStep.SelectNextPickerOrComplete;
-                return 0;
+                return Fail("PICKER-SIDE-MATERIAL-CONTEXT", Name,
+                    "Side 검사 대상으로 확정된 Picker의 자재 문맥을 찾을 수 없습니다. " +
+                    "pickerIndex=" + _currentPickerIndex +
+                    ", pickerNo=" + _currentPickerNo);
             }
 
             _targetPickerX = ResolvePickerZoneX("DieSidePosition", _currentPickerIndex);
@@ -850,7 +941,64 @@ namespace QMC.CDT320.Sequencing
             }
 
             await DelaySideInspectionTurnSettleAsync(ct).ConfigureAwait(false);
-            CurrentStep = PickerSideInspectionStep.ApplySideInspectionResult;
+            return QueueCapturedSideInspection();
+        }
+
+        private int QueueCapturedSideInspection()
+        {
+            if (_currentDie == null)
+            {
+                return Fail("PICKER-SIDE-CAPTURE-CONTEXT", "Vision",
+                    "Side 검사 촬영 완료 정보를 저장할 자재 문맥이 없습니다. pickerNo=" + _currentPickerNo);
+            }
+
+            bool side0Ready = _side0Started || _side0Result != null;
+            bool side90Ready = _side90Started || _side90Result != null;
+            if (!side0Ready || !side90Ready)
+            {
+                return Fail("PICKER-SIDE-CAPTURE-INCOMPLETE", "Vision",
+                    "Side RESULT 수집 전 0도/90도 촬영 EPD가 모두 완료되지 않았습니다. die=" +
+                    _currentDie.DieId +
+                    ", pickerNo=" + _currentPickerNo +
+                    ", side0Ready=" + side0Ready +
+                    ", side90Ready=" + side90Ready);
+            }
+
+            _capturedSideInspections.Add(new CapturedSideInspection
+            {
+                PickerIndex = _currentPickerIndex,
+                PickerNo = _currentPickerNo,
+                Die = _currentDie,
+                Side0Result = _side0Result,
+                Side90Result = _side90Result,
+                Side0Started = _side0Started,
+                Side90Started = _side90Started,
+                TargetPickerX = _targetPickerX,
+                TargetPickerY = _targetPickerY,
+                TargetPickerZ = _targetPickerZ,
+                TargetPickerT0 = _targetPickerT0,
+                TargetPickerT90 = _targetPickerT90
+            });
+
+            WriteLog("PickerSideInspectionSequence",
+                Name + " Side 0도/90도 촬영 EPD 완료 정보를 RESULT Collection에 등록했습니다. " +
+                "die=" + _currentDie.DieId +
+                ", pickerNo=" + _currentPickerNo +
+                ", capturedCount=" + _capturedSideInspections.Count +
+                ", loadedCount=" + _pickedPickerIndexes.Count + " - Ok");
+
+            if (Options != null && Options.KeepZUntilSideInspectionComplete)
+            {
+                WriteLog("PickerSideInspectionSequence",
+                    Name + " Auto 연속 검사를 위해 Side 촬영 완료 후 PickerZ를 유지합니다. " +
+                    "pickerNo=" + _currentPickerNo +
+                    ", die=" + _currentDie.DieId + " - Ok");
+                QueuePendingT0Return(_currentPickerIndex, _targetPickerT0);
+                CurrentStep = PickerSideInspectionStep.SelectNextPickerOrComplete;
+                return 0;
+            }
+
+            CurrentStep = PickerSideInspectionStep.MoveSideZToAvoid;
             return 0;
         }
 
@@ -927,49 +1075,104 @@ namespace QMC.CDT320.Sequencing
 
         private async Task<int> ApplySideInspectionResultAsync(CancellationToken ct)
         {
-            try
+            if (_capturedSideInspections.Count != _pickedPickerIndexes.Count)
             {
-                if ((_side0Started || _side90Started) && (_side0Result == null || _side90Result == null))
+                return Fail("PICKER-SIDE-CAPTURE-COUNT", "Vision",
+                    "Side RESULT Collection 전에 실제 적재 Picker의 촬영 완료 수가 일치하지 않습니다. " +
+                    "capturedCount=" + _capturedSideInspections.Count +
+                    ", loadedCount=" + _pickedPickerIndexes.Count);
+            }
+
+            var failures = new List<string>();
+
+            for (int i = 0; i < _capturedSideInspections.Count; i++)
+            {
+                ct.ThrowIfCancellationRequested();
+
+                CapturedSideInspection captured = _capturedSideInspections[i];
+                if (captured == null || captured.ResultApplied)
+                    continue;
+
+                try
                 {
-                    SideVisionResult result = await WaitSideInspectionResultAsync(ct).ConfigureAwait(false);
-                    if (result == null)
+                    if ((captured.Side0Started || captured.Side90Started) &&
+                        (captured.Side0Result == null || captured.Side90Result == null))
                     {
-                        return Fail("PICKER-SIDE-VISION-RESULT", "Vision",
-                            "Side 검사 결과 수신 실패. die=" + _currentDie.DieId +
-                            ", pickerNo=" + _currentPickerNo);
+                        SideVisionResult result = await WaitSideInspectionResultAsync(
+                            captured.PickerNo,
+                            ct).ConfigureAwait(false);
+                        if (result == null)
+                        {
+                            string failure = "die=" + (captured.Die != null ? captured.Die.DieId : "-") +
+                                             ", pickerNo=" + captured.PickerNo +
+                                             ", reason=RESULT missing";
+                            failures.Add(failure);
+                            WriteLog("PickerSideInspectionSequence",
+                                Name + " Side 최종 RESULT Collection 중 결과 수신 실패. " + failure + " - Failed");
+                            continue;
+                        }
+
+                        if (captured.Side0Result == null)
+                            captured.Side0Result = result;
+                        if (captured.Side90Result == null)
+                            captured.Side90Result = result;
                     }
 
-                    if (_side0Result == null)
-                        _side0Result = result;
-                    if (_side90Result == null)
-                        _side90Result = result;
-                }
+                    if (captured.Side0Result == null || captured.Side90Result == null)
+                    {
+                        string failure = "die=" + (captured.Die != null ? captured.Die.DieId : "-") +
+                                         ", pickerNo=" + captured.PickerNo +
+                                         ", reason=incomplete RESULT";
+                        failures.Add(failure);
+                        WriteLog("PickerSideInspectionSequence",
+                            Name + " Side 최종 RESULT Collection 결과가 불완전합니다. " + failure + " - Failed");
+                        continue;
+                    }
 
-                return ApplySideInspectionResult();
+                    ApplySideInspectionResult(captured);
+                    captured.ResultApplied = true;
+                }
+                catch (OperationCanceledException)
+                {
+                    throw;
+                }
+                catch (Exception ex)
+                {
+                    string failure = "die=" + (captured.Die != null ? captured.Die.DieId : "-") +
+                                     ", pickerNo=" + captured.PickerNo +
+                                     ", reason=" + ex.Message;
+                    failures.Add(failure);
+                    WriteLog("PickerSideInspectionSequence",
+                        Name + " Side 최종 RESULT Collection 또는 적용 중 예외가 발생했습니다. " +
+                        failure + " - Failed");
+                }
             }
-            catch (OperationCanceledException)
+
+            if (failures.Count > 0)
             {
-                throw;
+                return Fail("PICKER-SIDE-VISION-RESULT", "Vision",
+                    "모든 Side 촬영 완료 후 RESULT Collection에 실패 항목이 있습니다. " +
+                    "failureCount=" + failures.Count +
+                    ", capturedCount=" + _capturedSideInspections.Count +
+                    ", failures=" + string.Join(" / ", failures.ToArray()));
             }
-            catch (Exception ex)
-            {
-                return Fail("PICKER-SIDE-VISION-RESULT-EX", "Vision",
-                    "Side 검사 결과 적용 중 예외가 발생했습니다. die=" + _currentDie.DieId +
-                    ", pickerNo=" + _currentPickerNo +
-                    ", error=" + ex.Message);
-            }
-            finally
-            {
-            }
+
+            CurrentStep = Options != null && Options.KeepZUntilSideInspectionComplete
+                ? PickerSideInspectionStep.MoveAllPickerZToAvoidAfterInspection
+                : PickerSideInspectionStep.Complete;
+            return 0;
         }
 
-        private int ApplySideInspectionResult()
+        private void ApplySideInspectionResult(CapturedSideInspection captured)
         {
-            bool ok0 = _side0Result != null && _side0Result.IsAllOk;
-            bool ok90 = _side90Result != null && _side90Result.IsAllOk;
-            bool ok = ok0 && ok90 && _currentDie.Result != DieResult.NG;
+            if (captured == null || captured.Die == null)
+                throw new InvalidOperationException("Side 검사 결과를 적용할 자재 문맥이 없습니다.");
 
-            MaterialStateService.UpsertInspection(_currentDie.DieId, new DieInspectionRecord
+            bool ok0 = captured.Side0Result != null && captured.Side0Result.IsAllOk;
+            bool ok90 = captured.Side90Result != null && captured.Side90Result.IsAllOk;
+            bool ok = ok0 && ok90 && captured.Die.Result != DieResult.NG;
+
+            MaterialStateService.UpsertInspection(captured.Die.DieId, new DieInspectionRecord
             {
                 InspectionType = "Side0",
                 Result = ok0 ? MaterialInspectionResult.Ok : MaterialInspectionResult.Ng,
@@ -978,17 +1181,17 @@ namespace QMC.CDT320.Sequencing
                 {
                     BuildPickerAlignmentSnapshot(
                         "Side0",
-                        _currentPickerIndex,
-                        _targetPickerX,
-                        _targetPickerY,
-                        _targetPickerT0,
-                        _targetPickerZ,
+                        captured.PickerIndex,
+                        captured.TargetPickerX,
+                        captured.TargetPickerY,
+                        captured.TargetPickerT0,
+                        captured.TargetPickerZ,
                         new VisionOffset())
                 },
-                Measurements = BuildSideMeasurements(_side0Result, "Side0")
+                Measurements = BuildSideMeasurements(captured.Side0Result, "Side0")
             });
 
-            MaterialStateService.UpsertInspection(_currentDie.DieId, new DieInspectionRecord
+            MaterialStateService.UpsertInspection(captured.Die.DieId, new DieInspectionRecord
             {
                 InspectionType = "Side90",
                 Result = ok90 ? MaterialInspectionResult.Ok : MaterialInspectionResult.Ng,
@@ -997,41 +1200,27 @@ namespace QMC.CDT320.Sequencing
                 {
                     BuildPickerAlignmentSnapshot(
                         "Side90",
-                        _currentPickerIndex,
-                        _targetPickerX,
-                        _targetPickerY,
-                        _targetPickerT90,
-                        _targetPickerZ,
+                        captured.PickerIndex,
+                        captured.TargetPickerX,
+                        captured.TargetPickerY,
+                        captured.TargetPickerT90,
+                        captured.TargetPickerZ,
                         new VisionOffset())
                 },
-                Measurements = BuildSideMeasurements(_side90Result, "Side90")
+                Measurements = BuildSideMeasurements(captured.Side90Result, "Side90")
             });
 
             MaterialStateService.ApplyDieInspectionResult(
-                _currentDie.DieId,
+                captured.Die.DieId,
                 ok ? DieResult.Good : DieResult.NG,
                 ok ? "" : "SIDE_NG",
                 "SideInspection");
 
             WriteLog("PickerSideInspectionSequence",
-                Name + " side inspection result. die=" + _currentDie.DieId +
-                ", pickerNo=" + _currentPickerNo +
+                Name + " side inspection result. die=" + captured.Die.DieId +
+                ", pickerNo=" + captured.PickerNo +
                 ", ok0=" + ok0 +
                 ", ok90=" + ok90 + " - Ok");
-
-            if (Options != null && Options.KeepZUntilSideInspectionComplete)
-            {
-                WriteLog("PickerSideInspectionSequence",
-                    Name + " Auto 연속 검사를 위해 Side 완료 후 PickerZ를 유지합니다. " +
-                    "pickerNo=" + _currentPickerNo +
-                    ", die=" + _currentDie.DieId + " - Ok");
-                QueuePendingT0Return(_currentPickerIndex, _targetPickerT0);
-                CurrentStep = PickerSideInspectionStep.SelectNextPickerOrComplete;
-                return 0;
-            }
-
-            CurrentStep = PickerSideInspectionStep.MoveSideZToAvoid;
-            return 0;
         }
 
         private List<InspectionMeasurement> BuildSideMeasurements(SideVisionResult result, string prefix)
@@ -1359,13 +1548,7 @@ namespace QMC.CDT320.Sequencing
                 if (HasPendingT0Return())
                     ClearPendingT0Return();
 
-                if (Options != null && Options.KeepZUntilSideInspectionComplete)
-                {
-                    CurrentStep = PickerSideInspectionStep.MoveAllPickerZToAvoidAfterInspection;
-                    return 0;
-                }
-
-                CurrentStep = PickerSideInspectionStep.Complete;
+                CurrentStep = PickerSideInspectionStep.ApplySideInspectionResult;
                 return 0;
             }
 
@@ -1466,7 +1649,7 @@ namespace QMC.CDT320.Sequencing
             return true;
         }
 
-        private async Task<SideVisionResult> WaitSideInspectionResultAsync(CancellationToken ct)
+        private async Task<SideVisionResult> WaitSideInspectionResultAsync(int pickerNo, CancellationToken ct)
         {
             if (IsVisionBypassed() || IsDryRunMode())
                 return SimulateSideResult();
@@ -1475,8 +1658,8 @@ namespace QMC.CDT320.Sequencing
 
             int timeoutMs = ResolveVisionInspectionTimeout();
             return Side == PickerSequenceSide.Front
-                ? await FrontPicker.WaitSideInspectionResultAsync(_currentPickerNo, timeoutMs, ct).ConfigureAwait(false)
-                : await RearPicker.WaitSideInspectionResultAsync(_currentPickerNo, timeoutMs, ct).ConfigureAwait(false);
+                ? await FrontPicker.WaitSideInspectionResultAsync(pickerNo, timeoutMs, ct).ConfigureAwait(false)
+                : await RearPicker.WaitSideInspectionResultAsync(pickerNo, timeoutMs, ct).ConfigureAwait(false);
         }
 
         private async Task TriggerDryRunSideGrabIfConnectedAsync(int angleDeg, int timeoutMs, CancellationToken ct)

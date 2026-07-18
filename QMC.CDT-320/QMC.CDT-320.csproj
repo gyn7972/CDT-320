@@ -661,12 +661,15 @@
     <Compile Include="Equipment\Vision\VisionAdapters.cs" />
     <Compile Include="Equipment\Vision\VisionToolIds.cs" />
     <Compile Include="Equipment\Vision\AutoVisionRequestService.cs" />
+    <Compile Include="Equipment\Vision\AutoVisionRequestService.Correlated.cs" />
     <Compile Include="Equipment\Vision\VisionCommandService.cs" />
     <Compile Include="Equipment\Vision\VisionHub.cs" />
     <Compile Include="Equipment\Vision\VisionProtocol.cs" />
+    <Compile Include="Equipment\Vision\VisionInspectionProtocol.cs" />
     <Compile Include="Equipment\Vision\VisionViewerSource.cs" />
     <Compile Include="Equipment\Vision\VisionFrameClient.cs" />
     <Compile Include="Equipment\Vision\VisionTcpClient.cs" />
+    <Compile Include="Equipment\Vision\VisionTcpClient.Correlated.cs" />
     <!-- UI / Theme + Localization + Security -->
     <Compile Include="Ui\UiTheme.cs" />
     <Compile Include="Ui\Localization\Lang.cs" />

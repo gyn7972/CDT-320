@@ -1,4 +1,4 @@
-namespace QMC.CDT320.VisionComm
+﻿namespace QMC.CDT320.VisionComm
 {
     /// <summary>
     /// Handler-side SSOT for Vision PC tool ids.
@@ -42,6 +42,7 @@ namespace QMC.CDT320.VisionComm
             public const string SurfaceInspector = "SurfaceInspector";
             public const string FocusFinder = "FocusFinder";
             public const string ScaleFinder = "ScaleFinder";
+            public const string COCInspector = "COCInspector";
             public const string DistortionCompensation = "DistortionCompensation";
         }
 

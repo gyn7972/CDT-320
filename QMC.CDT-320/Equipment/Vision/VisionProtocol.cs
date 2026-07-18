@@ -255,6 +255,17 @@ namespace QMC.CDT320.VisionComm
             }
         }
 
+        public bool IsInspectionResult
+        {
+            get
+            {
+                return string.Equals(Header, VisionInspectionCommands.MResult, StringComparison.OrdinalIgnoreCase) ||
+                       string.Equals(Header, VisionInspectionCommands.Result, StringComparison.OrdinalIgnoreCase) ||
+                       string.Equals(Command, VisionInspectionCommands.MResult, StringComparison.OrdinalIgnoreCase) ||
+                       string.Equals(Command, VisionInspectionCommands.Result, StringComparison.OrdinalIgnoreCase);
+            }
+        }
+
         public string Payload
         {
             get
@@ -284,10 +295,39 @@ namespace QMC.CDT320.VisionComm
             get
             {
                 if (IsError)
+                {
+                    // Canonical positional fields are authoritative; META must not overwrite them.
+                    if (Fields != null && Fields.Length >= 9)
+                        return (Fields[1] ?? string.Empty).Trim();
+
+                    string keyedMessage = GetValueAny("error_message", "errorMessage", "message");
+                    if (!string.IsNullOrWhiteSpace(keyedMessage))
+                        return keyedMessage.Trim();
+
+                    // Legacy ERR|MODULE|CMD|MESSAGE compatibility.
                     return Payload;
+                }
 
                 if (string.Equals(ResultToken, "ERR", StringComparison.OrdinalIgnoreCase))
                     return Payload;
+
+                return string.Empty;
+            }
+        }
+
+        public string ErrorCode
+        {
+            get
+            {
+                if (!IsError)
+                    return string.Empty;
+
+                if (Fields != null && Fields.Length >= 9)
+                    return (Fields[0] ?? string.Empty).Trim();
+
+                string keyedCode = GetValueAny("error_code", "errorCode", "code");
+                if (!string.IsNullOrWhiteSpace(keyedCode))
+                    return keyedCode.Trim();
 
                 return string.Empty;
             }
@@ -306,7 +346,14 @@ namespace QMC.CDT320.VisionComm
             string[] parts = line.Split('|');
             response.Header = parts.Length > 0 ? parts[0].Trim() : string.Empty;
 
-            if (response.IsAck || response.IsError)
+            if (string.Equals(response.Header, VisionInspectionCommands.MResult, StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(response.Header, VisionInspectionCommands.Result, StringComparison.OrdinalIgnoreCase))
+            {
+                response.Module = parts.Length > 1 ? parts[1].Trim() : string.Empty;
+                response.Command = response.Header;
+                response.Fields = CopyFields(parts, 2);
+            }
+            else if (response.IsAck || response.IsError)
             {
                 response.Module = parts.Length > 1 ? parts[1].Trim() : string.Empty;
                 response.Command = parts.Length > 2 ? parts[2].Trim() : string.Empty;
@@ -387,8 +434,7 @@ namespace QMC.CDT320.VisionComm
             if (string.IsNullOrWhiteSpace(raw))
                 return false;
 
-            return int.TryParse(raw, NumberStyles.Integer, CultureInfo.InvariantCulture, out value) ||
-                   int.TryParse(raw, NumberStyles.Integer, CultureInfo.CurrentCulture, out value);
+            return int.TryParse(raw, NumberStyles.Integer, CultureInfo.InvariantCulture, out value);
         }
 
         public bool TryGetIntAny(out int value, params string[] keys)
@@ -427,8 +473,13 @@ namespace QMC.CDT320.VisionComm
             if (string.IsNullOrWhiteSpace(raw))
                 return false;
 
-            return double.TryParse(raw, NumberStyles.Float, CultureInfo.InvariantCulture, out value) ||
-                   double.TryParse(raw, NumberStyles.Float, CultureInfo.CurrentCulture, out value);
+            double parsed;
+            if (!double.TryParse(raw, NumberStyles.Float, CultureInfo.InvariantCulture, out parsed) ||
+                double.IsNaN(parsed) || double.IsInfinity(parsed))
+                return false;
+
+            value = parsed;
+            return true;
         }
 
         private static string[] CopyFields(string[] parts, int startIndex)
@@ -483,12 +534,13 @@ namespace QMC.CDT320.VisionComm
         {
             VisionProtocolResponse response = VisionProtocolResponse.Parse(line);
             var result = new VisionScaleResult();
-            result.Success = response.IsAck && response.IsResult("OK");
             result.Raw = line;
-            response.TryGetDoubleAny(out var scaleX, "scaleX", "scale_x", "sx", "pixelToMmX", "pixel_to_mm_x", "resolutionX", "resX");
-            response.TryGetDoubleAny(out var scaleY, "scaleY", "scale_y", "sy", "pixelToMmY", "pixel_to_mm_y", "resolutionY", "resY");
+            bool hasScaleX = response.TryGetDouble("scaleX", out var scaleX);
+            bool hasScaleY = response.TryGetDouble("scaleY", out var scaleY);
             result.ScaleX = scaleX;
             result.ScaleY = scaleY;
+            result.Success = response.IsAck && response.IsResult("OK") &&
+                             hasScaleX && hasScaleY && scaleX > 0.0 && scaleY > 0.0;
             return result;
         }
     }

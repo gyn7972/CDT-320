@@ -2993,6 +2993,8 @@ namespace QMC.CDT320.Sequencing
                         ReceiveTarget = _placedReceiveTarget,
                         HasPlacedDieCameraTarget = true,
                         PickerNo = _currentPickerNo,
+                        PickerSide = Side,
+                        HasPickerContext = true,
                         PlacedStageY = _targetOutputStageY,
                         PlacedPickerY = _targetPickerY,
                         OutputVisionToPickerY = _outputVisionToPickerY,

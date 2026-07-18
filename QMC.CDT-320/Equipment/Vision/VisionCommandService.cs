@@ -27,6 +27,26 @@ namespace QMC.CDT320.VisionComm
             }
         }
 
+        /// <summary>신규 CAMERA 규약용 정확한 연결 선택. Side 연결이 없을 때 Bottom으로 우회하지 않는다.</summary>
+        public static VisionTcpClient ResolveInspectionClient(AutoVisionChannel channel)
+        {
+            switch (channel)
+            {
+                case AutoVisionChannel.Wafer:
+                    return VisionHub.Wafer;
+                case AutoVisionChannel.BottomInspection:
+                    return VisionHub.Inspection;
+                case AutoVisionChannel.Bin:
+                    return VisionHub.Bin;
+                case AutoVisionChannel.FrontSide:
+                    return VisionHub.FrontSideVision;
+                case AutoVisionChannel.RearSide:
+                    return VisionHub.RearSideVision;
+                default:
+                    return null;
+            }
+        }
+
         /// <summary>현재 명령을 실제로 전송할 TCP 연결의 모듈명.
         /// Side 전용 연결이 없어서 BottomInspection 연결로 폴백한 경우에도 실제 EPD 모듈명과 일치한다.</summary>
         public static string ResolveActiveModuleName(AutoVisionChannel channel)

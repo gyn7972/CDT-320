@@ -135,6 +135,8 @@ namespace QMC.CDT320
         public Task<SideVisionResult> WaitSideResultAsync(int pickerNo, int timeoutMs, CancellationToken ct)
             => GetSideResultAsync(pickerNo, timeoutMs);
 
+        public void AbandonPendingInspection(int pickerNo, string reason) { }
+
         public Task<SideVisionResult> GetSideResultAsync(int pickerNo, int timeoutMs = 5000)
             => Task.FromResult(BuildSimulatedSide(pickerNo));
 

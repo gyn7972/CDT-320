@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using QMC.CDT320.Materials;
 
@@ -161,6 +161,9 @@ namespace QMC.CDT320.Sequencing
                 PickerNo = item.PickerNo,
                 DieId = item.DieId,
                 PickTarget = ClonePickTarget(item.PickTarget),
+                VisionRequestIndex = item.VisionRequestIndex,
+                VisionRequest = item.VisionRequest,
+                ExposureCompleted = item.ExposureCompleted,
                 VisionOffset = CloneVisionOffset(item.VisionOffset),
                 DiePicked = item.DiePicked
             };

@@ -101,15 +101,29 @@ namespace QMC.CDT320.VisionComm
 
     /// <summary>
     /// Picker bottom/side vision adapter.
-    /// Bottom은 BottomInspection 채널을 사용하고, Side는 FrontSide/RearSide 두 카메라를 동시에 사용한다.
+    /// Bottom은 BottomInspection 채널을 사용하고, Side는 FrontSide EPD 후 RearSide를 직렬로 사용한다.
     /// <para>8콜렛 규약: fb는 Picker 그룹(0=Front, 1=Rear)이며 카메라 채널과 독립적이다.
     /// Side 0도는 channel=0, Side 90도는 channel=1을 두 카메라에 동일하게 전송한다.
-    /// Vision 요청은 신형 고정 8파트("tool|fb|collet|die_index|channel|gridx;gridy")로 전송한다(키=die_index, 2026-07-06).</para>
+    /// Vision 요청은 CAMERA부터 LOT_ID까지 12개 고정 필드와 request_id/group_id META를 사용한다.</para>
     /// </summary>
     public class TpuVisionAdapter : IVisionTpuClient
     {
         private const double MatchScoreThreshold = 0.7;
         private readonly int _fb;
+        private readonly object _inspectionRequestLock = new object();
+        private readonly Dictionary<int, VisionRequestHandle> _bottomInspectionRequests =
+            new Dictionary<int, VisionRequestHandle>();
+        private readonly Dictionary<int, SideInspectionRequestBatch> _sideInspectionRequests =
+            new Dictionary<int, SideInspectionRequestBatch>();
+
+        private sealed class SideInspectionRequestBatch
+        {
+            public string GroupId;
+            public VisionRequestHandle Front0;
+            public VisionRequestHandle Rear0;
+            public VisionRequestHandle Front90;
+            public VisionRequestHandle Rear90;
+        }
 
         public TpuVisionAdapter()
             : this(0)
@@ -138,8 +152,8 @@ namespace QMC.CDT320.VisionComm
         private static string ResolveSideSurfaceInspector(AutoVisionChannel cameraChannel)
         {
             return cameraChannel == AutoVisionChannel.RearSide
-                ? VisionToolIds.RearSide.SurfaceInspector
-                : VisionToolIds.FrontSide.SurfaceInspector;
+                ? VisionToolIds.RearSide.ChippingInspector
+                : VisionToolIds.FrontSide.ChippingInspector;
         }
 
         private static int ResolveSideChannel(int angleDegOrSideNo)
@@ -159,6 +173,15 @@ namespace QMC.CDT320.VisionComm
             }
             dieIndex = VisionDieAddressStore.FallbackDieIndex(Fb, collet);
             gridX = -1; gridY = -1;
+        }
+
+        private bool TryResolveAutoDieAddress(int collet, out VisionDieAddress address)
+        {
+            address = null;
+            if (!VisionDieAddressStore.TryGet(Fb, collet, out address) || address == null)
+                return false;
+            return address.DieIndex >= 0 && address.DieIndex <= 9999 &&
+                   !string.IsNullOrWhiteSpace(address.DieId);
         }
 
         public Task<bool> TriggerBottomExposeAsync(int pickerNo = 0, int timeoutMs = 1000)
@@ -199,27 +222,51 @@ namespace QMC.CDT320.VisionComm
                     return false;
                 }
 
-                int dieIndex, gridX, gridY;
-                ResolveDieAddress(pickerNo, out dieIndex, out gridX, out gridY);
+                VisionDieAddress address;
+                if (!TryResolveAutoDieAddress(pickerNo, out address))
+                {
+                    EventLogger.Write(EventKind.Alarm, "VISION", "AUTO-VISION-BOTTOM-CONTEXT",
+                        "Bottom 자동 검사 필수 자재 문맥이 없습니다. 음수 DIE_INDEX로 대체하지 않습니다. fb=" + Fb +
+                        ", pickerNo=" + pickerNo);
+                    return false;
+                }
                 EventLogger.Write(EventKind.Event, "VISION", "AUTO-VISION-BOTTOM-INSPECTASYNC",
                     "Bottom 검사 시작 요청. fb=" + Fb +
                     ", pickerNo=" + pickerNo +
                     ", collet=" + pickerNo +
-                    ", dieIndex=" + dieIndex +
-                    ", grid=" + gridX + ";" + gridY +
+                    ", dieIndex=" + address.DieIndex +
+                    ", grid=" + address.GridX + ";" + address.GridY +
                     ", timeoutMs=" + timeoutMs);
 
-                return await AutoVisionRequestService.StartInspectColletAsync(
+                VisionInspectionRequestContext context = VisionInspectionContextFactory.CreateAuto(
                     AutoVisionChannel.BottomInspection,
                     VisionToolIds.BottomInspection.SurfaceInspector,
                     Fb,
                     pickerNo,
-                    dieIndex,
+                    address.DieIndex,
+                    address.GridX,
+                    address.GridY,
                     0,
-                    gridX,
-                    gridY,
+                    address.DieId,
+                    address.WaferId,
+                    VisionInspectionOperations.Inspect,
+                    VisionResultTimings.Deferred,
+                    string.Empty);
+                VisionRequestHandle handle = await AutoVisionRequestService.StartInspectionRequestAsync(
+                    context,
                     timeoutMs,
                     ct).ConfigureAwait(false);
+                if (handle == null)
+                    return false;
+
+                lock (_inspectionRequestLock)
+                {
+                    VisionRequestHandle stale;
+                    if (_bottomInspectionRequests.TryGetValue(pickerNo, out stale) && stale != null)
+                        stale.MarkError("같은 Picker의 새 Bottom 요청으로 교체되었습니다.");
+                    _bottomInspectionRequests[pickerNo] = handle;
+                }
+                return true;
             }
             catch (OperationCanceledException)
             {
@@ -240,6 +287,7 @@ namespace QMC.CDT320.VisionComm
 
         public async Task<BottomVisionOffset> WaitBottomResultAsync(int pickerNo, int timeoutMs, CancellationToken ct)
         {
+            VisionRequestHandle handle = null;
             try
             {
                 ct.ThrowIfCancellationRequested();
@@ -252,20 +300,25 @@ namespace QMC.CDT320.VisionComm
                     return null;
                 }
 
-                int dieIndex, gridX, gridY;
-                ResolveDieAddress(pickerNo, out dieIndex, out gridX, out gridY);
+                lock (_inspectionRequestLock)
+                    _bottomInspectionRequests.TryGetValue(pickerNo, out handle);
+                if (handle == null)
+                {
+                    EventLogger.Write(EventKind.Alarm, "VISION", "AUTO-VISION-BOTTOM-RESULT-HANDLE",
+                        "Bottom 결과와 연결할 요청 Handle이 없습니다. fb=" + Fb + ", pickerNo=" + pickerNo);
+                    return null;
+                }
                 EventLogger.Write(EventKind.Event, "VISION", "AUTO-VISION-BOTTOM-INSPECTRESULT",
                     "Bottom 검사 결과 대기. fb=" + Fb +
                     ", pickerNo=" + pickerNo +
                     ", collet=" + pickerNo +
-                    ", dieIndex=" + dieIndex +
-                    ", grid=" + gridX + ";" + gridY +
+                    ", dieIndex=" + handle.Request.DieIndex +
+                    ", requestId=" + handle.Request.RequestId +
+                    ", groupId=" + handle.Request.GroupId +
                     ", timeoutMs=" + timeoutMs);
 
-                InspectionResultDto inspection = await AutoVisionRequestService.WaitInspectResultByDieAsync(
-                    AutoVisionChannel.BottomInspection,
-                    VisionToolIds.BottomInspection.SurfaceInspector,
-                    dieIndex,
+                InspectionResultDto inspection = await AutoVisionRequestService.CompleteBottomInspectionAsync(
+                    handle,
                     timeoutMs,
                     ct).ConfigureAwait(false);
 
@@ -274,7 +327,8 @@ namespace QMC.CDT320.VisionComm
                     EventLogger.Write(EventKind.Alarm, "VISION", "AUTO-VISION-BOTTOM-INSPECTRESULT",
                         "Bottom SurfaceInspector 결과 수신 실패. 검사 NG가 아니라 Vision ACK/RESULT 미수신입니다. fb=" + Fb +
                         ", collet=" + pickerNo +
-                        ", dieIndex=" + dieIndex +
+                        ", dieIndex=" + handle.Request.DieIndex +
+                        ", groupId=" + handle.Request.GroupId +
                         ", raw=" + (inspection != null ? inspection.Raw : "null"));
                     return null;
                 }
@@ -283,7 +337,7 @@ namespace QMC.CDT320.VisionComm
                 EventLogger.Write(EventKind.Event, "VISION", "AUTO-VISION-BOTTOM-INSPECT-CAL",
                     "Bottom SurfaceInspector 결과 구조 적용. fb=" + Fb +
                     ", collet=" + pickerNo +
-                    ", dieIndex=" + dieIndex +
+                    ", dieIndex=" + handle.Request.DieIndex +
                     ", ok=" + (offset != null && offset.IsOk) +
                     ", rawValues=" + (inspection != null ? inspection.DescribeValues() : "null") +
                     ", bottomCenterOffsetXmm=" + (offset != null ? offset.BottomCenterOffsetX.ToString("F6") : "null") +
@@ -308,6 +362,16 @@ namespace QMC.CDT320.VisionComm
             }
             finally
             {
+                if (handle != null)
+                {
+                    lock (_inspectionRequestLock)
+                    {
+                        VisionRequestHandle current;
+                        if (_bottomInspectionRequests.TryGetValue(pickerNo, out current) &&
+                            object.ReferenceEquals(current, handle))
+                            _bottomInspectionRequests.Remove(pickerNo);
+                    }
+                }
             }
         }
 
@@ -426,83 +490,148 @@ namespace QMC.CDT320.VisionComm
                 ", grabIndex=" + (pickerNo * 10 + sideNo) +
                 ", timeoutMs=" + timeoutMs);
 
-            Task<bool> frontTask = AutoVisionRequestService.GrabInspectAsync(
+            int grabIndex = pickerNo * 10 + sideNo;
+            bool frontResult = await AutoVisionRequestService.GrabAsync(
                 AutoVisionChannel.FrontSide,
-                ResolveSideSurfaceInspector(AutoVisionChannel.FrontSide),
-                Fb, pickerNo, dieIndex, ch, gridX, gridY, timeoutMs, ct);
-            Task<bool> rearTask = AutoVisionRequestService.GrabInspectAsync(
+                grabIndex,
+                timeoutMs,
+                ct).ConfigureAwait(false);
+            if (!frontResult)
+                return false;
+            bool rearResult = await AutoVisionRequestService.GrabAsync(
                 AutoVisionChannel.RearSide,
-                ResolveSideSurfaceInspector(AutoVisionChannel.RearSide),
-                Fb, pickerNo, dieIndex, ch, gridX, gridY, timeoutMs, ct);
-
-            bool[] results = await Task.WhenAll(frontTask, rearTask).ConfigureAwait(false);
-            return results.Length == 2 && results[0] && results[1];
+                grabIndex,
+                timeoutMs,
+                ct).ConfigureAwait(false);
+            return rearResult;
         }
 
         public async Task<bool> StartSideInspectAsync(int pickerNo, int angleDeg, int timeoutMs, CancellationToken ct)
         {
+            SideInspectionRequestBatch batch = null;
             try
             {
                 ct.ThrowIfCancellationRequested();
 
-                int dieIndex, gridX, gridY;
-                ResolveDieAddress(pickerNo, out dieIndex, out gridX, out gridY);
+                VisionDieAddress address;
+                if (!TryResolveAutoDieAddress(pickerNo, out address))
+                {
+                    EventLogger.Write(EventKind.Alarm, "VISION", "AUTO-VISION-SIDE-CONTEXT",
+                        "Side 자동 검사 필수 자재 문맥이 없습니다. 음수 DIE_INDEX로 대체하지 않습니다. fb=" + Fb +
+                        ", pickerNo=" + pickerNo + ", angleDeg=" + angleDeg);
+                    return false;
+                }
                 int ch = ResolveSideChannel(angleDeg);
+                lock (_inspectionRequestLock)
+                {
+                    if (ch == 0)
+                    {
+                        SideInspectionRequestBatch stale;
+                        if (_sideInspectionRequests.TryGetValue(pickerNo, out stale) && stale != null)
+                            MarkSideBatchError(stale, "같은 Picker의 새 Side 요청으로 교체되었습니다.");
+                        batch = new SideInspectionRequestBatch { GroupId = VisionCorrelationIdGenerator.NewGroupId() };
+                        _sideInspectionRequests[pickerNo] = batch;
+                    }
+                    else if (!_sideInspectionRequests.TryGetValue(pickerNo, out batch) ||
+                             batch == null || batch.Front0 == null || batch.Rear0 == null)
+                    {
+                        batch = null;
+                    }
+                }
+                if (batch == null)
+                {
+                    EventLogger.Write(EventKind.Alarm, "VISION", "AUTO-VISION-SIDE-ORDER",
+                        "Side 90도 요청 전에 Front/Rear 0도 EPD가 모두 완료되지 않았습니다. fb=" + Fb +
+                        ", pickerNo=" + pickerNo);
+                    return false;
+                }
 
                 EventLogger.Write(EventKind.Event, "VISION", "AUTO-VISION-SIDE-INSPECTASYNC",
-                    "Side 양쪽 카메라 검사 시작 요청. cameras=FrontSide,RearSide" +
+                    "Side 카메라를 Front 후 Rear 순서로 검사 요청합니다." +
                     ", frontInspector=" + ResolveSideSurfaceInspector(AutoVisionChannel.FrontSide) +
                     ", rearInspector=" + ResolveSideSurfaceInspector(AutoVisionChannel.RearSide) +
                     ", fb=" + Fb +
                     ", pickerNo=" + pickerNo +
                     ", collet=" + pickerNo +
-                    ", dieIndex=" + dieIndex +
+                    ", dieIndex=" + address.DieIndex +
                     ", ch=" + ch +
-                    ", grid=" + gridX + ";" + gridY +
+                    ", grid=" + address.GridX + ";" + address.GridY +
+                    ", groupId=" + batch.GroupId +
                     ", timeoutMs=" + timeoutMs);
 
-                Task<bool> frontTask = AutoVisionRequestService.StartInspectColletAsync(
+                VisionInspectionRequestContext frontContext = VisionInspectionContextFactory.CreateAuto(
                     AutoVisionChannel.FrontSide,
                     ResolveSideSurfaceInspector(AutoVisionChannel.FrontSide),
-                    Fb, pickerNo, dieIndex, ch, gridX, gridY, timeoutMs, ct);
-                Task<bool> rearTask = AutoVisionRequestService.StartInspectColletAsync(
-                    AutoVisionChannel.RearSide,
-                    ResolveSideSurfaceInspector(AutoVisionChannel.RearSide),
-                    Fb, pickerNo, dieIndex, ch, gridX, gridY, timeoutMs, ct);
-
-                bool[] startResults = await Task.WhenAll(frontTask, rearTask).ConfigureAwait(false);
-                bool started = startResults.Length == 2 && startResults[0] && startResults[1];
-
-                if (!started)
+                    Fb, pickerNo, address.DieIndex, address.GridX, address.GridY, ch,
+                    address.DieId, address.WaferId, VisionInspectionOperations.Inspect,
+                    VisionResultTimings.Deferred, batch.GroupId);
+                VisionRequestHandle frontHandle = await AutoVisionRequestService.StartInspectionRequestAsync(
+                    frontContext, timeoutMs, ct).ConfigureAwait(false);
+                if (frontHandle == null)
                 {
                     EventLogger.Write(EventKind.Alarm, "VISION", "AUTO-VISION-SIDE-INSPECTASYNC",
-                        "Side 검사 시작 EPD 수신 실패. 두 카메라 중 촬상 완료 미수신이 있습니다. " +
-                        "frontEpd=" + (startResults.Length > 0 && startResults[0]) +
-                        ", rearEpd=" + (startResults.Length > 1 && startResults[1]) +
-                        ", fb=" + Fb +
-                        ", pickerNo=" + pickerNo +
-                        ", collet=" + pickerNo +
-                        ", dieIndex=" + dieIndex +
-                        ", ch=" + ch +
-                        ", grid=" + gridX + ";" + gridY +
-                        ", timeoutMs=" + timeoutMs);
-                }
-                else
-                {
-                    EventLogger.Write(EventKind.Event, "VISION", "AUTO-VISION-SIDE-INSPECTASYNC",
-                        "Side 양쪽 카메라 EPD 수신 완료. frontEpd=" + startResults[0] +
-                        ", rearEpd=" + startResults[1] +
-                        ", fb=" + Fb +
-                        ", collet=" + pickerNo +
-                        ", dieIndex=" + dieIndex +
-                        ", channel=" + ch +
-                        ", grid=" + gridX + ";" + gridY);
+                        "Side Front EPD 수신 실패. Rear 요청을 전송하지 않습니다. fb=" + Fb +
+                        ", pickerNo=" + pickerNo + ", channel=" + ch + ", groupId=" + batch.GroupId);
+                    MarkSideBatchError(batch, "Side Front EPD 수신 실패");
+                    RemoveSideBatchIfCurrent(pickerNo, batch);
+                    return false;
                 }
 
-                return started;
+                lock (_inspectionRequestLock)
+                {
+                    if (ch == 0) batch.Front0 = frontHandle;
+                    else batch.Front90 = frontHandle;
+                }
+
+                VisionInspectionRequestContext rearContext = VisionInspectionContextFactory.CreateAuto(
+                    AutoVisionChannel.RearSide,
+                    ResolveSideSurfaceInspector(AutoVisionChannel.RearSide),
+                    Fb, pickerNo, address.DieIndex, address.GridX, address.GridY, ch,
+                    address.DieId, address.WaferId, VisionInspectionOperations.Inspect,
+                    VisionResultTimings.Deferred, batch.GroupId);
+                VisionRequestHandle rearHandle = await AutoVisionRequestService.StartInspectionRequestAsync(
+                    rearContext, timeoutMs, ct).ConfigureAwait(false);
+                if (rearHandle == null)
+                {
+                    EventLogger.Write(EventKind.Alarm, "VISION", "AUTO-VISION-SIDE-INSPECTASYNC",
+                        "Side Rear EPD 수신 실패. fb=" + Fb +
+                        ", pickerNo=" + pickerNo + ", channel=" + ch + ", groupId=" + batch.GroupId);
+                    MarkSideBatchError(batch, "Side Rear EPD 수신 실패");
+                    RemoveSideBatchIfCurrent(pickerNo, batch);
+                    return false;
+                }
+
+                lock (_inspectionRequestLock)
+                {
+                    if (ch == 0) batch.Rear0 = rearHandle;
+                    else batch.Rear90 = rearHandle;
+                }
+
+                EventLogger.Write(EventKind.Event, "VISION", "AUTO-VISION-SIDE-INSPECTASYNC",
+                    "Side Front→Rear EPD 순차 수신 완료. fb=" + Fb +
+                    ", pickerNo=" + pickerNo +
+                    ", dieIndex=" + address.DieIndex +
+                    ", channel=" + ch +
+                    ", groupId=" + batch.GroupId +
+                    ", frontReqToEpdMs=" + frontHandle.RequestToExposureDoneMs.ToString("F3") +
+                    ", rearReqToEpdMs=" + rearHandle.RequestToExposureDoneMs.ToString("F3") +
+                    ", frontEpdToRearReqMs=" + VisionRequestHandle.ElapsedMilliseconds(
+                        frontHandle.ExposureDoneTimestamp,
+                        rearHandle.RequestTxTimestamp).ToString("F3") +
+                    (ch == 1 && batch.Front0 != null
+                        ? ", pickerCaptureTotalMs=" + VisionRequestHandle.ElapsedMilliseconds(
+                            batch.Front0.RequestTxTimestamp,
+                            rearHandle.ExposureDoneTimestamp).ToString("F3")
+                        : string.Empty));
+                return true;
             }
             catch (OperationCanceledException)
             {
+                if (batch != null)
+                {
+                    MarkSideBatchError(batch, "Side 검사 시작이 취소되었습니다.");
+                    RemoveSideBatchIfCurrent(pickerNo, batch);
+                }
                 throw;
             }
             catch (Exception ex)
@@ -512,6 +641,11 @@ namespace QMC.CDT320.VisionComm
                     ", pickerNo=" + pickerNo +
                     ", angleDeg=" + angleDeg +
                     ", error=" + ex.Message);
+                if (batch != null)
+                {
+                    MarkSideBatchError(batch, ex.Message);
+                    RemoveSideBatchIfCurrent(pickerNo, batch);
+                }
                 return false;
             }
             finally
@@ -521,34 +655,47 @@ namespace QMC.CDT320.VisionComm
 
         public async Task<SideVisionResult> WaitSideResultAsync(int pickerNo, int timeoutMs, CancellationToken ct)
         {
+            SideInspectionRequestBatch batch = null;
             try
             {
                 ct.ThrowIfCancellationRequested();
 
-                int dieIndex, gridX, gridY;
-                ResolveDieAddress(pickerNo, out dieIndex, out gridX, out gridY);
+                lock (_inspectionRequestLock)
+                    _sideInspectionRequests.TryGetValue(pickerNo, out batch);
+                if (batch == null || batch.Front0 == null || batch.Rear0 == null ||
+                    batch.Front90 == null || batch.Rear90 == null)
+                {
+                    EventLogger.Write(EventKind.Alarm, "VISION", "AUTO-VISION-SIDE-RESULT-HANDLE",
+                        "Side RESULT 전에 Front0/Rear0/Front90/Rear90 EPD가 모두 필요합니다. fb=" + Fb +
+                        ", pickerNo=" + pickerNo);
+                    return null;
+                }
 
                 EventLogger.Write(EventKind.Event, "VISION", "AUTO-VISION-SIDE-INSPECTRESULT",
                     "Side 양쪽 카메라 검사 결과 대기. cameras=FrontSide,RearSide" +
                     ", fb=" + Fb +
                     ", pickerNo=" + pickerNo +
                     ", collet=" + pickerNo +
-                    ", dieIndex=" + dieIndex +
-                    ", grid=" + gridX + ";" + gridY +
+                    ", dieIndex=" + batch.Front90.Request.DieIndex +
+                    ", groupId=" + batch.GroupId +
                     ", timeoutMs=" + timeoutMs);
 
-                Task<InspectionResultDto> frontTask = AutoVisionRequestService.WaitInspectResultByDieAsync(
-                    AutoVisionChannel.FrontSide,
-                    ResolveSideSurfaceInspector(AutoVisionChannel.FrontSide),
-                    dieIndex, timeoutMs, ct);
-                Task<InspectionResultDto> rearTask = AutoVisionRequestService.WaitInspectResultByDieAsync(
-                    AutoVisionChannel.RearSide,
-                    ResolveSideSurfaceInspector(AutoVisionChannel.RearSide),
-                    dieIndex, timeoutMs, ct);
+                Task<VisionInspectionResult> frontTask = AutoVisionRequestService.WaitInspectionStageAsync(
+                    batch.Front90, VisionInspectionCommands.Result, timeoutMs, ct);
+                Task<VisionInspectionResult> rearTask = AutoVisionRequestService.WaitInspectionStageAsync(
+                    batch.Rear90, VisionInspectionCommands.Result, timeoutMs, ct);
 
-                InspectionResultDto[] inspections = await Task.WhenAll(frontTask, rearTask).ConfigureAwait(false);
-                InspectionResultDto frontInspection = inspections.Length > 0 ? inspections[0] : null;
-                InspectionResultDto rearInspection = inspections.Length > 1 ? inspections[1] : null;
+                VisionInspectionResult[] correlatedResults = await Task.WhenAll(frontTask, rearTask).ConfigureAwait(false);
+                if (correlatedResults.Length > 0 && correlatedResults[0] != null && batch.Front0 != null)
+                    batch.Front0.MarkStageDone(VisionInspectionCommands.Result, correlatedResults[0]);
+                if (correlatedResults.Length > 1 && correlatedResults[1] != null && batch.Rear0 != null)
+                    batch.Rear0.MarkStageDone(VisionInspectionCommands.Result, correlatedResults[1]);
+                InspectionResultDto frontInspection = correlatedResults.Length > 0 && correlatedResults[0] != null
+                    ? correlatedResults[0].InspectionResult
+                    : null;
+                InspectionResultDto rearInspection = correlatedResults.Length > 1 && correlatedResults[1] != null
+                    ? correlatedResults[1].InspectionResult
+                    : null;
                 bool frontTransportFailed = AutoVisionRequestService.IsInspectionResultTransportFailure(frontInspection);
                 bool rearTransportFailed = AutoVisionRequestService.IsInspectionResultTransportFailure(rearInspection);
                 if (frontTransportFailed || rearTransportFailed)
@@ -560,7 +707,8 @@ namespace QMC.CDT320.VisionComm
                         ", fb=" + Fb +
                         ", pickerNo=" + pickerNo +
                         ", collet=" + pickerNo +
-                        ", dieIndex=" + dieIndex +
+                        ", dieIndex=" + batch.Front90.Request.DieIndex +
+                        ", groupId=" + batch.GroupId +
                         ", timeoutMs=" + timeoutMs +
                         ", frontRaw=" + (frontInspection != null ? frontInspection.Raw : "null") +
                         ", rearRaw=" + (rearInspection != null ? rearInspection.Raw : "null"));
@@ -573,13 +721,14 @@ namespace QMC.CDT320.VisionComm
                 EventLogger.Write(EventKind.Event, "VISION", "AUTO-VISION-SIDE-INSPECTRESULT",
                     "Side 양쪽 카메라 집계 결과 수신 완료. fb=" + Fb +
                     ", collet=" + pickerNo +
-                    ", dieIndex=" + dieIndex +
+                    ", dieIndex=" + batch.Front90.Request.DieIndex +
+                    ", groupId=" + batch.GroupId +
                     ", frontPass=" + frontPass +
                     ", rearPass=" + rearPass +
                     ", allPass=" + (frontPass && rearPass) +
                     ", frontRaw=" + (frontInspection != null ? frontInspection.Raw : string.Empty) +
                     ", rearRaw=" + (rearInspection != null ? rearInspection.Raw : string.Empty));
-                return new SideVisionResult
+                var sideResult = new SideVisionResult
                 {
                     PickerNo = pickerNo,
                     Side1Ok = frontPass,
@@ -590,6 +739,7 @@ namespace QMC.CDT320.VisionComm
                           " | RearSide=" + (rearInspection != null ? rearInspection.Raw : string.Empty),
                     Values = values
                 };
+                return sideResult;
             }
             catch (OperationCanceledException)
             {
@@ -605,6 +755,78 @@ namespace QMC.CDT320.VisionComm
             }
             finally
             {
+                if (batch != null)
+                {
+                    MarkIncompleteSideBatchHandles(batch, "Side RESULT Collection이 완료되지 않았습니다.");
+                    RemoveSideBatchIfCurrent(pickerNo, batch);
+                }
+            }
+        }
+
+        public void AbandonPendingInspection(int pickerNo, string reason)
+        {
+            VisionRequestHandle bottom = null;
+            SideInspectionRequestBatch side = null;
+            lock (_inspectionRequestLock)
+            {
+                if (_bottomInspectionRequests.TryGetValue(pickerNo, out bottom))
+                    _bottomInspectionRequests.Remove(pickerNo);
+                if (_sideInspectionRequests.TryGetValue(pickerNo, out side))
+                    _sideInspectionRequests.Remove(pickerNo);
+            }
+
+            string error = string.IsNullOrWhiteSpace(reason)
+                ? "Vision 검사 요청이 완료 전에 폐기되었습니다."
+                : reason;
+            if (bottom != null && !bottom.IsResultDone && string.IsNullOrWhiteSpace(bottom.Error))
+                bottom.MarkError(error);
+            MarkIncompleteSideBatchHandles(side, error);
+
+            if (bottom != null || side != null)
+            {
+                EventLogger.Write(EventKind.Warning, "VISION", "AUTO-VISION-PENDING-ABANDON",
+                    "미완료 Vision Handle을 정리했습니다. fb=" + Fb +
+                    ", pickerNo=" + pickerNo +
+                    ", bottom=" + (bottom != null) +
+                    ", side=" + (side != null) +
+                    ", reason=" + error);
+            }
+        }
+
+        private void RemoveSideBatchIfCurrent(int pickerNo, SideInspectionRequestBatch batch)
+        {
+            if (batch == null)
+                return;
+            lock (_inspectionRequestLock)
+            {
+                SideInspectionRequestBatch current;
+                if (_sideInspectionRequests.TryGetValue(pickerNo, out current) &&
+                    object.ReferenceEquals(current, batch))
+                    _sideInspectionRequests.Remove(pickerNo);
+            }
+        }
+
+        private static void MarkSideBatchError(SideInspectionRequestBatch batch, string error)
+        {
+            if (batch == null)
+                return;
+            VisionRequestHandle[] handles = { batch.Front0, batch.Rear0, batch.Front90, batch.Rear90 };
+            for (int i = 0; i < handles.Length; i++)
+            {
+                if (handles[i] != null)
+                    handles[i].MarkError(error);
+            }
+        }
+
+        private static void MarkIncompleteSideBatchHandles(SideInspectionRequestBatch batch, string error)
+        {
+            if (batch == null)
+                return;
+            VisionRequestHandle[] handles = { batch.Front0, batch.Rear0, batch.Front90, batch.Rear90 };
+            for (int i = 0; i < handles.Length; i++)
+            {
+                if (handles[i] != null && !handles[i].IsResultDone && string.IsNullOrWhiteSpace(handles[i].Error))
+                    handles[i].MarkError(error);
             }
         }
 
@@ -664,6 +886,201 @@ namespace QMC.CDT320.VisionComm
             finally
             {
             }
+        }
+    }
+
+    public static class TpuVisionAutoBatchCoordinator
+    {
+        public static async Task<Tuple<BottomVisionOffset[], SideVisionResult[]>> RunAsync(
+            IVisionTpuClient vision,
+            int fb,
+            bool[] loadedPickers,
+            Func<int, int> timeoutResolver,
+            CancellationToken ct)
+        {
+            var bottomResults = new BottomVisionOffset[4];
+            var sideResults = new SideVisionResult[4];
+            if (vision == null)
+                return Tuple.Create(bottomResults, sideResults);
+
+            var loaded = new List<int>();
+            for (int i = 0; i < 4; i++)
+            {
+                if (loadedPickers == null || (i < loadedPickers.Length && loadedPickers[i]))
+                    loaded.Add(i + 1);
+            }
+            if (loaded.Count == 0)
+                return Tuple.Create(bottomResults, sideResults);
+
+            bool fullFourPicker = loaded.Count == 4 && HasValidAutoContext(fb, 1) &&
+                                  HasValidAutoContext(fb, 2) && HasValidAutoContext(fb, 3) &&
+                                  HasValidAutoContext(fb, 4);
+            var capturedSideOrder = new List<int>();
+
+            if (fullFourPicker)
+            {
+                int[] firstBottomOrder = { 4, 3, 2 };
+                for (int i = 0; i < firstBottomOrder.Length; i++)
+                {
+                    int pickerNo = firstBottomOrder[i];
+                    bottomResults[pickerNo - 1] = await CompleteBottomAsync(
+                        vision, pickerNo, ResolveTimeout(timeoutResolver, pickerNo), ct).ConfigureAwait(false);
+                    if (bottomResults[pickerNo - 1] == null)
+                        return Tuple.Create(bottomResults, sideResults);
+                }
+
+                // 특수 중첩 진입 직전에 P1/P4 자재 문맥을 다시 확인한다.
+                bool overlapStillValid = HasValidAutoContext(fb, 1) && HasValidAutoContext(fb, 4);
+                if (overlapStillValid)
+                {
+                    int bottomTimeout = ResolveTimeout(timeoutResolver, 1);
+                    int sideTimeout = ResolveTimeout(timeoutResolver, 4);
+                    Task<BottomVisionOffset> bottomP1Task = CompleteBottomAsync(vision, 1, bottomTimeout, ct);
+                    Task<bool> sideP4Task = CaptureSideAsync(vision, 4, sideTimeout, ct);
+                    await Task.WhenAll(new Task[] { bottomP1Task, sideP4Task }).ConfigureAwait(false);
+                    bottomResults[0] = bottomP1Task.Result;
+                    if (sideP4Task.Result)
+                        capturedSideOrder.Add(4);
+                    if (bottomResults[0] == null || !sideP4Task.Result)
+                    {
+                        await CollectCapturedSideResultsAsync(
+                            vision, capturedSideOrder, sideResults, timeoutResolver, ct).ConfigureAwait(false);
+                        return Tuple.Create(bottomResults, sideResults);
+                    }
+
+                    int[] remainingSideOrder = { 3, 2, 1 };
+                    for (int i = 0; i < remainingSideOrder.Length; i++)
+                    {
+                        int pickerNo = remainingSideOrder[i];
+                        if (!await CaptureSideAsync(
+                            vision, pickerNo, ResolveTimeout(timeoutResolver, pickerNo), ct).ConfigureAwait(false))
+                        {
+                            await CollectCapturedSideResultsAsync(
+                                vision, capturedSideOrder, sideResults, timeoutResolver, ct).ConfigureAwait(false);
+                            return Tuple.Create(bottomResults, sideResults);
+                        }
+                        capturedSideOrder.Add(pickerNo);
+                    }
+                }
+                else
+                {
+                    bottomResults[0] = await CompleteBottomAsync(
+                        vision, 1, ResolveTimeout(timeoutResolver, 1), ct).ConfigureAwait(false);
+                    if (bottomResults[0] == null)
+                        return Tuple.Create(bottomResults, sideResults);
+                }
+            }
+            else
+            {
+                // 부분 적재는 기존 일반 순서만 사용하고 Bottom/Side 중첩을 적용하지 않는다.
+                for (int i = 0; i < loaded.Count; i++)
+                {
+                    int pickerNo = loaded[i];
+                    bottomResults[pickerNo - 1] = await CompleteBottomAsync(
+                        vision, pickerNo, ResolveTimeout(timeoutResolver, pickerNo), ct).ConfigureAwait(false);
+                    if (bottomResults[pickerNo - 1] == null)
+                        return Tuple.Create(bottomResults, sideResults);
+                }
+            }
+
+            if (capturedSideOrder.Count == 0)
+            {
+                for (int i = 0; i < loaded.Count; i++)
+                {
+                    int pickerNo = loaded[i];
+                    if (!await CaptureSideAsync(
+                        vision, pickerNo, ResolveTimeout(timeoutResolver, pickerNo), ct).ConfigureAwait(false))
+                    {
+                        await CollectCapturedSideResultsAsync(
+                            vision, capturedSideOrder, sideResults, timeoutResolver, ct).ConfigureAwait(false);
+                        return Tuple.Create(bottomResults, sideResults);
+                    }
+                    capturedSideOrder.Add(pickerNo);
+                }
+            }
+
+            // 모든 Side 촬영 EPD 완료 이후에만 RESULT를 수집한다. 한 건 실패해도 나머지 Handle은 회수한다.
+            await CollectCapturedSideResultsAsync(
+                vision, capturedSideOrder, sideResults, timeoutResolver, ct).ConfigureAwait(false);
+
+            return Tuple.Create(bottomResults, sideResults);
+        }
+
+        private static async Task<BottomVisionOffset> CompleteBottomAsync(
+            IVisionTpuClient vision,
+            int pickerNo,
+            int timeoutMs,
+            CancellationToken ct)
+        {
+            bool started = await vision.StartBottomInspectAsync(pickerNo, timeoutMs, ct).ConfigureAwait(false);
+            if (!started)
+                return null;
+            return await vision.WaitBottomResultAsync(pickerNo, timeoutMs, ct).ConfigureAwait(false);
+        }
+
+        private static async Task<bool> CaptureSideAsync(
+            IVisionTpuClient vision,
+            int pickerNo,
+            int timeoutMs,
+            CancellationToken ct)
+        {
+            if (!await vision.StartSideInspectAsync(pickerNo, 0, timeoutMs, ct).ConfigureAwait(false))
+                return false;
+            return await vision.StartSideInspectAsync(pickerNo, 90, timeoutMs, ct).ConfigureAwait(false);
+        }
+
+        private static async Task CollectCapturedSideResultsAsync(
+            IVisionTpuClient vision,
+            IList<int> capturedSideOrder,
+            SideVisionResult[] sideResults,
+            Func<int, int> timeoutResolver,
+            CancellationToken ct)
+        {
+            if (vision == null || capturedSideOrder == null || sideResults == null)
+                return;
+            for (int i = 0; i < capturedSideOrder.Count; i++)
+            {
+                ct.ThrowIfCancellationRequested();
+                int pickerNo = capturedSideOrder[i];
+                if (pickerNo < 1 || pickerNo > sideResults.Length)
+                    continue;
+                sideResults[pickerNo - 1] = await vision.WaitSideResultAsync(
+                    pickerNo,
+                    ResolveTimeout(timeoutResolver, pickerNo),
+                    ct).ConfigureAwait(false);
+            }
+        }
+
+        private static bool HasValidAutoContext(int fb, int pickerNo)
+        {
+            VisionDieAddress address;
+            if (!VisionDieAddressStore.TryGet(fb, pickerNo, out address) || address == null ||
+                address.DieIndex < 0 || address.DieIndex > 9999 ||
+                string.IsNullOrWhiteSpace(address.DieId))
+                return false;
+
+            VisionInspectionRequestContext context = VisionInspectionContextFactory.CreateAuto(
+                AutoVisionChannel.BottomInspection,
+                VisionToolIds.BottomInspection.SurfaceInspector,
+                fb,
+                pickerNo,
+                address.DieIndex,
+                address.GridX,
+                address.GridY,
+                0,
+                address.DieId,
+                address.WaferId,
+                VisionInspectionOperations.Inspect,
+                VisionResultTimings.Deferred,
+                string.Empty);
+            string validationError;
+            return VisionInspectionEnvelope.Create(context).Validate(out validationError);
+        }
+
+        private static int ResolveTimeout(Func<int, int> timeoutResolver, int pickerNo)
+        {
+            int timeout = timeoutResolver != null ? timeoutResolver(pickerNo) : 5000;
+            return timeout > 0 ? timeout : 5000;
         }
     }
 

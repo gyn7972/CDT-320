@@ -1,0 +1,1347 @@
+CDT-320 VISION PC COPILOT 수정 지시서
+기준일: 2026-07-18
+목적: 현재 Handler canonical 통신 구현과 Vision PC를 정확히 맞추고, Handler 선행 수정이 필요한 통합 Gate를 우회 없이 분리한다.
+
+======================================================================
+0. 이 파일 사용 방법
+======================================================================
+
+이 파일 전체를 Vision PC 소스가 열린 Copilot Agent/Chat에 그대로 붙여 넣고 작업을 지시한다.
+
+중요 전제:
+
+1) Vision PC 쪽에서는 Handler 소스를 볼 수 없다고 가정한다.
+2) 따라서 아래에 적힌 Wire 문자열, 필드 위치, 상태값, Profile, 오류 처리와 테스트 조건이
+   Vision PC가 따라야 할 확정 계약이며, 미확정/Handler 선행 항목도 이 문서의 H-GATE에 전부 명시한다.
+3) 과거 Vision 규약, 기존 Vision 주석, FIFO 방식, die_index 단독 조회 방식과 충돌하면
+   이 문서의 “현재 Handler 확정 규칙”을 우선한다.
+4) Vision PC 구현은 아래 canonical 계약에 맞추되, 0-A의 Handler 선행 Gate를 Vision 값 바꿔치기로 우회하지 않는다.
+5) 문서에 없는 필드명, alias, 단위, 상태값을 임의로 새로 만들지 않는다.
+
+======================================================================
+0-A. Handler 우선 원칙과 생산 통합 Gate
+======================================================================
+
+현재 Handler의 canonical protocol parser/harness 회귀검증은 19/19 PASS다.
+그러나 이 검증은 모든 실제 Sequence 소비부와 판정 정책까지 끝냈다는 뜻이 아니다.
+아래 항목은 Vision PC 구현과 별개로 Handler를 먼저 수정하거나 양쪽 규칙을 확정해야 한다.
+
+[H-GATE-01] WAFER DieFinder MATCH_SCORE pose 필수화
+
+- 현재 Handler parser/validator는 MATCH_SCORE의 x/y/r 누락을 허용할 수 있다.
+- 실제 Auto WAFER InputPickDie는 x/y를 pixel-to-mm 보정 후 Material과 이후 Die 위치에 적용한다.
+- 누락값 0이 정상 좌표처럼 소비되지 않도록 Handler validator도 x/y/r/score를 모두 필수로 강화해야 한다.
+- Vision PC는 이 Gate가 닫히기 전에도 x/y/r/score를 모두 보내도록 구현하되, Handler가 fail-closed라고 가정하지 않는다.
+
+[H-GATE-02] WAFER InputPickDie score Threshold 소유권
+
+- 현재 Match Wire는 유효 pose와 score가 있으면 STATUS=OK다.
+- 현재 InputPickDie 소비 경로에서 최종 score 합격 Threshold를 누가 판정할지 확정되지 않았다.
+- Vision PC가 임의 Threshold를 만들거나 낮은 score를 통신 ERR로 바꾸지 않는다.
+- Handler 우선으로 Threshold, 합격/NG 표현, 설정 소유권을 확정하기 전에는 생산 판정 완료로 보고하지 않는다.
+
+[H-GATE-03] BIN PLACEMENT_POSE offset 매핑
+
+- canonical 의미는 x/y=raw pixel 위치, placement_offset_x_mm/y_mm=mm 보정, placement_angle_deg=degree 보정이다.
+- 현재 Handler DTO parser/소비부는 OffsetX/Y를 x/y에서 채우고 canonical placement_offset_*와 placement_angle_deg를 실제 Material offset에 반영하지 못할 수 있다.
+- Handler는 PLACEMENT_POSE에서 OffsetX=placement_offset_x_mm, OffsetY=placement_offset_y_mm, OffsetT=placement_angle_deg로 우선 매핑하도록 먼저 수정·검증해야 한다.
+- Vision PC는 이를 우회하려고 x/y에 mm 값을 넣거나 placement_offset_*를 pixel로 보내면 안 된다.
+
+[H-GATE-04] Inspection aggregate fail-closed 검증
+
+- 현재 Handler validator는 일부 Profile에서 STATUS와 *_pass/chN_valid의 의미적 모순을 모두 차단하지 못할 수 있다.
+- Handler도 PASS+any *_pass=0, Side 필수 채널 invalid+PASS를 거부하도록 강화하는 것이 안전하다.
+- Vision PC는 그 전이라도 이 문서의 공통 serializer 규칙으로 모순 Frame 생성을 차단한다.
+
+작업 진행 원칙:
+
+- Vision PC의 parser/router/store/serializer/mock test 구현은 진행할 수 있다.
+- H-GATE를 Vision 쪽 단위·필드 바꿔치기로 우회하지 않는다.
+- H-GATE가 Handler에서 수정·재검증되고 새 Fingerprint가 공유되기 전에는 실제 장비 연결 및 생산 통합 PASS를 선언하지 않는다.
+- Copilot 완료 보고의 “남은 미확정 항목”에 H-GATE-01~04 상태를 각각 적는다.
+
+======================================================================
+1. Copilot에게 부여할 작업 목표
+======================================================================
+
+현재 열려 있는 Vision PC 솔루션에서 Handler 통신 서버를 찾아 다음 신규 상관관계 규약을 구현한다.
+
+구현 범위:
+
+- INSPECT_SYNC
+- INSPECT_ASYNC
+- EPD
+- RESULT
+- BOTTOM 전용 MRESULT
+- 검사 요청/결과 ERR
+- request_id / group_id 상관관계
+- MATCH_POSE / MATCH_SCORE / BOTTOM_SURFACE / SIDE_JUDGE / PLACEMENT_POSE Profile
+- PENDING polling과 최종 결과 보존
+- 중복 요청 멱등성
+- 다중 Picker 및 여러 Camera의 동시 outstanding 요청
+- SCALE 응답의 canonical scaleX/scaleY
+
+범위 밖:
+
+- Handler Motion/IO/Sequence 수정
+- Handler 코드 수정
+- 실제 축/IO/카메라를 움직이는 장비 시험
+- 아직 Wire 계약이 없는 Exposure Start/End timestamp(H020) 신규 필드 발명
+- 기존 알고리즘의 판정 기준이나 측정 단위 임의 변경
+
+======================================================================
+2. Vision PC 소스 작업 안전 규칙
+======================================================================
+
+1) 현재 Copilot에 열려 있는 Vision PC repository/workspace 안에서만 작업한다.
+2) 다른 checkout, 백업, 과거 소스에서 파일을 복사하지 않는다.
+3) 기존 사용자 변경과 미추적 파일을 보존한다.
+4) 다음 작업을 하지 않는다.
+
+- git reset --hard
+- git checkout --
+- git restore
+- git clean
+- 임의 rollback/revert
+- 자동 commit/push/pull/merge/rebase
+- 사용자 파일 삭제
+
+5) 시작할 때 다음을 확인해 보고한다.
+
+- 실제 git root
+- branch
+- HEAD
+- git status --short
+- 통신 수신부
+- 명령 router
+- Camera별 worker
+- 결과 저장소/cache
+- 응답 serializer
+- 기존 테스트 위치
+
+6) 현재 구조를 분석한 뒤 바로 최소 범위로 구현한다.
+7) 실제 Camera 연결 없이 TCP mock/unit/integration test로 먼저 검증한다.
+8) 작업 완료 후 변경 파일, 테스트 결과, 남은 미확정 항목을 보고한다.
+
+======================================================================
+3. 연결과 전송 기본 규칙
+======================================================================
+
+Handler 기본 설정 포트와 Wire CAMERA 이름:
+
+- 기본 Port 5100: WAFER
+- 기본 Port 5101: BOTTOM
+- 기본 Port 5103: BIN
+- 기본 Port 5104: MainComm (RECIPE용 별도 연결이며 이번 correlated 검사 핵심 범위 밖)
+- 기본 Port 5105: FRONTSIDE
+- 기본 Port 5106: REARSIDE
+
+위 포트 번호는 Handler AppSettings의 기본값이다.
+현장 배포 설정에서 포트를 override할 수 있으므로 Vision PC에 숫자를 중복 hard-code하지 말고 실제 Handler/Vision 배포 설정을 사용한다.
+반면 correlated Wire의 CAMERA 문자열 WAFER/BOTTOM/BIN/FRONTSIDE/REARSIDE는 포트 설정과 무관하게 이 문서 표기 그대로 유지한다.
+
+전송 규칙:
+
+- UTF-8 텍스트
+- 한 줄에 한 Frame
+- 필드 구분자: |
+- META 내부 구분자: ;
+- key/value 구분자: =
+- Handler 송신 종단: LF(\n)
+- Vision 응답도 LF 또는 정상적인 CRLF 한 줄로 끝낸다.
+- 한 Frame 중간에 CR/LF를 넣지 않는다.
+- escaping 규약은 없다. 따라서 문자열 값에 |, CR, LF를 넣지 않는다.
+- ID와 META 값에 ;를 넣지 않는다.
+- 숫자는 Invariant 형식만 사용한다. 소수점은 반드시 . 이다.
+- 1,25 같은 지역화 숫자, NaN, Infinity, -Infinity를 보내지 않는다.
+- bool은 canonical 0 또는 1로 송신한다.
+- positional 필드 앞뒤에 공백을 붙이지 않는다.
+- 특히 EPD/RESULT의 FINDER, 자재 ID 등은 공백을 제거한 새 값으로 만들지 말고 요청 원문 값을 그대로 사용한다.
+
+대소문자 규칙:
+
+- CAMERA, CMD, STATUS, PROFILE은 아래 표기 그대로 대문자로 송신한다.
+- FINDER는 대소문자까지 정확히 일치해야 한다.
+- request_id와 group_id는 받은 문자열을 한 글자도 바꾸지 않고 echo한다.
+- WAFER_ID, RECIPE_ID, LOT_ID도 받은 문자열을 그대로 echo한다.
+
+======================================================================
+4. Handler가 보내는 검사 요청 Wire
+======================================================================
+
+고정 형식:
+
+CAMERA|CMD|FINDER|HEAD|HEAD_INDEX|DIE_INDEX|GRID_X|GRID_Y|CHANNEL|WAFER_ID|RECIPE_ID|LOT_ID|META
+
+첫 필드는 CAMERA이며 literal REQ header는 없다.
+신규 correlated 경로에는 MATCHASYNC, MATCHRESULT, INSPECT, INSPECTASYNC, INSPECTRESULT를 사용하지 않는다.
+chip_uid라는 별도 positional 필드도 없다. 제품 상관관계는 DIE_INDEX와 자재 ID 및 request_id/group_id로 처리한다.
+
+META 고정 형식:
+
+request_id=<REQUEST_ID>;group_id=<GROUP_ID>;result_timing=<IMMEDIATE 또는 DEFERRED>;operation=<MATCH 또는 INSPECT>
+
+필드 의미:
+
+1  CAMERA        WAFER, BOTTOM, FRONTSIDE, REARSIDE, BIN
+2  CMD           INSPECT_SYNC 또는 INSPECT_ASYNC
+3  FINDER        Camera별 등록 Tool ID
+4  HEAD          FRONT 또는 REAR. 빈 값이어도 필드 위치는 유지한다.
+5  HEAD_INDEX    제품을 가진 Picker/Collet 번호. 일반적으로 1~4
+6  DIE_INDEX     0~9999
+7  GRID_X        -9999~9999
+8  GRID_Y        -9999~9999
+9  CHANNEL       Side는 0(0도) 또는 1(90도), WAFER/BOTTOM/BIN은 0
+10 WAFER_ID      자동검사에서는 빈 문자열 불가
+11 RECIPE_ID     자동검사에서는 빈 문자열 불가
+12 LOT_ID        자동검사에서는 빈 문자열 불가
+13 META          request_id, group_id, result_timing, operation 필수
+
+HEAD 의미:
+
+- HEAD=FRONT/REAR는 Front Picker 그룹/Rear Picker 그룹을 뜻한다.
+- CAMERA=FRONTSIDE/REARSIDE와 HEAD는 서로 다른 개념이다.
+- 예를 들어 Front Picker 제품을 REARSIDE Camera로 촬영하면 CAMERA=REARSIDE, HEAD=FRONT가 될 수 있다.
+
+CMD와 META 일치 규칙:
+
+- result_timing=IMMEDIATE이면 CMD=INSPECT_SYNC
+- result_timing=DEFERRED이면 CMD=INSPECT_ASYNC
+- 불일치 요청은 촬영하지 말고 request_id가 포함된 ERR로 반환한다.
+
+대표 요청 원문:
+
+[WAFER Sync Match]
+
+WAFER|INSPECT_SYNC|AlignDieFinder|FRONT|1|123|10|20|0|WAFER001|RECIPE001|LOT001|request_id=WR001;group_id=WG001;result_timing=IMMEDIATE;operation=MATCH
+
+[WAFER Auto Async]
+
+WAFER|INSPECT_ASYNC|DieFinder|FRONT|1|201|1|1|0|WAFER001|RECIPE001|LOT001|request_id=AR201;group_id=AG201;result_timing=DEFERRED;operation=MATCH
+
+[BOTTOM Auto Async]
+
+BOTTOM|INSPECT_ASYNC|SurfaceInspector|FRONT|4|301|10|20|0|WAFER001|RECIPE001|LOT001|request_id=BR301;group_id=BG301;result_timing=DEFERRED;operation=INSPECT
+
+[BIN Auto Async]
+
+BIN|INSPECT_ASYNC|PlacementInspector|REAR|2|501|30|40|0|WAFER001|RECIPE001|LOT001|request_id=BN501;group_id=BG501;result_timing=DEFERRED;operation=INSPECT
+
+request_id와 group_id 의미:
+
+- request_id: 촬영 1회마다 고유하다.
+- group_id: 논리적으로 같은 결과 묶음을 식별한다.
+- Capture/EPD는 request_id 기준이다.
+- 결과 조회는 CAMERA + CMD(RESULT/MRESULT) + group_id 기준이다.
+- DIE_INDEX, 수신 순서, FIFO, oldest job으로 결과를 연결하면 안 된다.
+
+======================================================================
+5. CAMERA / FINDER / operation 허용 조합
+======================================================================
+
+아래 조합만 correlated INSPECT_SYNC/INSPECT_ASYNC에서 허용한다.
+FINDER 문자열은 표기 그대로 사용한다.
+
+[operation=MATCH]
+
+WAFER:
+- EjectPinFinder
+- ReticleFinder
+- AlignDieFinder
+- FirstReferenceFinder
+- SecondReferenceFinder
+- DieFinder
+
+BOTTOM:
+- ReticleFinder
+- ColletFinder
+- DieFinder
+
+FRONTSIDE:
+- DieEdgeFinder
+
+REARSIDE:
+- DieEdgeFinder
+
+BIN:
+- ReticleFinder
+- DieFinder
+
+[operation=INSPECT]
+
+BOTTOM:
+- SurfaceInspector
+
+FRONTSIDE:
+- FrontSurfaceInspector
+- FrontChippingInspector
+
+REARSIDE:
+- RearSurfaceInspector
+- RearChippingInspector
+
+BIN:
+- PlacementInspector
+
+[correlated MATCH/INSPECT에서 금지]
+
+- ScaleFinder를 operation=MATCH로 처리하지 않는다.
+- FocusFinder를 operation=MATCH 또는 INSPECT로 처리하지 않는다.
+- COCInspector와 DistortionCompensation을 correlated MATCH/INSPECT로 처리하지 않는다.
+- 위 Tool들은 기존 전용 SCALE/FOCUS/COC/DISTORT 명령 경로를 유지한다.
+- Inspector를 MATCH로, Match Finder를 INSPECT로 임의 변환하지 않는다.
+
+잘못된 CAMERA/FINDER/operation 조합은 Camera 촬영 전에 ERR로 종료한다.
+
+======================================================================
+6. ACK 규칙
+======================================================================
+
+ACK는 선택적인 진단 메시지다. Handler 완료 Gate가 아니다.
+
+보내도 되는 예:
+
+ACK|WAFER|INSPECT_SYNC|STARTED|request_id=WR001
+
+필수 규칙:
+
+- ACK를 보내지 않아도 정상 동작해야 한다.
+- ACK가 늦어도 Handler 진행을 막으면 안 된다.
+- ACK를 보낸 뒤 반드시 EPD 또는 ERR가 별도로 와야 한다.
+- ACK를 EPD 대신 사용하지 않는다.
+- RESULT/MRESULT 조회에 ACK만 보내고 끝내지 않는다.
+- RESULT/MRESULT 조회에는 해당 PENDING/Final/ERR 응답을 한 건 반환한다.
+
+======================================================================
+7. EPD 응답 규칙
+======================================================================
+
+정확한 형식:
+
+EPD|CAMERA|HEAD|HEAD_INDEX|DIE_INDEX|CHANNEL|WAFER_ID|RECIPE_ID|LOT_ID|request_id=<REQUEST_ID>;group_id=<GROUP_ID>;finder=<FINDER>
+
+예:
+
+EPD|WAFER|FRONT|1|123|0|WAFER001|RECIPE001|LOT001|request_id=WR001;group_id=WG001;finder=AlignDieFinder
+
+EPD의 의미:
+
+- 해당 request_id 촬영의 이미지 취득이 완료되었다.
+- Handler가 다음 Camera 요청 또는 다음 위치 동작으로 진행해도 되는 시점이다.
+- 단순 요청 접수, Exposure Start, 조명 ON, 알고리즘 시작 시점이 아니다.
+- 알고리즘/판정 완료까지 기다렸다가 EPD를 늦출 필요는 없다.
+- 그러나 실제 이미지 취득이 끝나기 전에 EPD를 먼저 보내면 안 된다.
+
+반드시 요청값을 그대로 echo할 항목:
+
+- CAMERA
+- HEAD
+- HEAD_INDEX
+- DIE_INDEX
+- CHANNEL
+- WAFER_ID
+- RECIPE_ID
+- LOT_ID
+- request_id
+- group_id
+- finder
+
+Handler는 위 값 중 하나라도 요청과 다르면 그 EPD를 무시한다.
+다른 요청의 waiter를 FIFO로 완료시키지 않는다.
+
+신규 구현에서는 FPD가 아니라 EPD를 사용한다.
+EPD는 요청을 받은 동일 Camera TCP 연결로 전송한다.
+
+======================================================================
+8. RESULT / MRESULT 조회 요청
+======================================================================
+
+Handler가 보내는 일반 결과 조회:
+
+CAMERA|RESULT|group_id=<GROUP_ID>
+
+예:
+
+WAFER|RESULT|group_id=WG001
+BIN|RESULT|group_id=BG501
+FRONTSIDE|RESULT|group_id=SG401
+REARSIDE|RESULT|group_id=SG401
+BOTTOM|RESULT|group_id=BG301
+
+Bottom 1차 결과 조회만 다음을 사용한다.
+
+BOTTOM|MRESULT|group_id=<GROUP_ID>
+
+절대 금지:
+
+- WAFER|MRESULT|...
+- FRONTSIDE|MRESULT|...
+- REARSIDE|MRESULT|...
+- BIN|MRESULT|...
+
+결과 처리 원칙:
+
+- Vision은 촬영 요청 시 알고리즘 작업을 시작하고 결과를 group_id별로 저장한다.
+- RESULT 조회가 왔다고 재촬영하거나 다른 job을 선택하지 않는다.
+- 아직 준비되지 않았으면 PENDING을 반환한다.
+- 준비되었으면 저장된 Final을 반환한다.
+- unsolicited Final push에 의존하지 않는다. Handler가 조회할 때 응답한다.
+- 동일 group_id 재조회에는 동일한 Final을 다시 반환한다.
+- 첫 조회 후 결과를 즉시 삭제하지 않는다.
+
+======================================================================
+9. RESULT / MRESULT 응답 Envelope
+======================================================================
+
+정확한 고정 형식:
+
+RESULT|CAMERA|FINDER|HEAD|HEAD_INDEX|DIE_INDEX|CHANNEL|WAFER_ID|RECIPE_ID|LOT_ID|STATUS|META
+
+또는 Bottom 1차 결과:
+
+MRESULT|BOTTOM|SurfaceInspector|HEAD|HEAD_INDEX|DIE_INDEX|0|WAFER_ID|RECIPE_ID|LOT_ID|STATUS|META
+
+STATUS는 LOT_ID 다음의 고정 positional 필드다.
+STATUS를 META 안으로만 옮기거나 다른 숫자 필드에서 추론하게 만들면 안 된다.
+
+META 공통 필수값:
+
+- group_id=<원 요청 GROUP_ID>
+- profile=<아래 허용 Profile>
+- ver=1
+
+PENDING 예:
+
+RESULT|WAFER|AlignDieFinder|FRONT|1|123|0|WAFER001|RECIPE001|LOT001|PENDING|group_id=WG001;profile=MATCH_POSE;ver=1
+
+MRESULT|BOTTOM|SurfaceInspector|FRONT|4|301|0|WAFER001|RECIPE001|LOT001|PENDING|group_id=BG301;profile=BOTTOM_SURFACE;ver=1
+
+PENDING 규칙:
+
+- 대기 STATUS는 정확히 PENDING이다.
+- 0, STARTED, WAIT, PROCESSING 같은 값을 사용하지 않는다.
+- PENDING에도 group_id, profile, ver=1이 필요하다.
+- FINDER/HEAD/HEAD_INDEX/DIE_INDEX/CHANNEL/자재 ID를 축약하거나 ...로 보내지 않는다.
+- Handler는 약 100 ms 간격으로 같은 단계와 같은 group_id를 다시 조회할 수 있다.
+- 재조회 때문에 재촬영/알고리즘 재시작/결과 삭제를 하지 않는다.
+
+Final STATUS 규칙:
+
+- MATCH RESULT: OK만 허용
+- Inspection RESULT: PASS 또는 FAIL만 허용
+- Bottom MRESULT: OK만 허용
+- canonical 응답에 숫자 1, 숫자 0, NG를 사용하지 않는다.
+
+공통 correlation echo:
+
+- FINDER: 원 요청과 대소문자까지 동일
+- HEAD: 원 요청과 동일
+- HEAD_INDEX: 원 요청과 동일
+- DIE_INDEX: 원 요청과 동일
+- WAFER_ID/RECIPE_ID/LOT_ID: 원 요청과 동일
+- group_id: 원 요청과 동일
+- CHANNEL: 일반적으로 원 요청과 동일. Side DEFERRED aggregate만 아래 예외 적용
+
+중요:
+
+- Handler는 CAMERA+CMD+group_id로 첫 결과 응답을 해당 waiter에 전달한 뒤 positional Context와 Profile을 검증한다.
+- 따라서 잘못된 Context의 응답을 먼저 보내고 나중에 정상 응답을 보내는 방식은 복구되지 않는다.
+- RESULT/MRESULT 조회 한 건의 첫 응답부터 전체 Context가 정확해야 한다.
+
+======================================================================
+10. MATCH 결과 Profile
+======================================================================
+
+10.1 MATCH_POSE
+
+대상:
+
+- WAFER의 일반 Match Finder
+- BOTTOM ReticleFinder/ColletFinder/DieFinder
+- FRONTSIDE DieEdgeFinder
+- REARSIDE DieEdgeFinder
+- BIN ReticleFinder/DieFinder
+- WAFER DieFinder도 MATCH_POSE 사용 가능
+
+필수:
+
+- group_id
+- profile=MATCH_POSE
+- ver=1
+- x: 유한 double, pixel
+- y: 유한 double, pixel
+- r: 유한 double, degree
+- score: 유한 double
+
+선택:
+
+- width: 유한 double
+- height: 유한 double
+
+정상 예:
+
+RESULT|WAFER|AlignDieFinder|FRONT|1|123|0|WAFER001|RECIPE001|LOT001|OK|group_id=WG001;profile=MATCH_POSE;ver=1;x=100.1;y=200.2;r=0.15;score=0.95;width=5120;height=5120
+
+중요:
+
+- 각도 key는 반드시 r이다.
+- t, theta 또는 다른 alias로 대체하지 않는다.
+- r=0은 유효한 값이다.
+- t=999 같은 legacy 값이 함께 있어도 Handler는 canonical r을 우선하므로 alias를 보내지 않는다.
+- Match 알고리즘이 정상 실행되어 score가 산출되었다면 score가 낮더라도 protocol STATUS는 OK다.
+- Match 실행 자체가 실패해 필수값을 만들 수 없을 때만 RESULT 단계의 correlated ERR를 사용한다.
+
+10.2 MATCH_SCORE
+
+대상:
+
+- WAFER DieFinder만 사용 가능
+
+필수:
+
+- group_id
+- profile=MATCH_SCORE
+- ver=1
+- x: 유한 double, pixel
+- y: 유한 double, pixel
+- r: 유한 double, degree
+- score: 유한 double
+
+선택:
+
+- width
+- height
+
+정상 예:
+
+RESULT|WAFER|DieFinder|FRONT|1|201|0|WAFER001|RECIPE001|LOT001|OK|group_id=AG201;profile=MATCH_SCORE;ver=1;x=100.1;y=200.2;r=0.03;score=0.91
+
+현재 Handler는 WAFER DieFinder에서 MATCH_SCORE와 MATCH_POSE를 모두 검증할 수 있다.
+Vision 신규 자동검사는 형식을 매번 바꾸지 말고 MATCH_SCORE를 기본으로 일관되게 사용한다.
+
+중요 안전 규칙:
+
+- 현재 Handler의 MATCH_SCORE parser/validator 자체는 x/y/r 누락을 허용할 수 있지만, 실제 Auto WAFER InputPickDie 후속 시퀀스는 x/y를 pixel-to-mm 보정값으로 소비한다.
+- x/y/r을 생략하면 Handler 내부 기본값 0이 정상 좌표처럼 전달되어 잘못된 보정값이 만들어질 수 있다.
+- 따라서 이 Vision PC 구현에서는 MATCH_SCORE도 x/y/r/score를 모두 필수로 검증하고 직렬화한다.
+- x/y/r 중 하나라도 산출할 수 없으면 score-only OK를 만들지 말고 RESULT 단계의 correlated ERR를 반환한다.
+- Vision PC unit/integration test에서 score-only MATCH_SCORE를 유효 Final로 만들 수 없도록 명시적으로 차단한다.
+
+======================================================================
+11. Inspection 공통 PASS/FAIL 규칙
+======================================================================
+
+Inspection RESULT에는 다음이 필수다.
+
+- STATUS=PASS 또는 FAIL
+- group_id
+- 정확한 profile
+- ver=1
+- measure_valid=0 또는 1
+
+measure_valid=0:
+
+- STATUS는 반드시 FAIL
+- fail_code 필수
+- fail_message 필수
+- Profile별 측정값은 없어도 된다.
+- 이 응답은 통신 오류가 아니라 정상적으로 완료된 검사 NG다.
+
+예:
+
+RESULT|BIN|PlacementInspector|REAR|2|501|0|WAFER001|RECIPE001|LOT001|FAIL|group_id=BG501;profile=PLACEMENT_POSE;ver=1;measure_valid=0;fail_code=NO_DIE;fail_message=Die not found
+
+measure_valid=1:
+
+- STATUS는 PASS 또는 FAIL 가능
+- PASS이면 Profile별 필수 측정값이 전부 있어야 한다.
+- FAIL이어도 측정값이 유효하다고 선언했으므로 Profile별 필수 측정값이 전부 있어야 한다.
+- 판정 NG는 STATUS=FAIL과 개별 *_pass=0으로 표현한다.
+- 최종 STATUS는 전체 판정과 일치시킨다. 실패 metric이 있는데 PASS를 보내지 않는다.
+- STATUS=PASS이면 전송된 모든 유효 metric의 *_pass는 반드시 1이어야 한다.
+- 유효하거나 전송된 metric의 *_pass가 하나라도 0이면 STATUS는 반드시 FAIL이어야 한다.
+- STATUS에 맞추려고 실제 0인 *_pass를 1로 덮거나, 실패 metric 자체를 serializer에서 빼면 안 된다.
+- 현재 Handler validator는 일부 Profile에서 STATUS와 *_pass 값의 의미적 모순을 모두 차단하지 못할 수 있으므로 Vision 공통 Profile serializer가 이 규칙을 fail-closed로 강제한다.
+
+금지:
+
+- PASS + measure_valid=0
+- FAIL + measure_valid=1인데 Profile 필수 측정값 누락
+- PASS + 전송된 유효 metric의 *_pass=0
+- ERR를 단순 검사 NG 용도로 사용
+
+======================================================================
+12. BOTTOM_SURFACE Profile과 2단계 흐름
+======================================================================
+
+요청 대상:
+
+- CAMERA=BOTTOM
+- FINDER=SurfaceInspector
+- operation=INSPECT
+
+전체 순서:
+
+1) Handler → Vision: BOTTOM INSPECT_SYNC 또는 INSPECT_ASYNC
+2) Vision → Handler: 해당 request_id EPD
+3) Handler → Vision: BOTTOM|MRESULT|group_id=...
+4) Vision → Handler: MRESULT PENDING 반복 가능
+5) Vision → Handler: MRESULT OK
+6) Handler → Vision: BOTTOM|RESULT|group_id=...
+7) Vision → Handler: RESULT PENDING 반복 가능
+8) Vision → Handler: RESULT PASS 또는 FAIL
+
+MRESULT Final:
+
+MRESULT|BOTTOM|SurfaceInspector|HEAD|HEAD_INDEX|DIE_INDEX|0|WAFER_ID|RECIPE_ID|LOT_ID|OK|group_id=<GROUP>;profile=BOTTOM_SURFACE;ver=1;bottom_offset_x_mm=<double>;bottom_offset_y_mm=<double>;bottom_angle_deg=<double>
+
+MRESULT 필수 보정값:
+
+- bottom_offset_x_mm: 유한 double, mm
+- bottom_offset_y_mm: 유한 double, mm
+- bottom_angle_deg: 유한 double, degree
+
+정상 예:
+
+MRESULT|BOTTOM|SurfaceInspector|FRONT|4|301|0|WAFER001|RECIPE001|LOT001|OK|group_id=BG301;profile=BOTTOM_SURFACE;ver=1;bottom_offset_x_mm=0.12;bottom_offset_y_mm=-0.08;bottom_angle_deg=0.03
+
+MRESULT STATUS가 OK가 아니면 Handler는 RESULT를 요청하지 않는다.
+MRESULT OK인데 필수 보정값이 누락/NaN이면 Handler는 동일 group의 RESULT를 drain한 뒤 전체 검사를 실패 처리한다.
+따라서 Vision은 MRESULT OK를 보낼 때 세 값이 모두 준비되고 유효한지 먼저 검증한다.
+
+BOTTOM RESULT에서 measure_valid=1일 때 필수:
+
+- bottom_width_mm: 유한 double
+- bottom_height_mm: 유한 double
+
+정상 예:
+
+RESULT|BOTTOM|SurfaceInspector|FRONT|4|301|0|WAFER001|RECIPE001|LOT001|PASS|group_id=BG301;profile=BOTTOM_SURFACE;ver=1;measure_valid=1;bottom_width_mm=10.01;bottom_height_mm=9.99;algo_ms=180
+
+BOTTOM RESULT 선택 측정값:
+
+- bottom_item_width
+- bottom_item_height
+- bottom_item_angle
+- bottom_item_offset_x
+- bottom_item_offset_y
+- bottom_item_chipping_top
+- bottom_item_chipping_right
+- bottom_item_chipping_bottom
+- bottom_item_chipping_left
+- bottom_item_t_total
+- bottom_item_t_gray
+- bottom_item_t_die
+- bottom_item_t_chip
+- bottom_item_t_foreign
+- algo_ms (정수, pass pair 없음)
+
+선택 측정값을 하나라도 보내면 같은 key의 <key>_pass도 반드시 보낸다.
+예: bottom_item_width=10.0을 보내면 bottom_item_width_pass=0|1 필수다.
+
+======================================================================
+13. SIDE_JUDGE Profile
+======================================================================
+
+자동 Side 한 Picker는 같은 group_id로 다음 네 촬영을 사용한다.
+
+1) FRONTSIDE channel=0
+2) REARSIDE channel=0
+3) FRONTSIDE channel=1
+4) REARSIDE channel=1
+
+각 촬영의 request_id는 모두 다르다.
+네 요청은 같은 group_id를 사용할 수 있다.
+
+대표 Side 4-shot 요청 원문:
+
+FRONTSIDE|INSPECT_ASYNC|FrontChippingInspector|FRONT|4|401|10|20|0|WAFER001|RECIPE001|LOT001|request_id=SF401;group_id=SG401;result_timing=DEFERRED;operation=INSPECT
+
+REARSIDE|INSPECT_ASYNC|RearChippingInspector|FRONT|4|401|10|20|0|WAFER001|RECIPE001|LOT001|request_id=SR401;group_id=SG401;result_timing=DEFERRED;operation=INSPECT
+
+FRONTSIDE|INSPECT_ASYNC|FrontChippingInspector|FRONT|4|401|10|20|1|WAFER001|RECIPE001|LOT001|request_id=SF402;group_id=SG401;result_timing=DEFERRED;operation=INSPECT
+
+REARSIDE|INSPECT_ASYNC|RearChippingInspector|FRONT|4|401|10|20|1|WAFER001|RECIPE001|LOT001|request_id=SR402;group_id=SG401;result_timing=DEFERRED;operation=INSPECT
+
+Handler 송신 순서:
+
+Front 0도 REQ
+→ Front 0도 EPD
+→ Rear 0도 REQ
+→ Rear 0도 EPD
+→ Front 90도 REQ
+→ Front 90도 EPD
+→ Rear 90도 REQ
+→ Rear 90도 EPD
+
+Vision 필수 동작:
+
+- Front 요청의 이미지 취득이 끝나기 전에 Front EPD를 보내지 않는다.
+- Handler가 Front EPD를 받은 뒤에만 Rear 요청을 보낸다.
+- EPD 이후 알고리즘은 병렬 실행 가능하다.
+- Front/Rear Exposure가 실제로 겹치지 않도록 기존 Camera resource도 유지한다.
+- Side Capture 직후 Final을 push하지 않는다.
+- Handler가 모든 Picker의 Side 촬영을 끝낸 뒤 RESULT를 조회할 때 응답한다.
+
+Side 결과 조회:
+
+- FRONTSIDE|RESULT|group_id=<GROUP>
+- REARSIDE|RESULT|group_id=<GROUP>
+
+두 조회는 동시에 들어올 수 있다.
+Front와 Rear는 같은 group_id라도 CAMERA가 다르므로 별도 결과를 반환한다.
+
+DEFERRED aggregate CHANNEL 확정 규칙:
+
+- result_timing=DEFERRED인 Side RESULT의 positional CHANNEL은 항상 0이다.
+- Handler가 결과 기준 Handle로 channel=1 요청을 사용해도 aggregate RESULT는 CHANNEL=0이어야 한다.
+- 이 규칙은 현재 Handler에서 확정 및 회귀검증 완료되었다.
+
+IMMEDIATE Side 규칙:
+
+- result_timing=IMMEDIATE 단일 Side RESULT는 요청 CHANNEL을 그대로 echo한다.
+- 예를 들어 요청 channel=1이면 RESULT positional CHANNEL=1이다.
+- 현재 Handler는 IMMEDIATE Side에서도 SIDE_JUDGE의 ch0/ch1 통합 필드를 검증하므로 두 채널 필드를 모두 제공한다.
+
+SIDE RESULT 공통:
+
+- profile=SIDE_JUDGE
+- ver=1
+- measure_valid=0|1
+- ch0_valid=0|1 필수 (measure_valid=1인 경우)
+- ch1_valid=0|1 필수 (measure_valid=1인 경우)
+
+현재 4-shot Side aggregate의 fail-closed 판정:
+
+- 네 Capture가 모두 정상이고 두 채널 판정값을 모두 만들었을 때만 measure_valid=1, ch0_valid=1, ch1_valid=1을 사용한다.
+- ch0 또는 ch1 중 하나라도 정상 판정값을 만들지 못하면 STATUS=PASS를 만들지 않는다.
+- 이 경우 STATUS=FAIL, measure_valid=0, fail_code, fail_message를 반환한다.
+- measure_valid=1인 Final에서 ch0_valid=0 또는 ch1_valid=0을 사용해 부분 결과를 PASS로 포장하지 않는다.
+- 유효 채널의 count_pass/max_pass 중 하나라도 0이면 aggregate STATUS는 FAIL이다.
+- 현재 Handler parser가 일부 모순 조합을 허용할 수 있어도 Vision serializer에서는 위 조건을 반드시 검증한다.
+
+ch0_valid=1일 때 필수:
+
+- ch0_side_item_foreign_count: 정수
+- ch0_side_item_foreign_count_pass: 0|1
+- ch0_side_item_foreign_max: 유한 double
+- ch0_side_item_foreign_max_pass: 0|1
+
+ch1_valid=1일 때 필수:
+
+- ch1_side_item_foreign_count: 정수
+- ch1_side_item_foreign_count_pass: 0|1
+- ch1_side_item_foreign_max: 유한 double
+- ch1_side_item_foreign_max_pass: 0|1
+
+chN_valid=0이면 해당 count/max는 생략 가능하다.
+단, 선택적으로 count/max를 보내면 대응하는 *_pass도 반드시 보낸다.
+algo_ms는 선택 정수다.
+
+과거 Flow 예문에 foreign_max와 foreign_max_pass가 빠진 경우가 있어도 따라 하지 않는다.
+현재 Handler 확정 규칙은 유효 채널마다 count/count_pass/max/max_pass 네 항목 모두 필수다.
+
+FRONTSIDE 정상 aggregate 예:
+
+RESULT|FRONTSIDE|FrontChippingInspector|FRONT|4|401|0|WAFER001|RECIPE001|LOT001|PASS|group_id=SG401;profile=SIDE_JUDGE;ver=1;measure_valid=1;ch0_valid=1;ch1_valid=1;ch0_side_item_foreign_count=0;ch0_side_item_foreign_count_pass=1;ch0_side_item_foreign_max=0.2;ch0_side_item_foreign_max_pass=1;ch1_side_item_foreign_count=0;ch1_side_item_foreign_count_pass=1;ch1_side_item_foreign_max=0.2;ch1_side_item_foreign_max_pass=1;algo_ms=150
+
+REARSIDE도 FINDER만 RearChippingInspector로 바꾸고 해당 Camera 측 결과를 같은 구조로 반환한다.
+
+======================================================================
+14. PLACEMENT_POSE Profile (BIN)
+======================================================================
+
+요청 대상:
+
+- CAMERA=BIN
+- FINDER=PlacementInspector
+- operation=INSPECT
+
+measure_valid=1 필수값:
+
+- x: 유한 double, pixel
+- y: 유한 double, pixel
+- width: 유한 double, pixel
+- height: 유한 double, pixel
+- placement_offset_x_mm: 유한 double, mm
+- placement_offset_y_mm: 유한 double, mm
+- placement_angle_deg: 유한 double, degree
+
+단위와 소비 의미:
+
+- x/y는 Vision 원본 영상의 pixel 위치다.
+- placement_offset_x_mm/placement_offset_y_mm는 실제 배치 보정용 mm 값이다.
+- placement_angle_deg는 실제 배치 회전 보정용 degree 값이다.
+- pixel x/y와 mm offset은 같은 값이 아니며 서로 복사하거나 단위만 이름으로 바꾸면 안 된다.
+- H-GATE-03이 Handler에서 수정되기 전에도 Vision은 아래 canonical 필드를 정확한 단위로 송신한다.
+- 현재 Handler 소비부를 맞춘다는 이유로 x/y에 mm offset을 넣거나 placement_offset_*에 pixel 값을 넣는 workaround는 금지한다.
+- BIN end-to-end Material offset 반영 PASS는 H-GATE-03 수정 및 새 Handler 회귀검증 후에만 선언한다.
+
+정상 예:
+
+RESULT|BIN|PlacementInspector|REAR|2|501|0|WAFER001|RECIPE001|LOT001|PASS|group_id=BG501;profile=PLACEMENT_POSE;ver=1;measure_valid=1;x=100;y=200;width=5120;height=5120;placement_offset_x_mm=0.01;placement_offset_y_mm=-0.02;placement_angle_deg=0.01;algo_ms=200
+
+선택값:
+
+- placement_item_detect (문자열)
+- placement_item_top_gap_min
+- placement_item_top_gap_max
+- placement_item_right_max
+- placement_item_right_min
+- placement_item_bottom_gap
+- placement_item_bottom_min
+- placement_item_left_max
+- placement_item_left_min
+- placement_item_offset_x
+- placement_item_offset_y
+- placement_item_angle
+- placement_item_top_gap_avg
+- placement_item_bottom_gap_avg
+- placement_item_left_gap_avg
+- placement_item_right_gap_avg
+- algo_ms (정수, pass pair 없음)
+
+placement_item_detect 또는 선택 측정값을 보내면 같은 key의 <key>_pass가 반드시 필요하다.
+
+BIN도 WAFER와 동일하게 일반 Auto Async 규칙을 적용한다.
+각 BIN REQ/EPD 후 즉시 RESULT를 요구하지 않는다.
+Handler가 Batch의 모든 측정을 완료한 뒤 각 group_id의 RESULT를 수집한다.
+Vision은 그때까지 모든 BIN 결과를 group_id별로 보존한다.
+
+======================================================================
+15. 일반 SYNC / 일반 AUTO ASYNC / BOTTOM / SIDE 확정 흐름
+======================================================================
+
+[일반 Sync]
+
+REQ(INSPECT_SYNC)
+→ EPD
+→ Handler RESULT poll
+→ PENDING 0회 이상
+→ Final RESULT
+
+MATCH도 MRESULT가 아니라 RESULT다.
+
+[일반 Auto Async: WAFER와 BIN 포함]
+
+각 REQ(INSPECT_ASYNC)
+→ 각 request_id EPD
+→ Handler는 다음 측정 계속
+→ 모든 측정/EPD 완료
+→ 마지막 Result Collection에서 각 CAMERA+group_id RESULT poll
+→ PENDING 0회 이상
+→ Final RESULT
+
+Vision은 요청 순서대로 결과를 주는 FIFO를 사용하지 않는다.
+결과가 역순으로 완료되어도 조회된 CAMERA+group_id의 정확한 결과를 준다.
+
+[Bottom 예외]
+
+REQ
+→ EPD
+→ MRESULT poll/PENDING
+→ MRESULT OK
+→ RESULT poll/PENDING
+→ RESULT PASS/FAIL
+
+[Side]
+
+Front ch0 REQ/EPD
+→ Rear ch0 REQ/EPD
+→ Front ch1 REQ/EPD
+→ Rear ch1 REQ/EPD
+→ 모든 Picker 측정 완료
+→ FRONTSIDE/REARSIDE RESULT Collection
+
+======================================================================
+16. 4-Picker Full과 부분 적재 시 Vision PC 요구사항
+======================================================================
+
+4-Picker 모두 제품을 가진 경우 Handler가 수행하는 특수 흐름:
+
+Bottom P4 완료
+→ Bottom P3 완료
+→ Bottom P2 완료
+→ Side P4 검사와 Bottom P1 검사를 중첩
+
+여기서 Bottom 한 건의 “완료”는 각각 다음 전체 단계다.
+
+REQ → EPD → MRESULT OK → RESULT PASS/FAIL
+
+Vision PC가 해야 할 것:
+
+- BOTTOM 포트와 FRONTSIDE/REARSIDE 포트 작업을 독립적으로 처리한다.
+- Side P4와 Bottom P1 요청이 겹쳐도 각 request_id/group_id를 정확히 유지한다.
+- 전체 Vision 서버를 하나의 장시간 global lock으로 막아 불필요하게 직렬화하지 않는다.
+- 단, Side 내부 Front/Rear Exposure 비중첩 규칙은 지킨다.
+- 서로 다른 Camera의 같은/다른 group을 FIFO로 섞지 않는다.
+
+부분 적재:
+
+- 4개 Picker 중 하나라도 제품이 없으면 Handler는 특수 중첩 없이 일반 흐름으로 요청한다.
+- Vision PC는 P1~P4가 모두 올 것이라고 기다리지 않는다.
+- 실제로 수신된 요청만 처리한다.
+- 빈 Picker용 가짜 요청/가짜 결과를 만들지 않는다.
+- HEAD_INDEX가 빠졌다는 이유로 다른 Picker 결과를 대신 반환하지 않는다.
+
+Picker 보유 여부와 Bottom/Side 스케줄은 Handler 책임이다.
+Vision PC는 요청된 Camera/request_id/group_id의 작업을 정확히 독립 처리하면 된다.
+
+======================================================================
+17. ERR 형식과 상관관계 — 반드시 구현
+======================================================================
+
+canonical ERR 고정 형식:
+
+ERR|CAMERA|CMD|ERROR_CODE|ERROR_MESSAGE|HEAD|HEAD_INDEX|DIE_INDEX|CHANNEL|WAFER_ID|RECIPE_ID|LOT_ID|META
+
+META에는 가능한 한 request_id와 group_id를 모두 넣는다.
+
+요청/촬영 단계 ERR:
+
+- CMD는 원 요청의 INSPECT_SYNC 또는 INSPECT_ASYNC
+- request_id 필수
+- group_id도 필수로 권장
+- HEAD/HEAD_INDEX/DIE_INDEX/CHANNEL/자재 ID를 원 요청에서 echo
+
+예:
+
+ERR|BIN|INSPECT_ASYNC|INVALID_CONTEXT|Invalid material context|REAR|2|501|0|WAFER001|RECIPE001|LOT001|request_id=BN501;group_id=BG501
+
+결과 조회 단계 ERR:
+
+- CMD는 Handler가 조회한 RESULT 또는 MRESULT
+- group_id 필수
+- request_id도 알 수 있으면 함께 포함
+- 저장된 원 요청 Context를 positional 필드에 echo
+
+예:
+
+ERR|BOTTOM|MRESULT|ALGORITHM_FAILURE|Bottom algorithm failed|FRONT|4|301|0|WAFER001|RECIPE001|LOT001|request_id=BR301;group_id=BG301
+
+절대 금지:
+
+- request_id 없는 INSPECT_SYNC/INSPECT_ASYNC ERR
+- group_id 없는 RESULT/MRESULT ERR
+- 다른 Camera/CMD/HEAD/DIE/CHANNEL Context를 넣은 ERR
+- 단순 검사 NG를 ERR로 전송
+- ERROR_CODE/ERROR_MESSAGE 위치를 META로만 이동
+
+Handler 동작:
+
+- 요청 ERR는 request_id와 전체 Context가 맞아야 즉시 해당 EPD waiter를 실패시킨다.
+- RESULT/MRESULT ERR는 CAMERA+CMD+group_id로 해당 poll waiter에 전달한다.
+- ID가 없는 ERR는 어떤 요청의 오류인지 안전하게 판단할 수 없어 의도적으로 무시되고 timeout된다.
+- FIFO나 oldest waiter에 ID 없는 ERR를 억지로 연결하지 않는다.
+
+ERROR_CODE catalog는 Vision PC에서 명확한 문자열 상수로 관리한다.
+최소 권장 코드:
+
+- INVALID_FRAME
+- INVALID_CONTEXT
+- INVALID_CAMERA
+- INVALID_FINDER
+- INVALID_OPERATION
+- DUPLICATE_REQUEST_MISMATCH
+- CAPTURE_FAILURE
+- ALGORITHM_FAILURE
+- UNKNOWN_GROUP
+- INTERNAL_ERROR
+
+ERROR_MESSAGE에는 |, CR, LF를 넣지 않는다.
+
+======================================================================
+18. 중복, 재조회, 역순 완료, reconnect 규칙
+======================================================================
+
+request store key:
+
+- request_id
+
+result store key:
+
+- CAMERA + group_id + RESULT_STAGE(RESULT 또는 MRESULT)
+
+필수 동작:
+
+1) 동일 request_id + 완전히 동일한 payload 재수신
+   - 재촬영하지 않는다.
+   - 기존 job 상태를 재사용한다.
+   - 이미 EPD 완료라면 동일 Context의 EPD를 안전하게 재전송할 수 있다.
+   - 결과 조회에는 기존 PENDING/Final을 반환한다.
+
+2) 동일 request_id + 다른 payload 재수신
+   - 촬영하지 않는다.
+   - DUPLICATE_REQUEST_MISMATCH ERR를 request_id/group_id와 함께 반환한다.
+
+3) 결과 완료 순서가 요청 순서와 다름
+   - 허용한다.
+   - 조회된 CAMERA+group_id에 해당하는 결과만 반환한다.
+
+4) 동일 group_id RESULT 재조회
+   - Final을 동일하게 반환한다.
+   - 첫 Final 전송 직후 삭제하지 않는다.
+
+5) poll timeout 후 같은 group 재조회가 실제로 들어온 경우
+   - 재촬영하지 않는다.
+   - 보존 중인 같은 group 결과를 반환한다.
+
+6) TCP reconnect
+   - 가능한 경우 job/result 저장소를 socket 수명과 분리한다.
+   - reconnect 후 동일 group_id 재조회가 다른 결과로 바뀌면 안 된다.
+   - 이는 Vision 서버의 재시도 및 운영 복구 호환성을 위한 보존 요구사항이다.
+   - 현재 Handler 상위 시퀀스가 timeout/disconnect 뒤 자동으로 같은 group을 재조회한다고 보장하는 문장이 아니다.
+
+7) Thread safety
+   - 여러 Camera와 여러 Picker가 동시에 요청될 수 있다.
+   - request/result dictionary와 상태 전이는 thread-safe해야 한다.
+
+결과 TTL과 최대 보존량은 설정값으로 분리한다.
+정확한 생산 TTL 값은 아직 확정되지 않았으므로 코드에 임의 magic number를 숨기지 않는다.
+
+알 수 없는 group_id 조회에는 다른 group 결과를 반환하지 않는다.
+UNKNOWN_GROUP ERR를 반환하되 받은 group_id를 META에 반드시 넣고,
+원 Context를 찾을 수 없으면 ERR의 positional Context 자리는 빈 문자열로 유지한다.
+
+RESULT 조회의 exact 예:
+
+ERR|BIN|RESULT|UNKNOWN_GROUP|Unknown group_id||||||||group_id=BG999;ver=1
+
+위 예에서 HEAD부터 LOT_ID까지 7개 positional Context는 빈 값이지만 위치는 유지된다.
+가짜 HEAD_INDEX/DIE_INDEX/자재 ID를 만들지 않는다.
+
+======================================================================
+19. SCALE 응답과 숫자 규칙
+======================================================================
+
+SCALE은 위 correlated CAMERA 요청이 아니라 기존 전용 명령 경로다.
+현재 Handler는 SCALE 응답에서 다음 exact key만 canonical로 인정한다.
+
+ACK|DEDICATED_MODULE|SCALE|OK;scaleX=<double>;scaleY=<double>
+
+DEDICATED_MODULE 규칙:
+
+- 요청 첫 positional token으로 받은 기존 전용 Module 이름을 그대로 echo한다.
+- 예를 들어 Wafer 전용 경로의 Module은 WaferVision일 수 있다.
+- 이를 correlated CAMERA 이름인 WAFER로 임의 변환하지 않는다.
+- Vision PC의 현재 전용 SCALE 요청 router가 실제로 받는 Module token을 기준으로 응답한다.
+
+필수:
+
+- scaleX
+- scaleY
+- 둘 다 Invariant finite double
+- 둘 다 0보다 커야 함
+
+금지 alias:
+
+- scale_x
+- scale_y
+- sx
+- sy
+- pixelToMmX
+- pixelToMmY
+- 기타 과거 alias
+
+예:
+
+ACK|WaferVision|SCALE|OK;scaleX=0.01;scaleY=0.02
+
+0, 음수, NaN, Infinity, 지역화 소수점은 실패다.
+
+======================================================================
+20. Handler가 거부하는 대표 비정상 Frame
+======================================================================
+
+다음은 Vision PC 테스트에서 반드시 실패로 검증한다.
+
+- EPD request_id가 원 요청과 다름
+- EPD CAMERA가 원 요청과 다름
+- EPD FINDER/HEAD/HEAD_INDEX/DIE_INDEX/CHANNEL/자재 ID/group_id 중 하나가 다름
+- RESULT group_id 누락
+- RESULT profile 누락
+- RESULT ver 누락 또는 ver!=1
+- RESULT positional STATUS 누락
+- positional STATUS와 META status가 다름
+- MATCH에 PASS/FAIL/NG/1 사용
+- Inspection에 OK/NG/1 사용
+- PENDING 대신 0/WAIT/STARTED 사용
+- MATCH_POSE에서 x/y/r/score 중 하나 누락
+- MATCH_POSE에서 r 대신 t/theta만 송신
+- WAFER DieFinder MATCH_SCORE에서 x/y/r/score 중 하나 누락
+- WAFER DieFinder 이외에 MATCH_SCORE 사용
+- correlated MATCH에서 SCALE_VALUE/FOCUS_VALUE 사용
+- Bottom 외 Camera에서 MRESULT 사용
+- Bottom MRESULT에서 OK인데 보정값 3개 중 하나 누락/NaN
+- Inspection PASS인데 measure_valid=0
+- Inspection FAIL + measure_valid=0인데 fail_code/fail_message 누락
+- Inspection FAIL + measure_valid=1인데 Profile 필수값 누락
+- SIDE_JUDGE chN_valid=1인데 count/count_pass/max/max_pass 누락
+- Side DEFERRED aggregate RESULT의 CHANNEL이 1
+- Side IMMEDIATE channel=1 요청 결과의 CHANNEL이 0
+- BIN PLACEMENT_POSE measure_valid=1인데 x/y/width/height/offset/angle 누락
+- 선택 측정값은 있는데 대응 *_pass 누락
+- 숫자 1,25 / NaN / Infinity
+- request_id 없는 요청 단계 ERR
+- group_id 없는 결과 단계 ERR
+- 동일 request_id의 payload가 바뀌었는데 재촬영 수행
+- RESULT 조회 때 FIFO의 다른 group 결과 반환
+
+======================================================================
+21. Vision PC 필수 오프라인 Acceptance Test
+======================================================================
+
+실제 Handler/Camera 없이 mock Camera와 localhost TCP client로 아래를 자동 검증한다.
+
+V-001 요청 13필드 파싱
+- 고정 위치와 META 4개 key를 정확히 파싱한다.
+
+V-002 요청 전 Validation
+- 잘못된 CAMERA/FINDER/operation, 금지문자, 자재 ID 누락을 촬영 전에 ERR 처리한다.
+- ERR에 request_id/group_id와 원 Context가 포함된다.
+
+V-003 일반 Sync Match
+- INSPECT_SYNC → EPD → RESULT PENDING → RESULT OK.
+- MRESULT가 한 번도 사용되지 않는다.
+
+V-004 WAFER Auto Async Batch
+- 여러 REQ에 각각 EPD를 보낸다.
+- 결과가 역순 완료되어도 group별 RESULT가 정확하다.
+- 첫 Final 조회 후 같은 group 재조회 결과가 동일하다.
+
+V-005 BIN Auto Async Batch
+- 모든 BIN REQ/EPD 이후 늦게 들어오는 Result Collection을 지원한다.
+- 각 Placement group이 섞이지 않는다.
+
+V-006 Bottom 정상
+- REQ → EPD → MRESULT PENDING → MRESULT OK → RESULT PENDING → RESULT PASS.
+- MRESULT 보정값 3개와 RESULT width/height가 모두 존재한다.
+
+V-007 Bottom 단계 보호
+- MRESULT 준비 전 RESULT를 임의 push하지 않는다.
+- MRESULT query에 RESULT frame을 반환하지 않는다.
+- RESULT query에 MRESULT frame을 반환하지 않는다.
+
+V-008 Bottom 오류
+- 알고리즘 오류 ERR에 CMD=MRESULT 또는 RESULT와 group_id가 포함된다.
+- MRESULT OK에 NaN/누락 값을 보내지 않는다.
+
+V-009 Side Capture 순서
+- Front ch0 EPD 전 Rear ch0 요청이 없음을 mock 기록으로 확인한다.
+- Rear ch0 EPD 전 Front ch1 요청이 없음을 확인한다.
+- Front ch1 EPD 전 Rear ch1 요청이 없음을 확인한다.
+
+V-010 Side DEFERRED aggregate
+- FRONTSIDE/REARSIDE 각각 ch0/ch1을 group별로 집계한다.
+- 두 RESULT의 CHANNEL=0.
+- SIDE_JUDGE count/count_pass/max/max_pass 필드가 모두 있다.
+
+V-011 Side IMMEDIATE
+- channel=1 요청 결과 CHANNEL=1.
+- Handler가 요구하는 ch0/ch1 SIDE_JUDGE 필드가 모두 있다.
+
+V-012 Correlation 격리
+- 잘못된 request_id EPD가 다른 요청을 완료시키지 않는다.
+- 잘못된 group_id 조회가 다른 결과를 반환하지 않는다.
+- 같은 group_id라도 FRONTSIDE와 REARSIDE 결과가 섞이지 않는다.
+
+V-013 ERR correlation
+- 요청 ERR는 request_id로 즉시 연결된다.
+- 결과 ERR는 group_id로 즉시 연결된다.
+- ERROR_CODE와 ERROR_MESSAGE positional 필드가 유지된다.
+
+V-014 중복 요청
+- 동일 request_id+동일 payload는 Capture 횟수 1회.
+- 동일 request_id+다른 payload는 DUPLICATE_REQUEST_MISMATCH.
+
+V-015 PENDING idempotency
+- 같은 group/stage 반복 poll이 알고리즘을 재시작하지 않는다.
+- Final 후 반복 poll도 동일 Final을 반환한다.
+
+V-016 정상 Inspection FAIL
+- measure_valid=0 + fail_code/fail_message는 transport 성공인 정상 Inspection NG 판정으로 반환한다.
+- ERR와 혼동하지 않는다.
+
+V-017 Profile strict
+- 잘못된 profile, ver, status, 필수값 누락을 serializer/test에서 차단한다.
+
+V-018 숫자 strict
+- . 소수점만 허용한다.
+- NaN/Infinity를 거부한다.
+- SCALE은 exact scaleX/scaleY와 양수 조건을 지킨다.
+
+V-019 4-Picker Full 동시성
+- Bottom P4→P3→P2 처리 후 Side P4와 Bottom P1이 겹쳐도 결과가 섞이지 않는다.
+- Side Front/Rear Exposure는 내부적으로 비중첩이다.
+
+V-020 부분 적재
+- 일부 HEAD_INDEX 요청만 와도 해당 요청만 처리한다.
+- 오지 않은 Picker를 기다리지 않는다.
+
+V-021 ACK 지연/누락
+- ACK 없음, EPD보다 늦은 ACK 모두 정상 처리된다.
+- ACK가 결과 Frame을 대신하지 않는다.
+
+V-022 reconnect/retry
+- mock client가 timeout 또는 reconnect 뒤 같은 CAMERA+group_id를 재조회하면 보존된 결과를 반환할 수 있다.
+- Capture 횟수는 늘지 않는다.
+- 이 테스트는 현재 Handler 상위 시퀀스의 자동 재조회 보장을 의미하지 않는다.
+
+V-023 WAFER DieFinder pose 보존
+- MATCH_SCORE도 x/y/r/score를 모두 가진 Final만 serializer가 허용한다.
+- score-only 또는 x/y/r 중 하나가 누락된 OK Final을 생성하지 않는다.
+- 유효 pose를 산출하지 못하면 group_id가 있는 RESULT 단계 ERR를 반환한다.
+
+V-024 STATUS와 metric 판정 일관성
+- Bottom PASS + bottom_item_*_pass=0을 serializer가 차단한다.
+- Side PASS + count_pass/max_pass 중 하나가 0인 Frame을 차단한다.
+- BIN PASS + placement_item_*_pass=0을 차단한다.
+- 어떤 유효/전송 metric의 *_pass라도 0이면 최종 STATUS=FAIL인지 확인한다.
+- Side ch0/ch1 중 하나라도 판정 불가이면 measure_valid=0, STATUS=FAIL, fail_code/fail_message로 귀결되는지 확인한다.
+
+======================================================================
+22. 구현 설계 요구사항
+======================================================================
+
+Vision PC 내부 클래스명은 기존 코드 스타일에 맞추되 다음 책임을 분리한다.
+
+- Request parser: 고정 positional 12필드 + META
+- Request validator: Camera/Finder/operation/범위/금지문자
+- Correlation model: request_id, group_id, 원 Context
+- Capture job store: request_id 기반
+- Result store: CAMERA+group_id+stage 기반
+- EPD serializer
+- RESULT/MRESULT serializer
+- ERR serializer
+- Profile validator/serializer
+- Camera worker adapter
+- TTL/cleanup policy
+
+직접 문자열 이어 붙이기가 여러 곳에 흩어지지 않게 공통 serializer를 사용한다.
+응답 생성 전에 Profile별 필수값, STATUS, 유한 숫자, correlation echo를 검증한다.
+검증 실패 시 잘못된 Final을 보내지 말고 올바른 ERR를 반환한다.
+
+기존 Algorithm 결과의 원본 측정값은 보존하되 Wire에는 canonical key만 사용한다.
+legacy alias를 새 canonical 응답에 함께 넣지 않는다.
+
+======================================================================
+23. Copilot 완료 보고 형식
+======================================================================
+
+작업 완료 후 한국어로 다음을 보고한다.
+
+1) Vision PC git root/branch/HEAD/status
+2) 변경 파일 목록
+3) 파일별 변경 목적
+4) 기존 명령 router와 신규 router 연결 위치
+5) request_id/group_id 저장 구조
+6) 중복/재조회/TTL 정책
+7) Camera/Finder/operation 검증표
+8) EPD 생성 시점과 정확한 Wire 예
+9) RESULT/MRESULT/ERR 정확한 Wire 예
+10) Profile별 필수 필드 검증 근거
+11) 일반 Sync 검증 결과
+12) WAFER/BIN Auto Async Batch 검증 결과
+13) Bottom MRESULT→RESULT 검증 결과
+14) Side ch0/ch1 aggregate와 CHANNEL 규칙 검증 결과
+15) 4-Picker Full 동시성 및 부분 적재 검증 결과
+16) PENDING/중복/역순/reconnect 검증 결과
+17) Build 결과와 테스트 총 PASS/FAIL
+18) 실제 Camera/장비 시험을 하지 않았다는 확인
+19) 남은 미확정 항목
+20) commit/push/rollback을 하지 않았다는 확인
+
+테스트가 실패하면 조건을 풀어 통과시키지 말고 원인을 수정한다.
+Handler 규칙을 완화하거나 legacy FIFO로 되돌리는 방식은 금지한다.
+
+======================================================================
+24. 현재 Handler 검증 기준 Fingerprint
+======================================================================
+
+Handler 기준 repository:
+
+- Root: D:\Source\CDT-320_New
+- Branch: master
+- Base HEAD: b46023d562ce4ca1c70973beff3f2a6ce8a7b623
+- 주의: 통신 수정은 working tree에 적용된 상태이므로 HEAD만으로 규약을 판단하면 안 된다.
+
+2026-07-18 현재 Handler 핵심 파일 SHA-256:
+
+- VisionProtocol.cs
+  B705EBDDE3370EFAA3F871C58BE3F2C140E1A2CFAFBC1318553371225E747B07
+- VisionInspectionProtocol.cs
+  7198BBDA4021B6D97459E6FB6D3366B89E269DFF442A01811ED2FCD20B532049
+- VisionTcpClient.cs
+  2928A9F98A77FB16FA1EB769C968A64632B9A1BB1B20DC47145392DEA68D61CE
+- VisionTcpClient.Correlated.cs
+  616C5A5A44CB648BF8EE98661E7FC44A78EF4022574559A26857B17546CCF037
+- AutoVisionRequestService.cs
+  108ACBD4AF6A9591761269B6DD8A9E4AE0412399820B45F188E4AB22C528F8E2
+- AutoVisionRequestService.Correlated.cs
+  4881705D14FE3D5379802A3B6B50A71C5F1A88A88B892786022B4BD83E49583F
+
+Handler 오프라인 canonical 회귀검증:
+
+- 총 19건
+- PASS 19
+- FAIL 0
+- 원문 Summary: SUMMARY total=19 pass=19 fail=0
+- 실제 Vision PC/Camera 미연결 localhost mock 검증
+
+검증된 핵심 항목:
+
+- WAFER/BIN/Side/Bottom canonical payload
+- FAIL과 ERR 구분
+- 잘못된 Context 거부
+- 잘못된 EPD/ERR가 다른 waiter를 소비하지 않음
+- request_id/group_id ERR 즉시 전달
+- Bottom MRESULT/RESULT 단계 순서
+- Invariant/finite/scale 검증
+- STATUS 고정 위치
+- canonical r 우선
+- ROLE/operation 사전 차단
+- Side IMMEDIATE channel echo
+- Side DEFERRED aggregate CHANNEL=0
+
+======================================================================
+25. 아직 임의 구현하면 안 되는 항목
+======================================================================
+
+다음은 별도 합의 전까지 Vision PC 소스의 확정 부분 구현은 막지 않되 미확정으로 보고한다.
+H-GATE에 연결된 항목은 실제 장비 연결과 생산 통합 PASS를 막는다.
+
+- Exposure Start/End timestamp의 Wire key, 단위, 위치(H020)
+- 결과 보존 TTL의 최종 생산 값
+- 일부 상세 Algorithm 측정값의 실제 단위
+- Score 범위 및 합격 Threshold 소유권
+- ERROR_CODE 전체 운영 Catalog
+- Calibration ROT/COC/FOCUS 좌표 단위
+
+특히 H020을 맞춘다는 이유로 EPD 의미를 바꾸거나 임의 timestamp 필드를 추가하지 않는다.
+현재 확정 Gate는 request_id와 전체 Context가 일치하는 EPD다.
+
+Score Threshold 주의:
+
+- 현재 canonical MATCH Wire는 유효 pose와 score가 산출되면 STATUS=OK로 전달한다.
+- 현재 Auto WAFER InputPickDie 경로에서 최종 score 합격 Threshold를 Handler와 Vision 중 누가 판정할지는 확정되지 않았다.
+- Vision PC가 임의 Threshold를 새로 hard-code하거나 낮은 score를 통신 ERR로 바꾸지 않는다.
+- 반대로 이 항목을 생산 합격 판정까지 완료된 것으로 보고하지 않는다.
+- 실제 Threshold와 NG 표현을 합의한 뒤 Handler 우선으로 판정 소유권을 확정하고 Vision을 맞춘다.
+
+======================================================================
+26. 최종 지시
+======================================================================
+
+위 계약을 기준으로 현재 Vision PC 코드를 분석하고 즉시 구현하라.
+
+우선순위:
+
+1) 정확한 correlation과 오매칭 방지
+2) 정확한 상태 전이와 결과 보존
+3) canonical Wire/Profile/숫자 검증
+4) Bottom/Side/BIN/WAFER 상황별 흐름
+5) 중복/역순/재조회/동시성 안정성
+6) 실제 장비 없는 자동 테스트
+
+Handler가 못 받는 legacy frame을 유지해야 한다면 legacy 경로와 canonical 경로를 명확히 분리한다.
+신규 Handler 연결에는 이 문서의 canonical frame만 송신한다.

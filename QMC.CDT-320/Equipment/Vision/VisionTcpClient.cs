@@ -14,7 +14,7 @@ namespace QMC.CDT320.VisionComm
     ///   TX: "MODULE|CMD|args..."
     ///   RX: "ACK|MODULE|CMD|result"  또는  "ERR|MODULE|CMD|msg"
     /// </summary>
-    public class VisionTcpClient : IDisposable
+    public partial class VisionTcpClient : IDisposable
     {
         private const int MatchResultPollIntervalMs = 100;
 
@@ -47,9 +47,9 @@ namespace QMC.CDT320.VisionComm
 
         // 응답 대기 큐 (순차 통신)
         private readonly Queue<TaskCompletionSource<string>> _pending = new Queue<TaskCompletionSource<string>>();
-        private readonly StringBuilder _rxBuf = new StringBuilder();
         private readonly SemaphoreSlim _commandGate = new SemaphoreSlim(1, 1);
         private CancellationTokenSource _rxCts;
+        private int _connectionGeneration;
 
         public VisionTcpClient(string moduleName, string host, int port)
         {
@@ -86,10 +86,13 @@ namespace QMC.CDT320.VisionComm
                     LogMsg("connect aborted (disposed)");
                     return false;
                 }
-                _stream = client.GetStream();
-                _rxCts  = new CancellationTokenSource();
+                NetworkStream stream = client.GetStream();
+                var receiveCancellation = new CancellationTokenSource();
+                _stream = stream;
+                _rxCts = receiveCancellation;
+                int generation = Interlocked.Increment(ref _connectionGeneration);
                 _connected = true;
-                _ = Task.Run(() => ReceiveLoop(_rxCts.Token));
+                _ = Task.Run(() => ReceiveLoop(stream, generation, receiveCancellation.Token));
                 LogMsg($"connected to {Host}:{Port}");
                 RaiseConn(true);
                 return true;
@@ -106,6 +109,7 @@ namespace QMC.CDT320.VisionComm
 
         public void Disconnect()
         {
+            Interlocked.Increment(ref _connectionGeneration);
             _connected = false;
             try { _rxCts?.Cancel(); } catch { }
             try { _stream?.Close(); } catch { }
@@ -115,6 +119,12 @@ namespace QMC.CDT320.VisionComm
             {
                 while (_pending.Count > 0) _pending.Dequeue().TrySetCanceled();
             }
+            CancelInspectionWaiters();
+            AutoVisionChannel disconnectedChannel;
+            if (VisionModuleNames.TryResolveByModule(ModuleName, out disconnectedChannel))
+                AutoVisionRequestService.ClearSyncMatchHandlesForChannel(
+                    disconnectedChannel,
+                    "Vision 연결 종료로 수동 Sync Handle을 정리했습니다. module=" + ModuleName);
             RaiseConn(false);
             LogMsg("disconnected");
         }
@@ -577,19 +587,19 @@ namespace QMC.CDT320.VisionComm
 
         // ─── Receive loop ────────────────────────────
 
-        private async Task ReceiveLoop(CancellationToken ct)
+        private async Task ReceiveLoop(NetworkStream stream, int generation, CancellationToken ct)
         {
             var buf = new byte[4096];
+            var rxBuffer = new StringBuilder();
             try
             {
-                while (!ct.IsCancellationRequested && IsConnected)
+                while (!ct.IsCancellationRequested && IsConnected &&
+                       generation == Volatile.Read(ref _connectionGeneration))
                 {
-                    var stream = _stream;
-                    if (stream == null) break;   // 동시 Disconnect 로 스트림이 사라지면 종료
                     int n = await stream.ReadAsync(buf, 0, buf.Length, ct);
                     if (n == 0) break;
-                    _rxBuf.Append(Encoding.UTF8.GetString(buf, 0, n));
-                    string all = _rxBuf.ToString();
+                    rxBuffer.Append(Encoding.UTF8.GetString(buf, 0, n));
+                    string all = rxBuffer.ToString();
                     int idx;
                     while ((idx = all.IndexOfAny(new[] { '\n', '\r' })) >= 0)
                     {
@@ -600,6 +610,10 @@ namespace QMC.CDT320.VisionComm
                             LastRxUtc = DateTime.UtcNow;
                             LogMsg("RX: " + line);
                             VisionProtocolResponse response = VisionProtocolResponse.Parse(line);
+                            // 신규 검사 규약은 request_id/group_id로 먼저 라우팅한다.
+                            // INSPECT_* ACK는 진단 전용이며 legacy FIFO 응답을 소비하면 안 된다.
+                            if (TryRouteInspectionProtocolResponse(response))
+                                continue;
                             // 비동기 푸시 — EPD/FPD(구버전)/ARM/RECIPEREQ/XYT는 응답 큐와 무관하다.
                             if (response.IsPush &&
                                 (string.Equals(response.Command, VisionProtocolPushCommands.ExposureDone, StringComparison.OrdinalIgnoreCase) ||
@@ -635,11 +649,22 @@ namespace QMC.CDT320.VisionComm
                             tcs?.TrySetResult(line);
                         }
                     }
-                    _rxBuf.Clear(); _rxBuf.Append(all);
+                    rxBuffer.Clear();
+                    rxBuffer.Append(all);
                 }
             }
-            catch { }
-            finally { Disconnect(); }
+            catch (OperationCanceledException)
+            {
+            }
+            catch (Exception ex)
+            {
+                LogMsg("receive loop error: " + ex.Message);
+            }
+            finally
+            {
+                if (generation == Volatile.Read(ref _connectionGeneration))
+                    Disconnect();
+            }
         }
 
         /// <summary>XYT 푸시 파싱/기록 — Fields=[fb, collet, die_index, "x=..;y=..;t=..;ix=..;iy=..;valid=0|1;w=..;h=.."].
@@ -717,6 +742,14 @@ namespace QMC.CDT320.VisionComm
         public bool   HasImageSize { get; set; }
         public double ImageWidthPixel { get; set; }
         public double ImageHeightPixel { get; set; }
+        public string Camera { get; private set; }
+        public string Finder { get; private set; }
+        public string RequestId { get; private set; }
+        public string GroupId { get; private set; }
+        public string Operation { get; private set; }
+        public string Status { get; private set; }
+        public string Raw { get; private set; }
+        public Dictionary<string, string> Values { get; private set; } = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         public string RawError { get; set; }
 
         public static MatchResultDto Parse(string line)
@@ -730,15 +763,18 @@ namespace QMC.CDT320.VisionComm
                 return r;
             }
 
-            r.Success = response.IsResult("OK");
+            r.Success = response.IsResult("OK", "PASS", "1");
             r.RawError = response.ErrorMessage;
             response.TryGetDouble("x", out var x);
             response.TryGetDouble("y", out var y);
-            response.TryGetDouble("r", out var angle);
-            if (angle == 0)
-                response.TryGetDouble("t", out angle);
-            if (angle == 0)
-                response.TryGetDouble("theta", out angle);
+            bool hasCanonicalAngle = response.TryGetDouble("r", out var angle);
+            string profile = response.GetValue("profile");
+            if (!hasCanonicalAngle && string.IsNullOrWhiteSpace(profile))
+            {
+                // Legacy ACK compatibility only. Canonical correlated profiles must use r.
+                if (!response.TryGetDouble("t", out angle))
+                    response.TryGetDouble("theta", out angle);
+            }
             response.TryGetDouble("score", out var score);
             double sideVisionYOffset;
             double pickerZOffset;
@@ -754,6 +790,22 @@ namespace QMC.CDT320.VisionComm
             r.HasSideInspectionCorrection = hasSideVisionYOffset || hasPickerZOffset;
             ApplyImageSize(response, r);
             return r;
+        }
+
+        internal void ApplyCorrelatedContext(VisionInspectionResult result)
+        {
+            if (result == null)
+                return;
+            Camera = result.Camera ?? string.Empty;
+            Finder = result.Finder ?? string.Empty;
+            RequestId = result.RequestId ?? string.Empty;
+            GroupId = result.GroupId ?? string.Empty;
+            Operation = result.Operation ?? string.Empty;
+            Status = result.Status ?? string.Empty;
+            Raw = result.Raw ?? string.Empty;
+            Values = result.Values != null
+                ? new Dictionary<string, string>(result.Values, StringComparer.OrdinalIgnoreCase)
+                : new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         }
 
         private static void ApplyImageSize(VisionProtocolResponse response, MatchResultDto result)
@@ -941,6 +993,12 @@ namespace QMC.CDT320.VisionComm
         public double ImageHeightPixel { get; set; }
         public Dictionary<string, string> Values { get; private set; } = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         public string Raw       { get; set; }
+        public string Camera { get; private set; }
+        public string Finder { get; private set; }
+        public string RequestId { get; private set; }
+        public string GroupId { get; private set; }
+        public string Operation { get; private set; }
+        public string Status { get; private set; }
 
         public static InspectionResultDto Parse(string line)
         {
@@ -987,6 +1045,18 @@ namespace QMC.CDT320.VisionComm
             }
 
             return r;
+        }
+
+        internal void ApplyCorrelatedContext(VisionInspectionResult result)
+        {
+            if (result == null)
+                return;
+            Camera = result.Camera ?? string.Empty;
+            Finder = result.Finder ?? string.Empty;
+            RequestId = result.RequestId ?? string.Empty;
+            GroupId = result.GroupId ?? string.Empty;
+            Operation = result.Operation ?? string.Empty;
+            Status = result.Status ?? string.Empty;
         }
 
         public void SetValue(string key, object value)
