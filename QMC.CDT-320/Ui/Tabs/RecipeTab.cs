@@ -165,7 +165,7 @@ namespace QMC.CDT_320.Ui.Tabs
             try
             {
                 if (Host != null)
-                    Host.SaveMachineRecipe(Host.CurrentRecipeName);
+                    Host.SaveMachineRecipe(Host.ActiveRecipeName);
             }
             catch (Exception ex)
             {

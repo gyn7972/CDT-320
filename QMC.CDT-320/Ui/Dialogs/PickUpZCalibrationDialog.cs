@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Drawing;
 using System.Globalization;
 using System.Threading;
@@ -646,7 +646,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                     return false;
                 }
 
-                if (string.IsNullOrWhiteSpace(host.CurrentRecipeName))
+                if (string.IsNullOrWhiteSpace(host.ActiveRecipeName))
                 {
                     _status.Text = "활성 Recipe가 없습니다. PickPosition 저장을 위해 Recipe를 먼저 로드하세요.";
                     return false;
@@ -749,7 +749,7 @@ namespace QMC.CDT_320.Ui.Dialogs
 
                 if (saveRecipeAfterSuccess)
                 {
-                    bool recipeSaved = host.SaveMachineRecipe(host.CurrentRecipeName);
+                    bool recipeSaved = host.SaveMachineRecipe(host.ActiveRecipeName);
                     host.SaveMachineSettings();
                     _status.Text = "완료. FlowZ=" + sequence.Result.DetectedFlowPosition.ToString("F6") +
                                    ", SavedPickZ=" + sequence.Result.SavedPickPosition.ToString("F6") +

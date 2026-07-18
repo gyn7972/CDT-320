@@ -186,15 +186,15 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 SaveToRecipe();
                 SaveFrameSpec(ResolveRoleFrame(_currentRoleIsOutput), ResolveRoleMapFileName(_currentRoleIsOutput));
 
-                RecipeStore.SaveLastProjectName(_project.FileName);
                 var host = FindForm() as Form1;
-                if (host != null && !host.SaveMachineRecipe(_project.FileName))
-                    throw new IOException("[CURRENT RECIPE APPLY] 장비 Recipe 저장/적용에 실패했습니다: " + _project.FileName);
+                if (host == null)
+                    throw new InvalidOperationException("메인 화면을 찾을 수 없습니다.");
 
-                if (host != null)
+                if (!host.SaveAndApplyActiveRecipe(_project))
                 {
-                    host.LoadMachineRecipe(_project.FileName);
-                    host.RefreshProjectName(_project.FileName);
+                    throw new IOException(
+                        "활성 Recipe의 Wafer/Frame 설정 저장 및 적용에 실패했습니다. recipe=" +
+                        _project.FileName);
                 }
 
                 TapeFrameSubset frame = ResolveRoleFrame(_currentRoleIsOutput);
@@ -237,15 +237,15 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                         throw new InvalidOperationException(result.Message);
 
                     SaveAllFrameSpecs();
-                    RecipeStore.SaveLastProjectName(_project.FileName);
                     var host = FindForm() as Form1;
-                    if (host != null && !host.SaveMachineRecipe(_project.FileName))
-                        throw new IOException("[CURRENT RECIPE APPLY] 장비 Recipe 저장/적용에 실패했습니다: " + _project.FileName);
+                    if (host == null)
+                        throw new InvalidOperationException("메인 화면을 찾을 수 없습니다.");
 
-                    if (host != null)
+                    if (!host.SaveAndApplyActiveRecipe(_project))
                     {
-                        host.LoadMachineRecipe(_project.FileName);
-                        host.RefreshProjectName(_project.FileName);
+                        throw new IOException(
+                            "활성 Recipe의 WaferMap 저장 및 적용에 실패했습니다. recipe=" +
+                            _project.FileName);
                     }
 
                     _loadingRole = true;

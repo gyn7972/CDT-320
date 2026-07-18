@@ -1210,10 +1210,10 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             try
             {
                 var host = FindHostForm();
-                if (host == null || string.IsNullOrWhiteSpace(host.CurrentRecipeName))
+                if (host == null || string.IsNullOrWhiteSpace(host.ActiveRecipeName))
                     return;
 
-                host.SaveMachineRecipe(host.CurrentRecipeName);
+                host.SaveMachineRecipe(host.ActiveRecipeName);
             }
             catch
             {

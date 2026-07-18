@@ -41,7 +41,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             else if (listProjects.Items.Count > 0)
                 LoadProject(listProjects.Items[0] as string);
             else
-                LoadProject(new RecipeProject { FileName = "NEW" }, false);
+                LoadProject(new RecipeProject { FileName = "NEW" });
         }
 
         protected override void OnVisibleChanged(EventArgs e)
@@ -57,7 +57,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
 
             RecipeProject latest = RecipeStore.Load(name);
             if (latest != null)
-                LoadProject(latest, false);
+                LoadProject(latest);
         }
 
         /// <summary>모든 그리드의 헤더 클릭 정렬(오름/내림차순) 기능을 끈다.</summary>
@@ -209,10 +209,10 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 return;
             }
 
-            LoadProject(project, true);
+            LoadProject(project);
         }
 
-        private void LoadProject(RecipeProject project, bool applyToMachine)
+        private void LoadProject(RecipeProject project)
         {
             if (project == null)
                 return;
@@ -226,8 +226,8 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 _loadedProjectName = project.FileName;
 
                 PopulateProjectToUi(project);
-                if (applyToMachine)
-                    ApplyProjectToMachine(project);
+                //if (applyToMachine)
+                //    ApplyProjectToMachine(project);
 
                 EventLogger.Write(EventKind.Event, Security.UserSession.Name, "RECIPE-LOAD",
                     "프로젝트를 불러왔습니다. project=" + project.FileName);
@@ -247,7 +247,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
 
         private void PopulateProjectToUi(RecipeProject project)
         {
-            lblCurrentProject.Text = "Current Project: " + (project.FileName ?? "-");
+            lblCurrentProject.Text = "Selected Project: " + (project.FileName ?? "-");
 
             gridSummary.Rows.Clear();
             AddRow(gridSummary, "FileName", "PROJECT NAME", project.FileName);
@@ -495,13 +495,49 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 return;
             }
 
-            var project = new RecipeProject { FileName = name };
-            EnsureProjectObjects(project);
-            RecipeStore.Save(project);
-            SaveMachineRecipe(name);
-            MarkCurrentProject(name);
-            ReloadList();
-            SelectAndLoadProject(name);
+            try
+            {
+                var project = new RecipeProject { FileName = name };
+                EnsureProjectObjects(project);
+
+                if (!RecipeStore.Save(project))
+                    throw new IOException("Project 파일 생성에 실패했습니다.");
+
+                if (!SaveMachineRecipe(name))
+                {
+                    RecipeStore.Delete(name);
+                    RecipeDataStore.DeleteRecipe(name);
+
+                    throw new IOException(
+                        "Unit Recipe 생성에 실패하여 새 프로젝트 생성을 취소했습니다.");
+                }
+
+                //MarkCurrentProject(name);
+                ReloadList();
+                SelectAndLoadProject(name);
+            }
+            catch (Exception ex)
+            {
+                EventLogger.Write(
+                    EventKind.Alarm,
+                    Security.UserSession.Name,
+                    "RECIPE-NEW",
+                    "새 프로젝트 생성 실패: " + ex.Message);
+
+                QMC.Common.MessageDialog.Show(
+                    "새 프로젝트 생성 실패:\r\n" + ex.Message,
+                    "Project",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Error);
+            }
+            //기존 코드
+            //var project = new RecipeProject { FileName = name };
+            //EnsureProjectObjects(project);
+            //RecipeStore.Save(project);
+            //SaveMachineRecipe(name);
+            //MarkCurrentProject(name);
+            //ReloadList();
+            //SelectAndLoadProject(name);
         }
 
         private void OnOpen()
@@ -547,13 +583,15 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 if (!cloneResult.Success)
                     throw new InvalidOperationException(cloneResult.Message);
 
-                if (!cloneResult.UnitRecipeCopied && !SaveMachineRecipe(targetName))
+                if (!cloneResult.UnitRecipeCopied)
                 {
                     RollbackClonedProject(targetName);
-                    throw new IOException("Unit Recipe 원본 폴더가 없고 현재 장비 Recipe 저장도 실패했습니다.");
+
+                    throw new IOException(
+                        "원본 프로젝트의 Unit Recipe 파일이 없어 복사를 취소했습니다. source=" + sourceName);
                 }
 
-                MarkCurrentProject(targetName);
+                //MarkCurrentProject(targetName);
                 ReloadList();
                 SelectAndLoadProject(targetName);
                 EventLogger.Write(EventKind.Event, Security.UserSession.Name, "RECIPE-COPY",
@@ -578,9 +616,32 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             if (string.IsNullOrWhiteSpace(name))
                 return;
 
-            if (QMC.Common.MessageDialog.Show("프로젝트와 Unit Recipe 데이터를 삭제할까요?\r\nProject=" + name,
-                    "Project Delete", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) != DialogResult.Yes)
+            var host = FindForm() as Form1;
+            if (host != null &&
+                string.Equals(
+                    NormalizeProjectName(host.ActiveRecipeName),
+                    name,
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                QMC.Common.MessageDialog.Show(
+                    "현재 장비에 적용된 Recipe는 삭제할 수 없습니다.\r\n" +
+                    "다른 Recipe를 먼저 Apply한 후 삭제하세요.\r\n\r\n" +
+                    "Active Recipe=" + name,
+                    "Project Delete",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Warning);
+
                 return;
+            }
+
+            if (QMC.Common.MessageDialog.Show(
+                    "프로젝트와 Unit Recipe 데이터를 삭제할까요?\r\nProject=" + name,
+                    "Project Delete",
+                    MessageBoxButtons.YesNo,
+                    MessageBoxIcon.Warning) != DialogResult.Yes)
+            {
+                return;
+            }
 
             try
             {
@@ -599,7 +660,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 if (listProjects.Items.Count > 0)
                     LoadProject(listProjects.Items[0] as string);
                 else
-                    LoadProject(new RecipeProject { FileName = "NEW" }, false);
+                    LoadProject(new RecipeProject { FileName = "NEW" });
             }
             catch (Exception ex)
             {
@@ -612,14 +673,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
 
         private void OnSaveAs()
         {
-            RecipeProject project = CollectFromUi();
-            string name = Prompt.Show("저장할 프로젝트 이름을 입력하세요.", project.FileName);
-            name = NormalizeProjectName(name);
-            if (string.IsNullOrWhiteSpace(name))
-                return;
-
-            project.FileName = name;
-            SaveProject(project, true);
+            OnCopy();
         }
 
         private void OnSaveCurrent()
@@ -641,10 +695,16 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             {
                 EnsureProjectObjects(project);
                 project.FileName = NormalizeProjectName(project.FileName);
+
                 if (!RecipeStore.Save(project))
                     throw new IOException("Project 파일 저장에 실패했습니다.");
-                SaveMachineRecipe(project.FileName);
-                MarkCurrentProject(project.FileName);
+
+                //if (!SaveMachineRecipe(project.FileName))
+                //{
+                //    throw new IOException(
+                //        "Unit Recipe 저장에 실패했습니다. Project 파일은 저장되었지만 장비 레시피 저장이 완료되지 않았습니다.");
+                //}
+                //MarkCurrentProject(project.FileName);
 
                 _current = project;
                 _loadedProjectName = project.FileName;
@@ -809,19 +869,24 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
 
             try
             {
-                string name = NormalizeProjectName(project.FileName);
                 var host = FindForm() as Form1;
-                RecipeStore.SaveLastProjectName(name);
-                AppSettingsStore.Current.LastProject = name;
-                AppSettingsStore.Save();
-                host?.LoadMachineRecipe(name);
-                host?.RefreshProjectName(name);
-                host?.Controller?.ApplyRecipeMode(project);
+                if (host == null)
+                    throw new InvalidOperationException("메인 화면을 찾을 수 없습니다.");
+
+                if (!host.ApplyMachineRecipe(project))
+                {
+                    throw new InvalidOperationException(
+                        "장비 Recipe 적용이 완료되지 않았습니다. Project=" + project.FileName);
+                }
             }
             catch (Exception ex)
             {
-                EventLogger.Write(EventKind.Alarm, Security.UserSession.Name, "RECIPE-APPLY",
+                EventLogger.Write(
+                    EventKind.Alarm,
+                    Security.UserSession.Name,
+                    "RECIPE-APPLY",
                     "프로젝트 장비 적용 실패: " + ex.Message);
+
                 throw;
             }
             finally
@@ -865,15 +930,6 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             finally
             {
             }
-        }
-
-        private void MarkCurrentProject(string name)
-        {
-            string normalized = NormalizeProjectName(name);
-            RecipeStore.SaveLastProjectName(normalized);
-            AppSettingsStore.Current.LastProject = normalized;
-            AppSettingsStore.Save();
-            lblCurrentProject.Text = "Current Project: " + normalized;
         }
 
         private static void EnsureProjectObjects(RecipeProject project)

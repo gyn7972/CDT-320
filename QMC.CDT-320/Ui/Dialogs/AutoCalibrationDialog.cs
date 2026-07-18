@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
@@ -485,7 +485,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                     reason = "다른 시퀀스가 실행 중입니다.";
                     return false;
                 }
-                if (string.IsNullOrWhiteSpace(host.CurrentRecipeName))
+                if (string.IsNullOrWhiteSpace(host.ActiveRecipeName))
                 {
                     reason = "활성 Recipe가 없습니다. Calibration 결과를 저장할 Recipe를 먼저 로드하세요.";
                     return false;

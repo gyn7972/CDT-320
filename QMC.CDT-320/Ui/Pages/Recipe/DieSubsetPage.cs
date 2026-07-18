@@ -363,23 +363,14 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
         {
             var host = FindForm() as Form1;
             if (host == null)
-            {
-                RecipeStore.SaveLastProjectName(_project.FileName);
-                return;
-            }
+                throw new InvalidOperationException("메인 화면을 찾을 수 없습니다.");
 
-            if (host.Machine != null)
+            if (!host.SaveAndApplyActiveRecipe(_project))
             {
-                if (!host.SaveMachineRecipe(_project.FileName))
-                {
-                    throw new IOException(
-                        "장비 Unit Recipe 저장이 false를 반환했습니다. Project Die 값은 저장됐지만 장비 Recipe 적용을 완료하지 못했습니다. recipe=" + _project.FileName);
-                }
-                host.LoadMachineRecipe(_project.FileName);
+                throw new IOException(
+                    "활성 Recipe의 Unit 데이터 저장 및 적용에 실패했습니다. recipe=" +
+                    _project.FileName);
             }
-
-            host.RefreshProjectName(_project.FileName);
-            RecipeStore.SaveLastProjectName(_project.FileName);
         }
 
         private void HookDirtyTracking()

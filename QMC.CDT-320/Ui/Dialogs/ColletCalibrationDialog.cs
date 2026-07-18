@@ -497,7 +497,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                         return;
                     }
 
-                    if (string.IsNullOrWhiteSpace(host.CurrentRecipeName))
+                    if (string.IsNullOrWhiteSpace(host.ActiveRecipeName))
                     {
                         lblStatus.Text = "현재 활성 Recipe가 없어 회전 중심 기계 좌표를 저장할 수 없습니다.";
                         QMC.Common.MessageDialog.Show(this, lblStatus.Text, "COLLET COC", MessageBoxButtons.OK, MessageBoxIcon.Warning);
@@ -583,7 +583,7 @@ namespace QMC.CDT_320.Ui.Dialogs
         private bool SaveRotationCenterToRecipe(Form1 host, double centerX, double centerY, out string message)
         {
             message = string.Empty;
-            if (host == null || host.Machine == null || string.IsNullOrWhiteSpace(host.CurrentRecipeName))
+            if (host == null || host.Machine == null || string.IsNullOrWhiteSpace(host.ActiveRecipeName))
             {
                 message = "현재 활성 Recipe가 없어 Collet 회전 중심 좌표를 저장할 수 없습니다.";
                 return false;
@@ -617,11 +617,11 @@ namespace QMC.CDT_320.Ui.Dialogs
                 host.Machine.PickerRearUnit.Recipe.ColletRotationCenterValid[index] = true;
             }
 
-            bool saved = host.SaveMachineRecipe(host.CurrentRecipeName);
+            bool saved = host.SaveMachineRecipe(host.ActiveRecipeName);
             message = "COC Recipe 저장: " + _side + " C" + _colletNo +
                       ", X=" + centerX.ToString("F6") +
                       ", Y=" + centerY.ToString("F6") +
-                      ", recipe=" + host.CurrentRecipeName +
+                      ", recipe=" + host.ActiveRecipeName +
                       ", saved=" + saved;
             return saved;
         }
@@ -1297,7 +1297,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                     return false;
                 }
 
-                if (string.IsNullOrWhiteSpace(host.CurrentRecipeName))
+                if (string.IsNullOrWhiteSpace(host.ActiveRecipeName))
                 {
                     message = "현재 활성 Recipe가 없어 Collet Z를 저장할 수 없습니다.";
                     return false;
@@ -1343,7 +1343,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                 record.UpdatedAt = DateTime.Now;
                 machine.VisionUnit.Config.CalibrationData.Touch("ColletSaveZ");
 
-                bool recipeSaved = host.SaveMachineRecipe(host.CurrentRecipeName);
+                bool recipeSaved = host.SaveMachineRecipe(host.ActiveRecipeName);
                 host.SaveMachineSettings();
 
                 string formula = "currentZ(" + currentZ.ToString("F6") +
@@ -1352,7 +1352,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                                  ")+" + _colletType + "Offset(" + colletZOffset.ToString("F6") + ")";
                 historyLines = new string[]
                 {
-                    "Z 저장: " + _side + " C" + _colletNo + ", axis=" + zAxisKind + ", recipe=" + host.CurrentRecipeName + ", recipeSaved=" + recipeSaved,
+                    "Z 저장: " + _side + " C" + _colletNo + ", axis=" + zAxisKind + ", recipe=" + host.ActiveRecipeName + ", recipeSaved=" + recipeSaved,
                     "Bottom Z: " + oldBottomTeachingZ.ToString("F6") + " -> " + inspectionTeachingZ.ToString("F6") + ", formula=" + formula,
                     "Side Z: " + oldSideTeachingZ.ToString("F6") + " -> " + inspectionTeachingZ.ToString("F6") + ", formula=Bottom Z와 동일",
                     dieBottomPositionName + ": " + oldDieBottomTeachingZ.ToString("F6") + " -> " + inspectionTeachingZ.ToString("F6"),
@@ -1364,7 +1364,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                     "Collet Z 저장. side=" + _side +
                     ", colletNo=" + _colletNo +
                     ", axis=" + zAxisKind +
-                    ", recipe=" + host.CurrentRecipeName +
+                    ", recipe=" + host.ActiveRecipeName +
                     ", currentZ=" + currentZ.ToString("F6") +
                     ", dieThickness=" + _colletDieCalThicknessMm.ToString("F6") +
                     ", filmThickness=" + _colletFilmThicknessMm.ToString("F6") +
@@ -1477,7 +1477,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                     return;
                 }
 
-                if (string.IsNullOrWhiteSpace(host.CurrentRecipeName))
+                if (string.IsNullOrWhiteSpace(host.ActiveRecipeName))
                 {
                     lblStatus.Text = "현재 활성 Recipe가 없어 Bottom 검사 티칭 위치를 저장할 수 없습니다.";
                     QMC.Common.MessageDialog.Show(this, lblStatus.Text, "COLLET CAL", MessageBoxButtons.OK, MessageBoxIcon.Warning);
@@ -1596,13 +1596,13 @@ namespace QMC.CDT_320.Ui.Dialogs
                     return;
                 }
 
-                bool recipeSaved = host.SaveMachineRecipe(host.CurrentRecipeName);
+                bool recipeSaved = host.SaveMachineRecipe(host.ActiveRecipeName);
                 host.SaveMachineSettings();
                 RefreshResultGrid();
 
                 string[] saveHistoryLines = new string[]
                 {
-                    "저장: " + _side + " C" + _colletNo + ", recipe=" + host.CurrentRecipeName + ", recipeSaved=" + recipeSaved,
+                    "저장: " + _side + " C" + _colletNo + ", recipe=" + host.ActiveRecipeName + ", recipeSaved=" + recipeSaved,
                     "Bottom X: " + oldBottomTeachingX.ToString("F6") + " -> " + bottomTeachingX.ToString("F6") + ", formula=actualX(" + actualX.ToString("F6") + ")-pitch(" + pitchOffsetX.ToString("F6") + ")",
                     "Bottom Y: " + oldBottomTeachingY.ToString("F6") + " -> " + actualY.ToString("F6") + ", formula=actualY",
                     "Bottom Z: " + oldBottomTeachingZ.ToString("F6") + " -> " + inspectionTeachingZ.ToString("F6") + ", formula=currentZ(" + actualZ.ToString("F6") + ")+Die(" + _colletDieCalThicknessMm.ToString("F6") + ")+Film(" + _colletFilmThicknessMm.ToString("F6") + ")+" + _colletType + "Offset(" + colletZOffset.ToString("F6") + ")",
@@ -1618,7 +1618,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                 QMC.Common.Log.Write("Calibration", "SYSTEM", "ColletCalBottomTeach",
                     "Bottom 검사 티칭 위치 저장. side=" + _side +
                     ", colletNo=" + _colletNo +
-                    ", recipe=" + host.CurrentRecipeName +
+                    ", recipe=" + host.ActiveRecipeName +
                     ", actual=(" + actualX.ToString("F6") + "," + actualY.ToString("F6") + "," + actualZ.ToString("F6") + "," + actualT.ToString("F6") + ")" +
                     ", bottomTeachingX=actualX-pitchOffset=" + actualX.ToString("F6") + "-" + pitchOffsetX.ToString("F6") + "=" + bottomTeachingX.ToString("F6") +
                     ", bottomTeachingY=" + actualY.ToString("F6") +
@@ -2185,8 +2185,8 @@ namespace QMC.CDT_320.Ui.Dialogs
         private static RecipeProject LoadActiveProject(Form1 host)
         {
             RecipeProject project = null;
-            if (host != null && !string.IsNullOrWhiteSpace(host.CurrentRecipeName))
-                project = RecipeStore.Load(host.CurrentRecipeName);
+            if (host != null && !string.IsNullOrWhiteSpace(host.ActiveRecipeName))
+                project = RecipeStore.Load(host.ActiveRecipeName);
             if (project == null)
                 project = RecipeStore.LoadLastOrDefault();
             if (project != null)

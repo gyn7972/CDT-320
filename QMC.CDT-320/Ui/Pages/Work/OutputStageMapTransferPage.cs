@@ -566,7 +566,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             try
             {
                 Form1 host = FindForm() as Form1;
-                string recipeName = host != null ? host.CurrentRecipeName : "";
+                string recipeName = host != null ? host.ActiveRecipeName : "";
                 if (string.IsNullOrWhiteSpace(recipeName))
                 {
                     var lot = LotStorage.ActiveLot;

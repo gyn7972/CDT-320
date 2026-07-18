@@ -152,7 +152,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             // Main 화면의 현재 Recipe가 있으면 그것을 편집 대상으로 삼고,
             // 시작 직후처럼 활성 Recipe가 없을 때만 마지막 프로젝트로 fallback 한다.
             var host = FindForm() as Form1;
-            string name = host != null ? host.CurrentRecipeName : null;
+            string name = host != null ? host.ActiveRecipeName : null;
             if (string.IsNullOrEmpty(name)) name = RecipeStore.GetLastProjectName();
             if (string.IsNullOrEmpty(name)) name = AppSettingsStore.Current.LastProject;
             if (string.IsNullOrEmpty(name))
@@ -197,25 +197,37 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             try
             {
                 SafeSaveToRecipe();
-                if (!SaveToRecipePersistsProject && !RecipeStore.Save(_project))
-                    throw new InvalidOperationException("Project Recipe 파일 저장에 실패했습니다.");
-                var host = FindForm() as Form1;
-                if (!SaveToRecipeAppliesCurrentRecipe && host != null && host.Machine != null)
+                if (!SaveToRecipePersistsProject &&
+                    !RecipeStore.Save(_project))
                 {
-                    if (!host.SaveMachineRecipe(_project.FileName))
+                    throw new InvalidOperationException("Project Recipe 파일 저장에 실패했습니다.");
+                }
+
+                var host = FindForm() as Form1;
+
+                if (!SaveToRecipeAppliesCurrentRecipe)
+                {
+                    if (host == null)
+                        throw new InvalidOperationException("메인 화면을 찾을 수 없습니다.");
+
+                    if (!host.SaveAndApplyActiveRecipe(_project))
                     {
                         throw new InvalidOperationException(
-                            "[CURRENT RECIPE APPLY] 장비 Unit Recipe 저장이 false를 반환했습니다. Project 파일은 저장됐지만 장비 적용을 완료하지 못했습니다. recipe=" + _project.FileName);
+                            "활성 Recipe 저장 및 적용에 실패했습니다. recipe=" +
+                            _project.FileName);
                     }
-                    host.LoadMachineRecipe(_project.FileName);
                 }
-                // Stage 61 — 마지막 프로젝트 마커 + 상태바 갱신
-                RecipeStore.SaveLastProjectName(_project.FileName);
-                host?.RefreshProjectName(_project.FileName);
-                QMC.Common.MessageDialog.Show($"Saved to {_project.FileName}.Project", "Recipe",
-                                MessageBoxButtons.OK, MessageBoxIcon.Information);
+
+                QMC.Common.MessageDialog.Show(
+                    $"Saved to {_project.FileName}.Project",
+                    "Recipe",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Information);
             }
-            catch (Exception ex) { QMC.Common.MessageDialog.Show("Save failed: " + ex.Message); }
+            catch (Exception ex)
+            {
+                QMC.Common.MessageDialog.Show("Save failed: " + ex.Message);
+            }
         }
 
         private void SafeLoadFromRecipe() { try { LoadFromRecipe(); } catch { } }

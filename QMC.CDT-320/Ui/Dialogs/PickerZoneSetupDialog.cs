@@ -236,8 +236,8 @@ namespace QMC.CDT_320.Ui.Dialogs
                 ApplySafetyToSelectedPickerSetup();
 
                 Form1 host = Owner as Form1;
-                if (host != null && !string.IsNullOrWhiteSpace(host.CurrentRecipeName))
-                    host.SaveMachineRecipe(host.CurrentRecipeName);
+                if (host != null && !string.IsNullOrWhiteSpace(host.ActiveRecipeName))
+                    host.SaveMachineRecipe(host.ActiveRecipeName);
 
                 lblStatus.Text = "저장 완료.";
                 UpdateCurrentDisplay();

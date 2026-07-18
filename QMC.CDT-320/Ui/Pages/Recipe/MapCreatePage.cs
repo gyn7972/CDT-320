@@ -1414,7 +1414,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
         private RecipeProject LoadActiveRecipeProject()
         {
             Form1 host = FindForm() as Form1;
-            string activeName = host != null ? host.CurrentRecipeName : "";
+            string activeName = host != null ? host.ActiveRecipeName : "";
             if (!string.IsNullOrWhiteSpace(activeName))
             {
                 RecipeProject active = RecipeStore.Load(activeName);

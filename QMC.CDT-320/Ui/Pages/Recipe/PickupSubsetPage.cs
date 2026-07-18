@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Windows.Forms;
@@ -164,27 +164,12 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             if (_project == null)
                 return;
 
-            var p = ResolveSelectedPickupSubset();
-            SaveVisibleToPickupSubset(p);
+            PickupSubset pickup = ResolveSelectedPickupSubset();
+            SaveVisibleToPickupSubset(pickup);
 
             _project.Pickup = ClonePickupSubset(_project.InputPickup);
-            RecipeStore.Save(_project);
-            RecipeStore.SaveLastProjectName(_project.FileName);
 
-            try
-            {
-                var host = FindForm() as Form1;
-                if (host?.Controller != null)
-                {
-                    host.Controller.PickupOptions = ClonePickupSubset(_project.InputPickup ?? p);
-                    host.Controller.RebuildPickupSequence();
-                }
-            }
-            catch { }
-            finally
-            {
-                LogPickupSetting("Save");
-            }
+            LogPickupSetting("Save");
         }
 
         private void SaveVisibleToPickupSubset(PickupSubset p)

@@ -1162,7 +1162,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                     record.UpdatedBy = UserSession.Name ?? string.Empty;
                 }
 
-                if (string.IsNullOrWhiteSpace(host.CurrentRecipeName) || !host.SaveMachineRecipe(host.CurrentRecipeName))
+                if (string.IsNullOrWhiteSpace(host.ActiveRecipeName) || !host.SaveMachineRecipe(host.ActiveRecipeName))
                 {
                     lblStatus.Text = "Bottom Vision/AF To Bottom Delay Recipe 저장에 실패했습니다. 활성 Recipe를 확인하세요.";
                     return false;

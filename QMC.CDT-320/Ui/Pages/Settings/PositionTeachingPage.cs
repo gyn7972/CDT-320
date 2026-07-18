@@ -832,8 +832,8 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             }
             try
             {
-                if (!string.IsNullOrWhiteSpace(host.CurrentRecipeName))
-                    host.SaveMachineRecipe(host.CurrentRecipeName);
+                if (!string.IsNullOrWhiteSpace(host.ActiveRecipeName))
+                    host.SaveMachineRecipe(host.ActiveRecipeName);
 
                 host.SaveMachineSettings();
             }

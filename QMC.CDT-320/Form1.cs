@@ -40,7 +40,9 @@ namespace QMC.CDT_320
         internal AjinIoScanService IoScan { get; private set; }
         internal OperationPanelMonitorService OpPanelMonitor { get; private set; }
         internal QMC.CDT320.Alarms.AlarmResponseService AlarmResponse { get; private set; }
-        internal string CurrentRecipeName { get; private set; }
+        /// <summary>현재 장비에 실제로 적용된 활성 Recipe 이름입니다.</summary>
+        internal string ActiveRecipeName { get; private set; }
+
         private QMC.CDT320.Recipes.RecipeProject _currentRecipe;
         private readonly Dictionary<object, bool> _unitDryRunOverrides = new Dictionary<object, bool>();
         private bool _materialSnapshotRestored;
@@ -54,8 +56,8 @@ namespace QMC.CDT_320
             try
             {
                 if (string.IsNullOrEmpty(fileName)) fileName = "-";
-                CurrentRecipeName = NormalizeRecipeName(fileName);
-                Controller?.SetActiveRecipeName(CurrentRecipeName);
+                ActiveRecipeName = NormalizeRecipeName(fileName);
+                Controller?.SetActiveRecipeName(ActiveRecipeName);
                 if (lblProjectValue.InvokeRequired)
                     lblProjectValue.Invoke((Action)(() => SetTextIfChanged(lblProjectValue, fileName)));
                 else
@@ -194,22 +196,40 @@ namespace QMC.CDT_320
             }
         }
 
-        internal void LoadMachineRecipe(string recipeName)
+        internal bool LoadMachineRecipe(string recipeName)
         {
             try
             {
                 if (Machine == null || string.IsNullOrWhiteSpace(recipeName))
-                    return;
+                    return false;
 
-                CurrentRecipeName = NormalizeRecipeName(recipeName);
-                Controller?.SetActiveRecipeName(CurrentRecipeName);
-                Machine.LoadRecipe(recipeName);
-                _currentRecipe = QMC.CDT320.Recipes.RecipeStore.Load(CurrentRecipeName);
+                string normalizedRecipeName = NormalizeRecipeName(recipeName);
+                QMC.CDT320.Recipes.RecipeProject project =
+                    QMC.CDT320.Recipes.RecipeStore.Load(normalizedRecipeName);
 
-                // Vision PC 레시피 자동 동기화 — 활성 레시피(번호+명칭)를 Main(5104) 채널로 통보.
-                // 비차단(fire-and-forget). Main 미연결/실패는 BroadcastRecipeAsync 가 내부 처리.
-                int recipeNo = ResolveVisionRecipeNo(CurrentRecipeName);
-                _ = QMC.CDT320.VisionComm.VisionHub.BroadcastRecipeAsync(recipeNo, CurrentRecipeName);
+                if (project == null)
+                {
+                    QMC.Common.Logging.EventLogger.Write(
+                        QMC.Common.Logging.EventKind.Alarm,
+                        UserSession.Name,
+                        "DATA-LOAD",
+                        "Project recipe file not found: " + normalizedRecipeName);
+
+                    return false;
+                }
+
+                Machine.LoadRecipe(normalizedRecipeName);
+
+                _currentRecipe = project;
+                ActiveRecipeName = normalizedRecipeName;
+                Controller?.SetActiveRecipeName(ActiveRecipeName);
+
+                int recipeNo = ResolveVisionRecipeNo(ActiveRecipeName);
+                _ = QMC.CDT320.VisionComm.VisionHub.BroadcastRecipeAsync(
+                    recipeNo,
+                    ActiveRecipeName);
+
+                return true;
             }
             catch (Exception ex)
             {
@@ -218,6 +238,113 @@ namespace QMC.CDT_320
                     UserSession.Name,
                     "DATA-LOAD",
                     "Machine recipe load failed: " + recipeName + " / " + ex.Message);
+
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
+        internal bool ApplyMachineRecipe(QMC.CDT320.Recipes.RecipeProject project)
+        {
+            try
+            {
+                if (project == null || string.IsNullOrWhiteSpace(project.FileName))
+                    return false;
+
+                string recipeName = NormalizeRecipeName(project.FileName);
+
+                if (!LoadMachineRecipe(recipeName))
+                    return false;
+
+                Controller?.ApplyRecipeMode(_currentRecipe);
+
+                QMC.CDT320.Recipes.RecipeStore.SaveLastProjectName(recipeName);
+                AppSettingsStore.Current.LastProject = recipeName;
+                AppSettingsStore.Save();
+
+                RefreshProjectName(recipeName);
+
+                QMC.Common.Logging.EventLogger.Write(
+                    QMC.Common.Logging.EventKind.Event,
+                    UserSession.Name,
+                    "RECIPE-APPLY",
+                    "Machine recipe applied: " + recipeName);
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Logging.EventLogger.Write(
+                    QMC.Common.Logging.EventKind.Alarm,
+                    UserSession.Name,
+                    "RECIPE-APPLY",
+                    "Machine recipe apply failed: " + project?.FileName + " / " + ex.Message);
+
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
+        /// <summary>
+        /// 현재 활성 Recipe의 Unit 데이터를 저장한 후 다시 적용합니다.
+        /// 선택만 된 비활성 Recipe에는 사용할 수 없습니다.
+        /// Project 파일은 호출 전에 저장되어 있어야 합니다.
+        /// </summary>
+        internal bool SaveAndApplyActiveRecipe(
+            QMC.CDT320.Recipes.RecipeProject project)
+        {
+            try
+            {
+                if (project == null || string.IsNullOrWhiteSpace(project.FileName))
+                    return false;
+
+                string recipeName = NormalizeRecipeName(project.FileName);
+
+                if (string.IsNullOrWhiteSpace(ActiveRecipeName) ||
+                    !string.Equals(
+                        ActiveRecipeName,
+                        recipeName,
+                        StringComparison.OrdinalIgnoreCase))
+                {
+                    QMC.Common.Logging.EventLogger.Write(
+                        QMC.Common.Logging.EventKind.Alarm,
+                        UserSession.Name,
+                        "RECIPE-SAVE-APPLY",
+                        "비활성 Recipe의 Unit 데이터 저장을 차단했습니다. " +
+                        "active=" + (ActiveRecipeName ?? "-") +
+                        ", requested=" + recipeName);
+
+                    return false;
+                }
+
+                if (!SaveMachineRecipe(recipeName))
+                    return false;
+
+                if (!ApplyMachineRecipe(project))
+                    return false;
+
+                QMC.Common.Logging.EventLogger.Write(
+                    QMC.Common.Logging.EventKind.Event,
+                    UserSession.Name,
+                    "RECIPE-SAVE-APPLY",
+                    "Active machine recipe saved and applied: " + recipeName);
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Logging.EventLogger.Write(
+                    QMC.Common.Logging.EventKind.Alarm,
+                    UserSession.Name,
+                    "RECIPE-SAVE-APPLY",
+                    "Active machine recipe save/apply failed: " +
+                    project?.FileName + " / " + ex.Message);
+
+                return false;
             }
             finally
             {
@@ -244,20 +371,21 @@ namespace QMC.CDT_320
 
         internal bool SaveMachineRecipe(string recipeName)
         {
+            //Save하고 Active 버튼 눌러야함. 그래야 현재 Recipe에 맞는 MaterialState가 저장됨. Save만 하면 이전 Recipe에 맞는 MaterialState가 저장됨.
             try
             {
                 if (Machine == null || string.IsNullOrWhiteSpace(recipeName))
                     return false;
 
-                CurrentRecipeName = NormalizeRecipeName(recipeName);
-                Controller?.SetActiveRecipeName(CurrentRecipeName);
-                if (!Machine.SaveRecipe(recipeName))
+                string normalizedRecipeName = NormalizeRecipeName(recipeName);
+
+                if (!Machine.SaveRecipe(normalizedRecipeName))
                 {
                     QMC.Common.Logging.EventLogger.Write(
                         QMC.Common.Logging.EventKind.Alarm,
                         UserSession.Name,
                         "DATA-SAVE",
-                        "Machine recipe save returned false: " + recipeName);
+                        "Machine recipe save returned false: " + normalizedRecipeName);
                     return false;
                 }
 
@@ -265,7 +393,8 @@ namespace QMC.CDT_320
                     QMC.Common.Logging.EventKind.Event,
                     UserSession.Name,
                     "DATA-SAVE",
-                    "Machine recipe saved: " + CurrentRecipeName);
+                    "Machine recipe saved: " + normalizedRecipeName);
+
                 return true;
             }
             catch (Exception ex)
@@ -275,6 +404,7 @@ namespace QMC.CDT_320
                     UserSession.Name,
                     "DATA-SAVE",
                     "Machine recipe save failed: " + recipeName + " / " + ex.Message);
+
                 return false;
             }
             finally
@@ -586,7 +716,7 @@ namespace QMC.CDT_320
             Bridge     = new SimulatorBridge(Machine);
             BeginSimulatorAutoConnect(cfg);
             Controller = new MachineController(Machine);
-            Controller.SetActiveRecipeName(CurrentRecipeName);
+            Controller.SetActiveRecipeName(ActiveRecipeName);
             ApplyRuntimeMode();
             Controller.ApplyStartupMachineRuntimeState(cfg);
             AlarmResponse = new QMC.CDT320.Alarms.AlarmResponseService(Controller);
@@ -1261,11 +1391,11 @@ namespace QMC.CDT_320
         {
             try
             {
-                string name = CurrentRecipeName;
+                string name = ActiveRecipeName;
                 if (string.IsNullOrWhiteSpace(name) || name == "-")
                 {
                     QMC.Common.Logging.EventLogger.Write(QMC.Common.Logging.EventKind.Warning, "SYS", "VISION-RECIPE",
-                        "Vision 레시피 요청 — 응답 스킵(활성 레시피 없음: CurrentRecipeName='" + (name ?? "null") + "'). 핸들러에서 레시피/프로젝트 로드 필요.");
+                        "Vision 레시피 요청 — 응답 스킵(활성 레시피 없음: ActiveRecipeName='" + (name ?? "null") + "'). 핸들러에서 레시피/프로젝트 로드 필요.");
                     return;
                 }
                 int recipeNo = ResolveVisionRecipeNo(name);

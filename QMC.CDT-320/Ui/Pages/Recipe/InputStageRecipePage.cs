@@ -2012,11 +2012,11 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             try
             {
                 var host = FindHostForm();
-                if (host == null || string.IsNullOrWhiteSpace(host.CurrentRecipeName))
+                if (host == null || string.IsNullOrWhiteSpace(host.ActiveRecipeName))
                     throw new InvalidOperationException("활성 Recipe가 없어 Input Stage 값을 저장할 수 없습니다.");
 
-                if (!host.SaveMachineRecipe(host.CurrentRecipeName))
-                    throw new InvalidOperationException("Input Stage Recipe 저장에 실패했습니다. recipe=" + host.CurrentRecipeName);
+                if (!host.SaveMachineRecipe(host.ActiveRecipeName))
+                    throw new InvalidOperationException("Input Stage Recipe 저장에 실패했습니다. recipe=" + host.ActiveRecipeName);
             }
             catch
             {

@@ -249,7 +249,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                 if (host == null || host.Machine == null)
                     throw new InvalidOperationException("장비 객체가 준비되지 않았습니다.");
 
-                string recipeName = host.CurrentRecipeName;
+                string recipeName = host.ActiveRecipeName;
                 host.LoadMachineSettings();
                 if (!string.IsNullOrWhiteSpace(recipeName))
                     host.LoadMachineRecipe(recipeName);
@@ -312,7 +312,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                 data.OutputReticle.HasVisionXPosition = true;
                 host.Machine.VisionUnit.Config.CalibrationData.Touch(UserSession.Name);
 
-                string recipeName = host.CurrentRecipeName;
+                string recipeName = host.ActiveRecipeName;
                 if (string.IsNullOrWhiteSpace(recipeName))
                     throw new InvalidOperationException("활성 Recipe가 없어 ReticlePosition을 저장할 수 없습니다.");
 
