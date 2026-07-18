@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
 using System.Threading;
@@ -15,8 +14,6 @@ namespace QMC.CDT_320.Ui.Controls
     public sealed partial class WaferVisionTestControl : UserControl
     {
         private readonly WaferVisionAdapter _adapter = new WaferVisionAdapter();
-        private readonly Dictionary<string, Stopwatch> _matchTactByTarget =
-            new Dictionary<string, Stopwatch>(StringComparer.OrdinalIgnoreCase);
 
         public WaferVisionTestControl()
         {
@@ -37,7 +34,7 @@ namespace QMC.CDT_320.Ui.Controls
 
         private async void btnCenterMatchResult_Click(object sender, EventArgs e)
         {
-            await RunAlignMatchResultRequestAsync(
+            await RunAlignMatchAsyncAndResultAsync(
                 VisionAlignTargetIds.Center,
                 lblCenterMatchResult).ConfigureAwait(true);
         }
@@ -51,7 +48,7 @@ namespace QMC.CDT_320.Ui.Controls
 
         private async void btnRef1MatchResult_Click(object sender, EventArgs e)
         {
-            await RunAlignMatchResultRequestAsync(
+            await RunAlignMatchAsyncAndResultAsync(
                 VisionAlignTargetIds.Ref1,
                 lblRef1MatchResult).ConfigureAwait(true);
         }
@@ -65,7 +62,7 @@ namespace QMC.CDT_320.Ui.Controls
 
         private async void btnRef2MatchResult_Click(object sender, EventArgs e)
         {
-            await RunAlignMatchResultRequestAsync(
+            await RunAlignMatchAsyncAndResultAsync(
                 VisionAlignTargetIds.Ref2,
                 lblRef2MatchResult).ConfigureAwait(true);
         }
@@ -156,7 +153,7 @@ namespace QMC.CDT_320.Ui.Controls
             label.ForeColor = Color.DimGray;
             string finder = VisionAlignTargetIds.ResolveWaferFinder(targetId);
             label.Text = "MATCHASYNC 요청/EPD 대기 중...";
-            Stopwatch matchTact = StartMatchTact(targetId);
+            Stopwatch matchTact = Stopwatch.StartNew();
             try
             {
                 bool epdReceived = await AutoVisionRequestService.StartMatchAsync(
@@ -166,19 +163,18 @@ namespace QMC.CDT_320.Ui.Controls
                     5000,
                     CancellationToken.None).ConfigureAwait(true);
 
+                matchTact.Stop();
                 long epdElapsedMilliseconds = matchTact.ElapsedMilliseconds;
                 label.ForeColor = epdReceived ? Color.SeaGreen : Color.Firebrick;
                 label.Text = epdReceived
-                    ? "REQ→EPD " + epdElapsedMilliseconds + " ms" + Environment.NewLine + "MATCHRESULT 요청 가능"
+                    ? "REQ→EPD " + epdElapsedMilliseconds + " ms" + Environment.NewLine + "EPD 수신 완료 (단독 테스트)"
                     : "REQ→EPD " + epdElapsedMilliseconds + " ms" + Environment.NewLine + "실패 또는 EPD 타임아웃";
-                if (!epdReceived)
-                    CompleteMatchTact(targetId);
             }
             catch (Exception ex)
             {
-                long elapsedMilliseconds = CompleteMatchTact(targetId) ?? matchTact.ElapsedMilliseconds;
+                matchTact.Stop();
                 label.ForeColor = Color.Firebrick;
-                label.Text = "REQ→EPD " + elapsedMilliseconds + " ms" + Environment.NewLine +
+                label.Text = "REQ→EPD " + matchTact.ElapsedMilliseconds + " ms" + Environment.NewLine +
                              "MATCHASYNC 실패: " + ex.Message;
             }
             finally
@@ -187,35 +183,57 @@ namespace QMC.CDT_320.Ui.Controls
             }
         }
 
-        private async Task RunAlignMatchResultRequestAsync(string targetId, Label label)
+        private async Task RunAlignMatchAsyncAndResultAsync(string targetId, Label label)
         {
             if (!Ready(label))
                 return;
 
             SetVisionCommandButtonsEnabled(false);
             label.ForeColor = Color.DimGray;
-            label.Text = "MATCHRESULT 1회 요청 중...";
+            label.Text = "MATCHASYNC 요청/EPD 대기 중...";
             string finder = VisionAlignTargetIds.ResolveWaferFinder(targetId);
-            Stopwatch requestTact = Stopwatch.StartNew();
+            Stopwatch totalTact = Stopwatch.StartNew();
             try
             {
-                AsyncMatchPoll poll = await AutoVisionRequestService.PollMatchResultAsync(
+                bool epdReceived = await AutoVisionRequestService.StartMatchAsync(
                     AutoVisionChannel.Wafer,
                     finder,
                     0,
-                    1000,
+                    5000,
                     CancellationToken.None).ConfigureAwait(true);
 
-                requestTact.Stop();
-                long? totalElapsedMilliseconds = ReadMatchTact(targetId, poll != null && poll.Done);
-                MatchResultDto result;
-                if (!TryShowMatchPollState(
-                    poll,
-                    label,
-                    requestTact.ElapsedMilliseconds,
-                    totalElapsedMilliseconds,
-                    out result))
+                long epdElapsedMilliseconds = totalTact.ElapsedMilliseconds;
+                if (!epdReceived)
+                {
+                    totalTact.Stop();
+                    label.ForeColor = Color.Firebrick;
+                    label.Text = "REQ→EPD " + epdElapsedMilliseconds + " ms" + Environment.NewLine +
+                                 "전체 " + totalTact.ElapsedMilliseconds + " ms" + Environment.NewLine +
+                                 "MATCHASYNC 실패 또는 EPD 타임아웃";
                     return;
+                }
+
+                label.Text = "REQ→EPD " + epdElapsedMilliseconds + " ms" + Environment.NewLine +
+                             "MATCHRESULT 최종 결과 대기 중...";
+                Stopwatch resultTact = Stopwatch.StartNew();
+                MatchResultDto result = await AutoVisionRequestService.WaitMatchResultAsync(
+                    AutoVisionChannel.Wafer,
+                    finder,
+                    0,
+                    5000,
+                    CancellationToken.None).ConfigureAwait(true);
+                resultTact.Stop();
+                totalTact.Stop();
+
+                if (result == null || !result.Success)
+                {
+                    label.ForeColor = Color.Firebrick;
+                    label.Text = "REQ→EPD " + epdElapsedMilliseconds + " ms" + Environment.NewLine +
+                                 "EPD→RESULT " + resultTact.ElapsedMilliseconds + " ms" + Environment.NewLine +
+                                 "전체 " + totalTact.ElapsedMilliseconds + " ms | 결과 실패: " +
+                                 (result != null ? result.RawError : "응답 없음");
+                    return;
+                }
 
                 VisionAlignResult align = VisionCameraCalibrationTransform.ToAlignResult(
                     AutoVisionChannel.Wafer,
@@ -224,25 +242,25 @@ namespace QMC.CDT_320.Ui.Controls
                 if (align == null)
                 {
                     label.ForeColor = Color.Firebrick;
-                    label.Text = "REQ→RX " + requestTact.ElapsedMilliseconds + " ms | 전체 " +
-                                 FormatElapsed(totalElapsedMilliseconds) + Environment.NewLine + "완료 데이터 변환 실패";
+                    label.Text = "REQ→EPD " + epdElapsedMilliseconds + " ms" + Environment.NewLine +
+                                 "EPD→RESULT " + resultTact.ElapsedMilliseconds + " ms" + Environment.NewLine +
+                                 "전체 " + totalTact.ElapsedMilliseconds + " ms | 완료 데이터 변환 실패";
                     return;
                 }
 
                 WaferVisionResultStore.RecordAlign(targetId, align);
                 label.ForeColor = Color.SeaGreen;
-                label.Text = "REQ→RX " + requestTact.ElapsedMilliseconds + " ms | 전체 " +
-                             FormatElapsed(totalElapsedMilliseconds) + Environment.NewLine +
-                             "DONE score=" + result.Score.ToString("F3");
-                LogLiveAutoStartBlocked("ALIGN MATCHRESULT 완료 후 자동 Live 시작 차단");
+                label.Text = "REQ→EPD " + epdElapsedMilliseconds + " ms" + Environment.NewLine +
+                             "EPD→RESULT " + resultTact.ElapsedMilliseconds + " ms" + Environment.NewLine +
+                             "전체 " + totalTact.ElapsedMilliseconds + " ms | DONE score=" + result.Score.ToString("F3");
+                LogLiveAutoStartBlocked("ALIGN MATCHASYNC + RESULT 완료 후 자동 Live 시작 차단");
             }
             catch (Exception ex)
             {
-                requestTact.Stop();
+                totalTact.Stop();
                 label.ForeColor = Color.Firebrick;
-                label.Text = "REQ→RX " + requestTact.ElapsedMilliseconds + " ms | 누적 " +
-                             FormatElapsed(ReadMatchTact(targetId, false)) + Environment.NewLine +
-                             "MATCHRESULT 실패: " + ex.Message;
+                label.Text = "전체 " + totalTact.ElapsedMilliseconds + " ms" + Environment.NewLine +
+                             "MATCHASYNC + RESULT 실패: " + ex.Message;
             }
             finally
             {
@@ -260,7 +278,6 @@ namespace QMC.CDT_320.Ui.Controls
             label.ForeColor = Color.DimGray;
             label.Text = "MATCHASYNC 요청/EPD 대기 중...";
             string finder = VisionAlignTargetIds.ResolveWaferFinder(targetId);
-            CompleteMatchTact(targetId);
             Stopwatch totalTact = Stopwatch.StartNew();
             try
             {
@@ -324,89 +341,6 @@ namespace QMC.CDT_320.Ui.Controls
                 SetVisionCommandButtonsEnabled(true);
                 RefreshSummary();
             }
-        }
-
-        private static bool TryShowMatchPollState(
-            AsyncMatchPoll poll,
-            Label label,
-            long requestElapsedMilliseconds,
-            long? totalElapsedMilliseconds,
-            out MatchResultDto result)
-        {
-            result = null;
-            if (poll == null)
-            {
-                label.ForeColor = Color.Firebrick;
-                label.Text = "REQ→RX " + requestElapsedMilliseconds + " ms | 누적 " +
-                             FormatElapsed(totalElapsedMilliseconds) + Environment.NewLine + "응답 없음";
-                return false;
-            }
-
-            if (poll.Error)
-            {
-                label.ForeColor = Color.Firebrick;
-                label.Text = "REQ→RX " + requestElapsedMilliseconds + " ms | 누적 " +
-                             FormatElapsed(totalElapsedMilliseconds) + Environment.NewLine +
-                             "오류: " + (poll.Raw ?? string.Empty);
-                return false;
-            }
-
-            if (!poll.Done)
-            {
-                label.ForeColor = Color.DarkOrange;
-                label.Text = "REQ→RX " + requestElapsedMilliseconds + " ms | 누적 " +
-                             FormatElapsed(totalElapsedMilliseconds) + Environment.NewLine +
-                             "PENDING (RESULT=0) — 다시 요청하세요";
-                return false;
-            }
-
-            result = poll.Result;
-            if (result == null || !result.Success)
-            {
-                label.ForeColor = Color.Firebrick;
-                label.Text = "REQ→RX " + requestElapsedMilliseconds + " ms | 전체 " +
-                             FormatElapsed(totalElapsedMilliseconds) + Environment.NewLine + "완료 데이터 없음";
-                return false;
-            }
-
-            return true;
-        }
-
-        private Stopwatch StartMatchTact(string targetId)
-        {
-            Stopwatch previous;
-            if (_matchTactByTarget.TryGetValue(targetId, out previous))
-                previous.Stop();
-
-            Stopwatch current = Stopwatch.StartNew();
-            _matchTactByTarget[targetId] = current;
-            return current;
-        }
-
-        private long? ReadMatchTact(string targetId, bool complete)
-        {
-            Stopwatch tact;
-            if (!_matchTactByTarget.TryGetValue(targetId, out tact))
-                return null;
-
-            long elapsedMilliseconds = tact.ElapsedMilliseconds;
-            if (complete)
-            {
-                tact.Stop();
-                _matchTactByTarget.Remove(targetId);
-            }
-
-            return elapsedMilliseconds;
-        }
-
-        private long? CompleteMatchTact(string targetId)
-        {
-            return ReadMatchTact(targetId, true);
-        }
-
-        private static string FormatElapsed(long? elapsedMilliseconds)
-        {
-            return elapsedMilliseconds.HasValue ? elapsedMilliseconds.Value + " ms" : "-";
         }
 
         private void SetVisionCommandButtonsEnabled(bool enabled)

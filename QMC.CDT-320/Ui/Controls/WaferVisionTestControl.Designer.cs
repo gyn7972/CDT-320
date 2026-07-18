@@ -111,11 +111,11 @@
             this.commandLayout.RowCount = 11;
             this.commandLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 44F));
             this.commandLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 44F));
+            this.commandLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 60F));
             this.commandLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 44F));
+            this.commandLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 60F));
             this.commandLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 44F));
-            this.commandLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 44F));
-            this.commandLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 44F));
-            this.commandLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 44F));
+            this.commandLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 60F));
             this.commandLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 44F));
             this.commandLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 60F));
             this.commandLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 56F));
@@ -157,7 +157,7 @@
             this.btnCenterMatchResult.Margin = new System.Windows.Forms.Padding(3, 5, 12, 5);
             this.btnCenterMatchResult.Name = "btnCenterMatchResult";
             this.btnCenterMatchResult.TabIndex = 4;
-            this.btnCenterMatchResult.Text = "ALIGN: Center MATCHRESULT";
+            this.btnCenterMatchResult.Text = "ALIGN: Center MATCHASYNC + RESULT";
             this.btnCenterMatchResult.UseVisualStyleBackColor = false;
             this.btnCenterMatchResult.Click += new System.EventHandler(this.btnCenterMatchResult_Click);
             this.btnRef1MatchAsync.BackColor = System.Drawing.Color.FromArgb(60, 60, 60);
@@ -179,7 +179,7 @@
             this.btnRef1MatchResult.Margin = new System.Windows.Forms.Padding(3, 5, 12, 5);
             this.btnRef1MatchResult.Name = "btnRef1MatchResult";
             this.btnRef1MatchResult.TabIndex = 8;
-            this.btnRef1MatchResult.Text = "ALIGN: Ref1 MATCHRESULT";
+            this.btnRef1MatchResult.Text = "ALIGN: Ref1 MATCHASYNC + RESULT";
             this.btnRef1MatchResult.UseVisualStyleBackColor = false;
             this.btnRef1MatchResult.Click += new System.EventHandler(this.btnRef1MatchResult_Click);
             this.btnRef2MatchAsync.BackColor = System.Drawing.Color.FromArgb(60, 60, 60);
@@ -201,7 +201,7 @@
             this.btnRef2MatchResult.Margin = new System.Windows.Forms.Padding(3, 5, 12, 5);
             this.btnRef2MatchResult.Name = "btnRef2MatchResult";
             this.btnRef2MatchResult.TabIndex = 12;
-            this.btnRef2MatchResult.Text = "ALIGN: Ref2 MATCHRESULT";
+            this.btnRef2MatchResult.Text = "ALIGN: Ref2 MATCHASYNC + RESULT";
             this.btnRef2MatchResult.UseVisualStyleBackColor = false;
             this.btnRef2MatchResult.Click += new System.EventHandler(this.btnRef2MatchResult_Click);
             this.btnDieCheckMatchAsync.BackColor = System.Drawing.Color.FromArgb(60, 60, 60);
@@ -248,7 +248,7 @@
             this.lblCenterMatchResult.ForeColor = System.Drawing.Color.DimGray;
             this.lblCenterMatchResult.Name = "lblCenterMatchResult";
             this.lblCenterMatchResult.TabIndex = 5;
-            this.lblCenterMatchResult.Text = "MATCHRESULT 대기";
+            this.lblCenterMatchResult.Text = "MATCHASYNC + RESULT 대기";
             this.lblCenterMatchResult.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             this.lblRef1MatchAsync.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblRef1MatchAsync.Font = new System.Drawing.Font("Consolas", 9F);
@@ -262,7 +262,7 @@
             this.lblRef1MatchResult.ForeColor = System.Drawing.Color.DimGray;
             this.lblRef1MatchResult.Name = "lblRef1MatchResult";
             this.lblRef1MatchResult.TabIndex = 9;
-            this.lblRef1MatchResult.Text = "MATCHRESULT 대기";
+            this.lblRef1MatchResult.Text = "MATCHASYNC + RESULT 대기";
             this.lblRef1MatchResult.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             this.lblRef2MatchAsync.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblRef2MatchAsync.Font = new System.Drawing.Font("Consolas", 9F);
@@ -276,7 +276,7 @@
             this.lblRef2MatchResult.ForeColor = System.Drawing.Color.DimGray;
             this.lblRef2MatchResult.Name = "lblRef2MatchResult";
             this.lblRef2MatchResult.TabIndex = 13;
-            this.lblRef2MatchResult.Text = "MATCHRESULT 대기";
+            this.lblRef2MatchResult.Text = "MATCHASYNC + RESULT 대기";
             this.lblRef2MatchResult.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             this.lblDieCheckMatchAsync.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblDieCheckMatchAsync.Font = new System.Drawing.Font("Consolas", 9F);
@@ -307,7 +307,7 @@
             this.lblHint.Name = "lblHint";
             this.lblHint.Padding = new System.Windows.Forms.Padding(0, 8, 0, 0);
             this.lblHint.TabIndex = 19;
-            this.lblHint.Text = "ALIGN MATCHRESULT는 1회 요청합니다. DIE CHECK MATCHASYNC + RESULT는 EPD 후 최종 결과까지 자동 요청하며 전체 택을 표시합니다.";
+            this.lblHint.Text = "단독 MATCHASYNC는 EPD까지만 확인합니다. 각 MATCHASYNC + RESULT 버튼은 EPD 후 최종 결과까지 자동 요청하며 전체 택을 표시합니다.";
             // 
             // viewer
             // 
