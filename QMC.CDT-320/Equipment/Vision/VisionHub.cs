@@ -135,14 +135,14 @@ namespace QMC.CDT320.VisionComm
         /// 현재 활성 레시피를 Vision MainComm 채널로 전송한다.
         /// Vision 연결 직후 또는 RECIPEREQ 수신 시 호출된다.
         /// </summary>
-        public static async Task<bool> BroadcastRecipeAsync(int recipeNo, string recipeName)
+        public static async Task<bool> BroadcastRecipeAsync(string recipeName)
         {
             try
             {
                 if (string.IsNullOrWhiteSpace(recipeName))
                 {
                     EventLogger.Write(EventKind.Alarm, "SYS", "VISION-RECIPE",
-                        "레시피 이름이 없어 Vision 레시피 전송을 생략합니다. no=" + recipeNo);
+                        "레시피 이름이 없어 Vision 레시피 전송을 생략합니다.");
                     return false;
                 }
 
@@ -150,19 +150,19 @@ namespace QMC.CDT320.VisionComm
                 if (main == null || !main.IsConnected)
                 {
                     EventLogger.Write(EventKind.Event, "SYS", "VISION-RECIPE",
-                        "MainComm이 연결되지 않아 Vision 레시피 전송을 생략합니다. no=" + recipeNo + ", name=" + recipeName);
+                        "MainComm이 연결되지 않아 Vision 레시피 전송을 생략합니다. name=" + recipeName);
                     return false;
                 }
 
-                bool ok = await main.SendRecipeAsync(recipeNo, recipeName).ConfigureAwait(false);
+                bool ok = await main.SendRecipeAsync(recipeName).ConfigureAwait(false);
                 EventLogger.Write(ok ? EventKind.Event : EventKind.Alarm, "SYS", "VISION-RECIPE",
-                    "Vision 레시피 전송. no=" + recipeNo + ", name=" + recipeName + ", result=" + (ok ? "ACK" : "NO-ACK"));
+                    "Vision 레시피 전송. name=" + recipeName + ", result=" + (ok ? "ACK" : "NO-ACK"));
                 return ok;
             }
             catch (Exception ex)
             {
                 EventLogger.Write(EventKind.Alarm, "SYS", "VISION-RECIPE",
-                    "Vision 레시피 전송 실패. no=" + recipeNo + ", name=" + recipeName + ", error=" + ex.Message);
+                    "Vision 레시피 전송 실패. name=" + recipeName + ", error=" + ex.Message);
                 return false;
             }
             finally

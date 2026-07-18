@@ -102,6 +102,12 @@ namespace QMC.CDT320
         public Task<bool> StartBottomInspectAsync(int pickerNo, int timeoutMs, CancellationToken ct)
             => Task.FromResult(true);
 
+        public Task<BottomVisionOffset> WaitBottomMResultAsync(int pickerNo, int timeoutMs, CancellationToken ct)
+            => Task.FromResult(BuildSimulatedBottom(pickerNo));
+
+        public Task<BottomVisionOffset> WaitBottomFinalResultAsync(int pickerNo, int timeoutMs, CancellationToken ct)
+            => Task.FromResult(BuildSimulatedBottom(pickerNo));
+
         public Task<BottomVisionOffset> WaitBottomResultAsync(int pickerNo, int timeoutMs, CancellationToken ct)
             => Task.FromResult(BuildSimulatedBottom(pickerNo));
 

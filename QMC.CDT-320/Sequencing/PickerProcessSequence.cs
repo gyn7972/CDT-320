@@ -1563,7 +1563,6 @@ namespace QMC.CDT320.Sequencing
                 {
                     SetPickerPhaseSignal(GetOwnBottomInspectionCompleteSignal(), "BottomComplete");
                     SetPickerPhaseSignal(GetOwnSideInspectionCompleteSignal(), "SideComplete");
-                    _bottomAndSideInspectionSequence = null;
                     _bottomInspectionCompletedInCurrentRun = false;
                     _forceBottomInspectionBeforeSideResume = false;
 
@@ -1574,6 +1573,9 @@ namespace QMC.CDT320.Sequencing
                     CurrentStep = PickerProcessStep.RunPlace;
                     EnableContinuousPlaceEntryFromInspection("BottomAndSideInspectionToPlace");
                     EnableSafePlaceEntryIfResumeDrain("BottomAndSideInspectionToPlace");
+                    WriteLog("PickerProcessSequence",
+                        Name + " Bottom/Side EPD 완료 후 Place 이동을 시작합니다. " +
+                        "최종 RESULT 수집 객체는 Picker별 Place Z 하강 배리어까지 유지합니다. side=" + Side + " - Ok");
                 }
                 else
                 {
@@ -1989,6 +1991,13 @@ namespace QMC.CDT320.Sequencing
                     _placeSequence = new PickerPlaceSequence(Context, Side);
                     _placeSequence.ForceSafeYBeforeFirstPlaceMove = _forceSafeYBeforePlaceResume;
                     _placeSequence.KeepPickerYForwardDuringPlaceReadyWait = _keepPickerYForwardForContinuousPlace;
+                    if (_bottomAndSideInspectionSequence != null &&
+                        _bottomAndSideInspectionSequence.IsComplete &&
+                        _bottomAndSideInspectionSequence.HasPendingFinalResults)
+                    {
+                        _placeSequence.WaitInspectionResultsBeforePlaceDownAsync =
+                            _bottomAndSideInspectionSequence.WaitFinalResultsBeforePlaceDownAsync;
+                    }
                     _placeSequence.ReleaseParentOutputWorkZoneAfterSafeAvoid = delegate(string description)
                     {
                         ReleasePickerWorkZone("PlaceSafeAvoid:" + (description ?? "-"));
@@ -2021,6 +2030,19 @@ namespace QMC.CDT320.Sequencing
 
                 if (_placeSequence.IsComplete)
                 {
+                    if (_bottomAndSideInspectionSequence != null)
+                    {
+                        if (_bottomAndSideInspectionSequence.HasPendingFinalResults)
+                        {
+                            return Fail("PICKER-PROCESS-PLACE-RESULT-PENDING", Name,
+                                "Place 완료 시점에도 Picker별 Bottom/Side 최종 RESULT 적용 항목이 남아 있습니다. " +
+                                "Place Z 하강 배리어 우회 여부를 확인하세요. side=" + Side + ".");
+                        }
+
+                        _bottomAndSideInspectionSequence.ReleaseDeferredFinalResultResources();
+                        _bottomAndSideInspectionSequence = null;
+                    }
+
                     ResetPickerPhaseSignals();
                     ReleasePickerProcessPhase("PlaceComplete");
                     _placeSequence = null;

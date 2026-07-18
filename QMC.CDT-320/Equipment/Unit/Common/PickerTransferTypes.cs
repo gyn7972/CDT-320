@@ -488,6 +488,8 @@ namespace QMC.CDT320
         Task<bool> TriggerBottomExposeAsync(int pickerNo, int timeoutMs = 1000);
         Task<bool> TriggerBottomExposeAsync(int pickerNo, int timeoutMs, CancellationToken ct);
         Task<bool> StartBottomInspectAsync(int pickerNo, int timeoutMs, CancellationToken ct);
+        Task<BottomVisionOffset> WaitBottomMResultAsync(int pickerNo, int timeoutMs, CancellationToken ct);
+        Task<BottomVisionOffset> WaitBottomFinalResultAsync(int pickerNo, int timeoutMs, CancellationToken ct);
         Task<BottomVisionOffset> WaitBottomResultAsync(int pickerNo, int timeoutMs, CancellationToken ct);
         Task<BottomVisionOffset> GetBottomResultAsync(int pickerNo, int timeoutMs = 5000);
         Task<BottomVisionOffset> GetBottomResultAsync(int pickerNo, int timeoutMs, CancellationToken ct);

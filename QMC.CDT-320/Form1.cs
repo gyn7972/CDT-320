@@ -224,10 +224,7 @@ namespace QMC.CDT_320
                 ActiveRecipeName = normalizedRecipeName;
                 Controller?.SetActiveRecipeName(ActiveRecipeName);
 
-                int recipeNo = ResolveVisionRecipeNo(ActiveRecipeName);
-                _ = QMC.CDT320.VisionComm.VisionHub.BroadcastRecipeAsync(
-                    recipeNo,
-                    ActiveRecipeName);
+                _ = QMC.CDT320.VisionComm.VisionHub.BroadcastRecipeAsync(ActiveRecipeName);
 
                 return true;
             }
@@ -349,24 +346,6 @@ namespace QMC.CDT_320
             finally
             {
             }
-        }
-
-        /// <summary>활성 레시피 명칭에 대한 1-based 레시피 번호(RecipeStore 목록 순서). 미발견 시 0.</summary>
-        private static int ResolveVisionRecipeNo(string recipeName)
-        {
-            try
-            {
-                if (string.IsNullOrWhiteSpace(recipeName)) return 0;
-                var list = QMC.CDT320.Recipes.RecipeStore.List();   // "*.Project" 파일명 목록
-                for (int i = 0; i < list.Count; i++)
-                {
-                    string nm = System.IO.Path.GetFileNameWithoutExtension(list[i]);
-                    if (string.Equals(nm, recipeName, StringComparison.OrdinalIgnoreCase))
-                        return i + 1;
-                }
-            }
-            catch { }
-            return 0;
         }
 
         internal bool SaveMachineRecipe(string recipeName)
@@ -1386,7 +1365,7 @@ namespace QMC.CDT_320
             if (dotVision != null) dotVision.IsOn = connected;
         }
 
-        /// <summary>현재 활성 레시피(번호+명칭)를 Vision Main 채널로 재전송. 재연결 성공 시 + Vision 의 RECIPEREQ 요청 시 호출된다.</summary>
+        /// <summary>현재 활성 레시피 명칭을 Vision Main 채널로 재전송. 재연결 성공 시 + Vision 의 RECIPEREQ 요청 시 호출된다.</summary>
         private void BroadcastCurrentRecipeToVision()
         {
             try
@@ -1398,10 +1377,9 @@ namespace QMC.CDT_320
                         "Vision 레시피 요청 — 응답 스킵(활성 레시피 없음: ActiveRecipeName='" + (name ?? "null") + "'). 핸들러에서 레시피/프로젝트 로드 필요.");
                     return;
                 }
-                int recipeNo = ResolveVisionRecipeNo(name);
                 QMC.Common.Logging.EventLogger.Write(QMC.Common.Logging.EventKind.Event, "SYS", "VISION-RECIPE",
-                    "Vision 레시피 요청 → 응답: no=" + recipeNo + " name=" + name);
-                _ = QMC.CDT320.VisionComm.VisionHub.BroadcastRecipeAsync(recipeNo, name);
+                    "Vision 레시피 요청 → 응답: name=" + name);
+                _ = QMC.CDT320.VisionComm.VisionHub.BroadcastRecipeAsync(name);
             }
             catch (Exception ex)
             {

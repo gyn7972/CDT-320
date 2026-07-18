@@ -183,8 +183,8 @@ namespace QMC.CDT320
     {
         [DataMember] public bool IsValid { get; set; } // Bottom 검사에서 Side 검사 보정값을 정상 수신했는지 여부입니다.
         [DataMember] public double SideVisionYOffset { get; set; } // 구형 단일 보정값 호환 필드입니다. 신규 Side 모션에는 사용하지 않습니다.
-        [DataMember] public double SideVisionProcess0YOffset { get; set; } // Bottom Center X(mm)를 Side 0도 검사 위치에 더합니다.
-        [DataMember] public double SideVisionProcess90YOffset { get; set; } // Bottom Center Y(mm)를 Side 90도 검사 위치에 더합니다.
+        [DataMember] public double SideVisionProcess0YOffset { get; set; } // Bottom MRESULT OffsetY(mm)를 Side 0도 검사 위치에 더합니다.
+        [DataMember] public double SideVisionProcess90YOffset { get; set; } // Bottom MRESULT OffsetY(mm)를 Side 90도 검사 위치에 더합니다.
         [DataMember] public double PickerZOffset { get; set; } // Side 검사 PickerZ 티칭 위치에 더할 Picker별 런타임 보정값입니다.
         [DataMember] public string SourceDieId { get; set; } // 해당 보정값을 만든 Bottom 검사 Die ID입니다.
         [DataMember] public DateTime UpdatedAt { get; set; } // 보정값이 갱신된 시각입니다.
@@ -996,6 +996,56 @@ namespace QMC.CDT320
             }
             finally
             {
+            }
+        }
+
+        public async Task<BottomVisionOffset> WaitBottomInspectionMResultAsync(int pickerNo, int timeoutMs, CancellationToken ct)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+
+                if (IsVisionBypassed())
+                    return SimulateBottomInspectionResult(pickerNo);
+                if (vision == null)
+                    return null;
+
+                return await vision.WaitBottomMResultAsync(pickerNo, timeoutMs, ct).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                Log.Write("Main", "VISION", "PickerBottomMResult",
+                    Name + " Bottom MRESULT 수신 중 예외가 발생했습니다. pickerNo=" + pickerNo + ", error=" + ex.Message + " - Failed");
+                return null;
+            }
+        }
+
+        public async Task<BottomVisionOffset> WaitBottomInspectionFinalResultAsync(int pickerNo, int timeoutMs, CancellationToken ct)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+
+                if (IsVisionBypassed())
+                    return SimulateBottomInspectionResult(pickerNo);
+                if (vision == null)
+                    return null;
+
+                return await vision.WaitBottomFinalResultAsync(pickerNo, timeoutMs, ct).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                Log.Write("Main", "VISION", "PickerBottomFinalResult",
+                    Name + " Bottom 최종 RESULT 수신 중 예외가 발생했습니다. pickerNo=" + pickerNo + ", error=" + ex.Message + " - Failed");
+                return null;
             }
         }
 
