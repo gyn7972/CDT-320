@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Threading;
 using System.Threading.Tasks;
+using QMC.Common.Motion;
 
 namespace QMC.CDT320.Sequencing
 {
@@ -215,15 +216,23 @@ namespace QMC.CDT320.Sequencing
         {
             try
             {
-                if (Options.Side != BinSide.Good || Stage.IsNgStageInAvoidPosition())
+                double target = ResolveTarget(BinStageAxis.NgBinY, "Avoid");
+                BaseAxis ngStageY = Stage != null && Stage.NgStage != null ? Stage.NgStage.StageY : null;
+                if (Options.Side != BinSide.Good)
                 {
                     CurrentStep = OutputStageMoveProcessStep.EnsureNgClampLiftUp;
                     return 0;
                 }
 
+                if (AxisMoveWaiter.CanSkipMoveCommandAtTarget(ngStageY, target))
+                {
+                    CurrentStep = OutputStageMoveProcessStep.CheckNgStageYAvoid;
+                    return 0;
+                }
+
                 int result = await MoveAxisAndVerifyAsync(
                     BinStageAxis.NgBinY,
-                    ResolveTarget(BinStageAxis.NgBinY, "Avoid"),
+                    target,
                     "NG Y avoid before Good process",
                     ct).ConfigureAwait(false);
 

@@ -464,25 +464,6 @@ namespace QMC.CDT320.Sequencing
                         Stage.DescribeOutputStageInterlockState(Options.Side));
                 }
 
-                AxisMoveWaitResult waitResult = await Stage.WaitStageAxisMoveDoneInPosition(
-                    axis,
-                    target,
-                    ResolveTimeout(),
-                    ct).ConfigureAwait(false);
-                if (waitResult == null || !waitResult.Success)
-                {
-                    SequenceTrace.MotionEnd("OutputStageMove", -1,
-                        "axis=" + axis,
-                        "target=" + target,
-                        "side=" + Options.Side,
-                        "timeoutMs=" + ResolveTimeout(),
-                        "status=WaitFailed",
-                        "wait=" + (waitResult != null ? waitResult.Code.ToString() : "null"));
-                    return Fail(ResolveAxisMoveWaitAlarmCode("OUT-STAGE-MOVE", waitResult), Stage.Name,
-                        description + " 이동 완료/위치 확인 실패. axis=" + axis + ", target=" + target +
-                        ". " + FormatAxisMoveWaitResult(waitResult, BuildAxisState(axis, target)));
-                }
-
                 ct.ThrowIfCancellationRequested();
                 SequenceTrace.MotionEnd("OutputStageMove", 0,
                     "axis=" + axis,

@@ -232,7 +232,10 @@ namespace QMC.CDT320
                 if (!ValidateBinFeederYTargetPosition(targetPos))
                     return RaiseFeederAlarm("BF-Y-SOFT-LIMIT", "OutputFeederY 목표 위치가 소프트 리미트를 벗어났습니다. target=" + targetPos);
 
-                if (IsBinFeederYInPosition(targetPos, ResolveBinFeederYInPositionTolerance()))
+                if (AxisMoveWaiter.CanSkipMoveCommandAtTarget(
+                    FeederY,
+                    targetPos,
+                    ResolveBinFeederYInPositionTolerance()))
                 {
                     EventLogger.Write(EventKind.Event, "QMC", "BF-Y-MOVE",
                         "OutputFeederY가 이미 목표 위치에 있습니다. target=" + targetPos + ", " + DescribeBinFeederYMoveDoneState());
@@ -280,7 +283,10 @@ namespace QMC.CDT320
                 if (!ValidateBinFeederYTargetPosition(targetPos))
                     return RaiseFeederAlarm("BF-Y-SOFT-LIMIT", "OutputFeederY 조그 속도 목표 위치가 소프트 리미트를 벗어났습니다. target=" + targetPos);
 
-                if (!forceMove && IsBinFeederYInPosition(targetPos, ResolveBinFeederYInPositionTolerance()))
+                if (!forceMove && AxisMoveWaiter.CanSkipMoveCommandAtTarget(
+                    FeederY,
+                    targetPos,
+                    ResolveBinFeederYInPositionTolerance()))
                 {
                     EventLogger.Write(EventKind.Event, "QMC", "BF-Y-MOVE",
                         "OutputFeederY가 이미 목표 위치에 있습니다. target=" + targetPos + ", " + DescribeBinFeederYMoveDoneState());

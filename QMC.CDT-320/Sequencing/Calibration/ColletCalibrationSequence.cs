@@ -516,10 +516,10 @@ namespace QMC.CDT320.Sequencing.Calibration
                     return Fail("COLLET-CAL-INPUT-CAMERA-MISSING", "InputStageUnit",
                         "Collet Calibration 시작 전 InputVisionX Avoid 이동에 필요한 축/Recipe가 없습니다.");
 
-                if (stage.IsVisionXInAvoidPosition())
+                double target = stage.Recipe.VisionX.AvoidPosition;
+                if (AxisMoveWaiter.CanSkipMoveCommandAtTarget(stage.CameraX, target))
                     return 0;
 
-                double target = stage.Recipe.VisionX.AvoidPosition;
                 CalibrationMotionSettings motion = ResolveCalibrationMotion();
                 QMC.Common.Log.Write("Calibration", "SYSTEM", "ColletCalStartSafe",
                     "Collet Calibration 시작 전 InputVisionX Avoid 이동. side=" + _calibrationSide +
@@ -578,11 +578,16 @@ namespace QMC.CDT320.Sequencing.Calibration
             {
                 ct.ThrowIfCancellationRequested();
                 var stage = Context != null && Context.Machine != null ? Context.Machine.OutputStageUnit : null;
-                if (stage == null || stage.OutputCameraX == null)
+                if (stage == null ||
+                    stage.OutputCameraX == null ||
+                    stage.Recipe == null ||
+                    stage.Recipe.VisionX == null)
                     return Fail("COLLET-CAL-OUTPUT-CAMERA-MISSING", "OutputStageUnit",
                         "Collet Calibration 시작 전 OutputVisionX Avoid 이동에 필요한 축이 없습니다.");
 
-                if (stage.IsVisionXInAvoidPosition())
+                stage.Recipe.EnsurePositionObjects();
+                double target = stage.Recipe.VisionX.AvoidPosition;
+                if (AxisMoveWaiter.CanSkipMoveCommandAtTarget(stage.OutputCameraX, target))
                     return 0;
 
                 CalibrationMotionSettings motion = ResolveCalibrationMotion();
@@ -661,9 +666,6 @@ namespace QMC.CDT320.Sequencing.Calibration
                 if (FrontPicker == null)
                     return 0;
 
-                if (FrontPicker.IsPickerInOutputSideAvoidPosition())
-                    return 0;
-
                 CalibrationMotionSettings motion = ResolveCalibrationMotion();
                 QMC.Common.Log.Write("Calibration", "SYSTEM", "ColletCalStartSafe",
                     "Collet Calibration start FrontPicker Outside(Output-side Avoid) move for opposite picker. side=" + _calibrationSide +
@@ -704,9 +706,6 @@ namespace QMC.CDT320.Sequencing.Calibration
             {
                 ct.ThrowIfCancellationRequested();
                 if (RearPicker == null)
-                    return 0;
-
-                if (RearPicker.IsPickerInOutputSideAvoidPosition())
                     return 0;
 
                 CalibrationMotionSettings motion = ResolveCalibrationMotion();

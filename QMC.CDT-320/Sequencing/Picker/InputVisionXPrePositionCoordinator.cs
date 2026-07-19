@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
@@ -155,7 +155,7 @@ namespace QMC.CDT320.Sequencing
                     ", deceleration=" + motion.Deceleration.ToString("F6") +
                     ", reason=" + Safe(reason) + " - Check");
 
-                if (IsAxisInPosition(visionX, finalTarget))
+                if (CanSkipMoveCommand(visionX, finalTarget))
                 {
                     WriteLog(
                         "InputVisionXPrePosition",
@@ -417,7 +417,7 @@ namespace QMC.CDT320.Sequencing
                 ct.ThrowIfCancellationRequested();
                 context.StopIfCycleStopRequested("InputVisionXPrePosition.FinalWait:" + side);
 
-                if (IsAxisInPosition(visionX, finalTarget))
+                if (CanSkipMoveCommand(visionX, finalTarget))
                     return LogOptimizationResult(side, target.DieId, 0, "AlreadyAtFinal");
 
                 string guardReason;
@@ -455,7 +455,7 @@ namespace QMC.CDT320.Sequencing
                     if (!CanMoveToTarget(context, visionX, finalTarget, targetName, out guardReason))
                         continue;
 
-                    if (IsAxisInPosition(visionX, finalTarget))
+                    if (CanSkipMoveCommand(visionX, finalTarget))
                         return LogOptimizationResult(side, target.DieId, 0, "AlreadyAtFinalAfterLease");
 
                     int result = await MoveAndVerifyAsync(
@@ -757,14 +757,14 @@ namespace QMC.CDT320.Sequencing
             return options != null && options.MoveTimeoutMs > 0 ? options.MoveTimeoutMs : 30000;
         }
 
-        private static bool IsAxisInPosition(BaseAxis axis, double target)
+        private static bool CanSkipMoveCommand(BaseAxis axis, double target)
         {
             if (axis == null)
                 return false;
             double tolerance = axis.Config != null && axis.Config.InPositionTolerance > 0.0
                 ? axis.Config.InPositionTolerance
                 : 0.01;
-            return !axis.IsMoving && Math.Abs(axis.ActualPosition - target) <= tolerance;
+            return AxisMoveWaiter.CanSkipMoveCommandAtTarget(axis, target, tolerance);
         }
 
         private static int LogOptimizationResult(PickerSequenceSide side, string dieId, int result, string mode)

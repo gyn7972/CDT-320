@@ -393,16 +393,10 @@ namespace QMC.CDT320.Sequencing
             {
                 ct.ThrowIfCancellationRequested();
 
-                int result = await AwaitStepWithCancellationAsync(cassette.MoveWaferLifterZ(target, Options.FineMove), ct).ConfigureAwait(false);
+                int result = await AwaitStepWithCancellationAsync(cassette.MoveWaferLifterZ(target, Options.FineMove, ct), ct).ConfigureAwait(false);
                 if (result != 0)
                     return Fail("IN-FEEDER-CST-Z-MOVE", cassette.Name,
                         description + " 이동 명령 실패. target=" + target + ", result=" + result + ". " + BuildCassetteZState(cassette, target));
-
-                AxisMoveWaitResult waitResult = await cassette.WaitWaferLifterZMoveDoneInPosition(target, ResolveTimeout(), ct).ConfigureAwait(false);
-                if (waitResult == null || !waitResult.Success)
-                    return Fail(ResolveAxisMoveWaitAlarmCode("IN-FEEDER-CST-Z", waitResult), cassette.Name,
-                        description + " 이동 완료/위치 확인 실패. " +
-                        FormatAxisMoveWaitResult(waitResult, BuildCassetteZState(cassette, target)));
 
                 return 0;
             }

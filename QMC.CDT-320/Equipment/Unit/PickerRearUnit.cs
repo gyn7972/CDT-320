@@ -3368,8 +3368,14 @@ namespace QMC.CDT320
             List<Task<int>> tasks = new List<Task<int>>();
             foreach (KeyValuePair<PickerAxis, double> pair in targets)
             {
-                if (IsZAxis(pair.Key) && !IsPickerAxisInTeachingPosition(pair.Key, "AvoidPosition"))
-                    tasks.Add(MovePickerAxisNamed(pair.Key, GetPickerTeachingPosition(pair.Key, "AvoidPosition"), bFine, "AvoidPosition;PickerPhase=SafeZ"));
+                if (!IsZAxis(pair.Key))
+                    continue;
+
+                BaseAxis zAxis = GetAxis(pair.Key);
+                zAxis.UpdateStatus();
+                double avoidTarget = GetPickerTeachingPosition(pair.Key, "AvoidPosition");
+                if (!AxisMoveWaiter.CanSkipMoveCommandAtTarget(zAxis, avoidTarget))
+                    tasks.Add(MovePickerAxisNamed(pair.Key, avoidTarget, bFine, "AvoidPosition;PickerPhase=SafeZ"));
             }
 
             if (tasks.Count == 0)
@@ -3390,11 +3396,17 @@ namespace QMC.CDT320
             List<Task<int>> tasks = new List<Task<int>>();
             foreach (KeyValuePair<PickerAxis, double> pair in targets)
             {
-                if (IsZAxis(pair.Key) && !IsPickerAxisInTeachingPosition(pair.Key, "AvoidPosition"))
+                if (!IsZAxis(pair.Key))
+                    continue;
+
+                BaseAxis zAxis = GetAxis(pair.Key);
+                zAxis.UpdateStatus();
+                double avoidTarget = GetPickerTeachingPosition(pair.Key, "AvoidPosition");
+                if (!AxisMoveWaiter.CanSkipMoveCommandAtTarget(zAxis, avoidTarget))
                 {
                     tasks.Add(MovePickerAxis(
                         pair.Key,
-                        GetPickerTeachingPosition(pair.Key, "AvoidPosition"),
+                        avoidTarget,
                         speedType,
                         customSpeed,
                         "AvoidPosition;PickerPhase=SafeZ"));

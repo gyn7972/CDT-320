@@ -6,6 +6,7 @@ using QMC.CDT320;
 using QMC.CDT320.Interlocks;
 using QMC.CDT320.Materials;
 using QMC.Common.Diagnostics.TactTime;
+using QMC.Common.Motion;
 
 namespace QMC.CDT320.Sequencing
 {
@@ -539,7 +540,7 @@ namespace QMC.CDT320.Sequencing
 
             var targets = new Dictionary<PickerAxis, double>();
             targets[PickerAxis.PickerX] = _targetPickerX;
-            if (!_inspectionYPositionReady || !IsPickerAxisInPosition(PickerAxis.PickerY, _targetPickerY))
+            if (!_inspectionYPositionReady || !CanSkipPickerMoveCommand(PickerAxis.PickerY, _targetPickerY))
                 targets[PickerAxis.PickerY] = _targetPickerY;
 
             int result = await MoveSideXAndVision0PositionAsync(targets, ct).ConfigureAwait(false);
@@ -595,7 +596,7 @@ namespace QMC.CDT320.Sequencing
                     ct,
                     BuildSideMoveTargetName());
 
-                Task<int> visionTask = IsSideVisionProcessPositionReady(0)
+                Task<int> visionTask = CanSkipSideVisionProcessMove(0)
                     ? Task.FromResult(0)
                     : MoveSideVisionProcess0PositionAsync(ct);
 
@@ -651,7 +652,7 @@ namespace QMC.CDT320.Sequencing
 
                 PickerAxis previousZAxis = GetPickerZAxis(previousPickerIndex);
                 double previousZAvoid = GetPickerTeachingPosition(previousZAxis, "AvoidPosition");
-                if (IsPickerAxisInPosition(previousZAxis, previousZAvoid))
+                if (CanSkipPickerMoveCommand(previousZAxis, previousZAvoid))
                 {
                     WriteLog("PickerSideInspectionSequence",
                         Name + " 다음 Side 검사 진입 중 이전 PickerZ가 이미 Avoid 위치입니다. " +
@@ -704,7 +705,7 @@ namespace QMC.CDT320.Sequencing
 
             _inspectionYPositionReady = true;
 
-            if (IsPickerAxisInPosition(PickerAxis.PickerX, _targetPickerX))
+            if (CanSkipPickerMoveCommand(PickerAxis.PickerX, _targetPickerX))
             {
                 CurrentStep = PickerSideInspectionStep.MoveSideZ;
                 return 0;
@@ -760,7 +761,7 @@ namespace QMC.CDT320.Sequencing
             if (result != 0)
                 return result;
 
-            if (!IsSideVisionProcessPositionReady(0))
+            if (!CanSkipSideVisionProcessMove(0))
             {
                 result = await MoveSideVisionProcess0PositionAsync(ct).ConfigureAwait(false);
                 if (result != 0)
@@ -866,7 +867,7 @@ namespace QMC.CDT320.Sequencing
                     ct,
                     BuildSideMoveTargetName());
 
-                Task<int> visionTask = IsSideVisionProcessPositionReady(90)
+                Task<int> visionTask = CanSkipSideVisionProcessMove(90)
                     ? Task.FromResult(0)
                     : MoveSideVisionProcess90PositionAsync(ct);
 
@@ -1053,7 +1054,7 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
-        private bool IsSideVisionProcessPositionReady(int angleDeg)
+        private bool CanSkipSideVisionProcessMove(int angleDeg)
         {
             try
             {
@@ -1061,8 +1062,18 @@ namespace QMC.CDT320.Sequencing
                 if (vision == null)
                     return false;
 
-                return vision.IsVisionAxisInTeachingPosition(VisionAxis.FrontSideVisionY, "Process0Position") &&
-                       vision.IsVisionAxisInTeachingPosition(VisionAxis.RearSideVisionY, "Process0Position");
+                BaseAxis front = vision.ResolveVisionAxis(VisionAxis.FrontSideVisionY);
+                BaseAxis rear = vision.ResolveVisionAxis(VisionAxis.RearSideVisionY);
+                double frontTarget = vision.GetVisionTeachingPosition(VisionAxis.FrontSideVisionY, "Process0Position");
+                double rearTarget = vision.GetVisionTeachingPosition(VisionAxis.RearSideVisionY, "Process0Position");
+                double frontTolerance = front != null && front.Config != null && front.Config.InPositionTolerance > 0.0
+                    ? front.Config.InPositionTolerance
+                    : 0.01;
+                double rearTolerance = rear != null && rear.Config != null && rear.Config.InPositionTolerance > 0.0
+                    ? rear.Config.InPositionTolerance
+                    : 0.01;
+                return AxisMoveWaiter.CanSkipMoveCommandAtTarget(front, frontTarget, frontTolerance) &&
+                       AxisMoveWaiter.CanSkipMoveCommandAtTarget(rear, rearTarget, rearTolerance);
             }
             catch
             {
@@ -1299,7 +1310,7 @@ namespace QMC.CDT320.Sequencing
                     int pickerIndex = _pickedPickerIndexes[i];
                     PickerAxis zAxis = GetPickerZAxis(pickerIndex);
                     double zAvoid = GetPickerTeachingPosition(zAxis, "AvoidPosition");
-                    if (!IsPickerAxisAlreadyInPosition(zAxis, zAvoid))
+                    if (!CanSkipPickerMoveCommand(zAxis, zAvoid))
                         targets[zAxis] = zAvoid;
                 }
 
@@ -1407,7 +1418,7 @@ namespace QMC.CDT320.Sequencing
             {
                 PendingT0Return pending = _pendingT0Returns[i];
                 PickerAxis tAxis = GetPickerTAxis(pending.PickerIndex);
-                if (IsPickerAxisInPosition(tAxis, pending.Target))
+                if (CanSkipPickerMoveCommand(tAxis, pending.Target))
                 {
                     _pendingT0Returns.RemoveAt(i);
                     continue;
@@ -1464,7 +1475,7 @@ namespace QMC.CDT320.Sequencing
 
                 PendingT0Return pending = _pendingT0Returns[i];
                 PickerAxis tAxis = GetPickerTAxis(pending.PickerIndex);
-                if (IsPickerAxisInPosition(tAxis, pending.Target))
+                if (CanSkipPickerMoveCommand(tAxis, pending.Target))
                 {
                     _pendingT0Returns.RemoveAt(i);
                     continue;

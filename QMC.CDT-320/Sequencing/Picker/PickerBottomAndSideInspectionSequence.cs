@@ -1146,7 +1146,7 @@ namespace QMC.CDT320.Sequencing
                     }
 
                     PickerAxis zAxis = GetPickerZAxis(target.PickerIndex);
-                    if (!IsPickerAxisInPosition(zAxis, target.Z))
+                    if (!CanSkipPickerMoveCommand(zAxis, target.Z))
                     {
                         result = await MovePickerAxisAndVerifyAsync(
                             zAxis,
@@ -1322,7 +1322,7 @@ namespace QMC.CDT320.Sequencing
             try
             {
                 double yAvoid = GetPickerTeachingPosition(PickerAxis.PickerY, "AvoidPosition");
-                if (IsPickerAxisInPosition(PickerAxis.PickerY, yAvoid))
+                if (CanSkipPickerMoveCommand(PickerAxis.PickerY, yAvoid))
                     return 0;
 
                 int result = await MoveAllPickerZToAvoidAndVerifyAsync(
@@ -2789,7 +2789,7 @@ namespace QMC.CDT320.Sequencing
                 ? item.Config.InPositionTolerance
                 : 0.05;
             double targetY = angleDeg == 90 ? cameraTarget.Process90Y : cameraTarget.Process0Y;
-            return vision.IsVisionAxisInPosition(cameraTarget.Axis, targetY, tolerance);
+            return AxisMoveWaiter.CanSkipMoveCommandAtTarget(item, targetY, tolerance);
         }
 
         private async Task<SideVisionResult> TriggerAndGetSideResultAsync(InspectionTarget target, int angleDeg, CancellationToken ct)
@@ -3362,7 +3362,7 @@ namespace QMC.CDT320.Sequencing
                     continue;
 
                 PickerAxis axis = GetPickerZAxis(pending.PickerIndex);
-                if (IsPickerAxisInPosition(axis, pending.Target))
+                if (CanSkipPickerMoveCommand(axis, pending.Target))
                 {
                     _pendingBottomZDowns.RemoveAt(i);
                     continue;
@@ -3422,7 +3422,7 @@ namespace QMC.CDT320.Sequencing
                     if (commandResult != 0)
                         return Fail("PICKER-BOTTOM-SIDE-Z-PREDOWN-CMD", Name, "예약된 Bottom PickerZ 선행 하강 명령 실패. result=" + commandResult + ", pickerNo=" + ToPickerNo(pending.PickerIndex));
                 }
-                else if (!IsPickerAxisInPosition(axis, pending.Target))
+                else if (!CanSkipPickerMoveCommand(axis, pending.Target))
                 {
                     int commandResult = await SequenceAwaiter.AwaitAsync(
                         MovePickerAxisCommandAsync(
@@ -3604,7 +3604,7 @@ namespace QMC.CDT320.Sequencing
                 if (pending.MoveTask != null)
                     continue;
 
-                if (IsPickerAxisInPosition(GetPickerZAxis(pending.PickerIndex), pending.Target))
+                if (CanSkipPickerMoveCommand(GetPickerZAxis(pending.PickerIndex), pending.Target))
                 {
                     _pendingZAvoids.RemoveAt(i);
                     continue;
@@ -3637,7 +3637,7 @@ namespace QMC.CDT320.Sequencing
                     if (commandResult != 0)
                         return Fail("PICKER-BOTTOM-SIDE-Z-AVOID-CMD", Name, "예약된 PickerZ Avoid 명령 실패. result=" + commandResult + ", pickerNo=" + ToPickerNo(pending.PickerIndex));
                 }
-                else if (!IsPickerAxisInPosition(axis, pending.Target))
+                else if (!CanSkipPickerMoveCommand(axis, pending.Target))
                 {
                     int commandResult = await SequenceAwaiter.AwaitAsync(
                         MovePickerAxisCommandAsync(
@@ -3680,7 +3680,7 @@ namespace QMC.CDT320.Sequencing
                 if (pending.MoveTask != null)
                     continue;
 
-                if (IsPickerAxisInPosition(GetPickerTAxis(pending.PickerIndex), pending.Target))
+                if (CanSkipPickerMoveCommand(GetPickerTAxis(pending.PickerIndex), pending.Target))
                 {
                     _pendingT0Returns.RemoveAt(i);
                     continue;

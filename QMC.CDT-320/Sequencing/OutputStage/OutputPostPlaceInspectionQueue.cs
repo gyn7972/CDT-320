@@ -1301,7 +1301,13 @@ namespace QMC.CDT320.Sequencing
                         "Output camera 후검사 전 OutputFeederUnit을 확인할 수 없습니다. die=" + request.DieId +
                         ", side=" + request.OutputSide);
 
-                if (feeder.IsBinFeederInAvoidPosition())
+                double feederTolerance = feeder.FeederY != null && feeder.FeederY.Config != null && feeder.FeederY.Config.InPositionTolerance > 0.0
+                    ? feeder.FeederY.Config.InPositionTolerance
+                    : 0.01;
+                if (AxisMoveWaiter.CanSkipMoveCommandAtTarget(
+                    feeder.FeederY,
+                    feeder.Recipe.AvoidPosition,
+                    feederTolerance))
                     return 0;
 
                 if (stage != null && !stage.IsVisionXInAvoidPosition())
@@ -1439,22 +1445,8 @@ namespace QMC.CDT320.Sequencing
                     ", side=" + request.OutputSide +
                     ". " + stage.BuildStageAxisState(axis, target));
             }
-            AxisMoveWaitResult waitResult = await stage.WaitStageAxisMoveDoneInPosition(
-                axis,
-                target,
-                timeout,
-                ct).ConfigureAwait(false);
-            if (waitResult == null || !waitResult.Success)
-            {
-                if (IsStopOrAlarmActive())
-                    return StopRequestedResult;
-                return RaiseFailure(AxisMoveWaiter.ResolveAlarmCode("OUT-POST-INSPECT-MOVE", waitResult), "OutputStage",
-                    description + " 이동 완료/위치 확인 실패. axis=" + axis +
-                    ", target=" + target +
-                    ", die=" + request.DieId +
-                    ", side=" + request.OutputSide +
-                    ". " + AxisMoveWaiter.FormatResult(waitResult, stage.BuildStageAxisState(axis, target)));
-            }
+
+            ct.ThrowIfCancellationRequested();
             return 0;
         }
 

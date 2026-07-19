@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Threading;
 using System.Threading.Tasks;
 using QMC.CDT320.Calibration;
@@ -142,7 +142,7 @@ namespace QMC.CDT320.Sequencing.Calibration
 
             stage.Recipe.EnsurePositionObjects();
             double target = stage.Recipe.VisionX.AvoidPosition;
-            if (stage.IsVisionXInAvoidPosition())
+            if (AxisMoveWaiter.CanSkipMoveCommandAtTarget(stage.CameraX, target))
                 return 0;
 
             int result = await stage.MoveInputStageAxisCommandWithMotion(
@@ -174,11 +174,16 @@ namespace QMC.CDT320.Sequencing.Calibration
             OutputStageUnit stage = Context != null && Context.Machine != null
                 ? Context.Machine.OutputStageUnit
                 : null;
-            if (stage == null || stage.OutputCameraX == null)
+            if (stage == null ||
+                stage.OutputCameraX == null ||
+                stage.Recipe == null ||
+                stage.Recipe.VisionX == null)
                 return Fail("AUTO-CAL-SAFE-OUTPUT-CAMERA", "OutputStageUnit",
                     "Output Camera X Avoid 이동에 필요한 축이 없습니다.");
 
-            if (stage.IsVisionXInAvoidPosition())
+            stage.Recipe.EnsurePositionObjects();
+            double target = stage.Recipe.VisionX.AvoidPosition;
+            if (AxisMoveWaiter.CanSkipMoveCommandAtTarget(stage.OutputCameraX, target))
                 return 0;
 
             int result = await stage.MoveVisionXToAvoidAndVerifyAsync(

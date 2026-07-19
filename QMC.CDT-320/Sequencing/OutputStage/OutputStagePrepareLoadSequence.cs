@@ -172,7 +172,9 @@ namespace QMC.CDT320.Sequencing
                         "OutputStage Load 전 OutputFeeder Unclamp 최종 확인 실패. side=" + Options.Side +
                         ", " + feeder.DescribeFeederCylinderState());
 
-                if (!feeder.IsBinFeederYInAvoidPosition())
+                if (!AxisMoveWaiter.CanSkipMoveCommandAtTarget(
+                    feeder.FeederY,
+                    feeder.Recipe.AvoidPosition))
                 {
                     int moveResult = await feeder.MoveToFeederAvoidPosition(Options.FineMove).ConfigureAwait(false);
                     if (moveResult != 0)

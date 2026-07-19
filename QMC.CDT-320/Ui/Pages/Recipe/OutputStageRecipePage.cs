@@ -531,7 +531,9 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             if (!feeder.IsFeederUnclamped())
                 return AbortSeq(title, "OutputFeeder Unclamp 최종 확인 실패. " + feeder.DescribeFeederCylinderState());
 
-            if (!feeder.IsBinFeederYInAvoidPosition())
+            if (!AxisMoveWaiter.CanSkipMoveCommandAtTarget(
+                feeder.FeederY,
+                feeder.Recipe.AvoidPosition))
             {
                 int moveResult = await feeder.MoveToFeederAvoidPosition(jogAxisMoveControl.SelectedSpeedType == JogSpeedType.Fine).ConfigureAwait(true);
                 if (moveResult != 0)

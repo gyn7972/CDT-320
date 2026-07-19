@@ -78,7 +78,7 @@ namespace QMC.CDT320.Sequencing.Calibration
     public sealed class VisionFocusScanSequence
     {
         private const int MaxSampleCount = 1000;
-        private const double ExactMoveSkipToleranceMm = 0.000001;
+        private const double ExactMoveSkipToleranceMm = 0.0;
 
         private readonly CDT320_Machine _machine;
         private readonly VisionFocusScanRequest _request;
@@ -435,7 +435,7 @@ namespace QMC.CDT320.Sequencing.Calibration
                 ct.ThrowIfCancellationRequested();
 
                 int result;
-                if (!IsNonSelectedPickerOutputAvoid())
+                if (!CanSkipNonSelectedPickerOutputAvoidMove())
                 {
                     result = await MoveSelectedPickerYAndZSafeForOppositePickerXAsync(ct).ConfigureAwait(false);
                     if (result != 0)
@@ -450,7 +450,7 @@ namespace QMC.CDT320.Sequencing.Calibration
                 if (result != 0)
                     return result;
 
-                if (!IsSelectedPickerBottomPosition())
+                if (!CanSkipSelectedPickerBottomMove())
                 {
                     result = await MoveSelectedPickerBottomPositionAsync(ct).ConfigureAwait(false);
                     if (result != 0)
@@ -504,7 +504,7 @@ namespace QMC.CDT320.Sequencing.Calibration
                     ", t=" + targetT.ToString("F3"));
 
                 int result;
-                if (!IsNonSelectedPickerOutputAvoid())
+                if (!CanSkipNonSelectedPickerOutputAvoidMove())
                 {
                     result = await MoveSelectedPickerYAndZSafeForOppositePickerXAsync(ct).ConfigureAwait(false);
                     if (result != 0)
@@ -650,7 +650,7 @@ namespace QMC.CDT320.Sequencing.Calibration
                     return Fail("VISION-FOCUS-CAL-INPUT-CAMERA-MISSING", "InputStageUnit", "InputCamera Avoid \uC774\uB3D9\uC744 \uC704\uD55C \uCD95/Recipe \uC815\uBCF4\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4.");
 
                 double target = stage.Recipe.VisionX.AvoidPosition;
-                if (stage.IsVisionXInAvoidPosition())
+                if (AxisMoveWaiter.CanSkipMoveCommandAtTarget(stage.CameraX, target))
                     return 0;
 
                 QMC.Common.Log.Write("Calibration", "SYSTEM", "VisionFocusCalStartSafe",
@@ -699,10 +699,15 @@ namespace QMC.CDT320.Sequencing.Calibration
             {
                 ct.ThrowIfCancellationRequested();
                 var stage = _machine != null ? _machine.OutputStageUnit : null;
-                if (stage == null || stage.OutputCameraX == null)
+                if (stage == null ||
+                    stage.OutputCameraX == null ||
+                    stage.Recipe == null ||
+                    stage.Recipe.VisionX == null)
                     return Fail("VISION-FOCUS-CAL-OUTPUT-CAMERA-MISSING", "OutputStageUnit", "OutputCamera Avoid 이동을 위한 축 정보가 없습니다.");
 
-                if (stage.IsVisionXInAvoidPosition())
+                stage.Recipe.EnsurePositionObjects();
+                double target = stage.Recipe.VisionX.AvoidPosition;
+                if (AxisMoveWaiter.CanSkipMoveCommandAtTarget(stage.OutputCameraX, target))
                     return 0;
 
                 QMC.Common.Log.Write("Calibration", "SYSTEM", "VisionFocusCalStartSafe",
@@ -1303,9 +1308,13 @@ namespace QMC.CDT320.Sequencing.Calibration
 
         private static bool IsAxisIdleAtExactPosition(BaseAxis axis, double target)
         {
-            return axis != null &&
-                   !axis.IsMoving &&
-                   Math.Abs(axis.ActualPosition - target) <= ExactMoveSkipToleranceMm;
+            if (axis == null)
+                return false;
+
+            double tolerance = axis.Config != null && axis.Config.InPositionTolerance > 0.0
+                ? axis.Config.InPositionTolerance
+                : 0.01;
+            return AxisMoveWaiter.CanSkipMoveCommandAtTarget(axis, target, tolerance);
         }
 
         private static Task<AxisMoveWaitResult> WaitAxisMoveDoneInPositionAsync(
@@ -1437,6 +1446,141 @@ namespace QMC.CDT320.Sequencing.Calibration
                 return _machine != null && _machine.PickerRearUnit != null && _machine.PickerRearUnit.IsPickerInOutputSideAvoidPosition();
 
             return _machine != null && _machine.PickerFrontUnit != null && _machine.PickerFrontUnit.IsPickerInOutputSideAvoidPosition();
+        }
+
+        private bool CanSkipNonSelectedPickerOutputAvoidMove()
+        {
+            if (_machine == null)
+                return false;
+
+            if (IsSelectedFront())
+            {
+                if (_machine.PickerRearUnit == null)
+                    return false;
+
+                foreach (KeyValuePair<PickerAxis, BaseAxis> pair in _machine.PickerRearUnit.Axes)
+                {
+                    if (pair.Value == null)
+                        return false;
+
+                    pair.Value.UpdateStatus();
+                    double target = _machine.PickerRearUnit.GetPickerTeachingPosition(pair.Key, "OutputAvoidPosition");
+                    if (!AxisMoveWaiter.CanSkipMoveCommandAtTarget(pair.Value, target))
+                        return false;
+                }
+
+                return true;
+            }
+
+            if (_machine.PickerFrontUnit == null)
+                return false;
+
+            foreach (KeyValuePair<PickerAxis, BaseAxis> pair in _machine.PickerFrontUnit.Axes)
+            {
+                if (pair.Value == null)
+                    return false;
+
+                pair.Value.UpdateStatus();
+                double target = _machine.PickerFrontUnit.GetPickerTeachingPosition(pair.Key, "OutputAvoidPosition");
+                if (!AxisMoveWaiter.CanSkipMoveCommandAtTarget(pair.Value, target))
+                    return false;
+            }
+
+            return true;
+        }
+
+        private bool CanSkipSelectedPickerBottomMove()
+        {
+            if (_machine == null || _request == null)
+                return false;
+
+            int pickerIndex = NormalizePickerIndex(_request.PickerNo);
+            double zTarget = ResolveBottomFocusStartZ();
+
+            if (IsSelectedFront())
+            {
+                if (_machine.PickerFrontUnit == null)
+                    return false;
+
+                PickerAlignOffset offset = _machine.PickerFrontUnit.GetRuntimePickerOffset(pickerIndex) ?? new PickerAlignOffset();
+                PickerCalibratedZoneTarget target = ResolveBottomZoneTarget(VisionFocusPickerSide.Front, pickerIndex, offset);
+                UpdateFrontPickerBottomTargetStatus(target);
+                return AxisMoveWaiter.CanSkipMoveCommandAtTarget(ResolveFrontPickerAxis(PickerAxis.PickerX), target.X) &&
+                       AxisMoveWaiter.CanSkipMoveCommandAtTarget(ResolveFrontPickerAxis(PickerAxis.PickerY), target.Y) &&
+                       AxisMoveWaiter.CanSkipMoveCommandAtTarget(ResolveFrontPickerAxis(target.PickerTAxis), target.T) &&
+                       AxisMoveWaiter.CanSkipMoveCommandAtTarget(ResolveFrontPickerAxis(target.PickerZAxis), zTarget) &&
+                       CanSkipFrontNonTargetPickerZAvoidMoves(target.PickerZAxis);
+            }
+
+            if (_machine.PickerRearUnit == null)
+                return false;
+
+            PickerAlignOffset rearOffset = _machine.PickerRearUnit.GetRuntimePickerOffset(pickerIndex) ?? new PickerAlignOffset();
+            PickerCalibratedZoneTarget rearTarget = ResolveBottomZoneTarget(VisionFocusPickerSide.Rear, pickerIndex, rearOffset);
+            UpdateRearPickerBottomTargetStatus(rearTarget);
+            return AxisMoveWaiter.CanSkipMoveCommandAtTarget(ResolveRearPickerAxis(PickerAxis.PickerX), rearTarget.X) &&
+                   AxisMoveWaiter.CanSkipMoveCommandAtTarget(ResolveRearPickerAxis(PickerAxis.PickerY), rearTarget.Y) &&
+                   AxisMoveWaiter.CanSkipMoveCommandAtTarget(ResolveRearPickerAxis(rearTarget.PickerTAxis), rearTarget.T) &&
+                   AxisMoveWaiter.CanSkipMoveCommandAtTarget(ResolveRearPickerAxis(rearTarget.PickerZAxis), zTarget) &&
+                   CanSkipRearNonTargetPickerZAvoidMoves(rearTarget.PickerZAxis);
+        }
+
+        private bool CanSkipFrontNonTargetPickerZAvoidMoves(PickerAxis selectedZAxis)
+        {
+            PickerAxis[] zAxes = { PickerAxis.PickerZ0, PickerAxis.PickerZ1, PickerAxis.PickerZ2, PickerAxis.PickerZ3 };
+            foreach (PickerAxis zAxis in zAxes)
+            {
+                if (zAxis == selectedZAxis)
+                    continue;
+
+                BaseAxis item = ResolveFrontPickerAxis(zAxis);
+                if (item == null)
+                    return false;
+
+                item.UpdateStatus();
+                double avoidTarget = _machine.PickerFrontUnit.GetPickerTeachingPosition(zAxis, "AvoidPosition");
+                if (!AxisMoveWaiter.CanSkipMoveCommandAtTarget(item, avoidTarget))
+                    return false;
+            }
+
+            return true;
+        }
+
+        private bool CanSkipRearNonTargetPickerZAvoidMoves(PickerAxis selectedZAxis)
+        {
+            PickerAxis[] zAxes = { PickerAxis.PickerZ0, PickerAxis.PickerZ1, PickerAxis.PickerZ2, PickerAxis.PickerZ3 };
+            foreach (PickerAxis zAxis in zAxes)
+            {
+                if (zAxis == selectedZAxis)
+                    continue;
+
+                BaseAxis item = ResolveRearPickerAxis(zAxis);
+                if (item == null)
+                    return false;
+
+                item.UpdateStatus();
+                double avoidTarget = _machine.PickerRearUnit.GetPickerTeachingPosition(zAxis, "AvoidPosition");
+                if (!AxisMoveWaiter.CanSkipMoveCommandAtTarget(item, avoidTarget))
+                    return false;
+            }
+
+            return true;
+        }
+
+        private void UpdateFrontPickerBottomTargetStatus(PickerCalibratedZoneTarget target)
+        {
+            ResolveFrontPickerAxis(PickerAxis.PickerX)?.UpdateStatus();
+            ResolveFrontPickerAxis(PickerAxis.PickerY)?.UpdateStatus();
+            ResolveFrontPickerAxis(target.PickerTAxis)?.UpdateStatus();
+            ResolveFrontPickerAxis(target.PickerZAxis)?.UpdateStatus();
+        }
+
+        private void UpdateRearPickerBottomTargetStatus(PickerCalibratedZoneTarget target)
+        {
+            ResolveRearPickerAxis(PickerAxis.PickerX)?.UpdateStatus();
+            ResolveRearPickerAxis(PickerAxis.PickerY)?.UpdateStatus();
+            ResolveRearPickerAxis(target.PickerTAxis)?.UpdateStatus();
+            ResolveRearPickerAxis(target.PickerZAxis)?.UpdateStatus();
         }
 
         private bool IsSelectedPickerBottomPosition()
