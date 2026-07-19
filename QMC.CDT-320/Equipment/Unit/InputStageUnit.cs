@@ -280,7 +280,6 @@ namespace QMC.CDT320
     {
         private const double DefaultEstimatedPitchX = 0.15;
         private const double DefaultEstimatedPitchY = 0.15;
-        private const double WaferAlignThetaOffsetReadyEpsilon = 0.000001;
 
         private static double ResolveAxisVelocity(BaseAxis axis)
         {
@@ -3012,12 +3011,6 @@ namespace QMC.CDT320
                     double.IsInfinity(WaferAlignOffsetT))
                 {
                     reason = "InputStage theta align value is invalid.";
-                    return false;
-                }
-
-                if (Math.Abs(WaferAlignOffsetT) <= WaferAlignThetaOffsetReadyEpsilon)
-                {
-                    reason = "InputStage theta align offset is zero. offsetT=" + WaferAlignOffsetT.ToString("F6");
                     return false;
                 }
 

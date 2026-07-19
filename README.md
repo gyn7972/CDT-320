@@ -69,6 +69,11 @@ $out = Join-Path $repo '_build_check_handler\out'
 3. 작업 전에 `AGENTS.md`를 읽고 장비 안전·빌드·인코딩 규칙을 따른다.
 4. 상세 설계가 필요하면 `docs`에서 현재 코드와 일치하는 문서를 선택하되, 코드와 충돌하면 코드와 `AGENTS.md`를 우선한다.
 
+## 진행 중인 UI 개선 문서
+
+- [LOGIC TIMECHART 그래프 개선 구현 계획서](docs/TIMECHART_GRAPH_IMPLEMENTATION_PLAN.md)
+- [LOGIC TIMECHART 그래프 개선 검증 체크리스트](docs/TIMECHART_GRAPH_VERIFICATION_CHECKLIST.md)
+
 ## 라이선스
 
 Proprietary — © QMC

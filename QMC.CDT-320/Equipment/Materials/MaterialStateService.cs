@@ -2901,8 +2901,24 @@ namespace QMC.CDT320.Materials
                 cassette.IsEnabled = true;
                 cassette.IsPresent = true;
                 cassette.LastScanTime = DateTime.Now;
-                slot.WaferId = wafer.WaferId;
-                slot.HasWafer = true;
+
+                bool isOutputStageWafer =
+                    (stageLocation == MaterialLocationKind.OutputStageGood &&
+                     (cassetteRole == CassetteMaterialRole.Good1 || cassetteRole == CassetteMaterialRole.Good2)) ||
+                    (stageLocation == MaterialLocationKind.OutputStageNg &&
+                     cassetteRole == CassetteMaterialRole.Ng1);
+                if (isOutputStageWafer)
+                {
+                    // Output Stage의 테스트 Bin은 source slot에서 이미 꺼낸 상태이므로
+                    // 동일 Material을 Stage와 cassette slot에 동시에 점유시키지 않는다.
+                    slot.WaferId = "";
+                    slot.HasWafer = false;
+                }
+                else
+                {
+                    slot.WaferId = wafer.WaferId;
+                    slot.HasWafer = true;
+                }
                 wafer.UpdatedAt = DateTime.Now;
 
                 Log.Write("Main", "SYSTEM", "MaterialStateService",
@@ -2910,7 +2926,8 @@ namespace QMC.CDT320.Materials
                     ", slot=" + (slotNumber + 1).ToString("00") +
                     ", wafer=" + wafer.WaferId +
                     ", location=" + stageLocation +
-                    ", state=" + wafer.State + " - Ok");
+                    ", state=" + wafer.State +
+                    ", sourceSlotOccupied=" + slot.HasWafer + " - Ok");
             }
             catch (Exception ex)
             {
@@ -4013,13 +4030,6 @@ namespace QMC.CDT320.Materials
                 double.IsInfinity(wafer.InputStageAlignOffsetT))
             {
                 reason = "InputStage theta align value is invalid. waferId=" + wafer.WaferId;
-                return false;
-            }
-
-            if (Math.Abs(wafer.InputStageAlignOffsetT) <= InputStageThetaOffsetReadyEpsilon)
-            {
-                reason = "InputStage theta align offset is zero. waferId=" + wafer.WaferId +
-                         ", offsetT=" + wafer.InputStageAlignOffsetT.ToString("F6");
                 return false;
             }
 
@@ -6134,20 +6144,23 @@ namespace QMC.CDT320.Materials
                 if (mappedOccupied)
                     continue;
 
-                WaferMaterial removedWafer = slot != null && !string.IsNullOrWhiteSpace(slot.WaferId)
-                    ? State.Wafers.FirstOrDefault(w => string.Equals(w.WaferId, slot.WaferId, StringComparison.OrdinalIgnoreCase))
-                    : null;
-                if (removedWafer != null && IsFinishedOutputBinWafer(role, removedWafer))
+                // 빈 slot으로 다시 매핑할 때 cassette 위치에 남은 Material도 함께 정리한다.
+                // Stage/Feeder 등 cassette 밖으로 이동한 Material은 이 조건에 포함하지 않는다.
+                List<WaferMaterial> removedWafers = State.Wafers
+                    .Where(w => w != null && IsWaferAtCassetteSlot(w, role, i))
+                    .ToList();
+                foreach (WaferMaterial removedWafer in removedWafers)
                 {
-                    RemoveFinishedOutputBinWaferForNewCassetteMapping(removedWafer);
-                }
-                else if (removedWafer != null &&
-                         IsWaferAtCassetteSlot(removedWafer, role, i) &&
-                         WaferMaterialStateText.Normalize(removedWafer.State) == WaferMaterialState.Finish)
-                {
-                    removedWafer.CurrentLocation = MaterialLocation.Unknown();
-                    removedWafer.State = WaferMaterialState.Empty;
-                    removedWafer.UpdatedAt = DateTime.Now;
+                    if (IsFinishedOutputBinWafer(role, removedWafer))
+                    {
+                        RemoveFinishedOutputBinWaferForNewCassetteMapping(removedWafer);
+                    }
+                    else
+                    {
+                        removedWafer.CurrentLocation = MaterialLocation.Unknown();
+                        removedWafer.State = WaferMaterialState.Empty;
+                        removedWafer.UpdatedAt = DateTime.Now;
+                    }
                 }
 
                 if (slot != null)
