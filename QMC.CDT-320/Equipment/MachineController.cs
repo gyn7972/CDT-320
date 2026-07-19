@@ -9831,11 +9831,13 @@ namespace QMC.CDT320
                 if (wafer != null &&
                     (wafer.HasInputStageAlignResult || wafer.HasInputStageDieMappingResult))
                 {
-                    bool hasHybridStoredResult =
-                        InputStageResultMode.IsHybrid(wafer.InputStageAlignResultMode) ||
-                        InputStageResultMode.IsHybrid(wafer.InputStageDieMappingResultMode);
-                    bool requireMappingResult = wafer.HasInputStageDieMappingResult ||
-                        (hasHybridStoredResult && UseDieMapMode);
+                    if (UseDieMapMode && !wafer.HasInputStageDieMappingResult)
+                    {
+                        reason = "Legacy Cycle 차단: InputStage Wafer의 현재 Align 결과에 대응하는 Die Mapping 완료 결과가 없습니다.";
+                        return false;
+                    }
+
+                    bool requireMappingResult = UseDieMapMode || wafer.HasInputStageDieMappingResult;
                     string resultModeReason;
                     if (!MaterialStateService.IsStoredInputStageResultModeUsable(
                             wafer,
