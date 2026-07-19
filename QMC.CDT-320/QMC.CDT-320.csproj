@@ -1054,6 +1054,9 @@
     <Compile Include="Ui\Pages\WorkInfo\LogicDetailPage.cs">
       <SubType>UserControl</SubType>
     </Compile>
+    <Compile Include="Ui\Pages\WorkInfo\TactTimeChartControl.cs">
+      <SubType>Component</SubType>
+    </Compile>
     <Compile Include="Ui\Pages\WorkInfo\LogicPage.Designer.cs">
       <DependentUpon>LogicPage.cs</DependentUpon>
     </Compile>
