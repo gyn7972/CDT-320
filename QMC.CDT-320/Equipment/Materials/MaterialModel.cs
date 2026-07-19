@@ -494,6 +494,11 @@ namespace QMC.CDT320.Materials
         [DataMember] public List<string> InputStageRunReviewOrderedDieIds { get; set; } = new List<string>();
         /// <summary>사용자 확인 시점의 Die Mapping revision/frame ID.</summary>
         [DataMember] public string InputStageRunReviewMappingRevision { get; set; } = "";
+        /// <summary>
+        /// 동일 Slot 고정 WaferId 재사용 시 새 physical wafer를 구분하기 위한 처리 세대 번호.
+        /// 새 wafer 투입(비보존 매핑) 경로마다 증가하며, 이전 Align/Mapping/Review 승인 상속을 차단한다.
+        /// </summary>
+        [DataMember] public int InputStageProcessingGeneration { get; set; }
         [DataMember] public string OutputReceiveSourceWaferId { get; set; } = "";
         [DataMember] public int OutputReceiveDieMapX { get; set; }
         [DataMember] public int OutputReceiveDieMapY { get; set; }

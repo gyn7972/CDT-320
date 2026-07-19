@@ -3221,13 +3221,22 @@ namespace QMC.CDT320.Materials
                                     entry.Result != DieResult.NG)
                     .Select(entry => entry.DieUid),
                 StringComparer.OrdinalIgnoreCase);
-            if (orderedIds.Count != pickableIds.Count || orderedIds.Any(id => !pickableIds.Contains(id)))
+
+            // fail-closed: 승인 목록 밖에서 새 WAIT Target이 생기면 자동 진행을 차단한다.
+            var orderedIdSet = new HashSet<string>(orderedIds, StringComparer.OrdinalIgnoreCase);
+            foreach (string pickableId in pickableIds)
             {
-                reason = "Review 승인 순서와 현재 WAIT Target 집합이 다릅니다. ordered=" +
-                         orderedIds.Count + ", pickable=" + pickableIds.Count;
-                return false;
+                if (!orderedIdSet.Contains(pickableId))
+                {
+                    reason = "Review 승인 목록에 없는 새 WAIT Target이 있습니다. die=" + pickableId;
+                    return false;
+                }
             }
 
+            // progress-aware: 승인 UID가 현재 Map에 존재해야 하며(누락은 fail-closed),
+            // 이미 Good/NG/Picked 등으로 처리되어 WAIT에서 빠진 UID는 생산 진행으로 인정하고
+            // 남은 Pick 대상만 원본 승인 순서를 유지한 채 복원한다. remaining 0건도 유효하다.
+            int progressedCount = 0;
             foreach (string dieId in orderedIds)
             {
                 DieMapEntry entry;
@@ -3236,7 +3245,10 @@ namespace QMC.CDT320.Materials
                     reason = "Review 승인 UID를 현재 Map에서 찾을 수 없습니다. die=" + dieId;
                     return false;
                 }
-                ordered.Add(entry);
+                if (pickableIds.Contains(dieId))
+                    ordered.Add(entry);
+                else
+                    progressedCount++;
             }
 
             string startReason;
@@ -3250,7 +3262,10 @@ namespace QMC.CDT320.Materials
                 return false;
             }
 
-            reason = "Review 승인 PickUp 순서가 현재 Map과 일치합니다.";
+            reason = progressedCount > 0
+                ? "Review 승인 순서를 생산 진행 기준으로 복원했습니다. processed=" + progressedCount +
+                  ", remaining=" + ordered.Count
+                : "Review 승인 PickUp 순서가 현재 Map과 일치합니다.";
             return true;
         }
 
@@ -7145,6 +7160,10 @@ namespace QMC.CDT320.Materials
                         State.Wafers.Add(wafer);
                     }
 
+                    // Slot 고정 WaferId 재사용 시 새 physical wafer가 이전 Align/Mapping/Review 승인을
+                    // 상속하지 않도록 비보존 매핑 경로에서는 항상 처리 상태를 초기화한다.
+                    ResetInputStageWaferProcessingStateNoLock(wafer, "CassetteMapping.NewWafer");
+
                     wafer.CassetteLotId = resolvedLotId;
                     wafer.SourceCassetteId = cassette.CassetteId;
                     wafer.SourceCassetteRole = role;
@@ -7174,6 +7193,75 @@ namespace QMC.CDT320.Materials
 
                 slot.WaferId = wafer.WaferId;
                 slot.HasWafer = true;
+            }
+        }
+
+        /// <summary>
+        /// 새 physical wafer 투입(비보존 매핑) 시 이전 Align/T Align/Mapping/Review 승인과
+        /// Pick 진행 정보를 초기화하는 중앙 helper입니다. Slot 고정 WaferId 재사용 상속을 차단합니다.
+        /// 동일 wafer의 Stop→Start, snapshot 복구, 단순 재스캔(보존 매핑)에서는 호출하지 않습니다.
+        /// </summary>
+        private static void ResetInputStageWaferProcessingStateNoLock(WaferMaterial wafer, string cause)
+        {
+            if (wafer == null)
+                return;
+
+            bool hadState = wafer.HasInputStageAlignResult ||
+                            wafer.HasInputStageThetaAlignResult ||
+                            wafer.HasInputStageDieMappingResult ||
+                            wafer.HasInputStageRunReviewApproval ||
+                            (wafer.DieIds != null && wafer.DieIds.Count > 0);
+
+            // 이전 wafer의 Die 진행 정보(Result/Picked/예약)를 함께 제거한다.
+            if (wafer.DieIds != null && wafer.DieIds.Count > 0)
+            {
+                string waferId = wafer.WaferId ?? string.Empty;
+                State.Dies.RemoveAll(d =>
+                    d != null &&
+                    string.Equals(d.WaferID_Input, waferId, StringComparison.OrdinalIgnoreCase));
+            }
+
+            wafer.HasInputStageAlignResult = false;
+            wafer.InputStageAlignResultMode = string.Empty;
+            wafer.InputStageAlignResultRunId = string.Empty;
+            wafer.InputStageAlignOriginX = 0.0;
+            wafer.InputStageAlignOriginY = 0.0;
+            wafer.InputStageAlignPitchX = 0.0;
+            wafer.InputStageAlignPitchY = 0.0;
+            wafer.InputStageAlignOffsetX = 0.0;
+            wafer.InputStageAlignOffsetY = 0.0;
+            wafer.HasInputStageThetaAlignResult = false;
+            wafer.InputStageAlignReferenceT = 0.0;
+            wafer.InputStageAlignCorrectedT = 0.0;
+            wafer.InputStageAlignOffsetT = 0.0;
+            wafer.HasInputStageDieMappingResult = false;
+            wafer.InputStageDieMappingResultMode = string.Empty;
+            wafer.InputStageDieMappingAlignRunId = string.Empty;
+            wafer.InputStageDieMappingOffsetX = 0.0;
+            wafer.InputStageDieMappingOffsetY = 0.0;
+            wafer.HasInputStageDieMappingOrigin = false;
+            wafer.InputStageDieMappingOriginX = 0.0;
+            wafer.InputStageDieMappingOriginY = 0.0;
+            wafer.HasInputStageDieMappingThetaSnapshot = false;
+            wafer.InputStageDieMappingCorrectedT = 0.0;
+            wafer.InputStageDieMappingInvalidatedByAlignChange = false;
+            wafer.InputMapApprovalHashAtMapping = string.Empty;
+            wafer.DieMapFrameObjId = string.Empty;
+            wafer.HasInputStageRunReviewApproval = false;
+            wafer.InputStageRunReviewStartDieIndex = 0;
+            wafer.InputStageRunReviewStartDieUid = string.Empty;
+            wafer.InputStageRunReviewOrderedDieIds = new List<string>();
+            wafer.InputStageRunReviewMappingRevision = string.Empty;
+            wafer.DieIds = new List<string>();
+            wafer.InputStageProcessingGeneration = wafer.InputStageProcessingGeneration + 1;
+            InputStageHybridResultSession.Clear();
+
+            if (hadState)
+            {
+                Log.Write("Main", "SYSTEM", "MaterialStateService",
+                    "New physical wafer processing state reset. wafer=" + (wafer.WaferId ?? "") +
+                    ", generation=" + wafer.InputStageProcessingGeneration +
+                    ", cause=" + (cause ?? "") + " - Ok");
             }
         }
 

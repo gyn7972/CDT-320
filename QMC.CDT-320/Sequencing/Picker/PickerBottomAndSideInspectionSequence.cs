@@ -77,6 +77,7 @@ namespace QMC.CDT320.Sequencing
             public bool MResultApplied;
             public bool FinalResultApplied;
             public BottomVisionOffset MResult;
+            public Task<int> MResultTask;
             public Task<BottomVisionOffset> FinalResultTask;
             public DateTime InspectStartedAt;
         }
@@ -954,8 +955,10 @@ namespace QMC.CDT320.Sequencing
                     var bottomShot = new BottomShot { Target = target, InspectStartedAt = bottomInspectStartedAt };
                     _pendingBottomShots.Add(bottomShot);
 
-                    // Bottom은 REQ -> EPD까지만 확인하고 즉시 다음 Picker 물류/모션을 진행한다.
-                    // 동일 Picker MRESULT는 Side 0도 진입 직전에만 기다리고, 최종 RESULT는 Place 접근과 병렬 수집한다.
+                    // Bottom은 REQ -> EPD까지 확인하면 즉시 MRESULT 요청을 백그라운드로 시작하고(B방식),
+                    // 다음 Picker 물류/모션은 그대로 진행한다. 결과 검증/소비는 Side 0도 진입 직전에 수행하며,
+                    // MRESULT 수신 즉시 최종 RESULT 요청도 ApplyBottomMResultAsync 내부에서 바로 등록된다.
+                    StartBottomMResultCollection(bottomShot, ct);
                 }
             }
 
@@ -1478,14 +1481,36 @@ namespace QMC.CDT320.Sequencing
                 WriteLog("PickerBottomAndSideInspectionSequence",
                     Name + " Side 0도 진입 직전 동일 Picker Bottom MRESULT를 확인합니다. " +
                     "die=" + (shot.Target.Die != null ? shot.Target.Die.DieId : "-") +
-                    ", pickerNo=" + shot.Target.PickerNo + " - Start");
+                    ", pickerNo=" + shot.Target.PickerNo +
+                    ", deferredTask=" + (shot.MResultTask != null) + " - Start");
 
-                int result = await ApplyBottomMResultAsync(shot, ct).ConfigureAwait(false);
+                int result = shot.MResultTask != null
+                    ? await shot.MResultTask.ConfigureAwait(false)
+                    : await ApplyBottomMResultAsync(shot, ct).ConfigureAwait(false);
                 if (result != 0)
                     return result;
             }
 
             return ValidateRuntimeSideInspectionCorrection(pickerIndex);
+        }
+
+        private void StartBottomMResultCollection(BottomShot shot, CancellationToken ct)
+        {
+            if (shot == null || shot.Target == null || shot.MResultTask != null)
+                return;
+
+            shot.MResultTask = ApplyBottomMResultAsync(shot, ct);
+            // Abort 등으로 끝까지 await되지 않아도 UnobservedTaskException이 발생하지 않도록 예외를 관찰한다.
+            shot.MResultTask.ContinueWith(
+                t => { var _ = t.Exception; },
+                CancellationToken.None,
+                TaskContinuationOptions.OnlyOnFaulted,
+                TaskScheduler.Default);
+
+            WriteLog("PickerBottomAndSideInspectionSequence",
+                Name + " Bottom EPD 직후 MRESULT 요청을 백그라운드로 시작했습니다. " +
+                "die=" + (shot.Target.Die != null ? shot.Target.Die.DieId : "-") +
+                ", pickerNo=" + shot.Target.PickerNo + " - Start");
         }
 
         private async Task<int> ApplyBottomMResultAsync(BottomShot shot, CancellationToken ct)

@@ -34,20 +34,131 @@ namespace QMC.CDT_320.Ui.Dialogs
         private bool _readOnlyPreview;
         private bool _autoReviewMode;
         private bool _decisionSubmitted;
+        private bool _sequenceCloseRequested;
         private DialogResult _submittedDialogResult = DialogResult.None;
         private string _waferId = string.Empty;
         private string _mappingRevision = string.Empty;
         private Button _activeJogButton;
+        private Timer _encoderRefreshTimer;
+        private Func<double[]> _axisPositionProvider;
+        private ComboBox _cmbJogMode;
+        private ComboBox _cmbJogStep;
 
         public InputStageRunReviewDialog()
         {
             InitializeComponent();
+            InitializeJogModeControls();
             mapView.EmptyAreaClicked += MapView_EmptyAreaClicked;
             ConfigureMapView();
             SetMode(InputStageRunReviewMode.MappingReview);
             SetWorkflowState("-", "-", false, false, "-", false, "REVIEW REQUIRED");
             SetAxisPositions(0.0, 0.0, 0.0);
             SetStatus("Wafer Align / Die Mapping 결과를 불러오는 중입니다.");
+
+            _encoderRefreshTimer = new Timer();
+            _encoderRefreshTimer.Interval = 200;
+            _encoderRefreshTimer.Tick += EncoderRefreshTimer_Tick;
+        }
+
+        /// <summary>
+        /// Jog Mode(Continuous/Step)와 Step 거리 선택 콤보를 Jog 레이아웃 첫 행에 추가합니다.
+        /// Designer 구조 변경 없이 코드에서만 배치합니다.
+        /// </summary>
+        private void InitializeJogModeControls()
+        {
+            _cmbJogMode = new ComboBox
+            {
+                DropDownStyle = ComboBoxStyle.DropDownList,
+                Anchor = AnchorStyles.Left | AnchorStyles.Right
+            };
+            _cmbJogMode.Items.AddRange(new object[] { "Continuous", "Step" });
+            _cmbJogMode.SelectedIndex = 0;
+            _cmbJogMode.SelectedIndexChanged += delegate { UpdateActionAvailability(); };
+
+            _cmbJogStep = new ComboBox
+            {
+                DropDownStyle = ComboBoxStyle.DropDownList,
+                Anchor = AnchorStyles.Left | AnchorStyles.Right
+            };
+            _cmbJogStep.Items.AddRange(new object[] { "0.001", "0.005", "0.01", "0.05", "0.1", "0.5", "1.0" });
+            _cmbJogStep.SelectedIndex = 2;
+
+            jogLayout.SetColumnSpan(cmbJogSpeed, 1);
+            jogLayout.Controls.Add(_cmbJogMode, 2, 0);
+            jogLayout.Controls.Add(_cmbJogStep, 3, 0);
+        }
+
+        private bool IsStepJogMode
+        {
+            get { return _cmbJogMode != null && string.Equals(_cmbJogMode.Text, "Step", StringComparison.OrdinalIgnoreCase); }
+        }
+
+        private double SelectedJogStepDistance
+        {
+            get
+            {
+                double value;
+                if (_cmbJogStep != null &&
+                    double.TryParse(_cmbJogStep.Text, System.Globalization.NumberStyles.Float,
+                        System.Globalization.CultureInfo.InvariantCulture, out value) &&
+                    value > 0.0)
+                    return value;
+                return 0.01;
+            }
+        }
+
+        /// <summary>
+        /// 실시간 Encoder 표시용 위치 provider를 설정합니다.
+        /// provider는 UI thread에서 호출되므로 반드시 캐시된 snapshot만 사용해야 하며
+        /// [VisionX, WaferY, WaferT] 순서의 배열 또는 null을 반환합니다.
+        /// </summary>
+        public void SetAxisPositionProvider(Func<double[]> provider)
+        {
+            _axisPositionProvider = provider;
+            UpdateEncoderRefreshTimerState();
+        }
+
+        private void EncoderRefreshTimer_Tick(object sender, EventArgs e)
+        {
+            if (IsDisposed || !Visible)
+                return;
+
+            Func<double[]> provider = _axisPositionProvider;
+            if (provider == null)
+                return;
+
+            try
+            {
+                double[] positions = provider();
+                if (positions != null && positions.Length >= 3 &&
+                    !double.IsNaN(positions[0]) && !double.IsInfinity(positions[0]) &&
+                    !double.IsNaN(positions[1]) && !double.IsInfinity(positions[1]) &&
+                    !double.IsNaN(positions[2]) && !double.IsInfinity(positions[2]))
+                {
+                    SetAxisPositions(positions[0], positions[1], positions[2]);
+                }
+            }
+            catch
+            {
+                // 표시 전용 경로: 실패해도 마지막 표시값을 유지한다.
+            }
+        }
+
+        private void UpdateEncoderRefreshTimerState()
+        {
+            if (_encoderRefreshTimer == null || IsDisposed)
+                return;
+            bool shouldRun = Visible && _axisPositionProvider != null;
+            if (shouldRun && !_encoderRefreshTimer.Enabled)
+                _encoderRefreshTimer.Start();
+            else if (!shouldRun && _encoderRefreshTimer.Enabled)
+                _encoderRefreshTimer.Stop();
+        }
+
+        protected override void OnVisibleChanged(EventArgs e)
+        {
+            base.OnVisibleChanged(e);
+            UpdateEncoderRefreshTimerState();
         }
 
         public event EventHandler AlignRetryRequested;
@@ -186,6 +297,7 @@ namespace QMC.CDT_320.Ui.Dialogs
         {
             _autoReviewMode = enabled;
             _decisionSubmitted = false;
+            _sequenceCloseRequested = false;
             _submittedDialogResult = DialogResult.None;
             if (enabled)
                 _readOnlyPreview = false;
@@ -207,20 +319,26 @@ namespace QMC.CDT_320.Ui.Dialogs
         public void CloseFromSequence()
         {
             _decisionSubmitted = true;
+            _sequenceCloseRequested = true;
             if (IsDisposed)
                 return;
 
             if (InvokeRequired)
             {
-                BeginInvoke(new Action(CloseFromSequence));
+                try
+                {
+                    BeginInvoke(new Action(CloseFromSequence));
+                }
+                catch
+                {
+                }
                 return;
             }
 
+            // modeless 창은 DialogResult 설정만으로 닫히지 않으므로
+            // 제출된 DialogResult를 기록한 뒤 반드시 Close()를 호출한다.
             if (_submittedDialogResult != DialogResult.None)
-            {
                 DialogResult = _submittedDialogResult;
-                return;
-            }
             Close();
         }
 
@@ -236,6 +354,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             }
 
             _decisionSubmitted = false;
+            _sequenceCloseRequested = false;
             _submittedDialogResult = DialogResult.None;
             _busy = false;
             DialogResult = DialogResult.None;
@@ -943,10 +1062,25 @@ namespace QMC.CDT_320.Ui.Dialogs
             if (button == null || !(button.Tag is InputStageReviewJogAxis))
                 return;
 
-            _activeJogButton = button;
-            UpdateActionAvailability();
             int direction = button.Name.EndsWith("Minus", StringComparison.Ordinal) ? -1 : 1;
             var handler = JogRequested;
+
+            if (IsStepJogMode)
+            {
+                // Step 모드는 버튼 유지와 무관한 one-shot 이동이므로 activeJogButton을 잡지 않는다.
+                if (handler != null)
+                    handler(this, new InputStageReviewJogEventArgs(
+                        (InputStageReviewJogAxis)button.Tag,
+                        direction,
+                        cmbJogSpeed.Text,
+                        true,
+                        SelectedJogStepDistance));
+                SetStatus(button.Text + " Step Jog(" + SelectedJogStepDistance.ToString("0.###") + ") 요청 중입니다.");
+                return;
+            }
+
+            _activeJogButton = button;
+            UpdateActionAvailability();
             if (handler != null)
                 handler(this, new InputStageReviewJogEventArgs(
                     (InputStageReviewJogAxis)button.Tag,
@@ -1073,6 +1207,10 @@ namespace QMC.CDT_320.Ui.Dialogs
             grpStartDie.Enabled = actionEnabled && _mappingComplete;
             grpJog.Enabled = !_readOnlyPreview;
             cmbJogSpeed.Enabled = actionEnabled && _activeJogButton == null;
+            if (_cmbJogMode != null)
+                _cmbJogMode.Enabled = actionEnabled && _activeJogButton == null;
+            if (_cmbJogStep != null)
+                _cmbJogStep.Enabled = actionEnabled && _activeJogButton == null && IsStepJogMode;
             btnVisionXMinus.Enabled = actionEnabled || ReferenceEquals(_activeJogButton, btnVisionXMinus);
             btnVisionXPlus.Enabled = actionEnabled || ReferenceEquals(_activeJogButton, btnVisionXPlus);
             btnWaferYMinus.Enabled = actionEnabled || ReferenceEquals(_activeJogButton, btnWaferYMinus);
@@ -1132,6 +1270,14 @@ namespace QMC.CDT_320.Ui.Dialogs
                 _activeJogButton = null;
                 RaiseSimpleEvent(JogStopRequested);
             }
+            // Form.Close()는 CloseReason.UserClosing으로 보고되므로
+            // Sequence 종료 요청은 사용자 차단 로직보다 먼저 통과시킨다.
+            if (_sequenceCloseRequested)
+            {
+                DisposeEncoderRefreshTimer();
+                return;
+            }
+
             if (_autoReviewMode && !_decisionSubmitted && e.CloseReason == CloseReason.UserClosing)
             {
                 e.Cancel = true;
@@ -1146,8 +1292,31 @@ namespace QMC.CDT_320.Ui.Dialogs
                 return;
             }
 
-            if (!_readOnlyPreview && e.CloseReason == CloseReason.UserClosing && DialogResult != DialogResult.OK)
+            DisposeEncoderRefreshTimer();
+
+            if (!_readOnlyPreview &&
+                e.CloseReason == CloseReason.UserClosing &&
+                !_sequenceCloseRequested &&
+                !_decisionSubmitted &&
+                DialogResult != DialogResult.OK)
                 RaiseSimpleEvent(AbortAutoRequested);
+        }
+
+        private void DisposeEncoderRefreshTimer()
+        {
+            if (_encoderRefreshTimer != null)
+            {
+                try
+                {
+                    _encoderRefreshTimer.Stop();
+                    _encoderRefreshTimer.Dispose();
+                }
+                catch
+                {
+                }
+                _encoderRefreshTimer = null;
+            }
+            _axisPositionProvider = null;
         }
     }
 
@@ -1175,15 +1344,29 @@ namespace QMC.CDT_320.Ui.Dialogs
     public sealed class InputStageReviewJogEventArgs : EventArgs
     {
         public InputStageReviewJogEventArgs(InputStageReviewJogAxis axis, int direction, string speed)
+            : this(axis, direction, speed, false, 0.0)
+        {
+        }
+
+        public InputStageReviewJogEventArgs(
+            InputStageReviewJogAxis axis,
+            int direction,
+            string speed,
+            bool isStepMode,
+            double stepDistance)
         {
             Axis = axis;
             Direction = direction < 0 ? -1 : 1;
             Speed = speed ?? "Fine";
+            IsStepMode = isStepMode;
+            StepDistance = Math.Abs(stepDistance);
         }
 
         public InputStageReviewJogAxis Axis { get; private set; }
         public int Direction { get; private set; }
         public string Speed { get; private set; }
+        public bool IsStepMode { get; private set; }
+        public double StepDistance { get; private set; }
     }
 
     public sealed class InputStageReviewDieStateEventArgs : EventArgs

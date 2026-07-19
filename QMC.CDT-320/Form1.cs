@@ -488,6 +488,8 @@ namespace QMC.CDT_320
         private AxisJogPopup _jogPopup;
         private AxisPositionPopup _axisPositionPopup;
         private InputStageRunReviewDialog _inputStageRunReviewDialog;
+        private int _inputStageRunReviewSessionGeneration;
+        private int _inputStageRunReviewCleanedGeneration;
         private IDisposable _inputStageRunReviewJogScope;
         private BaseAxis _inputStageRunReviewJogAxis;
         private bool _inputStageRunReviewJogStartPending;
@@ -1421,6 +1423,7 @@ namespace QMC.CDT_320
 
                 dialog = new InputStageRunReviewDialog();
                 _inputStageRunReviewDialog = dialog;
+                int sessionGeneration = ++_inputStageRunReviewSessionGeneration;
                 ClearInputStageRunReviewPendingOffset();
                 dialog.SetMode(InputStageRunReviewMode.MappingReview);
                 dialog.SetPickupOptions(pickup);
@@ -1438,6 +1441,12 @@ namespace QMC.CDT_320
                     stage.CameraX != null ? stage.CameraX.ActualPosition : 0.0,
                     stage.StageY != null ? stage.StageY.ActualPosition : 0.0,
                     stage.StageT != null ? stage.StageT.ActualPosition : 0.0);
+                dialog.SetAxisPositionProvider(() => new double[]
+                {
+                    ReadCachedAxisPosition(stage.CameraX),
+                    ReadCachedAxisPosition(stage.StageY),
+                    ReadCachedAxisPosition(stage.StageT)
+                });
                 dialog.SetFailureDetail(
                     string.Empty,
                     "확인: 현재 Align/Die Mapping 결과로 Auto PickUp 공정을 계속합니다." + Environment.NewLine +
@@ -1516,34 +1525,108 @@ namespace QMC.CDT_320
                     StopRunReviewBuzzer();
                 };
 
+                InputStageRunReviewDialog sessionDialog = dialog;
+                dialog.FormClosed += delegate
+                {
+                    CleanupInputStageRunReviewSessionAsync(sessionDialog, sessionGeneration);
+                };
+
                 StartRunReviewBuzzer();
                 QMC.Common.Log.Write("Main", UserSession.Name, "InputStageRunReview",
                     "Align/Die Mapping 사용자 확인 화면을 표시했습니다. wafer=" + (wafer.WaferId ?? "") + " - Wait");
-                dialog.ShowDialog(this);
+                // Main UI 접근을 허용하기 위해 unowned modeless top-level 창으로 연다.
+                // 정리는 FormClosed 기반 CleanupInputStageRunReviewSessionAsync 단일 경로에서 수행한다.
+                dialog.Show();
             }
             catch (Exception ex)
             {
                 QMC.Common.Log.Write("Main", UserSession.Name, "InputStageRunReview",
                     "사용자 확인 화면 표시 실패: " + ex.Message + " - Failed");
                 stage.FailUserConfirmFromUi("InputStage 사용자 확인 화면을 표시하지 못했습니다. " + ex.Message);
+                if (dialog != null)
+                    CleanupInputStageRunReviewSessionAsync(dialog, _inputStageRunReviewSessionGeneration);
             }
-            finally
+        }
+
+        /// <summary>
+        /// Review Modeless 세션의 단일 정리 경로입니다.
+        /// FormClosed, Sequence 종료, 전역 STOP, Main Form 종료가 중복 호출해도 안전한 idempotent 구조입니다.
+        /// </summary>
+        private async void CleanupInputStageRunReviewSessionAsync(
+            InputStageRunReviewDialog dialog,
+            int sessionGeneration)
+        {
+            if (InvokeRequired)
             {
-                EndRunReviewBuzzer();
-                StopInputStageRunReviewJogAsync(dialog, "Review Dialog 종료로 Jog를 정지했습니다.");
+                try
+                {
+                    BeginInvoke(new Action<InputStageRunReviewDialog, int>(
+                        CleanupInputStageRunReviewSessionAsync), dialog, sessionGeneration);
+                }
+                catch (Exception ex)
+                {
+                    QMC.Common.Log.Write("Main", UserSession.Name, "InputStageRunReview",
+                        "Review Cleanup UI 전환 실패: " + ex.Message + " - Failed");
+                }
+                return;
+            }
+
+            if (_inputStageRunReviewCleanedGeneration >= sessionGeneration)
+                return;
+            _inputStageRunReviewCleanedGeneration = sessionGeneration;
+
+            // 이미 새 Review 세션이 시작된 뒤 늦게 도착한 이전 세션 정리라면
+            // 모션/TCS 관련 정리는 건너뛰고 이전 dialog 자원만 해제한다.
+            bool isCurrentSession = _inputStageRunReviewSessionGeneration == sessionGeneration;
+
+            try { EndRunReviewBuzzer(); } catch { }
+
+            if (isCurrentSession)
+            {
+                try
+                {
+                    if (Controller != null)
+                        Controller.CancelInputStageRunReviewAction();
+                }
+                catch { }
+                try
+                {
+                    await StopInputStageRunReviewJogCoreAsync().ConfigureAwait(true);
+                }
+                catch (Exception ex)
+                {
+                    QMC.Common.Log.Write("Main", UserSession.Name, "InputStageRunReview",
+                        "Review Cleanup Jog 정지 실패: " + ex.Message + " - Failed");
+                }
                 if (_inputStageRunReviewVisionTestDialog != null &&
                     !_inputStageRunReviewVisionTestDialog.IsDisposed)
                 {
-                    try { _inputStageRunReviewVisionTestDialog.RequestClose(); } catch { }
+                    try
+                    {
+                        await _inputStageRunReviewVisionTestDialog.RequestClose().ConfigureAwait(true);
+                    }
+                    catch (Exception ex)
+                    {
+                        QMC.Common.Log.Write("Main", UserSession.Name, "InputStageRunReview",
+                            "Review Cleanup Vision Test 종료 대기 실패: " + ex.Message + " - Failed");
+                    }
                 }
                 ClearInputStageRunReviewPendingOffset();
-                if (dialog != null)
-                {
-                    try { dialog.Dispose(); } catch { }
-                }
-                if (ReferenceEquals(_inputStageRunReviewDialog, dialog))
-                    _inputStageRunReviewDialog = null;
             }
+
+            if (dialog != null)
+            {
+                try
+                {
+                    if (!dialog.IsDisposed)
+                        dialog.Dispose();
+                }
+                catch { }
+            }
+
+            if (ReferenceEquals(_inputStageRunReviewDialog, dialog) &&
+                _inputStageRunReviewSessionGeneration == sessionGeneration)
+                _inputStageRunReviewDialog = null;
         }
 
         private void OnInputStageUserConfirmWaitEnded()
@@ -1635,6 +1718,10 @@ namespace QMC.CDT_320
             if (active)
                 return;
 
+            // 이전 세션의 늦은 비활성 알림이 새 Review 세션 창을 닫지 않도록 방어한다.
+            if (Controller != null && Controller.IsInputStageRunReviewManualActive)
+                return;
+
             InputStageRunReviewDialog dialog = _inputStageRunReviewDialog;
             StopInputStageRunReviewJogAsync(dialog, "Review Manual 종료로 Jog를 정지했습니다.");
             if (_inputStageRunReviewVisionTestDialog != null &&
@@ -1694,6 +1781,25 @@ namespace QMC.CDT_320
                         throw new InvalidOperationException("선택 Die 좌표 이동 실패. result=" + result);
                     return "선택 Die 좌표 이동을 완료했습니다. UID=" + (entry.DieUid ?? "");
                 }).ConfigureAwait(true);
+        }
+
+        /// <summary>
+        /// Review 화면 Encoder 표시용으로 MotionMonitor 캐시 스냅샷을 우선 사용하고,
+        /// 캐시가 없으면 축의 마지막 ActualPosition 값을 반환한다. 보드 I/O를 호출하지 않는다.
+        /// </summary>
+        private double ReadCachedAxisPosition(QMC.Common.Motion.BaseAxis axis)
+        {
+            if (axis == null)
+                return 0.0;
+            try
+            {
+                var snapshot = MotionMonitor != null ? MotionMonitor.GetLatest(axis) : null;
+                return snapshot != null ? snapshot.ActualPosition : axis.ActualPosition;
+            }
+            catch
+            {
+                return axis.ActualPosition;
+            }
         }
 
         private async System.Threading.Tasks.Task RunInputStageReviewOneShotAsync(
@@ -1773,6 +1879,48 @@ namespace QMC.CDT_320
                 if (axis == null)
                     throw new InvalidOperationException("Jog 대상 축이 없습니다. axis=" + args.Axis);
 
+                JogSpeedType speedType;
+                double customSpeed = 0.0;
+                if (string.Equals(args.Speed, "Coarse", StringComparison.OrdinalIgnoreCase))
+                {
+                    speedType = JogSpeedType.Coarse;
+                }
+                else if (string.Equals(args.Speed, "Medium", StringComparison.OrdinalIgnoreCase))
+                {
+                    speedType = JogSpeedType.Custom;
+                    customSpeed = axis.Config != null
+                        ? Math.Max(0.000001, axis.Config.JogCoarseVelocity * 0.5)
+                        : 0.5;
+                }
+                else
+                {
+                    speedType = JogSpeedType.Fine;
+                }
+
+                if (args.IsStepMode)
+                {
+                    // Step 모드: one-shot 이동 후 즉시 안전영역 scope를 반환한다.
+                    await RunInputStageReviewOneShotAsync(
+                        dialog,
+                        "Jog Step:" + args.Axis,
+                        async (stageUnit, token) =>
+                        {
+                            token.ThrowIfCancellationRequested();
+                            int stepResult = await stageUnit.JogStepAsync(
+                                axis,
+                                args.Direction,
+                                speedType,
+                                customSpeed,
+                                args.StepDistance).ConfigureAwait(false);
+                            if (stepResult != 0)
+                                throw new InvalidOperationException(
+                                    "Step Jog 실패. axis=" + args.Axis + ", result=" + stepResult);
+                            return args.Axis + " Step Jog(" +
+                                   args.StepDistance.ToString("0.###") + ") 완료.";
+                        }).ConfigureAwait(true);
+                    return;
+                }
+
                 dialog.SetBusy(true, args.Axis + " Jog 시작 중입니다. 버튼을 놓거나 STOP을 누르세요.");
                 _inputStageRunReviewJogStartPending = true;
                 scope = await Controller.BeginInputStageRunReviewWorkAsync(
@@ -1794,24 +1942,6 @@ namespace QMC.CDT_320
                 _inputStageRunReviewJogAxis = axis;
                 _inputStageRunReviewJogStartPending = false;
                 scope = null;
-
-                JogSpeedType speedType;
-                double customSpeed = 0.0;
-                if (string.Equals(args.Speed, "Coarse", StringComparison.OrdinalIgnoreCase))
-                {
-                    speedType = JogSpeedType.Coarse;
-                }
-                else if (string.Equals(args.Speed, "Medium", StringComparison.OrdinalIgnoreCase))
-                {
-                    speedType = JogSpeedType.Custom;
-                    customSpeed = axis.Config != null
-                        ? Math.Max(0.000001, axis.Config.JogCoarseVelocity * 0.5)
-                        : 0.5;
-                }
-                else
-                {
-                    speedType = JogSpeedType.Fine;
-                }
 
                 int result;
                 using (QMC.CDT320.Interlocks.MotionGuardRuntime.BeginManualSequenceProcessMove(
@@ -3170,6 +3300,24 @@ namespace QMC.CDT_320
             catch { }
             SaveMachineSettings();
             try { Controller?.SaveMachineRuntimeStateForApplicationClosing(); } catch { }
+            try
+            {
+                InputStageRunReviewDialog reviewDialog = _inputStageRunReviewDialog;
+                if (reviewDialog != null && !reviewDialog.IsDisposed)
+                {
+                    if (Machine != null && Machine.InputStageUnit != null)
+                    {
+                        try
+                        {
+                            Machine.InputStageUnit.FailUserConfirmFromUi(
+                                "애플리케이션 종료로 InputStage Review 대기를 종료했습니다.");
+                        }
+                        catch { }
+                    }
+                    reviewDialog.CloseFromSequence();
+                }
+            }
+            catch { }
             try { AlarmResponse?.Dispose(); } catch { }
             try { OpPanelMonitor?.Dispose(); } catch { }
             try { CollisionSupervisor?.Dispose(); } catch { }

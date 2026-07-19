@@ -321,32 +321,36 @@ namespace QMC.CDT320.Interlocks
                 double xDistance = Math.Abs(frontX.ActualPosition - rearX.ActualPosition);
                 double xClearance = ResolvePickerYFacingXClearance(machine);
 
-                // Home/Avoid 근처에서 양쪽 Servo가 동시에 켜지면 서로 밀지 못하므로 먼저 차단한다.
-                if (otherY.IsServoOn &&
-                    (frontNearHomeOrAvoid || rearNearHomeOrAvoid) &&
-                    xDistance <= xClearance + DefaultTolerance)
+                // 20260719 : GYN - 조건 다시잡아야함.
+                if(frontY.Config.IsSimulationMode == false || rearY.Config.IsSimulationMode == false)
                 {
-                    return MotionGuardRuleHelpers.Block(
-                        movingName,
-                        "Picker Y HOME 불가: PickerX가 대향 안전거리 안이고 PickerY 한 축 이상이 Home(0)/Avoid 근처인데 " +
-                        "반대 PickerY Servo가 ON입니다. 두 PickerY를 모두 Servo Off한 뒤 선택 축 하나만 Servo On하여 HOME하십시오. " +
-                        "frontX=" + frontX.ActualPosition.ToString("0.###", CultureInfo.InvariantCulture) +
-                        ", rearX=" + rearX.ActualPosition.ToString("0.###", CultureInfo.InvariantCulture) +
-                        ", xDistance=" + xDistance.ToString("0.###", CultureInfo.InvariantCulture) +
-                        ", clearance=" + xClearance.ToString("0.###", CultureInfo.InvariantCulture) +
-                        ", frontY=" + frontY.ActualPosition.ToString("0.###", CultureInfo.InvariantCulture) +
-                        ", rearY=" + rearY.ActualPosition.ToString("0.###", CultureInfo.InvariantCulture),
-                        out reason);
-                }
+                    // Home/Avoid 근처에서 양쪽 Servo가 동시에 켜지면 서로 밀지 못하므로 먼저 차단한다.
+                    if (otherY.IsServoOn &&
+                        (frontNearHomeOrAvoid || rearNearHomeOrAvoid) &&
+                        xDistance <= xClearance + DefaultTolerance)
+                    {
+                        return MotionGuardRuleHelpers.Block(
+                            movingName,
+                            "Picker Y HOME 불가: PickerX가 대향 안전거리 안이고 PickerY 한 축 이상이 Home(0)/Avoid 근처인데 " +
+                            "반대 PickerY Servo가 ON입니다. 두 PickerY를 모두 Servo Off한 뒤 선택 축 하나만 Servo On하여 HOME하십시오. " +
+                            "frontX=" + frontX.ActualPosition.ToString("0.###", CultureInfo.InvariantCulture) +
+                            ", rearX=" + rearX.ActualPosition.ToString("0.###", CultureInfo.InvariantCulture) +
+                            ", xDistance=" + xDistance.ToString("0.###", CultureInfo.InvariantCulture) +
+                            ", clearance=" + xClearance.ToString("0.###", CultureInfo.InvariantCulture) +
+                            ", frontY=" + frontY.ActualPosition.ToString("0.###", CultureInfo.InvariantCulture) +
+                            ", rearY=" + rearY.ActualPosition.ToString("0.###", CultureInfo.InvariantCulture),
+                            out reason);
+                    }
 
-                if (otherY.IsServoOn)
-                    return MotionGuardRuleHelpers.Block(
-                        movingName,
-                        "Picker Y HOME 불가: 반대 PickerY Servo가 ON입니다. 두 PickerY를 모두 Servo Off한 뒤 선택 축 하나만 Servo On하십시오. " +
-                        "otherAxis=" + otherY.Name +
-                        ", frontY=" + frontY.ActualPosition.ToString("0.###", CultureInfo.InvariantCulture) +
-                        ", rearY=" + rearY.ActualPosition.ToString("0.###", CultureInfo.InvariantCulture),
-                        out reason);
+                    if (otherY.IsServoOn)
+                        return MotionGuardRuleHelpers.Block(
+                            movingName,
+                            "Picker Y HOME 불가: 반대 PickerY Servo가 ON입니다. 두 PickerY를 모두 Servo Off한 뒤 선택 축 하나만 Servo On하십시오. " +
+                            "otherAxis=" + otherY.Name +
+                            ", frontY=" + frontY.ActualPosition.ToString("0.###", CultureInfo.InvariantCulture) +
+                            ", rearY=" + rearY.ActualPosition.ToString("0.###", CultureInfo.InvariantCulture),
+                            out reason);
+                }
 
                 if (!ownY.IsServoOn)
                     return MotionGuardRuleHelpers.Block(

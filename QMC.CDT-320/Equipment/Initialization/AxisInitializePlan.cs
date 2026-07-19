@@ -1065,7 +1065,9 @@ namespace QMC.CDT320.Initialization
                     PreActions = new List<AxisInitializeAction>(),
                     PostActions = new List<AxisInitializeAction>(),
                     RunMode = AxisInitializeRunMode.Serial,
-                    InterlockGroup = groupName,
+                    // Cylinder-only steps have no motion-axis group to stop. The common
+                    // AllAxesStopped interlock and the step-specific prerequisites remain active.
+                    InterlockGroup = "",
                     Interlocks = new List<AxisInitializeInterlockRule>(),
                     Enabled = enabled
                 };
@@ -1117,7 +1119,9 @@ namespace QMC.CDT320.Initialization
                     PreActions = new List<AxisInitializeAction>(),
                     PostActions = new List<AxisInitializeAction>(),
                     RunMode = AxisInitializeRunMode.Serial,
-                    InterlockGroup = groupName,
+                    // This action moves a real axis, so keep the stop target tied to that
+                    // registered axis instead of the display-only step group name.
+                    InterlockGroup = axisName,
                     Interlocks = new List<AxisInitializeInterlockRule>(),
                     Enabled = enabled
                 };
@@ -1171,7 +1175,9 @@ namespace QMC.CDT320.Initialization
                     PreActions = new List<AxisInitializeAction>(),
                     PostActions = new List<AxisInitializeAction>(),
                     RunMode = AxisInitializeRunMode.Serial,
-                    InterlockGroup = groupName,
+                    // Custom action-only steps do not imply a motion-axis stop group.
+                    // Any required axis group must be declared explicitly by the caller.
+                    InterlockGroup = "",
                     Interlocks = new List<AxisInitializeInterlockRule>(),
                     Enabled = enabled
                 };
