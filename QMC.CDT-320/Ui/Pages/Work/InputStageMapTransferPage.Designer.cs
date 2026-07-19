@@ -52,6 +52,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
         private TableLayoutPanel detachedButtonRow;
         private ActionButton btnManualAlignComplete;
         private ActionButton btnReloadActiveMap;
+        private ActionButton btnInputStageRunReview;
         private GroupBox grpAction;
         private TableLayoutPanel actionBar;
         private ActionButton btnThetaMatchMove;
@@ -111,6 +112,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.detachedButtonRow = new System.Windows.Forms.TableLayoutPanel();
             this.btnManualAlignComplete = new QMC.CDT_320.Ui.Controls.ActionButton();
             this.btnReloadActiveMap = new QMC.CDT_320.Ui.Controls.ActionButton();
+            this.btnInputStageRunReview = new QMC.CDT_320.Ui.Controls.ActionButton();
             this.grpAction = new System.Windows.Forms.GroupBox();
             this.actionBar = new System.Windows.Forms.TableLayoutPanel();
             this.btnThetaMatchMove = new QMC.CDT_320.Ui.Controls.ActionButton();
@@ -566,6 +568,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.dieStateArea.ColumnCount = 1;
             this.dieStateArea.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.dieStateArea.Controls.Add(this.grpDieState, 0, 0);
+            this.dieStateArea.Controls.Add(this.btnInputStageRunReview, 0, 1);
             this.dieStateArea.Controls.Add(this.detachedButtonRow, 0, 2);
             this.dieStateArea.Dock = System.Windows.Forms.DockStyle.Fill;
             this.dieStateArea.Margin = new System.Windows.Forms.Padding(2, 0, 0, 0);
@@ -666,6 +669,18 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.btnApplyDieState.Name = "btnApplyDieState";
             this.btnApplyDieState.Text = "APPLY SELECTED DIE";
             this.btnApplyDieState.UseVisualStyleBackColor = false;
+            //
+            // btnInputStageRunReview
+            //
+            this.btnInputStageRunReview.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(52)))), ((int)(((byte)(123)))), ((int)(((byte)(184)))));
+            this.btnInputStageRunReview.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.btnInputStageRunReview.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.btnInputStageRunReview.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
+            this.btnInputStageRunReview.ForeColor = System.Drawing.Color.White;
+            this.btnInputStageRunReview.Margin = new System.Windows.Forms.Padding(3, 5, 3, 5);
+            this.btnInputStageRunReview.Name = "btnInputStageRunReview";
+            this.btnInputStageRunReview.TabIndex = 4;
+            this.btnInputStageRunReview.Text = "WAFER ALIGN / DIE MAP REVIEW";
             //
             // detachedButtonRow
             //
@@ -1014,6 +1029,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.gridDieList.CellDoubleClick += new System.Windows.Forms.DataGridViewCellEventHandler(this.gridDieList_CellDoubleClick);
             this.gridDieList.CellMouseDown += new System.Windows.Forms.DataGridViewCellMouseEventHandler(this.OnGridDieListCellMouseDown);
             this.btnReloadActiveMap.Click += new System.EventHandler(this.btnReloadActiveMap_Click);
+            this.btnInputStageRunReview.Click += new System.EventHandler(this.btnInputStageRunReview_Click);
             this.btnPickStatusSave.Click += new System.EventHandler(this.btnPickStatusSave_Click);
             this.btnApplyDieState.Click += new System.EventHandler(this.btnApplyDieState_Click);
             this.btnManualAlignComplete.Click += new System.EventHandler(this.btnManualAlignComplete_Click);

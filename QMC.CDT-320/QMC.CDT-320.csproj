@@ -851,6 +851,12 @@
     <Compile Include="Ui\Dialogs\InputStageDieMapSetupDialog.Designer.cs">
       <DependentUpon>InputStageDieMapSetupDialog.cs</DependentUpon>
     </Compile>
+    <Compile Include="Ui\Dialogs\InputStageRunReviewDialog.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Ui\Dialogs\InputStageRunReviewDialog.Designer.cs">
+      <DependentUpon>InputStageRunReviewDialog.cs</DependentUpon>
+    </Compile>
     <Compile Include="Ui\Dialogs\LoginDialog.cs">
       <SubType>Form</SubType>
     </Compile>
