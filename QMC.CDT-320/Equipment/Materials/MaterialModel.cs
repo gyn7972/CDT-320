@@ -488,6 +488,12 @@ namespace QMC.CDT320.Materials
         [DataMember] public bool HasInputStageRunReviewApproval { get; set; }
         /// <summary>사용자 확인 시 선택된 시작 Die index. 0이면 현재 Mapping/Recipe 순서를 그대로 사용한다.</summary>
         [DataMember] public int InputStageRunReviewStartDieIndex { get; set; }
+        /// <summary>사용자 확인 시 선택된 시작 Die UID.</summary>
+        [DataMember] public string InputStageRunReviewStartDieUid { get; set; } = "";
+        /// <summary>사용자 확인에서 확정한 실제 Input PickUp 순서.</summary>
+        [DataMember] public List<string> InputStageRunReviewOrderedDieIds { get; set; } = new List<string>();
+        /// <summary>사용자 확인 시점의 Die Mapping revision/frame ID.</summary>
+        [DataMember] public string InputStageRunReviewMappingRevision { get; set; } = "";
         [DataMember] public string OutputReceiveSourceWaferId { get; set; } = "";
         [DataMember] public int OutputReceiveDieMapX { get; set; }
         [DataMember] public int OutputReceiveDieMapY { get; set; }
@@ -525,6 +531,9 @@ namespace QMC.CDT320.Materials
             InputStageDieMappingInvalidatedByAlignChange = false;
             HasInputStageRunReviewApproval = false;
             InputStageRunReviewStartDieIndex = 0;
+            InputStageRunReviewStartDieUid = "";
+            InputStageRunReviewOrderedDieIds = new List<string>();
+            InputStageRunReviewMappingRevision = "";
         }
     }
 

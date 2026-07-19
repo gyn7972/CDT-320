@@ -603,10 +603,13 @@ namespace QMC.CDT_320.Ui.Tabs
             bool readyRunning = controller != null && controller.IsReadySequenceRunning;
             bool autoRunning = status == EquipmentStatus.AutoRunning;
             bool manualRunning = status == EquipmentStatus.ManualRunning;
+            bool reviewManual = controller != null && controller.IsInputStageRunReviewManualActive;
+            bool sequenceRunning = controller != null && controller.IsSequenceRunning;
 
-            SetCommandButtonEnabled(BtnInit, !autoRunning);
-            SetCommandButtonEnabled(BtnReady, !autoRunning);
-            SetCommandButtonEnabled(BtnCycleRun, !autoRunning);
+            SetCommandButtonEnabled(BtnInit, !autoRunning && !reviewManual && !sequenceRunning);
+            SetCommandButtonEnabled(BtnReady, !autoRunning && !reviewManual && !sequenceRunning);
+            SetCommandButtonEnabled(BtnStart, !reviewManual && !sequenceRunning);
+            SetCommandButtonEnabled(BtnCycleRun, !autoRunning && !reviewManual && !sequenceRunning);
 
             ClearCommandButtonState(BtnReady);
             ClearCommandButtonState(BtnStart);

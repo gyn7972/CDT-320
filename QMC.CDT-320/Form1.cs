@@ -9,6 +9,7 @@ using QMC.Common.IO;
 using QMC.Common.Motion;
 using QMC.CDT320;
 using QMC.CDT320.Ajin;
+using QMC.CDT320.DieMaps;
 using QMC.CDT320.Materials;
 using QMC.CDT_320.Ui;
 using QMC.CDT_320.Ui.Localization;
@@ -487,6 +488,22 @@ namespace QMC.CDT_320
         private AxisJogPopup _jogPopup;
         private AxisPositionPopup _axisPositionPopup;
         private InputStageRunReviewDialog _inputStageRunReviewDialog;
+        private IDisposable _inputStageRunReviewJogScope;
+        private BaseAxis _inputStageRunReviewJogAxis;
+        private bool _inputStageRunReviewJogStartPending;
+        private bool _inputStageRunReviewOffsetPending;
+        private double _inputStageRunReviewPendingOffsetX;
+        private double _inputStageRunReviewPendingOffsetY;
+        private string _inputStageRunReviewPendingOffsetWaferId = string.Empty;
+        private string _inputStageRunReviewPendingOffsetMappingRevision = string.Empty;
+        private string _inputStageRunReviewPendingOffsetDieUid = string.Empty;
+        private int _inputStageRunReviewPendingOffsetDieMapX;
+        private int _inputStageRunReviewPendingOffsetDieMapY;
+        private double _inputStageRunReviewPendingOffsetReferenceX;
+        private double _inputStageRunReviewPendingOffsetReferenceY;
+        private string _inputStageRunReviewPendingOffsetDraftSignature = string.Empty;
+        private WaferVisionTestDialog _inputStageRunReviewVisionTestDialog;
+        private IDisposable _inputStageRunReviewVisionTestScope;
 
         private MainTab _currentTab = MainTab.Work;
         private bool _mainTabShown;
@@ -753,10 +770,12 @@ namespace QMC.CDT_320
             }
             Controller.StatusChanged += OnEquipmentStatusChanged;
             Controller.OperatorMessageRequested += OnOperatorMessageRequested;
+            Controller.InputStageRunReviewManualStateChanged += OnInputStageRunReviewManualStateChanged;
             if (Machine != null && Machine.InputStageUnit != null)
             {
                 Machine.InputStageUnit.UserConfirmRequested += OnInputStageUserConfirmRequested;
                 Machine.InputStageUnit.UserConfirmWaitEnded += OnInputStageUserConfirmWaitEnded;
+                Machine.InputStageUnit.UserConfirmProcessingFailed += OnInputStageUserConfirmProcessingFailed;
             }
             Controller.LogMessage    += s =>
             {
@@ -1402,6 +1421,7 @@ namespace QMC.CDT_320
 
                 dialog = new InputStageRunReviewDialog();
                 _inputStageRunReviewDialog = dialog;
+                ClearInputStageRunReviewPendingOffset();
                 dialog.SetMode(InputStageRunReviewMode.MappingReview);
                 dialog.SetPickupOptions(pickup);
                 dialog.SetDieMap(stageMap);
@@ -1427,16 +1447,69 @@ namespace QMC.CDT_320
 
                 dialog.StartRunRequested += delegate
                 {
-                    int startDieIndex = dialog.StartDie != null ? Math.Max(0, dialog.StartDie.Index) : 0;
-                    stage.ConfirmFromUi(new UserConfirmResult
+                    if (Controller == null || !Controller.IsInputStageRunReviewManualActive)
                     {
-                        IsConfirmed = true,
-                        StartDieIndex = startDieIndex
-                    });
+                        dialog.RestoreAfterDecisionFailure("활성 InputStage Review Manual 세션이 없습니다.");
+                        return;
+                    }
+                    if (Controller.IsInputStageRunReviewActionBusy)
+                    {
+                        dialog.RestoreAfterDecisionFailure("수동 동작 또는 Jog가 진행 중입니다. STOP 후 다시 확인하세요.");
+                        return;
+                    }
+                    stage.ConfirmFromUi(BuildInputStageRunReviewResult(
+                        dialog,
+                        InputStageRunReviewDecision.ConfirmAndContinue));
                 };
                 dialog.AbortAutoRequested += delegate
                 {
-                    stage.ConfirmFromUi(new UserConfirmResult { IsConfirmed = false });
+                    stage.ConfirmFromUi(BuildInputStageRunReviewResult(
+                        dialog,
+                        InputStageRunReviewDecision.RetryAlign));
+                };
+                dialog.AlignRetryRequested += delegate
+                {
+                    stage.ConfirmFromUi(BuildInputStageRunReviewResult(
+                        dialog,
+                        InputStageRunReviewDecision.RetryAlign));
+                };
+                dialog.MappingRetryRequested += delegate
+                {
+                    stage.ConfirmFromUi(BuildInputStageRunReviewResult(
+                        dialog,
+                        InputStageRunReviewDecision.RetryMapping));
+                };
+                dialog.SelectedDieMoveRequested += delegate
+                {
+                    RunInputStageReviewMoveSelectedDieAsync(dialog);
+                };
+                dialog.JogRequested += delegate(object sender, InputStageReviewJogEventArgs args)
+                {
+                    StartInputStageRunReviewJogAsync(dialog, args);
+                };
+                dialog.JogStopRequested += delegate
+                {
+                    StopInputStageRunReviewJogAsync(dialog, "Review Jog STOP");
+                };
+                dialog.ReviewActionStopRequested += delegate
+                {
+                    StopInputStageRunReviewActionAsync(dialog, "Review 수동 동작 STOP");
+                };
+                dialog.ThetaCorrectionRequested += delegate
+                {
+                    RunInputStageReviewThetaCorrectionAsync(dialog);
+                };
+                dialog.DieDetectionRequested += delegate
+                {
+                    RunInputStageReviewDieDetectionAsync(dialog);
+                };
+                dialog.OffsetApplyRequested += delegate
+                {
+                    ApplyInputStageRunReviewPendingOffset(dialog);
+                };
+                dialog.VisionTestRequested += delegate
+                {
+                    OpenInputStageRunReviewVisionTest(dialog);
                 };
                 dialog.BuzzerStopRequested += delegate
                 {
@@ -1457,6 +1530,13 @@ namespace QMC.CDT_320
             finally
             {
                 EndRunReviewBuzzer();
+                StopInputStageRunReviewJogAsync(dialog, "Review Dialog 종료로 Jog를 정지했습니다.");
+                if (_inputStageRunReviewVisionTestDialog != null &&
+                    !_inputStageRunReviewVisionTestDialog.IsDisposed)
+                {
+                    try { _inputStageRunReviewVisionTestDialog.RequestClose(); } catch { }
+                }
+                ClearInputStageRunReviewPendingOffset();
                 if (dialog != null)
                 {
                     try { dialog.Dispose(); } catch { }
@@ -1475,8 +1555,903 @@ namespace QMC.CDT_320
             }
 
             InputStageRunReviewDialog dialog = _inputStageRunReviewDialog;
+            if (dialog != null && !dialog.IsDisposed &&
+                (Controller == null || !Controller.IsInputStageRunReviewManualActive))
+            {
+                // Vision Test owned form이 종료를 취소하는 동안 부모를 먼저 닫지 않는다.
+                // ManualStateChanged 경로가 Vision 요청 종료를 await한 뒤 Review 창을 닫는다.
+                if (_inputStageRunReviewVisionTestDialog != null &&
+                    !_inputStageRunReviewVisionTestDialog.IsDisposed)
+                    return;
+                dialog.CloseFromSequence();
+            }
+        }
+
+        private UserConfirmResult BuildInputStageRunReviewResult(
+            InputStageRunReviewDialog dialog,
+            InputStageRunReviewDecision decision)
+        {
+            var result = new UserConfirmResult
+            {
+                IsConfirmed = decision == InputStageRunReviewDecision.ConfirmAndContinue,
+                Decision = decision,
+                WaferId = dialog != null ? dialog.WaferId : string.Empty,
+                MappingRevision = dialog != null ? dialog.MappingRevision : string.Empty,
+                StartDieUid = dialog != null ? dialog.StartDieUid : string.Empty,
+                StartDieIndex = dialog != null ? dialog.StartDieIndex : 0
+            };
+
+            if (dialog != null)
+            {
+                result.OrderedDieIds = dialog.OrderedDieIds.ToList();
+                QMC.CDT320.DieMaps.DieMap draft = dialog.DraftDieMap;
+                if (draft != null && draft.Entries != null)
+                {
+                    result.DieStates = draft.Entries
+                        .Where(entry => entry != null && !string.IsNullOrWhiteSpace(entry.DieUid))
+                        .Select(entry => new InputStageRunReviewDieState
+                        {
+                            DieId = entry.DieUid,
+                            IsTarget = entry.IsTarget,
+                            Result = entry.Result,
+                            BinCode = entry.BinCode,
+                            HasPosition = !double.IsNaN(entry.PosX) && !double.IsInfinity(entry.PosX) &&
+                                          !double.IsNaN(entry.PosY) && !double.IsInfinity(entry.PosY),
+                            PositionX = entry.PosX,
+                            PositionY = entry.PosY
+                        })
+                        .ToList();
+                    result.HasMapOrigin = !double.IsNaN(draft.OriginX) && !double.IsInfinity(draft.OriginX) &&
+                                          !double.IsNaN(draft.OriginY) && !double.IsInfinity(draft.OriginY);
+                    result.MapOriginX = draft.OriginX;
+                    result.MapOriginY = draft.OriginY;
+                }
+            }
+
+            return result;
+        }
+
+        private void OnInputStageUserConfirmProcessingFailed(string message)
+        {
+            if (InvokeRequired)
+            {
+                BeginInvoke(new Action<string>(OnInputStageUserConfirmProcessingFailed), message);
+                return;
+            }
+
+            InputStageRunReviewDialog dialog = _inputStageRunReviewDialog;
+            if (dialog != null && !dialog.IsDisposed)
+                dialog.RestoreAfterDecisionFailure(message);
+        }
+
+        private async void OnInputStageRunReviewManualStateChanged(bool active, string waferId)
+        {
+            if (InvokeRequired)
+            {
+                BeginInvoke(new Action<bool, string>(OnInputStageRunReviewManualStateChanged), active, waferId);
+                return;
+            }
+
+            if (active)
+                return;
+
+            InputStageRunReviewDialog dialog = _inputStageRunReviewDialog;
+            StopInputStageRunReviewJogAsync(dialog, "Review Manual 종료로 Jog를 정지했습니다.");
+            if (_inputStageRunReviewVisionTestDialog != null &&
+                !_inputStageRunReviewVisionTestDialog.IsDisposed)
+            {
+                try
+                {
+                    await _inputStageRunReviewVisionTestDialog.RequestClose().ConfigureAwait(true);
+                }
+                catch (Exception ex)
+                {
+                    QMC.Common.Log.Write("Main", UserSession.Name, "InputStageRunReviewVisionTest",
+                        "Review Manual 종료 시 Vision Test 화면 종료 대기 실패: " + ex.Message + " - Failed");
+                }
+            }
+            ClearInputStageRunReviewPendingOffset();
             if (dialog != null && !dialog.IsDisposed)
                 dialog.CloseFromSequence();
+        }
+
+        private async void RunInputStageReviewMoveSelectedDieAsync(InputStageRunReviewDialog dialog)
+        {
+            DieMapEntry entry = dialog != null ? dialog.SelectedDie : null;
+            if (entry == null)
+            {
+                if (dialog != null)
+                    dialog.SetBusy(false, "이동할 Die를 먼저 선택하세요.");
+                return;
+            }
+
+            DialogResult confirm = QMC.Common.MessageDialog.Show(
+                dialog,
+                "선택 Die의 Mapping 절대좌표로 이동하시겠습니까?\r\n" +
+                "UID=" + (entry.DieUid ?? "") + "\r\n" +
+                "X=" + entry.PosX.ToString("F6") + " mm, Y=" + entry.PosY.ToString("F6") + " mm",
+                "InputStage Review",
+                MessageBoxButtons.YesNo,
+                MessageBoxIcon.Question);
+            if (confirm != DialogResult.Yes)
+                return;
+
+            ClearInputStageRunReviewPendingOffset();
+
+            await RunInputStageReviewOneShotAsync(
+                dialog,
+                "Move Selected Die",
+                async (stage, token) =>
+                {
+                    token.ThrowIfCancellationRequested();
+                    int result = await stage.MoveVisionPointSafelyAsync(
+                        entry.PosX,
+                        entry.PosY,
+                        JogSpeedType.Fine,
+                        0.0,
+                        "InputStageRunReview.MoveSelectedDie").ConfigureAwait(false);
+                    if (result != 0)
+                        throw new InvalidOperationException("선택 Die 좌표 이동 실패. result=" + result);
+                    return "선택 Die 좌표 이동을 완료했습니다. UID=" + (entry.DieUid ?? "");
+                }).ConfigureAwait(true);
+        }
+
+        private async System.Threading.Tasks.Task RunInputStageReviewOneShotAsync(
+            InputStageRunReviewDialog dialog,
+            string actionName,
+            Func<InputStageUnit, System.Threading.CancellationToken, System.Threading.Tasks.Task<string>> action)
+        {
+            IDisposable workScope = null;
+            string finalStatus = string.Empty;
+            try
+            {
+                if (dialog == null || dialog.IsDisposed || Controller == null ||
+                    !Controller.IsInputStageRunReviewManualActive)
+                    throw new InvalidOperationException("활성 InputStage Review Manual 세션이 없습니다.");
+                if (Machine == null || Machine.InputStageUnit == null)
+                    throw new InvalidOperationException("InputStage Unit이 없습니다.");
+
+                dialog.SetBusy(true, actionName + " 동작 중입니다. STOP으로 취소할 수 있습니다.");
+                workScope = await Controller.BeginInputStageRunReviewWorkAsync(
+                    ManualMotionScopeKind.ProcessSequence,
+                    actionName,
+                    System.Threading.CancellationToken.None).ConfigureAwait(true);
+                using (QMC.CDT320.Interlocks.MotionGuardRuntime.BeginManualSequenceProcessMove(
+                    "InputStageRunReview." + actionName))
+                {
+                    finalStatus = await action(
+                        Machine.InputStageUnit,
+                        Controller.InputStageRunReviewActionToken).ConfigureAwait(true);
+                }
+                dialog.SetAxisPositions(
+                    Machine.InputStageUnit.CameraX != null ? Machine.InputStageUnit.CameraX.ActualPosition : 0.0,
+                    Machine.InputStageUnit.StageY != null ? Machine.InputStageUnit.StageY.ActualPosition : 0.0,
+                    Machine.InputStageUnit.StageT != null ? Machine.InputStageUnit.StageT.ActualPosition : 0.0);
+            }
+            catch (OperationCanceledException)
+            {
+                finalStatus = actionName + " 동작이 STOP/취소되었습니다.";
+            }
+            catch (Exception ex)
+            {
+                finalStatus = actionName + " 실패: " + ex.Message;
+                QMC.Common.Log.Write("Main", UserSession.Name, "InputStageRunReviewAction",
+                    finalStatus + " - Failed");
+            }
+            finally
+            {
+                if (workScope != null)
+                    workScope.Dispose();
+                if (dialog != null && !dialog.IsDisposed)
+                    dialog.SetBusy(false, finalStatus);
+            }
+        }
+
+        private async void StartInputStageRunReviewJogAsync(
+            InputStageRunReviewDialog dialog,
+            InputStageReviewJogEventArgs args)
+        {
+            IDisposable scope = null;
+            try
+            {
+                if (dialog == null || args == null || Controller == null ||
+                    !Controller.IsInputStageRunReviewManualActive || Machine == null || Machine.InputStageUnit == null)
+                    return;
+
+                if (_inputStageRunReviewJogScope != null || Controller.IsInputStageRunReviewActionBusy)
+                {
+                    dialog.SetBusy(false, "다른 Review 동작이 진행 중입니다. STOP 후 다시 시도하세요.");
+                    return;
+                }
+
+                InputStageUnit stage = Machine.InputStageUnit;
+                BaseAxis axis = args.Axis == InputStageReviewJogAxis.VisionX
+                    ? stage.CameraX
+                    : args.Axis == InputStageReviewJogAxis.WaferY
+                        ? stage.StageY
+                        : stage.StageT;
+                if (axis == null)
+                    throw new InvalidOperationException("Jog 대상 축이 없습니다. axis=" + args.Axis);
+
+                dialog.SetBusy(true, args.Axis + " Jog 시작 중입니다. 버튼을 놓거나 STOP을 누르세요.");
+                _inputStageRunReviewJogStartPending = true;
+                scope = await Controller.BeginInputStageRunReviewWorkAsync(
+                    ManualMotionScopeKind.ProcessSequence,
+                    "Jog:" + args.Axis,
+                    System.Threading.CancellationToken.None).ConfigureAwait(true);
+
+                System.Threading.CancellationToken actionToken = Controller.InputStageRunReviewActionToken;
+                if (!_inputStageRunReviewJogStartPending ||
+                    actionToken.IsCancellationRequested ||
+                    !Controller.IsInputStageRunReviewManualActive)
+                {
+                    throw new OperationCanceledException(
+                        "Jog 안전영역 대기 중 STOP/MouseUp 또는 Review 종료가 요청되었습니다.",
+                        actionToken);
+                }
+
+                _inputStageRunReviewJogScope = scope;
+                _inputStageRunReviewJogAxis = axis;
+                _inputStageRunReviewJogStartPending = false;
+                scope = null;
+
+                JogSpeedType speedType;
+                double customSpeed = 0.0;
+                if (string.Equals(args.Speed, "Coarse", StringComparison.OrdinalIgnoreCase))
+                {
+                    speedType = JogSpeedType.Coarse;
+                }
+                else if (string.Equals(args.Speed, "Medium", StringComparison.OrdinalIgnoreCase))
+                {
+                    speedType = JogSpeedType.Custom;
+                    customSpeed = axis.Config != null
+                        ? Math.Max(0.000001, axis.Config.JogCoarseVelocity * 0.5)
+                        : 0.5;
+                }
+                else
+                {
+                    speedType = JogSpeedType.Fine;
+                }
+
+                int result;
+                using (QMC.CDT320.Interlocks.MotionGuardRuntime.BeginManualSequenceProcessMove(
+                    "InputStageRunReview.Jog:" + args.Axis))
+                {
+                    result = await stage.JogContinuousAsync(
+                        axis,
+                        args.Direction,
+                        speedType,
+                        customSpeed).ConfigureAwait(true);
+                }
+                if (result != 0)
+                    throw new InvalidOperationException("Jog 명령 실패. axis=" + args.Axis + ", result=" + result);
+
+                dialog.SetBusy(true, args.Axis + " Jog 중입니다. 버튼을 놓거나 STOP을 누르세요.");
+            }
+            catch (OperationCanceledException)
+            {
+                _inputStageRunReviewJogStartPending = false;
+                if (scope != null)
+                {
+                    scope.Dispose();
+                    scope = null;
+                }
+                await StopInputStageRunReviewJogCoreAsync().ConfigureAwait(true);
+                if (dialog != null && !dialog.IsDisposed)
+                    dialog.SetBusy(false, "Jog 시작이 취소되었습니다.");
+            }
+            catch (Exception ex)
+            {
+                _inputStageRunReviewJogStartPending = false;
+                if (scope != null)
+                    scope.Dispose();
+                await StopInputStageRunReviewJogCoreAsync().ConfigureAwait(true);
+                if (dialog != null && !dialog.IsDisposed)
+                    dialog.SetBusy(false, "Jog 실패: " + ex.Message);
+            }
+        }
+
+        private async void StopInputStageRunReviewJogAsync(
+            InputStageRunReviewDialog dialog,
+            string reason)
+        {
+            try
+            {
+                bool hasJog = _inputStageRunReviewJogStartPending ||
+                              _inputStageRunReviewJogScope != null ||
+                              _inputStageRunReviewJogAxis != null;
+                if (!hasJog)
+                    return;
+
+                if (Controller != null)
+                    Controller.CancelInputStageRunReviewAction();
+                await StopInputStageRunReviewJogCoreAsync().ConfigureAwait(true);
+                if (dialog != null && !dialog.IsDisposed)
+                {
+                    InputStageUnit stage = Machine != null ? Machine.InputStageUnit : null;
+                    if (stage != null)
+                    {
+                        dialog.SetAxisPositions(
+                            stage.CameraX != null ? stage.CameraX.ActualPosition : 0.0,
+                            stage.StageY != null ? stage.StageY.ActualPosition : 0.0,
+                            stage.StageT != null ? stage.StageT.ActualPosition : 0.0);
+                    }
+                    dialog.SetBusy(false, string.IsNullOrWhiteSpace(reason) ? "Jog를 정지했습니다." : reason);
+                }
+            }
+            catch (Exception ex)
+            {
+                if (dialog != null && !dialog.IsDisposed)
+                    dialog.SetBusy(false, "Jog 정지 실패: " + ex.Message);
+            }
+        }
+
+        private async System.Threading.Tasks.Task StopInputStageRunReviewJogCoreAsync()
+        {
+            BaseAxis axis = _inputStageRunReviewJogAxis;
+            IDisposable scope = _inputStageRunReviewJogScope;
+            bool startPending = _inputStageRunReviewJogStartPending;
+            _inputStageRunReviewJogAxis = null;
+            _inputStageRunReviewJogScope = null;
+            _inputStageRunReviewJogStartPending = false;
+
+            try
+            {
+                InputStageUnit stage = Machine != null ? Machine.InputStageUnit : null;
+                if (stage != null)
+                {
+                    if (axis != null)
+                        await stage.StopJogAsync(axis).ConfigureAwait(true);
+                    else if (startPending)
+                    {
+                        if (stage.CameraX != null) await stage.StopJogAsync(stage.CameraX).ConfigureAwait(true);
+                        if (stage.StageY != null) await stage.StopJogAsync(stage.StageY).ConfigureAwait(true);
+                        if (stage.StageT != null) await stage.StopJogAsync(stage.StageT).ConfigureAwait(true);
+                    }
+                }
+            }
+            finally
+            {
+                if (scope != null)
+                    scope.Dispose();
+            }
+        }
+
+        private async void StopInputStageRunReviewActionAsync(
+            InputStageRunReviewDialog dialog,
+            string reason)
+        {
+            try
+            {
+                if (Controller != null)
+                    Controller.CancelInputStageRunReviewAction();
+
+                if (_inputStageRunReviewVisionTestDialog != null &&
+                    !_inputStageRunReviewVisionTestDialog.IsDisposed)
+                {
+                    await _inputStageRunReviewVisionTestDialog.RequestClose().ConfigureAwait(true);
+                }
+
+                await StopInputStageRunReviewJogCoreAsync().ConfigureAwait(true);
+                if (dialog != null && !dialog.IsDisposed)
+                {
+                    bool busy = Controller != null && Controller.IsInputStageRunReviewActionBusy;
+                    dialog.SetBusy(busy, string.IsNullOrWhiteSpace(reason)
+                        ? "Review 수동 동작 정지를 요청했습니다."
+                        : reason);
+                }
+            }
+            catch (Exception ex)
+            {
+                if (dialog != null && !dialog.IsDisposed)
+                    dialog.SetBusy(false, "Review 수동 동작 정지 실패: " + ex.Message);
+            }
+        }
+
+        private async void RunInputStageReviewThetaCorrectionAsync(InputStageRunReviewDialog dialog)
+        {
+            InputStageUnit stage = Machine != null ? Machine.InputStageUnit : null;
+            WaferMaterial wafer = MaterialStateService.GetWaferAtLocation(MaterialLocationKind.InputStage);
+            if (stage == null || stage.StageT == null || wafer == null)
+            {
+                if (dialog != null)
+                    dialog.SetBusy(false, "StageT 또는 InputStage Wafer 정보가 없습니다.");
+                return;
+            }
+
+            double referenceT = stage.ResolveWaferAlignReferenceT();
+            double correctedT = stage.StageT.ActualPosition;
+            double offsetT = correctedT - referenceT;
+            string limitReason = string.Empty;
+            if (Math.Abs(offsetT) <= 0.000001 ||
+                !stage.IsWaferAlignThetaOffsetWithinLimit(offsetT, out limitReason))
+            {
+                dialog.SetBusy(false,
+                    Math.Abs(offsetT) <= 0.000001
+                        ? "T 보정 Offset이 0이라 저장할 수 없습니다."
+                        : limitReason);
+                return;
+            }
+
+            DialogResult confirm = QMC.Common.MessageDialog.Show(
+                dialog,
+                "현재 StageT 위치를 T 보정값으로 저장하시겠습니까?\r\n" +
+                "Reference=" + referenceT.ToString("F6") + "\r\n" +
+                "Current=" + correctedT.ToString("F6") + "\r\n" +
+                "Offset=" + offsetT.ToString("F6") +
+                "\r\n저장 후 Die Mapping 재실행이 필요합니다.",
+                "InputStage Review",
+                MessageBoxButtons.YesNo,
+                MessageBoxIcon.Question);
+            if (confirm != DialogResult.Yes)
+                return;
+
+            ClearInputStageRunReviewPendingOffset();
+
+            await RunInputStageReviewOneShotAsync(
+                dialog,
+                "T Correction",
+                (inputStage, token) =>
+                {
+                    token.ThrowIfCancellationRequested();
+                    wafer.CurrentLocation = new MaterialLocation { Kind = MaterialLocationKind.InputStage };
+                    inputStage.SetCurrentWaferMaterial(wafer);
+                    inputStage.ApplyWaferAlignThetaResult(referenceT, correctedT, offsetT);
+                    MaterialStateService.SaveInputStageThetaAlignResult(
+                        wafer,
+                        referenceT,
+                        correctedT,
+                        offsetT);
+                    return System.Threading.Tasks.Task.FromResult(
+                        "T 보정값을 저장했습니다. Die Mapping을 다시 실행하세요. Offset=" + offsetT.ToString("F6"));
+                }).ConfigureAwait(true);
+
+            if (dialog != null && !dialog.IsDisposed && !wafer.HasInputStageDieMappingResult)
+            {
+                dialog.SetWorkflowState(
+                    wafer.WaferId,
+                    ActiveRecipeName,
+                    QMC.CDT320.VisionComm.VisionHub.Wafer != null &&
+                    QMC.CDT320.VisionComm.VisionHub.Wafer.IsConnected,
+                    wafer.HasInputStageAlignResult && wafer.HasInputStageThetaAlignResult,
+                    wafer.DieMapFrameObjId,
+                    false,
+                    "MAPPING REQUIRED");
+                dialog.SetReviewValid(false, "MAPPING REQUIRED");
+            }
+        }
+
+        private async void RunInputStageReviewDieDetectionAsync(InputStageRunReviewDialog dialog)
+        {
+            DieMapEntry entry = dialog != null ? dialog.SelectedDie : null;
+            InputStageUnit stage = Machine != null ? Machine.InputStageUnit : null;
+            WaferMaterial wafer = MaterialStateService.GetWaferAtLocation(MaterialLocationKind.InputStage);
+            if (entry == null || stage == null || wafer == null)
+            {
+                if (dialog != null)
+                    dialog.SetBusy(false, "다이 검출 기준 Die/Stage/Wafer 정보가 없습니다.");
+                return;
+            }
+
+            string thetaReason;
+            if (!MaterialStateService.IsInputStageThetaAlignComplete(wafer, out thetaReason))
+            {
+                dialog.SetBusy(false, thetaReason);
+                return;
+            }
+
+            DialogResult confirm = QMC.Common.MessageDialog.Show(
+                dialog,
+                "현재 Vision 화면에서 선택 Die 중심을 검출하시겠습니까?\r\n" +
+                "UID=" + (entry.DieUid ?? "") + "\r\n" +
+                "기준 X=" + entry.PosX.ToString("F6") + ", Y=" + entry.PosY.ToString("F6"),
+                "InputStage Review",
+                MessageBoxButtons.YesNo,
+                MessageBoxIcon.Question);
+            if (confirm != DialogResult.Yes)
+                return;
+
+            ClearInputStageRunReviewPendingOffset();
+            string detectedWaferId = dialog.WaferId;
+            string detectedMappingRevision = dialog.MappingRevision;
+            string detectedDieUid = entry.DieUid ?? string.Empty;
+            int detectedDieMapX = entry.DieMapX;
+            int detectedDieMapY = entry.DieMapY;
+            double detectedReferenceX = entry.PosX;
+            double detectedReferenceY = entry.PosY;
+            string detectedDraftSignature = BuildInputStageRunReviewDraftSignature(dialog);
+            double detectedOffsetX = 0.0;
+            double detectedOffsetY = 0.0;
+            bool detectionSucceeded = false;
+
+            await RunInputStageReviewOneShotAsync(
+                dialog,
+                "Die Detection",
+                async (inputStage, token) =>
+                {
+                    token.ThrowIfCancellationRequested();
+                    inputStage.ApplyWaferAlignThetaResult(
+                        wafer.InputStageAlignReferenceT,
+                        wafer.InputStageAlignCorrectedT,
+                        wafer.InputStageAlignOffsetT);
+
+                    if (inputStage.EjectPinZ != null && inputStage.Recipe != null && inputStage.Recipe.EjectPinZ != null)
+                    {
+                        int ejectResult = await inputStage.MoveInputStageAxis(
+                            WaferStageAxis.EjectPinZ,
+                            inputStage.Recipe.EjectPinZ.AvoidPosition,
+                            JogSpeedType.Fine,
+                            0.0).ConfigureAwait(false);
+                        if (ejectResult != 0)
+                            throw new InvalidOperationException("Die 검출 전 EjectPinZ Avoid 이동 실패. result=" + ejectResult);
+                    }
+
+                    double targetT;
+                    if (inputStage.TryResolveWaferAlignThetaTarget(out targetT))
+                    {
+                        int thetaResult = await inputStage.MoveInputStageAxis(
+                            WaferStageAxis.WaferT,
+                            targetT,
+                            JogSpeedType.Fine,
+                            0.0).ConfigureAwait(false);
+                        if (thetaResult != 0)
+                            throw new InvalidOperationException("Die 검출 전 StageT 보정 위치 이동 실패. result=" + thetaResult);
+                    }
+
+                    double currentX = inputStage.CameraX.ActualPosition;
+                    double currentY = inputStage.StageY.ActualPosition;
+                    VisionAlignResult vision = await RequestInputStageRunReviewDieVisionAsync(
+                        inputStage,
+                        entry,
+                        currentX,
+                        currentY,
+                        token).ConfigureAwait(false);
+                    if (vision == null ||
+                        double.IsNaN(vision.DeltaX) || double.IsInfinity(vision.DeltaX) ||
+                        double.IsNaN(vision.DeltaY) || double.IsInfinity(vision.DeltaY))
+                    {
+                        throw new InvalidOperationException("InputPickDie Vision 검출 결과가 유효하지 않습니다.");
+                    }
+
+                    double cameraOffsetX = 0.0;
+                    double cameraOffsetY = 0.0;
+                    bool excludeCameraOffset = !inputStage.IsInputStageSimulationOrDryRun() &&
+                        QMC.CDT320.Sequencing.InputPickerPickTargetResolver.TryResolveInputCameraToBottomOffsets(
+                            Machine,
+                            out cameraOffsetX,
+                            out cameraOffsetY);
+                    double centerDeltaX = vision.DeltaX - (excludeCameraOffset ? cameraOffsetX : 0.0);
+                    double centerDeltaY = -vision.DeltaY;
+                    double detectedCenterX = currentX + centerDeltaX;
+                    double detectedCenterY = currentY + centerDeltaY;
+                    double offsetX = detectedCenterX - detectedReferenceX;
+                    double offsetY = detectedCenterY - detectedReferenceY;
+                    string offsetReason;
+                    if (!inputStage.IsManualDieDetectOffsetWithinLimit(offsetX, offsetY, out offsetReason))
+                        throw new InvalidOperationException(offsetReason);
+
+                    int moveResult = await inputStage.MoveVisionPointSafelyAsync(
+                        detectedCenterX,
+                        detectedCenterY,
+                        JogSpeedType.Fine,
+                        0.0,
+                        "InputStageRunReview.DieDetectionCenterMove").ConfigureAwait(false);
+                    if (moveResult != 0)
+                        throw new InvalidOperationException("검출 Die 중심 좌표 이동 실패. result=" + moveResult);
+
+                    detectedOffsetX = offsetX;
+                    detectedOffsetY = offsetY;
+                    detectionSucceeded = true;
+                    return "Die 검출 완료. Offset 적용 버튼으로 Draft Map에 반영하세요. X=" +
+                           offsetX.ToString("F6") + ", Y=" + offsetY.ToString("F6");
+                }).ConfigureAwait(true);
+
+            if (detectionSucceeded && dialog != null && !dialog.IsDisposed)
+            {
+                _inputStageRunReviewOffsetPending = true;
+                _inputStageRunReviewPendingOffsetX = detectedOffsetX;
+                _inputStageRunReviewPendingOffsetY = detectedOffsetY;
+                _inputStageRunReviewPendingOffsetWaferId = detectedWaferId;
+                _inputStageRunReviewPendingOffsetMappingRevision = detectedMappingRevision;
+                _inputStageRunReviewPendingOffsetDieUid = detectedDieUid;
+                _inputStageRunReviewPendingOffsetDieMapX = detectedDieMapX;
+                _inputStageRunReviewPendingOffsetDieMapY = detectedDieMapY;
+                _inputStageRunReviewPendingOffsetReferenceX = detectedReferenceX;
+                _inputStageRunReviewPendingOffsetReferenceY = detectedReferenceY;
+                _inputStageRunReviewPendingOffsetDraftSignature = detectedDraftSignature;
+            }
+        }
+
+        private async System.Threading.Tasks.Task<VisionAlignResult> RequestInputStageRunReviewDieVisionAsync(
+            InputStageUnit stage,
+            DieMapEntry entry,
+            double currentX,
+            double currentY,
+            System.Threading.CancellationToken token)
+        {
+            bool connected = QMC.CDT320.VisionComm.VisionHub.Wafer != null &&
+                             QMC.CDT320.VisionComm.VisionHub.Wafer.IsConnected;
+            AppSettings settings = AppSettingsStore.Current;
+            if (!connected || (settings != null && !settings.UseVision))
+            {
+                return new VisionAlignResult
+                {
+                    DeltaX = entry.PosX - currentX,
+                    DeltaY = currentY - entry.PosY,
+                    DeltaTheta = 0.0
+                };
+            }
+
+            QMC.CDT320.VisionComm.MatchResultDto match = await QMC.CDT320.VisionComm.AutoVisionRequestService.MatchAsync(
+                QMC.CDT320.VisionComm.AutoVisionChannel.Wafer,
+                QMC.CDT320.VisionComm.VisionToolIds.Wafer.DieFinder,
+                0,
+                5000,
+                token).ConfigureAwait(false);
+            if (match == null || !match.Success)
+                return null;
+
+            VisionAlignResult bottom = QMC.CDT320.Calibration.VisionCameraCalibrationTransform.ToAlignResult(
+                QMC.CDT320.VisionComm.AutoVisionChannel.Wafer,
+                match,
+                0.15);
+            if (bottom == null)
+                return null;
+
+            QMC.CDT320.Calibration.VisionCameraPixelCalibration camera =
+                QMC.CDT320.Calibration.VisionCameraCalibrationTransform.ResolveCamera(
+                    null,
+                    QMC.CDT320.VisionComm.AutoVisionChannel.Wafer) ??
+                new QMC.CDT320.Calibration.VisionCameraPixelCalibration();
+            camera.EnsureDefaults(320.0, 240.0, 0.001, 0.001);
+            if (match.HasImageSize)
+                camera.ApplyImageSize(match.ImageWidthPixel, match.ImageHeightPixel);
+
+            return new VisionAlignResult
+            {
+                DeltaX = bottom.DeltaX,
+                DeltaY = camera.PixelToMmOffsetY(match.Y),
+                DeltaTheta = bottom.DeltaTheta,
+                PitchX = bottom.PitchX,
+                PitchY = bottom.PitchY
+            };
+        }
+
+        private void ApplyInputStageRunReviewPendingOffset(InputStageRunReviewDialog dialog)
+        {
+            if (!_inputStageRunReviewOffsetPending || dialog == null)
+            {
+                if (dialog != null)
+                    dialog.SetBusy(false, "적용할 Die Detection Offset이 없습니다.");
+                return;
+            }
+
+            if (!string.Equals(dialog.WaferId, _inputStageRunReviewPendingOffsetWaferId, StringComparison.OrdinalIgnoreCase) ||
+                !string.Equals(dialog.MappingRevision, _inputStageRunReviewPendingOffsetMappingRevision, StringComparison.OrdinalIgnoreCase))
+            {
+                ClearInputStageRunReviewPendingOffset();
+                dialog.SetBusy(false, "Die Detection 이후 Wafer/Mapping이 변경되어 Offset을 적용할 수 없습니다.");
+                return;
+            }
+
+            string currentSignature = BuildInputStageRunReviewDraftSignature(dialog);
+            if (!string.Equals(
+                currentSignature,
+                _inputStageRunReviewPendingOffsetDraftSignature,
+                StringComparison.Ordinal))
+            {
+                ClearInputStageRunReviewPendingOffset();
+                dialog.SetBusy(false,
+                    "Die Detection 이후 Review Draft 상태/좌표/순서가 변경되어 Offset을 적용할 수 없습니다. 다시 검출하세요.");
+                return;
+            }
+
+            DieMap draft = dialog.DraftDieMap;
+            DieMapEntry referenceEntry = draft != null && draft.Entries != null
+                ? draft.Entries.FirstOrDefault(candidate => candidate != null &&
+                    string.Equals(
+                        candidate.DieUid ?? string.Empty,
+                        _inputStageRunReviewPendingOffsetDieUid,
+                        StringComparison.OrdinalIgnoreCase))
+                : null;
+            if (referenceEntry == null ||
+                referenceEntry.DieMapX != _inputStageRunReviewPendingOffsetDieMapX ||
+                referenceEntry.DieMapY != _inputStageRunReviewPendingOffsetDieMapY ||
+                Math.Abs(referenceEntry.PosX - _inputStageRunReviewPendingOffsetReferenceX) > 0.000000001 ||
+                Math.Abs(referenceEntry.PosY - _inputStageRunReviewPendingOffsetReferenceY) > 0.000000001)
+            {
+                ClearInputStageRunReviewPendingOffset();
+                dialog.SetBusy(false,
+                    "Die Detection 기준 Die UID/Grid/좌표가 현재 Draft와 달라 Offset을 적용할 수 없습니다. 다시 검출하세요.");
+                return;
+            }
+
+            DialogResult confirm = QMC.Common.MessageDialog.Show(
+                dialog,
+                "검출 Offset을 Review Draft 전체 Die 좌표에 적용하시겠습니까?\r\n" +
+                "기준 UID=" + _inputStageRunReviewPendingOffsetDieUid +
+                ", Grid=(" + _inputStageRunReviewPendingOffsetDieMapX +
+                "," + _inputStageRunReviewPendingOffsetDieMapY + ")\r\n" +
+                "기준 X=" + _inputStageRunReviewPendingOffsetReferenceX.ToString("F6") +
+                ", Y=" + _inputStageRunReviewPendingOffsetReferenceY.ToString("F6") + "\r\n" +
+                "X=" + _inputStageRunReviewPendingOffsetX.ToString("F6") +
+                ", Y=" + _inputStageRunReviewPendingOffsetY.ToString("F6"),
+                "InputStage Review",
+                MessageBoxButtons.YesNo,
+                MessageBoxIcon.Question);
+            if (confirm != DialogResult.Yes)
+                return;
+
+            string reason;
+            if (dialog.ApplyDraftCoordinateOffset(
+                _inputStageRunReviewPendingOffsetX,
+                _inputStageRunReviewPendingOffsetY,
+                out reason))
+            {
+                ClearInputStageRunReviewPendingOffset();
+            }
+            else
+            {
+                dialog.SetBusy(false, reason);
+            }
+        }
+
+        private static string BuildInputStageRunReviewDraftSignature(InputStageRunReviewDialog dialog)
+        {
+            if (dialog == null || dialog.DraftDieMap == null || dialog.DraftDieMap.Entries == null)
+                return string.Empty;
+
+            DieMap map = dialog.DraftDieMap;
+            var text = new System.Text.StringBuilder();
+            text.Append(map.FrameObjId ?? string.Empty).Append('|')
+                .Append(map.DieMapX).Append('|').Append(map.DieMapY).Append('|')
+                .Append(map.OriginX.ToString("R", System.Globalization.CultureInfo.InvariantCulture)).Append('|')
+                .Append(map.OriginY.ToString("R", System.Globalization.CultureInfo.InvariantCulture)).Append('|')
+                .Append(dialog.StartDieUid ?? string.Empty).Append('|')
+                .Append(string.Join(",", dialog.OrderedDieIds ?? new List<string>())).Append('|');
+
+            foreach (DieMapEntry entry in map.Entries
+                .Where(candidate => candidate != null)
+                .OrderBy(candidate => candidate.DieUid ?? string.Empty, StringComparer.OrdinalIgnoreCase)
+                .ThenBy(candidate => candidate.DieMapY)
+                .ThenBy(candidate => candidate.DieMapX))
+            {
+                text.Append(entry.DieUid ?? string.Empty).Append(':')
+                    .Append(entry.Index).Append(':')
+                    .Append(entry.DieMapX).Append(':').Append(entry.DieMapY).Append(':')
+                    .Append(entry.PosX.ToString("R", System.Globalization.CultureInfo.InvariantCulture)).Append(':')
+                    .Append(entry.PosY.ToString("R", System.Globalization.CultureInfo.InvariantCulture)).Append(':')
+                    .Append(entry.IsTarget ? '1' : '0').Append(':')
+                    .Append((int)entry.Result).Append(':').Append(entry.BinCode).Append(':')
+                    .Append(entry.SequenceNo).Append(';');
+            }
+
+            using (var sha = System.Security.Cryptography.SHA256.Create())
+            {
+                byte[] bytes = System.Text.Encoding.UTF8.GetBytes(text.ToString());
+                return Convert.ToBase64String(sha.ComputeHash(bytes));
+            }
+        }
+
+        private void ClearInputStageRunReviewPendingOffset()
+        {
+            _inputStageRunReviewOffsetPending = false;
+            _inputStageRunReviewPendingOffsetX = 0.0;
+            _inputStageRunReviewPendingOffsetY = 0.0;
+            _inputStageRunReviewPendingOffsetWaferId = string.Empty;
+            _inputStageRunReviewPendingOffsetMappingRevision = string.Empty;
+            _inputStageRunReviewPendingOffsetDieUid = string.Empty;
+            _inputStageRunReviewPendingOffsetDieMapX = 0;
+            _inputStageRunReviewPendingOffsetDieMapY = 0;
+            _inputStageRunReviewPendingOffsetReferenceX = 0.0;
+            _inputStageRunReviewPendingOffsetReferenceY = 0.0;
+            _inputStageRunReviewPendingOffsetDraftSignature = string.Empty;
+        }
+
+        private async void OpenInputStageRunReviewVisionTest(InputStageRunReviewDialog dialog)
+        {
+            if (Controller == null || !Controller.IsInputStageRunReviewManualActive)
+            {
+                if (dialog != null)
+                    dialog.SetBusy(false, "활성 Review Manual 세션이 없습니다.");
+                return;
+            }
+
+            if (_inputStageRunReviewVisionTestDialog != null &&
+                !_inputStageRunReviewVisionTestDialog.IsDisposed)
+            {
+                _inputStageRunReviewVisionTestDialog.BringToFront();
+                _inputStageRunReviewVisionTestDialog.Activate();
+                dialog.SetBusy(true, "Vision Test 화면이 열려 있습니다. 종료하거나 STOP을 누르세요.");
+                return;
+            }
+
+            if (Controller.IsInputStageRunReviewActionBusy || _inputStageRunReviewVisionTestScope != null)
+            {
+                dialog.SetBusy(false, "다른 Review 수동 동작이 진행 중입니다. STOP 후 다시 시도하세요.");
+                return;
+            }
+
+            IDisposable scope = null;
+            try
+            {
+                dialog.SetBusy(true, "Vision Test 안전 영역을 확보하고 있습니다. STOP으로 취소할 수 있습니다.");
+                scope = await Controller.BeginInputStageRunReviewWorkAsync(
+                    ManualMotionScopeKind.ProcessSequence,
+                    "Vision Test",
+                    System.Threading.CancellationToken.None).ConfigureAwait(true);
+
+                System.Threading.CancellationToken actionToken = Controller.InputStageRunReviewActionToken;
+                if (dialog.IsDisposed ||
+                    !Controller.IsInputStageRunReviewManualActive ||
+                    actionToken.IsCancellationRequested)
+                    throw new OperationCanceledException("Vision Test 시작 전에 Review Manual 세션이 종료되었습니다.");
+
+                _inputStageRunReviewVisionTestScope = scope;
+                scope = null;
+                WaferVisionTestDialog visionDialog = WaferVisionTestDialog.OpenReview(
+                    dialog,
+                    Controller.InputStageRunReviewActionToken);
+                _inputStageRunReviewVisionTestDialog = visionDialog;
+                visionDialog.FormClosed += InputStageRunReviewVisionTestDialog_FormClosed;
+                dialog.SetBusy(true, "Vision Test 화면이 열려 있습니다. 종료하거나 STOP을 누르세요.");
+            }
+            catch (OperationCanceledException)
+            {
+                if (scope != null)
+                    scope.Dispose();
+                DisposeInputStageRunReviewVisionTestScope();
+                if (dialog != null && !dialog.IsDisposed)
+                    dialog.SetBusy(false, "Vision Test 시작이 STOP/취소되었습니다.");
+            }
+            catch (Exception ex)
+            {
+                if (scope != null)
+                    scope.Dispose();
+                DisposeInputStageRunReviewVisionTestScope();
+                if (dialog != null && !dialog.IsDisposed)
+                    dialog.SetBusy(false, "Vision Test 시작 실패: " + ex.Message);
+                QMC.Common.Log.Write("Main", UserSession.Name, "InputStageRunReviewVisionTest",
+                    "Vision Test 시작 실패: " + ex.Message + " - Failed");
+            }
+        }
+
+        private void InputStageRunReviewVisionTestDialog_FormClosed(object sender, FormClosedEventArgs e)
+        {
+            WaferVisionTestDialog visionDialog = sender as WaferVisionTestDialog;
+            if (visionDialog != null)
+                visionDialog.FormClosed -= InputStageRunReviewVisionTestDialog_FormClosed;
+
+            if (ReferenceEquals(_inputStageRunReviewVisionTestDialog, visionDialog))
+                _inputStageRunReviewVisionTestDialog = null;
+            DisposeInputStageRunReviewVisionTestScope();
+
+            InputStageRunReviewDialog reviewDialog = _inputStageRunReviewDialog;
+            if (reviewDialog != null && !reviewDialog.IsDisposed &&
+                Controller != null && Controller.IsInputStageRunReviewManualActive)
+            {
+                reviewDialog.SetBusy(false, "Vision Test 화면을 종료했습니다.");
+            }
+            else if (reviewDialog != null && !reviewDialog.IsDisposed)
+            {
+                // Global STOP/Coordinator 종료 중에는 자식 창이 완전히 닫힌 뒤 부모 Review를 닫는다.
+                reviewDialog.CloseFromSequence();
+            }
+        }
+
+        private void DisposeInputStageRunReviewVisionTestScope()
+        {
+            IDisposable scope = _inputStageRunReviewVisionTestScope;
+            _inputStageRunReviewVisionTestScope = null;
+            if (scope != null)
+            {
+                try { scope.Dispose(); }
+                catch (Exception ex)
+                {
+                    QMC.Common.Log.Write("Main", UserSession.Name, "InputStageRunReviewVisionTest",
+                        "Vision Test Review 작업 스코프 종료 실패: " + ex.Message + " - Failed");
+                }
+            }
         }
 
         private void StartRunReviewBuzzer()
@@ -2207,11 +3182,16 @@ namespace QMC.CDT_320
             try { QMC.CDT320.VisionComm.VisionHub.DisconnectAll(); } catch { }
             try { QMC.CDT320.Ajin.AjinSystem.Close(); } catch { }
             try { QMC.Common.Logging.EventLogger.FlushPending(1000); } catch { }
-            if (Controller != null) Controller.OperatorMessageRequested -= OnOperatorMessageRequested;
+            if (Controller != null)
+            {
+                Controller.OperatorMessageRequested -= OnOperatorMessageRequested;
+                Controller.InputStageRunReviewManualStateChanged -= OnInputStageRunReviewManualStateChanged;
+            }
             if (Machine != null && Machine.InputStageUnit != null)
             {
                 Machine.InputStageUnit.UserConfirmRequested -= OnInputStageUserConfirmRequested;
                 Machine.InputStageUnit.UserConfirmWaitEnded -= OnInputStageUserConfirmWaitEnded;
+                Machine.InputStageUnit.UserConfirmProcessingFailed -= OnInputStageUserConfirmProcessingFailed;
             }
             Lang.LanguageChanged    -= OnLocalizationChanged;
             UserSession.UserChanged -= OnUserChanged;

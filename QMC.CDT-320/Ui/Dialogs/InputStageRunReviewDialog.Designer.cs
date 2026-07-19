@@ -797,12 +797,12 @@
             this.dieStateLayout.Controls.Add(this.dieStateOptions, 0, 0);
             this.dieStateLayout.Controls.Add(this.btnApplyDieState, 0, 1);
             this.dieStateLayout.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.dieStateLayout.Location = new System.Drawing.Point(8, 28);
+            this.dieStateLayout.Location = new System.Drawing.Point(8, 24);
             this.dieStateLayout.Name = "dieStateLayout";
             this.dieStateLayout.RowCount = 2;
             this.dieStateLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.dieStateLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 42F));
-            this.dieStateLayout.Size = new System.Drawing.Size(409, 138);
+            this.dieStateLayout.Size = new System.Drawing.Size(409, 142);
             this.dieStateLayout.TabIndex = 0;
             // 
             // dieStateOptions
@@ -815,7 +815,7 @@
             this.dieStateOptions.FlowDirection = System.Windows.Forms.FlowDirection.TopDown;
             this.dieStateOptions.Location = new System.Drawing.Point(3, 3);
             this.dieStateOptions.Name = "dieStateOptions";
-            this.dieStateOptions.Size = new System.Drawing.Size(403, 90);
+            this.dieStateOptions.Size = new System.Drawing.Size(403, 94);
             this.dieStateOptions.TabIndex = 0;
             this.dieStateOptions.WrapContents = false;
             // 
@@ -826,7 +826,7 @@
             this.rbDieStateWait.Location = new System.Drawing.Point(3, 1);
             this.rbDieStateWait.Margin = new System.Windows.Forms.Padding(3, 1, 3, 1);
             this.rbDieStateWait.Name = "rbDieStateWait";
-            this.rbDieStateWait.Size = new System.Drawing.Size(152, 24);
+            this.rbDieStateWait.Size = new System.Drawing.Size(121, 19);
             this.rbDieStateWait.TabIndex = 0;
             this.rbDieStateWait.TabStop = true;
             this.rbDieStateWait.Text = "WAIT / 검사 대기";
@@ -834,30 +834,30 @@
             // rbDieStateGood
             // 
             this.rbDieStateGood.AutoSize = true;
-            this.rbDieStateGood.Location = new System.Drawing.Point(3, 27);
+            this.rbDieStateGood.Location = new System.Drawing.Point(3, 22);
             this.rbDieStateGood.Margin = new System.Windows.Forms.Padding(3, 1, 3, 1);
             this.rbDieStateGood.Name = "rbDieStateGood";
-            this.rbDieStateGood.Size = new System.Drawing.Size(158, 24);
+            this.rbDieStateGood.Size = new System.Drawing.Size(126, 19);
             this.rbDieStateGood.TabIndex = 1;
             this.rbDieStateGood.Text = "GOOD / 검사 완료";
             // 
             // rbDieStateNg
             // 
             this.rbDieStateNg.AutoSize = true;
-            this.rbDieStateNg.Location = new System.Drawing.Point(3, 53);
+            this.rbDieStateNg.Location = new System.Drawing.Point(3, 43);
             this.rbDieStateNg.Margin = new System.Windows.Forms.Padding(3, 1, 3, 1);
             this.rbDieStateNg.Name = "rbDieStateNg";
-            this.rbDieStateNg.Size = new System.Drawing.Size(135, 24);
+            this.rbDieStateNg.Size = new System.Drawing.Size(109, 19);
             this.rbDieStateNg.TabIndex = 2;
             this.rbDieStateNg.Text = "NG / 검사 불량";
             // 
             // rbDieStateSkip
             // 
             this.rbDieStateSkip.AutoSize = true;
-            this.rbDieStateSkip.Location = new System.Drawing.Point(3, 79);
+            this.rbDieStateSkip.Location = new System.Drawing.Point(3, 64);
             this.rbDieStateSkip.Margin = new System.Windows.Forms.Padding(3, 1, 3, 1);
             this.rbDieStateSkip.Name = "rbDieStateSkip";
-            this.rbDieStateSkip.Size = new System.Drawing.Size(109, 24);
+            this.rbDieStateSkip.Size = new System.Drawing.Size(88, 19);
             this.rbDieStateSkip.TabIndex = 3;
             this.rbDieStateSkip.Text = "SKIP / 제외";
             // 
@@ -866,7 +866,7 @@
             this.btnApplyDieState.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(220)))), ((int)(((byte)(228)))), ((int)(((byte)(237)))));
             this.btnApplyDieState.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnApplyDieState.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnApplyDieState.Location = new System.Drawing.Point(3, 99);
+            this.btnApplyDieState.Location = new System.Drawing.Point(3, 103);
             this.btnApplyDieState.Name = "btnApplyDieState";
             this.btnApplyDieState.Size = new System.Drawing.Size(403, 36);
             this.btnApplyDieState.TabIndex = 1;
@@ -902,13 +902,13 @@
             this.startDieLayout.Controls.Add(this.btnSetStartIndex, 2, 1);
             this.startDieLayout.Controls.Add(this.chkUseSelectedStart, 0, 2);
             this.startDieLayout.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.startDieLayout.Location = new System.Drawing.Point(8, 28);
+            this.startDieLayout.Location = new System.Drawing.Point(8, 24);
             this.startDieLayout.Name = "startDieLayout";
             this.startDieLayout.RowCount = 3;
             this.startDieLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 34F));
             this.startDieLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 33F));
             this.startDieLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 33F));
-            this.startDieLayout.Size = new System.Drawing.Size(409, 108);
+            this.startDieLayout.Size = new System.Drawing.Size(409, 112);
             this.startDieLayout.TabIndex = 0;
             // 
             // lblStartDieCaption
@@ -916,7 +916,7 @@
             this.lblStartDieCaption.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblStartDieCaption.Location = new System.Drawing.Point(3, 0);
             this.lblStartDieCaption.Name = "lblStartDieCaption";
-            this.lblStartDieCaption.Size = new System.Drawing.Size(88, 36);
+            this.lblStartDieCaption.Size = new System.Drawing.Size(88, 38);
             this.lblStartDieCaption.TabIndex = 0;
             this.lblStartDieCaption.Text = "Selected Die";
             this.lblStartDieCaption.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -929,7 +929,7 @@
             this.lblStartDieValue.Location = new System.Drawing.Point(97, 5);
             this.lblStartDieValue.Margin = new System.Windows.Forms.Padding(3, 5, 3, 5);
             this.lblStartDieValue.Name = "lblStartDieValue";
-            this.lblStartDieValue.Size = new System.Drawing.Size(217, 26);
+            this.lblStartDieValue.Size = new System.Drawing.Size(217, 28);
             this.lblStartDieValue.TabIndex = 1;
             this.lblStartDieValue.Text = "NOT SET";
             this.lblStartDieValue.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -940,7 +940,7 @@
             this.btnSetStartDie.Location = new System.Drawing.Point(320, 4);
             this.btnSetStartDie.Margin = new System.Windows.Forms.Padding(3, 4, 0, 4);
             this.btnSetStartDie.Name = "btnSetStartDie";
-            this.btnSetStartDie.Size = new System.Drawing.Size(89, 28);
+            this.btnSetStartDie.Size = new System.Drawing.Size(89, 30);
             this.btnSetStartDie.TabIndex = 2;
             this.btnSetStartDie.Text = "SET SELECT";
             this.btnSetStartDie.Click += new System.EventHandler(this.BtnSetStartDie_Click);
@@ -948,9 +948,9 @@
             // lblStartIndexCaption
             // 
             this.lblStartIndexCaption.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblStartIndexCaption.Location = new System.Drawing.Point(3, 36);
+            this.lblStartIndexCaption.Location = new System.Drawing.Point(3, 38);
             this.lblStartIndexCaption.Name = "lblStartIndexCaption";
-            this.lblStartIndexCaption.Size = new System.Drawing.Size(88, 35);
+            this.lblStartIndexCaption.Size = new System.Drawing.Size(88, 36);
             this.lblStartIndexCaption.TabIndex = 3;
             this.lblStartIndexCaption.Text = "Start Index";
             this.lblStartIndexCaption.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -958,7 +958,7 @@
             // numStartIndex
             // 
             this.numStartIndex.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Left | System.Windows.Forms.AnchorStyles.Right)));
-            this.numStartIndex.Location = new System.Drawing.Point(97, 40);
+            this.numStartIndex.Location = new System.Drawing.Point(97, 44);
             this.numStartIndex.Maximum = new decimal(new int[] {
             100000,
             0,
@@ -970,7 +970,7 @@
             0,
             0});
             this.numStartIndex.Name = "numStartIndex";
-            this.numStartIndex.Size = new System.Drawing.Size(217, 27);
+            this.numStartIndex.Size = new System.Drawing.Size(217, 23);
             this.numStartIndex.TabIndex = 4;
             this.numStartIndex.TextAlign = System.Windows.Forms.HorizontalAlignment.Right;
             this.numStartIndex.Value = new decimal(new int[] {
@@ -982,10 +982,10 @@
             // btnSetStartIndex
             // 
             this.btnSetStartIndex.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnSetStartIndex.Location = new System.Drawing.Point(320, 40);
+            this.btnSetStartIndex.Location = new System.Drawing.Point(320, 42);
             this.btnSetStartIndex.Margin = new System.Windows.Forms.Padding(3, 4, 0, 4);
             this.btnSetStartIndex.Name = "btnSetStartIndex";
-            this.btnSetStartIndex.Size = new System.Drawing.Size(89, 27);
+            this.btnSetStartIndex.Size = new System.Drawing.Size(89, 28);
             this.btnSetStartIndex.TabIndex = 5;
             this.btnSetStartIndex.Text = "SET INDEX";
             this.btnSetStartIndex.Click += new System.EventHandler(this.BtnSetStartIndex_Click);
@@ -997,9 +997,9 @@
             this.chkUseSelectedStart.CheckState = System.Windows.Forms.CheckState.Checked;
             this.startDieLayout.SetColumnSpan(this.chkUseSelectedStart, 3);
             this.chkUseSelectedStart.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.chkUseSelectedStart.Location = new System.Drawing.Point(3, 74);
+            this.chkUseSelectedStart.Location = new System.Drawing.Point(3, 77);
             this.chkUseSelectedStart.Name = "chkUseSelectedStart";
-            this.chkUseSelectedStart.Size = new System.Drawing.Size(403, 31);
+            this.chkUseSelectedStart.Size = new System.Drawing.Size(403, 32);
             this.chkUseSelectedStart.TabIndex = 6;
             this.chkUseSelectedStart.Text = "선택 Die를 첫 번째 순서로 사용";
             this.chkUseSelectedStart.CheckedChanged += new System.EventHandler(this.ChkUseSelectedStart_CheckedChanged);
@@ -1041,7 +1041,7 @@
             this.jogLayout.Controls.Add(this.btnWaferTPlus, 3, 3);
             this.jogLayout.Controls.Add(this.btnJogStop, 0, 4);
             this.jogLayout.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.jogLayout.Location = new System.Drawing.Point(8, 28);
+            this.jogLayout.Location = new System.Drawing.Point(8, 24);
             this.jogLayout.Name = "jogLayout";
             this.jogLayout.RowCount = 5;
             this.jogLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 38F));
@@ -1049,7 +1049,7 @@
             this.jogLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 25F));
             this.jogLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 25F));
             this.jogLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 25F));
-            this.jogLayout.Size = new System.Drawing.Size(409, 193);
+            this.jogLayout.Size = new System.Drawing.Size(409, 197);
             this.jogLayout.TabIndex = 0;
             // 
             // lblJogSpeed
@@ -1071,9 +1071,9 @@
             "Fine",
             "Medium",
             "Coarse"});
-            this.cmbJogSpeed.Location = new System.Drawing.Point(109, 7);
+            this.cmbJogSpeed.Location = new System.Drawing.Point(109, 8);
             this.cmbJogSpeed.Name = "cmbJogSpeed";
-            this.cmbJogSpeed.Size = new System.Drawing.Size(297, 28);
+            this.cmbJogSpeed.Size = new System.Drawing.Size(297, 23);
             this.cmbJogSpeed.TabIndex = 1;
             // 
             // lblVisionXCaption
@@ -1081,7 +1081,7 @@
             this.lblVisionXCaption.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblVisionXCaption.Location = new System.Drawing.Point(3, 38);
             this.lblVisionXCaption.Name = "lblVisionXCaption";
-            this.lblVisionXCaption.Size = new System.Drawing.Size(100, 38);
+            this.lblVisionXCaption.Size = new System.Drawing.Size(100, 39);
             this.lblVisionXCaption.TabIndex = 2;
             this.lblVisionXCaption.Text = "Camera X";
             this.lblVisionXCaption.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -1091,7 +1091,7 @@
             this.lblVisionXValue.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblVisionXValue.Location = new System.Drawing.Point(109, 38);
             this.lblVisionXValue.Name = "lblVisionXValue";
-            this.lblVisionXValue.Size = new System.Drawing.Size(92, 38);
+            this.lblVisionXValue.Size = new System.Drawing.Size(92, 39);
             this.lblVisionXValue.TabIndex = 3;
             this.lblVisionXValue.Text = "0.000";
             this.lblVisionXValue.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
@@ -1101,7 +1101,7 @@
             this.btnVisionXMinus.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnVisionXMinus.Location = new System.Drawing.Point(207, 41);
             this.btnVisionXMinus.Name = "btnVisionXMinus";
-            this.btnVisionXMinus.Size = new System.Drawing.Size(96, 32);
+            this.btnVisionXMinus.Size = new System.Drawing.Size(96, 33);
             this.btnVisionXMinus.TabIndex = 4;
             this.btnVisionXMinus.Tag = QMC.CDT_320.Ui.Dialogs.InputStageReviewJogAxis.VisionX;
             this.btnVisionXMinus.Text = "X-";
@@ -1113,7 +1113,7 @@
             this.btnVisionXPlus.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnVisionXPlus.Location = new System.Drawing.Point(309, 41);
             this.btnVisionXPlus.Name = "btnVisionXPlus";
-            this.btnVisionXPlus.Size = new System.Drawing.Size(97, 32);
+            this.btnVisionXPlus.Size = new System.Drawing.Size(97, 33);
             this.btnVisionXPlus.TabIndex = 5;
             this.btnVisionXPlus.Tag = QMC.CDT_320.Ui.Dialogs.InputStageReviewJogAxis.VisionX;
             this.btnVisionXPlus.Text = "X+";
@@ -1123,9 +1123,9 @@
             // lblWaferYCaption
             // 
             this.lblWaferYCaption.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblWaferYCaption.Location = new System.Drawing.Point(3, 76);
+            this.lblWaferYCaption.Location = new System.Drawing.Point(3, 77);
             this.lblWaferYCaption.Name = "lblWaferYCaption";
-            this.lblWaferYCaption.Size = new System.Drawing.Size(100, 38);
+            this.lblWaferYCaption.Size = new System.Drawing.Size(100, 39);
             this.lblWaferYCaption.TabIndex = 6;
             this.lblWaferYCaption.Text = "Stage Y";
             this.lblWaferYCaption.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -1133,9 +1133,9 @@
             // lblWaferYValue
             // 
             this.lblWaferYValue.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblWaferYValue.Location = new System.Drawing.Point(109, 76);
+            this.lblWaferYValue.Location = new System.Drawing.Point(109, 77);
             this.lblWaferYValue.Name = "lblWaferYValue";
-            this.lblWaferYValue.Size = new System.Drawing.Size(92, 38);
+            this.lblWaferYValue.Size = new System.Drawing.Size(92, 39);
             this.lblWaferYValue.TabIndex = 7;
             this.lblWaferYValue.Text = "0.000";
             this.lblWaferYValue.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
@@ -1143,9 +1143,9 @@
             // btnWaferYMinus
             // 
             this.btnWaferYMinus.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnWaferYMinus.Location = new System.Drawing.Point(207, 79);
+            this.btnWaferYMinus.Location = new System.Drawing.Point(207, 80);
             this.btnWaferYMinus.Name = "btnWaferYMinus";
-            this.btnWaferYMinus.Size = new System.Drawing.Size(96, 32);
+            this.btnWaferYMinus.Size = new System.Drawing.Size(96, 33);
             this.btnWaferYMinus.TabIndex = 8;
             this.btnWaferYMinus.Tag = QMC.CDT_320.Ui.Dialogs.InputStageReviewJogAxis.WaferY;
             this.btnWaferYMinus.Text = "Y-";
@@ -1155,9 +1155,9 @@
             // btnWaferYPlus
             // 
             this.btnWaferYPlus.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnWaferYPlus.Location = new System.Drawing.Point(309, 79);
+            this.btnWaferYPlus.Location = new System.Drawing.Point(309, 80);
             this.btnWaferYPlus.Name = "btnWaferYPlus";
-            this.btnWaferYPlus.Size = new System.Drawing.Size(97, 32);
+            this.btnWaferYPlus.Size = new System.Drawing.Size(97, 33);
             this.btnWaferYPlus.TabIndex = 9;
             this.btnWaferYPlus.Tag = QMC.CDT_320.Ui.Dialogs.InputStageReviewJogAxis.WaferY;
             this.btnWaferYPlus.Text = "Y+";
@@ -1167,9 +1167,9 @@
             // lblWaferTCaption
             // 
             this.lblWaferTCaption.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblWaferTCaption.Location = new System.Drawing.Point(3, 114);
+            this.lblWaferTCaption.Location = new System.Drawing.Point(3, 116);
             this.lblWaferTCaption.Name = "lblWaferTCaption";
-            this.lblWaferTCaption.Size = new System.Drawing.Size(100, 38);
+            this.lblWaferTCaption.Size = new System.Drawing.Size(100, 39);
             this.lblWaferTCaption.TabIndex = 10;
             this.lblWaferTCaption.Text = "Stage T";
             this.lblWaferTCaption.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -1177,9 +1177,9 @@
             // lblWaferTValue
             // 
             this.lblWaferTValue.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblWaferTValue.Location = new System.Drawing.Point(109, 114);
+            this.lblWaferTValue.Location = new System.Drawing.Point(109, 116);
             this.lblWaferTValue.Name = "lblWaferTValue";
-            this.lblWaferTValue.Size = new System.Drawing.Size(92, 38);
+            this.lblWaferTValue.Size = new System.Drawing.Size(92, 39);
             this.lblWaferTValue.TabIndex = 11;
             this.lblWaferTValue.Text = "0.0000";
             this.lblWaferTValue.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
@@ -1187,9 +1187,9 @@
             // btnWaferTMinus
             // 
             this.btnWaferTMinus.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnWaferTMinus.Location = new System.Drawing.Point(207, 117);
+            this.btnWaferTMinus.Location = new System.Drawing.Point(207, 119);
             this.btnWaferTMinus.Name = "btnWaferTMinus";
-            this.btnWaferTMinus.Size = new System.Drawing.Size(96, 32);
+            this.btnWaferTMinus.Size = new System.Drawing.Size(96, 33);
             this.btnWaferTMinus.TabIndex = 12;
             this.btnWaferTMinus.Tag = QMC.CDT_320.Ui.Dialogs.InputStageReviewJogAxis.WaferT;
             this.btnWaferTMinus.Text = "T-";
@@ -1199,9 +1199,9 @@
             // btnWaferTPlus
             // 
             this.btnWaferTPlus.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnWaferTPlus.Location = new System.Drawing.Point(309, 117);
+            this.btnWaferTPlus.Location = new System.Drawing.Point(309, 119);
             this.btnWaferTPlus.Name = "btnWaferTPlus";
-            this.btnWaferTPlus.Size = new System.Drawing.Size(97, 32);
+            this.btnWaferTPlus.Size = new System.Drawing.Size(97, 33);
             this.btnWaferTPlus.TabIndex = 13;
             this.btnWaferTPlus.Tag = QMC.CDT_320.Ui.Dialogs.InputStageReviewJogAxis.WaferT;
             this.btnWaferTPlus.Text = "T+";
@@ -1215,9 +1215,9 @@
             this.btnJogStop.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnJogStop.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.btnJogStop.ForeColor = System.Drawing.Color.White;
-            this.btnJogStop.Location = new System.Drawing.Point(3, 155);
+            this.btnJogStop.Location = new System.Drawing.Point(3, 158);
             this.btnJogStop.Name = "btnJogStop";
-            this.btnJogStop.Size = new System.Drawing.Size(403, 35);
+            this.btnJogStop.Size = new System.Drawing.Size(403, 36);
             this.btnJogStop.TabIndex = 14;
             this.btnJogStop.Text = "STOP";
             this.btnJogStop.UseVisualStyleBackColor = false;
@@ -1247,7 +1247,7 @@
             this.actionLayout.Controls.Add(this.btnOffsetApply, 0, 3);
             this.actionLayout.Controls.Add(this.btnVisionTest, 0, 4);
             this.actionLayout.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.actionLayout.Location = new System.Drawing.Point(8, 28);
+            this.actionLayout.Location = new System.Drawing.Point(8, 24);
             this.actionLayout.Name = "actionLayout";
             this.actionLayout.RowCount = 5;
             this.actionLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 20F));
@@ -1255,7 +1255,7 @@
             this.actionLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 20F));
             this.actionLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 20F));
             this.actionLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 20F));
-            this.actionLayout.Size = new System.Drawing.Size(409, 187);
+            this.actionLayout.Size = new System.Drawing.Size(409, 191);
             this.actionLayout.TabIndex = 0;
             // 
             // btnMoveSelectedDie
@@ -1263,7 +1263,7 @@
             this.btnMoveSelectedDie.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnMoveSelectedDie.Location = new System.Drawing.Point(3, 3);
             this.btnMoveSelectedDie.Name = "btnMoveSelectedDie";
-            this.btnMoveSelectedDie.Size = new System.Drawing.Size(403, 31);
+            this.btnMoveSelectedDie.Size = new System.Drawing.Size(403, 32);
             this.btnMoveSelectedDie.TabIndex = 0;
             this.btnMoveSelectedDie.Text = "MOVE SELECTED DIE";
             this.btnMoveSelectedDie.Click += new System.EventHandler(this.BtnMoveSelectedDie_Click);
@@ -1271,9 +1271,9 @@
             // btnThetaCorrection
             // 
             this.btnThetaCorrection.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnThetaCorrection.Location = new System.Drawing.Point(3, 40);
+            this.btnThetaCorrection.Location = new System.Drawing.Point(3, 41);
             this.btnThetaCorrection.Name = "btnThetaCorrection";
-            this.btnThetaCorrection.Size = new System.Drawing.Size(403, 31);
+            this.btnThetaCorrection.Size = new System.Drawing.Size(403, 32);
             this.btnThetaCorrection.TabIndex = 1;
             this.btnThetaCorrection.Text = "T CORRECTION";
             this.btnThetaCorrection.Click += new System.EventHandler(this.BtnThetaCorrection_Click);
@@ -1281,9 +1281,9 @@
             // btnDieDetection
             // 
             this.btnDieDetection.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnDieDetection.Location = new System.Drawing.Point(3, 77);
+            this.btnDieDetection.Location = new System.Drawing.Point(3, 79);
             this.btnDieDetection.Name = "btnDieDetection";
-            this.btnDieDetection.Size = new System.Drawing.Size(403, 31);
+            this.btnDieDetection.Size = new System.Drawing.Size(403, 32);
             this.btnDieDetection.TabIndex = 2;
             this.btnDieDetection.Text = "DIE DETECTION";
             this.btnDieDetection.Click += new System.EventHandler(this.BtnDieDetection_Click);
@@ -1291,9 +1291,9 @@
             // btnOffsetApply
             // 
             this.btnOffsetApply.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnOffsetApply.Location = new System.Drawing.Point(3, 114);
+            this.btnOffsetApply.Location = new System.Drawing.Point(3, 117);
             this.btnOffsetApply.Name = "btnOffsetApply";
-            this.btnOffsetApply.Size = new System.Drawing.Size(403, 31);
+            this.btnOffsetApply.Size = new System.Drawing.Size(403, 32);
             this.btnOffsetApply.TabIndex = 3;
             this.btnOffsetApply.Text = "APPLY OFFSET";
             this.btnOffsetApply.Click += new System.EventHandler(this.BtnOffsetApply_Click);
@@ -1301,7 +1301,7 @@
             // btnVisionTest
             // 
             this.btnVisionTest.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnVisionTest.Location = new System.Drawing.Point(3, 151);
+            this.btnVisionTest.Location = new System.Drawing.Point(3, 155);
             this.btnVisionTest.Name = "btnVisionTest";
             this.btnVisionTest.Size = new System.Drawing.Size(403, 33);
             this.btnVisionTest.TabIndex = 4;
@@ -1378,7 +1378,7 @@
             this.mapInfoLayout.Controls.Add(this.lblSelectedPositionCaption, 0, 15);
             this.mapInfoLayout.Controls.Add(this.lblSelectedPositionValue, 1, 15);
             this.mapInfoLayout.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.mapInfoLayout.Location = new System.Drawing.Point(8, 28);
+            this.mapInfoLayout.Location = new System.Drawing.Point(8, 24);
             this.mapInfoLayout.Name = "mapInfoLayout";
             this.mapInfoLayout.RowCount = 16;
             this.mapInfoLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 6.25F));
@@ -1397,7 +1397,7 @@
             this.mapInfoLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 6.25F));
             this.mapInfoLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 6.25F));
             this.mapInfoLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 6.25F));
-            this.mapInfoLayout.Size = new System.Drawing.Size(398, 248);
+            this.mapInfoLayout.Size = new System.Drawing.Size(398, 252);
             this.mapInfoLayout.TabIndex = 0;
             // 
             // lblMapGridCaption
@@ -1798,7 +1798,7 @@
             this.lblSelectedPositionCaption.Location = new System.Drawing.Point(0, 225);
             this.lblSelectedPositionCaption.Margin = new System.Windows.Forms.Padding(0);
             this.lblSelectedPositionCaption.Name = "lblSelectedPositionCaption";
-            this.lblSelectedPositionCaption.Size = new System.Drawing.Size(175, 23);
+            this.lblSelectedPositionCaption.Size = new System.Drawing.Size(175, 27);
             this.lblSelectedPositionCaption.TabIndex = 30;
             this.lblSelectedPositionCaption.Text = "Selected X/Y";
             this.lblSelectedPositionCaption.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -1811,7 +1811,7 @@
             this.lblSelectedPositionValue.Location = new System.Drawing.Point(175, 225);
             this.lblSelectedPositionValue.Margin = new System.Windows.Forms.Padding(0);
             this.lblSelectedPositionValue.Name = "lblSelectedPositionValue";
-            this.lblSelectedPositionValue.Size = new System.Drawing.Size(223, 23);
+            this.lblSelectedPositionValue.Size = new System.Drawing.Size(223, 27);
             this.lblSelectedPositionValue.TabIndex = 31;
             this.lblSelectedPositionValue.Text = "-";
             this.lblSelectedPositionValue.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
@@ -1844,7 +1844,7 @@
             this.pickupRouteLayout.Controls.Add(this.btnPreviewPath, 0, 3);
             this.pickupRouteLayout.Controls.Add(this.btnApplyPickupOrder, 0, 4);
             this.pickupRouteLayout.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.pickupRouteLayout.Location = new System.Drawing.Point(8, 28);
+            this.pickupRouteLayout.Location = new System.Drawing.Point(8, 24);
             this.pickupRouteLayout.Name = "pickupRouteLayout";
             this.pickupRouteLayout.RowCount = 5;
             this.pickupRouteLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 48F));
@@ -1852,7 +1852,7 @@
             this.pickupRouteLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 34F));
             this.pickupRouteLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 32F));
             this.pickupRouteLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.pickupRouteLayout.Size = new System.Drawing.Size(398, 188);
+            this.pickupRouteLayout.Size = new System.Drawing.Size(398, 192);
             this.pickupRouteLayout.TabIndex = 0;
             // 
             // lblCornerCaption
@@ -1882,7 +1882,7 @@
             this.rbCornerTopLeft.AutoSize = true;
             this.rbCornerTopLeft.Location = new System.Drawing.Point(3, 3);
             this.rbCornerTopLeft.Name = "rbCornerTopLeft";
-            this.rbCornerTopLeft.Size = new System.Drawing.Size(98, 24);
+            this.rbCornerTopLeft.Size = new System.Drawing.Size(77, 19);
             this.rbCornerTopLeft.TabIndex = 0;
             this.rbCornerTopLeft.Text = "TOP LEFT";
             this.rbCornerTopLeft.CheckedChanged += new System.EventHandler(this.PickupOption_CheckedChanged);
@@ -1891,9 +1891,9 @@
             // 
             this.rbCornerTopRight.AutoSize = true;
             this.rbCornerTopRight.Checked = true;
-            this.rbCornerTopRight.Location = new System.Drawing.Point(107, 3);
+            this.rbCornerTopRight.Location = new System.Drawing.Point(86, 3);
             this.rbCornerTopRight.Name = "rbCornerTopRight";
-            this.rbCornerTopRight.Size = new System.Drawing.Size(112, 24);
+            this.rbCornerTopRight.Size = new System.Drawing.Size(89, 19);
             this.rbCornerTopRight.TabIndex = 1;
             this.rbCornerTopRight.TabStop = true;
             this.rbCornerTopRight.Text = "TOP RIGHT";
@@ -1902,9 +1902,9 @@
             // rbCornerBottomLeft
             // 
             this.rbCornerBottomLeft.AutoSize = true;
-            this.rbCornerBottomLeft.Location = new System.Drawing.Point(3, 33);
+            this.rbCornerBottomLeft.Location = new System.Drawing.Point(181, 3);
             this.rbCornerBottomLeft.Name = "rbCornerBottomLeft";
-            this.rbCornerBottomLeft.Size = new System.Drawing.Size(134, 24);
+            this.rbCornerBottomLeft.Size = new System.Drawing.Size(106, 19);
             this.rbCornerBottomLeft.TabIndex = 2;
             this.rbCornerBottomLeft.Text = "BOTTOM LEFT";
             this.rbCornerBottomLeft.CheckedChanged += new System.EventHandler(this.PickupOption_CheckedChanged);
@@ -1912,9 +1912,9 @@
             // rbCornerBottomRight
             // 
             this.rbCornerBottomRight.AutoSize = true;
-            this.rbCornerBottomRight.Location = new System.Drawing.Point(143, 33);
+            this.rbCornerBottomRight.Location = new System.Drawing.Point(3, 28);
             this.rbCornerBottomRight.Name = "rbCornerBottomRight";
-            this.rbCornerBottomRight.Size = new System.Drawing.Size(148, 24);
+            this.rbCornerBottomRight.Size = new System.Drawing.Size(118, 19);
             this.rbCornerBottomRight.TabIndex = 3;
             this.rbCornerBottomRight.Text = "BOTTOM RIGHT";
             this.rbCornerBottomRight.CheckedChanged += new System.EventHandler(this.PickupOption_CheckedChanged);
@@ -1944,7 +1944,7 @@
             this.rbDirectionHorizontal.AutoSize = true;
             this.rbDirectionHorizontal.Location = new System.Drawing.Point(3, 3);
             this.rbDirectionHorizontal.Name = "rbDirectionHorizontal";
-            this.rbDirectionHorizontal.Size = new System.Drawing.Size(130, 24);
+            this.rbDirectionHorizontal.Size = new System.Drawing.Size(102, 19);
             this.rbDirectionHorizontal.TabIndex = 0;
             this.rbDirectionHorizontal.Text = "HORIZONTAL";
             this.rbDirectionHorizontal.CheckedChanged += new System.EventHandler(this.PickupOption_CheckedChanged);
@@ -1953,9 +1953,9 @@
             // 
             this.rbDirectionVertical.AutoSize = true;
             this.rbDirectionVertical.Checked = true;
-            this.rbDirectionVertical.Location = new System.Drawing.Point(139, 3);
+            this.rbDirectionVertical.Location = new System.Drawing.Point(111, 3);
             this.rbDirectionVertical.Name = "rbDirectionVertical";
-            this.rbDirectionVertical.Size = new System.Drawing.Size(101, 24);
+            this.rbDirectionVertical.Size = new System.Drawing.Size(80, 19);
             this.rbDirectionVertical.TabIndex = 1;
             this.rbDirectionVertical.TabStop = true;
             this.rbDirectionVertical.Text = "VERTICAL";
@@ -1986,7 +1986,7 @@
             this.rbPatternStraight.AutoSize = true;
             this.rbPatternStraight.Location = new System.Drawing.Point(3, 3);
             this.rbPatternStraight.Name = "rbPatternStraight";
-            this.rbPatternStraight.Size = new System.Drawing.Size(105, 24);
+            this.rbPatternStraight.Size = new System.Drawing.Size(84, 19);
             this.rbPatternStraight.TabIndex = 0;
             this.rbPatternStraight.Text = "STRAIGHT";
             this.rbPatternStraight.CheckedChanged += new System.EventHandler(this.PickupOption_CheckedChanged);
@@ -1995,9 +1995,9 @@
             // 
             this.rbPatternZigZag.AutoSize = true;
             this.rbPatternZigZag.Checked = true;
-            this.rbPatternZigZag.Location = new System.Drawing.Point(114, 3);
+            this.rbPatternZigZag.Location = new System.Drawing.Point(93, 3);
             this.rbPatternZigZag.Name = "rbPatternZigZag";
-            this.rbPatternZigZag.Size = new System.Drawing.Size(86, 24);
+            this.rbPatternZigZag.Size = new System.Drawing.Size(69, 19);
             this.rbPatternZigZag.TabIndex = 1;
             this.rbPatternZigZag.TabStop = true;
             this.rbPatternZigZag.Text = "ZIGZAG";
@@ -2023,7 +2023,7 @@
             this.btnApplyPickupOrder.ForeColor = System.Drawing.Color.White;
             this.btnApplyPickupOrder.Location = new System.Drawing.Point(3, 151);
             this.btnApplyPickupOrder.Name = "btnApplyPickupOrder";
-            this.btnApplyPickupOrder.Size = new System.Drawing.Size(392, 34);
+            this.btnApplyPickupOrder.Size = new System.Drawing.Size(392, 38);
             this.btnApplyPickupOrder.TabIndex = 7;
             this.btnApplyPickupOrder.Text = "APPLY PICKUP ORDER";
             this.btnApplyPickupOrder.UseVisualStyleBackColor = false;
@@ -2057,7 +2057,7 @@
             this.workflowLayout.Controls.Add(this.btnStartRun, 0, 4);
             this.workflowLayout.Controls.Add(this.btnAbortAuto, 1, 4);
             this.workflowLayout.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.workflowLayout.Location = new System.Drawing.Point(8, 28);
+            this.workflowLayout.Location = new System.Drawing.Point(8, 24);
             this.workflowLayout.Name = "workflowLayout";
             this.workflowLayout.RowCount = 5;
             this.workflowLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 30F));
@@ -2065,7 +2065,7 @@
             this.workflowLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 42F));
             this.workflowLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 42F));
             this.workflowLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 54F));
-            this.workflowLayout.Size = new System.Drawing.Size(398, 232);
+            this.workflowLayout.Size = new System.Drawing.Size(398, 236);
             this.workflowLayout.TabIndex = 0;
             // 
             // lblRevisionCaption
@@ -2098,13 +2098,13 @@
             this.txtFailureDetail.Name = "txtFailureDetail";
             this.txtFailureDetail.ReadOnly = true;
             this.txtFailureDetail.ScrollBars = System.Windows.Forms.ScrollBars.Vertical;
-            this.txtFailureDetail.Size = new System.Drawing.Size(392, 58);
+            this.txtFailureDetail.Size = new System.Drawing.Size(392, 62);
             this.txtFailureDetail.TabIndex = 2;
             // 
             // btnRetryAlign
             // 
             this.btnRetryAlign.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnRetryAlign.Location = new System.Drawing.Point(3, 97);
+            this.btnRetryAlign.Location = new System.Drawing.Point(3, 101);
             this.btnRetryAlign.Name = "btnRetryAlign";
             this.btnRetryAlign.Size = new System.Drawing.Size(193, 36);
             this.btnRetryAlign.TabIndex = 3;
@@ -2114,7 +2114,7 @@
             // btnRetryMapping
             // 
             this.btnRetryMapping.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnRetryMapping.Location = new System.Drawing.Point(202, 97);
+            this.btnRetryMapping.Location = new System.Drawing.Point(202, 101);
             this.btnRetryMapping.Name = "btnRetryMapping";
             this.btnRetryMapping.Size = new System.Drawing.Size(193, 36);
             this.btnRetryMapping.TabIndex = 4;
@@ -2125,7 +2125,7 @@
             // 
             this.workflowLayout.SetColumnSpan(this.btnMappingSetup, 2);
             this.btnMappingSetup.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnMappingSetup.Location = new System.Drawing.Point(3, 139);
+            this.btnMappingSetup.Location = new System.Drawing.Point(3, 143);
             this.btnMappingSetup.Name = "btnMappingSetup";
             this.btnMappingSetup.Size = new System.Drawing.Size(392, 36);
             this.btnMappingSetup.TabIndex = 5;
@@ -2139,7 +2139,7 @@
             this.btnStartRun.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.btnStartRun.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.btnStartRun.ForeColor = System.Drawing.Color.White;
-            this.btnStartRun.Location = new System.Drawing.Point(3, 181);
+            this.btnStartRun.Location = new System.Drawing.Point(3, 185);
             this.btnStartRun.Name = "btnStartRun";
             this.btnStartRun.Size = new System.Drawing.Size(193, 48);
             this.btnStartRun.TabIndex = 6;
@@ -2154,7 +2154,7 @@
             this.btnAbortAuto.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.btnAbortAuto.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.btnAbortAuto.ForeColor = System.Drawing.Color.White;
-            this.btnAbortAuto.Location = new System.Drawing.Point(202, 181);
+            this.btnAbortAuto.Location = new System.Drawing.Point(202, 185);
             this.btnAbortAuto.Name = "btnAbortAuto";
             this.btnAbortAuto.Size = new System.Drawing.Size(193, 48);
             this.btnAbortAuto.TabIndex = 7;
@@ -2223,7 +2223,7 @@
             // 
             // InputStageRunReviewDialog
             // 
-            this.AutoScaleDimensions = new System.Drawing.SizeF(9F, 20F);
+            this.AutoScaleDimensions = new System.Drawing.SizeF(7F, 15F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(238)))), ((int)(((byte)(241)))), ((int)(((byte)(245)))));
             this.ClientSize = new System.Drawing.Size(1740, 940);

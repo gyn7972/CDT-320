@@ -1,5 +1,8 @@
 ﻿using System.Threading.Tasks;
 
+using System.Collections.Generic;
+using QMC.CDT320.Materials;
+
 namespace QMC.CDT320
 {
     // ??????????????????????????????????????????????????????????????????????????
@@ -205,6 +208,25 @@ namespace QMC.CDT320
     /// 사용자 컨펌 결과 데이터.<br/>
     /// UI에서 얼라인 확인 후 적용할 보정값 및 시작 조건을 담는다.
     /// </summary>
+    public enum InputStageRunReviewDecision
+    {
+        RetryAlign = 0,
+        ConfirmAndContinue = 1,
+        RetryMapping = 2,
+        Stop = 3
+    }
+
+    public sealed class InputStageRunReviewDieState
+    {
+        public string DieId { get; set; }
+        public bool IsTarget { get; set; }
+        public DieResult Result { get; set; }
+        public int BinCode { get; set; }
+        public bool HasPosition { get; set; }
+        public double PositionX { get; set; }
+        public double PositionY { get; set; }
+    }
+
     public class UserConfirmResult
     {
         /// <summary>
@@ -212,6 +234,29 @@ namespace QMC.CDT320
         /// false이면 시퀀스를 중단한다.
         /// </summary>
         public bool IsConfirmed { get; set; }
+
+        /// <summary>Review 화면에서 선택한 후속 동작.</summary>
+        public InputStageRunReviewDecision Decision { get; set; }
+
+        /// <summary>Review 대상 Wafer ID. 확인 시 현재 Stage Wafer와 다시 대조한다.</summary>
+        public string WaferId { get; set; }
+
+        /// <summary>Review 대상 Die Mapping revision/frame ID.</summary>
+        public string MappingRevision { get; set; }
+
+        /// <summary>사용자가 지정한 시작 Die UID.</summary>
+        public string StartDieUid { get; set; }
+
+        /// <summary>Review에서 확정한 실제 Input PickUp Die UID 순서.</summary>
+        public List<string> OrderedDieIds { get; set; } = new List<string>();
+
+        /// <summary>Review draft에서 확정한 Die 상태 일괄 변경 데이터.</summary>
+        public List<InputStageRunReviewDieState> DieStates { get; set; } =
+            new List<InputStageRunReviewDieState>();
+
+        public bool HasMapOrigin { get; set; }
+        public double MapOriginX { get; set; }
+        public double MapOriginY { get; set; }
 
         /// <summary>사용자가 수정한 추가 Angle 보정값 [deg]. 0이면 변경 없음.</summary>
         public double AngleOffset { get; set; }

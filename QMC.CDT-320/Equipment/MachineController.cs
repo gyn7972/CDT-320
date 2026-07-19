@@ -58,6 +58,12 @@ namespace QMC.CDT320
             new QMC.CDT320.Sequencing.SequenceActivityMonitor();
         private int _manualBusyCount;
         private CancellationTokenSource _manualCts;
+        private readonly object _inputStageRunReviewManualLock = new object();
+        private bool _inputStageRunReviewManualActive;
+        private string _inputStageRunReviewWaferId = string.Empty;
+        private QMC.CDT320.Sequencing.MachineSequenceContext _inputStageRunReviewContext;
+        private int _inputStageRunReviewActionBusyCount;
+        private CancellationTokenSource _inputStageRunReviewActionCts;
         private bool _isMachineInitialized;
         private bool _isDeveloperReadyRestored;
         private MachineReadyProgress _readySequenceProgress =
@@ -207,6 +213,7 @@ namespace QMC.CDT320
         public event Action<AxisInitializeStepProgress> AxisInitializeStepProgressChanged;
         public event Action<MachineReadyProgress> ReadySequenceProgressChanged;
         public event Action<string, string> OperatorMessageRequested;
+        public event Action<bool, string> InputStageRunReviewManualStateChanged;
 
         /// <summary>CDT-320 하드웨어 유닛 트리입니다.</summary>
         public CDT320_Machine Machine => _machine;
@@ -241,6 +248,47 @@ namespace QMC.CDT320
         public EquipmentStatus Status => _status;
         public bool IsManualBusy => Volatile.Read(ref _manualBusyCount) > 0;
         public bool IsSequenceRunning => _coordinatorTask != null && !_coordinatorTask.IsCompleted;
+        public bool IsInputStageRunReviewManualActive
+        {
+            get
+            {
+                lock (_inputStageRunReviewManualLock)
+                {
+                    return _inputStageRunReviewManualActive;
+                }
+            }
+        }
+        public bool IsInputStageRunReviewActionBusy
+        {
+            get
+            {
+                lock (_inputStageRunReviewManualLock)
+                {
+                    return _inputStageRunReviewActionBusyCount > 0;
+                }
+            }
+        }
+        public string CurrentInputStageRunReviewWaferId
+        {
+            get
+            {
+                lock (_inputStageRunReviewManualLock)
+                {
+                    return _inputStageRunReviewWaferId ?? string.Empty;
+                }
+            }
+        }
+        public CancellationToken InputStageRunReviewActionToken
+        {
+            get
+            {
+                lock (_inputStageRunReviewManualLock)
+                {
+                    CancellationTokenSource cts = _inputStageRunReviewActionCts;
+                    return cts != null ? cts.Token : CancellationToken.None;
+                }
+            }
+        }
         public CancellationToken ManualOperationToken
         {
             get
@@ -7422,6 +7470,24 @@ namespace QMC.CDT320
         /// </summary>
         public async Task StopAsync()
         {
+            if (IsInputStageRunReviewManualActive)
+            {
+                CancelInputStageRunReviewAction();
+                StopInputStageRunReviewAxes();
+                InputStageUnit reviewStage = _machine != null ? _machine.InputStageUnit : null;
+                if (reviewStage != null)
+                {
+                    reviewStage.ConfirmFromUi(new UserConfirmResult
+                    {
+                        IsConfirmed = false,
+                        Decision = InputStageRunReviewDecision.Stop,
+                        WaferId = CurrentInputStageRunReviewWaferId
+                    });
+                }
+                QMC.Common.Log.Write("Main", "SYSTEM", "InputStageRunReviewManual",
+                    "STOP 요청으로 Review 수동 동작을 취소하고 InputCameraX/StageY/StageT를 우선 정지했습니다. - Stop");
+            }
+
             OnStopRequested();
 
             if (_coordinator != null && _coordinatorTask != null && !_coordinatorTask.IsCompleted)
@@ -7465,6 +7531,46 @@ namespace QMC.CDT320
             SetStatus(EquipmentStatus.Stopped);
         }
 
+        private void StopInputStageRunReviewAxes()
+        {
+            InputStageUnit stage = _machine != null ? _machine.InputStageUnit : null;
+            if (stage == null)
+                return;
+
+            StopInputStageRunReviewAxis(stage.CameraX, "InputCameraX");
+            StopInputStageRunReviewAxis(stage.StageY, "InputStageY");
+            StopInputStageRunReviewAxis(stage.StageT, "InputStageT");
+            StopInputStageRunReviewAxis(stage.EjectPinZ, "InputEjectPinZ");
+        }
+
+        private static void StopInputStageRunReviewAxis(BaseAxis axis, string axisName)
+        {
+            if (axis == null)
+                return;
+
+            try
+            {
+                axis.StopJog();
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Log.Write("Main", "SYSTEM", "InputStageRunReviewManual",
+                    (axisName ?? "InputStageAxis") + " StopJog 호출 중 예외가 발생했습니다. error=" +
+                    ex.Message + " - Failed");
+            }
+
+            try
+            {
+                axis.Stop();
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Log.Write("Main", "SYSTEM", "InputStageRunReviewManual",
+                    (axisName ?? "InputStageAxis") + " Stop 호출 중 예외가 발생했습니다. error=" +
+                    ex.Message + " - Failed");
+            }
+        }
+
         private void OnStopRequested()
         {
             var handler = StopRequested;
@@ -7477,6 +7583,653 @@ namespace QMC.CDT320
             }
             catch
             {
+            }
+        }
+
+        public bool TryEnterInputStageRunReviewManual(
+            QMC.CDT320.Sequencing.MachineSequenceContext context,
+            string waferId,
+            out string reason)
+        {
+            reason = string.Empty;
+            string safeWaferId = string.IsNullOrWhiteSpace(waferId) ? string.Empty : waferId.Trim();
+            CancellationTokenSource previousActionCts = null;
+
+            try
+            {
+                if (context == null)
+                {
+                    reason = "InputStage Review Manual 진입 실패: Sequence context가 없습니다.";
+                    return false;
+                }
+
+                if (string.IsNullOrWhiteSpace(safeWaferId))
+                {
+                    reason = "InputStage Review Manual 진입 실패: Review 대상 Wafer ID가 없습니다.";
+                    return false;
+                }
+
+                lock (_inputStageRunReviewManualLock)
+                {
+                    if (_inputStageRunReviewManualActive)
+                    {
+                        if (object.ReferenceEquals(_inputStageRunReviewContext, context) &&
+                            string.Equals(_inputStageRunReviewWaferId, safeWaferId, StringComparison.OrdinalIgnoreCase) &&
+                            _status == EquipmentStatus.ManualRunning)
+                        {
+                            reason = "InputStage Review Manual 세션이 이미 활성 상태입니다. wafer=" + safeWaferId;
+                            return true;
+                        }
+
+                        reason = "InputStage Review Manual 진입 실패: 다른 Review 세션이 이미 활성 상태입니다. wafer=" +
+                                 (_inputStageRunReviewWaferId ?? string.Empty);
+                        return false;
+                    }
+
+                    if (!object.ReferenceEquals(_seqContext, context))
+                    {
+                        reason = "InputStage Review Manual 진입 실패: 현재 Auto Sequence context와 일치하지 않습니다.";
+                        return false;
+                    }
+
+                    if (!IsSequenceRunning || _coordinator == null)
+                    {
+                        reason = "InputStage Review Manual 진입 실패: 실행 중인 Auto Coordinator가 없습니다.";
+                        return false;
+                    }
+
+                    if (ActiveSequenceRunMode != QMC.CDT320.Sequencing.SequenceRunMode.Auto)
+                    {
+                        reason = "InputStage Review Manual 진입 실패: 현재 Sequence가 Auto mode가 아닙니다. mode=" +
+                                 (ActiveSequenceRunMode.HasValue ? ActiveSequenceRunMode.Value.ToString() : "-");
+                        return false;
+                    }
+
+                    if (_status != EquipmentStatus.AutoRunning)
+                    {
+                        reason = "InputStage Review Manual 진입 실패: 장비 상태가 AutoRunning이 아닙니다. status=" + _status;
+                        return false;
+                    }
+
+                    if (AlarmManager.HasActive || _status == EquipmentStatus.Alarm)
+                    {
+                        reason = "InputStage Review Manual 진입 실패: 활성 Alarm이 있습니다.";
+                        return false;
+                    }
+
+                    if (context.IsCycleStopRequested || _cycleStopRequested)
+                    {
+                        reason = "InputStage Review Manual 진입 실패: Cycle Stop 요청이 진행 중입니다.";
+                        return false;
+                    }
+
+                    previousActionCts = _inputStageRunReviewActionCts;
+                    _inputStageRunReviewActionCts = new CancellationTokenSource();
+                    _inputStageRunReviewActionBusyCount = 0;
+                    _inputStageRunReviewContext = context;
+                    _inputStageRunReviewWaferId = safeWaferId;
+                    _inputStageRunReviewManualActive = true;
+                    SetStatus(EquipmentStatus.ManualRunning);
+                }
+
+                if (previousActionCts != null)
+                {
+                    try { previousActionCts.Cancel(); } catch { }
+                    try { previousActionCts.Dispose(); } catch { }
+                }
+
+                RaiseInputStageRunReviewManualStateChanged(true, safeWaferId);
+                QMC.Common.Log.Write("Main", "SYSTEM", "InputStageRunReviewManual",
+                    "InputStage Review Manual 세션에 진입했습니다. wafer=" + safeWaferId +
+                    ", coordinatorMaintained=True, activeMode=" + ActiveSequenceRunMode + " - Set");
+                reason = "InputStage Review Manual 세션에 진입했습니다. wafer=" + safeWaferId;
+                return true;
+            }
+            catch (Exception ex)
+            {
+                reason = "InputStage Review Manual 진입 중 예외가 발생했습니다. error=" + ex.Message;
+                QMC.Common.Log.Write("Main", "SYSTEM", "InputStageRunReviewManual", reason + " - Failed");
+                return false;
+            }
+        }
+
+        public bool TryExitInputStageRunReviewManual(
+            QMC.CDT320.Sequencing.MachineSequenceContext context,
+            bool resumeAuto,
+            out string reason)
+        {
+            reason = string.Empty;
+            string waferId = string.Empty;
+            CancellationTokenSource actionCts = null;
+
+            try
+            {
+                if (context == null)
+                {
+                    reason = "InputStage Review Manual 종료 실패: Sequence context가 없습니다.";
+                    return false;
+                }
+
+                lock (_inputStageRunReviewManualLock)
+                {
+                    if (!_inputStageRunReviewManualActive)
+                    {
+                        reason = "InputStage Review Manual 종료 실패: 활성 Review 세션이 없습니다.";
+                        return false;
+                    }
+
+                    if (!object.ReferenceEquals(_inputStageRunReviewContext, context) ||
+                        !object.ReferenceEquals(_seqContext, context))
+                    {
+                        reason = "InputStage Review Manual 종료 실패: 활성 Review/Auto Sequence context와 일치하지 않습니다.";
+                        return false;
+                    }
+
+                    if (_inputStageRunReviewActionBusyCount > 0)
+                    {
+                        reason = "InputStage Review Manual 종료 실패: Review 수동 동작이 아직 실행 중입니다. busyCount=" +
+                                 _inputStageRunReviewActionBusyCount;
+                        return false;
+                    }
+
+                    if (resumeAuto)
+                    {
+                        if (!IsSequenceRunning || _coordinator == null ||
+                            ActiveSequenceRunMode != QMC.CDT320.Sequencing.SequenceRunMode.Auto)
+                        {
+                            reason = "InputStage Review Manual Auto 복귀 실패: 동일 Auto Coordinator가 실행 중이 아닙니다.";
+                            return false;
+                        }
+
+                        if (_status != EquipmentStatus.ManualRunning)
+                        {
+                            reason = "InputStage Review Manual Auto 복귀 실패: 장비 상태가 ManualRunning이 아닙니다. status=" + _status;
+                            return false;
+                        }
+
+                        if (AlarmManager.HasActive || _status == EquipmentStatus.Alarm)
+                        {
+                            reason = "InputStage Review Manual Auto 복귀 실패: 활성 Alarm이 있습니다.";
+                            return false;
+                        }
+
+                        if (context.IsCycleStopRequested || _cycleStopRequested ||
+                            _status == EquipmentStatus.CycleStopped || _status == EquipmentStatus.Stopped)
+                        {
+                            reason = "InputStage Review Manual Auto 복귀 실패: Stop/Cycle Stop 요청이 진행 중입니다.";
+                            return false;
+                        }
+                    }
+
+                    waferId = _inputStageRunReviewWaferId ?? string.Empty;
+                    actionCts = _inputStageRunReviewActionCts;
+                    _inputStageRunReviewActionCts = null;
+                    _inputStageRunReviewActionBusyCount = 0;
+                    _inputStageRunReviewContext = null;
+                    _inputStageRunReviewWaferId = string.Empty;
+                    _inputStageRunReviewManualActive = false;
+
+                    if (resumeAuto)
+                        SetStatus(EquipmentStatus.AutoRunning);
+                }
+
+                if (actionCts != null)
+                {
+                    try { actionCts.Cancel(); } catch { }
+                    try { actionCts.Dispose(); } catch { }
+                }
+
+                RaiseInputStageRunReviewManualStateChanged(false, waferId);
+                reason = "InputStage Review Manual 세션을 종료했습니다. wafer=" + waferId +
+                         ", resumeAuto=" + resumeAuto;
+                QMC.Common.Log.Write("Main", "SYSTEM", "InputStageRunReviewManual",
+                    reason + ", coordinatorMaintained=" + IsSequenceRunning +
+                    ", activeMode=" + (ActiveSequenceRunMode.HasValue ? ActiveSequenceRunMode.Value.ToString() : "-") +
+                    " - Reset");
+                return true;
+            }
+            catch (Exception ex)
+            {
+                reason = "InputStage Review Manual 종료 중 예외가 발생했습니다. error=" + ex.Message;
+                QMC.Common.Log.Write("Main", "SYSTEM", "InputStageRunReviewManual", reason + " - Failed");
+                return false;
+            }
+        }
+
+        public IDisposable BeginInputStageRunReviewActionScope(ManualMotionScopeKind kind, string reason)
+        {
+            string safeReason = string.IsNullOrWhiteSpace(reason) ? "InputStageRunReviewAction" : reason.Trim();
+
+            try
+            {
+                lock (_inputStageRunReviewManualLock)
+                {
+                    if (!_inputStageRunReviewManualActive || _inputStageRunReviewContext == null)
+                        throw new InvalidOperationException("활성 InputStage Review Manual 세션이 없습니다. reason=" + safeReason);
+
+                    if (!object.ReferenceEquals(_inputStageRunReviewContext, _seqContext) ||
+                        !IsSequenceRunning || _coordinator == null ||
+                        ActiveSequenceRunMode != QMC.CDT320.Sequencing.SequenceRunMode.Auto)
+                    {
+                        throw new InvalidOperationException(
+                            "동일 Auto Coordinator가 유지되지 않아 Review 수동 동작을 시작할 수 없습니다. reason=" + safeReason);
+                    }
+
+                    if (_status != EquipmentStatus.ManualRunning)
+                        throw new InvalidOperationException(
+                            "장비 상태가 ManualRunning이 아니므로 Review 수동 동작을 시작할 수 없습니다. status=" +
+                            _status + ", reason=" + safeReason);
+
+                    if (AlarmManager.HasActive || _inputStageRunReviewContext.IsCycleStopRequested || _cycleStopRequested)
+                        throw new InvalidOperationException(
+                            "Alarm/Stop 요청 중에는 Review 수동 동작을 시작할 수 없습니다. reason=" + safeReason);
+
+                    if (_inputStageRunReviewActionBusyCount > 0)
+                        throw new InvalidOperationException(
+                            "다른 Review 수동 동작이 진행 중입니다. 완료 또는 STOP 후 다시 실행하세요. reason=" +
+                            safeReason);
+
+                    if (_inputStageRunReviewActionBusyCount == 0 &&
+                        (_inputStageRunReviewActionCts == null || _inputStageRunReviewActionCts.IsCancellationRequested))
+                    {
+                        if (_inputStageRunReviewActionCts != null)
+                        {
+                            try { _inputStageRunReviewActionCts.Dispose(); } catch { }
+                        }
+                        _inputStageRunReviewActionCts = new CancellationTokenSource();
+                    }
+
+                    _inputStageRunReviewActionBusyCount++;
+                    try
+                    {
+                        if (kind != ManualMotionScopeKind.ProcessSequence)
+                            throw new InvalidOperationException(
+                                "InputStage Review는 ProcessSequence 동작만 허용합니다. kind=" + kind);
+
+                        // MotionSpeedScale은 전역 상태이므로 Auto Coordinator와 병행하는 Review에서 잡지 않는다.
+                        // 실제 InputStage 명령은 명시 Jog/Fine 속도를 사용하며, 호출 지점에서 AsyncLocal 기반
+                        // ManualSequenceProcess MotionGuard를 감싸 Output 계통 속도에는 영향을 주지 않는다.
+                        QMC.Common.Log.Write("Main", "SYSTEM", "InputStageRunReviewAction",
+                            "Review 수동 동작 스코프를 시작했습니다. reason=" + safeReason +
+                            ", kind=" + kind +
+                            ", globalSpeedScale=False" +
+                            ", busyCount=" + _inputStageRunReviewActionBusyCount + " - Start");
+                        return new InputStageRunReviewActionScope(this, null, safeReason);
+                    }
+                    catch
+                    {
+                        LeaveInputStageRunReviewAction(safeReason);
+                        throw;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Log.Write("Main", "SYSTEM", "InputStageRunReviewAction",
+                    "Review 수동 동작 스코프 시작 실패. reason=" + safeReason +
+                    ", kind=" + kind + ", error=" + ex.Message + " - Failed");
+                throw;
+            }
+        }
+
+        public async Task<IDisposable> BeginInputStageRunReviewWorkAsync(
+            ManualMotionScopeKind kind,
+            string reason,
+            CancellationToken ct)
+        {
+            string safeReason = string.IsNullOrWhiteSpace(reason) ? "InputStageRunReviewWork" : reason.Trim();
+            IDisposable actionScope = null;
+            CancellationTokenSource linkedCts = null;
+            QMC.CDT320.Sequencing.SequenceResourceLease stageLease = null;
+            QMC.CDT320.Sequencing.AutoSequenceCameraWorkZoneLease cameraLease = null;
+
+            try
+            {
+                actionScope = BeginInputStageRunReviewActionScope(kind, safeReason);
+
+                QMC.CDT320.Sequencing.MachineSequenceContext context;
+                CancellationToken reviewToken;
+                lock (_inputStageRunReviewManualLock)
+                {
+                    context = _inputStageRunReviewContext;
+                    reviewToken = _inputStageRunReviewActionCts != null
+                        ? _inputStageRunReviewActionCts.Token
+                        : CancellationToken.None;
+                }
+
+                if (context == null || !object.ReferenceEquals(context, _seqContext))
+                    throw new InvalidOperationException("Review Auto Sequence context가 변경되었습니다.");
+
+                string safetyReason;
+                if (!AreInputStageRunReviewPickersSafe(out safetyReason))
+                    throw new InvalidOperationException("Review 수동 동작 전 Picker 안전 조건이 유효하지 않습니다. " + safetyReason);
+
+                linkedCts = CancellationTokenSource.CreateLinkedTokenSource(ct, reviewToken);
+                stageLease = await context.Resources.AcquireAsync(
+                    QMC.CDT320.Sequencing.SequenceResourceKind.InputStageArea,
+                    "InputStageRunReview:" + safeReason,
+                    30000,
+                    linkedCts.Token).ConfigureAwait(false);
+                if (stageLease == null)
+                    throw new InvalidOperationException("InputStageArea 리소스 점유에 실패했습니다.");
+
+                cameraLease = await context.AutoLoaderGate.BeginInputCameraWorkAsync(
+                    "InputStageRunReview:" + safeReason,
+                    linkedCts.Token).ConfigureAwait(false);
+                if (cameraLease == null)
+                    throw new InvalidOperationException("InputCamera 작업 영역 점유에 실패했습니다.");
+
+                if (!AreInputStageRunReviewPickersSafe(out safetyReason))
+                    throw new InvalidOperationException("Review 수동 동작 직전 Picker 안전 재확인에 실패했습니다. " + safetyReason);
+
+                return new InputStageRunReviewWorkScope(
+                    cameraLease,
+                    stageLease,
+                    linkedCts,
+                    actionScope);
+            }
+            catch
+            {
+                if (cameraLease != null)
+                    cameraLease.Dispose();
+                if (stageLease != null)
+                    stageLease.Dispose();
+                if (linkedCts != null)
+                    linkedCts.Dispose();
+                if (actionScope != null)
+                    actionScope.Dispose();
+                throw;
+            }
+        }
+
+        public bool AreInputStageRunReviewPickersSafe(out string reason)
+        {
+            reason = string.Empty;
+
+            QMC.CDT320.Sequencing.MachineSequenceContext context;
+            lock (_inputStageRunReviewManualLock)
+            {
+                context = _inputStageRunReviewManualActive
+                    ? _inputStageRunReviewContext
+                    : _seqContext;
+            }
+
+            if (context == null || !object.ReferenceEquals(context, _seqContext))
+            {
+                reason = "현재 Auto Sequence와 일치하는 InputStage Review context가 없습니다.";
+                return false;
+            }
+
+            if (!IsSequenceRunning || _coordinator == null ||
+                ActiveSequenceRunMode != QMC.CDT320.Sequencing.SequenceRunMode.Auto)
+            {
+                reason = "InputStage Review 안전 확인에 필요한 Auto Coordinator가 실행 중이 아닙니다.";
+                return false;
+            }
+
+            if (context.Bus == null || !context.Bus.IsSet("InputLoaderActive"))
+            {
+                reason = "InputLoaderActive Review Hold 신호가 없습니다.";
+                return false;
+            }
+
+            if (context.PickerPhases == null)
+            {
+                reason = "Picker phase coordinator가 없습니다.";
+                return false;
+            }
+
+            QMC.CDT320.Sequencing.PickerPhaseSnapshot phaseSnapshot = context.PickerPhases.GetSnapshot();
+            if (phaseSnapshot.Front.Phase != QMC.CDT320.Sequencing.PickerProcessPhase.Idle ||
+                phaseSnapshot.Rear.Phase != QMC.CDT320.Sequencing.PickerProcessPhase.Idle)
+            {
+                reason = "Front/Rear Picker phase가 모두 Idle이 아닙니다. " + phaseSnapshot;
+                return false;
+            }
+
+            PickerFrontUnit front = context.Machine != null ? context.Machine.PickerFrontUnit : null;
+            PickerRearUnit rear = context.Machine != null ? context.Machine.PickerRearUnit : null;
+            if (front == null || rear == null)
+            {
+                reason = "Front/Rear Picker Unit을 모두 확인할 수 없습니다. front=" +
+                         (front != null) + ", rear=" + (rear != null);
+                return false;
+            }
+
+            if (!front.IsFrontPickerInAvoidPosition())
+            {
+                reason = "FrontPicker X/Y/Z/T 축이 모두 Avoid 위치가 아닙니다.";
+                return false;
+            }
+            foreach (BaseAxis axis in front.Axes.Values)
+            {
+                if (axis != null && axis.IsMoving)
+                {
+                    reason = "FrontPicker 축이 이동 중입니다. axis=" + axis.Name;
+                    return false;
+                }
+            }
+
+            if (!rear.IsRearPickerInAvoidPosition())
+            {
+                reason = "RearPicker X/Y/Z/T 축이 모두 Avoid 위치가 아닙니다.";
+                return false;
+            }
+            foreach (BaseAxis axis in rear.Axes.Values)
+            {
+                if (axis != null && axis.IsMoving)
+                {
+                    reason = "RearPicker 축이 이동 중입니다. axis=" + axis.Name;
+                    return false;
+                }
+            }
+
+            for (int pickerNo = 1; pickerNo <= 4; pickerNo++)
+            {
+                DieMaterial frontDie = MaterialStateService.GetDieAtPicker(
+                    MaterialLocationKind.PickerFront,
+                    pickerNo);
+                if (frontDie != null)
+                {
+                    reason = "FrontPicker가 제품을 보유 중입니다. picker=" + pickerNo +
+                             ", die=" + (frontDie.DieId ?? string.Empty);
+                    return false;
+                }
+
+                DieMaterial rearDie = MaterialStateService.GetDieAtPicker(
+                    MaterialLocationKind.PickerRear,
+                    pickerNo);
+                if (rearDie != null)
+                {
+                    reason = "RearPicker가 제품을 보유 중입니다. picker=" + pickerNo +
+                             ", die=" + (rearDie.DieId ?? string.Empty);
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        private sealed class InputStageRunReviewWorkScope : IDisposable
+        {
+            private IDisposable _cameraLease;
+            private IDisposable _stageLease;
+            private CancellationTokenSource _linkedCts;
+            private IDisposable _actionScope;
+
+            public InputStageRunReviewWorkScope(
+                IDisposable cameraLease,
+                IDisposable stageLease,
+                CancellationTokenSource linkedCts,
+                IDisposable actionScope)
+            {
+                _cameraLease = cameraLease;
+                _stageLease = stageLease;
+                _linkedCts = linkedCts;
+                _actionScope = actionScope;
+            }
+
+            public void Dispose()
+            {
+                IDisposable cameraLease = Interlocked.Exchange(ref _cameraLease, null);
+                IDisposable stageLease = Interlocked.Exchange(ref _stageLease, null);
+                CancellationTokenSource linkedCts = Interlocked.Exchange(ref _linkedCts, null);
+                IDisposable actionScope = Interlocked.Exchange(ref _actionScope, null);
+
+                try { if (cameraLease != null) cameraLease.Dispose(); } catch { }
+                try { if (stageLease != null) stageLease.Dispose(); } catch { }
+                try { if (linkedCts != null) linkedCts.Dispose(); } catch { }
+                try { if (actionScope != null) actionScope.Dispose(); } catch { }
+            }
+        }
+
+        public void CancelInputStageRunReviewAction()
+        {
+            CancellationTokenSource cts;
+            bool actionBusy;
+            lock (_inputStageRunReviewManualLock)
+            {
+                cts = _inputStageRunReviewActionCts;
+                actionBusy = _inputStageRunReviewActionBusyCount > 0;
+            }
+
+            if (cts == null)
+                return;
+
+            try
+            {
+                if (!cts.IsCancellationRequested)
+                    cts.Cancel();
+                if (actionBusy)
+                    StopInputStageRunReviewAxes();
+            }
+            catch (ObjectDisposedException)
+            {
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Log.Write("Main", "SYSTEM", "InputStageRunReviewAction",
+                    "Review 수동 동작 취소 요청 중 예외가 발생했습니다. error=" + ex.Message + " - Failed");
+            }
+        }
+
+        private void LeaveInputStageRunReviewAction(string reason)
+        {
+            CancellationTokenSource canceledCts = null;
+            int busyCount;
+
+            lock (_inputStageRunReviewManualLock)
+            {
+                if (_inputStageRunReviewActionBusyCount > 0)
+                    _inputStageRunReviewActionBusyCount--;
+                else
+                    _inputStageRunReviewActionBusyCount = 0;
+
+                busyCount = _inputStageRunReviewActionBusyCount;
+                if (busyCount == 0 &&
+                    _inputStageRunReviewActionCts != null &&
+                    _inputStageRunReviewActionCts.IsCancellationRequested)
+                {
+                    canceledCts = _inputStageRunReviewActionCts;
+                    _inputStageRunReviewActionCts = null;
+                }
+            }
+
+            if (canceledCts != null)
+            {
+                try { canceledCts.Dispose(); } catch { }
+            }
+
+            QMC.Common.Log.Write("Main", "SYSTEM", "InputStageRunReviewAction",
+                "Review 수동 동작 스코프를 종료했습니다. reason=" + (reason ?? string.Empty) +
+                ", busyCount=" + busyCount + " - End");
+        }
+
+        private sealed class InputStageRunReviewActionScope : IDisposable
+        {
+            private MachineController _owner;
+            private IDisposable _motionScope;
+            private readonly string _reason;
+
+            public InputStageRunReviewActionScope(
+                MachineController owner,
+                IDisposable motionScope,
+                string reason)
+            {
+                _owner = owner;
+                _motionScope = motionScope;
+                _reason = reason ?? string.Empty;
+            }
+
+            public void Dispose()
+            {
+                MachineController owner = Interlocked.Exchange(ref _owner, null);
+                if (owner == null)
+                    return;
+
+                try
+                {
+                    IDisposable motionScope = Interlocked.Exchange(ref _motionScope, null);
+                    if (motionScope != null)
+                        motionScope.Dispose();
+                }
+                finally
+                {
+                    owner.LeaveInputStageRunReviewAction(_reason);
+                }
+            }
+        }
+
+        private void ClearInputStageRunReviewManualState(string clearReason)
+        {
+            bool notify;
+            string waferId;
+            CancellationTokenSource actionCts;
+
+            lock (_inputStageRunReviewManualLock)
+            {
+                notify = _inputStageRunReviewManualActive;
+                waferId = _inputStageRunReviewWaferId ?? string.Empty;
+                actionCts = _inputStageRunReviewActionCts;
+
+                _inputStageRunReviewManualActive = false;
+                _inputStageRunReviewWaferId = string.Empty;
+                _inputStageRunReviewContext = null;
+                _inputStageRunReviewActionBusyCount = 0;
+                _inputStageRunReviewActionCts = null;
+            }
+
+            if (actionCts != null)
+            {
+                try { actionCts.Cancel(); } catch { }
+                try { actionCts.Dispose(); } catch { }
+            }
+
+            if (!notify)
+                return;
+
+            RaiseInputStageRunReviewManualStateChanged(false, waferId);
+            QMC.Common.Log.Write("Main", "SYSTEM", "InputStageRunReviewManual",
+                "InputStage Review Manual 상태를 강제 정리했습니다. wafer=" + waferId +
+                ", reason=" + (clearReason ?? string.Empty) + " - Reset");
+        }
+
+        private void RaiseInputStageRunReviewManualStateChanged(bool active, string waferId)
+        {
+            Action<bool, string> handler = InputStageRunReviewManualStateChanged;
+            if (handler == null)
+                return;
+
+            try
+            {
+                handler(active, waferId ?? string.Empty);
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Log.Write("Main", "SYSTEM", "InputStageRunReviewManual",
+                    "InputStage Review Manual 상태 변경 이벤트 처리 중 예외가 발생했습니다. active=" + active +
+                    ", wafer=" + (waferId ?? string.Empty) +
+                    ", error=" + ex.Message + " - Failed");
             }
         }
 
@@ -8308,6 +9061,8 @@ namespace QMC.CDT320
                     }
                     finally
                     {
+                        ClearInputStageRunReviewManualState("CoordinatorFinally");
+
                         if (sequenceScope != null)
                             sequenceScope.Dispose();
 

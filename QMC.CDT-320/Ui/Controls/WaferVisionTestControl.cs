@@ -13,83 +13,245 @@ namespace QMC.CDT_320.Ui.Controls
 {
     public sealed partial class WaferVisionTestControl : UserControl
     {
-        private readonly WaferVisionAdapter _adapter = new WaferVisionAdapter();
+        private readonly object _requestSync = new object();
+        private CancellationToken _requestCancellationToken = CancellationToken.None;
+        private Task _activeRequest = Task.FromResult(0);
+        private Task _requestExecution = Task.FromResult(0);
+        private bool _requestBusy;
+        private long _requestGeneration;
 
         public WaferVisionTestControl()
         {
             InitializeComponent();
         }
 
+        public event Action<bool> RequestBusyChanged;
+
+        public bool IsRequestBusy
+        {
+            get
+            {
+                lock (_requestSync)
+                    return _requestBusy;
+            }
+        }
+
         private async void btnExpose_Click(object sender, EventArgs e)
         {
-            await RunExposeAsync().ConfigureAwait(true);
+            await RunTrackedRequestAsync(RunExposeAsync).ConfigureAwait(true);
         }
 
         private async void btnCenterMatchAsync_Click(object sender, EventArgs e)
         {
-            await RunMatchAsyncRequestAsync(
+            await RunTrackedRequestAsync(token => RunMatchAsyncRequestAsync(
                 VisionAlignTargetIds.Center,
-                lblCenterMatchAsync).ConfigureAwait(true);
+                lblCenterMatchAsync,
+                token)).ConfigureAwait(true);
         }
 
         private async void btnCenterMatchResult_Click(object sender, EventArgs e)
         {
-            await RunAlignMatchAsyncAndResultAsync(
+            await RunTrackedRequestAsync(token => RunAlignMatchAsyncAndResultAsync(
                 VisionAlignTargetIds.Center,
-                lblCenterMatchResult).ConfigureAwait(true);
+                lblCenterMatchResult,
+                token)).ConfigureAwait(true);
         }
 
         private async void btnRef1MatchAsync_Click(object sender, EventArgs e)
         {
-            await RunMatchAsyncRequestAsync(
+            await RunTrackedRequestAsync(token => RunMatchAsyncRequestAsync(
                 VisionAlignTargetIds.Ref1,
-                lblRef1MatchAsync).ConfigureAwait(true);
+                lblRef1MatchAsync,
+                token)).ConfigureAwait(true);
         }
 
         private async void btnRef1MatchResult_Click(object sender, EventArgs e)
         {
-            await RunAlignMatchAsyncAndResultAsync(
+            await RunTrackedRequestAsync(token => RunAlignMatchAsyncAndResultAsync(
                 VisionAlignTargetIds.Ref1,
-                lblRef1MatchResult).ConfigureAwait(true);
+                lblRef1MatchResult,
+                token)).ConfigureAwait(true);
         }
 
         private async void btnRef2MatchAsync_Click(object sender, EventArgs e)
         {
-            await RunMatchAsyncRequestAsync(
+            await RunTrackedRequestAsync(token => RunMatchAsyncRequestAsync(
                 VisionAlignTargetIds.Ref2,
-                lblRef2MatchAsync).ConfigureAwait(true);
+                lblRef2MatchAsync,
+                token)).ConfigureAwait(true);
         }
 
         private async void btnRef2MatchResult_Click(object sender, EventArgs e)
         {
-            await RunAlignMatchAsyncAndResultAsync(
+            await RunTrackedRequestAsync(token => RunAlignMatchAsyncAndResultAsync(
                 VisionAlignTargetIds.Ref2,
-                lblRef2MatchResult).ConfigureAwait(true);
+                lblRef2MatchResult,
+                token)).ConfigureAwait(true);
         }
 
         private async void btnDieCheckMatchAsync_Click(object sender, EventArgs e)
         {
-            await RunMatchAsyncRequestAsync(
+            await RunTrackedRequestAsync(token => RunMatchAsyncRequestAsync(
                 VisionAlignTargetIds.InputPickDie,
-                lblDieCheckMatchAsync).ConfigureAwait(true);
+                lblDieCheckMatchAsync,
+                token)).ConfigureAwait(true);
         }
 
         private async void btnDieCheckMatchResult_Click(object sender, EventArgs e)
         {
-            await RunDieCheckMatchAsyncAndResultAsync(
+            await RunTrackedRequestAsync(token => RunDieCheckMatchAsyncAndResultAsync(
                 VisionAlignTargetIds.InputPickDie,
-                lblDieCheckMatchResult).ConfigureAwait(true);
+                lblDieCheckMatchResult,
+                token)).ConfigureAwait(true);
         }
 
         public void Configure()
         {
+            Configure(CancellationToken.None);
+        }
+
+        public void Configure(CancellationToken cancellationToken)
+        {
+            lock (_requestSync)
+            {
+                if (_requestBusy)
+                    throw new InvalidOperationException("Vision 요청 실행 중에는 취소 토큰을 변경할 수 없습니다.");
+                _requestCancellationToken = cancellationToken;
+            }
+
             viewer.Configure(VisionHub.Host, VisionViewerPorts.Wafer, "Wafer Image", VisionHub.Wafer);
             RefreshSummary();
+        }
+
+        public Task WaitForRequestCompletionAsync()
+        {
+            lock (_requestSync)
+            {
+                Task completion = _activeRequest;
+                Task execution = _requestExecution;
+                return completion ?? execution ?? Task.FromResult(0);
+            }
         }
 
         public void StopLive()
         {
             try { viewer.StopLive(); } catch { }
+        }
+
+        private Task RunTrackedRequestAsync(Func<CancellationToken, Task> request)
+        {
+            if (request == null)
+                return Task.FromResult(0);
+
+            TaskCompletionSource<object> completion;
+            CancellationToken cancellationToken;
+            long generation;
+            lock (_requestSync)
+            {
+                if (_requestBusy)
+                    return _activeRequest ?? Task.FromResult(0);
+                if (_requestCancellationToken.IsCancellationRequested)
+                    return Task.FromResult(0);
+
+                _requestBusy = true;
+                generation = ++_requestGeneration;
+                cancellationToken = _requestCancellationToken;
+                completion = new TaskCompletionSource<object>(TaskCreationOptions.RunContinuationsAsynchronously);
+                _activeRequest = completion.Task;
+            }
+
+            SetVisionCommandButtonsEnabled(false);
+            RaiseRequestBusyChanged(true);
+            _requestExecution = ExecuteTrackedRequestAsync(
+                request,
+                cancellationToken,
+                generation,
+                completion);
+            return completion.Task;
+        }
+
+        private async Task ExecuteTrackedRequestAsync(
+            Func<CancellationToken, Task> request,
+            CancellationToken cancellationToken,
+            long generation,
+            TaskCompletionSource<object> completion)
+        {
+            try
+            {
+                // _activeRequest가 먼저 게시된 뒤 실제 요청을 시작하여 Close 대기가 요청을 놓치지 않게 한다.
+                await Task.Yield();
+                cancellationToken.ThrowIfCancellationRequested();
+                await request(cancellationToken).ConfigureAwait(true);
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                // Review Close/Auto 전환에서 요청을 취소한 정상 제어 흐름이다.
+            }
+            catch (ObjectDisposedException)
+            {
+                // Application 종료 등으로 UI가 강제 폐기된 경우 후속 UI 갱신을 하지 않는다.
+            }
+            catch (InvalidOperationException) when (IsDisposed || Disposing || !IsHandleCreated)
+            {
+                // Dispose와 UI continuation이 경합한 경우만 종료 흐름으로 처리한다.
+            }
+            catch (Exception ex)
+            {
+                try
+                {
+                    QMC.Common.Log.Write(
+                        "Main",
+                        "SYSTEM",
+                        "WaferVisionTestControl",
+                        "Vision 테스트 요청 처리 실패: " + ex.Message + " - Failed");
+                }
+                catch { }
+            }
+            finally
+            {
+                bool changedToIdle = false;
+                lock (_requestSync)
+                {
+                    if (_requestGeneration == generation)
+                    {
+                        _requestBusy = false;
+                        changedToIdle = true;
+                    }
+                }
+
+                if (changedToIdle)
+                {
+                    SetVisionCommandButtonsEnabled(true);
+                    RaiseRequestBusyChanged(false);
+                }
+
+                // UI 정리와 busy=false 통지가 끝난 뒤 Close 대기자를 해제한다.
+                completion.TrySetResult(null);
+            }
+        }
+
+        private void RaiseRequestBusyChanged(bool busy)
+        {
+            Action<bool> handler = RequestBusyChanged;
+            if (handler == null)
+                return;
+
+            try
+            {
+                handler(busy);
+            }
+            catch (Exception ex)
+            {
+                try
+                {
+                    QMC.Common.Log.Write(
+                        "Main",
+                        "SYSTEM",
+                        "WaferVisionTestControl",
+                        "Vision 요청 busy 이벤트 처리 실패: " + ex.Message + " - Failed");
+                }
+                catch { }
+            }
         }
 
         private bool Ready(Label target)
@@ -112,19 +274,22 @@ namespace QMC.CDT_320.Ui.Controls
             return true;
         }
 
-        private async Task RunExposeAsync()
+        private async Task RunExposeAsync(CancellationToken cancellationToken)
         {
             if (!Ready(lblExpose))
                 return;
 
-            SetVisionCommandButtonsEnabled(false);
             lblExpose.ForeColor = Color.DimGray;
             lblExpose.Text = "GRAB 실행 중...";
             LogLiveAutoStartBlocked("EXPOSE 전 자동 Live 시작 차단");
             Stopwatch requestTact = Stopwatch.StartNew();
             try
             {
-                bool ok = await _adapter.TriggerExposeAsync(0).ConfigureAwait(true);
+                bool ok = await AutoVisionRequestService.GrabAsync(
+                    AutoVisionChannel.Wafer,
+                    0,
+                    5000,
+                    cancellationToken).ConfigureAwait(true);
                 requestTact.Stop();
                 lblExpose.ForeColor = ok ? Color.SeaGreen : Color.Firebrick;
                 lblExpose.Text = "REQ→ACK " + requestTact.ElapsedMilliseconds + " ms | " +
@@ -132,24 +297,28 @@ namespace QMC.CDT_320.Ui.Controls
                 if (ok)
                     LogLiveAutoStartBlocked("EXPOSE 완료 후 자동 Live 시작 차단");
             }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                requestTact.Stop();
+                SetRequestCancelledLabel(lblExpose, "GRAB 요청이 취소되었습니다.");
+                throw;
+            }
             catch (Exception ex)
             {
                 requestTact.Stop();
                 lblExpose.ForeColor = Color.Firebrick;
                 lblExpose.Text = "REQ→ACK " + requestTact.ElapsedMilliseconds + " ms | GRAB 실패: " + ex.Message;
             }
-            finally
-            {
-                SetVisionCommandButtonsEnabled(true);
-            }
         }
 
-        private async Task RunMatchAsyncRequestAsync(string targetId, Label label)
+        private async Task RunMatchAsyncRequestAsync(
+            string targetId,
+            Label label,
+            CancellationToken cancellationToken)
         {
             if (!Ready(label))
                 return;
 
-            SetVisionCommandButtonsEnabled(false);
             label.ForeColor = Color.DimGray;
             string finder = VisionAlignTargetIds.ResolveWaferFinder(targetId);
             label.Text = "INSPECT_SYNC 요청/EPD 대기 중...";
@@ -161,7 +330,7 @@ namespace QMC.CDT_320.Ui.Controls
                     finder,
                     0,
                     5000,
-                    CancellationToken.None).ConfigureAwait(true);
+                    cancellationToken).ConfigureAwait(true);
 
                 long epdElapsedMilliseconds = matchTact.ElapsedMilliseconds;
                 if (!epdReceived)
@@ -179,7 +348,7 @@ namespace QMC.CDT_320.Ui.Controls
                     finder,
                     0,
                     5000,
-                    CancellationToken.None).ConfigureAwait(true);
+                    cancellationToken).ConfigureAwait(true);
                 resultTact.Stop();
                 matchTact.Stop();
                 bool completed = result != null && result.Success;
@@ -189,6 +358,12 @@ namespace QMC.CDT_320.Ui.Controls
                              "전체 " + matchTact.ElapsedMilliseconds + " ms | " +
                              (completed ? "DONE" : "RESULT 실패");
             }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                matchTact.Stop();
+                SetRequestCancelledLabel(label, "INSPECT_SYNC 요청이 취소되었습니다.");
+                throw;
+            }
             catch (Exception ex)
             {
                 matchTact.Stop();
@@ -196,18 +371,16 @@ namespace QMC.CDT_320.Ui.Controls
                 label.Text = "REQ→EPD " + matchTact.ElapsedMilliseconds + " ms" + Environment.NewLine +
                              "INSPECT_SYNC 실패: " + ex.Message;
             }
-            finally
-            {
-                SetVisionCommandButtonsEnabled(true);
-            }
         }
 
-        private async Task RunAlignMatchAsyncAndResultAsync(string targetId, Label label)
+        private async Task RunAlignMatchAsyncAndResultAsync(
+            string targetId,
+            Label label,
+            CancellationToken cancellationToken)
         {
             if (!Ready(label))
                 return;
 
-            SetVisionCommandButtonsEnabled(false);
             label.ForeColor = Color.DimGray;
             label.Text = "INSPECT_SYNC 요청/EPD 대기 중...";
             string finder = VisionAlignTargetIds.ResolveWaferFinder(targetId);
@@ -219,7 +392,7 @@ namespace QMC.CDT_320.Ui.Controls
                     finder,
                     0,
                     5000,
-                    CancellationToken.None).ConfigureAwait(true);
+                    cancellationToken).ConfigureAwait(true);
 
                 long epdElapsedMilliseconds = totalTact.ElapsedMilliseconds;
                 if (!epdReceived)
@@ -240,7 +413,7 @@ namespace QMC.CDT_320.Ui.Controls
                     finder,
                     0,
                     5000,
-                    CancellationToken.None).ConfigureAwait(true);
+                    cancellationToken).ConfigureAwait(true);
                 resultTact.Stop();
                 totalTact.Stop();
 
@@ -274,6 +447,12 @@ namespace QMC.CDT_320.Ui.Controls
                              "전체 " + totalTact.ElapsedMilliseconds + " ms | DONE score=" + result.Score.ToString("F3");
                 LogLiveAutoStartBlocked("ALIGN INSPECT_SYNC + RESULT 완료 후 자동 Live 시작 차단");
             }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                totalTact.Stop();
+                SetRequestCancelledLabel(label, "INSPECT_SYNC + RESULT 요청이 취소되었습니다.");
+                throw;
+            }
             catch (Exception ex)
             {
                 totalTact.Stop();
@@ -283,17 +462,18 @@ namespace QMC.CDT_320.Ui.Controls
             }
             finally
             {
-                SetVisionCommandButtonsEnabled(true);
                 RefreshSummary();
             }
         }
 
-        private async Task RunDieCheckMatchAsyncAndResultAsync(string targetId, Label label)
+        private async Task RunDieCheckMatchAsyncAndResultAsync(
+            string targetId,
+            Label label,
+            CancellationToken cancellationToken)
         {
             if (!Ready(label))
                 return;
 
-            SetVisionCommandButtonsEnabled(false);
             label.ForeColor = Color.DimGray;
             label.Text = "INSPECT_SYNC 요청/EPD 대기 중...";
             string finder = VisionAlignTargetIds.ResolveWaferFinder(targetId);
@@ -305,7 +485,7 @@ namespace QMC.CDT_320.Ui.Controls
                     finder,
                     0,
                     5000,
-                    CancellationToken.None).ConfigureAwait(true);
+                    cancellationToken).ConfigureAwait(true);
 
                 long epdElapsedMilliseconds = totalTact.ElapsedMilliseconds;
                 if (!epdReceived)
@@ -326,7 +506,7 @@ namespace QMC.CDT_320.Ui.Controls
                     finder,
                     0,
                     5000,
-                    CancellationToken.None).ConfigureAwait(true);
+                    cancellationToken).ConfigureAwait(true);
                 resultTact.Stop();
                 totalTact.Stop();
 
@@ -348,6 +528,12 @@ namespace QMC.CDT_320.Ui.Controls
                              "전체 " + totalTact.ElapsedMilliseconds + " ms | " +
                              (ok ? "DONE OK" : "DONE NG") + " score=" + result.Score.ToString("F3");
             }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                totalTact.Stop();
+                SetRequestCancelledLabel(label, "INSPECT_SYNC + RESULT 요청이 취소되었습니다.");
+                throw;
+            }
             catch (Exception ex)
             {
                 totalTact.Stop();
@@ -357,13 +543,26 @@ namespace QMC.CDT_320.Ui.Controls
             }
             finally
             {
-                SetVisionCommandButtonsEnabled(true);
                 RefreshSummary();
             }
         }
 
         private void SetVisionCommandButtonsEnabled(bool enabled)
         {
+            if (IsDisposed || Disposing || !IsHandleCreated)
+                return;
+
+            if (InvokeRequired)
+            {
+                try
+                {
+                    BeginInvoke(new Action<bool>(SetVisionCommandButtonsEnabled), enabled);
+                }
+                catch (ObjectDisposedException) { }
+                catch (InvalidOperationException) { }
+                return;
+            }
+
             btnExpose.Enabled = enabled;
             btnCenterMatchAsync.Enabled = enabled;
             btnCenterMatchResult.Enabled = enabled;
@@ -375,8 +574,41 @@ namespace QMC.CDT_320.Ui.Controls
             btnDieCheckMatchResult.Enabled = enabled;
         }
 
+        private void SetRequestCancelledLabel(Label label, string message)
+        {
+            if (label == null || label.IsDisposed || IsDisposed || Disposing || !IsHandleCreated)
+                return;
+
+            if (InvokeRequired)
+            {
+                try
+                {
+                    BeginInvoke(new Action<Label, string>(SetRequestCancelledLabel), label, message);
+                }
+                catch (ObjectDisposedException) { }
+                catch (InvalidOperationException) { }
+                return;
+            }
+
+            label.ForeColor = Color.DimGray;
+            label.Text = string.IsNullOrWhiteSpace(message) ? "Vision 요청이 취소되었습니다." : message;
+        }
+
         private void RefreshSummary()
         {
+            if (IsDisposed || Disposing || lblSummary == null || lblSummary.IsDisposed)
+                return;
+
+            if (InvokeRequired)
+            {
+                if (!IsHandleCreated)
+                    return;
+                try { BeginInvoke(new Action(RefreshSummary)); }
+                catch (ObjectDisposedException) { }
+                catch (InvalidOperationException) { }
+                return;
+            }
+
             try
             {
                 WaferVisionInspectionResult last = WaferVisionResultStore.LastInspection;
@@ -398,7 +630,8 @@ namespace QMC.CDT_320.Ui.Controls
             }
             catch (Exception ex)
             {
-                lblSummary.Text = "요약 표시 실패: " + ex.Message;
+                if (!lblSummary.IsDisposed)
+                    lblSummary.Text = "요약 표시 실패: " + ex.Message;
             }
         }
 

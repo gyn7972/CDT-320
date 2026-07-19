@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using QMC.CDT320.DieMaps;
 using QMC.CDT320.Lots;
@@ -504,6 +504,9 @@ namespace QMC.CDT320.Sequencing
             wafer.InputMapApprovalHashAtMapping = inputMapApprovalHash ?? "";
             wafer.HasInputStageRunReviewApproval = false;
             wafer.InputStageRunReviewStartDieIndex = 0;
+            wafer.InputStageRunReviewStartDieUid = "";
+            wafer.InputStageRunReviewOrderedDieIds = new List<string>();
+            wafer.InputStageRunReviewMappingRevision = "";
             wafer.State = WaferMaterialState.Working;
             wafer.UpdatedAt = DateTime.Now;
         }

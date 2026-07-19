@@ -51,6 +51,8 @@ namespace QMC.CDT320.Sequencing
         private bool _inputLoaderActivePublished;
         // 리뷰 취소 후 Align을 저장 재개점이 아닌 최초 단계부터 다시 실행하기 위한 1회성 플래그입니다.
         private bool _restartAlignFromReview;
+        // 리뷰에서 Mapping 재실행을 선택한 경우 저장 재개점이 아닌 최초 단계부터 실행하기 위한 1회성 플래그입니다.
+        private bool _restartDieMappingFromReview;
 
         public InputSequence(MachineSequenceContext ctx)
             : base(ctx, SequenceUnitKind.InputLoader, "Input")
@@ -111,6 +113,8 @@ namespace QMC.CDT320.Sequencing
 
                 bool readySignalPublishedFromRestore = TryPublishRestoredInputStageReadySignals();
 
+                WaferMaterial stageWafer = null;
+
                 // Mapping부터 DieMapping까지 한 번 승인된 Input loader 작업으로 완료한다.
                 if (_autoStep != InputSequenceAutoStep.Complete || !readySignalPublishedFromRestore)
                 {
@@ -118,16 +122,26 @@ namespace QMC.CDT320.Sequencing
                         .BeginInputWorkAsync(
                             "InputStageReadyCycle",
                             ct,
-                            EnsureInputPickersAvoidBeforeFeederMoveAsync,
-                            AreInputPickersAvoidAndStopped)
+                            EnsureInputPickersEmptyAvoidAndStoppedAsync,
+                            AreInputPickersEmptyAvoidAndStopped)
                         .ConfigureAwait(false))
                     {
                         await ExecuteInputLoadingStepsUntilStageReadyAsync(ct).ConfigureAwait(false);
+
+                        // Complete 복구 판정과 누락 step 재실행도 InputLoaderActive lease 안에서만 수행한다.
+                        stageWafer = ResolveStageWaferFromRuntimeState();
+                        if (stageWafer != null)
+                        {
+                            stageWafer = await EnsureInputStageFinishBeforePickerReadyAsync(
+                                stageWafer,
+                                ct).ConfigureAwait(false);
+                        }
                     }
                 }
 
                 // Stage에 wafer가 없으면 아직 다음 cycle을 진행할 조건이 아니므로 짧게 대기 후 반환한다.
-                WaferMaterial stageWafer = ResolveStageWaferFromRuntimeState();
+                if (stageWafer == null)
+                    stageWafer = ResolveStageWaferFromRuntimeState();
                 if (stageWafer == null)
                 {
                     Context.StopIfCycleStopRequested("InputSequence.WaitStageWafer");
@@ -135,8 +149,12 @@ namespace QMC.CDT320.Sequencing
                     return;
                 }
 
-                // Stage 준비 상태가 중간에 빠졌거나 복원 직후 불완전하면 누락 step부터 다시 수행한다.
-                stageWafer = await EnsureInputStageFinishBeforePickerReadyAsync(stageWafer, ct).ConfigureAwait(false);
+                // Loader lease 밖에서는 복구 동작을 시작하지 않고 최종 완료 상태만 fail-closed로 확인한다.
+                string finishReason;
+                if (!MaterialStateService.IsInputStageFinishComplete(out finishReason))
+                    throw new InvalidOperationException(
+                        "InputLoader gate 종료 후 InputStage PickUp 준비 상태가 유효하지 않습니다. " + finishReason);
+
                 // Picker 쪽에서 볼 수 있는 ready bus를 올린 뒤 die pick 완료를 기다린다.
                 if (!readySignalPublishedFromRestore ||
                     Context == null ||
@@ -163,8 +181,8 @@ namespace QMC.CDT320.Sequencing
                     .BeginInputWorkAsync(
                         "InputStageUnloadCycle",
                         ct,
-                        EnsureInputPickersAvoidBeforeFeederMoveAsync,
-                        AreInputPickersAvoidAndStopped)
+                        EnsureInputPickersEmptyAvoidAndStoppedAsync,
+                        AreInputPickersEmptyAvoidAndStopped)
                     .ConfigureAwait(false))
                 {
                     await UnloadInputStageWaferIfPresentAsync(ct).ConfigureAwait(false);
@@ -271,6 +289,17 @@ namespace QMC.CDT320.Sequencing
                 if (stageWafer == null)
                     return false;
 
+                string approvalReason;
+                if (!MaterialStateService.IsInputStageRunReviewApprovalUsable(
+                    stageWafer,
+                    out approvalReason))
+                {
+                    WriteLog("TryPublishRestoredInputStageReadySignals",
+                        "Restored InputStage Review approval is not usable. wafer=" +
+                        (stageWafer.WaferId ?? "") + ", reason=" + approvalReason + " - Check");
+                    return false;
+                }
+
                 string finishReason;
                 if (!MaterialStateService.IsInputStageFinishComplete(out finishReason))
                     return false;
@@ -332,6 +361,9 @@ namespace QMC.CDT320.Sequencing
                     return;
                 }
 
+                if (TryCompleteInputStageWithNoApprovedPickTargets(stageWafer))
+                    return;
+
                 if (allowSafeCompletionSignalRecovery &&
                     TryRestoreInputStageCompletionSignalAfterPickerAvoid(stageWafer))
                     return;
@@ -359,6 +391,9 @@ namespace QMC.CDT320.Sequencing
                             (stageWafer != null ? stageWafer.WaferId : "-") + " - Ok");
                         return;
                     }
+
+                    if (TryCompleteInputStageWithNoApprovedPickTargets(stageWafer))
+                        return;
 
                     if (allowSafeCompletionSignalRecovery &&
                         TryRestoreInputStageCompletionSignalAfterPickerAvoid(stageWafer))
@@ -388,6 +423,31 @@ namespace QMC.CDT320.Sequencing
             finally
             {
             }
+        }
+
+        private bool TryCompleteInputStageWithNoApprovedPickTargets(WaferMaterial stageWafer)
+        {
+            if (stageWafer == null ||
+                !stageWafer.HasInputStageRunReviewApproval ||
+                stageWafer.InputStageRunReviewOrderedDieIds == null ||
+                stageWafer.InputStageRunReviewOrderedDieIds.Count != 0)
+            {
+                return false;
+            }
+
+            string approvalReason;
+            if (!MaterialStateService.IsInputStageRunReviewApprovalUsable(stageWafer, out approvalReason))
+                return false;
+
+            string pickerReason;
+            if (!AreInputPickersEmptyAvoidAndStopped(out pickerReason))
+                return false;
+
+            Context.Bus.Set("InputStageDieComplete");
+            WriteLog("WaitPickerToCompleteInputStageDiesAsync",
+                "Review 승인 PickUp 대상이 0개이고 Front/Rear Picker Empty/Idle/full Avoid를 확인하여 " +
+                "InputStage 완료 신호를 확정했습니다. wafer=" + (stageWafer.WaferId ?? "") + " - Ok");
+            return true;
         }
 
         private async Task<bool> WaitForStopAfterDrainCompletionIfRequestedAsync(
@@ -477,6 +537,7 @@ namespace QMC.CDT320.Sequencing
             _autoSlotIndex = -1;
             _autoWaferId = "";
             _restartAlignFromReview = false;
+            _restartDieMappingFromReview = false;
             _autoStep = InputSequenceAutoStep.ResolveSlot;
         }
 
@@ -892,20 +953,33 @@ namespace QMC.CDT320.Sequencing
                     return InputSequenceAutoStep.AlignStage;
                 }
 
-                // Align 결과, die mapping 결과, die id, frame object id가 모두 있으면 사용자 승인 여부를 확인한다.
+                // Align 결과, die mapping 결과와 die id가 있으면 사용자 승인 여부를 확인한다.
+                // legacy 빈 frame id는 MaterialStateService가 map/wafer id 순서로 revision을 해석한다.
                 if (wafer.HasInputStageAlignResult &&
                     wafer.HasInputStageDieMappingResult &&
                     wafer.DieIds != null &&
                     wafer.DieIds.Count > 0 &&
-                    !string.IsNullOrWhiteSpace(wafer.DieMapFrameObjId) &&
                     MaterialStateService.IsStoredInputStageResultModeUsable(
                         wafer,
                         true,
                         out resultModeReason))
                 {
-                    return wafer.HasInputStageRunReviewApproval
-                        ? InputSequenceAutoStep.Complete
-                        : InputSequenceAutoStep.ReviewStage;
+                    string approvalReason;
+                    if (MaterialStateService.IsInputStageRunReviewApprovalUsable(
+                        wafer,
+                        out approvalReason))
+                    {
+                        return InputSequenceAutoStep.Complete;
+                    }
+
+                    if (wafer.HasInputStageRunReviewApproval)
+                    {
+                        WriteLog("ResolveStageWaferResumeStep",
+                            "Saved InputStage Review approval is not usable. wafer=" +
+                            (wafer.WaferId ?? "") + ", reason=" + approvalReason +
+                            ". ReviewStage부터 다시 확인합니다. - Check");
+                    }
+                    return InputSequenceAutoStep.ReviewStage;
                 }
 
                 // Align은 끝났지만 die map 정보가 부족하면 DieMapping부터 재개한다.
@@ -1180,8 +1254,12 @@ namespace QMC.CDT320.Sequencing
                     // [8] DieMapping: Align 결과를 기반으로 Stage wafer의 die map 정보를 생성한다.
                     case InputSequenceAutoStep.DieMapping:
                     {
+                        SequenceStartMode mappingStartMode = _restartDieMappingFromReview
+                            ? SequenceStartMode.Restart
+                            : SequenceStartMode.Resume;
                         string dieMappingResumeStep;
-                        if (ShouldRestartWaferAlignForDieMappingResume(out dieMappingResumeStep))
+                        if (mappingStartMode == SequenceStartMode.Resume &&
+                            ShouldRestartWaferAlignForDieMappingResume(out dieMappingResumeStep))
                         {
                             RestartWaferAlignAfterMissingDieMapPoints(dieMappingResumeStep);
                             break;
@@ -1195,7 +1273,7 @@ namespace QMC.CDT320.Sequencing
                                     return Fail("SEQ-IN-RESOURCE-STAGE", "InputSequence", "Die mapping 중 InputStageArea 리소스 점유에 실패했습니다.");
 
                                 InputStageSequenceOptions mappingOptions =
-                                    BuildStageSequenceOptions(false, SequenceStartMode.Resume, requireVisionAlign, _autoWaferId, false);
+                                    BuildStageSequenceOptions(false, mappingStartMode, requireVisionAlign, _autoWaferId, false);
                                 // Auto에서는 사용자 리뷰 승인 전 Picker Ready 신호를 발행하지 않는다.
                                 mappingOptions.PublishReadySignals = false;
 
@@ -1216,6 +1294,7 @@ namespace QMC.CDT320.Sequencing
                         }).ConfigureAwait(false);
                         if (result != 0)
                             return result;
+                        _restartDieMappingFromReview = false;
                         // Picker Ready는 사용자 리뷰 승인 후에만 발행한다.
                         _autoStep = InputSequenceAutoStep.ReviewStage;
                         break;
@@ -1227,8 +1306,9 @@ namespace QMC.CDT320.Sequencing
                         InputStageUnit stage = Context != null && Context.Machine != null
                             ? Context.Machine.InputStageUnit
                             : null;
+                        MachineController controller = Context != null ? Context.Controller : null;
                         WaferMaterial reviewWafer = ResolveStageWaferFromRuntimeState();
-                        if (stage == null || reviewWafer == null)
+                        if (stage == null || controller == null || reviewWafer == null)
                             return Fail("SEQ-IN-REVIEW-MATERIAL", "InputSequence",
                                 "InputStage 리뷰 대상 장비 또는 Wafer Material이 없습니다.");
 
@@ -1243,42 +1323,156 @@ namespace QMC.CDT320.Sequencing
                         }
 
                         ResetInputStageReadySignals();
-                        WriteLog("InputStageRunReview",
-                            "Align/Die Mapping 사용자 확인을 기다립니다. wafer=" + (reviewWafer.WaferId ?? "") +
-                            ", slot=" + _autoSlotIndex + " - Wait");
-
-                        UserConfirmResult reviewResult = await stage.WaitForUserConfirmAsync(ct).ConfigureAwait(false);
-                        if (reviewResult != null && reviewResult.IsConfirmed)
+                        string pickerReason;
+                        if (!controller.AreInputStageRunReviewPickersSafe(out pickerReason))
                         {
-                            string approvalReason;
-                            if (!MaterialStateService.SetInputStageRunReviewApproval(
-                                reviewWafer,
-                                true,
-                                reviewResult.StartDieIndex,
-                                out approvalReason))
-                            {
-                                return Fail("SEQ-IN-REVIEW-APPROVE", "InputSequence", approvalReason);
-                            }
-
-                            PublishInputStageReadySignals(reviewWafer);
-                            _autoStep = InputSequenceAutoStep.Complete;
-                            WriteLog("InputStageRunReview", approvalReason + " - Ok");
-                            break;
+                            return Fail("SEQ-IN-REVIEW-PICKER-STATE", "InputSequence",
+                                "InputStage Review 진입 전 통합 Picker 안전 조건이 유효하지 않습니다. " +
+                                pickerReason);
                         }
 
-                        string resetReason;
-                        MaterialStateService.SetInputStageRunReviewApproval(
-                            reviewWafer,
-                            false,
-                            0,
-                            out resetReason);
-                        SequenceResumeStore.Clear(InputStageAlignSequenceStateName);
-                        SequenceResumeStore.Clear(InputStageDieMappingSequenceStateName);
-                        _restartAlignFromReview = true;
-                        _autoStep = InputSequenceAutoStep.AlignStage;
+                        string sessionReason;
+                        if (!controller.TryEnterInputStageRunReviewManual(
+                            Context,
+                            reviewWafer.WaferId,
+                            out sessionReason))
+                        {
+                            return Fail("SEQ-IN-REVIEW-MANUAL-ENTER", "InputSequence", sessionReason);
+                        }
+
                         WriteLog("InputStageRunReview",
-                            "사용자가 취소를 선택하여 센터 검출/T Align부터 다시 실행합니다. wafer=" +
-                            (reviewWafer.WaferId ?? "") + ", slot=" + _autoSlotIndex + " - Restart");
+                            "Align/Die Mapping 사용자 확인을 Manual 상태에서 기다립니다. wafer=" +
+                            (reviewWafer.WaferId ?? "") + ", slot=" + _autoSlotIndex +
+                            ", outputSequenceMaintained=True - Wait");
+
+                        while (controller.IsInputStageRunReviewManualActive)
+                        {
+                            UserConfirmResult reviewResult = await stage.WaitForUserConfirmAsync(ct).ConfigureAwait(false);
+                            InputStageRunReviewDecision decision = reviewResult != null && reviewResult.IsConfirmed
+                                ? InputStageRunReviewDecision.ConfirmAndContinue
+                                : (reviewResult != null ? reviewResult.Decision : InputStageRunReviewDecision.RetryAlign);
+
+                            if (decision == InputStageRunReviewDecision.ConfirmAndContinue)
+                            {
+                                controller.CancelInputStageRunReviewAction();
+                                if (!await WaitForInputStageRunReviewActionStopAsync(controller, ct).ConfigureAwait(false))
+                                {
+                                    stage.NotifyUserConfirmProcessingFailed(
+                                        "Review 수동 동작 또는 Jog가 아직 진행 중입니다. STOP 후 다시 확인하세요.");
+                                    continue;
+                                }
+
+                                int avoidResult = await MoveInputCameraXToAvoidAfterReviewAsync(stage, ct).ConfigureAwait(false);
+                                if (avoidResult != 0)
+                                {
+                                    stage.NotifyUserConfirmProcessingFailed(
+                                        "Input Camera X를 Avoid 위치로 복귀하지 못했습니다. Alarm/인터락을 확인한 뒤 다시 시도하세요.");
+                                    continue;
+                                }
+
+                                string approvalReason;
+                                if (!MaterialStateService.CommitInputStageRunReview(
+                                    reviewWafer,
+                                    reviewResult,
+                                    out approvalReason))
+                                {
+                                    stage.NotifyUserConfirmProcessingFailed(approvalReason);
+                                    continue;
+                                }
+
+                                if (!controller.TryExitInputStageRunReviewManual(Context, true, out sessionReason))
+                                {
+                                    string resetReason;
+                                    WaferMaterial approvalWafer = ResolveStageWaferFromRuntimeState() ?? reviewWafer;
+                                    bool approvalCleared = MaterialStateService.SetInputStageRunReviewApproval(
+                                        approvalWafer,
+                                        false,
+                                        0,
+                                        out resetReason);
+                                    if (!approvalCleared)
+                                    {
+                                        return Fail("SEQ-IN-REVIEW-AUTO-RESUME-RESET", "InputSequence",
+                                            sessionReason + " Auto 복귀 실패 후 Review 승인을 해제하지 못했습니다. " +
+                                            resetReason);
+                                    }
+
+                                    stage.NotifyUserConfirmProcessingFailed(
+                                        sessionReason + " Auto 복귀가 완료되지 않아 Review 승인을 해제했습니다. 다시 확인하세요.");
+                                    WriteLog("InputStageRunReview",
+                                        "Review Commit 후 Auto 복귀가 실패하여 승인을 fail-closed 해제했습니다. wafer=" +
+                                        (reviewWafer.WaferId ?? "") + ", reason=" + sessionReason +
+                                        ", reset=" + resetReason + " - Reset");
+                                    continue;
+                                }
+
+                                _autoStep = InputSequenceAutoStep.Complete;
+                                WriteLog("InputStageRunReview",
+                                    approvalReason + ", CameraXAvoid=True, sameCoordinator=True - Ok");
+                                break;
+                            }
+
+                            if (decision == InputStageRunReviewDecision.RetryMapping)
+                            {
+                                string resetReason;
+                                MaterialStateService.SetInputStageRunReviewApproval(
+                                    reviewWafer,
+                                    false,
+                                    0,
+                                    out resetReason);
+                                SequenceResumeStore.Clear(InputStageDieMappingSequenceStateName);
+                                _restartDieMappingFromReview = true;
+                                _autoStep = InputSequenceAutoStep.DieMapping;
+
+                                if (!controller.TryExitInputStageRunReviewManual(Context, true, out sessionReason))
+                                {
+                                    stage.NotifyUserConfirmProcessingFailed(sessionReason);
+                                    continue;
+                                }
+
+                                WriteLog("InputStageRunReview",
+                                    "사용자가 Die Mapping 개별 재실행을 선택했습니다. wafer=" +
+                                    (reviewWafer.WaferId ?? "") + ", slot=" + _autoSlotIndex + " - Restart");
+                                break;
+                            }
+
+                            if (decision == InputStageRunReviewDecision.Stop)
+                            {
+                                string resetReason;
+                                MaterialStateService.SetInputStageRunReviewApproval(
+                                    reviewWafer,
+                                    false,
+                                    0,
+                                    out resetReason);
+                                controller.CancelInputStageRunReviewAction();
+                                controller.TryExitInputStageRunReviewManual(Context, false, out sessionReason);
+                                Context.RequestCycleStop();
+                                throw new SequenceStopException(
+                                    "InputStage Review 중 STOP 요청으로 동일 Auto Coordinator를 안전 정지합니다.");
+                            }
+
+                            string alignResetReason;
+                            MaterialStateService.SetInputStageRunReviewApproval(
+                                reviewWafer,
+                                false,
+                                0,
+                                out alignResetReason);
+                            SequenceResumeStore.Clear(InputStageAlignSequenceStateName);
+                            SequenceResumeStore.Clear(InputStageDieMappingSequenceStateName);
+                            _restartAlignFromReview = true;
+                            _restartDieMappingFromReview = true;
+                            _autoStep = InputSequenceAutoStep.AlignStage;
+
+                            if (!controller.TryExitInputStageRunReviewManual(Context, true, out sessionReason))
+                            {
+                                stage.NotifyUserConfirmProcessingFailed(sessionReason);
+                                continue;
+                            }
+
+                            WriteLog("InputStageRunReview",
+                                "사용자가 Align 재실행을 선택하여 센터 검출/T Align과 종속 Die Mapping을 다시 실행합니다. wafer=" +
+                                (reviewWafer.WaferId ?? "") + ", slot=" + _autoSlotIndex + " - Restart");
+                            break;
+                        }
                         break;
                     }
 
@@ -2031,6 +2225,229 @@ namespace QMC.CDT320.Sequencing
             finally
             {
             }
+        }
+
+        private async Task<bool> WaitForInputStageRunReviewActionStopAsync(
+            MachineController controller,
+            CancellationToken ct)
+        {
+            if (controller == null)
+                return false;
+
+            DateTime deadline = DateTime.UtcNow.AddSeconds(3);
+            while (controller.IsInputStageRunReviewActionBusy)
+            {
+                ct.ThrowIfCancellationRequested();
+                if (DateTime.UtcNow >= deadline)
+                    return false;
+                await Task.Delay(20, ct).ConfigureAwait(false);
+            }
+
+            return true;
+        }
+
+        private async Task<int> MoveInputCameraXToAvoidAfterReviewAsync(
+            InputStageUnit stage,
+            CancellationToken ct)
+        {
+            if (stage == null || stage.CameraX == null || stage.Recipe == null || stage.Recipe.VisionX == null)
+            {
+                return Fail("SEQ-IN-REVIEW-CAMERA-AVOID", "InputStage",
+                    "Review 확인 후 Input Camera X Avoid 복귀에 필요한 Axis/Recipe 정보가 없습니다.");
+            }
+
+            MachineController controller = Context != null ? Context.Controller : null;
+            if (controller == null)
+            {
+                return Fail("SEQ-IN-REVIEW-CAMERA-CONTROLLER", "InputStage",
+                    "Review 확인 후 통합 Picker 안전 조건을 확인할 MachineController가 없습니다.");
+            }
+
+            string pickerReason;
+            if (!controller.AreInputStageRunReviewPickersSafe(out pickerReason))
+            {
+                return Fail("SEQ-IN-REVIEW-CAMERA-PICKER", "InputStage",
+                    "Input Camera X Avoid 복귀 전 통합 Picker 안전 조건이 유효하지 않습니다. " +
+                    pickerReason);
+            }
+
+            DateTime axisStopDeadline = DateTime.UtcNow.AddSeconds(3);
+            while ((stage.CameraX.IsMoving ||
+                    (stage.StageY != null && stage.StageY.IsMoving) ||
+                    (stage.StageT != null && stage.StageT.IsMoving)) &&
+                   DateTime.UtcNow < axisStopDeadline)
+            {
+                ct.ThrowIfCancellationRequested();
+                await Task.Delay(20, ct).ConfigureAwait(false);
+            }
+
+            if (stage.CameraX.IsMoving ||
+                (stage.StageY != null && stage.StageY.IsMoving) ||
+                (stage.StageT != null && stage.StageT.IsMoving))
+            {
+                return Fail("SEQ-IN-REVIEW-CAMERA-MOVING", "InputStage",
+                    "Review 수동 동작 축이 완전히 정지하지 않아 Input Camera X Avoid 복귀를 시작할 수 없습니다.");
+            }
+
+            using (SequenceResourceLease stageLease = await AcquireInputStageAreaAsync(
+                "InputStageRunReview:CameraXAvoid",
+                ct).ConfigureAwait(false))
+            {
+                if (stageLease == null)
+                {
+                    return Fail("SEQ-IN-REVIEW-CAMERA-RESOURCE", "InputStage",
+                        "Review 확인 후 InputStageArea 리소스 점유에 실패했습니다.");
+                }
+
+                using (AutoSequenceCameraWorkZoneLease cameraLease = await Context.AutoLoaderGate
+                    .BeginInputCameraWorkAsync("InputStageRunReview:CameraXAvoid", ct)
+                    .ConfigureAwait(false))
+                {
+                    if (!controller.AreInputStageRunReviewPickersSafe(out pickerReason))
+                    {
+                        return Fail("SEQ-IN-REVIEW-CAMERA-PICKER-RECHECK", "InputStage",
+                            "Input Camera X Avoid 명령 직전 Picker 안전 조건 재확인에 실패했습니다. " + pickerReason);
+                    }
+
+                    double target = stage.Recipe.VisionX.AvoidPosition;
+                    int result = await stage.MoveInputStageAxis(
+                        WaferStageAxis.VisionX,
+                        target,
+                        false,
+                        true).ConfigureAwait(false);
+                    if (result != 0)
+                    {
+                        return Fail("SEQ-IN-REVIEW-CAMERA-AVOID-MOVE", "InputStage",
+                            "Review 확인 후 Input Camera X Avoid 이동에 실패했습니다. result=" + result +
+                            ", target=" + target.ToString("F6") +
+                            ", actual=" + stage.CameraX.ActualPosition.ToString("F6"));
+                    }
+
+                    if (!stage.IsVisionXInAvoidPosition())
+                    {
+                        return Fail("SEQ-IN-REVIEW-CAMERA-AVOID-CHECK", "InputStage",
+                            "Input Camera X 이동 완료 후 Avoid 위치 최종 확인에 실패했습니다. target=" +
+                            target.ToString("F6") + ", actual=" + stage.CameraX.ActualPosition.ToString("F6"));
+                    }
+
+                    if (!controller.AreInputStageRunReviewPickersSafe(out pickerReason))
+                    {
+                        return Fail("SEQ-IN-REVIEW-CAMERA-PICKER-FINAL", "InputStage",
+                            "Input Camera X Avoid 완료 후 통합 Picker 안전 조건 최종 확인에 실패했습니다. " +
+                            pickerReason);
+                    }
+
+                    WriteLog("InputStageRunReview",
+                        "확인 후 Input Camera X를 Avoid 위치로 복귀하고 최종 위치를 확인했습니다. target=" +
+                        target.ToString("F6") + ", actual=" + stage.CameraX.ActualPosition.ToString("F6") + " - Ok");
+                    return 0;
+                }
+            }
+        }
+
+        private async Task<int> EnsureInputPickersEmptyAvoidAndStoppedAsync(string holder, CancellationToken ct)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+                string safeHolder = string.IsNullOrWhiteSpace(holder) ? "InputSequence" : holder;
+                bool waitLogged = false;
+
+                while (true)
+                {
+                    ct.ThrowIfCancellationRequested();
+                    if (Context != null)
+                        Context.StopIfCycleStopRequested("InputSequence.PickerDrainGate:" + safeHolder);
+
+                    string reason;
+                    if (AreInputPickersEmptyAvoidAndStopped(out reason))
+                    {
+                        if (waitLogged)
+                        {
+                            WriteLog("InputPickerDrainGate",
+                                safeHolder + " 전 Front/Rear Picker 제품 배출 및 Avoid 정지 확인 완료. - Ok");
+                        }
+                        return 0;
+                    }
+
+                    if (Mode != SequenceRunMode.Auto)
+                    {
+                        return Fail("SEQ-IN-PICKER-DRAIN-STATE", "InputSequence",
+                            safeHolder + " 불가: Front/Rear Picker가 Empty/Avoid/Stopped 상태가 아닙니다. " + reason);
+                    }
+
+                    if (!waitLogged)
+                    {
+                        WriteLog("InputPickerDrainGate",
+                            safeHolder + " 전 기존 Picker 제품의 Output 배출과 Avoid 복귀를 기다립니다. reason=" +
+                            reason + " - Wait");
+                        LogPublic("[UNIT-INPUT-LOADER] WAIT Picker drain before " + safeHolder + ". " + reason);
+                        waitLogged = true;
+                    }
+
+                    await Task.Delay(100, ct).ConfigureAwait(false);
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (SequenceStopException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("SEQ-IN-PICKER-DRAIN-EX", "InputSequence",
+                    "Input loader 진입 전 Picker 제품 배출 확인 중 예외 발생. holder=" + holder +
+                    ", error=" + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private bool AreInputPickersEmptyAvoidAndStopped(out string reason)
+        {
+            if (!AreInputPickersAvoidAndStopped(out reason))
+                return false;
+
+            if (Context != null && Context.PickerPhases != null)
+            {
+                PickerPhaseSnapshot snapshot = Context.PickerPhases.GetSnapshot();
+                if (snapshot.Front.Phase != PickerProcessPhase.Idle ||
+                    snapshot.Rear.Phase != PickerProcessPhase.Idle)
+                {
+                    reason = "Picker phase가 Idle이 아닙니다. " + snapshot;
+                    return false;
+                }
+            }
+
+            for (int pickerNo = 1; pickerNo <= 4; pickerNo++)
+            {
+                DieMaterial frontDie = MaterialStateService.GetDieAtPicker(
+                    MaterialLocationKind.PickerFront,
+                    pickerNo);
+                if (frontDie != null)
+                {
+                    reason = "FrontPicker가 제품을 보유 중입니다. picker=" + pickerNo +
+                             ", die=" + (frontDie.DieId ?? "");
+                    return false;
+                }
+
+                DieMaterial rearDie = MaterialStateService.GetDieAtPicker(
+                    MaterialLocationKind.PickerRear,
+                    pickerNo);
+                if (rearDie != null)
+                {
+                    reason = "RearPicker가 제품을 보유 중입니다. picker=" + pickerNo +
+                             ", die=" + (rearDie.DieId ?? "");
+                    return false;
+                }
+            }
+
+            reason = string.Empty;
+            return true;
         }
 
         private bool AreInputPickersAvoidAndStopped(out string reason)

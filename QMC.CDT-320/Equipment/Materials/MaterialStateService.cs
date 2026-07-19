@@ -709,6 +709,67 @@ namespace QMC.CDT320.Materials
             die.Inspections.Add(record);
         }
 
+        private static void SyncInputPickVisionReviewInspectionNoLock(
+            DieMaterial die,
+            DieResult result)
+        {
+            if (die == null)
+                return;
+
+            if (die.Inspections == null)
+                die.Inspections = new List<DieInspectionRecord>();
+
+            die.Inspections.RemoveAll(existing =>
+                existing != null &&
+                string.Equals(existing.InspectionType, "InputPickVision", StringComparison.OrdinalIgnoreCase));
+
+            if (result != DieResult.Good && result != DieResult.NG)
+                return;
+
+            MaterialInspectionResult inspectionResult = ToMaterialInspectionResult(result);
+            var record = new DieInspectionRecord
+            {
+                InspectionType = "InputPickVision",
+                Result = inspectionResult,
+                CreatedAt = DateTime.Now,
+                UpdatedAt = DateTime.Now,
+                Offset = die.WaferOffset != null && die.WaferOffset.IsValid
+                    ? new VisionOffset
+                    {
+                        X = die.WaferOffset.X,
+                        Y = die.WaferOffset.Y,
+                        R = die.WaferOffset.R,
+                        IsValid = true
+                    }
+                    : new VisionOffset(),
+                Measurements = new List<InspectionMeasurement>
+                {
+                    new InspectionMeasurement
+                    {
+                        Name = "InputVisionResult",
+                        Value = result == DieResult.Good ? 1.0 : 0.0,
+                        Unit = "bool",
+                        RawValue = result == DieResult.Good
+                            ? "ManualInputMapEdit:GOOD"
+                            : "ManualInputMapEdit:NG",
+                        Result = inspectionResult
+                    }
+                },
+                NgCodes = new List<string>()
+            };
+
+            if (result == DieResult.NG)
+                record.NgCodes.Add("ManualInputMapEdit");
+
+            die.Inspections.Add(record);
+            InputWaferInspectionCsvSnapshotWriter.EnqueueInspection(
+                "InputStageRunReview",
+                State != null ? State.RecipeName : "",
+                State != null ? State.LotId : "",
+                die,
+                record);
+        }
+
         private static MaterialInspectionResult ToMaterialInspectionResult(DieResult result)
         {
             switch (result)
@@ -998,6 +1059,9 @@ namespace QMC.CDT320.Materials
                         : "";
                     inputStageWafer.HasInputStageRunReviewApproval = false;
                     inputStageWafer.InputStageRunReviewStartDieIndex = 0;
+                    inputStageWafer.InputStageRunReviewStartDieUid = "";
+                    inputStageWafer.InputStageRunReviewOrderedDieIds = new List<string>();
+                    inputStageWafer.InputStageRunReviewMappingRevision = "";
                     inputStageWafer.UpdatedAt = DateTime.Now;
                     BindProcessTestStageWaferToCassetteSlotNoLock(
                         CassetteMaterialRole.Input1,
@@ -3054,6 +3118,195 @@ namespace QMC.CDT320.Materials
                 .ToList();
         }
 
+        private static List<DieMapEntry> BuildInputStagePickOrder(
+            DieMap sourceMap,
+            PickupSubset pickup,
+            WaferMaterial wafer)
+        {
+            if (sourceMap == null || sourceMap.Entries == null)
+                return new List<DieMapEntry>();
+
+            if (wafer != null && wafer.HasInputStageRunReviewApproval)
+            {
+                List<DieMapEntry> approvedOrder;
+                string approvalReason;
+                if (TryBuildApprovedInputStagePickOrder(
+                    sourceMap,
+                    wafer,
+                    out approvedOrder,
+                    out approvalReason))
+                {
+                    return approvedOrder;
+                }
+
+                Log.Write("Main", "MATERIAL", "InputStageRunReviewOrder",
+                    "승인된 Input PickUp 순서를 복원하지 못해 recipe fallback을 차단했습니다. wafer=" +
+                    (wafer.WaferId ?? "") + ", reason=" + approvalReason + " - Blocked");
+                return new List<DieMapEntry>();
+            }
+
+            return BuildOutputReceiveOrder(sourceMap, pickup);
+        }
+
+        private static bool TryBuildApprovedInputStagePickOrder(
+            DieMap sourceMap,
+            WaferMaterial wafer,
+            out List<DieMapEntry> ordered,
+            out string reason)
+        {
+            ordered = new List<DieMapEntry>();
+            reason = string.Empty;
+            if (sourceMap == null || sourceMap.Entries == null || wafer == null ||
+                !wafer.HasInputStageRunReviewApproval)
+            {
+                reason = "InputStage Review 승인이 없습니다.";
+                return false;
+            }
+
+            string currentRevision = ResolveInputStageRunReviewMappingRevision(wafer, sourceMap);
+            if (string.IsNullOrWhiteSpace(currentRevision) ||
+                string.IsNullOrWhiteSpace(wafer.InputStageRunReviewMappingRevision))
+            {
+                reason = "Review 승인 Mapping revision이 비어 있습니다. approved=" +
+                         (wafer.InputStageRunReviewMappingRevision ?? "") + ", current=" + currentRevision;
+                return false;
+            }
+
+            if (!string.Equals(
+                wafer.InputStageRunReviewMappingRevision ?? string.Empty,
+                currentRevision,
+                StringComparison.OrdinalIgnoreCase))
+            {
+                reason = "Review 승인 Mapping revision이 현재 Map과 다릅니다. approved=" +
+                         (wafer.InputStageRunReviewMappingRevision ?? "") + ", current=" + currentRevision;
+                return false;
+            }
+
+            var entryById = new Dictionary<string, DieMapEntry>(StringComparer.OrdinalIgnoreCase);
+            foreach (DieMapEntry entry in sourceMap.Entries)
+            {
+                if (entry == null || string.IsNullOrWhiteSpace(entry.DieUid))
+                {
+                    reason = "현재 Die Map에 비어 있는 Die UID가 있습니다.";
+                    return false;
+                }
+                if (entryById.ContainsKey(entry.DieUid))
+                {
+                    reason = "현재 Die Map에 중복 UID가 있습니다. die=" + entry.DieUid;
+                    return false;
+                }
+                entryById.Add(entry.DieUid, entry);
+            }
+
+            List<string> orderedIds = wafer.InputStageRunReviewOrderedDieIds != null
+                ? new List<string>(wafer.InputStageRunReviewOrderedDieIds)
+                : new List<string>();
+            if (orderedIds.Any(string.IsNullOrWhiteSpace))
+            {
+                reason = "Review 승인 PickUp 순서에 비어 있는 UID가 있습니다.";
+                return false;
+            }
+            if (orderedIds.Count != orderedIds.Distinct(StringComparer.OrdinalIgnoreCase).Count())
+            {
+                reason = "Review 승인 PickUp 순서에 중복 UID가 있습니다.";
+                return false;
+            }
+
+            var pickableIds = new HashSet<string>(
+                sourceMap.Entries
+                    .Where(entry => entry != null &&
+                                    !string.IsNullOrWhiteSpace(entry.DieUid) &&
+                                    entry.IsTarget &&
+                                    entry.Result != DieResult.Good &&
+                                    entry.Result != DieResult.NG)
+                    .Select(entry => entry.DieUid),
+                StringComparer.OrdinalIgnoreCase);
+            if (orderedIds.Count != pickableIds.Count || orderedIds.Any(id => !pickableIds.Contains(id)))
+            {
+                reason = "Review 승인 순서와 현재 WAIT Target 집합이 다릅니다. ordered=" +
+                         orderedIds.Count + ", pickable=" + pickableIds.Count;
+                return false;
+            }
+
+            foreach (string dieId in orderedIds)
+            {
+                DieMapEntry entry;
+                if (!entryById.TryGetValue(dieId, out entry))
+                {
+                    reason = "Review 승인 UID를 현재 Map에서 찾을 수 없습니다. die=" + dieId;
+                    return false;
+                }
+                ordered.Add(entry);
+            }
+
+            string startReason;
+            if (!ValidateInputStageRunReviewStartSelection(
+                orderedIds,
+                wafer.InputStageRunReviewStartDieUid,
+                wafer.InputStageRunReviewStartDieIndex,
+                out startReason))
+            {
+                reason = startReason;
+                return false;
+            }
+
+            reason = "Review 승인 PickUp 순서가 현재 Map과 일치합니다.";
+            return true;
+        }
+
+        private static string ResolveInputStageRunReviewMappingRevision(WaferMaterial wafer, DieMap map)
+        {
+            if (wafer != null && !string.IsNullOrWhiteSpace(wafer.DieMapFrameObjId))
+                return wafer.DieMapFrameObjId;
+            if (map != null && !string.IsNullOrWhiteSpace(map.FrameObjId))
+                return map.FrameObjId;
+            return wafer != null ? wafer.WaferId ?? string.Empty : string.Empty;
+        }
+
+        private static bool ValidateInputStageRunReviewStartSelection(
+            IList<string> orderedIds,
+            string startDieUid,
+            int startDieIndex,
+            out string reason)
+        {
+            reason = string.Empty;
+            int orderedCount = orderedIds != null ? orderedIds.Count : 0;
+            bool hasStartDie = !string.IsNullOrWhiteSpace(startDieUid);
+
+            if (!hasStartDie)
+            {
+                if (startDieIndex != 0)
+                {
+                    reason = "Review 시작 Die UID가 없는데 시작 인덱스가 0이 아닙니다. index=" + startDieIndex;
+                    return false;
+                }
+
+                return true;
+            }
+
+            if (orderedCount == 0)
+            {
+                reason = "Review 시작 Die가 있지만 승인 PickUp 순서가 비어 있습니다. start=" + startDieUid;
+                return false;
+            }
+
+            if (startDieIndex <= 0 || startDieIndex > orderedCount)
+            {
+                reason = "Review 시작 Die 인덱스가 승인 PickUp 범위를 벗어났습니다. index=" +
+                         startDieIndex + ", count=" + orderedCount;
+                return false;
+            }
+
+            if (!string.Equals(orderedIds[0], startDieUid, StringComparison.OrdinalIgnoreCase))
+            {
+                reason = "Review 시작 Die와 승인 PickUp 첫 Die가 다릅니다. start=" +
+                         startDieUid + ", first=" + (orderedIds[0] ?? "");
+                return false;
+            }
+
+            return true;
+        }
+
         private static int ResolveEntryMapX(DieMapEntry entry)
         {
             return DieMapGenerator.ResolveMapIndexX(entry);
@@ -3293,7 +3546,7 @@ namespace QMC.CDT320.Materials
 
                     var project = RecipeStore.LoadLastOrDefault();
                     PickupSubset pickup = ResolveInputPickup(project);
-                    List<DieMapEntry> ordered = BuildOutputReceiveOrder(map, pickup);
+                    List<DieMapEntry> ordered = BuildInputStagePickOrder(map, pickup, wafer);
                     if (ordered == null || ordered.Count == 0)
                         return null;
 
@@ -3478,7 +3731,7 @@ namespace QMC.CDT320.Materials
 
                     var project = RecipeStore.LoadLastOrDefault();
                     PickupSubset pickup = ResolveInputPickup(project);
-                    List<DieMapEntry> ordered = BuildOutputReceiveOrder(map, pickup);
+                    List<DieMapEntry> ordered = BuildInputStagePickOrder(map, pickup, wafer);
                     if (ordered == null || ordered.Count == 0)
                         return candidates;
 
@@ -3581,7 +3834,7 @@ namespace QMC.CDT320.Materials
 
                     var project = RecipeStore.LoadLastOrDefault();
                     PickupSubset pickup = ResolveInputPickup(project);
-                    List<DieMapEntry> ordered = BuildOutputReceiveOrder(map, pickup);
+                    List<DieMapEntry> ordered = BuildInputStagePickOrder(map, pickup, wafer);
                     if (ordered == null || ordered.Count == 0)
                         return null;
 
@@ -3685,7 +3938,7 @@ namespace QMC.CDT320.Materials
 
                     var project = RecipeStore.LoadLastOrDefault();
                     PickupSubset pickup = ResolveInputPickup(project);
-                    List<DieMapEntry> ordered = BuildOutputReceiveOrder(map, pickup);
+                    List<DieMapEntry> ordered = BuildInputStagePickOrder(map, pickup, wafer);
                     if (ordered == null || ordered.Count == 0)
                         return null;
 
@@ -3806,6 +4059,45 @@ namespace QMC.CDT320.Materials
             }
         }
 
+        public static bool IsInputStageRunReviewApprovalUsable(
+            WaferMaterial wafer,
+            out string reason)
+        {
+            reason = string.Empty;
+
+            try
+            {
+                lock (_stateSync)
+                {
+                    if (wafer == null)
+                    {
+                        reason = "InputStage Review 승인 대상 Wafer Material이 없습니다.";
+                        return false;
+                    }
+
+                    DieMap map = BuildDieMapFromWafer(wafer);
+                    if (map == null || map.Entries == null || map.Entries.Count == 0)
+                    {
+                        reason = "InputStage Review 승인 검증용 Die Map이 비어 있습니다. waferId=" +
+                                 (wafer.WaferId ?? "");
+                        return false;
+                    }
+
+                    List<DieMapEntry> ordered;
+                    return TryBuildApprovedInputStagePickOrder(map, wafer, out ordered, out reason);
+                }
+            }
+            catch (Exception ex)
+            {
+                reason = "InputStage Review 승인 유효성 검사 실패: " + ex.Message;
+                Log.Write("Main", "SYSTEM", "MaterialStateService", reason + " - Failed");
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
         public static bool SetInputStageRunReviewApproval(
             WaferMaterial wafer,
             bool approved,
@@ -3856,6 +4148,12 @@ namespace QMC.CDT320.Materials
 
                     wafer.HasInputStageRunReviewApproval = approved;
                     wafer.InputStageRunReviewStartDieIndex = approved ? Math.Max(0, startDieIndex) : 0;
+                    if (!approved)
+                    {
+                        wafer.InputStageRunReviewStartDieUid = "";
+                        wafer.InputStageRunReviewOrderedDieIds = new List<string>();
+                        wafer.InputStageRunReviewMappingRevision = "";
+                    }
                     wafer.UpdatedAt = DateTime.Now;
                     reason = approved
                         ? "InputStage 리뷰 승인이 저장되었습니다. waferId=" + (wafer.WaferId ?? "") +
@@ -3868,6 +4166,278 @@ namespace QMC.CDT320.Materials
             catch (Exception ex)
             {
                 reason = "InputStage 리뷰 승인 저장 실패: " + ex.Message;
+                Log.Write("Main", "SYSTEM", "MaterialStateService", reason + " - Failed");
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
+        public static bool CommitInputStageRunReview(
+            WaferMaterial wafer,
+            UserConfirmResult review,
+            out string reason)
+        {
+            reason = string.Empty;
+
+            try
+            {
+                if (wafer == null || review == null)
+                {
+                    reason = "InputStage 리뷰 확정 데이터가 없습니다.";
+                    return false;
+                }
+
+                lock (_stateSync)
+                {
+                    WaferMaterial current = GetWaferAtLocation(MaterialLocationKind.InputStage);
+                    if (current == null ||
+                        !string.Equals(current.WaferId ?? "", wafer.WaferId ?? "", StringComparison.OrdinalIgnoreCase) ||
+                        (!string.IsNullOrWhiteSpace(review.WaferId) &&
+                         !string.Equals(current.WaferId ?? "", review.WaferId, StringComparison.OrdinalIgnoreCase)))
+                    {
+                        reason = "Review 대상과 현재 InputStage Wafer가 일치하지 않습니다. review=" +
+                                 (review.WaferId ?? "") + ", current=" +
+                                 (current != null ? current.WaferId : "-");
+                        return false;
+                    }
+
+                    DieMap currentMap = BuildDieMapFromWafer(current);
+                    if (currentMap == null || currentMap.Entries == null || currentMap.Entries.Count == 0)
+                    {
+                        reason = "현재 InputStage Die Map을 확인할 수 없습니다.";
+                        return false;
+                    }
+
+                    string currentMappingRevision = ResolveInputStageRunReviewMappingRevision(current, currentMap);
+                    if (string.IsNullOrWhiteSpace(currentMappingRevision))
+                    {
+                        reason = "현재 Die Mapping revision을 확인할 수 없습니다.";
+                        return false;
+                    }
+
+                    if (!string.IsNullOrWhiteSpace(review.MappingRevision) &&
+                        !string.Equals(currentMappingRevision, review.MappingRevision, StringComparison.OrdinalIgnoreCase))
+                    {
+                        reason = "Review 중 Die Mapping revision이 변경되었습니다. review=" +
+                                 review.MappingRevision + ", current=" + currentMappingRevision;
+                        return false;
+                    }
+
+                    if (!current.HasInputStageAlignResult ||
+                        !current.HasInputStageThetaAlignResult ||
+                        !current.HasInputStageDieMappingResult ||
+                        current.InputStageDieMappingInvalidatedByAlignChange)
+                    {
+                        reason = "Align/T Align/Die Mapping이 모두 유효한 상태에서만 Review를 확정할 수 있습니다.";
+                        return false;
+                    }
+
+                    string resultModeReason;
+                    if (!IsStoredInputStageResultModeUsableNoLock(current, true, out resultModeReason))
+                    {
+                        reason = "저장된 Align/Die Mapping 결과를 사용할 수 없습니다. " + resultModeReason;
+                        return false;
+                    }
+
+                    List<DieMaterial> resolvedWaferDies = ResolveWaferDies(current);
+                    var waferDies = new Dictionary<string, DieMaterial>(StringComparer.OrdinalIgnoreCase);
+                    foreach (DieMaterial die in resolvedWaferDies)
+                    {
+                        if (die == null || string.IsNullOrWhiteSpace(die.DieId))
+                        {
+                            reason = "InputStage Wafer에 UID가 비어 있는 Die Material이 있습니다.";
+                            return false;
+                        }
+
+                        if (waferDies.ContainsKey(die.DieId))
+                        {
+                            reason = "InputStage Wafer에 중복 Die UID가 있습니다. die=" + die.DieId;
+                            return false;
+                        }
+
+                        waferDies.Add(die.DieId, die);
+                    }
+                    if (waferDies.Count == 0)
+                    {
+                        reason = "InputStage Wafer의 Die Material이 비어 있습니다.";
+                        return false;
+                    }
+
+                    var draftById = new Dictionary<string, InputStageRunReviewDieState>(StringComparer.OrdinalIgnoreCase);
+                    foreach (InputStageRunReviewDieState draft in review.DieStates ?? new List<InputStageRunReviewDieState>())
+                    {
+                        if (draft == null || string.IsNullOrWhiteSpace(draft.DieId) || draftById.ContainsKey(draft.DieId))
+                        {
+                            reason = "Review Die 상태 데이터에 비어 있거나 중복된 UID가 있습니다.";
+                            return false;
+                        }
+
+                        DieMaterial die;
+                        if (!waferDies.TryGetValue(draft.DieId, out die))
+                        {
+                            reason = "Review Die가 현재 Wafer에 없습니다. die=" + draft.DieId;
+                            return false;
+                        }
+
+                        MaterialLocationKind location = die.CurrentLocation != null
+                            ? die.CurrentLocation.Kind
+                            : MaterialLocationKind.Unknown;
+                        if (location != MaterialLocationKind.Unknown && location != MaterialLocationKind.InputStage)
+                        {
+                            reason = "Review 중 이미 InputStage를 벗어난 Die가 있습니다. die=" +
+                                     draft.DieId + ", location=" + location;
+                            return false;
+                        }
+
+                        if (IsDieReservedForPicker(die) || HasInputPickCompletedHistory(die))
+                        {
+                            reason = "Review 중 이미 예약 또는 Pick 완료된 Die가 있습니다. die=" + draft.DieId;
+                            return false;
+                        }
+
+                        if (draft.HasPosition &&
+                            (double.IsNaN(draft.PositionX) || double.IsInfinity(draft.PositionX) ||
+                             double.IsNaN(draft.PositionY) || double.IsInfinity(draft.PositionY)))
+                        {
+                            reason = "Review Die 좌표가 유효하지 않습니다. die=" + draft.DieId;
+                            return false;
+                        }
+
+                        draftById.Add(draft.DieId, draft);
+                    }
+
+                    if (draftById.Count != waferDies.Count)
+                    {
+                        reason = "Review Die 상태 수와 현재 Wafer Die 수가 일치하지 않습니다. review=" +
+                                 draftById.Count + ", current=" + waferDies.Count;
+                        return false;
+                    }
+
+                    List<string> orderedIds = review.OrderedDieIds != null
+                        ? new List<string>(review.OrderedDieIds)
+                        : new List<string>();
+                    if (orderedIds.Any(string.IsNullOrWhiteSpace))
+                    {
+                        reason = "Review PickUp 순서에 비어 있는 Die UID가 있습니다.";
+                        return false;
+                    }
+                    if (orderedIds.Count != orderedIds.Distinct(StringComparer.OrdinalIgnoreCase).Count())
+                    {
+                        reason = "Review PickUp 순서에 중복 Die UID가 있습니다.";
+                        return false;
+                    }
+
+                    var expectedPickableIds = new HashSet<string>(
+                        draftById.Values
+                            .Where(d => d.IsTarget && d.Result != DieResult.Good && d.Result != DieResult.NG)
+                            .Select(d => d.DieId),
+                        StringComparer.OrdinalIgnoreCase);
+                    if (orderedIds.Count != expectedPickableIds.Count ||
+                        orderedIds.Any(id => !expectedPickableIds.Contains(id)))
+                    {
+                        reason = "Review PickUp 순서와 WAIT Target Die 집합이 일치하지 않습니다. ordered=" +
+                                 orderedIds.Count + ", pickable=" + expectedPickableIds.Count;
+                        return false;
+                    }
+
+                    string startReason;
+                    if (!ValidateInputStageRunReviewStartSelection(
+                        orderedIds,
+                        review.StartDieUid,
+                        review.StartDieIndex,
+                        out startReason))
+                    {
+                        reason = startReason;
+                        return false;
+                    }
+
+                    foreach (InputStageRunReviewDieState draft in draftById.Values)
+                    {
+                        DieMaterial die = waferDies[draft.DieId];
+                        DieResult committedResult = draft.IsTarget ? draft.Result : DieResult.Unknown;
+                        ApplyManualDieStateNoLock(
+                            die,
+                            draft.IsTarget,
+                            committedResult,
+                            draft.BinCode,
+                            draft.Result == DieResult.NG ? "ManualInputMapEdit" : "");
+                        if (draft.HasPosition)
+                        {
+                            if (die.WaferOffset == null)
+                                die.WaferOffset = new VisionOffset();
+                            die.WaferOffset.X = draft.PositionX;
+                            die.WaferOffset.Y = draft.PositionY;
+                            die.WaferOffset.R = 0.0;
+                            die.WaferOffset.IsValid = true;
+                        }
+                        die.InputSequenceNo = 0;
+                        SyncManualDieStateTargetsNoLock(
+                            die,
+                            draft.IsTarget,
+                            committedResult,
+                            draft.BinCode);
+                        SyncInputPickVisionReviewInspectionNoLock(die, committedResult);
+                    }
+
+                    for (int i = 0; i < orderedIds.Count; i++)
+                        waferDies[orderedIds[i]].InputSequenceNo = i + 1;
+
+                    DieMap activeMap = LotStorage.ActiveInputDieMap;
+                    if (activeMap != null && activeMap.Entries != null)
+                    {
+                        foreach (DieMapEntry entry in activeMap.Entries)
+                        {
+                            if (entry == null || string.IsNullOrWhiteSpace(entry.DieUid))
+                                continue;
+
+                            DieMaterial die;
+                            if (waferDies.TryGetValue(entry.DieUid, out die))
+                            {
+                                entry.SequenceNo = die.InputSequenceNo;
+                                if (die.WaferOffset != null && die.WaferOffset.IsValid)
+                                {
+                                    entry.PosX = die.WaferOffset.X;
+                                    entry.PosY = die.WaferOffset.Y;
+                                }
+                            }
+                        }
+                    }
+
+                    if (review.HasMapOrigin &&
+                        !double.IsNaN(review.MapOriginX) && !double.IsInfinity(review.MapOriginX) &&
+                        !double.IsNaN(review.MapOriginY) && !double.IsInfinity(review.MapOriginY))
+                    {
+                        current.HasInputStageDieMappingOrigin = true;
+                        current.InputStageDieMappingOriginX = review.MapOriginX;
+                        current.InputStageDieMappingOriginY = review.MapOriginY;
+                        current.InputStageDieMappingOffsetX = review.MapOriginX - current.InputStageAlignOriginX;
+                        current.InputStageDieMappingOffsetY = review.MapOriginY - current.InputStageAlignOriginY;
+                        if (activeMap != null)
+                        {
+                            activeMap.OriginX = review.MapOriginX;
+                            activeMap.OriginY = review.MapOriginY;
+                        }
+                    }
+
+                    current.HasInputStageRunReviewApproval = true;
+                    current.InputStageRunReviewStartDieIndex = review.StartDieIndex;
+                    current.InputStageRunReviewStartDieUid = review.StartDieUid ?? "";
+                    current.InputStageRunReviewOrderedDieIds = new List<string>(orderedIds);
+                    current.InputStageRunReviewMappingRevision = currentMappingRevision;
+                    current.UpdatedAt = DateTime.Now;
+
+                    NotifyAndSave("InputStageRunReviewCommit");
+                    reason = "InputStage Review 상태와 PickUp 순서를 확정했습니다. wafer=" +
+                             (current.WaferId ?? "") + ", target=" + orderedIds.Count +
+                             ", startDie=" + (current.InputStageRunReviewStartDieUid ?? "");
+                    return true;
+                }
+            }
+            catch (Exception ex)
+            {
+                reason = "InputStage Review 일괄 확정 실패: " + ex.Message;
                 Log.Write("Main", "SYSTEM", "MaterialStateService", reason + " - Failed");
                 return false;
             }
@@ -3893,7 +4463,7 @@ namespace QMC.CDT320.Materials
 
                     var project = RecipeStore.LoadLastOrDefault();
                     PickupSubset pickup = ResolveInputPickup(project);
-                    List<DieMapEntry> ordered = BuildOutputReceiveOrder(map, pickup);
+                    List<DieMapEntry> ordered = BuildInputStagePickOrder(map, pickup, wafer);
                     if (ordered == null || ordered.Count == 0)
                         return false;
 
@@ -4188,8 +4758,18 @@ namespace QMC.CDT320.Materials
                 return false;
             }
 
+            List<DieMapEntry> approvedOrder;
+            string approvalReason;
+            if (!TryBuildApprovedInputStagePickOrder(map, wafer, out approvedOrder, out approvalReason))
+            {
+                reason = "InputStage Review 승인 PickUp 순서가 유효하지 않습니다. waferId=" +
+                         wafer.WaferId + ", reason=" + approvalReason;
+                return false;
+            }
+
             reason = "InputStage finish complete. waferId=" + wafer.WaferId +
-                     ", dieCount=" + wafer.DieIds.Count;
+                     ", dieCount=" + wafer.DieIds.Count +
+                     ", pickableCount=" + approvedOrder.Count;
             return true;
         }
 
@@ -4268,7 +4848,9 @@ namespace QMC.CDT320.Materials
                         DieMaterial die = State.Dies.FirstOrDefault(d =>
                             d != null &&
                             string.Equals(d.DieId, dieId, StringComparison.OrdinalIgnoreCase));
-                        if (die == null || !die.IsInputTarget || die.Result == DieResult.NG)
+                        if (die == null || !die.IsInputTarget ||
+                            die.Result == DieResult.NG ||
+                            (die.Result == DieResult.Good && die.InputSequenceNo <= 0))
                             continue;
 
                         MaterialLocationKind kind = die.CurrentLocation != null
@@ -4489,6 +5071,9 @@ namespace QMC.CDT320.Materials
             wafer.InputMapApprovalHashAtMapping = "";
             wafer.HasInputStageRunReviewApproval = false;
             wafer.InputStageRunReviewStartDieIndex = 0;
+            wafer.InputStageRunReviewStartDieUid = "";
+            wafer.InputStageRunReviewOrderedDieIds = new List<string>();
+            wafer.InputStageRunReviewMappingRevision = "";
             InputStageHybridResultSession.ClearMapping();
         }
 
@@ -4650,6 +5235,9 @@ namespace QMC.CDT320.Materials
                     wafer.InputStageDieMappingInvalidatedByAlignChange = false;
                     wafer.HasInputStageRunReviewApproval = false;
                     wafer.InputStageRunReviewStartDieIndex = 0;
+                    wafer.InputStageRunReviewStartDieUid = "";
+                    wafer.InputStageRunReviewOrderedDieIds = new List<string>();
+                    wafer.InputStageRunReviewMappingRevision = "";
                     wafer.State = WaferMaterialStateText.Normalize(WaferMaterialState.Working);
                     wafer.UpdatedAt = DateTime.Now;
 

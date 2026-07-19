@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
 using System.Windows.Forms;
+using QMC.CDT320.Bin;
 using QMC.CDT320.DieMaps;
 using QMC.CDT320.Materials;
 using QMC.CDT320.Recipes;
@@ -17,7 +18,9 @@ namespace QMC.CDT_320.Ui.Dialogs
     {
         private readonly Dictionary<DieMapEntry, int> _previewSequence =
             new Dictionary<DieMapEntry, int>();
+        private readonly List<DieMapEntry> _baseOrder = new List<DieMapEntry>();
         private readonly List<DieMapEntry> _previewOrder = new List<DieMapEntry>();
+        private readonly List<DieMapEntry> _selectedDies = new List<DieMapEntry>();
         private DieMap _dieMap;
         private DieMapEntry _selectedDie;
         private DieMapEntry _startDie;
@@ -31,10 +34,15 @@ namespace QMC.CDT_320.Ui.Dialogs
         private bool _readOnlyPreview;
         private bool _autoReviewMode;
         private bool _decisionSubmitted;
+        private DialogResult _submittedDialogResult = DialogResult.None;
+        private string _waferId = string.Empty;
+        private string _mappingRevision = string.Empty;
+        private Button _activeJogButton;
 
         public InputStageRunReviewDialog()
         {
             InitializeComponent();
+            mapView.EmptyAreaClicked += MapView_EmptyAreaClicked;
             ConfigureMapView();
             SetMode(InputStageRunReviewMode.MappingReview);
             SetWorkflowState("-", "-", false, false, "-", false, "REVIEW REQUIRED");
@@ -54,13 +62,39 @@ namespace QMC.CDT_320.Ui.Dialogs
         public event EventHandler AbortAutoRequested;
         public event EventHandler BuzzerStopRequested;
         public event EventHandler JogStopRequested;
+        public event EventHandler ReviewActionStopRequested;
         public event EventHandler<InputStageReviewJogEventArgs> JogRequested;
         public event EventHandler<InputStageReviewDieStateEventArgs> DieStateApplyRequested;
         public event EventHandler<InputStageReviewPickupOrderEventArgs> PickupOrderApplyRequested;
 
         public DieMapEntry SelectedDie { get { return _selectedDie; } }
-        public DieMapEntry StartDie { get { return _startDie; } }
+        public IReadOnlyList<DieMapEntry> SelectedDies { get { return _selectedDies.AsReadOnly(); } }
+        public DieMapEntry StartDie { get { return chkUseSelectedStart.Checked ? _startDie : null; } }
         public IReadOnlyList<DieMapEntry> PreviewOrder { get { return _previewOrder.AsReadOnly(); } }
+        public string WaferId { get { return _waferId; } }
+        public string MappingRevision { get { return _mappingRevision; } }
+        public string StartDieUid
+        {
+            get
+            {
+                DieMapEntry start = StartDie;
+                return start != null ? start.DieUid ?? string.Empty : string.Empty;
+            }
+        }
+        public IReadOnlyList<string> OrderedDieIds
+        {
+            get
+            {
+                return _previewOrder
+                    .Where(entry => entry != null && !string.IsNullOrWhiteSpace(entry.DieUid))
+                    .Select(entry => entry.DieUid)
+                    .ToList()
+                    .AsReadOnly();
+            }
+        }
+        public IReadOnlyList<string> OrderedDieUids { get { return OrderedDieIds; } }
+        public DieMap DraftDieMap { get { return _dieMap; } }
+        public PickupSubset ReviewPickupOptions { get { return BuildPickupOptions(); } }
 
         public void SetMode(InputStageRunReviewMode mode)
         {
@@ -79,6 +113,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             _dieMap = map;
             _selectedDie = null;
             _startDie = null;
+            _selectedDies.Clear();
             _pickupOrderApplied = false;
             mapView.SetMap(map, true);
             RefreshPickupPreview();
@@ -97,6 +132,8 @@ namespace QMC.CDT_320.Ui.Dialogs
             bool mappingComplete,
             string reviewState)
         {
+            _waferId = waferId ?? string.Empty;
+            _mappingRevision = mappingRevision ?? string.Empty;
             lblWaferValue.Text = string.IsNullOrWhiteSpace(waferId) ? "-" : waferId;
             lblRecipeValue.Text = string.IsNullOrWhiteSpace(recipeName) ? "-" : recipeName;
             lblVisionValue.Text = visionConnected ? "CONNECTED" : "DISCONNECTED";
@@ -149,19 +186,63 @@ namespace QMC.CDT_320.Ui.Dialogs
         {
             _autoReviewMode = enabled;
             _decisionSubmitted = false;
-            _readOnlyPreview = enabled;
+            _submittedDialogResult = DialogResult.None;
+            if (enabled)
+                _readOnlyPreview = false;
+
+            if (enabled && chkUseSelectedStart.Checked && _startDie == null && _baseOrder.Count > 0)
+            {
+                _startDie = _baseOrder[0];
+                RefreshPickupPreview();
+                RefreshSelectedDieInformation();
+            }
+
             _pickupOrderApplied = enabled;
             btnClose.Visible = !enabled;
             UpdateActionAvailability();
             if (enabled)
-                SetStatus("확인 시 Auto 공정을 계속하고, 취소 시 센터 검출/T Align부터 다시 수행합니다.");
+                SetStatus("Manual Review 기능이 활성화되었습니다. 확인 시 Auto 공정을 계속하고, 취소 시 센터 검출/T Align부터 다시 수행합니다.");
         }
 
         public void CloseFromSequence()
         {
             _decisionSubmitted = true;
-            if (!IsDisposed)
-                Close();
+            if (IsDisposed)
+                return;
+
+            if (InvokeRequired)
+            {
+                BeginInvoke(new Action(CloseFromSequence));
+                return;
+            }
+
+            if (_submittedDialogResult != DialogResult.None)
+            {
+                DialogResult = _submittedDialogResult;
+                return;
+            }
+            Close();
+        }
+
+        public void RestoreAfterDecisionFailure(string status)
+        {
+            if (IsDisposed)
+                return;
+
+            if (InvokeRequired)
+            {
+                BeginInvoke(new Action<string>(RestoreAfterDecisionFailure), status);
+                return;
+            }
+
+            _decisionSubmitted = false;
+            _submittedDialogResult = DialogResult.None;
+            _busy = false;
+            DialogResult = DialogResult.None;
+            SetStatus(string.IsNullOrWhiteSpace(status)
+                ? "요청 처리에 실패했습니다. 상태를 확인한 뒤 다시 시도하세요."
+                : status);
+            UpdateActionAvailability();
         }
 
         public void SetFailureDetail(string alarmCode, string detail)
@@ -187,6 +268,47 @@ namespace QMC.CDT_320.Ui.Dialogs
                 SetStatus(status);
             UpdateActionAvailability();
         }
+        public int StartDieIndex
+        {
+            get
+            {
+                DieMapEntry start = StartDie;
+                int index = start != null
+                    ? _baseOrder.FindIndex(entry => IsSameEntry(entry, start))
+                    : -1;
+                return index >= 0 ? index + 1 : 0;
+            }
+        }
+
+        public bool ApplyDraftCoordinateOffset(double offsetX, double offsetY, out string reason)
+        {
+            reason = string.Empty;
+            if (_dieMap == null || _dieMap.Entries == null ||
+                double.IsNaN(offsetX) || double.IsInfinity(offsetX) ||
+                double.IsNaN(offsetY) || double.IsInfinity(offsetY))
+            {
+                reason = "Review Draft Die Map 또는 Offset 값이 유효하지 않습니다.";
+                return false;
+            }
+
+            _dieMap.OriginX += offsetX;
+            _dieMap.OriginY += offsetY;
+            foreach (DieMapEntry entry in _dieMap.Entries)
+            {
+                if (entry == null)
+                    continue;
+                entry.PosX += offsetX;
+                entry.PosY += offsetY;
+            }
+
+            RefreshPickupPreview();
+            RefreshMapInformation();
+            RefreshSelectedDieInformation();
+            reason = "Review Draft 전체 Die 좌표에 Offset을 적용했습니다. X=" +
+                     offsetX.ToString("F6") + ", Y=" + offsetY.ToString("F6");
+            SetStatus(reason);
+            return true;
+        }
 
         private void ConfigureMapView()
         {
@@ -199,13 +321,23 @@ namespace QMC.CDT_320.Ui.Dialogs
             mapView.CellTextResolver = ResolveMapCellText;
             mapView.CellStatusResolver = BuildMapCellStatus;
             mapView.LegendItemsResolver = BuildLegendItems;
+            dieGrid.MultiSelect = true;
+            foreach (Button jogButton in new[]
+            {
+                btnVisionXMinus, btnVisionXPlus,
+                btnWaferYMinus, btnWaferYPlus,
+                btnWaferTMinus, btnWaferTPlus
+            })
+            {
+                jogButton.MouseCaptureChanged += JogButton_MouseCaptureChanged;
+            }
         }
 
         private Color ResolveMapCellColor(DieMapEntry entry)
         {
             if (entry == null)
                 return Color.DimGray;
-            if (ReferenceEquals(entry, _startDie))
+            if (chkUseSelectedStart.Checked && ReferenceEquals(entry, _startDie))
                 return Color.FromArgb(245, 190, 52);
             if (!entry.IsTarget)
                 return Color.FromArgb(90, 90, 90);
@@ -220,7 +352,7 @@ namespace QMC.CDT_320.Ui.Dialogs
         {
             if (entry == null)
                 return string.Empty;
-            if (ReferenceEquals(entry, _startDie))
+            if (chkUseSelectedStart.Checked && ReferenceEquals(entry, _startDie))
                 return "S";
 
             int sequence;
@@ -257,12 +389,20 @@ namespace QMC.CDT_320.Ui.Dialogs
 
         private void RefreshPickupPreview()
         {
+            _baseOrder.Clear();
             _previewOrder.Clear();
             _previewSequence.Clear();
 
             if (_dieMap != null)
             {
-                List<DieMapEntry> ordered = PickupSequenceGenerator.Build(_dieMap, BuildPickupOptions());
+                List<DieMapEntry> generated = PickupSequenceGenerator.Build(_dieMap, BuildPickupOptions());
+                foreach (DieMapEntry entry in generated)
+                {
+                    if (IsPickableEntry(entry))
+                        _baseOrder.Add(entry);
+                }
+
+                List<DieMapEntry> ordered = new List<DieMapEntry>(_baseOrder);
                 if (chkUseSelectedStart.Checked && _startDie != null)
                     ordered = RotateOrderAtStartDie(ordered, _startDie);
 
@@ -276,11 +416,38 @@ namespace QMC.CDT_320.Ui.Dialogs
                 }
             }
 
+            decimal maximum = Math.Max(1, _baseOrder.Count);
+            numStartIndex.Maximum = maximum;
+            int selectedStartIndex = StartDieIndex;
+            if (selectedStartIndex > 0)
+                numStartIndex.Value = Math.Min(maximum, selectedStartIndex);
+            else if (numStartIndex.Value > maximum)
+                numStartIndex.Value = maximum;
+
+            if (_dieMap != null && _dieMap.Entries != null)
+            {
+                foreach (DieMapEntry entry in _dieMap.Entries)
+                {
+                    if (entry != null)
+                        entry.SequenceNo = 0;
+                }
+                for (int i = 0; i < _previewOrder.Count; i++)
+                    _previewOrder[i].SequenceNo = i + 1;
+            }
+
             RefreshDieGrid();
             RefreshProgress();
             mapView.Invalidate();
             _pickupOrderApplied = false;
             UpdateActionAvailability();
+        }
+
+        private static bool IsPickableEntry(DieMapEntry entry)
+        {
+            return entry != null &&
+                   entry.IsTarget &&
+                   entry.Result != DieResult.Good &&
+                   entry.Result != DieResult.NG;
         }
 
         private PickupSubset BuildPickupOptions()
@@ -352,9 +519,21 @@ namespace QMC.CDT_320.Ui.Dialogs
                         entry.PosY.ToString("F4"),
                         entry.DieUid ?? string.Empty);
                     dieGrid.Rows[rowIndex].Tag = entry;
-                    if (IsSameEntry(entry, _selectedDie))
-                        dieGrid.Rows[rowIndex].Selected = true;
                 }
+
+                dieGrid.ClearSelection();
+                int firstSelectedRow = -1;
+                foreach (DataGridViewRow row in dieGrid.Rows)
+                {
+                    DieMapEntry rowEntry = row.Tag as DieMapEntry;
+                    bool selected = ContainsSameEntry(_selectedDies, rowEntry);
+                    row.Selected = selected;
+                    if (selected && firstSelectedRow < 0)
+                        firstSelectedRow = row.Index;
+                }
+
+                if (firstSelectedRow >= 0)
+                    dieGrid.FirstDisplayedScrollingRowIndex = firstSelectedRow;
             }
             finally
             {
@@ -408,10 +587,11 @@ namespace QMC.CDT_320.Ui.Dialogs
             lblSelectedSequenceValue.Text = entry != null && ResolvePreviewSequence(entry) > 0
                 ? ResolvePreviewSequence(entry).ToString()
                 : "-";
-            lblStartDieValue.Text = _startDie != null
-                ? (string.IsNullOrWhiteSpace(_startDie.DieUid)
-                    ? "Map " + _startDie.DieMapX + "," + _startDie.DieMapY
-                    : _startDie.DieUid)
+            DieMapEntry start = StartDie;
+            lblStartDieValue.Text = start != null
+                ? (string.IsNullOrWhiteSpace(start.DieUid)
+                    ? "Map " + start.DieMapX + "," + start.DieMapY
+                    : start.DieUid)
                 : "NOT SET";
         }
 
@@ -443,6 +623,27 @@ namespace QMC.CDT_320.Ui.Dialogs
             return left.DieMapX == right.DieMapX && left.DieMapY == right.DieMapY;
         }
 
+        private static bool ContainsSameEntry(IEnumerable<DieMapEntry> entries, DieMapEntry target)
+        {
+            if (entries == null || target == null)
+                return false;
+
+            foreach (DieMapEntry entry in entries)
+            {
+                if (IsSameEntry(entry, target))
+                    return true;
+            }
+            return false;
+        }
+
+        private DieMapEntry ResolveDraftEntry(DieMapEntry entry)
+        {
+            if (entry == null || _dieMap == null || _dieMap.Entries == null)
+                return null;
+
+            return _dieMap.Entries.FirstOrDefault(item => IsSameEntry(item, entry));
+        }
+
         private static string FormatGrid(double value)
         {
             return double.IsNaN(value) || double.IsInfinity(value) ? "-" : value.ToString("0.###");
@@ -450,21 +651,48 @@ namespace QMC.CDT_320.Ui.Dialogs
 
         private void SelectDie(DieMapEntry entry, bool selectGrid)
         {
-            _selectedDie = entry;
-            mapView.SelectedEntry = entry;
+            SetSelectedDies(new[] { entry }, entry, true, selectGrid);
+        }
+
+        private void SetSelectedDies(
+            IEnumerable<DieMapEntry> entries,
+            DieMapEntry primary,
+            bool synchronizeMap,
+            bool synchronizeGrid)
+        {
+            _selectedDies.Clear();
+            if (entries != null)
+            {
+                foreach (DieMapEntry source in entries)
+                {
+                    DieMapEntry entry = ResolveDraftEntry(source);
+                    if (entry != null && !ContainsSameEntry(_selectedDies, entry))
+                        _selectedDies.Add(entry);
+                }
+            }
+
+            _selectedDie = ResolveDraftEntry(primary);
+            if (_selectedDie == null || !ContainsSameEntry(_selectedDies, _selectedDie))
+                _selectedDie = _selectedDies.Count > 0 ? _selectedDies[0] : null;
+
+            if (synchronizeMap)
+                mapView.SetSelectedEntries(_selectedDies);
+
             RefreshSelectedDieInformation();
 
-            if (!selectGrid || entry == null)
+            if (!synchronizeGrid)
                 return;
 
             _synchronizingSelection = true;
             try
             {
+                dieGrid.ClearSelection();
                 foreach (DataGridViewRow row in dieGrid.Rows)
                 {
-                    bool selected = IsSameEntry(row.Tag as DieMapEntry, entry);
+                    DieMapEntry rowEntry = row.Tag as DieMapEntry;
+                    bool selected = ContainsSameEntry(_selectedDies, rowEntry);
                     row.Selected = selected;
-                    if (selected)
+                    if (selected && IsSameEntry(rowEntry, _selectedDie))
                         dieGrid.FirstDisplayedScrollingRowIndex = Math.Max(0, row.Index);
                 }
             }
@@ -479,6 +707,11 @@ namespace QMC.CDT_320.Ui.Dialogs
             SelectDie(entry, true);
         }
 
+        private void MapView_EmptyAreaClicked()
+        {
+            SetSelectedDies(Enumerable.Empty<DieMapEntry>(), null, false, true);
+        }
+
         private void MapView_CellDoubleClicked(DieMapEntry entry)
         {
             SelectDie(entry, true);
@@ -489,16 +722,35 @@ namespace QMC.CDT_320.Ui.Dialogs
         private void MapView_SelectionRectangleCompleted(IReadOnlyList<DieMapEntry> entries)
         {
             if (entries == null || entries.Count == 0)
+            {
+                SetSelectedDies(Enumerable.Empty<DieMapEntry>(), null, false, true);
                 return;
-            SelectDie(entries[0], true);
+            }
+            SetSelectedDies(entries, entries[0], true, true);
             SetStatus(entries.Count + "개 Die가 선택되었습니다. 상태 변경 시 전체 선택 대상에 적용됩니다.");
         }
 
         private void DieGrid_SelectionChanged(object sender, EventArgs e)
         {
-            if (_synchronizingSelection || dieGrid.SelectedRows.Count == 0)
+            if (_synchronizingSelection)
                 return;
-            SelectDie(dieGrid.SelectedRows[0].Tag as DieMapEntry, false);
+
+            if (dieGrid.SelectedRows.Count == 0)
+            {
+                SetSelectedDies(Enumerable.Empty<DieMapEntry>(), null, true, false);
+                return;
+            }
+
+            List<DieMapEntry> entries = dieGrid.SelectedRows
+                .Cast<DataGridViewRow>()
+                .OrderBy(row => row.Index)
+                .Select(row => row.Tag as DieMapEntry)
+                .Where(entry => entry != null)
+                .ToList();
+            DieMapEntry primary = dieGrid.CurrentRow != null
+                ? dieGrid.CurrentRow.Tag as DieMapEntry
+                : entries[0];
+            SetSelectedDies(entries, primary, true, false);
         }
 
         private void PickupOption_CheckedChanged(object sender, EventArgs e)
@@ -506,12 +758,14 @@ namespace QMC.CDT_320.Ui.Dialogs
             var radio = sender as RadioButton;
             if (radio != null && !radio.Checked)
                 return;
+            _pickupOrderApplied = false;
             RefreshPickupPreview();
             SetStatus("픽업 경로 설정이 변경되었습니다. PREVIEW를 확인한 뒤 APPLY PICKUP ORDER를 실행하세요.");
         }
 
         private void ChkUseSelectedStart_CheckedChanged(object sender, EventArgs e)
         {
+            _pickupOrderApplied = false;
             RefreshPickupPreview();
         }
 
@@ -522,15 +776,21 @@ namespace QMC.CDT_320.Ui.Dialogs
                 SetStatus("시작할 Die를 Wafer Map 또는 목록에서 먼저 선택하세요.");
                 return;
             }
-            if (!_selectedDie.IsTarget)
+            if (!IsPickableEntry(_selectedDie))
             {
-                SetStatus("SKIP/비대상 Die는 시작 Die로 설정할 수 없습니다.");
+                SetStatus("SKIP/GOOD/NG Die는 시작 Die로 설정할 수 없습니다.");
                 return;
             }
 
             _startDie = _selectedDie;
-            chkUseSelectedStart.Checked = true;
-            RefreshPickupPreview();
+            _pickupOrderApplied = false;
+            if (!chkUseSelectedStart.Checked)
+                chkUseSelectedStart.Checked = true;
+            else
+                RefreshPickupPreview();
+            int startIndex = StartDieIndex;
+            if (startIndex > 0)
+                numStartIndex.Value = Math.Min(numStartIndex.Maximum, startIndex);
             RefreshSelectedDieInformation();
             SetStatus("선택 Die를 시작점으로 설정했습니다. UID=" + (_startDie.DieUid ?? "") +
                       ", Map=(" + _startDie.DieMapX + "," + _startDie.DieMapY + ")");
@@ -539,10 +799,12 @@ namespace QMC.CDT_320.Ui.Dialogs
         private void BtnSetStartIndex_Click(object sender, EventArgs e)
         {
             int requested = (int)numStartIndex.Value;
-            DieMapEntry entry = _previewOrder.FirstOrDefault(item => ResolvePreviewSequence(item) == requested);
+            DieMapEntry entry = requested > 0 && requested <= _baseOrder.Count
+                ? _baseOrder[requested - 1]
+                : null;
             if (entry == null)
             {
-                SetStatus("입력한 순번에 해당하는 Target Die가 없습니다. sequence=" + requested);
+                SetStatus("입력한 1-base 순번에 해당하는 Pickable Die가 없습니다. sequence=" + requested);
                 return;
             }
 
@@ -554,38 +816,51 @@ namespace QMC.CDT_320.Ui.Dialogs
         {
             RefreshPickupPreview();
             SetStatus("픽업 경로 미리보기를 갱신했습니다. Target=" + _previewOrder.Count +
-                      ", Start=" + (_startDie != null ? lblStartDieValue.Text : "Recipe Corner"));
+                      ", Start=" + (StartDie != null ? lblStartDieValue.Text : "Recipe Corner"));
         }
 
         private void BtnApplyPickupOrder_Click(object sender, EventArgs e)
         {
-            if (_previewOrder.Count == 0)
+            if (_dieMap == null || _dieMap.Entries == null)
             {
-                SetStatus("적용할 Target Die 순서가 없습니다.");
+                SetStatus("적용할 Review Draft Die Map이 없습니다.");
                 return;
             }
+            if (_previewOrder.Count == 0 && chkUseSelectedStart.Checked)
+                chkUseSelectedStart.Checked = false;
             if (chkUseSelectedStart.Checked && _startDie == null)
             {
                 SetStatus("선택 시작 Die 사용이 켜져 있지만 시작 Die가 지정되지 않았습니다.");
                 return;
             }
 
-            var handler = PickupOrderApplyRequested;
-            if (handler != null)
-                handler(this, new InputStageReviewPickupOrderEventArgs(
-                    BuildPickupOptions(),
-                    _startDie,
-                    new List<DieMapEntry>(_previewOrder).AsReadOnly()));
-            _pickupOrderApplied = true;
-            SetStatus("픽업 경로 적용 요청을 완료했습니다. Target=" + _previewOrder.Count);
-            UpdateActionAvailability();
+            try
+            {
+                var handler = PickupOrderApplyRequested;
+                if (handler != null)
+                    handler(this, new InputStageReviewPickupOrderEventArgs(
+                        BuildPickupOptions(),
+                        StartDie,
+                        new List<DieMapEntry>(_previewOrder).AsReadOnly()));
+                _pickupOrderApplied = true;
+                SetStatus(_previewOrder.Count > 0
+                    ? "픽업 경로 Draft를 적용했습니다. Pickable Target=" + _previewOrder.Count
+                    : "Pickable Target이 0개인 빈 픽업 경로 Draft를 적용했습니다.");
+                UpdateActionAvailability();
+            }
+            catch (Exception ex)
+            {
+                _pickupOrderApplied = false;
+                SetStatus("픽업 경로 적용 요청에 실패했습니다. " + ex.Message);
+                UpdateActionAvailability();
+            }
         }
 
         private void BtnApplyDieState_Click(object sender, EventArgs e)
         {
-            List<DieMapEntry> entries = mapView.SelectedEntries != null
-                ? mapView.SelectedEntries.Where(item => item != null).ToList()
-                : new List<DieMapEntry>();
+            List<DieMapEntry> entries = _selectedDies
+                .Where(item => item != null)
+                .ToList();
             if (entries.Count == 0 && _selectedDie != null)
                 entries.Add(_selectedDie);
             if (entries.Count == 0)
@@ -601,10 +876,62 @@ namespace QMC.CDT_320.Ui.Dialogs
                     : rbDieStateSkip.Checked
                         ? InputStageReviewDieState.Skip
                         : InputStageReviewDieState.Wait;
-            var handler = DieStateApplyRequested;
-            if (handler != null)
-                handler(this, new InputStageReviewDieStateEventArgs(entries.AsReadOnly(), state));
-            SetStatus(entries.Count + "개 Die 상태 변경 요청: " + state);
+
+            foreach (DieMapEntry entry in entries)
+                ApplyDraftDieState(entry, state);
+
+            _pickupOrderApplied = false;
+
+            if (_startDie != null && !IsPickableEntry(_startDie))
+                _startDie = null;
+
+            RefreshPickupPreview();
+            RefreshSelectedDieInformation();
+            mapView.Invalidate();
+
+            try
+            {
+                var handler = DieStateApplyRequested;
+                if (handler != null)
+                    handler(this, new InputStageReviewDieStateEventArgs(entries.AsReadOnly(), state));
+                SetStatus(entries.Count + "개 Die 상태를 Review Draft에 적용했습니다: " + state);
+            }
+            catch (Exception ex)
+            {
+                SetStatus("Die 상태는 Draft에 반영되었지만 외부 알림 처리에 실패했습니다. " + ex.Message);
+            }
+        }
+
+        private static void ApplyDraftDieState(DieMapEntry entry, InputStageReviewDieState state)
+        {
+            if (entry == null)
+                return;
+
+            switch (state)
+            {
+                case InputStageReviewDieState.Good:
+                    entry.IsTarget = true;
+                    entry.Result = DieResult.Good;
+                    entry.BinCode = BinCodeMap.GoodBin;
+                    break;
+                case InputStageReviewDieState.Ng:
+                    entry.IsTarget = true;
+                    entry.Result = DieResult.NG;
+                    entry.BinCode = BinCodeMap.MaxBin;
+                    break;
+                case InputStageReviewDieState.Skip:
+                    entry.IsTarget = false;
+                    entry.Result = DieResult.Unknown;
+                    entry.BinCode = 0;
+                    entry.SequenceNo = 0;
+                    break;
+                case InputStageReviewDieState.Wait:
+                default:
+                    entry.IsTarget = true;
+                    entry.Result = DieResult.Unknown;
+                    entry.BinCode = 0;
+                    break;
+            }
         }
 
         private void JogButton_MouseDown(object sender, MouseEventArgs e)
@@ -616,6 +943,8 @@ namespace QMC.CDT_320.Ui.Dialogs
             if (button == null || !(button.Tag is InputStageReviewJogAxis))
                 return;
 
+            _activeJogButton = button;
+            UpdateActionAvailability();
             int direction = button.Name.EndsWith("Minus", StringComparison.Ordinal) ? -1 : 1;
             var handler = JogRequested;
             if (handler != null)
@@ -623,19 +952,39 @@ namespace QMC.CDT_320.Ui.Dialogs
                     (InputStageReviewJogAxis)button.Tag,
                     direction,
                     cmbJogSpeed.Text));
+            else
+                _activeJogButton = null;
             SetStatus(button.Text + " Jog 요청 중입니다. 버튼을 놓으면 정지 요청합니다.");
         }
 
         private void JogButton_MouseUp(object sender, MouseEventArgs e)
         {
+            Button button = sender as Button;
+            if (_activeJogButton == null || !ReferenceEquals(_activeJogButton, button))
+                return;
+            _activeJogButton = null;
+            UpdateActionAvailability();
             RaiseSimpleEvent(JogStopRequested);
             SetStatus("Jog 정지를 요청했습니다.");
         }
 
+        private void JogButton_MouseCaptureChanged(object sender, EventArgs e)
+        {
+            Button button = sender as Button;
+            if (button != null && ReferenceEquals(_activeJogButton, button) && !button.Capture)
+            {
+                _activeJogButton = null;
+                UpdateActionAvailability();
+                RaiseSimpleEvent(JogStopRequested);
+            }
+        }
+
         private void BtnJogStop_Click(object sender, EventArgs e)
         {
-            RaiseSimpleEvent(JogStopRequested);
-            SetStatus("전체 Jog 정지를 요청했습니다.");
+            _activeJogButton = null;
+            UpdateActionAvailability();
+            RaiseSimpleEvent(ReviewActionStopRequested);
+            SetStatus("Review 수동 동작 정지를 요청했습니다.");
         }
 
         private void BtnMoveSelectedDie_Click(object sender, EventArgs e)
@@ -648,8 +997,15 @@ namespace QMC.CDT_320.Ui.Dialogs
             RaiseSimpleEvent(SelectedDieMoveRequested);
         }
 
-        private void BtnRetryAlign_Click(object sender, EventArgs e) { RaiseSimpleEvent(AlignRetryRequested); }
-        private void BtnRetryMapping_Click(object sender, EventArgs e) { RaiseSimpleEvent(MappingRetryRequested); }
+        private void BtnRetryAlign_Click(object sender, EventArgs e)
+        {
+            SubmitAutoReviewDecision(AlignRetryRequested, DialogResult.Retry);
+        }
+
+        private void BtnRetryMapping_Click(object sender, EventArgs e)
+        {
+            SubmitAutoReviewDecision(MappingRetryRequested, DialogResult.Retry);
+        }
         private void BtnMappingSetup_Click(object sender, EventArgs e) { RaiseSimpleEvent(MappingSetupRequested); }
         private void BtnVisionTest_Click(object sender, EventArgs e) { RaiseSimpleEvent(VisionTestRequested); }
         private void BtnThetaCorrection_Click(object sender, EventArgs e) { RaiseSimpleEvent(ThetaCorrectionRequested); }
@@ -685,14 +1041,21 @@ namespace QMC.CDT_320.Ui.Dialogs
             try
             {
                 _decisionSubmitted = true;
+                _submittedDialogResult = result;
+                _busy = true;
+                SetStatus(result == DialogResult.OK
+                    ? "확인 요청을 처리하고 있습니다. Sequence 완료 응답을 기다립니다."
+                    : "재실행/취소 요청을 처리하고 있습니다. Sequence 완료 응답을 기다립니다.");
+                UpdateActionAvailability();
                 handler(this, EventArgs.Empty);
-                DialogResult = result;
-                Close();
             }
             catch (Exception ex)
             {
                 _decisionSubmitted = false;
+                _submittedDialogResult = DialogResult.None;
+                _busy = false;
                 SetStatus("사용자 확인 처리에 실패했습니다. " + ex.Message);
+                UpdateActionAvailability();
             }
         }
 
@@ -708,25 +1071,37 @@ namespace QMC.CDT_320.Ui.Dialogs
             bool actionEnabled = enabled && !_readOnlyPreview;
             grpDieState.Enabled = actionEnabled && _mode == InputStageRunReviewMode.MappingReview;
             grpStartDie.Enabled = actionEnabled && _mappingComplete;
-            grpJog.Enabled = actionEnabled;
+            grpJog.Enabled = !_readOnlyPreview;
+            cmbJogSpeed.Enabled = actionEnabled && _activeJogButton == null;
+            btnVisionXMinus.Enabled = actionEnabled || ReferenceEquals(_activeJogButton, btnVisionXMinus);
+            btnVisionXPlus.Enabled = actionEnabled || ReferenceEquals(_activeJogButton, btnVisionXPlus);
+            btnWaferYMinus.Enabled = actionEnabled || ReferenceEquals(_activeJogButton, btnWaferYMinus);
+            btnWaferYPlus.Enabled = actionEnabled || ReferenceEquals(_activeJogButton, btnWaferYPlus);
+            btnWaferTMinus.Enabled = actionEnabled || ReferenceEquals(_activeJogButton, btnWaferTMinus);
+            btnWaferTPlus.Enabled = actionEnabled || ReferenceEquals(_activeJogButton, btnWaferTPlus);
             grpActions.Enabled = actionEnabled;
+            btnMoveSelectedDie.Enabled = actionEnabled && _mappingComplete;
+            btnThetaCorrection.Enabled = actionEnabled && _alignComplete;
+            btnDieDetection.Enabled = actionEnabled && _alignComplete && _mappingComplete;
+            btnOffsetApply.Enabled = actionEnabled && _mappingComplete;
+            btnVisionTest.Enabled = actionEnabled;
             grpPickupRoute.Enabled = actionEnabled && _mappingComplete;
             btnPreviewPath.Enabled = actionEnabled && _mappingComplete;
             btnApplyPickupOrder.Enabled = actionEnabled && _mappingComplete;
             btnRetryAlign.Enabled = actionEnabled;
             btnRetryMapping.Enabled = actionEnabled && _alignComplete;
-            btnMappingSetup.Enabled = actionEnabled;
+            btnMappingSetup.Enabled = actionEnabled && !_autoReviewMode;
             btnStartRun.Enabled = (actionEnabled || (enabled && _autoReviewMode)) &&
                                   _mode == InputStageRunReviewMode.MappingReview &&
                                   _alignComplete &&
                                   _mappingComplete &&
                                   _reviewValid &&
-                                  (_autoReviewMode || _pickupOrderApplied) &&
-                                  (!chkUseSelectedStart.Checked || _startDie != null);
+                                  _pickupOrderApplied &&
+                                  (_previewOrder.Count == 0 || !chkUseSelectedStart.Checked || _startDie != null);
             btnAbortAuto.Enabled = actionEnabled || (enabled && _autoReviewMode);
             btnBuzzerStop.Enabled = enabled;
             btnClose.Enabled = enabled && !_autoReviewMode;
-            btnJogStop.Enabled = actionEnabled;
+            btnJogStop.Enabled = !_readOnlyPreview;
         }
 
         private void SetStatus(string message)
@@ -739,8 +1114,24 @@ namespace QMC.CDT_320.Ui.Dialogs
             Close();
         }
 
+        protected override void OnDeactivate(EventArgs e)
+        {
+            if (_activeJogButton != null)
+            {
+                _activeJogButton = null;
+                UpdateActionAvailability();
+                RaiseSimpleEvent(JogStopRequested);
+            }
+            base.OnDeactivate(e);
+        }
+
         private void InputStageRunReviewDialog_FormClosing(object sender, FormClosingEventArgs e)
         {
+            if (_activeJogButton != null)
+            {
+                _activeJogButton = null;
+                RaiseSimpleEvent(JogStopRequested);
+            }
             if (_autoReviewMode && !_decisionSubmitted && e.CloseReason == CloseReason.UserClosing)
             {
                 e.Cancel = true;

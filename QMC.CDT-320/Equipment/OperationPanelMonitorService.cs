@@ -415,6 +415,9 @@ namespace QMC.CDT320
 
         private bool IsAutoRunning()
         {
+            if (_controller.IsInputStageRunReviewManualActive)
+                return false;
+
             return _controller.Status == EquipmentStatus.AutoRunning ||
                    (_controller.IsSequenceRunning &&
                     _controller.ActiveSequenceRunMode == SequenceRunMode.Auto);
@@ -422,7 +425,8 @@ namespace QMC.CDT320
 
         private bool IsManualRunning()
         {
-            return _controller.IsManualBusy ||
+            return _controller.IsInputStageRunReviewManualActive ||
+                   _controller.IsManualBusy ||
                    _controller.Status == EquipmentStatus.ManualRunning ||
                    (_controller.IsSequenceRunning &&
                     _controller.ActiveSequenceRunMode.HasValue &&

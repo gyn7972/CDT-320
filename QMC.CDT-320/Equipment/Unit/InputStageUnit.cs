@@ -474,6 +474,7 @@ namespace QMC.CDT320
 
         public event Action UserConfirmRequested;
         public event Action UserConfirmWaitEnded;
+        public event Action<string> UserConfirmProcessingFailed;
 
         // ──────────────────────────────────────────────────────────────────────
         //  §4. 생성자
@@ -2386,6 +2387,23 @@ namespace QMC.CDT320
                     string.IsNullOrWhiteSpace(message)
                         ? "InputStage 사용자 확인 화면 처리에 실패했습니다."
                         : message));
+        }
+
+        public void NotifyUserConfirmProcessingFailed(string message)
+        {
+            Action<string> handler = UserConfirmProcessingFailed;
+            if (handler == null)
+                return;
+
+            try
+            {
+                handler(string.IsNullOrWhiteSpace(message)
+                    ? "InputStage Review 처리에 실패했습니다. 조건을 확인한 뒤 다시 시도하세요."
+                    : message);
+            }
+            catch
+            {
+            }
         }
 
         // ??????????????????????????????????????????????????????????????????????

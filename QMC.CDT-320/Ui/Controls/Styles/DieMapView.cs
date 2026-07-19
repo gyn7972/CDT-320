@@ -32,6 +32,7 @@ namespace QMC.CDT320.Ui.Controls
         public event Action<DieMapEntry> CellClicked;
         public event Action<DieMapEntry> CellDoubleClicked;
         public event Action<IReadOnlyList<DieMapEntry>> SelectionRectangleCompleted;
+        public event Action EmptyAreaClicked;
 
         /// <summary>현재 표시 중인 다이 맵.</summary>
         public DieMap Map
@@ -451,21 +452,27 @@ namespace QMC.CDT320.Ui.Controls
                 return;
 
             var hit = HitTest(e.X, e.Y);
-            if (hit != null)
+            if (hit == null)
             {
-                if ((ModifierKeys & Keys.Shift) == Keys.Shift)
-                {
-                    ToggleSelectedEntry(hit);
-                    try { SelectionRectangleCompleted?.Invoke(_selectedEntries.AsReadOnly()); } catch { }
-                    return;
-                }
-
-                _selected = hit;
+                _selected = null;
                 _selectedEntries.Clear();
-                _selectedEntries.Add(hit);
                 Invalidate();
-                try { CellClicked?.Invoke(hit); } catch { }
+                try { EmptyAreaClicked?.Invoke(); } catch { }
+                return;
             }
+
+            if ((ModifierKeys & Keys.Shift) == Keys.Shift)
+            {
+                ToggleSelectedEntry(hit);
+                try { SelectionRectangleCompleted?.Invoke(_selectedEntries.AsReadOnly()); } catch { }
+                return;
+            }
+
+            _selected = hit;
+            _selectedEntries.Clear();
+            _selectedEntries.Add(hit);
+            Invalidate();
+            try { CellClicked?.Invoke(hit); } catch { }
         }
 
         private void OnMouseDoubleClick(object sender, MouseEventArgs e)
@@ -541,14 +548,7 @@ namespace QMC.CDT320.Ui.Controls
                 {
                     List<DieMapEntry> entries = HitTestRectangle(NormalizeRectangle(_selectionStart, _selectionEnd));
                     SetSelectedEntries(entries);
-                    if (entries.Count > 0)
-                    {
-                        try { SelectionRectangleCompleted?.Invoke(_selectedEntries.AsReadOnly()); } catch { }
-                    }
-                    else
-                    {
-                        Invalidate();
-                    }
+                    try { SelectionRectangleCompleted?.Invoke(_selectedEntries.AsReadOnly()); } catch { }
                 }
 
                 return;
