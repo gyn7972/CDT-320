@@ -10838,7 +10838,10 @@ namespace QMC.CDT320
             // 대표 1개 다이(로그/통계용).
             var die = dies[0];
             var pickJob = pickJobs[0];
-            await MoveInputStageToDieAsync(row, col);
+            int inputStageMoveResult = await MoveInputStageToDieAsync(row, col);
+            ThrowIfMoveFailed(
+                "InputStage move to die [" + row + "," + col + "]",
+                inputStageMoveResult);
 
             // Stage 40: Dual Arm 모드. 짝수 idx는 LeftArm, 홀수 idx는 RightArm.
             bool useRearPicker = DualArmMode && (index % 2 == 1);
