@@ -3954,6 +3954,105 @@ namespace QMC.CDT320.Materials
             }
         }
 
+        private static bool IsStoredInputStageResultModeUsableNoLock(
+            WaferMaterial wafer,
+            bool requireMapping,
+            out string reason)
+        {
+            reason = string.Empty;
+            if (wafer == null)
+            {
+                reason = "InputStage wafer material is not available.";
+                return false;
+            }
+
+            string alignMode = wafer.InputStageAlignResultMode ?? "";
+            if (!InputStageResultMode.IsKnown(alignMode))
+            {
+                reason = "Unknown InputStage align result mode. mode=" + alignMode;
+                return false;
+            }
+
+            bool hybridAlign = InputStageResultMode.IsHybrid(alignMode);
+            if (hybridAlign)
+            {
+                if (!QMC.CDT320.VisionComm.AutoVisionRequestService.IsRealVisionInSimulationActive())
+                {
+                    InputStageHybridResultSession.Clear();
+                    reason = "Hybrid InputStage align result cannot be used outside HybridRealVisionSimMotion mode.";
+                    return false;
+                }
+
+                if (string.IsNullOrWhiteSpace(wafer.InputStageAlignResultRunId) ||
+                    !InputStageHybridResultSession.IsCurrentAlign(
+                        wafer.WaferId,
+                        wafer.InputStageAlignResultRunId))
+                {
+                    reason = "Hybrid InputStage align result is not from the current application session. Re-align is required.";
+                    return false;
+                }
+            }
+
+            if (!requireMapping)
+                return true;
+
+            string mappingMode = wafer.InputStageDieMappingResultMode ?? "";
+            if (!InputStageResultMode.IsKnown(mappingMode))
+            {
+                reason = "Unknown InputStage die mapping result mode. mode=" + mappingMode;
+                return false;
+            }
+
+            bool hybridMapping = InputStageResultMode.IsHybrid(mappingMode);
+            if (hybridAlign != hybridMapping)
+            {
+                reason = "InputStage align/mapping result mode mismatch. alignMode=" + alignMode +
+                         ", mappingMode=" + mappingMode;
+                return false;
+            }
+
+            if (hybridMapping)
+            {
+                if (!string.Equals(
+                        wafer.InputStageDieMappingAlignRunId,
+                        wafer.InputStageAlignResultRunId,
+                        StringComparison.OrdinalIgnoreCase) ||
+                    !InputStageHybridResultSession.IsCurrentMapping(
+                        wafer.WaferId,
+                        wafer.InputStageAlignResultRunId))
+                {
+                    reason = "Hybrid InputStage die mapping is not tied to the current-session align result. Re-align and re-map are required.";
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        public static bool IsStoredInputStageResultModeUsable(
+            WaferMaterial wafer,
+            bool requireMapping,
+            out string reason)
+        {
+            try
+            {
+                lock (_stateSync)
+                {
+                    return IsStoredInputStageResultModeUsableNoLock(wafer, requireMapping, out reason);
+                }
+            }
+            catch (Exception ex)
+            {
+                reason = "InputStage stored result mode check failed: " + ex.Message;
+                Log.Write("Main", "SYSTEM", "MaterialStateService",
+                    reason + " - Failed");
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
         private static bool IsInputStageFinishCompleteNoLock(WaferMaterial wafer, out string reason)
         {
             reason = string.Empty;
@@ -3994,6 +4093,9 @@ namespace QMC.CDT320.Materials
                 reason = "InputStage die mapping is not complete. waferId=" + wafer.WaferId;
                 return false;
             }
+
+            if (!IsStoredInputStageResultModeUsableNoLock(wafer, true, out reason))
+                return false;
 
             if (wafer.DieIds == null || wafer.DieIds.Count == 0)
             {
@@ -4047,6 +4149,9 @@ namespace QMC.CDT320.Materials
                 reason = "InputStage theta align is not complete. waferId=" + wafer.WaferId;
                 return false;
             }
+
+            if (!IsStoredInputStageResultModeUsableNoLock(wafer, false, out reason))
+                return false;
 
             if (double.IsNaN(wafer.InputStageAlignReferenceT) ||
                 double.IsInfinity(wafer.InputStageAlignReferenceT) ||
@@ -4293,6 +4398,8 @@ namespace QMC.CDT320.Materials
                 return;
 
             wafer.HasInputStageDieMappingResult = false;
+            wafer.InputStageDieMappingResultMode = "";
+            wafer.InputStageDieMappingAlignRunId = "";
             wafer.InputStageDieMappingOffsetX = 0.0;
             wafer.InputStageDieMappingOffsetY = 0.0;
             wafer.HasInputStageDieMappingOrigin = false;
@@ -4302,6 +4409,36 @@ namespace QMC.CDT320.Materials
             wafer.InputStageDieMappingCorrectedT = 0.0;
             wafer.InputStageDieMappingInvalidatedByAlignChange = alignOrThetaChanged;
             wafer.InputMapApprovalHashAtMapping = "";
+            InputStageHybridResultSession.ClearMapping();
+        }
+
+        public static void InvalidateInputStageDieMappingResult(WaferMaterial wafer, string reason)
+        {
+            try
+            {
+                lock (_stateSync)
+                {
+                    if (wafer == null)
+                        return;
+
+                    // Apply 중 일부 상태가 갱신된 뒤 실패한 경우 저장 맵 자동 복원이
+                    // 완료 결과를 되살리지 못하도록 강제 remap 상태로 둔다.
+                    InvalidateInputStageDieMappingNoLock(wafer, true);
+                    wafer.UpdatedAt = DateTime.Now;
+                    Log.Write("Main", "SYSTEM", "MaterialStateService",
+                        "InputStage die mapping result invalidated. waferId=" + (wafer.WaferId ?? "") +
+                        ", reason=" + (reason ?? "") + " - Check");
+                    NotifyAndSave("InputStageDieMappingApplyFailed");
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Write("Main", "SYSTEM", "MaterialStateService",
+                    "InputStage die mapping result invalidate failed: " + ex.Message + " - Failed");
+            }
+            finally
+            {
+            }
         }
 
         public static void SaveInputStageAlignResult(WaferMaterial wafer, double originX, double originY, double pitchX, double pitchY, double offsetX, double offsetY)
@@ -4320,7 +4457,9 @@ namespace QMC.CDT320.Materials
             bool hasThetaAlign,
             double referenceT,
             double correctedT,
-            double offsetT)
+            double offsetT,
+            string resultMode = "",
+            string resultRunId = "")
         {
             try
             {
@@ -4328,6 +4467,10 @@ namespace QMC.CDT320.Materials
                     return;
 
                 wafer.HasInputStageAlignResult = true;
+                wafer.InputStageAlignResultMode = InputStageResultMode.NormalizeForSave(resultMode);
+                wafer.InputStageAlignResultRunId = (resultRunId ?? "").Trim();
+                if (!InputStageResultMode.IsHybrid(wafer.InputStageAlignResultMode))
+                    InputStageHybridResultSession.Clear();
                 wafer.InputStageAlignOriginX = originX;
                 wafer.InputStageAlignOriginY = originY;
                 wafer.InputStageAlignPitchX = pitchX;
@@ -4373,7 +4516,11 @@ namespace QMC.CDT320.Materials
                 wafer.InputStageAlignCorrectedT = correctedT;
                 wafer.InputStageAlignOffsetT = offsetT;
                 if (thetaChanged)
+                {
                     InvalidateInputStageDieMappingNoLock(wafer, true);
+                    if (InputStageResultMode.IsHybrid(wafer.InputStageAlignResultMode))
+                        InputStageHybridResultSession.Clear();
+                }
                 wafer.State = WaferMaterialStateText.Normalize(WaferMaterialState.Working);
                 wafer.UpdatedAt = DateTime.Now;
                 NotifyAndSave("InputStageThetaAlignResult");
@@ -4473,6 +4620,9 @@ namespace QMC.CDT320.Materials
                 return false;
             }
 
+            if (!IsStoredInputStageResultModeUsableNoLock(wafer, true, out reason))
+                return false;
+
             if (wafer.HasInputStageDieMappingThetaSnapshot &&
                 Math.Abs(wafer.InputStageDieMappingCorrectedT - wafer.InputStageAlignCorrectedT) >
                     InputStageThetaMappingSnapshotToleranceDeg)
@@ -4518,6 +4668,7 @@ namespace QMC.CDT320.Materials
                 wafer.InputStageAlignCorrectedT = 0.0;
                 wafer.InputStageAlignOffsetT = 0.0;
                 InvalidateInputStageDieMappingNoLock(wafer, true);
+                InputStageHybridResultSession.Clear();
                 wafer.UpdatedAt = DateTime.Now;
                 NotifyAndSave(string.IsNullOrWhiteSpace(reason) ? "InputStageThetaAlignReset" : reason);
             }

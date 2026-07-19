@@ -160,14 +160,51 @@ namespace QMC.CDT320
             System.IO.Path.Combine(Dir, "settings.json");
 
         public static AppSettings Current { get; private set; } = new AppSettings();
+        private static readonly object HybridModeSync = new object();
+        private static bool _hybridModeSnapshotReady;
+        private static bool _lastSimulationMode;
+        private static bool _lastDryRunMode;
+        private static bool _lastUseAjin;
+        private static bool _lastUseVision;
+        private static bool _lastUseRealVisionInSimulation;
 
-        static AppSettingsStore() { Directory.CreateDirectory(Dir); }
+        static AppSettingsStore()
+        {
+            Directory.CreateDirectory(Dir);
+            RefreshHybridModeSnapshot(false);
+        }
+
+        private static void RefreshHybridModeSnapshot(bool invalidateSessionOnChange)
+        {
+            AppSettings settings = Current ?? new AppSettings();
+            bool changed;
+            lock (HybridModeSync)
+            {
+                changed = _hybridModeSnapshotReady &&
+                    (_lastSimulationMode != settings.SimulationMode ||
+                     _lastDryRunMode != settings.DryRunMode ||
+                     _lastUseAjin != settings.UseAjin ||
+                     _lastUseVision != settings.UseVision ||
+                     _lastUseRealVisionInSimulation != settings.UseRealVisionInSimulation);
+
+                _lastSimulationMode = settings.SimulationMode;
+                _lastDryRunMode = settings.DryRunMode;
+                _lastUseAjin = settings.UseAjin;
+                _lastUseVision = settings.UseVision;
+                _lastUseRealVisionInSimulation = settings.UseRealVisionInSimulation;
+                _hybridModeSnapshotReady = true;
+            }
+
+            if (changed && invalidateSessionOnChange)
+                QMC.CDT320.Materials.InputStageHybridResultSession.Clear();
+        }
 
         public static AppSettings Load()
         {
             if (!File.Exists(Path_))
             {
                 Current = new AppSettings();
+                RefreshHybridModeSnapshot(true);
                 QMC.Common.Motion.MotionSpeedScale.ScalePercent = Current.DefaultVelocityScalePercent;
                 return Current;
             }
@@ -188,6 +225,7 @@ namespace QMC.CDT320
             Current.DefaultVelocityScalePercent =
                 QMC.Common.Motion.MotionSpeedScale.ClampPercent(Current.DefaultVelocityScalePercent);
             QMC.Common.Motion.MotionSpeedScale.ScalePercent = Current.DefaultVelocityScalePercent;
+            RefreshHybridModeSnapshot(true);
             return Current;
         }
 
@@ -195,6 +233,7 @@ namespace QMC.CDT320
         {
             try
             {
+                RefreshHybridModeSnapshot(true);
                 using (var fs = File.Create(Path_))
                 {
                     JsonPrettySerializer.WriteObject(fs, typeof(AppSettings), Current);

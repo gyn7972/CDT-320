@@ -1030,6 +1030,19 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     return false;
                 }
 
+                string resultModeReason;
+                if (!MaterialStateService.IsStoredInputStageResultModeUsable(
+                        wafer,
+                        true,
+                        out resultModeReason))
+                {
+                    QMC.Common.MessageDialog.Show(this,
+                        "현재 InputStage Align/Die Mapping 결과를 이 운전 모드에서 사용할 수 없습니다.\r\n" +
+                        resultModeReason + "\r\nAlign과 Die Mapping을 다시 완료하세요.",
+                        "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return false;
+                }
+
                 RecipeProject project = LoadActiveInputRecipeProject();
                 if (project != null && project.MapApprovalVersion > 0)
                 {
@@ -1154,8 +1167,24 @@ namespace QMC.CDT_320.Ui.Pages.Work
 
                 DieMap mappedWaferMap = null;
                 WaferMaterial stageWafer = MaterialStateService.GetWaferAtLocation(MaterialLocationKind.InputStage);
-                if (stageWafer != null && stageWafer.HasInputStageDieMappingResult)
+                if (stageWafer == null || !stageWafer.HasInputStageDieMappingResult)
+                    return false;
+
+                if (stageWafer.HasInputStageDieMappingResult)
+                {
+                    string resultModeReason;
+                    if (!MaterialStateService.IsStoredInputStageResultModeUsable(
+                            stageWafer,
+                            true,
+                            out resultModeReason))
+                    {
+                        return false;
+                    }
+
                     mappedWaferMap = MaterialStateService.BuildDieMapFromWafer(stageWafer);
+                    if (mappedWaferMap == null)
+                        return false;
+                }
 
                 RecipeProject activeProject = LoadActiveInputRecipeProject();
                 DieMap approvedRecipeMap;
@@ -1173,7 +1202,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     return false;
                 }
 
-                RestoreInputStageRuntimeFromSavedMaterial();
+                if (!RestoreInputStageRuntimeFromSavedMaterial())
+                    return false;
 
                 var map = managed ? mappedWaferMap : (mappedWaferMap ?? LotStorage.ActiveInputDieMap);
                 if (map == null)
@@ -1237,18 +1267,30 @@ namespace QMC.CDT_320.Ui.Pages.Work
             }
         }
 
-        private void RestoreInputStageRuntimeFromSavedMaterial()
+        private bool RestoreInputStageRuntimeFromSavedMaterial()
         {
             try
             {
                 var host = FindForm() as Form1;
                 var stage = host != null && host.Machine != null ? host.Machine.InputStageUnit : null;
                 if (stage == null)
-                    return;
+                    return false;
 
                 WaferMaterial wafer = MaterialStateService.GetWaferAtLocation(MaterialLocationKind.InputStage);
                 if (wafer == null)
-                    return;
+                    return false;
+
+                string resultModeReason;
+                if (!MaterialStateService.IsStoredInputStageResultModeUsable(
+                        wafer,
+                        wafer.HasInputStageDieMappingResult,
+                        out resultModeReason))
+                {
+                    QMC.Common.Log.Write("Main", "SYSTEM", "InputStageMapTransferPage",
+                        "Input stage saved material restore blocked. wafer=" + (wafer.WaferId ?? "") +
+                        ", reason=" + resultModeReason + " - Check");
+                    return false;
+                }
 
                 stage.SetCurrentWaferMaterial(wafer);
 
@@ -1271,22 +1313,27 @@ namespace QMC.CDT_320.Ui.Pages.Work
                         wafer.InputStageAlignOffsetT);
                 }
 
-                WaferMapData waferMap = MaterialStateService.BuildWaferMapDataFromWafer(wafer);
-                DieMap dieMap = MaterialStateService.BuildDieMapFromWafer(wafer);
-                if (waferMap != null && dieMap != null)
-                    stage.ApplyDieMappingResult(
-                        waferMap,
-                        dieMap.OriginX,
-                        dieMap.OriginY,
-                        dieMap.PitchX,
-                        dieMap.PitchY,
-                        wafer.InputStageDieMappingOffsetX,
-                        wafer.InputStageDieMappingOffsetY);
+                if (wafer.HasInputStageDieMappingResult)
+                {
+                    WaferMapData waferMap = MaterialStateService.BuildWaferMapDataFromWafer(wafer);
+                    DieMap dieMap = MaterialStateService.BuildDieMapFromWafer(wafer);
+                    if (waferMap != null && dieMap != null)
+                        stage.ApplyDieMappingResult(
+                            waferMap,
+                            dieMap.OriginX,
+                            dieMap.OriginY,
+                            dieMap.PitchX,
+                            dieMap.PitchY,
+                            wafer.InputStageDieMappingOffsetX,
+                            wafer.InputStageDieMappingOffsetY);
+                }
+                return true;
             }
             catch (Exception ex)
             {
                 QMC.Common.Log.Write("Main", "SYSTEM", "InputStageMapTransferPage",
                     "Input stage saved material restore failed: " + ex.Message + " - Failed");
+                return false;
             }
             finally
             {
@@ -1304,8 +1351,28 @@ namespace QMC.CDT_320.Ui.Pages.Work
 
                 DieMap mappedWaferMap = null;
                 WaferMaterial stageWafer = MaterialStateService.GetWaferAtLocation(MaterialLocationKind.InputStage);
-                if (stageWafer != null && stageWafer.HasInputStageDieMappingResult)
+                if (stageWafer == null || !stageWafer.HasInputStageDieMappingResult)
+                {
+                    if (_mapPositionsAreMachineAbsolute)
+                        ApplyMap(null, "INPUT MAP ALIGN / MAPPING REQUIRED", false);
+                    return;
+                }
+
+                if (stageWafer.HasInputStageDieMappingResult)
+                {
+                    string resultModeReason;
+                    if (!MaterialStateService.IsStoredInputStageResultModeUsable(
+                            stageWafer,
+                            true,
+                            out resultModeReason))
+                    {
+                        if (_mapPositionsAreMachineAbsolute)
+                            ApplyMap(null, "INPUT MAP REALIGN / REMAP REQUIRED", false);
+                        return;
+                    }
+
                     mappedWaferMap = MaterialStateService.BuildDieMapFromWafer(stageWafer);
+                }
 
                 RecipeProject activeProject = LoadActiveInputRecipeProject();
                 if (activeProject != null && activeProject.MapApprovalVersion > 0)
@@ -2212,7 +2279,14 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 if (confirm != DialogResult.Yes)
                     return;
 
-                RestoreInputStageRuntimeFromSavedMaterial();
+                if (!RestoreInputStageRuntimeFromSavedMaterial())
+                {
+                    QMC.Common.MessageDialog.Show(this,
+                        "저장된 InputStage Align/Die Mapping 결과를 현재 운전 모드에서 복원할 수 없습니다.\r\n" +
+                        "Align과 Die Mapping을 다시 완료하세요.",
+                        "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
 
                 SetActionButtonsEnabled(false);
                 _manualMoveBusy = true;
@@ -2759,6 +2833,22 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 double appliedOffsetY = _manualDieDetectOffsetY;
                 bool materializedFromPreview = !_mapPositionsAreMachineAbsolute;
                 WaferMaterial stageWafer = MaterialStateService.GetWaferAtLocation(MaterialLocationKind.InputStage);
+                if (stageWafer != null && stageWafer.HasInputStageDieMappingResult)
+                {
+                    string resultModeReason;
+                    if (!MaterialStateService.IsStoredInputStageResultModeUsable(
+                            stageWafer,
+                            true,
+                            out resultModeReason))
+                    {
+                        QMC.Common.MessageDialog.Show(this,
+                            "현재 InputStage Die Mapping 결과를 이 운전 모드에서 갱신할 수 없습니다.\r\n" +
+                            resultModeReason + "\r\nAlign과 Die Mapping을 다시 완료하세요.",
+                            "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        return;
+                    }
+                }
+
                 bool finalizeMapping = materializedFromPreview ||
                                        stageWafer == null ||
                                        !stageWafer.HasInputStageDieMappingResult;
@@ -2789,6 +2879,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
                             WaferMap = null,
                             ExpectedWafer = stageWafer,
                             PickupOptions = ResolveInputPickupSubsetFromRecipe(),
+                            ResultMode = stageWafer != null ? stageWafer.InputStageAlignResultMode : "",
+                            AlignResultRunId = stageWafer != null ? stageWafer.InputStageAlignResultRunId : "",
                             Source = "InputStageMapTransferPage.ManualInputDieMapOffsetApply",
                             SaveReason = "InputStageManualDieDetectOffsetApply",
                             PublishReadySignals = false

@@ -295,6 +295,142 @@ namespace QMC.CDT320.Materials
         }
     }
 
+    public static class InputStageResultMode
+    {
+        public const string Standard = "Standard";
+        public const string HybridRealVisionSimMotion = "HybridRealVisionSimMotion";
+
+        public static string NormalizeForSave(string value)
+        {
+            return string.IsNullOrWhiteSpace(value) ? Standard : value.Trim();
+        }
+
+        public static bool IsHybrid(string value)
+        {
+            return string.Equals(value, HybridRealVisionSimMotion, StringComparison.OrdinalIgnoreCase);
+        }
+
+        public static bool IsStandardOrLegacy(string value)
+        {
+            return string.IsNullOrWhiteSpace(value) ||
+                string.Equals(value, Standard, StringComparison.OrdinalIgnoreCase);
+        }
+
+        public static bool IsKnown(string value)
+        {
+            return IsStandardOrLegacy(value) || IsHybrid(value);
+        }
+    }
+
+    internal static class InputStageHybridResultSession
+    {
+        private static readonly object Sync = new object();
+        private static string _waferId = "";
+        private static string _alignRunId = "";
+        private static string _mappingAlignRunId = "";
+        private static Func<bool> _modeValidator;
+
+        private static void ClearNoLock()
+        {
+            _waferId = "";
+            _alignRunId = "";
+            _mappingAlignRunId = "";
+            _modeValidator = null;
+        }
+
+        private static bool IsModeStillValidNoLock()
+        {
+            try
+            {
+                return _modeValidator != null && _modeValidator();
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        public static void Clear()
+        {
+            lock (Sync)
+            {
+                ClearNoLock();
+            }
+        }
+
+        public static void MarkAlign(string waferId, string alignRunId, Func<bool> modeValidator)
+        {
+            lock (Sync)
+            {
+                _waferId = (waferId ?? "").Trim();
+                _alignRunId = (alignRunId ?? "").Trim();
+                _mappingAlignRunId = "";
+                _modeValidator = modeValidator;
+            }
+        }
+
+        public static void ClearMapping()
+        {
+            lock (Sync)
+            {
+                _mappingAlignRunId = "";
+            }
+        }
+
+        public static bool IsCurrentAlign(string waferId, string alignRunId)
+        {
+            lock (Sync)
+            {
+                if (!IsModeStillValidNoLock())
+                {
+                    ClearNoLock();
+                    return false;
+                }
+
+                return !string.IsNullOrWhiteSpace(_waferId) &&
+                    !string.IsNullOrWhiteSpace(_alignRunId) &&
+                    string.Equals(_waferId, (waferId ?? "").Trim(), StringComparison.OrdinalIgnoreCase) &&
+                    string.Equals(_alignRunId, (alignRunId ?? "").Trim(), StringComparison.OrdinalIgnoreCase);
+            }
+        }
+
+        public static bool MarkMapping(string waferId, string alignRunId)
+        {
+            lock (Sync)
+            {
+                if (!IsModeStillValidNoLock() ||
+                    string.IsNullOrWhiteSpace(_waferId) ||
+                    string.IsNullOrWhiteSpace(_alignRunId) ||
+                    !string.Equals(_waferId, (waferId ?? "").Trim(), StringComparison.OrdinalIgnoreCase) ||
+                    !string.Equals(_alignRunId, (alignRunId ?? "").Trim(), StringComparison.OrdinalIgnoreCase))
+                {
+                    ClearNoLock();
+                    return false;
+                }
+
+                _mappingAlignRunId = _alignRunId;
+                return true;
+            }
+        }
+
+        public static bool IsCurrentMapping(string waferId, string alignRunId)
+        {
+            lock (Sync)
+            {
+                if (!IsModeStillValidNoLock())
+                {
+                    ClearNoLock();
+                    return false;
+                }
+
+                return !string.IsNullOrWhiteSpace(_mappingAlignRunId) &&
+                    string.Equals(_waferId, (waferId ?? "").Trim(), StringComparison.OrdinalIgnoreCase) &&
+                    string.Equals(_alignRunId, (alignRunId ?? "").Trim(), StringComparison.OrdinalIgnoreCase) &&
+                    string.Equals(_mappingAlignRunId, _alignRunId, StringComparison.OrdinalIgnoreCase);
+            }
+        }
+    }
+
     [DataContract]
     public class WaferMaterial
     {
@@ -314,6 +450,8 @@ namespace QMC.CDT320.Materials
         [DataMember] public string TapeFrameSpecName { get; set; } = "";
         [DataMember] public string DieMapFrameObjId { get; set; } = "";
         [DataMember] public bool HasInputStageAlignResult { get; set; }
+        [DataMember] public string InputStageAlignResultMode { get; set; } = "";
+        [DataMember] public string InputStageAlignResultRunId { get; set; } = "";
         [DataMember] public double InputStageAlignOriginX { get; set; }
         [DataMember] public double InputStageAlignOriginY { get; set; }
         [DataMember] public double InputStageAlignPitchX { get; set; }
@@ -331,6 +469,8 @@ namespace QMC.CDT320.Materials
         [DataMember] public double InputStageAlignCorrectedT { get; set; }
         [DataMember] public double InputStageAlignOffsetT { get; set; }
         [DataMember] public bool HasInputStageDieMappingResult { get; set; }
+        [DataMember] public string InputStageDieMappingResultMode { get; set; } = "";
+        [DataMember] public string InputStageDieMappingAlignRunId { get; set; } = "";
         [DataMember] public double InputStageDieMappingOffsetX { get; set; }
         [DataMember] public double InputStageDieMappingOffsetY { get; set; }
         /// <summary>원래 Align Origin과 분리하여 저장한 최종 Input Die Map 절대좌표 Origin.</summary>
