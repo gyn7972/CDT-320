@@ -381,6 +381,121 @@ namespace QMC.CDT_320.Ui.Pages.Work
             ReloadMapFromActiveOrRecipe();
         }
 
+        private void btnInputStageRunReview_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                Form1 host = FindForm() as Form1;
+                var stage = host != null && host.Machine != null
+                    ? host.Machine.InputStageUnit
+                    : null;
+                if (host == null || stage == null)
+                {
+                    QMC.Common.MessageDialog.Show(this,
+                        "InputStage 장비 정보를 찾을 수 없습니다.",
+                        "Wafer Align / Die Map Review",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Warning);
+                    return;
+                }
+
+                WaferMaterial wafer = MaterialStateService.GetWaferAtLocation(MaterialLocationKind.InputStage);
+                if (wafer == null)
+                {
+                    QMC.Common.MessageDialog.Show(this,
+                        "InputStage에 배치된 Wafer Material 데이터가 없습니다.",
+                        "Wafer Align / Die Map Review",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Warning);
+                    return;
+                }
+
+                DieMap stageMap = MaterialStateService.BuildInputDieMapFromStageWafer();
+                bool alignComplete = wafer.HasInputStageAlignResult;
+                bool mappingComplete = wafer.HasInputStageDieMappingResult &&
+                                       !wafer.InputStageDieMappingInvalidatedByAlignChange &&
+                                       stageMap != null &&
+                                       stageMap.Entries != null &&
+                                       stageMap.Entries.Count > 0;
+                RecipeProject project = LoadActiveInputRecipeProject();
+                string recipeName = project != null && !string.IsNullOrWhiteSpace(project.FileName)
+                    ? project.FileName
+                    : host.ActiveRecipeName;
+                string mappingReference = !string.IsNullOrWhiteSpace(wafer.DieMapFrameObjId)
+                    ? wafer.DieMapFrameObjId
+                    : stageMap != null ? stageMap.FrameObjId : "-";
+                bool waferVisionConnected = VisionHub.Wafer != null && VisionHub.Wafer.IsConnected;
+
+                string detail = BuildInputStageRunReviewDetail(wafer, stageMap, project);
+                using (var dialog = new InputStageRunReviewDialog())
+                {
+                    dialog.SetMode(alignComplete
+                        ? InputStageRunReviewMode.MappingReview
+                        : InputStageRunReviewMode.AlignRecovery);
+                    dialog.SetPickupOptions(ResolveInputPickupSubsetFromRecipe());
+                    dialog.SetDieMap(stageMap);
+                    dialog.SetWorkflowState(
+                        wafer.WaferId,
+                        recipeName,
+                        waferVisionConnected,
+                        alignComplete,
+                        mappingReference,
+                        mappingComplete,
+                        "READ ONLY PREVIEW");
+                    dialog.SetAxisPositions(
+                        stage.CameraX != null ? stage.CameraX.ActualPosition : 0.0,
+                        stage.StageY != null ? stage.StageY.ActualPosition : 0.0,
+                        stage.StageT != null ? stage.StageT.ActualPosition : 0.0);
+                    dialog.SetFailureDetail(string.Empty, detail);
+                    dialog.SetReviewValid(false, "READ ONLY PREVIEW");
+                    dialog.SetReadOnlyPreview(true);
+                    dialog.ShowDialog(host);
+                }
+
+                QMC.Common.Log.Write("Main", "SYSTEM", "InputStageMapTransferPage",
+                    "Input stage run review opened in read-only mode. wafer=" + (wafer.WaferId ?? "") +
+                    ", alignComplete=" + alignComplete +
+                    ", mappingComplete=" + mappingComplete +
+                    ", map=" + (stageMap != null ? stageMap.FrameObjId ?? "" : "null") + " - Ok");
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Log.Write("Main", "SYSTEM", "InputStageMapTransferPage",
+                    "Input stage run review open failed: " + ex.Message + " - Failed");
+                QMC.Common.MessageDialog.Show(this,
+                    "Wafer Align / Die Map Review 화면을 열지 못했습니다.\r\n" + ex.Message,
+                    "Wafer Align / Die Map Review",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Error);
+            }
+        }
+
+        private static string BuildInputStageRunReviewDetail(
+            WaferMaterial wafer,
+            DieMap stageMap,
+            RecipeProject project)
+        {
+            var details = new List<string>();
+            details.Add("현재 InputStage Material을 기준으로 표시하는 읽기 전용 화면입니다.");
+            if (!wafer.HasInputStageAlignResult)
+                details.Add("Wafer Align 결과가 없습니다.");
+            if (!wafer.HasInputStageDieMappingResult)
+                details.Add("Die Mapping 완료 결과가 없습니다.");
+            if (wafer.InputStageDieMappingInvalidatedByAlignChange)
+                details.Add("Align 변경으로 기존 Die Mapping 결과가 무효화되었습니다.");
+            if (stageMap == null || stageMap.Entries == null || stageMap.Entries.Count == 0)
+                details.Add("Stage Wafer Material에서 표시할 Die Map을 재구성할 수 없습니다.");
+            if (project != null && project.MapApprovalVersion > 0 &&
+                (string.IsNullOrWhiteSpace(wafer.InputMapApprovalHashAtMapping) ||
+                 !string.Equals(wafer.InputMapApprovalHashAtMapping, project.InputMapApprovalHash,
+                     StringComparison.OrdinalIgnoreCase)))
+            {
+                details.Add("현재 Recipe 승인 맵과 Stage Mapping 기준이 일치하지 않습니다. 재매핑이 필요합니다.");
+            }
+            details.Add("Jog, 보정, 상태 변경, Mapping 재실행 및 Run 시작 기능은 아직 연결하지 않았습니다.");
+            return string.Join(Environment.NewLine, details.ToArray());
+        }
+
         private void btnPickStatusSave_Click(object sender, EventArgs e)
         {
             SavePickStatus();
