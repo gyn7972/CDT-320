@@ -4686,7 +4686,20 @@ namespace QMC.CDT320.Materials
         {
             try
             {
-                return BuildDieMapFromWafer(GetWaferAtLocation(MaterialLocationKind.InputStage));
+                WaferMaterial wafer = GetWaferAtLocation(MaterialLocationKind.InputStage);
+                if (wafer == null || !wafer.HasInputStageDieMappingResult)
+                    return null;
+
+                string resultModeReason;
+                if (!IsStoredInputStageResultModeUsable(
+                        wafer,
+                        true,
+                        out resultModeReason))
+                {
+                    return null;
+                }
+
+                return BuildDieMapFromWafer(wafer);
             }
             catch (Exception ex)
             {
