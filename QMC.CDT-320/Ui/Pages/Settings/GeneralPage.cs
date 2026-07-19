@@ -110,6 +110,29 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                 host.ApplyRuntimeMode();
         }
 
+        private bool RejectRuntimeModeChangeWhileRunning(string settingName)
+        {
+            Form1 host = FindForm() as Form1;
+            MachineController controller = host != null ? host.Controller : null;
+            if (controller == null)
+                return false;
+
+            EquipmentStatus status = controller.Status;
+            bool running = controller.IsSequenceRunning ||
+                           controller.IsManualBusy ||
+                           status == EquipmentStatus.AutoRunning ||
+                           status == EquipmentStatus.ManualRunning ||
+                           status == EquipmentStatus.Initializing;
+            if (!running)
+                return false;
+
+            LoadSettings();
+            QMC.Common.MessageDialog.Show(
+                "장비 동작 중에는 " + (settingName ?? "운전 모드") +
+                " 설정을 변경할 수 없습니다. 동작을 정지한 뒤 다시 시도하십시오.");
+            return true;
+        }
+
         private void _cbLang_SelectedIndexChanged(object sender, EventArgs e)
         {
             if (_loadingSettings) return;
@@ -137,6 +160,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
         private void _cbSimulationMode_SelectedIndexChanged(object sender, EventArgs e)
         {
             if (_loadingSettings) return;
+            if (RejectRuntimeModeChangeWhileRunning("SIMULATION MODE")) return;
             AppSettingsStore.Current.SimulationMode = _cbSimulationMode.SelectedIndex == 0;
             AppSettingsStore.Save();
             ApplyRuntimeModeToHost();
@@ -145,6 +169,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
         private void _cbDryRunMode_SelectedIndexChanged(object sender, EventArgs e)
         {
             if (_loadingSettings) return;
+            if (RejectRuntimeModeChangeWhileRunning("DRY RUN MODE")) return;
             AppSettingsStore.Current.DryRunMode = _cbDryRunMode.SelectedIndex == 0;
             AppSettingsStore.Save();
             ApplyRuntimeModeToHost();
@@ -177,6 +202,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
         private void _cbUseVision_SelectedIndexChanged(object sender, EventArgs e)
         {
             if (_loadingSettings) return;
+            if (RejectRuntimeModeChangeWhileRunning("VISION USE")) return;
             bool use = _cbUseVision.SelectedIndex == 0;
             AppSettingsStore.Current.UseVision = use;
             AppSettingsStore.Save();
@@ -188,6 +214,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
         private void _cbUseRealVisionInSimulation_SelectedIndexChanged(object sender, EventArgs e)
         {
             if (_loadingSettings) return;
+            if (RejectRuntimeModeChangeWhileRunning("REAL VISION IN SIMULATION")) return;
             AppSettingsStore.Current.UseRealVisionInSimulation = _cbUseRealVisionInSimulation.SelectedIndex == 0;
             AppSettingsStore.Save();
         }
@@ -195,6 +222,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
         private void _cbAjin_CheckedChanged(object sender, EventArgs e)
         {
             if (_loadingSettings) return;
+            if (RejectRuntimeModeChangeWhileRunning("AJIN USE")) return;
             AppSettingsStore.Current.UseAjin = _cbAjin.Checked;
             AppSettingsStore.Save();
             ApplyRuntimeModeToHost();
