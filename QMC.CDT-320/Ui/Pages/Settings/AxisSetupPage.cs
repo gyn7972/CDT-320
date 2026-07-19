@@ -4,6 +4,7 @@ using System.Drawing;
 using System.Globalization;
 using System.Linq;
 using System.Windows.Forms;
+using QMC.CDT320;
 using QMC.CDT320.Ajin;
 using QMC.CDT_320.Ui.Controls;
 using QMC.CDT_320.Ui.Localization;
@@ -329,6 +330,9 @@ namespace QMC.CDT_320.Ui.Pages.Settings
         {
             try
             {
+                if (RejectAxisConfigurationChangeWhileRunning("축 설정 저장"))
+                    return;
+
                 int applied = ApplyRowsToAxes();
                 AjinFactory.AxisManager.Save(MotionAxisStore.DefaultPath);
                 bool unitSaved = true;
@@ -366,6 +370,27 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             {
                 _gridLoading = false;
             }
+        }
+
+        private bool RejectAxisConfigurationChangeWhileRunning(string action)
+        {
+            MachineController controller = Host != null ? Host.Controller : null;
+            if (controller == null)
+                return false;
+
+            EquipmentStatus status = controller.Status;
+            bool running = controller.IsSequenceRunning ||
+                           controller.IsManualBusy ||
+                           status == EquipmentStatus.AutoRunning ||
+                           status == EquipmentStatus.ManualRunning ||
+                           status == EquipmentStatus.Initializing;
+            if (!running)
+                return false;
+
+            QMC.Common.MessageDialog.Show(
+                "장비 동작 중에는 " + (action ?? "축 설정 변경") +
+                "을 수행할 수 없습니다. 동작을 정지한 뒤 다시 시도하십시오.");
+            return true;
         }
 
         private void PopulateGridRow(DataGridViewRow row, AxisRow it, bool isModuleStart)
@@ -530,6 +555,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             {
                 if (_gridLoading) return;
                 if (e.ColumnIndex < 0 || grid.Rows.Count == 0) return;
+                if (RejectAxisConfigurationChangeWhileRunning("축 일괄 설정 변경")) return;
 
                 DataGridViewColumn col = grid.Columns[e.ColumnIndex];
                 if (!IsEditableColumn(col.Name)) return;
@@ -597,6 +623,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             try
             {
                 if (rowIndex < 0 || rowIndex >= _items.Count) return;
+                if (RejectAxisConfigurationChangeWhileRunning("축 설정 변경")) return;
                 ApplyItemValue(_items[rowIndex], col, value);
                 ApplyRowToMatchingAxes(_items[rowIndex]);
                 if (rowIndex < grid.Rows.Count)
@@ -842,6 +869,9 @@ namespace QMC.CDT_320.Ui.Pages.Settings
         {
             try
             {
+                if (RejectAxisConfigurationChangeWhileRunning("축 설정 적용"))
+                    return;
+
                 int axisApplied = ApplyRowsToAxes();
                 QMC.Common.MessageDialog.Show("Axis setup 적용 축: " + axisApplied);
             }

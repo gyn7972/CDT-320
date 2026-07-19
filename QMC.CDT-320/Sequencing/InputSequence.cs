@@ -11,7 +11,7 @@ namespace QMC.CDT320.Sequencing
 {
     // Input 자동 시퀀스의 큰 흐름:
     // Mapping -> 작업 슬롯 결정 -> Stage 로드 준비 -> Cassette에서 Feeder로 로드
-    // -> Feeder에서 Stage로 로드 -> Feeder 복귀 -> Stage Align -> Die Mapping -> Picker 작업 대기.
+    // -> Feeder에서 Stage로 로드 -> Feeder 복귀 -> Stage Align -> Die Mapping -> 사용자 확인 -> Picker 작업 대기.
     internal enum InputSequenceAutoStep
     {
         // Input Cassette의 wafer map을 먼저 갱신한다.
@@ -30,6 +30,8 @@ namespace QMC.CDT320.Sequencing
         AlignStage,
         // Align 결과를 기준으로 die map을 생성한다.
         DieMapping,
+        // Align/Die Mapping 결과를 작업자가 확인할 때까지 Picker Ready 발행을 보류한다.
+        ReviewStage,
         // Stage가 Picker PickUp 가능한 상태까지 준비된 상태이다.
         Complete
     }
@@ -47,6 +49,8 @@ namespace QMC.CDT320.Sequencing
         private string _autoWaferId = "";
         // Input loader active signal 중복 Set/Reset을 막기 위한 상태입니다.
         private bool _inputLoaderActivePublished;
+        // 리뷰 취소 후 Align을 저장 재개점이 아닌 최초 단계부터 다시 실행하기 위한 1회성 플래그입니다.
+        private bool _restartAlignFromReview;
 
         public InputSequence(MachineSequenceContext ctx)
             : base(ctx, SequenceUnitKind.InputLoader, "Input")
@@ -472,6 +476,7 @@ namespace QMC.CDT320.Sequencing
             ResetInputStageCycleSignals();
             _autoSlotIndex = -1;
             _autoWaferId = "";
+            _restartAlignFromReview = false;
             _autoStep = InputSequenceAutoStep.ResolveSlot;
         }
 
@@ -887,7 +892,7 @@ namespace QMC.CDT320.Sequencing
                     return InputSequenceAutoStep.AlignStage;
                 }
 
-                // Align 결과, die mapping 결과, die id, frame object id가 모두 있으면 Picker ready 단계로 본다.
+                // Align 결과, die mapping 결과, die id, frame object id가 모두 있으면 사용자 승인 여부를 확인한다.
                 if (wafer.HasInputStageAlignResult &&
                     wafer.HasInputStageDieMappingResult &&
                     wafer.DieIds != null &&
@@ -898,7 +903,9 @@ namespace QMC.CDT320.Sequencing
                         true,
                         out resultModeReason))
                 {
-                    return InputSequenceAutoStep.Complete;
+                    return wafer.HasInputStageRunReviewApproval
+                        ? InputSequenceAutoStep.Complete
+                        : InputSequenceAutoStep.ReviewStage;
                 }
 
                 // Align은 끝났지만 die map 정보가 부족하면 DieMapping부터 재개한다.
@@ -1137,6 +1144,9 @@ namespace QMC.CDT320.Sequencing
                     // [7] AlignStage: InputStageArea를 점유하고 wafer align을 수행한다.
                     case InputSequenceAutoStep.AlignStage:
                     {
+                        SequenceStartMode alignStartMode = _restartAlignFromReview
+                            ? SequenceStartMode.Restart
+                            : SequenceStartMode.Resume;
                         result = await ExecuteWithInputPickerAvoidGateAsync("InputAlign", ct, async () =>
                         {
                             using (SequenceResourceLease lease = await AcquireInputStageAreaAsync("InputAlign", ct).ConfigureAwait(false))
@@ -1149,9 +1159,10 @@ namespace QMC.CDT320.Sequencing
                                 int stageResult = await SequenceTrace.ChildAsync("InputStageSequence", "Align",
                                     () => stageSequence.RunAlignAsync(
                                         ct,
-                                        BuildStageSequenceOptions(false, SequenceStartMode.Resume, requireVisionAlign, _autoWaferId, false)),
+                                        BuildStageSequenceOptions(false, alignStartMode, requireVisionAlign, _autoWaferId, false)),
                                     "wafer=" + _autoWaferId,
-                                    "requireVisionAlign=" + requireVisionAlign).ConfigureAwait(false);
+                                    "requireVisionAlign=" + requireVisionAlign,
+                                    "startMode=" + alignStartMode).ConfigureAwait(false);
                                 if (stageResult != 0)
                                     return Fail("SEQ-IN-STEP-STAGE-ALIGN", "InputStage",
                                         "InputStage align 실패. result=" + stageResult);
@@ -1161,6 +1172,7 @@ namespace QMC.CDT320.Sequencing
                         }).ConfigureAwait(false);
                         if (result != 0)
                             return result;
+                        _restartAlignFromReview = false;
                         _autoStep = InputSequenceAutoStep.DieMapping;
                         break;
                     }
@@ -1182,12 +1194,17 @@ namespace QMC.CDT320.Sequencing
                                 if (lease == null)
                                     return Fail("SEQ-IN-RESOURCE-STAGE", "InputSequence", "Die mapping 중 InputStageArea 리소스 점유에 실패했습니다.");
 
+                                InputStageSequenceOptions mappingOptions =
+                                    BuildStageSequenceOptions(false, SequenceStartMode.Resume, requireVisionAlign, _autoWaferId, false);
+                                // Auto에서는 사용자 리뷰 승인 전 Picker Ready 신호를 발행하지 않는다.
+                                mappingOptions.PublishReadySignals = false;
+
                                 // DieMapping이 끝나면 MaterialStateService의 Stage finish 조건이 만족되어야 한다.
                                 var stageSequence = new InputStageSequence(Context);
                                 int stageResult = await SequenceTrace.ChildAsync("InputStageSequence", "DieMapping",
                                     () => stageSequence.RunDieMappingAsync(
                                         ct,
-                                        BuildStageSequenceOptions(false, SequenceStartMode.Resume, requireVisionAlign, _autoWaferId, false)),
+                                        mappingOptions),
                                     "wafer=" + _autoWaferId,
                                     "requireVisionAlign=" + requireVisionAlign).ConfigureAwait(false);
                                 if (stageResult != 0)
@@ -1199,13 +1216,73 @@ namespace QMC.CDT320.Sequencing
                         }).ConfigureAwait(false);
                         if (result != 0)
                             return result;
-                        // Stage 준비 완료 신호를 올려 Picker가 InputStage die pick을 시작할 수 있게 한다.
-                        PublishInputStageReadySignals(ResolveStageWaferFromRuntimeState());
-                        _autoStep = InputSequenceAutoStep.Complete;
+                        // Picker Ready는 사용자 리뷰 승인 후에만 발행한다.
+                        _autoStep = InputSequenceAutoStep.ReviewStage;
                         break;
                     }
 
-                    // [9] Complete: 로딩/정렬/맵핑이 끝났고, 상위 cycle에서 Picker 완료를 기다리는 상태이다.
+                    // [9] ReviewStage: Align/Die Mapping 결과를 표시하고 작업자의 진행/재실행 결정을 기다린다.
+                    case InputSequenceAutoStep.ReviewStage:
+                    {
+                        InputStageUnit stage = Context != null && Context.Machine != null
+                            ? Context.Machine.InputStageUnit
+                            : null;
+                        WaferMaterial reviewWafer = ResolveStageWaferFromRuntimeState();
+                        if (stage == null || reviewWafer == null)
+                            return Fail("SEQ-IN-REVIEW-MATERIAL", "InputSequence",
+                                "InputStage 리뷰 대상 장비 또는 Wafer Material이 없습니다.");
+
+                        if (!reviewWafer.HasInputStageAlignResult ||
+                            !reviewWafer.HasInputStageThetaAlignResult ||
+                            !reviewWafer.HasInputStageDieMappingResult ||
+                            reviewWafer.InputStageDieMappingInvalidatedByAlignChange)
+                        {
+                            return Fail("SEQ-IN-REVIEW-STATE", "InputSequence",
+                                "InputStage 리뷰 전 Align/T Align/Die Mapping 상태가 유효하지 않습니다. wafer=" +
+                                (reviewWafer.WaferId ?? ""));
+                        }
+
+                        ResetInputStageReadySignals();
+                        WriteLog("InputStageRunReview",
+                            "Align/Die Mapping 사용자 확인을 기다립니다. wafer=" + (reviewWafer.WaferId ?? "") +
+                            ", slot=" + _autoSlotIndex + " - Wait");
+
+                        UserConfirmResult reviewResult = await stage.WaitForUserConfirmAsync(ct).ConfigureAwait(false);
+                        if (reviewResult != null && reviewResult.IsConfirmed)
+                        {
+                            string approvalReason;
+                            if (!MaterialStateService.SetInputStageRunReviewApproval(
+                                reviewWafer,
+                                true,
+                                reviewResult.StartDieIndex,
+                                out approvalReason))
+                            {
+                                return Fail("SEQ-IN-REVIEW-APPROVE", "InputSequence", approvalReason);
+                            }
+
+                            PublishInputStageReadySignals(reviewWafer);
+                            _autoStep = InputSequenceAutoStep.Complete;
+                            WriteLog("InputStageRunReview", approvalReason + " - Ok");
+                            break;
+                        }
+
+                        string resetReason;
+                        MaterialStateService.SetInputStageRunReviewApproval(
+                            reviewWafer,
+                            false,
+                            0,
+                            out resetReason);
+                        SequenceResumeStore.Clear(InputStageAlignSequenceStateName);
+                        SequenceResumeStore.Clear(InputStageDieMappingSequenceStateName);
+                        _restartAlignFromReview = true;
+                        _autoStep = InputSequenceAutoStep.AlignStage;
+                        WriteLog("InputStageRunReview",
+                            "사용자가 취소를 선택하여 센터 검출/T Align부터 다시 실행합니다. wafer=" +
+                            (reviewWafer.WaferId ?? "") + ", slot=" + _autoSlotIndex + " - Restart");
+                        break;
+                    }
+
+                    // [10] Complete: 로딩/정렬/맵핑/사용자 확인이 끝났고, 상위 cycle에서 Picker 완료를 기다리는 상태이다.
                     case InputSequenceAutoStep.Complete:
                         LogPublic("[UNIT-INPUT] Input sequence already complete slot=" + _autoSlotIndex);
                         break;
@@ -1761,7 +1838,8 @@ namespace QMC.CDT320.Sequencing
                    step == InputSequenceAutoStep.LoadFeederToStage ||
                    step == InputSequenceAutoStep.RecoverFeeder ||
                    step == InputSequenceAutoStep.AlignStage ||
-                   step == InputSequenceAutoStep.DieMapping;
+                   step == InputSequenceAutoStep.DieMapping ||
+                   step == InputSequenceAutoStep.ReviewStage;
         }
 
         private bool ShouldRestartWaferAlignForDieMappingResume(out string resumeStep)

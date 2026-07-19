@@ -1888,17 +1888,86 @@ namespace QMC.CDT320
             public double StageY { get; set; }
         }
 
+        private sealed class InputDieMapProvenanceException : InvalidOperationException
+        {
+            public InputDieMapProvenanceException(string message)
+                : base(message)
+            {
+            }
+        }
+
+        /// <summary>
+        /// Legacy DieMap 자동운전 중 Align/Mapping 결과를 만든 Vision/Motion 모드가
+        /// 실제 좌표 이동 직전까지 유효한지 다시 확인합니다.
+        /// </summary>
+        private void ThrowIfLegacyInputDieMapMotionNotReady(string source)
+        {
+            // 실제 축 명령이 생략되는 명시적 DryRun은 기존 동작을 유지합니다.
+            if (DryRun)
+                return;
+
+            WaferMaterial wafer = MaterialStateService.GetWaferAtLocation(MaterialLocationKind.InputStage);
+            string reason;
+            if (wafer == null)
+            {
+                reason = "InputStage Wafer Material이 없습니다.";
+            }
+            else if (!wafer.HasInputStageAlignResult && !wafer.HasInputStageDieMappingResult)
+            {
+                reason = "InputStage Wafer의 Align/Die Mapping 결과가 없습니다.";
+            }
+            else if (!wafer.HasInputStageDieMappingResult)
+            {
+                reason = "InputStage Wafer의 현재 Align 결과에 대응하는 Die Mapping 완료 결과가 없습니다.";
+            }
+            else if (_inputDieMap == null)
+            {
+                reason = "현재 운전에 적용된 Input DieMap이 없습니다.";
+            }
+            else
+            {
+                string resultModeReason;
+                if (MaterialStateService.IsStoredInputStageResultModeUsable(
+                        wafer,
+                        true,
+                        out resultModeReason))
+                {
+                    return;
+                }
+
+                reason = resultModeReason;
+            }
+
+            string message = "Legacy Input DieMap 좌표 이동을 차단했습니다. source=" +
+                             (source ?? "") + ", reason=" + (reason ?? "");
+            LastActionFailureMessage = message;
+            try { Log("[INPUT-MAP-RUNTIME-GUARD] " + message); } catch { }
+            try
+            {
+                AlarmManager.Raise(
+                    AlarmSeverity.Error,
+                    "INPUT-MAP-RUNTIME-GUARD",
+                    "MachineController",
+                    message);
+            }
+            catch { }
+
+            throw new InputDieMapProvenanceException(message);
+        }
+
         /// <summary>다이 1개 픽업을 위해 StageY/CameraX를 이동합니다.</summary>
         public async Task<int> MoveInputStageToDieAsync(int row, int col)
         {
             try
             {
+                ThrowIfLegacyInputDieMapMotionNotReady("MoveInputStageToDie.Resolve");
                 var stage = _machine.InputStageUnit;
                 InputDieMotionTarget dieTarget = ResolveInputDieMotionTarget(row, col);
                 // 현재 기준: DieMap PosX/PosY는 다이맵핑 완료 후 실제 장비 목표 좌표이고 보정값만 더한다.
                 double targetX = dieTarget.CameraX + stage.WaferAlignOffsetX;
                 double targetY = dieTarget.StageY + stage.WaferAlignOffsetY;
 
+                ThrowIfLegacyInputDieMapMotionNotReady("MoveInputStageToDie.CameraX");
                 int xResult = await MoveAxisAsync(stage.CameraX, targetX, 100.0).ConfigureAwait(false);
                 if (xResult != 0)
                 {
@@ -1906,6 +1975,7 @@ namespace QMC.CDT320
                     return xResult;
                 }
 
+                ThrowIfLegacyInputDieMapMotionNotReady("MoveInputStageToDie.StageY");
                 int yResult = await MoveAxisAsync(stage.StageY, targetY, 100.0).ConfigureAwait(false);
                 if (yResult != 0)
                 {
@@ -1914,6 +1984,10 @@ namespace QMC.CDT320
                 }
 
                 return 0;
+            }
+            catch (InputDieMapProvenanceException)
+            {
+                throw;
             }
             catch (OperationCanceledException)
             {
@@ -10493,6 +10567,8 @@ namespace QMC.CDT320
                 double stageYTarget = d.PosY + stage.WaferAlignOffsetY;
                 try
                 {
+                    ThrowIfLegacyInputDieMapMotionNotReady(
+                        "CaptureWaferForCycle.CameraXStageY.p" + p);
                     int[] moveResults = await Task.WhenAll(
                         MoveAxisCommandAndWaitAsync(stage.CameraX, camXTarget, ResolveAxisDefaultVelocity(stage.CameraX), true),
                         MoveAxisCommandAndWaitAsync(stage.StageY, stageYTarget, ResolveAxisDefaultVelocity(stage.StageY), false)
@@ -10696,6 +10772,8 @@ namespace QMC.CDT320
                 }
             }
 
+            ThrowIfLegacyInputDieMapMotionNotReady("DoOneDie.Prepare.cycle" + cycleIdx);
+
             // 4개 다이 객체 생성 + Material 등록 + JobOrder 생성.
             var dies = new Die[pickers];
             var pickJobs = new JobOrder[pickers];
@@ -10760,7 +10838,10 @@ namespace QMC.CDT320
             // 대표 1개 다이(로그/통계용).
             var die = dies[0];
             var pickJob = pickJobs[0];
-            await MoveInputStageToDieAsync(row, col);
+            int inputStageMoveResult = await MoveInputStageToDieAsync(row, col);
+            ThrowIfMoveFailed(
+                "InputStage move to die [" + row + "," + col + "]",
+                inputStageMoveResult);
 
             // Stage 40: Dual Arm 모드. 짝수 idx는 LeftArm, 홀수 idx는 RightArm.
             bool useRearPicker = DualArmMode && (index % 2 == 1);
@@ -10910,6 +10991,8 @@ namespace QMC.CDT320
                     double stageYTarget = inputTarget.StageY + pickerOffset.AlignOffsetY;
                     double needleXTarget = ResolveInputNeedleXTargetFromMappedCameraX(mappedCameraX);
 
+                    ThrowIfLegacyInputDieMapMotionNotReady(
+                        "DoOneDie.PickPosition.p" + p);
                     int[] pickMoveResults = await Task.WhenAll(
                         MoveAxisCommandAndWaitAsync(front.ArmX, armXTarget, ResolveAxisDefaultVelocity(front.ArmX), true),
                         MoveNeedleWorkPointCommandAndWaitAsync(
@@ -10949,6 +11032,10 @@ namespace QMC.CDT320
                     ThrowIfMoveFailed("PickerZ/Eject return after pickup", waitResults);
 
                     pickupOk[p] = !picker.PickerZ.IsAlarm && !ej.IsAlarm;
+                }
+                catch (InputDieMapProvenanceException)
+                {
+                    throw;
                 }
                 catch (Exception ex)
                 {

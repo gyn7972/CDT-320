@@ -14,7 +14,7 @@ namespace QMC.CDT320.Sequencing
 {
     internal sealed class PickerBottomAndSideInspectionSequence : PickerSequenceBase<PickerBottomAndSideInspectionStep>
     {
-        private const double MaxSideVisionCenterCorrectionMm = 2.0;
+        private const double MaxSideVisionCenterCorrectionMm = 7.0;
 
         private readonly List<int> _pickedPickerIndexes = new List<int>();
         private readonly List<BottomShot> _pendingBottomShots = new List<BottomShot>();

@@ -469,7 +469,11 @@ namespace QMC.CDT320
         /// 사용자 컨펌 대기에 사용되는 TaskCompletionSource.<br/>
         /// UI 스레드에서 <see cref="ConfirmFromUi"/>를 호출하면 완료된다.
         /// </summary>
+        private readonly object _confirmSync = new object();
         private TaskCompletionSource<UserConfirmResult> _confirmTcs;
+
+        public event Action UserConfirmRequested;
+        public event Action UserConfirmWaitEnded;
 
         // ──────────────────────────────────────────────────────────────────────
         //  §4. 생성자
@@ -2359,9 +2363,29 @@ namespace QMC.CDT320
         /// <param name="result">사용자가 입력한 컨펌 결과 데이터.</param>
         public void ConfirmFromUi(UserConfirmResult result)
         {
-            TaskCompletionSource<UserConfirmResult> tcs = _confirmTcs;
+            TaskCompletionSource<UserConfirmResult> tcs;
+            lock (_confirmSync)
+            {
+                tcs = _confirmTcs;
+            }
+
             if (tcs != null)
-                tcs.TrySetResult(result);
+                tcs.TrySetResult(result ?? new UserConfirmResult { IsConfirmed = false });
+        }
+
+        public void FailUserConfirmFromUi(string message)
+        {
+            TaskCompletionSource<UserConfirmResult> tcs;
+            lock (_confirmSync)
+            {
+                tcs = _confirmTcs;
+            }
+
+            if (tcs != null)
+                tcs.TrySetException(new InvalidOperationException(
+                    string.IsNullOrWhiteSpace(message)
+                        ? "InputStage 사용자 확인 화면 처리에 실패했습니다."
+                        : message));
         }
 
         // ??????????????????????????????????????????????????????????????????????
@@ -3193,64 +3217,98 @@ namespace QMC.CDT320
         /// </returns>
         public async Task<UserConfirmResult> WaitForUserConfirmAsync()
         {
-            // 이전 TCS가 남아 있다면 취소 처리
-            TaskCompletionSource<UserConfirmResult> oldTcs = _confirmTcs;
+            return await WaitForUserConfirmAsync(CancellationToken.None).ConfigureAwait(false);
+        }
+
+        public async Task<UserConfirmResult> WaitForUserConfirmAsync(CancellationToken ct)
+        {
+            TaskCompletionSource<UserConfirmResult> tcs =
+                new TaskCompletionSource<UserConfirmResult>(TaskCreationOptions.RunContinuationsAsynchronously);
+            TaskCompletionSource<UserConfirmResult> oldTcs;
+
+            lock (_confirmSync)
+            {
+                oldTcs = _confirmTcs;
+                _confirmTcs = tcs;
+            }
+
             if (oldTcs != null)
                 oldTcs.TrySetCanceled();
 
-            _confirmTcs = new TaskCompletionSource<UserConfirmResult>();
-
-            Console.WriteLine(
-                $"[INFO]  '{Name}' ? 사용자 컨펌 대기 중... " +
-                "(UI에서 얼라인 결과 확인 후 ConfirmFromUi()를 호출하세요)");
-
-            UserConfirmResult result = await _confirmTcs.Task;
-            _confirmTcs = null;
-
-            if (result.IsConfirmed)
+            CancellationTokenRegistration cancellationRegistration = ct.Register(() => tcs.TrySetCanceled());
+            try
             {
-                // ── 사용자 수정값 적용 ─────────────────────────────────────
-                if (Math.Abs(result.AngleOffset) > 1e-6)
-                {
-                    Console.WriteLine(
-                        $"[INFO]  '{Name}' ? 사용자 Angle 오프셋 적용: {result.AngleOffset:F4}°");
-                    double targetT = StageT.ActualPosition + result.AngleOffset;
-                    int moveResult = await StageT.MoveRelativeAsync(result.AngleOffset, ResolveAxisFineVelocity(StageT)).ConfigureAwait(false);
-                    if (moveResult != 0 || StageT.IsAlarm)
-                    {
-                        RaiseStageAlarm(AlarmSeverity.Error, "IS-CONFIRM-T", "InputStageUnit.WaitForUserConfirmAsync",
-                            "User confirm StageT correction failed. result=" + moveResult + ", alarm=" + StageT.IsAlarm);
-                        result.IsConfirmed = false;
-                        return result;
-                    }
+                Action requested = UserConfirmRequested;
+                if (requested == null)
+                    throw new InvalidOperationException("InputStage 사용자 확인 화면 요청을 처리할 UI가 연결되어 있지 않습니다.");
 
-                    moveResult = await WaitInputStageAxisInPosition(WaferStageAxis.WaferT, targetT, ResolveSequenceMoveTimeout()).ConfigureAwait(false);
-                    if (moveResult != 0)
-                    {
-                        result.IsConfirmed = false;
-                        return result;
-                    }
-                }
-
-                if (Math.Abs(result.StartOffsetX) > 1e-6 || Math.Abs(result.StartOffsetY) > 1e-6)
-                {
-                    OriginX += result.StartOffsetX;
-                    OriginY += result.StartOffsetY;
-                    Console.WriteLine(
-                        $"[INFO]  '{Name}' ? 시작 위치 오프셋 적용. " +
-                        $"새 Origin X={OriginX:F4}mm, Y={OriginY:F4}mm");
-                }
-
+                requested();
                 Console.WriteLine(
-                    $"[INFO]  '{Name}' ? 컨펌 완료. " +
-                    $"시작 다이 인덱스: {result.StartDieIndex}");
-            }
-            else
-            {
-                Console.WriteLine($"[WARN]  '{Name}' ? 사용자가 시퀀스를 취소했습니다.");
-            }
+                    $"[INFO]  '{Name}' - 사용자 컨펌 대기 중... " +
+                    "(UI에서 얼라인 결과 확인 후 ConfirmFromUi()를 호출하세요)");
 
-            return result;
+                UserConfirmResult result = await tcs.Task.ConfigureAwait(false);
+                if (result == null)
+                    result = new UserConfirmResult { IsConfirmed = false };
+
+                if (result.IsConfirmed)
+                {
+                    // ── 사용자 수정값 적용 ─────────────────────────────────────
+                    if (Math.Abs(result.AngleOffset) > 1e-6)
+                    {
+                        Console.WriteLine(
+                            $"[INFO]  '{Name}' - 사용자 Angle 오프셋 적용: {result.AngleOffset:F4}°");
+                        double targetT = StageT.ActualPosition + result.AngleOffset;
+                        int moveResult = await StageT.MoveRelativeAsync(result.AngleOffset, ResolveAxisFineVelocity(StageT)).ConfigureAwait(false);
+                        if (moveResult != 0 || StageT.IsAlarm)
+                        {
+                            RaiseStageAlarm(AlarmSeverity.Error, "IS-CONFIRM-T", "InputStageUnit.WaitForUserConfirmAsync",
+                                "User confirm StageT correction failed. result=" + moveResult + ", alarm=" + StageT.IsAlarm);
+                            result.IsConfirmed = false;
+                            return result;
+                        }
+
+                        moveResult = await WaitInputStageAxisInPosition(WaferStageAxis.WaferT, targetT, ResolveSequenceMoveTimeout()).ConfigureAwait(false);
+                        if (moveResult != 0)
+                        {
+                            result.IsConfirmed = false;
+                            return result;
+                        }
+                    }
+
+                    if (Math.Abs(result.StartOffsetX) > 1e-6 || Math.Abs(result.StartOffsetY) > 1e-6)
+                    {
+                        OriginX += result.StartOffsetX;
+                        OriginY += result.StartOffsetY;
+                        Console.WriteLine(
+                            $"[INFO]  '{Name}' - 시작 위치 오프셋 적용. " +
+                            $"새 Origin X={OriginX:F4}mm, Y={OriginY:F4}mm");
+                    }
+
+                    Console.WriteLine(
+                        $"[INFO]  '{Name}' - 컨펌 완료. " +
+                        $"시작 다이 인덱스: {result.StartDieIndex}");
+                }
+                else
+                {
+                    Console.WriteLine($"[WARN]  '{Name}' - 사용자가 T Align 재시작을 요청했습니다.");
+                }
+
+                return result;
+            }
+            finally
+            {
+                cancellationRegistration.Dispose();
+                lock (_confirmSync)
+                {
+                    if (ReferenceEquals(_confirmTcs, tcs))
+                        _confirmTcs = null;
+                }
+
+                Action ended = UserConfirmWaitEnded;
+                if (ended != null)
+                    ended();
+            }
         }
 
 

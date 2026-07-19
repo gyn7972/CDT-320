@@ -502,6 +502,8 @@ namespace QMC.CDT320.Sequencing
             wafer.InputStageDieMappingCorrectedT = wafer.InputStageAlignCorrectedT;
             wafer.InputStageDieMappingInvalidatedByAlignChange = false;
             wafer.InputMapApprovalHashAtMapping = inputMapApprovalHash ?? "";
+            wafer.HasInputStageRunReviewApproval = false;
+            wafer.InputStageRunReviewStartDieIndex = 0;
             wafer.State = WaferMaterialState.Working;
             wafer.UpdatedAt = DateTime.Now;
         }
