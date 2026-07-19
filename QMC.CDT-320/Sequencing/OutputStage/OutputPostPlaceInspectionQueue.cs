@@ -57,6 +57,19 @@ namespace QMC.CDT320.Sequencing
         // 이 큐가 OutputPlaceArea를 넘겨받아 Output camera 검사와 Material 업데이트를 수행한다.
         private const int StopRequestedResult = -9001;
 
+        private sealed class BinResultCollectionOutcome
+        {
+            public BinResultCollectionOutcome(int resultCode, string failureMessage)
+            {
+                ResultCode = resultCode;
+                FailureMessage = failureMessage ?? string.Empty;
+            }
+
+            public int ResultCode { get; private set; }
+
+            public string FailureMessage { get; private set; }
+        }
+
         private readonly MachineSequenceContext _context;
         private readonly ConcurrentQueue<OutputPostPlaceInspectionRequest> _queue =
             new ConcurrentQueue<OutputPostPlaceInspectionRequest>();
@@ -619,24 +632,96 @@ namespace QMC.CDT320.Sequencing
                     request = _queue.TryDequeue(out next) ? next : null;
                 }
 
-                int collectResult = await CollectPlacedDieResultsAsync(capturedRequests, ct).ConfigureAwait(false);
-                if (collectResult != 0)
-                    return collectResult;
-
                 if (shouldMoveVisionAvoid && lastRequest != null)
                 {
                     if (IsStopOrAlarmActive())
+                    {
+                        await DrainCapturedBinResultsAfterFailureAsync(
+                            capturedRequests,
+                            ct,
+                            "Stop/Alarm became active after all BIN EPD responses.").ConfigureAwait(false);
                         return StopRequestedResult;
+                    }
 
+                    DateTime pipelineStart = DateTime.UtcNow;
                     Log.Write("Main", "SYSTEM", "OutputPostPlaceInspection",
-                        "Output camera 후검사 묶음 완료. count=" + inspectedCount +
+                        "BIN 전체 REQ/EPD 완료. RESULT 일괄 수집/판정과 OutputVisionX Avoid 복귀를 병렬 시작합니다. count=" +
+                        inspectedCount +
                         ", lastDie=" + lastRequest.DieId +
                         ", lastSide=" + lastRequest.OutputSide +
-                        ". 이제 OutputVisionX를 Avoid로 이동합니다. - Ok");
+                        " - Start");
                     timeout = lastRequest.MoveTimeoutMs > 0 ? lastRequest.MoveTimeoutMs : 10000;
-                    int result = await MoveVisionXToAvoidAsync(stage, lastRequest, timeout, ct).ConfigureAwait(false);
-                    if (result != 0)
-                        return result;
+                    Task<int> visionAvoidTask = MoveVisionXToAvoidAsync(
+                        stage,
+                        lastRequest,
+                        timeout,
+                        ct);
+                    Task<BinResultCollectionOutcome> resultCollectionTask =
+                        CollectPlacedDieResultsAsync(capturedRequests, ct);
+
+                    try
+                    {
+                        await Task.WhenAll(new Task[] { visionAvoidTask, resultCollectionTask })
+                            .ConfigureAwait(false);
+                    }
+                    catch
+                    {
+                        await DrainCapturedBinResultsAfterFailureAsync(
+                            capturedRequests,
+                            ct,
+                            "BIN RESULT/Avoid parallel pipeline exception.").ConfigureAwait(false);
+                        throw;
+                    }
+
+                    int visionAvoidResult = await visionAvoidTask.ConfigureAwait(false);
+                    BinResultCollectionOutcome collectionOutcome =
+                        await resultCollectionTask.ConfigureAwait(false);
+                    int collectResult = collectionOutcome != null
+                        ? collectionOutcome.ResultCode
+                        : -1;
+
+                    Log.Write("Main", "SYSTEM", "OutputPostPlaceInspection",
+                        "BIN RESULT/Avoid 병렬 배리어 완료. count=" + inspectedCount +
+                        ", resultCode=" + collectResult +
+                        ", avoidResult=" + visionAvoidResult +
+                        ", elapsedMs=" + ElapsedMs(pipelineStart) +
+                        " - " + (collectResult == 0 && visionAvoidResult == 0 ? "Ok" : "Check"));
+
+                    if (visionAvoidResult != 0)
+                    {
+                        if (collectResult != 0)
+                        {
+                            Log.Write("Main", "SYSTEM", "OutputPostPlaceInspection",
+                                "OutputVisionX Avoid와 BIN RESULT 수집이 함께 실패했습니다. " +
+                                "avoidResult=" + visionAvoidResult +
+                                ", resultCode=" + collectResult +
+                                ", resultFailure=" +
+                                (collectionOutcome != null ? collectionOutcome.FailureMessage : "outcome missing") +
+                                " - Failed");
+                            await DrainCapturedBinResultsAfterFailureAsync(
+                                capturedRequests,
+                                ct,
+                                "BIN RESULT/Avoid parallel pipeline failed.").ConfigureAwait(false);
+                        }
+                        return visionAvoidResult;
+                    }
+
+                    if (collectResult != 0)
+                    {
+                        await DrainCapturedBinResultsAfterFailureAsync(
+                            capturedRequests,
+                            ct,
+                            "BIN RESULT collection failed after VisionX Avoid.").ConfigureAwait(false);
+                        if (collectResult == StopRequestedResult)
+                            return StopRequestedResult;
+
+                        return RaiseFailure(
+                            "OUT-POST-INSPECT-VISION-RESULT",
+                            "Vision",
+                            collectionOutcome != null && !string.IsNullOrWhiteSpace(collectionOutcome.FailureMessage)
+                                ? collectionOutcome.FailureMessage
+                                : "BIN 전체 측정 후 RESULT 수집에 실패했습니다. Material 결과는 갱신하지 않습니다.");
+                    }
                 }
                 return 0;
             }
@@ -867,16 +952,16 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
-        private async Task<int> CollectPlacedDieResultsAsync(
+        private async Task<BinResultCollectionOutcome> CollectPlacedDieResultsAsync(
             IList<OutputPostPlaceInspectionRequest> capturedRequests,
             CancellationToken ct)
         {
             var failed = new List<string>();
             for (int i = 0; i < capturedRequests.Count; i++)
             {
-                if (IsStopOrAlarmActive())
-                    return StopRequestedResult;
-
+                // 이미 EPD가 끝난 요청은 AVOID 모션의 성공/실패와 관계없이 RESULT를 회수해
+                // correlation handle이 남지 않게 한다. 실제 취소는 전달된 token으로 처리한다.
+                ct.ThrowIfCancellationRequested();
                 OutputPostPlaceInspectionRequest request = capturedRequests[i];
                 int timeout = request.MoveTimeoutMs > 0 ? request.MoveTimeoutMs : 10000;
                 VisionInspectionResult result = await AutoVisionRequestService.WaitInspectionStageAsync(
@@ -898,9 +983,12 @@ namespace QMC.CDT320.Sequencing
 
             if (failed.Count > 0)
             {
-                return RaiseFailure("OUT-POST-INSPECT-VISION-RESULT", "Vision",
+                string failureMessage =
                     "BIN 전체 측정 후 RESULT 수집에 실패했습니다. Material 결과는 갱신하지 않습니다. failed=" +
-                    string.Join("; ", failed.ToArray()));
+                    string.Join("; ", failed.ToArray());
+                Log.Write("Main", "SYSTEM", "OutputPostPlaceInspection",
+                    failureMessage + " AVOID 병렬 복귀가 끝난 뒤 실패를 확정합니다. - Check");
+                return new BinResultCollectionOutcome(-1, failureMessage);
             }
 
             for (int i = 0; i < capturedRequests.Count; i++)
@@ -909,7 +997,7 @@ namespace QMC.CDT320.Sequencing
             Log.Write("Main", "SYSTEM", "OutputPostPlaceInspection",
                 "BIN 전체 REQ/EPD 완료 후 RESULT 일괄 수집 및 Material 반영 완료. count=" +
                 capturedRequests.Count + " - Ok");
-            return 0;
+            return new BinResultCollectionOutcome(0, string.Empty);
         }
 
         private async Task DrainCapturedBinResultsAfterFailureAsync(
@@ -1309,6 +1397,10 @@ namespace QMC.CDT320.Sequencing
                     ", side=" + request.OutputSide +
                     ", result=" + result + ", " + stage.DescribeStageLoadMoveState(request.OutputSide));
             }
+            Log.Write("Main", "SYSTEM", "OutputPostPlaceInspection",
+                "BIN RESULT 수집과 병렬로 OutputVisionX Avoid 이동 및 위치 확인 완료. die=" +
+                request.DieId +
+                ", side=" + request.OutputSide + " - Ok");
             return 0;
         }
 

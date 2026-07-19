@@ -48,6 +48,7 @@ namespace QMC.CDT320.Sequencing
         public bool ForceSafeYBeforeFirstPlaceMove { get; set; }
         public bool KeepPickerYForwardDuringPlaceReadyWait { get; set; }
         internal Func<string, bool> ReleaseParentOutputWorkZoneAfterSafeAvoid { get; set; }
+        internal Func<BinSide, int, string, CancellationToken, Task<int>> WaitForOutputStageExchangeWithProcessHandoffAsync { get; set; }
         internal Func<int, string, CancellationToken, Task<int>> WaitInspectionResultsBeforePlaceDownAsync { get; set; }
 
         public PickerPlaceSequence(MachineSequenceContext context, PickerSequenceSide side)
@@ -915,12 +916,14 @@ namespace QMC.CDT320.Sequencing
 
                     if (stageReceiveComplete && !fullAvoidPrepared)
                     {
+                        const string fullWaitDescription = "OutputStage 수령 완료 대기 중 보유 Die Picker 전체 Avoid";
                         int fullAvoidResult = await MovePickerToAvoidAfterPlaceFastAsync(
-                            "OutputStage 수령 완료 대기 중 보유 Die Picker 전체 Avoid",
+                            fullWaitDescription,
                             ct).ConfigureAwait(false);
                         if (fullAvoidResult != 0)
                             return fullAvoidResult;
 
+                        _currentPlaceZSafeReturnCompleted = true;
                         ClearPendingContiRetreat();
                         ForceSafeYBeforeFirstPlaceMove = true;
                         KeepPickerYForwardDuringPlaceReadyWait = false;
@@ -928,11 +931,51 @@ namespace QMC.CDT320.Sequencing
                         ReleaseOutputStageArea();
                         ReleaseOutputFeederArea();
                         EndOutputPostPlaceInspectionBatch();
+
+                        int workZoneReleaseResult = ReleaseParentOutputWorkZoneAfterSafeAvoidIfNeeded(
+                            "OutputStage Full 교체 대기");
+                        if (workZoneReleaseResult != 0)
+                            return workZoneReleaseResult;
+
+                        int publishResult = await PublishOutputStageExchangeReadyAfterSafeCompletionAsync(ct).ConfigureAwait(false);
+                        if (publishResult != 0)
+                            return publishResult;
+
                         safeWaitPositionPrepared = true;
                         fullAvoidPrepared = true;
                         WriteLog("PickerPlaceSequence",
                             Name + " OutputStage가 완료되어 다음 Place 대상이 열릴 때까지 보유 Die 상태로 Picker 전체 Avoid 복귀를 완료했습니다. " +
                             "side=" + Side + ", outputSide=" + _currentOutputSide +
+                            ", pickerNo=" + _currentPickerNo + " - Ok");
+
+                        Func<BinSide, int, string, CancellationToken, Task<int>> handoff =
+                            WaitForOutputStageExchangeWithProcessHandoffAsync;
+                        if (handoff == null)
+                        {
+                            return Fail("PICKER-PLACE-OUTPUT-HANDOFF-MISSING", Name,
+                                "OutputStage Full 안전 대기 후 부모 Picker Process 리소스 양도 경로가 없습니다. " +
+                                "side=" + Side + ", outputSide=" + _currentOutputSide +
+                                ", pickerNo=" + _currentPickerNo);
+                        }
+
+                        int handoffResult = await handoff(
+                            _currentOutputSide,
+                            _currentPickerNo,
+                            fullWaitDescription,
+                            ct).ConfigureAwait(false);
+                        if (handoffResult != 0)
+                            return handoffResult;
+
+                        // 부모가 Place phase와 Output work-zone을 다시 획득했으므로,
+                        // 최종 Place 후 Avoid에서 후검사 전에 다시 정상 해제할 수 있도록 알림 상태를 복원한다.
+                        _parentOutputWorkZoneReleaseNotified = false;
+                        // 같은 Stage를 기다리던 다른 Picker가 먼저 새 Bin을 다시 Full로 만들 수 있다.
+                        // handoff 1회가 끝날 때마다 새 교체 세대로 보고 다음 Full을 다시 양도할 수 있게 한다.
+                        fullAvoidPrepared = false;
+                        WriteLog("PickerPlaceSequence",
+                            Name + " OutputStage 교체 후 부모 Picker Process/Place 작업영역 재점유가 완료되어 " +
+                            "기존 보유 Die Place 준비 확인을 다시 시작합니다. side=" + Side +
+                            ", outputSide=" + _currentOutputSide +
                             ", pickerNo=" + _currentPickerNo + " - Ok");
                     }
                     else if (!safeWaitPositionPrepared)

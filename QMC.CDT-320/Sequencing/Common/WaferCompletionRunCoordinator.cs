@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
@@ -179,7 +179,8 @@ namespace QMC.CDT320.Sequencing
             string outputVisionReason;
             bool outputVisionSafe = IsOutputVisionAvoidAndStopped(out outputVisionReason);
             bool loaderIdle = !_context.Bus.IsSet("InputLoaderActive") &&
-                              !_context.Bus.IsSet("OutputLoaderActive");
+                              !_context.Bus.IsSet("OutputLoaderActive") &&
+                              MaterialStateService.GetWaferAtLocation(MaterialLocationKind.OutputFeeder) == null;
 
             bool complete = string.IsNullOrWhiteSpace(heldPickerProducts) &&
                             pickersSafe &&
@@ -295,8 +296,11 @@ namespace QMC.CDT320.Sequencing
         private string BuildHeldPickerProducts()
         {
             var held = new List<string>();
-            AppendHeldPickerProducts(held, MaterialLocationKind.PickerFront, "Front");
-            AppendHeldPickerProducts(held, MaterialLocationKind.PickerRear, "Rear");
+            AutoSequenceCoordinatorGate gate = _context != null ? _context.AutoSequenceGate : null;
+            if (gate == null || gate.IsPickerSideConfiguredForRun(PickerSequenceSide.Front))
+                AppendHeldPickerProducts(held, MaterialLocationKind.PickerFront, "Front");
+            if (gate == null || gate.IsPickerSideConfiguredForRun(PickerSequenceSide.Rear))
+                AppendHeldPickerProducts(held, MaterialLocationKind.PickerRear, "Rear");
             return string.Join(", ", held.ToArray());
         }
 
@@ -326,7 +330,9 @@ namespace QMC.CDT320.Sequencing
             }
 
             PickerFrontUnit front = machine.PickerFrontUnit;
-            if (front != null && front.Config != null && front.Config.UseUnit)
+            AutoSequenceCoordinatorGate gate = _context.AutoSequenceGate;
+            bool frontActive = gate == null || gate.IsPickerSideConfiguredForRun(PickerSequenceSide.Front);
+            if (frontActive && front != null && front.Config != null && front.Config.UseUnit)
             {
                 if (!front.IsFrontPickerInAvoidPosition())
                 {
@@ -349,7 +355,8 @@ namespace QMC.CDT320.Sequencing
             }
 
             PickerRearUnit rear = machine.PickerRearUnit;
-            if (rear != null && rear.Config != null && rear.Config.UseUnit)
+            bool rearActive = gate == null || gate.IsPickerSideConfiguredForRun(PickerSequenceSide.Rear);
+            if (rearActive && rear != null && rear.Config != null && rear.Config.UseUnit)
             {
                 if (!rear.IsRearPickerInAvoidPosition())
                 {
