@@ -508,17 +508,6 @@ namespace QMC.CDT320.Sequencing
                 if (commandResult != 0)
                     return commandResult;
 
-                ct.ThrowIfCancellationRequested();
-
-                AxisMoveWaitResult waitResult = await cassette.WaitBinLifterZMoveDoneInPosition(
-                    target,
-                    ResolveMoveTimeout(cassette),
-                    ct).ConfigureAwait(false);
-                if (!waitResult.Success)
-                    return Fail(ResolveAxisMoveWaitAlarmCode("OUT-CST-MOVE", waitResult.Failure), cassette.Name,
-                        description + " move/in-position wait failed. waitResult=" + waitResult.Code +
-                        ", reason=" + waitResult.Reason + ". " + waitResult.AxisState);
-
                 return 0;
             }
             catch (Exception ex)
@@ -536,8 +525,7 @@ namespace QMC.CDT320.Sequencing
             {
                 ct.ThrowIfCancellationRequested();
 
-                await cassette.MoveBinLifterZ(target, Options.FineMove).ConfigureAwait(false);
-                return 0;
+                return await cassette.MoveBinLifterZ(target, Options.FineMove, ct).ConfigureAwait(false);
             }
             catch (OperationCanceledException)
             {
@@ -551,11 +539,6 @@ namespace QMC.CDT320.Sequencing
             finally
             {
             }
-        }
-
-        private static string ResolveAxisMoveWaitAlarmCode(string prefix, AxisMoveWaitFailure failure)
-        {
-            return AxisMoveWaiter.ResolveAlarmCode(prefix, failure);
         }
 
         private int RegisterMappingResult(OutputCassetteUnit cassette)
@@ -791,16 +774,6 @@ namespace QMC.CDT320.Sequencing
                    (Context.Controller != null && Context.Controller.GlobalDryRun) ||
                    (Cassette != null && Cassette.Setup != null && Cassette.Setup.IsSimulationMode) ||
                    (Cassette != null && Cassette.Config != null && Cassette.Config.bDryRun);
-        }
-
-        private int ResolveMoveTimeout(OutputCassetteUnit cassette)
-        {
-            if (Options.MoveTimeoutMs > 0)
-                return Options.MoveTimeoutMs;
-
-            return cassette != null && cassette.OutputLifterZ != null && cassette.OutputLifterZ.Setup != null && cassette.OutputLifterZ.Setup.MoveTimeoutMs > 0
-                ? cassette.OutputLifterZ.Setup.MoveTimeoutMs
-                : 10000;
         }
 
         private TStep ResolveStartStep(TStep defaultStep)

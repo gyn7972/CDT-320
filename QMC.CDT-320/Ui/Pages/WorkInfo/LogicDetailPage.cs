@@ -1,31 +1,45 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
+using System.IO;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 using System.Windows.Forms;
 using QMC.CDT320;
 using QMC.Common.Diagnostics.TactTime;
+using QMC.Common.Logging;
 
 namespace QMC.CDT_320.Ui.Pages.WorkInfo
 {
     public partial class LogicDetailPage : QMC.CDT_320.Ui.Pages.PageBase
     {
+        private const int MaxGridRows = 5000;
+
         private readonly List<TactTimeRecord> _chartRecords = new List<TactTimeRecord>();
-        private readonly List<string> _chartLanes = new List<string>();
-        private Timer _refresh;
-        private string _lastSignature = string.Empty;
+        private readonly List<TactTimeRecord> _historyRecords = new List<TactTimeRecord>();
+        private System.Windows.Forms.Timer _refresh;
+        private CancellationTokenSource _historyLoadCts;
+        private TactTimeCsvIndexResult _historyIndex;
+        private string _historyFilePath = "";
+        private string _lastSignature = "";
         private DateTime _viewSince = DateTime.MinValue;
+        private bool _historyMode;
+        private bool _historyLoading;
+        private bool _suppressRunSelection;
+        private bool _synchronizingSelection;
 
         public LogicDetailPage()
         {
             InitializeComponent();
 
-            // 디자이너 CodeDom 파서는 InitializeComponent 안의 foreach 를 지원하지 않으므로
-            // 컬럼 속성 설정은 생성자(런타임 경로)에서 처리한다.
             foreach (DataGridViewColumn column in _grid.Columns)
             {
                 column.SortMode = DataGridViewColumnSortMode.NotSortable;
                 column.Resizable = DataGridViewTriState.True;
             }
+
+            _timeChart.RecordSelected += timeChart_RecordSelected;
 
             if (!IsDesignerMode())
             {
@@ -33,18 +47,28 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                     cmbCategory.SelectedIndex = 0;
                 if (cmbItemFilter.Items.Count > 0)
                     cmbItemFilter.SelectedIndex = 0;
+                if (cmbChartMode.Items.Count > 0)
+                    cmbChartMode.SelectedIndex = 0;
 
-                _refresh = new Timer { Interval = 1000 };
-                _refresh.Tick += (s, e) =>
-                {
-                    if (!ShouldRefreshVisible(this) || !chkAutoRefresh.Checked)
-                        return;
-
-                    RefreshAll(false);
-                };
-                VisibleChanged += (s, e) => UpdateRefreshTimer();
+                _refresh = new System.Windows.Forms.Timer { Interval = 1000 };
+                _refresh.Tick += refresh_Tick;
+                VisibleChanged += LogicDetailPage_VisibleChanged;
+                ApplyDataSourceState();
                 RefreshAll(true);
             }
+        }
+
+        private void refresh_Tick(object sender, EventArgs e)
+        {
+            if (!ShouldRefreshVisible(this) || !chkAutoRefresh.Checked || _historyMode || _historyLoading)
+                return;
+
+            RefreshAll(false);
+        }
+
+        private void LogicDetailPage_VisibleChanged(object sender, EventArgs e)
+        {
+            UpdateRefreshTimer();
         }
 
         private void cmbCategory_SelectedIndexChanged(object sender, EventArgs e)
@@ -57,59 +81,368 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             RefreshAll(true);
         }
 
+        private void cmbChartMode_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            _timeChart.ViewMode = cmbChartMode.SelectedIndex == 1
+                ? TactTimeChartViewMode.Timeline
+                : TactTimeChartViewMode.Trend;
+        }
+
         private void chkAutoRefresh_CheckedChanged(object sender, EventArgs e)
         {
             UpdateRefreshTimer();
             RefreshAll(true);
         }
 
+        private void btnResetChart_Click(object sender, EventArgs e)
+        {
+            _timeChart.ResetView();
+        }
+
         private void btnClearView_Click(object sender, EventArgs e)
         {
             try
             {
-                _viewSince = DateTime.Now;
-                _lastSignature = string.Empty;
+                _lastSignature = "";
                 _chartRecords.Clear();
-                _chartLanes.Clear();
                 _grid.Rows.Clear();
-                lblSummary.Text = "화면 기록을 초기화했습니다. 이후 발생한 택타임만 표시합니다.";
-                lblStatus.Text = "화면 기록을 초기화했습니다.";
-                _chartHost.Invalidate();
+
+                if (_historyMode)
+                {
+                    _historyRecords.Clear();
+                    lblSummary.Text = "과거 기록 화면을 비웠습니다. 원본 CSV는 변경되지 않았습니다.";
+                    lblStatus.Text = "Run을 다시 선택하면 과거 기록을 다시 불러옵니다.";
+                }
+                else
+                {
+                    _viewSince = DateTime.Now;
+                    lblSummary.Text = "화면 기록을 초기화했습니다. 이후 발생한 택타임만 표시합니다.";
+                    lblStatus.Text = "실시간 화면 기록을 초기화했습니다.";
+                }
+
+                _timeChart.SetRecords(_chartRecords);
             }
-            catch
+            catch (Exception ex)
             {
+                LogUiFailure("ClearView", ex);
+                lblStatus.Text = "택타임 화면 초기화에 실패했습니다: " + ex.Message;
+            }
+        }
+
+        private async void btnOpenHistory_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                using (var dialog = new OpenFileDialog())
+                {
+                    dialog.Title = "이전 택타임 기록 불러오기";
+                    dialog.Filter = "택타임 CSV (*.csv)|*.csv|모든 파일 (*.*)|*.*";
+                    dialog.Multiselect = false;
+                    dialog.CheckFileExists = true;
+                    dialog.InitialDirectory = ResolveTactTimeDirectory();
+                    if (dialog.ShowDialog(this) != DialogResult.OK)
+                        return;
+
+                    await LoadHistoryIndexAndLatestRunAsync(dialog.FileName).ConfigureAwait(true);
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                lblStatus.Text = "과거 택타임 기록 불러오기를 취소했습니다.";
+            }
+            catch (Exception ex)
+            {
+                HandleHistoryFailure("HistoryOpen", "과거 택타임 기록을 불러오지 못했습니다.", ex);
+            }
+        }
+
+        private void btnLiveView_Click(object sender, EventArgs e)
+        {
+            CancelHistoryLoad();
+            _historyMode = false;
+            _historyFilePath = "";
+            _historyIndex = null;
+            _historyRecords.Clear();
+            _suppressRunSelection = true;
+            try
+            {
+                cmbRun.Items.Clear();
+                cmbRun.SelectedIndex = -1;
             }
             finally
             {
+                _suppressRunSelection = false;
+            }
+
+            _lastSignature = "";
+            ApplyDataSourceState();
+            RefreshAll(true);
+            UpdateRefreshTimer();
+        }
+
+        private void btnCancelHistory_Click(object sender, EventArgs e)
+        {
+            CancelHistoryLoad();
+            lblStatus.Text = "과거 택타임 기록 불러오기 취소를 요청했습니다.";
+        }
+
+        private async void cmbRun_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            if (_suppressRunSelection || !_historyMode || _historyLoading)
+                return;
+
+            TactTimeRunInfo run = cmbRun.SelectedItem as TactTimeRunInfo;
+            if (run == null || string.IsNullOrWhiteSpace(_historyFilePath))
+                return;
+
+            try
+            {
+                await LoadHistoryRunAsync(run).ConfigureAwait(true);
+            }
+            catch (OperationCanceledException)
+            {
+                lblStatus.Text = "선택한 Run 불러오기를 취소했습니다.";
+            }
+            catch (Exception ex)
+            {
+                HandleHistoryFailure("HistoryRunLoad", "선택한 Run을 불러오지 못했습니다.", ex);
             }
         }
 
         private void grid_SelectionChanged(object sender, EventArgs e)
         {
+            if (_synchronizingSelection || _grid.SelectedRows.Count <= 0)
+                return;
+
+            TactTimeRecord record = _grid.SelectedRows[0].Tag as TactTimeRecord;
+            if (record == null)
+                return;
+
+            _synchronizingSelection = true;
             try
             {
-                if (_grid.SelectedRows.Count <= 0)
-                    return;
-
-                TactTimeRecord record = _grid.SelectedRows[0].Tag as TactTimeRecord;
-                if (record == null)
-                    return;
-
-                lblStatus.Text =
-                    "선택: " + record.Category +
-                    " / " + Safe(record.UnitName) +
-                    " / " + Safe(record.ProcessName) +
-                    " / " + Safe(record.StepName) +
-                    " / " + record.ElapsedMs + " ms" +
-                    " / " + record.Result +
-                    (string.IsNullOrWhiteSpace(record.Detail) ? "" : " / " + record.Detail);
-            }
-            catch
-            {
+                _timeChart.SetSelectedRecord(record, true);
+                UpdateSelectedRecordStatus(record);
             }
             finally
             {
+                _synchronizingSelection = false;
             }
+        }
+
+        private void timeChart_RecordSelected(object sender, TactTimeRecordSelectedEventArgs e)
+        {
+            if (_synchronizingSelection || e == null || e.Record == null)
+                return;
+
+            _synchronizingSelection = true;
+            try
+            {
+                bool selected = false;
+                for (int i = 0; i < _grid.Rows.Count; i++)
+                {
+                    TactTimeRecord rowRecord = _grid.Rows[i].Tag as TactTimeRecord;
+                    if (!IsSameRecord(rowRecord, e.Record))
+                        continue;
+
+                    _grid.ClearSelection();
+                    _grid.Rows[i].Selected = true;
+                    if (_grid.Rows[i].Cells.Count > 0)
+                        _grid.CurrentCell = _grid.Rows[i].Cells[0];
+                    selected = true;
+                    break;
+                }
+
+                UpdateSelectedRecordStatus(e.Record);
+                if (!selected && _grid.Rows.Count >= MaxGridRows)
+                    lblStatus.Text += " / 해당 기록은 Grid 표시 한도 밖에 있습니다.";
+            }
+            finally
+            {
+                _synchronizingSelection = false;
+            }
+        }
+
+        private async Task LoadHistoryIndexAndLatestRunAsync(string filePath)
+        {
+            CancellationTokenSource operation = BeginHistoryLoad();
+            try
+            {
+                _historyFilePath = filePath;
+                lblStatus.Text = "과거 택타임 파일의 Run 목록을 확인하고 있습니다.";
+                IProgress<TactTimeCsvReadProgress> progress = CreateHistoryProgress();
+                TactTimeCsvIndexResult index = await TactTimeCsvReader.IndexRunsAsync(
+                    filePath,
+                    operation.Token,
+                    progress).ConfigureAwait(true);
+
+                operation.Token.ThrowIfCancellationRequested();
+                if (index.Runs == null || index.Runs.Count == 0)
+                    throw new InvalidDataException("선택한 파일에 표시 가능한 Run이 없습니다.");
+
+                _historyIndex = index;
+                _historyMode = true;
+                _viewSince = DateTime.MinValue;
+                _suppressRunSelection = true;
+                try
+                {
+                    cmbRun.Items.Clear();
+                    for (int i = 0; i < index.Runs.Count; i++)
+                        cmbRun.Items.Add(index.Runs[i]);
+                    cmbRun.SelectedIndex = 0;
+                }
+                finally
+                {
+                    _suppressRunSelection = false;
+                }
+
+                ApplyDataSourceState();
+                TactTimeRunInfo latestRun = cmbRun.SelectedItem as TactTimeRunInfo;
+                if (latestRun != null)
+                    await LoadHistoryRunCoreAsync(latestRun, operation, progress).ConfigureAwait(true);
+            }
+            finally
+            {
+                CompleteHistoryLoad(operation);
+            }
+        }
+
+        private async Task LoadHistoryRunAsync(TactTimeRunInfo run)
+        {
+            CancellationTokenSource operation = BeginHistoryLoad();
+            try
+            {
+                IProgress<TactTimeCsvReadProgress> progress = CreateHistoryProgress();
+                await LoadHistoryRunCoreAsync(run, operation, progress).ConfigureAwait(true);
+            }
+            finally
+            {
+                CompleteHistoryLoad(operation);
+            }
+        }
+
+        private async Task LoadHistoryRunCoreAsync(
+            TactTimeRunInfo run,
+            CancellationTokenSource operation,
+            IProgress<TactTimeCsvReadProgress> progress)
+        {
+            if (run == null)
+                throw new ArgumentNullException("run");
+
+            lblStatus.Text = "선택한 Run의 택타임 기록을 불러오고 있습니다. run=" + run.RunId;
+            TactTimeCsvLoadResult load = await TactTimeCsvReader.LoadRunAsync(
+                _historyFilePath,
+                run.RunId,
+                operation.Token,
+                progress).ConfigureAwait(true);
+            operation.Token.ThrowIfCancellationRequested();
+
+            _historyRecords.Clear();
+            _historyRecords.AddRange(load.Records);
+            _lastSignature = "";
+            UpdateHistoryFileInfo(run, load);
+            RefreshAll(true);
+
+            string warning = load.SkippedRecordCount > 0 || load.IncompleteLastRecord || load.Warnings.Count > 0
+                ? " / 제외=" + load.SkippedRecordCount + "건" +
+                  (load.IncompleteLastRecord ? ", 마지막 미완성 행 제외" : "") +
+                  (load.Warnings.Count > 0 ? ", 경고=" + load.Warnings.Count + "건" : "")
+                : "";
+            lblStatus.Text = "과거 Run을 불러왔습니다. records=" + _historyRecords.Count.ToString("N0") + warning;
+        }
+
+        private CancellationTokenSource BeginHistoryLoad()
+        {
+            CancelHistoryLoad();
+            var operation = new CancellationTokenSource();
+            _historyLoadCts = operation;
+            SetHistoryLoading(true);
+            return operation;
+        }
+
+        private void CompleteHistoryLoad(CancellationTokenSource operation)
+        {
+            bool isCurrent = object.ReferenceEquals(_historyLoadCts, operation);
+            if (isCurrent)
+                _historyLoadCts = null;
+            operation.Dispose();
+            if (isCurrent && !IsDisposed)
+                SetHistoryLoading(false);
+        }
+
+        private void CancelHistoryLoad()
+        {
+            CancellationTokenSource current = _historyLoadCts;
+            if (current == null)
+                return;
+
+            try
+            {
+                current.Cancel();
+            }
+            catch (ObjectDisposedException)
+            {
+                // 이미 완료된 로딩 작업은 추가 정리가 필요하지 않다.
+            }
+        }
+
+        private IProgress<TactTimeCsvReadProgress> CreateHistoryProgress()
+        {
+            return new Progress<TactTimeCsvReadProgress>(value =>
+            {
+                if (value == null || IsDisposed)
+                    return;
+
+                progressHistory.Value = Math.Max(progressHistory.Minimum, Math.Min(progressHistory.Maximum, value.Percent));
+                lblFileInfo.Text = value.Phase + " " + value.Percent + "% / " + value.RecordCount.ToString("N0") + "건";
+            });
+        }
+
+        private void SetHistoryLoading(bool loading)
+        {
+            _historyLoading = loading;
+            btnOpenHistory.Enabled = !loading;
+            btnLiveView.Enabled = !loading;
+            btnCancelHistory.Enabled = loading;
+            cmbRun.Enabled = !loading && _historyMode && cmbRun.Items.Count > 0;
+            progressHistory.Value = 0;
+            UseWaitCursor = loading;
+            UpdateRefreshTimer();
+        }
+
+        private void ApplyDataSourceState()
+        {
+            if (_historyMode)
+            {
+                lblDataSource.Text = "HISTORY";
+                lblDataSource.BackColor = Color.FromArgb(0x75, 0x57, 0xA8);
+                chkAutoRefresh.Enabled = false;
+                cmbRun.Enabled = !_historyLoading && cmbRun.Items.Count > 0;
+                if (!string.IsNullOrWhiteSpace(_historyFilePath) && _historyIndex != null)
+                {
+                    var file = new FileInfo(_historyFilePath);
+                    lblFileInfo.Text = file.Name + " / " + FormatFileSize(file.Length) +
+                                       " / Run " + _historyIndex.Runs.Count.ToString("N0") + "개";
+                }
+            }
+            else
+            {
+                lblDataSource.Text = "LIVE";
+                lblDataSource.BackColor = Color.FromArgb(0x2F, 0x80, 0xC9);
+                chkAutoRefresh.Enabled = true;
+                cmbRun.Enabled = false;
+                lblFileInfo.Text = "실시간 메모리 기록 (최대 5,000건)";
+            }
+        }
+
+        private void UpdateHistoryFileInfo(TactTimeRunInfo run, TactTimeCsvLoadResult load)
+        {
+            var file = new FileInfo(_historyFilePath);
+            int runIndex = cmbRun.SelectedIndex >= 0 ? cmbRun.SelectedIndex + 1 : 0;
+            int runCount = _historyIndex != null && _historyIndex.Runs != null ? _historyIndex.Runs.Count : 0;
+            lblFileInfo.Text = file.Name + " / " + FormatFileSize(file.Length) +
+                               " / Run " + runIndex + "/" + runCount +
+                               " / " + load.Records.Count.ToString("N0") + "건";
         }
 
         private void RefreshAll(bool force)
@@ -123,64 +456,55 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
 
                 _lastSignature = signature;
                 UpdateGrid(records);
-                UpdateChartRecords(records);
+                UpdateChartRecords(records, !force);
                 UpdateSummary(records);
-                _chartHost.Invalidate();
             }
-            catch
+            catch (Exception ex)
             {
-            }
-            finally
-            {
+                LogUiFailure("Refresh", ex);
+                lblStatus.Text = "택타임 화면 갱신에 실패했습니다: " + ex.Message;
             }
         }
 
         private List<TactTimeRecord> LoadFilteredRecords()
         {
+            IReadOnlyList<TactTimeRecord> snapshot = ResolveSourceSnapshot();
+            string category = cmbCategory.SelectedItem != null ? cmbCategory.SelectedItem.ToString() : "ALL";
+            string itemFilter = cmbItemFilter.SelectedItem != null ? cmbItemFilter.SelectedItem.ToString() : "ALL";
+            if (snapshot == null)
+                return new List<TactTimeRecord>();
+
+            if (string.Equals(category, "SEQUENCE", StringComparison.OrdinalIgnoreCase))
+                return ApplyItemFilter(BuildSequenceSummaryRecords(snapshot), itemFilter);
+
             var result = new List<TactTimeRecord>();
-            try
+            for (int i = 0; i < snapshot.Count; i++)
             {
-                var host = (FindForm() ?? ParentForm) as Form1;
-                MachineController ctrl = host != null ? host.Controller : null;
-                IReadOnlyList<TactTimeRecord> snapshot = ctrl != null ? ctrl.GetTactTimeSnapshot() : null;
-                string category = cmbCategory.SelectedItem != null ? cmbCategory.SelectedItem.ToString() : "ALL";
-                string itemFilter = cmbItemFilter.SelectedItem != null ? cmbItemFilter.SelectedItem.ToString() : "ALL";
-
-                if (snapshot == null)
-                    return result;
-
-                if (string.Equals(category, "SEQUENCE", StringComparison.OrdinalIgnoreCase))
-                    return ApplyItemFilter(BuildSequenceSummaryRecords(snapshot), itemFilter);
-
-                for (int i = 0; i < snapshot.Count; i++)
-                {
-                    TactTimeRecord record = snapshot[i];
-                    if (record == null)
-                        continue;
-
-                    if (_viewSince != DateTime.MinValue && record.StartedAt < _viewSince)
-                        continue;
-
-                    if (!string.Equals(category, "ALL", StringComparison.OrdinalIgnoreCase) &&
-                        !string.Equals(record.Category.ToString(), category, StringComparison.OrdinalIgnoreCase))
-                        continue;
-
-                    if (!MatchesItemFilter(record, itemFilter))
-                        continue;
-
-                    result.Add(record);
-                }
-
-                result.Sort((a, b) => a.StartedAt.CompareTo(b.StartedAt));
-            }
-            catch
-            {
-            }
-            finally
-            {
+                TactTimeRecord record = snapshot[i];
+                if (record == null)
+                    continue;
+                if (!_historyMode && _viewSince != DateTime.MinValue && record.StartedAt < _viewSince)
+                    continue;
+                if (!string.Equals(category, "ALL", StringComparison.OrdinalIgnoreCase) &&
+                    !string.Equals(record.Category.ToString(), category, StringComparison.OrdinalIgnoreCase))
+                    continue;
+                if (!MatchesItemFilter(record, itemFilter))
+                    continue;
+                result.Add(record);
             }
 
+            result.Sort((a, b) => a.StartedAt.CompareTo(b.StartedAt));
             return result;
+        }
+
+        private IReadOnlyList<TactTimeRecord> ResolveSourceSnapshot()
+        {
+            if (_historyMode)
+                return _historyRecords.AsReadOnly();
+
+            Form1 host = (FindForm() ?? ParentForm) as Form1;
+            MachineController controller = host != null ? host.Controller : null;
+            return controller != null ? controller.GetTactTimeSnapshot() : null;
         }
 
         private List<TactTimeRecord> BuildSequenceSummaryRecords(IReadOnlyList<TactTimeRecord> snapshot)
@@ -189,109 +513,98 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             var placeRecords = new List<TactTimeRecord>();
             var outputReceiveRecords = new List<TactTimeRecord>();
             var inspectionDetailRecords = new List<TactTimeRecord>();
-            try
+            if (snapshot == null)
+                return result;
+
+            for (int i = 0; i < snapshot.Count; i++)
             {
-                if (snapshot == null)
-                    return result;
+                TactTimeRecord record = snapshot[i];
+                if (record == null)
+                    continue;
+                if (!_historyMode && _viewSince != DateTime.MinValue && record.StartedAt < _viewSince)
+                    continue;
 
-                for (int i = 0; i < snapshot.Count; i++)
+                if (IsMajorUnitRecord(record))
                 {
-                    TactTimeRecord record = snapshot[i];
-                    if (record == null)
-                        continue;
-
-                    if (_viewSince != DateTime.MinValue && record.StartedAt < _viewSince)
-                        continue;
-
-                    if (IsMajorUnitRecord(record))
-                    {
-                        TactTimeRecord clone = record.Clone();
-                        clone.Detail = "유닛 전체 동작 택타임. " + Safe(record.Detail);
-                        result.Add(clone);
-                    }
-
-                    if (IsPlaceProcessRecord(record))
-                        placeRecords.Add(record);
-
-                    if (IsOutputReceiveTactRecord(record))
-                    {
-                        TactTimeRecord clone = record.Clone();
-                        clone.Detail = "OutputStage 제품 1개 수령 기준 택타임. " + Safe(record.Detail);
-                        outputReceiveRecords.Add(clone);
-                    }
-
-                    if (IsInspectionDetailTactRecord(record))
-                    {
-                        TactTimeRecord clone = record.Clone();
-                        clone.Detail = "검사 세부 택타임. " + Safe(record.Detail);
-                        inspectionDetailRecords.Add(clone);
-                    }
+                    TactTimeRecord clone = record.Clone();
+                    clone.Detail = "유닛 전체 동작 시간. " + Safe(record.Detail);
+                    result.Add(clone);
                 }
 
-                outputReceiveRecords.Sort((a, b) => a.EndedAt.CompareTo(b.EndedAt));
-                if (outputReceiveRecords.Count > 0)
+                if (IsPlaceProcessRecord(record))
+                    placeRecords.Add(record);
+
+                if (IsOutputReceiveTactRecord(record))
                 {
-                    AddOutputReceiveAverageRecords(result, outputReceiveRecords);
-                    result.AddRange(outputReceiveRecords);
+                    TactTimeRecord clone = record.Clone();
+                    clone.Detail = "OutputStage 제품 1개 수령 간격. " + Safe(record.Detail);
+                    outputReceiveRecords.Add(clone);
                 }
 
-                inspectionDetailRecords.Sort((a, b) => a.StartedAt.CompareTo(b.StartedAt));
-                if (inspectionDetailRecords.Count > 0)
+                if (IsInspectionDetailTactRecord(record))
                 {
-                    AddInspectionDetailAverageRecords(result, inspectionDetailRecords);
-                    result.AddRange(inspectionDetailRecords);
+                    TactTimeRecord clone = record.Clone();
+                    clone.Detail = "검사 세부 시간. " + Safe(record.Detail);
+                    inspectionDetailRecords.Add(clone);
                 }
-
-                if (outputReceiveRecords.Count > 0 || inspectionDetailRecords.Count > 0)
-                {
-                    result.Sort((a, b) => a.StartedAt.CompareTo(b.StartedAt));
-                    return result;
-                }
-
-                placeRecords.Sort((a, b) => a.EndedAt.CompareTo(b.EndedAt));
-                for (int i = 1; i < placeRecords.Count; i++)
-                {
-                    TactTimeRecord previous = placeRecords[i - 1];
-                    TactTimeRecord current = placeRecords[i];
-                    if (previous.EndedAt == DateTime.MinValue || current.EndedAt == DateTime.MinValue)
-                        continue;
-
-                    long elapsed = Math.Max(0, (long)(current.EndedAt - previous.EndedAt).TotalMilliseconds);
-                    result.Add(new TactTimeRecord
-                    {
-                        RunId = current.RunId,
-                        ParentId = current.ParentId,
-                        CorrelationId = "TOTAL-PLACE-TO-PLACE-" + current.CorrelationId,
-                        EquipmentId = current.EquipmentId,
-                        ProjectName = current.ProjectName,
-                        LotId = current.LotId,
-                        Mode = current.Mode,
-                        UnitName = "Total",
-                        SequenceName = "SequenceSummary",
-                        ProcessName = "Total TactTime",
-                        StepName = "Place 완료 간격",
-                        Category = TactTimeCategory.Process,
-                        StartedAt = previous.EndedAt,
-                        EndedAt = current.EndedAt,
-                        ElapsedMs = elapsed,
-                        Result = current.Result,
-                        AlarmCode = current.AlarmCode,
-                        Detail = "Output 수령 이벤트가 없어 Place 완료 기준으로 임시 계산한 시간입니다. previous=" +
-                                 Safe(previous.UnitName) + "/" + Safe(previous.ProcessName) +
-                                 ", current=" + Safe(current.UnitName) + "/" + Safe(current.ProcessName)
-                    });
-                }
-
-                result.Sort((a, b) => a.StartedAt.CompareTo(b.StartedAt));
-            }
-            catch
-            {
-            }
-            finally
-            {
             }
 
+            outputReceiveRecords.Sort((a, b) => a.EndedAt.CompareTo(b.EndedAt));
+            if (outputReceiveRecords.Count > 0)
+            {
+                AddOutputReceiveAverageRecords(result, outputReceiveRecords);
+                result.AddRange(outputReceiveRecords);
+            }
+
+            inspectionDetailRecords.Sort((a, b) => a.StartedAt.CompareTo(b.StartedAt));
+            if (inspectionDetailRecords.Count > 0)
+            {
+                AddInspectionDetailAverageRecords(result, inspectionDetailRecords);
+                result.AddRange(inspectionDetailRecords);
+            }
+
+            if (outputReceiveRecords.Count == 0 && inspectionDetailRecords.Count == 0)
+                AddPlaceToPlaceRecords(result, placeRecords);
+
+            result.Sort((a, b) => a.StartedAt.CompareTo(b.StartedAt));
             return result;
+        }
+
+        private static void AddPlaceToPlaceRecords(List<TactTimeRecord> result, List<TactTimeRecord> placeRecords)
+        {
+            placeRecords.Sort((a, b) => a.EndedAt.CompareTo(b.EndedAt));
+            for (int i = 1; i < placeRecords.Count; i++)
+            {
+                TactTimeRecord previous = placeRecords[i - 1];
+                TactTimeRecord current = placeRecords[i];
+                if (previous.EndedAt == DateTime.MinValue || current.EndedAt == DateTime.MinValue)
+                    continue;
+
+                long elapsed = Math.Max(0, (long)(current.EndedAt - previous.EndedAt).TotalMilliseconds);
+                result.Add(new TactTimeRecord
+                {
+                    RunId = current.RunId,
+                    ParentId = current.ParentId,
+                    CorrelationId = "TOTAL-PLACE-TO-PLACE-" + current.CorrelationId,
+                    EquipmentId = current.EquipmentId,
+                    ProjectName = current.ProjectName,
+                    LotId = current.LotId,
+                    Mode = current.Mode,
+                    UnitName = "Total",
+                    SequenceName = "SequenceSummary",
+                    ProcessName = "Total TactTime",
+                    StepName = "Place 완료 간격",
+                    Category = TactTimeCategory.Process,
+                    StartedAt = previous.EndedAt,
+                    EndedAt = current.EndedAt,
+                    ElapsedMs = elapsed,
+                    Result = current.Result,
+                    AlarmCode = current.AlarmCode,
+                    Detail = "Output 수령 이벤트가 없어 Place 완료 시각 간격으로 계산한 임시 택타임입니다. previous=" +
+                             Safe(previous.UnitName) + "/" + Safe(previous.ProcessName) +
+                             ", current=" + Safe(current.UnitName) + "/" + Safe(current.ProcessName)
+                });
+            }
         }
 
         private static void AddOutputReceiveAverageRecords(List<TactTimeRecord> result, List<TactTimeRecord> records)
@@ -303,91 +616,51 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
 
         private static void AddInspectionDetailAverageRecords(List<TactTimeRecord> result, List<TactTimeRecord> records)
         {
-            TryAddProcessAverageRecord(result, records, "Bottom Camera Inspect", "Bottom 검사 시간 평균");
-            TryAddProcessAverageRecord(result, records, "Bottom Camera Inspect Interval", "Bottom 검사 간격 평균");
+            TryAddProcessAverageRecord(result, records, "Bottom Camera Inspect", "Bottom 검사시간 평균");
+            TryAddProcessAverageRecord(result, records, "Bottom Camera Inspect Interval", "Bottom 검사간격 평균");
             TryAddProcessAverageRecord(result, records, "Bottom Vision To Pitch Move", "Bottom 비전 후 피치 이동 평균");
-            TryAddProcessAverageRecord(result, records, "Side 0deg Inspect", "Side 0도 검사 시간 평균");
-            TryAddProcessAverageRecord(result, records, "Side 0deg Inspect Interval", "Side 0도 검사 간격 평균");
+            TryAddProcessAverageRecord(result, records, "Side 0deg Inspect", "Side 0도 검사시간 평균");
+            TryAddProcessAverageRecord(result, records, "Side 0deg Inspect Interval", "Side 0도 검사간격 평균");
             TryAddProcessAverageRecord(result, records, "Side 0deg To 90deg Motion", "Side 0도→90도 모션 평균");
-            TryAddProcessAverageRecord(result, records, "Side 90deg Inspect", "Side 90도 검사 시간 평균");
-            TryAddProcessAverageRecord(result, records, "Side 90deg Inspect Interval", "Side 90도 검사 간격 평균");
+            TryAddProcessAverageRecord(result, records, "Side 90deg Inspect", "Side 90도 검사시간 평균");
+            TryAddProcessAverageRecord(result, records, "Side 90deg Inspect Interval", "Side 90도 검사간격 평균");
         }
 
         private static List<TactTimeRecord> ApplyItemFilter(List<TactTimeRecord> records, string itemFilter)
         {
-            var filtered = new List<TactTimeRecord>();
-            try
-            {
-                if (records == null)
-                    return filtered;
-
-                for (int i = 0; i < records.Count; i++)
-                {
-                    TactTimeRecord record = records[i];
-                    if (MatchesItemFilter(record, itemFilter))
-                        filtered.Add(record);
-                }
-            }
-            catch
-            {
-            }
-            finally
-            {
-            }
-
-            return filtered;
+            if (records == null)
+                return new List<TactTimeRecord>();
+            return records.Where(x => MatchesItemFilter(x, itemFilter)).ToList();
         }
 
         private static bool MatchesItemFilter(TactTimeRecord record, string itemFilter)
         {
             if (record == null)
                 return false;
-
-            if (string.IsNullOrWhiteSpace(itemFilter) ||
-                string.Equals(itemFilter, "ALL", StringComparison.OrdinalIgnoreCase))
+            if (string.IsNullOrWhiteSpace(itemFilter) || string.Equals(itemFilter, "ALL", StringComparison.OrdinalIgnoreCase))
                 return true;
 
             string process = record.ProcessName ?? "";
-
             if (string.Equals(itemFilter, "UNIT FLOW", StringComparison.OrdinalIgnoreCase))
                 return record.Category == TactTimeCategory.Unit || IsMajorUnitRecord(record);
-
             if (string.Equals(itemFilter, "OUTPUT RECEIVE", StringComparison.OrdinalIgnoreCase))
-                return string.Equals(process, "Output Receive TactTime", StringComparison.OrdinalIgnoreCase) ||
-                       string.Equals(process, "Output Receive AVG", StringComparison.OrdinalIgnoreCase);
-
+                return EqualsAny(process, "Output Receive TactTime", "Output Receive AVG");
             if (string.Equals(itemFilter, "BOTTOM INSPECT", StringComparison.OrdinalIgnoreCase))
-                return string.Equals(process, "Bottom Camera Inspect", StringComparison.OrdinalIgnoreCase) ||
-                       string.Equals(process, "Bottom Camera Inspect AVG", StringComparison.OrdinalIgnoreCase);
-
+                return EqualsAny(process, "Bottom Camera Inspect", "Bottom Camera Inspect AVG");
             if (string.Equals(itemFilter, "BOTTOM VISION->PITCH", StringComparison.OrdinalIgnoreCase))
-                return string.Equals(process, "Bottom Vision To Pitch Move", StringComparison.OrdinalIgnoreCase) ||
-                       string.Equals(process, "Bottom Vision To Pitch Move AVG", StringComparison.OrdinalIgnoreCase);
-
+                return EqualsAny(process, "Bottom Vision To Pitch Move", "Bottom Vision To Pitch Move AVG");
             if (string.Equals(itemFilter, "BOTTOM INTERVAL", StringComparison.OrdinalIgnoreCase))
-                return string.Equals(process, "Bottom Camera Inspect Interval", StringComparison.OrdinalIgnoreCase) ||
-                       string.Equals(process, "Bottom Camera Inspect Interval AVG", StringComparison.OrdinalIgnoreCase);
-
+                return EqualsAny(process, "Bottom Camera Inspect Interval", "Bottom Camera Inspect Interval AVG");
             if (string.Equals(itemFilter, "SIDE 0 INSPECT", StringComparison.OrdinalIgnoreCase))
-                return string.Equals(process, "Side 0deg Inspect", StringComparison.OrdinalIgnoreCase) ||
-                       string.Equals(process, "Side 0deg Inspect AVG", StringComparison.OrdinalIgnoreCase);
-
+                return EqualsAny(process, "Side 0deg Inspect", "Side 0deg Inspect AVG");
             if (string.Equals(itemFilter, "SIDE 0 INTERVAL", StringComparison.OrdinalIgnoreCase))
-                return string.Equals(process, "Side 0deg Inspect Interval", StringComparison.OrdinalIgnoreCase) ||
-                       string.Equals(process, "Side 0deg Inspect Interval AVG", StringComparison.OrdinalIgnoreCase);
-
+                return EqualsAny(process, "Side 0deg Inspect Interval", "Side 0deg Inspect Interval AVG");
             if (string.Equals(itemFilter, "SIDE 0->90 MOTION", StringComparison.OrdinalIgnoreCase))
-                return string.Equals(process, "Side 0deg To 90deg Motion", StringComparison.OrdinalIgnoreCase) ||
-                       string.Equals(process, "Side 0deg To 90deg Motion AVG", StringComparison.OrdinalIgnoreCase);
-
+                return EqualsAny(process, "Side 0deg To 90deg Motion", "Side 0deg To 90deg Motion AVG");
             if (string.Equals(itemFilter, "SIDE 90 INSPECT", StringComparison.OrdinalIgnoreCase))
-                return string.Equals(process, "Side 90deg Inspect", StringComparison.OrdinalIgnoreCase) ||
-                       string.Equals(process, "Side 90deg Inspect AVG", StringComparison.OrdinalIgnoreCase);
-
+                return EqualsAny(process, "Side 90deg Inspect", "Side 90deg Inspect AVG");
             if (string.Equals(itemFilter, "SIDE 90 INTERVAL", StringComparison.OrdinalIgnoreCase))
-                return string.Equals(process, "Side 90deg Inspect Interval", StringComparison.OrdinalIgnoreCase) ||
-                       string.Equals(process, "Side 90deg Inspect Interval AVG", StringComparison.OrdinalIgnoreCase);
-
+                return EqualsAny(process, "Side 90deg Inspect Interval", "Side 90deg Inspect Interval AVG");
             return true;
         }
 
@@ -397,61 +670,35 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             string processName,
             string label)
         {
-            try
+            List<TactTimeRecord> targets = records
+                .Where(x => x != null && string.Equals(x.ProcessName, processName, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+            if (targets.Count == 0)
+                return;
+
+            TactTimeRecord first = targets.OrderBy(x => x.StartedAt).First();
+            TactTimeRecord last = targets.OrderByDescending(x => x.EndedAt).First();
+            long average = (long)targets.Average(x => (double)Math.Max(0, x.ElapsedMs));
+            result.Add(new TactTimeRecord
             {
-                if (result == null || records == null || string.IsNullOrWhiteSpace(processName))
-                    return;
-
-                long sum = 0;
-                int count = 0;
-                TactTimeRecord first = null;
-                TactTimeRecord last = null;
-                for (int i = 0; i < records.Count; i++)
-                {
-                    TactTimeRecord record = records[i];
-                    if (record == null ||
-                        !string.Equals(record.ProcessName, processName, StringComparison.OrdinalIgnoreCase))
-                        continue;
-
-                    if (first == null || record.StartedAt < first.StartedAt)
-                        first = record;
-                    if (last == null || record.EndedAt > last.EndedAt)
-                        last = record;
-
-                    sum += Math.Max(0, record.ElapsedMs);
-                    count++;
-                }
-
-                if (count <= 0 || first == null || last == null)
-                    return;
-
-                result.Add(new TactTimeRecord
-                {
-                    RunId = last.RunId,
-                    ParentId = last.ParentId,
-                    CorrelationId = "INSPECTION-AVG-" + processName.Replace(" ", "-"),
-                    EquipmentId = last.EquipmentId,
-                    ProjectName = last.ProjectName,
-                    LotId = last.LotId,
-                    Mode = last.Mode,
-                    UnitName = "Inspection",
-                    SequenceName = "SequenceSummary",
-                    ProcessName = processName + " AVG",
-                    StepName = label,
-                    Category = TactTimeCategory.Process,
-                    StartedAt = first.StartedAt,
-                    EndedAt = last.EndedAt,
-                    ElapsedMs = sum / count,
-                    Result = TactTimeResult.Ok,
-                    Detail = label + "입니다. count=" + count + ", avgMs=" + (sum / count)
-                });
-            }
-            catch
-            {
-            }
-            finally
-            {
-            }
+                RunId = last.RunId,
+                ParentId = last.ParentId,
+                CorrelationId = "INSPECTION-AVG-" + processName.Replace(" ", "-"),
+                EquipmentId = last.EquipmentId,
+                ProjectName = last.ProjectName,
+                LotId = last.LotId,
+                Mode = last.Mode,
+                UnitName = "Inspection",
+                SequenceName = "SequenceSummary",
+                ProcessName = processName + " AVG",
+                StepName = label,
+                Category = TactTimeCategory.Process,
+                StartedAt = first.StartedAt,
+                EndedAt = last.EndedAt,
+                ElapsedMs = average,
+                Result = TactTimeResult.Ok,
+                Detail = label + "입니다. count=" + targets.Count + ", avgMs=" + average
+            });
         }
 
         private static void TryAddOutputReceiveAverageRecord(
@@ -460,66 +707,37 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             string side,
             string label)
         {
-            try
+            List<TactTimeRecord> targets = records
+                .Where(x => x != null && (string.IsNullOrWhiteSpace(side) ||
+                    string.Equals(x.StepName, side, StringComparison.OrdinalIgnoreCase)))
+                .ToList();
+            if (targets.Count == 0)
+                return;
+
+            TactTimeRecord first = targets.OrderBy(x => x.StartedAt).First();
+            TactTimeRecord last = targets.OrderByDescending(x => x.EndedAt).First();
+            long average = (long)targets.Average(x => (double)Math.Max(0, x.ElapsedMs));
+            result.Add(new TactTimeRecord
             {
-                if (result == null || records == null || records.Count == 0)
-                    return;
-
-                long sum = 0;
-                int count = 0;
-                TactTimeRecord first = null;
-                TactTimeRecord last = null;
-                for (int i = 0; i < records.Count; i++)
-                {
-                    TactTimeRecord record = records[i];
-                    if (record == null)
-                        continue;
-
-                    if (!string.IsNullOrWhiteSpace(side) &&
-                        !string.Equals(record.StepName, side, StringComparison.OrdinalIgnoreCase))
-                        continue;
-
-                    if (first == null || record.StartedAt < first.StartedAt)
-                        first = record;
-                    if (last == null || record.EndedAt > last.EndedAt)
-                        last = record;
-
-                    sum += Math.Max(0, record.ElapsedMs);
-                    count++;
-                }
-
-                if (count <= 0 || first == null || last == null)
-                    return;
-
-                result.Add(new TactTimeRecord
-                {
-                    RunId = last.RunId,
-                    ParentId = last.ParentId,
-                    CorrelationId = "OUTPUT-RECEIVE-AVG-" + (string.IsNullOrWhiteSpace(side) ? "ALL" : side),
-                    EquipmentId = last.EquipmentId,
-                    ProjectName = last.ProjectName,
-                    LotId = last.LotId,
-                    Mode = last.Mode,
-                    UnitName = "OutputStage",
-                    SequenceName = "SequenceSummary",
-                    ProcessName = "Output Receive AVG",
-                    StepName = label,
-                    Category = TactTimeCategory.Process,
-                    StartedAt = first.StartedAt,
-                    EndedAt = last.EndedAt,
-                    ElapsedMs = sum / count,
-                    Result = TactTimeResult.Ok,
-                    Detail = "OutputStage가 제품 1개를 받은 간격의 평균입니다. 기준=" +
-                             label + ", count=" + count +
-                             ", avgMs=" + (sum / count)
-                });
-            }
-            catch
-            {
-            }
-            finally
-            {
-            }
+                RunId = last.RunId,
+                ParentId = last.ParentId,
+                CorrelationId = "OUTPUT-RECEIVE-AVG-" + (string.IsNullOrWhiteSpace(side) ? "ALL" : side),
+                EquipmentId = last.EquipmentId,
+                ProjectName = last.ProjectName,
+                LotId = last.LotId,
+                Mode = last.Mode,
+                UnitName = "OutputStage",
+                SequenceName = "SequenceSummary",
+                ProcessName = "Output Receive AVG",
+                StepName = label,
+                Category = TactTimeCategory.Process,
+                StartedAt = first.StartedAt,
+                EndedAt = last.EndedAt,
+                ElapsedMs = average,
+                Result = TactTimeResult.Ok,
+                Detail = "OutputStage 제품 1개 수령 간격 평균입니다. 기준=" + label +
+                         ", count=" + targets.Count + ", avgMs=" + average
+            });
         }
 
         private static bool IsMajorUnitRecord(TactTimeRecord record)
@@ -535,19 +753,17 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
 
         private static bool IsPlaceProcessRecord(TactTimeRecord record)
         {
-            if (record == null || record.Category != TactTimeCategory.Process)
-                return false;
-
-            return string.Equals(record.ProcessName, "Place", StringComparison.OrdinalIgnoreCase) &&
+            return record != null &&
+                   record.Category == TactTimeCategory.Process &&
+                   string.Equals(record.ProcessName, "Place", StringComparison.OrdinalIgnoreCase) &&
                    record.EndedAt != DateTime.MinValue;
         }
 
         private static bool IsOutputReceiveTactRecord(TactTimeRecord record)
         {
-            if (record == null || record.Category != TactTimeCategory.Process)
-                return false;
-
-            return string.Equals(record.ProcessName, "Output Receive TactTime", StringComparison.OrdinalIgnoreCase) &&
+            return record != null &&
+                   record.Category == TactTimeCategory.Process &&
+                   string.Equals(record.ProcessName, "Output Receive TactTime", StringComparison.OrdinalIgnoreCase) &&
                    record.EndedAt != DateTime.MinValue;
         }
 
@@ -556,27 +772,15 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             if (record == null)
                 return false;
 
-            string process = record.ProcessName ?? "";
-            return string.Equals(process, "Bottom Camera Inspect", StringComparison.OrdinalIgnoreCase) ||
-                   string.Equals(process, "Bottom Camera Inspect Interval", StringComparison.OrdinalIgnoreCase) ||
-                   string.Equals(process, "Bottom Vision To Pitch Move", StringComparison.OrdinalIgnoreCase) ||
-                   string.Equals(process, "Side 0deg Inspect", StringComparison.OrdinalIgnoreCase) ||
-                   string.Equals(process, "Side 0deg Inspect Interval", StringComparison.OrdinalIgnoreCase) ||
-                   string.Equals(process, "Side 0deg To 90deg Motion", StringComparison.OrdinalIgnoreCase) ||
-                   string.Equals(process, "Side 90deg Inspect", StringComparison.OrdinalIgnoreCase) ||
-                   string.Equals(process, "Side 90deg Inspect Interval", StringComparison.OrdinalIgnoreCase);
-        }
-
-        private static bool ContainsAny(string value, params string[] tokens)
-        {
-            value = value ?? "";
-            for (int i = 0; i < tokens.Length; i++)
-            {
-                if (value.IndexOf(tokens[i] ?? "", StringComparison.OrdinalIgnoreCase) >= 0)
-                    return true;
-            }
-
-            return false;
+            return EqualsAny(record.ProcessName ?? "",
+                "Bottom Camera Inspect",
+                "Bottom Camera Inspect Interval",
+                "Bottom Vision To Pitch Move",
+                "Side 0deg Inspect",
+                "Side 0deg Inspect Interval",
+                "Side 0deg To 90deg Motion",
+                "Side 90deg Inspect",
+                "Side 90deg Inspect Interval");
         }
 
         private void UpdateGrid(List<TactTimeRecord> records)
@@ -585,8 +789,9 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             try
             {
                 _grid.Rows.Clear();
+                int firstIndex = Math.Max(0, records.Count - MaxGridRows);
                 int rowNo = 1;
-                for (int i = records.Count - 1; i >= 0; i--)
+                for (int i = records.Count - 1; i >= firstIndex; i--)
                 {
                     TactTimeRecord record = records[i];
                     int index = _grid.Rows.Add(
@@ -597,7 +802,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                         Safe(record.ProcessName),
                         Safe(record.StepName),
                         record.Result.ToString(),
-                        record.ElapsedMs.ToString(),
+                        record.ElapsedMs.ToString("N0"),
                         FormatTime(record.StartedAt),
                         FormatTime(record.EndedAt),
                         Safe(record.Detail));
@@ -617,154 +822,139 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             }
         }
 
-        private void UpdateChartRecords(List<TactTimeRecord> records)
+        private void UpdateChartRecords(List<TactTimeRecord> records, bool preserveView)
         {
             _chartRecords.Clear();
-            _chartLanes.Clear();
-
             for (int i = 0; i < records.Count; i++)
             {
                 TactTimeRecord record = records[i];
-                if (record.EndedAt == DateTime.MinValue || record.StartedAt == DateTime.MinValue)
+                if (record.StartedAt == DateTime.MinValue || record.EndedAt == DateTime.MinValue)
                     continue;
-
                 _chartRecords.Add(record);
-
-                string lane = ResolveLaneName(record);
-                if (!_chartLanes.Contains(lane))
-                    _chartLanes.Add(lane);
             }
+
+            _timeChart.EmptyMessage = _historyMode
+                ? "선택한 과거 Run에 해당하는 택타임 기록이 없습니다."
+                : "장비가 운전되면 실시간 택타임이 표시됩니다.";
+            _timeChart.UpdateRecords(_chartRecords, preserveView);
         }
 
         private void UpdateSummary(List<TactTimeRecord> records)
         {
-            long totalMs = 0;
-            int failed = 0;
-            int stopped = 0;
-            for (int i = 0; i < records.Count; i++)
-            {
-                totalMs += Math.Max(0, records[i].ElapsedMs);
-                if (records[i].Result == TactTimeResult.Failed)
-                    failed++;
-                else if (records[i].Result == TactTimeResult.Stopped || records[i].Result == TactTimeResult.Canceled)
-                    stopped++;
-            }
-
-            lblSummary.Text =
-                "records=" + records.Count +
-                " / total=" + totalMs + " ms" +
-                " / failed=" + failed +
-                " / stopped=" + stopped +
-                " / filter=" + (cmbCategory.SelectedItem != null ? cmbCategory.SelectedItem.ToString() : "ALL") +
-                " / item=" + (cmbItemFilter.SelectedItem != null ? cmbItemFilter.SelectedItem.ToString() : "ALL");
-
             if (records.Count == 0)
-                lblStatus.Text = "택타임 기록이 없습니다. 시퀀스를 실행하면 이 화면에 기록됩니다.";
-        }
-
-        private void chartHost_Paint(object sender, PaintEventArgs e)
-        {
-            try
             {
-                DrawChart(e.Graphics, _chartHost.ClientRectangle);
-            }
-            catch
-            {
-            }
-            finally
-            {
-            }
-        }
-
-        private void DrawChart(Graphics graphics, Rectangle bounds)
-        {
-            graphics.Clear(Color.White);
-
-            if (_chartRecords.Count == 0 || bounds.Width <= 20 || bounds.Height <= 20)
-            {
-                using (var font = new Font("맑은 고딕", 10F, FontStyle.Bold))
-                using (var brush = new SolidBrush(Color.DimGray))
-                    graphics.DrawString("택타임 기록이 없습니다.", font, brush, 16, 16);
+                lblSummary.Text = "표시할 택타임 기록이 없습니다.";
+                lblStatus.Text = _historyMode
+                    ? "선택한 Run 또는 필터에 해당하는 기록이 없습니다."
+                    : "택타임 기록을 기다리는 중입니다.";
                 return;
             }
 
-            DateTime start = _chartRecords[0].StartedAt;
-            DateTime end = _chartRecords[0].EndedAt;
-            for (int i = 0; i < _chartRecords.Count; i++)
-            {
-                if (_chartRecords[i].StartedAt < start)
-                    start = _chartRecords[i].StartedAt;
-                if (_chartRecords[i].EndedAt > end)
-                    end = _chartRecords[i].EndedAt;
-            }
+            DateTime start = records.Min(x => x.StartedAt);
+            DateTime end = records.Max(x => x.EndedAt);
+            List<TactTimeRecord> metricRecords = ResolveMetricRecords(records);
+            bool containersExcluded = metricRecords.Count != records.Count;
+            double spanMs = Math.Max(0.0, (end - start).TotalMilliseconds);
+            double average = metricRecords.Average(x => (double)Math.Max(0, x.ElapsedMs));
+            long minimum = metricRecords.Min(x => Math.Max(0, x.ElapsedMs));
+            long maximum = metricRecords.Max(x => Math.Max(0, x.ElapsedMs));
+            long p95 = CalculateNearestRankPercentile(metricRecords, 0.95);
+            int failed = records.Count(x => x.Result == TactTimeResult.Failed);
+            int stopped = records.Count(x => x.Result == TactTimeResult.Stopped || x.Result == TactTimeResult.Canceled);
+            int displayed = Math.Min(records.Count, MaxGridRows);
+            int statisticGroups = metricRecords.Select(ResolveStatisticItemKey)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .Count();
+            string mixedNotice = statisticGroups > 1
+                ? " / 평균·P95 혼합 참고값(" + statisticGroups + "종)"
+                : "";
 
-            double totalMs = Math.Max(1000.0, (end - start).TotalMilliseconds);
-            int left = 180;
-            int top = 16;
-            int bottom = 28;
-            int rowHeight = 30;
-            int plotWidth = Math.Max(1, bounds.Width - left - 20);
+            lblSummary.Text =
+                "기록 " + records.Count.ToString("N0") + "건" +
+                (records.Count > MaxGridRows ? " (Grid " + displayed.ToString("N0") + "건)" : "") +
+                " / 구간 " + FormatDuration(spanMs) +
+                " / 평균 " + FormatDuration(average) +
+                " / 최소 " + FormatDuration(minimum) +
+                " / P95 " + FormatDuration(p95) +
+                " / 최대 " + FormatDuration(maximum) +
+                " / 실패 " + failed + " / 정지 " + stopped +
+                (containersExcluded ? " / 통계 Run·Unit 중첩 제외" : "") +
+                mixedNotice;
+        }
 
-            using (var gridPen = new Pen(Color.FromArgb(0xDD, 0xDD, 0xDD)))
-            using (var textBrush = new SolidBrush(Color.Black))
-            using (var axisBrush = new SolidBrush(Color.DimGray))
-            using (var font = new Font("맑은 고딕", 8.5F))
-            {
-                for (int i = 0; i < _chartLanes.Count; i++)
-                {
-                    int y = top + i * rowHeight;
-                    graphics.DrawLine(gridPen, 0, y + rowHeight, bounds.Width, y + rowHeight);
-                    graphics.DrawString(_chartLanes[i], font, textBrush, 8, y + 7);
-                }
+        private static List<TactTimeRecord> ResolveMetricRecords(List<TactTimeRecord> records)
+        {
+            List<TactTimeRecord> details = records
+                .Where(x => x.Category != TactTimeCategory.Run && x.Category != TactTimeCategory.Unit)
+                .ToList();
+            return details.Count > 0 ? details : records;
+        }
 
-                int axisY = Math.Min(bounds.Height - bottom, top + _chartLanes.Count * rowHeight + 8);
-                for (int i = 0; i <= 10; i++)
-                {
-                    int x = left + (int)(plotWidth * (i / 10.0));
-                    graphics.DrawLine(gridPen, x, top, x, axisY);
-                    double sec = totalMs * i / 10.0 / 1000.0;
-                    graphics.DrawString(sec.ToString("0.0") + "s", font, axisBrush, x - 10, axisY + 4);
-                }
+        private static string ResolveStatisticItemKey(TactTimeRecord record)
+        {
+            if (record == null)
+                return "기타";
+            if (!string.IsNullOrWhiteSpace(record.ProcessName))
+                return record.ProcessName;
+            if (!string.IsNullOrWhiteSpace(record.StepName))
+                return record.StepName;
+            if (!string.IsNullOrWhiteSpace(record.SequenceName))
+                return record.SequenceName;
+            return record.Category.ToString();
+        }
 
-                for (int i = 0; i < _chartRecords.Count; i++)
-                {
-                    TactTimeRecord record = _chartRecords[i];
-                    int lane = _chartLanes.IndexOf(ResolveLaneName(record));
-                    if (lane < 0)
-                        continue;
-
-                    int y = top + lane * rowHeight + 7;
-                    int x = left + (int)(((record.StartedAt - start).TotalMilliseconds / totalMs) * plotWidth);
-                    int w = Math.Max(2, (int)((Math.Max(1, record.ElapsedMs) / totalMs) * plotWidth));
-                    using (var brush = new SolidBrush(ResolveCategoryColor(record)))
-                    {
-                        graphics.FillRectangle(brush, x, y, w, 16);
-                    }
-                    graphics.DrawRectangle(Pens.DimGray, x, y, w, 16);
-                }
-
-                graphics.DrawString("axis = " + (totalMs / 1000.0).ToString("0.0") + "s", font, axisBrush, bounds.Width - 90, bounds.Height - 18);
-            }
+        private void UpdateSelectedRecordStatus(TactTimeRecord record)
+        {
+            lblStatus.Text =
+                "선택: " + record.Category +
+                " / " + Safe(record.UnitName) +
+                " / " + Safe(record.ProcessName) +
+                " / " + Safe(record.StepName) +
+                " / " + record.ElapsedMs.ToString("N0") + " ms" +
+                " / " + record.Result +
+                (string.IsNullOrWhiteSpace(record.AlarmCode) ? "" : " / " + record.AlarmCode) +
+                (string.IsNullOrWhiteSpace(record.Detail) ? "" : " / " + record.Detail);
         }
 
         private void UpdateRefreshTimer()
         {
-            try
-            {
-                if (_refresh == null)
-                    return;
+            if (_refresh == null)
+                return;
 
-                if (Visible && chkAutoRefresh.Checked)
-                    _refresh.Start();
-                else
-                    _refresh.Stop();
-            }
-            catch
-            {
-            }
-            finally
-            {
-            }
+            if (Visible && chkAutoRefresh.Checked && !_historyMode && !_historyLoading)
+                _refresh.Start();
+            else
+                _refresh.Stop();
+        }
+
+        private void HandleHistoryFailure(string operation, string message, Exception ex)
+        {
+            LogUiFailure(operation, ex);
+            lblStatus.Text = message + " " + ex.Message;
+            MessageBox.Show(this, message + Environment.NewLine + Environment.NewLine + ex.Message,
+                "TIMECHART", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+        }
+
+        private void LogUiFailure(string operation, Exception ex)
+        {
+            QMC.Common.Log.Write("Main", "SYSTEM", "LogicTimeChart",
+                "TIMECHART UI 작업 실패. operation=" + operation +
+                ", file=" + (string.IsNullOrWhiteSpace(_historyFilePath) ? "-" : _historyFilePath) +
+                ", progress=" + progressHistory.Value + "%" +
+                ", error=" + (ex != null ? ex.Message : "-") + " - Failed");
+        }
+
+        private static string ResolveTactTimeDirectory()
+        {
+            string configured = Path.Combine(EventLogger.LogRoot, "TactTime");
+            if (Directory.Exists(configured))
+                return configured;
+
+            const string deployed = @"D:\CDT-320\Log\TactTime";
+            if (Directory.Exists(deployed))
+                return deployed;
+
+            return AppDomain.CurrentDomain.BaseDirectory;
         }
 
         private static string BuildSignature(List<TactTimeRecord> records)
@@ -772,26 +962,20 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             if (records == null || records.Count == 0)
                 return "0";
 
+            TactTimeRecord first = records[0];
             TactTimeRecord last = records[records.Count - 1];
-            return records.Count + "|" + last.RunId + "|" + last.CorrelationId + "|" +
-                   last.StartedAt.Ticks + "|" + last.EndedAt.Ticks + "|" + last.Result;
+            return records.Count + "|" + first.RunId + "|" + last.RunId + "|" +
+                   last.CorrelationId + "|" + first.StartedAt.Ticks + "|" + last.EndedAt.Ticks + "|" + last.Result;
         }
 
-        private static string ResolveLaneName(TactTimeRecord record)
+        private static long CalculateNearestRankPercentile(List<TactTimeRecord> records, double percentile)
         {
-            if (record == null)
-                return "-";
+            if (records == null || records.Count == 0)
+                return 0;
 
-            if (record.Category == TactTimeCategory.Run)
-                return "Run";
-
-            if (!string.IsNullOrWhiteSpace(record.UnitName))
-                return record.UnitName;
-
-            if (!string.IsNullOrWhiteSpace(record.SequenceName))
-                return record.SequenceName;
-
-            return record.Category.ToString();
+            long[] values = records.Select(x => Math.Max(0, x.ElapsedMs)).OrderBy(x => x).ToArray();
+            int rank = (int)Math.Ceiling(Math.Max(0.0, Math.Min(1.0, percentile)) * values.Length);
+            return values[Math.Max(0, Math.Min(values.Length - 1, rank - 1))];
         }
 
         private static Color ResolveResultBackColor(TactTimeResult result)
@@ -810,40 +994,64 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             }
         }
 
-        private static Color ResolveCategoryColor(TactTimeRecord record)
+        private static bool IsSameRecord(TactTimeRecord left, TactTimeRecord right)
         {
-            if (record == null)
-                return Color.Gray;
+            if (object.ReferenceEquals(left, right))
+                return true;
+            if (left == null || right == null)
+                return false;
+            if (!string.IsNullOrWhiteSpace(left.CorrelationId) && !string.IsNullOrWhiteSpace(right.CorrelationId))
+                return string.Equals(left.CorrelationId, right.CorrelationId, StringComparison.OrdinalIgnoreCase);
 
-            if (record.Result == TactTimeResult.Failed)
-                return Color.FromArgb(0xD9, 0x44, 0x44);
-            if (record.Result == TactTimeResult.Stopped || record.Result == TactTimeResult.Canceled)
-                return Color.FromArgb(0xD9, 0xA8, 0x58);
+            return left.StartedAt == right.StartedAt &&
+                   left.EndedAt == right.EndedAt &&
+                   string.Equals(left.UnitName, right.UnitName, StringComparison.OrdinalIgnoreCase) &&
+                   string.Equals(left.ProcessName, right.ProcessName, StringComparison.OrdinalIgnoreCase) &&
+                   string.Equals(left.StepName, right.StepName, StringComparison.OrdinalIgnoreCase);
+        }
 
-            switch (record.Category)
+        private static bool EqualsAny(string value, params string[] candidates)
+        {
+            for (int i = 0; i < candidates.Length; i++)
             {
-                case TactTimeCategory.Run:
-                    return Color.FromArgb(0x5B, 0x8D, 0xD6);
-                case TactTimeCategory.Unit:
-                    return Color.FromArgb(0x58, 0xC0, 0xD9);
-                case TactTimeCategory.Process:
-                    return Color.FromArgb(0x58, 0xD9, 0xA8);
-                case TactTimeCategory.Step:
-                    return Color.FromArgb(0x88, 0x88, 0x88);
-                case TactTimeCategory.Vision:
-                    return Color.FromArgb(0x9A, 0x75, 0xD9);
-                case TactTimeCategory.Motion:
-                    return Color.FromArgb(0xD9, 0xA8, 0x58);
-                default:
-                    return Color.FromArgb(0x88, 0xB0, 0xC8);
+                if (string.Equals(value, candidates[i], StringComparison.OrdinalIgnoreCase))
+                    return true;
             }
+            return false;
+        }
+
+        private static bool ContainsAny(string value, params string[] tokens)
+        {
+            value = value ?? "";
+            for (int i = 0; i < tokens.Length; i++)
+            {
+                if (value.IndexOf(tokens[i] ?? "", StringComparison.OrdinalIgnoreCase) >= 0)
+                    return true;
+            }
+            return false;
         }
 
         private static string FormatTime(DateTime value)
         {
-            if (value == DateTime.MinValue)
-                return "-";
-            return value.ToString("HH:mm:ss.fff");
+            return value == DateTime.MinValue ? "-" : value.ToString("HH:mm:ss.fff");
+        }
+
+        private static string FormatDuration(double milliseconds)
+        {
+            if (milliseconds < 1000.0)
+                return Math.Max(0.0, milliseconds).ToString("0") + " ms";
+            if (milliseconds < 60000.0)
+                return (milliseconds / 1000.0).ToString("0.###") + " s";
+            return TimeSpan.FromMilliseconds(milliseconds).ToString(@"hh\:mm\:ss\.fff");
+        }
+
+        private static string FormatFileSize(long bytes)
+        {
+            if (bytes < 1024L)
+                return bytes + " B";
+            if (bytes < 1024L * 1024L)
+                return (bytes / 1024.0).ToString("0.0") + " KB";
+            return (bytes / 1024.0 / 1024.0).ToString("0.0") + " MB";
         }
 
         private static string Safe(string value)
@@ -859,18 +1067,17 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
 
         protected override void OnHandleDestroyed(EventArgs e)
         {
-            try
+            CancelHistoryLoad();
+            if (_refresh != null)
             {
-                _refresh?.Stop();
-                _refresh?.Dispose();
-            }
-            catch
-            {
-            }
-            finally
-            {
+                _refresh.Stop();
+                _refresh.Tick -= refresh_Tick;
+                _refresh.Dispose();
+                _refresh = null;
             }
 
+            _timeChart.RecordSelected -= timeChart_RecordSelected;
+            VisibleChanged -= LogicDetailPage_VisibleChanged;
             base.OnHandleDestroyed(e);
         }
     }

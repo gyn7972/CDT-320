@@ -1553,6 +1553,11 @@ namespace QMC.CDT320.Materials
                 slot.WaferId = "";
                 slot.HasWafer = false;
             }
+
+            // Material slot data를 모두 지운 뒤에는 마지막 mapping 결과를 더 이상
+            // 유효한 것으로 사용할 수 없다. 다음 Auto 시작에서 실제 mapping을 다시
+            // 수행하여 센서 결과와 Ready Material을 함께 재생성하도록 한다.
+            cassette.IsMapped = false;
         }
 
         public static bool ClearOutputCassetteSlotData(CassetteMaterialRole cassetteRole, int slotNumber)
@@ -1643,6 +1648,11 @@ namespace QMC.CDT320.Materials
                 slot.WaferId = "";
                 slot.HasWafer = false;
             }
+
+            // Material slot data를 모두 지운 뒤에는 마지막 mapping 결과를 더 이상
+            // 유효한 것으로 사용할 수 없다. 다음 전체 준비에서 실제 mapping을 다시
+            // 수행하여 센서 결과와 Ready Material을 함께 재생성하도록 한다.
+            cassette.IsMapped = false;
         }
 
         public static void MoveWaferToInputFeeder(WaferMaterial wafer)

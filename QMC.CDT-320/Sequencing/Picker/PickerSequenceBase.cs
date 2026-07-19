@@ -771,8 +771,7 @@ namespace QMC.CDT320.Sequencing
             string description,
             CancellationToken ct,
             string targetName = null,
-            bool forceMove = false,
-            bool skipFinalPositionCheck = false)
+            bool forceMove = false)
         {
             Stopwatch totalWatch = Stopwatch.StartNew();
             long commandMs = 0;
@@ -783,7 +782,7 @@ namespace QMC.CDT320.Sequencing
                 if (IsAlarmStopActive())
                     return StopPickerMoveBecauseAlarmActive(description);
 
-                if (!forceMove && IsPickerAxisAlreadyInPosition(axis, target))
+                if (!forceMove && CanSkipPickerMoveCommand(axis, target))
                 {
                     WriteLog("PickerMove",
                         Name + " " + description + " move skipped. Axis already in position. " +
@@ -874,27 +873,13 @@ namespace QMC.CDT320.Sequencing
                         FormatAxisMoveWaitResult(waitResult, BuildPickerAxisState(axis, target)));
                 }
 
-                // 일부 공정은 위 move/in-position 대기 결과를 사용하고 동일 목표의 즉시 중복 검사를 생략한다.
-                if (!skipFinalPositionCheck && !IsPickerAxisInPosition(axis, target))
-                {
-                    //WritePickerSequenceMoveElapsed(axisDetail, targetName, description, result, commandMs, waitMs, totalWatch.ElapsedMilliseconds, waitResult);
-                    SequenceTrace.MotionEnd("PickerMove", -1,
-                        "axis=" + axis,
-                        "target=" + target,
-                        "description=" + description,
-                        "status=FinalPositionFailed");
-                    return Fail("PICKER-MOVE-FINAL-POS", Name,
-                        description + " final position check failed after move. " +
-                        BuildPickerAxisState(axis, target));
-                }
-
                 //WritePickerSequenceMoveElapsed(axisDetail, targetName, description, result, commandMs, waitMs, totalWatch.ElapsedMilliseconds, waitResult);
                 SequenceTrace.MotionEnd("PickerMove", 0,
                     "axis=" + axis,
                     "target=" + target,
                     "actual=" + (GetPickerAxis(axis) != null ? GetPickerAxis(axis).ActualPosition.ToString() : ""),
                     "description=" + description,
-                    "finalPositionCheck=" + (skipFinalPositionCheck ? "Skipped" : "Checked"),
+                    "completionVerification=StrongWait",
                     "commandMs=" + commandMs,
                     "waitMs=" + waitMs,
                     "elapsedMs=" + totalWatch.ElapsedMilliseconds);
@@ -904,7 +889,7 @@ namespace QMC.CDT320.Sequencing
                     ", commandMs=" + commandMs +
                     ", waitMs=" + waitMs +
                     ", elapsedMs=" + totalWatch.ElapsedMilliseconds +
-                    ", finalPositionCheck=" + (skipFinalPositionCheck ? "Skipped" : "Checked") +
+                    ", completionVerification=StrongWait" +
                     ", " + BuildPickerAxisState(axis, target) +
                     " - Ok");
                 ct.ThrowIfCancellationRequested();
@@ -984,7 +969,7 @@ namespace QMC.CDT320.Sequencing
                     if (IsAlarmStopActive())
                         return StopPickerMoveBecauseAlarmActive(description);
 
-                    if (!forceMove && IsPickerAxisAlreadyInPosition(pair.Key, pair.Value))
+                    if (!forceMove && CanSkipPickerMoveCommand(pair.Key, pair.Value))
                     {
                         if (Options == null || Options.RunMode != SequenceRunMode.Auto)
                         {
@@ -1028,38 +1013,29 @@ namespace QMC.CDT320.Sequencing
                             return Fail("PICKER-MOVE-CMD", Name, BuildPickerMoveCommandFailureMessage(pair.Key, pair.Value, description, commandResults[commandIndex]));
                         }
                     }
-
-                    var waitTasks = new List<Task<AxisMoveWaitResult>>();
-                    foreach (KeyValuePair<PickerAxis, double> pair in commandTargets)
-                        waitTasks.Add(WaitPickerAxisMoveDoneAsync(pair.Key, pair.Value, ResolveMoveTimeout(), ct));
-
-                    Stopwatch waitWatch = Stopwatch.StartNew();
-                    AxisMoveWaitResult[] waitResults = await SequenceAwaiter.AwaitAsync(
-                        Task.WhenAll(waitTasks),
-                        new AxisMoveWaitResult[0],
-                        ct).ConfigureAwait(false);
-                    waitMs = waitWatch.ElapsedMilliseconds;
-                    for (int waitIndex = 0; waitIndex < commandTargets.Count; waitIndex++)
-                    {
-                        KeyValuePair<PickerAxis, double> pair = commandTargets[waitIndex];
-                        if (waitResults[waitIndex] == null || !waitResults[waitIndex].Success)
-                        {
-                            string waitSummary = waitResults[waitIndex] != null ? waitResults[waitIndex].Failure.ToString() : "NullWaitResult";
-                            WritePickerSequenceGroupMoveElapsed(targetName, description, commandDetails, -1, commandMs, waitMs, totalWatch.ElapsedMilliseconds, "WaitFailed:" + pair.Key + ":" + waitSummary);
-                            return Fail(ResolveAxisMoveWaitAlarmCode("PICKER-MOVE", waitResults[waitIndex]), Name,
-                                description + " move/in-position wait failed. " +
-                                FormatAxisMoveWaitResult(waitResults[waitIndex], BuildPickerAxisState(pair.Key, pair.Value)));
-                        }
-                    }
                 }
-                foreach (KeyValuePair<PickerAxis, double> pair in targets)
+
+                var waitTargets = new List<KeyValuePair<PickerAxis, double>>(targets);
+                var waitTasks = new List<Task<AxisMoveWaitResult>>();
+                foreach (KeyValuePair<PickerAxis, double> pair in waitTargets)
+                    waitTasks.Add(WaitPickerAxisMoveDoneAsync(pair.Key, pair.Value, ResolveMoveTimeout(), ct));
+
+                Stopwatch waitWatch = Stopwatch.StartNew();
+                AxisMoveWaitResult[] waitResults = await SequenceAwaiter.AwaitAsync(
+                    Task.WhenAll(waitTasks),
+                    new AxisMoveWaitResult[0],
+                    ct).ConfigureAwait(false);
+                waitMs = waitWatch.ElapsedMilliseconds;
+                for (int waitIndex = 0; waitIndex < waitTargets.Count; waitIndex++)
                 {
-                    if (!IsPickerAxisInPosition(pair.Key, pair.Value))
+                    KeyValuePair<PickerAxis, double> pair = waitTargets[waitIndex];
+                    if (waitResults[waitIndex] == null || !waitResults[waitIndex].Success)
                     {
-                        WritePickerSequenceGroupMoveElapsed(targetName, description, commandDetails, -1, commandMs, waitMs, totalWatch.ElapsedMilliseconds, "FinalPositionFailed:" + pair.Key);
-                        return Fail("PICKER-MOVE-FINAL-POS", Name,
-                            description + " final position check failed after parallel move. " +
-                            BuildPickerAxisState(pair.Key, pair.Value));
+                        string waitSummary = waitResults[waitIndex] != null ? waitResults[waitIndex].Failure.ToString() : "NullWaitResult";
+                        WritePickerSequenceGroupMoveElapsed(targetName, description, commandDetails, -1, commandMs, waitMs, totalWatch.ElapsedMilliseconds, "WaitFailed:" + pair.Key + ":" + waitSummary);
+                        return Fail(ResolveAxisMoveWaitAlarmCode("PICKER-MOVE", waitResults[waitIndex]), Name,
+                            description + " move/in-position wait failed. " +
+                            FormatAxisMoveWaitResult(waitResults[waitIndex], BuildPickerAxisState(pair.Key, pair.Value)));
                     }
                 }
                 if (commandTargets.Count > 0 && (waitMs >= 200 || totalWatch.ElapsedMilliseconds >= 250))
@@ -1130,7 +1106,7 @@ namespace QMC.CDT320.Sequencing
                 if (axis != PickerAxis.PickerX)
                     return 0;
 
-                if (!forceMove && IsPickerAxisAlreadyInPosition(axis, target))
+                if (!forceMove && CanSkipPickerMoveCommand(axis, target))
                     return 0;
 
                 BaseAxis pickerX = GetPickerAxis(axis);
@@ -1370,7 +1346,7 @@ namespace QMC.CDT320.Sequencing
             if (result != 0)
                 return result;
 
-            if (!hasPickerY || (!forceMove && IsPickerAxisAlreadyInPosition(PickerAxis.PickerY, pickerYTarget)))
+            if (!hasPickerY || (!forceMove && CanSkipPickerMoveCommand(PickerAxis.PickerY, pickerYTarget)))
                 return 0;
 
             WriteLog("PickerMove",
@@ -1399,7 +1375,7 @@ namespace QMC.CDT320.Sequencing
                 return 0;
 
             double target = targets[PickerAxis.PickerY];
-            if (!forceMove && IsPickerAxisAlreadyInPosition(PickerAxis.PickerY, target))
+            if (!forceMove && CanSkipPickerMoveCommand(PickerAxis.PickerY, target))
                 return 0;
 
             double pairedXTarget;
@@ -2125,12 +2101,9 @@ namespace QMC.CDT320.Sequencing
                         return 0;
                     }
 
-                    if (!RearPicker.IsRearPickerInAvoidPosition())
-                    {
-                        int result = await MoveRearPickerToAvoidSequentialAsync(description, fine, ct).ConfigureAwait(false);
-                        if (result != 0)
-                            return result;
-                    }
+                    int result = await MoveRearPickerToAvoidSequentialAsync(description, fine, ct).ConfigureAwait(false);
+                    if (result != 0)
+                        return result;
 
                     if (!RearPicker.IsRearPickerInAvoidPosition())
                     {
@@ -2148,12 +2121,9 @@ namespace QMC.CDT320.Sequencing
                     return 0;
                 }
 
-                if (!FrontPicker.IsFrontPickerInAvoidPosition())
-                {
-                    int result = await MoveFrontPickerToAvoidSequentialAsync(description, fine, ct).ConfigureAwait(false);
-                    if (result != 0)
-                        return result;
-                }
+                int frontResult = await MoveFrontPickerToAvoidSequentialAsync(description, fine, ct).ConfigureAwait(false);
+                if (frontResult != 0)
+                    return frontResult;
 
                 if (!FrontPicker.IsFrontPickerInAvoidPosition())
                 {
@@ -2943,6 +2913,15 @@ namespace QMC.CDT320.Sequencing
                 return false;
 
             return IsPickerAxisInPosition(axis, target);
+        }
+
+        protected bool CanSkipPickerMoveCommand(PickerAxis axis, double target)
+        {
+            BaseAxis item = GetPickerAxis(axis);
+            double tolerance = item != null && item.Config != null && item.Config.InPositionTolerance > 0.0
+                ? item.Config.InPositionTolerance
+                : 0.001;
+            return AxisMoveWaiter.CanSkipMoveCommandAtTarget(item, target, tolerance);
         }
 
         protected string BuildPickerAxisState(PickerAxis axis, double target)

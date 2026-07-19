@@ -276,9 +276,9 @@ namespace QMC.CDT320.Sequencing
                     return 0;
                 }
 
-                if (!Stage.IsNeedleZInSafePosition())
+                double target = Stage.Recipe.NeedleZ.AvoidPosition;
+                if (!CanSkipAxisMoveCommand(Stage.NeedleZ, target))
                 {
-                    double target = Stage.Recipe.NeedleZ.AvoidPosition;
                     int result = await MoveAxisAndWaitAsync(
                         WaferStageAxis.NeedleZ,
                         target,
@@ -479,7 +479,7 @@ namespace QMC.CDT320.Sequencing
                 return result;
 
             bool stageZAtProcess = Stage.Recipe.WaferZ != null &&
-                IsAxisInPosition(ResolveStageAxis(WaferStageAxis.WaferExpandingZ), Stage.Recipe.WaferZ.ProcessPosition);
+                CanSkipAxisMoveCommand(ResolveStageAxis(WaferStageAxis.WaferExpandingZ), Stage.Recipe.WaferZ.ProcessPosition);
 
             if (stageZAtProcess)
             {
@@ -961,7 +961,7 @@ namespace QMC.CDT320.Sequencing
             if (result != 0)
                 return result;
 
-            return await WaitAxisInPositionResultAsync(axis, target, description, ct).ConfigureAwait(false);
+            return 0;
         }
 
         private async Task<int> EnsureWaferAlignThetaPositionAsync(string description, CancellationToken ct)
@@ -986,9 +986,6 @@ namespace QMC.CDT320.Sequencing
                 if (Stage.StageT == null)
                     return Fail("IN-STAGE-DIEMAP-THETA-AXIS", "InputStageUnit",
                         description + " 실패. StageT 축 정보가 없습니다.");
-
-                if (Stage.IsWaferAlignThetaInPosition())
-                    return 0;
 
                 int result = await MoveAxisAndWaitAsync(
                     WaferStageAxis.WaferT,
@@ -2768,6 +2765,14 @@ namespace QMC.CDT320.Sequencing
             finally
             {
             }
+        }
+
+        private static bool CanSkipAxisMoveCommand(QMC.Common.Motion.BaseAxis axis, double target)
+        {
+            double tolerance = axis != null && axis.Config != null && axis.Config.InPositionTolerance > 0.0
+                ? axis.Config.InPositionTolerance
+                : 0.05;
+            return AxisMoveWaiter.CanSkipMoveCommandAtTarget(axis, target, tolerance);
         }
 
         private TapeFrameSpec ResolveFrameSpecForWafer(WaferMaterial wafer)

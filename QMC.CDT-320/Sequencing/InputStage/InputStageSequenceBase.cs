@@ -195,22 +195,19 @@ namespace QMC.CDT320.Sequencing
                 int result = await MoveAxisCommandAsync(QMC.CDT320.WaferStageAxis.NeedleZ, Stage.Recipe.NeedleZ.AvoidPosition).ConfigureAwait(false);
                 if (result != 0) return result;
 
-                result = await WaitAxisInPositionResultAsync(QMC.CDT320.WaferStageAxis.NeedleZ, Stage.Recipe.NeedleZ.AvoidPosition, ct).ConfigureAwait(false);
+                ct.ThrowIfCancellationRequested();
+                result = await MoveAxisCommandAsync(QMC.CDT320.WaferStageAxis.WaferExpandingZ, Stage.Recipe.WaferZ.AvoidPosition).ConfigureAwait(false);
                 if (result != 0) return result;
 
                 ct.ThrowIfCancellationRequested();
                 result = await MoveAxisCommandAsync(QMC.CDT320.WaferStageAxis.WaferY, Stage.Recipe.WaferY.AvoidPosition).ConfigureAwait(false);
                 if (result != 0) return result;
 
-                result = await WaitAxisInPositionResultAsync(QMC.CDT320.WaferStageAxis.WaferY, Stage.Recipe.WaferY.AvoidPosition, ct).ConfigureAwait(false);
-                if (result != 0) return result;
-
                 ct.ThrowIfCancellationRequested();
                 result = await MoveAxisCommandAsync(QMC.CDT320.WaferStageAxis.VisionX, Stage.Recipe.VisionX.AvoidPosition).ConfigureAwait(false);
                 if (result != 0) return result;
 
-                result = await WaitAxisInPositionResultAsync(QMC.CDT320.WaferStageAxis.VisionX, Stage.Recipe.VisionX.AvoidPosition, ct).ConfigureAwait(false);
-                if (result != 0) return result;
+                ct.ThrowIfCancellationRequested();
             }
 
             Context.Bus.Set("InputStageAvoidReady");
@@ -370,58 +367,6 @@ namespace QMC.CDT320.Sequencing
             catch (Exception ex)
             {
                 return ", lastStageMoveFailure read failed. error=" + ex.Message;
-            }
-            finally
-            {
-            }
-        }
-
-        private async Task<int> WaitAxisInPositionResultAsync(QMC.CDT320.WaferStageAxis axis, double target, CancellationToken ct)
-        {
-            try
-            {
-                ct.ThrowIfCancellationRequested();
-
-                AxisMoveWaitResult waitResult = await Stage.WaitInputStageAxisInPositionResult(
-                    axis,
-                    target,
-                    ResolveTimeout(),
-                    ct).ConfigureAwait(false);
-                if (waitResult == null || !waitResult.Success)
-                {
-                    SequenceTrace.MotionEnd("InputStageMove", -1,
-                        "axis=" + axis,
-                        "target=" + target,
-                        "timeoutMs=" + ResolveTimeout(),
-                        "status=WaitFailed",
-                        "wait=" + (waitResult != null ? waitResult.Code.ToString() : "null"));
-                    return Fail(ResolveAxisMoveWaitAlarmCode("IN-STAGE-MOVE", waitResult), Stage.Name,
-                        "Input stage axis 이동 완료/위치 확인 실패. axis=" + axis + ", target=" + target + ". " +
-                        FormatAxisMoveWaitResult(waitResult, BuildAxisState(axis, target)));
-                }
-
-                SequenceTrace.MotionEnd("InputStageMove", 0,
-                    "axis=" + axis,
-                    "target=" + target,
-                    "status=WaitOk",
-                    "state=" + BuildAxisState(axis, target));
-                return 0;
-            }
-            catch (OperationCanceledException)
-            {
-                throw;
-            }
-            catch (Exception ex)
-            {
-                SequenceTrace.MotionEnd("InputStageMove", -1,
-                    "axis=" + axis,
-                    "target=" + target,
-                    "status=Exception",
-                    "error=" + ex.Message);
-                return Fail("IN-STAGE-MOVE-WAIT-EX", Stage != null ? Stage.Name : "InputStage",
-                    "Input stage axis 이동 완료 대기 중 예외가 발생했습니다. axis=" + axis +
-                    ", target=" + target +
-                    ", error=" + ex.Message);
             }
             finally
             {

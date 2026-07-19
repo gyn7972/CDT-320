@@ -94,7 +94,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.tlpLoad.Controls.Add(this.lblAutoAlign, 0, 3);
             this.tlpLoad.Controls.Add(this._cbAutoAlign, 1, 3);
             this.tlpLoad.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.tlpLoad.Location = new System.Drawing.Point(6, 20);
+            this.tlpLoad.Location = new System.Drawing.Point(6, 25);
             this.tlpLoad.Margin = new System.Windows.Forms.Padding(0);
             this.tlpLoad.Name = "tlpLoad";
             this.tlpLoad.RowCount = 5;
@@ -103,7 +103,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.tlpLoad.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 34F));
             this.tlpLoad.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 34F));
             this.tlpLoad.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.tlpLoad.Size = new System.Drawing.Size(527, 150);
+            this.tlpLoad.Size = new System.Drawing.Size(527, 145);
             this.tlpLoad.TabIndex = 0;
             // 
             // lblRole
@@ -129,7 +129,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this._cbRole.Location = new System.Drawing.Point(223, 5);
             this._cbRole.Margin = new System.Windows.Forms.Padding(3, 5, 3, 4);
             this._cbRole.Name = "_cbRole";
-            this._cbRole.Size = new System.Drawing.Size(301, 23);
+            this._cbRole.Size = new System.Drawing.Size(301, 28);
             this._cbRole.TabIndex = 2;
             // 
             // lblAlignPts
@@ -155,7 +155,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             0,
             0});
             this._nAlignPts.Name = "_nAlignPts";
-            this._nAlignPts.Size = new System.Drawing.Size(301, 23);
+            this._nAlignPts.Size = new System.Drawing.Size(301, 27);
             this._nAlignPts.TabIndex = 4;
             // 
             // lblAutoBarcode

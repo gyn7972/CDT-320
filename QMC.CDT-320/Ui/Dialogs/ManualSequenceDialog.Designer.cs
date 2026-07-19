@@ -64,7 +64,7 @@
             this.titleLabel.Location = new System.Drawing.Point(0, 0);
             this.titleLabel.Name = "titleLabel";
             this.titleLabel.Padding = new System.Windows.Forms.Padding(16, 0, 0, 0);
-            this.titleLabel.Size = new System.Drawing.Size(620, 42);
+            this.titleLabel.Size = new System.Drawing.Size(846, 42);
             this.titleLabel.TabIndex = 0;
             this.titleLabel.Text = "MANUAL SEQUENCE";
             this.titleLabel.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -98,7 +98,7 @@
             this.mainLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 20F));
             this.mainLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 20F));
             this.mainLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 20F));
-            this.mainLayout.Size = new System.Drawing.Size(620, 317);
+            this.mainLayout.Size = new System.Drawing.Size(846, 317);
             this.mainLayout.TabIndex = 1;
             // 
             // btnInputLoad
@@ -111,7 +111,7 @@
             this.btnInputLoad.Location = new System.Drawing.Point(21, 21);
             this.btnInputLoad.Margin = new System.Windows.Forms.Padding(5);
             this.btnInputLoad.Name = "btnInputLoad";
-            this.btnInputLoad.Size = new System.Drawing.Size(137, 47);
+            this.btnInputLoad.Size = new System.Drawing.Size(193, 47);
             this.btnInputLoad.TabIndex = 0;
             this.btnInputLoad.Text = "INPUT LOAD";
             this.btnInputLoad.UseVisualStyleBackColor = false;
@@ -123,10 +123,10 @@
             this.btnInputUnload.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.btnInputUnload.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.btnInputUnload.ForeColor = System.Drawing.Color.White;
-            this.btnInputUnload.Location = new System.Drawing.Point(168, 21);
+            this.btnInputUnload.Location = new System.Drawing.Point(224, 21);
             this.btnInputUnload.Margin = new System.Windows.Forms.Padding(5);
             this.btnInputUnload.Name = "btnInputUnload";
-            this.btnInputUnload.Size = new System.Drawing.Size(137, 47);
+            this.btnInputUnload.Size = new System.Drawing.Size(193, 47);
             this.btnInputUnload.TabIndex = 1;
             this.btnInputUnload.Text = "INPUT UNLOAD";
             this.btnInputUnload.UseVisualStyleBackColor = false;
@@ -138,10 +138,10 @@
             this.btnOutputLoad.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.btnOutputLoad.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.btnOutputLoad.ForeColor = System.Drawing.Color.White;
-            this.btnOutputLoad.Location = new System.Drawing.Point(315, 21);
+            this.btnOutputLoad.Location = new System.Drawing.Point(427, 21);
             this.btnOutputLoad.Margin = new System.Windows.Forms.Padding(5);
             this.btnOutputLoad.Name = "btnOutputLoad";
-            this.btnOutputLoad.Size = new System.Drawing.Size(137, 47);
+            this.btnOutputLoad.Size = new System.Drawing.Size(193, 47);
             this.btnOutputLoad.TabIndex = 2;
             this.btnOutputLoad.Text = "OUTPUT LOAD";
             this.btnOutputLoad.UseVisualStyleBackColor = false;
@@ -153,10 +153,10 @@
             this.btnOutputUnload.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.btnOutputUnload.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.btnOutputUnload.ForeColor = System.Drawing.Color.White;
-            this.btnOutputUnload.Location = new System.Drawing.Point(462, 21);
+            this.btnOutputUnload.Location = new System.Drawing.Point(630, 21);
             this.btnOutputUnload.Margin = new System.Windows.Forms.Padding(5);
             this.btnOutputUnload.Name = "btnOutputUnload";
-            this.btnOutputUnload.Size = new System.Drawing.Size(137, 47);
+            this.btnOutputUnload.Size = new System.Drawing.Size(195, 47);
             this.btnOutputUnload.TabIndex = 3;
             this.btnOutputUnload.Text = "OUTPUT UNLOAD";
             this.btnOutputUnload.UseVisualStyleBackColor = false;
@@ -169,10 +169,10 @@
             this.pickerSelectPanel.Controls.Add(this.rbRearPicker);
             this.pickerSelectPanel.Controls.Add(this.rbFrontPicker);
             this.pickerSelectPanel.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.pickerSelectPanel.Location = new System.Drawing.Point(21, 75);
+            this.pickerSelectPanel.Location = new System.Drawing.Point(21, 78);
             this.pickerSelectPanel.Margin = new System.Windows.Forms.Padding(5);
             this.pickerSelectPanel.Name = "pickerSelectPanel";
-            this.pickerSelectPanel.Size = new System.Drawing.Size(578, 47);
+            this.pickerSelectPanel.Size = new System.Drawing.Size(804, 47);
             this.pickerSelectPanel.TabIndex = 4;
             // 
             // cmbPickerNo
@@ -186,7 +186,7 @@
             "4"});
             this.cmbPickerNo.Location = new System.Drawing.Point(398, 10);
             this.cmbPickerNo.Name = "cmbPickerNo";
-            this.cmbPickerNo.Size = new System.Drawing.Size(84, 25);
+            this.cmbPickerNo.Size = new System.Drawing.Size(84, 31);
             this.cmbPickerNo.TabIndex = 3;
             // 
             // lblPickerNo
@@ -230,10 +230,10 @@
             this.btnPickUp.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.btnPickUp.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.btnPickUp.ForeColor = System.Drawing.Color.White;
-            this.btnPickUp.Location = new System.Drawing.Point(21, 130);
+            this.btnPickUp.Location = new System.Drawing.Point(21, 135);
             this.btnPickUp.Margin = new System.Windows.Forms.Padding(5);
             this.btnPickUp.Name = "btnPickUp";
-            this.btnPickUp.Size = new System.Drawing.Size(137, 47);
+            this.btnPickUp.Size = new System.Drawing.Size(193, 47);
             this.btnPickUp.TabIndex = 5;
             this.btnPickUp.Text = "PICK UP";
             this.btnPickUp.UseVisualStyleBackColor = false;
@@ -245,10 +245,10 @@
             this.btnBottom.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.btnBottom.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.btnBottom.ForeColor = System.Drawing.Color.White;
-            this.btnBottom.Location = new System.Drawing.Point(168, 130);
+            this.btnBottom.Location = new System.Drawing.Point(224, 135);
             this.btnBottom.Margin = new System.Windows.Forms.Padding(5);
             this.btnBottom.Name = "btnBottom";
-            this.btnBottom.Size = new System.Drawing.Size(137, 47);
+            this.btnBottom.Size = new System.Drawing.Size(193, 47);
             this.btnBottom.TabIndex = 6;
             this.btnBottom.Text = "BOTTOM";
             this.btnBottom.UseVisualStyleBackColor = false;
@@ -260,10 +260,10 @@
             this.btnSide.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.btnSide.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.btnSide.ForeColor = System.Drawing.Color.White;
-            this.btnSide.Location = new System.Drawing.Point(315, 130);
+            this.btnSide.Location = new System.Drawing.Point(427, 135);
             this.btnSide.Margin = new System.Windows.Forms.Padding(5);
             this.btnSide.Name = "btnSide";
-            this.btnSide.Size = new System.Drawing.Size(137, 47);
+            this.btnSide.Size = new System.Drawing.Size(193, 47);
             this.btnSide.TabIndex = 7;
             this.btnSide.Text = "SIDE";
             this.btnSide.UseVisualStyleBackColor = false;
@@ -275,10 +275,10 @@
             this.btnPlace.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.btnPlace.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.btnPlace.ForeColor = System.Drawing.Color.White;
-            this.btnPlace.Location = new System.Drawing.Point(462, 130);
+            this.btnPlace.Location = new System.Drawing.Point(630, 135);
             this.btnPlace.Margin = new System.Windows.Forms.Padding(5);
             this.btnPlace.Name = "btnPlace";
-            this.btnPlace.Size = new System.Drawing.Size(137, 47);
+            this.btnPlace.Size = new System.Drawing.Size(195, 47);
             this.btnPlace.TabIndex = 8;
             this.btnPlace.Text = "PLACE";
             this.btnPlace.UseVisualStyleBackColor = false;
@@ -291,10 +291,10 @@
             this.btnPickUpZTest.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.btnPickUpZTest.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.btnPickUpZTest.ForeColor = System.Drawing.Color.White;
-            this.btnPickUpZTest.Location = new System.Drawing.Point(21, 185);
+            this.btnPickUpZTest.Location = new System.Drawing.Point(21, 192);
             this.btnPickUpZTest.Margin = new System.Windows.Forms.Padding(5);
             this.btnPickUpZTest.Name = "btnPickUpZTest";
-            this.btnPickUpZTest.Size = new System.Drawing.Size(578, 47);
+            this.btnPickUpZTest.Size = new System.Drawing.Size(804, 47);
             this.btnPickUpZTest.TabIndex = 9;
             this.btnPickUpZTest.Text = "PICK Z TEST";
             this.btnPickUpZTest.UseVisualStyleBackColor = false;
@@ -307,10 +307,10 @@
             this.btnAllStep.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.btnAllStep.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.btnAllStep.ForeColor = System.Drawing.Color.White;
-            this.btnAllStep.Location = new System.Drawing.Point(21, 240);
+            this.btnAllStep.Location = new System.Drawing.Point(21, 249);
             this.btnAllStep.Margin = new System.Windows.Forms.Padding(5);
             this.btnAllStep.Name = "btnAllStep";
-            this.btnAllStep.Size = new System.Drawing.Size(284, 47);
+            this.btnAllStep.Size = new System.Drawing.Size(396, 47);
             this.btnAllStep.TabIndex = 10;
             this.btnAllStep.Text = "ALL STEP";
             this.btnAllStep.UseVisualStyleBackColor = false;
@@ -323,10 +323,10 @@
             this.btnClose.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.btnClose.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.btnClose.ForeColor = System.Drawing.Color.White;
-            this.btnClose.Location = new System.Drawing.Point(315, 240);
+            this.btnClose.Location = new System.Drawing.Point(427, 249);
             this.btnClose.Margin = new System.Windows.Forms.Padding(5);
             this.btnClose.Name = "btnClose";
-            this.btnClose.Size = new System.Drawing.Size(284, 47);
+            this.btnClose.Size = new System.Drawing.Size(398, 47);
             this.btnClose.TabIndex = 11;
             this.btnClose.Text = "닫기";
             this.btnClose.UseVisualStyleBackColor = false;
@@ -337,7 +337,7 @@
             this.statusLabel.Location = new System.Drawing.Point(0, 359);
             this.statusLabel.Name = "statusLabel";
             this.statusLabel.Padding = new System.Windows.Forms.Padding(18, 10, 18, 0);
-            this.statusLabel.Size = new System.Drawing.Size(620, 62);
+            this.statusLabel.Size = new System.Drawing.Size(846, 54);
             this.statusLabel.TabIndex = 2;
             this.statusLabel.Text = "Auto와 동일한 Material/Die Map/Picker 상태를 사용합니다.";
             // 
@@ -345,7 +345,7 @@
             // 
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.None;
             this.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(235)))), ((int)(((byte)(235)))), ((int)(((byte)(235)))));
-            this.ClientSize = new System.Drawing.Size(620, 421);
+            this.ClientSize = new System.Drawing.Size(846, 413);
             this.Controls.Add(this.statusLabel);
             this.Controls.Add(this.mainLayout);
             this.Controls.Add(this.titleLabel);

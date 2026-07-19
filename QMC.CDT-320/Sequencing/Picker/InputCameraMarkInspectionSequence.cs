@@ -1,7 +1,8 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using QMC.Common.Motion;
 
 namespace QMC.CDT320.Sequencing
 {
@@ -406,7 +407,10 @@ namespace QMC.CDT320.Sequencing
 
                 stage.Recipe.EnsurePositionObjects();
                 double avoid = stage.Recipe.VisionX.AvoidPosition;
-                if (!stage.IsVisionXInAvoidPosition())
+                double tolerance = stage.CameraX != null && stage.CameraX.Config != null && stage.CameraX.Config.InPositionTolerance > 0.0
+                    ? stage.CameraX.Config.InPositionTolerance
+                    : 0.01;
+                if (!AxisMoveWaiter.CanSkipMoveCommandAtTarget(stage.CameraX, avoid, tolerance))
                 {
                     int moveResult = await stage.MoveInputStageAxis(
                         WaferStageAxis.VisionX,

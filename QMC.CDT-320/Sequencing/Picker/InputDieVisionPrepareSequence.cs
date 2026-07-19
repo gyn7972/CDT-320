@@ -1429,7 +1429,7 @@ namespace QMC.CDT320.Sequencing
                     return Fail("INPUT-DIE-VISION-PREPARE-THETA-TARGET", stage.Name,
                         description + " 실패. StageT 보정 목표값을 찾을 수 없습니다.");
 
-                if (stage.IsWaferAlignThetaInPosition())
+                if (IsInputStageAxisAlreadyInPosition(stage, WaferStageAxis.WaferT, targetT))
                     return 0;
 
                 int result = await MoveInputStageAxisCommandAsync(
@@ -2817,10 +2817,10 @@ namespace QMC.CDT320.Sequencing
             try
             {
                 BaseAxis item = ResolveInputStageAxis(stage, axis);
-                return item != null &&
-                       !item.IsMoving &&
-                       !item.IsAlarm &&
-                       IsAxisInPosition(item, target);
+                double tolerance = item != null && item.Config != null && item.Config.InPositionTolerance > 0.0
+                    ? item.Config.InPositionTolerance
+                    : 0.05;
+                return AxisMoveWaiter.CanSkipMoveCommandAtTarget(item, target, tolerance);
             }
             catch
             {

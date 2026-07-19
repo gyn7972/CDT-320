@@ -1046,7 +1046,7 @@ namespace QMC.CDT320.Sequencing
                     return zResult;
 
                 double yAvoid = GetPickerTeachingPosition(PickerAxis.PickerY, "AvoidPosition");
-                if (IsPickerAxisInPosition(PickerAxis.PickerY, yAvoid))
+                if (CanSkipPickerMoveCommand(PickerAxis.PickerY, yAvoid))
                     return 0;
 
                 int yResult = await MovePickerAxisAndVerifyAsync(
@@ -1175,7 +1175,7 @@ namespace QMC.CDT320.Sequencing
 
             bool outputFeederAlreadySafe = OutputFeeder != null &&
                                            OutputFeeder.IsFeederUnclamped() &&
-                                           OutputFeeder.IsBinFeederYInAvoidPosition();
+                                           CanSkipOutputFeederMoveCommand(OutputFeeder, OutputFeeder.Recipe.AvoidPosition);
             if (!outputFeederAlreadySafe)
             {
                 result = await AwaitStepWithCancellationAsync(
@@ -1395,7 +1395,7 @@ namespace QMC.CDT320.Sequencing
                         "Place 전 OutputFeeder Unclamp 최종 확인 실패. side=" + _currentOutputSide +
                         ", " + feeder.DescribeFeederCylinderState());
 
-                if (!feeder.IsBinFeederYInAvoidPosition())
+                if (!CanSkipOutputFeederMoveCommand(feeder, feeder.Recipe.AvoidPosition))
                 {
                     int moveResult = await feeder.MoveToFeederAvoidPosition(Options.FineMove).ConfigureAwait(false);
                     if (moveResult != 0)
@@ -1642,7 +1642,7 @@ namespace QMC.CDT320.Sequencing
                     ", outputSide=" + _currentOutputSide);
             }
 
-            if (IsPickerAxisAlreadyInPosition(PickerAxis.PickerY, _targetPickerY))
+            if (CanSkipPickerMoveCommand(PickerAxis.PickerY, _targetPickerY))
             {
                 WriteLog("PickerPlaceSequence",
                     Name + " Place 재시작 Picker X/T 목표 이동 완료 후 PickerY가 이미 Place 위치임을 확인했습니다. " +
@@ -1893,8 +1893,7 @@ namespace QMC.CDT320.Sequencing
                 finalPickerZ,
                 "Place ContiNode PickerZ PrePlace 후 최종 Place 하강",
                 ct,
-                BuildPickerTargetName("DiePlacePosition", _currentPickerIndex),
-                skipFinalPositionCheck: true).ConfigureAwait(false);
+                BuildPickerTargetName("DiePlacePosition", _currentPickerIndex)).ConfigureAwait(false);
             if (finalPlaceZResult != 0)
             {
                 _pickerZPlacedByContiSegmentedPlace = false;
@@ -2525,8 +2524,7 @@ namespace QMC.CDT320.Sequencing
                     pickerZTarget,
                     "Place ContiNode PickerZ 비동기 하강",
                     ct,
-                    BuildPickerTargetName("DiePlacePosition", _currentPickerIndex),
-                    skipFinalPositionCheck: true).ConfigureAwait(false);
+                    BuildPickerTargetName("DiePlacePosition", _currentPickerIndex)).ConfigureAwait(false);
             }
             catch (OperationCanceledException)
             {
@@ -2677,7 +2675,7 @@ namespace QMC.CDT320.Sequencing
                 PickerAxis tAxis = GetPickerTAxis(pickerIndex);
                 double target = ResolvePlacePickerTTarget(pickerIndex);
 
-                if (!IsPickerAxisAlreadyInPosition(tAxis, target))
+                if (!CanSkipPickerMoveCommand(tAxis, target))
                     targets[tAxis] = target;
             }
         }
@@ -2832,8 +2830,7 @@ namespace QMC.CDT320.Sequencing
                 _targetPickerZ,
                 "place picker Z",
                 ct,
-                BuildPickerTargetName("DiePlacePosition", _currentPickerIndex),
-                skipFinalPositionCheck: true).ConfigureAwait(false);
+                BuildPickerTargetName("DiePlacePosition", _currentPickerIndex)).ConfigureAwait(false);
             if (result != 0)
                 return result;
 
@@ -3573,6 +3570,18 @@ namespace QMC.CDT320.Sequencing
             finally
             {
             }
+        }
+
+        private static bool CanSkipOutputFeederMoveCommand(OutputFeederUnit feeder, double target)
+        {
+            BaseAxis axis = feeder != null ? feeder.FeederY : null;
+            if (axis == null)
+                return false;
+
+            double tolerance = axis.Config != null && axis.Config.InPositionTolerance > 0.0
+                ? axis.Config.InPositionTolerance
+                : 0.01;
+            return AxisMoveWaiter.CanSkipMoveCommandAtTarget(axis, target, tolerance);
         }
 
         private double ResolveOutputStageAxisTolerance(BinStageAxis axis)

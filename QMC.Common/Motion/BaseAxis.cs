@@ -408,7 +408,8 @@ namespace QMC.Common.Motion
                 double tolerance = Config != null && Config.InPositionTolerance > 0.0
                     ? Config.InPositionTolerance
                     : 0.01;
-                if (!IsForceMoveActive && !IsMoving && Math.Abs(ActualPosition - targetPos) <= tolerance)
+                if (!IsForceMoveActive &&
+                    AxisMoveWaiter.CanSkipMoveCommandAtTarget(this, targetPos, tolerance))
                 {
                     ClearMotionFailure();
                     CommandPosition = targetPos;

@@ -1044,7 +1044,15 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
         // ExpanderZ 이동 전제(저수준 인터락): VISION X가 Avoid 위치에 있어야 한다 → 아니면 먼저 Avoid로 후퇴
         private async Task<int> EnsureVisionXAtAvoidAsync(string title, CDT320_Machine machine)
         {
-            if (_InputStageUnit.IsVisionXInAvoidPosition())
+            if (_InputStageUnit == null || _InputStageUnit.CameraX == null || _InputStageUnit.Recipe == null)
+                return AbortStage(title, "VISION X Avoid 이동에 필요한 축/레시피 없음");
+
+            _InputStageUnit.Recipe.EnsurePositionObjects();
+            if (_InputStageUnit.Recipe.VisionX == null)
+                return AbortStage(title, "VISION X Avoid 위치 레시피 없음");
+
+            double target = _InputStageUnit.Recipe.VisionX.AvoidPosition;
+            if (QMC.Common.Motion.AxisMoveWaiter.CanSkipMoveCommandAtTarget(_InputStageUnit.CameraX, target))
                 return 0;
 
             string reason;

@@ -3390,7 +3390,9 @@ namespace QMC.CDT320
                 if (cassette == null)
                     return 0;
 
-                if (cassette.IsWaferLifterZInAvoidPosition())
+                if (AxisMoveWaiter.CanSkipMoveCommandAtTarget(
+                    cassette.InputLifterZ,
+                    cassette.Recipe.AvoidPosition))
                     return 0;
 
                 int result = await cassette.MoveToWaferCassetteAvoidPosition().ConfigureAwait(false);
@@ -8082,45 +8084,50 @@ namespace QMC.CDT320
                     !EnsureReticleAvoidForAutoStart("StartSequenceAsync"))
                     return;
 
-                //if (options.Mode == QMC.CDT320.Sequencing.SequenceRunMode.Auto &&
-                //    !EnsureCalibrationReadyForAutoStart("StartSequenceAsync"))
-                //    return;
-
                 _autoCts = new CancellationTokenSource();
                 var bus = new QMC.CDT320.Sequencing.SequenceSignalBus();
                 TactTimeRecorder tact = CreateTactTimeRecorder(options);
                 _activeTactTimeRecorder = tact;
-                ResetOutputReceiveTactTimeState();
                 ResetInspectionTactTimeState();
+                ResetOutputReceiveTactTimeState();                
                 // 새 시퀀스 시작: 4개 유닛 상태를 Idle 로 초기화하고 동일 ActivityMonitor 를 컨텍스트에 주입한다.
                 _sequenceActivity.Reset();
+
                 _seqContext = new QMC.CDT320.Sequencing.MachineSequenceContext(
                     this, bus, new QMC.CDT320.Sequencing.SequenceResourceManager(), _sequenceActivity, tact);
+
                 _coordinator = new QMC.CDT320.Sequencing.AutoSequenceCoordinator(_seqContext);
 
+                // Coordinator에 각 UnitSequence를 등록한다.
                 _coordinator.Register(
                     QMC.CDT320.Sequencing.SequenceUnitKind.InputLoader,
                     () => new QMC.CDT320.Sequencing.InputSequence(_seqContext));
-                _coordinator.Register(
-                    QMC.CDT320.Sequencing.SequenceUnitKind.OutputUnloader,
-                    () => new QMC.CDT320.Sequencing.OutputSequence(_seqContext));
+
                 _coordinator.Register(
                     QMC.CDT320.Sequencing.SequenceUnitKind.PickerFront,
                     () => new QMC.CDT320.Sequencing.FrontPickerSequence(_seqContext));
+
                 _coordinator.Register(
                     QMC.CDT320.Sequencing.SequenceUnitKind.PickerRear,
                     () => new QMC.CDT320.Sequencing.RearPickerSequence(_seqContext));
+
+                _coordinator.Register(
+                    QMC.CDT320.Sequencing.SequenceUnitKind.OutputUnloader,
+                    () => new QMC.CDT320.Sequencing.OutputSequence(_seqContext));
 
                 _coordinator.Configure(options);
                 ActiveSequenceRunMode = options.Mode;
                 if (options.Mode == QMC.CDT320.Sequencing.SequenceRunMode.Auto)
                     BeginAutoProductionStats();
+
                 SetStatus(options.Mode == QMC.CDT320.Sequencing.SequenceRunMode.Auto
                     ? EquipmentStatus.AutoRunning
                     : EquipmentStatus.ManualRunning);
+
                 Log("[SEQ] StartSequenceAsync units=" + options.Units + ", mode=" + options.Mode);
                 QMC.Common.Log.Write("Main", "SYSTEM", "StartSequenceAsync",
                     "Sequence start. units=" + options.Units + ", mode=" + options.Mode + " - Ok");
+
                 if (options.Mode == QMC.CDT320.Sequencing.SequenceRunMode.Auto)
                     LogMachineAxisSnapshot("AutoStartBeforeCoordinatorRun");
 
@@ -8140,6 +8147,7 @@ namespace QMC.CDT320
                             Log("[SEQ] Complete");
                             if (ActiveSequenceRunMode == QMC.CDT320.Sequencing.SequenceRunMode.Auto)
                                 EndAutoProductionStats();
+
                             SetStatus(EquipmentStatus.Ready);
                             if (runMode == QMC.CDT320.Sequencing.SequenceRunMode.Auto &&
                                 waferCompletion != null &&
@@ -8156,9 +8164,11 @@ namespace QMC.CDT320
                         // 남아 있는 진행/대기 유닛을 정지 상태로 정리한다.
                         _sequenceActivity.SweepActiveTo(QMC.CDT320.Sequencing.SequenceActivityState.Stopped,
                             "시퀀스가 정지되었습니다.");
+
                         QMC.Common.Log.Write("Main", "SYSTEM", "StartSequenceAsync",
                             "Sequence stopped: " + ex.Message + " - Stopped");
                         Log("[SEQ] stopped: " + ex.Message);
+
                         if (_status != EquipmentStatus.Alarm)
                         {
                             if (_seqContext != null && _seqContext.IsCycleStopRequested)

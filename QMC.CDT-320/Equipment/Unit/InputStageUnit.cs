@@ -1813,7 +1813,7 @@ namespace QMC.CDT320
                 // 인터락 사전검사는 실제 이동(MoveAbsoluteAsync)의 BaseAxis.MotionGuard 훅에서
                 // InputStageInterlockRules.Verify로 1번 수행한다. 여기서 중복 호출하지 않는다.
                 double tolerance = ResolveAxisPositionTolerance(item);
-                if (!forceMove && !item.IsMoving && Math.Abs(item.ActualPosition - targetPos) <= tolerance)
+                if (!forceMove && AxisMoveWaiter.CanSkipMoveCommandAtTarget(item, targetPos, tolerance))
                 {
                     LastStageMoveFailureMessage = string.Empty;
                     return 0;
@@ -1934,7 +1934,7 @@ namespace QMC.CDT320
                 }
 
                 double tolerance = ResolveAxisPositionTolerance(item);
-                if (!isJogStep && !item.IsMoving && Math.Abs(item.ActualPosition - targetPos) <= tolerance)
+                if (!isJogStep && AxisMoveWaiter.CanSkipMoveCommandAtTarget(item, targetPos, tolerance))
                 {
                     LastStageMoveFailureMessage = string.Empty;
                     return 0;
@@ -3678,18 +3678,28 @@ namespace QMC.CDT320
         {
             try
             {
-                if (IsNeedleZInSafePosition())
+                if (NeedleZ == null || Recipe == null)
+                    return RaiseStageAlarm(AlarmSeverity.Error, "IS-NEEDLEZ-AVOID", source,
+                        "NeedleZ avoid move requires axis/recipe information.");
+
+                Recipe.EnsurePositionObjects();
+                if (Recipe.NeedleZ == null)
+                    return RaiseStageAlarm(AlarmSeverity.Error, "IS-NEEDLEZ-AVOID", source,
+                        "NeedleZ avoid move requires NeedleZ recipe information.");
+
+                double target = Recipe.NeedleZ.AvoidPosition;
+                if (AxisMoveWaiter.CanSkipMoveCommandAtTarget(NeedleZ, target))
                     return 0;
 
-                int result = await MoveInputStageAxis(WaferStageAxis.NeedleZ, Recipe.NeedleZ.AvoidPosition, bFine).ConfigureAwait(false);
+                int result = await MoveInputStageAxis(WaferStageAxis.NeedleZ, target, bFine).ConfigureAwait(false);
                 if (result != 0 || NeedleZ.IsAlarm)
                     return RaiseStageAlarm(AlarmSeverity.Error, "IS-NEEDLEZ-AVOID", source,
                         "NeedleZ avoid move before non-process move failed. result=" + result +
                         ", alarm=" + NeedleZ.IsAlarm +
                         ", actual=" + (NeedleZ != null ? NeedleZ.ActualPosition.ToString("F3") : "null") +
-                        ", target=" + Recipe.NeedleZ.AvoidPosition.ToString("F3"));
+                        ", target=" + target.ToString("F3"));
 
-                result = await WaitInputStageAxisInPosition(WaferStageAxis.NeedleZ, Recipe.NeedleZ.AvoidPosition, ResolveSequenceMoveTimeout()).ConfigureAwait(false);
+                result = await WaitInputStageAxisInPosition(WaferStageAxis.NeedleZ, target, ResolveSequenceMoveTimeout()).ConfigureAwait(false);
                 if (result != 0)
                     return result;
 

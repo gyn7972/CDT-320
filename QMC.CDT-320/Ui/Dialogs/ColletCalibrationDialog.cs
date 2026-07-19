@@ -2117,8 +2117,6 @@ namespace QMC.CDT_320.Ui.Dialogs
             {
                 if (machine.PickerFrontUnit == null)
                     return -1;
-                if (machine.PickerFrontUnit.IsPickerAxisInTeachingPosition(PickerAxis.PickerY, "AvoidPosition"))
-                    return 0;
                 return await machine.PickerFrontUnit.MovePickerAxisToTeachingPosition(
                     PickerAxis.PickerY,
                     "AvoidPosition",
@@ -2128,8 +2126,6 @@ namespace QMC.CDT_320.Ui.Dialogs
 
             if (machine.PickerRearUnit == null)
                 return -1;
-            if (machine.PickerRearUnit.IsPickerAxisInTeachingPosition(PickerAxis.PickerY, "AvoidPosition"))
-                return 0;
             return await machine.PickerRearUnit.MovePickerAxisToTeachingPosition(
                 PickerAxis.PickerY,
                 "AvoidPosition",

@@ -204,7 +204,10 @@ namespace QMC.CDT320
                 if (!HasStageZ || StageZ == null)
                     return 0;
 
-                if (IsAtAvoidPosition())
+                double tolerance = StageZ.Config != null && StageZ.Config.InPositionTolerance > 0.0
+                    ? StageZ.Config.InPositionTolerance
+                    : 0.01;
+                if (AxisMoveWaiter.CanSkipMoveCommandAtTarget(StageZ, Recipe.AvoidPositionZ, tolerance))
                     return 0;
 
                 int result = await StageZ.MoveAbsoluteAsync(Recipe.AvoidPositionZ, ResolveAxisVelocity(StageZ)).ConfigureAwait(false);
@@ -1278,7 +1281,7 @@ namespace QMC.CDT320
                 ? axis.Config.InPositionTolerance
                 : 0.01;
 
-            return Math.Abs(axis.ActualPosition - targetPos) <= tolerance;
+            return AxisMoveWaiter.CanSkipMoveCommandAtTarget(axis, targetPos, tolerance);
         }
 
         public bool IsStageAxisInPosition(BinStageAxis axis, double targetPos, double tolerance)
@@ -1435,7 +1438,7 @@ namespace QMC.CDT320
                 }
 
                 bool goodYAlreadyAtLoad = side == BinSide.Good &&
-                                          CheckStageAxisInPosition(BinStageAxis.GoodBinY, yTarget);
+                                          IsAxisAtTarget(ResolveStageAxis(BinStageAxis.GoodBinY), yTarget);
 
                 if (side == BinSide.Good && !goodYAlreadyAtLoad)
                 {
@@ -1562,7 +1565,9 @@ namespace QMC.CDT320
                     return await MoveStageAxisAndVerifyAsync(BinStageAxis.NgBinY, Recipe.NGStageY.UnloadPosition, timeoutMs, bFine, ct).ConfigureAwait(false);
                 }
 
-                bool goodYAlreadyAtUnload = CheckStageAxisInPosition(BinStageAxis.GoodBinY, Recipe.GoodStageY.UnloadPosition);
+                bool goodYAlreadyAtUnload = IsAxisAtTarget(
+                    ResolveStageAxis(BinStageAxis.GoodBinY),
+                    Recipe.GoodStageY.UnloadPosition);
 
                 if (!goodYAlreadyAtUnload)
                 {
@@ -2325,13 +2330,6 @@ namespace QMC.CDT320
             if (result != 0)
                 return result;
 
-            AxisMoveWaitResult waitResult = await WaitStageAxisMoveDoneInPosition(axis, targetPos, timeoutMs, ct).ConfigureAwait(false);
-            if (!waitResult.Success)
-                return RaiseOutputStageAlarm(
-                    AxisMoveWaiter.ResolveAlarmCode("OS-MOVE", waitResult),
-                    axis + " 이동 완료/위치 확인 실패. target=" + targetPos + ". " +
-                    AxisMoveWaiter.FormatResult(waitResult, axis.ToString()));
-
             return 0;
         }
 
@@ -2345,13 +2343,6 @@ namespace QMC.CDT320
             int result = await MoveStageAxis(axis, targetPos, speedType, customSpeed).ConfigureAwait(false);
             if (result != 0)
                 return result;
-
-            AxisMoveWaitResult waitResult = await WaitStageAxisMoveDoneInPosition(axis, targetPos, timeoutMs, ct).ConfigureAwait(false);
-            if (!waitResult.Success)
-                return RaiseOutputStageAlarm(
-                    AxisMoveWaiter.ResolveAlarmCode("OS-MOVE", waitResult),
-                    axis + " 조그 속도 이동 완료/위치 확인 실패. target=" + targetPos + ". " +
-                    AxisMoveWaiter.FormatResult(waitResult, axis.ToString()));
 
             return 0;
         }

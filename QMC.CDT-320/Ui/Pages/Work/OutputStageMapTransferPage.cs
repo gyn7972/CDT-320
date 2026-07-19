@@ -2261,7 +2261,9 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 if (unit == null || unit.Recipe == null || unit.Recipe.VisionX == null)
                     return -1;
 
-                if (unit.IsVisionXInAvoidPosition())
+                if (AxisMoveWaiter.CanSkipMoveCommandAtTarget(
+                    unit.OutputCameraX,
+                    unit.Recipe.VisionX.AvoidPosition))
                     return 0;
 
                 int result = await unit.MoveStageAxis(BinStageAxis.VisionX, unit.Recipe.VisionX.AvoidPosition, speedType, 0.0).ConfigureAwait(true);
@@ -2371,11 +2373,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
                         ? unit.Recipe.GoodStageZ.AvoidPosition
                         : unit.Recipe.GoodStageZ.ProcessPosition;
 
-                    bool alreadyReady = side == BinSide.Ng
-                        ? unit.IsGoodStageZAtAvoid()
-                        : unit.IsGoodStageZInAvoidOrProcessPosition();
-                    if (side == BinSide.Good)
-                        alreadyReady = unit.IsStageAxisInPosition(BinStageAxis.GoodBinZ, targetZ, ResolveOutputStageAxisTolerance(unit, BinStageAxis.GoodBinZ));
+                    BaseAxis goodStageZ = unit.GoodStage != null ? unit.GoodStage.StageZ : null;
+                    bool alreadyReady = AxisMoveWaiter.CanSkipMoveCommandAtTarget(goodStageZ, targetZ);
 
                     if (alreadyReady)
                         return 0;
@@ -2645,6 +2644,18 @@ namespace QMC.CDT_320.Ui.Pages.Work
 
             PickerRearUnit rear = host.Machine.PickerRearUnit;
             return rear != null && rear.IsRearPickerAxisInPosition(axis, target, ResolvePickerAxisTolerance(rear, axis));
+        }
+
+        private static bool CanSkipPickerMoveCommand(Form1 host, PickerSequenceSide side, PickerAxis axis, double target)
+        {
+            BaseAxis item = ResolvePickerAxis(host, side, axis);
+            if (item == null)
+                return false;
+
+            double tolerance = item.Config != null && item.Config.InPositionTolerance > 0.0
+                ? item.Config.InPositionTolerance
+                : 0.05;
+            return AxisMoveWaiter.CanSkipMoveCommandAtTarget(item, target, tolerance);
         }
 
         private static string BuildPickerAxisState(Form1 host, PickerSequenceSide side, PickerAxis axis, double target)
@@ -3189,7 +3200,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     return -1;
 
                 double target = GetPickerTeachingPosition(host, side, axis, positionName);
-                if (IsPickerAxisInPosition(host, side, axis, target))
+                if (CanSkipPickerMoveCommand(host, side, axis, target))
                     return 0;
 
                 string targetName = positionName + ";ManualOutputDieMapMove;PickerPhase=" + phaseName;

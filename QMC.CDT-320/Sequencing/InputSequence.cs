@@ -141,6 +141,7 @@ namespace QMC.CDT320.Sequencing
                 {
                     PublishInputStageReadySignals(stageWafer);
                 }
+
                 await WaitPickerToCompleteInputStageDiesAsync(
                     stageWafer,
                     readySignalPublishedFromRestore,
@@ -625,6 +626,11 @@ namespace QMC.CDT320.Sequencing
                     return completeResult;
 
                 string reason = "입력 카세트에서 작업 가능한 Ready 웨이퍼 슬롯을 찾을 수 없습니다. 카세트 매핑 상태와 슬롯의 Process 상태를 확인하세요.";
+                var cassette = Context != null && Context.Machine != null
+                    ? Context.Machine.InputCassetteUnit
+                    : null;
+                if (cassette != null)
+                    reason += " detail=" + cassette.BuildProcessWaferAvailabilitySummary();
                 AlarmManager.Raise(AlarmSeverity.Error, "SEQ-IN-NO-READY-WAFER", "InputSequence", reason);
                 return StopAutoSequence(reason);
             }
@@ -927,17 +933,28 @@ namespace QMC.CDT320.Sequencing
         {
             try
             {
+                CassetteMaterial inputCassetteState = null;
                 if (MaterialStateService.State != null && MaterialStateService.State.Cassettes != null)
                 {
                     foreach (var cassette in MaterialStateService.State.Cassettes)
                     {
                         if (cassette != null &&
-                            cassette.Role == CassetteMaterialRole.Input1 &&
-                            cassette.IsMapped)
+                            cassette.Role == CassetteMaterialRole.Input1)
                         {
-                            return true;
+                            inputCassetteState = cassette;
+                            break;
                         }
                     }
+                }
+
+                // Material cassette가 존재하면 그 상태를 단일 기준으로 사용한다.
+                // Clear All로 IsMapped가 내려간 뒤 WaferMap의 고정 slot 개수만 보고
+                // mapping 완료로 오인하지 않도록 한다.
+                if (inputCassetteState != null)
+                {
+                    return inputCassetteState.IsEnabled &&
+                           inputCassetteState.IsPresent &&
+                           inputCassetteState.IsMapped;
                 }
 
                 var inputCassette = Context != null && Context.Machine != null ? Context.Machine.InputCassetteUnit : null;

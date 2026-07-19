@@ -166,6 +166,152 @@ namespace QMC.CDT320.Recipes
             }
         }
 
+        /// <summary>
+        /// Recipe의 선택 역할 Grid X/Y로 Recipe-owned Base와 역할 맵을 생성한다.
+        /// 모든 Grid 셀의 주소를 보존하고 웨이퍼 외곽/Edge Skip 셀만 비대상으로 만든다.
+        /// </summary>
+        public static RecipeMapBuildResult CreateGridBaseAndBuildRole(
+            RecipeProject project,
+            bool outputRole,
+            Func<RecipeProject, bool> persistProject = null)
+        {
+            var result = new RecipeMapBuildResult();
+            ProjectMapState originalState = null;
+            try
+            {
+                ValidateProject(project, true);
+                originalState = CaptureProjectMapState(project);
+                RecipeProjectConsistencyService.EnsureStructure(project);
+                RecipeProjectConsistencyService.SynchronizeDieSpecification(project);
+
+                TapeFrameSubset frame = outputRole ? project.OutputFrame : project.InputFrame;
+                if (frame == null)
+                    throw new InvalidDataException((outputRole ? "Output" : "Input") + " Frame 설정이 없습니다.");
+                ValidateRolePitchForSave(frame, outputRole ? "OUTPUT" : "INPUT");
+
+                int gridX = Math.Max(1, frame.DieMapX);
+                int gridY = Math.Max(1, frame.DieMapY);
+                long cellCount = (long)gridX * gridY;
+                if (cellCount > 1000000L)
+                    throw new InvalidDataException("Grid가 너무 큽니다. 최대 셀 수는 1,000,000개입니다: " + gridX + " x " + gridY);
+
+                WaferEdgeSkipMode edgeSkipMode = !string.IsNullOrWhiteSpace(frame.EdgeSkipMode) &&
+                    frame.EdgeSkipMode.IndexOf("Millimeter", StringComparison.OrdinalIgnoreCase) >= 0
+                    ? WaferEdgeSkipMode.Millimeter
+                    : WaferEdgeSkipMode.Grid;
+                double sideEdgeSkip = edgeSkipMode == WaferEdgeSkipMode.Millimeter
+                    ? Math.Max(0.0, frame.SideEdgeSkipMm)
+                    : Math.Max(0.0, frame.SideEdgeSkip);
+                double topBottomEdgeSkip = edgeSkipMode == WaferEdgeSkipMode.Millimeter
+                    ? Math.Max(0.0, frame.TopBottomEdgeSkipMm)
+                    : Math.Max(0.0, frame.TopBottomEdgeSkip);
+                double dieSizeX = project.Die.WidthMm;
+                double dieSizeY = project.Die.HeightMm;
+                double centerStepX = DieMapGenerator.CalculateCenterStep(dieSizeX, frame.PitchX);
+                double centerStepY = DieMapGenerator.CalculateCenterStep(dieSizeY, frame.PitchY);
+                RecipeMapKind baseKind = outputRole ? RecipeMapKind.GoodBin : RecipeMapKind.Input;
+
+                DieMap generated = DieMapGenerator.GenerateCircularWaferFixedGrid(
+                    gridX,
+                    gridY,
+                    frame.OuterDiameterMm,
+                    centerStepX,
+                    centerStepY,
+                    dieSizeX,
+                    dieSizeY,
+                    edgeSkipMode,
+                    sideEdgeSkip,
+                    topBottomEdgeSkip,
+                    RecipeMapPaths.BuildMapId(project, baseKind) + "-GRID-BASE");
+                generated.SourceFileName = "Recipe Grid " + gridX + "x" + gridY;
+                generated.SourceFormat = "RECIPE GRID";
+                generated.SourcePitchFromFile = false;
+                generated.SourceDeclaredCount = generated.Entries.Count;
+                if (!generated.Entries.Any(entry => entry != null && entry.IsTarget))
+                {
+                    throw new InvalidDataException(
+                        "현재 Grid/Die/Pitch/Wafer Diameter 조건에서 공정 대상 Die가 없습니다. " +
+                        "Grid=" + gridX + "x" + gridY + ", diameter=" +
+                        frame.OuterDiameterMm.ToString("0.###", CultureInfo.InvariantCulture) + " mm.");
+                }
+
+                DieMap baseMap = PrepareBaseMap(project, generated);
+                ApplyBaseDomainToFrame(project, baseMap, outputRole, false);
+
+                string basePath = BuildMapPath(project, RecipeMapPaths.BaseFileSuffix(baseKind));
+                var pendingMaps = new List<PendingMap> { new PendingMap(baseMap, basePath) };
+                RecipeMapPaths.SetConfiguredBaseFileName(
+                    project,
+                    baseKind,
+                    RecipeMapPaths.MakeConfigRelativePath(basePath));
+
+                if (outputRole)
+                {
+                    DieMap goodMap = BuildDerivedMap(project, baseMap, RecipeMapKind.GoodBin, null);
+                    DieMap ngMap = BuildDerivedMap(project, baseMap, RecipeMapKind.NgBin, null);
+                    EnsureSameAddressDomain(baseMap, goodMap, "Good");
+                    EnsureSameAddressDomain(baseMap, ngMap, "NG");
+
+                    string goodPath = BuildMapPath(project, RecipeMapPaths.FileSuffix(RecipeMapKind.GoodBin));
+                    string ngPath = BuildMapPath(project, RecipeMapPaths.FileSuffix(RecipeMapKind.NgBin));
+                    RecipeMapPaths.SetConfiguredFileName(project, RecipeMapKind.GoodBin, RecipeMapPaths.MakeConfigRelativePath(goodPath));
+                    RecipeMapPaths.SetConfiguredFileName(project, RecipeMapKind.NgBin, RecipeMapPaths.MakeConfigRelativePath(ngPath));
+                    RecipeMapPaths.InvalidateApproval(project, false, true);
+                    pendingMaps.Add(new PendingMap(goodMap, goodPath));
+                    pendingMaps.Add(new PendingMap(ngMap, ngPath));
+                    result.OutputBaseMapPath = basePath;
+                    result.GoodMapPath = goodPath;
+                    result.NgMapPath = ngPath;
+                    result.RoleMap = goodMap;
+                }
+                else
+                {
+                    DieMap inputMap = BuildDerivedMap(project, baseMap, RecipeMapKind.Input, null);
+                    EnsureSameAddressDomain(baseMap, inputMap, "Input");
+
+                    string inputPath = BuildMapPath(project, RecipeMapPaths.FileSuffix(RecipeMapKind.Input));
+                    RecipeMapPaths.SetConfiguredFileName(project, RecipeMapKind.Input, RecipeMapPaths.MakeConfigRelativePath(inputPath));
+                    RecipeMapPaths.InvalidateApproval(project, true, false);
+                    pendingMaps.Add(new PendingMap(inputMap, inputPath));
+                    result.InputBaseMapPath = basePath;
+                    result.InputMapPath = inputPath;
+                    result.RoleMap = inputMap;
+                }
+
+                SaveMapFamiliesAtomically(pendingMaps, BuildProjectCommit(project, persistProject));
+
+                QMC.Common.Log.Write(
+                    "Main",
+                    "RECIPE",
+                    "RecipeMapBuildService",
+                    "Recipe Grid Base/role maps created. project=" + project.FileName +
+                    ", role=" + (outputRole ? "OUTPUT" : "INPUT") +
+                    ", grid=" + gridX + "x" + gridY +
+                    ", cells=" + baseMap.Entries.Count +
+                    ", targets=" + baseMap.Entries.Count(entry => entry != null && entry.IsTarget) +
+                    ", source=RECIPE GRID - Ok");
+
+                result.BaseMapPath = basePath;
+                result.BaseMap = baseMap;
+                result.AddressCount = baseMap.Entries.Count;
+                result.TargetCount = baseMap.Entries.Count(entry => entry != null && entry.IsTarget);
+                result.Success = true;
+                result.Message = (outputRole ? "Output Grid Base와 Good/NG" : "Input Grid Base와 Input") +
+                    " 역할 맵 생성 완료. Map Create에서 FINAL APPLY가 필요합니다.";
+                return result;
+            }
+            catch (Exception ex)
+            {
+                RestoreProjectMapState(project, originalState);
+                result.Success = false;
+                result.Message = ex.Message;
+                return result;
+            }
+            finally
+            {
+            }
+        }
+
         public static RecipeMapBuildResult RebuildDerivedMaps(
             RecipeProject project,
             bool rebuildInput,

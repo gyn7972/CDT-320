@@ -50,6 +50,38 @@ namespace QMC.Common.Motion
 
     public static class AxisMoveWaiter
     {
+        public static bool CanSkipMoveCommandAtTarget(BaseAxis axis, double target)
+        {
+            double completionTolerance = axis != null && axis.Config != null && axis.Config.InPositionTolerance > 0.0
+                ? axis.Config.InPositionTolerance
+                : 0.01;
+            return CanSkipMoveCommandAtTarget(axis, target, completionTolerance);
+        }
+
+        /// <summary>
+        /// 현재 위치가 목표와 정확히 같고 기존의 강한 완료조건까지 만족할 때만
+        /// 절대이동 명령을 생략할 수 있도록 판정합니다.
+        /// 위치가 조금이라도 다르면 완료 공차와 관계없이 이동 명령을 발행합니다.
+        /// </summary>
+        public static bool CanSkipMoveCommandAtTarget(BaseAxis axis, double target, double completionTolerance)
+        {
+            if (axis == null || axis.ActualPosition != target)
+                return false;
+
+            return IsMoveCompletedAtTarget(axis, target, completionTolerance);
+        }
+
+        /// <summary>
+        /// 비동기 완료 대기와 동일한 축/목표 성공 조건을 현재 상태에서 확인합니다.
+        /// In-position 신호가 ON인 정상 조건과, 더 엄격한 절반 공차를 사용하는
+        /// command/actual 위치 fallback 조건을 모두 포함합니다.
+        /// </summary>
+        public static bool IsMoveCompletedAtTarget(BaseAxis axis, double target, double tolerance)
+        {
+            return IsMoveDoneInPosition(axis, target, tolerance) ||
+                   IsMoveDoneByTolerance(axis, target, tolerance);
+        }
+
         public static async Task<AxisMoveWaitResult> WaitMoveDoneInPositionAsync(
             BaseAxis axis,
             double target,
