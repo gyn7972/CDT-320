@@ -43,10 +43,24 @@ namespace QMC.CDT320.Sequencing
         public void Configure(SequenceRunOptions options)
         {
             _options = options ?? SequenceRunOptions.FullAuto();
+            bool autoPickerRequested = _options.Mode == SequenceRunMode.Auto &&
+                                       ((_options.Units & SequenceUnitKind.PickerFront) == SequenceUnitKind.PickerFront ||
+                                        (_options.Units & SequenceUnitKind.PickerRear) == SequenceUnitKind.PickerRear);
+            bool autoOutputRequested = (_options.Units & SequenceUnitKind.OutputUnloader) ==
+                                       SequenceUnitKind.OutputUnloader;
+            if (autoPickerRequested && !autoOutputRequested)
+            {
+                throw new InvalidOperationException(
+                    "Picker Auto run에는 OutputStage Ready/Full 교체를 담당할 OutputUnloader가 필요합니다. " +
+                    "units=" + _options.Units);
+            }
+
             _ctx.ResetCycleStopRequest();
             _ctx.WaferCompletion.Configure(
                 _options.Mode == SequenceRunMode.Auto &&
                 AppSettingsStore.Current.WaferCompleteRunMode == WaferCompleteRunMode.StopAfterDrain);
+            if (_ctx.AutoSequenceGate != null)
+                _ctx.AutoSequenceGate.ConfigureRun(_options.Units, _options.Mode);
             _active.Clear();
 
             foreach (var item in _factories)

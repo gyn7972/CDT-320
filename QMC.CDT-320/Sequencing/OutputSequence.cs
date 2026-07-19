@@ -99,6 +99,7 @@ namespace QMC.CDT320.Sequencing
         private const int MaxOutputLoaderBatchActions = 12;
         private const string OutputLoaderBatchDrainReason = "Output loader 교체를 Feeder Avoid 및 최종 안전 자세까지 완료";
         private int _autoOutputLoaderBatchDepth;
+        private bool _stopAfterDrainCapacityLogWritten;
 
         public OutputSequence(MachineSequenceContext ctx)
             : base(ctx, SequenceUnitKind.OutputUnloader, "Output")
@@ -140,7 +141,10 @@ namespace QMC.CDT320.Sequencing
                                 "OutputSequence",
                                 "OUTPUT-AUTO"));
 
-                    Context.StopIfCycleStopRequested("OutputSequence.AutoActionComplete");
+                    Context.StopIfCycleStopRequested(
+                        "OutputSequence.AutoActionComplete",
+                        ShouldDeferCycleStopForPickerHeldDieOutputDrain(),
+                        OutputLoaderBatchDrainReason);
                 }
             }
             catch (OperationCanceledException)
@@ -716,10 +720,18 @@ namespace QMC.CDT320.Sequencing
             if (action != OutputSequenceAutoAction.ResumeOccupiedFeeder &&
                 IsStopAfterDrainRequested())
             {
-                WriteLog("WaferCompletionRun",
-                    "Stop After Drain 요청으로 새 Output Wafer 교체 작업을 시작하지 않습니다. action=" +
-                    action + " - Ok");
-                return 0;
+                bool heldDieDrain = HasPickerHeldTargetDieForOutputDrain();
+                bool goodCapacityAction =
+                    action == OutputSequenceAutoAction.StoreGoodStageToCassette ||
+                    action == OutputSequenceAutoAction.SupplyGoodCassetteToStage;
+                if (!heldDieDrain || !goodCapacityAction)
+                {
+                    WriteLog("WaferCompletionRun",
+                        "Stop After Drain 요청으로 신규 Output 작업을 시작하지 않습니다. " +
+                        "Picker 보유 Die 배출 중에는 GOOD Stage 용량 확보 작업만 허용합니다. " +
+                        "action=" + action + ", heldDieDrain=" + heldDieDrain + " - Ok");
+                    return 0;
+                }
             }
 
             switch (action)
@@ -904,6 +916,9 @@ namespace QMC.CDT320.Sequencing
                     if (MaterialStateService.GetWaferAtLocation(MaterialLocationKind.OutputFeeder) != null)
                         return OutputSequenceAutoAction.ResumeOccupiedFeeder;
 
+                    if (HasPickerHeldTargetDieForOutputDrain())
+                        return ResolvePickerHeldDieDrainOutputAction();
+
                     return OutputSequenceAutoAction.WaitOutputStageReceiveComplete;
                 }
             }
@@ -935,6 +950,28 @@ namespace QMC.CDT320.Sequencing
             return OutputSequenceAutoAction.WaitOutputStageReceiveComplete;
         }
 
+        private OutputSequenceAutoAction ResolvePickerHeldDieDrainOutputAction()
+        {
+            // 현재 Place 정책은 검사 결과와 무관하게 Picker 보유 Die를 GOOD Stage로 배출한다.
+            // Stop After Drain에서는 그 배출에 필요한 GOOD side 용량만 확보하고 반대 side 신규 교체는 시작하지 않는다.
+            if (IsOutputStageCompletionSignalSet(BinSide.Good))
+                return OutputSequenceAutoAction.StoreGoodStageToCassette;
+
+            if (CanSupplyOutputStage(BinSide.Good))
+                return OutputSequenceAutoAction.SupplyGoodCassetteToStage;
+
+            if (!CanMaintainGoodStageForPickerHeldDieDrain())
+                return OutputSequenceAutoAction.StopNoOutputBinWork;
+
+            return OutputSequenceAutoAction.WaitOutputStageReceiveComplete;
+        }
+
+        private static bool CanMaintainGoodStageForPickerHeldDieDrain()
+        {
+            return MaterialStateService.GetWaferAtLocation(MaterialLocationKind.OutputStageGood) != null ||
+                   CanSupplyOutputStage(BinSide.Good);
+        }
+
         private OutputSequenceAutoAction ResolveNextOutputActionForSide(BinSide side)
         {
             WaferCompletionRunCoordinator completion = Context != null ? Context.WaferCompletion : null;
@@ -952,7 +989,8 @@ namespace QMC.CDT320.Sequencing
                         return OutputSequenceAutoAction.ResumeOccupiedFeeder;
                     }
 
-                    return OutputSequenceAutoAction.None;
+                    if (!HasPickerHeldTargetDieForOutputDrain() || side == BinSide.Ng)
+                        return OutputSequenceAutoAction.None;
                 }
             }
 
@@ -1188,19 +1226,29 @@ namespace QMC.CDT320.Sequencing
                         return;
                     }
 
-                    if (IsOutputStageCompletionSignalSet(BinSide.Ng) ||
-                        await TryRestoreOutputStageCompletionSignalAfterSafeRecoveryAsync(BinSide.Ng, ct).ConfigureAwait(false))
+                    bool drainHeldDieToGood =
+                        IsStopAfterDrainRequested() &&
+                        HasPickerHeldTargetDieForOutputDrain();
+
+                    if (!drainHeldDieToGood &&
+                        (IsOutputStageCompletionSignalSet(BinSide.Ng) ||
+                         await TryRestoreOutputStageCompletionSignalAfterSafeRecoveryAsync(BinSide.Ng, ct).ConfigureAwait(false)))
                     {
                         WriteLog("WaitAnyOutputReceiveCompleteAsync", "NG OutputStage 수령 완료 신호를 확인했습니다. - Ok");
                         return;
                     }
 
-                    if (IsOutputAutoNoBinWorkComplete())
+                    if (IsOutputAutoNoBinWorkComplete() &&
+                        !(drainHeldDieToGood &&
+                          CanMaintainGoodStageForPickerHeldDieDrain()))
                     {
                         StopOutputAutoNoBinWork();
                     }
 
-                    Context.StopIfCycleStopRequested("OutputSequence.WaitReceiveComplete");
+                    Context.StopIfCycleStopRequested(
+                        "OutputSequence.WaitReceiveComplete",
+                        ShouldDeferCycleStopForPickerHeldDieOutputDrain(),
+                        OutputLoaderBatchDrainReason);
                     await Task.Delay(100, ct).ConfigureAwait(false);
                 }
 
@@ -1236,6 +1284,18 @@ namespace QMC.CDT320.Sequencing
             if (!completion.IsDrainRequested)
                 return false;
 
+            if (HasPickerHeldTargetDieForOutputDrain() || HasOutputFeederMaterialForDrain())
+            {
+                if (!_stopAfterDrainCapacityLogWritten)
+                {
+                    _stopAfterDrainCapacityLogWritten = true;
+                    WriteLog("WaferCompletionRun",
+                        "Stop After Drain 요청 상태지만 Picker 보유 제품 배출 또는 OutputFeeder 잔여 이송을 계속합니다. " +
+                        "boundary=" + (boundary ?? "-") + " - Drain");
+                }
+                return false;
+            }
+
             WriteLog("WaferCompletionRun",
                 "Stop After Drain 요청으로 Output Wafer 교체를 중단하고 Picker 보유 제품 Place/후검사 완료를 기다립니다. " +
                 "boundary=" + (boundary ?? "-") + " - Wait");
@@ -1243,6 +1303,20 @@ namespace QMC.CDT320.Sequencing
             while (!completion.IsRunComplete)
             {
                 ct.ThrowIfCancellationRequested();
+                // Drain 요청과 마지막 Pick의 Material 이동 사이 race를 닫는다.
+                // 대기 진입 뒤 Picker 보유 제품이 생기면 즉시 Output 용량 확보 루프로 복귀한다.
+                if (HasPickerHeldTargetDieForOutputDrain() || HasOutputFeederMaterialForDrain())
+                {
+                    if (!_stopAfterDrainCapacityLogWritten)
+                    {
+                        _stopAfterDrainCapacityLogWritten = true;
+                        WriteLog("WaferCompletionRun",
+                            "Stop After Drain 완료 대기 중 Picker 보유 제품 또는 OutputFeeder 잔여 자재가 확인되어 Output 처리를 재개합니다. " +
+                            "boundary=" + (boundary ?? "-") + " - Drain");
+                    }
+                    return false;
+                }
+
                 SetOutputStageReadySignals();
                 await Task.Delay(50, ct).ConfigureAwait(false);
             }
@@ -1262,9 +1336,11 @@ namespace QMC.CDT320.Sequencing
                 string reason = BuildOutputNoBinWorkReason();
                 OutputCassetteOperatorMessageHelper.RequestReplacement(Context, BinSide.Good, "OK 출력 카세트 전체", reason);
                 OutputCassetteOperatorMessageHelper.RequestReplacement(Context, BinSide.Ng, "NG 출력 카세트", reason);
-                Log.Write("Main", "SYSTEM", "OutputSequence", reason + " - Stopped");
+                Log.Write("Main", "SYSTEM", "OutputSequence", reason + " - Failed");
 
-                return StopAutoSequence(reason);
+                // Picker가 보유 Die를 가진 상태에서도 sibling 종료가 전파되도록 정상 SequenceStop이 아니라
+                // 명시적 unit failure로 처리한다. Coordinator가 CycleStop 경계 후 timeout abort까지 담당한다.
+                return Fail("OUT-STAGE-SUPPLY-UNAVAILABLE", "OutputSequence", reason);
             }
             catch (SequenceStopException)
             {
@@ -1286,22 +1362,25 @@ namespace QMC.CDT320.Sequencing
         {
             try
             {
-                if (HasOutputActiveMaterial())
+                if (MaterialStateService.GetWaferAtLocation(MaterialLocationKind.OutputFeeder) != null)
                     return false;
 
-                if (CanSupplyOutputStage(BinSide.Good))
-                    return false;
+                bool goodStagePresent = MaterialStateService.GetWaferAtLocation(
+                    MaterialLocationKind.OutputStageGood) != null;
+                bool ngStagePresent = MaterialStateService.GetWaferAtLocation(
+                    MaterialLocationKind.OutputStageNg) != null;
+                bool canSupplyGood = CanSupplyOutputStage(BinSide.Good);
+                bool canSupplyNg = CanSupplyOutputStage(BinSide.Ng);
 
-                if (CanSupplyOutputStage(BinSide.Ng))
-                    return false;
+                // 자동 운전은 GOOD/NG Stage를 모두 준비하는 계약이다. 한 side가 비었는데
+                // 공급 가능한 Bin도 없으면 다른 side가 남아 있어도 기다리지 않고 교체를 요청한다.
+                if (!goodStagePresent && !canSupplyGood)
+                    return true;
 
-                if (MaterialStateService.IsOutputStageReceiveAvailable(BinSide.Good))
-                    return false;
+                if (!ngStagePresent && !canSupplyNg)
+                    return true;
 
-                if (MaterialStateService.IsOutputStageReceiveAvailable(BinSide.Ng))
-                    return false;
-
-                return true;
+                return false;
             }
             catch (Exception ex)
             {
@@ -1343,17 +1422,23 @@ namespace QMC.CDT320.Sequencing
                 bool ngSupply = OutputSlotPlanner.TryResolveNextSupplySlot(BinSide.Ng, out ngPlan);
                 bool goodReceive = MaterialStateService.IsOutputStageReceiveAvailable(BinSide.Good);
                 bool ngReceive = MaterialStateService.IsOutputStageReceiveAvailable(BinSide.Ng);
+                bool feederPresent = MaterialStateService.GetWaferAtLocation(MaterialLocationKind.OutputFeeder) != null;
+                bool goodStagePresent = MaterialStateService.GetWaferAtLocation(MaterialLocationKind.OutputStageGood) != null;
+                bool ngStagePresent = MaterialStateService.GetWaferAtLocation(MaterialLocationKind.OutputStageNg) != null;
 
-                return "출력 카세트에 공급 가능한 Bin이 없고 OutputFeeder/OutputStage에 진행 중인 Bin도 없습니다. " +
+                return "자동 운전에 필요한 GOOD/NG OutputStage를 모두 유지할 수 없습니다. " +
                        "출력 카세트를 교체하거나 매핑/자재 상태를 확인하세요. " +
-                       "goodSupply=" + goodSupply +
+                       "feederPresent=" + feederPresent +
+                       ", goodStagePresent=" + goodStagePresent +
+                       ", ngStagePresent=" + ngStagePresent +
+                       ", goodSupply=" + goodSupply +
                        ", ngSupply=" + ngSupply +
                        ", goodReceiveAvailable=" + goodReceive +
                        ", ngReceiveAvailable=" + ngReceive;
             }
             catch (Exception ex)
             {
-                return "출력 카세트에 공급 가능한 Bin이 없고 OutputFeeder/OutputStage에 진행 중인 Bin도 없습니다. " +
+                return "자동 운전에 필요한 OutputStage 공급 가능 상태를 확인할 수 없습니다. " +
                        "출력 카세트를 교체하거나 매핑/자재 상태를 확인하세요. detail=" + ex.Message;
             }
             finally
@@ -2194,7 +2279,7 @@ namespace QMC.CDT320.Sequencing
                     {
                         Context.StopIfCycleStopRequested(
                             "OutputSequence.PickerAvoidGate:" + safeHolder,
-                            IsAutoOutputLoaderBatchActive,
+                            IsAutoOutputLoaderBatchActive || ShouldDeferCycleStopForPickerHeldDieOutputDrain(),
                             OutputLoaderBatchDrainReason);
                     }
 
@@ -2283,6 +2368,48 @@ namespace QMC.CDT320.Sequencing
             }
 
             return true;
+        }
+
+        private bool ShouldDeferCycleStopForPickerHeldDieOutputDrain()
+        {
+            if (Mode != SequenceRunMode.Auto ||
+                Context == null ||
+                !Context.IsCycleStopRequested)
+            {
+                return false;
+            }
+
+            if (Context.Controller != null && Context.Controller.Status == EquipmentStatus.Alarm)
+                return false;
+
+            return HasPickerHeldTargetDieForOutputDrain();
+        }
+
+        private bool HasPickerHeldTargetDieForOutputDrain()
+        {
+            AutoSequenceCoordinatorGate gate = Context != null ? Context.AutoSequenceGate : null;
+            bool frontActive = gate == null || gate.IsPickerSideConfiguredForRun(PickerSequenceSide.Front);
+            bool rearActive = gate == null || gate.IsPickerSideConfiguredForRun(PickerSequenceSide.Rear);
+
+            return (frontActive && HasInputTargetDieAtPicker(MaterialLocationKind.PickerFront)) ||
+                   (rearActive && HasInputTargetDieAtPicker(MaterialLocationKind.PickerRear));
+        }
+
+        private static bool HasOutputFeederMaterialForDrain()
+        {
+            return MaterialStateService.GetWaferAtLocation(MaterialLocationKind.OutputFeeder) != null;
+        }
+
+        private static bool HasInputTargetDieAtPicker(MaterialLocationKind location)
+        {
+            for (int pickerNo = 1; pickerNo <= 4; pickerNo++)
+            {
+                DieMaterial die = MaterialStateService.GetDieAtPicker(location, pickerNo);
+                if (die != null && die.IsInputTarget)
+                    return true;
+            }
+
+            return false;
         }
 
         private static bool IsFrontPickerEnabled(PickerFrontUnit front)

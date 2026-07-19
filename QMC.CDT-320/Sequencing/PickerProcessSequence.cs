@@ -12,11 +12,13 @@ namespace QMC.CDT320.Sequencing
 {
     internal sealed class PickerProcessSequence : PickerSequenceBase<PickerProcessStep>
     {
+        private const int OutputStageExchangeStallTimeoutMs = 120000;
         private PickerPickUpSequence _pickUpSequence;
         private PickerBottomInspectionSequence _bottomInspectionSequence;
         private PickerSideInspectionSequence _sideInspectionSequence;
         private PickerBottomAndSideInspectionSequence _bottomAndSideInspectionSequence;
         private PickerPlaceSequence _placeSequence;
+        private SequenceResourceLease _pickerProcessLease;
         private PickerPhaseLease _phaseLease;
         private AutoSequencePickerWorkZoneLease _workZoneLease;
         private bool _bottomInspectionCompletedInCurrentRun;
@@ -92,18 +94,16 @@ namespace QMC.CDT320.Sequencing
         {
             try
             {
-                using (SequenceResourceLease pickerLease = await AcquirePickerProcessResourceAsync(ct).ConfigureAwait(false))
-                {
-                    if (pickerLease == null)
-                        return Fail("PICKER-RESOURCE", Name, "Picker 리소스 점유 실패. resource=" + PickerResourceKind);
+                int acquireResult = await AcquireActivePickerProcessResourceAsync(
+                    "ProcessStart",
+                    ct).ConfigureAwait(false);
+                if (acquireResult != 0)
+                    return acquireResult;
 
-                    if (IsStepRunMode())
-                    {
-                        return await ExecuteSingleProcessStepAsync(ct).ConfigureAwait(false);
-                    }
+                if (IsStepRunMode())
+                    return await ExecuteSingleProcessStepAsync(ct).ConfigureAwait(false);
 
-                    return await ExecuteProcessUntilCompleteAsync(ct).ConfigureAwait(false);
-                }
+                return await ExecuteProcessUntilCompleteAsync(ct).ConfigureAwait(false);
             }
             catch (OperationCanceledException)
             {
@@ -130,6 +130,7 @@ namespace QMC.CDT320.Sequencing
             }
             finally
             {
+                ReleaseActivePickerProcessResource("ProcessFinally");
                 await EnsureCycleStopSafePoseAsync(ct).ConfigureAwait(false);
                 ReleasePickerProcessPhase("ProcessFinally");
                 ResetPickerPhaseSignals();
@@ -202,6 +203,55 @@ namespace QMC.CDT320.Sequencing
             }
 
             return AcquireResourceAsync(PickerResourceKind, Name + ":Process", ct);
+        }
+
+        private async Task<int> AcquireActivePickerProcessResourceAsync(
+            string description,
+            CancellationToken ct)
+        {
+            if (_pickerProcessLease != null)
+                return 0;
+
+            _pickerProcessLease = await AcquirePickerProcessResourceAsync(ct).ConfigureAwait(false);
+            if (_pickerProcessLease == null)
+            {
+                return Fail("PICKER-RESOURCE", Name,
+                    "Picker 리소스 점유 실패. resource=" + PickerResourceKind +
+                    ", description=" + (description ?? "-"));
+            }
+
+            WriteLog("PickerProcessResource",
+                Name + " Picker Process 리소스 점유 완료. side=" + Side +
+                ", resource=" + PickerResourceKind +
+                ", description=" + (description ?? "-") + " - Ok");
+            return 0;
+        }
+
+        private void ReleaseActivePickerProcessResource(string description)
+        {
+            SequenceResourceLease lease = _pickerProcessLease;
+            _pickerProcessLease = null;
+            if (lease == null)
+                return;
+
+            lease.Dispose();
+            WriteLog("PickerProcessResource",
+                Name + " Picker Process 리소스를 안전 대기/종료 경계에서 반환했습니다. side=" + Side +
+                ", resource=" + PickerResourceKind +
+                ", description=" + (description ?? "-") + " - Ok");
+        }
+
+        private int VerifyPickerSafeAfterProcessResourceAcquire(string description)
+        {
+            string safeDetail;
+            if (VerifySafeStartConfig(out safeDetail))
+                return 0;
+
+            return Fail("PICKER-RESOURCE-REACQUIRE-UNSAFE", Name,
+                "Picker Process 리소스 재점유 후 실제 Avoid 안전상태 확인에 실패했습니다. " +
+                "side=" + Side +
+                ", description=" + (description ?? "-") +
+                ", detail=" + safeDetail);
         }
 
         private bool IsStepRunMode()
@@ -292,11 +342,33 @@ namespace QMC.CDT320.Sequencing
 
             try
             {
+                // CheckUnit에서 실제 Picker 전체 Avoid를 확인한 뒤의 비모션 대기다.
+                // 재시작 우선순위를 기다리는 동안 Process 리소스를 보유하면 Output Loader가
+                // 양쪽 Picker gate를 확보할 수 없으므로, 안전 위치에서만 일시 반환한다.
+                if (_pickerProcessLease == null)
+                {
+                    return Fail("PICKER-RESUME-DRAIN-RESOURCE", Name,
+                        "재시작 드레인 순번 대기 전 Picker Process 리소스가 없습니다. " +
+                        "side=" + Side + ", step=" + CurrentStep);
+                }
+
+                ReleaseActivePickerProcessResource("ResumeDrainTurnWait");
+
                 bool held = await PickerFirstForwardSequencer.WaitResumeDrainTurnAsync(
                     Side,
                     Context,
                     msg => WriteLog("PickerResumeDrainSequencer", Name + " " + msg + " - Wait"),
                     ct).ConfigureAwait(false);
+
+                int acquireResult = await AcquireActivePickerProcessResourceAsync(
+                    "ResumeDrainTurnAcquired",
+                    ct).ConfigureAwait(false);
+                if (acquireResult != 0)
+                    return acquireResult;
+
+                int safeResult = VerifyPickerSafeAfterProcessResourceAcquire("ResumeDrainTurnAcquired");
+                if (safeResult != 0)
+                    return safeResult;
 
                 _resumeDrainWaitHandled = true;
                 _resumeDrainTurnHeld = held;
@@ -2003,6 +2075,8 @@ namespace QMC.CDT320.Sequencing
                         ReleasePickerWorkZone("PlaceSafeAvoid:" + (description ?? "-"));
                         return _workZoneLease == null;
                     };
+                    _placeSequence.WaitForOutputStageExchangeWithProcessHandoffAsync =
+                        WaitForOutputStageExchangeWithProcessHandoffAsync;
                     if (_forceSafeYBeforePlaceResume)
                     {
                         WriteLog("PickerProcessSequence",
@@ -2084,6 +2158,187 @@ namespace QMC.CDT320.Sequencing
             }
             finally
             {
+            }
+        }
+
+        private async Task<int> WaitForOutputStageExchangeWithProcessHandoffAsync(
+            BinSide outputSide,
+            int pickerNo,
+            string description,
+            CancellationToken ct)
+        {
+            try
+            {
+                if (Options == null || Options.RunMode != SequenceRunMode.Auto)
+                {
+                    return Fail("PICKER-OUTPUT-HANDOFF-MODE", Name,
+                        "OutputStage 교체용 Picker Process 리소스 양도는 Auto 모드에서만 허용됩니다. " +
+                        "side=" + Side + ", outputSide=" + outputSide + ", pickerNo=" + pickerNo);
+                }
+
+                if (Context == null ||
+                    Context.AutoSequenceGate == null ||
+                    !Context.AutoSequenceGate.IsOutputLoaderConfiguredForAutoRun)
+                {
+                    return Fail("PICKER-OUTPUT-HANDOFF-LOADER-DISABLED", Name,
+                        "OutputStage 교체가 필요하지만 이번 Auto run에 OutputUnloader가 활성화되지 않았습니다. " +
+                        "Picker는 전체 Avoid 상태에서 교체 대기를 시작하지 않습니다. " +
+                        "side=" + Side + ", outputSide=" + outputSide + ", pickerNo=" + pickerNo);
+                }
+
+                if (_pickerProcessLease == null)
+                {
+                    return Fail("PICKER-OUTPUT-HANDOFF-RESOURCE", Name,
+                        "OutputStage 교체용 Picker Process 리소스를 양도할 수 없습니다. 현재 리소스가 없습니다. " +
+                        "side=" + Side + ", outputSide=" + outputSide + ", pickerNo=" + pickerNo);
+                }
+
+                if (_workZoneLease != null)
+                {
+                    return Fail("PICKER-OUTPUT-HANDOFF-WORK-ZONE", Name,
+                        "OutputStage 교체용 Picker Process 리소스 양도 전에 Output 작업영역이 해제되지 않았습니다. " +
+                        "side=" + Side + ", outputSide=" + outputSide + ", pickerNo=" + pickerNo);
+                }
+
+                int safeResult = VerifyPickerSafeAfterProcessResourceAcquire("OutputStageExchangeHandoffBeforeRelease");
+                if (safeResult != 0)
+                    return safeResult;
+
+                // 물리 Safe와 child/work-zone 해제를 확인한 뒤 phase와 Process 리소스를 반환한다.
+                // 동일 PickerProcessSequence 인스턴스는 유지하므로 보유 Die, Picker cursor,
+                // Bottom/Side 최종 RESULT 대기 객체와 resume-drain 순서는 그대로 보존된다.
+                ReleasePickerProcessPhase("OutputStageExchangeHandoff");
+                if (_phaseLease != null || _workZoneLease != null)
+                {
+                    return Fail("PICKER-OUTPUT-HANDOFF-PHASE", Name,
+                        "OutputStage 교체용 Picker phase/work-zone 해제에 실패했습니다. " +
+                        "side=" + Side + ", outputSide=" + outputSide + ", pickerNo=" + pickerNo);
+                }
+
+                WriteLog("PickerOutputLoaderHandoff",
+                    Name + " OutputStage Full 안전 대기에서 Picker Process 리소스를 Loader에 양도합니다. " +
+                    "side=" + Side + ", outputSide=" + outputSide +
+                    ", pickerNo=" + pickerNo +
+                    ", description=" + (description ?? "-") + " - Start");
+
+                ReleaseActivePickerProcessResource("OutputStageExchangeHandoff");
+
+                int readyResult = await WaitForOutputStageReadyAfterProcessHandoffAsync(
+                    outputSide,
+                    pickerNo,
+                    ct).ConfigureAwait(false);
+                if (readyResult != 0)
+                    return readyResult;
+
+                // Coordinator는 다른 OutputStage Full/완료 신호와 LoaderActive가 남아 있으면
+                // 재점유를 계속 차단한다. Store/Supply 복구 작업도 Picker 리소스 없이 완료할 수 있다.
+                int acquireResult = await AcquireActivePickerProcessResourceAsync(
+                    "OutputStageExchangeHandoffComplete",
+                    ct).ConfigureAwait(false);
+                if (acquireResult != 0)
+                    return acquireResult;
+
+                safeResult = VerifyPickerSafeAfterProcessResourceAcquire("OutputStageExchangeHandoffComplete");
+                if (safeResult != 0)
+                    return safeResult;
+
+                int phaseResult = await EnterOrTransitionPickerPhaseAsync(
+                    PickerProcessPhase.Place,
+                    "OutputStageExchangeHandoffResume",
+                    ct).ConfigureAwait(false);
+                if (phaseResult != 0)
+                    return phaseResult;
+
+                WriteLog("PickerOutputLoaderHandoff",
+                    Name + " OutputStage 교체 완료 후 같은 Picker Process/Die 상태로 Place 재개 승인을 받았습니다. " +
+                    "side=" + Side + ", outputSide=" + outputSide +
+                    ", pickerNo=" + pickerNo +
+                    ", description=" + (description ?? "-") + " - Ok");
+                return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (SequenceStopException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("PICKER-OUTPUT-HANDOFF-EX", Name,
+                    "OutputStage 교체용 Picker Process 리소스 양도/재점유 중 예외가 발생했습니다. " +
+                    "side=" + Side + ", outputSide=" + outputSide +
+                    ", pickerNo=" + pickerNo + ", error=" + ex.Message);
+            }
+        }
+
+        private async Task<int> WaitForOutputStageReadyAfterProcessHandoffAsync(
+            BinSide outputSide,
+            int pickerNo,
+            CancellationToken ct)
+        {
+            DateTime waitStarted = DateTime.UtcNow;
+            DateTime lastProgress = waitStarted;
+            string lastWaitState = null;
+
+            while (true)
+            {
+                ct.ThrowIfCancellationRequested();
+                Context.StopIfCycleStopRequested(
+                    Name + ".OutputStageExchangeHandoffWait",
+                    ShouldDeferCycleStopForActivePickerDrain(),
+                    "Picker held die output stage exchange");
+
+                string materialReason;
+                bool materialReady = MaterialStateService.IsOutputStageReceiveAvailable(
+                    outputSide,
+                    out materialReason);
+                string readySignal = outputSide == BinSide.Ng
+                    ? "OutputNgStageReady"
+                    : "OutputGoodStageReady";
+                bool signalReady = Context != null && Context.Bus != null && Context.Bus.IsSet(readySignal);
+                bool outputLoaderActive = Context != null &&
+                                          Context.Bus != null &&
+                                          Context.Bus.IsSet("OutputLoaderActive");
+                DateTime now = DateTime.UtcNow;
+                string waitState = "materialReady=" + materialReady +
+                                   ", signalReady=" + signalReady +
+                                   ", outputLoaderActive=" + outputLoaderActive +
+                                   ", materialReason=" + (string.IsNullOrWhiteSpace(materialReason) ? "-" : materialReason);
+
+                // 다른 side를 포함해 Loader가 실제 교체 작업 중이면 절대 경과시간으로 실패시키지 않는다.
+                // Loader가 inactive인 상태에서는 Material/Ready 상태가 바뀐 시점부터 stall 시간을 다시 센다.
+                if (outputLoaderActive || !string.Equals(lastWaitState, waitState, StringComparison.Ordinal))
+                {
+                    lastProgress = now;
+                    lastWaitState = waitState;
+                }
+
+                if (materialReady && signalReady && !outputLoaderActive)
+                {
+                    WriteLog("PickerOutputLoaderHandoff",
+                        Name + " OutputStage 교체 후 Material/Ready/Loader 완료를 확인했습니다. " +
+                         "side=" + Side + ", outputSide=" + outputSide +
+                         ", pickerNo=" + pickerNo +
+                         ", signal=" + readySignal +
+                         ", elapsedMs=" + (int)(now - waitStarted).TotalMilliseconds + " - Ok");
+                    return 0;
+                }
+
+                if ((now - lastProgress).TotalMilliseconds >= OutputStageExchangeStallTimeoutMs)
+                {
+                    return Fail("PICKER-OUTPUT-HANDOFF-TIMEOUT", Name,
+                        "OutputStage 교체 후 새 Stage 준비 상태가 제한시간 동안 진행되지 않았습니다. " +
+                        "Picker는 Process 리소스를 반환하고 전체 Avoid 상태를 유지합니다. " +
+                        "side=" + Side + ", outputSide=" + outputSide +
+                        ", pickerNo=" + pickerNo +
+                        ", stallTimeoutMs=" + OutputStageExchangeStallTimeoutMs +
+                        ", totalElapsedMs=" + (int)(now - waitStarted).TotalMilliseconds +
+                        ", state=" + waitState);
+                }
+
+                await Task.Delay(20, ct).ConfigureAwait(false);
             }
         }
 
@@ -2450,9 +2705,12 @@ namespace QMC.CDT320.Sequencing
                 {
                     ct.ThrowIfCancellationRequested();
 
-                    // 현재 기준: CycleStop 후에는 새 작업 zone 진입 대기를 drain하지 않고 정지 경계로 종료한다.
+                    // 보유 Die가 없으면 CycleStop 경계에서 종료하고, 보유 Die Place drain 중이면
+                    // 상대 Picker가 물리 zone을 비울 때까지 기존 phase/work-zone 정책과 동일하게 기다린다.
                     Context.StopIfCycleStopRequested(
-                        Name + ".WaitOppositePickerPhysicalClear:" + normalizedRequestedZone);
+                        Name + ".WaitOppositePickerPhysicalClear:" + normalizedRequestedZone,
+                        ShouldDeferCycleStopForActivePickerDrain(),
+                        "Picker target die/process drain");
 
                     string blockReason;
                     if (!IsOppositePickerPhysicallyBlockingWorkZone(

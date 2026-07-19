@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Threading;
 using System.Threading.Tasks;
 using QMC.CDT320.Interlocks;
@@ -30,10 +30,57 @@ namespace QMC.CDT320.Sequencing
         private string _rearPendingWorkZoneOwner = "";
         private string _inputCameraZoneOwner = "";
         private string _outputCameraZoneOwner = "";
+        private int _outputLoaderConfiguredForAutoRun;
+        private int _frontPickerConfiguredForRun;
+        private int _rearPickerConfiguredForRun;
+        private int _outputExchangePendingCheckErrorLogged;
 
         public AutoSequenceCoordinatorGate(MachineSequenceContext context)
         {
             _context = context ?? throw new ArgumentNullException(nameof(context));
+        }
+
+        internal void ConfigureRun(SequenceUnitKind units, SequenceRunMode mode)
+        {
+            bool autoMode = mode == SequenceRunMode.Auto;
+            Volatile.Write(
+                ref _outputLoaderConfiguredForAutoRun,
+                autoMode && (units & SequenceUnitKind.OutputUnloader) == SequenceUnitKind.OutputUnloader ? 1 : 0);
+            Volatile.Write(
+                ref _frontPickerConfiguredForRun,
+                autoMode && (units & SequenceUnitKind.PickerFront) == SequenceUnitKind.PickerFront ? 1 : 0);
+            Volatile.Write(
+                ref _rearPickerConfiguredForRun,
+                autoMode && (units & SequenceUnitKind.PickerRear) == SequenceUnitKind.PickerRear ? 1 : 0);
+            Volatile.Write(ref _outputExchangePendingCheckErrorLogged, 0);
+        }
+
+        internal bool IsOutputLoaderConfiguredForAutoRun
+        {
+            get { return Volatile.Read(ref _outputLoaderConfiguredForAutoRun) != 0; }
+        }
+
+        internal bool IsPickerSideConfiguredForRun(PickerSequenceSide side)
+        {
+            bool configured = side == PickerSequenceSide.Front
+                ? Volatile.Read(ref _frontPickerConfiguredForRun) != 0
+                : Volatile.Read(ref _rearPickerConfiguredForRun) != 0;
+            if (!configured)
+                return false;
+
+            if (_context == null || _context.Machine == null)
+                return true;
+
+            if (side == PickerSequenceSide.Front)
+            {
+                return _context.Machine.PickerFrontUnit != null &&
+                       _context.Machine.PickerFrontUnit.Config != null &&
+                       _context.Machine.PickerFrontUnit.Config.UseUnit;
+            }
+
+            return _context.Machine.PickerRearUnit != null &&
+                   _context.Machine.PickerRearUnit.Config != null &&
+                   _context.Machine.PickerRearUnit.Config.UseUnit;
         }
 
         public Task<AutoSequenceLoaderWorkLease> BeginInputWorkAsync(
@@ -88,7 +135,7 @@ namespace QMC.CDT320.Sequencing
                     ShouldDeferCycleStopForPickerDrain(side),
                     "Picker target die drain");
 
-                await WaitLoaderInactiveBeforePickerStartAsync(gateHolder, ct).ConfigureAwait(false);
+                await WaitLoaderInactiveBeforePickerStartAsync(side, gateHolder, ct).ConfigureAwait(false);
 
                 SequenceResourceLease lease = await TryAcquirePickerGateAsync(
                     resource,
@@ -110,7 +157,7 @@ namespace QMC.CDT320.Sequencing
                     continue;
                 }
 
-                if (!IsLoaderActive())
+                if (!IsPickerProcessStartBlocked())
                 {
                     Log.Write("Main", "SYSTEM", "AutoSequenceCoordinator",
                         "Picker process approved. side=" + side +
@@ -121,8 +168,10 @@ namespace QMC.CDT320.Sequencing
                 }
 
                 lease.Dispose();
-                _context.LogPublic("[SEQ] PickerProcess start recheck blocked by loader active. side=" +
-                    side + ", holder=" + safeHolder);
+                _context.LogPublic("[SEQ] PickerProcess start recheck blocked by loader active/output exchange pending. side=" +
+                    side + ", holder=" + safeHolder +
+                    ", loaderActive=" + IsLoaderActive() +
+                    ", outputExchangePending=" + IsOutputStageExchangePending());
                 await Task.Delay(20, ct).ConfigureAwait(false);
             }
         }
@@ -204,6 +253,9 @@ namespace QMC.CDT320.Sequencing
 
         private bool ShouldDeferCycleStopForPickerDrain(PickerSequenceSide side)
         {
+            if (!IsPickerSideConfiguredForRun(side))
+                return false;
+
             if (_context == null || !_context.IsCycleStopRequested)
                 return false;
             if (IsControllerAlarm())
@@ -220,6 +272,12 @@ namespace QMC.CDT320.Sequencing
             }
 
             return false;
+        }
+
+        private bool ShouldDeferCycleStopForAnyPickerDrain()
+        {
+            return ShouldDeferCycleStopForPickerDrain(PickerSequenceSide.Front) ||
+                   ShouldDeferCycleStopForPickerDrain(PickerSequenceSide.Rear);
         }
 
         private bool IsControllerAlarm()
@@ -313,7 +371,14 @@ namespace QMC.CDT320.Sequencing
                 if (arePickersAvoidAndStopped != null && !arePickersAvoidAndStopped(out reason))
                     throw new InvalidOperationException(loaderName + " start denied: picker is not avoid/stopped. " + reason);
 
-                pickerLeases = await AcquireBothPickerStartGatesAsync(gateHolder, ct).ConfigureAwait(false);
+                bool deferCycleStopForPickerDrain = string.Equals(
+                    loaderName,
+                    "OutputLoader",
+                    StringComparison.Ordinal);
+                pickerLeases = await AcquireBothPickerStartGatesAsync(
+                    gateHolder,
+                    deferCycleStopForPickerDrain,
+                    ct).ConfigureAwait(false);
 
                 if (arePickersAvoidAndStopped != null && !arePickersAvoidAndStopped(out reason))
                     throw new InvalidOperationException(loaderName + " start denied after gate acquire: picker is not avoid/stopped. " + reason);
@@ -733,6 +798,7 @@ namespace QMC.CDT320.Sequencing
 
         private async Task<AutoSequencePickerGateLeases> AcquireBothPickerStartGatesAsync(
             string holder,
+            bool deferCycleStopForPickerDrain,
             CancellationToken ct)
         {
             bool waitLogged = false;
@@ -740,7 +806,10 @@ namespace QMC.CDT320.Sequencing
             while (true)
             {
                 ct.ThrowIfCancellationRequested();
-                _context.StopIfCycleStopRequested("AutoSequenceCoordinator.LoaderGate:" + holder);
+                _context.StopIfCycleStopRequested(
+                    "AutoSequenceCoordinator.LoaderGate:" + holder,
+                    deferCycleStopForPickerDrain && ShouldDeferCycleStopForAnyPickerDrain(),
+                    "Picker-held die output exchange drain");
 
                 SequenceResourceLease frontLease = null;
                 SequenceResourceLease rearLease = null;
@@ -789,25 +858,122 @@ namespace QMC.CDT320.Sequencing
                 .ConfigureAwait(false);
         }
 
-        private async Task WaitLoaderInactiveBeforePickerStartAsync(string holder, CancellationToken ct)
+        private async Task WaitLoaderInactiveBeforePickerStartAsync(
+            PickerSequenceSide side,
+            string holder,
+            CancellationToken ct)
         {
             bool waitLogged = false;
 
-            while (IsLoaderActive())
+            while (IsPickerProcessStartBlocked())
             {
                 ct.ThrowIfCancellationRequested();
-                _context.StopIfCycleStopRequested("AutoSequenceCoordinator.PickerWaitLoaderInactive:" + holder);
+                _context.StopIfCycleStopRequested(
+                    "AutoSequenceCoordinator.PickerWaitLoaderInactive:" + holder,
+                    ShouldDeferCycleStopForPickerDrain(side),
+                    "Picker target die output exchange drain");
 
                 if (!waitLogged)
                 {
                     _context.LogPublic("[SEQ] AutoSequenceCoordinator picker start waiting for loader inactive. holder=" +
                         holder + ", inputActive=" + IsSignalSet("InputLoaderActive") +
-                        ", outputActive=" + IsSignalSet("OutputLoaderActive"));
+                        ", outputActive=" + IsSignalSet("OutputLoaderActive") +
+                        ", outputExchangePending=" + IsOutputStageExchangePending());
                     waitLogged = true;
                 }
 
                 await Task.Delay(20, ct).ConfigureAwait(false);
             }
+        }
+
+        private bool IsPickerProcessStartBlocked()
+        {
+            return IsLoaderActive() || IsOutputStageExchangePending();
+        }
+
+        private bool IsOutputStageExchangePending()
+        {
+            if (!IsOutputLoaderConfiguredForAutoRun)
+                return false;
+
+            try
+            {
+                // Full뿐 아니라 Stage -> Feeder -> Cassette -> 새 Stage 공급 중간 재시작도
+                // Loader가 양쪽 Picker gate를 먼저 확보해야 한다. Ready 신호만으로는 물리 자세를
+                // 증명할 수 없으므로, 여기서는 영속 Material의 Feeder 점유/Stage 누락만 사용한다.
+                bool feederOccupied = MaterialStateService.GetWaferAtLocation(
+                    MaterialLocationKind.OutputFeeder) != null;
+                if (IsStopAfterDrainPickerCapacityRequired())
+                {
+                    // 현재 Picker Place 정책은 모든 보유 Die를 GOOD Stage로 배출한다.
+                    // Drain 중에는 GOOD 용량 확보와 이미 시작된 Feeder 이송만 우선하고,
+                    // 반대 side Full 때문에 보유 Die 배출 자체를 막지 않는다.
+                    return feederOccupied ||
+                           IsSignalSet("OutputGoodStageReceiveComplete") ||
+                           MaterialStateService.IsOutputStageReceiveComplete(BinSide.Good) ||
+                           !IsOutputStageMaterialPresent(BinSide.Good);
+                }
+
+                if (IsSignalSet("OutputGoodStageReceiveComplete") ||
+                    IsSignalSet("OutputNgStageReceiveComplete") ||
+                    MaterialStateService.IsOutputStageReceiveComplete(BinSide.Good) ||
+                    MaterialStateService.IsOutputStageReceiveComplete(BinSide.Ng))
+                {
+                    return true;
+                }
+
+                return feederOccupied ||
+                       !IsOutputStageMaterialPresent(BinSide.Good) ||
+                       !IsOutputStageMaterialPresent(BinSide.Ng);
+            }
+            catch (Exception ex)
+            {
+                if (Interlocked.Exchange(ref _outputExchangePendingCheckErrorLogged, 1) == 0)
+                {
+                    Log.Write("Main", "SYSTEM", "AutoSequenceCoordinator",
+                        "Output exchange pending check failed; picker start remains blocked. error=" +
+                        ex.Message + " - Check");
+                }
+                return true;
+            }
+        }
+
+        private bool IsStopAfterDrainPickerCapacityRequired()
+        {
+            WaferCompletionRunCoordinator completion = _context != null
+                ? _context.WaferCompletion
+                : null;
+            if (completion == null || !completion.Enabled || !completion.IsDrainRequested)
+                return false;
+
+            return HasActivePickerTargetDie(PickerSequenceSide.Front) ||
+                   HasActivePickerTargetDie(PickerSequenceSide.Rear);
+        }
+
+        private bool HasActivePickerTargetDie(PickerSequenceSide side)
+        {
+            if (!IsPickerSideConfiguredForRun(side))
+                return false;
+
+            MaterialLocationKind location = side == PickerSequenceSide.Front
+                ? MaterialLocationKind.PickerFront
+                : MaterialLocationKind.PickerRear;
+            for (int pickerNo = 1; pickerNo <= 4; pickerNo++)
+            {
+                DieMaterial die = MaterialStateService.GetDieAtPicker(location, pickerNo);
+                if (die != null && die.IsInputTarget)
+                    return true;
+            }
+
+            return false;
+        }
+
+        private static bool IsOutputStageMaterialPresent(BinSide side)
+        {
+            MaterialLocationKind location = side == BinSide.Ng
+                ? MaterialLocationKind.OutputStageNg
+                : MaterialLocationKind.OutputStageGood;
+            return MaterialStateService.GetWaferAtLocation(location) != null;
         }
 
         private bool IsLoaderActive()
