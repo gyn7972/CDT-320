@@ -9827,6 +9827,27 @@ namespace QMC.CDT320
                 RecipeProject project = !string.IsNullOrWhiteSpace(ActiveRecipeName)
                     ? RecipeStore.Load(ActiveRecipeName)
                     : RecipeStore.LoadLastOrDefault();
+                WaferMaterial wafer = MaterialStateService.GetWaferAtLocation(MaterialLocationKind.InputStage);
+                if (wafer != null &&
+                    (wafer.HasInputStageAlignResult || wafer.HasInputStageDieMappingResult))
+                {
+                    bool hasHybridStoredResult =
+                        InputStageResultMode.IsHybrid(wafer.InputStageAlignResultMode) ||
+                        InputStageResultMode.IsHybrid(wafer.InputStageDieMappingResultMode);
+                    bool requireMappingResult = wafer.HasInputStageDieMappingResult ||
+                        (hasHybridStoredResult && UseDieMapMode);
+                    string resultModeReason;
+                    if (!MaterialStateService.IsStoredInputStageResultModeUsable(
+                            wafer,
+                            requireMappingResult,
+                            out resultModeReason))
+                    {
+                        reason = "Legacy Cycle 차단: 저장된 InputStage Align/Die Mapping 결과를 현재 운전 모드에서 사용할 수 없습니다. " +
+                                 resultModeReason;
+                        return false;
+                    }
+                }
+
                 if (project == null || project.MapApprovalVersion <= 0)
                     return true;
 
@@ -9843,12 +9864,12 @@ namespace QMC.CDT320
                     return false;
                 }
 
-                WaferMaterial wafer = MaterialStateService.GetWaferAtLocation(MaterialLocationKind.InputStage);
                 if (wafer == null || !wafer.HasInputStageDieMappingResult)
                 {
                     reason = "Legacy Cycle 차단: InputStage Wafer의 절대좌표 Die Mapping 결과가 없습니다.";
                     return false;
                 }
+
                 if (string.IsNullOrWhiteSpace(wafer.InputMapApprovalHashAtMapping) ||
                     !string.Equals(wafer.InputMapApprovalHashAtMapping, project.InputMapApprovalHash,
                         StringComparison.OrdinalIgnoreCase))

@@ -1175,6 +1175,10 @@ namespace QMC.CDT320.Materials
 
                 wafer.SourceCassetteSlotPosition = NormalizeJsonDouble(wafer.SourceCassetteSlotPosition, -1.0);
                 wafer.CurrentCassetteSlotPosition = NormalizeJsonDouble(wafer.CurrentCassetteSlotPosition, -1.0);
+                wafer.InputStageAlignResultMode = wafer.InputStageAlignResultMode ?? "";
+                wafer.InputStageAlignResultRunId = wafer.InputStageAlignResultRunId ?? "";
+                wafer.InputStageDieMappingResultMode = wafer.InputStageDieMappingResultMode ?? "";
+                wafer.InputStageDieMappingAlignRunId = wafer.InputStageDieMappingAlignRunId ?? "";
                 wafer.InputStageAlignOriginX = NormalizeJsonDouble(wafer.InputStageAlignOriginX, 0.0);
                 wafer.InputStageAlignOriginY = NormalizeJsonDouble(wafer.InputStageAlignOriginY, 0.0);
                 wafer.InputStageAlignPitchX = NormalizeJsonDouble(wafer.InputStageAlignPitchX, 0.0);

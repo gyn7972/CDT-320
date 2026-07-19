@@ -76,6 +76,12 @@ namespace QMC.CDT320.Sequencing
         private double _finalAlignOffsetX;
         private double _finalAlignOffsetY;
         private bool _preserveThetaOnProcessMove;
+        private bool _hybridVirtualFrameActive;
+        private double _hybridCenterAppliedMoveX;
+        private double _hybridCenterAppliedMoveY;
+        private double _hybridCenterAppliedTheta;
+        private double _hybridTwoPointAppliedTheta;
+        private string _alignResultRunId;
         private Task<VisionAlignResult> _pendingVisionTask;
         private CancellationTokenSource _pendingVisionCts;
         private string _pendingVisionStepName;
@@ -194,10 +200,17 @@ namespace QMC.CDT320.Sequencing
             try
             {
                 ResetAlignRuntimeState();
+                InputStageHybridResultSession.Clear();
 
                 int result = CheckUnit(InputStageAlignStep.MoveVisionProcessPosition);
                 if (result != 0)
                     return result;
+
+                result = ConfigureHybridVirtualFrameMode();
+                if (result != 0)
+                    return result;
+
+                _alignResultRunId = Guid.NewGuid().ToString("N");
 
                 if (Stage.Recipe == null)
                     return Fail("IN-STAGE-ALIGN-RECIPE", Stage.Name, "Input stage recipe is not available.");
@@ -285,6 +298,12 @@ namespace QMC.CDT320.Sequencing
             _finalAlignOffsetX = 0.0;
             _finalAlignOffsetY = 0.0;
             _preserveThetaOnProcessMove = false;
+            _hybridVirtualFrameActive = false;
+            _hybridCenterAppliedMoveX = 0.0;
+            _hybridCenterAppliedMoveY = 0.0;
+            _hybridCenterAppliedTheta = 0.0;
+            _hybridTwoPointAppliedTheta = 0.0;
+            _alignResultRunId = "";
             ClearPendingVisionRequest();
         }
 
@@ -567,7 +586,7 @@ namespace QMC.CDT320.Sequencing
                 }
 
                 _centerResult = await WaitPendingVisionResultAsync(ct).ConfigureAwait(false);
-                if (_centerResult == null)
+                if (_centerResult == null && !_hybridVirtualFrameActive)
                 {
                     _centerResult = await SearchVisionMarkAroundCurrentPointAsync(
                         ResolveTargetId(Options.CenterAlignTargetId, VisionAlignTargetIds.Center),
@@ -577,8 +596,14 @@ namespace QMC.CDT320.Sequencing
                 }
 
                 if (_centerResult == null)
+                {
+                    if (_hybridVirtualFrameActive)
+                        return Fail("IN-STAGE-ALIGN-HYBRID-CENTER-VISION", "Vision",
+                            "Wafer Align Center 다이를 찾지 못했습니다. HybridRealVisionSimMotion에서는 가상 X/Y 이동으로 실제 Vision 화면이 바뀌지 않으므로 동일 화면 통신 재시도 후 주변 8방향 탐색을 수행하지 않습니다.");
+
                     return Fail("IN-STAGE-ALIGN-CENTER", "Vision",
                         "Wafer Align Center 다이를 찾지 못했습니다. 센터와 주변 8방향 탐색을 모두 실패했습니다.");
+                }
 
                 int centerMoveResult = await ApplyCenterVisionCorrectionAsync(
                     _centerResult,
@@ -614,8 +639,11 @@ namespace QMC.CDT320.Sequencing
                     return 0;
                 }
 
-                double deltaTheta = _centerResult != null ? _centerResult.DeltaTheta : 0.0;
-                double correctionTheta = -deltaTheta;
+                double rawDeltaTheta = _centerResult != null ? _centerResult.DeltaTheta : 0.0;
+                double effectiveDeltaTheta = ResolveHybridEffectiveCenterTheta(
+                    rawDeltaTheta,
+                    "CenterThetaCorrection");
+                double correctionTheta = -effectiveDeltaTheta;
                 int limitResult = CheckThetaCorrectionLimit(correctionTheta, VisionAlignTargetIds.Center);
                 if (limitResult != 0)
                     return limitResult;
@@ -624,12 +652,27 @@ namespace QMC.CDT320.Sequencing
                 double targetT = currentT + correctionTheta;
                 WriteLog("InputStageAlignSequence",
                     "Center theta correction formula. currentT=" + currentT.ToString("F6") +
-                    ", visionDeltaTheta=" + deltaTheta.ToString("F6") +
-                    ", correctionTheta=-visionDeltaTheta=" + correctionTheta.ToString("F6") +
+                    ", rawVisionDeltaTheta=" + rawDeltaTheta.ToString("F6") +
+                    ", virtualAppliedTheta=" + _hybridCenterAppliedTheta.ToString("F6") +
+                    ", effectiveDeltaTheta=" + effectiveDeltaTheta.ToString("F6") +
+                    ", correctionTheta=-effectiveDeltaTheta=" + correctionTheta.ToString("F6") +
                     ", targetT=currentT+correctionTheta=" + targetT.ToString("F6") + " - Start");
 
                 int result = await MoveAxisAndVerifyAsync(WaferStageAxis.WaferT, targetT, "StageT theta correction", ct, true).ConfigureAwait(false);
                 if (result != 0) return result;
+
+                if (_hybridVirtualFrameActive)
+                {
+                    double actualT = Stage.StageT != null ? Stage.StageT.ActualPosition : currentT;
+                    double appliedTheta = actualT - currentT;
+                    _hybridCenterAppliedTheta = NormalizeThetaOffset(_hybridCenterAppliedTheta + appliedTheta);
+                    WriteLog("InputStageAlignSequence",
+                        "Hybrid virtual center theta updated. rawVisionDeltaTheta=" + rawDeltaTheta.ToString("F6") +
+                        ", effectiveDeltaTheta=" + effectiveDeltaTheta.ToString("F6") +
+                        ", appliedTheta=actualAfter-actualBefore=" + appliedTheta.ToString("F6") +
+                        ", accumulatedVirtualTheta=" + _hybridCenterAppliedTheta.ToString("F6") +
+                        ", mode=HybridRealVisionSimMotion - Ok");
+                }
 
                 CurrentStep = InputStageAlignStep.RequestThetaVerify;
                 return 0;
@@ -676,7 +719,7 @@ namespace QMC.CDT320.Sequencing
                 }
 
                 _verifyCenterResult = await WaitPendingVisionResultAsync(ct).ConfigureAwait(false);
-                if (_verifyCenterResult == null)
+                if (_verifyCenterResult == null && !_hybridVirtualFrameActive)
                 {
                     _verifyCenterResult = await SearchVisionMarkAroundCurrentPointAsync(
                         ResolveTargetId(Options.CenterAlignTargetId, VisionAlignTargetIds.Center),
@@ -686,8 +729,14 @@ namespace QMC.CDT320.Sequencing
                 }
 
                 if (_verifyCenterResult == null)
+                {
+                    if (_hybridVirtualFrameActive)
+                        return Fail("IN-STAGE-ALIGN-HYBRID-THETA-VERIFY-VISION", "Vision",
+                            "Wafer Align T 보정 확인용 Center 다이를 찾지 못했습니다. HybridRealVisionSimMotion에서는 가상 X/Y 이동으로 실제 Vision 화면이 바뀌지 않으므로 동일 화면 통신 재시도 후 주변 8방향 탐색을 수행하지 않습니다.");
+
                     return Fail("IN-STAGE-ALIGN-THETA-VERIFY", "Vision",
                         "Wafer Align T 보정 확인용 Center 다이를 찾지 못했습니다. 센터와 주변 8방향 탐색을 모두 실패했습니다.");
+                }
 
                 double inputDeltaX;
                 double inputDeltaY;
@@ -701,14 +750,30 @@ namespace QMC.CDT320.Sequencing
                     out moveDeltaX,
                     out moveDeltaY);
 
+                double effectiveMoveDeltaX;
+                double effectiveMoveDeltaY;
+                ResolveHybridEffectiveMoveCorrection(
+                    moveDeltaX,
+                    moveDeltaY,
+                    VisionAlignTargetIds.CenterVerify,
+                    out effectiveMoveDeltaX,
+                    out effectiveMoveDeltaY);
+                double rawTheta = _verifyCenterResult.DeltaTheta;
+                double effectiveTheta = ResolveHybridEffectiveCenterTheta(rawTheta, VisionAlignTargetIds.CenterVerify);
+
                 WriteLog("InputStageAlignSequence",
                     "Center theta verification keeps the first center XY. " +
-                    "observedMoveDeltaX=" + moveDeltaX.ToString("F6") +
-                    ", observedMoveDeltaY=" + moveDeltaY.ToString("F6") +
-                    ", visionDeltaTheta=" + _verifyCenterResult.DeltaTheta.ToString("F6") +
+                    "rawMoveDeltaX=" + moveDeltaX.ToString("F6") +
+                    ", rawMoveDeltaY=" + moveDeltaY.ToString("F6") +
+                    ", effectiveMoveDeltaX=" + effectiveMoveDeltaX.ToString("F6") +
+                    ", effectiveMoveDeltaY=" + effectiveMoveDeltaY.ToString("F6") +
+                    ", rawVisionDeltaTheta=" + rawTheta.ToString("F6") +
+                    ", virtualAppliedTheta=" + _hybridCenterAppliedTheta.ToString("F6") +
+                    ", effectiveDeltaTheta=" + effectiveTheta.ToString("F6") +
+                    ", mode=" + ResolveVisionMotionModeName() +
                     ", xyCorrectionApplied=False - Check");
 
-                double theta = Math.Abs(_verifyCenterResult.DeltaTheta);
+                double theta = Math.Abs(effectiveTheta);
                 double tolerance = ResolveThetaTolerance();
                 if (theta <= tolerance)
                 {
@@ -936,7 +1001,10 @@ namespace QMC.CDT320.Sequencing
                 _originX = _ref1X - (_map.Ref1Col * _pitchX);
                 _originY = _ref1Y - (_map.Ref1Row * _pitchY);
 
-                _thetaFromTwoPoint = Math.Atan2(_ref2Y - _ref1Y, _ref2X - _ref1X) * 180.0 / Math.PI;
+                double rawTwoPointTheta = Math.Atan2(_ref2Y - _ref1Y, _ref2X - _ref1X) * 180.0 / Math.PI;
+                _thetaFromTwoPoint = _hybridVirtualFrameActive
+                    ? NormalizeThetaOffset(rawTwoPointTheta + _hybridTwoPointAppliedTheta)
+                    : rawTwoPointTheta;
                 WriteLog("InputStageAlignSequence",
                     "Two point align formula. ref1Row=" + _map.Ref1Row +
                     ", ref1Col=" + _map.Ref1Col +
@@ -948,7 +1016,10 @@ namespace QMC.CDT320.Sequencing
                     ", ref2Y=" + _ref2Y.ToString("F6") +
                     ", deltaX=ref2X-ref1X=" + (_ref2X - _ref1X).ToString("F6") +
                     ", deltaY=ref2Y-ref1Y=" + (_ref2Y - _ref1Y).ToString("F6") +
-                    ", theta=atan2(deltaY,deltaX)=" + _thetaFromTwoPoint.ToString("F6") +
+                    ", rawTheta=atan2(deltaY,deltaX)=" + rawTwoPointTheta.ToString("F6") +
+                    ", virtualAppliedTheta=" + _hybridTwoPointAppliedTheta.ToString("F6") +
+                    ", effectiveTheta=" + _thetaFromTwoPoint.ToString("F6") +
+                    ", mode=" + ResolveVisionMotionModeName() +
                     ", pitchX=" + _pitchX.ToString("F6") +
                     ", pitchY=" + _pitchY.ToString("F6") +
                     ", originX=ref1X-ref1Col*pitchX=" + _originX.ToString("F6") +
@@ -1021,7 +1092,8 @@ namespace QMC.CDT320.Sequencing
                         ", maxRetry=" + Options.AlignRetryCount);
 
                 _twoPointThetaRetryCount++;
-                double targetT = Stage.StageT.ActualPosition + correctionTheta;
+                double currentT = Stage.StageT.ActualPosition;
+                double targetT = currentT + correctionTheta;
                 WriteLog("InputStageAlignSequence",
                     "Two point theta correction. theta=" + _thetaFromTwoPoint.ToString("F6") +
                     ", tolerance=" + tolerance.ToString("F6") +
@@ -1034,6 +1106,18 @@ namespace QMC.CDT320.Sequencing
                 int moveResult = await MoveAxisAndVerifyAsync(WaferStageAxis.WaferT, targetT, "StageT two point theta correction", ct, true).ConfigureAwait(false);
                 if (moveResult != 0)
                     return moveResult;
+
+                if (_hybridVirtualFrameActive)
+                {
+                    double actualT = Stage.StageT != null ? Stage.StageT.ActualPosition : currentT;
+                    double appliedTheta = actualT - currentT;
+                    _hybridTwoPointAppliedTheta = NormalizeThetaOffset(_hybridTwoPointAppliedTheta + appliedTheta);
+                    WriteLog("InputStageAlignSequence",
+                        "Hybrid virtual two-point theta updated. appliedTheta=actualAfter-actualBefore=" +
+                        appliedTheta.ToString("F6") +
+                        ", accumulatedVirtualTheta=" + _hybridTwoPointAppliedTheta.ToString("F6") +
+                        ", mode=HybridRealVisionSimMotion - Ok");
+                }
 
                 ClearRefAlignRuntimeState();
                 _thetaRetryCount = 0;
@@ -1176,7 +1260,22 @@ namespace QMC.CDT320.Sequencing
                 WaferMaterial wafer = Stage.CurrentWaferMaterial ?? MaterialStateService.GetWaferAtLocation(MaterialLocationKind.InputStage);
                 if (wafer != null)
                 {
+                    string resultMode = _hybridVirtualFrameActive
+                        ? InputStageResultMode.HybridRealVisionSimMotion
+                        : InputStageResultMode.Standard;
                     wafer.CurrentLocation = new MaterialLocation { Kind = MaterialLocationKind.InputStage };
+                    if (_hybridVirtualFrameActive)
+                    {
+                        InputStageHybridResultSession.MarkAlign(
+                            wafer.WaferId,
+                            _alignResultRunId,
+                            IsHybridVirtualFrameConfigurationCurrent);
+                    }
+                    else
+                    {
+                        InputStageHybridResultSession.Clear();
+                    }
+
                     MaterialStateService.SaveInputStageAlignResult(
                         wafer,
                         _originX,
@@ -1188,7 +1287,14 @@ namespace QMC.CDT320.Sequencing
                         true,
                         referenceT,
                         correctedT,
-                        offsetT);
+                        offsetT,
+                        resultMode,
+                        _alignResultRunId);
+
+                    WriteLog("InputStageAlignSequence",
+                        "InputStage align result provenance saved. waferId=" + wafer.WaferId +
+                        ", resultMode=" + resultMode +
+                        ", resultRunId=" + _alignResultRunId + " - Ok");
                 }
 
                 Context.Bus.Set("InputStageAligned");
@@ -1961,6 +2067,120 @@ namespace QMC.CDT320.Sequencing
                 ", processReferenceY=" + _alignProcessReferenceY.ToString("F6") + " - Ok");
         }
 
+        private int ConfigureHybridVirtualFrameMode()
+        {
+            bool realVisionInSimulation = AutoVisionRequestService.IsRealVisionInSimulationActive();
+            bool cameraXSimulated = IsSimulatedAxis(Stage != null ? Stage.CameraX : null);
+            bool stageYSimulated = IsSimulatedAxis(Stage != null ? Stage.StageY : null);
+            bool stageTSimulated = IsSimulatedAxis(Stage != null ? Stage.StageT : null);
+
+            _hybridVirtualFrameActive = false;
+            if (!realVisionInSimulation)
+            {
+                WriteLog("InputStageAlignSequence",
+                    "Align Vision/motion mode resolved. realVisionInSimulation=False" +
+                    ", cameraXSimulated=" + cameraXSimulated +
+                    ", stageYSimulated=" + stageYSimulated +
+                    ", stageTSimulated=" + stageTSimulated +
+                    ", mode=" + ResolveVisionMotionModeName() + " - Ok");
+                return 0;
+            }
+
+            int simulatedAxisCount = (cameraXSimulated ? 1 : 0) +
+                (stageYSimulated ? 1 : 0) +
+                (stageTSimulated ? 1 : 0);
+            if (simulatedAxisCount != 0 && simulatedAxisCount != 3)
+            {
+                return Fail("IN-STAGE-ALIGN-HYBRID-AXIS-MODE", Stage != null ? Stage.Name : "InputStageUnit",
+                    "Real Vision simulation mode requires CameraX/StageY/StageT to be all simulated or all real. " +
+                    "cameraXSimulated=" + cameraXSimulated +
+                    ", stageYSimulated=" + stageYSimulated +
+                    ", stageTSimulated=" + stageTSimulated);
+            }
+
+            _hybridVirtualFrameActive = simulatedAxisCount == 3;
+            if (_hybridVirtualFrameActive && !Options.EnableMotion)
+            {
+                _hybridVirtualFrameActive = false;
+                return Fail("IN-STAGE-ALIGN-HYBRID-MOTION-DISABLED", Stage != null ? Stage.Name : "InputStageUnit",
+                    "HybridRealVisionSimMotion requires simulated X/Y/T motion commands to be enabled.");
+            }
+
+            WriteLog("InputStageAlignSequence",
+                "Align Vision/motion mode resolved. realVisionInSimulation=True" +
+                ", cameraXSimulated=" + cameraXSimulated +
+                ", stageYSimulated=" + stageYSimulated +
+                ", stageTSimulated=" + stageTSimulated +
+                ", mode=" + ResolveVisionMotionModeName() + " - Ok");
+            return 0;
+        }
+
+        private bool IsHybridVirtualFrameConfigurationCurrent()
+        {
+            return Options != null &&
+                Options.EnableMotion &&
+                AutoVisionRequestService.IsRealVisionInSimulationActive() &&
+                IsSimulatedAxis(Stage != null ? Stage.CameraX : null) &&
+                IsSimulatedAxis(Stage != null ? Stage.StageY : null) &&
+                IsSimulatedAxis(Stage != null ? Stage.StageT : null);
+        }
+
+        private static bool IsSimulatedAxis(BaseAxis axis)
+        {
+            return axis != null &&
+                (axis is QMC.CDT320.SimAxis ||
+                 (axis.Config != null && axis.Config.IsSimulationMode));
+        }
+
+        private string ResolveVisionMotionModeName()
+        {
+            if (_hybridVirtualFrameActive)
+                return "HybridRealVisionSimMotion";
+            if (AutoVisionRequestService.IsRealVisionInSimulationActive())
+                return "ExistingRealVisionMotion";
+            return IsSimulationOrDryRun() ? "ExistingSyntheticVisionSimulation" : "ExistingRealMotionRealVision";
+        }
+
+        private void ResolveHybridEffectiveMoveCorrection(
+            double rawMoveDeltaX,
+            double rawMoveDeltaY,
+            string description,
+            out double effectiveMoveDeltaX,
+            out double effectiveMoveDeltaY)
+        {
+            effectiveMoveDeltaX = rawMoveDeltaX;
+            effectiveMoveDeltaY = rawMoveDeltaY;
+            if (!_hybridVirtualFrameActive)
+                return;
+
+            effectiveMoveDeltaX = rawMoveDeltaX - _hybridCenterAppliedMoveX;
+            effectiveMoveDeltaY = rawMoveDeltaY - _hybridCenterAppliedMoveY;
+            WriteLog("InputStageAlignSequence",
+                "Hybrid virtual XY residual. description=" + description +
+                ", rawMoveDeltaX=" + rawMoveDeltaX.ToString("F6") +
+                ", rawMoveDeltaY=" + rawMoveDeltaY.ToString("F6") +
+                ", virtualAppliedMoveX=" + _hybridCenterAppliedMoveX.ToString("F6") +
+                ", virtualAppliedMoveY=" + _hybridCenterAppliedMoveY.ToString("F6") +
+                ", effectiveMoveDeltaX=raw-applied=" + effectiveMoveDeltaX.ToString("F6") +
+                ", effectiveMoveDeltaY=raw-applied=" + effectiveMoveDeltaY.ToString("F6") +
+                ", mode=HybridRealVisionSimMotion - Check");
+        }
+
+        private double ResolveHybridEffectiveCenterTheta(double rawVisionTheta, string description)
+        {
+            if (!_hybridVirtualFrameActive)
+                return rawVisionTheta;
+
+            double effectiveTheta = NormalizeThetaOffset(rawVisionTheta + _hybridCenterAppliedTheta);
+            WriteLog("InputStageAlignSequence",
+                "Hybrid virtual center theta residual. description=" + description +
+                ", rawVisionTheta=" + rawVisionTheta.ToString("F6") +
+                ", virtualAppliedTheta=" + _hybridCenterAppliedTheta.ToString("F6") +
+                ", effectiveTheta=raw+applied=" + effectiveTheta.ToString("F6") +
+                ", mode=HybridRealVisionSimMotion - Check");
+            return effectiveTheta;
+        }
+
         private void ResolveInputCameraMotorCorrection(
             VisionAlignResult result,
             string description,
@@ -2057,6 +2277,9 @@ namespace QMC.CDT320.Sequencing
             if (!Options.EnableMotion)
                 return 0;
 
+            double actualBeforeX = Stage.CameraX != null ? Stage.CameraX.ActualPosition : 0.0;
+            double actualBeforeY = Stage.StageY != null ? Stage.StageY.ActualPosition : 0.0;
+
             string areaReason;
             if (!Stage.IsInputStageWorkPointInArea(_alignAnchorX, _alignAnchorY, out areaReason))
                 return Fail("IN-STAGE-ALIGN-CENTER-WORK-AREA", Stage.Name,
@@ -2077,6 +2300,23 @@ namespace QMC.CDT320.Sequencing
                 ct).ConfigureAwait(false);
             if (resultCode != 0)
                 return resultCode;
+
+            if (_hybridVirtualFrameActive)
+            {
+                double actualAfterX = Stage.CameraX != null ? Stage.CameraX.ActualPosition : actualBeforeX;
+                double actualAfterY = Stage.StageY != null ? Stage.StageY.ActualPosition : actualBeforeY;
+                double appliedMoveX = actualAfterX - actualBeforeX;
+                double appliedMoveY = actualAfterY - actualBeforeY;
+                _hybridCenterAppliedMoveX += appliedMoveX;
+                _hybridCenterAppliedMoveY += appliedMoveY;
+                WriteLog("InputStageAlignSequence",
+                    "Hybrid virtual center XY updated. appliedMoveX=actualAfter-actualBefore=" +
+                    appliedMoveX.ToString("F6") +
+                    ", appliedMoveY=actualAfter-actualBefore=" + appliedMoveY.ToString("F6") +
+                    ", accumulatedVirtualMoveX=" + _hybridCenterAppliedMoveX.ToString("F6") +
+                    ", accumulatedVirtualMoveY=" + _hybridCenterAppliedMoveY.ToString("F6") +
+                    ", mode=HybridRealVisionSimMotion - Ok");
+            }
 
             WriteLog("InputStageAlignSequence",
                 "Center motor correction completed. description=" + description +
@@ -2105,10 +2345,19 @@ namespace QMC.CDT320.Sequencing
                 out moveDeltaX,
                 out moveDeltaY);
 
+            double effectiveMoveDeltaX;
+            double effectiveMoveDeltaY;
+            ResolveHybridEffectiveMoveCorrection(
+                moveDeltaX,
+                moveDeltaY,
+                description,
+                out effectiveMoveDeltaX,
+                out effectiveMoveDeltaY);
+
             double currentX = Stage != null && Stage.CameraX != null ? Stage.CameraX.ActualPosition : 0.0;
             double currentY = Stage != null && Stage.StageY != null ? Stage.StageY.ActualPosition : 0.0;
-            pointX = currentX + moveDeltaX;
-            pointY = currentY + moveDeltaY;
+            pointX = currentX + effectiveMoveDeltaX;
+            pointY = currentY + effectiveMoveDeltaY;
 
             WriteLog("InputStageAlignSequence",
                 "Align reference point formula. description=" + description +
@@ -2117,7 +2366,12 @@ namespace QMC.CDT320.Sequencing
                 ", currentX=" + currentX.ToString("F6") +
                 ", currentY=" + currentY.ToString("F6") +
                 ", inputDeltaX=" + inputDeltaX.ToString("F6") +
-                ", inputDeltaY=" + inputDeltaY.ToString("F6") + " - Ok");
+                ", inputDeltaY=" + inputDeltaY.ToString("F6") +
+                ", rawMoveDeltaX=" + moveDeltaX.ToString("F6") +
+                ", rawMoveDeltaY=" + moveDeltaY.ToString("F6") +
+                ", effectiveMoveDeltaX=" + effectiveMoveDeltaX.ToString("F6") +
+                ", effectiveMoveDeltaY=" + effectiveMoveDeltaY.ToString("F6") +
+                ", mode=" + ResolveVisionMotionModeName() + " - Ok");
         }
 
         private async Task<int> VerifyFinalCenterAsync(CancellationToken ct)
@@ -2144,20 +2398,32 @@ namespace QMC.CDT320.Sequencing
                 out moveDeltaX,
                 out moveDeltaY);
 
+            double effectiveMoveDeltaX;
+            double effectiveMoveDeltaY;
+            ResolveHybridEffectiveMoveCorrection(
+                moveDeltaX,
+                moveDeltaY,
+                "FinalCenterVerify",
+                out effectiveMoveDeltaX,
+                out effectiveMoveDeltaY);
+
             double thetaTolerance = ResolveThetaTolerance();
-            bool centerOk = Math.Abs(moveDeltaX) <= AlignCenterToleranceMm &&
-                Math.Abs(moveDeltaY) <= AlignCenterToleranceMm;
+            bool centerOk = Math.Abs(effectiveMoveDeltaX) <= AlignCenterToleranceMm &&
+                Math.Abs(effectiveMoveDeltaY) <= AlignCenterToleranceMm;
             bool refThetaOk = Math.Abs(_thetaFromTwoPoint) <= thetaTolerance;
 
             WriteLog("InputStageAlignSequence",
-                "Final center verification without correction. moveDeltaX=" + moveDeltaX.ToString("F6") +
-                ", moveDeltaY=" + moveDeltaY.ToString("F6") +
+                "Final center verification without correction. rawMoveDeltaX=" + moveDeltaX.ToString("F6") +
+                ", rawMoveDeltaY=" + moveDeltaY.ToString("F6") +
+                ", effectiveMoveDeltaX=" + effectiveMoveDeltaX.ToString("F6") +
+                ", effectiveMoveDeltaY=" + effectiveMoveDeltaY.ToString("F6") +
                 ", centerTolerance=" + AlignCenterToleranceMm.ToString("F6") +
                 ", centerVisionDeltaTheta=" + result.DeltaTheta.ToString("F6") +
                 ", finalRefTheta=" + _thetaFromTwoPoint.ToString("F6") +
                 ", thetaTolerance=" + thetaTolerance.ToString("F6") +
                 ", centerOk=" + centerOk +
                 ", refThetaOk=" + refThetaOk +
+                ", mode=" + ResolveVisionMotionModeName() +
                 ", xyCorrectionApplied=False - Check");
 
             if (!refThetaOk)
@@ -2168,8 +2434,10 @@ namespace QMC.CDT320.Sequencing
             if (!centerOk)
                 return Fail("IN-STAGE-ALIGN-FINAL-CENTER-TOL", Stage.Name,
                     "Final center offset is out of tolerance. XY correction is not applied after the first center. " +
-                    "moveDeltaX=" + moveDeltaX.ToString("F6") +
-                    ", moveDeltaY=" + moveDeltaY.ToString("F6") +
+                    "rawMoveDeltaX=" + moveDeltaX.ToString("F6") +
+                    ", rawMoveDeltaY=" + moveDeltaY.ToString("F6") +
+                    ", effectiveMoveDeltaX=" + effectiveMoveDeltaX.ToString("F6") +
+                    ", effectiveMoveDeltaY=" + effectiveMoveDeltaY.ToString("F6") +
                     ", tolerance=" + AlignCenterToleranceMm.ToString("F6"));
 
             int centerRow = _map != null ? _map.RowCount / 2 : _alignAnchorRow;

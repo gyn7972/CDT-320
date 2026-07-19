@@ -16,6 +16,8 @@ namespace QMC.CDT320.Sequencing
         public WaferMapData WaferMap { get; set; }
         public WaferMaterial ExpectedWafer { get; set; }
         public PickupSubset PickupOptions { get; set; }
+        public string ResultMode { get; set; }
+        public string AlignResultRunId { get; set; }
         public string Source { get; set; }
         public string SaveReason { get; set; }
         public bool PublishReadySignals { get; set; }
@@ -39,6 +41,8 @@ namespace QMC.CDT320.Sequencing
         public static InputStageDieMapApplyResult Apply(InputStageDieMapApplyRequest request)
         {
             var result = new InputStageDieMapApplyResult();
+            WaferMaterial waferForFailure = null;
+            bool applicationMutationStarted = false;
             try
             {
                 if (request == null)
@@ -51,6 +55,7 @@ namespace QMC.CDT320.Sequencing
                 WaferMaterial wafer = MaterialStateService.GetWaferAtLocation(MaterialLocationKind.InputStage);
                 if (wafer == null)
                     return Fail(result, "Die Mapping 결과를 저장할 InputStage Material을 찾을 수 없습니다.");
+                waferForFailure = wafer;
 
                 if (request.ExpectedWafer != null &&
                     !string.IsNullOrWhiteSpace(request.ExpectedWafer.WaferId) &&
@@ -62,13 +67,39 @@ namespace QMC.CDT320.Sequencing
                         ", stateWafer=" + wafer.WaferId);
                 }
 
-                request.Stage.SetCurrentWaferMaterial(wafer);
+                string requestedResultMode = request.ResultMode;
+                if (string.IsNullOrWhiteSpace(requestedResultMode) &&
+                    InputStageResultMode.IsHybrid(wafer.InputStageAlignResultMode))
+                {
+                    requestedResultMode = InputStageResultMode.HybridRealVisionSimMotion;
+                }
+
+                string mappingResultMode = InputStageResultMode.NormalizeForSave(requestedResultMode);
+                string alignResultRunId = (request.AlignResultRunId ?? "").Trim();
+                if (InputStageResultMode.IsHybrid(mappingResultMode) &&
+                    string.IsNullOrWhiteSpace(alignResultRunId))
+                {
+                    alignResultRunId = (wafer.InputStageAlignResultRunId ?? "").Trim();
+                }
+
+                string provenanceReason;
+                if (!ValidateResultProvenance(
+                    wafer,
+                    mappingResultMode,
+                    alignResultRunId,
+                    out provenanceReason))
+                {
+                    return Fail(result, provenanceReason);
+                }
 
                 PickupSubset pickup = request.PickupOptions ?? ResolveInputPickupSubset();
                 PickupSequenceGenerator.ApplySequenceNumbers(request.DieMap, pickup);
                 DieMapGenerator.Normalize(request.DieMap);
 
                 WaferMapData waferMap = request.WaferMap ?? BuildWaferMapDataFromDieMap(request.DieMap, wafer);
+                if (waferMap == null)
+                    return Fail(result, "Wafer map data could not be built from the die map result.");
+
                 double alignOriginX = wafer.HasInputStageAlignResult
                     ? wafer.InputStageAlignOriginX
                     : request.Stage.OriginX;
@@ -77,6 +108,9 @@ namespace QMC.CDT320.Sequencing
                     : request.Stage.OriginY;
                 double mappingOffsetX = request.DieMap.OriginX - alignOriginX;
                 double mappingOffsetY = request.DieMap.OriginY - alignOriginY;
+
+                applicationMutationStarted = true;
+                request.Stage.SetCurrentWaferMaterial(wafer);
 
                 request.Stage.ApplyDieMappingResult(
                     waferMap,
@@ -98,6 +132,19 @@ namespace QMC.CDT320.Sequencing
                             : request.Source);
                 }
 
+                string runtimeApplyReason;
+                if (!IsRuntimeApplyConsistent(
+                        request,
+                        waferMap,
+                        pickup,
+                        mappingOffsetX,
+                        mappingOffsetY,
+                        out runtimeApplyReason))
+                {
+                    throw new InvalidOperationException(
+                        "InputStage die map runtime apply verification failed. " + runtimeApplyReason);
+                }
+
                 int fullDieCount = CountMapEntries(request.DieMap);
                 int targetDieCount = ApplyDieMaterials(request.DieMap, wafer);
                 ApplyWaferDieMapResult(
@@ -106,7 +153,23 @@ namespace QMC.CDT320.Sequencing
                     request.DieMap,
                     mappingOffsetX,
                     mappingOffsetY,
-                    ResolveInputMapApprovalHash(request.Controller));
+                    ResolveInputMapApprovalHash(request.Controller),
+                    mappingResultMode,
+                    alignResultRunId);
+
+                if (InputStageResultMode.IsHybrid(mappingResultMode))
+                {
+                    if (!InputStageHybridResultSession.MarkMapping(wafer.WaferId, alignResultRunId))
+                    {
+                        const string lostSessionReason = "Hybrid Die Mapping runtime session was lost during apply.";
+                        FailClosedAfterMutation(request, wafer, lostSessionReason);
+                        return Fail(result, lostSessionReason);
+                    }
+                }
+                else
+                {
+                    InputStageHybridResultSession.Clear();
+                }
 
                 MaterialStateService.NotifyAndSave(string.IsNullOrWhiteSpace(request.SaveReason)
                     ? "InputStageDieMapping"
@@ -132,7 +195,9 @@ namespace QMC.CDT320.Sequencing
                     ", mappingOriginX=" + request.DieMap.OriginX.ToString("F6") +
                     ", mappingOriginY=" + request.DieMap.OriginY.ToString("F6") +
                     ", offsetX=" + mappingOffsetX.ToString("F6") +
-                    ", offsetY=" + mappingOffsetY.ToString("F6") + " - Ok");
+                    ", offsetY=" + mappingOffsetY.ToString("F6") +
+                    ", resultMode=" + mappingResultMode +
+                    ", alignResultRunId=" + alignResultRunId + " - Ok");
 
                 result.Success = true;
                 result.Wafer = wafer;
@@ -146,6 +211,9 @@ namespace QMC.CDT320.Sequencing
             }
             catch (Exception ex)
             {
+                if (applicationMutationStarted)
+                    FailClosedAfterMutation(request, waferForFailure, ex.Message);
+
                 QMC.Common.Log.Write("Main", "SYSTEM", "InputStageDieMapApplyService",
                     "Input stage die map apply failed: " + ex.Message + " - Failed");
                 return Fail(result, ex.Message);
@@ -198,6 +266,107 @@ namespace QMC.CDT320.Sequencing
             return result;
         }
 
+        private static void FailClosedAfterMutation(
+            InputStageDieMapApplyRequest request,
+            WaferMaterial wafer,
+            string reason)
+        {
+            try
+            {
+                if (request != null && request.Bus != null)
+                {
+                    request.Bus.Reset("InputStageDieMapped");
+                    request.Bus.Reset("InputStageFinishComplete");
+                    request.Bus.Reset("InputStageReady");
+                }
+
+                if (request != null && request.Stage != null)
+                    request.Stage.ClearCurrentWaferMap();
+
+                LotStorage.ActiveInputDieMap = null;
+                if (request != null && request.Controller != null)
+                    request.Controller.ClearInputDieMap("InputStageDieMapApplyService.FailClosed");
+
+                InputStageHybridResultSession.ClearMapping();
+                MaterialStateService.InvalidateInputStageDieMappingResult(
+                    wafer,
+                    string.IsNullOrWhiteSpace(reason) ? "Die map apply failed after mutation." : reason);
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Log.Write("Main", "SYSTEM", "InputStageDieMapApplyService",
+                    "Input stage die map fail-closed cleanup failed: " + ex.Message + " - Failed");
+            }
+            finally
+            {
+            }
+        }
+
+        private static bool IsRuntimeApplyConsistent(
+            InputStageDieMapApplyRequest request,
+            WaferMapData waferMap,
+            PickupSubset pickup,
+            double mappingOffsetX,
+            double mappingOffsetY,
+            out string reason)
+        {
+            reason = string.Empty;
+            if (request == null || request.Stage == null || request.DieMap == null || waferMap == null)
+            {
+                reason = "request, stage, die map, or wafer map is null.";
+                return false;
+            }
+
+            const double valueTolerance = 1e-9;
+            if (!ReferenceEquals(request.Stage.CurrentWaferMap, waferMap) ||
+                Math.Abs(request.Stage.OriginX - request.DieMap.OriginX) > valueTolerance ||
+                Math.Abs(request.Stage.OriginY - request.DieMap.OriginY) > valueTolerance ||
+                Math.Abs(request.Stage.PitchX - request.DieMap.PitchX) > valueTolerance ||
+                Math.Abs(request.Stage.PitchY - request.DieMap.PitchY) > valueTolerance ||
+                Math.Abs(request.Stage.DieMappingOffsetX - mappingOffsetX) > valueTolerance ||
+                Math.Abs(request.Stage.DieMappingOffsetY - mappingOffsetY) > valueTolerance)
+            {
+                reason = "InputStageUnit runtime values do not match the requested die map.";
+                return false;
+            }
+
+            if (!ReferenceEquals(LotStorage.ActiveInputDieMap, request.DieMap))
+            {
+                reason = "LotStorage active input map does not match the requested die map.";
+                return false;
+            }
+
+            if (request.Controller == null)
+                return true;
+
+            if (!ReferenceEquals(request.Controller.InputDieMap, request.DieMap))
+            {
+                reason = "MachineController input map does not match the requested die map.";
+                return false;
+            }
+
+            List<DieMapEntry> expectedSequence = PickupSequenceGenerator.Build(request.DieMap, pickup);
+            IReadOnlyList<DieMapEntry> actualSequence = request.Controller.InputPickupSequence;
+            if (actualSequence == null || actualSequence.Count != expectedSequence.Count)
+            {
+                reason = "MachineController pickup sequence count does not match. expected=" +
+                         expectedSequence.Count +
+                         ", actual=" + (actualSequence != null ? actualSequence.Count : -1);
+                return false;
+            }
+
+            for (int i = 0; i < expectedSequence.Count; i++)
+            {
+                if (!ReferenceEquals(actualSequence[i], expectedSequence[i]))
+                {
+                    reason = "MachineController pickup sequence entry does not match at index=" + i;
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
         private static PickupSubset ResolveInputPickupSubset()
         {
             try
@@ -221,13 +390,78 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
+        private static bool ValidateResultProvenance(
+            WaferMaterial wafer,
+            string mappingResultMode,
+            string alignResultRunId,
+            out string reason)
+        {
+            reason = string.Empty;
+            if (wafer == null)
+            {
+                reason = "InputStage wafer material is not available.";
+                return false;
+            }
+
+            if (!InputStageResultMode.IsKnown(mappingResultMode))
+            {
+                reason = "Unknown InputStage die mapping result mode. mode=" + mappingResultMode;
+                return false;
+            }
+
+            string alignMode = wafer.InputStageAlignResultMode ?? "";
+            if (!InputStageResultMode.IsKnown(alignMode))
+            {
+                reason = "Unknown InputStage align result mode. mode=" + alignMode;
+                return false;
+            }
+
+            if (InputStageResultMode.IsHybrid(mappingResultMode))
+            {
+                if (!QMC.CDT320.VisionComm.AutoVisionRequestService.IsRealVisionInSimulationActive())
+                {
+                    InputStageHybridResultSession.Clear();
+                    reason = "Hybrid Die Mapping result cannot be applied outside HybridRealVisionSimMotion mode.";
+                    return false;
+                }
+
+                if (!InputStageResultMode.IsHybrid(alignMode) ||
+                    string.IsNullOrWhiteSpace(alignResultRunId) ||
+                    !string.Equals(
+                        alignResultRunId,
+                        wafer.InputStageAlignResultRunId,
+                        StringComparison.OrdinalIgnoreCase) ||
+                    !InputStageHybridResultSession.IsCurrentAlign(wafer.WaferId, alignResultRunId))
+                {
+                    reason = "Hybrid Die Mapping requires the current-session Hybrid Align result. waferId=" +
+                             wafer.WaferId +
+                             ", alignMode=" + alignMode +
+                             ", requestedAlignRunId=" + alignResultRunId +
+                             ", storedAlignRunId=" + (wafer.InputStageAlignResultRunId ?? "");
+                    return false;
+                }
+
+                return true;
+            }
+
+            if (InputStageResultMode.IsHybrid(alignMode))
+            {
+                reason = "Hybrid Align result cannot be applied as a standard Die Mapping result. Re-align in the current mode.";
+                return false;
+            }
+
+            return true;
+        }
+
         private static void ApplyWaferDieMapResult(
             InputStageUnit stage,
             WaferMaterial wafer,
             DieMap map,
             double mappingOffsetX,
             double mappingOffsetY,
-            string inputMapApprovalHash)
+            string inputMapApprovalHash,
+            string resultMode,
+            string alignResultRunId)
         {
             if (wafer == null || map == null)
                 return;
@@ -257,6 +491,8 @@ namespace QMC.CDT320.Sequencing
             }
 
             wafer.HasInputStageDieMappingResult = true;
+            wafer.InputStageDieMappingResultMode = InputStageResultMode.NormalizeForSave(resultMode);
+            wafer.InputStageDieMappingAlignRunId = (alignResultRunId ?? "").Trim();
             wafer.InputStageDieMappingOffsetX = mappingOffsetX;
             wafer.InputStageDieMappingOffsetY = mappingOffsetY;
             wafer.HasInputStageDieMappingOrigin = true;

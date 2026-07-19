@@ -220,7 +220,16 @@ namespace QMC.CDT_320.Ui.Controls
             {
                 DieMap stageMap = null;
                 if (stageWafer.HasInputStageDieMappingResult)
-                    stageMap = MaterialStateService.BuildDieMapFromWafer(stageWafer);
+                {
+                    string resultModeReason;
+                    if (MaterialStateService.IsStoredInputStageResultModeUsable(
+                            stageWafer,
+                            true,
+                            out resultModeReason))
+                    {
+                        stageMap = MaterialStateService.BuildDieMapFromWafer(stageWafer);
+                    }
+                }
 
                 if (stageMap != null)
                 {
