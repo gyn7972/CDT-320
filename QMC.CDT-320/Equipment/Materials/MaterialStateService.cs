@@ -740,13 +740,17 @@ namespace QMC.CDT320.Materials
 
             lock (_stateSync)
             {
+                CassetteMaterialRole[] lotRoles = levelCount >= 2
+                    ? new[] { CassetteMaterialRole.Input1, CassetteMaterialRole.Input2 }
+                    : new[] { CassetteMaterialRole.Input1 };
+                string resolvedLotId = ResolveOrCreateCassetteMappingLotId(cassetteLotId, lotRoles);
                 ValidateCassetteMappingRequest(CassetteMaterialRole.Input1, true, slotCount, level1Map, level1SlotPositions);
                 ValidateCassetteMappingRequest(CassetteMaterialRole.Input2, levelCount >= 2, slotCount, level2Map, level2SlotPositions);
 
-                UpdateCassetteMapping(CassetteMaterialRole.Input1, true, slotCount, level1Map, level1SlotPositions, cassetteLotId, tapeFrameSpecName);
-                UpdateCassetteMapping(CassetteMaterialRole.Input2, levelCount >= 2, slotCount, level2Map, level2SlotPositions, cassetteLotId, tapeFrameSpecName);
+                UpdateCassetteMapping(CassetteMaterialRole.Input1, true, slotCount, level1Map, level1SlotPositions, resolvedLotId, tapeFrameSpecName);
+                UpdateCassetteMapping(CassetteMaterialRole.Input2, levelCount >= 2, slotCount, level2Map, level2SlotPositions, resolvedLotId, tapeFrameSpecName);
 
-                State.LotId = cassetteLotId ?? State.LotId;
+                State.LotId = resolvedLotId;
             }
             NotifyAndSave("InputCassetteMapping");
         }
@@ -768,15 +772,19 @@ namespace QMC.CDT320.Materials
 
             lock (_stateSync)
             {
+                CassetteMaterialRole[] lotRoles = goodLevelCount >= 2
+                    ? new[] { CassetteMaterialRole.Good1, CassetteMaterialRole.Good2, CassetteMaterialRole.Ng1 }
+                    : new[] { CassetteMaterialRole.Good1, CassetteMaterialRole.Ng1 };
+                string resolvedLotId = ResolveOrCreateCassetteMappingLotId(cassetteLotId, lotRoles);
                 ValidateCassetteMappingRequest(CassetteMaterialRole.Good1, true, slotCount, good1Map, good1SlotPositions);
                 ValidateCassetteMappingRequest(CassetteMaterialRole.Good2, goodLevelCount >= 2, slotCount, good2Map, good2SlotPositions);
                 ValidateCassetteMappingRequest(CassetteMaterialRole.Ng1, true, slotCount, ngMap, ngSlotPositions);
 
-                UpdateCassetteMapping(CassetteMaterialRole.Good1, true, slotCount, good1Map, good1SlotPositions, cassetteLotId, tapeFrameSpecName);
-                UpdateCassetteMapping(CassetteMaterialRole.Good2, goodLevelCount >= 2, slotCount, good2Map, good2SlotPositions, cassetteLotId, tapeFrameSpecName);
-                UpdateCassetteMapping(CassetteMaterialRole.Ng1, true, slotCount, ngMap, ngSlotPositions, cassetteLotId, tapeFrameSpecName);
+                UpdateCassetteMapping(CassetteMaterialRole.Good1, true, slotCount, good1Map, good1SlotPositions, resolvedLotId, tapeFrameSpecName);
+                UpdateCassetteMapping(CassetteMaterialRole.Good2, goodLevelCount >= 2, slotCount, good2Map, good2SlotPositions, resolvedLotId, tapeFrameSpecName);
+                UpdateCassetteMapping(CassetteMaterialRole.Ng1, true, slotCount, ngMap, ngSlotPositions, resolvedLotId, tapeFrameSpecName);
 
-                State.LotId = cassetteLotId ?? State.LotId;
+                State.LotId = resolvedLotId;
             }
             NotifyAndSave("OutputCassetteMapping");
         }
@@ -800,6 +808,16 @@ namespace QMC.CDT320.Materials
 
             lock (_stateSync)
             {
+                var lotRoles = new List<CassetteMaterialRole>();
+                if (updateGood)
+                {
+                    lotRoles.Add(CassetteMaterialRole.Good1);
+                    if (goodLevelCount >= 2)
+                        lotRoles.Add(CassetteMaterialRole.Good2);
+                }
+                if (updateNg)
+                    lotRoles.Add(CassetteMaterialRole.Ng1);
+                string resolvedLotId = ResolveOrCreateCassetteMappingLotId(cassetteLotId, lotRoles.ToArray());
                 if (updateGood)
                 {
                     ValidateCassetteMappingRequest(CassetteMaterialRole.Good1, true, slotCount, good1Map, good1SlotPositions);
@@ -811,14 +829,14 @@ namespace QMC.CDT320.Materials
 
                 if (updateGood)
                 {
-                    UpdateCassetteMapping(CassetteMaterialRole.Good1, true, slotCount, good1Map, good1SlotPositions, cassetteLotId, tapeFrameSpecName);
-                    UpdateCassetteMapping(CassetteMaterialRole.Good2, goodLevelCount >= 2, slotCount, good2Map, good2SlotPositions, cassetteLotId, tapeFrameSpecName);
+                    UpdateCassetteMapping(CassetteMaterialRole.Good1, true, slotCount, good1Map, good1SlotPositions, resolvedLotId, tapeFrameSpecName);
+                    UpdateCassetteMapping(CassetteMaterialRole.Good2, goodLevelCount >= 2, slotCount, good2Map, good2SlotPositions, resolvedLotId, tapeFrameSpecName);
                 }
 
                 if (updateNg)
-                    UpdateCassetteMapping(CassetteMaterialRole.Ng1, true, slotCount, ngMap, ngSlotPositions, cassetteLotId, tapeFrameSpecName);
+                    UpdateCassetteMapping(CassetteMaterialRole.Ng1, true, slotCount, ngMap, ngSlotPositions, resolvedLotId, tapeFrameSpecName);
 
-                State.LotId = cassetteLotId ?? State.LotId;
+                State.LotId = resolvedLotId;
             }
             NotifyAndSave("OutputCassetteMappingSelective");
         }
@@ -1292,6 +1310,7 @@ namespace QMC.CDT320.Materials
                                                         ", movingWafer=" + waferId);
 
                 var wafer = GetOrCreateWafer(waferId);
+                string resolvedLotId = ResolveOrCreateCassetteLotId(cassetteLotId, cassette, wafer);
                 WaferMaterialState previousState = WaferMaterialStateText.Normalize(wafer.State);
                 if (targetSlot.HasWafer && !IsWaferAtCassetteSlot(wafer, cassetteRole, slotNumber))
                 {
@@ -1335,9 +1354,8 @@ namespace QMC.CDT320.Materials
                         wafer.SourceCassetteSlotPosition = slotPosition;
                 }
 
-                wafer.CassetteLotId = string.IsNullOrWhiteSpace(wafer.CassetteLotId)
-                    ? (cassetteLotId ?? "")
-                    : wafer.CassetteLotId;
+                State.LotId = resolvedLotId;
+                wafer.CassetteLotId = resolvedLotId;
                 wafer.CurrentLocation = MaterialLocation.Cassette(
                     cassetteRole == CassetteMaterialRole.Input1 || cassetteRole == CassetteMaterialRole.Input2
                         ? MaterialLocationKind.InputCassette
@@ -1356,9 +1374,7 @@ namespace QMC.CDT320.Materials
                     wafer.State = WaferMaterialStateText.Normalize(state);
                 wafer.UpdatedAt = DateTime.Now;
 
-                cassette.CassetteLotId = string.IsNullOrWhiteSpace(cassette.CassetteLotId)
-                    ? (cassetteLotId ?? "")
-                    : cassette.CassetteLotId;
+                cassette.CassetteLotId = resolvedLotId;
                 targetSlot.WaferId = wafer.WaferId;
                 targetSlot.HasWafer = true;
                 cassette.LastScanTime = DateTime.Now;
@@ -6129,6 +6145,82 @@ namespace QMC.CDT320.Materials
             }
         }
 
+        private static string ResolveOrCreateCassetteMappingLotId(
+            string requestedLotId,
+            params CassetteMaterialRole[] roles)
+        {
+            var candidates = new List<string>();
+            if (State != null)
+            {
+                candidates.Add(State.LotId);
+                var roleSet = new HashSet<CassetteMaterialRole>(roles ?? new CassetteMaterialRole[0]);
+                foreach (CassetteMaterial cassette in State.Cassettes.Where(c => c != null && roleSet.Contains(c.Role)))
+                {
+                    candidates.Add(cassette.CassetteLotId);
+                    if (cassette.Slots == null)
+                        continue;
+
+                    foreach (CassetteSlotMaterial slot in cassette.Slots)
+                    {
+                        if (slot == null || !slot.HasWafer || string.IsNullOrWhiteSpace(slot.WaferId))
+                            continue;
+                        WaferMaterial wafer = State.Wafers.FirstOrDefault(w =>
+                            w != null && string.Equals(w.WaferId, slot.WaferId, StringComparison.OrdinalIgnoreCase));
+                        if (wafer != null && !IsFinishedOutputBinWafer(cassette.Role, wafer))
+                            candidates.Add(wafer.CassetteLotId);
+                    }
+                }
+            }
+
+            return ResolveOrCreateCassetteLotId(requestedLotId, candidates, "cassette mapping");
+        }
+
+        private static string ResolveOrCreateCassetteLotId(
+            string requestedLotId,
+            CassetteMaterial cassette,
+            WaferMaterial wafer)
+        {
+            var candidates = new List<string>();
+            if (wafer != null)
+                candidates.Add(wafer.CassetteLotId);
+            if (cassette != null)
+                candidates.Add(cassette.CassetteLotId);
+            if (State != null)
+                candidates.Add(State.LotId);
+
+            return ResolveOrCreateCassetteLotId(requestedLotId, candidates, "cassette wafer");
+        }
+
+        private static string ResolveOrCreateCassetteLotId(
+            string requestedLotId,
+            IEnumerable<string> existingLotIds,
+            string context)
+        {
+            var candidates = new List<string> { requestedLotId };
+            candidates.AddRange(existingLotIds ?? Enumerable.Empty<string>());
+            List<string> existing = candidates
+                .Where(value => !string.IsNullOrWhiteSpace(value))
+                .Select(value => value.Trim())
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+            if (existing.Count == 1)
+                return existing[0];
+            if (existing.Count > 1)
+            {
+                throw new InvalidOperationException(
+                    "카세트 LOT ID 후보가 서로 달라 LOT ID를 결정할 수 없습니다. context=" + context +
+                    ", requestedLotId=" + (requestedLotId ?? "") +
+                    ", lotIds=" + string.Join(",", existing.ToArray()));
+            }
+
+            string generatedLotId = "AUTOLOT-" +
+                                    DateTime.Now.ToString("yyyyMMdd-HHmmssfff", CultureInfo.InvariantCulture) + "-" +
+                                    Guid.NewGuid().ToString("N").Substring(0, 8).ToUpperInvariant();
+            Log.Write("Main", "SYSTEM", "MaterialLotContext",
+                "카세트 LOT ID가 없어 임시 LOT ID를 생성했습니다. lotId=" + generatedLotId + " - Check");
+            return generatedLotId;
+        }
+
         private static void UpdateCassetteMapping(
             CassetteMaterialRole role,
             bool enabled,
@@ -6139,10 +6231,12 @@ namespace QMC.CDT320.Materials
             string tapeFrameSpecName)
         {
             var cassette = EnsureCassette(role, slotCount);
+            string resolvedLotId = ResolveOrCreateCassetteMappingLotId(cassetteLotId, role);
+            State.LotId = resolvedLotId;
             cassette.IsEnabled = enabled;
             cassette.IsPresent = enabled;
             cassette.IsMapped = enabled && map != null;
-            cassette.CassetteLotId = cassetteLotId ?? "";
+            cassette.CassetteLotId = resolvedLotId;
             cassette.LastScanTime = enabled && map != null ? DateTime.Now : cassette.LastScanTime;
             cassette.SlotCount = slotCount;
             cassette.EnsureSlots();
@@ -6217,7 +6311,7 @@ namespace QMC.CDT320.Materials
                         State.Wafers.Add(wafer);
                     }
 
-                    wafer.CassetteLotId = cassetteLotId ?? "";
+                    wafer.CassetteLotId = resolvedLotId;
                     wafer.SourceCassetteId = cassette.CassetteId;
                     wafer.SourceCassetteRole = role;
                     wafer.SourceSlotNumber = i;
@@ -6235,6 +6329,7 @@ namespace QMC.CDT320.Materials
                 {
                     wafer.CurrentCassetteSlotPosition = ResolveSlotPosition(slotPositions, i);
                 }
+                wafer.CassetteLotId = resolvedLotId;
                 if (IsOutputCassetteRole(role))
                 {
                     wafer.OutputCassetteId = cassette.CassetteId;
@@ -6405,15 +6500,10 @@ namespace QMC.CDT320.Materials
         {
             if (wafer == null || cassette == null) return;
 
-            if (!string.IsNullOrEmpty(cassetteLotId))
-            {
-                wafer.CassetteLotId = cassetteLotId;
-                cassette.CassetteLotId = cassetteLotId;
-            }
-            else if (!string.IsNullOrEmpty(cassette.CassetteLotId))
-            {
-                wafer.CassetteLotId = cassette.CassetteLotId;
-            }
+            string resolvedLotId = ResolveOrCreateCassetteLotId(cassetteLotId, cassette, wafer);
+            wafer.CassetteLotId = resolvedLotId;
+            cassette.CassetteLotId = resolvedLotId;
+            State.LotId = resolvedLotId;
 
             wafer.SourceCassetteId = cassette.CassetteId;
             wafer.SourceCassetteRole = cassette.Role;
