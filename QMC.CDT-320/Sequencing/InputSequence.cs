@@ -874,12 +874,29 @@ namespace QMC.CDT320.Sequencing
                 if (wafer == null)
                     return InputSequenceAutoStep.AlignStage;
 
+                string resultModeReason;
+                if (wafer.HasInputStageAlignResult &&
+                    !MaterialStateService.IsStoredInputStageResultModeUsable(
+                        wafer,
+                        false,
+                        out resultModeReason))
+                {
+                    WriteLog("ResolveStageWaferResumeStep",
+                        "Saved InputStage align result cannot be resumed. wafer=" + (wafer.WaferId ?? "") +
+                        ", reason=" + resultModeReason + " - Check");
+                    return InputSequenceAutoStep.AlignStage;
+                }
+
                 // Align 결과, die mapping 결과, die id, frame object id가 모두 있으면 Picker ready 단계로 본다.
                 if (wafer.HasInputStageAlignResult &&
                     wafer.HasInputStageDieMappingResult &&
                     wafer.DieIds != null &&
                     wafer.DieIds.Count > 0 &&
-                    !string.IsNullOrWhiteSpace(wafer.DieMapFrameObjId))
+                    !string.IsNullOrWhiteSpace(wafer.DieMapFrameObjId) &&
+                    MaterialStateService.IsStoredInputStageResultModeUsable(
+                        wafer,
+                        true,
+                        out resultModeReason))
                 {
                     return InputSequenceAutoStep.Complete;
                 }

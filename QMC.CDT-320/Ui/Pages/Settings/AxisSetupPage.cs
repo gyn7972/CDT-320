@@ -947,7 +947,10 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                 axis.Setup.SoftLimitMinus = row.SoftLimitNeg;
                 axis.Setup.SoftLimitPlus = row.SoftLimitPos;
 
+                bool simulationModeChanged = axis.Config.IsSimulationMode != row.SimulationMode;
                 axis.Config.IsSimulationMode = row.SimulationMode;
+                if (simulationModeChanged)
+                    QMC.CDT320.Materials.InputStageHybridResultSession.Clear();
 
                 // 보드 Write는 현재 테스트 중 전면 금지한다.
                 // 축 Setup/Config 값은 메모리와 motion_axes.json에만 반영하고,

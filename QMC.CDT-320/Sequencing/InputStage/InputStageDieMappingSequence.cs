@@ -64,6 +64,7 @@ namespace QMC.CDT320.Sequencing
         private double _dieMapCenterY;
         private double _centerDieTargetX;
         private double _centerDieTargetY;
+        private bool _hybridVirtualFrameActive;
 
         public InputStageDieMappingSequence(MachineSequenceContext context)
             : base(context, InputStageSequenceKind.DieMapping, "InputStageDieMappingSequence")
@@ -154,7 +155,12 @@ namespace QMC.CDT320.Sequencing
         {
             try
             {
+                _hybridVirtualFrameActive = false;
                 int result = CheckUnit(InputStageDieMappingStep.MoveNeedleZSafeBeforeMapping);
+                if (result != 0)
+                    return result;
+
+                result = ConfigureHybridVirtualFrameMode();
                 if (result != 0)
                     return result;
 
@@ -184,6 +190,10 @@ namespace QMC.CDT320.Sequencing
                 if (_wafer == null)
                     return Fail("IN-STAGE-DIEMAP-WAFER", "Material",
                         "InputStage wafer material is not available. CurrentWaferMaterial=null, MaterialLocation=InputStage empty.");
+
+                result = ValidateStoredAlignResultForCurrentMode();
+                if (result != 0)
+                    return result;
 
                 _frameSpec = ResolveFrameSpecForWafer(_wafer);
                 _sourceMap = null;
@@ -853,7 +863,7 @@ namespace QMC.CDT320.Sequencing
                     ", requestStartActualY=" + requestStartY.ToString("F6") +
                     ", targetId=" + ResolveTargetId() + " - Start");
                 VisionAlignResult vision = await RequestVisionPcOffsetWithRetryAsync(ResolveTargetId(), VisionAlignTargetIds.Center, ct).ConfigureAwait(false);
-                if (vision == null)
+                if (vision == null && !_hybridVirtualFrameActive)
                 {
                     vision = await SearchVisionMarkAroundCurrentPointAsync(
                         ResolveTargetId(),
@@ -865,12 +875,18 @@ namespace QMC.CDT320.Sequencing
                 }
 
                 if (vision == null)
+                {
+                    if (_hybridVirtualFrameActive)
+                        return Fail("IN-STAGE-DIEMAP-HYBRID-VISION", "Vision",
+                            "Die Mapping 예상 Anchor 다이를 찾지 못했습니다. HybridRealVisionSimMotion에서는 가상 X/Y 이동으로 실제 Vision 화면이 바뀌지 않으므로 동일 화면 통신 재시도 후 주변 탐색을 수행하지 않습니다.");
+
                     return Fail("IN-STAGE-DIEMAP-CENTER-VISION", "Vision",
                         "Die Mapping 예상 Anchor 다이를 찾지 못했습니다. Align Origin 예상 위치와 반 피치 미만 Fine 탐색을 모두 실패했습니다. " +
                         "anchorMapX=" + _mappingAnchorMapX +
                         ", anchorMapY=" + _mappingAnchorMapY +
                         ", expectedX=" + baseX.ToString("F6") +
                         ", expectedY=" + baseY.ToString("F6"));
+                }
 
                 double inputDeltaX;
                 double inputDeltaY;
@@ -884,10 +900,31 @@ namespace QMC.CDT320.Sequencing
                     out moveDeltaX,
                     out moveDeltaY);
 
+                double effectiveMoveDeltaX = moveDeltaX;
+                double effectiveMoveDeltaY = moveDeltaY;
+                double savedAlignOffsetX = 0.0;
+                double savedAlignOffsetY = 0.0;
+                if (_hybridVirtualFrameActive)
+                {
+                    if (_wafer == null ||
+                        !_wafer.HasInputStageAlignResult ||
+                        !IsFiniteNumber(_wafer.InputStageAlignOffsetX) ||
+                        !IsFiniteNumber(_wafer.InputStageAlignOffsetY))
+                    {
+                        return Fail("IN-STAGE-DIEMAP-HYBRID-ALIGN-OFFSET", "Material",
+                            "Hybrid Die Mapping에 필요한 저장 Align X/Y 보정값이 없거나 유효하지 않습니다.");
+                    }
+
+                    savedAlignOffsetX = _wafer.InputStageAlignOffsetX;
+                    savedAlignOffsetY = _wafer.InputStageAlignOffsetY;
+                    effectiveMoveDeltaX = moveDeltaX - savedAlignOffsetX;
+                    effectiveMoveDeltaY = moveDeltaY - savedAlignOffsetY;
+                }
+
                 double currentX = Stage.CameraX != null ? Stage.CameraX.ActualPosition : baseX;
                 double currentY = Stage.StageY != null ? Stage.StageY.ActualPosition : baseY;
-                _mappingAnchorDetectedX = currentX + moveDeltaX;
-                _mappingAnchorDetectedY = currentY + moveDeltaY;
+                _mappingAnchorDetectedX = currentX + effectiveMoveDeltaX;
+                _mappingAnchorDetectedY = currentY + effectiveMoveDeltaY;
                 _mappingFineOffsetX = _mappingAnchorDetectedX - baseX;
                 _mappingFineOffsetY = _mappingAnchorDetectedY - baseY;
                 string fineLimitReason;
@@ -930,12 +967,19 @@ namespace QMC.CDT320.Sequencing
                     ", visionDy=" + vision.DeltaY.ToString("F6") +
                     ", inputDeltaX=" + inputDeltaX.ToString("F6") +
                     ", inputDeltaY=" + inputDeltaY.ToString("F6") +
-                    ", detectedAnchorX=currentX+inputDeltaX=" + _mappingAnchorDetectedX.ToString("F6") +
-                    ", detectedAnchorY=currentY-inputDeltaY=" + _mappingAnchorDetectedY.ToString("F6") +
+                    ", rawMoveDeltaX=" + moveDeltaX.ToString("F6") +
+                    ", rawMoveDeltaY=" + moveDeltaY.ToString("F6") +
+                    ", savedAlignOffsetX=" + savedAlignOffsetX.ToString("F6") +
+                    ", savedAlignOffsetY=" + savedAlignOffsetY.ToString("F6") +
+                    ", effectiveMoveDeltaX=rawMoveDeltaX-savedAlignOffsetX=" + effectiveMoveDeltaX.ToString("F6") +
+                    ", effectiveMoveDeltaY=rawMoveDeltaY-savedAlignOffsetY=" + effectiveMoveDeltaY.ToString("F6") +
+                    ", detectedAnchorX=currentX+effectiveMoveDeltaX=" + _mappingAnchorDetectedX.ToString("F6") +
+                    ", detectedAnchorY=currentY+effectiveMoveDeltaY=" + _mappingAnchorDetectedY.ToString("F6") +
                     ", fineOffsetX=detectedAnchorX-expectedAnchorX=" + _mappingFineOffsetX.ToString("F6") +
                     ", fineOffsetY=detectedAnchorY-expectedAnchorY=" + _mappingFineOffsetY.ToString("F6") +
                     ", resolvedMapCenterX=" + _dieMapCenterX.ToString("F6") +
                     ", resolvedMapCenterY=" + _dieMapCenterY.ToString("F6") +
+                    ", mode=" + ResolveVisionMotionModeName() +
                     ", limit=" + fineLimitReason + " - Ok");
 
                 CurrentStep = InputStageDieMappingStep.CalculateDieMap;
@@ -1819,6 +1863,13 @@ namespace QMC.CDT320.Sequencing
                 int result = ResolveMaterialStateWaferForDieMapApply();
                 if (result != 0) return result;
 
+                result = ValidateStoredAlignResultForCurrentMode();
+                if (result != 0) return result;
+
+                string resultMode = _hybridVirtualFrameActive
+                    ? InputStageResultMode.HybridRealVisionSimMotion
+                    : InputStageResultMode.Standard;
+
                 InputStageDieMapApplyResult applyResult = InputStageDieMapApplyService.Apply(
                     new InputStageDieMapApplyRequest
                     {
@@ -1829,6 +1880,8 @@ namespace QMC.CDT320.Sequencing
                         WaferMap = _waferMap,
                         ExpectedWafer = _wafer,
                         PickupOptions = ResolveInputPickupSubset(),
+                        ResultMode = resultMode,
+                        AlignResultRunId = _wafer != null ? _wafer.InputStageAlignResultRunId : "",
                         Source = "InputStageDieMappingSequence.ApplyDieMap",
                         SaveReason = "InputStageDieMapping",
                         PublishReadySignals = true
@@ -1845,7 +1898,9 @@ namespace QMC.CDT320.Sequencing
                     "Input stage die mapping applied. wafer=" + (_wafer != null ? _wafer.WaferId : "") +
                     ", dieMapX=" + _dieMap.DieMapX +
                     ", dieMapY=" + _dieMap.DieMapY +
-                    ", dieCount=" + _createdDieCount + " - Ok");
+                    ", dieCount=" + _createdDieCount +
+                    ", resultMode=" + resultMode +
+                    ", alignResultRunId=" + (_wafer != null ? _wafer.InputStageAlignResultRunId : "") + " - Ok");
 
                 CurrentStep = InputStageDieMappingStep.Complete;
                 return 0;
@@ -2945,6 +3000,122 @@ namespace QMC.CDT320.Sequencing
             }
 
             return 1.0;
+        }
+
+        private int ValidateStoredAlignResultForCurrentMode()
+        {
+            if (_wafer == null || !_wafer.HasInputStageAlignResult)
+            {
+                InputStageHybridResultSession.Clear();
+                return Fail("IN-STAGE-DIEMAP-ALIGN-RESULT-MODE", "Material",
+                    "Die Mapping에 필요한 InputStage Align 결과가 없습니다.");
+            }
+
+            string storedMode = _wafer.InputStageAlignResultMode ?? "";
+            if (!InputStageResultMode.IsKnown(storedMode))
+            {
+                InputStageHybridResultSession.Clear();
+                return Fail("IN-STAGE-DIEMAP-ALIGN-RESULT-MODE", "Material",
+                    "알 수 없는 InputStage Align 결과 모드입니다. mode=" + storedMode);
+            }
+
+            if (_hybridVirtualFrameActive)
+            {
+                if (!InputStageResultMode.IsHybrid(storedMode) ||
+                    string.IsNullOrWhiteSpace(_wafer.InputStageAlignResultRunId) ||
+                    !InputStageHybridResultSession.IsCurrentAlign(
+                        _wafer.WaferId,
+                        _wafer.InputStageAlignResultRunId))
+                {
+                    InputStageHybridResultSession.Clear();
+                    return Fail("IN-STAGE-DIEMAP-HYBRID-ALIGN-SESSION", "Material",
+                        "Hybrid Die Mapping은 현재 프로그램 실행에서 같은 Wafer로 완료한 Hybrid Align 결과만 사용할 수 있습니다. " +
+                        "waferId=" + _wafer.WaferId +
+                        ", storedMode=" + storedMode +
+                        ", alignRunId=" + (_wafer.InputStageAlignResultRunId ?? "") +
+                        ". Align을 다시 실행하십시오.");
+                }
+            }
+            else if (InputStageResultMode.IsHybrid(storedMode))
+            {
+                InputStageHybridResultSession.Clear();
+                return Fail("IN-STAGE-DIEMAP-HYBRID-RESULT-REUSE", "Material",
+                    "HybridRealVisionSimMotion에서 생성된 Align 결과는 현재 모션/Vision 모드에서 재사용할 수 없습니다. " +
+                    "waferId=" + _wafer.WaferId + ". 현재 모드에서 Align을 다시 실행하십시오.");
+            }
+
+            return 0;
+        }
+
+        private int ConfigureHybridVirtualFrameMode()
+        {
+            bool realVisionInSimulation = AutoVisionRequestService.IsRealVisionInSimulationActive();
+            bool cameraXSimulated = IsSimulatedAxis(Stage != null ? Stage.CameraX : null);
+            bool stageYSimulated = IsSimulatedAxis(Stage != null ? Stage.StageY : null);
+            bool stageTSimulated = IsSimulatedAxis(Stage != null ? Stage.StageT : null);
+
+            _hybridVirtualFrameActive = false;
+            if (!realVisionInSimulation)
+            {
+                WriteLog("InputStageDieMappingSequence",
+                    "Die Mapping Vision/motion mode resolved. realVisionInSimulation=False" +
+                    ", cameraXSimulated=" + cameraXSimulated +
+                    ", stageYSimulated=" + stageYSimulated +
+                    ", stageTSimulated=" + stageTSimulated +
+                    ", mode=" + ResolveVisionMotionModeName() + " - Ok");
+                return 0;
+            }
+
+            int simulatedAxisCount = (cameraXSimulated ? 1 : 0) +
+                (stageYSimulated ? 1 : 0) +
+                (stageTSimulated ? 1 : 0);
+            if (simulatedAxisCount != 0 && simulatedAxisCount != 3)
+            {
+                InputStageHybridResultSession.Clear();
+                return Fail("IN-STAGE-DIEMAP-HYBRID-AXIS-MODE", Stage != null ? Stage.Name : "InputStageUnit",
+                    "Real Vision simulation mode requires CameraX/StageY/StageT to be all simulated or all real. " +
+                    "cameraXSimulated=" + cameraXSimulated +
+                    ", stageYSimulated=" + stageYSimulated +
+                    ", stageTSimulated=" + stageTSimulated);
+            }
+
+            _hybridVirtualFrameActive = simulatedAxisCount == 3;
+            if (_hybridVirtualFrameActive && !Options.EnableMotion)
+            {
+                _hybridVirtualFrameActive = false;
+                InputStageHybridResultSession.Clear();
+                return Fail("IN-STAGE-DIEMAP-HYBRID-MOTION-DISABLED", Stage != null ? Stage.Name : "InputStageUnit",
+                    "HybridRealVisionSimMotion requires simulated X/Y/T motion commands to be enabled.");
+            }
+
+            WriteLog("InputStageDieMappingSequence",
+                "Die Mapping Vision/motion mode resolved. realVisionInSimulation=True" +
+                ", cameraXSimulated=" + cameraXSimulated +
+                ", stageYSimulated=" + stageYSimulated +
+                ", stageTSimulated=" + stageTSimulated +
+                ", mode=" + ResolveVisionMotionModeName() + " - Ok");
+            return 0;
+        }
+
+        private static bool IsSimulatedAxis(BaseAxis axis)
+        {
+            return axis != null &&
+                (axis is QMC.CDT320.SimAxis ||
+                 (axis.Config != null && axis.Config.IsSimulationMode));
+        }
+
+        private string ResolveVisionMotionModeName()
+        {
+            if (_hybridVirtualFrameActive)
+                return "HybridRealVisionSimMotion";
+            if (AutoVisionRequestService.IsRealVisionInSimulationActive())
+                return "ExistingRealVisionMotion";
+            return IsSimulationOrDryRun() ? "ExistingSyntheticVisionSimulation" : "ExistingRealMotionRealVision";
+        }
+
+        private static bool IsFiniteNumber(double value)
+        {
+            return !double.IsNaN(value) && !double.IsInfinity(value);
         }
 
         private bool IsSimulationOrDryRun()
