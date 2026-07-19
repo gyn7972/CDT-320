@@ -3390,7 +3390,9 @@ namespace QMC.CDT320
                 if (cassette == null)
                     return 0;
 
-                if (cassette.IsWaferLifterZInAvoidPosition())
+                if (AxisMoveWaiter.CanSkipMoveCommandAtTarget(
+                    cassette.InputLifterZ,
+                    cassette.Recipe.AvoidPosition))
                     return 0;
 
                 int result = await cassette.MoveToWaferCassetteAvoidPosition().ConfigureAwait(false);

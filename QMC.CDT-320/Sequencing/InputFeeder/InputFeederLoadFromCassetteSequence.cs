@@ -589,7 +589,7 @@ namespace QMC.CDT320.Sequencing
                 if (result != 0)
                     return result;
 
-                return await WaitStageAxisInPositionResultAsync(stage, axis, target, description, ct).ConfigureAwait(false);
+                return 0;
             }
             catch (OperationCanceledException)
             {

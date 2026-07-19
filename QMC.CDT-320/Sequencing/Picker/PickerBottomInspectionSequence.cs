@@ -416,7 +416,7 @@ namespace QMC.CDT320.Sequencing
             bool measureVisionToPitch = _bottomVisionToPitchTactActive;
             var targets = new Dictionary<PickerAxis, double>();
             targets[PickerAxis.PickerX] = _targetPickerX;
-            if (!_inspectionYPositionReady || !IsPickerAxisInPosition(PickerAxis.PickerY, _targetPickerY))
+            if (!_inspectionYPositionReady || !CanSkipPickerMoveCommand(PickerAxis.PickerY, _targetPickerY))
                 targets[PickerAxis.PickerY] = _targetPickerY;
 
             Task<int> xyTask = MovePickerXTThenYAndVerifyAsync(
@@ -549,7 +549,7 @@ namespace QMC.CDT320.Sequencing
         private async Task<int> MoveBottomZAsync(CancellationToken ct)
         {
             PickerAxis zAxis = GetPickerZAxis(_currentPickerIndex);
-            if (_bottomFlyingZDownActive && IsPickerAxisInPosition(zAxis, _targetPickerZ))
+            if (_bottomFlyingZDownActive && CanSkipPickerMoveCommand(zAxis, _targetPickerZ))
             {
                 WriteLog("PickerBottomInspectionSequence",
                     Name + " Bottom 검사 Z 이동을 생략합니다. Flying Z Down으로 이미 최종 위치입니다. " +

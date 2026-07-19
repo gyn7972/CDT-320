@@ -525,7 +525,7 @@ namespace QMC.CDT320.Sequencing.Calibration
 
             stage.Recipe.EnsurePositionObjects();
             double target = stage.Recipe.VisionX.AvoidPosition;
-            if (stage.IsVisionXInAvoidPosition())
+            if (AxisMoveWaiter.CanSkipMoveCommandAtTarget(stage.CameraX, target))
                 return 0;
 
             return await MoveInputStageAxisWithCalibrationMotionAsync(
@@ -539,11 +539,16 @@ namespace QMC.CDT320.Sequencing.Calibration
         private async Task<int> EnsureOutputVisionAvoidForStartAsync(CancellationToken ct)
         {
             OutputStageUnit stage = Context != null && Context.Machine != null ? Context.Machine.OutputStageUnit : null;
-            if (stage == null || stage.OutputCameraX == null)
+            if (stage == null ||
+                stage.OutputCameraX == null ||
+                stage.Recipe == null ||
+                stage.Recipe.VisionX == null)
                 return Fail("PICKUP-Z-CAL-OUTPUT-VISION-MISSING", "OutputStageUnit",
-                    "PickUpZ Calibration start OutputVisionX Avoid move requires axis.");
+                    "PickUpZ Calibration start OutputVisionX Avoid move requires axis/recipe.");
 
-            if (stage.IsVisionXInAvoidPosition())
+            stage.Recipe.EnsurePositionObjects();
+            double target = stage.Recipe.VisionX.AvoidPosition;
+            if (AxisMoveWaiter.CanSkipMoveCommandAtTarget(stage.OutputCameraX, target))
                 return 0;
 
             CalibrationMotionSettings motion = ResolveCalibrationMotion();

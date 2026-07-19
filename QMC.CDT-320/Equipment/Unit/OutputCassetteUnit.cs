@@ -1105,13 +1105,6 @@ namespace QMC.CDT320
                 if (result != 0)
                     return result;
 
-                AxisMoveWaitResult waitResult = await WaitBinLifterZMoveDoneInPosition(Recipe.MappingEndPosition, OutputLifterZ.Setup.MoveTimeoutMs, ct).ConfigureAwait(false);
-                if (!waitResult.Success)
-                    return FailMappingScan(
-                        ResolveBinLifterZMoveWaitAlarmCode("OUT-CST-MAP-END", waitResult.Failure),
-                        "OutputLifterZ mapping end move/in-position wait failed. waitResult=" + waitResult.Code +
-                        ", reason=" + waitResult.Reason + ". " + waitResult.AxisState);
-
                 return 0;
             }
             catch (OperationCanceledException)
@@ -1141,13 +1134,6 @@ namespace QMC.CDT320
                 int result = await MoveBinLifterZ(Recipe.MappingStartPosition, false, ct).ConfigureAwait(false);
                 if (result != 0)
                     return result;
-
-                AxisMoveWaitResult waitResult = await WaitBinLifterZMoveDoneInPosition(Recipe.MappingStartPosition, OutputLifterZ.Setup.MoveTimeoutMs, ct).ConfigureAwait(false);
-                if (!waitResult.Success)
-                    return FailMappingScan(
-                        ResolveBinLifterZMoveWaitAlarmCode("OUT-CST-MAP-START", waitResult.Failure),
-                        "OutputLifterZ mapping start move/in-position wait failed. waitResult=" + waitResult.Code +
-                        ", reason=" + waitResult.Reason + ". " + waitResult.AxisState);
 
                 return 0;
             }
@@ -1471,13 +1457,6 @@ namespace QMC.CDT320
                 int result = await MoveToBinCassetteSlotPosition(cassette, slotIndex, bFine).ConfigureAwait(false);
                 if (result != 0)
                     return result;
-
-                AxisMoveWaitResult waitResult = await WaitBinLifterZMoveDoneInPosition(CalculateBinCassetteSlotTargetPosition(cassette, slotIndex), timeoutMs).ConfigureAwait(false);
-                if (!waitResult.Success)
-                    return FailMappingScan(
-                        ResolveBinLifterZMoveWaitAlarmCode("OUT-CST-FEEDER-LOAD", waitResult.Failure),
-                        "Prepare bin cassette for feeder load move/in-position wait failed. waitResult=" + waitResult.Code +
-                        ", reason=" + waitResult.Reason + ". " + waitResult.AxisState);
 
                 return 0;
             }

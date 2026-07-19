@@ -252,10 +252,15 @@ namespace QMC.CDT320.Sequencing
             {
                 ct.ThrowIfCancellationRequested();
 
-                if (Stage == null)
+                if (Stage == null ||
+                    Stage.OutputCameraX == null ||
+                    Stage.Recipe == null ||
+                    Stage.Recipe.VisionX == null)
                     return Fail("OUT-FEEDER-STAGE-MISSING", "OutputStage", "OutputFeederY 이동 전 OutputStageUnit을 확인할 수 없습니다.");
 
-                if (Stage.IsVisionXInAvoidPosition())
+                Stage.Recipe.EnsurePositionObjects();
+                double target = Stage.Recipe.VisionX.AvoidPosition;
+                if (QMC.Common.Motion.AxisMoveWaiter.CanSkipMoveCommandAtTarget(Stage.OutputCameraX, target))
                     return 0;
 
                 int result = await Stage.MoveVisionXToAvoidAndVerifyAsync(

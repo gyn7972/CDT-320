@@ -617,7 +617,7 @@ namespace QMC.CDT320.Sequencing.Calibration
                     return Fail("VISION-CAMERA-CAL-INPUT-RETICLE-MISSING", "InputStageUnit", "InputVisionX Reticle 위치 이동을 위한 축/Recipe 정보가 없습니다.");
 
                 double target = stage.Recipe.VisionX.ReticlePosition;
-                if (IsAxisInPosition(stage.CameraX, target))
+                if (CanSkipAxisMoveCommand(stage.CameraX, target))
                     return 0;
 
                 CalibrationMotionSettings motion = ResolveMotionSettings();
@@ -663,7 +663,7 @@ namespace QMC.CDT320.Sequencing.Calibration
                     return Fail("VISION-CAMERA-CAL-OUTPUT-RETICLE-MISSING", "OutputStageUnit", "OutputVisionX Reticle 위치 이동을 위한 축/Recipe 정보가 없습니다.");
 
                 double target = stage.Recipe.VisionX.ReticlePosition;
-                if (IsAxisInPosition(stage.OutputCameraX, target))
+                if (CanSkipAxisMoveCommand(stage.OutputCameraX, target))
                     return 0;
 
                 CalibrationMotionSettings motion = ResolveMotionSettings();
@@ -740,10 +740,10 @@ namespace QMC.CDT320.Sequencing.Calibration
                 if (stage == null || stage.CameraX == null || stage.Recipe == null || stage.Recipe.VisionX == null)
                     return Fail("VISION-CAMERA-CAL-INPUT-VISION-MISSING", "InputStageUnit", "InputVisionX Avoid 이동을 위한 축/Recipe 정보가 없습니다.");
 
-                if (stage.IsVisionXInAvoidPosition())
+                double target = stage.Recipe.VisionX.AvoidPosition;
+                if (AxisMoveWaiter.CanSkipMoveCommandAtTarget(stage.CameraX, target))
                     return 0;
 
-                double target = stage.Recipe.VisionX.AvoidPosition;
                 CalibrationMotionSettings motion = ResolveMotionSettings();
                 int result = await stage.MoveInputStageAxisCommandWithMotion(
                     WaferStageAxis.VisionX,
@@ -782,10 +782,15 @@ namespace QMC.CDT320.Sequencing.Calibration
             {
                 ct.ThrowIfCancellationRequested();
                 OutputStageUnit stage = _machine != null ? _machine.OutputStageUnit : null;
-                if (stage == null || stage.OutputCameraX == null)
+                if (stage == null ||
+                    stage.OutputCameraX == null ||
+                    stage.Recipe == null ||
+                    stage.Recipe.VisionX == null)
                     return Fail("VISION-CAMERA-CAL-OUTPUT-VISION-MISSING", "OutputStageUnit", "OutputVisionX Avoid 이동을 위한 축 정보가 없습니다.");
 
-                if (stage.IsVisionXInAvoidPosition())
+                stage.Recipe.EnsurePositionObjects();
+                double target = stage.Recipe.VisionX.AvoidPosition;
+                if (AxisMoveWaiter.CanSkipMoveCommandAtTarget(stage.OutputCameraX, target))
                     return 0;
 
                 CalibrationMotionSettings motion = ResolveMotionSettings();
@@ -1128,6 +1133,17 @@ namespace QMC.CDT320.Sequencing.Calibration
             finally
             {
             }
+        }
+
+        private static bool CanSkipAxisMoveCommand(BaseAxis axis, double target)
+        {
+            if (axis == null)
+                return false;
+
+            double tolerance = axis.Config != null && axis.Config.InPositionTolerance > 0.0
+                ? axis.Config.InPositionTolerance
+                : CalibrationAxisTolerance;
+            return AxisMoveWaiter.CanSkipMoveCommandAtTarget(axis, target, tolerance);
         }
 
         private async Task<VisionReticleMeasurement> FindReticleWithRetryAsync(VisionCameraCalibrationTarget target, CancellationToken ct)

@@ -1821,20 +1821,15 @@ namespace QMC.CDT_320.Ui.Dialogs
             if (machine == null)
                 return -1;
 
-            PickerAxis zAxis = ResolveSelectedPickerZAxis();
             if (_selectedPickerSide == VisionFocusPickerSide.Front)
             {
                 if (machine.PickerFrontUnit == null)
                     return -1;
-                if (machine.PickerFrontUnit.IsPickerAxisInTeachingPosition(zAxis, "AvoidPosition"))
-                    return 0;
                 return await machine.PickerFrontUnit.MovePickerZToSafeHeight(_selectedPickerNo).ConfigureAwait(true);
             }
 
             if (machine.PickerRearUnit == null)
                 return -1;
-            if (machine.PickerRearUnit.IsPickerAxisInTeachingPosition(zAxis, "AvoidPosition"))
-                return 0;
             return await machine.PickerRearUnit.MovePickerZToSafeHeight(_selectedPickerNo).ConfigureAwait(true);
         }
 
@@ -1847,15 +1842,11 @@ namespace QMC.CDT_320.Ui.Dialogs
             {
                 if (machine.PickerFrontUnit == null)
                     return -1;
-                if (machine.PickerFrontUnit.IsPickerAxisInTeachingPosition(PickerAxis.PickerY, "AvoidPosition"))
-                    return 0;
                 return await machine.PickerFrontUnit.MovePickerAxisToTeachingPosition(PickerAxis.PickerY, "AvoidPosition").ConfigureAwait(true);
             }
 
             if (machine.PickerRearUnit == null)
                 return -1;
-            if (machine.PickerRearUnit.IsPickerAxisInTeachingPosition(PickerAxis.PickerY, "AvoidPosition"))
-                return 0;
             return await machine.PickerRearUnit.MovePickerAxisToTeachingPosition(PickerAxis.PickerY, "AvoidPosition").ConfigureAwait(true);
         }
 

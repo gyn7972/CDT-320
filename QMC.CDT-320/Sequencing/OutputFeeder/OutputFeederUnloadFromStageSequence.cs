@@ -201,10 +201,15 @@ namespace QMC.CDT320.Sequencing
 
         private async Task<int> EnsureOutputVisionAvoidAsync(CancellationToken ct)
         {
-            if (Stage == null)
+            if (Stage == null ||
+                Stage.OutputCameraX == null ||
+                Stage.Recipe == null ||
+                Stage.Recipe.VisionX == null)
                 return Fail("OUT-STAGE-MISSING", "OutputStage", "Output stage unit is not available. side=" + Options.Side);
 
-            if (!Stage.IsVisionXInAvoidPosition())
+            Stage.Recipe.EnsurePositionObjects();
+            double target = Stage.Recipe.VisionX.AvoidPosition;
+            if (!QMC.Common.Motion.AxisMoveWaiter.CanSkipMoveCommandAtTarget(Stage.OutputCameraX, target))
             {
                 int result = await Stage.MoveVisionXToAvoidAndVerifyAsync(ResolveTimeout(), Options.FineMove, ct).ConfigureAwait(false);
                 if (result != 0)

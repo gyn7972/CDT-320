@@ -790,7 +790,7 @@ namespace QMC.CDT320.Sequencing.Calibration
 
             stage.Recipe.EnsurePositionObjects();
             double target = stage.Recipe.VisionX.AvoidPosition;
-            if (stage.IsVisionXInAvoidPosition())
+            if (AxisMoveWaiter.CanSkipMoveCommandAtTarget(stage.CameraX, target))
                 return 0;
 
             return await MoveInputStageAxisWithCalibrationMotionAsync(
@@ -804,11 +804,16 @@ namespace QMC.CDT320.Sequencing.Calibration
         private async Task<int> EnsureOutputVisionAvoidForStartAsync(CancellationToken ct)
         {
             OutputStageUnit stage = Context != null && Context.Machine != null ? Context.Machine.OutputStageUnit : null;
-            if (stage == null || stage.OutputCameraX == null)
+            if (stage == null ||
+                stage.OutputCameraX == null ||
+                stage.Recipe == null ||
+                stage.Recipe.VisionX == null)
                 return Fail("PLACE-Z-CAL-OUTPUT-VISION-MISSING", "OutputStageUnit",
-                    "PlaceZ Calibration start OutputVisionX Avoid move requires axis.");
+                    "PlaceZ Calibration start OutputVisionX Avoid move requires axis/recipe.");
 
-            if (stage.IsVisionXInAvoidPosition())
+            stage.Recipe.EnsurePositionObjects();
+            double target = stage.Recipe.VisionX.AvoidPosition;
+            if (AxisMoveWaiter.CanSkipMoveCommandAtTarget(stage.OutputCameraX, target))
                 return 0;
 
             CalibrationMotionSettings motion = ResolveCalibrationMotion();
@@ -831,18 +836,6 @@ namespace QMC.CDT320.Sequencing.Calibration
             if (stage == null || stage.Recipe == null || _calibrationTarget == null)
                 return Fail("PLACE-Z-CAL-OUTPUT-STAGE-MISSING", "OutputStageUnit",
                     "PlaceZ Calibration OutputStage process move requires axis/recipe/target.");
-
-            string readyReason;
-            if (IsOutputStageInCalibrationPosition(out readyReason))
-            {
-                WriteLog("PlaceZCalibration",
-                    "PlaceZ Calibration OutputStage가 이미 캘리브레이션 공정 위치 조건입니다. " +
-                    "불필요한 OutputStage MoveProcess를 생략합니다. side=" + Side +
-                    ", outputSide=" + _targetOutputSide +
-                    ", pickerNo=" + _pickerNo +
-                    ", " + readyReason + " - Ok");
-                return 0;
-            }
 
             var options = OutputStageSequenceOptions.Default();
             options.Side = _targetOutputSide;

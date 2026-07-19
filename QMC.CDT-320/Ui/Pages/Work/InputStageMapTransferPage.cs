@@ -2507,7 +2507,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
 
                 stage.Recipe.EnsurePositionObjects();
                 double target = stage.Recipe.EjectPinZ.AvoidPosition;
-                if (IsAxisInPosition(stage.EjectPinZ, target))
+                if (CanSkipAxisMoveCommand(stage.EjectPinZ, target))
                     return 0;
 
                 int result = await stage.MoveInputStageAxis(
@@ -2571,7 +2571,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     return -1;
                 }
 
-                if (stage.IsWaferAlignThetaInPosition())
+                if (CanSkipAxisMoveCommand(ResolveInputStageAxis(stage, WaferStageAxis.WaferT), targetT))
                     return 0;
 
                 int result = await stage.MoveInputStageAxis(
@@ -3887,9 +3887,9 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 if (stage == null)
                     return -1;
 
-                bool needleInPosition = IsAxisInPosition(stage.NeedleBlockX, targetNeedleX);
-                bool stageYInPosition = IsStageYInPosition(stage, targetStageY);
-                if (needleInPosition && stageYInPosition)
+                bool canSkipNeedleMove = CanSkipAxisMoveCommand(stage.NeedleBlockX, targetNeedleX);
+                bool canSkipStageYMove = CanSkipAxisMoveCommand(stage.StageY, targetStageY);
+                if (canSkipNeedleMove && canSkipStageYMove)
                     return 0;
 
                 bool moveNeedleXFirst;
@@ -3912,7 +3912,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
 
                 if (moveNeedleXFirst)
                 {
-                    if (!needleInPosition)
+                    if (!canSkipNeedleMove)
                     {
                         int result = await MoveNeedleXForManualPickerMoveAsync(
                             stage,
@@ -3923,7 +3923,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
                             return result;
                     }
 
-                    if (!stageYInPosition)
+                    if (!canSkipStageYMove)
                     {
                         int result = await MoveStageYForManualPickerMoveAsync(
                             stage,
@@ -3938,7 +3938,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 }
                 else
                 {
-                    if (!stageYInPosition)
+                    if (!canSkipStageYMove)
                     {
                         int result = await MoveStageYForManualPickerMoveAsync(
                             stage,
@@ -3951,7 +3951,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
                             return result;
                     }
 
-                    if (!needleInPosition)
+                    if (!canSkipNeedleMove)
                     {
                         int result = await MoveNeedleXForManualPickerMoveAsync(
                             stage,
@@ -3987,7 +3987,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 if (stage == null || stage.NeedleBlockX == null)
                     return -1;
 
-                if (IsAxisInPosition(stage.NeedleBlockX, targetNeedleX))
+                if (CanSkipAxisMoveCommand(stage.NeedleBlockX, targetNeedleX))
                     return 0;
 
                 int result = await stage.MoveInputStageAxis(
@@ -4031,7 +4031,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 if (stage == null || stage.StageY == null)
                     return -1;
 
-                if (IsStageYInPosition(stage, targetStageY))
+                if (CanSkipAxisMoveCommand(stage.StageY, targetStageY))
                     return 0;
 
                 int result = await PickerInputStageMoveHelper.MoveStageYForPickerWorkPointCommandAsync(
@@ -4137,7 +4137,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
                         side,
                         axis,
                         "AvoidPosition");
-                    if (IsPickerAxisInPosition(host, side, axis, target))
+                    if (CanSkipPickerMoveCommand(host, side, axis, target))
                         continue;
 
                     string targetName = "AvoidPosition;ManualInputDieMapMove;PickerPhase=SafeZ";
@@ -4256,7 +4256,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 return -1;
 
             BaseAxis item = ResolveInputStageAxis(stage, axis);
-            if (IsAxisInPosition(item, target))
+            if (CanSkipAxisMoveCommand(item, target))
                 return 0;
 
             QMC.Common.Log.Write("Main", "SYSTEM", "InputStageMapTransferPage",
@@ -4379,11 +4379,11 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 if (stage == null)
                     return -1;
 
-                if (stage.IsVisionXInAvoidPosition())
-                    return 0;
-
                 stage.Recipe.EnsurePositionObjects();
                 double avoidTarget = stage.Recipe.VisionX.AvoidPosition;
+                if (CanSkipAxisMoveCommand(stage.CameraX, avoidTarget))
+                    return 0;
+
                 int result = await stage.MoveInputStageAxis(WaferStageAxis.VisionX, avoidTarget, speedType, 0.0).ConfigureAwait(true);
                 if (result != 0)
                     return result;
@@ -4437,9 +4437,6 @@ namespace QMC.CDT_320.Ui.Pages.Work
                         return -1;
                     }
 
-                    if (front.IsFrontPickerInAvoidPosition())
-                        return 0;
-
                     int result = await front.MoveToFrontPickerAvoidPosition(speedType, 0.0).ConfigureAwait(true);
                     if (result != 0)
                     {
@@ -4465,9 +4462,6 @@ namespace QMC.CDT_320.Ui.Pages.Work
                         "REAR avoid move failed: PickerRearUnit is null. - Failed");
                     return -1;
                 }
-
-                if (rear.IsRearPickerInAvoidPosition())
-                    return 0;
 
                 int rearResult = await rear.MoveToRearPickerAvoidPosition(speedType, 0.0).ConfigureAwait(true);
                 if (rearResult != 0)
@@ -4645,7 +4639,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     return -1;
                 }
 
-                if (IsPickerYInPosition(host, side, targetPickerY))
+                if (CanSkipPickerMoveCommand(host, side, PickerAxis.PickerY, targetPickerY))
                 {
                     QMC.Common.Log.Write("Main", "SYSTEM", "InputStageMapTransferPage",
                         ResolvePickerMoveTitle(side, pickerNo) +
@@ -5067,6 +5061,22 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 ? axis.Config.InPositionTolerance
                 : 0.05;
             return Math.Abs(axis.ActualPosition - target) <= tolerance && !axis.IsAlarm && !axis.IsMoving;
+        }
+
+        private static bool CanSkipAxisMoveCommand(BaseAxis axis, double target)
+        {
+            if (axis == null)
+                return false;
+
+            double tolerance = axis.Config != null && axis.Config.InPositionTolerance > 0.0
+                ? axis.Config.InPositionTolerance
+                : 0.05;
+            return AxisMoveWaiter.CanSkipMoveCommandAtTarget(axis, target, tolerance);
+        }
+
+        private static bool CanSkipPickerMoveCommand(Form1 host, PickerSequenceSide side, PickerAxis axis, double target)
+        {
+            return CanSkipAxisMoveCommand(ResolvePickerAxis(host, side, axis), target);
         }
 
         private static string BuildAxisStateForLog(string axisName, BaseAxis axis, double target)

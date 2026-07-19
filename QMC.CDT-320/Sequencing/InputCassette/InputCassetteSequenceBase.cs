@@ -301,14 +301,10 @@ namespace QMC.CDT320.Sequencing
                     return Fail("IN-CST-MOVE-READY", cassette.Name, "Input cassette is not ready to move. " + readyReason);
 
                 double target = cassette.Recipe.LoaingPosition;
-                int result = await cassette.MoveWaferLifterZ(target, Options.FineMove).ConfigureAwait(false);
+                int result = await cassette.MoveWaferLifterZ(target, Options.FineMove, ct).ConfigureAwait(false);
                 if (result != 0)
                     return Fail("IN-CST-LOAD-POS", cassette.Name,
                         "Move loading position failed. result=" + result + ". " + BuildCassetteZState(cassette, target));
-
-                result = await WaitCassetteZInPositionAsync(cassette, target, "IN-CST-LOAD", "Loading position", ct).ConfigureAwait(false);
-                if (result != 0)
-                    return result;
 
                 CurrentStep = CompleteStep;
                 return 0;
@@ -335,14 +331,10 @@ namespace QMC.CDT320.Sequencing
                     return Fail("IN-CST-MOVE-READY", cassette.Name, "Input cassette is not ready to move. " + readyReason);
 
                 double target = cassette.Recipe.UnloadingPosition;
-                int result = await cassette.MoveWaferLifterZ(target, Options.FineMove).ConfigureAwait(false);
+                int result = await cassette.MoveWaferLifterZ(target, Options.FineMove, ct).ConfigureAwait(false);
                 if (result != 0)
                     return Fail("IN-CST-UNLOAD-POS", cassette.Name,
                         "Move unloading position failed. result=" + result + ". " + BuildCassetteZState(cassette, target));
-
-                result = await WaitCassetteZInPositionAsync(cassette, target, "IN-CST-UNLOAD", "Unloading position", ct).ConfigureAwait(false);
-                if (result != 0)
-                    return result;
 
                 CurrentStep = CompleteStep;
                 return 0;
@@ -369,14 +361,10 @@ namespace QMC.CDT320.Sequencing
                     return Fail("IN-CST-MOVE-READY", cassette.Name, "Input cassette is not ready to move. " + readyReason);
 
                 double target = cassette.Recipe.MappingStartPosition;
-                int result = await cassette.MoveToWaferCassetteMappingStartPosition(Options.FineMove).ConfigureAwait(false);
+                int result = await cassette.MoveWaferLifterZ(target, Options.FineMove, ct).ConfigureAwait(false);
                 if (result != 0)
                     return Fail("IN-CST-MAP-START", cassette.Name,
                         "Move mapping start position failed. result=" + result + ". " + BuildCassetteZState(cassette, target));
-
-                result = await WaitCassetteZInPositionAsync(cassette, target, "IN-CST-MAP-START", "Mapping start position", ct).ConfigureAwait(false);
-                if (result != 0)
-                    return result;
 
                 CurrentStep = nextStep;
                 return 0;
@@ -400,14 +388,10 @@ namespace QMC.CDT320.Sequencing
                     return Fail("IN-CST-MISSING", "InputCassette", "Input cassette unit is not available.");
 
                 double target = cassette.Recipe.MappingEndPosition;
-                int result = await cassette.MoveToWaferCassetteMappingEndPosition(Options.FineMove).ConfigureAwait(false);
+                int result = await cassette.MoveWaferLifterZ(target, Options.FineMove, ct).ConfigureAwait(false);
                 if (result != 0)
                     return Fail("IN-CST-MAP-END", cassette.Name,
                         "Move mapping end position failed. result=" + result + ". " + BuildCassetteZState(cassette, target));
-
-                result = await WaitCassetteZInPositionAsync(cassette, target, "IN-CST-MAP-END", "Mapping end position", ct).ConfigureAwait(false);
-                if (result != 0)
-                    return result;
 
                 CurrentStep = nextStep;
                 return 0;
@@ -487,14 +471,10 @@ namespace QMC.CDT320.Sequencing
                 if (slotCount > 0)
                 {
                     double target = cassette.CalculateWaferCassetteSlotTargetPosition(0);
-                    int result = await cassette.MoveToWaferCassetteSlotPosition(0, Options.FineMove).ConfigureAwait(false);
+                    int result = await cassette.MoveWaferLifterZ(target, Options.FineMove, ct).ConfigureAwait(false);
                     if (result != 0)
                         return Fail("IN-CST-FIRST-SLOT", cassette.Name,
                             "Move slot 1 failed. result=" + result + ". " + BuildCassetteZState(cassette, target));
-
-                    result = await WaitCassetteZInPositionAsync(cassette, target, "IN-CST-FIRST-SLOT", "Slot 1 position", ct).ConfigureAwait(false);
-                    if (result != 0)
-                        return result;
                 }
 
                 //EventLogger.Write(EventKind.InputSeq, "UI", "INPUT-STAGE", title + " 시퀀스 중단: " + message);
@@ -513,44 +493,6 @@ namespace QMC.CDT320.Sequencing
         protected int FailUnsupportedStep()
         {
             return Fail("IN-CST-STEP", Name, "Unsupported cassette sequence step: " + CurrentStep);
-        }
-
-        private async Task<int> WaitCassetteZInPositionAsync(
-            InputCassetteUnit cassette,
-            double target,
-            string alarmPrefix,
-            string description,
-            CancellationToken ct)
-        {
-            try
-            {
-                if (cassette == null)
-                    return Fail(alarmPrefix + "-UNIT-MISSING", "InputCassette", description + " wait failed. Input cassette unit is null.");
-
-                AxisMoveWaitResult waitResult = await cassette.WaitWaferLifterZMoveDoneInPosition(
-                    target,
-                    ResolveMoveTimeout(cassette),
-                    ct).ConfigureAwait(false);
-                if (waitResult.Success)
-                    return 0;
-
-                return Fail(ResolveAxisMoveWaitAlarmCode(alarmPrefix, waitResult.Failure), cassette.Name,
-                    description + " move/in-position wait failed. waitResult=" + waitResult.Code +
-                    ", reason=" + waitResult.Reason + ". " + waitResult.AxisState);
-            }
-            catch (Exception ex)
-            {
-                return Fail(alarmPrefix + "-WAIT-EX", cassette != null ? cassette.Name : Name,
-                    description + " move/in-position wait exception: " + ex.Message);
-            }
-            finally
-            {
-            }
-        }
-
-        private static string ResolveAxisMoveWaitAlarmCode(string prefix, AxisMoveWaitFailure failure)
-        {
-            return AxisMoveWaiter.ResolveAlarmCode(prefix, failure);
         }
 
         private string BuildCassetteZState(InputCassetteUnit cassette, double target)

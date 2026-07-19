@@ -287,39 +287,33 @@ namespace QMC.CDT320.Sequencing
             return AxisMoveWaiter.FormatResult(waitResult, fallbackState);
         }
 
-        protected async Task<int> WaitFeederYDoneAsync(Func<bool> inPosition, string description, CancellationToken ct)
+        protected Task<int> WaitFeederYDoneAsync(Func<bool> inPosition, string description, CancellationToken ct)
         {
             try
             {
                 ct.ThrowIfCancellationRequested();
 
-                AxisMoveWaitResult waitResult = await Feeder.WaitWaferFeederYMoveDoneInPosition(
-                    Feeder.FeederY.CommandPosition,
-                    ResolveTimeout(),
-                    ct).ConfigureAwait(false);
                 bool finalInPosition = inPosition == null || inPosition();
 
-                if (waitResult == null || !waitResult.Success || !finalInPosition)
+                if (!finalInPosition)
                 {
                     string state = Feeder != null ? Feeder.GetWaferFeederTransferState() : "Feeder=null";
-                    return Fail(ResolveAxisMoveWaitAlarmCode("IN-FEEDER-Y", waitResult), Feeder.Name,
-                        description + " 이동 완료/위치 확인 실패. " +
-                        FormatAxisMoveWaitResult(waitResult, state) +
-                        ", 최종위치확인=" + finalInPosition +
-                        ". " + state);
+                    return Task.FromResult(Fail("IN-FEEDER-Y-POSITION", Feeder != null ? Feeder.Name : "InputFeeder",
+                        description + " 최종 위치 확인 실패. 최종위치확인=" + finalInPosition +
+                        ". " + state));
                 }
 
-                return 0;
+                return Task.FromResult(0);
             }
             catch (OperationCanceledException)
             {
-                throw;
+                return Task.FromCanceled<int>(ct);
             }
             catch (Exception ex)
             {
                 string state = Feeder != null ? Feeder.GetWaferFeederTransferState() : "Feeder=null";
-                return Fail("IN-FEEDER-Y-WAIT-EX", Feeder != null ? Feeder.Name : "InputFeeder",
-                    description + " 이동 완료 대기 중 예외가 발생했습니다. error=" + ex.Message + ". " + state);
+                return Task.FromResult(Fail("IN-FEEDER-Y-POSITION-EX", Feeder != null ? Feeder.Name : "InputFeeder",
+                    description + " 최종 위치 확인 중 예외가 발생했습니다. error=" + ex.Message + ". " + state));
             }
             finally
             {

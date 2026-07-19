@@ -229,7 +229,10 @@ namespace QMC.CDT320
                     return RaiseFeederAlarm("WF-Y-SOFT-LIMIT", LastWaferFeederMoveFailureMessage);
                 }
 
-                if (IsWaferFeederYInPosition(targetPos, ResolveWaferFeederYInPositionTolerance()))
+                if (AxisMoveWaiter.CanSkipMoveCommandAtTarget(
+                    FeederY,
+                    targetPos,
+                    ResolveWaferFeederYInPositionTolerance()))
                 {
                     LastWaferFeederMoveFailureMessage = string.Empty;
                     EventLogger.Write(EventKind.Event, "QMC", "WF-Y-MOVE",
@@ -331,7 +334,10 @@ namespace QMC.CDT320
                     return RaiseFeederAlarm("WF-Y-SOFT-LIMIT", LastWaferFeederMoveFailureMessage);
                 }
 
-                if (!forceMove && IsWaferFeederYInPosition(targetPos, ResolveWaferFeederYInPositionTolerance()))
+                if (!forceMove && AxisMoveWaiter.CanSkipMoveCommandAtTarget(
+                    FeederY,
+                    targetPos,
+                    ResolveWaferFeederYInPositionTolerance()))
                 {
                     LastWaferFeederMoveFailureMessage = string.Empty;
                     EventLogger.Write(EventKind.Event, "QMC", "WF-Y-MOVE",

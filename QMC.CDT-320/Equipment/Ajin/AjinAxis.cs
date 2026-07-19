@@ -302,7 +302,8 @@ namespace QMC.CDT320.Ajin
                 double tolerance = Config != null && Config.InPositionTolerance > 0.0
                     ? Config.InPositionTolerance
                     : 0.01;
-                if (!BaseAxis.IsForceMoveActive && !IsAlarm && !IsMoving && Math.Abs(ActualPosition - targetPos) <= tolerance)
+                if (!BaseAxis.IsForceMoveActive &&
+                    AxisMoveWaiter.CanSkipMoveCommandAtTarget(this, targetPos, tolerance))
                 {
                     CommandPosition = targetPos;
                     CurrentVelocity = 0.0;
@@ -613,7 +614,7 @@ namespace QMC.CDT320.Ajin
                 double targetPosition = startPosition + pcHomeOffset;
                 int moveResult = 0;
 
-                if (Math.Abs(pcHomeOffset) > ResolveAxisPositionTolerance())
+                if (pcHomeOffset != 0.0)
                 {
                     moveResult = await MoveRelativeAsync(pcHomeOffset).ConfigureAwait(false);
                     if (moveResult != 0 || IsAlarm)
@@ -650,13 +651,6 @@ namespace QMC.CDT320.Ajin
             finally
             {
             }
-        }
-
-        private double ResolveAxisPositionTolerance()
-        {
-            return Config != null && Config.InPositionTolerance > 0.0
-                ? Config.InPositionTolerance
-                : 0.01;
         }
 
         private bool ShouldApplyPickerThetaPcHomeOffset()

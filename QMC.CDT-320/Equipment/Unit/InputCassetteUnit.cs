@@ -231,13 +231,12 @@ namespace QMC.CDT320
                     return -11;
                 }
 
-                await MoveWithProtrusionWatch(
+                return await MoveWithProtrusionWatch(
                     targetPos,
                     ResolveWaferLifterZMoveVelocity(bFine),
                     ResolveWaferLifterZMoveAcceleration(bFine),
                     ResolveWaferLifterZMoveDeceleration(bFine),
                     ct).ConfigureAwait(false);
-                return 0;
             }
             catch (OperationCanceledException)
             {
@@ -308,14 +307,13 @@ namespace QMC.CDT320
 
                 // 인터락 사전검사는 실제 이동의 BaseAxis.MotionGuard 훅에서 1번 수행한다. 중복 호출하지 않는다.
                 double velocity = ResolveJogVelocity(speedType, customSpeed);
-                await MoveWithProtrusionWatch(
+                return await MoveWithProtrusionWatch(
                     targetPos,
                     velocity,
                     UnitJogVelocityResolver.ResolveAcceleration(InputLifterZ),
                     UnitJogVelocityResolver.ResolveDeceleration(InputLifterZ),
                     CancellationToken.None,
                     forceMove).ConfigureAwait(false);
-                return 0;
             }
             catch (Exception ex)
             {
@@ -983,17 +981,6 @@ namespace QMC.CDT320
                 if (result != 0)
                     return result;
 
-                double target = CalculateWaferCassetteSlotTargetPosition(slotIndex);
-                AxisMoveWaitResult waitResult = await WaitWaferLifterZMoveDoneInPosition(target, timeoutMs).ConfigureAwait(false);
-                if (!waitResult.Success)
-                {
-                    RaiseWaferCassetteConditionAlarm(
-                        ResolveWaferLifterZMoveWaitAlarmCode("IN-CST-FEEDER-LOAD", waitResult.Failure),
-                        "Prepare cassette for feeder load move/in-position wait failed. waitResult=" + waitResult.Code +
-                        ", reason=" + waitResult.Reason + ". " + waitResult.AxisState);
-                    return waitResult.Code;
-                }
-
                 return 0;
             }
             catch
@@ -1591,13 +1578,6 @@ namespace QMC.CDT320
                 int startResult = await MoveWaferLifterZ(Recipe.MappingStartPosition, false, ct).ConfigureAwait(false);
                 if (startResult != 0 || InputLifterZ.IsAlarm)
                     return FailMappingScan("IN-CST-MAP-START", "InputLifterZ move failed at mapping start.");
-
-                AxisMoveWaitResult waitResult = await WaitWaferLifterZMoveDoneInPosition(Recipe.MappingStartPosition, ResolveWaferLifterZMoveTimeoutMs(), ct).ConfigureAwait(false);
-                if (!waitResult.Success)
-                    return FailMappingScan(
-                        ResolveWaferLifterZMoveWaitAlarmCode("IN-CST-MAP-START", waitResult.Failure),
-                        "InputLifterZ mapping start move/in-position wait failed. waitResult=" + waitResult.Code +
-                        ", reason=" + waitResult.Reason + ". " + waitResult.AxisState);
 
                 return 0;
             }

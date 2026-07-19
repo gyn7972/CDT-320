@@ -305,39 +305,37 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
-        protected async Task<int> WaitFeederYDoneAsync(Func<bool> inPosition, string description, CancellationToken ct)
+        protected Task<int> WaitFeederYDoneAsync(Func<bool> inPosition, string description, CancellationToken ct)
         {
             try
             {
                 ct.ThrowIfCancellationRequested();
 
-                AxisMoveWaitResult waitResult = await Feeder.WaitBinFeederYMoveDoneInPosition(
-                    Feeder.FeederY.CommandPosition,
-                    ResolveTimeout(),
-                    ct).ConfigureAwait(false);
                 bool finalInPosition = inPosition == null || inPosition();
+                bool overload = Feeder != null && Feeder.IsFeederOverload();
 
-                if (waitResult == null || !waitResult.Success || !finalInPosition)
+                if (!finalInPosition || overload)
                 {
                     string state = Feeder != null ? Feeder.DescribeBinFeederYMoveDoneState() : "Feeder=null";
-                    return Fail(ResolveAxisMoveWaitAlarmCode("OUT-FEEDER-Y", waitResult), Feeder.Name,
-                        LocalizeFeederMoveDescription(description) + " 이동 완료/위치 확인 실패. " +
-                        FormatAxisMoveWaitResult(waitResult, state) +
-                        ", 최종위치확인=" + finalInPosition +
-                        ", " + state);
+                    string alarmCode = overload ? "OUT-FEEDER-Y-OVERLOAD" : "OUT-FEEDER-Y-POSITION";
+                    return Task.FromResult(Fail(alarmCode, Feeder != null ? Feeder.Name : "OutputFeeder",
+                        LocalizeFeederMoveDescription(description) + " 최종 인계 조건 확인 실패. " +
+                        "최종위치확인=" + finalInPosition +
+                        ", overload=" + overload +
+                        ", " + state));
                 }
 
-                return 0;
+                return Task.FromResult(0);
             }
             catch (OperationCanceledException)
             {
-                throw;
+                return Task.FromCanceled<int>(ct);
             }
             catch (Exception ex)
             {
                 string state = Feeder != null ? Feeder.DescribeBinFeederYMoveDoneState() : "Feeder=null";
-                return Fail("OUT-FEEDER-Y-WAIT-EX", Feeder != null ? Feeder.Name : "OutputFeeder",
-                    LocalizeFeederMoveDescription(description) + " 이동 완료 대기 중 예외가 발생했습니다. error=" + ex.Message + ", " + state);
+                return Task.FromResult(Fail("OUT-FEEDER-Y-HANDOFF-EX", Feeder != null ? Feeder.Name : "OutputFeeder",
+                    LocalizeFeederMoveDescription(description) + " 최종 인계 조건 확인 중 예외가 발생했습니다. error=" + ex.Message + ", " + state));
             }
             finally
             {

@@ -338,7 +338,7 @@ namespace QMC.CDT320.Sequencing
             if (result != 0) return result;
 
             bool stageZAtProcess = Stage.Recipe.WaferZ != null &&
-                IsAxisInPosition(ResolveStageAxis(WaferStageAxis.WaferExpandingZ), Stage.Recipe.WaferZ.ProcessPosition);
+                CanSkipAxisMoveCommand(ResolveStageAxis(WaferStageAxis.WaferExpandingZ), Stage.Recipe.WaferZ.ProcessPosition);
 
             if (!stageZAtProcess)
             {
@@ -2567,7 +2567,7 @@ namespace QMC.CDT320.Sequencing
                 int result = await MoveAxisCommandAsync(axis, target, description, ct, forceMove).ConfigureAwait(false);
                 if (result != 0) return result;
 
-                return await WaitAxisInPositionResultAsync(axis, target, description, ct).ConfigureAwait(false);
+                return 0;
             }
             catch (OperationCanceledException)
             {
@@ -2787,6 +2787,14 @@ namespace QMC.CDT320.Sequencing
             finally
             {
             }
+        }
+
+        private static bool CanSkipAxisMoveCommand(QMC.Common.Motion.BaseAxis axis, double target)
+        {
+            double tolerance = axis != null && axis.Config != null && axis.Config.InPositionTolerance > 0.0
+                ? axis.Config.InPositionTolerance
+                : 0.05;
+            return AxisMoveWaiter.CanSkipMoveCommandAtTarget(axis, target, tolerance);
         }
 
         private static string ResolveTargetId(string value, string fallback)

@@ -281,7 +281,7 @@ namespace QMC.CDT320.Sequencing
                 PickerFrontUnit front = Context != null && Context.Machine != null
                     ? Context.Machine.PickerFrontUnit
                     : null;
-                if (front == null || front.IsFrontPickerInAvoidPosition())
+                if (front == null || CanSkipIdlePickerAvoidMove(front))
                     return;
 
                 string safeReason;
@@ -301,7 +301,7 @@ namespace QMC.CDT320.Sequencing
                     if (pickerLease == null)
                         return;
 
-                    if (front.IsFrontPickerInAvoidPosition())
+                    if (CanSkipIdlePickerAvoidMove(front))
                         return;
 
                     if (!CanMoveIdlePickerToAvoid(front, out safeReason))
@@ -372,6 +372,25 @@ namespace QMC.CDT320.Sequencing
             finally
             {
             }
+        }
+
+        private static bool CanSkipIdlePickerAvoidMove(PickerFrontUnit front)
+        {
+            if (front == null)
+                return false;
+
+            foreach (var pair in front.Axes)
+            {
+                if (pair.Value == null)
+                    return false;
+
+                pair.Value.UpdateStatus();
+                double target = front.GetPickerTeachingPosition(pair.Key, "AvoidPosition");
+                if (!AxisMoveWaiter.CanSkipMoveCommandAtTarget(pair.Value, target))
+                    return false;
+            }
+
+            return true;
         }
 
         private bool CanMoveIdlePickerToAvoid(PickerFrontUnit front, out string reason)
