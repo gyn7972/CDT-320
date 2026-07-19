@@ -137,7 +137,7 @@ namespace QMC.CDT320.Ajin
 
                     base.OverridePosition(targetPosition);
                     if (velocity > 0.0)
-                        CurrentVelocity = velocity;
+                        base.OverrideVelocity(velocity);
                     return 0;
                 }
 
