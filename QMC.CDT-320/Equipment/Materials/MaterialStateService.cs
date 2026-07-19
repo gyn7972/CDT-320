@@ -996,6 +996,8 @@ namespace QMC.CDT320.Materials
                     inputStageWafer.InputMapApprovalHashAtMapping = project != null && project.MapApprovalVersion > 0
                         ? project.InputMapApprovalHash ?? ""
                         : "";
+                    inputStageWafer.HasInputStageRunReviewApproval = false;
+                    inputStageWafer.InputStageRunReviewStartDieIndex = 0;
                     inputStageWafer.UpdatedAt = DateTime.Now;
                     BindProcessTestStageWaferToCassetteSlotNoLock(
                         CassetteMaterialRole.Input1,
@@ -3804,6 +3806,76 @@ namespace QMC.CDT320.Materials
             }
         }
 
+        public static bool SetInputStageRunReviewApproval(
+            WaferMaterial wafer,
+            bool approved,
+            int startDieIndex,
+            out string reason)
+        {
+            reason = string.Empty;
+
+            try
+            {
+                lock (_stateSync)
+                {
+                    if (wafer == null)
+                    {
+                        reason = "InputStage 리뷰 승인 대상 Wafer Material이 없습니다.";
+                        return false;
+                    }
+
+                    if (approved)
+                    {
+                        if (!wafer.HasInputStageAlignResult ||
+                            !wafer.HasInputStageThetaAlignResult ||
+                            !wafer.HasInputStageDieMappingResult ||
+                            wafer.InputStageDieMappingInvalidatedByAlignChange)
+                        {
+                            reason = "Align/T Align/Die Mapping이 모두 유효한 상태에서만 리뷰를 승인할 수 있습니다. waferId=" +
+                                     (wafer.WaferId ?? "");
+                            return false;
+                        }
+
+                        string resultModeReason;
+                        if (!IsStoredInputStageResultModeUsableNoLock(wafer, true, out resultModeReason))
+                        {
+                            reason = "저장된 Align/Die Mapping 결과를 사용할 수 없어 리뷰를 승인할 수 없습니다. " +
+                                     resultModeReason;
+                            return false;
+                        }
+
+                        DieMap map = BuildDieMapFromWafer(wafer);
+                        if (wafer.DieIds == null || wafer.DieIds.Count == 0 ||
+                            map == null || map.Entries == null || map.Entries.Count == 0)
+                        {
+                            reason = "InputStage Die 데이터 또는 Die Map이 비어 있어 리뷰를 승인할 수 없습니다. waferId=" +
+                                     (wafer.WaferId ?? "");
+                            return false;
+                        }
+                    }
+
+                    wafer.HasInputStageRunReviewApproval = approved;
+                    wafer.InputStageRunReviewStartDieIndex = approved ? Math.Max(0, startDieIndex) : 0;
+                    wafer.UpdatedAt = DateTime.Now;
+                    reason = approved
+                        ? "InputStage 리뷰 승인이 저장되었습니다. waferId=" + (wafer.WaferId ?? "") +
+                          ", startDieIndex=" + wafer.InputStageRunReviewStartDieIndex
+                        : "InputStage 리뷰 승인이 해제되었습니다. waferId=" + (wafer.WaferId ?? "");
+                    NotifyAndSave(approved ? "InputStageRunReviewApproved" : "InputStageRunReviewReset");
+                    return true;
+                }
+            }
+            catch (Exception ex)
+            {
+                reason = "InputStage 리뷰 승인 저장 실패: " + ex.Message;
+                Log.Write("Main", "SYSTEM", "MaterialStateService", reason + " - Failed");
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
         public static bool HasReadyInputStagePickTarget()
         {
             try
@@ -4110,6 +4182,12 @@ namespace QMC.CDT320.Materials
                 return false;
             }
 
+            if (!wafer.HasInputStageRunReviewApproval)
+            {
+                reason = "InputStage Align/Die Mapping 사용자 확인이 완료되지 않았습니다. waferId=" + wafer.WaferId;
+                return false;
+            }
+
             reason = "InputStage finish complete. waferId=" + wafer.WaferId +
                      ", dieCount=" + wafer.DieIds.Count;
             return true;
@@ -4409,6 +4487,8 @@ namespace QMC.CDT320.Materials
             wafer.InputStageDieMappingCorrectedT = 0.0;
             wafer.InputStageDieMappingInvalidatedByAlignChange = alignOrThetaChanged;
             wafer.InputMapApprovalHashAtMapping = "";
+            wafer.HasInputStageRunReviewApproval = false;
+            wafer.InputStageRunReviewStartDieIndex = 0;
             InputStageHybridResultSession.ClearMapping();
         }
 
@@ -4568,6 +4648,8 @@ namespace QMC.CDT320.Materials
                         wafer.InputStageDieMappingCorrectedT = wafer.InputStageAlignCorrectedT;
                     }
                     wafer.InputStageDieMappingInvalidatedByAlignChange = false;
+                    wafer.HasInputStageRunReviewApproval = false;
+                    wafer.InputStageRunReviewStartDieIndex = 0;
                     wafer.State = WaferMaterialStateText.Normalize(WaferMaterialState.Working);
                     wafer.UpdatedAt = DateTime.Now;
 

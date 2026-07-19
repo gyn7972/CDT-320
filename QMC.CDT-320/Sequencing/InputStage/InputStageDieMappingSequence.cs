@@ -1884,7 +1884,7 @@ namespace QMC.CDT320.Sequencing
                         AlignResultRunId = _wafer != null ? _wafer.InputStageAlignResultRunId : "",
                         Source = "InputStageDieMappingSequence.ApplyDieMap",
                         SaveReason = "InputStageDieMapping",
-                        PublishReadySignals = true
+                        PublishReadySignals = Options.PublishReadySignals
                     });
                 if (applyResult == null || !applyResult.Success)
                     return Fail("IN-STAGE-DIEMAP-APPLY-SERVICE", "InputStageDieMappingSequence",

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
@@ -9,70 +9,6 @@ using QMC.CDT320.Recipes;
 
 namespace QMC.CDT_320.Ui.Dialogs
 {
-    public enum InputStageRunReviewMode
-    {
-        AlignRecovery,
-        MappingReview
-    }
-
-    public enum InputStageReviewDieState
-    {
-        Wait,
-        Good,
-        Ng,
-        Skip
-    }
-
-    public enum InputStageReviewJogAxis
-    {
-        VisionX,
-        WaferY,
-        WaferT
-    }
-
-    public sealed class InputStageReviewJogEventArgs : EventArgs
-    {
-        public InputStageReviewJogEventArgs(InputStageReviewJogAxis axis, int direction, string speed)
-        {
-            Axis = axis;
-            Direction = direction < 0 ? -1 : 1;
-            Speed = speed ?? "Fine";
-        }
-
-        public InputStageReviewJogAxis Axis { get; private set; }
-        public int Direction { get; private set; }
-        public string Speed { get; private set; }
-    }
-
-    public sealed class InputStageReviewDieStateEventArgs : EventArgs
-    {
-        public InputStageReviewDieStateEventArgs(IReadOnlyList<DieMapEntry> entries, InputStageReviewDieState state)
-        {
-            Entries = entries ?? new List<DieMapEntry>().AsReadOnly();
-            State = state;
-        }
-
-        public IReadOnlyList<DieMapEntry> Entries { get; private set; }
-        public InputStageReviewDieState State { get; private set; }
-    }
-
-    public sealed class InputStageReviewPickupOrderEventArgs : EventArgs
-    {
-        public InputStageReviewPickupOrderEventArgs(
-            PickupSubset options,
-            DieMapEntry startDie,
-            IReadOnlyList<DieMapEntry> orderedEntries)
-        {
-            Options = options ?? new PickupSubset();
-            StartDie = startDie;
-            OrderedEntries = orderedEntries ?? new List<DieMapEntry>().AsReadOnly();
-        }
-
-        public PickupSubset Options { get; private set; }
-        public DieMapEntry StartDie { get; private set; }
-        public IReadOnlyList<DieMapEntry> OrderedEntries { get; private set; }
-    }
-
     /// <summary>
     /// Wafer Align/Die Mapping 완료 후 작업자가 맵과 픽업 시작 조건을 검토하는 화면입니다.
     /// 이 Form은 장비를 직접 구동하지 않고, 화면에서 발생한 요청을 이벤트로 전달합니다.
@@ -93,6 +29,8 @@ namespace QMC.CDT_320.Ui.Dialogs
         private bool _mappingComplete;
         private bool _reviewValid;
         private bool _readOnlyPreview;
+        private bool _autoReviewMode;
+        private bool _decisionSubmitted;
 
         public InputStageRunReviewDialog()
         {
@@ -114,6 +52,7 @@ namespace QMC.CDT_320.Ui.Dialogs
         public event EventHandler SelectedDieMoveRequested;
         public event EventHandler StartRunRequested;
         public event EventHandler AbortAutoRequested;
+        public event EventHandler BuzzerStopRequested;
         public event EventHandler JogStopRequested;
         public event EventHandler<InputStageReviewJogEventArgs> JogRequested;
         public event EventHandler<InputStageReviewDieStateEventArgs> DieStateApplyRequested;
@@ -204,6 +143,25 @@ namespace QMC.CDT_320.Ui.Dialogs
             UpdateActionAvailability();
             if (readOnly)
                 SetStatus("현재 Stage Wafer/DieMap의 읽기 전용 화면입니다. 모션 및 데이터 변경 기능은 연결되지 않았습니다.");
+        }
+
+        public void SetAutoReviewMode(bool enabled)
+        {
+            _autoReviewMode = enabled;
+            _decisionSubmitted = false;
+            _readOnlyPreview = enabled;
+            _pickupOrderApplied = enabled;
+            btnClose.Visible = !enabled;
+            UpdateActionAvailability();
+            if (enabled)
+                SetStatus("확인 시 Auto 공정을 계속하고, 취소 시 센터 검출/T Align부터 다시 수행합니다.");
+        }
+
+        public void CloseFromSequence()
+        {
+            _decisionSubmitted = true;
+            if (!IsDisposed)
+                Close();
         }
 
         public void SetFailureDetail(string alarmCode, string detail)
@@ -697,8 +655,46 @@ namespace QMC.CDT_320.Ui.Dialogs
         private void BtnThetaCorrection_Click(object sender, EventArgs e) { RaiseSimpleEvent(ThetaCorrectionRequested); }
         private void BtnDieDetection_Click(object sender, EventArgs e) { RaiseSimpleEvent(DieDetectionRequested); }
         private void BtnOffsetApply_Click(object sender, EventArgs e) { RaiseSimpleEvent(OffsetApplyRequested); }
-        private void BtnStartRun_Click(object sender, EventArgs e) { RaiseSimpleEvent(StartRunRequested); }
-        private void BtnAbortAuto_Click(object sender, EventArgs e) { RaiseSimpleEvent(AbortAutoRequested); }
+        private void BtnStartRun_Click(object sender, EventArgs e)
+        {
+            SubmitAutoReviewDecision(StartRunRequested, DialogResult.OK);
+        }
+
+        private void BtnAbortAuto_Click(object sender, EventArgs e)
+        {
+            SubmitAutoReviewDecision(AbortAutoRequested, DialogResult.Cancel);
+        }
+
+        private void BtnBuzzerStop_Click(object sender, EventArgs e)
+        {
+            RaiseSimpleEvent(BuzzerStopRequested);
+            SetStatus("부저 정지를 요청했습니다. 확인 또는 취소를 선택하세요.");
+        }
+
+        private void SubmitAutoReviewDecision(EventHandler handler, DialogResult result)
+        {
+            if (_decisionSubmitted)
+                return;
+
+            if (handler == null)
+            {
+                SetStatus("사용자 확인 요청을 처리할 장비 연결이 없습니다.");
+                return;
+            }
+
+            try
+            {
+                _decisionSubmitted = true;
+                handler(this, EventArgs.Empty);
+                DialogResult = result;
+                Close();
+            }
+            catch (Exception ex)
+            {
+                _decisionSubmitted = false;
+                SetStatus("사용자 확인 처리에 실패했습니다. " + ex.Message);
+            }
+        }
 
         private void RaiseSimpleEvent(EventHandler handler)
         {
@@ -711,24 +707,25 @@ namespace QMC.CDT_320.Ui.Dialogs
             bool enabled = !_busy;
             bool actionEnabled = enabled && !_readOnlyPreview;
             grpDieState.Enabled = actionEnabled && _mode == InputStageRunReviewMode.MappingReview;
-            grpStartDie.Enabled = enabled && _mappingComplete;
+            grpStartDie.Enabled = actionEnabled && _mappingComplete;
             grpJog.Enabled = actionEnabled;
             grpActions.Enabled = actionEnabled;
-            grpPickupRoute.Enabled = enabled && _mappingComplete;
-            btnPreviewPath.Enabled = enabled && _mappingComplete;
+            grpPickupRoute.Enabled = actionEnabled && _mappingComplete;
+            btnPreviewPath.Enabled = actionEnabled && _mappingComplete;
             btnApplyPickupOrder.Enabled = actionEnabled && _mappingComplete;
             btnRetryAlign.Enabled = actionEnabled;
             btnRetryMapping.Enabled = actionEnabled && _alignComplete;
             btnMappingSetup.Enabled = actionEnabled;
-            btnStartRun.Enabled = actionEnabled &&
+            btnStartRun.Enabled = (actionEnabled || (enabled && _autoReviewMode)) &&
                                   _mode == InputStageRunReviewMode.MappingReview &&
                                   _alignComplete &&
                                   _mappingComplete &&
                                   _reviewValid &&
-                                  _pickupOrderApplied &&
+                                  (_autoReviewMode || _pickupOrderApplied) &&
                                   (!chkUseSelectedStart.Checked || _startDie != null);
-            btnAbortAuto.Enabled = actionEnabled;
-            btnClose.Enabled = enabled;
+            btnAbortAuto.Enabled = actionEnabled || (enabled && _autoReviewMode);
+            btnBuzzerStop.Enabled = enabled;
+            btnClose.Enabled = enabled && !_autoReviewMode;
             btnJogStop.Enabled = actionEnabled;
         }
 
@@ -744,6 +741,13 @@ namespace QMC.CDT_320.Ui.Dialogs
 
         private void InputStageRunReviewDialog_FormClosing(object sender, FormClosingEventArgs e)
         {
+            if (_autoReviewMode && !_decisionSubmitted && e.CloseReason == CloseReason.UserClosing)
+            {
+                e.Cancel = true;
+                SetStatus("Auto 대기 중에는 창을 직접 닫을 수 없습니다. 확인 또는 취소/T ALIGN 재시작을 선택하세요.");
+                return;
+            }
+
             if (_busy && e.CloseReason == CloseReason.UserClosing)
             {
                 e.Cancel = true;
@@ -754,5 +758,69 @@ namespace QMC.CDT_320.Ui.Dialogs
             if (!_readOnlyPreview && e.CloseReason == CloseReason.UserClosing && DialogResult != DialogResult.OK)
                 RaiseSimpleEvent(AbortAutoRequested);
         }
+    }
+
+    public enum InputStageRunReviewMode
+    {
+        AlignRecovery,
+        MappingReview
+    }
+
+    public enum InputStageReviewDieState
+    {
+        Wait,
+        Good,
+        Ng,
+        Skip
+    }
+
+    public enum InputStageReviewJogAxis
+    {
+        VisionX,
+        WaferY,
+        WaferT
+    }
+
+    public sealed class InputStageReviewJogEventArgs : EventArgs
+    {
+        public InputStageReviewJogEventArgs(InputStageReviewJogAxis axis, int direction, string speed)
+        {
+            Axis = axis;
+            Direction = direction < 0 ? -1 : 1;
+            Speed = speed ?? "Fine";
+        }
+
+        public InputStageReviewJogAxis Axis { get; private set; }
+        public int Direction { get; private set; }
+        public string Speed { get; private set; }
+    }
+
+    public sealed class InputStageReviewDieStateEventArgs : EventArgs
+    {
+        public InputStageReviewDieStateEventArgs(IReadOnlyList<DieMapEntry> entries, InputStageReviewDieState state)
+        {
+            Entries = entries ?? new List<DieMapEntry>().AsReadOnly();
+            State = state;
+        }
+
+        public IReadOnlyList<DieMapEntry> Entries { get; private set; }
+        public InputStageReviewDieState State { get; private set; }
+    }
+
+    public sealed class InputStageReviewPickupOrderEventArgs : EventArgs
+    {
+        public InputStageReviewPickupOrderEventArgs(
+            PickupSubset options,
+            DieMapEntry startDie,
+            IReadOnlyList<DieMapEntry> orderedEntries)
+        {
+            Options = options ?? new PickupSubset();
+            StartDie = startDie;
+            OrderedEntries = orderedEntries ?? new List<DieMapEntry>().AsReadOnly();
+        }
+
+        public PickupSubset Options { get; private set; }
+        public DieMapEntry StartDie { get; private set; }
+        public IReadOnlyList<DieMapEntry> OrderedEntries { get; private set; }
     }
 }

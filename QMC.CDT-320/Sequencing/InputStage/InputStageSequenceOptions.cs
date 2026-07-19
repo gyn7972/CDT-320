@@ -19,6 +19,7 @@ namespace QMC.CDT320.Sequencing
         public string Ref2AlignTargetId { get; set; }
         public string DieMapVisionTargetId { get; set; }
         public int DieMapVisionRetryCount { get; set; }
+        public bool PublishReadySignals { get; set; }
         public SequenceRunMode RunMode { get; set; }
         public SequenceStartMode StartMode { get; set; }
 
@@ -41,6 +42,7 @@ namespace QMC.CDT320.Sequencing
                 Ref2AlignTargetId = VisionAlignTargetIds.Ref2,
                 DieMapVisionTargetId = VisionAlignTargetIds.Center,
                 DieMapVisionRetryCount = 3,
+                PublishReadySignals = true,
                 RunMode = SequenceRunMode.Auto,
                 StartMode = SequenceStartMode.Resume
             };

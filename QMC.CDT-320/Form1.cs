@@ -486,6 +486,7 @@ namespace QMC.CDT_320
         private UserTab     _userTab;
         private AxisJogPopup _jogPopup;
         private AxisPositionPopup _axisPositionPopup;
+        private InputStageRunReviewDialog _inputStageRunReviewDialog;
 
         private MainTab _currentTab = MainTab.Work;
         private bool _mainTabShown;
@@ -752,6 +753,11 @@ namespace QMC.CDT_320
             }
             Controller.StatusChanged += OnEquipmentStatusChanged;
             Controller.OperatorMessageRequested += OnOperatorMessageRequested;
+            if (Machine != null && Machine.InputStageUnit != null)
+            {
+                Machine.InputStageUnit.UserConfirmRequested += OnInputStageUserConfirmRequested;
+                Machine.InputStageUnit.UserConfirmWaitEnded += OnInputStageUserConfirmWaitEnded;
+            }
             Controller.LogMessage    += s =>
             {
                 // 1순위: 시퀀스 스코프가 있으면 그 종류·유닛(SOURCE)·스텝(CODE)으로 정확히 분류.
@@ -1349,6 +1355,178 @@ namespace QMC.CDT_320
             }
             finally
             {
+            }
+        }
+
+        private void OnInputStageUserConfirmRequested()
+        {
+            if (InvokeRequired)
+            {
+                BeginInvoke(new Action(OnInputStageUserConfirmRequested));
+                return;
+            }
+
+            InputStageUnit stage = Machine != null ? Machine.InputStageUnit : null;
+            if (stage == null)
+                return;
+
+            if (_inputStageRunReviewDialog != null && !_inputStageRunReviewDialog.IsDisposed)
+            {
+                _inputStageRunReviewDialog.Activate();
+                _inputStageRunReviewDialog.BringToFront();
+                return;
+            }
+
+            InputStageRunReviewDialog dialog = null;
+            try
+            {
+                WaferMaterial wafer = MaterialStateService.GetWaferAtLocation(MaterialLocationKind.InputStage);
+                QMC.CDT320.DieMaps.DieMap stageMap = MaterialStateService.BuildInputDieMapFromStageWafer();
+                if (wafer == null || stageMap == null || stageMap.Entries == null || stageMap.Entries.Count == 0)
+                    throw new InvalidOperationException("InputStage 사용자 확인 화면에 표시할 Wafer/Die Map 데이터가 없습니다.");
+
+                bool alignComplete = wafer.HasInputStageAlignResult && wafer.HasInputStageThetaAlignResult;
+                bool mappingComplete = wafer.HasInputStageDieMappingResult &&
+                                       !wafer.InputStageDieMappingInvalidatedByAlignChange;
+                QMC.CDT320.Recipes.RecipeProject project = _currentRecipe ??
+                    QMC.CDT320.Recipes.RecipeStore.LoadLastOrDefault();
+                QMC.CDT320.Recipes.PickupSubset pickup = project != null
+                    ? (project.InputPickup ?? project.Pickup ?? new QMC.CDT320.Recipes.PickupSubset())
+                    : new QMC.CDT320.Recipes.PickupSubset();
+                string recipeName = project != null && !string.IsNullOrWhiteSpace(project.FileName)
+                    ? project.FileName
+                    : ActiveRecipeName;
+                string mappingReference = !string.IsNullOrWhiteSpace(wafer.DieMapFrameObjId)
+                    ? wafer.DieMapFrameObjId
+                    : stageMap.FrameObjId;
+
+                dialog = new InputStageRunReviewDialog();
+                _inputStageRunReviewDialog = dialog;
+                dialog.SetMode(InputStageRunReviewMode.MappingReview);
+                dialog.SetPickupOptions(pickup);
+                dialog.SetDieMap(stageMap);
+                dialog.SetWorkflowState(
+                    wafer.WaferId,
+                    recipeName,
+                    QMC.CDT320.VisionComm.VisionHub.Wafer != null &&
+                    QMC.CDT320.VisionComm.VisionHub.Wafer.IsConnected,
+                    alignComplete,
+                    mappingReference,
+                    mappingComplete,
+                    "WAITING USER CONFIRM");
+                dialog.SetAxisPositions(
+                    stage.CameraX != null ? stage.CameraX.ActualPosition : 0.0,
+                    stage.StageY != null ? stage.StageY.ActualPosition : 0.0,
+                    stage.StageT != null ? stage.StageT.ActualPosition : 0.0);
+                dialog.SetFailureDetail(
+                    string.Empty,
+                    "확인: 현재 Align/Die Mapping 결과로 Auto PickUp 공정을 계속합니다." + Environment.NewLine +
+                    "취소: Picker Ready를 발행하지 않고 센터 검출/T Align부터 다시 수행한 뒤 Die Mapping과 확인을 반복합니다.");
+                dialog.SetReviewValid(alignComplete && mappingComplete, "USER CONFIRM REQUIRED");
+                dialog.SetAutoReviewMode(true);
+
+                dialog.StartRunRequested += delegate
+                {
+                    int startDieIndex = dialog.StartDie != null ? Math.Max(0, dialog.StartDie.Index) : 0;
+                    stage.ConfirmFromUi(new UserConfirmResult
+                    {
+                        IsConfirmed = true,
+                        StartDieIndex = startDieIndex
+                    });
+                };
+                dialog.AbortAutoRequested += delegate
+                {
+                    stage.ConfirmFromUi(new UserConfirmResult { IsConfirmed = false });
+                };
+                dialog.BuzzerStopRequested += delegate
+                {
+                    StopRunReviewBuzzer();
+                };
+
+                StartRunReviewBuzzer();
+                QMC.Common.Log.Write("Main", UserSession.Name, "InputStageRunReview",
+                    "Align/Die Mapping 사용자 확인 화면을 표시했습니다. wafer=" + (wafer.WaferId ?? "") + " - Wait");
+                dialog.ShowDialog(this);
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Log.Write("Main", UserSession.Name, "InputStageRunReview",
+                    "사용자 확인 화면 표시 실패: " + ex.Message + " - Failed");
+                stage.FailUserConfirmFromUi("InputStage 사용자 확인 화면을 표시하지 못했습니다. " + ex.Message);
+            }
+            finally
+            {
+                EndRunReviewBuzzer();
+                if (dialog != null)
+                {
+                    try { dialog.Dispose(); } catch { }
+                }
+                if (ReferenceEquals(_inputStageRunReviewDialog, dialog))
+                    _inputStageRunReviewDialog = null;
+            }
+        }
+
+        private void OnInputStageUserConfirmWaitEnded()
+        {
+            if (InvokeRequired)
+            {
+                BeginInvoke(new Action(OnInputStageUserConfirmWaitEnded));
+                return;
+            }
+
+            InputStageRunReviewDialog dialog = _inputStageRunReviewDialog;
+            if (dialog != null && !dialog.IsDisposed)
+                dialog.CloseFromSequence();
+        }
+
+        private void StartRunReviewBuzzer()
+        {
+            try
+            {
+                if (OpPanelMonitor != null)
+                    OpPanelMonitor.StartRunReviewBuzzer();
+                else
+                    Machine?.OpPanelUnit?.Buzzer?.On();
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Log.Write("Main", UserSession.Name, "InputStageRunReview",
+                    "사용자 확인 부저 시작 실패: " + ex.Message + " - Failed");
+            }
+        }
+
+        private void StopRunReviewBuzzer()
+        {
+            try
+            {
+                if (OpPanelMonitor != null)
+                    OpPanelMonitor.StopBuzzer();
+                else
+                    Machine?.OpPanelUnit?.Buzzer?.Off();
+
+                QMC.Common.Log.Write("Main", UserSession.Name, "InputStageRunReview",
+                    "사용자가 리뷰 화면에서 부저 정지를 요청했습니다. - Ok");
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Log.Write("Main", UserSession.Name, "InputStageRunReview",
+                    "사용자 확인 부저 정지 실패: " + ex.Message + " - Failed");
+            }
+        }
+
+        private void EndRunReviewBuzzer()
+        {
+            try
+            {
+                if (OpPanelMonitor != null)
+                    OpPanelMonitor.EndRunReviewBuzzer();
+                else
+                    Machine?.OpPanelUnit?.Buzzer?.Off();
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Log.Write("Main", UserSession.Name, "InputStageRunReview",
+                    "사용자 확인 부저 종료 처리 실패: " + ex.Message + " - Failed");
             }
         }
 
@@ -2030,6 +2208,11 @@ namespace QMC.CDT_320
             try { QMC.CDT320.Ajin.AjinSystem.Close(); } catch { }
             try { QMC.Common.Logging.EventLogger.FlushPending(1000); } catch { }
             if (Controller != null) Controller.OperatorMessageRequested -= OnOperatorMessageRequested;
+            if (Machine != null && Machine.InputStageUnit != null)
+            {
+                Machine.InputStageUnit.UserConfirmRequested -= OnInputStageUserConfirmRequested;
+                Machine.InputStageUnit.UserConfirmWaitEnded -= OnInputStageUserConfirmWaitEnded;
+            }
             Lang.LanguageChanged    -= OnLocalizationChanged;
             UserSession.UserChanged -= OnUserChanged;
             base.OnFormClosing(e);

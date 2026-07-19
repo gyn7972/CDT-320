@@ -1266,6 +1266,9 @@
     <EmbeddedResource Include="Ui\Dialogs\ColletCalibrationDialog.resx">
       <DependentUpon>ColletCalibrationDialog.cs</DependentUpon>
     </EmbeddedResource>
+    <EmbeddedResource Include="Ui\Dialogs\InputStageRunReviewDialog.resx">
+      <DependentUpon>InputStageRunReviewDialog.cs</DependentUpon>
+    </EmbeddedResource>
     <EmbeddedResource Include="Ui\Dialogs\LoginDialog.resx">
       <DependentUpon>LoginDialog.cs</DependentUpon>
     </EmbeddedResource>

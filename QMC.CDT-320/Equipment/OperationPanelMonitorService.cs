@@ -33,6 +33,7 @@ namespace QMC.CDT320
         private long _lastLampRefreshTick;
         private int _commandBusy;
         private int _buzzerMuted;
+        private int _runReviewBuzzerRequested;
         private const int MonitorPollIntervalMs = 20;
         private const int ButtonDebounceMs = 50;
         private const int LampRefreshIntervalMs = 100;
@@ -48,6 +49,8 @@ namespace QMC.CDT320
             Stop();
             ResetButtonMonitorState();
             ResetSimulatedCommandInputs();
+            Interlocked.Exchange(ref _buzzerMuted, 0);
+            Interlocked.Exchange(ref _runReviewBuzzerRequested, 0);
             _cts = new CancellationTokenSource();
             _loopTask = Task.Run(() => LoopAsync(_cts.Token));
         }
@@ -302,6 +305,27 @@ namespace QMC.CDT320
                 Write(op.Buzzer, false);
         }
 
+        public void StartRunReviewBuzzer()
+        {
+            Interlocked.Exchange(ref _runReviewBuzzerRequested, 1);
+            Interlocked.Exchange(ref _buzzerMuted, 0);
+
+            var op = _machine.OpPanelUnit;
+            if (op != null)
+                ApplyLampState(op, _stableStart, _stableReset, true);
+        }
+
+        public void EndRunReviewBuzzer()
+        {
+            Interlocked.Exchange(ref _runReviewBuzzerRequested, 0);
+            if (!IsAlarmActive())
+                Interlocked.Exchange(ref _buzzerMuted, 0);
+
+            var op = _machine.OpPanelUnit;
+            if (op != null)
+                ApplyLampState(op, _stableStart, _stableReset, true);
+        }
+
         private static void UpdateInputs(OperationPanelUnit op)
         {
             if (ShouldForceCommandInputsOff())
@@ -340,38 +364,43 @@ namespace QMC.CDT320
             bool autoRunning = IsAutoRunning();
             bool manualRunning = IsManualRunning();
             bool running = autoRunning || manualRunning;
+            bool runReviewBuzzerRequested =
+                Interlocked.CompareExchange(ref _runReviewBuzzerRequested, 0, 0) != 0;
 
             if (alarm)
             {
                 Write(op.TlRed, true);
                 Write(op.TlYellow, false);
                 Write(op.TlGreen, false);
-                Write(op.Buzzer, Interlocked.CompareExchange(ref _buzzerMuted, 0, 0) == 0);
             }
             else if (autoRunning)
             {
-                Interlocked.Exchange(ref _buzzerMuted, 0);
+                if (!runReviewBuzzerRequested)
+                    Interlocked.Exchange(ref _buzzerMuted, 0);
                 Write(op.TlRed, false);
                 Write(op.TlYellow, false);
                 Write(op.TlGreen, true);
-                Write(op.Buzzer, false);
             }
             else if (manualRunning)
             {
-                Interlocked.Exchange(ref _buzzerMuted, 0);
+                if (!runReviewBuzzerRequested)
+                    Interlocked.Exchange(ref _buzzerMuted, 0);
                 Write(op.TlRed, false);
                 Write(op.TlYellow, true);
                 Write(op.TlGreen, true);
-                Write(op.Buzzer, false);
             }
             else
             {
-                Interlocked.Exchange(ref _buzzerMuted, 0);
+                if (!runReviewBuzzerRequested)
+                    Interlocked.Exchange(ref _buzzerMuted, 0);
                 Write(op.TlRed, false);
                 Write(op.TlYellow, true);
                 Write(op.TlGreen, false);
-                Write(op.Buzzer, false);
             }
+
+            bool buzzerOn = (alarm || runReviewBuzzerRequested) &&
+                            Interlocked.CompareExchange(ref _buzzerMuted, 0, 0) == 0;
+            Write(op.Buzzer, buzzerOn);
 
             Write(op.StartLamp, startPressed || running);
             Write(op.StopLamp, !running);

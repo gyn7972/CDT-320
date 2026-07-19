@@ -484,6 +484,10 @@ namespace QMC.CDT320.Materials
         [DataMember] public bool InputStageDieMappingInvalidatedByAlignChange { get; set; }
         /// <summary>이 Wafer의 절대좌표 Mapping을 만들 때 승인된 Input 역할 맵 hash.</summary>
         [DataMember] public string InputMapApprovalHashAtMapping { get; set; } = "";
+        /// <summary>현재 Align/Die Mapping 결과를 작업자가 확인하여 Auto PickUp 진행을 승인했는지 여부.</summary>
+        [DataMember] public bool HasInputStageRunReviewApproval { get; set; }
+        /// <summary>사용자 확인 시 선택된 시작 Die index. 0이면 현재 Mapping/Recipe 순서를 그대로 사용한다.</summary>
+        [DataMember] public int InputStageRunReviewStartDieIndex { get; set; }
         [DataMember] public string OutputReceiveSourceWaferId { get; set; } = "";
         [DataMember] public int OutputReceiveDieMapX { get; set; }
         [DataMember] public int OutputReceiveDieMapY { get; set; }
@@ -519,6 +523,8 @@ namespace QMC.CDT320.Materials
             HasInputStageDieMappingThetaSnapshot = false;
             InputStageDieMappingCorrectedT = 0.0;
             InputStageDieMappingInvalidatedByAlignChange = false;
+            HasInputStageRunReviewApproval = false;
+            InputStageRunReviewStartDieIndex = 0;
         }
     }
 
