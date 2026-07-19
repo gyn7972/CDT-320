@@ -1311,7 +1311,6 @@ namespace QMC.CDT320.Materials
 
                 var wafer = GetOrCreateWafer(waferId);
                 string resolvedLotId = ResolveOrCreateCassetteLotId(cassetteLotId, cassette, wafer);
-                State.LotId = resolvedLotId;
                 WaferMaterialState previousState = WaferMaterialStateText.Normalize(wafer.State);
                 if (targetSlot.HasWafer && !IsWaferAtCassetteSlot(wafer, cassetteRole, slotNumber))
                 {
@@ -1355,6 +1354,7 @@ namespace QMC.CDT320.Materials
                         wafer.SourceCassetteSlotPosition = slotPosition;
                 }
 
+                State.LotId = resolvedLotId;
                 wafer.CassetteLotId = resolvedLotId;
                 wafer.CurrentLocation = MaterialLocation.Cassette(
                     cassetteRole == CassetteMaterialRole.Input1 || cassetteRole == CassetteMaterialRole.Input2
@@ -6149,9 +6149,6 @@ namespace QMC.CDT320.Materials
             string requestedLotId,
             params CassetteMaterialRole[] roles)
         {
-            if (!string.IsNullOrWhiteSpace(requestedLotId))
-                return requestedLotId.Trim();
-
             var candidates = new List<string>();
             if (State != null)
             {
@@ -6199,10 +6196,9 @@ namespace QMC.CDT320.Materials
             IEnumerable<string> existingLotIds,
             string context)
         {
-            if (!string.IsNullOrWhiteSpace(requestedLotId))
-                return requestedLotId.Trim();
-
-            List<string> existing = (existingLotIds ?? Enumerable.Empty<string>())
+            var candidates = new List<string> { requestedLotId };
+            candidates.AddRange(existingLotIds ?? Enumerable.Empty<string>());
+            List<string> existing = candidates
                 .Where(value => !string.IsNullOrWhiteSpace(value))
                 .Select(value => value.Trim())
                 .Distinct(StringComparer.OrdinalIgnoreCase)
@@ -6212,7 +6208,8 @@ namespace QMC.CDT320.Materials
             if (existing.Count > 1)
             {
                 throw new InvalidOperationException(
-                    "기존 카세트 LOT ID가 서로 달라 임시 LOT ID를 결정할 수 없습니다. context=" + context +
+                    "카세트 LOT ID 후보가 서로 달라 LOT ID를 결정할 수 없습니다. context=" + context +
+                    ", requestedLotId=" + (requestedLotId ?? "") +
                     ", lotIds=" + string.Join(",", existing.ToArray()));
             }
 
