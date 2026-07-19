@@ -196,6 +196,10 @@ namespace QMC.CDT320.Sequencing
                 if (result != 0) return result;
 
                 ct.ThrowIfCancellationRequested();
+                result = await MoveAxisCommandAsync(QMC.CDT320.WaferStageAxis.WaferExpandingZ, Stage.Recipe.WaferZ.AvoidPosition).ConfigureAwait(false);
+                if (result != 0) return result;
+
+                ct.ThrowIfCancellationRequested();
                 result = await MoveAxisCommandAsync(QMC.CDT320.WaferStageAxis.WaferY, Stage.Recipe.WaferY.AvoidPosition).ConfigureAwait(false);
                 if (result != 0) return result;
 
