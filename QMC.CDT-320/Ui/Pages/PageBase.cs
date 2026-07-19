@@ -1,5 +1,6 @@
 ﻿using System;
 using System.ComponentModel;
+using System.ComponentModel.Design;
 using System.Drawing;
 using System.Windows.Forms;
 using QMC.CDT_320.Ui.Controls;
@@ -23,7 +24,7 @@ namespace QMC.CDT_320.Ui.Pages
         protected override void OnLoad(EventArgs e)
         {
             base.OnLoad(e);
-            if (LicenseManager.UsageMode == LicenseUsageMode.Designtime) return;
+            if (IsDesignerMode()) return;
             try { UiClickAuditor.EnsureFeedback(this); } catch { }
         }
 
@@ -60,7 +61,27 @@ namespace QMC.CDT_320.Ui.Pages
 
         /// <summary>VS 디자이너 모드 체크.</summary>
         protected bool IsDesignerMode()
-            => LicenseManager.UsageMode == LicenseUsageMode.Designtime;
+        {
+            if (LicenseManager.UsageMode == LicenseUsageMode.Designtime || DesignMode)
+                return true;
+
+            try
+            {
+                Control current = this;
+                while (current != null)
+                {
+                    if (current.Site != null && current.Site.DesignMode)
+                        return true;
+                    current = current.Parent;
+                }
+
+                return GetService(typeof(IDesignerHost)) != null;
+            }
+            catch
+            {
+                return false;
+            }
+        }
 
         public static bool ShouldRefreshVisible(Control control)
         {

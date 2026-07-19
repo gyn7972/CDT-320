@@ -56,7 +56,9 @@ namespace QMC.CDT_320.Ui.Tabs
             RegisterActionButton(BtnStop,       "work.stop",       op, () => RunSafe(async c => await RunStopSequenceWithMessageAsync(c), false));
             RegisterActionButton(BtnCycleRun,   "work.cycleRun",   op, () =>
             {
-                if (!EnsureAxesHomeReadyForRun("Cycle Run")) return;
+                if (!EnsureAxesHomeReadyForRun("Cycle Run"))
+                    return;
+
                 OpenManualSequenceDialog();
             });
             RegisterActionButton(BtnResetAlarm, "work.resetAlarm", en, () => RunSafe(async c => await c.ResetAlarmAsync()));

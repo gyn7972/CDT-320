@@ -114,6 +114,49 @@ namespace QMC.CDT320.DieMaps
             // 현재 기준: 외경/피치/다이 크기로 실제 들어갈 Grid 수를 자동 계산한다.
             int gridX = CalculateWaferGridCount(diameter, resolvedPitchX, resolvedDieSizeX);
             int gridY = CalculateWaferGridCount(diameter, resolvedPitchY, resolvedDieSizeY);
+            return GenerateCircularWaferFixedGrid(
+                gridX,
+                gridY,
+                diameter,
+                resolvedPitchX,
+                resolvedPitchY,
+                resolvedDieSizeX,
+                resolvedDieSizeY,
+                edgeSkipMode,
+                sideEdgeSkip,
+                topBottomEdgeSkip,
+                frameObjId);
+        }
+
+        /// <summary>
+        /// 지정한 Grid X/Y를 그대로 유지하는 원형 웨이퍼 맵 생성.
+        /// 모든 Grid 셀을 만들고 웨이퍼 외곽 또는 Edge Skip 셀만 IsTarget=false로 둔다.
+        /// </summary>
+        public static DieMap GenerateCircularWaferFixedGrid(
+            int gridX,
+            int gridY,
+            double outerDiameterMm,
+            double pitchX,
+            double pitchY,
+            double dieSizeX,
+            double dieSizeY,
+            WaferEdgeSkipMode edgeSkipMode,
+            double sideEdgeSkip,
+            double topBottomEdgeSkip,
+            string frameObjId = "WAFER-GRID")
+        {
+            if (gridX < 1 || gridY < 1)
+                throw new ArgumentOutOfRangeException("gridX/gridY", "Grid X/Y는 1 이상이어야 합니다.");
+
+            long cellCount = (long)gridX * gridY;
+            if (cellCount > 1000000L)
+                throw new InvalidOperationException("Grid가 너무 큽니다. 최대 셀 수는 1,000,000개입니다: " + gridX + " x " + gridY);
+
+            double diameter = outerDiameterMm > 0.0 ? outerDiameterMm : 1.0;
+            double resolvedPitchX = pitchX > 0.0 ? pitchX : 1.0;
+            double resolvedPitchY = pitchY > 0.0 ? pitchY : 1.0;
+            double resolvedDieSizeX = dieSizeX > 0.0 ? dieSizeX : resolvedPitchX;
+            double resolvedDieSizeY = dieSizeY > 0.0 ? dieSizeY : resolvedPitchY;
             double originX = -Math.Max(0, gridX - 1) * resolvedPitchX / 2.0;
             double originY = CalculateCenteredOriginY(gridY, resolvedPitchY);
             double radius = diameter / 2.0;
@@ -180,6 +223,8 @@ namespace QMC.CDT320.DieMaps
                         Index = index++,
                         DieMapX = col,
                         DieMapY = row,
+                        OriginalMapX = col,
+                        OriginalMapY = row,
                         IsTarget = target,
                         Result = DieResult.Unknown,
                         BinCode = 0,

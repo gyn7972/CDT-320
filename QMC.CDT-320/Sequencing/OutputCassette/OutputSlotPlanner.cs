@@ -103,7 +103,10 @@ namespace QMC.CDT320.Sequencing
             {
                 bool resolved = TryResolveFirstReady(CassetteMaterialRole.Ng1, TargetCassette.Ng, BinSide.Ng, out plan);
                 if (!resolved)
-                    reason = "NG 출력 카세트에 Ready 상태의 공급 가능한 Bin이 없습니다.";
+                {
+                    reason = "NG 출력 카세트에 Ready 상태의 공급 가능한 Bin이 없습니다. detail=" +
+                             BuildReadySupplyAvailabilitySummary(CassetteMaterialRole.Ng1);
+                }
                 return resolved;
             }
 
@@ -113,8 +116,80 @@ namespace QMC.CDT320.Sequencing
             if (TryResolveFirstReady(CassetteMaterialRole.Good2, TargetCassette.Good2, BinSide.Good, out plan))
                 return true;
 
-            reason = "GOOD 출력 카세트 Good1/Good2에 Ready 상태의 공급 가능한 Bin이 없습니다.";
+            reason = "GOOD 출력 카세트 Good1/Good2에 Ready 상태의 공급 가능한 Bin이 없습니다. detail=" +
+                     BuildReadySupplyAvailabilitySummary(CassetteMaterialRole.Good1) + "; " +
+                     BuildReadySupplyAvailabilitySummary(CassetteMaterialRole.Good2);
             return false;
+        }
+
+        private static string BuildReadySupplyAvailabilitySummary(CassetteMaterialRole role)
+        {
+            try
+            {
+                CassetteMaterial cassette = MaterialStateService.State != null && MaterialStateService.State.Cassettes != null
+                    ? MaterialStateService.State.Cassettes.FirstOrDefault(c => c.Role == role)
+                    : null;
+                if (cassette == null)
+                    return role + "[missing=True]";
+
+                cassette.EnsureSlots();
+                int occupied = 0;
+                int ready = 0;
+                int workReady = 0;
+                int working = 0;
+                int finish = 0;
+                int missingMaterial = 0;
+                int invalidSlot = 0;
+
+                foreach (CassetteSlotMaterial slot in cassette.Slots)
+                {
+                    if (slot == null || !slot.HasWafer)
+                        continue;
+
+                    occupied++;
+                    if (string.IsNullOrWhiteSpace(slot.WaferId))
+                    {
+                        invalidSlot++;
+                        continue;
+                    }
+
+                    WaferMaterial wafer = MaterialStateService.GetWaferInCassette(role, slot.SlotNumber);
+                    if (wafer == null)
+                    {
+                        missingMaterial++;
+                        continue;
+                    }
+
+                    WaferMaterialState state = WaferMaterialStateText.Normalize(wafer.State);
+                    if (state == WaferMaterialState.Ready)
+                        ready++;
+                    else if (state == WaferMaterialState.WorkReady)
+                        workReady++;
+                    else if (state == WaferMaterialState.Working)
+                        working++;
+                    else if (state == WaferMaterialState.Finish)
+                        finish++;
+                }
+
+                return role + "[enabled=" + cassette.IsEnabled +
+                       ", present=" + cassette.IsPresent +
+                       ", mapped=" + cassette.IsMapped +
+                       ", slots=" + cassette.Slots.Count +
+                       ", occupied=" + occupied +
+                       ", ready=" + ready +
+                       ", workReady=" + workReady +
+                       ", working=" + working +
+                       ", finish=" + finish +
+                       ", missingMaterial=" + missingMaterial +
+                       ", invalidSlot=" + invalidSlot + "]";
+            }
+            catch (Exception ex)
+            {
+                return role + "[summaryError=" + ex.Message + "]";
+            }
+            finally
+            {
+            }
         }
 
         public static bool ValidateSupplyCassetteConsistency(BinSide side, out string reason)

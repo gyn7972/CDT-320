@@ -1251,6 +1251,108 @@ namespace QMC.CDT320
             return FindNextProcessWaferSlotFromMaterialState();
         }
 
+        public string BuildProcessWaferAvailabilitySummary()
+        {
+            try
+            {
+                int slotCount = Config != null && Config.SlotCount > 0 ? Config.SlotCount : 0;
+                int sensorExist = 0;
+                int sensorSelectable = 0;
+                int sensorProcessing = 0;
+                int sensorDone = 0;
+                int sensorNg = 0;
+
+                for (int i = 0; i < slotCount; i++)
+                {
+                    WaferSlotState slotState;
+                    if (!slotStates.TryGetValue(i, out slotState) || slotState == null)
+                        continue;
+
+                    if (slotState.Presence == SlotPresence.Exist)
+                    {
+                        sensorExist++;
+                        if (slotState.Process == ProcessState.Ready || slotState.Process == ProcessState.Unknown)
+                            sensorSelectable++;
+                    }
+
+                    if (slotState.Process == ProcessState.Processing)
+                        sensorProcessing++;
+                    else if (slotState.Process == ProcessState.Done)
+                        sensorDone++;
+                    else if (slotState.Process == ProcessState.Ng)
+                        sensorNg++;
+                }
+
+                CassetteMaterial cassette = MaterialStateService.State != null && MaterialStateService.State.Cassettes != null
+                    ? MaterialStateService.State.Cassettes.FirstOrDefault(c => c.Role == CassetteMaterialRole.Input1)
+                    : null;
+                if (cassette == null)
+                {
+                    return "Input1[missing=True, slots=" + slotCount +
+                           ", sensorExist=" + sensorExist +
+                           ", sensorSelectable=" + sensorSelectable +
+                           ", sensorProcessing=" + sensorProcessing +
+                           ", sensorDone=" + sensorDone +
+                           ", sensorNg=" + sensorNg + "]";
+                }
+
+                cassette.EnsureSlots();
+                int materialOccupied = 0;
+                int materialReady = 0;
+                int materialWorkReady = 0;
+                int materialWorking = 0;
+                int materialFinish = 0;
+                int materialMissing = 0;
+
+                foreach (CassetteSlotMaterial slot in cassette.Slots)
+                {
+                    if (slot == null || !slot.HasWafer || string.IsNullOrWhiteSpace(slot.WaferId))
+                        continue;
+
+                    materialOccupied++;
+                    WaferMaterial wafer = MaterialStateService.GetWaferInCassette(CassetteMaterialRole.Input1, slot.SlotNumber);
+                    if (wafer == null)
+                    {
+                        materialMissing++;
+                        continue;
+                    }
+
+                    WaferMaterialState state = WaferMaterialStateText.Normalize(wafer.State);
+                    if (state == WaferMaterialState.Ready)
+                        materialReady++;
+                    else if (state == WaferMaterialState.WorkReady)
+                        materialWorkReady++;
+                    else if (state == WaferMaterialState.Working)
+                        materialWorking++;
+                    else if (state == WaferMaterialState.Finish)
+                        materialFinish++;
+                }
+
+                return "Input1[enabled=" + cassette.IsEnabled +
+                       ", present=" + cassette.IsPresent +
+                       ", mapped=" + cassette.IsMapped +
+                       ", slots=" + cassette.Slots.Count +
+                       ", sensorExist=" + sensorExist +
+                       ", sensorSelectable=" + sensorSelectable +
+                       ", sensorProcessing=" + sensorProcessing +
+                       ", sensorDone=" + sensorDone +
+                       ", sensorNg=" + sensorNg +
+                       ", materialOccupied=" + materialOccupied +
+                       ", materialReady=" + materialReady +
+                       ", materialWorkReady=" + materialWorkReady +
+                       ", materialWorking=" + materialWorking +
+                       ", materialFinish=" + materialFinish +
+                       ", materialMissing=" + materialMissing + "]";
+            }
+            catch (Exception ex)
+            {
+                return "Input1[summaryError=" + ex.Message + "]";
+            }
+            finally
+            {
+            }
+        }
+
         private int FindNextProcessWaferSlotFromMaterialState()
         {
             try
