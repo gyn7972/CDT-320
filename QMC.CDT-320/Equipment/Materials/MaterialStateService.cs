@@ -1578,6 +1578,10 @@ namespace QMC.CDT320.Materials
             {
                 wafer.State = WaferMaterialState.Empty;
                 wafer.CurrentLocation = MaterialLocation.Unknown();
+                // To do: 슬롯 자재를 비울 때 CassetteLotId도 함께 지워야 한다.
+                // 이 값을 남기면 다음 mapping의 ResolveOrCreateCassetteLotId가
+                // State.LotId와 다른 잔존 LotId를 후보로 잡아 "LOT ID 후보가 서로 달라..." 예외로 등록 실패한다.
+                wafer.CassetteLotId = "";
                 wafer.UpdatedAt = DateTime.Now;
             }
 
@@ -1624,6 +1628,8 @@ namespace QMC.CDT320.Materials
             {
                 wafer.State = WaferMaterialState.Empty;
                 wafer.CurrentLocation = MaterialLocation.Unknown();
+                // To do: 전체 삭제 시 웨이퍼 CassetteLotId도 비워야 잔존 LotId가 다음 mapping을 막지 않는다.
+                wafer.CassetteLotId = "";
                 wafer.UpdatedAt = DateTime.Now;
             }
 
@@ -1640,6 +1646,12 @@ namespace QMC.CDT320.Materials
             // 유효한 것으로 사용할 수 없다. 다음 Auto 시작에서 실제 mapping을 다시
             // 수행하여 센서 결과와 Ready Material을 함께 재생성하도록 한다.
             cassette.IsMapped = false;
+
+            // To do: 카세트 레코드의 CassetteLotId도 초기화해야 한다.
+            // 이 값(예: Y482CB12)이 State.LotId(예: Y482CB1)와 달라지면
+            // 슬롯을 모두 비운 뒤에도 ResolveOrCreateCassetteLotId가 후보 2개로 인식해
+            // "카세트 LOT ID 후보가 서로 달라 LOT ID를 결정할 수 없습니다." 예외로 재mapping이 막힌다.
+            cassette.CassetteLotId = "";
         }
 
         public static bool ClearOutputCassetteSlotData(CassetteMaterialRole cassetteRole, int slotNumber)

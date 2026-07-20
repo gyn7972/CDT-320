@@ -118,8 +118,18 @@ namespace QMC.CDT320
 
     public class InputCassetteUnit : BaseUnit<InputCassetteSetup, InputCassetteConfig, InputCassetteRecipe>, IUnitJogController
     {
-        private readonly Dictionary<int, WaferSlotState> slotStates = new Dictionary<int, WaferSlotState>();
-        private readonly Dictionary<int, WaferSlotState> mappingPreviousSlotStates = new Dictionary<int, WaferSlotState>();
+        // To do: C4 - 슬롯 상태를 레벨별(1단/2단) dict로 관리한다. 외부 키=level(1/2), 내부 키=레벨 내 로컬 슬롯 인덱스.
+        private readonly Dictionary<int, Dictionary<int, WaferSlotState>> levelSlotStates = new Dictionary<int, Dictionary<int, WaferSlotState>>();
+        private readonly Dictionary<int, Dictionary<int, WaferSlotState>> mappingPreviousLevelSlotStates = new Dictionary<int, Dictionary<int, WaferSlotState>>();
+
+        // To do: [맵핑 재설계] 슬롯 윈도우 실시간 판정 파라미터. 필요 시 Config로 승격.
+        //        윈도우 반폭 = SlotPitch * ratio (윈도우끼리 겹치지 않도록 ratio < 0.5).
+        //        최소 ON 이동거리 = 노이즈/스침성 반응 필터(디바운스).
+        private const double MappingSlotWindowRatio = 0.35;
+        private const double MappingSlotMinOnTravelMm = 1.0;
+        // 마지막 윈도우 판정 스캔 결과(점유/실측 중심 위치). ScanCassetteFromCurrentStartAsync가 소비한다.
+        private bool[] lastScanSlotMap;
+        private double[] lastScanSlotPositions;
         private IReadOnlyList<bool> mappingPreviousWaferMap;
         private double[] mappingPreviousSlotPositions;
         private bool mappingSnapshotActive;
@@ -373,11 +383,12 @@ namespace QMC.CDT320
             }
         }
 
-        public async Task<int> MoveToWaferCassetteSlotPosition(int slotIndex, bool bFine = false)
+        // To do: level(1단/2단)을 받아 해당 레벨 로딩 위치로 이동한다. 기본 1단(기존 호출부 호환).
+        public async Task<int> MoveToWaferCassetteSlotPosition(int slotIndex, bool bFine = false, int level = 1)
         {
             try
             {
-                return await MoveWaferLifterZ(CalculateWaferCassetteSlotTargetPosition(slotIndex), bFine);
+                return await MoveWaferLifterZ(CalculateWaferCassetteSlotTargetPosition(slotIndex, level), bFine);
             }
             catch
             {
@@ -388,11 +399,57 @@ namespace QMC.CDT320
             }
         }
 
+        // To do: 티칭 앵커(MappingStart=밑 슬롯 검출 위치)에서 웨이퍼가 센서를 가리므로,
+        //        스캔 시작은 앵커보다 반 피치 아래(엔코더 +)에서 출발해 첫 웨이퍼 rising edge를 보장한다.
+        public double ResolveMappingScanStartPosition()
+        {
+            double margin = Config != null && Config.SlotPitch > 0.0 ? Config.SlotPitch * 0.5 : 0.0;
+            return Recipe.MappingStartPosition + margin;
+        }
+
+        // To do: MappingEnd는 슬롯 앵커가 아니라 "스캔 끝 경계"다. 2단 맨 위 슬롯보다 위(엔코더 작은 값)로
+        //        여유 있게 티칭해야 하며, 티칭값 밖으로는 이동하지 않는다(축 한계 안전).
+        //        커버리지 부족(맨 위 슬롯 명목이 MappingEnd보다 위)은 스캔 시작 시 경고 로그로 알린다.
+        public double ResolveMappingScanEndPosition()
+        {
+            return Recipe.MappingEndPosition;
+        }
+
+        // To do: 스캔 범위가 설정 레벨의 맨 위 슬롯까지 커버하는지 검사한다(부족하면 맨 위 슬롯이 미검출된다).
+        public bool IsMappingScanCoveringTopSlot(out string detail)
+        {
+            detail = string.Empty;
+            try
+            {
+                int topLevel = ResolveCassetteLevelCount();
+                double topSlotPosition = CalculateCassetteLevelSlotPosition(topLevel, 0);
+                double margin = Config != null && Config.SlotPitch > 0.0 ? Config.SlotPitch * 0.5 : 0.0;
+                double requiredEnd = topSlotPosition - margin;   // 맨 위 슬롯 반 피치 위까지 필요
+                double scanEnd = ResolveMappingScanEndPosition();
+                if (scanEnd <= requiredEnd)
+                    return true;
+
+                detail = "Mapping scan end does not cover the top slot. scanEnd=" + scanEnd.ToString("0.###") +
+                         ", topSlot(level" + topLevel + ",idx0)=" + topSlotPosition.ToString("0.###") +
+                         ", requiredEnd<=" + requiredEnd.ToString("0.###") +
+                         ". MappingEnd 티칭을 2단 맨 위 슬롯보다 위로 다시 잡아야 합니다.";
+                return false;
+            }
+            catch (Exception ex)
+            {
+                detail = "Mapping scan coverage check failed: " + ex.Message;
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
         public async Task<int> MoveToWaferCassetteMappingStartPosition(bool bFine = false)
         {
             try
             {
-                return await MoveWaferLifterZ(Recipe.MappingStartPosition, bFine);
+                return await MoveWaferLifterZ(ResolveMappingScanStartPosition(), bFine);
             }
             catch
             {
@@ -515,9 +572,10 @@ namespace QMC.CDT320
             return IsWaferLifterZInPosition(Recipe.AvoidPosition, ResolveWaferLifterZInPositionTolerance());
         }
 
-        public bool IsWaferLifterZInSlotPosition(int slotIndex)
+        // To do: level(1단/2단) 대응. 기본 1단(기존 호출부 호환).
+        public bool IsWaferLifterZInSlotPosition(int slotIndex, int level = 1)
         {
-            return IsWaferLifterZInPosition(CalculateWaferCassetteSlotTargetPosition(slotIndex), ResolveWaferLifterZInPositionTolerance());
+            return IsWaferLifterZInPosition(CalculateWaferCassetteSlotTargetPosition(slotIndex, level), ResolveWaferLifterZInPositionTolerance());
         }
 
         public void TeachWaferLifterZPosition(string positionName)
@@ -542,21 +600,55 @@ namespace QMC.CDT320
 
         public void TeachWaferLifterZSlotBasePosition()
         {
+            // To do: FirstSlotPosition은 "최상위 레벨 첫(맨 위) 슬롯의 피더 로딩 절대 위치"로 티칭한다.
+            //        (2단 구성이면 2단 01번 슬롯의 로딩 높이, 예: 265.475)
+            //        로딩 오프셋은 ResolveCassetteLoadingOffset()이 기준 슬롯 검출 위치(실측 우선)와의 차로 파생한다.
             Recipe.FirstSlotPosition = InputLifterZ.ActualPosition;
             EnsureSlotPositionBuffer();
-            if (Recipe.SlotPosition != null && Recipe.SlotPosition.Length > 0)
-                Recipe.UpdateSlotPosition(0, InputLifterZ.ActualPosition);
         }
 
-        public double CalculateWaferCassetteSlotTargetPosition(int slotIndex)
+        // To do: FirstSlotPosition의 기준 슬롯 = "최상위 레벨의 첫(맨 위) 슬롯" (2단 구성이면 2단 01번).
+        //        사용자는 그 슬롯의 피더 로딩 절대 위치에서 TEACH 한다(예: 265.475).
+        //        로딩 오프셋 = FirstSlotPosition - 기준 슬롯의 검출 위치.
+        //        기준 슬롯 검출 위치는 맵핑 실측(SlotPosition)이 있으면 실측을, 없으면 명목값을 쓴다.
+        //        (실측 기준이면 기준 슬롯의 로딩 위치는 티칭값과 정확히 일치하고, 나머지 슬롯은 피치만큼 따라간다.)
+        public double ResolveCassetteLoadingOffset()
+        {
+            // To do: [맵핑 재설계] 기준 슬롯 = flat 0 (2단 맨 위 = 전체 최상단 = 사용자가 FirstSlot을 티칭한 "2단 첫번째 슬롯").
+            double referenceDetect = double.NaN;
+            if (Recipe.SlotPosition != null && Recipe.SlotPosition.Length > 0)
+                referenceDetect = Recipe.SlotPosition[0];
+
+            if (double.IsNaN(referenceDetect))
+                referenceDetect = CalculateMappingSlotPosition(0);
+
+            return Recipe.FirstSlotPosition - referenceDetect;
+        }
+
+        // To do: 로딩 목표 = 맵핑 "검출 위치"(실측 우선) + 로딩 오프셋. flat 변환은 ToFlatSlotIndex로 통일.
+        public double CalculateWaferCassetteSlotTargetPosition(int slotIndex, int level = 1)
         {
             ValidateSlotIndex(slotIndex);
             EnsureSlotPositionBuffer();
-            double mappedPosition = Recipe.SlotPosition[slotIndex];
-            if (!double.IsNaN(mappedPosition))
-                return mappedPosition;
 
-            return CalculateNominalSlotPosition(slotIndex);
+            if (level < 1)
+                level = 1;
+
+            int flatIndex = ToFlatSlotIndex(level, slotIndex);
+            double detectPosition;
+            if (Recipe.SlotPosition != null && flatIndex >= 0 && flatIndex < Recipe.SlotPosition.Length &&
+                !double.IsNaN(Recipe.SlotPosition[flatIndex]))
+                detectPosition = Recipe.SlotPosition[flatIndex];   // 맵핑 검출 위치(실측)
+            else
+                detectPosition = CalculateMappingSlotPosition(flatIndex);   // 미맵핑 시 명목 검출 위치
+
+            return detectPosition + ResolveCassetteLoadingOffset();   // 검출 위치 + 로딩 오프셋 = 로딩 위치
+        }
+
+        // To do: 웨이퍼 카세트 포지션/맵핑 결과 저장용 "로딩 위치"(검출 + 오프셋)를 레벨별로 계산한다.
+        public double CalculateCassetteLevelSlotLoadingPosition(int level, int slotIndex)
+        {
+            return CalculateCassetteLevelSlotPosition(level, slotIndex) + ResolveCassetteLoadingOffset();
         }
 
         public bool ValidateWaferLifterZTeachingComplete()
@@ -944,14 +1036,16 @@ namespace QMC.CDT320
         {
             try
             {
-                int slot = FindNextProcessWaferSlot();
+                // To do: [맵핑 재설계] 다음 처리 슬롯의 레벨(role)까지 받아 해당 레벨 로딩 위치로 이동한다.
+                CassetteMaterialRole nextRole;
+                int slot = FindNextProcessWaferSlot(out nextRole);
                 if (slot < 0)
                 {
                     RaiseWaferCassetteConditionAlarm("IN-CST-NEXT-SLOT", "No next process wafer slot was found.");
                     return -1;
                 }
 
-                int result = await MoveToWaferCassetteSlotPosition(slot, bFine);
+                int result = await MoveToWaferCassetteSlotPosition(slot, bFine, ResolveCassetteLevel(nextRole));
                 if (result != 0)
                     return result;
 
@@ -966,7 +1060,8 @@ namespace QMC.CDT320
             }
         }
 
-        public async Task<int> PrepareWaferCassetteForFeederLoad(int slotIndex, int timeoutMs, bool bFine = false)
+        // To do: level(1단/2단)을 받아 해당 레벨 슬롯 로딩 위치로 이동한다. 기본 1단(기존 호출부 호환).
+        public async Task<int> PrepareWaferCassetteForFeederLoad(int slotIndex, int timeoutMs, bool bFine = false, int level = 1)
         {
             try
             {
@@ -977,7 +1072,7 @@ namespace QMC.CDT320
                     return -1;
                 }
 
-                int result = await MoveToWaferCassetteSlotPosition(slotIndex, bFine);
+                int result = await MoveToWaferCassetteSlotPosition(slotIndex, bFine, level);
                 if (result != 0)
                     return result;
 
@@ -1119,11 +1214,17 @@ namespace QMC.CDT320
 
         public WaferCassetteMaterial GetWaferMaterialCassette()
         {
+            return GetWaferMaterialCassette(1);
+        }
+
+        // To do: C4 - 레벨(1단/2단)별 슬롯 상태 material을 반환한다.
+        public WaferCassetteMaterial GetWaferMaterialCassette(int level)
+        {
             var material = new WaferCassetteMaterial(Config.SlotCount);
             for (int i = 0; i < Config.SlotCount; i++)
             {
                 WaferSlotState state;
-                if (!slotStates.TryGetValue(i, out state))
+                if (!TryGetLevelSlotState(level, i, out state))
                     state = new WaferSlotState { Presence = SlotPresence.Unknown, Process = ProcessState.Unknown };
                 material.Slots.Add(state);
             }
@@ -1135,6 +1236,7 @@ namespace QMC.CDT320
             return FindNextProcessWaferSlot() >= 0;
         }
 
+        // To do: C4 - 완료 판정을 1단/2단 모두에 대해 수행한다. 설정 레벨 전체의 존재 웨이퍼가 Done/Ng여야 완료.
         public bool IsInputCassetteProcessComplete()
         {
             try
@@ -1143,60 +1245,68 @@ namespace QMC.CDT320
                 if (slotCount <= 0)
                     return false;
 
+                int levelCount = ResolveCassetteLevelCount();
                 bool hasProcessWafer = false;
-                var cassette = MaterialStateService.State != null && MaterialStateService.State.Cassettes != null
-                    ? MaterialStateService.State.Cassettes.FirstOrDefault(c => c.Role == CassetteMaterialRole.Input1)
-                    : null;
 
-                if (cassette != null && cassette.IsMapped)
+                for (int level = 1; level <= levelCount; level++)
                 {
-                    cassette.EnsureSlots();
-                    int count = Math.Min(slotCount, cassette.Slots.Count);
-                    for (int i = 0; i < count; i++)
+                    CassetteMaterialRole role = ResolveCassetteRole(level);
+                    var levelStates = GetLevelSlotStates(level);
+                    var cassette = MaterialStateService.State != null && MaterialStateService.State.Cassettes != null
+                        ? MaterialStateService.State.Cassettes.FirstOrDefault(c => c.Role == role)
+                        : null;
+
+                    if (cassette != null && cassette.IsMapped)
                     {
-                        WaferSlotState slotState;
-                        bool hasSlotState = slotStates.TryGetValue(i, out slotState);
-                        var slot = cassette.Slots[i];
-                        bool hasMaterialSlot = slot != null && slot.HasWafer && !string.IsNullOrWhiteSpace(slot.WaferId);
-
-                        if (!hasMaterialSlot &&
-                            (!hasSlotState || slotState.Presence != SlotPresence.Exist))
+                        cassette.EnsureSlots();
+                        int count = Math.Min(slotCount, cassette.Slots.Count);
+                        for (int i = 0; i < count; i++)
                         {
-                            continue;
-                        }
+                            WaferSlotState slotState;
+                            bool hasSlotState = levelStates.TryGetValue(i, out slotState);
+                            var slot = cassette.Slots[i];
+                            bool hasMaterialSlot = slot != null && slot.HasWafer && !string.IsNullOrWhiteSpace(slot.WaferId);
 
-                        hasProcessWafer = true;
+                            if (!hasMaterialSlot &&
+                                (!hasSlotState || slotState.Presence != SlotPresence.Exist))
+                            {
+                                continue;
+                            }
 
-                        if (hasSlotState &&
-                            slotState.Process != ProcessState.Done &&
-                            slotState.Process != ProcessState.Ng)
-                        {
-                            return false;
-                        }
+                            hasProcessWafer = true;
 
-                        if (hasMaterialSlot)
-                        {
-                            WaferMaterial wafer = MaterialStateService.GetWaferInCassette(CassetteMaterialRole.Input1, i);
-                            if (wafer == null)
+                            if (hasSlotState &&
+                                slotState.Process != ProcessState.Done &&
+                                slotState.Process != ProcessState.Ng)
+                            {
                                 return false;
+                            }
 
-                            if (WaferMaterialStateText.Normalize(wafer.State) != WaferMaterialState.Finish)
-                                return false;
+                            if (hasMaterialSlot)
+                            {
+                                WaferMaterial wafer = MaterialStateService.GetWaferInCassette(role, i);
+                                if (wafer == null)
+                                    return false;
+
+                                if (WaferMaterialStateText.Normalize(wafer.State) != WaferMaterialState.Finish)
+                                    return false;
+                            }
                         }
+
+                        continue;
                     }
 
-                    return hasProcessWafer;
-                }
+                    // 미맵핑 레벨은 센서 기반 슬롯 상태만으로 판정한다.
+                    for (int i = 0; i < slotCount; i++)
+                    {
+                        WaferSlotState state;
+                        if (!levelStates.TryGetValue(i, out state) || state.Presence != SlotPresence.Exist)
+                            continue;
 
-                for (int i = 0; i < slotCount; i++)
-                {
-                    WaferSlotState state;
-                    if (!slotStates.TryGetValue(i, out state) || state.Presence != SlotPresence.Exist)
-                        continue;
-
-                    hasProcessWafer = true;
-                    if (state.Process != ProcessState.Done && state.Process != ProcessState.Ng)
-                        return false;
+                        hasProcessWafer = true;
+                        if (state.Process != ProcessState.Done && state.Process != ProcessState.Ng)
+                            return false;
+                    }
                 }
 
                 return hasProcessWafer;
@@ -1226,16 +1336,95 @@ namespace QMC.CDT320
 
         public int FindNextProcessWaferSlot()
         {
-            for (int i = 0; i < Config.SlotCount; i++)
+            CassetteMaterialRole role;
+            return FindNextProcessWaferSlot(out role);
+        }
+
+        // To do: [맵핑 재설계] 처리 순서 = flat 오름차순(전체 맨 위부터 아래로).
+        //        2단 구성: 2단 01(맨 위)→2단 13→1단 01→1단 13 순. "2단 첫번째 슬롯부터, 맨 위에서 아래로" 스펙.
+        //        role(Input1/Input2)은 flat에서 파생한다.
+        public int FindNextProcessWaferSlot(out CassetteMaterialRole role)
+        {
+            int total = ResolveMappingSlotCount();
+
+            // 1차: 센서 기반 슬롯 상태(레벨별 dict)에서 flat 오름차순으로 Ready 탐색.
+            for (int flat = 0; flat < total; flat++)
             {
+                int level = ResolveLevelFromFlatIndex(flat);
+                int local = ResolveLocalSlotFromFlatIndex(flat);
                 WaferSlotState state;
-                if (slotStates.TryGetValue(i, out state) &&
+                if (TryGetLevelSlotState(level, local, out state) &&
+                    state != null &&
                     state.Presence == SlotPresence.Exist &&
                     (state.Process == ProcessState.Ready || state.Process == ProcessState.Unknown))
-                    return i;
+                {
+                    role = ResolveCassetteRole(level);
+                    return local;
+                }
             }
 
-            return FindNextProcessWaferSlotFromMaterialState();
+            // 2차: 자재상태(Material) 기반으로 flat 오름차순 탐색.
+            for (int flat = 0; flat < total; flat++)
+            {
+                int level = ResolveLevelFromFlatIndex(flat);
+                int local = ResolveLocalSlotFromFlatIndex(flat);
+                if (IsMaterialSlotProcessReady(level, local))
+                {
+                    UpdateWaferCassetteSlotState(level, local, SlotPresence.Exist, ProcessState.Ready);
+                    role = ResolveCassetteRole(level);
+                    return local;
+                }
+            }
+
+            role = CassetteMaterialRole.Input1;
+            return -1;
+        }
+
+        // To do: [맵핑 재설계] 자재상태에서 지정 (level, local) 슬롯이 처리 가능(Ready/WorkReady)한지 판정한다.
+        private bool IsMaterialSlotProcessReady(int level, int localSlotIndex)
+        {
+            try
+            {
+                WaferSlotState slotState;
+                if (TryGetLevelSlotState(level, localSlotIndex, out slotState) &&
+                    slotState != null &&
+                    slotState.Process != ProcessState.Ready &&
+                    slotState.Process != ProcessState.Unknown)
+                {
+                    return false;
+                }
+
+                CassetteMaterialRole role = ResolveCassetteRole(level);
+                var cassette = MaterialStateService.State != null && MaterialStateService.State.Cassettes != null
+                    ? MaterialStateService.State.Cassettes.FirstOrDefault(c => c.Role == role)
+                    : null;
+                if (cassette == null || !cassette.IsMapped)
+                    return false;
+
+                cassette.EnsureSlots();
+                if (localSlotIndex < 0 || localSlotIndex >= cassette.Slots.Count)
+                    return false;
+
+                var slot = cassette.Slots[localSlotIndex];
+                if (slot == null || !slot.HasWafer || string.IsNullOrWhiteSpace(slot.WaferId))
+                    return false;
+
+                WaferMaterial wafer = MaterialStateService.GetWaferInCassette(role, localSlotIndex);
+                if (wafer == null)
+                    return false;
+
+                WaferMaterialState state = WaferMaterialStateText.Normalize(wafer.State);
+                return state == WaferMaterialState.Ready || state == WaferMaterialState.WorkReady;
+            }
+            catch (Exception ex)
+            {
+                Log.Write("Main", "SYSTEM", "InputCassetteUnit",
+                    "Material slot process-ready check failed: " + ex.Message + " - Failed");
+                return false;
+            }
+            finally
+            {
+            }
         }
 
         public string BuildProcessWaferAvailabilitySummary()
@@ -1249,10 +1438,12 @@ namespace QMC.CDT320
                 int sensorDone = 0;
                 int sensorNg = 0;
 
+                // To do: C4 - 진단 요약은 우선 1단 기준. 필요 시 레벨별 합산으로 확장.
+                var summaryStates = GetLevelSlotStates(1);
                 for (int i = 0; i < slotCount; i++)
                 {
                     WaferSlotState slotState;
-                    if (!slotStates.TryGetValue(i, out slotState) || slotState == null)
+                    if (!summaryStates.TryGetValue(i, out slotState) || slotState == null)
                         continue;
 
                     if (slotState.Presence == SlotPresence.Exist)
@@ -1340,7 +1531,8 @@ namespace QMC.CDT320
             }
         }
 
-        private int FindNextProcessWaferSlotFromMaterialState()
+        // To do: C4 - 지정 레벨(1단/2단) material 상태에서 다음 처리 슬롯을 찾는다.
+        private int FindNextProcessWaferSlotFromMaterialState(int level)
         {
             try
             {
@@ -1348,18 +1540,20 @@ namespace QMC.CDT320
                 if (slotCount <= 0)
                     return -1;
 
+                CassetteMaterialRole role = ResolveCassetteRole(level);
                 var cassette = MaterialStateService.State != null && MaterialStateService.State.Cassettes != null
-                    ? MaterialStateService.State.Cassettes.FirstOrDefault(c => c.Role == CassetteMaterialRole.Input1)
+                    ? MaterialStateService.State.Cassettes.FirstOrDefault(c => c.Role == role)
                     : null;
                 if (cassette == null || !cassette.IsMapped)
                     return -1;
 
                 cassette.EnsureSlots();
+                var levelStates = GetLevelSlotStates(level);
                 int count = Math.Min(slotCount, cassette.Slots.Count);
                 for (int i = 0; i < count; i++)
                 {
                     WaferSlotState slotState;
-                    if (slotStates.TryGetValue(i, out slotState) &&
+                    if (levelStates.TryGetValue(i, out slotState) &&
                         slotState.Process != ProcessState.Ready &&
                         slotState.Process != ProcessState.Unknown)
                     {
@@ -1370,14 +1564,14 @@ namespace QMC.CDT320
                     if (slot == null || !slot.HasWafer || string.IsNullOrWhiteSpace(slot.WaferId))
                         continue;
 
-                    WaferMaterial wafer = MaterialStateService.GetWaferInCassette(CassetteMaterialRole.Input1, i);
+                    WaferMaterial wafer = MaterialStateService.GetWaferInCassette(role, i);
                     if (wafer == null)
                         continue;
 
                     WaferMaterialState state = WaferMaterialStateText.Normalize(wafer.State);
                     if (state == WaferMaterialState.Ready || state == WaferMaterialState.WorkReady)
                     {
-                        UpdateWaferCassetteSlotState(i, SlotPresence.Exist, ProcessState.Ready);
+                        UpdateWaferCassetteSlotState(level, i, SlotPresence.Exist, ProcessState.Ready);
                         return i;
                     }
                 }
@@ -1394,10 +1588,45 @@ namespace QMC.CDT320
             return -1;
         }
 
+        // To do: C4 - 레벨별 슬롯 상태 접근 헬퍼.
+        private Dictionary<int, WaferSlotState> GetLevelSlotStates(int level)
+        {
+            int lv = level >= 2 ? 2 : 1;
+            Dictionary<int, WaferSlotState> states;
+            if (!levelSlotStates.TryGetValue(lv, out states))
+            {
+                states = new Dictionary<int, WaferSlotState>();
+                levelSlotStates[lv] = states;
+            }
+            return states;
+        }
+
+        private bool TryGetLevelSlotState(int level, int slotIndex, out WaferSlotState state)
+        {
+            return GetLevelSlotStates(level).TryGetValue(slotIndex, out state);
+        }
+
+        // To do: C4 - CassetteMaterialRole(Input1/Input2) ↔ level(1/2) 변환.
+        internal static int ResolveCassetteLevel(CassetteMaterialRole role)
+        {
+            return role == CassetteMaterialRole.Input2 ? 2 : 1;
+        }
+
+        internal static CassetteMaterialRole ResolveCassetteRole(int level)
+        {
+            return level >= 2 ? CassetteMaterialRole.Input2 : CassetteMaterialRole.Input1;
+        }
+
         public void UpdateWaferCassetteSlotState(int slotIndex, SlotPresence presence, ProcessState state)
         {
+            UpdateWaferCassetteSlotState(1, slotIndex, presence, state);
+        }
+
+        // To do: C4 - 레벨 인지 슬롯 상태 갱신.
+        public void UpdateWaferCassetteSlotState(int level, int slotIndex, SlotPresence presence, ProcessState state)
+        {
             ValidateSlotIndex(slotIndex);
-            slotStates[slotIndex] = new WaferSlotState { Presence = presence, Process = state };
+            GetLevelSlotStates(level)[slotIndex] = new WaferSlotState { Presence = presence, Process = state };
         }
 
         public void BeginWaferMapping()
@@ -1408,51 +1637,90 @@ namespace QMC.CDT320
             EnsureSlotPositionBuffer();
         }
 
+        // To do: C4 - WaferMap(flat)을 레벨별로 나눠 1단/2단 슬롯 상태를 모두 적용한다.
+        //        [맵핑 재설계] flat 배치 = 앞쪽(0~N-1)이 2단(위 카세트), 뒤쪽(N~2N-1)이 1단. ToFlatSlotIndex로 통일.
         public void EndWaferMapping()
         {
             var map = new List<bool>(WaferMap);
-            int count = Math.Min(Config != null ? Config.SlotCount : 0, map.Count);
-            for (int i = 0; i < count; i++)
+            int slotCount = Config != null ? Config.SlotCount : 0;
+            int levelCount = ResolveCassetteLevelCount();
+            for (int level = 1; level <= levelCount; level++)
             {
-                WaferSlotState previous;
-                if (slotStates.TryGetValue(i, out previous) &&
-                    previous != null &&
-                    (previous.Process == ProcessState.Processing || previous.Process == ProcessState.Done))
+                for (int i = 0; i < slotCount; i++)
                 {
-                    continue;
-                }
+                    int flat = ToFlatSlotIndex(level, i);
+                    if (flat >= map.Count)
+                        continue;
 
-                UpdateWaferCassetteSlotState(i, map[i] ? SlotPresence.Exist : SlotPresence.Empty, ProcessState.Ready);
-                if (!map[i] && Recipe.SlotPosition != null && i < Recipe.SlotPosition.Length)
-                    Recipe.UpdateSlotPosition(i, double.NaN);
+                    WaferSlotState previous;
+                    if (TryGetLevelSlotState(level, i, out previous) &&
+                        previous != null &&
+                        (previous.Process == ProcessState.Processing || previous.Process == ProcessState.Done))
+                    {
+                        continue;
+                    }
+
+                    UpdateWaferCassetteSlotState(level, i, map[flat] ? SlotPresence.Exist : SlotPresence.Empty, ProcessState.Ready);
+                    if (!map[flat] && Recipe.SlotPosition != null && flat < Recipe.SlotPosition.Length)
+                        Recipe.UpdateSlotPosition(flat, double.NaN);
+                }
             }
         }
 
+        // To do: C4 - 등록된 WaferMap 결과를 레벨별로 슬롯 상태에 반영한다.
+        //        [맵핑 재설계] flat 배치 = 앞쪽이 2단. ToFlatSlotIndex로 통일.
         public void ApplyRegisteredWaferMappingState()
         {
             var map = new List<bool>(WaferMap ?? new List<bool>().AsReadOnly());
-            int count = Math.Min(Config != null ? Config.SlotCount : 0, map.Count);
-            for (int i = 0; i < count; i++)
+            int slotCount = Config != null ? Config.SlotCount : 0;
+            int levelCount = ResolveCassetteLevelCount();
+            for (int level = 1; level <= levelCount; level++)
             {
-                if (!map[i])
+                CassetteMaterialRole role = ResolveCassetteRole(level);
+                for (int i = 0; i < slotCount; i++)
                 {
-                    UpdateWaferCassetteSlotState(i, SlotPresence.Empty, ProcessState.Ready);
-                    if (Recipe.SlotPosition != null && i < Recipe.SlotPosition.Length)
-                        Recipe.UpdateSlotPosition(i, double.NaN);
-                    continue;
-                }
+                    int flat = ToFlatSlotIndex(level, i);
+                    if (flat >= map.Count)
+                        continue;
 
-                WaferMaterial wafer = MaterialStateService.GetWaferInCassette(CassetteMaterialRole.Input1, i);
-                ProcessState process = wafer != null && WaferMaterialStateText.Normalize(wafer.State) == WaferMaterialState.Finish
-                    ? ProcessState.Done
-                    : ProcessState.Ready;
-                UpdateWaferCassetteSlotState(i, SlotPresence.Exist, process);
+                    if (!map[flat])
+                    {
+                        UpdateWaferCassetteSlotState(level, i, SlotPresence.Empty, ProcessState.Ready);
+                        if (Recipe.SlotPosition != null && flat < Recipe.SlotPosition.Length)
+                            Recipe.UpdateSlotPosition(flat, double.NaN);
+                        continue;
+                    }
+
+                    WaferMaterial wafer = MaterialStateService.GetWaferInCassette(role, i);
+                    ProcessState process = wafer != null && WaferMaterialStateText.Normalize(wafer.State) == WaferMaterialState.Finish
+                        ? ProcessState.Done
+                        : ProcessState.Ready;
+                    UpdateWaferCassetteSlotState(level, i, SlotPresence.Exist, process);
+                }
             }
+        }
+
+        // To do: [맵핑 재설계] UI 표시용 - WaferMap(flat)에서 지정 레벨의 슬롯 맵(local 0=맨 위)을 잘라 반환한다.
+        public IReadOnlyList<bool> GetLevelWaferMapView(int level)
+        {
+            int slotCount = Config != null ? Config.SlotCount : 0;
+            var view = new bool[Math.Max(0, slotCount)];
+            var map = WaferMap;
+            if (map == null || slotCount <= 0)
+                return view;
+
+            for (int i = 0; i < slotCount; i++)
+            {
+                int flat = ToFlatSlotIndex(level, i);
+                view[i] = flat >= 0 && flat < map.Count && map[flat];
+            }
+
+            return view;
         }
 
         public void CommitWaferMapping()
         {
-            mappingPreviousSlotStates.Clear();
+            mappingPreviousLevelSlotStates.Clear();
             mappingPreviousWaferMap = null;
             mappingPreviousSlotPositions = null;
             mappingSnapshotActive = false;
@@ -1467,14 +1735,8 @@ namespace QMC.CDT320
                 ? new List<bool>(mappingPreviousWaferMap).AsReadOnly()
                 : new List<bool>().AsReadOnly();
 
-            slotStates.Clear();
-            foreach (KeyValuePair<int, WaferSlotState> pair in mappingPreviousSlotStates)
-            {
-                WaferSlotState previous = pair.Value;
-                slotStates[pair.Key] = previous != null
-                    ? new WaferSlotState { Presence = previous.Presence, Process = previous.Process }
-                    : null;
-            }
+            // To do: C4 - 레벨별 슬롯 상태 스냅샷을 복원한다.
+            CopyLevelSlotStates(mappingPreviousLevelSlotStates, levelSlotStates);
 
             int positionCount = mappingPreviousSlotPositions != null ? mappingPreviousSlotPositions.Length : 0;
             Recipe.ResizeSlotPositions(positionCount);
@@ -1492,19 +1754,36 @@ namespace QMC.CDT320
             mappingPreviousWaferMap = WaferMap != null
                 ? new List<bool>(WaferMap).AsReadOnly()
                 : new List<bool>().AsReadOnly();
-            mappingPreviousSlotStates.Clear();
-            foreach (KeyValuePair<int, WaferSlotState> pair in slotStates)
-            {
-                WaferSlotState state = pair.Value;
-                mappingPreviousSlotStates[pair.Key] = state != null
-                    ? new WaferSlotState { Presence = state.Presence, Process = state.Process }
-                    : null;
-            }
+            // To do: C4 - 레벨별 슬롯 상태 스냅샷을 저장한다.
+            CopyLevelSlotStates(levelSlotStates, mappingPreviousLevelSlotStates);
 
             mappingPreviousSlotPositions = Recipe.SlotPosition != null
                 ? (double[])Recipe.SlotPosition.Clone()
                 : new double[0];
             mappingSnapshotActive = true;
+        }
+
+        // To do: C4 - 레벨별 슬롯 상태 dict 깊은 복사(스냅샷/복원 공용).
+        private static void CopyLevelSlotStates(
+            Dictionary<int, Dictionary<int, WaferSlotState>> source,
+            Dictionary<int, Dictionary<int, WaferSlotState>> target)
+        {
+            target.Clear();
+            foreach (KeyValuePair<int, Dictionary<int, WaferSlotState>> levelPair in source)
+            {
+                var copied = new Dictionary<int, WaferSlotState>();
+                if (levelPair.Value != null)
+                {
+                    foreach (KeyValuePair<int, WaferSlotState> slotPair in levelPair.Value)
+                    {
+                        WaferSlotState state = slotPair.Value;
+                        copied[slotPair.Key] = state != null
+                            ? new WaferSlotState { Presence = state.Presence, Process = state.Process }
+                            : null;
+                    }
+                }
+                target[levelPair.Key] = copied;
+            }
         }
 
         public void BuildSimulatedWaferMap()
@@ -1632,14 +1911,21 @@ namespace QMC.CDT320
                     return FailMappingScan("IN-CST-MAP-PITCH", "Slot pitch is invalid.");
                 }
 
-                var detectedPositions = await CollectMappingSensorPositionsAsync(ct);
-                if (detectedPositions == null)
-                    return -1;
-
+                // To do: [맵핑 재설계] 엣지 수집 후 매칭 방식 폐기. 스캔 중 실시간으로 "현재 위치가 벨리드한
+                //        슬롯 윈도우 안인지" 판정해 그 자리에서 점유를 확정한다.
+                //        - 한 슬롯에서 몇 번 센싱되든 점유 1건으로만 처리(슬롯별 bool).
+                //        - 윈도우 밖(기구물 등 인벨리드 구간) 센싱은 무시하고 로그만 남긴다.
+                //        - ON 구간이 인벨리드에서 시작해 벨리드 구간으로 이어져도 윈도우 통과 중 ON이면 정상 점유.
                 bool[] slotMap;
                 double[] slotPositions;
-                if (!BuildMappingResultFromDetectedPositions(detectedPositions, maxSlots, slotPitch, out slotMap, out slotPositions))
+                int collectResult = await CollectMappingSlotOccupancyAsync(maxSlots, ct).ConfigureAwait(false);
+                if (collectResult != 0)
                     return -1;
+
+                slotMap = lastScanSlotMap;
+                slotPositions = lastScanSlotPositions;
+                if (slotMap == null || slotPositions == null || slotMap.Length != maxSlots)
+                    return FailMappingScan("IN-CST-MAP-RESULT", "Mapping scan result buffer is invalid.");
 
                 var map = new List<bool>(maxSlots);
                 for (int i = 0; i < maxSlots; i++)
@@ -1653,8 +1939,8 @@ namespace QMC.CDT320
                 int occupiedCount = map.Count(x => x);
                 Log.Write("Main", "SYSTEM", "InputCassetteMapping",
                     occupiedCount > 0
-                        ? "Mapping scan completed. detected=" + detectedPositions.Count + ", slots=" + occupiedCount + " - Ok"
-                        : "Mapping scan completed with an empty cassette. detected=" + detectedPositions.Count + ", slots=0 - Ok");
+                        ? "Mapping scan completed. slots=" + occupiedCount + " - Ok"
+                        : "Mapping scan completed with an empty cassette. slots=0 - Ok");
                 return 0;
             }
             catch (OperationCanceledException)
@@ -1697,6 +1983,231 @@ namespace QMC.CDT320
             }
         }
 
+        // To do: [맵핑 재설계] 윈도우 실시간 판정 스캔.
+        //        스캔 이동 중 매 샘플마다 "현재 위치가 어느 슬롯의 벨리드 윈도우(명목 ± pitch*ratio) 안인지"를
+        //        판정하고, 윈도우 안에서 센서 ON이 최소 이동거리 이상 관측되면 그 슬롯을 점유 1건으로 확정한다.
+        //        - 한 슬롯에서 몇 번 센싱되든 점유는 1건(슬롯별 bool).
+        //        - 윈도우 밖(카세트 사이 기구물 등 인벨리드 구간) ON은 무시 + 진단 로그.
+        //        - ON 구간이 인벨리드에서 시작해 벨리드로 이어져도 윈도우 통과 중 ON이면 정상 점유.
+        //        - 시작부터 센서 ON(맨 아래 슬롯)도 특수 처리 없이 자연스럽게 점유된다.
+        //        결과는 lastScanSlotMap / lastScanSlotPositions(ON 구간 중심 실측)에 저장한다.
+        private async Task<int> CollectMappingSlotOccupancyAsync(int maxSlots, CancellationToken ct)
+        {
+            double originalAcc = 0.0;
+            double originalDec = 0.0;
+            bool restoreScanProfile = false;
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+                lastScanSlotMap = null;
+                lastScanSlotPositions = null;
+
+                bool virtualSensor = IsVirtualMappingSensorMode();
+                double scanStartPosition = InputLifterZ.ActualPosition;
+
+                double pitch = Config != null ? Config.SlotPitch : 0.0;
+                double windowHalf = pitch > 0.0 ? pitch * MappingSlotWindowRatio : 0.0;
+                if (windowHalf <= 0.0)
+                    return FailMappingScan("IN-CST-MAP-WINDOW", "Slot valid window is invalid. pitch=" + FormatPosition(pitch));
+
+                var centers = new double[maxSlots];
+                for (int i = 0; i < maxSlots; i++)
+                    centers[i] = CalculateMappingSlotPosition(i);
+
+                var occupied = new bool[maxSlots];
+                var onMin = new double[maxSlots];
+                var onMax = new double[maxSlots];
+                for (int i = 0; i < maxSlots; i++)
+                {
+                    onMin[i] = double.NaN;
+                    onMax[i] = double.NaN;
+                }
+
+                bool invalidZoneOn = false;
+
+                double scanVelocity = ResolveWaferLifterZConfigMoveVelocity();
+                double scanAcceleration = ResolveCassetteProfileAcceleration(scanVelocity);
+                double scanDeceleration = ResolveCassetteProfileDeceleration(scanVelocity);
+                if (InputLifterZ.Config != null)
+                {
+                    originalAcc = InputLifterZ.Config.Acceleration;
+                    originalDec = InputLifterZ.Config.Deceleration;
+                    InputLifterZ.Config.Acceleration = scanAcceleration;
+                    InputLifterZ.Config.Deceleration = scanDeceleration;
+                    restoreScanProfile = true;
+                }
+
+                // 인터락은 MoveAbsoluteAsync 내부 BaseAxis.MotionGuard 훅에서 1번 수행한다.
+                double scanEndPosition = ResolveMappingScanEndPosition();
+
+                // To do: MappingEnd 티칭이 맨 위 슬롯(flat 0)을 커버하지 못하면 맨 위 웨이퍼가 미검출되므로 경고를 남긴다.
+                string coverageDetail;
+                if (!IsMappingScanCoveringTopSlot(out coverageDetail))
+                    Log.Write("Main", "SYSTEM", "InputCassetteUnit", coverageDetail + " - Check");
+
+                Task<int> moveTask = InputLifterZ.MoveAbsoluteAsync(scanEndPosition, scanVelocity);
+                while (!moveTask.IsCompleted)
+                {
+                    ct.ThrowIfCancellationRequested();
+                    if (IsWaferProtrusionDetected())
+                    {
+                        InputLifterZ.EStop();
+                        return FailMappingScan("IN-CST-MAP-PROTRUSION", "Wafer protrusion detected during mapping scan.");
+                    }
+
+                    if (virtualSensor)
+                        ApplyVirtualMappingOccupancy(scanStartPosition, scanEndPosition, InputLifterZ.ActualPosition,
+                            centers, windowHalf, occupied, onMin, onMax);
+                    else
+                        ProcessMappingScanSample(InputLifterZ.ActualPosition, WaferMappingSensor.IsOn,
+                            centers, windowHalf, occupied, onMin, onMax, ref invalidZoneOn);
+
+                    await Task.Delay(5, ct).ConfigureAwait(false);
+                }
+
+                int moveResult = await moveTask;
+                if (moveResult != 0 || InputLifterZ.IsAlarm)
+                    return FailMappingScan("IN-CST-MAP-END", "InputLifterZ move failed during mapping scan.");
+
+                // 마지막 샘플 반영(이동 완료 직후 상태).
+                if (virtualSensor)
+                    ApplyVirtualMappingOccupancy(scanStartPosition, scanEndPosition, scanEndPosition,
+                        centers, windowHalf, occupied, onMin, onMax);
+                else
+                    ProcessMappingScanSample(InputLifterZ.ActualPosition, WaferMappingSensor.IsOn,
+                        centers, windowHalf, occupied, onMin, onMax, ref invalidZoneOn);
+
+                AxisMoveWaitResult waitResult = await WaitWaferLifterZMoveDoneInPosition(scanEndPosition, ResolveWaferLifterZMoveTimeoutMs(), ct).ConfigureAwait(false);
+                if (!waitResult.Success)
+                    return FailMappingScan(
+                        ResolveWaferLifterZMoveWaitAlarmCode("IN-CST-MAP-END", waitResult.Failure),
+                        "InputLifterZ mapping end move/in-position wait failed. waitResult=" + waitResult.Code +
+                        ", reason=" + waitResult.Reason + ". " + waitResult.AxisState);
+
+                // 결과 확정: 점유 슬롯은 ON 구간 중심을 실측 검출 위치로 저장하고, 슬롯별 로그를 남긴다.
+                var positions = new double[maxSlots];
+                for (int i = 0; i < maxSlots; i++)
+                {
+                    positions[i] = double.NaN;
+                    if (!occupied[i])
+                    {
+                        if (!double.IsNaN(onMin[i]))
+                            Log.Write("Main", "SYSTEM", "InputCassetteUnit",
+                                "Mapping slot sensing rejected by debounce. slot=" + (i + 1) +
+                                ", onSpan=" + FormatPosition(onMax[i] - onMin[i]) +
+                                ", required>=" + FormatPosition(MappingSlotMinOnTravelMm) + " - Check");
+                        continue;
+                    }
+
+                    positions[i] = (onMin[i] + onMax[i]) * 0.5;
+                    Log.Write("Main", "SYSTEM", "InputCassetteUnit",
+                        "Mapping slot occupied. slot=" + (i + 1) +
+                        " (level" + ResolveLevelFromFlatIndex(i) + "/" + (ResolveLocalSlotFromFlatIndex(i) + 1).ToString("00") + ")" +
+                        ", measured=" + FormatPosition(positions[i]) +
+                        ", nominal=" + FormatPosition(centers[i]) +
+                        ", error=" + FormatPosition(Math.Abs(positions[i] - centers[i])) + " - Ok");
+                }
+
+                lastScanSlotMap = occupied;
+                lastScanSlotPositions = positions;
+                return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                try { InputLifterZ?.Stop(); } catch { }
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return FailMappingScan("IN-CST-MAP-COLLECT", "Mapping slot occupancy scan failed: " + ex.Message);
+            }
+            finally
+            {
+                if (restoreScanProfile && InputLifterZ != null && InputLifterZ.Config != null)
+                {
+                    InputLifterZ.Config.Acceleration = originalAcc;
+                    InputLifterZ.Config.Deceleration = originalDec;
+                }
+            }
+        }
+
+        // To do: [맵핑 재설계] 실센서 샘플 1건 처리. 센서 ON일 때 현재 위치가 속한 슬롯 윈도우를 찾아
+        //        ON 관측 구간(min/max)을 누적하고, 최소 이동거리 충족 시 점유 확정. 윈도우 밖 ON은 무시+로그(스트레치당 1회).
+        private void ProcessMappingScanSample(
+            double position,
+            bool sensorOn,
+            double[] centers,
+            double windowHalf,
+            bool[] occupied,
+            double[] onMin,
+            double[] onMax,
+            ref bool invalidZoneOn)
+        {
+            if (!sensorOn)
+            {
+                invalidZoneOn = false;
+                return;
+            }
+
+            int slot = -1;
+            double bestError = double.MaxValue;
+            for (int i = 0; i < centers.Length; i++)
+            {
+                double error = Math.Abs(position - centers[i]);
+                if (error <= windowHalf && error < bestError)
+                {
+                    bestError = error;
+                    slot = i;
+                }
+            }
+
+            if (slot < 0)
+            {
+                if (!invalidZoneOn)
+                    Log.Write("Main", "SYSTEM", "InputCassetteUnit",
+                        "Mapping sensor ON in invalid zone (ignored). position=" + FormatPosition(position) + " - Check");
+                invalidZoneOn = true;
+                return;
+            }
+
+            invalidZoneOn = false;
+
+            if (double.IsNaN(onMin[slot]) || position < onMin[slot])
+                onMin[slot] = position;
+            if (double.IsNaN(onMax[slot]) || position > onMax[slot])
+                onMax[slot] = position;
+
+            if (!occupied[slot] && (onMax[slot] - onMin[slot]) >= MappingSlotMinOnTravelMm)
+                occupied[slot] = true;
+        }
+
+        // To do: [맵핑 재설계] 가상 센서(시뮬/드라이런) - 스캔 경로가 슬롯 중심을 통과하면 만재로 점유 처리(기존 시뮬 동작 유지).
+        private void ApplyVirtualMappingOccupancy(
+            double scanStart,
+            double scanEnd,
+            double currentPosition,
+            double[] centers,
+            double windowHalf,
+            bool[] occupied,
+            double[] onMin,
+            double[] onMax)
+        {
+            for (int i = 0; i < centers.Length; i++)
+            {
+                if (occupied[i])
+                    continue;
+
+                if (!IsPositionPassed(scanStart, scanEnd, currentPosition, centers[i], windowHalf))
+                    continue;
+
+                occupied[i] = true;
+                onMin[i] = centers[i];
+                onMax[i] = centers[i];
+            }
+        }
+
+        // To do: [맵핑 재설계] 미사용 - 엣지 수집 방식은 윈도우 실시간 판정(CollectMappingSlotOccupancyAsync)으로 대체됨.
+        //        기구물 반응으로 인벨리드 구간에서 ON이 시작되면 rising edge 위치가 슬롯과 어긋나는 문제가 있었다.
         private async Task<List<double>> CollectMappingSensorPositionsAsync(CancellationToken ct)
         {
             double originalAcc = 0.0;
@@ -1710,8 +2221,21 @@ namespace QMC.CDT320
                 double scanStartPosition = InputLifterZ.ActualPosition;
                 bool[] virtualDetected = virtualSensor ? new bool[ResolveMappingSlotCount()] : null;
                 bool previous = virtualSensor ? false : WaferMappingSensor.IsOn;
+
+                // 첫장은 무조건 감지가됨.
+                //if (!virtualSensor && previous)
+                //    return FailMappingScanList("IN-CST-MAP-SENSOR-ON", "Mapping sensor is ON at mapping start. Check mapping start position.");
+
+                // To do: 1단 맨 아래 슬롯은 mapping start와 같은 높이라, 웨이퍼가 있으면 시작부터 센서 ON이 정상이다.
+                //        이 경우 rising edge가 발생하지 않아 검출 목록에서 유실되므로,
+                //        시작 위치를 해당 슬롯의 검출로 직접 등록한다(이후에는 OFF→ON 엣지만 추가 검출).
                 if (!virtualSensor && previous)
-                    return FailMappingScanList("IN-CST-MAP-SENSOR-ON", "Mapping sensor is ON at mapping start. Check mapping start position.");
+                {
+                    AddDetectedMappingPosition(detectedPositions, scanStartPosition);
+                    Log.Write("Main", "SYSTEM", "InputCassetteUnit",
+                        "Mapping sensor ON at start. Registered as bottom slot detection. position=" +
+                        FormatPosition(scanStartPosition) + " - Check");
+                }
 
                 double scanVelocity = ResolveWaferLifterZConfigMoveVelocity();
                 double scanAcceleration = ResolveCassetteProfileAcceleration(scanVelocity);
@@ -1728,7 +2252,13 @@ namespace QMC.CDT320
 
                 // 인터락은 MoveAbsoluteAsync 내부 BaseAxis.MotionGuard 훅에서 1번 수행한다.
                 // 차단 시 moveResult != 0 로 반환되어 아래 FailMappingScanList 로 처리된다.
-                Task<int> moveTask = InputLifterZ.MoveAbsoluteAsync(Recipe.MappingEndPosition, scanVelocity);
+                double scanEndPosition = ResolveMappingScanEndPosition();
+
+                // To do: MappingEnd 티칭이 2단 맨 위 슬롯을 커버하지 못하면 맨 위 웨이퍼가 미검출되므로 경고를 남긴다.
+                string coverageDetail;
+                if (!IsMappingScanCoveringTopSlot(out coverageDetail))
+                    Log.Write("Main", "SYSTEM", "InputCassetteUnit", coverageDetail + " - Check");
+                Task<int> moveTask = InputLifterZ.MoveAbsoluteAsync(scanEndPosition, scanVelocity);
                 while (!moveTask.IsCompleted)
                 {
                     ct.ThrowIfCancellationRequested();
@@ -1744,7 +2274,7 @@ namespace QMC.CDT320
                             detectedPositions,
                             virtualDetected,
                             scanStartPosition,
-                            Recipe.MappingEndPosition,
+                            scanEndPosition,
                             InputLifterZ.ActualPosition);
                     }
                     else
@@ -1767,10 +2297,10 @@ namespace QMC.CDT320
                         detectedPositions,
                         virtualDetected,
                         scanStartPosition,
-                        Recipe.MappingEndPosition,
-                        Recipe.MappingEndPosition);
+                        scanEndPosition,
+                        scanEndPosition);
 
-                AxisMoveWaitResult waitResult = await WaitWaferLifterZMoveDoneInPosition(Recipe.MappingEndPosition, ResolveWaferLifterZMoveTimeoutMs(), ct).ConfigureAwait(false);
+                AxisMoveWaitResult waitResult = await WaitWaferLifterZMoveDoneInPosition(scanEndPosition, ResolveWaferLifterZMoveTimeoutMs(), ct).ConfigureAwait(false);
                 if (!waitResult.Success)
                     return FailMappingScanList(
                         ResolveWaferLifterZMoveWaitAlarmCode("IN-CST-MAP-END", waitResult.Failure),
@@ -1802,7 +2332,7 @@ namespace QMC.CDT320
         {
             try
             {
-                double minSpacing = Config.SlotPitch > 0.0 ? Config.SlotPitch * 0.5 : 0.0;
+                double minSpacing = Config.SlotPitch > 0.0 ? Config.SlotPitch * 0.8 : 0.0;
                 if (detectedPositions.Count > 0 && minSpacing > 0.0)
                 {
                     double last = detectedPositions[detectedPositions.Count - 1];
@@ -1884,51 +2414,31 @@ namespace QMC.CDT320
 
             try
             {
-                double tolerance = ResolveMappingPitchTolerance(slotPitch);
-                int previousSlot = -1;
-                double previousPosition = double.NaN;
+                // 니가 병신같이 작성해서 내가 짠다 아래 절대 변경 금지.
+                // 변경 금지 블럭 시작.
 
-                foreach (double position in detectedPositions)
+                foreach (var pos in detectedPositions)
                 {
-                    int slotIndex = ResolveNearestMappingSlotIndex(position, maxSlots, tolerance);
-                    if (slotIndex < 0 || slotIndex >= maxSlots)
+                    double dCurrentPos = Recipe.MappingStartPosition - pos;
+                    double dSlotPitch = Config.SlotPitch;
+                    bool bFirstCasset = true;
+                    if (Recipe.MappingStartPosition + (dSlotPitch * Config.SlotCount) >= pos)
                     {
-                        FailMappingScan("IN-CST-MAP-SLOT-MATCH", "Detected wafer position is outside slot pitch tolerance. position=" + FormatPosition(position) +
-                            ", tolerance=" + FormatPosition(tolerance));
-                        return false;
+                        dCurrentPos -= (dSlotPitch * Config.SlotCount);
+                        dCurrentPos -= Config.Level2PositionOffset;
+                        bFirstCasset = false;
                     }
-
-                    if (slotMap[slotIndex])
+                    
+                    int nIndex = (int)(dCurrentPos % dSlotPitch);
+                    if(bFirstCasset == false)
                     {
-                        FailMappingScan("IN-CST-MAP-DUPLICATE", "Duplicate wafer detection matched to the same slot. slot=" + (slotIndex + 1));
-                        return false;
+                        nIndex += Config.SlotCount;
                     }
-
-                    if (previousSlot >= 0)
-                    {
-                        int slotGap = Math.Abs(slotIndex - previousSlot);
-                        double actualGap = Math.Abs(position - previousPosition);
-                        double expectedGap = Math.Abs(CalculateMappingSlotPosition(slotIndex) - CalculateMappingSlotPosition(previousSlot));
-                        double error = Math.Abs(actualGap - expectedGap);
-                        if (slotGap <= 0 || error > tolerance)
-                        {
-                            FailMappingScan(
-                                "IN-CST-MAP-PITCH-CHECK",
-                                "Mapping pitch check failed. prevSlot=" + (previousSlot + 1) +
-                                ", slot=" + (slotIndex + 1) +
-                                ", actualGap=" + FormatPosition(actualGap) +
-                                ", expectedGap=" + FormatPosition(expectedGap) +
-                                ", error=" + FormatPosition(error));
-                            return false;
-                        }
-                    }
-
-                    slotMap[slotIndex] = true;
-                    slotPositions[slotIndex] = position;
-                    previousSlot = slotIndex;
-                    previousPosition = position;
+                    slotMap[nIndex] = true;
+                    slotPositions[nIndex] = true; ;
                 }
-
+                // 변경금지 블럭 끝
+                
                 return true;
             }
             catch (Exception ex)
@@ -1948,7 +2458,8 @@ namespace QMC.CDT320
                 double tolerance = ResolveWaferLifterZInPositionTolerance();
                 if (tolerance <= 0.0)
                     tolerance = slotPitch * 0.1;
-                double pitchTolerance = slotPitch > 0.0 ? slotPitch * 0.45 : 0.0;
+                //Todo: 0.8 파라미터로 빼야함.
+                double pitchTolerance = slotPitch > 0.0 ? slotPitch * 0.8 : 0.0;
                 if (pitchTolerance > 0.0)
                     return Math.Max(tolerance, pitchTolerance);
                 return Math.Max(tolerance, 0.001);
@@ -2424,28 +2935,66 @@ namespace QMC.CDT320
             return Recipe.MappingStartPosition + Recipe.FirstSlotPosition + Config.LoadingPositionOffset + (Config.SlotPitch * slotIndex);
         }
 
+        // To do: [맵핑 재설계] 전역 flat 인덱스 체계.
+        //        flat 0 = 2단 맨 위 슬롯(전체 최상단, 제품 시작), 아래로 갈수록 증가,
+        //        flat total-1 = 1단 맨 아래 슬롯 = Recipe.MappingStartPosition 앵커(유일 앵커).
+        //        2단 구성: 0~N-1 = 2단(위 카세트), N~2N-1 = 1단(아래 카세트).
+        //        1단 전용: 0~N-1 = 1단(0=맨 위, N-1=맨 아래 앵커).
+        //        (level, local) 표기에서 local 0 = 해당 레벨의 맨 위 슬롯(UI 01번).
+        public int ToFlatSlotIndex(int level, int localSlotIndex)
+        {
+            ValidateSlotIndex(localSlotIndex);
+            int slotCount = Config != null ? Config.SlotCount : 0;
+            if (ResolveCassetteLevelCount() >= 2 && level < 2)
+                return slotCount + localSlotIndex;   // 1단(아래 카세트)은 뒤쪽 flat
+            return localSlotIndex;                    // 2단(위 카세트) 또는 1단 전용은 앞쪽 flat
+        }
+
+        // To do: [맵핑 재설계] flat 인덱스 → 레벨(1/2). 2단 구성에서 앞쪽 절반 = 2단.
+        public int ResolveLevelFromFlatIndex(int flatIndex)
+        {
+            int slotCount = Config != null ? Config.SlotCount : 0;
+            if (ResolveCassetteLevelCount() >= 2 && flatIndex < slotCount)
+                return 2;
+            return 1;
+        }
+
+        // To do: [맵핑 재설계] flat 인덱스 → 레벨 내 local 인덱스(0=그 레벨 맨 위).
+        public int ResolveLocalSlotFromFlatIndex(int flatIndex)
+        {
+            int slotCount = Config != null && Config.SlotCount > 0 ? Config.SlotCount : 1;
+            return flatIndex % slotCount;
+        }
+
+        // To do: [맵핑 재설계] 명목 위치 단일 공식. 앵커 S = MappingStart(전체 맨 아래 슬롯) 하나만 사용.
+        //        m = 밑에서부터 슬롯 수 = (total-1) - flat.
+        //        m < N  : pos = S - m*p                          (아래 카세트/1단 전용)
+        //        m >= N : pos = S - (N-1)*p - G - (m-N)*p        (위 카세트, G=Level2PositionOffset)
+        //        MappingEndPosition은 슬롯 앵커가 아니라 스캔 끝 경계(맨 위 슬롯보다 위로 티칭).
         public double CalculateMappingSlotPosition(int mappingSlotIndex)
         {
             ValidateMappingSlotIndex(mappingSlotIndex);
 
             int slotCount = Config.SlotCount;
-            int level = mappingSlotIndex / slotCount + 1;
-            int localSlotIndex = mappingSlotIndex % slotCount;
-            return CalculateCassetteLevelSlotPosition(level, localSlotIndex);
-        }
+            int total = ResolveMappingSlotCount();
+            double anchor = Recipe.MappingStartPosition + Config.LoadingPositionOffset;
+            double pitch = Config.SlotPitch;
 
-        public double CalculateCassetteLevelSlotPosition(int level, int slotIndex)
-        {
-            ValidateSlotIndex(slotIndex);
-            if (level < 2)
-                return Recipe.MappingStartPosition + Recipe.FirstSlotPosition + Config.LoadingPositionOffset + (Config.SlotPitch * slotIndex);
+            int slotsFromBottom = (total - 1) - mappingSlotIndex;
+            if (slotsFromBottom < slotCount)
+                return anchor - (pitch * slotsFromBottom);
 
-            double level1LastPosition = Recipe.MappingStartPosition + Recipe.FirstSlotPosition + Config.LoadingPositionOffset + (Config.SlotPitch * (Config.SlotCount - 1));
             double levelGap = Config.Level2PositionOffset;
             if (levelGap <= 0.0)
-                levelGap = Config.SlotPitch > 0.0 ? Config.SlotPitch : 0.001;
+                levelGap = pitch > 0.0 ? pitch : 0.001;
 
-            return level1LastPosition + levelGap + (Config.SlotPitch * slotIndex);
+            return anchor - (pitch * (slotCount - 1)) - levelGap - (pitch * (slotsFromBottom - slotCount));
+        }
+
+        // To do: [맵핑 재설계] (level, local) 래퍼 - flat 변환 후 단일 공식 사용(기존 호출부 호환).
+        public double CalculateCassetteLevelSlotPosition(int level, int slotIndex)
+        {
+            return CalculateMappingSlotPosition(ToFlatSlotIndex(level, slotIndex));
         }
 
         private static async Task<int> WaitUntilAsync(Func<bool> condition, int timeoutMs)

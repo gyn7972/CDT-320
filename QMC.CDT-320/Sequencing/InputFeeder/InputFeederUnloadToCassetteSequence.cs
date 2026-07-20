@@ -173,7 +173,9 @@ namespace QMC.CDT320.Sequencing
                 return Fail("IN-FEEDER-CST-MISSING", "InputCassette", "Input cassette unit is not available.");
 
             int unloadSlot = ResolveUnloadSlotIndex();
-            double target = cassette.CalculateWaferCassetteSlotTargetPosition(unloadSlot) + ResolveCassetteUnloadOffset(cassette);
+            // To do: C4 - 언로드 복귀도 원본 레벨(Input1/Input2) 위치로 이동한다.
+            int unloadLevel = InputCassetteUnit.ResolveCassetteLevel(Options.CassetteRole);
+            double target = cassette.CalculateWaferCassetteSlotTargetPosition(unloadSlot, unloadLevel) + ResolveCassetteUnloadOffset(cassette);
             int result = await MoveCassetteZAndVerifyAsync(cassette, target, "cassette unload offset", ct).ConfigureAwait(false);
             if (result != 0) return result;
 
@@ -281,7 +283,7 @@ namespace QMC.CDT320.Sequencing
 
             InputCassetteUnit cassette = ResolveCassette();
             int unloadSlot = ResolveUnloadSlotIndex(wafer);
-            double slotPosition = cassette != null ? cassette.CalculateWaferCassetteSlotTargetPosition(unloadSlot) : wafer.SourceCassetteSlotPosition;
+            double slotPosition = cassette != null ? cassette.CalculateWaferCassetteSlotTargetPosition(unloadSlot, InputCassetteUnit.ResolveCassetteLevel(Options.CassetteRole)) : wafer.SourceCassetteSlotPosition;
 
             if (wafer.SourceCassetteRole != Options.CassetteRole || wafer.SourceSlotNumber != unloadSlot)
                 return Fail("IN-FEEDER-MATERIAL-SOURCE", "Material", "물리 배출 후 Material 갱신 직전에 원본 cassette/slot 불일치가 확인되었습니다. wafer=" + wafer.WaferId +
@@ -364,7 +366,7 @@ namespace QMC.CDT320.Sequencing
             if (cassette == null)
                 return Fail("IN-FEEDER-CST-MISSING", "InputCassette", "Input cassette unit is not available.");
 
-            double target = cassette.CalculateWaferCassetteSlotTargetPosition(ResolveUnloadSlotIndex());
+            double target = cassette.CalculateWaferCassetteSlotTargetPosition(ResolveUnloadSlotIndex(), InputCassetteUnit.ResolveCassetteLevel(Options.CassetteRole));
             int result = await MoveCassetteZAndVerifyAsync(cassette, target, "cassette final slot", ct).ConfigureAwait(false);
             if (result != 0) return result;
 

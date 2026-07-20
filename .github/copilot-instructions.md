@@ -9,3 +9,4 @@
 - 레시피 리팩터링은 각 단계를 완료한 후 다음 단계로 넘어가며, 매 단계마다 현재 코드와 빌드 상태를 확인한다.
 - 코드 변경 안내 시 고정 줄 번호를 단정하지 말고, 반드시 최신 파일을 다시 읽은 뒤 메서드명과 현재 코드 블록을 기준으로 정확한 위치를 안내한다.
 - D:\Source\CDT-320_New 작업 시 해당 경로 밖의 CDT-320 소스를 참조하지 않고, rollback/reset/clean/revert/checkout 복구를 하지 않으며, 기존 안전 인터락·Picker 안전조건·Resource Lease·MotionGuard를 완화/우회하지 않는다.
+- PickerYPair 초기화의 제한적 실시간 충돌 감시 허용 범위는 하드리밋 탐색 시작부터 FrontPickerY 및 RearPickerY의 순차 HOME이 모두 완료될 때까지 유지한다.

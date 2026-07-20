@@ -1024,8 +1024,10 @@ namespace QMC.CDT320
 
                 var detectedPositions = new List<double>();
                 bool previous = BinMappingSensor.IsOn;
-                if (previous)
-                    return FailMappingScanList("OUT-CST-MAP-SENSOR-ON", "Mapping sensor is ON at mapping start. Check mapping start position.");
+
+                // 첫장은 무조건 감지가됨. 
+                //if (previous)
+                //    return FailMappingScanList("OUT-CST-MAP-SENSOR-ON", "Mapping sensor is ON at mapping start. Check mapping start position.");
 
                 double scanVelocity = ResolveBinLifterZConfigMoveVelocity();
                 double scanAcceleration = ResolveCassetteProfileAcceleration(scanVelocity);

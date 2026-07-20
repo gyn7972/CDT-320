@@ -21,6 +21,7 @@ namespace QMC.CDT320.Ajin
         private int _motionDirection;
         private bool _isHomeSearching;
         private int _motionStopSerial;
+        private int _hardwareLimitSearchDirection;
 
         // 소프트리밋은 보드 센서가 아니므로 알람 리셋 전까지 소프트웨어 latch 로 유지한다.
         private bool _softLimitAlarmLatched;
@@ -37,6 +38,15 @@ namespace QMC.CDT320.Ajin
 
         public int AxisNo { get; }
 
+        public bool IsInitializeHardwareLimitSearchActive(int direction)
+        {
+            int expectedDirection = direction < 0 ? -1 : 1;
+            if (Volatile.Read(ref _hardwareLimitSearchDirection) != expectedDirection)
+                return false;
+
+            return IsMoving || IsTargetHardwareLimitActive(expectedDirection);
+        }
+
         // 보드 raw enum 값 캐시. ReadSetupFromBoard 시 채워지고,
         // WriteSetupToBoard 시 모델 → AXL enum 매핑이 동일 카테고리이면 raw 를 그대로 재사용한다.
         // 모델 enum 종류수 < AXL enum 종류수 인 항목들의 정보 손실을 라운드트립에서 방지한다.
@@ -47,6 +57,176 @@ namespace QMC.CDT320.Ajin
         protected override bool UseInternalStatusUpdate
         {
             get { return false; }
+        }
+
+        public async Task<int> SearchHardwareLimitForInitializeAsync(
+            int direction,
+            double velocity,
+            int timeoutMs,
+            CancellationToken cancellationToken)
+        {
+            int searchDirection = direction < 0 ? -1 : 1;
+            bool completed = false;
+            try
+            {
+                if (timeoutMs <= 0)
+                    timeoutMs = 30000;
+
+                if (UseSimulation)
+                {
+                    if (!IsServoOn || IsAlarm)
+                        return FailAjinAxisNotReady("INITIALIZE LIMIT SEARCH", 0.0, false);
+
+                    await Task.Delay(100, cancellationToken).ConfigureAwait(false);
+                    if (searchDirection < 0)
+                        Sensor_MEL = true;
+                    else
+                        Sensor_PEL = true;
+                    Volatile.Write(ref _hardwareLimitSearchDirection, searchDirection);
+                    completed = true;
+                    return 0;
+                }
+
+                if (!AjinSystem.IsOpen)
+                    return FailMotion(-2, "INITIALIZE LIMIT SEARCH", "AXL is not open.", 0.0, false);
+
+                UpdateStatus();
+                if (!IsServoOn)
+                    return FailMotion(-2, "INITIALIZE LIMIT SEARCH", "Servo is OFF.", 0.0, false);
+                if (IsAlarm && !IsExpectedHardwareLimitAlarm(searchDirection))
+                    return FailAjinAxisNotReady("INITIALIZE LIMIT SEARCH", 0.0, false);
+
+                ClearExpectedHardwareLimitAlarm(searchDirection);
+                Volatile.Write(ref _hardwareLimitSearchDirection, searchDirection);
+
+                if (IsTargetHardwareLimitActive(searchDirection))
+                {
+                    completed = true;
+                    return 0;
+                }
+
+                if (IsOppositeHardwareLimitActive(searchDirection))
+                    return FailMotion(-12, "INITIALIZE LIMIT SEARCH", "Opposite hardware limit is active.", 0.0, false);
+
+                double safeVelocity = velocity > 0.0
+                    ? Math.Abs(velocity)
+                    : Math.Abs(Config != null ? Config.JogFineVelocity : 1.0);
+                double signedVelocity = searchDirection * Math.Max(0.000001, safeVelocity);
+                int motionStopSerial = Volatile.Read(ref _motionStopSerial);
+
+                CurrentVelocity = signedVelocity;
+                IsMoving = true;
+                IsInPosition = false;
+                _motionDirection = searchDirection;
+
+                int ret;
+                lock (_sync)
+                    ret = AXM.MoveVelocity(
+                        AxisNo,
+                        ToBoardVelocity(signedVelocity),
+                        ToBoardAcceleration(ResolveJogAcceleration()),
+                        ToBoardAcceleration(ResolveJogDeceleration()));
+                if (ret != 0)
+                {
+                    IsMoving = false;
+                    _motionDirection = 0;
+                    return FailMotion(ret, "INITIALIZE LIMIT SEARCH", "AXM.MoveVelocity failed. ret=0x" + ret.ToString("X4"), 0.0, false);
+                }
+
+                RaiseMoveStarted();
+                DateTime deadline = DateTime.UtcNow.AddMilliseconds(timeoutMs);
+                while (DateTime.UtcNow < deadline)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    UpdateStatus();
+
+                    if (!IsServoOn)
+                        return FailMotion(-2, "INITIALIZE LIMIT SEARCH", "Servo turned OFF during limit search.", 0.0, false);
+                    if (IsOppositeHardwareLimitActive(searchDirection))
+                        return FailMotion(-12, "INITIALIZE LIMIT SEARCH", "Opposite hardware limit was detected.", 0.0, false);
+                    if (IsAlarm)
+                        return FailMotion((int)AlarmCode, "INITIALIZE LIMIT SEARCH", "Axis fault occurred during limit search.", 0.0, false);
+                    if (Volatile.Read(ref _motionStopSerial) != motionStopSerial && !IsMoving)
+                        return FailMotion(-4, "INITIALIZE LIMIT SEARCH", "Axis stop was requested during limit search.", 0.0, false);
+
+                    if (IsTargetHardwareLimitActive(searchDirection))
+                    {
+                        Stop();
+                        int stopWait = 0;
+                        do
+                        {
+                            await Task.Delay(20, cancellationToken).ConfigureAwait(false);
+                            UpdateStatus();
+                        }
+                        while (IsMoving && ++stopWait < 100);
+
+                        if (IsMoving)
+                            return FailMotion(-13, "INITIALIZE LIMIT SEARCH", "Axis did not stop after target limit detection.", 0.0, false);
+
+                        completed = true;
+                        ClearExpectedHardwareLimitAlarm(searchDirection);
+                        return 0;
+                    }
+
+                    await Task.Delay(10, cancellationToken).ConfigureAwait(false);
+                }
+
+                return FailMotion(-3, "INITIALIZE LIMIT SEARCH", "Hardware limit search timeout.", 0.0, false);
+            }
+            catch (OperationCanceledException)
+            {
+                return FailMotion(-4, "INITIALIZE LIMIT SEARCH", "Hardware limit search was canceled.", 0.0, false);
+            }
+            catch (Exception ex)
+            {
+                return FailMotion(-1, "INITIALIZE LIMIT SEARCH", ex.Message, 0.0, false);
+            }
+            finally
+            {
+                if (!completed)
+                    StopInitializeHardwareLimitSearch();
+            }
+        }
+
+        public void StopInitializeHardwareLimitSearch()
+        {
+            try
+            {
+                Stop();
+            }
+            finally
+            {
+                ReleaseInitializeHardwareLimitSearch();
+            }
+        }
+
+        public void ReleaseInitializeHardwareLimitSearch()
+        {
+            Volatile.Write(ref _hardwareLimitSearchDirection, 0);
+        }
+
+        private bool IsTargetHardwareLimitActive(int direction)
+        {
+            return direction < 0 ? Sensor_MEL : Sensor_PEL;
+        }
+
+        private bool IsOppositeHardwareLimitActive(int direction)
+        {
+            return direction < 0 ? Sensor_PEL : Sensor_MEL;
+        }
+
+        private bool IsExpectedHardwareLimitAlarm(int direction)
+        {
+            return IsAlarm && AlarmCode == (direction < 0 ? 21u : 20u);
+        }
+
+        private void ClearExpectedHardwareLimitAlarm(int direction)
+        {
+            if (!IsExpectedHardwareLimitAlarm(direction))
+                return;
+
+            IsAlarm = false;
+            AlarmCode = 0;
         }
 
         private bool UseSimulation
@@ -1161,8 +1341,11 @@ namespace QMC.CDT320.Ajin
             bool rawSoftLimitNegative = !limitAlarmSuppressed && Setup != null && Setup.SoftLimitEnabled &&
                 ((ActualPosition <= Setup.SoftLimitMinus + softLimitTolerance && statusMotionDirection < 0) ||
                  ActualPosition < Setup.SoftLimitMinus - softLimitTolerance);
-            bool rawHardLimitPositive = !limitAlarmSuppressed && pel;
-            bool rawHardLimitNegative = !limitAlarmSuppressed && mel;
+            int hardwareLimitSearchDirection = Volatile.Read(ref _hardwareLimitSearchDirection);
+            bool expectedInitializeLimitPositive = hardwareLimitSearchDirection > 0 && pel;
+            bool expectedInitializeLimitNegative = hardwareLimitSearchDirection < 0 && mel;
+            bool rawHardLimitPositive = !limitAlarmSuppressed && pel && !expectedInitializeLimitPositive;
+            bool rawHardLimitNegative = !limitAlarmSuppressed && mel && !expectedInitializeLimitNegative;
             bool suppressLimitAlarmForRecovery = ShouldSuppressLimitAlarmForRecovery(
                 rawSoftLimitPositive,
                 rawSoftLimitNegative,
@@ -1223,7 +1406,11 @@ namespace QMC.CDT320.Ajin
             Sensor_PEL = pel;
             Sensor_MEL = mel;
             Sensor_ORG = org;
-            if (!limitAlarmSuppressed && !IsAlarm && ((Sensor_PEL && !wasPel) || (Sensor_MEL && !wasMel)))
+            bool expectedInitializeLimitEdge =
+                (expectedInitializeLimitPositive && Sensor_PEL && !wasPel) ||
+                (expectedInitializeLimitNegative && Sensor_MEL && !wasMel);
+            if (!limitAlarmSuppressed && !expectedInitializeLimitEdge && !IsAlarm &&
+                ((Sensor_PEL && !wasPel) || (Sensor_MEL && !wasMel)))
             {
                 string side = Sensor_PEL ? "PEL(+)" : "MEL(-)";
                 AlarmManager.Raise(

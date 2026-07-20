@@ -294,7 +294,32 @@ namespace QMC.CDT320.Interlocks
                         "Picker Y HOME 페어 축 정보를 확인할 수 없습니다.",
                         out reason);
 
-                if (frontY.IsMoving || rearY.IsMoving)
+                bool pairHomeActive = MotionGuardRuntime.IsPickerYPairHomeActive(frontY, rearY);
+                bool pairHomeAuthorized = MotionGuardRuntime.IsPickerYPairHomeAuthorized(frontY, rearY);
+                if (pairHomeActive)
+                {
+                    if (!IsExactPickerYPair(machine, frontY, rearY))
+                        return MotionGuardRuleHelpers.Block(
+                            movingName,
+                            "PickerY PairHome 대상 축이 장비의 FrontPickerY/RearPickerY와 일치하지 않습니다.",
+                            out reason);
+
+                    if (!pairHomeAuthorized && (!frontY.Sensor_MEL || !rearY.Sensor_PEL))
+                        return MotionGuardRuleHelpers.Block(
+                            movingName,
+                            "PickerY PairHome 불가: Front MEL과 Rear PEL이 모두 감지되어야 합니다. frontMEL=" +
+                            frontY.Sensor_MEL + ", rearPEL=" + rearY.Sensor_PEL,
+                            out reason);
+
+                    if (!frontY.IsServoOn || !rearY.IsServoOn)
+                        return MotionGuardRuleHelpers.Block(
+                            movingName,
+                            "PickerY PairHome 불가: Front/Rear PickerY Servo가 모두 ON이어야 합니다. frontServo=" +
+                            frontY.IsServoOn + ", rearServo=" + rearY.IsServoOn,
+                            out reason);
+                }
+
+                if ((!pairHomeActive || !pairHomeAuthorized) && (frontY.IsMoving || rearY.IsMoving))
                     return MotionGuardRuleHelpers.Block(
                         movingName,
                         "Picker Y HOME 불가: Front/Rear PickerY 중 이동 중인 축이 있습니다. frontMoving=" +
@@ -315,6 +340,9 @@ namespace QMC.CDT320.Interlocks
                         "Picker Y HOME 불가: Front/Rear PickerX가 이동 중입니다. frontXMoving=" +
                         frontX.IsMoving + ", rearXMoving=" + rearX.IsMoving,
                         out reason);
+
+                if (pairHomeActive)
+                    return true;
 
                 bool frontNearHomeOrAvoid = IsPickerYAtAvoid(machine, true);
                 bool rearNearHomeOrAvoid = IsPickerYAtAvoid(machine, false);
@@ -370,6 +398,18 @@ namespace QMC.CDT320.Interlocks
             finally
             {
             }
+        }
+
+        private static bool IsExactPickerYPair(
+            CDT320_Machine machine,
+            BaseAxis frontY,
+            BaseAxis rearY)
+        {
+            return machine != null &&
+                   ReferenceEquals(frontY, GetPickerY(machine, true)) &&
+                   ReferenceEquals(rearY, GetPickerY(machine, false)) &&
+                   string.Equals(frontY.Name, "FrontPickerY", StringComparison.OrdinalIgnoreCase) &&
+                   string.Equals(rearY.Name, "RearPickerY", StringComparison.OrdinalIgnoreCase);
         }
 
         // Feeder/Lift/Stage Z는 Front/Rear Picker X가 움직이는 동안 위치를 바꿀 수 없다.

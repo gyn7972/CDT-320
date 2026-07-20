@@ -4746,9 +4746,12 @@ namespace QMC.CDT320
                 int result = 0;
                 if (axes.Count > 0)
                 {
-                    result = AxisInitializeRunMode.IsParallel(step.RunMode)
-                        ? await ExecuteInitializeStepParallelAsync(step, axes).ConfigureAwait(false)
-                        : await ExecuteInitializeStepSerialAsync(step, axes).ConfigureAwait(false);
+                    if (IsPickerYPairInitializeStep(step))
+                        result = await ExecutePickerYPairInitializeAsync(step, axes).ConfigureAwait(false);
+                    else
+                        result = AxisInitializeRunMode.IsParallel(step.RunMode)
+                            ? await ExecuteInitializeStepParallelAsync(step, axes).ConfigureAwait(false)
+                            : await ExecuteInitializeStepSerialAsync(step, axes).ConfigureAwait(false);
                 }
 
                 if (result != 0)
@@ -6043,7 +6046,10 @@ namespace QMC.CDT320
             return await MoveOutputVisionXToAvoidAsync().ConfigureAwait(false);
         }
 
-        private async Task<int> MoveAxisTeachingAsync(BaseAxis axis, double targetPosition, string targetName)
+        private async Task<int> MoveAxisTeachingAsync(BaseAxis axis,
+                                                    double targetPosition,
+                                                    string targetName,
+                                                    double explicitVelocity = 0.0)
         {
             try
             {
@@ -6053,19 +6059,26 @@ namespace QMC.CDT320
                 if (!axis.IsHomeDone)
                     return -1;
 
+                double moveVelocity = explicitVelocity > 0.0
+                                        ? explicitVelocity
+                                        : ResolveAxisDefaultVelocity(axis);
+
                 using (MotionGuardRuntime.BeginAxisTeachingMove(axis, targetPosition, targetName))
                 {
                     int result = await SharedRailXMotionRuntime.MoveAxisAsync(
                         axis,
                         targetPosition,
-                        ResolveAxisDefaultVelocity(axis)).ConfigureAwait(false);
+                        moveVelocity).ConfigureAwait(false);
+                    //ResolveAxisDefaultVelocity(axis)).ConfigureAwait(false);
                     if (result != 0 || axis.IsAlarm)
                     {
                         string message = BuildAxisMotionFailureMessage(axis, "Avoid 이동 실패", result);
                         return FailInitializePreparation(message);
                     }
 
-                    AxisMoveWaitResult waitResult = await WaitAxisMoveDoneInPositionAsync(axis, targetPosition).ConfigureAwait(false);
+                    AxisMoveWaitResult waitResult =
+                        await WaitAxisMoveDoneInPositionAsync(axis, targetPosition).ConfigureAwait(false);
+
                     if (!waitResult.Success)
                     {
                         string message = targetName + " move wait/in-position failed. " +
@@ -6421,7 +6434,7 @@ namespace QMC.CDT320
 
                 if (string.Equals(targetType, AxisInitializeInterlockTarget.Axis, StringComparison.OrdinalIgnoreCase) &&
                     string.Equals(command, AxisInitializeActionCommand.AxisTeachingMove, StringComparison.OrdinalIgnoreCase))
-                    return await ExecuteInitializeAxisTeachingActionAsync(action).ConfigureAwait(false);
+                    return await ExecuteInitializeAxisTeachingActionAsync(step, action).ConfigureAwait(false);
 
                 if (string.Equals(command, AxisInitializeActionCommand.CustomHook, StringComparison.OrdinalIgnoreCase))
                     return await ExecuteCustomInitializeActionAsync(step, action, phase).ConfigureAwait(false);
@@ -6440,7 +6453,9 @@ namespace QMC.CDT320
             }
         }
 
-        private async Task<int> ExecuteInitializeAxisTeachingActionAsync(AxisInitializeAction action)
+        private async Task<int> ExecuteInitializeAxisTeachingActionAsync(
+                            AxisInitializeStep step,
+                            AxisInitializeAction action)
         {
             try
             {
@@ -6466,7 +6481,46 @@ namespace QMC.CDT320
                     ", target=" + targetPosition.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture) +
                     " - Start");
 
-                int result = await MoveAxisTeachingAsync(axis, targetPosition, targetName).ConfigureAwait(false);
+                double explicitVelocity = 0.0;
+
+                bool useJogCoarseVelocity =
+                    step != null &&
+                    step.StepNo == 300 &&
+                    string.Equals(
+                        step.GroupName,
+                        "OutputNGStageYAvoid",
+                        StringComparison.OrdinalIgnoreCase) &&
+                    string.Equals(
+                        action.Name,
+                        "OutputNGStageY",
+                        StringComparison.OrdinalIgnoreCase) &&
+                    string.Equals(
+                        action.PositionName,
+                        "AvoidPosition",
+                        StringComparison.OrdinalIgnoreCase);
+
+                if (useJogCoarseVelocity)
+                {
+                    if (axis.Config == null || axis.Config.JogCoarseVelocity <= 0.0)
+                    {
+                        return FailInitializePreparation(
+                            "OutputNGStageY 초기화 Avoid 이동의 JogCoarseVelocity가 올바르지 않습니다. velocity=" +
+                            (axis.Config != null
+                                ? axis.Config.JogCoarseVelocity.ToString(
+                                    "0.###",
+                                    System.Globalization.CultureInfo.InvariantCulture)
+                                : "ConfigNull"));
+                    }
+
+                    explicitVelocity = axis.Config.JogCoarseVelocity;
+                }
+
+                int result = await MoveAxisTeachingAsync(
+                                axis,
+                                targetPosition,
+                                targetName,
+                                explicitVelocity).ConfigureAwait(false);
+
                 if (result != 0)
                     return result;
 
@@ -6914,6 +6968,224 @@ namespace QMC.CDT320
             }
             finally
             {
+            }
+        }
+
+        private static bool IsPickerYPairInitializeStep(AxisInitializeStep step)
+        {
+            return step != null &&
+                   string.Equals(step.GroupName, "PickerYPair", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private async Task<int> ExecutePickerYPairInitializeAsync(
+            AxisInitializeStep step,
+            IList<BaseAxis> axes)
+        {
+            AjinAxis frontY = null;
+            AjinAxis rearY = null;
+            CancellationTokenSource limitSearchCancellation = null;
+            IDisposable pairInitializeScope = null;
+            try
+            {
+                if (axes == null || axes.Count != 2)
+                    return FailInitializePreparation(
+                        "PickerYPair 초기화에는 FrontPickerY와 RearPickerY 두 축만 필요합니다.");
+
+                frontY = axes.OfType<AjinAxis>().FirstOrDefault(axis =>
+                    string.Equals(axis.Name, "FrontPickerY", StringComparison.OrdinalIgnoreCase));
+                rearY = axes.OfType<AjinAxis>().FirstOrDefault(axis =>
+                    string.Equals(axis.Name, "RearPickerY", StringComparison.OrdinalIgnoreCase));
+                if (frontY == null || rearY == null ||
+                    _machine == null || _machine.PickerFrontUnit == null || _machine.PickerRearUnit == null ||
+                    !ReferenceEquals(frontY, _machine.PickerFrontUnit.PickerY) ||
+                    !ReferenceEquals(rearY, _machine.PickerRearUnit.PickerY))
+                {
+                    return FailInitializePreparation(
+                        "PickerYPair 초기화 대상이 장비의 FrontPickerY/RearPickerY Ajin 축과 일치하지 않습니다.");
+                }
+
+                var interferenceAxes = _axisInterferenceMap.ResolveInterferenceAxes(frontY.Name)
+                    .Concat(_axisInterferenceMap.ResolveInterferenceAxes(rearY.Name))
+                    .Where(axis => axis != null && !ReferenceEquals(axis, frontY) && !ReferenceEquals(axis, rearY))
+                    .Distinct()
+                    .ToList();
+                int stopResult = await StopAxesAndWaitUntilStoppedAsync(
+                    interferenceAxes,
+                    false,
+                    "PickerYPair 리밋 탐색 전 간섭축 정지").ConfigureAwait(false);
+                if (stopResult != 0)
+                    return stopResult;
+
+                frontY.Stop();
+                rearY.Stop();
+                frontY.ServoOff();
+                rearY.ServoOff();
+                await Task.Delay(500).ConfigureAwait(false);
+                frontY.ResetAlarm();
+                rearY.ResetAlarm();
+                await Task.Delay(500).ConfigureAwait(false);
+                frontY.ServoOn();
+                rearY.ServoOn();
+                await Task.Delay(500).ConfigureAwait(false);
+                frontY.UpdateStatus();
+                rearY.UpdateStatus();
+                bool frontAlarmReady = !frontY.IsAlarm ||
+                    (frontY.Sensor_MEL && frontY.AlarmCode == 21u);
+                bool rearAlarmReady = !rearY.IsAlarm ||
+                    (rearY.Sensor_PEL && rearY.AlarmCode == 20u);
+                if (!frontY.IsServoOn || !rearY.IsServoOn || !frontAlarmReady || !rearAlarmReady)
+                {
+                    return FailInitializePreparation(
+                        "PickerYPair Servo/Alarm 준비 실패. frontServo=" + frontY.IsServoOn +
+                        ", rearServo=" + rearY.IsServoOn +
+                        ", frontAlarm=" + frontY.IsAlarm +
+                        ", frontAlarmCode=" + frontY.AlarmCode +
+                        ", frontMEL=" + frontY.Sensor_MEL +
+                        ", rearAlarm=" + rearY.IsAlarm +
+                        ", rearAlarmCode=" + rearY.AlarmCode +
+                        ", rearPEL=" + rearY.Sensor_PEL);
+                }
+
+                double frontVelocity = Math.Max(0.000001, frontY.Config.JogFineVelocity);
+                double rearVelocity = Math.Max(0.000001, rearY.Config.JogFineVelocity);
+                limitSearchCancellation = new CancellationTokenSource();
+                int[] searchResults;
+                pairInitializeScope = MotionGuardRuntime.BeginPickerYPairLimitSearch(frontY, rearY);
+                Task<int> frontSearch = frontY.SearchHardwareLimitForInitializeAsync(
+                    -1,
+                    frontVelocity,
+                    30000,
+                    limitSearchCancellation.Token);
+                Task<int> rearSearch = rearY.SearchHardwareLimitForInitializeAsync(
+                    1,
+                    rearVelocity,
+                    30000,
+                    limitSearchCancellation.Token);
+
+                Task<int> firstSearch = await Task.WhenAny(frontSearch, rearSearch).ConfigureAwait(false);
+                int firstSearchResult = await firstSearch.ConfigureAwait(false);
+                if (firstSearchResult != 0)
+                {
+                    limitSearchCancellation.Cancel();
+                    StopPickerYPairInitialize(frontY, rearY);
+                }
+
+                searchResults = await Task.WhenAll(frontSearch, rearSearch).ConfigureAwait(false);
+
+                if (searchResults.Any(result => result != 0))
+                {
+                    StopPickerYPairInitialize(frontY, rearY);
+                    return FailInitializePreparation(
+                        "PickerYPair 하드리밋 탐색 실패. frontResult=" + searchResults[0] +
+                        ", rearResult=" + searchResults[1]);
+                }
+
+                frontY.UpdateStatus();
+                rearY.UpdateStatus();
+                if (!frontY.Sensor_MEL || !rearY.Sensor_PEL || frontY.IsMoving || rearY.IsMoving)
+                {
+                    StopPickerYPairInitialize(frontY, rearY);
+                    return FailInitializePreparation(
+                        "PickerYPair 하드리밋/정지 재검증 실패. frontMEL=" + frontY.Sensor_MEL +
+                        ", rearPEL=" + rearY.Sensor_PEL +
+                        ", frontMoving=" + frontY.IsMoving +
+                        ", rearMoving=" + rearY.IsMoving);
+                }
+
+                if (!MotionGuardRuntime.BeginPickerYPairInitializeHome(frontY, rearY))
+                {
+                    StopPickerYPairInitialize(frontY, rearY);
+                    return FailInitializePreparation(
+                        "PickerYPair 실시간 충돌 감시 HOME 범위 전환에 실패했습니다.");
+                }
+
+                using (MotionGuardRuntime.BeginPickerYPairHome(frontY, rearY))
+                {
+                    string pairHomeReason;
+                    if (!MotionGuardRuntime.AuthorizePickerYPairHome(frontY, rearY, out pairHomeReason))
+                    {
+                        StopPickerYPairInitialize(frontY, rearY);
+                        return FailInitializePreparation(
+                            "PickerYPair HOME MotionGuard 사전 검증 실패. " + pairHomeReason);
+                    }
+
+                    int frontHomeResult = await frontY.HomeSearchAsync().ConfigureAwait(false);
+                    frontY.UpdateStatus();
+                    if (frontHomeResult != 0 || !frontY.IsHomeDone || frontY.IsAlarm)
+                    {
+                        frontY.Stop();
+                        rearY.Stop();
+                        return FailInitializePreparation(
+                            "PickerYPair FrontPickerY HOME 실패. result=" + frontHomeResult +
+                            ", home=" + frontY.IsHomeDone +
+                            ", alarm=" + frontY.IsAlarm);
+                    }
+
+                    int rearHomeResult = await rearY.HomeSearchAsync().ConfigureAwait(false);
+                    rearY.UpdateStatus();
+                    if (rearHomeResult != 0 || !rearY.IsHomeDone || rearY.IsAlarm)
+                    {
+                        frontY.Stop();
+                        rearY.Stop();
+                        return FailInitializePreparation(
+                            "PickerYPair RearPickerY HOME 실패. result=" + rearHomeResult +
+                            ", home=" + rearY.IsHomeDone +
+                            ", alarm=" + rearY.IsAlarm);
+                    }
+                }
+
+                frontY.UpdateStatus();
+                rearY.UpdateStatus();
+                if (!frontY.IsHomeDone || !rearY.IsHomeDone || frontY.IsAlarm || rearY.IsAlarm)
+                {
+                    StopPickerYPairInitialize(frontY, rearY);
+                    return FailInitializePreparation(
+                        "PickerYPair HOME 완료 검증 실패. frontHome=" + frontY.IsHomeDone +
+                        ", rearHome=" + rearY.IsHomeDone +
+                        ", frontAlarm=" + frontY.IsAlarm +
+                        ", rearAlarm=" + rearY.IsAlarm);
+                }
+
+                MarkAxisHomedInCurrentInitialize(frontY);
+                MarkAxisHomedInCurrentInitialize(rearY);
+                QMC.Common.Log.Write("Main", "SYSTEM", "PickerYPairInitialize",
+                    "Front MEL/Rear PEL simultaneous search and Front-to-Rear sequential HOME completed. step=" +
+                    (step != null ? step.StepNo : 0) + " - Ok");
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                StopPickerYPairInitialize(frontY, rearY);
+                LastActionFailureMessage = "PickerYPair 초기화 예외: " + ex.Message;
+                AlarmManager.Raise(
+                    AlarmSeverity.Error,
+                    "INIT-PICKER-Y-PAIR",
+                    "MachineController",
+                    LastActionFailureMessage);
+                return -1;
+            }
+            finally
+            {
+                if (pairInitializeScope != null)
+                    pairInitializeScope.Dispose();
+                if (limitSearchCancellation != null)
+                    limitSearchCancellation.Dispose();
+                if (frontY != null)
+                    frontY.ReleaseInitializeHardwareLimitSearch();
+                if (rearY != null)
+                    rearY.ReleaseInitializeHardwareLimitSearch();
+            }
+        }
+
+        private static void StopPickerYPairInitialize(AjinAxis frontY, AjinAxis rearY)
+        {
+            if (frontY != null)
+            {
+                try { frontY.StopInitializeHardwareLimitSearch(); } catch { }
+            }
+            if (rearY != null)
+            {
+                try { rearY.StopInitializeHardwareLimitSearch(); } catch { }
             }
         }
 
@@ -10973,7 +11245,7 @@ namespace QMC.CDT320
             return MotionSpeedScale.ApplyDefaultVelocityScale(
                 axis != null && axis.Config != null && axis.Config.DefaultVelocity > 0.0
                     ? axis.Config.DefaultVelocity
-                    : 100.0);
+                    : 5.0);
         }
 
         private static int ResolveAxisMoveTimeout(BaseAxis axis)
