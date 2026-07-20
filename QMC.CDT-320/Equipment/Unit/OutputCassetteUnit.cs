@@ -94,8 +94,8 @@ namespace QMC.CDT320
         [DataMember] public double MappingEndPosition { get; set; }
 
         // To do: [존 분리 스캔] Input 카세트와 동일 체계. NG(맨 아래)/Good1/Good2(맨 위) 존마다
-        //        MappingStart(그 존 맨 아래 슬롯 앵커, 엔코더 최소쪽) ~ MappingEnd(그 존 맨 위 슬롯 지나 센서 OFF, 엔코더 큰쪽)를
-        //        따로 티칭한다. OutputLifterZ 엔코더는 위로 갈수록 증가(Input과 반대).
+        //        MappingStart(그 존 맨 아래 슬롯 앵커, 엔코더 큰쪽) ~ MappingEnd(그 존 맨 위 슬롯 지나 센서 OFF, 엔코더 작은쪽)를
+        //        따로 티칭한다. OutputLifterZ 엔코더는 Input과 동일하게 위로 갈수록 감소(실측 티칭값으로 확인됨).
         //        FirstSlot(스타트 포지션) = 그 존 맨 위(01번) 슬롯의 배치(로딩) 절대 위치.
         //        (Good1First=기존 GoodFirstSlotPosition, NgFirst=기존 NGFirstSlotPosition 재사용, Good2First 신규)
         [DataMember] public double NgMappingStartPosition { get; set; }
@@ -551,12 +551,14 @@ namespace QMC.CDT320
         }
 
         // To do: [존 분리 스캔] 존 명목 위치. 슬롯 번호는 Input과 동일하게 local 0 = 존 맨 위(01번).
-        //        엔코더가 위로 증가하므로 pos(local) = ZoneStart(맨 아래 슬롯) + pitch × (N-1-local).
+        // 기존 가정: 엔코더 위로 증가(+pitch) - 실제 티칭값(NG 아래=592 > Good1 위=248)으로 반증됨.
+        // 현재 기준: OutputLifterZ도 Input과 동일하게 위로 갈수록 엔코더 감소.
+        //           pos(local) = ZoneStart(맨 아래 슬롯) - pitch × (N-1-local). 맨 위(local 0) = Start - 12p.
         public double CalculateZoneSlotNominalPosition(TargetCassette cassette, int slotIndex)
         {
             ValidateSlotIndex(slotIndex);
             int lastIndex = Math.Max(0, Config.SlotCount - 1);
-            return ResolveZoneMappingStartPosition(cassette) + (Config.SlotPitch * (lastIndex - slotIndex));
+            return ResolveZoneMappingStartPosition(cassette) - (Config.SlotPitch * (lastIndex - slotIndex));
         }
 
         // To do: [존 분리 스캔] 존별 배치(로딩) 오프셋 = 존 FirstSlot(맨 위 01번 배치 위치 티칭) - 그 슬롯 검출 위치(실측 우선).
@@ -597,6 +599,57 @@ namespace QMC.CDT320
             return ValidateBinLifterZTeachingComplete(out reason);
         }
 
+        // To do: [존 분리 스캔] 대상 존(GOOD/NG)만 티칭 검증 - GOOD 동작 시 NG 미티칭으로 막히지 않도록 분리.
+        public bool ValidateBinLifterZZoneTeachingComplete(bool ngTarget, out string reason)
+        {
+            reason = string.Empty;
+
+            if (Config == null || Recipe == null)
+            {
+                reason = "Output cassette config/recipe is null.";
+                return false;
+            }
+
+            if (Config.SlotCount <= 0 || Config.SlotPitch <= 0.0)
+            {
+                reason = "SlotCount/SlotPitch is invalid. SlotCount=" + Config.SlotCount + ", SlotPitch=" + Config.SlotPitch;
+                return false;
+            }
+
+            // 현재 기준: 엔코더 위로 갈수록 감소 → End(맨 위 지나)는 Start(맨 아래)보다 작아야 한다.
+            if (ngTarget)
+            {
+                if (Recipe.NgMappingStartPosition <= 0.0 || Recipe.NgMappingEndPosition <= 0.0 ||
+                    Recipe.NgMappingEndPosition >= Recipe.NgMappingStartPosition)
+                {
+                    reason = "NG zone mapping start/end teaching is invalid. start=" + Recipe.NgMappingStartPosition +
+                             ", end=" + Recipe.NgMappingEndPosition + " (end must be above start = smaller encoder).";
+                    return false;
+                }
+
+                return true;
+            }
+
+            if (Recipe.Good1MappingStartPosition <= 0.0 || Recipe.Good1MappingEndPosition <= 0.0 ||
+                Recipe.Good1MappingEndPosition >= Recipe.Good1MappingStartPosition)
+            {
+                reason = "Good1 zone mapping start/end teaching is invalid. start=" + Recipe.Good1MappingStartPosition +
+                         ", end=" + Recipe.Good1MappingEndPosition + " (end must be above start = smaller encoder).";
+                return false;
+            }
+
+            if (Config.SelectedCassetteLevel >= 2 &&
+                (Recipe.Good2MappingStartPosition <= 0.0 || Recipe.Good2MappingEndPosition <= 0.0 ||
+                 Recipe.Good2MappingEndPosition >= Recipe.Good2MappingStartPosition))
+            {
+                reason = "Good2 zone mapping start/end teaching is invalid. start=" + Recipe.Good2MappingStartPosition +
+                         ", end=" + Recipe.Good2MappingEndPosition + " (end must be above start = smaller encoder).";
+                return false;
+            }
+
+            return true;
+        }
+
         public bool ValidateBinLifterZTeachingComplete(out string reason)
         {
             reason = string.Empty;
@@ -628,6 +681,7 @@ namespace QMC.CDT320
             // 기존 검증: 전체 스택 단일 스캔 + FirstSlot 파생 격자 기준(레거시). 존 분리 스캔으로 대체.
             // To do: [존 분리 스캔] 존별 Start/End 티칭 유효성 검증. 엔코더 위로 증가 → End > Start.
             //        스택 순서(아래→위): NG → Good1 → Good2(2단 구성 시).
+            //        (전체 검증 - GOOD/NG 대상별 검증은 ValidateBinLifterZZoneTeachingComplete 사용)
             if (Recipe.NgMappingStartPosition <= 0.0 || Recipe.NgMappingEndPosition <= 0.0)
             {
                 reason = "NG zone mapping start/end is not taught. start=" + Recipe.NgMappingStartPosition +
@@ -635,9 +689,9 @@ namespace QMC.CDT320
                 return false;
             }
 
-            if (Recipe.NgMappingEndPosition <= Recipe.NgMappingStartPosition)
+            if (Recipe.NgMappingEndPosition >= Recipe.NgMappingStartPosition)
             {
-                reason = "NG zone MappingEnd must be above(greater than) MappingStart. start=" +
+                reason = "NG zone MappingEnd must be above(smaller than) MappingStart. start=" +
                          Recipe.NgMappingStartPosition + ", end=" + Recipe.NgMappingEndPosition;
                 return false;
             }
@@ -649,16 +703,17 @@ namespace QMC.CDT320
                 return false;
             }
 
-            if (Recipe.Good1MappingEndPosition <= Recipe.Good1MappingStartPosition)
+            if (Recipe.Good1MappingEndPosition >= Recipe.Good1MappingStartPosition)
             {
-                reason = "Good1 zone MappingEnd must be above(greater than) MappingStart. start=" +
+                reason = "Good1 zone MappingEnd must be above(smaller than) MappingStart. start=" +
                          Recipe.Good1MappingStartPosition + ", end=" + Recipe.Good1MappingEndPosition;
                 return false;
             }
 
-            if (Recipe.NgMappingEndPosition >= Recipe.Good1MappingStartPosition)
+            // 현재 기준: 엔코더 아래=큰 값 → NG(맨 아래) 존 값이 Good1보다 커야 한다.
+            if (Recipe.NgMappingEndPosition <= Recipe.Good1MappingStartPosition)
             {
-                reason = "NG zone must be below Good1 zone. NgEnd=" + Recipe.NgMappingEndPosition +
+                reason = "NG zone must be below Good1 zone (larger encoder). NgEnd=" + Recipe.NgMappingEndPosition +
                          ", Good1Start=" + Recipe.Good1MappingStartPosition;
                 return false;
             }
@@ -672,16 +727,16 @@ namespace QMC.CDT320
                     return false;
                 }
 
-                if (Recipe.Good2MappingEndPosition <= Recipe.Good2MappingStartPosition)
+                if (Recipe.Good2MappingEndPosition >= Recipe.Good2MappingStartPosition)
                 {
-                    reason = "Good2 zone MappingEnd must be above(greater than) MappingStart. start=" +
+                    reason = "Good2 zone MappingEnd must be above(smaller than) MappingStart. start=" +
                              Recipe.Good2MappingStartPosition + ", end=" + Recipe.Good2MappingEndPosition;
                     return false;
                 }
 
-                if (Recipe.Good1MappingEndPosition >= Recipe.Good2MappingStartPosition)
+                if (Recipe.Good1MappingEndPosition <= Recipe.Good2MappingStartPosition)
                 {
-                    reason = "Good1 zone must be below Good2 zone. Good1End=" + Recipe.Good1MappingEndPosition +
+                    reason = "Good1 zone must be below Good2 zone (larger encoder). Good1End=" + Recipe.Good1MappingEndPosition +
                              ", Good2Start=" + Recipe.Good2MappingStartPosition;
                     return false;
                 }
@@ -1127,28 +1182,29 @@ namespace QMC.CDT320
 
                     double zoneStart = ResolveZoneMappingStartPosition(zone);
                     double zoneEnd = ResolveZoneMappingEndPosition(zone);
-                    if (zoneStart <= 0.0 || zoneEnd <= 0.0 || zoneEnd <= zoneStart)
+                    // 현재 기준: 엔코더 위로 갈수록 감소(Input과 동일) → End(위) < Start(아래).
+                    if (zoneStart <= 0.0 || zoneEnd <= 0.0 || zoneEnd >= zoneStart)
                         return FailMappingScanBool("OUT-CST-MAP-ZONE-TEACH",
                             "Zone mapping start/end teaching is invalid. zone=" + zone +
                             ", start=" + FormatPosition(zoneStart) + ", end=" + FormatPosition(zoneEnd) +
-                            " (end must be above start; encoder increases upward).");
+                            " (end must be above start = smaller encoder).");
 
                     var centers = new double[slotCount];
                     for (int i = 0; i < slotCount; i++)
                         centers[i] = CalculateZoneSlotNominalPosition(zone, i);
 
-                    // 커버리지: ZoneEnd가 그 존 맨 위 슬롯(local 0) 윈도우를 지나야 맨 위 웨이퍼가 검출된다.
+                    // 커버리지: ZoneEnd가 그 존 맨 위 슬롯(local 0) 윈도우를 지나야(더 작아야) 맨 위 웨이퍼가 검출된다.
                     double topSlot = centers[0];
-                    if (zoneEnd < topSlot + (pitch * 0.5))
+                    if (zoneEnd > topSlot - (pitch * 0.5))
                         Log.Write("Main", "SYSTEM", "OutputCassetteUnit",
                             "Bin mapping scan end does not cover the top slot. zone=" + zone +
                             ", scanEnd=" + FormatPosition(zoneEnd) +
                             ", topSlot(local01)=" + FormatPosition(topSlot) +
-                            ", requiredEnd>=" + FormatPosition(topSlot + pitch * 0.5) +
+                            ", requiredEnd<=" + FormatPosition(topSlot - pitch * 0.5) +
                             ". 해당 존 MappingEnd 티칭을 맨 위 슬롯보다 위로 다시 잡아야 합니다. - Check");
 
-                    // 세그먼트 시작 = 존 앵커(맨 아래 슬롯) 반 피치 아래(윈도우 밖) → 시작 센서 ON도 윈도우 통과로 자연 점유.
-                    double segmentStart = zoneStart - (pitch * 0.5);
+                    // 세그먼트 시작 = 존 앵커(맨 아래 슬롯) 반 피치 아래(엔코더 +, 윈도우 밖) → 시작 센서 ON도 윈도우 통과로 자연 점유.
+                    double segmentStart = zoneStart + (pitch * 0.5);
                     int approach = await MoveBinLifterWatchedForMappingAsync(segmentStart, scanVelocity, "zone " + zone + " scan start", ct).ConfigureAwait(false);
                     if (approach != 0)
                         return false;
@@ -2000,7 +2056,10 @@ namespace QMC.CDT320
             }
 
             string teachingReason;
-            if (!ValidateBinLifterZTeachingComplete(out teachingReason))
+            // 기존 조건: 전체 존 티칭 검증 - GOOD 맵핑이 NG 미티칭/존 순서로 막히는 문제가 있었다.
+            //if (!ValidateBinLifterZTeachingComplete(out teachingReason))
+            // 현재 기준: [존 분리 스캔] 대상 존만 티칭 검증한다.
+            if (!ValidateBinLifterZZoneTeachingComplete(cassette == TargetCassette.Ng, out teachingReason))
             {
                 reason = "Output cassette lifter teaching is not complete. " + teachingReason;
                 return false;
