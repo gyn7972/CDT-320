@@ -41,6 +41,11 @@ namespace QMC.CDT320
         [DataMember] public double ScanAcc { get; set; }
         [DataMember] public double ScanDec { get; set; }
         [DataMember]public int ScanSettleTimeMs { get; set; }
+        // To do: [맵핑 재설계] 슬롯 벨리드 윈도우 반폭 비율(윈도우 = 명목 ± SlotPitch×비율, 0.5 미만).
+        //        실측 웨이퍼 안착 오차(≤1.4mm) 대비 여유를 두되 기구물 엣지(오차 2.0mm+)는 배제하도록 조정한다.
+        [DataMember]public double MappingWindowRatio { get; set; }
+        // To do: [맵핑 재설계] 점유 인정 최소 ON 이동거리[mm](디바운스, 스침성 반응 필터).
+        [DataMember]public double MappingMinOnTravelMm { get; set; }
         [DataMember]public int InchSelect { get; set; } // 0: 8Inch, 1: 12Inch
         [DataMember] public int SelectedCassetteLevel { get; set; } // 1: 1단, 2: 2단 사용
 
@@ -61,6 +66,10 @@ namespace QMC.CDT320
             ScanSettleTimeMs = 100;
             InchSelect = 0;
             SelectedCassetteLevel = 1;
+            // To do: [맵핑 재설계] 윈도우 반폭 기본 = pitch×0.25 (pitch 10.5 기준 ±2.625mm).
+            //        실측 안착 오차 최대 1.4mm 대비 여유 유지, 기구물 엣지(2.0mm+)는 배제.
+            MappingWindowRatio = 0.25;
+            MappingMinOnTravelMm = 1.0;
         }
     }
     
@@ -122,11 +131,26 @@ namespace QMC.CDT320
         private readonly Dictionary<int, Dictionary<int, WaferSlotState>> levelSlotStates = new Dictionary<int, Dictionary<int, WaferSlotState>>();
         private readonly Dictionary<int, Dictionary<int, WaferSlotState>> mappingPreviousLevelSlotStates = new Dictionary<int, Dictionary<int, WaferSlotState>>();
 
-        // To do: [맵핑 재설계] 슬롯 윈도우 실시간 판정 파라미터. 필요 시 Config로 승격.
-        //        윈도우 반폭 = SlotPitch * ratio (윈도우끼리 겹치지 않도록 ratio < 0.5).
-        //        최소 ON 이동거리 = 노이즈/스침성 반응 필터(디바운스).
-        private const double MappingSlotWindowRatio = 0.35;
+        // To do: [맵핑 재설계] 슬롯 윈도우 판정 파라미터는 Config(MappingWindowRatio/MappingMinOnTravelMm)로 승격됨.
+        //        아래 상수는 Config 값이 비정상(0 이하, ratio 0.5 이상)일 때의 안전 fallback이다.
+        private const double MappingSlotWindowRatio = 0.25;
         private const double MappingSlotMinOnTravelMm = 1.0;
+
+        // To do: [맵핑 재설계] 윈도우 반폭 비율 - Config 우선, 범위 밖이면 fallback 상수.
+        private double ResolveMappingWindowRatio()
+        {
+            double ratio = Config != null ? Config.MappingWindowRatio : 0.0;
+            if (ratio <= 0.0 || ratio >= 0.5)
+                ratio = MappingSlotWindowRatio;
+            return ratio;
+        }
+
+        // To do: [맵핑 재설계] 점유 인정 최소 ON 이동거리 - Config 우선, 0 이하면 fallback 상수.
+        private double ResolveMappingMinOnTravel()
+        {
+            double travel = Config != null ? Config.MappingMinOnTravelMm : 0.0;
+            return travel > 0.0 ? travel : MappingSlotMinOnTravelMm;
+        }
         // 마지막 윈도우 판정 스캔 결과(점유/실측 중심 위치). ScanCassetteFromCurrentStartAsync가 소비한다.
         private bool[] lastScanSlotMap;
         private double[] lastScanSlotPositions;
@@ -2006,9 +2030,14 @@ namespace QMC.CDT320
                 double scanStartPosition = InputLifterZ.ActualPosition;
 
                 double pitch = Config != null ? Config.SlotPitch : 0.0;
-                double windowHalf = pitch > 0.0 ? pitch * MappingSlotWindowRatio : 0.0;
+                double windowHalf = pitch > 0.0 ? pitch * ResolveMappingWindowRatio() : 0.0;
                 if (windowHalf <= 0.0)
                     return FailMappingScan("IN-CST-MAP-WINDOW", "Slot valid window is invalid. pitch=" + FormatPosition(pitch));
+
+                // 현재 기준: 온트라벨(디바운스) 미사용 - 윈도우 내 ON 즉시 점유.
+                Log.Write("Main", "SYSTEM", "InputCassetteUnit",
+                    "Mapping scan window. halfWidth=" + FormatPosition(windowHalf) +
+                    " (ratio=" + FormatPosition(ResolveMappingWindowRatio()) + ") - Ok");
 
                 var centers = new double[maxSlots];
                 for (int i = 0; i < maxSlots; i++)
@@ -2024,6 +2053,8 @@ namespace QMC.CDT320
                 }
 
                 bool invalidZoneOn = false;
+                double invalidOnMin = double.NaN;
+                double invalidOnMax = double.NaN;
 
                 double scanVelocity = ResolveWaferLifterZConfigMoveVelocity();
                 double scanAcceleration = ResolveCassetteProfileAcceleration(scanVelocity);
@@ -2060,7 +2091,7 @@ namespace QMC.CDT320
                             centers, windowHalf, occupied, onMin, onMax);
                     else
                         ProcessMappingScanSample(InputLifterZ.ActualPosition, WaferMappingSensor.IsOn,
-                            centers, windowHalf, occupied, onMin, onMax, ref invalidZoneOn);
+                            centers, windowHalf, occupied, onMin, onMax, ref invalidZoneOn, ref invalidOnMin, ref invalidOnMax);
 
                     await Task.Delay(5, ct).ConfigureAwait(false);
                 }
@@ -2075,7 +2106,10 @@ namespace QMC.CDT320
                         centers, windowHalf, occupied, onMin, onMax);
                 else
                     ProcessMappingScanSample(InputLifterZ.ActualPosition, WaferMappingSensor.IsOn,
-                        centers, windowHalf, occupied, onMin, onMax, ref invalidZoneOn);
+                        centers, windowHalf, occupied, onMin, onMax, ref invalidZoneOn, ref invalidOnMin, ref invalidOnMax);
+
+                // 스캔이 invalid-ON 상태로 끝났으면 잔여 스트레치도 로그로 남긴다.
+                FlushInvalidZoneStretchLog(ref invalidZoneOn, ref invalidOnMin, ref invalidOnMax);
 
                 AxisMoveWaitResult waitResult = await WaitWaferLifterZMoveDoneInPosition(scanEndPosition, ResolveWaferLifterZMoveTimeoutMs(), ct).ConfigureAwait(false);
                 if (!waitResult.Success)
@@ -2091,11 +2125,7 @@ namespace QMC.CDT320
                     positions[i] = double.NaN;
                     if (!occupied[i])
                     {
-                        if (!double.IsNaN(onMin[i]))
-                            Log.Write("Main", "SYSTEM", "InputCassetteUnit",
-                                "Mapping slot sensing rejected by debounce. slot=" + (i + 1) +
-                                ", onSpan=" + FormatPosition(onMax[i] - onMin[i]) +
-                                ", required>=" + FormatPosition(MappingSlotMinOnTravelMm) + " - Check");
+                        // 현재 기준: 온트라벨(디바운스) 미사용 - 윈도우 내 ON 즉시 점유이므로 여기 오는 미점유 슬롯은 ON 관측 자체가 없던 슬롯이다.
                         continue;
                     }
 
@@ -2132,7 +2162,8 @@ namespace QMC.CDT320
         }
 
         // To do: [맵핑 재설계] 실센서 샘플 1건 처리. 센서 ON일 때 현재 위치가 속한 슬롯 윈도우를 찾아
-        //        ON 관측 구간(min/max)을 누적하고, 최소 이동거리 충족 시 점유 확정. 윈도우 밖 ON은 무시+로그(스트레치당 1회).
+        //        ON 관측 구간(min/max)을 누적하고, 최소 이동거리 충족 시 점유 확정.
+        //        윈도우 밖 ON은 무시하되 스트레치 시작~끝~중심을 로그로 남긴다(G/pitch 캘리브레이션용 실측 데이터).
         private void ProcessMappingScanSample(
             double position,
             bool sensorOn,
@@ -2141,11 +2172,13 @@ namespace QMC.CDT320
             bool[] occupied,
             double[] onMin,
             double[] onMax,
-            ref bool invalidZoneOn)
+            ref bool invalidZoneOn,
+            ref double invalidOnMin,
+            ref double invalidOnMax)
         {
             if (!sensorOn)
             {
-                invalidZoneOn = false;
+                FlushInvalidZoneStretchLog(ref invalidZoneOn, ref invalidOnMin, ref invalidOnMax);
                 return;
             }
 
@@ -2163,22 +2196,45 @@ namespace QMC.CDT320
 
             if (slot < 0)
             {
-                if (!invalidZoneOn)
-                    Log.Write("Main", "SYSTEM", "InputCassetteUnit",
-                        "Mapping sensor ON in invalid zone (ignored). position=" + FormatPosition(position) + " - Check");
+                if (double.IsNaN(invalidOnMin) || position < invalidOnMin)
+                    invalidOnMin = position;
+                if (double.IsNaN(invalidOnMax) || position > invalidOnMax)
+                    invalidOnMax = position;
                 invalidZoneOn = true;
                 return;
             }
 
-            invalidZoneOn = false;
+            FlushInvalidZoneStretchLog(ref invalidZoneOn, ref invalidOnMin, ref invalidOnMax);
 
             if (double.IsNaN(onMin[slot]) || position < onMin[slot])
                 onMin[slot] = position;
             if (double.IsNaN(onMax[slot]) || position > onMax[slot])
                 onMax[slot] = position;
 
-            if (!occupied[slot] && (onMax[slot] - onMin[slot]) >= MappingSlotMinOnTravelMm)
-                occupied[slot] = true;
+            // 기존 조건: 윈도우 내 ON 이동거리(onSpan)가 최소값 이상일 때만 점유 인정(디바운스).
+            //if (!occupied[slot] && (onMax[slot] - onMin[slot]) >= ResolveMappingMinOnTravel())
+            //    occupied[slot] = true;
+            // 현재 기준: 온트라벨(디바운스) 없이 윈도우 안에서 센서 ON이 관측되면 즉시 점유로 확정한다.
+            occupied[slot] = true;
+        }
+
+        // To do: [맵핑 재설계] invalid zone ON 스트레치가 끝났을 때(OFF 또는 윈도우 진입) 시작~끝~중심을 로그로 남긴다.
+        //        윈도우가 실물과 어긋나 전부 invalid로 빠져도 이 로그로 실측 중심을 복원해 G/pitch를 보정할 수 있다.
+        private void FlushInvalidZoneStretchLog(ref bool invalidZoneOn, ref double invalidOnMin, ref double invalidOnMax)
+        {
+            if (!invalidZoneOn)
+                return;
+
+            if (!double.IsNaN(invalidOnMin) && !double.IsNaN(invalidOnMax))
+                Log.Write("Main", "SYSTEM", "InputCassetteUnit",
+                    "Mapping sensor ON in invalid zone (ignored). from=" + FormatPosition(invalidOnMax) +
+                    ", to=" + FormatPosition(invalidOnMin) +
+                    ", center=" + FormatPosition((invalidOnMin + invalidOnMax) * 0.5) +
+                    ", span=" + FormatPosition(invalidOnMax - invalidOnMin) + " - Check");
+
+            invalidZoneOn = false;
+            invalidOnMin = double.NaN;
+            invalidOnMax = double.NaN;
         }
 
         // To do: [맵핑 재설계] 가상 센서(시뮬/드라이런) - 스캔 경로가 슬롯 중심을 통과하면 만재로 점유 처리(기존 시뮬 동작 유지).
@@ -2435,7 +2491,7 @@ namespace QMC.CDT320
                         nIndex += Config.SlotCount;
                     }
                     slotMap[nIndex] = true;
-                    slotPositions[nIndex] = true; ;
+                    slotPositions[nIndex] = pos; ;
                 }
                 // 변경금지 블럭 끝
                 

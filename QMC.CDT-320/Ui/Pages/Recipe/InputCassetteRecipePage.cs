@@ -673,6 +673,15 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                     AxisDouble("UNLOADING OFFSET", ParameterGridScope.Config, () => _InputCassetteUnit.Config.UnloadingPositionOffset, v => _InputCassetteUnit.Config.UnloadingPositionOffset = v),
                     AxisDouble("LEVEL 2 OFFSET", ParameterGridScope.Config, () => _InputCassetteUnit.Config.Level2PositionOffset, v => _InputCassetteUnit.Config.Level2PositionOffset = Math.Max(0.0, v)),
                     AxisDouble("SLOT PITCH", ParameterGridScope.Config, () => _InputCassetteUnit.Config.SlotPitch, v => _InputCassetteUnit.Config.SlotPitch = Math.Max(0.0, v)),
+                    // To do: [맵핑 재설계] 슬롯 벨리드 윈도우 반폭 비율(윈도우 = 명목 ± SlotPitch×비율). 0.05~0.49로 제한.
+                    ParameterGridItem.Double("MAPPING WINDOW RATIO", "x pitch", ParameterGridScope.Config,
+                        () => _InputCassetteUnit.Config.MappingWindowRatio,
+                        v => _InputCassetteUnit.Config.MappingWindowRatio = Math.Max(0.05, Math.Min(0.49, v))),
+                    // 기존 항목: 점유 인정 최소 ON 이동거리(디바운스) 설정.
+                    // 현재 기준: 온트라벨(디바운스) 미사용 - 윈도우 내 ON 즉시 점유로 변경되어 UI에서 제외.
+                    //ParameterGridItem.Double("MAPPING MIN ON TRAVEL", "mm", ParameterGridScope.Config,
+                    //    () => _InputCassetteUnit.Config.MappingMinOnTravelMm,
+                    //    v => _InputCassetteUnit.Config.MappingMinOnTravelMm = Math.Max(0.01, v)),
                     ParameterGridItem.Int("SLOT COUNT", "ea", ParameterGridScope.Config, () => _InputCassetteUnit.Config.SlotCount, v =>
                     {
                         _InputCassetteUnit.Config.SlotCount = Math.Max(0, v);
