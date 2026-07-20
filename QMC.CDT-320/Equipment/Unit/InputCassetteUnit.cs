@@ -79,7 +79,15 @@ namespace QMC.CDT320
         [DataMember] public double AvoidPosition { get; set; }  //ReadyPosition.
         [DataMember] public double LoaingPosition { get; set; }
         [DataMember] public double UnloadingPosition { get; set; }
-        [DataMember] public double FirstSlotPosition { get; set; }
+        // To do: [레벨 분리 스캔] 1단/2단은 동시(연속) 맵핑하지 않고 레벨별로 따로 스캔한다.
+        //        MappingStartPosition/MappingEndPosition = 1단 스캔 구간(앵커=1단 맨아래 슬롯).
+        //        Level2MappingStartPosition/EndPosition   = 2단 스캔 구간(앵커=2단 맨아래 슬롯).
+        //        FirstSlot(스타트 포지션)도 레벨별: Level1=1단 맨위 첫 제품 로딩, Level2=2단 맨위 첫 제품 로딩.
+        //        (기존 FirstSlotPosition은 2단용으로 명칭 변경됨)
+        [DataMember] public double Level2MappingStartPosition { get; set; }
+        [DataMember] public double Level2MappingEndPosition { get; set; }
+        [DataMember] public double Level1FirstSlotPosition { get; set; }
+        [DataMember] public double Level2FirstSlotPosition { get; set; }
         [DataMember] public double MappingStartPosition { get; set; }
         [DataMember] public double MappingEndPosition { get; set; }
 
@@ -118,9 +126,13 @@ namespace QMC.CDT320
             AvoidPosition = 0.0;
             LoaingPosition = 150.0;
             UnloadingPosition = 150.0;
-            FirstSlotPosition = 10.0;
             MappingStartPosition = 5.0;
             MappingEndPosition = 130.0;
+            // To do: [레벨 분리 스캔] 레벨별 티칭 기본값. 미티칭(0)이면 검증/커버리지에서 걸러진다.
+            Level2MappingStartPosition = 0.0;
+            Level2MappingEndPosition = 0.0;
+            Level1FirstSlotPosition = 0.0;
+            Level2FirstSlotPosition = 0.0;
             SlotPosition = Array.Empty<double>();
         }
     }
@@ -439,24 +451,24 @@ namespace QMC.CDT320
             return Recipe.MappingEndPosition;
         }
 
-        // To do: 스캔 범위가 설정 레벨의 맨 위 슬롯까지 커버하는지 검사한다(부족하면 맨 위 슬롯이 미검출된다).
-        public bool IsMappingScanCoveringTopSlot(out string detail)
+        // To do: [레벨 분리 스캔] 해당 레벨의 MappingEnd가 그 레벨 맨 위 슬롯 윈도우를 지나는지 검사한다(부족하면 맨 위 웨이퍼 미검출).
+        public bool IsMappingScanCoveringLevelTopSlot(int level, out string detail)
         {
             detail = string.Empty;
             try
             {
-                int topLevel = ResolveCassetteLevelCount();
-                double topSlotPosition = CalculateCassetteLevelSlotPosition(topLevel, 0);
+                double topSlotPosition = CalculateCassetteLevelSlotPosition(level, 0);
                 double margin = Config != null && Config.SlotPitch > 0.0 ? Config.SlotPitch * 0.5 : 0.0;
                 double requiredEnd = topSlotPosition - margin;   // 맨 위 슬롯 반 피치 위까지 필요
-                double scanEnd = ResolveMappingScanEndPosition();
+                double scanEnd = ResolveLevelMappingEndPosition(level);
                 if (scanEnd <= requiredEnd)
                     return true;
 
-                detail = "Mapping scan end does not cover the top slot. scanEnd=" + scanEnd.ToString("0.###") +
-                         ", topSlot(level" + topLevel + ",idx0)=" + topSlotPosition.ToString("0.###") +
+                detail = "Mapping scan end does not cover the top slot. level=" + level +
+                         ", scanEnd=" + scanEnd.ToString("0.###") +
+                         ", topSlot(local01)=" + topSlotPosition.ToString("0.###") +
                          ", requiredEnd<=" + requiredEnd.ToString("0.###") +
-                         ". MappingEnd 티칭을 2단 맨 위 슬롯보다 위로 다시 잡아야 합니다.";
+                         ". 해당 레벨 MappingEnd 티칭을 맨 위 슬롯보다 위로 다시 잡아야 합니다.";
                 return false;
             }
             catch (Exception ex)
@@ -622,13 +634,31 @@ namespace QMC.CDT320
             Recipe.MappingEndPosition = InputLifterZ.ActualPosition;
         }
 
+        // To do: [레벨 분리 스캔] 레벨별 스타트 포지션(그 레벨 맨 위 슬롯의 피더 로딩 절대 위치) 티칭.
         public void TeachWaferLifterZSlotBasePosition()
         {
-            // To do: FirstSlotPosition은 "최상위 레벨 첫(맨 위) 슬롯의 피더 로딩 절대 위치"로 티칭한다.
-            //        (2단 구성이면 2단 01번 슬롯의 로딩 높이, 예: 265.475)
-            //        로딩 오프셋은 ResolveCassetteLoadingOffset()이 기준 슬롯 검출 위치(실측 우선)와의 차로 파생한다.
-            Recipe.FirstSlotPosition = InputLifterZ.ActualPosition;
+            // 기존 호환: 파라미터 없는 티칭은 2단(FirstSlotPosition 명칭 변경분)으로 저장한다.
+            TeachWaferLifterZLevelFirstSlotPosition(2);
+        }
+
+        public void TeachWaferLifterZLevelFirstSlotPosition(int level)
+        {
+            if (level >= 2)
+                Recipe.Level2FirstSlotPosition = InputLifterZ.ActualPosition;
+            else
+                Recipe.Level1FirstSlotPosition = InputLifterZ.ActualPosition;
             EnsureSlotPositionBuffer();
+        }
+
+        // To do: [레벨 분리 스캔] 2단 스캔 구간 티칭.
+        public void TeachWaferLifterZLevel2MappingStartPosition()
+        {
+            Recipe.Level2MappingStartPosition = InputLifterZ.ActualPosition;
+        }
+
+        public void TeachWaferLifterZLevel2MappingEndPosition()
+        {
+            Recipe.Level2MappingEndPosition = InputLifterZ.ActualPosition;
         }
 
         // To do: FirstSlotPosition의 기준 슬롯 = "최상위 레벨의 첫(맨 위) 슬롯" (2단 구성이면 2단 01번).
@@ -636,20 +666,33 @@ namespace QMC.CDT320
         //        로딩 오프셋 = FirstSlotPosition - 기준 슬롯의 검출 위치.
         //        기준 슬롯 검출 위치는 맵핑 실측(SlotPosition)이 있으면 실측을, 없으면 명목값을 쓴다.
         //        (실측 기준이면 기준 슬롯의 로딩 위치는 티칭값과 정확히 일치하고, 나머지 슬롯은 피치만큼 따라간다.)
-        public double ResolveCassetteLoadingOffset()
+        // To do: [레벨 분리 스캔] 로딩 오프셋도 레벨별로 파생한다.
+        //        기준 슬롯 = 해당 레벨의 맨 위 슬롯(local 0). 그 슬롯의 FirstSlot(스타트 포지션) 티칭값 - 검출 위치(실측 우선).
+        //        해당 레벨 FirstSlot이 미티칭(<=0)이면 반대 레벨 오프셋으로 폴백한다(두 레벨 기구 편차가 작다는 가정).
+        public double ResolveCassetteLoadingOffset(int level)
         {
-            // To do: [맵핑 재설계] 기준 슬롯 = flat 0 (2단 맨 위 = 전체 최상단 = 사용자가 FirstSlot을 티칭한 "2단 첫번째 슬롯").
+            double firstSlot = level >= 2 ? Recipe.Level2FirstSlotPosition : Recipe.Level1FirstSlotPosition;
+            if (firstSlot <= 0.0)
+            {
+                int otherLevel = level >= 2 ? 1 : 2;
+                double otherFirst = otherLevel >= 2 ? Recipe.Level2FirstSlotPosition : Recipe.Level1FirstSlotPosition;
+                if (ResolveCassetteLevelCount() >= 2 && otherFirst > 0.0)
+                    return ResolveCassetteLoadingOffset(otherLevel);
+                return 0.0;
+            }
+
+            int referenceFlat = ToFlatSlotIndex(level, 0);
             double referenceDetect = double.NaN;
-            if (Recipe.SlotPosition != null && Recipe.SlotPosition.Length > 0)
-                referenceDetect = Recipe.SlotPosition[0];
+            if (Recipe.SlotPosition != null && referenceFlat >= 0 && referenceFlat < Recipe.SlotPosition.Length)
+                referenceDetect = Recipe.SlotPosition[referenceFlat];
 
             if (double.IsNaN(referenceDetect))
-                referenceDetect = CalculateMappingSlotPosition(0);
+                referenceDetect = CalculateMappingSlotPosition(referenceFlat);
 
-            return Recipe.FirstSlotPosition - referenceDetect;
+            return firstSlot - referenceDetect;
         }
 
-        // To do: 로딩 목표 = 맵핑 "검출 위치"(실측 우선) + 로딩 오프셋. flat 변환은 ToFlatSlotIndex로 통일.
+        // To do: 로딩 목표 = 맵핑 "검출 위치"(실측 우선) + 해당 레벨 로딩 오프셋.
         public double CalculateWaferCassetteSlotTargetPosition(int slotIndex, int level = 1)
         {
             ValidateSlotIndex(slotIndex);
@@ -666,13 +709,13 @@ namespace QMC.CDT320
             else
                 detectPosition = CalculateMappingSlotPosition(flatIndex);   // 미맵핑 시 명목 검출 위치
 
-            return detectPosition + ResolveCassetteLoadingOffset();   // 검출 위치 + 로딩 오프셋 = 로딩 위치
+            return detectPosition + ResolveCassetteLoadingOffset(level);   // 검출 위치 + 레벨별 로딩 오프셋
         }
 
-        // To do: 웨이퍼 카세트 포지션/맵핑 결과 저장용 "로딩 위치"(검출 + 오프셋)를 레벨별로 계산한다.
+        // To do: 웨이퍼 카세트 포지션/맵핑 결과 저장용 "로딩 위치"(검출 + 레벨별 오프셋)를 계산한다.
         public double CalculateCassetteLevelSlotLoadingPosition(int level, int slotIndex)
         {
-            return CalculateCassetteLevelSlotPosition(level, slotIndex) + ResolveCassetteLoadingOffset();
+            return CalculateCassetteLevelSlotPosition(level, slotIndex) + ResolveCassetteLoadingOffset(level);
         }
 
         public bool ValidateWaferLifterZTeachingComplete()
@@ -702,9 +745,21 @@ namespace QMC.CDT320
             {
                 reasons.Add("Recipe is null.");
             }
-            else if (Recipe.MappingEndPosition == Recipe.MappingStartPosition)
+            else
             {
-                reasons.Add("MappingStartPosition and MappingEndPosition are same. position=" + Recipe.MappingStartPosition);
+                if (Recipe.MappingEndPosition == Recipe.MappingStartPosition)
+                    reasons.Add("MappingStartPosition and MappingEndPosition are same. position=" + Recipe.MappingStartPosition);
+
+                // To do: [레벨 분리 스캔] 2단 구성이면 2단 스캔 구간 티칭도 검증한다.
+                if (ResolveCassetteLevelCount() >= 2)
+                {
+                    if (Recipe.Level2MappingStartPosition <= 0.0 || Recipe.Level2MappingEndPosition <= 0.0)
+                        reasons.Add("Level2 mapping start/end is not taught. start=" + Recipe.Level2MappingStartPosition +
+                                    ", end=" + Recipe.Level2MappingEndPosition);
+                    else if (Recipe.Level2MappingEndPosition >= Recipe.Level2MappingStartPosition)
+                        reasons.Add("Level2 MappingEnd must be above(smaller than) Level2 MappingStart. start=" +
+                                    Recipe.Level2MappingStartPosition + ", end=" + Recipe.Level2MappingEndPosition);
+                }
             }
 
             if (reasons.Count == 0)
@@ -2007,13 +2062,14 @@ namespace QMC.CDT320
             }
         }
 
-        // To do: [맵핑 재설계] 윈도우 실시간 판정 스캔.
-        //        스캔 이동 중 매 샘플마다 "현재 위치가 어느 슬롯의 벨리드 윈도우(명목 ± pitch*ratio) 안인지"를
-        //        판정하고, 윈도우 안에서 센서 ON이 최소 이동거리 이상 관측되면 그 슬롯을 점유 1건으로 확정한다.
-        //        - 한 슬롯에서 몇 번 센싱되든 점유는 1건(슬롯별 bool).
-        //        - 윈도우 밖(카세트 사이 기구물 등 인벨리드 구간) ON은 무시 + 진단 로그.
-        //        - ON 구간이 인벨리드에서 시작해 벨리드로 이어져도 윈도우 통과 중 ON이면 정상 점유.
-        //        - 시작부터 센서 ON(맨 아래 슬롯)도 특수 처리 없이 자연스럽게 점유된다.
+        // To do: [레벨 분리 스캔] 윈도우 실시간 판정 + 레벨별 세그먼트 스캔.
+        //        1단/2단은 동시(연속) 맵핑하지 않는다. 각 레벨은 자기 MappingStart(그 레벨 맨아래 슬롯 앵커)
+        //        반 피치 아래에서 출발해 자기 MappingEnd까지만 스캔하고, 그 레벨의 슬롯 윈도우만 판정한다.
+        //        SelectedCassetteLevel=1이면 1단만, =2면 1단 스캔 후 2단 스캔(아래→위 순서).
+        //        카세트 사이(기구물) 구간은 세그먼트 사이 이동으로만 통과하며 판정하지 않는다.
+        //        - 한 슬롯에서 몇 번 센싱되든 점유는 1건(슬롯별 bool). 윈도우 내 ON 즉시 점유(디바운스 없음).
+        //        - 윈도우 밖 ON은 무시 + 스트레치 로그.
+        //        - 각 레벨 맨아래 슬롯의 "시작부터 센서 ON"도 자연 점유(세그먼트 시작이 윈도우 밖 반 피치 아래).
         //        결과는 lastScanSlotMap / lastScanSlotPositions(ON 구간 중심 실측)에 저장한다.
         private async Task<int> CollectMappingSlotOccupancyAsync(int maxSlots, CancellationToken ct)
         {
@@ -2027,7 +2083,6 @@ namespace QMC.CDT320
                 lastScanSlotPositions = null;
 
                 bool virtualSensor = IsVirtualMappingSensorMode();
-                double scanStartPosition = InputLifterZ.ActualPosition;
 
                 double pitch = Config != null ? Config.SlotPitch : 0.0;
                 double windowHalf = pitch > 0.0 ? pitch * ResolveMappingWindowRatio() : 0.0;
@@ -2068,55 +2123,77 @@ namespace QMC.CDT320
                     restoreScanProfile = true;
                 }
 
-                // 인터락은 MoveAbsoluteAsync 내부 BaseAxis.MotionGuard 훅에서 1번 수행한다.
-                double scanEndPosition = ResolveMappingScanEndPosition();
+                int slotCount = Config != null ? Config.SlotCount : 0;
+                int levelCount = ResolveCassetteLevelCount();
 
-                // To do: MappingEnd 티칭이 맨 위 슬롯(flat 0)을 커버하지 못하면 맨 위 웨이퍼가 미검출되므로 경고를 남긴다.
-                string coverageDetail;
-                if (!IsMappingScanCoveringTopSlot(out coverageDetail))
-                    Log.Write("Main", "SYSTEM", "InputCassetteUnit", coverageDetail + " - Check");
-
-                Task<int> moveTask = InputLifterZ.MoveAbsoluteAsync(scanEndPosition, scanVelocity);
-                while (!moveTask.IsCompleted)
+                // 스캔 순서: 1단(아래) 먼저, 2단 구성이면 이어서 2단.
+                for (int level = 1; level <= levelCount; level++)
                 {
-                    ct.ThrowIfCancellationRequested();
-                    if (IsWaferProtrusionDetected())
+                    int flatLo = ToFlatSlotIndex(level, 0);
+                    int flatHi = ToFlatSlotIndex(level, slotCount - 1);
+
+                    double levelAnchor = ResolveLevelMappingStartPosition(level);
+                    double levelEnd = ResolveLevelMappingEndPosition(level);
+                    if (levelAnchor <= 0.0 || levelEnd <= 0.0 || levelEnd >= levelAnchor)
+                        return FailMappingScan("IN-CST-MAP-LEVEL-TEACH",
+                            "Level" + level + " mapping start/end teaching is invalid. start=" + FormatPosition(levelAnchor) +
+                            ", end=" + FormatPosition(levelEnd) + " (end must be above start).");
+
+                    // 세그먼트 시작 = 앵커(맨아래 슬롯) 반 피치 아래(윈도우 밖) → 맨아래 웨이퍼도 윈도우 통과로 자연 점유.
+                    double segmentStart = levelAnchor + (pitch * 0.5);
+                    int approachResult = await MoveLifterWatchedForMappingAsync(segmentStart, scanVelocity, "level" + level + " scan start", ct).ConfigureAwait(false);
+                    if (approachResult != 0)
+                        return approachResult;
+
+                    // 커버리지: 레벨 End가 그 레벨 맨 위 슬롯 윈도우를 지나야 맨 위 웨이퍼가 검출된다.
+                    string coverageDetail;
+                    if (!IsMappingScanCoveringLevelTopSlot(level, out coverageDetail))
+                        Log.Write("Main", "SYSTEM", "InputCassetteUnit", coverageDetail + " - Check");
+
+                    // 인터락은 MoveAbsoluteAsync 내부 BaseAxis.MotionGuard 훅에서 1번 수행한다.
+                    Task<int> moveTask = InputLifterZ.MoveAbsoluteAsync(levelEnd, scanVelocity);
+                    while (!moveTask.IsCompleted)
                     {
-                        InputLifterZ.EStop();
-                        return FailMappingScan("IN-CST-MAP-PROTRUSION", "Wafer protrusion detected during mapping scan.");
+                        ct.ThrowIfCancellationRequested();
+                        if (IsWaferProtrusionDetected())
+                        {
+                            InputLifterZ.EStop();
+                            return FailMappingScan("IN-CST-MAP-PROTRUSION", "Wafer protrusion detected during mapping scan.");
+                        }
+
+                        if (virtualSensor)
+                            ApplyVirtualMappingOccupancy(segmentStart, levelEnd, InputLifterZ.ActualPosition,
+                                centers, windowHalf, occupied, onMin, onMax, flatLo, flatHi);
+                        else
+                            ProcessMappingScanSample(InputLifterZ.ActualPosition, WaferMappingSensor.IsOn,
+                                centers, windowHalf, occupied, onMin, onMax,
+                                ref invalidZoneOn, ref invalidOnMin, ref invalidOnMax, flatLo, flatHi);
+
+                        await Task.Delay(1, ct).ConfigureAwait(false);
                     }
 
+                    int moveResult = await moveTask;
+                    if (moveResult != 0 || InputLifterZ.IsAlarm)
+                        return FailMappingScan("IN-CST-MAP-END", "InputLifterZ move failed during level" + level + " mapping scan.");
+
+                    // 마지막 샘플 반영(이동 완료 직후 상태) + 잔여 invalid 스트레치 마감.
                     if (virtualSensor)
-                        ApplyVirtualMappingOccupancy(scanStartPosition, scanEndPosition, InputLifterZ.ActualPosition,
-                            centers, windowHalf, occupied, onMin, onMax);
+                        ApplyVirtualMappingOccupancy(segmentStart, levelEnd, levelEnd,
+                            centers, windowHalf, occupied, onMin, onMax, flatLo, flatHi);
                     else
                         ProcessMappingScanSample(InputLifterZ.ActualPosition, WaferMappingSensor.IsOn,
-                            centers, windowHalf, occupied, onMin, onMax, ref invalidZoneOn, ref invalidOnMin, ref invalidOnMax);
+                            centers, windowHalf, occupied, onMin, onMax,
+                            ref invalidZoneOn, ref invalidOnMin, ref invalidOnMax, flatLo, flatHi);
 
-                    await Task.Delay(5, ct).ConfigureAwait(false);
+                    FlushInvalidZoneStretchLog(ref invalidZoneOn, ref invalidOnMin, ref invalidOnMax);
+
+                    AxisMoveWaitResult waitResult = await WaitWaferLifterZMoveDoneInPosition(levelEnd, ResolveWaferLifterZMoveTimeoutMs(), ct).ConfigureAwait(false);
+                    if (!waitResult.Success)
+                        return FailMappingScan(
+                            ResolveWaferLifterZMoveWaitAlarmCode("IN-CST-MAP-END", waitResult.Failure),
+                            "InputLifterZ level" + level + " mapping end move/in-position wait failed. waitResult=" + waitResult.Code +
+                            ", reason=" + waitResult.Reason + ". " + waitResult.AxisState);
                 }
-
-                int moveResult = await moveTask;
-                if (moveResult != 0 || InputLifterZ.IsAlarm)
-                    return FailMappingScan("IN-CST-MAP-END", "InputLifterZ move failed during mapping scan.");
-
-                // 마지막 샘플 반영(이동 완료 직후 상태).
-                if (virtualSensor)
-                    ApplyVirtualMappingOccupancy(scanStartPosition, scanEndPosition, scanEndPosition,
-                        centers, windowHalf, occupied, onMin, onMax);
-                else
-                    ProcessMappingScanSample(InputLifterZ.ActualPosition, WaferMappingSensor.IsOn,
-                        centers, windowHalf, occupied, onMin, onMax, ref invalidZoneOn, ref invalidOnMin, ref invalidOnMax);
-
-                // 스캔이 invalid-ON 상태로 끝났으면 잔여 스트레치도 로그로 남긴다.
-                FlushInvalidZoneStretchLog(ref invalidZoneOn, ref invalidOnMin, ref invalidOnMax);
-
-                AxisMoveWaitResult waitResult = await WaitWaferLifterZMoveDoneInPosition(scanEndPosition, ResolveWaferLifterZMoveTimeoutMs(), ct).ConfigureAwait(false);
-                if (!waitResult.Success)
-                    return FailMappingScan(
-                        ResolveWaferLifterZMoveWaitAlarmCode("IN-CST-MAP-END", waitResult.Failure),
-                        "InputLifterZ mapping end move/in-position wait failed. waitResult=" + waitResult.Code +
-                        ", reason=" + waitResult.Reason + ". " + waitResult.AxisState);
 
                 // 결과 확정: 점유 슬롯은 ON 구간 중심을 실측 검출 위치로 저장하고, 슬롯별 로그를 남긴다.
                 var positions = new double[maxSlots];
@@ -2161,9 +2238,40 @@ namespace QMC.CDT320
             }
         }
 
+        // To do: [레벨 분리 스캔] 세그먼트 이동(스캔 판정 없이 감시만: 프로트루전/알람). 레벨 스캔 시작 위치 접근용.
+        private async Task<int> MoveLifterWatchedForMappingAsync(double target, double velocity, string moveName, CancellationToken ct)
+        {
+            Task<int> moveTask = InputLifterZ.MoveAbsoluteAsync(target, velocity);
+            while (!moveTask.IsCompleted)
+            {
+                ct.ThrowIfCancellationRequested();
+                if (IsWaferProtrusionDetected())
+                {
+                    InputLifterZ.EStop();
+                    return FailMappingScan("IN-CST-MAP-PROTRUSION", "Wafer protrusion detected while moving to " + moveName + ".");
+                }
+
+                await Task.Delay(5, ct).ConfigureAwait(false);
+            }
+
+            int moveResult = await moveTask;
+            if (moveResult != 0 || InputLifterZ.IsAlarm)
+                return FailMappingScan("IN-CST-MAP-MOVE", "InputLifterZ move failed. moveName=" + moveName + ", target=" + FormatPosition(target));
+
+            AxisMoveWaitResult waitResult = await WaitWaferLifterZMoveDoneInPosition(target, ResolveWaferLifterZMoveTimeoutMs(), ct).ConfigureAwait(false);
+            if (!waitResult.Success)
+                return FailMappingScan(
+                    ResolveWaferLifterZMoveWaitAlarmCode("IN-CST-MAP-MOVE", waitResult.Failure),
+                    "InputLifterZ " + moveName + " move/in-position wait failed. waitResult=" + waitResult.Code +
+                    ", reason=" + waitResult.Reason + ". " + waitResult.AxisState);
+
+            return 0;
+        }
+
         // To do: [맵핑 재설계] 실센서 샘플 1건 처리. 센서 ON일 때 현재 위치가 속한 슬롯 윈도우를 찾아
-        //        ON 관측 구간(min/max)을 누적하고, 최소 이동거리 충족 시 점유 확정.
-        //        윈도우 밖 ON은 무시하되 스트레치 시작~끝~중심을 로그로 남긴다(G/pitch 캘리브레이션용 실측 데이터).
+        //        ON 관측 구간(min/max)을 누적하고 즉시 점유 확정.
+        //        [레벨 분리 스캔] flatLo~flatHi 범위(현재 스캔 중인 레벨의 슬롯들)만 판정 대상으로 한다.
+        //        윈도우 밖 ON은 무시하되 스트레치 시작~끝~중심을 로그로 남긴다(캘리브레이션용 실측 데이터).
         private void ProcessMappingScanSample(
             double position,
             bool sensorOn,
@@ -2174,7 +2282,9 @@ namespace QMC.CDT320
             double[] onMax,
             ref bool invalidZoneOn,
             ref double invalidOnMin,
-            ref double invalidOnMax)
+            ref double invalidOnMax,
+            int flatLo,
+            int flatHi)
         {
             if (!sensorOn)
             {
@@ -2184,7 +2294,9 @@ namespace QMC.CDT320
 
             int slot = -1;
             double bestError = double.MaxValue;
-            for (int i = 0; i < centers.Length; i++)
+            int lo = Math.Max(0, flatLo);
+            int hi = Math.Min(centers.Length - 1, flatHi);
+            for (int i = lo; i <= hi; i++)
             {
                 double error = Math.Abs(position - centers[i]);
                 if (error <= windowHalf && error < bestError)
@@ -2238,6 +2350,7 @@ namespace QMC.CDT320
         }
 
         // To do: [맵핑 재설계] 가상 센서(시뮬/드라이런) - 스캔 경로가 슬롯 중심을 통과하면 만재로 점유 처리(기존 시뮬 동작 유지).
+        //        [레벨 분리 스캔] 현재 스캔 중인 레벨의 flat 범위만 처리한다.
         private void ApplyVirtualMappingOccupancy(
             double scanStart,
             double scanEnd,
@@ -2246,9 +2359,13 @@ namespace QMC.CDT320
             double windowHalf,
             bool[] occupied,
             double[] onMin,
-            double[] onMax)
+            double[] onMax,
+            int flatLo,
+            int flatHi)
         {
-            for (int i = 0; i < centers.Length; i++)
+            int lo = Math.Max(0, flatLo);
+            int hi = Math.Min(centers.Length - 1, flatHi);
+            for (int i = lo; i <= hi; i++)
             {
                 if (occupied[i])
                     continue;
@@ -2310,10 +2427,10 @@ namespace QMC.CDT320
                 // 차단 시 moveResult != 0 로 반환되어 아래 FailMappingScanList 로 처리된다.
                 double scanEndPosition = ResolveMappingScanEndPosition();
 
-                // To do: MappingEnd 티칭이 2단 맨 위 슬롯을 커버하지 못하면 맨 위 웨이퍼가 미검출되므로 경고를 남긴다.
-                string coverageDetail;
-                if (!IsMappingScanCoveringTopSlot(out coverageDetail))
-                    Log.Write("Main", "SYSTEM", "InputCassetteUnit", coverageDetail + " - Check");
+                // 기존 커버리지 경고: 미사용 경로(레벨 분리 스캔으로 대체됨).
+                //string coverageDetail;
+                //if (!IsMappingScanCoveringTopSlot(out coverageDetail))
+                //    Log.Write("Main", "SYSTEM", "InputCassetteUnit", coverageDetail + " - Check");
                 Task<int> moveTask = InputLifterZ.MoveAbsoluteAsync(scanEndPosition, scanVelocity);
                 while (!moveTask.IsCompleted)
                 {
@@ -2914,9 +3031,13 @@ namespace QMC.CDT320
         private double GetTeachingPosition(string positionName)
         {
             if (string.Equals(positionName, "Avoid", StringComparison.OrdinalIgnoreCase)) return Recipe.AvoidPosition;
+            // To do: [레벨 분리 스캔] MappingStart/End = 1단, Level2* = 2단, FirstSlot = 2단(명칭 변경 호환), Level1FirstSlot = 1단.
             if (string.Equals(positionName, "MappingStart", StringComparison.OrdinalIgnoreCase)) return Recipe.MappingStartPosition;
             if (string.Equals(positionName, "MappingEnd", StringComparison.OrdinalIgnoreCase)) return Recipe.MappingEndPosition;
-            if (string.Equals(positionName, "FirstSlot", StringComparison.OrdinalIgnoreCase)) return Recipe.FirstSlotPosition;
+            if (string.Equals(positionName, "Level2MappingStart", StringComparison.OrdinalIgnoreCase)) return Recipe.Level2MappingStartPosition;
+            if (string.Equals(positionName, "Level2MappingEnd", StringComparison.OrdinalIgnoreCase)) return Recipe.Level2MappingEndPosition;
+            if (string.Equals(positionName, "FirstSlot", StringComparison.OrdinalIgnoreCase)) return Recipe.Level2FirstSlotPosition;
+            if (string.Equals(positionName, "Level1FirstSlot", StringComparison.OrdinalIgnoreCase)) return Recipe.Level1FirstSlotPosition;
             throw new ArgumentException("Unknown InputLifterZ teaching position: " + positionName, "positionName");
         }
 
@@ -2925,7 +3046,10 @@ namespace QMC.CDT320
             if (string.Equals(positionName, "Avoid", StringComparison.OrdinalIgnoreCase)) Recipe.AvoidPosition = position;
             else if (string.Equals(positionName, "MappingStart", StringComparison.OrdinalIgnoreCase)) Recipe.MappingStartPosition = position;
             else if (string.Equals(positionName, "MappingEnd", StringComparison.OrdinalIgnoreCase)) Recipe.MappingEndPosition = position;
-            else if (string.Equals(positionName, "FirstSlot", StringComparison.OrdinalIgnoreCase)) Recipe.FirstSlotPosition = position;
+            else if (string.Equals(positionName, "Level2MappingStart", StringComparison.OrdinalIgnoreCase)) Recipe.Level2MappingStartPosition = position;
+            else if (string.Equals(positionName, "Level2MappingEnd", StringComparison.OrdinalIgnoreCase)) Recipe.Level2MappingEndPosition = position;
+            else if (string.Equals(positionName, "FirstSlot", StringComparison.OrdinalIgnoreCase)) Recipe.Level2FirstSlotPosition = position;
+            else if (string.Equals(positionName, "Level1FirstSlot", StringComparison.OrdinalIgnoreCase)) Recipe.Level1FirstSlotPosition = position;
             else throw new ArgumentException("Unknown InputLifterZ teaching position: " + positionName, "positionName");
         }
 
@@ -2984,11 +3108,12 @@ namespace QMC.CDT320
             Recipe.UpdateSlotPosition(slotIndex, position);
         }
 
-        /// <summary>Mapping 결과가 없을 때 사용할 명목 Slot 위치를 계산합니다.</summary>
+        // 기존 함수: 구식 명목 위치 계산(미사용). FirstSlotPosition 레벨 분리로 참조만 정리.
+        // 현재 기준: 명목 위치는 CalculateMappingSlotPosition(레벨별 앵커)을 사용한다.
         public double CalculateNominalSlotPosition(int slotIndex)
         {
             ValidateSlotIndex(slotIndex);
-            return Recipe.MappingStartPosition + Recipe.FirstSlotPosition + Config.LoadingPositionOffset + (Config.SlotPitch * slotIndex);
+            return CalculateMappingSlotPosition(ToFlatSlotIndex(1, slotIndex));
         }
 
         // To do: [맵핑 재설계] 전역 flat 인덱스 체계.
@@ -3022,29 +3147,35 @@ namespace QMC.CDT320
             return flatIndex % slotCount;
         }
 
-        // To do: [맵핑 재설계] 명목 위치 단일 공식. 앵커 S = MappingStart(전체 맨 아래 슬롯) 하나만 사용.
-        //        m = 밑에서부터 슬롯 수 = (total-1) - flat.
-        //        m < N  : pos = S - m*p                          (아래 카세트/1단 전용)
-        //        m >= N : pos = S - (N-1)*p - G - (m-N)*p        (위 카세트, G=Level2PositionOffset)
-        //        MappingEndPosition은 슬롯 앵커가 아니라 스캔 끝 경계(맨 위 슬롯보다 위로 티칭).
+        // 기존 공식: 단일 앵커(MappingStart) + Level2PositionOffset(G)로 2단까지 연속 계산했다.
+        //           카세트 간 거치 오차로 2단 격자가 통째로 어긋나는 문제가 있었다.
+        // To do: [레벨 분리 스캔] 레벨별 자기 앵커로 독립 계산한다. G(Level2PositionOffset)는 명목식에서 미사용.
+        //        1단: anchor = MappingStartPosition(1단 맨아래 슬롯), pos = anchor - m*p (m=그 레벨 밑에서 슬롯 수)
+        //        2단: anchor = Level2MappingStartPosition(2단 맨아래 슬롯), 동일 공식.
+        //        피치는 단일 SlotPitch 공유. MappingEnd들은 슬롯 앵커가 아니라 각 레벨 스캔 끝 경계.
         public double CalculateMappingSlotPosition(int mappingSlotIndex)
         {
             ValidateMappingSlotIndex(mappingSlotIndex);
 
             int slotCount = Config.SlotCount;
-            int total = ResolveMappingSlotCount();
-            double anchor = Recipe.MappingStartPosition + Config.LoadingPositionOffset;
-            double pitch = Config.SlotPitch;
+            int level = ResolveLevelFromFlatIndex(mappingSlotIndex);
+            int local = ResolveLocalSlotFromFlatIndex(mappingSlotIndex);
+            int slotsFromBottom = (slotCount - 1) - local;   // local 0 = 그 레벨 맨 위
 
-            int slotsFromBottom = (total - 1) - mappingSlotIndex;
-            if (slotsFromBottom < slotCount)
-                return anchor - (pitch * slotsFromBottom);
+            double anchor = ResolveLevelMappingStartPosition(level) + Config.LoadingPositionOffset;
+            return anchor - (Config.SlotPitch * slotsFromBottom);
+        }
 
-            double levelGap = Config.Level2PositionOffset;
-            if (levelGap <= 0.0)
-                levelGap = pitch > 0.0 ? pitch : 0.001;
+        // To do: [레벨 분리 스캔] 레벨별 스캔 앵커(그 레벨 맨아래 슬롯 티칭값).
+        public double ResolveLevelMappingStartPosition(int level)
+        {
+            return level >= 2 ? Recipe.Level2MappingStartPosition : Recipe.MappingStartPosition;
+        }
 
-            return anchor - (pitch * (slotCount - 1)) - levelGap - (pitch * (slotsFromBottom - slotCount));
+        // To do: [레벨 분리 스캔] 레벨별 스캔 끝 경계(그 레벨 맨위 슬롯 지나 센서 OFF 지점 티칭값).
+        public double ResolveLevelMappingEndPosition(int level)
+        {
+            return level >= 2 ? Recipe.Level2MappingEndPosition : Recipe.MappingEndPosition;
         }
 
         // To do: [맵핑 재설계] (level, local) 래퍼 - flat 변환 후 단일 공식 사용(기존 호출부 호환).

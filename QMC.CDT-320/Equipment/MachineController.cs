@@ -1814,7 +1814,8 @@ namespace QMC.CDT320
             // 이동 + 교환 위치 전진.
             double slotPitch = 6.0;
             //double targetZ = loader.Setup.FirstSlotPosition + next * slotPitch;
-            double targetZ = cassette.Recipe.FirstSlotPosition + next * slotPitch;
+            // To do: [레벨 분리 스캔] FirstSlotPosition이 레벨별로 분리되어 2단 값으로 참조 변경(레거시 LOTPORT 경로).
+            double targetZ = cassette.Recipe.Level2FirstSlotPosition + next * slotPitch;
             Log($"[LOTPORT] Move to slot {next} (Z={targetZ:F2}mm)");
             try
             {

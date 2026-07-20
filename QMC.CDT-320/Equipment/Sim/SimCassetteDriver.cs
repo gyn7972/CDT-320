@@ -106,7 +106,8 @@ namespace QMC.CDT320.Sim
         {
             double pos   = _inputCassette.InputLifterZ.ActualPosition;
             //double first = _input.Setup.FirstSlotPosition;
-            double first = _inputCassette.Recipe.FirstSlotPosition;
+            // To do: [레벨 분리 스캔] FirstSlotPosition이 레벨별로 분리되어 2단 값으로 참조 변경(시뮬 근사).
+            double first = _inputCassette.Recipe.Level2FirstSlotPosition;
             int slot = (int)Math.Round((pos - first) / InputSlotPitchMm);
             bool has = (slot >= 0 && slot < InputSlotsHasWafer.Length) && InputSlotsHasWafer[slot];
             _inputCassette.WaferDetectSensor.SimulateInput(has);

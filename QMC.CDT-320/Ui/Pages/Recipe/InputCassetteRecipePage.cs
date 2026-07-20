@@ -578,12 +578,19 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                     return "Unloading";
                 if (string.Equals(item.Key, "READY POSITION", StringComparison.OrdinalIgnoreCase))
                     return "Avoid";
-                if (string.Equals(item.Key, "FIRST SLOT POSITION", StringComparison.OrdinalIgnoreCase))
+                // To do: [레벨 분리 스캔] 레벨별 티칭 포지션 키 매핑.
+                if (string.Equals(item.Key, "LV1 FIRST SLOT POSITION", StringComparison.OrdinalIgnoreCase))
+                    return "Level1FirstSlot";
+                if (string.Equals(item.Key, "LV2 FIRST SLOT POSITION", StringComparison.OrdinalIgnoreCase))
                     return "FirstSlot";
-                if (string.Equals(item.Key, "MAPPING START Z POSITION", StringComparison.OrdinalIgnoreCase))
+                if (string.Equals(item.Key, "LV1 MAPPING START Z POSITION", StringComparison.OrdinalIgnoreCase))
                     return "MappingStart";
-                if (string.Equals(item.Key, "MAPPING END Z POSITION", StringComparison.OrdinalIgnoreCase))
+                if (string.Equals(item.Key, "LV1 MAPPING END Z POSITION", StringComparison.OrdinalIgnoreCase))
                     return "MappingEnd";
+                if (string.Equals(item.Key, "LV2 MAPPING START Z POSITION", StringComparison.OrdinalIgnoreCase))
+                    return "Level2MappingStart";
+                if (string.Equals(item.Key, "LV2 MAPPING END Z POSITION", StringComparison.OrdinalIgnoreCase))
+                    return "Level2MappingEnd";
 
                 return string.Empty;
             }
@@ -611,11 +618,17 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 else if (string.Equals(positionName, "Avoid", StringComparison.OrdinalIgnoreCase))
                     await MoveToTarget("READY POSITION", _InputCassetteUnit.Recipe.AvoidPosition);
                 else if (string.Equals(positionName, "FirstSlot", StringComparison.OrdinalIgnoreCase))
-                    await MoveToTarget("FIRST SLOT POSITION", _InputCassetteUnit.Recipe.FirstSlotPosition);
+                    await MoveToTarget("LV2 FIRST SLOT POSITION", _InputCassetteUnit.Recipe.Level2FirstSlotPosition);
+                else if (string.Equals(positionName, "Level1FirstSlot", StringComparison.OrdinalIgnoreCase))
+                    await MoveToTarget("LV1 FIRST SLOT POSITION", _InputCassetteUnit.Recipe.Level1FirstSlotPosition);
                 else if (string.Equals(positionName, "MappingStart", StringComparison.OrdinalIgnoreCase))
-                    await MoveToTarget("MAPPING START Z POSITION", _InputCassetteUnit.Recipe.MappingStartPosition);
+                    await MoveToTarget("LV1 MAPPING START Z POSITION", _InputCassetteUnit.Recipe.MappingStartPosition);
                 else if (string.Equals(positionName, "MappingEnd", StringComparison.OrdinalIgnoreCase))
-                    await MoveToTarget("MAPPING END Z POSITION", _InputCassetteUnit.Recipe.MappingEndPosition);
+                    await MoveToTarget("LV1 MAPPING END Z POSITION", _InputCassetteUnit.Recipe.MappingEndPosition);
+                else if (string.Equals(positionName, "Level2MappingStart", StringComparison.OrdinalIgnoreCase))
+                    await MoveToTarget("LV2 MAPPING START Z POSITION", _InputCassetteUnit.Recipe.Level2MappingStartPosition);
+                else if (string.Equals(positionName, "Level2MappingEnd", StringComparison.OrdinalIgnoreCase))
+                    await MoveToTarget("LV2 MAPPING END Z POSITION", _InputCassetteUnit.Recipe.Level2MappingEndPosition);
             }
             catch (Exception ex)
             {
@@ -640,10 +653,16 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                     _InputCassetteUnit.TeachWaferLifterZAvoidPosition();
                 else if (string.Equals(positionName, "FirstSlot", StringComparison.OrdinalIgnoreCase))
                     _InputCassetteUnit.TeachWaferLifterZPosition("FirstSlot");
+                else if (string.Equals(positionName, "Level1FirstSlot", StringComparison.OrdinalIgnoreCase))
+                    _InputCassetteUnit.TeachWaferLifterZPosition("Level1FirstSlot");
                 else if (string.Equals(positionName, "MappingStart", StringComparison.OrdinalIgnoreCase))
                     _InputCassetteUnit.TeachWaferLifterZMappingStartPosition();
                 else if (string.Equals(positionName, "MappingEnd", StringComparison.OrdinalIgnoreCase))
                     _InputCassetteUnit.TeachWaferLifterZMappingEndPosition();
+                else if (string.Equals(positionName, "Level2MappingStart", StringComparison.OrdinalIgnoreCase))
+                    _InputCassetteUnit.TeachWaferLifterZLevel2MappingStartPosition();
+                else if (string.Equals(positionName, "Level2MappingEnd", StringComparison.OrdinalIgnoreCase))
+                    _InputCassetteUnit.TeachWaferLifterZLevel2MappingEndPosition();
             }
             catch (Exception ex)
             {
@@ -666,9 +685,13 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                     AxisDouble("LOADING Z POSITION", ParameterGridScope.Recipe, () => _InputCassetteUnit.Recipe.LoaingPosition, v => _InputCassetteUnit.Recipe.LoaingPosition = v),
                     AxisDouble("UNLOADING Z POSITION", ParameterGridScope.Recipe, () => _InputCassetteUnit.Recipe.UnloadingPosition, v => _InputCassetteUnit.Recipe.UnloadingPosition = v),
                     AxisDouble("READY POSITION", ParameterGridScope.Recipe, () => _InputCassetteUnit.Recipe.AvoidPosition, v => _InputCassetteUnit.Recipe.AvoidPosition = v),
-                    AxisDouble("FIRST SLOT POSITION", ParameterGridScope.Recipe, () => _InputCassetteUnit.Recipe.FirstSlotPosition, v => _InputCassetteUnit.Recipe.FirstSlotPosition = v),
-                    AxisDouble("MAPPING START Z POSITION", ParameterGridScope.Recipe, () => _InputCassetteUnit.Recipe.MappingStartPosition, v => _InputCassetteUnit.Recipe.MappingStartPosition = v),
-                    AxisDouble("MAPPING END Z POSITION", ParameterGridScope.Recipe, () => _InputCassetteUnit.Recipe.MappingEndPosition, v => _InputCassetteUnit.Recipe.MappingEndPosition = v),
+                    // To do: [레벨 분리 스캔] 1단/2단 스캔 구간과 스타트 포지션(첫 제품 로딩)을 레벨별로 등록한다.
+                    AxisDouble("LV1 FIRST SLOT POSITION", ParameterGridScope.Recipe, () => _InputCassetteUnit.Recipe.Level1FirstSlotPosition, v => _InputCassetteUnit.Recipe.Level1FirstSlotPosition = v),
+                    AxisDouble("LV2 FIRST SLOT POSITION", ParameterGridScope.Recipe, () => _InputCassetteUnit.Recipe.Level2FirstSlotPosition, v => _InputCassetteUnit.Recipe.Level2FirstSlotPosition = v),
+                    AxisDouble("LV1 MAPPING START Z POSITION", ParameterGridScope.Recipe, () => _InputCassetteUnit.Recipe.MappingStartPosition, v => _InputCassetteUnit.Recipe.MappingStartPosition = v),
+                    AxisDouble("LV1 MAPPING END Z POSITION", ParameterGridScope.Recipe, () => _InputCassetteUnit.Recipe.MappingEndPosition, v => _InputCassetteUnit.Recipe.MappingEndPosition = v),
+                    AxisDouble("LV2 MAPPING START Z POSITION", ParameterGridScope.Recipe, () => _InputCassetteUnit.Recipe.Level2MappingStartPosition, v => _InputCassetteUnit.Recipe.Level2MappingStartPosition = v),
+                    AxisDouble("LV2 MAPPING END Z POSITION", ParameterGridScope.Recipe, () => _InputCassetteUnit.Recipe.Level2MappingEndPosition, v => _InputCassetteUnit.Recipe.Level2MappingEndPosition = v),
                     AxisDouble("LOADING OFFSET", ParameterGridScope.Config, () => _InputCassetteUnit.Config.LoadingPositionOffset, v => _InputCassetteUnit.Config.LoadingPositionOffset = v),
                     AxisDouble("UNLOADING OFFSET", ParameterGridScope.Config, () => _InputCassetteUnit.Config.UnloadingPositionOffset, v => _InputCassetteUnit.Config.UnloadingPositionOffset = v),
                     AxisDouble("LEVEL 2 OFFSET", ParameterGridScope.Config, () => _InputCassetteUnit.Config.Level2PositionOffset, v => _InputCassetteUnit.Config.Level2PositionOffset = Math.Max(0.0, v)),
@@ -883,7 +906,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 lblRecipeLoadingVal.Text = FormatAxis(_InputCassetteUnit.Recipe.LoaingPosition);
                 lblRecipeUnloadingVal.Text = FormatAxis(_InputCassetteUnit.Recipe.UnloadingPosition);
                 lblRecipeAvoidVal.Text = FormatAxis(_InputCassetteUnit.Recipe.AvoidPosition);
-                lblRecipeFirstSlotVal.Text = FormatAxis(_InputCassetteUnit.Recipe.FirstSlotPosition);
+                lblRecipeFirstSlotVal.Text = FormatAxis(_InputCassetteUnit.Recipe.Level2FirstSlotPosition);
                 lblRecipeMappingStartVal.Text = FormatAxis(_InputCassetteUnit.Recipe.MappingStartPosition);
                 lblRecipeMappingEndVal.Text = FormatAxis(_InputCassetteUnit.Recipe.MappingEndPosition);
                 lblConfigLoadingOffsetVal.Text = FormatAxis(_InputCassetteUnit.Config.LoadingPositionOffset);
