@@ -21,6 +21,7 @@ namespace QMC.CDT320.Ajin
         private int _motionDirection;
         private bool _isHomeSearching;
         private int _motionStopSerial;
+        private int _hardwareLimitSearchDirection;
 
         // 소프트리밋은 보드 센서가 아니므로 알람 리셋 전까지 소프트웨어 latch 로 유지한다.
         private bool _softLimitAlarmLatched;
@@ -37,6 +38,15 @@ namespace QMC.CDT320.Ajin
 
         public int AxisNo { get; }
 
+        public bool IsInitializeHardwareLimitSearchActive(int direction)
+        {
+            int expectedDirection = direction < 0 ? -1 : 1;
+            if (Volatile.Read(ref _hardwareLimitSearchDirection) != expectedDirection)
+                return false;
+
+            return IsMoving || IsTargetHardwareLimitActive(expectedDirection);
+        }
+
         // 보드 raw enum 값 캐시. ReadSetupFromBoard 시 채워지고,
         // WriteSetupToBoard 시 모델 → AXL enum 매핑이 동일 카테고리이면 raw 를 그대로 재사용한다.
         // 모델 enum 종류수 < AXL enum 종류수 인 항목들의 정보 손실을 라운드트립에서 방지한다.
@@ -47,6 +57,176 @@ namespace QMC.CDT320.Ajin
         protected override bool UseInternalStatusUpdate
         {
             get { return false; }
+        }
+
+        public async Task<int> SearchHardwareLimitForInitializeAsync(
+            int direction,
+            double velocity,
+            int timeoutMs,
+            CancellationToken cancellationToken)
+        {
+            int searchDirection = direction < 0 ? -1 : 1;
+            bool completed = false;
+            try
+            {
+                if (timeoutMs <= 0)
+                    timeoutMs = 30000;
+
+                if (UseSimulation)
+                {
+                    if (!IsServoOn || IsAlarm)
+                        return FailAjinAxisNotReady("INITIALIZE LIMIT SEARCH", 0.0, false);
+
+                    await Task.Delay(100, cancellationToken).ConfigureAwait(false);
+                    if (searchDirection < 0)
+                        Sensor_MEL = true;
+                    else
+                        Sensor_PEL = true;
+                    Volatile.Write(ref _hardwareLimitSearchDirection, searchDirection);
+                    completed = true;
+                    return 0;
+                }
+
+                if (!AjinSystem.IsOpen)
+                    return FailMotion(-2, "INITIALIZE LIMIT SEARCH", "AXL is not open.", 0.0, false);
+
+                UpdateStatus();
+                if (!IsServoOn)
+                    return FailMotion(-2, "INITIALIZE LIMIT SEARCH", "Servo is OFF.", 0.0, false);
+                if (IsAlarm && !IsExpectedHardwareLimitAlarm(searchDirection))
+                    return FailAjinAxisNotReady("INITIALIZE LIMIT SEARCH", 0.0, false);
+
+                ClearExpectedHardwareLimitAlarm(searchDirection);
+                Volatile.Write(ref _hardwareLimitSearchDirection, searchDirection);
+
+                if (IsTargetHardwareLimitActive(searchDirection))
+                {
+                    completed = true;
+                    return 0;
+                }
+
+                if (IsOppositeHardwareLimitActive(searchDirection))
+                    return FailMotion(-12, "INITIALIZE LIMIT SEARCH", "Opposite hardware limit is active.", 0.0, false);
+
+                double safeVelocity = velocity > 0.0
+                    ? Math.Abs(velocity)
+                    : Math.Abs(Config != null ? Config.JogFineVelocity : 1.0);
+                double signedVelocity = searchDirection * Math.Max(0.000001, safeVelocity);
+                int motionStopSerial = Volatile.Read(ref _motionStopSerial);
+
+                CurrentVelocity = signedVelocity;
+                IsMoving = true;
+                IsInPosition = false;
+                _motionDirection = searchDirection;
+
+                int ret;
+                lock (_sync)
+                    ret = AXM.MoveVelocity(
+                        AxisNo,
+                        ToBoardVelocity(signedVelocity),
+                        ToBoardAcceleration(ResolveJogAcceleration()),
+                        ToBoardAcceleration(ResolveJogDeceleration()));
+                if (ret != 0)
+                {
+                    IsMoving = false;
+                    _motionDirection = 0;
+                    return FailMotion(ret, "INITIALIZE LIMIT SEARCH", "AXM.MoveVelocity failed. ret=0x" + ret.ToString("X4"), 0.0, false);
+                }
+
+                RaiseMoveStarted();
+                DateTime deadline = DateTime.UtcNow.AddMilliseconds(timeoutMs);
+                while (DateTime.UtcNow < deadline)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    UpdateStatus();
+
+                    if (!IsServoOn)
+                        return FailMotion(-2, "INITIALIZE LIMIT SEARCH", "Servo turned OFF during limit search.", 0.0, false);
+                    if (IsOppositeHardwareLimitActive(searchDirection))
+                        return FailMotion(-12, "INITIALIZE LIMIT SEARCH", "Opposite hardware limit was detected.", 0.0, false);
+                    if (IsAlarm)
+                        return FailMotion((int)AlarmCode, "INITIALIZE LIMIT SEARCH", "Axis fault occurred during limit search.", 0.0, false);
+                    if (Volatile.Read(ref _motionStopSerial) != motionStopSerial && !IsMoving)
+                        return FailMotion(-4, "INITIALIZE LIMIT SEARCH", "Axis stop was requested during limit search.", 0.0, false);
+
+                    if (IsTargetHardwareLimitActive(searchDirection))
+                    {
+                        Stop();
+                        int stopWait = 0;
+                        do
+                        {
+                            await Task.Delay(20, cancellationToken).ConfigureAwait(false);
+                            UpdateStatus();
+                        }
+                        while (IsMoving && ++stopWait < 100);
+
+                        if (IsMoving)
+                            return FailMotion(-13, "INITIALIZE LIMIT SEARCH", "Axis did not stop after target limit detection.", 0.0, false);
+
+                        completed = true;
+                        ClearExpectedHardwareLimitAlarm(searchDirection);
+                        return 0;
+                    }
+
+                    await Task.Delay(10, cancellationToken).ConfigureAwait(false);
+                }
+
+                return FailMotion(-3, "INITIALIZE LIMIT SEARCH", "Hardware limit search timeout.", 0.0, false);
+            }
+            catch (OperationCanceledException)
+            {
+                return FailMotion(-4, "INITIALIZE LIMIT SEARCH", "Hardware limit search was canceled.", 0.0, false);
+            }
+            catch (Exception ex)
+            {
+                return FailMotion(-1, "INITIALIZE LIMIT SEARCH", ex.Message, 0.0, false);
+            }
+            finally
+            {
+                if (!completed)
+                    StopInitializeHardwareLimitSearch();
+            }
+        }
+
+        public void StopInitializeHardwareLimitSearch()
+        {
+            try
+            {
+                Stop();
+            }
+            finally
+            {
+                ReleaseInitializeHardwareLimitSearch();
+            }
+        }
+
+        public void ReleaseInitializeHardwareLimitSearch()
+        {
+            Volatile.Write(ref _hardwareLimitSearchDirection, 0);
+        }
+
+        private bool IsTargetHardwareLimitActive(int direction)
+        {
+            return direction < 0 ? Sensor_MEL : Sensor_PEL;
+        }
+
+        private bool IsOppositeHardwareLimitActive(int direction)
+        {
+            return direction < 0 ? Sensor_PEL : Sensor_MEL;
+        }
+
+        private bool IsExpectedHardwareLimitAlarm(int direction)
+        {
+            return IsAlarm && AlarmCode == (direction < 0 ? 21u : 20u);
+        }
+
+        private void ClearExpectedHardwareLimitAlarm(int direction)
+        {
+            if (!IsExpectedHardwareLimitAlarm(direction))
+                return;
+
+            IsAlarm = false;
+            AlarmCode = 0;
         }
 
         private bool UseSimulation
@@ -217,6 +397,434 @@ namespace QMC.CDT320.Ajin
             {
             }
         }
+
+        /// <summary>
+        /// 구동 중인 축의 속도/가감속만 변경한다 (목표 위치 유지).
+        /// 정지 상태면 -4, 인자가 0 이하인 성분은 Config 기본값에 MotionSpeedScale을 적용해 대체한다.
+        /// </summary>
+        public int TryOverrideVelocity(double velocity, double acceleration, double deceleration)
+        {
+            try
+            {
+                double safeVelocity = velocity > 0.0
+                    ? velocity
+                    : MotionSpeedScale.ApplyDefaultVelocityScale(Config.DefaultVelocity);
+                double safeAcceleration = acceleration > 0.0
+                    ? acceleration
+                    : MotionSpeedScale.ApplyDefaultAccelerationScale(Config.Acceleration);
+                double safeDeceleration = deceleration > 0.0
+                    ? deceleration
+                    : MotionSpeedScale.ApplyDefaultAccelerationScale(Config.Deceleration);
+
+                if (UseSimulation)
+                {
+                    if (!IsMoving)
+                        return -4;
+
+                    base.OverrideVelocity(safeVelocity);
+                    return 0;
+                }
+
+                if (!AjinSystem.IsOpen)
+                    return FailMotion(-2, "VELOCITY OVERRIDE", "AXL 라이브러리가 열려 있지 않습니다.");
+                if (IsAlarm)
+                    return FailMotion(-2, "VELOCITY OVERRIDE", "축 알람이 ON 상태입니다. alarmCode=0x" + AlarmCode.ToString("X4"));
+                if (!IsServoOn)
+                    return FailMotion(-2, "VELOCITY OVERRIDE", "축 서보가 OFF 상태입니다.");
+
+                UpdateStatus();
+                if (!IsMoving)
+                    return -4;
+
+                int ret;
+                lock (_sync)
+                {
+                    ret = AXM.ModifyVelocity(
+                        AxisNo,
+                        ToBoardVelocity(safeVelocity),
+                        ToBoardAcceleration(safeAcceleration),
+                        ToBoardAcceleration(safeDeceleration));
+                }
+
+                if (ret != 0)
+                {
+                    return FailMotion(
+                        ret,
+                        "VELOCITY OVERRIDE",
+                        "AXM 속도 오버라이드 명령이 실패했습니다. ret=0x" + ret.ToString("X4"));
+                }
+
+                base.OverrideVelocity(safeVelocity);
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                return FailMotion(
+                    -1,
+                    "VELOCITY OVERRIDE",
+                    "속도 오버라이드 처리 중 예외가 발생했습니다. error=" + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        #region 팔로잉 이동 (FollowMove)
+
+        // 팔로잉 안전거리 하한. safetyGap 인자가 이 값보다 작으면 이 값으로 클램프한다.
+        private const double MinimumFollowSafetyGap = 40.0;
+        // 팔로잉 이동 전체 타임아웃(고정). 팔로잉 루프와 최종 완료 대기를 합쳐 적용한다.
+        private const int FollowMoveTimeoutMs = 5000;
+        // 팔로잉 루프 폴링 주기.
+        private const int FollowMovePollIntervalMs = 10;
+        // 타임아웃 전용 에러코드.
+        private const int FollowMoveTimeoutErrorCode = -21;
+        // 선행축 알람 전용 에러코드.
+        private const int FollowMoveLeadingAlarmErrorCode = -22;
+
+        /// <summary>
+        /// 선행축을 따라가며 후행축(this)을 목표 위치까지 이동시킨다.
+        /// 선행축에는 어떤 명령도 내리지 않는다(읽기 전용 — ActualPosition/IsMoving/IsAlarm만 참조).
+        /// 두 축의 물리 간격이 safetyGap(최소 40mm) 미만으로 줄어들지 않는 한도 내에서
+        /// 포지션 오버라이드로 추종하고, 후행축이 목표에 도달하면 0을 반환한다.
+        /// 반환: 0=성공, -1=인자 오류, -2=축 미준비, -11=인터락 거부,
+        /// -21=타임아웃(5초 고정), -22=선행축 알람, 그 외=하위 에러코드.
+        /// </summary>
+        public async Task<int> FollowMoveAsync(
+            BaseAxis leadingAxis,
+            double leadingTargetPosition,
+            double leadingVelocity,
+            double leadingAcceleration,
+            double leadingDeceleration,
+            double trailingTargetPosition,
+            double trailingVelocity,
+            double trailingAcceleration,
+            double trailingDeceleration,
+            int direction,
+            double safetyGap,
+            double homeGap,
+            CancellationToken ct = default(CancellationToken))
+        {
+            Task<int> moveTask = null;
+
+            try
+            {
+                if (leadingAxis == null)
+                    return FailMotion(-1, "FOLLOW MOVE", "선행축이 지정되지 않았습니다.", trailingTargetPosition, true);
+                if (direction != 1 && direction != -1)
+                    return FailMotion(-1, "FOLLOW MOVE", "direction 인자는 +1 또는 -1이어야 합니다. direction=" + direction, trailingTargetPosition, true);
+                if (!IsServoOn || IsAlarm)
+                    return FailAxisNotReady("FOLLOW MOVE", trailingTargetPosition, true);
+
+                double tolerance = Config != null && Config.InPositionTolerance > 0.0
+                    ? Config.InPositionTolerance
+                    : 0.01;
+
+                UpdateStatus();
+                if (Math.Abs(ActualPosition - trailingTargetPosition) <= tolerance && !IsMoving)
+                    return 0;
+
+                if (direction > 0 && trailingTargetPosition < ActualPosition - tolerance)
+                    return FailMotion(-1, "FOLLOW MOVE", "목표 위치가 진행 방향(+)과 반대입니다. actual=" + ActualPosition.ToString("F3") + ", target=" + trailingTargetPosition.ToString("F3"), trailingTargetPosition, true);
+                if (direction < 0 && trailingTargetPosition > ActualPosition + tolerance)
+                    return FailMotion(-1, "FOLLOW MOVE", "목표 위치가 진행 방향(-)과 반대입니다. actual=" + ActualPosition.ToString("F3") + ", target=" + trailingTargetPosition.ToString("F3"), trailingTargetPosition, true);
+
+                bool safetyGapClamped = safetyGap < MinimumFollowSafetyGap;
+                if (safetyGapClamped)
+                    safetyGap = MinimumFollowSafetyGap;
+
+                // 팔로잉 프로파일: 선행/후행 인자 중 성분별 작은 값.
+                // 0 이하 성분은 해당 축 Config 기본값으로 대체한 뒤 Min을 취한다.
+                double leadVel = leadingVelocity > 0.0
+                    ? leadingVelocity
+                    : (leadingAxis.Config != null ? leadingAxis.Config.DefaultVelocity : 0.0);
+                double leadAcc = leadingAcceleration > 0.0
+                    ? leadingAcceleration
+                    : (leadingAxis.Config != null ? leadingAxis.Config.Acceleration : 0.0);
+                double leadDec = leadingDeceleration > 0.0
+                    ? leadingDeceleration
+                    : (leadingAxis.Config != null ? leadingAxis.Config.Deceleration : 0.0);
+                double trailVel = trailingVelocity > 0.0 ? trailingVelocity : Config.DefaultVelocity;
+                double trailAcc = trailingAcceleration > 0.0 ? trailingAcceleration : Config.Acceleration;
+                double trailDec = trailingDeceleration > 0.0 ? trailingDeceleration : Config.Deceleration;
+                double followVel = Math.Min(leadVel, trailVel);
+                double followAcc = Math.Min(leadAcc, trailAcc);
+                double followDec = Math.Min(leadDec, trailDec);
+
+                QMC.Common.Log.Write("Motion", "SYSTEM", "AX-FOLLOW-MOVE",
+                    Name + " 팔로잉 이동을 시작합니다. leading=" + leadingAxis.Name +
+                    ", leadingTarget=" + leadingTargetPosition.ToString("F3") +
+                    ", trailingTarget=" + trailingTargetPosition.ToString("F3") +
+                    ", direction=" + direction +
+                    ", safetyGap=" + safetyGap.ToString("F3") + (safetyGapClamped ? "(클램프됨)" : "") +
+                    ", homeGap=" + homeGap.ToString("F3") +
+                    ", followVel=" + followVel.ToString("F3") + " - Start");
+
+                var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+                double lastCommanded = double.NaN;
+                bool firstCommandLogged = false;
+                bool finalEntered = false;
+
+                while (true)
+                {
+                    ct.ThrowIfCancellationRequested();
+
+                    if (stopwatch.ElapsedMilliseconds >= FollowMoveTimeoutMs)
+                        return await FailFollowTimeoutAsync(moveTask, trailingTargetPosition).ConfigureAwait(false);
+
+                    UpdateStatus();
+
+                    if (IsAlarm)
+                    {
+                        Stop();
+                        await DrainFollowMoveTaskAsync(moveTask).ConfigureAwait(false);
+                        moveTask = null;
+                        QMC.Common.Log.Write("Motion", "SYSTEM", "AX-FOLLOW-MOVE",
+                            Name + " 팔로잉 이동 중 후행축 알람이 발생했습니다. alarmCode=0x" + AlarmCode.ToString("X4") + " - Failed");
+                        return (int)AlarmCode;
+                    }
+
+                    if (leadingAxis.IsAlarm)
+                    {
+                        Stop();
+                        await DrainFollowMoveTaskAsync(moveTask).ConfigureAwait(false);
+                        moveTask = null;
+                        QMC.Common.Log.Write("Motion", "SYSTEM", "AX-FOLLOW-MOVE",
+                            Name + " 팔로잉 이동 중 선행축(" + leadingAxis.Name + ") 알람이 발생했습니다. - Failed");
+                        return FailMotion(FollowMoveLeadingAlarmErrorCode, "FOLLOW MOVE",
+                            "선행축 알람이 발생했습니다. leading=" + leadingAxis.Name, trailingTargetPosition, true);
+                    }
+
+                    // 백그라운드 이동 Task가 오류로 끝났으면 해당 코드로 종료한다.
+                    if (moveTask != null && moveTask.IsCompleted)
+                    {
+                        int backgroundResult = ObserveFollowMoveResult(moveTask);
+                        moveTask = null;
+                        if (backgroundResult != 0)
+                        {
+                            Stop();
+                            QMC.Common.Log.Write("Motion", "SYSTEM", "AX-FOLLOW-MOVE",
+                                Name + " 팔로잉 백그라운드 이동이 실패했습니다. result=" + backgroundResult + " - Failed");
+                            return backgroundResult;
+                        }
+                    }
+
+                    // 최종 목표 도달 완료 판정 (백그라운드 이동이 목표에서 정상 완료된 경우).
+                    if (finalEntered && AxisMoveWaiter.IsMoveCompletedAtTarget(this, trailingTargetPosition, tolerance))
+                        break;
+
+                    // 간격/여유 계산 (실측 위치 기준).
+                    double leadingActual = leadingAxis.ActualPosition;
+                    double gap = direction > 0
+                        ? (leadingActual + homeGap) - ActualPosition
+                        : (ActualPosition + homeGap) - leadingActual;
+                    double slack = gap - safetyGap;
+
+                    if (slack > 0.0)
+                    {
+                        double intermediate = direction > 0
+                            ? ActualPosition + slack
+                            : ActualPosition - slack;
+                        double command = direction > 0
+                            ? Math.Min(trailingTargetPosition, intermediate)
+                            : Math.Max(trailingTargetPosition, intermediate);
+
+                        // 명령 위치로 이동 완료를 가정한 간격 재검증.
+                        double gapAfter = direction > 0
+                            ? (leadingActual + homeGap) - command
+                            : (command + homeGap) - leadingActual;
+                        bool commandForward = direction > 0
+                            ? command > ActualPosition + tolerance
+                            : command < ActualPosition - tolerance;
+                        bool commandIsFinal = Math.Abs(command - trailingTargetPosition) <= tolerance;
+
+                        if (gapAfter + 0.000001 >= safetyGap && (commandForward || commandIsFinal))
+                        {
+                            bool commandIssued = false;
+
+                            if (!IsMoving)
+                            {
+                                if (double.IsNaN(lastCommanded) || Math.Abs(command - lastCommanded) > tolerance ||
+                                    !AxisMoveWaiter.IsMoveCompletedAtTarget(this, command, tolerance))
+                                {
+                                    double startVelocity = commandIsFinal ? trailVel : followVel;
+                                    moveTask = MoveAbsoluteAsync(command, startVelocity);
+                                    lastCommanded = command;
+                                    commandIssued = true;
+                                    if (!firstCommandLogged)
+                                    {
+                                        firstCommandLogged = true;
+                                        QMC.Common.Log.Write("Motion", "SYSTEM", "AX-FOLLOW-MOVE",
+                                            Name + " 팔로잉 최초 이동 명령을 발행했습니다. command=" + command.ToString("F3") +
+                                            ", velocity=" + startVelocity.ToString("F3") + " - Ok");
+                                    }
+                                }
+                            }
+                            else if (double.IsNaN(lastCommanded) || Math.Abs(command - lastCommanded) > tolerance)
+                            {
+                                int overrideResult = TryOverridePosition(command, followVel, followAcc, followDec);
+                                if (overrideResult == 0)
+                                {
+                                    lastCommanded = command;
+                                    commandIssued = true;
+                                }
+                                else if (overrideResult == -11)
+                                {
+                                    Stop();
+                                    await DrainFollowMoveTaskAsync(moveTask).ConfigureAwait(false);
+                                    moveTask = null;
+                                    QMC.Common.Log.Write("Motion", "SYSTEM", "AX-FOLLOW-MOVE",
+                                        Name + " 팔로잉 위치 오버라이드가 인터락으로 거부되었습니다. command=" + command.ToString("F3") + " - Failed");
+                                    return -11;
+                                }
+                                else if (overrideResult != -4)
+                                {
+                                    Stop();
+                                    await DrainFollowMoveTaskAsync(moveTask).ConfigureAwait(false);
+                                    moveTask = null;
+                                    QMC.Common.Log.Write("Motion", "SYSTEM", "AX-FOLLOW-MOVE",
+                                        Name + " 팔로잉 위치 오버라이드가 실패했습니다. result=" + overrideResult + " - Failed");
+                                    return overrideResult;
+                                }
+                                // -4(정지 경합)는 무시하고 다음 루프에서 재시도한다.
+                            }
+
+                            // 최종 구간 진입: 자기 프로파일로 속도 복귀 후 완료 대기 단계로 전환.
+                            bool finalCommandActive = commandIsFinal &&
+                                !double.IsNaN(lastCommanded) &&
+                                Math.Abs(lastCommanded - trailingTargetPosition) <= tolerance;
+                            if (finalCommandActive && !finalEntered)
+                            {
+                                finalEntered = true;
+                                if (IsMoving)
+                                    TryOverrideVelocity(trailVel, trailAcc, trailDec);
+                                QMC.Common.Log.Write("Motion", "SYSTEM", "AX-FOLLOW-MOVE",
+                                    Name + " 팔로잉 최종 구간에 진입했습니다. target=" + trailingTargetPosition.ToString("F3") +
+                                    ", velocity=" + trailVel.ToString("F3") +
+                                    (commandIssued ? "" : " (명령 유지)") + " - Ok");
+                                break;
+                            }
+                        }
+                    }
+
+                    await Task.Delay(FollowMovePollIntervalMs, ct).ConfigureAwait(false);
+                }
+
+                // 최종 완료 대기 (남은 타임아웃 적용).
+                int remainingMs = FollowMoveTimeoutMs - (int)stopwatch.ElapsedMilliseconds;
+                if (remainingMs <= 0)
+                    return await FailFollowTimeoutAsync(moveTask, trailingTargetPosition).ConfigureAwait(false);
+
+                AxisMoveWaitResult waitResult = await AxisMoveWaiter.WaitMoveDoneInPositionAsync(
+                    this,
+                    trailingTargetPosition,
+                    tolerance,
+                    remainingMs,
+                    0,
+                    ct).ConfigureAwait(false);
+
+                if (waitResult == null || !waitResult.Success)
+                {
+                    if (waitResult != null && waitResult.Failure == AxisMoveWaitFailure.Timeout)
+                        return await FailFollowTimeoutAsync(moveTask, trailingTargetPosition).ConfigureAwait(false);
+
+                    Stop();
+                    await DrainFollowMoveTaskAsync(moveTask).ConfigureAwait(false);
+                    moveTask = null;
+                    int failCode = waitResult != null ? waitResult.Code : -1;
+                    QMC.Common.Log.Write("Motion", "SYSTEM", "AX-FOLLOW-MOVE",
+                        Name + " 팔로잉 최종 완료 대기가 실패했습니다. " + AxisMoveWaiter.FormatResult(waitResult, Name) + " - Failed");
+                    return FailMotion(failCode, "FOLLOW MOVE",
+                        "팔로잉 최종 완료 대기가 실패했습니다. " + (waitResult != null ? waitResult.Reason : ""), trailingTargetPosition, true);
+                }
+
+                await DrainFollowMoveTaskAsync(moveTask).ConfigureAwait(false);
+                moveTask = null;
+                QMC.Common.Log.Write("Motion", "SYSTEM", "AX-FOLLOW-MOVE",
+                    Name + " 팔로잉 이동이 정상 완료되었습니다. target=" + trailingTargetPosition.ToString("F3") +
+                    ", actual=" + ActualPosition.ToString("F3") + " - Ok");
+                return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                Stop();
+                await DrainFollowMoveTaskAsync(moveTask).ConfigureAwait(false);
+                QMC.Common.Log.Write("Motion", "SYSTEM", "AX-FOLLOW-MOVE",
+                    Name + " 팔로잉 이동이 취소되었습니다. - Failed");
+                throw;
+            }
+            catch (Exception ex)
+            {
+                Stop();
+                await DrainFollowMoveTaskAsync(moveTask).ConfigureAwait(false);
+                return FailMotion(-1, "FOLLOW MOVE",
+                    "팔로잉 이동 처리 중 예외가 발생했습니다. error=" + ex.Message, trailingTargetPosition, true);
+            }
+            finally
+            {
+            }
+        }
+
+        /// <summary>타임아웃 공통 처리: 정지 → 백그라운드 Task drain → -21 기록/반환.</summary>
+        private async Task<int> FailFollowTimeoutAsync(Task<int> moveTask, double trailingTargetPosition)
+        {
+            Stop();
+            await DrainFollowMoveTaskAsync(moveTask).ConfigureAwait(false);
+            QMC.Common.Log.Write("Motion", "SYSTEM", "AX-FOLLOW-MOVE",
+                Name + " 팔로잉 이동이 타임아웃(" + FollowMoveTimeoutMs + "ms)되었습니다. actual=" + ActualPosition.ToString("F3") + " - Failed");
+            return FailMotion(FollowMoveTimeoutErrorCode, "FOLLOW MOVE",
+                "팔로잉 이동이 " + FollowMoveTimeoutMs + "ms 안에 완료되지 않았습니다.", trailingTargetPosition, true);
+        }
+
+        /// <summary>
+        /// 백그라운드 이동 Task를 최대 2초 대기 후 관찰(observe)한다.
+        /// 어떤 종료 경로에서도 unobserved exception이 남지 않도록 한다.
+        /// </summary>
+        private static async Task DrainFollowMoveTaskAsync(Task<int> moveTask)
+        {
+            if (moveTask == null)
+                return;
+
+            try
+            {
+                Task completed = await Task.WhenAny(moveTask, Task.Delay(2000)).ConfigureAwait(false);
+                if (!object.ReferenceEquals(completed, moveTask))
+                {
+                    // 시간 내 종료하지 않으면 백그라운드로 관찰만 예약한다.
+                    Task observeOnly = moveTask.ContinueWith(
+                        t => { var _ = t.Exception; },
+                        TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously);
+                    return;
+                }
+
+                await moveTask.ConfigureAwait(false);
+            }
+            catch (Exception)
+            {
+                // drain 중 예외는 팔로잉 종료 흐름을 막지 않는다.
+            }
+            finally
+            {
+            }
+        }
+
+        /// <summary>완료된 이동 Task의 결과를 예외 없이 회수한다.</summary>
+        private static int ObserveFollowMoveResult(Task<int> moveTask)
+        {
+            try
+            {
+                return moveTask.GetAwaiter().GetResult();
+            }
+            catch (Exception)
+            {
+                return -1;
+            }
+            finally
+            {
+            }
+        }
+
+        #endregion
 
         public override void ServoOn()
         {
@@ -1161,8 +1769,11 @@ namespace QMC.CDT320.Ajin
             bool rawSoftLimitNegative = !limitAlarmSuppressed && Setup != null && Setup.SoftLimitEnabled &&
                 ((ActualPosition <= Setup.SoftLimitMinus + softLimitTolerance && statusMotionDirection < 0) ||
                  ActualPosition < Setup.SoftLimitMinus - softLimitTolerance);
-            bool rawHardLimitPositive = !limitAlarmSuppressed && pel;
-            bool rawHardLimitNegative = !limitAlarmSuppressed && mel;
+            int hardwareLimitSearchDirection = Volatile.Read(ref _hardwareLimitSearchDirection);
+            bool expectedInitializeLimitPositive = hardwareLimitSearchDirection > 0 && pel;
+            bool expectedInitializeLimitNegative = hardwareLimitSearchDirection < 0 && mel;
+            bool rawHardLimitPositive = !limitAlarmSuppressed && pel && !expectedInitializeLimitPositive;
+            bool rawHardLimitNegative = !limitAlarmSuppressed && mel && !expectedInitializeLimitNegative;
             bool suppressLimitAlarmForRecovery = ShouldSuppressLimitAlarmForRecovery(
                 rawSoftLimitPositive,
                 rawSoftLimitNegative,
@@ -1223,7 +1834,11 @@ namespace QMC.CDT320.Ajin
             Sensor_PEL = pel;
             Sensor_MEL = mel;
             Sensor_ORG = org;
-            if (!limitAlarmSuppressed && !IsAlarm && ((Sensor_PEL && !wasPel) || (Sensor_MEL && !wasMel)))
+            bool expectedInitializeLimitEdge =
+                (expectedInitializeLimitPositive && Sensor_PEL && !wasPel) ||
+                (expectedInitializeLimitNegative && Sensor_MEL && !wasMel);
+            if (!limitAlarmSuppressed && !expectedInitializeLimitEdge && !IsAlarm &&
+                ((Sensor_PEL && !wasPel) || (Sensor_MEL && !wasMel)))
             {
                 string side = Sensor_PEL ? "PEL(+)" : "MEL(-)";
                 AlarmManager.Raise(

@@ -171,7 +171,8 @@ namespace QMC.CDT320.Sequencing
             if (cassette == null)
                 return Fail("IN-FEEDER-EXCHANGE-CST-MISSING", "InputCassette", "Input cassette unit is not available.");
 
-            double target = cassette.CalculateWaferCassetteSlotTargetPosition(Options.NextSlotIndex);
+            // To do: C4 - 교체 이동도 원본 레벨(Input1/Input2) 위치로.
+            double target = cassette.CalculateWaferCassetteSlotTargetPosition(Options.NextSlotIndex, InputCassetteUnit.ResolveCassetteLevel(Options.CassetteRole));
             int result = await MoveCassetteZAndVerifyAsync(cassette, target, "next wafer slot", ct).ConfigureAwait(false);
             if (result != 0) return result;
 

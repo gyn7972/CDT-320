@@ -218,7 +218,7 @@ namespace QMC.CDT320.Initialization
 
     public static class AxisInitializePlanStore
     {
-        private const int CurrentDefaultVersion = 15;
+        private const int CurrentDefaultVersion = 16;
         public static string RootDir => @"D:\CDT-320";
         public static string Dir => Path.Combine(RootDir, "Config");
         public static string PlanPath => Path.Combine(Dir, "axis_initialize_plan.json");
@@ -437,21 +437,15 @@ namespace QMC.CDT320.Initialization
                 AddAxisHomeDoneInterlocks(plan, 120, "RearPickerT",
                     "RearPickerZ0", "RearPickerZ1", "RearPickerZ2", "RearPickerZ3");
 
-                // 5. Picker Y는 수직 Stage가 안전해진 후 직렬로 Home한다.
-                AddKnownStep(plan, axisByName, used, 150, "FrontPickerY", AxisInitializeRunMode.Serial,
-                    "FrontPickerY home after Front Z, ExpanderZ and GoodStageZ.", "FrontPickerY");
-                AddAxisHomeDoneInterlocks(plan, 150, "FrontPickerY",
+                // 5. Picker Y는 수직 Stage가 안전해진 후 양쪽 하드리밋을 탐색하고 동시에 Home한다.
+                AddKnownStep(plan, axisByName, used, 150, "PickerYPair", AxisInitializeRunMode.Parallel,
+                    "FrontPickerY MEL and RearPickerY PEL search, then simultaneous pair home.",
+                    "FrontPickerY", "RearPickerY");
+                AddAxisHomeDoneInterlocks(plan, 150, "PickerYPair",
                     "FrontPickerZ0", "FrontPickerZ1", "FrontPickerZ2", "FrontPickerZ3",
+                    "RearPickerZ0", "RearPickerZ1", "RearPickerZ2", "RearPickerZ3",
                     "InputExpandingZ", "OutputGoodStageZ");
-                AddStepInterlock(plan, 150, "FrontPickerY", AxisInitializeInterlockTarget.Cylinder,
-                    "ReticleLift", AxisInitializeInterlockState.Bwd,
-                    "Reticle Lift가 Bwd 상태인지 확인하십시오.");
-
-                AddKnownStep(plan, axisByName, used, 160, "RearPickerY", AxisInitializeRunMode.Serial,
-                    "RearPickerY home after Rear Z.", "RearPickerY");
-                AddAxisHomeDoneInterlocks(plan, 160, "RearPickerY",
-                    "RearPickerZ0", "RearPickerZ1", "RearPickerZ2", "RearPickerZ3");
-                AddStepInterlock(plan, 160, "RearPickerY", AxisInitializeInterlockTarget.Cylinder,
+                AddStepInterlock(plan, 150, "PickerYPair", AxisInitializeInterlockTarget.Cylinder,
                     "ReticleLift", AxisInitializeInterlockState.Bwd,
                     "Reticle Lift가 Bwd 상태인지 확인하십시오.");
 

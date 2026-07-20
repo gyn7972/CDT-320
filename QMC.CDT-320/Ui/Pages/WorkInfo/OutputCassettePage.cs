@@ -46,9 +46,13 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             btnNext.Click += async (s, e) => await RunMotionAction("LIFTER NEXT", host => MoveSlotAsync(host, 1));
             btnInit.Click += async (s, e) => await RunMotionAction("LIFTER INIT", LifterInitAsync);
             btnReady.Click += async (s, e) => await RunMotionAction("LIFTER READY", LifterReadyAsync);
-            btnMap.Click += async (s, e) => await RunSequenceAction("LIFT BIN MAPPING", MapAsync);
-            btnLoad.Click += async (s, e) => await RunSequenceAction("LIFT BIN LOADING", LoadAsync);
-            btnUnload.Click += async (s, e) => await RunSequenceAction("LIFT BIN UNLOADING", UnloadAsync);
+            // To do: [존 분리 스캔] GOOD/NG 액션 버튼 분리. GOOD은 상단 1단/2단 선택을 따르고 NG는 항상 NG 존.
+            btnMap.Click += async (s, e) => await RunSequenceAction("GOOD BIN MAPPING", host => MapAsync(host, ResolveGoodTargetCassette()));
+            btnMapNg.Click += async (s, e) => await RunSequenceAction("NG BIN MAPPING", host => MapAsync(host, TargetCassette.Ng));
+            btnLoad.Click += async (s, e) => await RunSequenceAction("GOOD BIN LOADING", host => LoadAsync(host, ResolveGoodTargetCassette()));
+            btnLoadNg.Click += async (s, e) => await RunSequenceAction("NG BIN LOADING", host => LoadAsync(host, TargetCassette.Ng));
+            btnUnload.Click += async (s, e) => await RunSequenceAction("GOOD BIN UNLOADING", host => UnloadAsync(host, ResolveGoodTargetCassette()));
+            btnUnloadNg.Click += async (s, e) => await RunSequenceAction("NG BIN UNLOADING", host => UnloadAsync(host, TargetCassette.Ng));
             btnStop.Click += async (s, e) => await StopManualActionAsync();
 
             _good1CassetteView.SlotSelected += (s, e) => SelectMaterialSlot(CassetteMaterialRole.Good1, e.SlotIndex);
@@ -203,8 +207,11 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             btnInit.Enabled = enabled;
             btnReady.Enabled = enabled;
             btnMap.Enabled = enabled;
+            btnMapNg.Enabled = enabled;
             btnLoad.Enabled = enabled;
+            btnLoadNg.Enabled = enabled;
             btnUnload.Enabled = enabled;
+            btnUnloadNg.Enabled = enabled;
             btnStop.Enabled = true;
         }
 
@@ -248,22 +255,29 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             return 0;
         }
 
-        private async Task<bool> MapAsync(Form1 host)
+        // To do: [존 분리 스캔] GOOD/NG 액션 분리 - 각 버튼이 대상 존을 명시해 실행한다.
+        //        GOOD 대상은 상단 1단/2단 선택(_selectedCassetteRole)을 따르고, NG 버튼은 항상 NG 존이다.
+        private TargetCassette ResolveGoodTargetCassette()
         {
-            var sequence = CreateOutputCassetteSequence(host);
-            return await sequence.RunMappingAsync(host.Controller.ManualOperationToken, BuildCassetteOptions(host, _manualSequenceStartMode)) == 0;
+            return _selectedCassetteRole == CassetteMaterialRole.Good2 ? TargetCassette.Good2 : TargetCassette.Good1;
         }
 
-        private async Task<bool> LoadAsync(Form1 host)
+        private async Task<bool> MapAsync(Form1 host, TargetCassette target)
         {
             var sequence = CreateOutputCassetteSequence(host);
-            return await sequence.RunLoadingAsync(host.Controller.ManualOperationToken, BuildCassetteOptions(host, _manualSequenceStartMode)) == 0;
+            return await sequence.RunMappingAsync(host.Controller.ManualOperationToken, BuildCassetteOptions(host, _manualSequenceStartMode, target)) == 0;
         }
 
-        private async Task<bool> UnloadAsync(Form1 host)
+        private async Task<bool> LoadAsync(Form1 host, TargetCassette target)
         {
             var sequence = CreateOutputCassetteSequence(host);
-            return await sequence.RunUnloadingAsync(host.Controller.ManualOperationToken, BuildCassetteOptions(host, _manualSequenceStartMode)) == 0;
+            return await sequence.RunLoadingAsync(host.Controller.ManualOperationToken, BuildCassetteOptions(host, _manualSequenceStartMode, target)) == 0;
+        }
+
+        private async Task<bool> UnloadAsync(Form1 host, TargetCassette target)
+        {
+            var sequence = CreateOutputCassetteSequence(host);
+            return await sequence.RunUnloadingAsync(host.Controller.ManualOperationToken, BuildCassetteOptions(host, _manualSequenceStartMode, target)) == 0;
         }
 
         private OutputCassetteSequence CreateOutputCassetteSequence(Form1 host)
@@ -274,12 +288,18 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
 
         private OutputCassetteSequenceOptions BuildCassetteOptions(Form1 host, SequenceStartMode startMode)
         {
+            return BuildCassetteOptions(host, startMode, ResolveTargetCassette(_selectedCassetteRole));
+        }
+
+        // To do: [존 분리 스캔] 버튼별 대상 존을 명시 전달하는 옵션 빌더.
+        private OutputCassetteSequenceOptions BuildCassetteOptions(Form1 host, SequenceStartMode startMode, TargetCassette target)
+        {
             var options = OutputCassetteSequenceOptions.Default();
             options.RunMode = SequenceRunMode.Manual;
             options.StartMode = startMode;
             options.MoveTimeoutMs = ResolveManualMoveTimeoutMs(host);
             options.FineMove = false;
-            options.TargetCassette = ResolveTargetCassette(_selectedCassetteRole);
+            options.TargetCassette = target;
             options.SlotIndex = _selectedMaterialSlot >= 0 ? _selectedMaterialSlot : 0;
             options.GoodLevelCount = host != null && host.Machine != null && host.Machine.OutputCassetteUnit != null && host.Machine.OutputCassetteUnit.Config != null
                 ? Math.Max(1, Math.Min(2, host.Machine.OutputCassetteUnit.Config.SelectedCassetteLevel))

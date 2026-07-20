@@ -360,7 +360,8 @@ namespace QMC.CDT320.Sequencing
                 if (!cassette.CheckWaferCassetteMoveReady(out readyReason))
                     return Fail("IN-CST-MOVE-READY", cassette.Name, "Input cassette is not ready to move. " + readyReason);
 
-                double target = cassette.Recipe.MappingStartPosition;
+                // To do: 스캔 시작은 MappingStart(밑 슬롯 검출 앵커)보다 반 피치 아래에서 출발한다(시작 시 센서 ON 방지).
+                double target = cassette.ResolveMappingScanStartPosition();
                 int result = await cassette.MoveWaferLifterZ(target, Options.FineMove, ct).ConfigureAwait(false);
                 if (result != 0)
                     return Fail("IN-CST-MAP-START", cassette.Name,
@@ -470,7 +471,8 @@ namespace QMC.CDT320.Sequencing
                 int slotCount = cassette.Config != null ? cassette.Config.SlotCount : 0;
                 if (slotCount > 0)
                 {
-                    double target = cassette.CalculateWaferCassetteSlotTargetPosition(0);
+                    // To do: [맵핑 재설계] 첫 제품 슬롯 = 전체 맨 위(flat 0 = 최상위 레벨 01번). 제품은 맨 위에서 아래로 진행.
+                    double target = cassette.CalculateWaferCassetteSlotTargetPosition(0, cassette.ResolveCassetteLevelCount());
                     int result = await cassette.MoveWaferLifterZ(target, Options.FineMove, ct).ConfigureAwait(false);
                     if (result != 0)
                         return Fail("IN-CST-FIRST-SLOT", cassette.Name,
@@ -606,7 +608,7 @@ namespace QMC.CDT320.Sequencing
 
                 bool dataOccupied = feeder.IsWaferFeederTransferDataOccupied();
                 bool waferOccupied = feeder.HasWaferOnFeeder();
-                bool rawSensorDetected = IsAnyWaferFeederRawRingSensorOn(feeder);
+                bool rawSensorDetected = false; //실제 웨이퍼를 집기전에 이미 스테이지에 감지되어있다. 추후다시사용 //IsAnyWaferFeederRawRingSensorOn(feeder);
                 bool occupied = dataOccupied || waferOccupied || rawSensorDetected;
 
                 reason = "DataOccupied=" + dataOccupied +
@@ -768,6 +770,8 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
+        // To do: [맵핑 재설계] WaferMap flat 배치 = 앞쪽(0~N-1)이 2단(위 카세트), 뒤쪽(N~2N-1)이 1단.
+        //        2단 미사용(map 길이 == slotCount)이면 전체가 1단이다. local 0 = 각 레벨 맨 위 슬롯.
         private static IReadOnlyList<bool> BuildCassetteLevelMap(IReadOnlyList<bool> map, int slotCount, int level)
         {
             if (slotCount < 0)
@@ -777,7 +781,16 @@ namespace QMC.CDT320.Sequencing
             if (map == null || slotCount == 0)
                 return levelMap;
 
-            int offset = Math.Max(0, level - 1) * slotCount;
+            bool hasLevel2 = map.Count > slotCount;
+            int offset;
+            if (!hasLevel2)
+                offset = level == 1 ? 0 : -1;              // 1단 전용: level2 요청이면 빈 맵
+            else
+                offset = level >= 2 ? 0 : slotCount;       // 2단=앞쪽, 1단=뒤쪽
+
+            if (offset < 0)
+                return levelMap;
+
             for (int i = 0; i < slotCount; i++)
             {
                 int sourceIndex = offset + i;
@@ -797,7 +810,10 @@ namespace QMC.CDT320.Sequencing
 
                 var positions = new double[count];
                 for (int i = 0; i < positions.Length; i++)
-                    positions[i] = cassette.CalculateCassetteLevelSlotPosition(level, i);
+                    // To do: 웨이퍼 카세트 포지션은 "실측 검출 위치 + 로딩 오프셋"으로 저장한다.
+                    //        CalculateWaferCassetteSlotTargetPosition은 실측(Recipe.SlotPosition[flat])을 우선 사용하고
+                    //        미맵핑 슬롯만 명목값으로 대체하므로, 실제 축 이동 목표와 항상 일치한다.
+                    positions[i] = cassette.CalculateWaferCassetteSlotTargetPosition(i, level);
 
                 return positions;
             }

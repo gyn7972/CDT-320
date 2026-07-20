@@ -1176,6 +1176,22 @@ namespace QMC.CDT320.Sequencing
                 double alignOffsetY = _visionOffset.DeltaY;
                 double alignOffsetT = _visionOffset.DeltaTheta;
 
+                // Pick 런타임 보정: Enable일 때만 필터 상태를 적용하고, Disable이면 0을 전달한다
+                // (Disable이어도 필터 학습·저장은 Bottom 검사 경로에서 계속된다).
+                bool pickRuntimeEnabled = PickRuntimeOffsetService.IsEnabled;
+                double pickRuntimeOffsetX = 0.0;
+                double pickRuntimeOffsetY = 0.0;
+                double pickRuntimeOffsetT = 0.0;
+                if (pickRuntimeEnabled)
+                {
+                    PickRuntimeOffsetService.GetOffset(
+                        Side,
+                        _currentPickerNo,
+                        out pickRuntimeOffsetX,
+                        out pickRuntimeOffsetY,
+                        out pickRuntimeOffsetT);
+                }
+
                 PickCoordinateResult coordinate;
                 string coordinateReason;
                 if (!PickerMotionTargetResolver.TryCalculateInputPickTarget(
@@ -1191,7 +1207,10 @@ namespace QMC.CDT320.Sequencing
                     alignOffsetT,
                     true,
                     out coordinate,
-                    out coordinateReason))
+                    out coordinateReason,
+                    pickRuntimeOffsetX,
+                    pickRuntimeOffsetY,
+                    pickRuntimeOffsetT))
                 {
                     return Fail("PICKER-PICKUP-COORD-OFFSET", Name,
                         "Input pick coordinate target resolve failed. " +
@@ -1243,7 +1262,11 @@ namespace QMC.CDT320.Sequencing
                     ", visionOffsetYAppliedToStage=True(OppositeSign)" +
                     ", visionOffsetYAppliedToPicker=False(FixedPickY)" +
                     ", needleYToVisionYOffset=" + ResolveNeedleCalibrationOffsetY() +
-                    ", alignOffsetT=" + alignOffsetT + " - Ok");
+                    ", alignOffsetT=" + alignOffsetT +
+                    ", pickRuntimeEnabled=" + pickRuntimeEnabled +
+                    ", pickRuntimeOffsetX=" + pickRuntimeOffsetX.ToString("F6") +
+                    ", pickRuntimeOffsetY=" + pickRuntimeOffsetY.ToString("F6") +
+                    ", pickRuntimeOffsetT=" + pickRuntimeOffsetT.ToString("F6") + " - Ok");
 
                 return 0;
             }

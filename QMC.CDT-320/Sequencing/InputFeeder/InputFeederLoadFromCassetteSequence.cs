@@ -189,8 +189,10 @@ namespace QMC.CDT320.Sequencing
             if (cassette == null)
                 return Fail("IN-FEEDER-CST-MISSING", "InputCassette", "Input cassette unit is not available.");
 
+            // To do: 1단/2단 로딩 지원. Input2(2단)이면 level=2로 전달해 해당 레벨 로딩 위치로 이동한다.
+            int cassetteLevel = Options.CassetteRole == CassetteMaterialRole.Input2 ? 2 : 1;
             int result = await AwaitStepWithCancellationAsync(
-                cassette.PrepareWaferCassetteForFeederLoad(Options.SlotIndex, ResolveTimeout(), Options.FineMove),
+                cassette.PrepareWaferCassetteForFeederLoad(Options.SlotIndex, ResolveTimeout(), Options.FineMove, cassetteLevel),
                 ct).ConfigureAwait(false);
             if (result != 0)
                 return Fail("IN-FEEDER-CST-SLOT-MOVE", cassette.Name, "Input cassette slot move failed. slot=" + Options.SlotIndex + ", result=" + result);

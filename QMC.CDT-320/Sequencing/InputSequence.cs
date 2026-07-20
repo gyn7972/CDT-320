@@ -45,6 +45,8 @@ namespace QMC.CDT320.Sequencing
         private InputSequenceAutoStep _autoStep = InputSequenceAutoStep.Mapping;
         // 현재 처리 중인 Input Cassette slot index. -1이면 아직 slot이 확정되지 않은 상태이다.
         private int _autoSlotIndex = -1;
+        // To do: C4 - 현재 처리 중인 Input Cassette 레벨(1단=Input1 / 2단=Input2). 1단 소진 후 2단으로 전환된다.
+        private CassetteMaterialRole _autoCassetteRole = CassetteMaterialRole.Input1;
         // 로그와 Stage option 전달용 wafer id. 기본 규칙은 INPUT-SLOT-xx이다.
         private string _autoWaferId = "";
         // Input loader active signal 중복 Set/Reset을 막기 위한 상태입니다.
@@ -1005,6 +1007,10 @@ namespace QMC.CDT320.Sequencing
             {
                 if (wafer == null)
                     return -1;
+
+                // To do: C4 - 재개/언로드 시 웨이퍼의 원본 레벨(Input1/Input2)로 현재 처리 레벨을 복원한다.
+                if (wafer.SourceCassetteRole == CassetteMaterialRole.Input1 || wafer.SourceCassetteRole == CassetteMaterialRole.Input2)
+                    _autoCassetteRole = wafer.SourceCassetteRole;
 
                 if (wafer.SourceSlotNumber >= 0)
                     return wafer.SourceSlotNumber;
@@ -2531,7 +2537,10 @@ namespace QMC.CDT320.Sequencing
             var options = InputFeederSequenceOptions.Default();
             options.SlotIndex = slotIndex;
             options.NextSlotIndex = nextSlotIndex;
-            options.CassetteRole = ResolveInputCassetteRole(slotIndex);
+            // To do: C4 - 현재 처리 레벨(_autoCassetteRole)을 우선 사용한다. 미확정(Input1 기본)일 때만 슬롯 기반 추정으로 보완.
+            options.CassetteRole = _autoCassetteRole != CassetteMaterialRole.Input1
+                ? _autoCassetteRole
+                : ResolveInputCassetteRole(slotIndex);
             options.ExpectedWaferId = ResolveInputWaferId(slotIndex);
             options.WaferSize = ResolveInputWaferSize();
             options.FineMove = bFine;
@@ -2622,7 +2631,8 @@ namespace QMC.CDT320.Sequencing
             {
                 var cassette = Context != null && Context.Machine != null ? Context.Machine.InputCassetteUnit : null;
                 if (cassette != null && slotIndex >= 0)
-                    cassette.UpdateWaferCassetteSlotState(slotIndex, presence, state);
+                    // To do: C4 - 현재 처리 레벨(_autoCassetteRole)의 슬롯 상태를 갱신한다.
+                    cassette.UpdateWaferCassetteSlotState(InputCassetteUnit.ResolveCassetteLevel(_autoCassetteRole), slotIndex, presence, state);
             }
             catch (Exception ex)
             {
@@ -2667,7 +2677,11 @@ namespace QMC.CDT320.Sequencing
                 if (cassette == null)
                     return -1;
 
-                int slotIndex = cassette.FindNextProcessWaferSlot();
+                // To do: C4 - 1단 소진 후 2단. 선택된 슬롯의 레벨(role)을 함께 확정한다.
+                CassetteMaterialRole role;
+                int slotIndex = cassette.FindNextProcessWaferSlot(out role);
+                if (slotIndex >= 0)
+                    _autoCassetteRole = role;
                 if (slotIndex < 0 && cassette.IsInputCassetteProcessComplete())
                 {
                     cassette.RaiseInputCassetteCompleteAlarm(cassette.Name);
@@ -2714,18 +2728,24 @@ namespace QMC.CDT320.Sequencing
                 if (cassette == null)
                     return -1;
 
-                WaferCassetteMaterial material = cassette.GetWaferMaterialCassette();
-                if (material == null || material.Slots == null)
-                    return -1;
-
-                for (int i = 0; i < material.Slots.Count; i++)
+                // To do: [맵핑 재설계] Processing 슬롯을 최상위 레벨(2단)부터 탐색한다(처리 순서 = 맨 위에서 아래로).
+                int levelCount = cassette.ResolveCassetteLevelCount();
+                for (int level = levelCount; level >= 1; level--)
                 {
-                    WaferSlotState state = material.Slots[i];
-                    if (state != null &&
-                        state.Presence == SlotPresence.Exist &&
-                        state.Process == ProcessState.Processing)
+                    WaferCassetteMaterial material = cassette.GetWaferMaterialCassette(level);
+                    if (material == null || material.Slots == null)
+                        continue;
+
+                    for (int i = 0; i < material.Slots.Count; i++)
                     {
-                        return i;
+                        WaferSlotState state = material.Slots[i];
+                        if (state != null &&
+                            state.Presence == SlotPresence.Exist &&
+                            state.Process == ProcessState.Processing)
+                        {
+                            _autoCassetteRole = InputCassetteUnit.ResolveCassetteRole(level);
+                            return i;
+                        }
                     }
                 }
             }

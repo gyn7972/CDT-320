@@ -1493,6 +1493,18 @@ namespace QMC.CDT320.Sequencing
                 ? OutputStage.Recipe.NGStageY.ProcessPosition
                 : OutputStage.Recipe.GoodStageY.ProcessPosition;
 
+            // Place 런타임 보정: Bin 후검사 LowPassFilter 출력(raw)을 조회해 좌표 계산에 전달한다.
+            // 부호 반영(X:-, Y:+, T:-)은 DieCoordinateTransformService.CalculatePlaceTarget이 담당한다.
+            double placeRuntimeOffsetX;
+            double placeRuntimeOffsetY;
+            double placeRuntimeOffsetT;
+            PlaceRuntimeOffsetService.GetOffset(
+                Side,
+                _currentPickerNo,
+                out placeRuntimeOffsetX,
+                out placeRuntimeOffsetY,
+                out placeRuntimeOffsetT);
+
             PlaceCoordinateResult coordinate = PickerMotionTargetResolver.CalculateOutputPlaceTarget(
                 Context != null ? Context.Machine : null,
                 Side,
@@ -1508,7 +1520,10 @@ namespace QMC.CDT320.Sequencing
                 _outputVisionToPickerY,
                 bottomOffset.X,
                 bottomOffset.Y,
-                bottomOffset.R);
+                bottomOffset.R,
+                placeRuntimeOffsetX,
+                placeRuntimeOffsetY,
+                placeRuntimeOffsetT);
 
             _targetOutputStageY = coordinate.OutputStageY;
             _targetPickerX = coordinate.PickerX;
@@ -1541,6 +1556,9 @@ namespace QMC.CDT320.Sequencing
                 ", bottomOffsetY=" + bottomOffset.Y +
                 ", bottomOffsetT=" + bottomOffset.R +
                 ", bottomOffsetMode=" + bottomOffsetReason +
+                ", placeRuntimeOffsetX=" + placeRuntimeOffsetX.ToString("F6") +
+                ", placeRuntimeOffsetY=" + placeRuntimeOffsetY.ToString("F6") +
+                ", placeRuntimeOffsetT=" + placeRuntimeOffsetT.ToString("F6") +
                 ", formula=" + _targetFormula + " - Ok");
             return 0;
         }

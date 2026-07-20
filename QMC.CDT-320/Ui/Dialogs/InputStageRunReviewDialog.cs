@@ -1140,7 +1140,11 @@ namespace QMC.CDT_320.Ui.Dialogs
         {
             SubmitAutoReviewDecision(MappingRetryRequested, DialogResult.Retry);
         }
-        private void BtnMappingSetup_Click(object sender, EventArgs e) { RaiseSimpleEvent(MappingSetupRequested); }
+        private void BtnMappingSetup_Click(object sender, EventArgs e)
+        {
+            RaiseSimpleEvent(MappingSetupRequested);
+        }
+
         private void BtnVisionTest_Click(object sender, EventArgs e) { RaiseSimpleEvent(VisionTestRequested); }
         private void BtnThetaCorrection_Click(object sender, EventArgs e) { RaiseSimpleEvent(ThetaCorrectionRequested); }
         private void BtnDieDetection_Click(object sender, EventArgs e) { RaiseSimpleEvent(DieDetectionRequested); }

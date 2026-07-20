@@ -1967,6 +1967,16 @@ namespace QMC.Common.Motion.Ajin
         #endregion
 
         #region 오버라이드 함수
+        /// <summary>위치 예약 속도 오버라이드의 전환 위치 판정 기준.</summary>
+        [Serializable]
+        public enum OverridePositionTarget
+        {
+            /// <summary>Command(지령) 위치 기준으로 전환 위치를 판정.</summary>
+            Command = 0,
+            /// <summary>Actual(엔코더 실측) 위치 기준으로 전환 위치를 판정.</summary>
+            Actual = 1,
+        }
+
         public static int ModifyPosition(int axis, double position, double velocity, double acceleration, double deceleration)
         {
             int ret = 0;
@@ -1978,6 +1988,49 @@ namespace QMC.Common.Motion.Ajin
         {
             int ret = 0;
             if ((ret = AXL.CheckErrorCode("AXM.AxmOverrideAccelVelDecel", AXM.AxmOverrideAccelVelDecel(axis, velocity, acceleration, deceleration))) != 0) return ret;
+            return ret;
+        }
+        /// <summary>
+        /// 구동 중인 축의 속도만 가변 설정한다 (가감속 유지).
+        /// 반드시 모션 중에만 호출해야 하며, 사전에 AxmOverrideSetMaxVel로 설정된 최고속도
+        /// (현재는 보드 셋업 시 SetMaxVelocity()가 축 MaxVelocity로 설정) 이하의 속도만 유효하다.
+        /// </summary>
+        public static int ModifyVelocity(int axis, double velocity)
+        {
+            int ret = 0;
+            if ((ret = AXL.CheckErrorCode("AXM.AxmOverrideVel", AXM.AxmOverrideVel(axis, velocity))) != 0) return ret;
+            return ret;
+        }
+        /// <summary>
+        /// 속도 오버라이드에 사용할 최고속도를 단독 설정한다.
+        /// 속도 오버라이드를 여러 번 사용할 경우 그중 최고 속도 이상으로 미리 설정해 두어야 한다.
+        /// (모터 최고속도까지 함께 설정하는 기존 SetMaxVelocity()와 달리 오버라이드 한도만 변경한다.)
+        /// </summary>
+        public static int SetOverrideMaxVelocity(int axis, double velocity)
+        {
+            int ret = 0;
+            if ((ret = AXL.CheckErrorCode("AXM.AxmOverrideSetMaxVel", AXM.AxmOverrideSetMaxVel(axis, velocity))) != 0) return ret;
+            return ret;
+        }
+        /// <summary>
+        /// 위치 예약 속도 오버라이드 — 이동 시작 함수다.
+        /// 이미 구동 중인 축에 거는 오버라이드가 아니라, position까지 velocity로 구동을 개시하면서
+        /// overridePosition 지점 도달 시 속도가 overrideVelocity로 자동 전환되도록 예약한다.
+        /// 사용 전 AxmOverrideSetMaxVel로 velocity와 overrideVelocity 중 큰 값 이상이 설정되어 있어야 한다.
+        /// target: 전환 위치 판정 기준 (Command 지령 위치 / Actual 엔코더 실측 위치).
+        /// </summary>
+        public static int MoveWithVelocityOverrideAtPosition(
+            int axis,
+            double position,
+            double velocity,
+            double acceleration,
+            double deceleration,
+            double overridePosition,
+            double overrideVelocity,
+            OverridePositionTarget target)
+        {
+            int ret = 0;
+            if ((ret = AXL.CheckErrorCode("AXM.AxmOverrideVelAtPos", AXM.AxmOverrideVelAtPos(axis, position, velocity, acceleration, deceleration, overridePosition, overrideVelocity, (int)target))) != 0) return ret;
             return ret;
         }
         #endregion
