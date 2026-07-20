@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using QMC.CDT320.Calibration;
 using QMC.CDT320.Interlocks;
 using QMC.CDT320.Materials;
 using QMC.Common;
@@ -18,6 +19,8 @@ namespace QMC.CDT320.Sequencing
         private int _currentPickerNo;
         private DieMaterial _currentDie;
         private BottomVisionOffset _bottomResult;
+        // Bottom 촬영 명령 시점의 PickerY CommandPosition (Pick 런타임 보정 Y 전처리용 캡처값).
+        private double _bottomShotPickerYCommand;
         private double _targetPickerX;
         private double _targetPickerY;
         private double _targetPickerZ;
@@ -789,8 +792,48 @@ namespace QMC.CDT320.Sequencing
                 ", offsetX=" + _bottomResult.OffsetX +
                 ", offsetY=" + _bottomResult.OffsetY + " - Ok");
 
+            UpdatePickRuntimeOffsetFilter(_bottomResult);
+
             CurrentStep = PickerBottomInspectionStep.SelectNextPickerOrComplete;
             return 0;
+        }
+
+        /// <summary>
+        /// Bottom 검사 Pass 결과를 Pick 런타임 오프셋 필터에 반영한다 (학습 전용 — Material 반영과 무관).
+        /// 콜렛Cal Y 기준값은 ColletCalibrationRecord.FinalPickerY를 사용한다
+        /// (ColletCalibrationSequence가 최종 Vision 매치 시점의 PickerY ActualPosition을 저장하는 필드).
+        /// </summary>
+        private void UpdatePickRuntimeOffsetFilter(BottomVisionOffset result)
+        {
+            try
+            {
+                if (result == null || !result.IsOk)
+                    return;   // NG 측정은 신뢰할 수 없으므로 학습에서 제외한다.
+
+                ColletCalibrationRecord collet = CalibrationCoordinateService.ResolveCollet(
+                    Context != null ? Context.Machine : null,
+                    Side == PickerSequenceSide.Front ? VisionFocusPickerSide.Front : VisionFocusPickerSide.Rear,
+                    _currentPickerIndex);
+
+                PickRuntimeOffsetService.OnBottomInspectionOffset(
+                    Side,
+                    _currentPickerNo,
+                    result.OffsetX,
+                    result.OffsetY,
+                    result.OffsetT,
+                    _bottomShotPickerYCommand,
+                    collet != null ? collet.FinalPickerY : 0.0,
+                    collet != null && collet.Valid,
+                    _currentDie != null ? _currentDie.DieId : string.Empty);
+            }
+            catch (Exception ex)
+            {
+                WriteLog("PickerBottomInspectionSequence",
+                    Name + " Pick 런타임 오프셋 필터 갱신 중 예외가 발생했습니다. error=" + ex.Message + " - Failed");
+            }
+            finally
+            {
+            }
         }
 
         private async Task<int> MoveBottomZToAvoidAsync(CancellationToken ct)
@@ -872,6 +915,10 @@ namespace QMC.CDT320.Sequencing
 
         private async Task<bool> StartBottomInspectionRequestAsync(CancellationToken ct)
         {
+            // Bottom 촬영 명령 시점의 PickerY 지령 위치를 캡처한다 (결과 도착 시 Y 전처리에 사용).
+            BaseAxis bottomShotPickerY = GetPickerAxis(PickerAxis.PickerY);
+            _bottomShotPickerYCommand = bottomShotPickerY != null ? bottomShotPickerY.CommandPosition : 0.0;
+
             if (IsVisionBypassed())
             {
                 _bottomResult = SimulateBottomResult();

@@ -49,6 +49,8 @@ namespace QMC.CDT320.Sequencing
             public double Z;
             public double T0;
             public double T90;
+            // Bottom 촬영 명령 시점의 PickerY CommandPosition (Pick 런타임 보정 Y 전처리용 캡처값).
+            public double BottomShotPickerYCommand;
             public bool SideCorrectionValid;
             public double SideVisionProcess0YOffset;
             public double SideVisionProcess90YOffset;
@@ -1382,6 +1384,10 @@ namespace QMC.CDT320.Sequencing
             if (fixedYResult != 0)
                 return fixedYResult;
 
+            // Bottom 촬영 명령 시점의 PickerY 지령 위치를 캡처한다 (결과 도착 시 Y 전처리에 사용).
+            BaseAxis bottomShotPickerY = GetPickerAxis(PickerAxis.PickerY);
+            target.BottomShotPickerYCommand = bottomShotPickerY != null ? bottomShotPickerY.CommandPosition : 0.0;
+
             RegisterVisionDieAddress(target);   // 신형 와이어(die_index/gridx;gridy) 구성용 — 어댑터가 조회
 
             int timeoutMs = ResolveVisionInspectionTimeout();
@@ -1642,6 +1648,45 @@ namespace QMC.CDT320.Sequencing
                 result.IsOk ? "" : "BOTTOM_NG",
                 "BottomInspection");
 
+            UpdatePickRuntimeOffsetFilter(target, result);
+        }
+
+        /// <summary>
+        /// Bottom 검사 Pass 결과를 Pick 런타임 오프셋 필터에 반영한다 (학습 전용 — Material 반영과 무관).
+        /// 콜렛Cal Y 기준값은 ColletCalibrationRecord.FinalPickerY를 사용한다
+        /// (ColletCalibrationSequence가 최종 Vision 매치 시점의 PickerY ActualPosition을 저장하는 필드).
+        /// </summary>
+        private void UpdatePickRuntimeOffsetFilter(InspectionTarget target, BottomVisionOffset result)
+        {
+            try
+            {
+                if (target == null || result == null || !result.IsOk)
+                    return;   // NG 측정은 신뢰할 수 없으므로 학습에서 제외한다.
+
+                ColletCalibrationRecord collet = CalibrationCoordinateService.ResolveCollet(
+                    Context != null ? Context.Machine : null,
+                    Side == PickerSequenceSide.Front ? VisionFocusPickerSide.Front : VisionFocusPickerSide.Rear,
+                    target.PickerIndex);
+
+                PickRuntimeOffsetService.OnBottomInspectionOffset(
+                    Side,
+                    target.PickerNo,
+                    result.OffsetX,
+                    result.OffsetY,
+                    result.OffsetT,
+                    target.BottomShotPickerYCommand,
+                    collet != null ? collet.FinalPickerY : 0.0,
+                    collet != null && collet.Valid,
+                    target.Die != null ? target.Die.DieId : string.Empty);
+            }
+            catch (Exception ex)
+            {
+                WriteLog("PickerBottomAndSideInspectionSequence",
+                    Name + " Pick 런타임 오프셋 필터 갱신 중 예외가 발생했습니다. error=" + ex.Message + " - Failed");
+            }
+            finally
+            {
+            }
         }
 
         private void ClearRuntimeSideInspectionCorrections()

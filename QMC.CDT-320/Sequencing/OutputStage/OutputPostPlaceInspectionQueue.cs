@@ -1064,6 +1064,20 @@ namespace QMC.CDT320.Sequencing
                 R = inspection != null ? inspection.OffsetT : 0.0,
                 IsValid = inspection != null && inspection.HasOffset
             };
+            // Place 런타임 보정 필터 갱신.
+            // IsPass == true 인 경우에만 갱신한다 — NG 판정 Die의 위치 측정은 신뢰할 수 없으므로 제외.
+            if (inspection != null && inspection.HasOffset && inspectionOk &&
+                request.HasPickerContext && !request.SkipInspection)
+            {
+                PlaceRuntimeOffsetService.OnInspectionOffset(
+                    request.PickerSide,
+                    request.PickerNo,
+                    offset.X,
+                    offset.Y,
+                    offset.R,
+                    request.DieId);
+            }
+
             MaterialStateService.UpdateOutputStageDieInspection(
                 request.DieId,
                 request.OutputSide,

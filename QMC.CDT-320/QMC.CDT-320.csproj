@@ -372,6 +372,7 @@
     <Compile Include="Sequencing\Common\SequenceFailureStore.cs" />
     <Compile Include="Sequencing\Common\MachineSequenceContext.cs" />
     <Compile Include="Sequencing\Common\WaferCompletionRunCoordinator.cs" />
+    <Compile Include="Sequencing\Common\LowPassFilter.cs" />
     <Compile Include="Sequencing\Common\SequenceLog.cs" />
     <Compile Include="Sequencing\Common\SequenceTrace.cs" />
     <Compile Include="Sequencing\Common\SequenceTactTimeExtensions.cs" />
@@ -960,6 +961,10 @@
     <Compile Include="Sequencing\Picker\PickerFirstForwardSequencer.cs" />
     <Compile Include="Sequencing\Picker\PickerCoordinateTransformHelper.cs" />
     <Compile Include="Sequencing\Picker\DieCoordinateTransformService.cs" />
+    <Compile Include="Sequencing\Picker\PickRuntimeOffsetService.cs" />
+    <Compile Include="Sequencing\Picker\PickRuntimeOffsetStore.cs" />
+    <Compile Include="Sequencing\Picker\PlaceRuntimeOffsetService.cs" />
+    <Compile Include="Sequencing\Picker\PlaceRuntimeOffsetStore.cs" />
     <Compile Include="Sequencing\Picker\PickerMotionTargetResolver.cs" />
     <Compile Include="Sequencing\Picker\InputPickerPickTargetResolver.cs" />
     <Compile Include="Sequencing\Picker\PickerInputStageMoveHelper.cs" />
