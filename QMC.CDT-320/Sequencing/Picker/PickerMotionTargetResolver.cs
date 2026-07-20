@@ -31,7 +31,10 @@ namespace QMC.CDT320.Sequencing
             double visionAlignOffsetT,
             bool logFormula,
             out PickCoordinateResult target,
-            out string reason)
+            out string reason,
+            double pickRuntimeOffsetX = 0.0,
+            double pickRuntimeOffsetY = 0.0,
+            double pickRuntimeOffsetT = 0.0)
         {
             target = null;
             reason = string.Empty;
@@ -64,7 +67,10 @@ namespace QMC.CDT320.Sequencing
                 visionAlignOffsetX,
                 visionAlignOffsetY,
                 visionAlignOffsetT,
-                logFormula);
+                logFormula,
+                pickRuntimeOffsetX,
+                pickRuntimeOffsetY,
+                pickRuntimeOffsetT);
             return true;
         }
 
@@ -83,7 +89,10 @@ namespace QMC.CDT320.Sequencing
             double visionAlignOffsetX,
             double visionAlignOffsetY,
             double visionAlignOffsetT,
-            bool logFormula)
+            bool logFormula,
+            double pickRuntimeOffsetX = 0.0,
+            double pickRuntimeOffsetY = 0.0,
+            double pickRuntimeOffsetT = 0.0)
         {
             double cameraOffsetX;
             double cameraOffsetY;
@@ -133,7 +142,10 @@ namespace QMC.CDT320.Sequencing
                     "PickPosition"),
                 InputPickerPickTargetResolver.ResolveNeedleZPickTarget(machine),
                 InputPickerPickTargetResolver.ResolveEjectPinZPickTarget(machine),
-                logFormula);
+                logFormula,
+                pickRuntimeOffsetX,
+                pickRuntimeOffsetY,
+                pickRuntimeOffsetT);
 
             WriteCoordinateLog(
                 "InputPickTarget",
@@ -154,6 +166,9 @@ namespace QMC.CDT320.Sequencing
                 ", visionAlignOffsetX=" + F(visionAlignOffsetX) +
                 ", visionAlignOffsetY=" + F(visionAlignOffsetY) +
                 ", visionAlignOffsetT=" + F(visionAlignOffsetT) +
+                ", pickRuntimeOffsetX=" + F(pickRuntimeOffsetX) +
+                ", pickRuntimeOffsetY=" + F(pickRuntimeOffsetY) +
+                ", pickRuntimeOffsetT=" + F(pickRuntimeOffsetT) +
                 ", finalStageY=" + F(result.StageY) +
                 ", finalPickerX=" + F(result.PickerX) +
                 ", finalPickerY=" + F(result.PickerY) +
@@ -256,7 +271,10 @@ namespace QMC.CDT320.Sequencing
             double outputVisionToPickerY,
             double bottomOffsetX = 0.0,
             double bottomOffsetY = 0.0,
-            double bottomOffsetT = 0.0)
+            double bottomOffsetT = 0.0,
+            double placeRuntimeOffsetX = 0.0,
+            double placeRuntimeOffsetY = 0.0,
+            double placeRuntimeOffsetT = 0.0)
         {
             PickerAlignOffset runtime = InputPickerPickTargetResolver.ResolveRuntimePickerOffset(machine, side, pickerIndex);
             PickerCalibrationOffset collet = ResolveColletOffset(machine, side, pickerIndex);
@@ -301,7 +319,10 @@ namespace QMC.CDT320.Sequencing
                 pickerZTeaching,
                 bottomOffsetX,
                 bottomOffsetY,
-                bottomOffsetT);
+                bottomOffsetT,
+                placeRuntimeOffsetX,
+                placeRuntimeOffsetY,
+                placeRuntimeOffsetT);
 
             WriteCoordinateLog(
                 "OutputPlaceTarget",
@@ -326,6 +347,9 @@ namespace QMC.CDT320.Sequencing
                 ", bottomOffsetX=" + F(bottomOffsetX) +
                 ", bottomOffsetY=" + F(bottomOffsetY) +
                 ", bottomOffsetT=" + F(bottomOffsetT) +
+                ", placeRuntimeOffsetX=" + F(placeRuntimeOffsetX) +
+                ", placeRuntimeOffsetY=" + F(placeRuntimeOffsetY) +
+                ", placeRuntimeOffsetT=" + F(placeRuntimeOffsetT) +
                 ", pickerYTeaching=" + F(pickerYTeaching) +
                 ", pickerTTeaching=" + F(pickerTTeaching) +
                 ", pickerZTeaching=" + F(pickerZTeaching) +
@@ -347,6 +371,7 @@ namespace QMC.CDT320.Sequencing
                 ")+outputVisionToPickerX(" + F(outputVisionToPickerX) +
                 ")+runtimeOffsetX(" + F(runtimeOffsetX) +
                 ")-bottomOffsetX(" + F(bottomOffsetX) +
+                ")-placeRuntimeOffsetX(" + F(placeRuntimeOffsetX) +
                 ")=" + F(result.PickerX) +
                 ", colletXAlreadyInOutputVisionToPicker=" + F(colletOffsetX) +
                 ", colletXNotAddedAgain=True" +
@@ -355,6 +380,7 @@ namespace QMC.CDT320.Sequencing
                 ")+receiveTargetY(" + F(receiveTargetY) +
                 ")-bottomOffsetY(" + F(bottomOffsetY) +
                 ")-pickerColletOffsetY(" + F(colletOffsetY) +
+                ")+placeRuntimeOffsetY(" + F(placeRuntimeOffsetY) +
                 ")=" + F(result.OutputStageY) +
                 ", outputVisionToPickerYNotUsedForPlaceStageY=" + F(outputVisionToPickerY) +
                 ", runtimeOffsetYLoggedOnly=" + F(runtimeOffsetY) +
@@ -362,6 +388,7 @@ namespace QMC.CDT320.Sequencing
                 ", pickerYFixed=" + F(result.PickerY) +
                 ", pickerT=placeTeachingT(" + F(pickerTTeaching) +
                 ")-bottomOffsetT(" + F(bottomOffsetT) +
+                ")-placeRuntimeOffsetT(" + F(placeRuntimeOffsetT) +
                 ")=" + F(result.PickerT) +
                 ", pickerZ=placeTeachingZ(" + F(pickerZTeaching) +
                 ")=" + F(result.PickerZ) +
