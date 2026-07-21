@@ -6978,6 +6978,123 @@ namespace QMC.CDT320
                    string.Equals(step.GroupName, "PickerYPair", StringComparison.OrdinalIgnoreCase);
         }
 
+        // 시뮬레이션 판정: 실보드가 준비되지 않았거나 대상 축이 Ajin 실축이 아니면(SimAxis) 시뮬 초기화 경로로 처리한다.
+        private static bool IsPickerYPairSimulationInitialize(IList<BaseAxis> axes)
+        {
+            if (axes == null || axes.Count == 0)
+                return false;
+
+            if (!AjinFactory.IsRealBoardReady)
+                return true;
+
+            return axes.Any(axis => !(axis is AjinAxis));
+        }
+
+        // 시뮬레이션 PickerYPair 초기화: 실장비 페어 경로와 동일한 서보 준비/HOME 순서를 따르되,
+        // SimAxis에는 없는 Ajin 하드리밋(MEL/PEL) 동시 탐색과 Ajin 센서 재검증 단계만 생략한다.
+        // 순수 시뮬(양쪽 IsSimulationMode)에서는 PickerY HOME 인터락이 MEL/PEL·반대축 서보 조건을 건너뛰고
+        // "홈 대상 축 Servo ON"만 요구하므로, 두 축을 ServoOn 한 뒤 Front -> Rear 순차 HOME 하면 실장비와 유사하게 완료된다.
+        private async Task<int> ExecutePickerYPairSimulationInitializeAsync(
+            AxisInitializeStep step,
+            IList<BaseAxis> axes)
+        {
+            BaseAxis frontY = null;
+            BaseAxis rearY = null;
+            try
+            {
+                // 대상 확정: SimAxis라 AjinAxis 타입은 요구하지 않되, 장비의 Front/Rear PickerY와 동일 참조인지는 검증한다.
+                frontY = axes.FirstOrDefault(axis =>
+                    axis != null && string.Equals(axis.Name, "FrontPickerY", StringComparison.OrdinalIgnoreCase));
+                rearY = axes.FirstOrDefault(axis =>
+                    axis != null && string.Equals(axis.Name, "RearPickerY", StringComparison.OrdinalIgnoreCase));
+                if (frontY == null || rearY == null ||
+                    _machine == null || _machine.PickerFrontUnit == null || _machine.PickerRearUnit == null ||
+                    !ReferenceEquals(frontY, _machine.PickerFrontUnit.PickerY) ||
+                    !ReferenceEquals(rearY, _machine.PickerRearUnit.PickerY))
+                {
+                    return FailInitializePreparation(
+                        "PickerYPair 시뮬레이션 초기화 대상이 장비의 FrontPickerY/RearPickerY 축과 일치하지 않습니다.");
+                }
+
+                // 실장비 페어 경로와 동일하게 리밋 탐색 전 간섭축을 먼저 정지한다.
+                var interferenceAxes = _axisInterferenceMap.ResolveInterferenceAxes(frontY.Name)
+                    .Concat(_axisInterferenceMap.ResolveInterferenceAxes(rearY.Name))
+                    .Where(axis => axis != null && !ReferenceEquals(axis, frontY) && !ReferenceEquals(axis, rearY))
+                    .Distinct()
+                    .ToList();
+                int stopResult = await StopAxesAndWaitUntilStoppedAsync(
+                    interferenceAxes,
+                    false,
+                    "PickerYPair 시뮬 HOME 전 간섭축 정지").ConfigureAwait(false);
+                if (stopResult != 0)
+                    return stopResult;
+
+                // 서보 준비: 실장비 페어 경로(Stop -> ServoOff -> ResetAlarm -> ServoOn)와 동일 순서.
+                frontY.Stop();
+                rearY.Stop();
+                frontY.ServoOff();
+                rearY.ServoOff();
+                await Task.Delay(500).ConfigureAwait(false);
+                frontY.ResetAlarm();
+                rearY.ResetAlarm();
+                await Task.Delay(500).ConfigureAwait(false);
+                frontY.ServoOn();
+                rearY.ServoOn();
+                await Task.Delay(500).ConfigureAwait(false);
+                frontY.UpdateStatus();
+                rearY.UpdateStatus();
+                if (!frontY.IsServoOn || !rearY.IsServoOn)
+                    return FailInitializePreparation(
+                        "PickerYPair 시뮬 Servo 준비 실패. frontServo=" + frontY.IsServoOn +
+                        ", rearServo=" + rearY.IsServoOn);
+
+                // HOME: 실장비와 동일하게 Front -> Rear 순차. 시뮬 HomeSearchAsync가 MotionGuard(Home)를 통과한 뒤 IsHomeDone을 세운다.
+                int frontHomeResult = await frontY.HomeSearchAsync().ConfigureAwait(false);
+                frontY.UpdateStatus();
+                if (frontHomeResult != 0 || !frontY.IsHomeDone || frontY.IsAlarm)
+                {
+                    frontY.Stop();
+                    rearY.Stop();
+                    return FailInitializePreparation(
+                        "PickerYPair 시뮬 FrontPickerY HOME 실패. result=" + frontHomeResult +
+                        ", home=" + frontY.IsHomeDone + ", alarm=" + frontY.IsAlarm);
+                }
+
+                int rearHomeResult = await rearY.HomeSearchAsync().ConfigureAwait(false);
+                rearY.UpdateStatus();
+                if (rearHomeResult != 0 || !rearY.IsHomeDone || rearY.IsAlarm)
+                {
+                    frontY.Stop();
+                    rearY.Stop();
+                    return FailInitializePreparation(
+                        "PickerYPair 시뮬 RearPickerY HOME 실패. result=" + rearHomeResult +
+                        ", home=" + rearY.IsHomeDone + ", alarm=" + rearY.IsAlarm);
+                }
+
+                MarkAxisHomedInCurrentInitialize(frontY);
+                MarkAxisHomedInCurrentInitialize(rearY);
+                QMC.Common.Log.Write("Main", "SYSTEM", "PickerYPairInitialize",
+                    "Simulation PickerYPair initialize completed by sequential Front/Rear HOME (hardware limit search skipped). step=" +
+                    (step != null ? step.StepNo : 0) + " - Ok");
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                if (frontY != null) { try { frontY.Stop(); } catch { } }
+                if (rearY != null) { try { rearY.Stop(); } catch { } }
+                LastActionFailureMessage = "PickerYPair 시뮬레이션 초기화 예외: " + ex.Message;
+                AlarmManager.Raise(
+                    AlarmSeverity.Error,
+                    "INIT-PICKER-Y-PAIR-SIM",
+                    "MachineController",
+                    LastActionFailureMessage);
+                return -1;
+            }
+            finally
+            {
+            }
+        }
+
         private async Task<int> ExecutePickerYPairInitializeAsync(
             AxisInitializeStep step,
             IList<BaseAxis> axes)
@@ -6991,6 +7108,11 @@ namespace QMC.CDT320
                 if (axes == null || axes.Count != 2)
                     return FailInitializePreparation(
                         "PickerYPair 초기화에는 FrontPickerY와 RearPickerY 두 축만 필요합니다.");
+
+                // 시뮬레이션 축(SimAxis)은 Ajin 하드리밋 동시 탐색 경로를 사용할 수 없다.
+                // 실보드가 아니면 실장비와 동일한 HOME 완료/좌표 결과가 되도록 개별 축 초기화 경로로 Front -> Rear를 순차 HOME 처리한다.
+                if (IsPickerYPairSimulationInitialize(axes))
+                    return await ExecutePickerYPairSimulationInitializeAsync(step, axes).ConfigureAwait(false);
 
                 frontY = axes.OfType<AjinAxis>().FirstOrDefault(axis =>
                     string.Equals(axis.Name, "FrontPickerY", StringComparison.OrdinalIgnoreCase));
