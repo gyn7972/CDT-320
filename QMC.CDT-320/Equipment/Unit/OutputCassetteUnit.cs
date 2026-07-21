@@ -1035,6 +1035,22 @@ namespace QMC.CDT320
             return await CollectBinSlotOccupancyAsync(new[] { TargetCassette.Ng }, ct).ConfigureAwait(false);
         }
 
+        // To do: [드라이런 데이터 생성] 시퀀스 레벨 하드웨어 바이패스(BypassHardware/GlobalDryRun 포함)에서 호출하는 시뮬 빈 맵 생성.
+        //        유닛 내부 IsOutputCassetteHardwareBypassed()는 Config.bDryRun/시뮬레이션 모드만 판정하므로
+        //        GENERAL 드라이런에서는 시퀀스가 이 메서드로 직접 시뮬 맵을 만들어야 한다. (Input의 BuildSimulatedWaferMap와 동일 역할)
+        public void BuildSimulatedBinMaps(bool ngTarget)
+        {
+            if (ngTarget)
+            {
+                BuildSimulatedBinMap(TargetCassette.Ng, Config.SlotCount, Config.SlotPitch);
+                return;
+            }
+
+            BuildSimulatedBinMap(TargetCassette.Good1, Config.SlotCount, Config.SlotPitch);
+            if (Config.SelectedCassetteLevel >= 2)
+                BuildSimulatedBinMap(TargetCassette.Good2, Config.SlotCount, Config.SlotPitch);
+        }
+
         public async Task<bool> ScanAllCassettesAsync()
         {
             return await ScanAllCassettesAsync(CancellationToken.None).ConfigureAwait(false);

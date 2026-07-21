@@ -261,7 +261,11 @@ namespace QMC.CDT320.Sequencing
             if (Options.Side != BinSide.Ng && !Stage.IsNgStageInAvoidPosition())
                 return Fail("OUT-STAGE-NG-AVOID", Stage.Name, "NG stage must be avoid before GOOD stage unload. " + Stage.DescribeOutputStageInterlockState(Options.Side));
 
-            CurrentStep = OutputFeederUnloadFromStageStep.EnsureOutputStageGuideUp;
+            // 기존 조건: GUIDE UP -> UNCLAMP -> CLAMP LIFT DOWN 순서로 배출 준비를 했다.
+            // CurrentStep = OutputFeederUnloadFromStageStep.EnsureOutputStageGuideUp;
+            // 현재 기준: 배출 최종 준비 상태는 UNCLAMP -> CLAMP LIFT DOWN -> GUIDE UP 순서로 만든다.
+            // To do: 스테이지 배출 준비 실린더 순서 통일(UNCLAMP -> CLAMP LIFT DOWN -> GUIDE UP).
+            CurrentStep = OutputFeederUnloadFromStageStep.EnsureOutputStageUnclamp;
             return 0;
         }
 
@@ -273,7 +277,11 @@ namespace QMC.CDT320.Sequencing
                 return Task.FromResult(Fail("OUT-STAGE-UNLOAD-POS", Stage.Name,
                     "OutputStage가 Feeder 이송 시작 전에 Unload 위치에 준비되지 않았습니다. side=" + Options.Side));
 
-            CurrentStep = OutputFeederUnloadFromStageStep.EnsureOutputStageGuideUp;
+            // 기존 조건: GUIDE UP -> UNCLAMP -> CLAMP LIFT DOWN 순서로 배출 준비를 했다.
+            // CurrentStep = OutputFeederUnloadFromStageStep.EnsureOutputStageGuideUp;
+            // 현재 기준: 배출 최종 준비 상태는 UNCLAMP -> CLAMP LIFT DOWN -> GUIDE UP 순서로 만든다.
+            // To do: 스테이지 배출 준비 실린더 순서 통일(UNCLAMP -> CLAMP LIFT DOWN -> GUIDE UP).
+            CurrentStep = OutputFeederUnloadFromStageStep.EnsureOutputStageUnclamp;
             return Task.FromResult(0);
         }
 
@@ -286,7 +294,10 @@ namespace QMC.CDT320.Sequencing
             if (!Stage.IsBinGuideUp(Options.Side))
                 return Fail("OUT-STAGE-GUIDE-UP", Stage.Name, "Output stage bin guide is not up before stage unload. " + Stage.DescribeOutputStageInterlockState(Options.Side));
 
-            CurrentStep = OutputFeederUnloadFromStageStep.EnsureOutputStageUnclamp;
+            // 기존 조건: GUIDE UP 다음 UNCLAMP로 이어졌다.
+            // CurrentStep = OutputFeederUnloadFromStageStep.EnsureOutputStageUnclamp;
+            // 현재 기준: GUIDE UP이 배출 준비의 마지막 단계 - 바로 배출 준비 검증으로 넘어간다.
+            CurrentStep = OutputFeederUnloadFromStageStep.VerifyOutputStageUnloadReady;
             return 0;
         }
 
@@ -312,7 +323,10 @@ namespace QMC.CDT320.Sequencing
             if (!Stage.IsBinGuideClampLiftDown(Options.Side))
                 return Fail("OUT-STAGE-CLAMP-DOWN", Stage.Name, "Output stage bin clamp lift is not down before stage unload. " + Stage.DescribeOutputStageInterlockState(Options.Side));
 
-            CurrentStep = OutputFeederUnloadFromStageStep.VerifyOutputStageUnloadReady;
+            // 기존 조건: CLAMP LIFT DOWN 다음 바로 배출 준비 검증으로 넘어갔다.
+            // CurrentStep = OutputFeederUnloadFromStageStep.VerifyOutputStageUnloadReady;
+            // 현재 기준: CLAMP LIFT DOWN 다음은 GUIDE UP.
+            CurrentStep = OutputFeederUnloadFromStageStep.EnsureOutputStageGuideUp;
             return 0;
         }
 
@@ -324,9 +338,11 @@ namespace QMC.CDT320.Sequencing
                 return 0;
             }
 
-            if (!Stage.IsBinGuideUp(Options.Side))
-                return Fail("OUT-STAGE-UNLOAD-GUIDE-UP", Stage.Name,
-                    "Output stage bin guide must be up before feeder starts stage unload. side=" + Options.Side + ", " +
+            // 기존 조건: GUIDE UP -> CLAMP LIFT DOWN -> UNCLAMP 순서로 확인했다.
+            // 현재 기준: 배출 최종 준비 상태 규격(UNCLAMP -> CLAMP LIFT DOWN -> GUIDE UP) 순서로 확인한다.
+            if (!Stage.IsBinGuideUnclamped(Options.Side))
+                return Fail("OUT-STAGE-UNLOAD-UNCLAMP", Stage.Name,
+                    "Output stage bin guide must be unclamped before feeder starts stage unload. side=" + Options.Side + ", " +
                     Stage.DescribeOutputStageInterlockState(Options.Side));
 
             if (!Stage.IsBinGuideClampLiftDown(Options.Side))
@@ -334,9 +350,9 @@ namespace QMC.CDT320.Sequencing
                     "Output stage bin clamp lift must be down before feeder starts stage unload. side=" + Options.Side + ", " +
                     Stage.DescribeOutputStageInterlockState(Options.Side));
 
-            if (!Stage.IsBinGuideUnclamped(Options.Side))
-                return Fail("OUT-STAGE-UNLOAD-UNCLAMP", Stage.Name,
-                    "Output stage bin guide must be unclamped before feeder starts stage unload. side=" + Options.Side + ", " +
+            if (!Stage.IsBinGuideUp(Options.Side))
+                return Fail("OUT-STAGE-UNLOAD-GUIDE-UP", Stage.Name,
+                    "Output stage bin guide must be up before feeder starts stage unload. side=" + Options.Side + ", " +
                     Stage.DescribeOutputStageInterlockState(Options.Side));
 
             CurrentStep = OutputFeederUnloadFromStageStep.VerifyFeederReadyAtAvoid;
@@ -451,6 +467,7 @@ namespace QMC.CDT320.Sequencing
             return 0;
         }
 
+        // 현재 기준: 배출 준비 단계에서 이미 UNCLAMP가 완료되므로 이 스텝은 피더 클램프 후 상태 재검증(멱등) 역할이다.
         private async Task<int> UnclampOutputStageBinAsync(CancellationToken ct)
         {
             int result = await Stage.EnsureBinGuideUnclampedAsync(Options.Side, ResolveTimeout(), ct).ConfigureAwait(false);
@@ -464,6 +481,7 @@ namespace QMC.CDT320.Sequencing
             return 0;
         }
 
+        // 현재 기준: 배출 준비 단계에서 이미 CLAMP LIFT DOWN이 완료되므로 이 스텝은 상태 재검증(멱등) 역할이다.
         private async Task<int> LowerOutputStageClampAsync(CancellationToken ct)
         {
             int result = await Stage.EnsureBinGuideClampLiftDownAsync(Options.Side, ResolveTimeout(), ct).ConfigureAwait(false);

@@ -947,6 +947,21 @@ namespace QMC.CDT320
                 if (IsAxisAtTarget(item, targetPos))
                     return 0;
 
+                // 기존 조건: NG Y 이동 시 클램프 리프트 상태를 이 레벨에서는 확인하지 않았다 - 일부 경로
+                //           (MoveNgStageToAvoidAndVerifyAsync, READY 등)가 상위 확보 없이 NG Y를 움직일 수 있었다.
+                // 현재 기준: NG StageY는 어떤 경로든 이동 전 NG Bin Clamp Lift를 무조건 Up으로 만든다.
+                //           (Up이 아니면 GoodStageZ가 Avoid 위치여도 기구 간섭이 발생한다)
+                // To do: NG Y 이동 공통 관문에서 NG Clamp Lift Up 강제.
+                if (axis == BinStageAxis.NgBinY)
+                {
+                    int ngLiftResult = await EnsureBinGuideClampLiftUpAsync(BinSide.Ng, ResolveStageAxisMoveTimeout(axis), CancellationToken.None).ConfigureAwait(false);
+                    if (ngLiftResult != 0 || !IsBinGuideClampLiftUp(BinSide.Ng))
+                        return RaiseOutputStageAlarm(
+                            "OS-NG-CLAMP-UP-BEFORE-NG-Y",
+                            "NG StageY 이동 전 NG Bin Clamp Lift Up 확보 실패. result=" + ngLiftResult + ", " +
+                            DescribeOutputStageInterlockState(BinSide.Ng));
+                }
+
                 int clearResult = await EnsureGoodStageZNonAvoidMoveClearIfNeededAsync(
                     axis,
                     targetPos,
@@ -1016,6 +1031,19 @@ namespace QMC.CDT320
                 BaseAxis item = ResolveStageAxis(axis);
                 if (!forceMove && IsAxisAtTarget(item, targetPos))
                     return 0;
+
+                // 현재 기준: NG StageY는 어떤 경로든(조그 속도 위치 이동 포함) 이동 전 NG Bin Clamp Lift를 무조건 Up으로 만든다.
+                //           (Up이 아니면 GoodStageZ가 Avoid 위치여도 기구 간섭이 발생한다)
+                // To do: NG Y 이동 공통 관문에서 NG Clamp Lift Up 강제.
+                if (axis == BinStageAxis.NgBinY)
+                {
+                    int ngLiftResult = await EnsureBinGuideClampLiftUpAsync(BinSide.Ng, ResolveStageAxisMoveTimeout(axis), CancellationToken.None).ConfigureAwait(false);
+                    if (ngLiftResult != 0 || !IsBinGuideClampLiftUp(BinSide.Ng))
+                        return RaiseOutputStageAlarm(
+                            "OS-NG-CLAMP-UP-BEFORE-NG-Y",
+                            "NG StageY 이동 전 NG Bin Clamp Lift Up 확보 실패. result=" + ngLiftResult + ", " +
+                            DescribeOutputStageInterlockState(BinSide.Ng));
+                }
 
                 int clearResult = await EnsureGoodStageZNonAvoidMoveClearIfNeededAsync(
                     axis,

@@ -125,6 +125,17 @@ namespace QMC.CDT320.Sequencing
             if (!Feeder.CheckFeederCassetteReady(Options.Side, Options.SlotIndex, TransferMode.Unload, out readyReason))
                 return Fail("OUT-FEEDER-CST-UNLOAD-READY", Feeder.Name, "Output feeder cassette unload is not ready. " + readyReason);
 
+            // 기존 조건: 스테이지 상태를 확인하지 않고 카세트 배출을 진행했다.
+            // 현재 기준: 스테이지에서 빼온 제품을 카세트로 보내는 흐름이므로, 배출 시작 전 대상 스테이지가
+            //           언로드 위치(Good은 Y+Z, NG는 Y)를 유지하고 있어야 정상이다.
+            // To do: 카세트 배출 전 대상 스테이지 언로드 위치 선행 검증.
+            if (Stage == null)
+                return Fail("OUT-STAGE-MISSING", "OutputStage", "Output stage unit is not available before cassette unload. side=" + Options.Side);
+
+            if (!Stage.IsStageInUnloadPosition(Options.Side))
+                return Fail("OUT-STAGE-UNLOAD-POS", Stage.Name,
+                    "카세트 배출 전 OutputStage가 Unload 위치에 준비되지 않았습니다. 먼저 " + Options.Side + " 스테이지 UNLOAD 준비를 실행하세요. side=" + Options.Side);
+
             CurrentStep = OutputFeederUnloadToCassetteStep.CheckFeederBinData;
             return 0;
         }

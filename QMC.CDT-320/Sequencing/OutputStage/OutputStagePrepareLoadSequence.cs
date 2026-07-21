@@ -22,6 +22,8 @@ namespace QMC.CDT320.Sequencing
         CheckTargetStageYLoad,
         MoveTargetStageZToLoad,
         CheckTargetStageZLoad,
+        // To do: 로드 위치 도착 후 수령 최종 준비 상태(UNCLAMP -> CLAMP LIFT DOWN -> GUIDE UP)까지 만든다.
+        EnsureTargetStageReceiveReadyState,
         Complete,
         Error
     }
@@ -97,6 +99,10 @@ namespace QMC.CDT320.Sequencing
                     // 대상 스테이지 Z 로드 확인
                     case OutputStagePrepareLoadStep.CheckTargetStageZLoad:
                         return Task.FromResult(CheckTargetStageZLoad());
+
+                    // 수령 최종 준비 상태 확보 (UNCLAMP -> CLAMP LIFT DOWN -> GUIDE UP)
+                    case OutputStagePrepareLoadStep.EnsureTargetStageReceiveReadyState:
+                        return EnsureTargetStageReceiveReadyStateAsync(ct);
 
                     default:
                         return Task.FromResult(FailUnsupportedStep());
@@ -505,7 +511,12 @@ namespace QMC.CDT320.Sequencing
             {
                 if (SkipMissingSideZAxis(Options.Side, Options.Side + " Z load"))
                 {
-                    CurrentStep = OutputStagePrepareLoadStep.Complete;
+                    // 기존 조건: Z축 없는 side(NG)는 여기서 바로 Complete로 건너뛰어
+                    //           실린더 준비 스텝(EnsureTargetStageReceiveReadyState)을 통과하지 못했다.
+                    //           (NG CST->FEEDER에서 OUT-STAGE-LOAD-UNCLAMP 알람 발생 원인)
+                    // CurrentStep = OutputStagePrepareLoadStep.Complete;
+                    // 현재 기준: Z 스킵 경로도 수령 최종 준비 상태(실린더)를 거친 뒤 종료한다.
+                    CurrentStep = OutputStagePrepareLoadStep.EnsureTargetStageReceiveReadyState;
                     return 0;
                 }
 
@@ -540,7 +551,10 @@ namespace QMC.CDT320.Sequencing
             {
                 if (SkipMissingSideZAxis(Options.Side, Options.Side + " Z load final check"))
                 {
-                    CurrentStep = OutputStagePrepareLoadStep.Complete;
+                    // 기존 조건: 위치 확인 후 바로 Complete로 종료했다(실린더 준비 없음).
+                    // CurrentStep = OutputStagePrepareLoadStep.Complete;
+                    // 현재 기준: 수령 최종 준비 상태(실린더)까지 만든 뒤 종료한다.
+                    CurrentStep = OutputStagePrepareLoadStep.EnsureTargetStageReceiveReadyState;
                     return 0;
                 }
 
@@ -552,12 +566,70 @@ namespace QMC.CDT320.Sequencing
                         Options.Side + " Z load final check failed. target=" + target + ". " +
                         BuildAxisState(axis, target));
 
-                CurrentStep = OutputStagePrepareLoadStep.Complete;
+                // 기존 조건: 위치 확인 후 바로 Complete로 종료했다(실린더 준비 없음).
+                // CurrentStep = OutputStagePrepareLoadStep.Complete;
+                // 현재 기준: 수령 최종 준비 상태(실린더)까지 만든 뒤 종료한다.
+                CurrentStep = OutputStagePrepareLoadStep.EnsureTargetStageReceiveReadyState;
                 return 0;
             }
             catch (Exception ex)
             {
                 return Fail("OUT-STAGE-Z-LOAD-CHECK-EX", Name, "Target stage Z load check failed: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        // 기존 조건: PrepareLoad는 축 이동까지만 수행하고 실린더 준비는 하지 않아
+        //           스테이지가 로드 위치에 있어도 GUIDE/CLAMP가 준비되지 않은 채 피더 픽이 진행됐다.
+        // 현재 기준: 로드 위치 도착 후 수령 최종 준비 상태를 UNCLAMP -> CLAMP LIFT DOWN -> GUIDE UP 순서로 만든다.
+        // To do: 스테이지 LOAD 준비에 실린더 최종 준비 상태 포함.
+        private async Task<int> EnsureTargetStageReceiveReadyStateAsync(CancellationToken ct)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+
+                int result = await Stage.EnsureBinGuideUnclampedAsync(Options.Side, ResolveTimeout(), ct).ConfigureAwait(false);
+                if (result != 0)
+                    return Fail("OUT-STAGE-PREP-UNCLAMP", Stage.Name,
+                        "OutputStage Load 준비 중 Unclamp 구동 실패. side=" + Options.Side +
+                        ", result=" + result + ", " + Stage.DescribeOutputStageInterlockState(Options.Side));
+
+                if (!Stage.IsBinGuideUnclamped(Options.Side))
+                    return Fail("OUT-STAGE-PREP-UNCLAMP", Stage.Name,
+                        "OutputStage Load 준비 중 Unclamp 상태 확인 실패. side=" + Options.Side +
+                        ", " + Stage.DescribeOutputStageInterlockState(Options.Side));
+
+                result = await Stage.EnsureBinGuideClampLiftDownAsync(Options.Side, ResolveTimeout(), ct).ConfigureAwait(false);
+                if (result != 0)
+                    return Fail("OUT-STAGE-PREP-CLAMP-DOWN", Stage.Name,
+                        "OutputStage Load 준비 중 Clamp Lift Down 구동 실패. side=" + Options.Side +
+                        ", result=" + result + ", " + Stage.DescribeOutputStageInterlockState(Options.Side));
+
+                if (!Stage.IsBinGuideClampLiftDown(Options.Side))
+                    return Fail("OUT-STAGE-PREP-CLAMP-DOWN", Stage.Name,
+                        "OutputStage Load 준비 중 Clamp Lift Down 상태 확인 실패. side=" + Options.Side +
+                        ", " + Stage.DescribeOutputStageInterlockState(Options.Side));
+
+                result = await Stage.EnsureBinGuideUpAsync(Options.Side, ResolveTimeout(), ct).ConfigureAwait(false);
+                if (result != 0)
+                    return Fail("OUT-STAGE-PREP-GUIDE-UP", Stage.Name,
+                        "OutputStage Load 준비 중 Guide Up 구동 실패. side=" + Options.Side +
+                        ", result=" + result + ", " + Stage.DescribeOutputStageInterlockState(Options.Side));
+
+                if (!Stage.IsBinGuideUp(Options.Side))
+                    return Fail("OUT-STAGE-PREP-GUIDE-UP", Stage.Name,
+                        "OutputStage Load 준비 중 Guide Up 상태 확인 실패. side=" + Options.Side +
+                        ", " + Stage.DescribeOutputStageInterlockState(Options.Side));
+
+                CurrentStep = OutputStagePrepareLoadStep.Complete;
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                return Fail("OUT-STAGE-PREP-READY-EX", Name, "Target stage receive ready state failed: " + ex.Message);
             }
             finally
             {

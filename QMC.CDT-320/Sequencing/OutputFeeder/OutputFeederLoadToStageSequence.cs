@@ -24,6 +24,8 @@ namespace QMC.CDT320.Sequencing
         MoveFeederStageLoadPosition,
         UnclampFeederBin,
         MoveFeederStageLoadAvoidPosition,
+        // To do: 수령 후 상태 규격(GUIDE DOWN -> CLAMP LIFT UP -> CLAMP)의 첫 단계.
+        LowerOutputStageGuideAfterReceive,
         LiftOutputStageClamp,
         ClampOutputStageBin,
         MoveMaterialDataToStage,
@@ -123,6 +125,10 @@ namespace QMC.CDT320.Sequencing
                     // 피더 스테이지 로드 어보이드 위치 이동
                     case OutputFeederLoadToStageStep.MoveFeederStageLoadAvoidPosition:
                         return MoveFeederStageLoadAvoidPositionAsync(ct);
+
+                    // 수령 후 아웃풋 스테이지 가이드 다운
+                    case OutputFeederLoadToStageStep.LowerOutputStageGuideAfterReceive:
+                        return LowerOutputStageGuideAfterReceiveAsync(ct);
 
                     // 아웃풋 스테이지 클램프 리프트 업
                     case OutputFeederLoadToStageStep.LiftOutputStageClamp:
@@ -279,9 +285,13 @@ namespace QMC.CDT320.Sequencing
             if (Options.Side != BinSide.Ng && !Stage.IsNgStageInAvoidPosition())
                 return Fail("OUT-STAGE-NG-AVOID", Stage.Name, "NG stage must be avoid before GOOD stage receives bin. " + Stage.DescribeOutputStageInterlockState(Options.Side));
 
-            CurrentStep = Options.Side == BinSide.Good
-                ? OutputFeederLoadToStageStep.EnsureOutputStageUnclamp
-                : OutputFeederLoadToStageStep.EnsureOutputStageGuideUp;
+            // 기존 조건: Good은 UNCLAMP -> GUIDE UP -> CLAMP LIFT DOWN, NG는 GUIDE UP -> CLAMP LIFT DOWN -> UNCLAMP 순서였다.
+            // CurrentStep = Options.Side == BinSide.Good
+            //     ? OutputFeederLoadToStageStep.EnsureOutputStageUnclamp
+            //     : OutputFeederLoadToStageStep.EnsureOutputStageGuideUp;
+            // 현재 기준: 수령 최종 준비 상태는 양쪽 공통 UNCLAMP -> CLAMP LIFT DOWN -> GUIDE UP 순서로 만든다.
+            // To do: 스테이지 수령 준비 실린더 순서 통일(UNCLAMP -> CLAMP LIFT DOWN -> GUIDE UP).
+            CurrentStep = OutputFeederLoadToStageStep.EnsureOutputStageUnclamp;
             return 0;
         }
 
@@ -294,9 +304,12 @@ namespace QMC.CDT320.Sequencing
                     "OutputStage가 Feeder 이송 시작 전에 Load 위치에 준비되지 않았습니다. side=" + Options.Side +
                     ", " + Stage.DescribeStageLoadMoveState(Options.Side)));
 
-            CurrentStep = Options.Side == BinSide.Good
-                ? OutputFeederLoadToStageStep.VerifyOutputStageReceiveReady
-                : OutputFeederLoadToStageStep.EnsureOutputStageGuideUp;
+            // 기존 조건: Good -> 수령 준비 검증, NG -> GUIDE UP으로 분기했다.
+            // CurrentStep = Options.Side == BinSide.Good
+            //     ? OutputFeederLoadToStageStep.VerifyOutputStageReceiveReady
+            //     : OutputFeederLoadToStageStep.EnsureOutputStageGuideUp;
+            // 현재 기준: 수령 준비 체인(UNCLAMP -> CLAMP LIFT DOWN -> GUIDE UP)의 시작으로 통일.
+            CurrentStep = OutputFeederLoadToStageStep.EnsureOutputStageUnclamp;
             return Task.FromResult(0);
         }
 
@@ -309,7 +322,10 @@ namespace QMC.CDT320.Sequencing
             if (!Stage.IsBinGuideUp(Options.Side))
                 return Fail("OUT-STAGE-GUIDE-UP", Stage.Name, "Output stage bin guide is not up. " + Stage.DescribeOutputStageInterlockState(Options.Side));
 
-            CurrentStep = OutputFeederLoadToStageStep.EnsureOutputStageClampLiftDown;
+            // 기존 조건: GUIDE UP 다음 CLAMP LIFT DOWN으로 이어졌다.
+            // CurrentStep = OutputFeederLoadToStageStep.EnsureOutputStageClampLiftDown;
+            // 현재 기준: GUIDE UP이 수령 준비의 마지막 단계 - 바로 수령 준비 검증으로 넘어간다.
+            CurrentStep = OutputFeederLoadToStageStep.VerifyOutputStageReceiveReady;
             return 0;
         }
 
@@ -322,9 +338,12 @@ namespace QMC.CDT320.Sequencing
             if (!Stage.IsBinGuideClampLiftDown(Options.Side))
                 return Fail("OUT-STAGE-CLAMP-DOWN", Stage.Name, "Output stage bin clamp lift is not down. " + Stage.DescribeOutputStageInterlockState(Options.Side));
 
-            CurrentStep = Options.Side == BinSide.Good
-                ? OutputFeederLoadToStageStep.VerifyOutputStageReceiveReady
-                : OutputFeederLoadToStageStep.EnsureOutputStageUnclamp;
+            // 기존 조건: Good -> 수령 준비 검증, NG -> UNCLAMP로 분기했다.
+            // CurrentStep = Options.Side == BinSide.Good
+            //     ? OutputFeederLoadToStageStep.VerifyOutputStageReceiveReady
+            //     : OutputFeederLoadToStageStep.EnsureOutputStageUnclamp;
+            // 현재 기준: CLAMP LIFT DOWN 다음은 양쪽 공통 GUIDE UP.
+            CurrentStep = OutputFeederLoadToStageStep.EnsureOutputStageGuideUp;
             return 0;
         }
 
@@ -337,23 +356,29 @@ namespace QMC.CDT320.Sequencing
             if (!Stage.IsBinGuideUnclamped(Options.Side))
                 return Fail("OUT-STAGE-UNCLAMP", Stage.Name, "Output stage bin guide is not unclamped. " + Stage.DescribeOutputStageInterlockState(Options.Side));
 
-            CurrentStep = Options.Side == BinSide.Good
-                ? OutputFeederLoadToStageStep.EnsureOutputStageGuideUp
-                : OutputFeederLoadToStageStep.VerifyOutputStageReceiveReady;
+            // 기존 조건: Good -> GUIDE UP, NG -> 수령 준비 검증으로 분기했다.
+            // CurrentStep = Options.Side == BinSide.Good
+            //     ? OutputFeederLoadToStageStep.EnsureOutputStageGuideUp
+            //     : OutputFeederLoadToStageStep.VerifyOutputStageReceiveReady;
+            // 현재 기준: UNCLAMP 다음은 양쪽 공통 CLAMP LIFT DOWN.
+            CurrentStep = OutputFeederLoadToStageStep.EnsureOutputStageClampLiftDown;
             return 0;
         }
 
         private async Task<int> VerifyOutputStageReceiveReadyAsync(CancellationToken ct)
         {
-            int result = await Stage.EnsureBinGuideUpAsync(Options.Side, ResolveTimeout(), ct).ConfigureAwait(false);
+            // 기존 조건: GUIDE UP -> CLAMP LIFT DOWN -> UNCLAMP 순서로 확인했다.
+            // 현재 기준: 수령 최종 준비 상태 규격(UNCLAMP -> CLAMP LIFT DOWN -> GUIDE UP) 순서로 확인한다.
+            // To do: 수령 준비 최종 검증 순서를 상태 규격과 일치시킴.
+            int result = await Stage.EnsureBinGuideUnclampedAsync(Options.Side, ResolveTimeout(), ct).ConfigureAwait(false);
             if (result != 0)
-                return Fail("OUT-STAGE-RECEIVE-GUIDE-UP", Stage.Name,
-                    "OutputStage Bin 수령 전 Guide Up 구동 실패. side=" + Options.Side +
+                return Fail("OUT-STAGE-RECEIVE-UNCLAMP", Stage.Name,
+                    "OutputStage Bin 수령 전 Unclamp 구동 실패. side=" + Options.Side +
                     ", result=" + result + ", " + Stage.DescribeOutputStageInterlockState(Options.Side));
 
-            if (!Stage.IsBinGuideUp(Options.Side))
-                return Fail("OUT-STAGE-RECEIVE-GUIDE-UP", Stage.Name,
-                    "OutputStage Bin 수령 전 Guide가 Up 상태가 아닙니다. side=" + Options.Side + ", " +
+            if (!Stage.IsBinGuideUnclamped(Options.Side))
+                return Fail("OUT-STAGE-RECEIVE-UNCLAMP", Stage.Name,
+                    "OutputStage Bin 수령 전 Unclamp 상태가 아닙니다. side=" + Options.Side + ", " +
                     Stage.DescribeOutputStageInterlockState(Options.Side));
 
             result = await Stage.EnsureBinGuideClampLiftDownAsync(Options.Side, ResolveTimeout(), ct).ConfigureAwait(false);
@@ -367,15 +392,15 @@ namespace QMC.CDT320.Sequencing
                     "OutputStage Bin 수령 전 Clamp Lift가 Down 상태가 아닙니다. side=" + Options.Side + ", " +
                     Stage.DescribeOutputStageInterlockState(Options.Side));
 
-            result = await Stage.EnsureBinGuideUnclampedAsync(Options.Side, ResolveTimeout(), ct).ConfigureAwait(false);
+            result = await Stage.EnsureBinGuideUpAsync(Options.Side, ResolveTimeout(), ct).ConfigureAwait(false);
             if (result != 0)
-                return Fail("OUT-STAGE-RECEIVE-UNCLAMP", Stage.Name,
-                    "OutputStage Bin 수령 전 Unclamp 구동 실패. side=" + Options.Side +
+                return Fail("OUT-STAGE-RECEIVE-GUIDE-UP", Stage.Name,
+                    "OutputStage Bin 수령 전 Guide Up 구동 실패. side=" + Options.Side +
                     ", result=" + result + ", " + Stage.DescribeOutputStageInterlockState(Options.Side));
 
-            if (!Stage.IsBinGuideUnclamped(Options.Side))
-                return Fail("OUT-STAGE-RECEIVE-UNCLAMP", Stage.Name,
-                    "OutputStage Bin 수령 전 Unclamp 상태가 아닙니다. side=" + Options.Side + ", " +
+            if (!Stage.IsBinGuideUp(Options.Side))
+                return Fail("OUT-STAGE-RECEIVE-GUIDE-UP", Stage.Name,
+                    "OutputStage Bin 수령 전 Guide가 Up 상태가 아닙니다. side=" + Options.Side + ", " +
                     Stage.DescribeOutputStageInterlockState(Options.Side));
 
             CurrentStep = OutputFeederLoadToStageStep.VerifyFeederHoldingBin;
@@ -436,6 +461,28 @@ namespace QMC.CDT320.Sequencing
             result = await WaitFeederYDoneAsync(() => Feeder.IsBinFeederYInStageLoadAvoidPosition(Options.Side), "stage load avoid", ct).ConfigureAwait(false);
             if (result != 0)
                 return result;
+
+            // 기존 조건: 피더 어보이드 직후 바로 CLAMP LIFT UP -> CLAMP 순서였고 GUIDE DOWN은 프로세스 이동 직전에 했다.
+            // CurrentStep = OutputFeederLoadToStageStep.LiftOutputStageClamp;
+            // 현재 기준: 수령 후 상태 규격 GUIDE DOWN -> CLAMP LIFT UP -> CLAMP 순서를 따른다.
+            // To do: 수령 후 실린더 순서 변경(GUIDE DOWN 선행).
+            CurrentStep = OutputFeederLoadToStageStep.LowerOutputStageGuideAfterReceive;
+            return 0;
+        }
+
+        // To do: 수령 후 상태 규격(GUIDE DOWN -> CLAMP LIFT UP -> CLAMP)의 첫 단계 - 가이드 다운.
+        private async Task<int> LowerOutputStageGuideAfterReceiveAsync(CancellationToken ct)
+        {
+            int result = await Stage.EnsureBinGuideDownAsync(Options.Side, ResolveTimeout(), ct).ConfigureAwait(false);
+            if (result != 0)
+                return Fail("OUT-STAGE-GUIDE-DOWN-AFTER-RECEIVE", Stage.Name,
+                    "Output stage guide down failed after bin receive. side=" + Options.Side + ", result=" + result + ", " +
+                    Stage.DescribeOutputStageInterlockState(Options.Side));
+
+            if (!Stage.IsBinGuideDown(Options.Side))
+                return Fail("OUT-STAGE-GUIDE-DOWN-AFTER-RECEIVE", Stage.Name,
+                    "Output stage guide is not down after bin receive. side=" + Options.Side + ", " +
+                    Stage.DescribeOutputStageInterlockState(Options.Side));
 
             CurrentStep = OutputFeederLoadToStageStep.LiftOutputStageClamp;
             return 0;
@@ -579,6 +626,8 @@ namespace QMC.CDT320.Sequencing
             return 0;
         }
 
+        // 현재 기준: 수령 직후 LowerOutputStageGuideAfterReceive에서 이미 GUIDE DOWN이 완료되므로
+        //           이 스텝은 프로세스 이동 전 상태 재검증(멱등) 역할이다.
         private async Task<int> LowerOutputStageGuideBeforeProcessAsync(CancellationToken ct)
         {
             int result = await Stage.EnsureBinGuideDownAsync(Options.Side, ResolveTimeout(), ct).ConfigureAwait(false);
