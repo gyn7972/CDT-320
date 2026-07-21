@@ -169,7 +169,6 @@ namespace QMC.CDT320.Interlocks
                         out reason);
 
                 string axisReason;
-
                 // 인터락 조건: InputVisionX가 홈 준비 상태가 아니면 FeederY 수동 이동을 차단한다.
                 if (!IsInputVisionXHomeReadyForInputFeederHome(machine.InputStageUnit, out axisReason))
                     return MotionGuardRuleHelpers.Block(
@@ -178,7 +177,6 @@ namespace QMC.CDT320.Interlocks
                         out reason);
 
                 // 인터락 조건: FrontPickerX가 홈 준비 상태가 아니면 FeederY 수동 이동을 차단한다.
-
                 // To do: 이건 AVOID로 변경해야한다
                 //if (!IsFrontPickerXHomeReadyForInputFeederHome(machine.PickerFrontUnit, out axisReason))
                 //    return MotionGuardRuleHelpers.Block(
