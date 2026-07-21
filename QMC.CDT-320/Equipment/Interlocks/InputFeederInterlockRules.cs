@@ -488,15 +488,16 @@ namespace QMC.CDT320.Interlocks
                     out reason);
             }
 
-            if (machine.InputFeederUnit != null &&
-                IsFeederUnclamp(machine.InputFeederUnit) &&
-                IsFeederHoldingMaterial(machine.InputFeederUnit))
-            {
-                return MotionGuardRuleHelpers.Block(
-                    "InputFeederLift",
-                    "InputFeederLift move blocked. InputFeeder is unclamped and material is still detected. direction=" + direction,
-                    out reason);
-            }
+            // Todo : Data 이송 처리 기능 구현하고 
+            //if (machine.InputFeederUnit != null &&
+            //    IsFeederUnclamp(machine.InputFeederUnit) &&
+            //    IsFeederHoldingMaterial(machine.InputFeederUnit))
+            //{
+            //    return MotionGuardRuleHelpers.Block(
+            //        "InputFeederLift",
+            //        "InputFeederLift move blocked. InputFeeder is unclamped and material is still detected. direction=" + direction,
+            //        out reason);
+            //}
 
             return true;
         }
