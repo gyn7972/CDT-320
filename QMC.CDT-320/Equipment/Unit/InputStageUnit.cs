@@ -120,6 +120,17 @@ namespace QMC.CDT320
         /// <summary>얼라인 T 보정 허용 최대값 [deg].</summary>
         [DataMember] public double AlignThetaCorrectionLimitDeg { get; set; } = 1.0;
 
+        // To do: [얼라인 허용값 파라미터화] 시퀀스 코드 상수 3종을 Config로 이관 - UI에서 조정 가능.
+        //        기본값은 현재 운용값(0.1/0.1/0.05) 기준. (기존 코드 상수는 0.05/0.05/0.01이었다)
+        /// <summary>얼라인 Ref 피치 비교 허용값 [mm].</summary>
+        [DataMember] public double AlignPitchCompareToleranceMm { get; set; } = 0.1;
+
+        /// <summary>얼라인 최종 센터 오프셋 허용값 [mm]. 최종 센터 검증(IN-STAGE-ALIGN-FINAL-CENTER-TOL)에 사용한다.</summary>
+        [DataMember] public double AlignCenterToleranceMm { get; set; } = 0.1;
+
+        /// <summary>얼라인 유효 T 허용값 상한 [deg]. 요청/수렴 임계값이 커도 이 값을 넘지 않는다.</summary>
+        [DataMember] public double MaxEffectiveThetaToleranceDeg { get; set; } = 0.05;
+
         /// <summary>수동 Die 검출로 전체 Input Die Map에 적용할 수 있는 X Offset 최대값 [mm].</summary>
         [DataMember] public double ManualDieDetectOffsetLimitX { get; set; } = 20.0;
 
@@ -176,6 +187,13 @@ namespace QMC.CDT320
                 PickUpNeedleSeparateSpeedPercent = 1.0;
             if (InputDieVisionRetryCount <= 0)
                 InputDieVisionRetryCount = 3;
+            // 현재 기준: 얼라인 허용값 3종은 0 이하로 저장된 경우 기본값(현재 운용값)으로 복원한다.
+            if (AlignPitchCompareToleranceMm <= 0.0)
+                AlignPitchCompareToleranceMm = 0.1;
+            if (AlignCenterToleranceMm <= 0.0)
+                AlignCenterToleranceMm = 0.1;
+            if (MaxEffectiveThetaToleranceDeg <= 0.0)
+                MaxEffectiveThetaToleranceDeg = 0.05;
         }
     }
 

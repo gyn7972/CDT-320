@@ -1443,6 +1443,10 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 items.Add(ParameterGridItem.Int("ALIGN ITERATIONS", "count", ParameterGridScope.Config, () => unit.Config.MaxAlignIterations, v => unit.Config.MaxAlignIterations = Math.Max(1, v)));
                 items.Add(ParameterGridItem.Double("ALIGN THRESHOLD", "deg", ParameterGridScope.Config, () => unit.Config.AlignConvergenceThresholdDeg, v => unit.Config.AlignConvergenceThresholdDeg = Math.Max(0.0, v)));
                 items.Add(ParameterGridItem.Double("ALIGN T LIMIT", "deg", ParameterGridScope.Config, () => unit.Config.AlignThetaCorrectionLimitDeg, v => unit.Config.AlignThetaCorrectionLimitDeg = Math.Max(0.001, v)));
+                // To do: [얼라인 허용값 파라미터화] 시퀀스 상수 3종을 Config로 이관해 UI에서 조정한다.
+                items.Add(ParameterGridItem.Double("ALIGN PITCH TOLERANCE", "mm", ParameterGridScope.Config, () => unit.Config.AlignPitchCompareToleranceMm, v => unit.Config.AlignPitchCompareToleranceMm = Math.Max(0.001, v)));
+                items.Add(ParameterGridItem.Double("ALIGN CENTER TOLERANCE", "mm", ParameterGridScope.Config, () => unit.Config.AlignCenterToleranceMm, v => unit.Config.AlignCenterToleranceMm = Math.Max(0.001, v)));
+                items.Add(ParameterGridItem.Double("ALIGN T EFFECTIVE MAX", "deg", ParameterGridScope.Config, () => unit.Config.MaxEffectiveThetaToleranceDeg, v => unit.Config.MaxEffectiveThetaToleranceDeg = Math.Max(0.001, v)));
                 items.Add(ParameterGridItem.Double("MANUAL DIE OFFSET X LIMIT", "mm", ParameterGridScope.Config, () => unit.Config.ManualDieDetectOffsetLimitX, v => unit.Config.ManualDieDetectOffsetLimitX = Math.Max(0.001, v)));
                 items.Add(ParameterGridItem.Double("MANUAL DIE OFFSET Y LIMIT", "mm", ParameterGridScope.Config, () => unit.Config.ManualDieDetectOffsetLimitY, v => unit.Config.ManualDieDetectOffsetLimitY = Math.Max(0.001, v)));
                 items.Add(ParameterGridItem.Double("DIE MAP FINE OFFSET X LIMIT", "mm", ParameterGridScope.Config, () => unit.Config.DieMapFineOffsetLimitX, v => unit.Config.DieMapFineOffsetLimitX = Math.Max(0.001, v)));

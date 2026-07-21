@@ -40,9 +40,41 @@ namespace QMC.CDT320.Sequencing
     {
         private static readonly object SimVisionRandomLock = new object();
         private static readonly Random SimVisionRandom = new Random();
-        private const double AlignPitchCompareToleranceMm = 0.05;
-        private const double AlignCenterToleranceMm = 0.05;
-        private const double MaxEffectiveThetaToleranceDeg = 0.01;
+        // 기존 조건: 얼라인 허용값 3종이 코드 상수/필드로 고정되어 UI에서 조정할 수 없었다.
+        // private double AlignPitchCompareToleranceMm = 0.1;
+        // private double AlignCenterToleranceMm = 0.1;
+        // private double MaxEffectiveThetaToleranceDeg = 0.05;
+        // 현재 기준: InputStage Config 값으로 제어한다. (미설정/0 이하이면 현재 운용값 기본 사용)
+        // To do: [얼라인 허용값 파라미터화] 상수 -> Config 이관.
+        private double AlignPitchCompareToleranceMm
+        {
+            get
+            {
+                return Stage != null && Stage.Config != null && Stage.Config.AlignPitchCompareToleranceMm > 0.0
+                    ? Stage.Config.AlignPitchCompareToleranceMm
+                    : 0.1;
+            }
+        }
+
+        private double AlignCenterToleranceMm
+        {
+            get
+            {
+                return Stage != null && Stage.Config != null && Stage.Config.AlignCenterToleranceMm > 0.0
+                    ? Stage.Config.AlignCenterToleranceMm
+                    : 0.1;
+            }
+        }
+
+        private double MaxEffectiveThetaToleranceDeg
+        {
+            get
+            {
+                return Stage != null && Stage.Config != null && Stage.Config.MaxEffectiveThetaToleranceDeg > 0.0
+                    ? Stage.Config.MaxEffectiveThetaToleranceDeg
+                    : 0.05;
+            }
+        }
         private WaferMapData _map;
         private WaferMaterial _wafer;
         private TapeFrameSpec _frameSpec;
