@@ -956,6 +956,16 @@ namespace QMC.CDT320.Ajin
                 double boardVelocity = ToBoardVelocity(vel);
                 double boardAcceleration = ToBoardAcceleration(acceleration);
                 double boardDeceleration = ToBoardAcceleration(deceleration);
+
+                // To do: [모션 프로파일 로그] 실제 보드에 명령되는 등속/가감속을 남겨 스케일 적용 상태를 검증한다.
+                QMC.Common.Log.Write("Main", "SYSTEM", "AxisMoveProfile",
+                    Name + " ABS MOVE. target=" + targetPos.ToString("0.###") +
+                    ", vel=" + vel.ToString("0.###") +
+                    ", acc=" + acceleration.ToString("0.###") +
+                    ", dec=" + deceleration.ToString("0.###") +
+                    ", defaultScaleApplied=" + useDefaultMotionScale +
+                    ", scalePercent=" + (MotionSpeedScale.EffectiveScaleFactor * 100.0).ToString("0.#") + " - Start");
+
                 CommandPosition = targetPos;
                 CurrentVelocity = vel;
                 IsMoving = true;

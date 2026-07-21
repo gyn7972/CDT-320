@@ -178,6 +178,8 @@ namespace QMC.Common.IO
                                                             int timeoutMs,
                                                             CancellationToken ct)
         {
+            //Todo: 임시로 SettleTimeMs를 200으로 설정. 추후 Recipe에서 가져오도록 수정 필요
+            Recipe.SettleTimeMs = 200;
             if (Config.IgnoreWaits)
             {
                 ApplyScannedState(targetState);
