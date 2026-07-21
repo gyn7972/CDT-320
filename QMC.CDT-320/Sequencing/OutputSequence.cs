@@ -602,6 +602,9 @@ namespace QMC.CDT320.Sequencing
             int moveTimeoutMs,
             SequenceStartMode startMode)
         {
+            // 현재 기준: 전체 준비 시작 시 NG 사용 여부를 Material 상태에 반영한다. (변경 없으면 no-op)
+            SyncNgCassetteEnabledWithConfig();
+
             if (recipeChange)
             {
                 if (!AreRequiredOutputCassettesMapped() && HasOutputActiveMaterial())
@@ -673,7 +676,14 @@ namespace QMC.CDT320.Sequencing
             if (!ValidateOutputSupplyConsistency(out consistencyReason))
                 return Fail("OUT-FULL-PREP-CONSISTENCY", "OutputSequence", consistencyReason);
 
-            if (MaterialStateService.GetWaferAtLocation(MaterialLocationKind.OutputStageNg) == null)
+            // 기존 조건: NG Stage가 비어 있으면 NG Ready Bin 공급을 무조건 요구했다(없으면 하드 실패).
+            // 현재 기준: Config.UseNgCassette=false면 NG 준비를 건너뛰고 GOOD 준비로 진행한다.
+            // To do: [NG 스킵] 전체 준비의 NG 공급 요구를 사용 여부 조건부로 완화.
+            if (!IsNgCassetteUsed())
+            {
+                Context.LogPublic("[OUTPUT] NG 카세트 미사용(UseNgCassette=false) - 전체 준비에서 NG Stage 공급을 건너뜁니다.");
+            }
+            else if (MaterialStateService.GetWaferAtLocation(MaterialLocationKind.OutputStageNg) == null)
             {
                 OutputSlotPlan ngPlan;
                 string ngReason;
@@ -904,8 +914,32 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
+        // To do: [NG 스킵] NG 카세트 사용 여부 - OutputCassette Config.UseNgCassette 파라미터를 단일 기준으로 사용한다.
+        private bool IsNgCassetteUsed()
+        {
+            var cassette = Context != null && Context.Machine != null ? Context.Machine.OutputCassetteUnit : null;
+            return cassette == null || cassette.Config == null || cassette.Config.UseNgCassette;
+        }
+
+        // To do: [NG 스킵] Ng1 Material의 IsEnabled를 설정 파라미터와 동기화 -
+        //        OutputSlotPlanner(공급 후보/일관성/스토어)가 IsEnabled 필터로 NG를 자동 제외하게 된다.
+        private void SyncNgCassetteEnabledWithConfig()
+        {
+            try
+            {
+                MaterialStateService.SetCassetteEnabled(CassetteMaterialRole.Ng1, IsNgCassetteUsed());
+            }
+            catch (Exception ex)
+            {
+                WriteLog("SyncNgCassetteEnabledWithConfig", "NG cassette enabled 동기화 실패: " + ex.Message + " - Failed");
+            }
+        }
+
         private OutputSequenceAutoAction ResolveNextOutputAction()
         {
+            // 현재 기준: 액션 판단 전 NG 사용 여부를 Material 상태에 반영한다. (변경 없으면 no-op)
+            SyncNgCassetteEnabledWithConfig();
+
             WaferCompletionRunCoordinator completion = Context != null ? Context.WaferCompletion : null;
             if (completion != null && completion.Enabled)
             {
@@ -1045,7 +1079,11 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
-        private static bool AreRequiredOutputCassettesMapped()
+        // 기존 조건: static 메서드로 Ng1 mapped를 무조건 요구했다 - NG 카세트에 빈이 없으면
+        //           NG 맵핑이 등록되지 않아 오토 전체 준비가 진행 불가였다.
+        // 현재 기준: Config.UseNgCassette=false면 NG mapped 요구를 건너뛴다. (Good2와 동일한 조건부 패턴)
+        // To do: [NG 스킵] NG 맵핑 필수 요구를 사용 여부 조건부로 완화.
+        private bool AreRequiredOutputCassettesMapped()
         {
             MaterialSnapshot state = MaterialStateService.State;
             if (state == null || state.Cassettes == null)
@@ -1067,7 +1105,10 @@ namespace QMC.CDT320.Sequencing
                     ng1 = cassette;
             }
 
-            if (!IsOutputCassetteMapped(good1) || !IsOutputCassetteMapped(ng1))
+            // 기존 조건: if (!IsOutputCassetteMapped(good1) || !IsOutputCassetteMapped(ng1)) return false;
+            if (!IsOutputCassetteMapped(good1))
+                return false;
+            if (IsNgCassetteUsed() && !IsOutputCassetteMapped(ng1))
                 return false;
             if (good2 != null && good2.IsEnabled && !IsOutputCassetteMapped(good2))
                 return false;
@@ -1551,6 +1592,14 @@ namespace QMC.CDT320.Sequencing
                 "target=Good").ConfigureAwait(false);
             if (goodResult != 0)
                 return goodResult;
+
+            // 현재 기준: NG 카세트 미사용(UseNgCassette=false)이면 자동 NG 맵핑도 건너뛴다.
+            // To do: [NG 스킵] 자동 맵핑에서 NG 스캔 제외.
+            if (!IsNgCassetteUsed())
+            {
+                Context.LogPublic("[OUTPUT-CASSETTE] NG 카세트 미사용(UseNgCassette=false) - 자동 NG 맵핑을 건너뜁니다.");
+                return 0;
+            }
 
             // NG 카세트는 GOOD 맵핑 완료 후, NG에 웨이퍼 Material 정보가 없을 때만 맵핑한다.
             // NG bin에 진행 중 자재가 있으면 재스캔이 추적 상태를 덮어쓰므로 건너뛴다.

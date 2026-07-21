@@ -262,20 +262,45 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             return _selectedCassetteRole == CassetteMaterialRole.Good2 ? TargetCassette.Good2 : TargetCassette.Good1;
         }
 
+        // To do: [NG 스킵] UseNgCassette=false면 NG 대상 수동 구동을 차단한다.
+        //        (NG 맵핑을 실행하면 등록 경로가 Ng1.IsEnabled를 다시 켜서 파라미터와 상태가 어긋난다)
+        private bool GuardNgCassetteUsage(Form1 host, TargetCassette target, string actionName)
+        {
+            if (target != TargetCassette.Ng)
+                return true;
+
+            var cassette = host != null && host.Machine != null ? host.Machine.OutputCassetteUnit : null;
+            if (cassette == null || cassette.Config == null || cassette.Config.UseNgCassette)
+                return true;
+
+            EventLogger.Write(EventKind.Alarm, "QMC", "OUTPUT-CST-NG-DISABLED",
+                actionName + " 차단: NG 카세트 미사용 설정입니다. 레시피 CONFIG의 USE NG CASSETTE를 켠 후 실행하세요.");
+            return false;
+        }
+
         private async Task<bool> MapAsync(Form1 host, TargetCassette target)
         {
+            if (!GuardNgCassetteUsage(host, target, "NG BIN MAPPING"))
+                return false;
+
             var sequence = CreateOutputCassetteSequence(host);
             return await sequence.RunMappingAsync(host.Controller.ManualOperationToken, BuildCassetteOptions(host, _manualSequenceStartMode, target)) == 0;
         }
 
         private async Task<bool> LoadAsync(Form1 host, TargetCassette target)
         {
+            if (!GuardNgCassetteUsage(host, target, "NG BIN LOADING"))
+                return false;
+
             var sequence = CreateOutputCassetteSequence(host);
             return await sequence.RunLoadingAsync(host.Controller.ManualOperationToken, BuildCassetteOptions(host, _manualSequenceStartMode, target)) == 0;
         }
 
         private async Task<bool> UnloadAsync(Form1 host, TargetCassette target)
         {
+            if (!GuardNgCassetteUsage(host, target, "NG BIN UNLOADING"))
+                return false;
+
             var sequence = CreateOutputCassetteSequence(host);
             return await sequence.RunUnloadingAsync(host.Controller.ManualOperationToken, BuildCassetteOptions(host, _manualSequenceStartMode, target)) == 0;
         }

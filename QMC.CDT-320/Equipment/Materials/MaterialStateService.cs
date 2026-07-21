@@ -902,6 +902,31 @@ namespace QMC.CDT320.Materials
             NotifyAndSave("OutputCassetteMappingSelective");
         }
 
+        // To do: [NG 스킵] 카세트 사용 여부를 설정 파라미터와 동기화한다.
+        //        IsEnabled=false면 OutputSlotPlanner의 공급/일관성/스토어 판단에서 해당 카세트가 자동 제외된다.
+        public static void SetCassetteEnabled(CassetteMaterialRole role, bool enabled)
+        {
+            bool changed = false;
+            lock (_stateSync)
+            {
+                var cassette = State != null && State.Cassettes != null
+                    ? State.Cassettes.FirstOrDefault(c => c != null && c.Role == role)
+                    : null;
+                if (cassette != null && cassette.IsEnabled != enabled)
+                {
+                    cassette.IsEnabled = enabled;
+                    changed = true;
+                }
+            }
+
+            if (changed)
+            {
+                Log.Write("Main", "SYSTEM", "MaterialStateService",
+                    "Cassette enabled state changed. role=" + role + ", enabled=" + enabled + " - Ok");
+                NotifyAndSave("SetCassetteEnabled:" + role);
+            }
+        }
+
         public static bool CreateProcessTestDataSet(out string message)
         {
             return CreateProcessTestDataSet(null, out message);

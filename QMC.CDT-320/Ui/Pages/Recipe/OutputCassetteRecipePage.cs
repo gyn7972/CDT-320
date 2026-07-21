@@ -2,6 +2,7 @@
 using QMC.CDT_320.Ui.Controls;
 using QMC.CDT320;
 using QMC.CDT320.Interlocks;
+using QMC.CDT320.Materials;
 using QMC.Common.Logging;
 using QMC.Common.Motion;
 using System;
@@ -968,7 +969,14 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                         new ParameterGridOption("2", 2)
                     }),
                     ParameterGridItem.Bool("SIMULATION MODE", ParameterGridScope.Setup, () => _OutCassetteUnit.Setup.IsSimulationMode, v => _OutCassetteUnit.Setup.IsSimulationMode = v),
-                    ParameterGridItem.Bool("DRY RUN", ParameterGridScope.Config, () => _OutCassetteUnit.Config.bDryRun, v => _OutCassetteUnit.Config.bDryRun = v)
+                    ParameterGridItem.Bool("DRY RUN", ParameterGridScope.Config, () => _OutCassetteUnit.Config.bDryRun, v => _OutCassetteUnit.Config.bDryRun = v),
+                    // To do: [NG 스킵] NG 카세트 사용 여부 - false면 오토가 NG 공급/맵핑 요구를 건너뛴다.
+                    //        변경 즉시 Ng1 Material IsEnabled에도 동기화해 플래너 판단과 일치시킨다.
+                    ParameterGridItem.Bool("USE NG CASSETTE", ParameterGridScope.Config, () => _OutCassetteUnit.Config.UseNgCassette, v =>
+                    {
+                        _OutCassetteUnit.Config.UseNgCassette = v;
+                        MaterialStateService.SetCassetteEnabled(CassetteMaterialRole.Ng1, v);
+                    })
                 });
 
                 waitParameterGrid.AutoFitParentGroupHeight = true;   // WAIT 그룹 높이를 내용에 맞춰 자동 조정 (스크롤 없이 전 항목 표시)

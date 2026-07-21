@@ -34,6 +34,8 @@ namespace QMC.CDT320
     public class OutputCassetteConfig : IConfigData
     {
         [DataMember] public bool bDryRun { get; set; }
+        // To do: [NG 스킵] NG 카세트 사용 여부 - false면 오토 시퀀스가 NG 공급/맵핑 요구를 건너뛴다.
+        [DataMember] public bool UseNgCassette { get; set; }
         [DataMember] public double LoadingPositionOffset { get; set; }
         [DataMember] public double UnloadingPositionOffset { get; set; }
         [DataMember] public double Level2PositionOffset { get; set; }
@@ -60,6 +62,8 @@ namespace QMC.CDT320
         private void SetDefaults()
         {
             bDryRun = false;
+            // 현재 기준: 기본은 NG 카세트 사용(기존 동작 유지).
+            UseNgCassette = true;
             LoadingPositionOffset = 0.0;
             UnloadingPositionOffset = 0.0;
             Level2PositionOffset = 59.0;
