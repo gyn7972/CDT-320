@@ -1542,11 +1542,70 @@ namespace QMC.CDT320.Sequencing
                 "target=" + target);
         }
 
-        public Task<int> ExecuteCassetteMappingAsync(CancellationToken ct, bool bFine = false, int moveTimeoutMs = 0, SequenceStartMode startMode = SequenceStartMode.Resume)
+        public async Task<int> ExecuteCassetteMappingAsync(CancellationToken ct, bool bFine = false, int moveTimeoutMs = 0, SequenceStartMode startMode = SequenceStartMode.Resume)
         {
-            var sequence = new OutputCassetteSequence(Context);
-            return SequenceTrace.ChildAsync("OutputCassetteSequence", "Mapping",
-                () => sequence.RunMappingAsync(ct, BuildCassetteOptions(TargetCassette.Good1, bFine, moveTimeoutMs, startMode)));
+            // GOOD 카세트 맵핑: 레시피 1단/2단(GoodLevelCount)을 반영해 Good1(+2단 구성 시 Good2) 존을 스캔/등록한다.
+            var goodSequence = new OutputCassetteSequence(Context);
+            int goodResult = await SequenceTrace.ChildAsync("OutputCassetteSequence", "Mapping",
+                () => goodSequence.RunMappingAsync(ct, BuildCassetteOptions(TargetCassette.Good1, bFine, moveTimeoutMs, startMode)),
+                "target=Good").ConfigureAwait(false);
+            if (goodResult != 0)
+                return goodResult;
+
+            // NG 카세트는 GOOD 맵핑 완료 후, NG에 웨이퍼 Material 정보가 없을 때만 맵핑한다.
+            // NG bin에 진행 중 자재가 있으면 재스캔이 추적 상태를 덮어쓰므로 건너뛴다.
+            if (HasNgOutputCassetteWaferInfo())
+            {
+                Context.LogPublic("[OUTPUT-CASSETTE] NG 카세트에 웨이퍼 Material 정보가 있어 자동 NG 맵핑을 건너뜁니다.");
+                return 0;
+            }
+
+            var ngSequence = new OutputCassetteSequence(Context);
+            return await SequenceTrace.ChildAsync("OutputCassetteSequence", "MappingNg",
+                () => ngSequence.RunMappingAsync(ct, BuildCassetteOptions(TargetCassette.Ng, bFine, moveTimeoutMs, startMode)),
+                "target=Ng").ConfigureAwait(false);
+        }
+
+        // 판정 기준(옵션 1): NG(Ng1) 출력 카세트에 웨이퍼 Material 기록이 하나도 없으면 "정보 없음"으로 보고 자동 NG 맵핑을 허용한다.
+        // - NG 카세트 슬롯에 배정된 WaferId/HasWafer가 있거나
+        // - 위치가 NG 출력 카세트(OutputCassette/Ng1)인 비어있지 않은 웨이퍼가 있으면 정보 있음으로 판정한다.
+        private static bool HasNgOutputCassetteWaferInfo()
+        {
+            MaterialSnapshot state = MaterialStateService.State;
+            if (state == null)
+                return false;
+
+            if (state.Cassettes != null)
+            {
+                foreach (CassetteMaterial cassette in state.Cassettes)
+                {
+                    if (cassette == null || cassette.Role != CassetteMaterialRole.Ng1 || cassette.Slots == null)
+                        continue;
+
+                    foreach (CassetteSlotMaterial slot in cassette.Slots)
+                    {
+                        if (slot != null && (slot.HasWafer || !string.IsNullOrWhiteSpace(slot.WaferId)))
+                            return true;
+                    }
+                }
+            }
+
+            if (state.Wafers != null)
+            {
+                foreach (WaferMaterial wafer in state.Wafers)
+                {
+                    if (wafer == null)
+                        continue;
+                    if (WaferMaterialStateText.Normalize(wafer.State) == WaferMaterialState.Empty)
+                        continue;
+                    if (wafer.CurrentLocation != null &&
+                        wafer.CurrentLocation.Kind == MaterialLocationKind.OutputCassette &&
+                        wafer.CurrentLocation.CassetteRole == CassetteMaterialRole.Ng1)
+                        return true;
+                }
+            }
+
+            return false;
         }
 
         public Task<int> ExecuteCassetteUnloadingAsync(CancellationToken ct, TargetCassette target = TargetCassette.Good1, bool bFine = false, int moveTimeoutMs = 0, SequenceStartMode startMode = SequenceStartMode.Resume)
