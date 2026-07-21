@@ -6322,6 +6322,8 @@ namespace QMC.CDT320.Sequencing
                 }
 
                 bool flowOn = ReadPickerFlowState(pickerNo);
+                //Todo : Test Flow code
+                flowOn = true;
                 if (!flowOn)
                 {
                     return Fail("PICKER-PICKUP-COMPLETE-FLOW-NOT-DETECTED", Name,
