@@ -2666,15 +2666,16 @@ namespace QMC.CDT320
                 if (result != 0)
                     return result;
 
-                result = await MoveUnloadSafeAxisAsync(
-                    WaferStageAxis.NeedleX,
-                    Recipe.NeedleX.AvoidPosition,
-                    NeedleBlockX,
-                    "NeedleX avoid",
-                    "IS-UNLOAD-NEEDLE-X",
-                    bFine).ConfigureAwait(false);
-                if (result != 0)
-                    return result;
+                // NeedleX는 AVOID 로 갈필요없다.
+                //result = await MoveUnloadSafeAxisAsync(
+                //    WaferStageAxis.NeedleX,
+                //    Recipe.NeedleX.AvoidPosition,
+                //    NeedleBlockX,
+                //    "NeedleX avoid",
+                //    "IS-UNLOAD-NEEDLE-X",
+                //    bFine).ConfigureAwait(false);
+                //if (result != 0)
+                //    return result;
 
                 result = await MoveInputStageAxis(WaferStageAxis.WaferY, Recipe.WaferY.UnloadPosition, bFine).ConfigureAwait(false);
                 if (result != 0 || StageY.IsAlarm)

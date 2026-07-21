@@ -379,6 +379,18 @@ namespace QMC.CDT320
             return MoveBinLifterZ(CalculateBinCassetteSlotTargetPosition(cassette, slotIndex), bFine);
         }
 
+        // To do: [언로드 오프셋] 피더가 처진 bin을 들고 카세트에 진입할 때 간섭하지 않도록
+        //        슬롯 위치 + Config.UnloadingPositionOffset 로 이동한다. (Input UnloadToCassette와 동일 개념)
+        public Task<int> MoveToBinCassetteUnloadOffsetPosition(TargetCassette cassette, int slotIndex, bool bFine = false)
+        {
+            return MoveBinLifterZ(CalculateBinCassetteSlotTargetPosition(cassette, slotIndex) + ResolveUnloadingPositionOffset(), bFine);
+        }
+
+        public double ResolveUnloadingPositionOffset()
+        {
+            return Config != null ? Config.UnloadingPositionOffset : 0.0;
+        }
+
         public Task<int> MoveToCassetteMappingStartPosition(bool bFine = false) { return MoveToBinCassetteMappingStartPosition(bFine); }
         public Task<int> MoveToBinCassetteMappingStartPosition(bool bFine = false) { return MoveBinLifterZ(Recipe.MappingStartPosition, bFine); }
 
@@ -1033,6 +1045,22 @@ namespace QMC.CDT320
             }
 
             return await CollectBinSlotOccupancyAsync(new[] { TargetCassette.Ng }, ct).ConfigureAwait(false);
+        }
+
+        // To do: [드라이런 데이터 생성] 시퀀스 레벨 하드웨어 바이패스(BypassHardware/GlobalDryRun 포함)에서 호출하는 시뮬 빈 맵 생성.
+        //        유닛 내부 IsOutputCassetteHardwareBypassed()는 Config.bDryRun/시뮬레이션 모드만 판정하므로
+        //        GENERAL 드라이런에서는 시퀀스가 이 메서드로 직접 시뮬 맵을 만들어야 한다. (Input의 BuildSimulatedWaferMap와 동일 역할)
+        public void BuildSimulatedBinMaps(bool ngTarget)
+        {
+            if (ngTarget)
+            {
+                BuildSimulatedBinMap(TargetCassette.Ng, Config.SlotCount, Config.SlotPitch);
+                return;
+            }
+
+            BuildSimulatedBinMap(TargetCassette.Good1, Config.SlotCount, Config.SlotPitch);
+            if (Config.SelectedCassetteLevel >= 2)
+                BuildSimulatedBinMap(TargetCassette.Good2, Config.SlotCount, Config.SlotPitch);
         }
 
         public async Task<bool> ScanAllCassettesAsync()
@@ -1884,6 +1912,41 @@ namespace QMC.CDT320
                 QMC.Common.Log.Write("Main", "SYSTEM", "OutputCassette",
                     "PrepareBinCassetteForFeederLoad finished. cassette=" + cassette +
                     ", slot=" + slotIndex);
+            }
+        }
+
+        // To do: [언로드 오프셋] 피더 배출 준비 - 슬롯 위치 + UnloadingPositionOffset 로 이동해
+        //        처진 bin과 카세트 셸프의 간섭을 피한다. (PrepareBinCassetteForFeederLoad의 배출 대응)
+        public async Task<int> PrepareBinCassetteForFeederUnload(TargetCassette cassette, int slotIndex, int timeoutMs, bool bFine = false)
+        {
+            try
+            {
+                if (!CheckBinLifterZMoveReady())
+                    return -1;
+
+                int result = await MoveToBinCassetteUnloadOffsetPosition(cassette, slotIndex, bFine).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return FailMappingScan(
+                    "OUT-CST-FEEDER-UNLOAD-EXCEPTION",
+                    "Output cassette feeder unload preparation failed. cassette=" + cassette +
+                    ", slot=" + slotIndex + ", error=" + ex.Message);
+            }
+            finally
+            {
+                QMC.Common.Log.Write("Main", "SYSTEM", "OutputCassette",
+                    "PrepareBinCassetteForFeederUnload finished. cassette=" + cassette +
+                    ", slot=" + slotIndex +
+                    ", unloadOffset=" + ResolveUnloadingPositionOffset().ToString("0.###"));
             }
         }
 

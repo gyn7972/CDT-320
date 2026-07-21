@@ -1885,11 +1885,24 @@ namespace QMC.CDT320.Sequencing
                         if (lease == null)
                             return Fail("OUT-RESOURCE-STAGE", "OutputSequence", "OutputStage 영역 리소스 점유에 실패했습니다. side=" + side);
 
-                        int result = await ExecuteWithOutputPickerAvoidGateAsync("OutputFeederResumeLoad.StagePrepareLoad", ct,
-                            () => ExecuteStagePrepareLoadAsync(ct, side, bFine, moveTimeoutMs, startMode)).ConfigureAwait(false);
-                        if (result != 0) return result;
+                        // 기존 조건: 재개 시에도 StagePrepareLoad를 호출 - 피더가 bin을 클램프한 상태라
+                        //           Unclamp 인터락으로 스테이지 이동이 차단되어 교착이 발생했다.
+                        // int result = await ExecuteWithOutputPickerAvoidGateAsync("OutputFeederResumeLoad.StagePrepareLoad", ct,
+                        //     () => ExecuteStagePrepareLoadAsync(ct, side, bFine, moveTimeoutMs, startMode)).ConfigureAwait(false);
+                        // if (result != 0) return result;
+                        // 현재 기준: 순서 규칙(StagePrepareLoad -> 피더 카세트 픽)에 따라 픽이 끝난 재개 시점에는
+                        //           스테이지가 이미 Load 위치여야 한다. 클램프 상태에서는 스테이지를 이동하지 않고 검증만 한다.
+                        // To do: 오토 재개 교착 해소 - 스테이지 미준비 시 이동 대신 알람으로 복구 유도.
+                        OutputStageUnit resumeStage = Context != null && Context.Machine != null ? Context.Machine.OutputStageUnit : null;
+                        if (resumeStage == null)
+                            return Fail("OUT-STAGE-MISSING", "OutputSequence", "Output stage unit is not available for feeder resume load.");
 
-                        result = await ExecuteWithOutputPickerAvoidGateAsync("OutputFeederResumeLoad.FeederLoadToStage", ct,
+                        if (!resumeStage.IsStageInLoadPosition(side))
+                            return Fail("OUT-STAGE-LOAD-POS", resumeStage.Name,
+                                "재개 시 OutputStage가 Load 위치에 준비되지 않았습니다. 피더가 bin을 클램프한 상태에서는 스테이지를 이동할 수 없으니 복구(빈 반환/언클램프) 후 다시 시작하세요. side=" + side +
+                                ", " + resumeStage.DescribeStageLoadMoveState(side));
+
+                        int result = await ExecuteWithOutputPickerAvoidGateAsync("OutputFeederResumeLoad.FeederLoadToStage", ct,
                             () => ExecuteFeederLoadToStageAsync(ct, side, bFine, moveTimeoutMs, startMode)).ConfigureAwait(false);
                         if (result != 0) return result;
 

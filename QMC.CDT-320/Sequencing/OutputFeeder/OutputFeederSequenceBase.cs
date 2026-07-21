@@ -868,5 +868,95 @@ namespace QMC.CDT320.Sequencing
             // 시퀀스 로그를 이력(EventLogger)에도 분류 기록(스코프 Kind 또는 메시지 접두어 라우팅).
             SequenceLog.EmitTrace(QMC.Common.Logging.EventKind.OutputSeq, source, message);
         }
+
+
+        protected async Task<int> MoveOutputCassetteAvoidPositionAsync(CancellationToken ct)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+
+                OutputCassetteUnit cassette = Cassette;
+                if (cassette == null ||
+                    cassette.OutputLifterZ == null ||
+                    cassette.Recipe == null)
+                {
+                    return Fail(
+                        "OUT-FEEDER-CST-MISSING",
+                        "OutputCassette",
+                        "Output cassette unit, axis, or recipe is not available.");
+                }
+
+                // 기구 간섭 방지:
+                // OutputCassette 이동 전 OutputFeeder가 정지된 실제 AVOID 위치여야 한다.
+                if (Feeder == null ||
+                    Feeder.FeederY == null ||
+                    Feeder.FeederY.IsMoving ||
+                    !Feeder.IsBinFeederAvoidPositionCheck())
+                {
+                    return Fail(
+                        "OUT-FEEDER-CST-AVOID-INTERLOCK",
+                        cassette.Name,
+                        "OutputCassette AVOID 이동 불가: " +
+                        "OutputFeeder가 정지된 AVOID 위치가 아닙니다. " +
+                        (Feeder != null
+                            ? Feeder.DescribeFeederCylinderState()
+                            : "OutputFeeder=null"));
+                }
+
+                double target = cassette.Recipe.AvoidPosition;
+
+                int result = await AwaitStepWithCancellationAsync(
+                    cassette.MoveBinLifterZ(
+                        target,
+                        Options != null && Options.FineMove,
+                        ct),
+                    ct).ConfigureAwait(false);
+
+                if (result != 0)
+                {
+                    return Fail(
+                        "OUT-FEEDER-CST-AVOID-MOVE",
+                        cassette.Name,
+                        "OutputCassette AVOID 이동 실패. result=" + result +
+                        ", target=" + target +
+                        ", actual=" + cassette.OutputLifterZ.ActualPosition +
+                        ", detail=" + cassette.LastBinLifterMoveFailureMessage);
+                }
+
+                if (cassette.OutputLifterZ.IsMoving ||
+                    cassette.OutputLifterZ.IsAlarm ||
+                    !cassette.IsBinLifterZInAvoidPosition())
+                {
+                    return Fail(
+                        "OUT-FEEDER-CST-AVOID-CHECK",
+                        cassette.Name,
+                        "OutputCassette AVOID 도착 확인 실패. " +
+                        "moving=" + cassette.OutputLifterZ.IsMoving +
+                        ", alarm=" + cassette.OutputLifterZ.IsAlarm +
+                        ", actual=" + cassette.OutputLifterZ.ActualPosition +
+                        ", target=" + target);
+                }
+
+                CurrentStep = CompleteStep;
+                return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail(
+                    "OUT-FEEDER-CST-AVOID-EX",
+                    Name,
+                    "OutputCassette 최종 AVOID 이동 중 예외 발생. error=" +
+                    ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
     }
 }

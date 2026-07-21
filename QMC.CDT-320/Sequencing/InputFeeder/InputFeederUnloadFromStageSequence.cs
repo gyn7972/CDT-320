@@ -33,6 +33,8 @@ namespace QMC.CDT320.Sequencing
         Error
     }
 
+
+
     internal sealed class InputFeederUnloadFromStageSequence : InputFeederSequenceBase<InputFeederUnloadFromStageStep>
     {
         public InputFeederUnloadFromStageSequence(MachineSequenceContext context)
@@ -106,6 +108,7 @@ namespace QMC.CDT320.Sequencing
                     // 이송 데이터 검증
                     case InputFeederUnloadFromStageStep.VerifyTransferData:
                         return Task.FromResult(VerifyTransferData());
+                    
                     default:
                         return Task.FromResult(FailUnsupportedStep());
                 }

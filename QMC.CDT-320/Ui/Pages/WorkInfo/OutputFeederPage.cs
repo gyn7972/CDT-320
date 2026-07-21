@@ -180,6 +180,13 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 return false;
             }
 
+            // 기존 조건: 스테이지 준비 없이 피더 LoadFromCassette 단독 실행 - 피더가 bin을 클램프한 뒤에는
+            //           인터락(OutputFeeder Unclamp)으로 스테이지 이동이 차단되어 순서가 꼬였다. (OUT-STAGE-MOVE result=-11)
+            // 현재 기준: 오토(OutputSupply)와 동일하게 StagePrepareLoad -> FeederLoadFromCassette 순서로 실행한다.
+            // To do: 수동 피더 카세트 픽 전 대상 스테이지 선준비(로드 위치 이동).
+            if (!await RunStagePrepareAsync(host, plan.Side, true))
+                return false;
+
             var options = BuildOptions(host, plan);
             return await CreateSequence(host).RunLoadFromCassetteAsync(host.Controller.ManualOperationToken, options) == 0;
         }
@@ -193,6 +200,13 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
         private async Task<bool> RunUnloadFromStageAsync(Form1 host)
         {
             BinSide side = ResolveStageUnloadSide();
+
+            // 기존 조건: 스테이지 준비 없이 피더 UnloadFromStage 단독 실행.
+            // 현재 기준: 오토(OutputStore)와 동일하게 StagePrepareUnload -> FeederUnloadFromStage 순서로 실행한다.
+            // To do: 수동 피더 스테이지 픽 전 대상 스테이지 선준비(언로드 위치 이동).
+            if (!await RunStagePrepareAsync(host, side, false))
+                return false;
+
             var options = BuildOptions(host, side, ResolveRoleForSide(side), 0);
             return await CreateSequence(host).RunUnloadFromStageAsync(host.Controller.ManualOperationToken, options) == 0;
         }
@@ -217,6 +231,33 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
         {
             var ctx = new MachineSequenceContext(host.Controller, new SequenceSignalBus());
             return new OutputFeederSequence(ctx);
+        }
+
+        // To do: 수동 피더 카세트 작업 전 스테이지 선준비 - 오토(OutputSupply/OutputStore)와 동일 순서 보장.
+        //        피더가 bin을 클램프하면 인터락(OutputFeeder Unclamp)으로 스테이지 이동이 차단되므로
+        //        Good은 Good 스테이지, NG는 NG 스테이지가 먼저 로드/언로드 위치에 준비된 뒤 피더가 동작해야 한다.
+        private async Task<bool> RunStagePrepareAsync(Form1 host, BinSide side, bool load)
+        {
+            var ctx = new MachineSequenceContext(host.Controller, new SequenceSignalBus());
+            var stageSequence = new OutputStageSequence(ctx);
+
+            var options = OutputStageSequenceOptions.Default();
+            options.RunMode = SequenceRunMode.Manual;
+            options.StartMode = _manualSequenceStartMode;
+            options.Side = side;
+            options.Grade = side == BinSide.Ng ? DieGrade.Ng : DieGrade.Good;
+            options.FineMove = false;
+            options.AllowOutputFeederActuation = false;
+
+            int result = load
+                ? await stageSequence.RunPrepareLoadAsync(host.Controller.ManualOperationToken, options)
+                : await stageSequence.RunPrepareUnloadAsync(host.Controller.ManualOperationToken, options);
+
+            if (result != 0)
+                EventLogger.Write(EventKind.Alarm, "QMC", "OUTPUT-FEEDER-STAGE-PREP",
+                    "피더 카세트 작업 전 스테이지 선준비 실패. side=" + side + ", mode=" + (load ? "PrepareLoad" : "PrepareUnload") + ", result=" + result);
+
+            return result == 0;
         }
 
         private OutputFeederSequenceOptions BuildOptions(Form1 host, OutputSlotPlan plan)

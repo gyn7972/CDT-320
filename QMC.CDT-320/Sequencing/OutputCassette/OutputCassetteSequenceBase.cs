@@ -372,6 +372,18 @@ namespace QMC.CDT320.Sequencing
                 if (cassette == null)
                     return Fail("OUT-CST-MISSING", "OutputCassette", "Output cassette unit is not available.");
 
+                // 기존 조건: 바이패스 여부와 무관하게 유닛 실스캔 호출 - 유닛 내부 바이패스 판정(Config.bDryRun/시뮬레이션)만으로는
+                //           GENERAL 드라이런(GlobalDryRun)/BypassHardware가 커버되지 않아 드라이런에서 맵핑 데이터가 생성되지 않았다.
+                // 현재 기준: Input(ScanSlots)과 동일하게 시퀀스 레벨 바이패스면 대상 존의 시뮬 빈 맵을 생성하고 실스캔을 건너뛴다.
+                // To do: 드라이런 테스트 지원 - 시퀀스 레벨 바이패스에서 시뮬 빈 맵 생성.
+                if (IsHardwareBypassed())
+                {
+                    cassette.BuildSimulatedBinMaps(IsNgMappingTarget());
+                    Context.LogPublic("[OUTPUT-CASSETTE] Hardware bypass: simulated bin map generated. target=" + (IsNgMappingTarget() ? "NG" : "GOOD"));
+                    CurrentStep = nextStep;
+                    return 0;
+                }
+
                 // 기존 동작: 전체(NG+Good1+Good2) 연속 스캔.
                 //bool ok = await AwaitStepWithCancellationAsync(cassette.ScanAllCassettesFromCurrentStartAsync(ct), ct).ConfigureAwait(false);
                 // 현재 기준: 버튼으로 선택된 대상 존만 스캔한다.
