@@ -64,6 +64,20 @@ namespace QMC.CDT320.Sequencing
                 SequenceTrace.RunStart(Name, Options.RunMode.ToString(), "kind=" + Kind, "side=" + Options.Side);
                 SequenceResumeStore.MarkRunning(SequenceStateName, CurrentStep.ToString());
 
+                // 재개(비-초기 스텝) 진입 시, Stage 모션을 실행하기 전에 OutputFeederY가 Avoid에서 정지 상태인지 재확인한다.
+                // 모든 Output Stage 서브시퀀스는 정상 흐름상 피더가 Avoid로 빠진 상태에서만 실행되므로,
+                // 정지 중 피더 상태가 바뀌었으면 저장 스텝을 그대로 재개하지 않고 fail-closed(알람)로 정지한다.
+                // (리프트 Up/Down·클램프는 kind별로 다르므로 Y 위치와 정지 여부만 확인한다.)
+                if (!IsStep(CurrentStep, InitialStep))
+                {
+                    int resumeSafety = VerifyResumeSafety();
+                    if (resumeSafety != 0)
+                    {
+                        SequenceTrace.RunEnd(Name, "Failed", resumeSafety, "kind=" + Kind, "side=" + Options.Side, "reason=ResumeSafetyBlocked", "step=" + CurrentStep);
+                        return resumeSafety;
+                    }
+                }
+
                 while (!IsStep(CurrentStep, CompleteStep) && !IsStep(CurrentStep, ErrorStep))
                 {
                     ct.ThrowIfCancellationRequested();
@@ -107,6 +121,24 @@ namespace QMC.CDT320.Sequencing
         }
 
         protected abstract Task<int> ExecuteCurrentStepAsync(CancellationToken ct);
+
+        // 재개 안전 재확인: 저장된 스텝(중간 모션 스텝)부터 재개할 때, Stage 축을 움직이기 전에
+        // OutputFeederY가 Avoid 위치에서 정지해 있는지 확인한다. 불만족이면 fail-closed로 차단한다.
+        private int VerifyResumeSafety()
+        {
+            OutputFeederUnit feeder = OutputFeeder;
+            if (feeder == null || feeder.FeederY == null)
+                return Fail("OUT-STAGE-RESUME-FEEDER-MISSING", Name,
+                    "재개 안전 확인 불가: OutputFeeder 유닛/축 정보를 확인할 수 없습니다. step=" + CurrentStep);
+
+            if (feeder.FeederY.IsMoving || !feeder.IsBinFeederAvoidPositionCheck())
+                return Fail("OUT-STAGE-RESUME-FEEDER-AVOID", Name,
+                    "재개 전 OutputFeederY가 Avoid 정지 상태가 아니어서 저장 스텝 재개를 차단합니다. " +
+                    "피더를 안전 위치로 복귀(Recover)한 뒤 다시 시작하세요. step=" + CurrentStep +
+                    ", " + feeder.DescribeBinFeederYMoveDoneState());
+
+            return 0;
+        }
 
         protected int CheckUnit(TStep nextStep)
         {
@@ -829,7 +861,8 @@ namespace QMC.CDT320.Sequencing
 
         private string SequenceStateName
         {
-            get { return SequenceNamePrefix + "." + Kind; }
+            // Good/NG가 동일 Kind를 공유하므로 Side를 키에 포함해야 재개 스텝이 반대 side로 섞이지 않는다.
+            get { return SequenceNamePrefix + "." + Kind + "." + (Options != null ? Options.Side.ToString() : "-"); }
         }
 
         protected static async Task<int> AwaitStepWithCancellationAsync(Task<int> stepTask, CancellationToken ct)

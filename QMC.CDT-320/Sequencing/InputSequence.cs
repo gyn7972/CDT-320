@@ -55,6 +55,9 @@ namespace QMC.CDT320.Sequencing
         private bool _restartAlignFromReview;
         // 리뷰에서 Mapping 재실행을 선택한 경우 저장 재개점이 아닌 최초 단계부터 실행하기 위한 1회성 플래그입니다.
         private bool _restartDieMappingFromReview;
+        // 재개 시 Feeder에 남은 "이미 스테이지를 거친(언로드 진행 중)" wafer를 Stage로 전진시키지 않고
+        // 원래 Cassette로 되돌리기 위한 1회성 플래그입니다. (언로드 중단 후 재시작의 역주행 방지)
+        private bool _resumeFeederUnloadToCassette;
 
         public InputSequence(MachineSequenceContext ctx)
             : base(ctx, SequenceUnitKind.InputLoader, "Input")
@@ -112,6 +115,27 @@ namespace QMC.CDT320.Sequencing
 
                 // 이전 실행 중 Stage/Feeder에 남은 wafer가 있으면 해당 위치부터 재개한다.
                 RestoreInputStepSessionFromRuntimeState();
+
+                // 언로드(Stage->Feeder->Cassette) 도중 중단 후 재개: Feeder에 남은 완료 wafer를 Stage로 전진시키지 않고
+                // 원래 Cassette로 되돌리는 언로드를 먼저 마친 뒤 다음 slot부터 정상 cycle을 재개한다.
+                if (_resumeFeederUnloadToCassette)
+                {
+                    _resumeFeederUnloadToCassette = false;
+                    using (AutoSequenceLoaderWorkLease resumeUnloadLease = await Context.AutoLoaderGate
+                        .BeginInputWorkAsync(
+                            "InputResumeFeederUnloadCycle",
+                            ct,
+                            EnsureInputPickersEmptyAvoidAndStoppedAsync,
+                            AreInputPickersEmptyAvoidAndStopped)
+                        .ConfigureAwait(false))
+                    {
+                        await ExecuteResumeFeederUnloadToCassetteAsync(ct).ConfigureAwait(false);
+                    }
+
+                    ResetInputAutoCycle();
+                    Context.StopIfCycleStopRequested("InputSequence.AfterResumeFeederUnload");
+                    return;
+                }
 
                 bool readySignalPublishedFromRestore = TryPublishRestoredInputStageReadySignals();
 
@@ -532,6 +556,138 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
+        // 재개 방향 판별: Feeder에 있는 wafer가 이미 InputStage Align을 마친(=스테이지를 거친) wafer이면
+        // Cassette->Feeder 로딩 중이 아니라 Stage->Feeder->Cassette 언로딩 진행 중으로 판단한다.
+        // 새 wafer 로딩 경로는 ResetInputStageWaferProcessingState로 Align 결과가 초기화되므로, 로드 방향 Feeder wafer는 Align 결과가 없다.
+        private static bool IsFeederWaferMidUnload(WaferMaterial feederWafer)
+        {
+            return feederWafer != null && feederWafer.HasInputStageAlignResult;
+        }
+
+        // Stage 모션(Align/DieMapping 등) 전에 InputFeeder가 안전하게 후퇴(Avoid)되어 정지해 있는지 확인한다.
+        // 실장비는 X090 Dog(Picker/Stage 간섭 안전), 순수 시뮬은 엔코더 위치로 판정한다.
+        // 확인할 수 없으면(피더 참조/축 없음, 이동 중) 안전측으로 '후퇴 안 됨'(false)으로 본다.
+        private bool IsInputFeederRetractedForStageMotion()
+        {
+            try
+            {
+                var feeder = Context != null && Context.Machine != null ? Context.Machine.InputFeederUnit : null;
+                if (feeder == null || feeder.FeederY == null)
+                    return false;
+                if (feeder.FeederY.IsMoving)
+                    return false;
+                return feeder.IsWaferFeederAvoidPositionCheck();
+            }
+            catch (Exception ex)
+            {
+                WriteLog("IsInputFeederRetractedForStageMotion",
+                    "InputFeeder 후퇴 상태 확인 실패. 안전측으로 미후퇴 처리합니다. error=" + ex.Message + " - Failed");
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
+        // 언로드(Stage->Feeder->Cassette) 도중 중단되어 Feeder에 남은 완료 wafer를,
+        // Stage로 전진시키지 않고 원래 Cassette로 되돌리는 언로드 잔여 구간(Feeder->Cassette, Stage Avoid 복귀)을 이어서 수행한다.
+        // 정상 언로드 경로(ExecuteWaferUnloadingAsync)와 동일한 Picker Avoid 게이트/InputStageArea 락을 사용한다.
+        private async Task ExecuteResumeFeederUnloadToCassetteAsync(CancellationToken ct)
+        {
+            bool loaderActive = true;
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+
+                // 이송 중에는 Picker가 Stage에 접근하지 못하도록 ready 신호를 먼저 내린다.
+                ResetInputStageReadySignals();
+
+                WaferMaterial feederWafer = ResolveFeederWaferFromRuntimeState();
+                if (feederWafer == null)
+                {
+                    // 재개 판정 이후 Feeder가 비었으면(이미 처리됨) 추가 동작 없이 종료한다.
+                    WriteLog("ExecuteResumeFeederUnloadToCassette",
+                        "Feeder에 남은 언로드 대상 wafer가 없어 재개 언로드를 건너뜁니다. - Ok");
+                    return;
+                }
+
+                int slotIndex = ResolveSlotIndexFromWafer(feederWafer);
+                if (slotIndex < 0)
+                    throw new InvalidOperationException(
+                        "Feeder 잔류 언로드 재개 대상 슬롯을 확인할 수 없습니다. wafer=" + (feederWafer.WaferId ?? ""));
+
+                LogPublic("[UNIT-INPUT] Resume feeder unloading to cassette. slot=" + slotIndex);
+                WriteLog("ExecuteResumeFeederUnloadToCassette",
+                    "Feeder 잔류 완료 wafer의 Cassette 복귀 재개 시작. slot=" + slotIndex +
+                    ", wafer=" + (feederWafer.WaferId ?? "") + " - Start");
+                SetInputLoaderActive(loaderActive, "ResumeFeederUnloadToCassette");
+
+                var feederSequence = new InputFeederSequence(Context);
+                InputFeederSequenceOptions feederOptions =
+                    BuildFeederSequenceOptions(slotIndex, slotIndex, false, 0, SequenceStartMode.Resume);
+
+                // Feeder -> Cassette 복귀 구간.
+                int result = await ExecuteWithInputPickerAvoidGateAsync("InputResumeUnloadToCassette", ct, () =>
+                    SequenceTrace.ChildAsync("InputFeederSequence", "UnloadToCassette",
+                        () => feederSequence.RunUnloadToCassetteAsync(ct, feederOptions),
+                        "slot=" + slotIndex)).ConfigureAwait(false);
+                if (result != 0)
+                    throw new InvalidOperationException(
+                        "Feeder 잔류 wafer의 카세트 복귀 재개 실패. slot=" + slotIndex + ", result=" + result);
+
+                // 빈 InputStage를 Avoid로 복귀시킨다.
+                result = await ExecuteWithInputPickerAvoidGateAsync("InputResumeStageMoveAvoid", ct, async () =>
+                {
+                    using (SequenceResourceLease lease = await AcquireInputStageAreaAsync("InputResumeStageMoveAvoid", ct).ConfigureAwait(false))
+                    {
+                        if (lease == null)
+                            return Fail("SEQ-IN-RESOURCE-STAGE", "InputSequence",
+                                "Feeder 잔류 언로드 재개 후 InputStage Avoid 복귀 중 InputStageArea 리소스 점유에 실패했습니다.");
+
+                        var stageSequence = new InputStageSequence(Context);
+                        int stageResult = await SequenceTrace.ChildAsync("InputStageSequence", "MoveAvoidAfterUnload",
+                            () => stageSequence.RunMoveAvoidAsync(ct, BuildStageSequenceOptions(false, SequenceStartMode.Resume, false, ResolveInputWaferId(slotIndex), false)),
+                            "slot=" + slotIndex).ConfigureAwait(false);
+                        if (stageResult != 0)
+                            return Fail("SEQ-IN-STAGE-AVOID", "InputStage",
+                                "Feeder 잔류 언로드 재개 후 InputStage Avoid 복귀 실패. result=" + stageResult);
+                    }
+
+                    return 0;
+                }).ConfigureAwait(false);
+                if (result != 0)
+                    throw new InvalidOperationException(
+                        "Feeder 잔류 언로드 재개 후 InputStage Avoid 복귀 실패. slot=" + slotIndex + ", result=" + result);
+
+                // slot을 Done으로 표시하고 Stage runtime을 비워 다음 cycle과 섞이지 않게 한다.
+                UpdateInputSlotState(slotIndex, SlotPresence.Exist, ProcessState.Done);
+                ClearInputStageRuntime();
+                Context.Bus.Set("InputWaferUnloaded");
+                LogPublic("[UNIT-INPUT] Resume feeder unloading complete. slot=" + slotIndex);
+                WriteLog("ExecuteResumeFeederUnloadToCassette",
+                    "Feeder 잔류 완료 wafer를 원래 Cassette로 안전 복귀했습니다(재개). slot=" + slotIndex +
+                    ", wafer=" + (feederWafer.WaferId ?? "") + " - Ok");
+            }
+            catch (OperationCanceledException)
+            {
+                WriteLog("ExecuteResumeFeederUnloadToCassette", "Feeder 잔류 언로드 재개가 취소되었습니다. - Failed");
+                throw;
+            }
+            catch (SequenceStopException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                Fail("SEQ-IN-RESUME-UNLOAD-EX", "InputSequence", "Feeder 잔류 언로드 재개 실패: " + ex.Message);
+                throw;
+            }
+            finally
+            {
+                ResetInputLoaderActive(loaderActive, "ResumeFeederUnloadToCassette");
+            }
+        }
+
         private void ResetInputAutoCycle()
         {
             // 한 wafer cycle 완료 후 Picker/Stage 완료 신호와 slot 세션 정보를 초기화한다.
@@ -540,6 +696,7 @@ namespace QMC.CDT320.Sequencing
             _autoWaferId = "";
             _restartAlignFromReview = false;
             _restartDieMappingFromReview = false;
+            _resumeFeederUnloadToCassette = false;
             _autoStep = InputSequenceAutoStep.ResolveSlot;
         }
 
@@ -766,6 +923,24 @@ namespace QMC.CDT320.Sequencing
                     _autoSlotIndex = ResolveSlotIndexFromWafer(stageWafer);
                     _autoWaferId = stageWafer.WaferId ?? "";
                     _autoStep = ResolveStageWaferResumeStep(stageWafer);
+
+                    // 재개 안전(Align-into-Feeder 충돌 방지):
+                    // LoadFeederToStage는 자재를 스테이지로 옮긴 뒤(MoveMaterialDataToStage) 피더를 Avoid로 후퇴시킨다.
+                    // 후퇴 꼬리(LiftUp/Avoid) 도중 정지하면 자재는 스테이지에 있으나 피더가 아직 전진 상태로 남는다.
+                    // 이 상태에서 AlignStage로 바로 진입하면 Stage Y/T/Camera 이동이 후퇴하지 않은 피더와 충돌하므로,
+                    // 피더가 Avoid 안전 위치가 아니면 RecoverFeeder(피더 안전 후퇴)부터 재개하도록 보정한다.
+                    if (_autoStep == InputSequenceAutoStep.AlignStage &&
+                        !IsInputFeederRetractedForStageMotion())
+                    {
+                        _autoStep = InputSequenceAutoStep.RecoverFeeder;
+                        WriteLog("RestoreInputStepSession",
+                            "InputStage wafer 재개 시 InputFeeder가 Avoid 후퇴 상태가 아니어서 RecoverFeeder부터 재개합니다. " +
+                            "(Align 전 피더 안전 후퇴, Align-into-Feeder 충돌 방지) wafer=" + _autoWaferId +
+                            ", slot=" + _autoSlotIndex +
+                            ", positions=" + BuildAutoResumePositionSummary() +
+                            " - Check");
+                    }
+
                     WriteLog("RestoreInputStepSession",
                         "Input sequence restored from InputStage wafer. wafer=" + _autoWaferId +
                         ", slot=" + _autoSlotIndex +
@@ -775,15 +950,33 @@ namespace QMC.CDT320.Sequencing
                     return;
                 }
 
-                // 2순위: Feeder에 wafer가 있으면 Stage로 넘기는 step부터 재개한다.
+                // 2순위: Feeder에 wafer가 있으면 이송 방향을 판별해 재개한다.
+                //  - 로드(Cassette->Feeder->Stage) 진행 중: 아직 스테이지를 거치지 않아 Align 결과가 없다 -> Stage로 전진.
+                //  - 언로드(Stage->Feeder->Cassette) 진행 중: 이미 스테이지에서 처리(Align 완료)된 wafer가 되돌아오는 중이다
+                //    -> Stage로 전진시키면 완료 wafer를 재처리/역주행하므로, 원래 Cassette로 되돌리는 언로드를 이어서 수행한다.
                 WaferMaterial feederWafer = ResolveFeederWaferFromRuntimeState();
                 if (feederWafer != null)
                 {
                     _autoSlotIndex = ResolveSlotIndexFromWafer(feederWafer);
                     _autoWaferId = feederWafer.WaferId ?? "";
+
+                    if (IsFeederWaferMidUnload(feederWafer))
+                    {
+                        _resumeFeederUnloadToCassette = true;
+                        // 로드 상태머신이 실행되지 않도록 안전한 값으로 둔다(실제 처리는 cycle 초입의 언로드 재개 분기에서 수행).
+                        _autoStep = InputSequenceAutoStep.ResolveSlot;
+                        WriteLog("RestoreInputStepSession",
+                            "Input sequence restored from InputFeeder wafer (UNLOAD 진행 중으로 판단). Cassette 복귀를 이어서 수행합니다. wafer=" + _autoWaferId +
+                            ", slot=" + _autoSlotIndex +
+                            ", alignResult=" + feederWafer.HasInputStageAlignResult +
+                            ", positions=" + BuildAutoResumePositionSummary() +
+                            " - Ok");
+                        return;
+                    }
+
                     _autoStep = InputSequenceAutoStep.LoadFeederToStage;
                     WriteLog("RestoreInputStepSession",
-                        "Input sequence restored from InputFeeder wafer. wafer=" + _autoWaferId +
+                        "Input sequence restored from InputFeeder wafer (LOAD 진행 중으로 판단). wafer=" + _autoWaferId +
                         ", slot=" + _autoSlotIndex +
                         ", step=" + _autoStep +
                         ", positions=" + BuildAutoResumePositionSummary() +

@@ -2014,11 +2014,28 @@ namespace QMC.CDT320.Sequencing
                 loaderActive = true;
                 SetOutputLoaderActive(loaderActive, "OutputFeederStoreToCassette");
 
-                int result = await ExecuteWithOutputPickerAvoidGateAsync("OutputFeederStore.FeederUnloadToCassette", ct,
-                    () => ExecuteFeederUnloadToCassetteAsync(ct, feederWafer.SourceSlotNumber, role, bFine, moveTimeoutMs, startMode)).ConfigureAwait(false);
-                if (result != 0) return result;
+                // 정상 Store 경로(ExecuteStoreStageToCassetteAsync)와 동일하게 OutputPlaceArea + 측 OutputStageArea 락을
+                // Feeder -> Cassette 이송 전 구간 동안 보유한다. 이 락이 없으면 카세트 리프터/피더Y/언클램프가 수초간 움직이는
+                // 사이 OutputPostPlaceInspectionQueue나 PickerPlace가 비어 있는 Place/StageArea를 점유해 OutputVisionX/Picker를
+                // Output 존으로 진입시킬 수 있다. (H-01: 피더 잔류 완료품 재개 저장 경로 보호 누락)
+                using (SequenceResourceLease placeLease = await AcquireOutputPlaceAreaAsync("OutputFeederStoreToCassette", ct).ConfigureAwait(false))
+                {
+                    if (placeLease == null)
+                        return Fail("OUT-RESOURCE-PLACE", "OutputSequence", "Output Place 영역 리소스 점유에 실패했습니다. side=" + side);
 
-                Context.Bus.Reset(side == BinSide.Ng ? "OutputNgStageReceiveComplete" : "OutputGoodStageReceiveComplete");
+                    using (SequenceResourceLease lease = await AcquireOutputStageAreaAsync(side, "OutputFeederStoreToCassette", ct).ConfigureAwait(false))
+                    {
+                        if (lease == null)
+                            return Fail("OUT-RESOURCE-STAGE", "OutputSequence", "OutputStage 영역 리소스 점유에 실패했습니다. side=" + side);
+
+                        int result = await ExecuteWithOutputPickerAvoidGateAsync("OutputFeederStore.FeederUnloadToCassette", ct,
+                            () => ExecuteFeederUnloadToCassetteAsync(ct, feederWafer.SourceSlotNumber, role, bFine, moveTimeoutMs, startMode)).ConfigureAwait(false);
+                        if (result != 0) return result;
+
+                        Context.Bus.Reset(side == BinSide.Ng ? "OutputNgStageReceiveComplete" : "OutputGoodStageReceiveComplete");
+                    }
+                }
+
                 return 0;
             }
             catch (OperationCanceledException)

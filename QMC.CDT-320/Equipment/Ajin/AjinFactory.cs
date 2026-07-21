@@ -627,6 +627,8 @@ namespace QMC.CDT320.Ajin
             ApplyOutputSimulation(cylinder.OutBwd, sim);
             ApplyInputSimulation(cylinder.InFwd, sim);
             ApplyInputSimulation(cylinder.InBwd, sim);
+
+            ApplyFaultySensorMaskOverride(cylinder);
         }
 
         public static void ApplyCylinderDryRun(BaseCylinder cylinder, bool dryRun)
@@ -650,6 +652,48 @@ namespace QMC.CDT320.Ajin
             ApplyOutputSimulation(cylinder.OutBwd, false);
             ApplyInputDryRun(cylinder.InFwd, dryRun);
             ApplyInputDryRun(cylinder.InBwd, dryRun);
+
+            ApplyFaultySensorMaskOverride(cylinder);
+        }
+
+        // 임시 하드코드(테스트용) 고장 센서 마스킹.
+        // 대상: NGBinGuideClamp — 클램프 확인 센서(X071 NgBinClamp) 이상.
+        // 기계적 전제: 클램프 실린더는 밸브 명령대로 정상 동작한다고 가정한다.
+        // 동작: 밸브(DO)는 실제 제어를 유지하고, 완료 센서(DI) 대기와 상태 판정은
+        //       명령 기반 소프트 상태(IgnoreInputWaits + DI 시뮬 전환)로 대체한다.
+        //       DI를 시뮬로 전환해야 IO 스캔이 강제 주입 상태를 실센서 값으로 덮어쓰지 않아
+        //       오토 시퀀스의 IsBinGuideClamped/Unclamped 확인이 명령 상태로 일관되게 통과한다.
+        // To do: NG BIN CLAMP 센서 수리 후 이 임시 마스킹을 반드시 제거할 것.
+        private static readonly string[] FaultySensorMaskCylinderNames =
+        {
+            "NGBinGuideClamp"
+        };
+
+        private static void ApplyFaultySensorMaskOverride(BaseCylinder cylinder)
+        {
+            if (cylinder == null || cylinder.Config == null)
+                return;
+
+            // 전체 시뮬레이션 실린더는 이미 소프트 상태로 동작하므로 추가 마스킹이 필요 없다.
+            if (cylinder.Config.IsSimulationMode)
+                return;
+
+            bool masked = false;
+            for (int i = 0; i < FaultySensorMaskCylinderNames.Length; i++)
+            {
+                if (string.Equals(cylinder.Name, FaultySensorMaskCylinderNames[i], StringComparison.OrdinalIgnoreCase))
+                {
+                    masked = true;
+                    break;
+                }
+            }
+
+            if (!masked)
+                return;
+
+            cylinder.Config.IgnoreInputWaits = true;
+            ApplyInputSimulation(cylinder.InFwd, true);
+            ApplyInputSimulation(cylinder.InBwd, true);
         }
 
         private static bool TryFindDio(string name, out DioMap m)

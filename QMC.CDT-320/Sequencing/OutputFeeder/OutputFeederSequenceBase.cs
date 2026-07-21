@@ -80,6 +80,18 @@ namespace QMC.CDT320.Sequencing
                 CurrentStep = ResolveStartStep(InitialStep);
                 SequenceResumeStore.MarkRunning(SequenceStateName, CurrentStep.ToString());
 
+                // 재개(비-초기 스텝) 진입 시, 저장된 스텝의 모션을 실행하기 전에 피더 이동 안전 상태를
+                // CheckUnit과 동일 기준으로 재확인한다. 정지 중 상태가 바뀌었으면 fail-closed(알람)로 정지한다.
+                if (!IsStep(CurrentStep, InitialStep))
+                {
+                    int resumeSafety = VerifyResumeSafety();
+                    if (resumeSafety != 0)
+                    {
+                        SequenceTrace.RunEnd(Name, "Failed", resumeSafety, "kind=" + Kind, "reason=ResumeSafetyBlocked", "step=" + CurrentStep);
+                        return resumeSafety;
+                    }
+                }
+
                 while (!IsStep(CurrentStep, CompleteStep) && !IsStep(CurrentStep, ErrorStep))
                 {
                     ct.ThrowIfCancellationRequested();
@@ -136,6 +148,21 @@ namespace QMC.CDT320.Sequencing
                 return Fail("OUT-FEEDER-MOVE-READY", Feeder.Name, "Output feeder is not ready. " + readyReason);
 
             CurrentStep = nextStep;
+            return 0;
+        }
+
+        // 재개 안전 재확인: 저장된 스텝(중간 모션 스텝)부터 재개할 때, 실행 전에 피더가 이동 안전 상태인지
+        // CheckUnit과 동일 기준(CheckBinFeederYMoveReady)으로 다시 확인한다. 불만족이면 fail-closed로 차단한다.
+        private int VerifyResumeSafety()
+        {
+            if (Feeder == null)
+                return Fail("OUT-FEEDER-MISSING", "OutputFeeder", "재개 안전 확인 불가: Output feeder unit is not available.");
+
+            string readyReason;
+            if (!Feeder.CheckBinFeederYMoveReady(out readyReason))
+                return Fail("OUT-FEEDER-RESUME-UNSAFE", Feeder.Name,
+                    "재개 전 OutputFeeder 안전 상태 재확인 실패로 저장 스텝 재개를 차단합니다. step=" + CurrentStep + ". " + readyReason);
+
             return 0;
         }
 
@@ -783,7 +810,8 @@ namespace QMC.CDT320.Sequencing
 
         private string SequenceStateName
         {
-            get { return SequenceNamePrefix + "." + Kind; }
+            // Good/NG가 동일 피더/Kind를 공유하므로 Side를 키에 포함해야 재개 스텝이 반대 side로 섞이지 않는다.
+            get { return SequenceNamePrefix + "." + Kind + "." + (Options != null ? Options.Side.ToString() : "-"); }
         }
 
         protected static async Task<int> AwaitStepWithCancellationAsync(Task<int> stepTask, CancellationToken ct)
