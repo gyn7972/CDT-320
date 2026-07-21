@@ -22,6 +22,7 @@ namespace QMC.CDT320.Sequencing
         VerifyBinReleasedToCassette,
         MoveMaterialDataToCassette,
         UpdateCassetteData,
+        MoveOutputCassetteAvoidPosition,
         Complete,
         Error
     }
@@ -100,6 +101,10 @@ namespace QMC.CDT320.Sequencing
                     // 카세트 데이터 갱신
                     case OutputFeederUnloadToCassetteStep.UpdateCassetteData:
                         return Task.FromResult(UpdateCassetteData());
+
+                    // 아웃풋 카세트 AVOID 이동
+                    case OutputFeederUnloadToCassetteStep.MoveOutputCassetteAvoidPosition:
+                        return MoveOutputCassetteAvoidPositionAsync(ct);
 
                     default:
                         return Task.FromResult(FailUnsupportedStep());
@@ -334,7 +339,7 @@ namespace QMC.CDT320.Sequencing
             Context.Bus.Set("OutputFeederEmpty");
             Context.Bus.Set("OutputCassetteSlotUpdated");
             NotifyOutputCassetteReplacementIfComplete();
-            CurrentStep = OutputFeederUnloadToCassetteStep.Complete;
+            CurrentStep = OutputFeederUnloadToCassetteStep.MoveOutputCassetteAvoidPosition;
             return 0;
         }
 

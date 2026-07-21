@@ -36,6 +36,7 @@ namespace QMC.CDT320.Sequencing
         LowerOutputStageGuideBeforeProcess,
         MoveOutputStageProcessPosition,
         UpdateFeederData,
+        MoveOutputCassetteAvoidPosition,
         Complete,
         Error
     }
@@ -170,6 +171,10 @@ namespace QMC.CDT320.Sequencing
                     // 피더 데이터 갱신
                     case OutputFeederLoadToStageStep.UpdateFeederData:
                         return Task.FromResult(UpdateFeederData());
+
+                    // 아웃풋 카세트 어보이드 위치 이동
+                    case OutputFeederLoadToStageStep.MoveOutputCassetteAvoidPosition:
+                        return MoveOutputCassetteAvoidPositionAsync(ct);
 
                     default:
                         return Task.FromResult(FailUnsupportedStep());
@@ -658,7 +663,7 @@ namespace QMC.CDT320.Sequencing
 
             Context.Bus.Set("OutputFeederEmpty");
             Context.Bus.Set("OutputStageOccupied");
-            CurrentStep = OutputFeederLoadToStageStep.Complete;
+            CurrentStep = OutputFeederLoadToStageStep.MoveOutputCassetteAvoidPosition;
             return 0;
         }
     }
