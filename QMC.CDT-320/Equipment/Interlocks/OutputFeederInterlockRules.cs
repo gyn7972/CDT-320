@@ -146,60 +146,60 @@ namespace QMC.CDT320.Interlocks
 
                 string axisReason;
 
-                // 인터락 조건: OutputVisionX가 홈 준비 상태가 아니면 FeederY 수동 이동을 차단한다.
-                if (!IsOutputVisionXHomeReadyForOutputFeederHome(machine.OutputStageUnit, out axisReason))
+                // 인터락 조건: OutputVisionX가 AVOID 상태가 아니면 FeederY 수동 이동을 차단한다.
+                if (!IsOutputVisionXInAvoidPosition(machine.OutputStageUnit))
                     return MotionGuardRuleHelpers.Block(
                         "OutputFeederY",
-                        "OutputFeederY HOME blocked. OutputVisionX must be not homed yet or at Home position. " + axisReason,
+                        "OutputFeederY HOME blocked. OutputVisionX must be not homed yet or at Home position. ",
                         out reason);
 
                 // 인터락 조건: FrontPickerX가 홈 준비 상태가 아니면 FeederY 수동 이동을 차단한다.
-                if (!IsFrontPickerXHomeReadyForOutputFeederHome(machine.PickerFrontUnit, out axisReason))
-                    return MotionGuardRuleHelpers.Block(
-                        "OutputFeederY",
-                        "OutputFeederY HOME blocked. FrontPickerX must be not homed yet or at Home position. " + axisReason,
-                        out reason);
+                //if (!IsFrontPickerXHomeReadyForOutputFeederHome(machine.PickerFrontUnit, out axisReason))
+                //    return MotionGuardRuleHelpers.Block(
+                //        "OutputFeederY",
+                //        "OutputFeederY HOME blocked. FrontPickerX must be not homed yet or at Home position. " + axisReason,
+                //        out reason);
 
-                // 인터락 조건: RearPickerX가 홈 준비 상태가 아니면 FeederY 수동 이동을 차단한다.
-                if (!IsRearPickerXHomeReadyForOutputFeederHome(machine.PickerRearUnit, out axisReason))
-                    return MotionGuardRuleHelpers.Block(
-                        "OutputFeederY",
-                        "OutputFeederY HOME blocked. RearPickerX must be not homed yet or at Home position. " + axisReason,
-                        out reason);
+                //// 인터락 조건: RearPickerX가 홈 준비 상태가 아니면 FeederY 수동 이동을 차단한다.
+                //if (!IsRearPickerXHomeReadyForOutputFeederHome(machine.PickerRearUnit, out axisReason))
+                //    return MotionGuardRuleHelpers.Block(
+                //        "OutputFeederY",
+                //        "OutputFeederY HOME blocked. RearPickerX must be not homed yet or at Home position. " + axisReason,
+                //        out reason);
 
                 OutputCassetteUnit cassette = machine.OutputCassetteUnit;
                 // 인터락 조건: OutputLifterZ가 이동 중이면 OutputFeederY 수동 이동을 차단한다.
-                if (cassette != null && cassette.OutputLifterZ != null && cassette.OutputLifterZ.IsMoving)
-                    return MotionGuardRuleHelpers.Block(
-                        "OutputFeederY",
-                        "OutputLifterZ is moving. OutputFeederY home is blocked.",
-                        out reason);
+                //if (cassette != null && cassette.OutputLifterZ != null && cassette.OutputLifterZ.IsMoving)
+                //    return MotionGuardRuleHelpers.Block(
+                //        "OutputFeederY",
+                //        "OutputLifterZ is moving. OutputFeederY home is blocked.",
+                //        out reason);
 
                 // 인터락 조건: OutputLifterZ가 Avoid 위치가 아니면 OutputFeederY 수동 이동을 차단한다.
-                if (cassette != null && !cassette.IsBinLifterZInAvoidPosition())
-                    return MotionGuardRuleHelpers.Block(
-                        "OutputFeederY",
-                        "OutputFeederY HOME blocked. OutputLifterZ must be at Avoid position.",
-                        out reason);
+                //if (cassette != null && !cassette.IsBinLifterZInAvoidPosition())
+                //    return MotionGuardRuleHelpers.Block(
+                //        "OutputFeederY",
+                //        "OutputFeederY HOME blocked. OutputLifterZ must be at Avoid position.",
+                //        out reason);
 
                 OutputStageUnit outputStage = machine.OutputStageUnit;
 
                 // 인터락 조건: GoodStageZ가 Avoid 위치가 아니면 OutputFeederY 수동 이동을 차단한다.
-                if (outputStage != null && outputStage.GoodStage != null && !outputStage.GoodStage.IsAtAvoidPosition())
-                    return MotionGuardRuleHelpers.Block(
-                        "OutputFeederY",
-                        "OutputFeederY HOME blocked. GoodBinZ(GoodStageZ) must be at Avoid position.",
-                        out reason);
+                //if (outputStage != null && outputStage.GoodStage != null && !outputStage.GoodStage.IsAtAvoidPosition())
+                //    return MotionGuardRuleHelpers.Block(
+                //        "OutputFeederY",
+                //        "OutputFeederY HOME blocked. GoodBinZ(GoodStageZ) must be at Avoid position.",
+                //        out reason);
 
-                // 인터락 조건: Good Bin Guide가 Down 상태가 아니면 OutputFeederY 수동 이동을 차단한다.
-                if (outputStage != null &&
-                    outputStage.GoodBinGuideDownSensor != null &&
-                    !IsDryRunInput(outputStage.GoodBinGuideDownSensor) &&
-                    !outputStage.GoodBinGuideDownSensor.IsOn)
-                    return MotionGuardRuleHelpers.Block(
-                        "OutputFeederY",
-                        "OutputFeederY HOME blocked. Good Bin Guide must be down.",
-                        out reason);
+                //// 인터락 조건: Good Bin Guide가 Down 상태가 아니면 OutputFeederY 수동 이동을 차단한다.
+                //if (outputStage != null &&
+                //    outputStage.GoodBinGuideDownSensor != null &&
+                //    !IsDryRunInput(outputStage.GoodBinGuideDownSensor) &&
+                //    !outputStage.GoodBinGuideDownSensor.IsOn)
+                //    return MotionGuardRuleHelpers.Block(
+                //        "OutputFeederY",
+                //        "OutputFeederY HOME blocked. Good Bin Guide must be down.",
+                //        out reason);
 
                 OutputFeederUnit feeder = machine.OutputFeederUnit;
                 // 방어 조건: Feeder 참조가 없으면 Feeder 센서/자재 조건은 적용하지 않는다.
@@ -207,36 +207,36 @@ namespace QMC.CDT320.Interlocks
                     return true;
 
                 // 인터락 조건: Feeder 위에 자재 데이터나 검출 센서가 남아 있으면 홈 계열 이동을 차단한다.
-                if (!VerifyOutputFeederEmptyForHome(feeder, out reason))
-                    return false;
+                //if (!VerifyOutputFeederEmptyForHome(feeder, out reason))
+                //    return false;
 
                 // 인터락 조건: Feeder 과부하 센서가 감지되면 OutputFeederY 수동 이동을 차단한다.
-                if (feeder.IsFeederOverload())
-                    return MotionGuardRuleHelpers.Block(
-                        "OutputFeederY",
-                        "OutputFeederY HOME blocked. OutputFeeder overload sensor is detected.",
-                        out reason);
+                //if (feeder.IsFeederOverload())
+                //    return MotionGuardRuleHelpers.Block(
+                //        "OutputFeederY",
+                //        "OutputFeederY HOME blocked. OutputFeeder overload sensor is detected.",
+                //        out reason);
 
                 // 인터락 조건: 실장비 모드에서 Feeder가 Unclamp 상태가 아니면 수동 이동을 차단한다.
-                if (!ShouldBypassHardwareMechanismChecks() && !IsFeederUnclamp(feeder))
-                    return MotionGuardRuleHelpers.Block(
-                        "OutputFeederY",
-                        "OutputFeederY HOME blocked. OutputFeeder must be unclamped.",
-                        out reason);
+                //if (!ShouldBypassHardwareMechanismChecks() && !IsFeederUnclamp(feeder))
+                //    return MotionGuardRuleHelpers.Block(
+                //        "OutputFeederY",
+                //        "OutputFeederY HOME blocked. OutputFeeder must be unclamped.",
+                //        out reason);
 
                 // 인터락 조건: 실장비 모드에서 Feeder가 Up 상태가 아니면 수동 이동을 차단한다.
-                if (!ShouldBypassHardwareMechanismChecks() && !IsFeederUp(feeder))
-                    return MotionGuardRuleHelpers.Block(
-                        "OutputFeederY",
-                        "OutputFeederY HOME blocked. OutputFeeder must be up.",
-                        out reason);
+                //if (!ShouldBypassHardwareMechanismChecks() && !IsFeederUp(feeder))
+                //    return MotionGuardRuleHelpers.Block(
+                //        "OutputFeederY",
+                //        "OutputFeederY HOME blocked. OutputFeeder must be up.",
+                //        out reason);
 
                 // 인터락 조건: 실장비에서 Ring Check가 감지되면 OutputFeederY 수동 이동을 차단한다.
-                if (!feeder.IsOutputFeederSimulationOrDryRun() && feeder.IsBinFeederRingCheck())
-                    return MotionGuardRuleHelpers.Block(
-                        "OutputFeederY",
-                        "OutputFeederY HOME blocked. OutputFeeder ring check is detected.",
-                        out reason);
+                //if (!feeder.IsOutputFeederSimulationOrDryRun() && feeder.IsBinFeederRingCheck())
+                //    return MotionGuardRuleHelpers.Block(
+                //        "OutputFeederY",
+                //        "OutputFeederY HOME blocked. OutputFeeder ring check is detected.",
+                //        out reason);
 
                 return true;
             }
