@@ -191,7 +191,11 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
 
         private async Task<bool> RunUnloadFromStageAsync(Form1 host)
         {
-            return await CreateSequence(host).RunUnloadFromStageAsync(host.Controller.ManualOperationToken, BuildOptions(host)) == 0;
+            // 기존 조건: 보정 없는 BuildOptions 사용 - Stage에 웨이퍼가 있는 상태에서(STAGE->FEEDER)
+            //           FindNext가 "다음 Ready 슬롯"을 반환해 Stage 웨이퍼 원본 슬롯과 불일치(IN-FEEDER-MATERIAL-SOURCE) 알람이 났다.
+            // 현재 기준: Stage 웨이퍼의 원본 role/slot으로 옵션을 보정한다.
+            // 기존 조건: return await CreateSequence(host).RunUnloadFromStageAsync(host.Controller.ManualOperationToken, BuildOptions(host)) == 0;
+            return await CreateSequence(host).RunUnloadFromStageAsync(host.Controller.ManualOperationToken, BuildStageWaferAwareOptions(host)) == 0;
         }
 
         private async Task<bool> RunUnloadToCassetteAsync(Form1 host)
@@ -244,6 +248,34 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             }
 
             return options;
+        }
+
+        // To do: Stage에 웨이퍼가 있으면(STAGE->FEEDER 수동 구동) 옵션 role/slot을 그 웨이퍼의 원본(SourceCassetteRole/SourceSlotNumber)으로 보정한다.
+        //        시퀀스(MoveMaterialDataToFeeder)가 Stage 웨이퍼의 원본과 옵션을 비교하므로 FindNext 기반 기본 옵션은 불일치 알람을 유발한다.
+        private InputFeederSequenceOptions BuildStageWaferAwareOptions(Form1 host)
+        {
+            var options = BuildOptions(host);
+            WaferMaterial wafer = ResolveStageWaferMaterial(host);
+            if (wafer != null &&
+                wafer.SourceSlotNumber >= 0 &&
+                (wafer.SourceCassetteRole == CassetteMaterialRole.Input1 || wafer.SourceCassetteRole == CassetteMaterialRole.Input2))
+            {
+                options.CassetteRole = wafer.SourceCassetteRole;
+                options.SlotIndex = wafer.SourceSlotNumber;
+                options.NextSlotIndex = options.SlotIndex;
+            }
+
+            return options;
+        }
+
+        // 시퀀스(InputFeederUnloadFromStageSequence.ResolveStageWafer)와 동일 소스로 Stage 웨이퍼를 조회한다.
+        private WaferMaterial ResolveStageWaferMaterial(Form1 host)
+        {
+            var stage = host != null && host.Machine != null ? host.Machine.InputStageUnit : null;
+            if (stage != null && stage.CurrentWaferMaterial != null)
+                return stage.CurrentWaferMaterial;
+
+            return MaterialStateService.GetWaferAtLocation(MaterialLocationKind.InputStage);
         }
 
         private static int ResolveInputSlot(Form1 host)
