@@ -22,6 +22,8 @@ namespace QMC.CDT320.Sequencing
         VerifyBinReleasedToCassette,
         MoveMaterialDataToCassette,
         UpdateCassetteData,
+        // To do: [언로드 오프셋] 피더 이탈 후 리프터를 정확한 슬롯 위치로 복귀시켜 bin을 안착시킨다.
+        MoveCassetteToBinSlotFinalPosition,
         MoveOutputCassetteAvoidPosition,
         Complete,
         Error
@@ -101,6 +103,10 @@ namespace QMC.CDT320.Sequencing
                     // 카세트 데이터 갱신
                     case OutputFeederUnloadToCassetteStep.UpdateCassetteData:
                         return Task.FromResult(UpdateCassetteData());
+
+                    // 배출 후 카세트 슬롯 위치 복귀 (bin 안착)
+                    case OutputFeederUnloadToCassetteStep.MoveCassetteToBinSlotFinalPosition:
+                        return MoveCassetteToBinSlotFinalPositionAsync(ct);
 
                     // 아웃풋 카세트 AVOID 이동
                     case OutputFeederUnloadToCassetteStep.MoveOutputCassetteAvoidPosition:
@@ -205,7 +211,12 @@ namespace QMC.CDT320.Sequencing
                 return Fail("OUT-FEEDER-CST-MISSING", "OutputCassette", "Output cassette unit is not available.");
 
             TargetCassette targetCassette = ResolveOutputTargetCassette();
-            double targetPosition = Cassette.CalculateBinCassetteSlotTargetPosition(targetCassette, Options.SlotIndex);
+            // 기존 조건: 슬롯 위치로 바로 이동해 배출 준비를 했다 - 처진 bin이 셸프와 간섭해 제품을 받지 못했다.
+            // double targetPosition = Cassette.CalculateBinCassetteSlotTargetPosition(targetCassette, Options.SlotIndex);
+            // 현재 기준: Input UnloadToCassette와 동일하게 슬롯 위치 + UnloadingPositionOffset 로 이동해 진입 간섭을 피한다.
+            // To do: [언로드 오프셋] 배출 준비 위치 = 슬롯 위치 + Config.UnloadingPositionOffset.
+            double targetPosition = Cassette.CalculateBinCassetteSlotTargetPosition(targetCassette, Options.SlotIndex) +
+                                    Cassette.ResolveUnloadingPositionOffset();
 
             string readyReason;
             if (!Cassette.CheckBinLifterZMoveReady(out readyReason))
@@ -217,8 +228,13 @@ namespace QMC.CDT320.Sequencing
 
             try
             {
+                // 기존 조건: PrepareBinCassetteForFeederLoad(슬롯 위치 이동) 사용.
+                // int result = await AwaitStepWithCancellationAsync(
+                //     Cassette.PrepareBinCassetteForFeederLoad(targetCassette, Options.SlotIndex, ResolveTimeout(), Options.FineMove),
+                //     ct).ConfigureAwait(false);
+                // 현재 기준: 배출 전용 오프셋 이동 사용.
                 int result = await AwaitStepWithCancellationAsync(
-                    Cassette.PrepareBinCassetteForFeederLoad(targetCassette, Options.SlotIndex, ResolveTimeout(), Options.FineMove),
+                    Cassette.PrepareBinCassetteForFeederUnload(targetCassette, Options.SlotIndex, ResolveTimeout(), Options.FineMove),
                     ct).ConfigureAwait(false);
                 if (result != 0)
                     return Fail("OUT-FEEDER-CST-SLOT-MOVE", Cassette.Name,
@@ -350,6 +366,46 @@ namespace QMC.CDT320.Sequencing
             Context.Bus.Set("OutputFeederEmpty");
             Context.Bus.Set("OutputCassetteSlotUpdated");
             NotifyOutputCassetteReplacementIfComplete();
+            // 기존 조건: 데이터 갱신 후 바로 카세트 AVOID로 이동했다.
+            // CurrentStep = OutputFeederUnloadToCassetteStep.MoveOutputCassetteAvoidPosition;
+            // 현재 기준: 오프셋 위치에 있던 리프터를 정확한 슬롯 위치로 복귀시켜 bin을 안착시킨 뒤 AVOID로 이동한다.
+            CurrentStep = OutputFeederUnloadToCassetteStep.MoveCassetteToBinSlotFinalPosition;
+            return 0;
+        }
+
+        // To do: [언로드 오프셋] 피더 이탈 후 리프터를 정확한 슬롯 위치로 복귀시켜 bin을 안착시킨다.
+        //        (Input UnloadToCassette의 MoveCassetteToSlotPosition과 동일 개념)
+        private async Task<int> MoveCassetteToBinSlotFinalPositionAsync(CancellationToken ct)
+        {
+            ct.ThrowIfCancellationRequested();
+
+            if (Cassette == null)
+                return Fail("OUT-FEEDER-CST-MISSING", "OutputCassette", "Output cassette unit is not available.");
+
+            TargetCassette targetCassette = ResolveOutputTargetCassette();
+            double targetPosition = Cassette.CalculateBinCassetteSlotTargetPosition(targetCassette, Options.SlotIndex);
+
+            try
+            {
+                int result = await AwaitStepWithCancellationAsync(
+                    Cassette.PrepareBinCassetteForFeederLoad(targetCassette, Options.SlotIndex, ResolveTimeout(), Options.FineMove),
+                    ct).ConfigureAwait(false);
+                if (result != 0)
+                    return Fail("OUT-FEEDER-CST-FINAL-SLOT-MOVE", Cassette.Name,
+                        "Output cassette final slot move failed after feeder unload. role=" + ResolveOutputCassetteRole() +
+                        ", slot=" + Options.SlotIndex + ", target=" + targetCassette +
+                        ", targetPosition=" + targetPosition + ", result=" + result +
+                        ". " + Cassette.DescribeOutputLifterZState(targetPosition));
+            }
+            catch (Exception ex)
+            {
+                return Fail("OUT-FEEDER-CST-FINAL-SLOT-MOVE", Cassette.Name,
+                    "Output cassette final slot move exception after feeder unload. role=" + ResolveOutputCassetteRole() +
+                    ", slot=" + Options.SlotIndex + ", target=" + targetCassette +
+                    ", targetPosition=" + targetPosition +
+                    ", message=" + ex.Message + ". " + Cassette.DescribeOutputLifterZState(targetPosition));
+            }
+
             CurrentStep = OutputFeederUnloadToCassetteStep.MoveOutputCassetteAvoidPosition;
             return 0;
         }

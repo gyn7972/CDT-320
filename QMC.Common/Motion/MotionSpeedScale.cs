@@ -29,7 +29,7 @@ namespace QMC.Common.Motion
         /// 작업자가 수동으로 단계를 확인하며 구동하는 경로는 위험하므로 축 DefaultVelocity 의 30%로 제한합니다.
         /// 20~30% 범위에서 조정하려면 이 값만 변경합니다.
         /// </summary>
-        public const double ManualSequencePercent = 9.0;
+        public const double ManualSequencePercent = 19.0;
 
         /// <summary>
         /// 작업 화면 READY 시퀀스에서만 추가로 적용할 안전 속도 퍼센트입니다.
