@@ -315,20 +315,25 @@ namespace QMC.CDT320
                 : ResolveAxisVelocity(axis);
         }
 
+        // 기존 조건: 일반 이동 가감속을 여기서 미리 스케일해서 넘겼다.
+        //           SharedRailXMotionRuntime가 Config에 임시 대입한 뒤 MoveAbsoluteAsync가 다시 스케일해서
+        //           가감속이 스케일 제곱(S^2)으로 이중 적용됐다. (픽커와 동일 구조)
+        // 현재 기준: 원값을 넘기고 스케일은 축 레이어(MoveAbsoluteAsync)에서 1회만 적용한다.
+        // To do: 인풋 스테이지 축 이동 가감속 이중 스케일 제거.
         private static double ResolveAxisAcceleration(BaseAxis axis)
         {
-            return MotionSpeedScale.ApplyDefaultAccelerationScale(
-                axis != null && axis.Config != null && axis.Config.Acceleration > 0.0
-                    ? axis.Config.Acceleration
-                    : 100.0);
+            // 기존 조건: MotionSpeedScale.ApplyDefaultAccelerationScale(...) 로 감싸서 반환했다.
+            return axis != null && axis.Config != null && axis.Config.Acceleration > 0.0
+                ? axis.Config.Acceleration
+                : 100.0;
         }
 
         private static double ResolveAxisDeceleration(BaseAxis axis)
         {
-            return MotionSpeedScale.ApplyDefaultAccelerationScale(
-                axis != null && axis.Config != null && axis.Config.Deceleration > 0.0
-                    ? axis.Config.Deceleration
-                    : 100.0);
+            // 기존 조건: MotionSpeedScale.ApplyDefaultAccelerationScale(...) 로 감싸서 반환했다.
+            return axis != null && axis.Config != null && axis.Config.Deceleration > 0.0
+                ? axis.Config.Deceleration
+                : 100.0;
         }
 
         private static double ResolveAxisFineAcceleration(BaseAxis axis)
