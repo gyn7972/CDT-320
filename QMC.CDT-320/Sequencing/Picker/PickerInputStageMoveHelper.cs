@@ -14,7 +14,8 @@ namespace QMC.CDT320.Sequencing
             double targetStageY,
             bool fineMove,
             string owner,
-            double? workAreaNeedleX = null)
+            double? workAreaNeedleX = null,
+            bool forceMove = false)
         {
             try
             {
@@ -27,7 +28,8 @@ namespace QMC.CDT320.Sequencing
                     return await stage.MoveInputStageAxis(
                         WaferStageAxis.WaferY,
                         targetStageY,
-                        fineMove).ConfigureAwait(false);
+                        fineMove,
+                        forceMove).ConfigureAwait(false);
                 }
             }
             catch (Exception ex)
@@ -43,6 +45,30 @@ namespace QMC.CDT320.Sequencing
             finally
             {
             }
+        }
+
+        /// <summary>
+        /// InputCamera 선행검사에서만 사용하는 F3 이동 명령 생략 조건입니다.
+        /// Actual/Command/Target 모두 F3 값이 같고, 기존 장비 완료 조건까지 만족할 때만 생략합니다.
+        /// </summary>
+        public static bool CanSkipInputCameraPreInspectionMoveAtThreeDecimals(
+            BaseAxis axis,
+            double target,
+            double completionTolerance)
+        {
+            if (axis == null ||
+                !IsFinite(axis.ActualPosition) ||
+                !IsFinite(axis.CommandPosition) ||
+                !IsFinite(target))
+                return false;
+
+            double tolerance = IsFinite(completionTolerance) && completionTolerance > 0.0
+                ? completionTolerance
+                : 0.05;
+
+            return IsSameAtThreeDecimals(axis.ActualPosition, target) &&
+                   IsSameAtThreeDecimals(axis.CommandPosition, target) &&
+                   AxisMoveWaiter.IsMoveCompletedAtTarget(axis, target, tolerance);
         }
 
         public static async Task<int> MoveStageYForPickerWorkPointCommandAsync(
@@ -90,6 +116,17 @@ namespace QMC.CDT320.Sequencing
                 return string.Empty;
 
             return ", stageMoveFailure=" + stage.LastStageMoveFailureMessage;
+        }
+
+        private static bool IsSameAtThreeDecimals(double left, double right)
+        {
+            return Math.Round(left, 3, MidpointRounding.AwayFromZero) ==
+                   Math.Round(right, 3, MidpointRounding.AwayFromZero);
+        }
+
+        private static bool IsFinite(double value)
+        {
+            return !double.IsNaN(value) && !double.IsInfinity(value);
         }
 
         private static string BuildWorkPointTargetName(string owner, double workAreaVisionX, double? workAreaNeedleX)

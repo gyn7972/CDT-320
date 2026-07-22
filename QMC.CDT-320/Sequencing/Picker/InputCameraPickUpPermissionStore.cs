@@ -138,9 +138,21 @@ namespace QMC.CDT320.Sequencing
             if (items == null)
                 return;
 
+            List<QMC.CDT320.VisionComm.VisionRequestHandle> pendingHandles = null;
             foreach (InputDieVisionPreparedItem item in items)
             {
-                if (item == null || string.IsNullOrWhiteSpace(item.DieId))
+                if (item == null)
+                    continue;
+
+                // 조기 허가(EPD 시점 허가) 폐기: RESULT 미회수 핸들이 비전 측 orphan으로 남지 않게 드레인 예약.
+                if (item.VisionRequest != null)
+                {
+                    if (pendingHandles == null)
+                        pendingHandles = new List<QMC.CDT320.VisionComm.VisionRequestHandle>();
+                    pendingHandles.Add(item.VisionRequest);
+                }
+
+                if (string.IsNullOrWhiteSpace(item.DieId))
                     continue;
 
                 MaterialStateService.ReleaseInputStagePickReservation(
@@ -148,6 +160,31 @@ namespace QMC.CDT320.Sequencing
                     item.PickTarget != null ? item.PickTarget.PickerLocation : MaterialLocationKind.Unknown,
                     item.PickerNo);
             }
+
+            if (pendingHandles != null)
+                ScheduleHandleDrain(pendingHandles);
+        }
+
+        /// <summary>폐기된 허가의 RESULT 미회수 핸들을 백그라운드로 드레인한다 (lock 밖 비동기, 예외 무해화).</summary>
+        private static void ScheduleHandleDrain(List<QMC.CDT320.VisionComm.VisionRequestHandle> handles)
+        {
+            System.Threading.Tasks.Task.Run(async () =>
+            {
+                for (int i = 0; i < handles.Count; i++)
+                {
+                    try
+                    {
+                        await InputDieVisionPrepareSequence.DrainInputVisionRequestHandleAsync(
+                            handles[i],
+                            "InputCamera PickUp 허가 폐기 정리",
+                            "InputCameraPickUpPermissionStore",
+                            System.Threading.CancellationToken.None).ConfigureAwait(false);
+                    }
+                    catch
+                    {
+                    }
+                }
+            });
         }
 
         private static InputDieVisionPreparedItem CloneItem(InputDieVisionPreparedItem item)
@@ -165,6 +202,7 @@ namespace QMC.CDT320.Sequencing
                 VisionRequest = item.VisionRequest,
                 ExposureCompleted = item.ExposureCompleted,
                 VisionOffset = CloneVisionOffset(item.VisionOffset),
+                VisionOffsetApplied = item.VisionOffsetApplied,
                 DiePicked = item.DiePicked
             };
         }

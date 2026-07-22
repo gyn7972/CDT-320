@@ -29,6 +29,9 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
         private bool _suppressRunSelection;
         private bool _synchronizingSelection;
 
+        // 실시간 CycleTime 간트 (지연 생성 — CYCLE TIME 탭을 처음 열 때만 만든다).
+        private QMC.CDT320.Ui.Controls.CycleTimeGanttControl _cycleGantt;
+
         public LogicDetailPage()
         {
             InitializeComponent();
@@ -40,6 +43,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             }
 
             _timeChart.RecordSelected += timeChart_RecordSelected;
+            tabs.SelectedIndexChanged += tabs_SelectedIndexChangedForCycle;
 
             if (!IsDesignerMode())
             {
@@ -227,6 +231,26 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             finally
             {
                 _synchronizingSelection = false;
+            }
+        }
+
+        /// <summary>CYCLE TIME 탭 진입 시 간트 컨트롤을 지연 생성한다. 실패해도 다른 탭 동작에 영향 없음.</summary>
+        private void tabs_SelectedIndexChangedForCycle(object sender, EventArgs e)
+        {
+            try
+            {
+                if (tabs.SelectedTab != tabCycle)
+                    return;
+
+                if (_cycleGantt == null)
+                {
+                    _cycleGantt = new QMC.CDT320.Ui.Controls.CycleTimeGanttControl { Dock = DockStyle.Fill };
+                    tabCycle.Controls.Add(_cycleGantt);
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine("[LogicDetailPage] CycleTime 간트 생성 실패: " + ex.Message);
             }
         }
 

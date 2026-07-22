@@ -415,7 +415,7 @@ namespace QMC.CDT320.Sequencing
                     ", channel=" + channel +
                     ", valueBeforeClamp=" + F(value) +
                     ", limit=" + F(limit);
-                AlarmManager.Raise(AlarmSeverity.Warning, "PICK-RUNTIME-OFFSET-CLAMP", "PickRuntimeOffset", message);
+                //AlarmManager.Raise(AlarmSeverity.Warning, "PICK-RUNTIME-OFFSET-CLAMP", "PickRuntimeOffset", message);
                 EventLogger.Write(EventKind.Warning, "COORD", "PICK-RUNTIME-OFFSET-CLAMP", message);
             }
 

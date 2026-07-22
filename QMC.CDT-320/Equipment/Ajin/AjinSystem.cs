@@ -60,7 +60,11 @@ namespace QMC.CDT320.Ajin
                 int n = 0;
                 if (AXM.GetAxisCount(out n) == 0) 
                     AxisCount = n;
-
+                for(int iter = 0; iter <AxisCount; iter++)
+                {
+                   
+                    //AXM.SetInPositionEnable(iter, false);
+                }
                 n = 0;
                 if (AXD.GetModuleCount(out n) == 0) 
                     DioModuleCount = n;

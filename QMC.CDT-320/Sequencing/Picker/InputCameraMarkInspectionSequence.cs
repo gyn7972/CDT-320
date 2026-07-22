@@ -210,28 +210,28 @@ namespace QMC.CDT320.Sequencing
                     return 0;
                 }
 
-                int[] pipelineResults;
+                // 기존 조건: Task.WhenAll(CollectVisionResultsAsync, MoveInputVisionXToAvoidAsync)로
+                //           RESULT 4건을 전부 회수한 뒤에야 허가를 발행했다 — RESULT 처리 시간이 픽업 허가를 지연.
+                // 현재 기준: RESULT를 기다리지 않는다. 촬영(EPD)과 VisionX Avoid 완료만 확인하고 즉시 허가를
+                //           발행하며, RESULT는 픽업 시퀀스가 CalculatePickTargets에서 회수한다 (조기 허가).
+                int visionAvoidResult;
                 try
                 {
-                    Task<int> resultCollectionTask = prepareSequence.CollectVisionResultsAsync(ct);
-                    Task<int> visionAvoidTask = MoveInputVisionXToAvoidAsync(ct);
-                    pipelineResults = await Task.WhenAll(resultCollectionTask, visionAvoidTask).ConfigureAwait(false);
+                    visionAvoidResult = await MoveInputVisionXToAvoidAsync(ct).ConfigureAwait(false);
                 }
                 catch
                 {
+                    await prepareSequence.DrainPreparedResultsAfterFailureAsync(CancellationToken.None).ConfigureAwait(false);
                     prepareSequence.ReleasePreparedReservations();
                     throw;
                 }
 
-                if (pipelineResults[1] != 0)
+                if (visionAvoidResult != 0)
                 {
+                    // 허가 발행 전 실패: EPD 완료·RESULT 미회수 핸들을 드레인하고 예약을 해제한다.
+                    await prepareSequence.DrainPreparedResultsAfterFailureAsync(ct).ConfigureAwait(false);
                     prepareSequence.ReleasePreparedReservations();
-                    return pipelineResults[1];
-                }
-                if (pipelineResults[0] != 0)
-                {
-                    prepareSequence.ReleasePreparedReservations();
-                    return pipelineResults[0];
+                    return visionAvoidResult;
                 }
 
                 _inspectedItems.Clear();
@@ -240,8 +240,8 @@ namespace QMC.CDT320.Sequencing
                     _inspectedItems.Add(preparedItems[i]);
 
                 WriteLog("InputCameraMarkInspectionSequence",
-                    Name + " input camera mark inspection complete. inspectedCount=" +
-                    _inspectedItems.Count + ", side=" + Side + " - Ok");
+                    Name + " input camera mark inspection EPD 단계 완료 — RESULT는 PickUp CalculatePickTargets에서 회수합니다. " +
+                    "inspectedCount=" + _inspectedItems.Count + ", side=" + Side + " - Ok");
 
                 CurrentStep = _inspectedItems.Count > 0
                     ? InputCameraMarkInspectionStep.GrantPickUpPermission
@@ -410,27 +410,44 @@ namespace QMC.CDT320.Sequencing
                 double tolerance = stage.CameraX != null && stage.CameraX.Config != null && stage.CameraX.Config.InPositionTolerance > 0.0
                     ? stage.CameraX.Config.InPositionTolerance
                     : 0.01;
-                if (!AxisMoveWaiter.CanSkipMoveCommandAtTarget(stage.CameraX, avoid, tolerance))
+                bool preInspectionF3Move = IsInputCameraPreInspectionMode();
+                bool canSkipMove = preInspectionF3Move
+                    ? PickerInputStageMoveHelper.CanSkipInputCameraPreInspectionMoveAtThreeDecimals(
+                        stage.CameraX,
+                        avoid,
+                        tolerance)
+                    : AxisMoveWaiter.CanSkipMoveCommandAtTarget(stage.CameraX, avoid, tolerance);
+                if (!canSkipMove)
                 {
                     int moveResult = await stage.MoveInputStageAxis(
                         WaferStageAxis.VisionX,
                         avoid,
-                        Options != null && Options.FineMove).ConfigureAwait(false);
+                        Options != null && Options.FineMove,
+                        preInspectionF3Move).ConfigureAwait(false);
                     if (moveResult != 0)
                         return Fail("INPUT-CAMERA-MARK-INSPECTION-VISIONX-AVOID-MOVE", stage.Name,
                             "InputVisionX avoid move command failed. target=" + avoid +
                             ", result=" + moveResult);
 
-                    int waitResult = await stage.WaitInputStageAxisInPosition(
-                        WaferStageAxis.VisionX,
-                        avoid,
-                        ResolveTimeout(),
-                        ct).ConfigureAwait(false);
-                    if (waitResult != 0)
-                        return Fail("INPUT-CAMERA-MARK-INSPECTION-VISIONX-AVOID-WAIT", stage.Name,
-                            "InputVisionX avoid wait failed. target=" + avoid +
-                            ", result=" + waitResult);
+                    if (!preInspectionF3Move)
+                    {
+                        int waitResult = await stage.WaitInputStageAxisInPosition(
+                            WaferStageAxis.VisionX,
+                            avoid,
+                            ResolveTimeout(),
+                            ct).ConfigureAwait(false);
+                        if (waitResult != 0)
+                            return Fail("INPUT-CAMERA-MARK-INSPECTION-VISIONX-AVOID-WAIT", stage.Name,
+                                "InputVisionX avoid wait failed. target=" + avoid +
+                                ", result=" + waitResult);
+                    }
                 }
+
+                if (preInspectionF3Move &&
+                    !AxisMoveWaiter.IsMoveCompletedAtTarget(stage.CameraX, avoid, tolerance))
+                    return Fail("INPUT-CAMERA-MARK-INSPECTION-VISIONX-AVOID-CHECK", stage.Name,
+                        "InputVisionX strong completion check failed after mark inspection. " +
+                        AxisMoveWaiter.BuildAxisState(stage.CameraX, avoid, tolerance));
 
                 if (!stage.IsVisionXInAvoidPosition())
                     return Fail("INPUT-CAMERA-MARK-INSPECTION-VISIONX-AVOID-CHECK", stage.Name,

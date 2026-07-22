@@ -1,4 +1,4 @@
-# 체크리스트 — Vision 결과 수신 Push+스토어 전환 (vision-push-result-store.md)
+﻿# 체크리스트 — Vision 결과 수신 Push+스토어 전환 (vision-push-result-store.md)
 
 작성일: 2026-07-20 / 확인일: 2026-07-20 (1회차 통과)
 
@@ -45,3 +45,24 @@
 - 실제 비전 PC 연동은 비전 소프트웨어의 푸시 구현(별도 작업) 이후 현장 검증 필요.
   그 전까지 실장비에서 결과 대기는 타임아웃으로 실패한다 (비전이 아직 푸시하지 않으므로) —
   배포 시 비전 업데이트와 함께 반영할 것.
+
+## 재검증 기록 (2026-07-22, 사용자 재실행 지시)
+- 상태: 이 프롬프트는 커밋 8d5e0d45로 구현 완료된 이력이 있어 "현재 워킹트리 기준 재검증"으로 수행.
+- 본체 무변경: git diff 8d5e0d45..HEAD -- Equipment/Vision/ 빈 결과 — 스토어/수신 루프/소비 서비스/
+  프로토콜 5개 파일이 구현 커밋과 동일. 이후 커밋·미커밋(조기 허가) 변경은 Sequencing/Picker 한정.
+- R1/R2/R5: PASS — 푸시 분기(IsResultRequest), group_id 폐기+경고(FIFO 미유입), Add 중복 교체,
+  TryConsume 소비 후 제거, WaitAndConsumeAsync 동일 lock 원자 등록(경합 불가), 한도 500 FIFO EVICT,
+  단절 ClearChannel, 진단 로그(RX/RESULT/EVICT/DROP/CLEAR) 전부 확인.
+- R3/R4: PASS — WaitInspectionStageAsync 스토어 기반·재송신 없음, Pull 잔재
+  (RequestInspectionResultAsync/_resultWaiters/BuildResultWaiterKey) .cs 0건, 호출처 13개 전수
+  (SIDE/BOTTOM/WAFER/BIN + 조기 허가 신규 코어 2개 — 전부 동일 함수 경유, 신규 Pull 경로 없음).
+- R6+상호작용: PASS — vision-push-protocol.md 4개 계약 항목 존재. 조기 허가 드레인 3경로와
+  정식 소비자의 이중 대기/이중 소비 리스크는 3중 차단(핸들 소유권 배타·group_id 유일성·
+  IsResultDone/Error 가드)으로 불성립 판정.
+- 하네스 재실행: VisionPushStoreHarness 21체크 ALL PASS (선도착/대기 후 도착/300회 경합/타임아웃/
+  한도 500/단절 정리/중복 교체/라우터 폐기·FIFO 보호).
+- 관찰 사항(갭 아님, 참고): ①드레인 가드는 lock 없는 check-then-act — 현 안전성은 소유권 배타성에
+  의존, "핸들이 스토어와 살아있는 배치에 동시 존재"하는 변경 유입 시 회귀 감시 필요
+  ②내부 경로에서 RunAsync 성공 후 CollectVisionResultsAsync 중도 실패 시 미회수 핸들이 드레인
+  누락되나 스토어 한도/단절 정리로 상한 보장(누수 아님) ③VisionInspectionResultStore.Clear(전체)는
+  호출처 미배선(8d5e0d45 시점부터 — 랏 경계 정리 배선은 선택 과제).

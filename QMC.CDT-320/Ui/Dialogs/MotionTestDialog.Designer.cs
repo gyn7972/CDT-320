@@ -256,7 +256,7 @@
             this.lblAxisName.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
             this.lblAxisName.Location = new System.Drawing.Point(89, 0);
             this.lblAxisName.Name = "lblAxisName";
-            this.lblAxisName.Size = new System.Drawing.Size(161, 25);
+            this.lblAxisName.Size = new System.Drawing.Size(271, 25);
             this.lblAxisName.TabIndex = 1;
             this.lblAxisName.Text = "-";
             this.lblAxisName.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -279,7 +279,7 @@
             this.lblActual.ForeColor = System.Drawing.Color.Lime;
             this.lblActual.Location = new System.Drawing.Point(89, 25);
             this.lblActual.Name = "lblActual";
-            this.lblActual.Size = new System.Drawing.Size(161, 25);
+            this.lblActual.Size = new System.Drawing.Size(271, 25);
             this.lblActual.TabIndex = 3;
             this.lblActual.Text = "-";
             this.lblActual.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
@@ -287,7 +287,7 @@
             // lblCommandCaption
             // 
             this.lblCommandCaption.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblCommandCaption.Location = new System.Drawing.Point(256, 25);
+            this.lblCommandCaption.Location = new System.Drawing.Point(366, 25);
             this.lblCommandCaption.Name = "lblCommandCaption";
             this.lblCommandCaption.Size = new System.Drawing.Size(80, 25);
             this.lblCommandCaption.TabIndex = 4;
@@ -300,9 +300,9 @@
             this.lblCommand.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblCommand.Font = new System.Drawing.Font("Consolas", 12F, System.Drawing.FontStyle.Bold);
             this.lblCommand.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(0)))), ((int)(((byte)(220)))), ((int)(((byte)(130)))));
-            this.lblCommand.Location = new System.Drawing.Point(342, 25);
+            this.lblCommand.Location = new System.Drawing.Point(452, 25);
             this.lblCommand.Name = "lblCommand";
-            this.lblCommand.Size = new System.Drawing.Size(161, 25);
+            this.lblCommand.Size = new System.Drawing.Size(271, 25);
             this.lblCommand.TabIndex = 5;
             this.lblCommand.Text = "-";
             this.lblCommand.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
@@ -310,7 +310,7 @@
             // lblUnitCaption
             // 
             this.lblUnitCaption.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblUnitCaption.Location = new System.Drawing.Point(256, 0);
+            this.lblUnitCaption.Location = new System.Drawing.Point(366, 0);
             this.lblUnitCaption.Name = "lblUnitCaption";
             this.lblUnitCaption.Size = new System.Drawing.Size(80, 25);
             this.lblUnitCaption.TabIndex = 6;
@@ -320,9 +320,9 @@
             // lblUnit
             // 
             this.lblUnit.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblUnit.Location = new System.Drawing.Point(342, 0);
+            this.lblUnit.Location = new System.Drawing.Point(452, 0);
             this.lblUnit.Name = "lblUnit";
-            this.lblUnit.Size = new System.Drawing.Size(161, 25);
+            this.lblUnit.Size = new System.Drawing.Size(271, 25);
             this.lblUnit.TabIndex = 7;
             this.lblUnit.Text = "-";
             this.lblUnit.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -333,7 +333,7 @@
             this.lblAxisState.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblAxisState.Location = new System.Drawing.Point(3, 50);
             this.lblAxisState.Name = "lblAxisState";
-            this.lblAxisState.Size = new System.Drawing.Size(500, 28);
+            this.lblAxisState.Size = new System.Drawing.Size(720, 28);
             this.lblAxisState.TabIndex = 8;
             this.lblAxisState.Text = "-";
             this.lblAxisState.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -344,7 +344,7 @@
             this.grpPosition.Dock = System.Windows.Forms.DockStyle.Fill;
             this.grpPosition.Location = new System.Drawing.Point(3, 109);
             this.grpPosition.Name = "grpPosition";
-            this.grpPosition.Size = new System.Drawing.Size(512, 124);
+            this.grpPosition.Size = new System.Drawing.Size(732, 124);
             this.grpPosition.TabIndex = 1;
             this.grpPosition.TabStop = false;
             this.grpPosition.Text = "Repeat Position";
@@ -373,7 +373,7 @@
             this.positionLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 28F));
             this.positionLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 28F));
             this.positionLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.positionLayout.Size = new System.Drawing.Size(506, 102);
+            this.positionLayout.Size = new System.Drawing.Size(726, 102);
             this.positionLayout.TabIndex = 0;
             // 
             // lblStartCaption
@@ -402,13 +402,13 @@
             0,
             -2147483648});
             this.nudStartPosition.Name = "nudStartPosition";
-            this.nudStartPosition.Size = new System.Drawing.Size(250, 23);
+            this.nudStartPosition.Size = new System.Drawing.Size(470, 23);
             this.nudStartPosition.TabIndex = 1;
             // 
             // btnCaptureStart
             // 
             this.btnCaptureStart.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnCaptureStart.Location = new System.Drawing.Point(333, 7);
+            this.btnCaptureStart.Location = new System.Drawing.Point(553, 7);
             this.btnCaptureStart.Name = "btnCaptureStart";
             this.btnCaptureStart.Size = new System.Drawing.Size(80, 22);
             this.btnCaptureStart.TabIndex = 2;
@@ -417,7 +417,7 @@
             // btnMoveStart
             // 
             this.btnMoveStart.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnMoveStart.Location = new System.Drawing.Point(419, 7);
+            this.btnMoveStart.Location = new System.Drawing.Point(639, 7);
             this.btnMoveStart.Name = "btnMoveStart";
             this.btnMoveStart.Size = new System.Drawing.Size(80, 22);
             this.btnMoveStart.TabIndex = 3;
@@ -449,13 +449,13 @@
             0,
             -2147483648});
             this.nudEndPosition.Name = "nudEndPosition";
-            this.nudEndPosition.Size = new System.Drawing.Size(250, 23);
+            this.nudEndPosition.Size = new System.Drawing.Size(470, 23);
             this.nudEndPosition.TabIndex = 5;
             // 
             // btnCaptureEnd
             // 
             this.btnCaptureEnd.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnCaptureEnd.Location = new System.Drawing.Point(333, 35);
+            this.btnCaptureEnd.Location = new System.Drawing.Point(553, 35);
             this.btnCaptureEnd.Name = "btnCaptureEnd";
             this.btnCaptureEnd.Size = new System.Drawing.Size(80, 22);
             this.btnCaptureEnd.TabIndex = 6;
@@ -464,7 +464,7 @@
             // btnMoveEnd
             // 
             this.btnMoveEnd.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnMoveEnd.Location = new System.Drawing.Point(419, 35);
+            this.btnMoveEnd.Location = new System.Drawing.Point(639, 35);
             this.btnMoveEnd.Name = "btnMoveEnd";
             this.btnMoveEnd.Size = new System.Drawing.Size(80, 22);
             this.btnMoveEnd.TabIndex = 7;
@@ -474,7 +474,7 @@
             // 
             this.positionLayout.SetColumnSpan(this.btnSwap, 2);
             this.btnSwap.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnSwap.Location = new System.Drawing.Point(333, 63);
+            this.btnSwap.Location = new System.Drawing.Point(553, 63);
             this.btnSwap.Name = "btnSwap";
             this.btnSwap.Size = new System.Drawing.Size(166, 32);
             this.btnSwap.TabIndex = 8;
@@ -486,7 +486,7 @@
             this.grpProfile.Dock = System.Windows.Forms.DockStyle.Fill;
             this.grpProfile.Location = new System.Drawing.Point(3, 239);
             this.grpProfile.Name = "grpProfile";
-            this.grpProfile.Size = new System.Drawing.Size(512, 118);
+            this.grpProfile.Size = new System.Drawing.Size(732, 118);
             this.grpProfile.TabIndex = 2;
             this.grpProfile.TabStop = false;
             this.grpProfile.Text = "Motion Profile";
@@ -503,7 +503,7 @@
             this.profileLayout.Name = "profileLayout";
             this.profileLayout.RowCount = 1;
             this.profileLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.profileLayout.Size = new System.Drawing.Size(506, 96);
+            this.profileLayout.Size = new System.Drawing.Size(726, 96);
             this.profileLayout.TabIndex = 0;
             // 
             // gridProfile
@@ -524,7 +524,7 @@
             this.gridProfile.RowHeadersVisible = false;
             this.gridProfile.RowTemplate.Height = 24;
             this.gridProfile.SelectionMode = System.Windows.Forms.DataGridViewSelectionMode.CellSelect;
-            this.gridProfile.Size = new System.Drawing.Size(370, 90);
+            this.gridProfile.Size = new System.Drawing.Size(590, 90);
             this.gridProfile.TabIndex = 0;
             // 
             // colProfileName
@@ -550,7 +550,7 @@
             // btnReloadDefault
             // 
             this.btnReloadDefault.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnReloadDefault.Location = new System.Drawing.Point(379, 3);
+            this.btnReloadDefault.Location = new System.Drawing.Point(599, 3);
             this.btnReloadDefault.Name = "btnReloadDefault";
             this.btnReloadDefault.Size = new System.Drawing.Size(124, 90);
             this.btnReloadDefault.TabIndex = 1;
@@ -563,7 +563,7 @@
             this.grpRepeat.Dock = System.Windows.Forms.DockStyle.Fill;
             this.grpRepeat.Location = new System.Drawing.Point(3, 363);
             this.grpRepeat.Name = "grpRepeat";
-            this.grpRepeat.Size = new System.Drawing.Size(512, 86);
+            this.grpRepeat.Size = new System.Drawing.Size(732, 86);
             this.grpRepeat.TabIndex = 3;
             this.grpRepeat.TabStop = false;
             this.grpRepeat.Text = "Repeat Option";
@@ -592,7 +592,7 @@
             this.repeatLayout.RowCount = 2;
             this.repeatLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 30F));
             this.repeatLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.repeatLayout.Size = new System.Drawing.Size(506, 64);
+            this.repeatLayout.Size = new System.Drawing.Size(726, 64);
             this.repeatLayout.TabIndex = 0;
             // 
             // lblRepeatCaption
@@ -615,7 +615,7 @@
             0,
             0});
             this.nudRepeatCount.Name = "nudRepeatCount";
-            this.nudRepeatCount.Size = new System.Drawing.Size(89, 23);
+            this.nudRepeatCount.Size = new System.Drawing.Size(163, 23);
             this.nudRepeatCount.TabIndex = 1;
             this.nudRepeatCount.Value = new decimal(new int[] {
             10,
@@ -626,7 +626,7 @@
             // lblDwellCaption
             // 
             this.lblDwellCaption.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblDwellCaption.Location = new System.Drawing.Point(172, 4);
+            this.lblDwellCaption.Location = new System.Drawing.Point(246, 4);
             this.lblDwellCaption.Name = "lblDwellCaption";
             this.lblDwellCaption.Size = new System.Drawing.Size(64, 30);
             this.lblDwellCaption.TabIndex = 2;
@@ -641,14 +641,14 @@
             0,
             0,
             0});
-            this.nudDwellMs.Location = new System.Drawing.Point(242, 7);
+            this.nudDwellMs.Location = new System.Drawing.Point(316, 7);
             this.nudDwellMs.Maximum = new decimal(new int[] {
             600000,
             0,
             0,
             0});
             this.nudDwellMs.Name = "nudDwellMs";
-            this.nudDwellMs.Size = new System.Drawing.Size(89, 23);
+            this.nudDwellMs.Size = new System.Drawing.Size(163, 23);
             this.nudDwellMs.TabIndex = 3;
             this.nudDwellMs.Value = new decimal(new int[] {
             100,
@@ -659,7 +659,7 @@
             // lblTimeoutCaption
             // 
             this.lblTimeoutCaption.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblTimeoutCaption.Location = new System.Drawing.Point(337, 4);
+            this.lblTimeoutCaption.Location = new System.Drawing.Point(485, 4);
             this.lblTimeoutCaption.Name = "lblTimeoutCaption";
             this.lblTimeoutCaption.Size = new System.Drawing.Size(64, 30);
             this.lblTimeoutCaption.TabIndex = 4;
@@ -674,14 +674,14 @@
             0,
             0,
             0});
-            this.nudTimeoutMs.Location = new System.Drawing.Point(407, 7);
+            this.nudTimeoutMs.Location = new System.Drawing.Point(555, 7);
             this.nudTimeoutMs.Maximum = new decimal(new int[] {
             600000,
             0,
             0,
             0});
             this.nudTimeoutMs.Name = "nudTimeoutMs";
-            this.nudTimeoutMs.Size = new System.Drawing.Size(92, 23);
+            this.nudTimeoutMs.Size = new System.Drawing.Size(164, 23);
             this.nudTimeoutMs.TabIndex = 5;
             this.nudTimeoutMs.Value = new decimal(new int[] {
             60000,
@@ -697,7 +697,7 @@
             this.chkSoftLimitCheck.Dock = System.Windows.Forms.DockStyle.Fill;
             this.chkSoftLimitCheck.Location = new System.Drawing.Point(7, 37);
             this.chkSoftLimitCheck.Name = "chkSoftLimitCheck";
-            this.chkSoftLimitCheck.Size = new System.Drawing.Size(229, 20);
+            this.chkSoftLimitCheck.Size = new System.Drawing.Size(303, 20);
             this.chkSoftLimitCheck.TabIndex = 6;
             this.chkSoftLimitCheck.Text = "Soft limit check";
             // 
@@ -707,9 +707,9 @@
             this.chkStopOnAlarm.CheckState = System.Windows.Forms.CheckState.Checked;
             this.repeatLayout.SetColumnSpan(this.chkStopOnAlarm, 3);
             this.chkStopOnAlarm.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.chkStopOnAlarm.Location = new System.Drawing.Point(242, 37);
+            this.chkStopOnAlarm.Location = new System.Drawing.Point(316, 37);
             this.chkStopOnAlarm.Name = "chkStopOnAlarm";
-            this.chkStopOnAlarm.Size = new System.Drawing.Size(257, 20);
+            this.chkStopOnAlarm.Size = new System.Drawing.Size(403, 20);
             this.chkStopOnAlarm.TabIndex = 7;
             this.chkStopOnAlarm.Text = "Stop on alarm";
             // 
@@ -722,7 +722,7 @@
             this.commandLayout.Dock = System.Windows.Forms.DockStyle.Fill;
             this.commandLayout.Location = new System.Drawing.Point(3, 455);
             this.commandLayout.Name = "commandLayout";
-            this.commandLayout.Size = new System.Drawing.Size(512, 36);
+            this.commandLayout.Size = new System.Drawing.Size(732, 36);
             this.commandLayout.TabIndex = 4;
             this.commandLayout.WrapContents = false;
             // 
@@ -772,7 +772,7 @@
             this.lblCounter.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
             this.lblCounter.Location = new System.Drawing.Point(3, 494);
             this.lblCounter.Name = "lblCounter";
-            this.lblCounter.Size = new System.Drawing.Size(512, 28);
+            this.lblCounter.Size = new System.Drawing.Size(732, 28);
             this.lblCounter.TabIndex = 5;
             this.lblCounter.Text = "Cycle 0 / 0  Legs 0";
             this.lblCounter.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;

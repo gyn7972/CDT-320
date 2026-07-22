@@ -32,6 +32,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
         private TabControl tabs;
         private TabPage tabLogic;
         private TabPage tabChart;
+        private TabPage tabCycle;
         private DataGridView _grid;
         private Panel _chartHost;
         private TactTimeChartControl _timeChart;
@@ -65,6 +66,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.tabs = new TabControl();
             this.tabLogic = new TabPage();
             this.tabChart = new TabPage();
+            this.tabCycle = new TabPage();
             this._grid = new DataGridView();
             this._chartHost = new Panel();
             this._timeChart = new TactTimeChartControl();
@@ -319,6 +321,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.tabs.Font = UiTheme.ButtonFont;
             this.tabs.TabPages.Add(this.tabLogic);
             this.tabs.TabPages.Add(this.tabChart);
+            this.tabs.TabPages.Add(this.tabCycle);
 
             this.tabLogic.Controls.Add(this._grid);
             this.tabLogic.Tag = "i18n:wi.logicLogic";
@@ -329,6 +332,11 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.tabChart.Tag = "i18n:wi.logicTimechart";
             this.tabChart.Text = Lang.T("wi.logicTimechart");
             this.tabChart.UseVisualStyleBackColor = true;
+
+            // CycleTime 간트 탭 — 내부 컨트롤은 탭을 처음 열 때 지연 생성한다(LogicDetailPage.cs).
+            this.tabCycle.Text = "CYCLE TIME";
+            this.tabCycle.BackColor = Color.FromArgb(0x0e, 0x11, 0x15);
+            this.tabCycle.UseVisualStyleBackColor = false;
 
             this._grid.AllowUserToAddRows = false;
             this._grid.AllowUserToResizeColumns = true;
