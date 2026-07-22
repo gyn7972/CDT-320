@@ -905,6 +905,7 @@ namespace QMC.CDT320.Ajin
                     return await base.MoveAbsoluteAsync(targetPos, velocity);
                 }
 
+                // 이 아래가 시뮬과의 차이를 만든다.
                 UpdateStatus();
                 bool limitRecoveryTarget = IsLimitRecoveryTarget(targetPos);
                 double tolerance = Config != null && Config.InPositionTolerance > 0.0
