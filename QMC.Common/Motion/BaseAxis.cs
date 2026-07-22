@@ -135,7 +135,7 @@ namespace QMC.Common.Motion
         // ─────────────────────────────────────────────
 
         /// <summary>현재(실측) 축의 실제 물리 위치.</summary>
-        public double ActualPosition    { get; protected set; }
+        public virtual double ActualPosition    { get; protected set; }
 
         /// <summary>이동 명령으로 지정된 목표 위치.</summary>
         public double CommandPosition   { get; protected set; }
@@ -386,10 +386,12 @@ namespace QMC.Common.Motion
         }
 
         /// <summary>정지 상태에서 목표 도달(Actual/Command 톨러런스 이내) 여부 — 스냅샷 판정용 공개 헬퍼.</summary>
-        public bool IsAtTargetPosition(double target, double tolerance)
+        public virtual bool IsAtTargetPosition(double target, double tolerance)
         {
             if (tolerance <= 0.0)
                 tolerance = Config != null && Config.InPositionTolerance > 0.0 ? Config.InPositionTolerance : 0.01;
+
+
             return !IsMoving && !IsAlarm && IsServoOn &&
                    Math.Abs(ActualPosition - target) <= tolerance &&
                    Math.Abs(CommandPosition - target) <= tolerance;

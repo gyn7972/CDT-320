@@ -38,6 +38,14 @@ namespace QMC.CDT320.Ajin
 
         public int AxisNo { get; }
 
+        public override double ActualPosition {
+            get
+            {
+                double pos = base.ActualPosition;
+                AXM.GetCommandPosition(AxisNo, ref pos);
+                return pos;
+            }
+            protected set => base.ActualPosition = value; }
         public bool IsInitializeHardwareLimitSearchActive(int direction)
         {
             int expectedDirection = direction < 0 ? -1 : 1;
@@ -1768,7 +1776,22 @@ namespace QMC.CDT320.Ajin
             base.StopJog();
             UpdateStatus();
         }
-
+        public override bool IsAtTargetPosition(double target, double tolerance)
+        {
+            bool bret = false;
+            bool inMotion = false;
+            bool inMotionReadOk = AXM.GetInMotion(AxisNo, ref inMotion) == 0;
+            
+            
+            double idleBoardCommand = 0.0;
+            if (AXM.GetCommandPosition(AxisNo, ref idleBoardCommand) == 0 &&
+                Math.Abs(idleBoardCommand - target) <= tolerance)
+            {
+                bret = true;
+            }
+             
+            return bret;
+        }
         public override void UpdateStatus()
         {
 
