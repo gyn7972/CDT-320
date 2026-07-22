@@ -1507,18 +1507,26 @@ namespace QMC.CDT320.Sequencing
                 string targetName = BuildPickMoveTargetName();
                 PickerPickUpMotionConfig pickUpConfig = ResolvePickUpMotionConfig();
                 bool useContiTransfer = IsCoordinatedPickUpTransferMotionMode(pickUpConfig.TransferMotionMode);
+                bool useFastContiTransfer =
+                    pickUpConfig.TransferMotionMode == PickerPickUpTransferMotionMode.FastContiSegmentedPickUp;
 
                 // 기존 조건: CameraX/StageY 기준 체크는 실제 간섭축 기준이 아니라서 PickUp 보정 이동 차단 조건으로 쓰지 않는다.
                 // string areaReason;
                 // if (!stage.IsInputStageWorkPointInArea(_pickTarget.TargetX, _targetStageY, out areaReason)) ...
 
-                int result = await EnsureZAxesAtAvoidBeforePickerMoveAsync(
-                    stage,
-                    "PickUp 피커 이동 전 Z축 안전 복귀",
-                    useContiTransfer,
-                    ct).ConfigureAwait(false);
-                if (result != 0)
-                    return result;
+                int result;
+                if (!useFastContiTransfer)
+                {
+                    // Fast 모드는 자체 PickerZ 안전 확인(FastPickerZSafePosition 기준)을 수행하므로
+                    // 공용 Z Avoid 선행 복귀는 생략한다.
+                    result = await EnsureZAxesAtAvoidBeforePickerMoveAsync(
+                        stage,
+                        "PickUp 피커 이동 전 Z축 안전 복귀",
+                        useContiTransfer,
+                        ct).ConfigureAwait(false);
+                    if (result != 0)
+                        return result;
+                }
 
                 string needleAreaReason;
                 if (!stage.IsNeedleWorkPointInArea(_targetNeedleX, _targetStageY, out needleAreaReason))
@@ -1538,6 +1546,16 @@ namespace QMC.CDT320.Sequencing
                     ct).ConfigureAwait(false);
                 if (result != 0)
                     return result;
+
+                if (useFastContiTransfer)
+                {
+                    return await MovePickerXStageYPickerTByFastContiSegmentedPickUpAsync(
+                        stage,
+                        tAxis,
+                        targetName,
+                        pickUpConfig,
+                        ct).ConfigureAwait(false);
+                }
 
                 if (useContiTransfer)
                 {
@@ -1993,6 +2011,888 @@ namespace QMC.CDT320.Sequencing
             {
             }
         }
+
+        #region FastContiSegmentedPickUp (고속 픽업 모드)
+
+        /// <summary>
+        /// FastContiSegmentedPickUp 이송~Z 마무리 진입점.
+        /// 사이클(R3 표 0~14)을 내부에서 완결하고 UpdateMaterialToPicker 스텝으로 전이한다
+        /// (VerifyPickTarget/MovePickerZPick 스텝은 이 모드에서 내부 수행으로 대체).
+        /// 폴백 없음: 실패 시 Z축 안전 복귀 후 Fail 처리한다.
+        /// </summary>
+        private async Task<int> MovePickerXStageYPickerTByFastContiSegmentedPickUpAsync(
+            InputStageUnit stage,
+            PickerAxis tAxis,
+            string targetName,
+            PickerPickUpMotionConfig pickUpConfig,
+            CancellationToken ct)
+        {
+            try
+            {
+                if (pickUpConfig == null)
+                    pickUpConfig = new PickerPickUpMotionConfig();
+                pickUpConfig.Ensure();
+
+                int result = await RunFastContiSegmentedPickUpCycleAsync(
+                    stage,
+                    tAxis,
+                    targetName,
+                    pickUpConfig,
+                    ct).ConfigureAwait(false);
+                if (result != 0)
+                {
+                    await TryMovePickerNeedleAndEjectPinZToAvoidAsync(
+                        "PickUp FastContiNode 실패 후 Z축 안전 복귀",
+                        ct).ConfigureAwait(false);
+                    return result;
+                }
+
+                // Fast 모드는 Contact~Z 마무리를 내부에서 완결했으므로 자재 갱신 스텝으로 바로 전이한다.
+                CurrentStep = PickerPickUpStep.UpdateMaterialToPicker;
+                return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                await TryMovePickerNeedleAndEjectPinZToAvoidAsync(
+                    "PickUp FastContiNode 예외 후 Z축 안전 복귀",
+                    ct).ConfigureAwait(false);
+                return Fail("PICKER-PICKUP-FASTCONTI-EX", Name,
+                    "PickUp FastContiNode 이송 중 예외가 발생했습니다. error=" + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        /// <summary>FastContiSegmentedPickUp 1사이클 본체 (R3 표 0~14 순서 구현).</summary>
+        private async Task<int> RunFastContiSegmentedPickUpCycleAsync(
+            InputStageUnit stage,
+            PickerAxis tAxis,
+            string targetName,
+            PickerPickUpMotionConfig pickUpConfig,
+            CancellationToken ct)
+        {
+            PickerAxis pickerZAxis = GetPickerZAxis(_currentPickerIndex);
+            BaseAxis pickerX = GetPickerAxis(PickerAxis.PickerX);
+            BaseAxis pickerZItem = GetPickerAxis(pickerZAxis);
+            if (pickerX == null || pickerZItem == null)
+                return Fail("PICKER-PICKUP-FASTCONTI-AXIS", Name,
+                    "PickUp FastContiNode 축을 찾을 수 없습니다. pickerNo=" + _currentPickerNo);
+
+            double pickerZAvoid = GetPickerTeachingPosition(pickerZAxis, "AvoidPosition");
+            int fastTimeoutMs = Math.Max(1000, Math.Max(pickUpConfig.TransferContiTimeoutMs, ResolveTimeout()));
+
+            WriteLog("PickerPickUpSequence",
+                Name + " PickUp FastContiNode cycle start. " +
+                "die=" + _currentDieId +
+                ", pickerNo=" + _currentPickerNo +
+                ", pickIndex=" + (_pickCursor + 1) + "/" + _pickBatchItems.Count +
+                ", targetPickerX=" + _targetPickerX.ToString("F6") +
+                ", targetStageY=" + _targetStageY.ToString("F6") +
+                ", targetNeedleX=" + _targetNeedleX.ToString("F6") +
+                ", targetPickerZ=" + _targetPickerZ.ToString("F6") +
+                ", approachDistance=" + pickUpConfig.FastPickerXApproachDistance.ToString("F3") +
+                ", slowZone=" + pickUpConfig.FastContactSlowZoneDistance.ToString("F3") +
+                ", zSafePosition=" + pickUpConfig.FastPickerZSafePosition.ToString("F3") +
+                ", timeoutMs=" + fastTimeoutMs + " - Start");
+
+            // [0] 선행 보정: PickerY + PickerT 병렬 (EjectPinZ Avoid 이동은 하지 않는다 — D4, Process 상주 개념).
+            //     속도: 유닛 기본 이동 경로 = 축 Config 속도 × 기본 스케일 (가감속은 축 레이어 1회 스케일).
+            var preTargets = new Dictionary<PickerAxis, double>();
+            preTargets[PickerAxis.PickerY] = _targetPickerY;
+            preTargets[tAxis] = _targetPickerT;
+            int preMove = await MovePickerAxesAndVerifyAsync(
+                preTargets,
+                "PickUp FastContiNode PickerY/T pre-correction",
+                ct,
+                targetName).ConfigureAwait(false);
+            if (preMove != 0)
+                return preMove;
+
+            // [1] Input work area 점유.
+            EnsurePickerWorkAreaReserved(PickerWorkZone.Input, "PickUp FastContiNode");
+
+            // [2] PickerZ 안전 확인 — 4피커 Z 모두 FastPickerZSafePosition 초과인지, 미달 시 4축 Avoid 복귀.
+            int zSafeResult = await EnsureFastPickerZAxesSafeAsync(pickUpConfig, fastTimeoutMs, ct).ConfigureAwait(false);
+            if (zSafeResult != 0)
+                return zSafeResult;
+
+            double transferVelocity = ResolveFastAxisVelocity(pickerX, 100.0);
+            double transferAcceleration = ResolveFastMoveAcceleration(pickerX, 100.0, true);
+            double transferDeceleration = ResolveFastMoveAcceleration(pickerX, 100.0, false);
+
+            // [3] PickerX 이송 시작 (비동기 — await하지 않고 Task 보관).
+            WriteLog("PickerPickUpSequence",
+                Name + " PickUp FastContiNode PickerX 이송 시작. " +
+                "start=" + pickerX.ActualPosition.ToString("F6") +
+                ", target=" + _targetPickerX.ToString("F6") +
+                ", velocity=" + transferVelocity.ToString("F3") + " - Start");
+            Task<int> pickerXMoveTask = MovePickerAxisWithMotionAndVerifyAsync(
+                PickerAxis.PickerX,
+                _targetPickerX,
+                transferVelocity,
+                transferAcceleration,
+                transferDeceleration,
+                "PickUp FastContiNode PickerX async target",
+                targetName,
+                ct);
+
+            Task<int> stageNeedleVacuumTask = null;
+            try
+            {
+                // [4] EjectPinZ 확인 — Process+0.1 미만이면 패스 / 이동 중이면 통과 / 정지 상태면 Process로 동기 이동.
+                int ejectReadyResult = await EnsureFastEjectPinZAtProcessAsync(stage, ct).ConfigureAwait(false);
+                if (ejectReadyResult != 0)
+                {
+                    await ObserveFastMoveTaskAsync(pickerXMoveTask, "PickerX").ConfigureAwait(false);
+                    return ejectReadyResult;
+                }
+
+                // [5-1] StageY ∥ NeedleX 이송 시작 + 두 축 완료 시점 Needle Vacuum ON (완료 연속 처리, 비동기).
+                stageNeedleVacuumTask = RunFastStageNeedleTransferAndVacuumOnAsync(stage, ct);
+
+                // [5-2] PickerX 접근 감시 — 잔여거리 < FastPickerXApproachDistance 까지 10ms 폴링 (5-1과 동시 진행).
+                int approachResult = await WaitFastPickerXApproachAsync(
+                    pickerX,
+                    pickUpConfig.FastPickerXApproachDistance,
+                    fastTimeoutMs,
+                    ct).ConfigureAwait(false);
+                if (approachResult != 0)
+                {
+                    await ObserveFastMoveTaskAsync(pickerXMoveTask, "PickerX").ConfigureAwait(false);
+                    await ObserveFastMoveTaskAsync(stageNeedleVacuumTask, "StageY/NeedleX").ConfigureAwait(false);
+                    return approachResult;
+                }
+
+                // [6] PickerZ → PrePick 하강 시작 (비동기 명령, 축 Config 속도 × 기본 스케일) + Picker Vacuum ON.
+                // 가감속은 원값을 넘긴다 — 속도가 기본 스케일과 일치하면 축 레이어(MoveAbsoluteAsync)가
+                // 가감속 스케일을 1회 적용하므로 여기서 미리 스케일하면 이중 적용(S^2)이 된다.
+                double processVelocity = ResolveFastAxisVelocity(pickerZItem, 100.0);
+                double processAcceleration = ResolveFastMoveAcceleration(pickerZItem, 100.0, true);
+                double processDeceleration = ResolveFastMoveAcceleration(pickerZItem, 100.0, false);
+
+                if (pickUpConfig.PickerZPrePickDistance > 0.0)
+                {
+                    double prePickTarget = ResolveTargetToward(_targetPickerZ, pickerZAvoid, pickUpConfig.PickerZPrePickDistance);
+                    int prePickCommand = await MovePickerAxisCommandWithMotionAsync(
+                        pickerZAxis,
+                        prePickTarget,
+                        processVelocity,
+                        processAcceleration,
+                        processDeceleration,
+                        "PickUpPrePick").ConfigureAwait(false);
+                    if (prePickCommand != 0)
+                    {
+                        await ObserveFastMoveTaskAsync(pickerXMoveTask, "PickerX").ConfigureAwait(false);
+                        await ObserveFastMoveTaskAsync(stageNeedleVacuumTask, "StageY/NeedleX").ConfigureAwait(false);
+                        return Fail("PICKER-PICKUP-FASTCONTI-PREPICK-CMD", Name,
+                            "PickUp FastContiNode PickerZ PrePick 하강 명령 실패. result=" + prePickCommand +
+                            ", " + BuildPickerAxisState(pickerZAxis, prePickTarget));
+                    }
+
+                    WriteLog("PickerPickUpZ",
+                        Name + " PickUp FastContiNode PickerZ PrePick 하강 시작. " +
+                        "prePickZ=" + prePickTarget.ToString("F6") +
+                        ", velocity=" + processVelocity.ToString("F3") + " - Start");
+                }
+
+                SetPickerVacuum(_currentPickerNo, true);
+                WriteLog("PickerPickUpZ",
+                    Name + " PickUp FastContiNode Picker Vacuum ON. pickerNo=" + _currentPickerNo + " - Ok");
+
+                // [7] 이송 합류 — PickerX + StageY/NeedleX(니들 배큠 ON 포함) 완료 대기.
+                int[] transferResults = await Task.WhenAll(
+                    pickerXMoveTask,
+                    stageNeedleVacuumTask).ConfigureAwait(false);
+                pickerXMoveTask = null;
+                stageNeedleVacuumTask = null;
+                if (transferResults[0] != 0 || transferResults[1] != 0)
+                {
+                    return Fail("PICKER-PICKUP-FASTCONTI-TRANSFER", Name,
+                        "PickUp FastContiNode 이송 합류 실패. " +
+                        "pickerXResult=" + transferResults[0] +
+                        ", stageNeedleResult=" + transferResults[1] +
+                        ", " + BuildPickerAxisState(PickerAxis.PickerX, _targetPickerX) +
+                        ", " + BuildInputStageAxisState(stage, WaferStageAxis.WaferY, _targetStageY) +
+                        ", " + BuildInputStageAxisState(stage, WaferStageAxis.NeedleX, _targetNeedleX));
+                }
+
+                // [8][8-1] PickerZ → PickPosition (정지=새 Move / 이동중=포지션 오버라이드) + 저속 구간 벨로시티 오버라이드.
+                int contactResult = await MoveFastPickerZToPickWithSlowZoneAsync(
+                    pickerZAxis,
+                    pickerZItem,
+                    processVelocity,
+                    processAcceleration,
+                    processDeceleration,
+                    pickUpConfig,
+                    fastTimeoutMs,
+                    ct).ConfigureAwait(false);
+                if (contactResult != 0)
+                    return contactResult;
+
+                // [9] 동기 상승 (SyncLift 대응) — PickerZ ∥ EjectPinZ, InPosition 신호만 확인.
+                stage.Config.EnsurePickUpMotionDefaults();
+                double syncLiftDistance = stage.Config.PickUpNeedleSyncLiftDistance;
+                if (syncLiftDistance > 0.0)
+                {
+                    double ejectPinSyncLiftOffset = ResolveEjectPinZSyncLiftOffset(stage);
+                    double pickerLiftTarget = _targetPickerZ + syncLiftDistance;
+                    double ejectLiftTarget = _targetEjectPinZ + syncLiftDistance + ejectPinSyncLiftOffset;
+
+                    // 속도 규칙: 축 Config 속도 × 기본 스케일 × 세퍼레이트 스피드(%).
+                    // PickerZ는 PickerZSeparateSpeedPercent, EjectPinZ는 PickUpNeedleSeparateSpeedPercent(기존 관례).
+                    double pickerSeparatePercent = pickUpConfig.PickerZSeparateSpeedPercent;
+                    double ejectSeparatePercent = stage.Config.PickUpNeedleSeparateSpeedPercent;
+                    BaseAxis ejectPinItem = ResolveInputStageAxis(stage, WaferStageAxis.EjectPinZ);
+
+                    Task<int> pickerLiftMove = MovePickerAxisWithMotionAndVerifyAsync(
+                        pickerZAxis,
+                        pickerLiftTarget,
+                        ResolveFastAxisVelocity(pickerZItem, pickerSeparatePercent),
+                        ResolveFastMoveAcceleration(pickerZItem, pickerSeparatePercent, true),
+                        ResolveFastMoveAcceleration(pickerZItem, pickerSeparatePercent, false),
+                        "PickUp FastContiNode SyncLift PickerZ",
+                        "PickUpSyncLift",
+                        ct,
+                        true);
+                    Task<int> ejectLiftMove = MoveInputStageAxisWithMotionAndVerifyAsync(
+                        stage,
+                        WaferStageAxis.EjectPinZ,
+                        ejectLiftTarget,
+                        ResolveFastAxisVelocity(ejectPinItem, ejectSeparatePercent),
+                        ResolveFastMoveAcceleration(ejectPinItem, ejectSeparatePercent, true),
+                        ResolveFastMoveAcceleration(ejectPinItem, ejectSeparatePercent, false),
+                        "PickUp FastContiNode SyncLift EjectPinZ",
+                        ct,
+                        null,
+                        true);
+
+                    int[] liftResults = await Task.WhenAll(pickerLiftMove, ejectLiftMove).ConfigureAwait(false);
+                    if (liftResults[0] != 0 || liftResults[1] != 0)
+                    {
+                        return Fail("PICKER-PICKUP-FASTCONTI-SYNC-LIFT", Name,
+                            "PickUp FastContiNode SyncLift 실패. " +
+                            "pickerZResult=" + liftResults[0] +
+                            ", ejectPinZResult=" + liftResults[1] +
+                            ", " + BuildPickerAxisState(pickerZAxis, pickerLiftTarget) +
+                            ", " + BuildInputStageAxisState(stage, WaferStageAxis.EjectPinZ, ejectLiftTarget));
+                    }
+
+                    WriteLog("PickerPickUpZ",
+                        Name + " PickUp FastContiNode SyncLift 완료(InPosition 기준). " +
+                        "pickerZ=" + pickerLiftTarget.ToString("F6") +
+                        ", ejectPinZ=" + ejectLiftTarget.ToString("F6") +
+                        ", liftDistance=" + syncLiftDistance.ToString("F3") +
+                        ", ejectPinOffset=" + ejectPinSyncLiftOffset.ToString("F3") + " - Ok");
+                }
+
+                // [10] 정착 대기 — max(VacuumBeforePickDelay, SyncLiftSettle).
+                string settleSource;
+                int settleMs = Math.Max(
+                    ResolvePickerContactSettleMs(pickUpConfig),
+                    ResolvePickUpSyncLiftSettleMs(pickUpConfig, out settleSource));
+                if (settleMs > 0)
+                {
+                    WriteLog("PickerPickUpZ",
+                        Name + " PickUp FastContiNode settle wait. waitMs=" + settleMs +
+                        ", source=max(VacuumOnBeforePickDelayMs," + settleSource + ") - Wait");
+                    await Task.Delay(settleMs, ct).ConfigureAwait(false);
+                }
+
+                // [11] 흡착 확인 — Flow ON (D2).
+                int flowResult = await VerifyPickerFlowStateAsync(
+                    _currentPickerNo,
+                    true,
+                    "PickUp FastContiNode 흡착 Flow 확인",
+                    ct).ConfigureAwait(false);
+                if (flowResult != 0)
+                    return flowResult;
+
+                // [12] PickerZ → Avoid (비동기 명령, await하지 않음). 속도: 축 Config 속도 × 기본 스케일.
+                int avoidCommand = await MovePickerAxisCommandWithMotionAsync(
+                    pickerZAxis,
+                    pickerZAvoid,
+                    ResolveFastAxisVelocity(pickerZItem, 100.0),
+                    ResolveFastMoveAcceleration(pickerZItem, 100.0, true),
+                    ResolveFastMoveAcceleration(pickerZItem, 100.0, false),
+                    "AvoidPosition").ConfigureAwait(false);
+                if (avoidCommand != 0)
+                {
+                    return Fail("PICKER-PICKUP-FASTCONTI-AVOID-CMD", Name,
+                        "PickUp FastContiNode PickerZ Avoid 복귀 명령 실패. result=" + avoidCommand +
+                        ", " + BuildPickerAxisState(pickerZAxis, pickerZAvoid));
+                }
+
+                // [13] PickerZ 이탈 감시 — stage-safe 거리 통과 시점에 Needle Vacuum OFF (D3).
+                int safeResult = await WaitFastPickerZStageSafeAsync(
+                    pickerZItem,
+                    pickerZAxis,
+                    pickerZAvoid,
+                    pickUpConfig,
+                    fastTimeoutMs,
+                    ct).ConfigureAwait(false);
+                if (safeResult != 0)
+                    return safeResult;
+
+                int vacuumOffResult = EnsureNeedleVacuumOffForPick(stage, "PickUp FastContiNode PickerZ stage-safe 통과 후");
+                if (vacuumOffResult != 0)
+                    return vacuumOffResult;
+
+                // [14] EjectPinZ 복귀 — Process 높이 상주. 단, 배치 마지막 픽은 안전 복귀(Avoid)까지 완료해
+                //      InputStage 완료 신호(PublishInputStageCompletion)의 안전 복귀 전제를 만족시킨다.
+                bool isLastPickOfBatch = _pickCursor >= _pickBatchItems.Count - 1;
+                if (isLastPickOfBatch)
+                {
+                    int ejectAvoidResult = await MoveInputStageAxisCommandAsync(
+                        stage,
+                        WaferStageAxis.EjectPinZ,
+                        ResolveEjectPinZAvoidTarget(stage),
+                        "PickUp FastContiNode 마지막 픽 EjectPinZ Avoid 복귀",
+                        ct).ConfigureAwait(false);
+                    if (ejectAvoidResult != 0)
+                        return ejectAvoidResult;
+
+                    int pickerAvoidWait = await WaitPickerAxisInPositionResultAsync(
+                        pickerZAxis,
+                        pickerZAvoid,
+                        "PickUp FastContiNode 마지막 픽 PickerZ Avoid 복귀",
+                        ct).ConfigureAwait(false);
+                    if (pickerAvoidWait != 0)
+                        return pickerAvoidWait;
+
+                    _currentPickSafeReturnCompleted = true;
+                    WriteLog("PickerPickUpSequence",
+                        Name + " PickUp FastContiNode 마지막 픽 안전 복귀 완료(EjectPinZ Avoid + PickerZ Avoid). " +
+                        "pickerNo=" + _currentPickerNo + " - Ok");
+                }
+                else
+                {
+                    int ejectProcessResult = await MoveInputStageAxisCommandAsync(
+                        stage,
+                        WaferStageAxis.EjectPinZ,
+                        _targetEjectPinZ,
+                        "PickUp FastContiNode EjectPinZ Process 복귀",
+                        ct).ConfigureAwait(false);
+                    if (ejectProcessResult != 0)
+                        return ejectProcessResult;
+                }
+
+                WriteLog("PickerPickUpSequence",
+                    Name + " PickUp FastContiNode cycle complete. " +
+                    "die=" + _currentDieId +
+                    ", pickerNo=" + _currentPickerNo +
+                    ", lastPickOfBatch=" + isLastPickOfBatch + " - Ok");
+                return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                await ObserveFastMoveTaskAsync(pickerXMoveTask, "PickerX").ConfigureAwait(false);
+                await ObserveFastMoveTaskAsync(stageNeedleVacuumTask, "StageY/NeedleX").ConfigureAwait(false);
+                throw;
+            }
+            catch (Exception)
+            {
+                await ObserveFastMoveTaskAsync(pickerXMoveTask, "PickerX").ConfigureAwait(false);
+                await ObserveFastMoveTaskAsync(stageNeedleVacuumTask, "StageY/NeedleX").ConfigureAwait(false);
+                throw;
+            }
+            finally
+            {
+            }
+        }
+
+        /// <summary>
+        /// [2] PickerZ 안전 확인 — 4개 피커 Z가 모두 FastPickerZSafePosition보다 위(Avoid + 기준)면 통과.
+        /// 하나라도 미달이면 4축 전부 Avoid로 비동기 명령 후 각 축 IsInPosition 신호만 확인한다
+        /// (풀 모션돈 대기·최종 스냅샷 검증 없음 — 사양).
+        /// </summary>
+        private async Task<int> EnsureFastPickerZAxesSafeAsync(
+            PickerPickUpMotionConfig pickUpConfig,
+            int timeoutMs,
+            CancellationToken ct)
+        {
+            var zAxes = new List<PickerAxis>();
+            var zItems = new List<BaseAxis>();
+            bool allSafe = true;
+            for (int i = 0; i < 4; i++)
+            {
+                PickerAxis zAxis = GetPickerZAxis(i);
+                BaseAxis item = GetPickerAxis(zAxis);
+                if (item == null)
+                    return Fail("PICKER-PICKUP-FASTCONTI-Z-AXIS", Name,
+                        "PickUp FastContiNode PickerZ 축을 찾을 수 없습니다. axis=" + zAxis);
+                zAxes.Add(zAxis);
+                zItems.Add(item);
+                if (item.ActualPosition <= pickUpConfig.FastPickerZSafePosition)
+                    allSafe = false;
+            }
+
+            if (allSafe)
+            {
+                WriteLog("PickerPickUpZ",
+                    Name + " PickUp FastContiNode PickerZ 안전 확인 통과. zSafePosition=" +
+                    pickUpConfig.FastPickerZSafePosition.ToString("F3") + " - Ok");
+                return 0;
+            }
+
+            WriteLog("PickerPickUpZ",
+                Name + " PickUp FastContiNode PickerZ 안전 미달 — 4축 Avoid 복귀를 시작합니다. " +
+                "zSafePosition=" + pickUpConfig.FastPickerZSafePosition.ToString("F3") + " - Start");
+
+            // 4축 전부 Avoid로 비동기 명령. 속도: 축 Config 속도 × 기본 스케일 (가감속은 축 레이어 1회 스케일).
+            for (int i = 0; i < zAxes.Count; i++)
+            {
+                double avoid = GetPickerTeachingPosition(zAxes[i], "AvoidPosition");
+                int commandResult = await MovePickerAxisCommandWithMotionAsync(
+                    zAxes[i],
+                    avoid,
+                    ResolveFastAxisVelocity(zItems[i], 100.0),
+                    ResolveFastMoveAcceleration(zItems[i], 100.0, true),
+                    ResolveFastMoveAcceleration(zItems[i], 100.0, false),
+                    "AvoidPosition").ConfigureAwait(false);
+                if (commandResult != 0)
+                    return Fail("PICKER-PICKUP-FASTCONTI-Z-SAFE-CMD", Name,
+                        "PickUp FastContiNode PickerZ Avoid 복귀 명령 실패. axis=" + zAxes[i] +
+                        ", result=" + commandResult);
+            }
+
+            // 각 축 IsInPosition 신호만 확인되면 완료 처리.
+            DateTime deadline = DateTime.UtcNow.AddMilliseconds(timeoutMs);
+            while (true)
+            {
+                ct.ThrowIfCancellationRequested();
+
+                bool allInPosition = true;
+                for (int i = 0; i < zItems.Count; i++)
+                {
+                    if (zItems[i].IsAlarm)
+                        return Fail("PICKER-PICKUP-FASTCONTI-Z-SAFE-ALARM", Name,
+                            "PickUp FastContiNode PickerZ Avoid 복귀 중 알람. axis=" + zAxes[i] +
+                            ", alarmCode=0x" + zItems[i].AlarmCode.ToString("X4"));
+                    if (!zItems[i].IsInPosition)
+                        allInPosition = false;
+                }
+
+                if (allInPosition)
+                    break;
+
+                if (DateTime.UtcNow >= deadline)
+                    return Fail("PICKER-PICKUP-FASTCONTI-Z-SAFE-TIMEOUT", Name,
+                        "PickUp FastContiNode PickerZ Avoid 복귀 InPosition 대기 timeout. timeoutMs=" + timeoutMs);
+
+                await Task.Delay(10, ct).ConfigureAwait(false);
+            }
+
+            WriteLog("PickerPickUpZ",
+                Name + " PickUp FastContiNode 4피커 Z Avoid 복귀 완료(InPosition 기준). - Ok");
+            return 0;
+        }
+
+        /// <summary>
+        /// [4] EjectPinZ 확인 — Actual &lt; (Process + 0.1)이면 패스.
+        /// 아니면 이동 중이면 통과, 정지 상태면 ProcessPosition으로 동기 이동(명령+완료대기)한다.
+        /// 속도: 스테이지 기본 이동 경로 = 축 Config 속도 × 기본 스케일 ([14] 복귀도 동일).
+        /// </summary>
+        private async Task<int> EnsureFastEjectPinZAtProcessAsync(InputStageUnit stage, CancellationToken ct)
+        {
+            BaseAxis ejectPinZ = ResolveInputStageAxis(stage, WaferStageAxis.EjectPinZ);
+            if (ejectPinZ == null)
+                return Fail("PICKER-PICKUP-FASTCONTI-EJECT-AXIS", Name,
+                    "PickUp FastContiNode EjectPinZ 축을 찾을 수 없습니다.");
+
+            double processTarget = _targetEjectPinZ;   // ResolveEjectPinZPickTarget() == Recipe.EjectPinZ.ProcessPosition (D6 확인).
+            if (ejectPinZ.ActualPosition < processTarget + 0.1)
+            {
+                WriteLog("PickerPickUpZ",
+                    Name + " PickUp FastContiNode EjectPinZ 확인 통과(Process+0.1 미만). " +
+                    "actual=" + ejectPinZ.ActualPosition.ToString("F6") +
+                    ", process=" + processTarget.ToString("F6") + " - Ok");
+                return 0;
+            }
+
+            if (ejectPinZ.IsMoving)
+            {
+                WriteLog("PickerPickUpZ",
+                    Name + " PickUp FastContiNode EjectPinZ 이동 중 — 대기 없이 통과합니다. " +
+                    "actual=" + ejectPinZ.ActualPosition.ToString("F6") +
+                    ", command=" + ejectPinZ.CommandPosition.ToString("F6") + " - Check");
+                return 0;
+            }
+
+            WriteLog("PickerPickUpZ",
+                Name + " PickUp FastContiNode EjectPinZ Process 동기 이동 시작. " +
+                "actual=" + ejectPinZ.ActualPosition.ToString("F6") +
+                ", target=" + processTarget.ToString("F6") + " - Start");
+            return await MoveInputStageAxisCommandAsync(
+                stage,
+                WaferStageAxis.EjectPinZ,
+                processTarget,
+                "PickUp FastContiNode EjectPinZ Process 동기 이동",
+                ct).ConfigureAwait(false);
+        }
+
+        /// <summary>
+        /// [5-1] StageY ∥ NeedleX 이송 후 완료 연속으로 Needle Vacuum ON.
+        /// 속도는 각 축 Config 속도 × 기본 스케일 (가감속은 축 레이어 1회 스케일).
+        /// </summary>
+        private async Task<int> RunFastStageNeedleTransferAndVacuumOnAsync(
+            InputStageUnit stage,
+            CancellationToken ct)
+        {
+            BaseAxis stageYItem = ResolveInputStageAxis(stage, WaferStageAxis.WaferY);
+            BaseAxis needleXItem = ResolveInputStageAxis(stage, WaferStageAxis.NeedleX);
+            Task<int> stageYMove = MoveInputStageAxisWithMotionAndVerifyAsync(
+                stage,
+                WaferStageAxis.WaferY,
+                _targetStageY,
+                ResolveFastAxisVelocity(stageYItem, 100.0),
+                ResolveFastMoveAcceleration(stageYItem, 100.0, true),
+                ResolveFastMoveAcceleration(stageYItem, 100.0, false),
+                "PickUp FastContiNode StageY async target",
+                ct,
+                BuildPickUpInputStageMoveTargetName(WaferStageAxis.WaferY, "PickUpFastContiStageY"));
+            Task<int> needleXMove = MoveInputStageAxisWithMotionAndVerifyAsync(
+                stage,
+                WaferStageAxis.NeedleX,
+                _targetNeedleX,
+                ResolveFastAxisVelocity(needleXItem, 100.0),
+                ResolveFastMoveAcceleration(needleXItem, 100.0, true),
+                ResolveFastMoveAcceleration(needleXItem, 100.0, false),
+                "PickUp FastContiNode NeedleX async target",
+                ct,
+                BuildPickUpInputStageMoveTargetName(WaferStageAxis.NeedleX, "PickUpFastContiNeedleX"));
+
+            int[] results = await Task.WhenAll(stageYMove, needleXMove).ConfigureAwait(false);
+            if (results[0] != 0 || results[1] != 0)
+            {
+                return Fail("PICKER-PICKUP-FASTCONTI-STAGE-NEEDLE", Name,
+                    "PickUp FastContiNode StageY/NeedleX 이송 실패. " +
+                    "stageYResult=" + results[0] +
+                    ", needleXResult=" + results[1] +
+                    ", " + BuildInputStageAxisState(stage, WaferStageAxis.WaferY, _targetStageY) +
+                    ", " + BuildInputStageAxisState(stage, WaferStageAxis.NeedleX, _targetNeedleX));
+            }
+
+            // 두 축 완료 시점에 Needle Vacuum ON (완료 연속 처리).
+            return EnsureNeedleVacuumOnForPick(stage, "PickUp FastContiNode StageY/NeedleX 완료 후");
+        }
+
+        /// <summary>[5-2] PickerX 잔여거리가 FastPickerXApproachDistance 미만이 될 때까지 10ms 폴링.</summary>
+        private async Task<int> WaitFastPickerXApproachAsync(
+            BaseAxis pickerX,
+            double approachDistance,
+            int timeoutMs,
+            CancellationToken ct)
+        {
+            DateTime deadline = DateTime.UtcNow.AddMilliseconds(timeoutMs);
+            DateTime stoppedCheckDeadline = DateTime.UtcNow.AddMilliseconds(200);
+
+            while (true)
+            {
+                ct.ThrowIfCancellationRequested();
+
+                double remain = Math.Abs(_targetPickerX - pickerX.ActualPosition);
+                if (remain < approachDistance)
+                {
+                    WriteLog("PickerPickUpSequence",
+                        Name + " PickUp FastContiNode PickerX 접근 트리거 도달. " +
+                        "remain=" + remain.ToString("F6") +
+                        ", approachDistance=" + approachDistance.ToString("F3") + " - Ok");
+                    return 0;
+                }
+
+                if (pickerX.IsAlarm)
+                    return Fail("PICKER-PICKUP-FASTCONTI-APPROACH-ALARM", Name,
+                        "PickUp FastContiNode PickerX 접근 감시 중 알람. " +
+                        BuildPickerAxisState(PickerAxis.PickerX, _targetPickerX));
+
+                if (DateTime.UtcNow >= stoppedCheckDeadline &&
+                    !pickerX.IsMoving &&
+                    !IsPickerAxisInPosition(PickerAxis.PickerX, _targetPickerX))
+                {
+                    return Fail("PICKER-PICKUP-FASTCONTI-APPROACH-STOP", Name,
+                        "PickUp FastContiNode PickerX가 접근 트리거 전에 정지했습니다. " +
+                        "remain=" + remain.ToString("F6") +
+                        ", " + BuildPickerAxisState(PickerAxis.PickerX, _targetPickerX));
+                }
+
+                if (DateTime.UtcNow >= deadline)
+                    return Fail("PICKER-PICKUP-FASTCONTI-APPROACH-TIMEOUT", Name,
+                        "PickUp FastContiNode PickerX 접근 감시 timeout. timeoutMs=" + timeoutMs +
+                        ", remain=" + remain.ToString("F6"));
+
+                await Task.Delay(10, ct).ConfigureAwait(false);
+            }
+        }
+
+        /// <summary>
+        /// [8][8-1] PickerZ → PickPosition. 정지 상태면 새 Move 명령, 이동 중이면 포지션 오버라이드.
+        /// FastContactSlowZoneDistance 구간 진입 시 저속(Contact 저속)으로 벨로시티 오버라이드 후
+        /// PickPosition 도달(InPosition)까지 대기한다.
+        /// </summary>
+        private async Task<int> MoveFastPickerZToPickWithSlowZoneAsync(
+            PickerAxis pickerZAxis,
+            BaseAxis pickerZItem,
+            double processVelocity,
+            double processAcceleration,
+            double processDeceleration,
+            PickerPickUpMotionConfig pickUpConfig,
+            int timeoutMs,
+            CancellationToken ct)
+        {
+            QMC.CDT320.Ajin.AjinAxis ajinZ = pickerZItem as QMC.CDT320.Ajin.AjinAxis;
+            // 저속(어프로치) 속도: 축 Config 속도 × 기본 스케일 × PickerZSlowApproachSpeedPercent.
+            // 오버라이드 경로는 축 레이어 자동 스케일이 없으므로 가감속도 여기서 명시 스케일한다.
+            double slowVelocity = ResolveFastAxisVelocity(pickerZItem, pickUpConfig.PickerZSlowApproachSpeedPercent);
+            double slowAcceleration = ResolveFastOverrideAcceleration(pickerZItem, pickUpConfig.PickerZSlowApproachSpeedPercent, true);
+            double slowDeceleration = ResolveFastOverrideAcceleration(pickerZItem, pickUpConfig.PickerZSlowApproachSpeedPercent, false);
+
+            bool overrideApplied = false;
+            if (pickerZItem.IsMoving && ajinZ != null)
+            {
+                int overrideResult = ajinZ.TryOverridePosition(
+                    _targetPickerZ,
+                    processVelocity,
+                    ResolveFastOverrideAcceleration(pickerZItem, 100.0, true),
+                    ResolveFastOverrideAcceleration(pickerZItem, 100.0, false));
+                if (overrideResult == 0)
+                {
+                    overrideApplied = true;
+                    WriteLog("PickerPickUpZ",
+                        Name + " PickUp FastContiNode PickerZ PickPosition 포지션 오버라이드 적용. " +
+                        "target=" + _targetPickerZ.ToString("F6") + " - Ok");
+                }
+                else if (overrideResult != -4)
+                {
+                    return Fail("PICKER-PICKUP-FASTCONTI-Z-OVERRIDE", Name,
+                        "PickUp FastContiNode PickerZ 포지션 오버라이드 실패. result=" + overrideResult +
+                        ", " + BuildPickerAxisState(pickerZAxis, _targetPickerZ));
+                }
+                // -4(정지 경합)는 아래 새 Move 명령 경로로 처리한다.
+            }
+
+            if (!overrideApplied)
+            {
+                int commandResult = await MovePickerAxisCommandWithMotionAsync(
+                    pickerZAxis,
+                    _targetPickerZ,
+                    processVelocity,
+                    processAcceleration,
+                    processDeceleration,
+                    BuildPickerTargetName("DiePickPosition", _currentPickerIndex)).ConfigureAwait(false);
+                if (commandResult != 0)
+                    return Fail("PICKER-PICKUP-FASTCONTI-Z-PICK-CMD", Name,
+                        "PickUp FastContiNode PickerZ PickPosition 이동 명령 실패. result=" + commandResult +
+                        ", " + BuildPickerAxisState(pickerZAxis, _targetPickerZ));
+
+                WriteLog("PickerPickUpZ",
+                    Name + " PickUp FastContiNode PickerZ PickPosition 새 이동 명령 발행(정지 상태). " +
+                    "target=" + _targetPickerZ.ToString("F6") + " - Ok");
+            }
+
+            // [8-1] 저속 구간 감시 → 벨로시티 오버라이드 → InPosition 대기.
+            DateTime deadline = DateTime.UtcNow.AddMilliseconds(timeoutMs);
+            DateTime stoppedCheckDeadline = DateTime.UtcNow.AddMilliseconds(200);
+            bool slowApplied = false;
+
+            while (true)
+            {
+                ct.ThrowIfCancellationRequested();
+
+                if (pickerZItem.IsAlarm)
+                    return Fail("PICKER-PICKUP-FASTCONTI-Z-ALARM", Name,
+                        "PickUp FastContiNode PickerZ Contact 중 알람. " +
+                        BuildPickerAxisState(pickerZAxis, _targetPickerZ));
+
+                double remain = Math.Abs(_targetPickerZ - pickerZItem.ActualPosition);
+                if (!slowApplied && remain <= pickUpConfig.FastContactSlowZoneDistance)
+                {
+                    slowApplied = true;
+                    if (pickerZItem.IsMoving && ajinZ != null)
+                    {
+                        int velocityResult = ajinZ.TryOverrideVelocity(slowVelocity, slowAcceleration, slowDeceleration);
+                        WriteLog("PickerPickUpZ",
+                            Name + " PickUp FastContiNode 저속 구간 진입 — 벨로시티 오버라이드. " +
+                            "remain=" + remain.ToString("F6") +
+                            ", slowZone=" + pickUpConfig.FastContactSlowZoneDistance.ToString("F3") +
+                            ", slowVelocity=" + slowVelocity.ToString("F3") +
+                            ", result=" + velocityResult + " - Ok");
+                        // -4(이미 정지)는 도달 직전이므로 무시하고 InPosition 확인으로 진행한다.
+                    }
+                }
+
+                if (IsPickerAxisInPosition(pickerZAxis, _targetPickerZ))
+                {
+                    WriteLog("PickerPickUpZ",
+                        Name + " PickUp FastContiNode PickerZ PickPosition 도달(InPosition). " +
+                        "target=" + _targetPickerZ.ToString("F6") + " - Ok");
+                    return 0;
+                }
+
+                if (DateTime.UtcNow >= stoppedCheckDeadline &&
+                    !pickerZItem.IsMoving &&
+                    !IsPickerAxisInPosition(pickerZAxis, _targetPickerZ))
+                {
+                    return Fail("PICKER-PICKUP-FASTCONTI-Z-STOP", Name,
+                        "PickUp FastContiNode PickerZ가 PickPosition 도달 전에 정지했습니다. " +
+                        "remain=" + remain.ToString("F6") +
+                        ", " + BuildPickerAxisState(pickerZAxis, _targetPickerZ));
+                }
+
+                if (DateTime.UtcNow >= deadline)
+                    return Fail("PICKER-PICKUP-FASTCONTI-Z-TIMEOUT", Name,
+                        "PickUp FastContiNode PickerZ PickPosition 대기 timeout. timeoutMs=" + timeoutMs +
+                        ", remain=" + remain.ToString("F6"));
+
+                await Task.Delay(5, ct).ConfigureAwait(false);
+            }
+        }
+
+        /// <summary>[13] PickerZ가 PickPosition + PickerSafeForWaferStageDistance를 벗어날 때까지 폴링.</summary>
+        private async Task<int> WaitFastPickerZStageSafeAsync(
+            BaseAxis pickerZItem,
+            PickerAxis pickerZAxis,
+            double pickerZAvoid,
+            PickerPickUpMotionConfig pickUpConfig,
+            int timeoutMs,
+            CancellationToken ct)
+        {
+            double safeDistance = PickerPickUpMotionConfig.NormalizePickerSafeForWaferStageDistance(
+                pickUpConfig.PickerSafeForWaferStageDistance);
+            double direction = Math.Sign(pickerZAvoid - _targetPickerZ);
+            if (direction == 0.0)
+                return 0;
+
+            DateTime deadline = DateTime.UtcNow.AddMilliseconds(timeoutMs);
+            DateTime stoppedCheckDeadline = DateTime.UtcNow.AddMilliseconds(250);
+
+            while (true)
+            {
+                ct.ThrowIfCancellationRequested();
+
+                if (pickerZItem.IsAlarm)
+                    return Fail("PICKER-PICKUP-FASTCONTI-Z-SAFE-WAIT-ALARM", Name,
+                        "PickUp FastContiNode PickerZ 이탈 감시 중 알람. " +
+                        BuildPickerAxisState(pickerZAxis, pickerZAvoid));
+
+                double progress = (pickerZItem.ActualPosition - _targetPickerZ) * direction;
+                if (progress >= safeDistance)
+                {
+                    WriteLog("PickerPickUpZ",
+                        Name + " PickUp FastContiNode PickerZ stage-safe 거리 통과. " +
+                        "progress=" + progress.ToString("F6") +
+                        ", safeDistance=" + safeDistance.ToString("F3") + " - Ok");
+                    return 0;
+                }
+
+                if (DateTime.UtcNow >= stoppedCheckDeadline &&
+                    !pickerZItem.IsMoving &&
+                    !IsPickerAxisInPosition(pickerZAxis, pickerZAvoid))
+                {
+                    return Fail("PICKER-PICKUP-FASTCONTI-Z-SAFE-WAIT-STOP", Name,
+                        "PickUp FastContiNode PickerZ가 stage-safe 거리 통과 전에 정지했습니다. " +
+                        "progress=" + progress.ToString("F6") +
+                        ", " + BuildPickerAxisState(pickerZAxis, pickerZAvoid));
+                }
+
+                if (DateTime.UtcNow >= deadline)
+                    return Fail("PICKER-PICKUP-FASTCONTI-Z-SAFE-WAIT-TIMEOUT", Name,
+                        "PickUp FastContiNode PickerZ 이탈 감시 timeout. timeoutMs=" + timeoutMs +
+                        ", progress=" + progress.ToString("F6"));
+
+                await Task.Delay(10, ct).ConfigureAwait(false);
+            }
+        }
+
+        /// <summary>
+        /// Fast 모드 공통 속도 규칙: 축 Config DefaultVelocity × 기본 스케일(MotionSpeedScale) × percent.
+        /// percent는 [1,100]으로 정규화된다.
+        /// </summary>
+        private static double ResolveFastAxisVelocity(BaseAxis axis, double percent)
+        {
+            double baseVelocity = axis != null && axis.Config != null && axis.Config.DefaultVelocity > 0.0
+                ? axis.Config.DefaultVelocity
+                : 1.0;
+            double scaled = MotionSpeedScale.ApplyDefaultVelocityScale(baseVelocity);
+            double normalizedPercent = PickerPickUpMotionConfig.NormalizePercent(percent, 100.0);
+            return Math.Max(0.001, scaled * normalizedPercent / 100.0);
+        }
+
+        /// <summary>
+        /// Fast 모드 이동 명령(MoveAbsolute 계열)용 가/감속.
+        /// 전속(100%)이면 Config 원값을 넘긴다 — 속도가 기본 스케일과 일치하면 축 레이어(MoveAbsoluteAsync)가
+        /// 가감속 스케일을 1회 적용하므로, 여기서 미리 스케일하면 이중 적용(S^2)이 된다.
+        /// 퍼센트 속도(&lt;100%)면 축 레이어가 스케일하지 않으므로 여기서 기본 스케일 × percent를 1회 적용한다.
+        /// </summary>
+        private static double ResolveFastMoveAcceleration(BaseAxis axis, double percent, bool acceleration)
+        {
+            double configured = 1.0;
+            if (axis != null && axis.Config != null)
+            {
+                double raw = acceleration ? axis.Config.Acceleration : axis.Config.Deceleration;
+                if (raw > 0.0)
+                    configured = raw;
+            }
+
+            double normalizedPercent = PickerPickUpMotionConfig.NormalizePercent(percent, 100.0);
+            if (normalizedPercent >= 100.0)
+                return configured;
+
+            return Math.Max(0.001,
+                MotionSpeedScale.ApplyDefaultAccelerationScale(configured) * normalizedPercent / 100.0);
+        }
+
+        /// <summary>
+        /// Fast 모드 오버라이드(TryOverridePosition/TryOverrideVelocity)용 가/감속.
+        /// 오버라이드 경로는 축 레이어 자동 스케일이 없으므로 항상 여기서 기본 스케일 × percent를 1회 적용한다.
+        /// </summary>
+        private static double ResolveFastOverrideAcceleration(BaseAxis axis, double percent, bool acceleration)
+        {
+            double configured = 1.0;
+            if (axis != null && axis.Config != null)
+            {
+                double raw = acceleration ? axis.Config.Acceleration : axis.Config.Deceleration;
+                if (raw > 0.0)
+                    configured = raw;
+            }
+
+            double normalizedPercent = PickerPickUpMotionConfig.NormalizePercent(percent, 100.0);
+            return Math.Max(0.001,
+                MotionSpeedScale.ApplyDefaultAccelerationScale(configured) * normalizedPercent / 100.0);
+        }
+
+        /// <summary>백그라운드 이송 Task를 예외 없이 회수(observe)한다 — unobserved exception 방지.</summary>
+        private async Task ObserveFastMoveTaskAsync(Task<int> moveTask, string label)
+        {
+            if (moveTask == null)
+                return;
+
+            try
+            {
+                int result = await moveTask.ConfigureAwait(false);
+                if (result != 0)
+                {
+                    WriteLog("PickerPickUpSequence",
+                        Name + " PickUp FastContiNode 백그라운드 이송(" + label + ")이 실패로 종료되었습니다. " +
+                        "result=" + result + " - Check");
+                }
+            }
+            catch (Exception ex)
+            {
+                WriteLog("PickerPickUpSequence",
+                    Name + " PickUp FastContiNode 백그라운드 이송(" + label + ") 관찰 중 예외. " +
+                    "error=" + ex.Message + " - Check");
+            }
+            finally
+            {
+            }
+        }
+
+        #endregion
 
         private async Task<int> EnsureEjectPinZAtAvoidBeforePickStageMoveAsync(
             InputStageUnit stage,
