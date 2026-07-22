@@ -122,6 +122,26 @@ namespace QMC.CDT320.Sequencing
                     waferMonitorToken);
             }
 
+            // Input Vision Prefetch 러너: Auto + VisionConfig 플래그 ON + 픽커 유닛 활성 시에만 기동.
+            // 촬영 오버랩(픽커 Bottom/Place 중 선행검사) 기동 판단 전용 루프 — waferMonitor와 동일한 배선 패턴.
+            CancellationTokenSource prefetchCts = null;
+            Task prefetchTask = null;
+            bool prefetchFrontActive = IsPickerSideActive(PickerSequenceSide.Front);
+            bool prefetchRearActive = IsPickerSideActive(PickerSequenceSide.Rear);
+            if (_options != null &&
+                _options.Mode == SequenceRunMode.Auto &&
+                (prefetchFrontActive || prefetchRearActive) &&
+                InputVisionPrefetchRunner.IsEnabled(_ctx))
+            {
+                prefetchCts = CancellationTokenSource.CreateLinkedTokenSource(childrenToken);
+                CancellationToken prefetchToken = prefetchCts.Token;
+                prefetchTask = Task.Run(
+                    () => InputVisionPrefetchRunner.RunAsync(_ctx, prefetchFrontActive, prefetchRearActive, prefetchToken),
+                    prefetchToken);
+                _ctx.LogPublic("[SEQ] Input Vision Prefetch 러너를 시작합니다. front=" + prefetchFrontActive +
+                               ", rear=" + prefetchRearActive);
+            }
+
             _ctx.LogPublic("[SEQ] Run start (unitTasks=" + unitTasks.Count +
                            ", waferCompletionMonitor=" + (waferMonitorTask != null) + ")");
             QMC.Common.Log.Write("Main", "SYSTEM", "AutoSequenceCoordinator",
@@ -158,6 +178,10 @@ namespace QMC.CDT320.Sequencing
             }
             finally
             {
+                await StopInputVisionPrefetchRunnerAsync(
+                    prefetchCts,
+                    prefetchTask).ConfigureAwait(false);
+
                 await StopWaferCompletionMonitorAsync(
                     waferMonitorCts,
                     waferMonitorTask).ConfigureAwait(false);
@@ -223,6 +247,48 @@ namespace QMC.CDT320.Sequencing
             await unitCompletionTask.ConfigureAwait(false);
             if (waferMonitorTask.IsFaulted)
                 await waferMonitorTask.ConfigureAwait(false);
+        }
+
+        private async Task StopInputVisionPrefetchRunnerAsync(
+            CancellationTokenSource prefetchCts,
+            Task prefetchTask)
+        {
+            if (prefetchTask == null)
+            {
+                if (prefetchCts != null)
+                    prefetchCts.Dispose();
+                return;
+            }
+
+            try
+            {
+                if (!prefetchTask.IsCompleted &&
+                    prefetchCts != null &&
+                    !prefetchCts.IsCancellationRequested)
+                {
+                    _ctx.LogPublic("[SEQ] 유닛 시퀀스 종료 후 Input Vision Prefetch 러너를 종료합니다.");
+                    prefetchCts.Cancel();
+                }
+
+                await prefetchTask.ConfigureAwait(false);
+                QMC.Common.Log.Write("Main", "SYSTEM", "InputVisionPrefetchRunner",
+                    "Input Vision Prefetch 러너 종료. canceled=False - Ok");
+            }
+            catch (OperationCanceledException)
+            {
+                QMC.Common.Log.Write("Main", "SYSTEM", "InputVisionPrefetchRunner",
+                    "Input Vision Prefetch 러너 종료. canceled=True - Stopped");
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Log.Write("Main", "SYSTEM", "InputVisionPrefetchRunner",
+                    "Input Vision Prefetch 러너 종료 실패. error=" + ex.Message + " - Failed");
+            }
+            finally
+            {
+                if (prefetchCts != null)
+                    prefetchCts.Dispose();
+            }
         }
 
         private async Task StopWaferCompletionMonitorAsync(

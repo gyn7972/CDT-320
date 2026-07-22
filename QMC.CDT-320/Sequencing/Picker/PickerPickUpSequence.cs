@@ -2086,11 +2086,16 @@ namespace QMC.CDT320.Sequencing
             double pickerZAvoid = GetPickerTeachingPosition(pickerZAxis, "AvoidPosition");
             int fastTimeoutMs = Math.Max(1000, Math.Max(pickUpConfig.TransferContiTimeoutMs, ResolveTimeout()));
 
+            // 경로 분기 (D6): PickerY가 이미 전진 상태(배치 2번째 이후 픽)면 기존 오버랩 경로(B),
+            // 미전진(배치 첫 픽 등 — Home/Avoid/이동중/판정불가)이면 X 우선 + 게이트 경로(A).
+            bool yForwardEntry = IsOwnPickerYForwardForFastEntry();
+
             WriteLog("PickerPickUpSequence",
                 Name + " PickUp FastContiNode cycle start. " +
                 "die=" + _currentDieId +
                 ", pickerNo=" + _currentPickerNo +
                 ", pickIndex=" + (_pickCursor + 1) + "/" + _pickBatchItems.Count +
+                ", yForwardEntry=" + yForwardEntry +
                 ", targetPickerX=" + _targetPickerX.ToString("F6") +
                 ", targetStageY=" + _targetStageY.ToString("F6") +
                 ", targetNeedleX=" + _targetNeedleX.ToString("F6") +
@@ -2100,14 +2105,20 @@ namespace QMC.CDT320.Sequencing
                 ", zSafePosition=" + pickUpConfig.FastPickerZSafePosition.ToString("F3") +
                 ", timeoutMs=" + fastTimeoutMs + " - Start");
 
-            // [0] 선행 보정: PickerY + PickerT 병렬 (EjectPinZ Avoid 이동은 하지 않는다 — D4, Process 상주 개념).
+            // [0] 선행 보정 (EjectPinZ Avoid 이동은 하지 않는다 — D4, Process 상주 개념).
             //     속도: 유닛 기본 이동 경로 = 축 Config 속도 × 기본 스케일 (가감속은 축 레이어 1회 스케일).
+            // 기존 조건: PickerY + PickerT를 항상 선행 이동했다 (Y가 X보다 먼저 전진).
+            // 현재 기준: 경로 B(Y 이미 전진)만 Y 미세보정을 선행하고, 경로 A(Y 미전진)는 T만 선행한다.
+            //           경로 A의 Y 전진은 X 이송 합류 후 [7.5]에서 클리어런스 게이트를 거쳐 수행한다.
             var preTargets = new Dictionary<PickerAxis, double>();
-            preTargets[PickerAxis.PickerY] = _targetPickerY;
+            if (yForwardEntry)
+                preTargets[PickerAxis.PickerY] = _targetPickerY;
             preTargets[tAxis] = _targetPickerT;
             int preMove = await MovePickerAxesAndVerifyAsync(
                 preTargets,
-                "PickUp FastContiNode PickerY/T pre-correction",
+                yForwardEntry
+                    ? "PickUp FastContiNode PickerY/T pre-correction"
+                    : "PickUp FastContiNode PickerT pre-correction (Y deferred)",
                 ct,
                 targetName).ConfigureAwait(false);
             if (preMove != 0)
@@ -2155,58 +2166,62 @@ namespace QMC.CDT320.Sequencing
                 // [5-1] StageY ∥ NeedleX 이송 시작 + 두 축 완료 시점 Needle Vacuum ON (완료 연속 처리, 비동기).
                 stageNeedleVacuumTask = RunFastStageNeedleTransferAndVacuumOnAsync(stage, ct);
 
-                // [5-2] PickerX 접근 감시 — 잔여거리 < FastPickerXApproachDistance 까지 10ms 폴링 (5-1과 동시 진행).
-                int approachResult = await WaitFastPickerXApproachAsync(
-                    pickerX,
-                    pickUpConfig.FastPickerXApproachDistance,
-                    fastTimeoutMs,
-                    ct).ConfigureAwait(false);
-                if (approachResult != 0)
-                {
-                    await ObserveFastMoveTaskAsync(pickerXMoveTask, "PickerX").ConfigureAwait(false);
-                    await ObserveFastMoveTaskAsync(stageNeedleVacuumTask, "StageY/NeedleX").ConfigureAwait(false);
-                    return approachResult;
-                }
-
-                // [6] PickerZ → PrePick 하강 시작 (비동기 명령, 축 Config 속도 × 기본 스케일) + Picker Vacuum ON.
-                // 기존 조건: MovePickerAxisCommandWithMotionAsync 사용 - 축 레이어(MoveAbsoluteAsync)가
-                //           완료까지 대기해 "비동기 명령" 설계가 무효였고, 가감속은 원값+Config 임시대입 방식이었다.
-                // 현재 기준: 명령 전용 API(MovePickerAxisCommandOnlyAsync) 사용 - 즉시 리턴하고 이동 중 감시가 가능하다.
-                //           명령 전용 API는 전달값을 최종값으로 쓰므로 가감속도 오버라이드용 헬퍼로 1회 스케일해 넘긴다.
-                // To do: [FastConti 명령 전용 전환] PrePick 하강을 진짜 비동기 명령으로.
+                // [8]에서 양 경로 공용으로 쓰는 PickerZ 하강 속도 — 분기 밖에서 산출.
+                // 현재 기준: 명령 전용/오버라이드 경로는 축 레이어 자동 스케일이 없으므로 여기서 1회 스케일한다.
                 double processVelocity = ResolveFastAxisVelocity(pickerZItem, 100.0);
-                // 기존 조건: ResolveFastMoveAcceleration(pickerZItem, 100.0, ...) - 원값 전달(축 레이어 재스케일 전제)
                 double processAcceleration = ResolveFastOverrideAcceleration(pickerZItem, 100.0, true);
                 double processDeceleration = ResolveFastOverrideAcceleration(pickerZItem, 100.0, false);
 
-                if (pickUpConfig.PickerZPrePickDistance > 0.0)
+                // 기존 조건: [5-2] 접근 감시 → [6] PrePick 선행 하강 + Vacuum ON을 항상 수행했다.
+                // 현재 기준: 경로 B(Y 이미 전진)에서만 수행한다 — Y 전진 상태라 X 이송 중 Z 하강
+                //           오버랩이 "Y 전진 후 Z 하강" 불변식을 지키기 때문. 경로 A(Y 미전진)는
+                //           Y가 후퇴 상태에서 Z가 내려가는 사고 구조가 되므로 오버랩을 하지 않고,
+                //           [7] 합류 → [7.5] Y 전진 후에 Z를 내린다.
+                if (yForwardEntry)
                 {
-                    double prePickTarget = ResolveTargetToward(_targetPickerZ, pickerZAvoid, pickUpConfig.PickerZPrePickDistance);
-                    int prePickCommand = await MovePickerAxisCommandOnlyAsync(
-                        pickerZAxis,
-                        prePickTarget,
-                        processVelocity,
-                        processAcceleration,
-                        processDeceleration,
-                        "PickUpPrePick").ConfigureAwait(false);
-                    if (prePickCommand != 0)
+                    // [5-2] PickerX 접근 감시 — 잔여거리 < FastPickerXApproachDistance 까지 10ms 폴링 (5-1과 동시 진행).
+                    int approachResult = await WaitFastPickerXApproachAsync(
+                        pickerX,
+                        pickUpConfig.FastPickerXApproachDistance,
+                        fastTimeoutMs,
+                        ct).ConfigureAwait(false);
+                    if (approachResult != 0)
                     {
                         await ObserveFastMoveTaskAsync(pickerXMoveTask, "PickerX").ConfigureAwait(false);
                         await ObserveFastMoveTaskAsync(stageNeedleVacuumTask, "StageY/NeedleX").ConfigureAwait(false);
-                        return Fail("PICKER-PICKUP-FASTCONTI-PREPICK-CMD", Name,
-                            "PickUp FastContiNode PickerZ PrePick 하강 명령 실패. result=" + prePickCommand +
-                            ", " + BuildPickerAxisState(pickerZAxis, prePickTarget));
+                        return approachResult;
                     }
 
-                    WriteLog("PickerPickUpZ",
-                        Name + " PickUp FastContiNode PickerZ PrePick 하강 시작. " +
-                        "prePickZ=" + prePickTarget.ToString("F6") +
-                        ", velocity=" + processVelocity.ToString("F3") + " - Start");
-                }
+                    // [6] PickerZ → PrePick 하강 시작 (명령 전용 — 즉시 리턴, 이동 중 감시 가능) + Picker Vacuum ON.
+                    if (pickUpConfig.PickerZPrePickDistance > 0.0)
+                    {
+                        double prePickTarget = ResolveTargetToward(_targetPickerZ, pickerZAvoid, pickUpConfig.PickerZPrePickDistance);
+                        int prePickCommand = await MovePickerAxisCommandOnlyAsync(
+                            pickerZAxis,
+                            prePickTarget,
+                            processVelocity,
+                            processAcceleration,
+                            processDeceleration,
+                            "PickUpPrePick").ConfigureAwait(false);
+                        if (prePickCommand != 0)
+                        {
+                            await ObserveFastMoveTaskAsync(pickerXMoveTask, "PickerX").ConfigureAwait(false);
+                            await ObserveFastMoveTaskAsync(stageNeedleVacuumTask, "StageY/NeedleX").ConfigureAwait(false);
+                            return Fail("PICKER-PICKUP-FASTCONTI-PREPICK-CMD", Name,
+                                "PickUp FastContiNode PickerZ PrePick 하강 명령 실패. result=" + prePickCommand +
+                                ", " + BuildPickerAxisState(pickerZAxis, prePickTarget));
+                        }
 
-                SetPickerVacuum(_currentPickerNo, true);
-                WriteLog("PickerPickUpZ",
-                    Name + " PickUp FastContiNode Picker Vacuum ON. pickerNo=" + _currentPickerNo + " - Ok");
+                        WriteLog("PickerPickUpZ",
+                            Name + " PickUp FastContiNode PickerZ PrePick 하강 시작. " +
+                            "prePickZ=" + prePickTarget.ToString("F6") +
+                            ", velocity=" + processVelocity.ToString("F3") + " - Start");
+                    }
+
+                    SetPickerVacuum(_currentPickerNo, true);
+                    WriteLog("PickerPickUpZ",
+                        Name + " PickUp FastContiNode Picker Vacuum ON. pickerNo=" + _currentPickerNo + " - Ok");
+                }
 
                 // [7] 이송 합류 — PickerX + StageY/NeedleX(니들 배큠 ON 포함) 완료 대기.
                 int[] transferResults = await Task.WhenAll(
@@ -2225,7 +2240,33 @@ namespace QMC.CDT320.Sequencing
                         ", " + BuildInputStageAxisState(stage, WaferStageAxis.NeedleX, _targetNeedleX));
                 }
 
+                // [7.5] (경로 A 전용) X 합류 후 PickerY 전진 — MovePickerAxesAndVerifyAsync의 기성 게이트
+                //       체인(상대 픽커 Y/존/페이즈 + FacingY X 클리어런스 확인, 미충족 시 해제까지
+                //       무한 대기)을 그대로 사용한다 (D2/D5 — 별도 폴링 루프 신설 금지).
+                //       targetName은 [0]과 동일한 전진 타깃명 → IsForwardPickerYMoveTarget 통과로 게이트 적용.
+                if (!yForwardEntry)
+                {
+                    var forwardTargets = new Dictionary<PickerAxis, double>();
+                    forwardTargets[PickerAxis.PickerY] = _targetPickerY;
+                    int yForwardResult = await MovePickerAxesAndVerifyAsync(
+                        forwardTargets,
+                        "PickUp FastContiNode PickerY forward after X join",
+                        ct,
+                        targetName).ConfigureAwait(false);
+                    if (yForwardResult != 0)
+                        return yForwardResult;
+
+                    WriteLog("PickerPickUpSequence",
+                        Name + " PickUp FastContiNode PickerY 전진 완료(X 합류 후, 클리어런스 게이트 경유). " +
+                        "targetPickerY=" + _targetPickerY.ToString("F6") + " - Ok");
+
+                    SetPickerVacuum(_currentPickerNo, true);
+                    WriteLog("PickerPickUpZ",
+                        Name + " PickUp FastContiNode Picker Vacuum ON(경로 A — Y 전진 후). pickerNo=" + _currentPickerNo + " - Ok");
+                }
+
                 // [8][8-1] PickerZ → PickPosition (정지=새 Move / 이동중=포지션 오버라이드) + 저속 구간 벨로시티 오버라이드.
+                //          경로 A는 정지 상태에서 새 Move 명령으로, 경로 B는 PrePick 이동 중 오버라이드로 자연 분기된다.
                 int contactResult = await MoveFastPickerZToPickWithSlowZoneAsync(
                     pickerZAxis,
                     pickerZItem,
@@ -2888,6 +2929,50 @@ namespace QMC.CDT320.Sequencing
             double normalizedPercent = PickerPickUpMotionConfig.NormalizePercent(percent, 100.0);
             return Math.Max(0.001,
                 MotionSpeedScale.ApplyDefaultAccelerationScale(configured) * normalizedPercent / 100.0);
+        }
+
+        /// <summary>
+        /// Fast 경로 분기 판정 (D6): 자기 PickerY가 전진 영역에 있으면 true(경로 B — 기존 오버랩),
+        /// Home(0)/AvoidPosition/이동 중/판정 불가면 false(경로 A — X 우선 + 게이트 후 Y 전진).
+        /// 판정 기준은 PickerSequenceBase.IsOppositePickerYAtAvoidPosition(1638행)의 자기축 미러 —
+        /// 오판 시 결과가 "느려짐"(경로 A)이지 "위험"이 되지 않도록 애매하면 전부 false.
+        /// </summary>
+        private bool IsOwnPickerYForwardForFastEntry()
+        {
+            try
+            {
+                BaseAxis pickerY = GetPickerAxis(PickerAxis.PickerY);
+                if (pickerY == null)
+                    return false;
+
+                // 이동 중 진입은 상태가 애매하므로 보수적으로 경로 A.
+                if (pickerY.IsMoving)
+                    return false;
+
+                double tolerance = pickerY.Config != null && pickerY.Config.InPositionTolerance > 0.0
+                    ? pickerY.Config.InPositionTolerance
+                    : 0.05;
+                if (Math.Abs(pickerY.ActualPosition) <= tolerance)
+                    return false;   // Home(0) = 미전진
+
+                if (Side == PickerSequenceSide.Front)
+                {
+                    if (FrontPicker == null)
+                        return false;
+                    return !FrontPicker.IsPickerAxisInTeachingPosition(PickerAxis.PickerY, "AvoidPosition");
+                }
+
+                if (RearPicker == null)
+                    return false;
+                return !RearPicker.IsPickerAxisInTeachingPosition(PickerAxis.PickerY, "AvoidPosition");
+            }
+            catch
+            {
+                return false;
+            }
+            finally
+            {
+            }
         }
 
         /// <summary>백그라운드 이송 Task를 예외 없이 회수(observe)한다 — unobserved exception 방지.</summary>
