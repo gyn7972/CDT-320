@@ -46,6 +46,11 @@ namespace QMC.CDT320
         [DataMember] public bool bDryRun { get; set; }
         [DataMember] public PickerInspectionPipelineMode PickerInspectionMode { get; set; } = PickerInspectionPipelineMode.BottomAndSidePipeline;
         [DataMember] public VisionFocusCalibrationData FocusCalibration { get; set; } = new VisionFocusCalibrationData();
+        // Input Vision 촬영 선행 실행자(Prefetch Runner): 픽커가 Bottom/Place 등으로 Input 존을 비운 동안
+        // InputCamera 선행검사를 주기 재시도로 미리 돌려 픽업 허가를 준비해 두는 오버랩 모드. 기본 OFF.
+        [DataMember] public bool UseInputVisionPrefetch { get; set; }
+        [DataMember] public int InputVisionPrefetchIdlePollMs { get; set; } = 200;
+        [DataMember] public int InputVisionPrefetchFailureHoldMs { get; set; } = 5000;
         public CalibrationData CalibrationData { get; set; } = new CalibrationData();
 
         public bool IsSimulationMode
@@ -69,6 +74,12 @@ namespace QMC.CDT320
 
             FocusCalibration.EnsureObjects();
             CalibrationData.EnsureObjects();
+
+            // Prefetch 설정 보정: 구버전 직렬화(값 0)나 비정상 값은 기본 주기로 되돌린다.
+            if (InputVisionPrefetchIdlePollMs <= 0)
+                InputVisionPrefetchIdlePollMs = 200;
+            if (InputVisionPrefetchFailureHoldMs <= 0)
+                InputVisionPrefetchFailureHoldMs = 5000;
         }
     }
 

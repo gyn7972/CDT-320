@@ -974,11 +974,22 @@ namespace QMC.CDT320.Ajin
                 _motionDirection = targetPos > ActualPosition ? 1 : targetPos < ActualPosition ? -1 : 0;
                 int motionStopSerial = Volatile.Read(ref _motionStopSerial);
 
-                int ret;
+                int ret = 0;
                 lock (_sync)
                 {
                     AXM.SetAbsRelMode(AxisNo, true);
-                    ret = AXM.MovePosition(AxisNo, boardTargetPos, boardVelocity, boardAcceleration, boardDeceleration);
+                    DateTime deadline = DateTime.UtcNow.AddMilliseconds(1000);
+                    while (DateTime.UtcNow < deadline)
+                    {
+                        ret = AXM.MovePosition(AxisNo, boardTargetPos, boardVelocity, boardAcceleration, boardDeceleration);
+                        if (ret == 0)
+                        {
+                            break;
+
+                        }
+                    }
+                   
+                        
                 }
                 if (ret != 0)
                 {
@@ -1013,6 +1024,127 @@ namespace QMC.CDT320.Ajin
                 IsAlarm = true;
                 _motionDirection = 0;
                 return FailMotion(-1, "ABS MOVE", ex.Message, targetPos, true);
+            }
+            finally
+            {
+                UpdateStatus();
+            }
+        }
+
+        // To do: [명령 전용 절대이동] FastContiSegmentedPickUp의 이동 중 감시/저속 오버라이드를 위해
+        //        MoveAbsoluteAsync의 명령 발행부만 수행하고 즉시 리턴한다(WaitUntilMoveDone 없음).
+        //        velocity/acceleration/deceleration은 스케일 완료된 "최종값" 그대로 보드에 전달한다.
+        //        도달/정지 감시는 호출자 책임이며, 감시 루프는 UpdateStatus를 주기 호출해야 한다.
+        public override Task<int> MoveAbsoluteCommandOnlyAsync(double targetPos, double velocity, double acceleration, double deceleration)
+        {
+            try
+            {
+                // 현재 기준: 공유레일 축(X 계열)은 페어 클리어런스 중앙 중재가 필요해 명령 전용을 지원하지 않는다.
+                if (!SharedRailXMotionRuntime.IsInternalDispatch &&
+                    SharedRailXMotionRuntime.IsSharedRailAxis(this))
+                    return Task.FromResult(FailMotion(-1, "ABS MOVE CMD",
+                        "SharedRailX 축은 명령 전용 절대이동을 지원하지 않습니다.", targetPos, true));
+
+                if (UseSimulation)
+                {
+                    string simulationInterlockReason;
+                    if (!SharedRailXMotionRuntime.IsInternalDispatch &&
+                        !MotionGuardRuntime.VerifyAxisMove(this, targetPos, out simulationInterlockReason))
+                        return Task.FromResult(FailMotion(-11, "ABS MOVE CMD", simulationInterlockReason, targetPos, true));
+
+                    return base.MoveAbsoluteCommandOnlyAsync(targetPos, velocity, acceleration, deceleration);
+                }
+
+                UpdateStatus();
+                bool limitRecoveryTarget = IsLimitRecoveryTarget(targetPos);
+                double tolerance = Config != null && Config.InPositionTolerance > 0.0
+                    ? Config.InPositionTolerance
+                    : 0.01;
+                if (!BaseAxis.IsForceMoveActive &&
+                    AxisMoveWaiter.CanSkipMoveCommandAtTarget(this, targetPos, tolerance))
+                {
+                    CommandPosition = targetPos;
+                    CurrentVelocity = 0.0;
+                    IsMoving = false;
+                    IsInPosition = true;
+                    _motionDirection = 0;
+                    ClearMotionFailure();
+                    return Task.FromResult(0);
+                }
+
+                string interlockReason;
+                if (!SharedRailXMotionRuntime.IsInternalDispatch &&
+                    !MotionGuardRuntime.VerifyAxisMove(this, targetPos, out interlockReason))
+                    return Task.FromResult(FailMotion(-11, "ABS MOVE CMD", interlockReason, targetPos, true));
+
+                if (!IsServoOn || !AjinSystem.IsOpen)
+                    return Task.FromResult(FailAjinAxisNotReady("ABS MOVE CMD", targetPos, true));
+                if (IsAlarm && !limitRecoveryTarget)
+                    return Task.FromResult(FailAjinAxisNotReady("ABS MOVE CMD", targetPos, true));
+                if (limitRecoveryTarget)
+                    BeginLimitRecovery(targetPos > ActualPosition ? 1 : -1);
+
+                if (!limitRecoveryTarget)
+                {
+                    int limitCheck = CheckSoftLimitTarget(targetPos);
+                    if (limitCheck != 0)
+                        return Task.FromResult(limitCheck);
+                }
+
+                // 현재 기준: 전달값이 최종값. 0 이하일 때만 Config 기반 스케일 폴백.
+                double vel = velocity > 0 ? velocity : MotionSpeedScale.ApplyDefaultVelocityScale(Config.DefaultVelocity);
+                double acc = acceleration > 0 ? acceleration : MotionSpeedScale.ApplyDefaultAccelerationScale(Config.Acceleration);
+                double dec = deceleration > 0 ? deceleration : MotionSpeedScale.ApplyDefaultAccelerationScale(Config.Deceleration);
+                double boardTargetPos = ToBoardPosition(targetPos);
+                double boardVelocity = ToBoardVelocity(vel);
+                double boardAcceleration = ToBoardAcceleration(acc);
+                double boardDeceleration = ToBoardAcceleration(dec);
+
+                QMC.Common.Log.Write("Main", "SYSTEM", "AxisMoveProfile",
+                    Name + " ABS MOVE CMD. target=" + targetPos.ToString("0.###") +
+                    ", vel=" + vel.ToString("0.###") +
+                    ", acc=" + acc.ToString("0.###") +
+                    ", dec=" + dec.ToString("0.###") +
+                    ", commandOnly=True" +
+                    ", scalePercent=" + (MotionSpeedScale.EffectiveScaleFactor * 100.0).ToString("0.#") + " - Start");
+
+                CommandPosition = targetPos;
+                CurrentVelocity = vel;
+                IsMoving = true;
+                IsInPosition = false;
+                _motionDirection = targetPos > ActualPosition ? 1 : targetPos < ActualPosition ? -1 : 0;
+
+                int ret;
+                lock (_sync)
+                {
+                    AXM.SetAbsRelMode(AxisNo, true);
+                    ret = AXM.MovePosition(AxisNo, boardTargetPos, boardVelocity, boardAcceleration, boardDeceleration);
+                }
+                if (ret != 0)
+                {
+                    IsMoving = false;
+                    IsAlarm = true;
+                    AlarmCode = (uint)ret;
+                    _motionDirection = 0;
+                    return Task.FromResult(FailMotion(
+                        ret,
+                        "ABS MOVE CMD",
+                        "AXM.MovePosition failed. ret=0x" + ret.ToString("X4"),
+                        targetPos,
+                        true));
+                }
+
+                RaiseMoveStarted();
+                ClearMotionFailure();
+                // 기존 MoveAbsoluteAsync와의 차이: WaitUntilMoveDone을 호출하지 않고 즉시 리턴한다.
+                return Task.FromResult(0);
+            }
+            catch (Exception ex)
+            {
+                IsMoving = false;
+                IsAlarm = true;
+                _motionDirection = 0;
+                return Task.FromResult(FailMotion(-1, "ABS MOVE CMD", ex.Message, targetPos, true));
             }
             finally
             {

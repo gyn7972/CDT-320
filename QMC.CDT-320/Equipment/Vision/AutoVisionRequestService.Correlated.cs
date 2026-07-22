@@ -8,7 +8,6 @@ namespace QMC.CDT320.VisionComm
 {
     public static partial class AutoVisionRequestService
     {
-        private const int CorrelatedResultPollIntervalMs = 100;
         private static readonly object SyncMatchHandleLock = new object();
         private static readonly Dictionary<string, VisionRequestHandle> SyncMatchHandles =
             new Dictionary<string, VisionRequestHandle>(StringComparer.OrdinalIgnoreCase);
@@ -120,33 +119,43 @@ namespace QMC.CDT320.VisionComm
                     return null;
                 }
 
+                // Pull(요청+PENDING 폴링) 제거: 비전이 단계 완료 즉시 자발 푸시한 결과를
+                // 수신 스토어에서 소비한다. 재요청은 없다.
+                // MarkStageTx는 "대기 시작" 시각으로 의미가 바뀐다
+                // (로그 필드명 유지: stageRoundTripMs=대기 시작→푸시 소비, epdToStageRequestMs=EPD→대기 시작).
                 DateTime timeoutAt = DateTime.UtcNow.AddMilliseconds(Math.Max(1, timeoutMs));
-                while (DateTime.UtcNow < timeoutAt)
+                handle.MarkStageTx(command);
+
+                while (true)
                 {
                     ct.ThrowIfCancellationRequested();
-                    int remainMs = (int)Math.Max(1, (timeoutAt - DateTime.UtcNow).TotalMilliseconds);
-                    int requestTimeoutMs = Math.Min(8000, remainMs);
-                    handle.MarkStageTx(command);
+                    int remainMs = (int)(timeoutAt - DateTime.UtcNow).TotalMilliseconds;
+                    if (remainMs <= 0)
+                        break;
 
-                    VisionProtocolResponse response = await client.RequestInspectionResultAsync(
+                    VisionInspectionResultEntry entry = await VisionInspectionResultStore.WaitAndConsumeAsync(
                         handle.Request.Camera,
                         command,
                         handle.Request.GroupId,
-                        requestTimeoutMs,
+                        remainMs,
                         ct).ConfigureAwait(false);
-                    VisionInspectionResult parsed = VisionInspectionResult.Parse(response, handle.Request, command);
+                    if (entry == null)
+                        break;   // 타임아웃 — 아래 공통 타임아웃 처리.
+
+                    VisionInspectionResult parsed = VisionInspectionResult.Parse(entry.Response, handle.Request, command);
 
                     if (parsed.IsPending)
                     {
+                        // 신규 푸시 규약에는 PENDING이 없다. 규약 위반 라인은 경고 후 폐기하고
+                        // 남은 시간 동안 실제 결과 푸시를 계속 대기한다 (재요청 없음).
                         handle.MarkStagePending(command);
-                        EventLogger.Write(EventKind.Event, "VISION", "AUTO-VISION-CORRELATED-PENDING",
-                            "Vision 결과 단계 PENDING. 같은 단계만 재요청합니다. camera=" + handle.Request.Camera +
+                        EventLogger.Write(EventKind.Warning, "VISION", "AUTO-VISION-CORRELATED-PENDING",
+                            "푸시 규약에 없는 PENDING 결과를 수신해 폐기하고 계속 대기합니다. camera=" + handle.Request.Camera +
                             ", command=" + command +
                             ", groupId=" + handle.Request.GroupId +
                             ", pendingCount=" + (string.Equals(command, VisionInspectionCommands.MResult, StringComparison.OrdinalIgnoreCase)
                                 ? handle.MResultPendingCount
                                 : handle.ResultPendingCount));
-                        await Task.Delay(CorrelatedResultPollIntervalMs, ct).ConfigureAwait(false);
                         continue;
                     }
 
@@ -168,7 +177,7 @@ namespace QMC.CDT320.VisionComm
 
                     handle.MarkStageDone(command, parsed);
                     EventLogger.Write(EventKind.Event, "VISION", "AUTO-VISION-CORRELATED-RESULT",
-                        "Vision 결과 단계 완료. camera=" + handle.Request.Camera +
+                        "Vision 결과 단계 완료(푸시 소비). camera=" + handle.Request.Camera +
                         ", command=" + command +
                         ", groupId=" + handle.Request.GroupId +
                         ", status=" + parsed.Status +
@@ -180,6 +189,9 @@ namespace QMC.CDT320.VisionComm
                             (string.Equals(command, VisionInspectionCommands.MResult, StringComparison.OrdinalIgnoreCase)
                                 ? handle.ExposureToMResultRequestMs
                                 : handle.ExposureToResultRequestMs).ToString("F3") +
+                        ", epdToPushMs=" + VisionRequestHandle.ElapsedMilliseconds(
+                            handle.ExposureDoneTimestamp, entry.ReceivedTimestamp).ToString("F3") +
+                        ", storeCount=" + VisionInspectionResultStore.Count +
                         ", pendingCount=" +
                             (string.Equals(command, VisionInspectionCommands.MResult, StringComparison.OrdinalIgnoreCase)
                                 ? handle.MResultPendingCount

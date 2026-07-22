@@ -1493,17 +1493,22 @@ namespace QMC.CDT320.Sequencing
                 ? OutputStage.Recipe.NGStageY.ProcessPosition
                 : OutputStage.Recipe.GoodStageY.ProcessPosition;
 
-            // Place 런타임 보정: Bin 후검사 LowPassFilter 출력(raw)을 조회해 좌표 계산에 전달한다.
+            // Place 런타임 보정: Enable일 때만 필터 상태를 적용하고, Disable이면 0을 전달한다
+            // (Disable이어도 필터 학습·저장은 Bin 후검사 경로에서 계속된다).
             // 부호 반영(X:-, Y:+, T:-)은 DieCoordinateTransformService.CalculatePlaceTarget이 담당한다.
-            double placeRuntimeOffsetX;
-            double placeRuntimeOffsetY;
-            double placeRuntimeOffsetT;
-            PlaceRuntimeOffsetService.GetOffset(
-                Side,
-                _currentPickerNo,
-                out placeRuntimeOffsetX,
-                out placeRuntimeOffsetY,
-                out placeRuntimeOffsetT);
+            bool placeRuntimeEnabled = PlaceRuntimeOffsetService.IsEnabled;
+            double placeRuntimeOffsetX = 0.0;
+            double placeRuntimeOffsetY = 0.0;
+            double placeRuntimeOffsetT = 0.0;
+            if (placeRuntimeEnabled)
+            {
+                PlaceRuntimeOffsetService.GetOffset(
+                    Side,
+                    _currentPickerNo,
+                    out placeRuntimeOffsetX,
+                    out placeRuntimeOffsetY,
+                    out placeRuntimeOffsetT);
+            }
 
             PlaceCoordinateResult coordinate = PickerMotionTargetResolver.CalculateOutputPlaceTarget(
                 Context != null ? Context.Machine : null,
@@ -1556,6 +1561,7 @@ namespace QMC.CDT320.Sequencing
                 ", bottomOffsetY=" + bottomOffset.Y +
                 ", bottomOffsetT=" + bottomOffset.R +
                 ", bottomOffsetMode=" + bottomOffsetReason +
+                ", placeRuntimeEnabled=" + placeRuntimeEnabled +
                 ", placeRuntimeOffsetX=" + placeRuntimeOffsetX.ToString("F6") +
                 ", placeRuntimeOffsetY=" + placeRuntimeOffsetY.ToString("F6") +
                 ", placeRuntimeOffsetT=" + placeRuntimeOffsetT.ToString("F6") +

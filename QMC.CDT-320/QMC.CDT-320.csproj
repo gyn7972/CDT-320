@@ -667,6 +667,7 @@
     <Compile Include="Equipment\Vision\VisionHub.cs" />
     <Compile Include="Equipment\Vision\VisionProtocol.cs" />
     <Compile Include="Equipment\Vision\VisionInspectionProtocol.cs" />
+    <Compile Include="Equipment\Vision\VisionInspectionResultStore.cs" />
     <Compile Include="Equipment\Vision\VisionViewerSource.cs" />
     <Compile Include="Equipment\Vision\VisionFrameClient.cs" />
     <Compile Include="Equipment\Vision\VisionTcpClient.cs" />
@@ -971,6 +972,8 @@
     <Compile Include="Sequencing\Picker\InputDieVisionPreparedItem.cs" />
     <Compile Include="Sequencing\Picker\InputDieVisionPrepareSequence.cs" />
     <Compile Include="Sequencing\Picker\InputCameraPickUpPermissionStore.cs" />
+    <Compile Include="Sequencing\Picker\InputCameraPreInspectionStartGate.cs" />
+    <Compile Include="Sequencing\Picker\InputVisionPrefetchRunner.cs" />
     <Compile Include="Sequencing\Picker\InputCameraPreInspectionWaitStatus.cs" />
     <Compile Include="Sequencing\Picker\InputCameraPreInspectionWaitResult.cs" />
     <Compile Include="Sequencing\Picker\InputCameraPreInspectionCoordinator.cs" />

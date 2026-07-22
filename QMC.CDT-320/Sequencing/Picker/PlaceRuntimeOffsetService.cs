@@ -1,4 +1,5 @@
 ﻿using System;
+using QMC.Common.Alarms;
 using QMC.Common.Logging;
 
 namespace QMC.CDT320.Sequencing
@@ -10,6 +11,10 @@ namespace QMC.CDT320.Sequencing
     /// - 필터 단위: PickerSide(Front/Rear) × PickerNo(1~4) = 8세트, 각 X/Y/T 3채널 독립.
     /// - 필터 상태는 비전 측정 부호 그대로(raw) 저장하고, 부호 변환(X:−, Y:+, T:−)은
     ///   적용 지점(DieCoordinateTransformService.CalculatePlaceTarget)에서 수행한다.
+    /// - Enable/Disable(UsePlaceRuntimeOffset): Disable이어도 필터 갱신(학습)·저장은 계속하며
+    ///   적용만 중지한다 — Enable 판정은 적용 지점(PickerPlaceSequence)에서 GetOffset 사용 여부로 결정.
+    /// - 발산 방지: 갱신 후 상태값을 X/Y ±0.50mm, T ±0.5°로 클램프하고 한계 도달 시 Warning을 1회 발생
+    ///   (한계 미만 복귀 시 재무장하는 래치) — Pick 보정과 동일 정책.
     /// - 검사 큐 스레드에서 갱신, 시퀀스 스레드에서 조회하므로 lock으로 보호한다.
     /// </summary>
     internal static class PlaceRuntimeOffsetService
@@ -17,9 +22,13 @@ namespace QMC.CDT320.Sequencing
         // 이상치 거부 한계: 현재 필터 출력 대비 편차가 이 값 이상이면 해당 채널 샘플 폐기.
         private const double OutlierLimitXyMm = 1.0;
         private const double OutlierLimitTDeg = 0.5;
+        // 발산 방지 클램프 한계 (필터 상태값 자체를 이 범위로 제한, Pick 보정과 동일).
+        private const double ClampLimitXyMm = 0.50;
+        private const double ClampLimitTDeg = 0.5;
 
         private static readonly object Sync = new object();
         private static bool _loaded;
+        private static bool _useCorrection;
         private static double _cutoffFrequency = 0.1;
         private static FilterSet[] _filters;
 
@@ -36,10 +45,56 @@ namespace QMC.CDT320.Sequencing
             public LowPassFilter Y { get; private set; }
             public LowPassFilter T { get; private set; }
             public DateTime LastUpdated { get; set; }
+            // 클램프 워닝 래치 (채널별). 한계 도달 시 true, 한계 미만 복귀 시 false로 재무장.
+            public bool ClampLatchedX { get; set; }
+            public bool ClampLatchedY { get; set; }
+            public bool ClampLatchedT { get; set; }
+        }
+
+        /// <summary>Place 런타임 보정 적용 여부 (UsePlaceRuntimeOffset 설정값).</summary>
+        public static bool IsEnabled
+        {
+            get
+            {
+                lock (Sync)
+                {
+                    EnsureLoadedLocked();
+                    return _useCorrection;
+                }
+            }
+        }
+
+        /// <summary>보정 적용 여부를 변경하고 저장한다 (필터 상태는 유지).</summary>
+        public static void SetEnabled(bool enabled)
+        {
+            try
+            {
+                lock (Sync)
+                {
+                    EnsureLoadedLocked();
+                    if (_useCorrection == enabled)
+                        return;
+
+                    _useCorrection = enabled;
+                    SaveLocked();
+                }
+
+                QMC.Common.Log.Write("Main", "SYSTEM", "PlaceRuntimeOffset",
+                    "Place 런타임 오프셋 사용 설정을 변경했습니다. enabled=" + enabled + " - Ok");
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Log.Write("Main", "SYSTEM", "PlaceRuntimeOffset",
+                    "Place 런타임 오프셋 사용 설정 변경 중 예외가 발생했습니다. error=" + ex.Message + " - Failed");
+            }
+            finally
+            {
+            }
         }
 
         /// <summary>
         /// 현재 필터 출력(raw)을 반환한다. 미초기화/범위 밖 인자면 0을 반환한다.
+        /// Enable 여부와 무관하게 상태를 반환하며, Enable 판정은 적용 지점에서 한다.
         /// </summary>
         public static void GetOffset(PickerSequenceSide side, int pickerNo, out double x, out double y, out double t)
         {
@@ -108,6 +163,13 @@ namespace QMC.CDT320.Sequencing
                     acceptedY = AcceptChannelLocked(set.Y, measuredY, OutlierLimitXyMm, "Y", side, pickerNo, dieId);
                     acceptedT = AcceptChannelLocked(set.T, measuredT, OutlierLimitTDeg, "T", side, pickerNo, dieId);
 
+                    if (acceptedX)
+                        set.ClampLatchedX = ClampChannelLocked(set.X, ClampLimitXyMm, set.ClampLatchedX, "X", side, pickerNo);
+                    if (acceptedY)
+                        set.ClampLatchedY = ClampChannelLocked(set.Y, ClampLimitXyMm, set.ClampLatchedY, "Y", side, pickerNo);
+                    if (acceptedT)
+                        set.ClampLatchedT = ClampChannelLocked(set.T, ClampLimitTDeg, set.ClampLatchedT, "T", side, pickerNo);
+
                     if (acceptedX || acceptedY || acceptedT)
                     {
                         set.LastUpdated = DateTime.Now;
@@ -158,6 +220,9 @@ namespace QMC.CDT320.Sequencing
                     set.X.Reset(0.0);
                     set.Y.Reset(0.0);
                     set.T.Reset(0.0);
+                    set.ClampLatchedX = false;
+                    set.ClampLatchedY = false;
+                    set.ClampLatchedT = false;
                     set.LastUpdated = DateTime.Now;
                     SaveLocked();
                 }
@@ -188,6 +253,9 @@ namespace QMC.CDT320.Sequencing
                         _filters[i].X.Reset(0.0);
                         _filters[i].Y.Reset(0.0);
                         _filters[i].T.Reset(0.0);
+                        _filters[i].ClampLatchedX = false;
+                        _filters[i].ClampLatchedY = false;
+                        _filters[i].ClampLatchedT = false;
                         _filters[i].LastUpdated = DateTime.Now;
                     }
 
@@ -225,6 +293,7 @@ namespace QMC.CDT320.Sequencing
                 return;
 
             PlaceRuntimeOffsetDocument document = PlaceRuntimeOffsetStore.Load();
+            _useCorrection = document.UsePlaceRuntimeOffset;
             _cutoffFrequency = document.CutoffFrequency > 0.0 ? document.CutoffFrequency : 0.1;
             _filters = new FilterSet[8];
             for (int i = 0; i < _filters.Length; i++)
@@ -293,9 +362,44 @@ namespace QMC.CDT320.Sequencing
             return true;
         }
 
+        /// <summary>
+        /// 갱신 후 필터 상태를 ±limit로 클램프한다. 한계 도달 시 래치되지 않은 경우에만 Warning을 발생시키고,
+        /// 한계 미만이면 래치를 해제한다. 반환값은 갱신된 래치 상태. (Pick 보정과 동일 정책)
+        /// </summary>
+        private static bool ClampChannelLocked(
+            LowPassFilter filter,
+            double limit,
+            bool latched,
+            string channel,
+            PickerSequenceSide side,
+            int pickerNo)
+        {
+            double value = filter.Value;
+            if (Math.Abs(value) < limit)
+                return false;   // 한계 미만 복귀 → 래치 해제(재무장)
+
+            double clamped = value > 0.0 ? limit : -limit;
+            filter.Reset(clamped);
+
+            if (!latched)
+            {
+                string message =
+                    "Place 런타임 오프셋이 발산 방지 한계에 도달해 클램프되었습니다. side=" + side +
+                    ", pickerNo=" + pickerNo +
+                    ", channel=" + channel +
+                    ", valueBeforeClamp=" + F(value) +
+                    ", limit=" + F(limit);
+                AlarmManager.Raise(AlarmSeverity.Warning, "PLACE-RUNTIME-OFFSET-CLAMP", "PlaceRuntimeOffset", message);
+                EventLogger.Write(EventKind.Warning, "COORD", "PLACE-RUNTIME-OFFSET-CLAMP", message);
+            }
+
+            return true;
+        }
+
         private static void SaveLocked()
         {
             var document = new PlaceRuntimeOffsetDocument();
+            document.UsePlaceRuntimeOffset = _useCorrection;
             document.CutoffFrequency = _cutoffFrequency;
             for (int sideIndex = 0; sideIndex < 2; sideIndex++)
             {

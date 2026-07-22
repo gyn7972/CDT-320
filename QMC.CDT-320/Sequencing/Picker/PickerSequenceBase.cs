@@ -2765,6 +2765,23 @@ namespace QMC.CDT320.Sequencing
             return RearPicker.MovePickerAxisCommandWithMotion(axis, target, velocity, acceleration, deceleration, targetName);
         }
 
+        // To do: [명령 전용 절대이동] 명령 발행 즉시 리턴 - 이동 중 감시/저속 오버라이드가 필요한
+        //        FastContiSegmentedPickUp 경로 전용. 파라미터는 스케일 완료된 최종값으로 전달할 것.
+        protected Task<int> MovePickerAxisCommandOnlyAsync(PickerAxis axis, double target, double velocity, double acceleration, double deceleration, string targetName = null)
+        {
+            WriteLog("PickerMoveCommand",
+                Name + " command-only motion. side=" + Side +
+                ", axis=" + axis +
+                ", target=" + target.ToString("F6") +
+                ", targetName=" + (targetName ?? "-") +
+                ", velocity=" + velocity.ToString("F6") +
+                ", acceleration=" + acceleration.ToString("F6") +
+                ", deceleration=" + deceleration.ToString("F6") + " - Check");
+            if (Side == PickerSequenceSide.Front)
+                return FrontPicker.MovePickerAxisCommandOnly(axis, target, velocity, acceleration, deceleration, targetName);
+            return RearPicker.MovePickerAxisCommandOnly(axis, target, velocity, acceleration, deceleration, targetName);
+        }
+
         protected async Task<AxisMoveWaitResult> WaitPickerAxisMoveDoneAsync(PickerAxis axis, double target, int timeoutMs, CancellationToken ct)
         {
             try

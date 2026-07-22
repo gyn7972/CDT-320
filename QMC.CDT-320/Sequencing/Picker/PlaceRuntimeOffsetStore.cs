@@ -9,16 +9,19 @@ namespace QMC.CDT320.Sequencing
 {
     /// <summary>
     /// Place 런타임 오프셋 필터 상태 영속화 문서.
-    /// fc(cutoff)와 (side, pickerNo) 8세트의 X/Y/T 필터값, 마지막 갱신 시각을 저장한다.
+    /// 사용 유무(UsePlaceRuntimeOffset), fc(cutoff)와 (side, pickerNo) 8세트의 X/Y/T 필터값,
+    /// 마지막 갱신 시각을 저장한다.
     /// </summary>
     [DataContract]
     internal sealed class PlaceRuntimeOffsetDocument
     {
-        [DataMember(Order = 0)] public double CutoffFrequency { get; set; }
-        [DataMember(Order = 1)] public List<PlaceRuntimeOffsetRow> Filters { get; set; }
+        [DataMember(Order = 0)] public bool UsePlaceRuntimeOffset { get; set; }
+        [DataMember(Order = 1)] public double CutoffFrequency { get; set; }
+        [DataMember(Order = 2)] public List<PlaceRuntimeOffsetRow> Filters { get; set; }
 
         public PlaceRuntimeOffsetDocument()
         {
+            UsePlaceRuntimeOffset = false;
             CutoffFrequency = 0.1;
             Filters = new List<PlaceRuntimeOffsetRow>();
         }
