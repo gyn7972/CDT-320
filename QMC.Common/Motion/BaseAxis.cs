@@ -497,6 +497,72 @@ namespace QMC.Common.Motion
             }
         }
 
+        // To do: [명령 전용 절대이동] FastContiSegmentedPickUp처럼 이동 중 감시/속도 오버라이드가 필요한
+        //        경로용. MoveAbsoluteAsync와 달리 명령 발행까지만 수행하고 완료를 기다리지 않는다.
+        //        velocity/acceleration/deceleration은 스케일이 끝난 "최종값"으로 전달해야 하며(자동 스케일 없음,
+        //        0 이하만 Config 기반 스케일 폴백), 도달 감시는 호출자가 담당한다.
+        //        (시뮬 축은 프로파일이 벽시계 시간 기반이라 이후 UpdateStatus 호출 시 경과분을 따라잡는다)
+        public virtual Task<int> MoveAbsoluteCommandOnlyAsync(double targetPos, double velocity, double acceleration, double deceleration)
+        {
+            try
+            {
+                if (!IsServoOn || IsAlarm)
+                    return Task.FromResult(FailAxisNotReady("ABS MOVE CMD", targetPos, true));
+
+                double tolerance = Config != null && Config.InPositionTolerance > 0.0
+                    ? Config.InPositionTolerance
+                    : 0.01;
+                if (!IsForceMoveActive &&
+                    AxisMoveWaiter.CanSkipMoveCommandAtTarget(this, targetPos, tolerance))
+                {
+                    ClearMotionFailure();
+                    CommandPosition = targetPos;
+                    CurrentVelocity = 0.0;
+                    _simCommandVelocity = 0.0;
+                    IsMoving = false;
+                    IsInPosition = true;
+                    _currentMode = MotionMode.None;
+                    return Task.FromResult(0);
+                }
+
+                if (!VerifyMotionGuard(targetPos, AxisMotionGuardKind.Absolute))
+                    return Task.FromResult(-11);
+
+                ClearMotionFailure();
+
+                // 현재 기준: 전달값이 최종값. 0 이하일 때만 Config 기반 스케일 폴백.
+                double vel = ApplySimulationSpeedScale(velocity > 0
+                    ? velocity
+                    : MotionSpeedScale.ApplyDefaultVelocityScale(Config.DefaultVelocity));
+                double acc = acceleration > 0
+                    ? acceleration
+                    : MotionSpeedScale.ApplyDefaultAccelerationScale(Config.Acceleration);
+                double dec = deceleration > 0
+                    ? deceleration
+                    : MotionSpeedScale.ApplyDefaultAccelerationScale(Config.Deceleration);
+
+                CommandPosition = targetPos;
+                _simTargetPosition = targetPos;
+                ConfigureSimulationMotionProfile(vel, acc, dec, true);
+                IsMoving = true;
+                IsInPosition = false;
+                _currentMode = MotionMode.Absolute;
+
+                RaiseMoveStarted();
+                // 기존 MoveAbsoluteAsync와의 차이: WaitUntilMoveDone을 호출하지 않고 즉시 리턴한다.
+                return Task.FromResult(0);
+            }
+            catch (Exception)
+            {
+                IsAlarm = true;
+                if (AlarmCode == 0) AlarmCode = 1;
+                return Task.FromResult(-1);
+            }
+            finally
+            {
+            }
+        }
+
         // ─────────────────────────────────────────────
         //  이벤트 발행 헬퍼
         // ─────────────────────────────────────────────

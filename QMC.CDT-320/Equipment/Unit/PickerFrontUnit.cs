@@ -1717,6 +1717,54 @@ namespace QMC.CDT320
             return await MovePickerAxisCommandNamed(axis, targetPos, velocity, acceleration, deceleration, targetName, forceMove).ConfigureAwait(false);
         }
 
+        // To do: [명령 전용 절대이동] MovePickerAxisCommandWithMotion과 달리 명령 발행 즉시 리턴한다
+        //        (기존 경로는 축 레이어 MoveAbsoluteAsync가 완료까지 대기해 이동 중 감시/오버라이드가 불가능했다).
+        //        velocity/acceleration/deceleration은 스케일 완료된 최종값으로 전달할 것. 도달 감시는 호출자 책임.
+        //        SharedRailX 축(PickerX)은 미지원 - PickerZ/T/Y 등 비공유 축 전용.
+        public async Task<int> MovePickerAxisCommandOnly(PickerAxis axis, double targetPos, double velocity, double acceleration, double deceleration, string targetName)
+        {
+            try
+            {
+                BaseAxis item = GetAxis(axis);
+                if (!CheckPickerAxisMoveReady(axis))
+                    return RaisePickerAlarm("PK-MOVE-READY", axis + " 이동 준비 상태가 아닙니다.");
+
+                int result;
+                string guardTargetName = BuildPickerGuardTargetName(axis, targetName);
+                using (PickerZoneInterlockRules.BeginPickerZoneMove(side, axis, guardTargetName))
+                {
+                    if (!string.IsNullOrWhiteSpace(guardTargetName))
+                    {
+                        using (MotionGuardRuntime.BeginAxisTeachingMove(item, targetPos, guardTargetName))
+                        {
+                            result = await item.MoveAbsoluteCommandOnlyAsync(targetPos, velocity, acceleration, deceleration).ConfigureAwait(false);
+                        }
+                    }
+                    else
+                    {
+                        result = await item.MoveAbsoluteCommandOnlyAsync(targetPos, velocity, acceleration, deceleration).ConfigureAwait(false);
+                    }
+
+                    if (result != 0 || item.IsAlarm)
+                        return ReportPickerMoveFailure(
+                            "PK-MOVE",
+                            result,
+                            axis + " 명령 전용 이동 발행 실패. result=" + result +
+                            ", alarm=" + item.IsAlarm +
+                            BuildAxisLastMotionFailure(item));
+                }
+
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                return RaisePickerAlarm("PK-MOVE-EX", axis + " 명령 전용 이동 중 예외: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
         private async Task<int> MovePickerAxisCommandNamed(PickerAxis axis, double targetPos, bool bFine, string targetName)
         {
             return await MovePickerAxisCommandNamed(axis, targetPos, bFine, targetName, false).ConfigureAwait(false);

@@ -2169,16 +2169,20 @@ namespace QMC.CDT320.Sequencing
                 }
 
                 // [6] PickerZ → PrePick 하강 시작 (비동기 명령, 축 Config 속도 × 기본 스케일) + Picker Vacuum ON.
-                // 가감속은 원값을 넘긴다 — 속도가 기본 스케일과 일치하면 축 레이어(MoveAbsoluteAsync)가
-                // 가감속 스케일을 1회 적용하므로 여기서 미리 스케일하면 이중 적용(S^2)이 된다.
+                // 기존 조건: MovePickerAxisCommandWithMotionAsync 사용 - 축 레이어(MoveAbsoluteAsync)가
+                //           완료까지 대기해 "비동기 명령" 설계가 무효였고, 가감속은 원값+Config 임시대입 방식이었다.
+                // 현재 기준: 명령 전용 API(MovePickerAxisCommandOnlyAsync) 사용 - 즉시 리턴하고 이동 중 감시가 가능하다.
+                //           명령 전용 API는 전달값을 최종값으로 쓰므로 가감속도 오버라이드용 헬퍼로 1회 스케일해 넘긴다.
+                // To do: [FastConti 명령 전용 전환] PrePick 하강을 진짜 비동기 명령으로.
                 double processVelocity = ResolveFastAxisVelocity(pickerZItem, 100.0);
-                double processAcceleration = ResolveFastMoveAcceleration(pickerZItem, 100.0, true);
-                double processDeceleration = ResolveFastMoveAcceleration(pickerZItem, 100.0, false);
+                // 기존 조건: ResolveFastMoveAcceleration(pickerZItem, 100.0, ...) - 원값 전달(축 레이어 재스케일 전제)
+                double processAcceleration = ResolveFastOverrideAcceleration(pickerZItem, 100.0, true);
+                double processDeceleration = ResolveFastOverrideAcceleration(pickerZItem, 100.0, false);
 
                 if (pickUpConfig.PickerZPrePickDistance > 0.0)
                 {
                     double prePickTarget = ResolveTargetToward(_targetPickerZ, pickerZAvoid, pickUpConfig.PickerZPrePickDistance);
-                    int prePickCommand = await MovePickerAxisCommandWithMotionAsync(
+                    int prePickCommand = await MovePickerAxisCommandOnlyAsync(
                         pickerZAxis,
                         prePickTarget,
                         processVelocity,
@@ -2304,21 +2308,30 @@ namespace QMC.CDT320.Sequencing
                 }
 
                 // [11] 흡착 확인 — Flow ON (D2).
-                int flowResult = await VerifyPickerFlowStateAsync(
-                    _currentPickerNo,
-                    true,
-                    "PickUp FastContiNode 흡착 Flow 확인",
-                    ct).ConfigureAwait(false);
-                if (flowResult != 0)
-                    return flowResult;
+                // 기존 조건: Fast 모드에서도 흡착 Flow를 확인하고 실패 시 사이클 중단했다.
+                // int flowResult = await VerifyPickerFlowStateAsync(
+                //     _currentPickerNo,
+                //     true,
+                //     "PickUp FastContiNode 흡착 Flow 확인",
+                //     ct).ConfigureAwait(false);
+                // if (flowResult != 0)
+                //     return flowResult;
+                // 현재 기준: Fast 모드는 배큠 베리파이(흡착 Flow 확인)를 진행하지 않는다. (사용자 지시)
+                //           흡착 실패는 후속 Bottom 검사에서 걸러지는 것을 전제로 한다.
+                // To do: [FastConti] Fast 모드 흡착 Flow 확인 생략.
+                WriteLog("PickerPickUpZ",
+                    Name + " PickUp FastContiNode 흡착 Flow 확인 생략(Fast 모드 배큠 베리파이 미진행). pickerNo=" + _currentPickerNo + " - Check");
 
                 // [12] PickerZ → Avoid (비동기 명령, await하지 않음). 속도: 축 Config 속도 × 기본 스케일.
-                int avoidCommand = await MovePickerAxisCommandWithMotionAsync(
+                // 기존 조건: MovePickerAxisCommandWithMotionAsync - 완료까지 대기해 [13] 이탈 감시가 무효였다.
+                // 현재 기준: 명령 전용 API - 상승 중 stage-safe 거리 통과 시점을 실제로 감시한다.
+                // To do: [FastConti 명령 전용 전환] Avoid 복귀를 진짜 비동기 명령으로.
+                int avoidCommand = await MovePickerAxisCommandOnlyAsync(
                     pickerZAxis,
                     pickerZAvoid,
                     ResolveFastAxisVelocity(pickerZItem, 100.0),
-                    ResolveFastMoveAcceleration(pickerZItem, 100.0, true),
-                    ResolveFastMoveAcceleration(pickerZItem, 100.0, false),
+                    ResolveFastOverrideAcceleration(pickerZItem, 100.0, true),
+                    ResolveFastOverrideAcceleration(pickerZItem, 100.0, false),
                     "AvoidPosition").ConfigureAwait(false);
                 if (avoidCommand != 0)
                 {
@@ -2677,7 +2690,12 @@ namespace QMC.CDT320.Sequencing
 
             if (!overrideApplied)
             {
-                int commandResult = await MovePickerAxisCommandWithMotionAsync(
+                // 기존 조건: MovePickerAxisCommandWithMotionAsync - 축 레이어가 완료까지 대기해
+                //           [8-1] 저속 구간 감시가 이동 중 한 번도 돌지 못했다(풀속도 컨택 원인).
+                // int commandResult = await MovePickerAxisCommandWithMotionAsync(...)
+                // 현재 기준: 명령 전용 API로 발행 즉시 리턴 - 아래 감시 루프가 하강 중에 실제로 동작한다.
+                // To do: [FastConti 명령 전용 전환] PickPosition 하강을 진짜 비동기 명령으로.
+                int commandResult = await MovePickerAxisCommandOnlyAsync(
                     pickerZAxis,
                     _targetPickerZ,
                     processVelocity,
@@ -2702,6 +2720,10 @@ namespace QMC.CDT320.Sequencing
             while (true)
             {
                 ct.ThrowIfCancellationRequested();
+
+                // 현재 기준: 명령 전용 이동은 축 내부 대기 루프가 없으므로 감시 루프가 상태를 직접 갱신해야
+                //           ActualPosition/IsMoving/IsInPosition 관측값이 살아 움직인다. (시뮬 축 포함)
+                pickerZItem.UpdateStatus();
 
                 if (pickerZItem.IsAlarm)
                     return Fail("PICKER-PICKUP-FASTCONTI-Z-ALARM", Name,
@@ -2773,6 +2795,9 @@ namespace QMC.CDT320.Sequencing
             while (true)
             {
                 ct.ThrowIfCancellationRequested();
+
+                // 현재 기준: 명령 전용 이동은 축 내부 대기 루프가 없으므로 감시 루프가 상태를 직접 갱신한다.
+                pickerZItem.UpdateStatus();
 
                 if (pickerZItem.IsAlarm)
                     return Fail("PICKER-PICKUP-FASTCONTI-Z-SAFE-WAIT-ALARM", Name,
