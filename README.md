@@ -73,6 +73,7 @@ $out = Join-Path $repo '_build_check_handler\out'
 
 - [LOGIC TIMECHART 그래프 개선 구현 계획서](docs/TIMECHART_GRAPH_IMPLEMENTATION_PLAN.md)
 - [LOGIC TIMECHART 그래프 개선 검증 체크리스트](docs/TIMECHART_GRAPH_VERIFICATION_CHECKLIST.md)
+- [Calibration 개선 작업 프롬프트 & 체크리스트](docs/CALIBRATION_REFACTOR_PROMPT_CHECKLIST_2026-07-22.md)
 
 ## 라이선스
 
