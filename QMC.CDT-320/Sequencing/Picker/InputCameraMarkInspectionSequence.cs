@@ -410,27 +410,44 @@ namespace QMC.CDT320.Sequencing
                 double tolerance = stage.CameraX != null && stage.CameraX.Config != null && stage.CameraX.Config.InPositionTolerance > 0.0
                     ? stage.CameraX.Config.InPositionTolerance
                     : 0.01;
-                if (!AxisMoveWaiter.CanSkipMoveCommandAtTarget(stage.CameraX, avoid, tolerance))
+                bool preInspectionF3Move = IsInputCameraPreInspectionMode();
+                bool canSkipMove = preInspectionF3Move
+                    ? PickerInputStageMoveHelper.CanSkipInputCameraPreInspectionMoveAtThreeDecimals(
+                        stage.CameraX,
+                        avoid,
+                        tolerance)
+                    : AxisMoveWaiter.CanSkipMoveCommandAtTarget(stage.CameraX, avoid, tolerance);
+                if (!canSkipMove)
                 {
                     int moveResult = await stage.MoveInputStageAxis(
                         WaferStageAxis.VisionX,
                         avoid,
-                        Options != null && Options.FineMove).ConfigureAwait(false);
+                        Options != null && Options.FineMove,
+                        preInspectionF3Move).ConfigureAwait(false);
                     if (moveResult != 0)
                         return Fail("INPUT-CAMERA-MARK-INSPECTION-VISIONX-AVOID-MOVE", stage.Name,
                             "InputVisionX avoid move command failed. target=" + avoid +
                             ", result=" + moveResult);
 
-                    int waitResult = await stage.WaitInputStageAxisInPosition(
-                        WaferStageAxis.VisionX,
-                        avoid,
-                        ResolveTimeout(),
-                        ct).ConfigureAwait(false);
-                    if (waitResult != 0)
-                        return Fail("INPUT-CAMERA-MARK-INSPECTION-VISIONX-AVOID-WAIT", stage.Name,
-                            "InputVisionX avoid wait failed. target=" + avoid +
-                            ", result=" + waitResult);
+                    if (!preInspectionF3Move)
+                    {
+                        int waitResult = await stage.WaitInputStageAxisInPosition(
+                            WaferStageAxis.VisionX,
+                            avoid,
+                            ResolveTimeout(),
+                            ct).ConfigureAwait(false);
+                        if (waitResult != 0)
+                            return Fail("INPUT-CAMERA-MARK-INSPECTION-VISIONX-AVOID-WAIT", stage.Name,
+                                "InputVisionX avoid wait failed. target=" + avoid +
+                                ", result=" + waitResult);
+                    }
                 }
+
+                if (preInspectionF3Move &&
+                    !AxisMoveWaiter.IsMoveCompletedAtTarget(stage.CameraX, avoid, tolerance))
+                    return Fail("INPUT-CAMERA-MARK-INSPECTION-VISIONX-AVOID-CHECK", stage.Name,
+                        "InputVisionX strong completion check failed after mark inspection. " +
+                        AxisMoveWaiter.BuildAxisState(stage.CameraX, avoid, tolerance));
 
                 if (!stage.IsVisionXInAvoidPosition())
                     return Fail("INPUT-CAMERA-MARK-INSPECTION-VISIONX-AVOID-CHECK", stage.Name,

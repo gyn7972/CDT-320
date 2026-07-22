@@ -63,7 +63,7 @@ namespace QMC.CDT320.Ajin
                 for(int iter = 0; iter <AxisCount; iter++)
                 {
                    
-                    AXM.SetInPositionEnable(iter, false);
+                    //AXM.SetInPositionEnable(iter, false);
                 }
                 n = 0;
                 if (AXD.GetModuleCount(out n) == 0) 

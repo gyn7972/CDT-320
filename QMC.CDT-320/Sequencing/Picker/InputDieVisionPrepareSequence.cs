@@ -1733,6 +1733,16 @@ namespace QMC.CDT320.Sequencing
                    Options.InputCameraPreInspectionMode;
         }
 
+        private bool IsInputCameraPreInspectionPrecisionAxis(WaferStageAxis axis)
+        {
+            if (!IsInputCameraPreInspectionMode())
+                return false;
+
+            return axis == WaferStageAxis.VisionX ||
+                   axis == WaferStageAxis.NeedleX ||
+                   axis == WaferStageAxis.WaferY;
+        }
+
         private async Task<int> AcquirePreInspectionInputStageAreaIfNeededAsync(CancellationToken ct)
         {
             try
@@ -2268,14 +2278,17 @@ namespace QMC.CDT320.Sequencing
                     if (result != 0)
                         return result;
 
-                    result = await WaitInputStageAxisInPositionResultAsync(
-                        stage,
-                        WaferStageAxis.VisionX,
-                        target,
-                        description,
-                        ct).ConfigureAwait(false);
-                    if (result != 0)
-                        return result;
+                    if (!IsInputCameraPreInspectionPrecisionAxis(WaferStageAxis.VisionX))
+                    {
+                        result = await WaitInputStageAxisInPositionResultAsync(
+                            stage,
+                            WaferStageAxis.VisionX,
+                            target,
+                            description,
+                            ct).ConfigureAwait(false);
+                        if (result != 0)
+                            return result;
+                    }
                 }
 
                 return CheckInputStageAxisInPosition(stage, WaferStageAxis.VisionX, target, description);
@@ -2316,14 +2329,17 @@ namespace QMC.CDT320.Sequencing
                 if (result != 0)
                     return result;
 
-                result = await WaitInputStageAxisInPositionResultAsync(
-                    stage,
-                    WaferStageAxis.NeedleX,
-                    target,
-                    description,
-                    ct).ConfigureAwait(false);
-                if (result != 0)
-                    return result;
+                if (!IsInputCameraPreInspectionPrecisionAxis(WaferStageAxis.NeedleX))
+                {
+                    result = await WaitInputStageAxisInPositionResultAsync(
+                        stage,
+                        WaferStageAxis.NeedleX,
+                        target,
+                        description,
+                        ct).ConfigureAwait(false);
+                    if (result != 0)
+                        return result;
+                }
 
                 return CheckInputStageAxisInPosition(stage, WaferStageAxis.NeedleX, target, description);
             }
@@ -2367,14 +2383,17 @@ namespace QMC.CDT320.Sequencing
                     if (result != 0)
                         return result;
 
-                    result = await WaitInputStageAxisInPositionResultAsync(
-                        stage,
-                        WaferStageAxis.WaferY,
-                        target,
-                        description,
-                        ct).ConfigureAwait(false);
-                    if (result != 0)
-                        return result;
+                    if (!IsInputCameraPreInspectionPrecisionAxis(WaferStageAxis.WaferY))
+                    {
+                        result = await WaitInputStageAxisInPositionResultAsync(
+                            stage,
+                            WaferStageAxis.WaferY,
+                            target,
+                            description,
+                            ct).ConfigureAwait(false);
+                        if (result != 0)
+                            return result;
+                    }
                 }
 
                 return CheckInputStageAxisInPosition(stage, WaferStageAxis.WaferY, target, description);
@@ -2412,7 +2431,8 @@ namespace QMC.CDT320.Sequencing
                         target,
                         Options != null && Options.FineMove,
                         "InputDieVisionPrepare",
-                        workAreaNeedleX),
+                        workAreaNeedleX,
+                        IsInputCameraPreInspectionPrecisionAxis(WaferStageAxis.WaferY)),
                     ct).ConfigureAwait(false);
 
                 if (result != 0)
@@ -2452,6 +2472,7 @@ namespace QMC.CDT320.Sequencing
                 int result;
                 BaseAxis item = ResolveInputStageAxis(stage, axis);
                 string guardTargetName = "AutoInputDieVisionPrepare;Side=" + Side + ";" + axis + ";" + description;
+                bool forceMove = IsInputCameraPreInspectionPrecisionAxis(axis);
                 if (axis == WaferStageAxis.VisionX)
                 {
                     bool preInspection = IsInputCameraPreInspectionMode();
@@ -2474,7 +2495,7 @@ namespace QMC.CDT320.Sequencing
                         using (MotionGuardRuntime.BeginAxisTeachingMove(item, target, guardTargetName))
                         {
                             result = await AwaitStepWithCancellationAsync(
-                                stage.MoveInputStageAxis(axis, target, Options != null && Options.FineMove),
+                                stage.MoveInputStageAxis(axis, target, Options != null && Options.FineMove, forceMove),
                                 ct).ConfigureAwait(false);
                         }
 
@@ -2502,7 +2523,7 @@ namespace QMC.CDT320.Sequencing
                     using (MotionGuardRuntime.BeginAxisTeachingMove(item, target, guardTargetName))
                     {
                         result = await AwaitStepWithCancellationAsync(
-                            stage.MoveInputStageAxis(axis, target, Options != null && Options.FineMove),
+                            stage.MoveInputStageAxis(axis, target, Options != null && Options.FineMove, forceMove),
                             ct).ConfigureAwait(false);
                     }
                 }
@@ -2731,6 +2752,14 @@ namespace QMC.CDT320.Sequencing
                     return Fail("INPUT-DIE-VISION-PREPARE-STAGE-AXIS", stage != null ? stage.Name : "InputStageUnit",
                         description + " 축을 찾을 수 없습니다. " + BuildInputStageAxisState(stage, axis, target));
 
+                double tolerance = item.Config != null && item.Config.InPositionTolerance > 0.0
+                    ? item.Config.InPositionTolerance
+                    : 0.05;
+                if (IsInputCameraPreInspectionPrecisionAxis(axis) &&
+                    !AxisMoveWaiter.IsMoveCompletedAtTarget(item, target, tolerance))
+                    return Fail("INPUT-DIE-VISION-PREPARE-STAGE-POSITION", stage.Name,
+                        description + " 최종 강한 완료 확인 실패. " + BuildInputStageAxisState(stage, axis, target));
+
                 if (item.IsMoving || item.IsAlarm || !IsAxisInPosition(item, target))
                     return Fail("INPUT-DIE-VISION-PREPARE-STAGE-POSITION", stage.Name,
                         description + " 최종 위치 확인 실패. " + BuildInputStageAxisState(stage, axis, target));
@@ -2902,6 +2931,13 @@ namespace QMC.CDT320.Sequencing
                 double tolerance = item != null && item.Config != null && item.Config.InPositionTolerance > 0.0
                     ? item.Config.InPositionTolerance
                     : 0.05;
+
+                if (IsInputCameraPreInspectionPrecisionAxis(axis))
+                    return PickerInputStageMoveHelper.CanSkipInputCameraPreInspectionMoveAtThreeDecimals(
+                        item,
+                        target,
+                        tolerance);
+
                 return AxisMoveWaiter.CanSkipMoveCommandAtTarget(item, target, tolerance);
             }
             catch
