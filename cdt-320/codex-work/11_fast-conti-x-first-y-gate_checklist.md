@@ -67,3 +67,19 @@
   경로 B([5-2]/[6])에서 계속 사용. 인코딩 BOM+CRLF 유지.
 - V7: 레포트 기재 — 경로별 순서 표, 택트 영향(경로 A=배치 첫 픽 한정), 현장 확인 항목.
 - 3회 반복 불필요: 1차 구현에서 체크리스트 전 항목 충족.
+
+## 개정 1 — [4-1] NeedleZ 확인/상승 추가 (2026-07-22, 사용자 지시 "2번")
+- 배경: Fast 사이클에 NeedleZ 상승 단계·확인 가드가 전무(갭). 정상 운전은 default/conti-폴백이
+  한 번 올린 뒤 유지되지만, 웨이퍼 교체 직후 NeedleZ Home/Safe 상태에서 첫 픽이 Fast 직행하면
+  니들 없이 하강하는 사고 구조. conti식 가드(1번)만으로는 Fast에 폴백이 없어 정지만 하고
+  니들이 올라오지 못함 → 확인 후 미달 시 동기 상승(2번)으로 구현.
+- [x] R1. `EnsureFastNeedleZAtPickTargetAsync` 신설 — 목표(_targetNeedleZ) 유효성 확인,
+  이미 위치면 통과(teaching 유지 로그, 추가 시간 0), 미달이면
+  `MoveInputStageAxisCommandAsync`(명령+완료대기)로 상승 후 `CheckInputStageAxisInPosition`.
+  default `PrepareNeedlePinZForPickAsync`(5510행) NeedleZ 파트 동일 패턴.
+  Needle Vacuum ON([5-1] 기존 처리)·EjectPinZ([4] 기존 처리)는 불변.
+- [x] R2. 호출 위치 = [4] EjectPinZ 확인 직후, [5-1] StageY/NeedleX 이송 시작 전 ([4-1]).
+  실패 시 [4]와 동일하게 pickerXMoveTask observe 후 반환. 양 경로(A/B) 공통 적용.
+- [x] R3. 검증 — 빌드 EXIT=0, 신규 경고 0. NeedleZ 상승 후 StageY/NeedleX 이동은 conti의
+  "NeedleZ 유지 동시 XY" 기존 정책(3173행)과 동일 상태라 안전. 상승은 기존 검증된
+  스테이지 이동 헬퍼 재사용이므로 하네스 추가 없이 코드 리뷰로 확인.

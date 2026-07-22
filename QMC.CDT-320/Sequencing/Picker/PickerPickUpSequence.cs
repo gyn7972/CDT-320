@@ -2163,6 +2163,17 @@ namespace QMC.CDT320.Sequencing
                     return ejectReadyResult;
                 }
 
+                // [4-1] NeedleZ 확인 — Fast에는 니들Z 상승 단계가 없었다(갭): 정상 운전에서는 default/conti-폴백이
+                //       한 번 올려둔 뒤 공정 중 유지되지만, 웨이퍼 교체 직후처럼 NeedleZ가 내려간 상태에서
+                //       첫 픽업이 Fast로 직행하면 니들 없이 하강하는 사고 구조였다.
+                //       현재 기준: 이미 픽업 목표 높이면 통과(추가 시간 0), 미달이면 작업 위치까지 동기 상승 후 진행.
+                int needleZReadyResult = await EnsureFastNeedleZAtPickTargetAsync(stage, ct).ConfigureAwait(false);
+                if (needleZReadyResult != 0)
+                {
+                    await ObserveFastMoveTaskAsync(pickerXMoveTask, "PickerX").ConfigureAwait(false);
+                    return needleZReadyResult;
+                }
+
                 // [5-1] StageY ∥ NeedleX 이송 시작 + 두 축 완료 시점 Needle Vacuum ON (완료 연속 처리, 비동기).
                 stageNeedleVacuumTask = RunFastStageNeedleTransferAndVacuumOnAsync(stage, ct);
 
@@ -2587,6 +2598,52 @@ namespace QMC.CDT320.Sequencing
                 processTarget,
                 "PickUp FastContiNode EjectPinZ Process 동기 이동",
                 ct).ConfigureAwait(false);
+        }
+
+        /// <summary>
+        /// [4-1] NeedleZ 확인/상승 — 이미 픽업 목표 높이(_targetNeedleZ)면 통과, 미달이면 작업 위치까지
+        /// 동기 상승(명령+완료대기) 후 위치 확인. default 경로 PrepareNeedlePinZForPickAsync(5510행)의
+        /// NeedleZ 파트와 동일 패턴 — 단 Needle Vacuum ON은 기존 [5-1] 완료 시점 처리를 그대로 쓰므로
+        /// 여기서는 수행하지 않고, EjectPinZ도 [4]가 별도 처리하므로 NeedleZ만 다룬다.
+        /// (conti식 가드만으로는 Fast에 폴백이 없어 니들이 올라오지 못하므로 상승을 직접 수행.)
+        /// </summary>
+        private async Task<int> EnsureFastNeedleZAtPickTargetAsync(InputStageUnit stage, CancellationToken ct)
+        {
+            BaseAxis needleZ = ResolveInputStageAxis(stage, WaferStageAxis.NeedleZ);
+            if (needleZ == null)
+                return Fail("PICKER-PICKUP-FASTCONTI-NEEDLEZ-AXIS", Name,
+                    "PickUp FastContiNode NeedleZ 축을 찾을 수 없습니다.");
+
+            if (double.IsNaN(_targetNeedleZ) || double.IsInfinity(_targetNeedleZ))
+                return Fail("PICKER-PICKUP-FASTCONTI-NEEDLEZ-TARGET", Name,
+                    "PickUp FastContiNode NeedleZ 픽업 목표가 유효하지 않습니다. target=" + _targetNeedleZ);
+
+            if (IsInputStageAxisAlreadyInPosition(stage, WaferStageAxis.NeedleZ, _targetNeedleZ))
+            {
+                WriteLog("PickerPickUpZ",
+                    Name + " PickUp FastContiNode NeedleZ teaching 유지. " +
+                    BuildInputStageAxisState(stage, WaferStageAxis.NeedleZ, _targetNeedleZ) + " - Ok");
+                return 0;
+            }
+
+            WriteLog("PickerPickUpZ",
+                Name + " PickUp FastContiNode NeedleZ 픽업 준비 상승 시작(미상승 상태 감지). " +
+                BuildInputStageAxisState(stage, WaferStageAxis.NeedleZ, _targetNeedleZ) + " - Start");
+
+            int moveResult = await MoveInputStageAxisCommandAsync(
+                stage,
+                WaferStageAxis.NeedleZ,
+                _targetNeedleZ,
+                "PickUp FastContiNode NeedleZ 픽업 준비 위치",
+                ct).ConfigureAwait(false);
+            if (moveResult != 0)
+                return moveResult;
+
+            return CheckInputStageAxisInPosition(
+                stage,
+                WaferStageAxis.NeedleZ,
+                _targetNeedleZ,
+                "PickUp FastContiNode NeedleZ 픽업 준비 위치");
         }
 
         /// <summary>
