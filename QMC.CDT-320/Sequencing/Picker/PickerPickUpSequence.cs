@@ -1175,7 +1175,11 @@ namespace QMC.CDT320.Sequencing
                 double alignOffsetX = _visionOffset.DeltaX;
                 double alignOffsetY = _visionOffset.DeltaY;
                 double alignOffsetT = _visionOffset.DeltaTheta;
+                // 비전검사에서 다이에 위치 어플라이를 했기때문에 여기서는 적용 안함.
+                // 테스트후 정확히 알려주겠음.
 
+                alignOffsetX +=0.02;
+                //alignOffsetY +=0.02;
                 // Pick 런타임 보정: Enable일 때만 필터 상태를 적용하고, Disable이면 0을 전달한다
                 // (Disable이어도 필터 학습·저장은 Bottom 검사 경로에서 계속된다).
                 bool pickRuntimeEnabled = PickRuntimeOffsetService.IsEnabled;
@@ -2812,7 +2816,7 @@ namespace QMC.CDT320.Sequencing
 
             // [8-1] 저속 구간 감시 → 벨로시티 오버라이드 → InPosition 대기.
             DateTime deadline = DateTime.UtcNow.AddMilliseconds(timeoutMs);
-            DateTime stoppedCheckDeadline = DateTime.UtcNow.AddMilliseconds(200);
+            DateTime stoppedCheckDeadline = DateTime.UtcNow.AddMilliseconds(2000);
             bool slowApplied = false;
 
             while (true)
@@ -2828,23 +2832,7 @@ namespace QMC.CDT320.Sequencing
                         "PickUp FastContiNode PickerZ Contact 중 알람. " +
                         BuildPickerAxisState(pickerZAxis, _targetPickerZ));
 
-                double remain = Math.Abs(_targetPickerZ - pickerZItem.ActualPosition);
-                if (!slowApplied && remain <= pickUpConfig.FastContactSlowZoneDistance)
-                {
-                    slowApplied = true;
-                    if (pickerZItem.IsMoving && ajinZ != null)
-                    {
-                        int velocityResult = ajinZ.TryOverrideVelocity(slowVelocity, slowAcceleration, slowDeceleration);
-                        WriteLog("PickerPickUpZ",
-                            Name + " PickUp FastContiNode 저속 구간 진입 — 벨로시티 오버라이드. " +
-                            "remain=" + remain.ToString("F6") +
-                            ", slowZone=" + pickUpConfig.FastContactSlowZoneDistance.ToString("F3") +
-                            ", slowVelocity=" + slowVelocity.ToString("F3") +
-                            ", result=" + velocityResult + " - Ok");
-                        // -4(이미 정지)는 도달 직전이므로 무시하고 InPosition 확인으로 진행한다.
-                    }
-                }
-
+                
                 if (IsPickerAxisInPosition(pickerZAxis, _targetPickerZ))
                 {
                     WriteLog("PickerPickUpZ",
@@ -2859,14 +2847,12 @@ namespace QMC.CDT320.Sequencing
                 {
                     return Fail("PICKER-PICKUP-FASTCONTI-Z-STOP", Name,
                         "PickUp FastContiNode PickerZ가 PickPosition 도달 전에 정지했습니다. " +
-                        "remain=" + remain.ToString("F6") +
-                        ", " + BuildPickerAxisState(pickerZAxis, _targetPickerZ));
+                         BuildPickerAxisState(pickerZAxis, _targetPickerZ));
                 }
 
                 if (DateTime.UtcNow >= deadline)
                     return Fail("PICKER-PICKUP-FASTCONTI-Z-TIMEOUT", Name,
-                        "PickUp FastContiNode PickerZ PickPosition 대기 timeout. timeoutMs=" + timeoutMs +
-                        ", remain=" + remain.ToString("F6"));
+                        "PickUp FastContiNode PickerZ PickPosition 대기 timeout. timeoutMs=" + timeoutMs );
 
                 await Task.Delay(5, ct).ConfigureAwait(false);
             }

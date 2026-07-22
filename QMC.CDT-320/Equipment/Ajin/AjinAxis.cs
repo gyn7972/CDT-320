@@ -974,11 +974,22 @@ namespace QMC.CDT320.Ajin
                 _motionDirection = targetPos > ActualPosition ? 1 : targetPos < ActualPosition ? -1 : 0;
                 int motionStopSerial = Volatile.Read(ref _motionStopSerial);
 
-                int ret;
+                int ret = 0;
                 lock (_sync)
                 {
                     AXM.SetAbsRelMode(AxisNo, true);
-                    ret = AXM.MovePosition(AxisNo, boardTargetPos, boardVelocity, boardAcceleration, boardDeceleration);
+                    DateTime deadline = DateTime.UtcNow.AddMilliseconds(1000);
+                    while (DateTime.UtcNow < deadline)
+                    {
+                        ret = AXM.MovePosition(AxisNo, boardTargetPos, boardVelocity, boardAcceleration, boardDeceleration);
+                        if (ret == 0)
+                        {
+                            break;
+
+                        }
+                    }
+                   
+                        
                 }
                 if (ret != 0)
                 {
