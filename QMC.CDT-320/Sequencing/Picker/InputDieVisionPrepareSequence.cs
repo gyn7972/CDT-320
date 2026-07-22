@@ -101,44 +101,103 @@ namespace QMC.CDT320.Sequencing
             for (int i = 0; i < _preparedItems.Count; i++)
             {
                 InputDieVisionPreparedItem item = _preparedItems[i];
-                VisionRequestHandle handle = item != null ? item.VisionRequest : null;
-                if (handle == null || handle.IsResultDone || !string.IsNullOrWhiteSpace(handle.Error))
-                    continue;
-
-                if (ct.IsCancellationRequested)
-                {
-                    handle.MarkError("Input die vision 준비 취소로 RESULT를 회수하지 못했습니다.");
-                    continue;
-                }
-
-                try
-                {
-                    VisionInspectionResult result = await AutoVisionRequestService.WaitInspectionStageAsync(
-                        handle,
-                        VisionInspectionCommands.Result,
-                        InputVisionTimeoutMs,
-                        ct).ConfigureAwait(false);
-                    if (result == null && string.IsNullOrWhiteSpace(handle.Error))
-                        handle.MarkError("Input die vision 실패 정리 중 RESULT를 회수하지 못했습니다.");
-                    WriteLog("InputDieVisionPrepareSequence",
-                        Name + " 실패 전 EPD 완료 WAFER RESULT 정리. die=" + (item.DieId ?? string.Empty) +
-                        ", pickerNo=" + item.PickerNo +
-                        ", groupId=" + handle.Request.GroupId +
-                        ", received=" + (result != null) + " - Check");
-                }
-                catch (OperationCanceledException)
-                {
-                    handle.MarkError("Input die vision 실패 정리 중 취소되었습니다.");
+                bool canceled = await DrainInputVisionRequestHandleAsync(
+                    item != null ? item.VisionRequest : null,
+                    "Input die vision 실패 정리",
+                    Name + " die=" + (item != null && item.DieId != null ? item.DieId : string.Empty) +
+                    ", pickerNo=" + (item != null ? item.PickerNo : 0),
+                    ct).ConfigureAwait(false);
+                if (canceled)
                     break;
-                }
-                catch (Exception ex)
-                {
-                    handle.MarkError("Input die vision 실패 정리 예외. " + ex.Message);
-                    WriteLog("InputDieVisionPrepareSequence",
-                        Name + " 실패 전 WAFER RESULT 정리 예외. groupId=" + handle.Request.GroupId +
-                        ", error=" + ex.Message + " - Check");
-                }
             }
+        }
+
+        /// <summary>실패/폐기 경로 핸들 정리 공개 진입점 — 조기 허가 경로(mark 시퀀스 실패 시)에서 사용.</summary>
+        public Task DrainPreparedResultsAfterFailureAsync(CancellationToken ct)
+        {
+            return DrainOutstandingWaferResultsAfterFailureAsync(ct);
+        }
+
+        /// <summary>
+        /// EPD 완료·RESULT 미회수 핸들 1건 드레인 코어 — 회수 시도 후 실패 시 MarkError.
+        /// 이미 회수/에러 처리된 핸들은 그대로 통과. 반환값: 취소로 중단되었으면 true.
+        /// 조기 허가(EPD 시점 허가) 폐기 경로들(허가 스토어/픽업 배치 정리)과 공용.
+        /// </summary>
+        internal static async Task<bool> DrainInputVisionRequestHandleAsync(
+            VisionRequestHandle handle,
+            string reason,
+            string logOwner,
+            CancellationToken ct)
+        {
+            if (handle == null || handle.IsResultDone || !string.IsNullOrWhiteSpace(handle.Error))
+                return false;
+
+            if (ct.IsCancellationRequested)
+            {
+                handle.MarkError(reason + " 취소로 RESULT를 회수하지 못했습니다.");
+                return true;
+            }
+
+            try
+            {
+                VisionInspectionResult result = await AutoVisionRequestService.WaitInspectionStageAsync(
+                    handle,
+                    VisionInspectionCommands.Result,
+                    InputVisionTimeoutMs,
+                    ct).ConfigureAwait(false);
+                if (result == null && string.IsNullOrWhiteSpace(handle.Error))
+                    handle.MarkError(reason + " 중 RESULT를 회수하지 못했습니다.");
+                QMC.Common.Log.Write("Main", "SYSTEM", "InputDieVisionPrepareSequence",
+                    (logOwner ?? "-") + " EPD 완료 WAFER RESULT 정리. reason=" + reason +
+                    ", groupId=" + handle.Request.GroupId +
+                    ", received=" + (result != null) + " - Check");
+                return false;
+            }
+            catch (OperationCanceledException)
+            {
+                handle.MarkError(reason + " 중 취소되었습니다.");
+                return true;
+            }
+            catch (Exception ex)
+            {
+                handle.MarkError(reason + " 예외. " + ex.Message);
+                QMC.Common.Log.Write("Main", "SYSTEM", "InputDieVisionPrepareSequence",
+                    (logOwner ?? "-") + " WAFER RESULT 정리 예외. reason=" + reason +
+                    ", groupId=" + handle.Request.GroupId +
+                    ", error=" + ex.Message + " - Check");
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// RESULT 회수 코어 — WaitInspectionStageAsync(Result) → ToAlignResult(Wafer) 변환,
+        /// 성공 시 WaferVisionResultStore.RecordAlign 기록 후 offset 반환 (실패는 null).
+        /// CollectVisionResultsAsync(내부 경로)와 픽업 CalculatePickTargets(조기 허가 경로)가 공용.
+        /// </summary>
+        internal static async Task<VisionAlignResult> CollectInputDieVisionResultCoreAsync(
+            VisionRequestHandle handle,
+            CancellationToken ct)
+        {
+            VisionInspectionResult correlatedResult = await AutoVisionRequestService.WaitInspectionStageAsync(
+                handle,
+                VisionInspectionCommands.Result,
+                InputVisionTimeoutMs,
+                ct).ConfigureAwait(false);
+            MatchResultDto match = correlatedResult != null ? correlatedResult.MatchResult : null;
+
+            VisionAlignResult offset = VisionCameraCalibrationTransform.ToAlignResult(
+                AutoVisionChannel.Wafer,
+                match,
+                0.0);
+
+            if (offset != null)
+            {
+                QMC.CDT_320.Equipment.Vision.WaferVisionResultStore.RecordAlign(
+                    VisionAlignTargetIds.InputPickDie,
+                    offset);
+            }
+
+            return offset;
         }
 
         private Task<int> ExecuteStepAsync(CancellationToken ct)
@@ -665,25 +724,11 @@ namespace QMC.CDT320.Sequencing
 
                     if (_currentItem.VisionOffset == null)
                     {
-                        VisionInspectionResult correlatedResult = await AutoVisionRequestService.WaitInspectionStageAsync(
+                        // 현재 기준: 회수 코어를 조기 허가 경로(픽업 CalculatePickTargets)와 공용화했다 — 동작 불변.
+                        _visionOffset = await CollectInputDieVisionResultCoreAsync(
                             _currentItem.VisionRequest,
-                            VisionInspectionCommands.Result,
-                            InputVisionTimeoutMs,
                             ct).ConfigureAwait(false);
-                        MatchResultDto match = correlatedResult != null ? correlatedResult.MatchResult : null;
-
-                        _visionOffset = VisionCameraCalibrationTransform.ToAlignResult(
-                            AutoVisionChannel.Wafer,
-                            match,
-                            0.0);
                         _currentItem.VisionOffset = _visionOffset;
-
-                        if (_visionOffset != null)
-                        {
-                            QMC.CDT_320.Equipment.Vision.WaferVisionResultStore.RecordAlign(
-                                VisionAlignTargetIds.InputPickDie,
-                                _visionOffset);
-                        }
                     }
                     else
                     {
@@ -899,6 +944,10 @@ namespace QMC.CDT320.Sequencing
                         ", updated=" + updatedCount +
                         ", skipped=" + skippedCount + " - Ok");
                 }
+
+                // 조기 허가 경로 구분용: 기록/전파까지 완료된 항목 표시 — 픽업 측 회수 루프가 중복 적용하지 않게 한다.
+                if (_currentItem != null)
+                    _currentItem.VisionOffsetApplied = true;
 
                 SaveCurrentStateToItem();
                 _inspectionCursor++;

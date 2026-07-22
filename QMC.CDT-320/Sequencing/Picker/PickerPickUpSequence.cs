@@ -68,6 +68,11 @@ namespace QMC.CDT320.Sequencing
             public string DieId;
             public InputStagePickTarget PickTarget;
             public VisionAlignResult VisionOffset;
+            // 조기 허가 경로(EPD 시점 허가): RESULT 미회수 핸들과 요청 인덱스,
+            // 그리고 자재 기록/전파 적용 여부 — CalculatePickTargets에서 회수/적용에 사용.
+            public QMC.CDT320.VisionComm.VisionRequestHandle VisionRequest;
+            public int VisionRequestIndex;
+            public bool VisionOffsetApplied;
             public double TargetStageY;
             public double TargetPickerX;
             public double TargetPickerY;
@@ -158,10 +163,57 @@ namespace QMC.CDT320.Sequencing
             {
                 if (!keepCurrentState)
                 {
+                    // 조기 허가 경로: CalculatePickTargets 전에 종료되면 배치에 RESULT 미회수 핸들이 남는다 — 드레인.
+                    DrainPickBatchVisionHandles("PickUp 시퀀스 종료 정리");
                     ReleaseInputReservationIfNeeded();
                     ReleasePickerWorkArea();
                     ReleaseInputStageArea();
                 }
+            }
+        }
+
+        /// <summary>배치에 남은 RESULT 미회수 핸들을 백그라운드로 드레인 — 회수 완료/에러 핸들은 코어에서 자연 통과.</summary>
+        private void DrainPickBatchVisionHandles(string reason)
+        {
+            try
+            {
+                List<QMC.CDT320.VisionComm.VisionRequestHandle> pendingHandles = null;
+                for (int i = 0; i < _pickBatchItems.Count; i++)
+                {
+                    PickUpBatchItem item = _pickBatchItems[i];
+                    if (item == null || item.VisionRequest == null || item.VisionOffset != null)
+                        continue;
+
+                    if (pendingHandles == null)
+                        pendingHandles = new List<QMC.CDT320.VisionComm.VisionRequestHandle>();
+                    pendingHandles.Add(item.VisionRequest);
+                }
+
+                if (pendingHandles == null)
+                    return;
+
+                List<QMC.CDT320.VisionComm.VisionRequestHandle> handles = pendingHandles;
+                string owner = Name;
+                Task.Run(async () =>
+                {
+                    for (int i = 0; i < handles.Count; i++)
+                    {
+                        try
+                        {
+                            await InputDieVisionPrepareSequence.DrainInputVisionRequestHandleAsync(
+                                handles[i],
+                                reason,
+                                owner,
+                                CancellationToken.None).ConfigureAwait(false);
+                        }
+                        catch
+                        {
+                        }
+                    }
+                });
+            }
+            catch
+            {
             }
         }
 
@@ -227,9 +279,9 @@ namespace QMC.CDT320.Sequencing
                 case PickerPickUpStep.MoveInputVisionToAvoidForPickerMove:
                     return MoveInputVisionToAvoidForPickerMoveAsync(ct);
 
-                // 검사 완료된 배치의 픽업 대상 계산
+                // 검사 완료된 배치의 픽업 대상 계산 (조기 허가 경로는 여기서 RESULT를 회수)
                 case PickerPickUpStep.CalculatePickTargets:
-                    return Task.FromResult(CalculatePickTargets(true));
+                    return CalculatePickTargetsAsync(true, ct);
 
                 // 다음 픽업 대상 선택
                 case PickerPickUpStep.SelectNextPickTarget:
@@ -493,6 +545,9 @@ namespace QMC.CDT320.Sequencing
                         DieId = prepared.DieId,
                         PickTarget = prepared.PickTarget,
                         VisionOffset = prepared.VisionOffset,
+                        VisionRequest = prepared.VisionRequest,
+                        VisionRequestIndex = prepared.VisionRequestIndex,
+                        VisionOffsetApplied = prepared.VisionOffsetApplied,
                         DiePicked = prepared.DiePicked
                     });
                 }
@@ -591,6 +646,9 @@ namespace QMC.CDT320.Sequencing
                         DieId = permitted.DieId,
                         PickTarget = permitted.PickTarget,
                         VisionOffset = permitted.VisionOffset,
+                        VisionRequest = permitted.VisionRequest,
+                        VisionRequestIndex = permitted.VisionRequestIndex,
+                        VisionOffsetApplied = permitted.VisionOffsetApplied,
                         DiePicked = permitted.DiePicked
                     };
                     _pickBatchItems.Add(batchItem);
@@ -615,10 +673,14 @@ namespace QMC.CDT320.Sequencing
                             permitted.DieId + ", pickerNo=" + permitted.PickerNo);
                     }
 
-                    if (permitted.VisionOffset == null)
+                    // 기존 조건: VisionOffset == null이면 Fail — RESULT까지 회수된 허가만 유효했다.
+                    // 현재 기준(조기 허가): EPD 완료 핸들만 보유한 허가도 유효 — RESULT는
+                    //           CalculatePickTargets에서 회수한다.
+                    if (permitted.VisionOffset == null &&
+                        !(permitted.ExposureCompleted && permitted.VisionRequest != null))
                     {
                         return Fail("PICKER-PICKUP-PERMISSION-OFFSET-MISSING", "Vision",
-                            "InputCamera Mark 검사 허가에 VisionOffset이 없습니다. die=" +
+                            "InputCamera Mark 검사 허가에 VisionOffset도 Vision 핸들도 없습니다. die=" +
                             permitted.DieId + ", pickerNo=" + permitted.PickerNo);
                     }
                 }
@@ -1125,10 +1187,25 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
-        private int CalculatePickTargets(bool moveVisionAfterCalculation = false)
+        // 기존 조건: 동기 메서드 CalculatePickTargets(bool) — 배치의 모든 항목이 VisionOffset을 보유한 상태로 진입했다.
+        // 현재 기준(조기 허가): EPD 핸들만 보유한 항목의 RESULT를 좌표 계산 직전에 회수한다 — async 전환.
+        private async Task<int> CalculatePickTargetsAsync(bool moveVisionAfterCalculation, CancellationToken ct)
         {
             try
             {
+                int collectResult = await CollectPendingBatchVisionResultsAsync(ct).ConfigureAwait(false);
+                if (collectResult != 0)
+                    return collectResult;
+
+                if (_pickBatchItems.Count == 0)
+                {
+                    WriteLog("PickerPickUpSequence",
+                        Name + " Input die vision RESULT 회수 후 남은 PickUp 대상이 없어 완료 처리합니다. side=" + Side + " - Check");
+                    CurrentStep = PickerPickUpStep.Complete;
+                    ReleaseInputStageArea();
+                    return 0;
+                }
+
                 _pickCursor = 0;
 
                 for (int i = 0; i < _pickBatchItems.Count; i++)
@@ -1147,10 +1224,265 @@ namespace QMC.CDT320.Sequencing
                     : PickerPickUpStep.SelectNextPickTarget;
                 return 0;
             }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
             catch (Exception ex)
             {
                 return Fail("PICKER-PICKUP-TARGET-BATCH-EX", Name,
                     "Pick target batch calculation failed: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        /// <summary>
+        /// 조기 허가(EPD 시점 허가) 배치의 RESULT 회수/적용 — 좌표 계산 직전 수행.
+        /// 항목 순서(피커 4→1)대로: ①VisionOffset이 없으면 회수 코어로 RESULT 회수(실패 시 해당 Die SKIP —
+        /// prepare의 skip 처리와 동일 경로) ②자재 기록 미적용 항목은 InputPickVision 기록 적용.
+        /// 루프 후 픽업이 기록을 적용한 마지막 항목이 배치 마지막이면 미촬영 다이 좌표 전파를 1회 수행
+        /// (prepare ApplyInputDieVisionOffset의 마지막 다이 처리와 동일). 내부 경로/이미 적용된 항목은 전부 통과.
+        /// </summary>
+        private async Task<int> CollectPendingBatchVisionResultsAsync(CancellationToken ct)
+        {
+            List<PickUpBatchItem> failedItems = null;
+            PickUpBatchItem lastAppliedItem = null;
+
+            for (int i = 0; i < _pickBatchItems.Count; i++)
+            {
+                ct.ThrowIfCancellationRequested();
+
+                PickUpBatchItem item = _pickBatchItems[i];
+                if (item == null)
+                    continue;
+
+                if (item.VisionOffset == null)
+                {
+                    if (item.VisionRequest == null)
+                    {
+                        return Fail("PICKER-PICKUP-VISION-COLLECT-HANDLE", "Vision",
+                            "RESULT 회수 대상 항목에 Vision 핸들이 없습니다. die=" + item.DieId +
+                            ", pickerNo=" + item.PickerNo);
+                    }
+
+                    WriteLog("PickerPickUpSequence",
+                        Name + " Input die vision RESULT 회수 시작(조기 허가 — CalculatePickTargets 시점). " +
+                        "die=" + item.DieId +
+                        ", pickerNo=" + item.PickerNo +
+                        ", requestIndex=" + item.VisionRequestIndex + " - Start");
+
+                    VisionAlignResult offset = await InputDieVisionPrepareSequence.CollectInputDieVisionResultCoreAsync(
+                        item.VisionRequest,
+                        ct).ConfigureAwait(false);
+
+                    if (offset == null)
+                    {
+                        int skipResult = SkipBatchItemForVisionResultFailure(item);
+                        if (skipResult != 0)
+                            return skipResult;
+
+                        if (failedItems == null)
+                            failedItems = new List<PickUpBatchItem>();
+                        failedItems.Add(item);
+                        continue;
+                    }
+
+                    item.VisionOffset = offset;
+                    WriteLog("PickerPickUpSequence",
+                        Name + " Input die vision RESULT 회수 완료(조기 허가). die=" + item.DieId +
+                        ", pickerNo=" + item.PickerNo +
+                        ", dx=" + offset.DeltaX +
+                        ", dy=" + offset.DeltaY +
+                        ", dt=" + offset.DeltaTheta + " - Ok");
+                }
+
+                if (!item.VisionOffsetApplied)
+                {
+                    int applyResult = ApplyInputPickVisionRecordForBatchItem(item);
+                    if (applyResult != 0)
+                        return applyResult;
+
+                    item.VisionOffsetApplied = true;
+                    lastAppliedItem = item;
+                }
+            }
+
+            if (failedItems != null)
+            {
+                for (int i = 0; i < failedItems.Count; i++)
+                    _pickBatchItems.Remove(failedItems[i]);
+            }
+
+            // 마지막 다이 오프셋의 미촬영 다이 전파 — prepare Apply 루프의 마지막 반복과 동일 의미:
+            // 픽업이 이번에 기록을 적용한 항목이 있고, 그 항목이 (SKIP 제거 후) 배치 마지막일 때 1회.
+            if (lastAppliedItem != null &&
+                _pickBatchItems.Count > 0 &&
+                ReferenceEquals(_pickBatchItems[_pickBatchItems.Count - 1], lastAppliedItem))
+            {
+                int propagateResult = ApplyLastVisionOffsetToPendingDiesForBatch(lastAppliedItem);
+                if (propagateResult != 0)
+                    return propagateResult;
+            }
+
+            return 0;
+        }
+
+        /// <summary>RESULT 회수 실패 Die SKIP — prepare SkipCurrentVisionFailedDieAndContinue와 동일 자재 처리.</summary>
+        private int SkipBatchItemForVisionResultFailure(PickUpBatchItem item)
+        {
+            try
+            {
+                string dieId = item != null && item.DieId != null ? item.DieId : string.Empty;
+                int pickerNo = item != null ? item.PickerNo : 0;
+
+                MaterialStateService.ReleaseInputStagePickReservation(dieId, PickerLocationKind, pickerNo);
+                MaterialStateService.RemoveInspection(dieId, "InputPickVision");
+
+                string message;
+                bool syncOk = MaterialStateService.ApplyManualDieState(
+                    dieId,
+                    false,
+                    DieResult.Unknown,
+                    0,
+                    "",
+                    "PickUpVisionResultNgSkip",
+                    out message);
+                if (!syncOk)
+                {
+                    return Fail("PICKER-PICKUP-VISION-SKIP-FAIL", "Material",
+                        "Input die vision RESULT 실패 Die SKIP 처리에 실패했습니다. die=" + dieId +
+                        ", pickerNo=" + pickerNo +
+                        ", message=" + message);
+                }
+
+                WriteLog("PickerPickUpSequence",
+                    Name + " Input die vision RESULT 실패 Die를 SKIP 처리하고 다음 항목으로 진행합니다. " +
+                    "die=" + dieId +
+                    ", pickerNo=" + pickerNo + " - Ok");
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                return Fail("PICKER-PICKUP-VISION-SKIP-EX", "Material",
+                    "Input die vision RESULT 실패 Die SKIP 처리 중 예외가 발생했습니다. die=" +
+                    (item != null ? item.DieId : "-") +
+                    ", error=" + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        /// <summary>InputPickVision 자재 기록 — prepare ApplyInputDieVisionOffset의 기록부와 동일 내용.</summary>
+        private int ApplyInputPickVisionRecordForBatchItem(PickUpBatchItem item)
+        {
+            try
+            {
+                VisionOffset offset = new VisionOffset
+                {
+                    X = item.VisionOffset.DeltaX,
+                    Y = item.VisionOffset.DeltaY,
+                    R = item.VisionOffset.DeltaTheta,
+                    IsValid = true
+                };
+
+                InputStageUnit stage = ResolveInputStage();
+                MaterialStateService.UpsertInspection(item.DieId, new DieInspectionRecord
+                {
+                    InspectionType = "InputPickVision",
+                    Result = MaterialInspectionResult.Ok,
+                    Offset = offset,
+                    Alignments = new List<InspectionAlignmentSnapshot>
+                    {
+                        BuildInputStageAlignmentSnapshot(stage, "Input", offset)
+                    },
+                    Measurements = new List<InspectionMeasurement>
+                    {
+                        BuildMeasurement("InputAlignOffsetX", item.VisionOffset.DeltaX, "mm", MaterialInspectionResult.Ok),
+                        BuildMeasurement("InputAlignOffsetY", item.VisionOffset.DeltaY, "mm", MaterialInspectionResult.Ok),
+                        BuildMeasurement("InputAlignOffsetT", item.VisionOffset.DeltaTheta, "deg", MaterialInspectionResult.Ok),
+                        BuildBooleanMeasurement("InputVisionResult", true)
+                    }
+                });
+
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                return Fail("PICKER-PICKUP-VISION-RECORD-EX", Name,
+                    "Input die vision offset 자재 기록 중 예외가 발생했습니다. die=" +
+                    (item != null ? item.DieId : "-") +
+                    ", error=" + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        /// <summary>마지막 회수 오프셋의 미촬영 다이 좌표 전파 — prepare Apply의 마지막 다이 처리(한계 검사 포함)와 동일.</summary>
+        private int ApplyLastVisionOffsetToPendingDiesForBatch(PickUpBatchItem lastItem)
+        {
+            try
+            {
+                InputStageUnit stage = ResolveInputStage();
+
+                double cameraOffsetX;
+                double cameraOffsetY;
+                if (!InputPickerPickTargetResolver.TryResolveInputCameraToBottomOffsets(
+                    Context != null ? Context.Machine : null,
+                    out cameraOffsetX,
+                    out cameraOffsetY))
+                {
+                    cameraOffsetX = 0.0;
+                    cameraOffsetY = 0.0;
+                }
+
+                double pendingMapOffsetX = lastItem.VisionOffset.DeltaX - cameraOffsetX;
+                double pendingMapOffsetY = -(lastItem.VisionOffset.DeltaY - cameraOffsetY);
+                string limitReason;
+                if (stage != null &&
+                    !stage.IsManualDieDetectOffsetWithinLimit(pendingMapOffsetX, pendingMapOffsetY, out limitReason))
+                {
+                    return Fail("PICKER-PICKUP-PENDING-OFFSET-LIMIT", "Material",
+                        "마지막 Input Vision 보정값이 허용 범위를 벗어나 미촬영 Die 좌표에 적용할 수 없습니다. " +
+                        "referenceDie=" + lastItem.DieId +
+                        ", offsetX=" + pendingMapOffsetX.ToString("F6") +
+                        ", offsetY=" + pendingMapOffsetY.ToString("F6") +
+                        ", reason=" + limitReason);
+                }
+
+                int updatedCount;
+                int skippedCount;
+                string updateDetail;
+                if (!MaterialStateService.TryApplyLastVisionOffsetToPendingInputDies(
+                    lastItem.DieId,
+                    pendingMapOffsetX,
+                    pendingMapOffsetY,
+                    "InputLastPreparedVisionOffset:" + lastItem.DieId,
+                    out updatedCount,
+                    out skippedCount,
+                    out updateDetail))
+                {
+                    return Fail("PICKER-PICKUP-PENDING-OFFSET-APPLY", "Material", updateDetail);
+                }
+
+                WriteLog("PickerPickUpSequence",
+                    Name + " 조기 허가 배치 마지막 촬영 결과를 아직 촬영하지 않은 Die 좌표에 적용했습니다. " +
+                    "referenceDie=" + lastItem.DieId +
+                    ", appliedOffsetX=" + pendingMapOffsetX.ToString("F6") +
+                    ", appliedOffsetY=" + pendingMapOffsetY.ToString("F6") +
+                    ", updated=" + updatedCount +
+                    ", skipped=" + skippedCount + " - Ok");
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                return Fail("PICKER-PICKUP-PENDING-OFFSET-EX", "Material",
+                    "미촬영 Die 좌표 전파 중 예외가 발생했습니다. referenceDie=" +
+                    (lastItem != null ? lastItem.DieId : "-") +
+                    ", error=" + ex.Message);
             }
             finally
             {
@@ -4868,7 +5200,7 @@ namespace QMC.CDT320.Sequencing
                 if (result != 0)
                     return result;
 
-                result = CalculatePickTargets();
+                result = await CalculatePickTargetsAsync(false, ct).ConfigureAwait(false);
                 if (result != 0)
                     return result;
 
@@ -4982,7 +5314,7 @@ namespace QMC.CDT320.Sequencing
                 if (result != 0)
                     return result;
 
-                result = CalculatePickTargets();
+                result = await CalculatePickTargetsAsync(false, ct).ConfigureAwait(false);
                 if (result != 0)
                     return result;
 
@@ -5074,7 +5406,7 @@ namespace QMC.CDT320.Sequencing
                 };
                 SaveCurrentStateToBatchItem();
 
-                result = CalculatePickTargets();
+                result = await CalculatePickTargetsAsync(false, ct).ConfigureAwait(false);
                 if (result != 0)
                     return result;
 
@@ -5166,7 +5498,7 @@ namespace QMC.CDT320.Sequencing
                 };
                 SaveCurrentStateToBatchItem();
 
-                result = CalculatePickTargets();
+                result = await CalculatePickTargetsAsync(false, ct).ConfigureAwait(false);
                 if (result != 0)
                     return result;
 
@@ -7445,6 +7777,8 @@ namespace QMC.CDT320.Sequencing
                 "side=" + Side +
                 ", boundary=" + (boundary ?? "-") +
                 ", currentPickerNo=" + _currentPickerNo + " - Ok");
+            // 조기 허가 경로: 드레인 중단된 배치의 RESULT 미회수 핸들 정리 (스토어 잔여분은 Clear→ReleaseItems가 정리).
+            DrainPickBatchVisionHandles("웨이퍼 완료 드레인 정리");
             InputCameraPickUpPermissionStore.Clear(Side);
             ReleaseInputReservationIfNeeded();
             ReleaseInputStageArea();
