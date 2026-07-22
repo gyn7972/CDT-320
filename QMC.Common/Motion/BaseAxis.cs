@@ -399,8 +399,9 @@ namespace QMC.Common.Motion
         /// 다른 곳에서 발행된 이동(비동기/명령 전용)에 합류해 완료까지 대기한다 — AxisMoveWaiter 대체(R3).
         /// 10ms 폴링(UpdateStatus로 상태 갱신 — 시뮬 프로파일도 이 호출로 전진), 알람/취소/타임아웃 처리 후
         /// Command↔Target 톨러런스 확인만 수행. 0=완료, 음수=실패(사유는 LastMotionFailureMessage).
+        /// 실장비 축은 오버라이드해 보드 상태를 직접 조회할 수 있다(AjinAxis: GetInMotion/GetCommandPosition).
         /// </summary>
-        public async Task<int> WaitMoveCompleteAsync(double target, int timeoutMs, CancellationToken ct)
+        public virtual async Task<int> WaitMoveCompleteAsync(double target, int timeoutMs, CancellationToken ct)
         {
             try
             {
