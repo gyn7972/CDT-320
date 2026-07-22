@@ -90,10 +90,20 @@ namespace QMC.CDT320.Sequencing
                 ReleasePreInspectionInputStageArea();
                 if (!_completedSuccessfully)
                 {
+                    // CycleTime ERR 초크 포인트 — 실패/취소 종료 시 활성 촬영 사이클 일괄 ERR.
+                    QMC.CDT320.Diagnostics.HandlerTactLog.CycleErrorAll(
+                        "INPUTVISION|" + (Side == PickerSequenceSide.Front ? "F" : "R"));
                     await DrainOutstandingWaferResultsAfterFailureAsync(ct).ConfigureAwait(false);
                     ReleasePreparedReservationsIfNeeded();
                 }
             }
+        }
+
+        /// <summary>CycleTime 계측 키 — 촬영 사이클 동안 불변(피커+다이).</summary>
+        private string TactRequestId()
+        {
+            return (Side == PickerSequenceSide.Front ? "F" : "R") + _currentPickerNo + "-" +
+                (string.IsNullOrEmpty(_currentDieId) ? ("c" + _inspectionCursor) : _currentDieId);
         }
 
         private async Task DrainOutstandingWaferResultsAfterFailureAsync(CancellationToken ct)
@@ -565,18 +575,35 @@ namespace QMC.CDT320.Sequencing
                         ", needleX=" + targetNeedleX.ToString("F6") +
                         ", reason=" + areaReason);
 
+                // CycleTime 계측 시작 (Auto 운전만) — 다이 1개 촬영 사이클(위치 이동~EPD).
+                if (Options != null && Options.RunMode == SequenceRunMode.Auto)
+                    QMC.CDT320.Diagnostics.HandlerTactLog.CycleStart(
+                        "INPUTVISION",
+                        TactRequestId(),
+                        Side == PickerSequenceSide.Front ? "FRONT" : "REAR",
+                        _currentPickerNo,
+                        _pickTarget != null ? _pickTarget.OrderIndex : _inspectionCursor,
+                        _currentDieId);
+
+                QMC.CDT320.Diagnostics.HandlerTactLog.MotionStart("INPUTVISION", TactRequestId(), "EjectPinZ");
                 int result = await EnsureEjectPinZAvoidForStageTravelAsync(stage, "Input die vision 준비", ct).ConfigureAwait(false);
                 if (result != 0)
                     return result;
+                QMC.CDT320.Diagnostics.HandlerTactLog.MotionEnd("INPUTVISION", TactRequestId(), "EjectPinZ");
 
+                QMC.CDT320.Diagnostics.HandlerTactLog.MotionStart("INPUTVISION", TactRequestId(), "StageT");
                 result = await EnsureWaferAlignThetaPositionAsync(stage, "Input die vision 준비 전 StageT 보정 위치", ct).ConfigureAwait(false);
                 if (result != 0)
                     return result;
+                QMC.CDT320.Diagnostics.HandlerTactLog.MotionEnd("INPUTVISION", TactRequestId(), "StageT");
 
+                QMC.CDT320.Diagnostics.HandlerTactLog.MotionStart("INPUTVISION", TactRequestId(), "StageZ");
                 result = await EnsureInputStageZProcessForVisionAsync(stage, "Input die vision 검사", ct).ConfigureAwait(false);
                 if (result != 0)
                     return result;
+                QMC.CDT320.Diagnostics.HandlerTactLog.MotionEnd("INPUTVISION", TactRequestId(), "StageZ");
 
+                QMC.CDT320.Diagnostics.HandlerTactLog.MotionStart("INPUTVISION", TactRequestId(), "Vision/StageXY");
                 result = await MoveInputStageVisionPointForPickerAsync(
                     stage,
                     targetX,
@@ -585,6 +612,7 @@ namespace QMC.CDT320.Sequencing
                     ct).ConfigureAwait(false);
                 if (result != 0)
                     return result;
+                QMC.CDT320.Diagnostics.HandlerTactLog.MotionEnd("INPUTVISION", TactRequestId(), "Vision/StageXY");
 
                 // 공정 중 NeedleZ는 이동하지 않는다. 픽업 준비 상승은 PickerPickUpSequence가 수행한다.
                 CurrentStep = InputDieVisionPrepareStep.StartInputDieVisionInspection;
@@ -660,6 +688,7 @@ namespace QMC.CDT320.Sequencing
                         VisionInspectionOperations.Match,
                         VisionResultTimings.Deferred,
                         string.Empty);
+                    QMC.CDT320.Diagnostics.HandlerTactLog.MotionStart("INPUTVISION", TactRequestId(), "촬영(EPD)");
                     VisionRequestHandle requestHandle = await AutoVisionRequestService.StartInspectionRequestAsync(
                         requestContext,
                         InputVisionTimeoutMs,
@@ -671,6 +700,7 @@ namespace QMC.CDT320.Sequencing
                             ", pickerNo=" + _currentPickerNo +
                             ", requestIndex=" + requestIndex);
                     }
+                    QMC.CDT320.Diagnostics.HandlerTactLog.MotionEnd("INPUTVISION", TactRequestId(), "촬영(EPD)");
 
                     _currentItem.VisionRequest = requestHandle;
                     _currentItem.ExposureCompleted = true;
@@ -681,6 +711,9 @@ namespace QMC.CDT320.Sequencing
                     _currentDieId +
                     ", pickerNo=" + _currentPickerNo +
                     ", requestIndex=" + requestIndex + " - Ok");
+
+                // CycleTime 정상 종결 — 촬영 사이클은 EPD 확인 시점까지 (RESULT 회수는 픽업 시점 별도).
+                QMC.CDT320.Diagnostics.HandlerTactLog.CycleResult("INPUTVISION", TactRequestId());
 
                 SaveCurrentStateToItem();
                 _inspectionCursor++;

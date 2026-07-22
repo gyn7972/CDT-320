@@ -163,6 +163,10 @@ namespace QMC.CDT320.Sequencing
             {
                 if (!keepCurrentState)
                 {
+                    // CycleTime ERR 초크 포인트 — 실패/취소 종료 시 활성 계측 사이클 일괄 ERR.
+                    // (정상 완료 시엔 RESULT로 이미 닫혀 활성이 없으므로 무해.)
+                    QMC.CDT320.Diagnostics.HandlerTactLog.CycleErrorAll(
+                        "PICKUP|" + (Side == PickerSequenceSide.Front ? "F" : "R"));
                     // 조기 허가 경로: CalculatePickTargets 전에 종료되면 배치에 RESULT 미회수 핸들이 남는다 — 드레인.
                     DrainPickBatchVisionHandles("PickUp 시퀀스 종료 정리");
                     ReleaseInputReservationIfNeeded();
@@ -1635,8 +1639,26 @@ namespace QMC.CDT320.Sequencing
                 ", pickIndex=" + (_pickCursor + 1) +
                 "/" + _pickBatchItems.Count + " - Ok");
 
+            // CycleTime 계측 시작 (Auto 운전만) — 모터 세그먼트는 이동 헬퍼에서 자동 기록된다.
+            if (Options != null && Options.RunMode == SequenceRunMode.Auto)
+                QMC.CDT320.Diagnostics.HandlerTactLog.CycleStart(
+                    "PICKUP",
+                    TactRequestId(),
+                    Side == PickerSequenceSide.Front ? "FRONT" : "REAR",
+                    _currentPickerNo,
+                    _currentBatchItem != null && _currentBatchItem.PickTarget != null
+                        ? _currentBatchItem.PickTarget.OrderIndex : _pickCursor,
+                    _currentDieId);
+
             CurrentStep = PickerPickUpStep.MoveOppositePickerToAvoidForPickerMove;
             return 0;
+        }
+
+        /// <summary>CycleTime 계측 키 — 사이클 동안 불변(피커+다이).</summary>
+        private string TactRequestId()
+        {
+            return (Side == PickerSequenceSide.Front ? "F" : "R") + _currentPickerNo + "-" +
+                (string.IsNullOrEmpty(_currentDieId) ? ("c" + _pickCursor) : _currentDieId);
         }
 
         private async Task<int> MoveOppositePickerToAvoidForPickerMoveAsync(CancellationToken ct)
@@ -2450,6 +2472,7 @@ namespace QMC.CDT320.Sequencing
             if (yForwardEntry)
                 preTargets[PickerAxis.PickerY] = _targetPickerY;
             preTargets[tAxis] = _targetPickerT;
+            QMC.CDT320.Diagnostics.HandlerTactLog.MotionStart("PICKUP", TactRequestId(), yForwardEntry ? "PickerY/T" : "PickerT");
             int preMove = await MovePickerAxesAndVerifyAsync(
                 preTargets,
                 yForwardEntry
@@ -2459,6 +2482,7 @@ namespace QMC.CDT320.Sequencing
                 targetName).ConfigureAwait(false);
             if (preMove != 0)
                 return preMove;
+            QMC.CDT320.Diagnostics.HandlerTactLog.MotionEnd("PICKUP", TactRequestId(), yForwardEntry ? "PickerY/T" : "PickerT");
 
             // [1] Input work area 점유.
             EnsurePickerWorkAreaReserved(PickerWorkZone.Input, "PickUp FastContiNode");
@@ -2563,6 +2587,7 @@ namespace QMC.CDT320.Sequencing
                             Name + " PickUp FastContiNode PickerZ PrePick 하강 시작. " +
                             "prePickZ=" + prePickTarget.ToString("F6") +
                             ", velocity=" + processVelocity.ToString("F3") + " - Start");
+                        QMC.CDT320.Diagnostics.HandlerTactLog.MotionStart("PICKUP", TactRequestId(), "PickerZ");
                     }
 
                     SetPickerVacuum(_currentPickerNo, true);
@@ -2595,6 +2620,7 @@ namespace QMC.CDT320.Sequencing
                 {
                     var forwardTargets = new Dictionary<PickerAxis, double>();
                     forwardTargets[PickerAxis.PickerY] = _targetPickerY;
+                    QMC.CDT320.Diagnostics.HandlerTactLog.MotionStart("PICKUP", TactRequestId(), "PickerY");
                     int yForwardResult = await MovePickerAxesAndVerifyAsync(
                         forwardTargets,
                         "PickUp FastContiNode PickerY forward after X join",
@@ -2602,6 +2628,7 @@ namespace QMC.CDT320.Sequencing
                         targetName).ConfigureAwait(false);
                     if (yForwardResult != 0)
                         return yForwardResult;
+                    QMC.CDT320.Diagnostics.HandlerTactLog.MotionEnd("PICKUP", TactRequestId(), "PickerY");
 
                     WriteLog("PickerPickUpSequence",
                         Name + " PickUp FastContiNode PickerY 전진 완료(X 합류 후, 클리어런스 게이트 경유). " +
@@ -2727,6 +2754,7 @@ namespace QMC.CDT320.Sequencing
                         "PickUp FastContiNode PickerZ Avoid 복귀 명령 실패. result=" + avoidCommand +
                         ", " + BuildPickerAxisState(pickerZAxis, pickerZAvoid));
                 }
+                QMC.CDT320.Diagnostics.HandlerTactLog.MotionStart("PICKUP", TactRequestId(), "PickerZ_Avoid");
 
                 // [13] PickerZ 이탈 감시 — stage-safe 거리 통과 시점에 Needle Vacuum OFF (D3).
                 int safeResult = await WaitFastPickerZStageSafeAsync(
@@ -2738,6 +2766,7 @@ namespace QMC.CDT320.Sequencing
                     ct).ConfigureAwait(false);
                 if (safeResult != 0)
                     return safeResult;
+                QMC.CDT320.Diagnostics.HandlerTactLog.MotionEnd("PICKUP", TactRequestId(), "PickerZ_Avoid");
 
                 int vacuumOffResult = EnsureNeedleVacuumOffForPick(stage, "PickUp FastContiNode PickerZ stage-safe 통과 후");
                 if (vacuumOffResult != 0)
@@ -3091,6 +3120,7 @@ namespace QMC.CDT320.Sequencing
             int timeoutMs,
             CancellationToken ct)
         {
+            QMC.CDT320.Diagnostics.HandlerTactLog.MotionStart("PICKUP", TactRequestId(), "PickerZ");
             QMC.CDT320.Ajin.AjinAxis ajinZ = pickerZItem as QMC.CDT320.Ajin.AjinAxis;
             // 저속(어프로치) 속도: 축 Config 속도 × 기본 스케일 × PickerZSlowApproachSpeedPercent.
             // 오버라이드 경로는 축 레이어 자동 스케일이 없으므로 가감속도 여기서 명시 스케일한다.
@@ -3170,6 +3200,7 @@ namespace QMC.CDT320.Sequencing
                     WriteLog("PickerPickUpZ",
                         Name + " PickUp FastContiNode PickerZ PickPosition 도달(InPosition). " +
                         "target=" + _targetPickerZ.ToString("F6") + " - Ok");
+                    QMC.CDT320.Diagnostics.HandlerTactLog.MotionEnd("PICKUP", TactRequestId(), "PickerZ");
                     return 0;
                 }
 
@@ -7165,10 +7196,12 @@ namespace QMC.CDT320.Sequencing
                         ", dec=" + deceleration +
                         ", " + BuildPickerAxisState(axis, target));
 
+                QMC.CDT320.Diagnostics.HandlerTactLog.MotionStart("PICKUP", TactRequestId(), axis.ToString());
                 int waitResult = await WaitPickerAxisInPositionResultAsync(axis, target, description, ct).ConfigureAwait(false);
                 if (waitResult != 0)
                     return waitResult;
 
+                QMC.CDT320.Diagnostics.HandlerTactLog.MotionEnd("PICKUP", TactRequestId(), axis.ToString());
                 if (deferFinalPositionCheck)
                     return 0;
 
@@ -7233,10 +7266,12 @@ namespace QMC.CDT320.Sequencing
                         PickerInputStageMoveHelper.BuildLastStageMoveFailure(stage));
                 }
 
+                QMC.CDT320.Diagnostics.HandlerTactLog.MotionStart("PICKUP", TactRequestId(), axis.ToString());
                 int waitResult = await WaitInputStageAxisInPositionResultAsync(stage, axis, target, description, ct).ConfigureAwait(false);
                 if (waitResult != 0)
                     return waitResult;
 
+                QMC.CDT320.Diagnostics.HandlerTactLog.MotionEnd("PICKUP", TactRequestId(), axis.ToString());
                 if (deferFinalPositionCheck)
                     return 0;
 
@@ -7638,6 +7673,9 @@ namespace QMC.CDT320.Sequencing
             int completionResult = PublishInputStageCompletionAfterSafePickReturn();
             if (completionResult != 0)
                 return completionResult;
+
+            // CycleTime 정상 종결 — 컨텍스트(dieId) 클리어 전에 기록해야 키가 일치한다.
+            QMC.CDT320.Diagnostics.HandlerTactLog.CycleResult("PICKUP", TactRequestId());
 
             if (_currentBatchItem != null)
                 _currentBatchItem.DiePicked = true;
@@ -8986,6 +9024,7 @@ namespace QMC.CDT320.Sequencing
             try
             {
                 ct.ThrowIfCancellationRequested();
+                QMC.CDT320.Diagnostics.HandlerTactLog.MotionStart("PICKUP", TactRequestId(), axis.ToString());
 
                 int result;
                 BaseAxis item = ResolveInputStageAxis(stage, axis);
@@ -9015,6 +9054,7 @@ namespace QMC.CDT320.Sequencing
                         ", " + BuildInputStageAxisState(stage, axis, target) +
                         PickerInputStageMoveHelper.BuildLastStageMoveFailure(stage));
 
+                QMC.CDT320.Diagnostics.HandlerTactLog.MotionEnd("PICKUP", TactRequestId(), axis.ToString());
                 ct.ThrowIfCancellationRequested();
                 return 0;
             }
