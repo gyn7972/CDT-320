@@ -305,14 +305,13 @@ namespace QMC.CDT320.Sequencing
             return -1;
         }
 
-        protected static string ResolveAxisMoveWaitAlarmCode(string prefix, AxisMoveWaitResult waitResult)
+        // 기존 조건: AxisMoveWaiter 실패 분류/문자열 헬퍼 — 현재 기준: waitCode+LastMotionFailureMessage(R3).
+        protected static string FormatAxisMoveWaitCode(int waitCode, BaseAxis axis, string fallbackState)
         {
-            return AxisMoveWaiter.ResolveAlarmCode(prefix, waitResult);
-        }
-
-        protected static string FormatAxisMoveWaitResult(AxisMoveWaitResult waitResult, string fallbackState)
-        {
-            return AxisMoveWaiter.FormatResult(waitResult, fallbackState);
+            string reason = axis != null && !string.IsNullOrWhiteSpace(axis.LastMotionFailureMessage)
+                ? axis.LastMotionFailureMessage
+                : string.Empty;
+            return "waitCode=" + waitCode + ", reason=" + reason + ". " + (fallbackState ?? string.Empty);
         }
 
         protected Task<int> WaitFeederYDoneAsync(Func<bool> inPosition, string description, CancellationToken ct)
@@ -412,21 +411,6 @@ namespace QMC.CDT320.Sequencing
             try
             {
                 return await SequenceAwaiter.AwaitBoolAsync(stepTask, ct).ConfigureAwait(false);
-            }
-            catch (OperationCanceledException)
-            {
-                throw;
-            }
-            finally
-            {
-            }
-        }
-
-        protected static async Task<AxisMoveWaitResult> AwaitStepWithCancellationAsync(Task<AxisMoveWaitResult> stepTask, CancellationToken ct)
-        {
-            try
-            {
-                return await SequenceAwaiter.AwaitAxisWaitAsync(stepTask, ct).ConfigureAwait(false);
             }
             catch (OperationCanceledException)
             {

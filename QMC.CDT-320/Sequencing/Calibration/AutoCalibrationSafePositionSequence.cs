@@ -142,7 +142,7 @@ namespace QMC.CDT320.Sequencing.Calibration
 
             stage.Recipe.EnsurePositionObjects();
             double target = stage.Recipe.VisionX.AvoidPosition;
-            if (AxisMoveWaiter.CanSkipMoveCommandAtTarget(stage.CameraX, target))
+            if (stage.CameraX.IsAtTargetPosition(target, 0.0))
                 return 0;
 
             int result = await stage.MoveInputStageAxisCommandWithMotion(
@@ -156,15 +156,12 @@ namespace QMC.CDT320.Sequencing.Calibration
                     "Input Camera X Avoid 이동 명령에 실패했습니다. result=" + result +
                     ", target=" + target.ToString("F6"));
 
-            AxisMoveWaitResult waitResult = await stage.WaitInputStageAxisInPositionResult(
-                WaferStageAxis.VisionX,
-                target,
-                ResolveMoveTimeout(),
-                ct).ConfigureAwait(false);
-            if (waitResult == null || !waitResult.Success || !stage.IsVisionXInAvoidPosition())
+            // 기존 조건: 이동 후 재대기 — 현재 기준: 이동 함수가 완료를 보장하므로 재대기는 제거하고
+            // Avoid 도착 안전 게이트만 유지(R4).
+            if (!stage.IsVisionXInAvoidPosition())
                 return Fail("AUTO-CAL-SAFE-INPUT-CAMERA-WAIT", stage.Name,
-                    "Input Camera X Avoid 도착 확인에 실패했습니다. " +
-                    AxisMoveWaiter.FormatResult(waitResult, WaferStageAxis.VisionX.ToString()));
+                    "Input Camera X Avoid 도착 확인에 실패했습니다. target=" + target.ToString("F6") +
+                    ", actual=" + stage.CameraX.ActualPosition.ToString("F6"));
 
             return 0;
         }
@@ -183,7 +180,7 @@ namespace QMC.CDT320.Sequencing.Calibration
 
             stage.Recipe.EnsurePositionObjects();
             double target = stage.Recipe.VisionX.AvoidPosition;
-            if (AxisMoveWaiter.CanSkipMoveCommandAtTarget(stage.OutputCameraX, target))
+            if (stage.OutputCameraX.IsAtTargetPosition(target, 0.0))
                 return 0;
 
             int result = await stage.MoveVisionXToAvoidAndVerifyAsync(

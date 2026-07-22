@@ -224,7 +224,7 @@ namespace QMC.CDT320.Sequencing
                     return 0;
                 }
 
-                if (AxisMoveWaiter.CanSkipMoveCommandAtTarget(ngStageY, target))
+                if (ngStageY.IsAtTargetPosition(target, 0.0))
                 {
                     CurrentStep = OutputStageMoveProcessStep.CheckNgStageYAvoid;
                     return 0;

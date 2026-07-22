@@ -677,10 +677,7 @@ namespace QMC.CDT320.Sequencing.Calibration
                 if (result != 0)
                     return Fail("VISION-CAMERA-CAL-OUTPUT-RETICLE-MOVE", "OutputStageUnit", "OutputVisionX Reticle 위치 이동 명령 실패. result=" + result + ", target=" + target.ToString("F3"));
 
-                AxisMoveWaitResult wait = await stage.WaitStageAxisMoveDoneInPosition(BinStageAxis.VisionX, target, motion.MoveTimeoutMs, ct).ConfigureAwait(false);
-                if (wait == null || !wait.Success)
-                    return Fail("VISION-CAMERA-CAL-OUTPUT-RETICLE-WAIT", "OutputStageUnit", "OutputVisionX Reticle 위치 이동 완료 확인 실패. target=" + target.ToString("F3"));
-
+                // 기존 조건: 이동 후 재대기 — 현재 기준: 이동 함수가 완료를 보장하므로 제거(R3).
                 if (!IsAxisInPosition(stage.OutputCameraX, target))
                     return Fail("VISION-CAMERA-CAL-OUTPUT-RETICLE-CHECK", "OutputStageUnit", "OutputVisionX Reticle 최종 위치 확인 실패. actual=" + stage.OutputCameraX.ActualPosition.ToString("F3") + ", target=" + target.ToString("F3"));
 
@@ -741,7 +738,7 @@ namespace QMC.CDT320.Sequencing.Calibration
                     return Fail("VISION-CAMERA-CAL-INPUT-VISION-MISSING", "InputStageUnit", "InputVisionX Avoid 이동을 위한 축/Recipe 정보가 없습니다.");
 
                 double target = stage.Recipe.VisionX.AvoidPosition;
-                if (AxisMoveWaiter.CanSkipMoveCommandAtTarget(stage.CameraX, target))
+                if (stage.CameraX.IsAtTargetPosition(target, 0.0))
                     return 0;
 
                 CalibrationMotionSettings motion = ResolveMotionSettings();
@@ -790,7 +787,7 @@ namespace QMC.CDT320.Sequencing.Calibration
 
                 stage.Recipe.EnsurePositionObjects();
                 double target = stage.Recipe.VisionX.AvoidPosition;
-                if (AxisMoveWaiter.CanSkipMoveCommandAtTarget(stage.OutputCameraX, target))
+                if (stage.OutputCameraX.IsAtTargetPosition(target, 0.0))
                     return 0;
 
                 CalibrationMotionSettings motion = ResolveMotionSettings();
@@ -1143,7 +1140,7 @@ namespace QMC.CDT320.Sequencing.Calibration
             double tolerance = axis.Config != null && axis.Config.InPositionTolerance > 0.0
                 ? axis.Config.InPositionTolerance
                 : CalibrationAxisTolerance;
-            return AxisMoveWaiter.CanSkipMoveCommandAtTarget(axis, target, tolerance);
+            return axis.IsAtTargetPosition(target, tolerance);
         }
 
         private async Task<VisionReticleMeasurement> FindReticleWithRetryAsync(VisionCameraCalibrationTarget target, CancellationToken ct)

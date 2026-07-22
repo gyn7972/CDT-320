@@ -848,23 +848,6 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
-        private static async Task<AxisMoveWaitResult> AwaitStepWithCancellationAsync(Task<AxisMoveWaitResult> stepTask, CancellationToken ct)
-        {
-            try
-            {
-                AxisMoveWaitResult defaultValue =
-                    new AxisMoveWaitResult(AxisMoveWaitFailure.AxisMissing, "Step task is null.", string.Empty);
-                return await SequenceAwaiter.AwaitAsync(stepTask, defaultValue, ct).ConfigureAwait(false);
-            }
-            catch (OperationCanceledException)
-            {
-                throw;
-            }
-            finally
-            {
-            }
-        }
-
         private static bool IsStep(TStep left, TStep right)
         {
             return object.Equals(left, right);

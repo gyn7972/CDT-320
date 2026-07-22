@@ -627,11 +627,11 @@ namespace QMC.CDT320.Sequencing
             {
                 ct.ThrowIfCancellationRequested();
 
-                AxisMoveWaitResult waitResult = await stage.WaitInputStageAxisInPositionResult(axis, target, ResolveTimeout(), ct).ConfigureAwait(false);
-                if (waitResult == null || !waitResult.Success)
-                    return Fail(ResolveAxisMoveWaitAlarmCode("IN-FEEDER-STAGE-MOVE", waitResult), stage.Name,
-                        description + " 이동 완료/위치 확인 실패. " +
-                        FormatAxisMoveWaitResult(waitResult, BuildStageAxisState(stage, axis, target)));
+                int waitCode = await stage.WaitInputStageAxisInPositionResult(axis, target, ResolveTimeout(), ct).ConfigureAwait(false);
+                if (waitCode != 0)
+                    return Fail("IN-FEEDER-STAGE-MOVE", stage.Name,
+                        description + " 이동 완료/위치 확인 실패. waitCode=" + waitCode +
+                        ". " + BuildStageAxisState(stage, axis, target));
 
                 return 0;
             }

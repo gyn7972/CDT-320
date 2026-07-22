@@ -992,16 +992,9 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 if (moveResult != 0)
                     return moveResult;
 
-                AxisMoveWaitResult waitResult = await loader.WaitWaferLifterZMoveDoneInPosition(targetPosition, ResolveManualMoveTimeoutMs(host));
+                // 기존 조건: 이동 후 재대기 — 현재 기준: 이동 함수가 완료를 보장하므로 제거(R3).
                 RefreshSelectedMaterialDetail();
-                if (waitResult.Success)
-                    return 0;
-
-                RaiseWarning("INPUT-CST-SLOT-WAIT", "Slot move/in-position wait failed. role=" + role +
-                    ", slot=" + (slotIndex + 1).ToString("00") +
-                    ", waitResult=" + waitResult.Code +
-                    ", reason=" + waitResult.Reason + ". " + waitResult.AxisState);
-                return -1;
+                return 0;
             }
             catch (Exception ex)
             {

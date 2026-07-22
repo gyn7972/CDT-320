@@ -151,7 +151,6 @@
     <Compile Include="Win32Timer.cs" />
     <Compile Include="Motion\AxisData.cs" />
     <Compile Include="Motion\AxisLiveStatus.cs" />
-    <Compile Include="Motion\AxisMoveWaiter.cs" />
     <Compile Include="Motion\AxisStatusSnapshot.cs" />
     <Compile Include="Motion\AxisSpeedTable.cs" />
     <Compile Include="Motion\AjinInterpolatedMotionService.cs" />

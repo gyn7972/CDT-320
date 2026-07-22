@@ -527,8 +527,7 @@ namespace QMC.CDT320
             {
                 ct.ThrowIfCancellationRequested();
 
-                AxisMoveWaitResult waitResult = await WaitWaferLifterZMoveDoneInPosition(InputLifterZ.CommandPosition, timeoutMs, ct).ConfigureAwait(false);
-                return waitResult.Code;
+                return await WaitWaferLifterZMoveDoneInPosition(InputLifterZ.CommandPosition, timeoutMs, ct).ConfigureAwait(false);
             }
             catch (OperationCanceledException)
             {
@@ -543,24 +542,28 @@ namespace QMC.CDT320
             }
         }
 
-        public async Task<AxisMoveWaitResult> WaitWaferLifterZMoveDoneInPosition(double targetPos, int timeoutMs)
+        // 기존 조건: AxisMoveWaitResult 반환 + settle 재확인 — 현재 기준: int(0=완료) 반환(R3).
+        //           ScanSettleTimeMs는 매핑 스캔 진동 안정용 물리 대기로만 보존한다(C7).
+        public async Task<int> WaitWaferLifterZMoveDoneInPosition(double targetPos, int timeoutMs)
         {
             return await WaitWaferLifterZMoveDoneInPosition(targetPos, timeoutMs, CancellationToken.None).ConfigureAwait(false);
         }
 
-        public async Task<AxisMoveWaitResult> WaitWaferLifterZMoveDoneInPosition(double targetPos, int timeoutMs, CancellationToken ct)
+        public async Task<int> WaitWaferLifterZMoveDoneInPosition(double targetPos, int timeoutMs, CancellationToken ct)
         {
             try
             {
                 ct.ThrowIfCancellationRequested();
 
-                return await AxisMoveWaiter.WaitMoveDoneInPositionAsync(
-                    InputLifterZ,
-                    targetPos,
-                    ResolveWaferLifterZInPositionTolerance(),
-                    timeoutMs,
-                    Config != null ? Config.ScanSettleTimeMs : 0,
-                    ct).ConfigureAwait(false);
+                int waitCode = await InputLifterZ.WaitMoveCompleteAsync(targetPos, timeoutMs, ct).ConfigureAwait(false);
+                if (waitCode != 0)
+                    return waitCode;
+
+                int settleMs = Config != null ? Config.ScanSettleTimeMs : 0;
+                if (settleMs > 0)
+                    await Task.Delay(settleMs, ct).ConfigureAwait(false);
+
+                return 0;
             }
             catch (OperationCanceledException)
             {
@@ -587,8 +590,7 @@ namespace QMC.CDT320
                 ct.ThrowIfCancellationRequested();
 
                 double target = GetTeachingPosition(positionName);
-                AxisMoveWaitResult waitResult = await WaitWaferLifterZMoveDoneInPosition(target, timeoutMs, ct).ConfigureAwait(false);
-                return waitResult.Success ? 0 : waitResult.Code;
+                return await WaitWaferLifterZMoveDoneInPosition(target, timeoutMs, ct).ConfigureAwait(false);
             }
             catch (OperationCanceledException)
             {
@@ -1175,19 +1177,10 @@ namespace QMC.CDT320
 
                 if (moveAvoid)
                 {
+                    // 기존 조건: 이동 후 재대기 — 현재 기준: 이동 함수가 완료를 보장하므로 제거(R3).
                     int moveResult = await MoveToWaferCassetteAvoidPosition();
                     if (moveResult != 0)
                         return moveResult;
-
-                    AxisMoveWaitResult waitResult = await WaitWaferLifterZMoveDoneInPosition(Recipe.AvoidPosition, timeoutMs).ConfigureAwait(false);
-                    if (!waitResult.Success)
-                    {
-                        RaiseWaferCassetteConditionAlarm(
-                            ResolveWaferLifterZMoveWaitAlarmCode("IN-CST-RECOVER-AVOID", waitResult.Failure),
-                            "Recover cassette to avoid position move/in-position wait failed. waitResult=" + waitResult.Code +
-                            ", reason=" + waitResult.Reason + ". " + waitResult.AxisState);
-                        return waitResult.Code;
-                    }
 
                     return 0;
                 }
@@ -2187,12 +2180,13 @@ namespace QMC.CDT320
 
                     FlushInvalidZoneStretchLog(ref invalidZoneOn, ref invalidOnMin, ref invalidOnMax);
 
-                    AxisMoveWaitResult waitResult = await WaitWaferLifterZMoveDoneInPosition(levelEnd, ResolveWaferLifterZMoveTimeoutMs(), ct).ConfigureAwait(false);
-                    if (!waitResult.Success)
+                    // 이동 완료는 moveTask가 보장 — 여기서는 ScanSettleTimeMs 안정 대기 목적만 유지(C7).
+                    int settleCode = await WaitWaferLifterZMoveDoneInPosition(levelEnd, ResolveWaferLifterZMoveTimeoutMs(), ct).ConfigureAwait(false);
+                    if (settleCode != 0)
                         return FailMappingScan(
-                            ResolveWaferLifterZMoveWaitAlarmCode("IN-CST-MAP-END", waitResult.Failure),
-                            "InputLifterZ level" + level + " mapping end move/in-position wait failed. waitResult=" + waitResult.Code +
-                            ", reason=" + waitResult.Reason + ". " + waitResult.AxisState);
+                            "IN-CST-MAP-END-MOVE",
+                            "InputLifterZ level" + level + " mapping end move/in-position wait failed. waitCode=" + settleCode +
+                            ", reason=" + (InputLifterZ.LastMotionFailureMessage ?? string.Empty));
                 }
 
                 // 결과 확정: 점유 슬롯은 ON 구간 중심을 실측 검출 위치로 저장하고, 슬롯별 로그를 남긴다.
@@ -2258,12 +2252,13 @@ namespace QMC.CDT320
             if (moveResult != 0 || InputLifterZ.IsAlarm)
                 return FailMappingScan("IN-CST-MAP-MOVE", "InputLifterZ move failed. moveName=" + moveName + ", target=" + FormatPosition(target));
 
-            AxisMoveWaitResult waitResult = await WaitWaferLifterZMoveDoneInPosition(target, ResolveWaferLifterZMoveTimeoutMs(), ct).ConfigureAwait(false);
-            if (!waitResult.Success)
+            // 이동 완료는 moveTask가 보장 — 여기서는 ScanSettleTimeMs 안정 대기 목적만 유지(C7).
+            int settleCode = await WaitWaferLifterZMoveDoneInPosition(target, ResolveWaferLifterZMoveTimeoutMs(), ct).ConfigureAwait(false);
+            if (settleCode != 0)
                 return FailMappingScan(
-                    ResolveWaferLifterZMoveWaitAlarmCode("IN-CST-MAP-MOVE", waitResult.Failure),
-                    "InputLifterZ " + moveName + " move/in-position wait failed. waitResult=" + waitResult.Code +
-                    ", reason=" + waitResult.Reason + ". " + waitResult.AxisState);
+                    "IN-CST-MAP-MOVE",
+                    "InputLifterZ " + moveName + " move/in-position wait failed. waitCode=" + settleCode +
+                    ", reason=" + (InputLifterZ.LastMotionFailureMessage ?? string.Empty));
 
             return 0;
         }
@@ -2473,12 +2468,13 @@ namespace QMC.CDT320
                         scanEndPosition,
                         scanEndPosition);
 
-                AxisMoveWaitResult waitResult = await WaitWaferLifterZMoveDoneInPosition(scanEndPosition, ResolveWaferLifterZMoveTimeoutMs(), ct).ConfigureAwait(false);
-                if (!waitResult.Success)
+                // 이동 완료는 moveTask가 보장 — 여기서는 ScanSettleTimeMs 안정 대기 목적만 유지(C7).
+                int settleCode = await WaitWaferLifterZMoveDoneInPosition(scanEndPosition, ResolveWaferLifterZMoveTimeoutMs(), ct).ConfigureAwait(false);
+                if (settleCode != 0)
                     return FailMappingScanList(
-                        ResolveWaferLifterZMoveWaitAlarmCode("IN-CST-MAP-END", waitResult.Failure),
-                        "InputLifterZ mapping end move/in-position wait failed. waitResult=" + waitResult.Code +
-                        ", reason=" + waitResult.Reason + ". " + waitResult.AxisState);
+                        "IN-CST-MAP-END-MOVE",
+                        "InputLifterZ mapping end move/in-position wait failed. waitCode=" + settleCode +
+                        ", reason=" + (InputLifterZ.LastMotionFailureMessage ?? string.Empty));
 
                 return detectedPositions;
             }
@@ -2663,11 +2659,6 @@ namespace QMC.CDT320
             }
 
             return matchedSlot;
-        }
-
-        private static string ResolveWaferLifterZMoveWaitAlarmCode(string prefix, AxisMoveWaitFailure failure)
-        {
-            return AxisMoveWaiter.ResolveAlarmCode(prefix, failure);
         }
 
         private int FailMappingScan(string alarmCode, string message)
@@ -2974,17 +2965,7 @@ namespace QMC.CDT320
                     return moveResult != 0 ? moveResult : -1;
                 }
 
-                AxisMoveWaitResult waitResult = await WaitWaferLifterZMoveDoneInPosition(targetPosition, ResolveWaferLifterZMoveTimeoutMs(), ct).ConfigureAwait(false);
-                if (!waitResult.Success)
-                {
-                    LastWaferLifterMoveFailureMessage = "Wafer Lifter Z 이동 완료/in-position 실패. target=" + targetPosition + ". " +
-                        AxisMoveWaiter.FormatResult(waitResult, "InputLifterZ");
-                    Log.Write("Main", "MOTION", Name,
-                        "Input cassette Z move wait/in-position failed. " +
-                        AxisMoveWaiter.FormatResult(waitResult, "InputLifterZ") + " - Failed");
-                    return -1;
-                }
-
+                // 기존 조건: 이동 후 재대기 — 현재 기준: 이동 함수(moveTask)가 완료를 보장하므로 제거(R3).
                 return 0;
             }
             catch (OperationCanceledException)

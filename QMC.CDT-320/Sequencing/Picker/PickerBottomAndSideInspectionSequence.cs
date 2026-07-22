@@ -2859,7 +2859,7 @@ namespace QMC.CDT320.Sequencing
                 ? item.Config.InPositionTolerance
                 : 0.05;
             double targetY = angleDeg == 90 ? cameraTarget.Process90Y : cameraTarget.Process0Y;
-            return AxisMoveWaiter.CanSkipMoveCommandAtTarget(item, targetY, tolerance);
+            return item.IsAtTargetPosition(targetY, tolerance);
         }
 
         private async Task<SideVisionResult> TriggerAndGetSideResultAsync(InspectionTarget target, int angleDeg, CancellationToken ct)
@@ -3505,9 +3505,9 @@ namespace QMC.CDT320.Sequencing
                         return Fail("PICKER-BOTTOM-SIDE-Z-PREDOWN-CMD", Name, "예약된 Bottom PickerZ 선행 하강 명령 실패. result=" + commandResult + ", pickerNo=" + ToPickerNo(pending.PickerIndex));
                 }
 
-                var waitResult = await WaitPickerAxisMoveDoneAsync(axis, pending.Target, ResolveTimeout(), ct).ConfigureAwait(false);
-                if (waitResult == null || !waitResult.Success)
-                    return Fail("PICKER-BOTTOM-SIDE-Z-PREDOWN-WAIT", Name, "예약된 Bottom PickerZ 선행 하강 완료 대기 실패. " + FormatAxisMoveWaitResult(waitResult, BuildPickerAxisState(axis, pending.Target)));
+                int waitCode = await WaitPickerAxisMoveDoneAsync(axis, pending.Target, ResolveTimeout(), ct).ConfigureAwait(false);
+                if (waitCode != 0)
+                    return Fail("PICKER-BOTTOM-SIDE-Z-PREDOWN-WAIT", Name, "예약된 Bottom PickerZ 선행 하강 완료 대기 실패. waitCode=" + waitCode + ". " + BuildPickerAxisState(axis, pending.Target));
 
                 if (!IsPickerAxisInPosition(axis, pending.Target))
                     return Fail("PICKER-BOTTOM-SIDE-Z-PREDOWN-POS", Name, "예약된 Bottom PickerZ 선행 하강 최종 위치 확인 실패. " + BuildPickerAxisState(axis, pending.Target));
@@ -3720,9 +3720,9 @@ namespace QMC.CDT320.Sequencing
                         return Fail("PICKER-BOTTOM-SIDE-Z-AVOID-CMD", Name, "예약된 PickerZ Avoid 명령 실패. result=" + commandResult + ", pickerNo=" + ToPickerNo(pending.PickerIndex));
                 }
 
-                var waitResult = await WaitPickerAxisMoveDoneAsync(axis, pending.Target, ResolveTimeout(), ct).ConfigureAwait(false);
-                if (waitResult == null || !waitResult.Success)
-                    return Fail("PICKER-BOTTOM-SIDE-Z-AVOID-WAIT", Name, "예약된 PickerZ Avoid 완료 대기 실패. " + FormatAxisMoveWaitResult(waitResult, BuildPickerAxisState(axis, pending.Target)));
+                int waitCode = await WaitPickerAxisMoveDoneAsync(axis, pending.Target, ResolveTimeout(), ct).ConfigureAwait(false);
+                if (waitCode != 0)
+                    return Fail("PICKER-BOTTOM-SIDE-Z-AVOID-WAIT", Name, "예약된 PickerZ Avoid 완료 대기 실패. waitCode=" + waitCode + ". " + BuildPickerAxisState(axis, pending.Target));
 
                 if (!IsPickerAxisInPosition(axis, pending.Target))
                     return Fail("PICKER-BOTTOM-SIDE-Z-AVOID-POS", Name, "예약된 PickerZ Avoid 최종 위치 확인 실패. " + BuildPickerAxisState(axis, pending.Target));
@@ -3783,9 +3783,9 @@ namespace QMC.CDT320.Sequencing
                         return Fail("PICKER-BOTTOM-SIDE-T0-CMD", Name, "예약된 PickerT 0도 복귀 명령 실패. result=" + commandResult + ", pickerNo=" + ToPickerNo(pending.PickerIndex));
                 }
 
-                var waitResult = await WaitPickerAxisMoveDoneAsync(axis, pending.Target, ResolveTimeout(), ct).ConfigureAwait(false);
-                if (waitResult == null || !waitResult.Success)
-                    return Fail("PICKER-BOTTOM-SIDE-T0-WAIT", Name, "예약된 PickerT 0도 복귀 완료 대기 실패. " + FormatAxisMoveWaitResult(waitResult, BuildPickerAxisState(axis, pending.Target)));
+                int waitCode = await WaitPickerAxisMoveDoneAsync(axis, pending.Target, ResolveTimeout(), ct).ConfigureAwait(false);
+                if (waitCode != 0)
+                    return Fail("PICKER-BOTTOM-SIDE-T0-WAIT", Name, "예약된 PickerT 0도 복귀 완료 대기 실패. waitCode=" + waitCode + ". " + BuildPickerAxisState(axis, pending.Target));
 
                 if (!IsPickerAxisInPosition(axis, pending.Target))
                     return Fail("PICKER-BOTTOM-SIDE-T0-POS", Name, "예약된 PickerT 0도 복귀 최종 위치 확인 실패. " + BuildPickerAxisState(axis, pending.Target));

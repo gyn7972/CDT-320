@@ -371,6 +371,89 @@ namespace QMC.Common.Motion
             LastMotionFailureTime = DateTime.MinValue;
         }
 
+        // ─────────────────────────────────────────────
+        //  이동 완료/스킵 판정 헬퍼 (AxisMoveWaiter 대체 — 단일 원칙: "이동 함수가 완료를 보장한다")
+        // ─────────────────────────────────────────────
+
+        /// <summary>
+        /// 이동 명령 생략(스킵) 가능 판정 — 정지 상태이고 Actual/Command 모두 목표의 톨러런스 이내면 생략(R2).
+        /// </summary>
+        protected bool CanSkipMoveToTarget(double target, double tolerance)
+        {
+            return !IsMoving && !IsAlarm && IsServoOn &&
+                   Math.Abs(ActualPosition - target) <= tolerance &&
+                   Math.Abs(CommandPosition - target) <= tolerance;
+        }
+
+        /// <summary>정지 상태에서 목표 도달(Actual/Command 톨러런스 이내) 여부 — 스냅샷 판정용 공개 헬퍼.</summary>
+        public bool IsAtTargetPosition(double target, double tolerance)
+        {
+            if (tolerance <= 0.0)
+                tolerance = Config != null && Config.InPositionTolerance > 0.0 ? Config.InPositionTolerance : 0.01;
+            return !IsMoving && !IsAlarm && IsServoOn &&
+                   Math.Abs(ActualPosition - target) <= tolerance &&
+                   Math.Abs(CommandPosition - target) <= tolerance;
+        }
+
+        /// <summary>
+        /// 다른 곳에서 발행된 이동(비동기/명령 전용)에 합류해 완료까지 대기한다 — AxisMoveWaiter 대체(R3).
+        /// 10ms 폴링(UpdateStatus로 상태 갱신 — 시뮬 프로파일도 이 호출로 전진), 알람/취소/타임아웃 처리 후
+        /// Command↔Target 톨러런스 확인만 수행. 0=완료, 음수=실패(사유는 LastMotionFailureMessage).
+        /// </summary>
+        public async Task<int> WaitMoveCompleteAsync(double target, int timeoutMs, CancellationToken ct)
+        {
+            try
+            {
+                if (timeoutMs <= 0)
+                    timeoutMs = 60000;
+                double tolerance = Config != null && Config.InPositionTolerance > 0.0
+                    ? Config.InPositionTolerance
+                    : 0.01;
+                DateTime deadline = DateTime.UtcNow.AddMilliseconds(timeoutMs);
+
+                while (true)
+                {
+                    ct.ThrowIfCancellationRequested();
+                    UpdateStatus();
+
+                    if (IsAlarm)
+                        return FailMotion((int)AlarmCode != 0 ? (int)AlarmCode : -1, "MOVE JOIN",
+                            "이동 합류 대기 중 축 알람. alarmCode=0x" + AlarmCode.ToString("X4"), target, true);
+
+                    if (!IsMoving)
+                        break;
+
+                    if (DateTime.UtcNow >= deadline)
+                        return FailMotion(-3, "MOVE JOIN",
+                            "이동 합류 대기 timeout. timeoutMs=" + timeoutMs, target, true);
+
+                    await Task.Delay(10, ct).ConfigureAwait(false);
+                }
+
+                if (!IsServoOn)
+                    return FailMotion(-2, "MOVE JOIN", "이동 합류 대기 후 서보가 OFF 상태입니다.", target, true);
+
+                if (Math.Abs(CommandPosition - target) > tolerance)
+                    return FailMotion(-5, "MOVE JOIN",
+                        "이동 합류 완료 후 Command 위치가 목표와 다릅니다. command=" + CommandPosition.ToString("0.######") +
+                        ", target=" + target.ToString("0.######") +
+                        ", tolerance=" + tolerance.ToString("0.######"), target, true);
+
+                return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return FailMotion(-1, "MOVE JOIN", "이동 합류 대기 중 예외. " + ex.Message, target, true);
+            }
+            finally
+            {
+            }
+        }
+
         protected void RecordMotionFailure(int code, string action, string reason)
         {
             RecordMotionFailure(code, action, reason, 0, false);
@@ -445,7 +528,7 @@ namespace QMC.Common.Motion
                     ? Config.InPositionTolerance
                     : 0.01;
                 if (!IsForceMoveActive &&
-                    AxisMoveWaiter.CanSkipMoveCommandAtTarget(this, targetPos, tolerance))
+                    CanSkipMoveToTarget(targetPos, tolerance))
                 {
                     ClearMotionFailure();
                     CommandPosition = targetPos;
@@ -513,7 +596,7 @@ namespace QMC.Common.Motion
                     ? Config.InPositionTolerance
                     : 0.01;
                 if (!IsForceMoveActive &&
-                    AxisMoveWaiter.CanSkipMoveCommandAtTarget(this, targetPos, tolerance))
+                    CanSkipMoveToTarget(targetPos, tolerance))
                 {
                     ClearMotionFailure();
                     CommandPosition = targetPos;
@@ -1104,16 +1187,9 @@ namespace QMC.Common.Motion
                 if (result != 0)
                     return result;
 
-                double tolerance = Config != null && Config.InPositionTolerance > 0.0
-                    ? Config.InPositionTolerance
-                    : 0.05;
-                AxisMoveWaitResult wait = await AxisMoveWaiter.WaitMoveDoneInPositionAsync(
-                    this,
-                    target,
-                    tolerance,
-                    60000,
-                    0).ConfigureAwait(false);
-                return wait != null && wait.Success ? 0 : wait != null ? wait.Code : -1;
+                // 기존 조건: MoveRelativeAsync 성공 후 AxisMoveWaiter로 재대기했다.
+                // 현재 기준: MoveRelativeAsync가 완료를 보장하므로(리턴 0 = 완료) 재대기를 제거한다(R3).
+                return 0;
             }
             catch (Exception)
             {

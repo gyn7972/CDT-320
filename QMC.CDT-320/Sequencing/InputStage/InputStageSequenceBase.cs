@@ -545,16 +545,6 @@ namespace QMC.CDT320.Sequencing
                 ");";
         }
 
-        protected static string ResolveAxisMoveWaitAlarmCode(string prefix, AxisMoveWaitResult waitResult)
-        {
-            return AxisMoveWaiter.ResolveAlarmCode(prefix, waitResult);
-        }
-
-        protected static string FormatAxisMoveWaitResult(AxisMoveWaitResult waitResult, string fallbackState)
-        {
-            return AxisMoveWaiter.FormatResult(waitResult, fallbackState);
-        }
-
         private string BuildRequiredAxisAvailabilityReason()
         {
             string reason = string.Empty;
@@ -655,21 +645,6 @@ namespace QMC.CDT320.Sequencing
             try
             {
                 return await SequenceAwaiter.AwaitIntAsync(stepTask, ct).ConfigureAwait(false);
-            }
-            catch (OperationCanceledException)
-            {
-                throw;
-            }
-            finally
-            {
-            }
-        }
-
-        private static async Task<AxisMoveWaitResult> AwaitStepWithCancellationAsync(Task<AxisMoveWaitResult> stepTask, CancellationToken ct)
-        {
-            try
-            {
-                return await SequenceAwaiter.AwaitAxisWaitAsync(stepTask, ct).ConfigureAwait(false);
             }
             catch (OperationCanceledException)
             {

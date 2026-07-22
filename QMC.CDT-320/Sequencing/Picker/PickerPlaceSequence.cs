@@ -1404,14 +1404,7 @@ namespace QMC.CDT320.Sequencing
                             ", side=" + _currentOutputSide + ", " + feeder.DescribeBinFeederYMoveDoneState() +
                             feeder.DescribeBinFeederYLastMotionFailure());
 
-                    AxisMoveWaitResult waitResult = await feeder.WaitBinFeederYMoveDoneInPosition(
-                        feeder.Recipe.AvoidPosition,
-                        ResolveTimeout(),
-                        ct).ConfigureAwait(false);
-                    if (!waitResult.Success)
-                        return Fail(ResolveAxisMoveWaitAlarmCode("PICKER-PLACE-FEEDER-Y-AVOID", waitResult), feeder.Name,
-                            "Place 전 OutputFeederY Avoid 이동 완료 확인 실패. side=" + _currentOutputSide +
-                            ", " + AxisMoveWaiter.FormatResult(waitResult, feeder.DescribeBinFeederYMoveDoneState()));
+                    // 기존 조건: 이동 후 재대기 — 현재 기준: 이동 함수가 완료를 보장하므로 제거(R3).
                 }
 
                 if (!feeder.IsBinFeederYInAvoidPosition())
@@ -2116,55 +2109,57 @@ namespace QMC.CDT320.Sequencing
             int timeoutMs,
             CancellationToken ct)
         {
-            AxisMoveWaitResult stageYWait = await OutputStage.WaitStageAxisMoveDoneInPosition(
+            int stageYWait = await OutputStage.WaitStageAxisMoveDoneInPosition(
                 yAxis,
                 _targetOutputStageY,
                 timeoutMs,
                 ct).ConfigureAwait(false);
-            if (stageYWait == null || !stageYWait.Success)
+            if (stageYWait != 0)
             {
-                return Fail(ResolveAxisMoveWaitAlarmCode("PICKER-PLACE-CONTI-STAGE-Y", stageYWait), "OutputStage",
-                    "Place ContiNode 이동 후 OutputStageY 최종 위치 대기 실패. " +
-                    FormatAxisMoveWaitResult(stageYWait, OutputStage.BuildStageAxisState(yAxis, _targetOutputStageY)));
+                return Fail("PICKER-PLACE-CONTI-STAGE-Y", "OutputStage",
+                    "Place ContiNode 이동 후 OutputStageY 최종 위치 대기 실패. waitCode=" + stageYWait +
+                    ". " + OutputStage.BuildStageAxisState(yAxis, _targetOutputStageY));
             }
 
-            AxisMoveWaitResult pickerXWait = await WaitPickerAxisMoveDoneAsync(
+            int pickerXWait = await WaitPickerAxisMoveDoneAsync(
                 PickerAxis.PickerX,
                 _targetPickerX,
                 timeoutMs,
                 ct).ConfigureAwait(false);
-            if (pickerXWait == null || !pickerXWait.Success)
+            if (pickerXWait != 0)
             {
-                return Fail(ResolveAxisMoveWaitAlarmCode("PICKER-PLACE-CONTI-PICKER-X", pickerXWait), Name,
-                    "Place ContiNode 이동 후 PickerX 최종 위치 대기 실패. " +
-                    FormatAxisMoveWaitResult(pickerXWait, BuildPickerAxisState(PickerAxis.PickerX, _targetPickerX)));
+                return Fail("PICKER-PLACE-CONTI-PICKER-X", Name,
+                    "Place ContiNode 이동 후 PickerX 최종 위치 대기 실패. waitCode=" + pickerXWait +
+                    ". " + BuildPickerAxisState(PickerAxis.PickerX, _targetPickerX));
             }
 
             if (previousPickerZAxis.HasValue)
             {
-                AxisMoveWaitResult previousPickerZWait = await WaitPickerAxisMoveDoneAsync(
+                int previousPickerZWait = await WaitPickerAxisMoveDoneAsync(
                     previousPickerZAxis.Value,
                     previousPickerZAvoid,
                     timeoutMs,
                     ct).ConfigureAwait(false);
-                if (previousPickerZWait == null || !previousPickerZWait.Success)
+                if (previousPickerZWait != 0)
                 {
-                    return Fail(ResolveAxisMoveWaitAlarmCode("PICKER-PLACE-CONTI-PREV-PICKER-Z", previousPickerZWait), Name,
+                    return Fail("PICKER-PLACE-CONTI-PREV-PICKER-Z", Name,
                         "Place ContiNode 이동 후 이전 PickerZ Avoid 최종 위치 대기 실패. pickerNo=" + _pendingContiRetreatPickerNo +
-                        ". " + FormatAxisMoveWaitResult(previousPickerZWait, BuildPickerAxisState(previousPickerZAxis.Value, previousPickerZAvoid)));
+                        ", waitCode=" + previousPickerZWait +
+                        ". " + BuildPickerAxisState(previousPickerZAxis.Value, previousPickerZAvoid));
                 }
             }
 
-            AxisMoveWaitResult pickerZWait = await WaitPickerAxisMoveDoneAsync(
+            int pickerZWait = await WaitPickerAxisMoveDoneAsync(
                 pickerZAxis,
                 _targetPickerZ,
                 timeoutMs,
                 ct).ConfigureAwait(false);
-            if (pickerZWait == null || !pickerZWait.Success)
+            if (pickerZWait != 0)
             {
-                return Fail(ResolveAxisMoveWaitAlarmCode("PICKER-PLACE-CONTI-PICKER-Z", pickerZWait), Name,
+                return Fail("PICKER-PLACE-CONTI-PICKER-Z", Name,
                     "Place ContiNode 이동 후 PickerZ 최종 위치 대기 실패. pickerNo=" + _currentPickerNo +
-                    ". " + FormatAxisMoveWaitResult(pickerZWait, BuildPickerAxisState(pickerZAxis, _targetPickerZ)));
+                    ", waitCode=" + pickerZWait +
+                    ". " + BuildPickerAxisState(pickerZAxis, _targetPickerZ));
             }
 
             return 0;
@@ -3550,25 +3545,8 @@ namespace QMC.CDT320.Sequencing
                         OutputStage.BuildStageAxisState(axis, target));
                 }
 
-                AxisMoveWaitResult waitResult = await OutputStage.WaitStageAxisMoveDoneInPosition(
-                    axis,
-                    target,
-                    ResolveTimeout(),
-                    ct).ConfigureAwait(false);
-                if (waitResult == null || !waitResult.Success)
-                {
-                    return Fail(ResolveAxisMoveWaitAlarmCode("PICKER-PLACE-STAGE", waitResult), "OutputStage",
-                        description + " move/in-position wait failed. " +
-                        FormatAxisMoveWaitResult(waitResult, OutputStage.BuildStageAxisState(axis, target)));
-                }
-
+                // 기존 조건: 이동 후 재대기 + 스냅샷 최종 확인 — 현재 기준: 이동 함수가 완료를 보장하므로 제거(R3/R4).
                 double tolerance = ResolveOutputStageAxisTolerance(axis);
-                if (!OutputStage.IsStageAxisInPosition(axis, target, tolerance))
-                {
-                    return Fail("PICKER-PLACE-STAGE-FINAL-POS", "OutputStage",
-                        description + " final position check failed after move. " +
-                        OutputStage.BuildStageAxisState(axis, target));
-                }
 
                 if (logResumePlaceStageMove)
                 {
@@ -3605,7 +3583,7 @@ namespace QMC.CDT320.Sequencing
             double tolerance = axis.Config != null && axis.Config.InPositionTolerance > 0.0
                 ? axis.Config.InPositionTolerance
                 : 0.01;
-            return AxisMoveWaiter.CanSkipMoveCommandAtTarget(axis, target, tolerance);
+            return axis.IsAtTargetPosition(target, tolerance);
         }
 
         private double ResolveOutputStageAxisTolerance(BinStageAxis axis)

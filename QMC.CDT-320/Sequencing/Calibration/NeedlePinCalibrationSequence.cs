@@ -288,22 +288,7 @@ namespace QMC.CDT320.Sequencing.Calibration
             if (result != 0)
                 return Fail(axis + " move failed. target=" + target.ToString("F6") + ", result=" + result);
 
-            AxisMoveWaitResult waitResult = await stage.WaitInputStageAxisInPositionResult(axis, target, motion.MoveTimeoutMs, ct).ConfigureAwait(false);
-            if (waitResult == null || !waitResult.Success)
-            {
-                if (IsStageAxisAtTarget(stage, axis, target))
-                {
-                    EventLogger.Write(EventKind.Event, "CAL", "NEEDLE-PIN-CAL-WAIT-ACCEPT",
-                        axis + " wait returned non-success but actual position is already acceptable. target=" +
-                        target.ToString("F6") + ", " +
-                        AxisMoveWaiter.FormatResult(waitResult, axis.ToString()));
-                    return 0;
-                }
-
-                return Fail(axis + " in-position wait failed. target=" + target.ToString("F6") +
-                    ", " + AxisMoveWaiter.FormatResult(waitResult, axis.ToString()));
-            }
-
+            // 기존 조건: 이동 후 재대기(+실측 수용 분기) — 현재 기준: 이동 함수가 완료를 보장하므로 제거(R3).
             return 0;
         }
 

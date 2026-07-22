@@ -410,7 +410,7 @@ namespace QMC.CDT320.Sequencing
                 double tolerance = stage.CameraX != null && stage.CameraX.Config != null && stage.CameraX.Config.InPositionTolerance > 0.0
                     ? stage.CameraX.Config.InPositionTolerance
                     : 0.01;
-                if (!AxisMoveWaiter.CanSkipMoveCommandAtTarget(stage.CameraX, avoid, tolerance))
+                if (!stage.CameraX.IsAtTargetPosition(avoid, tolerance))
                 {
                     int moveResult = await stage.MoveInputStageAxis(
                         WaferStageAxis.VisionX,

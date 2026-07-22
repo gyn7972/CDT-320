@@ -226,29 +226,8 @@ namespace QMC.CDT320
 
             double signedDistance = (direction < 0 ? -1.0 : 1.0) * Math.Abs(axisStepDistance);
             double target = axis.ActualPosition + signedDistance;
-            int result = await MoveAxisAsync(unitAxis, target, speedType, customSpeed, true).ConfigureAwait(false);
-            if (result != 0)
-                return result;
-
-            double tolerance = ResolveAxisInPositionTolerance(axis);
-            AxisMoveWaitResult waitResult = await AxisMoveWaiter.WaitMoveDoneInPositionAsync(
-                axis,
-                target,
-                tolerance,
-                60000,
-                0).ConfigureAwait(false);
-            if (waitResult == null || !waitResult.Success)
-            {
-                Log.Write("Main", "MOTION", Name,
-                    "축 Step Jog 위치 확인 실패. axis=" + unitAxis +
-                    ", target=" + target +
-                    ", tolerance=" + tolerance +
-                    ", result=" + AxisMoveWaiter.FormatResult(waitResult, unitAxis.ToString()) +
-                    " - Failed");
-                return waitResult != null ? waitResult.Code : -1;
-            }
-
-            return 0;
+            // 기존 조건: 이동 후 AxisMoveWaiter 재대기 — 현재 기준: 이동 함수가 완료를 보장하므로 제거(R3).
+            return await MoveAxisAsync(unitAxis, target, speedType, customSpeed, true).ConfigureAwait(false);
         }
 
         private static double ResolveAxisInPositionTolerance(BaseAxis axis)
@@ -480,8 +459,8 @@ namespace QMC.CDT320
         {
             try
             {
-                AxisMoveWaitResult waitResult = await WaitAxisMoveDoneInPosition(axis, timeoutMs, ct).ConfigureAwait(false);
-                return waitResult.Success;
+                int waitCode = await WaitAxisMoveDoneInPosition(axis, timeoutMs, ct).ConfigureAwait(false);
+                return waitCode == 0;
             }
             catch (OperationCanceledException)
             {
@@ -498,14 +477,16 @@ namespace QMC.CDT320
             }
         }
 
-        /// <summary>축 이동 완료와 목표 위치 도착을 상세 결과로 대기합니다.</summary>
-        public async Task<AxisMoveWaitResult> WaitAxisMoveDoneInPosition(TAxis axis, int timeoutMs)
+        // 기존 조건: AxisMoveWaitResult(실패 7종) 반환 — 현재 기준: int(0=완료, 음수=실패) 반환(R3).
+        //           실패 사유는 축.LastMotionFailureMessage에 기록된다.
+        /// <summary>축 이동 완료와 목표 위치 도착을 대기합니다.</summary>
+        public async Task<int> WaitAxisMoveDoneInPosition(TAxis axis, int timeoutMs)
         {
             return await WaitAxisMoveDoneInPosition(axis, timeoutMs, CancellationToken.None).ConfigureAwait(false);
         }
 
-        /// <summary>축 이동 완료와 목표 위치 도착을 상세 결과로 대기합니다.</summary>
-        public async Task<AxisMoveWaitResult> WaitAxisMoveDoneInPosition(TAxis axis, int timeoutMs, CancellationToken ct)
+        /// <summary>축 이동 완료와 목표 위치 도착을 대기합니다.</summary>
+        public async Task<int> WaitAxisMoveDoneInPosition(TAxis axis, int timeoutMs, CancellationToken ct)
         {
             try
             {
@@ -520,38 +501,28 @@ namespace QMC.CDT320
             {
                 Log.Write("Main", "SYSTEM", Name,
                     "Axis move wait/in-position failed. axis=" + axis + ", error=" + ex.Message + " - Failed");
-                return new AxisMoveWaitResult(
-                    AxisMoveWaitFailure.Timeout,
-                    "Axis move wait exception: " + ex.Message,
-                    "axis=" + axis);
+                return -1;
             }
             finally
             {
             }
         }
 
-        /// <summary>축 이동 완료와 지정 목표 위치 도착을 상세 결과로 대기합니다.</summary>
-        public async Task<AxisMoveWaitResult> WaitAxisMoveDoneInPosition(TAxis axis, double targetPos, int timeoutMs)
+        /// <summary>축 이동 완료와 지정 목표 위치 도착을 대기합니다.</summary>
+        public async Task<int> WaitAxisMoveDoneInPosition(TAxis axis, double targetPos, int timeoutMs)
         {
             return await WaitAxisMoveDoneInPosition(axis, targetPos, timeoutMs, CancellationToken.None).ConfigureAwait(false);
         }
 
-        /// <summary>축 이동 완료와 지정 목표 위치 도착을 상세 결과로 대기합니다.</summary>
-        public async Task<AxisMoveWaitResult> WaitAxisMoveDoneInPosition(TAxis axis, double targetPos, int timeoutMs, CancellationToken ct)
+        /// <summary>축 이동 완료와 지정 목표 위치 도착을 대기합니다.</summary>
+        public async Task<int> WaitAxisMoveDoneInPosition(TAxis axis, double targetPos, int timeoutMs, CancellationToken ct)
         {
             try
             {
                 var item = GetAxis(axis);
-                double tolerance = item.Config != null && item.Config.InPositionTolerance > 0.0
-                    ? item.Config.InPositionTolerance
-                    : Setup.InPositionTolerance;
-                return await AxisMoveWaiter.WaitMoveDoneInPositionAsync(
-                    item,
-                    targetPos,
-                    tolerance,
-                    timeoutMs,
-                    0,
-                    ct).ConfigureAwait(false);
+                if (item == null)
+                    return -2;
+                return await item.WaitMoveCompleteAsync(targetPos, timeoutMs, ct).ConfigureAwait(false);
             }
             catch (OperationCanceledException)
             {
@@ -563,10 +534,7 @@ namespace QMC.CDT320
                     "Axis move wait/in-position failed. axis=" + axis +
                     ", target=" + targetPos +
                     ", error=" + ex.Message + " - Failed");
-                return new AxisMoveWaitResult(
-                    AxisMoveWaitFailure.Timeout,
-                    "Axis move wait exception: " + ex.Message,
-                    "axis=" + axis + ", target=" + targetPos);
+                return -1;
             }
             finally
             {
@@ -590,12 +558,12 @@ namespace QMC.CDT320
         {
             try
             {
-                AxisMoveWaitResult waitResult = await WaitAxisMoveDoneInPosition(
+                int waitCode = await WaitAxisMoveDoneInPosition(
                     axis,
                     GetTeachingPosition(axis, positionName),
                     timeoutMs,
                     ct).ConfigureAwait(false);
-                return waitResult.Success;
+                return waitCode == 0;
             }
             catch (OperationCanceledException)
             {

@@ -2673,16 +2673,16 @@ namespace QMC.CDT320.Sequencing
             {
                 ct.ThrowIfCancellationRequested();
 
-                AxisMoveWaitResult waitResult = await stage.WaitInputStageAxisInPositionResult(
+                int waitCode = await stage.WaitInputStageAxisInPositionResult(
                     axis,
                     target,
                     ResolveTimeout(),
                     ct).ConfigureAwait(false);
 
-                if (waitResult == null || !waitResult.Success)
-                    return Fail(ResolveAxisMoveWaitAlarmCode("INPUT-DIE-VISION-PREPARE-STAGE", waitResult), stage.Name,
-                        description + " 이동/InPosition 대기 실패. " +
-                        FormatAxisMoveWaitResult(waitResult, BuildInputStageAxisState(stage, axis, target)));
+                if (waitCode != 0)
+                    return Fail("INPUT-DIE-VISION-PREPARE-STAGE", stage.Name,
+                        description + " 이동/InPosition 대기 실패. waitCode=" + waitCode +
+                        ". " + BuildInputStageAxisState(stage, axis, target));
 
                 ct.ThrowIfCancellationRequested();
                 return 0;
@@ -2902,7 +2902,7 @@ namespace QMC.CDT320.Sequencing
                 double tolerance = item != null && item.Config != null && item.Config.InPositionTolerance > 0.0
                     ? item.Config.InPositionTolerance
                     : 0.05;
-                return AxisMoveWaiter.CanSkipMoveCommandAtTarget(item, target, tolerance);
+                return item.IsAtTargetPosition(target, tolerance);
             }
             catch
             {

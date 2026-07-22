@@ -1052,7 +1052,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 return AbortStage(title, "VISION X Avoid 위치 레시피 없음");
 
             double target = _InputStageUnit.Recipe.VisionX.AvoidPosition;
-            if (QMC.Common.Motion.AxisMoveWaiter.CanSkipMoveCommandAtTarget(_InputStageUnit.CameraX, target))
+            if (_InputStageUnit.CameraX.IsAtTargetPosition(target, 0.0))
                 return 0;
 
             string reason;

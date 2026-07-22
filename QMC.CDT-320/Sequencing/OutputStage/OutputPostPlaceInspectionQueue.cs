@@ -1318,10 +1318,7 @@ namespace QMC.CDT320.Sequencing
                 double feederTolerance = feeder.FeederY != null && feeder.FeederY.Config != null && feeder.FeederY.Config.InPositionTolerance > 0.0
                     ? feeder.FeederY.Config.InPositionTolerance
                     : 0.01;
-                if (AxisMoveWaiter.CanSkipMoveCommandAtTarget(
-                    feeder.FeederY,
-                    feeder.Recipe.AvoidPosition,
-                    feederTolerance))
+                if (feeder.FeederY.IsAtTargetPosition(feeder.Recipe.AvoidPosition, feederTolerance))
                     return 0;
 
                 if (stage != null && !stage.IsVisionXInAvoidPosition())
@@ -1362,18 +1359,16 @@ namespace QMC.CDT320.Sequencing
                         feeder.DescribeBinFeederYLastMotionFailure());
                 }
 
-                AxisMoveWaitResult waitResult = await feeder.WaitBinFeederYMoveDoneInPosition(
-                    feeder.FeederY.CommandPosition,
-                    timeout,
-                    ct).ConfigureAwait(false);
-                if (waitResult == null || !waitResult.Success || !feeder.IsBinFeederInAvoidPosition())
+                // 기존 조건: 이동 후 재대기 — 현재 기준: 이동 함수가 완료를 보장하므로 재대기는 제거하고
+                // Avoid 도착 안전 게이트만 유지(R4).
+                if (!feeder.IsBinFeederInAvoidPosition())
                 {
                     if (IsStopOrAlarmActive())
                         return StopRequestedResult;
-                    return RaiseFailure(AxisMoveWaiter.ResolveAlarmCode("OUT-POST-INSPECT-FEEDER-AVOID", waitResult), "OutputFeeder",
+                    return RaiseFailure("OUT-POST-INSPECT-FEEDER-AVOID-MOVE", "OutputFeeder",
                         "Output camera 후검사 전 OutputFeederY Avoid 이동 완료/위치 확인 실패. die=" + request.DieId +
                         ", side=" + request.OutputSide +
-                        ". " + AxisMoveWaiter.FormatResult(waitResult, feeder.DescribeBinFeederYMoveDoneState()) +
+                        ". " + feeder.DescribeBinFeederYMoveDoneState() +
                         ", finalAvoid=" + feeder.IsBinFeederInAvoidPosition());
                 }
 
