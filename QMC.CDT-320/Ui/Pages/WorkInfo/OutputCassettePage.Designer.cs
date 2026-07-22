@@ -61,6 +61,10 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
         private ActionButton btnLoad;
         private ActionButton btnUnload;
         private ActionButton btnStop;
+        // To do: [존 분리 스캔] GOOD/NG 액션 분리 버튼.
+        private ActionButton btnMapNg;
+        private ActionButton btnLoadNg;
+        private ActionButton btnUnloadNg;
 
         private void InitializeComponent()
         {
@@ -118,6 +122,9 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.btnLoad = new QMC.CDT_320.Ui.Controls.ActionButton();
             this.btnUnload = new QMC.CDT_320.Ui.Controls.ActionButton();
             this.btnStop = new QMC.CDT_320.Ui.Controls.ActionButton();
+            this.btnMapNg = new QMC.CDT_320.Ui.Controls.ActionButton();
+            this.btnLoadNg = new QMC.CDT_320.Ui.Controls.ActionButton();
+            this.btnUnloadNg = new QMC.CDT_320.Ui.Controls.ActionButton();
             this.materialDetailView = new QMC.CDT_320.Ui.Controls.MaterialDetailView();
             this.rootLayout.SuspendLayout();
             this.contentLayout.SuspendLayout();
@@ -816,13 +823,20 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             // 
             // actionBar
             // 
-            this.actionBar.ColumnCount = 2;
-            this.actionBar.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 50F));
-            this.actionBar.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 50F));
+            // To do: [존 분리 스캔] GOOD/NG 액션 분리 - 4열 2행 배치.
+            this.actionBar.ColumnCount = 4;
+            this.actionBar.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 25F));
+            this.actionBar.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 25F));
+            this.actionBar.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 25F));
+            this.actionBar.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 25F));
             this.actionBar.Controls.Add(this.btnMap, 0, 0);
-            this.actionBar.Controls.Add(this.btnLoad, 1, 0);
+            this.actionBar.Controls.Add(this.btnMapNg, 1, 0);
+            this.actionBar.Controls.Add(this.btnLoad, 2, 0);
+            this.actionBar.Controls.Add(this.btnLoadNg, 3, 0);
             this.actionBar.Controls.Add(this.btnUnload, 0, 1);
-            this.actionBar.Controls.Add(this.btnStop, 1, 1);
+            this.actionBar.Controls.Add(this.btnUnloadNg, 1, 1);
+            this.actionBar.Controls.Add(this.btnStop, 2, 1);
+            this.actionBar.SetColumnSpan(this.btnStop, 2);
             this.actionBar.Dock = System.Windows.Forms.DockStyle.Top;
             this.actionBar.Location = new System.Drawing.Point(3, 23);
             this.actionBar.Margin = new System.Windows.Forms.Padding(0);
@@ -845,7 +859,43 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.btnMap.Name = "btnMap";
             this.btnMap.Size = new System.Drawing.Size(409, 40);
             this.btnMap.TabIndex = 0;
-            this.btnMap.Text = "LIFT BIN MAPPING";
+            this.btnMap.Text = "GOOD BIN MAPPING";
+            //
+            // btnMapNg
+            //
+            this.btnMapNg.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
+            this.btnMapNg.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.btnMapNg.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.btnMapNg.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
+            this.btnMapNg.ForeColor = System.Drawing.Color.White;
+            this.btnMapNg.Name = "btnMapNg";
+            this.btnMapNg.Size = new System.Drawing.Size(200, 40);
+            this.btnMapNg.TabIndex = 10;
+            this.btnMapNg.Text = "NG BIN MAPPING";
+            //
+            // btnLoadNg
+            //
+            this.btnLoadNg.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
+            this.btnLoadNg.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.btnLoadNg.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.btnLoadNg.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
+            this.btnLoadNg.ForeColor = System.Drawing.Color.White;
+            this.btnLoadNg.Name = "btnLoadNg";
+            this.btnLoadNg.Size = new System.Drawing.Size(200, 40);
+            this.btnLoadNg.TabIndex = 11;
+            this.btnLoadNg.Text = "NG BIN LOADING";
+            //
+            // btnUnloadNg
+            //
+            this.btnUnloadNg.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
+            this.btnUnloadNg.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.btnUnloadNg.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.btnUnloadNg.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
+            this.btnUnloadNg.ForeColor = System.Drawing.Color.White;
+            this.btnUnloadNg.Name = "btnUnloadNg";
+            this.btnUnloadNg.Size = new System.Drawing.Size(200, 40);
+            this.btnUnloadNg.TabIndex = 12;
+            this.btnUnloadNg.Text = "NG BIN UNLOADING";
             // 
             // btnLoad
             // 
@@ -858,7 +908,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.btnLoad.Name = "btnLoad";
             this.btnLoad.Size = new System.Drawing.Size(409, 40);
             this.btnLoad.TabIndex = 1;
-            this.btnLoad.Text = "LIFT BIN LOADING";
+            this.btnLoad.Text = "GOOD BIN LOADING";
             // 
             // btnUnload
             // 
@@ -871,7 +921,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.btnUnload.Name = "btnUnload";
             this.btnUnload.Size = new System.Drawing.Size(409, 40);
             this.btnUnload.TabIndex = 2;
-            this.btnUnload.Text = "LIFT BIN UNLOADING";
+            this.btnUnload.Text = "GOOD BIN UNLOADING";
             // 
             // btnStop
             // 

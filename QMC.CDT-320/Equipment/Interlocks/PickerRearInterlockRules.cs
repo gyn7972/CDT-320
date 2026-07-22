@@ -38,6 +38,15 @@ namespace QMC.CDT320.Interlocks
         {
             reason = string.Empty;
 
+            // 기구 간섭 방지: Input/Output Feeder와 Cassette가 모두
+            // 정지된 Avoid 위치일 때만 RearPickerX 이동을 허용한다.
+            if (!VerifyAxisAvoidForRearPickerX(
+                request != null ? request.Machine : null,
+                out reason))
+            {
+                return false;
+            }
+
             if (!PickerZoneInterlockRules.VerifyPickerXGlobalMachineClearance(
                 request != null ? request.Machine : null,
                 "RearPickerX",
@@ -62,6 +71,95 @@ namespace QMC.CDT320.Interlocks
                 default:
                     return MotionGuardRuleHelpers.BlockUnsupportedMoveKind(request, out reason);
             }
+        }
+
+        private static bool VerifyAxisAvoidForRearPickerX(
+                            CDT320_Machine machine,
+                            out string reason)
+        {
+            reason = string.Empty;
+
+            if (machine == null)
+            {
+                return MotionGuardRuleHelpers.Block(
+                    "RearPickerX",
+                    "RearPickerX 이동 불가: Machine 참조가 없습니다.",
+                    out reason);
+            }
+
+            InputFeederUnit inputFeeder = machine.InputFeederUnit;
+            if (inputFeeder == null || inputFeeder.FeederY == null)
+            {
+                return MotionGuardRuleHelpers.Block(
+                    "RearPickerX",
+                    "RearPickerX 이동 불가: InputFeederY 상태를 확인할 수 없습니다.",
+                    out reason);
+            }
+
+            if (inputFeeder.FeederY.IsMoving ||
+                !inputFeeder.IsWaferFeederAvoidPositionCheck())
+            {
+                return MotionGuardRuleHelpers.Block(
+                    "RearPickerX",
+                    "RearPickerX 이동 불가: InputFeeder가 정지된 Avoid 위치가 아닙니다.",
+                    out reason);
+            }
+
+            OutputFeederUnit outputFeeder = machine.OutputFeederUnit;
+            if (outputFeeder == null || outputFeeder.FeederY == null)
+            {
+                return MotionGuardRuleHelpers.Block(
+                    "RearPickerX",
+                    "RearPickerX 이동 불가: OutputFeederY 상태를 확인할 수 없습니다.",
+                    out reason);
+            }
+
+            if (outputFeeder.FeederY.IsMoving ||
+                !outputFeeder.IsBinFeederAvoidPositionCheck())
+            {
+                return MotionGuardRuleHelpers.Block(
+                    "RearPickerX",
+                    "RearPickerX 이동 불가: OutputFeeder가 정지된 Avoid 위치가 아닙니다.",
+                    out reason);
+            }
+
+            InputCassetteUnit inputCassette = machine.InputCassetteUnit;
+            if (inputCassette == null || inputCassette.InputLifterZ == null)
+            {
+                return MotionGuardRuleHelpers.Block(
+                    "RearPickerX",
+                    "RearPickerX 이동 불가: InputCassette 상태를 확인할 수 없습니다.",
+                    out reason);
+            }
+
+            if (inputCassette.InputLifterZ.IsMoving ||
+                !inputCassette.IsWaferLifterZInAvoidPosition())
+            {
+                return MotionGuardRuleHelpers.Block(
+                    "RearPickerX",
+                    "RearPickerX 이동 불가: InputCassette가 정지된 Avoid 위치가 아닙니다.",
+                    out reason);
+            }
+
+            OutputCassetteUnit outputCassette = machine.OutputCassetteUnit;
+            if (outputCassette == null || outputCassette.OutputLifterZ == null)
+            {
+                return MotionGuardRuleHelpers.Block(
+                    "RearPickerX",
+                    "RearPickerX 이동 불가: OutputCassette 상태를 확인할 수 없습니다.",
+                    out reason);
+            }
+
+            if (outputCassette.OutputLifterZ.IsMoving ||
+                !outputCassette.IsBinLifterZInAvoidPosition())
+            {
+                return MotionGuardRuleHelpers.Block(
+                    "RearPickerX",
+                    "RearPickerX 이동 불가: OutputCassette가 정지된 Avoid 위치가 아닙니다.",
+                    out reason);
+            }
+
+            return true;
         }
 
         // 인터락 항목: 조그 RearPickerX는 Z Home/Avoid, Reticle, Busy 조건을 유지하고 Zone 판정만 생략한다.

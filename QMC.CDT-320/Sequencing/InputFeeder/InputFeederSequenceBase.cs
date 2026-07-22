@@ -51,6 +51,19 @@ namespace QMC.CDT320.Sequencing
                 SequenceTrace.RunStart(Name, Options.RunMode.ToString(), "kind=" + Kind);
                 SequenceResumeStore.MarkRunning(SequenceStateName, CurrentStep.ToString());
 
+                // 재개(비-초기 스텝) 진입 시, 저장된 스텝의 모션을 실행하기 전에 피더 이동 안전 상태를
+                // CheckUnit과 동일 기준으로 재확인한다. 정지 중 상태가 바뀌었으면 저장 스텝을 그대로 재개하지 않고
+                // fail-closed(알람)로 정지한다. (재개 시 앞단 검증 스킵으로 인한 무검증 이동 방지)
+                if (!IsStep(CurrentStep, InitialStep))
+                {
+                    int resumeSafety = VerifyResumeSafety();
+                    if (resumeSafety != 0)
+                    {
+                        SequenceTrace.RunEnd(Name, "Failed", resumeSafety, "kind=" + Kind, "reason=ResumeSafetyBlocked", "step=" + CurrentStep);
+                        return resumeSafety;
+                    }
+                }
+
                 while (!IsStep(CurrentStep, CompleteStep) && !IsStep(CurrentStep, ErrorStep))
                 {
                     ct.ThrowIfCancellationRequested();
@@ -107,6 +120,21 @@ namespace QMC.CDT320.Sequencing
                 return Fail("IN-FEEDER-UNSAFE", Feeder.Name, "Input feeder is not safe. " + readyReason);
 
             CurrentStep = nextStep;
+            return 0;
+        }
+
+        // 재개 안전 재확인: 저장된 스텝(중간 모션 스텝)부터 재개할 때, 실행 전에 피더가 이동 안전 상태인지
+        // CheckUnit과 동일 기준(CheckWaferFeederMoveReady)으로 다시 확인한다. 불만족이면 fail-closed로 차단한다.
+        private int VerifyResumeSafety()
+        {
+            if (Feeder == null)
+                return Fail("IN-FEEDER-MISSING", "InputFeeder", "재개 안전 확인 불가: Input feeder unit is not available.");
+
+            string readyReason;
+            if (!Feeder.CheckWaferFeederMoveReady(out readyReason))
+                return Fail("IN-FEEDER-RESUME-UNSAFE", Feeder.Name,
+                    "재개 전 InputFeeder 안전 상태 재확인 실패로 저장 스텝 재개를 차단합니다. step=" + CurrentStep + ". " + readyReason);
+
             return 0;
         }
 

@@ -602,6 +602,9 @@ namespace QMC.CDT320.Sequencing
             int moveTimeoutMs,
             SequenceStartMode startMode)
         {
+            // 현재 기준: 전체 준비 시작 시 NG 사용 여부를 Material 상태에 반영한다. (변경 없으면 no-op)
+            SyncNgCassetteEnabledWithConfig();
+
             if (recipeChange)
             {
                 if (!AreRequiredOutputCassettesMapped() && HasOutputActiveMaterial())
@@ -673,7 +676,14 @@ namespace QMC.CDT320.Sequencing
             if (!ValidateOutputSupplyConsistency(out consistencyReason))
                 return Fail("OUT-FULL-PREP-CONSISTENCY", "OutputSequence", consistencyReason);
 
-            if (MaterialStateService.GetWaferAtLocation(MaterialLocationKind.OutputStageNg) == null)
+            // 기존 조건: NG Stage가 비어 있으면 NG Ready Bin 공급을 무조건 요구했다(없으면 하드 실패).
+            // 현재 기준: Config.UseNgCassette=false면 NG 준비를 건너뛰고 GOOD 준비로 진행한다.
+            // To do: [NG 스킵] 전체 준비의 NG 공급 요구를 사용 여부 조건부로 완화.
+            if (!IsNgCassetteUsed())
+            {
+                Context.LogPublic("[OUTPUT] NG 카세트 미사용(UseNgCassette=false) - 전체 준비에서 NG Stage 공급을 건너뜁니다.");
+            }
+            else if (MaterialStateService.GetWaferAtLocation(MaterialLocationKind.OutputStageNg) == null)
             {
                 OutputSlotPlan ngPlan;
                 string ngReason;
@@ -904,8 +914,32 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
+        // To do: [NG 스킵] NG 카세트 사용 여부 - OutputCassette Config.UseNgCassette 파라미터를 단일 기준으로 사용한다.
+        private bool IsNgCassetteUsed()
+        {
+            var cassette = Context != null && Context.Machine != null ? Context.Machine.OutputCassetteUnit : null;
+            return cassette == null || cassette.Config == null || cassette.Config.UseNgCassette;
+        }
+
+        // To do: [NG 스킵] Ng1 Material의 IsEnabled를 설정 파라미터와 동기화 -
+        //        OutputSlotPlanner(공급 후보/일관성/스토어)가 IsEnabled 필터로 NG를 자동 제외하게 된다.
+        private void SyncNgCassetteEnabledWithConfig()
+        {
+            try
+            {
+                MaterialStateService.SetCassetteEnabled(CassetteMaterialRole.Ng1, IsNgCassetteUsed());
+            }
+            catch (Exception ex)
+            {
+                WriteLog("SyncNgCassetteEnabledWithConfig", "NG cassette enabled 동기화 실패: " + ex.Message + " - Failed");
+            }
+        }
+
         private OutputSequenceAutoAction ResolveNextOutputAction()
         {
+            // 현재 기준: 액션 판단 전 NG 사용 여부를 Material 상태에 반영한다. (변경 없으면 no-op)
+            SyncNgCassetteEnabledWithConfig();
+
             WaferCompletionRunCoordinator completion = Context != null ? Context.WaferCompletion : null;
             if (completion != null && completion.Enabled)
             {
@@ -1045,7 +1079,11 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
-        private static bool AreRequiredOutputCassettesMapped()
+        // 기존 조건: static 메서드로 Ng1 mapped를 무조건 요구했다 - NG 카세트에 빈이 없으면
+        //           NG 맵핑이 등록되지 않아 오토 전체 준비가 진행 불가였다.
+        // 현재 기준: Config.UseNgCassette=false면 NG mapped 요구를 건너뛴다. (Good2와 동일한 조건부 패턴)
+        // To do: [NG 스킵] NG 맵핑 필수 요구를 사용 여부 조건부로 완화.
+        private bool AreRequiredOutputCassettesMapped()
         {
             MaterialSnapshot state = MaterialStateService.State;
             if (state == null || state.Cassettes == null)
@@ -1067,7 +1105,10 @@ namespace QMC.CDT320.Sequencing
                     ng1 = cassette;
             }
 
-            if (!IsOutputCassetteMapped(good1) || !IsOutputCassetteMapped(ng1))
+            // 기존 조건: if (!IsOutputCassetteMapped(good1) || !IsOutputCassetteMapped(ng1)) return false;
+            if (!IsOutputCassetteMapped(good1))
+                return false;
+            if (IsNgCassetteUsed() && !IsOutputCassetteMapped(ng1))
                 return false;
             if (good2 != null && good2.IsEnabled && !IsOutputCassetteMapped(good2))
                 return false;
@@ -1542,11 +1583,78 @@ namespace QMC.CDT320.Sequencing
                 "target=" + target);
         }
 
-        public Task<int> ExecuteCassetteMappingAsync(CancellationToken ct, bool bFine = false, int moveTimeoutMs = 0, SequenceStartMode startMode = SequenceStartMode.Resume)
+        public async Task<int> ExecuteCassetteMappingAsync(CancellationToken ct, bool bFine = false, int moveTimeoutMs = 0, SequenceStartMode startMode = SequenceStartMode.Resume)
         {
-            var sequence = new OutputCassetteSequence(Context);
-            return SequenceTrace.ChildAsync("OutputCassetteSequence", "Mapping",
-                () => sequence.RunMappingAsync(ct, BuildCassetteOptions(TargetCassette.Good1, bFine, moveTimeoutMs, startMode)));
+            // GOOD 카세트 맵핑: 레시피 1단/2단(GoodLevelCount)을 반영해 Good1(+2단 구성 시 Good2) 존을 스캔/등록한다.
+            var goodSequence = new OutputCassetteSequence(Context);
+            int goodResult = await SequenceTrace.ChildAsync("OutputCassetteSequence", "Mapping",
+                () => goodSequence.RunMappingAsync(ct, BuildCassetteOptions(TargetCassette.Good1, bFine, moveTimeoutMs, startMode)),
+                "target=Good").ConfigureAwait(false);
+            if (goodResult != 0)
+                return goodResult;
+
+            // 현재 기준: NG 카세트 미사용(UseNgCassette=false)이면 자동 NG 맵핑도 건너뛴다.
+            // To do: [NG 스킵] 자동 맵핑에서 NG 스캔 제외.
+            if (!IsNgCassetteUsed())
+            {
+                Context.LogPublic("[OUTPUT-CASSETTE] NG 카세트 미사용(UseNgCassette=false) - 자동 NG 맵핑을 건너뜁니다.");
+                return 0;
+            }
+
+            // NG 카세트는 GOOD 맵핑 완료 후, NG에 웨이퍼 Material 정보가 없을 때만 맵핑한다.
+            // NG bin에 진행 중 자재가 있으면 재스캔이 추적 상태를 덮어쓰므로 건너뛴다.
+            if (HasNgOutputCassetteWaferInfo())
+            {
+                Context.LogPublic("[OUTPUT-CASSETTE] NG 카세트에 웨이퍼 Material 정보가 있어 자동 NG 맵핑을 건너뜁니다.");
+                return 0;
+            }
+
+            var ngSequence = new OutputCassetteSequence(Context);
+            return await SequenceTrace.ChildAsync("OutputCassetteSequence", "MappingNg",
+                () => ngSequence.RunMappingAsync(ct, BuildCassetteOptions(TargetCassette.Ng, bFine, moveTimeoutMs, startMode)),
+                "target=Ng").ConfigureAwait(false);
+        }
+
+        // 판정 기준(옵션 1): NG(Ng1) 출력 카세트에 웨이퍼 Material 기록이 하나도 없으면 "정보 없음"으로 보고 자동 NG 맵핑을 허용한다.
+        // - NG 카세트 슬롯에 배정된 WaferId/HasWafer가 있거나
+        // - 위치가 NG 출력 카세트(OutputCassette/Ng1)인 비어있지 않은 웨이퍼가 있으면 정보 있음으로 판정한다.
+        private static bool HasNgOutputCassetteWaferInfo()
+        {
+            MaterialSnapshot state = MaterialStateService.State;
+            if (state == null)
+                return false;
+
+            if (state.Cassettes != null)
+            {
+                foreach (CassetteMaterial cassette in state.Cassettes)
+                {
+                    if (cassette == null || cassette.Role != CassetteMaterialRole.Ng1 || cassette.Slots == null)
+                        continue;
+
+                    foreach (CassetteSlotMaterial slot in cassette.Slots)
+                    {
+                        if (slot != null && (slot.HasWafer || !string.IsNullOrWhiteSpace(slot.WaferId)))
+                            return true;
+                    }
+                }
+            }
+
+            if (state.Wafers != null)
+            {
+                foreach (WaferMaterial wafer in state.Wafers)
+                {
+                    if (wafer == null)
+                        continue;
+                    if (WaferMaterialStateText.Normalize(wafer.State) == WaferMaterialState.Empty)
+                        continue;
+                    if (wafer.CurrentLocation != null &&
+                        wafer.CurrentLocation.Kind == MaterialLocationKind.OutputCassette &&
+                        wafer.CurrentLocation.CassetteRole == CassetteMaterialRole.Ng1)
+                        return true;
+                }
+            }
+
+            return false;
         }
 
         public Task<int> ExecuteCassetteUnloadingAsync(CancellationToken ct, TargetCassette target = TargetCassette.Good1, bool bFine = false, int moveTimeoutMs = 0, SequenceStartMode startMode = SequenceStartMode.Resume)
@@ -1885,11 +1993,24 @@ namespace QMC.CDT320.Sequencing
                         if (lease == null)
                             return Fail("OUT-RESOURCE-STAGE", "OutputSequence", "OutputStage 영역 리소스 점유에 실패했습니다. side=" + side);
 
-                        int result = await ExecuteWithOutputPickerAvoidGateAsync("OutputFeederResumeLoad.StagePrepareLoad", ct,
-                            () => ExecuteStagePrepareLoadAsync(ct, side, bFine, moveTimeoutMs, startMode)).ConfigureAwait(false);
-                        if (result != 0) return result;
+                        // 기존 조건: 재개 시에도 StagePrepareLoad를 호출 - 피더가 bin을 클램프한 상태라
+                        //           Unclamp 인터락으로 스테이지 이동이 차단되어 교착이 발생했다.
+                        // int result = await ExecuteWithOutputPickerAvoidGateAsync("OutputFeederResumeLoad.StagePrepareLoad", ct,
+                        //     () => ExecuteStagePrepareLoadAsync(ct, side, bFine, moveTimeoutMs, startMode)).ConfigureAwait(false);
+                        // if (result != 0) return result;
+                        // 현재 기준: 순서 규칙(StagePrepareLoad -> 피더 카세트 픽)에 따라 픽이 끝난 재개 시점에는
+                        //           스테이지가 이미 Load 위치여야 한다. 클램프 상태에서는 스테이지를 이동하지 않고 검증만 한다.
+                        // To do: 오토 재개 교착 해소 - 스테이지 미준비 시 이동 대신 알람으로 복구 유도.
+                        OutputStageUnit resumeStage = Context != null && Context.Machine != null ? Context.Machine.OutputStageUnit : null;
+                        if (resumeStage == null)
+                            return Fail("OUT-STAGE-MISSING", "OutputSequence", "Output stage unit is not available for feeder resume load.");
 
-                        result = await ExecuteWithOutputPickerAvoidGateAsync("OutputFeederResumeLoad.FeederLoadToStage", ct,
+                        if (!resumeStage.IsStageInLoadPosition(side))
+                            return Fail("OUT-STAGE-LOAD-POS", resumeStage.Name,
+                                "재개 시 OutputStage가 Load 위치에 준비되지 않았습니다. 피더가 bin을 클램프한 상태에서는 스테이지를 이동할 수 없으니 복구(빈 반환/언클램프) 후 다시 시작하세요. side=" + side +
+                                ", " + resumeStage.DescribeStageLoadMoveState(side));
+
+                        int result = await ExecuteWithOutputPickerAvoidGateAsync("OutputFeederResumeLoad.FeederLoadToStage", ct,
                             () => ExecuteFeederLoadToStageAsync(ct, side, bFine, moveTimeoutMs, startMode)).ConfigureAwait(false);
                         if (result != 0) return result;
 
@@ -1942,11 +2063,28 @@ namespace QMC.CDT320.Sequencing
                 loaderActive = true;
                 SetOutputLoaderActive(loaderActive, "OutputFeederStoreToCassette");
 
-                int result = await ExecuteWithOutputPickerAvoidGateAsync("OutputFeederStore.FeederUnloadToCassette", ct,
-                    () => ExecuteFeederUnloadToCassetteAsync(ct, feederWafer.SourceSlotNumber, role, bFine, moveTimeoutMs, startMode)).ConfigureAwait(false);
-                if (result != 0) return result;
+                // 정상 Store 경로(ExecuteStoreStageToCassetteAsync)와 동일하게 OutputPlaceArea + 측 OutputStageArea 락을
+                // Feeder -> Cassette 이송 전 구간 동안 보유한다. 이 락이 없으면 카세트 리프터/피더Y/언클램프가 수초간 움직이는
+                // 사이 OutputPostPlaceInspectionQueue나 PickerPlace가 비어 있는 Place/StageArea를 점유해 OutputVisionX/Picker를
+                // Output 존으로 진입시킬 수 있다. (H-01: 피더 잔류 완료품 재개 저장 경로 보호 누락)
+                using (SequenceResourceLease placeLease = await AcquireOutputPlaceAreaAsync("OutputFeederStoreToCassette", ct).ConfigureAwait(false))
+                {
+                    if (placeLease == null)
+                        return Fail("OUT-RESOURCE-PLACE", "OutputSequence", "Output Place 영역 리소스 점유에 실패했습니다. side=" + side);
 
-                Context.Bus.Reset(side == BinSide.Ng ? "OutputNgStageReceiveComplete" : "OutputGoodStageReceiveComplete");
+                    using (SequenceResourceLease lease = await AcquireOutputStageAreaAsync(side, "OutputFeederStoreToCassette", ct).ConfigureAwait(false))
+                    {
+                        if (lease == null)
+                            return Fail("OUT-RESOURCE-STAGE", "OutputSequence", "OutputStage 영역 리소스 점유에 실패했습니다. side=" + side);
+
+                        int result = await ExecuteWithOutputPickerAvoidGateAsync("OutputFeederStore.FeederUnloadToCassette", ct,
+                            () => ExecuteFeederUnloadToCassetteAsync(ct, feederWafer.SourceSlotNumber, role, bFine, moveTimeoutMs, startMode)).ConfigureAwait(false);
+                        if (result != 0) return result;
+
+                        Context.Bus.Reset(side == BinSide.Ng ? "OutputNgStageReceiveComplete" : "OutputGoodStageReceiveComplete");
+                    }
+                }
+
                 return 0;
             }
             catch (OperationCanceledException)

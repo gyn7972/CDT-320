@@ -2,6 +2,7 @@
 using QMC.CDT_320.Ui.Controls;
 using QMC.CDT320;
 using QMC.CDT320.Interlocks;
+using QMC.CDT320.Materials;
 using QMC.Common.Logging;
 using QMC.Common.Motion;
 using System;
@@ -767,6 +768,21 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                     return "MappingStart";
                 if (string.Equals(item.Key, "MAPPING END Z POSITION", StringComparison.OrdinalIgnoreCase))
                     return "MappingEnd";
+                // To do: [존 분리 스캔] 존별 티칭 키 매핑.
+                if (string.Equals(item.Key, "GOOD2 FIRST SLOT POSITION", StringComparison.OrdinalIgnoreCase))
+                    return "Good2FirstSlot";
+                if (string.Equals(item.Key, "NG MAPPING START Z POSITION", StringComparison.OrdinalIgnoreCase))
+                    return "NgMappingStart";
+                if (string.Equals(item.Key, "NG MAPPING END Z POSITION", StringComparison.OrdinalIgnoreCase))
+                    return "NgMappingEnd";
+                if (string.Equals(item.Key, "GOOD1 MAPPING START Z POSITION", StringComparison.OrdinalIgnoreCase))
+                    return "Good1MappingStart";
+                if (string.Equals(item.Key, "GOOD1 MAPPING END Z POSITION", StringComparison.OrdinalIgnoreCase))
+                    return "Good1MappingEnd";
+                if (string.Equals(item.Key, "GOOD2 MAPPING START Z POSITION", StringComparison.OrdinalIgnoreCase))
+                    return "Good2MappingStart";
+                if (string.Equals(item.Key, "GOOD2 MAPPING END Z POSITION", StringComparison.OrdinalIgnoreCase))
+                    return "Good2MappingEnd";
 
                 return string.Empty;
             }
@@ -830,6 +846,21 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                     await MoveToTarget("MAPPING START Z", _OutCassetteUnit.Recipe.MappingStartPosition);
                 else if (string.Equals(positionName, "MappingEnd", StringComparison.OrdinalIgnoreCase))
                     await MoveToTarget("MAPPING END Z", _OutCassetteUnit.Recipe.MappingEndPosition);
+                // To do: [존 분리 스캔] 존별 티칭 위치 이동.
+                else if (string.Equals(positionName, "Good2FirstSlot", StringComparison.OrdinalIgnoreCase))
+                    await MoveToTarget("GOOD2 FIRST SLOT", _OutCassetteUnit.Recipe.Good2FirstSlotPosition);
+                else if (string.Equals(positionName, "NgMappingStart", StringComparison.OrdinalIgnoreCase))
+                    await MoveToTarget("NG MAPPING START Z", _OutCassetteUnit.Recipe.NgMappingStartPosition);
+                else if (string.Equals(positionName, "NgMappingEnd", StringComparison.OrdinalIgnoreCase))
+                    await MoveToTarget("NG MAPPING END Z", _OutCassetteUnit.Recipe.NgMappingEndPosition);
+                else if (string.Equals(positionName, "Good1MappingStart", StringComparison.OrdinalIgnoreCase))
+                    await MoveToTarget("GOOD1 MAPPING START Z", _OutCassetteUnit.Recipe.Good1MappingStartPosition);
+                else if (string.Equals(positionName, "Good1MappingEnd", StringComparison.OrdinalIgnoreCase))
+                    await MoveToTarget("GOOD1 MAPPING END Z", _OutCassetteUnit.Recipe.Good1MappingEndPosition);
+                else if (string.Equals(positionName, "Good2MappingStart", StringComparison.OrdinalIgnoreCase))
+                    await MoveToTarget("GOOD2 MAPPING START Z", _OutCassetteUnit.Recipe.Good2MappingStartPosition);
+                else if (string.Equals(positionName, "Good2MappingEnd", StringComparison.OrdinalIgnoreCase))
+                    await MoveToTarget("GOOD2 MAPPING END Z", _OutCassetteUnit.Recipe.Good2MappingEndPosition);
             }
             catch (Exception ex)
             {
@@ -864,6 +895,21 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                     _OutCassetteUnit.TeachBinLifterZMappingStartPosition();
                 else if (string.Equals(positionName, "MappingEnd", StringComparison.OrdinalIgnoreCase))
                     _OutCassetteUnit.TeachBinLifterZMappingEndPosition();
+                // To do: [존 분리 스캔] 존별 티칭.
+                else if (string.Equals(positionName, "Good2FirstSlot", StringComparison.OrdinalIgnoreCase))
+                    _OutCassetteUnit.TeachBinLifterZFirstSlotPosition(TargetCassette.Good2);
+                else if (string.Equals(positionName, "NgMappingStart", StringComparison.OrdinalIgnoreCase))
+                    _OutCassetteUnit.TeachBinLifterZZoneMappingStartPosition(TargetCassette.Ng);
+                else if (string.Equals(positionName, "NgMappingEnd", StringComparison.OrdinalIgnoreCase))
+                    _OutCassetteUnit.TeachBinLifterZZoneMappingEndPosition(TargetCassette.Ng);
+                else if (string.Equals(positionName, "Good1MappingStart", StringComparison.OrdinalIgnoreCase))
+                    _OutCassetteUnit.TeachBinLifterZZoneMappingStartPosition(TargetCassette.Good1);
+                else if (string.Equals(positionName, "Good1MappingEnd", StringComparison.OrdinalIgnoreCase))
+                    _OutCassetteUnit.TeachBinLifterZZoneMappingEndPosition(TargetCassette.Good1);
+                else if (string.Equals(positionName, "Good2MappingStart", StringComparison.OrdinalIgnoreCase))
+                    _OutCassetteUnit.TeachBinLifterZZoneMappingStartPosition(TargetCassette.Good2);
+                else if (string.Equals(positionName, "Good2MappingEnd", StringComparison.OrdinalIgnoreCase))
+                    _OutCassetteUnit.TeachBinLifterZZoneMappingEndPosition(TargetCassette.Good2);
             }
             catch (Exception ex)
             {
@@ -890,8 +936,16 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                     AxisDouble("NG LOADING Z POSITION", ParameterGridScope.Recipe, () => _OutCassetteUnit.Recipe.NGLoaingPosition, v => _OutCassetteUnit.Recipe.NGLoaingPosition = v),
                     AxisDouble("NG UNLOADING Z POSITION", ParameterGridScope.Recipe, () => _OutCassetteUnit.Recipe.NGUnloadingPosition, v => _OutCassetteUnit.Recipe.NGUnloadingPosition = v),
                     AxisDouble("NG FIRST SLOT POSITION", ParameterGridScope.Recipe, () => _OutCassetteUnit.Recipe.NGFirstSlotPosition, v => _OutCassetteUnit.Recipe.NGFirstSlotPosition = v),
-                    AxisDouble("MAPPING START Z POSITION", ParameterGridScope.Recipe, () => _OutCassetteUnit.Recipe.MappingStartPosition, v => _OutCassetteUnit.Recipe.MappingStartPosition = v),
-                    AxisDouble("MAPPING END Z POSITION", ParameterGridScope.Recipe, () => _OutCassetteUnit.Recipe.MappingEndPosition, v => _OutCassetteUnit.Recipe.MappingEndPosition = v),
+                    // To do: [존 분리 스캔] 존별 스캔 구간 + Good2 스타트 포지션. 기존 단일 MAPPING START/END 행은 레거시로 제외.
+                    AxisDouble("GOOD2 FIRST SLOT POSITION", ParameterGridScope.Recipe, () => _OutCassetteUnit.Recipe.Good2FirstSlotPosition, v => _OutCassetteUnit.Recipe.Good2FirstSlotPosition = v),
+                    AxisDouble("NG MAPPING START Z POSITION", ParameterGridScope.Recipe, () => _OutCassetteUnit.Recipe.NgMappingStartPosition, v => _OutCassetteUnit.Recipe.NgMappingStartPosition = v),
+                    AxisDouble("NG MAPPING END Z POSITION", ParameterGridScope.Recipe, () => _OutCassetteUnit.Recipe.NgMappingEndPosition, v => _OutCassetteUnit.Recipe.NgMappingEndPosition = v),
+                    AxisDouble("GOOD1 MAPPING START Z POSITION", ParameterGridScope.Recipe, () => _OutCassetteUnit.Recipe.Good1MappingStartPosition, v => _OutCassetteUnit.Recipe.Good1MappingStartPosition = v),
+                    AxisDouble("GOOD1 MAPPING END Z POSITION", ParameterGridScope.Recipe, () => _OutCassetteUnit.Recipe.Good1MappingEndPosition, v => _OutCassetteUnit.Recipe.Good1MappingEndPosition = v),
+                    AxisDouble("GOOD2 MAPPING START Z POSITION", ParameterGridScope.Recipe, () => _OutCassetteUnit.Recipe.Good2MappingStartPosition, v => _OutCassetteUnit.Recipe.Good2MappingStartPosition = v),
+                    AxisDouble("GOOD2 MAPPING END Z POSITION", ParameterGridScope.Recipe, () => _OutCassetteUnit.Recipe.Good2MappingEndPosition, v => _OutCassetteUnit.Recipe.Good2MappingEndPosition = v),
+                    //AxisDouble("MAPPING START Z POSITION", ParameterGridScope.Recipe, () => _OutCassetteUnit.Recipe.MappingStartPosition, v => _OutCassetteUnit.Recipe.MappingStartPosition = v),
+                    //AxisDouble("MAPPING END Z POSITION", ParameterGridScope.Recipe, () => _OutCassetteUnit.Recipe.MappingEndPosition, v => _OutCassetteUnit.Recipe.MappingEndPosition = v),
                     AxisDouble("LOADING OFFSET", ParameterGridScope.Config, () => _OutCassetteUnit.Config.LoadingPositionOffset, v => _OutCassetteUnit.Config.LoadingPositionOffset = v),
                     AxisDouble("UNLOADING OFFSET", ParameterGridScope.Config, () => _OutCassetteUnit.Config.UnloadingPositionOffset, v => _OutCassetteUnit.Config.UnloadingPositionOffset = v),
                     AxisDouble("LEVEL 2 OFFSET", ParameterGridScope.Config, () => _OutCassetteUnit.Config.Level2PositionOffset, v => _OutCassetteUnit.Config.Level2PositionOffset = Math.Max(0.0, v)),
@@ -915,7 +969,14 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                         new ParameterGridOption("2", 2)
                     }),
                     ParameterGridItem.Bool("SIMULATION MODE", ParameterGridScope.Setup, () => _OutCassetteUnit.Setup.IsSimulationMode, v => _OutCassetteUnit.Setup.IsSimulationMode = v),
-                    ParameterGridItem.Bool("DRY RUN", ParameterGridScope.Config, () => _OutCassetteUnit.Config.bDryRun, v => _OutCassetteUnit.Config.bDryRun = v)
+                    ParameterGridItem.Bool("DRY RUN", ParameterGridScope.Config, () => _OutCassetteUnit.Config.bDryRun, v => _OutCassetteUnit.Config.bDryRun = v),
+                    // To do: [NG 스킵] NG 카세트 사용 여부 - false면 오토가 NG 공급/맵핑 요구를 건너뛴다.
+                    //        변경 즉시 Ng1 Material IsEnabled에도 동기화해 플래너 판단과 일치시킨다.
+                    ParameterGridItem.Bool("USE NG CASSETTE", ParameterGridScope.Config, () => _OutCassetteUnit.Config.UseNgCassette, v =>
+                    {
+                        _OutCassetteUnit.Config.UseNgCassette = v;
+                        MaterialStateService.SetCassetteEnabled(CassetteMaterialRole.Ng1, v);
+                    })
                 });
 
                 waitParameterGrid.AutoFitParentGroupHeight = true;   // WAIT 그룹 높이를 내용에 맞춰 자동 조정 (스크롤 없이 전 항목 표시)

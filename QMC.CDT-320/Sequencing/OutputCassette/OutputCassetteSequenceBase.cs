@@ -135,14 +135,17 @@ namespace QMC.CDT320.Sequencing
                 int size = ResolveCassetteSize(cassette);
                 bool goodDetected = cassette.IsBinCassetteExist(TargetCassette.Good1, size);
                 bool ngDetected = cassette.IsBinCassetteExist(TargetCassette.Ng, size);
-                if (!IsHardwareBypassed() && (!goodDetected || !ngDetected))
+                // To do: [존 분리 스캔] 대상 존만 감지 검사(GOOD 동작 시 NG 부재로 막히지 않도록, 반대도 동일).
+                bool targetDetected = IsNgMappingTarget() ? ngDetected : goodDetected;
+                if (!IsHardwareBypassed() && !targetDetected)
                     return Fail("OUT-CST-MISSING", cassette.Name,
-                        "Output good/ng cassette is not detected. size=" + size +
+                        "Output target cassette is not detected. target=" + (IsNgMappingTarget() ? "NG" : "GOOD") +
+                        ", size=" + size +
                         ", goodDetected=" + goodDetected + ", ngDetected=" + ngDetected +
                         ", good1Sensor=" + cassette.IsBinCassetteExist(TargetCassette.Good1, size) +
                         ", good2Sensor=" + cassette.IsBinCassetteExist(TargetCassette.Good2, size) +
                         ", ngSensor=" + cassette.IsBinCassetteExist(TargetCassette.Ng, size));
-                if (IsHardwareBypassed() && (!goodDetected || !ngDetected))
+                if (IsHardwareBypassed() && !targetDetected)
                     Context.LogPublic("[OUTPUT-CASSETTE] Hardware bypass: cassette detect sensor check skipped.");
 
                 CurrentStep = nextStep;
@@ -190,7 +193,8 @@ namespace QMC.CDT320.Sequencing
                 int size = ResolveCassetteSize(cassette);
                 bool goodMatched = cassette.IsBinCassetteExist(TargetCassette.Good1, size);
                 bool ngMatched = cassette.IsBinCassetteExist(TargetCassette.Ng, size);
-                bool matched = goodMatched && ngMatched;
+                // To do: [존 분리 스캔] 대상 존만 사이즈 일치 검사.
+                bool matched = IsNgMappingTarget() ? ngMatched : goodMatched;
                 if (!IsHardwareBypassed() && !matched)
                 {
                     if (!allowMismatch)
@@ -231,13 +235,21 @@ namespace QMC.CDT320.Sequencing
                 if (!IsHardwareBypassed() && cassette.IsBinProtrusionDetected())
                     return Fail("OUT-CST-MAP-PROTRUSION", cassette.Name, "Output cassette product/protrusion sensor must be OFF before mapping.");
 
-                if (!cassette.ValidateBinLifterZTeachingComplete(out readyReason))
+                // To do: [존 분리 스캔] 대상 존만 티칭 검증(GOOD 맵핑 시 NG 미티칭으로 막히지 않도록).
+                if (!cassette.ValidateBinLifterZZoneTeachingComplete(IsNgMappingTarget(), out readyReason))
                     return Fail("OUT-CST-MAP-TEACHING", cassette.Name, "Output cassette teaching data is not complete. " + readyReason);
 
-                if (!IsHardwareBypassed() && !cassette.CheckBinCassetteMappingReady(TargetCassette.Good1, out readyReason))
-                    return Fail("OUT-CST-MAP-GOOD-READY", cassette.Name, "Good cassette is not ready for mapping. " + readyReason);
-                if (!IsHardwareBypassed() && !cassette.CheckBinCassetteMappingReady(TargetCassette.Ng, out readyReason))
-                    return Fail("OUT-CST-MAP-NG-READY", cassette.Name, "NG cassette is not ready for mapping. " + readyReason);
+                // To do: [존 분리 스캔] 맵핑 대상 존만 준비 상태를 검사한다(GOOD 맵핑 시 NG 부재로 막히지 않도록).
+                if (IsNgMappingTarget())
+                {
+                    if (!IsHardwareBypassed() && !cassette.CheckBinCassetteMappingReady(TargetCassette.Ng, out readyReason))
+                        return Fail("OUT-CST-MAP-NG-READY", cassette.Name, "NG cassette is not ready for mapping. " + readyReason);
+                }
+                else
+                {
+                    if (!IsHardwareBypassed() && !cassette.CheckBinCassetteMappingReady(TargetCassette.Good1, out readyReason))
+                        return Fail("OUT-CST-MAP-GOOD-READY", cassette.Name, "Good cassette is not ready for mapping. " + readyReason);
+                }
                 if (IsHardwareBypassed())
                     Context.LogPublic("[OUTPUT-CASSETTE] Hardware bypass: cassette mapping sensor checks skipped, teaching/move readiness validated.");
 
@@ -345,6 +357,13 @@ namespace QMC.CDT320.Sequencing
             return 0;
         }
 
+        // To do: [존 분리 스캔] 맵핑 대상(GOOD/NG)이 Options.TargetCassette로 구분된다.
+        //        NG 대상이면 NG 존만, 아니면 GOOD 존(Good1 + 2단 구성 시 Good2)만 스캔한다.
+        private bool IsNgMappingTarget()
+        {
+            return Options != null && Options.TargetCassette == TargetCassette.Ng;
+        }
+
         protected async Task<int> ScanSlotsAsync(TStep nextStep, CancellationToken ct)
         {
             try
@@ -353,9 +372,26 @@ namespace QMC.CDT320.Sequencing
                 if (cassette == null)
                     return Fail("OUT-CST-MISSING", "OutputCassette", "Output cassette unit is not available.");
 
-                bool ok = await AwaitStepWithCancellationAsync(cassette.ScanAllCassettesFromCurrentStartAsync(ct), ct).ConfigureAwait(false);
+                // 기존 조건: 바이패스 여부와 무관하게 유닛 실스캔 호출 - 유닛 내부 바이패스 판정(Config.bDryRun/시뮬레이션)만으로는
+                //           GENERAL 드라이런(GlobalDryRun)/BypassHardware가 커버되지 않아 드라이런에서 맵핑 데이터가 생성되지 않았다.
+                // 현재 기준: Input(ScanSlots)과 동일하게 시퀀스 레벨 바이패스면 대상 존의 시뮬 빈 맵을 생성하고 실스캔을 건너뛴다.
+                // To do: 드라이런 테스트 지원 - 시퀀스 레벨 바이패스에서 시뮬 빈 맵 생성.
+                if (IsHardwareBypassed())
+                {
+                    cassette.BuildSimulatedBinMaps(IsNgMappingTarget());
+                    Context.LogPublic("[OUTPUT-CASSETTE] Hardware bypass: simulated bin map generated. target=" + (IsNgMappingTarget() ? "NG" : "GOOD"));
+                    CurrentStep = nextStep;
+                    return 0;
+                }
+
+                // 기존 동작: 전체(NG+Good1+Good2) 연속 스캔.
+                //bool ok = await AwaitStepWithCancellationAsync(cassette.ScanAllCassettesFromCurrentStartAsync(ct), ct).ConfigureAwait(false);
+                // 현재 기준: 버튼으로 선택된 대상 존만 스캔한다.
+                bool ok = IsNgMappingTarget()
+                    ? await AwaitStepWithCancellationAsync(cassette.ScanNgCassetteAsync(ct), ct).ConfigureAwait(false)
+                    : await AwaitStepWithCancellationAsync(cassette.ScanGoodCassettesAsync(ct), ct).ConfigureAwait(false);
                 if (!ok)
-                    return Fail("OUT-CST-SCAN", cassette.Name, "Output cassette scan failed.");
+                    return Fail("OUT-CST-SCAN", cassette.Name, "Output cassette scan failed. target=" + (IsNgMappingTarget() ? "NG" : "GOOD"));
 
                 CurrentStep = nextStep;
                 return 0;
@@ -551,10 +587,24 @@ namespace QMC.CDT320.Sequencing
                 int slotCount = cassette.Config != null ? cassette.Config.SlotCount : 0;
                 string goodReason;
                 string ngReason;
-                bool goodConsistencyFailure;
-                bool ngConsistencyFailure;
-                bool updateGood = CanUpdateOutputCassetteMapping(BinSide.Good, out goodReason, out goodConsistencyFailure);
-                bool updateNg = CanUpdateOutputCassetteMapping(BinSide.Ng, out ngReason, out ngConsistencyFailure);
+                // 기존 조건: 양쪽 side를 항상 평가 - GOOD 대상 맵핑에서 미스캔 NG의 빈 맵(길이 0)까지
+                //           갱신 대상이 되어 등록 검증 예외(mapCount=0)가 발생했다.
+                // 현재 기준: [존 분리 스캔] 스캔한 대상 존만 자재상태에 반영한다.
+                bool ngTarget = IsNgMappingTarget();
+                bool goodConsistencyFailure = false;
+                bool ngConsistencyFailure = false;
+                bool updateGood = false;
+                bool updateNg = false;
+                if (ngTarget)
+                {
+                    goodReason = "not scanned (mapping target is NG)";
+                    updateNg = CanUpdateOutputCassetteMapping(BinSide.Ng, out ngReason, out ngConsistencyFailure);
+                }
+                else
+                {
+                    ngReason = "not scanned (mapping target is GOOD)";
+                    updateGood = CanUpdateOutputCassetteMapping(BinSide.Good, out goodReason, out goodConsistencyFailure);
+                }
                 if (goodConsistencyFailure || ngConsistencyFailure)
                     return Fail("OUT-CST-MAP-DATA-MISMATCH", Name,
                         "Output cassette mapping 중 센서/Material 데이터 불일치가 확인되었습니다. goodReason=" + goodReason +

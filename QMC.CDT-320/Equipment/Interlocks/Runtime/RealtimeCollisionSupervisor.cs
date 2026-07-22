@@ -1,6 +1,7 @@
-using System;
+﻿using System;
 using System.Threading;
 using System.Threading.Tasks;
+using QMC.CDT320.Ajin;
 using QMC.CDT320.Motion.SharedRailX;
 using QMC.Common.Alarms;
 using QMC.Common.Motion;
@@ -192,7 +193,8 @@ namespace QMC.CDT320.Interlocks
 
             bool bothYNotRetracted = IsYNotRetracted(state.Front.YState) && IsYNotRetracted(state.Rear.YState);
             bool xPathUnsafe = DoesXPathEnterFacingClearance(state.Front, state.Rear, pair.RequiredClearance);
-            if (bothYNotRetracted && xPathUnsafe)
+            bool safePairInitialize = IsSafePickerYPairInitialize(state);
+            if (bothYNotRetracted && xPathUnsafe && !safePairInitialize)
             {
                 string reason =
                     "실시간 충돌 감시 정지. Front/Rear PickerY가 둘 다 안전 위치가 아닌 상태에서 PickerX 거리가 안전거리 안으로 들어옵니다. " +
@@ -207,6 +209,29 @@ namespace QMC.CDT320.Interlocks
             WriteThrottledStateLog(
                 "실시간 충돌 감시 상태. " +
                 pair.Describe() + ", " + state.Front.Describe() + ", " + state.Rear.Describe());
+        }
+
+        private bool IsSafePickerYPairInitialize(MotionSafetyState state)
+        {
+            if (state == null || state.Front == null || state.Rear == null ||
+                state.Front.Carrying || state.Rear.Carrying ||
+                state.Front.XMoving || state.Rear.XMoving)
+            {
+                return false;
+            }
+
+            AjinAxis frontY = ResolvePickerY(true) as AjinAxis;
+            AjinAxis rearY = ResolvePickerY(false) as AjinAxis;
+            if (frontY == null || rearY == null)
+                return false;
+
+            if (MotionGuardRuntime.IsPickerYPairInitializeHomeActive(frontY, rearY))
+                return true;
+
+            return MotionGuardRuntime.IsPickerYPairLimitSearchActive(frontY, rearY) &&
+                   (state.Front.YMoving || state.Rear.YMoving) &&
+                   frontY.IsInitializeHardwareLimitSearchActive(-1) &&
+                   rearY.IsInitializeHardwareLimitSearchActive(1);
         }
 
         private AxisPairSafetySnapshot BuildFrontRearFacingSnapshot(PickerSafetySnapshot front, PickerSafetySnapshot rear)

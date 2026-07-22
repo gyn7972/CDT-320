@@ -150,6 +150,40 @@ namespace QMC.CDT320.Sequencing
                     ", loc=" + targetStageWafer.CurrentLocation);
             }
 
+            // 기존 조건: 대상 스테이지의 Material 데이터만 확인하고 축 위치는 확인하지 않았다 -
+            //           스테이지가 로드 위치에 준비되지 않아도(예: GoodY만 로드 위치, GoodZ는 미도달)
+            //           피더가 카세트에서 bin을 클램프해 이후 스테이지 이동이 인터락으로 차단되는 순서 꼬임이 발생했다.
+            // 현재 기준: 순서 규칙(StagePrepareLoad -> 카세트 픽)에 따라 픽 시작 전 대상 스테이지가
+            //           로드 위치에 있는지 검증한다. (Good은 GoodY+GoodZ 모두, NG는 NgY)
+            // To do: 카세트 픽 전 대상 스테이지 로드 위치 선행 검증.
+            if (Stage == null)
+                return Fail("OUT-STAGE-MISSING", "OutputStage", "Output stage unit is not available before cassette to feeder load.");
+
+            if (!Stage.IsStageInLoadPosition(Options.Side))
+                return Fail("OUT-STAGE-LOAD-POS", Stage.Name,
+                    "카세트 픽 전 OutputStage가 Load 위치에 준비되지 않았습니다. 먼저 " + Options.Side + " 스테이지 LOAD 준비를 실행하세요. side=" + Options.Side +
+                    ", " + Stage.DescribeStageLoadMoveState(Options.Side));
+
+            // 기존 조건: 축 위치만 확인하고 실린더 준비 상태는 확인하지 않았다 - 스테이지가 로드 위치라도
+            //           GUIDE/CLAMP가 준비되지 않은 채 픽이 진행됐다.
+            // 현재 기준: 수령 최종 준비 상태(UNCLAMP + CLAMP LIFT DOWN + GUIDE UP)까지 검증한다.
+            //           (PrepareLoad가 이 상태를 만들어 놓는다 - 아니면 알람으로 중단)
+            // To do: 카세트 픽 전 스테이지 실린더 준비 상태 선행 검증.
+            if (!Stage.IsBinGuideUnclamped(Options.Side))
+                return Fail("OUT-STAGE-LOAD-UNCLAMP", Stage.Name,
+                    "카세트 픽 전 OutputStage가 Unclamp 상태가 아닙니다. 먼저 " + Options.Side + " 스테이지 LOAD 준비를 실행하세요. side=" + Options.Side +
+                    ", " + Stage.DescribeOutputStageInterlockState(Options.Side));
+
+            if (!Stage.IsBinGuideClampLiftDown(Options.Side))
+                return Fail("OUT-STAGE-LOAD-CLAMP-DOWN", Stage.Name,
+                    "카세트 픽 전 OutputStage Clamp Lift가 Down 상태가 아닙니다. 먼저 " + Options.Side + " 스테이지 LOAD 준비를 실행하세요. side=" + Options.Side +
+                    ", " + Stage.DescribeOutputStageInterlockState(Options.Side));
+
+            if (!Stage.IsBinGuideUp(Options.Side))
+                return Fail("OUT-STAGE-LOAD-GUIDE-UP", Stage.Name,
+                    "카세트 픽 전 OutputStage Guide가 Up 상태가 아닙니다. 먼저 " + Options.Side + " 스테이지 LOAD 준비를 실행하세요. side=" + Options.Side +
+                    ", " + Stage.DescribeOutputStageInterlockState(Options.Side));
+
             CurrentStep = OutputFeederLoadFromCassetteStep.CheckCassetteBinData;
             return 0;
         }

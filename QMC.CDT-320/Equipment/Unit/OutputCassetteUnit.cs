@@ -34,6 +34,8 @@ namespace QMC.CDT320
     public class OutputCassetteConfig : IConfigData
     {
         [DataMember] public bool bDryRun { get; set; }
+        // To do: [NG 스킵] NG 카세트 사용 여부 - false면 오토 시퀀스가 NG 공급/맵핑 요구를 건너뛴다.
+        [DataMember] public bool UseNgCassette { get; set; }
         [DataMember] public double LoadingPositionOffset { get; set; }
         [DataMember] public double UnloadingPositionOffset { get; set; }
         [DataMember] public double Level2PositionOffset { get; set; }
@@ -46,6 +48,8 @@ namespace QMC.CDT320
         [DataMember] public double ScanAcc { get; set; }
         [DataMember] public double ScanDec { get; set; }
         [DataMember] public int ScanSettleTimeMs { get; set; }
+        // To do: [존 분리 스캔] 슬롯 벨리드 윈도우 반폭 비율(윈도우 = 명목 ± SlotPitch×비율, 0.5 미만). Input과 동일.
+        [DataMember] public double MappingWindowRatio { get; set; }
 
         public OutputCassetteConfig()
         {
@@ -58,6 +62,8 @@ namespace QMC.CDT320
         private void SetDefaults()
         {
             bDryRun = false;
+            // 현재 기준: 기본은 NG 카세트 사용(기존 동작 유지).
+            UseNgCassette = true;
             LoadingPositionOffset = 0.0;
             UnloadingPositionOffset = 0.0;
             Level2PositionOffset = 59.0;
@@ -70,6 +76,7 @@ namespace QMC.CDT320
             ScanAcc = 0.0;
             ScanDec = 0.0;
             ScanSettleTimeMs = 100;
+            MappingWindowRatio = 0.25;
         }
     }
 
@@ -86,8 +93,22 @@ namespace QMC.CDT320
         [DataMember] public double NGUnloadingPosition { get; set; }
         [DataMember] public double NGFirstSlotPosition { get; set; }
         [DataMember] public double[] NGSlotPosition { get; private set; }
+        // 기존 필드: 전체 스택 단일 스캔 구간(레거시). 존별 분리 스캔으로 대체되어 미사용.
         [DataMember] public double MappingStartPosition { get; set; }
         [DataMember] public double MappingEndPosition { get; set; }
+
+        // To do: [존 분리 스캔] Input 카세트와 동일 체계. NG(맨 아래)/Good1/Good2(맨 위) 존마다
+        //        MappingStart(그 존 맨 아래 슬롯 앵커, 엔코더 큰쪽) ~ MappingEnd(그 존 맨 위 슬롯 지나 센서 OFF, 엔코더 작은쪽)를
+        //        따로 티칭한다. OutputLifterZ 엔코더는 Input과 동일하게 위로 갈수록 감소(실측 티칭값으로 확인됨).
+        //        FirstSlot(스타트 포지션) = 그 존 맨 위(01번) 슬롯의 배치(로딩) 절대 위치.
+        //        (Good1First=기존 GoodFirstSlotPosition, NgFirst=기존 NGFirstSlotPosition 재사용, Good2First 신규)
+        [DataMember] public double NgMappingStartPosition { get; set; }
+        [DataMember] public double NgMappingEndPosition { get; set; }
+        [DataMember] public double Good1MappingStartPosition { get; set; }
+        [DataMember] public double Good1MappingEndPosition { get; set; }
+        [DataMember] public double Good2MappingStartPosition { get; set; }
+        [DataMember] public double Good2MappingEndPosition { get; set; }
+        [DataMember] public double Good2FirstSlotPosition { get; set; }
 
         public OutputCassetteRecipe()
         {
@@ -145,6 +166,14 @@ namespace QMC.CDT320
             NGFirstSlotPosition = 10.0;
             MappingStartPosition = 5.0;
             MappingEndPosition = 304.0;
+            // To do: [존 분리 스캔] 존별 티칭 기본값. 미티칭(0)이면 스캔 시 티칭 오류로 걸러진다.
+            NgMappingStartPosition = 0.0;
+            NgMappingEndPosition = 0.0;
+            Good1MappingStartPosition = 0.0;
+            Good1MappingEndPosition = 0.0;
+            Good2MappingStartPosition = 0.0;
+            Good2MappingEndPosition = 0.0;
+            Good2FirstSlotPosition = 0.0;
             GoodSlotPosition = Array.Empty<double>();
             Good2SlotPosition = Array.Empty<double>();
             NGSlotPosition = Array.Empty<double>();
@@ -354,6 +383,18 @@ namespace QMC.CDT320
             return MoveBinLifterZ(CalculateBinCassetteSlotTargetPosition(cassette, slotIndex), bFine);
         }
 
+        // To do: [언로드 오프셋] 피더가 처진 bin을 들고 카세트에 진입할 때 간섭하지 않도록
+        //        슬롯 위치 + Config.UnloadingPositionOffset 로 이동한다. (Input UnloadToCassette와 동일 개념)
+        public Task<int> MoveToBinCassetteUnloadOffsetPosition(TargetCassette cassette, int slotIndex, bool bFine = false)
+        {
+            return MoveBinLifterZ(CalculateBinCassetteSlotTargetPosition(cassette, slotIndex) + ResolveUnloadingPositionOffset(), bFine);
+        }
+
+        public double ResolveUnloadingPositionOffset()
+        {
+            return Config != null ? Config.UnloadingPositionOffset : 0.0;
+        }
+
         public Task<int> MoveToCassetteMappingStartPosition(bool bFine = false) { return MoveToBinCassetteMappingStartPosition(bFine); }
         public Task<int> MoveToBinCassetteMappingStartPosition(bool bFine = false) { return MoveBinLifterZ(Recipe.MappingStartPosition, bFine); }
 
@@ -481,8 +522,24 @@ namespace QMC.CDT320
         }
 
         public void TeachBinLifterZAvoidPosition() { Recipe.AvoidPosition = OutputLifterZ.ActualPosition; }
+        // 기존 티칭: 전체 스택 단일 스캔 구간(레거시, 미사용).
         public void TeachBinLifterZMappingStartPosition() { Recipe.MappingStartPosition = OutputLifterZ.ActualPosition; }
         public void TeachBinLifterZMappingEndPosition() { Recipe.MappingEndPosition = OutputLifterZ.ActualPosition; }
+
+        // To do: [존 분리 스캔] 존별 스캔 구간 티칭. Start=그 존 맨 아래 슬롯 센서 중앙, End=그 존 맨 위 지나 센서 OFF 지점.
+        public void TeachBinLifterZZoneMappingStartPosition(TargetCassette cassette)
+        {
+            if (cassette == TargetCassette.Ng) Recipe.NgMappingStartPosition = OutputLifterZ.ActualPosition;
+            else if (cassette == TargetCassette.Good2) Recipe.Good2MappingStartPosition = OutputLifterZ.ActualPosition;
+            else Recipe.Good1MappingStartPosition = OutputLifterZ.ActualPosition;
+        }
+
+        public void TeachBinLifterZZoneMappingEndPosition(TargetCassette cassette)
+        {
+            if (cassette == TargetCassette.Ng) Recipe.NgMappingEndPosition = OutputLifterZ.ActualPosition;
+            else if (cassette == TargetCassette.Good2) Recipe.Good2MappingEndPosition = OutputLifterZ.ActualPosition;
+            else Recipe.Good1MappingEndPosition = OutputLifterZ.ActualPosition;
+        }
 
         public void TeachBinLifterZSlotBasePosition()
         {
@@ -494,26 +551,119 @@ namespace QMC.CDT320
             SetFirstSlotPosition(cassette, OutputLifterZ.ActualPosition);
         }
 
+        // To do: [존 분리 스캔] 존별 스캔 앵커/끝 조회. 엔코더 위로 갈수록 증가 → End > Start 여야 한다.
+        public double ResolveZoneMappingStartPosition(TargetCassette cassette)
+        {
+            if (cassette == TargetCassette.Ng) return Recipe.NgMappingStartPosition;
+            if (cassette == TargetCassette.Good2) return Recipe.Good2MappingStartPosition;
+            return Recipe.Good1MappingStartPosition;
+        }
+
+        public double ResolveZoneMappingEndPosition(TargetCassette cassette)
+        {
+            if (cassette == TargetCassette.Ng) return Recipe.NgMappingEndPosition;
+            if (cassette == TargetCassette.Good2) return Recipe.Good2MappingEndPosition;
+            return Recipe.Good1MappingEndPosition;
+        }
+
+        // To do: [존 분리 스캔] 존 명목 위치. 슬롯 번호는 Input과 동일하게 local 0 = 존 맨 위(01번).
+        // 기존 가정: 엔코더 위로 증가(+pitch) - 실제 티칭값(NG 아래=592 > Good1 위=248)으로 반증됨.
+        // 현재 기준: OutputLifterZ도 Input과 동일하게 위로 갈수록 엔코더 감소.
+        //           pos(local) = ZoneStart(맨 아래 슬롯) - pitch × (N-1-local). 맨 위(local 0) = Start - 12p.
+        public double CalculateZoneSlotNominalPosition(TargetCassette cassette, int slotIndex)
+        {
+            ValidateSlotIndex(slotIndex);
+            int lastIndex = Math.Max(0, Config.SlotCount - 1);
+            return ResolveZoneMappingStartPosition(cassette) - (Config.SlotPitch * (lastIndex - slotIndex));
+        }
+
+        // To do: [존 분리 스캔] 존별 배치(로딩) 오프셋 = 존 FirstSlot(맨 위 01번 배치 위치 티칭) - 그 슬롯 검출 위치(실측 우선).
+        public double ResolveZoneLoadingOffset(TargetCassette cassette)
+        {
+            double firstSlot = GetFirstSlotPosition(cassette);
+            if (firstSlot <= 0.0)
+                return 0.0;
+
+            double referenceDetect = GetMappedSlotPosition(cassette, 0);
+            if (double.IsNaN(referenceDetect))
+                referenceDetect = CalculateZoneSlotNominalPosition(cassette, 0);
+
+            return firstSlot - referenceDetect;
+        }
+
         public double CalculateCassetteSlotTargetPosition(int slotIndex)
         {
             return CalculateBinCassetteSlotTargetPosition(ResolveActiveCassette(), slotIndex);
         }
 
+        // To do: [존 분리 스캔] 배치 목표 = 검출 위치(실측 우선, 없으면 존 명목) + 존별 배치 오프셋.
+        //        기존 공식(FirstSlot + pitch×slotIndex, slot0=맨 아래)은 번호 방향이 Input과 반대라 폐기.
         public double CalculateBinCassetteSlotTargetPosition(TargetCassette cassette, int slotIndex)
         {
             ValidateSlotIndex(slotIndex);
 
-            double mapped = GetMappedSlotPosition(cassette, slotIndex);
-            if (!double.IsNaN(mapped))
-                return mapped;
+            double detect = GetMappedSlotPosition(cassette, slotIndex);
+            if (double.IsNaN(detect))
+                detect = CalculateZoneSlotNominalPosition(cassette, slotIndex);
 
-            return GetFirstSlotPosition(cassette) + (Config.SlotPitch * slotIndex);
+            return detect + ResolveZoneLoadingOffset(cassette);
         }
 
         public bool ValidateBinLifterZTeachingComplete()
         {
             string reason;
             return ValidateBinLifterZTeachingComplete(out reason);
+        }
+
+        // To do: [존 분리 스캔] 대상 존(GOOD/NG)만 티칭 검증 - GOOD 동작 시 NG 미티칭으로 막히지 않도록 분리.
+        public bool ValidateBinLifterZZoneTeachingComplete(bool ngTarget, out string reason)
+        {
+            reason = string.Empty;
+
+            if (Config == null || Recipe == null)
+            {
+                reason = "Output cassette config/recipe is null.";
+                return false;
+            }
+
+            if (Config.SlotCount <= 0 || Config.SlotPitch <= 0.0)
+            {
+                reason = "SlotCount/SlotPitch is invalid. SlotCount=" + Config.SlotCount + ", SlotPitch=" + Config.SlotPitch;
+                return false;
+            }
+
+            // 현재 기준: 엔코더 위로 갈수록 감소 → End(맨 위 지나)는 Start(맨 아래)보다 작아야 한다.
+            if (ngTarget)
+            {
+                if (Recipe.NgMappingStartPosition <= 0.0 || Recipe.NgMappingEndPosition <= 0.0 ||
+                    Recipe.NgMappingEndPosition >= Recipe.NgMappingStartPosition)
+                {
+                    reason = "NG zone mapping start/end teaching is invalid. start=" + Recipe.NgMappingStartPosition +
+                             ", end=" + Recipe.NgMappingEndPosition + " (end must be above start = smaller encoder).";
+                    return false;
+                }
+
+                return true;
+            }
+
+            if (Recipe.Good1MappingStartPosition <= 0.0 || Recipe.Good1MappingEndPosition <= 0.0 ||
+                Recipe.Good1MappingEndPosition >= Recipe.Good1MappingStartPosition)
+            {
+                reason = "Good1 zone mapping start/end teaching is invalid. start=" + Recipe.Good1MappingStartPosition +
+                         ", end=" + Recipe.Good1MappingEndPosition + " (end must be above start = smaller encoder).";
+                return false;
+            }
+
+            if (Config.SelectedCassetteLevel >= 2 &&
+                (Recipe.Good2MappingStartPosition <= 0.0 || Recipe.Good2MappingEndPosition <= 0.0 ||
+                 Recipe.Good2MappingEndPosition >= Recipe.Good2MappingStartPosition))
+            {
+                reason = "Good2 zone mapping start/end teaching is invalid. start=" + Recipe.Good2MappingStartPosition +
+                         ", end=" + Recipe.Good2MappingEndPosition + " (end must be above start = smaller encoder).";
+                return false;
+            }
+
+            return true;
         }
 
         public bool ValidateBinLifterZTeachingComplete(out string reason)
@@ -544,59 +694,68 @@ namespace QMC.CDT320
                 return false;
             }
 
-            if (Recipe.MappingEndPosition <= Recipe.MappingStartPosition)
+            // 기존 검증: 전체 스택 단일 스캔 + FirstSlot 파생 격자 기준(레거시). 존 분리 스캔으로 대체.
+            // To do: [존 분리 스캔] 존별 Start/End 티칭 유효성 검증. 엔코더 위로 증가 → End > Start.
+            //        스택 순서(아래→위): NG → Good1 → Good2(2단 구성 시).
+            //        (전체 검증 - GOOD/NG 대상별 검증은 ValidateBinLifterZZoneTeachingComplete 사용)
+            if (Recipe.NgMappingStartPosition <= 0.0 || Recipe.NgMappingEndPosition <= 0.0)
             {
-                reason = "MappingEndPosition must be greater than MappingStartPosition because OutputLifterZ encoder increases upward. MappingStart=" +
-                         Recipe.MappingStartPosition + ", MappingEnd=" + Recipe.MappingEndPosition;
+                reason = "NG zone mapping start/end is not taught. start=" + Recipe.NgMappingStartPosition +
+                         ", end=" + Recipe.NgMappingEndPosition;
                 return false;
             }
 
-            if (Recipe.NGFirstSlotPosition <= Recipe.GoodFirstSlotPosition)
+            if (Recipe.NgMappingEndPosition >= Recipe.NgMappingStartPosition)
             {
-                reason = "NG first slot must have a larger encoder value than Good first slot because NG cassette is physically below Good cassette. NGFirstSlot=" +
-                         Recipe.NGFirstSlotPosition + ", GoodFirstSlot=" + Recipe.GoodFirstSlotPosition;
+                reason = "NG zone MappingEnd must be above(smaller than) MappingStart. start=" +
+                         Recipe.NgMappingStartPosition + ", end=" + Recipe.NgMappingEndPosition;
                 return false;
             }
 
-            double slotSpan = Config.SlotPitch * Math.Max(0, Config.SlotCount - 1);
-            double lowestSlotPosition = Math.Min(Recipe.NGFirstSlotPosition, Recipe.GoodFirstSlotPosition);
-            double highestSlotPosition = Math.Max(Recipe.NGFirstSlotPosition + slotSpan, Recipe.GoodFirstSlotPosition + slotSpan);
+            if (Recipe.Good1MappingStartPosition <= 0.0 || Recipe.Good1MappingEndPosition <= 0.0)
+            {
+                reason = "Good1 zone mapping start/end is not taught. start=" + Recipe.Good1MappingStartPosition +
+                         ", end=" + Recipe.Good1MappingEndPosition;
+                return false;
+            }
+
+            if (Recipe.Good1MappingEndPosition >= Recipe.Good1MappingStartPosition)
+            {
+                reason = "Good1 zone MappingEnd must be above(smaller than) MappingStart. start=" +
+                         Recipe.Good1MappingStartPosition + ", end=" + Recipe.Good1MappingEndPosition;
+                return false;
+            }
+
+            // 현재 기준: 엔코더 아래=큰 값 → NG(맨 아래) 존 값이 Good1보다 커야 한다.
+            if (Recipe.NgMappingEndPosition <= Recipe.Good1MappingStartPosition)
+            {
+                reason = "NG zone must be below Good1 zone (larger encoder). NgEnd=" + Recipe.NgMappingEndPosition +
+                         ", Good1Start=" + Recipe.Good1MappingStartPosition;
+                return false;
+            }
 
             if (Config.SelectedCassetteLevel >= 2)
             {
-                double good2FirstSlotPosition = GetGood2FirstSlotPosition();
-                double good2LastSlotPosition = good2FirstSlotPosition + slotSpan;
-                if (good2LastSlotPosition >= Recipe.GoodFirstSlotPosition)
+                if (Recipe.Good2MappingStartPosition <= 0.0 || Recipe.Good2MappingEndPosition <= 0.0)
                 {
-                    reason = "Good2 cassette must be above Good1 cassette, so Good2 last slot encoder must be smaller than Good1 first slot encoder. Good2LastSlot=" +
-                             good2LastSlotPosition + ", Good1FirstSlot=" + Recipe.GoodFirstSlotPosition +
-                             ", Good2FirstSlot=" + good2FirstSlotPosition +
-                             ", Level2Offset=" + Config.Level2PositionOffset;
+                    reason = "Good2 zone mapping start/end is not taught. start=" + Recipe.Good2MappingStartPosition +
+                             ", end=" + Recipe.Good2MappingEndPosition;
                     return false;
                 }
 
-                lowestSlotPosition = Math.Min(lowestSlotPosition, good2FirstSlotPosition);
-                highestSlotPosition = Math.Max(highestSlotPosition, good2LastSlotPosition);
-            }
+                if (Recipe.Good2MappingEndPosition >= Recipe.Good2MappingStartPosition)
+                {
+                    reason = "Good2 zone MappingEnd must be above(smaller than) MappingStart. start=" +
+                             Recipe.Good2MappingStartPosition + ", end=" + Recipe.Good2MappingEndPosition;
+                    return false;
+                }
 
-            if (Recipe.MappingStartPosition > lowestSlotPosition)
-            {
-                reason = "MappingStartPosition is above the lowest output cassette slot. MappingStart=" +
-                         Recipe.MappingStartPosition + ", lowestSlot=" + lowestSlotPosition +
-                         ", NGFirstSlot=" + Recipe.NGFirstSlotPosition + ", GoodFirstSlot=" + Recipe.GoodFirstSlotPosition;
-                return false;
-            }
-
-            if (Recipe.MappingEndPosition < highestSlotPosition)
-            {
-                Log.Write(
-                    "Main",
-                    "SYSTEM",
-                    "OutputCassetteMapping",
-                    "MappingEndPosition is below the highest output cassette slot, but mapping will continue due to output lifter stroke limit. MappingEnd=" +
-                    Recipe.MappingEndPosition + ", highestSlot=" + highestSlotPosition +
-                    ", SlotCount=" + Config.SlotCount + ", SlotPitch=" + Config.SlotPitch +
-                    ", GoodLevel=" + Config.SelectedCassetteLevel + " - Check");
+                if (Recipe.Good1MappingEndPosition <= Recipe.Good2MappingStartPosition)
+                {
+                    reason = "Good1 zone must be below Good2 zone (larger encoder). Good1End=" + Recipe.Good1MappingEndPosition +
+                             ", Good2Start=" + Recipe.Good2MappingStartPosition;
+                    return false;
+                }
             }
 
             return true;
@@ -847,6 +1006,7 @@ namespace QMC.CDT320
             return await ScanCassetteAsync(cassette, maxSlots, slotPitch, CancellationToken.None).ConfigureAwait(false);
         }
 
+        // To do: [존 분리 스캔] 단일 존(GOOD1/GOOD2/NG 선택) 스캔. Input과 동일한 윈도우 실시간 판정.
         public async Task<bool> ScanCassetteAsync(TargetCassette cassette, int maxSlots, double slotPitch, CancellationToken ct)
         {
             ct.ThrowIfCancellationRequested();
@@ -859,17 +1019,52 @@ namespace QMC.CDT320
                 return true;
             }
 
-            List<double> detectedPositions = await CollectBinMappingSensorPositionsAsync(cassette, maxSlots, slotPitch, true, ct);
-            if (detectedPositions == null)
-                return false;
+            return await CollectBinSlotOccupancyAsync(new[] { cassette }, ct).ConfigureAwait(false);
+        }
 
-            bool[] slotMap;
-            double[] slotPositions;
-            if (!BuildBinMappingResultFromDetectedPositions(cassette, detectedPositions, maxSlots, slotPitch, out slotMap, out slotPositions))
-                return false;
+        // To do: [존 분리 스캔] GOOD 선택 스캔 = Good1 + (2단 구성 시) Good2를 아래→위 순서로 세그먼트 스캔.
+        public async Task<bool> ScanGoodCassettesAsync(CancellationToken ct)
+        {
+            if (IsOutputCassetteHardwareBypassed())
+            {
+                BuildSimulatedBinMap(TargetCassette.Good1, Config.SlotCount, Config.SlotPitch);
+                if (Config.SelectedCassetteLevel >= 2)
+                    BuildSimulatedBinMap(TargetCassette.Good2, Config.SlotCount, Config.SlotPitch);
+                return true;
+            }
 
-            ApplyBinMappingResult(cassette, slotMap, slotPositions);
-            return true;
+            var zones = Config.SelectedCassetteLevel >= 2
+                ? new[] { TargetCassette.Good1, TargetCassette.Good2 }
+                : new[] { TargetCassette.Good1 };
+            return await CollectBinSlotOccupancyAsync(zones, ct).ConfigureAwait(false);
+        }
+
+        // To do: [존 분리 스캔] NG 선택 스캔.
+        public async Task<bool> ScanNgCassetteAsync(CancellationToken ct)
+        {
+            if (IsOutputCassetteHardwareBypassed())
+            {
+                BuildSimulatedBinMap(TargetCassette.Ng, Config.SlotCount, Config.SlotPitch);
+                return true;
+            }
+
+            return await CollectBinSlotOccupancyAsync(new[] { TargetCassette.Ng }, ct).ConfigureAwait(false);
+        }
+
+        // To do: [드라이런 데이터 생성] 시퀀스 레벨 하드웨어 바이패스(BypassHardware/GlobalDryRun 포함)에서 호출하는 시뮬 빈 맵 생성.
+        //        유닛 내부 IsOutputCassetteHardwareBypassed()는 Config.bDryRun/시뮬레이션 모드만 판정하므로
+        //        GENERAL 드라이런에서는 시퀀스가 이 메서드로 직접 시뮬 맵을 만들어야 한다. (Input의 BuildSimulatedWaferMap와 동일 역할)
+        public void BuildSimulatedBinMaps(bool ngTarget)
+        {
+            if (ngTarget)
+            {
+                BuildSimulatedBinMap(TargetCassette.Ng, Config.SlotCount, Config.SlotPitch);
+                return;
+            }
+
+            BuildSimulatedBinMap(TargetCassette.Good1, Config.SlotCount, Config.SlotPitch);
+            if (Config.SelectedCassetteLevel >= 2)
+                BuildSimulatedBinMap(TargetCassette.Good2, Config.SlotCount, Config.SlotPitch);
         }
 
         public async Task<bool> ScanAllCassettesAsync()
@@ -905,20 +1100,8 @@ namespace QMC.CDT320
                 if (!IsAnyCassetteSensorOn(TargetCassette.Ng))
                     return FailMappingScanBool("OUT-CST-MAP-NG-MISSING", "NG cassette is not detected.");
 
-                List<double> detectedPositions = await CollectBinMappingSensorPositionsAsync(TargetCassette.Good1, maxSlots, slotPitch, true, ct).ConfigureAwait(false);
-                if (detectedPositions == null)
-                    return false;
-
-                if (!ApplyDetectedBinMapping(TargetCassette.Ng, detectedPositions, maxSlots, slotPitch))
-                    return false;
-
-                if (!ApplyDetectedBinMapping(TargetCassette.Good1, detectedPositions, maxSlots, slotPitch))
-                    return false;
-
-                if (!ApplyDetectedBinMapping(TargetCassette.Good2, detectedPositions, maxSlots, slotPitch))
-                    return false;
-
-                return true;
+                // To do: [존 분리 스캔] 전체 스캔 = NG(맨 아래) → Good1 → Good2(2단 구성 시) 순 세그먼트.
+                return await CollectBinSlotOccupancyAsync(BuildAllScanZones(), ct).ConfigureAwait(false);
             }
             finally
             {
@@ -963,20 +1146,8 @@ namespace QMC.CDT320
                 if (!IsAnyCassetteSensorOn(TargetCassette.Ng))
                     return FailMappingScanBool("OUT-CST-MAP-NG-MISSING", "NG cassette is not detected.");
 
-                List<double> detectedPositions = await CollectBinMappingSensorPositionsAsync(TargetCassette.Good1, maxSlots, slotPitch, false, ct).ConfigureAwait(false);
-                if (detectedPositions == null)
-                    return false;
-
-                if (!ApplyDetectedBinMapping(TargetCassette.Ng, detectedPositions, maxSlots, slotPitch))
-                    return false;
-
-                if (!ApplyDetectedBinMapping(TargetCassette.Good1, detectedPositions, maxSlots, slotPitch))
-                    return false;
-
-                if (!ApplyDetectedBinMapping(TargetCassette.Good2, detectedPositions, maxSlots, slotPitch))
-                    return false;
-
-                return true;
+                // To do: [존 분리 스캔] 각 존이 자기 시작점으로 접근하므로 현재 위치 무관. 전체 존 순차 스캔.
+                return await CollectBinSlotOccupancyAsync(BuildAllScanZones(), ct).ConfigureAwait(false);
             }
             catch (OperationCanceledException)
             {
@@ -987,6 +1158,272 @@ namespace QMC.CDT320
             {
                 EndMapping();
             }
+        }
+
+        // To do: [존 분리 스캔] 전체 스캔 존 목록(아래→위): NG → Good1 → Good2(2단 구성 시).
+        private TargetCassette[] BuildAllScanZones()
+        {
+            return Config.SelectedCassetteLevel >= 2
+                ? new[] { TargetCassette.Ng, TargetCassette.Good1, TargetCassette.Good2 }
+                : new[] { TargetCassette.Ng, TargetCassette.Good1 };
+        }
+
+        // To do: [존 분리 스캔] Input과 동일한 윈도우 실시간 판정 + 존 세그먼트 스캔(엔코더 위로 증가 방향).
+        //        존마다: 시작 = ZoneStart(맨 아래 슬롯 앵커) - 반 피치 → 끝 = ZoneEnd(맨 위 지나 센서 OFF 지점).
+        //        매 샘플 "현재 센서 ON + 그 존 벨리드 윈도우"면 즉시 점유(이전 상태/엣지/디바운스 없음).
+        //        윈도우 밖 ON은 무시 + 스트레치 로그. 존 사이 구간은 판정 없이 이동만 한다.
+        private async Task<bool> CollectBinSlotOccupancyAsync(IReadOnlyList<TargetCassette> zones, CancellationToken ct)
+        {
+            double originalAcc = 0.0;
+            double originalDec = 0.0;
+            bool restoreScanProfile = false;
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+
+                int slotCount = Config.SlotCount;
+                double pitch = Config.SlotPitch;
+                double ratio = Config.MappingWindowRatio;
+                if (ratio <= 0.0 || ratio >= 0.5)
+                    ratio = 0.25;
+                double windowHalf = pitch > 0.0 ? pitch * ratio : 0.0;
+                if (slotCount <= 0 || windowHalf <= 0.0)
+                    return FailMappingScanBool("OUT-CST-MAP-WINDOW", "Slot valid window is invalid. pitch=" + FormatPosition(pitch));
+
+                Log.Write("Main", "SYSTEM", "OutputCassetteUnit",
+                    "Bin mapping scan window. halfWidth=" + FormatPosition(windowHalf) +
+                    " (ratio=" + FormatPosition(ratio) + ") - Ok");
+
+                double scanVelocity = ResolveBinLifterZConfigMoveVelocity();
+                double scanAcceleration = ResolveCassetteProfileAcceleration(scanVelocity);
+                double scanDeceleration = ResolveCassetteProfileDeceleration(scanVelocity);
+                if (OutputLifterZ.Config != null)
+                {
+                    originalAcc = OutputLifterZ.Config.Acceleration;
+                    originalDec = OutputLifterZ.Config.Deceleration;
+                    OutputLifterZ.Config.Acceleration = scanAcceleration;
+                    OutputLifterZ.Config.Deceleration = scanDeceleration;
+                    restoreScanProfile = true;
+                }
+
+                Recipe.EnsureSlotPositionBuffers(slotCount);
+
+                foreach (TargetCassette zone in zones)
+                {
+                    ct.ThrowIfCancellationRequested();
+
+                    double zoneStart = ResolveZoneMappingStartPosition(zone);
+                    double zoneEnd = ResolveZoneMappingEndPosition(zone);
+                    // 현재 기준: 엔코더 위로 갈수록 감소(Input과 동일) → End(위) < Start(아래).
+                    if (zoneStart <= 0.0 || zoneEnd <= 0.0 || zoneEnd >= zoneStart)
+                        return FailMappingScanBool("OUT-CST-MAP-ZONE-TEACH",
+                            "Zone mapping start/end teaching is invalid. zone=" + zone +
+                            ", start=" + FormatPosition(zoneStart) + ", end=" + FormatPosition(zoneEnd) +
+                            " (end must be above start = smaller encoder).");
+
+                    var centers = new double[slotCount];
+                    for (int i = 0; i < slotCount; i++)
+                        centers[i] = CalculateZoneSlotNominalPosition(zone, i);
+
+                    // 커버리지: ZoneEnd가 그 존 맨 위 슬롯(local 0) 윈도우를 지나야(더 작아야) 맨 위 웨이퍼가 검출된다.
+                    double topSlot = centers[0];
+                    if (zoneEnd > topSlot - (pitch * 0.5))
+                        Log.Write("Main", "SYSTEM", "OutputCassetteUnit",
+                            "Bin mapping scan end does not cover the top slot. zone=" + zone +
+                            ", scanEnd=" + FormatPosition(zoneEnd) +
+                            ", topSlot(local01)=" + FormatPosition(topSlot) +
+                            ", requiredEnd<=" + FormatPosition(topSlot - pitch * 0.5) +
+                            ". 해당 존 MappingEnd 티칭을 맨 위 슬롯보다 위로 다시 잡아야 합니다. - Check");
+
+                    // 세그먼트 시작 = 존 앵커(맨 아래 슬롯) 반 피치 아래(엔코더 +, 윈도우 밖) → 시작 센서 ON도 윈도우 통과로 자연 점유.
+                    double segmentStart = zoneStart + (pitch * 0.5);
+                    int approach = await MoveBinLifterWatchedForMappingAsync(segmentStart, scanVelocity, "zone " + zone + " scan start", ct).ConfigureAwait(false);
+                    if (approach != 0)
+                        return false;
+
+                    var occupied = new bool[slotCount];
+                    var onMin = new double[slotCount];
+                    var onMax = new double[slotCount];
+                    for (int i = 0; i < slotCount; i++)
+                    {
+                        onMin[i] = double.NaN;
+                        onMax[i] = double.NaN;
+                    }
+
+                    bool invalidZoneOn = false;
+                    double invalidOnMin = double.NaN;
+                    double invalidOnMax = double.NaN;
+
+                    Task<int> moveTask = OutputLifterZ.MoveAbsoluteAsync(zoneEnd, scanVelocity);
+                    while (!moveTask.IsCompleted)
+                    {
+                        ct.ThrowIfCancellationRequested();
+                        if (IsBinProtrusionDetected())
+                        {
+                            OutputLifterZ.EStop();
+                            return FailMappingScanBool("OUT-CST-MAP-PROTRUSION", "Bin protrusion detected during mapping scan.");
+                        }
+
+                        ProcessBinMappingScanSample(OutputLifterZ.ActualPosition, BinMappingSensor.IsOn,
+                            centers, windowHalf, occupied, onMin, onMax,
+                            ref invalidZoneOn, ref invalidOnMin, ref invalidOnMax);
+
+                        await Task.Delay(5, ct).ConfigureAwait(false);
+                    }
+
+                    int moveResult = await moveTask.ConfigureAwait(false);
+                    if (moveResult != 0 || OutputLifterZ.IsAlarm)
+                        return FailMappingScanBool("OUT-CST-MAP-END", "OutputLifterZ move failed during zone " + zone + " mapping scan.");
+
+                    ProcessBinMappingScanSample(OutputLifterZ.ActualPosition, BinMappingSensor.IsOn,
+                        centers, windowHalf, occupied, onMin, onMax,
+                        ref invalidZoneOn, ref invalidOnMin, ref invalidOnMax);
+                    FlushBinInvalidZoneStretchLog(ref invalidZoneOn, ref invalidOnMin, ref invalidOnMax);
+
+                    AxisMoveWaitResult waitResult = await WaitBinLifterZMoveDoneInPosition(zoneEnd, OutputLifterZ.Setup.MoveTimeoutMs, ct).ConfigureAwait(false);
+                    if (!waitResult.Success)
+                        return FailMappingScanBool(
+                            ResolveBinLifterZMoveWaitAlarmCode("OUT-CST-MAP-END", waitResult.Failure),
+                            "OutputLifterZ zone " + zone + " mapping end move/in-position wait failed. waitResult=" + waitResult.Code +
+                            ", reason=" + waitResult.Reason + ". " + waitResult.AxisState);
+
+                    // 존 결과 확정: 점유 슬롯은 ON 구간 중심을 실측으로 저장 + 슬롯별 로그.
+                    var positions = new double[slotCount];
+                    for (int i = 0; i < slotCount; i++)
+                    {
+                        positions[i] = double.NaN;
+                        if (!occupied[i])
+                            continue;
+
+                        positions[i] = (onMin[i] + onMax[i]) * 0.5;
+                        Log.Write("Main", "SYSTEM", "OutputCassetteUnit",
+                            "Bin mapping slot occupied. zone=" + zone + ", slot=" + (i + 1).ToString("00") +
+                            ", measured=" + FormatPosition(positions[i]) +
+                            ", nominal=" + FormatPosition(centers[i]) +
+                            ", error=" + FormatPosition(Math.Abs(positions[i] - centers[i])) + " - Ok");
+                    }
+
+                    ApplyBinMappingResult(zone, occupied, positions);
+                }
+
+                return true;
+            }
+            catch (OperationCanceledException)
+            {
+                try { OutputLifterZ?.Stop(); } catch { }
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return FailMappingScanBool("OUT-CST-MAP-COLLECT", "Bin slot occupancy scan failed: " + ex.Message);
+            }
+            finally
+            {
+                if (restoreScanProfile && OutputLifterZ != null && OutputLifterZ.Config != null)
+                {
+                    OutputLifterZ.Config.Acceleration = originalAcc;
+                    OutputLifterZ.Config.Deceleration = originalDec;
+                }
+            }
+        }
+
+        // To do: [존 분리 스캔] 세그먼트 접근 이동(판정 없이 프로트루전/알람 감시만).
+        private async Task<int> MoveBinLifterWatchedForMappingAsync(double target, double velocity, string moveName, CancellationToken ct)
+        {
+            Task<int> moveTask = OutputLifterZ.MoveAbsoluteAsync(target, velocity);
+            while (!moveTask.IsCompleted)
+            {
+                ct.ThrowIfCancellationRequested();
+                if (IsBinProtrusionDetected())
+                {
+                    OutputLifterZ.EStop();
+                    return FailMappingScan("OUT-CST-MAP-PROTRUSION", "Bin protrusion detected while moving to " + moveName + ".");
+                }
+
+                await Task.Delay(5, ct).ConfigureAwait(false);
+            }
+
+            int moveResult = await moveTask.ConfigureAwait(false);
+            if (moveResult != 0 || OutputLifterZ.IsAlarm)
+                return FailMappingScan("OUT-CST-MAP-MOVE", "OutputLifterZ move failed. moveName=" + moveName + ", target=" + FormatPosition(target));
+
+            AxisMoveWaitResult waitResult = await WaitBinLifterZMoveDoneInPosition(target, OutputLifterZ.Setup.MoveTimeoutMs, ct).ConfigureAwait(false);
+            if (!waitResult.Success)
+                return FailMappingScan(
+                    ResolveBinLifterZMoveWaitAlarmCode("OUT-CST-MAP-MOVE", waitResult.Failure),
+                    "OutputLifterZ " + moveName + " move/in-position wait failed. waitResult=" + waitResult.Code +
+                    ", reason=" + waitResult.Reason + ". " + waitResult.AxisState);
+
+            return 0;
+        }
+
+        // To do: [존 분리 스캔] 샘플 1건 처리 - 현재 상태만 본다. ON + 윈도우면 즉시 점유(OFF/엣지/디바운스 없음).
+        private void ProcessBinMappingScanSample(
+            double position,
+            bool sensorOn,
+            double[] centers,
+            double windowHalf,
+            bool[] occupied,
+            double[] onMin,
+            double[] onMax,
+            ref bool invalidZoneOn,
+            ref double invalidOnMin,
+            ref double invalidOnMax)
+        {
+            if (!sensorOn)
+            {
+                FlushBinInvalidZoneStretchLog(ref invalidZoneOn, ref invalidOnMin, ref invalidOnMax);
+                return;
+            }
+
+            int slot = -1;
+            double bestError = double.MaxValue;
+            for (int i = 0; i < centers.Length; i++)
+            {
+                double error = Math.Abs(position - centers[i]);
+                if (error <= windowHalf && error < bestError)
+                {
+                    bestError = error;
+                    slot = i;
+                }
+            }
+
+            if (slot < 0)
+            {
+                if (double.IsNaN(invalidOnMin) || position < invalidOnMin)
+                    invalidOnMin = position;
+                if (double.IsNaN(invalidOnMax) || position > invalidOnMax)
+                    invalidOnMax = position;
+                invalidZoneOn = true;
+                return;
+            }
+
+            FlushBinInvalidZoneStretchLog(ref invalidZoneOn, ref invalidOnMin, ref invalidOnMax);
+
+            if (double.IsNaN(onMin[slot]) || position < onMin[slot])
+                onMin[slot] = position;
+            if (double.IsNaN(onMax[slot]) || position > onMax[slot])
+                onMax[slot] = position;
+
+            occupied[slot] = true;
+        }
+
+        // To do: [존 분리 스캔] invalid ON 스트레치 로그(시작~끝~중심) - 캘리브레이션용 실측 데이터.
+        private void FlushBinInvalidZoneStretchLog(ref bool invalidZoneOn, ref double invalidOnMin, ref double invalidOnMax)
+        {
+            if (!invalidZoneOn)
+                return;
+
+            if (!double.IsNaN(invalidOnMin) && !double.IsNaN(invalidOnMax))
+                Log.Write("Main", "SYSTEM", "OutputCassetteUnit",
+                    "Bin mapping sensor ON in invalid zone (ignored). from=" + FormatPosition(invalidOnMin) +
+                    ", to=" + FormatPosition(invalidOnMax) +
+                    ", center=" + FormatPosition((invalidOnMin + invalidOnMax) * 0.5) +
+                    ", span=" + FormatPosition(invalidOnMax - invalidOnMin) + " - Check");
+
+            invalidZoneOn = false;
+            invalidOnMin = double.NaN;
+            invalidOnMax = double.NaN;
         }
 
         private async Task<List<double>> CollectBinMappingSensorPositionsAsync(
@@ -1024,8 +1461,10 @@ namespace QMC.CDT320
 
                 var detectedPositions = new List<double>();
                 bool previous = BinMappingSensor.IsOn;
-                if (previous)
-                    return FailMappingScanList("OUT-CST-MAP-SENSOR-ON", "Mapping sensor is ON at mapping start. Check mapping start position.");
+
+                // 첫장은 무조건 감지가됨. 
+                //if (previous)
+                //    return FailMappingScanList("OUT-CST-MAP-SENSOR-ON", "Mapping sensor is ON at mapping start. Check mapping start position.");
 
                 double scanVelocity = ResolveBinLifterZConfigMoveVelocity();
                 double scanAcceleration = ResolveCassetteProfileAcceleration(scanVelocity);
@@ -1297,7 +1736,8 @@ namespace QMC.CDT320
                 for (int i = 0; i < maxSlots; i++)
                 {
                     map[i] = true;
-                    double position = GetFirstSlotPosition(cassette) + (i * slotPitch);
+                    // To do: [존 분리 스캔] 시뮬 위치도 존 명목식(local 0=맨 위) 기준으로 생성한다.
+                    double position = CalculateZoneSlotNominalPosition(cassette, i);
                     Recipe.UpdateSlotPosition(cassette, i, position);
                     UpdateCassetteSlotState(cassette, i, SlotPresence.Exist, ProcessState.Ready);
                 }
@@ -1479,6 +1919,41 @@ namespace QMC.CDT320
             }
         }
 
+        // To do: [언로드 오프셋] 피더 배출 준비 - 슬롯 위치 + UnloadingPositionOffset 로 이동해
+        //        처진 bin과 카세트 셸프의 간섭을 피한다. (PrepareBinCassetteForFeederLoad의 배출 대응)
+        public async Task<int> PrepareBinCassetteForFeederUnload(TargetCassette cassette, int slotIndex, int timeoutMs, bool bFine = false)
+        {
+            try
+            {
+                if (!CheckBinLifterZMoveReady())
+                    return -1;
+
+                int result = await MoveToBinCassetteUnloadOffsetPosition(cassette, slotIndex, bFine).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return FailMappingScan(
+                    "OUT-CST-FEEDER-UNLOAD-EXCEPTION",
+                    "Output cassette feeder unload preparation failed. cassette=" + cassette +
+                    ", slot=" + slotIndex + ", error=" + ex.Message);
+            }
+            finally
+            {
+                QMC.Common.Log.Write("Main", "SYSTEM", "OutputCassette",
+                    "PrepareBinCassetteForFeederUnload finished. cassette=" + cassette +
+                    ", slot=" + slotIndex +
+                    ", unloadOffset=" + ResolveUnloadingPositionOffset().ToString("0.###"));
+            }
+        }
+
         public Task<int> RecoverCassetteToSafeState(int timeoutMs, bool moveAvoid = true)
         {
             return RecoverBinCassetteToSafeState(timeoutMs, moveAvoid);
@@ -1648,7 +2123,10 @@ namespace QMC.CDT320
             }
 
             string teachingReason;
-            if (!ValidateBinLifterZTeachingComplete(out teachingReason))
+            // 기존 조건: 전체 존 티칭 검증 - GOOD 맵핑이 NG 미티칭/존 순서로 막히는 문제가 있었다.
+            //if (!ValidateBinLifterZTeachingComplete(out teachingReason))
+            // 현재 기준: [존 분리 스캔] 대상 존만 티칭 검증한다.
+            if (!ValidateBinLifterZZoneTeachingComplete(cassette == TargetCassette.Ng, out teachingReason))
             {
                 reason = "Output cassette lifter teaching is not complete. " + teachingReason;
                 return false;
@@ -2027,6 +2505,13 @@ namespace QMC.CDT320
             if (string.Equals(positionName, "GoodFirstSlot", StringComparison.OrdinalIgnoreCase)) return Recipe.GoodFirstSlotPosition;
             if (string.Equals(positionName, "Good1FirstSlot", StringComparison.OrdinalIgnoreCase)) return Recipe.GoodFirstSlotPosition;
             if (string.Equals(positionName, "Good2FirstSlot", StringComparison.OrdinalIgnoreCase)) return GetGood2FirstSlotPosition();
+            // To do: [존 분리 스캔] 존별 스캔 구간 티칭 키.
+            if (string.Equals(positionName, "NgMappingStart", StringComparison.OrdinalIgnoreCase)) return Recipe.NgMappingStartPosition;
+            if (string.Equals(positionName, "NgMappingEnd", StringComparison.OrdinalIgnoreCase)) return Recipe.NgMappingEndPosition;
+            if (string.Equals(positionName, "Good1MappingStart", StringComparison.OrdinalIgnoreCase)) return Recipe.Good1MappingStartPosition;
+            if (string.Equals(positionName, "Good1MappingEnd", StringComparison.OrdinalIgnoreCase)) return Recipe.Good1MappingEndPosition;
+            if (string.Equals(positionName, "Good2MappingStart", StringComparison.OrdinalIgnoreCase)) return Recipe.Good2MappingStartPosition;
+            if (string.Equals(positionName, "Good2MappingEnd", StringComparison.OrdinalIgnoreCase)) return Recipe.Good2MappingEndPosition;
             throw new ArgumentException("Unknown OutputLifterZ teaching position: " + positionName, "positionName");
         }
 
@@ -2039,6 +2524,13 @@ namespace QMC.CDT320
             else if (string.Equals(positionName, "GoodFirstSlot", StringComparison.OrdinalIgnoreCase)) Recipe.GoodFirstSlotPosition = position;
             else if (string.Equals(positionName, "Good1FirstSlot", StringComparison.OrdinalIgnoreCase)) Recipe.GoodFirstSlotPosition = position;
             else if (string.Equals(positionName, "Good2FirstSlot", StringComparison.OrdinalIgnoreCase)) SetGood2FirstSlotPosition(position);
+            // To do: [존 분리 스캔] 존별 스캔 구간 티칭 키.
+            else if (string.Equals(positionName, "NgMappingStart", StringComparison.OrdinalIgnoreCase)) Recipe.NgMappingStartPosition = position;
+            else if (string.Equals(positionName, "NgMappingEnd", StringComparison.OrdinalIgnoreCase)) Recipe.NgMappingEndPosition = position;
+            else if (string.Equals(positionName, "Good1MappingStart", StringComparison.OrdinalIgnoreCase)) Recipe.Good1MappingStartPosition = position;
+            else if (string.Equals(positionName, "Good1MappingEnd", StringComparison.OrdinalIgnoreCase)) Recipe.Good1MappingEndPosition = position;
+            else if (string.Equals(positionName, "Good2MappingStart", StringComparison.OrdinalIgnoreCase)) Recipe.Good2MappingStartPosition = position;
+            else if (string.Equals(positionName, "Good2MappingEnd", StringComparison.OrdinalIgnoreCase)) Recipe.Good2MappingEndPosition = position;
             else throw new ArgumentException("Unknown OutputLifterZ teaching position: " + positionName, "positionName");
         }
 
@@ -2077,21 +2569,16 @@ namespace QMC.CDT320
             }
         }
 
+        // 기존 방식: Good2 First는 Good1First - Level2Offset - span 파생값이었다.
+        // 현재 기준: [존 분리 스캔] Good2도 독립 티칭 필드를 직접 사용한다(Level2Offset 미사용).
         private double GetGood2FirstSlotPosition()
         {
-            double level1FirstPosition = Recipe.GoodFirstSlotPosition;
-            double slotSpan = Config.SlotPitch * Math.Max(0, Config.SlotCount - 1);
-            double levelGap = Config.Level2PositionOffset;
-            if (levelGap <= 0.0)
-                levelGap = Config.SlotPitch > 0.0 ? Config.SlotPitch : 0.001;
-
-            return level1FirstPosition - levelGap - slotSpan;
+            return Recipe.Good2FirstSlotPosition;
         }
 
         private void SetGood2FirstSlotPosition(double position)
         {
-            double slotSpan = Config.SlotPitch * Math.Max(0, Config.SlotCount - 1);
-            Config.Level2PositionOffset = Math.Max(0.0, Recipe.GoodFirstSlotPosition - slotSpan - position);
+            Recipe.Good2FirstSlotPosition = position;
         }
 
         private double GetMappedSlotPosition(TargetCassette cassette, int slotIndex)

@@ -169,7 +169,6 @@ namespace QMC.CDT320.Interlocks
                         out reason);
 
                 string axisReason;
-
                 // 인터락 조건: InputVisionX가 홈 준비 상태가 아니면 FeederY 수동 이동을 차단한다.
                 if (!IsInputVisionXHomeReadyForInputFeederHome(machine.InputStageUnit, out axisReason))
                     return MotionGuardRuleHelpers.Block(
@@ -178,18 +177,19 @@ namespace QMC.CDT320.Interlocks
                         out reason);
 
                 // 인터락 조건: FrontPickerX가 홈 준비 상태가 아니면 FeederY 수동 이동을 차단한다.
-                if (!IsFrontPickerXHomeReadyForInputFeederHome(machine.PickerFrontUnit, out axisReason))
-                    return MotionGuardRuleHelpers.Block(
-                        "InputFeederY",
-                        "InputFeederY HOME blocked. FrontPickerX must be not homed yet or at Home position. " + axisReason,
-                        out reason);
+                // To do: 이건 AVOID로 변경해야한다
+                //if (!IsFrontPickerXHomeReadyForInputFeederHome(machine.PickerFrontUnit, out axisReason))
+                //    return MotionGuardRuleHelpers.Block(
+                //        "InputFeederY",
+                //        "InputFeederY HOME blocked. FrontPickerX must be not homed yet or at Home position. " + axisReason,
+                //        out reason);
 
-                // 인터락 조건: RearPickerX가 홈 준비 상태가 아니면 FeederY 수동 이동을 차단한다.
-                if (!IsRearPickerXHomeReadyForInputFeederHome(machine.PickerRearUnit, out axisReason))
-                    return MotionGuardRuleHelpers.Block(
-                        "InputFeederY",
-                        "InputFeederY HOME blocked. RearPickerX must be not homed yet or at Home position. " + axisReason,
-                        out reason);
+                //// 인터락 조건: RearPickerX가 홈 준비 상태가 아니면 FeederY 수동 이동을 차단한다.
+                //if (!IsRearPickerXHomeReadyForInputFeederHome(machine.PickerRearUnit, out axisReason))
+                //    return MotionGuardRuleHelpers.Block(
+                //        "InputFeederY",
+                //        "InputFeederY HOME blocked. RearPickerX must be not homed yet or at Home position. " + axisReason,
+                //        out reason);
 
                 InputFeederUnit feeder = machine.InputFeederUnit;
                 // 방어 조건: Feeder 참조가 없으면 Feeder 센서/자재 조건은 적용하지 않는다.
@@ -197,35 +197,40 @@ namespace QMC.CDT320.Interlocks
                     return true;
 
                 // 인터락 조건: Feeder 위에 자재 데이터나 검출 센서가 남아 있으면 홈 계열 이동을 차단한다.
-                if (!VerifyInputFeederEmptyForHome(feeder, out reason))
-                    return false;
+
+                // To do: 이건 메뉴얼로 움직일떄는 걸리면 안된다.
+                //if (!VerifyInputFeederEmptyForHome(feeder, out reason))
+                //    return false;
 
                 // 인터락 조건: Feeder 과부하 센서가 감지되면 FeederY 수동 이동을 차단한다.
-                if (feeder.IsWaferFeederOverload())
-                    return MotionGuardRuleHelpers.Block(
-                        "InputFeederY",
-                        "InputFeederY HOME blocked. InputFeeder overload sensor is detected.",
-                        out reason);
+                // To do: IsWaferFeederOverload 걸리면 + 방향으로 움직일때는 움직여야 한다.
+                //if (feeder.IsWaferFeederOverload())
+                //    return MotionGuardRuleHelpers.Block(
+                //        "InputFeederY",
+                //        "InputFeederY HOME blocked. InputFeeder overload sensor is detected.",
+                //        out reason);
 
                 // 인터락 조건: 실장비 모드에서는 Feeder Unclamp 상태를 확인한다.
-                if (!ShouldBypassHardwareMechanismChecks())
-                {
-                    // 인터락 조건: Feeder가 Unclamp 상태가 아니면 FeederY 수동 이동을 차단한다.
-                    if (!IsFeederUnclamp(feeder))
-                        return MotionGuardRuleHelpers.Block(
-                            "InputFeederY",
-                            "InputFeederY HOME blocked. InputFeeder must be unclamped.",
-                            out reason);
-                }
+                // To do: 실제로 메뉴얼로 움직일때는 상황 보고 해야함
+                //if (!ShouldBypassHardwareMechanismChecks())
+                //{
+                //    // 인터락 조건: Feeder가 Unclamp 상태가 아니면 FeederY 수동 이동을 차단한다.
+                //    if (!IsFeederUnclamp(feeder))
+                //        return MotionGuardRuleHelpers.Block(
+                //            "InputFeederY",
+                //            "InputFeederY HOME blocked. InputFeeder must be unclamped.",
+                //            out reason);
+                //}
 
+                // To do: 홈잡을떄만 이다. 메뉴얼일때는 움직여도 된다
                 // 인터락 조건: 실장비에서 Ring Check가 감지되면 FeederY 수동 이동을 차단한다.
-                if (!feeder.IsWaferFeederSimulationOrDryRun() && feeder.IsWaferFeederRingCheck())
-                {
-                    return MotionGuardRuleHelpers.Block(
-                        "InputFeederY",
-                        "InputFeederY HOME blocked. InputFeeder ring check is detected.",
-                        out reason);
-                }
+                //if (!feeder.IsWaferFeederSimulationOrDryRun() && feeder.IsWaferFeederRingCheck())
+                //{
+                //    return MotionGuardRuleHelpers.Block(
+                //        "InputFeederY",
+                //        "InputFeederY HOME blocked. InputFeeder ring check is detected.",
+                //        out reason);
+                //}
 
                 return true;
             }
@@ -481,15 +486,16 @@ namespace QMC.CDT320.Interlocks
                     out reason);
             }
 
-            if (machine.InputFeederUnit != null &&
-                IsFeederUnclamp(machine.InputFeederUnit) &&
-                IsFeederHoldingMaterial(machine.InputFeederUnit))
-            {
-                return MotionGuardRuleHelpers.Block(
-                    "InputFeederLift",
-                    "InputFeederLift move blocked. InputFeeder is unclamped and material is still detected. direction=" + direction,
-                    out reason);
-            }
+            // Todo : Data 이송 처리 기능 구현하고 
+            //if (machine.InputFeederUnit != null &&
+            //    IsFeederUnclamp(machine.InputFeederUnit) &&
+            //    IsFeederHoldingMaterial(machine.InputFeederUnit))
+            //{
+            //    return MotionGuardRuleHelpers.Block(
+            //        "InputFeederLift",
+            //        "InputFeederLift move blocked. InputFeeder is unclamped and material is still detected. direction=" + direction,
+            //        out reason);
+            //}
 
             return true;
         }

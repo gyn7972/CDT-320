@@ -29,6 +29,7 @@ namespace QMC.CDT320.Sequencing
         PrepareFeederLiftDownAfterAvoid,
         VerifyInputStageData,
         MoveInputStageProcessPosition,
+        MoveInputCassetteAvoidPosition,
         Complete,
         Error
     }
@@ -103,6 +104,9 @@ namespace QMC.CDT320.Sequencing
                     // 인풋 스테이지 공정 위치 이동
                     case InputFeederLoadToStageStep.MoveInputStageProcessPosition:
                         return MoveInputStageProcessPositionAsync(ct);
+                    // 인풋 카세트 AVOID 이동
+                    case InputFeederLoadToStageStep.MoveInputCassetteAvoidPosition:
+                        return MoveInputCassetteAvoidPositionAsync(ct);
                     default:
                         return Task.FromResult(FailUnsupportedStep());
                 }
@@ -451,6 +455,96 @@ namespace QMC.CDT320.Sequencing
             return 0;
         }
 
+        //MoveInputCassetteAvoidPositionAsync
+        private async Task<int> MoveInputCassetteAvoidPositionAsync(CancellationToken ct)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+
+                InputCassetteUnit cassette =
+                    Context.Machine != null
+                        ? Context.Machine.InputCassetteUnit
+                        : null;
+
+                if (cassette == null ||
+                    cassette.InputLifterZ == null ||
+                    cassette.Recipe == null)
+                {
+                    return Fail(
+                        "IN-FEEDER-CST-MISSING",
+                        "InputCassette",
+                        "Input cassette unit, axis, or recipe is not available.");
+                }
+
+                // 기구 간섭 방지:
+                // InputCassette 이동 전 InputFeeder가 정지된 실제 Avoid 위치여야 한다.
+                if (Feeder == null ||
+                    Feeder.FeederY == null ||
+                    Feeder.FeederY.IsMoving ||
+                    !Feeder.IsWaferFeederAvoidPositionCheck())
+                {
+                    return Fail(
+                        "IN-FEEDER-CST-AVOID-INTERLOCK",
+                        cassette.Name,
+                        "InputCassette Avoid 이동 불가: " +
+                        "InputFeeder가 정지된 Avoid 위치가 아닙니다. " +
+                        (Feeder != null
+                            ? Feeder.GetWaferFeederTransferState()
+                            : "InputFeeder=null"));
+                }
+
+                double target = cassette.Recipe.AvoidPosition;
+                int result = await AwaitStepWithCancellationAsync(
+                    cassette.MoveWaferLifterZ(
+                        target,
+                        Options != null && Options.FineMove,
+                        ct),
+                    ct).ConfigureAwait(false);
+
+                if (result != 0)
+                {
+                    return Fail(
+                        "IN-FEEDER-CST-AVOID-MOVE",
+                        cassette.Name,
+                        "InputCassette Avoid 이동 명령 실패. result=" + result +
+                        ", target=" + target +
+                        ", actual=" + cassette.InputLifterZ.ActualPosition);
+                }
+
+                if (cassette.InputLifterZ.IsMoving ||
+                    cassette.InputLifterZ.IsAlarm ||
+                    !cassette.IsWaferLifterZInAvoidPosition())
+                {
+                    return Fail(
+                        "IN-FEEDER-CST-AVOID-CHECK",
+                        cassette.Name,
+                        "InputCassette Avoid 도착 확인 실패. " +
+                        "moving=" + cassette.InputLifterZ.IsMoving +
+                        ", alarm=" + cassette.InputLifterZ.IsAlarm +
+                        ", actual=" + cassette.InputLifterZ.ActualPosition +
+                        ", target=" + target);
+                }
+
+                CurrentStep = InputFeederLoadToStageStep.Complete;
+                return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail(
+                    "IN-FEEDER-CST-AVOID-EX",
+                    "InputFeederLoadToStageSequence",
+                    "InputCassette Avoid 이동 중 예외 발생. error=" + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
         private async Task<int> MoveInputStageProcessPositionAsync(CancellationToken ct)
         {
             try
@@ -506,7 +600,7 @@ namespace QMC.CDT320.Sequencing
                     ct).ConfigureAwait(false);
                 if (result != 0) return result;
 
-                CurrentStep = InputFeederLoadToStageStep.Complete;
+                CurrentStep = InputFeederLoadToStageStep.MoveInputCassetteAvoidPosition;
                 return 0;
             }
             catch (OperationCanceledException)

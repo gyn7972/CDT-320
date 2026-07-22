@@ -104,6 +104,20 @@ namespace QMC.CDT320.Sequencing
 
         private int CheckTransferReady()
         {
+            // To do: 피더 점유(자재 데이터/물리 링) 상태에서 카세트→피더 로드를 시작하면 이중 적재 위험이 있다.
+            //        Output(VerifyFeederEmpty)에는 있던 방어가 Input에는 없어 추가한다.
+            WaferMaterial feederWafer = MaterialStateService.GetWaferAtLocation(MaterialLocationKind.InputFeeder);
+            if (feederWafer != null)
+                return Fail("IN-FEEDER-DATA-OCCUPIED", "Material",
+                    "Input feeder material data must be empty before cassette to feeder load. wafer=" + feederWafer.WaferId +
+                    ", sourceRole=" + feederWafer.SourceCassetteRole +
+                    ", sourceSlot=" + (feederWafer.SourceSlotNumber + 1).ToString("00"));
+
+            if (!IsHardwareBypass() && Feeder.HasWaferOnFeeder())
+                return Fail("IN-FEEDER-WAFER-OCCUPIED", Feeder.Name,
+                    "Input feeder already holds a wafer(ring detected) before cassette to feeder load. " +
+                    Feeder.GetWaferFeederTransferState());
+
             string feederReason;
             if (!Feeder.CheckWaferCassetteReady(Options.SlotIndex, TransferMode.Load, out feederReason))
                 return Fail("IN-FEEDER-CST-READY", Feeder.Name, "Input feeder cassette load condition is not ready. " + feederReason);
@@ -189,8 +203,10 @@ namespace QMC.CDT320.Sequencing
             if (cassette == null)
                 return Fail("IN-FEEDER-CST-MISSING", "InputCassette", "Input cassette unit is not available.");
 
+            // To do: 1단/2단 로딩 지원. Input2(2단)이면 level=2로 전달해 해당 레벨 로딩 위치로 이동한다.
+            int cassetteLevel = Options.CassetteRole == CassetteMaterialRole.Input2 ? 2 : 1;
             int result = await AwaitStepWithCancellationAsync(
-                cassette.PrepareWaferCassetteForFeederLoad(Options.SlotIndex, ResolveTimeout(), Options.FineMove),
+                cassette.PrepareWaferCassetteForFeederLoad(Options.SlotIndex, ResolveTimeout(), Options.FineMove, cassetteLevel),
                 ct).ConfigureAwait(false);
             if (result != 0)
                 return Fail("IN-FEEDER-CST-SLOT-MOVE", cassette.Name, "Input cassette slot move failed. slot=" + Options.SlotIndex + ", result=" + result);

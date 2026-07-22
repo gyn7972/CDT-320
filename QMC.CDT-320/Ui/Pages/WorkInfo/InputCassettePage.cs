@@ -1037,7 +1037,8 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
 
                 UpdateCassetteLevelLabels(loader);
 
-                var map = loader.WaferMap;
+                // To do: [맵핑 재설계] 표시 폴백은 선택된 단의 슬라이스를 사용한다(flat 배치: 앞=2단, 뒤=1단).
+                var map = loader.GetLevelWaferMapView(_selectedCassetteRole == CassetteMaterialRole.Input2 ? 2 : 1);
                 int curSlot = ResolveDisplayedSlot(ctrl);
                 if (lblSlotNoValue != null)
                     lblSlotNoValue.Text = curSlot >= 0 ? GetCassetteRoleDisplay(_selectedCassetteRole) + " / " + (curSlot + 1).ToString("00") : GetCassetteRoleDisplay(_selectedCassetteRole) + " / -";
@@ -1140,8 +1141,9 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
         private void RefreshCassetteLevelViews(QMC.CDT320.InputCassetteUnit loader, System.Collections.Generic.IReadOnlyList<bool> map, int curSlot, int slotCount)
         {
             int levelCount = GetConfiguredCassetteLevelCount(loader);
-            var level1Items = BuildMaterialSlotItems(CassetteMaterialRole.Input1, slotCount, map);
-            var level2Items = BuildMaterialSlotItems(CassetteMaterialRole.Input2, slotCount, null);
+            // To do: [맵핑 재설계] WaferMap flat 배치가 (앞=2단, 뒤=1단)로 바뀌어 레벨별 뷰 슬라이스를 유닛에서 받는다.
+            var level1Items = BuildMaterialSlotItems(CassetteMaterialRole.Input1, slotCount, loader != null ? loader.GetLevelWaferMapView(1) : map);
+            var level2Items = BuildMaterialSlotItems(CassetteMaterialRole.Input2, slotCount, levelCount >= 2 && loader != null ? loader.GetLevelWaferMapView(2) : null);
 
             ApplyCassetteLevelLayout(levelCount);
             UpdateCassetteLevelView(_cassetteSlotView, "INPUT CASSETTE 1단", true, slotCount, level1Items);

@@ -3037,14 +3037,22 @@ namespace QMC.CDT320
             return MotionSpeedScale.ApplyDefaultVelocityScale(axis.Config.DefaultVelocity);
         }
 
+        // 기존 조건: 일반 이동 가감속을 여기서 미리 스케일해서 넘겼다.
+        //           그런데 이 값은 SharedRailXMotionRuntime.MoveAxisWithTemporaryMotionAsync가 Config.Acceleration에
+        //           임시로 넣고, MoveAbsoluteAsync가 (velocity==스케일된 DefaultVelocity 판정으로) 다시 스케일해서
+        //           가감속이 스케일 제곱(S^2)으로 이중 적용됐다. (예: 7%에서 7000 -> 34.3mm/s^2)
+        // 현재 기준: 원값을 넘기고 스케일은 축 레이어(MoveAbsoluteAsync)에서 1회만 적용한다.
+        //           Fine 이동은 velocity가 JogFine이라 축 레이어가 스케일하지 않으므로 기존대로 Jog 가감속 원값 사용.
+        // To do: 픽커 이동 가감속 이중 스케일 제거.
         private double ResolveMoveAcceleration(BaseAxis axis, bool bFine)
         {
             if (axis == null || axis.Config == null)
                 return 0.0;
 
+            // 기존 조건: MotionSpeedScale.ApplyDefaultAccelerationScale(axis.Config.Acceleration)
             return bFine
                 ? axis.Config.JogAcceleration
-                : MotionSpeedScale.ApplyDefaultAccelerationScale(axis.Config.Acceleration);
+                : axis.Config.Acceleration;
         }
 
         private double ResolveMoveDeceleration(BaseAxis axis, bool bFine)
@@ -3052,9 +3060,10 @@ namespace QMC.CDT320
             if (axis == null || axis.Config == null)
                 return 0.0;
 
+            // 기존 조건: MotionSpeedScale.ApplyDefaultAccelerationScale(axis.Config.Deceleration)
             return bFine
                 ? axis.Config.JogDeceleration
-                : MotionSpeedScale.ApplyDefaultAccelerationScale(axis.Config.Deceleration);
+                : axis.Config.Deceleration;
         }
 
         private Task<int> MovePickerGroup(string positionName, bool bFine)
