@@ -220,13 +220,18 @@ namespace QMC.CDT320.Interlocks
                 return false;
             }
 
-            AjinAxis frontY = ResolvePickerY(true) as AjinAxis;
-            AjinAxis rearY = ResolvePickerY(false) as AjinAxis;
-            if (frontY == null || rearY == null)
+            BaseAxis frontYBase = ResolvePickerY(true);
+            BaseAxis rearYBase = ResolvePickerY(false);
+            if (frontYBase == null || rearYBase == null)
                 return false;
 
-            if (MotionGuardRuntime.IsPickerYPairInitializeHomeActive(frontY, rearY))
+            if (MotionGuardRuntime.IsPickerYPairInitializeHomeActive(frontYBase, rearYBase))
                 return true;
+
+            AjinAxis frontY = frontYBase as AjinAxis;
+            AjinAxis rearY = rearYBase as AjinAxis;
+            if (frontY == null || rearY == null)
+                return false;
 
             return MotionGuardRuntime.IsPickerYPairLimitSearchActive(frontY, rearY) &&
                    (state.Front.YMoving || state.Rear.YMoving) &&
@@ -389,8 +394,10 @@ namespace QMC.CDT320.Interlocks
                 if (y.IsMoving)
                     return PickerSafetyYState.Moving;
 
-                double outDistance = ResolvePickerYOutDistance(isFront);
-                if (IsPickerYSafeByPosition(isFront, y.ActualPosition, outDistance))
+                if (MotionGuardRuleHelpers.IsPickerYAtExactTeachingAvoid(
+                    _machine,
+                    isFront,
+                    y.ActualPosition))
                     return PickerSafetyYState.Retracted;
 
                 return PickerSafetyYState.Forward;

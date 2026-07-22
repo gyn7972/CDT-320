@@ -739,7 +739,7 @@ namespace QMC.CDT320.Interlocks
         }
 
         // 인터락 항목: FrontPickerZ 전체가 Avoid 위치 또는 0 이상 위치인지 확인한다.
-        private static bool VerifyFrontPickerZAxesAvoidOrNonNegative(PickerFrontUnit picker, string movingName, out string reason)
+        internal static bool VerifyFrontPickerZAxesAvoidOrNonNegative(PickerFrontUnit picker, string movingName, out string reason)
         {
             reason = string.Empty;
             // 방어 조건: FrontPicker 참조가 없으면 Z 위치 조건을 적용하지 않는다.
@@ -1176,7 +1176,11 @@ namespace QMC.CDT320.Interlocks
             if (!VerifyFrontPickerYAvoidBlocksZDown(request, out reason))
                 return false;
 
-            // 현재 기준: FrontPickerZ 작업 이동 전 Reticle은 Retract 상태여야 한다.
+            // 절대 인터락: HOME 외 모든 FrontPickerZ 이동 전 Reticle은 Retract 상태여야 한다.
+            if (!MotionGuardRuleHelpers.VerifyReticleRetractedBeforeAnyNonHomePickerZMove(request, out reason))
+                return false;
+
+            // 기존 작업 이동 Reticle 조건도 추가 조건으로 유지한다.
             if (!MotionGuardRuleHelpers.VerifyReticleRetractedBeforePickerZWorkMove(request, out reason))
                 return false;
 

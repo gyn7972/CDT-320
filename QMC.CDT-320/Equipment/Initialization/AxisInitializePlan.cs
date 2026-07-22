@@ -218,7 +218,7 @@ namespace QMC.CDT320.Initialization
 
     public static class AxisInitializePlanStore
     {
-        private const int CurrentDefaultVersion = 16;
+        private const int CurrentDefaultVersion = 17;
         public static string RootDir => @"D:\CDT-320";
         public static string Dir => Path.Combine(RootDir, "Config");
         public static string PlanPath => Path.Combine(Dir, "axis_initialize_plan.json");
@@ -395,23 +395,23 @@ namespace QMC.CDT320.Initialization
                     "ReticleSideSlideFront", AxisInitializeInterlockState.Bwd,
                     "Reticle Front Slide를 Bwd 상태로 만든 후 다시 실행하십시오.");
 
-                // 3. OutputStage 6개 실린더 중 축 Home에 필요한 상태만 조건부로 만든다.
-                // NG Stage 제품 감지 시 Clamp는 유지하고, 비어 있을 때만 Bwd한 뒤 ClampLift를 Up한다.
+                // 3. OutputStage 6개 실린더 중 축 Home에 필요한 상태만 만든다.
+                // 제품 유무와 관계없이 NG Clamp를 Bwd한 뒤 ClampLift를 Up한다.
                 AddCustomActionOnlyStep(plan, 70, "OutputStageNGClampPrepare",
                     AxisInitializeActionName.PrepareOutputStageNgClamp,
-                    "NG Stage가 비어 있으면 Clamp를 Bwd하고, 제품이 있으면 Clamp 상태를 유지합니다.");
+                    "NG Stage 제품 유무와 관계없이 Clamp를 Bwd/Unclamp로 이동합니다.");
 
                 AddActionOnlyStep(plan, 80, "OutputStageNGClampLift", "NGBinGuideClampLift",
                     AxisInitializeActionCommand.CylinderFwd,
-                    "NG ClampLift를 Up으로 이동합니다. 제품이 있으면 Clamp 상태는 변경하지 않습니다.");
+                    "NG Clamp Bwd/Unclamp 완료 후 ClampLift를 Up으로 이동합니다.");
 
                 AddKnownSingleStep(plan, axisByName, used, 90, "OutputStageZ", AxisInitializeRunMode.Serial,
-                    "OutputGoodStageZ home after NG Clamp conditional safety and ClampLift Up.",
+                    "OutputGoodStageZ home after NG Clamp Bwd and ClampLift Up.",
                     "OutputGoodStageZ", "GoodStage_StageZ");
                 AddFeederSafeInterlocks(plan, 90, "OutputStageZ", false);
                 AddStepInterlock(plan, 90, "OutputStageZ", AxisInitializeInterlockTarget.Cylinder,
                     "NGBinGuideClamp", AxisInitializeInterlockState.SafeForStageMove,
-                    "NG Stage가 비어 있으면 Clamp Bwd, 제품이 있으면 Clamp 유지, 공통으로 ClampLift Up 상태인지 확인하십시오.");
+                    "NG Bin ClampLift가 Up 상태인지 확인하십시오. Stage 이동 중 Clamp/Unclamp 상태는 무관합니다.");
                 AddStepInterlock(plan, 90, "OutputStageZ", AxisInitializeInterlockTarget.Cylinder,
                     "NGBinGuideClampLift", AxisInitializeInterlockState.Fwd,
                     "NG ClampLift가 Up 상태인지 확인하십시오.");
@@ -470,7 +470,7 @@ namespace QMC.CDT320.Initialization
                     "InputStageY", "NeedleX");
                 AddFeederSafeInterlocks(plan, 190, "InputStageY", true);
                 AddAxisHomeDoneInterlocks(plan, 190, "InputStageY",
-                    "InputFeederY", "EjectPinZ", "InputExpandingZ",
+                    "InputFeederY", "NeedleZ", "EjectPinZ", "InputExpandingZ",
                     "FrontPickerZ0", "FrontPickerZ1", "FrontPickerZ2", "FrontPickerZ3",
                     "RearPickerZ0", "RearPickerZ1", "RearPickerZ2", "RearPickerZ3");
                 AddStepInterlock(plan, 190, "InputStageY", AxisInitializeInterlockTarget.Axis,
@@ -523,24 +523,30 @@ namespace QMC.CDT320.Initialization
                     "Good Bin Guide moves Down before OutputFeederY and NGStageY home.");
                 AddAxisHomeDoneInterlocks(plan, 240, "OutputGoodBinGuideDown", "OutputGoodStageZ");
 
-                AddActionOnlyStep(plan, 250, "OutputFeederLift", "OutputFeederLift",
-                    AxisInitializeActionCommand.CylinderFwd,
-                    "OutputFeeder Lift moves Up only when empty and already unclamped.");
-                AddFeederSafeInterlocks(plan, 250, "OutputFeederLift", false);
-                AddAxisHomeDoneInterlocks(plan, 250, "OutputFeederLift",
+                // 사용자 승인 변경: OutputFeeder HOME 전에 Lift Up을 수행하던 기존 Step 250은 제거한다.
+                // HOME 절대조건인 Lift Down을 먼저 만족시킨 뒤 OutputFeederY HOME을 실행한다.
+                AddActionOnlyStep(plan, 250, "OutputFeederLiftDown", "OutputFeederLift",
+                    AxisInitializeActionCommand.CylinderBwd,
+                    "OutputFeeder Lift moves Down before OutputFeederY home.");
+                AddFeederSafeInterlocks(plan, 250, "OutputFeederLiftDown", false);
+                AddAxisHomeDoneInterlocks(plan, 250, "OutputFeederLiftDown",
                     "FrontPickerY", "RearPickerY", "OutputGoodStageZ");
-                AddStepInterlock(plan, 250, "OutputFeederLift", AxisInitializeInterlockTarget.Cylinder,
+                AddStepInterlock(plan, 250, "OutputFeederLiftDown", AxisInitializeInterlockTarget.Cylinder,
                     "GoodBinGuideLift", AxisInitializeInterlockState.Bwd,
                     "Good Bin Guide를 Down 상태로 만든 후 다시 실행하십시오.");
 
                 AddKnownStep(plan, axisByName, used, 260, "OutputFeeder", AxisInitializeRunMode.Serial,
-                    "OutputFeederY home after Lift Up and Good Guide Down.", "OutputFeederY");
+                    "OutputFeederY home after Lift Down and Good Guide Down.", "OutputFeederY");
                 AddFeederSafeInterlocks(plan, 260, "OutputFeeder", false);
                 AddAxisHomeDoneInterlocks(plan, 260, "OutputFeeder",
                     "FrontPickerY", "RearPickerY", "OutputGoodStageZ");
+                // 기존 조건(사용자 승인으로 비활성): OutputFeeder HOME 전에 Lift Up(Fwd)을 요구했다.
+                // AddStepInterlock(plan, 260, "OutputFeeder", AxisInitializeInterlockTarget.Cylinder,
+                //     "OutputFeederLift", AxisInitializeInterlockState.Fwd,
+                //     "OutputFeeder Lift를 Up 상태로 만든 후 다시 실행하십시오.");
                 AddStepInterlock(plan, 260, "OutputFeeder", AxisInitializeInterlockTarget.Cylinder,
-                    "OutputFeederLift", AxisInitializeInterlockState.Fwd,
-                    "OutputFeeder Lift를 Up 상태로 만든 후 다시 실행하십시오.");
+                    "OutputFeederLift", AxisInitializeInterlockState.Bwd,
+                    "OutputFeeder Lift를 Down 상태로 만든 후 다시 실행하십시오.");
                 AddStepInterlock(plan, 260, "OutputFeeder", AxisInitializeInterlockTarget.Cylinder,
                     "GoodBinGuideLift", AxisInitializeInterlockState.Bwd,
                     "Good Bin Guide를 Down 상태로 만든 후 다시 실행하십시오.");
@@ -560,13 +566,7 @@ namespace QMC.CDT320.Initialization
                     "NG ClampLift가 Up 상태인지 확인하십시오.");
                 AddStepInterlock(plan, 270, "OutputStageZAvoid", AxisInitializeInterlockTarget.Cylinder,
                     "NGBinGuideClamp", AxisInitializeInterlockState.SafeForStageMove,
-                    "NG Stage가 비어 있으면 Clamp Bwd, 제품이 있으면 Clamp 유지, 공통으로 ClampLift Up 상태인지 확인하십시오.");
-
-                AddActionOnlyStep(plan, 280, "OutputFeederLiftDown", "OutputFeederLift",
-                    AxisInitializeActionCommand.CylinderBwd,
-                    "OutputFeeder Lift moves Down after OutputFeederY home.");
-                AddFeederSafeInterlocks(plan, 280, "OutputFeederLiftDown", false);
-                AddAxisHomeDoneInterlocks(plan, 280, "OutputFeederLiftDown", "OutputFeederY");
+                    "NG Bin ClampLift가 Up 상태인지 확인하십시오. Stage 이동 중 Clamp/Unclamp 상태는 무관합니다.");
 
                 AddKnownSingleStep(plan, axisByName, used, 290, "OutputNGStageY", AxisInitializeRunMode.Serial,
                     "OutputNGStageY home after GoodStageZ Avoid and Good Guide Down.",
@@ -580,7 +580,7 @@ namespace QMC.CDT320.Initialization
                     "Good Bin Guide를 Down 상태로 만든 후 다시 실행하십시오.");
                 AddStepInterlock(plan, 290, "OutputNGStageY", AxisInitializeInterlockTarget.Cylinder,
                     "NGBinGuideClamp", AxisInitializeInterlockState.SafeForStageMove,
-                    "NG Stage가 비어 있으면 Clamp Bwd, 제품이 있으면 Clamp 유지, 공통으로 ClampLift Up 상태인지 확인하십시오.");
+                    "NG Bin ClampLift가 Up 상태인지 확인하십시오. Stage 이동 중 Clamp/Unclamp 상태는 무관합니다.");
                 AddStepInterlock(plan, 290, "OutputNGStageY", AxisInitializeInterlockTarget.Cylinder,
                     "NGBinGuideClampLift", AxisInitializeInterlockState.Fwd,
                     "NG ClampLift가 Up 상태인지 확인하십시오.");
@@ -596,7 +596,7 @@ namespace QMC.CDT320.Initialization
                     "NG ClampLift가 Up 상태인지 확인하십시오.");
                 AddStepInterlock(plan, 300, "OutputNGStageYAvoid", AxisInitializeInterlockTarget.Cylinder,
                     "NGBinGuideClamp", AxisInitializeInterlockState.SafeForStageMove,
-                    "NG Stage가 비어 있으면 Clamp Bwd, 제품이 있으면 Clamp 유지, 공통으로 ClampLift Up 상태인지 확인하십시오.");
+                    "NG Bin ClampLift가 Up 상태인지 확인하십시오. Stage 이동 중 Clamp/Unclamp 상태는 무관합니다.");
 
                 AddKnownSingleStep(plan, axisByName, used, 310, "OutputGoodStageY", AxisInitializeRunMode.Serial,
                     "OutputGoodStageY home after OutputNGStageY Avoid.",
@@ -619,7 +619,7 @@ namespace QMC.CDT320.Initialization
                     "NG ClampLift가 Up 상태인지 확인하십시오.");
                 AddStepInterlock(plan, 310, "OutputGoodStageY", AxisInitializeInterlockTarget.Cylinder,
                     "NGBinGuideClamp", AxisInitializeInterlockState.SafeForStageMove,
-                    "NG Stage가 비어 있으면 Clamp Bwd, 제품이 있으면 Clamp 유지, 공통으로 ClampLift Up 상태인지 확인하십시오.");
+                    "NG Bin ClampLift가 Up 상태인지 확인하십시오. Stage 이동 중 Clamp/Unclamp 상태는 무관합니다.");
 
                 AddAxisTeachingActionOnlyStep(plan, 320, "OutputGoodStageYAvoid", "OutputGoodStageY", "AvoidPosition",
                     "OutputGoodStageY moves to Avoid after home.");
@@ -633,7 +633,7 @@ namespace QMC.CDT320.Initialization
                     "NG ClampLift가 Up 상태인지 확인하십시오.");
                 AddStepInterlock(plan, 320, "OutputGoodStageYAvoid", AxisInitializeInterlockTarget.Cylinder,
                     "NGBinGuideClamp", AxisInitializeInterlockState.SafeForStageMove,
-                    "NG Stage가 비어 있으면 Clamp Bwd, 제품이 있으면 Clamp 유지, 공통으로 ClampLift Up 상태인지 확인하십시오.");
+                    "NG Bin ClampLift가 Up 상태인지 확인하십시오. Stage 이동 중 Clamp/Unclamp 상태는 무관합니다.");
 
                 AddKnownStep(plan, axisByName, used, 330, "OutputCassette", AxisInitializeRunMode.Serial,
                     "OutputLifterZ home after OutputFeederY is safe.", "OutputLifterZ");
@@ -709,7 +709,6 @@ namespace QMC.CDT320.Initialization
 
                 AssignParallelLane(plan, AxisInitializeParallelLane.Output,
                     "OutputGoodBinGuideDown",
-                    "OutputFeederLift",
                     "OutputFeeder",
                     "OutputStageZAvoid",
                     "OutputFeederLiftDown",

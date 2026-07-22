@@ -138,6 +138,22 @@ namespace QMC.CDT320.Sequencing
             return slot.Holder ?? "";
         }
 
+        internal bool IsActiveLease(SequenceResourceLease lease, SequenceResourceKind resource)
+        {
+            ResourceSlot slot;
+            if (lease == null ||
+                lease.Resource != resource ||
+                lease.IsDisposed ||
+                !lease.IsOwnedBy(this) ||
+                !_slots.TryGetValue(resource, out slot))
+            {
+                return false;
+            }
+
+            return !string.IsNullOrWhiteSpace(slot.Holder) &&
+                   string.Equals(slot.Holder, lease.Holder, StringComparison.OrdinalIgnoreCase);
+        }
+
         internal void Release(SequenceResourceKind resource, string holder)
         {
             ResourceSlot slot;

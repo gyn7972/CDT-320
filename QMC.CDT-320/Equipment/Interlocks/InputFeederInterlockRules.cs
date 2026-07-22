@@ -47,6 +47,9 @@ namespace QMC.CDT320.Interlocks
             reason = string.Empty;
             CDT320_Machine machine = request.Machine;
 
+            if (!VerifyInputFeederYAbsoluteGuard(request, out reason))
+                return false;
+
             switch (request.MoveKind)
             {
                 // 자동 이동 인터락 확인
@@ -61,6 +64,100 @@ namespace QMC.CDT320.Interlocks
                 default:
                     return MotionGuardRuleHelpers.BlockUnsupportedMoveKind(request, out reason);
             }
+        }
+
+        // 절대 인터락: 기존 FeederY 분기 전에 Camera/StageT/Lift/Overload 최소 안전조건을 AND로 적용한다.
+        private static bool VerifyInputFeederYAbsoluteGuard(MotionGuardRuleContext request, out string reason)
+        {
+            reason = string.Empty;
+            CDT320_Machine machine = request != null ? request.Machine : null;
+            InputStageUnit stage = machine != null ? machine.InputStageUnit : null;
+            InputFeederUnit feeder = machine != null ? machine.InputFeederUnit : null;
+            BaseAxis cameraX = stage != null ? stage.CameraX : null;
+
+            if (stage == null || cameraX == null || feeder == null || feeder.FeederY == null ||
+                stage.Recipe == null || stage.Recipe.VisionX == null)
+                return MotionGuardRuleHelpers.Block(
+                    "InputFeederY",
+                    "InputFeederY 절대 인터락 확인 불가: InputStage/InputCameraX/InputFeederY teaching 정보가 없습니다.",
+                    out reason);
+
+            if (!IsInputVisionXInAvoidPosition(stage) && cameraX.ActualPosition > 0.0)
+                return MotionGuardRuleHelpers.Block(
+                    "InputFeederY",
+                    "InputFeederY 이동 불가: InputCameraX가 정확한 Avoid 또는 0 이하 위치여야 합니다. " +
+                    "cameraActual=" + cameraX.ActualPosition.ToString("0.###"),
+                    out reason);
+
+            // 기존 Auto Load-to-Stage는 제품 전달 후 Lift Up 상태로 FeederY를 Avoid 복귀시킨다.
+            // 이 Auto 경로의 Lift Down 강제는 시퀀스 변경 승인이 필요하므로 Manual/HOME에만 신규 적용한다.
+            if (request.MoveKind == MotionGuardMoveKind.AxisMove ||
+                request.MoveKind == MotionGuardMoveKind.AxisHome)
+            {
+                if (!feeder.IsWaferFeederSimulationOrDryRun())
+                {
+                    int downReadError = -1;
+                    if (feeder.WaferFeederDownSensor == null ||
+                        !AjinIoScanService.TryReadHardwareInput(feeder.WaferFeederDownSensor, out downReadError))
+                    {
+                        return MotionGuardRuleHelpers.Block(
+                            "InputFeederY",
+                            "InputFeederY Lift Down 센서 갱신 실패. error=" + downReadError,
+                            out reason);
+                    }
+                }
+
+                if (!feeder.IsWaferFeederDown())
+                    return MotionGuardRuleHelpers.Block(
+                        "InputFeederY",
+                        "InputFeederY Manual/HOME 이동 불가: InputFeeder Lift가 Down 상태여야 합니다.",
+                        out reason);
+            }
+
+            if (request.MoveKind == MotionGuardMoveKind.AxisMove ||
+                request.MoveKind == MotionGuardMoveKind.AxisHome)
+            {
+                BaseAxis stageT = stage.StageT;
+                if (stageT == null || stageT.ActualPosition < -0.1 || stageT.ActualPosition > 0.1)
+                {
+                    return MotionGuardRuleHelpers.Block(
+                        "InputFeederY",
+                        "InputFeederY Manual/HOME 이동 불가: InputStageT 실제 위치가 -0.1~+0.1 범위여야 합니다. " +
+                        "stageT=" + (stageT != null ? stageT.ActualPosition.ToString("0.###") : "missing"),
+                        out reason);
+                }
+            }
+
+            if (!feeder.IsWaferFeederSimulationOrDryRun())
+            {
+                int overloadReadError = -1;
+                if (feeder.WaferFeederOverloadSensor == null ||
+                    !AjinIoScanService.TryReadHardwareInput(feeder.WaferFeederOverloadSensor, out overloadReadError))
+                {
+                    return MotionGuardRuleHelpers.Block(
+                        "InputFeederY",
+                        "InputFeeder Overload 센서 갱신 실패. error=" + overloadReadError,
+                        out reason);
+                }
+            }
+
+            if (feeder.IsWaferFeederOverload())
+            {
+                double tolerance = feeder.FeederY.Config != null && feeder.FeederY.Config.InPositionTolerance > 0.0
+                    ? feeder.FeederY.Config.InPositionTolerance
+                    : PositionTolerance;
+                bool positiveJog = MotionGuardRuleHelpers.IsJogMove(request) &&
+                    request.TargetValue > feeder.FeederY.ActualPosition + tolerance;
+                if (!positiveJog)
+                    return MotionGuardRuleHelpers.Block(
+                        "InputFeederY",
+                        "InputFeeder Overload 감지 중에는 +방향 Jog만 허용됩니다. " +
+                        "current=" + feeder.FeederY.ActualPosition.ToString("0.###") +
+                        ", target=" + request.TargetValue.ToString("0.###"),
+                        out reason);
+            }
+
+            return true;
         }
 
         // 인터락 항목: 자동 InputFeederY 이동은 Stage 로드/언로드 위치, 피커 Input 존 점유, LifterZ, Lift/Clamp 상태를 확인한다.
@@ -373,6 +470,9 @@ namespace QMC.CDT320.Interlocks
             reason = string.Empty;
             try
             {
+                if (!VerifyInputFeederLiftMaterialClear(request, out reason))
+                    return false;
+
                 switch (request.MoveKind)
                 {
                     case MotionGuardMoveKind.CylinderInitialize:
@@ -394,6 +494,57 @@ namespace QMC.CDT320.Interlocks
             {
                 LogBlockedReason(reason);
             }
+        }
+
+        // 절대 인터락: 기존 Ring/Override 센서 또는 Material 데이터가 있으면 Lift 양방향을 모두 차단한다.
+        private static bool VerifyInputFeederLiftMaterialClear(MotionGuardRuleContext request, out string reason)
+        {
+            reason = string.Empty;
+            InputFeederUnit feeder = request != null && request.Machine != null
+                ? request.Machine.InputFeederUnit
+                : null;
+            return VerifyInputFeederMaterialClear(feeder, "InputFeederLift", out reason);
+        }
+
+        // 전체 초기화 Preflight와 Lift Guard가 동일한 자재/센서 판정을 사용한다.
+        internal static bool VerifyInputFeederMaterialClear(
+            InputFeederUnit feeder,
+            string movingName,
+            out string reason)
+        {
+            reason = string.Empty;
+            if (feeder == null)
+                return MotionGuardRuleHelpers.Block(
+                    movingName,
+                    movingName + " 절대 인터락 확인 불가: InputFeederUnit 정보가 없습니다.",
+                    out reason);
+
+            if (!feeder.IsWaferFeederSimulationOrDryRun())
+            {
+                if (feeder.WaferFeederRingCheckSensor == null)
+                    return MotionGuardRuleHelpers.Block(
+                        movingName,
+                        movingName + " 절대 인터락 확인 불가: InputFeeder Ring/Override 센서가 없습니다.",
+                        out reason);
+
+                int errorCode;
+                if (!AjinIoScanService.TryReadHardwareInput(feeder.WaferFeederRingCheckSensor, out errorCode))
+                    return MotionGuardRuleHelpers.Block(
+                        movingName,
+                        movingName + " 절대 인터락 확인 불가: InputFeeder Ring/Override 센서 갱신 실패. error=" + errorCode,
+                        out reason);
+            }
+
+            bool dataEmpty = feeder.IsWaferFeederTransferDataEmpty();
+            bool ringDetected = feeder.IsWaferFeederRingCheck();
+            if (!dataEmpty || ringDetected)
+                return MotionGuardRuleHelpers.Block(
+                    movingName,
+                    movingName + " 이동 불가: Feeder 자재 데이터 또는 기존 Ring/Override 센서가 감지되었습니다. " +
+                    "dataEmpty=" + dataEmpty + ", ring=" + ringDetected,
+                    out reason);
+
+            return true;
         }
 
         // 인터락 항목: InputFeederLift 초기화는 FeederY 안전 위치, LifterZ, Clamp/자재 상태를 확인한다.

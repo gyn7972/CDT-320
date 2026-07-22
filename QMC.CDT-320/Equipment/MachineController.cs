@@ -2829,6 +2829,20 @@ namespace QMC.CDT320
                     return -1;
                 }
 
+                string feederPreflightReason;
+                if (!VerifyFeederInitializePreflight(out feederPreflightReason))
+                {
+                    LastActionFailureMessage = "전체 초기화 시작 전 Feeder 자재 확인 실패: " + feederPreflightReason;
+                    QMC.Common.Log.Write("Main", "SYSTEM", "InitializeAllAxes",
+                        LastActionFailureMessage + " - Failed");
+                    AlarmManager.Raise(
+                        AlarmSeverity.Error,
+                        "INIT-FEEDER-MATERIAL",
+                        "MachineController",
+                        LastActionFailureMessage);
+                    return -1;
+                }
+
                 SetMachineInitialized(false, "InitializeAllAxesStart", false);
                 SetStatus(EquipmentStatus.Initializing);
                 Log("[INIT] Axis initialize plan start. file=" + AxisInitializePlanStore.PlanPath);
@@ -2878,6 +2892,49 @@ namespace QMC.CDT320
                 SetMachineInitialized(false, "InitializeAllAxesException", true);
                 SetStatus(EquipmentStatus.Alarm);
                 return -1;
+            }
+            finally
+            {
+            }
+        }
+
+        // 전체 초기화의 첫 모션 전에 양 Feeder의 데이터와 기존 Ring/Override 센서를 fail-closed로 확인한다.
+        private bool VerifyFeederInitializePreflight(out string reason)
+        {
+            reason = string.Empty;
+            try
+            {
+                if (_machine == null || _machine.InputFeederUnit == null || _machine.OutputFeederUnit == null)
+                {
+                    reason = "Input/Output FeederUnit 정보를 확인할 수 없습니다.";
+                    return false;
+                }
+
+                string feederReason;
+                if (!InputFeederInterlockRules.VerifyInputFeederMaterialClear(
+                    _machine.InputFeederUnit,
+                    "InitializeInputFeederPreflight",
+                    out feederReason))
+                {
+                    reason = feederReason;
+                    return false;
+                }
+
+                if (!OutputFeederInterlockRules.VerifyOutputFeederMaterialClear(
+                    _machine.OutputFeederUnit,
+                    "InitializeOutputFeederPreflight",
+                    out feederReason))
+                {
+                    reason = feederReason;
+                    return false;
+                }
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                reason = "Feeder 자재/센서 확인 중 예외가 발생했습니다. error=" + ex.Message;
+                return false;
             }
             finally
             {
@@ -5817,7 +5874,7 @@ namespace QMC.CDT320
 
         private async Task<int> PrepareOutputFeederHomeAsync()
         {
-            Log("[INIT] Prepare OutputFeeder home: OutputLifterZ / OutputVisionX Avoid check, feeder unclamp/up.");
+            Log("[INIT] Prepare OutputFeeder home: OutputLifterZ / OutputVisionX Avoid check, feeder unclamp/down.");
 
             var cassette = _machine.OutputCassetteUnit;
             if (cassette != null && !cassette.IsBinLifterZInAvoidPosition())
@@ -5874,10 +5931,12 @@ namespace QMC.CDT320
                 return FailInitializePreparation("OutputFeeder unclamp failed.");
             }
 
-            if (!feeder.IsFeederUp())
-            {
-                return FailInitializePreparation("OutputFeeder lift up failed.");
-            }
+            // 기존 조건(사용자 승인으로 비활성): OutputFeeder HOME 전에 Lift Up을 요구했다.
+            // if (!feeder.IsFeederUp())
+            //     return FailInitializePreparation("OutputFeeder lift up failed.");
+
+            if (!feeder.IsFeederDown())
+                return FailInitializePreparation("OutputFeeder HOME 불가: OutputFeeder Lift가 Down 상태가 아닙니다.");
 
             if (!feeder.IsOutputFeederSimulationOrDryRun() && feeder.IsBinFeederRingCheck())
             {
@@ -6876,15 +6935,6 @@ namespace QMC.CDT320
                     MaterialLocationKind.OutputStageNg);
                 bool ringDetected = outputStage.NgBinRingSensor != null &&
                     outputStage.NgBinRingSensor.IsOn;
-                if (materialPresent)
-                {
-                    QMC.Common.Log.Write("Main", "SYSTEM", "PrepareOutputStageNgClamp",
-                        "NG Stage product detected. Clamp Bwd skipped and current clamp state preserved." +
-                        " storedWafer=" + (storedMaterial != null ? storedMaterial.WaferId : "-") +
-                        ", ringDetected=" + ringDetected + " - Ok");
-                    return 0;
-                }
-
                 var releaseAction = new AxisInitializeAction
                 {
                     TargetType = AxisInitializeInterlockTarget.Cylinder,
@@ -6892,7 +6942,7 @@ namespace QMC.CDT320
                     Command = AxisInitializeActionCommand.CylinderBwd,
                     TimeoutMs = action != null ? action.TimeoutMs : 0,
                     Enabled = true,
-                    Description = "NG Stage empty: Clamp Bwd before ClampLift Up."
+                    Description = "NG Stage material state independent: Clamp Bwd before ClampLift Up."
                 };
 
                 int result = await ExecuteInitializeCylinderActionAsync(releaseAction).ConfigureAwait(false);
@@ -6901,16 +6951,21 @@ namespace QMC.CDT320
 
                 if (!outputStage.IsBinGuideUnclamped(BinSide.Ng))
                     return FailInitializePreparation(
-                        "NG Stage가 비어 있지만 NG Bin Clamp가 Bwd/Unclamp 상태에 도달하지 못했습니다.");
+                        "NG Bin Clamp가 Bwd/Unclamp 상태에 도달하지 못했습니다. " +
+                        "materialPresent=" + materialPresent +
+                        ", storedWafer=" + (storedMaterial != null ? storedMaterial.WaferId : "-") +
+                        ", ringDetected=" + ringDetected);
 
                 QMC.Common.Log.Write("Main", "SYSTEM", "PrepareOutputStageNgClamp",
-                    "NG Stage empty. Clamp moved to Bwd/Unclamp before ClampLift Up." +
-                    " storedWafer=-, ringDetected=false - Ok");
+                    "NG Stage material state independent. Clamp moved to Bwd/Unclamp before ClampLift Up." +
+                    " materialPresent=" + materialPresent +
+                    ", storedWafer=" + (storedMaterial != null ? storedMaterial.WaferId : "-") +
+                    ", ringDetected=" + ringDetected + " - Ok");
                 return 0;
             }
             catch (Exception ex)
             {
-                return FailInitializePreparation("NG Clamp 조건부 초기화 준비 예외. error=" + ex.Message);
+                return FailInitializePreparation("NG Clamp Bwd 초기화 준비 예외. error=" + ex.Message);
             }
             finally
             {
@@ -7000,6 +7055,7 @@ namespace QMC.CDT320
         {
             BaseAxis frontY = null;
             BaseAxis rearY = null;
+            IDisposable pairInitializeScope = null;
             try
             {
                 // 대상 확정: SimAxis라 AjinAxis 타입은 요구하지 않되, 장비의 Front/Rear PickerY와 동일 참조인지는 검증한다.
@@ -7015,6 +7071,20 @@ namespace QMC.CDT320
                     return FailInitializePreparation(
                         "PickerYPair 시뮬레이션 초기화 대상이 장비의 FrontPickerY/RearPickerY 축과 일치하지 않습니다.");
                 }
+
+                if (_machine.PickerFrontUnit.Recipe == null ||
+                    _machine.PickerFrontUnit.Recipe.PickerY == null ||
+                    _machine.PickerRearUnit.Recipe == null ||
+                    _machine.PickerRearUnit.Recipe.PickerY == null)
+                {
+                    return FailInitializePreparation(
+                        "PickerYPair 시뮬레이션 초기화 후 Avoid 이동에 필요한 Front/Rear PickerY teaching 정보가 없습니다.");
+                }
+
+                pairInitializeScope = MotionGuardRuntime.BeginPickerYPairLimitSearch(frontY, rearY);
+                if (!MotionGuardRuntime.BeginPickerYPairInitializeHome(frontY, rearY))
+                    return FailInitializePreparation(
+                        "PickerYPair 시뮬레이션 실시간 충돌 감시 HOME 범위 전환에 실패했습니다.");
 
                 // 실장비 페어 경로와 동일하게 리밋 탐색 전 간섭축을 먼저 정지한다.
                 var interferenceAxes = _axisInterferenceMap.ResolveInterferenceAxes(frontY.Name)
@@ -7071,10 +7141,35 @@ namespace QMC.CDT320
                         ", home=" + rearY.IsHomeDone + ", alarm=" + rearY.IsAlarm);
                 }
 
+                int frontAvoidResult = await MoveFrontPickerYToAvoidAfterHomeAsync().ConfigureAwait(false);
+                frontY.UpdateStatus();
+                if (frontAvoidResult != 0 ||
+                    !_machine.PickerFrontUnit.IsPickerAxisInTeachingPosition(PickerAxis.PickerY, "AvoidPosition"))
+                {
+                    frontY.Stop();
+                    rearY.Stop();
+                    return FailInitializePreparation(
+                        "PickerYPair 시뮬 FrontPickerY HOME 후 Avoid 이동 실패. result=" + frontAvoidResult +
+                        ", actual=" + frontY.ActualPosition.ToString("0.###"));
+                }
+
+                int rearAvoidResult = await MoveRearPickerYToAvoidAfterHomeAsync().ConfigureAwait(false);
+                rearY.UpdateStatus();
+                if (rearAvoidResult != 0 ||
+                    !_machine.PickerRearUnit.IsPickerAxisInTeachingPosition(PickerAxis.PickerY, "AvoidPosition"))
+                {
+                    frontY.Stop();
+                    rearY.Stop();
+                    return FailInitializePreparation(
+                        "PickerYPair 시뮬 RearPickerY HOME 후 Avoid 이동 실패. result=" + rearAvoidResult +
+                        ", actual=" + rearY.ActualPosition.ToString("0.###"));
+                }
+
                 MarkAxisHomedInCurrentInitialize(frontY);
                 MarkAxisHomedInCurrentInitialize(rearY);
                 QMC.Common.Log.Write("Main", "SYSTEM", "PickerYPairInitialize",
-                    "Simulation PickerYPair initialize completed by sequential Front/Rear HOME (hardware limit search skipped). step=" +
+                    "Simulation PickerYPair initialize completed: Front HOME -> Rear HOME -> Front Avoid -> Rear Avoid " +
+                    "(hardware limit search skipped). step=" +
                     (step != null ? step.StepNo : 0) + " - Ok");
                 return 0;
             }
@@ -7092,6 +7187,8 @@ namespace QMC.CDT320
             }
             finally
             {
+                if (pairInitializeScope != null)
+                    pairInitializeScope.Dispose();
             }
         }
 
@@ -7125,6 +7222,15 @@ namespace QMC.CDT320
                 {
                     return FailInitializePreparation(
                         "PickerYPair 초기화 대상이 장비의 FrontPickerY/RearPickerY Ajin 축과 일치하지 않습니다.");
+                }
+
+                if (_machine.PickerFrontUnit.Recipe == null ||
+                    _machine.PickerFrontUnit.Recipe.PickerY == null ||
+                    _machine.PickerRearUnit.Recipe == null ||
+                    _machine.PickerRearUnit.Recipe.PickerY == null)
+                {
+                    return FailInitializePreparation(
+                        "PickerYPair 초기화 후 Avoid 이동에 필요한 Front/Rear PickerY teaching 정보가 없습니다.");
                 }
 
                 var interferenceAxes = _axisInterferenceMap.ResolveInterferenceAxes(frontY.Name)
@@ -7269,10 +7375,32 @@ namespace QMC.CDT320
                         ", rearAlarm=" + rearY.IsAlarm);
                 }
 
+                int frontAvoidResult = await MoveFrontPickerYToAvoidAfterHomeAsync().ConfigureAwait(false);
+                frontY.UpdateStatus();
+                if (frontAvoidResult != 0 ||
+                    !_machine.PickerFrontUnit.IsPickerAxisInTeachingPosition(PickerAxis.PickerY, "AvoidPosition"))
+                {
+                    StopPickerYPairInitialize(frontY, rearY);
+                    return FailInitializePreparation(
+                        "PickerYPair FrontPickerY HOME 후 Avoid 이동 실패. result=" + frontAvoidResult +
+                        ", actual=" + frontY.ActualPosition.ToString("0.###"));
+                }
+
+                int rearAvoidResult = await MoveRearPickerYToAvoidAfterHomeAsync().ConfigureAwait(false);
+                rearY.UpdateStatus();
+                if (rearAvoidResult != 0 ||
+                    !_machine.PickerRearUnit.IsPickerAxisInTeachingPosition(PickerAxis.PickerY, "AvoidPosition"))
+                {
+                    StopPickerYPairInitialize(frontY, rearY);
+                    return FailInitializePreparation(
+                        "PickerYPair RearPickerY HOME 후 Avoid 이동 실패. result=" + rearAvoidResult +
+                        ", actual=" + rearY.ActualPosition.ToString("0.###"));
+                }
+
                 MarkAxisHomedInCurrentInitialize(frontY);
                 MarkAxisHomedInCurrentInitialize(rearY);
                 QMC.Common.Log.Write("Main", "SYSTEM", "PickerYPairInitialize",
-                    "Front MEL/Rear PEL simultaneous search and Front-to-Rear sequential HOME completed. step=" +
+                    "Front MEL/Rear PEL simultaneous search and Front HOME -> Rear HOME -> Front Avoid -> Rear Avoid completed. step=" +
                     (step != null ? step.StepNo : 0) + " - Ok");
                 return 0;
             }

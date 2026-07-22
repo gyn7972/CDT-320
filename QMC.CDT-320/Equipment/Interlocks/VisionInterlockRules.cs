@@ -145,6 +145,9 @@ namespace QMC.CDT320.Interlocks
 
             try
             {
+                if (!VerifyAllPickerZSafeForReticleMove(request.Machine, "ReticleLift", out reason))
+                    return false;
+
                 switch (request.MoveKind)
                 {
                     case MotionGuardMoveKind.CylinderInitialize:
@@ -223,6 +226,9 @@ namespace QMC.CDT320.Interlocks
 
             try
             {
+                if (!VerifyAllPickerZSafeForReticleMove(request.Machine, "ReticleSideSlideFront", out reason))
+                    return false;
+
                 switch (request.MoveKind)
                 {
                     case MotionGuardMoveKind.CylinderInitialize:
@@ -268,6 +274,9 @@ namespace QMC.CDT320.Interlocks
 
             try
             {
+                if (!VerifyAllPickerZSafeForReticleMove(request.Machine, "ReticleSideSlideRear", out reason))
+                    return false;
+
                 switch (request.MoveKind)
                 {
                     case MotionGuardMoveKind.CylinderInitialize:
@@ -322,6 +331,31 @@ namespace QMC.CDT320.Interlocks
             //    return MotionGuardRuleHelpers.Block(movingName, "InputStage ExpanderZ is moving.", out reason);
 
             return true;
+        }
+
+        // 절대 인터락: Reticle Lift/Slide 이동 전 Front/Rear PickerZ 8축이 정지 및 Avoid 또는 0 이상이어야 한다.
+        private static bool VerifyAllPickerZSafeForReticleMove(
+            CDT320_Machine machine,
+            string movingName,
+            out string reason)
+        {
+            reason = string.Empty;
+            if (machine == null || machine.PickerFrontUnit == null || machine.PickerRearUnit == null)
+                return MotionGuardRuleHelpers.Block(
+                    movingName,
+                    movingName + " 절대 인터락 확인 불가: Front/Rear PickerUnit 정보가 없습니다.",
+                    out reason);
+
+            if (!PickerFrontInterlockRules.VerifyFrontPickerZAxesAvoidOrNonNegative(
+                machine.PickerFrontUnit,
+                movingName,
+                out reason))
+                return false;
+
+            return PickerRearInterlockRules.VerifyRearPickerZAxesAvoidOrNonNegative(
+                machine.PickerRearUnit,
+                movingName,
+                out reason);
         }
 
         // 인터락 항목: Vision 축/Reticle 이동 전 VisionUnit 내부 축 또는 실린더 Busy 여부를 확인한다.

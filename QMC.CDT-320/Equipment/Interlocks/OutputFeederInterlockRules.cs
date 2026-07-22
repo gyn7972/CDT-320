@@ -46,6 +46,9 @@ namespace QMC.CDT320.Interlocks
             reason = string.Empty;
             CDT320_Machine machine = request.Machine;
 
+            if (!VerifyOutputFeederYAbsoluteGuard(request, out reason))
+                return false;
+
             switch (request.MoveKind)
             {
                 // 자동 이동 인터락 확인
@@ -60,6 +63,88 @@ namespace QMC.CDT320.Interlocks
                 default:
                     return MotionGuardRuleHelpers.BlockUnsupportedMoveKind(request, out reason);
             }
+        }
+
+        // 절대 인터락: 기존 FeederY 분기 전에 Camera/Lift/Overload 최소 안전조건을 AND로 적용한다.
+        private static bool VerifyOutputFeederYAbsoluteGuard(MotionGuardRuleContext request, out string reason)
+        {
+            reason = string.Empty;
+            CDT320_Machine machine = request != null ? request.Machine : null;
+            OutputStageUnit stage = machine != null ? machine.OutputStageUnit : null;
+            OutputFeederUnit feeder = machine != null ? machine.OutputFeederUnit : null;
+            BaseAxis cameraX = stage != null ? stage.OutputCameraX : null;
+
+            if (stage == null || cameraX == null || feeder == null || feeder.FeederY == null ||
+                stage.Recipe == null || stage.Recipe.VisionX == null)
+            {
+                return MotionGuardRuleHelpers.Block(
+                    "OutputFeederY",
+                    "OutputFeederY 절대 인터락 확인 불가: OutputStage/OutputCameraX/OutputFeederY teaching 정보가 없습니다.",
+                    out reason);
+            }
+
+            if (!IsOutputVisionXInAvoidPosition(stage) && cameraX.ActualPosition < 1000.0)
+                return MotionGuardRuleHelpers.Block(
+                    "OutputFeederY",
+                    "OutputFeederY 이동 불가: OutputCameraX가 정확한 Avoid 또는 1000 이상 위치여야 합니다. " +
+                    "cameraActual=" + cameraX.ActualPosition.ToString("0.###"),
+                    out reason);
+
+            // 기존 Auto Load-to-Stage는 제품 전달 후 Lift Up 상태로 FeederY를 Avoid 복귀시킨다.
+            // 이 Auto 경로의 Lift Down 강제는 시퀀스 변경 승인이 필요하므로 Manual/HOME에만 신규 적용한다.
+            if (request.MoveKind == MotionGuardMoveKind.AxisMove ||
+                request.MoveKind == MotionGuardMoveKind.AxisHome)
+            {
+                if (!feeder.IsOutputFeederSimulationOrDryRun())
+                {
+                    int downReadError = -1;
+                    if (feeder.BinFeederDownSensor == null ||
+                        !AjinIoScanService.TryReadHardwareInput(feeder.BinFeederDownSensor, out downReadError))
+                    {
+                        return MotionGuardRuleHelpers.Block(
+                            "OutputFeederY",
+                            "OutputFeederY Lift Down 센서 갱신 실패. error=" + downReadError,
+                            out reason);
+                    }
+                }
+
+                if (!feeder.IsFeederDown())
+                    return MotionGuardRuleHelpers.Block(
+                        "OutputFeederY",
+                        "OutputFeederY Manual/HOME 이동 불가: OutputFeeder Lift가 Down 상태여야 합니다.",
+                        out reason);
+            }
+
+            if (!feeder.IsOutputFeederSimulationOrDryRun())
+            {
+                int overloadReadError = -1;
+                if (feeder.BinFeederOverloadSensor == null ||
+                    !AjinIoScanService.TryReadHardwareInput(feeder.BinFeederOverloadSensor, out overloadReadError))
+                {
+                    return MotionGuardRuleHelpers.Block(
+                        "OutputFeederY",
+                        "OutputFeeder Overload 센서 갱신 실패. error=" + overloadReadError,
+                        out reason);
+                }
+            }
+
+            if (feeder.IsFeederOverload())
+            {
+                double tolerance = feeder.FeederY.Config != null && feeder.FeederY.Config.InPositionTolerance > 0.0
+                    ? feeder.FeederY.Config.InPositionTolerance
+                    : 0.05;
+                bool positiveJog = MotionGuardRuleHelpers.IsJogMove(request) &&
+                    request.TargetValue > feeder.FeederY.ActualPosition + tolerance;
+                if (!positiveJog)
+                    return MotionGuardRuleHelpers.Block(
+                        "OutputFeederY",
+                        "OutputFeeder Overload 감지 중에는 +방향 Jog만 허용됩니다. " +
+                        "current=" + feeder.FeederY.ActualPosition.ToString("0.###") +
+                        ", target=" + request.TargetValue.ToString("0.###"),
+                        out reason);
+            }
+
+            return true;
         }
 
         // 인터락 항목: 자동 OutputFeederY 이동은 Vision/Picker/Stage 안전 위치와 Lift/Clamp 상태를 확인한다.
@@ -369,12 +454,12 @@ namespace QMC.CDT320.Interlocks
                         "OutputFeederY HOME blocked. OutputFeeder must be unclamped.",
                         out reason);
 
-                // 인터락 조건: 실장비 모드에서 Feeder가 Up 상태가 아니면 홈 이동을 차단한다.
-                if (!ShouldBypassHardwareMechanismChecks() && !IsFeederUp(feeder))
-                    return MotionGuardRuleHelpers.Block(
-                        "OutputFeederY",
-                        "OutputFeederY HOME blocked. OutputFeeder must be up.",
-                        out reason);
+                // 기존 조건(사용자 승인으로 비활성): 실장비 OutputFeeder HOME 전에 Lift Up을 요구했다.
+                // if (!ShouldBypassHardwareMechanismChecks() && !IsFeederUp(feeder))
+                //     return MotionGuardRuleHelpers.Block(
+                //         "OutputFeederY",
+                //         "OutputFeederY HOME blocked. OutputFeeder must be up.",
+                //         out reason);
 
                 // 인터락 조건: 실장비에서 Ring Check가 감지되면 OutputFeederY 홈 이동을 차단한다.
                 if (!feeder.IsOutputFeederSimulationOrDryRun() && feeder.IsBinFeederRingCheck())
@@ -405,6 +490,9 @@ namespace QMC.CDT320.Interlocks
 
             try
             {
+                if (!VerifyOutputFeederLiftMaterialClear(request, out reason))
+                    return false;
+
                 switch (request.MoveKind)
                 {
                     case MotionGuardMoveKind.CylinderInitialize:
@@ -426,6 +514,57 @@ namespace QMC.CDT320.Interlocks
             {
                 LogBlockedReason(reason);
             }
+        }
+
+        // 절대 인터락: 기존 Ring/Override 센서 또는 Material 데이터가 있으면 Lift 양방향을 모두 차단한다.
+        private static bool VerifyOutputFeederLiftMaterialClear(MotionGuardRuleContext request, out string reason)
+        {
+            reason = string.Empty;
+            OutputFeederUnit feeder = request != null && request.Machine != null
+                ? request.Machine.OutputFeederUnit
+                : null;
+            return VerifyOutputFeederMaterialClear(feeder, "OutputFeederLift", out reason);
+        }
+
+        // 전체 초기화 Preflight와 Lift Guard가 동일한 자재/센서 판정을 사용한다.
+        internal static bool VerifyOutputFeederMaterialClear(
+            OutputFeederUnit feeder,
+            string movingName,
+            out string reason)
+        {
+            reason = string.Empty;
+            if (feeder == null)
+                return MotionGuardRuleHelpers.Block(
+                    movingName,
+                    movingName + " 절대 인터락 확인 불가: OutputFeederUnit 정보가 없습니다.",
+                    out reason);
+
+            if (!feeder.IsOutputFeederSimulationOrDryRun())
+            {
+                if (feeder.BinFeederRingCheckSensor == null)
+                    return MotionGuardRuleHelpers.Block(
+                        movingName,
+                        movingName + " 절대 인터락 확인 불가: OutputFeeder Ring/Override 센서가 없습니다.",
+                        out reason);
+
+                int errorCode;
+                if (!AjinIoScanService.TryReadHardwareInput(feeder.BinFeederRingCheckSensor, out errorCode))
+                    return MotionGuardRuleHelpers.Block(
+                        movingName,
+                        movingName + " 절대 인터락 확인 불가: OutputFeeder Ring/Override 센서 갱신 실패. error=" + errorCode,
+                        out reason);
+            }
+
+            bool dataEmpty = feeder.IsFeederTransferDataEmpty();
+            bool ringDetected = feeder.IsBinFeederRingCheck();
+            if (!dataEmpty || ringDetected)
+                return MotionGuardRuleHelpers.Block(
+                    movingName,
+                    movingName + " 이동 불가: Feeder 자재 데이터 또는 기존 Ring/Override 센서가 감지되었습니다. " +
+                    "dataEmpty=" + dataEmpty + ", ring=" + ringDetected,
+                    out reason);
+
+            return true;
         }
 
         // 인터락 항목: OutputFeederLift 초기화는 FeederY 안전 위치, LifterZ, Clamp/자재 상태를 확인한다.

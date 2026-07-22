@@ -699,6 +699,14 @@ namespace QMC.CDT320.Interlocks
                 if (machine == null || (!frontTargetX.HasValue && !rearTargetX.HasValue))
                     return true;
 
+                if (!VerifyExactAvoidForPickerXPairMove(
+                    machine,
+                    frontTargetX,
+                    rearTargetX,
+                    targetName,
+                    out detail))
+                    return false;
+
                 // 현재 기준: Front/Rear PickerX 그룹 이동도 양쪽 PickerY가 동시에 전진 상태이면 X 현재/목표 경로를 같이 확인한다.
                 bool frontOut = IsPickerYOutOrMovingOut(machine, true, null);
                 bool rearOut = IsPickerYOutOrMovingOut(machine, false, null);
@@ -1163,6 +1171,20 @@ namespace QMC.CDT320.Interlocks
                 if (!TryResolvePickerXYRequest(request, out isFront, out axis, out movingName))
                     return true;
 
+                string exactAvoidDetail;
+                if (!VerifyExactPickerYAvoidForFacingMove(
+                    request,
+                    isFront,
+                    axis,
+                    out exactAvoidDetail))
+                {
+                    return MotionGuardRuleHelpers.Block(
+                        movingName,
+                        movingName + " 절대 거리 인터락 차단: X 안전거리 안에서는 Front/Rear PickerY 중 최소 한 축이 " +
+                        "정확한 teaching Avoid에 정지해 있어야 합니다. " + exactAvoidDetail,
+                        out reason);
+                }
+
                 string detail;
                 bool allowed = CanMovePickerAxisByFacingYInterlock(
                     request.Machine,
@@ -1198,6 +1220,125 @@ namespace QMC.CDT320.Interlocks
             finally
             {
             }
+        }
+
+        // 절대 인터락: 일반 Picker X/Y 이동은 대향 X 경로가 안전거리 안일 때 exact teaching Avoid 한 축을 요구한다.
+        private static bool VerifyExactPickerYAvoidForFacingMove(
+            MotionGuardRuleContext request,
+            bool isFront,
+            PickerAxis movingAxis,
+            out string detail)
+        {
+            detail = string.Empty;
+            CDT320_Machine machine = request != null ? request.Machine : null;
+            BaseAxis frontX = GetPickerX(machine, true);
+            BaseAxis frontY = GetPickerY(machine, true);
+            BaseAxis rearX = GetPickerX(machine, false);
+            BaseAxis rearY = GetPickerY(machine, false);
+            if (machine == null || frontX == null || frontY == null || rearX == null || rearY == null)
+            {
+                detail = "Picker X/Y 축 정보를 확인할 수 없습니다.";
+                return false;
+            }
+
+            // Pair 초기화 전용 예외: HOME과 그 scope 안의 Y teaching Avoid 후처리만 허용한다.
+            if (MotionGuardRuntime.IsPickerYPairInitializeHomeActive(frontY, rearY))
+            {
+                if (movingAxis == PickerAxis.PickerY &&
+                    request.MoveKind == MotionGuardMoveKind.AxisHome)
+                    return true;
+
+                if (movingAxis == PickerAxis.PickerY &&
+                    request.MoveKind == MotionGuardMoveKind.AxisTeachingMove &&
+                    MotionGuardRuleHelpers.IsPickerYAtExactTeachingAvoid(
+                        machine,
+                        isFront,
+                        request.TargetValue))
+                    return true;
+            }
+
+            double clearance = ResolvePickerYFacingXClearance(machine);
+            double frontTargetX = movingAxis == PickerAxis.PickerX && isFront
+                ? request.TargetValue
+                : ResolveAxisPathTarget(frontX);
+            double rearTargetX = movingAxis == PickerAxis.PickerX && !isFront
+                ? request.TargetValue
+                : ResolveAxisPathTarget(rearX);
+            if (!DoXMovePathsEnterFacingClearance(
+                frontX.ActualPosition,
+                frontTargetX,
+                rearX.ActualPosition,
+                rearTargetX,
+                clearance))
+                return true;
+
+            bool frontExact = !frontY.IsMoving &&
+                MotionGuardRuleHelpers.IsPickerYAtExactTeachingAvoid(machine, true);
+            bool rearExact = !rearY.IsMoving &&
+                MotionGuardRuleHelpers.IsPickerYAtExactTeachingAvoid(machine, false);
+
+            // exact Avoid에서 빠져나가는 Y 명령은 현재 위치만으로 안전 축으로 계산하지 않는다.
+            if (movingAxis == PickerAxis.PickerY && isFront)
+                frontExact = frontExact && MotionGuardRuleHelpers.IsPickerYAtExactTeachingAvoid(machine, true, request.TargetValue);
+            if (movingAxis == PickerAxis.PickerY && !isFront)
+                rearExact = rearExact && MotionGuardRuleHelpers.IsPickerYAtExactTeachingAvoid(machine, false, request.TargetValue);
+
+            if (frontExact || rearExact)
+                return true;
+
+            detail = "frontY=" + FormatAxis(frontY) +
+                ", rearY=" + FormatAxis(rearY) +
+                ", frontXCurrent=" + frontX.ActualPosition.ToString("0.###") +
+                ", frontXTarget=" + frontTargetX.ToString("0.###") +
+                ", rearXCurrent=" + rearX.ActualPosition.ToString("0.###") +
+                ", rearXTarget=" + rearTargetX.ToString("0.###") +
+                ", clearance=" + clearance.ToString("0.###");
+            return false;
+        }
+
+        // 절대 인터락: SharedRail의 PickerX Pair 이동도 동일한 exact Avoid 정책을 먼저 적용한다.
+        private static bool VerifyExactAvoidForPickerXPairMove(
+            CDT320_Machine machine,
+            double? frontTargetX,
+            double? rearTargetX,
+            string targetName,
+            out string detail)
+        {
+            detail = string.Empty;
+            BaseAxis frontX = GetPickerX(machine, true);
+            BaseAxis frontY = GetPickerY(machine, true);
+            BaseAxis rearX = GetPickerX(machine, false);
+            BaseAxis rearY = GetPickerY(machine, false);
+            if (machine == null || frontX == null || frontY == null || rearX == null || rearY == null)
+            {
+                detail = "PickerX Pair 절대 인터락 확인 불가: Picker X/Y 축 정보가 없습니다.";
+                return false;
+            }
+
+            double clearance = ResolvePickerYFacingXClearance(machine);
+            double resolvedFrontTarget = frontTargetX.HasValue ? frontTargetX.Value : ResolveAxisPathTarget(frontX);
+            double resolvedRearTarget = rearTargetX.HasValue ? rearTargetX.Value : ResolveAxisPathTarget(rearX);
+            if (!DoXMovePathsEnterFacingClearance(
+                frontX.ActualPosition,
+                resolvedFrontTarget,
+                rearX.ActualPosition,
+                resolvedRearTarget,
+                clearance))
+                return true;
+
+            bool frontExact = !frontY.IsMoving &&
+                MotionGuardRuleHelpers.IsPickerYAtExactTeachingAvoid(machine, true);
+            bool rearExact = !rearY.IsMoving &&
+                MotionGuardRuleHelpers.IsPickerYAtExactTeachingAvoid(machine, false);
+            if (frontExact || rearExact)
+                return true;
+
+            detail = "Front/Rear PickerX Pair 이동 불가: X 안전거리 안에서 exact teaching Avoid인 PickerY가 없습니다. " +
+                "targetName=" + (string.IsNullOrWhiteSpace(targetName) ? "-" : targetName) +
+                ", frontY=" + FormatAxis(frontY) +
+                ", rearY=" + FormatAxis(rearY) +
+                ", clearance=" + clearance.ToString("0.###");
+            return false;
         }
 
         // 인터락 기준: 요청 종류가 축 이동 인터락 대상인지 판단한다.

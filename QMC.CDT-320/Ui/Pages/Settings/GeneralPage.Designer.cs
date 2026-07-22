@@ -80,12 +80,12 @@
             this._cbUseRealVisionInSimulation = new System.Windows.Forms.ComboBox();
             this._cbWaferCompleteRunMode = new System.Windows.Forms.ComboBox();
             this.lblPickRuntimeOffset = new System.Windows.Forms.Label();
-            this.lblPlaceRuntimeOffset = new System.Windows.Forms.Label();
             this.pickRuntimeOffsetLayout = new System.Windows.Forms.TableLayoutPanel();
-            this.placeRuntimeOffsetLayout = new System.Windows.Forms.TableLayoutPanel();
             this._cbPickRuntimeOffset = new System.Windows.Forms.ComboBox();
-            this._cbPlaceRuntimeOffset = new System.Windows.Forms.ComboBox();
             this.btnResetPickRuntimeOffset = new System.Windows.Forms.Button();
+            this.lblPlaceRuntimeOffset = new System.Windows.Forms.Label();
+            this.placeRuntimeOffsetLayout = new System.Windows.Forms.TableLayoutPanel();
+            this._cbPlaceRuntimeOffset = new System.Windows.Forms.ComboBox();
             this.btnResetPlaceRuntimeOffset = new System.Windows.Forms.Button();
             this.grpAjin = new System.Windows.Forms.GroupBox();
             this.ajinLayout = new System.Windows.Forms.TableLayoutPanel();
@@ -480,9 +480,9 @@
             this._cbWaferCompleteRunMode.Size = new System.Drawing.Size(645, 23);
             this._cbWaferCompleteRunMode.TabIndex = 19;
             this._cbWaferCompleteRunMode.SelectedIndexChanged += new System.EventHandler(this._cbWaferCompleteRunMode_SelectedIndexChanged);
-            //
+            // 
             // lblPickRuntimeOffset
-            //
+            // 
             this.lblPickRuntimeOffset.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(208)))), ((int)(((byte)(208)))), ((int)(((byte)(208)))));
             this.lblPickRuntimeOffset.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblPickRuntimeOffset.Font = new System.Drawing.Font("맑은 고딕", 9F);
@@ -494,9 +494,9 @@
             this.lblPickRuntimeOffset.TabIndex = 20;
             this.lblPickRuntimeOffset.Text = "PICK RUNTIME OFFSET";
             this.lblPickRuntimeOffset.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            //
+            // 
             // pickRuntimeOffsetLayout
-            //
+            // 
             this.pickRuntimeOffsetLayout.ColumnCount = 2;
             this.pickRuntimeOffsetLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.pickRuntimeOffsetLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 110F));
@@ -510,9 +510,9 @@
             this.pickRuntimeOffsetLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.pickRuntimeOffsetLayout.Size = new System.Drawing.Size(649, 34);
             this.pickRuntimeOffsetLayout.TabIndex = 21;
-            //
+            // 
             // _cbPickRuntimeOffset
-            //
+            // 
             this._cbPickRuntimeOffset.Dock = System.Windows.Forms.DockStyle.Fill;
             this._cbPickRuntimeOffset.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
             this._cbPickRuntimeOffset.Font = new System.Drawing.Font("맑은 고딕", 9F);
@@ -522,9 +522,9 @@
             this._cbPickRuntimeOffset.Size = new System.Drawing.Size(535, 23);
             this._cbPickRuntimeOffset.TabIndex = 0;
             this._cbPickRuntimeOffset.SelectedIndexChanged += new System.EventHandler(this._cbPickRuntimeOffset_SelectedIndexChanged);
-            //
+            // 
             // btnResetPickRuntimeOffset
-            //
+            // 
             this.btnResetPickRuntimeOffset.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnResetPickRuntimeOffset.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.btnResetPickRuntimeOffset.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
@@ -536,9 +536,9 @@
             this.btnResetPickRuntimeOffset.Text = "RESET";
             this.btnResetPickRuntimeOffset.UseVisualStyleBackColor = true;
             this.btnResetPickRuntimeOffset.Click += new System.EventHandler(this.btnResetPickRuntimeOffset_Click);
-            //
+            // 
             // lblPlaceRuntimeOffset
-            //
+            // 
             this.lblPlaceRuntimeOffset.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(208)))), ((int)(((byte)(208)))), ((int)(((byte)(208)))));
             this.lblPlaceRuntimeOffset.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblPlaceRuntimeOffset.Font = new System.Drawing.Font("맑은 고딕", 9F);
@@ -550,9 +550,9 @@
             this.lblPlaceRuntimeOffset.TabIndex = 22;
             this.lblPlaceRuntimeOffset.Text = "PLACE RUNTIME OFFSET";
             this.lblPlaceRuntimeOffset.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            //
+            // 
             // placeRuntimeOffsetLayout
-            //
+            // 
             this.placeRuntimeOffsetLayout.ColumnCount = 2;
             this.placeRuntimeOffsetLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.placeRuntimeOffsetLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 110F));
@@ -566,9 +566,9 @@
             this.placeRuntimeOffsetLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.placeRuntimeOffsetLayout.Size = new System.Drawing.Size(649, 34);
             this.placeRuntimeOffsetLayout.TabIndex = 23;
-            //
+            // 
             // _cbPlaceRuntimeOffset
-            //
+            // 
             this._cbPlaceRuntimeOffset.Dock = System.Windows.Forms.DockStyle.Fill;
             this._cbPlaceRuntimeOffset.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
             this._cbPlaceRuntimeOffset.Font = new System.Drawing.Font("맑은 고딕", 9F);
@@ -578,9 +578,9 @@
             this._cbPlaceRuntimeOffset.Size = new System.Drawing.Size(535, 23);
             this._cbPlaceRuntimeOffset.TabIndex = 0;
             this._cbPlaceRuntimeOffset.SelectedIndexChanged += new System.EventHandler(this._cbPlaceRuntimeOffset_SelectedIndexChanged);
-            //
+            // 
             // btnResetPlaceRuntimeOffset
-            //
+            // 
             this.btnResetPlaceRuntimeOffset.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnResetPlaceRuntimeOffset.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.btnResetPlaceRuntimeOffset.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
@@ -592,9 +592,9 @@
             this.btnResetPlaceRuntimeOffset.Text = "RESET";
             this.btnResetPlaceRuntimeOffset.UseVisualStyleBackColor = true;
             this.btnResetPlaceRuntimeOffset.Click += new System.EventHandler(this.btnResetPlaceRuntimeOffset_Click);
-            //
+            // 
             // grpAjin
-            //
+            // 
             this.grpAjin.Controls.Add(this.ajinLayout);
             this.grpAjin.Dock = System.Windows.Forms.DockStyle.Fill;
             this.grpAjin.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);

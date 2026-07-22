@@ -18,7 +18,7 @@ namespace QMC.CDT320.Sequencing
         CheckTargetStageYUnload,
         MoveTargetStageZToUnload,
         CheckTargetStageZUnload,
-        // To do: 언로드 위치 도착 후 배출 최종 준비 상태(UNCLAMP -> CLAMP LIFT DOWN -> GUIDE UP)까지 만든다.
+        // 재개 호환을 위해 기존 Step 이름을 유지한다. 실린더 준비는 실제 인출 시퀀스에서 수행한다.
         EnsureTargetStageUnloadReadyState,
         Complete,
         Error
@@ -88,13 +88,17 @@ namespace QMC.CDT320.Sequencing
                     case OutputStagePrepareUnloadStep.CheckTargetStageZUnload:
                         return Task.FromResult(CheckTargetStageZUnload());
 
-                    // 배출 최종 준비 상태 확보 (UNCLAMP -> CLAMP LIFT DOWN -> GUIDE UP)
+                    // 재개 호환용 Step: 축 위치 준비 완료 후 종료
                     case OutputStagePrepareUnloadStep.EnsureTargetStageUnloadReadyState:
-                        return EnsureTargetStageUnloadReadyStateAsync(ct);
+                        return Task.FromResult(CompleteTargetStageUnloadPreparation());
 
                     default:
                         return Task.FromResult(FailUnsupportedStep());
                 }
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
             }
             catch (Exception ex)
             {
@@ -120,6 +124,10 @@ namespace QMC.CDT320.Sequencing
 
                 CurrentStep = OutputStagePrepareUnloadStep.EnsureOutputFeederSafeBeforeStageMove;
                 return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
             }
             catch (Exception ex)
             {
@@ -151,6 +159,10 @@ namespace QMC.CDT320.Sequencing
 
                 CurrentStep = OutputStagePrepareUnloadStep.MoveOppositeStageToAvoid;
                 return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
             }
             catch (Exception ex)
             {
@@ -252,6 +264,10 @@ namespace QMC.CDT320.Sequencing
                 CurrentStep = OutputStagePrepareUnloadStep.CheckTargetStageZAvoid;
                 return 0;
             }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
             catch (Exception ex)
             {
                 return Fail("OUT-STAGE-Z-AVOID-EX", Name, "Target stage Z avoid move failed: " + ex.Message);
@@ -307,6 +323,10 @@ namespace QMC.CDT320.Sequencing
                 CurrentStep = OutputStagePrepareUnloadStep.CheckTargetStageYUnload;
                 return 0;
             }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
             catch (Exception ex)
             {
                 return Fail("OUT-STAGE-Y-UNLOAD-EX", Name, "Target stage Y unload move failed: " + ex.Message);
@@ -346,9 +366,6 @@ namespace QMC.CDT320.Sequencing
             {
                 if (SkipMissingSideZAxis(Options.Side, Options.Side + " Z unload"))
                 {
-                    // 기존 조건: Z축 없는 side(NG)는 바로 Complete로 건너뛰었다(실린더 준비 없음).
-                    // CurrentStep = OutputStagePrepareUnloadStep.Complete;
-                    // 현재 기준: Z 스킵 경로도 배출 최종 준비 상태(실린더)를 거친 뒤 종료한다.
                     CurrentStep = OutputStagePrepareUnloadStep.EnsureTargetStageUnloadReadyState;
                     return 0;
                 }
@@ -384,9 +401,6 @@ namespace QMC.CDT320.Sequencing
             {
                 if (SkipMissingSideZAxis(Options.Side, Options.Side + " Z unload final check"))
                 {
-                    // 기존 조건: 바로 Complete로 종료했다(실린더 준비 없음).
-                    // CurrentStep = OutputStagePrepareUnloadStep.Complete;
-                    // 현재 기준: 배출 최종 준비 상태(실린더)까지 만든 뒤 종료한다.
                     CurrentStep = OutputStagePrepareUnloadStep.EnsureTargetStageUnloadReadyState;
                     return 0;
                 }
@@ -398,9 +412,6 @@ namespace QMC.CDT320.Sequencing
                         Options.Side + " Z unload final check failed. target=" + target + ". " +
                         BuildAxisState(axis, target));
 
-                // 기존 조건: 위치 확인 후 바로 Complete로 종료했다(실린더 준비 없음).
-                // CurrentStep = OutputStagePrepareUnloadStep.Complete;
-                // 현재 기준: 배출 최종 준비 상태(실린더)까지 만든 뒤 종료한다.
                 CurrentStep = OutputStagePrepareUnloadStep.EnsureTargetStageUnloadReadyState;
                 return 0;
             }
@@ -414,59 +425,132 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
-        // 기존 조건: PrepareUnload는 축 이동까지만 수행하고 실린더 준비는 하지 않았다.
-        // 현재 기준: 언로드 위치 도착 후 배출 최종 준비 상태를 UNCLAMP -> CLAMP LIFT DOWN -> GUIDE UP 순서로 만든다.
-        // To do: 스테이지 UNLOAD 준비에 실린더 최종 준비 상태 포함.
-        private async Task<int> EnsureTargetStageUnloadReadyStateAsync(CancellationToken ct)
+        private int CompleteTargetStageUnloadPreparation()
         {
-            try
+            if (Stage == null)
+                return Fail("OUT-STAGE-PREP-UNLOAD-FINAL-MISSING", "OutputStage",
+                    "OutputStage Unload 최종 상태를 확인할 수 없습니다. side=" + Options.Side);
+
+            if (OutputFeeder == null || OutputFeeder.FeederY == null)
+                return Fail("OUT-STAGE-PREP-UNLOAD-FINAL-FEEDER", "OutputFeeder",
+                    "OutputStage Unload 최종 확인 중 OutputFeederY 정보를 찾을 수 없습니다. side=" + Options.Side);
+
+            OutputFeeder.FeederY.UpdateStatus();
+            if (!OutputFeeder.FeederY.IsServoOn ||
+                OutputFeeder.FeederY.IsAlarm ||
+                OutputFeeder.FeederY.IsMoving ||
+                !OutputFeeder.IsBinFeederYInAvoidPosition() ||
+                !OutputFeeder.IsBinFeederAvoidPositionCheck())
             {
-                ct.ThrowIfCancellationRequested();
+                return Fail("OUT-STAGE-PREP-UNLOAD-FINAL-FEEDER-AVOID", OutputFeeder.Name,
+                    "OutputStage Unload 완료 처리 전 OutputFeederY가 안전하게 정지된 정확한 Avoid 위치가 아닙니다. side=" +
+                    Options.Side + ", " + OutputFeeder.DescribeBinFeederYMoveDoneState());
+            }
 
-                int result = await Stage.EnsureBinGuideUnclampedAsync(Options.Side, ResolveTimeout(), ct).ConfigureAwait(false);
-                if (result != 0)
-                    return Fail("OUT-STAGE-PREP-UNCLAMP", Stage.Name,
-                        "OutputStage Unload 준비 중 Unclamp 구동 실패. side=" + Options.Side +
-                        ", result=" + result + ", " + Stage.DescribeOutputStageInterlockState(Options.Side));
+            BinSide opposite = Options.Side == BinSide.Ng ? BinSide.Good : BinSide.Ng;
+            BinStageAxis oppositeAxis = opposite == BinSide.Ng
+                ? ResolveYAxis(BinSide.Ng)
+                : ResolveZAxis(BinSide.Good);
+            double oppositeTarget = opposite == BinSide.Ng
+                ? ResolveSideTarget(BinSide.Ng, "Avoid")
+                : ResolveSideZTarget(BinSide.Good, "Avoid");
 
-                if (!Stage.IsBinGuideUnclamped(Options.Side))
-                    return Fail("OUT-STAGE-PREP-UNCLAMP", Stage.Name,
-                        "OutputStage Unload 준비 중 Unclamp 상태 확인 실패. side=" + Options.Side +
-                        ", " + Stage.DescribeOutputStageInterlockState(Options.Side));
+            bool oppositeAtAvoid;
+            int validation = ValidateFinalAxisState(
+                oppositeAxis,
+                oppositeTarget,
+                "반대 Stage Avoid",
+                out oppositeAtAvoid);
+            if (validation != 0)
+                return validation;
 
-                result = await Stage.EnsureBinGuideClampLiftDownAsync(Options.Side, ResolveTimeout(), ct).ConfigureAwait(false);
-                if (result != 0)
-                    return Fail("OUT-STAGE-PREP-CLAMP-DOWN", Stage.Name,
-                        "OutputStage Unload 준비 중 Clamp Lift Down 구동 실패. side=" + Options.Side +
-                        ", result=" + result + ", " + Stage.DescribeOutputStageInterlockState(Options.Side));
+            BinStageAxis targetYAxis = ResolveYAxis(Options.Side);
+            double targetY = ResolveSideTarget(Options.Side, "Unload");
+            bool targetYAtUnload;
+            validation = ValidateFinalAxisState(
+                targetYAxis,
+                targetY,
+                "대상 Stage Y Unload",
+                out targetYAtUnload);
+            if (validation != 0)
+                return validation;
 
-                if (!Stage.IsBinGuideClampLiftDown(Options.Side))
-                    return Fail("OUT-STAGE-PREP-CLAMP-DOWN", Stage.Name,
-                        "OutputStage Unload 준비 중 Clamp Lift Down 상태 확인 실패. side=" + Options.Side +
-                        ", " + Stage.DescribeOutputStageInterlockState(Options.Side));
+            bool targetZAtUnload = true;
+            if (HasSideZAxis(Options.Side))
+            {
+                BinStageAxis targetZAxis = ResolveZAxis(Options.Side);
+                double targetZ = ResolveSideZTarget(Options.Side, "Unload");
+                validation = ValidateFinalAxisState(
+                    targetZAxis,
+                    targetZ,
+                    "대상 Stage Z Unload",
+                    out targetZAtUnload);
+                if (validation != 0)
+                    return validation;
+            }
 
-                result = await Stage.EnsureBinGuideUpAsync(Options.Side, ResolveTimeout(), ct).ConfigureAwait(false);
-                if (result != 0)
-                    return Fail("OUT-STAGE-PREP-GUIDE-UP", Stage.Name,
-                        "OutputStage Unload 준비 중 Guide Up 구동 실패. side=" + Options.Side +
-                        ", result=" + result + ", " + Stage.DescribeOutputStageInterlockState(Options.Side));
-
-                if (!Stage.IsBinGuideUp(Options.Side))
-                    return Fail("OUT-STAGE-PREP-GUIDE-UP", Stage.Name,
-                        "OutputStage Unload 준비 중 Guide Up 상태 확인 실패. side=" + Options.Side +
-                        ", " + Stage.DescribeOutputStageInterlockState(Options.Side));
-
-                CurrentStep = OutputStagePrepareUnloadStep.Complete;
+            if (!oppositeAtAvoid ||
+                !targetYAtUnload ||
+                !targetZAtUnload ||
+                !Stage.IsStageInUnloadPosition(Options.Side))
+            {
+                WriteLog(Name,
+                    "구버전 PrepareUnload 최종 Step 재개 시 축 위치가 완료 조건과 달라 안전 시작 Step으로 되돌립니다. " +
+                    "side=" + Options.Side + ", oppositeAtAvoid=" + oppositeAtAvoid +
+                    ", targetYAtUnload=" + targetYAtUnload +
+                    ", targetZAtUnload=" + targetZAtUnload + " - Check");
+                CurrentStep = OutputStagePrepareUnloadStep.CheckTargetSide;
                 return 0;
             }
-            catch (Exception ex)
+
+            WriteLog(Name,
+                "OutputStage Unload 축 위치 준비 완료. 실제 배출 실린더 자세는 " +
+                "OutputFeederUnloadFromStageSequence에서 확보합니다. side=" + Options.Side + " - Ok");
+            CurrentStep = OutputStagePrepareUnloadStep.Complete;
+            return 0;
+        }
+
+        private int ValidateFinalAxisState(
+            BinStageAxis axis,
+            double target,
+            string description,
+            out bool inPosition)
+        {
+            inPosition = false;
+            QMC.Common.Motion.BaseAxis item = ResolveFinalCheckAxis(axis);
+            if (item == null)
+                return Fail("OUT-STAGE-PREP-UNLOAD-FINAL-AXIS-MISSING", Stage != null ? Stage.Name : "OutputStage",
+                    description + " 축 정보를 찾을 수 없습니다. axis=" + axis + ", side=" + Options.Side);
+
+            item.UpdateStatus();
+            if (!item.IsServoOn || item.IsAlarm || item.IsMoving)
             {
-                return Fail("OUT-STAGE-PREP-READY-EX", Name, "Target stage unload ready state failed: " + ex.Message);
+                return Fail("OUT-STAGE-PREP-UNLOAD-FINAL-AXIS-STATE", Stage.Name,
+                    description + " 축이 안전하게 정지된 상태가 아닙니다. " + BuildAxisState(axis, target));
             }
-            finally
+
+            inPosition = Stage.IsStageAxisInPosition(axis, target, ResolveTolerance(axis));
+            return 0;
+        }
+
+        private QMC.Common.Motion.BaseAxis ResolveFinalCheckAxis(BinStageAxis axis)
+        {
+            if (Stage == null)
+                return null;
+
+            switch (axis)
             {
+                case BinStageAxis.GoodBinY:
+                    return Stage.GoodStage != null ? Stage.GoodStage.StageY : null;
+                case BinStageAxis.GoodBinZ:
+                    return Stage.GoodStage != null ? Stage.GoodStage.StageZ : null;
+                case BinStageAxis.NgBinY:
+                    return Stage.NgStage != null ? Stage.NgStage.StageY : null;
+                case BinStageAxis.NgBinZ:
+                    return Stage.NgStage != null ? Stage.NgStage.StageZ : null;
+                default:
+                    return null;
             }
         }
     }
 }
-

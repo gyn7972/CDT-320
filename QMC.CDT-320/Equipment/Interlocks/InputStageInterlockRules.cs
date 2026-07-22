@@ -1003,8 +1003,25 @@ namespace QMC.CDT320.Interlocks
             try
             {
                 InputStageUnit stage = machine != null ? machine.InputStageUnit : null;
+                if (stage == null || stage.NeedleZ == null || stage.EjectPinZ == null)
+                    return MotionGuardRuleHelpers.Block(
+                        "InputStageY",
+                        "InputStageY HOME 절대 인터락 확인 불가: NeedleZ/EjectPinZ 축 정보가 없습니다.",
+                        out reason);
+
+                // 절대 인터락: InputStageY HOME은 NeedleZ와 EjectPinZ가 모두 HOME 완료된 뒤에만 허용한다.
+                if (!stage.NeedleZ.IsHomeDone || !stage.EjectPinZ.IsHomeDone)
+                    return MotionGuardRuleHelpers.Block(
+                        "InputStageY",
+                        "InputStageY HOME 불가: NeedleZ와 EjectPinZ가 모두 HOME 완료되어야 합니다. " +
+                        "needleHome=" + stage.NeedleZ.IsHomeDone +
+                        ", ejectHome=" + stage.EjectPinZ.IsHomeDone +
+                        ", needleActual=" + stage.NeedleZ.ActualPosition.ToString("0.###") +
+                        ", ejectActual=" + stage.EjectPinZ.ActualPosition.ToString("0.###"),
+                        out reason);
+
                 // 인터락 조건: NeedleZ가 Home(0) 또는 Avoid 위치가 아니면 StageY 홈 이동을 차단한다.
-                if (stage != null && !stage.IsNeedleZInHomeOrSafePosition())
+                if (!stage.IsNeedleZInHomeOrSafePosition())
                     return MotionGuardRuleHelpers.Block(
                         "InputStageY",
                         "InputStageY HOME blocked. NeedleZ must be at Home(0) or Avoid position. " + BuildNeedleZState(stage),

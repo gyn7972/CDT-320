@@ -218,7 +218,47 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             int slot = wafer != null && wafer.SourceSlotNumber >= 0 ? wafer.SourceSlotNumber : ResolveFeederSlot();
             BinSide side = role == CassetteMaterialRole.Ng1 ? BinSide.Ng : BinSide.Good;
             var options = BuildOptions(host, side, role, slot);
-            return await CreateSequence(host).RunUnloadToCassetteAsync(host.Controller.ManualOperationToken, options) == 0;
+            var context = new MachineSequenceContext(host.Controller, new SequenceSignalBus());
+            SequenceResourceKind stageResource = side == BinSide.Ng
+                ? SequenceResourceKind.OutputNgStageArea
+                : SequenceResourceKind.OutputGoodStageArea;
+
+            // UnloadToCassette에는 제품 인출 후 Stage 실린더 안전 복귀가 포함된다.
+            // 수동 실행도 Auto와 동일하게 대상 Stage Area를 점유한 상태에서 같은 시퀀스를 호출한다.
+            using (SequenceResourceLease placeLease = await context.Resources.AcquireAsync(
+                SequenceResourceKind.OutputPlaceArea,
+                "OutputFeederPage.UnloadToCassette",
+                30000,
+                host.Controller.ManualOperationToken))
+            {
+                if (placeLease == null)
+                {
+                    EventLogger.Write(EventKind.Alarm, "QMC", "OUTPUT-FEEDER-PLACE-RESOURCE",
+                        "수동 UnloadToCassette Output Place Area 점유 실패. side=" + side);
+                    return false;
+                }
+
+                using (SequenceResourceLease stageLease = await context.Resources.AcquireAsync(
+                    stageResource,
+                    "OutputFeederPage.UnloadToCassette:" + side,
+                    30000,
+                    host.Controller.ManualOperationToken))
+                {
+                    if (stageLease == null)
+                    {
+                        EventLogger.Write(EventKind.Alarm, "QMC", "OUTPUT-FEEDER-STAGE-RESOURCE",
+                            "수동 UnloadToCassette 대상 Stage Area 점유 실패. side=" + side + ", resource=" + stageResource);
+                        return false;
+                    }
+
+                    return await new OutputFeederSequence(context)
+                        .RunUnloadToCassetteWithHeldResourcesAsync(
+                            host.Controller.ManualOperationToken,
+                            options,
+                            placeLease,
+                            stageLease) == 0;
+                }
+            }
         }
 
         private async Task<bool> RunRecoverAsync(Form1 host)

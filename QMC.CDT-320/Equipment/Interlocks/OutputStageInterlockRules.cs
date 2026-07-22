@@ -279,6 +279,9 @@ namespace QMC.CDT320.Interlocks
         {
             reason = string.Empty;
 
+            if (!VerifyGoodStageZUpwardAbsoluteGuard(request, "OutputGoodStageZ", out reason))
+                return false;
+
             switch (request.MoveKind)
             {
                 // 자동 이동 인터락 확인
@@ -382,6 +385,9 @@ namespace QMC.CDT320.Interlocks
         private static bool VerifyBinNgY(MotionGuardRuleContext request, out string reason)
         {
             reason = string.Empty;
+
+            if (!VerifyNgStageYAbsoluteGuard(request, "OutputNGStageY", out reason))
+                return false;
 
             switch (request.MoveKind)
             {
@@ -933,6 +939,9 @@ namespace QMC.CDT320.Interlocks
 
             try
             {
+                if (!VerifyOutputStageCylinderAbsoluteGuard(request, movingName, out reason))
+                    return false;
+
                 switch (request.MoveKind)
                 {
                     case MotionGuardMoveKind.CylinderInitialize:
@@ -954,6 +963,147 @@ namespace QMC.CDT320.Interlocks
             {
                 LogBlockedReason(reason);
             }
+        }
+
+        // 절대 인터락: 기존 실린더 조건과 별도로 Clamp Back 및 NG Stage Avoid 조건을 AND로 추가한다.
+        private static bool VerifyOutputStageCylinderAbsoluteGuard(
+            MotionGuardRuleContext request,
+            string movingName,
+            out string reason)
+        {
+            reason = string.Empty;
+            OutputStageUnit outputStage = request != null && request.Machine != null
+                ? request.Machine.OutputStageUnit
+                : null;
+            if (outputStage == null)
+                return MotionGuardRuleHelpers.Block(
+                    movingName,
+                    movingName + " 절대 인터락 확인 불가: OutputStageUnit 정보가 없습니다.",
+                    out reason);
+
+            if (string.Equals(movingName, "GoodBinGuideClampLift", System.StringComparison.OrdinalIgnoreCase) &&
+                !VerifyBinGuideClampBack(outputStage, BinSide.Good, movingName, out reason))
+                return false;
+
+            if (string.Equals(movingName, "NGBinGuideClampLift", System.StringComparison.OrdinalIgnoreCase) &&
+                !VerifyBinGuideClampBack(outputStage, BinSide.Ng, movingName, out reason))
+                return false;
+
+            // Good Guide Down은 안전 복귀이므로 NG Stage 위치 조건을 새로 추가하지 않는다.
+            if (string.Equals(movingName, "GoodBinGuideLift", System.StringComparison.OrdinalIgnoreCase) &&
+                request != null &&
+                request.TargetValue >= 0.5 &&
+                !outputStage.IsNgStageInAvoidPosition())
+            {
+                return MotionGuardRuleHelpers.Block(
+                    movingName,
+                    "GoodBinGuideLift Up 불가: OutputNGStageY가 정확한 Avoid 위치가 아닙니다.",
+                    out reason);
+            }
+
+            return true;
+        }
+
+        // 절대 인터락: ClampLift Up/Down 전에 해당 Clamp가 Bwd/Unclamp 상태인지 확인한다.
+        private static bool VerifyBinGuideClampBack(
+            OutputStageUnit outputStage,
+            BinSide side,
+            string movingName,
+            out string reason)
+        {
+            reason = string.Empty;
+            BaseCylinder clampCylinder = side == BinSide.Ng
+                ? outputStage.NgBinGuideClampCylinder
+                : outputStage.GoodBinGuideClampCylinder;
+            string sideName = side == BinSide.Ng ? "NG" : "GOOD";
+
+            if (clampCylinder == null)
+                return MotionGuardRuleHelpers.Block(
+                    movingName,
+                    movingName + " 이동 불가: " + sideName + " Bin Guide Clamp 실린더 정보가 없습니다.",
+                    out reason);
+
+            BaseDigitalInput backStateSensor = clampCylinder.Setup != null && clampCylinder.Setup.UseBwdSensor
+                ? clampCylinder.InBwd
+                : clampCylinder.InFwd;
+
+            if (!RefreshRequiredHardwareInput(backStateSensor, movingName, sideName + "BinClampBack", out reason))
+                return false;
+
+            if (!outputStage.IsBinGuideUnclamped(side))
+                return MotionGuardRuleHelpers.Block(
+                    movingName,
+                    movingName + " 이동 불가: " + sideName + " Bin Guide Clamp가 Bwd/Unclamp 상태여야 합니다.",
+                    out reason);
+
+            return true;
+        }
+
+        // 절대 인터락: NGStageY는 Good Z 최소 안전 높이, NG ClampLift Up, Good Guide Down을 모두 만족해야 한다.
+        private static bool VerifyNgStageYAbsoluteGuard(
+            MotionGuardRuleContext request,
+            string movingName,
+            out string reason)
+        {
+            reason = string.Empty;
+            OutputStageUnit outputStage = request != null && request.Machine != null
+                ? request.Machine.OutputStageUnit
+                : null;
+            BaseAxis goodZ = outputStage != null && outputStage.GoodStage != null
+                ? outputStage.GoodStage.StageZ
+                : null;
+
+            if (outputStage == null || goodZ == null)
+                return MotionGuardRuleHelpers.Block(
+                    movingName,
+                    movingName + " 절대 인터락 확인 불가: OutputStageUnit/OutputGoodStageZ 정보가 없습니다.",
+                    out reason);
+
+            if (!outputStage.IsGoodStageZAtAvoid() && goodZ.ActualPosition > 0.0)
+                return MotionGuardRuleHelpers.Block(
+                    movingName,
+                    movingName + " 이동 불가: OutputGoodStageZ가 정확한 Avoid 또는 0 이하 위치여야 합니다. " +
+                    "goodZActual=" + goodZ.ActualPosition.ToString("0.###"),
+                    out reason);
+
+            if (!VerifyNgClampSafeForStageMove(outputStage, movingName, out reason))
+                return false;
+
+            return VerifyGoodBinGuideDown(outputStage, movingName, out reason);
+        }
+
+        // 절대 인터락: GoodStageZ의 실제 상승 명령은 목표가 Avoid여도 NG Stage exact Avoid를 요구한다.
+        private static bool VerifyGoodStageZUpwardAbsoluteGuard(
+            MotionGuardRuleContext request,
+            string movingName,
+            out string reason)
+        {
+            reason = string.Empty;
+            OutputStageUnit outputStage = request != null && request.Machine != null
+                ? request.Machine.OutputStageUnit
+                : null;
+            BaseAxis goodZ = outputStage != null && outputStage.GoodStage != null
+                ? outputStage.GoodStage.StageZ
+                : null;
+
+            if (outputStage == null || goodZ == null)
+                return MotionGuardRuleHelpers.Block(
+                    movingName,
+                    movingName + " 절대 인터락 확인 불가: OutputStageUnit/OutputGoodStageZ 정보가 없습니다.",
+                    out reason);
+
+            if (request.TargetValue > goodZ.ActualPosition &&
+                !outputStage.IsNgStageInAvoidPosition())
+            {
+                return MotionGuardRuleHelpers.Block(
+                    movingName,
+                    movingName + " 상승 이동 불가: OutputNGStageY가 정확한 Avoid 위치여야 합니다. " +
+                    "current=" + goodZ.ActualPosition.ToString("0.###") +
+                    ", target=" + request.TargetValue.ToString("0.###"),
+                    out reason);
+            }
+
+            return true;
         }
 
         // 인터락 항목: OutputStage 실린더 초기화는 OutputStage 이송부 안전 상태를 확인한다.
@@ -1107,13 +1257,19 @@ namespace QMC.CDT320.Interlocks
             reason = string.Empty;
             OutputStageUnit outputStage = request != null && request.Machine != null ? request.Machine.OutputStageUnit : null;
             if (outputStage == null)
-                return true;
+                return MotionGuardRuleHelpers.Block(
+                    movingName,
+                    movingName + " 절대 인터락 확인 불가: OutputStageUnit 정보가 없습니다.",
+                    out reason);
 
             if (!outputStage.IsNgStageInAvoidPosition())
                 return MotionGuardRuleHelpers.Block(
                     movingName,
                     movingName + " 이동 불가: GoodStageY 이동 전 NG Stage가 반드시 Avoid 위치여야 합니다.",
                     out reason);
+
+            if (!VerifyGoodBinGuideDown(outputStage, movingName, out reason))
+                return false;
 
             bool requiresGoodZAvoid = request == null ||
                                       request.MoveKind == MotionGuardMoveKind.AxisHome ||
@@ -1152,12 +1308,50 @@ namespace QMC.CDT320.Interlocks
         {
             reason = string.Empty;
             if (outputStage == null)
-                return true;
+                return MotionGuardRuleHelpers.Block(
+                    movingName,
+                    movingName + " HOME 절대 인터락 확인 불가: OutputStageUnit 정보가 없습니다.",
+                    out reason);
+
+            if (!outputStage.IsNgStageInAvoidPosition())
+                return MotionGuardRuleHelpers.Block(
+                    movingName,
+                    movingName + " HOME 이동 불가: NG Stage가 정확한 Avoid 위치여야 합니다.",
+                    out reason);
+
+            if (!VerifyGoodBinGuideDown(outputStage, movingName, out reason))
+                return false;
 
             if (!IsGoodStageZHomeOrAvoid(outputStage))
                 return MotionGuardRuleHelpers.Block(
                     movingName,
                     movingName + " HOME 이동 불가: OutputGoodStageZ가 Home(0) 또는 Avoid 위치가 아닙니다.",
+                    out reason);
+
+            return true;
+        }
+
+        // 절대 인터락: GoodStageY 일반/HOME 이동 전에 Good Bin Guide Down을 확인한다.
+        private static bool VerifyGoodBinGuideDown(OutputStageUnit outputStage, string movingName, out string reason)
+        {
+            reason = string.Empty;
+            if (outputStage == null)
+                return MotionGuardRuleHelpers.Block(
+                    movingName,
+                    "Good Bin Guide Down 상태를 확인할 OutputStageUnit 정보가 없습니다.",
+                    out reason);
+
+            if (!RefreshRequiredHardwareInput(
+                outputStage.GoodBinGuideDownSensor,
+                movingName,
+                "GoodBinGuideDown",
+                out reason))
+                return false;
+
+            if (!outputStage.IsBinGuideDown(BinSide.Good))
+                return MotionGuardRuleHelpers.Block(
+                    movingName,
+                    movingName + " 이동 불가: Good Bin Guide가 Down 상태여야 합니다.",
                     out reason);
 
             return true;

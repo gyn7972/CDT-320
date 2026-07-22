@@ -193,6 +193,101 @@ namespace QMC.CDT320.Interlocks
                 out reason);
         }
 
+        // 절대 인터락: HOME을 제외한 모든 PickerZ 이동은 Reticle Down + 양 Slide Back을 요구한다.
+        public static bool VerifyReticleRetractedBeforeAnyNonHomePickerZMove(
+            MotionGuardRuleContext request,
+            out string reason)
+        {
+            reason = string.Empty;
+            string movingName = request != null && !string.IsNullOrWhiteSpace(request.MovingName)
+                ? request.MovingName
+                : "PickerZ";
+
+            if (request == null || request.Machine == null)
+                return Block(
+                    movingName,
+                    movingName + " 절대 인터락 확인 불가: Motion request/Machine 정보가 없습니다.",
+                    out reason);
+
+            if (request.MoveKind == MotionGuardMoveKind.AxisHome)
+                return true;
+
+            VisionUnit vision = request.Machine.VisionUnit;
+            if (vision == null)
+                return Block(
+                    movingName,
+                    movingName + " 절대 인터락 확인 불가: VisionUnit 정보가 없습니다.",
+                    out reason);
+
+            if (vision.IsVisionReticleDown() &&
+                vision.IsVisionReticleFrontSideBackward() &&
+                vision.IsVisionReticleRearSideBackward())
+                return true;
+
+            return Block(
+                movingName,
+                movingName + " 이동 불가: HOME 외 PickerZ 이동 전 Reticle Down + Front Back + Rear Back이 필요합니다. " +
+                BuildReticleStateDetail(vision),
+                out reason);
+        }
+
+        // 절대 인터락 공통 판정: PickerY 실제 위치가 축 tolerance 안의 정확한 teaching Avoid인지 확인한다.
+        public static bool IsPickerYAtExactTeachingAvoid(CDT320_Machine machine, bool isFront)
+        {
+            BaseAxis axis = ResolvePickerYAxis(machine, isFront);
+            return axis != null && IsPickerYAtExactTeachingAvoid(machine, isFront, axis.ActualPosition);
+        }
+
+        // 절대 인터락 공통 판정: 지정 PickerY 위치가 축 tolerance 안의 정확한 teaching Avoid인지 확인한다.
+        public static bool IsPickerYAtExactTeachingAvoid(
+            CDT320_Machine machine,
+            bool isFront,
+            double position)
+        {
+            try
+            {
+                BaseAxis axis = ResolvePickerYAxis(machine, isFront);
+                if (axis == null)
+                    return false;
+
+                if (isFront)
+                {
+                    if (machine.PickerFrontUnit == null ||
+                        machine.PickerFrontUnit.Recipe == null ||
+                        machine.PickerFrontUnit.Recipe.PickerY == null)
+                        return false;
+                }
+                else if (machine.PickerRearUnit == null ||
+                         machine.PickerRearUnit.Recipe == null ||
+                         machine.PickerRearUnit.Recipe.PickerY == null)
+                {
+                    return false;
+                }
+
+                double avoid = isFront
+                    ? machine.PickerFrontUnit.GetPickerTeachingPosition(PickerAxis.PickerY, "AvoidPosition")
+                    : machine.PickerRearUnit.GetPickerTeachingPosition(PickerAxis.PickerY, "AvoidPosition");
+                return Math.Abs(position - avoid) <= ResolveTolerance(axis);
+            }
+            catch
+            {
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
+        private static BaseAxis ResolvePickerYAxis(CDT320_Machine machine, bool isFront)
+        {
+            if (machine == null)
+                return null;
+
+            return isFront
+                ? (machine.PickerFrontUnit != null ? machine.PickerFrontUnit.PickerY : null)
+                : (machine.PickerRearUnit != null ? machine.PickerRearUnit.PickerY : null);
+        }
+
         public static string BuildReticleStateDetail(VisionUnit vision)
         {
             if (vision == null)

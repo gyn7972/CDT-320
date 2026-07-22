@@ -1054,6 +1054,78 @@ namespace QMC.CDT320.Sequencing
             return OutputSequenceAutoAction.None;
         }
 
+        private bool TryResolveImmediateSameSideSupply(
+            BinSide side,
+            out OutputSequenceAutoAction nextAction,
+            out OutputSlotPlan supplyPlan,
+            out string reason)
+        {
+            nextAction = OutputSequenceAutoAction.None;
+            supplyPlan = null;
+            reason = string.Empty;
+            if (!IsAutoOutputLoaderBatchActive)
+            {
+                reason = "Auto Output Loader 단일 Side batch가 아닙니다.";
+                return false;
+            }
+
+            string drainReason;
+            if (!CanStartImmediateSameSideSupplyDuringDrain(side, out drainReason))
+            {
+                reason = drainReason;
+                return false;
+            }
+
+            nextAction = ResolveNextOutputActionForSide(side);
+            bool sameSideSupply =
+                (side == BinSide.Good && nextAction == OutputSequenceAutoAction.SupplyGoodCassetteToStage) ||
+                (side == BinSide.Ng && nextAction == OutputSequenceAutoAction.SupplyNgCassetteToStage);
+            if (!sameSideSupply)
+            {
+                reason = "다음 작업이 동일 Side Supply가 아닙니다. nextAction=" + nextAction;
+                return false;
+            }
+
+            string consistencyReason;
+            if (!ValidateOutputSupplyConsistency(out consistencyReason))
+            {
+                reason = "Output 공급 상태 불일치. " + consistencyReason;
+                return false;
+            }
+
+            string slotPlanReason;
+            if (!OutputSlotPlanner.TryResolveNextSupplySlot(side, out supplyPlan, out slotPlanReason) ||
+                supplyPlan == null ||
+                supplyPlan.Side != side)
+            {
+                supplyPlan = null;
+                reason = "동일 Side 즉시 공급 계획을 확정할 수 없습니다. " + slotPlanReason;
+                return false;
+            }
+
+            return true;
+        }
+
+        private bool CanStartImmediateSameSideSupplyDuringDrain(BinSide side, out string reason)
+        {
+            if (!IsStopAfterDrainRequested())
+            {
+                reason = string.Empty;
+                return true;
+            }
+
+            bool heldDieDrain = HasPickerHeldTargetDieForOutputDrain();
+            if (heldDieDrain && side == BinSide.Good)
+            {
+                reason = string.Empty;
+                return true;
+            }
+
+            reason = "Stop After Drain 요청으로 동일 Side 신규 Supply를 시작하지 않습니다. " +
+                     "side=" + side + ", heldDieDrain=" + heldDieDrain;
+            return false;
+        }
+
         private bool TryResolveOutputActionSide(OutputSequenceAutoAction action, out BinSide side)
         {
             side = BinSide.Good;
@@ -1819,21 +1891,88 @@ namespace QMC.CDT320.Sequencing
 
         public Task<int> ExecuteFeederUnloadToCassetteAsync(CancellationToken ct, int slotIndex, BinSide side = BinSide.Good, bool bFine = false, int moveTimeoutMs = 0, SequenceStartMode startMode = SequenceStartMode.Resume)
         {
-            var sequence = new OutputFeederSequence(Context);
-            return SequenceTrace.ChildAsync("OutputFeederSequence", "UnloadToCassette",
-                () => sequence.RunUnloadToCassetteAsync(ct, BuildFeederOptions(slotIndex, slotIndex, side, bFine, moveTimeoutMs, startMode)),
-                "side=" + side,
-                "slot=" + slotIndex);
+            CassetteMaterialRole cassetteRole = side == BinSide.Ng
+                ? CassetteMaterialRole.Ng1
+                : CassetteMaterialRole.Good1;
+            return ExecuteFeederUnloadToCassetteWithAcquiredResourcesAsync(
+                ct,
+                slotIndex,
+                cassetteRole,
+                bFine,
+                moveTimeoutMs,
+                startMode);
         }
 
         public Task<int> ExecuteFeederUnloadToCassetteAsync(CancellationToken ct, int slotIndex, CassetteMaterialRole cassetteRole, bool bFine = false, int moveTimeoutMs = 0, SequenceStartMode startMode = SequenceStartMode.Resume)
+        {
+            return ExecuteFeederUnloadToCassetteWithAcquiredResourcesAsync(
+                ct,
+                slotIndex,
+                cassetteRole,
+                bFine,
+                moveTimeoutMs,
+                startMode);
+        }
+
+        private async Task<int> ExecuteFeederUnloadToCassetteWithAcquiredResourcesAsync(
+            CancellationToken ct,
+            int slotIndex,
+            CassetteMaterialRole cassetteRole,
+            bool bFine,
+            int moveTimeoutMs,
+            SequenceStartMode startMode)
+        {
+            BinSide side = cassetteRole == CassetteMaterialRole.Ng1 ? BinSide.Ng : BinSide.Good;
+            using (SequenceResourceLease placeLease = await AcquireOutputPlaceAreaAsync(
+                "OutputUnloadToCassette",
+                ct).ConfigureAwait(false))
+            {
+                if (placeLease == null)
+                    return Fail("OUT-RESOURCE-PLACE", "OutputSequence",
+                        "Output UnloadToCassette의 Output Place 영역 리소스 점유에 실패했습니다. side=" + side);
+
+                using (SequenceResourceLease stageLease = await AcquireOutputStageAreaAsync(
+                    side,
+                    "OutputUnloadToCassette",
+                    ct).ConfigureAwait(false))
+                {
+                    if (stageLease == null)
+                        return Fail("OUT-RESOURCE-STAGE", "OutputSequence",
+                            "Output UnloadToCassette의 대상 Stage 영역 리소스 점유에 실패했습니다. side=" + side);
+
+                    return await ExecuteFeederUnloadToCassetteWithHeldResourcesAsync(
+                        ct,
+                        slotIndex,
+                        cassetteRole,
+                        placeLease,
+                        stageLease,
+                        bFine,
+                        moveTimeoutMs,
+                        startMode).ConfigureAwait(false);
+                }
+            }
+        }
+
+        private Task<int> ExecuteFeederUnloadToCassetteWithHeldResourcesAsync(
+            CancellationToken ct,
+            int slotIndex,
+            CassetteMaterialRole cassetteRole,
+            SequenceResourceLease placeLease,
+            SequenceResourceLease stageLease,
+            bool bFine,
+            int moveTimeoutMs,
+            SequenceStartMode startMode)
         {
             var sequence = new OutputFeederSequence(Context);
             BinSide side = cassetteRole == CassetteMaterialRole.Ng1 ? BinSide.Ng : BinSide.Good;
             var options = BuildFeederOptions(slotIndex, slotIndex, side, bFine, moveTimeoutMs, startMode);
             options.CassetteRole = cassetteRole;
             return SequenceTrace.ChildAsync("OutputFeederSequence", "UnloadToCassette",
-                () => sequence.RunUnloadToCassetteAsync(ct, options),
+                () => sequence.RunUnloadToCassetteWithHeldResourcesAsync(
+                    ct,
+                    options,
+                    placeLease,
+                    stageLease),
                 "side=" + side,
                 "slot=" + slotIndex,
                 "cassetteRole=" + cassetteRole);
@@ -1932,12 +2071,51 @@ namespace QMC.CDT320.Sequencing
                         if (result != 0) return result;
 
                         result = await ExecuteWithOutputPickerAvoidGateAsync("OutputStore.FeederUnloadToCassette", ct,
-                            () => ExecuteFeederUnloadToCassetteAsync(ct, plan.SlotIndex, plan.CassetteRole, bFine, moveTimeoutMs, startMode)).ConfigureAwait(false);
+                            () => ExecuteFeederUnloadToCassetteWithHeldResourcesAsync(
+                                ct,
+                                plan.SlotIndex,
+                                plan.CassetteRole,
+                                placeLease,
+                                lease,
+                                bFine,
+                                moveTimeoutMs,
+                                startMode)).ConfigureAwait(false);
                         if (result != 0) return result;
 
-                        result = await ExecuteWithOutputPickerAvoidGateAsync("OutputStore.StageMoveAvoid", ct,
-                            () => ExecuteStageMoveAvoidAsync(ct, plan.Side, bFine, moveTimeoutMs, startMode)).ConfigureAwait(false);
-                        if (result != 0) return result;
+                        OutputSequenceAutoAction nextAction;
+                        OutputSlotPlan immediateSupplyPlan;
+                        string immediateSupplyReason;
+                        if (TryResolveImmediateSameSideSupply(
+                            plan.Side,
+                            out nextAction,
+                            out immediateSupplyPlan,
+                            out immediateSupplyReason))
+                        {
+                            WriteLog("OutputStore.StageMoveAvoid",
+                                "동일 Side 즉시 재공급을 확정하여 중간 Stage MoveAvoid를 생략하고 " +
+                                "현재 Stage/Place 리소스 점유 안에서 Supply를 연속 실행합니다. " +
+                                "side=" + plan.Side + ", nextAction=" + nextAction +
+                                ", slot=" + immediateSupplyPlan.SlotIndex + " - Start");
+
+                            result = await ExecuteImmediateSameSideSupplyOrMoveAvoidWithHeldResourcesAsync(
+                                immediateSupplyPlan,
+                                "OutputStore",
+                                ct,
+                                bFine,
+                                moveTimeoutMs,
+                                startMode).ConfigureAwait(false);
+                            if (result != 0) return result;
+                        }
+                        else
+                        {
+                            WriteLog("OutputStore.StageMoveAvoid",
+                                "동일 Side 즉시 재공급이 확정되지 않아 Stage MoveAvoid를 실행합니다. " +
+                                "side=" + plan.Side + ", nextAction=" + nextAction +
+                                ", reason=" + immediateSupplyReason + " - Check");
+                            result = await ExecuteWithOutputPickerAvoidGateAsync("OutputStore.StageMoveAvoid", ct,
+                                () => ExecuteStageMoveAvoidAsync(ct, plan.Side, bFine, moveTimeoutMs, startMode)).ConfigureAwait(false);
+                            if (result != 0) return result;
+                        }
                     }
                 }
 
@@ -2078,10 +2256,53 @@ namespace QMC.CDT320.Sequencing
                             return Fail("OUT-RESOURCE-STAGE", "OutputSequence", "OutputStage 영역 리소스 점유에 실패했습니다. side=" + side);
 
                         int result = await ExecuteWithOutputPickerAvoidGateAsync("OutputFeederStore.FeederUnloadToCassette", ct,
-                            () => ExecuteFeederUnloadToCassetteAsync(ct, feederWafer.SourceSlotNumber, role, bFine, moveTimeoutMs, startMode)).ConfigureAwait(false);
+                            () => ExecuteFeederUnloadToCassetteWithHeldResourcesAsync(
+                                ct,
+                                feederWafer.SourceSlotNumber,
+                                role,
+                                placeLease,
+                                lease,
+                                bFine,
+                                moveTimeoutMs,
+                                startMode)).ConfigureAwait(false);
                         if (result != 0) return result;
 
                         Context.Bus.Reset(side == BinSide.Ng ? "OutputNgStageReceiveComplete" : "OutputGoodStageReceiveComplete");
+
+                        OutputSequenceAutoAction nextAction;
+                        OutputSlotPlan immediateSupplyPlan;
+                        string immediateSupplyReason;
+                        if (TryResolveImmediateSameSideSupply(
+                            side,
+                            out nextAction,
+                            out immediateSupplyPlan,
+                            out immediateSupplyReason))
+                        {
+                            WriteLog("OutputFeederStore.StageMoveAvoid",
+                                "완료품 Feeder 재개 저장 후 동일 Side 즉시 재공급을 확정하여 중간 Stage MoveAvoid를 " +
+                                "생략하고 현재 Stage/Place 리소스 점유 안에서 Supply를 연속 실행합니다. " +
+                                "side=" + side + ", nextAction=" + nextAction +
+                                ", slot=" + immediateSupplyPlan.SlotIndex + " - Start");
+
+                            result = await ExecuteImmediateSameSideSupplyOrMoveAvoidWithHeldResourcesAsync(
+                                immediateSupplyPlan,
+                                "OutputFeederStore",
+                                ct,
+                                bFine,
+                                moveTimeoutMs,
+                                startMode).ConfigureAwait(false);
+                            if (result != 0) return result;
+                        }
+                        else
+                        {
+                            WriteLog("OutputFeederStore.StageMoveAvoid",
+                                "완료품 Feeder 재개 저장 후 동일 Side 즉시 재공급이 확정되지 않아 Stage MoveAvoid를 실행합니다. " +
+                                "side=" + side + ", nextAction=" + nextAction +
+                                ", reason=" + immediateSupplyReason + " - Check");
+                            result = await ExecuteWithOutputPickerAvoidGateAsync("OutputFeederStore.StageMoveAvoid", ct,
+                                () => ExecuteStageMoveAvoidAsync(ct, side, bFine, moveTimeoutMs, startMode)).ConfigureAwait(false);
+                            if (result != 0) return result;
+                        }
                     }
                 }
 
@@ -2128,37 +2349,13 @@ namespace QMC.CDT320.Sequencing
                         if (lease == null)
                             return Fail("OUT-RESOURCE-STAGE", "OutputSequence", "OutputStage 영역 리소스 점유에 실패했습니다. side=" + plan.Side);
 
-                        int result = await ExecuteWithOutputPickerAvoidGateAsync("OutputSupply.StagePrepareLoad", ct,
-                            () => ExecuteStagePrepareLoadAsync(ct, plan.Side, bFine, moveTimeoutMs, startMode)).ConfigureAwait(false);
+                        int result = await ExecuteSupplyCassetteToStageWithHeldResourcesAsync(
+                            plan,
+                            ct,
+                            bFine,
+                            moveTimeoutMs,
+                            startMode).ConfigureAwait(false);
                         if (result != 0) return result;
-
-                        result = await ExecuteWithOutputPickerAvoidGateAsync("OutputSupply.FeederLoadFromCassette", ct,
-                            () => ExecuteFeederLoadFromCassetteAsync(ct, plan.SlotIndex, plan.CassetteRole, plan.WaferId, bFine, moveTimeoutMs, startMode)).ConfigureAwait(false);
-                        if (result != 0) return result;
-
-                        result = await ExecuteWithOutputPickerAvoidGateAsync("OutputSupply.FeederLoadToStage", ct,
-                            () => ExecuteFeederLoadToStageAsync(ct, plan.Side, bFine, moveTimeoutMs, startMode)).ConfigureAwait(false);
-                        if (result != 0) return result;
-
-                        if (plan.Side == BinSide.Ng)
-                        {
-                            if (CanSupplyOutputStage(BinSide.Good))
-                            {
-                                Context.LogPublic("[OUTPUT] NG Bin 교체 완료: NG Stage는 Avoid를 유지하고 GOOD Bin 연속 로딩을 진행합니다.");
-                            }
-                            else
-                            {
-                                result = await ExecuteOutputCompletePostureAsync(
-                                    "OutputSupply.RestoreGoodProcessAfterNgLoad",
-                                    plan.Side,
-                                    ct,
-                                    bFine,
-                                    moveTimeoutMs,
-                                    startMode).ConfigureAwait(false);
-                                if (result != 0) return result;
-                            }
-                        }
-
                     }
                 }
 
@@ -2182,6 +2379,123 @@ namespace QMC.CDT320.Sequencing
             {
                 ResetOutputLoaderActive(loaderActive, "OutputSupply");
             }
+        }
+
+        private async Task<int> ExecuteSupplyCassetteToStageWithHeldResourcesAsync(
+            OutputSlotPlan plan,
+            CancellationToken ct,
+            bool bFine,
+            int moveTimeoutMs,
+            SequenceStartMode startMode)
+        {
+            if (plan == null)
+                return Fail("OUT-SUPPLY-PLAN-MISSING", "OutputSequence",
+                    "Output 공급 계획이 없어 동일 리소스 점유 내 Supply를 실행할 수 없습니다.");
+
+            int result = await ExecuteWithOutputPickerAvoidGateAsync("OutputSupply.StagePrepareLoad", ct,
+                () => ExecuteStagePrepareLoadAsync(ct, plan.Side, bFine, moveTimeoutMs, startMode)).ConfigureAwait(false);
+            if (result != 0) return result;
+
+            result = await ExecuteWithOutputPickerAvoidGateAsync("OutputSupply.FeederLoadFromCassette", ct,
+                () => ExecuteFeederLoadFromCassetteAsync(
+                    ct,
+                    plan.SlotIndex,
+                    plan.CassetteRole,
+                    plan.WaferId,
+                    bFine,
+                    moveTimeoutMs,
+                    startMode)).ConfigureAwait(false);
+            if (result != 0) return result;
+
+            result = await ExecuteWithOutputPickerAvoidGateAsync("OutputSupply.FeederLoadToStage", ct,
+                () => ExecuteFeederLoadToStageAsync(ct, plan.Side, bFine, moveTimeoutMs, startMode)).ConfigureAwait(false);
+            if (result != 0) return result;
+
+            if (plan.Side == BinSide.Ng)
+            {
+                if (CanSupplyOutputStage(BinSide.Good))
+                {
+                    Context.LogPublic("[OUTPUT] NG Bin 교체 완료: NG Stage는 Avoid를 유지하고 GOOD Bin 연속 로딩을 진행합니다.");
+                }
+                else
+                {
+                    result = await ExecuteOutputCompletePostureAsync(
+                        "OutputSupply.RestoreGoodProcessAfterNgLoad",
+                        plan.Side,
+                        ct,
+                        bFine,
+                        moveTimeoutMs,
+                        startMode).ConfigureAwait(false);
+                    if (result != 0) return result;
+                }
+            }
+
+            return 0;
+        }
+
+        private async Task<int> ExecuteImmediateSameSideSupplyOrMoveAvoidWithHeldResourcesAsync(
+            OutputSlotPlan reservedPlan,
+            string holder,
+            CancellationToken ct,
+            bool bFine,
+            int moveTimeoutMs,
+            SequenceStartMode startMode)
+        {
+            string safeHolder = string.IsNullOrWhiteSpace(holder) ? "OutputImmediateSupply" : holder;
+            OutputSequenceAutoAction latestAction = OutputSequenceAutoAction.None;
+            OutputSlotPlan latestPlan = null;
+            string latestReason = string.Empty;
+            if (reservedPlan == null ||
+                !TryResolveImmediateSameSideSupply(
+                    reservedPlan.Side,
+                    out latestAction,
+                    out latestPlan,
+                    out latestReason) ||
+                !IsSameOutputSlotPlan(reservedPlan, latestPlan))
+            {
+                WriteLog(safeHolder + ".ImmediateSupply",
+                    "실제 Supply 시작 직전 계획/Drain 상태 재검증이 실패하여 Stage MoveAvoid로 전환합니다. " +
+                    "reserved=" + DescribeOutputSlotPlan(reservedPlan) +
+                    ", latest=" + DescribeOutputSlotPlan(latestPlan) +
+                    ", nextAction=" + latestAction +
+                    ", reason=" + latestReason + " - Check");
+                return await ExecuteWithOutputPickerAvoidGateAsync(
+                    safeHolder + ".StageMoveAvoidAfterRecheck",
+                    ct,
+                    () => ExecuteStageMoveAvoidAsync(
+                        ct,
+                        reservedPlan != null ? reservedPlan.Side : BinSide.Good,
+                        bFine,
+                        moveTimeoutMs,
+                        startMode)).ConfigureAwait(false);
+            }
+
+            return await ExecuteSupplyCassetteToStageWithHeldResourcesAsync(
+                latestPlan,
+                ct,
+                bFine,
+                moveTimeoutMs,
+                startMode).ConfigureAwait(false);
+        }
+
+        private static bool IsSameOutputSlotPlan(OutputSlotPlan expected, OutputSlotPlan actual)
+        {
+            return expected != null &&
+                   actual != null &&
+                   expected.Side == actual.Side &&
+                   expected.CassetteRole == actual.CassetteRole &&
+                   expected.TargetCassette == actual.TargetCassette &&
+                   expected.SlotIndex == actual.SlotIndex &&
+                   string.Equals(expected.WaferId, actual.WaferId, StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static string DescribeOutputSlotPlan(OutputSlotPlan plan)
+        {
+            if (plan == null)
+                return "null";
+
+            return plan.Side + "/" + plan.CassetteRole + "/slot=" + plan.SlotIndex +
+                   "/wafer=" + (plan.WaferId ?? string.Empty);
         }
 
         private OutputFeederSequenceOptions BuildFeederOptions(int slotIndex, int nextSlotIndex, BinSide side, bool bFine, int moveTimeoutMs, SequenceStartMode startMode)

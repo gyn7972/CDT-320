@@ -1,4 +1,4 @@
-using System.Threading;
+﻿using System.Threading;
 using System.Threading.Tasks;
 
 namespace QMC.CDT320.Sequencing
@@ -30,6 +30,18 @@ namespace QMC.CDT320.Sequencing
         public Task<int> RunUnloadToCassetteAsync(CancellationToken ct, OutputFeederSequenceOptions options)
         {
             return new OutputFeederUnloadToCassetteSequence(_context).RunAsync(ct, options);
+        }
+
+        internal Task<int> RunUnloadToCassetteWithHeldResourcesAsync(
+            CancellationToken ct,
+            OutputFeederSequenceOptions options,
+            SequenceResourceLease outputPlaceAreaLease,
+            SequenceResourceLease outputStageAreaLease)
+        {
+            return new OutputFeederUnloadToCassetteSequence(
+                _context,
+                outputPlaceAreaLease,
+                outputStageAreaLease).RunAsync(ct, options);
         }
 
         public Task<int> RunExchangeAsync(CancellationToken ct, OutputFeederSequenceOptions options)

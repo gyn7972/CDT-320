@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 
 namespace QMC.CDT320.Sequencing
 {
@@ -21,6 +21,16 @@ namespace QMC.CDT320.Sequencing
         }
 
         public string Holder { get; private set; }
+
+        internal bool IsDisposed
+        {
+            get { return _disposed; }
+        }
+
+        internal bool IsOwnedBy(SequenceResourceManager owner)
+        {
+            return object.ReferenceEquals(_owner, owner);
+        }
 
         public void Dispose()
         {

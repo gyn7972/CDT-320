@@ -12,6 +12,7 @@ namespace QMC.CDT320.Sequencing
     internal abstract class OutputFeederSequenceBase<TStep> where TStep : struct
     {
         private const string SequenceNamePrefix = "OutputFeederSequence";
+        private bool _resumeStateCompletedAtLogicalCutover;
 
         protected OutputFeederSequenceBase(MachineSequenceContext context, OutputFeederSequenceKind kind, string name)
         {
@@ -59,6 +60,7 @@ namespace QMC.CDT320.Sequencing
         public async Task<int> RunAsync(CancellationToken ct, OutputFeederSequenceOptions options)
         {
             Options = options ?? OutputFeederSequenceOptions.Default();
+            _resumeStateCompletedAtLogicalCutover = false;
             using (SequenceLog.Push(QMC.Common.Logging.EventKind.OutputSeq, Name, () => CurrentStep.ToString(), Name, Options.RunMode.ToString()))
             using (QMC.CDT320.Interlocks.MotionGuardRuntime.BeginSequenceProcessMove(
                 Options.RunMode == SequenceRunMode.Auto,
@@ -108,7 +110,7 @@ namespace QMC.CDT320.Sequencing
                         return result;
                     }
 
-                    if (!IsStep(CurrentStep, ErrorStep))
+                    if (!IsStep(CurrentStep, ErrorStep) && !_resumeStateCompletedAtLogicalCutover)
                         SequenceResumeStore.MarkStepCompleted(SequenceStateName, executingStep.ToString(), CurrentStep.ToString());
                     SequenceTrace.StepEnd(Name, executingStep.ToString(), result, "kind=" + Kind, "next=" + CurrentStep);
                 }
@@ -806,6 +808,12 @@ namespace QMC.CDT320.Sequencing
         protected int ResolveTimeout()
         {
             return Options.MoveTimeoutMs > 0 ? Options.MoveTimeoutMs : 300000;
+        }
+
+        protected void MarkResumeStateCompletedAtLogicalCutover()
+        {
+            SequenceResumeStore.MarkCompleted(SequenceStateName);
+            _resumeStateCompletedAtLogicalCutover = true;
         }
 
         private string SequenceStateName
