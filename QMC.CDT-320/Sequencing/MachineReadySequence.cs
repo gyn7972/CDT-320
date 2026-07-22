@@ -1230,20 +1230,18 @@ namespace QMC.CDT320.Sequencing
                 }
 
                 double readyTolerance = ResolveReadyAxisTolerance(baseAxis);
-                AxisMoveWaitResult waitResult = await AxisMoveWaiter.WaitMoveDoneInPositionAsync(
-                    baseAxis,
+                int waitCode = await baseAxis.WaitMoveCompleteAsync(
                     target,
-                    readyTolerance,
                     unit.ResolvePickerAxisMoveTimeoutMs(axis),
-                    0,
                     ct).ConfigureAwait(false);
-                if (waitResult == null || !waitResult.Success)
+                if (waitCode != 0)
                 {
                     return Fail(
-                        AxisMoveWaiter.ResolveAlarmCode("READY-FRONT-PICKER", waitResult),
+                        "READY-FRONT-PICKER-MOVE",
                         "PickerFrontUnit",
-                        "FrontPicker " + label + " Avoid 이동 완료/위치 확인 실패. " +
-                        AxisMoveWaiter.FormatResult(waitResult, BuildAxisState(label, baseAxis, target, readyTolerance)));
+                        "FrontPicker " + label + " Avoid 이동 완료/위치 확인 실패. waitCode=" + waitCode +
+                        ", reason=" + (baseAxis.LastMotionFailureMessage ?? string.Empty) +
+                        ". " + BuildAxisState(label, baseAxis, target, readyTolerance));
                 }
 
                 if (!IsAxisInPosition(baseAxis, target, readyTolerance))
@@ -1298,20 +1296,18 @@ namespace QMC.CDT320.Sequencing
                 }
 
                 double readyTolerance = ResolveReadyAxisTolerance(baseAxis);
-                AxisMoveWaitResult waitResult = await AxisMoveWaiter.WaitMoveDoneInPositionAsync(
-                    baseAxis,
+                int waitCode = await baseAxis.WaitMoveCompleteAsync(
                     target,
-                    readyTolerance,
                     unit.ResolvePickerAxisMoveTimeoutMs(axis),
-                    0,
                     ct).ConfigureAwait(false);
-                if (waitResult == null || !waitResult.Success)
+                if (waitCode != 0)
                 {
                     return Fail(
-                        AxisMoveWaiter.ResolveAlarmCode("READY-REAR-PICKER", waitResult),
+                        "READY-REAR-PICKER-MOVE",
                         "PickerRearUnit",
-                        "RearPicker " + label + " Avoid 이동 완료/위치 확인 실패. " +
-                        AxisMoveWaiter.FormatResult(waitResult, BuildAxisState(label, baseAxis, target, readyTolerance)));
+                        "RearPicker " + label + " Avoid 이동 완료/위치 확인 실패. waitCode=" + waitCode +
+                        ", reason=" + (baseAxis.LastMotionFailureMessage ?? string.Empty) +
+                        ". " + BuildAxisState(label, baseAxis, target, readyTolerance));
                 }
 
                 if (!IsAxisInPosition(baseAxis, target, readyTolerance))
@@ -1365,16 +1361,17 @@ namespace QMC.CDT320.Sequencing
                         BuildAxisState(label, baseAxis, target));
                 }
 
-                AxisMoveWaitResult waitResult = await AwaitWithCancellationAsync(
+                int waitCode = await AwaitWithCancellationAsync(
                     unit.WaitVisionAxisMoveDoneInPosition(axis, target, ResolveReadyMoveTimeoutMs(baseAxis)),
                     ct).ConfigureAwait(false);
-                if (waitResult == null || !waitResult.Success)
+                if (waitCode != 0)
                 {
                     return Fail(
-                        AxisMoveWaiter.ResolveAlarmCode("READY-SIDE-VISION", waitResult),
+                        "READY-SIDE-VISION-MOVE",
                         "VisionUnit",
-                        "Side Vision " + label + " Avoid 이동 완료/위치 확인 실패. " +
-                        AxisMoveWaiter.FormatResult(waitResult, BuildAxisState(label, baseAxis, target)));
+                        "Side Vision " + label + " Avoid 이동 완료/위치 확인 실패. waitCode=" + waitCode +
+                        ", reason=" + (baseAxis.LastMotionFailureMessage ?? string.Empty) +
+                        ". " + BuildAxisState(label, baseAxis, target));
                 }
 
                 if (!unit.IsVisionAxisInPosition(axis, target, ResolveAxisTolerance(baseAxis)) || !IsAxisInPosition(baseAxis, target))
@@ -1429,18 +1426,18 @@ namespace QMC.CDT320.Sequencing
                         BuildOutputStageFailure(unit));
                 }
 
-                AxisMoveWaitResult waitResult = await unit.WaitStageAxisMoveDoneInPosition(
+                int waitCode = await unit.WaitStageAxisMoveDoneInPosition(
                     axis,
                     target,
                     ResolveReadyMoveTimeoutMs(baseAxis),
                     ct).ConfigureAwait(false);
-                if (waitResult == null || !waitResult.Success)
+                if (waitCode != 0)
                 {
                     return Fail(
-                        AxisMoveWaiter.ResolveAlarmCode("READY-OUTPUT-STAGE", waitResult),
+                        "READY-OUTPUT-STAGE-MOVE",
                         "OutputStageUnit",
-                        "OutputStage " + label + " Avoid 이동 완료/위치 확인 실패. " +
-                        AxisMoveWaiter.FormatResult(waitResult, BuildAxisState(label, baseAxis, target)) +
+                        "OutputStage " + label + " Avoid 이동 완료/위치 확인 실패. waitCode=" + waitCode +
+                        ". " + BuildAxisState(label, baseAxis, target) +
                         BuildOutputStageFailure(unit));
                 }
 
@@ -1576,18 +1573,18 @@ namespace QMC.CDT320.Sequencing
                         BuildInputStageFailure(unit));
                 }
 
-                AxisMoveWaitResult waitResult = await unit.WaitInputStageAxisInPositionResult(
+                int waitCode = await unit.WaitInputStageAxisInPositionResult(
                     axis,
                     target,
                     ResolveReadyMoveTimeoutMs(unit),
                     ct).ConfigureAwait(false);
-                if (waitResult == null || !waitResult.Success)
+                if (waitCode != 0)
                 {
                     return Fail(
-                        AxisMoveWaiter.ResolveAlarmCode(alarmCode, waitResult),
+                        alarmCode + "-MOVE",
                         "InputStageUnit",
-                        "InputStage " + label + " Avoid 이동 완료/위치 확인 실패. " +
-                        AxisMoveWaiter.FormatResult(waitResult, BuildAxisState(label, baseAxis, target)) +
+                        "InputStage " + label + " Avoid 이동 완료/위치 확인 실패. waitCode=" + waitCode +
+                        ". " + BuildAxisState(label, baseAxis, target) +
                         BuildInputStageFailure(unit));
                 }
 
@@ -1766,17 +1763,17 @@ namespace QMC.CDT320.Sequencing
                         BuildInputFeederFailure(unit));
                 }
 
-                AxisMoveWaitResult waitResult = await unit.WaitWaferFeederYMoveDoneInPosition(
+                int waitCode = await unit.WaitWaferFeederYMoveDoneInPosition(
                     target,
                     ResolveReadyMoveTimeoutMs(unit.FeederY),
                     ct).ConfigureAwait(false);
-                if (waitResult == null || !waitResult.Success)
+                if (waitCode != 0)
                 {
                     return Fail(
-                        AxisMoveWaiter.ResolveAlarmCode("READY-INPUT-FEEDER", waitResult),
+                        "READY-INPUT-FEEDER-MOVE",
                         "InputFeederUnit",
-                        "InputFeederY Avoid 이동 완료/위치 확인 실패. " +
-                        AxisMoveWaiter.FormatResult(waitResult, BuildAxisState("InputFeederY", unit.FeederY, target)) +
+                        "InputFeederY Avoid 이동 완료/위치 확인 실패. waitCode=" + waitCode +
+                        ". " + BuildAxisState("InputFeederY", unit.FeederY, target) +
                         BuildInputFeederFailure(unit));
                 }
 
@@ -1835,17 +1832,17 @@ namespace QMC.CDT320.Sequencing
                         BuildOutputFeederFailure(unit));
                 }
 
-                AxisMoveWaitResult waitResult = await unit.WaitBinFeederYMoveDoneInPosition(
+                int waitCode = await unit.WaitBinFeederYMoveDoneInPosition(
                     target,
                     ResolveReadyMoveTimeoutMs(unit.FeederY),
                     ct).ConfigureAwait(false);
-                if (waitResult == null || !waitResult.Success)
+                if (waitCode != 0)
                 {
                     return Fail(
-                        AxisMoveWaiter.ResolveAlarmCode("READY-OUTPUT-FEEDER", waitResult),
+                        "READY-OUTPUT-FEEDER-MOVE",
                         "OutputFeederUnit",
-                        "OutputFeederY Avoid 이동 완료/위치 확인 실패. " +
-                        AxisMoveWaiter.FormatResult(waitResult, BuildAxisState("OutputFeederY", unit.FeederY, target)) +
+                        "OutputFeederY Avoid 이동 완료/위치 확인 실패. waitCode=" + waitCode +
+                        ". " + BuildAxisState("OutputFeederY", unit.FeederY, target) +
                         BuildOutputFeederFailure(unit));
                 }
 
@@ -1903,17 +1900,17 @@ namespace QMC.CDT320.Sequencing
                         BuildAxisState("InputLifterZ", unit.InputLifterZ, target));
                 }
 
-                AxisMoveWaitResult waitResult = await unit.WaitWaferLifterZMoveDoneInPosition(
+                int waitCode = await unit.WaitWaferLifterZMoveDoneInPosition(
                     target,
                     ResolveReadyMoveTimeoutMs(unit.InputLifterZ),
                     ct).ConfigureAwait(false);
-                if (waitResult == null || !waitResult.Success)
+                if (waitCode != 0)
                 {
                     return Fail(
-                        AxisMoveWaiter.ResolveAlarmCode("READY-INPUT-CASSETTE", waitResult),
+                        "READY-INPUT-CASSETTE-MOVE",
                         "InputCassetteUnit",
-                        "InputLifterZ Avoid 이동 완료/위치 확인 실패. " +
-                        AxisMoveWaiter.FormatResult(waitResult, BuildAxisState("InputLifterZ", unit.InputLifterZ, target)));
+                        "InputLifterZ Avoid 이동 완료/위치 확인 실패. waitCode=" + waitCode +
+                        ". " + BuildAxisState("InputLifterZ", unit.InputLifterZ, target));
                 }
 
                 if (!IsAxisInPosition(unit.InputLifterZ, target))
@@ -1969,17 +1966,17 @@ namespace QMC.CDT320.Sequencing
                         BuildAxisState("OutputLifterZ", unit.OutputLifterZ, target));
                 }
 
-                AxisMoveWaitResult waitResult = await unit.WaitBinLifterZMoveDoneInPosition(
+                int waitCode = await unit.WaitBinLifterZMoveDoneInPosition(
                     target,
                     ResolveReadyMoveTimeoutMs(unit.OutputLifterZ),
                     ct).ConfigureAwait(false);
-                if (waitResult == null || !waitResult.Success)
+                if (waitCode != 0)
                 {
                     return Fail(
-                        AxisMoveWaiter.ResolveAlarmCode("READY-OUTPUT-CASSETTE", waitResult),
+                        "READY-OUTPUT-CASSETTE-MOVE",
                         "OutputCassetteUnit",
-                        "OutputLifterZ Avoid 이동 완료/위치 확인 실패. " +
-                        AxisMoveWaiter.FormatResult(waitResult, BuildAxisState("OutputLifterZ", unit.OutputLifterZ, target)));
+                        "OutputLifterZ Avoid 이동 완료/위치 확인 실패. waitCode=" + waitCode +
+                        ". " + BuildAxisState("OutputLifterZ", unit.OutputLifterZ, target));
                 }
 
                 if (!IsAxisInPosition(unit.OutputLifterZ, target))

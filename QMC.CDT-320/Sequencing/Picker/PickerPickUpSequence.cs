@@ -3878,16 +3878,16 @@ namespace QMC.CDT320.Sequencing
             int timeoutMs,
             CancellationToken ct)
         {
-            AxisMoveWaitResult pickerXWait = await WaitPickerAxisMoveDoneAsync(
+            int pickerXWait = await WaitPickerAxisMoveDoneAsync(
                 PickerAxis.PickerX,
                 _targetPickerX,
                 timeoutMs,
                 ct).ConfigureAwait(false);
-            if (pickerXWait == null || !pickerXWait.Success)
+            if (pickerXWait != 0)
             {
-                return Fail(ResolveAxisMoveWaitAlarmCode("PICKER-PICKUP-CONTI-PICKER-X", pickerXWait), Name,
-                    "PickUp ContiNode PickerX final wait failed. " +
-                    FormatAxisMoveWaitResult(pickerXWait, BuildPickerAxisState(PickerAxis.PickerX, _targetPickerX)));
+                return Fail("PICKER-PICKUP-CONTI-PICKER-X", Name,
+                    "PickUp ContiNode PickerX final wait failed. waitCode=" + pickerXWait +
+                    ". " + BuildPickerAxisState(PickerAxis.PickerX, _targetPickerX));
             }
 
             int result = await WaitInputStageAxisInPositionResultAsync(
@@ -3908,16 +3908,16 @@ namespace QMC.CDT320.Sequencing
             if (result != 0)
                 return result;
 
-            AxisMoveWaitResult pickerZWait = await WaitPickerAxisMoveDoneAsync(
+            int pickerZWait = await WaitPickerAxisMoveDoneAsync(
                 pickerZAxis,
                 pickerZFinalTarget,
                 timeoutMs,
                 ct).ConfigureAwait(false);
-            if (pickerZWait == null || !pickerZWait.Success)
+            if (pickerZWait != 0)
             {
-                return Fail(ResolveAxisMoveWaitAlarmCode("PICKER-PICKUP-CONTI-PICKER-Z", pickerZWait), Name,
-                    "PickUp ContiNode PickerZ final wait failed. " +
-                    FormatAxisMoveWaitResult(pickerZWait, BuildPickerAxisState(pickerZAxis, pickerZFinalTarget)));
+                return Fail("PICKER-PICKUP-CONTI-PICKER-Z", Name,
+                    "PickUp ContiNode PickerZ final wait failed. waitCode=" + pickerZWait +
+                    ". " + BuildPickerAxisState(pickerZAxis, pickerZFinalTarget));
             }
 
             result = CheckInputStageAxisInPosition(stage, WaferStageAxis.NeedleX, _targetNeedleX, "PickUp ContiNode NeedleX final");
@@ -8959,7 +8959,7 @@ namespace QMC.CDT320.Sequencing
                 double tolerance = item != null && item.Config != null && item.Config.InPositionTolerance > 0.0
                     ? item.Config.InPositionTolerance
                     : 0.05;
-                return AxisMoveWaiter.CanSkipMoveCommandAtTarget(item, target, tolerance);
+                return item.IsAtTargetPosition(target, tolerance);
             }
             catch
             {
@@ -9082,16 +9082,16 @@ namespace QMC.CDT320.Sequencing
             {
                 ct.ThrowIfCancellationRequested();
 
-                AxisMoveWaitResult waitResult = await stage.WaitInputStageAxisInPositionResult(
+                int waitCode = await stage.WaitInputStageAxisInPositionResult(
                     axis,
                     target,
                     ResolveTimeout(),
                     ct).ConfigureAwait(false);
 
-                if (waitResult == null || !waitResult.Success)
-                    return Fail(ResolveAxisMoveWaitAlarmCode("PICKER-PICKUP-STAGE", waitResult), stage.Name,
-                        description + " move/in-position wait failed. " +
-                        FormatAxisMoveWaitResult(waitResult, BuildInputStageAxisState(stage, axis, target)));
+                if (waitCode != 0)
+                    return Fail("PICKER-PICKUP-STAGE", stage.Name,
+                        description + " move/in-position wait failed. waitCode=" + waitCode +
+                        ". " + BuildInputStageAxisState(stage, axis, target));
 
                 ct.ThrowIfCancellationRequested();
                 WriteLog("PickerPickUpStageMove",
@@ -9165,11 +9165,11 @@ namespace QMC.CDT320.Sequencing
         {
             try
             {
-                AxisMoveWaitResult waitResult = await WaitPickerAxisMoveDoneAsync(axis, target, ResolveTimeout(), ct).ConfigureAwait(false);
-                if (waitResult == null || !waitResult.Success)
-                    return Fail(ResolveAxisMoveWaitAlarmCode("PICKER-PICKUP-MOVE", waitResult), Name,
-                        description + " move/in-position wait failed. " +
-                        FormatAxisMoveWaitResult(waitResult, BuildPickerAxisState(axis, target)));
+                int waitCode = await WaitPickerAxisMoveDoneAsync(axis, target, ResolveTimeout(), ct).ConfigureAwait(false);
+                if (waitCode != 0)
+                    return Fail("PICKER-PICKUP-MOVE", Name,
+                        description + " move/in-position wait failed. waitCode=" + waitCode +
+                        ". " + BuildPickerAxisState(axis, target));
 
                 return 0;
             }

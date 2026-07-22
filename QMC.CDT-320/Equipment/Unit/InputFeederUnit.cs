@@ -229,10 +229,7 @@ namespace QMC.CDT320
                     return RaiseFeederAlarm("WF-Y-SOFT-LIMIT", LastWaferFeederMoveFailureMessage);
                 }
 
-                if (AxisMoveWaiter.CanSkipMoveCommandAtTarget(
-                    FeederY,
-                    targetPos,
-                    ResolveWaferFeederYInPositionTolerance()))
+                if (FeederY.IsAtTargetPosition(targetPos, ResolveWaferFeederYInPositionTolerance()))
                 {
                     LastWaferFeederMoveFailureMessage = string.Empty;
                     EventLogger.Write(EventKind.Event, "QMC", "WF-Y-MOVE",
@@ -259,17 +256,7 @@ namespace QMC.CDT320
                     return ReportFeederMoveFailure("WF-Y-MOVE", result, LastWaferFeederMoveFailureMessage);
                 }
 
-                AxisMoveWaitResult waitResult = await WaitWaferFeederYMoveDoneInPosition(targetPos, ResolveWaferFeederYMoveTimeoutMs()).ConfigureAwait(false);
-                if (!waitResult.Success)
-                {
-                    LastWaferFeederMoveFailureMessage = "InputFeederY move/in-position wait failed. target=" + targetPos +
-                        FormatTargetName(targetName) + ". " +
-                        AxisMoveWaiter.FormatResult(waitResult, GetWaferFeederTransferState());
-                    return RaiseFeederAlarm(
-                        AxisMoveWaiter.ResolveAlarmCode("WF-Y-MOVE", waitResult),
-                        LastWaferFeederMoveFailureMessage);
-                }
-
+                // 기존 조건: 이동 후 재대기 — 현재 기준: 이동 함수가 완료를 보장하므로 제거(R3).
                 LastWaferFeederMoveFailureMessage = string.Empty;
                 return 0;
             }
@@ -334,10 +321,7 @@ namespace QMC.CDT320
                     return RaiseFeederAlarm("WF-Y-SOFT-LIMIT", LastWaferFeederMoveFailureMessage);
                 }
 
-                if (!forceMove && AxisMoveWaiter.CanSkipMoveCommandAtTarget(
-                    FeederY,
-                    targetPos,
-                    ResolveWaferFeederYInPositionTolerance()))
+                if (!forceMove && FeederY.IsAtTargetPosition(targetPos, ResolveWaferFeederYInPositionTolerance()))
                 {
                     LastWaferFeederMoveFailureMessage = string.Empty;
                     EventLogger.Write(EventKind.Event, "QMC", "WF-Y-MOVE",
@@ -369,17 +353,7 @@ namespace QMC.CDT320
                     return RaiseFeederAlarm("WF-Y-MOVE", LastWaferFeederMoveFailureMessage);
                 }
 
-                AxisMoveWaitResult waitResult = await WaitWaferFeederYMoveDoneInPosition(targetPos, ResolveWaferFeederYMoveTimeoutMs()).ConfigureAwait(false);
-                if (!waitResult.Success)
-                {
-                    LastWaferFeederMoveFailureMessage = "InputFeederY 조그 속도 이동 완료 확인이 실패했습니다. target=" + targetPos +
-                        FormatTargetName(targetName) + ". " +
-                        AxisMoveWaiter.FormatResult(waitResult, GetWaferFeederTransferState());
-                    return RaiseFeederAlarm(
-                        AxisMoveWaiter.ResolveAlarmCode("WF-Y-MOVE", waitResult),
-                        LastWaferFeederMoveFailureMessage);
-                }
-
+                // 기존 조건: 이동 후 재대기 — 현재 기준: 이동 함수가 완료를 보장하므로 제거(R3).
                 LastWaferFeederMoveFailureMessage = string.Empty;
                 return 0;
             }
@@ -526,8 +500,8 @@ namespace QMC.CDT320
         {
             try
             {
-                AxisMoveWaitResult waitResult = await WaitWaferFeederYMoveDoneInPosition(FeederY.CommandPosition, timeoutMs, ct).ConfigureAwait(false);
-                return waitResult.Success;
+                int waitCode = await WaitWaferFeederYMoveDoneInPosition(FeederY.CommandPosition, timeoutMs, ct).ConfigureAwait(false);
+                return waitCode == 0;
             }
             catch (OperationCanceledException)
             {
@@ -544,21 +518,20 @@ namespace QMC.CDT320
             }
         }
 
-        public async Task<AxisMoveWaitResult> WaitWaferFeederYMoveDoneInPosition(double targetPos, int timeoutMs)
+        // 기존 조건: AxisMoveWaitResult(실패 7종) 반환 — 현재 기준: int(0=완료, 음수=실패) 반환(R3).
+        //           실패 사유는 축.LastMotionFailureMessage에 기록된다.
+        public async Task<int> WaitWaferFeederYMoveDoneInPosition(double targetPos, int timeoutMs)
         {
             return await WaitWaferFeederYMoveDoneInPosition(targetPos, timeoutMs, CancellationToken.None).ConfigureAwait(false);
         }
 
-        public async Task<AxisMoveWaitResult> WaitWaferFeederYMoveDoneInPosition(double targetPos, int timeoutMs, CancellationToken ct)
+        public async Task<int> WaitWaferFeederYMoveDoneInPosition(double targetPos, int timeoutMs, CancellationToken ct)
         {
             try
             {
-                return await AxisMoveWaiter.WaitMoveDoneInPositionAsync(
-                    FeederY,
+                return await FeederY.WaitMoveCompleteAsync(
                     targetPos,
-                    ResolveWaferFeederYInPositionTolerance(),
                     timeoutMs > 0 ? timeoutMs : ResolveWaferFeederYMoveTimeoutMs(),
-                    0,
                     ct).ConfigureAwait(false);
             }
             catch (OperationCanceledException)
@@ -570,10 +543,7 @@ namespace QMC.CDT320
                 Log.Write("Main", "SYSTEM", "InputFeederWait",
                     "WaferFeederY move/in-position wait failed. target=" + targetPos +
                     ", error=" + ex.Message + " - Failed");
-                return new AxisMoveWaitResult(
-                    AxisMoveWaitFailure.Timeout,
-                    "WaferFeederY move wait exception: " + ex.Message,
-                    GetWaferFeederTransferState());
+                return -1;
             }
             finally
             {
@@ -590,8 +560,8 @@ namespace QMC.CDT320
             try
             {
                 double target = GetTeachingPosition(positionName);
-                AxisMoveWaitResult waitResult = await WaitWaferFeederYMoveDoneInPosition(target, timeoutMs, ct).ConfigureAwait(false);
-                return waitResult.Success;
+                int waitCode = await WaitWaferFeederYMoveDoneInPosition(target, timeoutMs, ct).ConfigureAwait(false);
+                return waitCode == 0;
             }
             catch (OperationCanceledException)
             {
@@ -2581,17 +2551,18 @@ namespace QMC.CDT320
             string description,
             CancellationToken ct)
         {
-            AxisMoveWaitResult waitResult = await AwaitWithCancellation(
+            int waitCode = await AwaitWithCancellation(
                 WaitWaferFeederYMoveDoneInPosition(target, timeoutMs),
                 ct).ConfigureAwait(false);
 
-            if (waitResult.Success)
+            if (waitCode == 0)
                 return 0;
 
             return RaiseFeederAlarm(
-                AxisMoveWaiter.ResolveAlarmCode(alarmPrefix, waitResult),
-                description + " move/in-position wait failed. " +
-                AxisMoveWaiter.FormatResult(waitResult, GetWaferFeederTransferState()));
+                alarmPrefix + "-MOVE",
+                description + " move/in-position wait failed. waitCode=" + waitCode +
+                ", reason=" + (FeederY.LastMotionFailureMessage ?? string.Empty) +
+                ". " + GetWaferFeederTransferState());
         }
 
         private double GetTeachingPosition(string positionName)

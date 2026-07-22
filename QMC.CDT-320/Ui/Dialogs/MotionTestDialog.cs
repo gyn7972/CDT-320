@@ -562,25 +562,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                     return result;
                 }
 
-                AxisMoveWaitResult wait = await AxisMoveWaiter.WaitMoveDoneInPositionAsync(
-                    axis,
-                    nativeTarget,
-                    ResolveTolerance(axis),
-                    ResolveMoveTimeout(axis),
-                    DefaultSettleMs,
-                    ct).ConfigureAwait(true);
-                if (wait == null || !wait.Success)
-                {
-                    moveWatch.Stop();
-                    string waitFailMessage =
-                        source + " final wait failed. axis=" + axis.Name +
-                        ", elapsedMs=" + moveWatch.ElapsedMilliseconds +
-                        ". " + AxisMoveWaiter.FormatResult(wait, AxisMoveWaiter.BuildAxisState(axis, nativeTarget, ResolveTolerance(axis)));
-                    AddMotionLog(waitFailMessage);
-                    EventLogger.Write(EventKind.Alarm, "UI", "MOTION-TEST", waitFailMessage);
-                    return wait != null ? wait.Code : -1;
-                }
-
+                // 기존 조건: 이동 후 AxisMoveWaiter 재대기 — 현재 기준: 이동 함수가 완료를 보장하므로 제거(R3).
                 moveWatch.Stop();
                 string okMessage =
                     source + " ok. axis=" + axis.Name +

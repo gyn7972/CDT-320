@@ -207,7 +207,7 @@ namespace QMC.CDT320
                 double tolerance = StageZ.Config != null && StageZ.Config.InPositionTolerance > 0.0
                     ? StageZ.Config.InPositionTolerance
                     : 0.01;
-                if (AxisMoveWaiter.CanSkipMoveCommandAtTarget(StageZ, Recipe.AvoidPositionZ, tolerance))
+                if (StageZ.IsAtTargetPosition(Recipe.AvoidPositionZ, tolerance))
                     return 0;
 
                 int result = await StageZ.MoveAbsoluteAsync(Recipe.AvoidPositionZ, ResolveAxisVelocity(StageZ)).ConfigureAwait(false);
@@ -236,17 +236,7 @@ namespace QMC.CDT320
                     return -1;
                 }
 
-                AxisMoveWaitResult waitResult = await WaitAxisMoveDoneInPositionAsync(StageZ, Recipe.AvoidPositionZ).ConfigureAwait(false);
-                if (!waitResult.Success)
-                {
-                    AlarmManager.Raise(
-                        AlarmSeverity.Error,
-                        AxisMoveWaiter.ResolveAlarmCode("OS-AVOIDZ", waitResult),
-                        source: Name + ".MoveToAvoidPositionAsync",
-                        message: "StageZ 회피 위치 도착 확인 실패. " + AxisMoveWaiter.FormatResult(waitResult, StageZ.Name));
-                    return -1;
-                }
-
+                // 기존 조건: 이동 후 재대기 — 현재 기준: 이동 함수가 완료를 보장하므로 제거(R3).
                 return 0;
             }
             catch (OperationCanceledException)
@@ -302,17 +292,7 @@ namespace QMC.CDT320
                     return -1;
                 }
 
-                AxisMoveWaitResult waitResult = await WaitAxisMoveDoneInPositionAsync(StageZ, Recipe.WorkPositionZ).ConfigureAwait(false);
-                if (!waitResult.Success)
-                {
-                    AlarmManager.Raise(
-                        AlarmSeverity.Error,
-                        AxisMoveWaiter.ResolveAlarmCode("OS-WORKZ", waitResult),
-                        source: Name + ".MoveToWorkPositionAsync",
-                        message: "StageZ 작업 위치 도착 확인 실패. " + AxisMoveWaiter.FormatResult(waitResult, StageZ.Name));
-                    return -1;
-                }
-
+                // 기존 조건: 이동 후 재대기 — 현재 기준: 이동 함수가 완료를 보장하므로 제거(R3).
                 return 0;
             }
             catch (OperationCanceledException)
@@ -378,18 +358,7 @@ namespace QMC.CDT320
                     return -1;
                 }
 
-                AxisMoveWaitResult waitResult = await WaitAxisMoveDoneInPositionAsync(StageY, targetY).ConfigureAwait(false);
-                if (!waitResult.Success)
-                {
-                    AlarmManager.Raise(
-                        AlarmSeverity.Error,
-                        AxisMoveWaiter.ResolveAlarmCode("OS-MOVEY", waitResult),
-                        source: Name + ".MoveYAsync",
-                        message: "StageY 이동 완료/위치 확인 실패. target=" + targetY.ToString("F3") + ". " +
-                                 AxisMoveWaiter.FormatResult(waitResult, StageY.Name));
-                    return -1;
-                }
-
+                // 기존 조건: 이동 후 재대기 — 현재 기준: 이동 함수가 완료를 보장하므로 제거(R3).
                 return 0;
             }
             catch (OperationCanceledException)
@@ -460,15 +429,6 @@ namespace QMC.CDT320
                 : 0.05;
         }
 
-        private static Task<AxisMoveWaitResult> WaitAxisMoveDoneInPositionAsync(BaseAxis axis, double target)
-        {
-            return AxisMoveWaiter.WaitMoveDoneInPositionAsync(
-                axis,
-                target,
-                ResolveAxisInPositionTolerance(axis),
-                ResolveAxisMoveTimeout(axis),
-                0);
-        }
     }
 
     // ==========================================================================
@@ -998,16 +958,7 @@ namespace QMC.CDT320
                         ", alarm=" + item.IsAlarm +
                         FormatStageAxisLastMotionFailure(item));
 
-                AxisMoveWaitResult waitResult = await WaitStageAxisMoveDoneInPosition(
-                    axis,
-                    targetPos,
-                    item.Setup != null && item.Setup.MoveTimeoutMs > 0 ? item.Setup.MoveTimeoutMs : 10000).ConfigureAwait(false);
-                if (!waitResult.Success)
-                    return RaiseOutputStageAlarm(
-                        AxisMoveWaiter.ResolveAlarmCode("OS-MOVE", waitResult),
-                        axis + " move/in-position wait failed. target=" + targetPos + ". " +
-                        AxisMoveWaiter.FormatResult(waitResult, axis.ToString()));
-
+                // 기존 조건: 이동 후 재대기 — 현재 기준: 이동 함수가 완료를 보장하므로 제거(R3).
                 return 0;
             }
             catch (Exception ex)
@@ -1066,16 +1017,7 @@ namespace QMC.CDT320
                         ", alarm=" + item.IsAlarm +
                         FormatStageAxisLastMotionFailure(item));
 
-                AxisMoveWaitResult waitResult = await WaitStageAxisMoveDoneInPosition(
-                    axis,
-                    targetPos,
-                    item.Setup != null && item.Setup.MoveTimeoutMs > 0 ? item.Setup.MoveTimeoutMs : 10000).ConfigureAwait(false);
-                if (!waitResult.Success)
-                    return RaiseOutputStageAlarm(
-                        AxisMoveWaiter.ResolveAlarmCode("OS-MOVE", waitResult),
-                        axis + " 조그 속도 위치 이동 완료 확인 실패. target=" + targetPos + ". " +
-                        AxisMoveWaiter.FormatResult(waitResult, axis.ToString()));
-
+                // 기존 조건: 이동 후 재대기 — 현재 기준: 이동 함수가 완료를 보장하므로 제거(R3).
                 return 0;
             }
             catch (Exception ex)
@@ -1309,7 +1251,7 @@ namespace QMC.CDT320
                 ? axis.Config.InPositionTolerance
                 : 0.01;
 
-            return AxisMoveWaiter.CanSkipMoveCommandAtTarget(axis, targetPos, tolerance);
+            return axis.IsAtTargetPosition(targetPos, tolerance);
         }
 
         public bool IsStageAxisInPosition(BinStageAxis axis, double targetPos, double tolerance)
@@ -1344,8 +1286,8 @@ namespace QMC.CDT320
         {
             try
             {
-                AxisMoveWaitResult waitResult = await WaitStageAxisMoveDoneInPosition(axis, timeoutMs, ct).ConfigureAwait(false);
-                return waitResult.Success;
+                int waitCode = await WaitStageAxisMoveDoneInPosition(axis, timeoutMs, ct).ConfigureAwait(false);
+                return waitCode == 0;
             }
             catch (OperationCanceledException)
             {
@@ -1362,17 +1304,20 @@ namespace QMC.CDT320
             }
         }
 
-        public async Task<AxisMoveWaitResult> WaitStageAxisMoveDoneInPosition(BinStageAxis axis, int timeoutMs)
+        public async Task<int> WaitStageAxisMoveDoneInPosition(BinStageAxis axis, int timeoutMs)
         {
             return await WaitStageAxisMoveDoneInPosition(axis, timeoutMs, CancellationToken.None).ConfigureAwait(false);
         }
 
-        public async Task<AxisMoveWaitResult> WaitStageAxisMoveDoneInPosition(BinStageAxis axis, int timeoutMs, CancellationToken ct)
+        // 기존 조건: AxisMoveWaitResult(실패 7종) 반환 — 현재 기준: int(0=완료, 음수=실패) 반환(R3).
+        //           실패 사유는 축.LastMotionFailureMessage에 기록된다.
+        //           축 미존재는 기존과 동일하게 성공(0) 처리한다(C7).
+        public async Task<int> WaitStageAxisMoveDoneInPosition(BinStageAxis axis, int timeoutMs, CancellationToken ct)
         {
             try
             {
                 if (!HasStageAxis(axis))
-                    return new AxisMoveWaitResult(AxisMoveWaitFailure.None, axis + " axis does not exist.", string.Empty);
+                    return 0;
 
                 BaseAxis item = ResolveStageAxis(axis);
                 return await WaitStageAxisMoveDoneInPosition(axis, item.CommandPosition, timeoutMs, ct).ConfigureAwait(false);
@@ -1385,39 +1330,27 @@ namespace QMC.CDT320
             {
                 Log.Write("Main", "SYSTEM", "OutputStageUnit",
                     "OutputStage axis move/in-position wait failed. axis=" + axis + ", error=" + ex.Message + " - Failed");
-                return new AxisMoveWaitResult(
-                    AxisMoveWaitFailure.Timeout,
-                    "OutputStage axis move wait exception.",
-                    "axis=" + axis + ", error=" + ex.Message);
+                return -1;
             }
             finally
             {
             }
         }
 
-        public async Task<AxisMoveWaitResult> WaitStageAxisMoveDoneInPosition(BinStageAxis axis, double targetPos, int timeoutMs)
+        public async Task<int> WaitStageAxisMoveDoneInPosition(BinStageAxis axis, double targetPos, int timeoutMs)
         {
             return await WaitStageAxisMoveDoneInPosition(axis, targetPos, timeoutMs, CancellationToken.None).ConfigureAwait(false);
         }
 
-        public async Task<AxisMoveWaitResult> WaitStageAxisMoveDoneInPosition(BinStageAxis axis, double targetPos, int timeoutMs, CancellationToken ct)
+        public async Task<int> WaitStageAxisMoveDoneInPosition(BinStageAxis axis, double targetPos, int timeoutMs, CancellationToken ct)
         {
             try
             {
                 if (!HasStageAxis(axis))
-                    return new AxisMoveWaitResult(AxisMoveWaitFailure.None, axis + " axis does not exist.", string.Empty);
+                    return 0;
 
                 BaseAxis item = ResolveStageAxis(axis);
-                double tolerance = item.Config != null && item.Config.InPositionTolerance > 0.0
-                    ? item.Config.InPositionTolerance
-                    : 0.05;
-                return await AxisMoveWaiter.WaitMoveDoneInPositionAsync(
-                    item,
-                    targetPos,
-                    tolerance,
-                    timeoutMs,
-                    0,
-                    ct).ConfigureAwait(false);
+                return await item.WaitMoveCompleteAsync(targetPos, timeoutMs, ct).ConfigureAwait(false);
             }
             catch (OperationCanceledException)
             {
@@ -1429,10 +1362,7 @@ namespace QMC.CDT320
                     "OutputStage axis move/in-position wait failed. axis=" + axis +
                     ", target=" + targetPos +
                     ", error=" + ex.Message + " - Failed");
-                return new AxisMoveWaitResult(
-                    AxisMoveWaitFailure.Timeout,
-                    "OutputStage axis move wait exception.",
-                    "axis=" + axis + ", target=" + targetPos + ", error=" + ex.Message);
+                return -1;
             }
             finally
             {
@@ -2400,13 +2330,7 @@ namespace QMC.CDT320
             if (result != 0)
                 return result;
 
-            AxisMoveWaitResult waitResult = await WaitStageAxisMoveDoneInPosition(axis, targetPos, timeoutMs, ct).ConfigureAwait(false);
-            if (!waitResult.Success)
-                return RaiseOutputStageAlarm(
-                    AxisMoveWaiter.ResolveAlarmCode("OS-MOVE", waitResult),
-                    axis + " calibration motion complete/in-position check failed. target=" + targetPos + ". " +
-                    AxisMoveWaiter.FormatResult(waitResult, axis.ToString()));
-
+            // 기존 조건: 이동 후 재대기 — 현재 기준: 이동 함수가 완료를 보장하므로 제거(R3).
             return 0;
         }
 

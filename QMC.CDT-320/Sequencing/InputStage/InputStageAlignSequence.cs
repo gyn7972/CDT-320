@@ -2966,15 +2966,15 @@ namespace QMC.CDT320.Sequencing
             try
             {
                 ct.ThrowIfCancellationRequested();
-                AxisMoveWaitResult waitResult = await Stage.WaitInputStageAxisInPositionResult(
+                int waitCode = await Stage.WaitInputStageAxisInPositionResult(
                     axis,
                     target,
                     ResolveTimeout(),
                     ct).ConfigureAwait(false);
-                if (waitResult == null || !waitResult.Success)
-                    return Fail(ResolveAxisMoveWaitAlarmCode("IN-STAGE-ALIGN-MOVE", waitResult), Stage.Name,
+                if (waitCode != 0)
+                    return Fail("IN-STAGE-ALIGN-MOVE", Stage.Name,
                         description + " move/in-position wait failed. axis=" + axis + ", target=" + target +
-                        ". " + FormatAxisMoveWaitResult(waitResult, BuildAxisState(axis, target)));
+                        ", waitCode=" + waitCode + ". " + BuildAxisState(axis, target));
 
                 return 0;
             }
@@ -3094,7 +3094,7 @@ namespace QMC.CDT320.Sequencing
             double tolerance = axis != null && axis.Config != null && axis.Config.InPositionTolerance > 0.0
                 ? axis.Config.InPositionTolerance
                 : 0.05;
-            return AxisMoveWaiter.CanSkipMoveCommandAtTarget(axis, target, tolerance);
+            return axis.IsAtTargetPosition(target, tolerance);
         }
 
         private static string ResolveTargetId(string value, string fallback)
@@ -3178,25 +3178,6 @@ namespace QMC.CDT320.Sequencing
             catch
             {
                 return -1;
-            }
-            finally
-            {
-            }
-        }
-
-        private static async Task<AxisMoveWaitResult> AwaitStepWithCancellationAsync(Task<AxisMoveWaitResult> stepTask, CancellationToken ct)
-        {
-            try
-            {
-                return await SequenceAwaiter.AwaitAxisWaitAsync(stepTask, ct).ConfigureAwait(false);
-            }
-            catch (OperationCanceledException)
-            {
-                throw;
-            }
-            catch
-            {
-                return null;
             }
             finally
             {

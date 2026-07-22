@@ -220,29 +220,8 @@ namespace QMC.CDT320.Motion.SharedRailX
 
         private static async Task<int> MoveJogStepWithVerifyAsync(BaseAxis axis, double target, double velocity)
         {
-            int result = await MoveAxisAsync(axis, target, velocity, true).ConfigureAwait(false);
-            if (result != 0)
-                return result;
-
-            double tolerance = ResolveAxisInPositionTolerance(axis);
-            AxisMoveWaitResult wait = await AxisMoveWaiter.WaitMoveDoneInPositionAsync(
-                axis,
-                target,
-                tolerance,
-                60000,
-                0).ConfigureAwait(false);
-            if (wait == null || !wait.Success)
-            {
-                AlarmManager.Raise(
-                    AlarmSeverity.Error,
-                    AxisMoveWaiter.ResolveAlarmCode("JOG-STEP", wait),
-                    axis != null ? axis.Name : "Axis",
-                    "Step Jog 위치 확인 실패. target=" + target + ". " +
-                    AxisMoveWaiter.FormatResult(wait, axis != null ? axis.Name : "axis=null"));
-                return wait != null ? wait.Code : -1;
-            }
-
-            return 0;
+            // 기존 조건: 이동 후 AxisMoveWaiter 재대기 — 현재 기준: 이동 함수가 완료를 보장하므로 제거(R3).
+            return await MoveAxisAsync(axis, target, velocity, true).ConfigureAwait(false);
         }
 
         private static double ResolveAxisInPositionTolerance(BaseAxis axis)

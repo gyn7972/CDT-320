@@ -856,21 +856,21 @@ namespace QMC.CDT320.Sequencing
 
                 Stopwatch waitWatch = Stopwatch.StartNew();
                 int moveTimeout = ResolveMoveTimeout();
-                AxisMoveWaitResult waitResult = await WaitPickerAxisMoveDoneAsync(axis, target, moveTimeout, ct).ConfigureAwait(false);
+                int waitCode = await WaitPickerAxisMoveDoneAsync(axis, target, moveTimeout, ct).ConfigureAwait(false);
                 waitMs = waitWatch.ElapsedMilliseconds;
-                if (waitResult == null || !waitResult.Success)
+                if (waitCode != 0)
                 {
-                    //WritePickerSequenceMoveElapsed(axisDetail, targetName, description, result, commandMs, waitMs, totalWatch.ElapsedMilliseconds, waitResult);
                     SequenceTrace.MotionEnd("PickerMove", -1,
                         "axis=" + axis,
                         "target=" + target,
                         "description=" + description,
                         "status=WaitFailed",
                         "timeoutMs=" + moveTimeout,
-                        "wait=" + (waitResult != null ? waitResult.Code.ToString() : "null"));
-                    return Fail(ResolveAxisMoveWaitAlarmCode("PICKER-MOVE", waitResult), Name,
-                        description + " move/in-position wait failed. " +
-                        FormatAxisMoveWaitResult(waitResult, BuildPickerAxisState(axis, target)));
+                        "wait=" + waitCode);
+                    return Fail("PICKER-MOVE", Name,
+                        description + " move/in-position wait failed. waitCode=" + waitCode +
+                        ", reason=" + BuildPickerAxisLastMotionFailure(axis) +
+                        ". " + BuildPickerAxisState(axis, target));
                 }
 
                 //WritePickerSequenceMoveElapsed(axisDetail, targetName, description, result, commandMs, waitMs, totalWatch.ElapsedMilliseconds, waitResult);
@@ -1016,26 +1016,26 @@ namespace QMC.CDT320.Sequencing
                 }
 
                 var waitTargets = new List<KeyValuePair<PickerAxis, double>>(targets);
-                var waitTasks = new List<Task<AxisMoveWaitResult>>();
+                var waitTasks = new List<Task<int>>();
                 foreach (KeyValuePair<PickerAxis, double> pair in waitTargets)
                     waitTasks.Add(WaitPickerAxisMoveDoneAsync(pair.Key, pair.Value, ResolveMoveTimeout(), ct));
 
                 Stopwatch waitWatch = Stopwatch.StartNew();
-                AxisMoveWaitResult[] waitResults = await SequenceAwaiter.AwaitAsync(
+                int[] waitResults = await SequenceAwaiter.AwaitAsync(
                     Task.WhenAll(waitTasks),
-                    new AxisMoveWaitResult[0],
+                    new int[0],
                     ct).ConfigureAwait(false);
                 waitMs = waitWatch.ElapsedMilliseconds;
-                for (int waitIndex = 0; waitIndex < waitTargets.Count; waitIndex++)
+                for (int waitIndex = 0; waitIndex < waitTargets.Count && waitIndex < waitResults.Length; waitIndex++)
                 {
                     KeyValuePair<PickerAxis, double> pair = waitTargets[waitIndex];
-                    if (waitResults[waitIndex] == null || !waitResults[waitIndex].Success)
+                    if (waitResults[waitIndex] != 0)
                     {
-                        string waitSummary = waitResults[waitIndex] != null ? waitResults[waitIndex].Failure.ToString() : "NullWaitResult";
-                        WritePickerSequenceGroupMoveElapsed(targetName, description, commandDetails, -1, commandMs, waitMs, totalWatch.ElapsedMilliseconds, "WaitFailed:" + pair.Key + ":" + waitSummary);
-                        return Fail(ResolveAxisMoveWaitAlarmCode("PICKER-MOVE", waitResults[waitIndex]), Name,
-                            description + " move/in-position wait failed. " +
-                            FormatAxisMoveWaitResult(waitResults[waitIndex], BuildPickerAxisState(pair.Key, pair.Value)));
+                        WritePickerSequenceGroupMoveElapsed(targetName, description, commandDetails, -1, commandMs, waitMs, totalWatch.ElapsedMilliseconds, "WaitFailed:" + pair.Key + ":" + waitResults[waitIndex]);
+                        return Fail("PICKER-MOVE", Name,
+                            description + " move/in-position wait failed. waitCode=" + waitResults[waitIndex] +
+                            ", reason=" + BuildPickerAxisLastMotionFailure(pair.Key) +
+                            ". " + BuildPickerAxisState(pair.Key, pair.Value));
                     }
                 }
                 if (commandTargets.Count > 0 && (waitMs >= 200 || totalWatch.ElapsedMilliseconds >= 250))
@@ -2782,7 +2782,8 @@ namespace QMC.CDT320.Sequencing
             return RearPicker.MovePickerAxisCommandOnly(axis, target, velocity, acceleration, deceleration, targetName);
         }
 
-        protected async Task<AxisMoveWaitResult> WaitPickerAxisMoveDoneAsync(PickerAxis axis, double target, int timeoutMs, CancellationToken ct)
+        // 기존 조건: AxisMoveWaitResult 반환 — 현재 기준: int(0=완료, 음수=실패) 반환(R3).
+        protected async Task<int> WaitPickerAxisMoveDoneAsync(PickerAxis axis, double target, int timeoutMs, CancellationToken ct)
         {
             try
             {
@@ -2803,14 +2804,19 @@ namespace QMC.CDT320.Sequencing
                     Name + " picker axis wait exception. axis=" + axis +
                     ", target=" + target +
                     ", error=" + ex.Message + " - Failed");
-                return new AxisMoveWaitResult(
-                    AxisMoveWaitFailure.Timeout,
-                    "Picker axis wait exception.",
-                    "axis=" + axis + ", target=" + target + ", error=" + ex.Message);
+                return -1;
             }
             finally
             {
             }
+        }
+
+        protected string BuildPickerAxisLastMotionFailure(PickerAxis axis)
+        {
+            BaseAxis item = GetPickerAxis(axis);
+            if (item == null || string.IsNullOrWhiteSpace(item.LastMotionFailureMessage))
+                return string.Empty;
+            return item.LastMotionFailureMessage;
         }
 
         protected async Task DelayBeforeVisionInspectionAsync(CancellationToken ct)
@@ -2904,16 +2910,6 @@ namespace QMC.CDT320.Sequencing
             return value > 0 ? value : 0;
         }
 
-        protected static string ResolveAxisMoveWaitAlarmCode(string prefix, AxisMoveWaitResult waitResult)
-        {
-            return AxisMoveWaiter.ResolveAlarmCode(prefix, waitResult);
-        }
-
-        protected static string FormatAxisMoveWaitResult(AxisMoveWaitResult waitResult, string fallbackState)
-        {
-            return AxisMoveWaiter.FormatResult(waitResult, fallbackState);
-        }
-
         protected bool IsPickerAxisInPosition(PickerAxis axis, double target)
         {
             BaseAxis item = GetPickerAxis(axis);
@@ -2938,7 +2934,7 @@ namespace QMC.CDT320.Sequencing
             double tolerance = item != null && item.Config != null && item.Config.InPositionTolerance > 0.0
                 ? item.Config.InPositionTolerance
                 : 0.001;
-            return AxisMoveWaiter.CanSkipMoveCommandAtTarget(item, target, tolerance);
+            return item != null && item.IsAtTargetPosition(target, tolerance);
         }
 
         protected string BuildPickerAxisState(PickerAxis axis, double target)
@@ -4000,7 +3996,7 @@ namespace QMC.CDT320.Sequencing
             long commandMs,
             long waitMs,
             long totalMs,
-            AxisMoveWaitResult waitResult)
+            string waitSummary)
         {
             try
             {
@@ -4017,7 +4013,7 @@ namespace QMC.CDT320.Sequencing
                     ", commandMs=" + commandMs +
                     ", waitMs=" + waitMs +
                     ", result=" + result +
-                    ", wait=" + (waitResult != null ? waitResult.Failure.ToString() : "-") +
+                    ", wait=" + (waitSummary ?? "-") +
                     ", start=" + (axisDetail != null ? axisDetail.Start.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture) : "-") +
                     ", target=" + (axisDetail != null ? axisDetail.Target.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture) : "-") +
                     ", distance=" + (axisDetail != null ? axisDetail.Distance.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture) : "-") +

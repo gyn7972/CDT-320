@@ -517,7 +517,7 @@ namespace QMC.CDT320.Sequencing.Calibration
                         "Collet Calibration 시작 전 InputVisionX Avoid 이동에 필요한 축/Recipe가 없습니다.");
 
                 double target = stage.Recipe.VisionX.AvoidPosition;
-                if (AxisMoveWaiter.CanSkipMoveCommandAtTarget(stage.CameraX, target))
+                if (stage.CameraX.IsAtTargetPosition(target, 0.0))
                     return 0;
 
                 CalibrationMotionSettings motion = ResolveCalibrationMotion();
@@ -587,7 +587,7 @@ namespace QMC.CDT320.Sequencing.Calibration
 
                 stage.Recipe.EnsurePositionObjects();
                 double target = stage.Recipe.VisionX.AvoidPosition;
-                if (AxisMoveWaiter.CanSkipMoveCommandAtTarget(stage.OutputCameraX, target))
+                if (stage.OutputCameraX.IsAtTargetPosition(target, 0.0))
                     return 0;
 
                 CalibrationMotionSettings motion = ResolveCalibrationMotion();

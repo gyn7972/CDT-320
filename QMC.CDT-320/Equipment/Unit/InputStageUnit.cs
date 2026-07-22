@@ -1841,7 +1841,7 @@ namespace QMC.CDT320
                 // 인터락 사전검사는 실제 이동(MoveAbsoluteAsync)의 BaseAxis.MotionGuard 훅에서
                 // InputStageInterlockRules.Verify로 1번 수행한다. 여기서 중복 호출하지 않는다.
                 double tolerance = ResolveAxisPositionTolerance(item);
-                if (!forceMove && AxisMoveWaiter.CanSkipMoveCommandAtTarget(item, targetPos, tolerance))
+                if (!forceMove && item.IsAtTargetPosition(targetPos, tolerance))
                 {
                     LastStageMoveFailureMessage = string.Empty;
                     return 0;
@@ -1865,22 +1865,7 @@ namespace QMC.CDT320
                     return ReportStageMoveFailure("IN-STAGE-MOVE", result, message);
                 }
 
-                AxisMoveWaitResult waitResult = await WaitInputStageAxisInPositionResult(
-                    axis,
-                    targetPos,
-                    ResolveSequenceMoveTimeout()).ConfigureAwait(false);
-                if (!waitResult.Success)
-                {
-                    string message = axis + " move/in-position wait failed. target=" + targetPos + ". " +
-                        AxisMoveWaiter.FormatResult(waitResult, axis.ToString());
-                    LastStageMoveFailureMessage = message;
-                    return RaiseStageAlarm(
-                        AlarmSeverity.Error,
-                        AxisMoveWaiter.ResolveAlarmCode("IN-STAGE-MOVE", waitResult),
-                        Name,
-                        message);
-                }
-
+                // 기존 조건: 이동 후 재대기 — 현재 기준: 이동 함수가 완료를 보장하므로 제거(R3).
                 LastStageMoveFailureMessage = string.Empty;
                 return 0;
             }
@@ -1912,21 +1897,7 @@ namespace QMC.CDT320
                 if (result != 0)
                     return result;
 
-                AxisMoveWaitResult waitResult = await WaitInputStageAxisInPositionResult(
-                    axis,
-                    targetPos,
-                    ResolveSequenceMoveTimeout()).ConfigureAwait(false);
-                if (!waitResult.Success)
-                {
-                    LastStageMoveFailureMessage = axis + " 조그 속도 위치 이동 완료 확인 실패. target=" + targetPos + ". " +
-                        AxisMoveWaiter.FormatResult(waitResult, axis.ToString());
-                    return RaiseStageAlarm(
-                        AlarmSeverity.Error,
-                        AxisMoveWaiter.ResolveAlarmCode("IN-STAGE-MOVE", waitResult),
-                        Name,
-                        LastStageMoveFailureMessage);
-                }
-
+                // 기존 조건: 이동 후 재대기 — 현재 기준: 이동 함수가 완료를 보장하므로 제거(R3).
                 LastStageMoveFailureMessage = string.Empty;
                 return 0;
             }
@@ -1962,7 +1933,7 @@ namespace QMC.CDT320
                 }
 
                 double tolerance = ResolveAxisPositionTolerance(item);
-                if (!isJogStep && AxisMoveWaiter.CanSkipMoveCommandAtTarget(item, targetPos, tolerance))
+                if (!isJogStep && item.IsAtTargetPosition(targetPos, tolerance))
                 {
                     LastStageMoveFailureMessage = string.Empty;
                     return 0;
@@ -2051,21 +2022,7 @@ namespace QMC.CDT320
             if (result != 0)
                 return result;
 
-            AxisMoveWaitResult waitResult = await WaitInputStageAxisInPositionResult(
-                axis,
-                targetPos,
-                timeoutMs > 0 ? timeoutMs : ResolveSequenceMoveTimeout()).ConfigureAwait(false);
-            if (!waitResult.Success)
-            {
-                LastStageMoveFailureMessage = axis + " calibration motion wait failed. target=" + targetPos + ". " +
-                    AxisMoveWaiter.FormatResult(waitResult, axis.ToString());
-                return RaiseStageAlarm(
-                    AlarmSeverity.Error,
-                    AxisMoveWaiter.ResolveAlarmCode("IN-STAGE-MOVE", waitResult),
-                    Name,
-                    LastStageMoveFailureMessage);
-            }
-
+            // 기존 조건: 이동 후 재대기 — 현재 기준: 이동 함수가 완료를 보장하므로 제거(R3).
             LastStageMoveFailureMessage = string.Empty;
             return 0;
         }
@@ -2079,16 +2036,17 @@ namespace QMC.CDT320
         {
             try
             {
-                AxisMoveWaitResult waitResult = await WaitInputStageAxisInPositionResult(axis, targetPos, timeoutMs, ct).ConfigureAwait(false);
-                if (waitResult.Success)
+                int waitCode = await WaitInputStageAxisInPositionResult(axis, targetPos, timeoutMs, ct).ConfigureAwait(false);
+                if (waitCode == 0)
                     return 0;
 
+                BaseAxis item = ResolveInputStageAxis(axis);
                 return RaiseStageAlarm(
                     AlarmSeverity.Error,
-                    AxisMoveWaiter.ResolveAlarmCode("IN-STAGE-MOVE", waitResult),
+                    "IN-STAGE-MOVE",
                     Name,
-                    axis + " move/in-position wait failed. " +
-                    AxisMoveWaiter.FormatResult(waitResult, axis.ToString()));
+                    axis + " move/in-position wait failed. waitCode=" + waitCode +
+                    FormatAxisLastMotionFailure(item));
             }
             catch (OperationCanceledException)
             {
@@ -2112,23 +2070,21 @@ namespace QMC.CDT320
             return ", lastMotionFailure=" + axis.LastMotionFailureMessage;
         }
 
-        public async Task<AxisMoveWaitResult> WaitInputStageAxisInPositionResult(WaferStageAxis axis, double targetPos, int timeoutMs)
+        // 기존 조건: AxisMoveWaitResult(실패 7종) 반환 — 현재 기준: int(0=완료, 음수=실패) 반환(R3).
+        //           실패 사유는 축.LastMotionFailureMessage에 기록된다.
+        public async Task<int> WaitInputStageAxisInPositionResult(WaferStageAxis axis, double targetPos, int timeoutMs)
         {
             return await WaitInputStageAxisInPositionResult(axis, targetPos, timeoutMs, CancellationToken.None).ConfigureAwait(false);
         }
 
-        public async Task<AxisMoveWaitResult> WaitInputStageAxisInPositionResult(WaferStageAxis axis, double targetPos, int timeoutMs, CancellationToken ct)
+        public async Task<int> WaitInputStageAxisInPositionResult(WaferStageAxis axis, double targetPos, int timeoutMs, CancellationToken ct)
         {
             BaseAxis item = ResolveInputStageAxis(axis);
-            double tolerance = item.Config != null && item.Config.InPositionTolerance > 0.0
-                ? item.Config.InPositionTolerance
-                : 0.05;
-            return await AxisMoveWaiter.WaitMoveDoneInPositionAsync(
-                item,
+            if (item == null)
+                return -2;
+            return await item.WaitMoveCompleteAsync(
                 targetPos,
-                tolerance,
                 timeoutMs > 0 ? timeoutMs : 10000,
-                0,
                 ct).ConfigureAwait(false);
         }
 
@@ -3788,7 +3744,7 @@ namespace QMC.CDT320
                         "NeedleZ avoid move requires NeedleZ recipe information.");
 
                 double target = Recipe.NeedleZ.AvoidPosition;
-                if (AxisMoveWaiter.CanSkipMoveCommandAtTarget(NeedleZ, target))
+                if (NeedleZ.IsAtTargetPosition(target, 0.0))
                     return 0;
 
                 int result = await MoveInputStageAxis(WaferStageAxis.NeedleZ, target, bFine).ConfigureAwait(false);

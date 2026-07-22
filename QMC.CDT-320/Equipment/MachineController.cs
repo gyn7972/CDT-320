@@ -2535,15 +2535,7 @@ namespace QMC.CDT320
                     return moveResult != 0 ? moveResult : -1;
                 }
 
-                AxisMoveWaitResult waitResult = await WaitAxisMoveDoneInPositionAsync(axis, position).ConfigureAwait(false);
-                if (!waitResult.Success)
-                {
-                    string message = "Move wait/in-position failed. " + AxisMoveWaiter.FormatResult(waitResult, axis.Name);
-                    AlarmManager.Raise(AlarmSeverity.Error, AxisMoveWaiter.ResolveAlarmCode("MOVE-AXIS", waitResult), axis.Name, message);
-                    Log("[MOVE] " + message);
-                    return -1;
-                }
-
+                // 기존 조건: 이동 후 재대기 — 현재 기준: 이동 함수가 완료를 보장하므로 제거(R3).
                 return 0;
             }
             catch (OperationCanceledException)
@@ -3513,22 +3505,13 @@ namespace QMC.CDT320
                 if (cassette == null)
                     return 0;
 
-                if (AxisMoveWaiter.CanSkipMoveCommandAtTarget(
-                    cassette.InputLifterZ,
-                    cassette.Recipe.AvoidPosition))
+                if (cassette.InputLifterZ.IsAtTargetPosition(cassette.Recipe.AvoidPosition, 0.0))
                     return 0;
 
+                // 기존 조건: 이동 후 재대기 — 현재 기준: 이동 함수가 완료를 보장하므로 제거(R3).
                 int result = await cassette.MoveToWaferCassetteAvoidPosition().ConfigureAwait(false);
                 if (result != 0)
                     return FailInitializePreparation("InputLifterZ avoid move failed. result=" + result);
-
-                AxisMoveWaitResult waitResult = await cassette.WaitWaferLifterZMoveDoneInPosition(
-                    cassette.Recipe.AvoidPosition,
-                    cassette.ResolveWaferLifterZMoveTimeoutMs()).ConfigureAwait(false);
-                if (!waitResult.Success)
-                    return FailInitializePreparation(
-                        "InputLifterZ avoid move/in-position wait failed. " +
-                        AxisMoveWaiter.FormatResult(waitResult, "InputLifterZ avoid"));
 
                 return 0;
             }
@@ -6077,15 +6060,7 @@ namespace QMC.CDT320
                         return FailInitializePreparation(message);
                     }
 
-                    AxisMoveWaitResult waitResult =
-                        await WaitAxisMoveDoneInPositionAsync(axis, targetPosition).ConfigureAwait(false);
-
-                    if (!waitResult.Success)
-                    {
-                        string message = targetName + " move wait/in-position failed. " +
-                            AxisMoveWaiter.FormatResult(waitResult, axis.Name);
-                        return FailInitializePreparation(message);
-                    }
+                    // 기존 조건: 이동 후 재대기 — 현재 기준: 이동 함수가 완료를 보장하므로 제거(R3).
                 }
 
                 return 0;
@@ -11483,16 +11458,6 @@ namespace QMC.CDT320
             }
         }
 
-        private static Task<AxisMoveWaitResult> WaitAxisMoveDoneInPositionAsync(BaseAxis axis, double target)
-        {
-            return AxisMoveWaiter.WaitMoveDoneInPositionAsync(
-                axis,
-                target,
-                ResolveAxisInPositionTolerance(axis),
-                ResolveAxisMoveTimeout(axis),
-                0);
-        }
-
         private async Task<int> MoveAxisCommandAndWaitAsync(BaseAxis axis, double target, double velocity, bool useSharedRailX)
         {
             try
@@ -11515,13 +11480,7 @@ namespace QMC.CDT320
                     return moveResult != 0 ? moveResult : -1;
                 }
 
-                AxisMoveWaitResult waitResult = await WaitAxisMoveDoneInPositionAsync(axis, target).ConfigureAwait(false);
-                if (!waitResult.Success)
-                {
-                    Log("[MOVE] Move wait/in-position failed. " + AxisMoveWaiter.FormatResult(waitResult, axis.Name));
-                    return -1;
-                }
-
+                // 기존 조건: 이동 후 재대기 — 현재 기준: 이동 함수가 완료를 보장하므로 제거(R3).
                 return 0;
             }
             catch (OperationCanceledException)

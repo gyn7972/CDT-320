@@ -32,7 +32,7 @@ namespace QMC.CDT320
             long commandMs,
             long verifyMs,
             long totalMs,
-            AxisMoveWaitResult waitResult)
+            string verifyResult)
         {
             try
             {
@@ -48,7 +48,7 @@ namespace QMC.CDT320
                     null,
                     null,
                     result,
-                    waitResult != null ? waitResult.Failure.ToString() : "-",
+                    verifyResult ?? "-",
                     targetPos,
                     targetName,
                     bFine,

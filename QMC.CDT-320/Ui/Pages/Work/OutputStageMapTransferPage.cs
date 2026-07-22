@@ -2261,20 +2261,18 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 if (unit == null || unit.Recipe == null || unit.Recipe.VisionX == null)
                     return -1;
 
-                if (AxisMoveWaiter.CanSkipMoveCommandAtTarget(
-                    unit.OutputCameraX,
-                    unit.Recipe.VisionX.AvoidPosition))
+                if (unit.OutputCameraX.IsAtTargetPosition(unit.Recipe.VisionX.AvoidPosition, 0.0))
                     return 0;
 
                 int result = await unit.MoveStageAxis(BinStageAxis.VisionX, unit.Recipe.VisionX.AvoidPosition, speedType, 0.0).ConfigureAwait(true);
                 if (result != 0)
                     return result;
 
-                AxisMoveWaitResult wait = await unit.WaitStageAxisMoveDoneInPosition(
+                int wait = await unit.WaitStageAxisMoveDoneInPosition(
                     BinStageAxis.VisionX,
                     unit.Recipe.VisionX.AvoidPosition,
                     timeoutMs).ConfigureAwait(true);
-                if (wait == null || !wait.Success)
+                if (wait != 0)
                     return -1;
 
                 return unit.IsVisionXInAvoidPosition() ? 0 : -1;
@@ -2374,7 +2372,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
                         : unit.Recipe.GoodStageZ.ProcessPosition;
 
                     BaseAxis goodStageZ = unit.GoodStage != null ? unit.GoodStage.StageZ : null;
-                    bool alreadyReady = AxisMoveWaiter.CanSkipMoveCommandAtTarget(goodStageZ, targetZ);
+                    bool alreadyReady = goodStageZ.IsAtTargetPosition(targetZ, 0.0);
 
                     if (alreadyReady)
                         return 0;
@@ -2383,11 +2381,11 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     if (zResult != 0)
                         return zResult;
 
-                    AxisMoveWaitResult zWait = await unit.WaitStageAxisMoveDoneInPosition(
+                    int zWait = await unit.WaitStageAxisMoveDoneInPosition(
                         BinStageAxis.GoodBinZ,
                         targetZ,
                         timeoutMs).ConfigureAwait(true);
-                    if (zWait == null || !zWait.Success ||
+                    if (zWait != 0 ||
                         !unit.IsStageAxisInPosition(BinStageAxis.GoodBinZ, targetZ, ResolveOutputStageAxisTolerance(unit, BinStageAxis.GoodBinZ)))
                         return -1;
                 }
@@ -2434,8 +2432,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 if (stageResult != 0)
                     return stageResult;
 
-                AxisMoveWaitResult stageWait = await unit.WaitStageAxisMoveDoneInPosition(yAxis, targetY, timeoutMs).ConfigureAwait(true);
-                if (stageWait == null || !stageWait.Success)
+                int stageWait = await unit.WaitStageAxisMoveDoneInPosition(yAxis, targetY, timeoutMs).ConfigureAwait(true);
+                if (stageWait != 0)
                     return -1;
 
                 if (!unit.IsStageAxisInPosition(yAxis, targetY, ResolveOutputStageAxisTolerance(unit, yAxis)))
@@ -2612,23 +2610,23 @@ namespace QMC.CDT_320.Ui.Pages.Work
             if (host == null || host.Machine == null)
                 return -1;
 
-            AxisMoveWaitResult waitResult;
+            int waitCode;
             if (side == PickerSequenceSide.Front)
             {
                 PickerFrontUnit front = host.Machine.PickerFrontUnit;
                 if (front == null)
                     return -1;
-                waitResult = await front.WaitPickerAxisMoveDoneInPosition(axis, target, timeoutMs).ConfigureAwait(true);
+                waitCode = await front.WaitPickerAxisMoveDoneInPosition(axis, target, timeoutMs).ConfigureAwait(true);
             }
             else
             {
                 PickerRearUnit rear = host.Machine.PickerRearUnit;
                 if (rear == null)
                     return -1;
-                waitResult = await rear.WaitPickerAxisMoveDoneInPosition(axis, target, timeoutMs).ConfigureAwait(true);
+                waitCode = await rear.WaitPickerAxisMoveDoneInPosition(axis, target, timeoutMs).ConfigureAwait(true);
             }
 
-            return waitResult != null && waitResult.Success ? 0 : -1;
+            return waitCode == 0 ? 0 : -1;
         }
 
         private static bool IsPickerAxisInPosition(Form1 host, PickerSequenceSide side, PickerAxis axis, double target)
@@ -2655,7 +2653,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             double tolerance = item.Config != null && item.Config.InPositionTolerance > 0.0
                 ? item.Config.InPositionTolerance
                 : 0.05;
-            return AxisMoveWaiter.CanSkipMoveCommandAtTarget(item, target, tolerance);
+            return item.IsAtTargetPosition(target, tolerance);
         }
 
         private static string BuildPickerAxisState(Form1 host, PickerSequenceSide side, PickerAxis axis, double target)

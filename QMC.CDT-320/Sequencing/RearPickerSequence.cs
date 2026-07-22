@@ -393,7 +393,7 @@ namespace QMC.CDT320.Sequencing
 
                 pair.Value.UpdateStatus();
                 double target = rear.GetPickerTeachingPosition(pair.Key, "AvoidPosition");
-                if (!AxisMoveWaiter.CanSkipMoveCommandAtTarget(pair.Value, target))
+                if (!pair.Value.IsAtTargetPosition(target, 0.0))
                     return false;
             }
 

@@ -410,13 +410,15 @@ namespace QMC.CDT320.Sequencing
                 double tolerance = stage.CameraX != null && stage.CameraX.Config != null && stage.CameraX.Config.InPositionTolerance > 0.0
                     ? stage.CameraX.Config.InPositionTolerance
                     : 0.01;
+                // 현장(F3 선행검사): 소수 3자리 스킵 판정 유지. 일반 경로는 AxisMoveWaiter 제거에 따라
+                // BaseAxis.IsAtTargetPosition(동일 공식)으로 통일(R2).
                 bool preInspectionF3Move = IsInputCameraPreInspectionMode();
                 bool canSkipMove = preInspectionF3Move
                     ? PickerInputStageMoveHelper.CanSkipInputCameraPreInspectionMoveAtThreeDecimals(
                         stage.CameraX,
                         avoid,
                         tolerance)
-                    : AxisMoveWaiter.CanSkipMoveCommandAtTarget(stage.CameraX, avoid, tolerance);
+                    : stage.CameraX.IsAtTargetPosition(avoid, tolerance);
                 if (!canSkipMove)
                 {
                     int moveResult = await stage.MoveInputStageAxis(
@@ -443,11 +445,19 @@ namespace QMC.CDT320.Sequencing
                     }
                 }
 
+                // 기존 조건: AxisMoveWaiter.IsMoveCompletedAtTarget/BuildAxisState —
+                // 현재 기준: 동일 공식의 BaseAxis.IsAtTargetPosition + 인라인 상태 문자열(R2/[E]).
                 if (preInspectionF3Move &&
-                    !AxisMoveWaiter.IsMoveCompletedAtTarget(stage.CameraX, avoid, tolerance))
+                    !stage.CameraX.IsAtTargetPosition(avoid, tolerance))
                     return Fail("INPUT-CAMERA-MARK-INSPECTION-VISIONX-AVOID-CHECK", stage.Name,
                         "InputVisionX strong completion check failed after mark inspection. " +
-                        AxisMoveWaiter.BuildAxisState(stage.CameraX, avoid, tolerance));
+                        "axisState=[actual=" + stage.CameraX.ActualPosition.ToString("F6") +
+                        ", command=" + stage.CameraX.CommandPosition.ToString("F6") +
+                        ", target=" + avoid.ToString("F6") +
+                        ", tolerance=" + tolerance.ToString("F6") +
+                        ", moving=" + stage.CameraX.IsMoving +
+                        ", servo=" + stage.CameraX.IsServoOn +
+                        ", alarm=" + stage.CameraX.IsAlarm + "]");
 
                 if (!stage.IsVisionXInAvoidPosition())
                     return Fail("INPUT-CAMERA-MARK-INSPECTION-VISIONX-AVOID-CHECK", stage.Name,

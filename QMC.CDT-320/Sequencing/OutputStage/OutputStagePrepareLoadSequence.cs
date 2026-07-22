@@ -178,9 +178,7 @@ namespace QMC.CDT320.Sequencing
                         "OutputStage Load 전 OutputFeeder Unclamp 최종 확인 실패. side=" + Options.Side +
                         ", " + feeder.DescribeFeederCylinderState());
 
-                if (!AxisMoveWaiter.CanSkipMoveCommandAtTarget(
-                    feeder.FeederY,
-                    feeder.Recipe.AvoidPosition))
+                if (!feeder.FeederY.IsAtTargetPosition(feeder.Recipe.AvoidPosition, 0.0))
                 {
                     int moveResult = await feeder.MoveToFeederAvoidPosition(Options.FineMove).ConfigureAwait(false);
                     if (moveResult != 0)
@@ -189,14 +187,7 @@ namespace QMC.CDT320.Sequencing
                             ", side=" + Options.Side + ", " + feeder.DescribeBinFeederYMoveDoneState() +
                             feeder.DescribeBinFeederYLastMotionFailure());
 
-                    AxisMoveWaitResult waitResult = await feeder.WaitBinFeederYMoveDoneInPosition(
-                        feeder.Recipe.AvoidPosition,
-                        ResolveTimeout(),
-                        ct).ConfigureAwait(false);
-                    if (!waitResult.Success)
-                        return Fail("OUT-STAGE-FEEDER-Y-AVOID-WAIT", feeder.Name,
-                            "OutputStage Load 전 OutputFeederY Avoid 이동 완료 확인 실패. side=" + Options.Side +
-                            ", " + AxisMoveWaiter.FormatResult(waitResult, feeder.DescribeBinFeederYMoveDoneState()));
+                    // 기존 조건: 이동 후 재대기 — 현재 기준: 이동 함수가 완료를 보장하므로 제거(R3).
                 }
 
                 if (!feeder.IsBinFeederYInAvoidPosition())

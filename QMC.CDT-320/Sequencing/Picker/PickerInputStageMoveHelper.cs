@@ -66,9 +66,11 @@ namespace QMC.CDT320.Sequencing
                 ? completionTolerance
                 : 0.05;
 
+            // 기존 조건: AxisMoveWaiter.IsMoveCompletedAtTarget — 현재 기준: 동일 공식의
+            // BaseAxis.IsAtTargetPosition(정지+무알람+서보ON+Actual/Command 톨러런스)로 통일(R2).
             return IsSameAtThreeDecimals(axis.ActualPosition, target) &&
                    IsSameAtThreeDecimals(axis.CommandPosition, target) &&
-                   AxisMoveWaiter.IsMoveCompletedAtTarget(axis, target, tolerance);
+                   axis.IsAtTargetPosition(target, tolerance);
         }
 
         public static async Task<int> MoveStageYForPickerWorkPointCommandAsync(
