@@ -4475,22 +4475,23 @@ namespace QMC.CDT320.Sequencing
                     ", pickerNo=" + _currentPickerNo +
                     ", reason=" + reason);
             }
+            int result = 0;
+            
+            //result = CheckInputStageAxisInPosition(stage, WaferStageAxis.WaferY, _targetStageY, "pick corrected StageY");
+            //if (result != 0)
+            //    return result;
 
-            int result = CheckInputStageAxisInPosition(stage, WaferStageAxis.WaferY, _targetStageY, "pick corrected StageY");
-            if (result != 0)
-                return result;
+            //result = CheckPickerAxisInPosition(PickerAxis.PickerX, _targetPickerX, "pick corrected PickerX");
+            //if (result != 0)
+            //    return result;
 
-            result = CheckPickerAxisInPosition(PickerAxis.PickerX, _targetPickerX, "pick corrected PickerX");
-            if (result != 0)
-                return result;
+            //result = CheckPickerAxisInPosition(PickerAxis.PickerY, _targetPickerY, "pick PickerY teaching position");
+            //if (result != 0)
+            //    return result;
 
-            result = CheckPickerAxisInPosition(PickerAxis.PickerY, _targetPickerY, "pick PickerY teaching position");
-            if (result != 0)
-                return result;
-
-            result = CheckPickerAxisInPosition(GetPickerTAxis(_currentPickerIndex), _targetPickerT, "pick corrected PickerT");
-            if (result != 0)
-                return result;
+            //result = CheckPickerAxisInPosition(GetPickerTAxis(_currentPickerIndex), _targetPickerT, "pick corrected PickerT");
+            //if (result != 0)
+            //    return result;
 
             string needleAreaReason;
             if (!stage.IsNeedleWorkPointInArea(_targetNeedleX, _targetStageY, out needleAreaReason))
