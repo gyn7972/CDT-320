@@ -24,8 +24,6 @@ namespace QMC.CDT320.VisionComm
         private readonly object _inspectionWaiterLock = new object();
         private readonly Dictionary<string, InspectionExposureWaiter> _exposureWaiters =
             new Dictionary<string, InspectionExposureWaiter>(StringComparer.Ordinal);
-        private readonly Dictionary<string, TaskCompletionSource<VisionProtocolResponse>> _resultWaiters =
-            new Dictionary<string, TaskCompletionSource<VisionProtocolResponse>>(StringComparer.OrdinalIgnoreCase);
 
         public async Task<VisionRequestHandle> SendInspectionRequestAsync(
             VisionInspectionEnvelope envelope,
@@ -78,52 +76,6 @@ namespace QMC.CDT320.VisionComm
             catch
             {
                 RemoveExposureWaiter(envelope.RequestId, waiter);
-                throw;
-            }
-        }
-
-        public async Task<VisionProtocolResponse> RequestInspectionResultAsync(
-            string camera,
-            string command,
-            string groupId,
-            int timeoutMs,
-            CancellationToken ct)
-        {
-            if (!VisionCameraNames.IsKnown(camera))
-                throw new ArgumentException("Unknown Vision CAMERA. camera=" + camera, "camera");
-            if (!VisionInspectionCommands.IsResultRequest(command))
-                throw new ArgumentException("Unknown Vision result command. command=" + command, "command");
-            if (string.IsNullOrWhiteSpace(groupId) || groupId.IndexOf('|') >= 0 ||
-                groupId.IndexOf(';') >= 0 || groupId.IndexOf('\r') >= 0 || groupId.IndexOf('\n') >= 0)
-                throw new ArgumentException("Invalid Vision group_id.", "groupId");
-            if (!IsConnected)
-                throw new InvalidOperationException("Vision client is not connected. camera=" + camera);
-
-            string key = BuildResultWaiterKey(camera, command, groupId);
-            var waiter = new TaskCompletionSource<VisionProtocolResponse>(TaskCreationOptions.RunContinuationsAsynchronously);
-            lock (_inspectionWaiterLock)
-            {
-                if (_resultWaiters.ContainsKey(key))
-                    throw new InvalidOperationException("Vision result request is already pending. key=" + key);
-                _resultWaiters.Add(key, waiter);
-            }
-
-            try
-            {
-                string line = camera + "|" + command + "|group_id=" + groupId;
-                await WriteLineOnlyAsync(line, ct).ConfigureAwait(false);
-                return await WaitForInspectionResponseAsync(
-                    waiter,
-                    timeoutMs,
-                    ct,
-                    delegate
-                    {
-                        RemoveResultWaiter(key, waiter);
-                    }).ConfigureAwait(false);
-            }
-            catch
-            {
-                RemoveResultWaiter(key, waiter);
                 throw;
             }
         }
@@ -251,6 +203,7 @@ namespace QMC.CDT320.VisionComm
 
             if (VisionInspectionCommands.IsResultRequest(responseCommand))
             {
+                // Pull 요청이 사라졌으므로 수신되는 MRESULT/RESULT 라인은 전부 비전의 자발 푸시다.
                 if (response.IsAck)
                 {
                     LogMsg("diagnostic result ACK ignored. command=" + responseCommand +
@@ -259,39 +212,28 @@ namespace QMC.CDT320.VisionComm
                 }
                 if (string.IsNullOrWhiteSpace(groupId))
                 {
-                    LogMsg("correlated result ignored: group_id missing. command=" + responseCommand);
+                    // group_id 없는 결과는 상관관계를 잡을 수 없어 폐기한다.
+                    // legacy FIFO(_pending)로 흘려보내면 구형 응답 큐가 오염되므로 여기서 소비한다.
+                    LogMsg("push result dropped: group_id missing. command=" + responseCommand);
+                    EventLogger.Write(EventKind.Warning, "VISION", "VISION-PUSH-RESULT-DROP",
+                        "group_id 없는 Vision 결과 푸시를 폐기했습니다. module=" + ModuleName +
+                        ", command=" + responseCommand +
+                        ", rawLine=" + (response.RawLine ?? string.Empty));
                     return true;
                 }
 
-                string key = BuildResultWaiterKey(response.Module, responseCommand, groupId);
-                TaskCompletionSource<VisionProtocolResponse> resultWaiter = null;
-                lock (_inspectionWaiterLock)
-                {
-                    if (_resultWaiters.TryGetValue(key, out resultWaiter))
-                    {
-                        _resultWaiters.Remove(key);
-                        resultWaiter.TrySetResult(response);
-                    }
-                }
-
-                if (resultWaiter != null)
-                {
-                    return true;
-                }
-
-                LogMsg("late/unmatched correlated result ignored. key=" + key);
+                // 수신 스토어에 보관(대기 소비자가 있으면 즉시 전달) — 소비는 AutoVisionRequestService가 수행.
+                VisionInspectionResultStore.Add(new VisionInspectionResultEntry(
+                    response.Module,
+                    responseCommand,
+                    groupId,
+                    response));
                 return true;
             }
 
             return false;
         }
 
-        private static string BuildResultWaiterKey(string camera, string command, string groupId)
-        {
-            return (camera ?? string.Empty).Trim() + "\u001f" +
-                   (command ?? string.Empty).Trim() + "\u001f" +
-                   (groupId ?? string.Empty).Trim();
-        }
 
         private static bool IsExposureCorrelationMatch(
             VisionProtocolResponse response,
@@ -395,16 +337,6 @@ namespace QMC.CDT320.VisionComm
             }
         }
 
-        private void RemoveResultWaiter(string key, TaskCompletionSource<VisionProtocolResponse> waiter)
-        {
-            lock (_inspectionWaiterLock)
-            {
-                TaskCompletionSource<VisionProtocolResponse> current;
-                if (_resultWaiters.TryGetValue(key, out current) && object.ReferenceEquals(current, waiter))
-                    _resultWaiters.Remove(key);
-            }
-        }
-
         private void CancelInspectionWaiters()
         {
             List<TaskCompletionSource<VisionProtocolResponse>> waiters = new List<TaskCompletionSource<VisionProtocolResponse>>();
@@ -412,14 +344,24 @@ namespace QMC.CDT320.VisionComm
             {
                 foreach (InspectionExposureWaiter waiter in _exposureWaiters.Values)
                     waiters.Add(waiter.Completion);
-                waiters.AddRange(_resultWaiters.Values);
                 _exposureWaiters.Clear();
-                _resultWaiters.Clear();
             }
 
             for (int i = 0; i < waiters.Count; i++)
                 waiters[i].TrySetException(new InvalidOperationException(
                     "Vision connection was disconnected while waiting for a correlated response."));
+
+            // 연결 단절 시 이 채널의 미소비 푸시 결과와 스토어 대기자도 함께 정리한다.
+            // 재연결 후 이전 검사 결과는 무효라는 정책 (요청/폴링 waiter 정리와 같은 위치).
+            AutoVisionChannel channel;
+            if (VisionModuleNames.TryResolveByModule(ModuleName, out channel))
+            {
+                string camera = VisionCameraNames.FromChannel(channel);
+                if (!string.IsNullOrWhiteSpace(camera))
+                    VisionInspectionResultStore.ClearChannel(
+                        camera,
+                        "Vision 연결 종료로 미소비 결과를 정리했습니다. module=" + ModuleName);
+            }
         }
     }
 }
