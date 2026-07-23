@@ -80,6 +80,11 @@ namespace QMC.CDT320.Sequencing.Calibration
 
         public ColletCalibrationRecord ResultRecord { get; private set; }
 
+        // Manual Collet Calibration Start에서만 사용한다. 상대 Picker를 자동으로
+        // 공용 Avoid 위치로 이동하지 않고, 이미 전체 Avoid에 있는지 확인하여
+        // 선택 Picker의 내부 안전 위치 흐름만 사용한다.
+        internal bool RequireOppositePickerAlreadyAtAvoid { get; set; }
+
         private CalibrationMotionSettings ResolveCalibrationMotion()
         {
             if (CalibrationMotion != null)
@@ -280,9 +285,11 @@ namespace QMC.CDT320.Sequencing.Calibration
                 if (result != 0)
                     return result;
 
-                result = await MoveOppositePickerToAvoidAndVerifyAsync(
-                    "Collet Calibration 시작 전 상대 Picker 전체 Avoid",
-                    ct).ConfigureAwait(false);
+                result = RequireOppositePickerAlreadyAtAvoid
+                    ? VerifyOppositePickerAlreadyAtAvoidForStart()
+                    : await MoveOppositePickerToAvoidAndVerifyAsync(
+                        "Collet Calibration 시작 전 상대 Picker 전체 Avoid",
+                        ct).ConfigureAwait(false);
                 if (result != 0)
                     return result;
 
@@ -504,6 +511,78 @@ namespace QMC.CDT320.Sequencing.Calibration
             finally
             {
             }
+        }
+
+        private int VerifyOppositePickerAlreadyAtAvoidForStart()
+        {
+            try
+            {
+                if (Side == PickerSequenceSide.Front)
+                {
+                    if (RearPicker == null || (RearPicker.Config != null && !RearPicker.Config.UseUnit))
+                        return 0;
+
+                    return VerifyPickerAlreadyAtAvoidForStart(
+                        "RearPickerUnit",
+                        RearPicker.IsRearPickerInAvoidPosition(),
+                        RearPicker.Axes.Values);
+                }
+
+                if (FrontPicker == null || (FrontPicker.Config != null && !FrontPicker.Config.UseUnit))
+                    return 0;
+
+                return VerifyPickerAlreadyAtAvoidForStart(
+                    "FrontPickerUnit",
+                    FrontPicker.IsFrontPickerInAvoidPosition(),
+                    FrontPicker.Axes.Values);
+            }
+            catch (Exception ex)
+            {
+                return Fail("COLLET-CAL-OPPOSITE-AVOID-CHECK-EX", Name,
+                    "Collet Calibration 시작 전 상대 Picker Avoid 확인 중 예외가 발생했습니다. error=" + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private int VerifyPickerAlreadyAtAvoidForStart(
+            string pickerUnitName,
+            bool isAtAvoid,
+            IEnumerable<BaseAxis> axes)
+        {
+            if (!isAtAvoid)
+            {
+                return Fail("COLLET-CAL-OPPOSITE-AVOID-REQUIRED", pickerUnitName,
+                    "Collet Calibration 내부 안전 위치 모드에서는 상대 Picker를 자동 이동하지 않습니다. " +
+                    "상대 Picker X/Y/Z/T 전체를 Avoid 위치로 이동한 뒤 다시 시작하세요.");
+            }
+
+            if (axes != null)
+            {
+                foreach (BaseAxis axis in axes)
+                {
+                    if (axis == null)
+                        continue;
+
+                    if (!axis.IsServoOn || axis.IsAlarm || axis.IsMoving || !axis.IsInPosition)
+                    {
+                        return Fail("COLLET-CAL-OPPOSITE-AXIS-NOT-READY", pickerUnitName,
+                            "Collet Calibration 시작 전 상대 Picker 축이 안전 완료 상태가 아닙니다. axis=" +
+                            axis.Name + ", servo=" + (axis.IsServoOn ? "ON" : "OFF") +
+                            ", alarm=" + (axis.IsAlarm ? "ON" : "OFF") +
+                            ", moving=" + (axis.IsMoving ? "Y" : "N") +
+                            ", inPosition=" + (axis.IsInPosition ? "Y" : "N"));
+                    }
+                }
+            }
+
+            QMC.Common.Log.Write("Calibration", "SYSTEM", "ColletCalStartSafe",
+                "Collet Calibration 내부 안전 위치 모드: 상대 Picker 자동 Avoid 이동을 생략하고 " +
+                "기존 Avoid 상태를 확인했습니다. side=" + _calibrationSide +
+                ", colletNo=" + _colletNo +
+                ", opposite=" + pickerUnitName);
+            return 0;
         }
 
         private async Task<int> EnsureInputVisionAvoidForStartAsync(CancellationToken ct)

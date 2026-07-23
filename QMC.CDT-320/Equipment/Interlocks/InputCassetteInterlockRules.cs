@@ -1,4 +1,5 @@
-﻿using QMC.Common.IO;
+﻿using QMC.Common;
+using QMC.Common.IO;
 using System;
 
 namespace QMC.CDT320.Interlocks
@@ -99,6 +100,8 @@ namespace QMC.CDT320.Interlocks
                     out reason);
             }
 
+            //PickerFrontUnit pickerfront = machine.PickerFrontUnit;
+
             return true;
         }
 
@@ -174,6 +177,8 @@ namespace QMC.CDT320.Interlocks
                     "InputLifterZ",
                     "InputFeederY must be at a cassette-side safe teaching position before InputLifterZ move.",
                     out reason);
+
+            
 
             return true;
         }

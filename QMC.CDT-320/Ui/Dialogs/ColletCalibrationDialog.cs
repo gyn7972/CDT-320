@@ -392,6 +392,9 @@ namespace QMC.CDT_320.Ui.Dialogs
 
                 var context = new MachineSequenceContext(host.Controller, new SequenceSignalBus());
                 var sequence = new ColletCalibrationSequence(context, _side, _colletNo);
+                // START는 Collet Calibration 내부 안전 위치만 사용한다. 상대 Picker의
+                // 공용 Avoid 자동 이동은 하지 않되, 이미 전체 Avoid인지 시퀀스에서 확인한다.
+                sequence.RequireOppositePickerAlreadyAtAvoid = true;
                 PickerSequenceOptions options = PickerSequenceOptions.Default();
                 options.RunMode = SequenceRunMode.Manual;
                 options.StartMode = SequenceStartMode.Restart;
