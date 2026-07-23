@@ -38,6 +38,14 @@ namespace QMC.CDT320.Ajin
 
         public int AxisNo { get; }
 
+        public override double ActualPosition {
+            get
+            {
+                double pos = base.ActualPosition;
+                AXM.GetCommandPosition(AxisNo, ref pos);
+                return pos;
+            }
+            protected set => base.ActualPosition = value; }
         public bool IsInitializeHardwareLimitSearchActive(int direction)
         {
             int expectedDirection = direction < 0 ? -1 : 1;
@@ -610,7 +618,7 @@ namespace QMC.CDT320.Ajin
                     }
 
                     // 최종 목표 도달 완료 판정 (백그라운드 이동이 목표에서 정상 완료된 경우).
-                    if (finalEntered && AxisMoveWaiter.IsMoveCompletedAtTarget(this, trailingTargetPosition, tolerance))
+                    if (finalEntered && IsAtTargetPosition(trailingTargetPosition, tolerance))
                         break;
 
                     // 간격/여유 계산 (실측 위치 기준).
@@ -645,7 +653,7 @@ namespace QMC.CDT320.Ajin
                             if (!IsMoving)
                             {
                                 if (double.IsNaN(lastCommanded) || Math.Abs(command - lastCommanded) > tolerance ||
-                                    !AxisMoveWaiter.IsMoveCompletedAtTarget(this, command, tolerance))
+                                    !IsAtTargetPosition(command, tolerance))
                                 {
                                     double startVelocity = commandIsFinal ? trailVel : followVel;
                                     moveTask = MoveAbsoluteAsync(command, startVelocity);
@@ -715,27 +723,24 @@ namespace QMC.CDT320.Ajin
                 if (remainingMs <= 0)
                     return await FailFollowTimeoutAsync(moveTask, trailingTargetPosition).ConfigureAwait(false);
 
-                AxisMoveWaitResult waitResult = await AxisMoveWaiter.WaitMoveDoneInPositionAsync(
-                    this,
+                // 기존 조건: AxisMoveWaiter 결과(실패 7종)로 분기 — 현재 기준: WaitMoveCompleteAsync int 결과(R3).
+                int waitCode = await WaitMoveCompleteAsync(
                     trailingTargetPosition,
-                    tolerance,
                     remainingMs,
-                    0,
                     ct).ConfigureAwait(false);
 
-                if (waitResult == null || !waitResult.Success)
+                if (waitCode != 0)
                 {
-                    if (waitResult != null && waitResult.Failure == AxisMoveWaitFailure.Timeout)
+                    if (waitCode == -3)
                         return await FailFollowTimeoutAsync(moveTask, trailingTargetPosition).ConfigureAwait(false);
 
                     Stop();
                     await DrainFollowMoveTaskAsync(moveTask).ConfigureAwait(false);
                     moveTask = null;
-                    int failCode = waitResult != null ? waitResult.Code : -1;
                     QMC.Common.Log.Write("Motion", "SYSTEM", "AX-FOLLOW-MOVE",
-                        Name + " 팔로잉 최종 완료 대기가 실패했습니다. " + AxisMoveWaiter.FormatResult(waitResult, Name) + " - Failed");
-                    return FailMotion(failCode, "FOLLOW MOVE",
-                        "팔로잉 최종 완료 대기가 실패했습니다. " + (waitResult != null ? waitResult.Reason : ""), trailingTargetPosition, true);
+                        Name + " 팔로잉 최종 완료 대기가 실패했습니다. " + LastMotionFailureMessage + " - Failed");
+                    return FailMotion(waitCode, "FOLLOW MOVE",
+                        "팔로잉 최종 완료 대기가 실패했습니다. " + LastMotionFailureMessage, trailingTargetPosition, true);
                 }
 
                 await DrainFollowMoveTaskAsync(moveTask).ConfigureAwait(false);
@@ -911,8 +916,9 @@ namespace QMC.CDT320.Ajin
                 double tolerance = Config != null && Config.InPositionTolerance > 0.0
                     ? Config.InPositionTolerance
                     : 0.01;
+                // 기존 조건: AxisMoveWaiter.CanSkipMoveCommandAtTarget — 현재 기준: BaseAxis 내부 스킵 헬퍼로 통일(R2).
                 if (!BaseAxis.IsForceMoveActive &&
-                    AxisMoveWaiter.CanSkipMoveCommandAtTarget(this, targetPos, tolerance))
+                    CanSkipMoveToTarget(targetPos, tolerance))
                 {
                     CommandPosition = targetPos;
                     CurrentVelocity = 0.0;
@@ -974,22 +980,12 @@ namespace QMC.CDT320.Ajin
                 _motionDirection = targetPos > ActualPosition ? 1 : targetPos < ActualPosition ? -1 : 0;
                 int motionStopSerial = Volatile.Read(ref _motionStopSerial);
 
-                int ret = 0;
+                // 기존 조건: AXM.MovePosition을 1초 busy-retry(커밋 292c8ab4) — 현재 기준: 프롬프트 지시로 1회 호출.
+                int ret;
                 lock (_sync)
                 {
                     AXM.SetAbsRelMode(AxisNo, true);
-                    DateTime deadline = DateTime.UtcNow.AddMilliseconds(1000);
-                    while (DateTime.UtcNow < deadline)
-                    {
-                        ret = AXM.MovePosition(AxisNo, boardTargetPos, boardVelocity, boardAcceleration, boardDeceleration);
-                        if (ret == 0)
-                        {
-                            break;
-
-                        }
-                    }
-                   
-                        
+                    ret = AXM.MovePosition(AxisNo, boardTargetPos, boardVelocity, boardAcceleration, boardDeceleration);
                 }
                 if (ret != 0)
                 {
@@ -1015,6 +1011,15 @@ namespace QMC.CDT320.Ajin
                     return FailMotion(waitRet, "ABS MOVE", "축 정지 요청으로 이동 대기를 중단했습니다.", targetPos, true);
                 if (waitRet != 0)
                     return FailMotion(waitRet, "ABS MOVE", "Move wait failed.", targetPos, true);
+
+                // 현재 기준: 리턴 전 최종 확인은 Command↔Target 톨러런스 1가지만 (INP/Actual/settle 재확인 제거 —
+                // Actual−Command 잔차는 서보 책임이라는 설계 결정, 사용자 승인).
+                if (Math.Abs(CommandPosition - targetPos) > tolerance)
+                    return FailMotion(-5, "ABS MOVE",
+                        "이동 완료 후 Command 위치가 목표와 다릅니다. command=" + CommandPosition.ToString("0.######") +
+                        ", target=" + targetPos.ToString("0.######") +
+                        ", tolerance=" + tolerance.ToString("0.######"), targetPos, true);
+
                 ClearMotionFailure();
                 return 0;
             }
@@ -1061,7 +1066,7 @@ namespace QMC.CDT320.Ajin
                     ? Config.InPositionTolerance
                     : 0.01;
                 if (!BaseAxis.IsForceMoveActive &&
-                    AxisMoveWaiter.CanSkipMoveCommandAtTarget(this, targetPos, tolerance))
+                    CanSkipMoveToTarget(targetPos, tolerance))
                 {
                     CommandPosition = targetPos;
                     CurrentVelocity = 0.0;
@@ -1734,27 +1739,9 @@ namespace QMC.CDT320.Ajin
                 {
                     result = await MoveRelativeAsync(distance, vel);
                 }
-                if (result != 0)
-                    return result;
-
-                double tolerance = Config != null && Config.InPositionTolerance > 0.0
-                    ? Config.InPositionTolerance
-                    : 0.05;
-                AxisMoveWaitResult wait = await AxisMoveWaiter.WaitMoveDoneInPositionAsync(
-                    this,
-                    target,
-                    tolerance,
-                    60000,
-                    0).ConfigureAwait(false);
-                if (wait != null && wait.Success)
-                    return 0;
-
-                return FailMotion(
-                    wait != null ? wait.Code : -1,
-                    "JOG STEP",
-                    "Step Jog 위치 확인 실패. " + AxisMoveWaiter.FormatResult(wait, Name),
-                    target,
-                    true);
+                // 기존 조건: 이동 후 AxisMoveWaiter로 위치를 재확인했다.
+                // 현재 기준: MoveRelativeAsync(→MoveAbsoluteAsync)가 완료를 보장하므로 재대기를 제거한다(R3).
+                return result;
             }
             catch (Exception ex)
             {
@@ -1789,7 +1776,22 @@ namespace QMC.CDT320.Ajin
             base.StopJog();
             UpdateStatus();
         }
-
+        public override bool IsAtTargetPosition(double target, double tolerance)
+        {
+            bool bret = false;
+            bool inMotion = false;
+            bool inMotionReadOk = AXM.GetInMotion(AxisNo, ref inMotion) == 0;
+            
+            
+            double idleBoardCommand = 0.0;
+            if (AXM.GetCommandPosition(AxisNo, ref idleBoardCommand) == 0 &&
+                Math.Abs(idleBoardCommand - target) <= tolerance)
+            {
+                bret = true;
+            }
+             
+            return bret;
+        }
         public override void UpdateStatus()
         {
 
@@ -2949,6 +2951,102 @@ namespace QMC.CDT320.Ajin
             return boardAcceleration;
         }
 
+        // 기존 조건: BaseAxis 공용 합류 대기(IsMoving/CommandPosition 캐시 관측)를 그대로 사용했다.
+        // 현재 기준: 실장비 경로는 보드를 직접 조회한다 — 완료 판정은 AXM.GetInMotion 10ms 폴링,
+        //           리턴 전 확인은 AXM.GetCommandPosition의 보드 Command↔Target 톨러런스 1가지만.
+        //           시뮬레이션은 base(사다리꼴 프로파일 공용 경로)로 위임한다(R5).
+        //           명령 전용 발행 직후 합류하는 레이스는 WaitUntilMoveDone과 동일하게
+        //           detectedMotion 래치 + 20폴 유예로 방어하되, 이미 보드 Command가 목표에 있으면
+        //           완료된 이동 합류로 보고 즉시 최종 확인으로 진행한다(유예 200ms 지연 방지).
+        public override async Task<int> WaitMoveCompleteAsync(double target, int timeoutMs, CancellationToken ct)
+        {
+            if (UseSimulation || !AjinSystem.IsOpen)
+                return await base.WaitMoveCompleteAsync(target, timeoutMs, ct).ConfigureAwait(false);
+
+            try
+            {
+                if (timeoutMs <= 0)
+                    timeoutMs = 60000;
+                double tolerance = Config != null && Config.InPositionTolerance > 0.0
+                    ? Config.InPositionTolerance
+                    : 0.01;
+                DateTime deadline = DateTime.UtcNow.AddMilliseconds(timeoutMs);
+
+                int idlePolls = 0;
+                bool detectedMotion = false;
+                while (true)
+                {
+                    ct.ThrowIfCancellationRequested();
+                    UpdateStatus();
+
+                    if (IsAlarm)
+                        return FailMotion((int)AlarmCode != 0 ? (int)AlarmCode : -1, "MOVE JOIN",
+                            "이동 합류 대기 중 축 알람. alarmCode=0x" + AlarmCode.ToString("X4"), target, true);
+
+                    // 읽기 실패 시 판정에 쓰지 않는다 — 실패한 읽기의 false를 "정지"로 오인해
+                    // 이동 중 조기 break되는 것을 막고, 계속 폴링(지속 실패는 타임아웃으로 귀결).
+                    bool inMotion = false;
+                    bool inMotionReadOk = AXM.GetInMotion(AxisNo, ref inMotion) == 0;
+                    if (inMotionReadOk && inMotion)
+                        detectedMotion = true;
+
+                    if (inMotionReadOk && !inMotion)
+                    {
+                        if (detectedMotion)
+                            break;
+
+                        double idleBoardCommand = 0.0;
+                        if (AXM.GetCommandPosition(AxisNo, ref idleBoardCommand) == 0 &&
+                            Math.Abs(FromBoardPosition(idleBoardCommand) - target) <= tolerance)
+                            break;
+
+                        if (++idlePolls > 20)
+                            break;
+                    }
+
+                    if (DateTime.UtcNow >= deadline)
+                        return FailMotion(-3, "MOVE JOIN",
+                            "이동 합류 대기 timeout. timeoutMs=" + timeoutMs, target, true);
+
+                    await Task.Delay(10, ct).ConfigureAwait(false);
+                }
+
+                UpdateStatus();
+                if (!IsServoOn)
+                    return FailMotion(-2, "MOVE JOIN", "이동 합류 대기 후 서보가 OFF 상태입니다.", target, true);
+
+                double boardCommand = 0.0;
+                int readRet = AXM.GetCommandPosition(AxisNo, ref boardCommand);
+                if (readRet != 0)
+                    return FailMotion(readRet, "MOVE JOIN",
+                        "이동 합류 완료 후 보드 Command 위치 조회 실패. ret=" + readRet, target, true);
+
+                double command = FromBoardPosition(boardCommand);
+                if (Math.Abs(command - target) > tolerance)
+                    return FailMotion(-5, "MOVE JOIN",
+                        "이동 합류 완료 후 보드 Command 위치가 목표와 다릅니다. command=" + command.ToString("0.######") +
+                        ", target=" + target.ToString("0.######") +
+                        ", tolerance=" + tolerance.ToString("0.######"), target, true);
+
+                return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return FailMotion(-1, "MOVE JOIN", "이동 합류 대기 중 예외. " + ex.Message, target, true);
+            }
+            finally
+            {
+            }
+        }
+
+        // 기존 조건: IsMoving+INP(IsInPosition) 조합으로 완료를 판정했다.
+        // 현재 기준: AXM.GetInMotion(보드 InMotion 비트) 10ms 폴링만으로 완료를 판정한다 — INP 신호는
+        //           완료 조건에서 제외(설계 결정, 사용자 승인). UpdateStatus로 위치 관측값 갱신은 유지.
+        //           시작 유예(detectedMotion 래치 + 20폴)는 명령 직후 InMotion 미반영 레이스 방어로 유지.
         private async Task<int> WaitUntilMoveDone(int motionStopSerial)
         {
             int guard = 0;
@@ -2956,16 +3054,19 @@ namespace QMC.CDT320.Ajin
             while (!IsAlarm)
             {
                 UpdateStatus();
-                if (IsMoving)
+
+                bool inMotion = false;
+                AXM.GetInMotion(AxisNo, ref inMotion);
+                if (inMotion)
                     detectedMotion = true;
 
-                if (detectedMotion && !IsMoving && IsInPosition)
+                if (detectedMotion && !inMotion)
                     break;
 
-                if (!detectedMotion && guard > 20 && IsInPosition)
+                if (!detectedMotion && guard > 20 && !inMotion)
                     break;
 
-                if (Volatile.Read(ref _motionStopSerial) != motionStopSerial && !IsMoving)
+                if (Volatile.Read(ref _motionStopSerial) != motionStopSerial && !inMotion)
                     return -4;
 
                 await Task.Delay(10).ConfigureAwait(false);

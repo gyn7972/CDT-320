@@ -1129,7 +1129,15 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             double tolerance = item != null && item.Config != null && item.Config.InPositionTolerance > 0.0
                 ? item.Config.InPositionTolerance
                 : 0.05;
-            return AxisMoveWaiter.BuildAxisState(item, target, tolerance);
+            if (item == null)
+                return "axisState=[axis=null, target=" + target.ToString("F6") + "]";
+            return "axisState=[actual=" + item.ActualPosition.ToString("F6") +
+                   ", command=" + item.CommandPosition.ToString("F6") +
+                   ", target=" + target.ToString("F6") +
+                   ", tolerance=" + tolerance.ToString("F6") +
+                   ", moving=" + item.IsMoving +
+                   ", servo=" + item.IsServoOn +
+                   ", alarm=" + item.IsAlarm + "]";
         }
 
         private static string BuildAppliedZoneTargetName(RecipePickerMoveTarget target, string phase)

@@ -764,7 +764,7 @@ namespace QMC.CDT320.Sequencing
             double tolerance = axis.Config != null && axis.Config.InPositionTolerance > 0.0
                 ? axis.Config.InPositionTolerance
                 : 0.01;
-            return AxisMoveWaiter.CanSkipMoveCommandAtTarget(axis, target, tolerance);
+            return axis.IsAtTargetPosition(target, tolerance);
         }
 
         private static int LogOptimizationResult(PickerSequenceSide side, string dieId, int result, string mode)

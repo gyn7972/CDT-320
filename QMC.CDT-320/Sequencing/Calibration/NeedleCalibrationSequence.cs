@@ -732,26 +732,8 @@ namespace QMC.CDT320.Sequencing.Calibration
                     ", actual=" + axis.ActualPosition.ToString("F6"));
             }
 
-            AxisMoveWaitResult wait = await _stage.WaitInputStageAxisInPositionResult(
-                stageAxis,
-                target,
-                _settings.Motion.MoveTimeoutMs,
-                ct).ConfigureAwait(false);
-            if (wait == null || !wait.Success)
-            {
-                if (IsAxisAtTarget(axis, target))
-                {
-                    EventLogger.Write(EventKind.Event, "CAL", "NEEDLE-CAL-WAIT-ACCEPT",
-                        label + " wait non-success accepted by actual tolerance. " +
-                        AxisMoveWaiter.FormatResult(wait, axis.Name));
-                    return 0;
-                }
-
-                return Fail("NEEDLE-CAL-MOVE-WAIT", axis.Name,
-                    label + " 위치 확인 실패. target=" + target.ToString("F6") +
-                    ", " + AxisMoveWaiter.FormatResult(wait, axis.Name));
-            }
-
+            // 기존 조건: 이동 후 재대기(+실측 수용 분기) — 현재 기준: 이동 함수가 완료를 보장하므로 제거(R3).
+            // 캘리브레이션 최종 위치 확인은 실측 정확도 게이트로 유지(R4 애매 지점).
             return CheckAxisInPosition(stageAxis, axis, target, label);
         }
 

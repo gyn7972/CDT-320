@@ -2694,16 +2694,16 @@ namespace QMC.CDT320.Sequencing
             {
                 ct.ThrowIfCancellationRequested();
 
-                AxisMoveWaitResult waitResult = await stage.WaitInputStageAxisInPositionResult(
+                int waitCode = await stage.WaitInputStageAxisInPositionResult(
                     axis,
                     target,
                     ResolveTimeout(),
                     ct).ConfigureAwait(false);
 
-                if (waitResult == null || !waitResult.Success)
-                    return Fail(ResolveAxisMoveWaitAlarmCode("INPUT-DIE-VISION-PREPARE-STAGE", waitResult), stage.Name,
-                        description + " 이동/InPosition 대기 실패. " +
-                        FormatAxisMoveWaitResult(waitResult, BuildInputStageAxisState(stage, axis, target)));
+                if (waitCode != 0)
+                    return Fail("INPUT-DIE-VISION-PREPARE-STAGE", stage.Name,
+                        description + " 이동/InPosition 대기 실패. waitCode=" + waitCode +
+                        ". " + BuildInputStageAxisState(stage, axis, target));
 
                 ct.ThrowIfCancellationRequested();
                 return 0;
@@ -2755,8 +2755,10 @@ namespace QMC.CDT320.Sequencing
                 double tolerance = item.Config != null && item.Config.InPositionTolerance > 0.0
                     ? item.Config.InPositionTolerance
                     : 0.05;
+                // 기존 조건: AxisMoveWaiter.IsMoveCompletedAtTarget — 현재 기준: 동일 공식의
+                // BaseAxis.IsAtTargetPosition(정지+무알람+서보ON+Actual/Command 톨러런스)로 통일(R2).
                 if (IsInputCameraPreInspectionPrecisionAxis(axis) &&
-                    !AxisMoveWaiter.IsMoveCompletedAtTarget(item, target, tolerance))
+                    !item.IsAtTargetPosition(target, tolerance))
                     return Fail("INPUT-DIE-VISION-PREPARE-STAGE-POSITION", stage.Name,
                         description + " 최종 강한 완료 확인 실패. " + BuildInputStageAxisState(stage, axis, target));
 
@@ -2932,13 +2934,15 @@ namespace QMC.CDT320.Sequencing
                     ? item.Config.InPositionTolerance
                     : 0.05;
 
+                // 현장(F3 선행검사 정밀축): 소수 3자리 스킵 판정 유지. 일반 경로는 AxisMoveWaiter 제거에 따라
+                // BaseAxis.IsAtTargetPosition(동일 공식)으로 통일(R2).
                 if (IsInputCameraPreInspectionPrecisionAxis(axis))
                     return PickerInputStageMoveHelper.CanSkipInputCameraPreInspectionMoveAtThreeDecimals(
                         item,
                         target,
                         tolerance);
 
-                return AxisMoveWaiter.CanSkipMoveCommandAtTarget(item, target, tolerance);
+                return item != null && item.IsAtTargetPosition(target, tolerance);
             }
             catch
             {

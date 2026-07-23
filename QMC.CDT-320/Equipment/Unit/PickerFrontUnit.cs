@@ -1598,16 +1598,7 @@ namespace QMC.CDT320
                 if (result != 0)
                     return result;
 
-                AxisMoveWaitResult waitResult = await WaitPickerAxisMoveDoneInPosition(
-                    axis,
-                    targetPos,
-                    ResolvePickerAxisMoveTimeoutMs(axis)).ConfigureAwait(false);
-                if (!waitResult.Success)
-                    return RaisePickerAlarm(
-                        AxisMoveWaiter.ResolveAlarmCode("PK-MOVE", waitResult),
-                        axis + " 조그 속도 위치 이동 완료 확인 실패. target=" + targetPos + ". " +
-                        AxisMoveWaiter.FormatResult(waitResult, axis.ToString()));
-
+                // 기존 조건: 이동 후 AxisMoveWaiter 재대기 — 현재 기준: 이동 함수가 완료를 보장하므로 제거(R3).
                 return 0;
             }
             catch (Exception ex)
@@ -1964,17 +1955,8 @@ namespace QMC.CDT320
                             BuildAxisLastMotionFailure(item));
                     }
 
-                    Stopwatch verifyWatch = Stopwatch.StartNew();
-                    AxisMoveWaitResult waitResult = await VerifyPickerAxisAfterCompletedMoveAsync(
-                        axis,
-                        targetPos).ConfigureAwait(false);
-                    verifyMs = verifyWatch.ElapsedMilliseconds;
-                    //WritePickerMoveElapsed(axis, startPos, targetPos, targetName, bFine, velocity, acceleration, deceleration, result, commandMs, verifyMs, totalWatch.ElapsedMilliseconds, waitResult);
-                    if (!waitResult.Success)
-                        return RaisePickerAlarm(
-                            AxisMoveWaiter.ResolveAlarmCode("PK-MOVE", waitResult),
-                            axis + " move/in-position verify failed. target=" + targetPos + ". " +
-                            AxisMoveWaiter.FormatResult(waitResult, axis.ToString()));
+                    // 기존 조건: 이동 완료 후 Verify(스냅샷+재대기 하이브리드)를 한 번 더 수행했다.
+                    // 현재 기준: 이동 함수가 완료를 보장하므로 직후 재검증을 제거한다(R4 — 같은 축·같은 목표 재확인).
                 }
 
                 return 0;
@@ -2238,7 +2220,10 @@ namespace QMC.CDT320
                 ", formula=targetT=teachingT(" + teachingT.ToString("F6") +
                 ")+runtimeT(" + runtimeT.ToString("F6") +
                 ")+colletT(homeZeroApplied)(0.000000)=" + targetT.ToString("F6") +
-                ", " + AxisMoveWaiter.BuildAxisState(item, targetT, tolerance) +
+                ", axisState=[actual=" + (item != null ? item.ActualPosition.ToString("F6") : "-") +
+                ", command=" + (item != null ? item.CommandPosition.ToString("F6") : "-") +
+                ", target=" + targetT.ToString("F6") +
+                ", tolerance=" + tolerance.ToString("F6") + "]" +
                 (result == 0 ? " - Ok" : " - Failed"));
 
             return result;
@@ -2259,8 +2244,8 @@ namespace QMC.CDT320
         {
             try
             {
-                AxisMoveWaitResult waitResult = await WaitPickerAxisMoveDoneInPosition(axis, timeoutMs, ct).ConfigureAwait(false);
-                return waitResult.Success;
+                int waitCode = await WaitPickerAxisMoveDoneInPosition(axis, timeoutMs, ct).ConfigureAwait(false);
+                return waitCode == 0;
             }
             catch (OperationCanceledException)
             {
@@ -2278,12 +2263,14 @@ namespace QMC.CDT320
             }
         }
 
-        public async Task<AxisMoveWaitResult> WaitPickerAxisMoveDoneInPosition(PickerAxis axis, int timeoutMs)
+        // 기존 조건: AxisMoveWaitResult(실패 7종) 반환 — 현재 기준: int(0=완료, 음수=실패) 반환(R3).
+        //           실패 사유는 축.LastMotionFailureMessage에 기록된다.
+        public async Task<int> WaitPickerAxisMoveDoneInPosition(PickerAxis axis, int timeoutMs)
         {
             return await WaitPickerAxisMoveDoneInPosition(axis, timeoutMs, CancellationToken.None).ConfigureAwait(false);
         }
 
-        public async Task<AxisMoveWaitResult> WaitPickerAxisMoveDoneInPosition(PickerAxis axis, int timeoutMs, CancellationToken ct)
+        public async Task<int> WaitPickerAxisMoveDoneInPosition(PickerAxis axis, int timeoutMs, CancellationToken ct)
         {
             try
             {
@@ -2299,36 +2286,26 @@ namespace QMC.CDT320
                 Log.Write("Main", "SYSTEM", "PickerFrontWait",
                     "Picker axis move wait/in-position failed. axis=" + axis +
                     ", error=" + ex.Message + " - Failed");
-                return new AxisMoveWaitResult(
-                    AxisMoveWaitFailure.Timeout,
-                    "Picker axis move wait exception: " + ex.Message,
-                    "axis=" + axis);
+                return -1;
             }
             finally
             {
             }
         }
 
-        public async Task<AxisMoveWaitResult> WaitPickerAxisMoveDoneInPosition(PickerAxis axis, double targetPos, int timeoutMs)
+        public async Task<int> WaitPickerAxisMoveDoneInPosition(PickerAxis axis, double targetPos, int timeoutMs)
         {
             return await WaitPickerAxisMoveDoneInPosition(axis, targetPos, timeoutMs, CancellationToken.None).ConfigureAwait(false);
         }
 
-        public async Task<AxisMoveWaitResult> WaitPickerAxisMoveDoneInPosition(PickerAxis axis, double targetPos, int timeoutMs, CancellationToken ct)
+        public async Task<int> WaitPickerAxisMoveDoneInPosition(PickerAxis axis, double targetPos, int timeoutMs, CancellationToken ct)
         {
             try
             {
                 BaseAxis item = GetAxis(axis);
-                double tolerance = item.Config != null && item.Config.InPositionTolerance > 0.0
-                    ? item.Config.InPositionTolerance
-                    : 0.05;
-                return await AxisMoveWaiter.WaitMoveDoneInPositionAsync(
-                    item,
-                    targetPos,
-                    tolerance,
-                    timeoutMs,
-                    PickerMoveInPositionSettleMs,
-                    ct).ConfigureAwait(false);
+                if (item == null)
+                    return -2;
+                return await item.WaitMoveCompleteAsync(targetPos, timeoutMs, ct).ConfigureAwait(false);
             }
             catch (OperationCanceledException)
             {
@@ -2340,69 +2317,11 @@ namespace QMC.CDT320
                     "Picker axis move wait/in-position failed. axis=" + axis +
                     ", target=" + targetPos +
                     ", error=" + ex.Message + " - Failed");
-                return new AxisMoveWaitResult(
-                    AxisMoveWaitFailure.Timeout,
-                    "Picker axis move wait exception: " + ex.Message,
-                    "axis=" + axis + ", target=" + targetPos);
+                return -1;
             }
             finally
             {
             }
-        }
-
-        private async Task<AxisMoveWaitResult> VerifyPickerAxisAfterCompletedMoveAsync(PickerAxis axis, double targetPos)
-        {
-            AxisMoveWaitResult immediate = VerifyPickerAxisMoveDoneInPosition(axis, targetPos);
-            if (immediate.Success ||
-                immediate.Failure == AxisMoveWaitFailure.AxisMissing ||
-                immediate.Failure == AxisMoveWaitFailure.ServoOff ||
-                immediate.Failure == AxisMoveWaitFailure.Alarm)
-            {
-                return immediate;
-            }
-
-            return await WaitPickerAxisMoveDoneInPosition(
-                axis,
-                targetPos,
-                CompletedMoveVerifyTimeoutMs).ConfigureAwait(false);
-        }
-
-        private AxisMoveWaitResult VerifyPickerAxisMoveDoneInPosition(PickerAxis axis, double targetPos)
-        {
-            BaseAxis item = GetAxis(axis);
-            double tolerance = item != null && item.Config != null && item.Config.InPositionTolerance > 0.0
-                ? item.Config.InPositionTolerance
-                : 0.05;
-            string axisState = AxisMoveWaiter.BuildAxisState(item, targetPos, tolerance);
-
-            if (item == null)
-                return new AxisMoveWaitResult(AxisMoveWaitFailure.AxisMissing, "Axis is null.", axisState);
-            if (!item.IsServoOn)
-                return new AxisMoveWaitResult(AxisMoveWaitFailure.ServoOff, "Axis servo is OFF.", axisState);
-            if (item.IsAlarm)
-                return new AxisMoveWaitResult(AxisMoveWaitFailure.Alarm, "Axis alarm is ON.", axisState);
-
-            bool targetInTolerance = Math.Abs(item.ActualPosition - targetPos) <= tolerance;
-            bool commandInTolerance = Math.Abs(item.CommandPosition - targetPos) <= tolerance;
-            if (!item.IsMoving && targetInTolerance && commandInTolerance)
-            {
-                return AxisMoveWaitResult.Ok(
-                    item,
-                    targetPos,
-                    tolerance,
-                    item.IsInPosition
-                        ? "Axis reached target position."
-                        : "Axis reached target position by command/actual tolerance. In-position signal is OFF.");
-            }
-
-            if (item.IsMoving)
-                return new AxisMoveWaitResult(AxisMoveWaitFailure.Moving, "Axis is still moving.", axisState);
-            if (!targetInTolerance)
-                return new AxisMoveWaitResult(AxisMoveWaitFailure.TargetToleranceOut, "Axis actual position is out of target tolerance.", axisState);
-            if (!item.IsInPosition)
-                return new AxisMoveWaitResult(AxisMoveWaitFailure.InPositionSignalOff, "Axis in-position signal is OFF.", axisState);
-
-            return new AxisMoveWaitResult(AxisMoveWaitFailure.Timeout, "Axis move verify failed.", axisState);
         }
 
         private void WritePickerMoveElapsed(
@@ -2418,7 +2337,7 @@ namespace QMC.CDT320
             long commandMs,
             long verifyMs,
             long totalMs,
-            AxisMoveWaitResult waitResult)
+            string verifyResult)
         {
             try
             {
@@ -2431,7 +2350,7 @@ namespace QMC.CDT320
                     ", commandMs=" + commandMs +
                     ", verifyMs=" + verifyMs +
                     ", result=" + result +
-                    ", verify=" + (waitResult != null ? waitResult.Failure.ToString() : "-") +
+                    ", verify=" + (verifyResult ?? "-") +
                     ", start=" + startPos +
                     ", target=" + targetPos +
                     ", distance=" + Math.Abs(targetPos - startPos) +
@@ -2454,7 +2373,7 @@ namespace QMC.CDT320
                     commandMs,
                     verifyMs,
                     totalMs,
-                    waitResult);
+                    verifyResult);
             }
             catch
             {
@@ -2509,23 +2428,23 @@ namespace QMC.CDT320
 
         public async Task<bool> WaitPickerAxesMoveDone(IEnumerable<PickerAxis> targetAxes, int timeoutMs)
         {
-            AxisMoveWaitResult waitResult = await WaitPickerAxesMoveDoneInPosition(targetAxes, timeoutMs).ConfigureAwait(false);
-            return waitResult.Success;
+            int waitCode = await WaitPickerAxesMoveDoneInPosition(targetAxes, timeoutMs).ConfigureAwait(false);
+            return waitCode == 0;
         }
 
-        public async Task<AxisMoveWaitResult> WaitPickerAxesMoveDoneInPosition(IEnumerable<PickerAxis> targetAxes, int timeoutMs)
+        public async Task<int> WaitPickerAxesMoveDoneInPosition(IEnumerable<PickerAxis> targetAxes, int timeoutMs)
         {
             if (targetAxes == null)
-                return new AxisMoveWaitResult(AxisMoveWaitFailure.AxisMissing, "Picker target axis collection is null.", "axes=null");
+                return -2;
 
             foreach (PickerAxis axis in targetAxes)
             {
-                AxisMoveWaitResult waitResult = await WaitPickerAxisMoveDoneInPosition(axis, timeoutMs).ConfigureAwait(false);
-                if (!waitResult.Success)
-                    return waitResult;
+                int waitCode = await WaitPickerAxisMoveDoneInPosition(axis, timeoutMs).ConfigureAwait(false);
+                if (waitCode != 0)
+                    return waitCode;
             }
 
-            return new AxisMoveWaitResult(AxisMoveWaitFailure.None, "All picker axes reached target position.", "axes=ok");
+            return 0;
         }
 
         public bool IsPickerAxisInTeachingPosition(PickerAxis axis, string positionName)
@@ -3715,7 +3634,7 @@ namespace QMC.CDT320
                 BaseAxis zAxis = GetAxis(pair.Key);
                 zAxis.UpdateStatus();
                 double avoidTarget = GetPickerTeachingPosition(pair.Key, "AvoidPosition");
-                if (!AxisMoveWaiter.CanSkipMoveCommandAtTarget(zAxis, avoidTarget))
+                if (!zAxis.IsAtTargetPosition(avoidTarget, 0.0))
                     tasks.Add(MovePickerAxisNamed(pair.Key, avoidTarget, bFine, "AvoidPosition;PickerPhase=SafeZ"));
             }
 
@@ -3743,7 +3662,7 @@ namespace QMC.CDT320
                 BaseAxis zAxis = GetAxis(pair.Key);
                 zAxis.UpdateStatus();
                 double avoidTarget = GetPickerTeachingPosition(pair.Key, "AvoidPosition");
-                if (!AxisMoveWaiter.CanSkipMoveCommandAtTarget(zAxis, avoidTarget))
+                if (!zAxis.IsAtTargetPosition(avoidTarget, 0.0))
                 {
                     tasks.Add(MovePickerAxis(
                         pair.Key,

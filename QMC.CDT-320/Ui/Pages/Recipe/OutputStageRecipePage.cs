@@ -531,19 +531,13 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             if (!feeder.IsFeederUnclamped())
                 return AbortSeq(title, "OutputFeeder Unclamp 최종 확인 실패. " + feeder.DescribeFeederCylinderState());
 
-            if (!AxisMoveWaiter.CanSkipMoveCommandAtTarget(
-                feeder.FeederY,
-                feeder.Recipe.AvoidPosition))
+            if (!feeder.FeederY.IsAtTargetPosition(feeder.Recipe.AvoidPosition, 0.0))
             {
                 int moveResult = await feeder.MoveToFeederAvoidPosition(jogAxisMoveControl.SelectedSpeedType == JogSpeedType.Fine).ConfigureAwait(true);
                 if (moveResult != 0)
                     return AbortSeq(title, "OutputFeederY Avoid 이동 실패. result=" + moveResult + ", " + feeder.DescribeBinFeederYMoveDoneState() + feeder.DescribeBinFeederYLastMotionFailure());
 
-                AxisMoveWaitResult waitResult = await feeder.WaitBinFeederYMoveDoneInPosition(
-                    feeder.Recipe.AvoidPosition,
-                    ManualCylinderTimeoutMs).ConfigureAwait(true);
-                if (!waitResult.Success)
-                    return AbortSeq(title, "OutputFeederY Avoid 이동 완료 확인 실패. " + AxisMoveWaiter.FormatResult(waitResult, feeder.DescribeBinFeederYMoveDoneState()));
+                // 기존 조건: 이동 후 재대기 — 현재 기준: 이동 함수가 완료를 보장하므로 제거(R3).
             }
 
             if (!feeder.IsBinFeederYInAvoidPosition())

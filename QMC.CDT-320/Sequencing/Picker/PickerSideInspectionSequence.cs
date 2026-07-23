@@ -1072,8 +1072,8 @@ namespace QMC.CDT320.Sequencing
                 double rearTolerance = rear != null && rear.Config != null && rear.Config.InPositionTolerance > 0.0
                     ? rear.Config.InPositionTolerance
                     : 0.01;
-                return AxisMoveWaiter.CanSkipMoveCommandAtTarget(front, frontTarget, frontTolerance) &&
-                       AxisMoveWaiter.CanSkipMoveCommandAtTarget(rear, rearTarget, rearTolerance);
+                return front != null && front.IsAtTargetPosition(frontTarget, frontTolerance) &&
+                       rear != null && rear.IsAtTargetPosition(rearTarget, rearTolerance);
             }
             catch
             {
@@ -1525,16 +1525,16 @@ namespace QMC.CDT320.Sequencing
                         ", " + BuildPickerAxisState(tAxis, pending.Target));
                 }
 
-                var waitResult = await WaitPickerAxisMoveDoneAsync(
+                int waitCode = await WaitPickerAxisMoveDoneAsync(
                     tAxis,
                     pending.Target,
                     ResolveTimeout(),
                     ct).ConfigureAwait(false);
-                if (waitResult == null || !waitResult.Success)
+                if (waitCode != 0)
                 {
-                    return Fail(ResolveAxisMoveWaitAlarmCode("PICKER-SIDE-T0-DEFER", waitResult), Name,
-                        "예약된 PickerT 0도 복귀 완료 대기 실패. " +
-                        FormatAxisMoveWaitResult(waitResult, BuildPickerAxisState(tAxis, pending.Target)));
+                    return Fail("PICKER-SIDE-T0-DEFER", Name,
+                        "예약된 PickerT 0도 복귀 완료 대기 실패. waitCode=" + waitCode +
+                        ". " + BuildPickerAxisState(tAxis, pending.Target));
                 }
 
                 if (!IsPickerAxisInPosition(tAxis, pending.Target))

@@ -5278,7 +5278,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             double tolerance = axis.Config != null && axis.Config.InPositionTolerance > 0.0
                 ? axis.Config.InPositionTolerance
                 : 0.05;
-            return AxisMoveWaiter.CanSkipMoveCommandAtTarget(axis, target, tolerance);
+            return axis.IsAtTargetPosition(target, tolerance);
         }
 
         private static bool CanSkipPickerMoveCommand(Form1 host, PickerSequenceSide side, PickerAxis axis, double target)

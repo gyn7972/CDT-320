@@ -232,10 +232,7 @@ namespace QMC.CDT320
                 if (!ValidateBinFeederYTargetPosition(targetPos))
                     return RaiseFeederAlarm("BF-Y-SOFT-LIMIT", "OutputFeederY 목표 위치가 소프트 리미트를 벗어났습니다. target=" + targetPos);
 
-                if (AxisMoveWaiter.CanSkipMoveCommandAtTarget(
-                    FeederY,
-                    targetPos,
-                    ResolveBinFeederYInPositionTolerance()))
+                if (FeederY.IsAtTargetPosition(targetPos, ResolveBinFeederYInPositionTolerance()))
                 {
                     EventLogger.Write(EventKind.Event, "QMC", "BF-Y-MOVE",
                         "OutputFeederY가 이미 목표 위치에 있습니다. target=" + targetPos + ", " + DescribeBinFeederYMoveDoneState());
@@ -252,12 +249,12 @@ namespace QMC.CDT320
                         ", alarm=" + FeederY.IsAlarm +
                         FormatAxisLastMotionFailure());
 
-                AxisMoveWaitResult waitResult = await WaitBinFeederYMoveDoneInPosition(targetPos, ResolveBinFeederYMoveTimeoutMs()).ConfigureAwait(false);
-                if (!waitResult.Success)
+                // 기존 조건: 이동 후 재대기 — 현재 기준: 이동 함수가 완료를 보장하므로 재대기는 제거하고
+                // 오버로드 검사만 보존한다(C7).
+                if (IsFeederOverload())
                     return RaiseFeederAlarm(
-                        AxisMoveWaiter.ResolveAlarmCode("BF-Y-MOVE", waitResult),
-                        "OutputFeederY 이동 완료 확인이 실패했습니다. target=" + targetPos + ". " +
-                        AxisMoveWaiter.FormatResult(waitResult, DescribeBinFeederYMoveDoneState()));
+                        "BF-Y-OVERLOAD",
+                        "OutputFeederY 이동 후 오버로드가 감지되었습니다. target=" + targetPos + ", " + DescribeBinFeederYMoveDoneState());
 
                 return 0;
             }
@@ -283,10 +280,7 @@ namespace QMC.CDT320
                 if (!ValidateBinFeederYTargetPosition(targetPos))
                     return RaiseFeederAlarm("BF-Y-SOFT-LIMIT", "OutputFeederY 조그 속도 목표 위치가 소프트 리미트를 벗어났습니다. target=" + targetPos);
 
-                if (!forceMove && AxisMoveWaiter.CanSkipMoveCommandAtTarget(
-                    FeederY,
-                    targetPos,
-                    ResolveBinFeederYInPositionTolerance()))
+                if (!forceMove && FeederY.IsAtTargetPosition(targetPos, ResolveBinFeederYInPositionTolerance()))
                 {
                     EventLogger.Write(EventKind.Event, "QMC", "BF-Y-MOVE",
                         "OutputFeederY가 이미 목표 위치에 있습니다. target=" + targetPos + ", " + DescribeBinFeederYMoveDoneState());
@@ -308,12 +302,12 @@ namespace QMC.CDT320
                         ", alarm=" + FeederY.IsAlarm +
                         FormatAxisLastMotionFailure());
 
-                AxisMoveWaitResult waitResult = await WaitBinFeederYMoveDoneInPosition(targetPos, ResolveBinFeederYMoveTimeoutMs()).ConfigureAwait(false);
-                if (!waitResult.Success)
+                // 기존 조건: 이동 후 재대기 — 현재 기준: 이동 함수가 완료를 보장하므로 재대기는 제거하고
+                // 오버로드 검사만 보존한다(C7).
+                if (IsFeederOverload())
                     return RaiseFeederAlarm(
-                        AxisMoveWaiter.ResolveAlarmCode("BF-Y-MOVE", waitResult),
-                        "OutputFeederY 조그 속도 이동 완료 확인이 실패했습니다. target=" + targetPos + ". " +
-                        AxisMoveWaiter.FormatResult(waitResult, DescribeBinFeederYMoveDoneState()));
+                        "BF-Y-OVERLOAD",
+                        "OutputFeederY 조그 속도 이동 후 오버로드가 감지되었습니다. target=" + targetPos + ", " + DescribeBinFeederYMoveDoneState());
 
                 return 0;
             }
@@ -436,8 +430,8 @@ namespace QMC.CDT320
         {
             try
             {
-                AxisMoveWaitResult waitResult = await WaitBinFeederYMoveDoneInPosition(FeederY.CommandPosition, timeoutMs, ct).ConfigureAwait(false);
-                return waitResult.Success;
+                int waitCode = await WaitBinFeederYMoveDoneInPosition(FeederY.CommandPosition, timeoutMs, ct).ConfigureAwait(false);
+                return waitCode == 0;
             }
             catch (OperationCanceledException)
             {
@@ -454,32 +448,29 @@ namespace QMC.CDT320
             }
         }
 
-        public async Task<AxisMoveWaitResult> WaitBinFeederYMoveDoneInPosition(double targetPos, int timeoutMs)
+        // 기존 조건: AxisMoveWaitResult(실패 7종) 반환 — 현재 기준: int(0=완료, 음수=실패) 반환(R3).
+        //           실패 사유는 축.LastMotionFailureMessage에 기록된다.
+        //           오버로드 감지 시 -9를 반환한다(C7 특기 보존).
+        public async Task<int> WaitBinFeederYMoveDoneInPosition(double targetPos, int timeoutMs)
         {
             return await WaitBinFeederYMoveDoneInPosition(targetPos, timeoutMs, CancellationToken.None).ConfigureAwait(false);
         }
 
-        public async Task<AxisMoveWaitResult> WaitBinFeederYMoveDoneInPosition(double targetPos, int timeoutMs, CancellationToken ct)
+        public async Task<int> WaitBinFeederYMoveDoneInPosition(double targetPos, int timeoutMs, CancellationToken ct)
         {
             try
             {
-                AxisMoveWaitResult waitResult = await AxisMoveWaiter.WaitMoveDoneInPositionAsync(
-                    FeederY,
+                int waitCode = await FeederY.WaitMoveCompleteAsync(
                     targetPos,
-                    ResolveBinFeederYInPositionTolerance(),
                     timeoutMs > 0 ? timeoutMs : ResolveBinFeederYMoveTimeoutMs(),
-                    0,
                     ct).ConfigureAwait(false);
-                if (!waitResult.Success)
-                    return waitResult;
+                if (waitCode != 0)
+                    return waitCode;
 
                 if (IsFeederOverload())
-                    return new AxisMoveWaitResult(
-                        AxisMoveWaitFailure.Alarm,
-                        "BinFeeder overload is detected.",
-                        waitResult.AxisState + ", overload=True");
+                    return -9;
 
-                return waitResult;
+                return 0;
             }
             catch (OperationCanceledException)
             {
@@ -490,10 +481,7 @@ namespace QMC.CDT320
                 Log.Write("Main", "SYSTEM", "OutputFeederWait",
                     "BinFeederY move/in-position wait failed. target=" + targetPos +
                     ", error=" + ex.Message + " - Failed");
-                return new AxisMoveWaitResult(
-                    AxisMoveWaitFailure.Timeout,
-                    "BinFeederY move wait exception: " + ex.Message,
-                    DescribeBinFeederYMoveDoneState());
+                return -1;
             }
             finally
             {
@@ -559,8 +547,8 @@ namespace QMC.CDT320
         {
             double target = GetTeachingPosition(positionName);
             int timeout = timeoutMs > 0 ? timeoutMs : ResolveBinFeederYMoveTimeoutMs();
-            AxisMoveWaitResult waitResult = await WaitBinFeederYMoveDoneInPosition(target, timeout).ConfigureAwait(false);
-            return waitResult.Success;
+            int waitCode = await WaitBinFeederYMoveDoneInPosition(target, timeout).ConfigureAwait(false);
+            return waitCode == 0;
         }
 
         public bool IsBinFeederYInPosition(double targetPos, double tolerance)
@@ -1866,16 +1854,17 @@ namespace QMC.CDT320
             string description,
             CancellationToken ct)
         {
-            AxisMoveWaitResult waitResult = await WaitBinFeederYMoveDoneInPosition(target, timeoutMs).ConfigureAwait(false);
+            int waitCode = await WaitBinFeederYMoveDoneInPosition(target, timeoutMs).ConfigureAwait(false);
             ct.ThrowIfCancellationRequested();
 
-            if (waitResult.Success)
+            if (waitCode == 0)
                 return 0;
 
             return RaiseFeederAlarm(
-                AxisMoveWaiter.ResolveAlarmCode(alarmPrefix, waitResult),
-                description + " move/in-position wait failed. " +
-                AxisMoveWaiter.FormatResult(waitResult, DescribeBinFeederYMoveDoneState()));
+                alarmPrefix + "-MOVE",
+                description + " move/in-position wait failed. waitCode=" + waitCode +
+                ", reason=" + (FeederY.LastMotionFailureMessage ?? string.Empty) +
+                ". " + DescribeBinFeederYMoveDoneState());
         }
 
         private void SetExclusiveOutput(BaseDigitalOutput onOutput, BaseDigitalOutput oppositeOutput, bool on, string code)

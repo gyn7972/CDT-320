@@ -650,7 +650,7 @@ namespace QMC.CDT320.Sequencing.Calibration
                     return Fail("VISION-FOCUS-CAL-INPUT-CAMERA-MISSING", "InputStageUnit", "InputCamera Avoid \uC774\uB3D9\uC744 \uC704\uD55C \uCD95/Recipe \uC815\uBCF4\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4.");
 
                 double target = stage.Recipe.VisionX.AvoidPosition;
-                if (AxisMoveWaiter.CanSkipMoveCommandAtTarget(stage.CameraX, target))
+                if (stage.CameraX.IsAtTargetPosition(target, 0.0))
                     return 0;
 
                 QMC.Common.Log.Write("Calibration", "SYSTEM", "VisionFocusCalStartSafe",
@@ -707,7 +707,7 @@ namespace QMC.CDT320.Sequencing.Calibration
 
                 stage.Recipe.EnsurePositionObjects();
                 double target = stage.Recipe.VisionX.AvoidPosition;
-                if (AxisMoveWaiter.CanSkipMoveCommandAtTarget(stage.OutputCameraX, target))
+                if (stage.OutputCameraX.IsAtTargetPosition(target, 0.0))
                     return 0;
 
                 QMC.Common.Log.Write("Calibration", "SYSTEM", "VisionFocusCalStartSafe",
@@ -1210,10 +1210,8 @@ namespace QMC.CDT320.Sequencing.Calibration
             if (result != 0)
                 return result;
 
-            AxisMoveWaitResult wait = await WaitAxisMoveDoneInPositionAsync(item, target, ResolveMotionTimeoutMs(), ct).ConfigureAwait(false);
-            if (!wait.Success)
-                return Fail("VISION-FOCUS-CAL-FRONT-AXIS-WAIT", "PickerFrontUnit", "FrontPicker 축 이동 완료 확인 실패. axis=" + axis + ", target=" + target.ToString("F3") + ", reason=" + wait.Reason);
-
+            // 기존 조건: 이동 후 재대기 — 현재 기준: 이동 함수가 완료를 보장하므로 제거(R3).
+            // 캘리브레이션 최종 위치 확인(IsPickerAxisInPosition)은 실측 정확도 게이트로 유지(R4 애매 지점).
             double tolerance = ResolveAxisInPositionTolerance(item);
             if (!_machine.PickerFrontUnit.IsPickerAxisInPosition(axis, target, tolerance))
                 return Fail("VISION-FOCUS-CAL-FRONT-AXIS-FINAL", "PickerFrontUnit",
@@ -1246,10 +1244,8 @@ namespace QMC.CDT320.Sequencing.Calibration
             if (result != 0)
                 return result;
 
-            AxisMoveWaitResult wait = await WaitAxisMoveDoneInPositionAsync(item, target, ResolveMotionTimeoutMs(), ct).ConfigureAwait(false);
-            if (!wait.Success)
-                return Fail("VISION-FOCUS-CAL-REAR-AXIS-WAIT", "PickerRearUnit", "RearPicker 축 이동 완료 확인 실패. axis=" + axis + ", target=" + target.ToString("F3") + ", reason=" + wait.Reason);
-
+            // 기존 조건: 이동 후 재대기 — 현재 기준: 이동 함수가 완료를 보장하므로 제거(R3).
+            // 캘리브레이션 최종 위치 확인(IsPickerAxisInPosition)은 실측 정확도 게이트로 유지(R4 애매 지점).
             double tolerance = ResolveAxisInPositionTolerance(item);
             if (!_machine.PickerRearUnit.IsPickerAxisInPosition(axis, target, tolerance))
                 return Fail("VISION-FOCUS-CAL-REAR-AXIS-FINAL", "PickerRearUnit",
@@ -1314,22 +1310,19 @@ namespace QMC.CDT320.Sequencing.Calibration
             double tolerance = axis.Config != null && axis.Config.InPositionTolerance > 0.0
                 ? axis.Config.InPositionTolerance
                 : 0.01;
-            return AxisMoveWaiter.CanSkipMoveCommandAtTarget(axis, target, tolerance);
+            return axis.IsAtTargetPosition(target, tolerance);
         }
 
-        private static Task<AxisMoveWaitResult> WaitAxisMoveDoneInPositionAsync(
+        // 기존 조건: AxisMoveWaiter 대기 — 현재 기준: 축.WaitMoveCompleteAsync(int 반환) 위임(R3).
+        private static Task<int> WaitAxisMoveDoneInPositionAsync(
             BaseAxis axis,
             double target,
             int timeoutMs,
             CancellationToken ct)
         {
-            return AxisMoveWaiter.WaitMoveDoneInPositionAsync(
-                axis,
-                target,
-                ResolveAxisInPositionTolerance(axis),
-                timeoutMs,
-                0,
-                ct);
+            if (axis == null)
+                return Task.FromResult(-2);
+            return axis.WaitMoveCompleteAsync(target, timeoutMs, ct);
         }
 
         private static string FormatAxisActual(BaseAxis axis)
@@ -1465,7 +1458,7 @@ namespace QMC.CDT320.Sequencing.Calibration
 
                     pair.Value.UpdateStatus();
                     double target = _machine.PickerRearUnit.GetPickerTeachingPosition(pair.Key, "OutputAvoidPosition");
-                    if (!AxisMoveWaiter.CanSkipMoveCommandAtTarget(pair.Value, target))
+                    if (!pair.Value.IsAtTargetPosition(target, 0.0))
                         return false;
                 }
 
@@ -1482,7 +1475,7 @@ namespace QMC.CDT320.Sequencing.Calibration
 
                 pair.Value.UpdateStatus();
                 double target = _machine.PickerFrontUnit.GetPickerTeachingPosition(pair.Key, "OutputAvoidPosition");
-                if (!AxisMoveWaiter.CanSkipMoveCommandAtTarget(pair.Value, target))
+                if (!pair.Value.IsAtTargetPosition(target, 0.0))
                     return false;
             }
 
@@ -1505,10 +1498,10 @@ namespace QMC.CDT320.Sequencing.Calibration
                 PickerAlignOffset offset = _machine.PickerFrontUnit.GetRuntimePickerOffset(pickerIndex) ?? new PickerAlignOffset();
                 PickerCalibratedZoneTarget target = ResolveBottomZoneTarget(VisionFocusPickerSide.Front, pickerIndex, offset);
                 UpdateFrontPickerBottomTargetStatus(target);
-                return AxisMoveWaiter.CanSkipMoveCommandAtTarget(ResolveFrontPickerAxis(PickerAxis.PickerX), target.X) &&
-                       AxisMoveWaiter.CanSkipMoveCommandAtTarget(ResolveFrontPickerAxis(PickerAxis.PickerY), target.Y) &&
-                       AxisMoveWaiter.CanSkipMoveCommandAtTarget(ResolveFrontPickerAxis(target.PickerTAxis), target.T) &&
-                       AxisMoveWaiter.CanSkipMoveCommandAtTarget(ResolveFrontPickerAxis(target.PickerZAxis), zTarget) &&
+                return ResolveFrontPickerAxis(PickerAxis.PickerX).IsAtTargetPosition(target.X, 0.0) &&
+                       ResolveFrontPickerAxis(PickerAxis.PickerY).IsAtTargetPosition(target.Y, 0.0) &&
+                       ResolveFrontPickerAxis(target.PickerTAxis).IsAtTargetPosition(target.T, 0.0) &&
+                       ResolveFrontPickerAxis(target.PickerZAxis).IsAtTargetPosition(zTarget, 0.0) &&
                        CanSkipFrontNonTargetPickerZAvoidMoves(target.PickerZAxis);
             }
 
@@ -1518,10 +1511,10 @@ namespace QMC.CDT320.Sequencing.Calibration
             PickerAlignOffset rearOffset = _machine.PickerRearUnit.GetRuntimePickerOffset(pickerIndex) ?? new PickerAlignOffset();
             PickerCalibratedZoneTarget rearTarget = ResolveBottomZoneTarget(VisionFocusPickerSide.Rear, pickerIndex, rearOffset);
             UpdateRearPickerBottomTargetStatus(rearTarget);
-            return AxisMoveWaiter.CanSkipMoveCommandAtTarget(ResolveRearPickerAxis(PickerAxis.PickerX), rearTarget.X) &&
-                   AxisMoveWaiter.CanSkipMoveCommandAtTarget(ResolveRearPickerAxis(PickerAxis.PickerY), rearTarget.Y) &&
-                   AxisMoveWaiter.CanSkipMoveCommandAtTarget(ResolveRearPickerAxis(rearTarget.PickerTAxis), rearTarget.T) &&
-                   AxisMoveWaiter.CanSkipMoveCommandAtTarget(ResolveRearPickerAxis(rearTarget.PickerZAxis), zTarget) &&
+            return ResolveRearPickerAxis(PickerAxis.PickerX).IsAtTargetPosition(rearTarget.X, 0.0) &&
+                   ResolveRearPickerAxis(PickerAxis.PickerY).IsAtTargetPosition(rearTarget.Y, 0.0) &&
+                   ResolveRearPickerAxis(rearTarget.PickerTAxis).IsAtTargetPosition(rearTarget.T, 0.0) &&
+                   ResolveRearPickerAxis(rearTarget.PickerZAxis).IsAtTargetPosition(zTarget, 0.0) &&
                    CanSkipRearNonTargetPickerZAvoidMoves(rearTarget.PickerZAxis);
         }
 
@@ -1539,7 +1532,7 @@ namespace QMC.CDT320.Sequencing.Calibration
 
                 item.UpdateStatus();
                 double avoidTarget = _machine.PickerFrontUnit.GetPickerTeachingPosition(zAxis, "AvoidPosition");
-                if (!AxisMoveWaiter.CanSkipMoveCommandAtTarget(item, avoidTarget))
+                if (!item.IsAtTargetPosition(avoidTarget, 0.0))
                     return false;
             }
 
@@ -1560,7 +1553,7 @@ namespace QMC.CDT320.Sequencing.Calibration
 
                 item.UpdateStatus();
                 double avoidTarget = _machine.PickerRearUnit.GetPickerTeachingPosition(zAxis, "AvoidPosition");
-                if (!AxisMoveWaiter.CanSkipMoveCommandAtTarget(item, avoidTarget))
+                if (!item.IsAtTargetPosition(avoidTarget, 0.0))
                     return false;
             }
 
@@ -2070,7 +2063,7 @@ namespace QMC.CDT320.Sequencing.Calibration
         {
             PickerAxis axis = ResolvePickerZAxis();
             int result;
-            AxisMoveWaitResult wait;
+            int wait;
             if (_request.PickerSide == VisionFocusPickerSide.Front)
             {
                 BaseAxis pickerZ = ResolveFrontPickerAxis(axis);
@@ -2093,8 +2086,8 @@ namespace QMC.CDT320.Sequencing.Calibration
                     return FailPickerZCommand("Front", position, result);
 
                 wait = await WaitAxisMoveDoneInPositionAsync(pickerZ, position, _request.MotionTimeoutMs, ct).ConfigureAwait(false);
-                if (!wait.Success)
-                    return FailPickerZWait("Front", position, wait);
+                if (wait != 0)
+                    return FailPickerZWait("Front", position, wait, pickerZ);
 
                 if (!_machine.PickerFrontUnit.IsPickerAxisInPosition(axis, position, tolerance))
                     return FailPickerZFinal("Front", position);
@@ -2121,8 +2114,8 @@ namespace QMC.CDT320.Sequencing.Calibration
                     return FailPickerZCommand("Rear", position, result);
 
                 wait = await WaitAxisMoveDoneInPositionAsync(pickerZ, position, _request.MotionTimeoutMs, ct).ConfigureAwait(false);
-                if (!wait.Success)
-                    return FailPickerZWait("Rear", position, wait);
+                if (wait != 0)
+                    return FailPickerZWait("Rear", position, wait, pickerZ);
 
                 if (!_machine.PickerRearUnit.IsPickerAxisInPosition(axis, position, tolerance))
                     return FailPickerZFinal("Rear", position);
@@ -2159,11 +2152,12 @@ namespace QMC.CDT320.Sequencing.Calibration
                     ", dec=" + _request.MoveDeceleration +
                     ", result=" + result);
 
-            AxisMoveWaitResult wait = await WaitAxisMoveDoneInPositionAsync(visionAxis, position, _request.MotionTimeoutMs, ct).ConfigureAwait(false);
-            if (!wait.Success)
+            int wait = await WaitAxisMoveDoneInPositionAsync(visionAxis, position, _request.MotionTimeoutMs, ct).ConfigureAwait(false);
+            if (wait != 0)
                 return Fail("VISION-FOCUS-CAL-SIDE-Y-WAIT", "VisionFocusScanSequence",
                     "Focus 스캔 SideVisionY 이동 완료 확인 실패. axis=" + axis +
-                    ", position=" + position + ", reason=" + wait.Reason);
+                    ", position=" + position + ", waitCode=" + wait +
+                    ", reason=" + (visionAxis != null ? visionAxis.LastMotionFailureMessage : string.Empty));
 
             if (!_machine.VisionUnit.IsVisionAxisInPosition(axis, position, tolerance))
                 return Fail("VISION-FOCUS-CAL-SIDE-Y-FINAL", "VisionFocusScanSequence",
@@ -2202,13 +2196,14 @@ namespace QMC.CDT320.Sequencing.Calibration
                 ", result=" + result);
         }
 
-        private int FailPickerZWait(string side, double position, AxisMoveWaitResult wait)
+        private int FailPickerZWait(string side, double position, int waitCode, BaseAxis axis)
         {
             return Fail("VISION-FOCUS-CAL-PICKER-Z-WAIT", "VisionFocusScanSequence",
                 "Focus 스캔 PickerZ 이동 완료 확인 실패. side=" + side +
                 ", pickerNo=" + _request.PickerNo +
                 ", position=" + position +
-                ", reason=" + (wait != null ? wait.Reason : "wait result is null"));
+                ", waitCode=" + waitCode +
+                ", reason=" + (axis != null && axis.LastMotionFailureMessage != null ? axis.LastMotionFailureMessage : string.Empty));
         }
 
         private int FailPickerZFinal(string side, double position)

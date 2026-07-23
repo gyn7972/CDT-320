@@ -17,11 +17,6 @@ namespace QMC.CDT320.Sequencing
             return AwaitAsync(stepTask, false, ct);
         }
 
-        public static Task<AxisMoveWaitResult> AwaitAxisWaitAsync(Task<AxisMoveWaitResult> stepTask, CancellationToken ct)
-        {
-            return AwaitAsync(stepTask, null, ct);
-        }
-
         public static async Task<T> AwaitAsync<T>(Task<T> stepTask, T defaultValue, CancellationToken ct)
         {
             try

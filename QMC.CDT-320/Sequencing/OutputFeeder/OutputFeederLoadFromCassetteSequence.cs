@@ -294,7 +294,7 @@ namespace QMC.CDT320.Sequencing
 
                 Stage.Recipe.EnsurePositionObjects();
                 double target = Stage.Recipe.VisionX.AvoidPosition;
-                if (QMC.Common.Motion.AxisMoveWaiter.CanSkipMoveCommandAtTarget(Stage.OutputCameraX, target))
+                if (Stage.OutputCameraX.IsAtTargetPosition(target, 0.0))
                     return 0;
 
                 int result = await Stage.MoveVisionXToAvoidAndVerifyAsync(

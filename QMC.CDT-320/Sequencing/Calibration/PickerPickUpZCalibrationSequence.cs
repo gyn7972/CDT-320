@@ -525,7 +525,7 @@ namespace QMC.CDT320.Sequencing.Calibration
 
             stage.Recipe.EnsurePositionObjects();
             double target = stage.Recipe.VisionX.AvoidPosition;
-            if (AxisMoveWaiter.CanSkipMoveCommandAtTarget(stage.CameraX, target))
+            if (stage.CameraX.IsAtTargetPosition(target, 0.0))
                 return 0;
 
             return await MoveInputStageAxisWithCalibrationMotionAsync(
@@ -548,7 +548,7 @@ namespace QMC.CDT320.Sequencing.Calibration
 
             stage.Recipe.EnsurePositionObjects();
             double target = stage.Recipe.VisionX.AvoidPosition;
-            if (AxisMoveWaiter.CanSkipMoveCommandAtTarget(stage.OutputCameraX, target))
+            if (stage.OutputCameraX.IsAtTargetPosition(target, 0.0))
                 return 0;
 
             CalibrationMotionSettings motion = ResolveCalibrationMotion();
@@ -779,17 +779,7 @@ namespace QMC.CDT320.Sequencing.Calibration
                     ", " + BuildInputStageAxisState(stage, axis, target) +
                     PickerInputStageMoveHelper.BuildLastStageMoveFailure(stage));
 
-            AxisMoveWaitResult waitResult = await stage.WaitInputStageAxisInPositionResult(
-                axis,
-                target,
-                ResolveMoveTimeout(),
-                ct).ConfigureAwait(false);
-            if (waitResult == null || !waitResult.Success)
-                return Fail("PICKUP-Z-CAL-STAGE-WAIT", stage.Name,
-                    description + " final position check failed. " +
-                    AxisMoveWaiter.FormatResult(waitResult, axis.ToString()) +
-                    ", " + BuildInputStageAxisState(stage, axis, target));
-
+            // 기존 조건: 이동 후 재대기 — 현재 기준: 이동 함수가 완료를 보장하므로 제거(R3).
             return 0;
         }
 
