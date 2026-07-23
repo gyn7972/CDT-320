@@ -361,6 +361,23 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 unit.Config.PickUp = pickUp = new PickerPickUpMotionConfig();
 
             pickUp.Ensure();
+            items.Add(InGroup(Describe(ParameterGridItem.Double("PICKUP MECHANICAL OFFSET LIMIT", "mm (0.000)", ParameterGridScope.Config,
+                () => pickUp.MechanicalOffsetLimitMm,
+                v => SetPickUpMechanicalOffsetLimit(pickUp, v)),
+                "Picker별 PickUp 기구 보정의 X/Y 절대값 한계입니다. 기본값은 1.000 mm이고 안전 상한은 2.000 mm입니다."), groupKey));
+            for (int i = 0; i < PickerPickUpMotionConfig.MechanicalOffsetPickerCount; i++)
+            {
+                int index = i;
+                string pickerName = "PICKER " + (index + 1);
+                items.Add(InGroup(Describe(ParameterGridItem.Double(pickerName + " PICKUP MECHANICAL X", "mm (0.000)", ParameterGridScope.Config,
+                    () => pickUp.GetMechanicalOffsetX(index),
+                    v => SetPickUpMechanicalOffset(pickUp, index, true, v)),
+                    "PickUp 목표의 PickerX와 NeedleX에 동일하게 더하는 Picker별 기구 보정입니다."), groupKey));
+                items.Add(InGroup(Describe(ParameterGridItem.Double(pickerName + " PICKUP MECHANICAL Y", "mm (0.000)", ParameterGridScope.Config,
+                    () => pickUp.GetMechanicalOffsetY(index),
+                    v => SetPickUpMechanicalOffset(pickUp, index, false, v)),
+                    "PickUp 목표의 PickerY에만 더합니다. NeedleX와 1:1로 움직이는 WaferStageY 목표에는 적용하지 않습니다."), groupKey));
+            }
             items.Add(InGroup(Describe(ParameterGridItem.Selection<PickerPickUpZMotionMode>("PICKUP Z MOTION MODE", "mode", ParameterGridScope.Config, () => pickUp.MotionMode, v => pickUp.MotionMode = v),
                 "PickUp Z 동작 방식을 선택합니다.\r\nDetailed: Needle/Eject 준비, 진공, PrePick, 저속 접촉, 동기 상승, 안전 복귀 순서로 동작합니다.\r\nSimpleZDownVacuumUp: PickerZ 하강, 진공 ON, PickerZ 상승만 수행하는 단순 모드입니다."), groupKey));
             items.Add(InGroup(Describe(ParameterGridItem.Selection<PickerPickUpTransferMotionMode>("PICKUP TRANSFER MODE", "mode", ParameterGridScope.Config, () => pickUp.TransferMotionMode, v => pickUp.TransferMotionMode = v),
@@ -438,6 +455,27 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 unit.Config.Place = place = new PickerPlaceMotionConfig();
 
             place.Ensure();
+            items.Add(InGroup(Describe(ParameterGridItem.Double("PLACE MECHANICAL OFFSET LIMIT", "mm (0.000)", ParameterGridScope.Config,
+                () => place.MechanicalOffsetLimitMm,
+                v => SetPlaceMechanicalOffsetLimit(place, v)),
+                "Picker별 Place 기구 보정의 X/Y 절대값 한계입니다. 기본값은 1.000 mm이고 안전 상한은 2.000 mm입니다."), groupKey));
+            items.Add(InGroup(Describe(ParameterGridItem.Double("BOTTOM PLACE CORRECTION LIMIT", "mm (0.000)", ParameterGridScope.Config,
+                () => place.BottomPlaceCorrectionLimitMm,
+                v => SetBottomPlaceCorrectionLimit(place, v)),
+                "Bottom FINAL item X/Y 및 기구 보정을 합산한 Place 보정의 절대값 한계입니다. 기본값은 1.000 mm이고 안전 상한은 2.000 mm입니다."), groupKey));
+            for (int i = 0; i < PickerPickUpMotionConfig.MechanicalOffsetPickerCount; i++)
+            {
+                int index = i;
+                string pickerName = "PICKER " + (index + 1);
+                items.Add(InGroup(Describe(ParameterGridItem.Double(pickerName + " PLACE MECHANICAL X", "mm (0.000)", ParameterGridScope.Config,
+                    () => place.GetMechanicalOffsetX(index),
+                    v => SetPlaceMechanicalOffset(place, index, true, v)),
+                    "Place 목표의 PickerX에 더하는 Picker별 기구 보정입니다."), groupKey));
+                items.Add(InGroup(Describe(ParameterGridItem.Double(pickerName + " PLACE MECHANICAL Y", "mm (0.000)", ParameterGridScope.Config,
+                    () => place.GetMechanicalOffsetY(index),
+                    v => SetPlaceMechanicalOffset(place, index, false, v)),
+                    "Place 대상 GOOD/NG OutputStageY 목표에 더합니다. PickerY Place Teaching은 변경하지 않습니다."), groupKey));
+            }
             items.Add(InGroup(Describe(ParameterGridItem.Selection<PickerPlaceMotionMode>("PLACE MOTION MODE", "mode", ParameterGridScope.Config, () => place.MotionMode, v => place.MotionMode = v),
                 "Default는 기존 Place 이동 순서를 사용합니다.\r\nContiSegmentedPlace는 이전 Z1 상승과 현재 Z2 접근을 5개 ContiNode로 나누어 연속 구동합니다."), groupKey));
             items.Add(InGroup(ParameterGridItem.Int("PLACE CONTI COORDINATE", "coord", ParameterGridScope.Config, () => place.ContiCoordinate, v => place.ContiCoordinate = Math.Max(1, v)), groupKey));
@@ -1400,6 +1438,78 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 EventLogger.Write(EventKind.Alarm, "UI", "FRONT-PICKER", "Parameter save failed: " + ex.Message);
                 QMC.Common.MessageDialog.Show(this, ex.Message, "Front Picker Parameter Save", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
+        }
+
+        private void SetPickUpMechanicalOffsetLimit(PickerPickUpMotionConfig config, double value)
+        {
+            if (config == null || !CanEditMechanicalOffsetConfig())
+                return;
+
+            config.MechanicalOffsetLimitMm = PickerPickUpMotionConfig.NormalizeMechanicalOffsetLimit(value);
+            config.Ensure();
+        }
+
+        private void SetPickUpMechanicalOffset(PickerPickUpMotionConfig config, int pickerIndex, bool isX, double value)
+        {
+            if (config == null || !CanEditMechanicalOffsetConfig())
+                return;
+
+            if (isX)
+                config.SetMechanicalOffsetX(pickerIndex, value);
+            else
+                config.SetMechanicalOffsetY(pickerIndex, value);
+        }
+
+        private void SetPlaceMechanicalOffsetLimit(PickerPlaceMotionConfig config, double value)
+        {
+            if (config == null || !CanEditMechanicalOffsetConfig())
+                return;
+
+            config.MechanicalOffsetLimitMm = PickerPickUpMotionConfig.NormalizeMechanicalOffsetLimit(value);
+            config.Ensure();
+        }
+
+        private void SetBottomPlaceCorrectionLimit(PickerPlaceMotionConfig config, double value)
+        {
+            if (config == null || !CanEditMechanicalOffsetConfig())
+                return;
+
+            config.BottomPlaceCorrectionLimitMm =
+                PickerPickUpMotionConfig.NormalizeMechanicalOffsetLimit(value);
+            config.Ensure();
+        }
+
+        private void SetPlaceMechanicalOffset(PickerPlaceMotionConfig config, int pickerIndex, bool isX, double value)
+        {
+            if (config == null || !CanEditMechanicalOffsetConfig())
+                return;
+
+            if (isX)
+                config.SetMechanicalOffsetX(pickerIndex, value);
+            else
+                config.SetMechanicalOffsetY(pickerIndex, value);
+        }
+
+        private bool CanEditMechanicalOffsetConfig()
+        {
+            Form1 host = FindHostForm();
+            if (host == null || host.Controller == null)
+                return true;
+
+            EquipmentStatus status = host.Controller.Status;
+            bool busy =
+                status == EquipmentStatus.AutoRunning ||
+                status == EquipmentStatus.ManualRunning ||
+                status == EquipmentStatus.Initializing ||
+                host.Controller.IsSequenceRunning ||
+                host.Controller.IsManualBusy;
+            if (!busy)
+                return true;
+
+            const string message = "자동/수동 시퀀스 또는 초기화 중에는 Picker 기구 보정 Config를 변경할 수 없습니다.";
+            EventLogger.Write(EventKind.Alarm, "UI", "FRONT-PICKER", message);
+            QMC.Common.MessageDialog.Show(this, message, "Front Picker Config", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            return false;
         }
 
         private void SaveCurrentRecipeData()

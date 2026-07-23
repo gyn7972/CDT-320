@@ -69,6 +69,26 @@ namespace QMC.CDT320.Calibration
             double bottomOffsetX = ReadValidatedBottomOffset(result, "bottom_offset_x_mm", "bottom_item_offset_x");
             double bottomOffsetY = ReadValidatedBottomOffset(result, "bottom_offset_y_mm", "bottom_item_offset_y");
 
+            // 기존 OffsetX/Y는 MRESULT의 canonical 보정값을 우선하는 Side 보정 계약이므로 유지한다.
+            // Place 보정은 최종 RESULT의 bottom_item_offset_x/y만 별도 필드로 분리하여 사용한다.
+            double bottomItemOffsetX = 0.0;
+            double bottomItemOffsetY = 0.0;
+            bool bottomItemOffsetXPass = false;
+            bool bottomItemOffsetYPass = false;
+            bool measureValid = false;
+            bool hasBottomItemOffsetX = result != null &&
+                result.TryGetDoubleValue(out bottomItemOffsetX, "bottom_item_offset_x") &&
+                IsFinite(bottomItemOffsetX);
+            bool hasBottomItemOffsetY = result != null &&
+                result.TryGetDoubleValue(out bottomItemOffsetY, "bottom_item_offset_y") &&
+                IsFinite(bottomItemOffsetY);
+            bool hasBottomItemOffsetXPass = result != null &&
+                result.TryGetBooleanValue(out bottomItemOffsetXPass, "bottom_item_offset_x_pass");
+            bool hasBottomItemOffsetYPass = result != null &&
+                result.TryGetBooleanValue(out bottomItemOffsetYPass, "bottom_item_offset_y_pass");
+            bool hasMeasureValid = result != null &&
+                result.TryGetBooleanValue(out measureValid, "measure_valid");
+
             // TODO: 실장비 로그 확인 후 아래 후보 중 하나를 SideVisionY / PickerZ 보정으로 연결한다.
             // double sideVisionYOffset = ReadCandidate(result, "bottom_offset_y_mm", "bottom_item_offset_y");
             // double pickerZOffset = ReadCandidate(result, "bottom_offset_x_mm", "bottom_item_offset_x");
@@ -114,6 +134,20 @@ namespace QMC.CDT320.Calibration
                 PickerZOffset = pickerZOffset,
                 HasSideInspectionCorrection = false,
                 IsOk = ok,
+                BottomItemOffsetX = bottomItemOffsetX,
+                BottomItemOffsetY = bottomItemOffsetY,
+                HasBottomItemOffsetX = hasBottomItemOffsetX,
+                HasBottomItemOffsetY = hasBottomItemOffsetY,
+                BottomItemOffsetXPass = bottomItemOffsetXPass,
+                BottomItemOffsetYPass = bottomItemOffsetYPass,
+                HasBottomItemOffsetXPass = hasBottomItemOffsetXPass,
+                HasBottomItemOffsetYPass = hasBottomItemOffsetYPass,
+                MeasureValid = measureValid,
+                HasMeasureValid = hasMeasureValid,
+                RequestId = result != null ? result.RequestId : "",
+                GroupId = result != null ? result.GroupId : "",
+                DieId = "",
+                DieIndex = -1,
                 Raw = result != null ? result.Raw : "",
                 Values = result != null && result.Values != null
                     ? new System.Collections.Generic.Dictionary<string, string>(result.Values, StringComparer.OrdinalIgnoreCase)

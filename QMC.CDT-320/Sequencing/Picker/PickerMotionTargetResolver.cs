@@ -1,4 +1,4 @@
-using QMC.CDT320.Calibration;
+﻿using QMC.CDT320.Calibration;
 
 namespace QMC.CDT320.Sequencing
 {
@@ -274,7 +274,9 @@ namespace QMC.CDT320.Sequencing
             double bottomOffsetT = 0.0,
             double placeRuntimeOffsetX = 0.0,
             double placeRuntimeOffsetY = 0.0,
-            double placeRuntimeOffsetT = 0.0)
+            double placeRuntimeOffsetT = 0.0,
+            double placeMechanicalOffsetX = 0.0,
+            double placeMechanicalOffsetY = 0.0)
         {
             PickerAlignOffset runtime = InputPickerPickTargetResolver.ResolveRuntimePickerOffset(machine, side, pickerIndex);
             PickerCalibrationOffset collet = ResolveColletOffset(machine, side, pickerIndex);
@@ -322,7 +324,9 @@ namespace QMC.CDT320.Sequencing
                 bottomOffsetT,
                 placeRuntimeOffsetX,
                 placeRuntimeOffsetY,
-                placeRuntimeOffsetT);
+                placeRuntimeOffsetT,
+                placeMechanicalOffsetX,
+                placeMechanicalOffsetY);
 
             WriteCoordinateLog(
                 "OutputPlaceTarget",
@@ -350,6 +354,8 @@ namespace QMC.CDT320.Sequencing
                 ", placeRuntimeOffsetX=" + F(placeRuntimeOffsetX) +
                 ", placeRuntimeOffsetY=" + F(placeRuntimeOffsetY) +
                 ", placeRuntimeOffsetT=" + F(placeRuntimeOffsetT) +
+                ", placeMechanicalOffsetX=" + F(placeMechanicalOffsetX) +
+                ", placeMechanicalOffsetY=" + F(placeMechanicalOffsetY) +
                 ", pickerYTeaching=" + F(pickerYTeaching) +
                 ", pickerTTeaching=" + F(pickerTTeaching) +
                 ", pickerZTeaching=" + F(pickerZTeaching) +
@@ -372,6 +378,7 @@ namespace QMC.CDT320.Sequencing
                 ")+runtimeOffsetX(" + F(runtimeOffsetX) +
                 ")-bottomOffsetX(" + F(bottomOffsetX) +
                 ")-placeRuntimeOffsetX(" + F(placeRuntimeOffsetX) +
+                ")+placeMechanicalOffsetX(" + F(placeMechanicalOffsetX) +
                 ")=" + F(result.PickerX) +
                 ", colletXAlreadyInOutputVisionToPicker=" + F(colletOffsetX) +
                 ", colletXNotAddedAgain=True" +
@@ -381,6 +388,7 @@ namespace QMC.CDT320.Sequencing
                 ")-bottomOffsetY(" + F(bottomOffsetY) +
                 ")-pickerColletOffsetY(" + F(colletOffsetY) +
                 ")+placeRuntimeOffsetY(" + F(placeRuntimeOffsetY) +
+                ")+placeMechanicalOffsetY(" + F(placeMechanicalOffsetY) +
                 ")=" + F(result.OutputStageY) +
                 ", outputVisionToPickerYNotUsedForPlaceStageY=" + F(outputVisionToPickerY) +
                 ", runtimeOffsetYLoggedOnly=" + F(runtimeOffsetY) +

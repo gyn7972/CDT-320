@@ -1511,11 +1511,9 @@ namespace QMC.CDT320.Sequencing
                 double alignOffsetX = _visionOffset.DeltaX;
                 double alignOffsetY = _visionOffset.DeltaY;
                 double alignOffsetT = _visionOffset.DeltaTheta;
-                // 비전검사에서 다이에 위치 어플라이를 했기때문에 여기서는 적용 안함.
-                // 테스트후 정확히 알려주겠음.
-
-                alignOffsetX +=0.02;
-                //alignOffsetY +=0.02;
+                PickerPickUpMotionConfig pickUpConfig = ResolvePickUpMotionConfig();
+                double pickMechanicalOffsetX = pickUpConfig.GetMechanicalOffsetX(_currentPickerIndex);
+                double pickMechanicalOffsetY = pickUpConfig.GetMechanicalOffsetY(_currentPickerIndex);
                 // Pick 런타임 보정: Enable일 때만 필터 상태를 적용하고, Disable이면 0을 전달한다
                 // (Disable이어도 필터 학습·저장은 Bottom 검사 경로에서 계속된다).
                 bool pickRuntimeEnabled = PickRuntimeOffsetService.IsEnabled;
@@ -1560,6 +1558,11 @@ namespace QMC.CDT320.Sequencing
                         ", reason=" + coordinateReason);
                 }
 
+                coordinate = DieCoordinateTransformService.ApplyPickMechanicalOffsets(
+                    coordinate,
+                    pickMechanicalOffsetX,
+                    pickMechanicalOffsetY);
+
                 _targetStageY = coordinate.StageY;
                 _targetPickerX = coordinate.PickerX;
                 _targetPickerY = coordinate.PickerY;
@@ -1601,6 +1604,11 @@ namespace QMC.CDT320.Sequencing
                     ", visionOffsetXAppliedToPickerAndNeedle=True" +
                     ", visionOffsetYAppliedToStage=True(OppositeSign)" +
                     ", visionOffsetYAppliedToPicker=False(FixedPickY)" +
+                    ", pickMechanicalOffsetX=" + pickMechanicalOffsetX.ToString("F3") +
+                    ", pickMechanicalOffsetXAppliedToPickerAndNeedle=True" +
+                    ", pickMechanicalOffsetY=" + pickMechanicalOffsetY.ToString("F3") +
+                    ", pickMechanicalOffsetYAppliedToPicker=True" +
+                    ", pickMechanicalOffsetYAppliedToStage=False" +
                     ", needleYToVisionYOffset=" + ResolveNeedleCalibrationOffsetY() +
                     ", alignOffsetT=" + alignOffsetT +
                     ", pickRuntimeEnabled=" + pickRuntimeEnabled +

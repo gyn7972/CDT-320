@@ -258,6 +258,40 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             }
         }
 
+        private void SetOutputStageResultRoutingMode(
+            OutputStageUnit unit,
+            OutputStageResultRoutingMode mode)
+        {
+            if (unit == null || unit.Config == null)
+                return;
+
+            Form1 host = FindHostForm();
+            if (host != null && host.Controller != null)
+            {
+                EquipmentStatus status = host.Controller.Status;
+                bool busy =
+                    status == EquipmentStatus.AutoRunning ||
+                    status == EquipmentStatus.ManualRunning ||
+                    status == EquipmentStatus.Initializing ||
+                    host.Controller.IsSequenceRunning ||
+                    host.Controller.IsManualBusy;
+                if (busy)
+                {
+                    const string message = "자동/수동 시퀀스 또는 초기화 중에는 Die 결과 배출 모드를 변경할 수 없습니다.";
+                    EventLogger.Write(EventKind.Alarm, "UI", "OUTPUT-STAGE", message);
+                    QMC.Common.MessageDialog.Show(
+                        this,
+                        message,
+                        "Output Stage Config",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Warning);
+                    return;
+                }
+            }
+
+            unit.Config.ResultRoutingMode = mode;
+        }
+
         private void SetEnabledState(bool enabled)
         {
             try
@@ -295,6 +329,12 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
 
                 items.Add(ParameterGridItem.Bool("SIMULATION MODE", ParameterGridScope.Setup, () => unit.Setup.IsSimulationMode, v => unit.Setup.IsSimulationMode = v));
                 items.Add(ParameterGridItem.Bool("DRY RUN", ParameterGridScope.Config, () => unit.Config.bDryRun, v => unit.Config.bDryRun = v));
+                items.Add(ParameterGridItem.Selection<OutputStageResultRoutingMode>(
+                    "DIE RESULT ROUTING MODE",
+                    "mode",
+                    ParameterGridScope.Config,
+                    () => unit.Config.ResultRoutingMode,
+                    v => SetOutputStageResultRoutingMode(unit, v)));
 
                 optionParameterGrid.SetItems(items);
 

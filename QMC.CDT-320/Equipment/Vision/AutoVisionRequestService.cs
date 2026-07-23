@@ -1365,6 +1365,7 @@ namespace QMC.CDT320.VisionComm
             double offsetX = simulateOffset ? NextSimulatedMmOffset(0.015) : 0.0;
             double offsetY = simulateOffset ? NextSimulatedMmOffset(0.015) : 0.0;
 
+            result.SetValue("measure_valid", 1);
             result.SetValue("bottom_width_mm", width);
             result.SetValue("bottom_height_mm", height);
             result.SetValue("bottom_angle_deg", angle);

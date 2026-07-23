@@ -125,6 +125,30 @@ namespace QMC.CDT320.Sequencing
             return result;
         }
 
+        // PickUp 기구 보정은 Needle/Stage의 1:1 좌표 관계를 유지하기 위해
+        // X는 PickerX와 NeedleX에 동일 적용하고 Y는 PickerY에만 적용한다.
+        public static PickCoordinateResult ApplyPickMechanicalOffsets(
+            PickCoordinateResult result,
+            double pickMechanicalOffsetX,
+            double pickMechanicalOffsetY)
+        {
+            if (result == null)
+                throw new ArgumentNullException("result");
+
+            result.PickerX += pickMechanicalOffsetX;
+            result.NeedleX += pickMechanicalOffsetX;
+            result.PickerY += pickMechanicalOffsetY;
+            result.Formula =
+                (result.Formula ?? string.Empty) +
+                " / pickMechanicalOffsetX(" + F(pickMechanicalOffsetX) + ") applied equally to PickerX/NeedleX" +
+                " / pickMechanicalOffsetY(" + F(pickMechanicalOffsetY) + ") applied only to PickerY" +
+                " / pickup mechanical result=(pickerX=" + F(result.PickerX) +
+                ", needleX=" + F(result.NeedleX) +
+                ", pickerY=" + F(result.PickerY) +
+                ", stageY unchanged=" + F(result.StageY) + ")";
+            return result;
+        }
+
         private static double ResolveInputPickerYTarget(PickerSequenceSide side, double inputVisionToPickerY)
         {
             double magnitude = System.Math.Abs(inputVisionToPickerY);
@@ -161,7 +185,9 @@ namespace QMC.CDT320.Sequencing
             double bottomOffsetT = 0.0,
             double placeRuntimeOffsetX = 0.0,
             double placeRuntimeOffsetY = 0.0,
-            double placeRuntimeOffsetT = 0.0)
+            double placeRuntimeOffsetT = 0.0,
+            double placeMechanicalOffsetX = 0.0,
+            double placeMechanicalOffsetY = 0.0)
         {
             PlaceCoordinateResult result = new PlaceCoordinateResult();
             result.PickerY = pickerYTeaching;
@@ -170,20 +196,25 @@ namespace QMC.CDT320.Sequencing
             // Preserve the recipe Y direction and apply Bottom/collet corrections once on OutputStageY.
             // Place 런타임 보정(placeRuntimeOffset*)은 Bin 후검사 LowPassFilter 출력(raw)이며
             // 비전 + 방향(과이동)을 상쇄하도록 X/T는 감산, Y는 스테이지 이동 방향 정의상 가산한다.
-            result.OutputStageY = outputStageBaseY + receiveTargetY - bottomOffsetY - pickerColletOffsetY + placeRuntimeOffsetY;
+            // Place Y 기구 보정은 PickerY 티칭을 바꾸지 않고 선택된 GOOD/NG OutputStageY에만 더한다.
+            result.OutputStageY =
+                outputStageBaseY + receiveTargetY - bottomOffsetY - pickerColletOffsetY +
+                placeRuntimeOffsetY + placeMechanicalOffsetY;
 
             // OutputCameraX와 PickerX는 Place 수령 방향이 같으므로 Output map X 오프셋은 PickerX에 더한다.
             // Bottom 검사 보정은 이동축 기준으로 PickerX/T와 OutputStageY에서 감산한다.
-            result.PickerX = outputVisionProcessX + receiveTargetX + outputVisionToPickerX + pickerAlignOffsetX - bottomOffsetX - placeRuntimeOffsetX;
+            result.PickerX =
+                outputVisionProcessX + receiveTargetX + outputVisionToPickerX + pickerAlignOffsetX -
+                bottomOffsetX - placeRuntimeOffsetX + placeMechanicalOffsetX;
 
             result.PickerT = pickerTTeaching - bottomOffsetT - placeRuntimeOffsetT;
             result.PickerZ = pickerZTeaching;
             result.Formula =
                 "targetSide = " + targetSide +
-                " / outputStageY = outputStageBaseY(" + F(outputStageBaseY) + ") + receiveTargetY(" + F(receiveTargetY) + ") - bottomOffsetY(" + F(bottomOffsetY) + ") - pickerColletOffsetY(" + F(pickerColletOffsetY) + ") + placeRuntimeOffsetY(" + F(placeRuntimeOffsetY) + ") = " + F(result.OutputStageY) +
+                " / outputStageY = outputStageBaseY(" + F(outputStageBaseY) + ") + receiveTargetY(" + F(receiveTargetY) + ") - bottomOffsetY(" + F(bottomOffsetY) + ") - pickerColletOffsetY(" + F(pickerColletOffsetY) + ") + placeRuntimeOffsetY(" + F(placeRuntimeOffsetY) + ") + placeMechanicalOffsetY(" + F(placeMechanicalOffsetY) + ") = " + F(result.OutputStageY) +
                 " / outputVisionToPickerY(" + F(outputVisionToPickerY) + ") is not used for PlaceStageY" +
                 " / pickerYRuntimeOffset=" + F(pickerYRuntimeOffset) +
-                " / pickerX = outputVisionProcessX(" + F(outputVisionProcessX) + ") + receiveTargetX(" + F(receiveTargetX) + ") + outputVisionToPickerX(" + F(outputVisionToPickerX) + ") + runtimeOffsetX(" + F(pickerAlignOffsetX) + ") - bottomOffsetX(" + F(bottomOffsetX) + ") - placeRuntimeOffsetX(" + F(placeRuntimeOffsetX) + ") = " + F(result.PickerX) +
+                " / pickerX = outputVisionProcessX(" + F(outputVisionProcessX) + ") + receiveTargetX(" + F(receiveTargetX) + ") + outputVisionToPickerX(" + F(outputVisionToPickerX) + ") + runtimeOffsetX(" + F(pickerAlignOffsetX) + ") - bottomOffsetX(" + F(bottomOffsetX) + ") - placeRuntimeOffsetX(" + F(placeRuntimeOffsetX) + ") + placeMechanicalOffsetX(" + F(placeMechanicalOffsetX) + ") = " + F(result.PickerX) +
                 " / pickerT = placeTeachingT(" + F(pickerTTeaching) + ") - bottomOffsetT(" + F(bottomOffsetT) + ") - placeRuntimeOffsetT(" + F(placeRuntimeOffsetT) + ") [pickerAlignOffsetT ignored for place=" + F(pickerAlignOffsetT) + "] = " + F(result.PickerT) +
                 " / pickerY = fixed pickerYTeaching(" + F(pickerYTeaching) + ") [runtimeOffsetY logged separately=" + F(pickerAlignOffsetY) + "] = " + F(result.PickerY) +
                 " / pickerZ = " + F(result.PickerZ);

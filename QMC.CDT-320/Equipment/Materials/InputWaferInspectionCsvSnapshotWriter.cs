@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
@@ -30,6 +30,12 @@ namespace QMC.CDT320.Materials
             {
                 if (die == null)
                     return;
+
+                VisionInspectionResultFileWriter.EnqueueBottomResult(
+                    recipeName,
+                    lotId,
+                    die,
+                    updatedRecord);
 
                 CsvWriteItem item = BuildItem(eventName, recipeName, lotId, die, updatedRecord);
                 if (item == null || string.IsNullOrWhiteSpace(item.Path) || string.IsNullOrWhiteSpace(item.Line))

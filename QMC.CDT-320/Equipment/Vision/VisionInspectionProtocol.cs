@@ -767,6 +767,7 @@ namespace QMC.CDT320.VisionComm
         public string Camera { get; private set; }
         public string Command { get; private set; }
         public string Finder { get; private set; }
+        public int DieIndex { get; private set; }
         public string RequestId { get; private set; }
         public string GroupId { get; private set; }
         public string Operation { get; private set; }
@@ -788,6 +789,7 @@ namespace QMC.CDT320.VisionComm
                 ? response.Module
                 : request != null ? request.Camera : string.Empty;
             result.Command = expectedCommand ?? string.Empty;
+            result.DieIndex = request != null ? request.DieIndex : -1;
             string responseFinder = response != null ? response.GetValueAny("finder", "tool") : null;
             string responseRequestId = response != null ? response.GetValueAny("request_id", "requestId", "requestid") : null;
             string responseGroupId = response != null ? response.GetValueAny("group_id", "groupId", "groupid") : null;
@@ -866,6 +868,7 @@ namespace QMC.CDT320.VisionComm
                 Camera = request != null ? request.Camera : string.Empty,
                 Command = command ?? string.Empty,
                 Finder = request != null ? request.Finder : string.Empty,
+                DieIndex = request != null ? request.DieIndex : -1,
                 RequestId = request != null ? request.RequestId : string.Empty,
                 GroupId = request != null ? request.GroupId : string.Empty,
                 Operation = request != null ? request.Operation : string.Empty,

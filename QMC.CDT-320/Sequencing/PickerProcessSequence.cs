@@ -1815,9 +1815,12 @@ namespace QMC.CDT320.Sequencing
                     _placeSequence.ForceSafeYBeforeFirstPlaceMove = _forceSafeYBeforePlaceResume;
                     _placeSequence.KeepPickerYForwardDuringPlaceReadyWait = _keepPickerYForwardForContinuousPlace;
                     if (_bottomAndSideInspectionSequence != null &&
-                        _bottomAndSideInspectionSequence.IsComplete &&
-                        _bottomAndSideInspectionSequence.HasPendingFinalResults)
+                        _bottomAndSideInspectionSequence.IsComplete)
                     {
+                        _placeSequence.WaitBottomFinalBeforePlaceMoveAsync =
+                            _bottomAndSideInspectionSequence.WaitBottomFinalBeforePlaceMoveAsync;
+                        _placeSequence.GetValidatedBottomPlaceResult =
+                            _bottomAndSideInspectionSequence.GetValidatedBottomPlaceResult;
                         _placeSequence.WaitInspectionResultsBeforePlaceDownAsync =
                             _bottomAndSideInspectionSequence.WaitFinalResultsBeforePlaceDownAsync;
                     }

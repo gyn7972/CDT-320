@@ -470,6 +470,7 @@
     <Compile Include="Equipment\Materials\MaterialStorage.cs" />
     <Compile Include="Equipment\Materials\MaterialSpecs.cs" />
     <Compile Include="Equipment\Materials\OutputWaferCsvSnapshotWriter.cs" />
+    <Compile Include="Equipment\Materials\VisionInspectionResultFileWriter.cs" />
     <!-- Equipment / Vision (310 ?�식 ??좌표/캘리브레?�션) -->
     <Compile Include="Equipment\Vision\CoordinateMap.cs" />
     <Compile Include="Equipment\Vision\AlignmentSolver.cs" />

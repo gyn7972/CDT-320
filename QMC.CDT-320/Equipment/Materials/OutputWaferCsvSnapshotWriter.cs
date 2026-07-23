@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
@@ -32,6 +32,17 @@ namespace QMC.CDT320.Materials
             {
                 if (outputWafer == null || die == null)
                     return;
+
+                if (string.Equals(eventName, "OutputStageDieInspection", StringComparison.OrdinalIgnoreCase))
+                {
+                    VisionInspectionResultFileWriter.EnqueuePlaceResult(
+                        recipeName,
+                        lotId,
+                        outputSide,
+                        outputWafer,
+                        die,
+                        receiveTarget);
+                }
 
                 CsvWriteItem item = BuildItem(eventName, recipeName, lotId, outputSide, outputWafer, die, receiveTarget);
                 if (item == null || string.IsNullOrWhiteSpace(item.Path) || string.IsNullOrWhiteSpace(item.Line))

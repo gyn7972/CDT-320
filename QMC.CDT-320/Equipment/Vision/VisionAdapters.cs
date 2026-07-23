@@ -184,6 +184,79 @@ namespace QMC.CDT320.VisionComm
                    !string.IsNullOrWhiteSpace(address.DieId);
         }
 
+        private static void ApplyBottomRequestContext(BottomVisionOffset offset, VisionRequestHandle handle)
+        {
+            if (offset == null || handle == null || handle.Request == null)
+                return;
+
+            offset.RequestId = handle.Request.RequestId ?? string.Empty;
+            offset.GroupId = handle.Request.GroupId ?? string.Empty;
+            offset.DieId = handle.Request.DieId ?? string.Empty;
+            offset.DieIndex = handle.Request.DieIndex;
+        }
+
+        private static bool TryValidateBottomFinalCorrelation(
+            VisionRequestHandle handle,
+            InspectionResultDto inspection,
+            out string reason)
+        {
+            reason = string.Empty;
+            if (handle == null || handle.Request == null)
+            {
+                reason = "Bottom 요청 Handle 또는 요청 문맥이 없습니다.";
+                return false;
+            }
+            if (inspection == null)
+            {
+                reason = "Bottom 최종 RESULT가 없습니다.";
+                return false;
+            }
+
+            // Simulation/Bypass는 실제 응답 META가 없으므로 생성한 Handle 문맥을 사용한다.
+            if (handle.IsBypassed)
+                return true;
+
+            string responseRequestId;
+            string responseGroupId;
+            if (inspection.Values == null ||
+                !inspection.Values.TryGetValue("request_id", out responseRequestId) ||
+                string.IsNullOrWhiteSpace(responseRequestId))
+            {
+                reason = "Bottom 최종 RESULT에 request_id가 없습니다.";
+                return false;
+            }
+            if (!inspection.Values.TryGetValue("group_id", out responseGroupId) ||
+                string.IsNullOrWhiteSpace(responseGroupId))
+            {
+                reason = "Bottom 최종 RESULT에 group_id가 없습니다.";
+                return false;
+            }
+            if (!string.Equals(responseRequestId, handle.Request.RequestId, StringComparison.Ordinal))
+            {
+                reason = "Bottom 최종 RESULT request_id 불일치. expected=" +
+                         handle.Request.RequestId + ", actual=" + responseRequestId;
+                return false;
+            }
+            if (!string.Equals(responseGroupId, handle.Request.GroupId, StringComparison.Ordinal))
+            {
+                reason = "Bottom 최종 RESULT group_id 불일치. expected=" +
+                         handle.Request.GroupId + ", actual=" + responseGroupId;
+                return false;
+            }
+            if (!string.Equals(inspection.RequestId, handle.Request.RequestId, StringComparison.Ordinal) ||
+                !string.Equals(inspection.GroupId, handle.Request.GroupId, StringComparison.Ordinal))
+            {
+                reason = "Bottom 최종 RESULT correlated context가 요청 Handle과 일치하지 않습니다. " +
+                         "expectedRequestId=" + handle.Request.RequestId +
+                         ", actualRequestId=" + (inspection.RequestId ?? string.Empty) +
+                         ", expectedGroupId=" + handle.Request.GroupId +
+                         ", actualGroupId=" + (inspection.GroupId ?? string.Empty);
+                return false;
+            }
+
+            return true;
+        }
+
         public Task<bool> TriggerBottomExposeAsync(int pickerNo = 0, int timeoutMs = 1000)
         {
             return TriggerBottomExposeAsync(pickerNo, timeoutMs, CancellationToken.None);
@@ -317,6 +390,7 @@ namespace QMC.CDT320.VisionComm
                     return null;
 
                 BottomVisionOffset offset = VisionCameraCalibrationTransform.ToBottomVisionOffset(pickerNo, inspection);
+                ApplyBottomRequestContext(offset, handle);
                 EventLogger.Write(EventKind.Event, "VISION", "AUTO-VISION-BOTTOM-MRESULT",
                     "Bottom MRESULT 보정값 수신 완료. fb=" + Fb +
                     ", pickerNo=" + pickerNo +
@@ -367,7 +441,21 @@ namespace QMC.CDT320.VisionComm
                 if (AutoVisionRequestService.IsInspectionResultTransportFailure(inspection))
                     return null;
 
+                string correlationReason;
+                if (!TryValidateBottomFinalCorrelation(handle, inspection, out correlationReason))
+                {
+                    EventLogger.Write(EventKind.Alarm, "VISION", "AUTO-VISION-BOTTOM-FINAL-CORRELATION",
+                        "Bottom 최종 RESULT 상관관계 검증 실패. fb=" + Fb +
+                        ", pickerNo=" + pickerNo +
+                        ", dieIndex=" + handle.Request.DieIndex +
+                        ", requestId=" + handle.Request.RequestId +
+                        ", groupId=" + handle.Request.GroupId +
+                        ", reason=" + correlationReason);
+                    return null;
+                }
+
                 BottomVisionOffset offset = VisionCameraCalibrationTransform.ToBottomVisionOffset(pickerNo, inspection);
+                ApplyBottomRequestContext(offset, handle);
                 EventLogger.Write(EventKind.Event, "VISION", "AUTO-VISION-BOTTOM-FINAL-RESULT",
                     "Bottom 최종 RESULT 수신 완료. fb=" + Fb +
                     ", pickerNo=" + pickerNo +
@@ -452,7 +540,21 @@ namespace QMC.CDT320.VisionComm
                     return null;
                 }
 
+                string correlationReason;
+                if (!TryValidateBottomFinalCorrelation(handle, inspection, out correlationReason))
+                {
+                    EventLogger.Write(EventKind.Alarm, "VISION", "AUTO-VISION-BOTTOM-RESULT-CORRELATION",
+                        "Bottom SurfaceInspector 최종 RESULT 상관관계 검증 실패. fb=" + Fb +
+                        ", collet=" + pickerNo +
+                        ", dieIndex=" + handle.Request.DieIndex +
+                        ", requestId=" + handle.Request.RequestId +
+                        ", groupId=" + handle.Request.GroupId +
+                        ", reason=" + correlationReason);
+                    return null;
+                }
+
                 BottomVisionOffset offset = VisionCameraCalibrationTransform.ToBottomVisionOffset(pickerNo, inspection);
+                ApplyBottomRequestContext(offset, handle);
                 EventLogger.Write(EventKind.Event, "VISION", "AUTO-VISION-BOTTOM-INSPECT-CAL",
                     "Bottom SurfaceInspector 결과 구조 적용. fb=" + Fb +
                     ", collet=" + pickerNo +

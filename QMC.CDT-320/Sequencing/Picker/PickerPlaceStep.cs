@@ -1,4 +1,4 @@
-namespace QMC.CDT320.Sequencing
+﻿namespace QMC.CDT320.Sequencing
 {
     internal enum PickerPlaceStep
     {
@@ -8,6 +8,7 @@ namespace QMC.CDT320.Sequencing
         VerifyPickedPickerFlow,
         MoveAllPickerZToAvoid,
         SelectNextPicker,
+        WaitBottomFinalBeforePlaceMove,
         ResolveOutputSide,
         VerifyOutputStageReady,
         ReserveOutputStageTarget,

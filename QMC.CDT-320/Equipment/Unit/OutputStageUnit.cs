@@ -25,6 +25,16 @@ namespace QMC.CDT320
         Ng
     }
 
+    /// <summary>검사 결과에 따른 출력 스테이지 배출 정책입니다.</summary>
+    public enum OutputStageResultRoutingMode
+    {
+        /// <summary>검사 결과와 관계없이 Good Stage로 배출합니다.</summary>
+        ForceGoodStage = 0,
+
+        /// <summary>검사 결과가 Good이면 Good Stage, NG이면 NG Stage로 배출합니다.</summary>
+        RouteByInspectionResult = 1
+    }
+
     /// <summary>TPU에서 출력 스테이지로 다이를 넘길 때 사용하는 요청 정보입니다.</summary>
     public class ReceiveDieRequest
     {
@@ -117,6 +127,7 @@ namespace QMC.CDT320
     public class OutputStageConfig : IConfigData
     {
         [DataMember] public bool bDryRun { get; set; }
+        [DataMember] public OutputStageResultRoutingMode ResultRoutingMode { get; set; } = OutputStageResultRoutingMode.ForceGoodStage;
 
         public bool IsSimulationMode
         {

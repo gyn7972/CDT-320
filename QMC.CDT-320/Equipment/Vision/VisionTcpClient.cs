@@ -1097,6 +1097,36 @@ namespace QMC.CDT320.VisionComm
             return false;
         }
 
+        public bool TryGetBooleanValue(out bool value, params string[] keys)
+        {
+            value = false;
+            if (Values == null || keys == null)
+                return false;
+
+            for (int i = 0; i < keys.Length; i++)
+            {
+                string raw;
+                if (!Values.TryGetValue(keys[i], out raw))
+                    continue;
+
+                if (string.Equals(raw, "1", StringComparison.Ordinal) ||
+                    string.Equals(raw, "true", StringComparison.OrdinalIgnoreCase))
+                {
+                    value = true;
+                    return true;
+                }
+
+                if (string.Equals(raw, "0", StringComparison.Ordinal) ||
+                    string.Equals(raw, "false", StringComparison.OrdinalIgnoreCase))
+                {
+                    value = false;
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
         public string DescribeValues()
         {
             if (Values == null || Values.Count == 0)

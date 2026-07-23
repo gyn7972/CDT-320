@@ -15,6 +15,7 @@ namespace QMC.CDT320.Sequencing
     internal sealed class PickerBottomAndSideInspectionSequence : PickerSequenceBase<PickerBottomAndSideInspectionStep>
     {
         private const double MaxSideVisionCenterCorrectionMm = 7.0;
+        private const double DefaultBottomPlaceCorrectionLimitMm = 1.0;
 
         private readonly List<int> _pickedPickerIndexes = new List<int>();
         private readonly List<BottomShot> _pendingBottomShots = new List<BottomShot>();
@@ -81,6 +82,9 @@ namespace QMC.CDT320.Sequencing
             public BottomVisionOffset MResult;
             public Task<int> MResultTask;
             public Task<BottomVisionOffset> FinalResultTask;
+            public BottomVisionOffset ValidatedPlaceResult;
+            public double ValidatedPlaceCorrectionLimitMm;
+            public bool FinalGateTactRecorded;
             public DateTime InspectStartedAt;
         }
 
@@ -1596,6 +1600,16 @@ namespace QMC.CDT320.Sequencing
         {
             MaterialInspectionResult inspectionResult = result.IsOk ? MaterialInspectionResult.Ok : MaterialInspectionResult.Ng;
             DieResult dieResult = result.IsOk ? DieResult.Good : DieResult.NG;
+            MaterialInspectionResult itemOffsetXResult =
+                result.HasMeasureValid && result.MeasureValid &&
+                result.HasBottomItemOffsetX && result.HasBottomItemOffsetXPass && result.BottomItemOffsetXPass
+                    ? MaterialInspectionResult.Ok
+                    : MaterialInspectionResult.Ng;
+            MaterialInspectionResult itemOffsetYResult =
+                result.HasMeasureValid && result.MeasureValid &&
+                result.HasBottomItemOffsetY && result.HasBottomItemOffsetYPass && result.BottomItemOffsetYPass
+                    ? MaterialInspectionResult.Ok
+                    : MaterialInspectionResult.Ng;
             var measurements = new List<InspectionMeasurement>
             {
                 BuildMeasurement("BottomAlignOffsetX", result.OffsetX, "mm", inspectionResult),
@@ -1606,7 +1620,26 @@ namespace QMC.CDT320.Sequencing
                 BuildBooleanMeasurement("BottomCenterOffsetValid", result.HasBottomCenterOffset),
                 BuildMeasurement("SideVisionYOffset", result.SideVisionYOffset, "mm", inspectionResult),
                 BuildMeasurement("SidePickerZOffset", result.PickerZOffset, "mm", inspectionResult),
-                BuildBooleanMeasurement("BottomInspectionResult", result.IsOk)
+                BuildBooleanMeasurement("BottomInspectionResult", result.IsOk),
+                BuildMeasurement("BottomItemOffsetX", result.BottomItemOffsetX, "mm", itemOffsetXResult),
+                BuildMeasurement("BottomItemOffsetY", result.BottomItemOffsetY, "mm", itemOffsetYResult),
+                BuildBooleanMeasurement("BottomItemOffsetXPresent", result.HasBottomItemOffsetX),
+                BuildBooleanMeasurement("BottomItemOffsetYPresent", result.HasBottomItemOffsetY),
+                BuildBooleanMeasurement("BottomItemOffsetXPassPresent", result.HasBottomItemOffsetXPass),
+                BuildBooleanMeasurement("BottomItemOffsetYPassPresent", result.HasBottomItemOffsetYPass),
+                BuildBooleanMeasurement("BottomItemOffsetXPass", result.BottomItemOffsetXPass),
+                BuildBooleanMeasurement("BottomItemOffsetYPass", result.BottomItemOffsetYPass),
+                BuildBooleanMeasurement("BottomMeasureValidPresent", result.HasMeasureValid),
+                BuildBooleanMeasurement("BottomMeasureValid", result.MeasureValid),
+                BuildRawTextMeasurement("BottomRequestId", result.RequestId, inspectionResult),
+                BuildRawTextMeasurement("BottomGroupId", result.GroupId, inspectionResult),
+                BuildRawTextMeasurement("BottomDieId", result.DieId, inspectionResult),
+                BuildMeasurement("BottomDieIndex", result.DieIndex, "index", inspectionResult),
+                BuildMeasurement("BottomPickerNo", target.PickerNo, "index", inspectionResult),
+                BuildRawTextMeasurement(
+                    "BottomPickedAtTicks",
+                    target.Die.PickedAt.Ticks.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                    inspectionResult)
             };
             AppendVisionRawMeasurements(measurements, result, "Bottom", inspectionResult);
 
@@ -1649,6 +1682,21 @@ namespace QMC.CDT320.Sequencing
                 "BottomInspection");
 
             UpdatePickRuntimeOffsetFilter(target, result);
+        }
+
+        private static InspectionMeasurement BuildRawTextMeasurement(
+            string name,
+            string value,
+            MaterialInspectionResult result)
+        {
+            return new InspectionMeasurement
+            {
+                Name = name ?? string.Empty,
+                Value = 0.0,
+                Unit = "raw",
+                RawValue = value ?? string.Empty,
+                Result = result
+            };
         }
 
         /// <summary>
@@ -3043,6 +3091,237 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
+        public async Task<int> WaitBottomFinalBeforePlaceMoveAsync(
+            int pickerNo,
+            string dieId,
+            double correctionLimitMm,
+            CancellationToken ct)
+        {
+            ct.ThrowIfCancellationRequested();
+
+            int pickerIndex = ToPickerIndex(pickerNo);
+            BottomShot bottomShot = FindBottomShot(pickerIndex);
+            if (bottomShot == null || bottomShot.Target == null)
+            {
+                return Fail("PICKER-PLACE-BOTTOM-RESULT-HANDLE", "Vision",
+                    "Place 이동 전에 확인할 Bottom 최종 RESULT 항목이 없습니다. " +
+                    "side=" + Side + ", pickerNo=" + pickerNo + ", die=" + (dieId ?? string.Empty) + ".");
+            }
+            if (!bottomShot.MResultApplied || bottomShot.FinalResultTask == null)
+            {
+                return Fail("PICKER-PLACE-BOTTOM-RESULT-TASK", "Vision",
+                    "Place 이동 전에 기다릴 Bottom 최종 RESULT Task가 준비되지 않았습니다. " +
+                    "side=" + Side + ", pickerNo=" + pickerNo + ", die=" + (dieId ?? string.Empty) + ".");
+            }
+
+            WriteLog("PickerBottomAndSideInspectionSequence",
+                Name + " Place 목표 이동 전 해당 Picker Bottom 최종 RESULT와 보정값을 확인합니다. " +
+                "pickerNo=" + pickerNo +
+                ", die=" + (dieId ?? string.Empty) +
+                ", correctionLimitMm=" + correctionLimitMm.ToString("F6") +
+                ", bottomReady=" + bottomShot.FinalResultTask.IsCompleted + " - Start");
+
+            BottomVisionOffset bottomResult = await AwaitSharedResultWithCancellationAsync(
+                bottomShot.FinalResultTask,
+                ct).ConfigureAwait(false);
+            ct.ThrowIfCancellationRequested();
+
+            int result = ValidateAndApplyBottomFinalResult(
+                bottomShot,
+                bottomResult,
+                pickerNo,
+                dieId,
+                correctionLimitMm);
+            if (result != 0)
+                return result;
+
+            WriteLog("PickerBottomAndSideInspectionSequence",
+                Name + " Place 목표 이동 전 Bottom 보정값 확인 완료. " +
+                "pickerNo=" + pickerNo +
+                ", die=" + dieId +
+                ", itemOffsetX=" + bottomResult.BottomItemOffsetX.ToString("F6") +
+                ", itemOffsetY=" + bottomResult.BottomItemOffsetY.ToString("F6") +
+                ", bottomJudgmentOk=" + bottomResult.IsOk + " - Ok");
+            return 0;
+        }
+
+        public BottomVisionOffset GetValidatedBottomPlaceResult(int pickerNo, string dieId)
+        {
+            BottomShot bottomShot = FindBottomShot(ToPickerIndex(pickerNo));
+            BottomVisionOffset bottomResult = bottomShot != null ? bottomShot.ValidatedPlaceResult : null;
+            if (bottomShot == null || bottomShot.Target == null || bottomResult == null ||
+                !bottomShot.FinalResultApplied)
+                return null;
+            if (bottomShot.Target.Die == null ||
+                !string.Equals(bottomShot.Target.Die.DieId, dieId, StringComparison.Ordinal) ||
+                !string.Equals(bottomResult.DieId, dieId, StringComparison.Ordinal) ||
+                bottomResult.PickerNo != pickerNo)
+                return null;
+
+            return bottomResult;
+        }
+
+        private int ValidateAndApplyBottomFinalResult(
+            BottomShot bottomShot,
+            BottomVisionOffset bottomResult,
+            int pickerNo,
+            string dieId,
+            double maxAbsCorrectionMm)
+        {
+            if (bottomShot == null || bottomShot.Target == null || bottomShot.Target.Die == null)
+            {
+                return Fail("PICKER-PLACE-BOTTOM-RESULT-TARGET", "Material",
+                    "Bottom 최종 RESULT의 요청 대상 정보가 없습니다. " +
+                    "side=" + Side + ", pickerNo=" + pickerNo + ", die=" + (dieId ?? string.Empty) + ".");
+            }
+            if (bottomResult == null)
+            {
+                return Fail("PICKER-PLACE-BOTTOM-RESULT-MISSING", "Vision",
+                    "Place 이동을 차단합니다. Bottom 최종 RESULT가 수신되지 않았습니다. " +
+                    "side=" + Side + ", pickerNo=" + pickerNo + ", die=" + (dieId ?? string.Empty) + ".");
+            }
+            if (!IsValidBottomPlaceCorrectionLimit(maxAbsCorrectionMm))
+            {
+                return Fail("PICKER-PLACE-BOTTOM-OFFSET-LIMIT", "Vision",
+                    "Bottom Place 보정 허용 범위가 올바르지 않습니다. " +
+                    "pickerNo=" + pickerNo +
+                    ", die=" + (dieId ?? string.Empty) +
+                    ", maxAbsCorrectionMm=" + maxAbsCorrectionMm.ToString("F6") + ".");
+            }
+
+            string targetDieId = bottomShot.Target.Die.DieId ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(dieId) ||
+                !string.Equals(targetDieId, dieId, StringComparison.Ordinal) ||
+                !string.Equals(bottomResult.DieId, dieId, StringComparison.Ordinal))
+            {
+                return Fail("PICKER-PLACE-BOTTOM-DIE-MISMATCH", "Material",
+                    "Place 대상과 Bottom 최종 RESULT 대상 Die가 일치하지 않습니다. " +
+                    "side=" + Side +
+                    ", pickerNo=" + pickerNo +
+                    ", placeDie=" + (dieId ?? string.Empty) +
+                    ", bottomTargetDie=" + targetDieId +
+                    ", bottomResultDie=" + (bottomResult.DieId ?? string.Empty) + ".");
+            }
+            if (bottomResult.PickerNo != pickerNo)
+            {
+                return Fail("PICKER-PLACE-BOTTOM-PICKER-MISMATCH", "Vision",
+                    "Place 대상 Picker와 Bottom 최종 RESULT Picker가 일치하지 않습니다. " +
+                    "requestedPickerNo=" + pickerNo +
+                    ", resultPickerNo=" + bottomResult.PickerNo +
+                    ", die=" + dieId + ".");
+            }
+            if (bottomResult.DieIndex != bottomShot.Target.Die.InputSequenceNo)
+            {
+                return Fail("PICKER-PLACE-BOTTOM-DIE-INDEX-MISMATCH", "Vision",
+                    "Bottom 최종 RESULT DieIndex가 요청 Material과 일치하지 않습니다. " +
+                    "pickerNo=" + pickerNo +
+                    ", die=" + dieId +
+                    ", expectedDieIndex=" + bottomShot.Target.Die.InputSequenceNo +
+                    ", actualDieIndex=" + bottomResult.DieIndex + ".");
+            }
+            if (string.IsNullOrWhiteSpace(bottomResult.RequestId) ||
+                string.IsNullOrWhiteSpace(bottomResult.GroupId))
+            {
+                return Fail("PICKER-PLACE-BOTTOM-CORRELATION", "Vision",
+                    "Bottom 최종 RESULT 상관관계 ID가 없습니다. " +
+                    "pickerNo=" + pickerNo +
+                    ", die=" + dieId +
+                    ", requestId=" + (bottomResult.RequestId ?? string.Empty) +
+                    ", groupId=" + (bottomResult.GroupId ?? string.Empty) + ".");
+            }
+            if (!bottomResult.HasMeasureValid || !bottomResult.MeasureValid)
+            {
+                return Fail("PICKER-PLACE-BOTTOM-MEASURE-INVALID", "Vision",
+                    "Bottom 최종 RESULT measure_valid 조건을 만족하지 않아 Place 이동을 차단합니다. " +
+                    "pickerNo=" + pickerNo +
+                    ", die=" + dieId +
+                    ", present=" + bottomResult.HasMeasureValid +
+                    ", value=" + bottomResult.MeasureValid + ".");
+            }
+            if (!bottomResult.HasBottomItemOffsetX ||
+                !bottomResult.HasBottomItemOffsetY ||
+                !bottomResult.HasBottomItemOffsetXPass ||
+                !bottomResult.HasBottomItemOffsetYPass ||
+                !bottomResult.BottomItemOffsetXPass ||
+                !bottomResult.BottomItemOffsetYPass ||
+                !IsFiniteCorrectionValue(bottomResult.BottomItemOffsetX) ||
+                !IsFiniteCorrectionValue(bottomResult.BottomItemOffsetY))
+            {
+                return Fail("PICKER-PLACE-BOTTOM-ITEM-OFFSET", "Vision",
+                    "Bottom 최종 RESULT item offset 값 또는 pass 조건을 만족하지 않아 Place 이동을 차단합니다. " +
+                    "pickerNo=" + pickerNo +
+                    ", die=" + dieId +
+                    ", hasX=" + bottomResult.HasBottomItemOffsetX +
+                    ", hasY=" + bottomResult.HasBottomItemOffsetY +
+                    ", hasXPass=" + bottomResult.HasBottomItemOffsetXPass +
+                    ", hasYPass=" + bottomResult.HasBottomItemOffsetYPass +
+                    ", xPass=" + bottomResult.BottomItemOffsetXPass +
+                    ", yPass=" + bottomResult.BottomItemOffsetYPass +
+                    ", offsetX=" + bottomResult.BottomItemOffsetX.ToString("F6") +
+                    ", offsetY=" + bottomResult.BottomItemOffsetY.ToString("F6") + ".");
+            }
+            if (Math.Abs(bottomResult.BottomItemOffsetX) > maxAbsCorrectionMm ||
+                Math.Abs(bottomResult.BottomItemOffsetY) > maxAbsCorrectionMm)
+            {
+                return Fail("PICKER-PLACE-BOTTOM-ITEM-OFFSET-RANGE", "Vision",
+                    "Bottom 최종 RESULT item offset이 Place 보정 허용 범위를 벗어나 이동을 차단합니다. " +
+                    "pickerNo=" + pickerNo +
+                    ", die=" + dieId +
+                    ", offsetX=" + bottomResult.BottomItemOffsetX.ToString("F6") +
+                    ", offsetY=" + bottomResult.BottomItemOffsetY.ToString("F6") +
+                    ", allowedAbsMaxMm=" + maxAbsCorrectionMm.ToString("F6") + ".");
+            }
+
+            DieMaterial currentDie = MaterialStateService.GetDieAtPicker(PickerLocationKind, pickerNo);
+            if (currentDie == null || !string.Equals(currentDie.DieId, dieId, StringComparison.Ordinal))
+            {
+                return Fail("PICKER-PLACE-BOTTOM-CURRENT-DIE", "Material",
+                    "Bottom 최종 RESULT 적용 직전 Picker 제품이 변경되었습니다. " +
+                    "pickerNo=" + pickerNo +
+                    ", expectedDie=" + dieId +
+                    ", currentDie=" + (currentDie != null ? currentDie.DieId : string.Empty) + ".");
+            }
+
+            if (!bottomShot.FinalResultApplied)
+            {
+                ApplyBottomInspectionResult(bottomShot.Target, bottomResult);
+                bottomShot.FinalResultApplied = true;
+            }
+
+            bottomShot.ValidatedPlaceResult = bottomResult;
+            bottomShot.ValidatedPlaceCorrectionLimitMm = maxAbsCorrectionMm;
+            return 0;
+        }
+
+        private static bool IsValidBottomPlaceCorrectionLimit(double value)
+        {
+            return IsFiniteCorrectionValue(value) && value >= 0.0;
+        }
+
+        private static async Task<T> AwaitSharedResultWithCancellationAsync<T>(
+            Task<T> sharedTask,
+            CancellationToken ct)
+        {
+            if (sharedTask == null)
+                return default(T);
+            if (sharedTask.IsCompleted || !ct.CanBeCanceled)
+                return await sharedTask.ConfigureAwait(false);
+
+            var cancellationSignal = new TaskCompletionSource<bool>();
+            using (ct.Register(
+                state => ((TaskCompletionSource<bool>)state).TrySetResult(true),
+                cancellationSignal))
+            {
+                Task completedTask = await Task.WhenAny(
+                    sharedTask,
+                    cancellationSignal.Task).ConfigureAwait(false);
+                if (!object.ReferenceEquals(completedTask, sharedTask))
+                    ct.ThrowIfCancellationRequested();
+            }
+
+            return await sharedTask.ConfigureAwait(false);
+        }
+
         private async Task<SideVisionResult> ReceiveSideFinalResultAsync(InspectionTarget target, CancellationToken ct)
         {
             try
@@ -3125,8 +3404,12 @@ namespace QMC.CDT320.Sequencing
                 ", bottomReady=" + bottomShot.FinalResultTask.IsCompleted +
                 ", sideReady=" + sideFinalTask.IsCompleted + " - Start");
 
-            BottomVisionOffset bottomResult = await bottomShot.FinalResultTask.ConfigureAwait(false);
-            SideVisionResult sideResult = await sideFinalTask.ConfigureAwait(false);
+            BottomVisionOffset bottomResult = await AwaitSharedResultWithCancellationAsync(
+                bottomShot.FinalResultTask,
+                ct).ConfigureAwait(false);
+            SideVisionResult sideResult = await AwaitSharedResultWithCancellationAsync(
+                sideFinalTask,
+                ct).ConfigureAwait(false);
             ct.ThrowIfCancellationRequested();
 
             if (bottomResult == null || sideResult == null)
@@ -3151,30 +3434,27 @@ namespace QMC.CDT320.Sequencing
                     ", die=" + dieId + ".");
             }
 
-            DieMaterial currentDie = MaterialStateService.GetDieAtPicker(PickerLocationKind, pickerNo);
-            if (currentDie == null || !string.Equals(currentDie.DieId, dieId, StringComparison.Ordinal))
-            {
-                return Fail("PICKER-PLACE-INSPECTION-CURRENT-DIE", "Material",
-                    "최종 RESULT 적용 직전 Picker 제품이 변경되었습니다. " +
-                    "pickerNo=" + pickerNo +
-                    ", expectedDie=" + dieId +
-                    ", currentDie=" + (currentDie != null ? currentDie.DieId : string.Empty) + ".");
-            }
-
             // 두 RESULT를 모두 확보한 뒤 단일 경로에서 Bottom -> Side 순으로 적용해
             // Side NG 또는 Bottom NG가 나중의 Good 결과로 덮이지 않게 한다.
-            if (!bottomShot.FinalResultApplied)
-            {
-                ApplyBottomInspectionResult(bottomShot.Target, bottomResult);
-                bottomShot.FinalResultApplied = true;
-            }
+            double bottomCorrectionLimit = bottomShot.ValidatedPlaceResult != null
+                ? bottomShot.ValidatedPlaceCorrectionLimitMm
+                : DefaultBottomPlaceCorrectionLimitMm;
+            int bottomValidationResult = ValidateAndApplyBottomFinalResult(
+                bottomShot,
+                bottomResult,
+                pickerNo,
+                dieId,
+                bottomCorrectionLimit);
+            if (bottomValidationResult != 0)
+                return bottomValidationResult;
+
             if (!_sideCompletedPickerIndexes.Contains(pickerIndex))
             {
                 ApplySideInspectionResult(sideTarget, sideResult, sideResult);
                 _sideCompletedPickerIndexes.Add(pickerIndex);
             }
 
-            currentDie = MaterialStateService.GetDieAtPicker(PickerLocationKind, pickerNo);
+            DieMaterial currentDie = MaterialStateService.GetDieAtPicker(PickerLocationKind, pickerNo);
             DieResult expectedDieResult = bottomResult.IsOk && sideResult.IsAllOk
                 ? DieResult.Good
                 : DieResult.NG;
@@ -3197,16 +3477,20 @@ namespace QMC.CDT320.Sequencing
                     ", side90Done=" + HasInspectionResult(currentDie, "Side90") + ".");
             }
 
-            RecordDetailedTactRecord(
-                TactTimeCategory.Vision,
-                "Bottom Camera Inspect",
-                "RESULT",
-                bottomShot.Target,
-                bottomShot.InspectStartedAt,
-                TactTimeResult.Ok,
-                string.Empty,
-                "Bottom/Side final results completed before place down. bottomOk=" + bottomResult.IsOk +
-                ", sideOk=" + sideResult.IsAllOk);
+            if (!bottomShot.FinalGateTactRecorded)
+            {
+                RecordDetailedTactRecord(
+                    TactTimeCategory.Vision,
+                    "Bottom Camera Inspect",
+                    "RESULT",
+                    bottomShot.Target,
+                    bottomShot.InspectStartedAt,
+                    TactTimeResult.Ok,
+                    string.Empty,
+                    "Bottom/Side final results completed before place down. bottomOk=" + bottomResult.IsOk +
+                    ", sideOk=" + sideResult.IsAllOk);
+                bottomShot.FinalGateTactRecorded = true;
+            }
 
             WriteLog("PickerBottomAndSideInspectionSequence",
                 Name + " Place PickerZ 하강 허용. 해당 Picker Bottom/Side 최종 RESULT 수신 및 판정 반영 완료. " +
