@@ -3477,6 +3477,8 @@ namespace QMC.CDT320.Sequencing
                     ", side90Done=" + HasInspectionResult(currentDie, "Side90") + ".");
             }
 
+            EnqueueFinalBottomAndSideResult(currentDie);
+
             if (!bottomShot.FinalGateTactRecorded)
             {
                 RecordDetailedTactRecord(
@@ -3499,6 +3501,35 @@ namespace QMC.CDT320.Sequencing
                 ", bottomOk=" + bottomResult.IsOk +
                 ", sideOk=" + sideResult.IsAllOk + " - Ok");
             return 0;
+        }
+
+        private void EnqueueFinalBottomAndSideResult(DieMaterial die)
+        {
+            try
+            {
+                DieInspectionRecord bottomRecord = FindInspectionRecord(die, "Bottom");
+                if (bottomRecord == null)
+                {
+                    WriteLog("PickerBottomAndSideInspectionSequence",
+                        Name + " Bottom/Side 최종 RESULT 저장을 생략했습니다. Bottom Material record가 없습니다. die=" +
+                        (die != null ? die.DieId : string.Empty) + " - Failed");
+                    return;
+                }
+
+                MaterialSnapshot state = MaterialStateService.State;
+                VisionInspectionResultFileWriter.EnqueueBottomResult(
+                    state != null ? state.RecipeName : string.Empty,
+                    state != null ? state.LotId : string.Empty,
+                    die,
+                    bottomRecord);
+            }
+            catch (Exception ex)
+            {
+                // 고객 결과 파일 저장 실패는 검사/Place 안전 배리어를 해제하거나 모션 결과를 바꾸지 않는다.
+                WriteLog("PickerBottomAndSideInspectionSequence",
+                    Name + " Bottom/Side 최종 RESULT 저장 enqueue 실패. die=" +
+                    (die != null ? die.DieId : string.Empty) + ", error=" + ex.Message + " - Failed");
+            }
         }
 
         /// <summary>현재 콜렛의 다이 주소(die_index=InputSequenceNo, grid=Wafer_IndexX/Y)를
@@ -4119,6 +4150,24 @@ namespace QMC.CDT320.Sequencing
             finally
             {
             }
+        }
+
+        private static DieInspectionRecord FindInspectionRecord(DieMaterial die, string inspectionType)
+        {
+            if (die == null || die.Inspections == null || string.IsNullOrWhiteSpace(inspectionType))
+                return null;
+
+            for (int i = 0; i < die.Inspections.Count; i++)
+            {
+                DieInspectionRecord record = die.Inspections[i];
+                if (record != null &&
+                    string.Equals(record.InspectionType, inspectionType, StringComparison.OrdinalIgnoreCase))
+                {
+                    return record;
+                }
+            }
+
+            return null;
         }
 
         private void ReleaseInspectionArea()

@@ -617,6 +617,8 @@ namespace QMC.CDT320.Materials
         {
             DieInspectionRecord inputVisionRecord = FindInspection(die, "InputPickVision");
             DieInspectionRecord pickRecord = FindInspection(die, "PickUp");
+            DieInspectionRecord side0Record = FindInspection(die, "Side0");
+            DieInspectionRecord side90Record = FindInspection(die, "Side90");
             InspectionAlignmentSnapshot pickAlignment =
                 FindAlignment(inputVisionRecord) ?? FindAlignment(pickRecord);
             InspectionAlignmentSnapshot bottomAlignment = FindAlignment(bottomRecord);
@@ -695,11 +697,28 @@ namespace QMC.CDT320.Materials
             // 샘플의 Size와 Vision의 t_foreign(count)는 의미가 다르므로 임의 변환하지 않는다.
             values.Add("");
 
-            // 현재 Side 프로토콜에는 샘플 4방향 Chipping과 직접 대응하는 값이 없다: 4열
-            values.Add("");
-            values.Add("");
-            values.Add("");
-            values.Add("");
+            // Side foreign_count 4방향: 0도는 Bottom/Top, 90도는 Left/Right로 고객 CSV에 기록한다.
+            // foreign_count는 길이 값이 아니므로 mm -> um 변환 없이 원 수치를 기록한다.
+            values.Add(FormatSideForeignCount(
+                side0Record,
+                "Side0Vision_FrontSide_ch0_side_item_foreign_count",
+                "Side0Vision_FrontSide_measure_valid",
+                "Side0Vision_FrontSide_ch0_valid"));
+            values.Add(FormatSideForeignCount(
+                side90Record,
+                "Side90Vision_RearSide_ch1_side_item_foreign_count",
+                "Side90Vision_RearSide_measure_valid",
+                "Side90Vision_RearSide_ch1_valid"));
+            values.Add(FormatSideForeignCount(
+                side0Record,
+                "Side0Vision_RearSide_ch0_side_item_foreign_count",
+                "Side0Vision_RearSide_measure_valid",
+                "Side0Vision_RearSide_ch0_valid"));
+            values.Add(FormatSideForeignCount(
+                side90Record,
+                "Side90Vision_FrontSide_ch1_side_item_foreign_count",
+                "Side90Vision_FrontSide_measure_valid",
+                "Side90Vision_FrontSide_ch1_valid"));
 
             // Place 결과: 17열
             values.Add(FormatPlaceMetric(placeRecord, "placement_offset_x_mm", true));
@@ -1069,6 +1088,27 @@ namespace QMC.CDT320.Materials
             return convertMillimeterToMicrometer
                 ? FormatMicrometers(value)
                 : Format(value);
+        }
+
+        private static string FormatSideForeignCount(
+            DieInspectionRecord record,
+            string measurementName,
+            string measureValidName,
+            string channelValidName)
+        {
+            if (!IsVisionMeasurementValid(record, measureValidName) ||
+                !IsVisionMeasurementValid(record, channelValidName))
+            {
+                return "";
+            }
+
+            return Format(ReadMeasurement(record, measurementName));
+        }
+
+        private static bool IsVisionMeasurementValid(DieInspectionRecord record, string measurementName)
+        {
+            double value = ReadMeasurement(record, measurementName);
+            return IsFinite(value) && value > 0.5;
         }
 
         private static string FormatPlaceMetric(

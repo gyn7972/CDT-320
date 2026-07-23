@@ -340,7 +340,7 @@ namespace QMC.CDT320.Sequencing
                 ", runtimeOffsetY=" + F(runtimeOffsetY) +
                 ", runtimeT=" + F(runtimeOffsetT) +
                 ", colletXAlreadyInOutputVisionToPicker=" + F(colletOffsetX) +
-                ", colletYAppliedOnceToOutputStageY=" + F(colletOffsetY) +
+                ", colletYAlreadyInOutputVisionToPicker=" + F(colletOffsetY) +
                 ", colletTAppliedToMove=0.000000" +
                 ", outputStageBaseY=" + F(outputStageBaseY) +
                 ", receiveTargetX=" + F(receiveTargetX) +
@@ -383,16 +383,19 @@ namespace QMC.CDT320.Sequencing
                 ", colletXAlreadyInOutputVisionToPicker=" + F(colletOffsetX) +
                 ", colletXNotAddedAgain=True" +
                 ", pickerXIfColletDoubleAdded=" + F(result.PickerX + colletOffsetX) +
+                ", outputCameraToPickerY=outputVisionToPickerY(" + F(outputVisionToPickerY) +
+                ")-pickerYTeaching(" + F(pickerYTeaching) +
+                ")=" + F(outputVisionToPickerY - pickerYTeaching) +
                 ", formulaOutputStageY=outputStageBaseY(" + F(outputStageBaseY) +
                 ")+receiveTargetY(" + F(receiveTargetY) +
+                ")+outputCameraToPickerY(" + F(outputVisionToPickerY - pickerYTeaching) +
                 ")-bottomOffsetY(" + F(bottomOffsetY) +
-                ")-pickerColletOffsetY(" + F(colletOffsetY) +
                 ")+placeRuntimeOffsetY(" + F(placeRuntimeOffsetY) +
                 ")+placeMechanicalOffsetY(" + F(placeMechanicalOffsetY) +
                 ")=" + F(result.OutputStageY) +
-                ", outputVisionToPickerYNotUsedForPlaceStageY=" + F(outputVisionToPickerY) +
                 ", runtimeOffsetYLoggedOnly=" + F(runtimeOffsetY) +
-                ", colletYAppliedOnceToOutputStageY=" + F(colletOffsetY) +
+                ", colletYAlreadyInOutputVisionToPicker=" + F(colletOffsetY) +
+                ", colletYNotAddedAgain=True" +
                 ", pickerYFixed=" + F(result.PickerY) +
                 ", pickerT=placeTeachingT(" + F(pickerTTeaching) +
                 ")-bottomOffsetT(" + F(bottomOffsetT) +
