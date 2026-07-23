@@ -2003,6 +2003,8 @@ namespace QMC.CDT320.Sequencing
             string bottomOffsetReason = _currentBottomPlaceResult != null
                 ? "BottomFinalItemOffsetAppliedOnce"
                 : "ManualPlaceWithoutDeferredBottomCorrection";
+            bool useBottomFinalItemOffsetYAsSoleColletYCorrection =
+                autoRun && _currentBottomPlaceResult != null;
 
             double outputStageBaseY = _currentOutputSide == BinSide.Ng
                 ? OutputStage.Recipe.NGStageY.ProcessPosition
@@ -2069,7 +2071,8 @@ namespace QMC.CDT320.Sequencing
                 placeRuntimeOffsetY,
                 placeRuntimeOffsetT,
                 placeMechanicalOffsetX,
-                placeMechanicalOffsetY);
+                placeMechanicalOffsetY,
+                useBottomFinalItemOffsetYAsSoleColletYCorrection);
 
             _targetOutputStageY = coordinate.OutputStageY;
             _targetPickerX = coordinate.PickerX;
@@ -2098,6 +2101,8 @@ namespace QMC.CDT320.Sequencing
                 ", receiveTargetY=" + (_receiveTarget != null ? _receiveTarget.TargetY.ToString() : "-") +
                 ", outputVisionToPickerOffsetX=" + _outputVisionToPickerX +
                 ", outputVisionToPickerOffsetY=" + _outputVisionToPickerY +
+                ", outputVisionToPickerYAppliedToOutputStageY=" +
+                (!useBottomFinalItemOffsetYAsSoleColletYCorrection) +
                 ", bottomOffsetX=" + bottomOffset.X +
                 ", bottomOffsetY=" + bottomOffset.Y +
                 ", bottomOffsetT=" + bottomOffset.R +

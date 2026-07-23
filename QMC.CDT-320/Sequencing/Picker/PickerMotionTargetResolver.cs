@@ -276,7 +276,8 @@ namespace QMC.CDT320.Sequencing
             double placeRuntimeOffsetY = 0.0,
             double placeRuntimeOffsetT = 0.0,
             double placeMechanicalOffsetX = 0.0,
-            double placeMechanicalOffsetY = 0.0)
+            double placeMechanicalOffsetY = 0.0,
+            bool bottomFinalItemOffsetYIsSoleColletYCorrection = false)
         {
             PickerAlignOffset runtime = InputPickerPickTargetResolver.ResolveRuntimePickerOffset(machine, side, pickerIndex);
             PickerCalibrationOffset collet = ResolveColletOffset(machine, side, pickerIndex);
@@ -326,7 +327,8 @@ namespace QMC.CDT320.Sequencing
                 placeRuntimeOffsetY,
                 placeRuntimeOffsetT,
                 placeMechanicalOffsetX,
-                placeMechanicalOffsetY);
+                placeMechanicalOffsetY,
+                bottomFinalItemOffsetYIsSoleColletYCorrection);
 
             WriteCoordinateLog(
                 "OutputPlaceTarget",
@@ -388,14 +390,15 @@ namespace QMC.CDT320.Sequencing
                 ")=" + F(outputVisionToPickerY - pickerYTeaching) +
                 ", formulaOutputStageY=outputStageBaseY(" + F(outputStageBaseY) +
                 ")+receiveTargetY(" + F(receiveTargetY) +
-                ")+outputCameraToPickerY(" + F(outputVisionToPickerY - pickerYTeaching) +
+                ")+outputCameraToPickerY(" + F(bottomFinalItemOffsetYIsSoleColletYCorrection ? 0.0 : outputVisionToPickerY - pickerYTeaching) +
                 ")-bottomOffsetY(" + F(bottomOffsetY) +
                 ")+placeRuntimeOffsetY(" + F(placeRuntimeOffsetY) +
                 ")+placeMechanicalOffsetY(" + F(placeMechanicalOffsetY) +
                 ")=" + F(result.OutputStageY) +
                 ", runtimeOffsetYLoggedOnly=" + F(runtimeOffsetY) +
                 ", colletYAlreadyInOutputVisionToPicker=" + F(colletOffsetY) +
-                ", colletYNotAddedAgain=True" +
+                ", outputVisionToPickerYAppliedToOutputStageY=" + (!bottomFinalItemOffsetYIsSoleColletYCorrection) +
+                ", BottomFinalItemOffsetYIsSoleColletYCorrection=" + bottomFinalItemOffsetYIsSoleColletYCorrection +
                 ", pickerYFixed=" + F(result.PickerY) +
                 ", pickerT=placeTeachingT(" + F(pickerTTeaching) +
                 ")-bottomOffsetT(" + F(bottomOffsetT) +

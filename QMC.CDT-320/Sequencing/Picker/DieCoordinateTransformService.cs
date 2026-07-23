@@ -187,15 +187,20 @@ namespace QMC.CDT320.Sequencing
             double placeRuntimeOffsetY = 0.0,
             double placeRuntimeOffsetT = 0.0,
             double placeMechanicalOffsetX = 0.0,
-            double placeMechanicalOffsetY = 0.0)
+            double placeMechanicalOffsetY = 0.0,
+            bool bottomFinalItemOffsetYIsSoleColletYCorrection = false)
         {
             PlaceCoordinateResult result = new PlaceCoordinateResult();
             result.PickerY = pickerYTeaching;
             double pickerYRuntimeOffset = pickerAlignOffsetY;
-            double outputCameraToPickerY = outputVisionToPickerY - pickerYTeaching;
             result.TargetSide = targetSide;
-            // PickerY는 공통 Place 티칭 위치를 유지하고, Picker별 Output camera 간격은 OutputStageY에 한 번만 적용한다.
-            // OutputVisionToPickerY는 Collet Calibration의 FinalPickerY를 포함하므로 ColletOffsetY를 별도로 가감하지 않는다.
+            // 자동 Place는 모든 Collet을 P4 기준 PickerY에서 촬영한 Bottom FINAL을 사용한다.
+            // 이 모드에서는 BottomItemOffsetY가 Collet별 실제 Y 오차를 포함한 단일 Place 보정값이므로
+            // OutputVisionToPickerY(Collet Calibration 포함)를 OutputStageY에 다시 더하지 않는다.
+            // Calibration/Preview 등 Bottom FINAL이 없는 호출은 기존 Camera-to-Picker Y 보정을 유지한다.
+            double outputCameraToPickerY = bottomFinalItemOffsetYIsSoleColletYCorrection
+                ? 0.0
+                : outputVisionToPickerY - pickerYTeaching;
             // Place 런타임 보정(placeRuntimeOffset*)은 Bin 후검사 LowPassFilter 출력(raw)이며
             // 비전 + 방향(과이동)을 상쇄하도록 X/T는 감산, Y는 스테이지 이동 방향 정의상 가산한다.
             // Place Y 기구 보정은 PickerY 티칭을 바꾸지 않고 선택된 GOOD/NG OutputStageY에만 더한다.
@@ -213,9 +218,14 @@ namespace QMC.CDT320.Sequencing
             result.PickerZ = pickerZTeaching;
             result.Formula =
                 "targetSide = " + targetSide +
-                " / outputCameraToPickerY = outputVisionToPickerY(" + F(outputVisionToPickerY) + ") - pickerYTeaching(" + F(pickerYTeaching) + ") = " + F(outputCameraToPickerY) +
+                " / outputCameraToPickerY = outputVisionToPickerY(" + F(outputVisionToPickerY) + ") - pickerYTeaching(" + F(pickerYTeaching) + ") = " + F(outputVisionToPickerY - pickerYTeaching) +
+                ", appliedToOutputStageY=" + (!bottomFinalItemOffsetYIsSoleColletYCorrection) +
+                ", usedValue=" + F(outputCameraToPickerY) +
                 " / outputStageY = outputStageBaseY(" + F(outputStageBaseY) + ") + receiveTargetY(" + F(receiveTargetY) + ") + outputCameraToPickerY(" + F(outputCameraToPickerY) + ") - bottomOffsetY(" + F(bottomOffsetY) + ") + placeRuntimeOffsetY(" + F(placeRuntimeOffsetY) + ") + placeMechanicalOffsetY(" + F(placeMechanicalOffsetY) + ") = " + F(result.OutputStageY) +
-                " / pickerColletOffsetY(" + F(pickerColletOffsetY) + ") is already included in outputVisionToPickerY" +
+                " / pickerColletOffsetY(" + F(pickerColletOffsetY) + ") " +
+                (bottomFinalItemOffsetYIsSoleColletYCorrection
+                    ? "is represented by Bottom FINAL ItemOffsetY and is not reapplied to OutputStageY"
+                    : "is already included in outputVisionToPickerY") +
                 " / pickerYRuntimeOffset=" + F(pickerYRuntimeOffset) +
                 " / pickerX = outputVisionProcessX(" + F(outputVisionProcessX) + ") + receiveTargetX(" + F(receiveTargetX) + ") + outputVisionToPickerX(" + F(outputVisionToPickerX) + ") + runtimeOffsetX(" + F(pickerAlignOffsetX) + ") - bottomOffsetX(" + F(bottomOffsetX) + ") - placeRuntimeOffsetX(" + F(placeRuntimeOffsetX) + ") + placeMechanicalOffsetX(" + F(placeMechanicalOffsetX) + ") = " + F(result.PickerX) +
                 " / pickerT = placeTeachingT(" + F(pickerTTeaching) + ") - bottomOffsetT(" + F(bottomOffsetT) + ") - placeRuntimeOffsetT(" + F(placeRuntimeOffsetT) + ") [pickerAlignOffsetT ignored for place=" + F(pickerAlignOffsetT) + "] = " + F(result.PickerT) +
