@@ -38,6 +38,12 @@ namespace QMC.CDT320.Sequencing
 
     internal sealed class OutputFeederUnloadToCassetteSequence : OutputFeederSequenceBase<OutputFeederUnloadToCassetteStep>
     {
+        private enum RequiredFeederTransferPosition
+        {
+            StageUnload,
+            CassetteUnload
+        }
+
         private readonly SequenceResourceLease _outputPlaceAreaLease;
         private readonly SequenceResourceLease _outputStageAreaLease;
         private bool _resumeEntryNormalized;
@@ -158,12 +164,13 @@ namespace QMC.CDT320.Sequencing
         }
 
         private int VerifyCassetteTransferAlignmentBeforeRelease(
-            bool requireFeederAtCassetteUnload,
+            RequiredFeederTransferPosition requiredFeederPosition,
             bool requireFeederUnclamped,
             bool requireRingDetected,
             string context)
         {
             if (Feeder == null || Feeder.FeederY == null ||
+                Feeder.Recipe == null ||
                 Cassette == null || Cassette.OutputLifterZ == null ||
                 Stage == null)
             {
@@ -193,18 +200,22 @@ namespace QMC.CDT320.Sequencing
                     context + " 대상 OutputStage가 안전하게 정지된 정확한 Unload 위치가 아닙니다. " + stageState);
 
             Feeder.FeederY.UpdateStatus();
-            if (!Feeder.FeederY.IsServoOn || Feeder.FeederY.IsAlarm || Feeder.FeederY.IsMoving)
+            if (!Feeder.FeederY.IsServoOn || !Feeder.IsBinFeederYMoveDone())
                 return Fail("OUT-FEEDER-CST-ALIGN-FEEDER-STATE", Feeder.Name,
                     context + " OutputFeederY가 안전하게 정지된 상태가 아닙니다. " +
                     Feeder.DescribeBinFeederYMoveDoneState());
 
-            bool feederPositionReady = requireFeederAtCassetteUnload
-                ? Feeder.IsBinFeederYInCassetteUnloadPosition(Options.Side)
-                : Feeder.IsBinFeederYInAvoidPosition() && Feeder.IsBinFeederAvoidPositionCheck();
+            double feederTarget = ResolveRequiredFeederTransferPosition(requiredFeederPosition);
+            double feederTolerance = ResolveFeederTransferPositionTolerance();
+            bool feederPositionReady =
+                Math.Abs(Feeder.FeederY.ActualPosition - feederTarget) <= feederTolerance &&
+                Math.Abs(Feeder.FeederY.CommandPosition - feederTarget) <= feederTolerance;
             if (!feederPositionReady)
                 return Fail("OUT-FEEDER-CST-ALIGN-FEEDER-POS", Feeder.Name,
                     context + " OutputFeederY 정렬 위치가 정확하지 않습니다. required=" +
-                    (requireFeederAtCassetteUnload ? "CassetteUnload" : "Avoid") +
+                    requiredFeederPosition +
+                    ", target=" + feederTarget.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture) +
+                    ", tolerance=" + feederTolerance.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture) +
                     ", side=" + Options.Side + ", " + Feeder.DescribeBinFeederYMoveDoneState());
 
             if (!Feeder.IsFeederDown() || Feeder.IsFeederUnclamped() != requireFeederUnclamped)
@@ -252,6 +263,22 @@ namespace QMC.CDT320.Sequencing
             }
 
             return 0;
+        }
+
+        private double ResolveRequiredFeederTransferPosition(RequiredFeederTransferPosition requiredPosition)
+        {
+            bool ng = Options.Side == BinSide.Ng;
+            if (requiredPosition == RequiredFeederTransferPosition.StageUnload)
+                return ng ? Feeder.Recipe.NGWaferUnloadPosition : Feeder.Recipe.GoodWaferUnloadPosition;
+
+            return ng ? Feeder.Recipe.NGCassetteUnloadPosition : Feeder.Recipe.GoodCassetteUnloadPosition;
+        }
+
+        private double ResolveFeederTransferPositionTolerance()
+        {
+            return Feeder.FeederY.Config != null && Feeder.FeederY.Config.InPositionTolerance > 0.0
+                ? Feeder.FeederY.Config.InPositionTolerance
+                : 0.05;
         }
 
         protected override Task<int> ExecuteCurrentStepAsync(CancellationToken ct)
@@ -525,8 +552,11 @@ namespace QMC.CDT320.Sequencing
 
         private async Task<int> MoveFeederCassetteUnloadPositionAsync(CancellationToken ct)
         {
+            // Stage에서 제품을 Clamp한 정상 종료 위치는 해당 측 StageUnload이다.
+            // CassetteUnload 이동 전에는 일반 Avoid가 아니라 정확한 StageUnload 위치와
+            // Clamp+LiftDown+Ring 상태를 확인하고, 제품 해제 후에만 일반 Avoid로 복귀한다.
             int alignment = VerifyCassetteTransferAlignmentBeforeRelease(
-                false,
+                RequiredFeederTransferPosition.StageUnload,
                 false,
                 true,
                 "Feeder Cassette Unload 이동 전");
@@ -548,7 +578,7 @@ namespace QMC.CDT320.Sequencing
         private async Task<int> PrepareFeederUnclampAsync(CancellationToken ct)
         {
             int alignment = VerifyCassetteTransferAlignmentBeforeRelease(
-                true,
+                RequiredFeederTransferPosition.CassetteUnload,
                 false,
                 true,
                 "Feeder Unclamp 직전");
@@ -571,7 +601,7 @@ namespace QMC.CDT320.Sequencing
         private async Task<int> MoveFeederAvoidPositionAsync(CancellationToken ct)
         {
             int alignment = VerifyCassetteTransferAlignmentBeforeRelease(
-                true,
+                RequiredFeederTransferPosition.CassetteUnload,
                 true,
                 false,
                 "제품 해제 후 Feeder Avoid 이동 전");
