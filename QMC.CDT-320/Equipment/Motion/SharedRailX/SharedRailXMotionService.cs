@@ -234,6 +234,267 @@ namespace QMC.CDT320.Motion.SharedRailX
             return true;
         }
 
+        /// <summary>
+        /// 부호 인지(direction-aware) 최소 회피 계산의 순수 코어(닫힌 수식) — 하네스 검증용 public static.
+        /// 제약: 비전부호×비전위치 ≤ bound, bound_i = HomeClearance − 피커부호×장애물_i − (Safety+Extra).
+        /// boundMin = Min(bound_i), retreatTarget = 비전부호가 +면 boundMin, −면 −boundMin.
+        /// </summary>
+        public static bool TryComputeMinimalVisionRetreatTarget(
+            int visionTowardSign,
+            int pickerTowardSign,
+            double homeClearance,
+            double safetyDistance,
+            double extraClearance,
+            IList<double> obstaclePositions,
+            out double retreatTarget,
+            out double boundMin)
+        {
+            retreatTarget = 0.0;
+            boundMin = double.MaxValue;
+            if (visionTowardSign == 0 || pickerTowardSign == 0 ||
+                obstaclePositions == null || obstaclePositions.Count == 0)
+                return false;
+
+            double required = safetyDistance + Math.Max(0.0, extraClearance);
+            for (int i = 0; i < obstaclePositions.Count; i++)
+            {
+                double bound = homeClearance - (pickerTowardSign * obstaclePositions[i]) - required;
+                if (bound < boundMin)
+                    boundMin = bound;
+            }
+
+            retreatTarget = visionTowardSign > 0 ? boundMin : -boundMin;
+            return true;
+        }
+
+        /// <summary>
+        /// R2: 부호 인지 최소 회피 목표 계산(닫힌 수식). 촬영이 끝난 비전 축이 전체 Avoid까지 가지 않고
+        /// "피커 최대 진입 위치 + (페어 SafetyDistance + extraClearance)"까지만 회피하도록 목표를 구한다.
+        /// 기존 TryResolveNearestVisionRetreatTarget(-0.1 상한·이진 탐색·InputVisionX 전제)은 비Conti 경로
+        /// 보존을 위해 무수정으로 두고 별도 신설했다 — OutputVisionX(회피 방향 +→− 반대)에서도 동작한다.
+        /// R5(절대 금지): extraClearance는 이 "회피 목표 계산"에만 존재한다. 피커/비전 진입 허용 인터락
+        /// (VerifySingleAxisMove, SharedRailXCollisionValidator, MotionGuardRuntime 등)의 요구거리는
+        /// 기존 SafetyDistance 그대로이며 Extra를 더하지 않는다.
+        /// </summary>
+        public bool TryResolveMinimalVisionRetreatTarget(
+            BaseAxis visionAxis,
+            double fullAvoidPosition,
+            IDictionary<SharedRailXAxis, IList<double>> plannedAxisPositions,
+            double extraClearance,
+            out double retreatTarget,
+            out string detail)
+        {
+            retreatTarget = fullAvoidPosition;
+            detail = string.Empty;
+
+            SharedRailXAxis visionRailAxis;
+            if (!TryResolve(visionAxis, out visionRailAxis) ||
+                (visionRailAxis != SharedRailXAxis.InputVisionX &&
+                 visionRailAxis != SharedRailXAxis.OutputVisionX))
+            {
+                detail = "VisionX 공유 레일 축을 확인할 수 없어 전체 Avoid를 사용합니다.";
+                return false;
+            }
+
+            IReadOnlyList<SharedRailXAxisSetting> settings = GetAxisSettings();
+            var settingMap = settings
+                .Where(x => x != null && x.Axis != null)
+                .ToDictionary(x => x.RailAxis);
+            var obstaclePositions = new Dictionary<SharedRailXAxis, List<double>>();
+
+            if (_config == null || _config.CollisionPairs == null || _config.CollisionPairs.Count == 0)
+            {
+                detail = "공유 레일 충돌 Pair 설정이 없어 전체 Avoid를 사용합니다. axis=" + visionRailAxis;
+                return false;
+            }
+
+            SharedRailXAxisSetting visionSetting;
+            if (!settingMap.TryGetValue(visionRailAxis, out visionSetting))
+            {
+                detail = "공유 레일 비전 축 설정을 찾을 수 없어 전체 Avoid를 사용합니다. axis=" + visionRailAxis;
+                return false;
+            }
+
+            // 기존 함수(121~152행)와 동일한 장애물 수집: 상대 축 Actual/Command + planned 목록.
+            foreach (SharedRailXAxisPair pair in _config.CollisionPairs)
+            {
+                if (pair.AxisA != visionRailAxis && pair.AxisB != visionRailAxis)
+                    continue;
+
+                SharedRailXAxis otherAxis = pair.AxisA == visionRailAxis ? pair.AxisB : pair.AxisA;
+                SharedRailXAxisSetting otherSetting;
+                if (!settingMap.TryGetValue(otherAxis, out otherSetting))
+                {
+                    detail = "공유 레일 상대 축을 찾을 수 없어 전체 Avoid를 사용합니다. axis=" + otherAxis;
+                    return false;
+                }
+
+                List<double> positions;
+                if (!obstaclePositions.TryGetValue(otherAxis, out positions))
+                {
+                    positions = new List<double>();
+                    obstaclePositions[otherAxis] = positions;
+                }
+
+                positions.Add(otherSetting.Axis.ActualPosition);
+                positions.Add(otherSetting.Axis.CommandPosition);
+
+                IList<double> planned;
+                if (plannedAxisPositions != null &&
+                    plannedAxisPositions.TryGetValue(otherAxis, out planned) &&
+                    planned != null)
+                {
+                    for (int i = 0; i < planned.Count; i++)
+                        positions.Add(planned[i]);
+                }
+            }
+
+            if (obstaclePositions.Count == 0)
+            {
+                detail = "VisionX-PickerX 충돌 Pair가 없어 전체 Avoid를 사용합니다. axis=" + visionRailAxis;
+                return false;
+            }
+
+            // 닫힌 수식: 페어·장애물 전 조합의 boundMin을 구한다 (비전부호는 페어에서 취득).
+            int canonicalVisionSign = 0;
+            double boundMin = double.MaxValue;
+            double obstacleMin = double.MaxValue;
+            double obstacleMax = double.MinValue;
+            double requiredMax = 0.0;
+            foreach (SharedRailXAxisPair pair in _config.CollisionPairs)
+            {
+                if (pair.AxisA != visionRailAxis && pair.AxisB != visionRailAxis)
+                    continue;
+                if (!pair.HasClearanceRule)
+                {
+                    detail = "충돌 Pair 안전거리 수식이 없어 전체 Avoid를 사용합니다. pair=" +
+                             pair.AxisA + "<->" + pair.AxisB;
+                    return false;
+                }
+
+                int visionSign = pair.AxisA == visionRailAxis ? pair.AxisATowardSign : pair.AxisBTowardSign;
+                int pickerSign = pair.AxisA == visionRailAxis ? pair.AxisBTowardSign : pair.AxisATowardSign;
+                if (canonicalVisionSign == 0)
+                    canonicalVisionSign = visionSign;
+                if (visionSign != canonicalVisionSign)
+                {
+                    // 페어 간 비전 회피 방향이 갈리면 단일 목표로 표현 불가 — 안전하게 전체 Avoid.
+                    detail = "페어 간 비전 회피 방향(부호)이 달라 전체 Avoid를 사용합니다. axis=" + visionRailAxis;
+                    return false;
+                }
+
+                SharedRailXAxis otherAxis = pair.AxisA == visionRailAxis ? pair.AxisB : pair.AxisA;
+                SharedRailXAxisSetting otherSetting = settingMap[otherAxis];
+                List<double> positions = obstaclePositions[otherAxis];
+                double safety = pair.SafetyDistance.HasValue
+                    ? pair.SafetyDistance.Value
+                    : Math.Max(visionSetting.SafetyDistance, otherSetting.SafetyDistance);
+
+                double pairTarget;
+                double pairBoundMin;
+                if (!TryComputeMinimalVisionRetreatTarget(
+                    visionSign,
+                    pickerSign,
+                    pair.HomeClearance,
+                    safety,
+                    extraClearance,
+                    positions,
+                    out pairTarget,
+                    out pairBoundMin))
+                    continue;
+
+                if (pairBoundMin < boundMin)
+                    boundMin = pairBoundMin;
+                double required = safety + Math.Max(0.0, extraClearance);
+                if (required > requiredMax)
+                    requiredMax = required;
+                for (int i = 0; i < positions.Count; i++)
+                {
+                    if (positions[i] < obstacleMin)
+                        obstacleMin = positions[i];
+                    if (positions[i] > obstacleMax)
+                        obstacleMax = positions[i];
+                }
+            }
+
+            if (canonicalVisionSign == 0 || boundMin == double.MaxValue)
+            {
+                detail = "VisionX-PickerX 충돌 Pair가 없어 전체 Avoid를 사용합니다. axis=" + visionRailAxis;
+                return false;
+            }
+
+            double computed = canonicalVisionSign > 0 ? boundMin : -boundMin;
+
+            // 전체 Avoid보다 더 물러나야 하는 값이면(회피 방향으로 fullAvoid 초과) fullAvoid 사용.
+            // s-공간(s = 비전부호×위치)에서 회피는 s 감소 방향이며 제약은 s ≤ boundMin.
+            bool clampedToFullAvoid = false;
+            double sFullAvoid = canonicalVisionSign * fullAvoidPosition;
+            if (boundMin < sFullAvoid)
+            {
+                retreatTarget = fullAvoidPosition;
+                clampedToFullAvoid = true;
+            }
+            else
+            {
+                retreatTarget = computed;
+            }
+
+            // 소프트리밋 클램프 (리밋 밖 목표 방지).
+            bool clampedToSoftLimit = false;
+            if (!clampedToFullAvoid &&
+                visionAxis.Setup != null && visionAxis.Setup.SoftLimitEnabled)
+            {
+                if (retreatTarget > visionAxis.Setup.SoftLimitPlus)
+                {
+                    retreatTarget = visionAxis.Setup.SoftLimitPlus;
+                    clampedToSoftLimit = true;
+                }
+                else if (retreatTarget < visionAxis.Setup.SoftLimitMinus)
+                {
+                    retreatTarget = visionAxis.Setup.SoftLimitMinus;
+                    clampedToSoftLimit = true;
+                }
+            }
+
+            // belt-and-braces: 기존 안전 판정(IsVisionRetreatTargetSafe)에 Extra를 additionalClearance로
+            // 넣어 재검증 — 불일치하면 전체 Avoid 폴백 + 로그. (이 재검증은 회피 "목표" 검증이며,
+            // 피커 진입 인터락과 무관하다 — R5.)
+            if (!clampedToFullAvoid)
+            {
+                string safeReason;
+                if (!IsVisionRetreatTargetSafe(
+                    visionRailAxis,
+                    retreatTarget,
+                    settingMap,
+                    obstaclePositions,
+                    Math.Max(0.0, extraClearance),
+                    out safeReason))
+                {
+                    QMC.Common.Log.Write("SharedRailX",
+                        "최소 회피 재검증 불일치로 전체 Avoid를 사용합니다. axis=" + visionRailAxis +
+                        ", calculated=" + retreatTarget.ToString("F6") +
+                        ", boundMin=" + boundMin.ToString("F6") +
+                        ", softLimitClamped=" + clampedToSoftLimit +
+                        ", " + safeReason);
+                    detail = "최소 회피 재검증 불일치로 전체 Avoid를 사용합니다. calculated=" +
+                             retreatTarget.ToString("F6") + ", " + safeReason;
+                    retreatTarget = fullAvoidPosition;
+                    return true;
+                }
+            }
+
+            detail = "부호 인지 최소 회피 위치를 계산했습니다. target=" + retreatTarget.ToString("F6") +
+                     ", boundMin=" + boundMin.ToString("F6") +
+                     ", visionSign=" + canonicalVisionSign +
+                     ", obstacleMin=" + obstacleMin.ToString("F6") +
+                     ", obstacleMax=" + obstacleMax.ToString("F6") +
+                     ", requiredMax=" + requiredMax.ToString("F6") +
+                     ", extra=" + Math.Max(0.0, extraClearance).ToString("F3") +
+                     ", fullAvoid=" + fullAvoidPosition.ToString("F6") +
+                     (clampedToFullAvoid ? ", clamp=fullAvoid" : clampedToSoftLimit ? ", clamp=softLimit" : "");
+            return true;
+        }
+
         private bool IsVisionRetreatTargetSafe(
             SharedRailXAxis visionRailAxis,
             double visionPosition,
@@ -613,7 +874,9 @@ namespace QMC.CDT320.Motion.SharedRailX
                 return new SharedRailXConfig
                 {
                     DefaultSafetyDistance = _config.DefaultSafetyDistance,
-                    RequireSameVelocityForGroupMove = _config.RequireSameVelocityForGroupMove
+                    RequireSameVelocityForGroupMove = _config.RequireSameVelocityForGroupMove,
+                    InputVisionRetreatExtraClearance = _config.InputVisionRetreatExtraClearance,
+                    OutputVisionRetreatExtraClearance = _config.OutputVisionRetreatExtraClearance
                 }.SetCollisionPairs(pairs);
             }
             catch

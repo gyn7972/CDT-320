@@ -1399,24 +1399,101 @@ namespace QMC.CDT320.Sequencing
             if (IsStopOrAlarmActive())
                 return StopRequestedResult;
 
-            int result = await SequenceAwaiter.AwaitAsync(
-                stage.MoveVisionXToAvoidAndVerifyAsync(timeout, request.FineMove, ct),
-                -1,
-                ct).ConfigureAwait(false);
+            // 촬영 종료 후 회피: 플레이스 Conti 게이트 충족 시 부호 인지 최소 회피(Extra 포함).
+            // 이 시점에는 다음 플레이스 대상 좌표를 알 수 없으므로 planned 없이 피커 현재
+            // Actual/Command만으로 계산한다(서비스가 자동 포함). 다음 플레이스가 시작되면
+            // PickerPlaceSequence의 회피 결정부가 정확한 배치 좌표로 재계산한다.
+            // 게이트 미충족/계산 실패 시 기존 전체 Avoid 경로 그대로 (동작 무변경).
+            double visionTarget = 0.0;
+            bool useMinimalRetreat = false;
+            string retreatDetail = string.Empty;
+            if (IsMinimalRetreatGateSatisfied(request) &&
+                stage.Recipe != null && stage.OutputCameraX != null)
+            {
+                SharedRailXMotionService service = SharedRailXMotionRuntime.ResolveService(
+                    _context != null ? _context.Machine : null);
+                if (service != null)
+                {
+                    stage.Recipe.EnsurePositionObjects();
+                    double fullAvoid = stage.Recipe.VisionX.AvoidPosition;
+                    double dynamicTarget;
+                    string dynamicDetail;
+                    if (service.TryResolveMinimalVisionRetreatTarget(
+                        stage.OutputCameraX,
+                        fullAvoid,
+                        null,
+                        service.Config != null ? service.Config.OutputVisionRetreatExtraClearance : 40.0,
+                        out dynamicTarget,
+                        out dynamicDetail))
+                    {
+                        visionTarget = dynamicTarget;
+                        useMinimalRetreat = true;
+                        retreatDetail = dynamicDetail;
+                        Log.Write("Main", "SYSTEM", "OutputPostPlaceInspection",
+                            "BIN 촬영 종료 후 OutputVisionX 최소 회피 좌표를 확정했습니다. mode=minimal" +
+                            ", target=" + visionTarget.ToString("F6") +
+                            ", fullAvoid=" + fullAvoid.ToString("F6") +
+                            ", die=" + request.DieId +
+                            ", side=" + request.OutputSide +
+                            ", detail=" + retreatDetail + " - Check");
+                    }
+                    else
+                    {
+                        Log.Write("Main", "SYSTEM", "OutputPostPlaceInspection",
+                            "BIN 촬영 종료 후 OutputVisionX 최소 회피 계산 실패 — 전체 Avoid를 사용합니다. " +
+                            "detail=" + dynamicDetail + " - Check");
+                    }
+                }
+            }
+
+            int result = useMinimalRetreat
+                ? await SequenceAwaiter.AwaitAsync(
+                    stage.MoveVisionXToTargetAndVerifyAsync(visionTarget, timeout, request.FineMove, ct),
+                    -1,
+                    ct).ConfigureAwait(false)
+                : await SequenceAwaiter.AwaitAsync(
+                    stage.MoveVisionXToAvoidAndVerifyAsync(timeout, request.FineMove, ct),
+                    -1,
+                    ct).ConfigureAwait(false);
             if (result != 0)
             {
                 if (IsStopOrAlarmActive())
                     return StopRequestedResult;
                 return RaiseFailure("OUT-POST-INSPECT-VISION-AVOID", "OutputStage",
-                    "Output camera 후검사 후 OutputVisionX Avoid 이동 실패. die=" + request.DieId +
+                    "Output camera 후검사 후 OutputVisionX Avoid 이동 실패. mode=" + (useMinimalRetreat ? "minimal" : "legacy") +
+                    ", die=" + request.DieId +
                     ", side=" + request.OutputSide +
                     ", result=" + result + ", " + stage.DescribeStageLoadMoveState(request.OutputSide));
             }
             Log.Write("Main", "SYSTEM", "OutputPostPlaceInspection",
-                "BIN RESULT 수집과 병렬로 OutputVisionX Avoid 이동 및 위치 확인 완료. die=" +
-                request.DieId +
+                "BIN RESULT 수집과 병렬로 OutputVisionX Avoid 이동 및 위치 확인 완료. mode=" + (useMinimalRetreat ? "minimal" : "legacy") +
+                ", die=" + request.DieId +
                 ", side=" + request.OutputSide + " - Ok");
             return 0;
+        }
+
+        // 플레이스 Conti 게이트: 요청이 픽커 컨텍스트를 갖고(수동 Place는 큐 등록 자체가 억제되고,
+        // 복원 경로 MaterialPendingRestore는 HasPickerContext=false로 여기서 제외) 해당 픽커의
+        // Place.MotionMode가 ContiSegmentedPlace일 때만 최소 회피를 적용한다.
+        private bool IsMinimalRetreatGateSatisfied(OutputPostPlaceInspectionRequest request)
+        {
+            if (request == null || !request.HasPickerContext)
+                return false;
+            if (_context == null || _context.Machine == null)
+                return false;
+
+            PickerPlaceMotionConfig config = null;
+            if (request.PickerSide == PickerSequenceSide.Front &&
+                _context.Machine.PickerFrontUnit != null && _context.Machine.PickerFrontUnit.Config != null)
+                config = _context.Machine.PickerFrontUnit.Config.Place;
+            else if (request.PickerSide == PickerSequenceSide.Rear &&
+                _context.Machine.PickerRearUnit != null && _context.Machine.PickerRearUnit.Config != null)
+                config = _context.Machine.PickerRearUnit.Config.Place;
+
+            if (config == null)
+                return false;
+
+            return config.MotionMode == PickerPlaceMotionMode.ContiSegmentedPlace;
         }
 
         private async Task<int> MoveStageAxisAndVerifyAsync(

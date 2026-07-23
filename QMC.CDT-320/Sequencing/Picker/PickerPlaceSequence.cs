@@ -1715,6 +1715,16 @@ namespace QMC.CDT320.Sequencing
             double fullAvoid = OutputStage.Recipe.VisionX.AvoidPosition;
             double visionTarget = fullAvoid;
             string retreatDetail = "전체 Avoid 사용";
+            // Conti 게이트: Auto + ContiSegmentedPlace면 부호 인지 최소 회피(Extra 포함).
+            // 미충족이면 기존 경로(-0.1/1.0 — OutputVisionX는 사실상 전체 Avoid 폴백) 그대로 (동작 무변경).
+            // planned는 배치 전체 목표 보관 필드가 없어 현재 아이템 _targetPickerX만 전달 —
+            // 서비스가 피커 축 Actual/Command를 자동 포함하며, 다음 아이템 차례에 정확 좌표로 재계산된다.
+            PickerPlaceMotionConfig retreatPlaceConfig = ResolvePlaceMotionConfig();
+            bool useMinimalRetreat =
+                Options != null && Options.RunMode == SequenceRunMode.Auto &&
+                retreatPlaceConfig != null &&
+                IsCoordinatedPlaceMotionMode(retreatPlaceConfig.MotionMode);
+            string retreatMode = useMinimalRetreat ? "minimal" : "legacy";
             SharedRailXMotionService service = SharedRailXMotionRuntime.ResolveService(
                 Context != null ? Context.Machine : null);
             if (service != null)
@@ -1727,14 +1737,23 @@ namespace QMC.CDT320.Sequencing
 
                 double dynamicTarget;
                 string dynamicDetail;
-                if (service.TryResolveNearestVisionRetreatTarget(
-                    OutputStage.OutputCameraX,
-                    fullAvoid,
-                    -0.1,
-                    planned,
-                    1.0,
-                    out dynamicTarget,
-                    out dynamicDetail))
+                bool resolved = useMinimalRetreat
+                    ? service.TryResolveMinimalVisionRetreatTarget(
+                        OutputStage.OutputCameraX,
+                        fullAvoid,
+                        planned,
+                        service.Config != null ? service.Config.OutputVisionRetreatExtraClearance : 40.0,
+                        out dynamicTarget,
+                        out dynamicDetail)
+                    : service.TryResolveNearestVisionRetreatTarget(
+                        OutputStage.OutputCameraX,
+                        fullAvoid,
+                        -0.1,
+                        planned,
+                        1.0,
+                        out dynamicTarget,
+                        out dynamicDetail);
+                if (resolved)
                 {
                     visionTarget = dynamicTarget;
                     retreatDetail = dynamicDetail;
@@ -1747,7 +1766,8 @@ namespace QMC.CDT320.Sequencing
 
             WriteLog("PickerPlaceSequence",
                 Name + " OutputVisionX 피커 진입 회피 좌표를 확정했습니다. " +
-                "die=" + (_currentDie != null ? _currentDie.DieId : "-") +
+                "mode=" + retreatMode +
+                ", die=" + (_currentDie != null ? _currentDie.DieId : "-") +
                 ", pickerNo=" + _currentPickerNo +
                 ", pickerX=" + _targetPickerX.ToString("F6") +
                 ", target=" + visionTarget.ToString("F6") +

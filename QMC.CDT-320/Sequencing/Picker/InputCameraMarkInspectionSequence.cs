@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using QMC.CDT320.Motion.SharedRailX;
 using QMC.Common.Motion;
 
 namespace QMC.CDT320.Sequencing
@@ -84,7 +85,7 @@ namespace QMC.CDT320.Sequencing
                     return RunInputCameraMarkInspectionAsync(ct);
 
                 case InputCameraMarkInspectionStep.MoveInputVisionXToAvoid:
-                    return MoveInputVisionXToAvoidAsync(ct);
+                    return MoveInputVisionXToAvoidAsync(_inspectedItems, ct);
 
                 case InputCameraMarkInspectionStep.GrantPickUpPermission:
                     return Task.FromResult(GrantPickUpPermission());
@@ -217,7 +218,8 @@ namespace QMC.CDT320.Sequencing
                 int visionAvoidResult;
                 try
                 {
-                    visionAvoidResult = await MoveInputVisionXToAvoidAsync(ct).ConfigureAwait(false);
+                    visionAvoidResult = await MoveInputVisionXToAvoidAsync(
+                        prepareSequence.PreparedItems, ct).ConfigureAwait(false);
                 }
                 catch
                 {
@@ -383,7 +385,9 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
-        private async Task<int> MoveInputVisionXToAvoidAsync(CancellationToken ct)
+        private async Task<int> MoveInputVisionXToAvoidAsync(
+            IList<InputDieVisionPreparedItem> preparedItems,
+            CancellationToken ct)
         {
             try
             {
@@ -410,37 +414,93 @@ namespace QMC.CDT320.Sequencing
                 double tolerance = stage.CameraX != null && stage.CameraX.Config != null && stage.CameraX.Config.InPositionTolerance > 0.0
                     ? stage.CameraX.Config.InPositionTolerance
                     : 0.01;
+
+                // 선행검사 촬영 종료 후 회피: Auto + Conti 계열이면 부호 인지 최소 회피를 적용한다.
+                // 이 시점에는 pick 좌표(CalculatePickTargets)가 아직 없으므로 planned는 근사값으로 구성한다:
+                // 근사 피커X = PickTarget.TargetX(비전 기준 die X) + InputVisionToPicker X 오프셋.
+                // 근사여도 안전하다 — 이후 픽업 시퀀스(MoveInputVisionToAvoidForPickerMoveAsync)가 정확한
+                // 좌표로 재계산·재이동하고, Extra 40mm 버퍼 + 피커 진입 인터락(SafetyDistance)은 그대로
+                // 살아있다. 근사 실패 시 전체 Avoid 폴백.
+                double target = avoid;
+                string retreatMode = "legacy";
+                string retreatDetail = "전체 Avoid 사용";
+                if (IsMinimalRetreatGateSatisfied())
+                {
+                    SharedRailXMotionService service = SharedRailXMotionRuntime.ResolveService(
+                        Context != null ? Context.Machine : null);
+                    List<double> approxPickerTargets = null;
+                    string approxReason = string.Empty;
+                    if (service != null &&
+                        TryBuildApproxPlannedPickerTargets(preparedItems, out approxPickerTargets, out approxReason))
+                    {
+                        var planned = new Dictionary<SharedRailXAxis, IList<double>>();
+                        SharedRailXAxis pickerRailAxis = Side == PickerSequenceSide.Front
+                            ? SharedRailXAxis.FrontPickerX
+                            : SharedRailXAxis.RearPickerX;
+                        planned[pickerRailAxis] = approxPickerTargets;
+
+                        double dynamicTarget;
+                        string dynamicDetail;
+                        if (service.TryResolveMinimalVisionRetreatTarget(
+                            stage.CameraX,
+                            avoid,
+                            planned,
+                            service.Config != null ? service.Config.InputVisionRetreatExtraClearance : 40.0,
+                            out dynamicTarget,
+                            out dynamicDetail))
+                        {
+                            target = dynamicTarget;
+                            retreatMode = "minimal";
+                            retreatDetail = dynamicDetail;
+                        }
+                        else
+                        {
+                            retreatDetail = dynamicDetail + " 전체 Avoid로 대체합니다.";
+                        }
+                    }
+                    else
+                    {
+                        retreatDetail = "근사 피커X 구성 실패로 전체 Avoid를 사용합니다. reason=" + approxReason;
+                    }
+                }
+
+                WriteLog("InputCameraMarkInspectionSequence",
+                    Name + " InputVisionX 선행검사 후 회피 좌표를 확정했습니다. mode=" + retreatMode +
+                    ", target=" + target.ToString("F6") +
+                    ", fullAvoid=" + avoid.ToString("F6") +
+                    ", detail=" + retreatDetail + " - Check");
+
                 // 현장(F3 선행검사): 소수 3자리 스킵 판정 유지. 일반 경로는 AxisMoveWaiter 제거에 따라
                 // BaseAxis.IsAtTargetPosition(동일 공식)으로 통일(R2).
                 bool preInspectionF3Move = IsInputCameraPreInspectionMode();
                 bool canSkipMove = preInspectionF3Move
                     ? PickerInputStageMoveHelper.CanSkipInputCameraPreInspectionMoveAtThreeDecimals(
                         stage.CameraX,
-                        avoid,
+                        target,
                         tolerance)
-                    : stage.CameraX.IsAtTargetPosition(avoid, tolerance);
+                    : stage.CameraX.IsAtTargetPosition(target, tolerance);
                 if (!canSkipMove)
                 {
                     int moveResult = await stage.MoveInputStageAxis(
                         WaferStageAxis.VisionX,
-                        avoid,
+                        target,
                         Options != null && Options.FineMove,
                         preInspectionF3Move).ConfigureAwait(false);
                     if (moveResult != 0)
                         return Fail("INPUT-CAMERA-MARK-INSPECTION-VISIONX-AVOID-MOVE", stage.Name,
-                            "InputVisionX avoid move command failed. target=" + avoid +
+                            "InputVisionX avoid move command failed. target=" + target +
                             ", result=" + moveResult);
 
                     if (!preInspectionF3Move)
                     {
                         int waitResult = await stage.WaitInputStageAxisInPosition(
                             WaferStageAxis.VisionX,
-                            avoid,
+                            target,
                             ResolveTimeout(),
                             ct).ConfigureAwait(false);
                         if (waitResult != 0)
                             return Fail("INPUT-CAMERA-MARK-INSPECTION-VISIONX-AVOID-WAIT", stage.Name,
-                                "InputVisionX avoid wait failed. target=" + avoid +
+                                "InputVisionX avoid wait failed. target=" + target +
                                 ", result=" + waitResult);
                     }
                 }
@@ -448,24 +508,29 @@ namespace QMC.CDT320.Sequencing
                 // 기존 조건: AxisMoveWaiter.IsMoveCompletedAtTarget/BuildAxisState —
                 // 현재 기준: 동일 공식의 BaseAxis.IsAtTargetPosition + 인라인 상태 문자열(R2/[E]).
                 if (preInspectionF3Move &&
-                    !stage.CameraX.IsAtTargetPosition(avoid, tolerance))
+                    !stage.CameraX.IsAtTargetPosition(target, tolerance))
                     return Fail("INPUT-CAMERA-MARK-INSPECTION-VISIONX-AVOID-CHECK", stage.Name,
                         "InputVisionX strong completion check failed after mark inspection. " +
                         "axisState=[actual=" + stage.CameraX.ActualPosition.ToString("F6") +
                         ", command=" + stage.CameraX.CommandPosition.ToString("F6") +
-                        ", target=" + avoid.ToString("F6") +
+                        ", target=" + target.ToString("F6") +
                         ", tolerance=" + tolerance.ToString("F6") +
                         ", moving=" + stage.CameraX.IsMoving +
                         ", servo=" + stage.CameraX.IsServoOn +
                         ", alarm=" + stage.CameraX.IsAlarm + "]");
 
-                if (!stage.IsVisionXInAvoidPosition())
+                // 최소 회피 경로는 목표 좌표 기준으로 확인한다 (IsVisionXInAvoidPosition은 전체 Avoid 기준).
+                bool finalPositionOk = retreatMode == "minimal"
+                    ? stage.CameraX.IsAtTargetPosition(target, tolerance)
+                    : stage.IsVisionXInAvoidPosition();
+                if (!finalPositionOk)
                     return Fail("INPUT-CAMERA-MARK-INSPECTION-VISIONX-AVOID-CHECK", stage.Name,
-                        "InputVisionX is not in avoid position after mark inspection. target=" + avoid);
+                        "InputVisionX is not in avoid position after mark inspection. mode=" + retreatMode +
+                        ", target=" + target.ToString("F6"));
 
                 WriteLog("InputCameraMarkInspectionSequence",
-                    Name + " InputVisionX avoid confirmed after input camera mark inspection. target=" +
-                    avoid + ", side=" + Side + " - Ok");
+                    Name + " InputVisionX avoid confirmed after input camera mark inspection. mode=" + retreatMode +
+                    ", target=" + target.ToString("F6") + ", side=" + Side + " - Ok");
 
                 CurrentStep = InputCameraMarkInspectionStep.GrantPickUpPermission;
                 return 0;
@@ -482,6 +547,67 @@ namespace QMC.CDT320.Sequencing
             finally
             {
             }
+        }
+
+        // Conti 게이트(픽업 계열): Auto + TransferMotionMode가 Conti 계열(ContiSegmentedPickUp /
+        // FastContiSegmentedPickUp)일 때만 최소 회피를 적용한다. 미충족 시 기존 전체 Avoid 경로 그대로.
+        private bool IsMinimalRetreatGateSatisfied()
+        {
+            if (Options == null || Options.RunMode != SequenceRunMode.Auto)
+                return false;
+
+            PickerPickUpMotionConfig config = null;
+            if (Side == PickerSequenceSide.Front && FrontPicker != null && FrontPicker.Config != null)
+                config = FrontPicker.Config.PickUp;
+            else if (Side == PickerSequenceSide.Rear && RearPicker != null && RearPicker.Config != null)
+                config = RearPicker.Config.PickUp;
+
+            if (config == null)
+                return false;
+
+            return config.TransferMotionMode == PickerPickUpTransferMotionMode.ContiSegmentedPickUp ||
+                   config.TransferMotionMode == PickerPickUpTransferMotionMode.FastContiSegmentedPickUp;
+        }
+
+        // 근사 planned 구성: 각 배치 아이템의 PickTarget.TargetX(비전 기준 die X)에
+        // InputVisionToPicker X 오프셋을 더한 근사 피커X 목록. 하나라도 실패하면 false(전체 Avoid 폴백).
+        private bool TryBuildApproxPlannedPickerTargets(
+            IList<InputDieVisionPreparedItem> preparedItems,
+            out List<double> pickerTargets,
+            out string reason)
+        {
+            pickerTargets = new List<double>();
+            reason = string.Empty;
+
+            if (preparedItems == null || preparedItems.Count == 0)
+            {
+                reason = "준비된 배치 아이템이 없습니다.";
+                return false;
+            }
+
+            for (int i = 0; i < preparedItems.Count; i++)
+            {
+                InputDieVisionPreparedItem item = preparedItems[i];
+                if (item == null || item.PickTarget == null)
+                {
+                    reason = "배치 아이템 PickTarget이 없습니다. index=" + i;
+                    return false;
+                }
+
+                double offsetX;
+                double offsetY;
+                string offsetReason;
+                if (!TryResolveInputVisionToPickerOffsets(item.PickerIndex, out offsetX, out offsetY, out offsetReason))
+                {
+                    reason = "InputVisionToPicker 오프셋 확인 실패. pickerIndex=" + item.PickerIndex +
+                             ", reason=" + offsetReason;
+                    return false;
+                }
+
+                pickerTargets.Add(item.PickTarget.TargetX + offsetX);
+            }
+
+            return pickerTargets.Count > 0;
         }
 
         private int GrantPickUpPermission()

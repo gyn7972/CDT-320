@@ -1780,6 +1780,27 @@ namespace QMC.CDT320
             }
         }
 
+        // 최소 회피용: Avoid 하드코딩 오버로드의 목표 좌표 파라미터 버전 (부호 인지 최소 회피 좌표 이동).
+        public async Task<int> MoveVisionXToTargetAndVerifyAsync(double targetPos, int timeoutMs, bool bFine, CancellationToken ct)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+                return await MoveStageAxisAndVerifyAsync(BinStageAxis.VisionX, targetPos, timeoutMs, bFine, ct).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return RaiseOutputStageAlarm("OS-VISION-AVOID-EX", "OutputVisionX avoid exception: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
         public async Task<int> MoveVisionXToAvoidAndVerifyAsync(int timeoutMs, JogSpeedType speedType, double customSpeed, CancellationToken ct)
         {
             try

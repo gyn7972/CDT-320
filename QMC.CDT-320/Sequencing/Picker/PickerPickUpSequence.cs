@@ -1098,6 +1098,16 @@ namespace QMC.CDT320.Sequencing
                 string retreatDetail = "PickUp 목표 좌표가 없어 전체 Avoid를 사용합니다.";
                 bool targetsCalculated = ArePickBatchTargetsCalculated();
 
+                // Conti 게이트: Auto + Conti 계열(ContiSegmentedPickUp/FastContiSegmentedPickUp)이면
+                // 부호 인지 최소 회피(Extra 포함), 미충족이면 기존 경로(-0.1/1.0) 그대로 (동작 무변경).
+                PickerPickUpMotionConfig retreatPickUpConfig = ResolvePickUpMotionConfig();
+                bool useMinimalRetreat =
+                    Options != null && Options.RunMode == SequenceRunMode.Auto &&
+                    retreatPickUpConfig != null &&
+                    (IsCoordinatedPickUpTransferMotionMode(retreatPickUpConfig.TransferMotionMode) ||
+                     retreatPickUpConfig.TransferMotionMode == PickerPickUpTransferMotionMode.FastContiSegmentedPickUp);
+                string retreatMode = useMinimalRetreat ? "minimal" : "legacy";
+
                 if (targetsCalculated)
                 {
                     SharedRailXMotionService service = SharedRailXMotionRuntime.ResolveService(
@@ -1115,14 +1125,23 @@ namespace QMC.CDT320.Sequencing
 
                         double dynamicTarget;
                         string dynamicDetail;
-                        if (service.TryResolveNearestVisionRetreatTarget(
-                            stage.CameraX,
-                            avoid,
-                            -0.1,
-                            planned,
-                            1.0,
-                            out dynamicTarget,
-                            out dynamicDetail))
+                        bool resolved = useMinimalRetreat
+                            ? service.TryResolveMinimalVisionRetreatTarget(
+                                stage.CameraX,
+                                avoid,
+                                planned,
+                                service.Config != null ? service.Config.InputVisionRetreatExtraClearance : 40.0,
+                                out dynamicTarget,
+                                out dynamicDetail)
+                            : service.TryResolveNearestVisionRetreatTarget(
+                                stage.CameraX,
+                                avoid,
+                                -0.1,
+                                planned,
+                                1.0,
+                                out dynamicTarget,
+                                out dynamicDetail);
+                        if (resolved)
                         {
                             target = dynamicTarget;
                             retreatDetail = dynamicDetail;
@@ -1138,7 +1157,8 @@ namespace QMC.CDT320.Sequencing
                 _inputVisionPickerEntryTargetPrepared = true;
                 WriteLog("PickerPickUpSequence",
                     Name + " InputVisionX 피커 진입 회피 좌표를 확정했습니다. " +
-                    "target=" + target.ToString("F6") +
+                    "mode=" + retreatMode +
+                    ", target=" + target.ToString("F6") +
                     ", fullAvoid=" + avoid.ToString("F6") +
                     ", batchPickerX=" + string.Join(",", _pickBatchItems.ConvertAll(x => x.TargetPickerX.ToString("F6")).ToArray()) +
                     ", detail=" + retreatDetail + " - Check");
