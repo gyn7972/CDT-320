@@ -10,6 +10,38 @@ namespace QMC.CDT320.Interlocks
     {
         private const double DefaultPositionTolerance = 0.05;
 
+        /// <summary>
+        /// 인터락 제3 분기(사용자 승인 2026-07-24): 이동 축의 목표 위치와 상대 공유 레일 축의
+        /// Actual/Command 양쪽 모두가 SharedRailX 페어 간격식으로 SafetyDistance를 만족하면 true.
+        /// 상대 축이 회피(멀어지는) 이동 중이면 Command가 더 멀어 통과하고, 접근 이동 중이면
+        /// Command 판정에서 차단된다(fail-closed). RetreatExtra는 절대 포함하지 않는다 — R5.
+        /// </summary>
+        public static bool IsPairClearanceSatisfiedForEntry(
+            CDT320_Machine machine,
+            BaseAxis movingAxis,
+            double movingTargetPosition,
+            BaseAxis otherAxis,
+            out string detail)
+        {
+            detail = string.Empty;
+            if (machine == null || movingAxis == null || otherAxis == null)
+                return false;
+
+            QMC.CDT320.Motion.SharedRailX.SharedRailXMotionService service =
+                QMC.CDT320.Motion.SharedRailX.SharedRailXMotionRuntime.ResolveService(machine);
+            if (service == null)
+                return false;
+
+            string actualDetail;
+            string commandDetail;
+            bool actualOk = service.IsPairClearanceSatisfied(
+                movingAxis, movingTargetPosition, otherAxis, otherAxis.ActualPosition, out actualDetail);
+            bool commandOk = service.IsPairClearanceSatisfied(
+                movingAxis, movingTargetPosition, otherAxis, otherAxis.CommandPosition, out commandDetail);
+            detail = "actual[" + actualDetail + "], command[" + commandDetail + "]";
+            return actualOk && commandOk;
+        }
+
         public static bool IsMoving(MotionGuardRuleContext request, params string[] names)
         {
             if (request == null || names == null)

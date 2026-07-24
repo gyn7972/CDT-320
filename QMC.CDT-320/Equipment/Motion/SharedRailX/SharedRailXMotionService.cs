@@ -65,6 +65,74 @@ namespace QMC.CDT320.Motion.SharedRailX
             return false;
         }
 
+        /// <summary>
+        /// 두 공유 레일 축의 지정 위치 조합이 페어 간격식으로 SafetyDistance를 만족하는지 판정한다.
+        /// 인터락 제3 분기("간격 충족 시 진입 허용" — 사용자 승인 2026-07-24)에서 사용한다.
+        /// R5: 요구 거리는 페어 SafetyDistance(없으면 축 Max)만 사용하며 RetreatExtra는 절대 더하지 않는다.
+        /// 페어 미설정/축 미해석 시 false(fail-closed).
+        /// </summary>
+        public bool IsPairClearanceSatisfied(
+            BaseAxis axisA,
+            double axisAPosition,
+            BaseAxis axisB,
+            double axisBPosition,
+            out string detail)
+        {
+            detail = string.Empty;
+
+            SharedRailXAxis railA;
+            SharedRailXAxis railB;
+            if (!TryResolve(axisA, out railA) || !TryResolve(axisB, out railB))
+            {
+                detail = "공유 레일 축을 확인할 수 없습니다.";
+                return false;
+            }
+
+            SharedRailXAxisPair pair;
+            if (_config == null || !_config.TryGetCollisionPair(railA, railB, out pair) || !pair.HasClearanceRule)
+            {
+                detail = "충돌 Pair 설정이 없습니다. pair=" + railA + "<->" + railB;
+                return false;
+            }
+
+            double aPos = pair.AxisA == railA ? axisAPosition : axisBPosition;
+            double bPos = pair.AxisA == railA ? axisBPosition : axisAPosition;
+            double clearance = CalculatePairClearance(
+                pair.HomeClearance,
+                pair.AxisATowardSign,
+                aPos,
+                pair.AxisBTowardSign,
+                bPos);
+
+            double required = pair.SafetyDistance.HasValue
+                ? pair.SafetyDistance.Value
+                : ResolvePairFallbackSafetyDistance(railA, railB);
+
+            detail = "pair=" + railA + "<->" + railB +
+                     ", a=" + axisAPosition.ToString("F6") +
+                     ", b=" + axisBPosition.ToString("F6") +
+                     ", clearance=" + clearance.ToString("F6") +
+                     ", required=" + required.ToString("F6");
+            return clearance + 0.000001 >= required;
+        }
+
+        private double ResolvePairFallbackSafetyDistance(SharedRailXAxis railA, SharedRailXAxis railB)
+        {
+            double safetyA = _config != null ? _config.DefaultSafetyDistance : 10.0;
+            double safetyB = safetyA;
+            foreach (SharedRailXAxisSetting setting in GetAxisSettings())
+            {
+                if (setting == null)
+                    continue;
+                if (setting.RailAxis == railA)
+                    safetyA = setting.SafetyDistance;
+                else if (setting.RailAxis == railB)
+                    safetyB = setting.SafetyDistance;
+            }
+
+            return Math.Max(safetyA, safetyB);
+        }
+
         public bool VerifySingleAxisMove(BaseAxis axis, double targetPosition, out string reason)
         {
             reason = string.Empty;

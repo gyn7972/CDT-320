@@ -620,11 +620,15 @@ namespace QMC.CDT320.Sequencing
                     return Fail("PICKER-PICKUP-PERMISSION-STAGE-NO-UNIT", "InputStageUnit",
                         "InputCamera Mark 검사 허가를 받았지만 InputStageUnit이 없습니다.");
 
-                if (!stage.IsVisionXInAvoidPosition())
+                // 기존 조건: 전체 Avoid 정위치만 허용 — 현재 기준(사용자 승인 2026-07-24): 최소 회피 주차도
+                // 인정한다. 비전이 정지 상태이고 양쪽 피커 X의 현재 위치와 페어 간격(SafetyDistance,
+                // RetreatExtra 미포함)을 만족하면 통과. 실제 진입 이동은 존 인터락 제3 분기가 재검증한다.
+                if (!stage.IsVisionXInAvoidPosition() &&
+                    !IsInputVisionParkedClearOfPickers(stage))
                 {
                     InputCameraPickUpPermissionStore.Grant(Side, permittedItems);
                     return Fail("PICKER-PICKUP-PERMISSION-VISIONX-NOT-AVOID", stage.Name,
-                        "InputCamera Mark 검사 허가를 받았지만 InputVisionX가 Avoid 위치가 아닙니다. " +
+                        "InputCamera Mark 검사 허가를 받았지만 InputVisionX가 Avoid/최소 회피 위치가 아닙니다. " +
                         "허가는 복구했으며, 다른 InputCamera 선행검사가 PickUp 허가 이후 InputVisionX를 이동했는지 확인해야 합니다. side=" + Side);
                 }
 
@@ -4368,16 +4372,21 @@ namespace QMC.CDT320.Sequencing
                     return false;
                 }
 
-                if (!_inputVisionPickerEntryTargetPrepared ||
-                    !IsAxisInTarget(stage.CameraX, _inputVisionPickerEntryTarget) ||
-                    stage.CameraX.ActualPosition > 0.0)
+                // 기존 조건: 확정 회피 위치 + Actual ≤ 0(entryLimit=0 하드코딩)만 허용.
+                // 현재 기준(사용자 승인 2026-07-24): 최소 회피 주차(>0)도 인정 — 확정 회피 위치에 있고
+                // 배치 피커 목표들과 페어 간격(SafetyDistance, RetreatExtra 미포함)을 만족하면 통과.
+                bool atEntryTarget = _inputVisionPickerEntryTargetPrepared &&
+                    IsAxisInTarget(stage.CameraX, _inputVisionPickerEntryTarget);
+                bool belowZero = stage.CameraX.ActualPosition <= 0.0;
+                if (!atEntryTarget ||
+                    (!belowZero && !IsInputVisionParkedClearOfBatchPickerTargets(stage)))
                 {
                     detail = "InputVisionX가 확정된 피커 진입 회피 위치가 아닙니다. actual=" +
                         stage.CameraX.ActualPosition.ToString("0.###") +
                         ", target=" + (_inputVisionPickerEntryTargetPrepared
                             ? _inputVisionPickerEntryTarget.ToString("0.###")
                             : "미확정") +
-                        ", entryLimit=0";
+                        ", entryLimit=0 또는 페어 간격 충족";
                     return false;
                 }
 
@@ -4391,6 +4400,73 @@ namespace QMC.CDT320.Sequencing
             }
             finally
             {
+            }
+        }
+
+        // 허가 소비 시점 판정(사용자 승인 2026-07-24): 비전이 정지 상태이고 양쪽 피커 X의
+        // 현재 Actual/Command와 페어 간격(SafetyDistance, RetreatExtra 미포함)을 만족하면
+        // 전체 Avoid가 아니어도(최소 회피 주차) 픽업 진행을 허용한다.
+        private bool IsInputVisionParkedClearOfPickers(InputStageUnit stage)
+        {
+            try
+            {
+                if (stage == null || stage.CameraX == null || stage.CameraX.IsMoving)
+                    return false;
+
+                SharedRailXMotionService service = SharedRailXMotionRuntime.ResolveService(
+                    Context != null ? Context.Machine : null);
+                if (service == null || Context == null || Context.Machine == null)
+                    return false;
+
+                BaseAxis frontX = Context.Machine.PickerFrontUnit != null ? Context.Machine.PickerFrontUnit.PickerX : null;
+                BaseAxis rearX = Context.Machine.PickerRearUnit != null ? Context.Machine.PickerRearUnit.PickerX : null;
+                double vision = stage.CameraX.ActualPosition;
+                string detail;
+                if (frontX != null &&
+                    (!service.IsPairClearanceSatisfied(frontX, frontX.ActualPosition, stage.CameraX, vision, out detail) ||
+                     !service.IsPairClearanceSatisfied(frontX, frontX.CommandPosition, stage.CameraX, vision, out detail)))
+                    return false;
+                if (rearX != null &&
+                    (!service.IsPairClearanceSatisfied(rearX, rearX.ActualPosition, stage.CameraX, vision, out detail) ||
+                     !service.IsPairClearanceSatisfied(rearX, rearX.CommandPosition, stage.CameraX, vision, out detail)))
+                    return false;
+
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        // Conti 적격 판정(사용자 승인 2026-07-24): 정지한 비전 위치가 배치 전체 피커 X 목표와
+        // 페어 간격(SafetyDistance, RetreatExtra 미포함)을 만족하는지 확인한다.
+        private bool IsInputVisionParkedClearOfBatchPickerTargets(InputStageUnit stage)
+        {
+            try
+            {
+                if (stage == null || stage.CameraX == null || _pickBatchItems == null || _pickBatchItems.Count == 0)
+                    return false;
+
+                SharedRailXMotionService service = SharedRailXMotionRuntime.ResolveService(
+                    Context != null ? Context.Machine : null);
+                BaseAxis pickerX = GetPickerAxis(PickerAxis.PickerX);
+                if (service == null || pickerX == null)
+                    return false;
+
+                double vision = stage.CameraX.ActualPosition;
+                for (int i = 0; i < _pickBatchItems.Count; i++)
+                {
+                    string detail;
+                    if (!service.IsPairClearanceSatisfied(pickerX, _pickBatchItems[i].TargetPickerX, stage.CameraX, vision, out detail))
+                        return false;
+                }
+
+                return true;
+            }
+            catch
+            {
+                return false;
             }
         }
 

@@ -278,9 +278,13 @@ namespace QMC.CDT320.Sequencing
                     reason = "OutputVisionX 축이 이동 중입니다.";
                     return false;
                 }
-                if (!outputStage.IsVisionXInAvoidPosition())
+                // 기존 조건: 전체 Avoid 정위치만 완료로 인정 — 현재 기준(사용자 승인 2026-07-24):
+                // 최소 회피 주차도 인정한다. 정지 상태이고 양쪽 피커 X와 페어 간격
+                // (SafetyDistance, RetreatExtra 미포함)을 만족하면 안전 정지로 판정한다.
+                if (!outputStage.IsVisionXInAvoidPosition() &&
+                    !IsOutputVisionParkedClearOfPickers(machine, outputVisionX))
                 {
-                    reason = "OutputVisionX가 Avoid 위치가 아닙니다.";
+                    reason = "OutputVisionX가 Avoid/최소 회피 위치가 아닙니다.";
                     return false;
                 }
 
@@ -289,6 +293,38 @@ namespace QMC.CDT320.Sequencing
             catch (Exception ex)
             {
                 reason = "OutputVisionX 안전 상태 확인 실패: " + ex.Message;
+                return false;
+            }
+        }
+
+        // 드레인 완료 판정 보조(사용자 승인 2026-07-24): 정지한 OutputVisionX가 양쪽 피커 X의
+        // Actual/Command와 페어 간격(SafetyDistance, RetreatExtra 미포함)을 만족하면 안전 정지로 본다.
+        private static bool IsOutputVisionParkedClearOfPickers(CDT320_Machine machine, BaseAxis outputVisionX)
+        {
+            try
+            {
+                QMC.CDT320.Motion.SharedRailX.SharedRailXMotionService service =
+                    QMC.CDT320.Motion.SharedRailX.SharedRailXMotionRuntime.ResolveService(machine);
+                if (service == null || outputVisionX == null)
+                    return false;
+
+                BaseAxis frontX = machine.PickerFrontUnit != null ? machine.PickerFrontUnit.PickerX : null;
+                BaseAxis rearX = machine.PickerRearUnit != null ? machine.PickerRearUnit.PickerX : null;
+                double vision = outputVisionX.ActualPosition;
+                string detail;
+                if (frontX != null &&
+                    (!service.IsPairClearanceSatisfied(frontX, frontX.ActualPosition, outputVisionX, vision, out detail) ||
+                     !service.IsPairClearanceSatisfied(frontX, frontX.CommandPosition, outputVisionX, vision, out detail)))
+                    return false;
+                if (rearX != null &&
+                    (!service.IsPairClearanceSatisfied(rearX, rearX.ActualPosition, outputVisionX, vision, out detail) ||
+                     !service.IsPairClearanceSatisfied(rearX, rearX.CommandPosition, outputVisionX, vision, out detail)))
+                    return false;
+
+                return true;
+            }
+            catch
+            {
                 return false;
             }
         }
