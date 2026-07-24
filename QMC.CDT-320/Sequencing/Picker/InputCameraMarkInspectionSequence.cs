@@ -290,7 +290,7 @@ namespace QMC.CDT320.Sequencing
                     return foreignWaitResult;
 
                 _cameraWorkLease = await Context.AutoSequenceGate
-                    .BeginInputCameraWorkAsync(Name + ":InputCameraPreInspection:" + Side, ct)
+                    .BeginInputCameraWorkAsync(Name + ":InputCameraPreInspection:" + Side, ct, Side)
                     .ConfigureAwait(false);
 
                 WriteLog("InputCameraMarkInspectionSequence",

@@ -34,6 +34,28 @@
   큐 도입 후 상대 선행검사는 S2 게이트에서 존 미점유 대기라 팔로잉 경로에 진입 불가.
   "선행검사 대상 피커만 팔로잉, 상대는 큐 대기"가 구조적으로 보장됨.
 
+## 재발 수정 (2026-07-24, 커밋 fa720b4b 후 시뮬 재발 — PERMISSION-CLEAR-TIMEOUT)
+원인(진단 wf_e5e58c4b 확정): S2가 '검사 후 존이 비기를 기다리는 블록 구간'에서 생긴 foreign을
+못 막는 비원자 race. Rear가 S2 통과(foreign 부재) → 폴링 블록 중 16ms 뒤 Front가 grant+release
+동시 → Rear가 갓 풀린 존을 재검사 없이 획득(foreign=Front:seq=4 존재). 방향만 반대인 동형 교착:
+Rear 선행검사=카메라 존 보유+S3 foreign 대기 / Front PickUp=허가 보유+Input 워크존 대기(카메라
+존에 막힘). 카메라 존은 정상 상호배제(위반 아님). 승인: A안 (a) — 존 획득을 FIFO에 원자 종속.
+- [x] A1. AutoSequenceCoordinatorGate.BeginInputCameraWorkAsync에 optional
+  `PickerSequenceSide? preInspectionSide = null` 추가(기존 로더 호출부 MachineController.cs:8414
+  무변경). WaitAndSetCameraWorkZoneAsync까지 전달.
+- [x] A2. WaitAndSetCameraWorkZoneAsync 폴링 루프(:309~344): 매 폴링에서 lock 진입 전
+  (ArePickersPhysicallyClearForCameraZone 검사와 함께) `preInspectionSide.HasValue &&
+  InputCameraPickUpPermissionStore.HasForeignPermission(side)`이면 존 승인 안 하고 continue(양보
+  로그). Store.Sync를 _pickerWorkZoneGate lock 밖에서 호출 → 중첩 lock 회피. "카메라 존 보유 =
+  foreign 부재"가 매 폴링 재검사되는 단일 불변식 → 검사~획득 race 소멸.
+- [x] A3. InputCameraMarkInspectionSequence.cs:293 호출부에 Side 전달.
+- [x] A4. 기존 S2(WaitUntilNoForeignPickUpPermissionAsync 조기 양보)와 S3(타임아웃 방어선)는
+  그대로 유지 — 이중/삼중 안전망. 정상시 foreign 부재라 즉시 통과(회귀 없음).
+- [x] A-검증: 데드락 제거 증명 = 카메라 존 상호배제 + A2로 획득 순간 foreign 부재 + 획득 후
+  상대는 존 못 잡아 허가 발급 불가 ⇒ 존 쥔 전 구간 foreign 부재 ⇒ S3 blocking 불가 ⇒ 순환 불가.
+  롤백 재발급(PickerPickUpSequence:636)도 Rear가 존 쥔 동안 Front가 소비/롤백 자체를 못 하므로
+  차단됨. 빌드 + FIFO 하네스 재실행.
+
 ## 검증
 - [x] 빌드 통과(OutDir 스크래치).
 - [x] 데드락 제거 증명 재확인: 카메라 존 단일 상호배제 + Grant는 존 점유 중에만 + S2가 foreign

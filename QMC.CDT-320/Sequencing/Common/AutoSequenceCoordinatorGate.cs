@@ -199,13 +199,15 @@ namespace QMC.CDT320.Sequencing
 
         public Task<AutoSequenceCameraWorkZoneLease> BeginInputCameraWorkAsync(
             string holder,
-            CancellationToken ct)
+            CancellationToken ct,
+            PickerSequenceSide? preInspectionSide = null)
         {
             return WaitAndSetCameraWorkZoneAsync(
                 AutoSequenceCameraWorkKind.InputCamera,
                 PickerWorkZone.Input,
                 string.IsNullOrWhiteSpace(holder) ? "InputCamera" : holder,
-                ct);
+                ct,
+                preInspectionSide);
         }
 
         public Task<AutoSequenceCameraWorkZoneLease> BeginOutputCameraWorkAsync(
@@ -298,7 +300,8 @@ namespace QMC.CDT320.Sequencing
             AutoSequenceCameraWorkKind kind,
             PickerWorkZone zone,
             string holder,
-            CancellationToken ct)
+            CancellationToken ct,
+            PickerSequenceSide? preInspectionSide = null)
         {
             PickerWorkZone safeZone = PickerZoneInterlockRules.NormalizeInterlockZone(zone);
             string safeHolder = string.IsNullOrWhiteSpace(holder) ? kind.ToString() : holder;
@@ -306,6 +309,7 @@ namespace QMC.CDT320.Sequencing
                 return new AutoSequenceCameraWorkZoneLease(this, kind, PickerWorkZone.Unknown, safeHolder, false);
 
             bool waitLogged = false;
+            bool foreignWaitLogged = false;
             while (true)
             {
                 ct.ThrowIfCancellationRequested();
@@ -313,6 +317,31 @@ namespace QMC.CDT320.Sequencing
                     "AutoSequenceCoordinator.CameraWorkZone:" + kind + ":" + safeZone,
                     ShouldDeferCycleStopForOutputCameraDrain(kind),
                     "Output post-place inspection drain");
+
+                // FIFO 데드락 절단(원자): InputCamera 선행검사가 카메라 존을 '승인받는 매 폴링'마다
+                // 나보다 앞선 다른 side의 PickUp 허가(foreign)가 없는지 재검사한다. 있으면 존을
+                // 잡지 않고 계속 양보한다. 이로써 '카메라 존 보유 = foreign 부재'가 단일 불변식이
+                // 되어, 존을 잡는 순간 foreign이 없고(재검사) 잡은 뒤엔 상호배제로 상대가 존을 못
+                // 잡아 허가를 새로 발급할 수 없다 → 검사와 획득 사이의 race가 소멸한다.
+                // Store.Sync 잠금을 _pickerWorkZoneGate lock '밖'에서 호출해 중첩 lock을 피한다.
+                if (preInspectionSide.HasValue)
+                {
+                    string foreignDetail;
+                    if (InputCameraPickUpPermissionStore.HasForeignPermission(preInspectionSide.Value, out foreignDetail))
+                    {
+                        if (!foreignWaitLogged)
+                        {
+                            Log.Write("Main", "SYSTEM", "AutoSequenceCoordinator",
+                                "InputCamera 선행검사 카메라 존 획득을 FIFO 양보합니다. 앞선 PickUp 허가가 있어 존을 잡지 않고 대기합니다. " +
+                                "holder=" + safeHolder + ", side=" + preInspectionSide.Value +
+                                ", " + foreignDetail + " - Wait");
+                            foreignWaitLogged = true;
+                        }
+
+                        await Task.Delay(PickerWorkZonePollIntervalMs, ct).ConfigureAwait(false);
+                        continue;
+                    }
+                }
 
                 string reason;
                 if (ArePickersPhysicallyClearForCameraZone(safeZone, kind, safeHolder, out reason))
