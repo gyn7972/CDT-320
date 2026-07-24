@@ -1733,7 +1733,26 @@ namespace QMC.CDT320.Sequencing
                 SharedRailXAxis pickerRailAxis = Side == PickerSequenceSide.Front
                     ? SharedRailXAxis.FrontPickerX
                     : SharedRailXAxis.RearPickerX;
-                planned[pickerRailAxis] = new List<double> { _targetPickerX };
+                // 수정(2026-07-24): 현재 아이템 정확값 + 나머지 배치 아이템의 근사값으로 보강한다.
+                // 근사 = 현재 PickerX − 현재 픽커 오프셋 + 해당 픽커 오프셋 (같은 빈 작업점 기준 피치 차).
+                // 근사 실패 아이템은 생략 — 서비스가 피커 Actual/Command를 자동 포함해 안전.
+                var plannedPickerTargets = new List<double> { _targetPickerX };
+                double currentOffsetX;
+                double currentOffsetY;
+                string currentOffsetReason;
+                if (_pickedPickerIndexes != null &&
+                    TryResolveOutputVisionToPickerOffsets(_currentPickerIndex, out currentOffsetX, out currentOffsetY, out currentOffsetReason))
+                {
+                    for (int i = _pickerCursor + 1; i < _pickedPickerIndexes.Count; i++)
+                    {
+                        double itemOffsetX;
+                        double itemOffsetY;
+                        string itemOffsetReason;
+                        if (TryResolveOutputVisionToPickerOffsets(_pickedPickerIndexes[i], out itemOffsetX, out itemOffsetY, out itemOffsetReason))
+                            plannedPickerTargets.Add(_targetPickerX - currentOffsetX + itemOffsetX);
+                    }
+                }
+                planned[pickerRailAxis] = plannedPickerTargets;
 
                 double dynamicTarget;
                 string dynamicDetail;
@@ -3715,6 +3734,10 @@ namespace QMC.CDT320.Sequencing
                         PickerNo = _currentPickerNo,
                         PickerSide = Side,
                         HasPickerContext = true,
+                        // Auto+Conti 플레이스 등록에서만 최소 회피 허용 (복원/기타 경로는 기본 false).
+                        MinimalRetreatEligible =
+                            Options != null && Options.RunMode == SequenceRunMode.Auto &&
+                            IsCoordinatedPlaceMotionMode(ResolvePlaceMotionConfig().MotionMode),
                         PlacedStageY = _targetOutputStageY,
                         PlacedPickerY = _targetPickerY,
                         OutputVisionToPickerY = _outputVisionToPickerY,

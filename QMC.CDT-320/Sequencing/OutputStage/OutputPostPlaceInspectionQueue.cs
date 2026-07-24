@@ -31,6 +31,12 @@ namespace QMC.CDT320.Sequencing
 
         public bool HasPickerContext { get; set; }
 
+        /// <summary>
+        /// Auto 플레이스(Conti) 등록 경로에서만 true — 촬영 후 OutputVisionX 최소 회피 허용 플래그.
+        /// 복원 경로(MaterialPendingRestore)/기타 등록은 false로 기존 전체 Avoid 경로를 탄다.
+        /// </summary>
+        public bool MinimalRetreatEligible { get; set; }
+
         public double PlacedStageY { get; set; }
 
         public double PlacedPickerY { get; set; }
@@ -1472,12 +1478,13 @@ namespace QMC.CDT320.Sequencing
             return 0;
         }
 
-        // 플레이스 Conti 게이트: 요청이 픽커 컨텍스트를 갖고(수동 Place는 큐 등록 자체가 억제되고,
-        // 복원 경로 MaterialPendingRestore는 HasPickerContext=false로 여기서 제외) 해당 픽커의
+        // 플레이스 Conti 게이트(수정 2026-07-24): 요청에 명시 플래그(MinimalRetreatEligible —
+        // Auto 플레이스 등록 경로에서만 설정)가 있고 픽커 컨텍스트를 가지며 해당 픽커의
         // Place.MotionMode가 ContiSegmentedPlace일 때만 최소 회피를 적용한다.
+        // 복원 경로(MaterialPendingRestore) 등은 플래그가 없어 기존 전체 Avoid 경로 그대로.
         private bool IsMinimalRetreatGateSatisfied(OutputPostPlaceInspectionRequest request)
         {
-            if (request == null || !request.HasPickerContext)
+            if (request == null || !request.MinimalRetreatEligible || !request.HasPickerContext)
                 return false;
             if (_context == null || _context.Machine == null)
                 return false;

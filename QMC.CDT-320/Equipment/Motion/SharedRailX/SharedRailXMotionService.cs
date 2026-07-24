@@ -423,9 +423,13 @@ namespace QMC.CDT320.Motion.SharedRailX
                 return false;
             }
 
-            // 닫힌 수식: 페어·장애물 전 조합의 boundMin을 구한다 (비전부호는 페어에서 취득).
+            // 닫힌 수식: 각 제약을 비전부호 곱 형태로 정규화해 위치 공간의 상/하한으로 누적한다.
+            //   비전부호 +1 페어: pos ≤ bound(상한),  비전부호 −1 페어: pos ≥ −bound(하한).
+            // 페어 간 부호가 달라도 상/하한 구간 [lower, upper]로 동일하게 처리하고,
+            // 구간이 비면(상충) 전체 Avoid 폴백. 회피 방향(canonical)은 첫 유효 페어 부호를 따른다.
             int canonicalVisionSign = 0;
-            double boundMin = double.MaxValue;
+            double upperBound = double.MaxValue;   // pos ≤ upperBound
+            double lowerBound = double.MinValue;   // pos ≥ lowerBound
             double obstacleMin = double.MaxValue;
             double obstacleMax = double.MinValue;
             double requiredMax = 0.0;
@@ -444,12 +448,6 @@ namespace QMC.CDT320.Motion.SharedRailX
                 int pickerSign = pair.AxisA == visionRailAxis ? pair.AxisBTowardSign : pair.AxisATowardSign;
                 if (canonicalVisionSign == 0)
                     canonicalVisionSign = visionSign;
-                if (visionSign != canonicalVisionSign)
-                {
-                    // 페어 간 비전 회피 방향이 갈리면 단일 목표로 표현 불가 — 안전하게 전체 Avoid.
-                    detail = "페어 간 비전 회피 방향(부호)이 달라 전체 Avoid를 사용합니다. axis=" + visionRailAxis;
-                    return false;
-                }
 
                 SharedRailXAxis otherAxis = pair.AxisA == visionRailAxis ? pair.AxisB : pair.AxisA;
                 SharedRailXAxisSetting otherSetting = settingMap[otherAxis];
@@ -471,8 +469,18 @@ namespace QMC.CDT320.Motion.SharedRailX
                     out pairBoundMin))
                     continue;
 
-                if (pairBoundMin < boundMin)
-                    boundMin = pairBoundMin;
+                // 정규화: visionSign×pos ≤ pairBoundMin → 상한 또는 하한으로 반영.
+                if (visionSign > 0)
+                {
+                    if (pairBoundMin < upperBound)
+                        upperBound = pairBoundMin;
+                }
+                else
+                {
+                    if (-pairBoundMin > lowerBound)
+                        lowerBound = -pairBoundMin;
+                }
+
                 double required = safety + Math.Max(0.0, extraClearance);
                 if (required > requiredMax)
                     requiredMax = required;
@@ -485,13 +493,27 @@ namespace QMC.CDT320.Motion.SharedRailX
                 }
             }
 
-            if (canonicalVisionSign == 0 || boundMin == double.MaxValue)
+            if (canonicalVisionSign == 0 ||
+                (upperBound == double.MaxValue && lowerBound == double.MinValue))
             {
                 detail = "VisionX-PickerX 충돌 Pair가 없어 전체 Avoid를 사용합니다. axis=" + visionRailAxis;
                 return false;
             }
 
-            double computed = canonicalVisionSign > 0 ? boundMin : -boundMin;
+            // 구간 상충(혼합 부호 제약이 서로 배타적)이면 안전하게 전체 Avoid 폴백.
+            if (lowerBound > upperBound + 0.000001)
+            {
+                detail = "페어 제약 구간이 상충하여 전체 Avoid를 사용합니다. lower=" + lowerBound.ToString("F6") +
+                         ", upper=" + upperBound.ToString("F6") + ", axis=" + visionRailAxis;
+                retreatTarget = fullAvoidPosition;
+                return true;
+            }
+
+            // 최소 회피 목표 = 회피 방향 기준으로 진입측에 가장 가까운 허용 경계.
+            //   canonical +1(회피=pos 감소): 목표 = upperBound,  canonical −1(회피=pos 증가): 목표 = lowerBound.
+            // (구간 [lower, upper]는 위에서 상충 검사 완료 — 목표는 항상 구간 안의 경계값이다.)
+            double computed = canonicalVisionSign > 0 ? upperBound : lowerBound;
+            double boundMin = canonicalVisionSign > 0 ? upperBound : -lowerBound;
 
             // 전체 Avoid보다 더 물러나야 하는 값이면(회피 방향으로 fullAvoid 초과) fullAvoid 사용.
             // s-공간(s = 비전부호×위치)에서 회피는 s 감소 방향이며 제약은 s ≤ boundMin.
@@ -505,6 +527,20 @@ namespace QMC.CDT320.Motion.SharedRailX
             else
             {
                 retreatTarget = computed;
+            }
+
+            // 수정(사용자 지시 2026-07-24): 비전이 이미 목표보다 회피 방향으로 더 물러나 정지해 있으면
+            // 진입 방향으로 전진시키지 않고 현재 위치를 유지한다 (호출부의 이동 생략 관례로 무이동).
+            bool heldAtCurrent = false;
+            if (!clampedToFullAvoid && !visionAxis.IsMoving)
+            {
+                double sActual = canonicalVisionSign * visionAxis.ActualPosition;
+                double sTarget = canonicalVisionSign * retreatTarget;
+                if (sActual <= sTarget + 0.000001)
+                {
+                    retreatTarget = visionAxis.ActualPosition;
+                    heldAtCurrent = true;
+                }
             }
 
             // 소프트리밋 클램프 (리밋 밖 목표 방지).
@@ -559,7 +595,8 @@ namespace QMC.CDT320.Motion.SharedRailX
                      ", requiredMax=" + requiredMax.ToString("F6") +
                      ", extra=" + Math.Max(0.0, extraClearance).ToString("F3") +
                      ", fullAvoid=" + fullAvoidPosition.ToString("F6") +
-                     (clampedToFullAvoid ? ", clamp=fullAvoid" : clampedToSoftLimit ? ", clamp=softLimit" : "");
+                     (clampedToFullAvoid ? ", clamp=fullAvoid" : clampedToSoftLimit ? ", clamp=softLimit" : "") +
+                     (heldAtCurrent ? ", hold=current(전진 금지 - B안)" : "");
             return true;
         }
 
