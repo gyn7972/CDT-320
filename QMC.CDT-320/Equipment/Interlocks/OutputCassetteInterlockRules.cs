@@ -28,6 +28,7 @@ namespace QMC.CDT320.Interlocks
             {
                 OutputCassetteUnit Cassette = request.Machine.OutputCassetteUnit;
                 OutputFeederUnit feeder = request.Machine.OutputFeederUnit;
+                PickerFrontUnit frontPicker = request.Machine.PickerFrontUnit;
 
                 switch (request.MoveKind)
                 {
@@ -35,9 +36,15 @@ namespace QMC.CDT320.Interlocks
                     case MotionGuardMoveKind.AxisMove:
                     // 홈 이동 인터락 확인
                     case MotionGuardMoveKind.AxisHome:
+                        if (!VerifyFrontPickerXAvoidPosition(frontPicker, out reason))
+                            return false;
+
                         return CanHomeBinLifterZ(Cassette, feeder, out reason);
                     // 티칭 이동 인터락 확인
                     case MotionGuardMoveKind.AxisTeachingMove:
+                        if (!VerifyFrontPickerXAvoidPosition(frontPicker, out reason))
+                            return false;
+
                         return CanMoveBinLifterZ(Cassette, feeder, out reason);
                     default:
                         return MotionGuardRuleHelpers.BlockUnsupportedMoveKind(request, out reason);
@@ -55,6 +62,40 @@ namespace QMC.CDT320.Interlocks
                 LogBlockedReason(reason);
             }
             
+        }
+
+        // 인터락 조건: OutputLifterZ 이동 전 FrontPickerX가 정확한 AvoidPosition인지 확인한다.
+        private static bool VerifyFrontPickerXAvoidPosition(
+            PickerFrontUnit frontPicker,
+            out string reason)
+        {
+            reason = string.Empty;
+
+            if (frontPicker == null ||
+                frontPicker.PickerX == null ||
+                frontPicker.Recipe == null ||
+                frontPicker.Recipe.PickerX == null)
+            {
+                return MotionGuardRuleHelpers.Block(
+                    "OutputLifterZ",
+                    "FrontPickerX AvoidPosition을 확인할 수 없습니다. OutputLifterZ 이동이 차단되었습니다.",
+                    out reason);
+            }
+
+            double target = frontPicker.Recipe.PickerX.AvoidPosition;
+            if (!frontPicker.IsFrontPickerAxisInTeachingPosition(
+                PickerAxis.PickerX,
+                "AvoidPosition"))
+            {
+                return MotionGuardRuleHelpers.Block(
+                    "OutputLifterZ",
+                    "FrontPickerX가 AvoidPosition에 있어야 합니다. " +
+                    "target=" + target.ToString("0.###") +
+                    ", actual=" + frontPicker.PickerX.ActualPosition.ToString("0.###"),
+                    out reason);
+            }
+
+            return true;
         }
 
         // 인터락 항목: OutputLifterZ 홈은 Bin 돌출, OutputFeederY 이동 중, 카세트 안전 위치를 확인한다.
