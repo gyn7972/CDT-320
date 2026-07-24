@@ -191,9 +191,9 @@ namespace QMC.CDT320.Sequencing
             bool bottomFinalItemOffsetYIsSoleColletYCorrection = false)
         {
             PlaceCoordinateResult result = new PlaceCoordinateResult();
+            result.TargetSide = targetSide;
             result.PickerY = pickerYTeaching;
             double pickerYRuntimeOffset = pickerAlignOffsetY;
-            result.TargetSide = targetSide;
             // 자동 Place는 모든 Collet을 P4 기준 PickerY에서 촬영한 Bottom FINAL을 사용한다.
             // 이 모드에서는 BottomItemOffsetY가 Collet별 실제 Y 오차를 포함한 단일 Place 보정값이므로
             // OutputVisionToPickerY(Collet Calibration 포함)를 OutputStageY에 다시 더하지 않는다.
@@ -201,33 +201,41 @@ namespace QMC.CDT320.Sequencing
             double outputCameraToPickerY = bottomFinalItemOffsetYIsSoleColletYCorrection
                 ? 0.0
                 : outputVisionToPickerY - pickerYTeaching;
-            // Place 런타임 보정(placeRuntimeOffset*)은 Bin 후검사 LowPassFilter 출력(raw)이며
+
+            // 구조: 축별 목표 = 다이맵 명목 목표(map*) + Place 보정(placeCorrection*)
+            // 다이맵 명목 목표 — 보정이 전부 0일 때 빈 맵 슬롯 중심에 안착하는 좌표.
+            double mapStageY = outputStageBaseY + receiveTargetY + outputCameraToPickerY;
+            double mapPickerX = outputVisionProcessX + receiveTargetX + outputVisionToPickerX + pickerAlignOffsetX;
+
+            // Place 보정 — Bottom 검사 보정은 이동축 기준으로 X/T/StageY 모두 감산 방향,
+            // 런타임 보정(placeRuntimeOffset*)은 Bin 후검사 LowPassFilter 출력(raw)이며
             // 비전 + 방향(과이동)을 상쇄하도록 X/T는 감산, Y는 스테이지 이동 방향 정의상 가산한다.
+            // (UsePlaceRuntimeOffset=false면 0이 전달되지만 항은 수식에 항상 유지한다)
             // Place Y 기구 보정은 PickerY 티칭을 바꾸지 않고 선택된 GOOD/NG OutputStageY에만 더한다.
-            result.OutputStageY =
-                outputStageBaseY + receiveTargetY + outputCameraToPickerY - bottomOffsetY +
-                placeRuntimeOffsetY + placeMechanicalOffsetY;
+            double placeCorrectionY = -bottomOffsetY + placeRuntimeOffsetY + placeMechanicalOffsetY;
+            double placeCorrectionX = -bottomOffsetX - placeRuntimeOffsetX + placeMechanicalOffsetX;
+            double placeCorrectionT = -bottomOffsetT - placeRuntimeOffsetT;
 
-            // OutputCameraX와 PickerX는 Place 수령 방향이 같으므로 Output map X 오프셋은 PickerX에 더한다.
-            // Bottom 검사 보정은 이동축 기준으로 PickerX/T와 OutputStageY에서 감산한다.
-            result.PickerX =
-                outputVisionProcessX + receiveTargetX + outputVisionToPickerX + pickerAlignOffsetX -
-                bottomOffsetX - placeRuntimeOffsetX + placeMechanicalOffsetX;
-
-            result.PickerT = pickerTTeaching - bottomOffsetT - placeRuntimeOffsetT;
+            result.OutputStageY = mapStageY + placeCorrectionY;
+            result.PickerX = mapPickerX + placeCorrectionX;
+            result.PickerT = pickerTTeaching + placeCorrectionT;
             result.PickerZ = pickerZTeaching;
             result.Formula =
                 "targetSide = " + targetSide +
                 " / outputCameraToPickerY = outputVisionToPickerY(" + F(outputVisionToPickerY) + ") - pickerYTeaching(" + F(pickerYTeaching) + ") = " + F(outputVisionToPickerY - pickerYTeaching) +
                 ", appliedToOutputStageY=" + (!bottomFinalItemOffsetYIsSoleColletYCorrection) +
                 ", usedValue=" + F(outputCameraToPickerY) +
-                " / outputStageY = outputStageBaseY(" + F(outputStageBaseY) + ") + receiveTargetY(" + F(receiveTargetY) + ") + outputCameraToPickerY(" + F(outputCameraToPickerY) + ") - bottomOffsetY(" + F(bottomOffsetY) + ") + placeRuntimeOffsetY(" + F(placeRuntimeOffsetY) + ") + placeMechanicalOffsetY(" + F(placeMechanicalOffsetY) + ") = " + F(result.OutputStageY) +
+                " / mapStageY = outputStageBaseY(" + F(outputStageBaseY) + ") + receiveTargetY(" + F(receiveTargetY) + ") + outputCameraToPickerY(" + F(outputCameraToPickerY) + ") = " + F(mapStageY) +
+                " / placeCorrectionY = -bottomOffsetY(" + F(bottomOffsetY) + ") + placeRuntimeOffsetY(" + F(placeRuntimeOffsetY) + ") + placeMechanicalOffsetY(" + F(placeMechanicalOffsetY) + ") = " + F(placeCorrectionY) +
+                " / outputStageY = mapStageY + placeCorrectionY = " + F(result.OutputStageY) +
                 " / pickerColletOffsetY(" + F(pickerColletOffsetY) + ") " +
                 (bottomFinalItemOffsetYIsSoleColletYCorrection
                     ? "is represented by Bottom FINAL ItemOffsetY and is not reapplied to OutputStageY"
                     : "is already included in outputVisionToPickerY") +
                 " / pickerYRuntimeOffset=" + F(pickerYRuntimeOffset) +
-                " / pickerX = outputVisionProcessX(" + F(outputVisionProcessX) + ") + receiveTargetX(" + F(receiveTargetX) + ") + outputVisionToPickerX(" + F(outputVisionToPickerX) + ") + runtimeOffsetX(" + F(pickerAlignOffsetX) + ") - bottomOffsetX(" + F(bottomOffsetX) + ") - placeRuntimeOffsetX(" + F(placeRuntimeOffsetX) + ") + placeMechanicalOffsetX(" + F(placeMechanicalOffsetX) + ") = " + F(result.PickerX) +
+                " / mapPickerX = outputVisionProcessX(" + F(outputVisionProcessX) + ") + receiveTargetX(" + F(receiveTargetX) + ") + outputVisionToPickerX(" + F(outputVisionToPickerX) + ") + runtimeOffsetX(" + F(pickerAlignOffsetX) + ") = " + F(mapPickerX) +
+                " / placeCorrectionX = -bottomOffsetX(" + F(bottomOffsetX) + ") - placeRuntimeOffsetX(" + F(placeRuntimeOffsetX) + ") + placeMechanicalOffsetX(" + F(placeMechanicalOffsetX) + ") = " + F(placeCorrectionX) +
+                " / pickerX = mapPickerX + placeCorrectionX = " + F(result.PickerX) +
                 " / pickerT = placeTeachingT(" + F(pickerTTeaching) + ") - bottomOffsetT(" + F(bottomOffsetT) + ") - placeRuntimeOffsetT(" + F(placeRuntimeOffsetT) + ") [pickerAlignOffsetT ignored for place=" + F(pickerAlignOffsetT) + "] = " + F(result.PickerT) +
                 " / pickerY = fixed pickerYTeaching(" + F(pickerYTeaching) + ") [runtimeOffsetY logged separately=" + F(pickerAlignOffsetY) + "] = " + F(result.PickerY) +
                 " / pickerZ = " + F(result.PickerZ);
