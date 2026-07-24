@@ -112,7 +112,7 @@ namespace QMC.CDT320.Sequencing
             result.EjectPinZ = ejectPinZTeaching;
             result.Formula =
                 "stageY = inputStageY(" + F(inputStageY) + ") + needleYToVisionYOffset(" + F(needleYToVisionYOffset) + ") - alignOffsetY(" + F(alignOffsetY) + ") - pickRuntimeOffsetY(" + F(pickRuntimeOffsetY) + ") = " + F(result.StageY) +
-                " [cameraOffset=(" + F(cameraOffsetX) + "," + F(cameraOffsetY) + ") already included in InputVisionToPicker offset]" +
+                " [cameraOffset=(" + F(cameraOffsetX) + "," + F(cameraOffsetY) + ") applied once inside InputVisionToPicker (PickerX/PickerY only); alignOffset is raw camera delta]" +
                 " / pickerX = inputVisionX(" + F(inputVisionX) + ") + inputVisionToPickerX(" + F(inputVisionToPickerX) + ") + pickerAlignOffsetX(" + F(pickerAlignOffsetX) + ") + alignOffsetX(" + F(alignOffsetX) + ") - pickRuntimeOffsetX(" + F(pickRuntimeOffsetX) + ") = " + F(result.PickerX) +
                 " / pickerT = pickerTTeaching(" + F(pickerTTeaching) + ") + pickerAlignOffsetT(" + F(pickerAlignOffsetT) + ") + alignOffsetT(" + F(alignOffsetT) + ") - pickRuntimeOffsetT(" + F(pickRuntimeOffsetT) + ") = " + F(result.PickerT) +
                 " / needleX = inputVisionX(" + F(inputVisionX) + ") + alignOffsetX(" + F(alignOffsetX) + ") - needleXToVisionXOffset(" + F(needleXToVisionXOffset) + ") - pickRuntimeOffsetX(" + F(pickRuntimeOffsetX) + ") = " + F(result.NeedleX) +

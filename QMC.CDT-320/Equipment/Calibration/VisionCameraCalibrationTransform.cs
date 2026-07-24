@@ -258,10 +258,10 @@ namespace QMC.CDT320.Calibration
 
             switch (channel)
             {
-                case AutoVisionChannel.Wafer:
-                    offsetX += data.InputToBottomOffsetX;
-                    offsetY += data.InputToBottomOffsetY;
-                    break;
+                // Wafer(Input) 채널은 카메라 순수 오프셋(raw)을 그대로 반환한다.
+                // InputToBottomOffset(카메라 브리지)은 저장 InputVisionToPicker X/Y에서 딱 1회만 반영된다
+                // (PickerVisionOffsetCalibrationService.ApplySide) — PickerX/PickerY 전용.
+                // 라이브 결과에 가산하면 StageY/맵 원점/NeedleX까지 실려 축이 갈리고 상쇄가 깨진다(이중 적용 버그).
                 case AutoVisionChannel.Bin:
                     offsetX += data.OutputToBottomOffsetX;
                     offsetY += data.OutputToBottomOffsetY;

@@ -922,7 +922,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
                             " mm, StageY=" + target.StageY.ToString("F3") +
                             " mm (CameraOffset X=" + cameraOffsetX.ToString("F3") +
                             ", Y=" + cameraOffsetY.ToString("F3") +
-                            " is included in InputVisionToPicker)";
+                            " is applied once inside InputVisionToPicker)";
                     }
 
                     QMC.Common.MessageDialog.Show(this,
@@ -2449,7 +2449,6 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 double currentStageY = stage.StageY.ActualPosition;
                 double jogDeltaX = currentVisionX - sentDieX;
                 double jogDeltaY = currentStageY - sentDieY;
-                bool simulationOrDryRun = IsManualInputDieDetectSimulationOrDryRun(stage);
 
                 VisionAlignResult vision = await RequestManualInputDieDetectVisionAsync(
                     stage,
@@ -2466,22 +2465,18 @@ namespace QMC.CDT_320.Ui.Pages.Work
 
                 double bottomRefVisionDeltaX = vision.DeltaX;
                 double bottomRefVisionDeltaY = vision.DeltaY;
+                // Wafer 채널 라이브 Delta는 카메라 순수 오프셋(raw)이므로 InputToBottomOffset 감산 없이 그대로 사용한다.
                 double cameraOffsetX = 0.0;
                 double cameraOffsetY = 0.0;
-                bool cameraOffsetXExcluded = !simulationOrDryRun &&
-                    InputPickerPickTargetResolver.TryResolveInputCameraToBottomOffsets(
-                        host.Machine,
-                        out cameraOffsetX,
-                        out cameraOffsetY);
+                InputPickerPickTargetResolver.TryResolveInputCameraToBottomOffsets(
+                    host.Machine,
+                    out cameraOffsetX,
+                    out cameraOffsetY);
                 double centerMoveDeltaX = bottomRefVisionDeltaX;
 
                 // 기존 수식은 영상에서 위쪽으로 검출된 Die에 대해 StageY를 같은 방향으로 이동시켜 중심 오차를 키웠다.
                 // Stage가 Die를 카메라 중심에 맞추려면 Vision Y 오프셋의 반대 방향으로 이동해야 한다.
                 double centerMoveDeltaY = -bottomRefVisionDeltaY;
-                if (cameraOffsetXExcluded)
-                {
-                    centerMoveDeltaX -= cameraOffsetX;
-                }
 
                 VisionAlignResult centerMoveVision = new VisionAlignResult
                 {
@@ -2559,11 +2554,10 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     ", currentY=" + currentStageY.ToString("F6") +
                     ", jogDeltaX=" + jogDeltaX.ToString("F6") +
                     ", jogDeltaY=" + jogDeltaY.ToString("F6") +
-                    ", bottomRefVisionDeltaX=" + bottomRefVisionDeltaX.ToString("F6") +
-                    ", inputVisionDeltaY=" + bottomRefVisionDeltaY.ToString("F6") +
-                    ", cameraOffsetXExcluded=" + cameraOffsetXExcluded +
-                    ", cameraOffsetX=" + cameraOffsetX.ToString("F6") +
-                    ", cameraOffsetY=" + cameraOffsetY.ToString("F6") + "(notUsedForDieY)" +
+                    ", rawVisionDeltaX=" + bottomRefVisionDeltaX.ToString("F6") +
+                    ", rawVisionDeltaY=" + bottomRefVisionDeltaY.ToString("F6") +
+                    ", cameraOffsetX=" + cameraOffsetX.ToString("F6") + "(referenceOnly)" +
+                    ", cameraOffsetY=" + cameraOffsetY.ToString("F6") + "(referenceOnly)" +
                     ", centerMoveDeltaX=" + centerMoveDeltaX.ToString("F6") +
                     ", centerMoveDeltaY=" + centerMoveDeltaY.ToString("F6") +
                     ", offsetX=" + offsetX.ToString("F6") +
@@ -2574,9 +2568,9 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     "보낸 Die 위치 X=" + sentDieX.ToString("F3") + " mm, Y=" + sentDieY.ToString("F3") + " mm\r\n" +
                     "현재 Jog 위치 X=" + currentVisionX.ToString("F3") + " mm, Y=" + currentStageY.ToString("F3") + " mm\r\n" +
                     "Jog 이동량 X=" + jogDeltaX.ToString("F6") + " mm, Y=" + jogDeltaY.ToString("F6") + " mm\r\n" +
-                    "Vision Delta X(보정 포함)=" + bottomRefVisionDeltaX.ToString("F6") + " mm, Y(Input only)=" + bottomRefVisionDeltaY.ToString("F6") + " mm\r\n" +
-                    "Camera Offset X=" + cameraOffsetX.ToString("F6") + (cameraOffsetXExcluded ? " mm (X 센터 이동에서 제외), " : " mm (X 미적용), ") +
-                    "Y=" + cameraOffsetY.ToString("F6") + " mm (Die Y 계산 미사용)\r\n" +
+                    "Vision Delta X(카메라 순수값)=" + bottomRefVisionDeltaX.ToString("F6") + " mm, Y(카메라 순수값)=" + bottomRefVisionDeltaY.ToString("F6") + " mm\r\n" +
+                    "Camera Offset X=" + cameraOffsetX.ToString("F6") + " mm (참고값, 이동식 미적용), " +
+                    "Y=" + cameraOffsetY.ToString("F6") + " mm (참고값, 이동식 미적용)\r\n" +
                     "Center Move Delta X=" + centerMoveDeltaX.ToString("F6") + " mm, Y=" + centerMoveDeltaY.ToString("F6") + " mm\r\n" +
                     "Vision Delta T=" + vision.DeltaTheta.ToString("F6") + " deg (T 보정 미적용)\r\n" +
                     "Detected Center X=" + detectedCenterX.ToString("F3") + " mm, Y=" + detectedCenterY.ToString("F3") + " mm\r\n" +
@@ -2931,8 +2925,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     "보낸 Die 위치 X=" + _manualDieDetectReferenceX.ToString("F3") + " mm, Y=" + _manualDieDetectReferenceY.ToString("F3") + " mm\r\n" +
                     "현재 Jog 위치 X=" + _manualDieDetectCurrentX.ToString("F3") + " mm, Y=" + _manualDieDetectCurrentY.ToString("F3") + " mm\r\n" +
                     "Jog 이동량 X=" + _manualDieDetectJogDeltaX.ToString("F6") + " mm, Y=" + _manualDieDetectJogDeltaY.ToString("F6") + " mm\r\n" +
-                    "Vision Delta X(보정 포함)=" + _manualDieDetectBottomRefVisionDeltaX.ToString("F6") + " mm, Y(Input only)=" + _manualDieDetectBottomRefVisionDeltaY.ToString("F6") + " mm\r\n" +
-                    "Camera Offset X=" + _manualDieDetectCameraOffsetX.ToString("F6") + " mm (X 센터 이동에서 제외), Y=" + _manualDieDetectCameraOffsetY.ToString("F6") + " mm (Die Y 계산 미사용)\r\n" +
+                    "Vision Delta X(카메라 순수값)=" + _manualDieDetectBottomRefVisionDeltaX.ToString("F6") + " mm, Y(카메라 순수값)=" + _manualDieDetectBottomRefVisionDeltaY.ToString("F6") + " mm\r\n" +
+                    "Camera Offset X=" + _manualDieDetectCameraOffsetX.ToString("F6") + " mm (참고값, 이동식 미적용), Y=" + _manualDieDetectCameraOffsetY.ToString("F6") + " mm (참고값, 이동식 미적용)\r\n" +
                     "Center Move Delta X=" + _manualDieDetectVisionDeltaX.ToString("F6") + " mm, Y=" + _manualDieDetectVisionDeltaY.ToString("F6") + " mm\r\n" +
                     "Vision Delta T=" + _manualDieDetectVisionDeltaT.ToString("F6") + " deg (T 보정 미적용)\r\n" +
                     "Detected Center X=" + _manualDieDetectDetectedCenterX.ToString("F3") + " mm, Y=" + _manualDieDetectDetectedCenterY.ToString("F3") + " mm\r\n" +
@@ -3690,7 +3684,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     "(InputVision Offset X=" + offsetX.ToString("F3") + " mm, Y=" + offsetY.ToString("F3") + " mm\r\n" +
                     " Camera Bottom-Input Offset X=" + cameraOffsetX.ToString("F3") +
                     " mm, Y=" + cameraOffsetY.ToString("F3") +
-                    " mm (InputVision Offset 저장값에 포함됨, 이동 공식에서 중복 적용하지 않음)\r\n" +
+                    " mm (InputVisionToPicker X/Y에 1회 반영됨, 이동 공식에서 재적용 안 함)\r\n" +
                     " Auto formula 기준, Runtime AlignOffset X/Y=0 (DieMap 좌표에 이미 적용됨)\r\n" +
                     " " + target.Formula + ")",
                     out speedType))
