@@ -36,6 +36,8 @@ namespace QMC.CDT_320.Ui.Controls
 
         public event EventHandler<CassetteSlotSelectedEventArgs> SlotSelected;
         public event EventHandler<CassetteSlotSelectedEventArgs> SlotMoveRequested;
+        // 슬롯 번호/상태 Label 더블클릭 알림. View는 이벤트만 올리고 모션/자재 판정은 Page가 수행한다.
+        public event EventHandler<CassetteSlotSelectedEventArgs> SlotDoubleClicked;
 
         public Color EmptyColor { get; set; } = EmptyStateColor;
 
@@ -155,6 +157,8 @@ namespace QMC.CDT_320.Ui.Controls
                 state.Click += SlotLabel_Click;
                 no.MouseDown += SlotLabel_MouseDown;
                 state.MouseDown += SlotLabel_MouseDown;
+                no.DoubleClick += SlotLabel_DoubleClick;
+                state.DoubleClick += SlotLabel_DoubleClick;
 
                 _slotStateLabels[i] = state;
                 slotLayout.Controls.Add(no, 0, i);
@@ -244,6 +248,17 @@ namespace QMC.CDT_320.Ui.Controls
                 return;
 
             var handler = SlotSelected;
+            if (handler != null)
+                handler(this, new CassetteSlotSelectedEventArgs((int)control.Tag));
+        }
+
+        private void SlotLabel_DoubleClick(object sender, EventArgs e)
+        {
+            var control = sender as Control;
+            if (control == null || !(control.Tag is int))
+                return;
+
+            var handler = SlotDoubleClicked;
             if (handler != null)
                 handler(this, new CassetteSlotSelectedEventArgs((int)control.Tag));
         }

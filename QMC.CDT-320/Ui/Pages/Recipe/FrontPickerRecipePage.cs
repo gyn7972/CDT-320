@@ -59,6 +59,8 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             optionParameterGrid.ParameterRowDoubleClicked += OptionParameterGrid_RowDoubleClicked;
             BindParameterGridMenus();
             ConfigureManualActions();
+            // 매뉴얼 액션/티칭 이동 기본 속도를 Coarse로 사용한다(필요 시 화면 Speed Mode에서 Fine 선택 가능).
+            jogAxisMoveControl.SetSelectedSpeedType(JogSpeedType.Coarse);
         }
 
         protected override void OnLoad(EventArgs e)

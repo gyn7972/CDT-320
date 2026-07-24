@@ -115,27 +115,24 @@ namespace QMC.CDT320
             SetDefaults();
         }
 
+        // 세 존(Good1/Good2/NG) 실측 맵핑 값을 전부 무효화하는 전체 재생성.
+        // 새 매핑 시작(BeginMapping/ScanAll) 같은 의도적 전체 초기화 전용으로만 사용한다.
         public void ResizeSlotPositions(int slotCount)
         {
             int count = Math.Max(0, slotCount);
-            GoodSlotPosition = new double[count];
-            Good2SlotPosition = new double[count];
-            NGSlotPosition = new double[count];
-            for (int i = 0; i < count; i++)
-            {
-                GoodSlotPosition[i] = double.NaN;
-                Good2SlotPosition[i] = double.NaN;
-                NGSlotPosition[i] = double.NaN;
-            }
+            GoodSlotPosition = CreateInvalidSlotPositions(count);
+            Good2SlotPosition = CreateInvalidSlotPositions(count);
+            NGSlotPosition = CreateInvalidSlotPositions(count);
         }
 
         public void EnsureSlotPositionBuffers(int slotCount)
         {
             int count = Math.Max(0, slotCount);
-            if (GoodSlotPosition == null || GoodSlotPosition.Length != count ||
-                Good2SlotPosition == null || Good2SlotPosition.Length != count ||
-                NGSlotPosition == null || NGSlotPosition.Length != count)
-                ResizeSlotPositions(count);
+            // 크기가 다르면 전체 NaN 재생성하던 기존 동작은 단일 슬롯 갱신/조회만으로
+            // 다른 존·다른 슬롯의 실측 맵핑 값까지 지웠다. 기존 값을 보존하고 크기 차이 영역만 무효화한다.
+            GoodSlotPosition = ResizePreservingSlotPositions(GoodSlotPosition, count);
+            Good2SlotPosition = ResizePreservingSlotPositions(Good2SlotPosition, count);
+            NGSlotPosition = ResizePreservingSlotPositions(NGSlotPosition, count);
         }
 
         public void UpdateSlotPosition(TargetCassette cassette, int slotIndex, double position)
@@ -143,13 +140,38 @@ namespace QMC.CDT320
             if (slotIndex < 0)
                 throw new ArgumentOutOfRangeException("slotIndex");
 
-            EnsureSlotPositionBuffers(slotIndex + 1);
+            // slotIndex+1 크기로 강제 맞추면 그보다 큰 기존 버퍼가 축소되어 뒤쪽 슬롯 값이 소실된다. 확장만 허용한다.
+            int currentCount = GoodSlotPosition != null ? GoodSlotPosition.Length : 0;
+            EnsureSlotPositionBuffers(Math.Max(slotIndex + 1, currentCount));
             if (cassette == TargetCassette.Ng)
                 NGSlotPosition[slotIndex] = position;
             else if (cassette == TargetCassette.Good2)
                 Good2SlotPosition[slotIndex] = position;
             else
                 GoodSlotPosition[slotIndex] = position;
+        }
+
+        private static double[] CreateInvalidSlotPositions(int count)
+        {
+            var values = new double[count];
+            for (int i = 0; i < count; i++)
+                values[i] = double.NaN;
+            return values;
+        }
+
+        private static double[] ResizePreservingSlotPositions(double[] source, int count)
+        {
+            if (source != null && source.Length == count)
+                return source;
+
+            var values = CreateInvalidSlotPositions(count);
+            if (source != null)
+            {
+                int copyCount = Math.Min(source.Length, count);
+                for (int i = 0; i < copyCount; i++)
+                    values[i] = source[i];
+            }
+            return values;
         }
 
         [OnDeserializing]
@@ -610,6 +632,129 @@ namespace QMC.CDT320
                 detect = CalculateZoneSlotNominalPosition(cassette, slotIndex);
 
             return detect + ResolveZoneLoadingOffset(cassette);
+        }
+
+        // 수동(PREV/NEXT/우클릭/더블클릭) 슬롯 물리 이동 전용 목표 계산.
+        // 미티칭(FirstSlot/MappingStart)/맵핑 이상 시 조용히 offset 0이나 명목값으로 대체하지 않고
+        // 사유와 함께 차단한다. Auto 경로의 CalculateBinCassetteSlotTargetPosition 동작은 변경하지 않는다.
+        public CassetteSlotTargetResolveResult ResolveManualBinCassetteSlotTarget(TargetCassette cassette, int slotIndex)
+        {
+            string roleName = cassette == TargetCassette.Ng ? "NG" :
+                              cassette == TargetCassette.Good2 ? "GOOD2" : "GOOD1";
+            try
+            {
+                if (Config == null || Recipe == null)
+                    return CassetteSlotTargetResolveResult.Fail(roleName, slotIndex, "카세트 Config/Recipe 데이터가 없습니다.");
+
+                if (Config.SlotCount <= 0)
+                    return CassetteSlotTargetResolveResult.Fail(roleName, slotIndex,
+                        "카세트 SlotCount 설정이 올바르지 않습니다. slotCount=" + Config.SlotCount);
+
+                if (slotIndex < 0 || slotIndex >= Config.SlotCount)
+                    return CassetteSlotTargetResolveResult.Fail(roleName, slotIndex,
+                        "슬롯 번호가 카세트 범위를 벗어났습니다. slot=" + (slotIndex + 1) + ", slotCount=" + Config.SlotCount);
+
+                if (Config.SlotPitch <= 0.0)
+                    return CassetteSlotTargetResolveResult.Fail(roleName, slotIndex,
+                        "SlotPitch가 설정되지 않아 슬롯 목표를 계산할 수 없습니다. slotPitch=" + Config.SlotPitch);
+
+                if (cassette == TargetCassette.Good2 && Config.SelectedCassetteLevel < 2)
+                    return CassetteSlotTargetResolveResult.Fail(roleName, slotIndex,
+                        "GOOD 카세트가 2단 구성이 아닌데 GOOD2 슬롯 이동이 요청되었습니다.");
+
+                double firstSlot = GetFirstSlotPosition(cassette);
+                if (firstSlot <= 0.0)
+                    return CassetteSlotTargetResolveResult.Fail(roleName, slotIndex,
+                        roleName + " First Slot Position이 티칭되지 않았습니다. 임의 오프셋으로 대체하지 않고 이동을 차단합니다. first=" + firstSlot);
+
+                double anchor = ResolveZoneMappingStartPosition(cassette);
+                if (anchor <= 0.0)
+                    return CassetteSlotTargetResolveResult.Fail(roleName, slotIndex,
+                        roleName + " Mapping Start Position이 티칭되지 않아 명목 슬롯 위치를 계산할 수 없습니다. start=" + anchor);
+
+                Recipe.EnsureSlotPositionBuffers(Config.SlotCount);
+                bool mapped = !double.IsNaN(GetMappedSlotPosition(cassette, slotIndex));
+
+                // 해당 존 전체 목표를 계산해 NaN/Infinity와 단조 증가(슬롯 번호 증가 → 엔코더 증가)를 검증한다.
+                double previous = double.NaN;
+                double slot01 = double.NaN;
+                double target = double.NaN;
+                for (int i = 0; i < Config.SlotCount; i++)
+                {
+                    double value = CalculateBinCassetteSlotTargetPosition(cassette, i);
+                    if (double.IsNaN(value) || double.IsInfinity(value))
+                        return CassetteSlotTargetResolveResult.Fail(roleName, slotIndex,
+                            roleName + " SLOT " + (i + 1).ToString("00") + " 목표 계산 값이 유효하지 않습니다. value=" + value);
+
+                    if (i > 0 && value <= previous)
+                        return CassetteSlotTargetResolveResult.Fail(roleName, slotIndex,
+                            roleName + " 슬롯 목표가 단조 증가하지 않습니다. 맵핑/티칭 값을 확인하십시오. slot=" +
+                            (i + 1).ToString("00") + ", prev=" + previous.ToString("F3") + ", value=" + value.ToString("F3"));
+
+                    previous = value;
+                    if (i == 0)
+                        slot01 = value;
+                    if (i == slotIndex)
+                        target = value;
+                }
+
+                string softLimitReason;
+                if (!ValidateBinLifterZTargetPosition(target, out softLimitReason))
+                    return CassetteSlotTargetResolveResult.Fail(roleName, slotIndex,
+                        roleName + " 슬롯 목표가 축 이동 허용 범위를 벗어났습니다. " + softLimitReason);
+
+                return new CassetteSlotTargetResolveResult
+                {
+                    IsValid = true,
+                    FailureReason = string.Empty,
+                    RoleName = roleName,
+                    SlotIndex = slotIndex,
+                    FirstSlotPosition = firstSlot,
+                    SlotPitch = Config.SlotPitch,
+                    TargetPosition = target,
+                    Slot01Position = slot01,
+                    TargetSource = mapped ? CassetteSlotTargetSource.Mapped : CassetteSlotTargetSource.Nominal
+                };
+            }
+            catch (Exception ex)
+            {
+                return CassetteSlotTargetResolveResult.Fail(roleName, slotIndex,
+                    "슬롯 목표 계산 중 예외가 발생했습니다: " + ex.Message);
+            }
+        }
+
+        // OutputLifterZ 소프트리밋 검사(Input의 ValidateWaferLifterZTargetPosition과 동일 계약).
+        private bool ValidateBinLifterZTargetPosition(double targetPos, out string reason)
+        {
+            reason = string.Empty;
+            try
+            {
+                if (OutputLifterZ == null || OutputLifterZ.Setup == null)
+                {
+                    reason = "OutputLifterZ axis/setup is null. target=" + targetPos;
+                    return false;
+                }
+                if (!OutputLifterZ.Setup.SoftLimitEnabled)
+                    return true;
+
+                bool inRange = targetPos <= OutputLifterZ.Setup.SoftLimitPlus &&
+                               targetPos >= OutputLifterZ.Setup.SoftLimitMinus;
+                if (inRange)
+                    return true;
+
+                reason = "OutputLifterZ target is out of soft limit. target=" + targetPos +
+                         ", softMinus=" + OutputLifterZ.Setup.SoftLimitMinus +
+                         ", softPlus=" + OutputLifterZ.Setup.SoftLimitPlus;
+                return false;
+            }
+            catch (Exception ex)
+            {
+                reason = "OutputLifterZ target validation failed: " + ex.Message + ". target=" + targetPos;
+                return false;
+            }
+            finally
+            {
+            }
         }
 
         public bool ValidateBinLifterZTeachingComplete()
@@ -1716,8 +1861,12 @@ namespace QMC.CDT320
 
                 for (int i = 0; i < slotMap.Length; i++)
                 {
+                    // 버퍼가 존별 값을 보존하므로, 스캔한 존은 전 슬롯을 갱신해
+                    // 빈 슬롯에 이전 카세트의 실측 값이 남지 않게 한다. (다른 존은 건드리지 않음)
                     if (slotMap[i] && i < slotPositions.Length && !double.IsNaN(slotPositions[i]))
                         Recipe.UpdateSlotPosition(cassette, i, slotPositions[i]);
+                    else
+                        Recipe.UpdateSlotPosition(cassette, i, double.NaN);
 
                     SlotPresence presence = slotMap[i] ? SlotPresence.Exist : SlotPresence.Empty;
                     UpdateCassetteSlotState(cassette, i, presence, ProcessState.Ready);

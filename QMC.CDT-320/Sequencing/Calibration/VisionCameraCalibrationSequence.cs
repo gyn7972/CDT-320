@@ -906,8 +906,22 @@ namespace QMC.CDT320.Sequencing.Calibration
                 if (IsReticleRetracted(vision))
                     return 0;
 
+                // 기존 조건: Picker 이동 전 Reticle을 항상 대기 위치로 복귀 —
+                //           공정 위치(업+전진)에 올려 둔 Reticle이 FIND INPUT/OUTPUT 등 다른 동작마다 빠져 버렸다.
+                // 현재 기준: 공정(촬영) 위치에 정상 배치된 Reticle은 그대로 유지한다.
+                //           Bottom/Input/Output 카메라가 같은 Reticle Mark를 촬영해야 하므로 측정 사이에 빼면 안 되며,
+                //           복귀는 RETICLE BACK 버튼(RetractReticleFromBottomCameraAsync)에서만 수행한다.
+                //           업/전진 센서가 불일치하는 중간 상태일 때만 안전 복귀를 수행한다.
+                if (IsReticleBottomReady(vision))
+                {
+                    EventLogger.Write(EventKind.Event, "CAL", "VISION-CAMERA-CAL-RETICLE-KEEP",
+                        "Reticle이 공정(촬영) 위치에 있어 그대로 유지합니다. RETICLE BACK 전까지 복귀하지 않습니다. up=" +
+                        vision.IsVisionReticleUp() + ", rearFw=" + vision.IsVisionReticleRearSideForward());
+                    return 0;
+                }
+
                 EventLogger.Write(EventKind.Event, "CAL", "VISION-CAMERA-CAL-RETICLE-SAFE-BEFORE-PICKER",
-                    "Picker 이동 전 Reticle을 안전 위치로 복귀합니다. 순서=Rear Back -> Lift Down. Front Slide는 사용하지 않고 Rear Back으로 확인합니다.");
+                    "Picker 이동 전 Reticle이 중간 상태여서 안전 위치로 복귀합니다. 순서=Rear Back -> Lift Down. Front Slide는 사용하지 않고 Rear Back으로 확인합니다.");
 
                 return await RetractReticleFromBottomCameraAsync(ct).ConfigureAwait(false);
             }

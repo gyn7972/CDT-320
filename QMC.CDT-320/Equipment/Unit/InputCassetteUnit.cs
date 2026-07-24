@@ -714,6 +714,99 @@ namespace QMC.CDT320
             return detectPosition + ResolveCassetteLoadingOffset(level);   // 검출 위치 + 레벨별 로딩 오프셋
         }
 
+        // 수동(PREV/NEXT/우클릭/더블클릭) 슬롯 물리 이동 전용 목표 계산.
+        // Material에 저장된 위치가 아니라 현재 티칭/맵핑 기준으로 재계산하며,
+        // 미티칭/맵핑 이상 시 임의 목표(다른 레벨 폴백 포함)를 만들지 않고 사유와 함께 차단한다.
+        // Auto 경로의 CalculateWaferCassetteSlotTargetPosition 동작은 변경하지 않는다.
+        public CassetteSlotTargetResolveResult ResolveManualWaferCassetteSlotTarget(CassetteMaterialRole role, int slotIndex)
+        {
+            string roleName = role == CassetteMaterialRole.Input2 ? "INPUT2" : "INPUT1";
+            try
+            {
+                if (Config == null || Recipe == null)
+                    return CassetteSlotTargetResolveResult.Fail(roleName, slotIndex, "카세트 Config/Recipe 데이터가 없습니다.");
+
+                if (Config.SlotCount <= 0)
+                    return CassetteSlotTargetResolveResult.Fail(roleName, slotIndex,
+                        "카세트 SlotCount 설정이 올바르지 않습니다. slotCount=" + Config.SlotCount);
+
+                if (slotIndex < 0 || slotIndex >= Config.SlotCount)
+                    return CassetteSlotTargetResolveResult.Fail(roleName, slotIndex,
+                        "슬롯 번호가 카세트 범위를 벗어났습니다. slot=" + (slotIndex + 1) + ", slotCount=" + Config.SlotCount);
+
+                if (Config.SlotPitch <= 0.0)
+                    return CassetteSlotTargetResolveResult.Fail(roleName, slotIndex,
+                        "SlotPitch가 설정되지 않아 슬롯 목표를 계산할 수 없습니다. slotPitch=" + Config.SlotPitch);
+
+                int level = role == CassetteMaterialRole.Input2 ? 2 : 1;
+                if (level >= 2 && ResolveCassetteLevelCount() < 2)
+                    return CassetteSlotTargetResolveResult.Fail(roleName, slotIndex,
+                        "카세트가 2단 구성이 아닌데 INPUT2 슬롯 이동이 요청되었습니다.");
+
+                double firstSlot = level >= 2 ? Recipe.Level2FirstSlotPosition : Recipe.Level1FirstSlotPosition;
+                if (firstSlot <= 0.0)
+                    return CassetteSlotTargetResolveResult.Fail(roleName, slotIndex,
+                        roleName + " First Slot Position이 티칭되지 않았습니다. 다른 레벨 값으로 대체하지 않고 이동을 차단합니다. first=" + firstSlot);
+
+                double anchor = ResolveLevelMappingStartPosition(level);
+                if (anchor <= 0.0)
+                    return CassetteSlotTargetResolveResult.Fail(roleName, slotIndex,
+                        roleName + " Mapping Start Position이 티칭되지 않아 명목 슬롯 위치를 계산할 수 없습니다. start=" + anchor);
+
+                EnsureSlotPositionBuffer();
+                int flatIndex = ToFlatSlotIndex(level, slotIndex);
+                bool mapped = Recipe.SlotPosition != null &&
+                              flatIndex >= 0 && flatIndex < Recipe.SlotPosition.Length &&
+                              !double.IsNaN(Recipe.SlotPosition[flatIndex]);
+
+                // 해당 레벨 전체 목표를 계산해 NaN/Infinity와 단조 증가(슬롯 번호 증가 → 엔코더 증가)를 검증한다.
+                double previous = double.NaN;
+                double slot01 = double.NaN;
+                double target = double.NaN;
+                for (int i = 0; i < Config.SlotCount; i++)
+                {
+                    double value = CalculateWaferCassetteSlotTargetPosition(i, level);
+                    if (double.IsNaN(value) || double.IsInfinity(value))
+                        return CassetteSlotTargetResolveResult.Fail(roleName, slotIndex,
+                            roleName + " SLOT " + (i + 1).ToString("00") + " 목표 계산 값이 유효하지 않습니다. value=" + value);
+
+                    if (i > 0 && value <= previous)
+                        return CassetteSlotTargetResolveResult.Fail(roleName, slotIndex,
+                            roleName + " 슬롯 목표가 단조 증가하지 않습니다. 맵핑/티칭 값을 확인하십시오. slot=" +
+                            (i + 1).ToString("00") + ", prev=" + previous.ToString("F3") + ", value=" + value.ToString("F3"));
+
+                    previous = value;
+                    if (i == 0)
+                        slot01 = value;
+                    if (i == slotIndex)
+                        target = value;
+                }
+
+                string softLimitReason;
+                if (!ValidateWaferLifterZTargetPosition(target, out softLimitReason))
+                    return CassetteSlotTargetResolveResult.Fail(roleName, slotIndex,
+                        roleName + " 슬롯 목표가 축 이동 허용 범위를 벗어났습니다. " + softLimitReason);
+
+                return new CassetteSlotTargetResolveResult
+                {
+                    IsValid = true,
+                    FailureReason = string.Empty,
+                    RoleName = roleName,
+                    SlotIndex = slotIndex,
+                    FirstSlotPosition = firstSlot,
+                    SlotPitch = Config.SlotPitch,
+                    TargetPosition = target,
+                    Slot01Position = slot01,
+                    TargetSource = mapped ? CassetteSlotTargetSource.Mapped : CassetteSlotTargetSource.Nominal
+                };
+            }
+            catch (Exception ex)
+            {
+                return CassetteSlotTargetResolveResult.Fail(roleName, slotIndex,
+                    "슬롯 목표 계산 중 예외가 발생했습니다: " + ex.Message);
+            }
+        }
+
         // To do: 웨이퍼 카세트 포지션/맵핑 결과 저장용 "로딩 위치"(검출 + 레벨별 오프셋)를 계산한다.
         public double CalculateCassetteLevelSlotLoadingPosition(int level, int slotIndex)
         {

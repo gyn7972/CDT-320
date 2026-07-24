@@ -1013,6 +1013,18 @@ namespace QMC.CDT320.Materials
 
         public static bool CreateProcessTestDataSet(QMC.CDT320.InputStageUnit inputStage, out string message)
         {
+            return CreateProcessTestDataSet(inputStage, null, null, out message);
+        }
+
+        // 실장비 테스트용: 카세트 유닛을 함께 받으면 실제 맵핑 등록과 동일한 중앙 계산기로
+        // 슬롯별 카세트 포지션(검출 위치+로딩 오프셋)까지 저장한다. 유닛이 없거나 티칭이
+        // 유효하지 않으면 기존처럼 포지션 없이(NaN) 생성한다.
+        public static bool CreateProcessTestDataSet(
+            QMC.CDT320.InputStageUnit inputStage,
+            QMC.CDT320.InputCassetteUnit inputCassette,
+            QMC.CDT320.OutputCassetteUnit outputCassette,
+            out string message)
+        {
             message = string.Empty;
             try
             {
@@ -1029,13 +1041,32 @@ namespace QMC.CDT320.Materials
                     bool useInput2 = IsCassetteCurrentlyEnabled(CassetteMaterialRole.Input2);
                     bool useGood2 = IsCassetteCurrentlyEnabled(CassetteMaterialRole.Good2);
 
+                    // 실제 맵핑 등록(RegisterMappingResult)과 동일한 계산기 사용:
+                    // Input = CalculateWaferCassetteSlotTargetPosition(slot, level),
+                    // Output = CalculateBinCassetteSlotTargetPosition(zone, slot).
+                    double[] input1Positions = inputCassette != null
+                        ? BuildProcessTestSlotPositions(inputSlotCount, i => inputCassette.CalculateWaferCassetteSlotTargetPosition(i, 1), "Input1")
+                        : null;
+                    double[] input2Positions = inputCassette != null && useInput2
+                        ? BuildProcessTestSlotPositions(inputSlotCount, i => inputCassette.CalculateWaferCassetteSlotTargetPosition(i, 2), "Input2")
+                        : null;
+                    double[] good1Positions = outputCassette != null
+                        ? BuildProcessTestSlotPositions(outputSlotCount, i => outputCassette.CalculateBinCassetteSlotTargetPosition(QMC.CDT320.TargetCassette.Good1, i), "Good1")
+                        : null;
+                    double[] good2Positions = outputCassette != null && useGood2
+                        ? BuildProcessTestSlotPositions(outputSlotCount, i => outputCassette.CalculateBinCassetteSlotTargetPosition(QMC.CDT320.TargetCassette.Good2, i), "Good2")
+                        : null;
+                    double[] ngPositions = outputCassette != null
+                        ? BuildProcessTestSlotPositions(outputSlotCount, i => outputCassette.CalculateBinCassetteSlotTargetPosition(QMC.CDT320.TargetCassette.Ng, i), "Ng")
+                        : null;
+
                     ClearActiveProcessLocationsNoLock();
 
-                    UpdateCassetteMapping(CassetteMaterialRole.Input1, true, inputSlotCount, BuildProcessTestSlotMap(inputSlotCount, 2), null, lotId, inputTapeFrameSpecName, false);
-                    UpdateCassetteMapping(CassetteMaterialRole.Input2, useInput2, inputSlotCount, useInput2 ? BuildProcessTestSlotMap(inputSlotCount, 1) : null, null, lotId, inputTapeFrameSpecName, false);
-                    UpdateCassetteMapping(CassetteMaterialRole.Good1, true, outputSlotCount, BuildProcessTestSlotMap(outputSlotCount, 2), null, lotId, outputTapeFrameSpecName, false);
-                    UpdateCassetteMapping(CassetteMaterialRole.Good2, useGood2, outputSlotCount, useGood2 ? BuildProcessTestSlotMap(outputSlotCount, 1) : null, null, lotId, outputTapeFrameSpecName, false);
-                    UpdateCassetteMapping(CassetteMaterialRole.Ng1, true, outputSlotCount, BuildProcessTestSlotMap(outputSlotCount, 2), null, lotId, outputTapeFrameSpecName, false);
+                    UpdateCassetteMapping(CassetteMaterialRole.Input1, true, inputSlotCount, BuildProcessTestSlotMap(inputSlotCount, 2), input1Positions, lotId, inputTapeFrameSpecName, false);
+                    UpdateCassetteMapping(CassetteMaterialRole.Input2, useInput2, inputSlotCount, useInput2 ? BuildProcessTestSlotMap(inputSlotCount, 1) : null, input2Positions, lotId, inputTapeFrameSpecName, false);
+                    UpdateCassetteMapping(CassetteMaterialRole.Good1, true, outputSlotCount, BuildProcessTestSlotMap(outputSlotCount, 2), good1Positions, lotId, outputTapeFrameSpecName, false);
+                    UpdateCassetteMapping(CassetteMaterialRole.Good2, useGood2, outputSlotCount, useGood2 ? BuildProcessTestSlotMap(outputSlotCount, 1) : null, good2Positions, lotId, outputTapeFrameSpecName, false);
+                    UpdateCassetteMapping(CassetteMaterialRole.Ng1, true, outputSlotCount, BuildProcessTestSlotMap(outputSlotCount, 2), ngPositions, lotId, outputTapeFrameSpecName, false);
 
                     DieMap inputMap = LoadRecipeInputDieMapForProcessTest(project);
                     if (!IsUsableSourceMap(inputMap))
@@ -1102,7 +1133,8 @@ namespace QMC.CDT320.Materials
                         MaterialLocationKind.InputStage,
                         WaferMaterialState.Working,
                         lotId,
-                        inputTapeFrameSpecName);
+                        inputTapeFrameSpecName,
+                        ResolveSlotPosition(input1Positions, 0));
 
                     int inputTargetCount = ApplyProcessTestInputDieMaterialsNoLock(inputMap, inputStageWafer);
 
@@ -1115,7 +1147,8 @@ namespace QMC.CDT320.Materials
                         MaterialLocationKind.OutputStageGood,
                         WaferMaterialState.Working,
                         lotId,
-                        outputTapeFrameSpecName);
+                        outputTapeFrameSpecName,
+                        ResolveSlotPosition(good1Positions, 0));
                     BindProcessTestStageWaferToCassetteSlotNoLock(
                         CassetteMaterialRole.Ng1,
                         0,
@@ -1123,7 +1156,8 @@ namespace QMC.CDT320.Materials
                         MaterialLocationKind.OutputStageNg,
                         WaferMaterialState.Working,
                         lotId,
-                        outputTapeFrameSpecName);
+                        outputTapeFrameSpecName,
+                        ResolveSlotPosition(ngPositions, 0));
 
                     State.LotId = lotId;
                     State.RecipeName = project != null ? project.FileName ?? "" : State.RecipeName;
@@ -1134,7 +1168,10 @@ namespace QMC.CDT320.Materials
                     message = "공정 테스트 Data 생성 완료. InputStage die=" + inputTargetCount +
                               ", GoodStage target=" + (goodStageWafer != null ? goodStageWafer.OutputReceiveTotalCount : 0) +
                               ", NgStage target=" + (ngStageWafer != null ? ngStageWafer.OutputReceiveTotalCount : 0) +
-                              ", lot=" + lotId;
+                              ", lot=" + lotId +
+                              ", 카세트 포지션=" + (input1Positions != null && good1Positions != null && ngPositions != null
+                                  ? "저장됨"
+                                  : "미저장(카세트 티칭/유닛 확인 필요)");
                     return true;
                 }
             }
@@ -1907,6 +1944,358 @@ namespace QMC.CDT320.Materials
                     "state=" + wafer.State);
             }
             NotifyAndSave("MoveWafer");
+        }
+
+        // ===== DATA ONLY 수동 위치 이동/삭제 =====
+        // 장비를 움직이지 않고 Material 위치 데이터만 변경한다. Motion/Cylinder/Vacuum/IO를 호출하지 않는다.
+        // Source clear + Destination set + CurrentLocation 갱신을 하나의 lock에서 처리하고 즉시 저장한다.
+        // Material ID/LOT/검사결과/DieMap/Grade/State는 이동만으로 변경하지 않는다.
+
+        public static DataOnlyOperationResult MoveMaterialDataOnly(
+            DataOnlyLocation source,
+            DataOnlyLocation destination,
+            string expectedMaterialId,
+            string userName)
+        {
+            const string operation = "Move";
+            try
+            {
+                string pathCode;
+                string pathMessage;
+                if (!ManualMaterialPositionService.ValidateAllowedPath(source, destination, out pathCode, out pathMessage))
+                    return FailDataOnly(operation, source, destination, pathCode, pathMessage, userName);
+
+                var result = new DataOnlyOperationResult
+                {
+                    Operation = operation,
+                    SourceText = source.DisplayText,
+                    DestinationText = destination.DisplayText
+                };
+
+                lock (_stateSync)
+                {
+                    // Apply 직전 재확인 1: Source Material 단일 존재/포인터 정합.
+                    WaferMaterial wafer;
+                    string failureCode;
+                    string failureMessage;
+                    if (!TryFindSingleWaferAtDataOnlyLocation(source, out wafer, out failureCode, out failureMessage))
+                        return FailDataOnly(operation, source, destination, failureCode, failureMessage, userName);
+
+                    // Preview 이후 Source Material이 바뀌었으면 적용하지 않는다.
+                    if (!string.IsNullOrWhiteSpace(expectedMaterialId) &&
+                        !string.Equals(wafer.WaferId, expectedMaterialId.Trim(), StringComparison.OrdinalIgnoreCase))
+                    {
+                        return FailDataOnly(operation, source, destination, "DATA-ONLY-SOURCE-CHANGED",
+                            "선택(Preview) 이후 Source Material이 변경되었습니다. 다시 선택하십시오. expected=" +
+                            expectedMaterialId + ", current=" + wafer.WaferId, userName);
+                    }
+
+                    // Apply 직전 재확인 2: Destination Empty.
+                    CassetteMaterial destinationCassette = null;
+                    CassetteSlotMaterial destinationSlot = null;
+                    if (destination.IsCassette)
+                    {
+                        destinationCassette = State.Cassettes.FirstOrDefault(c => c != null && c.Role == destination.CassetteRole);
+                        if (destinationCassette == null)
+                        {
+                            return FailDataOnly(operation, source, destination, "DATA-ONLY-DEST-CASSETTE",
+                                "Destination 카세트 상태 데이터가 없습니다. role=" + destination.CassetteRole, userName);
+                        }
+
+                        destinationCassette.EnsureSlots();
+                        if (destination.SlotIndex < 0 || destination.SlotIndex >= destinationCassette.Slots.Count)
+                        {
+                            return FailDataOnly(operation, source, destination, "DATA-ONLY-DEST-SLOT-RANGE",
+                                "Destination Slot이 카세트 범위를 벗어났습니다. role=" + destination.CassetteRole +
+                                ", slot=" + (destination.SlotIndex + 1) + ", slotCount=" + destinationCassette.Slots.Count, userName);
+                        }
+
+                        destinationSlot = destinationCassette.Slots[destination.SlotIndex];
+                        if (destinationSlot == null)
+                        {
+                            return FailDataOnly(operation, source, destination, "DATA-ONLY-DEST-SLOT",
+                                "Destination Slot 데이터가 없습니다. " + destination.DisplayText, userName);
+                        }
+
+                        if (destinationSlot.HasWafer || !string.IsNullOrWhiteSpace(destinationSlot.WaferId))
+                        {
+                            return FailDataOnly(operation, source, destination, "DATA-ONLY-DEST-OCCUPIED",
+                                "Destination Slot이 비어 있지 않습니다. " + destination.DisplayText +
+                                ", 기존 Material=" + destinationSlot.WaferId, userName);
+                        }
+                    }
+
+                    WaferMaterial occupied = FindOtherWaferAtLocation(wafer.WaferId, destination.ToMaterialLocation());
+                    if (occupied != null)
+                    {
+                        return FailDataOnly(operation, source, destination, "DATA-ONLY-DEST-OCCUPIED",
+                            "Destination 위치에 다른 Material 데이터가 있습니다. " + destination.DisplayText +
+                            ", 기존 Material=" + occupied.WaferId, userName);
+                    }
+
+                    // 원자 반영: Source pointer 제거 → Destination pointer 등록 → CurrentLocation 갱신.
+                    MaterialLocation beforeLocation = wafer.CurrentLocation;
+                    RemoveWaferFromCassetteSlot(wafer.WaferId);
+
+                    if (destination.IsCassette)
+                    {
+                        destinationSlot.WaferId = wafer.WaferId;
+                        destinationSlot.HasWafer = true;
+                        wafer.CurrentLocation = destination.ToMaterialLocation();
+                        if (IsOutputCassetteRole(destination.CassetteRole))
+                        {
+                            wafer.OutputCassetteId = destinationCassette.CassetteId;
+                            wafer.OutputCassetteRole = destination.CassetteRole;
+                            wafer.OutputSlotNumber = destination.SlotIndex;
+                        }
+
+                        // 저장된 물리 슬롯 위치는 새 슬롯 기준으로 신뢰할 수 없다.
+                        // 물리 이동 목표는 중앙 Unit 계산기가 재계산하므로 여기서는 무효화만 한다.
+                        wafer.CurrentCassetteSlotPosition = double.NaN;
+                    }
+                    else
+                    {
+                        wafer.CurrentLocation = destination.ToMaterialLocation();
+                    }
+
+                    // DATA ONLY 계약: Material ID/LOT/검사결과/DieMap/Grade/State는 변경하지 않는다.
+                    wafer.UpdatedAt = DateTime.Now;
+
+                    result.MaterialId = wafer.WaferId;
+                    result.BeforeLocationText = beforeLocation != null ? beforeLocation.ToString() : "";
+                    result.AfterLocationText = wafer.CurrentLocation != null ? wafer.CurrentLocation.ToString() : "";
+
+                    SequenceTrace.MaterialChange(
+                        "DataOnlyMove",
+                        "wafer=" + wafer.WaferId,
+                        "from=" + beforeLocation,
+                        "to=" + wafer.CurrentLocation,
+                        "user=" + (userName ?? ""),
+                        "noMotion=true");
+                }
+
+                // 이동 결과를 즉시 Snapshot에 저장한다(백그라운드 스로틀 대기 없이 동기 flush).
+                NotifyAndSave("DataOnlyManualMove");
+                result.PersistenceSucceeded = TryFlushPendingSave("DataOnlyManualMove");
+                result.Success = true;
+
+                Log.Write("Main", string.IsNullOrWhiteSpace(userName) ? "SYSTEM" : userName, "DataOnlyMaterial",
+                    "[DATA ONLY] Material 데이터 이동 완료(장비 무동작). material=" + result.MaterialId +
+                    ", source=" + result.SourceText +
+                    ", destination=" + result.DestinationText +
+                    ", persisted=" + result.PersistenceSucceeded + " - Ok");
+                return result;
+            }
+            catch (Exception ex)
+            {
+                return FailDataOnly(operation, source, destination, "DATA-ONLY-MOVE-EX",
+                    "DATA ONLY 이동 중 예외가 발생했습니다: " + ex.Message, userName);
+            }
+            finally
+            {
+            }
+        }
+
+        public static DataOnlyOperationResult DeleteMaterialDataOnly(
+            DataOnlyLocation location,
+            string expectedMaterialId,
+            string userName)
+        {
+            const string operation = "Delete";
+            try
+            {
+                if (location == null)
+                    return FailDataOnly(operation, null, null, "DATA-ONLY-DELETE-NULL", "삭제 위치가 지정되지 않았습니다.", userName);
+
+                var result = new DataOnlyOperationResult
+                {
+                    Operation = operation,
+                    SourceText = location.DisplayText,
+                    DestinationText = ""
+                };
+
+                lock (_stateSync)
+                {
+                    WaferMaterial wafer;
+                    string failureCode;
+                    string failureMessage;
+                    if (!TryFindSingleWaferAtDataOnlyLocation(location, out wafer, out failureCode, out failureMessage))
+                        return FailDataOnly(operation, location, null, failureCode, failureMessage, userName);
+
+                    if (!string.IsNullOrWhiteSpace(expectedMaterialId) &&
+                        !string.Equals(wafer.WaferId, expectedMaterialId.Trim(), StringComparison.OrdinalIgnoreCase))
+                    {
+                        return FailDataOnly(operation, location, null, "DATA-ONLY-SOURCE-CHANGED",
+                            "선택(Preview) 이후 대상 Material이 변경되었습니다. 다시 선택하십시오. expected=" +
+                            expectedMaterialId + ", current=" + wafer.WaferId, userName);
+                    }
+
+                    MaterialLocation beforeLocation = wafer.CurrentLocation;
+
+                    // 기존 중앙 삭제 계약(Clear*)과 동일: 위치 pointer 제거 + 논리 삭제(State=Empty, Location=Unknown).
+                    // 잔존 CassetteLotId가 다음 mapping 등록을 막지 않도록 함께 비운다.
+                    RemoveWaferFromCassetteSlot(wafer.WaferId);
+                    wafer.State = WaferMaterialState.Empty;
+                    wafer.CurrentLocation = MaterialLocation.Unknown();
+                    wafer.CassetteLotId = "";
+                    wafer.UpdatedAt = DateTime.Now;
+
+                    result.MaterialId = wafer.WaferId;
+                    result.BeforeLocationText = beforeLocation != null ? beforeLocation.ToString() : "";
+                    result.AfterLocationText = wafer.CurrentLocation != null ? wafer.CurrentLocation.ToString() : "";
+
+                    SequenceTrace.MaterialChange(
+                        "DataOnlyDelete",
+                        "wafer=" + wafer.WaferId,
+                        "from=" + beforeLocation,
+                        "to=" + wafer.CurrentLocation,
+                        "user=" + (userName ?? ""),
+                        "noMotion=true");
+                }
+
+                NotifyAndSave("DataOnlyManualDelete");
+                result.PersistenceSucceeded = TryFlushPendingSave("DataOnlyManualDelete");
+                result.Success = true;
+
+                Log.Write("Main", string.IsNullOrWhiteSpace(userName) ? "SYSTEM" : userName, "DataOnlyMaterial",
+                    "[DATA ONLY] Material 데이터 삭제 완료(장비 무동작, 실물 제거 아님). material=" + result.MaterialId +
+                    ", location=" + result.SourceText +
+                    ", persisted=" + result.PersistenceSucceeded + " - Ok");
+                return result;
+            }
+            catch (Exception ex)
+            {
+                return FailDataOnly(operation, location, null, "DATA-ONLY-DELETE-EX",
+                    "DATA ONLY 삭제 중 예외가 발생했습니다: " + ex.Message, userName);
+            }
+            finally
+            {
+            }
+        }
+
+        // DATA ONLY 대상 위치에서 Material을 정확히 하나 찾는다.
+        // 포인터 불일치/중복이 있으면 조용히 하나를 선택하지 않고 실패를 반환한다.
+        private static bool TryFindSingleWaferAtDataOnlyLocation(
+            DataOnlyLocation location,
+            out WaferMaterial wafer,
+            out string failureCode,
+            out string failureMessage)
+        {
+            wafer = null;
+            failureCode = "";
+            failureMessage = "";
+
+            if (location.IsCassette)
+            {
+                var cassette = State.Cassettes.FirstOrDefault(c => c != null && c.Role == location.CassetteRole);
+                if (cassette == null)
+                {
+                    failureCode = "DATA-ONLY-SOURCE-CASSETTE";
+                    failureMessage = "Source 카세트 상태 데이터가 없습니다. role=" + location.CassetteRole;
+                    return false;
+                }
+
+                cassette.EnsureSlots();
+                if (location.SlotIndex < 0 || location.SlotIndex >= cassette.Slots.Count)
+                {
+                    failureCode = "DATA-ONLY-SOURCE-SLOT-RANGE";
+                    failureMessage = "Source Slot이 카세트 범위를 벗어났습니다. role=" + location.CassetteRole +
+                                     ", slot=" + (location.SlotIndex + 1) + ", slotCount=" + cassette.Slots.Count;
+                    return false;
+                }
+
+                var slot = cassette.Slots[location.SlotIndex];
+                if (slot == null || !slot.HasWafer || string.IsNullOrWhiteSpace(slot.WaferId))
+                {
+                    failureCode = "DATA-ONLY-SOURCE-EMPTY";
+                    failureMessage = "Source 위치에 Material 데이터가 없습니다. " + location.DisplayText;
+                    return false;
+                }
+
+                var slotWafer = State.Wafers.FirstOrDefault(w => w != null &&
+                    string.Equals(w.WaferId, slot.WaferId, StringComparison.OrdinalIgnoreCase));
+                if (slotWafer == null)
+                {
+                    failureCode = "DATA-ONLY-SOURCE-MISMATCH";
+                    failureMessage = "Source Slot이 가리키는 Material 객체가 없습니다. " + location.DisplayText +
+                                     ", waferId=" + slot.WaferId;
+                    return false;
+                }
+
+                if (WaferMaterialStateText.Normalize(slotWafer.State) == WaferMaterialState.Empty)
+                {
+                    failureCode = "DATA-ONLY-SOURCE-EMPTY-STATE";
+                    failureMessage = "Source Material 상태가 EMPTY입니다. " + location.DisplayText +
+                                     ", waferId=" + slotWafer.WaferId;
+                    return false;
+                }
+
+                MaterialLocation expected = location.ToMaterialLocation();
+                if (!IsSameMaterialLocation(slotWafer.CurrentLocation, expected))
+                {
+                    failureCode = "DATA-ONLY-SOURCE-MISMATCH";
+                    failureMessage = "Source Slot pointer와 Material 현재 위치가 불일치합니다. " + location.DisplayText +
+                                     ", waferId=" + slotWafer.WaferId +
+                                     ", currentLocation=" + slotWafer.CurrentLocation;
+                    return false;
+                }
+
+                WaferMaterial duplicate = FindOtherWaferAtLocation(slotWafer.WaferId, expected);
+                if (duplicate != null)
+                {
+                    failureCode = "DATA-ONLY-SOURCE-DUPLICATE";
+                    failureMessage = "Source 위치를 가리키는 Material이 둘 이상입니다. " + location.DisplayText +
+                                     ", wafer1=" + slotWafer.WaferId + ", wafer2=" + duplicate.WaferId;
+                    return false;
+                }
+
+                wafer = slotWafer;
+                return true;
+            }
+
+            var candidates = State.Wafers
+                .Where(w => w != null &&
+                            w.CurrentLocation != null &&
+                            w.CurrentLocation.Kind == location.Kind &&
+                            WaferMaterialStateText.Normalize(w.State) != WaferMaterialState.Empty)
+                .ToList();
+
+            if (candidates.Count == 0)
+            {
+                failureCode = "DATA-ONLY-SOURCE-EMPTY";
+                failureMessage = "Source 위치에 Material 데이터가 없습니다. " + location.DisplayText;
+                return false;
+            }
+
+            if (candidates.Count > 1)
+            {
+                failureCode = "DATA-ONLY-SOURCE-DUPLICATE";
+                failureMessage = "Source 위치에 Material 데이터가 둘 이상입니다. " + location.DisplayText +
+                                 ", materials=" + string.Join(",", candidates.Select(w => w.WaferId).ToArray());
+                return false;
+            }
+
+            wafer = candidates[0];
+            return true;
+        }
+
+        private static DataOnlyOperationResult FailDataOnly(
+            string operation,
+            DataOnlyLocation source,
+            DataOnlyLocation destination,
+            string failureCode,
+            string failureMessage,
+            string userName)
+        {
+            var result = DataOnlyOperationResult.Fail(operation, failureCode, failureMessage);
+            result.SourceText = source != null ? source.DisplayText : "";
+            result.DestinationText = destination != null ? destination.DisplayText : "";
+            Log.Write("Main", string.IsNullOrWhiteSpace(userName) ? "SYSTEM" : userName, "DataOnlyMaterial",
+                "[DATA ONLY] " + operation + " 실패. source=" + result.SourceText +
+                ", destination=" + result.DestinationText +
+                ", code=" + failureCode +
+                ", reason=" + failureMessage + " - Failed");
+            return result;
         }
 
         public static bool InitializeOutputStageReceivePlan(QMC.CDT320.BinSide side)
@@ -2995,7 +3384,8 @@ namespace QMC.CDT320.Materials
             MaterialLocationKind stageLocation,
             WaferMaterialState state,
             string lotId,
-            string tapeFrameSpecName)
+            string tapeFrameSpecName,
+            double slotPosition = double.NaN)
         {
             try
             {
@@ -3032,7 +3422,8 @@ namespace QMC.CDT320.Materials
                 wafer.CurrentLocation = new MaterialLocation { Kind = stageLocation };
                 wafer.State = WaferMaterialStateText.Normalize(state);
                 wafer.TapeFrameSpecName = tapeFrameSpecName ?? wafer.TapeFrameSpecName;
-                ApplyWaferCassettePosition(wafer, ResolveSlotPosition(null, slotNumber));
+                // 실장비 테스트: source slot 복귀 목표로 쓸 수 있게 슬롯 포지션(검출+로딩 오프셋)을 함께 저장한다.
+                ApplyWaferCassettePosition(wafer, slotPosition);
 
                 if (cassetteRole == CassetteMaterialRole.Good1 ||
                     cassetteRole == CassetteMaterialRole.Good2 ||
@@ -7559,7 +7950,13 @@ namespace QMC.CDT320.Materials
             wafer.SourceCassetteRole = cassette.Role;
             wafer.SourceSlotNumber = slotNumber;
             ApplyWaferCassettePosition(wafer, slotPosition);
-            wafer.CurrentLocation = MaterialLocation.Cassette(MaterialLocationKind.InputCassette, cassette.Role, slotNumber);
+            // 기존 조건: Kind를 InputCassette로 고정 — Output Role(Good1/Good2/Ng1)에서 호출되면
+            //           CurrentLocation.Kind가 InputCassette로 오염되어 위치 판정이 어긋났다.
+            // 현재 기준: Role에 따라 Input/Output Cassette Kind를 구분한다(PutWaferInCassette와 동일 규칙).
+            wafer.CurrentLocation = MaterialLocation.Cassette(
+                IsOutputCassetteRole(cassette.Role) ? MaterialLocationKind.OutputCassette : MaterialLocationKind.InputCassette,
+                cassette.Role,
+                slotNumber);
             wafer.State = wafer.State == WaferMaterialState.Empty
                 ? WaferMaterialState.Ready
                 : WaferMaterialStateText.Normalize(wafer.State);
@@ -7604,6 +8001,32 @@ namespace QMC.CDT320.Materials
 
             wafer.SourceCassetteSlotPosition = slotPosition;
             wafer.CurrentCassetteSlotPosition = slotPosition;
+        }
+
+        // 공정 테스트 Data용 슬롯별 카세트 포지션 계산.
+        // 티칭 미완 등으로 계산이 실패하면 포지션 없이(null) 생성하도록 하고 사유를 로그에 남긴다.
+        private static double[] BuildProcessTestSlotPositions(int slotCount, Func<int, double> calculate, string label)
+        {
+            if (slotCount <= 0 || calculate == null)
+                return null;
+
+            try
+            {
+                var positions = new double[slotCount];
+                for (int i = 0; i < slotCount; i++)
+                    positions[i] = calculate(i);
+                return positions;
+            }
+            catch (Exception ex)
+            {
+                Log.Write("Main", "SYSTEM", "MaterialStateService",
+                    "공정 테스트 슬롯 포지션 계산에 실패해 포지션 없이 생성합니다. cassette=" + label +
+                    ", error=" + ex.Message + " - Check");
+                return null;
+            }
+            finally
+            {
+            }
         }
 
         private static double ResolveSlotPosition(IReadOnlyList<double> slotPositions, int slotNumber)
