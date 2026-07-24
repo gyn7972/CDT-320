@@ -12,10 +12,12 @@ namespace QMC.Common
     {
         public static void Write(string strClass, string strSource, string strMessage)
         {
+            return;
             LogManager.Instance.Write(LogLevel.Normal, strClass, strSource, strMessage);
         }
         public static void Write(string strClass, string strOperator, string strSource, string strMessage)
         {
+            return;
             LogManager.Instance.Write(LogLevel.Normal, strClass, strOperator, strSource, strMessage);
         }
         public static void Write(LogLevel level, string strClass, string strSource, string strMessage)
@@ -24,6 +26,7 @@ namespace QMC.Common
         }
         public static void Write(string strClass, string strMessage)
         {
+            return;
             LogManager.Instance.Write(LogLevel.Normal, strClass, strMessage);
         }
         public static void Write(BaseEquipmentNode component, string strMessage)
@@ -40,6 +43,7 @@ namespace QMC.Common
         }
         public static void Write(Exception ex)
         {
+
             LogManager.Instance.Write(LogLevel.Highest, "ProgramExeption", ex.Source);
             LogManager.Instance.Write(LogLevel.Highest, "ProgramExeption", ex.Message);
             LogManager.Instance.Write(LogLevel.Highest, "ProgramExeption", ex.StackTrace);

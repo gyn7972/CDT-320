@@ -948,7 +948,7 @@ namespace QMC.CDT320.Materials
                 {
                     RecipeProject project = RecipeStore.LoadLastOrDefault();
                     string timestamp = DateTime.Now.ToString("yyyyMMdd-HHmmss");
-                    string lotId = "TEST-LOT-" + timestamp;
+                    string lotId = ResolveActiveLotIdForProcessTest();
                     string outputTapeFrameSpecName = ResolveRecipeTapeFrameSpecName(0);
                     MaterialLocationKind location = ResolveOutputStageLocation(side);
 
@@ -1020,7 +1020,7 @@ namespace QMC.CDT320.Materials
                 {
                     RecipeProject project = RecipeStore.LoadLastOrDefault();
                     string timestamp = DateTime.Now.ToString("yyyyMMdd-HHmmss");
-                    string lotId = "TEST-LOT-" + timestamp;
+                    string lotId = ResolveActiveLotIdForProcessTest();
                     string inputTapeFrameSpecName = ResolveInputTapeFrameSpecName(0);
                     string outputTapeFrameSpecName = ResolveRecipeTapeFrameSpecName(0);
 
@@ -1147,6 +1147,18 @@ namespace QMC.CDT320.Materials
             finally
             {
             }
+        }
+
+        private static string ResolveActiveLotIdForProcessTest()
+        {
+            string lotId = State != null ? (State.LotId ?? string.Empty).Trim() : string.Empty;
+            if (string.IsNullOrWhiteSpace(lotId))
+            {
+                throw new InvalidOperationException(
+                    "공정 테스트 Data는 활성 LOT ID가 필요합니다. Cassette Mapping으로 LOT ID를 먼저 설정하세요.");
+            }
+
+            return lotId;
         }
 
         public static string ResolveRecipeTapeFrameSpecName(int inchSelect)

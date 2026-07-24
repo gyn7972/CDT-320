@@ -192,11 +192,13 @@ namespace QMC.Common.Logging
         // 기존 호출부 호환용 (source 없음). 내부적으로 source="" 로 위임한다.
         public static void Write(EventKind kind, string user, string code, string description)
         {
+            return;
             Write(kind, user, code, string.Empty, description);
         }
 
         public static void Write(EventKind kind, string user, string code, string source, string description)
         {
+            return;
             EventRow row = new EventRow
             {
                 When = DateTime.Now,
