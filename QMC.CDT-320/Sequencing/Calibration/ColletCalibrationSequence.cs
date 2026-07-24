@@ -751,15 +751,16 @@ namespace QMC.CDT320.Sequencing.Calibration
                 }
 
                 CalibrationMotionSettings motion = ResolveCalibrationMotion();
+                // 안전위치 이동은 SafeMovePercent(각 축 Default × %)를 적용한다. 미설정 시 기존 Custom 속도로 폴백.
+                double safePercent = ResolveCalibrationSafeMovePercent();
                 QMC.Common.Log.Write("Calibration", "SYSTEM", "ColletCalStartSafe",
                     "Collet Calibration start FrontPicker Outside(Output-side Avoid) move for opposite picker. side=" + _calibrationSide +
                     ", colletNo=" + _colletNo +
-                    ", velocity=" + motion.MoveVelocity.ToString("F6") +
-                    ", acceleration=UnitDefault" +
-                    ", deceleration=UnitDefault" +
-                    ", note=MoveToOutputSideAvoidPosition currently receives custom velocity only");
+                    ", safeMovePercent=" + safePercent.ToString("F3") +
+                    ", fallbackVelocity=" + motion.MoveVelocity.ToString("F6") +
+                    ", note=axis Config.Default x SafeMovePercent applied to velocity/acceleration/deceleration");
 
-                int result = await FrontPicker.MoveToOutputSideAvoidPosition(JogSpeedType.Custom, motion.MoveVelocity).ConfigureAwait(false);
+                int result = await FrontPicker.MoveToOutputSideAvoidPositionSafeMove(safePercent, motion.MoveVelocity).ConfigureAwait(false);
                 if (result != 0)
                     return Fail("COLLET-CAL-FRONT-OUTSIDE", "PickerFrontUnit",
                         "Collet Calibration start FrontPicker Outside(Output-side Avoid) move failed. result=" + result);
@@ -802,15 +803,16 @@ namespace QMC.CDT320.Sequencing.Calibration
                 }
 
                 CalibrationMotionSettings motion = ResolveCalibrationMotion();
+                // 안전위치 이동은 SafeMovePercent(각 축 Default × %)를 적용한다. 미설정 시 기존 Custom 속도로 폴백.
+                double safePercent = ResolveCalibrationSafeMovePercent();
                 QMC.Common.Log.Write("Calibration", "SYSTEM", "ColletCalStartSafe",
                     "Collet Calibration start RearPicker Outside(Output-side Avoid) move for opposite picker. side=" + _calibrationSide +
                     ", colletNo=" + _colletNo +
-                    ", velocity=" + motion.MoveVelocity.ToString("F6") +
-                    ", acceleration=UnitDefault" +
-                    ", deceleration=UnitDefault" +
-                    ", note=MoveToOutputSideAvoidPosition currently receives custom velocity only");
+                    ", safeMovePercent=" + safePercent.ToString("F3") +
+                    ", fallbackVelocity=" + motion.MoveVelocity.ToString("F6") +
+                    ", note=axis Config.Default x SafeMovePercent applied to velocity/acceleration/deceleration");
 
-                int result = await RearPicker.MoveToOutputSideAvoidPosition(JogSpeedType.Custom, motion.MoveVelocity).ConfigureAwait(false);
+                int result = await RearPicker.MoveToOutputSideAvoidPositionSafeMove(safePercent, motion.MoveVelocity).ConfigureAwait(false);
                 if (result != 0)
                     return Fail("COLLET-CAL-REAR-OUTSIDE", "PickerRearUnit",
                         "Collet Calibration start RearPicker Outside(Output-side Avoid) move failed. result=" + result);

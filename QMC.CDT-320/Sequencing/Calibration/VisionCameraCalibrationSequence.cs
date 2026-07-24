@@ -831,8 +831,10 @@ namespace QMC.CDT320.Sequencing.Calibration
                     return reticleResult;
 
                 CalibrationMotionSettings motion = ResolveMotionSettings();
-                Task<int> frontTask = _machine.PickerFrontUnit.MoveToOutputSideAvoidPosition(JogSpeedType.Custom, motion.MoveVelocity);
-                Task<int> rearTask = _machine.PickerRearUnit.MoveToOutputSideAvoidPosition(JogSpeedType.Custom, motion.MoveVelocity);
+                // 안전위치 이동은 SafeMovePercent(각 축 Default × %)를 적용한다. 미설정 시 기존 Custom 속도로 폴백.
+                double safePercent = CalibrationSafeMoveMotion.ResolvePercent(_machine);
+                Task<int> frontTask = _machine.PickerFrontUnit.MoveToOutputSideAvoidPositionSafeMove(safePercent, motion.MoveVelocity);
+                Task<int> rearTask = _machine.PickerRearUnit.MoveToOutputSideAvoidPositionSafeMove(safePercent, motion.MoveVelocity);
                 int[] results = await Task.WhenAll(frontTask, rearTask).ConfigureAwait(false);
                 if (results[0] != 0 || results[1] != 0)
                     return Fail("VISION-CAMERA-CAL-PICKER-OUTPUT-AVOID", "PickerUnit", "Picker Output-side Avoid 이동 실패. frontResult=" + results[0] + ", rearResult=" + results[1]);
@@ -869,8 +871,10 @@ namespace QMC.CDT320.Sequencing.Calibration
                     return reticleResult;
 
                 CalibrationMotionSettings motion = ResolveMotionSettings();
-                Task<int> frontTask = _machine.PickerFrontUnit.MoveToInputSideAvoidPosition(JogSpeedType.Custom, motion.MoveVelocity);
-                Task<int> rearTask = _machine.PickerRearUnit.MoveToInputSideAvoidPosition(JogSpeedType.Custom, motion.MoveVelocity);
+                // 안전위치 이동은 SafeMovePercent(각 축 Default × %)를 적용한다. 미설정 시 기존 Custom 속도로 폴백.
+                double safePercent = CalibrationSafeMoveMotion.ResolvePercent(_machine);
+                Task<int> frontTask = _machine.PickerFrontUnit.MoveToInputSideAvoidPositionSafeMove(safePercent, motion.MoveVelocity);
+                Task<int> rearTask = _machine.PickerRearUnit.MoveToInputSideAvoidPositionSafeMove(safePercent, motion.MoveVelocity);
                 int[] results = await Task.WhenAll(frontTask, rearTask).ConfigureAwait(false);
                 if (results[0] != 0 || results[1] != 0)
                     return Fail("VISION-CAMERA-CAL-PICKER-INPUT-AVOID", "PickerUnit", "Picker Input-side Avoid 이동 실패. frontResult=" + results[0] + ", rearResult=" + results[1]);

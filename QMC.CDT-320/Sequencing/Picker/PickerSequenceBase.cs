@@ -2208,23 +2208,38 @@ namespace QMC.CDT320.Sequencing
                 return 0;
 
             ct.ThrowIfCancellationRequested();
+            // 캘리브레이션 컨텍스트에서는 SafeMovePercent(각 축 Default × %) 안전이동을 사용한다.
+            // 공정 경로(CalibrationMotion == null)는 기존 fine 경로 그대로.
+            double safePercent = CalibrationMotion != null ? ResolveCalibrationSafeMovePercent() : 0.0;
             WriteLog("PickerOppositeAvoid",
-                Name + " opposite FrontPicker avoid sequence start. order=Z all Avoid -> Y Avoid -> T all Avoid -> X Avoid. description=" +
+                Name + " opposite FrontPicker avoid sequence start. order=Z all Avoid -> Y Avoid -> T all Avoid -> X Avoid. safeMovePercent=" +
+                safePercent.ToString("F3") + ", description=" +
                 description + " - Start");
 
             var zTargets = BuildFrontPickerAvoidTargets(true, false, false);
-            int result = await FrontPicker.MoveFrontPickerAxes(
-                zTargets,
-                fine,
-                "AvoidPosition;PickerPhase=SafeZ;OppositeAvoid").ConfigureAwait(false);
+            int result = safePercent > 0.0
+                ? await FrontPicker.MovePickerAxesSafeMove(
+                    zTargets,
+                    safePercent,
+                    "AvoidPosition;PickerPhase=SafeZ;OppositeAvoid").ConfigureAwait(false)
+                : await FrontPicker.MoveFrontPickerAxes(
+                    zTargets,
+                    fine,
+                    "AvoidPosition;PickerPhase=SafeZ;OppositeAvoid").ConfigureAwait(false);
             if (result != 0)
                 return Fail("PICKER-OPPOSITE-AVOID-Z", "FrontPickerUnit",
                     description + " 실패. FrontPicker Z Avoid 이동 실패. result=" + result);
 
-            result = await FrontPicker.MoveFrontPickerAxisToTeachingPosition(
-                PickerAxis.PickerY,
-                "AvoidPosition",
-                fine).ConfigureAwait(false);
+            result = safePercent > 0.0
+                ? await FrontPicker.MovePickerAxisToTeachingPositionSafeMove(
+                    PickerAxis.PickerY,
+                    "AvoidPosition",
+                    safePercent,
+                    0.0).ConfigureAwait(false)
+                : await FrontPicker.MoveFrontPickerAxisToTeachingPosition(
+                    PickerAxis.PickerY,
+                    "AvoidPosition",
+                    fine).ConfigureAwait(false);
             if (result != 0)
                 return Fail("PICKER-OPPOSITE-AVOID-Y", "FrontPickerUnit",
                     description + " 실패. FrontPicker Y Avoid 이동 실패. result=" + result);
@@ -2234,19 +2249,29 @@ namespace QMC.CDT320.Sequencing
                     description + " 실패. FrontPicker Y가 Avoid 위치가 아닙니다.");
 
             var tTargets = BuildFrontPickerAvoidTargets(false, false, true);
-            result = await FrontPicker.MoveFrontPickerAxes(
-                tTargets,
-                fine,
-                "AvoidPosition;PickerPhase=SafeT;OppositeAvoid").ConfigureAwait(false);
+            result = safePercent > 0.0
+                ? await FrontPicker.MovePickerAxesSafeMove(
+                    tTargets,
+                    safePercent,
+                    "AvoidPosition;PickerPhase=SafeT;OppositeAvoid").ConfigureAwait(false)
+                : await FrontPicker.MoveFrontPickerAxes(
+                    tTargets,
+                    fine,
+                    "AvoidPosition;PickerPhase=SafeT;OppositeAvoid").ConfigureAwait(false);
             if (result != 0)
                 return Fail("PICKER-OPPOSITE-AVOID-T", "FrontPickerUnit",
                     description + " 실패. FrontPicker T Avoid 이동 실패. result=" + result);
 
             var xTargets = BuildFrontPickerAvoidTargets(false, true, false);
-            result = await FrontPicker.MoveFrontPickerAxes(
-                xTargets,
-                fine,
-                "AvoidPosition;PickerPhase=SafeX;OppositeAvoid").ConfigureAwait(false);
+            result = safePercent > 0.0
+                ? await FrontPicker.MovePickerAxesSafeMove(
+                    xTargets,
+                    safePercent,
+                    "AvoidPosition;PickerPhase=SafeX;OppositeAvoid").ConfigureAwait(false)
+                : await FrontPicker.MoveFrontPickerAxes(
+                    xTargets,
+                    fine,
+                    "AvoidPosition;PickerPhase=SafeX;OppositeAvoid").ConfigureAwait(false);
             if (result != 0)
                 return Fail("PICKER-OPPOSITE-AVOID-X", "FrontPickerUnit",
                     description + " 실패. FrontPicker X Avoid 이동 실패. result=" + result);
@@ -2267,23 +2292,38 @@ namespace QMC.CDT320.Sequencing
                 return 0;
 
             ct.ThrowIfCancellationRequested();
+            // 캘리브레이션 컨텍스트에서는 SafeMovePercent(각 축 Default × %) 안전이동을 사용한다.
+            // 공정 경로(CalibrationMotion == null)는 기존 fine 경로 그대로.
+            double safePercent = CalibrationMotion != null ? ResolveCalibrationSafeMovePercent() : 0.0;
             WriteLog("PickerOppositeAvoid",
-                Name + " opposite RearPicker avoid sequence start. order=Z all Avoid -> Y Avoid -> T all Avoid -> X Avoid. description=" +
+                Name + " opposite RearPicker avoid sequence start. order=Z all Avoid -> Y Avoid -> T all Avoid -> X Avoid. safeMovePercent=" +
+                safePercent.ToString("F3") + ", description=" +
                 description + " - Start");
 
             var zTargets = BuildRearPickerAvoidTargets(true, false, false);
-            int result = await RearPicker.MoveRearPickerAxes(
-                zTargets,
-                fine,
-                "AvoidPosition;PickerPhase=SafeZ;OppositeAvoid").ConfigureAwait(false);
+            int result = safePercent > 0.0
+                ? await RearPicker.MovePickerAxesSafeMove(
+                    zTargets,
+                    safePercent,
+                    "AvoidPosition;PickerPhase=SafeZ;OppositeAvoid").ConfigureAwait(false)
+                : await RearPicker.MoveRearPickerAxes(
+                    zTargets,
+                    fine,
+                    "AvoidPosition;PickerPhase=SafeZ;OppositeAvoid").ConfigureAwait(false);
             if (result != 0)
                 return Fail("PICKER-OPPOSITE-AVOID-Z", "RearPickerUnit",
                     description + " 실패. RearPicker Z Avoid 이동 실패. result=" + result);
 
-            result = await RearPicker.MoveRearPickerAxisToTeachingPosition(
-                PickerAxis.PickerY,
-                "AvoidPosition",
-                fine).ConfigureAwait(false);
+            result = safePercent > 0.0
+                ? await RearPicker.MovePickerAxisToTeachingPositionSafeMove(
+                    PickerAxis.PickerY,
+                    "AvoidPosition",
+                    safePercent,
+                    0.0).ConfigureAwait(false)
+                : await RearPicker.MoveRearPickerAxisToTeachingPosition(
+                    PickerAxis.PickerY,
+                    "AvoidPosition",
+                    fine).ConfigureAwait(false);
             if (result != 0)
                 return Fail("PICKER-OPPOSITE-AVOID-Y", "RearPickerUnit",
                     description + " 실패. RearPicker Y Avoid 이동 실패. result=" + result);
@@ -2293,19 +2333,29 @@ namespace QMC.CDT320.Sequencing
                     description + " 실패. RearPicker Y가 Avoid 위치가 아닙니다.");
 
             var tTargets = BuildRearPickerAvoidTargets(false, false, true);
-            result = await RearPicker.MoveRearPickerAxes(
-                tTargets,
-                fine,
-                "AvoidPosition;PickerPhase=SafeT;OppositeAvoid").ConfigureAwait(false);
+            result = safePercent > 0.0
+                ? await RearPicker.MovePickerAxesSafeMove(
+                    tTargets,
+                    safePercent,
+                    "AvoidPosition;PickerPhase=SafeT;OppositeAvoid").ConfigureAwait(false)
+                : await RearPicker.MoveRearPickerAxes(
+                    tTargets,
+                    fine,
+                    "AvoidPosition;PickerPhase=SafeT;OppositeAvoid").ConfigureAwait(false);
             if (result != 0)
                 return Fail("PICKER-OPPOSITE-AVOID-T", "RearPickerUnit",
                     description + " 실패. RearPicker T Avoid 이동 실패. result=" + result);
 
             var xTargets = BuildRearPickerAvoidTargets(false, true, false);
-            result = await RearPicker.MoveRearPickerAxes(
-                xTargets,
-                fine,
-                "AvoidPosition;PickerPhase=SafeX;OppositeAvoid").ConfigureAwait(false);
+            result = safePercent > 0.0
+                ? await RearPicker.MovePickerAxesSafeMove(
+                    xTargets,
+                    safePercent,
+                    "AvoidPosition;PickerPhase=SafeX;OppositeAvoid").ConfigureAwait(false)
+                : await RearPicker.MoveRearPickerAxes(
+                    xTargets,
+                    fine,
+                    "AvoidPosition;PickerPhase=SafeX;OppositeAvoid").ConfigureAwait(false);
             if (result != 0)
                 return Fail("PICKER-OPPOSITE-AVOID-X", "RearPickerUnit",
                     description + " 실패. RearPicker X Avoid 이동 실패. result=" + result);
@@ -2823,7 +2873,7 @@ namespace QMC.CDT320.Sequencing
 
         // 캘리브레이션 안전이동(Avoid) 전용 퍼센트를 장비 설정에서 라이브로 읽는다. 계산은 각 축 Config.Default × (%/100).
         // 캘리브레이션 컨텍스트(CalibrationMotion != null)에서만 사용되며, 값이 없거나 오류면 0(=측정 속도 사용)으로 폴백한다.
-        private double ResolveCalibrationSafeMovePercent()
+        protected double ResolveCalibrationSafeMovePercent()
         {
             try
             {
