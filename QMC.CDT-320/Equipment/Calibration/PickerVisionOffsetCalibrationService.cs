@@ -144,8 +144,11 @@ namespace QMC.CDT320.Calibration
                     continue;
 
                 // 저장 offset은 자동/수동 Pick 계산식에서 그대로 쓰는 최종 Vision->Picker 보정값이다.
+                // Input Vision 결과에는 InputToBottomOffset이 X/Y 모두 가산되어 오므로
+                // 여기서 X/Y 모두 감산해야 Pick 계산에서 정확히 상쇄된다.
+                // (기존 Y 가산은 상대 오차 2*InputToBottomOffsetY의 공통 편향을 만들던 부호 오류)
                 double inputX = record.FinalPickerX - camera.InputReticle.VisionXPosition - camera.InputToBottomOffsetX;
-                double inputY = record.FinalPickerY + camera.InputToBottomOffsetY;
+                double inputY = record.FinalPickerY - camera.InputToBottomOffsetY;
                 double outputFinalPickerX = record.FinalPickerX;
                 double outputX = outputFinalPickerX - camera.OutputReticle.VisionXPosition - camera.OutputToBottomOffsetX;
                 double outputY = record.FinalPickerY - camera.OutputToBottomOffsetY;
@@ -223,8 +226,8 @@ namespace QMC.CDT320.Calibration
                 record.FinalPickerX.ToString("F6") + "-" +
                 camera.InputReticle.VisionXPosition.ToString("F6") + "-" +
                 camera.InputToBottomOffsetX.ToString("F6") + "=" + inputX.ToString("F6") +
-                ", formulaInputY=finalPickerY+inputCameraOffsetY=" +
-                record.FinalPickerY.ToString("F6") + "+" +
+                ", formulaInputY=finalPickerY-inputCameraOffsetY=" +
+                record.FinalPickerY.ToString("F6") + "-" +
                 camera.InputToBottomOffsetY.ToString("F6") + "=" + inputY.ToString("F6") +
                 ", formulaOutputX=outputFinalPickerX-outputVisionX-outputCameraOffsetX=" +
                 outputFinalPickerX.ToString("F6") + "-" +
