@@ -43,11 +43,12 @@ head-게이트 미도입(PickUp은 at-most-one 허가+phase 상호배제로 이�
   (허가-생존) 유지, IsHead로 교체 금지(B3). 워크존(Gate:478)엔 head-게이트/Enqueue 미도입(B1/B4).
   #17 follow-entry, Output #18, front-pending 우선, PickUp phase 상호배제 전부 유지.
 
-## 검증
-- [ ] 빌드 통과.
-- [ ] FIFO 큐 하네스: Enqueue 멱등/순서, IsHead 유일(동시 enqueue 두-head 불가), Dequeue 후 승격,
-  롤백 재삽입, 빈 큐. 상호양보 재현 시나리오(둘 다 티켓 보유 → head 유일) 검증.
-- [ ] 기존 하네스 회귀: follow-entry 22/22.
-- [ ] **실제 시뮬 Auto 운전 검증(사용자 위임)**: D:\CDT-320 배포 → 실행 → 시뮬 Auto → 수 분 관찰
-  → 로그에 상호'FIFO 양보' 반복/30초 phase Idle 폴링(무언정지 시그니처) 없음, 두 피커 순번 정상
-  진행, 타임아웃 알람 없음 확인.
+## 검증 (완료 2026-07-24)
+- [x] 빌드 통과(build22).
+- [x] FIFO 큐 하네스 14/14: Enqueue 멱등/순서, IsHead 유일(T2 상호양보 불가=head 정확히 1개),
+  Dequeue 후 승격, 롤백 재삽입 무한정지 없음(T7), 빈 큐.
+- [x] 기존 하네스 회귀: follow-entry 22/22.
+- [x] **실제 시뮬 Auto 운전 검증(커밋 fa3c6a60, D:\CDT-320 배포 후 22:41~22:46 5분+ 연속 운전)**:
+  무언정지 재발 0. 로그 정체 매 스냅샷 0초, FIFO 대기≈head도달(즉시 승격, 상호양보 소멸),
+  타임아웃/교착 알람 0건, 사이클 수백 건 연속 진행. 지난 실패(21:30 상호양보→30초 타임아웃→
+  무언정지)와 정반대. 백업: D:\CDT-320\QMC.CDT-320.exe.bak_a1ef1807.
