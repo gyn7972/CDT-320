@@ -281,13 +281,12 @@ namespace QMC.CDT320.Sequencing
                 if (Context == null || Context.AutoSequenceGate == null)
                     return 0;
 
-                // 데드락 절단(FIFO): 카메라 존을 '잡기 전'에, 나보다 앞선(먼저 큐에 등록된) 다른
-                // side의 PickUp 허가가 살아 있으면 카메라 존을 획득하지 않고 양보 대기한다. 존을
-                // 쥐지 않은 채 대기하므로(lock-ordering 안전) 앞선 피커가 Input에 진입해 허가를
-                // 소비·클리어할 수 있어 hold-and-wait 순환이 성립하지 않는다.
-                int foreignWaitResult = await WaitUntilNoForeignPickUpPermissionAsync(ct).ConfigureAwait(false);
-                if (foreignWaitResult != 0)
-                    return foreignWaitResult;
+                // 진짜 FIFO 데드락 절단: 카메라 존을 '잡기 전'(어떤 배타 자원도 안 쥔 상태)에서
+                // 전역 진입 큐의 head가 될 때까지 대기한다. head가 아니면 존을 획득하지 않으므로
+                // 앞선 피커가 Input에 진입해 진행할 수 있어 hold-and-wait 순환이 성립하지 않는다.
+                int fifoHeadResult = await WaitUntilFifoHeadForCameraZoneAsync(ct).ConfigureAwait(false);
+                if (fifoHeadResult != 0)
+                    return fifoHeadResult;
 
                 _cameraWorkLease = await Context.AutoSequenceGate
                     .BeginInputCameraWorkAsync(Name + ":InputCameraPreInspection:" + Side, ct, Side)
@@ -318,16 +317,17 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
-        // 데드락 절단(FIFO): 나보다 앞선 다른 side의 PickUp 허가가 없어질 때까지, 카메라 존을
-        // 획득하지 않은 채 대기한다. 앞선 허가가 살아 있는 동안에는 그 피커가 먼저 Input에 진입해
-        // 허가를 소비해야 하므로 양보한다. bounded timeout(ResolveTimeout, 기본 30초) 초과 시
-        // 무언정지 대신 복구 가능한 알람으로 Fail한다.
-        private async Task<int> WaitUntilNoForeignPickUpPermissionAsync(CancellationToken ct)
+        // 진짜 FIFO 데드락 절단: 전역 진입 큐에서 내가 head(최소 티켓)가 될 때까지 카메라 존을
+        // 획득하지 않은 채 대기한다. head는 정확히 1개뿐이므로 두 선행검사가 동시에 '상대가 앞섰다'로
+        // 서로 양보하는 라이브락이 구조적으로 불가능하다(과거 실패: side별 두 seq 비교 → mine=none이면
+        // 양쪽 다 상대가 foreign). 티켓은 선행검사 시작 시(EnsureStarted) 이미 발급돼 있어 대기 중
+        // 항상 자기 티켓을 보유한다. bounded timeout(ResolveTimeout) 초과 시 무언정지 대신 알람 Fail.
+        private async Task<int> WaitUntilFifoHeadForCameraZoneAsync(CancellationToken ct)
         {
             try
             {
-                string foreignDetail;
-                if (!InputCameraPickUpPermissionStore.HasForeignPermission(Side, out foreignDetail))
+                string headDetail;
+                if (InputEntryQueue.IsHead(Side, out headDetail))
                     return 0;
 
                 int timeoutMs = ResolveTimeout();
@@ -338,15 +338,15 @@ namespace QMC.CDT320.Sequencing
                 {
                     ct.ThrowIfCancellationRequested();
                     if (Context != null)
-                        Context.StopIfCycleStopRequested(Name + ".InputCameraForeignPermissionYield");
+                        Context.StopIfCycleStopRequested(Name + ".InputCameraFifoHeadWait");
 
-                    if (!InputCameraPickUpPermissionStore.HasForeignPermission(Side, out foreignDetail))
+                    if (InputEntryQueue.IsHead(Side, out headDetail))
                     {
                         if (waitLogged)
                         {
                             WriteLog("InputCameraMarkInspectionSequence",
-                                Name + " 선행검사 카메라 존 양보 대기 종료. 앞선 PickUp 허가가 모두 소비되어 진입합니다. side=" +
-                                Side + " - Ok");
+                                Name + " 선행검사 카메라 존 진입 순번(FIFO head) 도달. side=" +
+                                Side + ", " + headDetail + " - Ok");
                         }
 
                         return 0;
@@ -355,20 +355,21 @@ namespace QMC.CDT320.Sequencing
                     if (!waitLogged)
                     {
                         WriteLog("InputCameraMarkInspectionSequence",
-                            Name + " 선행검사 카메라 존 양보 대기(FIFO). 앞선 PickUp 허가가 살아 있어 카메라 존을 잡지 않고 " +
-                            "먼저 등록된 피커의 진입을 기다립니다. " + foreignDetail + ", side=" + Side + " - Wait");
+                            Name + " 선행검사 카메라 존 진입 순번 대기(FIFO). 앞선 진입 티켓이 있어 카메라 존을 잡지 않고 " +
+                            "먼저 등록된 피커의 진입을 기다립니다. " + headDetail + ", side=" + Side + " - Wait");
                         waitLogged = true;
                     }
 
                     double elapsedMs = (DateTime.UtcNow - start).TotalMilliseconds;
                     if (elapsedMs >= timeoutMs)
                     {
-                        return Fail("INPUT-CAMERA-MARK-INSPECTION-FOREIGN-PERMISSION-TIMEOUT", Name,
-                            "선행검사 카메라 존 양보 대기가 제한 시간을 초과했습니다. 앞선 PickUp 허가가 소비되지 않았습니다. " +
+                        return Fail("INPUT-CAMERA-MARK-INSPECTION-FIFO-HEAD-TIMEOUT", Name,
+                            "선행검사 카메라 존 진입 순번(FIFO) 대기가 제한 시간을 초과했습니다. 앞선 진입 티켓이 해소되지 않았습니다. " +
                             "side=" + Side +
                             ", elapsedMs=" + elapsedMs.ToString("0") +
                             ", timeoutMs=" + timeoutMs +
-                            ", " + foreignDetail);
+                            ", " + headDetail +
+                            ", queue=" + InputEntryQueue.Describe());
                     }
 
                     await Task.Delay(10, ct).ConfigureAwait(false);
@@ -384,8 +385,8 @@ namespace QMC.CDT320.Sequencing
             }
             catch (Exception ex)
             {
-                return Fail("INPUT-CAMERA-MARK-INSPECTION-FOREIGN-PERMISSION-EX", Name,
-                    "선행검사 카메라 존 양보 대기 중 예외가 발생했습니다. side=" + Side + ", error=" + ex.Message);
+                return Fail("INPUT-CAMERA-MARK-INSPECTION-FIFO-HEAD-EX", Name,
+                    "선행검사 카메라 존 진입 순번 대기 중 예외가 발생했습니다. side=" + Side + ", error=" + ex.Message);
             }
         }
 
