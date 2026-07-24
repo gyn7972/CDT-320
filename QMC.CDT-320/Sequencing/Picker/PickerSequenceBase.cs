@@ -1351,7 +1351,8 @@ namespace QMC.CDT320.Sequencing
             string description,
             CancellationToken ct,
             string targetName = null,
-            bool forceMove = false)
+            bool forceMove = false,
+            bool useSafeMoveMotion = false)
         {
             if (targets == null || targets.Count == 0)
                 return 0;
@@ -1373,7 +1374,8 @@ namespace QMC.CDT320.Sequencing
                 description + " X/T",
                 ct,
                 targetName,
-                forceMove).ConfigureAwait(false);
+                forceMove,
+                useSafeMoveMotion).ConfigureAwait(false);
             if (result != 0)
                 return result;
 
@@ -1392,7 +1394,8 @@ namespace QMC.CDT320.Sequencing
                 description + " Y",
                 ct,
                 targetName,
-                forceMove).ConfigureAwait(false);
+                forceMove,
+                useSafeMoveMotion).ConfigureAwait(false);
         }
 
         private async Task<int> WaitOppositePickerYAvoidBeforeAutoForwardMoveAsync(

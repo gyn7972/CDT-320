@@ -130,30 +130,43 @@ namespace QMC.CDT320.Calibration
         private static bool CanUseReticleCameraBridge(VisionCameraCalibrationData camera, out string reason)
         {
             reason = string.Empty;
-            if (camera == null || camera.BottomReticle == null || camera.InputReticle == null)
+            if (camera == null || camera.BottomReticle == null || camera.InputReticle == null || camera.OutputReticle == null)
             {
-                reason = "bottom/input reticle measurement is missing.";
+                reason = "bottom/input/output reticle measurement is missing.";
                 return false;
             }
 
             if (!IsFinite(camera.BottomReticle.MmX) || !IsFinite(camera.BottomReticle.MmY) ||
-                !IsFinite(camera.InputReticle.MmX) || !IsFinite(camera.InputReticle.MmY))
+                !IsFinite(camera.InputReticle.MmX) || !IsFinite(camera.InputReticle.MmY) ||
+                !IsFinite(camera.OutputReticle.MmX) || !IsFinite(camera.OutputReticle.MmY))
             {
                 reason = "reticle Mm value contains invalid number.";
                 return false;
             }
 
-            // 저장 InputToBottomOffset은 새 브리지 정의 -(Bottom.Mm + Input.Mm)로 계산돼 있어야 한다.
-            // 구(舊)정의(Bottom.Mm - Input.Mm)로 저장된 상태에서 가산하면 X가 0.21mm 틀어지므로 여기서 차단한다.
+            // 저장 Input/OutputToBottomOffset은 새 브리지 정의 -(Bottom.Mm + 해당카메라.Mm)로 계산돼 있어야 한다.
+            // 구(舊)정의(Bottom.Mm - 카메라.Mm)로 저장된 상태에서 가산하면 상수 오차가 생기므로 여기서 차단한다.
             const double toleranceMm = 0.001;
-            double bridgeX = -(camera.BottomReticle.MmX + camera.InputReticle.MmX);
-            double bridgeY = -(camera.BottomReticle.MmY + camera.InputReticle.MmY);
-            if (Math.Abs(bridgeX - camera.InputToBottomOffsetX) > toleranceMm ||
-                Math.Abs(bridgeY - camera.InputToBottomOffsetY) > toleranceMm)
+            double inputBridgeX = -(camera.BottomReticle.MmX + camera.InputReticle.MmX);
+            double inputBridgeY = -(camera.BottomReticle.MmY + camera.InputReticle.MmY);
+            if (Math.Abs(inputBridgeX - camera.InputToBottomOffsetX) > toleranceMm ||
+                Math.Abs(inputBridgeY - camera.InputToBottomOffsetY) > toleranceMm)
             {
                 reason = "stored InputToBottomOffset is not the pick-bridge value -(BottomMm+InputMm). expectedBridge=(" +
-                         bridgeX.ToString("F6") + "," + bridgeY.ToString("F6") + "), storedOffset=(" +
+                         inputBridgeX.ToString("F6") + "," + inputBridgeY.ToString("F6") + "), storedOffset=(" +
                          camera.InputToBottomOffsetX.ToString("F6") + "," + camera.InputToBottomOffsetY.ToString("F6") +
+                         ") — 구버전 산식 값입니다. Vision Camera Calibration(CALC/SAVE)을 다시 실행하세요.";
+                return false;
+            }
+
+            double outputBridgeX = -(camera.BottomReticle.MmX + camera.OutputReticle.MmX);
+            double outputBridgeY = -(camera.BottomReticle.MmY + camera.OutputReticle.MmY);
+            if (Math.Abs(outputBridgeX - camera.OutputToBottomOffsetX) > toleranceMm ||
+                Math.Abs(outputBridgeY - camera.OutputToBottomOffsetY) > toleranceMm)
+            {
+                reason = "stored OutputToBottomOffset is not the place-bridge value -(BottomMm+OutputMm). expectedBridge=(" +
+                         outputBridgeX.ToString("F6") + "," + outputBridgeY.ToString("F6") + "), storedOffset=(" +
+                         camera.OutputToBottomOffsetX.ToString("F6") + "," + camera.OutputToBottomOffsetY.ToString("F6") +
                          ") — 구버전 산식 값입니다. Vision Camera Calibration(CALC/SAVE)을 다시 실행하세요.";
                 return false;
             }
@@ -203,9 +216,10 @@ namespace QMC.CDT320.Calibration
                 double cameraBridgeY = camera.InputToBottomOffsetY;
                 double inputX = record.FinalPickerX - camera.InputReticle.VisionXPosition + cameraBridgeX;
                 double inputY = record.FinalPickerY + cameraBridgeY;
+                // Output도 동일 규약: 저장값이 브리지 -(Bottom.Mm + Output.Mm)이므로 변환 없이 그대로 가산(+).
                 double outputFinalPickerX = record.FinalPickerX;
-                double outputX = outputFinalPickerX - camera.OutputReticle.VisionXPosition - camera.OutputToBottomOffsetX;
-                double outputY = record.FinalPickerY - camera.OutputToBottomOffsetY;
+                double outputX = outputFinalPickerX - camera.OutputReticle.VisionXPosition + camera.OutputToBottomOffsetX;
+                double outputY = record.FinalPickerY + camera.OutputToBottomOffsetY;
 
                 inputOffsets.OffsetX[i] = inputX;
                 inputOffsets.OffsetY[i] = inputY;
@@ -271,7 +285,7 @@ namespace QMC.CDT320.Calibration
                 ", finalPicker=(" + record.FinalPickerX.ToString("F6") + "," + record.FinalPickerY.ToString("F6") + ")" +
                 ", outputFinalPickerX=" + outputFinalPickerX.ToString("F6") +
                 ", outputXMode=ColletFinalPickerX" +
-                ", outputYMode=SignedPickBasisMinusCameraOffset" +
+                ", outputYMode=PickBasisPlusPlaceBridge" +
                 ", inputReticleVisionX=" + camera.InputReticle.VisionXPosition.ToString("F6") +
                 ", outputReticleVisionX=" + camera.OutputReticle.VisionXPosition.ToString("F6") +
                 ", inputCameraOffset=(" + camera.InputToBottomOffsetX.ToString("F6") + "," + camera.InputToBottomOffsetY.ToString("F6") + ")" +
@@ -289,14 +303,14 @@ namespace QMC.CDT320.Calibration
                 record.FinalPickerY.ToString("F6") + "+(" +
                 camera.InputToBottomOffsetY.ToString("F6") + ")=" + inputY.ToString("F6") +
                 ", cameraBridgeAppliedOnceToPickerXYOnly=True(NotToStageY/NeedleX/DieMap)" +
-                ", outputSideUnchanged=True" +
-                ", formulaOutputX=outputFinalPickerX-outputVisionX-outputCameraOffsetX=" +
+                ", inputOutputSameBridgeConvention=True" +
+                ", formulaOutputX=outputFinalPickerX-outputVisionX+placeBridgeX=" +
                 outputFinalPickerX.ToString("F6") + "-" +
-                camera.OutputReticle.VisionXPosition.ToString("F6") + "-" +
-                camera.OutputToBottomOffsetX.ToString("F6") + "=" + outputX.ToString("F6") +
-                ", formulaOutputY=finalPickerY-outputCameraOffsetY=" +
-                record.FinalPickerY.ToString("F6") + "-" +
-                camera.OutputToBottomOffsetY.ToString("F6") + "=" + outputY.ToString("F6"));
+                camera.OutputReticle.VisionXPosition.ToString("F6") + "+(" +
+                camera.OutputToBottomOffsetX.ToString("F6") + ")=" + outputX.ToString("F6") +
+                ", formulaOutputY=finalPickerY+placeBridgeY=" +
+                record.FinalPickerY.ToString("F6") + "+(" +
+                camera.OutputToBottomOffsetY.ToString("F6") + ")=" + outputY.ToString("F6"));
         }
     }
 }

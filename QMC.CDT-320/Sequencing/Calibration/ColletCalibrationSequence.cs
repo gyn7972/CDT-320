@@ -352,11 +352,13 @@ namespace QMC.CDT320.Sequencing.Calibration
                 var xyTargets = new Dictionary<PickerAxis, double>();
                 xyTargets[PickerAxis.PickerX] = _targetPickerX;
                 xyTargets[PickerAxis.PickerY] = _targetPickerY;
+                // 접근(X/Y) 이동은 안전이동 속도(SafeMovePercent)로 수행한다. 측정 속도는 Z 하강부터 적용.
                 result = await MovePickerXTThenYAndVerifyAsync(
                     xyTargets,
                     "Collet Calibration Bottom X/Y",
                     ct,
                     BottomFinderTargetName,
+                    true,
                     true).ConfigureAwait(false);
                 if (result != 0)
                     return result;
@@ -371,6 +373,7 @@ namespace QMC.CDT320.Sequencing.Calibration
                     "Collet Calibration T 기준 위치",
                     ct,
                     BottomFinderTargetName,
+                    true,
                     true).ConfigureAwait(false);
                 if (result != 0)
                     return result;

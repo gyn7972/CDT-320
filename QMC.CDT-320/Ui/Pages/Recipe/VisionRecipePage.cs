@@ -337,9 +337,14 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             items.Add(VisionMember("REAR Y", groupKey, kindLabel, kind, VisionSide.Rear));
         }
 
+        // LoadRecipe/LoadSettings가 Recipe 객체를 교체하므로 positions를 지역 캡처하지 않고 매 호출 시 라이브 객체를 따라간다.
+        private VisionAxisPositions ResolveLiveVisionPositions(VisionSide side)
+        {
+            return side == VisionSide.Front ? _visionUnit.Recipe.FrontSideVision : _visionUnit.Recipe.RearSideVision;
+        }
+
         private ParameterGridItem VisionMember(string axisLabel, string groupKey, string kindLabel, string kind, VisionSide side)
         {
-            VisionAxisPositions positions = side == VisionSide.Front ? _visionUnit.Recipe.FrontSideVision : _visionUnit.Recipe.RearSideVision;
             BaseAxis axis = side == VisionSide.Front ? _visionUnit.FrontSideVisionY : _visionUnit.RearSideVisionY;
 
             Func<double> getter;
@@ -347,11 +352,11 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             switch (kind)
             {
                 // Avoid 위치 레시피 연결
-                case "Avoid": getter = () => positions.AvoidPosition; setter = v => positions.AvoidPosition = v; break;
+                case "Avoid": getter = () => ResolveLiveVisionPositions(side).AvoidPosition; setter = v => ResolveLiveVisionPositions(side).AvoidPosition = v; break;
                 // Process 위치(0도) 레시피 연결
-                case "Process0": getter = () => positions.Process0Position; setter = v => positions.Process0Position = v; break;
+                case "Process0": getter = () => ResolveLiveVisionPositions(side).Process0Position; setter = v => ResolveLiveVisionPositions(side).Process0Position = v; break;
                 // Process 위치(90도) 레시피 연결
-                case "Process90": getter = () => positions.Process90Position; setter = v => positions.Process90Position = v; break;
+                case "Process90": getter = () => ResolveLiveVisionPositions(side).Process90Position; setter = v => ResolveLiveVisionPositions(side).Process90Position = v; break;
                 default: getter = () => 0.0; setter = v => { }; break;
             }
 
