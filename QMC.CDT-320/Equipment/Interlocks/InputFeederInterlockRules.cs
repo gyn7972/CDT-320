@@ -82,12 +82,31 @@ namespace QMC.CDT320.Interlocks
                     "InputFeederY 절대 인터락 확인 불가: InputStage/InputCameraX/InputFeederY teaching 정보가 없습니다.",
                     out reason);
 
-            if (!IsInputVisionXInAvoidPosition(stage) && cameraX.ActualPosition > 0.0)
-                return MotionGuardRuleHelpers.Block(
-                    "InputFeederY",
-                    "InputFeederY 이동 불가: InputCameraX가 정확한 Avoid 또는 0 이하 위치여야 합니다. " +
-                    "cameraActual=" + cameraX.ActualPosition.ToString("0.###"),
-                    out reason);
+            //Todo: Feeder 가 안전 위치고 클램프가 업상태이면 PASS
+
+            if(feeder.IsWaferFeederAvoidPositionCheck())
+            {
+                if (!IsInputVisionXInAvoidPosition(stage) && cameraX.ActualPosition > 0.0)
+                    return MotionGuardRuleHelpers.Block(
+                        "InputFeederY",
+                        "InputFeederY 이동 불가: InputCameraX가 정확한 Avoid 또는 0 이하 위치여야 합니다. " +
+                        "cameraActual=" + cameraX.ActualPosition.ToString("0.###"),
+                        out reason);
+
+                if (request.MoveKind == MotionGuardMoveKind.AxisMove ||
+                    request.MoveKind == MotionGuardMoveKind.AxisHome)
+                {
+                    BaseAxis stageT = stage.StageT;
+                    if (stageT == null || stageT.ActualPosition < -0.1 || stageT.ActualPosition > 0.1)
+                    {
+                        return MotionGuardRuleHelpers.Block(
+                            "InputFeederY",
+                            "InputFeederY Manual/HOME 이동 불가: InputStageT 실제 위치가 -0.1~+0.1 범위여야 합니다. " +
+                            "stageT=" + (stageT != null ? stageT.ActualPosition.ToString("0.###") : "missing"),
+                            out reason);
+                    }
+                }
+            }
 
             // 기존 Auto Load-to-Stage는 제품 전달 후 Lift Up 상태로 FeederY를 Avoid 복귀시킨다.
             // 이 Auto 경로의 Lift Down 강제는 시퀀스 변경 승인이 필요하므로 Manual/HOME에만 신규 적용한다.
@@ -114,19 +133,7 @@ namespace QMC.CDT320.Interlocks
                         out reason);
             }
 
-            if (request.MoveKind == MotionGuardMoveKind.AxisMove ||
-                request.MoveKind == MotionGuardMoveKind.AxisHome)
-            {
-                BaseAxis stageT = stage.StageT;
-                if (stageT == null || stageT.ActualPosition < -0.1 || stageT.ActualPosition > 0.1)
-                {
-                    return MotionGuardRuleHelpers.Block(
-                        "InputFeederY",
-                        "InputFeederY Manual/HOME 이동 불가: InputStageT 실제 위치가 -0.1~+0.1 범위여야 합니다. " +
-                        "stageT=" + (stageT != null ? stageT.ActualPosition.ToString("0.###") : "missing"),
-                        out reason);
-                }
-            }
+            
 
             if (!feeder.IsWaferFeederSimulationOrDryRun())
             {

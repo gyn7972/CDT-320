@@ -141,6 +141,9 @@ namespace QMC.CDT320.Materials
 
         private static void Normalize(MaterialSnapshot snapshot)
         {
+            snapshot.LotId = string.IsNullOrWhiteSpace(snapshot.LotId)
+                ? ""
+                : snapshot.LotId.Trim();
             if (snapshot.Cassettes == null) snapshot.Cassettes = new List<CassetteMaterial>();
             if (snapshot.Wafers == null) snapshot.Wafers = new List<WaferMaterial>();
             if (snapshot.Dies == null) snapshot.Dies = new List<DieMaterial>();

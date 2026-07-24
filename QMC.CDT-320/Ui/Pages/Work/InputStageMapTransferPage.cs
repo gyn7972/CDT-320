@@ -6374,8 +6374,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
         {
             try
             {
-                Lot lot = LotStorage.ActiveLot;
-                string lotText = lot != null ? lot.LotID : "(no active lot)";
+                string productionLotId = MaterialStateService.GetProductionLotId();
+                string lotText = string.IsNullOrWhiteSpace(productionLotId) ? "(no lot)" : productionLotId;
                 if (map == null)
                     return "INPUT WAFER MAP   LOT " + lotText + "  (no input die map)";
 

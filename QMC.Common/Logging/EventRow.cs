@@ -12,6 +12,8 @@ namespace QMC.Common.Logging
         public string Code { get; set; }
         public string Source { get; set; }
         public string Description { get; set; }
+        /// <summary>LogPolicy 판정 결과. true면 디스크(영구) 저장, false면 메모리(블랙박스/UI)만.</summary>
+        public bool Persist { get; set; }
 
         public string ToCsv()
         {

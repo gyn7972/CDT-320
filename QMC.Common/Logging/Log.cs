@@ -10,12 +10,28 @@ namespace QMC.Common
 {
     public static class Log
     {
+        // 기존 임시 return(전면 차단)을 LogPolicy 기반 최소 로그 정책으로 교체했다.
+        // Normal 편의 오버로드: 항상 알람 블랙박스에 캡처하고,
+        // ProductionMinimal에서는 디스크(LogManager) 기록을 생략, DiagnosticVerbose에서만 기록한다.
+        // LogLevel 지정/Exception/WorkLog 경로는 기존 그대로 유지한다.
+        // 캘리브레이션(저빈도·검증 필요)은 최소 로그 정책과 무관하게 항상 디스크에 남긴다.
+        private static bool IsAlwaysPersistClass(string strClass)
+        {
+            return string.Equals(strClass, "Calibration", System.StringComparison.OrdinalIgnoreCase);
+        }
+
         public static void Write(string strClass, string strSource, string strMessage)
         {
+            QMC.Common.Logging.LogPolicy.CaptureLegacy(strClass, strSource, strMessage);
+            if (!QMC.Common.Logging.LogPolicy.IsDiagnosticVerbose && !IsAlwaysPersistClass(strClass))
+                return;
             LogManager.Instance.Write(LogLevel.Normal, strClass, strSource, strMessage);
         }
         public static void Write(string strClass, string strOperator, string strSource, string strMessage)
         {
+            QMC.Common.Logging.LogPolicy.CaptureLegacy(strClass, strSource, strMessage);
+            if (!QMC.Common.Logging.LogPolicy.IsDiagnosticVerbose && !IsAlwaysPersistClass(strClass))
+                return;
             LogManager.Instance.Write(LogLevel.Normal, strClass, strOperator, strSource, strMessage);
         }
         public static void Write(LogLevel level, string strClass, string strSource, string strMessage)
@@ -24,6 +40,9 @@ namespace QMC.Common
         }
         public static void Write(string strClass, string strMessage)
         {
+            QMC.Common.Logging.LogPolicy.CaptureLegacy(strClass, string.Empty, strMessage);
+            if (!QMC.Common.Logging.LogPolicy.IsDiagnosticVerbose)
+                return;
             LogManager.Instance.Write(LogLevel.Normal, strClass, strMessage);
         }
         public static void Write(BaseEquipmentNode component, string strMessage)
@@ -40,6 +59,7 @@ namespace QMC.Common
         }
         public static void Write(Exception ex)
         {
+
             LogManager.Instance.Write(LogLevel.Highest, "ProgramExeption", ex.Source);
             LogManager.Instance.Write(LogLevel.Highest, "ProgramExeption", ex.Message);
             LogManager.Instance.Write(LogLevel.Highest, "ProgramExeption", ex.StackTrace);

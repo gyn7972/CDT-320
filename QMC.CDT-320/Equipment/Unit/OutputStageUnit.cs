@@ -909,13 +909,23 @@ namespace QMC.CDT320
 
         public async Task<int> MoveStageAxis(BinStageAxis axis, double targetPos, bool bFine, string targetName)
         {
+            return await MoveStageAxis(axis, targetPos, bFine, targetName, false).ConfigureAwait(false);
+        }
+
+        public async Task<int> MoveStageAxis(
+            BinStageAxis axis,
+            double targetPos,
+            bool bFine,
+            string targetName,
+            bool forceMove)
+        {
             try
             {
                 if (!HasStageAxis(axis))
                     return 0;
 
                 BaseAxis item = ResolveStageAxis(axis);
-                if (IsAxisAtTarget(item, targetPos))
+                if (!forceMove && IsAxisAtTarget(item, targetPos))
                     return 0;
 
                 // 기존 조건: NG Y 이동 시 클램프 리프트 상태를 이 레벨에서는 확인하지 않았다 - 일부 경로
@@ -945,7 +955,8 @@ namespace QMC.CDT320
                 double velocity = ResolveStageAxisVelocity(item, bFine);
                 double acceleration = ResolveStageAxisAcceleration(item, bFine);
                 double deceleration = ResolveStageAxisDeceleration(item, bFine);
-                EventLogger.Write(EventKind.Event, "QMC", "OS-MOVE", axis + " target=" + targetPos);
+                EventLogger.Write(EventKind.Event, "QMC", "OS-MOVE",
+                    axis + " target=" + targetPos + ", forceMove=" + forceMove);
 
                 int result;
                 if (!string.IsNullOrWhiteSpace(targetName))
@@ -953,12 +964,12 @@ namespace QMC.CDT320
                     // 자동 시퀀스 이동 컨텍스트를 넘겨 수동/홈 이동 인터락으로 오판되지 않게 한다.
                     using (QMC.CDT320.Interlocks.MotionGuardRuntime.BeginAxisTeachingMove(item, targetPos, targetName))
                     {
-                        result = await SharedRailXMotionRuntime.MoveAxisAsync(item, targetPos, velocity).ConfigureAwait(false);
+                        result = await SharedRailXMotionRuntime.MoveAxisAsync(item, targetPos, velocity, forceMove).ConfigureAwait(false);
                     }
                 }
                 else
                 {
-                    result = await SharedRailXMotionRuntime.MoveAxisAsync(item, targetPos, velocity).ConfigureAwait(false);
+                    result = await SharedRailXMotionRuntime.MoveAxisAsync(item, targetPos, velocity, forceMove).ConfigureAwait(false);
                 }
 
                 if (result != 0 || item.IsAlarm)

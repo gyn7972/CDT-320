@@ -67,6 +67,10 @@ namespace QMC.CDT320.Sequencing
             Options = options ?? PickerSequenceOptions.Default();
             Options.RunMode = Options.RunMode;
 
+            // 캘리브레이션 시퀀스는 저빈도 + 검증(속도/저장값) 필요 작업이므로 실행 동안 모든 로그를 영속한다.
+            using (IsCalibrationSequenceName(GetType().Name)
+                ? QMC.Common.Logging.LogPolicy.BeginVerboseScope(GetType().Name)
+                : null)
             using (SequenceLog.Push(
                 Side == PickerSequenceSide.Front ? QMC.Common.Logging.EventKind.FrontHeadSeq : QMC.Common.Logging.EventKind.RearHeadSeq,
                 Name, () => CurrentStep.ToString(), GetType().Name, Options.RunMode.ToString()))
@@ -147,6 +151,16 @@ namespace QMC.CDT320.Sequencing
         protected int ResolveTimeout()
         {
             return Options != null && Options.MoveTimeoutMs > 0 ? Options.MoveTimeoutMs : 30000;
+        }
+
+        // 캘리브레이션 계열 시퀀스 판별(타입명 기준). Collet/COC/PickUpZ/PlaceZ/Needle/VisionCamera/AutoCal/FocusScan 포함.
+        private static bool IsCalibrationSequenceName(string typeName)
+        {
+            if (string.IsNullOrEmpty(typeName))
+                return false;
+            return typeName.IndexOf("Calibration", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                   typeName.IndexOf("FocusScan", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                   typeName.IndexOf("RotationCenter", StringComparison.OrdinalIgnoreCase) >= 0;
         }
 
         protected int ResolveVisionInspectionTimeout()
@@ -341,6 +355,21 @@ namespace QMC.CDT320.Sequencing
                         ct,
                         BuildPickerTargetName("BottomDieAutoFocusBestZ", pickerIndex),
                         true).ConfigureAwait(false);
+                    if (result != 0)
+                        return result;
+
+                    // Runtime AF Offset 누적: runtimeDelta = bestZ - 기존 바텀 포커스(defaultPosition).
+                    // 다이를 든 상태의 실측 포커스이므로 Pick/Place Z 보정(Collet AF Z Offset)에 누적한다(다음 다이부터 적용).
+                    // 한계 초과는 fail-closed(알람 중단). 레시피 파일 저장은 아래 ApplyRuntimeBottomFocusPosition의
+                    // 레시피 저장에 함께 실린다.
+                    result = AccumulateColletAfZOffsetFromRuntimeAf(
+                        pickerIndex,
+                        defaultPosition,
+                        bestZ,
+                        sequence.Result.BestScore,
+                        sequence.Result.SampleCount,
+                        scanMode.ToString(),
+                        waferKey);
                     if (result != 0)
                         return result;
 
@@ -771,7 +800,8 @@ namespace QMC.CDT320.Sequencing
             string description,
             CancellationToken ct,
             string targetName = null,
-            bool forceMove = false)
+            bool forceMove = false,
+            bool useSafeMoveMotion = false)
         {
             Stopwatch totalWatch = Stopwatch.StartNew();
             long commandMs = 0;
@@ -839,7 +869,7 @@ namespace QMC.CDT320.Sequencing
 
                 Stopwatch commandWatch = Stopwatch.StartNew();
                 int result = await SequenceAwaiter.AwaitAsync(
-                    MovePickerAxisCommandAsync(axis, target, targetName, forceMove),
+                    MovePickerAxisCommandAsync(axis, target, targetName, forceMove, useSafeMoveMotion),
                     -1,
                     ct).ConfigureAwait(false);
                 commandMs = commandWatch.ElapsedMilliseconds;
@@ -919,7 +949,8 @@ namespace QMC.CDT320.Sequencing
             string description,
             CancellationToken ct,
             string targetName = null,
-            bool forceMove = false)
+            bool forceMove = false,
+            bool useSafeMoveMotion = false)
         {
             Stopwatch totalWatch = Stopwatch.StartNew();
             long commandMs = 0;
@@ -993,7 +1024,7 @@ namespace QMC.CDT320.Sequencing
 
                     commandTargets.Add(pair);
                     commandDetails.Add(BuildPickerMoveAxisLogDetail(pair.Key, pair.Value));
-                    commandTasks.Add(MovePickerAxisCommandAsync(pair.Key, pair.Value, targetName, forceMove));
+                    commandTasks.Add(MovePickerAxisCommandAsync(pair.Key, pair.Value, targetName, forceMove, useSafeMoveMotion));
                 }
 
                 if (commandTasks.Count > 0)
@@ -1872,7 +1903,8 @@ namespace QMC.CDT320.Sequencing
             targets[PickerAxis.PickerZ1] = GetPickerTeachingPosition(PickerAxis.PickerZ1, "AvoidPosition");
             targets[PickerAxis.PickerZ2] = GetPickerTeachingPosition(PickerAxis.PickerZ2, "AvoidPosition");
             targets[PickerAxis.PickerZ3] = GetPickerTeachingPosition(PickerAxis.PickerZ3, "AvoidPosition");
-            return MovePickerAxesAndVerifyAsync(targets, description, ct, "AvoidPosition", forceMove);
+            // Avoid 이동은 안전이동 → 캘리브레이션 컨텍스트에서 SafeMovePercent(축 Default×%)를 사용한다(공정 경로는 CalibrationMotion=null이라 무영향).
+            return MovePickerAxesAndVerifyAsync(targets, description, ct, "AvoidPosition", forceMove, true);
         }
 
         protected Task<int> MoveAllPickerTToAvoidAndVerifyAsync(string description, CancellationToken ct, bool forceMove = false)
@@ -1882,7 +1914,8 @@ namespace QMC.CDT320.Sequencing
             targets[PickerAxis.PickerT1] = GetPickerTeachingPosition(PickerAxis.PickerT1, "AvoidPosition");
             targets[PickerAxis.PickerT2] = GetPickerTeachingPosition(PickerAxis.PickerT2, "AvoidPosition");
             targets[PickerAxis.PickerT3] = GetPickerTeachingPosition(PickerAxis.PickerT3, "AvoidPosition");
-            return MovePickerAxesAndVerifyAsync(targets, description, ct, "AvoidPosition;PickerPhase=SafeT", forceMove);
+            // Avoid 이동은 안전이동 → 캘리브레이션 컨텍스트에서 SafeMovePercent(축 Default×%)를 사용한다.
+            return MovePickerAxesAndVerifyAsync(targets, description, ct, "AvoidPosition;PickerPhase=SafeT", forceMove, true);
         }
 
         protected Task<int> MovePickerGroupAndVerifyAsync(string positionName, string description, CancellationToken ct)
@@ -1918,7 +1951,9 @@ namespace QMC.CDT320.Sequencing
                     GetPickerTeachingPosition(PickerAxis.PickerY, "AvoidPosition"),
                     description + " Y축 Avoid",
                     ct,
-                    "AvoidPosition;PickerPhase=SafeY").ConfigureAwait(false);
+                    "AvoidPosition;PickerPhase=SafeY",
+                    false,
+                    true).ConfigureAwait(false);
                 if (result != 0)
                     return result;
 
@@ -1927,7 +1962,9 @@ namespace QMC.CDT320.Sequencing
                     GetPickerTeachingPosition(PickerAxis.PickerX, "AvoidPosition"),
                     description + " X축 Avoid",
                     ct,
-                    "AvoidPosition;PickerPhase=SafeX").ConfigureAwait(false);
+                    "AvoidPosition;PickerPhase=SafeX",
+                    false,
+                    true).ConfigureAwait(false);
                 if (result != 0)
                     return result;
 
@@ -2009,7 +2046,9 @@ namespace QMC.CDT320.Sequencing
                     GetPickerTeachingPosition(PickerAxis.PickerY, "AvoidPosition"),
                     label + " Y축 Avoid",
                     ct,
-                    "AvoidPosition;PickerPhase=SafeY").ConfigureAwait(false);
+                    "AvoidPosition;PickerPhase=SafeY",
+                    false,
+                    true).ConfigureAwait(false);
                 if (result != 0)
                     return result;
 
@@ -2101,6 +2140,14 @@ namespace QMC.CDT320.Sequencing
                         return 0;
                     }
 
+                    // 이미 전체 Avoid면 재이동하지 않고 그대로 통과(Auto Cal 안전위치 이동과 중복 방지, 이미-안전 시 그 자리 대기).
+                    if (RearPicker.IsRearPickerInAvoidPosition())
+                    {
+                        WriteLog("PickerOppositeAvoid",
+                            Name + " opposite RearPicker already at Avoid. move skipped. description=" + description + " - Ok");
+                        return 0;
+                    }
+
                     int result = await MoveRearPickerToAvoidSequentialAsync(description, fine, ct).ConfigureAwait(false);
                     if (result != 0)
                         return result;
@@ -2118,6 +2165,14 @@ namespace QMC.CDT320.Sequencing
                 {
                     WriteLog("PickerOppositeAvoid",
                         Name + " opposite picker avoid skipped. FrontPickerUnit is null. description=" + description + " - Check");
+                    return 0;
+                }
+
+                // 이미 전체 Avoid면 재이동하지 않고 그대로 통과(Auto Cal 안전위치 이동과 중복 방지, 이미-안전 시 그 자리 대기).
+                if (FrontPicker.IsFrontPickerInAvoidPosition())
+                {
+                    WriteLog("PickerOppositeAvoid",
+                        Name + " opposite FrontPicker already at Avoid. move skipped. description=" + description + " - Ok");
                     return 0;
                 }
 
@@ -2696,21 +2751,47 @@ namespace QMC.CDT320.Sequencing
             return false;
         }
 
-        protected Task<int> MovePickerAxisCommandAsync(PickerAxis axis, double target, string targetName = null, bool forceMove = false)
+        protected Task<int> MovePickerAxisCommandAsync(PickerAxis axis, double target, string targetName = null, bool forceMove = false, bool useSafeMoveMotion = false)
         {
             if (CalibrationMotion != null)
             {
                 CalibrationMotion.EnsureDefaults();
+
+                // 기본: 측정 이동 = 각 캘의 Move Speed(CalibrationMotion). 안전이동(useSafeMoveMotion=true)이고
+                // SafeMovePercent가 설정돼 있으면 해당 축 Config.Default × %를 명시 속도/가감속으로 사용한다.
+                // (측정 속도와 완전 분리, 전역 MotionSpeedScale과 중첩되지 않음 — explicit 경로)
+                double velocity = CalibrationMotion.MoveVelocity;
+                double acceleration = CalibrationMotion.MoveAcceleration;
+                double deceleration = CalibrationMotion.MoveDeceleration;
+                bool safeMoveApplied = false;
+                double safePercent = 0.0;
+                if (useSafeMoveMotion)
+                {
+                    safePercent = ResolveCalibrationSafeMovePercent();
+                    BaseAxis safeAxis = safePercent > 0.0 ? GetPickerAxis(axis) : null;
+                    if (safeAxis != null && safeAxis.Config != null && safeAxis.Config.DefaultVelocity > 0.0)
+                    {
+                        double factor = safePercent / 100.0;
+                        velocity = safeAxis.Config.DefaultVelocity * factor;
+                        acceleration = safeAxis.Config.Acceleration * factor;
+                        deceleration = safeAxis.Config.Deceleration * factor;
+                        safeMoveApplied = true;
+                    }
+                }
+
                 WriteLog("PickerMoveCommand",
                     Name + " calibration motion command. side=" + Side +
                     ", axis=" + axis +
                     ", target=" + target.ToString("F6") +
                     ", targetName=" + (targetName ?? "-") +
                     ", forceMove=" + forceMove +
-                    ", velocity=" + CalibrationMotion.MoveVelocity.ToString("F6") +
-                    ", acceleration=" + CalibrationMotion.MoveAcceleration.ToString("F6") +
-                    ", deceleration=" + CalibrationMotion.MoveDeceleration.ToString("F6") +
+                    ", velocity=" + velocity.ToString("F6") +
+                    ", acceleration=" + acceleration.ToString("F6") +
+                    ", deceleration=" + deceleration.ToString("F6") +
                     ", timeoutMs=" + CalibrationMotion.MoveTimeoutMs +
+                    ", safeMove=" + useSafeMoveMotion +
+                    ", safeMoveApplied=" + safeMoveApplied +
+                    ", safeMovePercent=" + safePercent.ToString("F3") +
                     ", speedScalePercent=" + MotionSpeedScale.ScalePercent.ToString("F3") +
                     ", effectiveScaleFactor=" + MotionSpeedScale.EffectiveScaleFactor.ToString("F6") +
                     ", explicitVelocityNotDefaultScaled=True - Check");
@@ -2718,18 +2799,18 @@ namespace QMC.CDT320.Sequencing
                     return FrontPicker.MovePickerAxisCommandWithMotion(
                         axis,
                         target,
-                        CalibrationMotion.MoveVelocity,
-                        CalibrationMotion.MoveAcceleration,
-                        CalibrationMotion.MoveDeceleration,
+                        velocity,
+                        acceleration,
+                        deceleration,
                         targetName,
                         forceMove);
 
                 return RearPicker.MovePickerAxisCommandWithMotion(
                     axis,
                     target,
-                    CalibrationMotion.MoveVelocity,
-                    CalibrationMotion.MoveAcceleration,
-                    CalibrationMotion.MoveDeceleration,
+                    velocity,
+                    acceleration,
+                    deceleration,
                     targetName,
                     forceMove);
             }
@@ -2738,6 +2819,29 @@ namespace QMC.CDT320.Sequencing
             if (Side == PickerSequenceSide.Front)
                 return FrontPicker.MovePickerAxisCommand(axis, target, fine, targetName, forceMove);
             return RearPicker.MovePickerAxisCommand(axis, target, fine, targetName, forceMove);
+        }
+
+        // 캘리브레이션 안전이동(Avoid) 전용 퍼센트를 장비 설정에서 라이브로 읽는다. 계산은 각 축 Config.Default × (%/100).
+        // 캘리브레이션 컨텍스트(CalibrationMotion != null)에서만 사용되며, 값이 없거나 오류면 0(=측정 속도 사용)으로 폴백한다.
+        private double ResolveCalibrationSafeMovePercent()
+        {
+            try
+            {
+                if (Context == null || Context.Machine == null || Context.Machine.VisionUnit == null ||
+                    Context.Machine.VisionUnit.Config == null || Context.Machine.VisionUnit.Config.CalibrationData == null)
+                    return 0.0;
+
+                double percent = Context.Machine.VisionUnit.Config.CalibrationData.SafeMovePercent;
+                if (double.IsNaN(percent) || percent < CalibrationData.MinSafeMovePercent)
+                    return 0.0;
+                if (percent > CalibrationData.MaxSafeMovePercent)
+                    percent = CalibrationData.MaxSafeMovePercent;
+                return percent;
+            }
+            catch
+            {
+                return 0.0;
+            }
         }
 
         protected Task<int> MovePickerAxisCommandWithVelocityAsync(PickerAxis axis, double target, double velocity, string targetName = null)
@@ -3162,6 +3266,169 @@ namespace QMC.CDT320.Sequencing
             if (Side == PickerSequenceSide.Front)
                 return FrontPicker.GetPickerTeachingPosition(axis, positionName);
             return RearPicker.GetPickerTeachingPosition(axis, positionName);
+        }
+
+        // ── Collet AF Z Offset (공정 Pick/Place Z 전용) ─────────────────────────────
+        // 부호 규칙: 픽커 Z 위=+ / 아래=-. offset이 +면 덜 내려오고 -면 더 내려온다(적용식 = 목표 Z + offset).
+        // 인덱스 정합: pickerIndex(0-base) = colletNo-1 = Recipe.ColletAfZOffset 인덱스 = PickerZ{i} 축.
+        // 캘리브레이션 측정/티칭 저장/검사(Bottom/Side)/Avoid Z 경로에는 절대 사용하지 말 것(이중 적용·오염).
+
+        /// <summary>자기 side 픽커 레시피의 ColletAfZOffset 배열과 limit를 얻는다. 실패 시 false.</summary>
+        private bool TryGetColletAfZOffsetRecipe(out double[] offsets, out double limitMm)
+        {
+            offsets = null;
+            limitMm = 0.3;
+            if (Side == PickerSequenceSide.Front)
+            {
+                if (FrontPicker == null || FrontPicker.Recipe == null)
+                    return false;
+                FrontPicker.Recipe.EnsurePositionObjects();
+                offsets = FrontPicker.Recipe.ColletAfZOffset;
+                limitMm = FrontPicker.Recipe.ColletAfZOffsetLimitMm;
+            }
+            else
+            {
+                if (RearPicker == null || RearPicker.Recipe == null)
+                    return false;
+                RearPicker.Recipe.EnsurePositionObjects();
+                offsets = RearPicker.Recipe.ColletAfZOffset;
+                limitMm = RearPicker.Recipe.ColletAfZOffsetLimitMm;
+            }
+
+            if (double.IsNaN(limitMm) || double.IsInfinity(limitMm) || limitMm <= 0.0)
+                limitMm = 0.3;
+            return offsets != null;
+        }
+
+        /// <summary>
+        /// 공정(오토/수동 시퀀스) Pick/Place Z 목표 전용 Collet AF Z Offset 조회.
+        /// |offset| > Recipe.ColletAfZOffsetLimitMm 이면 fail-closed: limitFailReason을 채우고 0을 반환한다 —
+        /// 호출부는 반드시 limitFailReason != null 이면 Fail 알람으로 중단해야 한다(한계 초과 편차로 하강 금지).
+        /// </summary>
+        protected double ResolveColletAfZOffset(int pickerIndex, out string limitFailReason)
+        {
+            limitFailReason = null;
+            if (pickerIndex < 0 || pickerIndex > 3)
+                return 0.0;
+
+            double[] offsets;
+            double limitMm;
+            if (!TryGetColletAfZOffsetRecipe(out offsets, out limitMm) || offsets.Length <= pickerIndex)
+                return 0.0;
+
+            double offset = offsets[pickerIndex];
+            if (double.IsNaN(offset) || double.IsInfinity(offset))
+                return 0.0;
+
+            if (Math.Abs(offset) > limitMm)
+            {
+                limitFailReason =
+                    "Collet AF Z Offset이 안전 한계를 초과해 공정 Z 이동을 중단합니다. side=" + Side +
+                    ", colletNo=" + (pickerIndex + 1) +
+                    ", offsetMm=" + offset.ToString("F6") +
+                    ", limitMm=" + limitMm.ToString("F6") +
+                    ". Recipe→Picker의 Offset/limit 또는 콜렛 상태를 확인하세요.";
+                return 0.0;
+            }
+
+            return offset;
+        }
+
+        /// <summary>
+        /// PickUpZ/PlaceZ 캘리브레이션이 티칭을 새로 저장하면 현재 콜렛 접촉면이 티칭에 흡수되므로,
+        /// 잔존 Collet AF Z Offset을 0으로 리셋해 이중 반영을 차단한다(캘 저장 직후 호출).
+        /// </summary>
+        protected void ResetColletAfZOffsetAfterZCalibration(int pickerIndex, string source)
+        {
+            try
+            {
+                if (pickerIndex < 0 || pickerIndex > 3)
+                    return;
+
+                double[] offsets;
+                double limitMm;
+                if (!TryGetColletAfZOffsetRecipe(out offsets, out limitMm) || offsets.Length <= pickerIndex)
+                    return;
+
+                double previous = offsets[pickerIndex];
+                offsets[pickerIndex] = 0.0;
+                QMC.Common.Log.Write("Calibration", "SYSTEM", "ColletAfZOffsetReset",
+                    "Z 캘리브레이션 티칭 저장으로 Collet AF Z Offset을 리셋했습니다(새 티칭이 현재 콜렛 접촉면을 포함). source=" + source +
+                    ", side=" + Side +
+                    ", colletNo=" + (pickerIndex + 1) +
+                    ", previousOffsetMm=" + previous.ToString("F6") + " -> 0.000000");
+            }
+            catch (Exception ex)
+            {
+                WriteLog("ColletAfZOffset",
+                    Name + " Collet AF Z Offset 리셋 중 예외. source=" + source +
+                    ", colletNo=" + (pickerIndex + 1) +
+                    ", error=" + ex.Message + " - Failed");
+            }
+        }
+
+        /// <summary>
+        /// 공정 중 Runtime Bottom Die AutoFocus 결과로 Collet AF Z Offset을 누적한다.
+        /// runtimeDelta = bestZ - 기존 바텀 포커스(defaultZ), 누적 = 기존 offset + runtimeDelta.
+        /// |누적| > limit 이면 fail-closed(알람 중단). 성공 시 산식 포함 전체 데이터를 항상 영속 로그로 남긴다.
+        /// 적용 시점: 이번 다이의 Pick은 이미 지났으므로 다음 다이(Place 포함)부터 반영된다.
+        /// 반환 0=성공, 음수=한계 초과 Fail.
+        /// </summary>
+        protected int AccumulateColletAfZOffsetFromRuntimeAf(
+            int pickerIndex,
+            double defaultZ,
+            double bestZ,
+            double bestScore,
+            int sampleCount,
+            string scanMode,
+            string waferKey)
+        {
+            if (pickerIndex < 0 || pickerIndex > 3)
+                return 0;
+
+            double[] offsets;
+            double limitMm;
+            if (!TryGetColletAfZOffsetRecipe(out offsets, out limitMm) || offsets.Length <= pickerIndex)
+                return 0;
+
+            double runtimeDelta = bestZ - defaultZ;
+            if (double.IsNaN(runtimeDelta) || double.IsInfinity(runtimeDelta))
+                return 0;
+
+            double previous = offsets[pickerIndex];
+            if (double.IsNaN(previous) || double.IsInfinity(previous))
+                previous = 0.0;
+            double newTotal = previous + runtimeDelta;
+
+            if (Math.Abs(newTotal) > limitMm)
+            {
+                return Fail("PICKER-RUNTIME-AF-ZOFFSET-LIMIT", Name,
+                    "Runtime Bottom AF 누적 Collet AF Z Offset이 안전 한계를 초과했습니다. side=" + Side +
+                    ", colletNo=" + (pickerIndex + 1) +
+                    ", runtimeDelta=bestZ-defaultZ=" + bestZ.ToString("F6") + "-" + defaultZ.ToString("F6") + "=" + runtimeDelta.ToString("F6") +
+                    ", previousOffsetMm=" + previous.ToString("F6") +
+                    ", newTotalMm=" + newTotal.ToString("F6") +
+                    ", limitMm=" + limitMm.ToString("F6") +
+                    ". 콜렛/티칭 상태를 확인하세요.");
+            }
+
+            offsets[pickerIndex] = newTotal;
+
+            string detail =
+                "Runtime Bottom AF Collet AF Z Offset 누적. side=" + Side +
+                ", colletNo=" + (pickerIndex + 1) +
+                ", runtimeDelta=bestZ-defaultZ=" + bestZ.ToString("F6") + "-" + defaultZ.ToString("F6") + "=" + runtimeDelta.ToString("F6") +
+                ", offsetMm=" + previous.ToString("F6") + " -> " + newTotal.ToString("F6") +
+                ", limitMm=" + limitMm.ToString("F6") +
+                ", bestScore=" + bestScore.ToString("F4") +
+                ", sampleCount=" + sampleCount +
+                ", scanMode=" + (scanMode ?? "-") +
+                ", wafer=" + (waferKey ?? "-") +
+                ", 부호규칙=+덜내려옴/-더내려옴, 적용=다음 다이 Pick/Place부터";
+            // 공정 중 이벤트지만 저빈도 + 분석 필수 데이터이므로 Calibration 카테고리로 항상 영속한다.
+            QMC.Common.Log.Write("Calibration", "SYSTEM", "ColletAfZOffsetRuntime", detail);
+            WriteLog("ColletAfZOffset", Name + " " + detail + " - Ok");
+            return 0;
         }
 
         protected double ResolveSideInspectionPickerZFromBottomBest(int pickerIndex, int pickerNo, string source)

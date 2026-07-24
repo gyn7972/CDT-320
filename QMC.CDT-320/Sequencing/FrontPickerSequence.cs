@@ -201,7 +201,9 @@ namespace QMC.CDT320.Sequencing
                     if (IsWaferCompletionRunComplete())
                         return;
 
-                    await Task.Delay(1, ct).ConfigureAwait(false);
+                    // 유휴 폴 주기: 1ms 폴은 CPU/축 상태 조회 폭주를 유발했다. AutoSequenceGate와 동일한 20ms를 기본으로 사용한다.
+                    // 대기 루프의 부수 임무(교체 준비 publish/Avoid 유지/CycleStop 관찰)는 그대로 유지된다.
+                    await Task.Delay(PickerSequenceIdlePolicy.IdlePollDelayMs, ct).ConfigureAwait(false);
                 }
             }
             catch (System.OperationCanceledException)
@@ -477,7 +479,9 @@ namespace QMC.CDT320.Sequencing
                 if (!inputStageReady)
                     return false;
 
-                return MaterialStateService.HasReadyInputStagePickTarget();
+                // 전역 target 존재 여부가 아니라 "이 side가 실제 처리 가능한" target(미예약 또는 Front 예약)으로 판정한다.
+                // 전역 판정은 상대 픽커 예약 die에도 true를 반환해 빈 PickerProcess 무한 재진입(busy loop)을 유발했다.
+                return MaterialStateService.HasActionableInputStagePickTarget(MaterialLocationKind.PickerFront);
             }
             catch (System.Exception ex)
             {

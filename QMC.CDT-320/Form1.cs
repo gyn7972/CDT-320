@@ -1100,36 +1100,9 @@ namespace QMC.CDT_320
 
         private static string ResolveMaterialSnapshotLotId(MaterialSnapshot snapshot)
         {
-            try
-            {
-                if (snapshot == null)
-                    return "";
-
-                if (!string.IsNullOrWhiteSpace(snapshot.LotId))
-                    return snapshot.LotId.Trim();
-
-                if (snapshot.Cassettes != null)
-                {
-                    var cassette = snapshot.Cassettes.FirstOrDefault(c => c != null && !string.IsNullOrWhiteSpace(c.CassetteLotId));
-                    if (cassette != null)
-                        return cassette.CassetteLotId.Trim();
-                }
-
-                if (snapshot.Wafers != null)
-                {
-                    var wafer = snapshot.Wafers.FirstOrDefault(w => w != null && !string.IsNullOrWhiteSpace(w.CassetteLotId));
-                    if (wafer != null)
-                        return wafer.CassetteLotId.Trim();
-                }
-            }
-            catch
-            {
-            }
-            finally
-            {
-            }
-
-            return "";
+            return snapshot != null && !string.IsNullOrWhiteSpace(snapshot.LotId)
+                ? snapshot.LotId.Trim()
+                : "";
         }
 
         private static int CountMaterialSnapshotWafers(MaterialSnapshot snapshot)
@@ -1208,7 +1181,7 @@ namespace QMC.CDT_320
 
             MaterialStorage.InitializeDefaultState(inputLevels, goodLevels, 25, 25);
             MaterialStorage.State.RecipeName = recipe.FileName ?? "";
-            MaterialStorage.State.LotId = recipe.LotId ?? "";
+            MaterialStorage.State.LotId = string.IsNullOrWhiteSpace(recipe.LotId) ? "" : recipe.LotId.Trim();
             MaterialStateService.NotifyAndSave("InitializeFromRecipe");
         }
 

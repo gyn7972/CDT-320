@@ -18,6 +18,8 @@ namespace QMC.CDT320.Materials
         private static readonly object FileSyncRoot = new object();
         private static readonly Queue<CsvWriteItem> PendingItems = new Queue<CsvWriteItem>();
         private static bool _writerRunning;
+        // 사용자 지시(2026-07-24): Log\Temp\InputWaferInspectionCsv 스냅샷 CSV 기록 중지. 재사용 시 true로 변경.
+        private static readonly bool WriteCsvSnapshotEnabled = false;
 
         public static void EnqueueInspection(
             string eventName,
@@ -31,11 +33,18 @@ namespace QMC.CDT320.Materials
                 if (die == null)
                     return;
 
+                lotId = MaterialStateService.GetProductionLotId();
                 VisionInspectionResultFileWriter.EnqueueBottomResult(
                     recipeName,
                     lotId,
                     die,
                     updatedRecord);
+
+                // 사용자 지시(2026-07-24): Log\Temp\InputWaferInspectionCsv 스냅샷 CSV는 더 이상 남기지 않는다.
+                // 검사 결과 파일(VisionInspectionResultFileWriter -> INPUT 폴더)은 위에서 그대로 유지된다.
+                // 다시 필요해지면 이 플래그만 true로 되돌린다.
+                if (!WriteCsvSnapshotEnabled)
+                    return;
 
                 CsvWriteItem item = BuildItem(eventName, recipeName, lotId, die, updatedRecord);
                 if (item == null || string.IsNullOrWhiteSpace(item.Path) || string.IsNullOrWhiteSpace(item.Line))

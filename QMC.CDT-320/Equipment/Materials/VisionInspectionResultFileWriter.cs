@@ -58,6 +58,7 @@ namespace QMC.CDT320.Materials
                     return;
                 }
 
+                lotId = MaterialStateService.GetProductionLotId();
                 DateTime eventAt = ResolveEventTime(bottomRecord.UpdatedAt);
                 DateTime firstPickAt = ResolveInputPickStart(die, eventAt);
                 DateTime sessionStartedAt = ResolveInputSessionStart(
@@ -109,6 +110,7 @@ namespace QMC.CDT320.Materials
                 if (outputWafer == null || die == null)
                     return;
 
+                lotId = MaterialStateService.GetProductionLotId();
                 DieInspectionRecord placeRecord = FindInspection(die, "OutputPlaceVision");
                 if (placeRecord == null)
                     return;
@@ -834,9 +836,7 @@ namespace QMC.CDT320.Materials
             DateTime endAt,
             int totalCount)
         {
-            string lotId = !string.IsNullOrWhiteSpace(place.LotId)
-                ? place.LotId
-                : metadata.LotId;
+            string lotId = place.LotId ?? "";
             string machineNumber = string.IsNullOrWhiteSpace(metadata.MachineNumber)
                 ? "CDT-320"
                 : metadata.MachineNumber;
@@ -906,7 +906,6 @@ namespace QMC.CDT320.Materials
                     : null;
                 if (project != null)
                 {
-                    metadata.LotId = project.LotId ?? "";
                     metadata.MachineNumber = project.MachineNumber ?? "";
                     metadata.InputCassetteId = project.InputCassetteId ?? "";
                     metadata.OutputCassetteId = project.OutputCassetteId ?? "";
@@ -1429,7 +1428,6 @@ namespace QMC.CDT320.Materials
 
         private sealed class RecipeMetadata
         {
-            public string LotId { get; set; } = "";
             public string MachineNumber { get; set; } = "";
             public string InputCassetteId { get; set; } = "";
             public string OutputCassetteId { get; set; } = "";

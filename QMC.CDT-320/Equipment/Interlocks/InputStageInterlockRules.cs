@@ -1640,6 +1640,9 @@ namespace QMC.CDT320.Interlocks
                 feeder.IsWaferFeederYInAvoidPosition())
                 return true;
 
+            //if(feeder.IsWaferFeeederD
+            //    )
+
             return MotionGuardRuleHelpers.Block(
                 movingName,
                 movingName + " HOME 이동 불가: InputFeederY가 Home(0) 또는 Avoid 위치가 아닙니다.",

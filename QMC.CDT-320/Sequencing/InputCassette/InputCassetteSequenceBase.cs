@@ -750,7 +750,7 @@ namespace QMC.CDT320.Sequencing
                     level2Map,
                     BuildCassetteLevelSlotPositions(cassette, 1),
                     BuildCassetteLevelSlotPositions(cassette, 2),
-                    LotStorage.ActiveLot != null ? LotStorage.ActiveLot.LotID : "",
+                    MaterialStateService.GetProductionLotId(),
                     MaterialStateService.ResolveInputTapeFrameSpecName(inchSelect));
                 cassette.ApplyRegisteredWaferMappingState();
                 cassette.CommitWaferMapping();

@@ -35,19 +35,29 @@ namespace QMC.CDT320.Interlocks
 
                 InputCassetteUnit Cassette = machine.InputCassetteUnit;
                 InputFeederUnit feeder = machine.InputFeederUnit;
+                PickerFrontUnit frontPicker = machine.PickerFrontUnit;
 
                 switch (moveKind)
                 {
                     // 매뉴얼 이동 인터락 확인
                     case MotionGuardMoveKind.AxisMove:
+                        if (!VerifyFrontPickerXAvoidPosition(frontPicker, out reason))
+                            return false;
+
                         return CanManualWaferLifterZ(Cassette, feeder, out reason);
 
                     // 홈 이동 인터락 확인
                     case MotionGuardMoveKind.AxisHome:
+                        if (!VerifyFrontPickerXAvoidPosition(frontPicker, out reason))
+                            return false;
+
                         return CanHomeWaferLifterZ(Cassette, feeder, out reason);
                     
                     // 자동 이동 인터락 확인
                     case MotionGuardMoveKind.AxisTeachingMove:
+                        if (!VerifyFrontPickerXAvoidPosition(frontPicker, out reason))
+                            return false;
+
                         if (feeder == null)
                             return true;
 
@@ -71,6 +81,41 @@ namespace QMC.CDT320.Interlocks
             }
 
 
+        }
+
+        // 인터락 조건: InputLifterZ 이동 전 FrontPickerX가 정확한 AvoidPosition인지 확인한다.
+        private static bool VerifyFrontPickerXAvoidPosition(
+            PickerFrontUnit frontPicker,
+            out string reason)
+        {
+            reason = string.Empty;
+
+            if (frontPicker == null ||
+                frontPicker.PickerX == null ||
+                frontPicker.Recipe == null ||
+                frontPicker.Recipe.PickerX == null)
+            {
+                return MotionGuardRuleHelpers.Block(
+                    "InputLifterZ",
+                    "FrontPickerX AvoidPosition을 확인할 수 없습니다. InputLifterZ 이동이 차단되었습니다.",
+                    out reason);
+            }
+
+            double target = frontPicker.Recipe.PickerX.AvoidPosition;
+
+            if (!frontPicker.IsFrontPickerAxisInTeachingPosition(
+                PickerAxis.PickerX,
+                "AvoidPosition"))
+            {
+                return MotionGuardRuleHelpers.Block(
+                    "InputLifterZ",
+                    "FrontPickerX가 AvoidPosition에 있어야 합니다. " +
+                    "target=" + target.ToString("0.###") +
+                    ", actual=" + frontPicker.PickerX.ActualPosition.ToString("0.###"),
+                    out reason);
+            }
+
+            return true;
         }
 
         // 인터락 항목: 수동 InputLifterZ 이동은 카세트 돌출 감지와 InputFeederY 이동 중 여부를 확인한다.
@@ -177,8 +222,6 @@ namespace QMC.CDT320.Interlocks
                     "InputLifterZ",
                     "InputFeederY must be at a cassette-side safe teaching position before InputLifterZ move.",
                     out reason);
-
-            
 
             return true;
         }

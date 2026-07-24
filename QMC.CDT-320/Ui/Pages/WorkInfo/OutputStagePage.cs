@@ -716,6 +716,25 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
         {
             try
             {
+                Form1 host = GetHost();
+                if (host == null || host.Controller == null)
+                {
+                    QMC.Common.MessageDialog.Show(this,
+                        "MachineController가 준비되지 않아 Output Stage 테스트 Data를 생성할 수 없습니다.",
+                        "Material Data", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+                if (_manualSequenceRunning ||
+                    host.Controller.IsManualBusy ||
+                    host.Controller.IsSequenceRunning ||
+                    host.Controller.Status == EquipmentStatus.AutoRunning)
+                {
+                    QMC.Common.MessageDialog.Show(this,
+                        "시퀀스 또는 수동 동작 중에는 생산 LOT을 변경하는 테스트 Data를 생성할 수 없습니다.",
+                        "Material Data", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
                 string sideName = _selectedMaterialSide == BinSide.Ng ? "NG" : "Good";
                 if (QMC.Common.MessageDialog.Show(this, "Output Stage " + sideName + " 위치에 Wafer Data를 새로 생성하시겠습니까?", "Material Data", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes)
                     return;

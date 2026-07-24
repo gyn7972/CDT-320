@@ -285,15 +285,10 @@ namespace QMC.CDT320.Sequencing.Calibration
                 if (result != 0)
                     return result;
 
-                result = RequireOppositePickerAlreadyAtAvoid
-                    ? VerifyOppositePickerAlreadyAtAvoidForStart()
-                    : await MoveOppositePickerToAvoidAndVerifyAsync(
-                        "Collet Calibration 시작 전 상대 Picker 전체 Avoid",
-                        ct).ConfigureAwait(false);
-                if (result != 0)
-                    return result;
-
-                result = await EnsureInputOutputVisionAvoidForStartAsync(ct).ConfigureAwait(false);
+                // VisionX Avoid는 상대 픽커 이동 "전"에 확보되어야 하며(간섭 방지), 위 1회 호출로 충분하다.
+                // Collet Cal의 상대 Picker 안전위치는 공용 전체 AVOID가 아니라 Output-side Avoid(OutSide-Avoid)다.
+                // 이미 Output-side Avoid면 헬퍼가 재이동 없이 통과하므로 공용 AVOID↔OutSide-Avoid 왕복이 생기지 않는다.
+                result = await MoveOppositePickerToOutsideForStartAsync(ct).ConfigureAwait(false);
                 if (result != 0)
                     return result;
 
@@ -452,10 +447,11 @@ namespace QMC.CDT320.Sequencing.Calibration
             {
                 ct.ThrowIfCancellationRequested();
 
+                // 시작 안전이동은 forceMove를 쓰지 않는다: 이미 Avoid(정지+무알람+톨러런스)면 확인만 하고 통과한다.
+                // (CanSkipPickerMoveCommand — 이동 중/알람/서보OFF면 스킵되지 않는 fail-closed 판정)
                 int result = await MoveAllPickerZToAvoidAndVerifyAsync(
                     "Collet Calibration 시작 전 선택 Picker Z축 Avoid",
-                    ct,
-                    true).ConfigureAwait(false);
+                    ct).ConfigureAwait(false);
                 if (result != 0)
                     return result;
 
@@ -471,6 +467,7 @@ namespace QMC.CDT320.Sequencing.Calibration
                     "Collet Calibration 시작 전 선택 PickerY Avoid",
                     ct,
                     "ColletCalibrationStart;PickerPhase=SafeY;PickerZone=Avoid",
+                    false,
                     true).ConfigureAwait(false);
                 if (result != 0)
                     return result;
@@ -480,8 +477,7 @@ namespace QMC.CDT320.Sequencing.Calibration
 
                 result = await MoveAllPickerTToAvoidAndVerifyAsync(
                     "Collet Calibration 시작 전 선택 Picker T축 전체 Avoid",
-                    ct,
-                    true).ConfigureAwait(false);
+                    ct).ConfigureAwait(false);
                 if (result != 0)
                     return result;
 
@@ -745,6 +741,15 @@ namespace QMC.CDT320.Sequencing.Calibration
                 if (FrontPicker == null)
                     return 0;
 
+                // 이미 Output-side Avoid면 재이동하지 않고 그대로 대기(공용 AVOID로 갔다가 다시 오는 왕복 방지).
+                if (FrontPicker.IsPickerInOutputSideAvoidPosition())
+                {
+                    QMC.Common.Log.Write("Calibration", "SYSTEM", "ColletCalStartSafe",
+                        "Collet Calibration start FrontPicker already at Output-side Avoid. move skipped. side=" + _calibrationSide +
+                        ", colletNo=" + _colletNo + " - Ok");
+                    return 0;
+                }
+
                 CalibrationMotionSettings motion = ResolveCalibrationMotion();
                 QMC.Common.Log.Write("Calibration", "SYSTEM", "ColletCalStartSafe",
                     "Collet Calibration start FrontPicker Outside(Output-side Avoid) move for opposite picker. side=" + _calibrationSide +
@@ -786,6 +791,15 @@ namespace QMC.CDT320.Sequencing.Calibration
                 ct.ThrowIfCancellationRequested();
                 if (RearPicker == null)
                     return 0;
+
+                // 이미 Output-side Avoid면 재이동하지 않고 그대로 대기(공용 AVOID로 갔다가 다시 오는 왕복 방지).
+                if (RearPicker.IsPickerInOutputSideAvoidPosition())
+                {
+                    QMC.Common.Log.Write("Calibration", "SYSTEM", "ColletCalStartSafe",
+                        "Collet Calibration start RearPicker already at Output-side Avoid. move skipped. side=" + _calibrationSide +
+                        ", colletNo=" + _colletNo + " - Ok");
+                    return 0;
+                }
 
                 CalibrationMotionSettings motion = ResolveCalibrationMotion();
                 QMC.Common.Log.Write("Calibration", "SYSTEM", "ColletCalStartSafe",
@@ -1573,6 +1587,93 @@ namespace QMC.CDT320.Sequencing.Calibration
             }
         }
 
+        // 콜렛 AF Z Offset 계산/적용.
+        // Offset = (AF Best Z 기반 새 검사 티칭 Z) - (기존 Bottom 티칭 Z). 픽커 Z는 위=+ → Offset이 +면 덜 내려오고 -면 더 내려온다.
+        // |Offset| > Recipe.ColletAfZOffsetLimitMm(기본 0.3)이면 적용 차단(fail-closed).
+        // 적용: Record.AfZOffset + Picker Recipe.ColletAfZOffset[collet] 갱신 후 Recipe 저장(PickZ/PlaceZ 공정 적용용).
+        private int ComputeAndApplyAfZOffset(ColletCalibrationRecord target)
+        {
+            try
+            {
+                string recipeName = Context != null && Context.Controller != null ? Context.Controller.ActiveRecipeName : null;
+                if (string.IsNullOrWhiteSpace(recipeName))
+                {
+                    QMC.Common.Log.Write("Calibration", "SYSTEM", "ColletCalAfZOffset",
+                        "활성 Recipe가 없어 AF Z Offset을 적용하지 않습니다. side=" + _calibrationSide + ", colletNo=" + _colletNo);
+                    return 0;
+                }
+
+                PickerAxis zAxis = GetPickerZAxis(_colletIndex);
+                double oldBottomTeachingZ = GetPickerTeachingPosition(zAxis, "BottomPosition");
+                ColletInspectionZInfo inspectionZ = ResolveColletInspectionTeachingZ(recipeName, target.FinalPickerZ);
+                double afZOffset = inspectionZ.TeachingZ - oldBottomTeachingZ;
+
+                double limitMm;
+                double[] offsets;
+                if (_calibrationSide == VisionFocusPickerSide.Front)
+                {
+                    if (Context.Machine.PickerFrontUnit == null || Context.Machine.PickerFrontUnit.Recipe == null)
+                        return 0;
+                    Context.Machine.PickerFrontUnit.Recipe.EnsurePositionObjects();
+                    limitMm = Context.Machine.PickerFrontUnit.Recipe.ColletAfZOffsetLimitMm;
+                    offsets = Context.Machine.PickerFrontUnit.Recipe.ColletAfZOffset;
+                }
+                else
+                {
+                    if (Context.Machine.PickerRearUnit == null || Context.Machine.PickerRearUnit.Recipe == null)
+                        return 0;
+                    Context.Machine.PickerRearUnit.Recipe.EnsurePositionObjects();
+                    limitMm = Context.Machine.PickerRearUnit.Recipe.ColletAfZOffsetLimitMm;
+                    offsets = Context.Machine.PickerRearUnit.Recipe.ColletAfZOffset;
+                }
+
+                // 누적 모델: 캘 완료 시 Bottom 티칭이 새 AF Z로 동기화되므로 afZOffset은 "직전 캘 이후 드리프트"다.
+                // 기존 누적치에 더해야 Pick/Place 티칭 기준의 총 보정량이 유지된다(대입하면 직전 δ가 소실됨).
+                // PickUpZ/PlaceZ 캘리브레이션이 티칭을 재측정 저장하는 시점에 누적치는 0으로 리셋된다.
+                double previousOffset = offsets[_colletIndex];
+                if (double.IsNaN(previousOffset) || double.IsInfinity(previousOffset))
+                    previousOffset = 0.0;
+                double newTotalOffset = previousOffset + afZOffset;
+
+                if (Math.Abs(newTotalOffset) > limitMm)
+                    return Fail("COLLET-CAL-AF-ZOFFSET-LIMIT", Name,
+                        "콜렛 AF Z Offset 누적치가 안전 한계를 초과해 적용을 차단합니다. side=" + _calibrationSide +
+                        ", colletNo=" + _colletNo +
+                        ", afZOffsetDelta=" + afZOffset.ToString("F6") +
+                        ", previousOffset=" + previousOffset.ToString("F6") +
+                        ", newTotalOffset=" + newTotalOffset.ToString("F6") +
+                        ", limitMm=" + limitMm.ToString("F6") +
+                        ", newInspectionZ=" + inspectionZ.TeachingZ.ToString("F6") +
+                        ", oldBottomTeachingZ=" + oldBottomTeachingZ.ToString("F6") +
+                        ". 티칭/AF 상태를 확인하세요.");
+
+                target.AfZOffset = newTotalOffset;
+                offsets[_colletIndex] = newTotalOffset;
+
+                if (!Context.Machine.SaveRecipe(recipeName))
+                    return Fail("COLLET-CAL-AF-ZOFFSET-SAVE", Name,
+                        "콜렛 AF Z Offset Recipe 저장에 실패했습니다. side=" + _calibrationSide +
+                        ", colletNo=" + _colletNo + ", recipe=" + recipeName);
+
+                QMC.Common.Log.Write("Calibration", "SYSTEM", "ColletCalAfZOffset",
+                    "콜렛 AF Z Offset 계산/누적 적용 완료. side=" + _calibrationSide +
+                    ", colletNo=" + _colletNo +
+                    ", afZOffsetDelta=newInspectionZ-oldBottomTeachingZ=" + inspectionZ.TeachingZ.ToString("F6") + "-" + oldBottomTeachingZ.ToString("F6") + "=" + afZOffset.ToString("F6") +
+                    ", totalOffsetMm=" + previousOffset.ToString("F6") + " -> " + newTotalOffset.ToString("F6") +
+                    ", measuredBestZ=" + target.FinalPickerZ.ToString("F6") +
+                    ", limitMm=" + limitMm.ToString("F6") +
+                    ", recipe=" + recipeName +
+                    ", 부호규칙=+덜내려옴/-더내려옴");
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                return Fail("COLLET-CAL-AF-ZOFFSET-EX", Name,
+                    "콜렛 AF Z Offset 계산/적용 중 예외가 발생했습니다. side=" + _calibrationSide +
+                    ", colletNo=" + _colletNo + ", error=" + ex.Message);
+            }
+        }
+
         private int SaveColletCalibration()
         {
             try
@@ -1582,6 +1683,10 @@ namespace QMC.CDT320.Sequencing.Calibration
                 ColletCalibrationRecord target = data.GetRecord(_calibrationSide, _colletNo);
                 CopyRecord(_calculatedRecord, target);
                 Context.Machine.VisionUnit.Config.CalibrationData.Touch("ColletCalibration");
+                // AF Z Offset: 티칭 갱신 "전"의 기존 Bottom 티칭 Z를 기준으로 계산·적용한다.
+                int afZOffsetResult = ComputeAndApplyAfZOffset(target);
+                if (afZOffsetResult != 0)
+                    return afZOffsetResult;
                 int referenceTeachingResult = SaveReferenceColletBottomTeachingIfNeeded(target);
                 if (referenceTeachingResult != 0)
                     return referenceTeachingResult;
@@ -1699,41 +1804,57 @@ namespace QMC.CDT320.Sequencing.Calibration
                 if (result != 0)
                     return result;
 
-                // 현재 기준: Side 초점 보정은 Bottom 재측정 값을 쓰지 않고 COC(회전 중심 편차) + 레시피 다이 사이즈로만 계산한다.
-                // (Bottom 검사 결과가 Side 위치에 영향을 주지 않도록 하는 정책과 동일 계약)
-                SideFocusCorrection correction;
-                if (!TryBuildSideFocusCorrectionFromCoc(out correction))
-                    return Fail("COLLET-CAL-SIDE-AF-CORRECTION", Name,
-                        "COC/Die Size로 Side Focus 보정량을 계산하지 못했습니다. side=" +
-                        _calibrationSide + ", colletNo=" + _colletNo);
+                // Side AutoFocus는 파라미터(RunSideAutoFocusAfterCoc)로 on/off. COC(회전중심)는 위에서 이미 수행/적용됐고,
+                // 이 값이 false면 Side 0°/90° AutoFocus만 건너뛴다.
+                bool runSideAf = _settings != null && _settings.RunSideAutoFocusAfterCoc;
+                string sideFocusLog = "sideAutoFocus=skipped";
+                if (runSideAf)
+                {
+                    // 현재 기준: Side 초점 보정은 Bottom 재측정 값을 쓰지 않고 COC(회전 중심 편차) + 레시피 다이 사이즈로만 계산한다.
+                    // (Bottom 검사 결과가 Side 위치에 영향을 주지 않도록 하는 정책과 동일 계약)
+                    SideFocusCorrection correction;
+                    if (!TryBuildSideFocusCorrectionFromCoc(out correction))
+                        return Fail("COLLET-CAL-SIDE-AF-CORRECTION", Name,
+                            "COC/Die Size로 Side Focus 보정량을 계산하지 못했습니다. side=" +
+                            _calibrationSide + ", colletNo=" + _colletNo);
 
-                result = await RunSideAutoFocusAsync(0, correction.Focus0, ct).ConfigureAwait(false);
-                if (result != 0)
-                    return result;
+                    result = await RunSideAutoFocusAsync(0, correction.Focus0, ct).ConfigureAwait(false);
+                    if (result != 0)
+                        return result;
 
-                result = await RunSideAutoFocusAsync(90, correction.Focus90, ct).ConfigureAwait(false);
-                if (result != 0)
-                    return result;
+                    result = await RunSideAutoFocusAsync(90, correction.Focus90, ct).ConfigureAwait(false);
+                    if (result != 0)
+                        return result;
 
-                result = await MovePickerAxisAndVerifyAsync(
-                    GetPickerTAxis(_colletIndex),
-                    ResultRecord.FinalPickerT,
-                    "Side AF 후 Bottom T 복귀",
-                    ct,
-                    BottomFinderTargetName,
-                    true).ConfigureAwait(false);
-                if (result != 0)
-                    return result;
+                    result = await MovePickerAxisAndVerifyAsync(
+                        GetPickerTAxis(_colletIndex),
+                        ResultRecord.FinalPickerT,
+                        "Side AF 후 Bottom T 복귀",
+                        ct,
+                        BottomFinderTargetName,
+                        true).ConfigureAwait(false);
+                    if (result != 0)
+                        return result;
 
-                result = await MovePickerAxisAndVerifyAsync(
-                    GetPickerZAxis(_colletIndex),
-                    ResultRecord.FinalPickerZ,
-                    "Side AF 후 Bottom Z 복귀",
-                    ct,
-                    BottomFinderTargetName,
-                    true).ConfigureAwait(false);
-                if (result != 0)
-                    return result;
+                    result = await MovePickerAxisAndVerifyAsync(
+                        GetPickerZAxis(_colletIndex),
+                        ResultRecord.FinalPickerZ,
+                        "Side AF 후 Bottom Z 복귀",
+                        ct,
+                        BottomFinderTargetName,
+                        true).ConfigureAwait(false);
+                    if (result != 0)
+                        return result;
+
+                    sideFocusLog = "focusCorrection0=" + correction.Focus0.ToString("F6") +
+                        ", focusCorrection90=" + correction.Focus90.ToString("F6");
+                }
+                else
+                {
+                    WriteLog("ColletCalibrationSequence",
+                        Name + " Side AutoFocus 파라미터 off로 Side 0/90 AutoFocus를 건너뜁니다. side=" +
+                        _calibrationSide + ", colletNo=" + _colletNo + " - Check");
+                }
 
                 if (!Context.Machine.VisionUnit.SaveSettings())
                     return Fail("COLLET-CAL-SIDE-AF-SAVE", Name,
@@ -1742,12 +1863,11 @@ namespace QMC.CDT320.Sequencing.Calibration
 
                 CurrentStep = ColletCalibrationStep.Complete;
                 WriteLog("ColletCalibrationSequence",
-                    Name + " COC 적용 및 Side 0/90 AutoFocus 완료. side=" + _calibrationSide +
+                    Name + " COC 적용" + (runSideAf ? " 및 Side 0/90 AutoFocus" : "(Side AF 생략)") + " 완료. side=" + _calibrationSide +
                     ", colletNo=" + _colletNo +
                     ", center=(" + coc.RotationCenterMachineX.ToString("F6") + "," +
                     coc.RotationCenterMachineY.ToString("F6") + ")" +
-                    ", focusCorrection0=" + correction.Focus0.ToString("F6") +
-                    ", focusCorrection90=" + correction.Focus90.ToString("F6") + " - Ok");
+                    ", " + sideFocusLog + " - Ok");
                 return 0;
             }
             catch (OperationCanceledException)
@@ -2938,6 +3058,7 @@ namespace QMC.CDT320.Sequencing.Calibration
             target.OffsetY = source.OffsetY;
             target.ThetaOffset = source.ThetaOffset;
             target.TZeroHomeOffset = source.TZeroHomeOffset;
+            target.AfZOffset = source.AfZOffset;
             target.MeasuredTPosition = source.MeasuredTPosition;
             target.FinalPickerX = source.FinalPickerX;
             target.FinalPickerY = source.FinalPickerY;

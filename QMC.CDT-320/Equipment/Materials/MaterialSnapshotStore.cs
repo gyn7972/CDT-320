@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -530,6 +530,10 @@ namespace QMC.CDT320.Materials
             if (snapshot == null)
                 return;
 
+            snapshot.LotId = string.IsNullOrWhiteSpace(snapshot.LotId)
+                ? ""
+                : snapshot.LotId.Trim();
+
             if (snapshot.Wafers != null)
             {
                 foreach (var wafer in snapshot.Wafers)
@@ -832,6 +836,8 @@ namespace QMC.CDT320.Materials
             int expectedDieCount = CountList(expected.Dies);
             int loadedWaferCount = CountList(loaded.Wafers);
             int loadedDieCount = CountList(loaded.Dies);
+            string expectedLotId = string.IsNullOrWhiteSpace(expected.LotId) ? "" : expected.LotId.Trim();
+            string loadedLotId = string.IsNullOrWhiteSpace(loaded.LotId) ? "" : loaded.LotId.Trim();
 
             if (expectedWaferCount != loadedWaferCount || expectedDieCount != loadedDieCount)
             {
@@ -841,6 +847,15 @@ namespace QMC.CDT320.Materials
                     ", loadedWafer=" + loadedWaferCount +
                     ", expectedDie=" + expectedDieCount +
                     ", loadedDie=" + loadedDieCount + " - Failed");
+                return false;
+            }
+
+            if (!string.Equals(expectedLotId, loadedLotId, StringComparison.Ordinal))
+            {
+                Log.Write("Main", "SYSTEM", "MaterialSnapshotSave",
+                    "Material snapshot validation failed. saved LOT ID mismatch. file=" + path +
+                    ", expectedLotId=" + expectedLotId +
+                    ", loadedLotId=" + loadedLotId + " - Failed");
                 return false;
             }
 

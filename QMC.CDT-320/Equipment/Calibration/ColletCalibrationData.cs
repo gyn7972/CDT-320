@@ -22,8 +22,18 @@ namespace QMC.CDT320.Calibration
         [DataMember] public bool UseDiagonalXyTolerance { get; set; } = true;
         [DataMember] public double FineAlignMaxXyMoveMm { get; set; } = 0.2;
         [DataMember] public bool RunAutoFocusAfterTheta { get; set; } = true;
+        // COC 회전중심 검출 후 Side 0°/90° AutoFocus 수행 여부. COC(회전중심)는 이 값과 무관하게 수행되고,
+        // 이 값이 false면 Side AutoFocus만 건너뛴다. 기본 true(기존 동작 유지).
+        [DataMember] public bool RunSideAutoFocusAfterCoc { get; set; } = true;
         [DataMember] public double CocRotationVelocityDegPerSec { get; set; } = 30.0;
         [DataMember] public CalibrationMotionSettings Motion { get; set; } = new CalibrationMotionSettings();
+
+        // 구버전 저장 데이터에 RunSideAutoFocusAfterCoc 항목이 없으면 기본값(true=기존 동작)이 되도록 역직렬화 전 초기화한다.
+        [OnDeserializing]
+        private void OnDeserializing(StreamingContext ctx)
+        {
+            RunSideAutoFocusAfterCoc = true;
+        }
 
         public void EnsureDefaults()
         {
@@ -97,6 +107,8 @@ namespace QMC.CDT320.Calibration
         [DataMember] public double FinalPickerY { get; set; }
         [DataMember] public double FinalPickerZ { get; set; }
         [DataMember] public double FinalPickerT { get; set; }
+        // Bottom AF Z Offset(mm): AF Best Z 기반 새 검사 Z와 기존 Bottom 티칭 Z의 차이. +면 덜 내려오고 -면 더 내려온다.
+        [DataMember] public double AfZOffset { get; set; }
         [DataMember] public double RotationCenterPixelX { get; set; }
         [DataMember] public double RotationCenterPixelY { get; set; }
         [DataMember] public double RotationCenterRadiusPixel { get; set; }

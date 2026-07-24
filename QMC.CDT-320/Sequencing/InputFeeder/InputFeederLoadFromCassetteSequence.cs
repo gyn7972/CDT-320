@@ -556,7 +556,11 @@ namespace QMC.CDT320.Sequencing
         {
             InputCassetteUnit cassette = Context.Machine != null ? Context.Machine.InputCassetteUnit : null;
             if (cassette != null)
-                cassette.UpdateWaferCassetteSlotState(Options.SlotIndex, SlotPresence.Exist, ProcessState.Processing);
+                cassette.UpdateWaferCassetteSlotState(
+                    InputCassetteUnit.ResolveCassetteLevel(Options.CassetteRole),
+                    Options.SlotIndex,
+                    SlotPresence.Exist,
+                    ProcessState.Processing);
 
             Context.Bus.Set("InputFeederOccupied");
             CurrentStep = InputFeederLoadFromCassetteStep.Complete;
@@ -794,7 +798,8 @@ namespace QMC.CDT320.Sequencing
             if (cassette == null || slotIndex < 0)
                 return false;
 
-            WaferCassetteMaterial material = cassette.GetWaferMaterialCassette();
+            WaferCassetteMaterial material = cassette.GetWaferMaterialCassette(
+                InputCassetteUnit.ResolveCassetteLevel(Options.CassetteRole));
             if (material == null || material.Slots == null || slotIndex >= material.Slots.Count)
                 return false;
 

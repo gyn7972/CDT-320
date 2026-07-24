@@ -3024,6 +3024,75 @@ namespace QMC.CDT320.Sequencing
             return QMC.CDT320.VisionComm.VisionCommandService.IsConnected(channel);
         }
 
+        private bool IsDisconnectedSyntheticBottomResult(BottomVisionOffset result)
+        {
+            if (result == null ||
+                IsVisionConnected(QMC.CDT320.VisionComm.AutoVisionChannel.BottomInspection) ||
+                QMC.CDT320.VisionComm.AutoVisionRequestService.IsRealVisionInSimulationActive())
+            {
+                return false;
+            }
+
+            AppSettings settings = AppSettingsStore.Current;
+            bool simulationOrDryRun = settings != null &&
+                                      (settings.SimulationMode ||
+                                       settings.BypassHardware ||
+                                       settings.DryRunMode);
+            if (!simulationOrDryRun)
+                return false;
+
+            string raw = result.Raw ?? string.Empty;
+            return raw.StartsWith("SIMULATION:", StringComparison.OrdinalIgnoreCase) ||
+                   raw.StartsWith("BYPASS:", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private void BindDisconnectedSyntheticBottomResultContext(
+            BottomShot bottomShot,
+            BottomVisionOffset bottomResult)
+        {
+            if (bottomShot == null ||
+                bottomShot.Target == null ||
+                bottomShot.Target.Die == null ||
+                !IsDisconnectedSyntheticBottomResult(bottomResult))
+            {
+                return;
+            }
+
+            InspectionTarget target = bottomShot.Target;
+            string targetDieId = target.Die.DieId ?? string.Empty;
+            bool alreadyBound =
+                bottomResult.PickerNo == target.PickerNo &&
+                string.Equals(bottomResult.DieId, targetDieId, StringComparison.Ordinal) &&
+                bottomResult.DieIndex == target.Die.InputSequenceNo &&
+                !string.IsNullOrWhiteSpace(bottomResult.RequestId) &&
+                !string.IsNullOrWhiteSpace(bottomResult.GroupId);
+            if (alreadyBound)
+                return;
+
+            string correlationSuffix = Guid.NewGuid().ToString("N");
+            bottomResult.PickerNo = target.PickerNo;
+            bottomResult.DieId = targetDieId;
+            bottomResult.DieIndex = target.Die.InputSequenceNo;
+            bottomResult.RequestId = "SIM-BOTTOM-REQ-" + correlationSuffix;
+            bottomResult.GroupId = "SIM-BOTTOM-GROUP-" + correlationSuffix;
+
+            if (bottomResult.Values == null)
+                bottomResult.Values = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            bottomResult.Values["request_id"] = bottomResult.RequestId;
+            bottomResult.Values["group_id"] = bottomResult.GroupId;
+            bottomResult.Values["die_id"] = bottomResult.DieId;
+            bottomResult.Values["die_index"] = bottomResult.DieIndex.ToString();
+
+            WriteLog("PickerBottomAndSideInspectionSequence",
+                Name + " Bottom Vision 미연결 합성 RESULT에 요청 Material 상관관계를 연결합니다. " +
+                "side=" + Side +
+                ", pickerNo=" + target.PickerNo +
+                ", die=" + targetDieId +
+                ", dieIndex=" + target.Die.InputSequenceNo +
+                ", requestId=" + bottomResult.RequestId +
+                ", groupId=" + bottomResult.GroupId + " - Check");
+        }
+
         // 현재 기준: Side 결과를 timeout까지 기다리며, null이면 상위에서 알람 정지한다.
         private async Task<SideVisionResult> WaitSideInspectionResultAsync(InspectionTarget target, CancellationToken ct)
         {
@@ -3214,6 +3283,9 @@ namespace QMC.CDT320.Sequencing
                     "Place 이동을 차단합니다. Bottom 최종 RESULT가 수신되지 않았습니다. " +
                     "side=" + Side + ", pickerNo=" + pickerNo + ", die=" + (dieId ?? string.Empty) + ".");
             }
+
+            BindDisconnectedSyntheticBottomResultContext(bottomShot, bottomResult);
+
             if (!IsValidBottomPlaceCorrectionLimit(maxAbsCorrectionMm))
             {
                 return Fail("PICKER-PLACE-BOTTOM-OFFSET-LIMIT", "Vision",
@@ -3553,7 +3625,7 @@ namespace QMC.CDT320.Sequencing
                 MaterialSnapshot state = MaterialStateService.State;
                 VisionInspectionResultFileWriter.EnqueueBottomResult(
                     state != null ? state.RecipeName : string.Empty,
-                    state != null ? state.LotId : string.Empty,
+                    MaterialStateService.GetProductionLotId(),
                     die,
                     bottomRecord);
             }

@@ -318,7 +318,11 @@ namespace QMC.CDT320.Sequencing
             InputCassetteUnit cassette = ResolveCassette();
             if (cassette != null)
             {
-                cassette.UpdateWaferCassetteSlotState(ResolveUnloadSlotIndex(), SlotPresence.Exist, ProcessState.Done);
+                cassette.UpdateWaferCassetteSlotState(
+                    InputCassetteUnit.ResolveCassetteLevel(Options.CassetteRole),
+                    ResolveUnloadSlotIndex(),
+                    SlotPresence.Exist,
+                    ProcessState.Done);
                 if (cassette.IsInputCassetteProcessComplete())
                 {
                     cassette.RaiseInputCassetteCompleteAlarm(cassette.Name);
@@ -540,7 +544,8 @@ namespace QMC.CDT320.Sequencing
             if (cassetteWafer != null && WaferMaterialStateText.Normalize(cassetteWafer.State) != WaferMaterialState.Empty)
                 return false;
 
-            WaferCassetteMaterial material = cassette.GetWaferMaterialCassette();
+            int cassetteLevel = InputCassetteUnit.ResolveCassetteLevel(Options.CassetteRole);
+            WaferCassetteMaterial material = cassette.GetWaferMaterialCassette(cassetteLevel);
             if (material == null || material.Slots == null || slotIndex >= material.Slots.Count)
                 return false;
 
@@ -548,12 +553,34 @@ namespace QMC.CDT320.Sequencing
             if (state == null)
                 return false;
 
-            return state.Presence == SlotPresence.Empty ||
-                   (state.Presence == SlotPresence.Exist &&
-                    state.Process == ProcessState.Processing &&
-                    feederWafer != null &&
-                    feederWafer.SourceCassetteRole == Options.CassetteRole &&
-                    feederWafer.SourceSlotNumber == slotIndex);
+            if (state.Presence == SlotPresence.Empty)
+                return true;
+
+            bool sameSourceWaferOnFeeder =
+                feederWafer != null &&
+                feederWafer.CurrentLocation != null &&
+                feederWafer.CurrentLocation.Kind == MaterialLocationKind.InputFeeder &&
+                feederWafer.SourceCassetteRole == Options.CassetteRole &&
+                feederWafer.SourceSlotNumber == slotIndex;
+            if (state.Presence == SlotPresence.Exist &&
+                state.Process == ProcessState.Processing &&
+                sameSourceWaferOnFeeder)
+            {
+                return true;
+            }
+
+            WriteLog("InputFeederUnloadToCassetteSequence",
+                "Input cassette unload slot validation failed. role=" + Options.CassetteRole +
+                ", level=" + cassetteLevel +
+                ", slot=" + slotIndex +
+                ", presence=" + state.Presence +
+                ", process=" + state.Process +
+                ", cassetteWafer=" + (cassetteWafer != null ? cassetteWafer.WaferId : "") +
+                ", feederWafer=" + (feederWafer != null ? feederWafer.WaferId : "") +
+                ", feederSourceRole=" + (feederWafer != null ? feederWafer.SourceCassetteRole.ToString() : "") +
+                ", feederSourceSlot=" + (feederWafer != null ? feederWafer.SourceSlotNumber.ToString() : "") +
+                ", sameSourceWaferOnFeeder=" + sameSourceWaferOnFeeder + " - Failed");
+            return false;
         }
 
         private double ResolveCassetteUnloadOffset(InputCassetteUnit cassette)

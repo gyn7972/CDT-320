@@ -534,6 +534,8 @@ namespace QMC.CDT320
             MotionGuardRuntime.ContextProvider = () =>
                 new MotionGuardContext(_machine, EnumerateAxes(), QMC.CDT320.Ajin.CylinderManager.Items.Values);
             BaseAxis.MotionGuard = VerifyAxisMotionGuard;
+            // 알람 발생 시 AlarmContext 파일에 포함할 장비 스냅샷(상태/모드/축) 제공자 등록.
+            QMC.Common.Logging.LogPolicy.EquipmentSnapshotProvider = BuildAlarmContextEquipmentSnapshot;
             QMC.Common.IO.BaseCylinder.MotionGuard = VerifyCylinderMotionGuard;
         }
 
@@ -9259,20 +9261,7 @@ namespace QMC.CDT320
 
         private string ResolveProductionStatsLotId()
         {
-            try
-            {
-                if (LotStorage.ActiveLot != null && !string.IsNullOrEmpty(LotStorage.ActiveLot.LotID))
-                    return LotStorage.ActiveLot.LotID;
-
-                MaterialSnapshot state = MaterialStorage.State;
-                if (state != null && !string.IsNullOrEmpty(state.LotId))
-                    return state.LotId;
-            }
-            catch
-            {
-            }
-
-            return "LOT-" + DateTime.Now.ToString("yyyyMMdd-HHmmss");
+            return MaterialStateService.GetProductionLotId();
         }
 
         private int ResolveProductionStatsTotalDies()
@@ -9375,17 +9364,7 @@ namespace QMC.CDT320
 
         private string ResolveTactLotId()
         {
-            try
-            {
-                return ResolveProductionStatsLotId();
-            }
-            catch
-            {
-                return "LOT-" + DateTime.Now.ToString("yyyyMMdd-HHmmss");
-            }
-            finally
-            {
-            }
+            return MaterialStateService.GetProductionLotId();
         }
 
         /// <summary>
@@ -10981,6 +10960,52 @@ namespace QMC.CDT320
             foreach (var u in _machine.Units)
                 foreach (var ax in EnumerateAxesRec(u))
                     yield return ax;
+        }
+
+        /// <summary>
+        /// 알람 발생 시 AlarmContext 파일에 포함되는 장비 스냅샷 텍스트를 만든다.<br/>
+        /// 장비 상태/모드/Recipe와 전체 축의 Command/Actual/Servo/Alarm/Moving/InPosition을 담는다.
+        /// (축 Target은 전역 추적 값이 없어 CommandPosition으로 대체 — v1 제한 사항)
+        /// 알람 처리 경로에서 호출되므로 어떤 예외도 밖으로 내지 않는다.
+        /// </summary>
+        private string BuildAlarmContextEquipmentSnapshot()
+        {
+            try
+            {
+                var sb = new System.Text.StringBuilder(8 * 1024);
+                sb.Append("Status=").Append(_status)
+                  .Append(", SequenceRunning=").Append(IsSequenceRunning)
+                  .Append(", ManualBusy=").Append(IsManualBusy)
+                  .Append(", Recipe=").Append(ActiveRecipeName ?? "-")
+                  .AppendLine();
+
+                try
+                {
+                    if (_seqContext != null && _seqContext.PickerPhases != null)
+                        sb.Append("PickerPhases=").Append(_seqContext.PickerPhases.GetSnapshot()).AppendLine();
+                }
+                catch { }
+
+                foreach (BaseAxis axis in EnumerateAxes())
+                {
+                    if (axis == null)
+                        continue;
+                    sb.Append(axis.Name)
+                      .Append(" cmd=").Append(axis.CommandPosition.ToString("F4"))
+                      .Append(" act=").Append(axis.ActualPosition.ToString("F4"))
+                      .Append(" servo=").Append(axis.IsServoOn ? "ON" : "OFF")
+                      .Append(" alarm=").Append(axis.IsAlarm ? "ON" : "OFF")
+                      .Append(" moving=").Append(axis.IsMoving ? "Y" : "N")
+                      .Append(" inpos=").Append(axis.IsInPosition ? "Y" : "N")
+                      .AppendLine();
+                }
+
+                return sb.ToString();
+            }
+            catch (Exception ex)
+            {
+                return "equipment snapshot failed: " + ex.Message;
+            }
         }
 
         private BaseAxis FindAxisByName(string axisName)

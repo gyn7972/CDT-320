@@ -38,7 +38,11 @@ namespace QMC.CDT320.Sequencing
 
         public static void RunEnd(string sequenceName, string status, int result, params string[] details)
         {
-            Emit("RunEnd", sequenceName, null, Merge(details, "status=" + status, "result=" + result));
+            // 실패/정지/취소 종료는 문자열이 아닌 명시 중요도(Failure)로 기록해 최소 로그 정책에서도 항상 영구 저장한다.
+            LogSeverity severity = string.Equals(status, "Completed", StringComparison.OrdinalIgnoreCase)
+                ? LogSeverity.Normal
+                : LogSeverity.Failure;
+            Emit("RunEnd", sequenceName, null, null, null, severity, Merge(details, "status=" + status, "result=" + result));
         }
 
         public static void StepStart(string sequenceName, string step, params string[] details)
@@ -53,7 +57,7 @@ namespace QMC.CDT320.Sequencing
 
         public static void StepFail(string sequenceName, string step, int result, params string[] details)
         {
-            Emit("StepFail", sequenceName, step, Merge(details, "result=" + result));
+            Emit("StepFail", sequenceName, step, null, null, LogSeverity.Failure, Merge(details, "result=" + result));
         }
 
         public static void ChildStart(string childSequenceName, string childStep, params string[] details)
@@ -71,7 +75,7 @@ namespace QMC.CDT320.Sequencing
         public static void ChildFail(string childSequenceName, string childStep, int result, params string[] details)
         {
             SequenceLogScope scope = SequenceLog.Current;
-            Emit("ChildFail", childSequenceName, childStep, CurrentSequenceName(scope), CurrentDepth(scope) + 1, Merge(details, "result=" + result));
+            Emit("ChildFail", childSequenceName, childStep, CurrentSequenceName(scope), CurrentDepth(scope) + 1, LogSeverity.Failure, Merge(details, "result=" + result));
         }
 
         public static async Task<int> ChildAsync(
@@ -201,10 +205,15 @@ namespace QMC.CDT320.Sequencing
 
         private static void Emit(string phase, string source, string step, params string[] details)
         {
-            Emit(phase, source, step, null, null, details);
+            Emit(phase, source, step, null, null, LogSeverity.Normal, details);
         }
 
         private static void Emit(string phase, string source, string step, string parentOverride, int? depthOverride, params string[] details)
+        {
+            Emit(phase, source, step, parentOverride, depthOverride, LogSeverity.Normal, details);
+        }
+
+        private static void Emit(string phase, string source, string step, string parentOverride, int? depthOverride, LogSeverity severity, params string[] details)
         {
             try
             {
@@ -236,7 +245,7 @@ namespace QMC.CDT320.Sequencing
 
                 string code = !string.IsNullOrWhiteSpace(stepName) ? stepName : phase;
                 string eventSource = !string.IsNullOrWhiteSpace(sequenceName) ? sequenceName : "SequenceTrace";
-                EventLogger.Write(kind, "SYSTEM", code, eventSource, string.Join(" ", parts.ToArray()));
+                EventLogger.Write(kind, "SYSTEM", code, eventSource, string.Join(" ", parts.ToArray()), severity);
             }
             catch
             {

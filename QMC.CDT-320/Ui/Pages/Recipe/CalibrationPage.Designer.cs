@@ -20,6 +20,10 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
         private Button btnPlaceZCal;
         private Button btnNeedleZCal;
         private Button btnAutoCalibration;
+        private FlowLayoutPanel safeMovePanel;
+        private Label lblSafeMove;
+        private NumericUpDown numSafeMovePercent;
+        private Label lblSafeMoveHint;
         private Label lblGuide;
         private Label lblStatus;
 
@@ -49,12 +53,18 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.btnPlaceZCal = new System.Windows.Forms.Button();
             this.btnNeedleZCal = new System.Windows.Forms.Button();
             this.btnAutoCalibration = new System.Windows.Forms.Button();
+            this.safeMovePanel = new System.Windows.Forms.FlowLayoutPanel();
+            this.lblSafeMove = new System.Windows.Forms.Label();
+            this.numSafeMovePercent = new System.Windows.Forms.NumericUpDown();
+            this.lblSafeMoveHint = new System.Windows.Forms.Label();
             this.lblGuide = new System.Windows.Forms.Label();
             this.lblStatus = new System.Windows.Forms.Label();
             this.rootLayout.SuspendLayout();
             this.headerPanel.SuspendLayout();
             this.grpCal.SuspendLayout();
             this.buttonLayout.SuspendLayout();
+            this.safeMovePanel.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)(this.numSafeMovePercent)).BeginInit();
             this.SuspendLayout();
             // 
             // rootLayout
@@ -64,19 +74,62 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.rootLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.rootLayout.Controls.Add(this.headerPanel, 0, 0);
             this.rootLayout.Controls.Add(this.grpCal, 0, 1);
-            this.rootLayout.Controls.Add(this.lblGuide, 0, 2);
-            this.rootLayout.Controls.Add(this.lblStatus, 0, 3);
+            this.rootLayout.Controls.Add(this.safeMovePanel, 0, 2);
+            this.rootLayout.Controls.Add(this.lblGuide, 0, 3);
+            this.rootLayout.Controls.Add(this.lblStatus, 0, 4);
             this.rootLayout.Dock = System.Windows.Forms.DockStyle.Fill;
             this.rootLayout.Location = new System.Drawing.Point(0, 0);
             this.rootLayout.Name = "rootLayout";
-            this.rootLayout.RowCount = 4;
+            this.rootLayout.RowCount = 5;
             this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 30F));
             this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 57.17791F));
+            this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 38F));
             this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 42.82209F));
             this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 54F));
-            this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 20F));
             this.rootLayout.Size = new System.Drawing.Size(1678, 900);
             this.rootLayout.TabIndex = 0;
+            //
+            // safeMovePanel
+            //
+            this.safeMovePanel.BackColor = System.Drawing.Color.White;
+            this.safeMovePanel.Controls.Add(this.lblSafeMove);
+            this.safeMovePanel.Controls.Add(this.numSafeMovePercent);
+            this.safeMovePanel.Controls.Add(this.lblSafeMoveHint);
+            this.safeMovePanel.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.safeMovePanel.Margin = new System.Windows.Forms.Padding(1);
+            this.safeMovePanel.Name = "safeMovePanel";
+            this.safeMovePanel.WrapContents = false;
+            //
+            // lblSafeMove
+            //
+            this.lblSafeMove.AutoSize = true;
+            this.lblSafeMove.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
+            this.lblSafeMove.Margin = new System.Windows.Forms.Padding(8, 8, 4, 4);
+            this.lblSafeMove.Name = "lblSafeMove";
+            this.lblSafeMove.Text = "안전위치(Avoid) 이동 속도 %";
+            this.lblSafeMove.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            //
+            // numSafeMovePercent
+            //
+            this.numSafeMovePercent.DecimalPlaces = 1;
+            this.numSafeMovePercent.Font = new System.Drawing.Font("맑은 고딕", 10F);
+            this.numSafeMovePercent.Margin = new System.Windows.Forms.Padding(4, 5, 8, 4);
+            this.numSafeMovePercent.Maximum = new decimal(new int[] { 100, 0, 0, 0 });
+            this.numSafeMovePercent.Minimum = new decimal(new int[] { 1, 0, 0, 0 });
+            this.numSafeMovePercent.Name = "numSafeMovePercent";
+            this.numSafeMovePercent.Size = new System.Drawing.Size(90, 30);
+            this.numSafeMovePercent.Value = new decimal(new int[] { 7, 0, 0, 0 });
+            this.numSafeMovePercent.ValueChanged += new System.EventHandler(this.numSafeMovePercent_ValueChanged);
+            //
+            // lblSafeMoveHint
+            //
+            this.lblSafeMoveHint.AutoSize = true;
+            this.lblSafeMoveHint.Font = new System.Drawing.Font("맑은 고딕", 9F);
+            this.lblSafeMoveHint.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(90)))), ((int)(((byte)(90)))), ((int)(((byte)(90)))));
+            this.lblSafeMoveHint.Margin = new System.Windows.Forms.Padding(4, 9, 4, 4);
+            this.lblSafeMoveHint.Name = "lblSafeMoveHint";
+            this.lblSafeMoveHint.Text = "= 각 축 Default 속도·가속·감속 × % (측정 속도와 분리, 전역 스케일과 중첩 안 됨). 모든 캘리브레이션 공통.";
+            this.lblSafeMoveHint.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
             // headerPanel
             // 
@@ -376,6 +429,9 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.headerPanel.ResumeLayout(false);
             this.grpCal.ResumeLayout(false);
             this.buttonLayout.ResumeLayout(false);
+            this.safeMovePanel.ResumeLayout(false);
+            this.safeMovePanel.PerformLayout();
+            ((System.ComponentModel.ISupportInitialize)(this.numSafeMovePercent)).EndInit();
             this.ResumeLayout(false);
 
         }

@@ -290,6 +290,8 @@ namespace QMC.CDT320
         [DataMember] public double[] ColletRotationCenterX { get; set; } = new double[4]; // Collet별 회전 중심의 PickerX 기계 좌표입니다.
         [DataMember] public double[] ColletRotationCenterY { get; set; } = new double[4]; // Collet별 회전 중심의 PickerY 기계 좌표입니다.
         [DataMember] public bool[] ColletRotationCenterValid { get; set; } = new bool[4]; // Collet별 회전 중심 좌표의 유효 상태입니다.
+        [DataMember] public double[] ColletAfZOffset { get; set; } = new double[4]; // Collet별 Bottom AF Z Offset(mm). +면 덜 내려오고 -면 더 내려옵니다. PickZ/PlaceZ에 적용.
+        [DataMember] public double ColletAfZOffsetLimitMm { get; set; } = 0.3; // AF Z Offset 안전 한계(절대값, mm). 초과 시 적용 차단.
 
         [OnDeserialized]
         private void OnDeserialized(StreamingContext ctx)
@@ -299,6 +301,15 @@ namespace QMC.CDT320
 
         public void EnsurePositionObjects()
         {
+            if (ColletAfZOffset == null || ColletAfZOffset.Length < 4)
+            {
+                var afOffsets = new double[4];
+                if (ColletAfZOffset != null)
+                    Array.Copy(ColletAfZOffset, afOffsets, Math.Min(ColletAfZOffset.Length, 4));
+                ColletAfZOffset = afOffsets;
+            }
+            if (ColletAfZOffsetLimitMm <= 0.0 || double.IsNaN(ColletAfZOffsetLimitMm))
+                ColletAfZOffsetLimitMm = 0.3;
             if (PickerX == null) PickerX = new PickerAxisPositionSet();
             if (PickerY == null) PickerY = new PickerAxisPositionSet();
             if (PickerT0 == null) PickerT0 = new PickerAxisPositionSet();
