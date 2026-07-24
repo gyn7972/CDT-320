@@ -1563,15 +1563,27 @@ namespace QMC.CDT320.Sequencing
                     pickMechanicalOffsetX,
                     pickMechanicalOffsetY);
 
+                // 공정 Pick Z 유일한 대입점: Collet AF Z Offset을 여기서 1회만 가산한다(파생 이동/검증/배치 저장·복원에 자동 전파).
+                // 한계 초과는 fail-closed(알람 중단) — 확정 정책.
+                string pickAfZOffsetFailReason;
+                double pickColletAfZOffset = ResolveColletAfZOffset(_currentPickerIndex, out pickAfZOffsetFailReason);
+                if (pickAfZOffsetFailReason != null)
+                    return Fail("PICKER-PICKUP-AF-ZOFFSET-LIMIT", Name, pickAfZOffsetFailReason);
+
                 _targetStageY = coordinate.StageY;
                 _targetPickerX = coordinate.PickerX;
                 _targetPickerY = coordinate.PickerY;
                 _targetPickerT = coordinate.PickerT;
-                _targetPickerZ = coordinate.PickerZ;
+                _targetPickerZ = coordinate.PickerZ + pickColletAfZOffset;
                 _targetNeedleX = coordinate.NeedleX;
                 _targetNeedleZ = coordinate.NeedleZ;
                 _targetEjectPinZ = coordinate.EjectPinZ;
-                _targetFormula = coordinate.Formula;
+                _targetFormula = coordinate.Formula +
+                    (pickColletAfZOffset != 0.0
+                        ? " / pickerZFinal = pickerZTeaching(" + coordinate.PickerZ.ToString("F6") +
+                          ") + colletAfZOffset(" + pickColletAfZOffset.ToString("F6") +
+                          ") = " + _targetPickerZ.ToString("F6")
+                        : string.Empty);
 
                 double cameraOffsetX;
                 double cameraOffsetY;
@@ -1588,6 +1600,7 @@ namespace QMC.CDT320.Sequencing
                     ", pickerY=" + _targetPickerY +
                     ", pickerT=" + _targetPickerT +
                     ", pickerZ=" + _targetPickerZ +
+                    ", colletAfZOffset=" + pickColletAfZOffset.ToString("F6") +
                     ", needleX=" + _targetNeedleX +
                     ", needleZ=" + _targetNeedleZ +
                     ", ejectPinZ=" + _targetEjectPinZ +
@@ -5100,7 +5113,19 @@ namespace QMC.CDT320.Sequencing
                 _currentDieId = "ManualPickUpZTest";
                 _pickTarget = null;
                 _visionOffset = null;
-                _targetPickerZ = GetPickerTeachingPosition(GetPickerZAxis(_currentPickerIndex), "PickPosition");
+                // 수동 Z 단독 테스트도 실공정과 동일하게 Collet AF Z Offset을 적용한다(한계 초과는 fail-closed).
+                string manualAfZOffsetFailReason;
+                double manualColletAfZOffset = ResolveColletAfZOffset(_currentPickerIndex, out manualAfZOffsetFailReason);
+                if (manualAfZOffsetFailReason != null)
+                    return Fail("PICKER-PICKUP-AF-ZOFFSET-LIMIT", Name, manualAfZOffsetFailReason);
+                _targetPickerZ = GetPickerTeachingPosition(GetPickerZAxis(_currentPickerIndex), "PickPosition") + manualColletAfZOffset;
+                if (manualColletAfZOffset != 0.0)
+                {
+                    WriteLog("ColletAfZOffset",
+                        Name + " ManualPickUpZTest에 Collet AF Z Offset 적용. colletNo=" + _currentPickerNo +
+                        ", offsetMm=" + manualColletAfZOffset.ToString("F6") +
+                        ", targetZ=" + _targetPickerZ.ToString("F6") + " - Ok");
+                }
                 _targetNeedleZ = stage.Recipe != null && stage.Recipe.NeedleZ != null
                     ? stage.Recipe.NeedleZ.ProcessPosition
                     : 0.0;

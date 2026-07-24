@@ -19,6 +19,8 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
         private NeedleCalibrationDialog _needleZDialog;
         private AutoCalibrationDialog _autoCalibrationDialog;
 
+        private bool _loadingSafeMovePercent;
+
         public CalibrationPage()
         {
             try
@@ -26,6 +28,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 InitializeComponent();
                 // 색/폰트(페이지·헤더·상태 라벨)는 Designer(.Designer.cs)로 이관
                 // 버튼 Click 이벤트 연결도 Designer(InitializeComponent)로 이관
+                LoadSafeMovePercentToUi();
                 lblStatus.Text = "캘리브레이션 항목을 선택하세요. 각 기능은 모달리스 창으로 열립니다.";
             }
             catch (Exception ex)
@@ -36,6 +39,81 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             finally
             {
             }
+        }
+
+        protected override void OnVisibleChanged(EventArgs e)
+        {
+            base.OnVisibleChanged(e);
+            // 페이지 생성 시점에는 host(Form1)가 아직 붙지 않아 값을 못 읽을 수 있으므로, 화면 표시될 때 다시 로드한다.
+            if (Visible)
+                LoadSafeMovePercentToUi();
+        }
+
+        // 안전이동 % 값을 장비 설정(CalibrationData.SafeMovePercent)에서 읽어 UI에 반영한다.
+        private void LoadSafeMovePercentToUi()
+        {
+            try
+            {
+                Form1 host = ResolveHostForm();
+                if (host == null || host.Machine == null || host.Machine.VisionUnit == null ||
+                    host.Machine.VisionUnit.Config == null || host.Machine.VisionUnit.Config.CalibrationData == null)
+                    return;
+
+                double percent = host.Machine.VisionUnit.Config.CalibrationData.SafeMovePercent;
+                if (percent < (double)numSafeMovePercent.Minimum) percent = (double)numSafeMovePercent.Minimum;
+                if (percent > (double)numSafeMovePercent.Maximum) percent = (double)numSafeMovePercent.Maximum;
+
+                _loadingSafeMovePercent = true;
+                try
+                {
+                    numSafeMovePercent.Value = (decimal)percent;
+                }
+                finally
+                {
+                    _loadingSafeMovePercent = false;
+                }
+            }
+            catch (Exception ex)
+            {
+                EventLogger.Write(EventKind.Warning, "UI", "CAL-SAFEMOVE-LOAD", "안전이동 % 로드 실패: " + ex.Message);
+            }
+        }
+
+        private void numSafeMovePercent_ValueChanged(object sender, EventArgs e)
+        {
+            if (_loadingSafeMovePercent)
+                return;
+
+            try
+            {
+                Form1 host = ResolveHostForm();
+                if (host == null || host.Machine == null || host.Machine.VisionUnit == null ||
+                    host.Machine.VisionUnit.Config == null || host.Machine.VisionUnit.Config.CalibrationData == null)
+                {
+                    lblStatus.Text = "장비가 준비되지 않아 안전이동 %를 저장할 수 없습니다.";
+                    return;
+                }
+
+                double percent = (double)numSafeMovePercent.Value;
+                host.Machine.VisionUnit.Config.CalibrationData.SafeMovePercent = percent;
+                host.Machine.VisionUnit.Config.CalibrationData.EnsureObjects();
+                host.SaveMachineSettings();
+
+                lblStatus.Text = "안전위치(Avoid) 이동 속도 %를 " + percent.ToString("F1") +
+                                 "%로 저장했습니다. (각 축 Default × %) 측정 속도와는 무관합니다.";
+                QMC.Common.Log.Write("Calibration", "SYSTEM", "CalSafeMovePercent",
+                    "캘리브레이션 안전이동 SafeMovePercent 저장. percent=" + percent.ToString("F3"));
+            }
+            catch (Exception ex)
+            {
+                EventLogger.Write(EventKind.Alarm, "UI", "CAL-SAFEMOVE-SAVE", "안전이동 % 저장 실패: " + ex.Message);
+                lblStatus.Text = "안전이동 % 저장 실패: " + ex.Message;
+            }
+        }
+
+        private Form1 ResolveHostForm()
+        {
+            return FindForm() as Form1;
         }
 
         private void btnVisionCameraCal_Click(object sender, EventArgs e)

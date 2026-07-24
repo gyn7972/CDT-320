@@ -110,6 +110,8 @@ namespace QMC.Common.Alarms
                 _all.Add(rec);
             }
             try { QMC.Common.Logging.EventLogger.Write(QMC.Common.Logging.EventKind.Alarm, "QMC", rec.Code, rec.Source, "[" + rec.Severity + "] " + rec.Message); } catch { }
+            // 알람 블랙박스 덤프: 직전 20~30초 이벤트 + 장비 스냅샷을 AlarmContext 파일로 1회 저장한다.
+            try { QMC.Common.Logging.LogPolicy.DumpAlarmContext(rec.Code, rec.Severity.ToString(), rec.Source, rec.Message); } catch { }
             RequestSave();
             try { AlarmRaised?.Invoke(rec); } catch { }
             return rec;
@@ -124,7 +126,8 @@ namespace QMC.Common.Alarms
                 if (rec == null || !rec.IsActive) return;
                 rec.Cleared = DateTime.Now;
             }
-            try { QMC.Common.Logging.EventLogger.Write(QMC.Common.Logging.EventKind.Event, "QMC", rec.Code, rec.Source, "[CLEARED] " + rec.Message); } catch { }
+            // 알람 해제 상관 기록은 최소 로그 정책에서도 항상 영구 저장한다(Audit).
+            try { QMC.Common.Logging.EventLogger.Write(QMC.Common.Logging.EventKind.Event, "QMC", rec.Code, rec.Source, "[CLEARED] " + rec.Message, QMC.Common.Logging.LogSeverity.Audit); } catch { }
             RequestSave();
             try { AlarmCleared?.Invoke(rec); } catch { }
         }
@@ -140,7 +143,7 @@ namespace QMC.Common.Alarms
             }
             foreach (var a in cleared)
             {
-                try { QMC.Common.Logging.EventLogger.Write(QMC.Common.Logging.EventKind.Event, "QMC", a.Code, a.Source, "[CLEARED] " + a.Message); } catch { }
+                try { QMC.Common.Logging.EventLogger.Write(QMC.Common.Logging.EventKind.Event, "QMC", a.Code, a.Source, "[CLEARED] " + a.Message, QMC.Common.Logging.LogSeverity.Audit); } catch { }
                 try { AlarmCleared?.Invoke(a); } catch { }
             }
             if (cleared.Count > 0) RequestSave();

@@ -1,0 +1,752 @@
+﻿CDT-320 WorkInfo Material DATA ONLY 이동/삭제 및
+Input/Output Cassette 슬롯 물리 이동 구현 프롬프트
+
+작성 기준일: 2026-07-24
+
+======================================================================
+0. 프롬프트의 목적과 우선순위
+======================================================================
+
+대상 소스는 반드시 아래 로컬 저장소 하나만 사용한다.
+
+D:\Source\CDT-320_New
+
+다른 CDT-320 소스 폴더, 예전 checkout, 배포 폴더, 백업 소스,
+D:\CDT-320 실행 폴더의 바이너리를 소스 기준으로 사용하거나 복사하지 않는다.
+D:\CDT-320\Log 및 EquipmentData는 런타임 근거로만 사용한다.
+
+이번 작업은 다음 두 기능을 같은 WorkInfo 영역에 구현한다.
+
+A. Material DATA ONLY 위치 이동 및 삭제
+B. Input/Output Cassette 슬롯 선택 물리 이동
+
+두 기능은 목적과 안전 계약이 완전히 다르므로
+UI, 실행 경로, 로그, 확인창을 명확히 분리한다.
+
+- DATA ONLY: 장비를 움직이지 않고 Material 데이터만 변경한다.
+- SLOT PHYSICAL MOVE: Material 데이터는 변경하지 않고 Cassette Z축만 움직인다.
+
+안전 우선순위:
+
+1. 물리 충돌 방지
+2. Material 위치 데이터의 1:1 정합성
+3. 기존 Auto/Mapping/Load/Unload 동작 보존
+4. 운영 편의성
+
+기존 문서와 충돌할 때 이 프롬프트가 이번 작업 범위의 최신 기준이다.
+특히 다음 과거 가정은 사용하지 않는다.
+
+- 맵핑 후 수동 슬롯 이동 목표를 Material.CurrentCassetteSlotPosition만으로 결정
+- INPUT 수동 슬롯 이동에서 Feeder 안전 위치 검사를 생략
+- OUTPUT 수동 단발 이동을 과거 Resume 단계에서 재개
+- 슬롯 표시만 보고 Material이 실제 Cassette 안에 있다고 판단
+
+======================================================================
+1. 작업 시작 전 필수 확인 및 Git 금지사항
+======================================================================
+
+파일을 수정하기 전에 반드시 아래 내용을 읽기 전용으로 확인하여 보고한다.
+
+- D:\Source\CDT-320_New\AGENTS.md 전체
+- git rev-parse --show-toplevel
+- 현재 branch
+- git status --short --branch
+- 기존 수정/신규 파일 전체
+- 이번 예상 변경 파일과 기존 변경 파일의 중첩
+- 현재 HEAD
+
+현재 확인된 주의 대상:
+
+- QMC.CDT-320\Ui\Pages\WorkInfo\InputCassettePage.cs
+- QMC.CDT-320\Equipment\Materials\MaterialStateService.cs
+
+위 파일은 이미 사용자 변경이 있을 수 있으므로 기존 diff를 먼저 읽고,
+해당 변경을 보존한 상태에서 최소 범위로 패치한다.
+
+다음 작업은 금지한다.
+
+- git pull
+- git merge
+- git rebase
+- git reset
+- git checkout을 이용한 원복
+- git clean
+- git revert
+- git commit
+- git push
+- 기존 변경을 다른 checkout 또는 master 파일로 덮어쓰기
+- Clean/Rebuild
+- 실제 장비 축 구동
+
+코드 수정 전 다음을 먼저 보고하고 사용자의 “구현 승인”을 기다린다.
+
+- 실제 현재 호출 흐름
+- 발견된 기존 결함
+- 정확한 변경 파일/메서드
+- 인터락 또는 시퀀스 변경점
+- 기존 동작에 미치는 영향
+- 구현 체크리스트
+
+======================================================================
+2. 현재 코드에서 반드시 다시 검증할 사실
+======================================================================
+
+함수명과 위치는 현재 checkout에서 다시 확인한다.
+아래 내용과 다르면 현재 코드 근거를 제시하고 계획을 정정한다.
+
+2.1 공통 슬롯 View
+-------------------
+
+QMC.CDT-320\Ui\Controls\CassetteSlotView.cs
+
+- 슬롯 번호 Label과 상태 Label은 SetSlotCount()에서 동적으로 생성된다.
+- UI의 SLOT 01은 내부 slotIndex=0이다.
+- 현재 Click은 SlotSelected를 발생시킨다.
+- 현재 우클릭 MOVE는 SlotMoveRequested를 발생시킨다.
+- 현재 DoubleClick 전용 이벤트는 없다.
+- View는 Unit, Controller, Motion을 직접 호출하지 않는다.
+
+2.2 INPUT 슬롯 이동
+-------------------
+
+QMC.CDT-320\Ui\Pages\WorkInfo\InputCassettePage.cs
+
+- PREV/NEXT 및 우클릭 MOVE 경로를 확인한다.
+- 현재 MoveSpecificSlotAsync()가
+  MaterialStateService.TryGetCassetteSlotPosition()에서 얻은
+  Material 저장 위치를 직접 사용하는지 확인한다.
+- Material 저장 위치는 FirstPosition/Pitch/Mapping 변경 후
+  오래된 값일 수 있으므로 물리 이동 목표의 단일 기준으로 사용하지 않는다.
+
+QMC.CDT-320\Equipment\Unit\InputCassetteUnit.cs
+
+- CalculateWaferCassetteSlotTargetPosition()을 중앙 계산 기준으로 사용한다.
+- Input1과 Input2의 level/role 매핑을 재검증한다.
+- Level별 FirstPosition, SlotPitch, mapped slot 상대 보정 흐름을 확인한다.
+
+2.3 OUTPUT 슬롯 이동
+--------------------
+
+QMC.CDT-320\Ui\Pages\WorkInfo\OutputCassettePage.cs
+QMC.CDT-320\Sequencing\OutputCassette\OutputCassetteMoveSlotSequence.cs
+QMC.CDT-320\Equipment\Unit\OutputCassetteUnit.cs
+
+- PREV/NEXT 및 우클릭 MOVE가 OutputCassetteMoveSlotSequence를 호출한다.
+- 최종 목표는 CalculateBinCassetteSlotTargetPosition()을 사용한다.
+- Good1/Good2/Ng 역할별 FirstPosition을 재검증한다.
+- 새 수동 단발 이동이 Resume로 시작하는지 확인한다.
+
+2.4 표시 Material과 실제 위치
+------------------------------
+
+InputCassettePage와 OutputCassettePage의 슬롯 표시는
+SourceCassetteRole/SourceSlotNumber를 기준으로 Feeder/Stage에 이동한 Material도
+원래 슬롯에 표시할 수 있다.
+
+따라서 “화면에 Material이 보인다”는 사실만으로
+Material이 실제 Cassette 안에 있다고 판단하지 않는다.
+
+2.5 기존 안전 공백
+------------------
+
+InputCassetteInterlockRules에서 FeederY 안전 위치 helper가
+실제 위치를 확인하지 않고 true를 반환하는지 확인한다.
+
+Output의 수동 슬롯 Sequence가 Feeder Avoid를 확인하는지,
+Input/Output Cassette Z MotionGuard가 Front/Rear Picker Avoid,
+돌출 감지 센서, 축 준비 상태를 어떻게 검사하는지 확인한다.
+
+2.6 OUTPUT Mapping buffer
+-------------------------
+
+OutputCassetteRecipe.UpdateSlotPosition()과
+EnsureSlotPositionBuffers()의 배열 크기/초기화 방식을 확인한다.
+
+slotIndex+1 크기로 배열을 재생성하여:
+
+- 앞 슬롯 Mapping 값
+- Good1/Good2/NG의 다른 영역 Mapping 값
+
+을 지우는 현상이 있는지 확인한다.
+확인되면 이번 슬롯 이동 신뢰성 범위에서 함께 수정한다.
+
+======================================================================
+3. 기능 A: Material DATA ONLY 이동 및 삭제
+======================================================================
+
+3.1 목적
+--------
+
+실제 장비를 움직이지 않고 사용자가 WorkInfo 화면에서
+Wafer/Bin Material 데이터의 현재 위치를 자유롭게 정리할 수 있게 한다.
+
+이 기능은 물리 이송 Sequence가 아니다.
+Motion, Cylinder, Vacuum, Clamp, Cassette Z, Feeder Y,
+Picker, Stage 축을 절대 호출하지 않는다.
+센서 상태를 강제로 변경하거나 Simulation I/O를 조작하지 않는다.
+
+UI에는 다음 경고를 항상 표시한다.
+
+DATA ONLY / NO MOTION
+실물 위치를 확인한 후 Material 데이터만 이동하십시오.
+
+3.2 UI 배치
+-----------
+
+기존 WorkInfo의 InputCassettePage와 OutputCassettePage에
+각 계통의 DATA ONLY 영역을 추가한다.
+
+새로운 전체 화면이나 별도 복구 마법사를 먼저 만들지 않는다.
+현재 사용자가 보는 Cassette/Feeder/Stage 정보와 함께 배치한다.
+
+WinForms 컨트롤은 반드시 *.Designer.cs의 InitializeComponent() 안에
+인라인으로 선언/배치한다.
+이벤트 처리와 기능 로직은 *.cs 파일에 작성한다.
+
+동적으로 생성되는 CassetteSlotView의 슬롯 Label은
+기존 CassetteSlotView 구현 방식을 유지한다.
+
+3.3 허용 이동 경로
+------------------
+
+INPUT:
+
+- Input1 또는 Input2 Cassette Slot -> InputFeeder
+- InputFeeder -> 선택한 Input1 또는 Input2 Cassette Slot
+- InputFeeder -> InputStage
+- InputStage -> InputFeeder
+
+OUTPUT:
+
+- Good1/Good2/Ng Cassette Slot -> OutputFeeder
+- OutputFeeder -> 선택한 Good1/Good2/Ng Cassette Slot
+- OutputFeeder -> OutputGoodStage
+- OutputGoodStage -> OutputFeeder
+- OutputFeeder -> OutputNgStage
+- OutputNgStage -> OutputFeeder
+
+금지:
+
+- Cassette -> Stage 직접 이동
+- Stage -> Cassette 직접 이동
+- Input 계통과 Output 계통 사이 이동
+- 동일 위치로 이동
+- Unknown/임의 문자열 위치로 이동
+
+3.4 Phase 1 최소 검사 계약
+---------------------------
+
+사용자 요구에 따라 DATA ONLY의 기능 검사는 복잡하게 확대하지 않는다.
+
+이동 시 필수 검사는 다음 세 가지다.
+
+1. Source 위치에 Material 데이터가 정확히 하나 존재
+2. Destination 위치가 비어 있음
+3. 위의 허용된 인접 경로 중 하나
+
+Cassette가 Destination이면 사용자가 Cassette Role과 Slot을 명시적으로 선택한다.
+해당 Role/Slot이 비어 있으면 이동할 수 있다.
+원래 출발 Slot으로만 복귀하도록 제한하지 않는다.
+
+이번 Phase 1에서는 다음을 이동 차단 조건으로 추가하지 않는다.
+
+- 실물 감지 센서
+- Cassette Mapping 완료 여부
+- 원래 Source Cassette Role/Slot
+- GOOD/NG Grade 정합
+- Process/Inspection 상태
+- Vision/Permission/Reservation 상태
+- AutoRunning/SequenceRunning 기반의 물리 인터락
+
+단, 데이터 손상을 막기 위한 아래 조건은 인터락이 아니라
+원자성/정합성 계약으로 반드시 지킨다.
+
+- Apply 직전에 Source Material ID와 Destination Empty를 다시 읽는다.
+- Preview 이후 데이터가 바뀌었으면 적용하지 않고 다시 선택하도록 한다.
+- Source clear, Destination set, CurrentLocation 갱신을 하나의 lock/transaction에서 수행한다.
+- 일부만 변경된 중간 상태를 저장하지 않는다.
+
+3.5 이동 시 데이터 갱신 계약
+----------------------------
+
+Material 객체를 복제하거나 새 ID를 만들지 않는다.
+동일 Material 인스턴스/ID의 위치만 변경한다.
+
+한 번의 성공한 이동에서 반드시 함께 처리한다.
+
+- Source의 Material pointer 제거
+- Destination의 Material pointer 등록
+- Material.CurrentLocation을 Destination과 정확히 일치
+- Cassette Destination이면 해당 Cassette Role/Slot pointer 등록
+- Cassette Source이면 이전 Cassette Role/Slot pointer 제거
+- 모델이 현재 Cassette assignment를 별도 필드로 보관하면 새 Role/Slot 반영
+- Feeder/Stage의 runtime projection/cache 동기화
+- MaterialSnapshot에 원자적으로 저장
+
+다음 값은 이동만으로 임의 변경하지 않는다.
+
+- Material ID
+- 현재 생산 LOT ID 및 CassetteLotId
+- 검사 결과
+- Die Map 및 진행 결과
+- Output Grade
+- Process State
+- Vision 결과
+
+MaterialSnapshot.LotId를 현재 생산 LOT 단일 기준으로 사용하는
+현재 정책을 보존한다. 이동 과정에서 LOT을 새로 생성하거나 바꾸지 않는다.
+
+3.6 삭제
+--------
+
+사용자는 선택한 Cassette/Feeder/Stage 위치의 Material 데이터를 삭제할 수 있다.
+
+삭제 조건:
+
+- 선택 위치에 Material 데이터가 존재
+- 확인창에서 사용자가 명시적으로 승인
+
+삭제 성공 시:
+
+- 위치 pointer 제거
+- Material collection에서 대상 제거 또는 현재 중앙 삭제 API의 계약대로 정리
+- 관련 runtime projection/cache 제거
+- orphan Cassette slot pointer가 남지 않음
+- Snapshot 저장
+
+삭제는 실물 제거를 의미하지 않음을 확인창에 명시한다.
+
+예:
+
+[DATA ONLY 삭제]
+INPUT FEEDER의 Wafer [INPUT1-S01] 데이터를 삭제하시겠습니까?
+실물 장비는 움직이지 않습니다.
+
+3.7 중앙 서비스
+----------------
+
+UI가 여러 Material collection, Cassette slot, Unit runtime field를
+직접 순서대로 수정하지 않는다.
+
+현재 MaterialStateService의 기존 API를 재사용할 수 있는지 먼저 분석한다.
+기존 API가 원자적 이동/삭제 결과와 구체적 실패 사유를 제공하지 못하면
+최소 범위의 전용 Service를 추가한다.
+
+예상 결과 객체:
+
+- Success
+- Operation: Move/Delete
+- MaterialId
+- Source
+- Destination
+- FailureCode
+- FailureMessage
+- Before/After location
+- PersistenceResult
+
+성공/실패/취소 로그에는 다음을 남긴다.
+
+- 시각
+- 사용자
+- DATA ONLY 표시
+- Input/Output 계통
+- Material ID
+- Source
+- Destination
+- Cassette Role/Slot
+- 결과와 실패 사유
+
+======================================================================
+4. 기능 B: Cassette 슬롯 선택 물리 이동
+======================================================================
+
+4.1 목적
+--------
+
+WorkInfo의 INPUT/OUTPUT Cassette 슬롯에서 실제 Cassette Z축을
+선택한 Slot의 로딩/언로딩 위치로 안전하게 이동한다.
+
+다음 UI 동작이 같은 중앙 Target Resolver와 같은 안전 실행 경로를 사용한다.
+
+- PREV
+- NEXT
+- 기존 우클릭 MOVE SLOT
+- 신규 슬롯 더블클릭
+
+더블클릭만 “해당 슬롯에 실제 Cassette Material 데이터 존재”를 요구한다.
+우클릭 MOVE는 유지보수 목적으로 빈 슬롯 이동을 계속 허용할 수 있다.
+
+물리 슬롯 이동은 Material 위치 데이터를 변경하지 않는다.
+
+4.2 First Position과 슬롯 방향 계약
+------------------------------------
+
+사용자 확정 기준:
+
+- First Position은 SLOT 01의 제품을 처음 꺼내는 실제 위치다.
+- SLOT 01은 내부 slotIndex=0이다.
+- First Position은 해당 Cassette 역할에서 가장 낮은 목표 엔코더 위치다.
+- 슬롯 번호가 증가할수록 목표 엔코더 위치가 증가한다.
+- SlotPitch는 양의 방향으로 적용한다.
+
+역할별 First Position:
+
+- Input1: Level1FirstSlotPosition
+- Input2: Level2FirstSlotPosition
+- Good1: GoodFirstSlotPosition
+- Good2: Good2FirstSlotPosition
+- Ng: NGFirstSlotPosition
+
+Mapping 보정이 없는 명목 목표:
+
+Target(slotIndex) = FirstPosition + SlotPitch * slotIndex
+
+Mapping 보정이 유효한 목표:
+
+Target(slotIndex) = FirstPosition
+                  + (MappedDetectPosition[slotIndex]
+                     - MappedDetectPosition[0])
+
+따라서 Mapping 유무와 관계없이 SLOT 01은 First Position에 고정한다.
+
+다른 Cassette 역할의 FirstPosition을 대신 사용하는 silent fallback을 금지한다.
+FirstPosition 또는 SlotPitch가 현재 Recipe의 티칭 유효성 계약을 만족하지 않으면
+임의 목표를 만들지 말고 물리 이동을 차단한다.
+
+Mapping 값이 다음 조건을 만족하지 않으면 사용하지 않고
+구체적 실패 사유로 이동을 차단한다.
+
+- 전체 배열 크기와 SlotCount 일치
+- 선택 Slot 값 유효
+- slotIndex 증가에 따라 목표 엔코더 단조 증가
+- 기존 Mapping pitch tolerance 통과
+- NaN/Infinity/legacy invalid sentinel 아님
+- 축 soft limit 안
+
+4.3 중앙 Target Resolver
+-----------------------
+
+INPUT은 Material.CurrentCassetteSlotPosition을 물리 목표의 단일 기준으로 사용하지 않는다.
+현재 InputCassetteUnit.CalculateWaferCassetteSlotTargetPosition()을 사용한다.
+
+OUTPUT은 현재 OutputCassetteUnit.CalculateBinCassetteSlotTargetPosition()을 사용한다.
+
+두 계산기의 역할별 FirstPosition/Mapping 동작이 위 계약과 다르면
+Auto 경로를 임의 변경하지 말고 먼저 차이를 보고한다.
+
+Resolver 결과에는 다음을 포함한다.
+
+- Cassette Role
+- UI Slot 번호
+- 내부 slotIndex
+- FirstPosition
+- SlotPitch
+- Target
+- TargetSource: NOMINAL 또는 MAPPED
+- Mapping 기준 Slot 01 위치
+- 유효성 결과와 실패 사유
+
+4.4 더블클릭 Material 판정
+-------------------------
+
+CassetteSlotView에 별도 SlotDoubleClicked 이벤트를 추가한다.
+슬롯 번호 Label과 상태 Label 모두 같은 이벤트를 발생시킨다.
+공용 View는 Motion/Material Service를 직접 호출하지 않는다.
+
+Input/Output Page의 handler는 더블클릭 시 Material을 다시 조회한다.
+
+다음 조건을 모두 만족할 때만 “Material이 실제 Cassette에 있음”으로 인정한다.
+
+- Cassette가 현재 mapped state에서 조회 가능
+- Slot.HasWafer 또는 현재 모델의 점유 flag가 true
+- Slot.MaterialId/WaferId가 비어 있지 않음
+- 해당 Material 객체가 존재
+- Material State가 Empty가 아님
+- CurrentLocation.Kind가 InputCassette 또는 OutputCassette
+- CurrentLocation.CassetteRole이 선택 Role과 일치
+- CurrentLocation.SlotNumber가 선택 Slot과 일치
+- Cassette slot pointer와 Material ID가 1:1로 일치
+
+SourceCassetteRole/SourceSlotNumber만 일치하고
+CurrentLocation이 Feeder/Stage인 Material은 실제 Cassette Material로 인정하지 않는다.
+
+Material이 없거나 불일치하면 Motion 명령을 발행하지 않고 다음처럼 표시한다.
+
+선택한 Cassette Slot에 실제 위치가 일치하는 Material 데이터가 없습니다.
+표시된 Material이 Feeder/Stage로 이동했는지 확인하십시오.
+
+4.5 확인창
+----------
+
+더블클릭 확인창은 정확히 한 번 표시한다.
+기존 RunMotionAction 확인창과 중복 표시하지 않는다.
+
+INPUT 예:
+
+[INPUT1 / SLOT 01]
+Wafer: INPUT1-S01
+목표: 123.456 mm (MAPPED)
+
+해당 위치로 이동하시겠습니까?
+
+OUTPUT 예:
+
+[GOOD1 / SLOT 01]
+Bin: GOOD1-S01
+목표: 456.789 mm (NOMINAL)
+
+해당 위치로 이동하시겠습니까?
+
+- Yes/OK: 안전 검사 후 이동
+- No/Cancel: Motion 0건, Material 변경 0건
+- 연속 더블클릭/연타: 두 번째 요청 시작 금지
+
+4.6 수동 실행 경로
+------------------
+
+새 raw Axis.MoveAbsoluteAsync 우회 경로를 만들지 않는다.
+기존 ManualActionScope와 Unit/Sequence 이동 경로를 재사용한다.
+
+INPUT:
+
+- Page의 직접 Material 저장 위치 이동을 중앙 Target Resolver로 교체
+- InputCassetteUnit의 guarded move 경로 사용
+- 필요하면 Input 수동 MoveSlot Service/Sequence를 최소 범위로 추가
+
+OUTPUT:
+
+- OutputCassetteMoveSlotSequence 유지
+- 새 수동 단발 요청은 Resume이 아닌 Fresh/Restart로 실행
+- 기존 Auto/공정 Resume 정책은 변경하지 않음
+
+4.7 물리 안전 계약
+------------------
+
+PREV/NEXT/우클릭/더블클릭의 모든 물리 Cassette Z 이동은
+최소 다음 조건을 통과해야 한다.
+
+- Auto/다른 Sequence/다른 Manual Motion과 동시 실행 금지
+- 대상 Cassette 감지
+- Cassette Z Servo ON
+- Axis Alarm OFF
+- Axis Moving OFF
+- 돌출 감지 센서 OFF
+- Front Picker가 정확한 Avoid
+- Rear Picker가 정확한 Avoid
+- 해당 Input/Output FeederY가 정지
+- 해당 FeederY가 기구적으로 허용된 안전 위치
+- MotionGuard 통과
+- 목표가 soft limit 안
+
+INPUT의 FeederY 안전 위치 helper가 강제로 true이면 이를 유지하지 않는다.
+현재 코드에 이미 의도되어 있던 안전 위치 predicate를 복원한다.
+현재 주석/Teaching 기준이 Avoid/Exchange/Home이라면
+정확한 위치 허용 범위를 보고한 후 해당 predicate를 사용한다.
+근거 없이 새 안전 위치를 추가하지 않는다.
+
+OUTPUT은 기존 Sequence의 Feeder Avoid 계약을 유지한다.
+
+Picker Avoid는 표시 flag가 아니라 기존 축 위치/tolerance predicate로 확인한다.
+Front/Rear 중 한쪽이라도 Avoid가 아니면 Cassette Z 이동을 차단한다.
+
+돌출 감지 센서는 이동 전뿐 아니라 이동 중에도 감시한다.
+감지되면 기존 Emergency Stop/Alarm 계약을 유지한다.
+
+인터락을 UI 검사에만 두지 않는다.
+최종 Axis 명령 직전 MotionGuard 재검사를 유지한다.
+
+4.8 이동 완료 계약
+------------------
+
+이동 명령 반환값을 무시하지 않는다.
+
+완료 조건:
+
+- 명령 성공
+- Servo ON
+- Alarm OFF
+- Moving OFF
+- InPosition ON
+- 기존 Axis tolerance 내 Target 도달
+
+Prepare/Move 메서드가 timeoutMs를 인자로 받으면 실제 대기에 사용한다.
+기존 강한 Wait/InPosition helper가 있으면 우선 재사용한다.
+전역 AxisMoveWaiter 또는 AjinAxis의 의미는 이번 작업에서 변경하지 않는다.
+
+Timeout 또는 목표 미도달 시 성공으로 표시하지 않는다.
+Role, Slot, Target, Actual, Command, Error, Servo, Alarm,
+Moving, InPosition 상태를 실패 메시지와 로그에 남긴다.
+
+4.9 OUTPUT Mapping buffer 결함
+------------------------------
+
+확정된 배열 재생성 결함이 현재 코드에도 존재하면 수정한다.
+
+요구사항:
+
+- 배열은 Config.SlotCount 전체 크기로 유지
+- 단일 Slot 갱신으로 기존 Slot 값이 지워지지 않음
+- Good1/Good2/NG 배열이 서로의 갱신으로 초기화되지 않음
+- SlotCount가 실제로 변경될 때만 안전하게 resize
+- resize 시 가능한 기존 값을 역할별로 보존
+- 새 영역만 invalid/NaN으로 초기화
+
+Mapping 관련 Auto 시퀀스의 센서 판정, pitch tolerance,
+slot indexing 의미는 변경하지 않는다.
+
+======================================================================
+5. UI/사용성 계약
+======================================================================
+
+한 화면에 DATA ONLY와 물리 이동이 함께 있으므로 시각적으로 구분한다.
+
+DATA ONLY 영역:
+
+- 붉은색 또는 경고색 제목
+- “NO MOTION” 고정 표시
+- Source/Destination/Material ID 표시
+- MOVE DATA 버튼
+- DELETE DATA 버튼
+
+물리 슬롯 이동:
+
+- 기존 Cassette 슬롯 View/PREV/NEXT/우클릭 유지
+- 더블클릭 안내 문구 추가
+- 확인창에 “Cassette Z축이 실제 이동합니다” 표시
+
+DATA ONLY MOVE와 SLOT PHYSICAL MOVE가 같은 버튼 이름이나
+같은 event handler를 사용하지 않는다.
+
+Page refresh 중 선택 Role/Slot이 바뀌어 다른 Slot이 움직이지 않도록
+요청 순간 Role/Slot을 immutable request 값으로 캡처한다.
+
+======================================================================
+6. 변경 금지 및 비범위
+======================================================================
+
+이번 작업에서 하지 않는다.
+
+- Auto Loading/Unloading 순서 변경
+- Mapping 센서 판정 완화
+- Cassette Z MotionGuard 제거/완화
+- Picker/Feeder 안전 위치 완화
+- 전역 Axis tolerance/ActualPosition 의미 변경
+- Material LOT 등록 UI 신규 구현
+- LOT ID 자동 생성 또는 변경
+- Die reservation/Permission 복구
+- Vision 프로토콜 변경
+- 실제 실물 이송 Sequence를 DATA ONLY 버튼에서 실행
+- DATA ONLY 이동에 센서 상태를 맞추기 위한 가짜 I/O 쓰기
+- 다른 프로젝트/checkout의 코드 복사
+
+======================================================================
+7. 예상 변경 파일
+======================================================================
+
+반드시 현재 코드에서 필요성을 다시 확인한다.
+불필요한 파일은 수정하지 않는다.
+
+공통 UI:
+
+- QMC.CDT-320\Ui\Controls\CassetteSlotView.cs
+
+INPUT:
+
+- QMC.CDT-320\Ui\Pages\WorkInfo\InputCassettePage.cs
+- QMC.CDT-320\Ui\Pages\WorkInfo\InputCassettePage.Designer.cs
+- QMC.CDT-320\Equipment\Unit\InputCassetteUnit.cs (필요한 경우만)
+- QMC.CDT-320\Equipment\Interlocks\InputCassetteInterlockRules.cs
+
+OUTPUT:
+
+- QMC.CDT-320\Ui\Pages\WorkInfo\OutputCassettePage.cs
+- QMC.CDT-320\Ui\Pages\WorkInfo\OutputCassettePage.Designer.cs
+- QMC.CDT-320\Sequencing\OutputCassette\OutputCassetteMoveSlotSequence.cs
+  또는 실제 현재 MoveSlot Sequence 파일
+- QMC.CDT-320\Equipment\Unit\OutputCassetteUnit.cs (필요한 경우만)
+- QMC.CDT-320\Equipment\Recipes\OutputCassetteRecipe.cs
+  또는 실제 Mapping buffer 소유 파일
+
+Material:
+
+- QMC.CDT-320\Equipment\Materials\MaterialStateService.cs
+- 필요 시 신규 ManualMaterialPositionService.cs
+- 신규 파일이 있으면 QMC.CDT-320\QMC.CDT-320.csproj
+
+기존 변경과 겹치는 파일은 apply_patch 방식으로 최소 hunk만 수정한다.
+
+======================================================================
+8. 구현 순서
+======================================================================
+
+P0. 현재 코드/Git 상태 재확인 및 변경 중첩 보고
+
+P1. Material 위치 모델, Cassette slot pointer, runtime projection,
+    Snapshot 저장 흐름 재추적
+
+P2. DATA ONLY 중앙 Move/Delete API 구현
+
+P3. Input/Output WorkInfo DATA ONLY UI 구현
+
+P4. CassetteSlotView SlotDoubleClicked 이벤트 추가
+
+P5. Input/Output 공통 Target Resolver 및 First/Pitch/Mapping 계약 정리
+
+P6. INPUT 물리 이동을 중앙 계산기와 강한 안전 실행 경로에 연결
+
+P7. OUTPUT 수동 요청 Fresh/Restart 및 Mapping buffer 결함 수정
+
+P8. Input/Output Cassette MotionGuard/Feeder/Picker/돌출 안전 검사 보강
+
+P9. 더블클릭 확인창, 재진입 방지, 실패 메시지/로그 구현
+
+P10. 정적 검증, mock/simulation 검증, 격리 Build
+
+각 단계에서 기존 Auto/Mapping/Load/Unload diff 영향 여부를 확인한다.
+
+======================================================================
+9. 검증 및 보고
+======================================================================
+
+검증은 함께 제공된 다음 체크리스트를 사용한다.
+
+cdt-320\codex-prompts\
+cassette-material-data-and-slot-motion-validation-checklist.txt
+
+필수 검증:
+
+- git diff 검토
+- git diff --check
+- 변경 파일 정적 검색
+- 가능하면 unit/mock 테스트
+- Simulation에서 DATA ONLY 기능 검증
+- Simulation에서 Cassette 슬롯 목표/확인창/차단 조건 검증
+- Build가 필요하면 /t:Build와 별도 OutDir만 사용
+- Clean/Rebuild 금지
+
+실제 장비에서 움직이지 않았으면
+“물리 안전 검증 완료”라고 보고하지 않는다.
+
+실장비 검증은 별도 승인 후 저속으로:
+
+- 각 Role의 First/Middle/Last Slot
+- Slot 증가 시 엔코더 증가
+- Picker non-Avoid 차단
+- Feeder non-safe 차단
+- 돌출 감지 차단
+- 이동 완료/tolerance
+
+순서로 수행한다.
+
+최종 보고:
+
+- 변경 파일
+- 핵심 diff
+- 기존 dirty 변경 보존 여부
+- DATA ONLY 검증 결과
+- 물리 슬롯 이동 검증 결과
+- Static/Mock/Simulation/Build/Equipment 결과를 분리
+- 미수행 항목과 남은 위험
+- 현재 git status
+
+commit/push는 하지 않는다.

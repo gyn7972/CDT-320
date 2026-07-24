@@ -1,0 +1,763 @@
+﻿CDT-320 WorkInfo Material DATA ONLY 이동/삭제 및
+Input/Output Cassette 슬롯 물리 이동 검증 체크리스트
+
+작성 기준일: 2026-07-24
+
+결과 표기:
+
+[ ] 미검증
+[P] 부분 검증
+[X] 통과
+[F] 실패
+[N/A] 해당 없음
+
+각 항목에는 결과와 함께 파일/라인, 로그, 테스트명 또는 화면 캡처 근거를 기록한다.
+
+======================================================================
+G. 저장소/Git/작업 범위
+======================================================================
+
+[ ] G-01 Git root가 D:\Source\CDT-320_New이다.
+    결과/근거:
+
+[ ] G-02 현재 branch와 HEAD를 기록했다.
+    결과/근거:
+
+[ ] G-03 작업 시작 전 git status --short --branch를 저장했다.
+    결과/근거:
+
+[ ] G-04 기존 수정/신규 파일을 전부 식별했다.
+    결과/근거:
+
+[ ] G-05 InputCassettePage.cs, MaterialStateService.cs 등
+         기존 변경과 이번 변경의 중첩을 확인했다.
+    결과/근거:
+
+[ ] G-06 기존 변경을 reset/checkout/clean/revert/덮어쓰기로 제거하지 않았다.
+    결과/근거:
+
+[ ] G-07 pull/merge/rebase/commit/push를 하지 않았다.
+    결과/근거:
+
+[ ] G-08 다른 checkout 또는 배포 폴더의 코드를 복사하지 않았다.
+    결과/근거:
+
+[ ] G-09 C# 구현 전 계획/체크리스트와 인터락·시퀀스 변경 범위를
+         사용자에게 보고하고 구현 승인을 받았다.
+    결과/근거:
+
+======================================================================
+A. 현재 구조 재검증
+======================================================================
+
+[ ] A-01 CassetteSlotView의 SLOT 01이 내부 slotIndex=0임을 확인했다.
+    결과/근거:
+
+[ ] A-02 슬롯 번호/상태 Label의 Click, Right Click,
+         DoubleClick 기존 연결 상태를 확인했다.
+    결과/근거:
+
+[ ] A-03 INPUT PREV/NEXT/우클릭의 현재 호출 경로를 기록했다.
+    결과/근거:
+
+[ ] A-04 OUTPUT PREV/NEXT/우클릭의 현재 호출 경로를 기록했다.
+    결과/근거:
+
+[ ] A-05 INPUT이 Material 저장 위치를 직접 물리 Target으로 사용하는
+         기존 경로가 있는지 확인했다.
+    결과/근거:
+
+[ ] A-06 INPUT/OUTPUT 중앙 슬롯 Target 계산기의 역할/Level/Zone 매핑을 확인했다.
+    결과/근거:
+
+[ ] A-07 UI 슬롯 표시가 Feeder/Stage Material을 원래 Slot에 투영하는지 확인했다.
+    결과/근거:
+
+[ ] A-08 Input FeederY 안전 위치 helper의 강제 true 여부를 확인했다.
+    결과/근거:
+
+[ ] A-09 OUTPUT Mapping buffer가 단일 Slot 갱신으로 재생성되는지 확인했다.
+    결과/근거:
+
+[ ] A-10 Move/Prepare의 timeoutMs 사용 여부와 최종 InPosition 확인 경로를 기록했다.
+    결과/근거:
+
+======================================================================
+D. DATA ONLY UI 및 모션 격리
+======================================================================
+
+[ ] D-01 INPUT WorkInfo에 DATA ONLY / NO MOTION 표시가 분명히 보인다.
+    결과/근거:
+
+[ ] D-02 OUTPUT WorkInfo에 DATA ONLY / NO MOTION 표시가 분명히 보인다.
+    결과/근거:
+
+[ ] D-03 신규 WinForms 컨트롤이 각 *.Designer.cs의
+         InitializeComponent() 안에 선언/배치됐다.
+    결과/근거:
+
+[ ] D-04 이벤트와 기능 로직은 *.cs에 구현됐다.
+    결과/근거:
+
+[ ] D-05 DATA ONLY MOVE handler에서 Axis/Unit Move,
+         Sequence, Cylinder, Vacuum, Clamp를 호출하지 않는다.
+    결과/근거:
+
+[ ] D-06 DATA ONLY DELETE handler에서 물리 장비 명령을 호출하지 않는다.
+    결과/근거:
+
+[ ] D-07 DATA ONLY 기능이 실제/Simulation I/O 값을 강제로 쓰지 않는다.
+    결과/근거:
+
+[ ] D-08 DATA ONLY 버튼과 SLOT PHYSICAL MOVE 버튼/이벤트/로그가 분리됐다.
+    결과/근거:
+
+[ ] D-09 DATA ONLY 이동 확인창에 Source, Destination,
+         Material ID, NO MOTION이 표시된다.
+    결과/근거:
+
+[ ] D-10 DATA ONLY 삭제 확인창에 위치, Material ID,
+         실물은 움직이지 않는다는 경고가 표시된다.
+    결과/근거:
+
+======================================================================
+M. DATA ONLY 허용 경로
+======================================================================
+
+[ ] M-01 Input1 Cassette Slot -> InputFeeder가 가능하다.
+    결과/근거:
+
+[ ] M-02 Input2 Cassette Slot -> InputFeeder가 가능하다.
+    결과/근거:
+
+[ ] M-03 InputFeeder -> 선택한 Input1 Slot이 가능하다.
+    결과/근거:
+
+[ ] M-04 InputFeeder -> 선택한 Input2 Slot이 가능하다.
+    결과/근거:
+
+[ ] M-05 InputFeeder -> InputStage가 가능하다.
+    결과/근거:
+
+[ ] M-06 InputStage -> InputFeeder가 가능하다.
+    결과/근거:
+
+[ ] M-07 Good1 Cassette Slot -> OutputFeeder가 가능하다.
+    결과/근거:
+
+[ ] M-08 Good2 Cassette Slot -> OutputFeeder가 가능하다.
+    결과/근거:
+
+[ ] M-09 Ng Cassette Slot -> OutputFeeder가 가능하다.
+    결과/근거:
+
+[ ] M-10 OutputFeeder -> 선택한 Good1 Slot이 가능하다.
+    결과/근거:
+
+[ ] M-11 OutputFeeder -> 선택한 Good2 Slot이 가능하다.
+    결과/근거:
+
+[ ] M-12 OutputFeeder -> 선택한 Ng Slot이 가능하다.
+    결과/근거:
+
+[ ] M-13 OutputFeeder -> OutputGoodStage가 가능하다.
+    결과/근거:
+
+[ ] M-14 OutputGoodStage -> OutputFeeder가 가능하다.
+    결과/근거:
+
+[ ] M-15 OutputFeeder -> OutputNgStage가 가능하다.
+    결과/근거:
+
+[ ] M-16 OutputNgStage -> OutputFeeder가 가능하다.
+    결과/근거:
+
+[ ] M-17 Cassette -> Stage 직접 이동이 차단된다.
+    결과/근거:
+
+[ ] M-18 Stage -> Cassette 직접 이동이 차단된다.
+    결과/근거:
+
+[ ] M-19 Input 계통 <-> Output 계통 이동이 차단된다.
+    결과/근거:
+
+[ ] M-20 동일 위치 이동이 차단된다.
+    결과/근거:
+
+[ ] M-21 Cassette Destination은 Role과 Slot을 명시적으로 선택해야 한다.
+    결과/근거:
+
+[ ] M-22 원래 Source Slot이 아닌 비어 있는 다른 Slot도
+         Phase 1 요구대로 선택 가능하다.
+    결과/근거:
+
+======================================================================
+C. DATA ONLY 최소 검사와 원자성
+======================================================================
+
+[ ] C-01 Source에 Material이 없으면 이동이 실패한다.
+    결과/근거:
+
+[ ] C-02 Destination에 Material이 있으면 이동이 실패한다.
+    결과/근거:
+
+[ ] C-03 Source에 둘 이상의 포인터/불일치가 있으면
+         조용히 하나를 선택하지 않고 실패한다.
+    결과/근거:
+
+[ ] C-04 Apply 직전 Source Material ID를 다시 확인한다.
+    결과/근거:
+
+[ ] C-05 Apply 직전 Destination Empty를 다시 확인한다.
+    결과/근거:
+
+[ ] C-06 Preview 후 Source가 변경되면 적용하지 않는다.
+    결과/근거:
+
+[ ] C-07 Preview 후 Destination이 점유되면 적용하지 않는다.
+    결과/근거:
+
+[ ] C-08 Source clear, Destination set, CurrentLocation 갱신이
+         하나의 lock/transaction에서 처리된다.
+    결과/근거:
+
+[ ] C-09 실패 시 Source만 지워지거나 Destination만 채워지는
+         부분 변경이 남지 않는다.
+    결과/근거:
+
+[ ] C-10 Material ID/객체가 복제되거나 새로 생성되지 않는다.
+    결과/근거:
+
+[ ] C-11 Cassette로 이동 시 Cassette slot pointer와
+         Material CurrentLocation Role/Slot이 1:1로 일치한다.
+    결과/근거:
+
+[ ] C-12 Cassette에서 이동 시 이전 slot pointer가 제거된다.
+    결과/근거:
+
+[ ] C-13 Feeder/Stage runtime projection이 중앙 State와 일치한다.
+    결과/근거:
+
+[ ] C-14 Snapshot 저장 후 재조회해 Source/Destination이 일치한다.
+    결과/근거:
+
+[ ] C-15 프로그램 재시작/복구 후 이동 결과가 유지된다.
+    결과/근거:
+
+[ ] C-16 이동으로 Material ID, LOT ID, Inspection,
+         Die Map, OutputGrade, Process State가 임의 변경되지 않는다.
+    결과/근거:
+
+[ ] C-17 MaterialSnapshot.LotId 단일 생산 LOT 기준이 유지된다.
+    결과/근거:
+
+[ ] C-18 Phase 1에서 센서/Mapping/원본 Slot/Grade/Process 상태를
+         새 이동 차단 조건으로 추가하지 않았다.
+    결과/근거:
+
+======================================================================
+E. DATA ONLY 삭제
+======================================================================
+
+[ ] E-01 빈 위치의 DELETE는 실패한다.
+    결과/근거:
+
+[ ] E-02 Cassette Slot Material 삭제가 가능하다.
+    결과/근거:
+
+[ ] E-03 Feeder Material 삭제가 가능하다.
+    결과/근거:
+
+[ ] E-04 Stage Material 삭제가 가능하다.
+    결과/근거:
+
+[ ] E-05 삭제 취소 시 데이터 변경이 0건이다.
+    결과/근거:
+
+[ ] E-06 삭제 성공 후 Cassette/Feeder/Stage pointer가 남지 않는다.
+    결과/근거:
+
+[ ] E-07 삭제 성공 후 runtime projection/cache가 남지 않는다.
+    결과/근거:
+
+[ ] E-08 삭제 성공 후 Snapshot에 orphan Material/slot pointer가 없다.
+    결과/근거:
+
+[ ] E-09 삭제가 물리 모션이나 I/O를 발생시키지 않는다.
+    결과/근거:
+
+======================================================================
+P. First Position/Pitch/Mapping 좌표 계약
+======================================================================
+
+[ ] P-01 UI SLOT 01 -> 내부 slotIndex=0이다.
+    결과/근거:
+
+[ ] P-02 Input1 SLOT 01 Target = Level1FirstSlotPosition이다.
+    결과/근거:
+
+[ ] P-03 Input2 SLOT 01 Target = Level2FirstSlotPosition이다.
+    결과/근거:
+
+[ ] P-04 Good1 SLOT 01 Target = GoodFirstSlotPosition이다.
+    결과/근거:
+
+[ ] P-05 Good2 SLOT 01 Target = Good2FirstSlotPosition이다.
+    결과/근거:
+
+[ ] P-06 Ng SLOT 01 Target = NGFirstSlotPosition이다.
+    결과/근거:
+
+[ ] P-07 Mapping이 없을 때 모든 Role에서
+         Target(i)=FirstPosition+SlotPitch*i이다.
+    결과/근거:
+
+[ ] P-08 Slot 번호가 증가할 때 Target 엔코더가 단조 증가한다.
+    결과/근거:
+
+[ ] P-09 First Position이 역할 내 가장 낮은 Slot Target이다.
+    결과/근거:
+
+[ ] P-10 Mapping이 있을 때 SLOT 01은 여전히 First Position이다.
+    결과/근거:
+
+[ ] P-11 Mapping이 있을 때 후속 Slot은
+         First+(mapped[i]-mapped[0])이다.
+    결과/근거:
+
+[ ] P-12 다른 Role/Level의 FirstPosition으로 silent fallback하지 않는다.
+    결과/근거:
+
+[ ] P-13 FirstPosition 미티칭/무효 시 이동을 차단한다.
+    결과/근거:
+
+[ ] P-14 SlotPitch 미티칭/무효 시 이동을 차단한다.
+    결과/근거:
+
+[ ] P-15 Mapping 배열 크기가 SlotCount와 다르면 차단 또는
+         명시된 안전 정책으로 처리하고 이유를 표시한다.
+    결과/근거:
+
+[ ] P-16 Mapping Slot 값 NaN/Infinity/invalid sentinel이면 차단한다.
+    결과/근거:
+
+[ ] P-17 Mapping Target이 단조 증가하지 않으면 차단한다.
+    결과/근거:
+
+[ ] P-18 Target이 soft limit 밖이면 이동 명령을 발행하지 않는다.
+    결과/근거:
+
+[ ] P-19 INPUT 물리 Target이 Material.CurrentCassetteSlotPosition
+         단독 값이 아니라 중앙 Unit 계산기를 사용한다.
+    결과/근거:
+
+[ ] P-20 OUTPUT 물리 Target이 중앙 Unit 계산기를 사용한다.
+    결과/근거:
+
+======================================================================
+B. OUTPUT Mapping buffer 보존
+======================================================================
+
+[ ] B-01 Mapping 배열 길이가 Config.SlotCount 전체 크기다.
+    결과/근거:
+
+[ ] B-02 Slot 01 저장 후 Slot 02를 저장해도 Slot 01 값이 유지된다.
+    결과/근거:
+
+[ ] B-03 높은 Slot 저장 후 낮은 Slot 저장에도 다른 값이 유지된다.
+    결과/근거:
+
+[ ] B-04 Good1 갱신으로 Good2/NG 배열이 초기화되지 않는다.
+    결과/근거:
+
+[ ] B-05 Good2 갱신으로 Good1/NG 배열이 초기화되지 않는다.
+    결과/근거:
+
+[ ] B-06 NG 갱신으로 Good1/Good2 배열이 초기화되지 않는다.
+    결과/근거:
+
+[ ] B-07 SlotCount 증가 시 기존 값이 보존되고 새 영역만 invalid다.
+    결과/근거:
+
+[ ] B-08 SlotCount 감소 시 범위 안 기존 값이 보존된다.
+    결과/근거:
+
+[ ] B-09 Mapping 저장/재로드 후 모든 역할/슬롯 값이 동일하다.
+    결과/근거:
+
+[ ] B-10 기존 Auto Mapping의 index/pitch tolerance 의미가 변하지 않았다.
+    결과/근거:
+
+======================================================================
+U. 슬롯 더블클릭 UI
+======================================================================
+
+[ ] U-01 CassetteSlotView에 SlotDoubleClicked 이벤트가 추가됐다.
+    결과/근거:
+
+[ ] U-02 슬롯 번호 Label 더블클릭이 정확한 slotIndex를 전달한다.
+    결과/근거:
+
+[ ] U-03 슬롯 상태 Label 더블클릭이 정확한 slotIndex를 전달한다.
+    결과/근거:
+
+[ ] U-04 Input1/Input2가 각각 정확한 Role과 handler에 연결된다.
+    결과/근거:
+
+[ ] U-05 Good1/Good2/Ng가 각각 정확한 Role과 handler에 연결된다.
+    결과/근거:
+
+[ ] U-06 단일 Click의 SlotSelected 동작이 유지된다.
+    결과/근거:
+
+[ ] U-07 기존 우클릭 MOVE SLOT 동작이 유지된다.
+    결과/근거:
+
+[ ] U-08 PREV/NEXT 동작이 유지된다.
+    결과/근거:
+
+[ ] U-09 더블클릭 확인창이 정확히 한 번만 표시된다.
+    결과/근거:
+
+[ ] U-10 확인창과 기존 RunMotionAction 확인창이 중복 표시되지 않는다.
+    결과/근거:
+
+[ ] U-11 확인창에 Role, Slot, Material ID, Target,
+         NOMINAL/MAPPED가 표시된다.
+    결과/근거:
+
+[ ] U-12 확인창에 Cassette Z축이 실제 이동한다는 문구가 표시된다.
+    결과/근거:
+
+[ ] U-13 Cancel 시 Motion 명령 0건, Material 변경 0건이다.
+    결과/근거:
+
+[ ] U-14 연속 더블클릭으로 두 번째 이동이 시작되지 않는다.
+    결과/근거:
+
+[ ] U-15 Page refresh/Role 변경 중에도 요청 당시 Role/Slot이 유지된다.
+    결과/근거:
+
+======================================================================
+L. 더블클릭 Material 실제 위치 판정
+======================================================================
+
+[ ] L-01 Cassette slot 점유 flag가 false면 더블클릭 이동이 차단된다.
+    결과/근거:
+
+[ ] L-02 Cassette slot Material ID가 비면 차단된다.
+    결과/근거:
+
+[ ] L-03 Material 객체가 없으면 차단된다.
+    결과/근거:
+
+[ ] L-04 Material State가 Empty면 차단된다.
+    결과/근거:
+
+[ ] L-05 CurrentLocation.Kind가 해당 Cassette가 아니면 차단된다.
+    결과/근거:
+
+[ ] L-06 CurrentLocation.CassetteRole이 선택 Role과 다르면 차단된다.
+    결과/근거:
+
+[ ] L-07 CurrentLocation.SlotNumber가 선택 Slot과 다르면 차단된다.
+    결과/근거:
+
+[ ] L-08 Cassette slot pointer와 Material ID가 다르면 차단된다.
+    결과/근거:
+
+[ ] L-09 InputFeeder/InputStage에 있으면서 원래 Slot에 투영된 Wafer는 차단된다.
+    결과/근거:
+
+[ ] L-10 OutputFeeder/GoodStage/NgStage에 있으면서
+         원래 Slot에 투영된 Bin은 차단된다.
+    결과/근거:
+
+[ ] L-11 실제 Role/Slot/CurrentLocation이 모두 일치하면 확인창이 열린다.
+    결과/근거:
+
+[ ] L-12 물리 슬롯 이동 전후 Material 데이터는 변경되지 않는다.
+    결과/근거:
+
+======================================================================
+S. 물리 이동 안전 인터락
+======================================================================
+
+[ ] S-01 Auto 또는 다른 Sequence 실행 중 슬롯 이동이 차단된다.
+    결과/근거:
+
+[ ] S-02 다른 Manual Motion 실행 중 슬롯 이동이 차단된다.
+    결과/근거:
+
+[ ] S-03 대상 Cassette 미감지 시 이동이 차단된다.
+    결과/근거:
+
+[ ] S-04 Cassette Z Servo OFF 시 이동이 차단된다.
+    결과/근거:
+
+[ ] S-05 Cassette Z Axis Alarm ON 시 이동이 차단된다.
+    결과/근거:
+
+[ ] S-06 Cassette Z가 Moving이면 새 이동이 차단된다.
+    결과/근거:
+
+[ ] S-07 돌출 감지 센서 ON이면 이동 시작 전 차단된다.
+    결과/근거:
+
+[ ] S-08 이동 중 돌출 감지 시 기존 Stop/Alarm 동작이 실행된다.
+    결과/근거:
+
+[ ] S-09 Front Picker non-Avoid이면 INPUT 이동이 차단된다.
+    결과/근거:
+
+[ ] S-10 Rear Picker non-Avoid이면 INPUT 이동이 차단된다.
+    결과/근거:
+
+[ ] S-11 Front Picker non-Avoid이면 OUTPUT 이동이 차단된다.
+    결과/근거:
+
+[ ] S-12 Rear Picker non-Avoid이면 OUTPUT 이동이 차단된다.
+    결과/근거:
+
+[ ] S-13 InputFeederY가 움직이는 중이면 INPUT 이동이 차단된다.
+    결과/근거:
+
+[ ] S-14 InputFeederY가 허용 안전 위치가 아니면 INPUT 이동이 차단된다.
+    결과/근거:
+
+[ ] S-15 InputFeederY 안전 helper의 hardcoded true가 제거됐다.
+    결과/근거:
+
+[ ] S-16 OutputFeederY가 움직이는 중이면 OUTPUT 이동이 차단된다.
+    결과/근거:
+
+[ ] S-17 OutputFeederY가 Avoid가 아니면 OUTPUT 이동이 차단된다.
+    결과/근거:
+
+[ ] S-18 Page 선검사 후 최종 Axis 명령 직전에 MotionGuard가 재검사된다.
+    결과/근거:
+
+[ ] S-19 UI 검사만 우회해 raw Axis 이동하는 경로가 없다.
+    결과/근거:
+
+[ ] S-20 기존 Auto/Mapping/Load/Unload 인터락이 완화되지 않았다.
+    결과/근거:
+
+======================================================================
+R. 수동 Sequence 및 완료 판정
+======================================================================
+
+[ ] R-01 INPUT PREV/NEXT/우클릭/더블클릭이 같은 Target Resolver를 사용한다.
+    결과/근거:
+
+[ ] R-02 OUTPUT PREV/NEXT/우클릭/더블클릭이 같은 Target Resolver를 사용한다.
+    결과/근거:
+
+[ ] R-03 OUTPUT의 새 수동 단발 요청은 Fresh/Restart로 시작한다.
+    결과/근거:
+
+[ ] R-04 기존 Auto/공정 Resume 정책은 변경되지 않았다.
+    결과/근거:
+
+[ ] R-05 이동 명령 반환값을 확인한다.
+    결과/근거:
+
+[ ] R-06 timeoutMs가 실제 대기에 사용된다.
+    결과/근거:
+
+[ ] R-07 완료 시 Servo ON이다.
+    결과/근거:
+
+[ ] R-08 완료 시 Alarm OFF이다.
+    결과/근거:
+
+[ ] R-09 완료 시 Moving OFF이다.
+    결과/근거:
+
+[ ] R-10 완료 시 InPosition ON이다.
+    결과/근거:
+
+[ ] R-11 완료 시 Actual/Target 오차가 기존 tolerance 안이다.
+    결과/근거:
+
+[ ] R-12 Timeout 시 성공 메시지가 표시되지 않는다.
+    결과/근거:
+
+[ ] R-13 실패 메시지에 Role, Slot, Target, Actual, Command,
+         Error, Servo, Alarm, Moving, InPosition이 포함된다.
+    결과/근거:
+
+[ ] R-14 전역 AxisMoveWaiter/AjinAxis 완료 의미를 변경하지 않았다.
+    결과/근거:
+
+======================================================================
+T. 로그 및 추적
+======================================================================
+
+[ ] T-01 DATA ONLY Move 성공 로그가 남는다.
+    결과/근거:
+
+[ ] T-02 DATA ONLY Move 실패 로그가 구체적 사유와 함께 남는다.
+    결과/근거:
+
+[ ] T-03 DATA ONLY Delete 성공/실패/취소 로그가 남는다.
+    결과/근거:
+
+[ ] T-04 로그에 User, Material ID, Source, Destination,
+         Role/Slot이 포함된다.
+    결과/근거:
+
+[ ] T-05 물리 슬롯 이동 요청 로그에 Role, Slot, TargetSource,
+         Target, Current가 포함된다.
+    결과/근거:
+
+[ ] T-06 물리 이동 Cancel과 Interlock 차단이 구분된다.
+    결과/근거:
+
+[ ] T-07 Mapping/First/Pitch 무효 사유가 한국어로 구체적으로 표시된다.
+    결과/근거:
+
+======================================================================
+V. 정적/Mock/Simulation 검증
+======================================================================
+
+[ ] V-01 변경 파일 전체 diff를 검토했다.
+    결과/근거:
+
+[ ] V-02 git diff --check가 통과했다.
+    결과/근거:
+
+[ ] V-03 기존 dirty 변경이 보존됐음을 확인했다.
+    결과/근거:
+
+[ ] V-04 DATA ONLY 경로에 Motion/Sequence 호출이 없음을 정적 검색했다.
+    결과/근거:
+
+[ ] V-05 물리 이동 경로에 Material Move/Delete 호출이 없음을 정적 검색했다.
+    결과/근거:
+
+[ ] V-06 Role별 First/Middle/Last Target 계산 mock 테스트가 통과했다.
+    결과/근거:
+
+[ ] V-07 Mapping 유/무 Target 계산 mock 테스트가 통과했다.
+    결과/근거:
+
+[ ] V-08 OUTPUT Mapping buffer 보존 테스트가 통과했다.
+    결과/근거:
+
+[ ] V-09 Source 존재/Destination Empty 경계 테스트가 통과했다.
+    결과/근거:
+
+[ ] V-10 Preview 이후 Source/Destination 변경 race 테스트가 통과했다.
+    결과/근거:
+
+[ ] V-11 Snapshot 저장/재로드 테스트가 통과했다.
+    결과/근거:
+
+[ ] V-12 Simulation에서 INPUT DATA ONLY 경로 전체를 검증했다.
+    결과/근거:
+
+[ ] V-13 Simulation에서 OUTPUT DATA ONLY 경로 전체를 검증했다.
+    결과/근거:
+
+[ ] V-14 Simulation에서 INPUT 슬롯 더블클릭 확인/취소/이동을 검증했다.
+    결과/근거:
+
+[ ] V-15 Simulation에서 OUTPUT 슬롯 더블클릭 확인/취소/이동을 검증했다.
+    결과/근거:
+
+[ ] V-16 Simulation에서 Feeder/Picker/돌출 차단 조건을 검증했다.
+    결과/근거:
+
+======================================================================
+W. Build 검증
+======================================================================
+
+[ ] W-01 Clean/Rebuild를 실행하지 않았다.
+    결과/근거:
+
+[ ] W-02 /t:Build만 사용했다.
+    결과/근거:
+
+[ ] W-03 D:\CDT-320 출력 경로를 사용하지 않았다.
+    결과/근거:
+
+[ ] W-04 별도 격리 OutDir을 사용했다.
+    결과/근거:
+
+[ ] W-05 Build 성공/실패와 기존 오류/신규 오류를 구분해 기록했다.
+    결과/근거:
+
+======================================================================
+Q. 실장비 검증 - 별도 승인 후에만 수행
+======================================================================
+
+[ ] Q-01 실제 장비 검증 별도 승인을 받았다.
+    결과/근거:
+
+[ ] Q-02 저속으로 Input1 First/Middle/Last Slot을 확인했다.
+    결과/근거:
+
+[ ] Q-03 저속으로 Input2 First/Middle/Last Slot을 확인했다.
+    결과/근거:
+
+[ ] Q-04 저속으로 Good1 First/Middle/Last Slot을 확인했다.
+    결과/근거:
+
+[ ] Q-05 저속으로 Good2 First/Middle/Last Slot을 확인했다.
+    결과/근거:
+
+[ ] Q-06 저속으로 Ng First/Middle/Last Slot을 확인했다.
+    결과/근거:
+
+[ ] Q-07 모든 Role에서 Slot 증가 시 실제 Encoder가 증가했다.
+    결과/근거:
+
+[ ] Q-08 각 Role의 SLOT 01이 실제 First Position과 일치했다.
+    결과/근거:
+
+[ ] Q-09 Front/Rear Picker non-Avoid 실제 차단을 확인했다.
+    결과/근거:
+
+[ ] Q-10 Input/Output Feeder non-safe 실제 차단을 확인했다.
+    결과/근거:
+
+[ ] Q-11 돌출 감지 센서 실제 차단/정지를 확인했다.
+    결과/근거:
+
+[ ] Q-12 이동 완료 tolerance/InPosition을 실제 Encoder 로그로 확인했다.
+    결과/근거:
+
+[ ] Q-13 기존 Auto Mapping/Load/Unload 회귀 검증을 수행했다.
+    결과/근거:
+
+실장비 검증을 수행하지 않았다면
+“정적/Simulation 검증 완료, 실장비 안전성 미검증”으로 보고한다.
+
+======================================================================
+F. 최종 보고
+======================================================================
+
+[ ] F-01 실제 변경 파일을 보고했다.
+    결과/근거:
+
+[ ] F-02 DATA ONLY 핵심 diff를 보고했다.
+    결과/근거:
+
+[ ] F-03 슬롯 Target/DoubleClick/Interlock 핵심 diff를 보고했다.
+    결과/근거:
+
+[ ] F-04 기존 Auto/Mapping/Load/Unload 영향 여부를 보고했다.
+    결과/근거:
+
+[ ] F-05 Static/Mock/Simulation/Build/Equipment 결과를 구분했다.
+    결과/근거:
+
+[ ] F-06 미수행 검증과 남은 위험을 보고했다.
+    결과/근거:
+
+[ ] F-07 최종 git status를 보고했다.
+    결과/근거:
+
+[ ] F-08 commit/push를 하지 않았다.
+    결과/근거:

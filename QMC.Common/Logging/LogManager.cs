@@ -340,7 +340,9 @@ namespace QMC.Common
             }
 
             AppendBufferedLine(buffers, strFileName, log.ToString());
-            if (log.Level >= LogLevel.Normal)
+            // LCP_280 통합 미러: 기존에는 Normal 이상 전부를 복제해 분류별 로그와 이중 저장됐다.
+            // 최소 로그 정책에 따라 AboveNormal(Warning) 이상만 통합 파일에 복제한다.
+            if (log.Level >= LogLevel.AboveNormal)
                 AppendBufferedLine(buffers, strAllLog, log.ToString());
         }
 
@@ -391,10 +393,11 @@ namespace QMC.Common
             }
 
             WriteLog(log, strFileName);
-			if(log.Level  >= LogLevel.Normal)
-			{
-	            WriteLog(log, strAllLog);
-			}
+            // LCP_280 통합 미러는 AboveNormal(Warning) 이상만 복제한다(정상 로그 이중 저장 제거).
+            if (log.Level >= LogLevel.AboveNormal)
+            {
+                WriteLog(log, strAllLog);
+            }
         }
 
         private static void WriteLog(LogInfo log, string strFileName)

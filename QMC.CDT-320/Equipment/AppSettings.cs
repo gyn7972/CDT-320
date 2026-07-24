@@ -108,6 +108,20 @@ namespace QMC.CDT320
         /// </summary>
         [DataMember] public bool   FileLogHistoryEnabled { get; set; } = true;
 
+        // ── 최소 로그 정책(LogPolicy) ──
+        /// <summary>시작 시 DiagnosticVerbose 모드로 기동할지. 제한 시간(LogDiagnosticVerboseMinutes) 후 자동 복귀한다. 기본 false(ProductionMinimal).</summary>
+        [DataMember] public bool   LogDiagnosticVerboseOnStart { get; set; } = false;
+        /// <summary>DiagnosticVerbose 자동 종료 시간(분). 기본 60분.</summary>
+        [DataMember] public int    LogDiagnosticVerboseMinutes { get; set; } = 60;
+        /// <summary>알람 블랙박스(메모리 순환 버퍼) 최대 건수. 기본 20000.</summary>
+        [DataMember] public int    LogBlackboxCapacity { get; set; } = 20000;
+        /// <summary>AlarmContext 덤프에 포함할 직전 시간창(초). 기본 30초.</summary>
+        [DataMember] public int    LogBlackboxWindowSeconds { get; set; } = 30;
+        /// <summary>ProductionMinimal에서도 영구 저장할 이벤트 코드 접두사(쉼표 구분). 비우면 내장 기본값 사용.</summary>
+        [DataMember] public string LogPersistCodePrefixes { get; set; } = "";
+        /// <summary>Front/Rear 픽커 유휴 대기 폴 주기(ms). 기본 20ms, 안전 범위 1~500.</summary>
+        [DataMember] public int    PickerIdlePollMs { get; set; } = 20;
+
         /// <summary>
         /// 압축 보관본(Log\Archive\*.zip) 보존일수. 14일이 지난 원본 로그는 자동으로 압축 보관되고(고정 규칙),
         /// 압축본은 이 일수가 지나면 최종 삭제된다(복구 불가). 0 = 무기한 보관(OFF). 기본 0.
@@ -206,6 +220,7 @@ namespace QMC.CDT320
                 Current = new AppSettings();
                 RefreshHybridModeSnapshot(true);
                 QMC.Common.Motion.MotionSpeedScale.ScalePercent = Current.DefaultVelocityScalePercent;
+                ApplyLogPolicySettings(Current);
                 return Current;
             }
             try
@@ -225,8 +240,32 @@ namespace QMC.CDT320
             Current.DefaultVelocityScalePercent =
                 QMC.Common.Motion.MotionSpeedScale.ClampPercent(Current.DefaultVelocityScalePercent);
             QMC.Common.Motion.MotionSpeedScale.ScalePercent = Current.DefaultVelocityScalePercent;
+            ApplyLogPolicySettings(Current);
             RefreshHybridModeSnapshot(true);
             return Current;
+        }
+
+        // 최소 로그 정책과 픽커 유휴 폴 주기를 로드된 설정으로 적용한다.
+        private static void ApplyLogPolicySettings(AppSettings settings)
+        {
+            try
+            {
+                if (settings == null)
+                    return;
+
+                QMC.Common.Logging.LogPolicy.Configure(
+                    settings.LogBlackboxCapacity,
+                    settings.LogBlackboxWindowSeconds,
+                    settings.LogPersistCodePrefixes);
+
+                if (settings.LogDiagnosticVerboseOnStart)
+                    QMC.Common.Logging.LogPolicy.EnableDiagnosticVerbose(settings.LogDiagnosticVerboseMinutes, "SETTINGS");
+
+                QMC.CDT320.Sequencing.PickerSequenceIdlePolicy.Configure(settings.PickerIdlePollMs);
+            }
+            catch
+            {
+            }
         }
 
         public static void Save()

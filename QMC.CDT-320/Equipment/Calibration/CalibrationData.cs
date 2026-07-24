@@ -633,8 +633,15 @@ namespace QMC.CDT320.Calibration
         [DataMember] public PickUpZCalibrationData PickUpZ { get; set; } = new PickUpZCalibrationData();
         [DataMember] public PlaceZCalibrationData PlaceZ { get; set; } = new PlaceZCalibrationData();
         [DataMember] public AutoCalibrationSettings AutoCalibration { get; set; } = new AutoCalibrationSettings();
+        // 캘리브레이션 "안전위치(Avoid) 이동" 전용 속도 퍼센트. 안전이동 속도/가속/감속 = 축 Config.Default × (%/100).
+        // 측정 이동 속도와는 완전히 분리되며, 명시(explicit) 속도로 전달되어 전역 MotionSpeedScale과 중첩되지 않는다. 범위 1~100, 기본 7.
+        [DataMember] public double SafeMovePercent { get; set; } = DefaultSafeMovePercent;
         [DataMember] public DateTime UpdatedAt { get; set; }
         [DataMember] public string UpdatedBy { get; set; }
+
+        public const double DefaultSafeMovePercent = 7.0;
+        public const double MinSafeMovePercent = 1.0;
+        public const double MaxSafeMovePercent = 100.0;
 
         [OnDeserialized]
         private void OnDeserialized(StreamingContext ctx)
@@ -658,6 +665,8 @@ namespace QMC.CDT320.Calibration
                 PlaceZ = new PlaceZCalibrationData();
             if (AutoCalibration == null)
                 AutoCalibration = new AutoCalibrationSettings();
+            if (SafeMovePercent < MinSafeMovePercent || SafeMovePercent > MaxSafeMovePercent || double.IsNaN(SafeMovePercent))
+                SafeMovePercent = DefaultSafeMovePercent;
 
             Camera.EnsureObjects();
             Collet.EnsureObjects();

@@ -46,11 +46,12 @@ namespace QMC.CDT320.Sequencing.Calibration
         {
             try
             {
+                // 안전 복귀 이동은 forceMove를 쓰지 않는다: 이미 Avoid(정지+무알람+톨러런스)면 확인만 하고 통과한다.
+                // (자식 캘 시퀀스 시작 안전이동과의 이중 이동 제거 — 최종 VerifyAllUpperAxesAvoid 검증은 그대로 수행)
                 CurrentStep = AutoCalibrationSafePositionStep.MoveCurrentZsAvoid;
                 int result = await MoveAllPickerZToAvoidAndVerifyAsync(
                     "Auto Calibration 안전 복귀 - 진행 Picker Z 전체 Avoid",
-                    ct,
-                    true).ConfigureAwait(false);
+                    ct).ConfigureAwait(false);
                 if (result != 0)
                     return result;
 
@@ -61,6 +62,7 @@ namespace QMC.CDT320.Sequencing.Calibration
                     "Auto Calibration 안전 복귀 - 진행 Picker Y Avoid",
                     ct,
                     "AvoidPosition;PickerPhase=SafeY",
+                    false,
                     true).ConfigureAwait(false);
                 if (result != 0)
                     return result;
@@ -68,8 +70,7 @@ namespace QMC.CDT320.Sequencing.Calibration
                 CurrentStep = AutoCalibrationSafePositionStep.MoveCurrentTsAvoid;
                 result = await MoveAllPickerTToAvoidAndVerifyAsync(
                     "Auto Calibration 안전 복귀 - 진행 Picker T 전체 Avoid",
-                    ct,
-                    true).ConfigureAwait(false);
+                    ct).ConfigureAwait(false);
                 if (result != 0)
                     return result;
 
@@ -97,6 +98,7 @@ namespace QMC.CDT320.Sequencing.Calibration
                     "Auto Calibration 안전 복귀 - 진행 Picker X Avoid",
                     ct,
                     "AvoidPosition;PickerPhase=SafeX",
+                    false,
                     true).ConfigureAwait(false);
                 if (result != 0)
                     return result;

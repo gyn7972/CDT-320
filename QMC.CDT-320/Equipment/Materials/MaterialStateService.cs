@@ -1031,11 +1031,11 @@ namespace QMC.CDT320.Materials
 
                     ClearActiveProcessLocationsNoLock();
 
-                    UpdateCassetteMapping(CassetteMaterialRole.Input1, true, inputSlotCount, BuildProcessTestSlotMap(inputSlotCount, 2), null, lotId, inputTapeFrameSpecName);
-                    UpdateCassetteMapping(CassetteMaterialRole.Input2, useInput2, inputSlotCount, useInput2 ? BuildProcessTestSlotMap(inputSlotCount, 1) : null, null, lotId, inputTapeFrameSpecName);
-                    UpdateCassetteMapping(CassetteMaterialRole.Good1, true, outputSlotCount, BuildProcessTestSlotMap(outputSlotCount, 2), null, lotId, outputTapeFrameSpecName);
-                    UpdateCassetteMapping(CassetteMaterialRole.Good2, useGood2, outputSlotCount, useGood2 ? BuildProcessTestSlotMap(outputSlotCount, 1) : null, null, lotId, outputTapeFrameSpecName);
-                    UpdateCassetteMapping(CassetteMaterialRole.Ng1, true, outputSlotCount, BuildProcessTestSlotMap(outputSlotCount, 2), null, lotId, outputTapeFrameSpecName);
+                    UpdateCassetteMapping(CassetteMaterialRole.Input1, true, inputSlotCount, BuildProcessTestSlotMap(inputSlotCount, 2), null, lotId, inputTapeFrameSpecName, false);
+                    UpdateCassetteMapping(CassetteMaterialRole.Input2, useInput2, inputSlotCount, useInput2 ? BuildProcessTestSlotMap(inputSlotCount, 1) : null, null, lotId, inputTapeFrameSpecName, false);
+                    UpdateCassetteMapping(CassetteMaterialRole.Good1, true, outputSlotCount, BuildProcessTestSlotMap(outputSlotCount, 2), null, lotId, outputTapeFrameSpecName, false);
+                    UpdateCassetteMapping(CassetteMaterialRole.Good2, useGood2, outputSlotCount, useGood2 ? BuildProcessTestSlotMap(outputSlotCount, 1) : null, null, lotId, outputTapeFrameSpecName, false);
+                    UpdateCassetteMapping(CassetteMaterialRole.Ng1, true, outputSlotCount, BuildProcessTestSlotMap(outputSlotCount, 2), null, lotId, outputTapeFrameSpecName, false);
 
                     DieMap inputMap = LoadRecipeInputDieMapForProcessTest(project);
                     if (!IsUsableSourceMap(inputMap))
@@ -3049,14 +3049,16 @@ namespace QMC.CDT320.Materials
                 cassette.IsPresent = true;
                 cassette.LastScanTime = DateTime.Now;
 
-                bool isOutputStageWafer =
+                bool isStageWaferRemovedFromSourceSlot =
+                    (stageLocation == MaterialLocationKind.InputStage &&
+                     (cassetteRole == CassetteMaterialRole.Input1 || cassetteRole == CassetteMaterialRole.Input2)) ||
                     (stageLocation == MaterialLocationKind.OutputStageGood &&
                      (cassetteRole == CassetteMaterialRole.Good1 || cassetteRole == CassetteMaterialRole.Good2)) ||
                     (stageLocation == MaterialLocationKind.OutputStageNg &&
                      cassetteRole == CassetteMaterialRole.Ng1);
-                if (isOutputStageWafer)
+                if (isStageWaferRemovedFromSourceSlot)
                 {
-                    // Output Stage의 테스트 Bin은 source slot에서 이미 꺼낸 상태이므로
+                    // Stage의 테스트 Wafer/Bin은 source slot에서 이미 꺼낸 상태이므로
                     // 동일 Material을 Stage와 cassette slot에 동시에 점유시키지 않는다.
                     slot.WaferId = "";
                     slot.HasWafer = false;
@@ -4578,6 +4580,91 @@ namespace QMC.CDT320.Materials
                 Log.Write("Main", "SYSTEM", "MaterialStateService",
                     "Input pick target ready check failed: " + ex.Message + " - Failed");
                 return false;
+            }
+            finally
+            {
+            }
+        }
+
+        /// <summary>
+        /// 해당 Picker Side가 "실제로 처리 가능한" Input pick 대상이 있는지 판정한다.<br/>
+        /// HasReadyInputStagePickTarget()은 상대 픽커에 예약된 die도 true를 반환해
+        /// 예약 획득 경로(ReserveNextInputStagePickTarget: 예약 die skip)와 비대칭이었고,
+        /// 이 비대칭이 빈 PickerProcess 무한 재진입(busy loop)의 원인이었다.<br/>
+        /// 이 판정은 예약 경로와 동일 기준을 사용한다: 미예약 die 또는 "이 side에 예약된" die만 대상으로 본다.<br/>
+        /// 읽기 전용 — 예약/상태를 변경하지 않는다.
+        /// </summary>
+        public static bool HasActionableInputStagePickTarget(MaterialLocationKind pickerLocation)
+        {
+            try
+            {
+                lock (_stateSync)
+                {
+                    if (pickerLocation != MaterialLocationKind.PickerFront &&
+                        pickerLocation != MaterialLocationKind.PickerRear)
+                        return false;
+
+                    WaferMaterial wafer = GetWaferAtLocation(MaterialLocationKind.InputStage);
+                    string readyReason;
+                    if (!IsInputStageFinishCompleteNoLock(wafer, out readyReason))
+                        return false;
+
+                    DieMap map = BuildDieMapFromWafer(wafer);
+                    if (wafer == null || map == null || map.Entries == null || map.Entries.Count == 0)
+                        return false;
+
+                    var project = RecipeStore.LoadLastOrDefault();
+                    PickupSubset pickup = ResolveInputPickup(project);
+                    List<DieMapEntry> ordered = BuildInputStagePickOrder(map, pickup, wafer);
+                    if (ordered == null || ordered.Count == 0)
+                        return false;
+
+                    for (int i = 0; i < ordered.Count; i++)
+                    {
+                        DieMapEntry entry = ordered[i];
+                        if (entry == null || string.IsNullOrWhiteSpace(entry.DieUid))
+                            continue;
+
+                        DieMaterial die = State.Dies.FirstOrDefault(d =>
+                            d != null &&
+                            string.Equals(d.DieId, entry.DieUid, StringComparison.OrdinalIgnoreCase));
+                        if (die == null)
+                            continue;
+
+                        string candidateReason;
+                        if (!CanUseInputPickCandidate(entry, die, out candidateReason))
+                            continue;
+
+                        bool pickableLocation =
+                            die.CurrentLocation == null ||
+                            die.CurrentLocation.Kind == MaterialLocationKind.Unknown ||
+                            die.CurrentLocation.Kind == MaterialLocationKind.InputStage;
+                        if (!pickableLocation)
+                            continue;
+
+                        if (IsDieReservedForPicker(die))
+                        {
+                            // 상대 side 예약 die는 이 side가 처리할 수 없다(예약 경로와 동일 기준).
+                            if (die.ReservedPickerLocation == pickerLocation)
+                                return true;
+
+                            continue;
+                        }
+
+                        // 미예약 + pickable = 이 side가 즉시 예약/처리 가능한 대상.
+                        return true;
+                    }
+
+                    return false;
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Write("Main", "SYSTEM", "MaterialStateService",
+                    "Actionable input pick target check failed. pickerLocation=" + pickerLocation +
+                    ", error=" + ex.Message + " - Failed");
+                // 판정 실패 시 안전측(기존 전역 판정)으로 폴백해 정상 작업이 멈추지 않게 한다.
+                return HasReadyInputStagePickTarget();
             }
             finally
             {
@@ -7098,7 +7185,8 @@ namespace QMC.CDT320.Materials
             IReadOnlyList<bool> map,
             IReadOnlyList<double> slotPositions,
             string cassetteLotId,
-            string tapeFrameSpecName)
+            string tapeFrameSpecName,
+            bool preserveExistingMaterial = true)
         {
             var cassette = EnsureCassette(role, slotCount);
             string resolvedLotId = ResolveOrCreateCassetteMappingLotId(cassetteLotId, role);
@@ -7155,7 +7243,8 @@ namespace QMC.CDT320.Materials
                 WaferMaterial wafer = slot != null && !string.IsNullOrWhiteSpace(slot.WaferId)
                     ? State.Wafers.FirstOrDefault(w => string.Equals(w.WaferId, slot.WaferId, StringComparison.OrdinalIgnoreCase))
                     : null;
-                bool preserveExisting = wafer != null &&
+                bool preserveExisting = preserveExistingMaterial &&
+                                        wafer != null &&
                                         IsWaferAtCassetteSlot(wafer, role, i) &&
                                         WaferMaterialStateText.Normalize(wafer.State) != WaferMaterialState.Empty &&
                                         !IsFinishedOutputBinWafer(role, wafer);
@@ -7169,6 +7258,26 @@ namespace QMC.CDT320.Materials
                 if (!preserveExisting)
                 {
                     string waferId = BuildGeneratedWaferId(role, i);
+                    List<WaferMaterial> staleSlotWafers = State.Wafers
+                        .Where(w =>
+                            w != null &&
+                            !string.Equals(w.WaferId, waferId, StringComparison.OrdinalIgnoreCase) &&
+                            IsWaferAtCassetteSlot(w, role, i))
+                        .ToList();
+                    foreach (WaferMaterial staleWafer in staleSlotWafers)
+                    {
+                        if (role == CassetteMaterialRole.Input1 || role == CassetteMaterialRole.Input2)
+                        {
+                            ResetInputStageWaferProcessingStateNoLock(
+                                staleWafer,
+                                "ProcessTestMapping.ReplaceExistingWafer");
+                        }
+
+                        staleWafer.CurrentLocation = MaterialLocation.Unknown();
+                        staleWafer.State = WaferMaterialState.Empty;
+                        staleWafer.UpdatedAt = DateTime.Now;
+                    }
+
                     wafer = State.Wafers.FirstOrDefault(w => string.Equals(w.WaferId, waferId, StringComparison.OrdinalIgnoreCase));
                     if (wafer == null)
                     {

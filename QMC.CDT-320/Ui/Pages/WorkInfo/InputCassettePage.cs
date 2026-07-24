@@ -760,6 +760,8 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 string message;
                 InputStageUnit inputStage = host.Controller.Machine != null ? host.Controller.Machine.InputStageUnit : null;
                 bool ok = MaterialStateService.CreateProcessTestDataSet(inputStage, out message);
+                if (ok && host.Controller.Machine != null && host.Controller.Machine.InputCassetteUnit != null)
+                    SynchronizeProcessTestInputCassetteSlotStates(host.Controller.Machine.InputCassetteUnit);
                 WriteEvent("INPUT-CST-PROCESS-TEST-DATA", message + ", result=" + ok);
                 if (!ok)
                 {
@@ -776,6 +778,66 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             {
                 WriteAlarm("INPUT-CST-PROCESS-TEST-DATA-EX", "공정 테스트 Data 생성 실패: " + ex.Message);
                 QMC.Common.MessageDialog.Show(this, "공정 테스트 Data 생성 실패:\r\n" + ex.Message, "공정 테스트 Data", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+            }
+        }
+
+        private void SynchronizeProcessTestInputCassetteSlotStates(InputCassetteUnit cassette)
+        {
+            try
+            {
+                if (cassette == null)
+                    return;
+
+                int slotCount = cassette.Config != null && cassette.Config.SlotCount > 0
+                    ? cassette.Config.SlotCount
+                    : 0;
+                int levelCount = cassette.ResolveCassetteLevelCount();
+                WaferMaterial stageWafer = MaterialStateService.GetWaferAtLocation(MaterialLocationKind.InputStage);
+
+                for (int level = 1; level <= levelCount; level++)
+                {
+                    CassetteMaterialRole role = InputCassetteUnit.ResolveCassetteRole(level);
+                    for (int slotIndex = 0; slotIndex < slotCount; slotIndex++)
+                    {
+                        bool isStageSourceSlot =
+                            stageWafer != null &&
+                            WaferMaterialStateText.Normalize(stageWafer.State) != WaferMaterialState.Empty &&
+                            stageWafer.SourceCassetteRole == role &&
+                            stageWafer.SourceSlotNumber == slotIndex;
+                        if (isStageSourceSlot)
+                        {
+                            // 정상 Cassette -> Feeder -> Stage 로드 완료와 같은 projection이다.
+                            cassette.UpdateWaferCassetteSlotState(
+                                level,
+                                slotIndex,
+                                SlotPresence.Exist,
+                                ProcessState.Processing);
+                            continue;
+                        }
+
+                        WaferMaterial cassetteWafer = MaterialStateService.GetWaferInCassette(role, slotIndex);
+                        bool hasReadyWafer =
+                            cassetteWafer != null &&
+                            WaferMaterialStateText.Normalize(cassetteWafer.State) != WaferMaterialState.Empty;
+                        cassette.UpdateWaferCassetteSlotState(
+                            level,
+                            slotIndex,
+                            hasReadyWafer ? SlotPresence.Exist : SlotPresence.Empty,
+                            ProcessState.Ready);
+                    }
+                }
+
+                WriteEvent("INPUT-CST-PROCESS-TEST-SLOT-SYNC",
+                    "공정 테스트 Input Cassette slot projection 동기화 완료. levels=" + levelCount +
+                    ", slotsPerLevel=" + slotCount +
+                    ", stageWafer=" + (stageWafer != null ? stageWafer.WaferId : ""));
+            }
+            catch (Exception ex)
+            {
+                throw new InvalidOperationException("공정 테스트 Input Cassette slot 상태 동기화 실패: " + ex.Message, ex);
             }
             finally
             {
@@ -883,6 +945,9 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                     return false;
                 }
 
+                if (!IsProcessTestTransferPathEmpty(host.Controller.Machine, out reason))
+                    return false;
+
                 return true;
             }
             catch (Exception ex)
@@ -893,6 +958,90 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             finally
             {
             }
+        }
+
+        private static bool IsProcessTestTransferPathEmpty(CDT320_Machine machine, out string reason)
+        {
+            reason = string.Empty;
+            if (machine == null ||
+                machine.InputFeederUnit == null ||
+                machine.OutputFeederUnit == null ||
+                machine.PickerFrontUnit == null ||
+                machine.PickerRearUnit == null)
+            {
+                reason = "이송 유닛 상태를 확인할 수 없어 공정 테스트 Data 생성을 차단합니다.";
+                return false;
+            }
+
+            WaferMaterial inputFeederWafer =
+                MaterialStateService.GetWaferAtLocation(MaterialLocationKind.InputFeeder);
+            bool inputFeederEmpty = machine.InputFeederUnit.IsWaferFeederEmpty();
+            bool inputFeederDetected = machine.InputFeederUnit.IsWaferFeederRingDetected(true);
+            if (inputFeederWafer != null || !inputFeederEmpty)
+            {
+                reason = "InputFeeder에 잔류 Wafer가 있어 공정 테스트 Data를 생성할 수 없습니다. " +
+                         "Material=" + (inputFeederWafer != null ? inputFeederWafer.WaferId : "") +
+                         ", EmptyContract=" + inputFeederEmpty +
+                         ", RingDetected=" + inputFeederDetected + ". 먼저 Wafer를 안전하게 회수하세요.";
+                return false;
+            }
+
+            WaferMaterial outputFeederWafer =
+                MaterialStateService.GetWaferAtLocation(MaterialLocationKind.OutputFeeder);
+            bool outputFeederEmpty = machine.OutputFeederUnit.IsFeederEmpty();
+            bool outputFeederDetected = machine.OutputFeederUnit.IsFeederRingDetected(true);
+            if (outputFeederWafer != null || !outputFeederEmpty)
+            {
+                reason = "OutputFeeder에 잔류 Bin이 있어 공정 테스트 Data를 생성할 수 없습니다. " +
+                         "Material=" + (outputFeederWafer != null ? outputFeederWafer.WaferId : "") +
+                         ", EmptyContract=" + outputFeederEmpty +
+                         ", RingDetected=" + outputFeederDetected + ". 먼저 Bin을 안전하게 회수하세요.";
+                return false;
+            }
+
+            int frontPickerCount = machine.PickerFrontUnit.Vacuums != null
+                ? machine.PickerFrontUnit.Vacuums.Length
+                : 0;
+            for (int pickerNo = 1; pickerNo <= frontPickerCount; pickerNo++)
+            {
+                DieMaterial die = MaterialStateService.GetDieAtPicker(
+                    MaterialLocationKind.PickerFront,
+                    pickerNo);
+                bool vacuumOn =
+                    machine.PickerFrontUnit.Vacuums[pickerNo - 1] != null &&
+                    machine.PickerFrontUnit.Vacuums[pickerNo - 1].IsOn;
+                if (die != null || vacuumOn)
+                {
+                    reason = "FrontPicker에 잔류 Die 또는 Vacuum ON 상태가 있어 공정 테스트 Data를 생성할 수 없습니다. " +
+                             "Picker=" + pickerNo +
+                             ", Die=" + (die != null ? die.DieId : "") +
+                             ", VacuumOn=" + vacuumOn + ". 먼저 Die를 안전하게 회수하세요.";
+                    return false;
+                }
+            }
+
+            int rearPickerCount = machine.PickerRearUnit.Vacuums != null
+                ? machine.PickerRearUnit.Vacuums.Length
+                : 0;
+            for (int pickerNo = 1; pickerNo <= rearPickerCount; pickerNo++)
+            {
+                DieMaterial die = MaterialStateService.GetDieAtPicker(
+                    MaterialLocationKind.PickerRear,
+                    pickerNo);
+                bool vacuumOn =
+                    machine.PickerRearUnit.Vacuums[pickerNo - 1] != null &&
+                    machine.PickerRearUnit.Vacuums[pickerNo - 1].IsOn;
+                if (die != null || vacuumOn)
+                {
+                    reason = "RearPicker에 잔류 Die 또는 Vacuum ON 상태가 있어 공정 테스트 Data를 생성할 수 없습니다. " +
+                             "Picker=" + pickerNo +
+                             ", Die=" + (die != null ? die.DieId : "") +
+                             ", VacuumOn=" + vacuumOn + ". 먼저 Die를 안전하게 회수하세요.";
+                    return false;
+                }
+            }
+
+            return true;
         }
 
         private bool TryEditMaterialValue(MaterialDetailRow row, out string value)

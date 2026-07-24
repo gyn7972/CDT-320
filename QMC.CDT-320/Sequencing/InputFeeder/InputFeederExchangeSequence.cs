@@ -250,7 +250,8 @@ namespace QMC.CDT320.Sequencing
             if (cassette == null || slotIndex < 0)
                 return false;
 
-            WaferCassetteMaterial material = cassette.GetWaferMaterialCassette();
+            WaferCassetteMaterial material = cassette.GetWaferMaterialCassette(
+                InputCassetteUnit.ResolveCassetteLevel(Options.CassetteRole));
             if (material == null || material.Slots == null || slotIndex >= material.Slots.Count)
                 return false;
 

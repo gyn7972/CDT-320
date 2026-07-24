@@ -14,6 +14,8 @@ namespace QMC.Common.Logging
         private static readonly Queue<EventRow> PendingRows = new Queue<EventRow>();
         private const int FlushSleepMs = 20;
         private const int MaxWriterBatchRows = 2000;
+        // 일반 진단(비영구) 행의 대기 큐 상한. Persist 행에는 적용하지 않는다.
+        private const int MaxDiagnosticQueueRows = 50000;
         private const int DefaultSafeReadLimit = 10000;
         private const long MaxEventCsvBytes = 100L * 1024L * 1024L;
         private const string CsvHeader = "When,Kind,User,Code,Source,Description";
@@ -192,13 +194,21 @@ namespace QMC.Common.Logging
         // 기존 호출부 호환용 (source 없음). 내부적으로 source="" 로 위임한다.
         public static void Write(EventKind kind, string user, string code, string description)
         {
-            return;
-            Write(kind, user, code, string.Empty, description);
+            Write(kind, user, code, string.Empty, description, LogSeverity.Normal);
         }
 
         public static void Write(EventKind kind, string user, string code, string source, string description)
         {
-            return;
+            Write(kind, user, code, source, description, LogSeverity.Normal);
+        }
+
+        /// <summary>
+        /// 명시적 중요도 지정 기록. 기존 임시 return(전면 차단)을 LogPolicy 기반 최소 로그 정책으로 교체했다.<br/>
+        /// - 모든 행: 알람 블랙박스 + UI/최근 메모리 버퍼에는 항상 공급된다.<br/>
+        /// - 디스크 저장: LogPolicy.ShouldPersist 판정(Alarm/Warning/Data/Work, Failure/Audit, 감사 코드, DiagnosticVerbose)일 때만.
+        /// </summary>
+        public static void Write(EventKind kind, string user, string code, string source, string description, LogSeverity severity)
+        {
             EventRow row = new EventRow
             {
                 When = DateTime.Now,
@@ -211,6 +221,8 @@ namespace QMC.Common.Logging
 
             try
             {
+                row.Persist = LogPolicy.ShouldPersist(row, severity);
+                LogPolicy.CaptureBlackbox(row);
                 EnqueueWrite(row);
             }
             catch
@@ -691,6 +703,14 @@ namespace QMC.Common.Logging
             {
                 lock (QueueSyncRoot)
                 {
+                    // 일반 진단 행은 bounded queue로 제한한다(폭주 시 oldest 우선이 아닌 신규 드롭 + 카운터).
+                    // Persist 행(Alarm/Warning/Failure/Audit)은 드롭 금지 — 제한 없이 항상 큐에 넣는다.
+                    if (!row.Persist && PendingRows.Count >= MaxDiagnosticQueueRows)
+                    {
+                        LogPolicy.IncrementDroppedDiagnostic();
+                        return;
+                    }
+
                     PendingRows.Enqueue(row);
                     if (_writerRunning)
                         return;
@@ -749,20 +769,37 @@ namespace QMC.Common.Logging
                 if (rows == null || rows.Count == 0)
                     return;
 
+                // UI 실시간 뷰/최근 메모리 버퍼는 영구 저장 여부와 무관하게 모든 행에 공급한다.
                 PublishRows(rows);
 
-                lock (SyncRoot)
+                // 디스크 저장은 LogPolicy가 Persist로 판정한 행만 수행한다(정상 반복 로그 디스크 차단).
+                List<EventRow> persistRows = new List<EventRow>(rows.Count);
+                foreach (EventRow row in rows)
                 {
-                    WriteEventCsvRows(rows);
+                    if (row != null && row.Persist)
+                        persistRows.Add(row);
                 }
 
-                foreach (EventRow row in rows)
-                    WriteLegacyLog(row);
+                if (persistRows.Count > 0)
+                {
+                    lock (SyncRoot)
+                    {
+                        WriteEventCsvRows(persistRows);
+                    }
+                }
+
+                // Legacy(LogManager) 복제는 Alarm/Warning만 전달한다.
+                // 정상 Event까지 복제하던 기존 3중 저장(Event CSV + 종류별 .log + LCP_280)을 제거한다.
+                foreach (EventRow row in persistRows)
+                {
+                    if (row.Kind == EventKind.Alarm || row.Kind == EventKind.Warning)
+                        WriteLegacyLog(row);
+                }
 
                 // 발생한 메시지 종류를 번역 카탈로그에 자동 등록한다(편집 페이지가 로그 전체를 다시 훑지 않도록).
                 // 이 메서드는 백그라운드 writer 스레드에서만 실행되므로 UI 부하가 없고, 새 종류가 생긴
                 // 배치에 한해 1회만 파일로 flush 한다(EnsureRegistered/FlushIfDirty 는 예외를 던지지 않음).
-                foreach (EventRow row in rows)
+                foreach (EventRow row in persistRows)
                     MessageCatalog.EnsureRegistered(row.Kind, row.Code, row.Description);
                 MessageCatalog.FlushIfDirty();
             }

@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using QMC.CDT320.Bin;
@@ -922,6 +923,7 @@ namespace QMC.CDT320.Sequencing
                 {
                     _autoSlotIndex = ResolveSlotIndexFromWafer(stageWafer);
                     _autoWaferId = stageWafer.WaferId ?? "";
+                    RestoreActiveInputWaferSourceSlotProjection(stageWafer, "InputStageRestore");
                     _autoStep = ResolveStageWaferResumeStep(stageWafer);
 
                     // 재개 안전(Align-into-Feeder 충돌 방지):
@@ -959,6 +961,7 @@ namespace QMC.CDT320.Sequencing
                 {
                     _autoSlotIndex = ResolveSlotIndexFromWafer(feederWafer);
                     _autoWaferId = feederWafer.WaferId ?? "";
+                    RestoreActiveInputWaferSourceSlotProjection(feederWafer, "InputFeederRestore");
 
                     if (IsFeederWaferMidUnload(feederWafer))
                     {
@@ -1224,6 +1227,149 @@ namespace QMC.CDT320.Sequencing
             }
 
             return -1;
+        }
+
+        private void RestoreActiveInputWaferSourceSlotProjection(WaferMaterial wafer, string restoreContext)
+        {
+            try
+            {
+                if (wafer == null ||
+                    wafer.CurrentLocation == null ||
+                    (wafer.CurrentLocation.Kind != MaterialLocationKind.InputStage &&
+                     wafer.CurrentLocation.Kind != MaterialLocationKind.InputFeeder) ||
+                    (wafer.SourceCassetteRole != CassetteMaterialRole.Input1 &&
+                     wafer.SourceCassetteRole != CassetteMaterialRole.Input2) ||
+                    wafer.SourceSlotNumber < 0 ||
+                    WaferMaterialStateText.Normalize(wafer.State) == WaferMaterialState.Empty)
+                {
+                    return;
+                }
+
+                CassetteMaterial cassetteMaterial = MaterialStateService.State != null &&
+                                                     MaterialStateService.State.Cassettes != null
+                    ? MaterialStateService.State.Cassettes.FirstOrDefault(c =>
+                        c != null && c.Role == wafer.SourceCassetteRole)
+                    : null;
+                if (cassetteMaterial == null ||
+                    !cassetteMaterial.IsEnabled ||
+                    !cassetteMaterial.IsPresent ||
+                    !cassetteMaterial.IsMapped)
+                {
+                    WriteLog("RestoreInputSourceSlot",
+                        "Active wafer source slot projection restore skipped because cassette Material mapping is not valid. context=" +
+                        (restoreContext ?? "") +
+                        ", wafer=" + (wafer.WaferId ?? "") +
+                        ", role=" + wafer.SourceCassetteRole +
+                        ", slot=" + wafer.SourceSlotNumber + " - Check");
+                    return;
+                }
+
+                cassetteMaterial.EnsureSlots();
+                if (wafer.SourceSlotNumber >= cassetteMaterial.Slots.Count)
+                {
+                    WriteLog("RestoreInputSourceSlot",
+                        "Active wafer source slot projection restore skipped because source slot is out of range. context=" +
+                        (restoreContext ?? "") +
+                        ", wafer=" + (wafer.WaferId ?? "") +
+                        ", role=" + wafer.SourceCassetteRole +
+                        ", slot=" + wafer.SourceSlotNumber +
+                        ", slotCount=" + cassetteMaterial.Slots.Count + " - Failed");
+                    return;
+                }
+
+                CassetteSlotMaterial sourceSlot = cassetteMaterial.Slots[wafer.SourceSlotNumber];
+                bool sourceSlotOccupied =
+                    sourceSlot != null &&
+                    (sourceSlot.HasWafer || !string.IsNullOrWhiteSpace(sourceSlot.WaferId));
+                WaferMaterial cassetteWafer = MaterialStateService.GetWaferInCassette(
+                    wafer.SourceCassetteRole,
+                    wafer.SourceSlotNumber);
+                if (sourceSlotOccupied ||
+                    (cassetteWafer != null &&
+                     WaferMaterialStateText.Normalize(cassetteWafer.State) != WaferMaterialState.Empty))
+                {
+                    WriteLog("RestoreInputSourceSlot",
+                        "Active wafer source slot projection restore blocked because cassette Material slot is occupied. context=" +
+                        (restoreContext ?? "") +
+                        ", activeWafer=" + (wafer.WaferId ?? "") +
+                        ", cassetteWafer=" + (cassetteWafer != null ? cassetteWafer.WaferId : "") +
+                        ", slotWaferId=" + (sourceSlot != null ? sourceSlot.WaferId : "") +
+                        ", slotHasWafer=" + (sourceSlot != null && sourceSlot.HasWafer) +
+                        ", role=" + wafer.SourceCassetteRole +
+                        ", slot=" + wafer.SourceSlotNumber + " - Failed");
+                    return;
+                }
+
+                InputCassetteUnit cassette = Context != null && Context.Machine != null
+                    ? Context.Machine.InputCassetteUnit
+                    : null;
+                if (cassette == null ||
+                    cassette.Config == null ||
+                    wafer.SourceSlotNumber >= cassette.Config.SlotCount)
+                {
+                    return;
+                }
+
+                int cassetteLevel = InputCassetteUnit.ResolveCassetteLevel(wafer.SourceCassetteRole);
+                WaferCassetteMaterial unitMaterial = cassette.GetWaferMaterialCassette(cassetteLevel);
+                WaferSlotState previousState =
+                    unitMaterial != null &&
+                    unitMaterial.Slots != null &&
+                    wafer.SourceSlotNumber < unitMaterial.Slots.Count
+                        ? unitMaterial.Slots[wafer.SourceSlotNumber]
+                        : null;
+
+                if (previousState != null &&
+                    previousState.Presence == SlotPresence.Exist &&
+                    previousState.Process == ProcessState.Processing)
+                {
+                    return;
+                }
+
+                if (previousState != null &&
+                    previousState.Presence != SlotPresence.Empty)
+                {
+                    WriteLog("RestoreInputSourceSlot",
+                        "Active wafer source slot projection restore blocked by non-empty unit slot state. context=" +
+                        (restoreContext ?? "") +
+                        ", wafer=" + (wafer.WaferId ?? "") +
+                        ", role=" + wafer.SourceCassetteRole +
+                        ", slot=" + wafer.SourceSlotNumber +
+                        ", presence=" + previousState.Presence +
+                        ", process=" + previousState.Process + " - Failed");
+                    return;
+                }
+
+                // 앱 재시작 시 Unit의 휘발성 slot projection은 사라지지만, 저장된 active Material과
+                // 비어 있는 원본 Material slot은 유지된다. Unit projection도 Empty일 때만 정상 로드 완료
+                // 상태를 복원하며, Exist/Unknown은 실제 점유 불일치 가능성이 있으므로 안전 실패한다.
+                cassette.UpdateWaferCassetteSlotState(
+                    cassetteLevel,
+                    wafer.SourceSlotNumber,
+                    SlotPresence.Exist,
+                    ProcessState.Processing);
+                WriteLog("RestoreInputSourceSlot",
+                    "Active wafer source slot projection restored from Material snapshot. context=" +
+                    (restoreContext ?? "") +
+                    ", wafer=" + (wafer.WaferId ?? "") +
+                    ", location=" + wafer.CurrentLocation.Kind +
+                    ", role=" + wafer.SourceCassetteRole +
+                    ", level=" + cassetteLevel +
+                    ", slot=" + wafer.SourceSlotNumber +
+                    ", previousPresence=" + (previousState != null ? previousState.Presence.ToString() : "null") +
+                    ", previousProcess=" + (previousState != null ? previousState.Process.ToString() : "null") +
+                    ", restoredProcess=" + ProcessState.Processing + " - Check");
+            }
+            catch (Exception ex)
+            {
+                WriteLog("RestoreInputSourceSlot",
+                    "Active wafer source slot projection restore failed. context=" + (restoreContext ?? "") +
+                    ", wafer=" + (wafer != null ? wafer.WaferId : "") +
+                    ", error=" + ex.Message + " - Failed");
+            }
+            finally
+            {
+            }
         }
 
         private bool IsInputCassetteMappedInRuntimeState()

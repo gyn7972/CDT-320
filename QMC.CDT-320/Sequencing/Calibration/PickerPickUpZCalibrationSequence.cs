@@ -455,7 +455,8 @@ namespace QMC.CDT320.Sequencing.Calibration
 
         private async Task<int> PrepareSafeStartPositionCoreAsync(string description, CancellationToken ct)
         {
-            int result = await MoveAllPickerZToAvoidAndVerifyAsync(description + " - PickerZ all Avoid", ct, true).ConfigureAwait(false);
+            // 시작 안전이동은 forceMove를 쓰지 않는다: 이미 Avoid(정지+무알람+톨러런스)면 확인만 하고 통과한다.
+            int result = await MoveAllPickerZToAvoidAndVerifyAsync(description + " - PickerZ all Avoid", ct).ConfigureAwait(false);
             if (result != 0)
                 return result;
 
@@ -465,14 +466,14 @@ namespace QMC.CDT320.Sequencing.Calibration
                 description + " - PickerY Avoid",
                 ct,
                 "AvoidPosition;PickerPhase=SafeY",
+                false,
                 true).ConfigureAwait(false);
             if (result != 0)
                 return result;
 
             result = await MoveAllPickerTToAvoidAndVerifyAsync(
                 description + " - PickerT all Avoid",
-                ct,
-                true).ConfigureAwait(false);
+                ct).ConfigureAwait(false);
             if (result != 0)
                 return result;
 
@@ -1650,6 +1651,10 @@ namespace QMC.CDT320.Sequencing.Calibration
                         ", savedPickZ=" + _savedPickPosition.ToString("F6") +
                         ", recipePickZ=" + recipePickZ.ToString("F6"));
                 }
+
+                // 새 PickPosition 티칭은 현재 콜렛 접촉면을 물리(Flow) 측정으로 흡수했다 —
+                // 잔존 Collet AF Z Offset을 유지하면 이중 반영(과하강/미달)이므로 0으로 리셋한다.
+                ResetColletAfZOffsetAfterZCalibration(_pickerNo - 1, "PickUpZCalibration");
 
                 CalibrationData data = Context.Machine.VisionUnit.Config.CalibrationData;
                 data.EnsureObjects();

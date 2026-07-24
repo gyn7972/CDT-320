@@ -36,6 +36,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             XyToleranceMode,
             ScoreThreshold,
             VisionTimeout,
+            SideAutoFocus,
             MoveVelocity,
             MoveAcceleration,
             MoveDeceleration,
@@ -93,6 +94,7 @@ namespace QMC.CDT_320.Ui.Dialogs
         private int _moveTimeoutMs = CalibrationMotionSettings.DefaultMoveTimeoutMs;
         private double _cocRotationVelocityDegPerSec = 30.0;
         private bool _autoFocus = true;
+        private bool _sideAutoFocus = true;
         private ColletShapeType _colletType = ColletShapeType.Flat;
         private double _colletDieCalThicknessMm;
         private double _colletFilmThicknessMm;
@@ -305,14 +307,14 @@ namespace QMC.CDT_320.Ui.Dialogs
             await RunCocCalibrationAsync(true).ConfigureAwait(true);
         }
 
-        private void btnSaveBottomTeaching_Click(object sender, EventArgs e)
+        private async void btnSaveBottomTeaching_Click(object sender, EventArgs e)
         {
-            SaveCurrentBottomTeachingPosition();
+            await SaveCurrentBottomTeachingPositionAsync().ConfigureAwait(true);
         }
 
-        private void btnApplyHomeOffset_Click(object sender, EventArgs e)
+        private async void btnApplyHomeOffset_Click(object sender, EventArgs e)
         {
-            ApplySelectedTHomeOffset();
+            await ApplySelectedTHomeOffsetAsync().ConfigureAwait(true);
         }
 
         private async void btnMoveZForward_Click(object sender, EventArgs e)
@@ -392,9 +394,8 @@ namespace QMC.CDT_320.Ui.Dialogs
 
                 var context = new MachineSequenceContext(host.Controller, new SequenceSignalBus());
                 var sequence = new ColletCalibrationSequence(context, _side, _colletNo);
-                // START는 Collet Calibration 내부 안전 위치만 사용한다. 상대 Picker의
-                // 공용 Avoid 자동 이동은 하지 않되, 이미 전체 Avoid인지 시퀀스에서 확인한다.
-                sequence.RequireOppositePickerAlreadyAtAvoid = true;
+                // 선택한 Picker를 Cal할 때 상대 Picker(X/Y/Z/T)를 Avoid로 자동 이동한다.
+                // 이미 Avoid면 시퀀스가 재이동 없이 통과하므로 Auto Cal 안전위치 이동과 중복되지 않는다.
                 PickerSequenceOptions options = PickerSequenceOptions.Default();
                 options.RunMode = SequenceRunMode.Manual;
                 options.StartMode = SequenceStartMode.Restart;
@@ -583,6 +584,249 @@ namespace QMC.CDT_320.Ui.Dialogs
             }
         }
 
+        // ── BATCH: 선택 콜렛 일괄 캘리브레이션 ────────────────────────────────
+        // side별 C4 → C1~3 순으로 [Collet Cal → (C4면 Save Bottom) → Apply T → COC]를 연속 수행하고,
+        // 전체 완료 후 SaveMachineSettings 1회. 실패/정지 시 즉시 전체 중단(알람 상태 연속 동작 금지).
+        private sealed class BatchColletTarget
+        {
+            public VisionFocusPickerSide Side;
+            public int ColletNo;
+            public string Label { get { return (Side == VisionFocusPickerSide.Rear ? "R" : "F") + " C" + ColletNo; } }
+        }
+
+        private void chkBatchAll_CheckedChanged(object sender, EventArgs e)
+        {
+            if (_loading)
+                return;
+
+            bool value = chkBatchAll.Checked;
+            _loading = true;
+            try
+            {
+                chkBatchFront1.Checked = value;
+                chkBatchFront2.Checked = value;
+                chkBatchFront3.Checked = value;
+                chkBatchFront4.Checked = value;
+                chkBatchRear1.Checked = value;
+                chkBatchRear2.Checked = value;
+                chkBatchRear3.Checked = value;
+                chkBatchRear4.Checked = value;
+            }
+            finally
+            {
+                _loading = false;
+            }
+        }
+
+        private async void btnBatchStart_Click(object sender, EventArgs e)
+        {
+            await RunBatchCalibrationAsync().ConfigureAwait(true);
+        }
+
+        // 체크된 콜렛을 side별 실행 순서(C4 먼저 → C1 → C2 → C3)로 정렬해 반환한다.
+        private System.Collections.Generic.List<BatchColletTarget> BuildBatchTargets()
+        {
+            var list = new System.Collections.Generic.List<BatchColletTarget>();
+            AppendBatchSideTargets(list, VisionFocusPickerSide.Front,
+                chkBatchFront4.Checked, chkBatchFront1.Checked, chkBatchFront2.Checked, chkBatchFront3.Checked);
+            AppendBatchSideTargets(list, VisionFocusPickerSide.Rear,
+                chkBatchRear4.Checked, chkBatchRear1.Checked, chkBatchRear2.Checked, chkBatchRear3.Checked);
+            return list;
+        }
+
+        private static void AppendBatchSideTargets(System.Collections.Generic.List<BatchColletTarget> list,
+            VisionFocusPickerSide side, bool c4, bool c1, bool c2, bool c3)
+        {
+            // 실행 순서: 기준 콜렛 C4 먼저 → C3 → C2 → C1 (4→3→2→1).
+            if (c4) list.Add(new BatchColletTarget { Side = side, ColletNo = 4 });
+            if (c3) list.Add(new BatchColletTarget { Side = side, ColletNo = 3 });
+            if (c2) list.Add(new BatchColletTarget { Side = side, ColletNo = 2 });
+            if (c1) list.Add(new BatchColletTarget { Side = side, ColletNo = 1 });
+        }
+
+        // 현재 대상 콜렛을 전환하고 SETTING 그리드 표시를 동기화한다(수동 개별 버튼이 쓰는 "현재 대상 콜렛" 개념과 동일).
+        private void SetTargetCollet(VisionFocusPickerSide side, int colletNo)
+        {
+            _side = side;
+            _colletNo = colletNo;
+            RefreshSettingGrid();
+        }
+
+        private async Task RunBatchCalibrationAsync()
+        {
+            if (_busy)
+                return;
+
+            var targets = BuildBatchTargets();
+            if (targets.Count == 0)
+            {
+                lblStatus.Text = "BATCH 실행할 콜렛이 선택되지 않았습니다. F/R C1~C4 체크박스를 선택하세요.";
+                QMC.Common.MessageDialog.Show(this, lblStatus.Text, "COLLET BATCH", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            Form1 host = null;
+            Action stopHandler = null;
+            IDisposable actionScope = null;
+            CancellationTokenSource runCts = null;
+
+            try
+            {
+                _busy = true;
+                SetButtonsEnabled(false);
+
+                string reason;
+                if (!CanRunManualCalibration(out reason))
+                {
+                    lblStatus.Text = reason;
+                    QMC.Common.MessageDialog.Show(this, reason, "COLLET BATCH", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                host = ResolveHost(out reason);
+                if (host == null)
+                {
+                    lblStatus.Text = reason;
+                    return;
+                }
+
+                if (!SaveSettingsFromUi(false))
+                    return;
+
+                runCts = BeginManualCalibrationRun(host, "ColletBatch", out actionScope, out stopHandler);
+                CancellationToken ct = runCts.Token;
+
+                int okCount = 0;
+                bool aborted = false;
+                foreach (VisionFocusPickerSide side in new[] { VisionFocusPickerSide.Front, VisionFocusPickerSide.Rear })
+                {
+                    if (aborted)
+                        break;
+
+                    VisionFocusPickerSide sideLocal = side;
+                    var sideTargets = targets.FindAll(t => t.Side == sideLocal);
+                    if (sideTargets.Count == 0)
+                        continue;
+
+                    // C4 미선택 side는 기존 C4 저장값이 유효할 때만 C1~3 진행(아니면 이 side 중단).
+                    bool c4Selected = sideTargets.Exists(t => t.ColletNo == 4);
+                    if (!c4Selected)
+                    {
+                        ColletCalibrationRecord ref4 = ResolveData(host.Machine).GetRecord(side, 4);
+                        if (ref4 == null || !ref4.Valid)
+                        {
+                            string skip = side + " side: C4 미선택이고 기존 C4 기준 저장값이 유효하지 않아 이 side를 건너뜁니다. 먼저 C4를 캘리브레이션하세요.";
+                            AppendSaveHistory(new[] { "[BATCH] " + skip });
+                            EventLogger.Write(EventKind.Warning, "CAL", "COLLET-BATCH-SIDE-SKIP", skip);
+                            continue;
+                        }
+                    }
+
+                    foreach (BatchColletTarget target in sideTargets)
+                    {
+                        ct.ThrowIfCancellationRequested();
+                        SetTargetCollet(target.Side, target.ColletNo);
+                        lblStatus.Text = "[BATCH] " + target.Label + " Collet Calibration 실행 중...";
+
+                        int calResult = await RunSingleColletSequenceAsync(host, ct).ConfigureAwait(true);
+                        if (calResult != 0)
+                        {
+                            string fail = target.Label + " Collet Calibration 실패(result=" + calResult + "). BATCH를 중단합니다.";
+                            AppendSaveHistory(new[] { "[BATCH] " + fail });
+                            EventLogger.Write(EventKind.Alarm, "CAL", "COLLET-BATCH-CAL-FAIL", fail);
+                            lblStatus.Text = fail;
+                            aborted = true;
+                            break;
+                        }
+
+                        // C4 측정 성공 직후 Save Bottom 자동
+                        if (target.ColletNo == 4)
+                        {
+                            bool sbOk = await SaveBottomTeachingCoreAsync(false).ConfigureAwait(true);
+                            string sbMsg = _coreResultMessage;
+                            if (!sbOk)
+                            {
+                                string fail = target.Label + " Save Bottom 실패: " + sbMsg + ". BATCH를 중단합니다.";
+                                AppendSaveHistory(new[] { "[BATCH] " + fail });
+                                EventLogger.Write(EventKind.Alarm, "CAL", "COLLET-BATCH-SAVEBOTTOM-FAIL", fail);
+                                lblStatus.Text = fail;
+                                aborted = true;
+                                break;
+                            }
+                            AppendSaveHistory(new[] { "[BATCH] " + target.Label + " Save Bottom: " + sbMsg });
+                        }
+
+                        // 각 콜렛 측정 성공 직후 Apply T 자동(성공/Valid 레코드만)
+                        bool atOk = await ApplyTHomeOffsetCoreAsync(false).ConfigureAwait(true);
+                        string atMsg = _coreResultMessage;
+                        if (!atOk)
+                        {
+                            string fail = target.Label + " Apply T 실패: " + atMsg + ". BATCH를 중단합니다.";
+                            AppendSaveHistory(new[] { "[BATCH] " + fail });
+                            EventLogger.Write(EventKind.Alarm, "CAL", "COLLET-BATCH-APPLYT-FAIL", fail);
+                            lblStatus.Text = fail;
+                            aborted = true;
+                            break;
+                        }
+                        AppendSaveHistory(new[] { "[BATCH] " + target.Label + " Apply T: " + atMsg });
+
+                        // COC(회전중심)는 ColletCalibrationSequence 내부(측정 직후, AutoFocus 켜짐 시)에서 이미 수행된다.
+                        // 여기서 별도 COC를 다시 돌리면 Save Bottom이 FinalPickerZ를 검사 티칭 Z로 덮어써
+                        // "COC는 기존 Collet Calibration 완료 X/Y/Z 위치에서만 시작" 위치 검사에서 실패하므로 호출하지 않는다.
+                        okCount++;
+                        AppendSaveHistory(new[] { "[BATCH] " + target.Label + " 완료(Collet Cal+COC" +
+                            (target.ColletNo == 4 ? " → Save Bottom" : string.Empty) + " → Apply T)" });
+                    }
+                }
+
+                await Task.Run(() => host.SaveMachineSettings()).ConfigureAwait(true);
+                RefreshResultGrid();
+                lblStatus.Text = aborted
+                    ? "BATCH 중단됨. 성공 " + okCount + "/" + targets.Count + " 콜렛. Alarm/Event Log를 확인하세요."
+                    : "BATCH 완료. 성공 " + okCount + "/" + targets.Count + " 콜렛.";
+                EventLogger.Write(aborted ? EventKind.Warning : EventKind.Event, "CAL", "COLLET-BATCH-END", lblStatus.Text);
+            }
+            catch (OperationCanceledException)
+            {
+                lblStatus.Text = "BATCH가 정지 요청으로 중단되었습니다.";
+                EventLogger.Write(EventKind.Event, "CAL", "COLLET-BATCH-STOP", lblStatus.Text);
+            }
+            catch (SequenceStopException ex)
+            {
+                lblStatus.Text = "BATCH 정지: " + ex.Message;
+                EventLogger.Write(EventKind.Event, "CAL", "COLLET-BATCH-STOP", lblStatus.Text);
+            }
+            catch (Exception ex)
+            {
+                lblStatus.Text = "BATCH 실행 중 예외가 발생했습니다: " + ex.Message;
+                EventLogger.Write(EventKind.Alarm, "CAL", "COLLET-BATCH-RUN", lblStatus.Text);
+                QMC.Common.MessageDialog.Show(this, lblStatus.Text, "COLLET BATCH", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+                EndManualCalibrationRun(host, stopHandler, runCts, actionScope);
+                _busy = false;
+                SetButtonsEnabled(true);
+                UpdateStopButtonEnabled();
+            }
+        }
+
+        // 단일 콜렛 Collet Calibration 시퀀스 실행(스코프/정지 핸들러는 BATCH가 소유하므로 여기서는 만들지 않는다).
+        private async Task<int> RunSingleColletSequenceAsync(Form1 host, CancellationToken ct)
+        {
+            var context = new MachineSequenceContext(host.Controller, new SequenceSignalBus());
+            var sequence = new ColletCalibrationSequence(context, _side, _colletNo);
+            // BATCH도 상대 Picker를 Avoid로 자동 이동한다(이미 Avoid면 시퀀스가 재이동 없이 통과).
+            PickerSequenceOptions options = PickerSequenceOptions.Default();
+            options.RunMode = SequenceRunMode.Manual;
+            options.StartMode = SequenceStartMode.Restart;
+            options.PickerNo = _colletNo;
+            options.RestrictToPickerNo = _colletNo;
+            int result = await sequence.RunAsync(ct, options).ConfigureAwait(true);
+            RefreshResultGrid();
+            return result;
+        }
+
         private bool SaveRotationCenterToRecipe(Form1 host, double centerX, double centerY, out string message)
         {
             message = string.Empty;
@@ -667,30 +911,29 @@ namespace QMC.CDT_320.Ui.Dialogs
                     return;
                 }
 
-                runCts = BeginManualCalibrationRun(host, "MoveZForward", out actionScope, out stopHandler);
-                ManualMoveResult moveResult;
-                using (MotionGuardRuntime.BeginManualSequenceProcessMove("ColletCalibrationDialog.MoveZForward"))
+                runCts = BeginManualCalibrationRun(host, "MoveZAvoid", out actionScope, out stopHandler);
+                int result;
+                using (MotionGuardRuntime.BeginManualSequenceProcessMove("ColletCalibrationDialog.MoveZAvoid"))
                 {
-                    moveResult = await MoveSelectedColletZToFocusDefaultAsync(host.Machine).ConfigureAwait(true);
+                    result = await MoveBothPickersZToAvoidAsync(host.Machine).ConfigureAwait(true);
                 }
                 runCts.Token.ThrowIfCancellationRequested();
 
-                PickerAxis zAxis = ResolvePickerZAxis(_colletNo);
-                lblStatus.Text = moveResult.Result == 0
-                    ? "Collet Z 전진 이동 완료. side=" + _side + ", collet=" + _colletNo + ", axis=" + zAxis + ", target=" + moveResult.Target.ToString("F6")
-                    : "Collet Z 전진 이동 실패. Alarm/Event Log를 확인하세요.";
-                EventLogger.Write(EventKind.Event, "CAL", "COLLET-CAL-Z-MOVE",
-                    lblStatus.Text + ", result=" + moveResult.Result);
+                lblStatus.Text = result == 0
+                    ? "Front/Rear 픽커 Z 전체 Avoid 이동 완료."
+                    : "픽커 Z Avoid 이동 실패. Alarm/Event Log를 확인하세요.";
+                EventLogger.Write(EventKind.Event, "CAL", "COLLET-CAL-Z-AVOID",
+                    lblStatus.Text + ", result=" + result);
             }
             catch (OperationCanceledException)
             {
-                lblStatus.Text = "Collet Z 전진 이동이 정지 요청으로 중단되었습니다.";
+                lblStatus.Text = "픽커 Z Avoid 이동이 정지 요청으로 중단되었습니다.";
                 EventLogger.Write(EventKind.Event, "CAL", "COLLET-CAL-STOP", lblStatus.Text);
             }
             catch (Exception ex)
             {
-                lblStatus.Text = "Collet Z 전진 이동 예외 발생: " + ex.Message;
-                EventLogger.Write(EventKind.Alarm, "CAL", "COLLET-CAL-Z-MOVE-EX", lblStatus.Text);
+                lblStatus.Text = "픽커 Z Avoid 이동 예외 발생: " + ex.Message;
+                EventLogger.Write(EventKind.Alarm, "CAL", "COLLET-CAL-Z-AVOID-EX", lblStatus.Text);
             }
             finally
             {
@@ -742,19 +985,19 @@ namespace QMC.CDT_320.Ui.Dialogs
                 int result;
                 using (MotionGuardRuntime.BeginManualSequenceProcessMove("ColletCalibrationDialog.MoveYAvoid"))
                 {
-                    if (!IsSelectedColletZInAvoidPosition(host.Machine))
+                    if (!AreBothPickersZInAvoidPosition(host.Machine))
                     {
-                        lblStatus.Text = "Picker Y Avoid 이동 전 선택 Collet Z를 먼저 Avoid 위치로 이동하세요.";
+                        lblStatus.Text = "Picker Y Avoid 이동 전 Front/Rear 픽커 Z 전체를 먼저 Avoid 위치로 이동하세요. (Z-AVOID 버튼)";
                         QMC.Common.MessageDialog.Show(this, lblStatus.Text, "COLLET CAL", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                         return;
                     }
 
-                    result = await MoveSelectedPickerYToAvoidAsync(host.Machine).ConfigureAwait(true);
+                    result = await MoveBothPickersYToAvoidAsync(host.Machine).ConfigureAwait(true);
                 }
                 runCts.Token.ThrowIfCancellationRequested();
 
                 lblStatus.Text = result == 0
-                    ? "Picker Y Avoid 이동 완료. side=" + _side
+                    ? "Front/Rear Picker Y Avoid 이동 완료."
                     : "Picker Y Avoid 이동 실패. Alarm/Event Log를 확인하세요.";
                 EventLogger.Write(EventKind.Event, "CAL", "COLLET-CAL-PICKER-Y-AVOID",
                     lblStatus.Text + ", result=" + result);
@@ -811,6 +1054,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                 _moveTimeoutMs = settings.Motion.MoveTimeoutMs;
                 _cocRotationVelocityDegPerSec = settings.CocRotationVelocityDegPerSec;
                 _autoFocus = settings.RunAutoFocusAfterTheta;
+                _sideAutoFocus = settings.RunSideAutoFocusAfterCoc;
 
                 RecipeProject project = LoadActiveProject(host);
                 if (project != null)
@@ -878,6 +1122,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                 data.Settings.Motion.MoveTimeoutMs = _moveTimeoutMs;
                 data.Settings.CocRotationVelocityDegPerSec = _cocRotationVelocityDegPerSec;
                 data.Settings.RunAutoFocusAfterTheta = _autoFocus;
+                data.Settings.RunSideAutoFocusAfterCoc = _sideAutoFocus;
                 data.Settings.EnsureDefaults();
                 _finder = data.Settings.BottomFinderName;
                 _moveVelocity = data.Settings.Motion.MoveVelocity;
@@ -1057,6 +1302,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                 AddSettingRow(CreateNumber(SettingKey.MoveTimeout, "Move Timeout", "ms", "Collet Calibration 전용 이동 완료/인포지션 대기 시간입니다.", true), _moveTimeoutMs.ToString(CultureInfo.InvariantCulture));
                 AddSettingRow(CreateNumber(SettingKey.CocRotationVelocity, "COC T Speed", "deg/s", "COC START 실행 시 선택 콜렛 T축을 360도 회전할 속도입니다. 전체 콜렛에 공통 적용하며 기본값은 30 deg/s입니다.", false), _cocRotationVelocityDegPerSec.ToString("F6"));
                 AddSettingRow(CreateOption(SettingKey.AutoFocus, "AutoFocus", "True이면 Bottom AutoFocus와 Collet 보정 후 COC 회전 중심을 검출/적용하고, 해당 콜렛의 Side 0도와 90도 AutoFocus까지 순서대로 실행합니다. Side Focus에는 현재 Picker의 Bottom Die 검사 결과가 필요합니다.", BoolOptions), _autoFocus ? "True" : "False");
+                AddSettingRow(CreateOption(SettingKey.SideAutoFocus, "Side AutoFocus", "True이면 COC 회전 중심 검출 후 Side 0도/90도 AutoFocus를 수행합니다. False이면 COC(회전 중심)까지만 수행하고 Side AutoFocus는 건너뜁니다. (AutoFocus가 True일 때만 의미가 있습니다.)", BoolOptions), _sideAutoFocus ? "True" : "False");
                 AddSettingRow(CreateNumber(SettingKey.ColletDieCalThickness, "Die Thickness", "mm", "Collet Cal에서 AutoFocus 후 측정한 Best Z에 더할 다이 두께입니다. 저장 검사 Z = 측정 Z + Die Thickness + Film Thickness + 현재 Collet Type Offset입니다.", false), _colletDieCalThicknessMm.ToString("F6"));
                 AddSettingRow(CreateNumber(SettingKey.ColletRimOffsetFromFlat, "Rim Collet Offset", "mm", "Recipe Collet Type이 Rim일 때 측정 Z에 더할 콜렛 Offset입니다. 아래 방향은 -이고 위 방향은 +이므로 위로 올릴 값은 +로 입력합니다.", false), _colletRimOffsetFromFlatMm.ToString("F6"));
                 AddSettingRow(CreateNumber(SettingKey.ColletFlatZOffset, "Flat Collet Offset", "mm", "Recipe Collet Type이 Flat일 때 측정 Z에 더할 콜렛 Offset입니다. 아래 방향은 -이고 위 방향은 +이므로 위로 올릴 값은 +로 입력합니다.", false), _colletFlatZOffsetMm.ToString("F6"));
@@ -1119,6 +1365,9 @@ namespace QMC.CDT_320.Ui.Dialogs
                     break;
                 case SettingKey.AutoFocus:
                     _autoFocus = value == "True";
+                    break;
+                case SettingKey.SideAutoFocus:
+                    _sideAutoFocus = value == "True";
                     break;
                 case SettingKey.XyToleranceMode:
                     _useDiagonalXyTolerance = value != "Axis";
@@ -1212,8 +1461,8 @@ namespace QMC.CDT_320.Ui.Dialogs
                     return;
 
                 ColletCalibrationData data = ResolveData(host.Machine);
-                AddRecords(data, VisionFocusPickerSide.Front);
-                AddRecords(data, VisionFocusPickerSide.Rear);
+                AddRecords(host, data, VisionFocusPickerSide.Front);
+                AddRecords(host, data, VisionFocusPickerSide.Rear);
             }
             catch
             {
@@ -1223,11 +1472,16 @@ namespace QMC.CDT_320.Ui.Dialogs
             }
         }
 
-        private void AddRecords(ColletCalibrationData data, VisionFocusPickerSide side)
+        private void AddRecords(Form1 host, ColletCalibrationData data, VisionFocusPickerSide side)
         {
             for (int i = 1; i <= 4; i++)
             {
                 ColletCalibrationRecord record = data.GetRecord(side, i);
+                bool hasMachineCenter;
+                double machineX, machineY;
+                bool machineValid = TryGetRecipeRotationCenter(host, side, i, out machineX, out machineY, out hasMachineCenter);
+                string pickZText, placeZText;
+                ResolvePickPlaceZTeachingText(host, side, i, out pickZText, out placeZText);
                 gridResults.Rows.Add(
                     side + " C" + i,
                     side,
@@ -1239,7 +1493,100 @@ namespace QMC.CDT_320.Ui.Dialogs
                     record.FinalPickerX.ToString("F6"),
                     record.FinalPickerY.ToString("F6"),
                     record.FinalPickerZ.ToString("F6"),
-                    record.Valid ? "OK" : "-");
+                    record.Valid ? "OK" : "-",
+                    record.RotationCenterValid ? "OK" : "-",
+                    record.RotationCenterValid ? record.RotationCenterPixelX.ToString("F3") : "-",
+                    record.RotationCenterValid ? record.RotationCenterPixelY.ToString("F3") : "-",
+                    (hasMachineCenter && machineValid) ? machineX.ToString("F6") : "-",
+                    (hasMachineCenter && machineValid) ? machineY.ToString("F6") : "-",
+                    pickZText,
+                    placeZText,
+                    record.Valid ? record.AfZOffset.ToString("F6") : "-");
+            }
+        }
+
+        // 콜렛별 현재 Pick/Place Z 티칭값(DiePickPosition/DiePlacePosition[colletIndex])을 표시용으로 읽는다.
+        private static void ResolvePickPlaceZTeachingText(Form1 host, VisionFocusPickerSide side, int colletNo,
+            out string pickZText, out string placeZText)
+        {
+            pickZText = "-";
+            placeZText = "-";
+            try
+            {
+                if (host == null || host.Machine == null)
+                    return;
+
+                PickerAxis zAxis = ResolvePickerZAxis(colletNo);
+                int index = NormalizeColletIndex(colletNo);
+                string pickName = "DiePickPosition[" + index + "]";
+                string placeName = "DiePlacePosition[" + index + "]";
+                if (side == VisionFocusPickerSide.Front)
+                {
+                    if (host.Machine.PickerFrontUnit == null)
+                        return;
+                    pickZText = host.Machine.PickerFrontUnit.GetPickerTeachingPosition(zAxis, pickName).ToString("F6");
+                    placeZText = host.Machine.PickerFrontUnit.GetPickerTeachingPosition(zAxis, placeName).ToString("F6");
+                }
+                else
+                {
+                    if (host.Machine.PickerRearUnit == null)
+                        return;
+                    pickZText = host.Machine.PickerRearUnit.GetPickerTeachingPosition(zAxis, pickName).ToString("F6");
+                    placeZText = host.Machine.PickerRearUnit.GetPickerTeachingPosition(zAxis, placeName).ToString("F6");
+                }
+            }
+            catch
+            {
+                pickZText = "-";
+                placeZText = "-";
+            }
+        }
+
+        // COC 회전 중심 기계 좌표(mm)는 Recipe(ColletRotationCenterX/Y/Valid)에 저장된다. side/collet 기준으로 읽어온다.
+        private bool TryGetRecipeRotationCenter(Form1 host, VisionFocusPickerSide side, int colletNo,
+            out double machineX, out double machineY, out bool hasCenter)
+        {
+            machineX = 0.0;
+            machineY = 0.0;
+            hasCenter = false;
+            try
+            {
+                if (host == null || host.Machine == null)
+                    return false;
+
+                int index = Math.Max(0, Math.Min(3, colletNo - 1));
+                double[] centerX;
+                double[] centerY;
+                bool[] centerValid;
+                if (side == VisionFocusPickerSide.Front)
+                {
+                    if (host.Machine.PickerFrontUnit == null || host.Machine.PickerFrontUnit.Recipe == null)
+                        return false;
+                    centerX = host.Machine.PickerFrontUnit.Recipe.ColletRotationCenterX;
+                    centerY = host.Machine.PickerFrontUnit.Recipe.ColletRotationCenterY;
+                    centerValid = host.Machine.PickerFrontUnit.Recipe.ColletRotationCenterValid;
+                }
+                else
+                {
+                    if (host.Machine.PickerRearUnit == null || host.Machine.PickerRearUnit.Recipe == null)
+                        return false;
+                    centerX = host.Machine.PickerRearUnit.Recipe.ColletRotationCenterX;
+                    centerY = host.Machine.PickerRearUnit.Recipe.ColletRotationCenterY;
+                    centerValid = host.Machine.PickerRearUnit.Recipe.ColletRotationCenterValid;
+                }
+
+                if (centerX == null || centerY == null || centerValid == null ||
+                    index >= centerX.Length || index >= centerY.Length || index >= centerValid.Length)
+                    return false;
+
+                hasCenter = true;
+                machineX = centerX[index];
+                machineY = centerY[index];
+                return centerValid[index];
+            }
+            catch
+            {
+                return false;
             }
         }
 
@@ -1454,7 +1801,10 @@ namespace QMC.CDT_320.Ui.Dialogs
             }
         }
 
-        private void SaveCurrentBottomTeachingPosition()
+        // 직전 Core 호출의 결과 메시지(async 전환으로 out 파라미터 대체).
+        private string _coreResultMessage = string.Empty;
+
+        private async Task SaveCurrentBottomTeachingPositionAsync()
         {
             if (_busy)
                 return;
@@ -1463,37 +1813,60 @@ namespace QMC.CDT_320.Ui.Dialogs
             {
                 _busy = true;
                 SetButtonsEnabled(false);
+                await SaveBottomTeachingCoreAsync(true).ConfigureAwait(true);
+            }
+            finally
+            {
+                _busy = false;
+                SetButtonsEnabled(true);
+            }
+        }
 
+        // Save Bottom 저장 로직 본체. 수동 버튼(interactive=true)과 BATCH 자동 경로(interactive=false)가 공유한다.
+        // 자동 경로에서는 확인 MessageBox를 띄우지 않고 결과를 _coreResultMessage/로그로만 남긴다. _busy는 호출자가 관리한다.
+        // 파일 저장(Recipe/Settings 직렬화)은 백그라운드 스레드에서 수행해 UI 프리즈를 막는다.
+        private async Task<bool> SaveBottomTeachingCoreAsync(bool interactive)
+        {
+            string message = string.Empty;
+            try
+            {
                 string editReason;
                 if (!CommitSettingGridEdits(out editReason))
                 {
+                    message = editReason;
                     lblStatus.Text = editReason;
-                    QMC.Common.MessageDialog.Show(this, editReason, "COLLET CAL", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                    return;
+                    if (interactive)
+                        QMC.Common.MessageDialog.Show(this, editReason, "COLLET CAL", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return false;
                 }
 
                 string reason;
                 Form1 host = ResolveHost(out reason);
                 if (host == null)
                 {
+                    message = reason;
                     lblStatus.Text = reason;
-                    return;
+                    return false;
                 }
 
                 if (string.IsNullOrWhiteSpace(host.ActiveRecipeName))
                 {
-                    lblStatus.Text = "현재 활성 Recipe가 없어 Bottom 검사 티칭 위치를 저장할 수 없습니다.";
-                    QMC.Common.MessageDialog.Show(this, lblStatus.Text, "COLLET CAL", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                    return;
+                    message = "현재 활성 Recipe가 없어 Bottom 검사 티칭 위치를 저장할 수 없습니다.";
+                    lblStatus.Text = message;
+                    if (interactive)
+                        QMC.Common.MessageDialog.Show(this, lblStatus.Text, "COLLET CAL", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return false;
                 }
 
                 CDT320_Machine machine = host.Machine;
                 int colletIndex = NormalizeColletIndex(_colletNo);
                 if (colletIndex != 3)
                 {
-                    lblStatus.Text = "SAVE BOTTOM POS는 기준 Collet 4번에서만 사용할 수 있습니다. side=" + _side + ", colletNo=" + _colletNo;
-                    QMC.Common.MessageDialog.Show(this, lblStatus.Text, "COLLET CAL", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                    return;
+                    message = "SAVE BOTTOM POS는 기준 Collet 4번에서만 사용할 수 있습니다. side=" + _side + ", colletNo=" + _colletNo;
+                    lblStatus.Text = message;
+                    if (interactive)
+                        QMC.Common.MessageDialog.Show(this, lblStatus.Text, "COLLET CAL", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return false;
                 }
 
                 PickerAxis zAxisKind = ResolvePickerZAxis(_colletNo);
@@ -1504,9 +1877,11 @@ namespace QMC.CDT_320.Ui.Dialogs
                 BaseAxis tAxis = ResolveSelectedPickerAxis(machine, tAxisKind);
                 if (xAxis == null || yAxis == null || zAxis == null || tAxis == null)
                 {
-                    lblStatus.Text = "선택 Picker 축을 찾을 수 없습니다. side=" + _side + ", colletNo=" + _colletNo;
-                    QMC.Common.MessageDialog.Show(this, lblStatus.Text, "COLLET CAL", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                    return;
+                    message = "선택 Picker 축을 찾을 수 없습니다. side=" + _side + ", colletNo=" + _colletNo;
+                    lblStatus.Text = message;
+                    if (interactive)
+                        QMC.Common.MessageDialog.Show(this, lblStatus.Text, "COLLET CAL", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return false;
                 }
 
                 double actualX = xAxis.ActualPosition;
@@ -1528,9 +1903,11 @@ namespace QMC.CDT_320.Ui.Dialogs
                 ColletCalibrationRecord record = data.GetRecord(_side, _colletNo);
                 if (record == null)
                 {
-                    lblStatus.Text = "선택한 Collet Calibration 저장 Record를 찾을 수 없습니다. side=" + _side + ", colletNo=" + _colletNo;
-                    QMC.Common.MessageDialog.Show(this, lblStatus.Text, "COLLET CAL", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                    return;
+                    message = "선택한 Collet Calibration 저장 Record를 찾을 수 없습니다. side=" + _side + ", colletNo=" + _colletNo;
+                    lblStatus.Text = message;
+                    if (interactive)
+                        QMC.Common.MessageDialog.Show(this, lblStatus.Text, "COLLET CAL", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return false;
                 }
 
                 double oldBottomTeachingX = GetSelectedPickerTeachingPosition(machine, PickerAxis.PickerX, "BottomPosition");
@@ -1545,12 +1922,14 @@ namespace QMC.CDT_320.Ui.Dialogs
                 string suspiciousReason;
                 if (IsSuspiciousBottomTeachingPosition(record, actualX, actualY, actualZ, out suspiciousReason))
                 {
+                    message = suspiciousReason;
                     lblStatus.Text = suspiciousReason;
-                    QMC.Common.MessageDialog.Show(this, suspiciousReason, "COLLET CAL", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                    return;
+                    if (interactive)
+                        QMC.Common.MessageDialog.Show(this, suspiciousReason, "COLLET CAL", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return false;
                 }
 
-                string message =
+                string confirmMessage =
                     "현재 위치를 Bottom 검사 티칭 위치로 저장하시겠습니까?\r\n" +
                     "Side=" + _side + ", Collet=" + _colletNo + "\r\n" +
                     "X Teaching=" + bottomTeachingX.ToString("F6") + " (actualX=" + actualX.ToString("F6") + ", pitch=" + pitchOffsetX.ToString("F6") + ")\r\n" +
@@ -1566,8 +1945,13 @@ namespace QMC.CDT_320.Ui.Dialogs
                     "T Zero Offset=" + tZeroHomeOffset.ToString("F6") + " (" + tAxisKind + ")\r\n" +
                     "  Active PC Offset=" + activeTPcHomeOffset.ToString("F6") +
                     ", Residual=" + tZeroResidual.ToString("F6");
-                if (QMC.Common.MessageDialog.Show(this, message, "COLLET CAL", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes)
-                    return;
+                if (interactive &&
+                    QMC.Common.MessageDialog.Show(this, confirmMessage, "COLLET CAL", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes)
+                {
+                    message = "사용자가 Bottom 검사 티칭 저장을 취소했습니다.";
+                    lblStatus.Text = message;
+                    return false;
+                }
 
                 SetSelectedPickerTeachingPosition(machine, PickerAxis.PickerX, "BottomPosition", bottomTeachingX);
                 SetSelectedPickerTeachingPosition(machine, PickerAxis.PickerY, "BottomPosition", actualY);
@@ -1594,13 +1978,15 @@ namespace QMC.CDT_320.Ui.Dialogs
                 string colletZMessage;
                 if (!SaveActiveProjectColletZ(host, true, out colletZMessage))
                 {
+                    message = colletZMessage;
                     lblStatus.Text = colletZMessage;
-                    QMC.Common.MessageDialog.Show(this, colletZMessage, "COLLET CAL", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                    return;
+                    if (interactive)
+                        QMC.Common.MessageDialog.Show(this, colletZMessage, "COLLET CAL", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return false;
                 }
 
-                bool recipeSaved = host.SaveMachineRecipe(host.ActiveRecipeName);
-                host.SaveMachineSettings();
+                bool recipeSaved = await Task.Run(() => host.SaveMachineRecipe(host.ActiveRecipeName)).ConfigureAwait(true);
+                await Task.Run(() => host.SaveMachineSettings()).ConfigureAwait(true);
                 RefreshResultGrid();
 
                 string[] saveHistoryLines = new string[]
@@ -1638,20 +2024,24 @@ namespace QMC.CDT_320.Ui.Dialogs
                     ", colletZ=" + colletZMessage +
                     ", recipeSaved=" + recipeSaved);
 
-                lblStatus.Text = recipeSaved
+                message = recipeSaved
                     ? "Bottom 검사 티칭 위치를 저장했습니다. TZero=" + tZeroHomeOffset.ToString("F6") + " (Active=" + activeTPcHomeOffset.ToString("F6") + ", Residual=" + tZeroResidual.ToString("F6") + "), " + colletZMessage
                     : "Bottom 검사 티칭 값은 메모리에 반영됐지만 Recipe 저장에 실패했습니다. Alarm/Event Log를 확인하세요.";
+                lblStatus.Text = message;
+                return recipeSaved;
             }
             catch (Exception ex)
             {
-                lblStatus.Text = "Bottom 검사 티칭 위치 저장 실패: " + ex.Message;
+                message = "Bottom 검사 티칭 위치 저장 실패: " + ex.Message;
+                lblStatus.Text = message;
                 EventLogger.Write(EventKind.Alarm, "CAL", "COLLET-CAL-BOTTOM-TEACH", lblStatus.Text);
-                QMC.Common.MessageDialog.Show(this, lblStatus.Text, "COLLET CAL", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                if (interactive)
+                    QMC.Common.MessageDialog.Show(this, lblStatus.Text, "COLLET CAL", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return false;
             }
             finally
             {
-                _busy = false;
-                SetButtonsEnabled(true);
+                _coreResultMessage = message;
             }
         }
 
@@ -1682,7 +2072,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             return true;
         }
 
-        private void ApplySelectedTHomeOffset()
+        private async Task ApplySelectedTHomeOffsetAsync()
         {
             if (_busy)
                 return;
@@ -1691,57 +2081,91 @@ namespace QMC.CDT_320.Ui.Dialogs
             {
                 _busy = true;
                 SetButtonsEnabled(false);
+                await ApplyTHomeOffsetCoreAsync(true).ConfigureAwait(true);
+            }
+            finally
+            {
+                _busy = false;
+                SetButtonsEnabled(true);
+            }
+        }
 
+        // Apply T HOME 로직 본체. 수동 버튼(interactive=true)과 BATCH 자동 경로(interactive=false)가 공유한다.
+        // 자동 경로에서는 확인 MessageBox를 띄우지 않고, 유효한(Valid) 레코드일 때만 적용한다. _busy는 호출자가 관리한다.
+        // 파일 저장(AxisStore/Settings 직렬화)은 백그라운드 스레드에서 수행해 UI 프리즈를 막는다.
+        private async Task<bool> ApplyTHomeOffsetCoreAsync(bool interactive)
+        {
+            string message = string.Empty;
+            try
+            {
                 string editReason;
                 if (!CommitSettingGridEdits(out editReason))
                 {
+                    message = editReason;
                     lblStatus.Text = editReason;
-                    QMC.Common.MessageDialog.Show(this, editReason, "COLLET CAL", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                    return;
+                    if (interactive)
+                        QMC.Common.MessageDialog.Show(this, editReason, "COLLET CAL", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return false;
                 }
 
                 string reason;
                 Form1 host = ResolveHost(out reason);
                 if (host == null)
                 {
+                    message = reason;
                     lblStatus.Text = reason;
-                    return;
+                    return false;
                 }
 
                 CDT320_Machine machine = host.Machine;
                 ColletCalibrationData data = ResolveData(machine);
                 ColletCalibrationRecord record = data.GetRecord(_side, _colletNo);
+                if (record == null || (!interactive && !record.Valid))
+                {
+                    message = "Apply T HOME 대상 Collet 레코드가 없거나 유효하지 않습니다. side=" + _side + ", colletNo=" + _colletNo;
+                    lblStatus.Text = message;
+                    if (interactive)
+                        QMC.Common.MessageDialog.Show(this, lblStatus.Text, "COLLET CAL", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return false;
+                }
+
                 PickerAxis tAxisKind = ResolvePickerTAxis(_colletNo);
                 BaseAxis tAxis = ResolveSelectedPickerAxis(machine, tAxisKind);
                 if (tAxis == null || tAxis.Setup == null)
                 {
-                    lblStatus.Text = "선택 T축 설정을 찾을 수 없습니다. side=" + _side + ", colletNo=" + _colletNo;
-                    QMC.Common.MessageDialog.Show(this, lblStatus.Text, "COLLET CAL", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                    return;
+                    message = "선택 T축 설정을 찾을 수 없습니다. side=" + _side + ", colletNo=" + _colletNo;
+                    lblStatus.Text = message;
+                    if (interactive)
+                        QMC.Common.MessageDialog.Show(this, lblStatus.Text, "COLLET CAL", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return false;
                 }
 
                 tAxis.UpdateStatus();
                 if (tAxis.IsAlarm)
                 {
-                    lblStatus.Text = "T축 알람 상태에서는 T HOME 적용 및 엔코더 0점 설정을 할 수 없습니다. axis=" + tAxis.Name + ", alarmCode=" + tAxis.AlarmCode;
+                    message = "T축 알람 상태에서는 T HOME 적용 및 엔코더 0점 설정을 할 수 없습니다. axis=" + tAxis.Name + ", alarmCode=" + tAxis.AlarmCode;
+                    lblStatus.Text = message;
                     EventLogger.Write(EventKind.Alarm, "CAL", "COLLET-CAL-APPLY-T-HOME-AXIS-ALARM", lblStatus.Text);
-                    QMC.Common.MessageDialog.Show(this, lblStatus.Text, "COLLET CAL", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                    return;
+                    if (interactive)
+                        QMC.Common.MessageDialog.Show(this, lblStatus.Text, "COLLET CAL", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return false;
                 }
 
                 if (tAxis.IsMoving)
                 {
-                    lblStatus.Text = "T축 이동 중에는 T HOME 적용 및 엔코더 0점 설정을 할 수 없습니다. axis=" + tAxis.Name;
+                    message = "T축 이동 중에는 T HOME 적용 및 엔코더 0점 설정을 할 수 없습니다. axis=" + tAxis.Name;
+                    lblStatus.Text = message;
                     EventLogger.Write(EventKind.Alarm, "CAL", "COLLET-CAL-APPLY-T-HOME-MOVING", lblStatus.Text);
-                    QMC.Common.MessageDialog.Show(this, lblStatus.Text, "COLLET CAL", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                    return;
+                    if (interactive)
+                        QMC.Common.MessageDialog.Show(this, lblStatus.Text, "COLLET CAL", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return false;
                 }
 
                 double oldHomeOffset = tAxis.Setup.HomeOffset;
                 double newHomeOffset = record.TZeroHomeOffset;
                 double oldActualPosition = tAxis.ActualPosition;
                 double oldCommandPosition = tAxis.CommandPosition;
-                string message =
+                string confirmMessage =
                     "TZeroHomeOffset을 T축 PC Zero로 적용하고 현재 T축 엔코더를 0으로 설정할까요?\r\n" +
                     "Side=" + _side + ", Collet=" + _colletNo + "\r\n" +
                     "Axis=" + tAxis.Name + "\r\n" +
@@ -1751,8 +2175,13 @@ namespace QMC.CDT_320.Ui.Dialogs
                     "Current Command=" + oldCommandPosition.ToString("F6") + "\r\n" +
                     "축 이동 없이 현재 보드 Command/Actual 좌표를 0으로 프리셋합니다.\r\n" +
                     "다음 T Home 후에도 Offset 이동 및 0점 설정 기능은 유지됩니다.";
-                if (QMC.Common.MessageDialog.Show(this, message, "COLLET CAL", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes)
-                    return;
+                if (interactive &&
+                    QMC.Common.MessageDialog.Show(this, confirmMessage, "COLLET CAL", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes)
+                {
+                    message = "사용자가 Apply T HOME을 취소했습니다.";
+                    lblStatus.Text = message;
+                    return false;
+                }
 
                 tAxis.Setup.HomeOffset = newHomeOffset;
                 tAxis.SetPosition(0.0);
@@ -1763,16 +2192,21 @@ namespace QMC.CDT_320.Ui.Dialogs
                 if (Math.Abs(tAxis.ActualPosition) > zeroTolerance || Math.Abs(tAxis.CommandPosition) > zeroTolerance)
                 {
                     tAxis.Setup.HomeOffset = oldHomeOffset;
-                    lblStatus.Text = "T축 엔코더 0점 설정 확인 실패. axis=" + tAxis.Name +
+                    message = "T축 엔코더 0점 설정 확인 실패. axis=" + tAxis.Name +
                                      ", actual=" + tAxis.ActualPosition.ToString("F6") +
                                      ", command=" + tAxis.CommandPosition.ToString("F6") +
                                      ", tolerance=" + zeroTolerance.ToString("F6");
+                    lblStatus.Text = message;
                     EventLogger.Write(EventKind.Alarm, "CAL", "COLLET-CAL-APPLY-T-HOME-ZERO-VERIFY", lblStatus.Text);
-                    QMC.Common.MessageDialog.Show(this, lblStatus.Text, "COLLET CAL", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                    return;
+                    if (interactive)
+                        QMC.Common.MessageDialog.Show(this, lblStatus.Text, "COLLET CAL", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    return false;
                 }
-                AjinFactory.AxisManager.Save(MotionAxisStore.DefaultPath);
-                host.SaveMachineSettings();
+                await Task.Run(() =>
+                {
+                    AjinFactory.AxisManager.Save(MotionAxisStore.DefaultPath);
+                    host.SaveMachineSettings();
+                }).ConfigureAwait(true);
 
                 QMC.Common.Log.Write("Calibration", "SYSTEM", "ColletCalApplyTHome",
                     "T Absolute PC Zero Offset 적용 및 현재 T축 엔코더 0점 설정. side=" + _side +
@@ -1789,21 +2223,25 @@ namespace QMC.CDT_320.Ui.Dialogs
                     ", applyMode=PickerT MovePcOffsetAfterHomeThenZero" +
                     ", motionAxisStore=" + MotionAxisStore.DefaultPath);
 
-                lblStatus.Text = "T 절대 PC Zero 보정값 적용 및 현재 T축 엔코더 0점 설정을 완료했습니다. axis=" + tAxis.Name +
+                message = "T 절대 PC Zero 보정값 적용 및 현재 T축 엔코더 0점 설정을 완료했습니다. axis=" + tAxis.Name +
                                  ", Offset=" + newHomeOffset.ToString("F6") +
                                  ", Actual=" + tAxis.ActualPosition.ToString("F6") +
                                  ", Command=" + tAxis.CommandPosition.ToString("F6");
+                lblStatus.Text = message;
+                return true;
             }
             catch (Exception ex)
             {
-                lblStatus.Text = "T PC Zero 보정값 적용 또는 엔코더 0점 설정 실패: " + ex.Message;
+                message = "T PC Zero 보정값 적용 또는 엔코더 0점 설정 실패: " + ex.Message;
+                lblStatus.Text = message;
                 EventLogger.Write(EventKind.Alarm, "CAL", "COLLET-CAL-APPLY-T-HOME", lblStatus.Text);
-                QMC.Common.MessageDialog.Show(this, lblStatus.Text, "COLLET CAL", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                if (interactive)
+                    QMC.Common.MessageDialog.Show(this, lblStatus.Text, "COLLET CAL", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return false;
             }
             finally
             {
-                _busy = false;
-                SetButtonsEnabled(true);
+                _coreResultMessage = message;
             }
         }
 
@@ -2111,29 +2549,85 @@ namespace QMC.CDT_320.Ui.Dialogs
             return new ManualMoveResult { Result = result, Target = targetZ };
         }
 
-        private async Task<int> MoveSelectedPickerYToAvoidAsync(CDT320_Machine machine)
+        // Front+Rear 픽커 Y를 모두 Avoid로 이동한다(P-Y AVOID 버튼).
+        private async Task<int> MoveBothPickersYToAvoidAsync(CDT320_Machine machine)
         {
             if (machine == null)
                 return -1;
 
-            if (_side == VisionFocusPickerSide.Front)
+            if (machine.PickerFrontUnit != null)
             {
-                if (machine.PickerFrontUnit == null)
-                    return -1;
-                return await machine.PickerFrontUnit.MovePickerAxisToTeachingPosition(
+                int frontResult = await machine.PickerFrontUnit.MovePickerAxisToTeachingPosition(
                     PickerAxis.PickerY,
                     "AvoidPosition",
                     JogSpeedType.Custom,
                     _moveVelocity).ConfigureAwait(true);
+                if (frontResult != 0)
+                    return frontResult;
             }
 
-            if (machine.PickerRearUnit == null)
+            if (machine.PickerRearUnit != null)
+            {
+                int rearResult = await machine.PickerRearUnit.MovePickerAxisToTeachingPosition(
+                    PickerAxis.PickerY,
+                    "AvoidPosition",
+                    JogSpeedType.Custom,
+                    _moveVelocity).ConfigureAwait(true);
+                if (rearResult != 0)
+                    return rearResult;
+            }
+
+            return 0;
+        }
+
+        // Front+Rear 픽커 Z(각 4축)를 모두 Avoid로 이동한다(Z-AVOID 버튼).
+        private async Task<int> MoveBothPickersZToAvoidAsync(CDT320_Machine machine)
+        {
+            if (machine == null)
                 return -1;
-            return await machine.PickerRearUnit.MovePickerAxisToTeachingPosition(
-                PickerAxis.PickerY,
-                "AvoidPosition",
-                JogSpeedType.Custom,
-                _moveVelocity).ConfigureAwait(true);
+
+            PickerAxis[] zAxes = { PickerAxis.PickerZ0, PickerAxis.PickerZ1, PickerAxis.PickerZ2, PickerAxis.PickerZ3 };
+            if (machine.PickerFrontUnit != null)
+            {
+                foreach (PickerAxis axis in zAxes)
+                {
+                    int result = await machine.PickerFrontUnit.MovePickerAxisToTeachingPosition(
+                        axis, "AvoidPosition", JogSpeedType.Custom, _moveVelocity).ConfigureAwait(true);
+                    if (result != 0)
+                        return result;
+                }
+            }
+
+            if (machine.PickerRearUnit != null)
+            {
+                foreach (PickerAxis axis in zAxes)
+                {
+                    int result = await machine.PickerRearUnit.MovePickerAxisToTeachingPosition(
+                        axis, "AvoidPosition", JogSpeedType.Custom, _moveVelocity).ConfigureAwait(true);
+                    if (result != 0)
+                        return result;
+                }
+            }
+
+            return 0;
+        }
+
+        // Front+Rear 픽커 Z 전체가 Avoid인지 확인(P-Y AVOID 전제조건).
+        private static bool AreBothPickersZInAvoidPosition(CDT320_Machine machine)
+        {
+            if (machine == null)
+                return false;
+
+            PickerAxis[] zAxes = { PickerAxis.PickerZ0, PickerAxis.PickerZ1, PickerAxis.PickerZ2, PickerAxis.PickerZ3 };
+            foreach (PickerAxis axis in zAxes)
+            {
+                if (machine.PickerFrontUnit != null && !machine.PickerFrontUnit.IsPickerAxisInTeachingPosition(axis, "AvoidPosition"))
+                    return false;
+                if (machine.PickerRearUnit != null && !machine.PickerRearUnit.IsPickerAxisInTeachingPosition(axis, "AvoidPosition"))
+                    return false;
+            }
+
+            return true;
         }
 
         private bool IsSelectedColletZInAvoidPosition(CDT320_Machine machine)
@@ -2293,6 +2787,8 @@ namespace QMC.CDT_320.Ui.Dialogs
             btnReload.Enabled = enabled;
             btnSave.Enabled = enabled;
             btnClose.Enabled = enabled;
+            btnBatchStart.Enabled = enabled;
+            batchFlow.Enabled = enabled;
         }
 
         private void UpdateStopButtonEnabled()
