@@ -33,6 +33,7 @@ namespace QMC.CDT320.Materials
                 if (outputWafer == null || die == null)
                     return;
 
+                lotId = MaterialStateService.GetProductionLotId();
                 if (string.Equals(eventName, "OutputStageDieInspection", StringComparison.OrdinalIgnoreCase))
                 {
                     VisionInspectionResultFileWriter.EnqueuePlaceResult(

@@ -39,6 +39,16 @@ namespace QMC.CDT320.Materials
 
         public static MaterialSnapshot State => MaterialStorage.State;
 
+        public static string GetProductionLotId()
+        {
+            lock (_stateSync)
+            {
+                return State != null && !string.IsNullOrWhiteSpace(State.LotId)
+                    ? State.LotId.Trim()
+                    : "";
+            }
+        }
+
         public static void InitializeForRecipe(int inputLevelCount, int goodLevelCount, int inputSlots, int outputSlots)
         {
             MaterialStorage.InitializeDefaultState(inputLevelCount, goodLevelCount, inputSlots, outputSlots);
@@ -338,7 +348,7 @@ namespace QMC.CDT320.Materials
                     InputWaferInspectionCsvSnapshotWriter.EnqueueInspection(
                         "InspectionResult",
                         State != null ? State.RecipeName : "",
-                        State != null ? State.LotId : "",
+                        GetProductionLotId(),
                         die,
                         null);
                     NotifyAndSave(reason);
@@ -765,7 +775,7 @@ namespace QMC.CDT320.Materials
             InputWaferInspectionCsvSnapshotWriter.EnqueueInspection(
                 "InputStageRunReview",
                 State != null ? State.RecipeName : "",
-                State != null ? State.LotId : "",
+                GetProductionLotId(),
                 die,
                 record);
         }
@@ -811,7 +821,6 @@ namespace QMC.CDT320.Materials
                 UpdateCassetteMapping(CassetteMaterialRole.Input1, true, slotCount, level1Map, level1SlotPositions, resolvedLotId, tapeFrameSpecName);
                 UpdateCassetteMapping(CassetteMaterialRole.Input2, levelCount >= 2, slotCount, level2Map, level2SlotPositions, resolvedLotId, tapeFrameSpecName);
 
-                State.LotId = resolvedLotId;
             }
             NotifyAndSave("InputCassetteMapping");
         }
@@ -845,7 +854,6 @@ namespace QMC.CDT320.Materials
                 UpdateCassetteMapping(CassetteMaterialRole.Good2, goodLevelCount >= 2, slotCount, good2Map, good2SlotPositions, resolvedLotId, tapeFrameSpecName);
                 UpdateCassetteMapping(CassetteMaterialRole.Ng1, true, slotCount, ngMap, ngSlotPositions, resolvedLotId, tapeFrameSpecName);
 
-                State.LotId = resolvedLotId;
             }
             NotifyAndSave("OutputCassetteMapping");
         }
@@ -897,7 +905,6 @@ namespace QMC.CDT320.Materials
                 if (updateNg)
                     UpdateCassetteMapping(CassetteMaterialRole.Ng1, true, slotCount, ngMap, ngSlotPositions, resolvedLotId, tapeFrameSpecName);
 
-                State.LotId = resolvedLotId;
             }
             NotifyAndSave("OutputCassetteMappingSelective");
         }
@@ -1445,7 +1452,6 @@ namespace QMC.CDT320.Materials
                         wafer.SourceCassetteSlotPosition = slotPosition;
                 }
 
-                State.LotId = resolvedLotId;
                 wafer.CassetteLotId = resolvedLotId;
                 wafer.CurrentLocation = MaterialLocation.Cassette(
                     cassetteRole == CassetteMaterialRole.Input1 || cassetteRole == CassetteMaterialRole.Input2
@@ -2218,7 +2224,7 @@ namespace QMC.CDT320.Materials
                     OutputWaferCsvSnapshotWriter.EnqueuePlacedDie(
                         "Place",
                         State != null ? State.RecipeName : "",
-                        State != null ? State.LotId : "",
+                        GetProductionLotId(),
                         side,
                         outputWafer,
                         die,
@@ -2355,7 +2361,7 @@ namespace QMC.CDT320.Materials
                         OutputWaferCsvSnapshotWriter.EnqueuePlacedDie(
                             "OutputStageDieInspection",
                             State != null ? State.RecipeName : "",
-                            State != null ? State.LotId : "",
+                            GetProductionLotId(),
                             side,
                             outputWafer,
                             die,
@@ -6426,7 +6432,7 @@ namespace QMC.CDT320.Materials
             InputWaferInspectionCsvSnapshotWriter.EnqueueInspection(
                 "InspectionUpsert",
                 State != null ? State.RecipeName : "",
-                State != null ? State.LotId : "",
+                GetProductionLotId(),
                 die,
                 record);
             NotifyAndSave("UpsertInspection");
@@ -6809,12 +6815,9 @@ namespace QMC.CDT320.Materials
                         snapshot.RecipeName = project.FileName ?? "";
                 }
 
-                if (string.IsNullOrWhiteSpace(snapshot.LotId))
-                {
-                    string lotId = ResolveSnapshotLotId(snapshot);
-                    if (!string.IsNullOrWhiteSpace(lotId))
-                        snapshot.LotId = lotId;
-                }
+                snapshot.LotId = string.IsNullOrWhiteSpace(snapshot.LotId)
+                    ? ""
+                    : snapshot.LotId.Trim();
             }
             catch (Exception ex)
             {
@@ -6823,37 +6826,6 @@ namespace QMC.CDT320.Materials
             finally
             {
             }
-        }
-
-        private static string ResolveSnapshotLotId(MaterialSnapshot snapshot)
-        {
-            try
-            {
-                if (snapshot == null)
-                    return "";
-
-                if (snapshot.Cassettes != null)
-                {
-                    var cassette = snapshot.Cassettes.FirstOrDefault(c => c != null && !string.IsNullOrWhiteSpace(c.CassetteLotId));
-                    if (cassette != null)
-                        return cassette.CassetteLotId.Trim();
-                }
-
-                if (snapshot.Wafers != null)
-                {
-                    var wafer = snapshot.Wafers.FirstOrDefault(w => w != null && !string.IsNullOrWhiteSpace(w.CassetteLotId));
-                    if (wafer != null)
-                        return wafer.CassetteLotId.Trim();
-                }
-            }
-            catch
-            {
-            }
-            finally
-            {
-            }
-
-            return "";
         }
 
         private static void RemoveWaferFromCassetteSlot(string waferId)
@@ -7118,7 +7090,6 @@ namespace QMC.CDT320.Materials
         {
             var cassette = EnsureCassette(role, slotCount);
             string resolvedLotId = ResolveOrCreateCassetteMappingLotId(cassetteLotId, role);
-            State.LotId = resolvedLotId;
             cassette.IsEnabled = enabled;
             cassette.IsPresent = enabled;
             cassette.IsMapped = enabled && map != null;
@@ -7462,7 +7433,6 @@ namespace QMC.CDT320.Materials
             string resolvedLotId = ResolveOrCreateCassetteLotId(cassetteLotId, cassette, wafer);
             wafer.CassetteLotId = resolvedLotId;
             cassette.CassetteLotId = resolvedLotId;
-            State.LotId = resolvedLotId;
 
             wafer.SourceCassetteId = cassette.CassetteId;
             wafer.SourceCassetteRole = cassette.Role;

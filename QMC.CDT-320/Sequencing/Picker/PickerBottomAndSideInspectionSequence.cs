@@ -3519,7 +3519,7 @@ namespace QMC.CDT320.Sequencing
                 MaterialSnapshot state = MaterialStateService.State;
                 VisionInspectionResultFileWriter.EnqueueBottomResult(
                     state != null ? state.RecipeName : string.Empty,
-                    state != null ? state.LotId : string.Empty,
+                    MaterialStateService.GetProductionLotId(),
                     die,
                     bottomRecord);
             }

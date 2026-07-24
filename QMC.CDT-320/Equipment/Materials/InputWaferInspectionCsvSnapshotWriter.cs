@@ -31,6 +31,7 @@ namespace QMC.CDT320.Materials
                 if (die == null)
                     return;
 
+                lotId = MaterialStateService.GetProductionLotId();
                 VisionInspectionResultFileWriter.EnqueueBottomResult(
                     recipeName,
                     lotId,

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Drawing;
@@ -159,8 +159,8 @@ namespace QMC.CDT_320.Ui.Controls
 
                 _signature = sig;
                 _stats = CalculateMapStats(_displayMap, _displayStates);
-                Lot lot = LotStorage.ActiveLot;
-                _lotText = lot != null ? lot.LotID : "(no active lot)";
+                string productionLotId = MaterialStateService.GetProductionLotId();
+                _lotText = string.IsNullOrWhiteSpace(productionLotId) ? "(no lot)" : productionLotId;
                 // 현재 기준: 작업 메인도 공통 DieMapView에 상태 캡션과 맵 데이터를 전달한다.
                 Caption = BuildCaption(_displayMap, _stats);
                 SetMap(_displayMap, false);
@@ -546,8 +546,8 @@ namespace QMC.CDT_320.Ui.Controls
             {
                 long h = 17;
                 h = h * 31 + (int)_sourceKind;
-                Lot lot = LotStorage.ActiveLot;
-                h = h * 31 + BuildStringHash(lot != null ? lot.LotID : null);
+                Lot lot = ResolveProductionLotProjection();
+                h = h * 31 + BuildStringHash(MaterialStateService.GetProductionLotId());
                 h = h * 31 + (lot != null ? lot.ProcessedDies : 0);
                 h = h * 31 + (lot != null ? lot.GoodCount : 0);
                 h = h * 31 + (lot != null ? lot.TotalDies : 0);
@@ -593,6 +593,17 @@ namespace QMC.CDT_320.Ui.Controls
 
                 return h;
             }
+        }
+
+        private static Lot ResolveProductionLotProjection()
+        {
+            string productionLotId = MaterialStateService.GetProductionLotId();
+            Lot lot = LotStorage.ActiveLot;
+            return lot != null &&
+                   !string.IsNullOrWhiteSpace(productionLotId) &&
+                   string.Equals(lot.LotID, productionLotId, StringComparison.Ordinal)
+                ? lot
+                : null;
         }
 
         private static int BuildStringHash(string value)
@@ -680,7 +691,7 @@ namespace QMC.CDT_320.Ui.Controls
                 // 입력 다이맵이 아직 없을 때만 Lot 카운트 기반 5x5 격자(레거시 fallback) 표시.
                 int filled = 0;
                 int goodFilled = 0;
-                Lot lot = LotStorage.ActiveLot;
+                Lot lot = ResolveProductionLotProjection();
                 int processed = lot != null ? lot.ProcessedDies : 0;
                 int good = lot != null ? lot.GoodCount : 0;
                 for (int j = 0; j < gy; j++)
@@ -719,8 +730,9 @@ namespace QMC.CDT_320.Ui.Controls
                     g.DrawRectangle(pen, x0 - 1, y0 - 1, totalW + 1, totalH + 1);
             }
 
-            int percentDone = dmap != null ? stats.Target : (LotStorage.ActiveLot != null ? LotStorage.ActiveLot.TotalDies : 0);
-            int percentProcessed = dmap != null ? stats.Done : (LotStorage.ActiveLot != null ? LotStorage.ActiveLot.ProcessedDies : 0);
+            Lot projectedLot = ResolveProductionLotProjection();
+            int percentDone = dmap != null ? stats.Target : (projectedLot != null ? projectedLot.TotalDies : 0);
+            int percentProcessed = dmap != null ? stats.Done : (projectedLot != null ? projectedLot.ProcessedDies : 0);
             if (percentDone > 0)
             {
                 using (var bf = new SolidBrush(Color.FromArgb(0x33, 0x33, 0x33)))

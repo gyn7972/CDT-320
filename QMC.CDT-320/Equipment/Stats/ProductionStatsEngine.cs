@@ -96,16 +96,17 @@ namespace QMC.CDT320.Stats
                     if (!_lotStarted || _loadEndUtc.HasValue)
                         return false;
 
-                    string requestedLotId = lotId ?? string.Empty;
-                    if (!string.IsNullOrEmpty(requestedLotId) &&
-                        !string.IsNullOrEmpty(_activeLotId) &&
+                    string requestedLotId = string.IsNullOrWhiteSpace(lotId) ? string.Empty : lotId.Trim();
+                    if (string.IsNullOrEmpty(requestedLotId))
+                        return false;
+
+                    if (!string.IsNullOrEmpty(_activeLotId) &&
                         !string.Equals(_activeLotId, requestedLotId, StringComparison.Ordinal))
                     {
                         return false;
                     }
 
-                    if (!string.IsNullOrEmpty(requestedLotId))
-                        _activeLotId = requestedLotId;
+                    _activeLotId = requestedLotId;
 
                     PublishLocked(DateTime.UtcNow);
                     return true;
@@ -159,7 +160,7 @@ namespace QMC.CDT320.Stats
                     _afterAlarm = false;
 
                     _errorCount = 0;
-                    _activeLotId = lotId ?? string.Empty;
+                    _activeLotId = string.IsNullOrWhiteSpace(lotId) ? string.Empty : lotId.Trim();
 
                     PublishLocked(now);
                 }

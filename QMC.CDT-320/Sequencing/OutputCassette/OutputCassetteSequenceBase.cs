@@ -625,7 +625,7 @@ namespace QMC.CDT320.Sequencing
                     BuildSlotPositions(cassette, TargetCassette.Good1),
                     BuildSlotPositions(cassette, TargetCassette.Good2),
                     BuildSlotPositions(cassette, TargetCassette.Ng),
-                    LotStorage.ActiveLot != null ? LotStorage.ActiveLot.LotID : "",
+                    MaterialStateService.GetProductionLotId(),
                     MaterialStateService.ResolveRecipeTapeFrameSpecName(cassette.Config != null ? cassette.Config.InchSelect : 0));
                 WriteLog("RegisterMappingResult",
                     "Output cassette mapping result registered. updateGood=" + updateGood +

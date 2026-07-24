@@ -672,6 +672,18 @@ namespace QMC.CDT_320.Ui.Pages.Work
             // 작업 시간/UPH 통계는 엔진 스냅샷 1회 읽기로 끝낸다(계산은 엔진이 수행, UI는 표시만).
             ProductionStatsSnapshot stats = ctrl?.Stats?.GetSnapshot() ?? ProductionStatsSnapshot.Empty;
             MaterialDisplaySnapshot material = GetCachedMaterialDisplaySnapshot();
+            string productionLotId = material.LotId ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(productionLotId) ||
+                !string.Equals(stats.ActiveLotId, productionLotId, StringComparison.Ordinal))
+            {
+                stats = ProductionStatsSnapshot.Empty;
+            }
+            if (lot != null &&
+                (string.IsNullOrWhiteSpace(productionLotId) ||
+                 !string.Equals(lot.LotID, productionLotId, StringComparison.Ordinal)))
+            {
+                lot = null;
+            }
             bool useMaterialCounters = stats.ProcessedDies <= 0 && material.HasMaterial;
 
             int total = useMaterialCounters ? material.ProcessedCount : stats.ProcessedDies;
@@ -774,7 +786,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             // 가동률(%) = 가동시간 / 부하시간 × 100 (수율이 아님).
             double uptimeRate = loadSeconds > 0 ? upSeconds / loadSeconds * 100.0 : 0.0;
             snap.Rate = uptimeRate.ToString("F2") + " %";
-            snap.Lot = ResolveDisplayLotId(stats, lot, material);
+            snap.Lot = ResolveDisplayLotId(material);
 
             return snap;
         }
@@ -1061,12 +1073,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
             return string.Format("{0:00}:{1:00}:{2:00}", (int)ts.TotalHours, ts.Minutes, ts.Seconds);
         }
 
-        private static string ResolveDisplayLotId(ProductionStatsSnapshot stats, Lot lot, MaterialDisplaySnapshot material)
+        private static string ResolveDisplayLotId(MaterialDisplaySnapshot material)
         {
-            if (!string.IsNullOrEmpty(stats.ActiveLotId))
-                return stats.ActiveLotId;
-            if (lot != null && !string.IsNullOrEmpty(lot.LotID))
-                return lot.LotID;
             if (!string.IsNullOrEmpty(material.LotId))
                 return material.LotId;
             return "(no lot)";
@@ -1082,7 +1090,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 if (state == null)
                     return display;
 
-                display.LotId = state.LotId ?? string.Empty;
+                display.LotId = MaterialStateService.GetProductionLotId();
 
                 WaferMaterial currentInputWafer = ResolveCurrentInputStageWafer(state);
                 string currentInputWaferId = currentInputWafer != null ? currentInputWafer.WaferId : string.Empty;
@@ -1255,9 +1263,6 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     continue;
 
                 display.HasMaterial = true;
-                if (!string.IsNullOrEmpty(wafer.CassetteLotId) && string.IsNullOrEmpty(display.LotId))
-                    display.LotId = wafer.CassetteLotId;
-
                 int waferReceived = Math.Max(0, wafer.OutputReceiveNextIndex);
                 int slotDetected = 0;
 

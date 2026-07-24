@@ -9259,20 +9259,7 @@ namespace QMC.CDT320
 
         private string ResolveProductionStatsLotId()
         {
-            try
-            {
-                if (LotStorage.ActiveLot != null && !string.IsNullOrEmpty(LotStorage.ActiveLot.LotID))
-                    return LotStorage.ActiveLot.LotID;
-
-                MaterialSnapshot state = MaterialStorage.State;
-                if (state != null && !string.IsNullOrEmpty(state.LotId))
-                    return state.LotId;
-            }
-            catch
-            {
-            }
-
-            return "LOT-" + DateTime.Now.ToString("yyyyMMdd-HHmmss");
+            return MaterialStateService.GetProductionLotId();
         }
 
         private int ResolveProductionStatsTotalDies()
@@ -9375,17 +9362,7 @@ namespace QMC.CDT320
 
         private string ResolveTactLotId()
         {
-            try
-            {
-                return ResolveProductionStatsLotId();
-            }
-            catch
-            {
-                return "LOT-" + DateTime.Now.ToString("yyyyMMdd-HHmmss");
-            }
-            finally
-            {
-            }
+            return MaterialStateService.GetProductionLotId();
         }
 
         /// <summary>

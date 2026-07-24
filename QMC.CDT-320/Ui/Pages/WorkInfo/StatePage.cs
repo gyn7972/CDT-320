@@ -5,6 +5,7 @@ using System.Windows.Forms;
 using QMC.CDT320;
 using QMC.CDT320.Bin;
 using QMC.CDT320.Lots;
+using QMC.CDT320.Materials;
 
 namespace QMC.CDT_320.Ui.Pages.WorkInfo
 {
@@ -68,9 +69,17 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
         private void RefreshLot()
         {
             var lot = LotStorage.ActiveLot;
+            string productionLotId = MaterialStateService.GetProductionLotId();
+            _lblId.Text = string.IsNullOrWhiteSpace(productionLotId) ? "(no lot)" : productionLotId;
+            if (lot != null &&
+                (string.IsNullOrWhiteSpace(productionLotId) ||
+                 !string.Equals(lot.LotID, productionLotId, StringComparison.Ordinal)))
+            {
+                lot = null;
+            }
             if (lot == null)
             {
-                _lblId.Text = _lblRecipe.Text = _lblState.Text = _lblStart.Text = "(no active lot)";
+                _lblRecipe.Text = _lblState.Text = _lblStart.Text = "(no active lot)";
                 _lblProcessed.Text = "0 / 0";
                 _lblGood.Text = _lblNg.Text = "0";
                 _lblYield.Text = "--";
@@ -78,7 +87,6 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 return;
             }
 
-            _lblId.Text = lot.LotID;
             _lblRecipe.Text = lot.RecipeName;
             _lblState.Text = lot.State.ToString();
             _lblStart.Text = lot.StartedAt.ToString("yyyy-MM-dd HH:mm:ss");
@@ -94,6 +102,13 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             var g = e.Graphics;
             g.Clear(Color.White);
             var lot = LotStorage.ActiveLot;
+            string productionLotId = MaterialStateService.GetProductionLotId();
+            if (lot != null &&
+                (string.IsNullOrWhiteSpace(productionLotId) ||
+                 !string.Equals(lot.LotID, productionLotId, StringComparison.Ordinal)))
+            {
+                lot = null;
+            }
             if (lot == null || lot.BinDistribution.Count == 0)
             {
                 using (var br = new SolidBrush(Color.Gray))
