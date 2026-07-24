@@ -18,6 +18,7 @@ namespace QMC.CDT320.Motion.SharedRailX
         // (역직렬화는 생성자/이니셜라이저를 실행하지 않음 — SafetyDistance double? 관례와 동일).
         [DataMember(Order = 5)] public double? InputVisionRetreatExtraClearance { get; set; }
         [DataMember(Order = 6)] public double? OutputVisionRetreatExtraClearance { get; set; }
+        [DataMember(Order = 7)] public int? VisionFollowEntryTimeoutMs { get; set; }
 
         public SharedRailXConfigDocument()
         {
@@ -117,6 +118,7 @@ namespace QMC.CDT320.Motion.SharedRailX
             // Normalize가 !HasValue를 40.0으로 채우므로 여기서는 값 존재가 보장된다.
             config.InputVisionRetreatExtraClearance = document.InputVisionRetreatExtraClearance ?? 40.0;
             config.OutputVisionRetreatExtraClearance = document.OutputVisionRetreatExtraClearance ?? 40.0;
+            config.VisionFollowEntryTimeoutMs = document.VisionFollowEntryTimeoutMs ?? 15000;
 
             var pairs = new List<SharedRailXAxisPair>();
             foreach (SharedRailXCollisionPairRow row in document.CollisionPairs)
@@ -158,6 +160,7 @@ namespace QMC.CDT320.Motion.SharedRailX
             document.RequireSameVelocityForGroupMove = config.RequireSameVelocityForGroupMove;
             document.InputVisionRetreatExtraClearance = config.InputVisionRetreatExtraClearance;
             document.OutputVisionRetreatExtraClearance = config.OutputVisionRetreatExtraClearance;
+            document.VisionFollowEntryTimeoutMs = config.VisionFollowEntryTimeoutMs;
             document.CollisionPairs.Clear();
 
             if (config.CollisionPairs != null)
@@ -182,7 +185,8 @@ namespace QMC.CDT320.Motion.SharedRailX
                 DefaultSafetyDistance = 10.0,
                 RequireSameVelocityForGroupMove = true,
                 InputVisionRetreatExtraClearance = 40.0,
-                OutputVisionRetreatExtraClearance = 40.0
+                OutputVisionRetreatExtraClearance = 40.0,
+                VisionFollowEntryTimeoutMs = 15000
             };
 
             document.Axes.Add(CreateRow(SharedRailXAxis.InputVisionX, 0.0, 5.0));
@@ -286,6 +290,9 @@ namespace QMC.CDT320.Motion.SharedRailX
             if (!document.OutputVisionRetreatExtraClearance.HasValue ||
                 document.OutputVisionRetreatExtraClearance.Value < 0.0)
                 document.OutputVisionRetreatExtraClearance = 40.0;
+            if (!document.VisionFollowEntryTimeoutMs.HasValue ||
+                document.VisionFollowEntryTimeoutMs.Value < 1000)
+                document.VisionFollowEntryTimeoutMs = 15000;
             if (document.Axes == null)
                 document.Axes = new List<SharedRailXAxisTestRow>();
             if (document.CollisionPairs == null)

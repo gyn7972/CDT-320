@@ -944,7 +944,8 @@ namespace QMC.CDT320.Motion.SharedRailX
                     DefaultSafetyDistance = _config.DefaultSafetyDistance,
                     RequireSameVelocityForGroupMove = _config.RequireSameVelocityForGroupMove,
                     InputVisionRetreatExtraClearance = _config.InputVisionRetreatExtraClearance,
-                    OutputVisionRetreatExtraClearance = _config.OutputVisionRetreatExtraClearance
+                    OutputVisionRetreatExtraClearance = _config.OutputVisionRetreatExtraClearance,
+                    VisionFollowEntryTimeoutMs = _config.VisionFollowEntryTimeoutMs
                 }.SetCollisionPairs(pairs);
             }
             catch

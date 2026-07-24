@@ -511,9 +511,12 @@ namespace QMC.CDT320.Ajin
             int direction,
             double safetyGap,
             double homeGap,
+            int timeoutMs = 0,
             CancellationToken ct = default(CancellationToken))
         {
             Task<int> moveTask = null;
+            // R1(follow-entry): 타임아웃 인자화 — 0 이하면 기존 기본값(5000ms) 유지, 기존 호출부 무변경.
+            int effectiveTimeoutMs = timeoutMs > 0 ? timeoutMs : FollowMoveTimeoutMs;
 
             try
             {
@@ -577,8 +580,8 @@ namespace QMC.CDT320.Ajin
                 {
                     ct.ThrowIfCancellationRequested();
 
-                    if (stopwatch.ElapsedMilliseconds >= FollowMoveTimeoutMs)
-                        return await FailFollowTimeoutAsync(moveTask, trailingTargetPosition).ConfigureAwait(false);
+                    if (stopwatch.ElapsedMilliseconds >= effectiveTimeoutMs)
+                        return await FailFollowTimeoutAsync(moveTask, trailingTargetPosition, effectiveTimeoutMs).ConfigureAwait(false);
 
                     UpdateStatus();
 
@@ -719,9 +722,9 @@ namespace QMC.CDT320.Ajin
                 }
 
                 // 최종 완료 대기 (남은 타임아웃 적용).
-                int remainingMs = FollowMoveTimeoutMs - (int)stopwatch.ElapsedMilliseconds;
+                int remainingMs = effectiveTimeoutMs - (int)stopwatch.ElapsedMilliseconds;
                 if (remainingMs <= 0)
-                    return await FailFollowTimeoutAsync(moveTask, trailingTargetPosition).ConfigureAwait(false);
+                    return await FailFollowTimeoutAsync(moveTask, trailingTargetPosition, effectiveTimeoutMs).ConfigureAwait(false);
 
                 // 기존 조건: AxisMoveWaiter 결과(실패 7종)로 분기 — 현재 기준: WaitMoveCompleteAsync int 결과(R3).
                 int waitCode = await WaitMoveCompleteAsync(
@@ -732,7 +735,7 @@ namespace QMC.CDT320.Ajin
                 if (waitCode != 0)
                 {
                     if (waitCode == -3)
-                        return await FailFollowTimeoutAsync(moveTask, trailingTargetPosition).ConfigureAwait(false);
+                        return await FailFollowTimeoutAsync(moveTask, trailingTargetPosition, effectiveTimeoutMs).ConfigureAwait(false);
 
                     Stop();
                     await DrainFollowMoveTaskAsync(moveTask).ConfigureAwait(false);
@@ -771,14 +774,14 @@ namespace QMC.CDT320.Ajin
         }
 
         /// <summary>타임아웃 공통 처리: 정지 → 백그라운드 Task drain → -21 기록/반환.</summary>
-        private async Task<int> FailFollowTimeoutAsync(Task<int> moveTask, double trailingTargetPosition)
+        private async Task<int> FailFollowTimeoutAsync(Task<int> moveTask, double trailingTargetPosition, int timeoutMs = FollowMoveTimeoutMs)
         {
             Stop();
             await DrainFollowMoveTaskAsync(moveTask).ConfigureAwait(false);
             QMC.Common.Log.Write("Motion", "SYSTEM", "AX-FOLLOW-MOVE",
-                Name + " 팔로잉 이동이 타임아웃(" + FollowMoveTimeoutMs + "ms)되었습니다. actual=" + ActualPosition.ToString("F3") + " - Failed");
+                Name + " 팔로잉 이동이 타임아웃(" + timeoutMs + "ms)되었습니다. actual=" + ActualPosition.ToString("F3") + " - Failed");
             return FailMotion(FollowMoveTimeoutErrorCode, "FOLLOW MOVE",
-                "팔로잉 이동이 " + FollowMoveTimeoutMs + "ms 안에 완료되지 않았습니다.", trailingTargetPosition, true);
+                "팔로잉 이동이 " + timeoutMs + "ms 안에 완료되지 않았습니다.", trailingTargetPosition, true);
         }
 
         /// <summary>

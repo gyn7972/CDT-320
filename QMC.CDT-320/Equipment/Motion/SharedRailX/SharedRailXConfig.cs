@@ -21,6 +21,11 @@ namespace QMC.CDT320.Motion.SharedRailX
         /// </summary>
         public double OutputVisionRetreatExtraClearance { get; set; } = 40.0;
 
+        /// <summary>
+        /// 비전∥피커 팔로잉 진입(FollowMoveAsync)의 타임아웃[ms]. 기본 15000, 최소 1000.
+        /// </summary>
+        public int VisionFollowEntryTimeoutMs { get; set; } = 15000;
+
         public List<SharedRailXAxisPair> CollisionPairs { get; private set; }
 
         public SharedRailXConfig()

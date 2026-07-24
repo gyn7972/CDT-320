@@ -1,6 +1,28 @@
 # 체크리스트 — 비전 회피∥피커 진입 팔로잉 (vision-picker-follow-entry.md)
 
-작성일: 2026-07-24  /  상태: **계획 단계에서 중단 — 선행 전제(인터락) 불성립 확인, 사용자 결정 대기**
+작성일: 2026-07-24  /  상태: **사용자 승인(2026-07-24) — 진행 중**
+브랜치: feature/vision-minimal-retreat
+
+## 진행 상태 (승인 후)
+- [x] Phase A (커밋 a77d3dc9): 인터락 제3 분기 6곳(피커 진입 F/R×I/O 4 + 비전 진입 I/O 2,
+  MotionGuardRuleHelpers.IsPairClearanceSatisfiedForEntry + Service.IsPairClearanceSatisfied,
+  목표 vs 상대축 Actual/Command 양쪽 판정, Extra 미포함) + 정위치 소비자 3곳
+  (허가 소비/Conti 적격 entryLimit/StopAfterDrain) 정합. 빌드 통과.
+- [ ] Phase B (#17 본문): R1 FollowMoveAsync timeoutMs 인자화(const 5000 → 기본값,
+  AjinAxis.cs:485/501/580 — 루프와 최종 대기에 동일 적용, 기존 호출부 무변경) /
+  R2 VisionFollowEntryTimeoutMs(기본 15000, Normalize ≥1000) 설정+Document(Order 7)+
+  SharedRailXSetupDialog UI(Extra 2종 포함 노출) / R3 픽업: MoveInputVisionToAvoidForPickerMove
+  비전 이동 비동기 시작(Task 필드 보관)+첫 피커 X를 FollowMoveAsync(선행=CameraX, dir=-1,
+  safetyGap=Safety+InputExtra, homeGap=페어 HomeClearance 런타임 조회)로 진입, 비전 정지 시
+  일반 이동, join/observe, R6 폴백(일반 이동 1회 재시도) / R4 플레이스 동일(dir=+1, OutputExtra).
+- [ ] Phase C (#18): InputDieVisionPrepare 존 클리어 대기 → follow 대체(+StageY/NeedleX 안전
+  전제 분석 보고), OutputPostPlace 큐 WaitOutputVisionXSharedRailClear 대기 → follow 대체,
+  선행 피커 선택(Input: X 작은 쪽 / Output: X 큰 쪽), 정지 선행축도 follow 시도, 폴백.
+- [ ] 검증: 빌드 / 하네스(#17: Input 650→638.5+피커700→600 간격≥50, Output →80+540 간격≥50;
+  #18: 피커 620→750+비전→680, 540→400+비전→30; 정지 선행축 케이스; 오버랩 타임스탬프;
+  Extra=0 경계) / 인터락 diff = 제3 분기 6곳뿐임을 보고 / 비Conti 회귀 없음 / 우회 API 미사용 grep.
+
+(이하 승인 전 차단 분석 기록 보존)
 
 ## 선행 의존 점검 (프롬프트 지시)
 - [x] AjinAxis.FollowMoveAsync 존재 확인 — AjinAxis.cs:501 (선행축 읽기 전용, safetyGap/homeGap/
