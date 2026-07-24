@@ -2228,19 +2228,9 @@ namespace QMC.CDT320.Sequencing
             if (result == null)
                 return;
 
-            double inputToBottomOffsetX = 0.0;
-            double inputToBottomOffsetY = 0.0;
-            bool resultIncludesBottomReference = !IsSimulationOrDryRun() ||
-                                                 IsDryRunWithVisionConnected() ||
-                                                 AutoVisionRequestService.IsRealVisionInSimulationActive();
-            bool bottomReferenceRemoved = resultIncludesBottomReference &&
-                InputPickerPickTargetResolver.TryResolveInputCameraToBottomOffsets(
-                    Context != null ? Context.Machine : null,
-                    out inputToBottomOffsetX,
-                    out inputToBottomOffsetY);
-
-            inputDeltaX = result.DeltaX - (bottomReferenceRemoved ? inputToBottomOffsetX : 0.0);
-            inputDeltaY = result.DeltaY - (bottomReferenceRemoved ? inputToBottomOffsetY : 0.0);
+            // Wafer 채널 라이브 Delta는 카메라 순수 오프셋(raw)이므로 InputToBottomOffset 감산 없이 그대로 사용한다.
+            inputDeltaX = result.DeltaX;
+            inputDeltaY = result.DeltaY;
             moveDeltaX = inputDeltaX;
             moveDeltaY = -inputDeltaY;
 
@@ -2248,11 +2238,8 @@ namespace QMC.CDT320.Sequencing
                 "Input camera motor correction formula. description=" + description +
                 ", rawVisionDx=" + result.DeltaX.ToString("F6") +
                 ", rawVisionDy=" + result.DeltaY.ToString("F6") +
-                ", bottomReferenceRemoved=" + bottomReferenceRemoved +
-                ", inputToBottomOffsetX=" + inputToBottomOffsetX.ToString("F6") +
-                ", inputToBottomOffsetY=" + inputToBottomOffsetY.ToString("F6") +
-                ", inputDeltaX=rawDx-offsetX=" + inputDeltaX.ToString("F6") +
-                ", inputDeltaY=rawDy-offsetY=" + inputDeltaY.ToString("F6") +
+                ", inputDeltaX=rawDx=" + inputDeltaX.ToString("F6") +
+                ", inputDeltaY=rawDy=" + inputDeltaY.ToString("F6") +
                 ", moveDeltaX=inputDeltaX=" + moveDeltaX.ToString("F6") +
                 ", moveDeltaY=-inputDeltaY=" + moveDeltaY.ToString("F6") + " - Ok");
         }

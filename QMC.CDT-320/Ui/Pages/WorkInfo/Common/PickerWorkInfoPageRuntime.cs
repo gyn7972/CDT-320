@@ -1193,9 +1193,10 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 targets[axis] = GetTeachingPosition(machine, axis, positionName);
 
             ct.ThrowIfCancellationRequested();
+            // 기존 조건: Fine(미세 조그 속도) — 현재 기준: 작업 정보 수동 위치 이동은 Coarse(일반 조그 속도)로 구동한다.
             int result = _side == PickerSequenceSide.Front
-                ? await machine.PickerFrontUnit.MovePickerAxes(targets, JogSpeedType.Fine, 0.0, positionName).ConfigureAwait(false)
-                : await machine.PickerRearUnit.MovePickerAxes(targets, JogSpeedType.Fine, 0.0, positionName).ConfigureAwait(false);
+                ? await machine.PickerFrontUnit.MovePickerAxes(targets, JogSpeedType.Coarse, 0.0, positionName).ConfigureAwait(false)
+                : await machine.PickerRearUnit.MovePickerAxes(targets, JogSpeedType.Coarse, 0.0, positionName).ConfigureAwait(false);
             if (result != 0)
                 return result;
 

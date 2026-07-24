@@ -925,19 +925,9 @@ namespace QMC.CDT320.Sequencing
                 bool lastPreparedDie = _inspectionCursor == _preparedItems.Count - 1;
                 if (lastPreparedDie)
                 {
-                    double cameraOffsetX;
-                    double cameraOffsetY;
-                    if (!InputPickerPickTargetResolver.TryResolveInputCameraToBottomOffsets(
-                        Context != null ? Context.Machine : null,
-                        out cameraOffsetX,
-                        out cameraOffsetY))
-                    {
-                        cameraOffsetX = 0.0;
-                        cameraOffsetY = 0.0;
-                    }
-
-                    double pendingMapOffsetX = _visionOffset.DeltaX - cameraOffsetX;
-                    double pendingMapOffsetY = -(_visionOffset.DeltaY - cameraOffsetY);
+                    // Wafer 채널 라이브 Delta는 카메라 순수 오프셋(raw)이므로 InputToBottomOffset 감산 없이 그대로 전파한다.
+                    double pendingMapOffsetX = _visionOffset.DeltaX;
+                    double pendingMapOffsetY = -_visionOffset.DeltaY;
                     string limitReason;
                     if (stage != null &&
                         !stage.IsManualDieDetectOffsetWithinLimit(pendingMapOffsetX, pendingMapOffsetY, out limitReason))
@@ -970,8 +960,6 @@ namespace QMC.CDT320.Sequencing
                         "referenceDie=" + _currentDieId +
                         ", visionDeltaX=" + _visionOffset.DeltaX.ToString("F6") +
                         ", visionDeltaY=" + _visionOffset.DeltaY.ToString("F6") +
-                        ", cameraOffsetX=" + cameraOffsetX.ToString("F6") +
-                        ", cameraOffsetY=" + cameraOffsetY.ToString("F6") +
                         ", appliedOffsetX=" + pendingMapOffsetX.ToString("F6") +
                         ", appliedOffsetY=" + pendingMapOffsetY.ToString("F6") +
                         ", updated=" + updatedCount +

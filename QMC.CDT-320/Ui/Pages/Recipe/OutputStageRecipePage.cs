@@ -359,19 +359,11 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 header.Description = "Vision Cal Position";
             items.Add(header);
 
-            if (goodY) items.Add(StageMember("GOOD Y", groupKey, kindLabel, kind, _outputStageUnit.GoodStage.StageY, () => ResolveLiveRecipe().GoodStageY));
-            if (goodZ) items.Add(StageMember("GOOD Z", groupKey, kindLabel, kind, _outputStageUnit.GoodStage.StageZ, () => ResolveLiveRecipe().GoodStageZ));
-            if (ng) items.Add(StageMember("NG Y", groupKey, kindLabel, kind, _outputStageUnit.NgStage.StageY, () => ResolveLiveRecipe().NGStageY));
-            if (vision) items.Add(StageMember("VISION X", groupKey, kindLabel, kind, _outputStageUnit.OutputCameraX, () => ResolveLiveRecipe().VisionX));
-        }
-
-        // 레시피 로드가 Recipe를 새 인스턴스로 교체(BaseUnit.LoadSettings)해도 항상 라이브 객체를 반환한다.
-        // 지역 변수로 캡처하면 클로저가 낡은 객체에 읽고 써서 "UI만 바뀌고 런타임은 old 값" 버그가 된다.
-        private OutputStageRecipe ResolveLiveRecipe()
-        {
-            OutputStageRecipe recipe = _outputStageUnit.Recipe;
-            recipe.EnsurePositionObjects();
-            return recipe;
+            // LoadRecipe/LoadSettings가 Recipe 객체를 교체하므로 지역 캡처 대신 매 호출 시 라이브 Recipe를 따라간다.
+            if (goodY) items.Add(StageMember("GOOD Y", groupKey, kindLabel, kind, _outputStageUnit.GoodStage.StageY, () => _outputStageUnit.Recipe.GoodStageY));
+            if (goodZ) items.Add(StageMember("GOOD Z", groupKey, kindLabel, kind, _outputStageUnit.GoodStage.StageZ, () => _outputStageUnit.Recipe.GoodStageZ));
+            if (ng) items.Add(StageMember("NG Y", groupKey, kindLabel, kind, _outputStageUnit.NgStage.StageY, () => _outputStageUnit.Recipe.NGStageY));
+            if (vision) items.Add(StageMember("VISION X", groupKey, kindLabel, kind, _outputStageUnit.OutputCameraX, () => _outputStageUnit.Recipe.VisionX));
         }
 
         private ParameterGridItem StageMember(string axisLabel, string groupKey, string kindLabel, string kind, BaseAxis axis, Func<StageAxisPositions> set)

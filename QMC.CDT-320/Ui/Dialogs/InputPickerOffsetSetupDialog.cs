@@ -262,7 +262,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                     "현재 위치 기준 계산 완료. PickerX=" + F(currentPickerX) +
                     " mm, PickerY=" + F(currentPickerY) +
                     " mm, StageY=" + F(currentStageY) +
-                    " mm, CameraOffset is already included in saved InputVisionToPicker offset" +
+                    " mm, CameraOffset is applied once inside saved InputVisionToPicker X/Y" +
                     ", PickerYInput=" + F(effectiveY) +
                     ", StageYTarget=" + F(expectedStageY) + " mm");
             }
@@ -447,10 +447,10 @@ namespace QMC.CDT_320.Ui.Dialogs
             double pickerYTarget = ResolveSignedPickerYTarget(effectiveY + alignY);
 
             return "X: IV->Picker=" + F(effectiveX) +
-                   " (CameraX " + F(cameraOffsetX) + " included)" +
+                   " (CameraX bridge " + F(cameraOffsetX) + " included)" +
                    " + AlignX=" + F(alignX) +
                    " / Y: IV->Picker=" + F(effectiveY) +
-                   " (CameraY " + F(cameraOffsetY) + " included)" +
+                   " (CameraY bridge " + F(-cameraOffsetY) + " included)" +
                    " + AlignY=" + F(alignY) +
                    " -> PickerY=" + F(pickerYTarget) +
                    " / StageY: DieY + NeedleY(" + F(needleYOffset) + ")" +

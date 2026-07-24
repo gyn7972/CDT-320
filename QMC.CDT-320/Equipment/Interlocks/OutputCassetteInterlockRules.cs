@@ -29,6 +29,7 @@ namespace QMC.CDT320.Interlocks
                 OutputCassetteUnit Cassette = request.Machine.OutputCassetteUnit;
                 OutputFeederUnit feeder = request.Machine.OutputFeederUnit;
                 PickerFrontUnit frontPicker = request.Machine.PickerFrontUnit;
+                PickerRearUnit rearPicker = request.Machine.PickerRearUnit;
 
                 switch (request.MoveKind)
                 {
@@ -39,10 +40,16 @@ namespace QMC.CDT320.Interlocks
                         if (!VerifyFrontPickerXAvoidPosition(frontPicker, out reason))
                             return false;
 
+                        if (!VerifyRearPickerXAvoidPosition(rearPicker, out reason))
+                            return false;
+
                         return CanHomeBinLifterZ(Cassette, feeder, out reason);
                     // 티칭 이동 인터락 확인
                     case MotionGuardMoveKind.AxisTeachingMove:
                         if (!VerifyFrontPickerXAvoidPosition(frontPicker, out reason))
+                            return false;
+
+                        if (!VerifyRearPickerXAvoidPosition(rearPicker, out reason))
                             return false;
 
                         return CanMoveBinLifterZ(Cassette, feeder, out reason);
@@ -92,6 +99,41 @@ namespace QMC.CDT320.Interlocks
                     "FrontPickerX가 AvoidPosition에 있어야 합니다. " +
                     "target=" + target.ToString("0.###") +
                     ", actual=" + frontPicker.PickerX.ActualPosition.ToString("0.###"),
+                    out reason);
+            }
+
+            return true;
+        }
+
+        // 인터락 조건: OutputLifterZ 이동 전 RearPickerX가 정확한 AvoidPosition인지 확인한다.
+        // (기존에는 Front Picker만 확인해 Rear Picker 간섭 위치에서도 리프터 이동이 허용되었다.)
+        private static bool VerifyRearPickerXAvoidPosition(
+            PickerRearUnit rearPicker,
+            out string reason)
+        {
+            reason = string.Empty;
+
+            if (rearPicker == null ||
+                rearPicker.PickerX == null ||
+                rearPicker.Recipe == null ||
+                rearPicker.Recipe.PickerX == null)
+            {
+                return MotionGuardRuleHelpers.Block(
+                    "OutputLifterZ",
+                    "RearPickerX AvoidPosition을 확인할 수 없습니다. OutputLifterZ 이동이 차단되었습니다.",
+                    out reason);
+            }
+
+            double target = rearPicker.Recipe.PickerX.AvoidPosition;
+            if (!rearPicker.IsRearPickerAxisInTeachingPosition(
+                PickerAxis.PickerX,
+                "AvoidPosition"))
+            {
+                return MotionGuardRuleHelpers.Block(
+                    "OutputLifterZ",
+                    "RearPickerX가 AvoidPosition에 있어야 합니다. " +
+                    "target=" + target.ToString("0.###") +
+                    ", actual=" + rearPicker.PickerX.ActualPosition.ToString("0.###"),
                     out reason);
             }
 

@@ -2216,14 +2216,8 @@ namespace QMC.CDT_320
                         throw new InvalidOperationException("InputPickDie Vision 검출 결과가 유효하지 않습니다.");
                     }
 
-                    double cameraOffsetX = 0.0;
-                    double cameraOffsetY = 0.0;
-                    bool excludeCameraOffset = !inputStage.IsInputStageSimulationOrDryRun() &&
-                        QMC.CDT320.Sequencing.InputPickerPickTargetResolver.TryResolveInputCameraToBottomOffsets(
-                            Machine,
-                            out cameraOffsetX,
-                            out cameraOffsetY);
-                    double centerDeltaX = vision.DeltaX - (excludeCameraOffset ? cameraOffsetX : 0.0);
+                    // Wafer 채널 라이브 Delta는 카메라 순수 오프셋(raw)이므로 InputToBottomOffset 감산 없이 그대로 사용한다.
+                    double centerDeltaX = vision.DeltaX;
                     double centerDeltaY = -vision.DeltaY;
                     double detectedCenterX = currentX + centerDeltaX;
                     double detectedCenterY = currentY + centerDeltaY;

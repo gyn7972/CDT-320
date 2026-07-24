@@ -36,12 +36,16 @@ namespace QMC.CDT320.Interlocks
                 InputCassetteUnit Cassette = machine.InputCassetteUnit;
                 InputFeederUnit feeder = machine.InputFeederUnit;
                 PickerFrontUnit frontPicker = machine.PickerFrontUnit;
+                PickerRearUnit rearPicker = machine.PickerRearUnit;
 
                 switch (moveKind)
                 {
                     // 매뉴얼 이동 인터락 확인
                     case MotionGuardMoveKind.AxisMove:
                         if (!VerifyFrontPickerXAvoidPosition(frontPicker, out reason))
+                            return false;
+
+                        if (!VerifyRearPickerXAvoidPosition(rearPicker, out reason))
                             return false;
 
                         return CanManualWaferLifterZ(Cassette, feeder, out reason);
@@ -51,11 +55,17 @@ namespace QMC.CDT320.Interlocks
                         if (!VerifyFrontPickerXAvoidPosition(frontPicker, out reason))
                             return false;
 
+                        if (!VerifyRearPickerXAvoidPosition(rearPicker, out reason))
+                            return false;
+
                         return CanHomeWaferLifterZ(Cassette, feeder, out reason);
-                    
+
                     // 자동 이동 인터락 확인
                     case MotionGuardMoveKind.AxisTeachingMove:
                         if (!VerifyFrontPickerXAvoidPosition(frontPicker, out reason))
+                            return false;
+
+                        if (!VerifyRearPickerXAvoidPosition(rearPicker, out reason))
                             return false;
 
                         if (feeder == null)
@@ -118,6 +128,41 @@ namespace QMC.CDT320.Interlocks
             return true;
         }
 
+        // 인터락 조건: InputLifterZ 이동 전 RearPickerX가 정확한 AvoidPosition인지 확인한다.
+        private static bool VerifyRearPickerXAvoidPosition(
+            PickerRearUnit rearPicker,
+            out string reason)
+        {
+            reason = string.Empty;
+
+            if (rearPicker == null ||
+                rearPicker.PickerX == null ||
+                rearPicker.Recipe == null ||
+                rearPicker.Recipe.PickerX == null)
+            {
+                return MotionGuardRuleHelpers.Block(
+                    "InputLifterZ",
+                    "RearPickerX AvoidPosition을 확인할 수 없습니다. InputLifterZ 이동이 차단되었습니다.",
+                    out reason);
+            }
+
+            double target = rearPicker.Recipe.PickerX.AvoidPosition;
+
+            if (!rearPicker.IsRearPickerAxisInTeachingPosition(
+                PickerAxis.PickerX,
+                "AvoidPosition"))
+            {
+                return MotionGuardRuleHelpers.Block(
+                    "InputLifterZ",
+                    "RearPickerX가 AvoidPosition에 있어야 합니다. " +
+                    "target=" + target.ToString("0.###") +
+                    ", actual=" + rearPicker.PickerX.ActualPosition.ToString("0.###"),
+                    out reason);
+            }
+
+            return true;
+        }
+
         // 인터락 항목: 수동 InputLifterZ 이동은 카세트 돌출 감지와 InputFeederY 이동 중 여부를 확인한다.
         private static bool CanManualWaferLifterZ(InputCassetteUnit Cassette, InputFeederUnit feeder, out string reason)
         {
@@ -145,7 +190,18 @@ namespace QMC.CDT320.Interlocks
                     out reason);
             }
 
-            //PickerFrontUnit pickerfront = machine.PickerFrontUnit;
+            // 인터락 조건: 카세트가 장착되어 있으면 홈/자동 이동과 동일하게
+            //             FeederY가 카세트 측 안전 위치가 아니면 수동 이동도 차단한다.
+            //             (기존에는 수동 이동에 이 검사가 없어 FeederY 간섭 위치에서도 이동이 허용되었다.)
+            if (Cassette != null &&
+                (Cassette.IsWaferCassetteExist(8) || Cassette.IsWaferCassetteExist(12)))
+            {
+                if (!IsWaferFeederYSafeForWaferLifterZ(feeder))
+                    return MotionGuardRuleHelpers.Block(
+                        "InputLifterZ",
+                        "InputFeederY must be at a cassette-side safe teaching position before InputLifterZ move.",
+                        out reason);
+            }
 
             return true;
         }
@@ -227,6 +283,10 @@ namespace QMC.CDT320.Interlocks
         }
 
         // 인터락 기준: InputLifterZ 이동 전 InputFeederY가 카세트 측 안전 위치인지 판단한다.
+        // 기존 조건: 강제 true(검사 무력화, Todo 잔존) — FeederY가 카세트 간섭 위치에 있어도 리프터 이동이 허용되었다.
+        // 현재 기준: 원래 의도된 티칭 위치 predicate(Avoid/Exchange/Home)를 복원한다.
+        //           기계 전제: FeederY가 Avoid/Exchange/Home 티칭 위치에 있으면 카세트 슬롯 진입 경로와 간섭하지 않는다.
+        //           Home 위치의 실기 안전성은 실장비 저속 검증 항목으로 유지한다.
         private static bool IsWaferFeederYSafeForWaferLifterZ(InputFeederUnit feeder)
         {
             if (feeder == null || feeder.FeederY == null)
@@ -234,11 +294,9 @@ namespace QMC.CDT320.Interlocks
                 return true;
             }
 
-            // Todo : 추후 FeederY 상태를 재확인 후 조건 수정할 것. 강제 true 리턴처리함.
-            //return feeder.IsWaferFeederYInAvoidPosition()
-            //    || feeder.IsWaferFeederYInExchangePosition()
-            //    || feeder.IsWaferFeederYInHomePosition(); // 실제로 초기화 위치가 안전한지 실장비에서 확인 필요.
-            return true;
+            return feeder.IsWaferFeederYInAvoidPosition()
+                || feeder.IsWaferFeederYInExchangePosition()
+                || feeder.IsWaferFeederYInHomePosition();
         }
 
         // 인터락 기준: InputFeeder Lift가 Down 상태인지 센서/실린더 상태로 판단한다.

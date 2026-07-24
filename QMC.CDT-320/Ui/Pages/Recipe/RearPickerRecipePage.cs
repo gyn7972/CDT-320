@@ -59,6 +59,8 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             optionParameterGrid.ParameterRowDoubleClicked += OptionParameterGrid_RowDoubleClicked;
             BindParameterGridMenus();
             ConfigureManualActions();
+            // 매뉴얼 액션/티칭 이동 기본 속도를 Coarse로 사용한다(필요 시 화면 Speed Mode에서 Fine 선택 가능).
+            jogAxisMoveControl.SetSelectedSpeedType(JogSpeedType.Coarse);
         }
 
         protected override void OnLoad(EventArgs e)
@@ -353,8 +355,8 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
 
             const string visionOffsetGroup = "K_VISION_OFFSET_SETTING";
             optionItems.Add(ParameterGridItem.Header("VISION OFFSET SETTING", visionOffsetGroup));
-            AddVisionPickerOffsetItems(optionItems, "INPUT VISION", () => unit.Setup.InputVisionToPicker, PickerAxis.PickerX, PickerAxis.PickerY, visionOffsetGroup);
-            AddVisionPickerOffsetItems(optionItems, "OUTPUT VISION", () => unit.Setup.OutputVisionToPicker, PickerAxis.PickerX, PickerAxis.PickerY, visionOffsetGroup);
+            AddVisionPickerOffsetItems(optionItems, "INPUT VISION", () => ResolveLiveVisionOffsets(true), PickerAxis.PickerX, PickerAxis.PickerY, visionOffsetGroup);
+            AddVisionPickerOffsetItems(optionItems, "OUTPUT VISION", () => ResolveLiveVisionOffsets(false), PickerAxis.PickerX, PickerAxis.PickerY, visionOffsetGroup);
 
             AddColletAfZOffsetItems(optionItems);
 
@@ -410,8 +412,9 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             }
         }
 
-        // LoadSettings()가 Config를 새 인스턴스로 교체(BaseUnit.cs:99)해도 항상 라이브 객체를 반환한다.
-        // 지역 변수로 캡처하면 클로저가 낡은 객체에 읽고 써서 "UI만 바뀌고 런타임은 old 값" 버그가 된다.
+        // LoadSettings()가 Config/Setup 객체를 새 인스턴스로 교체하므로(BaseUnit.LoadSettings),
+        // 그리드 클로저는 객체를 지역 캡처하지 말고 아래 리졸버로 매 호출 시 라이브 객체를 따라간다.
+        // (지역 캡처 클로저는 교체 전 old 객체에 읽고 써서 UI만 갱신되고 런타임은 old 값을 쓰는 버그가 됨)
         private PickerPickUpMotionConfig ResolveLivePickUpConfig()
         {
             PickerPickUpMotionConfig pickUp = unit.Config.PickUp;
@@ -421,19 +424,6 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             return pickUp;
         }
 
-        // LoadSettings()가 Config를 새 인스턴스로 교체(BaseUnit.cs:99)해도 항상 라이브 객체를 반환한다.
-        // 지역 변수로 캡처하면 클로저가 낡은 객체에 읽고 써서 "UI만 바뀌고 런타임은 old 값" 버그가 된다.
-        private PickerBottomInspectionMotionConfig ResolveLiveBottomInspectionConfig()
-        {
-            PickerBottomInspectionMotionConfig bottom = unit.Config.BottomInspection;
-            if (bottom == null)
-                unit.Config.BottomInspection = bottom = new PickerBottomInspectionMotionConfig();
-            bottom.Ensure();
-            return bottom;
-        }
-
-        // LoadSettings()가 Config를 새 인스턴스로 교체(BaseUnit.cs:99)해도 항상 라이브 객체를 반환한다.
-        // 지역 변수로 캡처하면 클로저가 낡은 객체에 읽고 써서 "UI만 바뀌고 런타임은 old 값" 버그가 된다.
         private PickerPlaceMotionConfig ResolveLivePlaceConfig()
         {
             PickerPlaceMotionConfig place = unit.Config.Place;
@@ -443,8 +433,29 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             return place;
         }
 
+        private PickerBottomInspectionMotionConfig ResolveLiveBottomInspectionConfig()
+        {
+            PickerBottomInspectionMotionConfig bottom = unit.Config.BottomInspection;
+            if (bottom == null)
+                unit.Config.BottomInspection = bottom = new PickerBottomInspectionMotionConfig();
+            bottom.Ensure();
+            return bottom;
+        }
+
+        private PickerVisionCoordinateOffsets ResolveLiveVisionOffsets(bool inputVision)
+        {
+            unit.Setup.EnsureGeometryData();
+            PickerVisionCoordinateOffsets offsets = inputVision
+                ? unit.Setup.InputVisionToPicker
+                : unit.Setup.OutputVisionToPicker;
+            if (offsets != null)
+                offsets.EnsureArrays();
+            return offsets;
+        }
+
         private void AddPickUpSettingItems(List<ParameterGridItem> items, string groupKey)
         {
+            PickerPickUpMotionConfig pickUp = ResolveLivePickUpConfig();
             items.Add(InGroup(Describe(ParameterGridItem.Double("PICKUP MECHANICAL OFFSET LIMIT", "mm (0.000)", ParameterGridScope.Config,
                 () => ResolveLivePickUpConfig().MechanicalOffsetLimitMm,
                 v => SetPickUpMechanicalOffsetLimit(ResolveLivePickUpConfig(), v)),
@@ -478,7 +489,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 "PickUp ContiNode 스플라인 곡선 강도입니다.\r\n0%는 직선에 가깝게, 100%는 현재 기준, 200%는 더 둥근 X-Z 궤적으로 이동합니다."), groupKey));
             items.Add(InGroup(Describe(ParameterGridItem.Bool("PICKUP CONTI USE GLOBAL SPEED SCALE", ParameterGridScope.Config, () => ResolveLivePickUpConfig().TransferContiUseGlobalSpeedScale, v => ResolveLivePickUpConfig().TransferContiUseGlobalSpeedScale = v),
                 "PickUp ContiNode 속도에 MOTION 화면의 DEFAULT SPEED SCALE %를 적용할지 선택합니다.\r\nTrue: 전역 스케일을 적용합니다.\r\nFalse: PICKUP CONTI MAX VEL/ACC/DEC와 NODE SPEED % 값만 사용합니다."), groupKey));
-            AddPickUpContiNodeSpeedRatioItems(items, groupKey);
+            AddPickUpContiNodeSpeedRatioItems(items, groupKey, pickUp);
             items.Add(InGroup(Describe(ParameterGridItem.Double("PICKER Z PRE PICK DISTANCE", AxisUnitConverter.Millimeter, ParameterGridScope.Config, () => ResolveLivePickUpConfig().PickerZPrePickDistance, v => ResolveLivePickUpConfig().PickerZPrePickDistance = Math.Max(0.0, v)),
                 "PickerZ가 PickPosition으로 바로 내려가기 전에 멈추는 거리입니다.\r\nPickPosition에서 Avoid 방향으로 이 거리만큼 떨어진 위치까지 먼저 이동한 뒤 저속 접근합니다."), groupKey));
             items.Add(InGroup(Describe(ParameterGridItem.Double("PICKER Z APPROACH SPEED", "%", ParameterGridScope.Config, () => ResolveLivePickUpConfig().PickerZSlowApproachSpeedPercent, v => ResolveLivePickUpConfig().PickerZSlowApproachSpeedPercent = PickerPickUpMotionConfig.NormalizePercent(v, 1.0)),
@@ -521,6 +532,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
 
         private void AddBottomMotionSettingItems(List<ParameterGridItem> items, string groupKey)
         {
+            ResolveLiveBottomInspectionConfig();
             items.Add(InGroup(Describe(ParameterGridItem.Selection<PickerBottomFlyingZDownMode>("BOTTOM FLYING Z DOWN MODE", "mode", ParameterGridScope.Config, () => ResolveLiveBottomInspectionConfig().FlyingZDownMode, v => ResolveLiveBottomInspectionConfig().FlyingZDownMode = v),
                 "Bottom 검사 위치로 X/Y/T 이동하는 동안 Picker Z를 미리 내릴지 정합니다.\r\nOff: 미리 내리지 않음\r\nDownDistance: Avoid 위치에서 지정 거리만큼 먼저 하강\r\nToBottomPosition: Bottom 검사 Z 위치까지 바로 하강"), groupKey));
             items.Add(InGroup(Describe(ParameterGridItem.Double("BOTTOM FLYING Z DOWN DISTANCE", AxisUnitConverter.Millimeter, ParameterGridScope.Config, () => ResolveLiveBottomInspectionConfig().FlyingZDownDistance, v => ResolveLiveBottomInspectionConfig().FlyingZDownDistance = PickerBottomInspectionMotionConfig.NormalizeDistance(v)),
@@ -529,6 +541,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
 
         private void AddPlaceMotionSettingItems(List<ParameterGridItem> items, string groupKey)
         {
+            PickerPlaceMotionConfig place = ResolveLivePlaceConfig();
             items.Add(InGroup(Describe(ParameterGridItem.Double("PLACE MECHANICAL OFFSET LIMIT", "mm (0.000)", ParameterGridScope.Config,
                 () => ResolveLivePlaceConfig().MechanicalOffsetLimitMm,
                 v => SetPlaceMechanicalOffsetLimit(ResolveLivePlaceConfig(), v)),
@@ -603,8 +616,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 "node4 비율입니다. 제품 접촉/OverDrive 구간이므로 낮게 시작합니다."), groupKey));
         }
 
-        // LoadSettings()가 Setup을 새 인스턴스로 교체(BaseUnit.cs:98)해도 람다가 항상 라이브 Offset 객체를 쓰도록
-        // 객체 대신 리졸버(Func)를 받는다. 객체를 인자로 받으면 클로저가 교체 전 낡은 객체에 고정된다.
+        // LoadSettings()가 Setup 객체를 교체하므로 offsets 객체를 캡처하지 않고 리졸버(Func)로 매번 라이브 객체를 따라간다.
         private void AddVisionPickerOffsetItems(
             List<ParameterGridItem> items,
             string prefix,
@@ -613,7 +625,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             PickerAxis yAxis,
             string groupKey)
         {
-            if (ResolveLiveVisionOffsets(resolveOffsets) == null)
+            if (resolveOffsets == null || resolveOffsets() == null)
                 return;
 
             for (int i = 0; i < 4; i++)
@@ -624,23 +636,15 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                     xAxis,
                     AxisUnitConverter.Millimeter,
                     ParameterGridScope.Setup,
-                    () => ResolveLiveVisionOffsets(resolveOffsets).OffsetX[index],
-                    v => ResolveLiveVisionOffsets(resolveOffsets).OffsetX[index] = v), groupKey));
+                    () => resolveOffsets().OffsetX[index],
+                    v => resolveOffsets().OffsetX[index] = v), groupKey));
                 items.Add(InGroup(AxisDouble(prefix + " -> " + pickerName + " Y OFFSET",
                     yAxis,
                     AxisUnitConverter.Millimeter,
                     ParameterGridScope.Setup,
-                    () => ResolveLiveVisionOffsets(resolveOffsets).OffsetY[index],
-                    v => ResolveLiveVisionOffsets(resolveOffsets).OffsetY[index] = v), groupKey));
+                    () => resolveOffsets().OffsetY[index],
+                    v => resolveOffsets().OffsetY[index] = v), groupKey));
             }
-        }
-
-        private static PickerVisionCoordinateOffsets ResolveLiveVisionOffsets(Func<PickerVisionCoordinateOffsets> resolveOffsets)
-        {
-            PickerVisionCoordinateOffsets offsets = resolveOffsets != null ? resolveOffsets() : null;
-            if (offsets != null)
-                offsets.EnsureArrays();
-            return offsets;
         }
 
         private static ParameterGridItem InGroup(ParameterGridItem item, string groupKey)

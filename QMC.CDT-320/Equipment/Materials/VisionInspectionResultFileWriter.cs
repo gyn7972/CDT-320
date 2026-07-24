@@ -144,6 +144,9 @@ namespace QMC.CDT320.Materials
                             bottomRecord,
                             placeRecord),
                         CsvKey = die.DieId,
+                        // Side 검사 원문은 Side 완료 이후 시점인 여기서 Input Raw 파일에 함께 보존한다.
+                        RawPath = Path.Combine(inputDir, "Raw", inputStem + ".txt"),
+                        RawLine = BuildSideRawLines(die),
                         FailureCode = "INPUT-BOTTOM-RESULT-WRITE"
                     });
                 }
@@ -660,8 +663,9 @@ namespace QMC.CDT320.Materials
             values.Add("Exist");
             values.Add(recipeName);
             values.Add(pickerIndex >= 0 ? pickerIndex.ToString(CultureInfo.InvariantCulture) : "");
-            values.Add(ToLegacyResult(bottomRecord));
-            values.Add(JoinList(bottomRecord != null ? bottomRecord.NgCodes : die.NgCodes));
+            // Result/Fail Code는 Bottom 단독이 아니라 Side0/Side90 판정까지 종합해 기록한다.
+            values.Add(ToCombinedLegacyResult(bottomRecord, side0Record, side90Record));
+            values.Add(JoinList(CollectFailCodes(die, bottomRecord, side0Record, side90Record)));
 
             // Loading/Pick 정보: 10열
             values.Add(die.WaferID_Input);
@@ -803,8 +807,9 @@ namespace QMC.CDT320.Materials
                 FormatPlaceMetric(placeRecord, "placement_item_bottom_gap_avg", true),
                 FormatPlaceAngle(placeRecord),
                 targetBin,
-                Format(bottomItemOffsetX),
-                Format(bottomItemOffsetY)
+                // 헤더 placement_offset_x/y_mm에는 Bottom 보정값이 아니라 실제 Post-place 측정값(mm)을 기록한다.
+                FormatPlaceMetric(placeRecord, "placement_offset_x_mm", false),
+                FormatPlaceMetric(placeRecord, "placement_offset_y_mm", false)
             };
 
             if (detail.Count != 18)
@@ -998,6 +1003,17 @@ namespace QMC.CDT320.Materials
             return measurement != null ? measurement.RawValue ?? "" : "";
         }
 
+        private static string BuildSideRawLines(DieMaterial die)
+        {
+            string side0 = ReadRawMeasurement(FindInspection(die, "Side0"), "Side0VisionRaw");
+            string side90 = ReadRawMeasurement(FindInspection(die, "Side90"), "Side90VisionRaw");
+            if (string.IsNullOrWhiteSpace(side0))
+                return string.IsNullOrWhiteSpace(side90) ? "" : side90;
+            return string.IsNullOrWhiteSpace(side90)
+                ? side0
+                : side0 + Environment.NewLine + side90;
+        }
+
         private static double ReadMeasurement(DieInspectionRecord record, string name)
         {
             InspectionMeasurement measurement = FindMeasurement(record, name);
@@ -1153,6 +1169,54 @@ namespace QMC.CDT320.Materials
             if (record.Result == MaterialInspectionResult.Ng)
                 return "NG";
             return "Unknown";
+        }
+
+        // Bottom/Side0/Side90 중 하나라도 NG면 NG. NG가 없으면 기존 Bottom 기준 판정을 유지한다.
+        private static string ToCombinedLegacyResult(
+            DieInspectionRecord bottomRecord,
+            DieInspectionRecord side0Record,
+            DieInspectionRecord side90Record)
+        {
+            if (IsNgRecord(bottomRecord) || IsNgRecord(side0Record) || IsNgRecord(side90Record))
+                return "NG";
+            return ToLegacyResult(bottomRecord);
+        }
+
+        private static bool IsNgRecord(DieInspectionRecord record)
+        {
+            return record != null && record.Result == MaterialInspectionResult.Ng;
+        }
+
+        private static IEnumerable<string> CollectFailCodes(
+            DieMaterial die,
+            DieInspectionRecord bottomRecord,
+            DieInspectionRecord side0Record,
+            DieInspectionRecord side90Record)
+        {
+            if (bottomRecord == null && side0Record == null && side90Record == null)
+                return die != null ? die.NgCodes : null;
+
+            var codes = new List<string>();
+            AppendNgCodes(codes, bottomRecord);
+            AppendNgCodes(codes, side0Record);
+            AppendNgCodes(codes, side90Record);
+            return codes;
+        }
+
+        private static void AppendNgCodes(List<string> codes, DieInspectionRecord record)
+        {
+            if (record == null || record.NgCodes == null)
+                return;
+
+            foreach (string code in record.NgCodes)
+            {
+                if (string.IsNullOrWhiteSpace(code))
+                    continue;
+
+                string trimmed = code.Trim();
+                if (!codes.Contains(trimmed, StringComparer.OrdinalIgnoreCase))
+                    codes.Add(trimmed);
+            }
         }
 
         private static string JoinList(IEnumerable<string> values)
