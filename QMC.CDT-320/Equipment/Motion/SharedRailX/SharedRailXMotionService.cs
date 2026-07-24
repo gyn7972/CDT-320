@@ -133,6 +133,53 @@ namespace QMC.CDT320.Motion.SharedRailX
             return Math.Max(safetyA, safetyB);
         }
 
+        // follow-entry/return-follow 공통: (후행축, 선행축) 페어의 팔로잉 파라미터를 설정에서 조회한다.
+        // direction = 후행축의 페어 접근 부호(TowardSign — 부호까지 설정에서 도출, 하드코딩 금지),
+        // homeGap = 페어 HomeClearance, safetyGap = (페어 SafetyDistance, 미지정 시 축 설정 폴백) + extraClearance.
+        // 간격 공식 정합: FollowMoveAsync의 direction>0 → (선행+homeGap)−후행 / direction<0 → (후행+homeGap)−선행은
+        // CalculatePairClearance의 페어 간격식과 동일 구조다.
+        public bool TryGetFollowGapParameters(
+            BaseAxis trailingAxis,
+            BaseAxis leadingAxis,
+            double extraClearance,
+            out int direction,
+            out double homeGap,
+            out double safetyGap,
+            out string detail)
+        {
+            direction = 0;
+            homeGap = 0.0;
+            safetyGap = 0.0;
+            detail = string.Empty;
+
+            SharedRailXAxis trailingRail;
+            SharedRailXAxis leadingRail;
+            if (!TryResolve(trailingAxis, out trailingRail) || !TryResolve(leadingAxis, out leadingRail))
+            {
+                detail = "공유 레일 축을 확인할 수 없습니다.";
+                return false;
+            }
+
+            SharedRailXAxisPair pair;
+            if (_config == null || !_config.TryGetCollisionPair(trailingRail, leadingRail, out pair) || !pair.HasClearanceRule)
+            {
+                detail = "충돌 Pair 설정이 없습니다. pair=" + trailingRail + "<->" + leadingRail;
+                return false;
+            }
+
+            direction = pair.AxisA == trailingRail ? pair.AxisATowardSign : pair.AxisBTowardSign;
+            homeGap = pair.HomeClearance;
+            double safety = pair.SafetyDistance.HasValue
+                ? pair.SafetyDistance.Value
+                : ResolvePairFallbackSafetyDistance(trailingRail, leadingRail);
+            safetyGap = safety + Math.Max(0.0, extraClearance);
+            detail = "pair=" + trailingRail + "<->" + leadingRail +
+                     ", direction=" + direction +
+                     ", homeGap=" + homeGap.ToString("F6") +
+                     ", safetyGap=" + safetyGap.ToString("F6");
+            return direction == 1 || direction == -1;
+        }
+
         public bool VerifySingleAxisMove(BaseAxis axis, double targetPosition, out string reason)
         {
             reason = string.Empty;

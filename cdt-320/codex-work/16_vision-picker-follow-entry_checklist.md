@@ -8,19 +8,50 @@
   MotionGuardRuleHelpers.IsPairClearanceSatisfiedForEntry + Service.IsPairClearanceSatisfied,
   목표 vs 상대축 Actual/Command 양쪽 판정, Extra 미포함) + 정위치 소비자 3곳
   (허가 소비/Conti 적격 entryLimit/StopAfterDrain) 정합. 빌드 통과.
-- [ ] Phase B (#17 본문): R1 FollowMoveAsync timeoutMs 인자화(const 5000 → 기본값,
-  AjinAxis.cs:485/501/580 — 루프와 최종 대기에 동일 적용, 기존 호출부 무변경) /
-  R2 VisionFollowEntryTimeoutMs(기본 15000, Normalize ≥1000) 설정+Document(Order 7)+
-  SharedRailXSetupDialog UI(Extra 2종 포함 노출) / R3 픽업: MoveInputVisionToAvoidForPickerMove
-  비전 이동 비동기 시작(Task 필드 보관)+첫 피커 X를 FollowMoveAsync(선행=CameraX, dir=-1,
-  safetyGap=Safety+InputExtra, homeGap=페어 HomeClearance 런타임 조회)로 진입, 비전 정지 시
-  일반 이동, join/observe, R6 폴백(일반 이동 1회 재시도) / R4 플레이스 동일(dir=+1, OutputExtra).
-- [ ] Phase C (#18): InputDieVisionPrepare 존 클리어 대기 → follow 대체(+StageY/NeedleX 안전
-  전제 분석 보고), OutputPostPlace 큐 WaitOutputVisionXSharedRailClear 대기 → follow 대체,
-  선행 피커 선택(Input: X 작은 쪽 / Output: X 큰 쪽), 정지 선행축도 follow 시도, 폴백.
-- [ ] 검증: 빌드 / 하네스(#17: Input 650→638.5+피커700→600 간격≥50, Output →80+540 간격≥50;
-  #18: 피커 620→750+비전→680, 540→400+비전→30; 정지 선행축 케이스; 오버랩 타임스탬프;
-  Extra=0 경계) / 인터락 diff = 제3 분기 6곳뿐임을 보고 / 비Conti 회귀 없음 / 우회 API 미사용 grep.
+- [x] Phase B 선반영분 (커밋 5fb19558/1a9a711b/e5ae3058): R1 FollowMoveAsync timeoutMs
+  인자화(effectiveTimeoutMs — 루프+최종 대기 동일 적용, 기존 호출부 무변경) /
+  R2 VisionFollowEntryTimeoutMs(기본 15000, Normalize ≥1000, Document Order 7,
+  SharedRailXSetupDialog 노출 — Extra 2종 포함).
+- [x] Phase B 본문 (R3/R4) — 구현 완료 (2026-07-24, 하네스 22/22 통과):
+  - [x] B0. SharedRailXMotionService.TryGetFollowGapParameters(trailing, leading, extra,
+    out direction/homeGap/safetyGap/detail) 신설 — direction=후행축 페어 TowardSign(부호 도출,
+    하드코딩 금지), homeGap=pair.HomeClearance, safetyGap=(pair.SafetyDistance ?? 축 설정
+    폴백 Max) + extra. 4개 결합 지점 공통 사용.
+  - [x] B1. 픽업(R3): `_inputVisionRetreatMoveTask` 필드 신설(60행 옆). MoveInputVisionToAvoid
+    ForPickerMove에서 useMinimalRetreat && targetsCalculated && 미인포지션이면 기존 3단
+    헬퍼(MoveInputStageAxisCommandAsync→Wait→Check) 합성 Task를 **비동기 시작**(미await,
+    기존 SharedRailX 중재 경유 유지). 그 외(첫 계산 패스/legacy/수동)는 기존 동기 경로.
+  - [x] B2. 픽업 X 진입 follow: 공통 시작 헬퍼 StartPickUpPickerXEntryMoveTask(vel/acc/dec,
+    …) — 적격(회피 Task 활성 && CameraX.IsMoving && AjinAxis && 파라미터 조회 성공)이면
+    follow 합성(FollowMoveAsync(선행=CameraX, 선행목표=_inputVisionPickerEntryTarget,
+    후행목표=_targetPickerX, direction=페어 도출(-1), timeout=VisionFollowEntryTimeoutMs)
+    + R6 폴백: 실패 시 비전 Task join(observe) 후 기존 MovePickerAxisWithMotionAndVerify
+    1회 재시도), 아니면 기존 헬퍼. 적용 지점 3곳: Conti(2184)/FastConti(2537)는 Task 생성부
+    교체(Conti는 가드가 비전 이동 중을 거부하므로 실질 도달 경로는 Default/FastConti),
+    Default(2007)는 X/T 묶음에서 X 분리(X=follow ∥ T=단독 ∥ NeedleX/StageY 유지 → Y 전진).
+  - [x] B3. 픽업 join: MovePickerXStageYPickerTAsync에서 분기 반환 후 비전 회피 Task join —
+    분기 실패 시 drain(observe), 성공 시 결과 0 확인(실패 시 Fail). 리셋/취소 drain:
+    PrepareInputDieVisionBatchAsync + Abort(ContinueWith observe).
+  - [x] B4. 플레이스(R4): `_outputVisionRetreatMoveTask` 필드. MoveOutputStageAvoidPosition
+    1796의 동기 await를 useMinimalRetreat 시 비동기 시작으로 교체(동일 헬퍼
+    MoveOutputStageAxisAndVerifyAsync 합성). 2번째 픽커부터는 비전 인포지션 → 즉시 완료
+    Task → 진입측 IsMoving=false → 자연 일반 이동(스펙 R4-3).
+  - [x] B5. 플레이스 X 진입 follow: MoveOutputStageYAndPickerXYTToPlaceAsync에서 적격 시
+    X/T 분리 — X=follow 합성(선행=OutputCameraX, direction=페어 도출(+1)) ∥ T=단독,
+    완료 후 Y 전진(기존 MovePickerXTThenYAndVerifyAsync 구조 미러). StageY 병렬 유지.
+    비적격 시 기존 MovePickerXTThenYAndVerifyAsync 그대로.
+  - [x] B6. 플레이스 join/drain: MoveOutputStageReceivePositionAsync — 선행 실패 경로
+    (feeder/워크영역/Prepare)와 ByMode 반환 직후 join(성공 시 0 확인, 실패 시
+    PICKER-PLACE-VISION-X-AVOID Fail), Abort에 observe drain.
+- [x] Phase C (#18): 17번 체크리스트의 C0~C4 참조 — 구현 완료 (동일 커밋).
+- [x] 검증 (2026-07-24): 빌드 통과(OutDir 스크래치) / 하네스 22/22 —
+  E1(Input 650→638.5+피커 700→600, minGap=50.000, 오버랩 11ms/30ms 동시 시작),
+  E2(Output 120→80+피커 440→540, minGap=50.000), R1(피커 620→750+비전 638.5→680 도달),
+  R2(피커 540→400+비전 80→30 도달, minGap=50.000), S1(정지 선행축 — 한계 658.5 대기 후
+  외부 기동 시 680 도달), S2(부동 선행축 -21 타임아웃, 658.5 정지), D1(역방향 -1 즉시 거부),
+  M1(#16 수식 4건: 658.5/80/698.5/40) / 전 구간 인터락 요구(10) 침범 0회 /
+  인터락 파일 diff 0건 / BeginMotionGuardBypass 사용 0건(grep) / 비Conti·수동 경로는
+  게이트(false)에서 기존 동기 경로 그대로(코드 확인).
 
 (이하 승인 전 차단 분석 기록 보존)
 

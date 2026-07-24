@@ -3,6 +3,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using QMC.CDT320.Ajin;
 using QMC.CDT320.Interlocks;
 using QMC.CDT320.Materials;
 using QMC.CDT320.Motion.SharedRailX;
@@ -865,29 +866,59 @@ namespace QMC.CDT320.Sequencing
                     return result;
                 if (IsStopOrAlarmActive())
                     return StopRequestedResult;
-                int visionXClearResult = await WaitOutputVisionXSharedRailClearAsync(
-                    stage,
-                    stage.OutputCameraX,
-                    targetVisionX,
-                    BuildOutputPostPlaceTargetName(BinStageAxis.VisionX, "Output camera inspection VisionX", request),
-                    "Output camera inspection VisionX",
-                    request,
-                    timeout,
-                    ct).ConfigureAwait(false);
-                if (visionXClearResult != 0)
-                    return visionXClearResult;
+                // C2(return-follow): 게이트+제약(목표가 피커 페어 간격 미충족)이면 공유레일 클리어
+                // 대기를 생략하고 VisionX를 퇴장하는 제약 피커 추종(follow)으로 진입한다.
+                // 존이 이미 비면(2번째 이후 검사 포함) 기존 대기(인포지션 단락 포함)+일반 이동 그대로.
+                // follow 실패 시 R5 폴백: 아래 기존 경로(대기+일반 이동)로 1회 재시도.
+                bool followEntryUsed = false;
+                if (IsMinimalRetreatGateSatisfied(request) &&
+                    ShouldFollowPickerForOutputVisionEntry(stage, targetVisionX))
+                {
+                    int followResult = await TryFollowOutputVisionXBehindPickerAsync(
+                        stage,
+                        targetVisionX,
+                        request,
+                        ct).ConfigureAwait(false);
+                    if (followResult == 0)
+                    {
+                        followEntryUsed = true;
+                    }
+                    else
+                    {
+                        Log.Write("Main", "SYSTEM", "OutputPostPlaceInspection",
+                            "Output camera 후검사 VisionX 팔로잉 진입이 실패해 기존 대기+일반 이동으로 재시도합니다. " +
+                            "die=" + request.DieId +
+                            ", side=" + request.OutputSide +
+                            ", followResult=" + followResult + " - Check");
+                    }
+                }
 
-                result = await MoveStageAxisAndVerifyAsync(
-                    stage,
-                    BinStageAxis.VisionX,
-                    targetVisionX,
-                    request.FineMove,
-                    timeout,
-                    "Output camera 후검사 VisionX",
-                    request,
-                    ct).ConfigureAwait(false);
-                if (result != 0)
-                    return result;
+                if (!followEntryUsed)
+                {
+                    int visionXClearResult = await WaitOutputVisionXSharedRailClearAsync(
+                        stage,
+                        stage.OutputCameraX,
+                        targetVisionX,
+                        BuildOutputPostPlaceTargetName(BinStageAxis.VisionX, "Output camera inspection VisionX", request),
+                        "Output camera inspection VisionX",
+                        request,
+                        timeout,
+                        ct).ConfigureAwait(false);
+                    if (visionXClearResult != 0)
+                        return visionXClearResult;
+
+                    result = await MoveStageAxisAndVerifyAsync(
+                        stage,
+                        BinStageAxis.VisionX,
+                        targetVisionX,
+                        request.FineMove,
+                        timeout,
+                        "Output camera 후검사 VisionX",
+                        request,
+                        ct).ConfigureAwait(false);
+                    if (result != 0)
+                        return result;
+                }
                 if (IsStopOrAlarmActive())
                     return StopRequestedResult;
                 if (!request.HasPickerContext || request.PickerNo < 1 || request.PickerNo > 4)
@@ -1501,6 +1532,139 @@ namespace QMC.CDT320.Sequencing
                 return false;
 
             return config.MotionMode == PickerPlaceMotionMode.ContiSegmentedPlace;
+        }
+
+        // C2(return-follow): 검사 목표가 양 피커의 Actual/Command 페어 간격을 이미 만족하면
+        // 존이 빈 상태 — follow 없이 기존 대기(인포지션 단락 포함)+일반 이동을 쓴다.
+        private bool ShouldFollowPickerForOutputVisionEntry(OutputStageUnit stage, double targetVisionX)
+        {
+            try
+            {
+                if (stage == null || !(stage.OutputCameraX is AjinAxis))
+                    return false;
+
+                SharedRailXMotionService service = SharedRailXMotionRuntime.ResolveService(
+                    _context != null ? _context.Machine : null);
+                if (service == null || _context == null || _context.Machine == null)
+                    return false;
+
+                BaseAxis frontX = _context.Machine.PickerFrontUnit != null ? _context.Machine.PickerFrontUnit.PickerX : null;
+                BaseAxis rearX = _context.Machine.PickerRearUnit != null ? _context.Machine.PickerRearUnit.PickerX : null;
+                string detail;
+                bool frontClear = frontX == null ||
+                    (service.IsPairClearanceSatisfied(frontX, frontX.ActualPosition, stage.OutputCameraX, targetVisionX, out detail) &&
+                     service.IsPairClearanceSatisfied(frontX, frontX.CommandPosition, stage.OutputCameraX, targetVisionX, out detail));
+                bool rearClear = rearX == null ||
+                    (service.IsPairClearanceSatisfied(rearX, rearX.ActualPosition, stage.OutputCameraX, targetVisionX, out detail) &&
+                     service.IsPairClearanceSatisfied(rearX, rearX.CommandPosition, stage.OutputCameraX, targetVisionX, out detail));
+
+                return !(frontClear && rearClear);
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        // C2/R2(return-follow): 제약이 되는 선행 피커 선택 — Output(−방향 진입)은 페어 간격식
+        // (비전 + HomeClearance − 피커)에서 X가 큰 피커가 여유가 작아 제약이 된다.
+        private BaseAxis ResolveConstrainingPickerXForOutputVisionEntry()
+        {
+            BaseAxis frontX = _context != null && _context.Machine != null && _context.Machine.PickerFrontUnit != null
+                ? _context.Machine.PickerFrontUnit.PickerX
+                : null;
+            BaseAxis rearX = _context != null && _context.Machine != null && _context.Machine.PickerRearUnit != null
+                ? _context.Machine.PickerRearUnit.PickerX
+                : null;
+            if (frontX == null)
+                return rearX;
+            if (rearX == null)
+                return frontX;
+
+            return frontX.ActualPosition >= rearX.ActualPosition ? frontX : rearX;
+        }
+
+        // C2/R2/R4(return-follow): OutputVisionX(후행)가 퇴장하는 제약 피커X(선행)를 추종해 검사
+        // 위치로 진입한다. 판단 로직 없이 항상 follow 시도(정지 선행축 포함) — 여유 ≤ 0이면 명령
+        // 없이 대기, 피커가 끝내 안 움직이면 타임아웃(-21) → R5 폴백. 역방향 판단 없음: 피커의
+        // 비전 방향 접근 이동은 피커 자신의 인터락(SafetyDistance)이 차단하고, follow는 후행축을
+        // 전진만 시킨다. 미선택 피커와의 충돌은 follow 내부 이동/오버라이드가 MotionGuard
+        // (SharedRailX 페어 간격 포함)를 통과하며 검증된다 — 위반 시도는 -11 → R5 폴백.
+        // 간격 공식 정합: direction=−1 → 거리 = (후행 + homeGap) − 선행 = 비전 + HomeClearance − 피커
+        // (기존 페어 간격식과 동일). homeGap/safetyGap/direction/timeout은 설정 런타임 조회.
+        private async Task<int> TryFollowOutputVisionXBehindPickerAsync(
+            OutputStageUnit stage,
+            double targetVisionX,
+            OutputPostPlaceInspectionRequest request,
+            CancellationToken ct)
+        {
+            AjinAxis followVisionX = stage != null ? stage.OutputCameraX as AjinAxis : null;
+            BaseAxis leadingPickerX = ResolveConstrainingPickerXForOutputVisionEntry();
+            SharedRailXMotionService service = SharedRailXMotionRuntime.ResolveService(
+                _context != null ? _context.Machine : null);
+            if (followVisionX == null || leadingPickerX == null || service == null)
+                return -1;
+
+            int direction;
+            double homeGap;
+            double safetyGap;
+            string gapDetail;
+            if (!service.TryGetFollowGapParameters(
+                stage.OutputCameraX,
+                leadingPickerX,
+                service.Config != null ? service.Config.OutputVisionRetreatExtraClearance : 40.0,
+                out direction,
+                out homeGap,
+                out safetyGap,
+                out gapDetail))
+            {
+                Log.Write("Main", "SYSTEM", "OutputPostPlaceInspection",
+                    "Output camera 후검사 VisionX 팔로잉 파라미터 조회에 실패해 기존 경로로 진행합니다. " +
+                    "die=" + (request != null ? request.DieId : "-") +
+                    ", detail=" + gapDetail + " - Check");
+                return -1;
+            }
+
+            int timeoutMs = service.Config != null ? service.Config.VisionFollowEntryTimeoutMs : 15000;
+            // 현재 기준: follow의 명령/오버라이드 경로는 축 레이어 자동 스케일이 없으므로 여기서 1회 스케일.
+            double trailingVelocity = MotionSpeedScale.ApplyDefaultVelocityScale(
+                stage.OutputCameraX.Config != null ? stage.OutputCameraX.Config.DefaultVelocity : 0.0);
+            double trailingAcceleration = MotionSpeedScale.ApplyDefaultAccelerationScale(
+                stage.OutputCameraX.Config != null ? stage.OutputCameraX.Config.Acceleration : 0.0);
+            double trailingDeceleration = MotionSpeedScale.ApplyDefaultAccelerationScale(
+                stage.OutputCameraX.Config != null ? stage.OutputCameraX.Config.Deceleration : 0.0);
+            double leadingVelocity = MotionSpeedScale.ApplyDefaultVelocityScale(
+                leadingPickerX.Config != null ? leadingPickerX.Config.DefaultVelocity : 0.0);
+            double leadingAcceleration = MotionSpeedScale.ApplyDefaultAccelerationScale(
+                leadingPickerX.Config != null ? leadingPickerX.Config.Acceleration : 0.0);
+            double leadingDeceleration = MotionSpeedScale.ApplyDefaultAccelerationScale(
+                leadingPickerX.Config != null ? leadingPickerX.Config.Deceleration : 0.0);
+
+            Log.Write("Main", "SYSTEM", "OutputPostPlaceInspection",
+                "Output camera 후검사 VisionX 팔로잉 진입을 시작합니다. die=" + (request != null ? request.DieId : "-") +
+                ", side=" + (request != null ? request.OutputSide.ToString() : "-") +
+                ", leading=" + leadingPickerX.Name +
+                ", leadingCommand=" + leadingPickerX.CommandPosition.ToString("F6") +
+                ", visionTarget=" + targetVisionX.ToString("F6") +
+                ", " + gapDetail +
+                ", timeoutMs=" + timeoutMs + " - Start");
+
+            // 선행 목표는 퇴장 목표를 모르므로 현재 Command(정보용)를 사용한다(스펙 확정).
+            return await followVisionX.FollowMoveAsync(
+                leadingPickerX,
+                leadingPickerX.CommandPosition,
+                leadingVelocity,
+                leadingAcceleration,
+                leadingDeceleration,
+                targetVisionX,
+                trailingVelocity,
+                trailingAcceleration,
+                trailingDeceleration,
+                direction,
+                safetyGap,
+                homeGap,
+                timeoutMs,
+                ct).ConfigureAwait(false);
         }
 
         private async Task<int> MoveStageAxisAndVerifyAsync(

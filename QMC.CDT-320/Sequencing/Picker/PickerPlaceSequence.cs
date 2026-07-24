@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using QMC.CDT320.Ajin;
 using QMC.CDT320.Materials;
 using QMC.CDT320.Interlocks;
 using QMC.CDT320.Recipes;
@@ -51,6 +52,10 @@ namespace QMC.CDT320.Sequencing
         private double _placeMechanicalOffsetXSnapshot;
         private double _placeMechanicalOffsetYSnapshot;
         private double _bottomPlaceCorrectionLimitSnapshot = PickerPickUpMotionConfig.DefaultMechanicalOffsetLimitMm;
+        // R4(follow-entry): 비동기 시작한 OutputVisionX 최소 회피 이동 Task와 확정 목표.
+        // 피커 X 진입(MoveOutputStageReceivePosition) 완료 전에 반드시 join(결과 0 확인)한다.
+        private Task<int> _outputVisionRetreatMoveTask;
+        private double _outputVisionRetreatTarget;
 
         public bool ForceSafeYBeforeFirstPlaceMove { get; set; }
         public bool KeepPickerYForwardDuringPlaceReadyWait { get; set; }
@@ -75,6 +80,7 @@ namespace QMC.CDT320.Sequencing
         {
             try
             {
+                ObserveOutputVisionRetreatMoveTaskOnAbort();
                 TurnPlaceBlowOff("Place 시퀀스 Abort");
                 ClearPendingContiRetreat();
                 ReleaseOutputPlaceArea();
@@ -1793,17 +1799,37 @@ namespace QMC.CDT320.Sequencing
                 ", fullAvoid=" + fullAvoid.ToString("F6") +
                 ", detail=" + retreatDetail + " - Check");
 
-            result = await MoveOutputStageAxisAndVerifyAsync(
-                BinStageAxis.VisionX,
-                visionTarget,
-                "OutputVisionX 최소 회피 위치 이동",
-                ct).ConfigureAwait(false);
+            // R4(follow-entry): Auto Conti(minimal)면 회피 이동을 비동기 시작(Task 보관)하고 즉시
+            // 스텝 전이 — 피커 X 진입이 FollowMoveAsync로 비전을 추종하며 오버랩 진입한다.
+            // 이동 명령은 기존과 동일한 헬퍼(SharedRailX 중재 경유). 2번째 픽커부터는 비전이
+            // 이미 인포지션이라 Task가 즉시 완료되고 진입측은 자연히 일반 이동이 된다.
+            if (useMinimalRetreat)
+            {
+                await JoinOutputVisionRetreatMoveTaskAsync("이전 회피 Task 정리", ct).ConfigureAwait(false);
+                _outputVisionRetreatTarget = visionTarget;
+                _outputVisionRetreatMoveTask = MoveOutputStageAxisAndVerifyAsync(
+                    BinStageAxis.VisionX,
+                    visionTarget,
+                    "OutputVisionX 최소 회피 위치 이동",
+                    ct);
+                WriteLog("PickerPlaceSequence",
+                    Name + " OutputVisionX 최소 회피 이동을 비동기 시작했습니다(피커 진입 팔로잉 오버랩). " +
+                    "target=" + visionTarget.ToString("F6") + " - Start");
+            }
+            else
+            {
+                result = await MoveOutputStageAxisAndVerifyAsync(
+                    BinStageAxis.VisionX,
+                    visionTarget,
+                    "OutputVisionX 최소 회피 위치 이동",
+                    ct).ConfigureAwait(false);
 
-            if (result != 0)
-                return Fail("PICKER-PLACE-VISION-X-AVOID", "OutputStage",
-                    "OutputVisionX 피커 진입용 최소 회피 이동 실패. side=" + _currentOutputSide +
-                    ", target=" + visionTarget.ToString("F6") +
-                    ", result=" + result + ", " + OutputStage.DescribeStageLoadMoveState(_currentOutputSide));
+                if (result != 0)
+                    return Fail("PICKER-PLACE-VISION-X-AVOID", "OutputStage",
+                        "OutputVisionX 피커 진입용 최소 회피 이동 실패. side=" + _currentOutputSide +
+                        ", target=" + visionTarget.ToString("F6") +
+                        ", result=" + result + ", " + OutputStage.DescribeStageLoadMoveState(_currentOutputSide));
+            }
 
             CurrentStep = PickerPlaceStep.MoveOutputStageReceivePosition;
             return 0;
@@ -1873,7 +1899,10 @@ namespace QMC.CDT320.Sequencing
         {
             int feederReady = await EnsureOutputFeederSafeBeforePlaceStageMoveAsync(ct).ConfigureAwait(false);
             if (feederReady != 0)
+            {
+                await JoinOutputVisionRetreatMoveTaskAsync("Feeder 안전 확보 실패 정리", ct).ConfigureAwait(false);
                 return feederReady;
+            }
 
             // OutputFeeder/OutputStage 로딩이 1순위다.
             // Picker는 OutputPlace/Stage/Feeder 리소스와 Feeder 안전 위치가 확보된 뒤에만
@@ -1884,12 +1913,26 @@ namespace QMC.CDT320.Sequencing
 
             int prepareResult = PreparePlaceTargetValues();
             if (prepareResult != 0)
+            {
+                await JoinOutputVisionRetreatMoveTaskAsync("Place 목표 계산 실패 정리", ct).ConfigureAwait(false);
                 return prepareResult;
+            }
             Log.Write("PickerPlaceSequence", Name + " Place 대상 좌표 계산 완료. side=" + Side + ", step=" + CurrentStep);
 
             int result = await MoveOutputStageYPickerXAndPickerZToPlaceByModeAsync(yAxis, ct).ConfigureAwait(false);
+
+            // R4(follow-entry): 비동기 비전 회피 Task는 피커 X 진입 처리 완료 전에 반드시 join.
+            // 진입 실패 시에도 drain(observe)하고, 진입 성공 후 회피 실패면 시퀀스 Fail.
+            int retreatJoinResult = await JoinOutputVisionRetreatMoveTaskAsync("피커 X 진입 완료", ct).ConfigureAwait(false);
             if (result != 0)
                 return result;
+            if (retreatJoinResult != 0)
+            {
+                return Fail("PICKER-PLACE-VISION-X-AVOID", "OutputStage",
+                    "OutputVisionX 비동기 최소 회피 이동이 실패했습니다. side=" + _currentOutputSide +
+                    ", target=" + _outputVisionRetreatTarget.ToString("F6") +
+                    ", result=" + retreatJoinResult + ", " + OutputStage.DescribeStageLoadMoveState(_currentOutputSide));
+            }
 
             if (ForceSafeYBeforeFirstPlaceMove)
                 ForceSafeYBeforeFirstPlaceMove = false;
@@ -2195,11 +2238,18 @@ namespace QMC.CDT320.Sequencing
                 "output stage receive Y",
                 ct,
                 BuildOutputStagePlaceMoveTargetName("ReceiveY"));
-            Task<int> pickerMove = MovePickerXTThenYAndVerifyAsync(
-                pickerTargets,
-                "place picker X/Y/T",
-                ct,
-                BuildPlaceMoveTargetName());
+            // R4(follow-entry): 비전 회피가 진행 중이면 X만 follow로 분리(T 병렬 → Y 전진 구조 유지),
+            // 정지 상태(2번째 픽커 포함)면 기존 X/T→Y 이동 그대로.
+            Task<int> pickerMove = ShouldFollowOutputVisionRetreatForPickerEntry()
+                ? MovePlacePickerXTThenYWithVisionFollowAsync(
+                    pickerTargets,
+                    BuildPlaceMoveTargetName(),
+                    ct)
+                : MovePickerXTThenYAndVerifyAsync(
+                    pickerTargets,
+                    "place picker X/Y/T",
+                    ct,
+                    BuildPlaceMoveTargetName());
 
             int[] results = await Task.WhenAll(stageYMove, pickerMove).ConfigureAwait(false);
             if (results[0] != 0 || results[1] != 0)
@@ -2356,6 +2406,228 @@ namespace QMC.CDT320.Sequencing
         private static bool IsCoordinatedPlaceMotionMode(PickerPlaceMotionMode mode)
         {
             return mode == PickerPlaceMotionMode.ContiSegmentedPlace;
+        }
+
+        // R4(follow-entry): 보관된 비동기 회피 Task를 join하고 필드를 비운다. 없으면 0.
+        private async Task<int> JoinOutputVisionRetreatMoveTaskAsync(string context, CancellationToken ct)
+        {
+            Task<int> moveTask = _outputVisionRetreatMoveTask;
+            if (moveTask == null)
+                return 0;
+
+            _outputVisionRetreatMoveTask = null;
+            try
+            {
+                int result = await moveTask.ConfigureAwait(false);
+                if (result != 0)
+                {
+                    WriteLog("PickerPlaceSequence",
+                        Name + " OutputVisionX 비동기 최소 회피 이동이 실패로 종료되었습니다. " +
+                        "context=" + (context ?? string.Empty) +
+                        ", result=" + result + " - Check");
+                }
+
+                return result;
+            }
+            catch (OperationCanceledException)
+            {
+                WriteLog("PickerPlaceSequence",
+                    Name + " OutputVisionX 비동기 최소 회피 이동이 취소 상태로 정리되었습니다. " +
+                    "context=" + (context ?? string.Empty) + " - Check");
+                ct.ThrowIfCancellationRequested();
+                return -1;
+            }
+            catch (Exception ex)
+            {
+                WriteLog("PickerPlaceSequence",
+                    Name + " OutputVisionX 비동기 최소 회피 이동 정리 중 예외가 발생했습니다. " +
+                    "context=" + (context ?? string.Empty) +
+                    ", error=" + ex.Message + " - Failed");
+                return -1;
+            }
+        }
+
+        // R4(follow-entry): Abort 등 동기 경로에서 회피 Task를 관찰(observe)만 하고 흘려보낸다.
+        private void ObserveOutputVisionRetreatMoveTaskOnAbort()
+        {
+            Task<int> moveTask = _outputVisionRetreatMoveTask;
+            _outputVisionRetreatMoveTask = null;
+            if (moveTask == null)
+                return;
+
+            moveTask.ContinueWith(
+                t =>
+                {
+                    if (t.IsFaulted && t.Exception != null)
+                        t.Exception.Flatten();
+                },
+                TaskScheduler.Default);
+        }
+
+        // R4(follow-entry): 플레이스 피커 X 진입을 비전 추종(follow)으로 시작할지 판정한다.
+        // 비전이 정지 상태(IsMoving=false — 2번째 이후 픽커 포함)면 기존 일반 이동을 사용한다.
+        private bool ShouldFollowOutputVisionRetreatForPickerEntry()
+        {
+            return _outputVisionRetreatMoveTask != null &&
+                   OutputStage != null &&
+                   OutputStage.OutputCameraX != null &&
+                   OutputStage.OutputCameraX.IsMoving;
+        }
+
+        // R4(follow-entry): MovePickerXTThenYAndVerifyAsync 구조를 미러 — X만 follow(+R6 폴백)로
+        // 분리하고 T는 병렬 단독 이동, X/T 완료 후 PickerY 전진(스킵 판정 동일).
+        private async Task<int> MovePlacePickerXTThenYWithVisionFollowAsync(
+            IDictionary<PickerAxis, double> targets,
+            string targetName,
+            CancellationToken ct)
+        {
+            if (targets == null || targets.Count == 0)
+                return 0;
+
+            double pickerYTarget;
+            bool hasPickerY = targets.TryGetValue(PickerAxis.PickerY, out pickerYTarget);
+
+            var tTargets = new Dictionary<PickerAxis, double>();
+            foreach (KeyValuePair<PickerAxis, double> pair in targets)
+            {
+                if (pair.Key == PickerAxis.PickerX || pair.Key == PickerAxis.PickerY)
+                    continue;
+
+                tTargets[pair.Key] = pair.Value;
+            }
+
+            Task<int> pickerXEntryMove = MovePlacePickerXEntryByVisionFollowOrFallbackAsync(
+                "place picker X 팔로잉 진입",
+                targetName,
+                ct);
+            Task<int> pickerTMove = MovePickerAxesAndVerifyAsync(
+                tTargets,
+                "place picker T",
+                ct,
+                targetName);
+
+            int[] results = await Task.WhenAll(pickerXEntryMove, pickerTMove).ConfigureAwait(false);
+            int xtResult = results[0] != 0 ? results[0] : results[1];
+            if (xtResult != 0)
+                return xtResult;
+
+            if (!hasPickerY || CanSkipPickerMoveCommand(PickerAxis.PickerY, pickerYTarget))
+                return 0;
+
+            WriteLog("PickerMove",
+                Name + " place picker X(follow)/T 이동 완료 후 PickerY 전진을 시작합니다. " +
+                "targetY=" + pickerYTarget +
+                ", targetName=" + (targetName ?? "-") +
+                " - Check");
+
+            return await MovePickerAxisAndVerifyAsync(
+                PickerAxis.PickerY,
+                pickerYTarget,
+                "place picker Y",
+                ct,
+                targetName).ConfigureAwait(false);
+        }
+
+        // R6(follow-entry): follow 실패 시 — 함수가 피커 정지를 보장하므로 비전 회피 Task를
+        // join(observe)한 뒤 기존 일반 이동(공유레일 대기 게이트 포함 순차 경로)으로 1회 재시도한다.
+        private async Task<int> MovePlacePickerXEntryByVisionFollowOrFallbackAsync(
+            string description,
+            string targetName,
+            CancellationToken ct)
+        {
+            int followResult = await TryFollowPickerXBehindOutputVisionRetreatAsync(ct).ConfigureAwait(false);
+            if (followResult == 0)
+                return 0;
+
+            int retreatJoin = await JoinOutputVisionRetreatMoveTaskAsync(
+                description + " follow 폴백",
+                ct).ConfigureAwait(false);
+            WriteLog("PickerPlaceSequence",
+                Name + " " + description + " 팔로잉 진입이 실패해 기존 일반 이동으로 재시도합니다. " +
+                "followResult=" + followResult +
+                ", retreatJoin=" + retreatJoin + " - Check");
+
+            return await MovePickerAxisAndVerifyAsync(
+                PickerAxis.PickerX,
+                _targetPickerX,
+                description + " (follow 폴백)",
+                ct,
+                targetName).ConfigureAwait(false);
+        }
+
+        // R4/R5(follow-entry): 피커X(후행)가 회피 중인 OutputVisionX(선행)를 추종 진입한다.
+        // homeGap/safetyGap/direction/timeout 전부 SharedRailX 설정에서 런타임 조회(하드코딩 금지).
+        // 안전 근거: 팔로잉 유지 간격(safetyGap=SafetyDistance+OutputExtra, 기본 50) > 인터락 요구
+        // (SafetyDistance, 기본 10)이므로 정상 추종 중 인터락 거부는 없다. 그럼에도 -11이면 R6 폴백.
+        // 인터락 통과 체인: FollowMoveAsync 내부 MoveAbsoluteAsync→BaseAxis.VerifyMotionGuard→
+        // MotionGuardRuntime.VerifyAxisMove(SharedRailX 포함) / TryOverridePosition→
+        // MotionGuardRuntime.VerifyAxisTeachingMove — 우회 API 미사용.
+        private async Task<int> TryFollowPickerXBehindOutputVisionRetreatAsync(CancellationToken ct)
+        {
+            BaseAxis pickerX = GetPickerAxis(PickerAxis.PickerX);
+            AjinAxis followPickerX = pickerX as AjinAxis;
+            BaseAxis visionX = OutputStage != null ? OutputStage.OutputCameraX : null;
+            SharedRailXMotionService service = SharedRailXMotionRuntime.ResolveService(
+                Context != null ? Context.Machine : null);
+            if (followPickerX == null || visionX == null || service == null)
+                return -1;
+
+            int direction;
+            double homeGap;
+            double safetyGap;
+            string gapDetail;
+            if (!service.TryGetFollowGapParameters(
+                pickerX,
+                visionX,
+                service.Config != null ? service.Config.OutputVisionRetreatExtraClearance : 40.0,
+                out direction,
+                out homeGap,
+                out safetyGap,
+                out gapDetail))
+            {
+                WriteLog("PickerPlaceSequence",
+                    Name + " Place 피커X 팔로잉 파라미터 조회에 실패해 일반 이동으로 진행합니다. " +
+                    "detail=" + gapDetail + " - Check");
+                return -1;
+            }
+
+            int timeoutMs = service.Config != null ? service.Config.VisionFollowEntryTimeoutMs : 15000;
+            // 현재 기준: follow의 명령/오버라이드 경로는 축 레이어 자동 스케일이 없으므로 여기서 1회 스케일.
+            double trailingVelocity = MotionSpeedScale.ApplyDefaultVelocityScale(
+                pickerX.Config != null ? pickerX.Config.DefaultVelocity : 0.0);
+            double trailingAcceleration = MotionSpeedScale.ApplyDefaultAccelerationScale(
+                pickerX.Config != null ? pickerX.Config.Acceleration : 0.0);
+            double trailingDeceleration = MotionSpeedScale.ApplyDefaultAccelerationScale(
+                pickerX.Config != null ? pickerX.Config.Deceleration : 0.0);
+            double leadingVelocity = MotionSpeedScale.ApplyDefaultVelocityScale(
+                visionX.Config != null ? visionX.Config.DefaultVelocity : 0.0);
+            double leadingAcceleration = MotionSpeedScale.ApplyDefaultAccelerationScale(
+                visionX.Config != null ? visionX.Config.Acceleration : 0.0);
+            double leadingDeceleration = MotionSpeedScale.ApplyDefaultAccelerationScale(
+                visionX.Config != null ? visionX.Config.Deceleration : 0.0);
+
+            WriteLog("PickerPlaceSequence",
+                Name + " Place 피커X 팔로잉 진입을 시작합니다. leading=" + visionX.Name +
+                ", visionTarget=" + _outputVisionRetreatTarget.ToString("F6") +
+                ", pickerTarget=" + _targetPickerX.ToString("F6") +
+                ", " + gapDetail +
+                ", timeoutMs=" + timeoutMs + " - Start");
+
+            return await followPickerX.FollowMoveAsync(
+                visionX,
+                _outputVisionRetreatTarget,
+                leadingVelocity,
+                leadingAcceleration,
+                leadingDeceleration,
+                _targetPickerX,
+                trailingVelocity,
+                trailingAcceleration,
+                trailingDeceleration,
+                direction,
+                safetyGap,
+                homeGap,
+                timeoutMs,
+                ct).ConfigureAwait(false);
         }
 
         private async Task<int> MoveOutputStageYPickerXAndPickerZByContiSegmentedPlaceAsync(

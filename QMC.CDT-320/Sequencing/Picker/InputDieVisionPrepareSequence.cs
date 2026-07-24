@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using QMC.Common.Motion;
+using QMC.CDT320.Ajin;
 using QMC.CDT320.Calibration;
 using QMC.CDT320.Interlocks;
 using QMC.CDT320.Materials;
@@ -453,6 +454,19 @@ namespace QMC.CDT320.Sequencing
 
                 if (IsInputCameraPreInspectionMode())
                 {
+                    // C1(return-follow): Auto Conti 게이트면 존 이탈 블로킹 대기를 생략한다 —
+                    // VisionX 진입은 follow의 간격 제약+MotionGuard(페어 간격)가, StageY/NeedleX는
+                    // 스테이지 이동 스텝의 MotionGuard dry-run 대기가 각각 대기를 대신한다.
+                    if (IsVisionReturnFollowGateSatisfied())
+                    {
+                        WriteLog("InputDieVisionPrepareSequence",
+                            Name + " InputCamera 선행검사 모드(팔로잉 게이트): Picker Input 영역 이탈 대기를 생략하고 " +
+                            "VisionX 팔로잉 진입으로 대체합니다. pickerNo=" + _currentPickerNo +
+                            ", die=" + _currentDieId + ", side=" + Side + " - Check");
+                        CurrentStep = InputDieVisionPrepareStep.MoveInputStageAndVisionToDie;
+                        return 0;
+                    }
+
                     int waitResult = await WaitPickerInputZonesClearForPreInspectionAsync(ct).ConfigureAwait(false);
                     if (waitResult != 0)
                         return waitResult;
@@ -506,9 +520,23 @@ namespace QMC.CDT320.Sequencing
                 if (stage == null)
                     return Fail("INPUT-DIE-VISION-PREPARE-STAGE-NO-UNIT", "InputStageUnit", "InputStageUnit이 없습니다.");
 
-                int pickerClearResult = await WaitFrontRearPickerInputZonesClearBeforeVisionAsync(ct).ConfigureAwait(false);
-                if (pickerClearResult != 0)
-                    return pickerClearResult;
+                // C1(return-follow): Auto Conti 게이트면 존 클리어 블로킹 대기를 생략한다.
+                // VisionX 진입의 X 간섭은 follow(간격 제약)+MotionGuard(페어 간격 제3 분기)가 담당하고,
+                // StageY/NeedleX 등 스테이지 이동의 안전 전제(피커 하강/Unknown/EjectPinZ)는 아래
+                // WaitInputStagePlaneGuardClearBeforeVisionOverlapAsync(MotionGuard dry-run)가 대기한다.
+                bool useReturnFollowOverlap = IsVisionReturnFollowGateSatisfied();
+                if (!useReturnFollowOverlap)
+                {
+                    int pickerClearResult = await WaitFrontRearPickerInputZonesClearBeforeVisionAsync(ct).ConfigureAwait(false);
+                    if (pickerClearResult != 0)
+                        return pickerClearResult;
+                }
+                else
+                {
+                    WriteLog("InputDieVisionPrepareSequence",
+                        Name + " 팔로잉 게이트: Picker Input 존 클리어 블로킹 대기를 생략합니다(오버랩 진입). " +
+                        "die=" + _currentDieId + ", pickerNo=" + _currentPickerNo + " - Check");
+                }
 
                 int permissionClearResult = await WaitInputCameraPickUpPermissionsClearForPreInspectionAsync(ct).ConfigureAwait(false);
                 if (permissionClearResult != 0)
@@ -584,6 +612,21 @@ namespace QMC.CDT320.Sequencing
                         _currentPickerNo,
                         _pickTarget != null ? _pickTarget.OrderIndex : _inspectionCursor,
                         _currentDieId);
+
+                // C1/R1-①-3(return-follow): 게이트 시 스테이지(StageY/NeedleX 등) 이동의 안전 전제를
+                // MotionGuard dry-run으로 대기 — 기존 존 클리어 대기가 보호하던 비-X 대상
+                // (VerifyPickerZAxesAvoidWhenInputRisk/EjectPinZ zero-avoid/작업영역/Unknown)을 동일한
+                // fail-safe 의미(대기)로 유지한다.
+                if (useReturnFollowOverlap)
+                {
+                    int stageGuardResult = await WaitInputStagePlaneGuardClearBeforeVisionOverlapAsync(
+                        stage,
+                        targetNeedleX,
+                        targetY,
+                        ct).ConfigureAwait(false);
+                    if (stageGuardResult != 0)
+                        return stageGuardResult;
+                }
 
                 QMC.CDT320.Diagnostics.HandlerTactLog.MotionStart("INPUTVISION", TactRequestId(), "EjectPinZ");
                 int result = await EnsureEjectPinZAvoidForStageTravelAsync(stage, "Input die vision 준비", ct).ConfigureAwait(false);
@@ -2269,6 +2312,25 @@ namespace QMC.CDT320.Sequencing
 
                 if (!IsInputStageAxisAlreadyInPosition(stage, WaferStageAxis.VisionX, target))
                 {
+                    // C1(return-follow): 게이트+제약(목표가 피커 페어 간격 미충족)이면 퇴장 피커를
+                    // 선행축으로 추종 진입한다. 존이 이미 비어 제약이 없으면(2번째 이후 촬영 포함)
+                    // follow 없이 기존 일반 이동. follow 실패 시 R5 폴백 — 기존 경로(공유레일/가드
+                    // 클리어 대기 + 일반 이동)로 1회 재시도(아래 기존 코드가 그 재시도 경로다).
+                    if (ShouldFollowPickerForInputVisionEntry(stage, target))
+                    {
+                        int followEntryResult = await TryFollowInputVisionXBehindPickerAsync(
+                            stage,
+                            target,
+                            description,
+                            ct).ConfigureAwait(false);
+                        if (followEntryResult == 0)
+                            return CheckInputStageAxisInPosition(stage, WaferStageAxis.VisionX, target, description);
+
+                        WriteLog("InputDieVisionPrepareSequence",
+                            Name + " " + description + " VisionX 팔로잉 진입이 실패해 기존 대기+일반 이동으로 재시도합니다. " +
+                            "followResult=" + followEntryResult + " - Check");
+                    }
+
                     int result = await MoveInputStageAxisCommandAsync(
                         stage,
                         WaferStageAxis.VisionX,
@@ -2305,6 +2367,263 @@ namespace QMC.CDT320.Sequencing
             finally
             {
             }
+        }
+
+        // C1 게이트(return-follow): Auto + PickUp TransferMotionMode가 Conti 계열일 때만
+        // 존 대기 생략+VisionX 팔로잉 진입을 적용한다. 미충족 시 기존 경로 완전 무변경.
+        // (InputCameraMarkInspectionSequence.IsMinimalRetreatGateSatisfied 선례 미러)
+        private bool IsVisionReturnFollowGateSatisfied()
+        {
+            if (Options == null || Options.RunMode != SequenceRunMode.Auto)
+                return false;
+
+            PickerPickUpMotionConfig config = null;
+            if (Side == PickerSequenceSide.Front && FrontPicker != null && FrontPicker.Config != null)
+                config = FrontPicker.Config.PickUp;
+            else if (Side == PickerSequenceSide.Rear && RearPicker != null && RearPicker.Config != null)
+                config = RearPicker.Config.PickUp;
+
+            if (config == null)
+                return false;
+
+            return config.TransferMotionMode == PickerPickUpTransferMotionMode.ContiSegmentedPickUp ||
+                   config.TransferMotionMode == PickerPickUpTransferMotionMode.FastContiSegmentedPickUp;
+        }
+
+        // C1/R1-①-3(return-follow): 스테이지 평면 이동(StageY/NeedleX) 목표에 대한 MotionGuard 전체
+        // dry-run(CanAxisTeachingMove — VerifyPickerZAxesAvoidWhenInputRisk/EjectPinZ zero-avoid/
+        // 작업영역 규칙 포함)을 폴링 대기한다. 기존 존 클리어 대기의 X존 소속 조건만 follow로
+        // 이관하고, 나머지 보호 대상은 동일한 fail-safe(대기) 의미를 유지한다.
+        // 타임아웃/선행검사 무한 대기 규칙은 기존 존 대기와 동일.
+        private async Task<int> WaitInputStagePlaneGuardClearBeforeVisionOverlapAsync(
+            InputStageUnit stage,
+            double targetNeedleX,
+            double targetY,
+            CancellationToken ct)
+        {
+            try
+            {
+                BaseAxis stageY = stage != null ? stage.StageY : null;
+                BaseAxis needleX = stage != null ? stage.NeedleBlockX : null;
+                if (stageY == null && needleX == null)
+                    return 0;
+
+                int timeoutMs = ResolveTimeout();
+                DateTime start = DateTime.UtcNow;
+                bool waitLogged = false;
+
+                while (true)
+                {
+                    ct.ThrowIfCancellationRequested();
+                    if (Context != null)
+                        Context.StopIfCycleStopRequested(Name + ".InputVisionOverlapStageGuardWait");
+
+                    string stageYReason = string.Empty;
+                    string needleXReason = string.Empty;
+                    bool stageYClear = stageY == null ||
+                        MotionGuardRuntime.CanAxisTeachingMove(
+                            stageY, targetY, "InputDieVisionPrepareOverlap;StageY", out stageYReason);
+                    bool needleXClear = needleX == null ||
+                        MotionGuardRuntime.CanAxisTeachingMove(
+                            needleX, targetNeedleX, "InputDieVisionPrepareOverlap;NeedleX", out needleXReason);
+
+                    if (stageYClear && needleXClear)
+                    {
+                        if (waitLogged)
+                        {
+                            WriteLog("InputDieVisionPrepareSequence",
+                                Name + " 팔로잉 게이트: StageY/NeedleX 이동 안전 전제 확인 완료. " +
+                                "die=" + _currentDieId + ", pickerNo=" + _currentPickerNo + " - Ok");
+                        }
+
+                        return 0;
+                    }
+
+                    if (!waitLogged)
+                    {
+                        WriteLog("InputDieVisionPrepareSequence",
+                            Name + " 팔로잉 게이트: StageY/NeedleX 이동 안전 전제 대기. " +
+                            "die=" + _currentDieId +
+                            ", pickerNo=" + _currentPickerNo +
+                            ", stageYReason=" + stageYReason +
+                            ", needleXReason=" + needleXReason + " - Wait");
+                        waitLogged = true;
+                    }
+
+                    double elapsedMs = (DateTime.UtcNow - start).TotalMilliseconds;
+                    if (elapsedMs >= timeoutMs)
+                    {
+                        if (IsInputCameraPreInspectionMode())
+                        {
+                            WriteLog("InputDieVisionPrepareSequence",
+                                Name + " InputCamera 선행검사 모드: StageY/NeedleX 안전 전제가 확보될 때까지 계속 대기합니다. " +
+                                "die=" + _currentDieId +
+                                ", elapsedMs=" + elapsedMs.ToString("0") +
+                                ", stageYReason=" + stageYReason +
+                                ", needleXReason=" + needleXReason + " - Wait");
+                            start = DateTime.UtcNow;
+                            continue;
+                        }
+
+                        return Fail("INPUT-DIE-VISION-PREPARE-STAGE-GUARD-TIMEOUT", Name,
+                            "StageY/NeedleX 이동 안전 전제(MotionGuard dry-run)가 확보되지 않았습니다. " +
+                            "die=" + _currentDieId +
+                            ", pickerNo=" + _currentPickerNo +
+                            ", elapsedMs=" + elapsedMs.ToString("0") +
+                            ", timeoutMs=" + timeoutMs +
+                            ", stageYReason=" + stageYReason +
+                            ", needleXReason=" + needleXReason);
+                    }
+
+                    await Task.Delay(1, ct).ConfigureAwait(false);
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (SequenceStopException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("INPUT-DIE-VISION-PREPARE-STAGE-GUARD-EX", Name,
+                    "StageY/NeedleX 이동 안전 전제 확인 중 예외가 발생했습니다. error=" + ex.Message);
+            }
+        }
+
+        // C1(return-follow): 촬영 목표가 양 피커의 Actual/Command 페어 간격을 이미 만족하면
+        // 존이 빈 상태 — follow 없이 기존 일반 이동을 쓴다(2번째 이후 촬영 자연 일반화).
+        private bool ShouldFollowPickerForInputVisionEntry(InputStageUnit stage, double target)
+        {
+            try
+            {
+                if (!IsVisionReturnFollowGateSatisfied())
+                    return false;
+                if (stage == null || !(stage.CameraX is AjinAxis))
+                    return false;
+
+                SharedRailXMotionService service = SharedRailXMotionRuntime.ResolveService(
+                    Context != null ? Context.Machine : null);
+                if (service == null)
+                    return false;
+
+                BaseAxis frontX = Context.Machine.PickerFrontUnit != null ? Context.Machine.PickerFrontUnit.PickerX : null;
+                BaseAxis rearX = Context.Machine.PickerRearUnit != null ? Context.Machine.PickerRearUnit.PickerX : null;
+                string detail;
+                bool frontClear = frontX == null ||
+                    (service.IsPairClearanceSatisfied(frontX, frontX.ActualPosition, stage.CameraX, target, out detail) &&
+                     service.IsPairClearanceSatisfied(frontX, frontX.CommandPosition, stage.CameraX, target, out detail));
+                bool rearClear = rearX == null ||
+                    (service.IsPairClearanceSatisfied(rearX, rearX.ActualPosition, stage.CameraX, target, out detail) &&
+                     service.IsPairClearanceSatisfied(rearX, rearX.CommandPosition, stage.CameraX, target, out detail));
+
+                return !(frontClear && rearClear);
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        // C1/R2(return-follow): 제약이 되는 선행 피커 선택 — Input(+방향 진입)은 페어 간격식
+        // (피커 + HomeClearance − 비전)에서 X가 작은 피커가 여유가 작아 제약이 된다.
+        private BaseAxis ResolveConstrainingPickerXForInputVisionEntry()
+        {
+            BaseAxis frontX = Context != null && Context.Machine != null && Context.Machine.PickerFrontUnit != null
+                ? Context.Machine.PickerFrontUnit.PickerX
+                : null;
+            BaseAxis rearX = Context != null && Context.Machine != null && Context.Machine.PickerRearUnit != null
+                ? Context.Machine.PickerRearUnit.PickerX
+                : null;
+            if (frontX == null)
+                return rearX;
+            if (rearX == null)
+                return frontX;
+
+            return frontX.ActualPosition <= rearX.ActualPosition ? frontX : rearX;
+        }
+
+        // C1/R2/R4(return-follow): InputVisionX(후행)가 퇴장하는 제약 피커X(선행)를 추종해 촬영
+        // 위치로 진입한다. 판단 로직 없이 항상 follow 시도(정지 선행축 포함) — follow는 여유
+        // (간격−safetyGap) ≤ 0이면 명령 없이 대기하고, 피커가 끝내 안 움직이면 타임아웃(-21) →
+        // R5 폴백. 역방향 판단도 하지 않는다: 피커가 비전 쪽으로 접근하는 이동은 피커 자신의
+        // 인터락(SafetyDistance)이 차단하고, follow는 후행축을 전진만 시키므로 간격 하한은
+        // 인터락이 보장한다. 선택되지 않은 다른 피커와의 충돌은 follow 내부 이동/오버라이드가
+        // MotionGuard(SharedRailX 페어 간격 포함)를 통과하며 검증된다 — 위반 시도는 -11 → R5 폴백.
+        // 간격 공식 정합: direction=+1 → 거리 = (선행 + homeGap) − 후행 = 피커 + HomeClearance − 비전
+        // (기존 페어 간격식과 동일). homeGap/safetyGap/direction/timeout은 설정 런타임 조회.
+        private async Task<int> TryFollowInputVisionXBehindPickerAsync(
+            InputStageUnit stage,
+            double target,
+            string description,
+            CancellationToken ct)
+        {
+            AjinAxis followVisionX = stage != null ? stage.CameraX as AjinAxis : null;
+            BaseAxis leadingPickerX = ResolveConstrainingPickerXForInputVisionEntry();
+            SharedRailXMotionService service = SharedRailXMotionRuntime.ResolveService(
+                Context != null ? Context.Machine : null);
+            if (followVisionX == null || leadingPickerX == null || service == null)
+                return -1;
+
+            int direction;
+            double homeGap;
+            double safetyGap;
+            string gapDetail;
+            if (!service.TryGetFollowGapParameters(
+                stage.CameraX,
+                leadingPickerX,
+                service.Config != null ? service.Config.InputVisionRetreatExtraClearance : 40.0,
+                out direction,
+                out homeGap,
+                out safetyGap,
+                out gapDetail))
+            {
+                WriteLog("InputDieVisionPrepareSequence",
+                    Name + " VisionX 팔로잉 파라미터 조회에 실패해 기존 경로로 진행합니다. " +
+                    "detail=" + gapDetail + " - Check");
+                return -1;
+            }
+
+            int timeoutMs = service.Config != null ? service.Config.VisionFollowEntryTimeoutMs : 15000;
+            // 현재 기준: follow의 명령/오버라이드 경로는 축 레이어 자동 스케일이 없으므로 여기서 1회 스케일.
+            double trailingVelocity = MotionSpeedScale.ApplyDefaultVelocityScale(
+                stage.CameraX.Config != null ? stage.CameraX.Config.DefaultVelocity : 0.0);
+            double trailingAcceleration = MotionSpeedScale.ApplyDefaultAccelerationScale(
+                stage.CameraX.Config != null ? stage.CameraX.Config.Acceleration : 0.0);
+            double trailingDeceleration = MotionSpeedScale.ApplyDefaultAccelerationScale(
+                stage.CameraX.Config != null ? stage.CameraX.Config.Deceleration : 0.0);
+            double leadingVelocity = MotionSpeedScale.ApplyDefaultVelocityScale(
+                leadingPickerX.Config != null ? leadingPickerX.Config.DefaultVelocity : 0.0);
+            double leadingAcceleration = MotionSpeedScale.ApplyDefaultAccelerationScale(
+                leadingPickerX.Config != null ? leadingPickerX.Config.Acceleration : 0.0);
+            double leadingDeceleration = MotionSpeedScale.ApplyDefaultAccelerationScale(
+                leadingPickerX.Config != null ? leadingPickerX.Config.Deceleration : 0.0);
+
+            WriteLog("InputDieVisionPrepareSequence",
+                Name + " " + description + " VisionX 팔로잉 진입을 시작합니다. leading=" + leadingPickerX.Name +
+                ", leadingCommand=" + leadingPickerX.CommandPosition.ToString("F6") +
+                ", visionTarget=" + target.ToString("F6") +
+                ", " + gapDetail +
+                ", timeoutMs=" + timeoutMs + " - Start");
+
+            // 선행 목표는 퇴장 목표를 모르므로 현재 Command(정보용)를 사용한다(스펙 확정).
+            return await followVisionX.FollowMoveAsync(
+                leadingPickerX,
+                leadingPickerX.CommandPosition,
+                leadingVelocity,
+                leadingAcceleration,
+                leadingDeceleration,
+                target,
+                trailingVelocity,
+                trailingAcceleration,
+                trailingDeceleration,
+                direction,
+                safetyGap,
+                homeGap,
+                timeoutMs,
+                ct).ConfigureAwait(false);
         }
 
         private async Task<int> MoveNeedleXAndVerifyAsync(
