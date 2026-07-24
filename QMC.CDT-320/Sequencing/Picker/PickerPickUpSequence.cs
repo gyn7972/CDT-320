@@ -26,9 +26,9 @@ namespace QMC.CDT320.Sequencing
 
     internal sealed class PickerPickUpSequence : PickerSequenceBase<PickerPickUpStep>
     {
-        private const double ContinuousPickMaxDeltaX = 45.0;
-        private const double ContinuousPickMaxDeltaY = 1.5;
-        private const double ContinuousPickMaxDeltaT = 0.2;
+        private const double ContinuousPickMaxDeltaX = 70.0;
+        private const double ContinuousPickMaxDeltaY = 3.0;
+        private const double ContinuousPickMaxDeltaT = 1.0;
         private const double ContinuousPickFacingPrecheckClearance = 180.0;
         private static readonly object SimVisionRandomLock = new object();
         private static readonly Random SimVisionRandom = new Random();
