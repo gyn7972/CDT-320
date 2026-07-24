@@ -330,6 +330,8 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             AddVisionPickerOffsetItems(optionItems, "INPUT VISION", unit.Setup.InputVisionToPicker, PickerAxis.PickerX, PickerAxis.PickerY, visionOffsetGroup);
             AddVisionPickerOffsetItems(optionItems, "OUTPUT VISION", unit.Setup.OutputVisionToPicker, PickerAxis.PickerX, PickerAxis.PickerY, visionOffsetGroup);
 
+            AddColletAfZOffsetItems(optionItems);
+
             optionParameterGrid.SetItems(optionItems);
 
             waitParameterGrid.AutoFitParentGroupHeight = true;   // WAIT 그룹 높이를 내용에 맞춰 자동 조정 (스크롤 없이 전 항목 표시)
@@ -342,6 +344,34 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 Describe(AxisDouble("PICK LIFT POSITION", PickerAxis.PickerZ0, AxisUnitConverter.Millimeter, ParameterGridScope.Recipe, () => unit.Recipe.PickLiftPosition, v => unit.Recipe.PickLiftPosition = v),
                     "구 PickUp 경로에서 Die를 집은 뒤 Needle과 Picker를 동시에 위로 들어 올릴 상대 거리입니다.")
             });
+        }
+
+        // 콜렛별 AF Z Offset(공정 Pick/Place Z 가산값)과 안전 한계를 편집한다.
+        // 값은 콜렛 캘리브레이션/런타임 Bottom AF가 자동 갱신하고, PickUpZ/PlaceZ 캘 저장 시 0으로 리셋된다.
+        private void AddColletAfZOffsetItems(List<ParameterGridItem> items)
+        {
+            const string groupKey = "L_COLLET_AF_Z_OFFSET";
+            unit.Recipe.EnsurePositionObjects();
+            items.Add(ParameterGridItem.Header("COLLET AF Z OFFSET", groupKey));
+            items.Add(InGroup(Describe(ParameterGridItem.Double("AF Z OFFSET LIMIT", "mm (0.000)", ParameterGridScope.Recipe,
+                () => unit.Recipe.ColletAfZOffsetLimitMm,
+                v => unit.Recipe.ColletAfZOffsetLimitMm = Math.Max(0.001, Math.Abs(v))),
+                "콜렛 AF Z Offset 안전 한계(절대값, mm)입니다. 공정 Pick/Place, 콜렛 캘, 런타임 AF 모두 이 한계를 넘으면 알람으로 중단합니다. 기본 0.3mm."), groupKey));
+            for (int i = 0; i < 4; i++)
+            {
+                int index = i;
+                items.Add(InGroup(Describe(ParameterGridItem.Double("COLLET " + (index + 1) + " AF Z OFFSET", "mm (0.000)", ParameterGridScope.Recipe,
+                    () => unit.Recipe.ColletAfZOffset != null && unit.Recipe.ColletAfZOffset.Length > index
+                        ? unit.Recipe.ColletAfZOffset[index]
+                        : 0.0,
+                    v =>
+                    {
+                        unit.Recipe.EnsurePositionObjects();
+                        unit.Recipe.ColletAfZOffset[index] = v;
+                    }),
+                    "공정 Pick/Place Z에 가산되는 콜렛별 AF Z Offset(mm)입니다. +면 덜 내려오고 -면 더 내려옵니다. " +
+                    "콜렛 캘리브레이션과 공정 중 런타임 Bottom AF가 자동 누적 갱신하며, PickUpZ/PlaceZ 캘 저장 시 0으로 리셋됩니다."), groupKey));
+            }
         }
 
         private void AddPickerConfigItems(List<ParameterGridItem> items, string groupKey)

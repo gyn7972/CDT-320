@@ -1482,6 +1482,9 @@ namespace QMC.CDT_320.Ui.Dialogs
                 bool machineValid = TryGetRecipeRotationCenter(host, side, i, out machineX, out machineY, out hasMachineCenter);
                 string pickZText, placeZText;
                 ResolvePickPlaceZTeachingText(host, side, i, out pickZText, out placeZText);
+                // AF Z OFS는 실제 공정에 적용되는 값(Picker Recipe.ColletAfZOffset)을 표시한다.
+                // (런타임 AF 누적/Z캘 리셋은 레시피 배열만 갱신하므로 캘 레코드 값과 다를 수 있음)
+                string afZOffsetText = ResolveAppliedAfZOffsetText(host, side, i);
                 gridResults.Rows.Add(
                     side + " C" + i,
                     side,
@@ -1501,7 +1504,42 @@ namespace QMC.CDT_320.Ui.Dialogs
                     (hasMachineCenter && machineValid) ? machineY.ToString("F6") : "-",
                     pickZText,
                     placeZText,
-                    record.Valid ? record.AfZOffset.ToString("F6") : "-");
+                    afZOffsetText);
+            }
+        }
+
+        // 공정에 실제 적용되는 콜렛 AF Z Offset(Picker Recipe.ColletAfZOffset[collet-1])을 표시용으로 읽는다.
+        private static string ResolveAppliedAfZOffsetText(Form1 host, VisionFocusPickerSide side, int colletNo)
+        {
+            try
+            {
+                if (host == null || host.Machine == null)
+                    return "-";
+
+                int index = NormalizeColletIndex(colletNo);
+                double[] offsets;
+                if (side == VisionFocusPickerSide.Front)
+                {
+                    if (host.Machine.PickerFrontUnit == null || host.Machine.PickerFrontUnit.Recipe == null)
+                        return "-";
+                    host.Machine.PickerFrontUnit.Recipe.EnsurePositionObjects();
+                    offsets = host.Machine.PickerFrontUnit.Recipe.ColletAfZOffset;
+                }
+                else
+                {
+                    if (host.Machine.PickerRearUnit == null || host.Machine.PickerRearUnit.Recipe == null)
+                        return "-";
+                    host.Machine.PickerRearUnit.Recipe.EnsurePositionObjects();
+                    offsets = host.Machine.PickerRearUnit.Recipe.ColletAfZOffset;
+                }
+
+                if (offsets == null || offsets.Length <= index)
+                    return "-";
+                return offsets[index].ToString("F6");
+            }
+            catch
+            {
+                return "-";
             }
         }
 

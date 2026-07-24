@@ -362,6 +362,9 @@ namespace QMC.CDT320.Sequencing
                     // 다이를 든 상태의 실측 포커스이므로 Pick/Place Z 보정(Collet AF Z Offset)에 누적한다(다음 다이부터 적용).
                     // 한계 초과는 fail-closed(알람 중단). 레시피 파일 저장은 아래 ApplyRuntimeBottomFocusPosition의
                     // 레시피 저장에 함께 실린다.
+                    double afPreviousOffset;
+                    bool afOffsetCommitted;
+                    bool afStaleConsumed;
                     result = AccumulateColletAfZOffsetFromRuntimeAf(
                         pickerIndex,
                         defaultPosition,
@@ -369,12 +372,18 @@ namespace QMC.CDT320.Sequencing
                         sequence.Result.BestScore,
                         sequence.Result.SampleCount,
                         scanMode.ToString(),
-                        waferKey);
+                        waferKey,
+                        out afPreviousOffset,
+                        out afOffsetCommitted,
+                        out afStaleConsumed);
                     if (result != 0)
                         return result;
 
                     if (!ApplyRuntimeBottomFocusPosition(pickerIndex, bestZ))
                     {
+                        // 보상 롤백: offset·stale 플래그·인메모리 BottomPosition을 함께 AF 이전 상태로 복원한다.
+                        // (부분 롤백 금지 — offset만 되돌리면 레시피 저장 실패 서브경로에서 기준선/offset이 어긋난다.)
+                        RollbackRuntimeAfOffsetAndBaseline(pickerIndex, afPreviousOffset, afOffsetCommitted, afStaleConsumed, defaultPosition);
                         return Fail("PICKER-BOTTOM-DIE-AUTOFOCUS-SAVE", Name,
                             "생산 Bottom Die AutoFocus Best Z를 Picker별 BottomPosition에 저장하지 못했습니다. " +
                             "side=" + Side + ", pickerNo=" + pickerNo + ", bestZ=" + bestZ.ToString("F6"));
@@ -3273,10 +3282,11 @@ namespace QMC.CDT320.Sequencing
         // 인덱스 정합: pickerIndex(0-base) = colletNo-1 = Recipe.ColletAfZOffset 인덱스 = PickerZ{i} 축.
         // 캘리브레이션 측정/티칭 저장/검사(Bottom/Side)/Avoid Z 경로에는 절대 사용하지 말 것(이중 적용·오염).
 
-        /// <summary>자기 side 픽커 레시피의 ColletAfZOffset 배열과 limit를 얻는다. 실패 시 false.</summary>
-        private bool TryGetColletAfZOffsetRecipe(out double[] offsets, out double limitMm)
+        /// <summary>자기 side 픽커 레시피의 ColletAfZOffset 배열/limit/기준선 stale 플래그를 얻는다. 실패 시 false.</summary>
+        private bool TryGetColletAfZOffsetRecipe(out double[] offsets, out double limitMm, out bool[] staleFlags)
         {
             offsets = null;
+            staleFlags = null;
             limitMm = 0.3;
             if (Side == PickerSequenceSide.Front)
             {
@@ -3285,6 +3295,7 @@ namespace QMC.CDT320.Sequencing
                 FrontPicker.Recipe.EnsurePositionObjects();
                 offsets = FrontPicker.Recipe.ColletAfZOffset;
                 limitMm = FrontPicker.Recipe.ColletAfZOffsetLimitMm;
+                staleFlags = FrontPicker.Recipe.ColletAfZBaselineStale;
             }
             else
             {
@@ -3293,11 +3304,12 @@ namespace QMC.CDT320.Sequencing
                 RearPicker.Recipe.EnsurePositionObjects();
                 offsets = RearPicker.Recipe.ColletAfZOffset;
                 limitMm = RearPicker.Recipe.ColletAfZOffsetLimitMm;
+                staleFlags = RearPicker.Recipe.ColletAfZBaselineStale;
             }
 
             if (double.IsNaN(limitMm) || double.IsInfinity(limitMm) || limitMm <= 0.0)
                 limitMm = 0.3;
-            return offsets != null;
+            return offsets != null && staleFlags != null;
         }
 
         /// <summary>
@@ -3313,7 +3325,8 @@ namespace QMC.CDT320.Sequencing
 
             double[] offsets;
             double limitMm;
-            if (!TryGetColletAfZOffsetRecipe(out offsets, out limitMm) || offsets.Length <= pickerIndex)
+            bool[] staleFlags;
+            if (!TryGetColletAfZOffsetRecipe(out offsets, out limitMm, out staleFlags) || offsets.Length <= pickerIndex)
                 return 0.0;
 
             double offset = offsets[pickerIndex];
@@ -3335,35 +3348,119 @@ namespace QMC.CDT320.Sequencing
         }
 
         /// <summary>
-        /// PickUpZ/PlaceZ 캘리브레이션이 티칭을 새로 저장하면 현재 콜렛 접촉면이 티칭에 흡수되므로,
-        /// 잔존 Collet AF Z Offset을 0으로 리셋해 이중 반영을 차단한다(캘 저장 직후 호출).
+        /// Runtime AF의 BottomPosition 적용 실패 시 보상 롤백: 누적했던 offset과 인메모리 BottomPosition(FocusPosition)을
+        /// 함께 AF 이전 값으로 복원해 "offset은 새값 + 기준선은 구값" 부정합(재시도 시 이중 누적)을 차단한다.
         /// </summary>
-        protected void ResetColletAfZOffsetAfterZCalibration(int pickerIndex, string source)
+        private void RollbackRuntimeAfOffsetAndBaseline(int pickerIndex, double previousOffset, bool offsetCommitted, bool staleConsumed, double previousBottomZ)
         {
             try
             {
-                if (pickerIndex < 0 || pickerIndex > 3)
-                    return;
-
                 double[] offsets;
                 double limitMm;
-                if (!TryGetColletAfZOffsetRecipe(out offsets, out limitMm) || offsets.Length <= pickerIndex)
-                    return;
+                bool[] staleFlags;
+                if (TryGetColletAfZOffsetRecipe(out offsets, out limitMm, out staleFlags))
+                {
+                    if (offsetCommitted && offsets.Length > pickerIndex)
+                        offsets[pickerIndex] = previousOffset;
+                    // stale 플래그 소비도 트랜잭션의 일부: 기준선을 낡은 값으로 되돌리므로 플래그도 복원해야
+                    // 다음 AF가 Z캘 티칭에 이미 흡수된 드리프트를 재누적하지 않는다.
+                    if (staleConsumed && staleFlags.Length > pickerIndex)
+                        staleFlags[pickerIndex] = true;
+                }
 
-                double previous = offsets[pickerIndex];
-                offsets[pickerIndex] = 0.0;
-                QMC.Common.Log.Write("Calibration", "SYSTEM", "ColletAfZOffsetReset",
-                    "Z 캘리브레이션 티칭 저장으로 Collet AF Z Offset을 리셋했습니다(새 티칭이 현재 콜렛 접촉면을 포함). source=" + source +
-                    ", side=" + Side +
+                if (Side == PickerSequenceSide.Front)
+                    FrontPicker.SetRuntimePickerZPosition(pickerIndex, "FocusPosition", previousBottomZ);
+                else
+                    RearPicker.SetRuntimePickerZPosition(pickerIndex, "FocusPosition", previousBottomZ);
+
+                QMC.Common.Log.Write("Calibration", "SYSTEM", "ColletAfZOffsetRuntime",
+                    "Runtime Bottom AF 적용 실패 — offset/기준선 보상 롤백 수행. side=" + Side +
                     ", colletNo=" + (pickerIndex + 1) +
-                    ", previousOffsetMm=" + previous.ToString("F6") + " -> 0.000000");
+                    ", offsetRolledBackTo=" + previousOffset.ToString("F6") + " (committed=" + offsetCommitted + ")" +
+                    ", staleRestored=" + staleConsumed +
+                    ", bottomPositionRolledBackTo=" + previousBottomZ.ToString("F6"));
             }
             catch (Exception ex)
             {
                 WriteLog("ColletAfZOffset",
-                    Name + " Collet AF Z Offset 리셋 중 예외. source=" + source +
-                    ", colletNo=" + (pickerIndex + 1) +
+                    Name + " Runtime AF 보상 롤백 중 예외. colletNo=" + (pickerIndex + 1) +
                     ", error=" + ex.Message + " - Failed");
+            }
+        }
+
+        /// <summary>
+        /// PickUpZ/PlaceZ 캘리브레이션이 티칭을 새로 저장하면 현재 콜렛 접촉면이 티칭에 흡수되므로,
+        /// 잔존 Collet AF Z Offset을 리셋한다(캘 저장 직후 호출). 단, offset은 Pick/Place 공용이므로
+        /// 단순 0 리셋 시 재캘리브레이션되지 않은 반대편 보정이 소실된다 — 리셋 전에 잔존 offset을
+        /// 반대편 티칭에 폴딩(가산)해 유효 목표 Z(티칭+offset)를 보존한다.
+        /// 또한 Bottom 기준선(BottomPosition)은 아직 낡은 상태이므로 stale 플래그를 세워
+        /// 다음 Bottom AF 1회가 누적 없이 기준선 재설정만 하도록 한다. 실패 시 알람(리셋 미수행 방치 금지).
+        /// 반환 0=성공, 음수=폴딩 검증 실패(호출한 캘리브레이션을 Fail로 중단해야 함).
+        /// </summary>
+        protected int ResetColletAfZOffsetAfterZCalibration(int pickerIndex, string source)
+        {
+            try
+            {
+                if (pickerIndex < 0 || pickerIndex > 3)
+                    return 0;
+
+                double[] offsets;
+                double limitMm;
+                bool[] staleFlags;
+                if (!TryGetColletAfZOffsetRecipe(out offsets, out limitMm, out staleFlags) || offsets.Length <= pickerIndex)
+                    return 0;
+
+                double previous = offsets[pickerIndex];
+                if (double.IsNaN(previous) || double.IsInfinity(previous))
+                    previous = 0.0;
+
+                // 폴딩 대상: 이번 캘이 재측정하지 "않은" 반대편 티칭.
+                string foldPositionName = source == "PickUpZCalibration" ? "PlacePosition" : "PickPosition";
+                string foldDetail = "none";
+                if (previous != 0.0)
+                {
+                    PickerAxis zAxis = GetPickerZAxis(pickerIndex);
+                    double foldBase = GetPickerTeachingPosition(zAxis, foldPositionName);
+                    double foldTarget = foldBase + previous;
+                    if (Side == PickerSequenceSide.Front)
+                        FrontPicker.SetPickerAxisTeachingPosition(zAxis, foldPositionName, foldTarget);
+                    else
+                        RearPicker.SetPickerAxisTeachingPosition(zAxis, foldPositionName, foldTarget);
+
+                    double readback = GetPickerTeachingPosition(zAxis, foldPositionName);
+                    if (Math.Abs(readback - foldTarget) > 0.000001)
+                    {
+                        return Fail("COLLET-AF-ZOFFSET-FOLD-VERIFY", Name,
+                            "Collet AF Z Offset 폴딩 readback 불일치 — 캘리브레이션 저장을 중단합니다. source=" + source +
+                            ", side=" + Side +
+                            ", colletNo=" + (pickerIndex + 1) +
+                            ", position=" + foldPositionName +
+                            ", expected=" + foldTarget.ToString("F6") +
+                            ", readback=" + readback.ToString("F6"));
+                    }
+
+                    foldDetail = foldPositionName + "=" + foldBase.ToString("F6") + "+" + previous.ToString("F6") + "=" + foldTarget.ToString("F6");
+                }
+
+                offsets[pickerIndex] = 0.0;
+                if (staleFlags.Length > pickerIndex)
+                    staleFlags[pickerIndex] = true;
+
+                QMC.Common.Log.Write("Calibration", "SYSTEM", "ColletAfZOffsetReset",
+                    "Z 캘리브레이션 티칭 저장으로 Collet AF Z Offset을 리셋했습니다(새 티칭이 현재 콜렛 접촉면을 포함). source=" + source +
+                    ", side=" + Side +
+                    ", colletNo=" + (pickerIndex + 1) +
+                    ", previousOffsetMm=" + previous.ToString("F6") + " -> 0.000000" +
+                    ", fold(" + foldDetail + ")" +
+                    ", baselineStale=true(다음 Bottom AF는 기준선 재설정 전용)");
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                return Fail("COLLET-AF-ZOFFSET-RESET-EX", Name,
+                    "Collet AF Z Offset 리셋 중 예외가 발생했습니다. source=" + source +
+                    ", colletNo=" + (pickerIndex + 1) +
+                    ", error=" + ex.Message);
             }
         }
 
@@ -3381,15 +3478,36 @@ namespace QMC.CDT320.Sequencing
             double bestScore,
             int sampleCount,
             string scanMode,
-            string waferKey)
+            string waferKey,
+            out double previousOffset,
+            out bool offsetCommitted,
+            out bool staleConsumed)
         {
+            previousOffset = 0.0;
+            offsetCommitted = false;
+            staleConsumed = false;
             if (pickerIndex < 0 || pickerIndex > 3)
                 return 0;
 
             double[] offsets;
             double limitMm;
-            if (!TryGetColletAfZOffsetRecipe(out offsets, out limitMm) || offsets.Length <= pickerIndex)
+            bool[] staleFlags;
+            if (!TryGetColletAfZOffsetRecipe(out offsets, out limitMm, out staleFlags) || offsets.Length <= pickerIndex)
                 return 0;
+
+            // Z캘 직후 기준선(BottomPosition)이 낡은 상태의 첫 Bottom AF: 드리프트가 이미 Z캘 티칭에
+            // 흡수되어 있으므로 누적하지 않고 기준선 재설정(BottomPosition 갱신은 호출부가 수행)만 한다.
+            if (staleFlags.Length > pickerIndex && staleFlags[pickerIndex])
+            {
+                staleFlags[pickerIndex] = false;
+                staleConsumed = true;
+                QMC.Common.Log.Write("Calibration", "SYSTEM", "ColletAfZOffsetRuntime",
+                    "Runtime Bottom AF 기준선 재설정 — Z캘 직후 첫 AF이므로 누적을 건너뜁니다. side=" + Side +
+                    ", colletNo=" + (pickerIndex + 1) +
+                    ", skippedDelta=bestZ-defaultZ=" + bestZ.ToString("F6") + "-" + defaultZ.ToString("F6") + "=" + (bestZ - defaultZ).ToString("F6") +
+                    ", offsetMm=" + offsets[pickerIndex].ToString("F6") + " (변경 없음), baselineStale=false");
+                return 0;
+            }
 
             double runtimeDelta = bestZ - defaultZ;
             if (double.IsNaN(runtimeDelta) || double.IsInfinity(runtimeDelta))
@@ -3398,6 +3516,7 @@ namespace QMC.CDT320.Sequencing
             double previous = offsets[pickerIndex];
             if (double.IsNaN(previous) || double.IsInfinity(previous))
                 previous = 0.0;
+            previousOffset = previous;
             double newTotal = previous + runtimeDelta;
 
             if (Math.Abs(newTotal) > limitMm)
@@ -3413,6 +3532,7 @@ namespace QMC.CDT320.Sequencing
             }
 
             offsets[pickerIndex] = newTotal;
+            offsetCommitted = true;
 
             string detail =
                 "Runtime Bottom AF Collet AF Z Offset 누적. side=" + Side +

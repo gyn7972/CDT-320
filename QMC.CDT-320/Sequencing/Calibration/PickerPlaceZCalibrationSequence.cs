@@ -1922,8 +1922,10 @@ namespace QMC.CDT320.Sequencing.Calibration
                         ", recipe=" + recipePlaceZ.ToString("F6"));
 
                 // 새 PlacePosition 티칭은 현재 콜렛 접촉면을 물리(Flow) 측정으로 흡수했다 —
-                // 잔존 Collet AF Z Offset을 유지하면 이중 반영(과하강/미달)이므로 0으로 리셋한다.
-                ResetColletAfZOffsetAfterZCalibration(_pickerNo - 1, "PlaceZCalibration");
+                // 잔존 offset은 재측정되지 않은 PickPosition에 폴딩 후 0 리셋(이중 반영/반대편 보정 소실 동시 차단).
+                int afResetResult = ResetColletAfZOffsetAfterZCalibration(_pickerNo - 1, "PlaceZCalibration");
+                if (afResetResult != 0)
+                    return afResetResult;
 
                 CalibrationData data = Context.Machine.VisionUnit.Config.CalibrationData;
                 data.EnsureObjects();
