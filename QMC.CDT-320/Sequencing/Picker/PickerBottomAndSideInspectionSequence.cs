@@ -3073,9 +3073,12 @@ namespace QMC.CDT320.Sequencing
                     return null;
 
                 int timeoutMs = ResolveVisionInspectionTimeout();
-                return Side == PickerSequenceSide.Front
+                BottomVisionOffset result = Side == PickerSequenceSide.Front
                     ? await FrontPicker.WaitBottomInspectionFinalResultAsync(shot.Target.PickerNo, timeoutMs, ct).ConfigureAwait(false)
                     : await RearPicker.WaitBottomInspectionFinalResultAsync(shot.Target.PickerNo, timeoutMs, ct).ConfigureAwait(false);
+
+                ApplyBypassBottomFinalResultContext(shot, result);
+                return result;
             }
             catch (OperationCanceledException)
             {
@@ -3089,6 +3092,37 @@ namespace QMC.CDT320.Sequencing
                     ", error=" + ex.Message + " - Failed");
                 return null;
             }
+        }
+
+        // 비전 바이패스(UseVision=false) 경로의 시뮬 결과는 요청 문맥 스탬핑(ApplyBottomRequestContext)을
+        // 거치지 않아 DieId=""/DieIndex=-1/RequestId·GroupId 빈 값으로 온다(ToBottomVisionOffset 하드코딩).
+        // place 최종 검증(PICKER-PLACE-BOTTOM-DIE-MISMATCH 등)이 시뮬 런에서 오탐하지 않도록
+        // 바이패스 모드에서만 shot의 촬영 대상 문맥으로 채운다. 실비전 결과(DieId 보유)는 손대지
+        // 않으므로 place 대상과 촬영 대상이 실제로 다른 경우의 검출력은 그대로 유지된다.
+        private void ApplyBypassBottomFinalResultContext(BottomShot shot, BottomVisionOffset result)
+        {
+            if (result == null || shot == null || shot.Target == null || shot.Target.Die == null)
+                return;
+            if (!string.IsNullOrWhiteSpace(result.DieId))
+                return;
+
+            AppSettings settings = AppSettingsStore.Current;
+            if (settings == null || settings.UseVision)
+                return;
+
+            result.DieId = shot.Target.Die.DieId ?? string.Empty;
+            result.DieIndex = shot.Target.Die.InputSequenceNo;
+            if (string.IsNullOrWhiteSpace(result.RequestId))
+                result.RequestId = "SIM-BOTTOM-P" + shot.Target.PickerNo + "-" + result.DieId;
+            if (string.IsNullOrWhiteSpace(result.GroupId))
+                result.GroupId = result.RequestId;
+
+            WriteLog("PickerBottomAndSideInspectionSequence",
+                Name + " 비전 바이패스 모드: Bottom 최종 RESULT에 촬영 대상 문맥을 채웠습니다. " +
+                "pickerNo=" + shot.Target.PickerNo +
+                ", die=" + result.DieId +
+                ", dieIndex=" + result.DieIndex +
+                ", requestId=" + result.RequestId + " - Check");
         }
 
         public async Task<int> WaitBottomFinalBeforePlaceMoveAsync(
