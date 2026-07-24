@@ -1554,10 +1554,11 @@ namespace QMC.CDT_320.Ui.Dialogs
                 if (host == null || host.Machine == null)
                     return;
 
+                // 공정 Pick/Place Z가 실제로 사용하는 티칭은 콜렛별 Z축의 스칼라 PickPosition/PlacePosition이다.
+                // (DiePick/DiePlacePosition 배열은 X/Y용이라 Z 항이 비어 있음)
                 PickerAxis zAxis = ResolvePickerZAxis(colletNo);
-                int index = NormalizeColletIndex(colletNo);
-                string pickName = "DiePickPosition[" + index + "]";
-                string placeName = "DiePlacePosition[" + index + "]";
+                string pickName = "PickPosition";
+                string placeName = "PlacePosition";
                 if (side == VisionFocusPickerSide.Front)
                 {
                     if (host.Machine.PickerFrontUnit == null)

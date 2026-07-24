@@ -337,9 +337,16 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             items.Add(VisionMember("REAR Y", groupKey, kindLabel, kind, VisionSide.Rear));
         }
 
+        // 레시피 로드가 Recipe를 새 인스턴스로 교체(BaseUnit.LoadSettings)해도 항상 라이브 위치 객체를 반환한다.
+        // 지역 변수로 캡처하면 클로저가 낡은 객체에 읽고 써서 "UI만 바뀌고 런타임은 old 값" 버그가 된다.
+        private VisionAxisPositions ResolveLiveVisionPositions(VisionSide side)
+        {
+            _visionUnit.Recipe.EnsurePositionObjects();
+            return side == VisionSide.Front ? _visionUnit.Recipe.FrontSideVision : _visionUnit.Recipe.RearSideVision;
+        }
+
         private ParameterGridItem VisionMember(string axisLabel, string groupKey, string kindLabel, string kind, VisionSide side)
         {
-            VisionAxisPositions positions = side == VisionSide.Front ? _visionUnit.Recipe.FrontSideVision : _visionUnit.Recipe.RearSideVision;
             BaseAxis axis = side == VisionSide.Front ? _visionUnit.FrontSideVisionY : _visionUnit.RearSideVisionY;
 
             Func<double> getter;
@@ -347,11 +354,11 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             switch (kind)
             {
                 // Avoid 위치 레시피 연결
-                case "Avoid": getter = () => positions.AvoidPosition; setter = v => positions.AvoidPosition = v; break;
+                case "Avoid": getter = () => ResolveLiveVisionPositions(side).AvoidPosition; setter = v => ResolveLiveVisionPositions(side).AvoidPosition = v; break;
                 // Process 위치(0도) 레시피 연결
-                case "Process0": getter = () => positions.Process0Position; setter = v => positions.Process0Position = v; break;
+                case "Process0": getter = () => ResolveLiveVisionPositions(side).Process0Position; setter = v => ResolveLiveVisionPositions(side).Process0Position = v; break;
                 // Process 위치(90도) 레시피 연결
-                case "Process90": getter = () => positions.Process90Position; setter = v => positions.Process90Position = v; break;
+                case "Process90": getter = () => ResolveLiveVisionPositions(side).Process90Position; setter = v => ResolveLiveVisionPositions(side).Process90Position = v; break;
                 default: getter = () => 0.0; setter = v => { }; break;
             }
 

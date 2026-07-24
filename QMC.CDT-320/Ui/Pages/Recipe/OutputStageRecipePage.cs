@@ -359,11 +359,19 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 header.Description = "Vision Cal Position";
             items.Add(header);
 
-            var recipe = _outputStageUnit.Recipe;
-            if (goodY) items.Add(StageMember("GOOD Y", groupKey, kindLabel, kind, _outputStageUnit.GoodStage.StageY, () => recipe.GoodStageY));
-            if (goodZ) items.Add(StageMember("GOOD Z", groupKey, kindLabel, kind, _outputStageUnit.GoodStage.StageZ, () => recipe.GoodStageZ));
-            if (ng) items.Add(StageMember("NG Y", groupKey, kindLabel, kind, _outputStageUnit.NgStage.StageY, () => recipe.NGStageY));
-            if (vision) items.Add(StageMember("VISION X", groupKey, kindLabel, kind, _outputStageUnit.OutputCameraX, () => recipe.VisionX));
+            if (goodY) items.Add(StageMember("GOOD Y", groupKey, kindLabel, kind, _outputStageUnit.GoodStage.StageY, () => ResolveLiveRecipe().GoodStageY));
+            if (goodZ) items.Add(StageMember("GOOD Z", groupKey, kindLabel, kind, _outputStageUnit.GoodStage.StageZ, () => ResolveLiveRecipe().GoodStageZ));
+            if (ng) items.Add(StageMember("NG Y", groupKey, kindLabel, kind, _outputStageUnit.NgStage.StageY, () => ResolveLiveRecipe().NGStageY));
+            if (vision) items.Add(StageMember("VISION X", groupKey, kindLabel, kind, _outputStageUnit.OutputCameraX, () => ResolveLiveRecipe().VisionX));
+        }
+
+        // 레시피 로드가 Recipe를 새 인스턴스로 교체(BaseUnit.LoadSettings)해도 항상 라이브 객체를 반환한다.
+        // 지역 변수로 캡처하면 클로저가 낡은 객체에 읽고 써서 "UI만 바뀌고 런타임은 old 값" 버그가 된다.
+        private OutputStageRecipe ResolveLiveRecipe()
+        {
+            OutputStageRecipe recipe = _outputStageUnit.Recipe;
+            recipe.EnsurePositionObjects();
+            return recipe;
         }
 
         private ParameterGridItem StageMember(string axisLabel, string groupKey, string kindLabel, string kind, BaseAxis axis, Func<StageAxisPositions> set)
