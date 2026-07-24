@@ -1261,7 +1261,14 @@ namespace QMC.CDT320.Sequencing
 
             try
             {
+                // FIFO/데드락 방어선: '아무 side나'(HasAnyPermission)가 아니라 '나보다 앞선 다른
+                // side 허가'(HasForeignPermission)만 대기 조건으로 본다. 카메라 존 획득 게이트
+                // (WaitUntilNoForeignPickUpPermissionAsync)가 이미 foreign을 배제하고 존을 잡았으므로
+                // 정상 흐름에서 이 대기는 즉시 통과하는 belt-and-suspenders다. 무한 대기 대신
+                // bounded timeout(ResolveTimeout)을 걸어 무언정지 대신 복구 가능한 알람으로 전환한다.
                 bool waitLogged = false;
+                int timeoutMs = ResolveTimeout();
+                DateTime start = DateTime.UtcNow;
 
                 while (true)
                 {
@@ -1270,12 +1277,12 @@ namespace QMC.CDT320.Sequencing
                         Context.StopIfCycleStopRequested(Name + ".InputCameraPickUpPermissionClear");
 
                     string pendingPermissionDetail;
-                    if (!InputCameraPickUpPermissionStore.HasAnyPermission(out pendingPermissionDetail))
+                    if (!InputCameraPickUpPermissionStore.HasForeignPermission(Side, out pendingPermissionDetail))
                     {
                         if (waitLogged)
                         {
                             WriteLog("InputDieVisionPrepareSequence",
-                                Name + " InputCamera 선행검사 이동 대기 종료. PickUp 허가가 모두 소비되어 InputVisionX 이동이 가능합니다. " +
+                                Name + " InputCamera 선행검사 이동 대기 종료. 앞선 PickUp 허가가 소비되어 InputVisionX 이동이 가능합니다. " +
                                 "die=" + _currentDieId +
                                 ", pickerNo=" + _currentPickerNo +
                                 ", side=" + Side + " - Ok");
@@ -1287,12 +1294,25 @@ namespace QMC.CDT320.Sequencing
                     if (!waitLogged)
                     {
                         WriteLog("InputDieVisionPrepareSequence",
-                            Name + " InputCamera 선행검사 이동을 보류합니다. 이미 PickUp 허가가 발급되어 InputVisionX는 Avoid 위치를 유지해야 합니다. " +
+                            Name + " InputCamera 선행검사 이동을 보류합니다. 앞선 PickUp 허가가 발급되어 InputVisionX는 Avoid 위치를 유지해야 합니다. " +
                             "pendingPermission=" + pendingPermissionDetail +
                             ", die=" + _currentDieId +
                             ", pickerNo=" + _currentPickerNo +
                             ", side=" + Side + " - Wait");
                         waitLogged = true;
+                    }
+
+                    double elapsedMs = (DateTime.UtcNow - start).TotalMilliseconds;
+                    if (elapsedMs >= timeoutMs)
+                    {
+                        return Fail("INPUT-DIE-VISION-PREPARE-PERMISSION-CLEAR-TIMEOUT", Name,
+                            "InputCamera 선행검사 이동 전 앞선 PickUp 허가 대기가 제한 시간을 초과했습니다. " +
+                            "die=" + _currentDieId +
+                            ", pickerNo=" + _currentPickerNo +
+                            ", side=" + Side +
+                            ", elapsedMs=" + elapsedMs.ToString("0") +
+                            ", timeoutMs=" + timeoutMs +
+                            ", pendingPermission=" + pendingPermissionDetail);
                     }
 
                     await Task.Delay(10, ct).ConfigureAwait(false);
