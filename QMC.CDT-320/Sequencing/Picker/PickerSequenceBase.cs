@@ -2484,26 +2484,13 @@ namespace QMC.CDT320.Sequencing
                         return 0;
                     }
 
-                    string movingAxes;
-                    if (IsOppositePickerMoving(out movingAxes))
-                    {
-                        if (!loggedWait)
-                        {
-                            WriteLog("PickerOppositeWait",
-                                Name + " auto wait. Opposite picker is moving. description=" + description +
-                                ", opposite=" + oppositeName +
-                                ", movingAxes=" + movingAxes + " - Check");
-                            WriteSharedRailXLog(
-                                Name + " PickerOppositeWait wait. reason=OppositeMoving" +
-                                ", description=" + description +
-                                ", opposite=" + oppositeName +
-                                ", oppositeState=" + BuildOppositePickerSharedRailXState(movingAxes));
-                            loggedWait = true;
-                        }
-
-                        await Task.Delay(1, ct).ConfigureAwait(false);
-                        continue;
-                    }
+                    // 기존 조건: 상대 Picker의 축이 하나라도 이동 중이면 무조건 대기했다 —
+                    //           사실상 두 헤드를 직렬화해 Pick/검사/Place 동시 진행을 막던 지점.
+                    // 현재 기준(사용자 승인 2026-07-25, M1): 서로 다른 작업(Pick/Bottom·Side검사/Place)은
+                    //           동시 진행한다. 물리 충돌은 FacingY 게이트(레지스트리 1순위)와 SharedRailX
+                    //           페어 간격, RealtimeCollisionSupervisor가 담당하므로 "이동 중" 대기는 제거한다.
+                    //           같은 작업 금지(동시 검사)는 아래 Process 존 점유 대기와 InspectionArea
+                    //           시퀀스 자원이 그대로 보장한다.
 
                     if (oppositeWorkActive &&
                         PickerZoneInterlockRules.IsProcessZone(oppositeZone))
@@ -2538,6 +2525,16 @@ namespace QMC.CDT320.Sequencing
                             Name + " PickerOppositeWait wait complete. description=" + description +
                             ", opposite=" + oppositeName +
                             ", oppositeState=" + BuildOppositePickerSharedRailXState(null));
+                    }
+
+                    // 동시 운전 진단 로그: 상대가 이동 중인 채로 통과하면 그 사실을 1회 남긴다(M1 검증용).
+                    string movingAxes;
+                    if (IsOppositePickerMoving(out movingAxes))
+                    {
+                        WriteLog("PickerOppositeWait",
+                            Name + " auto continue. Opposite picker is moving but concurrent run is allowed. description=" + description +
+                            ", opposite=" + oppositeName +
+                            ", movingAxes=" + movingAxes + " - Ok");
                     }
 
                     return 0;
