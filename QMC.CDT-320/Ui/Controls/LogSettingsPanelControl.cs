@@ -26,14 +26,156 @@ namespace QMC.CDT_320.Ui.Controls
         private int _lastCompressDays = 14;
         private int _lastDeleteDays = 90;
 
+        // 진단 상세 로그(런타임 모드) UI — SAVE와 무관하게 즉시 적용된다.
+        private Label _lblDiagStatus;
+        private NumericUpDown _nDiagMinutes;
+        private Button _btnDiagEnable;
+        private Button _btnDiagDisable;
+        private Timer _diagStatusTimer;
+
         public LogSettingsPanelControl()
         {
             InitializeComponent();
+            BuildDiagnosticVerboseUi();
             ConfigureGrids();
             BuildLogPathRows();
             BuildVisionRows();
             WireEvents();
             LoadSettings();
+        }
+
+        /// <summary>
+        /// 진단 상세 로그(DiagnosticVerbose) 토글 UI를 상단에 코드로 구성한다.
+        /// 기존 조건: LogPolicy.EnableDiagnosticVerbose를 호출하는 UI가 없어 Motion/Main 등
+        ///           정상 상세 로그가 디스크에 저장되지 않았고(최소 모드), 2026-07-25 피커 폭주
+        ///           사고에서 모션 로그가 하나도 남지 않아 원인 확정이 불가능했다.
+        /// 현재 기준: LOG SETTINGS에서 지속시간(분)을 지정해 즉시 켜고 끌 수 있다. 제한 시간이
+        ///           지나면 LogPolicy가 스스로 최소 모드로 복귀한다(과다 로그 방지 설계 유지).
+        ///           런타임 모드이므로 AppSettings 저장(SAVE) 대상이 아니다.
+        /// </summary>
+        private void BuildDiagnosticVerboseUi()
+        {
+            var grpDiag = new GroupBox
+            {
+                Text = "DIAGNOSTIC LOG (진단 상세 로그 — 즉시 적용)",
+                Dock = DockStyle.Top,
+                Height = 86,
+                Padding = new Padding(8, 4, 8, 4)
+            };
+
+            var layout = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                ColumnCount = 5,
+                RowCount = 2
+            };
+            layout.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));                // 시간 라벨
+            layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 90F));           // 분 입력
+            layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 120F));          // ENABLE
+            layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 120F));          // DISABLE
+            layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));           // 여백
+            layout.RowStyles.Add(new RowStyle(SizeType.Percent, 50F));
+            layout.RowStyles.Add(new RowStyle(SizeType.Percent, 50F));
+
+            _lblDiagStatus = new Label
+            {
+                Dock = DockStyle.Fill,
+                TextAlign = System.Drawing.ContentAlignment.MiddleLeft,
+                Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold)
+            };
+            layout.SetColumnSpan(_lblDiagStatus, 5);
+            layout.Controls.Add(_lblDiagStatus, 0, 0);
+
+            var lblMinutes = new Label
+            {
+                Text = "지속 시간(분)",
+                Dock = DockStyle.Fill,
+                TextAlign = System.Drawing.ContentAlignment.MiddleLeft,
+                AutoSize = true
+            };
+            layout.Controls.Add(lblMinutes, 0, 1);
+
+            _nDiagMinutes = new NumericUpDown
+            {
+                Minimum = 1,
+                Maximum = 1440,
+                Value = 240,
+                Dock = DockStyle.Fill,
+                Margin = new Padding(3, 4, 8, 4)
+            };
+            layout.Controls.Add(_nDiagMinutes, 1, 1);
+
+            _btnDiagEnable = new Button
+            {
+                Text = "ENABLE",
+                Dock = DockStyle.Fill,
+                FlatStyle = FlatStyle.Flat,
+                Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold),
+                UseVisualStyleBackColor = true,
+                Cursor = Cursors.Hand
+            };
+            _btnDiagEnable.Click += (s, e) =>
+            {
+                LogPolicy.EnableDiagnosticVerbose(
+                    (int)_nDiagMinutes.Value,
+                    QMC.CDT_320.Ui.Security.UserSession.Name);
+                UpdateDiagnosticVerboseStatus();
+            };
+            layout.Controls.Add(_btnDiagEnable, 2, 1);
+
+            _btnDiagDisable = new Button
+            {
+                Text = "DISABLE",
+                Dock = DockStyle.Fill,
+                FlatStyle = FlatStyle.Flat,
+                Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold),
+                UseVisualStyleBackColor = true,
+                Cursor = Cursors.Hand
+            };
+            _btnDiagDisable.Click += (s, e) =>
+            {
+                LogPolicy.DisableDiagnosticVerbose(QMC.CDT_320.Ui.Security.UserSession.Name);
+                UpdateDiagnosticVerboseStatus();
+            };
+            layout.Controls.Add(_btnDiagDisable, 3, 1);
+
+            grpDiag.Controls.Add(layout);
+            Controls.Add(grpDiag);
+            // Fill(rootLayout)이 Top 그룹을 제외한 나머지 영역을 차지하도록 z-order 보정.
+            rootLayout.BringToFront();
+
+            // 남은 시간 갱신(1초). 만료 자동 복귀도 이 갱신으로 UI에 반영된다.
+            _diagStatusTimer = new Timer { Interval = 1000 };
+            _diagStatusTimer.Tick += (s, e) => UpdateDiagnosticVerboseStatus();
+            _diagStatusTimer.Start();
+            Disposed += (s, e) =>
+            {
+                _diagStatusTimer.Stop();
+                _diagStatusTimer.Dispose();
+            };
+
+            UpdateDiagnosticVerboseStatus();
+        }
+
+        private void UpdateDiagnosticVerboseStatus()
+        {
+            bool on = LogPolicy.Mode == LogMode.DiagnosticVerbose;
+            if (on)
+            {
+                TimeSpan remain = LogPolicy.DiagnosticVerboseRemaining;
+                _lblDiagStatus.Text = "현재: 상세 저장 중 (DiagnosticVerbose) — 남은 시간 " +
+                    ((int)remain.TotalMinutes) + "분 " + remain.Seconds + "초 후 자동 해제";
+                _lblDiagStatus.ForeColor = System.Drawing.Color.FromArgb(230, 88, 31);
+            }
+            else
+            {
+                _lblDiagStatus.Text = "현재: 최소 저장 (ProductionMinimal) — Motion/Main 등 상세 로그는 디스크에 저장되지 않습니다";
+                _lblDiagStatus.ForeColor = System.Drawing.Color.FromArgb(35, 45, 57);
+            }
+
+            _btnDiagEnable.Enabled = !on;
+            _btnDiagDisable.Enabled = on;
+            _nDiagMinutes.Enabled = !on;
         }
 
         /// <summary>두 그리드의 헤더 클릭 정렬(오름/내림차순) 제거.</summary>

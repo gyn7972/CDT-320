@@ -80,6 +80,21 @@ namespace QMC.Common.Logging
             get { return Mode == LogMode.DiagnosticVerbose || _verboseScopeCount > 0; }
         }
 
+        /// <summary>진단 상세 모드의 남은 시간. 비활성(최소 모드)이면 TimeSpan.Zero. UI 표시용.</summary>
+        public static TimeSpan DiagnosticVerboseRemaining
+        {
+            get
+            {
+                lock (SyncRoot)
+                {
+                    if (_mode != LogMode.DiagnosticVerbose)
+                        return TimeSpan.Zero;
+                    TimeSpan remain = _diagnosticExpireAt - DateTime.Now;
+                    return remain > TimeSpan.Zero ? remain : TimeSpan.Zero;
+                }
+            }
+        }
+
         private static int _verboseScopeCount;
 
         /// <summary>

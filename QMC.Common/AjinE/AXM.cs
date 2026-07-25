@@ -2143,7 +2143,9 @@ namespace QMC.Common.Motion.Ajin
             double acceleration,
             double deceleration,
             int ret,
-            string failedAt)
+            string failedAt,
+            double commandBase = double.NaN,
+            double relative = double.NaN)
         {
             try
             {
@@ -2159,10 +2161,12 @@ namespace QMC.Common.Motion.Ajin
                 string message = "AXM OVERRIDE " + kind +
                     ". axisNo=" + axis +
                     (double.IsNaN(position) ? "" : ", position=" + position.ToString("F6")) +
+                    (double.IsNaN(commandBase) ? "" : ", cmdBase=" + commandBase.ToString("F6")) +
+                    (double.IsNaN(relative) ? "" : ", relative=" + relative.ToString("F6")) +
                     ", velocity=" + velocity.ToString("F6") +
                     ", acceleration=" + acceleration.ToString("F6") +
                     ", deceleration=" + deceleration.ToString("F6") +
-                    ", absRelMode=" + (kind == "POSITION" ? "ABS(명시)" : "-") +
+                    ", absRelMode=" + (kind == "POSITION" ? "REL(변환)" : "-") +
                     ", ret=0x" + ret.ToString("X4") +
                     (string.IsNullOrEmpty(failedAt) ? " - Ok" : ", failedAt=" + failedAt + " - Failed");
 
@@ -2176,37 +2180,44 @@ namespace QMC.Common.Motion.Ajin
 
         /// <summary>
         /// 구동 중인 축의 목표 위치와 가감속/속도를 오버라이드한다.
-        /// position 은 <b>절대 좌표</b>로 받는다 — 호출 직전 AxmMotSetAbsRelMode(POS_ABS_MODE)를
-        /// 명시적으로 지정해 보드의 좌표 기준을 확정한다.
-        /// 기존 조건: 절대좌표를 넘기면서 좌표 모드를 지정하지 않아, 이동 명령(MoveAbsoluteAsync)이
-        ///           설정해 둔 모드에 암묵적으로 의존했다. 2026-07-25 RearPickerX 폭주 사고에서
-        ///           오버라이드 직후 명령 반대 방향(+31.3mm) 이동이 관측되었다.
-        /// 현재 기준: 오버라이드 호출부에서 절대좌표 모드를 매번 명시한다.
+        /// position 은 <b>절대 좌표</b>로 받고, 내부에서 보드 상대량으로 변환해 전달한다.
+        /// 기존 조건(2026-07-25 1차): 절대좌표 모드를 SetAbsRelMode(POS_ABS_MODE)로 명시하고 절대
+        ///           position을 그대로 AxmOverridePos에 전달했다 — 같은 날 16:10 재현에서 모드 명시
+        ///           성공(ret=0x0000)에도 축이 +position 상대량처럼 역주행함을 보드 인자 로그
+        ///           (AXM-OVERRIDE)로 확정했다. 즉 EtherCAT의 AxmOverridePos는 절대/상대 모드
+        ///           설정과 무관하게 구동 시점 위치 기준 상대량으로 해석한다(PCI-Nx04 주석과 동일 거동).
+        /// 현재 기준(사용자 승인 2026-07-25 A안): 호출 직전 보드 Command 위치(cmdBase)를 읽어
+        ///           relative = position − cmdBase 로 변환해 전달한다. SetAbsRelMode는 오버라이드에
+        ///           무효임이 확정되어 제거(상대량 전달과의 의미 충돌 방지).
+        ///           로그에 절대 목표/cmdBase/relative를 모두 남긴다 — 벤더의 "구동 시점" 기준이
+        ///           호출 시점이 아니라 모션 시작점이면 도달 위치가 이동량만큼 어긋나므로
+        ///           로그 대조로 즉시 판별 가능하다(저속 검증 필수).
         /// </summary>
         public static int ModifyPosition(int axis, double position, double velocity, double acceleration, double deceleration)
         {
             int ret = 0;
 
-            // 오버라이드 위치를 절대좌표로 해석하도록 보드 모드를 명시 지정한다.
-            if ((ret = SetAbsRelMode(axis, true)) != 0)
+            double commandBase = 0.0;
+            if ((ret = GetCommandPosition(axis, ref commandBase)) != 0)
             {
-                LogOverrideCall("POSITION", axis, position, velocity, acceleration, deceleration, ret, "SetAbsRelMode");
+                LogOverrideCall("POSITION", axis, position, velocity, acceleration, deceleration, ret, "GetCommandPosition");
                 return ret;
             }
 
-            if ((ret = AXL.CheckErrorCode("AXM.AxmOverridePos", AXM.AxmOverridePos(axis, position))) != 0)
+            double relative = position - commandBase;
+            if ((ret = AXL.CheckErrorCode("AXM.AxmOverridePos", AXM.AxmOverridePos(axis, relative))) != 0)
             {
-                LogOverrideCall("POSITION", axis, position, velocity, acceleration, deceleration, ret, "AxmOverridePos");
+                LogOverrideCall("POSITION", axis, position, velocity, acceleration, deceleration, ret, "AxmOverridePos", commandBase, relative);
                 return ret;
             }
 
             if ((ret = AXL.CheckErrorCode("AXM.AxmOverrideAccelVelDecel", AXM.AxmOverrideAccelVelDecel(axis, velocity, acceleration, deceleration))) != 0)
             {
-                LogOverrideCall("POSITION", axis, position, velocity, acceleration, deceleration, ret, "AxmOverrideAccelVelDecel");
+                LogOverrideCall("POSITION", axis, position, velocity, acceleration, deceleration, ret, "AxmOverrideAccelVelDecel", commandBase, relative);
                 return ret;
             }
 
-            LogOverrideCall("POSITION", axis, position, velocity, acceleration, deceleration, 0, null);
+            LogOverrideCall("POSITION", axis, position, velocity, acceleration, deceleration, 0, null, commandBase, relative);
             return ret;
         }
         public static int ModifyVelocity(int axis, double velocity, double acceleration, double deceleration)
