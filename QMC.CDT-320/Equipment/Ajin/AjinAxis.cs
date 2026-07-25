@@ -555,11 +555,28 @@ namespace QMC.CDT320.Ajin
         // 주의: Config를 이동 구간 동안 임시 치환하므로 반드시 finally에서 원복한다.
         //       이 헬퍼는 FollowMoveAsync 전용이며 다른 곳에서 호출하지 않는다.
         //       velocity<=0이면 치환 없이 기존 폴백(축 레이어 단일 스케일)에 위임한다.
+        /// <summary>
+        /// 팔로잉 최초 이동 명령. 명시 가감속을 Config 임시 치환으로 전달하고,
+        /// MotionGuard 존 판정용 targetName을 AxisTeachingMove 스코프로 전달한다.
+        /// 기존 조건: MoveAbsoluteAsync에 targetName 파라미터가 없고 스코프도 열지 않아
+        ///           request.TargetName이 빈 문자열이 됐다. 중간 세그먼트 좌표는 티칭 존 밴드 밖이라
+        ///           위치 기반 존 판정도 Unknown이 되어 "Manual X 목표 존을 판단할 수 없습니다"로
+        ///           차단됐다(실장비 2026-07-25, RearPickerX target=567.785, targetName=빈문자).
+        /// 현재 기준(사용자 승인 2026-07-25, B′-1): MotionGuardRuntime.BeginAxisTeachingMove로
+        ///           targetName을 전달한다. 스코프 좌표는 MotionGuardRuntime.IsMatchingScope(:529)가
+        ///           좌표 일치(±0.0001)를 요구하므로 반드시 "그 호출의 명령 좌표(targetPosition)"를
+        ///           쓴다. 최종 목표를 넣으면 매칭이 실패해 targetName이 다시 사라진다.
+        ///           최종 목표의 존 의도는 BuildFollowEntryTargetName이 targetName에 담아 준
+        ///           PickerZone= 토큰으로 전달되므로, 판정 결과는 최종 목표 기준과 같다.
+        ///           중간 좌표의 실제 안전성은 SharedRailX 페어 간격/Y 대향 거리 등 위치 기반 검증이
+        ///           그대로 담당한다.
+        /// </summary>
         private async Task<int> MoveAbsoluteForFollowAsync(
             double targetPosition,
             double velocity,
             double acceleration,
-            double deceleration)
+            double deceleration,
+            string targetName)
         {
             bool useExplicitMotion = Config != null && velocity > 0.0 && acceleration > 0.0 && deceleration > 0.0;
             double oldDefaultVelocity = useExplicitMotion ? Config.DefaultVelocity : 0.0;
@@ -574,7 +591,14 @@ namespace QMC.CDT320.Ajin
                     Config.Deceleration = deceleration;
                 }
 
-                return await MoveAbsoluteAsync(targetPosition, velocity).ConfigureAwait(false);
+                // targetName이 없으면 스코프를 열지 않는다(기존 동작 유지).
+                // 빈 스코프를 열면 IsMatchingScope가 성립해 빈 targetName이 TeachingMove로 전달되어
+                // 현재의 VerifyAxisMove 경로와 달라진다.
+                if (string.IsNullOrWhiteSpace(targetName))
+                    return await MoveAbsoluteAsync(targetPosition, velocity).ConfigureAwait(false);
+
+                using (MotionGuardRuntime.BeginAxisTeachingMove(this, targetPosition, targetName))
+                    return await MoveAbsoluteAsync(targetPosition, velocity).ConfigureAwait(false);
             }
             finally
             {
@@ -782,7 +806,8 @@ namespace QMC.CDT320.Ajin
                                     double startAcceleration = commandIsFinal ? trailAcc : followAcc;
                                     double startDeceleration = commandIsFinal ? trailDec : followDec;
                                     moveTask = MoveAbsoluteForFollowAsync(
-                                        command, startVelocity, startAcceleration, startDeceleration);
+                                        command, startVelocity, startAcceleration, startDeceleration,
+                                        trailingTargetName);
                                     lastCommanded = command;
                                     commandIssued = true;
                                     if (!firstCommandLogged)
@@ -793,6 +818,7 @@ namespace QMC.CDT320.Ajin
                                             ", velocity=" + startVelocity.ToString("F3") +
                                             ", acc=" + startAcceleration.ToString("F3") +
                                             ", dec=" + startDeceleration.ToString("F3") +
+                                            ", targetName=" + (trailingTargetName ?? "<null>") +
                                             ", scalePercent=" + (MotionSpeedScale.EffectiveScaleFactor * 100.0).ToString("0.#") + " - Ok");
                                     }
                                 }
