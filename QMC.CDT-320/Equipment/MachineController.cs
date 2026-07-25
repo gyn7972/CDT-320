@@ -71,6 +71,8 @@ namespace QMC.CDT320
         private readonly AxisInitializeExecutor _axisInitializeExecutor;
         private readonly AxisInitializeProgressStore _axisInitializeProgressStore =
             new AxisInitializeProgressStore();
+        private readonly SemaphoreSlim _axisInitializeOperationGate =
+            new SemaphoreSlim(1, 1);
         private readonly object _machineRuntimeStateSaveLock = new object();
         private bool _restoringAxisInitializeStepState;
         private readonly object _operatorMessageLock = new object();
@@ -2509,12 +2511,53 @@ namespace QMC.CDT320
 
         // Common equipment button actions.
 
+        private bool TryEnterAxisInitializeOperation(string source)
+        {
+            if (_axisInitializeOperationGate.Wait(0))
+                return true;
+
+            const string blockedMessage =
+                "다른 축 초기화 작업이 이미 실행 중입니다. 현재 작업이 끝난 뒤 다시 시도하세요.";
+            QMC.Common.Log.Write(
+                "Main",
+                "SYSTEM",
+                source,
+                blockedMessage + " - Blocked");
+            return false;
+        }
+
+        private void ExitAxisInitializeOperation(string source)
+        {
+            try
+            {
+                _axisInitializeOperationGate.Release();
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Log.Write(
+                    "Main",
+                    "SYSTEM",
+                    source,
+                    "Axis initialize operation gate release failed. error=" +
+                    ex.Message + " - Failed");
+            }
+            finally
+            {
+            }
+        }
+
 
         // 홈잡을때 사용함.!
         public async Task<int> InitializeAxisAsync(string axisName)
         {
+            bool initializeOperationEntered = false;
             try
             {
+                initializeOperationEntered =
+                    TryEnterAxisInitializeOperation("InitializeAxis");
+                if (!initializeOperationEntered)
+                    return -1;
+
                 LastActionFailureMessage = "";
                 if (IsSequenceRunning || _status == EquipmentStatus.AutoRunning)
                 {
@@ -2619,13 +2662,21 @@ namespace QMC.CDT320
             }
             finally
             {
+                if (initializeOperationEntered)
+                    ExitAxisInitializeOperation("InitializeAxis");
             }
         }
 
         public async Task<int> InitializeAxisGroupAsync(string groupName)
         {
+            bool initializeOperationEntered = false;
             try
             {
+                initializeOperationEntered =
+                    TryEnterAxisInitializeOperation("InitializeAxisGroup");
+                if (!initializeOperationEntered)
+                    return -1;
+
                 LastActionFailureMessage = "";
                 if (IsSequenceRunning || _status == EquipmentStatus.AutoRunning)
                 {
@@ -2674,12 +2725,33 @@ namespace QMC.CDT320
             }
             finally
             {
+                if (initializeOperationEntered)
+                    ExitAxisInitializeOperation("InitializeAxisGroup");
             }
         }
 
 
         // 여기 사용함
         public async Task<int> InitializeAllAxesAsync(bool markMachineReady)
+        {
+            bool initializeOperationEntered = false;
+            try
+            {
+                initializeOperationEntered =
+                    TryEnterAxisInitializeOperation("InitializeAllAxes");
+                if (!initializeOperationEntered)
+                    return -1;
+
+                return await InitializeAllAxesCoreAsync(markMachineReady).ConfigureAwait(false);
+            }
+            finally
+            {
+                if (initializeOperationEntered)
+                    ExitAxisInitializeOperation("InitializeAllAxes");
+            }
+        }
+
+        private async Task<int> InitializeAllAxesCoreAsync(bool markMachineReady)
         {
             try
             {
@@ -2874,9 +2946,15 @@ namespace QMC.CDT320
 
         public async Task<int> InitializePlanStepAsync(int stepNo)
         {
+            bool initializeOperationEntered = false;
             bool initializeRunStarted = false;
             try
             {
+                initializeOperationEntered =
+                    TryEnterAxisInitializeOperation("InitializePlanStep");
+                if (!initializeOperationEntered)
+                    return -1;
+
                 LastActionFailureMessage = "";
                 if (IsSequenceRunning || _status == EquipmentStatus.AutoRunning)
                 {
@@ -2945,6 +3023,8 @@ namespace QMC.CDT320
             {
                 if (initializeRunStarted)
                     _axisInitializeExecutor.EndRun();
+                if (initializeOperationEntered)
+                    ExitAxisInitializeOperation("InitializePlanStep");
             }
         }
 
@@ -4981,8 +5061,14 @@ namespace QMC.CDT320
         /// <summary>장비 전체 초기화: 초기화 Plan에 따라 전체 축 HOME을 수행하고 카운터/맵 상태를 준비합니다.</summary>
         public async Task<int> InitAsync()
         {
+            bool initializeOperationEntered = false;
             try
             {
+                initializeOperationEntered =
+                    TryEnterAxisInitializeOperation("InitAsync");
+                if (!initializeOperationEntered)
+                    return -1;
+
                 LastActionFailureMessage = "";
                 if (_status == EquipmentStatus.Initializing || _status == EquipmentStatus.AutoRunning)
                 {
@@ -4993,7 +5079,8 @@ namespace QMC.CDT320
                 }
 
                 SetMachineInitialized(false, "InitStart", false);
-                int axisInitResult = await InitializeAllAxesAsync(false).ConfigureAwait(false);
+                int axisInitResult =
+                    await InitializeAllAxesCoreAsync(false).ConfigureAwait(false);
                 if (axisInitResult != 0)
                     return axisInitResult;
 
@@ -5070,6 +5157,8 @@ namespace QMC.CDT320
             }
             finally
             {
+                if (initializeOperationEntered)
+                    ExitAxisInitializeOperation("InitAsync");
             }
         }
 
