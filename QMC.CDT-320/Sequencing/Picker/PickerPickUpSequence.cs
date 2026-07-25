@@ -2147,6 +2147,96 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
+        // 현재 기준(사용자 승인 2026-07-25, M8): Input 작업영역의 확인과 예약을 원자화한다.
+        //   기존 조건: 물리 대기 게이트(WaitOppositePickerNotInInputPickAreaAsync, 스텝
+        //             MoveOppositePickerToAvoidForPickerMove)와 논리 예약(EnsurePickerWorkAreaReserved,
+        //             스텝 MovePickerXStageYPickerT)이 분리되어 있고 사이에 실제 축 이동이 여럿 있어
+        //             양쪽이 동시에 게이트를 통과하면 둘 다 등록되고 이후 X 이동이 인터락 -11 →
+        //             Critical로 라인을 세웠다.
+        //   현재 기준: TryReservePickerWorkAreaExclusive가 성공할 때까지 대기한다. 성공 = 그 순간
+        //             상대 미점유가 보장된 상태이므로 이후 X 진입이 점유 경합으로 차단되지 않는다.
+        //   물리 대기 게이트는 상대의 *물리 위치*를 보는 게이트라 그대로 유지한다(이 예약은 *논리 점유*).
+        // 계층 관계: 1차 직렬화는 InputStageArea 자원 lease와 PickerPhaseCoordinator의 PickUp/PickUp
+        //   차단이며, 이 예약은 그 뒤의 방어 계층이다. 정상 흐름에서는 첫 시도에 성공해
+        //   Wait 로그가 찍히지 않는 것이 정상이다(찍히면 상위 직렬화 구멍 신호 → 보고 대상).
+        // 자기 재예약 호환: 수동 경로는 시퀀스 초입에서 EnsurePickerWorkAreaReserved로 선예약하므로
+        //   여기서는 no-op(대기 없음)로 통과한다 — 수동 무대기 규약 유지.
+        // 비Auto는 기존과 동일하게 즉시 실패(인터락 차단과 같은 결론, 대기 없음).
+        private async Task<int> ReserveInputWorkAreaExclusiveWithWaitAsync(
+            string description,
+            CancellationToken ct)
+        {
+            try
+            {
+                string occupiedOwner;
+                if (TryReservePickerWorkAreaExclusive(PickerWorkZone.Input, description, out occupiedOwner))
+                    return 0;
+
+                if (Options == null || Options.RunMode != SequenceRunMode.Auto)
+                {
+                    return Fail("PICKER-OPPOSITE-INPUT-ZONE", Name,
+                        "Pick 진입 불가: 상대 Picker가 Input 작업영역을 점유 중입니다. " +
+                        "description=" + description +
+                        ", owner=" + occupiedOwner);
+                }
+
+                bool waitLogged = false;
+                DateTime lastWaitLog = DateTime.MinValue;
+                while (true)
+                {
+                    ct.ThrowIfCancellationRequested();
+                    if (Context != null)
+                        Context.StopIfCycleStopRequested(
+                            Name + ".WaitInputWorkAreaExclusive",
+                            ShouldDeferCycleStopForPickUpDrain(),
+                            "PickUp batch drain");
+
+                    if (TryReservePickerWorkAreaExclusive(PickerWorkZone.Input, description, out occupiedOwner))
+                    {
+                        if (waitLogged)
+                        {
+                            WriteLog("PickerPickUpSequence",
+                                Name + " 상대 Picker Input 작업영역 대기 완료. Input 작업영역을 예약하고 Pick 진입을 진행합니다. " +
+                                "side=" + Side +
+                                ", description=" + description + " - Ok");
+                        }
+
+                        return 0;
+                    }
+
+                    if ((DateTime.UtcNow - lastWaitLog).TotalMilliseconds >= 1000.0)
+                    {
+                        lastWaitLog = DateTime.UtcNow;
+                        waitLogged = true;
+                        WriteLog("PickerPickUpSequence",
+                            Name + " Pick 진입 전 상대 Picker Input 작업영역 해제 대기. 동시 Pick은 허용되지 않습니다. " +
+                            "side=" + Side +
+                            ", description=" + description +
+                            ", owner=" + occupiedOwner + " - Wait");
+                    }
+
+                    await Task.Delay(10, ct).ConfigureAwait(false);
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (SequenceStopException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("PICKER-OPPOSITE-INPUT-ZONE-EX", Name,
+                    "상대 Picker Input 작업영역 원자 예약 대기 중 예외 발생: description=" + description +
+                    ", error=" + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
         private int VerifyOppositePickerNotInInputPickArea(string description)
         {
             try
@@ -2343,7 +2433,9 @@ namespace QMC.CDT320.Sequencing
                 // Input 로딩/언로딩이 우선이다.
                 // PickUp은 InputStageArea를 잡고 비전/스테이지 준비를 진행하되,
                 // Picker가 실제 Pick 위치로 진입하기 직전에만 Input work area를 점유한다.
-                EnsurePickerWorkAreaReserved(PickerWorkZone.Input, "PickUp");
+                result = await ReserveInputWorkAreaExclusiveWithWaitAsync("PickUp", ct).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
 
                 Task<int> pickerMove;
                 if (ShouldFollowInputVisionRetreatForPickerEntry(stage))
@@ -2532,7 +2624,9 @@ namespace QMC.CDT320.Sequencing
                 WriteLog("PickerPickUpZ",
                     Name + " PickUp ContiNode Picker Vacuum ON before transfer. pickerNo=" + _currentPickerNo + " - Ok");
 
-                EnsurePickerWorkAreaReserved(PickerWorkZone.Input, "PickUp ContiNode");
+                int inputReserveResult = await ReserveInputWorkAreaExclusiveWithWaitAsync("PickUp ContiNode", ct).ConfigureAwait(false);
+                if (inputReserveResult != 0)
+                    return inputReserveResult;
 
                 double pickerXStart = pickerX.ActualPosition;
                 double pickerXPrePickTrigger = ResolveContiAsyncPrePickTriggerPosition(

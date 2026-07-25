@@ -2493,26 +2493,13 @@ namespace QMC.CDT320.Sequencing
                         return 0;
                     }
 
-                    string movingAxes;
-                    if (IsOppositePickerMoving(out movingAxes))
-                    {
-                        if (!loggedWait)
-                        {
-                            WriteLog("PickerOppositeWait",
-                                Name + " auto wait. Opposite picker is moving. description=" + description +
-                                ", opposite=" + oppositeName +
-                                ", movingAxes=" + movingAxes + " - Check");
-                            WriteSharedRailXLog(
-                                Name + " PickerOppositeWait wait. reason=OppositeMoving" +
-                                ", description=" + description +
-                                ", opposite=" + oppositeName +
-                                ", oppositeState=" + BuildOppositePickerSharedRailXState(movingAxes));
-                            loggedWait = true;
-                        }
-
-                        await Task.Delay(1, ct).ConfigureAwait(false);
-                        continue;
-                    }
+                    // 기존 조건: 상대 Picker의 축이 하나라도 이동 중이면 무조건 대기했다 —
+                    //           사실상 두 헤드를 직렬화해 Pick/검사/Place 동시 진행을 막던 지점.
+                    // 현재 기준(사용자 승인 2026-07-25, M1): 서로 다른 작업(Pick/Bottom·Side검사/Place)은
+                    //           동시 진행한다. 물리 충돌은 FacingY 게이트(레지스트리 1순위)와 SharedRailX
+                    //           페어 간격, RealtimeCollisionSupervisor가 담당하므로 "이동 중" 대기는 제거한다.
+                    //           같은 작업 금지(동시 검사)는 아래 Process 존 점유 대기와 InspectionArea
+                    //           시퀀스 자원이 그대로 보장한다.
 
                     if (oppositeWorkActive &&
                         PickerZoneInterlockRules.IsProcessZone(oppositeZone))
@@ -2534,6 +2521,13 @@ namespace QMC.CDT320.Sequencing
                             loggedWait = true;
                         }
 
+                        // 현재 기준(M7, 2026-07-25): 이 대기는 상대 검사 작업영역 해제가 조건이라
+                        // 상대 시퀀스가 알람/취소로 스테일 등록을 남기면 무한 대기가 된다.
+                        // 다른 대기 루프(PickUp Input 대기, Place Output 대기)와 동일하게
+                        // Cycle Stop 요청을 확인해 탈출 경로를 보장한다.
+                        if (Context != null)
+                            Context.StopIfCycleStopRequested(Name + ".WaitOppositePickerInspectionAreaClear");
+
                         await Task.Delay(1, ct).ConfigureAwait(false);
                         continue;
                     }
@@ -2547,6 +2541,16 @@ namespace QMC.CDT320.Sequencing
                             Name + " PickerOppositeWait wait complete. description=" + description +
                             ", opposite=" + oppositeName +
                             ", oppositeState=" + BuildOppositePickerSharedRailXState(null));
+                    }
+
+                    // 동시 운전 진단 로그: 상대가 이동 중인 채로 통과하면 그 사실을 1회 남긴다(M1 검증용).
+                    string movingAxes;
+                    if (IsOppositePickerMoving(out movingAxes))
+                    {
+                        WriteLog("PickerOppositeWait",
+                            Name + " auto continue. Opposite picker is moving but concurrent run is allowed. description=" + description +
+                            ", opposite=" + oppositeName +
+                            ", movingAxes=" + movingAxes + " - Ok");
                     }
 
                     return 0;
@@ -2631,6 +2635,61 @@ namespace QMC.CDT320.Sequencing
                     ", zone=" + zone +
                     ", description=" + description +
                     ", error=" + ex.Message + " - Failed");
+            }
+            finally
+            {
+            }
+        }
+
+        // 현재 기준(사용자 승인 2026-07-25, M8): 상대 Picker가 같은 작업영역을 점유하지 않을 때만
+        //   원자적으로 예약한다. 성공하면 true, 상대 점유로 실패하면 false와 점유자를 돌려준다.
+        //   기존 EnsurePickerWorkAreaReserved와 달리 실패를 삼키지 않고 호출부가 대기할 수 있게 한다.
+        // 자기 재예약 호환: 이미 같은 존 스코프를 보유하면 그대로 true(기존 동작과 동일, no-op).
+        protected bool TryReservePickerWorkAreaExclusive(
+            PickerWorkZone zone,
+            string description,
+            out string occupiedOwner)
+        {
+            occupiedOwner = string.Empty;
+            try
+            {
+                if (zone == PickerWorkZone.Unknown || zone == PickerWorkZone.Avoid)
+                    return true;
+
+                if (pickerWorkAreaScope != null && pickerWorkAreaZone == zone)
+                    return true;
+
+                // 다른 존 스코프를 들고 있으면 기존 관례대로 먼저 해제한다.
+                ReleasePickerWorkArea();
+
+                IDisposable scope = PickerZoneInterlockRules.TryBeginPickerWorkAreaUseExclusive(
+                    Side == PickerSequenceSide.Front,
+                    zone,
+                    Name + ":" + description,
+                    out occupiedOwner);
+                if (scope == null)
+                    return false;
+
+                pickerWorkAreaScope = scope;
+                pickerWorkAreaZone = zone;
+
+                WriteLog("PickerWorkArea",
+                    Name + " reserved picker work area exclusively. side=" + Side +
+                    ", zone=" + zone +
+                    ", description=" + description + " - Ok");
+                return true;
+            }
+            catch (Exception ex)
+            {
+                // 예약 예외는 fail-closed(대기)로 처리한다 — 기존 Ensure*는 예외를 삼키고 진행했으나
+                // 원자 예약은 "성공 확인"이 목적이므로 실패로 간주해 호출부가 대기·재시도하게 한다.
+                occupiedOwner = "예약 예외: " + ex.Message;
+                WriteLog("PickerWorkArea",
+                    Name + " exclusive picker work area reservation failed. side=" + Side +
+                    ", zone=" + zone +
+                    ", description=" + description +
+                    ", error=" + ex.Message + " - Failed");
+                return false;
             }
             finally
             {

@@ -1906,6 +1906,83 @@ namespace QMC.CDT320.Sequencing
             return 0;
         }
 
+        // 현재 기준(사용자 승인 2026-07-25, M8): 확인과 예약을 원자화한다.
+        //   기존 조건: 상대 점유 확인(대기)과 예약이 분리되어 있어 양쪽이 동시에 게이트를 통과하면
+        //             둘 다 예약되고 이후 X 이동이 인터락 -11 → Critical로 라인을 세웠다.
+        //   현재 기준: TryReservePickerWorkAreaExclusive가 성공할 때까지 대기한다. 성공 = 그 순간
+        //             상대 미점유가 보장된 상태이므로 이후 X 진입이 점유 경합으로 차단되지 않는다.
+        // 동시 Place 금지 정책은 유지된다(늦은 쪽은 예약 실패 → 대기 → 순서 진행).
+        // 계층 관계: 1차 직렬화는 OutputPlaceArea 자원 lease와 PickerPhaseCoordinator의 Place/Place
+        //   차단이며, 이 예약은 그 뒤의 방어 계층이다. 정상 흐름에서는 첫 시도에 성공해
+        //   Wait 로그가 찍히지 않는 것이 정상이다(찍히면 상위 직렬화 구멍 신호 → 보고 대상).
+        // 비Auto는 기존과 동일하게 즉시 실패(인터락 차단과 같은 결론, 대기 없음).
+        private async Task<int> ReserveOutputWorkAreaExclusiveWithWaitAsync(CancellationToken ct)
+        {
+            try
+            {
+                string occupiedOwner;
+                if (TryReservePickerWorkAreaExclusive(PickerWorkZone.Output, "Place", out occupiedOwner))
+                    return 0;
+
+                if (Options == null || Options.RunMode != SequenceRunMode.Auto)
+                {
+                    return Fail("PICKER-OPPOSITE-OUTPUT-ZONE", Name,
+                        "Place 진입 불가: 상대 Picker가 Output 작업영역을 점유 중입니다. owner=" + occupiedOwner);
+                }
+
+                bool waitLogged = false;
+                DateTime lastWaitLog = DateTime.MinValue;
+                while (true)
+                {
+                    ct.ThrowIfCancellationRequested();
+                    if (Context != null)
+                        Context.StopIfCycleStopRequested(
+                            Name + ".WaitOppositePickerOutputClearBeforePlace",
+                            ShouldDeferCycleStopForPickerDrain(),
+                            "Picker Place drain");
+
+                    if (TryReservePickerWorkAreaExclusive(PickerWorkZone.Output, "Place", out occupiedOwner))
+                    {
+                        if (waitLogged)
+                        {
+                            WriteLog("PickerPlaceSequence",
+                                Name + " 상대 Picker Output 작업영역 대기 완료. Output 작업영역을 예약하고 Place 진입을 진행합니다. side=" + Side + " - Ok");
+                        }
+
+                        return 0;
+                    }
+
+                    if ((DateTime.UtcNow - lastWaitLog).TotalMilliseconds >= 1000.0)
+                    {
+                        lastWaitLog = DateTime.UtcNow;
+                        waitLogged = true;
+                        WriteLog("PickerPlaceSequence",
+                            Name + " Place 진입 전 상대 Picker Output 작업영역 해제 대기. 동시 Place는 허용되지 않습니다. " +
+                            "side=" + Side +
+                            ", owner=" + occupiedOwner + " - Wait");
+                    }
+
+                    await Task.Delay(10, ct).ConfigureAwait(false);
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (SequenceStopException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("PICKER-OPPOSITE-OUTPUT-ZONE-EX", Name,
+                    "상대 Picker Output 작업영역 원자 예약 대기 중 예외 발생: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
         private async Task<int> MoveOutputStageReceivePositionAsync(CancellationToken ct)
         {
             int feederReady = await EnsureOutputFeederSafeBeforePlaceStageMoveAsync(ct).ConfigureAwait(false);
@@ -1915,10 +1992,20 @@ namespace QMC.CDT320.Sequencing
                 return feederReady;
             }
 
+            // 현재 기준(사용자 승인 2026-07-25, M8): 동시 Place 금지는 M4의 "대기 게이트 → 예약"
+            // 2단계가 아니라 원자 예약 1단계로 처리한다 — 확인과 등록 사이 창(TOCTOU)을 제거한다.
+            // 일반/팔로잉/Conti 모든 X 진입 모드가 아래
+            // MoveOutputStageYPickerXAndPickerZToPlaceByModeAsync 하나로 수렴하므로
+            // 이 한 곳에서 전 경로를 커버한다. 인터락 자체(최후 방어선)는 무변경.
             // OutputFeeder/OutputStage 로딩이 1순위다.
             // Picker는 OutputPlace/Stage/Feeder 리소스와 Feeder 안전 위치가 확보된 뒤에만
             // Output work area를 점유해야 Feeder 로딩 중 Picker owner로 인한 인터락 오판이 생기지 않는다.
-            EnsurePickerWorkAreaReserved(PickerWorkZone.Output, "Place");
+            int oppositeOutputClear = await ReserveOutputWorkAreaExclusiveWithWaitAsync(ct).ConfigureAwait(false);
+            if (oppositeOutputClear != 0)
+            {
+                await JoinOutputVisionRetreatMoveTaskAsync("Output 작업영역 원자 예약 실패 정리", ct).ConfigureAwait(false);
+                return oppositeOutputClear;
+            }
 
             BinStageAxis yAxis = _currentOutputSide == BinSide.Ng ? BinStageAxis.NgBinY : BinStageAxis.GoodBinY;
 

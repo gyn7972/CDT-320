@@ -496,6 +496,36 @@ namespace QMC.CDT320.Interlocks
             return new PickerWorkAreaScope(isFront, zone);
         }
 
+        // 인터락 항목(사용자 승인 2026-07-25, M8): 상대 Picker가 같은 작업영역을 점유하고 있지 않을 때만
+        //   점유를 등록한다. 확인과 등록을 하나의 activeZoneLock 안에서 수행해 원자적으로 만든다.
+        // 기존 조건: BeginPickerWorkAreaUse는 확인 없이 등록만 했고, 시퀀스가 "대기 게이트 → 예약"을
+        //   두 단계로 나눠 수행했다. 그 사이에 락이 없어 Front/Rear가 동시에 게이트를 통과하면 둘 다
+        //   등록되고, 이후 X 이동이 서로의 점유 때문에 인터락 -11로 차단되어 Critical 승격 → 라인 정지가 됐다.
+        // 현재 기준: 예약 자체가 상호배제를 보장한다. 먼저 락을 잡은 쪽이 예약에 성공하고, 늦은 쪽은
+        //   null을 받아 시퀀스에서 순서 대기한다(차단이 아니라 대기).
+        // 반환: 성공 시 점유 스코프(Dispose로 해제), 실패 시 null.
+        // 주의: 같은 측(자기) Picker가 이미 같은 존을 점유 중인 경우는 상대 점유가 아니므로 성공이다
+        //   (중복 등록 = 카운터 증가). 자기 재예약 호환성은 EnsurePickerWorkAreaReserved 쪽에서 유지된다.
+        public static IDisposable TryBeginPickerWorkAreaUseExclusive(
+            bool isFront,
+            PickerWorkZone zone,
+            string owner,
+            out string occupiedOwner)
+        {
+            occupiedOwner = string.Empty;
+            // 현재 기준: INSPECT_B/INSPECT_S 작업 점유는 같은 Process 존 점유로 관리한다.
+            zone = NormalizeInterlockZone(zone);
+            lock (activeZoneLock)
+            {
+                if (IsPickerWorkAreaActive(!isFront, zone, out occupiedOwner))
+                    return null;
+
+                AddPickerWorkAreaUse(isFront, zone, owner);
+            }
+
+            return new PickerWorkAreaScope(isFront, zone);
+        }
+
         // 인터락 기준: 현재 Picker가 점유 중인 작업영역과 소유자를 조회한다.
         public static bool TryGetPickerWorkArea(bool isFront, out PickerWorkZone zone, out string owner)
         {
@@ -1463,8 +1493,9 @@ namespace QMC.CDT320.Interlocks
                     IsOtherPickerWorkAreaActive(isFront, targetZone, out occupiedOwner))
                 {
                     string shareDetail;
-                    // 현재 기준: Auto Bottom/Side 연속동작은 반대 PickerY가 실제 Avoid/Home이면 같은 Process 점유 중에도 X 이동을 허용한다.
-                    if (CanAutoShareProcessWorkAreaWhenOppositeYSafe(request, isFront, targetZone, out shareDetail))
+                    // 현재 기준: Auto Bottom/Side 연속동작은 반대 PickerY가 실제 Avoid/Home이면 같은 Process 점유 중에도 X 이동을 허용하고,
+                    //           자기 PickerY가 후퇴 상태인 X 이동(밴드 통과)은 반대 Y 상태와 무관하게 허용한다(M3).
+                    if (CanAutoShareProcessWorkAreaWhenOppositeYSafe(request, isFront, targetZone, true, out shareDetail))
                     {
                         // 기존 조건: 반대 Picker가 같은 Process 작업 영역을 점유하면 Y 위치와 무관하게 X 이동을 무조건 차단했다.
                         // 현재 필요 여부: Manual에는 유지하되, Auto 검사 파이프라인은 반대 Y 안전 상태를 기준으로 허용한다.
@@ -1831,11 +1862,15 @@ namespace QMC.CDT320.Interlocks
             return false;
         }
 
-        // 인터락 항목: Auto 검사 연속 이동 중 상대 PickerY가 안전하면 Process 작업영역 공유 예외를 허용한다.
+        // 인터락 항목: Auto 이동 중 상대 PickerY가 안전하거나(작업 공유),
+        //             X 이동에서 자기 PickerY가 후퇴 상태이면(밴드 통과) Process 작업영역 공유 예외를 허용한다.
+        // allowWhenOwnYRetracted: X 이동 판정(:1467)에서만 true — Y 전진 판정(:1994)은 false로
+        //             동시 검사 금지(상대 Y 후퇴 요구)를 그대로 유지한다.
         private static bool CanAutoShareProcessWorkAreaWhenOppositeYSafe(
             MotionGuardRuleContext request,
             bool isFront,
             PickerWorkZone targetZone,
+            bool allowWhenOwnYRetracted,
             out string detail)
         {
             detail = string.Empty;
@@ -1856,18 +1891,41 @@ namespace QMC.CDT320.Interlocks
                     return false;
                 }
 
-                // 인터락 조건: 검사 연속 이동 태그가 없으면 Process 작업영역 공유 예외를 적용하지 않는다.
-                if (request.Intent == null || !request.Intent.InspectionContinuous)
-                {
-                    detail = "Auto 검사 연속 이동 태그가 없습니다.";
-                    return false;
-                }
+                // 기존 조건: 검사 연속 이동 태그(Intent.InspectionContinuous)가 있어야만 Process
+                //           작업영역 공유를 허용했다. 그래서 픽업/플레이스 이동이 Bottom/Side 밴드를
+                //           통과할 때 "Bottom 작업 영역을 반대 픽커가 사용 중입니다"로 차단됐고,
+                //           그 차단이 Critical 알람으로 승격되어 라인이 정지했다
+                //           (실장비 2026-07-25 20:27:24, Rear 픽업 진입 / Front Bottom 검사 중,
+                //            currentZone=Avoid, targetZone=Bottom, yActual=0).
+                // 현재 기준(사용자 승인 2026-07-25): Auto 이동은 태그와 무관하게, 상대 PickerY가
+                //           실제 Avoid/0 위치면 Process 작업영역 공유를 허용한다.
+                //   근거 1 — 이 규칙은 논리적 작업영역 점유 판정이며 물리 충돌 판정이 아니다.
+                //            피커 헤드간 물리 충돌은 VerifyFacingYDistanceFirst(:1156, 레지스트리
+                //            최우선 등록, X 안전거리 150mm + 한쪽 PickerY 정확 Avoid)와
+                //            RealtimeCollisionSupervisor(전축 하드정지)가 독립적으로 담당하며
+                //            이번 완화로 바뀌지 않는다.
+                //   근거 2 — 사용자 확인: 바텀 촬영 중 다른 피커가 픽업 존에서 작업해도 무방하다.
+                //   주의 — Manual 이동(조건 1)과 상대 PickerY 전진/이동 중(아래 조건)은 그대로 차단된다.
 
                 // 인터락 조건: 목표 존이 Process 계열이 아니면 공유 예외를 적용하지 않는다.
                 if (!IsProcessZone(targetZone))
                 {
                     detail = "대상 존이 Process가 아닙니다. targetZone=" + targetZone;
                     return false;
+                }
+
+                // 현재 기준(사용자 승인 2026-07-25, M3): X 이동에서 이동 픽커 자신의 PickerY가
+                //           실제 Avoid/0이고 전진 예약·이동도 없으면(=Bottom/Side 밴드 통과 의도)
+                //           상대 PickerY가 전진(촬영) 중이어도 공유를 허용한다.
+                //   근거 — 자기 Y가 후퇴 상태면 작업 라인을 침범할 수 없다. 물리 충돌은
+                //          FacingY 게이트(레지스트리 1순위)와 SharedRailX 페어 간격,
+                //          RealtimeCollisionSupervisor가 독립적으로 담당한다.
+                //   주의 — Y 전진 판정 호출부는 allowWhenOwnYRetracted=false로 이 예외를 쓰지 않는다.
+                //          판정 예외 시 IsPickerYOutOrMovingOut이 true를 돌려 이 분기를 타지 않는다(fail-closed).
+                if (allowWhenOwnYRetracted && !IsPickerYOutOrMovingOut(request.Machine, isFront, null))
+                {
+                    detail = "Auto X 이동이고 자기 PickerY가 실제 Avoid 또는 0 위치(밴드 통과)입니다.";
+                    return true;
                 }
 
                 bool otherFront = !isFront;
@@ -1878,7 +1936,7 @@ namespace QMC.CDT320.Interlocks
                     return false;
                 }
 
-                detail = "Auto 검사 연속 이동이고 상대 PickerY가 실제 Avoid 또는 0 위치입니다.";
+                detail = "Auto 이동이고 상대 PickerY가 실제 Avoid 또는 0 위치입니다.";
                 return true;
             }
             catch (Exception ex)
@@ -1982,7 +2040,8 @@ namespace QMC.CDT320.Interlocks
                 {
                     string shareDetail;
                     // 현재 기준: Auto Bottom/Side 연속동작은 반대 PickerY가 실제 Avoid/Home이면 같은 Process 점유 중에도 Y 전진을 허용한다.
-                    if (CanAutoShareProcessWorkAreaWhenOppositeYSafe(request, isFront, targetZone, out shareDetail))
+                    // Y 전진은 작업 의도이므로 M3의 자기 Y 후퇴 통과 예외를 적용하지 않는다(동시 검사 금지 유지).
+                    if (CanAutoShareProcessWorkAreaWhenOppositeYSafe(request, isFront, targetZone, false, out shareDetail))
                     {
                         // 기존 조건: 반대 Picker가 같은 Process 작업 영역을 점유하면 Y 위치와 무관하게 Y 전진을 무조건 차단했다.
                         // 현재 필요 여부: Manual에는 유지하되, Auto 검사 파이프라인은 반대 Y 안전 상태를 기준으로 허용한다.
@@ -3785,6 +3844,18 @@ namespace QMC.CDT320.Interlocks
             lock (activeZoneLock)
             {
                 return isFront ? frontPickerYActiveTargetZone : rearPickerYActiveTargetZone;
+            }
+        }
+
+        // 시퀀스 조회용(읽기 전용, 사용자 승인 2026-07-25 M4): 지정 Picker가 특정 작업영역 존을 점유 중인지 확인한다.
+        // TryGetPickerWorkArea는 Input→Process→Output 우선순위로 첫 활성 존 하나만 반환해 다중 점유가
+        // 가려질 수 있으므로, 존을 지정해 정확히 조회해야 하는 시퀀스 대기 게이트용으로 추가한다.
+        // 판정 로직 자체는 기존 IsPickerWorkAreaActive를 그대로 사용한다(인터락 판정 무변경).
+        internal static bool IsPickerWorkAreaZoneActive(bool isFront, PickerWorkZone zone, out string owner)
+        {
+            lock (activeZoneLock)
+            {
+                return IsPickerWorkAreaActive(isFront, zone, out owner);
             }
         }
 

@@ -1870,6 +1870,8 @@ namespace QMC.Common.Motion.Ajin
         public static int SetActualPosition(int axis, double pulse)
         {
             int ret = 0;
+            // 오버라이드 기준 무효화: 좌표 프레임이 바뀌면 기록된 모션 시작 기준은 무의미해진다.
+            ClearMotionStartCommand(axis);
             if ((ret = AXL.CheckErrorCode("AXM.AxmStatusSetActPos", AXM.AxmStatusSetActPos(axis, pulse))) != 0) return ret;
             return ret;
         }
@@ -1883,6 +1885,8 @@ namespace QMC.Common.Motion.Ajin
         public static int SetCommandPosition(int axis, double pulse)
         {
             int ret = 0;
+            // 오버라이드 기준 무효화: 좌표 프레임이 바뀌면 기록된 모션 시작 기준은 무의미해진다.
+            ClearMotionStartCommand(axis);
             if ((ret = AXL.CheckErrorCode("AXM.AxmStatusSetCmdPos", AXM.AxmStatusSetCmdPos(axis, pulse))) != 0) return ret;
             return ret;
         }
@@ -1997,6 +2001,9 @@ namespace QMC.Common.Motion.Ajin
         {
             int ret = 0;
 
+            // 오버라이드 기준 무효화: 원점 복귀는 MovePosition 기준으로 설명되지 않고,
+            // 완료 후 Command=0이 되므로 이전 기록이 남으면 스테일 0 기준의 원인이 된다.
+            ClearMotionStartCommand(axis);
             if ((ret = AXL.CheckErrorCode("AXM.AxmHomeSetStart", AXM.AxmHomeSetStart(axis))) != 0) return ret;
 
             return ret;
@@ -2039,7 +2046,19 @@ namespace QMC.Common.Motion.Ajin
         #region 위치구동함수
         public static int MovePosition(int axis, double position, double velocity, double acceleration, double deceleration)
         {
+            long motionStartSerial;
+            return MovePosition(axis, position, velocity, acceleration, deceleration, out motionStartSerial);
+        }
+
+        /// <summary>
+        /// 절대 위치 이동을 시작하고, 이 모션의 오버라이드 기준 시리얼을 반환한다.
+        /// 호출자는 시리얼을 보관했다가 ModifyPosition(…, expectedMotionStartSerial)에 넘겨
+        /// "자기 모션의 기준"으로만 오버라이드하도록 한다. 기준 기록 실패 시 -1.
+        /// </summary>
+        public static int MovePosition(int axis, double position, double velocity, double acceleration, double deceleration, out long motionStartSerial)
+        {
             int ret = 0;
+            motionStartSerial = -1L;
 
             // EtherCAT AxmOverridePos의 relative 기준 = "그 모션이 구동을 시작한 위치"
             // (실장비 검증 2026-07-25: 축이 정확히 시작위치+relative에 정지).
@@ -2048,12 +2067,22 @@ namespace QMC.Common.Motion.Ajin
             double startCommand = 0.0;
             if (GetCommandPosition(axis, ref startCommand) == 0)
             {
-                MotionStartCommandByAxis[axis] = startCommand;
+                long serial = System.Threading.Interlocked.Increment(ref _motionStartSerialSource);
+                MotionStartCommandByAxis[axis] = new MotionStartEntry { Command = startCommand, Serial = serial };
+                motionStartSerial = serial;
             }
             else
             {
-                double removed;
+                MotionStartEntry removed;
                 MotionStartCommandByAxis.TryRemove(axis, out removed);
+                try
+                {
+                    QMC.Common.Log.Write("Motion", "SYSTEM", "AXM-OVERRIDE",
+                        "AXM MOTION START BASE 기록 실패. axisNo=" + axis +
+                        ", position=" + position.ToString("F6") +
+                        " — 이 모션의 위치 오버라이드는 -2로 거부됩니다. - Check");
+                }
+                catch { }
             }
 
             if ((ret = AXL.CheckErrorCode("AXM.AxmMoveStartPos", AXM.AxmMoveStartPos(axis, position, velocity, acceleration, deceleration))) != 0) return ret;
@@ -2072,6 +2101,8 @@ namespace QMC.Common.Motion.Ajin
         public static int MoveVelocity(int axis, double velocity, double acceleration, double deceleration)
         {
             int ret = 0;
+            // 오버라이드 기준 무효화: 속도구동(조그/리밋서치)은 MovePosition 기준으로 설명되지 않는다.
+            ClearMotionStartCommand(axis);
             if ((ret = AXL.CheckErrorCode("AXM.AxmMoveVel", AXM.AxmMoveVel(axis, velocity, acceleration, deceleration))) != 0) return ret;
             //Log.Write("AjinTest", "Move Velocity in Acceleration");
             return ret;
@@ -2080,6 +2111,8 @@ namespace QMC.Common.Motion.Ajin
         public static int MoveVelocity(int axis, double velocity, TimeSpan accelerationTime, TimeSpan decelerationTime)
         {
             int ret = 0;
+            // 오버라이드 기준 무효화: 속도구동(조그/리밋서치)은 MovePosition 기준으로 설명되지 않는다.
+            ClearMotionStartCommand(axis);
             if ((ret = AXL.CheckErrorCode("AXM.AxmMoveVel", AXM.AxmMoveVel(axis, velocity, accelerationTime.Seconds, decelerationTime.Seconds))) != 0) return ret;
             //Log.Write("AjinTest", "Move Velocity in Acceleration Time");
             return ret;
@@ -2095,12 +2128,16 @@ namespace QMC.Common.Motion.Ajin
         public static int SearchSignal(int axis, double velocity, double acceleration, AXT_MOTION_HOME_DETECT_SIGNAL signal, AXT_MOTION_EDGE edge, AXT_MOTION_STOPMODE stop)
         {
             int ret = 0;
+            // 오버라이드 기준 무효화: 신호 탐색 구동은 MovePosition 기준으로 설명되지 않는다.
+            ClearMotionStartCommand(axis);
             if ((ret = AXL.CheckErrorCode("AXM.AxmMoveSignalSearch", AXM.AxmMoveSignalSearch(axis, velocity, acceleration, (int)signal, (int)edge, (int)stop))) != 0) return ret;
             return ret;
         }
         public static int SearchSignalCapture(int axis, double velocity, double acceleration, AXT_MOTION_HOME_DETECT_SIGNAL signal, AXT_MOTION_EDGE edge, AXT_MOTION_SELECTION target, AXT_MOTION_STOPMODE stop)
         {
             int ret = 0;
+            // 오버라이드 기준 무효화: 신호 탐색 구동은 MovePosition 기준으로 설명되지 않는다.
+            ClearMotionStartCommand(axis);
             if ((ret = AXL.CheckErrorCode("AXM.AxmMoveSignalCapture", AXM.AxmMoveSignalCapture(axis, velocity, acceleration, (int)signal, (int)edge, (int)target, (int)stop))) != 0) return ret;
             return ret;
         }
@@ -2114,18 +2151,24 @@ namespace QMC.Common.Motion.Ajin
         public static int Stop(int axis, double decel)
         {
             int ret = 0;
+            // 오버라이드 기준 무효화: 정지 요청 이후의 오버라이드는 기준 없는 것으로 거부돼야 한다.
+            ClearMotionStartCommand(axis);
             if ((ret = AXL.CheckErrorCode("AXM.AxmMoveStop", AXM.AxmMoveStop(axis, decel))) != 0) return ret;
             return ret;
         }
         public static int StopEmergency(int axis)
         {
             int ret = 0;
+            // 오버라이드 기준 무효화: 정지 요청 이후의 오버라이드는 기준 없는 것으로 거부돼야 한다.
+            ClearMotionStartCommand(axis);
             if ((ret = AXL.CheckErrorCode("AXM.AxmMoveEStop", AXM.AxmMoveEStop(axis))) != 0) return ret;
             return ret;
         }
         public static int StopSlowly(int axis)
         {
             int ret = 0;
+            // 오버라이드 기준 무효화: 정지 요청 이후의 오버라이드는 기준 없는 것으로 거부돼야 한다.
+            ClearMotionStartCommand(axis);
             if ((ret = AXL.CheckErrorCode("AXM.AxmMoveSStop", AXM.AxmMoveSStop(axis))) != 0) return ret;
             return ret;
         }
@@ -2152,12 +2195,77 @@ namespace QMC.Common.Motion.Ajin
             new System.Collections.Concurrent.ConcurrentDictionary<int, long>();
 
         // EtherCAT AxmOverridePos의 relative 기준 = "그 모션이 구동을 시작한 위치"
-        // (실장비 검증 2026-07-25: InputVisionX 3세션 모두 축이 정확히 시작위치+relative에 정지).
+        // (실장비 검증 2026-07-25 + 사용자 확정 2026-07-25: 상대 좌표 기준으로 결론).
         // MovePosition이 이동 명령을 내리기 직전의 보드 Command 위치를 축별로 기록해 두고,
         // ModifyPosition이 그 값을 기준으로 relative를 계산한다.
         // 연속 오버라이드에서도 기준은 같은 모션의 시작 위치이므로 오버라이드 시에는 갱신하지 않는다.
-        private static readonly System.Collections.Concurrent.ConcurrentDictionary<int, double> MotionStartCommandByAxis =
-            new System.Collections.Concurrent.ConcurrentDictionary<int, double>();
+        //
+        // 기존 조건: 기준을 double 하나로만 저장해 "어느 모션의 기록인지" 식별할 수 없었다.
+        //           모션 종료 후에도 기록이 남아, MovePosition을 거치지 않고 시작된 다음 모션의
+        //           오버라이드가 스테일한 기준(예: 원점 직후의 0)을 썼다 — relative = position − 0
+        //           = position 이 되어 절대값이 상대값으로 보드에 전달됐다
+        //           (실장비 2026-07-25, InputVisionX startBase=0).
+        // 현재 기준(사용자 승인 2026-07-25): 기록에 모션 시리얼을 부여한다. 호출자(AjinAxis)는
+        //           자기 모션을 시작할 때 시리얼을 캡처해 두고 오버라이드 시 함께 넘긴다.
+        //           시리얼 불일치 = 다른 모션의 기준 → -2 거부. 모션 종료 시에는 자기 시리얼의
+        //           기록만 조건부 무효화해, 다음 모션이 이미 남긴 새 기록을 지우지 않는다.
+        private struct MotionStartEntry
+        {
+            public double Command;
+            public long Serial;
+        }
+
+        private static long _motionStartSerialSource;
+
+        private static readonly System.Collections.Concurrent.ConcurrentDictionary<int, MotionStartEntry> MotionStartCommandByAxis =
+            new System.Collections.Concurrent.ConcurrentDictionary<int, MotionStartEntry>();
+
+        /// <summary>
+        /// 축의 오버라이드 기준(모션 시작 Command)을 무효화한다.
+        /// 기존 조건: MovePosition이 기록한 기준이 모션 종료 후에도 남아, MovePosition을 거치지 않고
+        ///           시작된 다음 모션의 오버라이드가 스테일한 기준(예: 원점 직후의 0)을 사용했다.
+        ///           그 결과 relative = position − 0 = position 이 되어 절대값이 상대값으로 보드에
+        ///           전달됐다(실장비 2026-07-25, InputVisionX startBase=0).
+        /// 현재 기준: 모션 종료 시 기준을 무효화해, 기준 없는 오버라이드는 ModifyPosition이 -2로
+        ///           거부하도록 한다(잘못된 기준으로 보드에 상대값을 보내지 않는다).
+        /// </summary>
+        public static void ClearMotionStartCommand(int axis)
+        {
+            MotionStartEntry removed;
+            MotionStartCommandByAxis.TryRemove(axis, out removed);
+        }
+
+        /// <summary>
+        /// 축의 오버라이드 기준을 "지정한 시리얼의 기록일 때만" 무효화한다 (모션 종료 시 사용).
+        /// 모션 종료 처리와 다음 모션의 기준 기록이 경합해도, 다음 모션이 이미 남긴 새 기록
+        /// (다른 시리얼)은 지우지 않는다. 값 비교 기반의 원자적 조건부 제거를 사용한다.
+        /// </summary>
+        public static void ClearMotionStartCommand(int axis, long expectedSerial)
+        {
+            MotionStartEntry entry;
+            if (!MotionStartCommandByAxis.TryGetValue(axis, out entry))
+                return;
+            if (entry.Serial != expectedSerial)
+                return;
+
+            ((System.Collections.Generic.ICollection<System.Collections.Generic.KeyValuePair<int, MotionStartEntry>>)MotionStartCommandByAxis)
+                .Remove(new System.Collections.Generic.KeyValuePair<int, MotionStartEntry>(axis, entry));
+        }
+
+        /// <summary>오버라이드 기준 스테일 판정 여유(mm).</summary>
+        private const double MotionStartBaseToleranceMm = 1.0;
+
+        /// <summary>
+        /// 기록된 모션 시작 기준이 현재 축 상태로 설명 가능한지 판정한다.
+        /// 구동 중인 축의 현재 Command는 "시작 기준 ↔ 목표" 구간 안(여유 포함)에 있어야 한다.
+        /// 구간을 벗어나면 다른 모션의 스테일 기준이 남은 것으로 보고 거부한다.
+        /// </summary>
+        private static bool IsMotionStartBasePlausible(double startBase, double currentCommand, double targetPosition)
+        {
+            double low = Math.Min(startBase, targetPosition) - MotionStartBaseToleranceMm;
+            double high = Math.Max(startBase, targetPosition) + MotionStartBaseToleranceMm;
+            return currentCommand >= low && currentCommand <= high;
+        }
 
         private static void LogOverrideCall(
             string kind,
@@ -2220,15 +2328,59 @@ namespace QMC.Common.Motion.Ajin
         /// </summary>
         public static int ModifyPosition(int axis, double position, double velocity, double acceleration, double deceleration)
         {
+            return ModifyPosition(axis, position, velocity, acceleration, deceleration, -1L);
+        }
+
+        /// <summary>
+        /// 시리얼 검증 포함 위치 오버라이드. expectedMotionStartSerial은 호출자가 자기 모션을
+        /// MovePosition으로 시작할 때 캡처한 값이다. 기록된 기준의 시리얼과 다르면 그 기준은
+        /// 다른(이전) 모션의 것이므로 -2로 거부한다. 음수를 넘기면 시리얼 검증을 생략한다.
+        /// </summary>
+        public static int ModifyPosition(int axis, double position, double velocity, double acceleration, double deceleration, long expectedMotionStartSerial)
+        {
             int ret = 0;
 
-            double startBase;
-            bool hasStartBase = MotionStartCommandByAxis.TryGetValue(axis, out startBase);
+            MotionStartEntry startEntry;
+            bool hasStartBase = MotionStartCommandByAxis.TryGetValue(axis, out startEntry);
             if (!hasStartBase)
             {
                 // 시작 기록이 없으면(이 모션이 MovePosition 경유가 아님) 안전을 위해 오버라이드를
                 // 거부한다 — 잘못된 기준으로 보드에 상대값을 보내는 것이 폭주의 원인이었다.
                 LogOverrideCall("POSITION", axis, position, velocity, acceleration, deceleration, -2, "NoMotionStartBase");
+                return -2;
+            }
+
+            double startBase = startEntry.Command;
+
+            // 기준 소유 검증(1차): 기록의 시리얼이 호출자 모션의 시리얼과 다르면 스테일 기준이다.
+            // 절대값이 상대값으로 나가던 결함(startBase=0)의 근본 차단 지점.
+            if (expectedMotionStartSerial >= 0 && startEntry.Serial != expectedMotionStartSerial)
+            {
+                LogOverrideCall("POSITION", axis, position, velocity, acceleration, deceleration,
+                    -2, "StaleMotionStartBase(serialMismatch, startBase=" + startBase.ToString("F3") +
+                        ", baseSerial=" + startEntry.Serial +
+                        ", expectedSerial=" + expectedMotionStartSerial + ")");
+                return -2;
+            }
+
+            // 기준 유효성 2차 검증: 기록된 기준이 현재 축 상태와 모순이면 거부한다.
+            // 스테일 기준(예: 원점 직후의 0)이 남아 relative가 절대값처럼 나가는 것을 막는다.
+            double currentCommand = 0.0;
+            if (GetCommandPosition(axis, ref currentCommand) != 0)
+            {
+                LogOverrideCall("POSITION", axis, position, velocity, acceleration, deceleration,
+                    -2, "CommandReadFailed");
+                return -2;
+            }
+
+            // 오버라이드는 "구동 중"에만 유효하다. 구동 중이면 현재 Command는 시작 기준과
+            // 목표 사이(또는 그 근방)에 있어야 한다. 기준이 현재 Command로부터
+            // MotionStartBaseToleranceMm 이상 떨어진 방향 밖에 있으면 스테일로 판정한다.
+            if (!IsMotionStartBasePlausible(startBase, currentCommand, position))
+            {
+                LogOverrideCall("POSITION", axis, position, velocity, acceleration, deceleration,
+                    -2, "StaleMotionStartBase(startBase=" + startBase.ToString("F3") +
+                        ", currentCommand=" + currentCommand.ToString("F3") + ")");
                 return -2;
             }
 

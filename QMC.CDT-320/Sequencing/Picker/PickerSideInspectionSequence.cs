@@ -421,9 +421,12 @@ namespace QMC.CDT320.Sequencing
             {
                 ct.ThrowIfCancellationRequested();
 
+                // 현재 기준(사용자 승인 2026-07-25, M2): Bottom/BottomAndSide 진입과 동일하게
+                // 상대 Picker가 Output Place 작업 중이면 대기하지 않고 동시 진행한다.
                 int result = await MoveOppositePickerToAvoidAndVerifyAsync(
                     "사이드 검사 진입 전 상대 Picker 상태 확인",
-                    ct).ConfigureAwait(false);
+                    ct,
+                    true).ConfigureAwait(false);
                 if (result != 0)
                     return result;
 

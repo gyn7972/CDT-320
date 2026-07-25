@@ -176,9 +176,16 @@ namespace QMC.CDT320.Sequencing
                     return false;
 
                 case PickerProcessPhase.SideInspection:
-                    if (opposite == PickerProcessPhase.PickUp)
+                    // 기존 조건: 상대가 PickUp일 때만 SideInspection 진입을 허용했다 — Place case는
+                    //           상대 SideInspection을 허용하는데(아래) 반대 방향만 막혀 비대칭이었고,
+                    //           그 때문에 "Side 검사 진입 시점에 상대가 Place 중"이면 직렬화됐다.
+                    // 현재 기준(사용자 승인 2026-07-25, M6): Side 검사와 Output Place는 서로 다른
+                    //           작업 존이므로 BottomInspection과 동일하게 동시 진행한다.
+                    //           Bottom/Side는 동일 작업으로 보므로 상대 Bottom/SideInspection은 그대로 차단한다.
+                    if (opposite == PickerProcessPhase.PickUp ||
+                        opposite == PickerProcessPhase.Place)
                         return true;
-                    reason = "SideInspection은 상대 Picker가 BottomInspection/SideInspection/Place 중이면 진입할 수 없습니다.";
+                    reason = "SideInspection은 상대 Picker가 BottomInspection 또는 SideInspection 중이면 진입할 수 없습니다.";
                     return false;
 
                 case PickerProcessPhase.Place:
