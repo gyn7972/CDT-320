@@ -1463,8 +1463,9 @@ namespace QMC.CDT320.Interlocks
                     IsOtherPickerWorkAreaActive(isFront, targetZone, out occupiedOwner))
                 {
                     string shareDetail;
-                    // 현재 기준: Auto Bottom/Side 연속동작은 반대 PickerY가 실제 Avoid/Home이면 같은 Process 점유 중에도 X 이동을 허용한다.
-                    if (CanAutoShareProcessWorkAreaWhenOppositeYSafe(request, isFront, targetZone, out shareDetail))
+                    // 현재 기준: Auto Bottom/Side 연속동작은 반대 PickerY가 실제 Avoid/Home이면 같은 Process 점유 중에도 X 이동을 허용하고,
+                    //           자기 PickerY가 후퇴 상태인 X 이동(밴드 통과)은 반대 Y 상태와 무관하게 허용한다(M3).
+                    if (CanAutoShareProcessWorkAreaWhenOppositeYSafe(request, isFront, targetZone, true, out shareDetail))
                     {
                         // 기존 조건: 반대 Picker가 같은 Process 작업 영역을 점유하면 Y 위치와 무관하게 X 이동을 무조건 차단했다.
                         // 현재 필요 여부: Manual에는 유지하되, Auto 검사 파이프라인은 반대 Y 안전 상태를 기준으로 허용한다.
@@ -1831,11 +1832,15 @@ namespace QMC.CDT320.Interlocks
             return false;
         }
 
-        // 인터락 항목: Auto 이동 중 상대 PickerY가 안전하면 Process 작업영역 공유 예외를 허용한다.
+        // 인터락 항목: Auto 이동 중 상대 PickerY가 안전하거나(작업 공유),
+        //             X 이동에서 자기 PickerY가 후퇴 상태이면(밴드 통과) Process 작업영역 공유 예외를 허용한다.
+        // allowWhenOwnYRetracted: X 이동 판정(:1467)에서만 true — Y 전진 판정(:1994)은 false로
+        //             동시 검사 금지(상대 Y 후퇴 요구)를 그대로 유지한다.
         private static bool CanAutoShareProcessWorkAreaWhenOppositeYSafe(
             MotionGuardRuleContext request,
             bool isFront,
             PickerWorkZone targetZone,
+            bool allowWhenOwnYRetracted,
             out string detail)
         {
             detail = string.Empty;
@@ -1877,6 +1882,20 @@ namespace QMC.CDT320.Interlocks
                 {
                     detail = "대상 존이 Process가 아닙니다. targetZone=" + targetZone;
                     return false;
+                }
+
+                // 현재 기준(사용자 승인 2026-07-25, M3): X 이동에서 이동 픽커 자신의 PickerY가
+                //           실제 Avoid/0이고 전진 예약·이동도 없으면(=Bottom/Side 밴드 통과 의도)
+                //           상대 PickerY가 전진(촬영) 중이어도 공유를 허용한다.
+                //   근거 — 자기 Y가 후퇴 상태면 작업 라인을 침범할 수 없다. 물리 충돌은
+                //          FacingY 게이트(레지스트리 1순위)와 SharedRailX 페어 간격,
+                //          RealtimeCollisionSupervisor가 독립적으로 담당한다.
+                //   주의 — Y 전진 판정 호출부는 allowWhenOwnYRetracted=false로 이 예외를 쓰지 않는다.
+                //          판정 예외 시 IsPickerYOutOrMovingOut이 true를 돌려 이 분기를 타지 않는다(fail-closed).
+                if (allowWhenOwnYRetracted && !IsPickerYOutOrMovingOut(request.Machine, isFront, null))
+                {
+                    detail = "Auto X 이동이고 자기 PickerY가 실제 Avoid 또는 0 위치(밴드 통과)입니다.";
+                    return true;
                 }
 
                 bool otherFront = !isFront;
@@ -1991,7 +2010,8 @@ namespace QMC.CDT320.Interlocks
                 {
                     string shareDetail;
                     // 현재 기준: Auto Bottom/Side 연속동작은 반대 PickerY가 실제 Avoid/Home이면 같은 Process 점유 중에도 Y 전진을 허용한다.
-                    if (CanAutoShareProcessWorkAreaWhenOppositeYSafe(request, isFront, targetZone, out shareDetail))
+                    // Y 전진은 작업 의도이므로 M3의 자기 Y 후퇴 통과 예외를 적용하지 않는다(동시 검사 금지 유지).
+                    if (CanAutoShareProcessWorkAreaWhenOppositeYSafe(request, isFront, targetZone, false, out shareDetail))
                     {
                         // 기존 조건: 반대 Picker가 같은 Process 작업 영역을 점유하면 Y 위치와 무관하게 Y 전진을 무조건 차단했다.
                         // 현재 필요 여부: Manual에는 유지하되, Auto 검사 파이프라인은 반대 Y 안전 상태를 기준으로 허용한다.
