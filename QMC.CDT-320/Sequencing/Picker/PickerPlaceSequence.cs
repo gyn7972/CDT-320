@@ -56,6 +56,14 @@ namespace QMC.CDT320.Sequencing
         // 피커 X 진입(MoveOutputStageReceivePosition) 완료 전에 반드시 join(결과 0 확인)한다.
         private Task<int> _outputVisionRetreatMoveTask;
         private double _outputVisionRetreatTarget;
+        // 기존 조건(#R4): 회피 스텝에서 최소 회피 이동을 즉시 비동기 시작했다 — 피커 X 출발까지
+        //   선행 모션(Feeder 안전/워크에어리어 점유/목표 계산, Conti 경로의 PickerY·T 선행 이동 등)이
+        //   순차 await되는 사이에 짧은 최소 회피가 끝나버려, 진입 시점에는 OutputCameraX.IsMoving=false라
+        //   오버랩이 성립하지 않았다.
+        // 현재 기준(사용자 지시 2026-07-25, O-2): 회피 좌표 계산은 기존 위치에서 그대로 하고
+        //   이동 명령 발행만 피커 X 진입 직전까지 이연한다. 두 축이 같은 순간에 기동되어
+        //   FollowMoveAsync 포지션 오버라이드 추종이 실제로 성립한다.
+        private bool _outputVisionRetreatDeferred;
 
         public bool ForceSafeYBeforeFirstPlaceMove { get; set; }
         public bool KeepPickerYForwardDuringPlaceReadyWait { get; set; }
@@ -308,6 +316,7 @@ namespace QMC.CDT320.Sequencing
             _placedDieId = "";
             _placedReceiveTarget = null;
             _pickerZPlacedByContiSegmentedPlace = false;
+            _outputVisionRetreatDeferred = false;
             _currentPlaceZSafeReturnCompleted = false;
             _placeBlowHoldUntilAvoid = false;
             _currentBottomPlaceResult = null;
@@ -837,6 +846,7 @@ namespace QMC.CDT320.Sequencing
             _placedDieId = "";
             _placedReceiveTarget = null;
             _pickerZPlacedByContiSegmentedPlace = false;
+            _outputVisionRetreatDeferred = false;
             _currentPlaceZSafeReturnCompleted = false;
             _placeBlowHoldUntilAvoid = false;
             _currentBottomPlaceResult = null;
@@ -1718,6 +1728,9 @@ namespace QMC.CDT320.Sequencing
                 return result;
             }
 
+            // O-2: 이전 픽커/중단에서 남은 이연 플래그를 좌표 재확정 전에 먼저 지운다.
+            _outputVisionRetreatDeferred = false;
+
             double fullAvoid = OutputStage.Recipe.VisionX.AvoidPosition;
             double visionTarget = fullAvoid;
             string retreatDetail = "전체 Avoid 사용";
@@ -1799,22 +1812,20 @@ namespace QMC.CDT320.Sequencing
                 ", fullAvoid=" + fullAvoid.ToString("F6") +
                 ", detail=" + retreatDetail + " - Check");
 
-            // R4(follow-entry): Auto Conti(minimal)면 회피 이동을 비동기 시작(Task 보관)하고 즉시
-            // 스텝 전이 — 피커 X 진입이 FollowMoveAsync로 비전을 추종하며 오버랩 진입한다.
-            // 이동 명령은 기존과 동일한 헬퍼(SharedRailX 중재 경유). 2번째 픽커부터는 비전이
-            // 이미 인포지션이라 Task가 즉시 완료되고 진입측은 자연히 일반 이동이 된다.
+            // 기존 조건(R4 follow-entry): Auto Conti(minimal)면 회피 이동을 여기서 비동기 시작
+            //   (Task 보관)하고 즉시 스텝 전이했다 — 피커 X 출발까지 남은 선행 모션들이 순차
+            //   await되는 동안 짧은 최소 회피가 끝나 오버랩이 성립하지 않았다.
+            // 현재 기준(사용자 지시 2026-07-25, O-2): 이동 명령을 발행하지 않고 이연 플래그만 세운다.
+            //   실제 기동은 StartDeferredOutputVisionRetreatIfPendingAsync가 피커 X 진입 직전에
+            //   수행하며, 이동 명령 경로(SharedRailX 중재 경유)와 join 지점은 기존과 동일하다.
             if (useMinimalRetreat)
             {
                 await JoinOutputVisionRetreatMoveTaskAsync("이전 회피 Task 정리", ct).ConfigureAwait(false);
                 _outputVisionRetreatTarget = visionTarget;
-                _outputVisionRetreatMoveTask = MoveOutputStageAxisAndVerifyAsync(
-                    BinStageAxis.VisionX,
-                    visionTarget,
-                    "OutputVisionX 최소 회피 위치 이동",
-                    ct);
+                _outputVisionRetreatDeferred = true;
                 WriteLog("PickerPlaceSequence",
-                    Name + " OutputVisionX 최소 회피 이동을 비동기 시작했습니다(피커 진입 팔로잉 오버랩). " +
-                    "target=" + visionTarget.ToString("F6") + " - Start");
+                    Name + " OutputVisionX 최소 회피 이동을 피커 X 진입 시점까지 이연합니다(팔로잉 오버랩). " +
+                    "target=" + visionTarget.ToString("F6") + " - Check");
             }
             else
             {
@@ -1920,6 +1931,19 @@ namespace QMC.CDT320.Sequencing
             Log.Write("PickerPlaceSequence", Name + " Place 대상 좌표 계산 완료. side=" + Side + ", step=" + CurrentStep);
 
             int result = await MoveOutputStageYPickerXAndPickerZToPlaceByModeAsync(yAxis, ct).ConfigureAwait(false);
+
+            // O-2-G(방어적): 여기까지 이연이 소비되지 않았다면 회피가 아예 실행되지 않은 것이다.
+            // 정상 흐름(follow 기동 또는 일반 이동 전 방어)에서는 발생하지 않아야 하므로 경고를
+            // 남기고 지금이라도 기동해 아래 join이 완료를 확인하게 한다.
+            if (_outputVisionRetreatDeferred)
+            {
+                WriteLog("PickerPlaceSequence",
+                    Name + " OutputVisionX 이연 최소 회피가 피커 X 진입 완료 시점까지 소비되지 않아 지금 마무리합니다. " +
+                    "target=" + _outputVisionRetreatTarget.ToString("F6") +
+                    ", side=" + _currentOutputSide +
+                    ", pickerNo=" + _currentPickerNo + " - Check");
+                await StartDeferredOutputVisionRetreatIfPendingAsync(ct).ConfigureAwait(false);
+            }
 
             // R4(follow-entry): 비동기 비전 회피 Task는 피커 X 진입 처리 완료 전에 반드시 join.
             // 진입 실패 시에도 drain(observe)하고, 진입 성공 후 회피 실패면 시퀀스 Fail.
@@ -2222,6 +2246,11 @@ namespace QMC.CDT320.Sequencing
 
             AddLoadedPickerTPlaceTargets(targets);
 
+            // O-2-F: 일반 이동 전 이연 회피 완료 보장(스텝 직접 진입 경로).
+            int deferredJoin = await JoinDeferredOutputVisionRetreatBeforePlainMoveAsync(ct).ConfigureAwait(false);
+            if (deferredJoin != 0)
+                return deferredJoin;
+
             int result = await MovePickerXTThenYAndVerifyAsync(
                 targets,
                 "place picker X/Y/T",
@@ -2241,15 +2270,26 @@ namespace QMC.CDT320.Sequencing
             pickerTargets[PickerAxis.PickerY] = _targetPickerY;
             AddLoadedPickerTPlaceTargets(pickerTargets);
 
+            // R4(follow-entry): 비전 회피가 진행/이연 중이면 X만 follow로 분리(T 병렬 → Y 전진 구조 유지),
+            // 정지 상태(2번째 픽커 포함)면 기존 X/T→Y 이동 그대로.
+            // O-2-F: follow를 타지 않을 때만, 그리고 어떤 이동 Task보다 먼저 이연 회피를 완료한다
+            //        (StageY Task 생성 전에 판정해야 조기 반환 시 고아 Task가 생기지 않는다.
+            //         StageY 이동은 게이트 입력에 영향을 주지 않으므로 판정 시점 이동은 무해하다).
+            bool useVisionFollowEntry = ShouldFollowOutputVisionRetreatForPickerEntry();
+            if (!useVisionFollowEntry)
+            {
+                int deferredJoin = await JoinDeferredOutputVisionRetreatBeforePlainMoveAsync(ct).ConfigureAwait(false);
+                if (deferredJoin != 0)
+                    return deferredJoin;
+            }
+
             Task<int> stageYMove = MoveOutputStageAxisAndVerifyAsync(
                 yAxis,
                 _targetOutputStageY,
                 "output stage receive Y",
                 ct,
                 BuildOutputStagePlaceMoveTargetName("ReceiveY"));
-            // R4(follow-entry): 비전 회피가 진행 중이면 X만 follow로 분리(T 병렬 → Y 전진 구조 유지),
-            // 정지 상태(2번째 픽커 포함)면 기존 X/T→Y 이동 그대로.
-            Task<int> pickerMove = ShouldFollowOutputVisionRetreatForPickerEntry()
+            Task<int> pickerMove = useVisionFollowEntry
                 ? MovePlacePickerXTThenYWithVisionFollowAsync(
                     pickerTargets,
                     BuildPlaceMoveTargetName(),
@@ -2293,6 +2333,13 @@ namespace QMC.CDT320.Sequencing
             var pickerXAndTTargets = new Dictionary<PickerAxis, double>();
             pickerXAndTTargets[PickerAxis.PickerX] = _targetPickerX;
             AddLoadedPickerTPlaceTargets(pickerXAndTTargets);
+
+            // O-1-B: 이 경로는 ForceSafeYBeforeFirstPlaceMove(재시작 첫 접근)로만 진입하는 안전 우선
+            //        경로다. 오버랩보다 확정된 순서(X/T 완료 후 Y 전진)가 우선이므로 follow를 심지
+            //        않는다. 대신 O-2-F 방어만 넣어 일반 이동 전에 이연 회피가 반드시 완료되게 한다.
+            int deferredJoin = await JoinDeferredOutputVisionRetreatBeforePlainMoveAsync(ct).ConfigureAwait(false);
+            if (deferredJoin != 0)
+                return deferredJoin;
 
             Task<int> stageYMove = MoveOutputStageAxisAndVerifyAsync(
                 yAxis,
@@ -2459,6 +2506,7 @@ namespace QMC.CDT320.Sequencing
         // R4(follow-entry): Abort 등 동기 경로에서 회피 Task를 관찰(observe)만 하고 흘려보낸다.
         private void ObserveOutputVisionRetreatMoveTaskOnAbort()
         {
+            _outputVisionRetreatDeferred = false;
             Task<int> moveTask = _outputVisionRetreatMoveTask;
             _outputVisionRetreatMoveTask = null;
             if (moveTask == null)
@@ -2473,14 +2521,50 @@ namespace QMC.CDT320.Sequencing
                 TaskScheduler.Default);
         }
 
-        // R4(follow-entry): 플레이스 피커 X 진입을 비전 추종(follow)으로 시작할지 판정한다.
-        // 비전이 정지 상태(IsMoving=false — 2번째 이후 픽커 포함)면 기존 일반 이동을 사용한다.
+        // O-2: 미뤄둔 최소 회피 이동을 지금 비동기 시작한다. 피커 X 진입(팔로잉/일반) 직전에 호출해
+        // "회피 명령 발행 → 즉시 피커 X 기동" 순서를 한 지점에서 보장한다.
+        // (MoveOutputStageAxisAndVerifyAsync는 인포지션이면 자체적으로 즉시 완료되므로 별도
+        //  인포지션 단락 검사를 두지 않는다 — 기존 비동기 시작 호출과 인자를 동일하게 유지한다.)
+        private async Task StartDeferredOutputVisionRetreatIfPendingAsync(CancellationToken ct)
+        {
+            if (!_outputVisionRetreatDeferred)
+                return;
+
+            _outputVisionRetreatDeferred = false;
+            await JoinOutputVisionRetreatMoveTaskAsync("이연 회피 시작 전 정리", ct).ConfigureAwait(false);
+
+            _outputVisionRetreatMoveTask = MoveOutputStageAxisAndVerifyAsync(
+                BinStageAxis.VisionX,
+                _outputVisionRetreatTarget,
+                "OutputVisionX 최소 회피 위치 이동",
+                ct);
+            WriteLog("PickerPlaceSequence",
+                Name + " OutputVisionX 이연 최소 회피 이동을 비동기 시작했습니다(피커 진입 팔로잉 오버랩). " +
+                "target=" + _outputVisionRetreatTarget.ToString("F6") + " - Start");
+        }
+
+        // O-2-F: follow를 타지 않는 일반 이동 분기 공통 방어 — 이연이 남아 있으면 회피를 기동하고
+        // 완료(join)까지 확인한다. 이연 상태에서 비전이 아직 촬영/검사 위치에 있는데 피커 X가
+        // 일반 이동으로 Output 존에 진입하면 인터락(-11)에 걸리기 때문이다. 이연이 없으면 0(무동작).
+        private async Task<int> JoinDeferredOutputVisionRetreatBeforePlainMoveAsync(CancellationToken ct)
+        {
+            if (!_outputVisionRetreatDeferred)
+                return 0;
+
+            await StartDeferredOutputVisionRetreatIfPendingAsync(ct).ConfigureAwait(false);
+            return await JoinOutputVisionRetreatMoveTaskAsync("일반 이동 전 이연 회피 완료", ct).ConfigureAwait(false);
+        }
+
+        // 기존 조건(R4 follow-entry): 이미 시작된 회피 Task가 살아 있고 비전이 이동 중(IsMoving)일 때만 follow.
+        // 현재 기준(사용자 지시 2026-07-25, O-2-D): 회피가 이연 대기 중이면 아직 출발 전이라
+        //   IsMoving=false이므로 이연 플래그를 follow 조건에 포함한다. 이미 시작된 Task 기준의
+        //   기존 조건은 그대로 유지한다(비전이 정지했고 이연도 없으면 기존 일반 이동).
         private bool ShouldFollowOutputVisionRetreatForPickerEntry()
         {
-            return _outputVisionRetreatMoveTask != null &&
-                   OutputStage != null &&
+            return OutputStage != null &&
                    OutputStage.OutputCameraX != null &&
-                   OutputStage.OutputCameraX.IsMoving;
+                   (_outputVisionRetreatDeferred ||
+                    (_outputVisionRetreatMoveTask != null && OutputStage.OutputCameraX.IsMoving));
         }
 
         // R4(follow-entry): MovePickerXTThenYAndVerifyAsync 구조를 미러 — X만 follow(+R6 폴백)로
@@ -2544,6 +2628,11 @@ namespace QMC.CDT320.Sequencing
             string targetName,
             CancellationToken ct)
         {
+            // O-2-E: 이연해 둔 회피를 여기서 기동한다 — 명령 발행 직후 곧바로 FollowMoveAsync가
+            // 시작되므로 두 축의 오버랩이 실제로 성립한다. 아래 R6 폴백(join + 일반 이동)은
+            // 이 시점에 Task가 이미 시작돼 있어 기존대로 동작한다.
+            await StartDeferredOutputVisionRetreatIfPendingAsync(ct).ConfigureAwait(false);
+
             int followResult = await TryFollowPickerXBehindOutputVisionRetreatAsync(ct).ConfigureAwait(false);
             if (followResult == 0)
                 return 0;
@@ -2759,6 +2848,22 @@ namespace QMC.CDT320.Sequencing
                 ", pickerX={" + BuildContiPlaceAxisDecision(pickerX, pickerXTarget, pickerXForceMove) + "}" +
                 " - Check");
 
+            // O-1-A(2026-07-25): 기존 조건 — Conti 본경로(배치 2번째 Place 이후)에는 follow 분기가
+            //   아예 없어 Conti 정상 운전에서 팔로잉이 전혀 걸리지 않았다(XYT 폴백 경로에만 존재).
+            //   현재 기준 — 비전 회피가 이연/진행 중이면 X만 follow로 진입한다(Input Conti 경로 미러).
+            //   forceMove가 필요한 경우는 follow가 forceMove 의미를 보장하지 못하므로 기존 일반 이동.
+            // O-2-F: follow를 쓰지 않는 쪽은 이동 Task 생성 전에 이연 회피를 완료한다.
+            bool useContiVisionFollowEntry = !pickerXForceMove && ShouldFollowOutputVisionRetreatForPickerEntry();
+            if (!useContiVisionFollowEntry)
+            {
+                int deferredJoin = await JoinDeferredOutputVisionRetreatBeforePlainMoveAsync(ct).ConfigureAwait(false);
+                if (deferredJoin != 0)
+                {
+                    _targetPickerZ = originalPickerZTarget;
+                    return deferredJoin;
+                }
+            }
+
             Task<int> stageYMove = MoveOutputStageAxisAndVerifyAsync(
                 yAxis,
                 stageYTarget,
@@ -2766,13 +2871,18 @@ namespace QMC.CDT320.Sequencing
                 ct,
                 BuildOutputStagePlaceMoveTargetName("AsyncReceiveY"),
                 stageYForceMove);
-            Task<int> pickerXMove = MovePickerAxisAndVerifyAsync(
-                PickerAxis.PickerX,
-                pickerXTarget,
-                "Place ContiNode PickerX 비동기 이동",
-                ct,
-                placeTargetName,
-                pickerXForceMove);
+            Task<int> pickerXMove = useContiVisionFollowEntry
+                ? MovePlacePickerXEntryByVisionFollowOrFallbackAsync(
+                    "Place ContiNode PickerX 팔로잉 진입",
+                    placeTargetName,
+                    ct)
+                : MovePickerAxisAndVerifyAsync(
+                    PickerAxis.PickerX,
+                    pickerXTarget,
+                    "Place ContiNode PickerX 비동기 이동",
+                    ct,
+                    placeTargetName,
+                    pickerXForceMove);
             Task<int> pickerZPrePlaceMove = MovePickerZPlaceAfterContiProgressAsync(
                 stageY,
                 pickerX,
