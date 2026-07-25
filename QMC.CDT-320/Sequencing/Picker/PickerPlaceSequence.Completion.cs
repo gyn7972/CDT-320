@@ -131,12 +131,20 @@ namespace QMC.CDT320.Sequencing
         {
             try
             {
+                // 현재 기준(사용자 지시 2026-07-26): 후검사 핸드오버를 X 복귀 완료가 아니라
+                // "Z/Y 복귀 완료 직후(X −방향 복귀 시작 전)"으로 앞당긴다 — 픽커가 복귀하는 동안
+                // 후검사 워커가 스테이지 정렬을 진행하고 OutputVisionX가 퇴장 픽커를 따라 진입한다.
+                // 물리 안전 무변경: 스테이지 Z/Y 인터락(픽커 존 미검사), 비전 진입의 공유레일
+                // 클리어 대기/return-follow/제3분기 페어 간격이 그대로 담당한다. 존 lease를
+                // 물리 퇴장 전에 반환하는 것은 픽업→바텀 전환의 확립된 관례와 동일하다.
                 int result = await MovePickerToAvoidAfterPlaceFastAsync(
                     "Place 완료 후 Picker 전체 Avoid 복귀",
-                    ct).ConfigureAwait(false);
+                    ct,
+                    HandOverToPostPlaceInspectionBeforeFinalReturn).ConfigureAwait(false);
                 if (result != 0)
                     return result;
 
+                // 아래 반환/종료 호출은 전부 멱등 — 핸드오버가 이미 수행했으면 무동작(백스톱).
                 ReleaseOutputPlaceArea();
                 ReleaseOutputStageArea();
                 ReleaseOutputFeederArea();
@@ -204,7 +212,36 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
+        // 현재 기준(사용자 지시 2026-07-26): Z/Y 복귀 완료 직후(X 복귀 시작 전) 후검사 핸드오버 —
+        // 영역(OutputPlace/Stage/Feeder) 반환 + 후검사 워커 기동 + 부모 Output 존 반환.
+        // 전 호출이 멱등이라 완료 지점의 기존 백스톱 호출과 중복 실행돼도 무해하다.
+        private int HandOverToPostPlaceInspectionBeforeFinalReturn()
+        {
+            ReleaseOutputPlaceArea();
+            ReleaseOutputStageArea();
+            ReleaseOutputFeederArea();
+            EndOutputPostPlaceInspectionBatch();
+
+            int workZoneReleaseResult = ReleaseParentOutputWorkZoneAfterSafeAvoidIfNeeded(
+                "Place Z/Y 복귀 후 X 복귀 전 후검사 핸드오버");
+            if (workZoneReleaseResult != 0)
+                return workZoneReleaseResult;
+
+            WriteLog("PickerPlaceSequence",
+                Name + " Z/Y 복귀 완료 — X 복귀 전 후검사 핸드오버 완료(영역 반환+워커 기동). " +
+                "OutputVisionX가 퇴장 픽커와 겹쳐 진입할 수 있습니다. side=" + Side + " - Ok");
+            return 0;
+        }
+
         private async Task<int> MovePickerToAvoidAfterPlaceFastAsync(string description, CancellationToken ct)
+        {
+            return await MovePickerToAvoidAfterPlaceFastAsync(description, ct, null).ConfigureAwait(false);
+        }
+
+        private async Task<int> MovePickerToAvoidAfterPlaceFastAsync(
+            string description,
+            CancellationToken ct,
+            Func<int> beforeFinalReturnHandover)
         {
             try
             {
@@ -224,6 +261,15 @@ namespace QMC.CDT320.Sequencing
                     "AvoidPosition;PickerPhase=PlaceDoneSafeY").ConfigureAwait(false);
                 if (result != 0)
                     return result;
+
+                // 현재 기준(사용자 지시 2026-07-26): Y 복귀까지 끝난 시점 — X −방향 복귀 전에
+                // 후검사 핸드오버(있으면)를 실행해 비전 진입/스테이지 정렬이 복귀와 겹치게 한다.
+                if (beforeFinalReturnHandover != null)
+                {
+                    int handoverResult = beforeFinalReturnHandover();
+                    if (handoverResult != 0)
+                        return handoverResult;
+                }
 
                 var tTargets = new Dictionary<PickerAxis, double>();
                 tTargets[PickerAxis.PickerT0] = GetPickerTeachingPosition(PickerAxis.PickerT0, "AvoidPosition");

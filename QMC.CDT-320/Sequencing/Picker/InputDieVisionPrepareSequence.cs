@@ -2536,18 +2536,25 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
-        // 기존 조건(#18 R2): 촬영 목표가 피커 페어 간격을 못 만족하면 피커 상태와 무관하게 항상
-        //   follow를 시작했다(정지 선행축 포함). FollowMoveAsync는 선행축이 정지해 있어도 현재
-        //   간격의 여유만큼 후행축을 전진시키므로, 피커가 존 안에서 작업 중일 때 비전 차례가 오면
-        //   비전이 진입 한계(제약피커 + HomeClearance − safetyGap)까지 선진입해 정지했다가
-        //   피커 퇴장 후 다시 촬영 위치로 가는 "중간 위치에 들렀다 가는" 동작이 됐다.
-        // 현재 기준(사용자 지시 2026-07-25, #18 R2 대체): 비전은 촬영 위치까지 한 번에 도달
-        //   가능해질 때만 출발한다.
+        // 기존 조건(2026-07-25 Command 게이트): 제약 피커의 CommandPosition이 촬영 목표를
+        //   safetyGap까지 "한 번에" 열어줄 때까지 출발하지 않았다. 그러나 CommandPosition은 이동
+        //   명령의 최종 목표가 아니라 보드 순시 프로파일 값이라(B1 알람 실측 증명) 이 게이트는
+        //   "피커가 물리적으로 길을 다 열 때까지 출발 금지"로 동작했고, 비전이 추종 없이 뒤늦게
+        //   일반 이동하는 모습이 됐다(실장비 2026-07-26 사용자 관측).
+        // 현재 기준(사용자 승인 2026-07-26):
         //   (a) 목표가 양 피커 Actual/Command 페어 간격을 이미 만족 → false(존이 빔, 일반 이동 직행)
-        //   (b) 제약 피커의 Command(이미 발행된 이동 목표)가 목표를 safetyGap까지 열어줌
-        //       (= 퇴장 명령이 나갔다는 뜻) + 반대 피커 Command 기준 목표 간격 충족 → true(추종 진입)
-        //   (c) 둘 다 아니면(피커 정지/작업 중) 출발하지 않고 폴링 대기. 타임아웃 규칙은 기존 존
-        //       대기와 동일 — 선행검사 모드는 주기 로그+무한 대기, 그 외는 타임아웃 후 일반 경로 위임.
+        //   (b) 제약 피커 실측 위치 기준 전진 여유(slack)가 있고 간격이 실제로 벌어지는 중
+        //       (20ms 샘플 간 간격 확대 + 선행축 IsMoving = 퇴장 이동 감지) → true(즉시 추종 진입).
+        //       중간 creep·간격 유지는 FollowMoveAsync(safetyGap=Safety+Extra 설정값)가 담당한다.
+        //   (c) 피커 정지/작업 중(간격 불변·축소)이면 출발하지 않는다 — "정지 피커 앞 선진입 금지"
+        //       (사용자 지시 2026-07-25)는 이 조건이 보존한다. 타임아웃 규칙은 기존 존 대기와
+        //       동일 — 선행검사 모드는 주기 로그+무한 대기, 그 외는 타임아웃 후 일반 경로 위임.
+        //   반대(비제약) 피커 간섭은 follow 내부 MotionGuard(SharedRailX 페어 간격 포함)가 -11로
+        //   거부해 기존 폴백(일반 이동 재시도)이 받는다 — 기존과 동일.
+
+        // 팔로잉 출발 판정 임계: 최소 전진 여유 / 20ms 샘플 간 간격 확대 감지(엔코더 노이즈 여유).
+        private const double FollowStartMinSlackMm = 0.5;
+        private const double FollowStartGapOpeningEpsilonMm = 0.02;
         private async Task<bool> WaitInputVisionReturnFollowOpportunityAsync(
             InputStageUnit stage,
             double target,
@@ -2569,6 +2576,10 @@ namespace QMC.CDT320.Sequencing
                 int timeoutMs = ResolveTimeout();
                 DateTime start = DateTime.UtcNow;
                 bool waitLogged = false;
+                // 직전 폴링의 페어 간격 — 간격 확대(퇴장 이동) 감지용.
+                // 제약 피커가 바뀌면(페어 HomeClearance가 다를 수 있음) 기준이 점프하므로 리셋한다.
+                double lastGap = double.NaN;
+                BaseAxis lastConstrainingPickerX = null;
 
                 while (true)
                 {
@@ -2589,9 +2600,17 @@ namespace QMC.CDT320.Sequencing
                         return false;
                     }
 
-                    BaseAxis constrainingPickerX = ResolveConstrainingPickerXForInputVisionEntry();
+                    BaseAxis constrainingPickerX = ResolveConstrainingPickerXForInputVisionEntry(stage.CameraX);
                     if (constrainingPickerX == null)
                         return false;
+
+                    // 제약 피커가 바뀌면 페어가 달라져 gapNow 기준이 불연속으로 점프한다 —
+                    // 그 점프를 "간격 확대"로 오탐하지 않도록 직전 샘플을 버린다.
+                    if (!ReferenceEquals(constrainingPickerX, lastConstrainingPickerX))
+                    {
+                        lastGap = double.NaN;
+                        lastConstrainingPickerX = constrainingPickerX;
+                    }
 
                     int direction;
                     double homeGap;
@@ -2612,60 +2631,45 @@ namespace QMC.CDT320.Sequencing
                         return false;
                     }
 
-                    // (b) FollowMoveAsync의 페어식과 동일한 식에 후행축 위치 대신 촬영 목표를 넣어
-                    //     "제약 피커의 Command 기준으로 목표까지 한 번에 갈 수 있는가"를 본다.
-                    double leadingCommand = constrainingPickerX.CommandPosition;
-                    double gapAtCommand = direction > 0
-                        ? (leadingCommand + homeGap) - target
-                        : (target + homeGap) - leadingCommand;
-                    bool leadingOpensTarget = gapAtCommand + 0.000001 >= safetyGap;
+                    // (b) 출발 판정: 제약 피커 "실측 위치" 대비 전진 여유(slack)가 있고,
+                    //     간격이 실제로 벌어지는 중(퇴장 이동 감지)이면 즉시 추종 진입한다.
+                    //     FollowMoveAsync와 동일한 페어식 — direction>0: (선행+homeGap)−후행.
+                    double leadingActual = constrainingPickerX.ActualPosition;
+                    double visionActual = stage.CameraX.ActualPosition;
+                    double gapNow = direction > 0
+                        ? (leadingActual + homeGap) - visionActual
+                        : (visionActual + homeGap) - leadingActual;
+                    double startSlack = gapNow - safetyGap;
+                    bool gapOpening = !double.IsNaN(lastGap) &&
+                        gapNow > lastGap + FollowStartGapOpeningEpsilonMm;
+                    lastGap = gapNow;
 
-                    // 반대(비제약) 피커는 Command 한 가지만 확인한다 — Actual은 잔여 이동으로 곧
-                    // 열리며, 그 사이의 위반 시도는 follow 내부 MotionGuard(SharedRailX 페어 간격
-                    // 포함)가 -11로 거부해 기존 R5 폴백(일반 이동 재시도)이 받는다.
-                    BaseAxis frontX = Context != null && Context.Machine != null && Context.Machine.PickerFrontUnit != null
-                        ? Context.Machine.PickerFrontUnit.PickerX
-                        : null;
-                    BaseAxis rearX = Context != null && Context.Machine != null && Context.Machine.PickerRearUnit != null
-                        ? Context.Machine.PickerRearUnit.PickerX
-                        : null;
-                    BaseAxis oppositePickerX = ReferenceEquals(constrainingPickerX, frontX) ? rearX : frontX;
-                    string oppositeDetail = string.Empty;
-                    bool oppositeCommandClear = oppositePickerX == null ||
-                        service.IsPairClearanceSatisfied(
-                            oppositePickerX,
-                            oppositePickerX.CommandPosition,
-                            stage.CameraX,
-                            target,
-                            out oppositeDetail);
-
-                    if (leadingOpensTarget && oppositeCommandClear)
+                    if (startSlack >= FollowStartMinSlackMm && gapOpening && constrainingPickerX.IsMoving)
                     {
-                        if (waitLogged)
-                        {
-                            WriteLog("InputDieVisionPrepareSequence",
-                                Name + " " + description + " 제약 피커 퇴장 명령을 확인해 팔로잉 진입을 진행합니다. " +
-                                "leading=" + constrainingPickerX.Name +
-                                ", leadingCommand=" + leadingCommand.ToString("F6") +
-                                ", gapAtCommand=" + gapAtCommand.ToString("F6") +
-                                ", safetyGap=" + safetyGap.ToString("F6") + " - Ok");
-                        }
+                        WriteLog("InputDieVisionPrepareSequence",
+                            Name + " " + description + " 제약 피커 퇴장(간격 확대)을 감지해 팔로잉 진입을 진행합니다. " +
+                            "leading=" + constrainingPickerX.Name +
+                            ", leadingActual=" + leadingActual.ToString("F6") +
+                            ", visionActual=" + visionActual.ToString("F6") +
+                            ", gapNow=" + gapNow.ToString("F6") +
+                            ", slack=" + startSlack.ToString("F6") +
+                            ", safetyGap=" + safetyGap.ToString("F6") + " - Ok");
 
                         return true;
                     }
 
-                    // (c) 아직 열리지 않았다 — 출발하지 않고 대기한다(선진입 방지).
+                    // (c) 전진 여유가 없거나 피커 정지/진입 중 — 출발하지 않고 대기한다
+                    //     (정지 피커 앞 선진입 방지, 사용자 지시 2026-07-25 보존).
                     if (!waitLogged)
                     {
                         WriteLog("InputDieVisionPrepareSequence",
-                            Name + " " + description + " 촬영 목표까지 한 번에 도달할 수 없어 제약 피커 퇴장 명령을 대기합니다. " +
+                            Name + " " + description + " 제약 피커 퇴장(간격 확대) 감지를 대기합니다. " +
                             "target=" + target.ToString("F6") +
                             ", leading=" + constrainingPickerX.Name +
-                            ", leadingCommand=" + leadingCommand.ToString("F6") +
-                            ", gapAtCommand=" + gapAtCommand.ToString("F6") +
-                            ", safetyGap=" + safetyGap.ToString("F6") +
-                            ", oppositeClear=" + oppositeCommandClear +
-                            (oppositeCommandClear ? string.Empty : ", oppositeDetail=" + oppositeDetail) + " - Wait");
+                            ", leadingActual=" + leadingActual.ToString("F6") +
+                            ", gapNow=" + gapNow.ToString("F6") +
+                            ", slack=" + startSlack.ToString("F6") +
+                            ", safetyGap=" + safetyGap.ToString("F6") + " - Wait");
                         waitLogged = true;
                     }
 
@@ -2675,11 +2679,12 @@ namespace QMC.CDT320.Sequencing
                         if (IsInputCameraPreInspectionMode())
                         {
                             WriteLog("InputDieVisionPrepareSequence",
-                                Name + " InputCamera 선행검사 모드: 제약 피커 퇴장 명령이 나올 때까지 계속 대기합니다. " +
+                                Name + " InputCamera 선행검사 모드: 제약 피커 퇴장(간격 확대)을 감지할 때까지 계속 대기합니다. " +
                                 "die=" + _currentDieId +
                                 ", elapsedMs=" + elapsedMs.ToString("0") +
                                 ", leading=" + constrainingPickerX.Name +
-                                ", gapAtCommand=" + gapAtCommand.ToString("F6") + " - Wait");
+                                ", gapNow=" + gapNow.ToString("F6") +
+                                ", slack=" + startSlack.ToString("F6") + " - Wait");
                             start = DateTime.UtcNow;
                             continue;
                         }
@@ -2713,9 +2718,14 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
-        // C1/R2(return-follow): 제약이 되는 선행 피커 선택 — Input(+방향 진입)은 페어 간격식
-        // (피커 + HomeClearance − 비전)에서 X가 작은 피커가 여유가 작아 제약이 된다.
-        private BaseAxis ResolveConstrainingPickerXForInputVisionEntry()
+        // 기존 조건(C1/R2): 원시 X 최소값으로 제약 피커를 골랐다 — 두 페어의 HomeClearance가
+        //   같을 때만 최소 간격과 동치다. 실장비 설정은 InputVisionX↔FrontPickerX=70,
+        //   InputVisionX↔RearPickerX=19로 51mm 비대칭이라, 그 구간에서 덜 불리한 축을 선행으로
+        //   잡아 추종했다(2026-07-26 확인).
+        // 현재 기준(사용자 지시 2026-07-26): 페어식 상한(비전이 갈 수 있는 한계)이 더 불리한 쪽을
+        //   제약 피커로 고른다. 상한 = direction>0 ? 피커+homeGap−safetyGap : 피커−homeGap+safetyGap.
+        //   조회 실패 시에는 기존 원시 X 기준으로 폴백한다(동작 무변경).
+        private BaseAxis ResolveConstrainingPickerXForInputVisionEntry(BaseAxis visionAxis)
         {
             BaseAxis frontX = Context != null && Context.Machine != null && Context.Machine.PickerFrontUnit != null
                 ? Context.Machine.PickerFrontUnit.PickerX
@@ -2728,7 +2738,106 @@ namespace QMC.CDT320.Sequencing
             if (rearX == null)
                 return frontX;
 
+            SharedRailXMotionService service = SharedRailXMotionRuntime.ResolveService(
+                Context != null ? Context.Machine : null);
+            double frontBound;
+            double rearBound;
+            int frontDirection;
+            int rearDirection;
+            if (visionAxis != null && service != null &&
+                TryResolveInputVisionEntryBound(service, visionAxis, frontX, out frontBound, out frontDirection) &&
+                TryResolveInputVisionEntryBound(service, visionAxis, rearX, out rearBound, out rearDirection) &&
+                frontDirection == rearDirection)
+            {
+                // direction>0: 상한이 작은 쪽 / direction<0: 하한이 큰 쪽이 더 불리하다.
+                if (frontDirection > 0)
+                    return frontBound <= rearBound ? frontX : rearX;
+                return frontBound >= rearBound ? frontX : rearX;
+            }
+
             return frontX.ActualPosition <= rearX.ActualPosition ? frontX : rearX;
+        }
+
+        // 페어식으로 "비전이 갈 수 있는 한계 좌표"를 구한다(팔로잉 유지 간격 safetyGap 기준).
+        private bool TryResolveInputVisionEntryBound(
+            SharedRailXMotionService service,
+            BaseAxis visionAxis,
+            BaseAxis pickerAxis,
+            out double bound,
+            out int direction)
+        {
+            bound = 0.0;
+            direction = 0;
+            if (service == null || visionAxis == null || pickerAxis == null)
+                return false;
+
+            double homeGap;
+            double safetyGap;
+            string detail;
+            if (!service.TryGetFollowGapParameters(
+                visionAxis,
+                pickerAxis,
+                service.Config != null ? service.Config.InputVisionRetreatExtraClearance : 40.0,
+                out direction,
+                out homeGap,
+                out safetyGap,
+                out detail))
+            {
+                return false;
+            }
+
+            double pickerActual = pickerAxis.ActualPosition;
+            bound = direction > 0
+                ? pickerActual + homeGap - safetyGap
+                : pickerActual - homeGap + safetyGap;
+            return true;
+        }
+
+        // 2안(사용자 승인 2026-07-26): 선행축이 아닌 반대편 피커를 FollowMoveAsync의 추가 제약으로
+        // 넘긴다 — 팔로잉이 축 하나만 보는 구조라, 이 목록이 없으면 반대편 피커에 대해서는
+        // 명령 인터락의 SafetyDistance(Extra 미포함)만 남아 그 앞까지 파고들어 주차된다.
+        private IList<AjinAxis.FollowConstraint> BuildOppositePickerFollowConstraints(
+            SharedRailXMotionService service,
+            BaseAxis visionAxis,
+            BaseAxis leadingPickerX)
+        {
+            if (service == null || visionAxis == null || leadingPickerX == null)
+                return null;
+
+            BaseAxis frontX = Context != null && Context.Machine != null && Context.Machine.PickerFrontUnit != null
+                ? Context.Machine.PickerFrontUnit.PickerX
+                : null;
+            BaseAxis rearX = Context != null && Context.Machine != null && Context.Machine.PickerRearUnit != null
+                ? Context.Machine.PickerRearUnit.PickerX
+                : null;
+            BaseAxis oppositePickerX = ReferenceEquals(leadingPickerX, frontX) ? rearX : frontX;
+            if (oppositePickerX == null || ReferenceEquals(oppositePickerX, leadingPickerX))
+                return null;
+
+            int direction;
+            double homeGap;
+            double safetyGap;
+            string detail;
+            if (!service.TryGetFollowGapParameters(
+                visionAxis,
+                oppositePickerX,
+                service.Config != null ? service.Config.InputVisionRetreatExtraClearance : 40.0,
+                out direction,
+                out homeGap,
+                out safetyGap,
+                out detail))
+            {
+                WriteLog("InputDieVisionPrepareSequence",
+                    Name + " 반대편 피커 팔로잉 제약 조회에 실패해 선행축 제약만 사용합니다. " +
+                    "opposite=" + oppositePickerX.Name +
+                    ", detail=" + detail + " - Check");
+                return null;
+            }
+
+            return new List<AjinAxis.FollowConstraint>
+            {
+                new AjinAxis.FollowConstraint(oppositePickerX, homeGap, safetyGap, direction)
+            };
         }
 
         // C1/R2/R4(return-follow): InputVisionX(후행)가 퇴장하는 제약 피커X(선행)를 추종해 촬영
@@ -2747,7 +2856,8 @@ namespace QMC.CDT320.Sequencing
             CancellationToken ct)
         {
             AjinAxis followVisionX = stage != null ? stage.CameraX as AjinAxis : null;
-            BaseAxis leadingPickerX = ResolveConstrainingPickerXForInputVisionEntry();
+            BaseAxis leadingPickerX = ResolveConstrainingPickerXForInputVisionEntry(
+                stage != null ? stage.CameraX : null);
             SharedRailXMotionService service = SharedRailXMotionRuntime.ResolveService(
                 Context != null ? Context.Machine : null);
             if (followVisionX == null || leadingPickerX == null || service == null)
@@ -2787,11 +2897,15 @@ namespace QMC.CDT320.Sequencing
             double leadingDeceleration = MotionSpeedScale.ApplyDefaultAccelerationScale(
                 leadingPickerX.Config != null ? leadingPickerX.Config.Deceleration : 0.0);
 
+            IList<AjinAxis.FollowConstraint> additionalConstraints =
+                BuildOppositePickerFollowConstraints(service, stage.CameraX, leadingPickerX);
+
             WriteLog("InputDieVisionPrepareSequence",
                 Name + " " + description + " VisionX 팔로잉 진입을 시작합니다. leading=" + leadingPickerX.Name +
                 ", leadingCommand=" + leadingPickerX.CommandPosition.ToString("F6") +
                 ", visionTarget=" + target.ToString("F6") +
                 ", " + gapDetail +
+                ", constraints=" + (additionalConstraints != null ? additionalConstraints.Count : 0) +
                 ", timeoutMs=" + timeoutMs + " - Start");
 
             // 선행 목표는 퇴장 목표를 모르므로 현재 Command(정보용)를 사용한다(스펙 확정).
@@ -2811,7 +2925,8 @@ namespace QMC.CDT320.Sequencing
                 timeoutMs,
                 // trailingTargetName 미지정(후행축이 InputVisionX라 Picker 존 규칙과 무관) —
                 // 오버라이드는 기존 "PositionOverride" 폴백을 그대로 쓴다. 동작 무변경.
-                ct: ct).ConfigureAwait(false);
+                ct: ct,
+                additionalConstraints: additionalConstraints).ConfigureAwait(false);
         }
 
         private async Task<int> MoveNeedleXAndVerifyAsync(

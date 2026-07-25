@@ -5,6 +5,7 @@ using QMC.Common.Motion.Ajin;
 using QMC.CDT320.Interlocks;
 using QMC.CDT320.Motion.SharedRailX;
 using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -530,7 +531,10 @@ namespace QMC.CDT320.Ajin
         #region 팔로잉 이동 (FollowMove)
 
         // 팔로잉 안전거리 하한. safetyGap 인자가 이 값보다 작으면 이 값으로 클램프한다.
-        private const double MinimumFollowSafetyGap = 40.0;
+        // 팔로잉 유지 간격 하한. 기존 40.0 고정은 설정(SafetyDistance+Extra, UI 튜닝)이 40 미만일 때
+        // 이를 무력화했다 — 현재 기준(사용자 지시 2026-07-26): 간격은 설정값을 그대로 존중하고,
+        // 여기는 설정 오류(0/음수 등 퇴화값) 방어용 최소 바닥만 남긴다.
+        private const double MinimumFollowSafetyGap = 5.0;
         // 팔로잉 이동 전체 타임아웃(고정). 팔로잉 루프와 최종 완료 대기를 합쳐 적용한다.
         private const int FollowMoveTimeoutMs = 5000;
         // 팔로잉 루프 폴링 주기.
@@ -612,12 +616,83 @@ namespace QMC.CDT320.Ajin
         }
 
         /// <summary>
+        /// 팔로잉 중 후행축 위치를 함께 제한하는 "추가 제약 페어" 1건.
+        /// 선행축(leadingAxis)이 아닌 다른 공유 레일 축(예: 반대편 피커)과의 페어 간격을 뜻한다.
+        /// Direction은 해당 페어에서 후행축의 접근 부호(TowardSign)이며, 세션 direction과 다르면
+        /// 그 페어는 이 이동으로 오히려 안전해지므로 클램프에서 제외한다.
+        /// </summary>
+        public sealed class FollowConstraint
+        {
+            public readonly BaseAxis Axis;
+            public readonly double HomeGap;
+            public readonly double SafetyGap;
+            public readonly int Direction;
+
+            public FollowConstraint(BaseAxis axis, double homeGap, double safetyGap, int direction)
+            {
+                Axis = axis;
+                HomeGap = homeGap;
+                SafetyGap = safetyGap;
+                Direction = direction;
+            }
+        }
+
+        // 기존 조건(~2026-07-26): 팔로잉은 leadingAxis 단 하나의 페어로만 전진 한계를 계산했다.
+        //   반대편 피커는 이 식에 등장하지 않아 유지 간격(safetyGap=Safety+Extra)이 걸리지 않았고,
+        //   명령마다 걸리는 인터락(페어 SafetyDistance, R5로 Extra 미포함)만이 유일한 하한이었다.
+        //   그 결과 비전은 반대편 피커 앞 SafetyDistance(10mm)까지 파고든 뒤 -11로 정지·주차했다.
+        // 현재 기준(사용자 승인 2026-07-26, 2안): 매 폴링마다 모든 제약 페어의 상한을 계산해
+        //   가장 불리한 값으로 명령을 클램프한다. 선행축은 속도 프로파일 산출용으로만 쓰고,
+        //   위치 한계는 관련 페어 전부가 건다. additionalConstraints 미전달 시 기존 동작 무변경.
+        private double ClampFollowCommandByConstraints(
+            double command,
+            int direction,
+            IList<FollowConstraint> constraints,
+            out string bindingDetail)
+        {
+            bindingDetail = null;
+            if (constraints == null || constraints.Count == 0)
+                return command;
+
+            double clamped = command;
+            for (int i = 0; i < constraints.Count; i++)
+            {
+                FollowConstraint constraint = constraints[i];
+                if (constraint == null || constraint.Axis == null)
+                    continue;
+                if (constraint.Direction != direction)
+                    continue;
+
+                double otherActual = constraint.Axis.ActualPosition;
+                // 페어 간격식과 동일: direction>0 → 후행 ≤ 상대+homeGap−safetyGap
+                //                     direction<0 → 후행 ≥ 상대−homeGap+safetyGap
+                double bound = direction > 0
+                    ? otherActual + constraint.HomeGap - constraint.SafetyGap
+                    : otherActual - constraint.HomeGap + constraint.SafetyGap;
+
+                bool binds = direction > 0 ? bound < clamped : bound > clamped;
+                if (binds)
+                {
+                    clamped = bound;
+                    bindingDetail = constraint.Axis.Name +
+                        " actual=" + otherActual.ToString("F3") +
+                        ", homeGap=" + constraint.HomeGap.ToString("F3") +
+                        ", safetyGap=" + constraint.SafetyGap.ToString("F3") +
+                        ", bound=" + bound.ToString("F3");
+                }
+            }
+
+            return clamped;
+        }
+
+        /// <summary>
         /// 선행축을 따라가며 후행축(this)을 목표 위치까지 이동시킨다.
         /// 선행축에는 어떤 명령도 내리지 않는다(읽기 전용 — ActualPosition/IsMoving/IsAlarm만 참조).
-        /// 두 축의 물리 간격이 safetyGap(최소 40mm) 미만으로 줄어들지 않는 한도 내에서
+        /// 두 축의 물리 간격이 safetyGap(설정값 존중, 최소 바닥 5mm) 미만으로 줄어들지 않는 한도 내에서
         /// 포지션 오버라이드로 추종하고, 후행축이 목표에 도달하면 0을 반환한다.
+        /// additionalConstraints를 주면 선행축 외 페어(반대편 피커 등)의 상한으로도 명령을 클램프한다.
         /// 반환: 0=성공, -1=인자 오류, -2=축 미준비, -11=인터락 거부,
-        /// -21=타임아웃(5초 고정), -22=선행축 알람, 그 외=하위 에러코드.
+        /// -21=타임아웃(timeoutMs 미지정 시 기본 5초), -22=선행축 알람, 그 외=하위 에러코드.
         /// </summary>
         public async Task<int> FollowMoveAsync(
             BaseAxis leadingAxis,
@@ -634,7 +709,9 @@ namespace QMC.CDT320.Ajin
             double homeGap,
             int timeoutMs = 0,
             string trailingTargetName = null,
-            CancellationToken ct = default(CancellationToken))
+            CancellationToken ct = default(CancellationToken),
+            // 2안(사용자 승인 2026-07-26): 선행축 외 제약 페어. 기존 호출부는 미전달 → 동작 무변경.
+            IList<FollowConstraint> additionalConstraints = null)
         {
             Task<int> moveTask = null;
             // R1(follow-entry): 타임아웃 인자화 — 0 이하면 기존 기본값(5000ms) 유지, 기존 호출부 무변경.
@@ -715,6 +792,8 @@ namespace QMC.CDT320.Ajin
                 bool finalEntered = false;
                 // 수정 E(2026-07-25): 오버라이드 성공 로그 스로틀 — 최초 1건은 무조건, 이후 1초 1건.
                 long lastOverrideLogMs = -1;
+                // 추가 제약 클램프 로그 스로틀(동일 규칙).
+                long lastConstraintLogMs = -1;
 
                 while (true)
                 {
@@ -779,6 +858,29 @@ namespace QMC.CDT320.Ajin
                         double command = direction > 0
                             ? Math.Min(trailingTargetPosition, intermediate)
                             : Math.Max(trailingTargetPosition, intermediate);
+
+                        // 2안 클램프: 선행축 외 제약 페어(반대편 피커 등)의 상한을 함께 적용한다.
+                        // 클램프로 명령이 현재 위치 뒤로 밀리면 아래 commandForward/commandIsFinal이
+                        // 모두 false가 되어 명령을 내지 않고 대기한다(상대가 열릴 때까지 추종 보류).
+                        string constraintDetail;
+                        double constrainedCommand = ClampFollowCommandByConstraints(
+                            command, direction, additionalConstraints, out constraintDetail);
+                        if (constraintDetail != null)
+                        {
+                            bool constraintLogDue = lastConstraintLogMs < 0 ||
+                                stopwatch.ElapsedMilliseconds - lastConstraintLogMs >= 1000;
+                            if (constraintLogDue)
+                            {
+                                lastConstraintLogMs = stopwatch.ElapsedMilliseconds;
+                                QMC.Common.Log.Write("Motion", "SYSTEM", "AX-FOLLOW-CONSTRAINT",
+                                    Name + " 팔로잉 명령이 추가 제약 페어로 클램프되었습니다. " +
+                                    "leadCommand=" + command.ToString("F3") +
+                                    ", clamped=" + constrainedCommand.ToString("F3") +
+                                    ", " + constraintDetail + " - Check");
+                            }
+
+                            command = constrainedCommand;
+                        }
 
                         // 명령 위치로 이동 완료를 가정한 간격 재검증.
                         double gapAfter = direction > 0

@@ -517,6 +517,15 @@ namespace QMC.CDT320.Sequencing
                 }
             }
 
+            // 회피 no-op 방지(사용자 승인 2026-07-26): 이 좌표가 "Place 진입에 실제로 필요한 비전
+            // 위치"다. 후검사 큐가 배치 EPD 시점에 이 값까지 미리 물러나 사이드 촬영과 병렬로
+            // 회피를 끝내도록 게시한다(총 이동량 동일, 시점만 선행).
+            if (useMinimalRetreat)
+            {
+                VisionIndependentRetreatCoordinator.RegisterOutputPlaceEntryTarget(
+                    visionTarget, Name + ":PlaceEntry");
+            }
+
             WriteLog("PickerPlaceSequence",
                 Name + " OutputVisionX 피커 진입 회피 좌표를 확정했습니다. " +
                 "mode=" + retreatMode +

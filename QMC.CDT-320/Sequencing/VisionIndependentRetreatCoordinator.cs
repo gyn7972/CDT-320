@@ -255,6 +255,44 @@ namespace QMC.CDT320.Sequencing
             WriteLog("OutputVisionX 독립 회피 세션을 정리했습니다. reason=" + Safe(reason) + " - Check");
         }
 
+        // ---------- 아웃풋 Place 진입 요구 좌표(회피 no-op 방지, 사용자 승인 2026-07-26) ----------
+        //
+        // 배경: 배치 EPD 시점의 최소 회피 계산은 "피커의 현재 위치"만 장애물로 본다. 그런데 그때
+        //   다음 피커는 아직 사이드 촬영 존에 있어 Place 코리도어와 멀고, 그래서 요구 좌표가 이미
+        //   충족돼 "현재 위치 유지(=0mm 이동)"로 해소됐다. 실제 회피는 다음 Place 시퀀스가 정확
+        //   좌표로 연장할 때(=그 피커의 사이드 촬영 EPD 완료 후)에야 발행되어, 비전이 스테이지 위에
+        //   5.2~7.0초 잔류했다(실장비 2026-07-26 05:58~06:00 4개 배치 전부).
+        // 현재 기준: Place 시퀀스가 확정한 "Place 진입 요구 비전 좌표"를 여기에 게시하고, 큐가 배치
+        //   EPD 시점에 그 값까지 미리 물러난다. 총 이동량은 같고 시점만 앞당겨진다(사이드 촬영과 병렬).
+        //   다음 Place가 계산한 정확 좌표와의 차이는 기존 "연장 회피" 경로가 그대로 흡수한다.
+        private static double _outputPlaceEntryTarget = double.NaN;
+        private static string _outputPlaceEntryOwner;
+
+        /// <summary>Place 시퀀스가 확정한 Place 진입 요구 비전 좌표를 게시한다.</summary>
+        public static void RegisterOutputPlaceEntryTarget(double target, string owner)
+        {
+            if (double.IsNaN(target) || double.IsInfinity(target))
+                return;
+
+            lock (Sync)
+            {
+                _outputPlaceEntryTarget = target;
+                _outputPlaceEntryOwner = owner;
+            }
+        }
+
+        /// <summary>가장 최근에 게시된 Place 진입 요구 비전 좌표. 없으면 false.</summary>
+        public static bool TryGetOutputPlaceEntryTarget(out double target, out string owner)
+        {
+            lock (Sync)
+            {
+                target = _outputPlaceEntryTarget;
+                owner = _outputPlaceEntryOwner;
+            }
+
+            return !double.IsNaN(target);
+        }
+
         // ---------- 공통 ----------
 
         private static void ObserveReplacedSession(RetreatSession session, string context)

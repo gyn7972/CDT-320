@@ -653,6 +653,40 @@ namespace QMC.CDT320.Sequencing
             if (!frontBlocking && !rearBlocking)
                 return true;
 
+            // 현재 기준(사용자 확정 동시성 매트릭스 2026-07-26, 5번 "Place 검사 및 복귀 시"):
+            // 후검사(BIN) 워커의 OutputCamera 존 승인은 "픽커 물리 완전 클리어"를 요구하지 않는다 —
+            // 차단 중인 픽커의 Output 존 lease가 이미 반환된 상태(=Place 완료, 물리 퇴장 중)라면
+            // 존을 승인해 비전이 퇴장 픽커를 return-follow로 추종 진입할 수 있게 한다.
+            // 물리 안전은 무변경 유지: 이동 명령마다 -11 규칙의 제3분기(페어 간격, fail-closed)와
+            // 워커의 팔로잉/공유레일 클리어 대기가 재검증한다. 진입 중(lease 보유) 픽커가 있으면
+            // 기존대로 대기한다 — Place↔BIN 상호 배타는 매트릭스대로 유지.
+            if (kind == AutoSequenceCameraWorkKind.OutputCamera &&
+                !string.IsNullOrWhiteSpace(holder) &&
+                holder.IndexOf("OutputPostPlaceInspection", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                bool frontZoneReleased;
+                bool rearZoneReleased;
+                lock (_pickerWorkZoneGate)
+                {
+                    frontZoneReleased = _frontWorkZone != PickerWorkZone.Output &&
+                                        _frontPendingWorkZone != PickerWorkZone.Output;
+                    rearZoneReleased = _rearWorkZone != PickerWorkZone.Output &&
+                                       _rearPendingWorkZone != PickerWorkZone.Output;
+                }
+
+                bool frontExitOnly = !frontBlocking || frontZoneReleased;
+                bool rearExitOnly = !rearBlocking || rearZoneReleased;
+                if (frontExitOnly && rearExitOnly)
+                {
+                    Log.Write("Main", "SYSTEM", "AutoSequenceCoordinator",
+                        "OutputCamera 존을 픽커 퇴장 중 조기 승인합니다(복귀 동시 후검사 — return-follow 진입 허용). " +
+                        "holder=" + holder +
+                        ", frontBlocking=" + frontBlocking + "(zoneReleased=" + frontZoneReleased + ")" +
+                        ", rearBlocking=" + rearBlocking + "(zoneReleased=" + rearZoneReleased + ") - Ok");
+                    return true;
+                }
+            }
+
             reason = "picker physical zone is not clear for camera. kind=" + kind +
                 ", zone=" + zone +
                 ", holder=" + holder +
