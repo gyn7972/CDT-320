@@ -356,7 +356,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             //
             // btnAutoCalibration
             //
-            this.btnAutoCalibration.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(238)))), ((int)(((byte)(82)))), ((int)(((byte)(24)))));
+            this.btnAutoCalibration.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
             this.btnAutoCalibration.Cursor = System.Windows.Forms.Cursors.Hand;
             this.btnAutoCalibration.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnAutoCalibration.FlatAppearance.BorderSize = 0;

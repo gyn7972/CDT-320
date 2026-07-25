@@ -359,11 +359,11 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 header.Description = "Vision Cal Position";
             items.Add(header);
 
-            var recipe = _outputStageUnit.Recipe;
-            if (goodY) items.Add(StageMember("GOOD Y", groupKey, kindLabel, kind, _outputStageUnit.GoodStage.StageY, () => recipe.GoodStageY));
-            if (goodZ) items.Add(StageMember("GOOD Z", groupKey, kindLabel, kind, _outputStageUnit.GoodStage.StageZ, () => recipe.GoodStageZ));
-            if (ng) items.Add(StageMember("NG Y", groupKey, kindLabel, kind, _outputStageUnit.NgStage.StageY, () => recipe.NGStageY));
-            if (vision) items.Add(StageMember("VISION X", groupKey, kindLabel, kind, _outputStageUnit.OutputCameraX, () => recipe.VisionX));
+            // LoadRecipe/LoadSettings가 Recipe 객체를 교체하므로 지역 캡처 대신 매 호출 시 라이브 Recipe를 따라간다.
+            if (goodY) items.Add(StageMember("GOOD Y", groupKey, kindLabel, kind, _outputStageUnit.GoodStage.StageY, () => _outputStageUnit.Recipe.GoodStageY));
+            if (goodZ) items.Add(StageMember("GOOD Z", groupKey, kindLabel, kind, _outputStageUnit.GoodStage.StageZ, () => _outputStageUnit.Recipe.GoodStageZ));
+            if (ng) items.Add(StageMember("NG Y", groupKey, kindLabel, kind, _outputStageUnit.NgStage.StageY, () => _outputStageUnit.Recipe.NGStageY));
+            if (vision) items.Add(StageMember("VISION X", groupKey, kindLabel, kind, _outputStageUnit.OutputCameraX, () => _outputStageUnit.Recipe.VisionX));
         }
 
         private ParameterGridItem StageMember(string axisLabel, string groupKey, string kindLabel, string kind, BaseAxis axis, Func<StageAxisPositions> set)

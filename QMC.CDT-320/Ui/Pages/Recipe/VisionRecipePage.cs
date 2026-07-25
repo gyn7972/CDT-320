@@ -337,9 +337,14 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             items.Add(VisionMember("REAR Y", groupKey, kindLabel, kind, VisionSide.Rear));
         }
 
+        // LoadRecipe/LoadSettings가 Recipe 객체를 교체하므로 positions를 지역 캡처하지 않고 매 호출 시 라이브 객체를 따라간다.
+        private VisionAxisPositions ResolveLiveVisionPositions(VisionSide side)
+        {
+            return side == VisionSide.Front ? _visionUnit.Recipe.FrontSideVision : _visionUnit.Recipe.RearSideVision;
+        }
+
         private ParameterGridItem VisionMember(string axisLabel, string groupKey, string kindLabel, string kind, VisionSide side)
         {
-            VisionAxisPositions positions = side == VisionSide.Front ? _visionUnit.Recipe.FrontSideVision : _visionUnit.Recipe.RearSideVision;
             BaseAxis axis = side == VisionSide.Front ? _visionUnit.FrontSideVisionY : _visionUnit.RearSideVisionY;
 
             Func<double> getter;
@@ -347,11 +352,11 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             switch (kind)
             {
                 // Avoid 위치 레시피 연결
-                case "Avoid": getter = () => positions.AvoidPosition; setter = v => positions.AvoidPosition = v; break;
+                case "Avoid": getter = () => ResolveLiveVisionPositions(side).AvoidPosition; setter = v => ResolveLiveVisionPositions(side).AvoidPosition = v; break;
                 // Process 위치(0도) 레시피 연결
-                case "Process0": getter = () => positions.Process0Position; setter = v => positions.Process0Position = v; break;
+                case "Process0": getter = () => ResolveLiveVisionPositions(side).Process0Position; setter = v => ResolveLiveVisionPositions(side).Process0Position = v; break;
                 // Process 위치(90도) 레시피 연결
-                case "Process90": getter = () => positions.Process90Position; setter = v => positions.Process90Position = v; break;
+                case "Process90": getter = () => ResolveLiveVisionPositions(side).Process90Position; setter = v => ResolveLiveVisionPositions(side).Process90Position = v; break;
                 default: getter = () => 0.0; setter = v => { }; break;
             }
 
@@ -373,7 +378,9 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 {
                     ManualActionItem.Create("AVOID POSITION", () => ConfirmAndRunAsync("AVOID POSITION", () => _visionUnit.MoveToVisionAvoidPosition(), _visionUnit.FrontSideVisionY, _visionUnit.RearSideVisionY)),
                     ManualActionItem.Create("PROCESS POSITION (0°)", () => ConfirmAndRunAsync("PROCESS POSITION (0°)", MoveBothProcess0Async, _visionUnit.FrontSideVisionY, _visionUnit.RearSideVisionY)),
-                    ManualActionItem.Create("PROCESS POSITION (90°)", () => ConfirmAndRunAsync("PROCESS POSITION (90°)", MoveBothProcess90Async, _visionUnit.FrontSideVisionY, _visionUnit.RearSideVisionY))
+                    ManualActionItem.Create("PROCESS POSITION (90°)", () => ConfirmAndRunAsync("PROCESS POSITION (90°)", MoveBothProcess90Async, _visionUnit.FrontSideVisionY, _visionUnit.RearSideVisionY)),
+                    ManualActionItem.Create("RETICLE 공정 위치", () => RunReticleActionAsync("RETICLE 공정 위치", true)),
+                    ManualActionItem.Create("RETICLE 대기 위치", () => RunReticleActionAsync("RETICLE 대기 위치", false))
                 });
             }
             catch (Exception ex)
@@ -415,6 +422,111 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 return -1;
 
             return await _visionUnit.ManualMoveBothSideVisionProcess90Position();
+        }
+
+        // ===== RETICLE 공정/대기 위치 실린더 일괄 동작 =====
+        // 공정 위치: Reticle 업 → 300ms → Rear Slide 전진 → 300ms
+        // 대기 위치: Rear Slide 후진 → 300ms → Reticle 다운 → 300ms
+        // 인터락: Front/Rear 픽커 Z 전 축이 Avoid 위치여야 하며, 하나라도 내려와 있으면 알람 후 차단한다.
+        private async Task RunReticleActionAsync(string actionName, bool toProcessPosition)
+        {
+            string reason;
+            if (!CheckAllPickerZAvoidForReticle(out reason))
+            {
+                string message = actionName + " 이동 불가: " + reason;
+                QMC.Common.Alarms.AlarmManager.Raise(QMC.Common.Alarms.AlarmSeverity.Error, "VS-RETICLE-PICKER-Z", "UI", message);
+                QMC.Common.MessageDialog.Show(this, message, "Vision", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            await ConfirmAndRunAsync(
+                actionName,
+                toProcessPosition ? (Func<Task<int>>)MoveReticleToProcessPositionAsync : MoveReticleToStandbyPositionAsync);
+        }
+
+        private async Task<int> MoveReticleToProcessPositionAsync()
+        {
+            if (_visionUnit == null)
+                return -1;
+
+            // 확인창 이후 상태가 변했을 수 있으므로 실행 직전 픽커 Z Avoid를 재확인한다.
+            string reason;
+            if (!CheckAllPickerZAvoidForReticle(out reason))
+            {
+                QMC.Common.Alarms.AlarmManager.Raise(QMC.Common.Alarms.AlarmSeverity.Error, "VS-RETICLE-PICKER-Z", "UI",
+                    "RETICLE 공정 위치 이동 불가: " + reason);
+                return -1;
+            }
+
+            int result = await _visionUnit.SetReticleLiftUpAsync(true, System.Threading.CancellationToken.None);
+            if (result != 0)
+                return result;
+            await Task.Delay(300);
+
+            result = await _visionUnit.SetReticleRearSideForwardAsync(true, System.Threading.CancellationToken.None);
+            if (result != 0)
+                return result;
+            await Task.Delay(300);
+
+            return 0;
+        }
+
+        private async Task<int> MoveReticleToStandbyPositionAsync()
+        {
+            if (_visionUnit == null)
+                return -1;
+
+            // 확인창 이후 상태가 변했을 수 있으므로 실행 직전 픽커 Z Avoid를 재확인한다.
+            string reason;
+            if (!CheckAllPickerZAvoidForReticle(out reason))
+            {
+                QMC.Common.Alarms.AlarmManager.Raise(QMC.Common.Alarms.AlarmSeverity.Error, "VS-RETICLE-PICKER-Z", "UI",
+                    "RETICLE 대기 위치 이동 불가: " + reason);
+                return -1;
+            }
+
+            int result = await _visionUnit.SetReticleRearSideForwardAsync(false, System.Threading.CancellationToken.None);
+            if (result != 0)
+                return result;
+            await Task.Delay(300);
+
+            result = await _visionUnit.SetReticleLiftUpAsync(false, System.Threading.CancellationToken.None);
+            if (result != 0)
+                return result;
+            await Task.Delay(300);
+
+            return 0;
+        }
+
+        // Front/Rear 픽커 Z 전 축이 Avoid(상승) 위치인지 확인한다. 사유는 한국어로 반환한다.
+        private bool CheckAllPickerZAvoidForReticle(out string reason)
+        {
+            reason = string.Empty;
+
+            var machine = FindMachine();
+            var frontPicker = machine != null ? machine.PickerFrontUnit : null;
+            var rearPicker = machine != null ? machine.PickerRearUnit : null;
+            if (frontPicker == null || rearPicker == null)
+            {
+                reason = "픽커 유닛을 찾을 수 없습니다.";
+                return false;
+            }
+
+            string frontBlock = frontPicker.GetPickerZClearBlockReason();
+            if (frontBlock != null)
+            {
+                reason = "Front Picker Z " + frontBlock;
+                return false;
+            }
+
+            string rearBlock = rearPicker.GetPickerZClearBlockReason();
+            if (rearBlock != null)
+            {
+                reason = "Rear Picker Z " + rearBlock;
+                return false;
+            }
+
+            return true;
         }
 
         private void BindParameterGridMenus()

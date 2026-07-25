@@ -50,12 +50,22 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
         private Label _lifterPosLabel;
         private Button btnPrev;
         private Button btnNext;
-        private Button btnInit;
         private Button btnReady;
         private ActionButton btnMap;
         private ActionButton btnLoad;
         private ActionButton btnUnload;
         private ActionButton btnStop;
+        private GroupBox grpDataOnly;
+        private TableLayoutPanel dataOnlyLayout;
+        private Label lblDataOnlyWarning;
+        private Label lblDataOnlySourceTitle;
+        private ComboBox cmbDataOnlySource;
+        private Label lblDataOnlyDestTitle;
+        private ComboBox cmbDataOnlyDest;
+        private Label lblDataOnlyMaterialTitle;
+        private Label lblDataOnlyMaterialValue;
+        private Button btnDataOnlyMove;
+        private Button btnDataOnlyDelete;
 
         private void InitializeComponent()
         {
@@ -74,7 +84,6 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this._lifterPosLabel = new System.Windows.Forms.Label();
             this.lblSlotStateTitle = new System.Windows.Forms.Label();
             this.lblSlotStateValue = new System.Windows.Forms.Label();
-            this.btnInit = new System.Windows.Forms.Button();
             this.btnReady = new System.Windows.Forms.Button();
             this.grpLifter = new System.Windows.Forms.GroupBox();
             this.lifterLayout = new System.Windows.Forms.TableLayoutPanel();
@@ -103,6 +112,17 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.btnUnload = new QMC.CDT_320.Ui.Controls.ActionButton();
             this.btnStop = new QMC.CDT_320.Ui.Controls.ActionButton();
             this.materialDetailView = new QMC.CDT_320.Ui.Controls.MaterialDetailView();
+            this.grpDataOnly = new System.Windows.Forms.GroupBox();
+            this.dataOnlyLayout = new System.Windows.Forms.TableLayoutPanel();
+            this.lblDataOnlyWarning = new System.Windows.Forms.Label();
+            this.lblDataOnlySourceTitle = new System.Windows.Forms.Label();
+            this.cmbDataOnlySource = new System.Windows.Forms.ComboBox();
+            this.lblDataOnlyDestTitle = new System.Windows.Forms.Label();
+            this.cmbDataOnlyDest = new System.Windows.Forms.ComboBox();
+            this.lblDataOnlyMaterialTitle = new System.Windows.Forms.Label();
+            this.lblDataOnlyMaterialValue = new System.Windows.Forms.Label();
+            this.btnDataOnlyMove = new System.Windows.Forms.Button();
+            this.btnDataOnlyDelete = new System.Windows.Forms.Button();
             this.cassetteCheck1Panel = new System.Windows.Forms.TableLayoutPanel();
             this.dotCassetteCheck1 = new QMC.CDT_320.Ui.Controls.IndicatorDot();
             this.lblCassetteCheck1 = new System.Windows.Forms.Label();
@@ -125,6 +145,8 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.cassetteLevelLayout.SuspendLayout();
             this.grpAction.SuspendLayout();
             this.actionBar.SuspendLayout();
+            this.grpDataOnly.SuspendLayout();
+            this.dataOnlyLayout.SuspendLayout();
             this.cassetteCheck1Panel.SuspendLayout();
             this.cassetteCheck2Panel.SuspendLayout();
             this.SuspendLayout();
@@ -171,6 +193,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.contentLayout.Controls.Add(this.grpLifter, 0, 1);
             this.contentLayout.Controls.Add(this.grpAction, 0, 2);
             this.contentLayout.Controls.Add(this.materialDetailView, 1, 0);
+            this.contentLayout.Controls.Add(this.grpDataOnly, 1, 2);
             this.contentLayout.Dock = System.Windows.Forms.DockStyle.Fill;
             this.contentLayout.Location = new System.Drawing.Point(0, 30);
             this.contentLayout.Margin = new System.Windows.Forms.Padding(0);
@@ -225,8 +248,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.slotStateLayout.Controls.Add(this.lifterAxisPanel, 4, 0);
             this.slotStateLayout.Controls.Add(this.lblSlotStateTitle, 0, 1);
             this.slotStateLayout.Controls.Add(this.lblSlotStateValue, 1, 1);
-            this.slotStateLayout.Controls.Add(this.btnInit, 2, 1);
-            this.slotStateLayout.Controls.Add(this.btnReady, 3, 1);
+            this.slotStateLayout.Controls.Add(this.btnReady, 2, 1);
             this.slotStateLayout.Dock = System.Windows.Forms.DockStyle.Fill;
             this.slotStateLayout.Location = new System.Drawing.Point(3, 23);
             this.slotStateLayout.Name = "slotStateLayout";
@@ -350,26 +372,16 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblSlotStateValue.Text = "EMPTY";
             this.lblSlotStateValue.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
-            // btnInit
-            // 
-            this.btnInit.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnInit.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnInit.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(129)));
-            this.btnInit.Location = new System.Drawing.Point(327, 46);
-            this.btnInit.Name = "btnInit";
-            this.btnInit.Size = new System.Drawing.Size(149, 34);
-            this.btnInit.TabIndex = 6;
-            this.btnInit.Text = "LIFTER INIT";
-            // 
             // btnReady
             // 
+            this.slotStateLayout.SetColumnSpan(this.btnReady, 2);
             this.btnReady.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnReady.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.btnReady.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(129)));
-            this.btnReady.Location = new System.Drawing.Point(482, 46);
+            this.btnReady.Location = new System.Drawing.Point(327, 46);
             this.btnReady.Name = "btnReady";
-            this.btnReady.Size = new System.Drawing.Size(149, 34);
-            this.btnReady.TabIndex = 7;
+            this.btnReady.Size = new System.Drawing.Size(304, 34);
+            this.btnReady.TabIndex = 6;
             this.btnReady.Text = "LIFTER READY";
             // 
             // grpLifter
@@ -635,11 +647,11 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             // 
             this.grpAction.BackColor = System.Drawing.Color.White;
             this.grpAction.Controls.Add(this.actionBar);
+            this.grpAction.Dock = System.Windows.Forms.DockStyle.Bottom;
             this.grpAction.Font = new System.Drawing.Font("맑은 고딕", 11F, System.Drawing.FontStyle.Bold);
-            this.grpAction.Location = new System.Drawing.Point(0, 713);
+            this.grpAction.Location = new System.Drawing.Point(0, 748);
             this.grpAction.Margin = new System.Windows.Forms.Padding(0, 3, 3, 0);
             this.grpAction.Name = "grpAction";
-            this.grpAction.Dock = System.Windows.Forms.DockStyle.Bottom;
             this.grpAction.Size = new System.Drawing.Size(836, 122);
             this.grpAction.TabIndex = 2;
             this.grpAction.TabStop = false;
@@ -657,8 +669,8 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.actionBar.Dock = System.Windows.Forms.DockStyle.Top;
             this.actionBar.Location = new System.Drawing.Point(3, 23);
             this.actionBar.Margin = new System.Windows.Forms.Padding(0);
-            this.actionBar.Padding = new System.Windows.Forms.Padding(3, 1, 3, 0);
             this.actionBar.Name = "actionBar";
+            this.actionBar.Padding = new System.Windows.Forms.Padding(3, 1, 3, 0);
             this.actionBar.RowCount = 2;
             this.actionBar.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 46F));
             this.actionBar.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 46F));
@@ -668,13 +680,17 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             // btnMap
             // 
             this.btnMap.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
+            this.btnMap.BadgeColor = System.Drawing.Color.FromArgb(((int)(((byte)(245)))), ((int)(((byte)(166)))), ((int)(((byte)(35)))));
+            this.btnMap.BadgeText = "ACTION";
+            this.btnMap.BorderColor = System.Drawing.Color.Empty;
+            this.btnMap.BorderWidth = 0;
             this.btnMap.Cursor = System.Windows.Forms.Cursors.Hand;
             this.btnMap.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnMap.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
             this.btnMap.ForeColor = System.Drawing.Color.White;
-            this.btnMap.Location = new System.Drawing.Point(3, 3);
+            this.btnMap.Location = new System.Drawing.Point(6, 4);
             this.btnMap.Name = "btnMap";
-            this.btnMap.Size = new System.Drawing.Size(409, 40);
+            this.btnMap.Size = new System.Drawing.Size(406, 40);
             this.btnMap.TabIndex = 0;
             this.btnMap.Tag = "i18n:wi.liftWaferMapping";
             this.btnMap.Text = "LIFT WAFER MAPPING";
@@ -682,13 +698,17 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             // btnLoad
             // 
             this.btnLoad.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
+            this.btnLoad.BadgeColor = System.Drawing.Color.FromArgb(((int)(((byte)(245)))), ((int)(((byte)(166)))), ((int)(((byte)(35)))));
+            this.btnLoad.BadgeText = "ACTION";
+            this.btnLoad.BorderColor = System.Drawing.Color.Empty;
+            this.btnLoad.BorderWidth = 0;
             this.btnLoad.Cursor = System.Windows.Forms.Cursors.Hand;
             this.btnLoad.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnLoad.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
             this.btnLoad.ForeColor = System.Drawing.Color.White;
-            this.btnLoad.Location = new System.Drawing.Point(418, 3);
+            this.btnLoad.Location = new System.Drawing.Point(418, 4);
             this.btnLoad.Name = "btnLoad";
-            this.btnLoad.Size = new System.Drawing.Size(409, 40);
+            this.btnLoad.Size = new System.Drawing.Size(406, 40);
             this.btnLoad.TabIndex = 1;
             this.btnLoad.Tag = "i18n:wi.liftWaferLoading";
             this.btnLoad.Text = "LIFT WAFER LOADING";
@@ -696,13 +716,17 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             // btnUnload
             // 
             this.btnUnload.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
+            this.btnUnload.BadgeColor = System.Drawing.Color.FromArgb(((int)(((byte)(245)))), ((int)(((byte)(166)))), ((int)(((byte)(35)))));
+            this.btnUnload.BadgeText = "ACTION";
+            this.btnUnload.BorderColor = System.Drawing.Color.Empty;
+            this.btnUnload.BorderWidth = 0;
             this.btnUnload.Cursor = System.Windows.Forms.Cursors.Hand;
             this.btnUnload.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnUnload.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
             this.btnUnload.ForeColor = System.Drawing.Color.White;
-            this.btnUnload.Location = new System.Drawing.Point(3, 49);
+            this.btnUnload.Location = new System.Drawing.Point(6, 50);
             this.btnUnload.Name = "btnUnload";
-            this.btnUnload.Size = new System.Drawing.Size(409, 40);
+            this.btnUnload.Size = new System.Drawing.Size(406, 40);
             this.btnUnload.TabIndex = 2;
             this.btnUnload.Tag = "i18n:wi.liftWaferUnloading";
             this.btnUnload.Text = "LIFT WAFER UNLOADING";
@@ -710,13 +734,17 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             // btnStop
             // 
             this.btnStop.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(214)))), ((int)(((byte)(40)))), ((int)(((byte)(40)))));
+            this.btnStop.BadgeColor = System.Drawing.Color.FromArgb(((int)(((byte)(245)))), ((int)(((byte)(166)))), ((int)(((byte)(35)))));
+            this.btnStop.BadgeText = "ACTION";
+            this.btnStop.BorderColor = System.Drawing.Color.Empty;
+            this.btnStop.BorderWidth = 0;
             this.btnStop.Cursor = System.Windows.Forms.Cursors.Hand;
             this.btnStop.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnStop.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
             this.btnStop.ForeColor = System.Drawing.Color.White;
-            this.btnStop.Location = new System.Drawing.Point(418, 49);
+            this.btnStop.Location = new System.Drawing.Point(418, 50);
             this.btnStop.Name = "btnStop";
-            this.btnStop.Size = new System.Drawing.Size(409, 40);
+            this.btnStop.Size = new System.Drawing.Size(406, 40);
             this.btnStop.TabIndex = 3;
             this.btnStop.Text = "STOP";
             // 
@@ -727,10 +755,173 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.materialDetailView.Location = new System.Drawing.Point(842, 0);
             this.materialDetailView.Margin = new System.Windows.Forms.Padding(3, 0, 0, 0);
             this.materialDetailView.Name = "materialDetailView";
-            this.contentLayout.SetRowSpan(this.materialDetailView, 3);
+            this.contentLayout.SetRowSpan(this.materialDetailView, 2);
             this.materialDetailView.ShowProcessTestDataButton = false;
-            this.materialDetailView.Size = new System.Drawing.Size(836, 870);
+            this.materialDetailView.Size = new System.Drawing.Size(836, 710);
             this.materialDetailView.TabIndex = 2;
+            // 
+            // grpDataOnly
+            // 
+            this.grpDataOnly.BackColor = System.Drawing.Color.White;
+            this.grpDataOnly.Controls.Add(this.dataOnlyLayout);
+            this.grpDataOnly.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.grpDataOnly.Font = new System.Drawing.Font("맑은 고딕", 11F, System.Drawing.FontStyle.Bold);
+            this.grpDataOnly.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(192)))), ((int)(((byte)(0)))), ((int)(((byte)(0)))));
+            this.grpDataOnly.Location = new System.Drawing.Point(842, 713);
+            this.grpDataOnly.Margin = new System.Windows.Forms.Padding(3, 3, 0, 0);
+            this.grpDataOnly.Name = "grpDataOnly";
+            this.grpDataOnly.Size = new System.Drawing.Size(836, 157);
+            this.grpDataOnly.TabIndex = 3;
+            this.grpDataOnly.TabStop = false;
+            this.grpDataOnly.Text = "MATERIAL DATA ONLY";
+            // 
+            // dataOnlyLayout
+            // 
+            this.dataOnlyLayout.ColumnCount = 4;
+            this.dataOnlyLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 90F));
+            this.dataOnlyLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 50F));
+            this.dataOnlyLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 90F));
+            this.dataOnlyLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 50F));
+            this.dataOnlyLayout.Controls.Add(this.lblDataOnlyWarning, 0, 0);
+            this.dataOnlyLayout.Controls.Add(this.lblDataOnlySourceTitle, 0, 1);
+            this.dataOnlyLayout.Controls.Add(this.cmbDataOnlySource, 1, 1);
+            this.dataOnlyLayout.Controls.Add(this.lblDataOnlyDestTitle, 2, 1);
+            this.dataOnlyLayout.Controls.Add(this.cmbDataOnlyDest, 3, 1);
+            this.dataOnlyLayout.Controls.Add(this.lblDataOnlyMaterialTitle, 0, 2);
+            this.dataOnlyLayout.Controls.Add(this.lblDataOnlyMaterialValue, 1, 2);
+            this.dataOnlyLayout.Controls.Add(this.btnDataOnlyMove, 2, 2);
+            this.dataOnlyLayout.Controls.Add(this.btnDataOnlyDelete, 3, 2);
+            this.dataOnlyLayout.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.dataOnlyLayout.Location = new System.Drawing.Point(3, 23);
+            this.dataOnlyLayout.Margin = new System.Windows.Forms.Padding(0);
+            this.dataOnlyLayout.Name = "dataOnlyLayout";
+            this.dataOnlyLayout.Padding = new System.Windows.Forms.Padding(4);
+            this.dataOnlyLayout.RowCount = 3;
+            this.dataOnlyLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 28F));
+            this.dataOnlyLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 50F));
+            this.dataOnlyLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 50F));
+            this.dataOnlyLayout.Size = new System.Drawing.Size(830, 131);
+            this.dataOnlyLayout.TabIndex = 0;
+            // 
+            // lblDataOnlyWarning
+            // 
+            this.lblDataOnlyWarning.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(214)))), ((int)(((byte)(40)))), ((int)(((byte)(40)))));
+            this.dataOnlyLayout.SetColumnSpan(this.lblDataOnlyWarning, 4);
+            this.lblDataOnlyWarning.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.lblDataOnlyWarning.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
+            this.lblDataOnlyWarning.ForeColor = System.Drawing.Color.White;
+            this.lblDataOnlyWarning.Location = new System.Drawing.Point(7, 4);
+            this.lblDataOnlyWarning.Name = "lblDataOnlyWarning";
+            this.lblDataOnlyWarning.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
+            this.lblDataOnlyWarning.Size = new System.Drawing.Size(816, 28);
+            this.lblDataOnlyWarning.TabIndex = 0;
+            this.lblDataOnlyWarning.Text = "DATA ONLY / NO MOTION — 실물 위치를 확인한 후 Material 데이터만 이동/삭제하십시오. 장비는 움직이지 않습니다.";
+            this.lblDataOnlyWarning.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            // 
+            // lblDataOnlySourceTitle
+            // 
+            this.lblDataOnlySourceTitle.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.lblDataOnlySourceTitle.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
+            this.lblDataOnlySourceTitle.ForeColor = System.Drawing.Color.Black;
+            this.lblDataOnlySourceTitle.Location = new System.Drawing.Point(7, 32);
+            this.lblDataOnlySourceTitle.Name = "lblDataOnlySourceTitle";
+            this.lblDataOnlySourceTitle.Size = new System.Drawing.Size(84, 47);
+            this.lblDataOnlySourceTitle.TabIndex = 1;
+            this.lblDataOnlySourceTitle.Text = "SOURCE";
+            this.lblDataOnlySourceTitle.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            // 
+            // cmbDataOnlySource
+            // 
+            this.cmbDataOnlySource.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Left | System.Windows.Forms.AnchorStyles.Right)));
+            this.cmbDataOnlySource.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
+            this.cmbDataOnlySource.Font = new System.Drawing.Font("Consolas", 10F);
+            this.cmbDataOnlySource.ForeColor = System.Drawing.Color.Black;
+            this.cmbDataOnlySource.FormattingEnabled = true;
+            this.cmbDataOnlySource.Location = new System.Drawing.Point(97, 43);
+            this.cmbDataOnlySource.Name = "cmbDataOnlySource";
+            this.cmbDataOnlySource.Size = new System.Drawing.Size(315, 23);
+            this.cmbDataOnlySource.TabIndex = 2;
+            // 
+            // lblDataOnlyDestTitle
+            // 
+            this.lblDataOnlyDestTitle.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.lblDataOnlyDestTitle.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
+            this.lblDataOnlyDestTitle.ForeColor = System.Drawing.Color.Black;
+            this.lblDataOnlyDestTitle.Location = new System.Drawing.Point(418, 32);
+            this.lblDataOnlyDestTitle.Name = "lblDataOnlyDestTitle";
+            this.lblDataOnlyDestTitle.Size = new System.Drawing.Size(84, 47);
+            this.lblDataOnlyDestTitle.TabIndex = 3;
+            this.lblDataOnlyDestTitle.Text = "DEST";
+            this.lblDataOnlyDestTitle.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            // 
+            // cmbDataOnlyDest
+            // 
+            this.cmbDataOnlyDest.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Left | System.Windows.Forms.AnchorStyles.Right)));
+            this.cmbDataOnlyDest.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
+            this.cmbDataOnlyDest.Font = new System.Drawing.Font("Consolas", 10F);
+            this.cmbDataOnlyDest.ForeColor = System.Drawing.Color.Black;
+            this.cmbDataOnlyDest.FormattingEnabled = true;
+            this.cmbDataOnlyDest.Location = new System.Drawing.Point(508, 43);
+            this.cmbDataOnlyDest.Name = "cmbDataOnlyDest";
+            this.cmbDataOnlyDest.Size = new System.Drawing.Size(315, 23);
+            this.cmbDataOnlyDest.TabIndex = 4;
+            // 
+            // lblDataOnlyMaterialTitle
+            // 
+            this.lblDataOnlyMaterialTitle.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.lblDataOnlyMaterialTitle.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
+            this.lblDataOnlyMaterialTitle.ForeColor = System.Drawing.Color.Black;
+            this.lblDataOnlyMaterialTitle.Location = new System.Drawing.Point(7, 79);
+            this.lblDataOnlyMaterialTitle.Name = "lblDataOnlyMaterialTitle";
+            this.lblDataOnlyMaterialTitle.Size = new System.Drawing.Size(84, 48);
+            this.lblDataOnlyMaterialTitle.TabIndex = 5;
+            this.lblDataOnlyMaterialTitle.Text = "MATERIAL";
+            this.lblDataOnlyMaterialTitle.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            // 
+            // lblDataOnlyMaterialValue
+            // 
+            this.lblDataOnlyMaterialValue.BackColor = System.Drawing.Color.White;
+            this.lblDataOnlyMaterialValue.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            this.lblDataOnlyMaterialValue.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.lblDataOnlyMaterialValue.Font = new System.Drawing.Font("Consolas", 10F);
+            this.lblDataOnlyMaterialValue.ForeColor = System.Drawing.Color.Black;
+            this.lblDataOnlyMaterialValue.Location = new System.Drawing.Point(97, 79);
+            this.lblDataOnlyMaterialValue.Name = "lblDataOnlyMaterialValue";
+            this.lblDataOnlyMaterialValue.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
+            this.lblDataOnlyMaterialValue.Size = new System.Drawing.Size(315, 48);
+            this.lblDataOnlyMaterialValue.TabIndex = 6;
+            this.lblDataOnlyMaterialValue.Text = "-";
+            this.lblDataOnlyMaterialValue.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            // 
+            // btnDataOnlyMove
+            // 
+            this.btnDataOnlyMove.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(214)))), ((int)(((byte)(40)))), ((int)(((byte)(40)))));
+            this.btnDataOnlyMove.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.btnDataOnlyMove.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.btnDataOnlyMove.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this.btnDataOnlyMove.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
+            this.btnDataOnlyMove.ForeColor = System.Drawing.Color.White;
+            this.btnDataOnlyMove.Location = new System.Drawing.Point(418, 82);
+            this.btnDataOnlyMove.Name = "btnDataOnlyMove";
+            this.btnDataOnlyMove.Size = new System.Drawing.Size(84, 42);
+            this.btnDataOnlyMove.TabIndex = 7;
+            this.btnDataOnlyMove.Text = "MOVE DATA";
+            this.btnDataOnlyMove.UseVisualStyleBackColor = false;
+            // 
+            // btnDataOnlyDelete
+            // 
+            this.btnDataOnlyDelete.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(0)))), ((int)(((byte)(0)))));
+            this.btnDataOnlyDelete.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.btnDataOnlyDelete.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.btnDataOnlyDelete.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this.btnDataOnlyDelete.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
+            this.btnDataOnlyDelete.ForeColor = System.Drawing.Color.White;
+            this.btnDataOnlyDelete.Location = new System.Drawing.Point(508, 82);
+            this.btnDataOnlyDelete.Name = "btnDataOnlyDelete";
+            this.btnDataOnlyDelete.Size = new System.Drawing.Size(315, 42);
+            this.btnDataOnlyDelete.TabIndex = 8;
+            this.btnDataOnlyDelete.Text = "DELETE DATA";
+            this.btnDataOnlyDelete.UseVisualStyleBackColor = false;
             // 
             // cassetteCheck1Panel
             // 
@@ -837,6 +1028,8 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.cassetteLevelLayout.ResumeLayout(false);
             this.grpAction.ResumeLayout(false);
             this.actionBar.ResumeLayout(false);
+            this.grpDataOnly.ResumeLayout(false);
+            this.dataOnlyLayout.ResumeLayout(false);
             this.cassetteCheck1Panel.ResumeLayout(false);
             this.cassetteCheck2Panel.ResumeLayout(false);
             this.ResumeLayout(false);

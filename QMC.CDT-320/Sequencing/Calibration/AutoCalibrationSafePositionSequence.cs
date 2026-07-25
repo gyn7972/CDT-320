@@ -2,10 +2,76 @@
 using System.Threading;
 using System.Threading.Tasks;
 using QMC.CDT320.Calibration;
+using QMC.Common.Logging;
 using QMC.Common.Motion;
 
 namespace QMC.CDT320.Sequencing.Calibration
 {
+    // 캘리브레이션 안전위치(Avoid) 이동용 SafeMovePercent 공용 헬퍼.
+    // 안전이동 모션 = 각 축 Config.Default(속도/가속/감속) × (SafeMovePercent/100).
+    // 값이 없거나(1 미만/NaN) 읽기 실패면 0을 돌려 기존 동작으로 폴백하고, 100 초과는 100으로 클램프한다.
+    public static class CalibrationSafeMoveMotion
+    {
+        public static double ResolvePercent(CDT320_Machine machine)
+        {
+            try
+            {
+                if (machine == null || machine.VisionUnit == null ||
+                    machine.VisionUnit.Config == null || machine.VisionUnit.Config.CalibrationData == null)
+                    return 0.0;
+
+                double percent = machine.VisionUnit.Config.CalibrationData.SafeMovePercent;
+                if (double.IsNaN(percent) || percent < CalibrationData.MinSafeMovePercent)
+                    return 0.0;
+                if (percent > CalibrationData.MaxSafeMovePercent)
+                    percent = CalibrationData.MaxSafeMovePercent;
+                return percent;
+            }
+            catch
+            {
+                return 0.0;
+            }
+        }
+
+        // percent가 유효하고 축 Config가 있으면 vel/acc/dec를 Default × %로 덮어쓰고 true를 돌려준다.
+        // false면 인자로 들어온 기존 값이 그대로 유지된다(폴백).
+        public static bool TryResolveAxisMotion(
+            BaseAxis axis,
+            double safeMovePercent,
+            ref double velocity,
+            ref double acceleration,
+            ref double deceleration)
+        {
+            if (safeMovePercent <= 0.0 || axis == null || axis.Config == null || axis.Config.DefaultVelocity <= 0.0)
+                return false;
+
+            double factor = Math.Min(safeMovePercent, CalibrationData.MaxSafeMovePercent) / 100.0;
+            velocity = axis.Config.DefaultVelocity * factor;
+            acceleration = axis.Config.Acceleration * factor;
+            deceleration = axis.Config.Deceleration * factor;
+            return true;
+        }
+
+        public static void LogAxisSafeMove(
+            string owner,
+            string description,
+            double safeMovePercent,
+            bool safeMoveApplied,
+            double velocity,
+            double acceleration,
+            double deceleration)
+        {
+            EventLogger.Write(EventKind.Event, "QMC", "CAL-SAFEMOVE-MOTION",
+                (owner ?? "-") + " calibration safe-move motion. target=" + (description ?? "-") +
+                ", velocity=" + velocity.ToString("F6") +
+                ", acceleration=" + acceleration.ToString("F6") +
+                ", deceleration=" + deceleration.ToString("F6") +
+                ", safeMovePercent=" + safeMovePercent.ToString("F3") +
+                ", safeMoveApplied=" + safeMoveApplied +
+                ", explicitVelocityNotDefaultScaled=True");
+        }
+    }
+
     internal enum AutoCalibrationSafePositionStep
     {
         None,
@@ -147,12 +213,22 @@ namespace QMC.CDT320.Sequencing.Calibration
             if (stage.CameraX.IsAtTargetPosition(target, 0.0))
                 return 0;
 
+            // 안전위치 이동은 SafeMovePercent(각 축 Default × %)를 적용한다. 미설정 시 기존 측정 모션으로 폴백.
+            double safePercent = CalibrationSafeMoveMotion.ResolvePercent(Context != null ? Context.Machine : null);
+            double velocity = _motion.MoveVelocity;
+            double acceleration = _motion.MoveAcceleration;
+            double deceleration = _motion.MoveDeceleration;
+            bool safeMoveApplied = CalibrationSafeMoveMotion.TryResolveAxisMotion(
+                stage.CameraX, safePercent, ref velocity, ref acceleration, ref deceleration);
+            CalibrationSafeMoveMotion.LogAxisSafeMove(
+                Name, "InputCameraX;AvoidPosition", safePercent, safeMoveApplied, velocity, acceleration, deceleration);
+
             int result = await stage.MoveInputStageAxisCommandWithMotion(
                 WaferStageAxis.VisionX,
                 target,
-                _motion.MoveVelocity,
-                _motion.MoveAcceleration,
-                _motion.MoveDeceleration).ConfigureAwait(false);
+                velocity,
+                acceleration,
+                deceleration).ConfigureAwait(false);
             if (result != 0)
                 return Fail("AUTO-CAL-SAFE-INPUT-CAMERA-MOVE", stage.Name,
                     "Input Camera X Avoid 이동 명령에 실패했습니다. result=" + result +
@@ -185,11 +261,21 @@ namespace QMC.CDT320.Sequencing.Calibration
             if (stage.OutputCameraX.IsAtTargetPosition(target, 0.0))
                 return 0;
 
+            // 안전위치 이동은 SafeMovePercent(각 축 Default × %)를 적용한다. 미설정 시 기존 측정 모션으로 폴백.
+            double safePercent = CalibrationSafeMoveMotion.ResolvePercent(Context != null ? Context.Machine : null);
+            double velocity = _motion.MoveVelocity;
+            double acceleration = _motion.MoveAcceleration;
+            double deceleration = _motion.MoveDeceleration;
+            bool safeMoveApplied = CalibrationSafeMoveMotion.TryResolveAxisMotion(
+                stage.OutputCameraX, safePercent, ref velocity, ref acceleration, ref deceleration);
+            CalibrationSafeMoveMotion.LogAxisSafeMove(
+                Name, "OutputCameraX;AvoidPosition", safePercent, safeMoveApplied, velocity, acceleration, deceleration);
+
             int result = await stage.MoveVisionXToAvoidAndVerifyAsync(
                 ResolveMoveTimeout(),
-                _motion.MoveVelocity,
-                _motion.MoveAcceleration,
-                _motion.MoveDeceleration,
+                velocity,
+                acceleration,
+                deceleration,
                 ct).ConfigureAwait(false);
             if (result != 0 || !stage.IsVisionXInAvoidPosition())
                 return Fail("AUTO-CAL-SAFE-OUTPUT-CAMERA-MOVE", stage.Name,

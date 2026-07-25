@@ -1363,14 +1363,45 @@ namespace QMC.CDT320
             return await MovePickerAxis(axis, targetPos, speedType, customSpeed, targetName, false).ConfigureAwait(false);
         }
 
-        public async Task<int> MovePickerAxis(PickerAxis axis, double targetPos, JogSpeedType speedType, double customSpeed, string targetName, bool forceMove)
+        public async Task<int> MovePickerAxis(PickerAxis axis, double targetPos, JogSpeedType speedType, double customSpeed, string targetName, bool forceMove, double safeMovePercent = 0.0)
         {
             try
             {
                 BaseAxis item = GetAxis(axis);
-                double velocity = UnitJogVelocityResolver.Resolve(item, speedType, customSpeed);
-                double acceleration = UnitJogVelocityResolver.ResolveAcceleration(item);
-                double deceleration = UnitJogVelocityResolver.ResolveDeceleration(item);
+                double velocity;
+                double acceleration;
+                double deceleration;
+                bool safeMoveApplied = false;
+                if (safeMovePercent > 0.0 && item != null && item.Config != null && item.Config.DefaultVelocity > 0.0)
+                {
+                    // 캘리브레이션 안전이동: 각 축 Config.Default(속도/가속/감속) × (SafeMovePercent/100) 명시 모션.
+                    double factor = Math.Min(safeMovePercent, 100.0) / 100.0;
+                    velocity = item.Config.DefaultVelocity * factor;
+                    acceleration = item.Config.Acceleration * factor;
+                    deceleration = item.Config.Deceleration * factor;
+                    safeMoveApplied = true;
+                }
+                else
+                {
+                    velocity = UnitJogVelocityResolver.Resolve(item, speedType, customSpeed);
+                    acceleration = UnitJogVelocityResolver.ResolveAcceleration(item);
+                    deceleration = UnitJogVelocityResolver.ResolveDeceleration(item);
+                }
+
+                if (safeMovePercent > 0.0)
+                {
+                    EventLogger.Write(EventKind.Event, "QMC", "PK-SAFEMOVE-CMD",
+                        Name + " calibration safe-move command. axis=" + axis +
+                        ", target=" + targetPos.ToString("F6") +
+                        ", targetName=" + (targetName ?? "-") +
+                        ", velocity=" + velocity.ToString("F6") +
+                        ", acceleration=" + acceleration.ToString("F6") +
+                        ", deceleration=" + deceleration.ToString("F6") +
+                        ", safeMovePercent=" + safeMovePercent.ToString("F3") +
+                        ", safeMoveApplied=" + safeMoveApplied +
+                        ", explicitVelocityNotDefaultScaled=True");
+                }
+
                 int result = await MovePickerAxisCommandWithMotion(axis, targetPos, velocity, acceleration, deceleration, targetName, forceMove).ConfigureAwait(false);
                 if (result != 0)
                     return result;
@@ -1774,12 +1805,12 @@ namespace QMC.CDT320
             return 0;
         }
 
-        private async Task<int> MovePickerAxesNamed(Dictionary<PickerAxis, double> targets, JogSpeedType speedType, double customSpeed, string targetName)
+        private async Task<int> MovePickerAxesNamed(Dictionary<PickerAxis, double> targets, JogSpeedType speedType, double customSpeed, string targetName, double safeMovePercent = 0.0)
         {
             if (targets == null)
                 return RaisePickerAlarm("PK-MOVE-TARGET", "Picker 이동 대상 목록이 없습니다.");
 
-            int safeResult = await MoveZAxesToSafeFirst(targets, speedType, customSpeed).ConfigureAwait(false);
+            int safeResult = await MoveZAxesToSafeFirst(targets, speedType, customSpeed, safeMovePercent).ConfigureAwait(false);
             if (safeResult != 0)
                 return safeResult;
 
@@ -1787,7 +1818,7 @@ namespace QMC.CDT320
             foreach (KeyValuePair<PickerAxis, double> pair in targets)
             {
                 if (!IsZAxis(pair.Key))
-                    tasks.Add(MovePickerAxis(pair.Key, pair.Value, speedType, customSpeed, targetName));
+                    tasks.Add(MovePickerAxis(pair.Key, pair.Value, speedType, customSpeed, targetName, false, safeMovePercent));
             }
 
             int[] results = await Task.WhenAll(tasks).ConfigureAwait(false);
@@ -1801,7 +1832,7 @@ namespace QMC.CDT320
             foreach (KeyValuePair<PickerAxis, double> pair in targets)
             {
                 if (IsZAxis(pair.Key))
-                    tasks.Add(MovePickerAxis(pair.Key, pair.Value, speedType, customSpeed, targetName));
+                    tasks.Add(MovePickerAxis(pair.Key, pair.Value, speedType, customSpeed, targetName, false, safeMovePercent));
             }
 
             results = await Task.WhenAll(tasks).ConfigureAwait(false);
@@ -1852,6 +1883,33 @@ namespace QMC.CDT320
         public Task<int> MoveToOutputSideAvoidPosition(JogSpeedType speedType, double customSpeed)
         {
             return MovePickerGroup("OutputAvoidPosition", speedType, customSpeed);
+        }
+
+        // 캘리브레이션 안전이동(Avoid) 전용: 각 축 Config.Default(속도/가속/감속) × (safeMovePercent/100)로 이동한다.
+        // safeMovePercent가 유효하지 않으면(<=0) 기존 조그 Custom 속도 경로(fallbackCustomSpeed)로 폴백한다.
+        public Task<int> MoveToInputSideAvoidPositionSafeMove(double safeMovePercent, double fallbackCustomSpeed)
+        {
+            return MovePickerGroup("InputAvoidPosition", JogSpeedType.Custom, fallbackCustomSpeed, safeMovePercent);
+        }
+
+        public Task<int> MoveToOutputSideAvoidPositionSafeMove(double safeMovePercent, double fallbackCustomSpeed)
+        {
+            return MovePickerGroup("OutputAvoidPosition", JogSpeedType.Custom, fallbackCustomSpeed, safeMovePercent);
+        }
+
+        public Task<int> MoveToRearPickerAvoidPositionSafeMove(double safeMovePercent, double fallbackCustomSpeed)
+        {
+            return MovePickerGroup("AvoidPosition", JogSpeedType.Custom, fallbackCustomSpeed, safeMovePercent);
+        }
+
+        public Task<int> MovePickerAxisToTeachingPositionSafeMove(PickerAxis axis, string positionName, double safeMovePercent, double fallbackCustomSpeed)
+        {
+            return MovePickerAxis(axis, GetPickerTeachingPosition(axis, positionName), JogSpeedType.Custom, fallbackCustomSpeed, positionName, false, safeMovePercent);
+        }
+
+        public Task<int> MovePickerAxesSafeMove(Dictionary<PickerAxis, double> targets, double safeMovePercent, string targetName)
+        {
+            return MovePickerAxesNamed(targets, JogSpeedType.Custom, 0.0, targetName, safeMovePercent);
         }
 
         // Legacy name. This is an Input-side avoid position, not a load work position.
@@ -2773,19 +2831,19 @@ namespace QMC.CDT320
             return MovePickerAxesNamed(targets, bFine, positionName);
         }
 
-        private Task<int> MovePickerGroup(string positionName, JogSpeedType speedType, double customSpeed)
+        private Task<int> MovePickerGroup(string positionName, JogSpeedType speedType, double customSpeed, double safeMovePercent = 0.0)
         {
             if (string.Equals(positionName, "AvoidPosition", StringComparison.OrdinalIgnoreCase))
-                return MovePickerAvoidGroupSafely(speedType, customSpeed);
+                return MovePickerAvoidGroupSafely(speedType, customSpeed, safeMovePercent);
 
             if (string.Equals(positionName, "InputAvoidPosition", StringComparison.OrdinalIgnoreCase) ||
                 string.Equals(positionName, "OutputAvoidPosition", StringComparison.OrdinalIgnoreCase))
-                return MovePickerSideAvoidGroupSafely(positionName, speedType, customSpeed);
+                return MovePickerSideAvoidGroupSafely(positionName, speedType, customSpeed, safeMovePercent);
 
             Dictionary<PickerAxis, double> targets = new Dictionary<PickerAxis, double>();
             foreach (PickerAxis axis in axes.Keys)
                 targets[axis] = GetPickerTeachingPosition(axis, positionName);
-            return MovePickerAxesNamed(targets, speedType, customSpeed, positionName);
+            return MovePickerAxesNamed(targets, speedType, customSpeed, positionName, safeMovePercent);
         }
 
         private async Task<int> MovePickerAvoidGroupSafely(bool bFine)
@@ -2861,7 +2919,7 @@ namespace QMC.CDT320
             }
         }
 
-        private async Task<int> MovePickerAvoidGroupSafely(JogSpeedType speedType, double customSpeed)
+        private async Task<int> MovePickerAvoidGroupSafely(JogSpeedType speedType, double customSpeed, double safeMovePercent = 0.0)
         {
             try
             {
@@ -2875,7 +2933,8 @@ namespace QMC.CDT320
                     zTargets,
                     speedType,
                     customSpeed,
-                    "AvoidPosition;PickerPhase=SafeZ").ConfigureAwait(false);
+                    "AvoidPosition;PickerPhase=SafeZ",
+                    safeMovePercent).ConfigureAwait(false);
                 if (result != 0)
                     return result;
 
@@ -2886,7 +2945,9 @@ namespace QMC.CDT320
                         GetPickerTeachingPosition(PickerAxis.PickerY, "AvoidPosition"),
                         speedType,
                         customSpeed,
-                        "AvoidPosition;PickerPhase=SafeY").ConfigureAwait(false);
+                        "AvoidPosition;PickerPhase=SafeY",
+                        false,
+                        safeMovePercent).ConfigureAwait(false);
                     if (result != 0)
                         return result;
                 }
@@ -2901,7 +2962,8 @@ namespace QMC.CDT320
                     tTargets,
                     speedType,
                     customSpeed,
-                    "AvoidPosition;PickerPhase=SafeT").ConfigureAwait(false);
+                    "AvoidPosition;PickerPhase=SafeT",
+                    safeMovePercent).ConfigureAwait(false);
                 if (result != 0)
                     return result;
 
@@ -2912,7 +2974,9 @@ namespace QMC.CDT320
                         GetPickerTeachingPosition(PickerAxis.PickerX, "AvoidPosition"),
                         speedType,
                         customSpeed,
-                        "AvoidPosition;PickerPhase=SafeX").ConfigureAwait(false);
+                        "AvoidPosition;PickerPhase=SafeX",
+                        false,
+                        safeMovePercent).ConfigureAwait(false);
                     if (result != 0)
                         return result;
                 }
@@ -3027,7 +3091,7 @@ namespace QMC.CDT320
             }
         }
 
-        private async Task<int> MovePickerSideAvoidGroupSafely(string positionName, JogSpeedType speedType, double customSpeed)
+        private async Task<int> MovePickerSideAvoidGroupSafely(string positionName, JogSpeedType speedType, double customSpeed, double safeMovePercent = 0.0)
         {
             try
             {
@@ -3041,7 +3105,8 @@ namespace QMC.CDT320
                     zAvoidTargets,
                     speedType,
                     customSpeed,
-                    "AvoidPosition;PickerPhase=SideAvoidSafeZ").ConfigureAwait(false);
+                    "AvoidPosition;PickerPhase=SideAvoidSafeZ",
+                    safeMovePercent).ConfigureAwait(false);
                 if (result != 0)
                     return result;
 
@@ -3052,7 +3117,9 @@ namespace QMC.CDT320
                         GetPickerTeachingPosition(PickerAxis.PickerY, "AvoidPosition"),
                         speedType,
                         customSpeed,
-                        "AvoidPosition;PickerPhase=SideAvoidSafeY").ConfigureAwait(false);
+                        "AvoidPosition;PickerPhase=SideAvoidSafeY",
+                        false,
+                        safeMovePercent).ConfigureAwait(false);
                     if (result != 0)
                         return result;
                 }
@@ -3064,7 +3131,9 @@ namespace QMC.CDT320
                         GetPickerTeachingPosition(PickerAxis.PickerX, positionName),
                         speedType,
                         customSpeed,
-                        positionName + ";PickerPhase=SideAvoidX").ConfigureAwait(false);
+                        positionName + ";PickerPhase=SideAvoidX",
+                        false,
+                        safeMovePercent).ConfigureAwait(false);
                     if (result != 0)
                         return result;
                 }
@@ -3076,7 +3145,9 @@ namespace QMC.CDT320
                         GetPickerTeachingPosition(PickerAxis.PickerY, positionName),
                         speedType,
                         customSpeed,
-                        positionName + ";PickerPhase=SideAvoidY").ConfigureAwait(false);
+                        positionName + ";PickerPhase=SideAvoidY",
+                        false,
+                        safeMovePercent).ConfigureAwait(false);
                     if (result != 0)
                         return result;
                 }
@@ -3091,7 +3162,8 @@ namespace QMC.CDT320
                     tTargets,
                     speedType,
                     customSpeed,
-                    positionName + ";PickerPhase=SideAvoidT").ConfigureAwait(false);
+                    positionName + ";PickerPhase=SideAvoidT",
+                    safeMovePercent).ConfigureAwait(false);
                 if (result != 0)
                     return result;
 
@@ -3105,7 +3177,8 @@ namespace QMC.CDT320
                     zTargets,
                     speedType,
                     customSpeed,
-                    positionName + ";PickerPhase=SideAvoidZ").ConfigureAwait(false);
+                    positionName + ";PickerPhase=SideAvoidZ",
+                    safeMovePercent).ConfigureAwait(false);
                 if (result != 0)
                     return result;
 
@@ -3376,7 +3449,7 @@ namespace QMC.CDT320
             return 0;
         }
 
-        private async Task<int> MoveZAxesToSafeFirst(Dictionary<PickerAxis, double> targets, JogSpeedType speedType, double customSpeed)
+        private async Task<int> MoveZAxesToSafeFirst(Dictionary<PickerAxis, double> targets, JogSpeedType speedType, double customSpeed, double safeMovePercent = 0.0)
         {
             List<Task<int>> tasks = new List<Task<int>>();
             foreach (KeyValuePair<PickerAxis, double> pair in targets)
@@ -3394,7 +3467,9 @@ namespace QMC.CDT320
                         avoidTarget,
                         speedType,
                         customSpeed,
-                        "AvoidPosition;PickerPhase=SafeZ"));
+                        "AvoidPosition;PickerPhase=SafeZ",
+                        false,
+                        safeMovePercent));
                 }
             }
 

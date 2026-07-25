@@ -86,6 +86,62 @@ namespace QMC.CDT320
         public ProcessState Process { get; set; }
     }
 
+    /// <summary>수동 카세트 슬롯 물리 이동 목표의 출처입니다.</summary>
+    public enum CassetteSlotTargetSource { Nominal, Mapped }
+
+    /// <summary>수동 카세트 슬롯 물리 이동(PREV/NEXT/우클릭/더블클릭) 목표 계산 결과입니다.
+    /// Material에 저장된 위치가 아니라 현재 티칭/맵핑 기준 재계산 값과 유효성 판정을 담는다.</summary>
+    public sealed class CassetteSlotTargetResolveResult
+    {
+        /// <summary>목표가 유효해 물리 이동을 진행해도 되는지 여부입니다.</summary>
+        public bool IsValid { get; set; }
+
+        /// <summary>차단 사유(운영자용 한국어)입니다.</summary>
+        public string FailureReason { get; set; }
+
+        /// <summary>카세트 역할 표시 텍스트(INPUT1/INPUT2/GOOD1/GOOD2/NG)입니다.</summary>
+        public string RoleName { get; set; }
+
+        /// <summary>내부 슬롯 인덱스(0-base)입니다.</summary>
+        public int SlotIndex { get; set; }
+
+        /// <summary>UI 슬롯 번호(1-base, SLOT 01 = SlotIndex 0)입니다.</summary>
+        public int SlotNumber { get { return SlotIndex + 1; } }
+
+        /// <summary>해당 역할의 First Slot Position 티칭값입니다.</summary>
+        public double FirstSlotPosition { get; set; }
+
+        public double SlotPitch { get; set; }
+
+        /// <summary>물리 이동 목표 위치입니다.</summary>
+        public double TargetPosition { get; set; }
+
+        /// <summary>목표 출처(명목식/맵핑 실측 보정)입니다.</summary>
+        public CassetteSlotTargetSource TargetSource { get; set; }
+
+        /// <summary>해당 역할 SLOT 01의 목표 위치(=First Position 기준점)입니다.</summary>
+        public double Slot01Position { get; set; }
+
+        public string TargetSourceText
+        {
+            get { return TargetSource == CassetteSlotTargetSource.Mapped ? "MAPPED" : "NOMINAL"; }
+        }
+
+        public static CassetteSlotTargetResolveResult Fail(string roleName, int slotIndex, string reason)
+        {
+            return new CassetteSlotTargetResolveResult
+            {
+                IsValid = false,
+                RoleName = roleName ?? string.Empty,
+                SlotIndex = slotIndex,
+                FailureReason = reason ?? string.Empty,
+                FirstSlotPosition = double.NaN,
+                TargetPosition = double.NaN,
+                Slot01Position = double.NaN
+            };
+        }
+    }
+
     /// <summary>Input wafer cassette 센서 상태입니다.</summary>
     public sealed class WaferCassetteSensorState
     {

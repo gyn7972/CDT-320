@@ -465,6 +465,7 @@
     <Compile Include="Equipment\Materials\Die.cs" />
     <Compile Include="Equipment\Materials\DieTapeFrame.cs" />
     <Compile Include="Equipment\Materials\InputWaferInspectionCsvSnapshotWriter.cs" />
+    <Compile Include="Equipment\Materials\ManualMaterialPositionService.cs" />
     <Compile Include="Equipment\Materials\MaterialModel.cs" />
     <Compile Include="Equipment\Materials\MaterialSnapshotStore.cs" />
     <Compile Include="Equipment\Materials\MaterialStateService.cs" />

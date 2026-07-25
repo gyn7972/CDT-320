@@ -2550,17 +2550,19 @@ namespace QMC.CDT_320.Ui.Dialogs
         }
 
         // Front+Rear 픽커 Y를 모두 Avoid로 이동한다(P-Y AVOID 버튼).
+        // 안전위치 이동은 SafeMovePercent(각 축 Default × %)를 적용한다. 미설정 시 기존 Custom 속도로 폴백.
         private async Task<int> MoveBothPickersYToAvoidAsync(CDT320_Machine machine)
         {
             if (machine == null)
                 return -1;
 
+            double safePercent = QMC.CDT320.Sequencing.Calibration.CalibrationSafeMoveMotion.ResolvePercent(machine);
             if (machine.PickerFrontUnit != null)
             {
-                int frontResult = await machine.PickerFrontUnit.MovePickerAxisToTeachingPosition(
+                int frontResult = await machine.PickerFrontUnit.MovePickerAxisToTeachingPositionSafeMove(
                     PickerAxis.PickerY,
                     "AvoidPosition",
-                    JogSpeedType.Custom,
+                    safePercent,
                     _moveVelocity).ConfigureAwait(true);
                 if (frontResult != 0)
                     return frontResult;
@@ -2568,10 +2570,10 @@ namespace QMC.CDT_320.Ui.Dialogs
 
             if (machine.PickerRearUnit != null)
             {
-                int rearResult = await machine.PickerRearUnit.MovePickerAxisToTeachingPosition(
+                int rearResult = await machine.PickerRearUnit.MovePickerAxisToTeachingPositionSafeMove(
                     PickerAxis.PickerY,
                     "AvoidPosition",
-                    JogSpeedType.Custom,
+                    safePercent,
                     _moveVelocity).ConfigureAwait(true);
                 if (rearResult != 0)
                     return rearResult;
@@ -2581,18 +2583,20 @@ namespace QMC.CDT_320.Ui.Dialogs
         }
 
         // Front+Rear 픽커 Z(각 4축)를 모두 Avoid로 이동한다(Z-AVOID 버튼).
+        // 안전위치 이동은 SafeMovePercent(각 축 Default × %)를 적용한다. 미설정 시 기존 Custom 속도로 폴백.
         private async Task<int> MoveBothPickersZToAvoidAsync(CDT320_Machine machine)
         {
             if (machine == null)
                 return -1;
 
+            double safePercent = QMC.CDT320.Sequencing.Calibration.CalibrationSafeMoveMotion.ResolvePercent(machine);
             PickerAxis[] zAxes = { PickerAxis.PickerZ0, PickerAxis.PickerZ1, PickerAxis.PickerZ2, PickerAxis.PickerZ3 };
             if (machine.PickerFrontUnit != null)
             {
                 foreach (PickerAxis axis in zAxes)
                 {
-                    int result = await machine.PickerFrontUnit.MovePickerAxisToTeachingPosition(
-                        axis, "AvoidPosition", JogSpeedType.Custom, _moveVelocity).ConfigureAwait(true);
+                    int result = await machine.PickerFrontUnit.MovePickerAxisToTeachingPositionSafeMove(
+                        axis, "AvoidPosition", safePercent, _moveVelocity).ConfigureAwait(true);
                     if (result != 0)
                         return result;
                 }
@@ -2602,8 +2606,8 @@ namespace QMC.CDT_320.Ui.Dialogs
             {
                 foreach (PickerAxis axis in zAxes)
                 {
-                    int result = await machine.PickerRearUnit.MovePickerAxisToTeachingPosition(
-                        axis, "AvoidPosition", JogSpeedType.Custom, _moveVelocity).ConfigureAwait(true);
+                    int result = await machine.PickerRearUnit.MovePickerAxisToTeachingPositionSafeMove(
+                        axis, "AvoidPosition", safePercent, _moveVelocity).ConfigureAwait(true);
                     if (result != 0)
                         return result;
                 }

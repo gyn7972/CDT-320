@@ -208,23 +208,38 @@ namespace QMC.CDT320.Sequencing.Calibration
             CalibrationMotionSettings motion = ResolveMotionSettings();
             int timeout = motion.MoveTimeoutMs;
 
+            // 안전위치 이동은 SafeMovePercent(각 축 Default × %)를 적용한다. 미설정 시 기존 측정 모션으로 폴백.
+            double safePercent = CalibrationSafeMoveMotion.ResolvePercent(machine);
+            double visionXVelocity = motion.MoveVelocity;
+            double visionXAcceleration = motion.MoveAcceleration;
+            double visionXDeceleration = motion.MoveDeceleration;
+            bool safeMoveApplied = CalibrationSafeMoveMotion.TryResolveAxisMotion(
+                machine.OutputStageUnit != null ? machine.OutputStageUnit.OutputCameraX : null,
+                safePercent,
+                ref visionXVelocity,
+                ref visionXAcceleration,
+                ref visionXDeceleration);
+            CalibrationSafeMoveMotion.LogAxisSafeMove(
+                "NeedlePinCalibrationSequence", "OutputCameraX;AvoidPosition",
+                safePercent, safeMoveApplied, visionXVelocity, visionXAcceleration, visionXDeceleration);
+
             ct.ThrowIfCancellationRequested();
             int result = await machine.OutputStageUnit.MoveVisionXToAvoidAndVerifyAsync(
                 timeout,
-                motion.MoveVelocity,
-                motion.MoveAcceleration,
-                motion.MoveDeceleration,
+                visionXVelocity,
+                visionXAcceleration,
+                visionXDeceleration,
                 ct).ConfigureAwait(false);
             if (result != 0)
                 return Fail("OutputCameraX avoid move failed. result=" + result);
 
             ct.ThrowIfCancellationRequested();
-            result = await machine.PickerFrontUnit.MoveToFrontPickerAvoidPosition(JogSpeedType.Custom, motion.MoveVelocity).ConfigureAwait(false);
+            result = await machine.PickerFrontUnit.MoveToFrontPickerAvoidPositionSafeMove(safePercent, motion.MoveVelocity).ConfigureAwait(false);
             if (result != 0)
                 return Fail("FrontPickerX avoid move failed. result=" + result);
 
             ct.ThrowIfCancellationRequested();
-            result = await machine.PickerRearUnit.MoveToRearPickerAvoidPosition(JogSpeedType.Custom, motion.MoveVelocity).ConfigureAwait(false);
+            result = await machine.PickerRearUnit.MoveToRearPickerAvoidPositionSafeMove(safePercent, motion.MoveVelocity).ConfigureAwait(false);
             if (result != 0)
                 return Fail("RearPickerX avoid move failed. result=" + result);
 

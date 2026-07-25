@@ -818,24 +818,20 @@ namespace QMC.CDT320.Sequencing
                     : stage.Recipe.GoodStageY.ProcessPosition;
                 double targetVisionX = stage.Recipe.VisionX.ProcessPosition + request.ReceiveTarget.TargetX;
                 double cameraToPickerY = 0.0;
-                double targetStageY;
-                string targetStageYFormula;
+                // Place 후 촬영 X/Y는 항상 다이맵 기준으로 계산한다.
+                // Bottom/기구/런타임 보정은 Picker Place 이동에만 쓰고, 촬영 좌표에 다시 실으면
+                // 카메라가 맵 중심이 아니라 보정된 Place 궤적을 따라가므로 사용하지 않는다.
+                double targetStageY = baseY + request.ReceiveTarget.TargetY;
+                string targetStageYFormula =
+                    "baseY(" + baseY.ToString("F6") +
+                    ") + receiveTargetY(" + request.ReceiveTarget.TargetY.ToString("F6") + ")";
                 if (request.HasPlacedDieCameraTarget)
                 {
                     cameraToPickerY = request.OutputVisionToPickerY - request.PlacedPickerY;
-                    targetStageY = request.PlacedStageY - cameraToPickerY;
-                    targetStageYFormula =
-                        "placedStageY(" + request.PlacedStageY.ToString("F6") +
-                        ") - cameraToPickerY(outputVisionToPickerY(" + request.OutputVisionToPickerY.ToString("F6") +
-                        ") - placedPickerY(" + request.PlacedPickerY.ToString("F6") +
-                        ") = " + cameraToPickerY.ToString("F6") + ")";
-                }
-                else
-                {
-                    targetStageY = baseY + request.ReceiveTarget.TargetY;
-                    targetStageYFormula =
-                        "fallback baseY(" + baseY.ToString("F6") +
-                        ") + receiveTargetY(" + request.ReceiveTarget.TargetY.ToString("F6") + ")";
+                    targetStageYFormula +=
+                        " [placed trajectory reference(not used): placedStageY(" + request.PlacedStageY.ToString("F6") +
+                        ") - cameraToPickerY(" + cameraToPickerY.ToString("F6") +
+                        ") = " + (request.PlacedStageY - cameraToPickerY).ToString("F6") + "]";
                 }
                 Log.Write("Main", "SYSTEM", "OutputPostPlaceInspection",
                     "Output camera 후검사 StageY 계산. die=" + request.DieId +
@@ -1094,16 +1090,24 @@ namespace QMC.CDT320.Sequencing
         {
             InspectionResultDto inspection = request.InspectionResult;
             bool inspectionOk = inspection != null && inspection.IsPass;
+            // inspection.OffsetX/Y는 Vision 원문 x/y(비-mm) 값이므로 Material/필터에 쓰지 않는다.
+            // Material BinOffset과 Place 런타임 필터에는 mm 단위 placement offset만 저장한다.
+            double placementX;
+            double placementY;
+            double placementT;
+            bool hasPlacementX = TryReadPlacementMm(inspection, out placementX, "placement_offset_x_mm");
+            bool hasPlacementY = TryReadPlacementMm(inspection, out placementY, "placement_offset_y_mm");
+            bool hasPlacementT = TryReadPlacementAngle(inspection, out placementT);
             VisionOffset offset = new VisionOffset
             {
-                X = inspection != null ? inspection.OffsetX : 0.0,
-                Y = inspection != null ? inspection.OffsetY : 0.0,
-                R = inspection != null ? inspection.OffsetT : 0.0,
-                IsValid = inspection != null && inspection.HasOffset
+                X = hasPlacementX ? placementX : 0.0,
+                Y = hasPlacementY ? placementY : 0.0,
+                R = hasPlacementT ? placementT : 0.0,
+                IsValid = hasPlacementX && hasPlacementY
             };
             // Place 런타임 보정 필터 갱신.
             // IsPass == true 인 경우에만 갱신한다 — NG 판정 Die의 위치 측정은 신뢰할 수 없으므로 제외.
-            if (inspection != null && inspection.HasOffset && inspectionOk &&
+            if (inspectionOk && offset.IsValid &&
                 request.HasPickerContext && !request.SkipInspection)
             {
                 PlaceRuntimeOffsetService.OnInspectionOffset(
@@ -1128,9 +1132,46 @@ namespace QMC.CDT320.Sequencing
                 ", side=" + request.OutputSide +
                 ", slotIndex=" + (request.ReceiveTarget != null ? request.ReceiveTarget.OrderIndex : -1) +
                 ", ok=" + inspectionOk +
+                ", offsetSource=placement_offset_mm" +
+                ", offsetValid=" + offset.IsValid +
                 ", offsetX=" + offset.X.ToString("F6") +
                 ", offsetY=" + offset.Y.ToString("F6") +
                 ", offsetT=" + offset.R.ToString("F6") + " - Ok");
+        }
+
+        private static bool TryReadPlacementMm(InspectionResultDto inspection, out double value, string key)
+        {
+            value = 0.0;
+            if (inspection == null)
+                return false;
+
+            double parsed;
+            if (!inspection.TryGetDoubleValue(out parsed, key))
+                return false;
+
+            // mm 소량 보정값만 허용하고 픽셀/원문 좌표 유입은 차단한다.
+            if (double.IsNaN(parsed) || double.IsInfinity(parsed) || Math.Abs(parsed) > 50.0)
+                return false;
+
+            value = parsed;
+            return true;
+        }
+
+        private static bool TryReadPlacementAngle(InspectionResultDto inspection, out double value)
+        {
+            value = 0.0;
+            if (inspection == null)
+                return false;
+
+            double parsed;
+            if (!inspection.TryGetDoubleValue(out parsed, "placement_angle_deg", "placement_item_angle"))
+                return false;
+
+            if (double.IsNaN(parsed) || double.IsInfinity(parsed) || Math.Abs(parsed) > 360.0)
+                return false;
+
+            value = parsed;
+            return true;
         }
 
         private async Task<int> WaitOutputVisionXSharedRailClearAsync(

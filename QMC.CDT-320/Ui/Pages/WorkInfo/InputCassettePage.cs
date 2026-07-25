@@ -77,7 +77,6 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             {
                 btnPrev.Click += async (s, e) => await RunMotionAction("LIFTER PREV", host => MoveSlotAsync(host, -1));
                 btnNext.Click += async (s, e) => await RunMotionAction("LIFTER NEXT", host => MoveSlotAsync(host, +1));
-                btnInit.Click += async (s, e) => await RunMotionAction("LIFTER INIT", LifterInitAsync);
                 btnReady.Click += async (s, e) => await RunMotionAction("LIFTER READY", LifterReadyAsync);
                 btnMap.Click += async (s, e) => await RunSequenceAction("LIFT WAFER MAPPING", MapAsync);
                 btnLoad.Click += async (s, e) => await RunSequenceAction("LIFT WAFER LOADING", LoadAsync);
@@ -92,6 +91,21 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                     cassetteSlotView.SlotMoveRequested += async (s, e) => await MoveSlotFromContextMenuAsync(CassetteMaterialRole.Input1, e.SlotIndex);
                 if (cassetteSlotViewLevel2 != null)
                     cassetteSlotViewLevel2.SlotMoveRequested += async (s, e) => await MoveSlotFromContextMenuAsync(CassetteMaterialRole.Input2, e.SlotIndex);
+                if (cassetteSlotView != null)
+                    cassetteSlotView.SlotDoubleClicked += async (s, e) => await MoveSlotFromDoubleClickAsync(CassetteMaterialRole.Input1, e.SlotIndex);
+                if (cassetteSlotViewLevel2 != null)
+                    cassetteSlotViewLevel2.SlotDoubleClicked += async (s, e) => await MoveSlotFromDoubleClickAsync(CassetteMaterialRole.Input2, e.SlotIndex);
+                if (cmbDataOnlySource != null)
+                {
+                    cmbDataOnlySource.DropDown += (s, e) => RebuildDataOnlySourceItems();
+                    cmbDataOnlySource.SelectedIndexChanged += (s, e) => OnDataOnlySourceChanged();
+                }
+                if (cmbDataOnlyDest != null)
+                    cmbDataOnlyDest.DropDown += (s, e) => RebuildDataOnlyDestItems();
+                if (btnDataOnlyMove != null)
+                    btnDataOnlyMove.Click += (s, e) => ExecuteDataOnlyMove();
+                if (btnDataOnlyDelete != null)
+                    btnDataOnlyDelete.Click += (s, e) => ExecuteDataOnlyDelete();
                 if (materialDetailView != null)
                 {
                     materialDetailView.ShowProcessTestDataButton = true;
@@ -186,7 +200,8 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 QMC.Common.MessageDialog.Show(this, "LotPort error:\r\n" + exceptionMessage, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
 
-        private async Task RunMotionAction(string actionName, Func<Form1, Task<int>> action)
+        // confirm=false: 더블클릭 슬롯 이동처럼 전용 확인창을 이미 거친 경우 공통 확인창을 중복 표시하지 않는다.
+        private async Task RunMotionAction(string actionName, Func<Form1, Task<int>> action, bool confirm = true)
         {
             IDisposable actionScope = null;
             bool showFailure = false;
@@ -199,7 +214,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                     return;
                 if (_manualSequenceRunning)
                     return;
-                if (!ConfirmAction(actionName))
+                if (confirm && !ConfirmAction(actionName))
                     return;
 
                 _manualSequenceRunning = true;
@@ -274,7 +289,6 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             {
                 btnPrev.Enabled = enabled;
                 btnNext.Enabled = enabled;
-                btnInit.Enabled = enabled;
                 btnReady.Enabled = enabled;
                 btnMap.Enabled = enabled;
                 btnLoad.Enabled = enabled;
@@ -311,34 +325,9 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             }
         }
 
-        private async Task<int> LifterInitAsync(Form1 host)
-        {
-            try
-            {
-                var cassette = host != null && host.Machine != null ? host.Machine.InputCassetteUnit : null;
-                var feeder = host != null && host.Machine != null ? host.Machine.InputFeederUnit : null;
-                if (cassette == null || feeder == null)
-                    return -1;
-
-                cassette.InputLifterZ.ResetAlarm();
-                cassette.InputLifterZ.ServoOn();
-                feeder.FeederY.ResetAlarm();
-                feeder.FeederY.ServoOn();
-                int lifterResult = await cassette.InputLifterZ.HomeSearchAsync();
-                if (lifterResult != 0)
-                    return lifterResult;
-                return await feeder.FeederY.HomeSearchAsync();
-            }
-            catch (Exception ex)
-            {
-                WriteAlarm("INPUT-CST-INIT-MOVE", "Lifter init failed: " + ex.Message);
-                return -1;
-            }
-            finally
-            {
-            }
-        }
-
+        // 기존 조건: READY는 서보 ON만 수행(이동 없음), 홈서치는 별도 INIT 버튼.
+        // 현재 기준: INIT 버튼은 제거하고 READY가 리프터 Z를 티칭된 Ready(Avoid) 위치로 실제 이동시킨다.
+        //           이동은 기존 유닛 경로(MoveToWaferCassetteAvoidPosition)를 사용해 MotionGuard/돌출 감시를 그대로 거친다.
         private async Task<int> LifterReadyAsync(Form1 host)
         {
             try
@@ -350,8 +339,17 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
 
                 cassette.InputLifterZ.ServoOn();
                 feeder.FeederY.ServoOn();
-                await Task.CompletedTask;
-                return 0;
+                // 서보 ON 상태 반영 전에 이동 명령을 내리면 "Servo is OFF"로 즉시 실패하므로 반영을 기다린다.
+                if (!await WaitAxisServoOnAsync(cassette.InputLifterZ, 2000))
+                {
+                    RecordLifterReadyFailure(cassette.InputLifterZ, "InputLifterZ 서보 ON이 확인되지 않았습니다.");
+                    return -2;
+                }
+
+                int result = await cassette.MoveToWaferCassetteAvoidPosition();
+                if (result != 0)
+                    RecordLifterReadyFailure(cassette.InputLifterZ, "Ready(Avoid) 위치 이동이 실패했습니다. result=" + result);
+                return result;
             }
             catch (Exception ex)
             {
@@ -361,6 +359,53 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             finally
             {
             }
+        }
+
+        // READY 실패 사유를 로그/알람과 실패 팝업(SequenceFailureStore)에 구체적으로 남긴다.
+        private void RecordLifterReadyFailure(QMC.Common.Motion.BaseAxis axis, string detail)
+        {
+            try
+            {
+                string message = "LIFTER READY 실패. " + detail +
+                    (axis != null
+                        ? " (servo=" + (axis.IsServoOn ? "ON" : "OFF") +
+                          ", alarm=" + (axis.IsAlarm ? "ON" : "OFF") +
+                          ", pos=" + axis.ActualPosition.ToString("0.###") +
+                          (!string.IsNullOrWhiteSpace(axis.LastMotionFailureMessage) ? ", last=" + axis.LastMotionFailureMessage : "") + ")"
+                        : "");
+
+                RaiseWarning("INPUT-CST-READY-FAIL", message);
+                SequenceFailureStore.Record(
+                    "InputCassettePage.Manual",
+                    "LifterReady",
+                    "LifterReadyAsync",
+                    "INPUT-CST-READY-FAIL",
+                    LogSource,
+                    message);
+            }
+            catch (Exception ex)
+            {
+                WriteAlarm("INPUT-CST-READY-LOG", "Lifter ready failure logging failed: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private static async Task<bool> WaitAxisServoOnAsync(QMC.Common.Motion.BaseAxis axis, int timeoutMs)
+        {
+            if (axis == null)
+                return false;
+
+            DateTime start = DateTime.UtcNow;
+            while (!axis.IsServoOn)
+            {
+                if ((DateTime.UtcNow - start).TotalMilliseconds >= timeoutMs)
+                    return false;
+                await Task.Delay(50);
+            }
+
+            return true;
         }
 
         private async Task<bool> MapAsync(Form1 host)
@@ -759,7 +804,10 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 ClearProcessTestRuntimeState();
                 string message;
                 InputStageUnit inputStage = host.Controller.Machine != null ? host.Controller.Machine.InputStageUnit : null;
-                bool ok = MaterialStateService.CreateProcessTestDataSet(inputStage, out message);
+                // 실장비 테스트용: 카세트 유닛을 함께 넘겨 슬롯별 카세트 포지션까지 실제 맵핑과 동일하게 저장한다.
+                InputCassetteUnit inputCassette = host.Controller.Machine != null ? host.Controller.Machine.InputCassetteUnit : null;
+                OutputCassetteUnit outputCassette = host.Controller.Machine != null ? host.Controller.Machine.OutputCassetteUnit : null;
+                bool ok = MaterialStateService.CreateProcessTestDataSet(inputStage, inputCassette, outputCassette, out message);
                 if (ok && host.Controller.Machine != null && host.Controller.Machine.InputCassetteUnit != null)
                     SynchronizeProcessTestInputCassetteSlotStates(host.Controller.Machine.InputCassetteUnit);
                 WriteEvent("INPUT-CST-PROCESS-TEST-DATA", message + ", result=" + ok);
@@ -1129,19 +1177,54 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 if (slotIndex < 0 || slotIndex >= loader.Config.SlotCount)
                     return -1;
 
-                double targetPosition;
-                if (!MaterialStateService.TryGetCassetteSlotPosition(role, slotIndex, out targetPosition))
+                // 이동 전 준비 조건(서보/알람/이동 중/돌출/카세트 감지)을 확인한다.
+                if (!ValidateInputCassetteManualCondition(host, false))
+                    return -1;
+
+                // 기존 조건: Material 저장 위치(TryGetCassetteSlotPosition)를 물리 목표로 직접 사용 —
+                //           First/Pitch/Mapping 변경 후 오래된 값일 수 있다.
+                // 현재 기준: 중앙 계산기(Resolver)로 현재 티칭/맵핑 기준 목표를 재계산하고
+                //           유효성(FirstSlot/Pitch/단조 증가/소프트리밋)을 통과해야 이동한다.
+                var resolve = loader.ResolveManualWaferCassetteSlotTarget(role, slotIndex);
+                if (!resolve.IsValid)
                 {
-                    RaiseWarning("INPUT-CST-SLOT-POS", "Cassette slot position data is missing. role=" + role + ", slot=" + slotIndex);
+                    RaiseWarning("INPUT-CST-SLOT-TARGET", "Slot target resolve failed. role=" + role +
+                        ", slot=" + (slotIndex + 1).ToString("00") + ". " + resolve.FailureReason);
+                    SequenceFailureStore.Record(
+                        "InputCassettePage.Manual",
+                        "SlotTarget",
+                        "ResolveManualWaferCassetteSlotTarget",
+                        "INPUT-CST-SLOT-TARGET",
+                        LogSource,
+                        resolve.FailureReason);
                     return -1;
                 }
 
-                SelectMaterialSlot(role, slotIndex);
-                int moveResult = await loader.MoveWaferLifterZ(targetPosition, JogSpeedType.Fine, 0.0);
-                if (moveResult != 0)
-                    return moveResult;
+                double targetPosition = resolve.TargetPosition;
+                WriteEvent("INPUT-CST-SLOT-TARGET",
+                    "Slot move target resolved. role=" + resolve.RoleName +
+                    ", slot=" + resolve.SlotNumber.ToString("00") +
+                    ", targetSource=" + resolve.TargetSourceText +
+                    ", target=" + targetPosition.ToString("0.###") +
+                    ", current=" + (loader.InputLifterZ != null ? loader.InputLifterZ.ActualPosition.ToString("0.###") : "-"));
 
-                // 기존 조건: 이동 후 재대기 — 현재 기준: 이동 함수가 완료를 보장하므로 제거(R3).
+                SelectMaterialSlot(role, slotIndex);
+                // 기존 조건: Fine(미세 조그 속도) — 현재 기준: 수동 슬롯 이동은 Coarse(일반 조그 속도)로 구동한다.
+                int moveResult = await loader.MoveWaferLifterZ(targetPosition, JogSpeedType.Coarse, 0.0);
+                if (moveResult != 0)
+                {
+                    RecordSlotMoveFailure(loader, resolve, moveResult, "Move command failed.");
+                    return moveResult;
+                }
+
+                // 이동 함수가 완료를 보장하지만(R3), 수동 슬롯 이동은 최종 InPosition/tolerance를 한 번 더 확인한다.
+                string arrivalReason;
+                if (!VerifyInputLifterZArrival(loader, targetPosition, out arrivalReason))
+                {
+                    RecordSlotMoveFailure(loader, resolve, -1, arrivalReason);
+                    return -1;
+                }
+
                 RefreshSelectedMaterialDetail();
                 return 0;
             }
@@ -1149,6 +1232,671 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             {
                 WriteAlarm("INPUT-CST-SLOT-MOVE", "Slot move failed: " + ex.Message);
                 return -1;
+            }
+            finally
+            {
+            }
+        }
+
+        // 더블클릭 슬롯 물리 이동: "실제 카세트 안에 있는" Material이 있을 때만 전용 확인창(1회)을 거쳐 이동한다.
+        // 물리 이동만 수행하며 Material 데이터는 변경하지 않는다.
+        private async Task MoveSlotFromDoubleClickAsync(CassetteMaterialRole role, int slotIndex)
+        {
+            try
+            {
+                var host = GetHost();
+                if (host == null || host.Controller == null || host.Machine == null)
+                    return;
+
+                // 연속 더블클릭/연타 재진입 방지. (RunMotionAction에서도 재검사한다.)
+                if (_manualSequenceRunning)
+                    return;
+
+                // 요청 순간의 Role/Slot을 로컬로 고정해 새로고침/선택 변경에 영향받지 않게 한다.
+                CassetteMaterialRole requestRole = role;
+                int requestSlotIndex = slotIndex;
+
+                SelectMaterialSlot(requestRole, requestSlotIndex);
+
+                string waferId;
+                string blockReason;
+                if (!TryGetCassetteMaterialForPhysicalMove(requestRole, requestSlotIndex, out waferId, out blockReason))
+                {
+                    WriteEvent("INPUT-CST-DBLCLK-BLOCK",
+                        "Slot double-click move blocked. role=" + requestRole +
+                        ", slot=" + (requestSlotIndex + 1).ToString("00") + ". " + blockReason);
+                    QMC.Common.MessageDialog.Show(
+                        this,
+                        "선택한 Cassette Slot에 실제 위치가 일치하는 Material 데이터가 없습니다.\r\n" +
+                        "표시된 Material이 Feeder/Stage로 이동했는지 확인하십시오.\r\n\r\n사유: " + blockReason,
+                        "Input Cassette",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Warning);
+                    return;
+                }
+
+                var loader = host.Machine.InputCassetteUnit;
+                if (loader == null)
+                    return;
+
+                var resolve = loader.ResolveManualWaferCassetteSlotTarget(requestRole, requestSlotIndex);
+                if (!resolve.IsValid)
+                {
+                    RaiseWarning("INPUT-CST-DBLCLK-TARGET", "Slot double-click target resolve failed. " + resolve.FailureReason);
+                    QMC.Common.MessageDialog.Show(this, resolve.FailureReason, "Input Cassette",
+                        MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                // 더블클릭 전용 확인창(정확히 1회). 아래 RunMotionAction은 confirm=false로 호출해 중복 확인창을 막는다.
+                string message =
+                    "[" + resolve.RoleName + " / SLOT " + resolve.SlotNumber.ToString("00") + "]\r\n" +
+                    "Wafer: " + waferId + "\r\n" +
+                    "목표: " + resolve.TargetPosition.ToString("0.###") + " mm (" + resolve.TargetSourceText + ")\r\n\r\n" +
+                    "Cassette Z축이 실제로 이동합니다.\r\n해당 위치로 이동하시겠습니까?";
+                DialogResult answer = QMC.Common.MessageDialog.Show(this, message, "Input Cassette",
+                    MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+                if (answer != DialogResult.Yes)
+                {
+                    // 사용자 취소는 인터락 차단과 구분해 기록한다. Motion 0건, Material 변경 0건.
+                    WriteEvent("INPUT-CST-DBLCLK-CANCEL",
+                        "Slot double-click move canceled by user. role=" + resolve.RoleName +
+                        ", slot=" + resolve.SlotNumber.ToString("00") +
+                        ", waferId=" + waferId +
+                        ", target=" + resolve.TargetPosition.ToString("0.###"));
+                    return;
+                }
+
+                string actionName = "SLOT DBL-CLICK MOVE " + GetCassetteRoleDisplay(requestRole) + " / " + resolve.SlotNumber.ToString("00");
+                await RunMotionAction(actionName, host2 => MoveSpecificSlotAsync(host2, requestRole, requestSlotIndex), false);
+            }
+            catch (Exception ex)
+            {
+                WriteAlarm("INPUT-CST-DBLCLK", "Slot double-click move failed: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        // 더블클릭 물리 이동용 Material 실위치 판정.
+        // 슬롯 표시(투영)만으로 판단하지 않고 CurrentLocation이 실제 해당 Cassette Role/Slot인 경우만 인정한다.
+        private static bool TryGetCassetteMaterialForPhysicalMove(
+            CassetteMaterialRole role,
+            int slotIndex,
+            out string waferId,
+            out string reason)
+        {
+            waferId = string.Empty;
+            reason = string.Empty;
+            try
+            {
+                var snapshot = MaterialStorage.State;
+                var cassette = snapshot != null && snapshot.Cassettes != null
+                    ? snapshot.Cassettes.FirstOrDefault(c => c != null && c.Role == role)
+                    : null;
+                if (cassette == null)
+                {
+                    reason = "카세트 상태 데이터가 없습니다. role=" + role;
+                    return false;
+                }
+
+                if (!cassette.IsMapped)
+                {
+                    reason = "카세트가 Mapping 완료 상태가 아닙니다.";
+                    return false;
+                }
+
+                var slot = cassette.Slots != null && slotIndex >= 0 && slotIndex < cassette.Slots.Count
+                    ? cassette.Slots[slotIndex]
+                    : null;
+                if (slot == null)
+                {
+                    reason = "슬롯 데이터가 없습니다. slot=" + (slotIndex + 1).ToString("00");
+                    return false;
+                }
+
+                if (!slot.HasWafer)
+                {
+                    reason = "슬롯 점유(HasWafer) 표시가 없습니다.";
+                    return false;
+                }
+
+                if (string.IsNullOrEmpty(slot.WaferId))
+                {
+                    reason = "슬롯 Material ID가 비어 있습니다.";
+                    return false;
+                }
+
+                var wafer = snapshot.Wafers != null
+                    ? snapshot.Wafers.FirstOrDefault(w => w != null && w.WaferId == slot.WaferId)
+                    : null;
+                if (wafer == null)
+                {
+                    reason = "슬롯이 가리키는 Material 객체가 없습니다. waferId=" + slot.WaferId;
+                    return false;
+                }
+
+                if (WaferMaterialStateText.Normalize(wafer.State) == WaferMaterialState.Empty)
+                {
+                    reason = "Material 상태가 EMPTY입니다. waferId=" + wafer.WaferId;
+                    return false;
+                }
+
+                var location = wafer.CurrentLocation;
+                if (location == null || location.Kind != MaterialLocationKind.InputCassette)
+                {
+                    reason = "Material 현재 위치가 Input Cassette가 아닙니다. waferId=" + wafer.WaferId +
+                             ", location=" + (location != null ? location.ToString() : "NULL");
+                    return false;
+                }
+
+                if (location.CassetteRole != role)
+                {
+                    reason = "Material 현재 Cassette Role이 선택 Role과 다릅니다. waferId=" + wafer.WaferId +
+                             ", current=" + location.CassetteRole + ", selected=" + role;
+                    return false;
+                }
+
+                if (location.SlotNumber != slotIndex)
+                {
+                    reason = "Material 현재 Slot이 선택 Slot과 다릅니다. waferId=" + wafer.WaferId +
+                             ", current=" + (location.SlotNumber + 1).ToString("00") +
+                             ", selected=" + (slotIndex + 1).ToString("00");
+                    return false;
+                }
+
+                waferId = wafer.WaferId;
+                return true;
+            }
+            catch (Exception ex)
+            {
+                reason = "Material 실위치 판정 중 예외가 발생했습니다: " + ex.Message;
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
+        // 수동 슬롯 이동 완료 판정: Servo ON, Alarm OFF, Moving OFF, 목표 tolerance 도달을 확인한다.
+        private static bool VerifyInputLifterZArrival(InputCassetteUnit loader, double targetPosition, out string reason)
+        {
+            reason = string.Empty;
+            var axis = loader != null ? loader.InputLifterZ : null;
+            if (axis == null)
+            {
+                reason = "InputLifterZ axis is null.";
+                return false;
+            }
+
+            double tolerance = loader.ResolveWaferLifterZInPositionTolerance();
+            double error = Math.Abs(axis.ActualPosition - targetPosition);
+            if (axis.IsServoOn && !axis.IsAlarm && !axis.IsMoving && error <= tolerance)
+                return true;
+
+            reason = "InputLifterZ arrival verify failed." +
+                     " target=" + targetPosition.ToString("0.###") +
+                     ", actual=" + axis.ActualPosition.ToString("0.###") +
+                     ", command=" + axis.CommandPosition.ToString("0.###") +
+                     ", error=" + error.ToString("0.###") +
+                     ", tolerance=" + tolerance.ToString("0.###") +
+                     ", servo=" + (axis.IsServoOn ? "ON" : "OFF") +
+                     ", alarm=" + (axis.IsAlarm ? "ON" : "OFF") +
+                     ", moving=" + (axis.IsMoving ? "ON" : "OFF") +
+                     ", inPosition=" + (error <= tolerance ? "ON" : "OFF");
+            return false;
+        }
+
+        // 수동 슬롯 이동 실패 상세(Role/Slot/Target/Actual/Command/Servo/Alarm/Moving/InPosition)를 로그와 실패 팝업에 남긴다.
+        private void RecordSlotMoveFailure(InputCassetteUnit loader, CassetteSlotTargetResolveResult resolve, int resultCode, string detail)
+        {
+            try
+            {
+                var axis = loader != null ? loader.InputLifterZ : null;
+                double tolerance = loader != null ? loader.ResolveWaferLifterZInPositionTolerance() : 0.0;
+                string message =
+                    "Slot move failed. role=" + resolve.RoleName +
+                    ", slot=" + resolve.SlotNumber.ToString("00") +
+                    ", targetSource=" + resolve.TargetSourceText +
+                    ", target=" + resolve.TargetPosition.ToString("0.###") +
+                    ", actual=" + (axis != null ? axis.ActualPosition.ToString("0.###") : "-") +
+                    ", command=" + (axis != null ? axis.CommandPosition.ToString("0.###") : "-") +
+                    ", result=" + resultCode +
+                    ", servo=" + (axis != null && axis.IsServoOn ? "ON" : "OFF") +
+                    ", alarm=" + (axis != null && axis.IsAlarm ? "ON" : "OFF") +
+                    ", moving=" + (axis != null && axis.IsMoving ? "ON" : "OFF") +
+                    ", inPosition=" + (axis != null && Math.Abs(axis.ActualPosition - resolve.TargetPosition) <= tolerance ? "ON" : "OFF") +
+                    ". " + detail;
+
+                RaiseWarning("INPUT-CST-SLOT-MOVE-FAIL", message);
+                SequenceFailureStore.Record(
+                    "InputCassettePage.Manual",
+                    "SlotMove",
+                    "MoveSpecificSlotAsync",
+                    "INPUT-CST-SLOT-MOVE-FAIL",
+                    LogSource,
+                    message);
+            }
+            catch (Exception ex)
+            {
+                WriteAlarm("INPUT-CST-SLOT-MOVE-LOG", "Slot move failure logging failed: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        // ===== DATA ONLY (장비 무동작) Material 데이터 이동/삭제 =====
+        // 이 영역의 handler는 Motion/Sequence/Cylinder/Vacuum/IO를 절대 호출하지 않는다.
+        // 데이터 변경은 MaterialStateService의 원자적 API가 수행한다.
+
+        private bool _dataOnlyBusy;
+
+        private sealed class DataOnlyLocationItem
+        {
+            public DataOnlyLocationItem(DataOnlyLocation location, string text)
+            {
+                Location = location;
+                Text = text;
+            }
+
+            public DataOnlyLocation Location { get; private set; }
+
+            public string Text { get; private set; }
+
+            public override string ToString()
+            {
+                return Text;
+            }
+        }
+
+        private void RebuildDataOnlySourceItems()
+        {
+            try
+            {
+                var previous = cmbDataOnlySource.SelectedItem as DataOnlyLocationItem;
+                cmbDataOnlySource.Items.Clear();
+
+                var snapshot = MaterialStorage.State;
+                AddDataOnlyCassetteSourceItems(snapshot, CassetteMaterialRole.Input1);
+                AddDataOnlyCassetteSourceItems(snapshot, CassetteMaterialRole.Input2);
+                AddDataOnlyStationSourceItem(snapshot, MaterialLocationKind.InputFeeder);
+                AddDataOnlyStationSourceItem(snapshot, MaterialLocationKind.InputStage);
+
+                RestoreDataOnlySelection(cmbDataOnlySource, previous);
+            }
+            catch (Exception ex)
+            {
+                WriteAlarm("INPUT-CST-DATAONLY-UI", "DATA ONLY source 목록 갱신 실패: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private void AddDataOnlyCassetteSourceItems(MaterialSnapshot snapshot, CassetteMaterialRole role)
+        {
+            var cassette = snapshot != null && snapshot.Cassettes != null
+                ? snapshot.Cassettes.FirstOrDefault(c => c != null && c.Role == role)
+                : null;
+            if (cassette == null || cassette.Slots == null)
+                return;
+
+            for (int i = 0; i < cassette.Slots.Count; i++)
+            {
+                var slot = cassette.Slots[i];
+                if (slot == null || !slot.HasWafer || string.IsNullOrWhiteSpace(slot.WaferId))
+                    continue;
+
+                var location = DataOnlyLocation.Cassette(role, i);
+                cmbDataOnlySource.Items.Add(new DataOnlyLocationItem(location, location.DisplayText + "  [" + slot.WaferId + "]"));
+            }
+        }
+
+        private void AddDataOnlyStationSourceItem(MaterialSnapshot snapshot, MaterialLocationKind kind)
+        {
+            if (snapshot == null || snapshot.Wafers == null)
+                return;
+
+            var wafers = snapshot.Wafers
+                .Where(w => w != null &&
+                            w.CurrentLocation != null &&
+                            w.CurrentLocation.Kind == kind &&
+                            WaferMaterialStateText.Normalize(w.State) != WaferMaterialState.Empty)
+                .ToList();
+            if (wafers.Count == 0)
+                return;
+
+            var location = DataOnlyLocation.Station(kind);
+            string idText = wafers.Count == 1 ? wafers[0].WaferId : "다중(" + wafers.Count + ")";
+            cmbDataOnlySource.Items.Add(new DataOnlyLocationItem(location, location.DisplayText + "  [" + idText + "]"));
+        }
+
+        private void OnDataOnlySourceChanged()
+        {
+            try
+            {
+                var item = cmbDataOnlySource.SelectedItem as DataOnlyLocationItem;
+                lblDataOnlyMaterialValue.Text = item != null ? ResolveDataOnlyMaterialId(item.Location) : "-";
+                RebuildDataOnlyDestItems();
+            }
+            catch (Exception ex)
+            {
+                WriteAlarm("INPUT-CST-DATAONLY-UI", "DATA ONLY 선택 갱신 실패: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private void RebuildDataOnlyDestItems()
+        {
+            try
+            {
+                var previous = cmbDataOnlyDest.SelectedItem as DataOnlyLocationItem;
+                cmbDataOnlyDest.Items.Clear();
+
+                var sourceItem = cmbDataOnlySource.SelectedItem as DataOnlyLocationItem;
+                if (sourceItem == null)
+                    return;
+
+                var snapshot = MaterialStorage.State;
+                switch (sourceItem.Location.Kind)
+                {
+                    case MaterialLocationKind.InputCassette:
+                        AddDataOnlyStationDestItem(snapshot, MaterialLocationKind.InputFeeder);
+                        break;
+                    case MaterialLocationKind.InputFeeder:
+                        AddDataOnlyCassetteDestItems(snapshot, CassetteMaterialRole.Input1);
+                        AddDataOnlyCassetteDestItems(snapshot, CassetteMaterialRole.Input2);
+                        AddDataOnlyStationDestItem(snapshot, MaterialLocationKind.InputStage);
+                        break;
+                    case MaterialLocationKind.InputStage:
+                        AddDataOnlyStationDestItem(snapshot, MaterialLocationKind.InputFeeder);
+                        break;
+                }
+
+                RestoreDataOnlySelection(cmbDataOnlyDest, previous);
+            }
+            catch (Exception ex)
+            {
+                WriteAlarm("INPUT-CST-DATAONLY-UI", "DATA ONLY destination 목록 갱신 실패: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private void AddDataOnlyCassetteDestItems(MaterialSnapshot snapshot, CassetteMaterialRole role)
+        {
+            var cassette = snapshot != null && snapshot.Cassettes != null
+                ? snapshot.Cassettes.FirstOrDefault(c => c != null && c.Role == role)
+                : null;
+            if (cassette == null || cassette.Slots == null)
+                return;
+
+            for (int i = 0; i < cassette.Slots.Count; i++)
+            {
+                var slot = cassette.Slots[i];
+                if (slot == null || slot.HasWafer || !string.IsNullOrWhiteSpace(slot.WaferId))
+                    continue;
+
+                var location = DataOnlyLocation.Cassette(role, i);
+                cmbDataOnlyDest.Items.Add(new DataOnlyLocationItem(location, location.DisplayText + "  [EMPTY]"));
+            }
+        }
+
+        private void AddDataOnlyStationDestItem(MaterialSnapshot snapshot, MaterialLocationKind kind)
+        {
+            bool occupied = snapshot != null && snapshot.Wafers != null && snapshot.Wafers.Any(w =>
+                w != null &&
+                w.CurrentLocation != null &&
+                w.CurrentLocation.Kind == kind &&
+                WaferMaterialStateText.Normalize(w.State) != WaferMaterialState.Empty);
+            if (occupied)
+                return;
+
+            var location = DataOnlyLocation.Station(kind);
+            cmbDataOnlyDest.Items.Add(new DataOnlyLocationItem(location, location.DisplayText + "  [EMPTY]"));
+        }
+
+        private static void RestoreDataOnlySelection(ComboBox combo, DataOnlyLocationItem previous)
+        {
+            if (previous == null)
+                return;
+
+            foreach (object candidate in combo.Items)
+            {
+                var item = candidate as DataOnlyLocationItem;
+                if (item != null && item.Location.IsSameAs(previous.Location))
+                {
+                    combo.SelectedItem = candidate;
+                    return;
+                }
+            }
+        }
+
+        private static string ResolveDataOnlyMaterialId(DataOnlyLocation location)
+        {
+            var snapshot = MaterialStorage.State;
+            if (snapshot == null || location == null)
+                return "-";
+
+            if (location.IsCassette)
+            {
+                var cassette = snapshot.Cassettes != null
+                    ? snapshot.Cassettes.FirstOrDefault(c => c != null && c.Role == location.CassetteRole)
+                    : null;
+                var slot = cassette != null && cassette.Slots != null &&
+                           location.SlotIndex >= 0 && location.SlotIndex < cassette.Slots.Count
+                    ? cassette.Slots[location.SlotIndex]
+                    : null;
+                return slot != null && !string.IsNullOrWhiteSpace(slot.WaferId) ? slot.WaferId : "-";
+            }
+
+            var wafers = snapshot.Wafers != null
+                ? snapshot.Wafers.Where(w => w != null &&
+                        w.CurrentLocation != null &&
+                        w.CurrentLocation.Kind == location.Kind &&
+                        WaferMaterialStateText.Normalize(w.State) != WaferMaterialState.Empty).ToList()
+                : new System.Collections.Generic.List<WaferMaterial>();
+            if (wafers.Count == 1)
+                return wafers[0].WaferId;
+            return wafers.Count == 0 ? "-" : "다중(" + wafers.Count + ")";
+        }
+
+        private void ExecuteDataOnlyMove()
+        {
+            if (_dataOnlyBusy)
+                return;
+
+            try
+            {
+                _dataOnlyBusy = true;
+
+                var sourceItem = cmbDataOnlySource.SelectedItem as DataOnlyLocationItem;
+                var destItem = cmbDataOnlyDest.SelectedItem as DataOnlyLocationItem;
+                if (sourceItem == null || destItem == null)
+                {
+                    QMC.Common.MessageDialog.Show(this, "Source와 Destination을 먼저 선택하십시오.",
+                        "DATA ONLY", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                string expectedId = ResolveDataOnlyMaterialId(sourceItem.Location);
+                string message =
+                    "[DATA ONLY 이동]\r\n" +
+                    "Source: " + sourceItem.Location.DisplayText + "\r\n" +
+                    "Destination: " + destItem.Location.DisplayText + "\r\n" +
+                    "Material ID: " + expectedId + "\r\n\r\n" +
+                    "실물 장비는 움직이지 않습니다 (NO MOTION).\r\n" +
+                    "Material 데이터만 이동하시겠습니까?";
+                if (QMC.Common.MessageDialog.Show(this, message, "DATA ONLY",
+                        MessageBoxButtons.YesNo, MessageBoxIcon.Warning) != DialogResult.Yes)
+                {
+                    WriteEvent("INPUT-CST-DATAONLY-CANCEL", "DATA ONLY move canceled by user. source=" +
+                        sourceItem.Location.DisplayText + ", destination=" + destItem.Location.DisplayText +
+                        ", material=" + expectedId);
+                    return;
+                }
+
+                var result = MaterialStateService.MoveMaterialDataOnly(
+                    sourceItem.Location,
+                    destItem.Location,
+                    expectedId == "-" ? "" : expectedId,
+                    QMC.CDT_320.Ui.Security.UserSession.Name);
+
+                if (result.Success)
+                {
+                    SyncInputRuntimeProjection();
+                    WriteEvent("INPUT-CST-DATAONLY-MOVE", "DATA ONLY move done. material=" + result.MaterialId +
+                        ", source=" + result.SourceText + ", destination=" + result.DestinationText +
+                        ", persisted=" + result.PersistenceSucceeded);
+                    RefreshDataOnlyAfterChange();
+                    QMC.Common.MessageDialog.Show(this,
+                        "Material 데이터 이동이 완료되었습니다 (NO MOTION).\r\n" +
+                        "Material ID: " + result.MaterialId + "\r\n" +
+                        result.SourceText + " → " + result.DestinationText,
+                        "DATA ONLY", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                }
+                else
+                {
+                    RaiseWarning("INPUT-CST-DATAONLY-MOVE-FAIL", "DATA ONLY move failed. code=" + result.FailureCode +
+                        ", reason=" + result.FailureMessage);
+                    QMC.Common.MessageDialog.Show(this,
+                        "Material 데이터 이동에 실패했습니다.\r\n" + result.FailureMessage,
+                        "DATA ONLY", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                }
+            }
+            catch (Exception ex)
+            {
+                WriteAlarm("INPUT-CST-DATAONLY-MOVE-EX", "DATA ONLY move failed: " + ex.Message);
+                QMC.Common.MessageDialog.Show(this, ex.Message, "DATA ONLY", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+                _dataOnlyBusy = false;
+            }
+        }
+
+        private void ExecuteDataOnlyDelete()
+        {
+            if (_dataOnlyBusy)
+                return;
+
+            try
+            {
+                _dataOnlyBusy = true;
+
+                var sourceItem = cmbDataOnlySource.SelectedItem as DataOnlyLocationItem;
+                if (sourceItem == null)
+                {
+                    QMC.Common.MessageDialog.Show(this, "삭제할 위치를 Source에서 먼저 선택하십시오.",
+                        "DATA ONLY", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                string expectedId = ResolveDataOnlyMaterialId(sourceItem.Location);
+                string message =
+                    "[DATA ONLY 삭제]\r\n" +
+                    sourceItem.Location.DisplayText + "의 Material [" + expectedId + "] 데이터를 삭제하시겠습니까?\r\n\r\n" +
+                    "실물 장비는 움직이지 않으며, 실물이 제거되는 것도 아닙니다.";
+                if (QMC.Common.MessageDialog.Show(this, message, "DATA ONLY",
+                        MessageBoxButtons.YesNo, MessageBoxIcon.Warning) != DialogResult.Yes)
+                {
+                    WriteEvent("INPUT-CST-DATAONLY-CANCEL", "DATA ONLY delete canceled by user. location=" +
+                        sourceItem.Location.DisplayText + ", material=" + expectedId);
+                    return;
+                }
+
+                var result = MaterialStateService.DeleteMaterialDataOnly(
+                    sourceItem.Location,
+                    expectedId == "-" ? "" : expectedId,
+                    QMC.CDT_320.Ui.Security.UserSession.Name);
+
+                if (result.Success)
+                {
+                    SyncInputRuntimeProjection();
+                    WriteEvent("INPUT-CST-DATAONLY-DELETE", "DATA ONLY delete done. material=" + result.MaterialId +
+                        ", location=" + result.SourceText + ", persisted=" + result.PersistenceSucceeded);
+                    RefreshDataOnlyAfterChange();
+                    QMC.Common.MessageDialog.Show(this,
+                        "Material 데이터 삭제가 완료되었습니다 (NO MOTION).\r\nMaterial ID: " + result.MaterialId,
+                        "DATA ONLY", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                }
+                else
+                {
+                    RaiseWarning("INPUT-CST-DATAONLY-DELETE-FAIL", "DATA ONLY delete failed. code=" + result.FailureCode +
+                        ", reason=" + result.FailureMessage);
+                    QMC.Common.MessageDialog.Show(this,
+                        "Material 데이터 삭제에 실패했습니다.\r\n" + result.FailureMessage,
+                        "DATA ONLY", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                }
+            }
+            catch (Exception ex)
+            {
+                WriteAlarm("INPUT-CST-DATAONLY-DELETE-EX", "DATA ONLY delete failed: " + ex.Message);
+                QMC.Common.MessageDialog.Show(this, ex.Message, "DATA ONLY", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+                _dataOnlyBusy = false;
+            }
+        }
+
+        // 중앙 상태 기준으로 Input Feeder/Stage runtime projection(로컬 캐시)을 재동기화한다.
+        private void SyncInputRuntimeProjection()
+        {
+            try
+            {
+                var host = GetHost();
+                if (host == null || host.Machine == null)
+                    return;
+
+                var feeder = host.Machine.InputFeederUnit;
+                if (feeder != null)
+                {
+                    var feederWafer = MaterialStateService.GetWaferAtLocation(MaterialLocationKind.InputFeeder);
+                    if (feederWafer != null)
+                        feeder.SetCurrentWaferMaterial(feederWafer);
+                    else
+                        feeder.ClearCurrentWaferMaterial();
+                }
+
+                var stage = host.Machine.InputStageUnit;
+                if (stage != null)
+                {
+                    var stageWafer = MaterialStateService.GetWaferAtLocation(MaterialLocationKind.InputStage);
+                    if (stageWafer != null)
+                        stage.SetCurrentWaferMaterial(stageWafer);
+                    else
+                        stage.ClearCurrentWaferMaterial();
+                }
+            }
+            catch (Exception ex)
+            {
+                WriteAlarm("INPUT-CST-DATAONLY-SYNC", "DATA ONLY projection 동기화 실패: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private void RefreshDataOnlyAfterChange()
+        {
+            try
+            {
+                RebuildDataOnlySourceItems();
+                RebuildDataOnlyDestItems();
+                var item = cmbDataOnlySource.SelectedItem as DataOnlyLocationItem;
+                lblDataOnlyMaterialValue.Text = item != null ? ResolveDataOnlyMaterialId(item.Location) : "-";
+                RefreshSelectedMaterialDetail();
+                RefreshFromMachine();
+            }
+            catch (Exception ex)
+            {
+                WriteAlarm("INPUT-CST-DATAONLY-REFRESH", "DATA ONLY 화면 갱신 실패: " + ex.Message);
             }
             finally
             {
