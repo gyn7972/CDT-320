@@ -51,6 +51,9 @@ namespace QMC.CDT320.Sequencing
                 ReleasePickerWorkZone("Abort");
                 InputCameraPreInspectionCoordinator.Clear(Side);
                 InputVisionXPrePositionCoordinator.Cancel(Side);
+                // C3(2026-07-26): 선행검사 EPD 직후 시작된 독립 회피 세션 잔여분 정리 —
+                // 미인수 Task를 관찰(observe)해 다음 배치와의 겹침/unobserved 예외를 막는다.
+                VisionIndependentRetreatCoordinator.CancelInput(Side, "PickerProcessSequence.Abort");
 
                 if (_pickUpSequence != null)
                     _pickUpSequence.Abort();

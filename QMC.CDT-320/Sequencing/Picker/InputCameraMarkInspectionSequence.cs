@@ -482,48 +482,31 @@ namespace QMC.CDT320.Sequencing
                     return Fail("INPUT-CAMERA-MARK-INSPECTION-STAGE-RECIPE", stage.Name,
                         "InputStage recipe is missing. InputVisionX avoid cannot run.");
 
-                if (IsInputCameraPreInspectionMode())
-                {
-                    int acquireResult = await AcquireInputStageAreaAsync(ct).ConfigureAwait(false);
-                    if (acquireResult != 0)
-                        return acquireResult;
-                }
-
-                // 기존 조건: 배치 촬영 종료 직후 이 시퀀스가 비전을 동기로 최소 회피시켰다 —
-                //           픽업 허가 전이라 피커가 추종할 수 없어, 픽업의 이연·팔로잉(#17)이
-                //           항상 hold=current(이동 없음)로 무력화됐다(실장비 로그 2026-07-25).
-                // 현재 기준(사용자 지시 2026-07-25): Auto+Conti(이연·팔로잉이 동작하는 조건)에서는
-                //           회피를 픽업 시퀀스로 위임한다 — 비전은 마지막 촬영 위치에 머물고,
-                //           픽업의 MoveInputVisionToAvoidForPickerMove가 이연 후 피커X 팔로잉과
-                //           동시 기동한다. 피커 X 일반 이동 폴백은 "이연 회피 완료 후 진입" 안전
-                //           불변식이 지키고, 존/페어 인터락은 그대로 살아 있다.
-                if (IsMinimalRetreatGateSatisfied())
-                {
-                    WriteLog("InputCameraMarkInspectionSequence",
-                        Name + " InputVisionX 선행검사 후 회피를 픽업 이연·팔로잉으로 위임합니다(이동 생략). " +
-                        "actual=" + (stage.CameraX != null ? stage.CameraX.ActualPosition.ToString("F6") : "-") +
-                        ", side=" + Side + " - Check");
-                    CurrentStep = InputCameraMarkInspectionStep.GrantPickUpPermission;
-                    return 0;
-                }
-
+                // 기존 조건(사용자 지시 2026-07-25): Auto+Conti에서는 회피를 픽업 이연·팔로잉으로
+                //           위임(이동 생략)했다 — 실측(2026-07-25 런) 결과 8사이클 전부 촬영 위치 홀드
+                //           2.1~36.0초 + 픽커 진입 명령과 동일 ms에야 회피 시작 + 픽커가 진입 후 회피
+                //           완료를 5.7~6.7초 추가 대기(픽업 크리티컬 패스 포함)로 이연 설계가 손해였다.
+                // 현재 기준(사용자 지시 2026-07-26): 배치 마지막 EPD 완료 "즉시" 이 시퀀스가 독립
+                //           비동기 회피를 시작하고(허가 발행은 회피 완료를 기다리지 않음), 픽업은
+                //           VisionIndependentRetreatCoordinator를 통해 회피 Task를 인수해 3단계
+                //           (회피완료=즉시 진입/회피중=팔로잉/촬영중=EPD까지 대기) 진입한다.
                 stage.Recipe.EnsurePositionObjects();
                 double avoid = stage.Recipe.VisionX.AvoidPosition;
                 double tolerance = stage.CameraX != null && stage.CameraX.Config != null && stage.CameraX.Config.InPositionTolerance > 0.0
                     ? stage.CameraX.Config.InPositionTolerance
                     : 0.01;
 
-                // 선행검사 촬영 종료 후 회피: Auto + Conti 계열이면 부호 인지 최소 회피를 적용한다.
-                // 이 시점에는 pick 좌표(CalculatePickTargets)가 아직 없으므로 planned는 근사값으로 구성한다:
-                // 근사 피커X = PickTarget.TargetX(비전 기준 die X) + InputVisionToPicker X 오프셋.
-                // 근사여도 안전하다 — 이후 픽업 시퀀스(MoveInputVisionToAvoidForPickerMoveAsync)가 정확한
-                // 좌표로 재계산·재이동하고, Extra 40mm 버퍼 + 피커 진입 인터락(SafetyDistance)은 그대로
-                // 살아있다. 근사 실패 시 전체 Avoid 폴백.
-                double target = avoid;
-                string retreatMode = "legacy";
-                string retreatDetail = "전체 Avoid 사용";
                 if (IsMinimalRetreatGateSatisfied())
                 {
+                    // 선행검사 촬영 종료 직후 독립 회피: 부호 인지 최소 회피를 적용한다.
+                    // 이 시점에는 pick 좌표(CalculatePickTargets)가 아직 없으므로 planned는 근사값으로 구성한다:
+                    // 근사 피커X = PickTarget.TargetX(비전 기준 die X) + InputVisionToPicker X 오프셋.
+                    // 근사여도 안전하다 — 이후 픽업 시퀀스(MoveInputVisionToAvoidForPickerMoveAsync)가 정확한
+                    // 좌표로 재검증(부족 시 연장 회피)하고, Extra 40mm 버퍼 + 피커 진입 인터락(SafetyDistance)은
+                    // 그대로 살아있다. 근사 실패 시 전체 Avoid 폴백.
+                    double independentTarget = avoid;
+                    string independentMode = "fullAvoid";
+                    string independentDetail = "근사 산출 불가로 전체 Avoid를 사용합니다.";
                     SharedRailXMotionService service = SharedRailXMotionRuntime.ResolveService(
                         Context != null ? Context.Machine : null);
                     List<double> approxPickerTargets = null;
@@ -547,20 +530,71 @@ namespace QMC.CDT320.Sequencing
                             out dynamicTarget,
                             out dynamicDetail))
                         {
-                            target = dynamicTarget;
-                            retreatMode = "minimal";
-                            retreatDetail = dynamicDetail;
+                            independentTarget = dynamicTarget;
+                            independentMode = "minimal";
+                            independentDetail = dynamicDetail;
                         }
                         else
                         {
-                            retreatDetail = dynamicDetail + " 전체 Avoid로 대체합니다.";
+                            independentDetail = dynamicDetail + " 전체 Avoid로 대체합니다.";
                         }
                     }
                     else
                     {
-                        retreatDetail = "근사 피커X 구성 실패로 전체 Avoid를 사용합니다. reason=" + approxReason;
+                        independentDetail = "근사 피커X 구성 실패로 전체 Avoid를 사용합니다. reason=" + approxReason;
                     }
+
+                    WriteLog("InputCameraMarkInspectionSequence",
+                        Name + " InputVisionX 선행검사 후 회피 좌표를 확정했습니다. mode=" + independentMode +
+                        ", target=" + independentTarget.ToString("F6") +
+                        ", fullAvoid=" + avoid.ToString("F6") +
+                        ", detail=" + independentDetail + " - Check");
+
+                    if (stage.CameraX != null && stage.CameraX.IsAtTargetPosition(independentTarget, tolerance))
+                    {
+                        WriteLog("InputCameraMarkInspectionSequence",
+                            Name + " InputVisionX가 이미 회피 목표에 있어 독립 회피 이동을 생략합니다. " +
+                            "target=" + independentTarget.ToString("F6") + ", side=" + Side + " - Ok");
+                        CurrentStep = InputCameraMarkInspectionStep.GrantPickUpPermission;
+                        return 0;
+                    }
+
+                    // 배치 마지막 die EPD 완료 "즉시" 회피를 비동기 시작한다(fire-and-forget).
+                    // 이동 명령 경로는 기존 동기 경로와 동일(stage.MoveInputStageAxis →
+                    // SharedRailXMotionRuntime.MoveAxisAsync, MotionGuard/SharedRailX 검증 + 속도
+                    // 스케일 포함, 완료 보장형). InputStageArea lease는 잡지 않는다 — 퇴장 방향
+                    // 이동은 MotionGuard/공유레일 페어 검증이 담당하고, lease를 잡으면 픽업의
+                    // 영역 획득이 회피 완료까지 직렬화되어 본 설계 목적(오버랩)이 무산된다.
+                    Task<int> independentRetreatTask = stage.MoveInputStageAxis(
+                        WaferStageAxis.VisionX,
+                        independentTarget,
+                        Options != null && Options.FineMove);
+                    VisionIndependentRetreatCoordinator.RegisterInput(
+                        Side,
+                        independentRetreatTask,
+                        independentTarget,
+                        Name + ":PostEpdIndependentRetreat");
+                    WriteLog("InputCameraMarkInspectionSequence",
+                        Name + " InputVisionX 독립 회피 이동을 비동기 시작했습니다(배치 마지막 EPD 직후, 허가 발행은 대기하지 않음). " +
+                        "mode=" + independentMode +
+                        ", target=" + independentTarget.ToString("F6") +
+                        ", actual=" + (stage.CameraX != null ? stage.CameraX.ActualPosition.ToString("F6") : "-") +
+                        ", side=" + Side + " - Start");
+
+                    CurrentStep = InputCameraMarkInspectionStep.GrantPickUpPermission;
+                    return 0;
                 }
+
+                if (IsInputCameraPreInspectionMode())
+                {
+                    int acquireResult = await AcquireInputStageAreaAsync(ct).ConfigureAwait(false);
+                    if (acquireResult != 0)
+                        return acquireResult;
+                }
+
+                double target = avoid;
+                string retreatMode = "legacy";
+                string retreatDetail = "전체 Avoid 사용";
 
                 WriteLog("InputCameraMarkInspectionSequence",
                     Name + " InputVisionX 선행검사 후 회피 좌표를 확정했습니다. mode=" + retreatMode +

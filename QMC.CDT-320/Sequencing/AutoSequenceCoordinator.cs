@@ -345,6 +345,10 @@ namespace QMC.CDT320.Sequencing
 
                 InputCameraPreInspectionCoordinator.Clear(PickerSequenceSide.Front);
                 InputCameraPreInspectionCoordinator.Clear(PickerSequenceSide.Rear);
+                // C3(2026-07-26): 직전 런의 독립 회피 세션 잔여분 정리(RunStart 경계).
+                VisionIndependentRetreatCoordinator.CancelInput(PickerSequenceSide.Front, "RunStart reset");
+                VisionIndependentRetreatCoordinator.CancelInput(PickerSequenceSide.Rear, "RunStart reset");
+                VisionIndependentRetreatCoordinator.ClearOutput("RunStart reset");
                 _ctx.LogPublic("[SEQ] InputCamera pre-inspection state reset at run start.");
 
                 string clearDetail;

@@ -464,7 +464,12 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
-        // 인터락 항목: 자동 OutputVisionX 이동은 OutputStage Busy 여부를 확인한다.
+        // 인터락 항목: 자동 OutputVisionX 이동 조건을 확인한다.
+        // 기존 조건: OutputStage Busy(GoodStageY/GoodStageZ/NgStageY 이동 중) 시 OutputVisionX 이동 차단.
+        // 현재 기준(사용자 지시 2026-07-26): OutputStage 축과 OutputVisionX는 물리 간섭이 없어
+        //   상호 moving 인터락을 해제한다 — 독립 회피가 다음 Place의 StageY 이동과 중첩되는
+        //   설계에서 "Interlock blocked. moving=OutputVisionX. GoodStage Y is moving." 차단 제거.
+        //   픽커 존/피더/transport 인터락은 그대로 유지한다.
         private static bool CanAutoOutputVisionX(MotionGuardRuleContext request, out string reason)
         {
             CDT320_Machine machine = request != null ? request.Machine : null;
@@ -478,10 +483,7 @@ namespace QMC.CDT320.Interlocks
                 return false;
 
             // 인터락 조건: Picker/Feeder 등 Output transport 점유 상태가 해제되어 있는지 확인한다.
-            if (!VerifyOutputTransportClear(machine, "OutputVisionX", out reason))
-                return false;
-
-            return VerifyOutputStageNotBusy(machine != null ? machine.OutputStageUnit : null, "OutputVisionX", out reason);
+            return VerifyOutputTransportClear(machine, "OutputVisionX", out reason);
         }
 
         // OutputVisionX는 OutputFeederY가 정지된 Avoid/Down 상태일 때만 HOME·수동·자동·Jog 이동한다.
@@ -1497,6 +1499,9 @@ namespace QMC.CDT320.Interlocks
         }
 
         // 인터락 항목: OutputStage 내부 다른 축/실린더가 이동 중인지 확인한다.
+        // 기존 조건: OutputVisionX 이동 중에도 스테이지 축/실린더 이동을 차단했다.
+        // 현재 기준(사용자 지시 2026-07-26): OutputStage 축과 OutputVisionX는 물리 간섭이 없어
+        //   OutputVisionX moving 항목을 제거한다(양방향 분리). 스테이지 축 간 상호 busy는 유지.
         private static bool VerifyOutputStageNotBusy(OutputStageUnit stage, string movingName, out string reason)
         {
             reason = string.Empty;
@@ -1509,8 +1514,6 @@ namespace QMC.CDT320.Interlocks
                 return MotionGuardRuleHelpers.Block(movingName, "GoodStage Z is moving.", out reason);
             if (IsMovingExcept(stage.NgStage != null ? stage.NgStage.StageY : null, movingName, "OutputNGStageY", "NgBinY", "NgStage_StageY"))
                 return MotionGuardRuleHelpers.Block(movingName, "NgStage Y is moving.", out reason);
-            //if (IsMovingExcept(stage.OutputCameraX, movingName, "OutputVisionX"))
-            //    return MotionGuardRuleHelpers.Block(movingName, "OutputVisionX is moving.", out reason);
 
             return true;
         }
