@@ -614,8 +614,19 @@ namespace QMC.CDT_320.Ui.Dialogs
                 host.Controller.StopRequested += stopHandler;
                 btnStop.Enabled = true;
 
-                AppendLog("콜렛 클리닝을 시작합니다.");
+                AppendLog("콜렛 클리닝을 시작합니다. pressCount=" + _settings.CleanPressCount +
+                          ", dwell=" + _settings.ArriveDwellMs + "ms" +
+                          ", lift=" + _settings.RepeatLiftHeight.ToString("0.###") + "mm");
                 lblStatus.Text = "콜렛 클리닝 실행 중입니다.";
+
+                // 화면 값이 시퀀스로 그대로 전달되는지 파일 로그에도 남긴다.
+                QMC.Common.Log.Write("Calibration", "SYSTEM", "ColletCleaningDialogStart",
+                    "다이얼로그에서 콜렛 클리닝을 시작합니다. pressCount=" + _settings.CleanPressCount +
+                    ", arriveDwellMs=" + _settings.ArriveDwellMs +
+                    ", repeatLiftHeight=" + _settings.RepeatLiftHeight.ToString("F6") +
+                    ", cleanVelocity=" + _settings.CleanVelocity.ToString("F3") +
+                    ", contactZUserOffset=" + _settings.ContactZUserOffset.ToString("F6") +
+                    ", maxRetry=" + _settings.MaxRetryCount + " - Start");
 
                 var context = new MachineSequenceContext(host.Controller, new SequenceSignalBus());
                 var sequence = new AutoColletCleaningSequence(context, _settings, SequenceRunMode.Manual);

@@ -81,7 +81,11 @@ namespace QMC.CDT320.Sequencing.Calibration
                 QMC.Common.Log.Write("Calibration", "SYSTEM", "ColletCleaningRun",
                     "콜렛 클리닝 실행을 시작합니다. sides=" +
                     string.Join(",", sides.Select(s => s.ToString()).ToArray()) +
-                    ", mode=" + _runMode + " - Start");
+                    ", mode=" + _runMode +
+                    ", pressCount=" + _settings.CleanPressCount +
+                    ", arriveDwellMs=" + _settings.ArriveDwellMs +
+                    ", repeatLiftHeight=" + _settings.RepeatLiftHeight.ToString("F6") +
+                    ", maxRetry=" + _settings.MaxRetryCount + " - Start");
 
                 int completed = 0;
                 bool anySkipped = false;

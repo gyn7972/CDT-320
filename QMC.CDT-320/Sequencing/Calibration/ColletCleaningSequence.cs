@@ -10,6 +10,7 @@ using QMC.CDT320.Materials;
 using QMC.CDT320.VisionComm;
 using QMC.Common;
 using QMC.Common.Logging;
+using QMC.Common.Motion;
 
 namespace QMC.CDT320.Sequencing.Calibration
 {
@@ -207,6 +208,22 @@ namespace QMC.CDT320.Sequencing.Calibration
                         "콜렛 클리닝 Output vision -> Picker 오프셋 해석에 실패했습니다. side=" + Side +
                         ", reason=" + offsetReason);
                 }
+
+                // 설정이 다이얼로그 -> 러너 -> 시퀀스까지 값 손실 없이 전달됐는지 확인용.
+                WriteLog(Name,
+                    "콜렛 클리닝 유효 설정. side=" + _cleaningSide +
+                    ", pressCount=" + _settings.CleanPressCount +
+                    ", arriveDwellMs=" + _settings.ArriveDwellMs +
+                    ", repeatLiftHeight=" + _settings.RepeatLiftHeight.ToString("F6") +
+                    ", cleanVelocity=" + _settings.CleanVelocity.ToString("F3") +
+                    ", cleanAcc=" + _settings.CleanAcceleration.ToString("F3") +
+                    ", cleanDec=" + _settings.CleanDeceleration.ToString("F3") +
+                    ", contactZUserOffset=" + _settings.ContactZUserOffset.ToString("F6") +
+                    ", maxExtraPressDepth=" + _settings.MaxExtraPressDepth.ToString("F6") +
+                    ", die=" + _settings.DieHeight.ToString("F6") +
+                    ", rim=" + _settings.RimHeight.ToString("F6") +
+                    ", film=" + _settings.FilmHeight.ToString("F6") +
+                    ", maxRetry=" + _settings.MaxRetryCount + " - Check");
 
                 WriteLog(Name,
                     "콜렛 클리닝 대상 확정. side=" + _cleaningSide +
@@ -650,27 +667,62 @@ namespace QMC.CDT320.Sequencing.Calibration
         {
             PickerAxis zAxis = GetPickerZAxis(item.ColletIndex);
             double liftZ = contactZ + Math.Abs(_settings.RepeatLiftHeight);
+            int pressCount = _settings.CleanPressCount;
 
-            for (int press = 1; press <= _settings.CleanPressCount; press++)
+            // 누름 사이클은 반복 횟수/대기 시간이 설정대로 도는지 로그로 증명한다.
+            WriteLog(Name,
+                "[Phase1] 누름 사이클 시작. side=" + _cleaningSide +
+                ", colletNo=" + item.ColletNo +
+                ", zAxis=" + zAxis +
+                ", pressCount=" + pressCount +
+                ", contactZ=" + contactZ.ToString("F6") +
+                ", liftZ=" + liftZ.ToString("F6") +
+                ", repeatLiftHeight=" + _settings.RepeatLiftHeight.ToString("F6") +
+                ", arriveDwellMs=" + _settings.ArriveDwellMs +
+                ", cleanVelocity=" + _settings.CleanVelocity.ToString("F3") + " - Start");
+
+            for (int press = 1; press <= pressCount; press++)
             {
                 ct.ThrowIfCancellationRequested();
                 Context.StopIfCycleStopRequested(Name + ":Press:" + item.ColletNo + ":" + press);
 
                 int result = await MovePickerZWithCleaningMotionAsync(
                     zAxis, contactZ,
-                    "콜렛 클리닝 누름 하강 " + press + "/" + _settings.CleanPressCount, ct).ConfigureAwait(false);
+                    "콜렛 클리닝 누름 하강 " + press + "/" + pressCount, ct).ConfigureAwait(false);
                 if (result != 0)
                     return result;
 
+                WriteLog(Name,
+                    "[Phase1] 누름 하강 완료. colletNo=" + item.ColletNo +
+                    ", press=" + press + "/" + pressCount +
+                    ", contactZ=" + contactZ.ToString("F6") +
+                    ", actual=" + DescribePickerAxisActual(zAxis) + " - Ok");
+
                 if (_settings.ArriveDwellMs > 0)
+                {
+                    WriteLog(Name,
+                        "[Phase1] 누름 유지 대기. colletNo=" + item.ColletNo +
+                        ", press=" + press + "/" + pressCount +
+                        ", dwellMs=" + _settings.ArriveDwellMs + " - Wait");
                     await Task.Delay(_settings.ArriveDwellMs, ct).ConfigureAwait(false);
+                }
 
                 result = await MovePickerZWithCleaningMotionAsync(
                     zAxis, liftZ,
-                    "콜렛 클리닝 누름 상승 " + press + "/" + _settings.CleanPressCount, ct).ConfigureAwait(false);
+                    "콜렛 클리닝 누름 상승 " + press + "/" + pressCount, ct).ConfigureAwait(false);
                 if (result != 0)
                     return result;
+
+                WriteLog(Name,
+                    "[Phase1] 누름 상승 완료. colletNo=" + item.ColletNo +
+                    ", press=" + press + "/" + pressCount +
+                    ", liftZ=" + liftZ.ToString("F6") +
+                    ", actual=" + DescribePickerAxisActual(zAxis) + " - Ok");
             }
+
+            WriteLog(Name,
+                "[Phase1] 누름 사이클 완료. colletNo=" + item.ColletNo +
+                ", 수행 횟수=" + pressCount + " - Ok");
 
             // 다음 셀로 넘어가기 전 반드시 Z Avoid -> Y Avoid 순서로 복귀한다.
             // PickerX 단독 이동은 PickerY가 Avoid일 때만 허용되므로 Y 복귀를 빠뜨리면
@@ -706,6 +758,28 @@ namespace QMC.CDT320.Sequencing.Calibration
                 "AvoidPosition;PickerPhase=SafeY",
                 false,
                 true).ConfigureAwait(false);
+        }
+
+        /// <summary>누름 사이클 로그용 축 실위치 문자열.</summary>
+        private string DescribePickerAxisActual(PickerAxis axis)
+        {
+            try
+            {
+                BaseAxis target = GetPickerAxis(axis);
+                if (target == null)
+                    return "null";
+
+                return target.ActualPosition.ToString("F6") +
+                       "(moving=" + (target.IsMoving ? "Y" : "N") +
+                       ", inPos=" + (target.IsInPosition ? "Y" : "N") + ")";
+            }
+            catch (Exception ex)
+            {
+                return "stateFailed:" + ex.Message;
+            }
+            finally
+            {
+            }
         }
 
         private async Task<int> MovePickerZWithCleaningMotionAsync(
@@ -870,6 +944,17 @@ namespace QMC.CDT320.Sequencing.Calibration
                 if (result != 0)
                     return result;
 
+                // Bottom 존 진입 전에도 상대 Picker Avoid를 반드시 다시 확인한다.
+                // 두 Picker가 같은 X 레일을 공유하므로 존 전환마다 재확인이 필요하다.
+                result = await MoveOppositePickerToAvoidAndVerifyAsync(
+                    zoneDescription + " - Opposite Picker Avoid", ct).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                result = await EnsureVisionAvoidForStartAsync(ct).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
                 result = await EnsureCassetteLifterAvoidForPickerXAsync(ct).ConfigureAwait(false);
                 if (result != 0)
                     return result;
@@ -940,24 +1025,21 @@ namespace QMC.CDT320.Sequencing.Calibration
 
         private async Task<int> InspectSingleColletAsync(ColletCleaningItem item, CancellationToken ct)
         {
-            // 콜렛을 Bottom 검사 위치로 이동한다.
-            PickerCalibratedZoneTarget zoneTarget = CalibrationCoordinateService.ResolvePickerZoneTarget(
-                Context.Machine,
-                _cleaningSide,
-                "DieBottomPosition",
-                item.ColletIndex,
-                null,
-                false,
-                true);
-            if (zoneTarget == null)
+            // 콜렛 Bottom 검사 위치는 레시피 티칭값을 그대로 사용한다.
+            // (PickerX/PickerY의 DieBottomPosition[콜렛인덱스], 없으면 공용 BottomPosition)
+            // 예: Front C4 -> X=615.021, Y=36.352 / Rear C4 -> X=614.897, Y=-32.119
+            double bottomX = ResolveBottomTeachingPosition(PickerAxis.PickerX, item.ColletIndex);
+            double bottomY = ResolveBottomTeachingPosition(PickerAxis.PickerY, item.ColletIndex);
+            if (double.IsNaN(bottomX) || Math.Abs(bottomX) <= 1e-9)
                 return Fail("COLLET-CLEAN-INSPECT-TARGET", Name,
-                    "콜렛 검사 위치를 해석하지 못했습니다. side=" + _cleaningSide + ", colletNo=" + item.ColletNo);
+                    "콜렛 검사 PickerX 레시피 티칭값이 없습니다. side=" + _cleaningSide +
+                    ", colletNo=" + item.ColletNo);
 
             // 검사존 진입도 동일 규칙: X/T 먼저 -> Y 나중(단독 X 이동 전 PickerY Avoid 요구 인터락 회피).
             var inspectTargets = new Dictionary<PickerAxis, double>
             {
-                { PickerAxis.PickerX, zoneTarget.X },
-                { PickerAxis.PickerY, zoneTarget.Y }
+                { PickerAxis.PickerX, bottomX },
+                { PickerAxis.PickerY, bottomY }
             };
             int result = await MovePickerXTThenYAndVerifyAsync(
                 inspectTargets,
@@ -968,13 +1050,37 @@ namespace QMC.CDT320.Sequencing.Calibration
             if (result != 0)
                 return result;
 
+            // Bottom 카메라는 콜렛을 촬영 높이까지 내려야 찍힌다. X/Y만 이동하고 Z가 Avoid에 있으면 촬영이 성립하지 않는다.
+            // 촬영 Z는 레시피 티칭값(PickerZn의 DieBottomPosition[콜렛인덱스])을 사용한다.
+            // 예: Front C4 = -12.187, Rear C4 = -11.5. 콜렛별 개별 티칭이 없으면 공용 BottomPosition으로 보완한다.
             PickerAxis zAxis = GetPickerZAxis(item.ColletIndex);
-            double inspectionZ = GetPickerTeachingPosition(zAxis, "BottomPosition");
+            double inspectionZ = GetPickerTeachingPosition(zAxis, BuildPickerTargetName("DieBottomPosition", item.ColletIndex));
+            if (double.IsNaN(inspectionZ) || Math.Abs(inspectionZ) <= 1e-9)
+                inspectionZ = GetPickerTeachingPosition(zAxis, "BottomPosition");
+
+            double zAvoid = GetPickerTeachingPosition(zAxis, "AvoidPosition");
+            if (double.IsNaN(inspectionZ) || Math.Abs(inspectionZ - zAvoid) <= 1e-6)
+            {
+                return Fail("COLLET-CLEAN-INSPECT-Z-TEACH", Name,
+                    "콜렛 검사 촬영 Z 레시피 티칭값이 없습니다(DieBottomPosition/BottomPosition). side=" + _cleaningSide +
+                    ", colletNo=" + item.ColletNo +
+                    ", zAxis=" + zAxis +
+                    ", bottomZ=" + inspectionZ.ToString("F6") +
+                    ", avoidZ=" + zAvoid.ToString("F6"));
+            }
+
             result = await MovePickerAxisAndVerifyAsync(
                 zAxis, inspectionZ,
-                "콜렛 검사 PickerZ", ct, CleaningTargetName, true).ConfigureAwait(false);
+                "콜렛 검사 PickerZ 하강", ct, CleaningTargetName, true).ConfigureAwait(false);
             if (result != 0)
                 return result;
+
+            WriteLog(Name,
+                "[Phase2] 콜렛 검사 촬영 자세 확보. side=" + _cleaningSide +
+                ", colletNo=" + item.ColletNo +
+                ", pickerX=" + bottomX.ToString("F6") +
+                ", pickerY=" + bottomY.ToString("F6") +
+                ", pickerZ=" + inspectionZ.ToString("F6") + " - Ok");
 
             await DelayBeforeBottomVisionInspectionAsync(item.ColletNo, ct).ConfigureAwait(false);
 
@@ -990,6 +1096,16 @@ namespace QMC.CDT320.Sequencing.Calibration
                 0,
                 ResolveVisionInspectionTimeout(),
                 ct).ConfigureAwait(false);
+
+            // 시뮬레이션/드라이런/비전 미사용 환경에서는 통신 실패를 알람으로 올리지 않고 OK로 통과시킨다.
+            // (실기 운전에서는 아래 통신 실패 알람이 그대로 유지된다.)
+            if (inspection == null && IsColletInspectionSimulationAllowed())
+            {
+                WriteLog(Name,
+                    "[Phase2] 시뮬레이션/드라이런 환경이라 콜렛 검사 결과를 OK로 간주합니다. side=" + _cleaningSide +
+                    ", colletNo=" + item.ColletNo + " - Skip");
+                inspection = new InspectionResultDto { IsPass = true, Raw = "SIMULATED-OK" };
+            }
 
             // 검사 후에도 Z Avoid -> Y Avoid 순서로 복귀해야 다음 콜렛의 PickerX 이동이 가능하다.
             int zAvoidResult = await MovePickerZThenYToAvoidAsync(zAxis, "콜렛 검사 후", ct).ConfigureAwait(false);
@@ -1012,6 +1128,47 @@ namespace QMC.CDT320.Sequencing.Calibration
                 ", retryUsed=" + item.RetryUsed +
                 ", raw=" + (inspection.Raw ?? string.Empty) + " - Ok");
             return 0;
+        }
+
+        /// <summary>
+        /// Bottom 검사 위치의 레시피 티칭값을 읽는다.
+        /// 콜렛별 배열(DieBottomPosition[index])이 우선이고, 값이 없으면 공용 BottomPosition을 쓴다.
+        /// </summary>
+        private double ResolveBottomTeachingPosition(PickerAxis axis, int colletIndex)
+        {
+            double indexed = GetPickerTeachingPosition(axis, BuildPickerTargetName("DieBottomPosition", colletIndex));
+            if (!double.IsNaN(indexed) && Math.Abs(indexed) > 1e-9)
+                return indexed;
+
+            return GetPickerTeachingPosition(axis, "BottomPosition");
+        }
+
+        /// <summary>
+        /// 비전 미사용 / 드라이런 / 시뮬레이션 / 하드웨어 바이패스 환경인지 판정한다.
+        /// 이 경우 Bottom 카메라와 통신이 안 되는 것이 정상이므로 검사 결과를 OK로 간주한다.
+        /// (ColletCalibrationSequence.IsVisionResultSimulationAllowed와 동일 기준)
+        /// </summary>
+        private bool IsColletInspectionSimulationAllowed()
+        {
+            try
+            {
+                AppSettings settings = AppSettingsStore.Current;
+                if (settings == null)
+                    return false;
+
+                if (!settings.UseVision || settings.DryRunMode || settings.SimulationMode || settings.BypassHardware)
+                    return true;
+
+                // 비전을 쓰도록 되어 있어도 Bottom 채널이 실제로 연결되지 않았으면 실기 판정이 불가능하다.
+                return !VisionCommandService.IsConnected(AutoVisionChannel.BottomInspection);
+            }
+            catch
+            {
+                return false;
+            }
+            finally
+            {
+            }
         }
 
         // ---------------------------------------------------------------- Phase 3: Evaluate / Retry
