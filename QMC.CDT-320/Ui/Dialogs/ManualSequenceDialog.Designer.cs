@@ -46,6 +46,10 @@
             this.btnOutputLoad = new System.Windows.Forms.Button();
             this.btnOutputUnload = new System.Windows.Forms.Button();
             this.pickerSelectPanel = new System.Windows.Forms.Panel();
+            this.outputSidePanel = new System.Windows.Forms.Panel();
+            this.rbOutputNg = new System.Windows.Forms.RadioButton();
+            this.rbOutputGood = new System.Windows.Forms.RadioButton();
+            this.lblOutputSide = new System.Windows.Forms.Label();
             this.cmbPickerNo = new System.Windows.Forms.ComboBox();
             this.lblPickerNo = new System.Windows.Forms.Label();
             this.rbRearPicker = new System.Windows.Forms.RadioButton();
@@ -58,13 +62,9 @@
             this.btnAllStep = new System.Windows.Forms.Button();
             this.btnClose = new System.Windows.Forms.Button();
             this.statusLabel = new System.Windows.Forms.Label();
-            this.outputSidePanel = new System.Windows.Forms.Panel();
-            this.lblOutputSide = new System.Windows.Forms.Label();
-            this.rbOutputGood = new System.Windows.Forms.RadioButton();
-            this.rbOutputNg = new System.Windows.Forms.RadioButton();
             this.speedPanel = new System.Windows.Forms.Panel();
-            this.lblSpeedPercent = new System.Windows.Forms.Label();
             this.numSpeedPercent = new System.Windows.Forms.NumericUpDown();
+            this.lblSpeedPercent = new System.Windows.Forms.Label();
             this.mainLayout.SuspendLayout();
             this.pickerSelectPanel.SuspendLayout();
             this.outputSidePanel.SuspendLayout();
@@ -179,7 +179,7 @@
             this.btnOutputUnload.UseVisualStyleBackColor = false;
             // 
             // pickerSelectPanel
-            //
+            // 
             this.mainLayout.SetColumnSpan(this.pickerSelectPanel, 4);
             this.pickerSelectPanel.Controls.Add(this.outputSidePanel);
             this.pickerSelectPanel.Controls.Add(this.cmbPickerNo);
@@ -193,9 +193,52 @@
             this.pickerSelectPanel.Size = new System.Drawing.Size(804, 47);
             this.pickerSelectPanel.TabIndex = 4;
             // 
+            // outputSidePanel
+            // 
+            this.outputSidePanel.Controls.Add(this.rbOutputNg);
+            this.outputSidePanel.Controls.Add(this.rbOutputGood);
+            this.outputSidePanel.Controls.Add(this.lblOutputSide);
+            this.outputSidePanel.Location = new System.Drawing.Point(520, 0);
+            this.outputSidePanel.Name = "outputSidePanel";
+            this.outputSidePanel.Size = new System.Drawing.Size(284, 47);
+            this.outputSidePanel.TabIndex = 4;
+            // 
+            // rbOutputNg
+            // 
+            this.rbOutputNg.ForeColor = System.Drawing.Color.Black;
+            this.rbOutputNg.Location = new System.Drawing.Point(190, 0);
+            this.rbOutputNg.Name = "rbOutputNg";
+            this.rbOutputNg.Size = new System.Drawing.Size(80, 47);
+            this.rbOutputNg.TabIndex = 2;
+            this.rbOutputNg.Text = "NG";
+            this.rbOutputNg.UseVisualStyleBackColor = true;
+            // 
+            // rbOutputGood
+            // 
+            this.rbOutputGood.Checked = true;
+            this.rbOutputGood.ForeColor = System.Drawing.Color.Black;
+            this.rbOutputGood.Location = new System.Drawing.Point(90, 0);
+            this.rbOutputGood.Name = "rbOutputGood";
+            this.rbOutputGood.Size = new System.Drawing.Size(90, 47);
+            this.rbOutputGood.TabIndex = 1;
+            this.rbOutputGood.TabStop = true;
+            this.rbOutputGood.Text = "GOOD";
+            this.rbOutputGood.UseVisualStyleBackColor = true;
+            // 
+            // lblOutputSide
+            // 
+            this.lblOutputSide.ForeColor = System.Drawing.Color.Black;
+            this.lblOutputSide.Location = new System.Drawing.Point(0, 0);
+            this.lblOutputSide.Name = "lblOutputSide";
+            this.lblOutputSide.Size = new System.Drawing.Size(80, 47);
+            this.lblOutputSide.TabIndex = 0;
+            this.lblOutputSide.Text = "Output";
+            this.lblOutputSide.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
+            // 
             // cmbPickerNo
             // 
             this.cmbPickerNo.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
+            this.cmbPickerNo.Enabled = false;
             this.cmbPickerNo.FormattingEnabled = true;
             this.cmbPickerNo.Items.AddRange(new object[] {
             "1",
@@ -204,11 +247,13 @@
             "4"});
             this.cmbPickerNo.Location = new System.Drawing.Point(398, 10);
             this.cmbPickerNo.Name = "cmbPickerNo";
-            this.cmbPickerNo.Size = new System.Drawing.Size(84, 31);
+            this.cmbPickerNo.Size = new System.Drawing.Size(84, 25);
             this.cmbPickerNo.TabIndex = 3;
+            this.cmbPickerNo.Visible = false;
             // 
             // lblPickerNo
             // 
+            this.lblPickerNo.Enabled = false;
             this.lblPickerNo.ForeColor = System.Drawing.Color.Black;
             this.lblPickerNo.Location = new System.Drawing.Point(302, 0);
             this.lblPickerNo.Name = "lblPickerNo";
@@ -216,10 +261,12 @@
             this.lblPickerNo.TabIndex = 2;
             this.lblPickerNo.Text = "Picker No";
             this.lblPickerNo.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
+            this.lblPickerNo.Visible = false;
             // 
             // rbRearPicker
             // 
             this.rbRearPicker.Dock = System.Windows.Forms.DockStyle.Left;
+            this.rbRearPicker.Enabled = false;
             this.rbRearPicker.ForeColor = System.Drawing.Color.Black;
             this.rbRearPicker.Location = new System.Drawing.Point(140, 0);
             this.rbRearPicker.Name = "rbRearPicker";
@@ -227,11 +274,13 @@
             this.rbRearPicker.TabIndex = 1;
             this.rbRearPicker.Text = "RearPicker";
             this.rbRearPicker.UseVisualStyleBackColor = true;
+            this.rbRearPicker.Visible = false;
             // 
             // rbFrontPicker
             // 
             this.rbFrontPicker.Checked = true;
             this.rbFrontPicker.Dock = System.Windows.Forms.DockStyle.Left;
+            this.rbFrontPicker.Enabled = false;
             this.rbFrontPicker.ForeColor = System.Drawing.Color.Black;
             this.rbFrontPicker.Location = new System.Drawing.Point(0, 0);
             this.rbFrontPicker.Name = "rbFrontPicker";
@@ -240,11 +289,13 @@
             this.rbFrontPicker.TabStop = true;
             this.rbFrontPicker.Text = "FrontPicker";
             this.rbFrontPicker.UseVisualStyleBackColor = true;
+            this.rbFrontPicker.Visible = false;
             // 
             // btnPickUp
             // 
             this.btnPickUp.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
             this.btnPickUp.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.btnPickUp.Enabled = false;
             this.btnPickUp.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.btnPickUp.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.btnPickUp.ForeColor = System.Drawing.Color.White;
@@ -255,11 +306,13 @@
             this.btnPickUp.TabIndex = 5;
             this.btnPickUp.Text = "PICK UP";
             this.btnPickUp.UseVisualStyleBackColor = false;
+            this.btnPickUp.Visible = false;
             // 
             // btnBottom
             // 
             this.btnBottom.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
             this.btnBottom.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.btnBottom.Enabled = false;
             this.btnBottom.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.btnBottom.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.btnBottom.ForeColor = System.Drawing.Color.White;
@@ -270,11 +323,13 @@
             this.btnBottom.TabIndex = 6;
             this.btnBottom.Text = "BOTTOM";
             this.btnBottom.UseVisualStyleBackColor = false;
+            this.btnBottom.Visible = false;
             // 
             // btnSide
             // 
             this.btnSide.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
             this.btnSide.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.btnSide.Enabled = false;
             this.btnSide.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.btnSide.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.btnSide.ForeColor = System.Drawing.Color.White;
@@ -285,11 +340,13 @@
             this.btnSide.TabIndex = 7;
             this.btnSide.Text = "SIDE";
             this.btnSide.UseVisualStyleBackColor = false;
+            this.btnSide.Visible = false;
             // 
             // btnPlace
             // 
             this.btnPlace.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
             this.btnPlace.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.btnPlace.Enabled = false;
             this.btnPlace.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.btnPlace.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.btnPlace.ForeColor = System.Drawing.Color.White;
@@ -300,12 +357,14 @@
             this.btnPlace.TabIndex = 8;
             this.btnPlace.Text = "PLACE";
             this.btnPlace.UseVisualStyleBackColor = false;
+            this.btnPlace.Visible = false;
             // 
             // btnPickUpZTest
             // 
             this.btnPickUpZTest.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
             this.mainLayout.SetColumnSpan(this.btnPickUpZTest, 4);
             this.btnPickUpZTest.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.btnPickUpZTest.Enabled = false;
             this.btnPickUpZTest.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.btnPickUpZTest.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.btnPickUpZTest.ForeColor = System.Drawing.Color.White;
@@ -316,12 +375,14 @@
             this.btnPickUpZTest.TabIndex = 9;
             this.btnPickUpZTest.Text = "PICK Z TEST";
             this.btnPickUpZTest.UseVisualStyleBackColor = false;
+            this.btnPickUpZTest.Visible = false;
             // 
             // btnAllStep
             // 
             this.btnAllStep.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
             this.mainLayout.SetColumnSpan(this.btnAllStep, 2);
             this.btnAllStep.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.btnAllStep.Enabled = false;
             this.btnAllStep.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.btnAllStep.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.btnAllStep.ForeColor = System.Drawing.Color.White;
@@ -332,6 +393,7 @@
             this.btnAllStep.TabIndex = 10;
             this.btnAllStep.Text = "ALL STEP";
             this.btnAllStep.UseVisualStyleBackColor = false;
+            this.btnAllStep.Visible = false;
             // 
             // btnClose
             // 
@@ -348,51 +410,19 @@
             this.btnClose.TabIndex = 11;
             this.btnClose.Text = "닫기";
             this.btnClose.UseVisualStyleBackColor = false;
-            //
-            // outputSidePanel  (Output GOOD/NG 선택 — Picker 라디오와 그룹이 섞이지 않게 별도 패널)
-            //
-            this.outputSidePanel.Controls.Add(this.rbOutputNg);
-            this.outputSidePanel.Controls.Add(this.rbOutputGood);
-            this.outputSidePanel.Controls.Add(this.lblOutputSide);
-            this.outputSidePanel.Location = new System.Drawing.Point(520, 0);
-            this.outputSidePanel.Name = "outputSidePanel";
-            this.outputSidePanel.Size = new System.Drawing.Size(284, 47);
-            this.outputSidePanel.TabIndex = 4;
-            //
-            // lblOutputSide
-            //
-            this.lblOutputSide.ForeColor = System.Drawing.Color.Black;
-            this.lblOutputSide.Location = new System.Drawing.Point(0, 0);
-            this.lblOutputSide.Name = "lblOutputSide";
-            this.lblOutputSide.Size = new System.Drawing.Size(80, 47);
-            this.lblOutputSide.TabIndex = 0;
-            this.lblOutputSide.Text = "Output";
-            this.lblOutputSide.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
-            //
-            // rbOutputGood
-            //
-            this.rbOutputGood.Checked = true;
-            this.rbOutputGood.ForeColor = System.Drawing.Color.Black;
-            this.rbOutputGood.Location = new System.Drawing.Point(90, 0);
-            this.rbOutputGood.Name = "rbOutputGood";
-            this.rbOutputGood.Size = new System.Drawing.Size(90, 47);
-            this.rbOutputGood.TabIndex = 1;
-            this.rbOutputGood.TabStop = true;
-            this.rbOutputGood.Text = "GOOD";
-            this.rbOutputGood.UseVisualStyleBackColor = true;
-            //
-            // rbOutputNg
-            //
-            this.rbOutputNg.ForeColor = System.Drawing.Color.Black;
-            this.rbOutputNg.Location = new System.Drawing.Point(190, 0);
-            this.rbOutputNg.Name = "rbOutputNg";
-            this.rbOutputNg.Size = new System.Drawing.Size(80, 47);
-            this.rbOutputNg.TabIndex = 2;
-            this.rbOutputNg.Text = "NG";
-            this.rbOutputNg.UseVisualStyleBackColor = true;
-            //
-            // speedPanel  (Manual Sequence 속도 % — 속도/가감속 동일 배율 적용)
-            //
+            // 
+            // statusLabel
+            // 
+            this.statusLabel.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.statusLabel.Location = new System.Drawing.Point(0, 359);
+            this.statusLabel.Name = "statusLabel";
+            this.statusLabel.Padding = new System.Windows.Forms.Padding(18, 10, 18, 0);
+            this.statusLabel.Size = new System.Drawing.Size(846, 54);
+            this.statusLabel.TabIndex = 2;
+            this.statusLabel.Text = "Auto와 동일한 Material/Die Map/Picker 상태를 사용합니다.";
+            // 
+            // speedPanel
+            // 
             this.speedPanel.Controls.Add(this.numSpeedPercent);
             this.speedPanel.Controls.Add(this.lblSpeedPercent);
             this.speedPanel.Dock = System.Windows.Forms.DockStyle.Bottom;
@@ -400,9 +430,27 @@
             this.speedPanel.Name = "speedPanel";
             this.speedPanel.Size = new System.Drawing.Size(846, 46);
             this.speedPanel.TabIndex = 3;
-            //
+            // 
+            // numSpeedPercent
+            // 
+            this.numSpeedPercent.Location = new System.Drawing.Point(348, 8);
+            this.numSpeedPercent.Minimum = new decimal(new int[] {
+            1,
+            0,
+            0,
+            0});
+            this.numSpeedPercent.Name = "numSpeedPercent";
+            this.numSpeedPercent.Size = new System.Drawing.Size(90, 25);
+            this.numSpeedPercent.TabIndex = 1;
+            this.numSpeedPercent.TextAlign = System.Windows.Forms.HorizontalAlignment.Right;
+            this.numSpeedPercent.Value = new decimal(new int[] {
+            5,
+            0,
+            0,
+            0});
+            // 
             // lblSpeedPercent
-            //
+            // 
             this.lblSpeedPercent.Dock = System.Windows.Forms.DockStyle.Left;
             this.lblSpeedPercent.ForeColor = System.Drawing.Color.Black;
             this.lblSpeedPercent.Location = new System.Drawing.Point(0, 0);
@@ -412,27 +460,6 @@
             this.lblSpeedPercent.TabIndex = 0;
             this.lblSpeedPercent.Text = "속도 (디폴트 속도의 %, 가감속 동일 적용)";
             this.lblSpeedPercent.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            //
-            // numSpeedPercent
-            //
-            this.numSpeedPercent.Location = new System.Drawing.Point(348, 8);
-            this.numSpeedPercent.Minimum = new decimal(new int[] { 1, 0, 0, 0 });
-            this.numSpeedPercent.Maximum = new decimal(new int[] { 100, 0, 0, 0 });
-            this.numSpeedPercent.Name = "numSpeedPercent";
-            this.numSpeedPercent.Size = new System.Drawing.Size(90, 32);
-            this.numSpeedPercent.TabIndex = 1;
-            this.numSpeedPercent.TextAlign = System.Windows.Forms.HorizontalAlignment.Right;
-            this.numSpeedPercent.Value = new decimal(new int[] { 5, 0, 0, 0 });
-            //
-            // statusLabel
-            //
-            this.statusLabel.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.statusLabel.Location = new System.Drawing.Point(0, 359);
-            this.statusLabel.Name = "statusLabel";
-            this.statusLabel.Padding = new System.Windows.Forms.Padding(18, 10, 18, 0);
-            this.statusLabel.Size = new System.Drawing.Size(846, 54);
-            this.statusLabel.TabIndex = 2;
-            this.statusLabel.Text = "Auto와 동일한 Material/Die Map/Picker 상태를 사용합니다.";
             // 
             // ManualSequenceDialog
             // 
