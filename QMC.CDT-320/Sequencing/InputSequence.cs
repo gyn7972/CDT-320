@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using QMC.CDT320.Bin;
 using QMC.CDT320.Lots;
 using QMC.CDT320.Materials;
+using QMC.CDT320.Sequencing.Calibration;
 using QMC.Common;
 using QMC.Common.Alarms;
 
@@ -187,6 +188,21 @@ namespace QMC.CDT320.Sequencing
                             stageWafer = await EnsureInputStageFinishBeforePickerReadyAsync(
                                 stageWafer,
                                 ct).ConfigureAwait(false);
+                        }
+
+                        // 자동 콜렛 클리닝 실행 창: "새 웨이퍼 로딩 완료 후, 첫 Pick 전".
+                        // 이 lease를 쥐고 있는 동안에는 Picker 신규 공정이 진입하지 못하고 NG Bin이 Stage에 있으므로
+                        // 클리닝이 안전하게 수행될 수 있는 유일한 구간이다.
+                        if (stageWafer != null && Mode == SequenceRunMode.Auto)
+                        {
+                            ColletCleaningTriggerService.NotifyWaferExchanged();
+                            int cleaningResult = await ColletCleaningTriggerService
+                                .RunIfTriggeredAsync(Context, ct)
+                                .ConfigureAwait(false);
+                            if (cleaningResult != 0)
+                                // 클리닝 시퀀스 내부 Fail()이 이미 Alarm을 발생시켰으므로 중복 없이 전파한다.
+                                throw new StepAlreadyAlarmedException(
+                                    "자동 콜렛 클리닝 실패. result=" + cleaningResult);
                         }
                     }
                 }

@@ -88,6 +88,8 @@
     <Compile Include="Equipment\Calibration\VisionCameraCalibrationData.cs" />
     <Compile Include="Equipment\Calibration\VisionCameraCalibrationTransform.cs" />
     <Compile Include="Equipment\Calibration\ColletCalibrationData.cs" />
+    <Compile Include="Equipment\Calibration\ColletCleaningData.cs" />
+    <Compile Include="Equipment\Calibration\ColletCleaningTriggerState.cs" />
     <Compile Include="Equipment\Calibration\VisionFocusCalibrationData.cs" />
     <Compile Include="Equipment\CDT320Machine.cs" />
     <Compile Include="Equipment\CycleMode.cs" />
@@ -125,7 +127,9 @@
     <Compile Include="Equipment\Initialization\AxisInitializeExecutor.cs" />
     <Compile Include="Equipment\Initialization\AxisInitializeInterlockService.cs" />
     <Compile Include="Equipment\Initialization\AxisInitializePlan.cs" />
+    <Compile Include="Equipment\Initialization\AxisInitializeProgressStore.cs" />
     <Compile Include="Equipment\Initialization\AxisInitializeResult.cs" />
+    <Compile Include="Equipment\Initialization\AxisInitializeRunState.cs" />
     <Compile Include="Equipment\Initialization\AxisInitializeRuntime.cs" />
     <Compile Include="Equipment\Interlocks\InputCassetteInterlockRules.cs" />
     <Compile Include="Equipment\Interlocks\InputFeederInterlockRules.cs" />
@@ -393,6 +397,10 @@
     <Compile Include="Sequencing\Calibration\ColletCalibrationSequence.cs" />
     <Compile Include="Sequencing\Calibration\ColletRotationCenterCalibrationSequence.cs" />
     <Compile Include="Sequencing\Calibration\ColletCalibrationStep.cs" />
+    <Compile Include="Sequencing\Calibration\AutoColletCleaningSequence.cs" />
+    <Compile Include="Sequencing\Calibration\ColletCleaningSequence.cs" />
+    <Compile Include="Sequencing\Calibration\ColletCleaningStep.cs" />
+    <Compile Include="Sequencing\Calibration\ColletCleaningTriggerService.cs" />
     <Compile Include="Sequencing\Calibration\VisionFocusScanSequence.cs" />
     <Compile Include="Sequencing\InputCassette\InputCassetteSequenceKind.cs" />
     <Compile Include="Sequencing\InputCassette\InputCassetteSequenceOptions.cs" />
@@ -767,6 +775,12 @@
     </Compile>
     <Compile Include="Ui\Dialogs\ColletCalibrationDialog.Designer.cs">
       <DependentUpon>ColletCalibrationDialog.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Ui\Dialogs\ColletCleaningControlDialog.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Ui\Dialogs\ColletCleaningControlDialog.Designer.cs">
+      <DependentUpon>ColletCleaningControlDialog.cs</DependentUpon>
     </Compile>
     <Compile Include="Ui\Dialogs\NeedlePinCalibrationDialog.cs">
       <SubType>Form</SubType>

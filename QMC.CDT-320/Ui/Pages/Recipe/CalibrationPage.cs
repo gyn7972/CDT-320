@@ -18,6 +18,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
         private PlaceZCalibrationDialog _placeZDialog;
         private NeedleCalibrationDialog _needleZDialog;
         private AutoCalibrationDialog _autoCalibrationDialog;
+        private ColletCleaningControlDialog _colletCleaningDialog;
 
         private bool _loadingSafeMovePercent;
 
@@ -370,6 +371,38 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                     "AUTO CALIBRATION 설정창 열기 실패: " + ex.Message);
                 QMC.Common.MessageDialog.Show(this,
                     "AUTO CALIBRATION 설정창 열기 실패:\r\n" + ex.Message,
+                    "Calibration",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Error);
+            }
+            finally
+            {
+            }
+        }
+
+        private void btnColletCleaning_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                Form host = FindForm();
+                if (_colletCleaningDialog == null || _colletCleaningDialog.IsDisposed)
+                {
+                    _colletCleaningDialog = ColletCleaningControlDialog.Open(host);
+                    _colletCleaningDialog.StartPosition = FormStartPosition.Manual;
+                    _colletCleaningDialog.Location = ResolveDialogLocation(_colletCleaningDialog);
+                    lblStatus.Text = "COLLET CLEANING 설정창을 열었습니다.";
+                    return;
+                }
+
+                ActivateDialog(host, _colletCleaningDialog);
+                lblStatus.Text = "COLLET CLEANING 설정창이 이미 열려 있습니다.";
+            }
+            catch (Exception ex)
+            {
+                EventLogger.Write(EventKind.Alarm, "UI", "COLLET-CLEAN-OPEN",
+                    "COLLET CLEANING 설정창 열기 실패: " + ex.Message);
+                QMC.Common.MessageDialog.Show(this,
+                    "COLLET CLEANING 설정창 열기 실패:\r\n" + ex.Message,
                     "Calibration",
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Error);
