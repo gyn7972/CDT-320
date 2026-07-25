@@ -23,9 +23,7 @@ namespace QMC.CDT320
     public enum PickerPickUpTransferMotionMode
     {
         Default = 0,
-        ContiSegmentedPickUp = 2,
-        // 고속 픽업 모드 — 이송/하강 오버랩 + 포지션·벨로시티 오버라이드 기반 (기존 값 순서 유지).
-        FastContiSegmentedPickUp = 3
+        ContiSegmentedPickUp = 2
     }
 
     public enum PickerBottomFlyingZDownMode
@@ -86,14 +84,6 @@ namespace QMC.CDT320
         [DataMember] public int SyncLiftSettleMs { get; set; } = 0;
         [DataMember] public int PickSettleMs { get; set; } = 0;
 
-        // FastContiSegmentedPickUp 전용 설정.
-        // 사이클 시작 시 PickerZ 안전 판정 기준 (현재위치 > 이 값이면 OK — Avoid가 +방향 기준).
-        [DataMember] public double FastPickerZSafePosition { get; set; } = -3.0;
-        // PickerZ PrePick 하강 시작 트리거: PickerX 잔여거리가 이 값 미만이면 하강 시작.
-        [DataMember] public double FastPickerXApproachDistance { get; set; } = 20.0;
-        // PickPosition 도달 전 저속 전환 구간 거리.
-        [DataMember] public double FastContactSlowZoneDistance { get; set; } = 0.3;
-
         // Legacy values are kept only for reading old config files.
         [DataMember] public double PickerZSlowApproachVelocity { get; set; } = 0.0;
         [DataMember] public double PickerZSlowApproachAcceleration { get; set; } = 0.0;
@@ -148,9 +138,9 @@ namespace QMC.CDT320
             if (PickerZSeparateSpeedPercent <= 0.0 && PickerZSeparateVelocity > 0.0)
                 PickerZSeparateSpeedPercent = 1.0;
 
+            // 기존 값 3(FastContiSegmentedPickUp, 삭제됨)은 Default로 정규화한다.
             if (TransferMotionMode != PickerPickUpTransferMotionMode.Default &&
-                TransferMotionMode != PickerPickUpTransferMotionMode.ContiSegmentedPickUp &&
-                TransferMotionMode != PickerPickUpTransferMotionMode.FastContiSegmentedPickUp)
+                TransferMotionMode != PickerPickUpTransferMotionMode.ContiSegmentedPickUp)
             {
                 TransferMotionMode = PickerPickUpTransferMotionMode.Default;
             }
@@ -192,12 +182,6 @@ namespace QMC.CDT320
                 SyncLiftSettleMs = 0;
             if (PickSettleMs < 0)
                 PickSettleMs = 0;
-
-            // Fast 모드 설정 보정. SafePosition은 음수 허용(Avoid + 기준으로 Pick보다 위 판정선).
-            if (double.IsNaN(FastPickerZSafePosition) || double.IsInfinity(FastPickerZSafePosition))
-                FastPickerZSafePosition = -3.0;
-            FastPickerXApproachDistance = NormalizePositive(FastPickerXApproachDistance, 20.0);
-            FastContactSlowZoneDistance = NormalizePositive(FastContactSlowZoneDistance, 0.3);
         }
 
         public double GetTransferContiNodeVelocity(int nodeIndex)
