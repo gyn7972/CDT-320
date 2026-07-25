@@ -2632,6 +2632,61 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
+        // 현재 기준(사용자 승인 2026-07-25, M8): 상대 Picker가 같은 작업영역을 점유하지 않을 때만
+        //   원자적으로 예약한다. 성공하면 true, 상대 점유로 실패하면 false와 점유자를 돌려준다.
+        //   기존 EnsurePickerWorkAreaReserved와 달리 실패를 삼키지 않고 호출부가 대기할 수 있게 한다.
+        // 자기 재예약 호환: 이미 같은 존 스코프를 보유하면 그대로 true(기존 동작과 동일, no-op).
+        protected bool TryReservePickerWorkAreaExclusive(
+            PickerWorkZone zone,
+            string description,
+            out string occupiedOwner)
+        {
+            occupiedOwner = string.Empty;
+            try
+            {
+                if (zone == PickerWorkZone.Unknown || zone == PickerWorkZone.Avoid)
+                    return true;
+
+                if (pickerWorkAreaScope != null && pickerWorkAreaZone == zone)
+                    return true;
+
+                // 다른 존 스코프를 들고 있으면 기존 관례대로 먼저 해제한다.
+                ReleasePickerWorkArea();
+
+                IDisposable scope = PickerZoneInterlockRules.TryBeginPickerWorkAreaUseExclusive(
+                    Side == PickerSequenceSide.Front,
+                    zone,
+                    Name + ":" + description,
+                    out occupiedOwner);
+                if (scope == null)
+                    return false;
+
+                pickerWorkAreaScope = scope;
+                pickerWorkAreaZone = zone;
+
+                WriteLog("PickerWorkArea",
+                    Name + " reserved picker work area exclusively. side=" + Side +
+                    ", zone=" + zone +
+                    ", description=" + description + " - Ok");
+                return true;
+            }
+            catch (Exception ex)
+            {
+                // 예약 예외는 fail-closed(대기)로 처리한다 — 기존 Ensure*는 예외를 삼키고 진행했으나
+                // 원자 예약은 "성공 확인"이 목적이므로 실패로 간주해 호출부가 대기·재시도하게 한다.
+                occupiedOwner = "예약 예외: " + ex.Message;
+                WriteLog("PickerWorkArea",
+                    Name + " exclusive picker work area reservation failed. side=" + Side +
+                    ", zone=" + zone +
+                    ", description=" + description +
+                    ", error=" + ex.Message + " - Failed");
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
         protected void ReleasePickerWorkArea()
         {
             try

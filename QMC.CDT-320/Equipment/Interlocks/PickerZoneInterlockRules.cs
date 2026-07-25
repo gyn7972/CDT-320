@@ -496,6 +496,36 @@ namespace QMC.CDT320.Interlocks
             return new PickerWorkAreaScope(isFront, zone);
         }
 
+        // 인터락 항목(사용자 승인 2026-07-25, M8): 상대 Picker가 같은 작업영역을 점유하고 있지 않을 때만
+        //   점유를 등록한다. 확인과 등록을 하나의 activeZoneLock 안에서 수행해 원자적으로 만든다.
+        // 기존 조건: BeginPickerWorkAreaUse는 확인 없이 등록만 했고, 시퀀스가 "대기 게이트 → 예약"을
+        //   두 단계로 나눠 수행했다. 그 사이에 락이 없어 Front/Rear가 동시에 게이트를 통과하면 둘 다
+        //   등록되고, 이후 X 이동이 서로의 점유 때문에 인터락 -11로 차단되어 Critical 승격 → 라인 정지가 됐다.
+        // 현재 기준: 예약 자체가 상호배제를 보장한다. 먼저 락을 잡은 쪽이 예약에 성공하고, 늦은 쪽은
+        //   null을 받아 시퀀스에서 순서 대기한다(차단이 아니라 대기).
+        // 반환: 성공 시 점유 스코프(Dispose로 해제), 실패 시 null.
+        // 주의: 같은 측(자기) Picker가 이미 같은 존을 점유 중인 경우는 상대 점유가 아니므로 성공이다
+        //   (중복 등록 = 카운터 증가). 자기 재예약 호환성은 EnsurePickerWorkAreaReserved 쪽에서 유지된다.
+        public static IDisposable TryBeginPickerWorkAreaUseExclusive(
+            bool isFront,
+            PickerWorkZone zone,
+            string owner,
+            out string occupiedOwner)
+        {
+            occupiedOwner = string.Empty;
+            // 현재 기준: INSPECT_B/INSPECT_S 작업 점유는 같은 Process 존 점유로 관리한다.
+            zone = NormalizeInterlockZone(zone);
+            lock (activeZoneLock)
+            {
+                if (IsPickerWorkAreaActive(!isFront, zone, out occupiedOwner))
+                    return null;
+
+                AddPickerWorkAreaUse(isFront, zone, owner);
+            }
+
+            return new PickerWorkAreaScope(isFront, zone);
+        }
+
         // 인터락 기준: 현재 Picker가 점유 중인 작업영역과 소유자를 조회한다.
         public static bool TryGetPickerWorkArea(bool isFront, out PickerWorkZone zone, out string owner)
         {
