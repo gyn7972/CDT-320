@@ -10671,6 +10671,8 @@ namespace QMC.CDT320
 
         public Task<int> RunManualInputLoadAsync()
         {
+            // CYCLE RUN INPUT LOAD: Auto 운전이 실제로 사용하는 재개 판정 + 스텝 상태머신을 그대로 실행해
+            // Input 로딩 물류를 수동으로 테스트한다. (기존 수동 전용 경로 ExecuteWaferLoadingAsync 대체)
             return RunManualUnitProcessAsync(
                 "INPUT LOAD",
                 "SEQ-MANUAL-IN-LOAD",
@@ -10678,13 +10680,15 @@ namespace QMC.CDT320
                 {
                     var sequence = new QMC.CDT320.Sequencing.InputSequence(context);
                     sequence.Configure(QMC.CDT320.Sequencing.SequenceRunMode.Manual);
-                    return await sequence.ExecuteWaferLoadingAsync(token, false, 0, QMC.CDT320.Sequencing.SequenceStartMode.Resume)
+                    return await sequence.ExecuteAutoStepLoadingForTestAsync(token)
                         .ConfigureAwait(false);
                 });
         }
 
         public Task<int> RunManualInputUnloadAsync()
         {
+            // CYCLE RUN INPUT UNLOAD: Auto 사이클과 동일한 판정(잔류 wafer 카세트 복귀 재개 포함)으로
+            // Input 언로딩 물류를 수동으로 테스트한다.
             return RunManualUnitProcessAsync(
                 "INPUT UNLOAD",
                 "SEQ-MANUAL-IN-UNLOAD",
@@ -10692,7 +10696,7 @@ namespace QMC.CDT320
                 {
                     var sequence = new QMC.CDT320.Sequencing.InputSequence(context);
                     sequence.Configure(QMC.CDT320.Sequencing.SequenceRunMode.Manual);
-                    return await sequence.ExecuteCurrentWaferUnloadingAsync(token, false, 0, QMC.CDT320.Sequencing.SequenceStartMode.Resume)
+                    return await sequence.ExecuteAutoStepUnloadingForTestAsync(token)
                         .ConfigureAwait(false);
                 });
         }

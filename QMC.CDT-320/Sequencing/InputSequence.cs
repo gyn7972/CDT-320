@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -39,7 +40,25 @@ namespace QMC.CDT320.Sequencing
 
     public class InputSequence : UnitSequenceBase
     {
+        // 하위 시퀀스/step에서 이미 Fail()로 Alarm을 발생시킨 실패를 상위 계층이 중복 Alarm 없이
+        // 전파하기 위한 내부 예외입니다. 동일 실패가 step -> cycle -> auto 순서로 세 번 Alarm되던
+        // cascade를 막는다. (규칙: 동일 실패의 중복 Alarm 금지)
+        private sealed class StepAlreadyAlarmedException : Exception
+        {
+            public StepAlreadyAlarmedException(string message)
+                : base(message)
+            {
+            }
+
+            public StepAlreadyAlarmedException(string message, Exception innerException)
+                : base(message, innerException)
+            {
+            }
+        }
+
         private const string InputLoaderActiveSignal = "InputLoaderActive";
+        // 무한 대기 진단용: Auto 대기 루프가 무언정지처럼 보이지 않도록 주기적으로 상태를 남기는 간격.
+        private const int AutoWaitStatusLogIntervalMs = 30000;
         private const string InputStageAlignSequenceStateName = "InputStageSequence.Align";
         private const string InputStageDieMappingSequenceStateName = "InputStageSequence.DieMapping";
         // 현재 자동/스텝 실행 위치. 장비 상태 복원 시 Runtime Material 위치를 보고 재설정된다.
@@ -91,6 +110,12 @@ namespace QMC.CDT320.Sequencing
             }
             catch (SequenceStopException)
             {
+                throw;
+            }
+            catch (StepAlreadyAlarmedException ex)
+            {
+                // 하위 step/사이클에서 이미 Alarm을 발생시킨 실패이므로 중복 Alarm 없이 전파만 한다.
+                WriteLog("ExecuteAutoAsync", "Input 자동 시퀀스가 하위 실패로 중단되었습니다. " + ex.Message + " - Failed");
                 throw;
             }
             catch (Exception ex)
@@ -232,10 +257,18 @@ namespace QMC.CDT320.Sequencing
             {
                 throw;
             }
+            catch (StepAlreadyAlarmedException ex)
+            {
+                // 하위 step에서 이미 Alarm을 발생시킨 실패이므로 로그만 남기고 전파한다.
+                WriteLog("ExecuteInputAutoCycleAsync",
+                    "Input 자동 사이클이 하위 step 실패로 중단되었습니다. " + ex.Message + " - Failed");
+                throw;
+            }
             catch (Exception ex)
             {
                 Fail("SEQ-IN-AUTO-CYCLE", "InputSequence", "Input 자동 사이클 실패: " + ex.Message);
-                throw;
+                // 이 계층에서 Alarm을 확정했으므로 상위(ExecuteAutoAsync)에서는 중복 Alarm 없이 전파만 한다.
+                throw new StepAlreadyAlarmedException("Input 자동 사이클 실패: " + ex.Message, ex);
             }
             finally
             {
@@ -294,11 +327,15 @@ namespace QMC.CDT320.Sequencing
             {
                 throw;
             }
+            catch (StepAlreadyAlarmedException)
+            {
+                throw;
+            }
             catch (Exception ex)
             {
                 Fail("SEQ-IN-STAGE-FINISH-RECOVER", "InputSequence",
                     "InputStage PickUp 준비 복구 실패: " + ex.Message);
-                throw;
+                throw new StepAlreadyAlarmedException("InputStage PickUp 준비 복구 실패: " + ex.Message, ex);
             }
             finally
             {
@@ -360,7 +397,8 @@ namespace QMC.CDT320.Sequencing
             {
                 int result = await ExecuteCurrentInputStepAsync(ct, false).ConfigureAwait(false);
                 if (result != 0)
-                    throw new InvalidOperationException("Input 자동 시퀀스 실패. step=" + _autoStep + ", result=" + result);
+                    // 실패 step 내부의 Fail()이 이미 Alarm을 발생시켰으므로 상위에는 중복 Alarm 없이 전파한다.
+                    throw new StepAlreadyAlarmedException("Input 자동 시퀀스 실패. step=" + _autoStep + ", result=" + result);
             }
         }
 
@@ -395,11 +433,17 @@ namespace QMC.CDT320.Sequencing
                     TryRestoreInputStageCompletionSignalAfterPickerAvoid(stageWafer))
                     return;
 
-                Context.Bus.Reset("InputStageDieComplete");
+                // 주의: 여기서 InputStageDieComplete를 Reset하지 않는다.
+                // 위의 IsSet 확인과 Reset 사이에 Picker가 마지막 Pick 완료 신호를 올리면
+                // Reset이 유효한 완료 신호를 지워 영구 대기(무언정지)가 되는 race가 있었다.
+                // 이전 wafer의 잔류 신호는 사이클 종료(ResetInputAutoCycle)와
+                // 언로드 완료 시점의 ResetInputStageCycleSignals로 차단한다.
                 PublishInputStageReadySignals(stageWafer);
 
                 // 정상 운전은 Picker Sequence가 마지막 Pick 안전 복귀 후 완료 신호를 발행한다.
                 // Material 상태 기반 완료 신호 복구는 Ready 상태를 복원한 재시작 경로에서만 허용한다.
+                // wafer 전체 die pick은 생산 길이 대기이므로 고정 timeout 대신 주기 상태 로그로 무언정지를 진단한다.
+                int waitStatusTick = Environment.TickCount;
                 while (!ct.IsCancellationRequested)
                 {
                     if (await WaitForStopAfterDrainCompletionIfRequestedAsync(
@@ -426,6 +470,15 @@ namespace QMC.CDT320.Sequencing
                         TryRestoreInputStageCompletionSignalAfterPickerAvoid(stageWafer))
                         return;
 
+                    if (unchecked(Environment.TickCount - waitStatusTick) >= AutoWaitStatusLogIntervalMs)
+                    {
+                        waitStatusTick = Environment.TickCount;
+                        WriteLog("WaitPickerToCompleteInputStageDiesAsync",
+                            "InputStage Die Pick 완료 신호를 대기 중입니다. wafer=" +
+                            (stageWafer != null ? stageWafer.WaferId : "-") +
+                            ", pickerPhases=" + DescribePickerPhases() + " - Wait");
+                    }
+
                     await Task.Delay(100, ct).ConfigureAwait(false);
                 }
 
@@ -441,11 +494,15 @@ namespace QMC.CDT320.Sequencing
             {
                 throw;
             }
+            catch (StepAlreadyAlarmedException)
+            {
+                throw;
+            }
             catch (Exception ex)
             {
                 Fail("SEQ-IN-PICK-WAIT", "InputSequence",
                     "InputStage Die Pick 완료 대기 실패: " + ex.Message);
-                throw;
+                throw new StepAlreadyAlarmedException("InputStage Die Pick 완료 대기 실패: " + ex.Message, ex);
             }
             finally
             {
@@ -499,6 +556,25 @@ namespace QMC.CDT320.Sequencing
             return true;
         }
 
+        // 완료 대기 주기 로그용: 현재 Front/Rear Picker phase 상태를 문자열로 요약한다.
+        private string DescribePickerPhases()
+        {
+            try
+            {
+                if (Context == null || Context.PickerPhases == null)
+                    return "-";
+
+                return Context.PickerPhases.GetSnapshot().ToString();
+            }
+            catch (Exception ex)
+            {
+                return "phaseResolveFailed=" + ex.Message;
+            }
+            finally
+            {
+            }
+        }
+
         private bool TryRestoreInputStageCompletionSignalAfterPickerAvoid(WaferMaterial stageWafer)
         {
             if (!MaterialStateService.IsInputStagePickComplete())
@@ -536,7 +612,8 @@ namespace QMC.CDT320.Sequencing
                     SequenceStartMode.Resume).ConfigureAwait(false);
 
                 if (result != 0)
-                    throw new InvalidOperationException("InputStage 웨이퍼 자동 언로딩 실패. slot=" + slotIndex + ", result=" + result);
+                    // 언로드 하위 시퀀스의 Fail()이 이미 Alarm을 발생시켰으므로 중복 Alarm 없이 전파한다.
+                    throw new StepAlreadyAlarmedException("InputStage 웨이퍼 자동 언로딩 실패. slot=" + slotIndex + ", result=" + result);
             }
             catch (OperationCanceledException)
             {
@@ -547,10 +624,14 @@ namespace QMC.CDT320.Sequencing
             {
                 throw;
             }
+            catch (StepAlreadyAlarmedException)
+            {
+                throw;
+            }
             catch (Exception ex)
             {
                 Fail("SEQ-IN-AUTO-UNLOAD", "InputSequence", "Input 자동 웨이퍼 언로딩 실패: " + ex.Message);
-                throw;
+                throw new StepAlreadyAlarmedException("Input 자동 웨이퍼 언로딩 실패: " + ex.Message, ex);
             }
             finally
             {
@@ -633,7 +714,8 @@ namespace QMC.CDT320.Sequencing
                         () => feederSequence.RunUnloadToCassetteAsync(ct, feederOptions),
                         "slot=" + slotIndex)).ConfigureAwait(false);
                 if (result != 0)
-                    throw new InvalidOperationException(
+                    // 하위 시퀀스의 Fail()이 이미 Alarm을 발생시켰으므로 중복 Alarm 없이 전파한다.
+                    throw new StepAlreadyAlarmedException(
                         "Feeder 잔류 wafer의 카세트 복귀 재개 실패. slot=" + slotIndex + ", result=" + result);
 
                 // 빈 InputStage를 Avoid로 복귀시킨다.
@@ -657,7 +739,8 @@ namespace QMC.CDT320.Sequencing
                     return 0;
                 }).ConfigureAwait(false);
                 if (result != 0)
-                    throw new InvalidOperationException(
+                    // 하위 시퀀스의 Fail()이 이미 Alarm을 발생시켰으므로 중복 Alarm 없이 전파한다.
+                    throw new StepAlreadyAlarmedException(
                         "Feeder 잔류 언로드 재개 후 InputStage Avoid 복귀 실패. slot=" + slotIndex + ", result=" + result);
 
                 // slot을 Done으로 표시하고 Stage runtime을 비워 다음 cycle과 섞이지 않게 한다.
@@ -678,10 +761,14 @@ namespace QMC.CDT320.Sequencing
             {
                 throw;
             }
+            catch (StepAlreadyAlarmedException)
+            {
+                throw;
+            }
             catch (Exception ex)
             {
                 Fail("SEQ-IN-RESUME-UNLOAD-EX", "InputSequence", "Feeder 잔류 언로드 재개 실패: " + ex.Message);
-                throw;
+                throw new StepAlreadyAlarmedException("Feeder 잔류 언로드 재개 실패: " + ex.Message, ex);
             }
             finally
             {
@@ -885,7 +972,8 @@ namespace QMC.CDT320.Sequencing
                 // 수동 Step은 현재 _autoStep 한 단계만 실행하고 다음 step으로 이동한다.
                 int result = await ExecuteCurrentInputStepAsync(ct, false).ConfigureAwait(false);
                 if (result != 0)
-                    throw new InvalidOperationException("Input 수동/스텝 시퀀스 실패. step=" + _autoStep + ", result=" + result);
+                    // 실패 step 내부의 Fail()이 이미 Alarm을 발생시켰으므로 중복 Alarm 없이 전파한다.
+                    throw new StepAlreadyAlarmedException("Input 수동/스텝 시퀀스 실패. step=" + _autoStep + ", result=" + result);
             }
             catch (OperationCanceledException)
             {
@@ -894,6 +982,11 @@ namespace QMC.CDT320.Sequencing
             }
             catch (SequenceStopException)
             {
+                throw;
+            }
+            catch (StepAlreadyAlarmedException ex)
+            {
+                WriteLog("ExecuteStepAsync", "Input 수동/스텝 시퀀스가 하위 step 실패로 중단되었습니다. " + ex.Message + " - Failed");
                 throw;
             }
             catch (Exception ex)
@@ -913,9 +1006,11 @@ namespace QMC.CDT320.Sequencing
                 _autoSlotIndex = -1;
                 _autoWaferId = "";
 
-                // Todo: GYN 2026.07.03 - 여기서 순번대로 재개할때 항상 인터락 확인 후에 재개하도록 해야 한다. (Feeder/Stage/Picker)
-                // 재개 Step시에 필요한 인터락 / 안전 상태 확인 후에 작업을 재개하는데 만약 안전 상태로 모션이 가능하면
-                // 안전상태로 모션 시키고 재개하고 그렇지 않으면 알람 발생 후 장비를 멈춘다.
+                // GYN 2026.07.03 TODO 반영: 여기서는 재개 위치(step) 판정만 수행한다.
+                // 재개 Step에 필요한 인터락/축 상태/자재 정합성 재확인은 각 Step 실행 직전
+                // CheckInputStepInterlocksBeforeExecute에서 공통 수행하며, 안전 이동으로 해결 가능한
+                // 경우(빈 피더 미후퇴)는 RecoverFeeder로 보정하고 그 외에는 알람 발생 후 정지한다.
+                // Picker 안전 조건은 각 Step의 ExecuteWithInputPickerAvoidGateAsync/드레인 게이트가 확인한다.
 
                 // 1순위: Stage에 wafer가 있으면 Stage 처리 상태(Align/DieMapping/Complete)를 기준으로 재개한다.
                 WaferMaterial stageWafer = ResolveStageWaferFromRuntimeState();
@@ -1372,35 +1467,51 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
+        // To do: C4 반영 - 매핑 판정을 1단(Input1)/2단(Input2) 동일 기준으로 수행한다.
+        // Mapping 시퀀스는 한 번의 실행으로 구성된 모든 레벨을 스캔/등록하므로
+        // (RegisterMappingResult -> UpdateInputCassetteMapping level1/level2),
+        // 사용(Enabled/Present) 레벨 중 하나라도 미맵핑이면 Mapping부터 다시 시작하게 false를 반환한다.
         private bool IsInputCassetteMappedInRuntimeState()
         {
             try
             {
-                CassetteMaterial inputCassetteState = null;
+                var inputCassette = Context != null && Context.Machine != null ? Context.Machine.InputCassetteUnit : null;
+                int levelCount = inputCassette != null ? inputCassette.ResolveCassetteLevelCount() : 1;
+                if (levelCount < 1)
+                    levelCount = 1;
+
+                bool anyMaterialState = false;
+                bool anyMappedUsableLevel = false;
                 if (MaterialStateService.State != null && MaterialStateService.State.Cassettes != null)
                 {
-                    foreach (var cassette in MaterialStateService.State.Cassettes)
+                    for (int level = 1; level <= levelCount; level++)
                     {
-                        if (cassette != null &&
-                            cassette.Role == CassetteMaterialRole.Input1)
-                        {
-                            inputCassetteState = cassette;
-                            break;
-                        }
+                        CassetteMaterialRole role = InputCassetteUnit.ResolveCassetteRole(level);
+                        CassetteMaterial state = MaterialStateService.State.Cassettes
+                            .FirstOrDefault(c => c != null && c.Role == role);
+                        if (state == null)
+                            continue;
+
+                        anyMaterialState = true;
+
+                        // 사용하지 않는(비활성/미장착) 레벨은 매핑을 요구하지 않는다.
+                        if (!state.IsEnabled || !state.IsPresent)
+                            continue;
+
+                        // 사용 레벨 중 하나라도 미맵핑이면 Mapping부터 다시 시작한다.
+                        if (!state.IsMapped)
+                            return false;
+
+                        anyMappedUsableLevel = true;
                     }
                 }
 
                 // Material cassette가 존재하면 그 상태를 단일 기준으로 사용한다.
                 // Clear All로 IsMapped가 내려간 뒤 WaferMap의 고정 slot 개수만 보고
                 // mapping 완료로 오인하지 않도록 한다.
-                if (inputCassetteState != null)
-                {
-                    return inputCassetteState.IsEnabled &&
-                           inputCassetteState.IsPresent &&
-                           inputCassetteState.IsMapped;
-                }
+                if (anyMaterialState)
+                    return anyMappedUsableLevel;
 
-                var inputCassette = Context != null && Context.Machine != null ? Context.Machine.InputCassetteUnit : null;
                 return inputCassette != null &&
                        inputCassette.WaferMap != null &&
                        inputCassette.WaferMap.Count > 0;
@@ -1417,6 +1528,13 @@ namespace QMC.CDT320.Sequencing
 
         private async Task<int> ExecuteCurrentInputStepAsync(CancellationToken ct, bool requireVisionAlign)
         {
+            // 재개를 포함한 모든 실행에서 Step 시작 직전에 인터락/자재 정합성을 다시 확인한다.
+            // 안전 이동으로 해결 가능한 경우(빈 피더 미후퇴)는 _autoStep을 RecoverFeeder로 보정하므로
+            // executingStep 캡처보다 먼저 수행한다. (GYN 2026.07.03 재개 인터락 TODO 구현)
+            int interlockResult = CheckInputStepInterlocksBeforeExecute();
+            if (interlockResult != 0)
+                return interlockResult;
+
             InputSequenceAutoStep executingStep = _autoStep;
             bool loaderActiveStep = IsInputLoaderActiveAutoStep(executingStep);
             bool stepSucceeded = false;
@@ -1855,6 +1973,219 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
+        // 재개/스텝 실행 직전 인터락 재확인 (GYN 2026.07.03 TODO 구현):
+        // - 해당 Step이 사용하는 축의 Alarm/Servo/Home/이동 상태를 확인한다.
+        // - Step이 전제하는 자재 배치(Feeder/Stage wafer 유무)를 영속 Material 기준으로 확인한다.
+        // - 안전 이동으로 해결 가능한 경우(빈 피더가 후퇴하지 않은 상태에서 Stage 모션 Step 진입)는
+        //   RecoverFeeder로 재라우팅해 안전 후퇴부터 수행하고, 그 외 불일치는 모션을 시작하지 않고
+        //   알람으로 정지한다(fail-closed).
+        private int CheckInputStepInterlocksBeforeExecute()
+        {
+            try
+            {
+                var machine = Context != null ? Context.Machine : null;
+                var feeder = machine != null ? machine.InputFeederUnit : null;
+                var stage = machine != null ? machine.InputStageUnit : null;
+                var cassette = machine != null ? machine.InputCassetteUnit : null;
+
+                var axes = new List<KeyValuePair<string, QMC.Common.Motion.BaseAxis>>();
+                string reason;
+                WaferMaterial feederWafer;
+                WaferMaterial stageWafer;
+
+                switch (_autoStep)
+                {
+                    // 슬롯 결정은 계산만 수행하고, Complete는 모션이 없다.
+                    case InputSequenceAutoStep.ResolveSlot:
+                    case InputSequenceAutoStep.Complete:
+                        return 0;
+
+                    // Mapping: 카세트 리프터 축 상태만 확인한다. 자재/센서 조건은 하위 Mapping 시퀀스가 확인한다.
+                    case InputSequenceAutoStep.Mapping:
+                        AddAxisIfPresent(axes, "InputLifterZ", cassette != null ? cassette.InputLifterZ : null);
+                        AddAxisIfPresent(axes, "InputFeederY", feeder != null ? feeder.FeederY : null);
+                        if (!AreInputAxesReadyForStep(axes, out reason))
+                            return Fail("SEQ-IN-ILK-AXIS", "InputSequence",
+                                "Mapping 시작 전 축 인터락 조건이 맞지 않습니다. " + reason);
+                        return 0;
+
+                    // PrepareStageLoad: Stage가 새 wafer를 받는 준비이므로 Stage에 자재가 없어야 한다.
+                    case InputSequenceAutoStep.PrepareStageLoad:
+                        CollectInputStageAxes(axes, stage);
+                        if (!AreInputAxesReadyForStep(axes, out reason))
+                            return Fail("SEQ-IN-ILK-AXIS", "InputSequence",
+                                "PrepareStageLoad 시작 전 축 인터락 조건이 맞지 않습니다. " + reason);
+                        stageWafer = ResolveStageWaferFromRuntimeState();
+                        if (stageWafer != null)
+                            return Fail("SEQ-IN-ILK-MATERIAL", "InputSequence",
+                                "PrepareStageLoad 시작 전 InputStage에 wafer가 남아 있습니다. wafer=" +
+                                (stageWafer.WaferId ?? "") + ". 언로드 또는 자재 상태 복구 후 다시 시작하세요.");
+                        return 0;
+
+                    // LoadFeederFromCassette: Feeder/Stage 모두 비어 있어야 새 wafer를 꺼낼 수 있다.
+                    case InputSequenceAutoStep.LoadFeederFromCassette:
+                        AddAxisIfPresent(axes, "InputFeederY", feeder != null ? feeder.FeederY : null);
+                        AddAxisIfPresent(axes, "InputLifterZ", cassette != null ? cassette.InputLifterZ : null);
+                        if (!AreInputAxesReadyForStep(axes, out reason))
+                            return Fail("SEQ-IN-ILK-AXIS", "InputSequence",
+                                "LoadFeederFromCassette 시작 전 축 인터락 조건이 맞지 않습니다. " + reason);
+                        feederWafer = ResolveFeederWaferFromRuntimeState();
+                        if (feederWafer != null)
+                            return Fail("SEQ-IN-ILK-MATERIAL", "InputSequence",
+                                "LoadFeederFromCassette 시작 전 InputFeeder에 이미 wafer가 있습니다. wafer=" +
+                                (feederWafer.WaferId ?? "") + ". 자재 상태 복구 후 다시 시작하세요.");
+                        stageWafer = ResolveStageWaferFromRuntimeState();
+                        if (stageWafer != null)
+                            return Fail("SEQ-IN-ILK-MATERIAL", "InputSequence",
+                                "LoadFeederFromCassette 시작 전 InputStage에 wafer가 남아 있습니다. wafer=" +
+                                (stageWafer.WaferId ?? "") + ". 기존 wafer 언로드 후 다시 시작하세요.");
+                        return 0;
+
+                    // LoadFeederToStage: Feeder에 wafer가 있고 Stage는 비어 있어야 한다.
+                    case InputSequenceAutoStep.LoadFeederToStage:
+                        AddAxisIfPresent(axes, "InputFeederY", feeder != null ? feeder.FeederY : null);
+                        CollectInputStageAxes(axes, stage);
+                        if (!AreInputAxesReadyForStep(axes, out reason))
+                            return Fail("SEQ-IN-ILK-AXIS", "InputSequence",
+                                "LoadFeederToStage 시작 전 축 인터락 조건이 맞지 않습니다. " + reason);
+                        feederWafer = ResolveFeederWaferFromRuntimeState();
+                        if (feederWafer == null)
+                            return Fail("SEQ-IN-ILK-MATERIAL", "InputSequence",
+                                "LoadFeederToStage 시작 전 InputFeeder에 이송할 wafer가 없습니다. 자재 상태를 확인하세요.");
+                        stageWafer = ResolveStageWaferFromRuntimeState();
+                        if (stageWafer != null)
+                            return Fail("SEQ-IN-ILK-MATERIAL", "InputSequence",
+                                "LoadFeederToStage 시작 전 InputStage에 다른 wafer가 있습니다. stageWafer=" +
+                                (stageWafer.WaferId ?? "") + ", feederWafer=" + (feederWafer.WaferId ?? "") +
+                                ". 자재 상태 복구 후 다시 시작하세요.");
+                        return 0;
+
+                    // RecoverFeeder: 안전 후퇴 동작이므로 축 상태만 확인한다.
+                    case InputSequenceAutoStep.RecoverFeeder:
+                        AddAxisIfPresent(axes, "InputFeederY", feeder != null ? feeder.FeederY : null);
+                        if (!AreInputAxesReadyForStep(axes, out reason))
+                            return Fail("SEQ-IN-ILK-AXIS", "InputSequence",
+                                "RecoverFeeder 시작 전 축 인터락 조건이 맞지 않습니다. " + reason);
+                        return 0;
+
+                    // AlignStage/DieMapping: Stage에 wafer가 있어야 하고, Stage Y/T/Camera 모션 전에
+                    // InputFeeder가 후퇴(Avoid)해 있어야 한다(Align-into-Feeder 충돌 방지).
+                    case InputSequenceAutoStep.AlignStage:
+                    case InputSequenceAutoStep.DieMapping:
+                        AddAxisIfPresent(axes, "InputFeederY", feeder != null ? feeder.FeederY : null);
+                        CollectInputStageAxes(axes, stage);
+                        if (!AreInputAxesReadyForStep(axes, out reason))
+                            return Fail("SEQ-IN-ILK-AXIS", "InputSequence",
+                                _autoStep + " 시작 전 축 인터락 조건이 맞지 않습니다. " + reason);
+                        stageWafer = ResolveStageWaferFromRuntimeState();
+                        if (stageWafer == null)
+                            return Fail("SEQ-IN-ILK-MATERIAL", "InputSequence",
+                                _autoStep + " 시작 전 InputStage에 wafer가 없습니다. 자재 상태를 확인하세요.");
+                        if (!IsInputFeederRetractedForStageMotion())
+                        {
+                            feederWafer = ResolveFeederWaferFromRuntimeState();
+                            if (feederWafer != null)
+                                return Fail("SEQ-IN-ILK-MATERIAL", "InputSequence",
+                                    _autoStep + " 시작 전 InputFeeder가 wafer를 보유한 채 후퇴하지 않았습니다. " +
+                                    "Stage/Feeder 자재 이중 배치 가능성이 있어 자동 진행하지 않습니다. " +
+                                    "stageWafer=" + (stageWafer.WaferId ?? "") +
+                                    ", feederWafer=" + (feederWafer.WaferId ?? "") +
+                                    ". 자재 상태 복구 후 다시 시작하세요.");
+
+                            // 빈 피더 미후퇴는 안전 이동(피더 후퇴)으로 해결 가능하므로 RecoverFeeder부터 수행한다.
+                            WriteLog("CheckInputStepInterlocks",
+                                _autoStep + " 시작 전 InputFeeder가 후퇴 상태가 아니어서 RecoverFeeder를 먼저 실행합니다. " +
+                                "(Align-into-Feeder 충돌 방지) - Check");
+                            _autoStep = InputSequenceAutoStep.RecoverFeeder;
+                        }
+                        return 0;
+
+                    // ReviewStage: 모션 없는 사용자 확인 단계이며 자재/결과/픽커 조건은 스텝 본문이 확인한다.
+                    case InputSequenceAutoStep.ReviewStage:
+                        return 0;
+
+                    default:
+                        return 0;
+                }
+            }
+            catch (Exception ex)
+            {
+                return Fail("SEQ-IN-ILK-EX", "InputSequence",
+                    "Step 시작 전 인터락 재확인 중 예외가 발생했습니다. step=" + _autoStep + ", error=" + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private static void AddAxisIfPresent(
+            List<KeyValuePair<string, QMC.Common.Motion.BaseAxis>> axes,
+            string name,
+            QMC.Common.Motion.BaseAxis axis)
+        {
+            if (axes != null && axis != null)
+                axes.Add(new KeyValuePair<string, QMC.Common.Motion.BaseAxis>(name, axis));
+        }
+
+        private static void CollectInputStageAxes(
+            List<KeyValuePair<string, QMC.Common.Motion.BaseAxis>> axes,
+            InputStageUnit stage)
+        {
+            if (stage == null)
+                return;
+
+            AddAxisIfPresent(axes, "InputStageY", stage.StageY);
+            AddAxisIfPresent(axes, "InputStageT", stage.StageT);
+            AddAxisIfPresent(axes, "InputVisionX", stage.CameraX);
+            AddAxisIfPresent(axes, "ExpanderZ", stage.ExpanderZ);
+            AddAxisIfPresent(axes, "NeedleZ", stage.NeedleZ);
+            AddAxisIfPresent(axes, "EjectPinZ", stage.EjectPinZ);
+            AddAxisIfPresent(axes, "NeedleBlockX", stage.NeedleBlockX);
+        }
+
+        // Step에서 사용할 축의 공통 안전 조건: 알람 없음, 서보 ON, 원점 복귀 완료, 정지 상태.
+        private static bool AreInputAxesReadyForStep(
+            List<KeyValuePair<string, QMC.Common.Motion.BaseAxis>> axes,
+            out string reason)
+        {
+            reason = string.Empty;
+            if (axes == null)
+                return true;
+
+            foreach (var pair in axes)
+            {
+                QMC.Common.Motion.BaseAxis axis = pair.Value;
+                if (axis == null)
+                    continue;
+
+                if (axis.IsAlarm)
+                {
+                    reason = pair.Key + " 축 알람이 ON 상태입니다.";
+                    return false;
+                }
+
+                if (!axis.IsServoOn)
+                {
+                    reason = pair.Key + " 축 서보가 OFF 상태입니다.";
+                    return false;
+                }
+
+                if (!axis.IsHomeDone)
+                {
+                    reason = pair.Key + " 축 원점 복귀(Home)가 완료되지 않았습니다.";
+                    return false;
+                }
+
+                if (axis.IsMoving)
+                {
+                    reason = pair.Key + " 축이 아직 이동 중입니다.";
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
         public async Task<int> ExecuteMappingAsync(CancellationToken ct, bool bFine = false, int moveTimeoutMs = 0, SequenceStartMode startMode = SequenceStartMode.Resume)
         {
             try
@@ -1867,6 +2198,11 @@ namespace QMC.CDT320.Sequencing
             catch (OperationCanceledException)
             {
                 WriteLog("ExecuteMappingAsync", "Input cassette mapping sequence canceled. - Failed");
+                throw;
+            }
+            catch (SequenceStopException)
+            {
+                // 정상 정지(Cycle Stop 등)는 고장(Alarm)으로 재분류하지 않고 상위 제어기로 전파한다.
                 throw;
             }
             catch (Exception ex)
@@ -1892,6 +2228,11 @@ namespace QMC.CDT320.Sequencing
                 WriteLog("ExecuteCassetteLoadingAsync", "Input cassette loading sequence canceled. - Failed");
                 throw;
             }
+            catch (SequenceStopException)
+            {
+                // 정상 정지(Cycle Stop 등)는 고장(Alarm)으로 재분류하지 않고 상위 제어기로 전파한다.
+                throw;
+            }
             catch (Exception ex)
             {
                 return Fail("SEQ-IN-CST-LOAD-EX", "InputSequence", "Input cassette loading 시퀀스 실패: " + ex.Message);
@@ -1913,6 +2254,11 @@ namespace QMC.CDT320.Sequencing
             catch (OperationCanceledException)
             {
                 WriteLog("ExecuteCassetteUnloadingAsync", "Input cassette unloading sequence canceled. - Failed");
+                throw;
+            }
+            catch (SequenceStopException)
+            {
+                // 정상 정지(Cycle Stop 등)는 고장(Alarm)으로 재분류하지 않고 상위 제어기로 전파한다.
                 throw;
             }
             catch (Exception ex)
@@ -2072,6 +2418,15 @@ namespace QMC.CDT320.Sequencing
             try
             {
                 ct.ThrowIfCancellationRequested();
+
+                // 유효하지 않은 slot(-1 등)으로 카세트 접근 모션이 진행되지 않도록 진입 시점에 차단한다.
+                if (slotIndex < 0)
+                {
+                    return Fail("SEQ-IN-WAFER-UNLOAD-SLOT", "InputSequence",
+                        "Input 웨이퍼 언로딩 대상 슬롯이 유효하지 않습니다. slot=" + slotIndex +
+                        ". InputStage 자재의 원본 슬롯(SourceSlotNumber) 정보를 확인하세요.");
+                }
+
                 LogPublic("[UNIT-INPUT] Wafer unloading start slot=" + slotIndex);
                 WriteLog("ExecuteWaferUnloadingAsync", "Input wafer unloading sequence start. slot=" + slotIndex + " - Start");
                 SetInputLoaderActive(loaderActive, "ManualWaferUnloading");
@@ -2155,6 +2510,9 @@ namespace QMC.CDT320.Sequencing
                 // slot을 Done으로 표시하고 Stage runtime 정보를 비워 다음 cycle과 섞이지 않게 한다.
                 UpdateInputSlotState(slotIndex, SlotPresence.Exist, ProcessState.Done);
                 ClearInputStageRuntime();
+                // 언로드가 끝난 wafer의 완료/ready 잔류 신호가 다음 wafer의 완료로 오인되지 않도록
+                // 언로드 완료 시점에 Stage cycle 신호를 함께 초기화한다. (수동 언로드 경로 포함)
+                ResetInputStageCycleSignals();
                 Context.Bus.Set("InputWaferUnloaded");
                 LogPublic("[UNIT-INPUT] Wafer unloading complete slot=" + slotIndex);
                 WriteLog("ExecuteWaferUnloadingAsync", "Input wafer unloading sequence completed. slot=" + slotIndex + " - Ok");
@@ -2163,6 +2521,11 @@ namespace QMC.CDT320.Sequencing
             catch (OperationCanceledException)
             {
                 WriteLog("ExecuteWaferUnloadingAsync", "Input wafer unloading sequence canceled. - Failed");
+                throw;
+            }
+            catch (SequenceStopException)
+            {
+                // 정상 정지(Cycle Stop 등)는 고장(Alarm)으로 재분류하지 않고 상위 제어기로 전파한다.
                 throw;
             }
             catch (Exception ex)
@@ -2219,6 +2582,177 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
+        // Work CYCLE RUN 수동 테스트(INPUT LOAD): Auto 사이클과 동일한 재개 판정과 스텝 상태머신으로
+        // Input 로딩을 실행한다. 수동 전용 경로(ExecuteWaferLoadingAsync)와 달리 Auto 운전이 실제로 타는
+        // 코드(RestoreInputStepSessionFromRuntimeState -> ExecuteCurrentInputStepAsync)를 그대로 검증한다.
+        // ReviewStage(사용자 확인)와 Picker Ready 신호 발행은 Auto 운전에서 수행하므로 그 직전까지 진행한다.
+        public async Task<int> ExecuteAutoStepLoadingForTestAsync(CancellationToken ct)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+                LogPublic("[UNIT-INPUT] CYCLE RUN INPUT LOAD (auto-step test) start");
+                WriteLog("ExecuteAutoStepLoadingForTestAsync",
+                    "CYCLE RUN INPUT LOAD: Auto 스텝 상태머신 로딩 테스트를 시작합니다. - Start");
+
+                // Auto 사이클과 동일하게 런타임 자재 상태로 재개 위치를 복원한다.
+                RestoreInputStepSessionFromRuntimeState();
+
+                // 언로드(Stage->Feeder->Cassette) 중단 잔류 wafer가 있으면 Auto와 동일하게
+                // 카세트 복귀를 먼저 마친 뒤 재개 위치를 다시 판정한다.
+                if (_resumeFeederUnloadToCassette)
+                {
+                    _resumeFeederUnloadToCassette = false;
+                    await ExecuteResumeFeederUnloadToCassetteAsync(ct).ConfigureAwait(false);
+                    RestoreInputStepSessionFromRuntimeState();
+                }
+
+                if (_autoStep == InputSequenceAutoStep.Complete)
+                {
+                    WriteLog("ExecuteAutoStepLoadingForTestAsync",
+                        "InputStage가 이미 로딩 완료 상태여서 추가 동작 없이 종료합니다. step=" + _autoStep + " - Ok");
+                    LogPublic("[UNIT-INPUT] CYCLE RUN INPUT LOAD already complete");
+                    return 0;
+                }
+
+                // ReviewStage(사용자 확인) 직전(DieMapping 완료)까지 Auto와 동일한 스텝을 실행한다.
+                while (_autoStep != InputSequenceAutoStep.Complete &&
+                       _autoStep != InputSequenceAutoStep.ReviewStage)
+                {
+                    int result = await ExecuteCurrentInputStepAsync(ct, false).ConfigureAwait(false);
+                    if (result != 0)
+                        return result;
+                }
+
+                LogPublic("[UNIT-INPUT] CYCLE RUN INPUT LOAD (auto-step test) complete step=" + _autoStep);
+                WriteLog("ExecuteAutoStepLoadingForTestAsync",
+                    "CYCLE RUN INPUT LOAD: Auto 스텝 로딩 테스트 완료. step=" + _autoStep +
+                    ", slot=" + _autoSlotIndex + ", wafer=" + _autoWaferId + " - Ok");
+                return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                WriteLog("ExecuteAutoStepLoadingForTestAsync", "CYCLE RUN INPUT LOAD 테스트가 취소되었습니다. - Failed");
+                throw;
+            }
+            catch (SequenceStopException ex)
+            {
+                // 수동 테스트의 정지(예: Ready wafer 없음, 카세트 완료)는 이미 원인 알람/로그가 남아 있으므로
+                // 상위에서 일반 고장으로 재분류하지 않도록 실패 코드로만 보고한다.
+                WriteLog("ExecuteAutoStepLoadingForTestAsync",
+                    "CYCLE RUN INPUT LOAD 테스트 정지: " + ex.Message + " - Stopped");
+                return -1;
+            }
+            catch (StepAlreadyAlarmedException ex)
+            {
+                // 하위에서 이미 Alarm이 발생한 실패이므로 중복 Alarm 없이 실패 코드로만 보고한다.
+                WriteLog("ExecuteAutoStepLoadingForTestAsync",
+                    "CYCLE RUN INPUT LOAD 테스트 실패(하위 Alarm 처리됨): " + ex.Message + " - Failed");
+                return -1;
+            }
+            catch (Exception ex)
+            {
+                return Fail("SEQ-IN-TEST-LOAD-EX", "InputSequence",
+                    "CYCLE RUN INPUT LOAD 테스트 실패: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        // Work CYCLE RUN 수동 테스트(INPUT UNLOAD): Auto 사이클과 동일한 판정으로 Input 언로딩을 실행한다.
+        // Feeder에 언로드 중단 잔류 wafer(Align 결과 보유)가 있으면 카세트 복귀를 이어서 수행하고,
+        // 그렇지 않으면 Stage wafer를 Stage -> Feeder -> Cassette 순서로 언로드한다.
+        public async Task<int> ExecuteAutoStepUnloadingForTestAsync(CancellationToken ct)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+                LogPublic("[UNIT-INPUT] CYCLE RUN INPUT UNLOAD (auto-step test) start");
+                WriteLog("ExecuteAutoStepUnloadingForTestAsync",
+                    "CYCLE RUN INPUT UNLOAD: Auto 판정 언로딩 테스트를 시작합니다. - Start");
+
+                RestoreInputStepSessionFromRuntimeState();
+
+                // 언로드 중단 잔류 wafer의 카세트 복귀 재개(Auto 사이클 초입과 동일 경로).
+                if (_resumeFeederUnloadToCassette)
+                {
+                    _resumeFeederUnloadToCassette = false;
+                    await ExecuteResumeFeederUnloadToCassetteAsync(ct).ConfigureAwait(false);
+                    LogPublic("[UNIT-INPUT] CYCLE RUN INPUT UNLOAD resume-to-cassette complete");
+                    WriteLog("ExecuteAutoStepUnloadingForTestAsync",
+                        "CYCLE RUN INPUT UNLOAD: Feeder 잔류 wafer 카세트 복귀 재개 완료. - Ok");
+                    return 0;
+                }
+
+                WaferMaterial stageWafer = ResolveStageWaferFromRuntimeState();
+                if (stageWafer == null)
+                {
+                    WaferMaterial feederWafer = ResolveFeederWaferFromRuntimeState();
+                    if (feederWafer != null)
+                    {
+                        // 재개 판정상 로딩 진행 중(Align 결과 없음) wafer는 역방향 반납 경로가 없으므로 전진을 안내한다.
+                        return Fail("SEQ-IN-TEST-UNLOAD-FEEDER-LOAD", "InputSequence",
+                            "CYCLE RUN INPUT UNLOAD 불가: InputFeeder에 로딩 진행 중 wafer가 있습니다. " +
+                            "INPUT LOAD로 Stage 로딩을 완료한 뒤 언로드하세요. wafer=" + (feederWafer.WaferId ?? ""));
+                    }
+
+                    return Fail("SEQ-IN-TEST-UNLOAD-EMPTY", "InputSequence",
+                        "CYCLE RUN INPUT UNLOAD 불가: InputStage/InputFeeder에 언로드할 wafer가 없습니다.");
+                }
+
+                // Stage를 움직이기 전에 Picker 접근을 차단하고(Auto 언로드와 동일) source slot을 확정한다.
+                ResetInputStageReadySignals();
+                int slotIndex = ResolveSlotIndexFromWafer(stageWafer);
+                if (slotIndex < 0)
+                {
+                    return Fail("SEQ-IN-TEST-UNLOAD-SLOT", "InputSequence",
+                        "CYCLE RUN INPUT UNLOAD 불가: 언로드 대상 슬롯을 확인할 수 없습니다. wafer=" +
+                        (stageWafer.WaferId ?? ""));
+                }
+
+                int result = await ExecuteWaferUnloadingAsync(
+                    ct,
+                    slotIndex,
+                    false,
+                    0,
+                    SequenceStartMode.Resume).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                LogPublic("[UNIT-INPUT] CYCLE RUN INPUT UNLOAD (auto-step test) complete slot=" + slotIndex);
+                WriteLog("ExecuteAutoStepUnloadingForTestAsync",
+                    "CYCLE RUN INPUT UNLOAD: Auto 판정 언로딩 테스트 완료. slot=" + slotIndex + " - Ok");
+                return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                WriteLog("ExecuteAutoStepUnloadingForTestAsync", "CYCLE RUN INPUT UNLOAD 테스트가 취소되었습니다. - Failed");
+                throw;
+            }
+            catch (SequenceStopException ex)
+            {
+                WriteLog("ExecuteAutoStepUnloadingForTestAsync",
+                    "CYCLE RUN INPUT UNLOAD 테스트 정지: " + ex.Message + " - Stopped");
+                return -1;
+            }
+            catch (StepAlreadyAlarmedException ex)
+            {
+                // 하위에서 이미 Alarm이 발생한 실패이므로 중복 Alarm 없이 실패 코드로만 보고한다.
+                WriteLog("ExecuteAutoStepUnloadingForTestAsync",
+                    "CYCLE RUN INPUT UNLOAD 테스트 실패(하위 Alarm 처리됨): " + ex.Message + " - Failed");
+                return -1;
+            }
+            catch (Exception ex)
+            {
+                return Fail("SEQ-IN-TEST-UNLOAD-EX", "InputSequence",
+                    "CYCLE RUN INPUT UNLOAD 테스트 실패: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
         public async Task<int> ExecuteWaferAlignAsync(
             CancellationToken ct,
             bool bFine = false,
@@ -2242,6 +2776,11 @@ namespace QMC.CDT320.Sequencing
             catch (OperationCanceledException)
             {
                 WriteLog("ExecuteWaferAlignAsync", "Input wafer align sequence canceled. - Failed");
+                throw;
+            }
+            catch (SequenceStopException)
+            {
+                // 정상 정지(Cycle Stop 등)는 고장(Alarm)으로 재분류하지 않고 상위 제어기로 전파한다.
                 throw;
             }
             catch (Exception ex)
@@ -2278,6 +2817,11 @@ namespace QMC.CDT320.Sequencing
                 WriteLog("ExecuteMappingFirstAsync", "Input cassette mapping canceled. - Failed");
                 throw;
             }
+            catch (SequenceStopException)
+            {
+                // 정상 정지(Cycle Stop 등)는 고장(Alarm)으로 재분류하지 않고 상위 제어기로 전파한다.
+                throw;
+            }
             catch (Exception ex)
             {
                 return Fail("SEQ-IN-MAPPING-EX", "InputSequence", "Input cassette mapping exception: " + ex.Message);
@@ -2311,6 +2855,11 @@ namespace QMC.CDT320.Sequencing
             catch (OperationCanceledException)
             {
                 WriteLog("ExecuteLoadOnceAsync", "LoadNextWafer canceled. - Failed");
+                throw;
+            }
+            catch (SequenceStopException)
+            {
+                // 정상 정지(Cycle Stop 등)는 고장(Alarm)으로 재분류하지 않고 상위 제어기로 전파한다.
                 throw;
             }
             catch (Exception ex)
@@ -2522,6 +3071,7 @@ namespace QMC.CDT320.Sequencing
 
                 string safeHolder = string.IsNullOrWhiteSpace(holder) ? "InputSequence" : holder;
                 bool waitLogged = false;
+                int waitStatusTick = Environment.TickCount;
 
                 while (true)
                 {
@@ -2548,6 +3098,14 @@ namespace QMC.CDT320.Sequencing
                             safeHolder + " 전 Picker Avoid 대기 중입니다. reason=" + reason + " - Wait");
                         LogPublic("[UNIT-INPUT-LOADER] WAIT Picker Avoid before " + safeHolder + ". " + reason);
                         waitLogged = true;
+                        waitStatusTick = Environment.TickCount;
+                    }
+                    else if (unchecked(Environment.TickCount - waitStatusTick) >= AutoWaitStatusLogIntervalMs)
+                    {
+                        // 무언정지 진단: 대기가 길어지면 현재 차단 사유를 주기적으로 남긴다.
+                        waitStatusTick = Environment.TickCount;
+                        WriteLog("InputPickerAvoidGate",
+                            safeHolder + " 전 Picker Avoid 대기가 계속되고 있습니다. reason=" + reason + " - Wait");
                     }
 
                     await Task.Delay(100, ct).ConfigureAwait(false);
@@ -2697,6 +3255,7 @@ namespace QMC.CDT320.Sequencing
                 ct.ThrowIfCancellationRequested();
                 string safeHolder = string.IsNullOrWhiteSpace(holder) ? "InputSequence" : holder;
                 bool waitLogged = false;
+                int waitStatusTick = Environment.TickCount;
 
                 while (true)
                 {
@@ -2728,6 +3287,14 @@ namespace QMC.CDT320.Sequencing
                             reason + " - Wait");
                         LogPublic("[UNIT-INPUT-LOADER] WAIT Picker drain before " + safeHolder + ". " + reason);
                         waitLogged = true;
+                        waitStatusTick = Environment.TickCount;
+                    }
+                    else if (unchecked(Environment.TickCount - waitStatusTick) >= AutoWaitStatusLogIntervalMs)
+                    {
+                        // 무언정지 진단: 대기가 길어지면 현재 차단 사유를 주기적으로 남긴다.
+                        waitStatusTick = Environment.TickCount;
+                        WriteLog("InputPickerDrainGate",
+                            safeHolder + " 전 Picker 제품 배출/Avoid 대기가 계속되고 있습니다. reason=" + reason + " - Wait");
                     }
 
                     await Task.Delay(100, ct).ConfigureAwait(false);
@@ -2933,6 +3500,9 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
+        // To do: C4 - 현재 처리 중인 카세트 레벨(_autoCassetteRole)을 우선 조회한다.
+        // Input1 소진 후 Input2 처리 중에, 카세트로 복귀한 Input1의 완료(Done) wafer가
+        // 같은 slot 번호로 잘못 조회되어 ExpectedWaferId가 어긋나던 문제를 막는다.
         private string ResolveInputWaferId(int slotIndex)
         {
             WaferMaterial wafer = ResolveFeederWaferFromRuntimeState();
@@ -2941,9 +3511,14 @@ namespace QMC.CDT320.Sequencing
             if (wafer != null && wafer.SourceSlotNumber == slotIndex)
                 return wafer.WaferId ?? "";
 
-            wafer = MaterialStateService.GetWaferInCassette(CassetteMaterialRole.Input1, slotIndex);
+            CassetteMaterialRole primaryRole = ResolvePrimaryInputCassetteRole();
+            CassetteMaterialRole secondaryRole = primaryRole == CassetteMaterialRole.Input1
+                ? CassetteMaterialRole.Input2
+                : CassetteMaterialRole.Input1;
+
+            wafer = MaterialStateService.GetWaferInCassette(primaryRole, slotIndex);
             if (wafer == null)
-                wafer = MaterialStateService.GetWaferInCassette(CassetteMaterialRole.Input2, slotIndex);
+                wafer = MaterialStateService.GetWaferInCassette(secondaryRole, slotIndex);
             return wafer != null ? (wafer.WaferId ?? "") : "";
         }
 
@@ -2957,11 +3532,25 @@ namespace QMC.CDT320.Sequencing
                 (wafer.SourceCassetteRole == CassetteMaterialRole.Input1 || wafer.SourceCassetteRole == CassetteMaterialRole.Input2))
                 return wafer.SourceCassetteRole;
 
-            if (MaterialStateService.GetWaferInCassette(CassetteMaterialRole.Input1, slotIndex) != null)
-                return CassetteMaterialRole.Input1;
-            if (MaterialStateService.GetWaferInCassette(CassetteMaterialRole.Input2, slotIndex) != null)
-                return CassetteMaterialRole.Input2;
-            return CassetteMaterialRole.Input1;
+            // To do: C4 - 현재 처리 레벨을 우선 확인해 완료 wafer가 남은 반대 레벨로 오판하지 않게 한다.
+            CassetteMaterialRole primaryRole = ResolvePrimaryInputCassetteRole();
+            CassetteMaterialRole secondaryRole = primaryRole == CassetteMaterialRole.Input1
+                ? CassetteMaterialRole.Input2
+                : CassetteMaterialRole.Input1;
+
+            if (MaterialStateService.GetWaferInCassette(primaryRole, slotIndex) != null)
+                return primaryRole;
+            if (MaterialStateService.GetWaferInCassette(secondaryRole, slotIndex) != null)
+                return secondaryRole;
+            return primaryRole;
+        }
+
+        // 현재 처리 중인 Input 카세트 레벨을 조회 우선순위 기준으로 반환한다.
+        private CassetteMaterialRole ResolvePrimaryInputCassetteRole()
+        {
+            return _autoCassetteRole == CassetteMaterialRole.Input2
+                ? CassetteMaterialRole.Input2
+                : CassetteMaterialRole.Input1;
         }
 
         private void UpdateInputSlotState(int slotIndex, SlotPresence presence, ProcessState state)
