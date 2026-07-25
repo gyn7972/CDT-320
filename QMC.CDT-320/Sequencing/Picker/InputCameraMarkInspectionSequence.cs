@@ -489,6 +489,24 @@ namespace QMC.CDT320.Sequencing
                         return acquireResult;
                 }
 
+                // 기존 조건: 배치 촬영 종료 직후 이 시퀀스가 비전을 동기로 최소 회피시켰다 —
+                //           픽업 허가 전이라 피커가 추종할 수 없어, 픽업의 이연·팔로잉(#17)이
+                //           항상 hold=current(이동 없음)로 무력화됐다(실장비 로그 2026-07-25).
+                // 현재 기준(사용자 지시 2026-07-25): Auto+Conti(이연·팔로잉이 동작하는 조건)에서는
+                //           회피를 픽업 시퀀스로 위임한다 — 비전은 마지막 촬영 위치에 머물고,
+                //           픽업의 MoveInputVisionToAvoidForPickerMove가 이연 후 피커X 팔로잉과
+                //           동시 기동한다. 피커 X 일반 이동 폴백은 "이연 회피 완료 후 진입" 안전
+                //           불변식이 지키고, 존/페어 인터락은 그대로 살아 있다.
+                if (IsMinimalRetreatGateSatisfied())
+                {
+                    WriteLog("InputCameraMarkInspectionSequence",
+                        Name + " InputVisionX 선행검사 후 회피를 픽업 이연·팔로잉으로 위임합니다(이동 생략). " +
+                        "actual=" + (stage.CameraX != null ? stage.CameraX.ActualPosition.ToString("F6") : "-") +
+                        ", side=" + Side + " - Check");
+                    CurrentStep = InputCameraMarkInspectionStep.GrantPickUpPermission;
+                    return 0;
+                }
+
                 stage.Recipe.EnsurePositionObjects();
                 double avoid = stage.Recipe.VisionX.AvoidPosition;
                 double tolerance = stage.CameraX != null && stage.CameraX.Config != null && stage.CameraX.Config.InPositionTolerance > 0.0

@@ -2040,6 +2040,22 @@ namespace QMC.Common.Motion.Ajin
         public static int MovePosition(int axis, double position, double velocity, double acceleration, double deceleration)
         {
             int ret = 0;
+
+            // EtherCAT AxmOverridePos의 relative 기준 = "그 모션이 구동을 시작한 위치"
+            // (실장비 검증 2026-07-25: 축이 정확히 시작위치+relative에 정지).
+            // 이동 명령 직전의 보드 Command 위치를 축별로 기록해 ModifyPosition의 기준으로 쓴다.
+            // 정지 상태에서는 Command == Actual이므로 이 값이 곧 구동 시작 위치다.
+            double startCommand = 0.0;
+            if (GetCommandPosition(axis, ref startCommand) == 0)
+            {
+                MotionStartCommandByAxis[axis] = startCommand;
+            }
+            else
+            {
+                double removed;
+                MotionStartCommandByAxis.TryRemove(axis, out removed);
+            }
+
             if ((ret = AXL.CheckErrorCode("AXM.AxmMoveStartPos", AXM.AxmMoveStartPos(axis, position, velocity, acceleration, deceleration))) != 0) return ret;
             //Log.Write("AjinTest", string.Format("Move Position in Acceleration {0}, {1},{2},{3}",axis.Configuration.No, velocity, acceleration,deceleration));
             return ret;
@@ -2135,6 +2151,14 @@ namespace QMC.Common.Motion.Ajin
         private static readonly System.Collections.Concurrent.ConcurrentDictionary<int, long> OverrideLogTicks =
             new System.Collections.Concurrent.ConcurrentDictionary<int, long>();
 
+        // EtherCAT AxmOverridePos의 relative 기준 = "그 모션이 구동을 시작한 위치"
+        // (실장비 검증 2026-07-25: InputVisionX 3세션 모두 축이 정확히 시작위치+relative에 정지).
+        // MovePosition이 이동 명령을 내리기 직전의 보드 Command 위치를 축별로 기록해 두고,
+        // ModifyPosition이 그 값을 기준으로 relative를 계산한다.
+        // 연속 오버라이드에서도 기준은 같은 모션의 시작 위치이므로 오버라이드 시에는 갱신하지 않는다.
+        private static readonly System.Collections.Concurrent.ConcurrentDictionary<int, double> MotionStartCommandByAxis =
+            new System.Collections.Concurrent.ConcurrentDictionary<int, double>();
+
         private static void LogOverrideCall(
             string kind,
             int axis,
@@ -2144,7 +2168,7 @@ namespace QMC.Common.Motion.Ajin
             double deceleration,
             int ret,
             string failedAt,
-            double commandBase = double.NaN,
+            double startBase = double.NaN,
             double relative = double.NaN)
         {
             try
@@ -2158,10 +2182,12 @@ namespace QMC.Common.Motion.Ajin
                     OverrideLogTicks[axis] = nowMs;
                 }
 
+                // 라벨 startBase= : 상대량 기준이 "모션 구동 시작 위치"임을 명시한다
+                // (기존 cmdBase= 라벨은 호출 시점 Command로 오독될 수 있어 교체 — 2026-07-25 분석 교훈).
                 string message = "AXM OVERRIDE " + kind +
                     ". axisNo=" + axis +
                     (double.IsNaN(position) ? "" : ", position=" + position.ToString("F6")) +
-                    (double.IsNaN(commandBase) ? "" : ", cmdBase=" + commandBase.ToString("F6")) +
+                    (double.IsNaN(startBase) ? "" : ", startBase=" + startBase.ToString("F6")) +
                     (double.IsNaN(relative) ? "" : ", relative=" + relative.ToString("F6")) +
                     ", velocity=" + velocity.ToString("F6") +
                     ", acceleration=" + acceleration.ToString("F6") +
@@ -2181,43 +2207,45 @@ namespace QMC.Common.Motion.Ajin
         /// <summary>
         /// 구동 중인 축의 목표 위치와 가감속/속도를 오버라이드한다.
         /// position 은 <b>절대 좌표</b>로 받고, 내부에서 보드 상대량으로 변환해 전달한다.
-        /// 기존 조건(2026-07-25 1차): 절대좌표 모드를 SetAbsRelMode(POS_ABS_MODE)로 명시하고 절대
-        ///           position을 그대로 AxmOverridePos에 전달했다 — 같은 날 16:10 재현에서 모드 명시
-        ///           성공(ret=0x0000)에도 축이 +position 상대량처럼 역주행함을 보드 인자 로그
-        ///           (AXM-OVERRIDE)로 확정했다. 즉 EtherCAT의 AxmOverridePos는 절대/상대 모드
-        ///           설정과 무관하게 구동 시점 위치 기준 상대량으로 해석한다(PCI-Nx04 주석과 동일 거동).
-        /// 현재 기준(사용자 승인 2026-07-25 A안): 호출 직전 보드 Command 위치(cmdBase)를 읽어
-        ///           relative = position − cmdBase 로 변환해 전달한다. SetAbsRelMode는 오버라이드에
-        ///           무효임이 확정되어 제거(상대량 전달과의 의미 충돌 방지).
-        ///           로그에 절대 목표/cmdBase/relative를 모두 남긴다 — 벤더의 "구동 시점" 기준이
-        ///           호출 시점이 아니라 모션 시작점이면 도달 위치가 이동량만큼 어긋나므로
-        ///           로그 대조로 즉시 판별 가능하다(저속 검증 필수).
+        /// 기존 조건(2026-07-25 2차): 호출 직전 보드 Command 위치를 기준으로
+        ///           relative = position − cmdBase 로 변환했다 — 실장비 16:32~16:33 InputVisionX
+        ///           3세션에서 축이 전부 "모션 구동 시작 위치 + relative"에 정지(오차 ≤0.001)함이
+        ///           확인되어 기준이 틀렸음이 확정됐다(의도 목표 미달 → result=-5 실패).
+        /// 현재 기준(사용자 지시 2026-07-25, EtherCAT 기준 확정): 벤더 주석의 "구동 시점"은
+        ///           모션 시작 시점이다. MovePosition이 기록해 둔 모션 시작 Command 위치
+        ///           (MotionStartCommandByAxis)를 기준으로 relative = position − startBase 로
+        ///           변환한다. 시작 기록이 없는 모션(비 MovePosition 경유)은 잘못된 기준으로
+        ///           보드에 상대값을 보내는 것이 폭주 원인이었으므로 -2로 거부한다.
+        ///           연속 오버라이드의 기준 리베이스 여부는 실장비 검증 항목(로그 대조)이다.
         /// </summary>
         public static int ModifyPosition(int axis, double position, double velocity, double acceleration, double deceleration)
         {
             int ret = 0;
 
-            double commandBase = 0.0;
-            if ((ret = GetCommandPosition(axis, ref commandBase)) != 0)
+            double startBase;
+            bool hasStartBase = MotionStartCommandByAxis.TryGetValue(axis, out startBase);
+            if (!hasStartBase)
             {
-                LogOverrideCall("POSITION", axis, position, velocity, acceleration, deceleration, ret, "GetCommandPosition");
-                return ret;
+                // 시작 기록이 없으면(이 모션이 MovePosition 경유가 아님) 안전을 위해 오버라이드를
+                // 거부한다 — 잘못된 기준으로 보드에 상대값을 보내는 것이 폭주의 원인이었다.
+                LogOverrideCall("POSITION", axis, position, velocity, acceleration, deceleration, -2, "NoMotionStartBase");
+                return -2;
             }
 
-            double relative = position - commandBase;
+            double relative = position - startBase;
             if ((ret = AXL.CheckErrorCode("AXM.AxmOverridePos", AXM.AxmOverridePos(axis, relative))) != 0)
             {
-                LogOverrideCall("POSITION", axis, position, velocity, acceleration, deceleration, ret, "AxmOverridePos", commandBase, relative);
+                LogOverrideCall("POSITION", axis, position, velocity, acceleration, deceleration, ret, "AxmOverridePos", startBase, relative);
                 return ret;
             }
 
             if ((ret = AXL.CheckErrorCode("AXM.AxmOverrideAccelVelDecel", AXM.AxmOverrideAccelVelDecel(axis, velocity, acceleration, deceleration))) != 0)
             {
-                LogOverrideCall("POSITION", axis, position, velocity, acceleration, deceleration, ret, "AxmOverrideAccelVelDecel", commandBase, relative);
+                LogOverrideCall("POSITION", axis, position, velocity, acceleration, deceleration, ret, "AxmOverrideAccelVelDecel", startBase, relative);
                 return ret;
             }
 
-            LogOverrideCall("POSITION", axis, position, velocity, acceleration, deceleration, 0, null, commandBase, relative);
+            LogOverrideCall("POSITION", axis, position, velocity, acceleration, deceleration, 0, null, startBase, relative);
             return ret;
         }
         public static int ModifyVelocity(int axis, double velocity, double acceleration, double deceleration)
