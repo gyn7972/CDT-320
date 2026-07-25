@@ -70,9 +70,14 @@ namespace QMC.CDT320.Sequencing
                 TaskScheduler.Default);
         }
 
-        // 현재 기준(사용자 지시 2026-07-26): 후검사 독립 회피 인수 시 목표 충분성 판정 —
-        // 외부 회피 목표가 배치 planned 피커 X 목표(현재 정확값 + 잔여 근사값)와 페어 간격
-        // (SafetyDistance, RetreatExtra 미포함)을 만족하면 추가 이동 없이 인수한다.
+        // 기존 조건(2026-07-26 초판): IsPairClearanceSatisfied(Safety 10mm만, Extra 미포함)로
+        //   인수 충분성을 판정했다 — 팔로잉 유지 간격(Safety+Extra=50mm)보다 40mm 느슨해,
+        //   선회피 게시값(≈748.3) 인수 후 피커 팔로잉이 목표 40mm 앞에서 영구 클램프되어
+        //   -21 타임아웃으로 빠지는 창이 있었다(적대적 검증 확정 2026-07-26 critical).
+        //   (수정 전에는 외부 목표가 항상 no-op 좌표라 판정이 항상 false → 창이 없었음.)
+        // 현재 기준: 판정 요구거리를 팔로잉과 동일한 safetyGap(Safety+Extra)+1mm(경계 여유)로
+        //   맞춘다 — 인수한 목표에서 피커가 배치 목표까지 팔로잉 클램프 없이 완주 가능함을 보장.
+        //   파라미터 조회 실패 시 false(연장 회피 경로 폴백 — 안전).
         private bool IsOutputVisionTargetClearOfPlannedPickerTargets(
             double visionTarget,
             IList<double> plannedPickerTargets)
@@ -89,11 +94,32 @@ namespace QMC.CDT320.Sequencing
                 if (service == null || pickerX == null)
                     return false;
 
+                int direction;
+                double homeGap;
+                double safetyGap;
+                string gapDetail;
+                if (!service.TryGetFollowGapParameters(
+                    OutputStage.OutputCameraX,
+                    pickerX,
+                    service.Config != null ? service.Config.OutputVisionRetreatExtraClearance : 40.0,
+                    out direction,
+                    out homeGap,
+                    out safetyGap,
+                    out gapDetail))
+                {
+                    return false;
+                }
+
+                double required = safetyGap +
+                    VisionIndependentRetreatCoordinator.RetreatTargetExtraMarginMm - 0.000001;
                 for (int i = 0; i < plannedPickerTargets.Count; i++)
                 {
-                    string detail;
-                    if (!service.IsPairClearanceSatisfied(
-                        pickerX, plannedPickerTargets[i], OutputStage.OutputCameraX, visionTarget, out detail))
+                    double picker = plannedPickerTargets[i];
+                    // FollowMoveAsync와 동일한 페어식 간격.
+                    double clearance = direction > 0
+                        ? (picker + homeGap) - visionTarget
+                        : (visionTarget + homeGap) - picker;
+                    if (clearance < required)
                         return false;
                 }
 

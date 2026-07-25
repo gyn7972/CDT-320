@@ -1584,28 +1584,20 @@ namespace QMC.CDT320.Sequencing
                     return false;
                 }
 
-                if (PickerZoneInterlockRules.IsProcessZone(targetZone) &&
-                    IsOppositePickerInPlacePhase() &&
-                    !IsOppositePickerYAtAvoidPosition())
-                {
-                    detail = "OppositePlacePhaseYOut";
-                    return false;
-                }
-
-                PickerWorkZone workAreaZone;
-                string workAreaOwner;
-                bool oppositeWorkActive = PickerZoneInterlockRules.TryGetPickerWorkArea(
-                    oppositeIsFront,
-                    out workAreaZone,
-                    out workAreaOwner);
-                if (PickerZoneInterlockRules.IsProcessZone(targetZone) &&
-                    oppositeWorkActive &&
-                    workAreaZone == PickerWorkZone.Output &&
-                    !IsOppositePickerYAtAvoidPosition())
-                {
-                    detail = "OppositeOutputWorkAreaYOut owner=" + workAreaOwner;
-                    return false;
-                }
+                // 기존 조건(~2026-07-26): 아래 두 포괄 차단이 있었다 —
+                //   (1) OppositePlacePhaseYOut: 상대가 Place 단계 + 상대 Y가 Avoid 아님 → Bottom/Side
+                //       Y 전진 무조건 대기. (2) OppositeOutputWorkAreaYOut: 상대가 Output 작업영역
+                //       보유 + Y Avoid 아님 → 동일 대기. 두 조건 모두 실제 X 좌표를 보지 않는
+                //       "단계 조합만의" 차단이라, 사용자 동시성 매트릭스 4/5번("Front Place /
+                //       Place검사+복귀 중 Rear 바텀+사이드 OK")과 정면 충돌했다. 실장비 2026-07-26:
+                //       선회피 래치로 Place 위상이 밀리자 이 차단이 매 사이클 9.2~10.6s씩 발동
+                //       (정상 위상에서는 우연히 안 겹쳐 1회 0.23s뿐 — 규칙이 운으로만 성립).
+                //       물리 근거도 없었다: 바텀 X 615~780 vs Place 빈 X ≈1104, 간격 330mm+로
+                //       위 FacingY 거리 인터락(:1572)이 전부 통과 판정.
+                // 현재 기준(사용자 승인 2026-07-26, "2번만 진행"): 두 포괄 차단을 제거한다.
+                //   Bottom/Side Y 전진의 안전은 (a) 위 FacingY 거리 인터락(실좌표 물리 보호)과
+                //   (b) 아래 CanShareForwardY 위상 매트릭스(M6: Bottom/Side ∥ 상대 Place 허용,
+                //       비허용 조합은 계속 차단)가 담당한다 — 안전 두 겹은 그대로.
 
                 PickerWorkZone activeTargetZone = PickerZoneInterlockRules.GetPickerYActiveTargetZone(oppositeIsFront);
                 if (activeTargetZone != PickerWorkZone.Unknown)

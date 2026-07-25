@@ -517,13 +517,24 @@ namespace QMC.CDT320.Sequencing
                 }
             }
 
-            // 회피 no-op 방지(사용자 승인 2026-07-26): 이 좌표가 "Place 진입에 실제로 필요한 비전
-            // 위치"다. 후검사 큐가 배치 EPD 시점에 이 값까지 미리 물러나 사이드 촬영과 병렬로
-            // 회피를 끝내도록 게시한다(총 이동량 동일, 시점만 선행).
+            // 회피 no-op 방지(사용자 승인 2026-07-26): "Place 진입에 실제로 필요한 비전 위치"를
+            // 게시해 후검사 큐가 배치 EPD 시점에 미리 물러나게 한다(사이드 촬영과 병렬, 시점만 선행).
+            // [결함 수정 2026-07-26] 기존: 서비스 최소 회피 결과(visionTarget)를 그대로 게시 —
+            //   비전이 fullAvoid에 주차된 채 계산되면 hold(현재 위치 유지) 규칙이 fullAvoid를
+            //   돌려주고, 그 값이 게시→선회피 확장→다음 배치도 fullAvoid…로 래치됐다
+            //   (실장비 07:11~07:13 5배치 전부 target=1000.681 실측 — 매 배치 +500mm 과회피).
+            // 현재 기준: 게시값을 비전 현재 위치와 무관하게 "배치 planned 피커 목표의 페어식
+            //   하한(Safety+Extra+1mm)"으로 직접 계산한다. fullAvoid 이상이면 게시하지 않는다
+            //   (무게시 = 무확장 = 기존 동작이라 안전한 폴백).
             if (useMinimalRetreat)
             {
-                VisionIndependentRetreatCoordinator.RegisterOutputPlaceEntryTarget(
-                    visionTarget, Name + ":PlaceEntry");
+                double placeEntryBound;
+                if (TryComputeOutputPlaceEntryVisionBound(
+                        plannedEntryPickerTargets, fullAvoid, out placeEntryBound))
+                {
+                    VisionIndependentRetreatCoordinator.RegisterOutputPlaceEntryTarget(
+                        placeEntryBound, Name + ":PlaceEntry");
+                }
             }
 
             WriteLog("PickerPlaceSequence",
@@ -605,6 +616,75 @@ namespace QMC.CDT320.Sequencing
 
             CurrentStep = PickerPlaceStep.MoveOutputStageReceivePosition;
             return 0;
+        }
+
+        // 게시용 "Place 진입 요구 비전 좌표" 직접 계산 — 배치 planned 피커 목표 전부에 대해
+        // 페어식 하한(팔로잉 safetyGap=Safety+Extra + 1mm 경계 여유)을 만족하는 가장 얕은 좌표.
+        // 비전 현재 위치를 전혀 참조하지 않으므로 hold/래치가 원천적으로 불가능하다.
+        private bool TryComputeOutputPlaceEntryVisionBound(
+            IList<double> plannedPickerTargets,
+            double fullAvoid,
+            out double bound)
+        {
+            bound = 0.0;
+            try
+            {
+                if (plannedPickerTargets == null || plannedPickerTargets.Count == 0 ||
+                    OutputStage == null || OutputStage.OutputCameraX == null)
+                    return false;
+
+                SharedRailXMotionService service = SharedRailXMotionRuntime.ResolveService(
+                    Context != null ? Context.Machine : null);
+                BaseAxis pickerX = GetPickerAxis(PickerAxis.PickerX);
+                if (service == null || pickerX == null)
+                    return false;
+
+                int direction;
+                double homeGap;
+                double safetyGap;
+                string gapDetail;
+                if (!service.TryGetFollowGapParameters(
+                    OutputStage.OutputCameraX,
+                    pickerX,
+                    service.Config != null ? service.Config.OutputVisionRetreatExtraClearance : 40.0,
+                    out direction,
+                    out homeGap,
+                    out safetyGap,
+                    out gapDetail))
+                {
+                    return false;
+                }
+
+                double required = safetyGap + VisionIndependentRetreatCoordinator.RetreatTargetExtraMarginMm;
+                bool first = true;
+                for (int i = 0; i < plannedPickerTargets.Count; i++)
+                {
+                    double picker = plannedPickerTargets[i];
+                    double candidate = direction > 0
+                        ? picker + homeGap - required
+                        : picker - homeGap + required;
+                    if (first)
+                    {
+                        bound = candidate;
+                        first = false;
+                    }
+                    else
+                    {
+                        // 가장 제약이 큰(회피 쪽으로 가장 깊은) 하한을 취한다.
+                        bound = direction > 0 ? Math.Min(bound, candidate) : Math.Max(bound, candidate);
+                    }
+                }
+
+                // fullAvoid보다 얕을 때만 유효 — 같거나 넘으면 게시 무의미(확장 없음이 안전).
+                bool shallowerThanFullAvoid = direction > 0
+                    ? bound > fullAvoid + 0.000001
+                    : bound < fullAvoid - 0.000001;
+                return !first && shallowerThanFullAvoid;
+            }
+            catch
+            {
+                return false;
+            }
         }
 
         private async Task<int> EnsureOutputStagePlaceEntryReadyAsync(CancellationToken ct)
