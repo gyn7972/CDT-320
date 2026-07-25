@@ -1751,6 +1751,10 @@ namespace QMC.CDT320.Initialization
                 if (stopResult != 0)
                     return stopResult;
 
+                // 간섭축 정지 완료 후, 실장비도 Servo/Alarm 준비 전에 Pair 보호 범위를 연다.
+                // X축이 움직이는 준비 구간에는 예외를 열지 않고 기존 초기화 이동 순서는 유지한다.
+                pairInitializeScope = MotionGuardRuntime.BeginPickerYPairLimitSearch(frontY, rearY);
+
                 frontY.Stop();
                 rearY.Stop();
                 frontY.ServoOff();
@@ -1785,7 +1789,6 @@ namespace QMC.CDT320.Initialization
                 double rearVelocity = Math.Max(0.000001, rearY.Config.JogFineVelocity);
                 limitSearchCancellation = new CancellationTokenSource();
                 int[] searchResults;
-                pairInitializeScope = MotionGuardRuntime.BeginPickerYPairLimitSearch(frontY, rearY);
                 Task<int> frontSearch = frontY.SearchHardwareLimitForInitializeAsync(
                     -1,
                     frontVelocity,

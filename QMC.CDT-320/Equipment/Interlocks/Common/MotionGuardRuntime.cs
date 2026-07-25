@@ -3,6 +3,7 @@ using System.Threading;
 using QMC.Common;
 using QMC.Common.Alarms;
 using QMC.Common.Motion;
+using QMC.CDT320.Materials;
 
 namespace QMC.CDT320.Interlocks
 {
@@ -14,6 +15,7 @@ namespace QMC.CDT320.Interlocks
         private static readonly AsyncLocal<ExecutionModeScope> CurrentExecutionModeScope = new AsyncLocal<ExecutionModeScope>();
         private static readonly AsyncLocal<PickerYPairHomeScope> CurrentPickerYPairHomeScope = new AsyncLocal<PickerYPairHomeScope>();
         private static PickerYPairLimitSearchScope _pickerYPairLimitSearchScope;
+        private static PickerYCollisionRecoveryJogScope _pickerYCollisionRecoveryJogScope;
         private static MotionGuardService _service;
 
         public static Func<MotionGuardContext> ContextProvider { get; set; }
@@ -429,6 +431,10 @@ namespace QMC.CDT320.Interlocks
             var scope = new PickerYPairLimitSearchScope(frontPickerY, rearPickerY);
             lock (Sync)
             {
+                PrunePickerYCollisionRecoveryJogScopeNoLock(DateTime.UtcNow);
+                if (_pickerYCollisionRecoveryJogScope != null)
+                    throw new InvalidOperationException(
+                        "PickerY manual collision recovery Jog scope is already active.");
                 if (_pickerYPairLimitSearchScope != null)
                     throw new InvalidOperationException("PickerY Pair limit search scope is already active.");
                 _pickerYPairLimitSearchScope = scope;
@@ -444,6 +450,373 @@ namespace QMC.CDT320.Interlocks
                 return scope != null &&
                        ReferenceEquals(scope.FrontPickerY, frontPickerY) &&
                        ReferenceEquals(scope.RearPickerY, rearPickerY);
+            }
+        }
+
+        // 충돌 복구 전용 방향: FrontPickerY는 -방향, RearPickerY는 +방향만 인정한다.
+        internal static bool IsPickerYCollisionRecoveryDirection(BaseAxis axis, int direction)
+        {
+            if (axis == null || direction == 0)
+                return false;
+
+            try
+            {
+                MotionGuardContext context = ContextProvider != null ? ContextProvider() : null;
+                CDT320_Machine machine = context != null ? context.Machine : null;
+                if (machine == null || machine.PickerFrontUnit == null || machine.PickerRearUnit == null)
+                    return false;
+
+                if (ReferenceEquals(axis, machine.PickerFrontUnit.PickerY))
+                    return direction < 0;
+                if (ReferenceEquals(axis, machine.PickerRearUnit.PickerY))
+                    return direction > 0;
+
+                return false;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        // HOME 미완료 상태에서도 수동 조그 화면이 복구 권한을 요청할 수 있는지 확인한다.
+        // 실제 MotionGuard 예외는 이 사전 확인이 아니라 Begin...으로 발급된 활성 scope만 인정한다.
+        internal static bool CanBeginPickerYCollisionRecoveryJog(BaseAxis axis, int direction)
+        {
+            if (!IsPickerYCollisionRecoveryDirection(axis, direction))
+                return false;
+
+            try
+            {
+                lock (Sync)
+                {
+                    PrunePickerYCollisionRecoveryJogScopeNoLock(DateTime.UtcNow);
+                    if (_pickerYCollisionRecoveryJogScope != null ||
+                        _pickerYPairLimitSearchScope != null)
+                        return false;
+                }
+
+                return IsPickerYCollisionRecoveryStartStateValid(axis, direction);
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        // 수동 조그 UI만 호출하는 충돌 복구 실행 권한이다.
+        // AsyncLocal을 사용하지 않는 이유는 실시간 감시 루프가 별도 Task에서 실행되기 때문이다.
+        internal static IDisposable BeginPickerYCollisionRecoveryJog(BaseAxis axis, int direction)
+        {
+            if (axis == null || direction == 0)
+                return null;
+
+            int normalizedDirection = direction < 0 ? -1 : 1;
+            if (!CanBeginPickerYCollisionRecoveryJog(axis, normalizedDirection))
+                return null;
+
+            lock (Sync)
+            {
+                PrunePickerYCollisionRecoveryJogScopeNoLock(DateTime.UtcNow);
+                if (_pickerYCollisionRecoveryJogScope != null ||
+                    _pickerYPairLimitSearchScope != null)
+                    return null;
+
+                var scope = new PickerYCollisionRecoveryJogScope(axis, normalizedDirection);
+                _pickerYCollisionRecoveryJogScope = scope;
+                return new PickerYCollisionRecoveryJogScopeToken(scope);
+            }
+        }
+
+        internal static bool IsPickerYCollisionRecoveryJogActive(BaseAxis axis, int direction)
+        {
+            if (axis == null || direction == 0)
+                return false;
+
+            int normalizedDirection = direction < 0 ? -1 : 1;
+            PickerYCollisionRecoveryJogScope scope;
+            lock (Sync)
+            {
+                PrunePickerYCollisionRecoveryJogScopeNoLock(DateTime.UtcNow);
+                scope = _pickerYCollisionRecoveryJogScope;
+                if (scope == null ||
+                    !ReferenceEquals(scope.Axis, axis) ||
+                    scope.Direction != normalizedDirection)
+                {
+                    return false;
+                }
+            }
+
+            if (!IsPickerYCollisionRecoveryContinueStateValid(scope))
+            {
+                ClearPickerYCollisionRecoveryJogScope(scope);
+                return false;
+            }
+
+            lock (Sync)
+            {
+                if (!ReferenceEquals(_pickerYCollisionRecoveryJogScope, scope))
+                    return false;
+
+                DateTime now = DateTime.UtcNow;
+                double configuredTolerance =
+                    axis.Config != null && axis.Config.InPositionTolerance > 0.0
+                        ? axis.Config.InPositionTolerance
+                        : 0.01;
+                double tolerance = Math.Max(0.001, Math.Min(0.01, configuredTolerance));
+                double actual = axis.ActualPosition;
+                double delta = actual - scope.LastObservedActualPosition;
+                if ((scope.Direction < 0 && delta > tolerance) ||
+                    (scope.Direction > 0 && delta < -tolerance))
+                {
+                    _pickerYCollisionRecoveryJogScope = null;
+                    return false;
+                }
+                if (Math.Abs(delta) > tolerance)
+                    scope.LastObservedActualPosition = actual;
+
+                if (scope.ReleaseRequested)
+                {
+                    if (!axis.IsMoving ||
+                        (now - scope.ReleaseRequestedUtc).TotalMilliseconds > 2000.0)
+                    {
+                        _pickerYCollisionRecoveryJogScope = null;
+                        return false;
+                    }
+
+                    // MouseUp/Stop 후 실제 InMotion OFF까지 허용 방향 감속만 보호한다.
+                    return true;
+                }
+
+                // 명령 발행 전 1초의 짧은 시작 구간과 실제 이동 중에만 활성이다.
+                if (axis.IsMoving ||
+                    (now - scope.StartedUtc).TotalMilliseconds <= 1000.0)
+                {
+                    return true;
+                }
+
+                _pickerYCollisionRecoveryJogScope = null;
+                return false;
+            }
+        }
+
+        // 조그 정지 실패/예외 시 감속 유예 없이 복구 권한을 즉시 폐기한다.
+        internal static void CancelPickerYCollisionRecoveryJog(BaseAxis axis)
+        {
+            lock (Sync)
+            {
+                PickerYCollisionRecoveryJogScope scope =
+                    _pickerYCollisionRecoveryJogScope;
+                if (scope == null)
+                    return;
+                if (axis != null && !ReferenceEquals(scope.Axis, axis))
+                    return;
+
+                _pickerYCollisionRecoveryJogScope = null;
+            }
+        }
+
+        private static bool IsPickerYCollisionRecoveryStartStateValid(BaseAxis axis, int direction)
+        {
+            CDT320_Machine machine;
+            BaseAxis frontX;
+            BaseAxis rearX;
+            BaseAxis frontY;
+            BaseAxis rearY;
+            if (!TryResolvePickerYCollisionRecoveryAxes(
+                out machine,
+                out frontX,
+                out rearX,
+                out frontY,
+                out rearY))
+            {
+                return false;
+            }
+
+            if (!ReferenceEquals(axis, frontY) && !ReferenceEquals(axis, rearY))
+                return false;
+
+            if (!TryUpdatePickerYCollisionRecoveryAxis(frontX) ||
+                !TryUpdatePickerYCollisionRecoveryAxis(rearX) ||
+                !TryUpdatePickerYCollisionRecoveryAxis(frontY) ||
+                !TryUpdatePickerYCollisionRecoveryAxis(rearY))
+            {
+                return false;
+            }
+
+            if (frontX.IsMoving || rearX.IsMoving || frontY.IsMoving || rearY.IsMoving)
+                return false;
+            if (HasPickerMaterialForCollisionRecovery())
+                return false;
+            if (Math.Abs(frontX.ActualPosition - rearX.ActualPosition) >
+                ResolvePickerYCollisionRecoveryClearance(machine))
+            {
+                return false;
+            }
+
+            // 실시간 감시와 동일하게 양쪽 모두 exact Avoid가 아닐 때만 복구 모드가 필요하다.
+            return !MotionGuardRuleHelpers.IsPickerYAtExactTeachingAvoid(
+                       machine,
+                       true,
+                       frontY.ActualPosition) &&
+                   !MotionGuardRuleHelpers.IsPickerYAtExactTeachingAvoid(
+                       machine,
+                       false,
+                       rearY.ActualPosition) &&
+                   IsPickerYCollisionRecoveryDirection(axis, direction);
+        }
+
+        private static bool HasPickerMaterialForCollisionRecovery()
+        {
+            for (int pickerNo = 1; pickerNo <= 4; pickerNo++)
+            {
+                if (MaterialStateService.GetDieAtPicker(
+                        MaterialLocationKind.PickerFront,
+                        pickerNo) != null ||
+                    MaterialStateService.GetDieAtPicker(
+                        MaterialLocationKind.PickerRear,
+                        pickerNo) != null)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static bool TryUpdatePickerYCollisionRecoveryAxis(BaseAxis axis)
+        {
+            try
+            {
+                if (axis == null)
+                    return false;
+
+                axis.UpdateStatus();
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        private static bool IsPickerYCollisionRecoveryContinueStateValid(
+            PickerYCollisionRecoveryJogScope scope)
+        {
+            if (scope == null || scope.Axis == null)
+                return false;
+
+            CDT320_Machine machine;
+            BaseAxis frontX;
+            BaseAxis rearX;
+            BaseAxis frontY;
+            BaseAxis rearY;
+            if (!TryResolvePickerYCollisionRecoveryAxes(
+                out machine,
+                out frontX,
+                out rearX,
+                out frontY,
+                out rearY))
+            {
+                return false;
+            }
+
+            bool isFront = ReferenceEquals(scope.Axis, frontY);
+            bool isRear = ReferenceEquals(scope.Axis, rearY);
+            if (!isFront && !isRear)
+                return false;
+            if (!IsPickerYCollisionRecoveryDirection(scope.Axis, scope.Direction))
+                return false;
+            if (HasPickerMaterialForCollisionRecovery())
+                return false;
+            if (frontX.IsMoving || rearX.IsMoving)
+                return false;
+            if (isFront && rearY.IsMoving)
+                return false;
+            if (isRear && frontY.IsMoving)
+                return false;
+
+            return Math.Abs(frontX.ActualPosition - rearX.ActualPosition) <=
+                   ResolvePickerYCollisionRecoveryClearance(machine);
+        }
+
+        private static bool TryResolvePickerYCollisionRecoveryAxes(
+            out CDT320_Machine machine,
+            out BaseAxis frontX,
+            out BaseAxis rearX,
+            out BaseAxis frontY,
+            out BaseAxis rearY)
+        {
+            machine = null;
+            frontX = null;
+            rearX = null;
+            frontY = null;
+            rearY = null;
+
+            MotionGuardContext context = ContextProvider != null ? ContextProvider() : null;
+            machine = context != null ? context.Machine : null;
+            if (machine == null ||
+                machine.PickerFrontUnit == null ||
+                machine.PickerRearUnit == null)
+            {
+                return false;
+            }
+
+            frontX = machine.PickerFrontUnit.PickerX;
+            rearX = machine.PickerRearUnit.PickerX;
+            frontY = machine.PickerFrontUnit.PickerY;
+            rearY = machine.PickerRearUnit.PickerY;
+            return frontX != null && rearX != null && frontY != null && rearY != null;
+        }
+
+        private static double ResolvePickerYCollisionRecoveryClearance(CDT320_Machine machine)
+        {
+            double frontClearance =
+                machine != null &&
+                machine.PickerFrontUnit != null &&
+                machine.PickerFrontUnit.Setup != null
+                    ? machine.PickerFrontUnit.Setup.PickerYFacingXClearance
+                    : 0.0;
+            double rearClearance =
+                machine != null &&
+                machine.PickerRearUnit != null &&
+                machine.PickerRearUnit.Setup != null
+                    ? machine.PickerRearUnit.Setup.PickerYFacingXClearance
+                    : 0.0;
+            double clearance = Math.Max(frontClearance, rearClearance);
+            return clearance > 0.0 ? clearance : 150.0;
+        }
+
+        private static void PrunePickerYCollisionRecoveryJogScopeNoLock(DateTime now)
+        {
+            PickerYCollisionRecoveryJogScope scope = _pickerYCollisionRecoveryJogScope;
+            if (scope == null)
+                return;
+
+            if (scope.ReleaseRequested)
+            {
+                if (!scope.Axis.IsMoving ||
+                    (now - scope.ReleaseRequestedUtc).TotalMilliseconds > 2000.0)
+                {
+                    _pickerYCollisionRecoveryJogScope = null;
+                }
+                return;
+            }
+
+            if (!scope.Axis.IsMoving &&
+                (now - scope.StartedUtc).TotalMilliseconds > 1000.0)
+            {
+                _pickerYCollisionRecoveryJogScope = null;
+            }
+        }
+
+        private static void ClearPickerYCollisionRecoveryJogScope(
+            PickerYCollisionRecoveryJogScope scope)
+        {
+            lock (Sync)
+            {
+                if (ReferenceEquals(_pickerYCollisionRecoveryJogScope, scope))
+                    _pickerYCollisionRecoveryJogScope = null;
             }
         }
 
@@ -617,6 +990,59 @@ namespace QMC.CDT320.Interlocks
                     if (ReferenceEquals(_pickerYPairLimitSearchScope, _scope))
                         _pickerYPairLimitSearchScope = null;
                 }
+                _disposed = true;
+            }
+        }
+
+        private sealed class PickerYCollisionRecoveryJogScope
+        {
+            public PickerYCollisionRecoveryJogScope(BaseAxis axis, int direction)
+            {
+                Axis = axis;
+                Direction = direction;
+                StartedUtc = DateTime.UtcNow;
+                LastObservedActualPosition = axis != null ? axis.ActualPosition : 0.0;
+            }
+
+            public BaseAxis Axis { get; private set; }
+            public int Direction { get; private set; }
+            public DateTime StartedUtc { get; private set; }
+            public double LastObservedActualPosition { get; set; }
+            public bool ReleaseRequested { get; set; }
+            public DateTime ReleaseRequestedUtc { get; set; }
+        }
+
+        private sealed class PickerYCollisionRecoveryJogScopeToken : IDisposable
+        {
+            private readonly PickerYCollisionRecoveryJogScope _scope;
+            private bool _disposed;
+
+            public PickerYCollisionRecoveryJogScopeToken(PickerYCollisionRecoveryJogScope scope)
+            {
+                _scope = scope;
+            }
+
+            public void Dispose()
+            {
+                if (_disposed)
+                    return;
+
+                lock (Sync)
+                {
+                    if (ReferenceEquals(_pickerYCollisionRecoveryJogScope, _scope))
+                    {
+                        if (_scope.Axis == null || !_scope.Axis.IsMoving)
+                        {
+                            _pickerYCollisionRecoveryJogScope = null;
+                        }
+                        else
+                        {
+                            _scope.ReleaseRequested = true;
+                            _scope.ReleaseRequestedUtc = DateTime.UtcNow;
+                        }
+                    }
+                }
+
                 _disposed = true;
             }
         }

@@ -1156,6 +1156,9 @@ namespace QMC.CDT320.Interlocks
                 if (request == null || request.Machine == null)
                     return true;
 
+                if (IsPickerYCollisionRecoveryJogRequest(request, isFront))
+                    return true;
+
                 string detail;
                 if (CanMovePickerYByFacingYInterlock(
                     request.Machine,
@@ -1200,6 +1203,14 @@ namespace QMC.CDT320.Interlocks
                 string movingName;
                 if (!TryResolvePickerXYRequest(request, out isFront, out axis, out movingName))
                     return true;
+
+                // 충돌 복구 Jog만 exact Avoid 선행 조건의 좁은 예외로 허용한다.
+                // 일반 위치/Teaching/Auto 이동과 반대 방향 Jog에는 이 예외를 적용하지 않는다.
+                if (axis == PickerAxis.PickerY &&
+                    IsPickerYCollisionRecoveryJogRequest(request, isFront))
+                {
+                    return true;
+                }
 
                 string exactAvoidDetail;
                 if (!VerifyExactPickerYAvoidForFacingMove(
@@ -2412,6 +2423,50 @@ namespace QMC.CDT320.Interlocks
             return isFront
                 ? targetY > currentY + tolerance
                 : targetY < currentY - tolerance;
+        }
+
+        // 충돌 복구 Jog는 기구 방향을 명시적으로 사용한다.
+        // FrontPickerY는 -방향, RearPickerY는 +방향이며 Step/Continuous Jog에만 적용한다.
+        private static bool IsPickerYCollisionRecoveryJogRequest(
+            MotionGuardRuleContext request,
+            bool isFront)
+        {
+            try
+            {
+                if (request == null ||
+                    request.Machine == null ||
+                    !MotionGuardRuleHelpers.IsJogMove(request))
+                {
+                    return false;
+                }
+
+                BaseAxis ownY = GetPickerY(request.Machine, isFront);
+                if (ownY == null)
+                    return false;
+
+                double tolerance = ResolveTolerance(ownY);
+                int direction;
+                if (request.TargetValue < ownY.ActualPosition - tolerance)
+                    direction = -1;
+                else if (request.TargetValue > ownY.ActualPosition + tolerance)
+                    direction = 1;
+                else
+                    return false;
+
+                if ((isFront && direction >= 0) ||
+                    (!isFront && direction <= 0))
+                {
+                    return false;
+                }
+
+                // 실제 수동 조그 UI가 발급받은 실행 scope만 예외로 인정한다.
+                // CanBegin은 HOME 미완료 UI 사전 확인용이며 MotionGuard 우회 권한이 아니다.
+                return MotionGuardRuntime.IsPickerYCollisionRecoveryJogActive(ownY, direction);
+            }
+            catch
+            {
+                return false;
+            }
         }
 
         // 인터락 기준: 위험 위치에서 Home(0) 또는 실제 Avoid 쪽으로 가까워지는 Y 이동은 복구 이동으로 허용한다.

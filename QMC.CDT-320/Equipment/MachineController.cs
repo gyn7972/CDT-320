@@ -2282,6 +2282,7 @@ namespace QMC.CDT320
             Log("[E-STOP] Emergency stop start...");
             try
             {
+                MotionGuardRuntime.CancelPickerYCollisionRecoveryJog(null);
                 SetMachineInitialized(false, "EmergencyStop", false);
                 _cycleCts?.Cancel();
                 int axTotal = 0, axFail = 0;
@@ -7361,6 +7362,7 @@ namespace QMC.CDT320
         {
             try
             {
+                MotionGuardRuntime.CancelPickerYCollisionRecoveryJog(null);
                 var axes = new List<string>();
                 foreach (var axis in EnumerateAxes())
                     axes.Add(axis.Name);

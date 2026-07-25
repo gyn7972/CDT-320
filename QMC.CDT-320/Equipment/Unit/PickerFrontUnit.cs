@@ -1408,6 +1408,26 @@ namespace QMC.CDT320
             if (!TryResolvePickerAxis(axis, out pickerAxis))
                 return -1;
 
+            // PickerY Step Jog는 Sim/Ajin 공통 Jog Guard를 확인한 뒤 Jog API로 실행한다.
+            // 충돌 복구 권한은 수동 Jog UI scope만 인정하며 PickerX SharedRail 경로는 기존대로 유지한다.
+            if (pickerAxis == PickerAxis.PickerY)
+            {
+                double target = axis.ActualPosition +
+                    ((direction < 0 ? -1.0 : 1.0) * Math.Abs(axisStepDistance));
+                string reason;
+                using (PickerZoneInterlockRules.BeginPickerZoneMove(side, pickerAxis, "StepJog"))
+                {
+                    if (!MotionGuardRuntime.VerifyAxisStepJog(axis, target, "StepJog", out reason))
+                        return -1;
+                }
+
+                return await axis.MoveJogStepAsync(
+                    direction,
+                    speedType,
+                    axisStepDistance,
+                    customSpeed).ConfigureAwait(false);
+            }
+
             // 조그 Step은 일반 위치 이동이 아니라 StepJog 전용 경로로 보내 완료 확인과 반복입력 처리를 분리한다.
             return await SharedRailXMotionRuntime.MoveJogStepAsync(
                 axis,
@@ -1466,9 +1486,6 @@ namespace QMC.CDT320
         private bool VerifyContinuousJogInterlock(PickerAxis axis, Direction direction, string targetName)
         {
             if (axis != PickerAxis.PickerY && !IsZAxis(axis))
-                return true;
-
-            if (axis == PickerAxis.PickerY && string.IsNullOrWhiteSpace(targetName))
                 return true;
 
             BaseAxis item = GetAxis(axis);

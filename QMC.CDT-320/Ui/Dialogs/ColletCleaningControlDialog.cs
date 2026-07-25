@@ -1,4 +1,5 @@
 using System;
+using System.Globalization;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
@@ -14,12 +15,73 @@ namespace QMC.CDT_320.Ui.Dialogs
 {
     /// <summary>
     /// 콜렛 클리닝 수동 제어 다이얼로그.
-    /// Recipe -> Calibration 화면에서 열며, 선택한 콜렛(Front/Rear x 4,3,2,1)을
+    /// Recipe -> Calibration 화면에서 열며, 선택한 콜렛(Front/Rear x C4~C1)을
     /// "전부 클린 -> 전부 검사 -> NG만 재시도" 순서로 실행한다.
-    /// 자동 실행 조건(웨이퍼 교체/공정 횟수/Auto 시작)도 이 화면에서 설정한다.
+    /// 자동 실행 조건(웨이퍼 교체 / 공정 횟수 / Auto 시작)도 이 화면에서 설정한다.
+    /// 화면 구성은 COLLET CALIBRATION 다이얼로그와 동일한 디자인 규격을 따른다.
     /// </summary>
     public partial class ColletCleaningControlDialog : Form
     {
+        private enum SettingKey
+        {
+            CleanVelocity,
+            CleanAcceleration,
+            CleanDeceleration,
+            ContactZUserOffset,
+            MaxExtraPressDepth,
+            ArriveDwellMs,
+            CleanPressCount,
+            RepeatLiftHeight,
+            MoveTimeoutMs,
+            DieHeight,
+            RimHeight,
+            FilmHeight,
+            MaxRetryCount,
+            AllowPlaceOnCleanedCell,
+            DisablePickerOnReplaceAlarm,
+            UseTriggerOnWaferExchange,
+            WaferExchangeInterval,
+            UseTriggerOnProcessCount,
+            ProcessCountInterval,
+            ProcessCountUnit,
+            UseTriggerOnAutoStart
+        }
+
+        private sealed class SettingInfo
+        {
+            public SettingKey Key;
+            public string Name;
+            public string Unit;
+            public bool Numeric;
+            public bool Integer;
+            public string[] Options;
+        }
+
+        private static readonly SettingInfo[] SettingRows =
+        {
+            new SettingInfo { Key = SettingKey.CleanVelocity,      Name = "Clean Z Speed",      Unit = "mm/s",  Numeric = true },
+            new SettingInfo { Key = SettingKey.CleanAcceleration,  Name = "Clean Z Acc",        Unit = "mm/s2", Numeric = true },
+            new SettingInfo { Key = SettingKey.CleanDeceleration,  Name = "Clean Z Dec",        Unit = "mm/s2", Numeric = true },
+            new SettingInfo { Key = SettingKey.ContactZUserOffset, Name = "Contact Z Offset",   Unit = "mm",    Numeric = true },
+            new SettingInfo { Key = SettingKey.MaxExtraPressDepth, Name = "Max Extra Press",    Unit = "mm",    Numeric = true },
+            new SettingInfo { Key = SettingKey.ArriveDwellMs,      Name = "Arrive Dwell",       Unit = "ms",    Numeric = true, Integer = true },
+            new SettingInfo { Key = SettingKey.CleanPressCount,    Name = "Press Count",        Unit = "ea",    Numeric = true, Integer = true },
+            new SettingInfo { Key = SettingKey.RepeatLiftHeight,   Name = "Repeat Lift Height", Unit = "mm",    Numeric = true },
+            new SettingInfo { Key = SettingKey.MoveTimeoutMs,      Name = "Move Timeout",       Unit = "ms",    Numeric = true, Integer = true },
+            new SettingInfo { Key = SettingKey.DieHeight,          Name = "Die Height",         Unit = "mm",    Numeric = true },
+            new SettingInfo { Key = SettingKey.RimHeight,          Name = "Rim Height",         Unit = "mm",    Numeric = true },
+            new SettingInfo { Key = SettingKey.FilmHeight,         Name = "Film Height",        Unit = "mm",    Numeric = true },
+            new SettingInfo { Key = SettingKey.MaxRetryCount,      Name = "Retry On NG",        Unit = "ea",    Numeric = true, Integer = true },
+            new SettingInfo { Key = SettingKey.AllowPlaceOnCleanedCell,     Name = "Place On Cleaned Cell", Unit = "", Options = new[] { "True", "False" } },
+            new SettingInfo { Key = SettingKey.DisablePickerOnReplaceAlarm, Name = "Disable On Replace",    Unit = "", Options = new[] { "True", "False" } },
+            new SettingInfo { Key = SettingKey.UseTriggerOnWaferExchange,   Name = "Trig Wafer Exchange",   Unit = "", Options = new[] { "True", "False" } },
+            new SettingInfo { Key = SettingKey.WaferExchangeInterval,       Name = "  Exchange Interval",   Unit = "ea", Numeric = true, Integer = true },
+            new SettingInfo { Key = SettingKey.UseTriggerOnProcessCount,    Name = "Trig Process Count",    Unit = "", Options = new[] { "True", "False" } },
+            new SettingInfo { Key = SettingKey.ProcessCountInterval,        Name = "  Process Interval",    Unit = "ea", Numeric = true, Integer = true },
+            new SettingInfo { Key = SettingKey.ProcessCountUnit,            Name = "  Process Unit",        Unit = "", Options = new[] { "Die", "Wafer" } },
+            new SettingInfo { Key = SettingKey.UseTriggerOnAutoStart,       Name = "Trig Auto Start",       Unit = "", Options = new[] { "True", "False" } }
+        };
+
         private ColletCleaningSettings _settings = new ColletCleaningSettings();
         private CancellationTokenSource _runCts;
         private Action _activeStopRequest;
@@ -29,6 +91,7 @@ namespace QMC.CDT_320.Ui.Dialogs
         public ColletCleaningControlDialog()
         {
             InitializeComponent();
+            BuildSettingRows();
             WireEvents();
             LoadSettingsToUi();
             RefreshHistory();
@@ -50,6 +113,16 @@ namespace QMC.CDT_320.Ui.Dialogs
             btnClose.Click += delegate { Close(); };
             btnStart.Click += async delegate { await StartCleaningAsync().ConfigureAwait(true); };
             btnStop.Click += delegate { RequestActiveStop("StopButton"); };
+
+            chkTargetAll.CheckedChanged += delegate
+            {
+                if (!_suppressUiEvents)
+                    SetAllTargets(chkTargetAll.Checked);
+            };
+
+            gridSettings.CellValueChanged += gridSettings_CellValueChanged;
+            gridSettings.CurrentCellDirtyStateChanged += gridSettings_CurrentCellDirtyStateChanged;
+
             FormClosing += ColletCleaningControlDialog_FormClosing;
         }
 
@@ -58,7 +131,175 @@ namespace QMC.CDT_320.Ui.Dialogs
             if (_busy)
             {
                 e.Cancel = true;
-                AppendLog("실행 중에는 창을 닫을 수 없습니다. 먼저 STOP으로 정지하세요.");
+                AppendLog("실행 중에는 창을 닫을 수 없습니다. 먼저 SEQ STOP으로 정지하세요.");
+            }
+        }
+
+        // ---------------------------------------------------------------- SETTING 그리드
+
+        private void BuildSettingRows()
+        {
+            gridSettings.Rows.Clear();
+            foreach (SettingInfo info in SettingRows)
+            {
+                int index = gridSettings.Rows.Add();
+                DataGridViewRow row = gridSettings.Rows[index];
+                row.Tag = info;
+                row.Cells[0].Value = info.Name;
+                row.Cells[2].Value = info.Unit;
+
+                if (info.Options != null)
+                {
+                    var combo = new DataGridViewComboBoxCell();
+                    combo.Items.AddRange(info.Options);
+                    combo.FlatStyle = FlatStyle.Flat;
+                    row.Cells[1] = combo;
+                }
+            }
+        }
+
+        private void gridSettings_CurrentCellDirtyStateChanged(object sender, EventArgs e)
+        {
+            if (gridSettings.IsCurrentCellDirty)
+                gridSettings.CommitEdit(DataGridViewDataErrorContexts.Commit);
+        }
+
+        private void gridSettings_CellValueChanged(object sender, DataGridViewCellEventArgs e)
+        {
+            if (_suppressUiEvents || e.RowIndex < 0 || e.ColumnIndex != 1)
+                return;
+
+            DataGridViewRow row = gridSettings.Rows[e.RowIndex];
+            var info = row.Tag as SettingInfo;
+            if (info == null || !info.Numeric)
+                return;
+
+            // 숫자 셀은 입력 즉시 파싱 가능 여부만 확인하고, 잘못된 값이면 이전 값으로 되돌린다.
+            string text = Convert.ToString(row.Cells[1].Value);
+            double parsed;
+            if (!double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out parsed))
+            {
+                _suppressUiEvents = true;
+                try
+                {
+                    row.Cells[1].Value = FormatSettingValue(info, ReadSettingValue(info));
+                }
+                finally
+                {
+                    _suppressUiEvents = false;
+                }
+
+                lblStatus.Text = info.Name + " 값이 숫자가 아니어서 이전 값으로 되돌렸습니다.";
+            }
+        }
+
+        private double ReadSettingValue(SettingInfo info)
+        {
+            switch (info.Key)
+            {
+                case SettingKey.CleanVelocity: return _settings.CleanVelocity;
+                case SettingKey.CleanAcceleration: return _settings.CleanAcceleration;
+                case SettingKey.CleanDeceleration: return _settings.CleanDeceleration;
+                case SettingKey.ContactZUserOffset: return _settings.ContactZUserOffset;
+                case SettingKey.MaxExtraPressDepth: return _settings.MaxExtraPressDepth;
+                case SettingKey.ArriveDwellMs: return _settings.ArriveDwellMs;
+                case SettingKey.CleanPressCount: return _settings.CleanPressCount;
+                case SettingKey.RepeatLiftHeight: return _settings.RepeatLiftHeight;
+                case SettingKey.MoveTimeoutMs: return _settings.MoveTimeoutMs;
+                case SettingKey.DieHeight: return _settings.DieHeight;
+                case SettingKey.RimHeight: return _settings.RimHeight;
+                case SettingKey.FilmHeight: return _settings.FilmHeight;
+                case SettingKey.MaxRetryCount: return _settings.MaxRetryCount;
+                case SettingKey.WaferExchangeInterval: return _settings.WaferExchangeInterval;
+                case SettingKey.ProcessCountInterval: return _settings.ProcessCountInterval;
+                default: return 0.0;
+            }
+        }
+
+        private string ReadSettingOption(SettingInfo info)
+        {
+            switch (info.Key)
+            {
+                case SettingKey.AllowPlaceOnCleanedCell: return _settings.AllowPlaceOnCleanedCell ? "True" : "False";
+                case SettingKey.DisablePickerOnReplaceAlarm: return _settings.DisablePickerOnReplaceAlarm ? "True" : "False";
+                case SettingKey.UseTriggerOnWaferExchange: return _settings.UseTriggerOnWaferExchange ? "True" : "False";
+                case SettingKey.UseTriggerOnProcessCount: return _settings.UseTriggerOnProcessCount ? "True" : "False";
+                case SettingKey.UseTriggerOnAutoStart: return _settings.UseTriggerOnAutoStart ? "True" : "False";
+                case SettingKey.ProcessCountUnit:
+                    return _settings.ProcessCountUnit == ColletCleaningProcessCountUnit.Wafer ? "Wafer" : "Die";
+                default: return string.Empty;
+            }
+        }
+
+        private static string FormatSettingValue(SettingInfo info, double value)
+        {
+            return info.Integer
+                ? ((int)Math.Round(value)).ToString(CultureInfo.InvariantCulture)
+                : value.ToString("0.####", CultureInfo.InvariantCulture);
+        }
+
+        private static void ApplySettingFromRow(
+            ColletCleaningSettings target,
+            SettingInfo info,
+            DataGridViewRow row)
+        {
+            string text = Convert.ToString(row.Cells[1].Value);
+
+            if (info.Options != null)
+            {
+                bool flag = string.Equals(text, "True", StringComparison.OrdinalIgnoreCase);
+                switch (info.Key)
+                {
+                    case SettingKey.AllowPlaceOnCleanedCell: target.AllowPlaceOnCleanedCell = flag; break;
+                    case SettingKey.DisablePickerOnReplaceAlarm: target.DisablePickerOnReplaceAlarm = flag; break;
+                    case SettingKey.UseTriggerOnWaferExchange: target.UseTriggerOnWaferExchange = flag; break;
+                    case SettingKey.UseTriggerOnProcessCount: target.UseTriggerOnProcessCount = flag; break;
+                    case SettingKey.UseTriggerOnAutoStart: target.UseTriggerOnAutoStart = flag; break;
+                    case SettingKey.ProcessCountUnit:
+                        target.ProcessCountUnit = string.Equals(text, "Wafer", StringComparison.OrdinalIgnoreCase)
+                            ? ColletCleaningProcessCountUnit.Wafer
+                            : ColletCleaningProcessCountUnit.Die;
+                        break;
+                }
+
+                return;
+            }
+
+            double value;
+            if (!double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out value))
+                return;
+
+            switch (info.Key)
+            {
+                case SettingKey.CleanVelocity: target.CleanVelocity = value; break;
+                case SettingKey.CleanAcceleration: target.CleanAcceleration = value; break;
+                case SettingKey.CleanDeceleration: target.CleanDeceleration = value; break;
+                case SettingKey.ContactZUserOffset: target.ContactZUserOffset = value; break;
+                case SettingKey.MaxExtraPressDepth: target.MaxExtraPressDepth = value; break;
+                case SettingKey.ArriveDwellMs: target.ArriveDwellMs = (int)Math.Round(value); break;
+                case SettingKey.CleanPressCount: target.CleanPressCount = (int)Math.Round(value); break;
+                case SettingKey.RepeatLiftHeight: target.RepeatLiftHeight = value; break;
+                case SettingKey.MoveTimeoutMs: target.MoveTimeoutMs = (int)Math.Round(value); break;
+                case SettingKey.DieHeight: target.DieHeight = value; break;
+                case SettingKey.RimHeight: target.RimHeight = value; break;
+                case SettingKey.FilmHeight: target.FilmHeight = value; break;
+                case SettingKey.MaxRetryCount: target.MaxRetryCount = (int)Math.Round(value); break;
+                case SettingKey.WaferExchangeInterval: target.WaferExchangeInterval = (int)Math.Round(value); break;
+                case SettingKey.ProcessCountInterval: target.ProcessCountInterval = (int)Math.Round(value); break;
+            }
+        }
+
+        // ---------------------------------------------------------------- 대상 선택
+
+        private CheckBox[] TargetChecks
+        {
+            get
+            {
+                return new[]
+                {
+                    chkFront4, chkFront3, chkFront2, chkFront1,
+                    chkRear4, chkRear3, chkRear2, chkRear1
+                };
             }
         }
 
@@ -67,19 +308,25 @@ namespace QMC.CDT_320.Ui.Dialogs
             _suppressUiEvents = true;
             try
             {
-                chkFront4.Checked = selected;
-                chkFront3.Checked = selected;
-                chkFront2.Checked = selected;
-                chkFront1.Checked = selected;
-                chkRear4.Checked = selected;
-                chkRear3.Checked = selected;
-                chkRear2.Checked = selected;
-                chkRear1.Checked = selected;
+                foreach (CheckBox box in TargetChecks)
+                    box.Checked = selected;
+                chkTargetAll.Checked = selected;
             }
             finally
             {
                 _suppressUiEvents = false;
             }
+        }
+
+        private bool AreAllTargetsChecked()
+        {
+            foreach (CheckBox box in TargetChecks)
+            {
+                if (!box.Checked)
+                    return false;
+            }
+
+            return true;
         }
 
         // ---------------------------------------------------------------- 설정 로드/저장
@@ -103,42 +350,30 @@ namespace QMC.CDT_320.Ui.Dialogs
                     chkRear3.Checked = _settings.IsColletSelected(VisionFocusPickerSide.Rear, 3);
                     chkRear2.Checked = _settings.IsColletSelected(VisionFocusPickerSide.Rear, 2);
                     chkRear1.Checked = _settings.IsColletSelected(VisionFocusPickerSide.Rear, 1);
+                    chkTargetAll.Checked = AreAllTargetsChecked();
 
-                    SetNumeric(numCleanVelocity, _settings.CleanVelocity);
-                    SetNumeric(numCleanAcceleration, _settings.CleanAcceleration);
-                    SetNumeric(numCleanDeceleration, _settings.CleanDeceleration);
-                    SetNumeric(numContactZUserOffset, _settings.ContactZUserOffset);
-                    SetNumeric(numMaxExtraPressDepth, _settings.MaxExtraPressDepth);
-                    SetNumeric(numArriveDwellMs, _settings.ArriveDwellMs);
-                    SetNumeric(numCleanPressCount, _settings.CleanPressCount);
-                    SetNumeric(numRepeatLiftHeight, _settings.RepeatLiftHeight);
+                    foreach (DataGridViewRow row in gridSettings.Rows)
+                    {
+                        var info = row.Tag as SettingInfo;
+                        if (info == null)
+                            continue;
 
-                    SetNumeric(numDieHeight, _settings.DieHeight);
-                    SetNumeric(numRimHeight, _settings.RimHeight);
-                    SetNumeric(numFilmHeight, _settings.FilmHeight);
-                    SetNumeric(numMaxRetryCount, _settings.MaxRetryCount);
-                    chkAllowPlaceOnCleanedCell.Checked = _settings.AllowPlaceOnCleanedCell;
-                    chkDisablePickerOnReplaceAlarm.Checked = _settings.DisablePickerOnReplaceAlarm;
-
-                    chkUseTriggerOnWaferExchange.Checked = _settings.UseTriggerOnWaferExchange;
-                    SetNumeric(numWaferExchangeInterval, _settings.WaferExchangeInterval);
-                    chkUseTriggerOnProcessCount.Checked = _settings.UseTriggerOnProcessCount;
-                    SetNumeric(numProcessCountInterval, _settings.ProcessCountInterval);
-                    cmbProcessCountUnit.SelectedIndex =
-                        _settings.ProcessCountUnit == ColletCleaningProcessCountUnit.Wafer ? 1 : 0;
-                    chkUseTriggerOnAutoStart.Checked = _settings.UseTriggerOnAutoStart;
+                        row.Cells[1].Value = info.Options != null
+                            ? ReadSettingOption(info)
+                            : FormatSettingValue(info, ReadSettingValue(info));
+                    }
                 }
                 finally
                 {
                     _suppressUiEvents = false;
                 }
 
-                lblStatus.Text = "설정을 불러왔습니다.";
+                lblStatus.Text = "대기 중입니다. 대상 콜렛과 클리닝 조건을 확인한 뒤 START를 실행하세요.";
             }
             catch (Exception ex)
             {
                 lblStatus.Text = "설정 불러오기에 실패했습니다. " + ex.Message;
-                AppendLog("설정 불러오기 실패: " + ex.Message);
+                AppendLog(lblStatus.Text);
             }
             finally
             {
@@ -188,7 +423,7 @@ namespace QMC.CDT_320.Ui.Dialogs
 
         private ColletCleaningSettings BuildSettingsFromUi()
         {
-            var settings = _settings != null ? _settings.Clone() : new ColletCleaningSettings();
+            ColletCleaningSettings settings = _settings != null ? _settings.Clone() : new ColletCleaningSettings();
 
             settings.SetColletSelected(VisionFocusPickerSide.Front, 4, chkFront4.Checked);
             settings.SetColletSelected(VisionFocusPickerSide.Front, 3, chkFront3.Checked);
@@ -199,49 +434,17 @@ namespace QMC.CDT_320.Ui.Dialogs
             settings.SetColletSelected(VisionFocusPickerSide.Rear, 2, chkRear2.Checked);
             settings.SetColletSelected(VisionFocusPickerSide.Rear, 1, chkRear1.Checked);
 
-            settings.CleanVelocity = (double)numCleanVelocity.Value;
-            settings.CleanAcceleration = (double)numCleanAcceleration.Value;
-            settings.CleanDeceleration = (double)numCleanDeceleration.Value;
-            settings.ContactZUserOffset = (double)numContactZUserOffset.Value;
-            settings.MaxExtraPressDepth = (double)numMaxExtraPressDepth.Value;
-            settings.ArriveDwellMs = (int)numArriveDwellMs.Value;
-            settings.CleanPressCount = (int)numCleanPressCount.Value;
-            settings.RepeatLiftHeight = (double)numRepeatLiftHeight.Value;
+            foreach (DataGridViewRow row in gridSettings.Rows)
+            {
+                var info = row.Tag as SettingInfo;
+                if (info == null)
+                    continue;
 
-            settings.DieHeight = (double)numDieHeight.Value;
-            settings.RimHeight = (double)numRimHeight.Value;
-            settings.FilmHeight = (double)numFilmHeight.Value;
-            settings.MaxRetryCount = (int)numMaxRetryCount.Value;
-            settings.AllowPlaceOnCleanedCell = chkAllowPlaceOnCleanedCell.Checked;
-            settings.DisablePickerOnReplaceAlarm = chkDisablePickerOnReplaceAlarm.Checked;
-
-            settings.UseTriggerOnWaferExchange = chkUseTriggerOnWaferExchange.Checked;
-            settings.WaferExchangeInterval = (int)numWaferExchangeInterval.Value;
-            settings.UseTriggerOnProcessCount = chkUseTriggerOnProcessCount.Checked;
-            settings.ProcessCountInterval = (int)numProcessCountInterval.Value;
-            settings.ProcessCountUnit = cmbProcessCountUnit.SelectedIndex == 1
-                ? ColletCleaningProcessCountUnit.Wafer
-                : ColletCleaningProcessCountUnit.Die;
-            settings.UseTriggerOnAutoStart = chkUseTriggerOnAutoStart.Checked;
+                ApplySettingFromRow(settings, info, row);
+            }
 
             settings.EnsureObjects();
             return settings;
-        }
-
-        private static void SetNumeric(NumericUpDown control, double value)
-        {
-            if (control == null)
-                return;
-
-            decimal current = (decimal)value;
-            if (current < control.Minimum) current = control.Minimum;
-            if (current > control.Maximum) current = control.Maximum;
-            control.Value = current;
-        }
-
-        private static void SetNumeric(NumericUpDown control, int value)
-        {
-            SetNumeric(control, (double)value);
         }
 
         // ---------------------------------------------------------------- 실행
@@ -305,7 +508,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                 sequence.ProgressChanged += OnProgressChanged;
 
                 int result;
-                using (MotionGuardRuntime.BeginManualSequenceProcessMove("ColletCleaningControlDialog.Start"))
+                using (MotionGuardRuntime.BeginManualSequenceProcessMove("ColletCleaningDialog.Start"))
                 {
                     result = await sequence.RunAsync(runCts.Token).ConfigureAwait(true);
                 }
@@ -487,11 +690,11 @@ namespace QMC.CDT_320.Ui.Dialogs
 
         private void SetControlsEnabled(bool enabled)
         {
-            grpTarget.Enabled = enabled;
-            grpMotion.Enabled = enabled;
-            grpHeight.Enabled = enabled;
-            grpTrigger.Enabled = enabled;
+            targetGroup.Enabled = enabled;
+            gridSettings.Enabled = enabled;
             btnStart.Enabled = enabled;
+            btnSelectAll.Enabled = enabled;
+            btnSelectNone.Enabled = enabled;
             btnSave.Enabled = enabled;
             btnReload.Enabled = enabled;
             btnClose.Enabled = enabled;
@@ -506,17 +709,9 @@ namespace QMC.CDT_320.Ui.Dialogs
                 CalibrationData data = CalibrationDataStore.LoadOrCreate();
                 data.EnsureObjects();
 
-                lstHistory.BeginUpdate();
-                try
-                {
-                    lstHistory.Items.Clear();
-                    AppendHistoryRows(data, VisionFocusPickerSide.Front);
-                    AppendHistoryRows(data, VisionFocusPickerSide.Rear);
-                }
-                finally
-                {
-                    lstHistory.EndUpdate();
-                }
+                gridHistory.Rows.Clear();
+                AppendHistoryRows(data, VisionFocusPickerSide.Front);
+                AppendHistoryRows(data, VisionFocusPickerSide.Rear);
             }
             catch (Exception ex)
             {
@@ -532,14 +727,15 @@ namespace QMC.CDT_320.Ui.Dialogs
             for (int colletNo = 4; colletNo >= 1; colletNo--)
             {
                 ColletCleaningHistoryRecord record = data.ColletCleaningHistory.Get(side, colletNo);
-                var item = new ListViewItem(side.ToString());
-                item.SubItems.Add(colletNo.ToString());
-                item.SubItems.Add(record != null && record.HasHistory
-                    ? record.LastCleanedAt.ToString("yyyy-MM-dd HH:mm:ss")
-                    : "-");
-                item.SubItems.Add(record != null ? record.TotalCleanCount.ToString() : "0");
-                item.SubItems.Add(record != null ? record.LastResult.ToString() : "None");
-                lstHistory.Items.Add(item);
+                gridHistory.Rows.Add(
+                    side.ToString(),
+                    colletNo.ToString(),
+                    record != null && record.HasHistory
+                        ? record.LastCleanedAt.ToString("yyyy-MM-dd HH:mm:ss")
+                        : "-",
+                    record != null ? record.TotalCleanCount.ToString() : "0",
+                    record != null ? record.LastRetryUsed.ToString() : "0",
+                    record != null ? record.LastResult.ToString() : "None");
             }
         }
 
@@ -554,10 +750,10 @@ namespace QMC.CDT_320.Ui.Dialogs
                 return;
             }
 
-            lstLog.Items.Add(DateTime.Now.ToString("HH:mm:ss") + "  " + message);
-            if (lstLog.Items.Count > 500)
-                lstLog.Items.RemoveAt(0);
-            lstLog.TopIndex = lstLog.Items.Count - 1;
+            lstRunLog.Items.Add(DateTime.Now.ToString("HH:mm:ss") + "  " + message);
+            if (lstRunLog.Items.Count > 500)
+                lstRunLog.Items.RemoveAt(0);
+            lstRunLog.TopIndex = lstRunLog.Items.Count - 1;
         }
     }
 }

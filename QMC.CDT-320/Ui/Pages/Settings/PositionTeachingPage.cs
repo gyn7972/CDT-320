@@ -311,17 +311,51 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             if (_jogCurrentAxis == null) return;
             if (!TryParseDisplayDouble(_jogSpeedBox.Text, out double speed) || speed <= 0) speed = 100;
             if (!TryParseDisplayDouble(_jogStepBox.Text, out double step) || step <= 0) step = 1.0;
+            IDisposable pickerYCollisionRecoveryScope = null;
             try
             {
+                if (MotionGuardRuntime.CanBeginPickerYCollisionRecoveryJog(
+                    _jogCurrentAxis,
+                    sign))
+                {
+                    pickerYCollisionRecoveryScope =
+                        MotionGuardRuntime.BeginPickerYCollisionRecoveryJog(
+                            _jogCurrentAxis,
+                            sign);
+                    if (pickerYCollisionRecoveryScope == null)
+                    {
+                        throw new InvalidOperationException(
+                            _jogCurrentAxis.Name +
+                            " 충돌 복구 Jog 권한을 확보하지 못했습니다.");
+                    }
+                }
+
                 if (!_jogCurrentAxis.IsServoOn) _jogCurrentAxis.ServoOn();
                 double nativeStep = AxisUnitConverter.FromDisplay(step, _jogCurrentAxis);
                 double nativeSpeed = AxisUnitConverter.FromDisplay(speed, _jogCurrentAxis);
-                await _jogCurrentAxis.MoveJogStepAsync(sign, JogSpeedType.Custom, nativeStep, nativeSpeed);
+                int result = await _jogCurrentAxis.MoveJogStepAsync(
+                    sign,
+                    JogSpeedType.Custom,
+                    nativeStep,
+                    nativeSpeed);
+                if (result != 0)
+                    throw new InvalidOperationException("Jog step returned " + result);
             }
             catch (Exception ex)
             {
+                if (pickerYCollisionRecoveryScope != null)
+                {
+                    MotionGuardRuntime.CancelPickerYCollisionRecoveryJog(
+                        _jogCurrentAxis);
+                    try { _jogCurrentAxis.EStop(); } catch { }
+                }
                 QMC.Common.MessageDialog.Show("Jog 실패: " + ex.Message, "Jog",
                                 MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
+            finally
+            {
+                if (pickerYCollisionRecoveryScope != null)
+                    pickerYCollisionRecoveryScope.Dispose();
             }
         }
 
