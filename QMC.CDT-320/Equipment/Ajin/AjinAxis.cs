@@ -176,7 +176,7 @@ namespace QMC.CDT320.Ajin
                         return 0;
                     }
 
-                    await Task.Delay(10, cancellationToken).ConfigureAwait(false);
+                    await Task.Delay(0, cancellationToken).ConfigureAwait(false);
                 }
 
                 return FailMotion(-3, "INITIALIZE LIMIT SEARCH", "Hardware limit search timeout.", 0.0, false);
@@ -3011,7 +3011,7 @@ namespace QMC.CDT320.Ajin
                         return FailMotion(-3, "MOVE JOIN",
                             "이동 합류 대기 timeout. timeoutMs=" + timeoutMs, target, true);
 
-                    await Task.Delay(10, ct).ConfigureAwait(false);
+                    await Task.Delay(0, ct).ConfigureAwait(false);
                 }
 
                 UpdateStatus();
@@ -3072,7 +3072,7 @@ namespace QMC.CDT320.Ajin
                 if (Volatile.Read(ref _motionStopSerial) != motionStopSerial && !inMotion)
                     return -4;
 
-                await Task.Delay(10).ConfigureAwait(false);
+                await Task.Delay(0).ConfigureAwait(false);
                 if (++guard > 6000)
                 {
                     AlarmManager.Raise(
