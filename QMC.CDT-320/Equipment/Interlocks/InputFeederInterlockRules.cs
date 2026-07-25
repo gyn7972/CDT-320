@@ -9,6 +9,33 @@ namespace QMC.CDT320.Interlocks
     public static class InputFeederInterlockRules
     {
         private const double PositionTolerance = 0.05;
+        private const double StageTZeroTolerance = 0.1;
+
+        // 수동 Jog 화면의 HOME END 선행 게이트에서 사용할 읽기 전용 판정이다.
+        // 실제 이동 허용 여부는 이후 MotionGuard 전체 조건에서 다시 확인한다.
+        internal static bool CanBeginStageTCollisionRecoveryJog(BaseAxis axis, int direction)
+        {
+            if (axis == null || direction == 0)
+                return false;
+
+            MotionGuardContext context = MotionGuardRuntime.ContextProvider != null
+                ? MotionGuardRuntime.ContextProvider()
+                : null;
+            CDT320_Machine machine = context != null ? context.Machine : null;
+            InputFeederUnit feeder = machine != null ? machine.InputFeederUnit : null;
+            InputStageUnit stage = machine != null ? machine.InputStageUnit : null;
+            if (feeder == null || stage == null || stage.StageT == null ||
+                feeder.FeederY == null ||
+                !ReferenceEquals(axis, feeder.FeederY))
+            {
+                return false;
+            }
+
+            if (Math.Abs(stage.StageT.ActualPosition) <= StageTZeroTolerance)
+                return false;
+
+            return direction < 0;
+        }
 
         // 인터락 항목: InputFeederY/Lift/Clamp 이동 요청을 각 Feeder 인터락으로 라우팅한다.
         public static bool Verify(MotionGuardRuleContext request, out string reason)
@@ -84,7 +111,9 @@ namespace QMC.CDT320.Interlocks
 
             //Todo: Feeder 가 안전 위치고 클램프가 업상태이면 PASS
 
-            if(feeder.IsWaferFeederAvoidPositionCheck() == false)
+            bool feederAvoidDogOn = feeder.IsWaferFeederAvoidPositionCheck();
+
+            if (!feederAvoidDogOn)
             {
                 if (!IsInputVisionXInAvoidPosition(stage) && cameraX.ActualPosition > 0.0)
                     return MotionGuardRuleHelpers.Block(
@@ -93,16 +122,26 @@ namespace QMC.CDT320.Interlocks
                         "cameraActual=" + cameraX.ActualPosition.ToString("0.###"),
                         out reason);
 
-                if (request.MoveKind == MotionGuardMoveKind.AxisMove ||
-                    request.MoveKind == MotionGuardMoveKind.AxisHome)
+            }
+
+            if (request.MoveKind == MotionGuardMoveKind.AxisMove ||
+                (request.MoveKind == MotionGuardMoveKind.AxisHome && !feederAvoidDogOn))
+            {
+                BaseAxis stageT = stage.StageT;
+                if (stageT == null || Math.Abs(stageT.ActualPosition) > StageTZeroTolerance)
                 {
-                    BaseAxis stageT = stage.StageT;
-                    if (stageT == null || stageT.ActualPosition < -0.1 || stageT.ActualPosition > 0.1)
+                    bool recoveryJog = stageT != null &&
+                        MotionGuardRuleHelpers.IsJogMove(request) &&
+                        request.TargetValue < feeder.FeederY.ActualPosition;
+                    if (!recoveryJog)
                     {
                         return MotionGuardRuleHelpers.Block(
                             "InputFeederY",
                             "InputFeederY Manual/HOME 이동 불가: InputStageT 실제 위치가 -0.1~+0.1 범위여야 합니다. " +
-                            "stageT=" + (stageT != null ? stageT.ActualPosition.ToString("0.###") : "missing"),
+                            "수동 복구 Jog는 InputFeederY -방향만 허용됩니다. " +
+                            "stageT=" + (stageT != null ? stageT.ActualPosition.ToString("0.###") : "missing") +
+                            ", feederActual=" + feeder.FeederY.ActualPosition.ToString("0.###") +
+                            ", target=" + request.TargetValue.ToString("0.###"),
                             out reason);
                     }
                 }

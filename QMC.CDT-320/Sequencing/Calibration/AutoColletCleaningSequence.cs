@@ -120,7 +120,9 @@ namespace QMC.CDT320.Sequencing.Calibration
                         side + " 콜렛 클리닝을 완료했습니다.");
                 }
 
-                SkippedNoBin = anySkipped && _allItems.Count == 0;
+                // Side 중 하나라도 NG Bin 부재로 건너뛰었으면 "완료"가 아니라 "스킵"으로 보고한다.
+                // (기존 조건은 _allItems.Count == 0까지 요구해서, 대상 목록만 만들어진 경우 완료로 잘못 표시됐다.)
+                SkippedNoBin = anySkipped;
                 SaveHistory();
 
                 QMC.Common.Log.Write("Calibration", "SYSTEM", "ColletCleaningRun",
@@ -170,10 +172,17 @@ namespace QMC.CDT320.Sequencing.Calibration
         {
             try
             {
-                if (_allItems.Count == 0)
+                // 실제로 클리닝을 수행하지 않았으면 이력을 남기지 않는다(스킵을 실행 이력으로 오인하지 않도록).
+                if (_allItems.Count == 0 || SkippedNoBin)
                     return;
 
-                CalibrationData data = CalibrationDataStore.LoadOrCreate();
+                // 앱이 사용 중인 라이브 CalibrationData에 이력만 갱신한다.
+                // LoadOrCreate로 디스크에서 별도 인스턴스를 읽어 저장하면
+                // 다이얼로그가 방금 저장한 설정을 통째로 덮어써 기본값으로 되돌린다.
+                CalibrationData data = CalibrationCoordinateService.ResolveData(
+                    _context != null ? _context.Machine : null);
+                if (data == null)
+                    data = CalibrationDataStore.LoadOrCreate();
                 if (data == null)
                     return;
 

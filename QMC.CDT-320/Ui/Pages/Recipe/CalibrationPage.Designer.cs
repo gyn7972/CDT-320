@@ -189,20 +189,18 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.buttonLayout.Controls.Add(this.btnPickUpZCal, 0, 2);
             this.buttonLayout.Controls.Add(this.btnPlaceZCal, 1, 2);
             this.buttonLayout.Controls.Add(this.btnNeedleZCal, 2, 2);
+            // 3 x 3 격자 유지: AUTO CALIBRATION / COLLET CLEANING을 4행에 한 칸씩 배치한다(전체 폭 사용 안 함).
             this.buttonLayout.Controls.Add(this.btnAutoCalibration, 0, 3);
-            this.buttonLayout.SetColumnSpan(this.btnAutoCalibration, 3);
-            this.buttonLayout.Controls.Add(this.btnColletCleaning, 0, 4);
-            this.buttonLayout.SetColumnSpan(this.btnColletCleaning, 3);
+            this.buttonLayout.Controls.Add(this.btnColletCleaning, 1, 3);
             this.buttonLayout.Dock = System.Windows.Forms.DockStyle.Fill;
             this.buttonLayout.Location = new System.Drawing.Point(6, 20);
             this.buttonLayout.Margin = new System.Windows.Forms.Padding(0);
             this.buttonLayout.Name = "buttonLayout";
-            this.buttonLayout.RowCount = 5;
-            this.buttonLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 20F));
-            this.buttonLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 20F));
-            this.buttonLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 20F));
-            this.buttonLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 20F));
-            this.buttonLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 20F));
+            this.buttonLayout.RowCount = 4;
+            this.buttonLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 25F));
+            this.buttonLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 25F));
+            this.buttonLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 25F));
+            this.buttonLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 25F));
             this.buttonLayout.Size = new System.Drawing.Size(1664, 438);
             this.buttonLayout.TabIndex = 1;
             // 

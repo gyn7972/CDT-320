@@ -29,8 +29,6 @@ namespace QMC.CDT_320.Ui.Pages.Work
         private MaterialDisplaySnapshot _materialDisplayCache = new MaterialDisplaySnapshot();
         private DateTime _lastMaterialDisplayRefreshUtc = DateTime.MinValue;
         private int _materialDisplayRefreshQueued;
-        private string _fallbackProjectName;
-        private bool _fallbackProjectNameLoaded;
         private readonly Label[] _frontColletUseValues = new Label[4];
         private readonly Label[] _rearColletUseValues = new Label[4];
         private readonly List<VisionViewerSource> _visionSources = new List<VisionViewerSource>();
@@ -723,16 +721,14 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 "\r\nPICK : " + material.PickedCount;
             snap.Live = ctrl == null ? "Idle" : "Live  [" + ctrl.Status + "]";
 
-            string project = "--";
-            try { project = host?.Machine?.Recipe?.ProductId ?? "--"; } catch { }
-            if (lot != null && !string.IsNullOrEmpty(lot.RecipeName))
-            {
-                project = lot.RecipeName;
-            }
-            else
-            {
-                project = ResolveFallbackProjectName();
-            }
+            // 기존 조건: 활성 Lot이 없으면 ResolveFallbackProjectName()이 "레시피 목록의 첫 번째 파일"을 표시해
+            //           현재 사용 중인 레시피와 무관한 이름(예: 7_7_Test)이 나왔다.
+            //           (생산 LotId와 저장된 Lot의 LotID가 다르면 위에서 lot=null이 되므로 fallback으로 자주 빠진다.)
+            // 현재 기준: 상단 상태바 Project Name과 항상 같은 값을 표시한다(사용자 확정 2026-07-26).
+            //           ① 활성 Lot의 RecipeName -> ② 상단바와 동일한 ActiveRecipeName -> ③ Recipe.ProductId -> ④ "--"
+            string project = lot != null && !string.IsNullOrWhiteSpace(lot.RecipeName)
+                ? lot.RecipeName
+                : ResolveActiveProjectName(host);
 
             snap.Project = project;
             snap.PickFail = (ctrl?.PickFailCount ?? 0) + " ea";
@@ -791,26 +787,39 @@ namespace QMC.CDT_320.Ui.Pages.Work
             return snap;
         }
 
-        private string ResolveFallbackProjectName()
+        /// <summary>
+        /// 작업 정보 화면의 프로젝트 이름을 현재 사용 중인 레시피로 해석한다.
+        /// 상단 상태바(Form1.RefreshProjectName -> lblProjectValue)와 동일한 ActiveRecipeName을 우선 사용해
+        /// 두 화면의 표시가 항상 일치하게 한다.
+        /// </summary>
+        private static string ResolveActiveProjectName(Form1 host)
         {
-            if (_fallbackProjectNameLoaded)
-                return string.IsNullOrEmpty(_fallbackProjectName) ? "--" : _fallbackProjectName;
-
             try
             {
-                _fallbackProjectNameLoaded = true;
-                _fallbackProjectName = "--";
+                if (host != null)
+                {
+                    if (!string.IsNullOrWhiteSpace(host.ActiveRecipeName))
+                        return host.ActiveRecipeName;
 
-                var list = RecipeStore.List();
-                if (list != null && list.Count > 0)
-                    _fallbackProjectName = System.IO.Path.GetFileNameWithoutExtension(list[0]);
+                    if (host.Controller != null && !string.IsNullOrWhiteSpace(host.Controller.ActiveRecipeName))
+                        return host.Controller.ActiveRecipeName;
+
+                    string productId = host.Machine != null && host.Machine.Recipe != null
+                        ? host.Machine.Recipe.ProductId
+                        : null;
+                    if (!string.IsNullOrWhiteSpace(productId))
+                        return productId;
+                }
+
+                return "--";
             }
             catch
             {
-                _fallbackProjectName = "--";
+                return "--";
             }
-
-            return _fallbackProjectName;
+            finally
+            {
+            }
         }
 
         private MaterialDisplaySnapshot GetCachedMaterialDisplaySnapshot()

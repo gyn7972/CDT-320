@@ -2614,12 +2614,16 @@ namespace QMC.CDT_320.Ui.Controls
                 bool pickerYCollisionRecoveryJog =
                     item.Axis != null &&
                     MotionGuardRuntime.CanBeginPickerYCollisionRecoveryJog(item.Axis, direction);
+                bool inputFeederStageTCollisionRecoveryJog =
+                    item.Axis != null &&
+                    InputFeederInterlockRules.CanBeginStageTCollisionRecoveryJog(item.Axis, direction);
 
-                // HOME END 미완료 축도 하드리밋 복구 또는 PickerY 충돌 복구 방향의 Jog만 허용한다.
+                // HOME END 미완료 축도 하드리밋/PickerY/InputFeederY 충돌 복구 방향의 Jog만 허용한다.
                 if (item.Axis != null &&
                     !item.Axis.IsHomeDone &&
                     !limitRecoveryJog &&
-                    !pickerYCollisionRecoveryJog)
+                    !pickerYCollisionRecoveryJog &&
+                    !inputFeederStageTCollisionRecoveryJog)
                 {
                     string homeEndMsg = (item.AxisName ?? "Axis") +
                         " 조그 불가: HOME END가 완료되지 않았습니다(원점복귀 필요).";

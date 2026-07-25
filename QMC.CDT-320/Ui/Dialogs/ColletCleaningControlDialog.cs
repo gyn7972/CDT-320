@@ -8,6 +8,7 @@ using QMC.CDT320.Calibration;
 using QMC.CDT320.Interlocks;
 using QMC.CDT320.Sequencing;
 using QMC.CDT320.Sequencing.Calibration;
+using QMC.CDT_320.Ui.Controls;
 using QMC.Common.Alarms;
 using QMC.Common.Logging;
 
@@ -55,31 +56,64 @@ namespace QMC.CDT_320.Ui.Dialogs
             public bool Numeric;
             public bool Integer;
             public string[] Options;
+            /// <summary>그리드 셀에 마우스를 올리면 표시되는 한글 설명.</summary>
+            public string ToolTip;
         }
 
         private static readonly SettingInfo[] SettingRows =
         {
-            new SettingInfo { Key = SettingKey.CleanVelocity,      Name = "Clean Z Speed",      Unit = "mm/s",  Numeric = true },
-            new SettingInfo { Key = SettingKey.CleanAcceleration,  Name = "Clean Z Acc",        Unit = "mm/s2", Numeric = true },
-            new SettingInfo { Key = SettingKey.CleanDeceleration,  Name = "Clean Z Dec",        Unit = "mm/s2", Numeric = true },
-            new SettingInfo { Key = SettingKey.ContactZUserOffset, Name = "Contact Z Offset",   Unit = "mm",    Numeric = true },
-            new SettingInfo { Key = SettingKey.MaxExtraPressDepth, Name = "Max Extra Press",    Unit = "mm",    Numeric = true },
-            new SettingInfo { Key = SettingKey.ArriveDwellMs,      Name = "Arrive Dwell",       Unit = "ms",    Numeric = true, Integer = true },
-            new SettingInfo { Key = SettingKey.CleanPressCount,    Name = "Press Count",        Unit = "ea",    Numeric = true, Integer = true },
-            new SettingInfo { Key = SettingKey.RepeatLiftHeight,   Name = "Repeat Lift Height", Unit = "mm",    Numeric = true },
-            new SettingInfo { Key = SettingKey.MoveTimeoutMs,      Name = "Move Timeout",       Unit = "ms",    Numeric = true, Integer = true },
-            new SettingInfo { Key = SettingKey.DieHeight,          Name = "Die Height",         Unit = "mm",    Numeric = true },
-            new SettingInfo { Key = SettingKey.RimHeight,          Name = "Rim Height",         Unit = "mm",    Numeric = true },
-            new SettingInfo { Key = SettingKey.FilmHeight,         Name = "Film Height",        Unit = "mm",    Numeric = true },
-            new SettingInfo { Key = SettingKey.MaxRetryCount,      Name = "Retry On NG",        Unit = "ea",    Numeric = true, Integer = true },
-            new SettingInfo { Key = SettingKey.AllowPlaceOnCleanedCell,     Name = "Place On Cleaned Cell", Unit = "", Options = new[] { "True", "False" } },
-            new SettingInfo { Key = SettingKey.DisablePickerOnReplaceAlarm, Name = "Disable On Replace",    Unit = "", Options = new[] { "True", "False" } },
-            new SettingInfo { Key = SettingKey.UseTriggerOnWaferExchange,   Name = "Trig Wafer Exchange",   Unit = "", Options = new[] { "True", "False" } },
-            new SettingInfo { Key = SettingKey.WaferExchangeInterval,       Name = "  Exchange Interval",   Unit = "ea", Numeric = true, Integer = true },
-            new SettingInfo { Key = SettingKey.UseTriggerOnProcessCount,    Name = "Trig Process Count",    Unit = "", Options = new[] { "True", "False" } },
-            new SettingInfo { Key = SettingKey.ProcessCountInterval,        Name = "  Process Interval",    Unit = "ea", Numeric = true, Integer = true },
-            new SettingInfo { Key = SettingKey.ProcessCountUnit,            Name = "  Process Unit",        Unit = "", Options = new[] { "Die", "Wafer" } },
-            new SettingInfo { Key = SettingKey.UseTriggerOnAutoStart,       Name = "Trig Auto Start",       Unit = "", Options = new[] { "True", "False" } }
+            new SettingInfo { Key = SettingKey.CleanVelocity, Name = "Clean Z Speed", Unit = "mm/s", Numeric = true,
+                ToolTip = "콜렛을 눌러 닦을 때 사용하는 Picker Z축 이동 속도입니다.\r\n" +
+                          "값이 클수록 빨리 내려가고 충격이 커집니다. 처음에는 낮은 값으로 검증하세요." },
+            new SettingInfo { Key = SettingKey.CleanAcceleration, Name = "Clean Z Acc", Unit = "mm/s2", Numeric = true,
+                ToolTip = "누름 동작 Z축 가속도입니다. 속도와 함께 접촉 충격에 영향을 줍니다." },
+            new SettingInfo { Key = SettingKey.CleanDeceleration, Name = "Clean Z Dec", Unit = "mm/s2", Numeric = true,
+                ToolTip = "누름 동작 Z축 감속도입니다. 접촉 직전 감속에 영향을 줍니다." },
+            new SettingInfo { Key = SettingKey.ContactZUserOffset, Name = "Contact Z Offset", Unit = "mm", Numeric = true,
+                ToolTip = "접촉 Z 사용자 보정값입니다.\r\n" +
+                          "부호 규약: + 값이면 Z축이 상승(덜 누름), - 값이면 Z축이 더 하강(더 누름).\r\n" +
+                          "접촉 Z = Place 티칭 Z - 다이 높이 - 림 높이 - 필름 높이 + 이 보정값" },
+            new SettingInfo { Key = SettingKey.MaxExtraPressDepth, Name = "Max Extra Press", Unit = "mm", Numeric = true,
+                ToolTip = "과압 방지 한계입니다.\r\n" +
+                          "계산된 접촉 Z보다 추가로 더 내려갈 수 있는 최대 깊이(양수)이며,\r\n" +
+                          "Contact Z Offset이 음수로 이 값을 넘으면 실행을 차단합니다." },
+            new SettingInfo { Key = SettingKey.ArriveDwellMs, Name = "Arrive Dwell", Unit = "ms", Numeric = true, Integer = true,
+                ToolTip = "접촉 Z 위치에 도착한 뒤 그대로 눌러 유지하는 대기 시간입니다." },
+            new SettingInfo { Key = SettingKey.CleanPressCount, Name = "Press Count", Unit = "ea", Numeric = true, Integer = true,
+                ToolTip = "콜렛 1개당 눌렀다 떼는 동작을 반복하는 횟수입니다." },
+            new SettingInfo { Key = SettingKey.RepeatLiftHeight, Name = "Repeat Lift Height", Unit = "mm", Numeric = true,
+                ToolTip = "누름 반복 사이에 다시 올라가는 높이(양수)입니다.\r\n" +
+                          "접촉 Z + 이 값 만큼 상승했다가 다시 내려갑니다." },
+            new SettingInfo { Key = SettingKey.MoveTimeoutMs, Name = "Move Timeout", Unit = "ms", Numeric = true, Integer = true,
+                ToolTip = "축 이동 완료를 기다리는 최대 시간입니다. 초과하면 알람으로 중단합니다." },
+            new SettingInfo { Key = SettingKey.DieHeight, Name = "Die Height", Unit = "mm", Numeric = true,
+                ToolTip = "Place 티칭 Z에 포함된 다이 높이입니다.\r\n" +
+                          "티칭 Z는 이 높이만큼 올라가 있으므로 클리닝 접촉 Z 계산에서 빼줍니다." },
+            new SettingInfo { Key = SettingKey.RimHeight, Name = "Rim Height", Unit = "mm", Numeric = true,
+                ToolTip = "Place 티칭 Z에 포함된 림(rim) 높이입니다. 접촉 Z 계산에서 빼줍니다." },
+            new SettingInfo { Key = SettingKey.FilmHeight, Name = "Film Height", Unit = "mm", Numeric = true,
+                ToolTip = "Place 티칭 Z에 포함된 필름 높이입니다. 접촉 Z 계산에서 빼줍니다." },
+            new SettingInfo { Key = SettingKey.MaxRetryCount, Name = "Retry On NG", Unit = "ea", Numeric = true, Integer = true,
+                ToolTip = "콜렛 검사 결과가 NG일 때 클린 -> 검사를 다시 반복할 최대 횟수입니다.\r\n" +
+                          "이 횟수를 모두 쓰고도 NG면 콜렛 교체 알람을 발생시킵니다." },
+            new SettingInfo { Key = SettingKey.AllowPlaceOnCleanedCell, Name = "Place On Cleaned Cell", Unit = "", Options = new[] { "True", "False" },
+                ToolTip = "클리닝에 사용한 NG 다이맵 셀에 생산 NG die 배치를 허용할지 여부입니다.\r\n" +
+                          "True: 허용(해당 셀도 계속 사용)\r\nFalse: 그 셀을 배치 대상에서 제외" },
+            new SettingInfo { Key = SettingKey.DisablePickerOnReplaceAlarm, Name = "Disable On Replace", Unit = "", Options = new[] { "True", "False" },
+                ToolTip = "콜렛 교체 알람이 발생했을 때 해당 Picker만 생산에서 제외하고\r\n" +
+                          "나머지 Picker로 계속 운전할지 여부입니다." },
+            new SettingInfo { Key = SettingKey.UseTriggerOnWaferExchange, Name = "Trig Wafer Exchange", Unit = "", Options = new[] { "True", "False" },
+                ToolTip = "자동 운전 중 웨이퍼 교체 횟수를 기준으로 콜렛 클리닝을 실행할지 여부입니다." },
+            new SettingInfo { Key = SettingKey.WaferExchangeInterval, Name = "  Exchange Interval", Unit = "ea", Numeric = true, Integer = true,
+                ToolTip = "웨이퍼 교체 트리거 주기입니다. 교체 n회마다 콜렛 클리닝을 실행합니다." },
+            new SettingInfo { Key = SettingKey.UseTriggerOnProcessCount, Name = "Trig Process Count", Unit = "", Options = new[] { "True", "False" },
+                ToolTip = "자동 운전 중 공정 처리 수량을 기준으로 콜렛 클리닝을 실행할지 여부입니다." },
+            new SettingInfo { Key = SettingKey.ProcessCountInterval, Name = "  Process Interval", Unit = "ea", Numeric = true, Integer = true,
+                ToolTip = "공정 횟수 트리거 주기입니다. 아래 Process Unit 기준 n개마다 실행합니다." },
+            new SettingInfo { Key = SettingKey.ProcessCountUnit, Name = "  Process Unit", Unit = "", Options = new[] { "Die", "Wafer" },
+                ToolTip = "공정 횟수 트리거의 계수 단위입니다.\r\nDie: 다이 개수 기준, Wafer: 웨이퍼 장수 기준" },
+            new SettingInfo { Key = SettingKey.UseTriggerOnAutoStart, Name = "Trig Auto Start", Unit = "", Options = new[] { "True", "False" },
+                ToolTip = "Auto 운전을 시작할 때(Ready 후 첫 Pick 전) 콜렛 클리닝을 1회 실행할지 여부입니다." }
         };
 
         private ColletCleaningSettings _settings = new ColletCleaningSettings();
@@ -120,7 +154,11 @@ namespace QMC.CDT_320.Ui.Dialogs
                     SetAllTargets(chkTargetAll.Checked);
             };
 
-            gridSettings.CellValueChanged += gridSettings_CellValueChanged;
+            // 숫자 항목은 직접 타이핑을 막고(ReadOnly) 더블클릭 시 숫자 키패드로만 수정한다.
+            // 옵션(True/False, Die/Wafer) 항목은 콤보 선택이므로 편집을 허용한다.
+            gridSettings.CellBeginEdit += gridSettings_CellBeginEdit;
+            gridSettings.CellDoubleClick += gridSettings_CellDoubleClick;
+            gridSettings.CellToolTipTextNeeded += gridSettings_CellToolTipTextNeeded;
             gridSettings.CurrentCellDirtyStateChanged += gridSettings_CurrentCellDirtyStateChanged;
 
             FormClosing += ColletCleaningControlDialog_FormClosing;
@@ -139,6 +177,7 @@ namespace QMC.CDT_320.Ui.Dialogs
 
         private void BuildSettingRows()
         {
+            gridSettings.ShowCellToolTips = true;
             gridSettings.Rows.Clear();
             foreach (SettingInfo info in SettingRows)
             {
@@ -155,6 +194,15 @@ namespace QMC.CDT_320.Ui.Dialogs
                     combo.FlatStyle = FlatStyle.Flat;
                     row.Cells[1] = combo;
                 }
+
+                // CellToolTipTextNeeded 이벤트가 어떤 이유로 동작하지 않는 환경을 대비해
+                // 각 셀의 ToolTipText도 직접 채워 둔다(둘 중 하나만 동작해도 설명이 보인다).
+                if (!string.IsNullOrWhiteSpace(info.ToolTip))
+                {
+                    row.Cells[0].ToolTipText = info.ToolTip;
+                    row.Cells[1].ToolTipText = info.ToolTip;
+                    row.Cells[2].ToolTipText = info.ToolTip;
+                }
             }
         }
 
@@ -164,9 +212,24 @@ namespace QMC.CDT_320.Ui.Dialogs
                 gridSettings.CommitEdit(DataGridViewDataErrorContexts.Commit);
         }
 
-        private void gridSettings_CellValueChanged(object sender, DataGridViewCellEventArgs e)
+        /// <summary>숫자 항목은 직접 타이핑을 막는다(키패드로만 수정).</summary>
+        private void gridSettings_CellBeginEdit(object sender, DataGridViewCellCancelEventArgs e)
         {
-            if (_suppressUiEvents || e.RowIndex < 0 || e.ColumnIndex != 1)
+            if (e.RowIndex < 0 || e.ColumnIndex != 1)
+                return;
+
+            var info = gridSettings.Rows[e.RowIndex].Tag as SettingInfo;
+            if (info != null && info.Numeric)
+            {
+                e.Cancel = true;
+                lblStatus.Text = info.Name + " 값은 셀을 더블클릭해서 숫자 키패드로 입력하세요.";
+            }
+        }
+
+        /// <summary>숫자 항목 더블클릭 시 숫자 키패드로 입력받는다.</summary>
+        private void gridSettings_CellDoubleClick(object sender, DataGridViewCellEventArgs e)
+        {
+            if (_busy || e.RowIndex < 0 || e.ColumnIndex != 1)
                 return;
 
             DataGridViewRow row = gridSettings.Rows[e.RowIndex];
@@ -174,23 +237,55 @@ namespace QMC.CDT_320.Ui.Dialogs
             if (info == null || !info.Numeric)
                 return;
 
-            // 숫자 셀은 입력 즉시 파싱 가능 여부만 확인하고, 잘못된 값이면 이전 값으로 되돌린다.
-            string text = Convert.ToString(row.Cells[1].Value);
-            double parsed;
-            if (!double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out parsed))
+            try
             {
-                _suppressUiEvents = true;
-                try
+                string current = Convert.ToString(row.Cells[1].Value);
+                using (var dialog = new NumericKeypadDialog(info.Name, current, info.Unit))
                 {
-                    row.Cells[1].Value = FormatSettingValue(info, ReadSettingValue(info));
-                }
-                finally
-                {
-                    _suppressUiEvents = false;
-                }
+                    if (dialog.ShowDialog(this) != DialogResult.OK)
+                        return;
 
-                lblStatus.Text = info.Name + " 값이 숫자가 아니어서 이전 값으로 되돌렸습니다.";
+                    double value;
+                    if (!double.TryParse(dialog.ValueText, NumberStyles.Float, CultureInfo.InvariantCulture, out value))
+                    {
+                        lblStatus.Text = info.Name + " 설정값이 숫자가 아닙니다. value=" + dialog.ValueText;
+                        return;
+                    }
+
+                    _suppressUiEvents = true;
+                    try
+                    {
+                        row.Cells[1].Value = FormatSettingValue(info, value);
+                    }
+                    finally
+                    {
+                        _suppressUiEvents = false;
+                    }
+
+                    lblStatus.Text = info.Name + " 값을 " + FormatSettingValue(info, value) +
+                                     (string.IsNullOrEmpty(info.Unit) ? "" : " " + info.Unit) + "(으)로 입력했습니다. " +
+                                     "SAVE를 눌러야 저장됩니다.";
+                }
             }
+            catch (Exception ex)
+            {
+                lblStatus.Text = "숫자 입력 처리에 실패했습니다. " + ex.Message;
+            }
+            finally
+            {
+            }
+        }
+
+        /// <summary>파라미터 셀에 마우스를 올리면 한글 설명을 표시한다.</summary>
+        private void gridSettings_CellToolTipTextNeeded(object sender, DataGridViewCellToolTipTextNeededEventArgs e)
+        {
+            if (e.RowIndex < 0)
+                return;
+
+            DataGridViewRow row = gridSettings.Rows[e.RowIndex];
+            var info = row != null ? row.Tag as SettingInfo : null;
+            if (info != null && !string.IsNullOrWhiteSpace(info.ToolTip))
+                e.ToolTipText = info.ToolTip;
         }
 
         private double ReadSettingValue(SettingInfo info)
@@ -331,12 +426,32 @@ namespace QMC.CDT_320.Ui.Dialogs
 
         // ---------------------------------------------------------------- 설정 로드/저장
 
+        /// <summary>
+        /// 앱이 사용 중인 라이브 CalibrationData를 가져온다.
+        /// 디스크에서 따로 LoadOrCreate 하면 시퀀스(이력 저장)와 서로 다른 인스턴스를 각각 저장해
+        /// 나중에 저장한 쪽이 상대의 값을 덮어써 설정이 기본값으로 되돌아간다.
+        /// 다른 캘리브레이션 화면과 동일하게 항상 라이브 객체 한 개만 읽고 쓴다.
+        /// </summary>
+        private CalibrationData ResolveLiveCalibrationData()
+        {
+            string reason;
+            Form1 host = ResolveHost(out reason);
+            CalibrationData data = host != null
+                ? CalibrationCoordinateService.ResolveData(host.Machine)
+                : null;
+
+            if (data == null)
+                data = CalibrationDataStore.LoadOrCreate();
+
+            data.EnsureObjects();
+            return data;
+        }
+
         private void LoadSettingsToUi()
         {
             try
             {
-                CalibrationData data = CalibrationDataStore.LoadOrCreate();
-                data.EnsureObjects();
+                CalibrationData data = ResolveLiveCalibrationData();
                 _settings = data.ColletCleaning.Clone();
 
                 _suppressUiEvents = true;
@@ -386,8 +501,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             {
                 ColletCleaningSettings settings = BuildSettingsFromUi();
 
-                CalibrationData data = CalibrationDataStore.LoadOrCreate();
-                data.EnsureObjects();
+                CalibrationData data = ResolveLiveCalibrationData();
                 data.ColletCleaning = settings;
                 data.Touch("ColletCleaningControlDialog");
 
@@ -527,8 +641,11 @@ namespace QMC.CDT_320.Ui.Dialogs
 
                 if (sequence.SkippedNoBin)
                 {
-                    lblStatus.Text = sequence.SkipReason;
-                    AppendLog(sequence.SkipReason);
+                    // 실행하지 않고 건너뛴 경우를 "완료"로 표시하면 오해가 생기므로 사유를 그대로 노출한다.
+                    lblStatus.Text = "[미실행] " + sequence.SkipReason;
+                    AppendLog(lblStatus.Text);
+                    QMC.Common.MessageDialog.Show(this, sequence.SkipReason, "COLLET CLEANING",
+                        MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
 
@@ -706,8 +823,7 @@ namespace QMC.CDT_320.Ui.Dialogs
         {
             try
             {
-                CalibrationData data = CalibrationDataStore.LoadOrCreate();
-                data.EnsureObjects();
+                CalibrationData data = ResolveLiveCalibrationData();
 
                 gridHistory.Rows.Clear();
                 AppendHistoryRows(data, VisionFocusPickerSide.Front);

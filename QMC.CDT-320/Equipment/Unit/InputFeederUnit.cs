@@ -162,6 +162,16 @@ namespace QMC.CDT320
             if (!CanHandleJogAxis(axis))
                 return Task.FromResult(-1);
 
+            if (InputFeederInterlockRules.CanBeginStageTCollisionRecoveryJog(FeederY, direction))
+            {
+                // 복구 Step에 한해서 Jog 의도를 MotionGuard까지 보존한다.
+                return FeederY.MoveJogStepAsync(
+                    direction,
+                    speedType,
+                    axisStepDistance,
+                    customSpeed);
+            }
+
             double signedDistance = (direction < 0 ? -1.0 : 1.0) * Math.Abs(axisStepDistance);
             double target = FeederY.ActualPosition + signedDistance;
             return MoveWaferFeederY(target, speedType, customSpeed, true);

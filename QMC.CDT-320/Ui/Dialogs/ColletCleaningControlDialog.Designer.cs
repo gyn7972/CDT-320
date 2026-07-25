@@ -327,6 +327,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             this.gridSettings.Name = "gridSettings";
             this.gridSettings.RowHeadersVisible = false;
             this.gridSettings.SelectionMode = System.Windows.Forms.DataGridViewSelectionMode.FullRowSelect;
+            this.gridSettings.ShowCellToolTips = true;
             this.gridSettings.Size = new System.Drawing.Size(376, 527);
             this.gridSettings.TabIndex = 0;
             //

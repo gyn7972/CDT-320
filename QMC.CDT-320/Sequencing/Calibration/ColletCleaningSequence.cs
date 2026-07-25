@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
@@ -135,7 +135,29 @@ namespace QMC.CDT320.Sequencing.Calibration
                 if (_settings == null)
                     return Fail("COLLET-CLEAN-NO-SETTINGS", Name, "콜렛 클리닝 설정이 없습니다.");
 
+                // 안전 위치(Avoid) 이동은 Calibration 화면의 "안전위치(Avoid) 이동 속도 %"를 따른다.
+                // 클리닝 파라미터(Clean Z Speed 등)는 실제 공정(누름) 이동에만 사용한다.
+                // 다른 캘리브레이션 시퀀스와 동일하게 CalibrationMotion을 주입해야
+                // useSafeMoveMotion 경로와 ResolveCalibrationSafeMovePercent()가 동작한다.
+                SetCalibrationMotion(ResolveCalibrationMotionFromData());
+
                 _items.Clear();
+
+                // NG Stage에 Bin이 없으면 클리닝 자체가 불가능하다.
+                // 알람이 아니라 스킵 + 경고로 처리하고 다음 조건에서 재시도한다(사용자 확정 정책).
+                // 대상 목록을 만들기 전에 확인해야 "실행하지 않았는데 이력만 남는" 오해가 생기지 않는다.
+                WaferMaterial ngBinPresence = MaterialStateService.GetWaferAtLocation(MaterialLocationKind.OutputStageNg);
+                if (ngBinPresence == null)
+                {
+                    SkippedNoBin = true;
+                    SkipReason = "NG Stage에 Bin이 없어 콜렛 클리닝을 실행할 수 없습니다. " +
+                                 "먼저 NG Bin을 Stage에 공급(OUTPUT LOAD)한 뒤 다시 실행하세요.";
+                    WriteLog(Name, SkipReason + " side=" + _cleaningSide + " - Skip");
+                    Context.LogPublic("[COLLET-CLEAN] " + SkipReason);
+                    CurrentStep = ColletCleaningStep.Complete;
+                    return 0;
+                }
+
                 for (int colletNo = 4; colletNo >= 1; colletNo--)
                 {
                     if (!_settings.IsColletSelected(_cleaningSide, colletNo))
@@ -168,20 +190,7 @@ namespace QMC.CDT320.Sequencing.Calibration
 
                 stage.Recipe.EnsurePositionObjects();
 
-                // NG Stage에 Bin이 없으면 클리닝 불가. 알람이 아니라 스킵 + 경고로 처리하고
-                // 다음 트리거에서 재시도한다(사용자 확정 정책).
-                WaferMaterial ngBin = MaterialStateService.GetWaferAtLocation(MaterialLocationKind.OutputStageNg);
-                if (ngBin == null)
-                {
-                    SkippedNoBin = true;
-                    SkipReason = "NG Stage에 Bin이 없어 콜렛 클리닝을 건너뜁니다. 다음 조건에서 다시 시도합니다.";
-                    WriteLog(Name, SkipReason + " side=" + _cleaningSide + " - Skip");
-                    Context.LogPublic("[COLLET-CLEAN] " + SkipReason);
-                    CurrentStep = ColletCleaningStep.Complete;
-                    return 0;
-                }
-
-                _cleaningCellBinWaferId = ngBin.WaferId ?? string.Empty;
+                _cleaningCellBinWaferId = ngBinPresence.WaferId ?? string.Empty;
                 _cleaningCellCursor = 0;
 
                 string offsetReason;
@@ -227,25 +236,51 @@ namespace QMC.CDT320.Sequencing.Calibration
             {
                 ct.ThrowIfCancellationRequested();
 
-                // 안전 위치 확인 및 이동은 필수. 본인 Picker Z/T/Y Avoid -> 상대 Picker Avoid -> Vision Avoid 순서.
+                // 시작 안전 이동 순서는 PickerPlaceZCalibrationSequence.PrepareSafeStartPositionAsync와 동일하게 맞춘다.
+                //   ① 본인 PickerZ 전체 Avoid  ② 본인 PickerY Avoid  ③ 본인 PickerT 전체 Avoid
+                //   ④ 상대 Picker Avoid        ⑤ Input/Output VisionX Avoid
+                //   ⑥ Input/Output 카세트 리프터 Avoid (PickerX 이동 전제 - 인터락이 무조건 요구)
+                // forceMove는 쓰지 않는다: 이미 Avoid(정지+무알람+톨러런스)면 확인만 하고 통과한다.
+                const string safeDescription = "콜렛 클리닝 시작 안전 위치";
+
                 int result = await MoveAllPickerZToAvoidAndVerifyAsync(
-                    "콜렛 클리닝 시작 전 PickerZ 전체 Avoid", ct).ConfigureAwait(false);
+                    safeDescription + " - PickerZ all Avoid", ct).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                // Z 다음은 Y다. Y가 Avoid여야 이후 PickerX/T 이동이 인터락을 통과한다.
+                result = await MovePickerAxisAndVerifyAsync(
+                    PickerAxis.PickerY,
+                    GetPickerTeachingPosition(PickerAxis.PickerY, "AvoidPosition"),
+                    safeDescription + " - PickerY Avoid",
+                    ct,
+                    "AvoidPosition;PickerPhase=SafeY",
+                    false,
+                    true).ConfigureAwait(false);
                 if (result != 0)
                     return result;
 
                 result = await MoveAllPickerTToAvoidAndVerifyAsync(
-                    "콜렛 클리닝 시작 전 PickerT 전체 Avoid", ct).ConfigureAwait(false);
+                    safeDescription + " - PickerT all Avoid", ct).ConfigureAwait(false);
                 if (result != 0)
                     return result;
 
                 result = await MoveOppositePickerToAvoidAndVerifyAsync(
-                    "콜렛 클리닝 시작 전 상대 Picker Avoid", ct).ConfigureAwait(false);
+                    safeDescription + " - Opposite Picker Avoid", ct).ConfigureAwait(false);
                 if (result != 0)
                     return result;
 
                 result = await EnsureVisionAvoidForStartAsync(ct).ConfigureAwait(false);
                 if (result != 0)
                     return result;
+
+                result = await EnsureCassetteLifterAvoidForPickerXAsync(ct).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                WriteLog(Name,
+                    safeDescription + " 확보 완료. 순서=PickerZ Avoid -> PickerY Avoid -> PickerT Avoid -> " +
+                    "상대 Picker Avoid -> VisionX Avoid -> Cassette Lifter Avoid. side=" + _cleaningSide + " - Ok");
 
                 CurrentStep = ColletCleaningStep.ReserveArea;
                 return 0;
@@ -266,6 +301,54 @@ namespace QMC.CDT320.Sequencing.Calibration
             finally
             {
             }
+        }
+
+        /// <summary>
+        /// PickerX 이동은 Input/Output 카세트 리프터가 정지된 Avoid 위치일 것을 무조건 요구한다
+        /// (PickerFrontInterlockRules / PickerRearInterlockRules).
+        /// 클리닝은 PickerX를 반복 이동하므로 시작 전에 두 리프터를 Avoid로 확보한다.
+        /// </summary>
+        private async Task<int> EnsureCassetteLifterAvoidForPickerXAsync(CancellationToken ct)
+        {
+            ct.ThrowIfCancellationRequested();
+
+            InputCassetteUnit inputCassette = Context.Machine.InputCassetteUnit;
+            if (inputCassette != null && inputCassette.InputLifterZ != null)
+            {
+                if (!inputCassette.IsWaferLifterZInAvoidPosition())
+                {
+                    WriteLog(Name,
+                        "PickerX 이동 조건 확보: InputCassette 리프터를 Avoid로 이동합니다. actual=" +
+                        inputCassette.InputLifterZ.ActualPosition.ToString("F3") + " - Start");
+
+                    int result = await SequenceAwaiter.AwaitAsync(
+                        inputCassette.MoveToWaferCassetteAvoidPosition(false), -1, ct).ConfigureAwait(false);
+                    if (result != 0 || !inputCassette.IsWaferLifterZInAvoidPosition())
+                        return Fail("COLLET-CLEAN-IN-CST-AVOID", inputCassette.Name,
+                            "콜렛 클리닝 시작 전 InputCassette 리프터 Avoid 확보에 실패했습니다. result=" + result +
+                            ", actual=" + inputCassette.InputLifterZ.ActualPosition.ToString("F3"));
+                }
+            }
+
+            OutputCassetteUnit outputCassette = Context.Machine.OutputCassetteUnit;
+            if (outputCassette != null && outputCassette.OutputLifterZ != null)
+            {
+                if (!outputCassette.IsBinLifterZInAvoidPosition())
+                {
+                    WriteLog(Name,
+                        "PickerX 이동 조건 확보: OutputCassette 리프터를 Avoid로 이동합니다. actual=" +
+                        outputCassette.OutputLifterZ.ActualPosition.ToString("F3") + " - Start");
+
+                    int result = await SequenceAwaiter.AwaitAsync(
+                        outputCassette.MoveToBinCassetteAvoidPosition(false), -1, ct).ConfigureAwait(false);
+                    if (result != 0 || !outputCassette.IsBinLifterZInAvoidPosition())
+                        return Fail("COLLET-CLEAN-OUT-CST-AVOID", outputCassette.Name,
+                            "콜렛 클리닝 시작 전 OutputCassette 리프터 Avoid 확보에 실패했습니다. result=" + result +
+                            ", actual=" + outputCassette.OutputLifterZ.ActualPosition.ToString("F3"));
+                }
+            }
+
+            return 0;
         }
 
         private async Task<int> EnsureVisionAvoidForStartAsync(CancellationToken ct)
@@ -472,22 +555,21 @@ namespace QMC.CDT320.Sequencing.Calibration
             if (result != 0)
                 return result;
 
-            // 5) Picker X/Y/T 정렬.
-            result = await MovePickerAxisAndVerifyAsync(
-                PickerAxis.PickerX, target.PickerX,
-                "콜렛 클리닝 PickerX", ct, CleaningTargetName, true).ConfigureAwait(false);
-            if (result != 0)
-                return result;
-
-            result = await MovePickerAxisAndVerifyAsync(
-                PickerAxis.PickerY, target.PickerY,
-                "콜렛 클리닝 PickerY", ct, CleaningTargetName, true).ConfigureAwait(false);
-            if (result != 0)
-                return result;
-
-            result = await MovePickerAxisAndVerifyAsync(
-                GetPickerTAxis(item.ColletIndex), target.PickerT,
-                "콜렛 클리닝 PickerT", ct, CleaningTargetName, true).ConfigureAwait(false);
+            // 5) Picker 정렬. X 단독 이동 전에는 PickerY가 Avoid여야 하므로
+            //    반드시 X/T를 먼저 이동하고 그 다음 Y를 전진시킨다(MovePickerXTThenYAndVerifyAsync가 이 순서를 강제).
+            //    개별 축을 X -> Y 순으로 부르면 "메뉴얼/단독 X축 이동 전 PickerY가 Avoid 또는 0 위치여야 합니다" 인터락에 걸린다.
+            var alignTargets = new Dictionary<PickerAxis, double>
+            {
+                { PickerAxis.PickerX, target.PickerX },
+                { GetPickerTAxis(item.ColletIndex), target.PickerT },
+                { PickerAxis.PickerY, target.PickerY }
+            };
+            result = await MovePickerXTThenYAndVerifyAsync(
+                alignTargets,
+                "콜렛 클리닝 정렬",
+                ct,
+                CleaningTargetName,
+                true).ConfigureAwait(false);
             if (result != 0)
                 return result;
 
@@ -527,6 +609,23 @@ namespace QMC.CDT320.Sequencing.Calibration
             CancellationToken ct)
         {
             ct.ThrowIfCancellationRequested();
+
+            // NG StageY 이동 전제조건 확보(인터락 회피).
+            // 순서: NG Clamp Lift Up -> Good Guide Down -> GoodStageZ Avoid.
+            // 각 항목은 Is 함수로 현재 상태를 먼저 확인해 이미 만족하면 실린더/축을 움직이지 않는다.
+            // 이 확보를 건너뛰면 MotionGuard가 -11로 차단한다.
+            // (실장비 2026-07-26: "OutputNGStageY 이동 불가: OutputGoodStageZ가 정확한 Avoid 또는 0 이하 위치여야 합니다.")
+            int clear = await stage.EnsureNgStageYMoveClearAsync(
+                "콜렛 클리닝 NG StageY 이동",
+                ResolveMoveTimeout(),
+                Options != null && Options.FineMove,
+                ct).ConfigureAwait(false);
+            if (clear != 0)
+                return Fail("COLLET-CLEAN-NG-Y-CLEAR", stage.Name,
+                    "콜렛 클리닝 NG StageY 이동 전제조건(NG Clamp Lift Up / Good Guide Down / GoodStageZ Avoid) " +
+                    "확보에 실패했습니다. result=" + clear +
+                    ", " + stage.DescribeOutputStageInterlockState(BinSide.Ng));
+
             CalibrationMotionSettings motion = ResolveCleaningStageMotion();
             int result = await stage.MoveStageAxisCommandWithMotion(
                 BinStageAxis.NgBinY,
@@ -573,13 +672,38 @@ namespace QMC.CDT320.Sequencing.Calibration
                     return result;
             }
 
-            // 다음 콜렛/존 이동 전에 반드시 Z Avoid로 복귀한다.
-            return await MovePickerAxisAndVerifyAsync(
+            // 다음 셀로 넘어가기 전 반드시 Z Avoid -> Y Avoid 순서로 복귀한다.
+            // PickerX 단독 이동은 PickerY가 Avoid일 때만 허용되므로 Y 복귀를 빠뜨리면
+            // 다음 콜렛의 X 이동에서 인터락에 걸린다.
+            return await MovePickerZThenYToAvoidAsync(zAxis, "콜렛 클리닝 후", ct).ConfigureAwait(false);
+        }
+
+        /// <summary>
+        /// 한 셀 처리를 마치고 Z -> Y 순서로 Avoid에 복귀한다(안전 위치 이동 속도 사용).
+        /// 다음 셀의 PickerX 이동 전제조건(PickerY Avoid)을 만들어 주는 필수 단계다.
+        /// </summary>
+        private async Task<int> MovePickerZThenYToAvoidAsync(
+            PickerAxis zAxis,
+            string description,
+            CancellationToken ct)
+        {
+            int result = await MovePickerAxisAndVerifyAsync(
                 zAxis,
                 GetPickerTeachingPosition(zAxis, "AvoidPosition"),
-                "콜렛 클리닝 후 PickerZ Avoid",
+                description + " PickerZ Avoid",
                 ct,
                 CleaningTargetName,
+                false,
+                true).ConfigureAwait(false);
+            if (result != 0)
+                return result;
+
+            return await MovePickerAxisAndVerifyAsync(
+                PickerAxis.PickerY,
+                GetPickerTeachingPosition(PickerAxis.PickerY, "AvoidPosition"),
+                description + " PickerY Avoid",
+                ct,
+                "AvoidPosition;PickerPhase=SafeY",
                 false,
                 true).ConfigureAwait(false);
         }
@@ -721,9 +845,32 @@ namespace QMC.CDT320.Sequencing.Calibration
             {
                 ct.ThrowIfCancellationRequested();
 
-                // 검사존 진입 전 Z 전체 Avoid 확인.
+                // 존 전환(NG Stage -> Bottom 검사존)도 안전 이동이 기본이다.
+                // 시작 때와 동일하게 Z -> Y -> T Avoid를 확보하고, PickerX 전제조건(카세트 리프터 Avoid)까지 다시 확인한다.
+                const string zoneDescription = "콜렛 검사존 진입 안전 위치";
+
                 int result = await MoveAllPickerZToAvoidAndVerifyAsync(
-                    "콜렛 검사 진입 전 PickerZ 전체 Avoid", ct).ConfigureAwait(false);
+                    zoneDescription + " - PickerZ all Avoid", ct).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                result = await MovePickerAxisAndVerifyAsync(
+                    PickerAxis.PickerY,
+                    GetPickerTeachingPosition(PickerAxis.PickerY, "AvoidPosition"),
+                    zoneDescription + " - PickerY Avoid",
+                    ct,
+                    "AvoidPosition;PickerPhase=SafeY",
+                    false,
+                    true).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                result = await MoveAllPickerTToAvoidAndVerifyAsync(
+                    zoneDescription + " - PickerT all Avoid", ct).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                result = await EnsureCassetteLifterAvoidForPickerXAsync(ct).ConfigureAwait(false);
                 if (result != 0)
                     return result;
 
@@ -806,15 +953,18 @@ namespace QMC.CDT320.Sequencing.Calibration
                 return Fail("COLLET-CLEAN-INSPECT-TARGET", Name,
                     "콜렛 검사 위치를 해석하지 못했습니다. side=" + _cleaningSide + ", colletNo=" + item.ColletNo);
 
-            int result = await MovePickerAxisAndVerifyAsync(
-                PickerAxis.PickerX, zoneTarget.X,
-                "콜렛 검사 PickerX", ct, CleaningTargetName, true).ConfigureAwait(false);
-            if (result != 0)
-                return result;
-
-            result = await MovePickerAxisAndVerifyAsync(
-                PickerAxis.PickerY, zoneTarget.Y,
-                "콜렛 검사 PickerY", ct, CleaningTargetName, true).ConfigureAwait(false);
+            // 검사존 진입도 동일 규칙: X/T 먼저 -> Y 나중(단독 X 이동 전 PickerY Avoid 요구 인터락 회피).
+            var inspectTargets = new Dictionary<PickerAxis, double>
+            {
+                { PickerAxis.PickerX, zoneTarget.X },
+                { PickerAxis.PickerY, zoneTarget.Y }
+            };
+            int result = await MovePickerXTThenYAndVerifyAsync(
+                inspectTargets,
+                "콜렛 검사 정렬",
+                ct,
+                CleaningTargetName,
+                true).ConfigureAwait(false);
             if (result != 0)
                 return result;
 
@@ -841,15 +991,8 @@ namespace QMC.CDT320.Sequencing.Calibration
                 ResolveVisionInspectionTimeout(),
                 ct).ConfigureAwait(false);
 
-            // 검사 후에는 항상 Z Avoid로 복귀한다.
-            int zAvoidResult = await MovePickerAxisAndVerifyAsync(
-                zAxis,
-                GetPickerTeachingPosition(zAxis, "AvoidPosition"),
-                "콜렛 검사 후 PickerZ Avoid",
-                ct,
-                CleaningTargetName,
-                false,
-                true).ConfigureAwait(false);
+            // 검사 후에도 Z Avoid -> Y Avoid 순서로 복귀해야 다음 콜렛의 PickerX 이동이 가능하다.
+            int zAvoidResult = await MovePickerZThenYToAvoidAsync(zAxis, "콜렛 검사 후", ct).ConfigureAwait(false);
             if (zAvoidResult != 0)
                 return zAvoidResult;
 
@@ -1031,6 +1174,33 @@ namespace QMC.CDT320.Sequencing.Calibration
             }
         }
 
+        /// <summary>
+        /// Calibration 공용 이동 조건(안전 위치 이동 속도 포함)을 CalibrationData에서 읽어온다.
+        /// ColletCalibration 등 다른 캘리브레이션 시퀀스와 동일한 소스를 사용한다.
+        /// </summary>
+        private CalibrationMotionSettings ResolveCalibrationMotionFromData()
+        {
+            try
+            {
+                CalibrationData data = CalibrationCoordinateService.ResolveData(
+                    Context != null ? Context.Machine : null);
+                if (data != null && data.Collet != null &&
+                    data.Collet.Settings != null && data.Collet.Settings.Motion != null)
+                    return data.Collet.Settings.Motion.Clone();
+            }
+            catch (Exception ex)
+            {
+                WriteLog(Name,
+                    "Calibration 이동 조건 로드에 실패해 기본값을 사용합니다. error=" + ex.Message + " - Check");
+            }
+            finally
+            {
+            }
+
+            return new CalibrationMotionSettings();
+        }
+
+        /// <summary>Stage 축의 안전/준비 이동에 사용할 Calibration 이동 조건.</summary>
         private CalibrationMotionSettings ResolveCleaningStageMotion()
         {
             CalibrationMotionSettings motion = CalibrationMotion;
