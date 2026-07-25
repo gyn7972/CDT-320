@@ -1994,6 +1994,11 @@ namespace QMC.CDT320.Sequencing
             // 점유 중이면 해제될 때까지 여기서 대기한다. 일반/팔로잉/Conti 모든 X 진입 모드가
             // 아래 MoveOutputStageYPickerXAndPickerZToPlaceByModeAsync 하나로 수렴하므로
             // 이 한 곳에서 전 경로를 커버한다. 인터락 자체(최후 방어선)는 무변경.
+            // 계층 관계(검증 2026-07-25): 동시 Place의 1차 직렬화는 이 게이트가 아니라
+            //   ① OutputPlaceArea 자원 lease(MoveOutputStageAvoidPositionAsync에서 선획득, 전역 1개)와
+            //   ② PickerPhaseCoordinator의 Place/Place 차단이다. 이 게이트는 그 뒤에 놓인
+            //   방어 계층이라 정상 흐름에서는 조건이 성립하지 않는 것이 정상이며(대기 로그 미출력),
+            //   상위 직렬화가 느슨해지는 변경이 생겨도 Critical 승격 대신 대기로 흡수하는 역할을 한다.
             int oppositeOutputClear = await WaitOppositePickerOutputWorkAreaClearAsync(ct).ConfigureAwait(false);
             if (oppositeOutputClear != 0)
             {

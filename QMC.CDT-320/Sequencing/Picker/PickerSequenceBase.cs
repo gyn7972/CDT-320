@@ -2512,6 +2512,13 @@ namespace QMC.CDT320.Sequencing
                             loggedWait = true;
                         }
 
+                        // 현재 기준(M7, 2026-07-25): 이 대기는 상대 검사 작업영역 해제가 조건이라
+                        // 상대 시퀀스가 알람/취소로 스테일 등록을 남기면 무한 대기가 된다.
+                        // 다른 대기 루프(PickUp Input 대기, Place Output 대기)와 동일하게
+                        // Cycle Stop 요청을 확인해 탈출 경로를 보장한다.
+                        if (Context != null)
+                            Context.StopIfCycleStopRequested(Name + ".WaitOppositePickerInspectionAreaClear");
+
                         await Task.Delay(1, ct).ConfigureAwait(false);
                         continue;
                     }
