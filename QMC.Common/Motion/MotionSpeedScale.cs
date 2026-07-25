@@ -181,6 +181,33 @@ namespace QMC.Common.Motion
             }
         }
 
+        /// <summary>스케일 반영 타임아웃 상한(ms). 1% 스케일에서도 무한 대기로 번지지 않게 제한한다.</summary>
+        private const double MaxScaledTimeoutMs = 600000.0;
+
+        /// <summary>
+        /// 속도 스케일로 길어지는 이동 시간에 맞춰 타임아웃(ms)을 확장한다(C2, 2026-07-26).
+        /// 100% 기준으로 튜닝된 타임아웃을 EffectiveScaleFactor 역수로 나눠 5% 스케일에서
+        /// 팔로잉/회피 이동이 오탐 타임아웃(-21)으로 실패하지 않게 한다. 상한 600초.
+        /// timeoutMs가 0 이하이면 그대로 반환한다(기본값 유지 의도 보존).
+        /// </summary>
+        public static int ScaleDefaultTimeoutMs(int timeoutMs)
+        {
+            if (timeoutMs <= 0)
+                return timeoutMs;
+
+            double factor = EffectiveScaleFactor;
+            if (factor >= 1.0)
+                return timeoutMs;
+            if (factor < 0.01)
+                factor = 0.01;
+
+            double scaled = timeoutMs / factor;
+            if (scaled > MaxScaledTimeoutMs)
+                scaled = MaxScaledTimeoutMs;
+
+            return (int)scaled;
+        }
+
         /// <summary>
         /// 이미 계산되어 전달된 속도가 현재 DefaultVelocity 스케일 결과와 같은지 확인한다.
         /// 유닛 시퀀스가 스케일된 DefaultVelocity 를 명시 속도로 넘기는 기존 경로를 식별하기 위한 용도다.

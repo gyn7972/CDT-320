@@ -88,6 +88,13 @@ namespace QMC.CDT320.Sequencing
         private string _batchOwner = "";
         private string _failureCode = "";
         private string _failureMessage = "";
+        // F8(2026-07-26): 현재 처리 중 배치가 "EPD 완료 + 회피 시작 + lease 조기 반환" 상태에
+        // 도달했는지. 1이면 다음 Place가 RESULT 수집 완료를 기다리지 않고 진입할 수 있다.
+        // 다음 배치 처리 시작 시 0으로 리셋된다.
+        private int _placeEntryClear;
+        // C1-(b)(2026-07-26): Place 진입 대기자 수 — 배치 EPD 완료 시점에 대기자가 있으면
+        // 최소 회피(잔류), 없으면 전체 Avoid 완주(FeederY 자동 이동 인터락 보존).
+        private int _placeEntryWaiters;
 
         public OutputPostPlaceInspectionQueue(MachineSequenceContext context)
         {
@@ -319,6 +326,110 @@ namespace QMC.CDT320.Sequencing
                 "elapsedMs=" + ElapsedMs(start),
                 BuildWaitStateDetail());
             return 0;
+        }
+
+        /// <summary>C1-(b): 현재 Place 진입 대기자가 있는지 — 배치 EPD 완료 시점 회피 목표 결정에 사용.</summary>
+        public bool HasPlaceEntryWaiter
+        {
+            get { return Volatile.Read(ref _placeEntryWaiters) > 0; }
+        }
+
+        // F8(2026-07-26): Place 진입 전용 대기 — 기존 WaitUntilIdleAsync(완전 유휴)와 달리
+        // "현재 배치가 EPD 완료 + 회피 시작 + lease 조기 반환(PlaceEntryClear)"에 도달했고
+        // 뒤에 등록된 다음 배치가 없으면(큐 비어있음 + batchDepth 0) RESULT 수집 완료를 기다리지
+        // 않고 통과시킨다. 다음 배치가 이미 등록돼 있으면 그 배치의 EPD 완료까지 대기한다
+        // (1-D 3단계-③ "아직 촬영 중 → 배치 마지막 EPD 완료까지만 대기"의 큐 측 구현).
+        // 다른 사용처(교체/드레인 등)는 계속 WaitUntilIdleAsync를 사용한다 — 동작 무변경.
+        public async Task<int> WaitUntilPlaceEntryClearAsync(string waiter, int timeoutMs, CancellationToken ct)
+        {
+            string safeWaiter = string.IsNullOrWhiteSpace(waiter) ? "Unknown" : waiter;
+            int safeTimeoutMs = timeoutMs > 0 ? timeoutMs : 0;
+            DateTime start = DateTime.UtcNow;
+            bool waitLogged = false;
+            Interlocked.Increment(ref _placeEntryWaiters);
+            SequenceTrace.WaitStart("OutputPostPlaceInspectionPlaceEntry",
+                "waiter=" + safeWaiter,
+                "timeoutMs=" + safeTimeoutMs,
+                BuildWaitStateDetail());
+            try
+            {
+                while (true)
+                {
+                    ct.ThrowIfCancellationRequested();
+                    if (Volatile.Read(ref _failed) != 0)
+                    {
+                        SequenceTrace.WaitEnd("OutputPostPlaceInspectionPlaceEntry",
+                            -1,
+                            "waiter=" + safeWaiter,
+                            "status=Failed",
+                            "elapsedMs=" + ElapsedMs(start),
+                            BuildWaitStateDetail());
+                        return ReportStoredFailure(safeWaiter);
+                    }
+
+                    if (Volatile.Read(ref _pendingOrRunning) <= 0)
+                    {
+                        SequenceTrace.WaitEnd("OutputPostPlaceInspectionPlaceEntry",
+                            0,
+                            "waiter=" + safeWaiter,
+                            "status=Idle",
+                            "elapsedMs=" + ElapsedMs(start),
+                            BuildWaitStateDetail());
+                        if (waitLogged)
+                        {
+                            Log.Write("Main", "SYSTEM", "OutputPostPlaceInspection",
+                                safeWaiter + " Output camera 후검사 Place 진입 대기 종료(완전 유휴). - Ok");
+                        }
+                        return 0;
+                    }
+
+                    if (Volatile.Read(ref _placeEntryClear) != 0 &&
+                        _queue.IsEmpty &&
+                        Volatile.Read(ref _batchDepth) <= 0)
+                    {
+                        SequenceTrace.WaitEnd("OutputPostPlaceInspectionPlaceEntry",
+                            0,
+                            "waiter=" + safeWaiter,
+                            "status=EntryClear",
+                            "elapsedMs=" + ElapsedMs(start),
+                            BuildWaitStateDetail());
+                        Log.Write("Main", "SYSTEM", "OutputPostPlaceInspection",
+                            safeWaiter + " Output camera 후검사 배치 EPD 완료+회피 시작 상태로 Place 진입을 허용합니다" +
+                            "(RESULT 수집은 병렬 계속). elapsedMs=" + ElapsedMs(start) + " - Ok");
+                        return 0;
+                    }
+
+                    if (safeTimeoutMs > 0 && (DateTime.UtcNow - start).TotalMilliseconds >= safeTimeoutMs)
+                    {
+                        string message = safeWaiter +
+                            " Output camera post-place inspection place-entry wait timeout. timeoutMs=" + safeTimeoutMs +
+                            ", elapsedMs=" + ElapsedMs(start) +
+                            ", " + BuildWaitStateMessage();
+                        SequenceTrace.WaitEnd("OutputPostPlaceInspectionPlaceEntry",
+                            -1,
+                            "waiter=" + safeWaiter,
+                            "status=Timeout",
+                            "timeoutMs=" + safeTimeoutMs,
+                            "elapsedMs=" + ElapsedMs(start),
+                            BuildWaitStateDetail());
+                        return RaiseFailure("OUT-POST-INSPECT-IDLE-TIMEOUT", "OutputPostPlaceInspection", message);
+                    }
+
+                    if (!waitLogged)
+                    {
+                        Log.Write("Main", "SYSTEM", "OutputPostPlaceInspection",
+                            safeWaiter + " Output camera 후검사 Place 진입 대기 시작(EPD 완료+회피 시작 또는 유휴까지). " +
+                            BuildWaitStateMessage() + " - Wait");
+                        waitLogged = true;
+                    }
+
+                    await Task.Delay(10, ct).ConfigureAwait(false);
+                }
+            }
+            finally
+            {
+                Interlocked.Decrement(ref _placeEntryWaiters);
+            }
         }
 
         public int EnqueuePendingMaterialInspections(
@@ -564,6 +675,8 @@ namespace QMC.CDT320.Sequencing
             bool shouldMoveVisionAvoid = false;
             int inspectedCount = 0;
             bool firstRequestCompleted = false;
+            // F8(2026-07-26): 새 배치 처리 시작 — 이전 배치의 진입 허용 상태를 닫는다.
+            Interlocked.Exchange(ref _placeEntryClear, 0);
             try
             {
                 if (IsStopOrAlarmActive())
@@ -658,11 +771,54 @@ namespace QMC.CDT320.Sequencing
                         ", lastSide=" + lastRequest.OutputSide +
                         " - Start");
                     timeout = lastRequest.MoveTimeoutMs > 0 ? lastRequest.MoveTimeoutMs : 10000;
+
+                    // O3(2026-07-26): 회피 목표를 배리어 밖에서 먼저 확정한다 — Place 시퀀스가
+                    // 인수할 수 있도록 목표/Task를 VisionIndependentRetreatCoordinator에 발행한다.
+                    double visionRetreatTarget;
+                    bool visionRetreatMinimal;
+                    string visionRetreatDetail;
+                    ResolvePostBatchVisionRetreatTarget(
+                        stage,
+                        lastRequest,
+                        out visionRetreatTarget,
+                        out visionRetreatMinimal,
+                        out visionRetreatDetail);
                     Task<int> visionAvoidTask = MoveVisionXToAvoidAsync(
                         stage,
                         lastRequest,
                         timeout,
+                        visionRetreatTarget,
+                        visionRetreatMinimal,
+                        visionRetreatDetail,
                         ct);
+                    VisionIndependentRetreatCoordinator.RegisterOutput(
+                        visionAvoidTask,
+                        visionRetreatTarget,
+                        "OutputPostPlaceInspection:Batch");
+
+                    // F8(2026-07-26): 배치 EPD 완료 + 회피 시작 시점에 OutputPlaceArea/카메라 존을
+                    // 조기 반환한다 — 다음 Place는 RESULT 수집 완료를 기다리지 않고 3단계 진입한다.
+                    // 물리 안전은 회피 방향(+Avoid) 이동 허용 규칙 + 픽커 진입 측 페어 간격
+                    // 인터락 + 팔로잉 safetyGap이 담당한다. RESULT 수집은 비전 IPC뿐이라 lease가
+                    // 필요 없다. finally의 이중 해제는 null 대입으로 방지.
+                    if (placeLease != null)
+                    {
+                        placeLease.Dispose();
+                        placeLease = null;
+                    }
+                    if (cameraWorkLease != null)
+                    {
+                        cameraWorkLease.Dispose();
+                        cameraWorkLease = null;
+                    }
+                    Interlocked.Exchange(ref _placeEntryClear, 1);
+                    Log.Write("Main", "SYSTEM", "OutputPostPlaceInspection",
+                        "배치 EPD 완료+회피 시작 — OutputPlaceArea/카메라 존을 조기 반환하고 Place 진입을 허용합니다. " +
+                        "retreatTarget=" + visionRetreatTarget.ToString("F6") +
+                        ", retreatMode=" + (visionRetreatMinimal ? "minimal" : "fullAvoid") +
+                        ", placeEntryWaiters=" + Volatile.Read(ref _placeEntryWaiters) +
+                        ", count=" + inspectedCount + " - Ok");
+
                     Task<BinResultCollectionOutcome> resultCollectionTask =
                         CollectPlacedDieResultsAsync(capturedRequests, ct);
 
@@ -1471,32 +1627,48 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
-        private async Task<int> MoveVisionXToAvoidAsync(
+        // O3/C1-(b)(2026-07-26): 배치 EPD 완료 직후 회피 목표 확정 —
+        // Place 진입 대기자가 있으면 최소 회피(planned 없이 피커 현재 Actual/Command만 —
+        // 서비스가 자동 포함; 다음 Place가 정확 좌표로 부족분을 연장), 대기자가 없으면
+        // 전체 Avoid 완주(OutputFeederY 자동 이동 인터락 "정확 Avoid 요구" 보존 — 로트말/
+        // 트레이 교체/RunStart 복구 경로). 게이트 미충족/계산 실패 시도 전체 Avoid.
+        private void ResolvePostBatchVisionRetreatTarget(
             OutputStageUnit stage,
             OutputPostPlaceInspectionRequest request,
-            int timeout,
-            CancellationToken ct)
+            out double visionTarget,
+            out bool useMinimalRetreat,
+            out string retreatDetail)
         {
-            if (IsStopOrAlarmActive())
-                return StopRequestedResult;
+            visionTarget = 0.0;
+            useMinimalRetreat = false;
+            retreatDetail = string.Empty;
 
-            // 촬영 종료 후 회피: 플레이스 Conti 게이트 충족 시 부호 인지 최소 회피(Extra 포함).
-            // 이 시점에는 다음 플레이스 대상 좌표를 알 수 없으므로 planned 없이 피커 현재
-            // Actual/Command만으로 계산한다(서비스가 자동 포함). 다음 플레이스가 시작되면
-            // PickerPlaceSequence의 회피 결정부가 정확한 배치 좌표로 재계산한다.
-            // 게이트 미충족/계산 실패 시 기존 전체 Avoid 경로 그대로 (동작 무변경).
-            double visionTarget = 0.0;
-            bool useMinimalRetreat = false;
-            string retreatDetail = string.Empty;
+            double recipeFullAvoid = 0.0;
+            if (stage != null && stage.Recipe != null)
+            {
+                stage.Recipe.EnsurePositionObjects();
+                recipeFullAvoid = stage.Recipe.VisionX.AvoidPosition;
+            }
+            visionTarget = recipeFullAvoid;
+
+            if (!HasPlaceEntryWaiter)
+            {
+                retreatDetail = "Place 진입 대기자가 없어 전체 Avoid를 완주합니다(C1: FeederY 자동 이동 인터락 보존).";
+                Log.Write("Main", "SYSTEM", "OutputPostPlaceInspection",
+                    "BIN 촬영 종료 후 OutputVisionX 회피 목표 확정. mode=fullAvoid, " +
+                    "detail=" + retreatDetail +
+                    ", die=" + (request != null ? request.DieId : "-") + " - Check");
+                return;
+            }
+
             if (IsMinimalRetreatGateSatisfied(request) &&
-                stage.Recipe != null && stage.OutputCameraX != null)
+                stage != null && stage.Recipe != null && stage.OutputCameraX != null)
             {
                 SharedRailXMotionService service = SharedRailXMotionRuntime.ResolveService(
                     _context != null ? _context.Machine : null);
                 if (service != null)
                 {
-                    stage.Recipe.EnsurePositionObjects();
-                    double fullAvoid = stage.Recipe.VisionX.AvoidPosition;
+                    double fullAvoid = recipeFullAvoid;
                     double dynamicTarget;
                     string dynamicDetail;
                     if (service.TryResolveMinimalVisionRetreatTarget(
@@ -1514,8 +1686,8 @@ namespace QMC.CDT320.Sequencing
                             "BIN 촬영 종료 후 OutputVisionX 최소 회피 좌표를 확정했습니다. mode=minimal" +
                             ", target=" + visionTarget.ToString("F6") +
                             ", fullAvoid=" + fullAvoid.ToString("F6") +
-                            ", die=" + request.DieId +
-                            ", side=" + request.OutputSide +
+                            ", die=" + (request != null ? request.DieId : "-") +
+                            ", side=" + (request != null ? request.OutputSide.ToString() : "-") +
                             ", detail=" + retreatDetail + " - Check");
                     }
                     else
@@ -1526,6 +1698,19 @@ namespace QMC.CDT320.Sequencing
                     }
                 }
             }
+        }
+
+        private async Task<int> MoveVisionXToAvoidAsync(
+            OutputStageUnit stage,
+            OutputPostPlaceInspectionRequest request,
+            int timeout,
+            double visionTarget,
+            bool useMinimalRetreat,
+            string retreatDetail,
+            CancellationToken ct)
+        {
+            if (IsStopOrAlarmActive())
+                return StopRequestedResult;
 
             int result = useMinimalRetreat
                 ? await SequenceAwaiter.AwaitAsync(
@@ -1840,7 +2025,9 @@ namespace QMC.CDT320.Sequencing
                 return -1;
             }
 
-            int timeoutMs = service.Config != null ? service.Config.VisionFollowEntryTimeoutMs : 15000;
+            // C2(2026-07-26): 타임아웃은 100% 기준 설정값이므로 속도 스케일 역수로 확장한다(저속 오탐 -21 방지).
+            int timeoutMs = MotionSpeedScale.ScaleDefaultTimeoutMs(
+                service.Config != null ? service.Config.VisionFollowEntryTimeoutMs : 15000);
             // 현재 기준: follow의 명령/오버라이드 경로는 축 레이어 자동 스케일이 없으므로 여기서 1회 스케일.
             double trailingVelocity = MotionSpeedScale.ApplyDefaultVelocityScale(
                 stage.OutputCameraX.Config != null ? stage.OutputCameraX.Config.DefaultVelocity : 0.0);
