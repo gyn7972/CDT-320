@@ -1664,7 +1664,24 @@ namespace QMC.CDT320.Interlocks
                 return MotionGuardRuleHelpers.Block(movingName, "WaferStageT is moving.", out reason);
             if (IsMovingExcept(stage.ExpanderZ, movingName, "WaferExpandingZ", "ExpanderZ"))
                 return MotionGuardRuleHelpers.Block(movingName, "ExpanderZ is moving.", out reason);
+            // 기존 조건: InputVisionX가 이동 중이면 NeedleX를 제외한 모든 InputStage 축 이동을 차단했다.
+            // 현재 기준(사용자 승인 2026-07-25): WaferStageY도 예외로 둔다.
+            //   근거 1 — 물리 간섭 없음(사용자 확인 2026-07-25): InputVisionX(카메라 X)와
+            //            InputStageY(웨이퍼 Y)는 기계적으로 간섭하지 않는 축이다.
+            //   근거 2 — 선언 매트릭스 불일치: interlock-check-matrix.json의 MovingName="WaferY" 행이
+            //            요구하는 검사는 InputFeederY / Feeder Up-Down / Feeder Clamp-UnClamp /
+            //            WaferExpandingZ / NeedleX / NeedleZ / EjectPinZ 7건뿐이며 InputVisionX는 없다.
+            //            이 차단은 선언된 인터락이 아니라 이 함수의 하드코딩 결합이었다.
+            //   근거 3 — StageY의 실제 간섭 반경은 CameraX가 아니라 NeedleX/StageY 좌표로 판정한다
+            //            (IsNeedleWorkPointInArea / TryResolveNeedleWorkPointMoveOrder,
+            //             PickerInputStageMoveHelper.BuildWorkPointTargetName 주석). NeedleX는 이미
+            //            이 규칙의 예외이므로 NeedleX∥StageY 동시 이동은 기존에도 허용됐다.
+            //   목적 — 픽업의 InputVisionX 이연 최소 회피(약 330mm, 5%에서 ~6.6초)와 StageY 진입
+            //          이동이 겹쳐 -11로 실패하던 문제 해소(실장비 2026-07-25 17:18:55).
+            //   주의 — 완화 범위는 (moving=WaferStageY × 이동 중=InputVisionX) 조합 1개뿐이다.
+            //          WaferStageT / ExpanderZ / NeedleZ / EjectPinZ는 그대로 차단된다.
             if (!IsNeedleXMove(movingName) &&
+                !IsWaferStageYMove(movingName) &&
                 IsMovingExcept(stage.CameraX, movingName, "InputVisionX", "CameraX"))
                 return MotionGuardRuleHelpers.Block(movingName, "InputVisionX is moving.", out reason);
             if (!IsInputVisionXMove(movingName) &&
