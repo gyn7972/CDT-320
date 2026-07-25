@@ -56,7 +56,8 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 null,
                 null,
                 btnStop,
-                actionPanel.Controls);
+                actionPanel.Controls,
+                lblColletCleanValue);
 
             // 버튼 전용(입력 없음) Head 비전 테스트 — 시퀀서(PickerUnit)와 동일한 TpuVisionAdapter 호출(수동==실제 시퀀스).
             WireVisionButtons();

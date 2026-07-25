@@ -88,5 +88,32 @@ namespace QMC.CDT320.Alarms
             {
             }
         }
+
+        public bool TryResolveRegisteredInterferenceAxes(
+            string axisName,
+            out IReadOnlyList<string> axisNames)
+        {
+            axisNames = new string[0];
+            try
+            {
+                if (string.IsNullOrWhiteSpace(axisName))
+                    return false;
+
+                HashSet<string> group;
+                if (!_axisToGroup.TryGetValue(axisName, out group))
+                    return false;
+
+                axisNames = group.ToList();
+                return true;
+            }
+            catch
+            {
+                axisNames = new string[0];
+                return false;
+            }
+            finally
+            {
+            }
+        }
     }
 }

@@ -66,7 +66,7 @@ namespace QMC.CDT320.Sequencing
                         return MoveCassetteToUnloadOffsetPositionAsync(ct);
                     // 피더 클램프 검증
                     case InputFeederUnloadToCassetteStep.VerifyFeederClamp:
-                        return Task.FromResult(VerifyFeederClamp());
+                        return VerifyFeederClampAsync(ct);
                     // 피더 리프트 다운 검증
                     case InputFeederUnloadToCassetteStep.VerifyFeederLiftDown:
                         return Task.FromResult(VerifyFeederLiftDown());
@@ -187,11 +187,45 @@ namespace QMC.CDT320.Sequencing
             return 0;
         }
 
-        private int VerifyFeederClamp()
+        private async Task<int> VerifyFeederClampAsync(CancellationToken ct)
         {
+            ct.ThrowIfCancellationRequested();
+
             if (!Feeder.IsWaferFeederClamp())
-                return Fail("IN-FEEDER-CLAMP-CHECK", Feeder.Name,
-                    "WaferFeeder must already be clamped before cassette unload. " + Feeder.GetWaferFeederTransferState());
+            {
+                // 재시작 복구: UnloadFromStage(피더가 wafer를 클램프)까지 끝난 뒤 프로그램이 재시작되면
+                // Material 데이터는 피더 보유인데 클램프 실린더는 Unclamp로 초기화될 수 있다.
+                // wafer가 실제로 링 위에 감지되고(하드웨어 바이패스 시 Material 데이터로 판정)
+                // 피더가 정지된 Down 상태면, 카세트 이동 전에 다시 클램프해서 이어간다.
+                // (Output OUT-FEEDER-CLAMP-CHECK 2026-07-26 00:58 재시작 복구와 동일 기준)
+                bool waferPresent = IsHardwareBypass()
+                    ? ResolveFeederWafer() != null
+                    : Feeder.IsWaferFeederRingDetected(true);
+                bool feederResting = Feeder.IsWaferFeederDown() &&
+                                     Feeder.FeederY != null &&
+                                     !Feeder.FeederY.IsMoving;
+
+                if (waferPresent && feederResting)
+                {
+                    WriteLog(Name,
+                        "재시작 복구: wafer가 피더 링 위에 있는데 클램프가 풀려 있어 카세트 이동 전에 다시 클램프합니다. " +
+                        Feeder.GetWaferFeederTransferState() + " - Start");
+
+                    int clampResult = await Feeder.SetWaferFeederClampAsync(true, ResolveTimeout(), ct).ConfigureAwait(false);
+                    if (clampResult != 0 || !Feeder.IsWaferFeederClamp())
+                        return Fail("IN-FEEDER-CLAMP-CHECK", Feeder.Name,
+                            "카세트 배출 전 피더 재클램프 복구에 실패했습니다. result=" + clampResult +
+                            ". " + Feeder.GetWaferFeederTransferState());
+
+                    WriteLog(Name,
+                        "재시작 복구: 피더 재클램프 완료. " + Feeder.GetWaferFeederTransferState() + " - Ok");
+                }
+                else
+                {
+                    return Fail("IN-FEEDER-CLAMP-CHECK", Feeder.Name,
+                        "WaferFeeder must already be clamped before cassette unload. " + Feeder.GetWaferFeederTransferState());
+                }
+            }
 
             CurrentStep = InputFeederUnloadToCassetteStep.VerifyFeederLiftDown;
             return 0;
@@ -413,6 +447,21 @@ namespace QMC.CDT320.Sequencing
 
                 double target = cassette.Recipe.AvoidPosition;
 
+                // 연속 이송 최적화: 같은 Loader 작업 승인(lease) 안에서 곧바로 다음 슬롯 접근이 이어지는 경우
+                // 리프터를 Avoid로 되돌리지 않고 현재 슬롯 높이에 둔다(슬롯 -> 슬롯 직행).
+                // 안전 전제: 이 시점에 위에서 InputFeeder Avoid 복귀와 Avoid Dog를 이미 확인했고,
+                //           Loader lease가 유지되는 동안에는 Picker 공정이 신규 진입할 수 없다.
+                //           Picker X 이동은 리프터 Avoid를 요구하므로, lease를 놓기 전 마지막 이송에서는
+                //           반드시 Avoid로 복귀해야 한다(호출자가 옵션으로 제어).
+                if (Options != null && Options.KeepCassetteAtSlotForNextAccess)
+                {
+                    WriteLog("InputFeederUnloadToCassetteSequence",
+                        "연속 이송을 위해 InputCassette 리프터를 Avoid로 되돌리지 않고 현재 슬롯 위치를 유지합니다. " +
+                        BuildCassetteZState(cassette, target) + " - Skip");
+                    CurrentStep = InputFeederUnloadToCassetteStep.Complete;
+                    return 0;
+                }
+
                 result = await MoveCassetteZAndVerifyAsync(
                     cassette,
                     target,
@@ -566,6 +615,20 @@ namespace QMC.CDT320.Sequencing
                 state.Process == ProcessState.Processing &&
                 sameSourceWaferOnFeeder)
             {
+                return true;
+            }
+
+            // 방어 조건: Unit의 slot projection은 휘발성이라 앱 재시작 직후 Unknown("정보 없음")이 된다.
+            // Unknown을 점유로 오판하지 않도록, 영속 Material(단일 기준)이 아래를 모두 증명할 때만 허용한다.
+            //  - 위에서 대상 cassette slot Material이 비어 있음을 이미 확인했다(cassetteWafer 없음/Empty).
+            //  - 지금 피더가 든 wafer의 원본이 정확히 이 role/slot이다(sameSourceWaferOnFeeder).
+            // 스캔으로 점유가 확인된 Exist는 위 조건 외에는 계속 차단된다.
+            if (state.Presence == SlotPresence.Unknown && sameSourceWaferOnFeeder)
+            {
+                WriteLog("InputFeederUnloadToCassetteSequence",
+                    "Unit slot projection이 Unknown이지만 영속 Material 기준으로 원본 슬롯이 비어 있어 언로드를 허용합니다. role=" +
+                    Options.CassetteRole + ", slot=" + slotIndex +
+                    ", feederWafer=" + (feederWafer != null ? feederWafer.WaferId : "") + " - Check");
                 return true;
             }
 

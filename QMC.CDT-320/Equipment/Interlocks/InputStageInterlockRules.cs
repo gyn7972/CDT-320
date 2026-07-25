@@ -968,7 +968,7 @@ namespace QMC.CDT320.Interlocks
 
             try
             {
-                // 인터락 조건: InputFeederY가 Avoid 위치가 아니면 StageT 수동 회전을 차단한다.
+                // 인터락 조건: InputFeederY가 Avoid 또는 실제 위치 0 이하가 아니면 StageT 수동 회전을 차단한다.
                 if (!VerifyInputFeederYAvoid(machine, "WaferStageT", out reason))
                     return false;
 
@@ -1608,8 +1608,8 @@ namespace QMC.CDT320.Interlocks
             return true;
         }
 
-        // 이동 전제: InputFeederY가 Avoid 위치여야 한다(아니면 차단/알람).
-        // 인터락 항목: InputStage 이동 전 InputFeederY가 Avoid 위치인지 확인한다.
+        // 이동 전제: InputFeederY가 Avoid 위치이거나 실제 위치가 0 이하여야 한다(아니면 차단/알람).
+        // 인터락 항목: InputStageT 이동 전 InputFeederY의 Avoid 또는 실제 위치 0 이하 조건을 확인한다.
         private static bool VerifyInputFeederYAvoid(CDT320_Machine machine, string movingName, out string reason)
         {
             reason = string.Empty;
@@ -1618,13 +1618,18 @@ namespace QMC.CDT320.Interlocks
             if (feeder == null)
                 return true;
 
-            if (!feeder.IsWaferFeederYInAvoidPosition())
-                return MotionGuardRuleHelpers.Block(
-                    movingName,
-                    movingName + " 이동 불가: InputFeederY가 Avoid 위치가 아닙니다.",
-                    out reason);
+            bool feederAtAvoid = feeder.IsWaferFeederYInAvoidPosition();
+            bool feederAtOrBelowZero =
+                feeder.FeederY != null && feeder.FeederY.ActualPosition <= 0.0;
+            if (feederAtAvoid || feederAtOrBelowZero)
+                return true;
 
-            return true;
+            return MotionGuardRuleHelpers.Block(
+                movingName,
+                movingName + " 이동 불가: InputFeederY가 Avoid 위치가 아니고 실제 위치가 0보다 큽니다. " +
+                "feederActual=" +
+                (feeder.FeederY != null ? feeder.FeederY.ActualPosition.ToString("0.###") : "missing"),
+                out reason);
         }
 
         // 인터락 항목: 홈 이동 전 InputFeederY가 Home(0) 또는 Avoid 위치인지 확인한다.

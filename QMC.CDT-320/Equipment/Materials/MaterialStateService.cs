@@ -2537,6 +2537,154 @@ namespace QMC.CDT320.Materials
             }
         }
 
+        /// <summary>
+        /// 콜렛 클리닝용: 출력 Bin 다이맵 슬롯을 "맨 끝쪽부터" 조회한다.
+        /// 생산 배치는 앞(OrderIndex 오름차순)에서부터 소비하므로, 클리닝은 끝에서부터 써야 충돌이 가장 늦다.
+        /// skipFromEnd는 이미 클리닝에 사용한 셀 수(끝에서부터의 커서)다.
+        /// 대상 셀에 이미 die가 있으면(생산 커서와 만남) 실패로 반환해 상위에서 알람 처리한다.
+        /// </summary>
+        public static bool TryPeekOutputReceiveSlotFromEnd(
+            QMC.CDT320.BinSide side,
+            int skipFromEnd,
+            out OutputStageReceiveTarget target,
+            out string reason)
+        {
+            target = null;
+            reason = string.Empty;
+
+            try
+            {
+                lock (_stateSync)
+                {
+                    WaferMaterial outputWafer = GetWaferAtLocation(ResolveOutputStageLocation(side));
+                    if (outputWafer == null)
+                    {
+                        reason = "OutputStage에 Bin이 없습니다. side=" + side;
+                        return false;
+                    }
+
+                    if (outputWafer.OutputReceiveSlots == null || outputWafer.OutputReceiveSlots.Count == 0)
+                    {
+                        reason = "Bin 다이맵 슬롯 정보가 없습니다. side=" + side + ", bin=" + outputWafer.WaferId;
+                        return false;
+                    }
+
+                    List<OutputReceiveSlotMaterial> targetSlots = outputWafer.OutputReceiveSlots
+                        .Where(s => s != null && s.IsTarget)
+                        .OrderByDescending(s => s.OrderIndex)
+                        .ToList();
+                    if (targetSlots.Count == 0)
+                    {
+                        reason = "Bin 다이맵에 사용 가능한 대상 셀이 없습니다. side=" + side + ", bin=" + outputWafer.WaferId;
+                        return false;
+                    }
+
+                    if (skipFromEnd < 0)
+                        skipFromEnd = 0;
+                    if (skipFromEnd >= targetSlots.Count)
+                    {
+                        reason = "클리닝에 사용할 다이맵 셀이 소진되었습니다. side=" + side +
+                                 ", bin=" + outputWafer.WaferId +
+                                 ", cursor=" + skipFromEnd + ", targetSlots=" + targetSlots.Count;
+                        return false;
+                    }
+
+                    OutputReceiveSlotMaterial slot = targetSlots[skipFromEnd];
+                    if (!IsOutputReceiveSlotPending(slot))
+                    {
+                        reason = "클리닝 대상 셀에 이미 die가 있어 사용할 수 없습니다(생산 배치와 충돌). side=" + side +
+                                 ", bin=" + outputWafer.WaferId +
+                                 ", order=" + slot.OrderIndex +
+                                 ", map=(" + slot.DieMapX + "," + slot.DieMapY + ")" +
+                                 ", result=" + slot.Result +
+                                 ", dieUid=" + (slot.DieUid ?? "");
+                        return false;
+                    }
+
+                    target = new OutputStageReceiveTarget
+                    {
+                        StageLocation = ResolveOutputStageLocation(side),
+                        OutputWaferId = outputWafer.WaferId,
+                        SourceWaferId = outputWafer.OutputReceiveSourceWaferId,
+                        OrderIndex = slot.OrderIndex,
+                        DieMapX = slot.DieMapX,
+                        DieMapY = slot.DieMapY,
+                        OffsetX = slot.PosX,
+                        OffsetY = slot.PosY,
+                        TargetX = slot.PosX,
+                        TargetY = slot.PosY
+                    };
+                    return true;
+                }
+            }
+            catch (Exception ex)
+            {
+                reason = "클리닝 대상 셀 조회 중 예외가 발생했습니다. error=" + ex.Message;
+                Log.Write("Main", "SYSTEM", "MaterialStateService",
+                    "Collet cleaning cell peek failed: " + ex.Message + " - Failed");
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
+        /// <summary>
+        /// 콜렛 클리닝에 사용한 다이맵 셀을 생산 배치 대상에서 제외한다(IsTarget=false).
+        /// 설정 AllowPlaceOnCleanedCell=false일 때만 호출한다.
+        /// </summary>
+        public static bool TryExcludeOutputReceiveSlotForColletCleaning(
+            QMC.CDT320.BinSide side,
+            int orderIndex,
+            out string reason)
+        {
+            reason = string.Empty;
+
+            try
+            {
+                lock (_stateSync)
+                {
+                    WaferMaterial outputWafer = GetWaferAtLocation(ResolveOutputStageLocation(side));
+                    if (outputWafer == null || outputWafer.OutputReceiveSlots == null)
+                    {
+                        reason = "OutputStage Bin 또는 다이맵 슬롯 정보가 없습니다. side=" + side;
+                        return false;
+                    }
+
+                    OutputReceiveSlotMaterial slot = outputWafer.OutputReceiveSlots
+                        .FirstOrDefault(s => s != null && s.OrderIndex == orderIndex);
+                    if (slot == null)
+                    {
+                        reason = "제외할 다이맵 슬롯을 찾을 수 없습니다. side=" + side + ", order=" + orderIndex;
+                        return false;
+                    }
+
+                    if (!slot.IsTarget)
+                        return true;
+
+                    slot.IsTarget = false;
+                    outputWafer.UpdatedAt = DateTime.Now;
+                    Log.Write("Main", "SYSTEM", "MaterialStateService",
+                        "콜렛 클리닝에 사용한 Bin 다이맵 셀을 생산 배치 대상에서 제외했습니다. side=" + side +
+                        ", bin=" + outputWafer.WaferId +
+                        ", order=" + orderIndex +
+                        ", map=(" + slot.DieMapX + "," + slot.DieMapY + ") - Ok");
+                    NotifyAndSave("ColletCleaningSlotExclude");
+                    return true;
+                }
+            }
+            catch (Exception ex)
+            {
+                reason = "클리닝 사용 셀 제외 중 예외가 발생했습니다. error=" + ex.Message;
+                Log.Write("Main", "SYSTEM", "MaterialStateService",
+                    "Collet cleaning cell exclude failed: " + ex.Message + " - Failed");
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
         public static bool MoveDieToOutputStage(string dieId, QMC.CDT320.BinSide side)
         {
             return MoveDieToOutputStage(dieId, side, null);

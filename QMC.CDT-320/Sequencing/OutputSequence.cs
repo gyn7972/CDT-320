@@ -95,7 +95,19 @@ namespace QMC.CDT320.Sequencing
 
     public class OutputSequence : UnitSequenceBase
     {
+        // 하위 시퀀스/액션에서 이미 Fail()로 Alarm을 발생시킨 실패를 상위 계층이 중복 Alarm 없이
+        // 전파하기 위한 내부 예외입니다. (규칙: 동일 실패의 중복 Alarm 금지)
+        private sealed class StepAlreadyAlarmedException : Exception
+        {
+            public StepAlreadyAlarmedException(string message)
+                : base(message)
+            {
+            }
+        }
+
         private const string OutputLoaderActiveSignal = "OutputLoaderActive";
+        // 무한 대기 진단용: Auto 대기 루프가 무언정지처럼 보이지 않도록 주기적으로 상태를 남기는 간격.
+        private const int AutoWaitStatusLogIntervalMs = 30000;
         private const int MaxOutputLoaderBatchActions = 12;
         private const string OutputLoaderBatchDrainReason = "Output loader 교체를 Feeder Avoid 및 최종 안전 자세까지 완료";
         private int _autoOutputLoaderBatchDepth;
@@ -117,7 +129,8 @@ namespace QMC.CDT320.Sequencing
                     SequenceStartMode.Resume).ConfigureAwait(false);
                 if (preparationResult != 0)
                 {
-                    throw new InvalidOperationException(
+                    // 준비 실패 내부의 Fail()이 이미 Alarm을 발생시켰으므로 중복 Alarm 없이 전파한다.
+                    throw new StepAlreadyAlarmedException(
                         SequenceFailureStore.AppendRecentDetail(
                             "Output 초기/레시피 변경 전체 준비 실패. result=" + preparationResult,
                             "OutputSequence",
@@ -135,7 +148,8 @@ namespace QMC.CDT320.Sequencing
 
                     int result = await ExecuteNextOutputStepAsync(ct, false, 0, SequenceStartMode.Resume).ConfigureAwait(false);
                     if (result != 0)
-                        throw new InvalidOperationException(
+                        // 액션 내부의 Fail()이 이미 Alarm을 발생시켰으므로 중복 Alarm 없이 전파한다.
+                        throw new StepAlreadyAlarmedException(
                             SequenceFailureStore.AppendRecentDetail(
                                 "Output 자동 시퀀스 실패. result=" + result,
                                 "OutputSequence",
@@ -156,6 +170,12 @@ namespace QMC.CDT320.Sequencing
             {
                 throw;
             }
+            catch (StepAlreadyAlarmedException ex)
+            {
+                // 하위 액션에서 이미 Alarm을 발생시킨 실패이므로 로그만 남기고 전파한다.
+                WriteLog("ExecuteAutoAsync", "Output 자동 시퀀스가 하위 실패로 중단되었습니다. " + ex.Message + " - Failed");
+                throw;
+            }
             catch (Exception ex)
             {
                 Fail("OUTPUT-AUTO-EX", "OutputSequence", "Output 자동 시퀀스 예외 발생: " + ex.Message);
@@ -172,7 +192,8 @@ namespace QMC.CDT320.Sequencing
             {
                 int result = await ExecuteNextOutputStepAsync(ct, false, 0, SequenceStartMode.Resume).ConfigureAwait(false);
                 if (result != 0)
-                    throw new InvalidOperationException(
+                    // 액션 내부의 Fail()이 이미 Alarm을 발생시켰으므로 중복 Alarm 없이 전파한다.
+                    throw new StepAlreadyAlarmedException(
                         SequenceFailureStore.AppendRecentDetail(
                             "Output 수동/스텝 시퀀스 실패. result=" + result,
                             "OutputSequence",
@@ -185,6 +206,11 @@ namespace QMC.CDT320.Sequencing
             }
             catch (SequenceStopException)
             {
+                throw;
+            }
+            catch (StepAlreadyAlarmedException ex)
+            {
+                WriteLog("ExecuteStepAsync", "Output 수동/스텝 시퀀스가 하위 실패로 중단되었습니다. " + ex.Message + " - Failed");
                 throw;
             }
             catch (Exception ex)
@@ -223,9 +249,10 @@ namespace QMC.CDT320.Sequencing
 
                 switch (action)
                 {
-                    // Todo: GYN 2026.07.03 - 여기서 순번대로 재개할때 항상 인터락 확인 후에 재개하도록 해야 한다. (Feeder/Stage/Picker)
-                    // 재개 Step시에 필요한 인터락 / 안전 상태 확인 후에 작업을 재개하는데 만약 안전 상태로 모션이 가능하면
-                    // 안전상태로 모션 시키고 재개하고 그렇지 않으면 알람 발생 후 장비를 멈춘다.
+                    // GYN 2026.07.03 TODO 반영: 재개를 포함한 모든 액션 실행 직전 인터락/자재 정합성 재확인은
+                    // 각 작업 진입점(Supply/Store/FeederResume/FeederStore)의
+                    // CheckOutputWorkInterlocksBeforeExecute에서 공통 수행한다.
+                    // Picker 안전 조건은 각 구간의 ExecuteWithOutputPickerAvoidGateAsync가 확인한다.
 
                     // NG 스테이지 완료품을 카세트로 배출
                     case OutputSequenceAutoAction.StoreNgStageToCassette:
@@ -914,6 +941,179 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
+        // Manual Sequence 화면의 side 지정 OUTPUT LOAD: 선택한 GOOD/NG side만 별개로 로딩한다.
+        // 공급 본체는 Auto와 동일한 ExecuteSupplyCassetteToStageAsync(side)를 사용하므로
+        // 액션 인터락 재확인(CheckOutputWorkInterlocksBeforeExecute)도 그대로 적용된다.
+        public Task<int> ExecuteManualOutputLoadAsync(
+            CancellationToken ct,
+            BinSide side,
+            bool bFine = false,
+            int moveTimeoutMs = 0,
+            SequenceStartMode startMode = SequenceStartMode.Resume)
+        {
+            // slot이 음수이면 자동 순번 공급이므로 role은 사용되지 않는다.
+            return ExecuteManualOutputLoadAsync(ct, side, CassetteMaterialRole.Good1, -1, bFine, moveTimeoutMs, startMode);
+        }
+
+        /// <summary>
+        /// Manual Sequence OUTPUT LOAD. requestedSlotIndex가 0 이상이면 작업자가 지정한 Bin을 공급하고,
+        /// 음수이면 자동 순번으로 공급한다. (UNLOAD는 원본 슬롯 고정이라 지정 대상이 없다.)
+        /// </summary>
+        public async Task<int> ExecuteManualOutputLoadAsync(
+            CancellationToken ct,
+            BinSide side,
+            CassetteMaterialRole requestedRole,
+            int requestedSlotIndex,
+            bool bFine = false,
+            int moveTimeoutMs = 0,
+            SequenceStartMode startMode = SequenceStartMode.Resume)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+
+                WaferMaterial feederWafer = MaterialStateService.GetWaferAtLocation(MaterialLocationKind.OutputFeeder);
+                if (feederWafer != null)
+                {
+                    BinSide feederSide;
+                    if (!TryResolveBinSide(feederWafer, out feederSide))
+                        return Fail("OUT-MANUAL-LOAD-FEEDER-SIDE", "OutputSequence",
+                            "OutputFeeder Bin의 GOOD/NG를 확인할 수 없습니다. bin=" + (feederWafer.WaferId ?? ""));
+
+                    if (feederSide != side)
+                        return Fail("OUT-MANUAL-LOAD-FEEDER-MISMATCH", "OutputSequence",
+                            "OutputFeeder에 " + feederSide + " Bin이 남아 있어 " + side + " LOAD를 진행할 수 없습니다. " +
+                            feederSide + " side를 먼저 처리하세요. bin=" + (feederWafer.WaferId ?? ""));
+
+                    if (IsOutputBinReceiveComplete(feederWafer))
+                        return Fail("OUT-MANUAL-LOAD-FEEDER-COMPLETE", "OutputSequence",
+                            "OutputFeeder에 완료된 Bin이 있습니다. OUTPUT UNLOAD를 먼저 실행하세요.");
+
+                    // 로딩 도중 중단된 동일 side Bin은 Auto와 동일한 재개 경로로 Stage 로딩을 이어서 수행한다.
+                    return await ExecuteOccupiedFeederActionAsync(
+                        ct,
+                        bFine,
+                        moveTimeoutMs,
+                        startMode).ConfigureAwait(false);
+                }
+
+                MaterialLocationKind targetStage = side == BinSide.Ng
+                    ? MaterialLocationKind.OutputStageNg
+                    : MaterialLocationKind.OutputStageGood;
+                if (MaterialStateService.GetWaferAtLocation(targetStage) != null)
+                    return Fail("OUT-MANUAL-LOAD-STAGE-OCCUPIED", "OutputSequence",
+                        side + " OutputStage에 이미 Bin이 있습니다. 먼저 OUTPUT UNLOAD로 배출하세요.");
+
+                // 작업자 지정 Bin 공급: 자동 순번과 동일한 Ready/일관성 조건을 통과해야 한다.
+                OutputSlotPlan requestedPlan = null;
+                if (requestedSlotIndex >= 0)
+                {
+                    string planReason;
+                    if (!OutputSlotPlanner.TryResolveSupplySlot(
+                        side, requestedRole, requestedSlotIndex, out requestedPlan, out planReason))
+                    {
+                        return Fail("OUT-MANUAL-LOAD-SLOT", "OutputSequence",
+                            "지정한 Bin을 공급할 수 없습니다. " + planReason);
+                    }
+                }
+                else if (!CanSupplyOutputStage(side))
+                {
+                    return Fail("OUT-MANUAL-LOAD-NO-SLOT", "OutputSequence",
+                        side + " OUTPUT LOAD 가능한 Bin이 없습니다. " + side +
+                        " Stage 빈 상태와 카세트 매핑/슬롯 상태를 확인하세요.");
+                }
+
+                return await ExecuteSupplyCassetteToStageAsync(
+                    ct, side, requestedPlan, bFine, moveTimeoutMs, startMode).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                WriteLog("ExecuteManualOutputLoadAsync", side + " Output Manual LOAD가 취소되었습니다. - Failed");
+                throw;
+            }
+            catch (SequenceStopException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("OUT-MANUAL-LOAD-EX", "OutputSequence",
+                    side + " Output Manual LOAD 중 예외가 발생했습니다: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        // Manual Sequence 화면의 side 지정 OUTPUT UNLOAD: 선택한 GOOD/NG side의 Stage/Feeder Bin만 카세트로 배출한다.
+        // 수령 완료 여부와 무관하게 해당 side Stage Bin을 원본 슬롯으로 배출한다(별개 동작 테스트 목적).
+        public async Task<int> ExecuteManualOutputUnloadAsync(
+            CancellationToken ct,
+            BinSide side,
+            bool bFine = false,
+            int moveTimeoutMs = 0,
+            SequenceStartMode startMode = SequenceStartMode.Resume)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+
+                MaterialLocationKind stageLocation = side == BinSide.Ng
+                    ? MaterialLocationKind.OutputStageNg
+                    : MaterialLocationKind.OutputStageGood;
+                if (MaterialStateService.GetWaferAtLocation(stageLocation) != null)
+                {
+                    return await ExecuteCompletedStageStoreAsync(
+                        ct,
+                        side,
+                        side == BinSide.Ng ? DieGrade.Ng : DieGrade.Good,
+                        bFine,
+                        moveTimeoutMs,
+                        startMode).ConfigureAwait(false);
+                }
+
+                WaferMaterial feederWafer = MaterialStateService.GetWaferAtLocation(MaterialLocationKind.OutputFeeder);
+                if (feederWafer != null)
+                {
+                    BinSide feederSide;
+                    if (TryResolveBinSide(feederWafer, out feederSide) && feederSide == side)
+                    {
+                        if (IsOutputBinReceiveComplete(feederWafer))
+                            return await ExecuteOccupiedFeederActionAsync(
+                                ct,
+                                bFine,
+                                moveTimeoutMs,
+                                startMode).ConfigureAwait(false);
+
+                        return Fail("OUT-MANUAL-UNLOAD-FEEDER-INCOMPLETE", "OutputSequence",
+                            side + " OutputFeeder에 미완료 Bin이 있습니다. OUTPUT LOAD로 Stage 로딩을 완료한 뒤 처리하세요. bin=" +
+                            (feederWafer.WaferId ?? ""));
+                    }
+                }
+
+                return Fail("OUT-MANUAL-UNLOAD-NO-BIN", "OutputSequence",
+                    side + " OUTPUT UNLOAD 가능한 Bin이 없습니다. " + side +
+                    " Stage/Feeder Bin 상태를 확인하세요.");
+            }
+            catch (OperationCanceledException)
+            {
+                WriteLog("ExecuteManualOutputUnloadAsync", side + " Output Manual UNLOAD가 취소되었습니다. - Failed");
+                throw;
+            }
+            catch (SequenceStopException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("OUT-MANUAL-UNLOAD-EX", "OutputSequence",
+                    side + " Output Manual UNLOAD 중 예외가 발생했습니다: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
         // To do: [NG 스킵] NG 카세트 사용 여부 - OutputCassette Config.UseNgCassette 파라미터를 단일 기준으로 사용한다.
         private bool IsNgCassetteUsed()
         {
@@ -1321,9 +1521,25 @@ namespace QMC.CDT320.Sequencing
         {
             try
             {
+                // Picker Place 진행 시간만큼 걸리는 생산 길이 대기이므로 고정 timeout 대신
+                // 주기 상태 로그로 무언정지를 진단한다. (탈출은 ct/CycleStop/완료 신호)
+                WriteLog("WaitAnyOutputReceiveCompleteAsync",
+                    "OutputStage 수령 완료 신호 대기를 시작합니다. - Wait");
+                int waitStatusTick = Environment.TickCount;
                 while (!ct.IsCancellationRequested)
                 {
                     SetOutputStageReadySignals();
+
+                    if (unchecked(Environment.TickCount - waitStatusTick) >= AutoWaitStatusLogIntervalMs)
+                    {
+                        waitStatusTick = Environment.TickCount;
+                        WriteLog("WaitAnyOutputReceiveCompleteAsync",
+                            "OutputStage 수령 완료 신호를 대기 중입니다. goodReady=" +
+                            (Context.Bus.IsSet("OutputGoodStageReady") ? "Y" : "N") +
+                            ", ngReady=" + (Context.Bus.IsSet("OutputNgStageReady") ? "Y" : "N") +
+                            ", goodComplete=" + (IsOutputStageCompletionSignalSet(BinSide.Good) ? "Y" : "N") +
+                            ", ngComplete=" + (IsOutputStageCompletionSignalSet(BinSide.Ng) ? "Y" : "N") + " - Wait");
+                    }
 
                     if (await WaitForStopAfterDrainCompletionIfRequestedAsync(
                         "OutputSequence.WaitReceiveComplete",
@@ -1961,11 +2177,13 @@ namespace QMC.CDT320.Sequencing
             SequenceResourceLease stageLease,
             bool bFine,
             int moveTimeoutMs,
-            SequenceStartMode startMode)
+            SequenceStartMode startMode,
+            bool keepCassetteAtSlotForNextAccess = false)
         {
             var sequence = new OutputFeederSequence(Context);
             BinSide side = cassetteRole == CassetteMaterialRole.Ng1 ? BinSide.Ng : BinSide.Good;
-            var options = BuildFeederOptions(slotIndex, slotIndex, side, bFine, moveTimeoutMs, startMode);
+            var options = BuildFeederOptions(
+                slotIndex, slotIndex, side, bFine, moveTimeoutMs, startMode, keepCassetteAtSlotForNextAccess);
             options.CassetteRole = cassetteRole;
             return SequenceTrace.ChildAsync("OutputFeederSequence", "UnloadToCassette",
                 () => sequence.RunUnloadToCassetteWithHeldResourcesAsync(
@@ -2049,6 +2267,12 @@ namespace QMC.CDT320.Sequencing
                 if (!OutputSlotPlanner.TryResolveNextStoreSlot(grade, out plan, out slotPlanReason))
                     return Fail("OUT-SLOT-UNAVAILABLE", "OutputSequence", "Output 카세트의 동일 Source Slot을 사용할 수 없습니다. grade=" + grade + ", reason=" + slotPlanReason);
 
+                // 배출 시작 직전 인터락/자재 정합성 재확인: 대상 Stage에 Bin이 있고 Feeder는 비어 있어야 한다.
+                int interlockResult = CheckOutputWorkInterlocksBeforeExecute(
+                    "OutputStore(" + plan.Side + ")", plan.Side, false, true);
+                if (interlockResult != 0)
+                    return interlockResult;
+
                 loaderActive = true;
                 SetOutputLoaderActive(loaderActive, "OutputStore");
 
@@ -2070,6 +2294,10 @@ namespace QMC.CDT320.Sequencing
                             () => ExecuteFeederUnloadFromStageAsync(ct, plan.Side, bFine, moveTimeoutMs, startMode)).ConfigureAwait(false);
                         if (result != 0) return result;
 
+                        // 연속 이송: 같은 Loader 배치에서 동일 Side 재공급이 이어질 수 있으면 카세트 리프터를
+                        // Avoid로 되돌리지 않고 슬롯 -> 슬롯 직행으로 진행한다.
+                        // 연속 공급이 확정되지 않으면 아래 else 경로에서 리프터를 Avoid로 복구한다.
+                        bool keepCassetteForChain = CanChainOutputCassetteSupply(plan.Side);
                         result = await ExecuteWithOutputPickerAvoidGateAsync("OutputStore.FeederUnloadToCassette", ct,
                             () => ExecuteFeederUnloadToCassetteWithHeldResourcesAsync(
                                 ct,
@@ -2079,7 +2307,8 @@ namespace QMC.CDT320.Sequencing
                                 lease,
                                 bFine,
                                 moveTimeoutMs,
-                                startMode)).ConfigureAwait(false);
+                                startMode,
+                                keepCassetteForChain)).ConfigureAwait(false);
                         if (result != 0) return result;
 
                         OutputSequenceAutoAction nextAction;
@@ -2095,7 +2324,8 @@ namespace QMC.CDT320.Sequencing
                                 "동일 Side 즉시 재공급을 확정하여 중간 Stage MoveAvoid를 생략하고 " +
                                 "현재 Stage/Place 리소스 점유 안에서 Supply를 연속 실행합니다. " +
                                 "side=" + plan.Side + ", nextAction=" + nextAction +
-                                ", slot=" + immediateSupplyPlan.SlotIndex + " - Start");
+                                ", slot=" + immediateSupplyPlan.SlotIndex +
+                                ", cassetteKeptAtSlot=" + keepCassetteForChain + " - Start");
 
                             result = await ExecuteImmediateSameSideSupplyOrMoveAvoidWithHeldResourcesAsync(
                                 immediateSupplyPlan,
@@ -2112,6 +2342,10 @@ namespace QMC.CDT320.Sequencing
                                 "동일 Side 즉시 재공급이 확정되지 않아 Stage MoveAvoid를 실행합니다. " +
                                 "side=" + plan.Side + ", nextAction=" + nextAction +
                                 ", reason=" + immediateSupplyReason + " - Check");
+
+                            // 연속 공급이 취소되었으므로 lease를 놓기 전에 카세트 리프터를 Avoid로 복구한다.
+                            result = await EnsureOutputCassetteAvoidAsync("OutputStore.CassetteAvoidRestore", ct).ConfigureAwait(false);
+                            if (result != 0) return result;
                             result = await ExecuteWithOutputPickerAvoidGateAsync("OutputStore.StageMoveAvoid", ct,
                                 () => ExecuteStageMoveAvoidAsync(ct, plan.Side, bFine, moveTimeoutMs, startMode)).ConfigureAwait(false);
                             if (result != 0) return result;
@@ -2123,6 +2357,11 @@ namespace QMC.CDT320.Sequencing
             }
             catch (OperationCanceledException)
             {
+                throw;
+            }
+            catch (SequenceStopException)
+            {
+                // 정상 정지(Cycle Stop 등)는 고장(Alarm)으로 재분류하지 않고 상위 제어기로 전파한다.
                 throw;
             }
             catch (Exception ex)
@@ -2146,6 +2385,12 @@ namespace QMC.CDT320.Sequencing
                 BinSide side;
                 if (!TryResolveBinSide(feederWafer, out side))
                     return Fail("OUT-FEEDER-SIDE", "Material", "Output feeder bin side cannot be resolved. wafer=" + feederWafer.WaferId);
+
+                // 잔류 Bin 재개 직전 인터락 재확인: Feeder에 Bin이 있어야 하며 축 상태가 정상이어야 한다.
+                int interlockResult = CheckOutputWorkInterlocksBeforeExecute(
+                    "OutputFeederResume(" + side + ")", side, true, null);
+                if (interlockResult != 0)
+                    return interlockResult;
 
                 if (IsOutputBinReceiveComplete(feederWafer))
                     return await ExecuteOutputFeederStoreToCassetteAsync(feederWafer, side, ct, bFine, moveTimeoutMs, startMode).ConfigureAwait(false);
@@ -2215,6 +2460,11 @@ namespace QMC.CDT320.Sequencing
             {
                 throw;
             }
+            catch (SequenceStopException)
+            {
+                // 정상 정지(Cycle Stop 등)는 고장(Alarm)으로 재분류하지 않고 상위 제어기로 전파한다.
+                throw;
+            }
             catch (Exception ex)
             {
                 return Fail("OUT-FEEDER-RESUME-EX", "OutputSequence", "Output feeder occupied resume exception: " + ex.Message);
@@ -2237,6 +2487,12 @@ namespace QMC.CDT320.Sequencing
 
                 if (feederWafer.SourceSlotNumber < 0)
                     return Fail("OUT-FEEDER-CST-SLOT", "Material", "Output feeder source slot is invalid. wafer=" + feederWafer.WaferId + ", slot=" + feederWafer.SourceSlotNumber);
+
+                // 완료 Bin 카세트 복귀 직전 인터락 재확인: Feeder에 Bin이 있어야 하며 축 상태가 정상이어야 한다.
+                int interlockResult = CheckOutputWorkInterlocksBeforeExecute(
+                    "OutputFeederStore(" + side + ")", side, true, null);
+                if (interlockResult != 0)
+                    return interlockResult;
 
                 loaderActive = true;
                 SetOutputLoaderActive(loaderActive, "OutputFeederStoreToCassette");
@@ -2312,6 +2568,11 @@ namespace QMC.CDT320.Sequencing
             {
                 throw;
             }
+            catch (SequenceStopException)
+            {
+                // 정상 정지(Cycle Stop 등)는 고장(Alarm)으로 재분류하지 않고 상위 제어기로 전파한다.
+                throw;
+            }
             catch (Exception ex)
             {
                 return Fail("OUT-FEEDER-STORE-EX", "OutputSequence", "Output feeder store to cassette exception: " + ex.Message);
@@ -2322,7 +2583,22 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
-        public async Task<int> ExecuteSupplyCassetteToStageAsync(CancellationToken ct, BinSide side = BinSide.Good, bool bFine = false, int moveTimeoutMs = 0, SequenceStartMode startMode = SequenceStartMode.Resume)
+        public Task<int> ExecuteSupplyCassetteToStageAsync(CancellationToken ct, BinSide side = BinSide.Good, bool bFine = false, int moveTimeoutMs = 0, SequenceStartMode startMode = SequenceStartMode.Resume)
+        {
+            return ExecuteSupplyCassetteToStageAsync(ct, side, null, bFine, moveTimeoutMs, startMode);
+        }
+
+        /// <summary>
+        /// Output 카세트 -> Stage 공급. requestedPlan이 있으면 작업자가 지정한 Bin을 공급하고,
+        /// 없으면 자동 순번(TryResolveNextSupplySlot)으로 결정한다.
+        /// </summary>
+        public async Task<int> ExecuteSupplyCassetteToStageAsync(
+            CancellationToken ct,
+            BinSide side,
+            OutputSlotPlan requestedPlan,
+            bool bFine = false,
+            int moveTimeoutMs = 0,
+            SequenceStartMode startMode = SequenceStartMode.Resume)
         {
             bool loaderActive = false;
             try
@@ -2333,8 +2609,25 @@ namespace QMC.CDT320.Sequencing
                     return Fail("OUT-SLOT-CONSISTENCY", "OutputSequence", "Output cassette 센서/Material 데이터가 불일치합니다. side=" + side + ", reason=" + consistencyReason);
 
                 string slotPlanReason;
-                if (!OutputSlotPlanner.TryResolveNextSupplySlot(side, out plan, out slotPlanReason))
+                if (requestedPlan != null)
+                {
+                    // 작업자가 지정한 Bin. 자동 순번과 동일한 Ready/일관성 조건을 이미 통과한 계획이다.
+                    plan = requestedPlan;
+                    Context.LogPublic("[OUTPUT] 지정 Bin 공급을 실행합니다. side=" + plan.Side +
+                        ", role=" + plan.CassetteRole +
+                        ", slot=" + (plan.SlotIndex + 1).ToString("00") +
+                        ", bin=" + (plan.WaferId ?? ""));
+                }
+                else if (!OutputSlotPlanner.TryResolveNextSupplySlot(side, out plan, out slotPlanReason))
+                {
                     return StopAutoSequence("Output cassette has no ready slot. side=" + side + ", reason=" + slotPlanReason);
+                }
+
+                // 공급 시작 직전 인터락/자재 정합성 재확인: Feeder와 대상 Stage가 모두 비어 있어야 한다.
+                int interlockResult = CheckOutputWorkInterlocksBeforeExecute(
+                    "OutputSupply(" + plan.Side + ")", plan.Side, false, false);
+                if (interlockResult != 0)
+                    return interlockResult;
 
                 loaderActive = true;
                 SetOutputLoaderActive(loaderActive, "OutputSupply");
@@ -2459,6 +2752,14 @@ namespace QMC.CDT320.Sequencing
                     ", latest=" + DescribeOutputSlotPlan(latestPlan) +
                     ", nextAction=" + latestAction +
                     ", reason=" + latestReason + " - Check");
+
+                // 연속 공급이 취소되었으므로 lease를 놓기 전에 카세트 리프터를 Avoid로 복구한다.
+                // (직전 언로드에서 연속 이송을 위해 Avoid 복귀를 생략했을 수 있다.)
+                int cassetteRestore = await EnsureOutputCassetteAvoidAsync(
+                    safeHolder + ".CassetteAvoidRestore", ct).ConfigureAwait(false);
+                if (cassetteRestore != 0)
+                    return cassetteRestore;
+
                 return await ExecuteWithOutputPickerAvoidGateAsync(
                     safeHolder + ".StageMoveAvoidAfterRecheck",
                     ct,
@@ -2476,6 +2777,104 @@ namespace QMC.CDT320.Sequencing
                 bFine,
                 moveTimeoutMs,
                 startMode).ConfigureAwait(false);
+        }
+
+        // 연속 이송 가능 판정: 배출 직후 같은 Loader 배치 안에서 동일 Side 재공급이 이어질 수 있는지 본다.
+        // 조건을 만족하지 못하면 기존처럼 카세트 리프터를 Avoid로 되돌린다.
+        private bool CanChainOutputCassetteSupply(BinSide side)
+        {
+            try
+            {
+                // Auto 배치(단일 Loader lease) 안에서만 사용한다. Manual/Step은 한 동작 단위로 끝나야 한다.
+                if (!IsAutoOutputLoaderBatchActive)
+                    return false;
+
+                if (Context == null || Context.IsCycleStopRequested)
+                    return false;
+
+                if (IsStopAfterDrainRequested())
+                    return false;
+
+                // 같은 side에 공급 가능한 Ready Bin이 있어야 한다. (Stage 점유 여부와 무관한 조회)
+                OutputSlotPlan plan;
+                return OutputSlotPlanner.TryResolveNextSupplySlot(side, out plan);
+            }
+            catch (Exception ex)
+            {
+                WriteLog("CanChainOutputCassetteSupply",
+                    "연속 이송 가능 판정 중 예외가 발생해 기존 Avoid 복귀 경로를 사용합니다. error=" + ex.Message + " - Check");
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
+        // 카세트 리프터를 Avoid로 복구한다. 이미 Avoid면 아무 동작도 하지 않는다.
+        // Picker X 이동이 리프터 Avoid를 요구하므로, Loader lease를 놓기 전에 반드시 이 상태를 만든다.
+        private async Task<int> EnsureOutputCassetteAvoidAsync(string holder, CancellationToken ct)
+        {
+            string safeHolder = string.IsNullOrWhiteSpace(holder) ? "OutputSequence" : holder;
+
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+
+                OutputCassetteUnit cassette = Context != null && Context.Machine != null
+                    ? Context.Machine.OutputCassetteUnit
+                    : null;
+                if (cassette == null || cassette.OutputLifterZ == null || cassette.Recipe == null)
+                    return Fail("OUT-CST-AVOID-MISSING", "OutputCassette",
+                        safeHolder + " 중 OutputCassette 유닛/축/레시피를 확인할 수 없어 리프터 Avoid 복구를 할 수 없습니다.");
+
+                if (!cassette.OutputLifterZ.IsMoving && cassette.IsBinLifterZInAvoidPosition())
+                    return 0;
+
+                // 기구 간섭 방지: 리프터 이동 전 OutputFeeder가 정지된 실제 Avoid 위치여야 한다.
+                OutputFeederUnit feeder = Context.Machine.OutputFeederUnit;
+                if (feeder == null ||
+                    feeder.FeederY == null ||
+                    feeder.FeederY.IsMoving ||
+                    !feeder.IsBinFeederAvoidPositionCheck())
+                {
+                    return Fail("OUT-CST-AVOID-FEEDER", "OutputCassette",
+                        safeHolder + " 중 카세트 리프터 Avoid 복구 불가: OutputFeeder가 정지된 Avoid 위치가 아닙니다. " +
+                        (feeder != null ? feeder.DescribeFeederCylinderState() : "OutputFeeder=null"));
+                }
+
+                double target = cassette.Recipe.AvoidPosition;
+                int result = await cassette.MoveBinLifterZ(target, false, ct).ConfigureAwait(false);
+                if (result != 0)
+                    return Fail("OUT-CST-AVOID-MOVE", cassette.Name,
+                        safeHolder + " 중 카세트 리프터 Avoid 복구 이동 실패. result=" + result + ", " +
+                        cassette.DescribeOutputLifterZState(target));
+
+                if (!cassette.IsBinLifterZInAvoidPosition())
+                    return Fail("OUT-CST-AVOID-CHECK", cassette.Name,
+                        safeHolder + " 중 카세트 리프터 Avoid 복구 최종 확인 실패. " +
+                        cassette.DescribeOutputLifterZState(target));
+
+                WriteLog("EnsureOutputCassetteAvoidAsync",
+                    safeHolder + ": 연속 공급이 취소되어 카세트 리프터를 Avoid로 복구했습니다. " +
+                    cassette.DescribeOutputLifterZState(target) + " - Ok");
+                return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (SequenceStopException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("OUT-CST-AVOID-EX", "OutputCassette",
+                    safeHolder + " 중 카세트 리프터 Avoid 복구 처리에서 예외가 발생했습니다. error=" + ex.Message);
+            }
+            finally
+            {
+            }
         }
 
         private static bool IsSameOutputSlotPlan(OutputSlotPlan expected, OutputSlotPlan actual)
@@ -2498,9 +2897,17 @@ namespace QMC.CDT320.Sequencing
                    "/wafer=" + (plan.WaferId ?? string.Empty);
         }
 
-        private OutputFeederSequenceOptions BuildFeederOptions(int slotIndex, int nextSlotIndex, BinSide side, bool bFine, int moveTimeoutMs, SequenceStartMode startMode)
+        private OutputFeederSequenceOptions BuildFeederOptions(
+            int slotIndex,
+            int nextSlotIndex,
+            BinSide side,
+            bool bFine,
+            int moveTimeoutMs,
+            SequenceStartMode startMode,
+            bool keepCassetteAtSlotForNextAccess = false)
         {
             var options = OutputFeederSequenceOptions.Default();
+            options.KeepCassetteAtSlotForNextAccess = keepCassetteAtSlotForNextAccess;
             options.SlotIndex = slotIndex;
             options.NextSlotIndex = nextSlotIndex;
             options.Side = side;
@@ -2946,6 +3353,147 @@ namespace QMC.CDT320.Sequencing
             options.StartMode = startMode;
             options.Grade = side == BinSide.Ng ? DieGrade.Ng : DieGrade.Good;
             return options;
+        }
+
+        // 재개/액션 실행 직전 인터락 재확인 (GYN 2026.07.03 TODO 구현, Output):
+        // - 해당 액션이 사용하는 축의 Alarm/Servo/Home 상태를 확인한다.
+        // - 액션이 전제하는 자재 배치(Feeder Bin 유무, 대상 Stage Bin 유무)를 영속 Material 기준으로 확인한다.
+        // - 불일치 시 모션을 시작하지 않고 알람으로 정지한다(fail-closed).
+        // Picker 안전 조건은 각 구간의 ExecuteWithOutputPickerAvoidGateAsync가 확인한다.
+        private int CheckOutputWorkInterlocksBeforeExecute(
+            string workLabel,
+            BinSide side,
+            bool expectFeederBin,
+            bool? expectStageBin)
+        {
+            try
+            {
+                var machine = Context != null ? Context.Machine : null;
+                var feeder = machine != null ? machine.OutputFeederUnit : null;
+                var stage = machine != null ? machine.OutputStageUnit : null;
+                var cassette = machine != null ? machine.OutputCassetteUnit : null;
+                string safeLabel = string.IsNullOrWhiteSpace(workLabel) ? "OutputWork" : workLabel;
+
+                var axes = new List<KeyValuePair<string, QMC.Common.Motion.BaseAxis>>();
+                AddOutputAxisIfPresent(axes, "OutputFeederY", feeder != null ? feeder.FeederY : null);
+                AddOutputAxisIfPresent(axes, "OutputLifterZ", cassette != null ? cassette.OutputLifterZ : null);
+                if (side == BinSide.Ng)
+                {
+                    AddOutputAxisIfPresent(axes, "NgStageY",
+                        stage != null && stage.NgStage != null ? stage.NgStage.StageY : null);
+                }
+                else
+                {
+                    AddOutputAxisIfPresent(axes, "GoodStageY",
+                        stage != null && stage.GoodStage != null ? stage.GoodStage.StageY : null);
+                    AddOutputAxisIfPresent(axes, "GoodStageZ",
+                        stage != null && stage.GoodStage != null ? stage.GoodStage.StageZ : null);
+                }
+
+                string reason;
+                if (!AreOutputAxesReadyForWork(axes, feeder, cassette, out reason))
+                    return Fail("OUT-ILK-AXIS", "OutputSequence",
+                        safeLabel + " 시작 전 축 인터락 조건이 맞지 않습니다. " + reason);
+
+                WaferMaterial feederBin = MaterialStateService.GetWaferAtLocation(MaterialLocationKind.OutputFeeder);
+                if (expectFeederBin && feederBin == null)
+                    return Fail("OUT-ILK-MATERIAL", "OutputSequence",
+                        safeLabel + " 시작 전 OutputFeeder에 처리할 Bin이 없습니다. 자재 상태를 확인하세요.");
+                if (!expectFeederBin && feederBin != null)
+                    return Fail("OUT-ILK-MATERIAL", "OutputSequence",
+                        safeLabel + " 시작 전 OutputFeeder에 Bin이 남아 있습니다. bin=" + (feederBin.WaferId ?? "") +
+                        ". 잔류 Bin 처리(OUTPUT UNLOAD) 후 다시 시작하세요.");
+
+                if (expectStageBin.HasValue)
+                {
+                    MaterialLocationKind stageLocation = side == BinSide.Ng
+                        ? MaterialLocationKind.OutputStageNg
+                        : MaterialLocationKind.OutputStageGood;
+                    WaferMaterial stageBin = MaterialStateService.GetWaferAtLocation(stageLocation);
+                    if (expectStageBin.Value && stageBin == null)
+                        return Fail("OUT-ILK-MATERIAL", "OutputSequence",
+                            safeLabel + " 시작 전 " + side + " OutputStage에 배출할 Bin이 없습니다. 자재 상태를 확인하세요.");
+                    if (!expectStageBin.Value && stageBin != null)
+                        return Fail("OUT-ILK-MATERIAL", "OutputSequence",
+                            safeLabel + " 시작 전 " + side + " OutputStage에 Bin이 남아 있습니다. bin=" + (stageBin.WaferId ?? "") +
+                            ". 기존 Bin 배출 후 다시 시작하세요.");
+                }
+
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                return Fail("OUT-ILK-EX", "OutputSequence",
+                    workLabel + " 시작 전 인터락 재확인 중 예외가 발생했습니다. error=" + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private static void AddOutputAxisIfPresent(
+            List<KeyValuePair<string, QMC.Common.Motion.BaseAxis>> axes,
+            string name,
+            QMC.Common.Motion.BaseAxis axis)
+        {
+            if (axes != null && axis != null)
+                axes.Add(new KeyValuePair<string, QMC.Common.Motion.BaseAxis>(name, axis));
+        }
+
+        // 액션에서 사용할 축의 공통 안전 조건: 알람 없음, 서보 ON, 원점 복귀 완료.
+        // 정지(IsMoving) 확인은 OutputSequence가 단독으로 이동시키는 FeederY/LifterZ에만 적용한다.
+        // (Stage/OutputVisionX는 후검사(OutputPostPlaceInspection)와 리소스 lease로 병행될 수 있어
+        //  lease 획득 전 이동 여부를 요구하면 정상 병행 동작을 오탐하게 된다.)
+        private static bool AreOutputAxesReadyForWork(
+            List<KeyValuePair<string, QMC.Common.Motion.BaseAxis>> axes,
+            OutputFeederUnit feeder,
+            OutputCassetteUnit cassette,
+            out string reason)
+        {
+            reason = string.Empty;
+            if (axes != null)
+            {
+                foreach (var pair in axes)
+                {
+                    QMC.Common.Motion.BaseAxis axis = pair.Value;
+                    if (axis == null)
+                        continue;
+
+                    if (axis.IsAlarm)
+                    {
+                        reason = pair.Key + " 축 알람이 ON 상태입니다.";
+                        return false;
+                    }
+
+                    if (!axis.IsServoOn)
+                    {
+                        reason = pair.Key + " 축 서보가 OFF 상태입니다.";
+                        return false;
+                    }
+
+                    if (!axis.IsHomeDone)
+                    {
+                        reason = pair.Key + " 축 원점 복귀(Home)가 완료되지 않았습니다.";
+                        return false;
+                    }
+                }
+            }
+
+            QMC.Common.Motion.BaseAxis feederY = feeder != null ? feeder.FeederY : null;
+            if (feederY != null && feederY.IsMoving)
+            {
+                reason = "OutputFeederY 축이 아직 이동 중입니다.";
+                return false;
+            }
+
+            QMC.Common.Motion.BaseAxis lifterZ = cassette != null ? cassette.OutputLifterZ : null;
+            if (lifterZ != null && lifterZ.IsMoving)
+            {
+                reason = "OutputLifterZ 축이 아직 이동 중입니다.";
+                return false;
+            }
+
+            return true;
         }
 
         private int Fail(string alarmCode, string source, string message)

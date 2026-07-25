@@ -26,6 +26,7 @@ namespace QMC.CDT320.Interlocks
         private DateTime _lastHardStopStopUtc = DateTime.MinValue;
         private DateTime _lastHardStopAlarmUtc = DateTime.MinValue;
         private int _hardStopRaised;
+        private bool _unsafePairMotionActive;
         private PickerSafetyPhase _frontPhase = PickerSafetyPhase.Idle;
         private PickerSafetyPhase _rearPhase = PickerSafetyPhase.Idle;
         private bool _frontCarrying;
@@ -67,6 +68,7 @@ namespace QMC.CDT320.Interlocks
             {
                 _monitorPeriodMs = monitorPeriodMs;
                 _hardStopRaised = 0;
+                _unsafePairMotionActive = false;
                 _cts = new CancellationTokenSource();
                 _loopTask = Task.Run(() => MonitorLoopAsync(_cts.Token), _cts.Token);
             }
@@ -194,16 +196,37 @@ namespace QMC.CDT320.Interlocks
             bool bothYNotRetracted = IsYNotRetracted(state.Front.YState) && IsYNotRetracted(state.Rear.YState);
             bool xPathUnsafe = DoesXPathEnterFacingClearance(state.Front, state.Rear, pair.RequiredClearance);
             bool safePairInitialize = IsSafePickerYPairInitialize(state);
-            if (bothYNotRetracted && xPathUnsafe && !safePairInitialize)
+            bool safeCollisionRecoveryJog = IsSafePickerYCollisionRecoveryJog(state);
+            if (bothYNotRetracted && xPathUnsafe)
             {
+                if (safePairInitialize || safeCollisionRecoveryJog)
+                {
+                    _unsafePairMotionActive = false;
+                    WriteThrottledStateLog(
+                        "실시간 충돌 감시 복구 이동 허용. mode=" +
+                        (safePairInitialize ? "PickerYPairInitialize" : "ManualPickerYRecoveryJog") +
+                        ", " + pair.Describe() + ", " +
+                        state.Front.Describe() + ", " + state.Rear.Describe());
+                    return;
+                }
+
+                bool pairMotionActive =
+                    state.Front.XMoving ||
+                    state.Rear.XMoving ||
+                    state.Front.YMoving ||
+                    state.Rear.YMoving;
+                bool pairMotionStarted = pairMotionActive && !_unsafePairMotionActive;
+                _unsafePairMotionActive = pairMotionActive;
+
                 string reason =
                     "실시간 충돌 감시 정지. Front/Rear PickerY가 둘 다 안전 위치가 아닌 상태에서 PickerX 거리가 안전거리 안으로 들어옵니다. " +
                     pair.Describe() + ", " + state.Front.Describe() + ", " + state.Rear.Describe();
-                RaiseHardStop(reason);
+                RaiseHardStop(reason, pairMotionActive, pairMotionStarted);
                 return;
             }
 
             Interlocked.Exchange(ref _hardStopRaised, 0);
+            _unsafePairMotionActive = false;
             _lastHardStopStopUtc = DateTime.MinValue;
             _lastHardStopAlarmUtc = DateTime.MinValue;
             WriteThrottledStateLog(
@@ -233,10 +256,43 @@ namespace QMC.CDT320.Interlocks
             if (frontY == null || rearY == null)
                 return false;
 
-            return MotionGuardRuntime.IsPickerYPairLimitSearchActive(frontY, rearY) &&
-                   (state.Front.YMoving || state.Rear.YMoving) &&
-                   frontY.IsInitializeHardwareLimitSearchActive(-1) &&
-                   rearY.IsInitializeHardwareLimitSearchActive(1);
+            if (!MotionGuardRuntime.IsPickerYPairLimitSearchActive(frontY, rearY))
+                return false;
+
+            // Pair 초기화 scope 안의 정지/Servo 준비 구간은 그대로 허용한다.
+            // 실제 축이 움직이기 시작한 뒤에는 Front - / Rear + 리밋 탐색 방향을 각각 강제한다.
+            return (!state.Front.YMoving || frontY.IsInitializeHardwareLimitSearchActive(-1)) &&
+                   (!state.Rear.YMoving || rearY.IsInitializeHardwareLimitSearchActive(1));
+        }
+
+        private bool IsSafePickerYCollisionRecoveryJog(MotionSafetyState state)
+        {
+            if (state == null || state.Front == null || state.Rear == null ||
+                state.Front.Carrying || state.Rear.Carrying ||
+                state.Front.XMoving || state.Rear.XMoving)
+            {
+                return false;
+            }
+
+            BaseAxis frontY = ResolvePickerY(true);
+            BaseAxis rearY = ResolvePickerY(false);
+            if (frontY == null || rearY == null)
+                return false;
+
+            bool frontRecovery =
+                MotionGuardRuntime.IsPickerYCollisionRecoveryJogActive(frontY, -1);
+            bool rearRecovery =
+                MotionGuardRuntime.IsPickerYCollisionRecoveryJogActive(rearY, 1);
+
+            // 한 번에 한 축만 복구하고, 반대 PickerY가 움직이면 즉시 예외를 해제한다.
+            if (frontRecovery == rearRecovery)
+                return false;
+            if (frontRecovery && state.Rear.YMoving)
+                return false;
+            if (rearRecovery && state.Front.YMoving)
+                return false;
+
+            return true;
         }
 
         private AxisPairSafetySnapshot BuildFrontRearFacingSnapshot(PickerSafetySnapshot front, PickerSafetySnapshot rear)
@@ -291,19 +347,31 @@ namespace QMC.CDT320.Interlocks
             return rearMax >= frontMin && rearMin <= frontMax;
         }
 
-        private void RaiseHardStop(string reason)
+        private void RaiseHardStop(
+            string reason,
+            bool unsafePairMotionActive,
+            bool unsafePairMotionStarted)
         {
             DateTime now = DateTime.UtcNow;
             bool firstRaise = Interlocked.Exchange(ref _hardStopRaised, 1) == 0;
 
-            // 현재 기준: 위험 상태가 남아 있으면 알람 리셋 후에도 주기적으로 EStop을 재실행한다.
-            if (firstRaise || (now - _lastHardStopStopUtc).TotalMilliseconds >= HardStopRepeatStopMs)
+            // 최초 위험 진입은 전축 EStop + Critical 알람을 유지한다.
+            // 이미 정지된 동일 위험 상태에서는 사용자가 Reset 후 복구 Jog를 시작할 수 있도록 반복하지 않는다.
+            // 허가되지 않은 X/Y 이동이 다시 시작되면 즉시 latch를 재무장해 다시 정지한다.
+            if (!firstRaise && !unsafePairMotionActive)
+                return;
+
+            if (firstRaise ||
+                unsafePairMotionStarted ||
+                (now - _lastHardStopStopUtc).TotalMilliseconds >= HardStopRepeatStopMs)
             {
                 _lastHardStopStopUtc = now;
                 StopAllForCollision();
             }
 
-            if (!firstRaise && (now - _lastHardStopAlarmUtc).TotalMilliseconds < HardStopRepeatAlarmMs)
+            if (!firstRaise &&
+                !unsafePairMotionStarted &&
+                (now - _lastHardStopAlarmUtc).TotalMilliseconds < HardStopRepeatAlarmMs)
                 return;
 
             _lastHardStopAlarmUtc = now;
@@ -319,6 +387,9 @@ namespace QMC.CDT320.Interlocks
         // 사용자 정책: 전축 하드정지. 핸들러가 등록되어 있으면 전체 축을 즉시 EStop, 없으면 Front/Rear Picker X/Y만 정지(안전 폴백).
         private void StopAllForCollision()
         {
+            // 하드정지가 요청된 뒤에도 수동 복구 예외가 남지 않도록 먼저 전역 scope를 폐기한다.
+            MotionGuardRuntime.CancelPickerYCollisionRecoveryJog(null);
+
             Action handler;
             lock (_sync)
                 handler = _stopAllAxesHandler;

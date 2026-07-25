@@ -12,6 +12,8 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
         private TableLayoutPanel topLayout;
         private GroupBox grpState;
         private GroupBox grpCounters;
+        private Label lblColletCleanTitle;
+        private Label lblColletCleanValue;
         private GroupBox grpInfo;
         private GroupBox grpSensor;
         private TableLayoutPanel stateLayout;
@@ -157,6 +159,8 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblColletCheckTitle = new System.Windows.Forms.Label();
             this.lblColletCheckValue = new System.Windows.Forms.Label();
             this.grpCounters = new System.Windows.Forms.GroupBox();
+            this.lblColletCleanTitle = new System.Windows.Forms.Label();
+            this.lblColletCleanValue = new System.Windows.Forms.Label();
             this.counterLayout = new System.Windows.Forms.TableLayoutPanel();
             this.lblPickFailTitle = new System.Windows.Forms.Label();
             this.lblPickFailValue = new System.Windows.Forms.Label();
@@ -700,7 +704,9 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.counterLayout.Controls.Add(this.lblCollet3UseValue, 1, 4);
             this.counterLayout.Controls.Add(this.lblCollet4UseTitle, 0, 5);
             this.counterLayout.Controls.Add(this.lblCollet4UseValue, 1, 5);
-            this.counterLayout.Controls.Add(this.btnCountClear, 0, 6);
+            this.counterLayout.Controls.Add(this.lblColletCleanTitle, 0, 6);
+            this.counterLayout.Controls.Add(this.lblColletCleanValue, 1, 6);
+            this.counterLayout.Controls.Add(this.btnCountClear, 0, 7);
             this.counterLayout.Dock = System.Windows.Forms.DockStyle.Fill;
             this.counterLayout.Location = new System.Drawing.Point(3, 23);
             this.counterLayout.Name = "counterLayout";
@@ -719,6 +725,31 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.counterLayout.Size = new System.Drawing.Size(197, 271);
             this.counterLayout.TabIndex = 0;
             // 
+            // lblColletCleanTitle
+            //
+            this.lblColletCleanTitle.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(200)))), ((int)(((byte)(200)))), ((int)(((byte)(200)))));
+            this.lblColletCleanTitle.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            this.lblColletCleanTitle.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.lblColletCleanTitle.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
+            this.lblColletCleanTitle.Name = "lblColletCleanTitle";
+            this.lblColletCleanTitle.Padding = new System.Windows.Forms.Padding(8, 0, 0, 0);
+            this.lblColletCleanTitle.Size = new System.Drawing.Size(112, 26);
+            this.lblColletCleanTitle.TabIndex = 90;
+            this.lblColletCleanTitle.Text = "LAST CLEAN";
+            this.lblColletCleanTitle.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            //
+            // lblColletCleanValue
+            //
+            this.lblColletCleanValue.BackColor = System.Drawing.Color.White;
+            this.lblColletCleanValue.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            this.lblColletCleanValue.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.lblColletCleanValue.Font = new System.Drawing.Font("맑은 고딕", 9F);
+            this.lblColletCleanValue.Name = "lblColletCleanValue";
+            this.lblColletCleanValue.Size = new System.Drawing.Size(75, 26);
+            this.lblColletCleanValue.TabIndex = 91;
+            this.lblColletCleanValue.Text = "-";
+            this.lblColletCleanValue.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
+            //
             // lblPickFailTitle
             // 
             this.lblPickFailTitle.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(200)))), ((int)(((byte)(200)))), ((int)(((byte)(200)))));

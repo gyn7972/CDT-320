@@ -10,15 +10,39 @@ namespace QMC.CDT320.Calibration
         [DataMember] public bool UsePickUpZCalibration { get; set; } = true;
         [DataMember] public bool UsePlaceZCalibration { get; set; } = true;
 
+        // 자동 실행 조건. 콜렛 클리닝(ColletCleaningSettings)과 동일한 트리거 프레임을 사용한다.
+        // 각 항목은 독립적으로 사용 유/무를 가지며, 카운터는 별도 State 파일로 영속화된다.
+        [DataMember] public bool UseTriggerOnWaferExchange { get; set; }
+        [DataMember] public int WaferExchangeInterval { get; set; } = 1;
+        [DataMember] public bool UseTriggerOnProcessCount { get; set; }
+        [DataMember] public int ProcessCountInterval { get; set; } = 1000;
+        [DataMember] public ColletCleaningProcessCountUnit ProcessCountUnit { get; set; } = ColletCleaningProcessCountUnit.Die;
+        [DataMember] public bool UseTriggerOnAutoStart { get; set; }
+
+        public void EnsureObjects()
+        {
+            if (WaferExchangeInterval <= 0)
+                WaferExchangeInterval = 1;
+            if (ProcessCountInterval <= 0)
+                ProcessCountInterval = 1000;
+        }
+
         public AutoCalibrationSettings Clone()
         {
             try
             {
+                EnsureObjects();
                 return new AutoCalibrationSettings
                 {
                     UseColletCalibration = UseColletCalibration,
                     UsePickUpZCalibration = UsePickUpZCalibration,
-                    UsePlaceZCalibration = UsePlaceZCalibration
+                    UsePlaceZCalibration = UsePlaceZCalibration,
+                    UseTriggerOnWaferExchange = UseTriggerOnWaferExchange,
+                    WaferExchangeInterval = WaferExchangeInterval,
+                    UseTriggerOnProcessCount = UseTriggerOnProcessCount,
+                    ProcessCountInterval = ProcessCountInterval,
+                    ProcessCountUnit = ProcessCountUnit,
+                    UseTriggerOnAutoStart = UseTriggerOnAutoStart
                 };
             }
             catch
@@ -633,6 +657,8 @@ namespace QMC.CDT320.Calibration
         [DataMember] public PickUpZCalibrationData PickUpZ { get; set; } = new PickUpZCalibrationData();
         [DataMember] public PlaceZCalibrationData PlaceZ { get; set; } = new PlaceZCalibrationData();
         [DataMember] public AutoCalibrationSettings AutoCalibration { get; set; } = new AutoCalibrationSettings();
+        [DataMember] public ColletCleaningSettings ColletCleaning { get; set; } = new ColletCleaningSettings();
+        [DataMember] public ColletCleaningHistory ColletCleaningHistory { get; set; } = new ColletCleaningHistory();
         // 캘리브레이션 "안전위치(Avoid) 이동" 전용 속도 퍼센트. 안전이동 속도/가속/감속 = 축 Config.Default × (%/100).
         // 측정 이동 속도와는 완전히 분리되며, 명시(explicit) 속도로 전달되어 전역 MotionSpeedScale과 중첩되지 않는다. 범위 1~100, 기본 7.
         [DataMember] public double SafeMovePercent { get; set; } = DefaultSafeMovePercent;
@@ -665,6 +691,11 @@ namespace QMC.CDT320.Calibration
                 PlaceZ = new PlaceZCalibrationData();
             if (AutoCalibration == null)
                 AutoCalibration = new AutoCalibrationSettings();
+            AutoCalibration.EnsureObjects();
+            if (ColletCleaning == null)
+                ColletCleaning = new ColletCleaningSettings();
+            if (ColletCleaningHistory == null)
+                ColletCleaningHistory = new ColletCleaningHistory();
             if (SafeMovePercent < MinSafeMovePercent || SafeMovePercent > MaxSafeMovePercent || double.IsNaN(SafeMovePercent))
                 SafeMovePercent = DefaultSafeMovePercent;
 
@@ -673,6 +704,8 @@ namespace QMC.CDT320.Calibration
             Needle.EnsureObjects();
             PickUpZ.EnsureObjects();
             PlaceZ.EnsureObjects();
+            ColletCleaning.EnsureObjects();
+            ColletCleaningHistory.EnsureObjects();
             UpdatedAt = EnsureSerializableDateTime(UpdatedAt);
             if (UpdatedBy == null)
                 UpdatedBy = string.Empty;

@@ -5,6 +5,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using QMC.CDT320;
+using QMC.CDT320.Calibration;
 using QMC.CDT320.Interlocks;
 using QMC.CDT320.Materials;
 using QMC.CDT320.Sequencing;
@@ -36,6 +37,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
         private readonly Label _lblColletChangeValue;
         private readonly Label _lblAutoPosValue;
         private readonly Label _lblColletCleaningValue;
+        private readonly Label _lblColletCleanHistoryValue;
         private readonly Label _lblColletCheckValue;
         private readonly Label _lblPickFailValue;
         private readonly Label _lblPlaceFailValue;
@@ -72,6 +74,71 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
         private bool _manualSequenceRunning;
         private string _lastStableProcess = "AVOID";
 
+        private DateTime _colletCleaningHistoryLoadedAt = DateTime.MinValue;
+        private string _colletCleaningHistoryText = "-";
+
+        /// <summary>
+        /// 콜렛 클리닝 이력을 요약해서 표시한다(가장 최근에 클리닝한 콜렛 기준).
+        /// 파일 I/O이므로 5초 간격으로만 다시 읽는다.
+        /// </summary>
+        private void UpdateColletCleaningHistoryDisplay()
+        {
+            if (_lblColletCleanHistoryValue == null)
+                return;
+
+            try
+            {
+                if ((DateTime.Now - _colletCleaningHistoryLoadedAt).TotalSeconds >= 5.0)
+                {
+                    _colletCleaningHistoryLoadedAt = DateTime.Now;
+                    _colletCleaningHistoryText = BuildColletCleaningHistoryText();
+                }
+
+                _lblColletCleanHistoryValue.Text = _colletCleaningHistoryText;
+            }
+            catch (Exception ex)
+            {
+                _lblColletCleanHistoryValue.Text = "-";
+                System.Diagnostics.Debug.WriteLine("Collet cleaning history display failed: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private string BuildColletCleaningHistoryText()
+        {
+            CalibrationData data = CalibrationDataStore.LoadOrCreate();
+            if (data == null)
+                return "-";
+
+            data.EnsureObjects();
+            VisionFocusPickerSide side = _side == PickerSequenceSide.Front
+                ? VisionFocusPickerSide.Front
+                : VisionFocusPickerSide.Rear;
+
+            ColletCleaningHistoryRecord latest = null;
+            int latestColletNo = 0;
+            for (int colletNo = 1; colletNo <= 4; colletNo++)
+            {
+                ColletCleaningHistoryRecord record = data.ColletCleaningHistory.Get(side, colletNo);
+                if (record == null || !record.HasHistory)
+                    continue;
+
+                if (latest == null || record.LastCleanedAt > latest.LastCleanedAt)
+                {
+                    latest = record;
+                    latestColletNo = colletNo;
+                }
+            }
+
+            if (latest == null)
+                return "-";
+
+            return "#" + latestColletNo + " " + latest.LastCleanedAt.ToString("MM-dd HH:mm") +
+                   " " + latest.LastResult;
+        }
+
         public PickerWorkInfoPageRuntime(
             PageBase owner,
             PickerSequenceSide side,
@@ -105,8 +172,11 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             ComboBox cmbPickZTestPickerNo,
             ActionButton btnPickZTest,
             ActionButton btnStop,
-            Control.ControlCollection actionControls)
+            Control.ControlCollection actionControls,
+            // 콜렛 클리닝 이력 표시(선택). 전달하지 않으면 표시를 생략한다.
+            Label lblColletCleanHistoryValue = null)
         {
+            _lblColletCleanHistoryValue = lblColletCleanHistoryValue;
             _owner = owner;
             _side = side;
             _getHost = getHost;
@@ -335,6 +405,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             _lblAutoPosValue.Text = IsGroupInPosition(machine, "AvoidPosition") ? "AVOID" : "MOVING";
             _lblColletCleaningValue.Text = vacuumOk ? "READY" : "CHECK";
             _lblColletCheckValue.Text = cdaOk && vacuumOk ? "READY" : "CHECK";
+            UpdateColletCleaningHistoryDisplay();
             _lblPickFailValue.Text = GetPickFailCount(machine) + " ea";
             _lblPlaceFailValue.Text = GetPlaceFailCount(machine) + " ea";
             string headZone = ResolveHeadZone(machine);

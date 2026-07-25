@@ -1,10 +1,12 @@
 ﻿using QMC.Common.Logging;
 using QMC.Common.Motion;
+using QMC.CDT320.Interlocks;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Drawing;
 using System.Globalization;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 
@@ -46,6 +48,7 @@ namespace QMC.CDT_320.Ui.Controls
         private bool _continuousStopRequested;
         private JogAxisItem _activeJogItem;
         private Button _activeJogButton;
+        private PickerYCollisionRecoveryJogOwner _activePickerYCollisionRecoveryJogOwner;
         private JogAxisMoveLayoutMode _layoutMode = JogAxisMoveLayoutMode.AxisColumns;
 
         public JogSpeedControl SpeedControl { get; set; }
@@ -348,6 +351,7 @@ namespace QMC.CDT_320.Ui.Controls
                 UpdateStepControlsEnabled();
                 UpdateAxisButtonAreaSize();
                 ApplyDesignTimeItems();
+                Disposed += delegate { StopActivePickerYCollisionRecoveryJogBeforeScopeRelease(); };
             }
             catch
             {
@@ -475,6 +479,7 @@ namespace QMC.CDT_320.Ui.Controls
         {
             try
             {
+                StopActivePickerYCollisionRecoveryJogBeforeScopeRelease();
                 _items.Clear();
                 _buttonAxes.Clear();
                 _buttonDirections.Clear();
@@ -503,9 +508,10 @@ namespace QMC.CDT_320.Ui.Controls
 
         public async Task<int> StopAllAsync(bool force)
         {
+            bool stopExecuted = false;
             try
             {
-                if (_isContinuousJogStarting && !force)
+                if (_isContinuousJogStarting)
                     _continuousStopRequested = true;
 
                 if (!_isJogging && !force)
@@ -514,9 +520,15 @@ namespace QMC.CDT_320.Ui.Controls
                 int finalResult = 0;
                 foreach (JogAxisItem item in _items)
                 {
+                    stopExecuted = true;
                     int result = await item.ExecuteStopAsync();
                     if (result != 0)
+                    {
                         finalResult = result;
+                        ForceAbortActivePickerYCollisionRecoveryJog(
+                            item,
+                            "StopAll returned " + result);
+                    }
                 }
 
                 _isJogging = false;
@@ -529,18 +541,24 @@ namespace QMC.CDT_320.Ui.Controls
             }
             catch
             {
+                ForceAbortActivePickerYCollisionRecoveryJog(
+                    null,
+                    "StopAll exception");
                 throw;
             }
             finally
             {
+                if (stopExecuted || force)
+                    ReleaseActivePickerYCollisionRecoveryJogScope();
             }
         }
 
         private async Task<int> StopActiveAsync(bool force)
         {
+            bool stopExecuted = false;
             try
             {
-                if (_isContinuousJogStarting && !force)
+                if (_isContinuousJogStarting)
                     _continuousStopRequested = true;
 
                 if (!_isJogging && !force)
@@ -555,7 +573,14 @@ namespace QMC.CDT_320.Ui.Controls
                     return await StopAllAsync(true);
                 }
 
+                stopExecuted = true;
                 int result = await active.ExecuteStopAsync();
+                if (result != 0)
+                {
+                    ForceAbortActivePickerYCollisionRecoveryJog(
+                        active,
+                        "StopActive returned " + result);
+                }
                 _isJogging = false;
                 if (!_isContinuousJogStarting)
                     _continuousStopRequested = false;
@@ -566,10 +591,15 @@ namespace QMC.CDT_320.Ui.Controls
             }
             catch
             {
+                ForceAbortActivePickerYCollisionRecoveryJog(
+                    null,
+                    "StopActive exception");
                 throw;
             }
             finally
             {
+                if (stopExecuted)
+                    ReleaseActivePickerYCollisionRecoveryJogScope();
             }
         }
 
@@ -2516,35 +2546,58 @@ namespace QMC.CDT_320.Ui.Controls
 
         private async void btnStop_Click(object sender, EventArgs e)
         {
+            bool releaseRecoveryScope = false;
             try
             {
                 Button button = sender as Button;
                 if (button == null || !_buttonAxes.ContainsKey(button))
                     return;
 
-                int result = await _buttonAxes[button].ExecuteStopAsync();
-                _isJogging = false;
-                if (_buttonAxes[button] == _activeJogItem)
+                JogAxisItem stoppedItem = _buttonAxes[button];
+                releaseRecoveryScope = stoppedItem == _activeJogItem;
+                int result = await stoppedItem.ExecuteStopAsync();
+                if (stoppedItem == _activeJogItem)
                 {
+                    _isJogging = false;
                     _activeJogItem = null;
                     _activeJogButton = null;
+                    ResetButtonColors();
                 }
-                ResetButtonColors();
                 if (result != 0)
+                {
+                    if (releaseRecoveryScope)
+                    {
+                        ForceAbortActivePickerYCollisionRecoveryJog(
+                            stoppedItem,
+                            "STOP button returned " + result);
+                    }
                     throw new InvalidOperationException("Jog stop returned " + result);
+                }
             }
             catch (Exception ex)
             {
+                if (releaseRecoveryScope)
+                {
+                    ForceAbortActivePickerYCollisionRecoveryJog(
+                        null,
+                        "STOP button exception");
+                }
                 ShowJogError("Jog stop failed", ex);
             }
             finally
             {
+                if (releaseRecoveryScope)
+                    ReleaseActivePickerYCollisionRecoveryJogScope();
             }
         }
 
         private async Task StartJogAsync(JogAxisItem item, int direction, Button button)
         {
             bool isStepMode = false;
+            IDisposable pendingRecoveryScope = null;
+            bool continuousRecoveryScopeInstalled = false;
+            bool continuousCommandAttempted = false;
+            bool keepContinuousRecoveryScope = false;
             try
             {
                 if (item == null)
@@ -2558,9 +2611,19 @@ namespace QMC.CDT_320.Ui.Controls
                 }
 
                 bool limitRecoveryJog = IsLimitRecoveryJog(item, direction);
+                bool pickerYCollisionRecoveryJog =
+                    item.Axis != null &&
+                    MotionGuardRuntime.CanBeginPickerYCollisionRecoveryJog(item.Axis, direction);
+                bool inputFeederStageTCollisionRecoveryJog =
+                    item.Axis != null &&
+                    InputFeederInterlockRules.CanBeginStageTCollisionRecoveryJog(item.Axis, direction);
 
-                // HOME END 미완료 축도 리밋에서 빠져나가는 방향의 Jog 복구는 허용한다.
-                if (item.Axis != null && !item.Axis.IsHomeDone && !limitRecoveryJog)
+                // HOME END 미완료 축도 하드리밋/PickerY/InputFeederY 충돌 복구 방향의 Jog만 허용한다.
+                if (item.Axis != null &&
+                    !item.Axis.IsHomeDone &&
+                    !limitRecoveryJog &&
+                    !pickerYCollisionRecoveryJog &&
+                    !inputFeederStageTCollisionRecoveryJog)
                 {
                     string homeEndMsg = (item.AxisName ?? "Axis") +
                         " 조그 불가: HOME END가 완료되지 않았습니다(원점복귀 필요).";
@@ -2579,6 +2642,15 @@ namespace QMC.CDT_320.Ui.Controls
 
                 if (isStepMode)
                 {
+                    if (pickerYCollisionRecoveryJog)
+                    {
+                        pendingRecoveryScope =
+                            MotionGuardRuntime.BeginPickerYCollisionRecoveryJog(item.Axis, direction);
+                        if (pendingRecoveryScope == null)
+                            throw new InvalidOperationException(
+                                item.AxisName + " 충돌 복구 Jog 권한을 확보하지 못했습니다.");
+                    }
+
                     double axisStep = item.FromDisplayDistance(Convert.ToDouble(numStepDistance.Value, CultureInfo.InvariantCulture));
                     int stepResult = await item.ExecuteStepAsync(direction, GetJogSpeedType(), CurrentJogSpeed(item), axisStep);
                     if (stepResult != 0)
@@ -2588,13 +2660,51 @@ namespace QMC.CDT_320.Ui.Controls
                     return;
                 }
 
+                if (pickerYCollisionRecoveryJog)
+                {
+                    pendingRecoveryScope =
+                        MotionGuardRuntime.BeginPickerYCollisionRecoveryJog(item.Axis, direction);
+                    if (pendingRecoveryScope == null)
+                        throw new InvalidOperationException(
+                            item.AxisName + " 충돌 복구 Jog 권한을 확보하지 못했습니다.");
+
+                    SetActivePickerYCollisionRecoveryJogScope(
+                        pendingRecoveryScope,
+                        item);
+                    pendingRecoveryScope = null;
+                    continuousRecoveryScopeInstalled = true;
+                }
+
+                continuousCommandAttempted = true;
                 int result = await item.ExecuteContinuousAsync(direction, GetJogSpeedType(), CurrentJogSpeed(item));
                 if (result != 0)
                     throw new InvalidOperationException("Jog continuous returned " + result);
 
+                if (_continuousStopRequested)
+                {
+                    await TryStopJogAfterFailedRecoveryStartAsync(item);
+                    return;
+                }
+
+                bool recoveryJogStarted =
+                    !continuousRecoveryScopeInstalled ||
+                    item.Axis == null ||
+                    await WaitJogAxisStartedAsync(item, 750);
+                if (_continuousStopRequested)
+                {
+                    await TryStopJogAfterFailedRecoveryStartAsync(item);
+                    return;
+                }
+                if (!recoveryJogStarted)
+                {
+                    throw new InvalidOperationException(
+                        item.AxisName + " 충돌 복구 Jog 명령 후 축 이동이 시작되지 않았습니다.");
+                }
+
                 _activeJogItem = item;
                 _activeJogButton = button;
                 _isJogging = true;
+                keepContinuousRecoveryScope = continuousRecoveryScopeInstalled;
                 EventLogger.Write(EventKind.Event, "UI", "JOG-AXIS", item.AxisName + " continuous jog start.");
 
                 if (_continuousStopRequested)
@@ -2602,15 +2712,252 @@ namespace QMC.CDT_320.Ui.Controls
             }
             catch
             {
+                if (isStepMode && pendingRecoveryScope != null)
+                {
+                    ForceAbortPendingPickerYCollisionRecoveryJog(
+                        item,
+                        "Step Jog failed");
+                }
+                if (continuousRecoveryScopeInstalled &&
+                    continuousCommandAttempted &&
+                    !keepContinuousRecoveryScope)
+                {
+                    await TryStopJogAfterFailedRecoveryStartAsync(item);
+                }
                 throw;
             }
             finally
             {
+                if (pendingRecoveryScope != null)
+                    pendingRecoveryScope.Dispose();
+                if (continuousRecoveryScopeInstalled && !keepContinuousRecoveryScope)
+                    ReleaseActivePickerYCollisionRecoveryJogScope();
+
                 if (!isStepMode)
                 {
                     _isContinuousJogStarting = false;
                 }
             }
+        }
+
+        private void SetActivePickerYCollisionRecoveryJogScope(
+            IDisposable scope,
+            JogAxisItem item)
+        {
+            var owner = new PickerYCollisionRecoveryJogOwner(item, scope);
+            PickerYCollisionRecoveryJogOwner previous = Interlocked.Exchange(
+                ref _activePickerYCollisionRecoveryJogOwner,
+                owner);
+            if (previous != null)
+                StopAndReleasePickerYCollisionRecoveryJogOwner(
+                    previous,
+                    "Previous PickerY collision recovery Jog");
+        }
+
+        private void ReleaseActivePickerYCollisionRecoveryJogScope()
+        {
+            PickerYCollisionRecoveryJogOwner owner = Interlocked.Exchange(
+                ref _activePickerYCollisionRecoveryJogOwner,
+                null);
+            if (owner != null && owner.Scope != null)
+                owner.Scope.Dispose();
+        }
+
+        private void StopActivePickerYCollisionRecoveryJogBeforeScopeRelease()
+        {
+            PickerYCollisionRecoveryJogOwner owner = Interlocked.Exchange(
+                ref _activePickerYCollisionRecoveryJogOwner,
+                null);
+            if (owner == null)
+                return;
+
+            StopAndReleasePickerYCollisionRecoveryJogOwner(
+                owner,
+                "PickerY collision recovery Jog cleanup");
+        }
+
+        private static void StopAndReleasePickerYCollisionRecoveryJogOwner(
+            PickerYCollisionRecoveryJogOwner owner,
+            string context)
+        {
+            if (owner == null)
+                return;
+
+            try
+            {
+                if (owner.Item != null && owner.Item.Axis != null)
+                    owner.Item.Axis.StopJog();
+            }
+            catch (Exception ex)
+            {
+                EventLogger.Write(
+                    EventKind.Warning,
+                    "UI",
+                    "JOG-AXIS",
+                    context + " stop failed: " + ex.Message);
+                ForceAbortPickerYCollisionRecoveryJogOwner(
+                    owner,
+                    context + " stop exception");
+                return;
+            }
+
+            if (owner.Scope != null)
+                owner.Scope.Dispose();
+        }
+
+        private void ForceAbortActivePickerYCollisionRecoveryJog(
+            JogAxisItem item,
+            string reason)
+        {
+            while (true)
+            {
+                PickerYCollisionRecoveryJogOwner owner = Interlocked.CompareExchange(
+                    ref _activePickerYCollisionRecoveryJogOwner,
+                    null,
+                    null);
+                if (owner == null)
+                    return;
+                if (item != null && !ReferenceEquals(owner.Item, item))
+                    return;
+                if (!ReferenceEquals(
+                    Interlocked.CompareExchange(
+                        ref _activePickerYCollisionRecoveryJogOwner,
+                        null,
+                        owner),
+                    owner))
+                {
+                    continue;
+                }
+
+                ForceAbortPickerYCollisionRecoveryJogOwner(owner, reason);
+                return;
+            }
+        }
+
+        private static void ForceAbortPickerYCollisionRecoveryJogOwner(
+            PickerYCollisionRecoveryJogOwner owner,
+            string reason)
+        {
+            BaseAxis axis =
+                owner != null && owner.Item != null
+                    ? owner.Item.Axis
+                    : null;
+            MotionGuardRuntime.CancelPickerYCollisionRecoveryJog(axis);
+            try
+            {
+                if (axis != null)
+                    axis.EStop();
+            }
+            catch (Exception ex)
+            {
+                EventLogger.Write(
+                    EventKind.Alarm,
+                    "UI",
+                    "JOG-AXIS",
+                    "PickerY collision recovery Jog EStop failed: " +
+                    ex.Message);
+            }
+            finally
+            {
+                if (owner != null && owner.Scope != null)
+                    owner.Scope.Dispose();
+            }
+
+            EventLogger.Write(
+                EventKind.Alarm,
+                "UI",
+                "JOG-AXIS",
+                "PickerY collision recovery Jog was force-aborted. reason=" +
+                reason);
+        }
+
+        private static void ForceAbortPendingPickerYCollisionRecoveryJog(
+            JogAxisItem item,
+            string reason)
+        {
+            BaseAxis axis = item != null ? item.Axis : null;
+            MotionGuardRuntime.CancelPickerYCollisionRecoveryJog(axis);
+            try
+            {
+                if (axis != null)
+                    axis.EStop();
+            }
+            catch (Exception ex)
+            {
+                EventLogger.Write(
+                    EventKind.Alarm,
+                    "UI",
+                    "JOG-AXIS",
+                    "PickerY collision recovery Step Jog EStop failed: " +
+                    ex.Message);
+            }
+
+            EventLogger.Write(
+                EventKind.Alarm,
+                "UI",
+                "JOG-AXIS",
+                "PickerY collision recovery Step Jog was force-aborted. reason=" +
+                reason);
+        }
+
+        private static async Task<bool> WaitJogAxisStartedAsync(
+            JogAxisItem item,
+            int timeoutMs)
+        {
+            DateTime deadline = DateTime.UtcNow.AddMilliseconds(Math.Max(0, timeoutMs));
+            do
+            {
+                if (IsJogAxisMoving(item))
+                    return true;
+
+                await Task.Delay(20);
+            }
+            while (DateTime.UtcNow < deadline);
+
+            return IsJogAxisMoving(item);
+        }
+
+        private async Task TryStopJogAfterFailedRecoveryStartAsync(
+            JogAxisItem item)
+        {
+            try
+            {
+                if (item != null)
+                {
+                    int result = await item.ExecuteStopAsync();
+                    if (result != 0)
+                    {
+                        ForceAbortActivePickerYCollisionRecoveryJog(
+                            item,
+                            "start failure stop returned " + result);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                EventLogger.Write(
+                    EventKind.Warning,
+                    "UI",
+                    "JOG-AXIS",
+                    "PickerY collision recovery Jog start failure stop failed: " + ex.Message);
+                ForceAbortActivePickerYCollisionRecoveryJog(
+                    item,
+                    "start failure stop exception");
+            }
+        }
+
+        private sealed class PickerYCollisionRecoveryJogOwner
+        {
+            public PickerYCollisionRecoveryJogOwner(
+                JogAxisItem item,
+                IDisposable scope)
+            {
+                Item = item;
+                Scope = scope;
+            }
+
+            public JogAxisItem Item { get; private set; }
+            public IDisposable Scope { get; private set; }
         }
 
         private static bool IsLimitRecoveryJog(JogAxisItem item, int direction)

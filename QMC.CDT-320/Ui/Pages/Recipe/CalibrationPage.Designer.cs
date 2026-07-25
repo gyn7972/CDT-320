@@ -20,6 +20,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
         private Button btnPlaceZCal;
         private Button btnNeedleZCal;
         private Button btnAutoCalibration;
+        private Button btnColletCleaning;
         private FlowLayoutPanel safeMovePanel;
         private Label lblSafeMove;
         private NumericUpDown numSafeMovePercent;
@@ -53,6 +54,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.btnPlaceZCal = new System.Windows.Forms.Button();
             this.btnNeedleZCal = new System.Windows.Forms.Button();
             this.btnAutoCalibration = new System.Windows.Forms.Button();
+            this.btnColletCleaning = new System.Windows.Forms.Button();
             this.safeMovePanel = new System.Windows.Forms.FlowLayoutPanel();
             this.lblSafeMove = new System.Windows.Forms.Label();
             this.numSafeMovePercent = new System.Windows.Forms.NumericUpDown();
@@ -187,8 +189,9 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.buttonLayout.Controls.Add(this.btnPickUpZCal, 0, 2);
             this.buttonLayout.Controls.Add(this.btnPlaceZCal, 1, 2);
             this.buttonLayout.Controls.Add(this.btnNeedleZCal, 2, 2);
+            // 3 x 3 격자 유지: AUTO CALIBRATION / COLLET CLEANING을 4행에 한 칸씩 배치한다(전체 폭 사용 안 함).
             this.buttonLayout.Controls.Add(this.btnAutoCalibration, 0, 3);
-            this.buttonLayout.SetColumnSpan(this.btnAutoCalibration, 3);
+            this.buttonLayout.Controls.Add(this.btnColletCleaning, 1, 3);
             this.buttonLayout.Dock = System.Windows.Forms.DockStyle.Fill;
             this.buttonLayout.Location = new System.Drawing.Point(6, 20);
             this.buttonLayout.Margin = new System.Windows.Forms.Padding(0);
@@ -370,6 +373,23 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.btnAutoCalibration.TabIndex = 9;
             this.btnAutoCalibration.Text = "AUTO CALIBRATION";
             this.btnAutoCalibration.UseVisualStyleBackColor = false;
+            //
+            // btnColletCleaning
+            //
+            this.btnColletCleaning.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
+            this.btnColletCleaning.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.btnColletCleaning.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.btnColletCleaning.FlatAppearance.BorderSize = 0;
+            this.btnColletCleaning.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this.btnColletCleaning.Font = new System.Drawing.Font("맑은 고딕", 13F, System.Drawing.FontStyle.Bold);
+            this.btnColletCleaning.ForeColor = System.Drawing.Color.White;
+            this.btnColletCleaning.Location = new System.Drawing.Point(8, 446);
+            this.btnColletCleaning.Margin = new System.Windows.Forms.Padding(8);
+            this.btnColletCleaning.Name = "btnColletCleaning";
+            this.btnColletCleaning.Size = new System.Drawing.Size(1648, 95);
+            this.btnColletCleaning.TabIndex = 10;
+            this.btnColletCleaning.Text = "COLLET CLEANING";
+            this.btnColletCleaning.UseVisualStyleBackColor = false;
             // 
             // lblGuide
             // 
@@ -417,6 +437,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.btnPlaceZCal.Click += new System.EventHandler(this.btnPlaceZCal_Click);
             this.btnNeedleZCal.Click += new System.EventHandler(this.btnNeedleZCal_Click);
             this.btnAutoCalibration.Click += new System.EventHandler(this.btnAutoCalibration_Click);
+            this.btnColletCleaning.Click += new System.EventHandler(this.btnColletCleaning_Click);
             //
             // CalibrationPage
             //

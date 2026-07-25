@@ -332,6 +332,8 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             AddVisionPickerOffsetItems(optionItems, "INPUT VISION", () => ResolveLiveVisionOffsets(true), PickerAxis.PickerX, PickerAxis.PickerY, visionOffsetGroup);
             AddVisionPickerOffsetItems(optionItems, "OUTPUT VISION", () => ResolveLiveVisionOffsets(false), PickerAxis.PickerX, PickerAxis.PickerY, visionOffsetGroup);
 
+            AddColletAfZOffsetItems(optionItems);
+
             optionParameterGrid.SetItems(optionItems);
 
             waitParameterGrid.AutoFitParentGroupHeight = true;   // WAIT 그룹 높이를 내용에 맞춰 자동 조정 (스크롤 없이 전 항목 표시)
@@ -344,6 +346,34 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 Describe(AxisDouble("PICK LIFT POSITION", PickerAxis.PickerZ0, AxisUnitConverter.Millimeter, ParameterGridScope.Recipe, () => unit.Recipe.PickLiftPosition, v => unit.Recipe.PickLiftPosition = v),
                     "구 PickUp 경로에서 Die를 집은 뒤 Needle과 Picker를 동시에 위로 들어 올릴 상대 거리입니다.")
             });
+        }
+
+        // 콜렛별 AF Z Offset(공정 Pick/Place Z 가산값)과 안전 한계를 편집한다.
+        // 값은 콜렛 캘리브레이션/런타임 Bottom AF가 자동 갱신하고, PickUpZ/PlaceZ 캘 저장 시 0으로 리셋된다.
+        private void AddColletAfZOffsetItems(List<ParameterGridItem> items)
+        {
+            const string groupKey = "L_COLLET_AF_Z_OFFSET";
+            unit.Recipe.EnsurePositionObjects();
+            items.Add(ParameterGridItem.Header("COLLET AF Z OFFSET", groupKey));
+            items.Add(InGroup(Describe(ParameterGridItem.Double("AF Z OFFSET LIMIT", "mm (0.000)", ParameterGridScope.Recipe,
+                () => unit.Recipe.ColletAfZOffsetLimitMm,
+                v => unit.Recipe.ColletAfZOffsetLimitMm = Math.Max(0.001, Math.Abs(v))),
+                "콜렛 AF Z Offset 안전 한계(절대값, mm)입니다. 공정 Pick/Place, 콜렛 캘, 런타임 AF 모두 이 한계를 넘으면 알람으로 중단합니다. 기본 0.3mm."), groupKey));
+            for (int i = 0; i < 4; i++)
+            {
+                int index = i;
+                items.Add(InGroup(Describe(ParameterGridItem.Double("COLLET " + (index + 1) + " AF Z OFFSET", "mm (0.000)", ParameterGridScope.Recipe,
+                    () => unit.Recipe.ColletAfZOffset != null && unit.Recipe.ColletAfZOffset.Length > index
+                        ? unit.Recipe.ColletAfZOffset[index]
+                        : 0.0,
+                    v =>
+                    {
+                        unit.Recipe.EnsurePositionObjects();
+                        unit.Recipe.ColletAfZOffset[index] = v;
+                    }),
+                    "공정 Pick/Place Z에 가산되는 콜렛별 AF Z Offset(mm)입니다. +면 덜 내려오고 -면 더 내려옵니다. " +
+                    "콜렛 캘리브레이션과 공정 중 런타임 Bottom AF가 자동 누적 갱신하며, PickUpZ/PlaceZ 캘 저장 시 0으로 리셋됩니다."), groupKey));
+            }
         }
 
         private void AddPickerConfigItems(List<ParameterGridItem> items, string groupKey)
@@ -399,7 +429,6 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
 
         private void AddPickUpSettingItems(List<ParameterGridItem> items, string groupKey)
         {
-            PickerPickUpMotionConfig pickUp = ResolveLivePickUpConfig();
             items.Add(InGroup(Describe(ParameterGridItem.Double("PICKUP MECHANICAL OFFSET LIMIT", "mm (0.000)", ParameterGridScope.Config,
                 () => ResolveLivePickUpConfig().MechanicalOffsetLimitMm,
                 v => SetPickUpMechanicalOffsetLimit(ResolveLivePickUpConfig(), v)),
@@ -433,7 +462,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 "PickUp ContiNode 스플라인 곡선 강도입니다.\r\n0%는 직선에 가깝게, 100%는 현재 기준, 200%는 더 둥근 X-Z 궤적으로 이동합니다."), groupKey));
             items.Add(InGroup(Describe(ParameterGridItem.Bool("PICKUP CONTI USE GLOBAL SPEED SCALE", ParameterGridScope.Config, () => ResolveLivePickUpConfig().TransferContiUseGlobalSpeedScale, v => ResolveLivePickUpConfig().TransferContiUseGlobalSpeedScale = v),
                 "PickUp ContiNode 속도에 MOTION 화면의 DEFAULT SPEED SCALE %를 적용할지 선택합니다.\r\nTrue: 전역 스케일을 적용합니다.\r\nFalse: PICKUP CONTI MAX VEL/ACC/DEC와 NODE SPEED % 값만 사용합니다."), groupKey));
-            AddPickUpContiNodeSpeedRatioItems(items, groupKey, pickUp);
+            AddPickUpContiNodeSpeedRatioItems(items, groupKey);
             items.Add(InGroup(Describe(ParameterGridItem.Double("PICKER Z PRE PICK DISTANCE", AxisUnitConverter.Millimeter, ParameterGridScope.Config, () => ResolveLivePickUpConfig().PickerZPrePickDistance, v => ResolveLivePickUpConfig().PickerZPrePickDistance = Math.Max(0.0, v)),
                 "PickerZ가 PickPosition으로 바로 내려가기 전에 멈추는 거리입니다.\r\nPickPosition에서 Avoid 방향으로 이 거리만큼 떨어진 위치까지 먼저 이동한 뒤 저속 접근합니다."), groupKey));
             items.Add(InGroup(Describe(ParameterGridItem.Double("PICKER Z APPROACH SPEED", "%", ParameterGridScope.Config, () => ResolveLivePickUpConfig().PickerZSlowApproachSpeedPercent, v => ResolveLivePickUpConfig().PickerZSlowApproachSpeedPercent = PickerPickUpMotionConfig.NormalizePercent(v, 1.0)),
@@ -456,7 +485,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 "PickUp Z 동작 후 흡착 확인/Material 갱신 전에 기다리는 안정화 시간입니다.\r\nDie가 흔들리거나 진공 응답이 늦을 때 늘립니다."), groupKey));
         }
 
-        private void AddPickUpContiNodeSpeedRatioItems(List<ParameterGridItem> items, string groupKey, PickerPickUpMotionConfig pickUp)
+        private void AddPickUpContiNodeSpeedRatioItems(List<ParameterGridItem> items, string groupKey)
         {
             items.Add(InGroup(Describe(ParameterGridItem.Double("PICKUP CONTI MAX VEL", AxisUnitConverter.Millimeter + "/s", ParameterGridScope.Config, () => ResolveLivePickUpConfig().TransferContiMaxVelocity, v => ResolveLivePickUpConfig().TransferContiMaxVelocity = PickerPickUpMotionConfig.NormalizePositive(v, 500.0)),
                 "PickUp ContiNode에서 사용할 최고 속도입니다. 각 node 속도는 이 값에 node별 SPEED %를 곱해 계산합니다."), groupKey));
@@ -537,10 +566,10 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 "Die 정보/프로젝트 Die 두께를 읽지 못했을 때 사용할 예비 Die 두께입니다."), groupKey));
             items.Add(InGroup(Describe(ParameterGridItem.Bool("PLACE CONTI USE GLOBAL SPEED SCALE", ParameterGridScope.Config, () => ResolveLivePlaceConfig().ContiUseGlobalSpeedScale, v => ResolveLivePlaceConfig().ContiUseGlobalSpeedScale = v),
                 "Place ContiNode 속도에 MOTION 화면의 DEFAULT SPEED SCALE %를 적용할지 선택합니다.\r\nTrue: 전역 스케일을 적용합니다.\r\nFalse: PLACE CONTI MAX VEL/ACC/DEC와 NODE SPEED % 값만 사용합니다."), groupKey));
-            AddPlaceContiNodeSpeedRatioItems(items, groupKey, place);
+            AddPlaceContiNodeSpeedRatioItems(items, groupKey);
         }
 
-        private void AddPlaceContiNodeSpeedRatioItems(List<ParameterGridItem> items, string groupKey, PickerPlaceMotionConfig place)
+        private void AddPlaceContiNodeSpeedRatioItems(List<ParameterGridItem> items, string groupKey)
         {
             items.Add(InGroup(Describe(ParameterGridItem.Double("PLACE CONTI MAX VEL", AxisUnitConverter.Millimeter + "/s", ParameterGridScope.Config, () => ResolveLivePlaceConfig().ContiMaxVelocity, v => ResolveLivePlaceConfig().ContiMaxVelocity = PickerPickUpMotionConfig.NormalizePositive(v, 500.0)),
                 "ContiNode에서 사용할 최고 속도입니다. 각 node 속도는 이 값에 node별 SPEED %를 곱해 계산합니다."), groupKey));

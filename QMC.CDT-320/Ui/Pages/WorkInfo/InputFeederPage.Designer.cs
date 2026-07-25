@@ -309,7 +309,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblLifterAxisTitle.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
             this.lblLifterAxisTitle.Size = new System.Drawing.Size(175, 24);
             this.lblLifterAxisTitle.TabIndex = 0;
-            this.lblLifterAxisTitle.Text = "LIFTER AXIS Z";
+            this.lblLifterAxisTitle.Text = "INPUT FEEDER Y";
             this.lblLifterAxisTitle.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
             // _lblLifterPos

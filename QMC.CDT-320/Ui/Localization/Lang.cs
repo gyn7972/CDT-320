@@ -167,19 +167,22 @@ namespace QMC.CDT_320.Ui.Localization
             A("recipe.inputFeeder",   "INPUT FEEDER",     "INPUT FEEDER");
             A("recipe.inputStage",    "INPUT STAGE",      "INPUT STAGE");
             A("recipe.frontHead",     "FRONT HEAD",       "FRONT HEAD");
+            A("recipe.visionStage",   "VISION STAGE",     "VISION STAGE");
             A("recipe.rearHead",      "REAR HEAD",        "REAR HEAD");
             A("recipe.outputFeeder",  "OUTPUT FEEDER",    "OUTPUT FEEDER");
             A("recipe.outputCassette","OUTPUT CASSETTE",  "OUTPUT CASSETTE");
             A("recipe.outputStage",   "OUTPUT STAGE",     "OUTPUT STAGE");
+
+            A("recipe.inputCreate", "INPUT CREATE", "INPUT CREATE");
+            A("recipe.outputCreate", "OUTPUT CREATE", "OUTPUT CREATE");
+            A("recipe.calibration", "CALIBRATION", "CALIBRATION");
+
+            A("recipe.forceControl", "FORCE CONTROL", "FORCE CONTROL");
             A("recipe.inputVision",   "INPUT VISION",     "INPUT VISION");
             A("recipe.bottomVision",  "BOTTOM VISION",    "BOTTOM VISION");
             A("recipe.sideVision",    "SIDE VISION",      "SIDE VISION");
             A("recipe.outputVision",  "OUTPUT VISION",    "OUTPUT VISION");
-            A("recipe.visionStage",   "VISION STAGE",     "VISION STAGE");
-            A("recipe.inputCreate",   "INPUT CREATE",     "INPUT CREATE");
-            A("recipe.outputCreate",  "OUTPUT CREATE",    "OUTPUT CREATE");
-            A("recipe.forceControl",  "FORCE CONTROL",    "FORCE CONTROL");
-            A("recipe.calibration",   "CALIBRATION",      "CALIBRATION");
+            
 
             // 설정 탭
             A("set.section",          "설정",              "Settings");

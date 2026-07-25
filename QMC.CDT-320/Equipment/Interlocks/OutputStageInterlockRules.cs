@@ -1508,8 +1508,8 @@ namespace QMC.CDT320.Interlocks
             if (stage == null)
                 return true;
 
-            if (IsMovingExcept(stage.GoodStage != null ? stage.GoodStage.StageY : null, movingName, "OutputGoodStageY", "GoodBinY", "GoodStage_StageY"))
-                return MotionGuardRuleHelpers.Block(movingName, "GoodStage Y is moving.", out reason);
+            //if (IsMovingExcept(stage.GoodStage != null ? stage.GoodStage.StageY : null, movingName, "OutputGoodStageY", "GoodBinY", "GoodStage_StageY"))
+            //    return MotionGuardRuleHelpers.Block(movingName, "GoodStage Y is moving.", out reason);
             if (IsMovingExcept(stage.GoodStage != null ? stage.GoodStage.StageZ : null, movingName, "OutputGoodStageZ", "GoodBinZ", "GoodStage_StageZ"))
                 return MotionGuardRuleHelpers.Block(movingName, "GoodStage Z is moving.", out reason);
             if (IsMovingExcept(stage.NgStage != null ? stage.NgStage.StageY : null, movingName, "OutputNGStageY", "NgBinY", "NgStage_StageY"))

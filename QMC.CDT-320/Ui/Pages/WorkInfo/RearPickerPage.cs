@@ -51,7 +51,8 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 null,
                 null,
                 btnStop,
-                actionPanel.Controls);
+                actionPanel.Controls,
+                lblColletCleanValue);
 
             WireVisionButtons();
         }
