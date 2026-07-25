@@ -21,6 +21,9 @@ namespace QMC.CDT320.Ajin
         private int _motionDirection;
         private bool _isHomeSearching;
         private int _motionStopSerial;
+        // 이 축의 위치 오버라이드(리다이렉트) 성공 횟수. MoveAbsoluteAsync가 자신의 이동 중
+        // 오버라이드가 있었는지 판정해 마지막 Command↔Target 확인(-5)을 건너뛰는 데 쓴다.
+        private int _positionOverrideSerial;
         private int _hardwareLimitSearchDirection;
 
         // 소프트리밋은 보드 센서가 아니므로 알람 리셋 전까지 소프트웨어 latch 로 유지한다.
@@ -326,6 +329,7 @@ namespace QMC.CDT320.Ajin
                     base.OverridePosition(targetPosition);
                     if (velocity > 0.0)
                         base.OverrideVelocity(velocity);
+                    System.Threading.Interlocked.Increment(ref _positionOverrideSerial);
                     return 0;
                 }
 
@@ -386,6 +390,7 @@ namespace QMC.CDT320.Ajin
                 }
 
                 base.OverridePosition(targetPosition);
+                System.Threading.Interlocked.Increment(ref _positionOverrideSerial);
                 CurrentVelocity = safeVelocity;
                 _motionDirection = targetPosition > ActualPosition
                     ? 1
@@ -1087,6 +1092,9 @@ namespace QMC.CDT320.Ajin
                 IsInPosition = false;
                 _motionDirection = targetPos > ActualPosition ? 1 : targetPos < ActualPosition ? -1 : 0;
                 int motionStopSerial = Volatile.Read(ref _motionStopSerial);
+                // 이동 시작 시점의 오버라이드 시리얼 — 이 이동 중 위치 오버라이드(리다이렉트)가
+                // 있었는지 마지막 확인에서 판정하는 기준.
+                int overrideSerial = Volatile.Read(ref _positionOverrideSerial);
 
                 // 기존 조건: AXM.MovePosition을 1초 busy-retry(커밋 292c8ab4) — 현재 기준: 프롬프트 지시로 1회 호출.
                 int ret;
@@ -1122,11 +1130,22 @@ namespace QMC.CDT320.Ajin
 
                 // 현재 기준: 리턴 전 최종 확인은 Command↔Target 톨러런스 1가지만 (INP/Actual/settle 재확인 제거 —
                 // Actual−Command 잔차는 서보 책임이라는 설계 결정, 사용자 승인).
-                if (Math.Abs(CommandPosition - targetPos) > tolerance)
+                // 리다이렉트 인지(2026-07-25): 이동 중 위치 오버라이드가 성공했으면 CommandPosition은
+                // 오버라이드 목표로 갱신되므로 원래 targetPos와의 비교는 무의미하다 — 확인을 생략하고
+                // 0(정상)으로 반환한다. 최종 목표 도달 확인은 오버라이드를 발행한 쪽(선행이동
+                // 코디네이터의 인포지션 대기, 팔로잉의 완료 대기)이 이미 수행한다.
+                bool redirectedByOverride =
+                    Volatile.Read(ref _positionOverrideSerial) != overrideSerial;
+                if (!redirectedByOverride && Math.Abs(CommandPosition - targetPos) > tolerance)
                     return FailMotion(-5, "ABS MOVE",
                         "이동 완료 후 Command 위치가 목표와 다릅니다. command=" + CommandPosition.ToString("0.######") +
                         ", target=" + targetPos.ToString("0.######") +
                         ", tolerance=" + tolerance.ToString("0.######"), targetPos, true);
+                if (redirectedByOverride)
+                    QMC.Common.Log.Write("Motion", "SYSTEM", "AX-MOVE-REDIRECT",
+                        Name + " 이동 중 위치 오버라이드로 목표가 변경되어 원래 목표 확인을 생략합니다. " +
+                        "originalTarget=" + targetPos.ToString("F6") +
+                        ", command=" + CommandPosition.ToString("F6") + " - Check");
 
                 ClearMotionFailure();
                 return 0;
