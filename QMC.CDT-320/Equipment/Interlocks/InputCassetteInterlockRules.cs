@@ -52,11 +52,11 @@ namespace QMC.CDT320.Interlocks
 
                     // 홈 이동 인터락 확인
                     case MotionGuardMoveKind.AxisHome:
-                        if (!VerifyFrontPickerXAvoidPosition(frontPicker, out reason))
-                            return false;
+                        //if (!VerifyFrontPickerXAvoidPosition(frontPicker, out reason))
+                        //    return false;
 
-                        if (!VerifyRearPickerXAvoidPosition(rearPicker, out reason))
-                            return false;
+                        //if (!VerifyRearPickerXAvoidPosition(rearPicker, out reason))
+                        //    return false;
 
                         return CanHomeWaferLifterZ(Cassette, feeder, out reason);
 
@@ -112,7 +112,6 @@ namespace QMC.CDT320.Interlocks
             }
 
             double target = frontPicker.Recipe.PickerX.AvoidPosition;
-
             if (!frontPicker.IsFrontPickerAxisInTeachingPosition(
                 PickerAxis.PickerX,
                 "AvoidPosition"))
