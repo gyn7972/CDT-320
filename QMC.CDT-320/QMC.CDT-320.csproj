@@ -1463,6 +1463,9 @@
     <EmbeddedResource Include="Ui\Tabs\SettingsTab.resx">
       <DependentUpon>SettingsTab.cs</DependentUpon>
     </EmbeddedResource>
+    <EmbeddedResource Include="Ui\Tabs\WorkTab.resx">
+      <DependentUpon>WorkTab.cs</DependentUpon>
+    </EmbeddedResource>
     <None Include="Properties\Settings.settings">
       <Generator>SettingsSingleFileGenerator</Generator>
       <LastGenOutput>Settings.Designer.cs</LastGenOutput>

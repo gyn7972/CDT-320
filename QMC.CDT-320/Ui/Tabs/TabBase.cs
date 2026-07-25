@@ -268,6 +268,15 @@ namespace QMC.CDT_320.Ui.Tabs
 
             SidebarButtons[key] = btn;
             if (pageFactory != null) PageFactories[key] = pageFactory;
+
+            // 안전망: VS 디자이너가 상속 패널(PnlSidebarButtons)에 대한 Controls.Add 직렬화를
+            // 누락한 채 저장하면(2026-07-25 WorkTab/RecipeTab/SettingsTab에서 실제 발생)
+            // 버튼이 고아 컨트롤이 되어 사이드바가 통째로 비어 보인다.
+            // 디자이너 배치가 정상일 때는 이미 부모가 있으므로 아무것도 하지 않고,
+            // 부모가 없을 때만 등록 순서대로 패널에 추가해 최소한 메뉴가 표시되게 한다.
+            if (btn.Parent == null && PnlSidebarButtons != null)
+                PnlSidebarButtons.Controls.Add(btn);
+
             return btn;
         }
     }
