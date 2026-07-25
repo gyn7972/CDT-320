@@ -330,7 +330,12 @@ namespace QMC.CDT320.Sequencing
                 if (InputEntryQueue.IsHead(Side, out headDetail))
                     return 0;
 
-                int timeoutMs = ResolveTimeout();
+                // 기존 조건: ResolveTimeout()(기본 30초) — 상대 픽커가 티켓을 쥔 채 잔여 공정
+                // (Place/검사)을 도는 정상 대기가 저속 스케일에서 30초를 넘겨 오탐 타임아웃이
+                // 발생했다(실장비 2026-07-26 03:53, elapsedMs=30013).
+                // 현재 기준(사용자 지시 2026-07-26): 기본 100초로 확대하고 속도 스케일을 반영한다
+                // (100%에서 100초, 5% 스케일에서는 상한 600초까지 자동 연장).
+                int timeoutMs = QMC.Common.Motion.MotionSpeedScale.ScaleDefaultTimeoutMs(100000);
                 DateTime start = DateTime.UtcNow;
                 bool waitLogged = false;
 
@@ -522,11 +527,14 @@ namespace QMC.CDT320.Sequencing
 
                         double dynamicTarget;
                         string dynamicDetail;
+                        // 회피 목표 마진(사용자 승인 2026-07-26, 4번): Extra에 +1mm — 최심 픽 목표와의
+                        // 최종 간격이 팔로잉 safetyGap과 정확히 같아지는 경계치 해소(팔로잉 gap은 무변경).
                         if (service.TryResolveMinimalVisionRetreatTarget(
                             stage.CameraX,
                             avoid,
                             planned,
-                            service.Config != null ? service.Config.InputVisionRetreatExtraClearance : 40.0,
+                            (service.Config != null ? service.Config.InputVisionRetreatExtraClearance : 40.0) +
+                            VisionIndependentRetreatCoordinator.RetreatTargetExtraMarginMm,
                             out dynamicTarget,
                             out dynamicDetail))
                         {
@@ -562,13 +570,14 @@ namespace QMC.CDT320.Sequencing
                     // 배치 마지막 die EPD 완료 "즉시" 회피를 비동기 시작한다(fire-and-forget).
                     // 이동 명령 경로는 기존 동기 경로와 동일(stage.MoveInputStageAxis →
                     // SharedRailXMotionRuntime.MoveAxisAsync, MotionGuard/SharedRailX 검증 + 속도
-                    // 스케일 포함, 완료 보장형). InputStageArea lease는 잡지 않는다 — 퇴장 방향
+                    // 스케일 포함). InputStageArea lease는 잡지 않는다 — 퇴장 방향
                     // 이동은 MotionGuard/공유레일 페어 검증이 담당하고, lease를 잡으면 픽업의
                     // 영역 획득이 회피 완료까지 직렬화되어 본 설계 목적(오버랩)이 무산된다.
-                    Task<int> independentRetreatTask = stage.MoveInputStageAxis(
-                        WaferStageAxis.VisionX,
-                        independentTarget,
-                        Options != null && Options.FineMove);
+                    // 보강(사용자 승인 2026-07-26, 3번): 이동 명령 완료를 신뢰하지 않고 "실위치
+                    // 도착 대기"까지 합성해 등록한다 — 세션 Task의 완료가 곧 도착을 의미하게 한다.
+                    Task<int> independentRetreatTask = RunIndependentInputVisionRetreatAsync(
+                        stage,
+                        independentTarget);
                     VisionIndependentRetreatCoordinator.RegisterInput(
                         Side,
                         independentRetreatTask,
@@ -679,6 +688,27 @@ namespace QMC.CDT320.Sequencing
             finally
             {
             }
+        }
+
+        // 독립 회피 실행 본체(사용자 승인 2026-07-26, 3번): 이동 명령(완료 보장형) 후 "실위치
+        // 도착 대기"까지 합성한다 — WaitUntilMoveDone류 완료 신호를 신뢰하지 않고, 이 Task의
+        // 완료가 곧 축 도착(또는 명시적 실패)을 의미하게 한다. 도착 대기는 CancellationToken을
+        // 걸지 않는다(시퀀스 종료 후 코디네이터 linked CTS가 dispose되어도 안전) — 타임아웃은
+        // 속도 스케일을 반영해 상한을 잡는다. CycleStop 시 축 정지 → 대기 타임아웃 → 실패 종료.
+        private async Task<int> RunIndependentInputVisionRetreatAsync(InputStageUnit stage, double target)
+        {
+            int moveResult = await stage.MoveInputStageAxis(
+                WaferStageAxis.VisionX,
+                target,
+                Options != null && Options.FineMove).ConfigureAwait(false);
+            if (moveResult != 0)
+                return moveResult;
+
+            int arrivalTimeoutMs = QMC.Common.Motion.MotionSpeedScale.ScaleDefaultTimeoutMs(ResolveTimeout());
+            return await stage.WaitInputStageAxisInPositionResult(
+                WaferStageAxis.VisionX,
+                target,
+                arrivalTimeoutMs).ConfigureAwait(false);
         }
 
         // Conti 게이트(픽업 계열): Auto + TransferMotionMode가 ContiSegmentedPickUp일 때만

@@ -383,9 +383,14 @@ namespace QMC.CDT320.Sequencing
                         return 0;
                     }
 
+                    // 자기 배치 예외(실장비 2026-07-26 03:52 분석 반영): 진입하려는 Place 자신이
+                    // 방금 연 후검사 묶음 등록(BeginBatch, depth=1)이 이 조건에 걸려 entry-clear
+                    // 경로가 무력화되고 완전 유휴(RESULT 수집 완료)까지 9.7초를 헛대기했다.
+                    // 기존 WaitUntilIdleAsync의 BatchOpenDeferred와 동일하게 waiter 자신의 배치는
+                    // 대기 사유에서 제외한다(다른 주체의 배치 등록은 계속 대기 — 3단계-③ 유지).
                     if (Volatile.Read(ref _placeEntryClear) != 0 &&
                         _queue.IsEmpty &&
-                        Volatile.Read(ref _batchDepth) <= 0)
+                        (Volatile.Read(ref _batchDepth) <= 0 || IsSameBatchOwner(safeWaiter)))
                     {
                         SequenceTrace.WaitEnd("OutputPostPlaceInspectionPlaceEntry",
                             0,
@@ -1671,11 +1676,14 @@ namespace QMC.CDT320.Sequencing
                     double fullAvoid = recipeFullAvoid;
                     double dynamicTarget;
                     string dynamicDetail;
+                    // 회피 목표 마진(사용자 승인 2026-07-26, 4번): Extra에 +1mm — 다음 Place의
+                    // 팔로잉 최종 간격 경계치 해소(팔로잉 gap은 무변경).
                     if (service.TryResolveMinimalVisionRetreatTarget(
                         stage.OutputCameraX,
                         fullAvoid,
                         null,
-                        service.Config != null ? service.Config.OutputVisionRetreatExtraClearance : 40.0,
+                        (service.Config != null ? service.Config.OutputVisionRetreatExtraClearance : 40.0) +
+                        VisionIndependentRetreatCoordinator.RetreatTargetExtraMarginMm,
                         out dynamicTarget,
                         out dynamicDetail))
                     {
