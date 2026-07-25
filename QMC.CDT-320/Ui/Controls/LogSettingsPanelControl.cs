@@ -159,6 +159,20 @@ namespace QMC.CDT_320.Ui.Controls
 
         private void UpdateDiagnosticVerboseStatus()
         {
+            // DEBUG 빌드는 시작 시부터 강제 활성이라 조작 대상이 아니다.
+            // 이 파일에서 조건부 컴파일 지시자를 쓰지 않는 이유: 이 컨트롤은 QMC.CDT-320,
+            // 정책은 QMC.Common 소유라 두 프로젝트가 다른 구성으로 빌드되면 심볼이 어긋난다.
+            // 실제 정책을 소유한 어셈블리가 노출하는 값을 읽어야 정확하다.
+            if (LogPolicy.IsDiagnosticVerboseForcedByBuild)
+            {
+                _lblDiagStatus.Text = "현재: 상세 저장 중 (DiagnosticVerbose) — DEBUG 빌드는 시작과 동시에 강제 활성화되며 해제할 수 없습니다";
+                _lblDiagStatus.ForeColor = System.Drawing.Color.FromArgb(230, 88, 31);
+                _btnDiagEnable.Enabled = false;
+                _btnDiagDisable.Enabled = false;
+                _nDiagMinutes.Enabled = false;
+                return;
+            }
+
             bool on = LogPolicy.Mode == LogMode.DiagnosticVerbose;
             if (on)
             {
