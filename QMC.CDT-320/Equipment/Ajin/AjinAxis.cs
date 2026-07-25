@@ -1077,6 +1077,11 @@ namespace QMC.CDT320.Ajin
             AlarmCode = 0;
         }
 
+        // 보완(사용자 지시 2026-07-26): 이동 명령 스킵의 "일치" 판정 엡실론(mm) —
+        // InPositionTolerance보다 훨씬 엄격한 값으로, 이 안이어야만 명령을 생략한다.
+        // 톨러런스 내 미소 잔차는 명령을 내보내 보드로 수렴시킨다.
+        private const double ExactMatchEpsilonMm = 0.0001;
+
         public override async Task<int> MoveAbsoluteAsync(double targetPos, double velocity = 0)
         {
             try
@@ -1106,8 +1111,14 @@ namespace QMC.CDT320.Ajin
                     ? Config.InPositionTolerance
                     : 0.01;
                 // 기존 조건: AxisMoveWaiter.CanSkipMoveCommandAtTarget — 현재 기준: BaseAxis 내부 스킵 헬퍼로 통일(R2).
+                // 보완(사용자 지시 2026-07-26): 톨러런스 안이어도 Actual/Command가 목표와 "일치"
+                // (ExactMatchEpsilonMm)하지 않으면 명령을 생략하지 않고 무조건 내보낸다 — 미소
+                // 잔차도 보드로 수렴시킨다. 이때 발생하는 초단거리 이동의 인모션 미관측 문제는
+                // WaitUntilMoveDone의 "Actual↔Target 일치 완료" 판정이 보완한다.
                 if (!BaseAxis.IsForceMoveActive &&
-                    CanSkipMoveToTarget(targetPos, tolerance))
+                    CanSkipMoveToTarget(targetPos, tolerance) &&
+                    Math.Abs(ActualPosition - targetPos) <= ExactMatchEpsilonMm &&
+                    Math.Abs(CommandPosition - targetPos) <= ExactMatchEpsilonMm)
                 {
                     CommandPosition = targetPos;
                     CurrentVelocity = 0.0;
@@ -1196,7 +1207,7 @@ namespace QMC.CDT320.Ajin
                 }
 
                 RaiseMoveStarted();
-                int waitRet = await WaitUntilMoveDone(motionStopSerial);
+                int waitRet = await WaitUntilMoveDone(motionStopSerial, targetPos);
                 if (waitRet == 0 && !IsAlarm)
                     _motionDirection = 0;
                 if (IsAlarm)
@@ -3263,14 +3274,23 @@ namespace QMC.CDT320.Ajin
         // 현재 기준: AXM.GetInMotion(보드 InMotion 비트) Delay(1) 폴링만으로 완료를 판정한다 — INP 신호는
         //           완료 조건에서 제외(설계 결정, 사용자 승인). UpdateStatus로 위치 관측값 갱신은 유지.
         //           시작 유예(detectedMotion 래치 + 200ms)는 명령 직후 InMotion 미반영 레이스 방어로 유지.
-        private async Task<int> WaitUntilMoveDone(int motionStopSerial)
+        private async Task<int> WaitUntilMoveDone(int motionStopSerial, double targetPos)
         {
             // 기존 조건: 폴링 횟수로 타임아웃(guard>6000)과 이동 시작 유예(guard>20)를 판정했다 —
             //           Delay(10) 전제라 각각 60초 / 200ms 였다.
             // 현재 기준: Delay(1)에서는 폴링 횟수가 경과 시간과 무관하므로(보드 폴링 속도에 좌우)
-            //           Stopwatch로 경과 시간을 직접 측정해 판정한다. 타임아웃 60초, 시작 유예 200ms.
+            //           Stopwatch로 경과 시간을 직접 측정해 판정한다. 타임아웃 60초.
+            // 시작 유예(사용자 지시 2026-07-26): 200ms → 5000ms — 보드 InMotion 플래그 지연 시
+            //           이동 Task가 실제 완료 전에 조기 '완료(0)'로 끝나는 것을 방지한다
+            //           (PICKER-PICKUP-PERMISSION-VISIONX-NOT-AVOID 오탐 3건 원인 분석 대응).
+            // 보완(사용자 지시 2026-07-26): 인모션 미관측 미소 이동의 5초 대기 방지 —
+            //           보드가 이동 중이 아니고 Actual이 목표와 일치(톨러런스 내)하면 완료로
+            //           판정한다(위치 기반 완료). 이동 중(inMotion)에는 기존 완료 판정 유지.
             const int MoveWaitTimeoutMs = 60000;
-            const int MotionStartGraceMs = 200;
+            const int MotionStartGraceMs = 5000;
+            double arrivalTolerance = Config != null && Config.InPositionTolerance > 0.0
+                ? Config.InPositionTolerance
+                : 0.01;
 
             System.Diagnostics.Stopwatch elapsed = System.Diagnostics.Stopwatch.StartNew();
             bool detectedMotion = false;
@@ -3278,18 +3298,24 @@ namespace QMC.CDT320.Ajin
             {
                 UpdateStatus();
 
+                // 읽기 실패 시 판정에 쓰지 않는다(WaitMoveCompleteAsync와 동일 규칙 — 2026-07-26 정합화):
+                // 실패한 읽기의 false를 "정지"로 오인해 이동 중 조기 break(조기 완료 0)되는 것을 막고,
+                // 계속 폴링한다(지속 실패는 60초 타임아웃으로 귀결).
                 bool inMotion = false;
-                AXM.GetInMotion(AxisNo, ref inMotion);
-                if (inMotion)
+                bool inMotionReadOk = AXM.GetInMotion(AxisNo, ref inMotion) == 0;
+                if (inMotionReadOk && inMotion)
                     detectedMotion = true;
 
-                if (detectedMotion && !inMotion)
+                if (inMotionReadOk && detectedMotion && !inMotion)
                     break;
 
-                if (!detectedMotion && !inMotion && elapsed.ElapsedMilliseconds > MotionStartGraceMs)
+                if (inMotionReadOk && !inMotion && Math.Abs(ActualPosition - targetPos) <= arrivalTolerance)
                     break;
 
-                if (Volatile.Read(ref _motionStopSerial) != motionStopSerial && !inMotion)
+                if (inMotionReadOk && !detectedMotion && !inMotion && elapsed.ElapsedMilliseconds > MotionStartGraceMs)
+                    break;
+
+                if (Volatile.Read(ref _motionStopSerial) != motionStopSerial && inMotionReadOk && !inMotion)
                     return -4;
 
                 await Task.Delay(1).ConfigureAwait(false);

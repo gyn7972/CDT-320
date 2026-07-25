@@ -13,17 +13,45 @@ namespace QMC.CDT320.Sequencing
     ///   자기 참조로 항상 await(병렬 배리어)하므로 소유권은 워커에 남는다(이중 await 안전).
     /// 설계 근거(2026-07-26 지시): 세션 상태는 시퀀싱 계층에 둔다 — SharedRailXMotionService는
     /// 무상태 정책 계층이므로 사용하지 않는다(InputVisionXPrePositionCoordinator 선례).
-    /// 인수 규칙: 미완료 Task만 인수한다. 완료된 세션은 "이미 주차/정지된 축 위치"일 뿐이므로
-    /// 기존 위치 기반 판정(주차 페어 간격/인포지션)이 그대로 담당한다(stale 목표 오용 방지).
+    /// 인수 규칙(사용자 승인 2026-07-26, 3번 개정): Task 상태와 무관하게 세션을 인수하고
+    /// taskAlreadyCompleted 플래그를 함께 전달한다 — 이동 Task의 '완료'가 실제 축 도착을
+    /// 보장하지 않는 사례(실장비 오탐 알람 3건)가 확인되어, 도착 동기화는 인수자가
+    /// "실위치 도착 대기" 합성으로 수행한다(재명령 금지, 정지 확인 후 재기동).
+    /// 소비 검증(B1) Peek 규칙: 세션 존재만 확인한다 — Task 상태도, 등록 사이드도 판정에
+    /// 쓰지 않는다. 회피는 공용 비전 축의 물리 퇴장이므로 어느 사이드가 시작했든
+    /// 방향 판정 + 도착 예정 목표 페어 간격은 동일하게 유효하다(상대 사이드 세션
+    /// 덮어쓰기에 의한 오탐 차단). 인수(TryAdopt)는 사이드 일치를 계속 요구한다.
     /// </summary>
     internal static class VisionIndependentRetreatCoordinator
     {
+        /// <summary>
+        /// 회피 목표 산정 시 기존 Extra 클리어런스에 더하는 여유(mm) — 사용자 승인(2026-07-26, 4번).
+        /// 최심 픽/플레이스 목표와 회피 목표의 최종 간격이 팔로잉 safetyGap과 정확히 같아지는
+        /// 경계치(부동소수 오차·보정치 변화로 -21 타임아웃→R6 폴백 유발 가능)를 해소한다.
+        /// 팔로잉 safetyGap 산정(TryGetFollowGapParameters)에는 더하지 않는다 — 회피만 깊어진다.
+        /// </summary>
+        internal const double RetreatTargetExtraMarginMm = 1.0;
+
         private sealed class RetreatSession
         {
             public Task<int> MoveTask;
             public double Target;
             public string Owner;
             public DateTime StartedAtUtc;
+        }
+
+        /// <summary>진단용 Task 상태 문자열.</summary>
+        private static string DescribeTask(Task<int> task)
+        {
+            if (task == null)
+                return "null";
+            if (!task.IsCompleted)
+                return "running";
+            if (task.IsCanceled)
+                return "canceled";
+            if (task.IsFaulted)
+                return "faulted";
+            return "completed(result=" + task.Result + ")";
         }
 
         private static readonly object Sync = new object();
@@ -60,57 +88,65 @@ namespace QMC.CDT320.Sequencing
         }
 
         /// <summary>
-        /// 같은 side의 미완료 독립 회피 세션을 인수한다(스토어에서 제거).
-        /// 완료된 세션은 결과를 관찰·제거만 하고 false를 반환한다(위치 기반 판정이 담당).
+        /// 같은 side의 독립 회피 세션을 인수한다(스토어에서 제거).
+        /// 기존 조건(2026-07-26 1·2차): 미완료 Task만 인수하고 완료 세션은 버렸다 — 이동 Task가
+        /// 실제 축 도착 전에 완료 상태가 되는 사례(실장비 오탐 알람 3건)에서 픽업이 이동 중인
+        /// 축에 재명령하는 위험이 있었다.
+        /// 현재 기준(사용자 승인 2026-07-26, 3번): Task 상태와 무관하게 세션을 인수하고
+        /// taskAlreadyCompleted 플래그를 함께 돌려준다 — 완료로 보이는 세션은 호출자가
+        /// "실위치 도착 대기" 합성으로 동기화한다(재명령 금지).
         /// </summary>
-        public static bool TryAdoptInput(PickerSequenceSide side, out Task<int> moveTask, out double target)
+        public static bool TryAdoptInput(
+            PickerSequenceSide side,
+            out Task<int> moveTask,
+            out double target,
+            out bool taskAlreadyCompleted)
         {
             moveTask = null;
             target = 0.0;
+            taskAlreadyCompleted = false;
 
-            RetreatSession completed = null;
+            string taskState;
             lock (Sync)
             {
                 if (_input == null || _inputSide != side || _input.MoveTask == null)
                     return false;
 
-                if (_input.MoveTask.IsCompleted)
-                {
-                    completed = _input;
-                    _input = null;
-                }
-                else
-                {
-                    moveTask = _input.MoveTask;
-                    target = _input.Target;
-                    _input = null;
-                }
+                moveTask = _input.MoveTask;
+                target = _input.Target;
+                taskAlreadyCompleted = _input.MoveTask.IsCompleted;
+                taskState = DescribeTask(_input.MoveTask);
+                _input = null;
             }
-
-            if (completed != null)
-            {
-                ObserveReplacedSession(completed, "InputVisionX 독립 회피 완료 세션 정리");
-                return false;
-            }
-
-            if (moveTask == null)
-                return false;
 
             WriteLog("InputVisionX 독립 회피 세션을 픽업 시퀀스가 인수했습니다. side=" + side +
-                     ", target=" + target.ToString("F6") + " - Ok");
+                     ", target=" + target.ToString("F6") +
+                     ", taskState=" + taskState + " - Ok");
             return true;
         }
 
         /// <summary>
-        /// 허가 소비 검증(B1)용: 같은 side의 미완료 독립 회피 세션이 있으면 목표를 돌려준다.
-        /// 세션을 제거하지 않는다.
+        /// 허가 소비 검증(B1)용: 독립 회피 세션이 있으면 목표를 돌려준다.
+        /// 기존 조건(2026-07-26 1·2차): Task 미완료(IsCompleted=false)를 요구했다 — 이동 Task가
+        /// 실제 축 도착 전에 완료 상태가 되는 사례에서 소비 검증이 결정적으로 오탐(3/3)했다.
+        /// 현재 기준(사용자 승인 2026-07-26, 1번 + 검증 결과 반영): Task 상태도, 등록 사이드도
+        /// 보지 않는다 — 회피는 공용 InputVisionX의 물리 퇴장이므로 어느 사이드가 시작했든
+        /// 호출자의 방향 판정 + 도착 예정 목표 페어 간격 + 진입 존 인터락이 안전을 담당한다
+        /// (상대 사이드 세션 덮어쓰기로 인한 사이드 불일치 오탐 경로 차단). 세션은 제거하지 않는다.
         /// </summary>
-        public static bool TryPeekActiveInput(PickerSequenceSide side, out double target)
+        public static bool TryPeekInputRetreatTarget(PickerSequenceSide side, out double target, out string sessionDetail)
         {
             lock (Sync)
             {
                 target = 0.0;
-                if (_input == null || _inputSide != side || _input.MoveTask == null || _input.MoveTask.IsCompleted)
+                sessionDetail = _input == null
+                    ? "session=none"
+                    : "sessionSide=" + _inputSide +
+                      ", peekSide=" + side +
+                      ", target=" + _input.Target.ToString("F6") +
+                      ", task=" + DescribeTask(_input.MoveTask) +
+                      ", owner=" + Safe(_input.Owner);
+                if (_input == null || _input.MoveTask == null)
                     return false;
 
                 target = _input.Target;
@@ -168,42 +204,37 @@ namespace QMC.CDT320.Sequencing
                      ", owner=" + Safe(owner) + " - Ok");
         }
 
-        /// <summary>미완료 아웃풋 독립 회피 세션을 인수한다(스토어에서 제거). 완료 세션은 정리만 한다.</summary>
-        public static bool TryAdoptOutput(out Task<int> moveTask, out double target)
+        /// <summary>
+        /// 아웃풋 독립 회피 세션을 인수한다(스토어에서 제거 — 워커의 배리어 await 소유권은 유지).
+        /// 인풋과 동일(사용자 승인 2026-07-26, 3번): Task 상태와 무관하게 인수하고
+        /// taskAlreadyCompleted 플래그를 돌려준다 — 완료로 보이는 세션은 호출자가
+        /// "실위치 도착 대기" 합성으로 동기화한다(재명령 금지).
+        /// </summary>
+        public static bool TryAdoptOutput(
+            out Task<int> moveTask,
+            out double target,
+            out bool taskAlreadyCompleted)
         {
             moveTask = null;
             target = 0.0;
+            taskAlreadyCompleted = false;
 
-            RetreatSession completed = null;
+            string taskState;
             lock (Sync)
             {
                 if (_output == null || _output.MoveTask == null)
                     return false;
 
-                if (_output.MoveTask.IsCompleted)
-                {
-                    completed = _output;
-                    _output = null;
-                }
-                else
-                {
-                    moveTask = _output.MoveTask;
-                    target = _output.Target;
-                    _output = null;
-                }
+                moveTask = _output.MoveTask;
+                target = _output.Target;
+                taskAlreadyCompleted = _output.MoveTask.IsCompleted;
+                taskState = DescribeTask(_output.MoveTask);
+                _output = null;
             }
-
-            if (completed != null)
-            {
-                ObserveReplacedSession(completed, "OutputVisionX 독립 회피 완료 세션 정리");
-                return false;
-            }
-
-            if (moveTask == null)
-                return false;
 
             WriteLog("OutputVisionX 독립 회피 세션을 Place 시퀀스가 인수했습니다. target=" +
-                     target.ToString("F6") + " - Ok");
+                     target.ToString("F6") +
+                     ", taskState=" + taskState + " - Ok");
             return true;
         }
 
