@@ -151,6 +151,31 @@ namespace QMC.CDT320.Interlocks
             return VerifyMove(movingName, targetPosition, MotionGuardMoveKind.AxisTeachingMove, targetName, context, false, executionMode);
         }
 
+        /// <summary>
+        /// 구동 중 위치 오버라이드(팔로잉 중간 세그먼트)를 검증한다.
+        /// MoveKind는 AxisTeachingMove를 그대로 유지해 Y 대향 거리(VerifyFacingYDistanceFirst)와
+        /// SharedRailX 페어 간격 규칙이 계속 평가되게 하고, IsPositionOverrideStep 플래그로
+        /// 존 판정/진입 조건만 생략시킨다(사용자 승인 2026-07-25).
+        /// </summary>
+        public MotionGuardResult VerifyAxisPositionOverride(
+            BaseAxis axis,
+            double targetPosition,
+            string targetName,
+            MotionGuardContext context,
+            MotionGuardExecutionMode executionMode)
+        {
+            string movingName = axis != null ? axis.Name : string.Empty;
+            return VerifyMove(
+                movingName,
+                targetPosition,
+                MotionGuardMoveKind.AxisTeachingMove,
+                targetName,
+                context,
+                false,
+                executionMode,
+                true);
+        }
+
         public MotionGuardResult VerifyAxisContinuousJog(
             BaseAxis axis,
             double probeTargetPosition,
@@ -247,6 +272,27 @@ namespace QMC.CDT320.Interlocks
             bool skipSharedRailXRule,
             MotionGuardExecutionMode executionMode)
         {
+            return VerifyMove(
+                movingName,
+                targetValue,
+                moveKind,
+                targetName,
+                context,
+                skipSharedRailXRule,
+                executionMode,
+                false);
+        }
+
+        public MotionGuardResult VerifyMove(
+            string movingName,
+            double targetValue,
+            MotionGuardMoveKind moveKind,
+            string targetName,
+            MotionGuardContext context,
+            bool skipSharedRailXRule,
+            MotionGuardExecutionMode executionMode,
+            bool isPositionOverrideStep)
+        {
             string movingKey = InterlockCheckMatrix.NormalizeName(movingName);
             IReadOnlyList<InterlockCheckPair> checks = _matrix.GetChecksFor(movingKey);
             MotionGuardMoveKind effectiveMoveKind = ResolveEffectiveMoveKind(moveKind, executionMode);
@@ -268,7 +314,8 @@ namespace QMC.CDT320.Interlocks
                 context,
                 skipSharedRailXRule,
                 executionMode,
-                moveKind);
+                moveKind,
+                isPositionOverrideStep);
             string ruleReason;
             if (!MotionGuardRuleRegistry.Verify(request, out ruleReason))
             {

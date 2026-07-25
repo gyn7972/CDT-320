@@ -2633,7 +2633,7 @@ namespace QMC.CDT320.Sequencing
             // 이 시점에 Task가 이미 시작돼 있어 기존대로 동작한다.
             await StartDeferredOutputVisionRetreatIfPendingAsync(ct).ConfigureAwait(false);
 
-            int followResult = await TryFollowPickerXBehindOutputVisionRetreatAsync(ct).ConfigureAwait(false);
+            int followResult = await TryFollowPickerXBehindOutputVisionRetreatAsync(targetName, ct).ConfigureAwait(false);
             if (followResult == 0)
                 return 0;
 
@@ -2660,7 +2660,7 @@ namespace QMC.CDT320.Sequencing
         // 인터락 통과 체인: FollowMoveAsync 내부 MoveAbsoluteAsync→BaseAxis.VerifyMotionGuard→
         // MotionGuardRuntime.VerifyAxisMove(SharedRailX 포함) / TryOverridePosition→
         // MotionGuardRuntime.VerifyAxisTeachingMove — 우회 API 미사용.
-        private async Task<int> TryFollowPickerXBehindOutputVisionRetreatAsync(CancellationToken ct)
+        private async Task<int> TryFollowPickerXBehindOutputVisionRetreatAsync(string targetName, CancellationToken ct)
         {
             BaseAxis pickerX = GetPickerAxis(PickerAxis.PickerX);
             AjinAxis followPickerX = pickerX as AjinAxis;
@@ -2725,6 +2725,7 @@ namespace QMC.CDT320.Sequencing
                 safetyGap,
                 homeGap,
                 timeoutMs,
+                BuildFollowEntryTargetName(targetName, PickerWorkZone.Output),
                 ct).ConfigureAwait(false);
         }
 

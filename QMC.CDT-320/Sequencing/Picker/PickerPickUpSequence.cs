@@ -1437,6 +1437,7 @@ namespace QMC.CDT320.Sequencing
             int followResult = await TryFollowPickerXBehindInputVisionRetreatAsync(
                 stage,
                 velocity,
+                targetName,
                 ct).ConfigureAwait(false);
             if (followResult == 0)
                 return CheckPickerAxisInPosition(PickerAxis.PickerX, _targetPickerX, description);
@@ -1467,6 +1468,7 @@ namespace QMC.CDT320.Sequencing
         private async Task<int> TryFollowPickerXBehindInputVisionRetreatAsync(
             InputStageUnit stage,
             double velocity,
+            string targetName,
             CancellationToken ct)
         {
             BaseAxis pickerX = GetPickerAxis(PickerAxis.PickerX);
@@ -1535,6 +1537,7 @@ namespace QMC.CDT320.Sequencing
                 safetyGap,
                 homeGap,
                 timeoutMs,
+                BuildFollowEntryTargetName(targetName, PickerWorkZone.Input),
                 ct).ConfigureAwait(false);
             if (followResult == 0)
                 QMC.CDT320.Diagnostics.HandlerTactLog.MotionEnd("PICKUP", TactRequestId(), "PickerX");

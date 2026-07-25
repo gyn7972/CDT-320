@@ -80,6 +80,17 @@ namespace QMC.CDT320.Interlocks
         }
 
         // 인터락 기준: Step/Continuous Jog 요청은 MoveKind와 TargetName 힌트를 함께 보고 판정한다.
+        /// <summary>
+        /// 구동 중 위치 오버라이드(팔로잉 중간 세그먼트) 요청인지 판정한다.
+        /// 인터락 기준(사용자 승인 2026-07-25): 중간 좌표는 어떤 티칭 존에도 속하지 않아 목표 존이
+        /// Unknown이 되고, 최종 목표의 존 진입 조건은 팔로잉 최초 명령(AxisMove)에서 이미 검증된다.
+        /// 이 요청은 존 판정을 생략하고 위치 기반 안전만 확인한다(기존 Jog 경로와 동일한 방식).
+        /// </summary>
+        public static bool IsPositionOverrideStep(MotionGuardRuleContext request)
+        {
+            return request != null && request.IsPositionOverrideStep;
+        }
+
         public static bool IsJogMove(MotionGuardRuleContext request)
         {
             if (request == null)
