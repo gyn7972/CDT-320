@@ -1906,6 +1906,80 @@ namespace QMC.CDT320.Sequencing
             return 0;
         }
 
+        // 현재 기준(사용자 승인 2026-07-25, M4): Place 진입 전 상대 Picker의 Output 작업영역 점유를
+        // 시퀀스에서 대기한다. 동시 Place 금지 정책은 유지하되, 인터락 차단(-11)이 Critical로
+        // 승격되어 라인이 서는 대신 정상 순서 대기로 처리한다.
+        // 비Auto는 기존과 동일하게 즉시 실패(인터락 차단과 같은 결론, 대기 없음).
+        private async Task<int> WaitOppositePickerOutputWorkAreaClearAsync(CancellationToken ct)
+        {
+            try
+            {
+                bool oppositeIsFront = Side != PickerSequenceSide.Front;
+                string oppositeOwner;
+                if (!PickerZoneInterlockRules.IsPickerWorkAreaZoneActive(
+                        oppositeIsFront, PickerWorkZone.Output, out oppositeOwner))
+                    return 0;
+
+                if (Options == null || Options.RunMode != SequenceRunMode.Auto)
+                {
+                    return Fail("PICKER-OPPOSITE-OUTPUT-ZONE", Name,
+                        "Place 진입 불가: 상대 Picker가 Output 작업영역을 점유 중입니다. owner=" + oppositeOwner);
+                }
+
+                bool waitLogged = false;
+                DateTime lastWaitLog = DateTime.MinValue;
+                while (true)
+                {
+                    ct.ThrowIfCancellationRequested();
+                    if (Context != null)
+                        Context.StopIfCycleStopRequested(
+                            Name + ".WaitOppositePickerOutputClearBeforePlace",
+                            ShouldDeferCycleStopForPickerDrain(),
+                            "Picker Place drain");
+
+                    if (!PickerZoneInterlockRules.IsPickerWorkAreaZoneActive(
+                            oppositeIsFront, PickerWorkZone.Output, out oppositeOwner))
+                    {
+                        if (waitLogged)
+                        {
+                            WriteLog("PickerPlaceSequence",
+                                Name + " 상대 Picker Output 작업영역 대기 완료. Place 진입을 진행합니다. side=" + Side + " - Ok");
+                        }
+
+                        return 0;
+                    }
+
+                    if ((DateTime.UtcNow - lastWaitLog).TotalMilliseconds >= 1000.0)
+                    {
+                        lastWaitLog = DateTime.UtcNow;
+                        waitLogged = true;
+                        WriteLog("PickerPlaceSequence",
+                            Name + " Place 진입 전 상대 Picker Output 작업영역 해제 대기. 동시 Place는 허용되지 않습니다. " +
+                            "side=" + Side +
+                            ", owner=" + oppositeOwner + " - Wait");
+                    }
+
+                    await Task.Delay(10, ct).ConfigureAwait(false);
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (SequenceStopException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("PICKER-OPPOSITE-OUTPUT-ZONE-EX", Name,
+                    "상대 Picker Output 작업영역 대기 중 예외 발생: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
         private async Task<int> MoveOutputStageReceivePositionAsync(CancellationToken ct)
         {
             int feederReady = await EnsureOutputFeederSafeBeforePlaceStageMoveAsync(ct).ConfigureAwait(false);
@@ -1913,6 +1987,18 @@ namespace QMC.CDT320.Sequencing
             {
                 await JoinOutputVisionRetreatMoveTaskAsync("Feeder 안전 확보 실패 정리", ct).ConfigureAwait(false);
                 return feederReady;
+            }
+
+            // 현재 기준(사용자 승인 2026-07-25, M4): 동시 Place 금지는 인터락 차단(-11 → Critical 승격,
+            // 라인 정지)이 아니라 시퀀스 순서 대기로 처리한다 — 상대 Picker가 Output 작업영역을
+            // 점유 중이면 해제될 때까지 여기서 대기한다. 일반/팔로잉/Conti 모든 X 진입 모드가
+            // 아래 MoveOutputStageYPickerXAndPickerZToPlaceByModeAsync 하나로 수렴하므로
+            // 이 한 곳에서 전 경로를 커버한다. 인터락 자체(최후 방어선)는 무변경.
+            int oppositeOutputClear = await WaitOppositePickerOutputWorkAreaClearAsync(ct).ConfigureAwait(false);
+            if (oppositeOutputClear != 0)
+            {
+                await JoinOutputVisionRetreatMoveTaskAsync("상대 Picker Output 점유 대기 실패 정리", ct).ConfigureAwait(false);
+                return oppositeOutputClear;
             }
 
             // OutputFeeder/OutputStage 로딩이 1순위다.

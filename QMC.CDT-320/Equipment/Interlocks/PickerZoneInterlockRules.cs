@@ -3817,6 +3817,18 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
+        // 시퀀스 조회용(읽기 전용, 사용자 승인 2026-07-25 M4): 지정 Picker가 특정 작업영역 존을 점유 중인지 확인한다.
+        // TryGetPickerWorkArea는 Input→Process→Output 우선순위로 첫 활성 존 하나만 반환해 다중 점유가
+        // 가려질 수 있으므로, 존을 지정해 정확히 조회해야 하는 시퀀스 대기 게이트용으로 추가한다.
+        // 판정 로직 자체는 기존 IsPickerWorkAreaActive를 그대로 사용한다(인터락 판정 무변경).
+        internal static bool IsPickerWorkAreaZoneActive(bool isFront, PickerWorkZone zone, out string owner)
+        {
+            lock (activeZoneLock)
+            {
+                return IsPickerWorkAreaActive(isFront, zone, out owner);
+            }
+        }
+
         // 인터락 기준: 반대 Picker가 같은 작업영역을 점유 중인지 판단한다.
         private static bool IsOtherPickerWorkAreaActive(bool isFront, PickerWorkZone zone, out string owner)
         {
