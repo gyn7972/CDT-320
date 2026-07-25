@@ -871,11 +871,11 @@ namespace QMC.CDT320.Sequencing
                 if (result != 0)
                     return result;
 
-                result = CheckOutputFeederReadySafety();
+                result = await EnsureOutputFeederReadySafetyAsync(ct).ConfigureAwait(false);
                 if (result != 0)
                     return result;
 
-                result = CheckInputStageZReadySafety();
+                result = await EnsureInputStageZReadySafetyAsync(ct).ConfigureAwait(false);
                 if (result != 0)
                     return result;
 
@@ -982,13 +982,21 @@ namespace QMC.CDT320.Sequencing
                 }
 
                 // 3) Y Avoid 이동: 명령 → 결과 확인 → 완료 대기 → 최종 위치 확인 순서를 분리해 수행한다.
-                result = await unit.MoveToWaferFeederAvoidPosition(false).ConfigureAwait(false);
+                // Ready 스코프 5% 저속은 빈 피더 복귀에 과도하게 느리므로(수십 초) Jog Coarse 명시 속도로 이동한다.
+                // 기계적 전제: Coarse는 운전자 조그에서 상시 사용하는 검증된 속도이고, 이 시점의 피더는
+                // wafer 미보유 + Lift Down 저자세라 고속 복귀에 추가 간섭이 없다.
+                // (명시 속도는 MotionSpeedScale의 DefaultVelocity 스케일 대상이 아니며, Coarse 속도 미티칭 시 기존 저속 경로를 사용한다.)
+                double coarseVelocity = unit.FeederY.Config != null ? unit.FeederY.Config.JogCoarseVelocity : 0.0;
+                result = coarseVelocity > 0.0
+                    ? await unit.MoveWaferFeederY(target, JogSpeedType.Coarse, 0.0).ConfigureAwait(false)
+                    : await unit.MoveToWaferFeederAvoidPosition(false).ConfigureAwait(false);
                 if (result != 0)
                 {
                     return Fail(
                         "READY-INPUT-FEEDER-RECOVER-AVOID",
                         "InputFeederUnit",
-                        "Ready InputFeeder 복구 중 Avoid 이동 명령 실패. result=" + result + ". " +
+                        "Ready InputFeeder 복구 중 Avoid 이동 명령 실패. result=" + result +
+                        ", coarseVelocity=" + coarseVelocity.ToString("0.###") + ". " +
                         BuildAxisState("InputFeederY", unit.FeederY, target));
                 }
 
@@ -1029,10 +1037,23 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
-        private int CheckOutputFeederReadySafety()
+        // Ready 진입 시 OutputFeeder가 Avoid/Down이 아니면(Bin 이송 도중 정지 등) 기존에는 확인만 하고
+        // 실패해 START가 수동 Recover 전까지 영구 차단되었다. InputFeeder와 동일한 기계적 전제 아래에서만
+        // 빈 피더를 자동 복구한다.
+        //  - Unclamp/Lift Down은 피더 자세를 낮추는 동작이라 상부 헤드·픽커와의 간섭 범위를 넓히지 않는다.
+        //  - Lift Down 상태의 Y 이동은 장비의 표준 빈 피더 이송 자세와 동일하다(OutputFeederRecoverSequence와 같은 순서).
+        //  - Bin을 보유한 피더는 자동 복구 시 자재 위치 상실/파손 위험이 있으므로 복구하지 않고
+        //    CYCLE RUN OUTPUT UNLOAD 수동 배출을 안내하며 fail-closed로 실패한다.
+        //    보유 판정은 영속 Material과 물리 센서(IsFeederEmpty)를 모두 확인한다.
+        private async Task<int> EnsureOutputFeederReadySafetyAsync(CancellationToken ct)
         {
+            const int RecoverIoTimeoutMs = 10000;
+            const int RecoverMoveTimeoutMs = 30000;
+
             try
             {
+                ct.ThrowIfCancellationRequested();
+
                 OutputFeederUnit unit = _machine != null ? _machine.OutputFeederUnit : null;
                 if (unit == null)
                     return Skip("OutputFeederUnit");
@@ -1044,40 +1065,138 @@ namespace QMC.CDT320.Sequencing
                     return Fail("READY-SAFETY-OUTPUT-FEEDER-RECIPE", "OutputFeederUnit", "Ready 상부 헤드/비전/픽커 이동 전 OutputFeeder Avoid 위치 레시피를 확인할 수 없습니다.");
 
                 double target = unit.Recipe.AvoidPosition;
-                if (!unit.IsBinFeederInAvoidPosition())
+                if (unit.IsBinFeederInAvoidPosition() && unit.IsBinFeederDown())
+                    return 0;
+
+                if (unit.FeederY.IsMoving)
                 {
                     return Fail(
-                        "READY-SAFETY-OUTPUT-FEEDER-AVOID",
+                        "READY-SAFETY-OUTPUT-FEEDER-MOVING",
                         "OutputFeederUnit",
-                        "Ready 상부 헤드/비전/픽커 이동 전 OutputFeederY가 Avoid 위치가 아닙니다. " +
+                        "Ready OutputFeeder 복구 불가: OutputFeederY가 아직 이동 중입니다. " +
                         BuildAxisState("OutputFeederY", unit.FeederY, target) +
                         BuildOutputFeederFailure(unit));
                 }
 
-                if (!unit.IsBinFeederDown())
+                // Bin 보유 확인(fail-closed): 영속 Material이 OutputFeeder 점유를 가리키면 자동 복구하지 않는다.
+                WaferMaterial feederBin = MaterialStateService.GetWaferAtLocation(MaterialLocationKind.OutputFeeder);
+                if (feederBin != null)
                 {
                     return Fail(
-                        "READY-SAFETY-OUTPUT-FEEDER-CLAMP",
+                        "READY-OUTPUT-FEEDER-BIN",
                         "OutputFeederUnit",
-                        "Ready 상부 헤드/비전/픽커 이동 전 OutputFeeder Clamp가 Down(Clamp) 상태가 아닙니다. " +
+                        "Ready OutputFeeder 자동 복구 불가: OutputFeeder가 Bin을 보유한 상태로 Avoid/Down이 아닙니다. bin=" +
+                        (feederBin.WaferId ?? "") +
+                        ". 알람 해제 후 [작업 → CYCLE RUN → OUTPUT UNLOAD]로 Bin을 카세트로 배출한 뒤 다시 START 하세요. " +
+                        BuildAxisState("OutputFeederY", unit.FeederY, target) +
                         BuildOutputFeederFailure(unit));
                 }
 
+                // 물리 센서로도 Bin 부재를 확인한다. Material은 비어 있는데 센서가 점유이면 자재 불일치이므로 복구하지 않는다.
+                if (!unit.IsFeederEmpty())
+                {
+                    return Fail(
+                        "READY-OUTPUT-FEEDER-SENSOR",
+                        "OutputFeederUnit",
+                        "Ready OutputFeeder 자동 복구 불가: Material 상태는 비어 있으나 피더 센서가 Bin 점유를 감지했습니다. " +
+                        "자재 상태를 확인/복구한 뒤 다시 START 하세요. " + unit.DescribeFeederCylinderState());
+                }
+
+                LogStep("OutputFeeder가 Avoid/Down 상태가 아니어서 빈 피더 안전 복구를 시작합니다. " +
+                    BuildAxisState("OutputFeederY", unit.FeederY, target));
+
+                // 1) Unclamp: 명령 결과와 실제 센서 상태를 함께 확인한다.
+                int result = await unit.SetFeederClampAsync(false, RecoverIoTimeoutMs, ct).ConfigureAwait(false);
+                if (result != 0 || !unit.IsFeederUnclamped())
+                {
+                    return Fail(
+                        "READY-OUTPUT-FEEDER-RECOVER-UNCLAMP",
+                        "OutputFeederUnit",
+                        "Ready OutputFeeder 복구 중 Unclamp 실패. result=" + result + ". " + unit.DescribeFeederCylinderState());
+                }
+
+                // 2) Lift Down.
+                result = await unit.SetFeederUpDownAsync(false, RecoverIoTimeoutMs, ct).ConfigureAwait(false);
+                if (result != 0 || !unit.IsFeederDown())
+                {
+                    return Fail(
+                        "READY-OUTPUT-FEEDER-RECOVER-DOWN",
+                        "OutputFeederUnit",
+                        "Ready OutputFeeder 복구 중 Lift Down 실패. result=" + result + ". " + unit.DescribeFeederCylinderState());
+                }
+
+                // 3) Y Avoid 이동: 명령 → 결과 확인 → 완료 대기 → 최종 위치 확인 순서를 분리해 수행한다.
+                // Ready 스코프 5% 저속은 빈 피더 복귀에 과도하게 느리므로(수십 초) Jog Coarse 명시 속도로 이동한다.
+                // 기계적 전제: Coarse는 운전자 조그에서 상시 사용하는 검증된 속도이고, 이 시점의 피더는
+                // Bin 미보유 + Lift Down 저자세라 고속 복귀에 추가 간섭이 없다.
+                // (명시 속도는 MotionSpeedScale의 DefaultVelocity 스케일 대상이 아니며, Coarse 속도 미티칭 시 기존 저속 경로를 사용한다.)
+                double coarseVelocity = unit.FeederY.Config != null ? unit.FeederY.Config.JogCoarseVelocity : 0.0;
+                result = coarseVelocity > 0.0
+                    ? await unit.MoveBinFeederY(target, JogSpeedType.Coarse, 0.0).ConfigureAwait(false)
+                    : await unit.MoveToFeederAvoidPosition(false).ConfigureAwait(false);
+                if (result != 0)
+                {
+                    return Fail(
+                        "READY-OUTPUT-FEEDER-RECOVER-AVOID",
+                        "OutputFeederUnit",
+                        "Ready OutputFeeder 복구 중 Avoid 이동 명령 실패. result=" + result +
+                        ", coarseVelocity=" + coarseVelocity.ToString("0.###") + ". " +
+                        BuildAxisState("OutputFeederY", unit.FeederY, target));
+                }
+
+                result = await unit.WaitBinFeederYMoveDoneInPosition(target, RecoverMoveTimeoutMs, ct).ConfigureAwait(false);
+                if (result != 0)
+                {
+                    return Fail(
+                        "READY-OUTPUT-FEEDER-RECOVER-AVOID-WAIT",
+                        "OutputFeederUnit",
+                        "Ready OutputFeeder 복구 중 Avoid 이동 완료 확인 실패. result=" + result + ". " +
+                        BuildAxisState("OutputFeederY", unit.FeederY, target));
+                }
+
+                if (!unit.IsBinFeederInAvoidPosition() || !unit.IsBinFeederDown())
+                {
+                    return Fail(
+                        "READY-OUTPUT-FEEDER-RECOVER-CHECK",
+                        "OutputFeederUnit",
+                        "Ready OutputFeeder 복구 후 Avoid/Down 최종 확인 실패. " +
+                        BuildAxisState("OutputFeederY", unit.FeederY, target) +
+                        BuildOutputFeederFailure(unit));
+                }
+
+                LogStep("OutputFeeder 빈 피더 안전 복구 완료. " +
+                    BuildAxisState("OutputFeederY", unit.FeederY, target));
                 return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
             }
             catch (Exception ex)
             {
-                return Fail("READY-SAFETY-OUTPUT-FEEDER-EX", "OutputFeederUnit", "Ready OutputFeeder 안전 조건 확인 예외: " + ex.Message);
+                return Fail("READY-SAFETY-OUTPUT-FEEDER-EX", "OutputFeederUnit", "Ready OutputFeeder 안전 조건 확인/복구 예외: " + ex.Message);
             }
             finally
             {
             }
         }
 
-        private int CheckInputStageZReadySafety()
+        // Ready 진입 시 ExpanderZ가 0보다 위 티칭 위치(예: 로딩 구간의 WaferZ.LoadPosition)에 남아 있으면
+        // (로딩 도중 정지, 수동 INPUT LOAD 후 등) 기존에는 확인만 하고 실패해 START가 차단되었다.
+        // 인터락 자체(상부 헤드/픽커 X 이동 전 ExpanderZ ≤ 0, 픽커 공유 레일 간섭 방지)는 유지하고,
+        // 아래 전제에서만 Avoid로 안전 자동 복구한다.
+        //  - 재개 안전성: 재개 경로가 ExpanderZ를 필요한 티칭 위치로 스스로 복원한다.
+        //    (Align/DieMapping/PickUp/선행검사는 WaferZ.ProcessPosition으로 이동·확인, 로딩 재개 구간은
+        //     WaferZ.LoadPosition 조건을 자체 확인) Pick 높이는 티칭값(ProcessPosition, 예: -0.8)을 그대로 따른다.
+        //  - 기계적 전제: ExpanderZ 이동은 StageT가 고정 위치(0/Avoid/Load/Unload/Ready/Process)일 때만
+        //    허용한다(Align 시퀀스의 EnsureStageTFixedBeforeExpanderZMove와 동일 조건). StageT가 임의
+        //    위치이면 자동 복구하지 않고 기존대로 실패한다(fail-closed). Ready에서 StageT는 움직이지 않는다.
+        private async Task<int> EnsureInputStageZReadySafetyAsync(CancellationToken ct)
         {
             try
             {
+                ct.ThrowIfCancellationRequested();
+
                 InputStageUnit unit = _machine != null ? _machine.InputStageUnit : null;
                 if (unit == null)
                     return Skip("InputStageUnit");
@@ -1086,24 +1205,114 @@ namespace QMC.CDT320.Sequencing
                 if (axis == null)
                     return Fail("READY-SAFETY-INPUT-STAGE-Z-AXIS", "InputStageUnit", "Ready 상부 헤드/비전/픽커 이동 전 InputStageZ(ExpanderZ) 축을 확인할 수 없습니다.");
 
-                if (axis.ActualPosition > 0.0)
+                if (axis.ActualPosition <= 0.0)
+                    return 0;
+
+                if (axis.IsMoving)
+                {
+                    return Fail(
+                        "READY-SAFETY-INPUT-STAGE-Z-MOVING",
+                        "InputStageUnit",
+                        "Ready InputStageZ(ExpanderZ) 복구 불가: 축이 아직 이동 중입니다. " +
+                        BuildAxisState("ExpanderZ", axis, 0.0) +
+                        BuildInputStageFailure(unit));
+                }
+
+                if (unit.Recipe == null)
+                    return Fail("READY-SAFETY-INPUT-STAGE-Z-RECIPE", "InputStageUnit",
+                        "Ready InputStageZ(ExpanderZ) 복구에 필요한 InputStage 레시피를 확인할 수 없습니다.");
+                unit.Recipe.EnsurePositionObjects();
+
+                string stageTReason;
+                if (!IsStageTAtExpanderZFixedPositionForReady(unit, out stageTReason))
                 {
                     return Fail(
                         "READY-SAFETY-INPUT-STAGE-Z",
                         "InputStageUnit",
                         "Ready 상부 헤드/비전/픽커 이동 전 InputStageZ(ExpanderZ)는 0 이하이어야 합니다. actual=" +
                         axis.ActualPosition.ToString("0.###") +
-                        ", blockLimit=0.000, " +
+                        ", blockLimit=0.000. StageT가 ExpanderZ 이동 안전 고정 위치가 아니어서 자동 복구하지 않습니다. " +
+                        stageTReason + " " +
                         BuildAxisState("ExpanderZ", axis, 0.0) +
                         BuildInputStageFailure(unit) +
-                        " 알람 해제 후 [작업 → CYCLE RUN → INPUT UNLOAD] 또는 InputStage 화면에서 Stage를 복구한 뒤 다시 START 하세요.");
+                        " 알람 해제 후 InputStage 화면에서 StageT/Stage를 복구한 뒤 다시 START 하세요.");
                 }
 
+                LogStep("ExpanderZ가 0보다 위 위치에 남아 있어 Avoid로 안전 복구를 시작합니다. " +
+                    "(Auto 재개 시 각 시퀀스가 필요한 티칭 위치로 복원) " +
+                    BuildAxisState("ExpanderZ", axis, unit.Recipe.WaferZ != null ? unit.Recipe.WaferZ.AvoidPosition : 0.0));
+
+                int result = await MoveInputStageExpanderZAvoidAsync(unit, ct).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                // 복구 후 최종 확인: 0 이하 또는 Avoid 허용오차 이내.
+                if (axis.ActualPosition > 0.0 && !unit.IsExpanderZInAvoidPosition())
+                {
+                    return Fail(
+                        "READY-INPUT-STAGE-Z-RECOVER-CHECK",
+                        "InputStageUnit",
+                        "Ready ExpanderZ Avoid 복구 후 최종 확인 실패. " +
+                        BuildAxisState("ExpanderZ", axis, unit.Recipe.WaferZ != null ? unit.Recipe.WaferZ.AvoidPosition : 0.0) +
+                        BuildInputStageFailure(unit));
+                }
+
+                LogStep("ExpanderZ Avoid 안전 복구 완료. " +
+                    BuildAxisState("ExpanderZ", axis, unit.Recipe.WaferZ != null ? unit.Recipe.WaferZ.AvoidPosition : 0.0));
                 return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
             }
             catch (Exception ex)
             {
-                return Fail("READY-SAFETY-INPUT-STAGE-Z-EX", "InputStageUnit", "Ready InputStageZ 안전 조건 확인 예외: " + ex.Message);
+                return Fail("READY-SAFETY-INPUT-STAGE-Z-EX", "InputStageUnit", "Ready InputStageZ 안전 조건 확인/복구 예외: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        // Align 시퀀스의 IsStageTAtExpanderZFixedPosition과 동일 조건:
+        // StageT가 티칭된 고정 위치 중 하나에 정지해 있어야 ExpanderZ를 이동할 수 있다.
+        private bool IsStageTAtExpanderZFixedPositionForReady(InputStageUnit unit, out string reason)
+        {
+            reason = string.Empty;
+            try
+            {
+                BaseAxis stageT = unit != null ? unit.StageT : null;
+                if (stageT == null || unit.Recipe == null || unit.Recipe.WaferT == null)
+                {
+                    reason = "StageT 축 또는 WaferT 레시피를 확인할 수 없습니다.";
+                    return false;
+                }
+
+                if (stageT.IsMoving)
+                {
+                    reason = "StageT가 아직 이동 중입니다.";
+                    return false;
+                }
+
+                double tolerance = ResolveAxisTolerance(stageT);
+                if (IsAxisInPosition(stageT, 0.0, tolerance) ||
+                    IsAxisInPosition(stageT, unit.Recipe.WaferT.AvoidPosition, tolerance) ||
+                    IsAxisInPosition(stageT, unit.Recipe.WaferT.LoadPosition, tolerance) ||
+                    IsAxisInPosition(stageT, unit.Recipe.WaferT.UnloadPosition, tolerance) ||
+                    IsAxisInPosition(stageT, unit.Recipe.WaferT.ReadyPosition, tolerance) ||
+                    IsAxisInPosition(stageT, unit.Recipe.WaferT.ProcessPosition, tolerance))
+                {
+                    return true;
+                }
+
+                reason = "StageT actual=" + stageT.ActualPosition.ToString("0.###") +
+                         " 이(가) 고정 위치(0/Avoid/Load/Unload/Ready/Process)가 아닙니다.";
+                return false;
+            }
+            catch (Exception ex)
+            {
+                reason = "StageT 위치 확인 예외: " + ex.Message;
+                return false;
             }
             finally
             {
@@ -1139,7 +1348,8 @@ namespace QMC.CDT320.Sequencing
                         ", plusTolerance=" + tolerance.ToString("0.###") +
                         ", limit=" + limit.ToString("0.###") +
                         ", " + BuildAxisState("GoodStageZ", axis, process, tolerance) +
-                        BuildOutputStageFailure(unit));
+                        BuildOutputStageFailure(unit) +
+                        " 알람 해제 후 [작업 → CYCLE RUN → OUTPUT UNLOAD/LOAD] 또는 OutputStage 화면에서 Stage를 복구한 뒤 다시 START 하세요.");
                 }
 
                 return 0;

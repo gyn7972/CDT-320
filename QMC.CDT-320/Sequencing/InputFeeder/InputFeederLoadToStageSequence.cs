@@ -64,7 +64,7 @@ namespace QMC.CDT320.Sequencing
                         return Task.FromResult(RunBarcodeSequence());
                     // 스테이지 로드 위치 확인
                     case InputFeederLoadToStageStep.CheckStageLoadPosition:
-                        return Task.FromResult(CheckStageLoadPosition());
+                        return CheckStageLoadPositionAsync(ct);
                     // 피더 보유 웨이퍼 검증
                     case InputFeederLoadToStageStep.VerifyFeederHoldingWafer:
                         return VerifyFeederHoldingWaferAsync(ct);
@@ -195,8 +195,10 @@ namespace QMC.CDT320.Sequencing
             return 0;
         }
 
-        private int CheckStageLoadPosition()
+        private async Task<int> CheckStageLoadPositionAsync(CancellationToken ct)
         {
+            ct.ThrowIfCancellationRequested();
+
             InputStageUnit stage = ResolveStage();
             if (stage == null || stage.Recipe == null)
                 return Fail("IN-FEEDER-STAGE-MISSING", "InputStage", "Input stage unit or recipe is not available.");
@@ -207,7 +209,17 @@ namespace QMC.CDT320.Sequencing
             result = CheckStageAxisInPosition(stage, WaferStageAxis.WaferT, stage.Recipe.WaferT.LoadPosition, "StageT load");
             if (result != 0) return result;
 
-            result = CheckStageAxisInPosition(stage, WaferStageAxis.WaferExpandingZ, stage.Recipe.WaferZ.LoadPosition, "StageZ load");
+            // ExpanderZ(StageZ)는 로딩/언로딩 구간에서만 올라간다. Ready 안전 복구가 정지 중 ExpanderZ를
+            // Avoid로 내린 뒤 로딩을 재개하는 경우가 있으므로, 확인 실패로 중단하는 대신 Load 위치로
+            // 복원 이동한다. 안전 전제: 위에서 StageY/StageT가 Load(고정) 위치임을 확인했고,
+            // Load 위치 상승은 LoadFromCassette의 원래 스테이지 준비 동작(StageZ load 이동)과 동일한
+            // 티칭 지점 이동이다. 이미 Load 위치이면 이동 없이 통과한다.
+            result = await MoveStageAxisAndVerifyAsync(
+                stage,
+                WaferStageAxis.WaferExpandingZ,
+                stage.Recipe.WaferZ.LoadPosition,
+                "StageZ load",
+                ct).ConfigureAwait(false);
             if (result != 0) return result;
 
             CurrentStep = InputFeederLoadToStageStep.VerifyFeederHoldingWafer;
