@@ -2324,7 +2324,9 @@ namespace QMC.CDT320.Sequencing
                     // 선행축으로 추종 진입한다. 존이 이미 비어 제약이 없으면(2번째 이후 촬영 포함)
                     // follow 없이 기존 일반 이동. follow 실패 시 R5 폴백 — 기존 경로(공유레일/가드
                     // 클리어 대기 + 일반 이동)로 1회 재시도(아래 기존 코드가 그 재시도 경로다).
-                    if (ShouldFollowPickerForInputVisionEntry(stage, target))
+                    // 현재 기준(사용자 지시 2026-07-25): 즉시 판정이 아니라 "촬영 위치까지 한 번에
+                    // 도달 가능해질 때"를 기다린 뒤 follow 여부를 정한다(#18 R2 대체).
+                    if (await WaitInputVisionReturnFollowOpportunityAsync(stage, target, description, ct).ConfigureAwait(false))
                     {
                         int followEntryResult = await TryFollowInputVisionXBehindPickerAsync(
                             stage,
@@ -2531,6 +2533,183 @@ namespace QMC.CDT320.Sequencing
             }
             catch
             {
+                return false;
+            }
+        }
+
+        // 기존 조건(#18 R2): 촬영 목표가 피커 페어 간격을 못 만족하면 피커 상태와 무관하게 항상
+        //   follow를 시작했다(정지 선행축 포함). FollowMoveAsync는 선행축이 정지해 있어도 현재
+        //   간격의 여유만큼 후행축을 전진시키므로, 피커가 존 안에서 작업 중일 때 비전 차례가 오면
+        //   비전이 진입 한계(제약피커 + HomeClearance − safetyGap)까지 선진입해 정지했다가
+        //   피커 퇴장 후 다시 촬영 위치로 가는 "중간 위치에 들렀다 가는" 동작이 됐다.
+        // 현재 기준(사용자 지시 2026-07-25, #18 R2 대체): 비전은 촬영 위치까지 한 번에 도달
+        //   가능해질 때만 출발한다.
+        //   (a) 목표가 양 피커 Actual/Command 페어 간격을 이미 만족 → false(존이 빔, 일반 이동 직행)
+        //   (b) 제약 피커의 Command(이미 발행된 이동 목표)가 목표를 safetyGap까지 열어줌
+        //       (= 퇴장 명령이 나갔다는 뜻) + 반대 피커 Command 기준 목표 간격 충족 → true(추종 진입)
+        //   (c) 둘 다 아니면(피커 정지/작업 중) 출발하지 않고 폴링 대기. 타임아웃 규칙은 기존 존
+        //       대기와 동일 — 선행검사 모드는 주기 로그+무한 대기, 그 외는 타임아웃 후 일반 경로 위임.
+        private async Task<bool> WaitInputVisionReturnFollowOpportunityAsync(
+            InputStageUnit stage,
+            double target,
+            string description,
+            CancellationToken ct)
+        {
+            try
+            {
+                if (!IsVisionReturnFollowGateSatisfied())
+                    return false;
+                if (stage == null || !(stage.CameraX is AjinAxis))
+                    return false;
+
+                SharedRailXMotionService service = SharedRailXMotionRuntime.ResolveService(
+                    Context != null ? Context.Machine : null);
+                if (service == null)
+                    return false;
+
+                int timeoutMs = ResolveTimeout();
+                DateTime start = DateTime.UtcNow;
+                bool waitLogged = false;
+
+                while (true)
+                {
+                    ct.ThrowIfCancellationRequested();
+                    if (Context != null)
+                        Context.StopIfCycleStopRequested(Name + ".InputVisionReturnFollowWait");
+
+                    // (a) 존이 이미 비었으면 follow 없이 기존 일반 이동으로 직행한다.
+                    if (!ShouldFollowPickerForInputVisionEntry(stage, target))
+                    {
+                        if (waitLogged)
+                        {
+                            WriteLog("InputDieVisionPrepareSequence",
+                                Name + " " + description + " 피커 존이 비어 팔로잉 없이 일반 이동으로 진행합니다. " +
+                                "target=" + target.ToString("F6") + " - Ok");
+                        }
+
+                        return false;
+                    }
+
+                    BaseAxis constrainingPickerX = ResolveConstrainingPickerXForInputVisionEntry();
+                    if (constrainingPickerX == null)
+                        return false;
+
+                    int direction;
+                    double homeGap;
+                    double safetyGap;
+                    string gapDetail;
+                    if (!service.TryGetFollowGapParameters(
+                        stage.CameraX,
+                        constrainingPickerX,
+                        service.Config != null ? service.Config.InputVisionRetreatExtraClearance : 40.0,
+                        out direction,
+                        out homeGap,
+                        out safetyGap,
+                        out gapDetail))
+                    {
+                        WriteLog("InputDieVisionPrepareSequence",
+                            Name + " " + description + " VisionX 팔로잉 파라미터 조회에 실패해 기존 경로로 진행합니다. " +
+                            "detail=" + gapDetail + " - Check");
+                        return false;
+                    }
+
+                    // (b) FollowMoveAsync의 페어식과 동일한 식에 후행축 위치 대신 촬영 목표를 넣어
+                    //     "제약 피커의 Command 기준으로 목표까지 한 번에 갈 수 있는가"를 본다.
+                    double leadingCommand = constrainingPickerX.CommandPosition;
+                    double gapAtCommand = direction > 0
+                        ? (leadingCommand + homeGap) - target
+                        : (target + homeGap) - leadingCommand;
+                    bool leadingOpensTarget = gapAtCommand + 0.000001 >= safetyGap;
+
+                    // 반대(비제약) 피커는 Command 한 가지만 확인한다 — Actual은 잔여 이동으로 곧
+                    // 열리며, 그 사이의 위반 시도는 follow 내부 MotionGuard(SharedRailX 페어 간격
+                    // 포함)가 -11로 거부해 기존 R5 폴백(일반 이동 재시도)이 받는다.
+                    BaseAxis frontX = Context != null && Context.Machine != null && Context.Machine.PickerFrontUnit != null
+                        ? Context.Machine.PickerFrontUnit.PickerX
+                        : null;
+                    BaseAxis rearX = Context != null && Context.Machine != null && Context.Machine.PickerRearUnit != null
+                        ? Context.Machine.PickerRearUnit.PickerX
+                        : null;
+                    BaseAxis oppositePickerX = ReferenceEquals(constrainingPickerX, frontX) ? rearX : frontX;
+                    string oppositeDetail = string.Empty;
+                    bool oppositeCommandClear = oppositePickerX == null ||
+                        service.IsPairClearanceSatisfied(
+                            oppositePickerX,
+                            oppositePickerX.CommandPosition,
+                            stage.CameraX,
+                            target,
+                            out oppositeDetail);
+
+                    if (leadingOpensTarget && oppositeCommandClear)
+                    {
+                        if (waitLogged)
+                        {
+                            WriteLog("InputDieVisionPrepareSequence",
+                                Name + " " + description + " 제약 피커 퇴장 명령을 확인해 팔로잉 진입을 진행합니다. " +
+                                "leading=" + constrainingPickerX.Name +
+                                ", leadingCommand=" + leadingCommand.ToString("F6") +
+                                ", gapAtCommand=" + gapAtCommand.ToString("F6") +
+                                ", safetyGap=" + safetyGap.ToString("F6") + " - Ok");
+                        }
+
+                        return true;
+                    }
+
+                    // (c) 아직 열리지 않았다 — 출발하지 않고 대기한다(선진입 방지).
+                    if (!waitLogged)
+                    {
+                        WriteLog("InputDieVisionPrepareSequence",
+                            Name + " " + description + " 촬영 목표까지 한 번에 도달할 수 없어 제약 피커 퇴장 명령을 대기합니다. " +
+                            "target=" + target.ToString("F6") +
+                            ", leading=" + constrainingPickerX.Name +
+                            ", leadingCommand=" + leadingCommand.ToString("F6") +
+                            ", gapAtCommand=" + gapAtCommand.ToString("F6") +
+                            ", safetyGap=" + safetyGap.ToString("F6") +
+                            ", oppositeClear=" + oppositeCommandClear +
+                            (oppositeCommandClear ? string.Empty : ", oppositeDetail=" + oppositeDetail) + " - Wait");
+                        waitLogged = true;
+                    }
+
+                    double elapsedMs = (DateTime.UtcNow - start).TotalMilliseconds;
+                    if (elapsedMs >= timeoutMs)
+                    {
+                        if (IsInputCameraPreInspectionMode())
+                        {
+                            WriteLog("InputDieVisionPrepareSequence",
+                                Name + " InputCamera 선행검사 모드: 제약 피커 퇴장 명령이 나올 때까지 계속 대기합니다. " +
+                                "die=" + _currentDieId +
+                                ", elapsedMs=" + elapsedMs.ToString("0") +
+                                ", leading=" + constrainingPickerX.Name +
+                                ", gapAtCommand=" + gapAtCommand.ToString("F6") + " - Wait");
+                            start = DateTime.UtcNow;
+                            continue;
+                        }
+
+                        // 신규 Fail 코드를 만들지 않는다 — 일반 이동 경로가 자체 대기/인터락/실패
+                        // 처리를 갖고 있으므로 거기에 위임한다.
+                        WriteLog("InputDieVisionPrepareSequence",
+                            Name + " " + description + " 팔로잉 기회 대기가 타임아웃되어 기존 대기+일반 이동으로 위임합니다. " +
+                            "elapsedMs=" + elapsedMs.ToString("0") +
+                            ", timeoutMs=" + timeoutMs + " - Check");
+                        return false;
+                    }
+
+                    await Task.Delay(20, ct).ConfigureAwait(false);
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (SequenceStopException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                WriteLog("InputDieVisionPrepareSequence",
+                    Name + " " + description + " 팔로잉 기회 판정 중 예외가 발생해 기존 경로로 진행합니다. " +
+                    "error=" + ex.Message + " - Check");
                 return false;
             }
         }

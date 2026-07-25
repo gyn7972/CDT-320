@@ -176,7 +176,7 @@ namespace QMC.CDT320.Ajin
                         return 0;
                     }
 
-                    await Task.Delay(0, cancellationToken).ConfigureAwait(false);
+                    await Task.Delay(1, cancellationToken).ConfigureAwait(false);
                 }
 
                 return FailMotion(-3, "INITIALIZE LIMIT SEARCH", "Hardware limit search timeout.", 0.0, false);
@@ -3011,7 +3011,7 @@ namespace QMC.CDT320.Ajin
                         return FailMotion(-3, "MOVE JOIN",
                             "이동 합류 대기 timeout. timeoutMs=" + timeoutMs, target, true);
 
-                    await Task.Delay(0, ct).ConfigureAwait(false);
+                    await Task.Delay(1, ct).ConfigureAwait(false);
                 }
 
                 UpdateStatus();
@@ -3047,12 +3047,19 @@ namespace QMC.CDT320.Ajin
         }
 
         // 기존 조건: IsMoving+INP(IsInPosition) 조합으로 완료를 판정했다.
-        // 현재 기준: AXM.GetInMotion(보드 InMotion 비트) 10ms 폴링만으로 완료를 판정한다 — INP 신호는
+        // 현재 기준: AXM.GetInMotion(보드 InMotion 비트) Delay(1) 폴링만으로 완료를 판정한다 — INP 신호는
         //           완료 조건에서 제외(설계 결정, 사용자 승인). UpdateStatus로 위치 관측값 갱신은 유지.
-        //           시작 유예(detectedMotion 래치 + 20폴)는 명령 직후 InMotion 미반영 레이스 방어로 유지.
+        //           시작 유예(detectedMotion 래치 + 200ms)는 명령 직후 InMotion 미반영 레이스 방어로 유지.
         private async Task<int> WaitUntilMoveDone(int motionStopSerial)
         {
-            int guard = 0;
+            // 기존 조건: 폴링 횟수로 타임아웃(guard>6000)과 이동 시작 유예(guard>20)를 판정했다 —
+            //           Delay(10) 전제라 각각 60초 / 200ms 였다.
+            // 현재 기준: Delay(1)에서는 폴링 횟수가 경과 시간과 무관하므로(보드 폴링 속도에 좌우)
+            //           Stopwatch로 경과 시간을 직접 측정해 판정한다. 타임아웃 60초, 시작 유예 200ms.
+            const int MoveWaitTimeoutMs = 60000;
+            const int MotionStartGraceMs = 200;
+
+            System.Diagnostics.Stopwatch elapsed = System.Diagnostics.Stopwatch.StartNew();
             bool detectedMotion = false;
             while (!IsAlarm)
             {
@@ -3066,20 +3073,23 @@ namespace QMC.CDT320.Ajin
                 if (detectedMotion && !inMotion)
                     break;
 
-                if (!detectedMotion && guard > 20 && !inMotion)
+                if (!detectedMotion && !inMotion && elapsed.ElapsedMilliseconds > MotionStartGraceMs)
                     break;
 
                 if (Volatile.Read(ref _motionStopSerial) != motionStopSerial && !inMotion)
                     return -4;
 
-                await Task.Delay(0).ConfigureAwait(false);
-                if (++guard > 6000)
+                await Task.Delay(1).ConfigureAwait(false);
+
+                if (elapsed.ElapsedMilliseconds > MoveWaitTimeoutMs)
                 {
                     AlarmManager.Raise(
                         AlarmSeverity.Error,
                         "AX-MOVE-WAIT",
                         Name,
-                        "Move wait timeout. AxisNo=" + AxisNo);
+                        "Move wait timeout. AxisNo=" + AxisNo +
+                        ", elapsedMs=" + elapsed.ElapsedMilliseconds +
+                        ", timeoutMs=" + MoveWaitTimeoutMs);
                     UpdateStatus();
                     return -3;
                 }
