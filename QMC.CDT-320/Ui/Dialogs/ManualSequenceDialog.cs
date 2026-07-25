@@ -16,15 +16,51 @@ namespace QMC.CDT_320.Ui.Dialogs
             _controller = controller ?? throw new ArgumentNullException(nameof(controller));
             InitializeComponent();
             cmbPickerNo.SelectedIndex = 0;
+            InitializeSpeedPercent();
             WireEvents();
+        }
+
+        // Manual Sequence 속도 %(디폴트 속도 대비)를 현재 설정값으로 표시하고 변경을 즉시 반영한다.
+        // MotionSpeedScale.EffectiveScaleFactor가 이동 속도와 가감속을 항상 같은 배율로 스케일한다.
+        private void InitializeSpeedPercent()
+        {
+            decimal current = (decimal)QMC.Common.Motion.MotionSpeedScale.ManualSequencePercent;
+            if (current < numSpeedPercent.Minimum) current = numSpeedPercent.Minimum;
+            if (current > numSpeedPercent.Maximum) current = numSpeedPercent.Maximum;
+            numSpeedPercent.Value = current;
+            numSpeedPercent.ValueChanged += NumSpeedPercent_ValueChanged;
+        }
+
+        private void NumSpeedPercent_ValueChanged(object sender, EventArgs e)
+        {
+            double percent = (double)numSpeedPercent.Value;
+            QMC.Common.Motion.MotionSpeedScale.ManualSequencePercent = percent;
+            QMC.Common.Log.Write("Main", "SYSTEM", "ManualSequenceSpeed",
+                "Manual Sequence 속도 퍼센트를 변경했습니다. percent=" +
+                QMC.Common.Motion.MotionSpeedScale.ManualSequencePercent.ToString("0.###") +
+                " (이동 속도/가감속 동일 배율 적용) - Set");
+        }
+
+        // Output LOAD/UNLOAD 대상 side. GOOD/NG는 별개로 동작시킨다.
+        private BinSide SelectedOutputSide()
+        {
+            return rbOutputNg.Checked ? BinSide.Ng : BinSide.Good;
         }
 
         private void WireEvents()
         {
             btnInputLoad.Click += async delegate { await RunManualProcessAsync("INPUT LOAD", _controller.RunManualInputLoadAsync).ConfigureAwait(true); };
             btnInputUnload.Click += async delegate { await RunManualProcessAsync("INPUT UNLOAD", _controller.RunManualInputUnloadAsync).ConfigureAwait(true); };
-            btnOutputLoad.Click += async delegate { await RunManualProcessAsync("OUTPUT LOAD", _controller.RunManualOutputLoadAsync).ConfigureAwait(true); };
-            btnOutputUnload.Click += async delegate { await RunManualProcessAsync("OUTPUT UNLOAD", _controller.RunManualOutputUnloadAsync).ConfigureAwait(true); };
+            btnOutputLoad.Click += async delegate
+            {
+                BinSide side = SelectedOutputSide();
+                await RunManualProcessAsync("OUTPUT LOAD(" + side + ")", () => _controller.RunManualOutputLoadAsync(side)).ConfigureAwait(true);
+            };
+            btnOutputUnload.Click += async delegate
+            {
+                BinSide side = SelectedOutputSide();
+                await RunManualProcessAsync("OUTPUT UNLOAD(" + side + ")", () => _controller.RunManualOutputUnloadAsync(side)).ConfigureAwait(true);
+            };
             btnPickUp.Click += async delegate { await RunPickerProcessAsync("PickUp", "PICK UP").ConfigureAwait(true); };
             btnBottom.Click += async delegate { await RunPickerProcessAsync("Bottom", "BOTTOM").ConfigureAwait(true); };
             btnSide.Click += async delegate { await RunPickerProcessAsync("Side", "SIDE").ConfigureAwait(true); };

@@ -10701,30 +10701,32 @@ namespace QMC.CDT320
                 });
         }
 
-        public Task<int> RunManualOutputLoadAsync()
+        // CYCLE RUN OUTPUT LOAD: 선택한 GOOD/NG side만 별개로 로딩한다.
+        public Task<int> RunManualOutputLoadAsync(BinSide side)
         {
             return RunManualUnitProcessAsync(
-                "OUTPUT LOAD",
+                "OUTPUT LOAD(" + side + ")",
                 "SEQ-MANUAL-OUT-LOAD",
                 async delegate (QMC.CDT320.Sequencing.MachineSequenceContext context, CancellationToken token)
                 {
                     var sequence = new QMC.CDT320.Sequencing.OutputSequence(context);
                     sequence.Configure(QMC.CDT320.Sequencing.SequenceRunMode.Manual);
-                    return await sequence.ExecuteNextOutputLoadAsync(token, false, 0, QMC.CDT320.Sequencing.SequenceStartMode.Resume)
+                    return await sequence.ExecuteManualOutputLoadAsync(token, side)
                         .ConfigureAwait(false);
                 });
         }
 
-        public Task<int> RunManualOutputUnloadAsync()
+        // CYCLE RUN OUTPUT UNLOAD: 선택한 GOOD/NG side의 Stage/Feeder Bin만 별개로 배출한다.
+        public Task<int> RunManualOutputUnloadAsync(BinSide side)
         {
             return RunManualUnitProcessAsync(
-                "OUTPUT UNLOAD",
+                "OUTPUT UNLOAD(" + side + ")",
                 "SEQ-MANUAL-OUT-UNLOAD",
                 async delegate (QMC.CDT320.Sequencing.MachineSequenceContext context, CancellationToken token)
                 {
                     var sequence = new QMC.CDT320.Sequencing.OutputSequence(context);
                     sequence.Configure(QMC.CDT320.Sequencing.SequenceRunMode.Manual);
-                    return await sequence.ExecuteNextOutputUnloadAsync(token, false, 0, QMC.CDT320.Sequencing.SequenceStartMode.Resume)
+                    return await sequence.ExecuteManualOutputUnloadAsync(token, side)
                         .ConfigureAwait(false);
                 });
         }

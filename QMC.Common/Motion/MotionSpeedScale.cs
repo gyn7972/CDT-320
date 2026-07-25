@@ -24,12 +24,21 @@ namespace QMC.Common.Motion
         /// <summary>기본 퍼센트(스케일 미적용).</summary>
         public const double DefaultPercent = 100.0;
 
+        /// <summary>Manual Sequence 속도 퍼센트 기본값입니다.</summary>
+        public const double DefaultManualSequencePercent = 5.0;
+
+        private static double _manualSequencePercent = DefaultManualSequencePercent;
+
         /// <summary>
         /// Manual Sequence Dialog / CYCLE RUN Step 수동 시퀀스에서 추가로 적용할 안전 속도 퍼센트입니다.
-        /// 작업자가 수동으로 단계를 확인하며 구동하는 경로는 위험하므로 축 DefaultVelocity 의 30%로 제한합니다.
-        /// 20~30% 범위에서 조정하려면 이 값만 변경합니다.
+        /// 기본 5%이며 Manual Sequence 화면 하단의 "속도(%)" 입력으로 런타임에 1~100 범위에서 조정합니다.
+        /// <see cref="EffectiveScaleFactor"/>를 통해 이동 속도와 가감속이 항상 같은 배율로 함께 스케일됩니다.
         /// </summary>
-        public const double ManualSequencePercent = 5.0;
+        public static double ManualSequencePercent
+        {
+            get { return _manualSequencePercent; }
+            set { _manualSequencePercent = ClampPercent(value); }
+        }
 
         /// <summary>
         /// 작업 화면 READY 시퀀스에서만 추가로 적용할 안전 속도 퍼센트입니다.

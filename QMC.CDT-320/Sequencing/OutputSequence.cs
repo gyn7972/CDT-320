@@ -941,6 +941,140 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
+        // Manual Sequence 화면의 side 지정 OUTPUT LOAD: 선택한 GOOD/NG side만 별개로 로딩한다.
+        // 공급 본체는 Auto와 동일한 ExecuteSupplyCassetteToStageAsync(side)를 사용하므로
+        // 액션 인터락 재확인(CheckOutputWorkInterlocksBeforeExecute)도 그대로 적용된다.
+        public async Task<int> ExecuteManualOutputLoadAsync(
+            CancellationToken ct,
+            BinSide side,
+            bool bFine = false,
+            int moveTimeoutMs = 0,
+            SequenceStartMode startMode = SequenceStartMode.Resume)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+
+                WaferMaterial feederWafer = MaterialStateService.GetWaferAtLocation(MaterialLocationKind.OutputFeeder);
+                if (feederWafer != null)
+                {
+                    BinSide feederSide;
+                    if (!TryResolveBinSide(feederWafer, out feederSide))
+                        return Fail("OUT-MANUAL-LOAD-FEEDER-SIDE", "OutputSequence",
+                            "OutputFeeder Bin의 GOOD/NG를 확인할 수 없습니다. bin=" + (feederWafer.WaferId ?? ""));
+
+                    if (feederSide != side)
+                        return Fail("OUT-MANUAL-LOAD-FEEDER-MISMATCH", "OutputSequence",
+                            "OutputFeeder에 " + feederSide + " Bin이 남아 있어 " + side + " LOAD를 진행할 수 없습니다. " +
+                            feederSide + " side를 먼저 처리하세요. bin=" + (feederWafer.WaferId ?? ""));
+
+                    if (IsOutputBinReceiveComplete(feederWafer))
+                        return Fail("OUT-MANUAL-LOAD-FEEDER-COMPLETE", "OutputSequence",
+                            "OutputFeeder에 완료된 Bin이 있습니다. OUTPUT UNLOAD를 먼저 실행하세요.");
+
+                    // 로딩 도중 중단된 동일 side Bin은 Auto와 동일한 재개 경로로 Stage 로딩을 이어서 수행한다.
+                    return await ExecuteOccupiedFeederActionAsync(
+                        ct,
+                        bFine,
+                        moveTimeoutMs,
+                        startMode).ConfigureAwait(false);
+                }
+
+                if (!CanSupplyOutputStage(side))
+                    return Fail("OUT-MANUAL-LOAD-NO-SLOT", "OutputSequence",
+                        side + " OUTPUT LOAD 가능한 Bin이 없습니다. " + side +
+                        " Stage 빈 상태와 카세트 매핑/슬롯 상태를 확인하세요.");
+
+                return await ExecuteSupplyCassetteToStageAsync(ct, side, bFine, moveTimeoutMs, startMode).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                WriteLog("ExecuteManualOutputLoadAsync", side + " Output Manual LOAD가 취소되었습니다. - Failed");
+                throw;
+            }
+            catch (SequenceStopException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("OUT-MANUAL-LOAD-EX", "OutputSequence",
+                    side + " Output Manual LOAD 중 예외가 발생했습니다: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        // Manual Sequence 화면의 side 지정 OUTPUT UNLOAD: 선택한 GOOD/NG side의 Stage/Feeder Bin만 카세트로 배출한다.
+        // 수령 완료 여부와 무관하게 해당 side Stage Bin을 원본 슬롯으로 배출한다(별개 동작 테스트 목적).
+        public async Task<int> ExecuteManualOutputUnloadAsync(
+            CancellationToken ct,
+            BinSide side,
+            bool bFine = false,
+            int moveTimeoutMs = 0,
+            SequenceStartMode startMode = SequenceStartMode.Resume)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+
+                MaterialLocationKind stageLocation = side == BinSide.Ng
+                    ? MaterialLocationKind.OutputStageNg
+                    : MaterialLocationKind.OutputStageGood;
+                if (MaterialStateService.GetWaferAtLocation(stageLocation) != null)
+                {
+                    return await ExecuteCompletedStageStoreAsync(
+                        ct,
+                        side,
+                        side == BinSide.Ng ? DieGrade.Ng : DieGrade.Good,
+                        bFine,
+                        moveTimeoutMs,
+                        startMode).ConfigureAwait(false);
+                }
+
+                WaferMaterial feederWafer = MaterialStateService.GetWaferAtLocation(MaterialLocationKind.OutputFeeder);
+                if (feederWafer != null)
+                {
+                    BinSide feederSide;
+                    if (TryResolveBinSide(feederWafer, out feederSide) && feederSide == side)
+                    {
+                        if (IsOutputBinReceiveComplete(feederWafer))
+                            return await ExecuteOccupiedFeederActionAsync(
+                                ct,
+                                bFine,
+                                moveTimeoutMs,
+                                startMode).ConfigureAwait(false);
+
+                        return Fail("OUT-MANUAL-UNLOAD-FEEDER-INCOMPLETE", "OutputSequence",
+                            side + " OutputFeeder에 미완료 Bin이 있습니다. OUTPUT LOAD로 Stage 로딩을 완료한 뒤 처리하세요. bin=" +
+                            (feederWafer.WaferId ?? ""));
+                    }
+                }
+
+                return Fail("OUT-MANUAL-UNLOAD-NO-BIN", "OutputSequence",
+                    side + " OUTPUT UNLOAD 가능한 Bin이 없습니다. " + side +
+                    " Stage/Feeder Bin 상태를 확인하세요.");
+            }
+            catch (OperationCanceledException)
+            {
+                WriteLog("ExecuteManualOutputUnloadAsync", side + " Output Manual UNLOAD가 취소되었습니다. - Failed");
+                throw;
+            }
+            catch (SequenceStopException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("OUT-MANUAL-UNLOAD-EX", "OutputSequence",
+                    side + " Output Manual UNLOAD 중 예외가 발생했습니다: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
         // To do: [NG 스킵] NG 카세트 사용 여부 - OutputCassette Config.UseNgCassette 파라미터를 단일 기준으로 사용한다.
         private bool IsNgCassetteUsed()
         {

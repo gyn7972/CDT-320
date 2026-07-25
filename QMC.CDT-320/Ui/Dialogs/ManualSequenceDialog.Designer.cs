@@ -22,6 +22,13 @@
         private System.Windows.Forms.Button btnAllStep;
         private System.Windows.Forms.Button btnClose;
         private System.Windows.Forms.Label statusLabel;
+        private System.Windows.Forms.Panel outputSidePanel;
+        private System.Windows.Forms.Label lblOutputSide;
+        private System.Windows.Forms.RadioButton rbOutputGood;
+        private System.Windows.Forms.RadioButton rbOutputNg;
+        private System.Windows.Forms.Panel speedPanel;
+        private System.Windows.Forms.Label lblSpeedPercent;
+        private System.Windows.Forms.NumericUpDown numSpeedPercent;
 
         protected override void Dispose(bool disposing)
         {
@@ -51,8 +58,18 @@
             this.btnAllStep = new System.Windows.Forms.Button();
             this.btnClose = new System.Windows.Forms.Button();
             this.statusLabel = new System.Windows.Forms.Label();
+            this.outputSidePanel = new System.Windows.Forms.Panel();
+            this.lblOutputSide = new System.Windows.Forms.Label();
+            this.rbOutputGood = new System.Windows.Forms.RadioButton();
+            this.rbOutputNg = new System.Windows.Forms.RadioButton();
+            this.speedPanel = new System.Windows.Forms.Panel();
+            this.lblSpeedPercent = new System.Windows.Forms.Label();
+            this.numSpeedPercent = new System.Windows.Forms.NumericUpDown();
             this.mainLayout.SuspendLayout();
             this.pickerSelectPanel.SuspendLayout();
+            this.outputSidePanel.SuspendLayout();
+            this.speedPanel.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)(this.numSpeedPercent)).BeginInit();
             this.SuspendLayout();
             // 
             // titleLabel
@@ -162,8 +179,9 @@
             this.btnOutputUnload.UseVisualStyleBackColor = false;
             // 
             // pickerSelectPanel
-            // 
+            //
             this.mainLayout.SetColumnSpan(this.pickerSelectPanel, 4);
+            this.pickerSelectPanel.Controls.Add(this.outputSidePanel);
             this.pickerSelectPanel.Controls.Add(this.cmbPickerNo);
             this.pickerSelectPanel.Controls.Add(this.lblPickerNo);
             this.pickerSelectPanel.Controls.Add(this.rbRearPicker);
@@ -330,9 +348,84 @@
             this.btnClose.TabIndex = 11;
             this.btnClose.Text = "닫기";
             this.btnClose.UseVisualStyleBackColor = false;
-            // 
+            //
+            // outputSidePanel  (Output GOOD/NG 선택 — Picker 라디오와 그룹이 섞이지 않게 별도 패널)
+            //
+            this.outputSidePanel.Controls.Add(this.rbOutputNg);
+            this.outputSidePanel.Controls.Add(this.rbOutputGood);
+            this.outputSidePanel.Controls.Add(this.lblOutputSide);
+            this.outputSidePanel.Location = new System.Drawing.Point(520, 0);
+            this.outputSidePanel.Name = "outputSidePanel";
+            this.outputSidePanel.Size = new System.Drawing.Size(284, 47);
+            this.outputSidePanel.TabIndex = 4;
+            //
+            // lblOutputSide
+            //
+            this.lblOutputSide.ForeColor = System.Drawing.Color.Black;
+            this.lblOutputSide.Location = new System.Drawing.Point(0, 0);
+            this.lblOutputSide.Name = "lblOutputSide";
+            this.lblOutputSide.Size = new System.Drawing.Size(80, 47);
+            this.lblOutputSide.TabIndex = 0;
+            this.lblOutputSide.Text = "Output";
+            this.lblOutputSide.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
+            //
+            // rbOutputGood
+            //
+            this.rbOutputGood.Checked = true;
+            this.rbOutputGood.ForeColor = System.Drawing.Color.Black;
+            this.rbOutputGood.Location = new System.Drawing.Point(90, 0);
+            this.rbOutputGood.Name = "rbOutputGood";
+            this.rbOutputGood.Size = new System.Drawing.Size(90, 47);
+            this.rbOutputGood.TabIndex = 1;
+            this.rbOutputGood.TabStop = true;
+            this.rbOutputGood.Text = "GOOD";
+            this.rbOutputGood.UseVisualStyleBackColor = true;
+            //
+            // rbOutputNg
+            //
+            this.rbOutputNg.ForeColor = System.Drawing.Color.Black;
+            this.rbOutputNg.Location = new System.Drawing.Point(190, 0);
+            this.rbOutputNg.Name = "rbOutputNg";
+            this.rbOutputNg.Size = new System.Drawing.Size(80, 47);
+            this.rbOutputNg.TabIndex = 2;
+            this.rbOutputNg.Text = "NG";
+            this.rbOutputNg.UseVisualStyleBackColor = true;
+            //
+            // speedPanel  (Manual Sequence 속도 % — 속도/가감속 동일 배율 적용)
+            //
+            this.speedPanel.Controls.Add(this.numSpeedPercent);
+            this.speedPanel.Controls.Add(this.lblSpeedPercent);
+            this.speedPanel.Dock = System.Windows.Forms.DockStyle.Bottom;
+            this.speedPanel.Location = new System.Drawing.Point(0, 413);
+            this.speedPanel.Name = "speedPanel";
+            this.speedPanel.Size = new System.Drawing.Size(846, 46);
+            this.speedPanel.TabIndex = 3;
+            //
+            // lblSpeedPercent
+            //
+            this.lblSpeedPercent.Dock = System.Windows.Forms.DockStyle.Left;
+            this.lblSpeedPercent.ForeColor = System.Drawing.Color.Black;
+            this.lblSpeedPercent.Location = new System.Drawing.Point(0, 0);
+            this.lblSpeedPercent.Name = "lblSpeedPercent";
+            this.lblSpeedPercent.Padding = new System.Windows.Forms.Padding(18, 0, 0, 0);
+            this.lblSpeedPercent.Size = new System.Drawing.Size(340, 46);
+            this.lblSpeedPercent.TabIndex = 0;
+            this.lblSpeedPercent.Text = "속도 (디폴트 속도의 %, 가감속 동일 적용)";
+            this.lblSpeedPercent.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            //
+            // numSpeedPercent
+            //
+            this.numSpeedPercent.Location = new System.Drawing.Point(348, 8);
+            this.numSpeedPercent.Minimum = new decimal(new int[] { 1, 0, 0, 0 });
+            this.numSpeedPercent.Maximum = new decimal(new int[] { 100, 0, 0, 0 });
+            this.numSpeedPercent.Name = "numSpeedPercent";
+            this.numSpeedPercent.Size = new System.Drawing.Size(90, 32);
+            this.numSpeedPercent.TabIndex = 1;
+            this.numSpeedPercent.TextAlign = System.Windows.Forms.HorizontalAlignment.Right;
+            this.numSpeedPercent.Value = new decimal(new int[] { 5, 0, 0, 0 });
+            //
             // statusLabel
-            // 
+            //
             this.statusLabel.Dock = System.Windows.Forms.DockStyle.Fill;
             this.statusLabel.Location = new System.Drawing.Point(0, 359);
             this.statusLabel.Name = "statusLabel";
@@ -345,8 +438,9 @@
             // 
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.None;
             this.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(235)))), ((int)(((byte)(235)))), ((int)(((byte)(235)))));
-            this.ClientSize = new System.Drawing.Size(846, 413);
+            this.ClientSize = new System.Drawing.Size(846, 459);
             this.Controls.Add(this.statusLabel);
+            this.Controls.Add(this.speedPanel);
             this.Controls.Add(this.mainLayout);
             this.Controls.Add(this.titleLabel);
             this.Font = new System.Drawing.Font("맑은 고딕", 10F);
@@ -359,6 +453,9 @@
             this.Text = "Manual Sequence";
             this.mainLayout.ResumeLayout(false);
             this.pickerSelectPanel.ResumeLayout(false);
+            this.outputSidePanel.ResumeLayout(false);
+            this.speedPanel.ResumeLayout(false);
+            ((System.ComponentModel.ISupportInitialize)(this.numSpeedPercent)).EndInit();
             this.ResumeLayout(false);
 
         }
