@@ -1421,11 +1421,20 @@ namespace QMC.CDT320.Sequencing
                     return;
                 }
 
+                // 기존 조건: Presence != Empty 이면 모두 차단 - 앱 재시작 직후 Unit projection의 초기값이
+                //           바로 Unknown이라, "재시작 복구용" 이 함수가 정작 재시작 때는 항상 스킵되었다.
+                //           그 결과 projection이 Unknown으로 남아 언로드 슬롯 검사(IsUnloadSlotEmpty)가
+                //           빈 슬롯을 점유로 오판했다. (실장비 2026-07-25 21:42, CYCLE RUN INPUT UNLOAD)
+                // 현재 기준: Unknown은 "점유"가 아니라 "정보 없음"이므로 Empty와 함께 복원 대상으로 본다.
+                //           스캔으로 점유가 확인된 Exist는 실제 자재 불일치 가능성이 있어 계속 차단한다.
+                //           (이 시점까지 Material 근거는 모두 확인됨: active wafer가 Stage/Feeder에 있고,
+                //            원본 role/slot이 유효하며, 카세트가 Enabled/Present/Mapped이고,
+                //            해당 Material slot과 cassette wafer가 비어 있음)
                 if (previousState != null &&
-                    previousState.Presence != SlotPresence.Empty)
+                    previousState.Presence == SlotPresence.Exist)
                 {
                     WriteLog("RestoreInputSourceSlot",
-                        "Active wafer source slot projection restore blocked by non-empty unit slot state. context=" +
+                        "Active wafer source slot projection restore blocked by occupied unit slot state. context=" +
                         (restoreContext ?? "") +
                         ", wafer=" + (wafer.WaferId ?? "") +
                         ", role=" + wafer.SourceCassetteRole +
@@ -1435,9 +1444,9 @@ namespace QMC.CDT320.Sequencing
                     return;
                 }
 
-                // 앱 재시작 시 Unit의 휘발성 slot projection은 사라지지만, 저장된 active Material과
-                // 비어 있는 원본 Material slot은 유지된다. Unit projection도 Empty일 때만 정상 로드 완료
-                // 상태를 복원하며, Exist/Unknown은 실제 점유 불일치 가능성이 있으므로 안전 실패한다.
+                // 앱 재시작 시 Unit의 휘발성 slot projection은 사라지지만(Unknown), 저장된 active Material과
+                // 비어 있는 원본 Material slot은 유지된다. Empty/Unknown일 때만 정상 로드 완료 상태를
+                // 복원하며, Exist는 실제 점유 불일치 가능성이 있으므로 안전 실패한다.
                 cassette.UpdateWaferCassetteSlotState(
                     cassetteLevel,
                     wafer.SourceSlotNumber,

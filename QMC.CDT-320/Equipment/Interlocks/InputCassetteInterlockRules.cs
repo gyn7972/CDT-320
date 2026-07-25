@@ -195,10 +195,12 @@ namespace QMC.CDT320.Interlocks
             if (Cassette != null &&
                 (Cassette.IsWaferCassetteExist(8) || Cassette.IsWaferCassetteExist(12)))
             {
-                if (!IsWaferFeederYSafeForWaferLifterZ(feeder))
+                string feederDetail;
+                if (!IsWaferFeederYSafeForWaferLifterZ(feeder, out feederDetail))
                     return MotionGuardRuleHelpers.Block(
                         "InputLifterZ",
-                        "InputFeederY must be at a cassette-side safe teaching position before InputLifterZ move.",
+                        "InputFeederY must be at a cassette-side safe teaching position before InputLifterZ move. " +
+                        feederDetail,
                         out reason);
             }
 
@@ -237,10 +239,12 @@ namespace QMC.CDT320.Interlocks
                 (Cassette.IsWaferCassetteExist(8) || Cassette.IsWaferCassetteExist(12)))
             {
                 // 인터락 조건: FeederY가 카세트 측 안전 위치가 아니면 리프터 홈 이동을 차단한다.
-                if (!IsWaferFeederYSafeForWaferLifterZ(feeder))
+                string feederDetail;
+                if (!IsWaferFeederYSafeForWaferLifterZ(feeder, out feederDetail))
                     return MotionGuardRuleHelpers.Block(
                         "InputLifterZ",
-                        "InputFeederY must be at a cassette-side safe teaching position before InputLifterZ move.",
+                        "InputFeederY must be at a cassette-side safe teaching position before InputLifterZ move. " +
+                        feederDetail,
                         out reason);
             }
 
@@ -272,30 +276,66 @@ namespace QMC.CDT320.Interlocks
                     out reason);
 
             // 인터락 조건: FeederY가 카세트 측 안전 위치가 아니면 리프터 자동 이동을 차단한다.
-            if (!IsWaferFeederYSafeForWaferLifterZ(feeder))
+            string autoFeederDetail;
+            if (!IsWaferFeederYSafeForWaferLifterZ(feeder, out autoFeederDetail))
                 return MotionGuardRuleHelpers.Block(
                     "InputLifterZ",
-                    "InputFeederY must be at a cassette-side safe teaching position before InputLifterZ move.",
+                    "InputFeederY must be at a cassette-side safe teaching position before InputLifterZ move. " +
+                    autoFeederDetail,
                     out reason);
 
             return true;
         }
 
         // 인터락 기준: InputLifterZ 이동 전 InputFeederY가 카세트 측 안전 위치인지 판단한다.
-        // 기존 조건: 강제 true(검사 무력화, Todo 잔존) — FeederY가 카세트 간섭 위치에 있어도 리프터 이동이 허용되었다.
-        // 현재 기준: 원래 의도된 티칭 위치 predicate(Avoid/Exchange/Home)를 복원한다.
-        //           기계 전제: FeederY가 Avoid/Exchange/Home 티칭 위치에 있으면 카세트 슬롯 진입 경로와 간섭하지 않는다.
-        //           Home 위치의 실기 안전성은 실장비 저속 검증 항목으로 유지한다.
-        private static bool IsWaferFeederYSafeForWaferLifterZ(InputFeederUnit feeder)
+        // 기존 조건: 티칭 위치 predicate(Avoid/Exchange/Home)만 안전으로 인정했다.
+        //           세 위치 모두 0 부근이라, 피더가 wafer를 들고 스테이지 쪽(WaferUnloadPosition 607 등)에 있는
+        //           동안에는 리프터 이동이 무조건 차단되었다. Stage -> Feeder -> Cassette 언로드는 피더가
+        //           제품을 잡은 뒤 카세트 슬롯 위치를 잡아야 하므로, 리프터가 해당 슬롯에 미리 가 있지 않은
+        //           상태(재시작 직후 등)에서는 구조적으로 항상 IN-CST-LIFTER-INTERLOCK이 발생했다.
+        //           (실장비 2026-07-25 21:26:53, CYCLE RUN INPUT UNLOAD)
+        // 현재 기준(사용자 승인 2026-07-25): "− 방향(카세트 진입)"에 있지 않으면 안전으로 인정한다.
+        //           기계 전제(사용자 확인 2026-07-25): InputFeeder는 − 방향으로 이동할 때만 카세트 안으로
+        //           들어간다. 티칭값도 이를 뒷받침한다 — CassetteLoad/UnloadPosition = -54.529(카세트 진입),
+        //           Avoid/CassetteExchange = 0, 스테이지 측 WaferLoad/UnloadPosition = +607.269.
+        //           즉 0 이상(+ 방향)에서는 피더가 카세트 진입 경로 밖에 있어 리프터 승강과 간섭하지 않는다.
+        // 완화 범위: 기존 허용(Avoid/Exchange/Home)은 그대로 두고 "0 이상" 조건만 추가한다(순수 확대).
+        //           − 방향 위치(카세트 진입/슬롯 접근)는 변경 없이 계속 차단된다.
+        //           이동 중 판정은 호출부(Manual/Home/Auto)에서 이미 차단하며, 여기서도 방어적으로 재확인한다.
+        private static bool IsWaferFeederYSafeForWaferLifterZ(InputFeederUnit feeder, out string detail)
         {
+            detail = string.Empty;
+
             if (feeder == null || feeder.FeederY == null)
             {
                 return true;
             }
 
-            return feeder.IsWaferFeederYInAvoidPosition()
+            QMC.Common.Motion.BaseAxis feederY = feeder.FeederY;
+            double tolerance = feederY.Config != null && feederY.Config.InPositionTolerance > 0.0
+                ? feederY.Config.InPositionTolerance
+                : 0.05;
+            double actual = feederY.ActualPosition;
+            detail = "InputFeederY actual=" + actual.ToString("0.###") +
+                     ", cassetteEntryLimit=" + (-tolerance).ToString("0.###");
+
+            // 기존 허용: 티칭된 Avoid / CassetteExchange / Home 위치.
+            if (feeder.IsWaferFeederYInAvoidPosition()
                 || feeder.IsWaferFeederYInExchangePosition()
-                || feeder.IsWaferFeederYInHomePosition();
+                || feeder.IsWaferFeederYInHomePosition())
+            {
+                return true;
+            }
+
+            // 방어 조건: 이동 중이면 현재 좌표로 진입 여부를 확정할 수 없으므로 안전측으로 차단한다.
+            if (feederY.IsMoving)
+            {
+                detail += ", moving=Y";
+                return false;
+            }
+
+            // 완화 조건: − 방향(카세트 진입)이 아니면 리프터 승강과 물리 간섭이 없다.
+            return actual >= -tolerance;
         }
 
         // 인터락 기준: InputFeeder Lift가 Down 상태인지 센서/실린더 상태로 판단한다.

@@ -148,9 +148,15 @@ namespace QMC.CDT320.Sequencing
                     ", targetSlot=" + (Options.SlotIndex + 1).ToString("00"));
             }
 
+            // 기존 조건: OutputGrade 정확 일치만 허용 - grade는 첫 die 수령 시점에만 설정되므로
+            //           die를 받지 않은 Bin(교체/전체 준비/수동 배출)은 Unknown이라 배출이 차단되었다.
+            // 현재 기준: grade가 설정된 Bin은 기존과 동일하게 정확 일치를 요구해 양불 혼입을 차단하고,
+            //           Unknown(미수령) Bin은 위에서 확인한 원본 role/slot 일치(원위치 복귀)로 판정한다.
+            //           (side 판정 TryResolveBinSide의 SourceCassetteRole fallback과 동일 기준)
             bool gradeMatches = Options.Side == BinSide.Ng
-                ? wafer.OutputGrade == DieResult.NG && targetRole == CassetteMaterialRole.Ng1
-                : wafer.OutputGrade == DieResult.Good &&
+                ? (wafer.OutputGrade == DieResult.NG || wafer.OutputGrade == DieResult.Unknown) &&
+                  targetRole == CassetteMaterialRole.Ng1
+                : (wafer.OutputGrade == DieResult.Good || wafer.OutputGrade == DieResult.Unknown) &&
                   (targetRole == CassetteMaterialRole.Good1 || targetRole == CassetteMaterialRole.Good2);
             if (!gradeMatches)
             {
@@ -692,9 +698,12 @@ namespace QMC.CDT320.Sequencing
                     ", sourceRole=" + wafer.SourceCassetteRole + ", sourceSlot=" + (wafer.SourceSlotNumber + 1).ToString("00") +
                     ", targetRole=" + targetRole + ", targetSlot=" + (Options.SlotIndex + 1).ToString("00"));
 
+            // 현재 기준: Unknown(미수령) Bin은 원본 role/slot 일치(위 검사 통과)로 원위치 복귀를 허용한다.
+            //           grade가 설정된 Bin은 기존과 동일하게 정확 일치를 요구한다. (양불 혼입 차단 유지)
             bool gradeMatches = Options.Side == BinSide.Ng
-                ? wafer.OutputGrade == DieResult.NG && targetRole == CassetteMaterialRole.Ng1
-                : wafer.OutputGrade == DieResult.Good &&
+                ? (wafer.OutputGrade == DieResult.NG || wafer.OutputGrade == DieResult.Unknown) &&
+                  targetRole == CassetteMaterialRole.Ng1
+                : (wafer.OutputGrade == DieResult.Good || wafer.OutputGrade == DieResult.Unknown) &&
                   (targetRole == CassetteMaterialRole.Good1 || targetRole == CassetteMaterialRole.Good2);
             if (!gradeMatches)
             {
@@ -1141,9 +1150,12 @@ namespace QMC.CDT320.Sequencing
                     ", targetSlot=" + (Options.SlotIndex + 1).ToString("00"));
             }
 
+            // 현재 기준: Unknown(미수령) Bin은 원본 role/slot 일치(위 검사 통과)로 원위치 복귀를 허용한다.
+            //           grade가 설정된 Bin은 기존과 동일하게 정확 일치를 요구한다. (양불 혼입 차단 유지)
             bool gradeMatches = Options.Side == BinSide.Ng
-                ? cassetteWafer.OutputGrade == DieResult.NG && targetRole == CassetteMaterialRole.Ng1
-                : cassetteWafer.OutputGrade == DieResult.Good &&
+                ? (cassetteWafer.OutputGrade == DieResult.NG || cassetteWafer.OutputGrade == DieResult.Unknown) &&
+                  targetRole == CassetteMaterialRole.Ng1
+                : (cassetteWafer.OutputGrade == DieResult.Good || cassetteWafer.OutputGrade == DieResult.Unknown) &&
                   (targetRole == CassetteMaterialRole.Good1 || targetRole == CassetteMaterialRole.Good2);
             if (!gradeMatches)
             {

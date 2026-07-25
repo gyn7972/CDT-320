@@ -569,6 +569,20 @@ namespace QMC.CDT320.Sequencing
                 return true;
             }
 
+            // 방어 조건: Unit의 slot projection은 휘발성이라 앱 재시작 직후 Unknown("정보 없음")이 된다.
+            // Unknown을 점유로 오판하지 않도록, 영속 Material(단일 기준)이 아래를 모두 증명할 때만 허용한다.
+            //  - 위에서 대상 cassette slot Material이 비어 있음을 이미 확인했다(cassetteWafer 없음/Empty).
+            //  - 지금 피더가 든 wafer의 원본이 정확히 이 role/slot이다(sameSourceWaferOnFeeder).
+            // 스캔으로 점유가 확인된 Exist는 위 조건 외에는 계속 차단된다.
+            if (state.Presence == SlotPresence.Unknown && sameSourceWaferOnFeeder)
+            {
+                WriteLog("InputFeederUnloadToCassetteSequence",
+                    "Unit slot projection이 Unknown이지만 영속 Material 기준으로 원본 슬롯이 비어 있어 언로드를 허용합니다. role=" +
+                    Options.CassetteRole + ", slot=" + slotIndex +
+                    ", feederWafer=" + (feederWafer != null ? feederWafer.WaferId : "") + " - Check");
+                return true;
+            }
+
             WriteLog("InputFeederUnloadToCassetteSequence",
                 "Input cassette unload slot validation failed. role=" + Options.CassetteRole +
                 ", level=" + cassetteLevel +
