@@ -2932,7 +2932,9 @@ namespace QMC.CDT320.Sequencing
         }
 
         // To do: [명령 전용 절대이동] 명령 발행 즉시 리턴 - 이동 중 감시/저속 오버라이드가 필요한
-        //        FastContiSegmentedPickUp 경로 전용. 파라미터는 스케일 완료된 최종값으로 전달할 것.
+        //        경로 전용. 파라미터는 스케일 완료된 최종값으로 전달할 것.
+        //        (유일 사용처였던 고속 픽업 모드가 2026-07-25 삭제되어 현재 호출부 없음 — 사용자
+        //         승인 전 삭제 금지 지시에 따라 존치.)
         protected Task<int> MovePickerAxisCommandOnlyAsync(PickerAxis axis, double target, double velocity, double acceleration, double deceleration, string targetName = null)
         {
             WriteLog("PickerMoveCommand",

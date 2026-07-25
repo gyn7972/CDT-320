@@ -647,8 +647,8 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
-        // Conti 게이트(픽업 계열): Auto + TransferMotionMode가 Conti 계열(ContiSegmentedPickUp /
-        // FastContiSegmentedPickUp)일 때만 최소 회피를 적용한다. 미충족 시 기존 전체 Avoid 경로 그대로.
+        // Conti 게이트(픽업 계열): Auto + TransferMotionMode가 ContiSegmentedPickUp일 때만
+        // 최소 회피를 적용한다. 미충족 시 기존 전체 Avoid 경로 그대로.
         private bool IsMinimalRetreatGateSatisfied()
         {
             if (Options == null || Options.RunMode != SequenceRunMode.Auto)
@@ -663,8 +663,7 @@ namespace QMC.CDT320.Sequencing
             if (config == null)
                 return false;
 
-            return config.TransferMotionMode == PickerPickUpTransferMotionMode.ContiSegmentedPickUp ||
-                   config.TransferMotionMode == PickerPickUpTransferMotionMode.FastContiSegmentedPickUp;
+            return config.TransferMotionMode == PickerPickUpTransferMotionMode.ContiSegmentedPickUp;
         }
 
         // 근사 planned 구성: 각 배치 아이템의 PickTarget.TargetX(비전 기준 die X)에

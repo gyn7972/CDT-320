@@ -41,15 +41,39 @@ namespace QMC.Common.Logging
 
         private static readonly object SyncRoot = new object();
         private static readonly Queue<EventRow> Blackbox = new Queue<EventRow>();
+#if !DEBUG
+        // RELEASE 전용 모드 상태 머신. DEBUG는 강제 활성이라 이 상태를 읽지 않으므로
+        // 미사용 필드 경고(CS0414)를 만들지 않도록 구성별로 분리한다. RELEASE 코드는 무변경.
         private static LogMode _mode = LogMode.ProductionMinimal;
         private static DateTime _diagnosticExpireAt = DateTime.MinValue;
+        private static bool _modeAuditInProgress;
+#endif
         private static int _blackboxCapacity = 20000;
         private static int _blackboxWindowSeconds = 30;
         private static string[] _persistCodePrefixes = DefaultPersistCodePrefixes;
         private static long _droppedDiagnosticRows;
         private static long _suppressedAlarmContextDumps;
         private static DateTime _lastAlarmContextDumpAt = DateTime.MinValue;
-        private static bool _modeAuditInProgress;
+
+#if DEBUG
+        /// <summary>
+        /// DEBUG 빌드 강제 활성화 플래그.
+        /// 기존 조건: 빌드 구성과 무관하게 ProductionMinimal로 시작하고, 설정 또는 UI로만
+        ///           DiagnosticVerbose를 켰으며 제한 시간 후 자동 복귀했다.
+        /// 현재 기준(사용자 지시 2026-07-25): DEBUG 빌드는 프로그램 시작과 동시에 진단 상세 로그를
+        ///           활성화하고 만료·해제되지 않는다. RELEASE 빌드는 기존 동작(사용자 조작 + 제한 시간)을
+        ///           그대로 유지한다.
+        /// </summary>
+        private const bool ForcedDiagnosticVerbose = true;
+#else
+        private const bool ForcedDiagnosticVerbose = false;
+#endif
+
+        /// <summary>DEBUG 빌드 강제 활성화 여부. UI가 조작 가능 여부를 판단하는 데 사용한다.</summary>
+        public static bool IsDiagnosticVerboseForcedByBuild
+        {
+            get { return ForcedDiagnosticVerbose; }
+        }
 
         /// <summary>AlarmContext 덤프 최소 간격. 동일 시점 다발 알람으로 파일이 폭증하지 않게 한다.</summary>
         private static readonly TimeSpan AlarmContextMinInterval = TimeSpan.FromSeconds(1);
@@ -66,18 +90,23 @@ namespace QMC.Common.Logging
         {
             get
             {
+#if DEBUG
+                // DEBUG 빌드는 항상 상세 모드다. 만료 판정/자동 복귀를 수행하지 않는다.
+                return LogMode.DiagnosticVerbose;
+#else
                 lock (SyncRoot)
                 {
                     if (_mode == LogMode.DiagnosticVerbose && DateTime.Now >= _diagnosticExpireAt)
                         RevertToProductionMinimalNoLock("DiagnosticVerbose 제한 시간 만료");
                     return _mode;
                 }
+#endif
             }
         }
 
         public static bool IsDiagnosticVerbose
         {
-            get { return Mode == LogMode.DiagnosticVerbose || _verboseScopeCount > 0; }
+            get { return ForcedDiagnosticVerbose || Mode == LogMode.DiagnosticVerbose || _verboseScopeCount > 0; }
         }
 
         /// <summary>진단 상세 모드의 남은 시간. 비활성(최소 모드)이면 TimeSpan.Zero. UI 표시용.</summary>
@@ -85,6 +114,10 @@ namespace QMC.Common.Logging
         {
             get
             {
+#if DEBUG
+                // DEBUG 빌드는 만료가 없다. UI는 IsDiagnosticVerboseForcedByBuild로 분기한다.
+                return TimeSpan.MaxValue;
+#else
                 lock (SyncRoot)
                 {
                     if (_mode != LogMode.DiagnosticVerbose)
@@ -92,6 +125,7 @@ namespace QMC.Common.Logging
                     TimeSpan remain = _diagnosticExpireAt - DateTime.Now;
                     return remain > TimeSpan.Zero ? remain : TimeSpan.Zero;
                 }
+#endif
             }
         }
 
@@ -117,6 +151,10 @@ namespace QMC.Common.Logging
             }
         }
 
+#if DEBUG
+        private static int _forcedVerboseAuditWritten;
+#endif
+
         /// <summary>시작 시(설정 로드 후) 정책 파라미터를 적용한다.</summary>
         public static void Configure(int blackboxCapacity, int blackboxWindowSeconds, string persistCodePrefixesCsv)
         {
@@ -140,11 +178,31 @@ namespace QMC.Common.Logging
                         _persistCodePrefixes = prefixes.ToArray();
                 }
             }
+
+#if DEBUG
+            // 강제 활성화 사실을 시작 시 1회만 남긴다. 로그 실패가 시작 경로를 막지 않도록 방어한다.
+            try
+            {
+                if (System.Threading.Interlocked.Exchange(ref _forcedVerboseAuditWritten, 1) == 0)
+                {
+                    WriteModeAudit("SYSTEM",
+                        "DEBUG 빌드 — 진단 상세 로그(DiagnosticVerbose)를 프로그램 시작과 동시에 강제 활성화했습니다. 해제 불가.");
+                }
+            }
+            catch
+            {
+            }
+#endif
         }
 
-        /// <summary>진단 상세 모드를 제한 시간으로 활성화한다. 모드 변경 자체를 Audit으로 남긴다.</summary>
+        /// <summary>진단 상세 모드를 제한 시간으로 활성화한다. 모드 변경 자체를 Audit으로 남긴다.
+        /// DEBUG 빌드에서는 시작 시부터 강제 활성 상태이므로 요청을 무시하고 감사 기록만 남긴다
+        /// (_mode를 건드리지 않아 상태 불일치를 만들지 않는다).</summary>
         public static void EnableDiagnosticVerbose(int minutes, string user)
         {
+#if DEBUG
+            WriteModeAudit(user, "DEBUG 빌드는 진단 상세 로그가 시작 시부터 강제 활성화되어 있습니다. 활성화 요청을 무시합니다.");
+#else
             if (minutes < 1) minutes = 1;
             if (minutes > 24 * 60) minutes = 24 * 60;
             lock (SyncRoot)
@@ -153,10 +211,14 @@ namespace QMC.Common.Logging
                 _diagnosticExpireAt = DateTime.Now.AddMinutes(minutes);
             }
             WriteModeAudit(user, "DiagnosticVerbose 활성화. 만료=" + minutes + "분 후");
+#endif
         }
 
         public static void DisableDiagnosticVerbose(string user)
         {
+#if DEBUG
+            WriteModeAudit(user, "DEBUG 빌드는 진단 상세 로그를 해제할 수 없습니다. 해제 요청을 무시합니다.");
+#else
             lock (SyncRoot)
             {
                 if (_mode == LogMode.ProductionMinimal)
@@ -165,8 +227,10 @@ namespace QMC.Common.Logging
                 _diagnosticExpireAt = DateTime.MinValue;
             }
             WriteModeAudit(user, "DiagnosticVerbose 해제. ProductionMinimal 복귀");
+#endif
         }
 
+#if !DEBUG
         private static void RevertToProductionMinimalNoLock(string reason)
         {
             _mode = LogMode.ProductionMinimal;
@@ -179,6 +243,7 @@ namespace QMC.Common.Logging
                 finally { _modeAuditInProgress = false; }
             }
         }
+#endif
 
         private static void WriteModeAudit(string user, string message)
         {

@@ -2396,8 +2396,7 @@ namespace QMC.CDT320.Sequencing
             if (config == null)
                 return false;
 
-            return config.TransferMotionMode == PickerPickUpTransferMotionMode.ContiSegmentedPickUp ||
-                   config.TransferMotionMode == PickerPickUpTransferMotionMode.FastContiSegmentedPickUp;
+            return config.TransferMotionMode == PickerPickUpTransferMotionMode.ContiSegmentedPickUp;
         }
 
         // C1/R1-①-3(return-follow): 스테이지 평면 이동(StageY/NeedleX) 목표에 대한 MotionGuard 전체
