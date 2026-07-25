@@ -550,11 +550,14 @@ namespace QMC.CDT320.Sequencing
             AjinAxis ajinAxis = axis as AjinAxis;
             if (ajinAxis != null)
             {
+                // 존 판정용 이동 의도를 명시한다 — 후행축이 InputVisionX라 Picker 존 규칙과는 무관하지만,
+                // "PositionOverride" 고정값을 벗어나 차단 로그에서 요청 의도를 식별할 수 있게 한다.
                 result = ajinAxis.TryOverridePosition(
                     target,
                     motion.Velocity,
                     motion.Acceleration,
-                    motion.Deceleration);
+                    motion.Deceleration,
+                    "InputVisionXPrePosition;VisionX;중간 안전대기점");
             }
             else
             {

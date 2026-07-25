@@ -303,26 +303,55 @@ namespace QMC.CDT320.Ajin
             Config.IsSimulationMode = false;
         }
 
+        /// <summary>
+        /// 구동 중인 축의 목표 위치를 오버라이드한다.
+        /// targetName: MotionGuard 존 판정에 쓰이는 이동 의도 문자열.
+        ///   기존 조건: "PositionOverride" 고정 문자열을 넘겨, 인코더 존이 설정된 축에서
+        ///             목표 존을 판단할 수 없어(Unknown) 팔로잉 오버라이드가 -11로 차단됐다
+        ///             (실장비 2026-07-25 19:36, RearPickerX target=687.786).
+        ///   현재 기준(사용자 승인 2026-07-25, A안): 호출자가 최종 목표의 존 의도를 담은
+        ///             targetName을 전달한다. 미지정(null/빈문자)이면 기존 "PositionOverride"로 폴백해
+        ///             기존 호출부 동작을 유지한다.
+        /// </summary>
         public int TryOverridePosition(
             double targetPosition,
             double velocity,
             double acceleration,
-            double deceleration)
+            double deceleration,
+            string targetName = null)
         {
             try
             {
+                // 존 판정용 이동 의도. 미지정이면 기존 동작(폴백)을 유지한다.
+                string guardTargetName = string.IsNullOrWhiteSpace(targetName)
+                    ? "PositionOverride"
+                    : targetName;
+
                 if (UseSimulation)
                 {
                     if (!IsMoving)
                         return -4;
 
+                    // 기존 조건: VerifyAxisTeachingMove — 차단 시 INTERLOCK 알람(Error)이 올라가
+                    //           간섭그룹 비상정지+전 시퀀스 취소로 승격되어, 팔로잉의 R6 폴백(일반
+                    //           이동 재시도)이 실행될 기회가 없었다(실장비 2026-07-25 19:36).
+                    // 현재 기준(사용자 지시 2026-07-25): 동일 규칙을 평가하되 알람을 올리지 않는
+                    //           CanAxisTeachingMove(dry-run 판정)로 교체한다. 거부 조건은 동일하고
+                    //           -11만 조용히 반환해 호출자 폴백에 맡긴다. 일반 이동 경로의 알람
+                    //           승격은 무변경. 차단 사유는 여기서 Motion 로그로 남긴다(차단 시
+                    //           follow가 즉시 중단되므로 폴링 폭주 없음).
                     string simulationGuardReason;
-                    if (!MotionGuardRuntime.VerifyAxisTeachingMove(
+                    if (!MotionGuardRuntime.CanAxisPositionOverride(
                         this,
                         targetPosition,
-                        "PositionOverride",
+                        guardTargetName,
                         out simulationGuardReason))
                     {
+                        QMC.Common.Log.Write("Motion", "SYSTEM", "AX-OVERRIDE-GUARD",
+                            Name + " 위치 오버라이드가 인터락으로 거부되었습니다(알람 승격 없음, 폴백 위임). " +
+                            "target=" + targetPosition.ToString("F6") +
+                            ", targetName=" + guardTargetName +
+                            ", reason=" + simulationGuardReason + " - Check");
                         return -11;
                     }
 
@@ -344,13 +373,19 @@ namespace QMC.CDT320.Ajin
                 if (!IsMoving)
                     return -4;
 
+                // 현재 기준(사용자 지시 2026-07-25): 존 판정 생략 + 알람 미발생 판정 — 위 시뮬 경로 주석 참조.
                 string guardReason;
-                if (!MotionGuardRuntime.VerifyAxisTeachingMove(
+                if (!MotionGuardRuntime.CanAxisPositionOverride(
                     this,
                     targetPosition,
-                    "PositionOverride",
+                    guardTargetName,
                     out guardReason))
                 {
+                    QMC.Common.Log.Write("Motion", "SYSTEM", "AX-OVERRIDE-GUARD",
+                        Name + " 위치 오버라이드가 인터락으로 거부되었습니다(알람 승격 없음, 폴백 위임). " +
+                        "target=" + targetPosition.ToString("F6") +
+                        ", targetName=" + guardTargetName +
+                        ", reason=" + guardReason + " - Check");
                     return -11;
                 }
 
@@ -384,7 +419,8 @@ namespace QMC.CDT320.Ajin
                     return FailMotion(
                         ret,
                         "POSITION OVERRIDE",
-                        "AXM 위치 오버라이드 명령이 실패했습니다. ret=0x" + ret.ToString("X4"),
+                        "AXM 위치 오버라이드 명령이 실패했습니다. ret=0x" + ret.ToString("X4") +
+                        ", targetName=" + guardTargetName,
                         targetPosition,
                         true);
                 }
@@ -564,6 +600,7 @@ namespace QMC.CDT320.Ajin
             double safetyGap,
             double homeGap,
             int timeoutMs = 0,
+            string trailingTargetName = null,
             CancellationToken ct = default(CancellationToken))
         {
             Task<int> moveTask = null;
@@ -636,6 +673,7 @@ namespace QMC.CDT320.Ajin
                     ", trailVel=" + trailVel.ToString("F3") +
                     ", trailAcc=" + trailAcc.ToString("F3") +
                     ", trailDec=" + trailDec.ToString("F3") +
+                    ", trailingTargetName=" + (trailingTargetName ?? "<null>") +
                     ", scalePercent=" + (MotionSpeedScale.EffectiveScaleFactor * 100.0).ToString("0.#") + " - Start");
 
                 var stopwatch = System.Diagnostics.Stopwatch.StartNew();
@@ -752,7 +790,10 @@ namespace QMC.CDT320.Ajin
                             }
                             else if (double.IsNaN(lastCommanded) || Math.Abs(command - lastCommanded) > tolerance)
                             {
-                                int overrideResult = TryOverridePosition(command, followVel, followAcc, followDec);
+                                // 존 판정용 이동 의도를 함께 넘긴다 — 중간 세그먼트 좌표는 티칭 존 밖이라
+                                // targetName 없이는 목표 존이 Unknown이 되어 -11로 차단된다(2026-07-25 사고).
+                                int overrideResult = TryOverridePosition(
+                                    command, followVel, followAcc, followDec, trailingTargetName);
 
                                 // 수정 E(2026-07-25): 오버라이드는 폴링마다 나가므로 성공 로그는
                                 // 최초 1건 + 이후 1초 1건으로 제한하고, 실패는 제한 없이 매번 남긴다.

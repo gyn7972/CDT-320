@@ -768,6 +768,26 @@ namespace QMC.CDT320.Sequencing
             return (positionArrayName ?? string.Empty) + "[P" + ToPickerNo(pickerIndex) + "]";
         }
 
+        /// <summary>
+        /// 팔로잉 위치 오버라이드에 넘길 존 의도 targetName을 만든다.
+        /// 기존 조건: 오버라이드가 "PositionOverride" 고정 문자열을 넘겨 목표 존이 Unknown이 됐다.
+        /// 현재 기준(사용자 승인 2026-07-25, B안): 일반 이동이 쓰는 targetName을 그대로 쓰되
+        ///   명시 존 토큰(PickerZone=)이 없으면 1개만 덧붙인다. 팔로잉 중간 세그먼트 좌표는 티칭 존
+        ///   구간 밖이라 위치 기반 판정이 Unknown이고, PickerZoneInterlockRules.HasExplicitPickerZoneIntent가
+        ///   리터럴 "PickerZone="을 요구하므로(인코더 존 설정 시 targetName 폴백 차단) 이 토큰이 있어야
+        ///   최종 목표의 존 의도로 판정된다. 기존 토큰은 보존하므로 다른 규칙 판정은 바뀌지 않는다.
+        ///   중간 좌표의 실제 안전성은 SharedRailX 페어 간격/Y 대향 거리 등 위치 기반 검증이 그대로 담당한다.
+        /// </summary>
+        protected static string BuildFollowEntryTargetName(string targetName, PickerWorkZone zone)
+        {
+            string name = targetName ?? string.Empty;
+            if (name.IndexOf("PickerZone=", StringComparison.OrdinalIgnoreCase) >= 0)
+                return name;
+
+            string token = "PickerZone=" + zone;
+            return name.Length == 0 ? token : name + ";" + token;
+        }
+
         protected bool IsPickerIndexEnabled(int pickerIndex)
         {
             bool[] usePicker = ResolveUsePickerArray();

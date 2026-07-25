@@ -55,6 +55,12 @@ namespace QMC.CDT320.Interlocks
             if (MotionGuardRuleHelpers.IsJogMove(request))
                 return CanJogFrontPickerX(request, out reason);
 
+            // 인터락 항목(사용자 승인 2026-07-25): 구동 중 위치 오버라이드(팔로잉 중간 세그먼트)는
+            // 조그와 같은 방식으로 목표 Zone 판정만 생략하고 Z 상승/Reticle/Busy는 유지한다.
+            // Y 대향 거리와 SharedRailX 페어 간격은 이 룰 밖(레지스트리 선행 룰)에서 계속 평가된다.
+            if (MotionGuardRuleHelpers.IsPositionOverrideStep(request))
+                return CanPositionOverrideFrontPickerX(request, out reason);
+
             switch (request.MoveKind)
             {
                 // 자동 이동 인터락 확인
@@ -195,6 +201,43 @@ namespace QMC.CDT320.Interlocks
         }
 
         // 인터락 항목: 자동 FrontPickerX 이동 전 수동 기본 조건, Z Avoid, VisionX Avoid, Busy 상태를 확인한다.
+        // 인터락 항목: 구동 중 위치 오버라이드 FrontPickerX는 Z 상승, Reticle, Busy 조건을 유지하고 Zone 판정만 생략한다.
+        // 생략 근거: 팔로잉 중간 세그먼트 좌표는 어떤 티칭 존에도 속하지 않아 목표 존이 Unknown이 되고,
+        //   최종 목표에 대한 존 진입 조건(Z Avoid/ExpandingZ/Feeder Dog/Feeder Down/VisionX Avoid/상대 Y)은
+        //   팔로잉 최초 명령(AxisMove 경로)에서 이미 1회 검증된다. 이동 중 실제 안전은 Y 대향 거리
+        //   (VerifyFacingYDistanceFirst), SharedRailX 페어 간격, 소프트리밋, 실시간 충돌 감시가 담당한다.
+        private static bool CanPositionOverrideFrontPickerX(MotionGuardRuleContext request, out string reason)
+        {
+            reason = string.Empty;
+
+            try
+            {
+                CDT320_Machine machine = request != null ? request.Machine : null;
+                PickerFrontUnit front = machine != null ? machine.PickerFrontUnit : null;
+
+                // 현재 기준: 오버라이드 중에도 FrontPickerZ0~Z3는 모두 상승(Home 또는 Avoid) 상태여야 한다.
+                if (!VerifyFrontPickerZAxesHomeOrAvoid(front, "FrontPickerX", out reason))
+                    return false;
+
+                // 현재 기준: Reticle 관련 실린더가 이동 중이면 차단한다.
+                if (!VerifyReticleCylinderClear(machine, "FrontPickerX", out reason))
+                    return false;
+
+                return VerifyFrontPickerNotBusy(front, "FrontPickerX", out reason);
+            }
+            catch (System.Exception ex)
+            {
+                return MotionGuardRuleHelpers.Block(
+                    "FrontPickerX",
+                    "FrontPickerX 위치 오버라이드 인터락 확인 중 예외가 발생했습니다. error=" + ex.Message,
+                    out reason);
+            }
+            finally
+            {
+                LogBlockedReason(reason);
+            }
+        }
+
         private static bool CanAutoFrontPickerX(MotionGuardRuleContext request, out string reason)
         {
             reason = string.Empty;

@@ -1879,7 +1879,9 @@ namespace QMC.CDT320.Sequencing
                 safetyGap,
                 homeGap,
                 timeoutMs,
-                ct).ConfigureAwait(false);
+                // trailingTargetName 미지정(후행축이 OutputVisionX라 Picker 존 규칙과 무관) —
+                // 오버라이드는 기존 "PositionOverride" 폴백을 그대로 쓴다. 동작 무변경.
+                ct: ct).ConfigureAwait(false);
         }
 
         private async Task<int> MoveStageAxisAndVerifyAsync(

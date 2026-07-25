@@ -213,6 +213,48 @@ namespace QMC.CDT320.Interlocks
         }
 
         /// <summary>
+        /// 구동 중 위치 오버라이드(팔로잉 중간 세그먼트)가 지금 MotionGuard를 통과하는지 확인한다.
+        /// 사용자 승인 2026-07-25 — 두 가지가 일반 Teaching 이동과 다르다:
+        ///   (1) 존 판정/진입 조건 생략 — 중간 좌표는 티칭 존 밖이라 목표 존이 Unknown이 되고,
+        ///       최종 목표의 진입 조건은 팔로잉 최초 명령(AxisMove)에서 이미 1회 검증됐다.
+        ///       Y 대향 거리·SharedRailX 페어 간격·Z 상승/Reticle/Busy는 그대로 확인한다.
+        ///   (2) 알람을 올리지 않는다 — 차단이 INTERLOCK 알람으로 승격되면 간섭그룹 비상정지+
+        ///       전 시퀀스 취소가 되어 팔로잉의 폴백(일반 이동 재시도)이 실행될 수 없었다
+        ///       (실장비 2026-07-25 19:36). 거부는 -11로만 반환해 호출자 폴백에 맡긴다.
+        /// </summary>
+        public static bool CanAxisPositionOverride(BaseAxis axis, double targetPosition, string targetName, out string reason)
+        {
+            reason = "";
+            try
+            {
+                if (!Enabled || axis == null)
+                    return true;
+
+                MotionGuardService service = GetService();
+                MotionGuardContext context = ContextProvider != null ? ContextProvider() : null;
+                MotionGuardResult result = service.VerifyAxisPositionOverride(
+                    axis,
+                    targetPosition,
+                    targetName,
+                    context,
+                    ResolveExecutionMode());
+                if (result == null)
+                    return true;
+
+                reason = result.Message ?? "";
+                return result.Allowed;
+            }
+            catch (Exception ex)
+            {
+                reason = "Motion guard 위치 오버라이드 판정 예외. axis=" + (axis != null ? axis.Name : "") + ", error=" + ex.Message;
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
+        /// <summary>
         /// 실제 이동을 발행하지 않고(부작용 없음) 지정한 Teaching 이동이 지금 MotionGuard 전체 판정을 통과하는지 확인한다.
         /// 대기 폴링과 실제 이동이 동일한 인터락 규칙(PickerZone·SharedRailX 포함)을 공유하도록 하기 위한 dry-run 판정이다.
         /// 실제 이동 경로와 달리 알람을 발생시키지 않고 Blocked 로그도 남기지 않는다.

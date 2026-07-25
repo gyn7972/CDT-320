@@ -55,7 +55,40 @@ namespace QMC.CDT320.Interlocks
             bool skipSharedRailXRule,
             MotionGuardExecutionMode executionMode,
             MotionGuardMoveKind originalMoveKind)
+            : this(
+                movingName,
+                movingKey,
+                targetValue,
+                moveKind,
+                targetName,
+                requiredChecks,
+                context,
+                skipSharedRailXRule,
+                executionMode,
+                originalMoveKind,
+                false)
         {
+        }
+
+        // 인터락 기준(사용자 승인 2026-07-25): 구동 중 위치 오버라이드(팔로잉 중간 세그먼트) 요청 표시.
+        // 팔로잉은 존 사이의 중간 좌표로 폴링마다 재명령하므로 목표 존 판정이 Unknown이 되고,
+        // 최종 목표에 대한 존 진입 조건은 팔로잉 최초 명령(AxisMove)에서 이미 1회 검증된다.
+        // 이 플래그가 true면 존 판정/진입 조건은 생략하고 위치 기반 안전(Y 대향 거리, SharedRailX
+        // 페어 간격, Z 상승/Reticle/Busy)만 확인한다 — 기존 Jog 경로 선례와 동일한 방식이다.
+        public MotionGuardRuleContext(
+            string movingName,
+            string movingKey,
+            double targetValue,
+            MotionGuardMoveKind moveKind,
+            string targetName,
+            IReadOnlyList<InterlockCheckPair> requiredChecks,
+            MotionGuardContext context,
+            bool skipSharedRailXRule,
+            MotionGuardExecutionMode executionMode,
+            MotionGuardMoveKind originalMoveKind,
+            bool isPositionOverrideStep)
+        {
+            IsPositionOverrideStep = isPositionOverrideStep;
             MovingName = movingName ?? string.Empty;
             MovingKey = movingKey ?? string.Empty;
             TargetValue = targetValue;
@@ -74,6 +107,8 @@ namespace QMC.CDT320.Interlocks
         public double TargetValue { get; private set; }
         public MotionGuardMoveKind MoveKind { get; private set; }
         public MotionGuardMoveKind OriginalMoveKind { get; private set; }
+        /// <summary>구동 중 위치 오버라이드(팔로잉 중간 세그먼트) 요청이면 true. 존 판정 생략 대상.</summary>
+        public bool IsPositionOverrideStep { get; private set; }
         public MotionGuardExecutionMode ExecutionMode { get; private set; }
         public string TargetName { get; private set; }
         public MotionGuardMoveIntent Intent { get; private set; }
