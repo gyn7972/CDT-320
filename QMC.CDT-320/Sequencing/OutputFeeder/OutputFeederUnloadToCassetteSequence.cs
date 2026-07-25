@@ -917,10 +917,31 @@ namespace QMC.CDT320.Sequencing
                 }
             }
 
+            // 연속 이송 최적화: 같은 Loader 작업 승인(lease) 안에서 곧바로 다음 슬롯 접근이 이어지는 경우
+            // 리프터를 Avoid로 되돌리지 않고 현재 슬롯 높이에 둔다(슬롯 -> 슬롯 직행).
+            // 안전 전제: 위 VerifyPostUnloadFinalStepReady에서 Feeder/Stage 안전 자세와 lease 점유를 확인했고,
+            //           Loader lease가 유지되는 동안에는 Picker 공정이 신규 진입할 수 없다.
+            //           Picker X 이동은 리프터 Avoid를 요구하므로 lease를 놓기 전 마지막 이송에서는
+            //           반드시 Avoid로 복귀해야 한다(호출자가 옵션으로 제어하고, 연속 공급이 취소되면 복귀시킨다).
+            if (Options != null && Options.KeepCassetteAtSlotForNextAccess)
+            {
+                WriteLog(Name,
+                    "연속 이송을 위해 OutputCassette 리프터를 Avoid로 되돌리지 않고 현재 슬롯 위치를 유지합니다. role=" +
+                    ResolveOutputCassetteRole() + ", slot=" + Options.SlotIndex + ", " + cassetteState + " - Skip");
+                return await CompletePostUnloadWithoutCassetteAvoidAsync(ct).ConfigureAwait(false);
+            }
+
             int result = await MoveOutputCassetteAvoidPositionAsync(ct).ConfigureAwait(false);
             if (result != 0)
                 return result;
 
+            return await CompletePostUnloadWithoutCassetteAvoidAsync(ct).ConfigureAwait(false);
+        }
+
+        // 카세트 Avoid 복귀 이후(또는 연속 이송으로 생략한 경우)의 공통 완료 처리.
+        // Stage 안전 자세와 Material 상태를 확인해 다음 Step을 결정한다.
+        private Task<int> CompletePostUnloadWithoutCassetteAvoidAsync(CancellationToken ct)
+        {
             // 현재 정상 흐름에서는 Stage 복귀가 Material 갱신 전에 완료되어 있다.
             // 구버전 ResumeStep 또는 중간 상태 변경으로 안전 자세가 아니면 완료 처리하지 않고 복귀 Step으로 되돌린다.
             if (!Stage.IsBinGuideDown(Options.Side) ||
@@ -933,14 +954,14 @@ namespace QMC.CDT320.Sequencing
                     "Cassette Avoid 완료 후 OutputStage 안전 자세 재확인이 필요하여 복귀 Step으로 이동합니다. " +
                     "side=" + Options.Side + " - Check");
                 CurrentStep = OutputFeederUnloadToCassetteStep.VerifyPostUnloadStageRestoreReady;
-                return 0;
+                return Task.FromResult(0);
             }
 
             WaferMaterial feederWafer = ResolveFeederWafer();
             if (feederWafer != null)
             {
                 CurrentStep = OutputFeederUnloadToCassetteStep.MoveMaterialDataToCassette;
-                return 0;
+                return Task.FromResult(0);
             }
 
             WaferMaterial cassetteWafer = ResolveCassetteWafer();
@@ -948,15 +969,15 @@ namespace QMC.CDT320.Sequencing
             {
                 int validation = ValidateExpectedCassetteWafer(cassetteWafer, "Cassette Avoid 완료 재개");
                 if (validation != 0)
-                    return validation;
+                    return Task.FromResult(validation);
 
                 CurrentStep = OutputFeederUnloadToCassetteStep.UpdateCassetteData;
-                return 0;
+                return Task.FromResult(0);
             }
 
-            return Fail("OUT-FEEDER-CST-AVOID-MATERIAL-MISSING", "Material",
+            return Task.FromResult(Fail("OUT-FEEDER-CST-AVOID-MATERIAL-MISSING", "Material",
                 "Cassette Avoid 완료 후 Feeder와 대상 Cassette에서 Material을 모두 찾을 수 없습니다. side=" +
-                Options.Side + ", cassetteRole=" + ResolveOutputCassetteRole() + ", slot=" + Options.SlotIndex);
+                Options.Side + ", cassetteRole=" + ResolveOutputCassetteRole() + ", slot=" + Options.SlotIndex));
         }
 
         private int VerifyPostUnloadStageRestoreReady()

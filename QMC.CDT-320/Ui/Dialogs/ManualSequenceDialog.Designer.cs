@@ -29,6 +29,14 @@
         private System.Windows.Forms.Panel speedPanel;
         private System.Windows.Forms.Label lblSpeedPercent;
         private System.Windows.Forms.NumericUpDown numSpeedPercent;
+        private System.Windows.Forms.Label lblReadySpeedPercent;
+        private System.Windows.Forms.NumericUpDown numReadySpeedPercent;
+        private System.Windows.Forms.Panel loadTargetPanel;
+        private System.Windows.Forms.Label lblInputLoadTarget;
+        private System.Windows.Forms.ComboBox cmbInputLoadTarget;
+        private System.Windows.Forms.Label lblOutputLoadTarget;
+        private System.Windows.Forms.ComboBox cmbOutputLoadTarget;
+        private System.Windows.Forms.Button btnRefreshLoadTargets;
 
         protected override void Dispose(bool disposing)
         {
@@ -65,11 +73,21 @@
             this.speedPanel = new System.Windows.Forms.Panel();
             this.numSpeedPercent = new System.Windows.Forms.NumericUpDown();
             this.lblSpeedPercent = new System.Windows.Forms.Label();
+            this.numReadySpeedPercent = new System.Windows.Forms.NumericUpDown();
+            this.lblReadySpeedPercent = new System.Windows.Forms.Label();
+            this.loadTargetPanel = new System.Windows.Forms.Panel();
+            this.lblInputLoadTarget = new System.Windows.Forms.Label();
+            this.cmbInputLoadTarget = new System.Windows.Forms.ComboBox();
+            this.lblOutputLoadTarget = new System.Windows.Forms.Label();
+            this.cmbOutputLoadTarget = new System.Windows.Forms.ComboBox();
+            this.btnRefreshLoadTargets = new System.Windows.Forms.Button();
             this.mainLayout.SuspendLayout();
             this.pickerSelectPanel.SuspendLayout();
             this.outputSidePanel.SuspendLayout();
             this.speedPanel.SuspendLayout();
+            this.loadTargetPanel.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.numSpeedPercent)).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)(this.numReadySpeedPercent)).BeginInit();
             this.SuspendLayout();
             // 
             // titleLabel
@@ -205,25 +223,43 @@
             // 
             // rbOutputNg
             // 
+            // 라디오 대신 토글 버튼 형태로 표시한다(상호배타 동작은 RadioButton 그대로 유지).
+            this.rbOutputNg.Appearance = System.Windows.Forms.Appearance.Button;
+            this.rbOutputNg.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(224)))), ((int)(((byte)(224)))), ((int)(((byte)(224)))));
+            this.rbOutputNg.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.rbOutputNg.FlatAppearance.BorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(160)))), ((int)(((byte)(160)))), ((int)(((byte)(160)))));
+            this.rbOutputNg.FlatAppearance.CheckedBackColor = System.Drawing.Color.FromArgb(((int)(((byte)(200)))), ((int)(((byte)(50)))), ((int)(((byte)(50)))));
+            this.rbOutputNg.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this.rbOutputNg.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.rbOutputNg.ForeColor = System.Drawing.Color.Black;
-            this.rbOutputNg.Location = new System.Drawing.Point(190, 0);
+            this.rbOutputNg.Location = new System.Drawing.Point(186, 6);
             this.rbOutputNg.Name = "rbOutputNg";
-            this.rbOutputNg.Size = new System.Drawing.Size(80, 47);
+            this.rbOutputNg.Size = new System.Drawing.Size(88, 35);
             this.rbOutputNg.TabIndex = 2;
             this.rbOutputNg.Text = "NG";
-            this.rbOutputNg.UseVisualStyleBackColor = true;
+            this.rbOutputNg.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
+            this.rbOutputNg.UseVisualStyleBackColor = false;
             // 
             // rbOutputGood
             // 
+            // 라디오 대신 토글 버튼 형태로 표시한다(상호배타 동작은 RadioButton 그대로 유지).
+            this.rbOutputGood.Appearance = System.Windows.Forms.Appearance.Button;
+            this.rbOutputGood.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(224)))), ((int)(((byte)(224)))), ((int)(((byte)(224)))));
             this.rbOutputGood.Checked = true;
+            this.rbOutputGood.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.rbOutputGood.FlatAppearance.BorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(160)))), ((int)(((byte)(160)))), ((int)(((byte)(160)))));
+            this.rbOutputGood.FlatAppearance.CheckedBackColor = System.Drawing.Color.FromArgb(((int)(((byte)(0)))), ((int)(((byte)(140)))), ((int)(((byte)(70)))));
+            this.rbOutputGood.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this.rbOutputGood.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.rbOutputGood.ForeColor = System.Drawing.Color.Black;
-            this.rbOutputGood.Location = new System.Drawing.Point(90, 0);
+            this.rbOutputGood.Location = new System.Drawing.Point(92, 6);
             this.rbOutputGood.Name = "rbOutputGood";
-            this.rbOutputGood.Size = new System.Drawing.Size(90, 47);
+            this.rbOutputGood.Size = new System.Drawing.Size(88, 35);
             this.rbOutputGood.TabIndex = 1;
             this.rbOutputGood.TabStop = true;
             this.rbOutputGood.Text = "GOOD";
-            this.rbOutputGood.UseVisualStyleBackColor = true;
+            this.rbOutputGood.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
+            this.rbOutputGood.UseVisualStyleBackColor = false;
             // 
             // lblOutputSide
             // 
@@ -410,9 +446,74 @@
             this.btnClose.TabIndex = 11;
             this.btnClose.Text = "닫기";
             this.btnClose.UseVisualStyleBackColor = false;
-            // 
+            //
+            // loadTargetPanel  (LOAD 대상 Wafer/Bin 선택 — UNLOAD는 원본 슬롯 고정이라 선택 대상이 없다)
+            //
+            this.loadTargetPanel.Controls.Add(this.btnRefreshLoadTargets);
+            this.loadTargetPanel.Controls.Add(this.cmbOutputLoadTarget);
+            this.loadTargetPanel.Controls.Add(this.lblOutputLoadTarget);
+            this.loadTargetPanel.Controls.Add(this.cmbInputLoadTarget);
+            this.loadTargetPanel.Controls.Add(this.lblInputLoadTarget);
+            this.loadTargetPanel.Dock = System.Windows.Forms.DockStyle.Top;
+            this.loadTargetPanel.Location = new System.Drawing.Point(0, 359);
+            this.loadTargetPanel.Name = "loadTargetPanel";
+            this.loadTargetPanel.Size = new System.Drawing.Size(846, 46);
+            this.loadTargetPanel.TabIndex = 2;
+            //
+            // lblInputLoadTarget
+            //
+            this.lblInputLoadTarget.ForeColor = System.Drawing.Color.Black;
+            this.lblInputLoadTarget.Location = new System.Drawing.Point(18, 0);
+            this.lblInputLoadTarget.Name = "lblInputLoadTarget";
+            this.lblInputLoadTarget.Size = new System.Drawing.Size(120, 46);
+            this.lblInputLoadTarget.TabIndex = 0;
+            this.lblInputLoadTarget.Text = "INPUT LOAD 대상";
+            this.lblInputLoadTarget.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            //
+            // cmbInputLoadTarget
+            //
+            this.cmbInputLoadTarget.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
+            this.cmbInputLoadTarget.FormattingEnabled = true;
+            this.cmbInputLoadTarget.Location = new System.Drawing.Point(140, 10);
+            this.cmbInputLoadTarget.Name = "cmbInputLoadTarget";
+            this.cmbInputLoadTarget.Size = new System.Drawing.Size(240, 25);
+            this.cmbInputLoadTarget.TabIndex = 1;
+            //
+            // lblOutputLoadTarget
+            //
+            this.lblOutputLoadTarget.ForeColor = System.Drawing.Color.Black;
+            this.lblOutputLoadTarget.Location = new System.Drawing.Point(396, 0);
+            this.lblOutputLoadTarget.Name = "lblOutputLoadTarget";
+            this.lblOutputLoadTarget.Size = new System.Drawing.Size(130, 46);
+            this.lblOutputLoadTarget.TabIndex = 2;
+            this.lblOutputLoadTarget.Text = "OUTPUT LOAD 대상";
+            this.lblOutputLoadTarget.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            //
+            // cmbOutputLoadTarget
+            //
+            this.cmbOutputLoadTarget.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
+            this.cmbOutputLoadTarget.FormattingEnabled = true;
+            this.cmbOutputLoadTarget.Location = new System.Drawing.Point(528, 10);
+            this.cmbOutputLoadTarget.Name = "cmbOutputLoadTarget";
+            this.cmbOutputLoadTarget.Size = new System.Drawing.Size(240, 25);
+            this.cmbOutputLoadTarget.TabIndex = 3;
+            //
+            // btnRefreshLoadTargets
+            //
+            this.btnRefreshLoadTargets.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
+            this.btnRefreshLoadTargets.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.btnRefreshLoadTargets.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this.btnRefreshLoadTargets.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
+            this.btnRefreshLoadTargets.ForeColor = System.Drawing.Color.White;
+            this.btnRefreshLoadTargets.Location = new System.Drawing.Point(778, 9);
+            this.btnRefreshLoadTargets.Name = "btnRefreshLoadTargets";
+            this.btnRefreshLoadTargets.Size = new System.Drawing.Size(50, 28);
+            this.btnRefreshLoadTargets.TabIndex = 4;
+            this.btnRefreshLoadTargets.Text = "갱신";
+            this.btnRefreshLoadTargets.UseVisualStyleBackColor = false;
+            //
             // statusLabel
-            // 
+            //
             this.statusLabel.Dock = System.Windows.Forms.DockStyle.Fill;
             this.statusLabel.Location = new System.Drawing.Point(0, 359);
             this.statusLabel.Name = "statusLabel";
@@ -423,6 +524,8 @@
             // 
             // speedPanel
             // 
+            this.speedPanel.Controls.Add(this.numReadySpeedPercent);
+            this.speedPanel.Controls.Add(this.lblReadySpeedPercent);
             this.speedPanel.Controls.Add(this.numSpeedPercent);
             this.speedPanel.Controls.Add(this.lblSpeedPercent);
             this.speedPanel.Dock = System.Windows.Forms.DockStyle.Bottom;
@@ -433,7 +536,7 @@
             // 
             // numSpeedPercent
             // 
-            this.numSpeedPercent.Location = new System.Drawing.Point(348, 8);
+            this.numSpeedPercent.Location = new System.Drawing.Point(248, 10);
             this.numSpeedPercent.Minimum = new decimal(new int[] {
             1,
             0,
@@ -451,23 +554,43 @@
             // 
             // lblSpeedPercent
             // 
-            this.lblSpeedPercent.Dock = System.Windows.Forms.DockStyle.Left;
             this.lblSpeedPercent.ForeColor = System.Drawing.Color.Black;
-            this.lblSpeedPercent.Location = new System.Drawing.Point(0, 0);
+            this.lblSpeedPercent.Location = new System.Drawing.Point(18, 0);
             this.lblSpeedPercent.Name = "lblSpeedPercent";
-            this.lblSpeedPercent.Padding = new System.Windows.Forms.Padding(18, 0, 0, 0);
-            this.lblSpeedPercent.Size = new System.Drawing.Size(340, 46);
+            this.lblSpeedPercent.Size = new System.Drawing.Size(230, 46);
             this.lblSpeedPercent.TabIndex = 0;
-            this.lblSpeedPercent.Text = "속도 (디폴트 속도의 %, 가감속 동일 적용)";
+            this.lblSpeedPercent.Text = "Manual 속도 (%)";
             this.lblSpeedPercent.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            //
+            // lblReadySpeedPercent
+            //
+            this.lblReadySpeedPercent.ForeColor = System.Drawing.Color.Black;
+            this.lblReadySpeedPercent.Location = new System.Drawing.Point(452, 0);
+            this.lblReadySpeedPercent.Name = "lblReadySpeedPercent";
+            this.lblReadySpeedPercent.Size = new System.Drawing.Size(160, 46);
+            this.lblReadySpeedPercent.TabIndex = 2;
+            this.lblReadySpeedPercent.Text = "Ready 속도 (%)";
+            this.lblReadySpeedPercent.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            //
+            // numReadySpeedPercent
+            //
+            this.numReadySpeedPercent.Location = new System.Drawing.Point(612, 10);
+            this.numReadySpeedPercent.Minimum = new decimal(new int[] { 1, 0, 0, 0 });
+            this.numReadySpeedPercent.Maximum = new decimal(new int[] { 100, 0, 0, 0 });
+            this.numReadySpeedPercent.Name = "numReadySpeedPercent";
+            this.numReadySpeedPercent.Size = new System.Drawing.Size(90, 25);
+            this.numReadySpeedPercent.TabIndex = 3;
+            this.numReadySpeedPercent.TextAlign = System.Windows.Forms.HorizontalAlignment.Right;
+            this.numReadySpeedPercent.Value = new decimal(new int[] { 5, 0, 0, 0 });
             // 
             // ManualSequenceDialog
             // 
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.None;
             this.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(235)))), ((int)(((byte)(235)))), ((int)(((byte)(235)))));
-            this.ClientSize = new System.Drawing.Size(846, 459);
+            this.ClientSize = new System.Drawing.Size(846, 505);
             this.Controls.Add(this.statusLabel);
             this.Controls.Add(this.speedPanel);
+            this.Controls.Add(this.loadTargetPanel);
             this.Controls.Add(this.mainLayout);
             this.Controls.Add(this.titleLabel);
             this.Font = new System.Drawing.Font("맑은 고딕", 10F);
@@ -482,7 +605,9 @@
             this.pickerSelectPanel.ResumeLayout(false);
             this.outputSidePanel.ResumeLayout(false);
             this.speedPanel.ResumeLayout(false);
+            this.loadTargetPanel.ResumeLayout(false);
             ((System.ComponentModel.ISupportInitialize)(this.numSpeedPercent)).EndInit();
+            ((System.ComponentModel.ISupportInitialize)(this.numReadySpeedPercent)).EndInit();
             this.ResumeLayout(false);
 
         }

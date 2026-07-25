@@ -91,6 +91,20 @@ namespace QMC.CDT320
         [DataMember] public double DefaultVelocityScalePercent { get; set; } = 100.0;
 
         /// <summary>
+        /// Manual Sequence(수동/CYCLE RUN Step, 작업 정보 Action 버튼 포함) 전용 DefaultVelocity 퍼센트 [%].
+        /// 전체 ScalePercent 와 독립 적용되며, 속도와 가감속에 같은 배율로 함께 적용된다. 안전 범위 1~100.
+        /// </summary>
+        [DataMember] public double ManualSequenceScalePercent { get; set; } =
+            QMC.Common.Motion.MotionSpeedScale.DefaultManualSequencePercent;
+
+        /// <summary>
+        /// 작업 화면 READY 시퀀스 전용 DefaultVelocity 퍼센트 [%].
+        /// 전체 ScalePercent 와 독립 적용되며, 속도와 가감속에 같은 배율로 함께 적용된다. 안전 범위 1~100.
+        /// </summary>
+        [DataMember] public double ReadySequenceScalePercent { get; set; } =
+            QMC.Common.Motion.MotionSpeedScale.DefaultReadySequencePercent;
+
+        /// <summary>
         /// 자동 시퀀스 테스트 중 Input/Output 카메라 X 이동과 비전 검사를 생략하고 Picker 모션만 확인한다.
         /// 실장비 생산용 안전 인터락은 우회하지 않는다.
         /// </summary>
@@ -220,6 +234,7 @@ namespace QMC.CDT320
                 Current = new AppSettings();
                 RefreshHybridModeSnapshot(true);
                 QMC.Common.Motion.MotionSpeedScale.ScalePercent = Current.DefaultVelocityScalePercent;
+                ApplySequenceSpeedScaleSettings(Current);
                 ApplyLogPolicySettings(Current);
                 return Current;
             }
@@ -240,9 +255,28 @@ namespace QMC.CDT320
             Current.DefaultVelocityScalePercent =
                 QMC.Common.Motion.MotionSpeedScale.ClampPercent(Current.DefaultVelocityScalePercent);
             QMC.Common.Motion.MotionSpeedScale.ScalePercent = Current.DefaultVelocityScalePercent;
+            ApplySequenceSpeedScaleSettings(Current);
             ApplyLogPolicySettings(Current);
             RefreshHybridModeSnapshot(true);
             return Current;
+        }
+
+        /// <summary>
+        /// 저장된 Manual/READY 시퀀스 전용 퍼센트를 안전 범위로 보정한 뒤 모션 레이어에 동기화한다.
+        /// 두 값 모두 EffectiveScaleFactor를 통해 속도와 가감속에 같은 배율로 적용된다.
+        /// </summary>
+        private static void ApplySequenceSpeedScaleSettings(AppSettings settings)
+        {
+            if (settings == null)
+                return;
+
+            settings.ManualSequenceScalePercent =
+                QMC.Common.Motion.MotionSpeedScale.ClampPercent(settings.ManualSequenceScalePercent);
+            settings.ReadySequenceScalePercent =
+                QMC.Common.Motion.MotionSpeedScale.ClampPercent(settings.ReadySequenceScalePercent);
+
+            QMC.Common.Motion.MotionSpeedScale.ManualSequencePercent = settings.ManualSequenceScalePercent;
+            QMC.Common.Motion.MotionSpeedScale.ReadySequencePercent = settings.ReadySequenceScalePercent;
         }
 
         // 최소 로그 정책과 픽커 유휴 폴 주기를 로드된 설정으로 적용한다.

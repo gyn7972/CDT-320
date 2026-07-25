@@ -245,14 +245,23 @@ namespace QMC.CDT320.Sequencing
                     "OutputStage가 Feeder 이송 시작 전에 Unload 위치에 준비되지 않았습니다. side=" + Options.Side + ", " +
                     Stage.DescribeOutputStageInterlockState(Options.Side));
 
-            int result = await Stage.EnsureBinGuideClampLiftUpAsync(BinSide.Ng, ResolveTimeout(), ct).ConfigureAwait(false);
-            if (result != 0)
-                return Fail("OUT-STAGE-NG-CLAMP-UP", Stage.Name,
-                    "NG stage clamp lift up failed before feeder transfer. side=" + Options.Side + ", result=" + result + ", " +
-                    Stage.DescribeOutputStageInterlockState(Options.Side));
+            // 기존 조건 / 현재 기준은 OutputFeederLoadToStageSequence.EnsureStageMutualInterlockAsync와 동일하다.
+            //   - NG Clamp Lift Up은 "Stage 축이 실제로 움직일 때"만 필요하며 축 이동 관문에서 강제·검증된다.
+            //   - 이 구간은 Stage 축을 움직이지 않고 도착 상태만 검증하며, 곧바로 대상 side를
+            //     Clamp Lift Down으로 만들어 피더 이송을 수행한다.
+            //   - 따라서 NG side 이송에서는 Up을 강제하지 않는다(불필요한 Up<->Down 왕복 및
+            //     카세트 리프터 이동과의 인터락 충돌 방지). GOOD side 이송에서는 기존대로 유지한다.
+            if (Options.Side != BinSide.Ng)
+            {
+                int result = await Stage.EnsureBinGuideClampLiftUpAsync(BinSide.Ng, ResolveTimeout(), ct).ConfigureAwait(false);
+                if (result != 0)
+                    return Fail("OUT-STAGE-NG-CLAMP-UP", Stage.Name,
+                        "NG stage clamp lift up failed before feeder transfer. side=" + Options.Side + ", result=" + result + ", " +
+                        Stage.DescribeOutputStageInterlockState(Options.Side));
 
-            if (!Stage.IsBinGuideClampLiftUp(BinSide.Ng))
-                return Fail("OUT-STAGE-NG-CLAMP-UP", Stage.Name, "NG stage clamp lift must be up before stage unload movement. " + Stage.DescribeOutputStageInterlockState(Options.Side));
+                if (!Stage.IsBinGuideClampLiftUp(BinSide.Ng))
+                    return Fail("OUT-STAGE-NG-CLAMP-UP", Stage.Name, "NG stage clamp lift must be up before stage unload movement. " + Stage.DescribeOutputStageInterlockState(Options.Side));
+            }
 
             if (Options.Side == BinSide.Ng && !Stage.IsGoodStageZInAvoidPosition())
                 return Fail("OUT-STAGE-GOOD-Z-AVOID", Stage.Name,

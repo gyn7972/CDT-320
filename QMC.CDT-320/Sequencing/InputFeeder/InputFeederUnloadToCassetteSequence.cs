@@ -413,6 +413,21 @@ namespace QMC.CDT320.Sequencing
 
                 double target = cassette.Recipe.AvoidPosition;
 
+                // 연속 이송 최적화: 같은 Loader 작업 승인(lease) 안에서 곧바로 다음 슬롯 접근이 이어지는 경우
+                // 리프터를 Avoid로 되돌리지 않고 현재 슬롯 높이에 둔다(슬롯 -> 슬롯 직행).
+                // 안전 전제: 이 시점에 위에서 InputFeeder Avoid 복귀와 Avoid Dog를 이미 확인했고,
+                //           Loader lease가 유지되는 동안에는 Picker 공정이 신규 진입할 수 없다.
+                //           Picker X 이동은 리프터 Avoid를 요구하므로, lease를 놓기 전 마지막 이송에서는
+                //           반드시 Avoid로 복귀해야 한다(호출자가 옵션으로 제어).
+                if (Options != null && Options.KeepCassetteAtSlotForNextAccess)
+                {
+                    WriteLog("InputFeederUnloadToCassetteSequence",
+                        "연속 이송을 위해 InputCassette 리프터를 Avoid로 되돌리지 않고 현재 슬롯 위치를 유지합니다. " +
+                        BuildCassetteZState(cassette, target) + " - Skip");
+                    CurrentStep = InputFeederUnloadToCassetteStep.Complete;
+                    return 0;
+                }
+
                 result = await MoveCassetteZAndVerifyAsync(
                     cassette,
                     target,

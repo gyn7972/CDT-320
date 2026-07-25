@@ -268,14 +268,31 @@ namespace QMC.CDT320.Sequencing
                     "OutputStage가 Feeder 이송 시작 전에 Load 위치에 준비되지 않았습니다. side=" + Options.Side + ", " +
                     Stage.DescribeStageLoadMoveState(Options.Side));
 
-            int result = await Stage.EnsureBinGuideClampLiftUpAsync(BinSide.Ng, ResolveTimeout(), ct).ConfigureAwait(false);
-            if (result != 0)
-                return Fail("OUT-STAGE-NG-CLAMP-UP", Stage.Name,
-                    "NG stage clamp lift up failed before feeder transfer. side=" + Options.Side + ", result=" + result + ", " +
-                    Stage.DescribeOutputStageInterlockState(Options.Side));
+            // 기존 조건: side와 무관하게 NG Clamp Lift Up을 강제/검증했다.
+            //   문제 1 - NG 이송에서는 두 스텝 뒤 EnsureOutputStageClampLiftDown이 다시 Down으로 내리므로
+            //            불필요한 Up<->Down 왕복이 발생한다.
+            //   문제 2 - 이 Up 명령이 카세트 리프터 이동과 겹치면 인터락에 걸려 Critical 알람 + 전축 비상정지가
+            //            발생한다. (실장비 2026-07-25 23:01:16
+            //            "NGBinGuideClampLift move Fwd blocked. OutputLifterZ is moving.")
+            // 현재 기준(사용자 확인 2026-07-25):
+            //   - NG Clamp Lift Up이 필요한 조건은 "Stage 축(GOOD/NG)이 실제로 움직일 때"이며,
+            //     그 강제는 축 이동 관문(OutputStageUnit.MoveStageAxis / EnsureNgStageYMoveClearAsync /
+            //     MotionGuard VerifyNgClampSafeForStageMove)에서 이미 수행·검증된다.
+            //   - 이 메서드는 위 주석대로 "Stage 축을 이동하지 않고 도착 상태만 검증"하는 구간이므로
+            //     Up 조건 대상이 아니다. 피더가 Bin을 주고받는 동안 대상 side는 Clamp Lift Down이어야 한다.
+            //   - 따라서 NG side 이송에서는 여기서 Up을 강제하지 않는다.
+            //     GOOD side 이송에서는 NG가 유휴 상태이고 이후 GOOD 축이 움직이므로 기존대로 Up을 유지한다.
+            if (Options.Side != BinSide.Ng)
+            {
+                int result = await Stage.EnsureBinGuideClampLiftUpAsync(BinSide.Ng, ResolveTimeout(), ct).ConfigureAwait(false);
+                if (result != 0)
+                    return Fail("OUT-STAGE-NG-CLAMP-UP", Stage.Name,
+                        "NG stage clamp lift up failed before feeder transfer. side=" + Options.Side + ", result=" + result + ", " +
+                        Stage.DescribeOutputStageInterlockState(Options.Side));
 
-            if (!Stage.IsBinGuideClampLiftUp(BinSide.Ng))
-                return Fail("OUT-STAGE-NG-CLAMP-UP", Stage.Name, "NG stage clamp lift must be up before stage load movement. " + Stage.DescribeOutputStageInterlockState(Options.Side));
+                if (!Stage.IsBinGuideClampLiftUp(BinSide.Ng))
+                    return Fail("OUT-STAGE-NG-CLAMP-UP", Stage.Name, "NG stage clamp lift must be up before stage load movement. " + Stage.DescribeOutputStageInterlockState(Options.Side));
+            }
 
             if (Options.Side == BinSide.Ng)
             {

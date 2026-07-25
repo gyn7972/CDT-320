@@ -40,12 +40,23 @@ namespace QMC.Common.Motion
             set { _manualSequencePercent = ClampPercent(value); }
         }
 
+        /// <summary>READY 시퀀스 속도 퍼센트 기본값입니다.</summary>
+        public const double DefaultReadySequencePercent = 5.0;
+
+        private static double _readySequencePercent = DefaultReadySequencePercent;
+
         /// <summary>
         /// 작업 화면 READY 시퀀스에서만 추가로 적용할 안전 속도 퍼센트입니다.
-        /// 전체 속도 ScalePercent 와 독립적으로 축 DefaultVelocity 의 5~10% 범위에서 구동합니다.
-        /// Ready 복귀는 여러 축이 동시에 움직이므로 5~10% 범위에서 조정하려면 이 값만 변경합니다.
+        /// 전체 속도 ScalePercent 와 독립적으로 적용하며, Manual Sequence 화면의 "Ready 속도(%)"
+        /// 입력으로 1~100 범위에서 조정하고 AppSettings 에 저장됩니다.
+        /// Ready 복귀는 여러 축이 동시에 움직이므로 값을 올릴 때는 현장 확인 후 적용합니다.
+        /// <see cref="EffectiveScaleFactor"/>를 통해 이동 속도와 가감속이 항상 같은 배율로 함께 스케일됩니다.
         /// </summary>
-        public const double ReadySequencePercent = 5.0;
+        public static double ReadySequencePercent
+        {
+            get { return _readySequencePercent; }
+            set { _readySequencePercent = ClampPercent(value); }
+        }
 
         /// <summary>스케일 적용 후 0 이하로 떨어지지 않도록 보장하는 최소 속도.</summary>
         private const double MinScaledVelocity = 0.001;

@@ -122,6 +122,107 @@ namespace QMC.CDT320.Sequencing
             return false;
         }
 
+        /// <summary>
+        /// Manual Sequence에서 작업자가 지정한 Bin(카세트 role + slot)의 공급 계획을 만든다.
+        /// 자동 순번(TryResolveNextSupplySlot)과 동일한 일관성/Ready 조건을 그대로 적용하며,
+        /// 지정 슬롯이 조건을 만족하지 않으면 사유와 함께 실패한다.
+        /// </summary>
+        public static bool TryResolveSupplySlot(
+            BinSide side,
+            CassetteMaterialRole role,
+            int slotIndex,
+            out OutputSlotPlan plan,
+            out string reason)
+        {
+            plan = null;
+            reason = "";
+
+            if (!ValidateSupplyCassetteConsistency(side, out reason))
+                return false;
+
+            if (slotIndex < 0)
+            {
+                reason = "지정한 슬롯 번호가 유효하지 않습니다. slot=" + slotIndex;
+                return false;
+            }
+
+            TargetCassette target;
+            if (side == BinSide.Ng)
+            {
+                if (role != CassetteMaterialRole.Ng1)
+                {
+                    reason = "NG 공급 대상 카세트가 아닙니다. role=" + role;
+                    return false;
+                }
+                target = TargetCassette.Ng;
+            }
+            else if (role == CassetteMaterialRole.Good1)
+            {
+                target = TargetCassette.Good1;
+            }
+            else if (role == CassetteMaterialRole.Good2)
+            {
+                target = TargetCassette.Good2;
+            }
+            else
+            {
+                reason = "GOOD 공급 대상 카세트가 아닙니다. role=" + role;
+                return false;
+            }
+
+            CassetteMaterial cassette = MaterialStateService.State != null && MaterialStateService.State.Cassettes != null
+                ? MaterialStateService.State.Cassettes.FirstOrDefault(c => c != null && c.Role == role)
+                : null;
+            if (cassette == null || !cassette.IsEnabled || !cassette.IsPresent || !cassette.IsMapped)
+            {
+                reason = "지정한 출력 카세트를 공급에 사용할 수 없습니다. role=" + role +
+                         ", detail=" + BuildReadySupplyAvailabilitySummary(role);
+                return false;
+            }
+
+            cassette.EnsureSlots();
+            if (slotIndex >= cassette.Slots.Count)
+            {
+                reason = "지정한 슬롯이 카세트 범위를 벗어났습니다. role=" + role +
+                         ", slot=" + (slotIndex + 1).ToString("00") + ", slotCount=" + cassette.Slots.Count;
+                return false;
+            }
+
+            CassetteSlotMaterial slot = cassette.Slots[slotIndex];
+            if (slot == null || !slot.HasWafer || string.IsNullOrWhiteSpace(slot.WaferId))
+            {
+                reason = "지정한 슬롯이 비어 있습니다. role=" + role + ", slot=" + (slotIndex + 1).ToString("00");
+                return false;
+            }
+
+            WaferMaterial wafer = MaterialStateService.GetWaferInCassette(role, slotIndex);
+            if (wafer == null)
+            {
+                reason = "지정한 슬롯의 Bin Material 정보를 찾을 수 없습니다. role=" + role +
+                         ", slot=" + (slotIndex + 1).ToString("00");
+                return false;
+            }
+
+            WaferMaterialState state = WaferMaterialStateText.Normalize(wafer.State);
+            if (state != WaferMaterialState.Ready)
+            {
+                reason = "지정한 Bin이 Ready 상태가 아닙니다. role=" + role +
+                         ", slot=" + (slotIndex + 1).ToString("00") +
+                         ", bin=" + (wafer.WaferId ?? "") + ", state=" + state;
+                return false;
+            }
+
+            plan = new OutputSlotPlan
+            {
+                Side = side,
+                CassetteRole = role,
+                TargetCassette = target,
+                SlotIndex = slotIndex,
+                WaferId = wafer.WaferId
+            };
+            return true;
+        }
+
         private static string BuildReadySupplyAvailabilitySummary(CassetteMaterialRole role)
         {
             try

@@ -229,6 +229,7 @@ namespace QMC.CDT320.Sequencing
                 }
 
                 // Picker가 해당 Stage wafer의 die pick을 완료하면 별도 승인된 Input loader 작업으로 Stage wafer를 cassette로 되돌린다.
+                bool chainedNextCassetteLoad = false;
                 using (AutoSequenceLoaderWorkLease unloadLease = await Context.AutoLoaderGate
                     .BeginInputWorkAsync(
                         "InputStageUnloadCycle",
@@ -237,12 +238,23 @@ namespace QMC.CDT320.Sequencing
                         AreInputPickersEmptyAvoidAndStopped)
                     .ConfigureAwait(false))
                 {
-                    await UnloadInputStageWaferIfPresentAsync(ct).ConfigureAwait(false);
+                    // 연속 이송: 언로드 직후 다음 슬롯 로딩이 이어질 수 있으면 리프터를 Avoid로 되돌리지 않고
+                    // 같은 lease 안에서 슬롯 -> 슬롯 직행으로 진행한다.
+                    bool canChain = CanChainNextInputCassetteLoad();
+                    await UnloadInputStageWaferIfPresentAsync(ct, canChain).ConfigureAwait(false);
+
+                    if (canChain)
+                        chainedNextCassetteLoad = await TryChainNextInputCassetteLoadAsync(ct).ConfigureAwait(false);
                 }
 
                 // 모든 Input Cassette slot 처리가 끝났으면 알람/메시지를 띄우고 Auto를 정지한다.
                 int completeResult = StopAutoSequenceIfInputCassetteComplete();
                 if (completeResult != 0)
+                    return;
+
+                // 연속 로딩으로 이미 다음 wafer의 카세트 이송까지 진행했으면 진행 상태를 유지한다.
+                // (다음 cycle 진입 시 RestoreInputStepSessionFromRuntimeState가 남은 step부터 재개한다.)
+                if (chainedNextCassetteLoad)
                     return;
 
                 // 다음 wafer cycle은 Mapping을 다시 하지 않고 다음 slot 탐색부터 시작한다.
@@ -591,7 +603,7 @@ namespace QMC.CDT320.Sequencing
             return true;
         }
 
-        private async Task UnloadInputStageWaferIfPresentAsync(CancellationToken ct)
+        private async Task UnloadInputStageWaferIfPresentAsync(CancellationToken ct, bool keepCassetteAtSlotForNextAccess = false)
         {
             try
             {
@@ -609,7 +621,8 @@ namespace QMC.CDT320.Sequencing
                     slotIndex,
                     false,
                     0,
-                    SequenceStartMode.Resume).ConfigureAwait(false);
+                    SequenceStartMode.Resume,
+                    keepCassetteAtSlotForNextAccess).ConfigureAwait(false);
 
                 if (result != 0)
                     // 언로드 하위 시퀀스의 Fail()이 이미 Alarm을 발생시켰으므로 중복 Alarm 없이 전파한다.
@@ -773,6 +786,106 @@ namespace QMC.CDT320.Sequencing
             finally
             {
                 ResetInputLoaderActive(loaderActive, "ResumeFeederUnloadToCassette");
+            }
+        }
+
+        // 연속 이송 가능 판정: 언로드 직후 같은 Loader lease 안에서 다음 슬롯 로딩을 이어갈 수 있는지 본다.
+        // 조건을 하나라도 만족하지 못하면 기존처럼 리프터를 Avoid로 되돌리고 lease를 정상 종료한다.
+        private bool CanChainNextInputCassetteLoad()
+        {
+            try
+            {
+                // Auto 연속 운전에서만 사용한다. Manual/Step은 한 동작 단위로 끝나야 하므로 항상 Avoid 복귀.
+                if (Mode != SequenceRunMode.Auto)
+                    return false;
+
+                // 정지 요청/배출 완료 요청 중이면 다음 wafer를 새로 꺼내지 않는다.
+                if (Context == null || Context.IsCycleStopRequested)
+                    return false;
+
+                WaferCompletionRunCoordinator completion = Context.WaferCompletion;
+                if (completion != null && completion.Enabled)
+                {
+                    completion.ObserveCompletionSignals();
+                    if (completion.IsDrainRequested)
+                        return false;
+                }
+
+                // 다음에 처리할 Ready 슬롯이 실제로 있어야 한다. (부작용 없는 조회만 사용)
+                var cassette = Context.Machine != null ? Context.Machine.InputCassetteUnit : null;
+                if (cassette == null || !cassette.HasMoreProcessWafer())
+                    return false;
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                WriteLog("CanChainNextInputCassetteLoad",
+                    "연속 이송 가능 판정 중 예외가 발생해 기존 Avoid 복귀 경로를 사용합니다. error=" + ex.Message + " - Check");
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
+        // 같은 Loader lease 안에서 다음 슬롯의 카세트 이송 구간만 이어서 수행한다.
+        // ResolveSlot -> PrepareStageLoad -> LoadFeederFromCassette -> LoadFeederToStage 까지 진행하며,
+        // LoadFeederToStage가 끝나면 리프터가 Avoid로 복귀하므로 lease를 놓아도 Picker X 이동이 안전하다.
+        // 이후 남은 step(RecoverFeeder/Align/DieMapping/Review)은 다음 cycle에서 재개한다.
+        private async Task<bool> TryChainNextInputCassetteLoadAsync(CancellationToken ct)
+        {
+            ct.ThrowIfCancellationRequested();
+
+            ResetInputAutoCycle();
+            WriteLog("TryChainNextInputCassetteLoadAsync",
+                "언로드 직후 같은 Loader 승인 안에서 다음 슬롯 로딩을 이어서 수행합니다. " +
+                "(카세트 리프터 Avoid 복귀 생략, 슬롯 -> 슬롯 직행) - Start");
+
+            while (IsInputCassetteTransferStep(_autoStep))
+            {
+                ct.ThrowIfCancellationRequested();
+                int result = await ExecuteCurrentInputStepAsync(ct, false).ConfigureAwait(false);
+                if (result != 0)
+                    // 실패 step 내부의 Fail()이 이미 Alarm을 발생시켰으므로 중복 Alarm 없이 전파한다.
+                    throw new StepAlreadyAlarmedException(
+                        "연속 로딩 실패. step=" + _autoStep + ", result=" + result);
+            }
+
+            // 카세트 이송 구간이 끝났으면 리프터는 LoadFeederToStage에서 Avoid로 복귀한 상태다.
+            string cassetteState = DescribeInputLifterAvoidState();
+            WriteLog("TryChainNextInputCassetteLoadAsync",
+                "연속 로딩의 카세트 이송 구간을 완료했습니다. nextStep=" + _autoStep +
+                ", slot=" + _autoSlotIndex + ", wafer=" + _autoWaferId +
+                ", " + cassetteState + " - Ok");
+            return true;
+        }
+
+        private static bool IsInputCassetteTransferStep(InputSequenceAutoStep step)
+        {
+            return step == InputSequenceAutoStep.ResolveSlot ||
+                   step == InputSequenceAutoStep.PrepareStageLoad ||
+                   step == InputSequenceAutoStep.LoadFeederFromCassette ||
+                   step == InputSequenceAutoStep.LoadFeederToStage;
+        }
+
+        private string DescribeInputLifterAvoidState()
+        {
+            try
+            {
+                var cassette = Context != null && Context.Machine != null ? Context.Machine.InputCassetteUnit : null;
+                if (cassette == null || cassette.InputLifterZ == null)
+                    return "InputLifterZ=null";
+
+                return "InputLifterZ[actual=" + cassette.InputLifterZ.ActualPosition.ToString("F3") +
+                       ", atAvoid=" + (cassette.IsWaferLifterZInAvoidPosition() ? "Y" : "N") + "]";
+            }
+            catch (Exception ex)
+            {
+                return "InputLifterZ[stateFailed=" + ex.Message + "]";
+            }
+            finally
+            {
             }
         }
 
@@ -2421,7 +2534,8 @@ namespace QMC.CDT320.Sequencing
             int slotIndex,
             bool bFine = false,
             int moveTimeoutMs = 0,
-            SequenceStartMode startMode = SequenceStartMode.Resume)
+            SequenceStartMode startMode = SequenceStartMode.Resume,
+            bool keepCassetteAtSlotForNextAccess = false)
         {
             bool loaderActive = true;
             try
@@ -2464,8 +2578,11 @@ namespace QMC.CDT320.Sequencing
                     return result;
 
                 // Stage -> Feeder 언로딩 구간.
+                // keepCassetteAtSlotForNextAccess=true이면 Feeder -> Cassette 이송 후 리프터를 Avoid로
+                // 되돌리지 않고 곧바로 다음 슬롯 로딩으로 이어간다(같은 Loader lease 안에서만 사용).
                 var feederSequence = new InputFeederSequence(Context);
-                InputFeederSequenceOptions feederOptions = BuildFeederSequenceOptions(slotIndex, slotIndex, bFine, moveTimeoutMs, startMode);
+                InputFeederSequenceOptions feederOptions = BuildFeederSequenceOptions(
+                    slotIndex, slotIndex, bFine, moveTimeoutMs, startMode, keepCassetteAtSlotForNextAccess);
 
                 result = await ExecuteWithInputPickerAvoidGateAsync("InputStageToFeeder", ct, async () =>
                 {
@@ -2595,14 +2712,30 @@ namespace QMC.CDT320.Sequencing
         // Input 로딩을 실행한다. 수동 전용 경로(ExecuteWaferLoadingAsync)와 달리 Auto 운전이 실제로 타는
         // 코드(RestoreInputStepSessionFromRuntimeState -> ExecuteCurrentInputStepAsync)를 그대로 검증한다.
         // ReviewStage(사용자 확인)와 Picker Ready 신호 발행은 Auto 운전에서 수행하므로 그 직전까지 진행한다.
-        public async Task<int> ExecuteAutoStepLoadingForTestAsync(CancellationToken ct)
+        public Task<int> ExecuteAutoStepLoadingForTestAsync(CancellationToken ct)
+        {
+            // slot이 음수이면 자동 순번 로딩이므로 role은 사용되지 않는다.
+            return ExecuteAutoStepLoadingForTestAsync(ct, CassetteMaterialRole.Input1, -1);
+        }
+
+        /// <summary>
+        /// Manual Sequence INPUT LOAD. requestedSlotIndex가 0 이상이면 작업자가 지정한 Wafer를 로딩하고,
+        /// 음수이면 Auto와 동일한 순번(ResolveSlot)으로 로딩한다.
+        /// (UNLOAD는 원본 슬롯으로만 복귀하므로 지정 대상이 없다.)
+        /// </summary>
+        public async Task<int> ExecuteAutoStepLoadingForTestAsync(
+            CancellationToken ct,
+            CassetteMaterialRole requestedRole,
+            int requestedSlotIndex)
         {
             try
             {
                 ct.ThrowIfCancellationRequested();
                 LogPublic("[UNIT-INPUT] CYCLE RUN INPUT LOAD (auto-step test) start");
                 WriteLog("ExecuteAutoStepLoadingForTestAsync",
-                    "CYCLE RUN INPUT LOAD: Auto 스텝 상태머신 로딩 테스트를 시작합니다. - Start");
+                    "CYCLE RUN INPUT LOAD: Auto 스텝 상태머신 로딩 테스트를 시작합니다. requestedSlot=" +
+                    (requestedSlotIndex >= 0 ? (requestedRole + "/" + (requestedSlotIndex + 1).ToString("00")) : "auto") +
+                    " - Start");
 
                 // Auto 사이클과 동일하게 런타임 자재 상태로 재개 위치를 복원한다.
                 RestoreInputStepSessionFromRuntimeState();
@@ -2622,6 +2755,15 @@ namespace QMC.CDT320.Sequencing
                         "InputStage가 이미 로딩 완료 상태여서 추가 동작 없이 종료합니다. step=" + _autoStep + " - Ok");
                     LogPublic("[UNIT-INPUT] CYCLE RUN INPUT LOAD already complete");
                     return 0;
+                }
+
+                // 작업자 지정 Wafer 로딩: 진행 중인 자재가 없을 때만 허용하고, 지정 슬롯을 검증한 뒤
+                // ResolveSlot(자동 순번)을 건너뛰고 Stage 로드 준비부터 시작한다.
+                if (requestedSlotIndex >= 0)
+                {
+                    int requestResult = PrepareRequestedInputSlotLoading(requestedRole, requestedSlotIndex);
+                    if (requestResult != 0)
+                        return requestResult;
                 }
 
                 // ReviewStage(사용자 확인) 직전(DieMapping 완료)까지 Auto와 동일한 스텝을 실행한다.
@@ -2667,6 +2809,53 @@ namespace QMC.CDT320.Sequencing
             finally
             {
             }
+        }
+
+        // 작업자가 지정한 Input Cassette 슬롯을 로딩 대상으로 확정한다.
+        // 진행 중인 자재(Stage/Feeder 점유)가 있으면 지정 로딩을 허용하지 않는다(자재 혼선 방지).
+        private int PrepareRequestedInputSlotLoading(CassetteMaterialRole requestedRole, int requestedSlotIndex)
+        {
+            if (requestedRole != CassetteMaterialRole.Input1 && requestedRole != CassetteMaterialRole.Input2)
+                return Fail("SEQ-IN-TEST-LOAD-ROLE", "InputSequence",
+                    "지정 로딩 대상 카세트가 Input 카세트가 아닙니다. role=" + requestedRole);
+
+            WaferMaterial stageWafer = ResolveStageWaferFromRuntimeState();
+            if (stageWafer != null)
+                return Fail("SEQ-IN-TEST-LOAD-STAGE-OCCUPIED", "InputSequence",
+                    "InputStage에 이미 wafer가 있어 지정 로딩을 시작할 수 없습니다. wafer=" +
+                    (stageWafer.WaferId ?? "") + ". INPUT UNLOAD로 먼저 배출하세요.");
+
+            WaferMaterial feederWafer = ResolveFeederWaferFromRuntimeState();
+            if (feederWafer != null)
+                return Fail("SEQ-IN-TEST-LOAD-FEEDER-OCCUPIED", "InputSequence",
+                    "InputFeeder에 이미 wafer가 있어 지정 로딩을 시작할 수 없습니다. wafer=" +
+                    (feederWafer.WaferId ?? "") + ". 진행 중인 이송을 먼저 마치세요.");
+
+            WaferMaterial requestedWafer = MaterialStateService.GetWaferInCassette(requestedRole, requestedSlotIndex);
+            if (requestedWafer == null)
+                return Fail("SEQ-IN-TEST-LOAD-SLOT-EMPTY", "InputSequence",
+                    "지정한 슬롯에 로딩할 wafer Material이 없습니다. role=" + requestedRole +
+                    ", slot=" + (requestedSlotIndex + 1).ToString("00"));
+
+            WaferMaterialState state = WaferMaterialStateText.Normalize(requestedWafer.State);
+            if (state != WaferMaterialState.Ready && state != WaferMaterialState.WorkReady)
+                return Fail("SEQ-IN-TEST-LOAD-SLOT-STATE", "InputSequence",
+                    "지정한 wafer가 로딩 가능한 상태가 아닙니다. wafer=" + (requestedWafer.WaferId ?? "") +
+                    ", role=" + requestedRole + ", slot=" + (requestedSlotIndex + 1).ToString("00") +
+                    ", state=" + state);
+
+            _autoCassetteRole = requestedRole;
+            _autoSlotIndex = requestedSlotIndex;
+            _autoWaferId = requestedWafer.WaferId ?? "";
+            _autoStep = InputSequenceAutoStep.PrepareStageLoad;
+
+            LogPublic("[UNIT-INPUT] 지정 Wafer 로딩을 실행합니다. role=" + requestedRole +
+                ", slot=" + (requestedSlotIndex + 1).ToString("00") + ", wafer=" + _autoWaferId);
+            WriteLog("PrepareRequestedInputSlotLoading",
+                "작업자 지정 로딩 대상을 확정했습니다. role=" + requestedRole +
+                ", slot=" + (requestedSlotIndex + 1).ToString("00") +
+                ", wafer=" + _autoWaferId + ", step=" + _autoStep + " - Ok");
+            return 0;
         }
 
         // Work CYCLE RUN 수동 테스트(INPUT UNLOAD): Auto 사이클과 동일한 판정으로 Input 언로딩을 실행한다.
@@ -3447,9 +3636,11 @@ namespace QMC.CDT320.Sequencing
             int nextSlotIndex,
             bool bFine,
             int moveTimeoutMs,
-            SequenceStartMode startMode)
+            SequenceStartMode startMode,
+            bool keepCassetteAtSlotForNextAccess = false)
         {
             var options = InputFeederSequenceOptions.Default();
+            options.KeepCassetteAtSlotForNextAccess = keepCassetteAtSlotForNextAccess;
             options.SlotIndex = slotIndex;
             options.NextSlotIndex = nextSlotIndex;
             // To do: C4 - 현재 처리 레벨(_autoCassetteRole)을 우선 사용한다. 미확정(Input1 기본)일 때만 슬롯 기반 추정으로 보완.

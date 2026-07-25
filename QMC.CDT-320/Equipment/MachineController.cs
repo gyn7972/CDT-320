@@ -10671,16 +10671,27 @@ namespace QMC.CDT320
 
         public Task<int> RunManualInputLoadAsync()
         {
-            // CYCLE RUN INPUT LOAD: Auto 운전이 실제로 사용하는 재개 판정 + 스텝 상태머신을 그대로 실행해
-            // Input 로딩 물류를 수동으로 테스트한다. (기존 수동 전용 경로 ExecuteWaferLoadingAsync 대체)
+            // slot이 음수이면 자동 순번 로딩이므로 role은 사용되지 않는다.
+            return RunManualInputLoadAsync(CassetteMaterialRole.Input1, -1);
+        }
+
+        /// <summary>
+        /// CYCLE RUN INPUT LOAD: Auto 운전이 실제로 사용하는 재개 판정 + 스텝 상태머신을 그대로 실행해
+        /// Input 로딩 물류를 수동으로 테스트한다. requestedSlotIndex가 0 이상이면 지정 Wafer를 로딩한다.
+        /// </summary>
+        public Task<int> RunManualInputLoadAsync(CassetteMaterialRole requestedRole, int requestedSlotIndex)
+        {
+            string label = requestedSlotIndex >= 0
+                ? "INPUT LOAD(" + requestedRole + "/" + (requestedSlotIndex + 1).ToString("00") + ")"
+                : "INPUT LOAD";
             return RunManualUnitProcessAsync(
-                "INPUT LOAD",
+                label,
                 "SEQ-MANUAL-IN-LOAD",
                 async delegate (QMC.CDT320.Sequencing.MachineSequenceContext context, CancellationToken token)
                 {
                     var sequence = new QMC.CDT320.Sequencing.InputSequence(context);
                     sequence.Configure(QMC.CDT320.Sequencing.SequenceRunMode.Manual);
-                    return await sequence.ExecuteAutoStepLoadingForTestAsync(token)
+                    return await sequence.ExecuteAutoStepLoadingForTestAsync(token, requestedRole, requestedSlotIndex)
                         .ConfigureAwait(false);
                 });
         }
@@ -10704,14 +10715,26 @@ namespace QMC.CDT320
         // CYCLE RUN OUTPUT LOAD: 선택한 GOOD/NG side만 별개로 로딩한다.
         public Task<int> RunManualOutputLoadAsync(BinSide side)
         {
+            // slot이 음수이면 자동 순번 공급이므로 role은 사용되지 않는다.
+            return RunManualOutputLoadAsync(side, CassetteMaterialRole.Good1, -1);
+        }
+
+        /// <summary>
+        /// CYCLE RUN OUTPUT LOAD. requestedSlotIndex가 0 이상이면 작업자가 지정한 Bin을 공급한다.
+        /// </summary>
+        public Task<int> RunManualOutputLoadAsync(BinSide side, CassetteMaterialRole requestedRole, int requestedSlotIndex)
+        {
+            string label = requestedSlotIndex >= 0
+                ? "OUTPUT LOAD(" + side + " " + requestedRole + "/" + (requestedSlotIndex + 1).ToString("00") + ")"
+                : "OUTPUT LOAD(" + side + ")";
             return RunManualUnitProcessAsync(
-                "OUTPUT LOAD(" + side + ")",
+                label,
                 "SEQ-MANUAL-OUT-LOAD",
                 async delegate (QMC.CDT320.Sequencing.MachineSequenceContext context, CancellationToken token)
                 {
                     var sequence = new QMC.CDT320.Sequencing.OutputSequence(context);
                     sequence.Configure(QMC.CDT320.Sequencing.SequenceRunMode.Manual);
-                    return await sequence.ExecuteManualOutputLoadAsync(token, side)
+                    return await sequence.ExecuteManualOutputLoadAsync(token, side, requestedRole, requestedSlotIndex)
                         .ConfigureAwait(false);
                 });
         }

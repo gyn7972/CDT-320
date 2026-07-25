@@ -2392,6 +2392,41 @@ namespace QMC.CDT320
             return await EnsureCylinderStateAsync(cylinder, fwd, timeoutMs, description, CancellationToken.None).ConfigureAwait(false);
         }
 
+        // OutputStage 실린더를 실제로 구동할 때 호출 경로(관리 스택의 상위 프레임)를 로그로 남긴다.
+        // 인터락 차단/구동 실패 시 "어느 시퀀스·유닛 코드가 명령했는지"를 즉시 특정하기 위한 진단용이다.
+        private void LogOutputStageCylinderCommandCaller(string description, bool fwd)
+        {
+            try
+            {
+                var trace = new System.Diagnostics.StackTrace(2, false);
+                var callers = new System.Text.StringBuilder();
+                int frameCount = trace.FrameCount < 6 ? trace.FrameCount : 6;
+                for (int i = 0; i < frameCount; i++)
+                {
+                    System.Reflection.MethodBase method = trace.GetFrame(i).GetMethod();
+                    if (method == null)
+                        continue;
+
+                    if (callers.Length > 0)
+                        callers.Append(" <- ");
+                    callers.Append(method.DeclaringType != null ? method.DeclaringType.Name : "?")
+                           .Append('.')
+                           .Append(method.Name);
+                }
+
+                QMC.Common.Log.Write("Main", "SYSTEM", "OutputStageCylinderCommand",
+                    description + " 구동 요청. direction=" + (fwd ? "Fwd" : "Bwd") +
+                    ", caller=" + callers + " - Start");
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine("OutputStage cylinder caller log failed: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
         private async Task<int> EnsureCylinderStateAsync(BaseCylinder cylinder, bool fwd, int timeoutMs, string description, CancellationToken ct)
         {
             try
@@ -2411,6 +2446,11 @@ namespace QMC.CDT320
                     return 0;
 
                 ct.ThrowIfCancellationRequested();
+
+                // 진단: 실제로 실린더를 구동하는 시점에 호출 경로를 남긴다.
+                // 이 경로에는 SequenceTrace가 없어, 인터락 차단 시 "누가 명령했는지"를 로그로 특정할 수 없었다.
+                // (실장비 2026-07-25 23:01:16 NG Bin Clamp Lift Up 차단 건의 호출자 추적 불가 원인)
+                LogOutputStageCylinderCommandCaller(description, fwd);
 
                 bool ok = fwd ? await cylinder.MoveFwdAsync() : await cylinder.MoveBwdAsync();
                 if (!ok)
