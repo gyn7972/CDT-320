@@ -24,6 +24,12 @@ namespace QMC.CDT320.Ajin
         // 이 축의 위치 오버라이드(리다이렉트) 성공 횟수. MoveAbsoluteAsync가 자신의 이동 중
         // 오버라이드가 있었는지 판정해 마지막 Command↔Target 확인(-5)을 건너뛰는 데 쓴다.
         private int _positionOverrideSerial;
+        // 이 축이 마지막으로 시작한 모션의 오버라이드 기준 시리얼(AXM.MovePosition이 발급).
+        // TryOverridePosition이 AXM.ModifyPosition에 넘겨 "자기 모션의 기준"으로만 오버라이드하고,
+        // ApplyReadStatus가 모션 종료(하강 전이) 시 이 시리얼의 기록만 조건부 무효화한다.
+        // 스테일 기준(예: 원점 직후의 0)으로 절대값이 상대값처럼 보드에 나가던 결함의 차단 장치
+        // (실장비 2026-07-25, InputVisionX startBase=0 / 사용자 승인 2026-07-25).
+        private long _motionStartBaseSerial = -1L;
         private int _hardwareLimitSearchDirection;
 
         // 소프트리밋은 보드 센서가 아니므로 알람 리셋 전까지 소프트웨어 latch 로 유지한다.
@@ -406,12 +412,15 @@ namespace QMC.CDT320.Ajin
                 int ret;
                 lock (_sync)
                 {
+                    // 자기 모션의 기준으로만 오버라이드한다 — 시리얼 불일치(다른 모션의 스테일
+                    // 기준)는 AXM.ModifyPosition이 -2로 거부하고 호출자 폴백에 맡긴다.
                     ret = AXM.ModifyPosition(
                         AxisNo,
                         ToBoardPosition(targetPosition),
                         ToBoardVelocity(safeVelocity),
                         ToBoardAcceleration(safeAcceleration),
-                        ToBoardAcceleration(safeDeceleration));
+                        ToBoardAcceleration(safeDeceleration),
+                        Volatile.Read(ref _motionStartBaseSerial));
                 }
 
                 if (ret != 0)
@@ -1142,7 +1151,9 @@ namespace QMC.CDT320.Ajin
                 lock (_sync)
                 {
                     AXM.SetAbsRelMode(AxisNo, true);
-                    ret = AXM.MovePosition(AxisNo, boardTargetPos, boardVelocity, boardAcceleration, boardDeceleration);
+                    long motionStartBaseSerial;
+                    ret = AXM.MovePosition(AxisNo, boardTargetPos, boardVelocity, boardAcceleration, boardDeceleration, out motionStartBaseSerial);
+                    Volatile.Write(ref _motionStartBaseSerial, motionStartBaseSerial);
                 }
                 if (ret != 0)
                 {
@@ -1291,7 +1302,9 @@ namespace QMC.CDT320.Ajin
                 lock (_sync)
                 {
                     AXM.SetAbsRelMode(AxisNo, true);
-                    ret = AXM.MovePosition(AxisNo, boardTargetPos, boardVelocity, boardAcceleration, boardDeceleration);
+                    long motionStartBaseSerial;
+                    ret = AXM.MovePosition(AxisNo, boardTargetPos, boardVelocity, boardAcceleration, boardDeceleration, out motionStartBaseSerial);
+                    Volatile.Write(ref _motionStartBaseSerial, motionStartBaseSerial);
                 }
                 if (ret != 0)
                 {
@@ -2167,6 +2180,15 @@ namespace QMC.CDT320.Ajin
             // 리밋 알람은 HomeDone 기준을 유지하고, 서보 알람/서보 OFF일 때만 latch를 해제한다.
             if (!IsServoOn || fault || (IsAlarm && !limitAlarm))
                 _homeDoneLatched = false;
+
+            if (wasMoving && !IsMoving)
+            {
+                // 모션 종료 시 오버라이드 기준 무효화(스테일 제거): 자기 모션 시리얼의 기록만
+                // 조건부로 지운다 — 다음 모션이 이미 새 기준을 기록했다면(다른 시리얼) 보존된다.
+                // 경합 최악 케이스는 신선한 기준이 지워져 오버라이드가 -2로 거부되는 것뿐이며,
+                // 잘못된 기준으로 상대값이 나가는 방향의 실패는 없다.
+                AXM.ClearMotionStartCommand(AxisNo, Volatile.Read(ref _motionStartBaseSerial));
+            }
 
             if (wasMoving && !IsMoving && IsInPosition)
             {

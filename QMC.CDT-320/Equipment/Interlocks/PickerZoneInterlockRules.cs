@@ -1831,7 +1831,7 @@ namespace QMC.CDT320.Interlocks
             return false;
         }
 
-        // 인터락 항목: Auto 검사 연속 이동 중 상대 PickerY가 안전하면 Process 작업영역 공유 예외를 허용한다.
+        // 인터락 항목: Auto 이동 중 상대 PickerY가 안전하면 Process 작업영역 공유 예외를 허용한다.
         private static bool CanAutoShareProcessWorkAreaWhenOppositeYSafe(
             MotionGuardRuleContext request,
             bool isFront,
@@ -1856,12 +1856,21 @@ namespace QMC.CDT320.Interlocks
                     return false;
                 }
 
-                // 인터락 조건: 검사 연속 이동 태그가 없으면 Process 작업영역 공유 예외를 적용하지 않는다.
-                if (request.Intent == null || !request.Intent.InspectionContinuous)
-                {
-                    detail = "Auto 검사 연속 이동 태그가 없습니다.";
-                    return false;
-                }
+                // 기존 조건: 검사 연속 이동 태그(Intent.InspectionContinuous)가 있어야만 Process
+                //           작업영역 공유를 허용했다. 그래서 픽업/플레이스 이동이 Bottom/Side 밴드를
+                //           통과할 때 "Bottom 작업 영역을 반대 픽커가 사용 중입니다"로 차단됐고,
+                //           그 차단이 Critical 알람으로 승격되어 라인이 정지했다
+                //           (실장비 2026-07-25 20:27:24, Rear 픽업 진입 / Front Bottom 검사 중,
+                //            currentZone=Avoid, targetZone=Bottom, yActual=0).
+                // 현재 기준(사용자 승인 2026-07-25): Auto 이동은 태그와 무관하게, 상대 PickerY가
+                //           실제 Avoid/0 위치면 Process 작업영역 공유를 허용한다.
+                //   근거 1 — 이 규칙은 논리적 작업영역 점유 판정이며 물리 충돌 판정이 아니다.
+                //            피커 헤드간 물리 충돌은 VerifyFacingYDistanceFirst(:1156, 레지스트리
+                //            최우선 등록, X 안전거리 150mm + 한쪽 PickerY 정확 Avoid)와
+                //            RealtimeCollisionSupervisor(전축 하드정지)가 독립적으로 담당하며
+                //            이번 완화로 바뀌지 않는다.
+                //   근거 2 — 사용자 확인: 바텀 촬영 중 다른 피커가 픽업 존에서 작업해도 무방하다.
+                //   주의 — Manual 이동(조건 1)과 상대 PickerY 전진/이동 중(아래 조건)은 그대로 차단된다.
 
                 // 인터락 조건: 목표 존이 Process 계열이 아니면 공유 예외를 적용하지 않는다.
                 if (!IsProcessZone(targetZone))
@@ -1878,7 +1887,7 @@ namespace QMC.CDT320.Interlocks
                     return false;
                 }
 
-                detail = "Auto 검사 연속 이동이고 상대 PickerY가 실제 Avoid 또는 0 위치입니다.";
+                detail = "Auto 이동이고 상대 PickerY가 실제 Avoid 또는 0 위치입니다.";
                 return true;
             }
             catch (Exception ex)
