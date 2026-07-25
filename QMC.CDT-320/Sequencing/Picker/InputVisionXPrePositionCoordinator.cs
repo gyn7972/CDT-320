@@ -17,6 +17,8 @@ namespace QMC.CDT320.Sequencing
         private const int StandbySearchIterations = 24;
         private const double StandbyBoundaryBackoffMm = 1.0;
         private const double MinimumStandbyTravelMm = 0.2;
+        // 롤링 대기점 연장 최소 전진량 — 이보다 작으면 오버라이드하지 않는다(명령 폭주 방지).
+        private const double StandbyRollForwardMinAdvanceMm = 1.0;
 
         private static readonly object Sync = new object();
         private static Task<int> _runningTask;
@@ -199,11 +201,12 @@ namespace QMC.CDT320.Sequencing
 
                     double standbyTarget;
                     string standbyDetail;
+                    string standbyTargetName = BuildTargetName(target, "Standby");
                     if (!TryResolveSafeStandbyTarget(
                         context,
                         visionX,
                         finalTarget,
-                        BuildTargetName(target, "Standby"),
+                        standbyTargetName,
                         out standbyTarget,
                         out standbyDetail))
                     {
@@ -236,6 +239,9 @@ namespace QMC.CDT320.Sequencing
                         stopActiveMoveOnExit = true;
                         bool overrideIssued = false;
                         int standbyResult;
+                        // 롤링 대기점(사용자 승인 2026-07-26): 현재 명령 중인 대기점.
+                        double commandedStandby = standbyTarget;
+                        int rollForwardCount = 0;
 
                         try
                         {
@@ -285,6 +291,57 @@ namespace QMC.CDT320.Sequencing
                                     activeMoveTask = null;
                                     stopActiveMoveOnExit = false;
                                     return 0;
+                                }
+
+                                // 기존 조건: 최종 가드가 안 풀리면 대기점까지만 가서 "정지"했고,
+                                //   가드가 그 직후 풀리면 다시 새 이동을 발행했다 — 감속 정지 후
+                                //   재기동이라 비전이 잠깐 멈췄다 다시 가는 현상이 보였다
+                                //   (실장비 2026-07-26 05:58:02 Rear, 대기점 445.376 도달-정지).
+                                // 현재 기준(사용자 승인 2026-07-26): 피커가 비켜난 만큼 대기점을
+                                //   재계산해 앞으로 연장(Position Override)한다 — 축이 멈추지 않고
+                                //   이어서 전진하고, 최종 가드가 풀리면 위 분기가 최종 좌표로 넘긴다.
+                                //   실패하면 아무것도 하지 않는다(기존 대기점 이동 그대로 유지).
+                                if (visionX.IsMoving)
+                                {
+                                    double rolledStandby;
+                                    string rolledDetail;
+                                    if (TryResolveSafeStandbyTarget(
+                                            context,
+                                            visionX,
+                                            finalTarget,
+                                            standbyTargetName,
+                                            out rolledStandby,
+                                            out rolledDetail))
+                                    {
+                                        double advance = finalTarget >= commandedStandby
+                                            ? rolledStandby - commandedStandby
+                                            : commandedStandby - rolledStandby;
+                                        if (advance >= StandbyRollForwardMinAdvanceMm)
+                                        {
+                                            string rollOverrideDetail;
+                                            int rollResult = TryOverrideMovingAxisToFinal(
+                                                visionX,
+                                                rolledStandby,
+                                                motion,
+                                                out rollOverrideDetail);
+                                            if (rollResult == 0)
+                                            {
+                                                commandedStandby = rolledStandby;
+                                                rollForwardCount++;
+                                                if (rollForwardCount == 1 || rollForwardCount % 10 == 0)
+                                                {
+                                                    WriteLog(
+                                                        "InputVisionXPrePosition",
+                                                        side + " InputVisionX 대기점을 앞으로 연장했습니다(정지 없이 계속 전진). " +
+                                                        "die=" + target.DieId +
+                                                        ", standbyX=" + commandedStandby.ToString("F6") +
+                                                        ", advance=" + advance.ToString("F6") +
+                                                        ", count=" + rollForwardCount +
+                                                        ", detail=" + rollOverrideDetail + " - Ok");
+                                                }
+                                            }
+                                        }
+                                    }
                                 }
 
                                 await Task.Delay(GuardPollIntervalMs, ct).ConfigureAwait(false);
@@ -381,7 +438,15 @@ namespace QMC.CDT320.Sequencing
             }
             finally
             {
-                if (stopActiveMoveOnExit && visionX != null && visionX.IsMoving)
+                // 기존 조건: stopActiveMoveOnExit && visionX.IsMoving — 자기 이동이 이미 끝나 가드
+                //   해제를 대기 중일 때 Cycle Stop이 오면, 그 순간 진행 중인 "남의" InputVisionX
+                //   이동(예: 선행검사 촬영 접근)을 감속 정지시켜 -5(IN-STAGE-MOVE) 오탐 알람을
+                //   유발했다(실장비 2026-07-26 05:21:35 — Front 선행검사 625.896 이동이 Rear
+                //   프리포지션 종료 정지에 맞아 command=595.274에서 중단).
+                // 현재 기준(2026-07-26): 자기 activeMoveTask가 아직 미완료일 때만 정지한다 —
+                //   자기 이동이 없거나 끝났으면 축이 움직여도 남의 이동이므로 건드리지 않는다.
+                bool ownMoveStillActive = activeMoveTask != null && !activeMoveTask.IsCompleted;
+                if (stopActiveMoveOnExit && ownMoveStillActive && visionX != null && visionX.IsMoving)
                 {
                     try
                     {
