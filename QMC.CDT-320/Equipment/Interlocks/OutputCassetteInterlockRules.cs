@@ -35,14 +35,20 @@ namespace QMC.CDT320.Interlocks
                 {
                     // 일반 이동 인터락 확인
                     case MotionGuardMoveKind.AxisMove:
-                    // 홈 이동 인터락 확인
-                    case MotionGuardMoveKind.AxisHome:
                         if (!VerifyFrontPickerXAvoidPosition(frontPicker, out reason))
                             return false;
 
                         if (!VerifyRearPickerXAvoidPosition(rearPicker, out reason))
                             return false;
 
+                        return CanMoveBinLifterZ(Cassette, feeder, out reason);
+                    // 홈 이동 인터락 확인
+                    case MotionGuardMoveKind.AxisHome:
+                        //if (!VerifyFrontPickerXAvoidPosition(frontPicker, out reason))
+                        //    return false;
+
+                        //if (!VerifyRearPickerXAvoidPosition(rearPicker, out reason))
+                        //    return false;
                         return CanHomeBinLifterZ(Cassette, feeder, out reason);
                     // 티칭 이동 인터락 확인
                     case MotionGuardMoveKind.AxisTeachingMove:

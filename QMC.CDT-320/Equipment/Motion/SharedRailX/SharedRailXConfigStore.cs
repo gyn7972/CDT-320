@@ -14,6 +14,11 @@ namespace QMC.CDT320.Motion.SharedRailX
         [DataMember(Order = 2)] public bool RequireSameVelocityForGroupMove { get; set; }
         [DataMember(Order = 3)] public List<SharedRailXAxisTestRow> Axes { get; set; }
         [DataMember(Order = 4)] public List<SharedRailXCollisionPairRow> CollisionPairs { get; set; }
+        // 비전 최소 회피 추가 여유[mm]. double?로 두어 기존 파일(필드 없음)과 명시 0.0을 구분한다
+        // (역직렬화는 생성자/이니셜라이저를 실행하지 않음 — SafetyDistance double? 관례와 동일).
+        [DataMember(Order = 5)] public double? InputVisionRetreatExtraClearance { get; set; }
+        [DataMember(Order = 6)] public double? OutputVisionRetreatExtraClearance { get; set; }
+        [DataMember(Order = 7)] public int? VisionFollowEntryTimeoutMs { get; set; }
 
         public SharedRailXConfigDocument()
         {
@@ -110,6 +115,10 @@ namespace QMC.CDT320.Motion.SharedRailX
             SharedRailXConfig config = SharedRailXConfig.CreateDefault();
             config.DefaultSafetyDistance = document.DefaultSafetyDistance;
             config.RequireSameVelocityForGroupMove = document.RequireSameVelocityForGroupMove;
+            // Normalize가 !HasValue를 40.0으로 채우므로 여기서는 값 존재가 보장된다.
+            config.InputVisionRetreatExtraClearance = document.InputVisionRetreatExtraClearance ?? 40.0;
+            config.OutputVisionRetreatExtraClearance = document.OutputVisionRetreatExtraClearance ?? 40.0;
+            config.VisionFollowEntryTimeoutMs = document.VisionFollowEntryTimeoutMs ?? 15000;
 
             var pairs = new List<SharedRailXAxisPair>();
             foreach (SharedRailXCollisionPairRow row in document.CollisionPairs)
@@ -149,6 +158,9 @@ namespace QMC.CDT320.Motion.SharedRailX
 
             document.DefaultSafetyDistance = config.DefaultSafetyDistance;
             document.RequireSameVelocityForGroupMove = config.RequireSameVelocityForGroupMove;
+            document.InputVisionRetreatExtraClearance = config.InputVisionRetreatExtraClearance;
+            document.OutputVisionRetreatExtraClearance = config.OutputVisionRetreatExtraClearance;
+            document.VisionFollowEntryTimeoutMs = config.VisionFollowEntryTimeoutMs;
             document.CollisionPairs.Clear();
 
             if (config.CollisionPairs != null)
@@ -171,7 +183,10 @@ namespace QMC.CDT320.Motion.SharedRailX
             var document = new SharedRailXConfigDocument
             {
                 DefaultSafetyDistance = 10.0,
-                RequireSameVelocityForGroupMove = true
+                RequireSameVelocityForGroupMove = true,
+                InputVisionRetreatExtraClearance = 40.0,
+                OutputVisionRetreatExtraClearance = 40.0,
+                VisionFollowEntryTimeoutMs = 15000
             };
 
             document.Axes.Add(CreateRow(SharedRailXAxis.InputVisionX, 0.0, 5.0));
@@ -268,6 +283,16 @@ namespace QMC.CDT320.Motion.SharedRailX
 
             if (document.DefaultSafetyDistance <= 0.0)
                 document.DefaultSafetyDistance = 10.0;
+            // 하위호환: 기존 파일에 필드가 없으면(!HasValue) 기본값 40.0. 음수는 보정, 명시 0.0은 허용.
+            if (!document.InputVisionRetreatExtraClearance.HasValue ||
+                document.InputVisionRetreatExtraClearance.Value < 0.0)
+                document.InputVisionRetreatExtraClearance = 40.0;
+            if (!document.OutputVisionRetreatExtraClearance.HasValue ||
+                document.OutputVisionRetreatExtraClearance.Value < 0.0)
+                document.OutputVisionRetreatExtraClearance = 40.0;
+            if (!document.VisionFollowEntryTimeoutMs.HasValue ||
+                document.VisionFollowEntryTimeoutMs.Value < 1000)
+                document.VisionFollowEntryTimeoutMs = 15000;
             if (document.Axes == null)
                 document.Axes = new List<SharedRailXAxisTestRow>();
             if (document.CollisionPairs == null)

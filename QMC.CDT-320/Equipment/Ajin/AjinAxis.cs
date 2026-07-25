@@ -176,7 +176,7 @@ namespace QMC.CDT320.Ajin
                         return 0;
                     }
 
-                    await Task.Delay(10, cancellationToken).ConfigureAwait(false);
+                    await Task.Delay(1, cancellationToken).ConfigureAwait(false);
                 }
 
                 return FailMotion(-3, "INITIALIZE LIMIT SEARCH", "Hardware limit search timeout.", 0.0, false);
@@ -490,6 +490,53 @@ namespace QMC.CDT320.Ajin
         // 선행축 알람 전용 에러코드.
         private const int FollowMoveLeadingAlarmErrorCode = -22;
 
+        // 규칙 2(2026-07-25): 팔로잉 명령은 속도·가속·감속을 한 세트로 명시 전달한다.
+        // 기존 조건: MoveAbsoluteAsync(command, velocity) 2인자 호출 — 가감속 스케일 여부를
+        //   MatchesDefaultVelocityScale 추론에 맡겼고, followVel=Min(선행,후행)은 후행축의 스케일
+        //   DefaultVelocity와 일치하지 않아 가감속이 Config 원본 100%로 나갔다(실장비 폭주 원인).
+        // 현재 기준: SharedRailXMotionRuntime.MoveAxisWithTemporaryMotionAsync와 동일한
+        //   Config 임시 치환 패턴으로 명시 가감속을 보장한다. acc/dec는 호출 전에 이미
+        //   MotionSpeedScale을 경유한 값이어야 한다(FollowMoveAsync 폴백 스케일이 보장).
+        //   추가(B안): velocity가 후행축의 스케일된 DefaultVelocity와 우연히 일치하면
+        //   MoveAbsoluteAsync의 useDefaultMotionScale 추론이 true가 되어 치환해 둔(이미 스케일된)
+        //   가감속에 스케일이 한 번 더 걸린다(이중 스케일, 규칙 3 위반). 이를 원천 차단하기 위해
+        //   Config.DefaultVelocity도 0으로 임시 치환한다 — MatchesDefaultVelocityScale은
+        //   defaultVelocity<=0이면 무조건 false이므로 추론이 결정적으로 명시 경로가 된다.
+        // 주의: Config를 이동 구간 동안 임시 치환하므로 반드시 finally에서 원복한다.
+        //       이 헬퍼는 FollowMoveAsync 전용이며 다른 곳에서 호출하지 않는다.
+        //       velocity<=0이면 치환 없이 기존 폴백(축 레이어 단일 스케일)에 위임한다.
+        private async Task<int> MoveAbsoluteForFollowAsync(
+            double targetPosition,
+            double velocity,
+            double acceleration,
+            double deceleration)
+        {
+            bool useExplicitMotion = Config != null && velocity > 0.0 && acceleration > 0.0 && deceleration > 0.0;
+            double oldDefaultVelocity = useExplicitMotion ? Config.DefaultVelocity : 0.0;
+            double oldAcceleration = useExplicitMotion ? Config.Acceleration : 0.0;
+            double oldDeceleration = useExplicitMotion ? Config.Deceleration : 0.0;
+            try
+            {
+                if (useExplicitMotion)
+                {
+                    Config.DefaultVelocity = 0.0;
+                    Config.Acceleration = acceleration;
+                    Config.Deceleration = deceleration;
+                }
+
+                return await MoveAbsoluteAsync(targetPosition, velocity).ConfigureAwait(false);
+            }
+            finally
+            {
+                if (useExplicitMotion)
+                {
+                    Config.DefaultVelocity = oldDefaultVelocity;
+                    Config.Acceleration = oldAcceleration;
+                    Config.Deceleration = oldDeceleration;
+                }
+            }
+        }
+
         /// <summary>
         /// 선행축을 따라가며 후행축(this)을 목표 위치까지 이동시킨다.
         /// 선행축에는 어떤 명령도 내리지 않는다(읽기 전용 — ActualPosition/IsMoving/IsAlarm만 참조).
@@ -511,9 +558,12 @@ namespace QMC.CDT320.Ajin
             int direction,
             double safetyGap,
             double homeGap,
+            int timeoutMs = 0,
             CancellationToken ct = default(CancellationToken))
         {
             Task<int> moveTask = null;
+            // R1(follow-entry): 타임아웃 인자화 — 0 이하면 기존 기본값(5000ms) 유지, 기존 호출부 무변경.
+            int effectiveTimeoutMs = timeoutMs > 0 ? timeoutMs : FollowMoveTimeoutMs;
 
             try
             {
@@ -542,19 +592,28 @@ namespace QMC.CDT320.Ajin
                     safetyGap = MinimumFollowSafetyGap;
 
                 // 팔로잉 프로파일: 선행/후행 인자 중 성분별 작은 값.
-                // 0 이하 성분은 해당 축 Config 기본값으로 대체한 뒤 Min을 취한다.
+                // 규칙 1/2(2026-07-25): 폴백도 반드시 MotionSpeedScale을 경유한다.
+                //   기존 조건: Config 날값을 그대로 사용해 스케일 미적용 100%로 나갔다(이 파일의
+                //   다른 진입점 MoveAbsoluteAsync / TryOverridePosition / TryOverrideVelocity와
+                //   불일치). 명시 인자(>0)는 호출부가 이미 스케일한 값이므로 재스케일하지 않는다.
                 double leadVel = leadingVelocity > 0.0
                     ? leadingVelocity
-                    : (leadingAxis.Config != null ? leadingAxis.Config.DefaultVelocity : 0.0);
+                    : MotionSpeedScale.ApplyDefaultVelocityScale(leadingAxis.Config != null ? leadingAxis.Config.DefaultVelocity : 0.0);
                 double leadAcc = leadingAcceleration > 0.0
                     ? leadingAcceleration
-                    : (leadingAxis.Config != null ? leadingAxis.Config.Acceleration : 0.0);
+                    : MotionSpeedScale.ApplyDefaultAccelerationScale(leadingAxis.Config != null ? leadingAxis.Config.Acceleration : 0.0);
                 double leadDec = leadingDeceleration > 0.0
                     ? leadingDeceleration
-                    : (leadingAxis.Config != null ? leadingAxis.Config.Deceleration : 0.0);
-                double trailVel = trailingVelocity > 0.0 ? trailingVelocity : Config.DefaultVelocity;
-                double trailAcc = trailingAcceleration > 0.0 ? trailingAcceleration : Config.Acceleration;
-                double trailDec = trailingDeceleration > 0.0 ? trailingDeceleration : Config.Deceleration;
+                    : MotionSpeedScale.ApplyDefaultAccelerationScale(leadingAxis.Config != null ? leadingAxis.Config.Deceleration : 0.0);
+                double trailVel = trailingVelocity > 0.0
+                    ? trailingVelocity
+                    : MotionSpeedScale.ApplyDefaultVelocityScale(Config.DefaultVelocity);
+                double trailAcc = trailingAcceleration > 0.0
+                    ? trailingAcceleration
+                    : MotionSpeedScale.ApplyDefaultAccelerationScale(Config.Acceleration);
+                double trailDec = trailingDeceleration > 0.0
+                    ? trailingDeceleration
+                    : MotionSpeedScale.ApplyDefaultAccelerationScale(Config.Deceleration);
                 double followVel = Math.Min(leadVel, trailVel);
                 double followAcc = Math.Min(leadAcc, trailAcc);
                 double followDec = Math.Min(leadDec, trailDec);
@@ -566,19 +625,27 @@ namespace QMC.CDT320.Ajin
                     ", direction=" + direction +
                     ", safetyGap=" + safetyGap.ToString("F3") + (safetyGapClamped ? "(클램프됨)" : "") +
                     ", homeGap=" + homeGap.ToString("F3") +
-                    ", followVel=" + followVel.ToString("F3") + " - Start");
+                    ", followVel=" + followVel.ToString("F3") +
+                    ", followAcc=" + followAcc.ToString("F3") +
+                    ", followDec=" + followDec.ToString("F3") +
+                    ", trailVel=" + trailVel.ToString("F3") +
+                    ", trailAcc=" + trailAcc.ToString("F3") +
+                    ", trailDec=" + trailDec.ToString("F3") +
+                    ", scalePercent=" + (MotionSpeedScale.EffectiveScaleFactor * 100.0).ToString("0.#") + " - Start");
 
                 var stopwatch = System.Diagnostics.Stopwatch.StartNew();
                 double lastCommanded = double.NaN;
                 bool firstCommandLogged = false;
                 bool finalEntered = false;
+                // 수정 E(2026-07-25): 오버라이드 성공 로그 스로틀 — 최초 1건은 무조건, 이후 1초 1건.
+                long lastOverrideLogMs = -1;
 
                 while (true)
                 {
                     ct.ThrowIfCancellationRequested();
 
-                    if (stopwatch.ElapsedMilliseconds >= FollowMoveTimeoutMs)
-                        return await FailFollowTimeoutAsync(moveTask, trailingTargetPosition).ConfigureAwait(false);
+                    if (stopwatch.ElapsedMilliseconds >= effectiveTimeoutMs)
+                        return await FailFollowTimeoutAsync(moveTask, trailingTargetPosition, effectiveTimeoutMs).ConfigureAwait(false);
 
                     UpdateStatus();
 
@@ -655,8 +722,15 @@ namespace QMC.CDT320.Ajin
                                 if (double.IsNaN(lastCommanded) || Math.Abs(command - lastCommanded) > tolerance ||
                                     !IsAtTargetPosition(command, tolerance))
                                 {
+                                    // 수정 B(2026-07-25): 가감속 스케일을 MoveAbsoluteAsync의 속도값
+                                    // 추론에 맡기지 않고, 팔로잉이 계산한(스케일 보장된) 프로파일을
+                                    // 명시 전달한다. commandIsFinal이면 후행축 자기 프로파일(trail*),
+                                    // 중간 세그먼트는 팔로잉 프로파일(follow*) — 기존 의도 유지.
                                     double startVelocity = commandIsFinal ? trailVel : followVel;
-                                    moveTask = MoveAbsoluteAsync(command, startVelocity);
+                                    double startAcceleration = commandIsFinal ? trailAcc : followAcc;
+                                    double startDeceleration = commandIsFinal ? trailDec : followDec;
+                                    moveTask = MoveAbsoluteForFollowAsync(
+                                        command, startVelocity, startAcceleration, startDeceleration);
                                     lastCommanded = command;
                                     commandIssued = true;
                                     if (!firstCommandLogged)
@@ -664,13 +738,39 @@ namespace QMC.CDT320.Ajin
                                         firstCommandLogged = true;
                                         QMC.Common.Log.Write("Motion", "SYSTEM", "AX-FOLLOW-MOVE",
                                             Name + " 팔로잉 최초 이동 명령을 발행했습니다. command=" + command.ToString("F3") +
-                                            ", velocity=" + startVelocity.ToString("F3") + " - Ok");
+                                            ", velocity=" + startVelocity.ToString("F3") +
+                                            ", acc=" + startAcceleration.ToString("F3") +
+                                            ", dec=" + startDeceleration.ToString("F3") +
+                                            ", scalePercent=" + (MotionSpeedScale.EffectiveScaleFactor * 100.0).ToString("0.#") + " - Ok");
                                     }
                                 }
                             }
                             else if (double.IsNaN(lastCommanded) || Math.Abs(command - lastCommanded) > tolerance)
                             {
                                 int overrideResult = TryOverridePosition(command, followVel, followAcc, followDec);
+
+                                // 수정 E(2026-07-25): 오버라이드는 폴링마다 나가므로 성공 로그는
+                                // 최초 1건 + 이후 1초 1건으로 제한하고, 실패는 제한 없이 매번 남긴다.
+                                // (사고 시 보드에 실제로 나간 명령값을 로그로 재구성하기 위한 진단 로그.)
+                                bool overrideLogDue = overrideResult != 0 ||
+                                    lastOverrideLogMs < 0 ||
+                                    stopwatch.ElapsedMilliseconds - lastOverrideLogMs >= 1000;
+                                if (overrideLogDue)
+                                {
+                                    if (overrideResult == 0)
+                                        lastOverrideLogMs = stopwatch.ElapsedMilliseconds;
+                                    QMC.Common.Log.Write("Motion", "SYSTEM", "AX-FOLLOW-OVERRIDE",
+                                        Name + " 팔로잉 위치 오버라이드. command=" + command.ToString("F3") +
+                                        ", vel=" + followVel.ToString("F3") +
+                                        ", acc=" + followAcc.ToString("F3") +
+                                        ", dec=" + followDec.ToString("F3") +
+                                        ", leadingActual=" + leadingActual.ToString("F3") +
+                                        ", gap=" + gap.ToString("F3") +
+                                        ", slack=" + slack.ToString("F3") +
+                                        ", result=" + overrideResult +
+                                        ", scalePercent=" + (MotionSpeedScale.EffectiveScaleFactor * 100.0).ToString("0.#") + " - Check");
+                                }
+
                                 if (overrideResult == 0)
                                 {
                                     lastCommanded = command;
@@ -704,11 +804,19 @@ namespace QMC.CDT320.Ajin
                             if (finalCommandActive && !finalEntered)
                             {
                                 finalEntered = true;
+                                // 수정 D(2026-07-25): 증속 동작(followVel→trailVel)은 유지하고
+                                // 반환값과 실제 명령값을 로그로 남겨 사후 검증 가능하게 한다.
+                                int finalOverrideResult = 0;
                                 if (IsMoving)
-                                    TryOverrideVelocity(trailVel, trailAcc, trailDec);
+                                    finalOverrideResult = TryOverrideVelocity(trailVel, trailAcc, trailDec);
                                 QMC.Common.Log.Write("Motion", "SYSTEM", "AX-FOLLOW-MOVE",
                                     Name + " 팔로잉 최종 구간에 진입했습니다. target=" + trailingTargetPosition.ToString("F3") +
                                     ", velocity=" + trailVel.ToString("F3") +
+                                    ", acc=" + trailAcc.ToString("F3") +
+                                    ", dec=" + trailDec.ToString("F3") +
+                                    ", followVel=" + followVel.ToString("F3") +
+                                    ", overrideResult=" + finalOverrideResult +
+                                    ", scalePercent=" + (MotionSpeedScale.EffectiveScaleFactor * 100.0).ToString("0.#") +
                                     (commandIssued ? "" : " (명령 유지)") + " - Ok");
                                 break;
                             }
@@ -719,9 +827,9 @@ namespace QMC.CDT320.Ajin
                 }
 
                 // 최종 완료 대기 (남은 타임아웃 적용).
-                int remainingMs = FollowMoveTimeoutMs - (int)stopwatch.ElapsedMilliseconds;
+                int remainingMs = effectiveTimeoutMs - (int)stopwatch.ElapsedMilliseconds;
                 if (remainingMs <= 0)
-                    return await FailFollowTimeoutAsync(moveTask, trailingTargetPosition).ConfigureAwait(false);
+                    return await FailFollowTimeoutAsync(moveTask, trailingTargetPosition, effectiveTimeoutMs).ConfigureAwait(false);
 
                 // 기존 조건: AxisMoveWaiter 결과(실패 7종)로 분기 — 현재 기준: WaitMoveCompleteAsync int 결과(R3).
                 int waitCode = await WaitMoveCompleteAsync(
@@ -732,7 +840,7 @@ namespace QMC.CDT320.Ajin
                 if (waitCode != 0)
                 {
                     if (waitCode == -3)
-                        return await FailFollowTimeoutAsync(moveTask, trailingTargetPosition).ConfigureAwait(false);
+                        return await FailFollowTimeoutAsync(moveTask, trailingTargetPosition, effectiveTimeoutMs).ConfigureAwait(false);
 
                     Stop();
                     await DrainFollowMoveTaskAsync(moveTask).ConfigureAwait(false);
@@ -771,14 +879,14 @@ namespace QMC.CDT320.Ajin
         }
 
         /// <summary>타임아웃 공통 처리: 정지 → 백그라운드 Task drain → -21 기록/반환.</summary>
-        private async Task<int> FailFollowTimeoutAsync(Task<int> moveTask, double trailingTargetPosition)
+        private async Task<int> FailFollowTimeoutAsync(Task<int> moveTask, double trailingTargetPosition, int timeoutMs = FollowMoveTimeoutMs)
         {
             Stop();
             await DrainFollowMoveTaskAsync(moveTask).ConfigureAwait(false);
             QMC.Common.Log.Write("Motion", "SYSTEM", "AX-FOLLOW-MOVE",
-                Name + " 팔로잉 이동이 타임아웃(" + FollowMoveTimeoutMs + "ms)되었습니다. actual=" + ActualPosition.ToString("F3") + " - Failed");
+                Name + " 팔로잉 이동이 타임아웃(" + timeoutMs + "ms)되었습니다. actual=" + ActualPosition.ToString("F3") + " - Failed");
             return FailMotion(FollowMoveTimeoutErrorCode, "FOLLOW MOVE",
-                "팔로잉 이동이 " + FollowMoveTimeoutMs + "ms 안에 완료되지 않았습니다.", trailingTargetPosition, true);
+                "팔로잉 이동이 " + timeoutMs + "ms 안에 완료되지 않았습니다.", trailingTargetPosition, true);
         }
 
         /// <summary>
@@ -3008,7 +3116,7 @@ namespace QMC.CDT320.Ajin
                         return FailMotion(-3, "MOVE JOIN",
                             "이동 합류 대기 timeout. timeoutMs=" + timeoutMs, target, true);
 
-                    await Task.Delay(10, ct).ConfigureAwait(false);
+                    await Task.Delay(1, ct).ConfigureAwait(false);
                 }
 
                 UpdateStatus();
@@ -3044,12 +3152,19 @@ namespace QMC.CDT320.Ajin
         }
 
         // 기존 조건: IsMoving+INP(IsInPosition) 조합으로 완료를 판정했다.
-        // 현재 기준: AXM.GetInMotion(보드 InMotion 비트) 10ms 폴링만으로 완료를 판정한다 — INP 신호는
+        // 현재 기준: AXM.GetInMotion(보드 InMotion 비트) Delay(1) 폴링만으로 완료를 판정한다 — INP 신호는
         //           완료 조건에서 제외(설계 결정, 사용자 승인). UpdateStatus로 위치 관측값 갱신은 유지.
-        //           시작 유예(detectedMotion 래치 + 20폴)는 명령 직후 InMotion 미반영 레이스 방어로 유지.
+        //           시작 유예(detectedMotion 래치 + 200ms)는 명령 직후 InMotion 미반영 레이스 방어로 유지.
         private async Task<int> WaitUntilMoveDone(int motionStopSerial)
         {
-            int guard = 0;
+            // 기존 조건: 폴링 횟수로 타임아웃(guard>6000)과 이동 시작 유예(guard>20)를 판정했다 —
+            //           Delay(10) 전제라 각각 60초 / 200ms 였다.
+            // 현재 기준: Delay(1)에서는 폴링 횟수가 경과 시간과 무관하므로(보드 폴링 속도에 좌우)
+            //           Stopwatch로 경과 시간을 직접 측정해 판정한다. 타임아웃 60초, 시작 유예 200ms.
+            const int MoveWaitTimeoutMs = 60000;
+            const int MotionStartGraceMs = 200;
+
+            System.Diagnostics.Stopwatch elapsed = System.Diagnostics.Stopwatch.StartNew();
             bool detectedMotion = false;
             while (!IsAlarm)
             {
@@ -3063,20 +3178,23 @@ namespace QMC.CDT320.Ajin
                 if (detectedMotion && !inMotion)
                     break;
 
-                if (!detectedMotion && guard > 20 && !inMotion)
+                if (!detectedMotion && !inMotion && elapsed.ElapsedMilliseconds > MotionStartGraceMs)
                     break;
 
                 if (Volatile.Read(ref _motionStopSerial) != motionStopSerial && !inMotion)
                     return -4;
 
-                await Task.Delay(10).ConfigureAwait(false);
-                if (++guard > 6000)
+                await Task.Delay(1).ConfigureAwait(false);
+
+                if (elapsed.ElapsedMilliseconds > MoveWaitTimeoutMs)
                 {
                     AlarmManager.Raise(
                         AlarmSeverity.Error,
                         "AX-MOVE-WAIT",
                         Name,
-                        "Move wait timeout. AxisNo=" + AxisNo);
+                        "Move wait timeout. AxisNo=" + AxisNo +
+                        ", elapsedMs=" + elapsed.ElapsedMilliseconds +
+                        ", timeoutMs=" + MoveWaitTimeoutMs);
                     UpdateStatus();
                     return -3;
                 }

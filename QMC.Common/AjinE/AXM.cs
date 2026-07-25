@@ -2126,17 +2126,110 @@ namespace QMC.Common.Motion.Ajin
             Actual = 1,
         }
 
+        /// <summary>
+        /// 오버라이드 호출 시 보드에 실제로 전달한 인자를 남긴다.
+        /// 2026-07-25 RearPickerX 폭주 사고에서 오버라이드 발행 사실 자체를 상위 로그의
+        /// "(명령 유지)" 표시 유무로 역추론해야 했다 — 보드 계층 기록으로 확정 가능하게 한다.
+        /// 성공 로그는 축별 1초 1건으로 제한하고, 실패(ret != 0)는 제한 없이 매번 남긴다.
+        /// </summary>
+        private static readonly System.Collections.Concurrent.ConcurrentDictionary<int, long> OverrideLogTicks =
+            new System.Collections.Concurrent.ConcurrentDictionary<int, long>();
+
+        private static void LogOverrideCall(
+            string kind,
+            int axis,
+            double position,
+            double velocity,
+            double acceleration,
+            double deceleration,
+            int ret,
+            string failedAt,
+            double commandBase = double.NaN,
+            double relative = double.NaN)
+        {
+            try
+            {
+                if (ret == 0)
+                {
+                    long nowMs = System.Diagnostics.Stopwatch.GetTimestamp() / (System.Diagnostics.Stopwatch.Frequency / 1000L);
+                    long lastMs;
+                    if (OverrideLogTicks.TryGetValue(axis, out lastMs) && nowMs - lastMs < 1000L)
+                        return;
+                    OverrideLogTicks[axis] = nowMs;
+                }
+
+                string message = "AXM OVERRIDE " + kind +
+                    ". axisNo=" + axis +
+                    (double.IsNaN(position) ? "" : ", position=" + position.ToString("F6")) +
+                    (double.IsNaN(commandBase) ? "" : ", cmdBase=" + commandBase.ToString("F6")) +
+                    (double.IsNaN(relative) ? "" : ", relative=" + relative.ToString("F6")) +
+                    ", velocity=" + velocity.ToString("F6") +
+                    ", acceleration=" + acceleration.ToString("F6") +
+                    ", deceleration=" + deceleration.ToString("F6") +
+                    ", absRelMode=" + (kind == "POSITION" ? "REL(변환)" : "-") +
+                    ", ret=0x" + ret.ToString("X4") +
+                    (string.IsNullOrEmpty(failedAt) ? " - Ok" : ", failedAt=" + failedAt + " - Failed");
+
+                QMC.Common.Log.Write("Motion", "SYSTEM", "AXM-OVERRIDE", message);
+            }
+            catch
+            {
+                // 로그 실패가 모션 명령 경로를 막지 않도록 삼킨다.
+            }
+        }
+
+        /// <summary>
+        /// 구동 중인 축의 목표 위치와 가감속/속도를 오버라이드한다.
+        /// position 은 <b>절대 좌표</b>로 받고, 내부에서 보드 상대량으로 변환해 전달한다.
+        /// 기존 조건(2026-07-25 1차): 절대좌표 모드를 SetAbsRelMode(POS_ABS_MODE)로 명시하고 절대
+        ///           position을 그대로 AxmOverridePos에 전달했다 — 같은 날 16:10 재현에서 모드 명시
+        ///           성공(ret=0x0000)에도 축이 +position 상대량처럼 역주행함을 보드 인자 로그
+        ///           (AXM-OVERRIDE)로 확정했다. 즉 EtherCAT의 AxmOverridePos는 절대/상대 모드
+        ///           설정과 무관하게 구동 시점 위치 기준 상대량으로 해석한다(PCI-Nx04 주석과 동일 거동).
+        /// 현재 기준(사용자 승인 2026-07-25 A안): 호출 직전 보드 Command 위치(cmdBase)를 읽어
+        ///           relative = position − cmdBase 로 변환해 전달한다. SetAbsRelMode는 오버라이드에
+        ///           무효임이 확정되어 제거(상대량 전달과의 의미 충돌 방지).
+        ///           로그에 절대 목표/cmdBase/relative를 모두 남긴다 — 벤더의 "구동 시점" 기준이
+        ///           호출 시점이 아니라 모션 시작점이면 도달 위치가 이동량만큼 어긋나므로
+        ///           로그 대조로 즉시 판별 가능하다(저속 검증 필수).
+        /// </summary>
         public static int ModifyPosition(int axis, double position, double velocity, double acceleration, double deceleration)
         {
             int ret = 0;
-            if ((ret = AXL.CheckErrorCode("AXM.AxmOverridePos", AXM.AxmOverridePos(axis, position))) != 0) return ret;
-            if ((ret = AXL.CheckErrorCode("AXM.AxmOverrideAccelVelDecel", AXM.AxmOverrideAccelVelDecel(axis, velocity, acceleration, deceleration))) != 0) return ret;
+
+            double commandBase = 0.0;
+            if ((ret = GetCommandPosition(axis, ref commandBase)) != 0)
+            {
+                LogOverrideCall("POSITION", axis, position, velocity, acceleration, deceleration, ret, "GetCommandPosition");
+                return ret;
+            }
+
+            double relative = position - commandBase;
+            if ((ret = AXL.CheckErrorCode("AXM.AxmOverridePos", AXM.AxmOverridePos(axis, relative))) != 0)
+            {
+                LogOverrideCall("POSITION", axis, position, velocity, acceleration, deceleration, ret, "AxmOverridePos", commandBase, relative);
+                return ret;
+            }
+
+            if ((ret = AXL.CheckErrorCode("AXM.AxmOverrideAccelVelDecel", AXM.AxmOverrideAccelVelDecel(axis, velocity, acceleration, deceleration))) != 0)
+            {
+                LogOverrideCall("POSITION", axis, position, velocity, acceleration, deceleration, ret, "AxmOverrideAccelVelDecel", commandBase, relative);
+                return ret;
+            }
+
+            LogOverrideCall("POSITION", axis, position, velocity, acceleration, deceleration, 0, null, commandBase, relative);
             return ret;
         }
         public static int ModifyVelocity(int axis, double velocity, double acceleration, double deceleration)
         {
             int ret = 0;
-            if ((ret = AXL.CheckErrorCode("AXM.AxmOverrideAccelVelDecel", AXM.AxmOverrideAccelVelDecel(axis, velocity, acceleration, deceleration))) != 0) return ret;
+            if ((ret = AXL.CheckErrorCode("AXM.AxmOverrideAccelVelDecel", AXM.AxmOverrideAccelVelDecel(axis, velocity, acceleration, deceleration))) != 0)
+            {
+                LogOverrideCall("VELOCITY", axis, double.NaN, velocity, acceleration, deceleration, ret, "AxmOverrideAccelVelDecel");
+                return ret;
+            }
+
+            LogOverrideCall("VELOCITY", axis, double.NaN, velocity, acceleration, deceleration, 0, null);
             return ret;
         }
         /// <summary>

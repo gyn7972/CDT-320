@@ -84,7 +84,7 @@ namespace QMC.CDT320.Interlocks
 
             //Todo: Feeder 가 안전 위치고 클램프가 업상태이면 PASS
 
-            if(feeder.IsWaferFeederAvoidPositionCheck())
+            if(feeder.IsWaferFeederAvoidPositionCheck() == false)
             {
                 if (!IsInputVisionXInAvoidPosition(stage) && cameraX.ActualPosition > 0.0)
                     return MotionGuardRuleHelpers.Block(

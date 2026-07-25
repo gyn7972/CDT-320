@@ -7,6 +7,25 @@ namespace QMC.CDT320.Motion.SharedRailX
         public double DefaultSafetyDistance { get; set; } = 10.0;
         public bool RequireSameVelocityForGroupMove { get; set; } = true;
 
+        /// <summary>
+        /// 웨이퍼(Input) 비전 최소 회피 목표 계산에만 쓰는 추가 여유[mm].
+        /// 회피 목표 = 피커 최대 진입 위치에서 (페어 SafetyDistance + 이 값)만큼 떨어진 위치.
+        /// R5: 이 값은 피커/비전 진입 허용 인터락(SafetyDistance 판정)에는 절대 더하지 않는다 —
+        /// 오직 TryResolveMinimalVisionRetreatTarget의 회피 목표 계산에만 사용한다.
+        /// </summary>
+        public double InputVisionRetreatExtraClearance { get; set; } = 40.0;
+
+        /// <summary>
+        /// 빈(Output) 비전 최소 회피 목표 계산에만 쓰는 추가 여유[mm].
+        /// R5: 인터락(SafetyDistance 판정)에는 절대 더하지 않는다 — 회피 목표 계산 전용.
+        /// </summary>
+        public double OutputVisionRetreatExtraClearance { get; set; } = 40.0;
+
+        /// <summary>
+        /// 비전∥피커 팔로잉 진입(FollowMoveAsync)의 타임아웃[ms]. 기본 15000, 최소 1000.
+        /// </summary>
+        public int VisionFollowEntryTimeoutMs { get; set; } = 15000;
+
         public List<SharedRailXAxisPair> CollisionPairs { get; private set; }
 
         public SharedRailXConfig()

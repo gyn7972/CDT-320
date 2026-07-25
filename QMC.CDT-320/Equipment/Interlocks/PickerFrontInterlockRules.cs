@@ -688,7 +688,7 @@ namespace QMC.CDT320.Interlocks
                 return false;
 
             // 현재 기준: Input 진입 전 InputVisionX는 Avoid 또는 0 이하 위치여야 한다.
-            if (!VerifyInputVisionXAtAvoidOrBelowZero(machine != null ? machine.InputStageUnit : null, "FrontPickerX", out reason))
+            if (!VerifyInputVisionXAtAvoidOrBelowZero(request, machine, machine != null ? machine.InputStageUnit : null, "FrontPickerX", out reason))
                 return false;
 
             // 현재 기준: FrontPickerX Input 진입 전 X 안전거리 안에서 Front/Rear PickerY가 동시에 전진하면 차단한다.
@@ -724,7 +724,7 @@ namespace QMC.CDT320.Interlocks
                 return false;
 
             // 현재 기준: Output 진입 전 OutputVisionX는 Avoid 또는 0 이하 위치여야 한다.
-            if (!VerifyOutputVisionXAtAvoidOrBelowZero(machine != null ? machine.OutputStageUnit : null, "FrontPickerX", out reason))
+            if (!VerifyOutputVisionXAtAvoidOrBelowZero(request, machine, machine != null ? machine.OutputStageUnit : null, "FrontPickerX", out reason))
                 return false;
 
             // 현재 기준: FrontPickerX Output 진입 전 X 안전거리 안에서 Front/Rear PickerY가 동시에 전진하면 차단한다.
@@ -836,11 +836,21 @@ namespace QMC.CDT320.Interlocks
         }
 
         // 인터락 항목: Picker Input 진입 전 InputVisionX가 Avoid 또는 0 이하 위치인지 확인한다.
-        private static bool VerifyInputVisionXAtAvoidOrBelowZero(InputStageUnit stage, string movingName, out string reason)
+        // 제3 분기(사용자 승인 2026-07-24): 위 두 조건이 아니거나 비전이 이동 중이어도, 피커 이동 목표와
+        // InputVisionX의 Actual/Command 양쪽이 SharedRailX 페어 간격식으로 SafetyDistance를 만족하면
+        // 진입을 허용한다 (최소 회피/팔로잉 진입의 유지 간격 50mm > 요구 10mm, RetreatExtra 미포함 — R5).
+        private static bool VerifyInputVisionXAtAvoidOrBelowZero(MotionGuardRuleContext request, CDT320_Machine machine, InputStageUnit stage, string movingName, out string reason)
         {
             reason = string.Empty;
             // 방어 조건: InputStage 또는 InputVisionX 참조가 없으면 InputVisionX 조건을 적용하지 않는다.
             if (stage == null || stage.CameraX == null)
+                return true;
+
+            string clearanceDetail;
+            BaseAxis pickerX = machine != null && machine.PickerFrontUnit != null ? machine.PickerFrontUnit.PickerX : null;
+            if (request != null &&
+                MotionGuardRuleHelpers.IsPairClearanceSatisfiedForEntry(
+                    machine, pickerX, request.TargetValue, stage.CameraX, out clearanceDetail))
                 return true;
 
             // 현재 기준: InputVisionX가 이동 중이면 Picker Input 진입을 차단한다.
@@ -854,7 +864,7 @@ namespace QMC.CDT320.Interlocks
 
             return MotionGuardRuleHelpers.Block(
                 movingName,
-                movingName + " 이동 불가: InputVisionX가 Avoid 또는 0 이하 위치가 아닙니다. actual=" + stage.CameraX.ActualPosition.ToString("0.###"),
+                movingName + " 이동 불가: InputVisionX가 Avoid/0 이하 위치가 아니고 페어 간격도 부족합니다. actual=" + stage.CameraX.ActualPosition.ToString("0.###"),
                 out reason);
         }
 
@@ -924,11 +934,20 @@ namespace QMC.CDT320.Interlocks
         }
 
         // 인터락 항목: Picker Output 진입 전 OutputVisionX가 Avoid 또는 0 이하 위치인지 확인한다.
-        private static bool VerifyOutputVisionXAtAvoidOrBelowZero(OutputStageUnit outputStage, string movingName, out string reason)
+        // 제3 분기(사용자 승인 2026-07-24): 피커 이동 목표와 OutputVisionX Actual/Command 양쪽이
+        // 페어 간격식으로 SafetyDistance를 만족하면 진입 허용 (RetreatExtra 미포함 — R5).
+        private static bool VerifyOutputVisionXAtAvoidOrBelowZero(MotionGuardRuleContext request, CDT320_Machine machine, OutputStageUnit outputStage, string movingName, out string reason)
         {
             reason = string.Empty;
             // 방어 조건: OutputStage 또는 OutputVisionX 참조가 없으면 OutputVisionX 조건을 적용하지 않는다.
             if (outputStage == null || outputStage.OutputCameraX == null)
+                return true;
+
+            string clearanceDetail;
+            BaseAxis pickerX = machine != null && machine.PickerFrontUnit != null ? machine.PickerFrontUnit.PickerX : null;
+            if (request != null &&
+                MotionGuardRuleHelpers.IsPairClearanceSatisfiedForEntry(
+                    machine, pickerX, request.TargetValue, outputStage.OutputCameraX, out clearanceDetail))
                 return true;
 
             // 현재 기준: OutputVisionX가 이동 중이면 Picker Output 진입을 차단한다.
@@ -942,7 +961,7 @@ namespace QMC.CDT320.Interlocks
 
             return MotionGuardRuleHelpers.Block(
                 movingName,
-                movingName + " 이동 불가: OutputVisionX가 Avoid 또는 0 이하 위치가 아닙니다. actual=" + outputStage.OutputCameraX.ActualPosition.ToString("0.###"),
+                movingName + " 이동 불가: OutputVisionX가 Avoid/0 이하 위치가 아니고 페어 간격도 부족합니다. actual=" + outputStage.OutputCameraX.ActualPosition.ToString("0.###"),
                 out reason);
         }
 

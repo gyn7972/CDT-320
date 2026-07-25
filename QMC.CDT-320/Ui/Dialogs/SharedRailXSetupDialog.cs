@@ -117,6 +117,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             _gridGroups.Controls.Add(_pairGrid, 2, 1);
 
             chkSameVelocity.Location = new Point(0, chkSameVelocity.Location.Y);
+            BuildRetreatSettingsPanel();
 
             _activeGrid = grid;
         }
@@ -543,6 +544,7 @@ namespace QMC.CDT_320.Ui.Dialogs
         {
             _document = SharedRailXConfigStore.LoadDocumentOrCreateDefault();
             chkSameVelocity.Checked = _document.RequireSameVelocityForGroupMove;
+            LoadRetreatSettingsFromDocument();
             LoadGrid();
             lblPath.Text = SharedRailXConfigStore.Path_;
             lblStatus.Text = "Loaded.";
@@ -606,6 +608,88 @@ namespace QMC.CDT_320.Ui.Dialogs
             }
         }
 
+        // 비전 최소 회피/팔로잉 설정 UI (R2): Extra 2종(mm) + Follow Timeout(ms).
+        private FlowLayoutPanel _retreatPanel;
+        private NumericUpDown _numInputExtra;
+        private NumericUpDown _numOutputExtra;
+        private NumericUpDown _numFollowTimeout;
+
+        private void BuildRetreatSettingsPanel()
+        {
+            if (_retreatPanel != null || chkSameVelocity.Parent == null)
+                return;
+
+            _retreatPanel = new FlowLayoutPanel
+            {
+                AutoSize = true,
+                AutoSizeMode = AutoSizeMode.GrowAndShrink,
+                WrapContents = false,
+                FlowDirection = FlowDirection.LeftToRight,
+                Location = new Point(chkSameVelocity.Right + 24, chkSameVelocity.Top - 3),
+                Anchor = chkSameVelocity.Anchor
+            };
+
+            _numInputExtra = CreateRetreatNumeric(0, 500, 1, 0.5m);
+            _numOutputExtra = CreateRetreatNumeric(0, 500, 1, 0.5m);
+            _numFollowTimeout = CreateRetreatNumeric(1000, 600000, 0, 500m);
+
+            AddRetreatField("Input Extra(mm)", _numInputExtra);
+            AddRetreatField("Output Extra(mm)", _numOutputExtra);
+            AddRetreatField("Follow Timeout(ms)", _numFollowTimeout);
+
+            chkSameVelocity.Parent.Controls.Add(_retreatPanel);
+            _retreatPanel.BringToFront();
+        }
+
+        private static NumericUpDown CreateRetreatNumeric(decimal min, decimal max, int decimals, decimal step)
+        {
+            return new NumericUpDown
+            {
+                Minimum = min,
+                Maximum = max,
+                DecimalPlaces = decimals,
+                Increment = step,
+                Width = 82,
+                TextAlign = HorizontalAlignment.Right
+            };
+        }
+
+        private void AddRetreatField(string labelText, NumericUpDown numeric)
+        {
+            var label = new Label
+            {
+                AutoSize = true,
+                Text = labelText,
+                Margin = new Padding(12, 6, 4, 0)
+            };
+            numeric.Margin = new Padding(0, 2, 0, 0);
+            _retreatPanel.Controls.Add(label);
+            _retreatPanel.Controls.Add(numeric);
+        }
+
+        private void LoadRetreatSettingsFromDocument()
+        {
+            if (_retreatPanel == null || _document == null)
+                return;
+
+            decimal inputExtra = (decimal)(_document.InputVisionRetreatExtraClearance ?? 40.0);
+            decimal outputExtra = (decimal)(_document.OutputVisionRetreatExtraClearance ?? 40.0);
+            decimal timeout = _document.VisionFollowEntryTimeoutMs ?? 15000;
+            _numInputExtra.Value = Math.Min(Math.Max(inputExtra, _numInputExtra.Minimum), _numInputExtra.Maximum);
+            _numOutputExtra.Value = Math.Min(Math.Max(outputExtra, _numOutputExtra.Minimum), _numOutputExtra.Maximum);
+            _numFollowTimeout.Value = Math.Min(Math.Max(timeout, _numFollowTimeout.Minimum), _numFollowTimeout.Maximum);
+        }
+
+        private void SaveRetreatSettingsToDocument()
+        {
+            if (_retreatPanel == null || _document == null)
+                return;
+
+            _document.InputVisionRetreatExtraClearance = (double)_numInputExtra.Value;
+            _document.OutputVisionRetreatExtraClearance = (double)_numOutputExtra.Value;
+            _document.VisionFollowEntryTimeoutMs = (int)_numFollowTimeout.Value;
+        }
+
         private bool ReadGridToDocument()
         {
             try
@@ -615,6 +699,7 @@ namespace QMC.CDT_320.Ui.Dialogs
 
                 _document.RequireSameVelocityForGroupMove = chkSameVelocity.Checked;
                 _document.DefaultSafetyDistance = 10.0;
+                SaveRetreatSettingsToDocument();
 
                 foreach (DataGridViewRow row in _testGrid.Rows)
                 {

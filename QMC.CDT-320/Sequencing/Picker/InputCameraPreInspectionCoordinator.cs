@@ -70,6 +70,11 @@ namespace QMC.CDT320.Sequencing
                     StartedAt = DateTime.Now,
                     Reason = reason ?? string.Empty
                 };
+
+                // 진짜 FIFO(Q2): 선행검사 Task를 시작하는 이 임계구역에서 진입 티켓을 발급한다.
+                // 카메라존 양보 대기(선행검사 Task 내부)보다 반드시 먼저 발급돼, 대기 중 주체는 항상
+                // 자기 티켓을 보유한다(mine=none 상호양보 소멸). 멱등이라 재기동 시 기존 순서 유지.
+                InputEntryQueue.Enqueue(side, InputEntryKind.PreInspection);
             }
 
             WriteLog("InputCameraPreInspectionCoordinator",
@@ -329,6 +334,15 @@ namespace QMC.CDT320.Sequencing
                 WriteLog("InputCameraPreInspectionCoordinator",
                     side + " InputCamera 선행검사 예외. error=" + ex.Message + " - Failed");
                 return -1;
+            }
+            finally
+            {
+                // 진짜 FIFO(Q3-c): 선행검사 Task가 종료됐는데 PickUp 허가가 발급되지 않았으면
+                // (NoTarget/Fail/Cancel) 진입 티켓을 반납한다. await 경로든 fire-and-forget(prefetch/
+                // StartSafe)이든 모든 완료가 자기 티켓을 스윕해 유령 head를 제거한다. 허가가 발급됐으면
+                // 티켓은 그 허가가 대표하며 Store 소비(TryConsume)/Clear 시 반납된다.
+                if (!InputCameraPickUpPermissionStore.HasPermission(side))
+                    InputEntryQueue.Dequeue(side);
             }
         }
 

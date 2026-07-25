@@ -18,6 +18,9 @@ namespace QMC.CDT320.Sequencing
     internal sealed class AutoSequenceCoordinatorGate
     {
         private const int PickerWorkZonePollIntervalMs = 20;
+        // R4/B5: 선행검사 카메라 존 획득 상한. FIFO head가 물리 클리어/CanSet를 무한 대기하면
+        // 무언정지가 되므로, 이 시간 초과 시 예외로 전환해 복구 알람으로 처리한다.
+        private const int InputCameraZoneAcquireTimeoutMs = 30000;
         private readonly MachineSequenceContext _context;
         private readonly object _pickerWorkZoneGate = new object();
         private PickerWorkZone _frontWorkZone = PickerWorkZone.Unknown;
@@ -199,13 +202,15 @@ namespace QMC.CDT320.Sequencing
 
         public Task<AutoSequenceCameraWorkZoneLease> BeginInputCameraWorkAsync(
             string holder,
-            CancellationToken ct)
+            CancellationToken ct,
+            PickerSequenceSide? preInspectionSide = null)
         {
             return WaitAndSetCameraWorkZoneAsync(
                 AutoSequenceCameraWorkKind.InputCamera,
                 PickerWorkZone.Input,
                 string.IsNullOrWhiteSpace(holder) ? "InputCamera" : holder,
-                ct);
+                ct,
+                preInspectionSide);
         }
 
         public Task<AutoSequenceCameraWorkZoneLease> BeginOutputCameraWorkAsync(
@@ -298,7 +303,8 @@ namespace QMC.CDT320.Sequencing
             AutoSequenceCameraWorkKind kind,
             PickerWorkZone zone,
             string holder,
-            CancellationToken ct)
+            CancellationToken ct,
+            PickerSequenceSide? preInspectionSide = null)
         {
             PickerWorkZone safeZone = PickerZoneInterlockRules.NormalizeInterlockZone(zone);
             string safeHolder = string.IsNullOrWhiteSpace(holder) ? kind.ToString() : holder;
@@ -306,6 +312,8 @@ namespace QMC.CDT320.Sequencing
                 return new AutoSequenceCameraWorkZoneLease(this, kind, PickerWorkZone.Unknown, safeHolder, false);
 
             bool waitLogged = false;
+            bool fifoWaitLogged = false;
+            DateTime acquireStart = DateTime.UtcNow;
             while (true)
             {
                 ct.ThrowIfCancellationRequested();
@@ -313,6 +321,45 @@ namespace QMC.CDT320.Sequencing
                     "AutoSequenceCoordinator.CameraWorkZone:" + kind + ":" + safeZone,
                     ShouldDeferCycleStopForOutputCameraDrain(kind),
                     "Output post-place inspection drain");
+
+                // R4/B5: 선행검사 카메라 존 획득 루프 전체에 bounded timeout. FIFO head가 되어도
+                // 물리 클리어/CanSet를 무제한 대기하면 무언정지가 되므로, 경과시간 초과 시 예외로
+                // 전환해 호출자(AcquireInputCameraWorkZoneAsync)가 Fail→선행검사 Task 종료→티켓
+                // 반납→복구 알람으로 처리한다. OutputCamera/수동 리뷰(preInspectionSide=null)는
+                // 기존 무한 대기 동작을 유지한다.
+                if (preInspectionSide.HasValue &&
+                    (DateTime.UtcNow - acquireStart).TotalMilliseconds >= InputCameraZoneAcquireTimeoutMs)
+                {
+                    throw new TimeoutException(
+                        "InputCamera 선행검사 카메라 존 획득이 제한 시간을 초과했습니다. side=" + preInspectionSide.Value +
+                        ", holder=" + safeHolder +
+                        ", timeoutMs=" + InputCameraZoneAcquireTimeoutMs +
+                        ", queue=" + InputEntryQueue.Describe());
+                }
+
+                // 진짜 FIFO 데드락 절단(원자): InputCamera 선행검사가 카메라 존을 '승인받는 매 폴링'
+                // 마다 전역 진입 큐의 head(최소 티켓)인지 재검사한다. head가 아니면 존을 잡지 않고
+                // 계속 양보한다. head는 정확히 1개뿐이라 두 선행검사가 서로 양보하는 라이브락이
+                // 구조적으로 불가능하다. IsHead는 InputEntryQueue 자체 lock만 잡으므로
+                // _pickerWorkZoneGate lock '밖'에서 호출해 중첩 lock을 피한다.
+                if (preInspectionSide.HasValue)
+                {
+                    string headDetail;
+                    if (!InputEntryQueue.IsHead(preInspectionSide.Value, out headDetail))
+                    {
+                        if (!fifoWaitLogged)
+                        {
+                            Log.Write("Main", "SYSTEM", "AutoSequenceCoordinator",
+                                "InputCamera 선행검사 카메라 존 획득을 FIFO 순번 양보합니다. 앞선 진입 티켓이 있어 존을 잡지 않고 대기합니다. " +
+                                "holder=" + safeHolder + ", side=" + preInspectionSide.Value +
+                                ", " + headDetail + " - Wait");
+                            fifoWaitLogged = true;
+                        }
+
+                        await Task.Delay(PickerWorkZonePollIntervalMs, ct).ConfigureAwait(false);
+                        continue;
+                    }
+                }
 
                 string reason;
                 if (ArePickersPhysicallyClearForCameraZone(safeZone, kind, safeHolder, out reason))

@@ -975,6 +975,7 @@
     <Compile Include="Sequencing\Picker\InputDieVisionPreparedItem.cs" />
     <Compile Include="Sequencing\Picker\InputDieVisionPrepareSequence.cs" />
     <Compile Include="Sequencing\Picker\InputCameraPickUpPermissionStore.cs" />
+    <Compile Include="Sequencing\Picker\InputEntryQueue.cs" />
     <Compile Include="Sequencing\Picker\InputCameraPreInspectionStartGate.cs" />
     <Compile Include="Sequencing\Picker\InputVisionPrefetchRunner.cs" />
     <Compile Include="Sequencing\Picker\InputCameraPreInspectionWaitStatus.cs" />

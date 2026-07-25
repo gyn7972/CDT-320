@@ -21,8 +21,8 @@ namespace QMC.CDT320.Sequencing
             lock (Sync)
             {
                 Permission oldPermission;
-                if (Permissions.TryGetValue(side, out oldPermission))
-                    ReleaseItems(oldPermission != null ? oldPermission.Items : null);
+                if (Permissions.TryGetValue(side, out oldPermission) && oldPermission != null)
+                    ReleaseItems(oldPermission.Items);
 
                 var clonedItems = new List<InputDieVisionPreparedItem>();
                 if (items != null)
@@ -41,43 +41,90 @@ namespace QMC.CDT320.Sequencing
                     Items = clonedItems
                 };
             }
+
+            // 진짜 FIFO(Q3-d): 허가가 살아있는 동안 진입 티켓도 유지돼야 한다. 정상 발급은 이미
+            // EnsureStarted에서 Enqueue돼 있어 멱등 무해하고, 픽업 롤백 재발급(소비로 티켓이 반납된
+            // 뒤 다시 Grant)은 여기서 티켓을 재삽입한다. 순서 게이트는 InputEntryQueue 단일 큐가
+            // 담당한다(허가 seq 비교 폐기 → 상호양보 라이브락 제거).
+            InputEntryQueue.Enqueue(side, InputEntryKind.PreInspection);
         }
 
         public static bool TryConsume(PickerSequenceSide side, out List<InputDieVisionPreparedItem> items, out string reason)
         {
+            bool consumed = false;
+            try
+            {
+                lock (Sync)
+                {
+                    items = null;
+                    reason = string.Empty;
+
+                    Permission permission;
+                    if (!Permissions.TryGetValue(side, out permission) || permission == null)
+                    {
+                        reason = "permission not granted. side=" + side;
+                        return false;
+                    }
+
+                    Permissions.Remove(side);
+                    consumed = true;
+
+                    if (permission.Items == null || permission.Items.Count == 0)
+                    {
+                        reason = "permission has no inspected item. side=" + side;
+                        items = new List<InputDieVisionPreparedItem>();
+                        return true;
+                    }
+
+                    items = new List<InputDieVisionPreparedItem>();
+                    for (int i = 0; i < permission.Items.Count; i++)
+                    {
+                        InputDieVisionPreparedItem clone = CloneItem(permission.Items[i]);
+                        if (clone != null)
+                            items.Add(clone);
+                    }
+
+                    reason = "grantedAt=" + permission.GrantedAt.ToString("yyyy-MM-dd HH:mm:ss.fff") +
+                             ", count=" + items.Count +
+                             ", side=" + side;
+                    return true;
+                }
+            }
+            finally
+            {
+                // 진짜 FIFO(Q3-a): 허가가 소비되어 사라지는 순간(성공) 진입 티켓도 함께 반납한다.
+                // Store.Sync 밖에서 호출해 중첩 lock을 최소화(InputEntryQueue는 자체 lock 최내측).
+                if (consumed)
+                    InputEntryQueue.Dequeue(side);
+            }
+        }
+
+        // 다른 side에 살아있는(미소비) PickUp 허가가 존재하는지. InputVisionX-Avoid 물리 인터락
+        // (InputDieVisionPrepareSequence)이 '상대의 살아있는 픽업 예약이 있으면 공용 VisionX를 Avoid로
+        // 유지'하는 데 쓰는 물리-안전 술어다. 진입 순서(FIFO)와는 다른 축이며, at-most-one 불변식상
+        // 사실상 boolean이다. 순서 판정에는 InputEntryQueue.IsHead를 쓴다(이 함수 사용 금지).
+        public static bool HasForeignPermission(PickerSequenceSide side, out string detail)
+        {
             lock (Sync)
             {
-                items = null;
-                reason = string.Empty;
+                detail = string.Empty;
 
-                Permission permission;
-                if (!Permissions.TryGetValue(side, out permission) || permission == null)
+                foreach (KeyValuePair<PickerSequenceSide, Permission> pair in Permissions)
                 {
-                    reason = "permission not granted. side=" + side;
-                    return false;
-                }
+                    if (pair.Key == side)
+                        continue;
 
-                Permissions.Remove(side);
+                    Permission other = pair.Value;
+                    if (other == null || other.Items == null || other.Items.Count == 0)
+                        continue;
 
-                if (permission.Items == null || permission.Items.Count == 0)
-                {
-                    reason = "permission has no inspected item. side=" + side;
-                    items = new List<InputDieVisionPreparedItem>();
+                    detail = "foreign=" + pair.Key +
+                             ",count=" + other.Items.Count +
+                             ",grantedAt=" + other.GrantedAt.ToString("HH:mm:ss.fff");
                     return true;
                 }
 
-                items = new List<InputDieVisionPreparedItem>();
-                for (int i = 0; i < permission.Items.Count; i++)
-                {
-                    InputDieVisionPreparedItem clone = CloneItem(permission.Items[i]);
-                    if (clone != null)
-                        items.Add(clone);
-                }
-
-                reason = "grantedAt=" + permission.GrantedAt.ToString("yyyy-MM-dd HH:mm:ss.fff") +
-                         ", count=" + items.Count +
-                         ", side=" + side;
-                return true;
+                return false;
             }
         }
 
@@ -131,6 +178,11 @@ namespace QMC.CDT320.Sequencing
 
                 Permissions.Remove(side);
             }
+
+            // 진짜 FIFO(Q3-b): 허가를 폐기하는 이 단일 지점이 진입 티켓도 반납한다. Coordinator.Clear를
+            // 우회해 Store.Clear를 직접 호출하는 4곳(StopAfterDrain/웨이퍼완료 드레인/비활성 side 정리)이
+            // 전부 자동으로 티켓을 정리 → 유령 head/orphan 티켓 제거.
+            InputEntryQueue.Dequeue(side);
         }
 
         private static void ReleaseItems(IEnumerable<InputDieVisionPreparedItem> items)

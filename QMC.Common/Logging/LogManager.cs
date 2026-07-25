@@ -325,11 +325,11 @@ namespace QMC.Common
                 return;
 
             string strFileName = string.Format("{0}\\{1}_{2}.log", m_strLogPath, log.Classification, log.CreationDate);
-            string strAllLog = string.Format("{0}\\LCP_280_{1}.log", m_strLogPath, log.CreationDate);
+            string strAllLog = string.Format("{0}\\CDT-320{1}.log", m_strLogPath, log.CreationDate);
 
             if (GetFileSize(strAllLog) > 4000000)
             {
-                string strAllLog_Target = string.Format("{0}\\LCP_280_{1}_{2}.log", m_strLogPath, log.CreationDate, Environment.TickCount);
+                string strAllLog_Target = string.Format("{0}\\CDT-320{1}_{2}.log", m_strLogPath, log.CreationDate, Environment.TickCount);
                 System.IO.File.Move(strAllLog, strAllLog_Target);
             }
 
@@ -378,11 +378,11 @@ namespace QMC.Common
 
 
             string strAllLog_Target = "";
-            string strAllLog = string.Format("{0}\\LCP_280_{1}.log", m_strLogPath, log.CreationDate);
+            string strAllLog = string.Format("{0}\\CDT-320{1}.log", m_strLogPath, log.CreationDate);
             //	용량이 4MB 이상일 경우, 현재 로그파일 이름을 변경하고 다시 저장하기 시작한다.
             if (GetFileSize(strAllLog) > 4000000)
             {
-                strAllLog_Target = string.Format("{0}\\LCP_280_{1}_{2}.log", m_strLogPath, log.CreationDate, Environment.TickCount);
+                strAllLog_Target = string.Format("{0}\\CDT-320{1}_{2}.log", m_strLogPath, log.CreationDate, Environment.TickCount);
                 System.IO.File.Move(strAllLog, strAllLog_Target);
             }
 

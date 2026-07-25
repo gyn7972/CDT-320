@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.IO.Compression;
@@ -190,7 +190,7 @@ namespace QMC.CDT320
                     AddFiles(list, dir, "*.csv");
             }
 
-            AddFiles(list, EventLogger.LogRoot, "*.log");                                 // 레거시 Event_/LCP_280_/Main_ 로그
+            AddFiles(list, EventLogger.LogRoot, "*.log");                                 // 레거시 Event_/CDT-320_/Main_ 로그
             AddFiles(list, Path.Combine(EventLogger.LogRoot, "Alarms"), "*.json");        // 알람 이력 JSON
             return list;
         }
