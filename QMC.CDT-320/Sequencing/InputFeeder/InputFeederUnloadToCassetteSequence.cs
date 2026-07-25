@@ -66,7 +66,7 @@ namespace QMC.CDT320.Sequencing
                         return MoveCassetteToUnloadOffsetPositionAsync(ct);
                     // 피더 클램프 검증
                     case InputFeederUnloadToCassetteStep.VerifyFeederClamp:
-                        return Task.FromResult(VerifyFeederClamp());
+                        return VerifyFeederClampAsync(ct);
                     // 피더 리프트 다운 검증
                     case InputFeederUnloadToCassetteStep.VerifyFeederLiftDown:
                         return Task.FromResult(VerifyFeederLiftDown());
@@ -187,11 +187,45 @@ namespace QMC.CDT320.Sequencing
             return 0;
         }
 
-        private int VerifyFeederClamp()
+        private async Task<int> VerifyFeederClampAsync(CancellationToken ct)
         {
+            ct.ThrowIfCancellationRequested();
+
             if (!Feeder.IsWaferFeederClamp())
-                return Fail("IN-FEEDER-CLAMP-CHECK", Feeder.Name,
-                    "WaferFeeder must already be clamped before cassette unload. " + Feeder.GetWaferFeederTransferState());
+            {
+                // 재시작 복구: UnloadFromStage(피더가 wafer를 클램프)까지 끝난 뒤 프로그램이 재시작되면
+                // Material 데이터는 피더 보유인데 클램프 실린더는 Unclamp로 초기화될 수 있다.
+                // wafer가 실제로 링 위에 감지되고(하드웨어 바이패스 시 Material 데이터로 판정)
+                // 피더가 정지된 Down 상태면, 카세트 이동 전에 다시 클램프해서 이어간다.
+                // (Output OUT-FEEDER-CLAMP-CHECK 2026-07-26 00:58 재시작 복구와 동일 기준)
+                bool waferPresent = IsHardwareBypass()
+                    ? ResolveFeederWafer() != null
+                    : Feeder.IsWaferFeederRingDetected(true);
+                bool feederResting = Feeder.IsWaferFeederDown() &&
+                                     Feeder.FeederY != null &&
+                                     !Feeder.FeederY.IsMoving;
+
+                if (waferPresent && feederResting)
+                {
+                    WriteLog(Name,
+                        "재시작 복구: wafer가 피더 링 위에 있는데 클램프가 풀려 있어 카세트 이동 전에 다시 클램프합니다. " +
+                        Feeder.GetWaferFeederTransferState() + " - Start");
+
+                    int clampResult = await Feeder.SetWaferFeederClampAsync(true, ResolveTimeout(), ct).ConfigureAwait(false);
+                    if (clampResult != 0 || !Feeder.IsWaferFeederClamp())
+                        return Fail("IN-FEEDER-CLAMP-CHECK", Feeder.Name,
+                            "카세트 배출 전 피더 재클램프 복구에 실패했습니다. result=" + clampResult +
+                            ". " + Feeder.GetWaferFeederTransferState());
+
+                    WriteLog(Name,
+                        "재시작 복구: 피더 재클램프 완료. " + Feeder.GetWaferFeederTransferState() + " - Ok");
+                }
+                else
+                {
+                    return Fail("IN-FEEDER-CLAMP-CHECK", Feeder.Name,
+                        "WaferFeeder must already be clamped before cassette unload. " + Feeder.GetWaferFeederTransferState());
+                }
+            }
 
             CurrentStep = InputFeederUnloadToCassetteStep.VerifyFeederLiftDown;
             return 0;

@@ -70,6 +70,7 @@ namespace QMC.CDT320
             new MachineReadyProgress(MachineReadySequenceState.Idle, 0, 0, 0, "", "");
         private readonly AxisInterferenceMap _axisInterferenceMap = AxisInterferenceMap.CreateDefault();
         private readonly AxisInitializeInterlockService _axisInitializeInterlocks;
+        private readonly AxisInitializeExecutor _axisInitializeExecutor;
         private readonly object _initializeHomedAxisLock = new object();
         private HashSet<string> _initializeHomedAxisNames;
         private readonly SemaphoreSlim _pickerYHomeGate = new SemaphoreSlim(1, 1);
@@ -94,115 +95,6 @@ namespace QMC.CDT320
             public bool RestoreServoOn { get; set; }
             public bool RestoreHomeDone { get; set; }
             public bool Restored { get; set; }
-        }
-
-        private sealed class ParallelInitializeLaneFailure
-        {
-            public string LaneName { get; set; }
-            public int StepNo { get; set; }
-            public string GroupName { get; set; }
-            public int ResultCode { get; set; }
-            public string Message { get; set; }
-        }
-
-        private sealed class ParallelInitializeLaneExecutionState : IDisposable
-        {
-            private readonly object _failureLock = new object();
-            private readonly CancellationTokenSource _cancellation = new CancellationTokenSource();
-            private ParallelInitializeLaneFailure _failure;
-            private int _axisStopRequested;
-
-            public CancellationToken Token
-            {
-                get { return _cancellation.Token; }
-            }
-
-            public bool TrySetFailure(ParallelInitializeLaneFailure failure)
-            {
-                try
-                {
-                    if (failure == null)
-                        return false;
-
-                    lock (_failureLock)
-                    {
-                        if (_failure != null)
-                            return false;
-
-                        _failure = failure;
-                        return true;
-                    }
-                }
-                catch
-                {
-                    return false;
-                }
-                finally
-                {
-                }
-            }
-
-            public ParallelInitializeLaneFailure GetFailure()
-            {
-                try
-                {
-                    lock (_failureLock)
-                    {
-                        return _failure;
-                    }
-                }
-                catch
-                {
-                    return null;
-                }
-                finally
-                {
-                }
-            }
-
-            public void Cancel()
-            {
-                try
-                {
-                    if (!_cancellation.IsCancellationRequested)
-                        _cancellation.Cancel();
-                }
-                catch
-                {
-                }
-                finally
-                {
-                }
-            }
-
-            public bool TryRequestAxisStop()
-            {
-                try
-                {
-                    return Interlocked.CompareExchange(ref _axisStopRequested, 1, 0) == 0;
-                }
-                catch
-                {
-                    return false;
-                }
-                finally
-                {
-                }
-            }
-
-            public void Dispose()
-            {
-                try
-                {
-                    _cancellation.Dispose();
-                }
-                catch
-                {
-                }
-                finally
-                {
-                }
-            }
         }
 
         public event Action<EquipmentStatus> StatusChanged;
@@ -531,6 +423,17 @@ namespace QMC.CDT320
                 EnumerateAxes,
                 () => !IsSequenceRunning && _status != EquipmentStatus.AutoRunning,
                 () => !IsManualBusy);
+            var axisInitializeRuntime = new AxisInitializeRuntime(
+                BeginAxisInitializeRun,
+                ResetAxisInitializeStepProgressForRun,
+                ExecuteInitializeSingleStepAsync,
+                ResolveInitializeLaneAxisNames,
+                VerifyAxisInitializeStep,
+                () => StopAllAxesAsync(false),
+                ResolveInitializeStepFailureMessage,
+                () => LastActionFailureMessage);
+            _axisInitializeExecutor = new AxisInitializeExecutor(axisInitializeRuntime);
+            _axisInitializeExecutor.StepProgressChanged += OnAxisInitializeExecutorStepProgressChanged;
             MotionGuardRuntime.ContextProvider = () =>
                 new MotionGuardContext(_machine, EnumerateAxes(), QMC.CDT320.Ajin.CylinderManager.Items.Values);
             BaseAxis.MotionGuard = VerifyAxisMotionGuard;
@@ -4133,122 +4036,28 @@ namespace QMC.CDT320
         {
             try
             {
-                if (steps == null || steps.Count == 0)
+                AxisInitializeResult result = await _axisInitializeExecutor.ExecuteAsync(steps).ConfigureAwait(false);
+                if (result == null)
                 {
-                    LastActionFailureMessage = "초기화 Step 정보가 없습니다.";
+                    LastActionFailureMessage = "초기화 Executor가 결과를 반환하지 않았습니다.";
                     QMC.Common.Log.Write("Main", "SYSTEM", "ExecuteInitializeSteps",
-                        "Axis initialize failed: step list is empty. - Failed");
+                        LastActionFailureMessage + " - Failed");
                     return -1;
                 }
 
-                lock (_initializeHomedAxisLock)
-                {
-                    _initializeHomedAxisNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-                }
+                if (!result.Succeeded)
+                    LastActionFailureMessage = result.ErrorMessage;
 
-                var enabledSteps = steps
-                    .Where(x => x != null && x.Enabled)
-                    .OrderBy(x => x.StepNo)
-                    .ToList();
-                ResetAxisInitializeStepProgressForRun(enabledSteps);
-
-                return await ExecuteInitializePlanWithParallelLanesAsync(enabledSteps).ConfigureAwait(false);
+                return result.ResultCode;
             }
             catch (Exception ex)
             {
-                LastActionFailureMessage = "초기화 Step 실행 실패: " + ex.Message;
+                LastActionFailureMessage = "초기화 Executor 실행 위임 실패: " + ex.Message;
                 QMC.Common.Log.Write("Main", "SYSTEM", "ExecuteInitializeSteps",
-                    "Axis initialize step execution failed: " + ex.Message + " - Failed");
-                AlarmManager.Raise(AlarmSeverity.Error, "INIT-STEP-EX", "MachineController", LastActionFailureMessage);
-                return -1;
-            }
-            finally
-            {
-            }
-        }
-
-        private async Task<int> ExecuteInitializePlanWithParallelLanesAsync(
-            IList<AxisInitializeStep> enabledSteps)
-        {
-            try
-            {
-                var inputLaneSteps = enabledSteps
-                    .Where(x => x != null && AxisInitializeParallelLane.Is(
-                        x.ParallelLane,
-                        AxisInitializeParallelLane.Input))
-                    .OrderBy(x => x.StepNo)
-                    .ThenBy(x => x.GroupName)
-                    .ToList();
-                var outputLaneSteps = enabledSteps
-                    .Where(x => x != null && AxisInitializeParallelLane.Is(
-                        x.ParallelLane,
-                        AxisInitializeParallelLane.Output))
-                    .OrderBy(x => x.StepNo)
-                    .ThenBy(x => x.GroupName)
-                    .ToList();
-
-                if (inputLaneSteps.Count == 0 || outputLaneSteps.Count == 0)
-                {
-                    QMC.Common.Log.Write("Main", "SYSTEM", "ExecuteInitializeParallelLanes",
-                        "Initialize parallel lane metadata is incomplete. Serial fallback selected. inputSteps=" +
-                        inputLaneSteps.Count + ", outputSteps=" + outputLaneSteps.Count + " - Ok");
-                    return await ExecuteInitializeStepBatchesSerialAsync(
-                        enabledSteps,
-                        "SerialFallback").ConfigureAwait(false);
-                }
-
-                int firstLaneStepNo = Math.Min(
-                    inputLaneSteps.Min(x => x.StepNo),
-                    outputLaneSteps.Min(x => x.StepNo));
-                int lastLaneStepNo = Math.Max(
-                    inputLaneSteps.Max(x => x.StepNo),
-                    outputLaneSteps.Max(x => x.StepNo));
-                var unlabeledStepsInsideLaneBarrier = enabledSteps
-                    .Where(x => x != null &&
-                        x.StepNo >= firstLaneStepNo &&
-                        x.StepNo <= lastLaneStepNo &&
-                        !AxisInitializeParallelLane.Is(x.ParallelLane, AxisInitializeParallelLane.Input) &&
-                        !AxisInitializeParallelLane.Is(x.ParallelLane, AxisInitializeParallelLane.Output))
-                    .ToList();
-                if (unlabeledStepsInsideLaneBarrier.Count > 0)
-                {
-                    return FailInitializePreparation(
-                        "병렬 초기화 Lane 구간 안에 Lane이 지정되지 않은 Step이 있습니다. steps=" +
-                        string.Join(",", unlabeledStepsInsideLaneBarrier.Select(x =>
-                            x.StepNo + ":" + x.GroupName).ToArray()));
-                }
-
-                var preLaneSteps = enabledSteps
-                    .Where(x => x != null && x.StepNo < firstLaneStepNo)
-                    .ToList();
-                var postLaneSteps = enabledSteps
-                    .Where(x => x != null && x.StepNo > lastLaneStepNo)
-                    .ToList();
-
-                int preResult = await ExecuteInitializeStepBatchesSerialAsync(
-                    preLaneSteps,
-                    "CommonPreLane").ConfigureAwait(false);
-                if (preResult != 0)
-                    return preResult;
-
-                int parallelResult = await ExecuteInitializeParallelLanesAsync(
-                    inputLaneSteps,
-                    outputLaneSteps).ConfigureAwait(false);
-                if (parallelResult != 0)
-                    return parallelResult;
-
-                return await ExecuteInitializeStepBatchesSerialAsync(
-                    postLaneSteps,
-                    "SharedRailPostLane").ConfigureAwait(false);
-            }
-            catch (Exception ex)
-            {
-                LastActionFailureMessage = "병렬 초기화 플랜 실행 실패: " + ex.Message;
-                QMC.Common.Log.Write("Main", "SYSTEM", "ExecuteInitializeParallelLanes",
                     LastActionFailureMessage + " - Failed");
                 AlarmManager.Raise(
                     AlarmSeverity.Error,
-                    "INIT-PARALLEL-PLAN-EX",
+                    "INIT-STEP-EX",
                     "MachineController",
                     LastActionFailureMessage);
                 return -1;
@@ -4258,321 +4067,20 @@ namespace QMC.CDT320
             }
         }
 
-        private async Task<int> ExecuteInitializeStepBatchesSerialAsync(
-            IList<AxisInitializeStep> steps,
-            string phase)
+        private void BeginAxisInitializeRun()
         {
-            try
+            lock (_initializeHomedAxisLock)
             {
-                if (steps == null || steps.Count == 0)
-                    return 0;
-
-                foreach (var batch in steps
-                    .Where(x => x != null && x.Enabled)
-                    .OrderBy(x => x.StepNo)
-                    .GroupBy(x => x.StepNo))
-                {
-                    var batchSteps = batch.OrderBy(x => x.GroupName).ToList();
-                    if (batchSteps.Count == 1)
-                    {
-                        int singleResult = await ExecuteInitializeSingleStepAsync(batchSteps[0]).ConfigureAwait(false);
-                        if (singleResult != 0)
-                            return singleResult;
-                        continue;
-                    }
-
-                    QMC.Common.Log.Write("Main", "SYSTEM", "ExecuteInitializeSteps",
-                        "Axis initialize same-step serial batch start. phase=" + phase +
-                        ", step=" + batch.Key +
-                        ", groups=" + string.Join(",", batchSteps.Select(x => x.GroupName).ToArray()) + " - Start");
-                    foreach (AxisInitializeStep batchStep in batchSteps)
-                    {
-                        int serialResult = await ExecuteInitializeSingleStepAsync(batchStep).ConfigureAwait(false);
-                        if (serialResult != 0)
-                            return serialResult;
-                    }
-
-                    QMC.Common.Log.Write("Main", "SYSTEM", "ExecuteInitializeSteps",
-                        "Axis initialize same-step serial batch completed. phase=" + phase +
-                        ", step=" + batch.Key + " - Ok");
-                }
-
-                return 0;
-            }
-            catch (Exception ex)
-            {
-                LastActionFailureMessage = "직렬 초기화 구간 실행 실패: phase=" + phase +
-                    ", error=" + ex.Message;
-                QMC.Common.Log.Write("Main", "SYSTEM", "ExecuteInitializeSteps",
-                    LastActionFailureMessage + " - Failed");
-                return -1;
-            }
-            finally
-            {
+                _initializeHomedAxisNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             }
         }
 
-        private async Task<int> ExecuteInitializeParallelLanesAsync(
-            IList<AxisInitializeStep> inputLaneSteps,
-            IList<AxisInitializeStep> outputLaneSteps)
+        private bool VerifyAxisInitializeStep(AxisInitializeStep step, out string reason)
         {
-            ParallelInitializeLaneExecutionState executionState = null;
-            var stopwatch = System.Diagnostics.Stopwatch.StartNew();
-            try
-            {
-                HashSet<string> inputLaneAxisNames = ResolveInitializeLaneAxisNames(inputLaneSteps);
-                HashSet<string> outputLaneAxisNames = ResolveInitializeLaneAxisNames(outputLaneSteps);
-                var overlappingAxes = inputLaneAxisNames
-                    .Intersect(outputLaneAxisNames, StringComparer.OrdinalIgnoreCase)
-                    .ToList();
-                if (overlappingAxes.Count > 0)
-                {
-                    return FailInitializePreparation(
-                        "Input/Output 병렬 초기화 Lane에 중복 축이 있습니다. axes=" +
-                        string.Join(",", overlappingAxes.ToArray()));
-                }
-
-                AxisInitializeStep firstInputStep = inputLaneSteps
-                    .OrderBy(x => x.StepNo)
-                    .ThenBy(x => x.GroupName)
-                    .FirstOrDefault();
-                AxisInitializeStep firstOutputStep = outputLaneSteps
-                    .OrderBy(x => x.StepNo)
-                    .ThenBy(x => x.GroupName)
-                    .FirstOrDefault();
-                string preflightReason;
-                if (_axisInitializeInterlocks != null &&
-                    !_axisInitializeInterlocks.VerifyStep(firstInputStep, out preflightReason))
-                {
-                    LastActionFailureMessage = preflightReason;
-                    RaiseAxisInitializeStepProgress(
-                        firstInputStep,
-                        AxisInitializeStepStatus.Failed,
-                        LastActionFailureMessage);
-                    return -1;
-                }
-
-                if (_axisInitializeInterlocks != null &&
-                    !_axisInitializeInterlocks.VerifyStep(firstOutputStep, out preflightReason))
-                {
-                    LastActionFailureMessage = preflightReason;
-                    RaiseAxisInitializeStepProgress(
-                        firstOutputStep,
-                        AxisInitializeStepStatus.Failed,
-                        LastActionFailureMessage);
-                    return -1;
-                }
-
-                executionState = new ParallelInitializeLaneExecutionState();
-                QMC.Common.Log.Write("Main", "SYSTEM", "ExecuteInitializeParallelLanes",
-                    "Input/Output initialize lanes start concurrently. inputSteps=" +
-                    string.Join(",", inputLaneSteps.Select(x => x.StepNo + ":" + x.GroupName).ToArray()) +
-                    ", outputSteps=" +
-                    string.Join(",", outputLaneSteps.Select(x => x.StepNo + ":" + x.GroupName).ToArray()) +
-                    ", inputAxes=" + string.Join(",", inputLaneAxisNames.ToArray()) +
-                    ", outputAxes=" + string.Join(",", outputLaneAxisNames.ToArray()) + " - Start");
-
-                Task<int> inputTask = Task.Run(() => ExecuteInitializeLaneAsync(
-                    AxisInitializeParallelLane.Input,
-                    inputLaneSteps,
-                    outputLaneAxisNames,
-                    executionState));
-                Task<int> outputTask = Task.Run(() => ExecuteInitializeLaneAsync(
-                    AxisInitializeParallelLane.Output,
-                    outputLaneSteps,
-                    inputLaneAxisNames,
-                    executionState));
-                int[] results = await Task.WhenAll(inputTask, outputTask).ConfigureAwait(false);
-
-                ParallelInitializeLaneFailure failure = executionState.GetFailure();
-                if (failure != null)
-                {
-                    LastActionFailureMessage = failure.Message;
-                    QMC.Common.Log.Write("Main", "SYSTEM", "ExecuteInitializeParallelLanes",
-                        "Input/Output initialize lanes failed. firstFailureLane=" + failure.LaneName +
-                        ", step=" + failure.StepNo +
-                        ", group=" + failure.GroupName +
-                        ", elapsedMs=" + stopwatch.ElapsedMilliseconds +
-                        ", message=" + failure.Message + " - Failed");
-                    return failure.ResultCode != 0 ? failure.ResultCode : -1;
-                }
-
-                int failedResult = results.FirstOrDefault(x => x != 0);
-                if (failedResult != 0)
-                {
-                    LastActionFailureMessage = "병렬 초기화 Lane이 실패했지만 상세 실패 정보가 없습니다.";
-                    return failedResult;
-                }
-
-                QMC.Common.Log.Write("Main", "SYSTEM", "ExecuteInitializeParallelLanes",
-                    "Input/Output initialize lanes completed concurrently. elapsedMs=" +
-                    stopwatch.ElapsedMilliseconds + " - Ok");
-                return 0;
-            }
-            catch (Exception ex)
-            {
-                if (executionState != null)
-                {
-                    executionState.Cancel();
-                    if (executionState.TryRequestAxisStop())
-                        await StopAllAxesAsync(false).ConfigureAwait(false);
-                }
-
-                LastActionFailureMessage = "병렬 초기화 Lane 실행 예외: " + ex.Message;
-                QMC.Common.Log.Write("Main", "SYSTEM", "ExecuteInitializeParallelLanes",
-                    LastActionFailureMessage + " - Failed");
-                AlarmManager.Raise(
-                    AlarmSeverity.Error,
-                    "INIT-PARALLEL-LANE-EX",
-                    "MachineController",
-                    LastActionFailureMessage);
-                return -1;
-            }
-            finally
-            {
-                stopwatch.Stop();
-                if (executionState != null)
-                    executionState.Dispose();
-            }
+            reason = "";
+            return _axisInitializeInterlocks == null ||
+                _axisInitializeInterlocks.VerifyStep(step, out reason);
         }
-
-        private async Task<int> ExecuteInitializeLaneAsync(
-            string laneName,
-            IList<AxisInitializeStep> laneSteps,
-            ISet<string> allowedConcurrentAxisNames,
-            ParallelInitializeLaneExecutionState executionState)
-        {
-            AxisInitializeStep currentStep = null;
-            try
-            {
-                var orderedSteps = (laneSteps ?? new AxisInitializeStep[0])
-                    .Where(x => x != null && x.Enabled)
-                    .OrderBy(x => x.StepNo)
-                    .ThenBy(x => x.GroupName)
-                    .ToList();
-                for (int i = 0; i < orderedSteps.Count; i++)
-                {
-                    currentStep = orderedSteps[i];
-                    if (executionState != null && executionState.Token.IsCancellationRequested)
-                    {
-                        MarkInitializeLaneStepsCancelled(
-                            orderedSteps,
-                            i,
-                            "반대 Lane 실패로 병렬 초기화가 중단되었습니다. lane=" + laneName);
-                        return -1;
-                    }
-
-                    int result = await ExecuteInitializeSingleStepAsync(
-                        currentStep,
-                        allowedConcurrentAxisNames).ConfigureAwait(false);
-                    if (result == 0 &&
-                        executionState != null &&
-                        executionState.Token.IsCancellationRequested)
-                    {
-                        RaiseAxisInitializeStepProgress(
-                            currentStep,
-                            AxisInitializeStepStatus.ReinitializeRequired,
-                            "반대 Lane 실패 중 동작이 정지되었으므로 재초기화가 필요합니다. lane=" + laneName);
-                        MarkInitializeLaneStepsCancelled(
-                            orderedSteps,
-                            i + 1,
-                            "반대 Lane 실패로 병렬 초기화가 중단되었습니다. lane=" + laneName);
-                        return -1;
-                    }
-
-                    if (result == 0)
-                        continue;
-
-                    string failureMessage = ResolveInitializeStepFailureMessage(
-                        currentStep,
-                        laneName,
-                        result);
-                    await ReportParallelInitializeLaneFailureAsync(
-                        executionState,
-                        laneName,
-                        currentStep,
-                        result,
-                        failureMessage).ConfigureAwait(false);
-                    return result;
-                }
-
-                QMC.Common.Log.Write("Main", "SYSTEM", "ExecuteInitializeLane",
-                    "Initialize parallel lane completed. lane=" + laneName + " - Ok");
-                return 0;
-            }
-            catch (Exception ex)
-            {
-                string failureMessage = "병렬 초기화 Lane 예외. lane=" + laneName +
-                    ", step=" + (currentStep != null ? currentStep.StepNo : 0) +
-                    ", group=" + (currentStep != null ? currentStep.GroupName : "-") +
-                    ", error=" + ex.Message;
-                await ReportParallelInitializeLaneFailureAsync(
-                    executionState,
-                    laneName,
-                    currentStep,
-                    -1,
-                    failureMessage).ConfigureAwait(false);
-                return -1;
-            }
-            finally
-            {
-            }
-        }
-
-        private async Task ReportParallelInitializeLaneFailureAsync(
-            ParallelInitializeLaneExecutionState executionState,
-            string laneName,
-            AxisInitializeStep step,
-            int resultCode,
-            string failureMessage)
-        {
-            try
-            {
-                if (executionState == null)
-                    return;
-
-                var failure = new ParallelInitializeLaneFailure
-                {
-                    LaneName = laneName ?? "-",
-                    StepNo = step != null ? step.StepNo : 0,
-                    GroupName = step != null ? step.GroupName : "-",
-                    ResultCode = resultCode != 0 ? resultCode : -1,
-                    Message = failureMessage ?? "병렬 초기화 Lane 실패"
-                };
-                bool firstFailure = executionState.TrySetFailure(failure);
-                executionState.Cancel();
-
-                if (executionState.TryRequestAxisStop())
-                {
-                    int stopResult = await StopAllAxesAsync(false).ConfigureAwait(false);
-                    QMC.Common.Log.Write("Main", "SYSTEM", "ExecuteInitializeParallelLanes",
-                        "Parallel lane peer-stop requested. lane=" + laneName +
-                        ", step=" + failure.StepNo +
-                        ", stopResult=" + stopResult +
-                        (stopResult == 0 ? " - Ok" : " - Failed"));
-                }
-
-                if (firstFailure)
-                {
-                    QMC.Common.Log.Write("Main", "SYSTEM", "ExecuteInitializeParallelLanes",
-                        failure.Message + " - Failed");
-                    AlarmManager.Raise(
-                        AlarmSeverity.Error,
-                        "INIT-PARALLEL-" + (laneName ?? "LANE").ToUpperInvariant(),
-                        "MachineController",
-                        failure.Message);
-                }
-            }
-            catch (Exception ex)
-            {
-                QMC.Common.Log.Write("Main", "SYSTEM", "ExecuteInitializeParallelLanes",
-                    "Parallel lane failure handling failed. error=" + ex.Message + " - Failed");
-            }
-            finally
-            {
-            }
-        }
-
         private HashSet<string> ResolveInitializeLaneAxisNames(IList<AxisInitializeStep> laneSteps)
         {
             var axisNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -4670,34 +4178,6 @@ namespace QMC.CDT320
             {
                 return "병렬 초기화 Lane 실패 원인 확인 중 예외가 발생했습니다. lane=" + laneName +
                     ", error=" + ex.Message;
-            }
-            finally
-            {
-            }
-        }
-
-        private void MarkInitializeLaneStepsCancelled(
-            IList<AxisInitializeStep> orderedSteps,
-            int startIndex,
-            string message)
-        {
-            try
-            {
-                if (orderedSteps == null)
-                    return;
-
-                for (int i = Math.Max(0, startIndex); i < orderedSteps.Count; i++)
-                {
-                    RaiseAxisInitializeStepProgress(
-                        orderedSteps[i],
-                        AxisInitializeStepStatus.ReinitializeRequired,
-                        message);
-                }
-            }
-            catch (Exception ex)
-            {
-                QMC.Common.Log.Write("Main", "SYSTEM", "ExecuteInitializeParallelLanes",
-                    "Cancelled lane progress update failed. error=" + ex.Message + " - Failed");
             }
             finally
             {
@@ -4843,7 +4323,20 @@ namespace QMC.CDT320
 
         private void RaiseAxisInitializeStepProgress(AxisInitializeStep step, string status, string message)
         {
-            AxisInitializeStepProgress progress = AxisInitializeStepProgress.Create(step, status, message);
+            PublishAxisInitializeStepProgress(
+                AxisInitializeStepProgress.Create(step, status, message));
+        }
+
+        private void OnAxisInitializeExecutorStepProgressChanged(AxisInitializeStepProgress progress)
+        {
+            PublishAxisInitializeStepProgress(progress);
+        }
+
+        private void PublishAxisInitializeStepProgress(AxisInitializeStepProgress progress)
+        {
+            if (progress == null)
+                return;
+
             SetAxisInitializeStepProgress(progress);
 
             var handler = AxisInitializeStepProgressChanged;
@@ -4873,22 +4366,7 @@ namespace QMC.CDT320
                     step,
                     AxisInitializeStepStatus.Waiting,
                     "");
-                SetAxisInitializeStepProgress(progress);
-
-                var handler = AxisInitializeStepProgressChanged;
-                if (handler == null)
-                    continue;
-
-                try
-                {
-                    handler(progress);
-                }
-                catch
-                {
-                }
-                finally
-                {
-                }
+                PublishAxisInitializeStepProgress(progress);
             }
         }
 

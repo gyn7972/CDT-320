@@ -216,6 +216,31 @@ namespace QMC.CDT320.Sequencing
             bool feederPositionReady =
                 Math.Abs(Feeder.FeederY.ActualPosition - feederTarget) <= feederTolerance &&
                 Math.Abs(Feeder.FeederY.CommandPosition - feederTarget) <= feederTolerance;
+
+            // 재시작 복구: StageUnload 출발 요구는 "방금 Stage에서 제품을 집어왔다"는 흐름 불변식이다.
+            // 프로그램 재시작 후에는 피더가 Bin을 문 채 초기 Avoid 위치에 서 있을 수 있으므로,
+            // 정확한 Avoid 위치(축 좌표 + Avoid Dog 센서)로 정지해 있으면 CassetteUnload 이동 출발을 허용한다.
+            // Avoid -> Cassette 이동은 LoadFromCassette가 일상적으로 쓰는 검증된 동선이라 물리 간섭이 없고,
+            // Clamp+LiftDown+Ring 자세는 아래 기존 검증이 그대로 확인한다.
+            // (실장비 2026-07-26 OUT-FEEDER-CST-ALIGN-FEEDER-POS: 재시작 후 actual=0/command=0으로 정지)
+            if (!feederPositionReady && requiredFeederPosition == RequiredFeederTransferPosition.StageUnload)
+            {
+                double avoidTarget = Feeder.Recipe.AvoidPosition;
+                bool feederAtAvoid =
+                    Math.Abs(Feeder.FeederY.ActualPosition - avoidTarget) <= feederTolerance &&
+                    Math.Abs(Feeder.FeederY.CommandPosition - avoidTarget) <= feederTolerance &&
+                    Feeder.IsBinFeederAvoidPositionCheck();
+                if (feederAtAvoid)
+                {
+                    WriteLog(Name,
+                        context + " 재시작 복구: OutputFeederY가 StageUnload 대신 정확한 Avoid 위치에 정지해 있어 " +
+                        "CassetteUnload 이동 출발을 허용합니다. avoid=" +
+                        avoidTarget.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture) +
+                        ", side=" + Options.Side + ", " + Feeder.DescribeBinFeederYMoveDoneState() + " - Ok");
+                    feederPositionReady = true;
+                }
+            }
+
             if (!feederPositionReady)
                 return Fail("OUT-FEEDER-CST-ALIGN-FEEDER-POS", Feeder.Name,
                     context + " OutputFeederY 정렬 위치가 정확하지 않습니다. required=" +
@@ -328,7 +353,7 @@ namespace QMC.CDT320.Sequencing
 
                     // 피더 클램프 검증
                     case OutputFeederUnloadToCassetteStep.VerifyFeederClamped:
-                        return Task.FromResult(VerifyFeederClamped());
+                        return VerifyFeederClampedAsync(ct);
 
                     // 피더 리프트 다운 검증
                     case OutputFeederUnloadToCassetteStep.VerifyFeederLiftDown:
@@ -460,12 +485,47 @@ namespace QMC.CDT320.Sequencing
             return 0;
         }
 
-        private int VerifyFeederClamped()
+        private async Task<int> VerifyFeederClampedAsync(CancellationToken ct)
         {
+            ct.ThrowIfCancellationRequested();
+
             if (Feeder.IsFeederUnclamped())
-                return Fail("OUT-FEEDER-CLAMP-CHECK", Feeder.Name,
-                    "Output feeder must already be clamped before cassette unload move. side=" + Options.Side + ", " +
-                    Feeder.DescribeFeederCylinderState());
+            {
+                // 재시작 복구: UnloadFromStage(피더가 Bin을 클램프)까지 끝난 뒤 프로그램이 재시작되면
+                // Material 데이터는 피더 보유인데 클램프 실린더는 Unclamp로 초기화될 수 있다.
+                // Bin이 실제로 링 위에 감지되고(하드웨어 바이패스 시 Material 데이터로 판정)
+                // 피더가 정지된 Down 상태면, 카세트 이동 전에 다시 클램프해서 이어간다.
+                // (실장비 2026-07-26 00:58 OUT-FEEDER-CLAMP-CHECK: ringOn=True인데 clamp=False로 정지)
+                bool binPresent = IsHardwareBypass()
+                    ? ResolveFeederWafer() != null
+                    : Feeder.IsFeederRingDetected(true);
+                bool feederResting = Feeder.IsFeederDown() &&
+                                     Feeder.FeederY != null &&
+                                     !Feeder.FeederY.IsMoving;
+
+                if (binPresent && feederResting)
+                {
+                    WriteLog(Name,
+                        "재시작 복구: Bin이 피더 링 위에 있는데 클램프가 풀려 있어 카세트 이동 전에 다시 클램프합니다. side=" +
+                        Options.Side + ", " + Feeder.DescribeFeederCylinderState() + " - Start");
+
+                    int clampResult = await Feeder.SetFeederClampAsync(true, ResolveTimeout(), ct).ConfigureAwait(false);
+                    if (clampResult != 0 || Feeder.IsFeederUnclamped())
+                        return Fail("OUT-FEEDER-CLAMP-CHECK", Feeder.Name,
+                            "카세트 배출 전 피더 재클램프 복구에 실패했습니다. side=" + Options.Side +
+                            ", result=" + clampResult + ", " + Feeder.DescribeFeederCylinderState());
+
+                    WriteLog(Name,
+                        "재시작 복구: 피더 재클램프 완료. side=" + Options.Side + ", " +
+                        Feeder.DescribeFeederCylinderState() + " - Ok");
+                }
+                else
+                {
+                    return Fail("OUT-FEEDER-CLAMP-CHECK", Feeder.Name,
+                        "Output feeder must already be clamped before cassette unload move. side=" + Options.Side + ", " +
+                        Feeder.DescribeFeederCylinderState());
+                }
+            }
 
             CurrentStep = OutputFeederUnloadToCassetteStep.VerifyFeederLiftDown;
             return 0;
@@ -646,6 +706,21 @@ namespace QMC.CDT320.Sequencing
             return 0;
         }
 
+        // 연속 이송(keep-at-slot) 시에는 '정확한 final slot 안착'을 Avoid와 동등한 이송 종료 휴지 상태로 인정한다.
+        // 이 옵션에서는 최종 Avoid 이동이 설계상 생략되므로, Avoid만 휴지 상태로 보면
+        //   MoveMaterialDataToCassette -> MoveCassetteToBinSlotFinalPosition -> MoveOutputCassetteAvoidPosition(Skip) -> ...
+        // 순환이 생겨 Material 커밋이 영원히 실행되지 않는 무한 루프가 된다. (실장비 2026-07-26 00:35 시뮬에서 발생)
+        private bool IsCassetteRestingForPostUnloadCommit(bool cassetteAtAvoid)
+        {
+            if (cassetteAtAvoid)
+                return true;
+
+            if (Options == null || !Options.KeepCassetteAtSlotForNextAccess || Cassette == null)
+                return false;
+
+            return Cassette.IsBinLifterZInSlotPosition(ResolveOutputTargetCassette(), Options.SlotIndex);
+        }
+
         private int MoveMaterialDataToCassette()
         {
             bool finalStepReady;
@@ -670,7 +745,7 @@ namespace QMC.CDT320.Sequencing
                 if (existingValidation != 0)
                     return existingValidation;
 
-                CurrentStep = cassetteAtAvoid
+                CurrentStep = IsCassetteRestingForPostUnloadCommit(cassetteAtAvoid)
                     ? OutputFeederUnloadToCassetteStep.UpdateCassetteData
                     : OutputFeederUnloadToCassetteStep.MoveCassetteToBinSlotFinalPosition;
                 return 0;
@@ -678,8 +753,13 @@ namespace QMC.CDT320.Sequencing
 
             // Material을 Feeder에서 지우기 전에 모든 카세트 물리 이동을 끝낸다.
             // 이 조건을 지키면 슬롯 복귀/Avoid 중 정지되어도 Feeder 점유 재개 경로가 유지된다.
-            if (!cassetteAtAvoid)
+            // 연속 이송(keep-at-slot)에서는 final slot 안착이 곧 '물리 이동 완료'이므로 커밋을 허용한다.
+            if (!IsCassetteRestingForPostUnloadCommit(cassetteAtAvoid))
             {
+                WriteLog(Name,
+                    "Material 커밋 전 카세트가 이송 종료 휴지 상태가 아니어서 final slot 이동부터 다시 실행합니다. " +
+                    "role=" + ResolveOutputCassetteRole() + ", slot=" + Options.SlotIndex +
+                    ", " + cassetteState + " - Check");
                 CurrentStep = OutputFeederUnloadToCassetteStep.MoveCassetteToBinSlotFinalPosition;
                 return 0;
             }
@@ -753,7 +833,8 @@ namespace QMC.CDT320.Sequencing
                 return Fail("OUT-FEEDER-CST-UPDATE-STATE", Cassette != null ? Cassette.Name : "OutputCassette",
                     "Cassette 데이터 완료 처리 전 OutputCassette Lifter가 안전하게 정지된 상태가 아닙니다. " + cassetteState);
 
-            if (!cassetteAtAvoid)
+            // 연속 이송(keep-at-slot)에서는 final slot 안착을 Avoid와 동등한 휴지 상태로 인정한다(무한 루프 방지).
+            if (!IsCassetteRestingForPostUnloadCommit(cassetteAtAvoid))
             {
                 bool finalStepReady;
                 int finalStepPreflight = VerifyPostUnloadFinalStepReady(out finalStepReady);
@@ -1117,7 +1198,7 @@ namespace QMC.CDT320.Sequencing
 
             if (ResolveFeederWafer() != null)
             {
-                CurrentStep = cassetteAtAvoid
+                CurrentStep = IsCassetteRestingForPostUnloadCommit(cassetteAtAvoid)
                     ? OutputFeederUnloadToCassetteStep.MoveMaterialDataToCassette
                     : OutputFeederUnloadToCassetteStep.MoveCassetteToBinSlotFinalPosition;
                 return 0;
@@ -1132,7 +1213,7 @@ namespace QMC.CDT320.Sequencing
                 if (validation != 0)
                     return validation;
 
-                CurrentStep = cassetteAtAvoid
+                CurrentStep = IsCassetteRestingForPostUnloadCommit(cassetteAtAvoid)
                     ? OutputFeederUnloadToCassetteStep.UpdateCassetteData
                     : OutputFeederUnloadToCassetteStep.MoveCassetteToBinSlotFinalPosition;
                 return 0;
