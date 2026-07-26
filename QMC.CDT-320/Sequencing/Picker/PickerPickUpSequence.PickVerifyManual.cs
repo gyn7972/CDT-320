@@ -107,6 +107,11 @@ namespace QMC.CDT320.Sequencing
                 }
                 else
                 {
+                    // [정정 2026-07-26] 백그라운드 EjectPinZ Avoid 복귀 join(스냅샷 경합 차단).
+                    result = await JoinPickUpEjectPinAvoidBackgroundAsync().ConfigureAwait(false);
+                    if (result != 0)
+                        return result;
+
                     result = await MoveInputStageAxisToAvoidAndVerifyIfNeededAsync(
                         stage,
                         WaferStageAxis.EjectPinZ,

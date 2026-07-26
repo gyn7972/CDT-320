@@ -402,13 +402,13 @@ namespace QMC.CDT320.Ajin
 
                 double safeVelocity = velocity > 0.0
                     ? velocity
-                    : MotionSpeedScale.ApplyDefaultVelocityScale(Config.DefaultVelocity);
+                    : Config.GetDefaultVel();
                 double safeAcceleration = acceleration > 0.0
                     ? acceleration
-                    : MotionSpeedScale.ApplyDefaultAccelerationScale(Config.Acceleration);
+                    : Config.GetDefaultAcc();
                 double safeDeceleration = deceleration > 0.0
                     ? deceleration
-                    : MotionSpeedScale.ApplyDefaultAccelerationScale(Config.Deceleration);
+                    : Config.GetDefaultDec();
 
                 int ret;
                 lock (_sync)
@@ -467,13 +467,13 @@ namespace QMC.CDT320.Ajin
             {
                 double safeVelocity = velocity > 0.0
                     ? velocity
-                    : MotionSpeedScale.ApplyDefaultVelocityScale(Config.DefaultVelocity);
+                    : Config.GetDefaultVel();
                 double safeAcceleration = acceleration > 0.0
                     ? acceleration
-                    : MotionSpeedScale.ApplyDefaultAccelerationScale(Config.Acceleration);
+                    : Config.GetDefaultAcc();
                 double safeDeceleration = deceleration > 0.0
                     ? deceleration
-                    : MotionSpeedScale.ApplyDefaultAccelerationScale(Config.Deceleration);
+                    : Config.GetDefaultDec();
 
                 if (UseSimulation)
                 {
@@ -538,7 +538,7 @@ namespace QMC.CDT320.Ajin
         // 팔로잉 이동 전체 타임아웃(고정). 팔로잉 루프와 최종 완료 대기를 합쳐 적용한다.
         private const int FollowMoveTimeoutMs = 5000;
         // 팔로잉 루프 폴링 주기.
-        private const int FollowMovePollIntervalMs = 10;
+        private const int FollowMovePollIntervalMs = 1;
         // 타임아웃 전용 에러코드.
         private const int FollowMoveTimeoutErrorCode = -21;
         // 선행축 알람 전용 에러코드.
@@ -548,17 +548,13 @@ namespace QMC.CDT320.Ajin
         // 기존 조건: MoveAbsoluteAsync(command, velocity) 2인자 호출 — 가감속 스케일 여부를
         //   MatchesDefaultVelocityScale 추론에 맡겼고, followVel=Min(선행,후행)은 후행축의 스케일
         //   DefaultVelocity와 일치하지 않아 가감속이 Config 원본 100%로 나갔다(실장비 폭주 원인).
-        // 현재 기준: SharedRailXMotionRuntime.MoveAxisWithTemporaryMotionAsync와 동일한
-        //   Config 임시 치환 패턴으로 명시 가감속을 보장한다. acc/dec는 호출 전에 이미
-        //   MotionSpeedScale을 경유한 값이어야 한다(FollowMoveAsync 폴백 스케일이 보장).
-        //   추가(B안): velocity가 후행축의 스케일된 DefaultVelocity와 우연히 일치하면
-        //   MoveAbsoluteAsync의 useDefaultMotionScale 추론이 true가 되어 치환해 둔(이미 스케일된)
-        //   가감속에 스케일이 한 번 더 걸린다(이중 스케일, 규칙 3 위반). 이를 원천 차단하기 위해
-        //   Config.DefaultVelocity도 0으로 임시 치환한다 — MatchesDefaultVelocityScale은
-        //   defaultVelocity<=0이면 무조건 false이므로 추론이 결정적으로 명시 경로가 된다.
-        // 주의: Config를 이동 구간 동안 임시 치환하므로 반드시 finally에서 원복한다.
-        //       이 헬퍼는 FollowMoveAsync 전용이며 다른 곳에서 호출하지 않는다.
-        //       velocity<=0이면 치환 없이 기존 폴백(축 레이어 단일 스케일)에 위임한다.
+        // 현재 기준(정정 2026-07-26): 명시 가감속은 BaseAxis.BeginExplicitMotionProfileScope
+        //   (AsyncLocal)로 전달한다 — Config 임시 치환(DefaultVelocity=0)은 다른 스레드의 팔로잉
+        //   속도 계산이 0을 읽는 경합으로 실장비 사고(22:08)를 내 폐기했다. 스코프 활성 이동은
+        //   기본속도 추론 없이 전달 가감속을 그대로 쓴다(S² 차단 동일 보장).
+        //   acc/dec는 호출 전에 이미 MotionSpeedScale을 경유한 값이어야 한다.
+        //   이 헬퍼는 FollowMoveAsync 전용이며 다른 곳에서 호출하지 않는다.
+        //   velocity<=0이면 스코프 없이 기존 폴백(축 레이어 단일 스케일)에 위임한다.
         /// <summary>
         /// 팔로잉 최초 이동 명령. 명시 가감속을 Config 임시 치환으로 전달하고,
         /// MotionGuard 존 판정용 targetName을 AxisTeachingMove 스코프로 전달한다.
@@ -582,19 +578,15 @@ namespace QMC.CDT320.Ajin
             double deceleration,
             string targetName)
         {
+            // [정정 2026-07-26] Config 임시 치환(DefaultVelocity=0) 폐기 — 공유 Config를 다른
+            // 스레드(팔로잉 속도 계산 등)가 읽어 0이 관측되는 경합이 실장비 사고를 냈다(22:08).
+            // 명시 가감속은 AsyncLocal 스코프로 전달하고 Config는 절대 변형하지 않는다.
             bool useExplicitMotion = Config != null && velocity > 0.0 && acceleration > 0.0 && deceleration > 0.0;
-            double oldDefaultVelocity = useExplicitMotion ? Config.DefaultVelocity : 0.0;
-            double oldAcceleration = useExplicitMotion ? Config.Acceleration : 0.0;
-            double oldDeceleration = useExplicitMotion ? Config.Deceleration : 0.0;
+            IDisposable profileScope = useExplicitMotion
+                ? BaseAxis.BeginExplicitMotionProfileScope(acceleration, deceleration)
+                : null;
             try
             {
-                if (useExplicitMotion)
-                {
-                    Config.DefaultVelocity = 0.0;
-                    Config.Acceleration = acceleration;
-                    Config.Deceleration = deceleration;
-                }
-
                 // targetName이 없으면 스코프를 열지 않는다(기존 동작 유지).
                 // 빈 스코프를 열면 IsMatchingScope가 성립해 빈 targetName이 TeachingMove로 전달되어
                 // 현재의 VerifyAxisMove 경로와 달라진다.
@@ -606,12 +598,8 @@ namespace QMC.CDT320.Ajin
             }
             finally
             {
-                if (useExplicitMotion)
-                {
-                    Config.DefaultVelocity = oldDefaultVelocity;
-                    Config.Acceleration = oldAcceleration;
-                    Config.Deceleration = oldDeceleration;
-                }
+                if (profileScope != null)
+                    profileScope.Dispose();
             }
         }
 
@@ -750,25 +738,46 @@ namespace QMC.CDT320.Ajin
                 //   불일치). 명시 인자(>0)는 호출부가 이미 스케일한 값이므로 재스케일하지 않는다.
                 double leadVel = leadingVelocity > 0.0
                     ? leadingVelocity
-                    : MotionSpeedScale.ApplyDefaultVelocityScale(leadingAxis.Config != null ? leadingAxis.Config.DefaultVelocity : 0.0);
+                    : (leadingAxis.Config != null ? leadingAxis.Config.GetDefaultVel() : 0.0);
                 double leadAcc = leadingAcceleration > 0.0
                     ? leadingAcceleration
-                    : MotionSpeedScale.ApplyDefaultAccelerationScale(leadingAxis.Config != null ? leadingAxis.Config.Acceleration : 0.0);
+                    : (leadingAxis.Config != null ? leadingAxis.Config.GetDefaultAcc() : 0.0);
                 double leadDec = leadingDeceleration > 0.0
                     ? leadingDeceleration
-                    : MotionSpeedScale.ApplyDefaultAccelerationScale(leadingAxis.Config != null ? leadingAxis.Config.Deceleration : 0.0);
+                    : (leadingAxis.Config != null ? leadingAxis.Config.GetDefaultDec() : 0.0);
                 double trailVel = trailingVelocity > 0.0
                     ? trailingVelocity
-                    : MotionSpeedScale.ApplyDefaultVelocityScale(Config.DefaultVelocity);
+                    : Config.GetDefaultVel();
                 double trailAcc = trailingAcceleration > 0.0
                     ? trailingAcceleration
-                    : MotionSpeedScale.ApplyDefaultAccelerationScale(Config.Acceleration);
+                    : Config.GetDefaultAcc();
                 double trailDec = trailingDeceleration > 0.0
                     ? trailingDeceleration
-                    : MotionSpeedScale.ApplyDefaultAccelerationScale(Config.Deceleration);
+                    : Config.GetDefaultDec();
                 double followVel = Math.Min(leadVel, trailVel);
                 double followAcc = Math.Min(leadAcc, trailAcc);
                 double followDec = Math.Min(leadDec, trailDec);
+
+                // 속도 규칙(사용자 확정 2026-07-26):
+                //  - 추종 구간(안전거리 미확보): 후행축은 절대 선행축보다 빠르게 명령하지
+                //    않는다 — followVel=Min(선행,후행) 프로파일로만 나간다.
+                //  - 최종 타겟까지 안전거리 확보 후(commandIsFinal+gapAfter 검증): 자기
+                //    프로파일(trail*)로 고속 진입한다(벨로시티 오버라이드).
+                // 프로파일 해석이 0 이하로 떨어지면(설정 오염/경합) velocity=0 명령이 드라이버
+                // 폴백으로 더 빠른 속도가 되는 사고(실장비 2026-07-26 22:08, followVel=0→
+                // 100mm/s 추종·제자리 진동·서보 알람)를 원천 봉쇄하기 위해 즉시 실패한다.
+                if (followVel <= 0.0 || followAcc <= 0.0 || followDec <= 0.0)
+                {
+                    return FailMotion(-1, "FOLLOW MOVE",
+                        "팔로잉 프로파일 해석 실패(0 이하) — 이동을 시작하지 않습니다. " +
+                        "leadVel=" + leadVel.ToString("F3") +
+                        ", trailVel=" + trailVel.ToString("F3") +
+                        ", followVel=" + followVel.ToString("F3") +
+                        ", followAcc=" + followAcc.ToString("F3") +
+                        ", followDec=" + followDec.ToString("F3") +
+                        ", leading=" + leadingAxis.Name,
+                        trailingTargetPosition, true);
+                }
 
                 QMC.Common.Log.Write("Motion", "SYSTEM", "AX-FOLLOW-MOVE",
                     Name + " 팔로잉 이동을 시작합니다. leading=" + leadingAxis.Name +
@@ -844,17 +853,22 @@ namespace QMC.CDT320.Ajin
                         break;
 
                     // 간격/여유 계산 (실측 위치 기준).
+                    // [정정 2026-07-27, 사용자 확인] ActualPosition은 접근마다 보드 실시간
+                    // 읽기라 한 사이클 안에서 여러 번 읽으면 서로 다른 값이 온다(이동 중
+                    // 읽기 간격만큼 오염 — 경계 수식에 (A2-A1) 오염항 유입). 간격/경계/전진
+                    // 판정은 반드시 같은 스냅샷 1회 값(trailingActual)으로 계산한다.
+                    double trailingActual = ActualPosition;
                     double leadingActual = leadingAxis.ActualPosition;
                     double gap = direction > 0
-                        ? (leadingActual + homeGap) - ActualPosition
-                        : (ActualPosition + homeGap) - leadingActual;
+                        ? (leadingActual + homeGap) - trailingActual
+                        : (trailingActual + homeGap) - leadingActual;
                     double slack = gap - safetyGap;
 
                     if (slack > 0.0)
                     {
                         double intermediate = direction > 0
-                            ? ActualPosition + slack
-                            : ActualPosition - slack;
+                            ? trailingActual + slack
+                            : trailingActual - slack;
                         double command = direction > 0
                             ? Math.Min(trailingTargetPosition, intermediate)
                             : Math.Max(trailingTargetPosition, intermediate);
@@ -887,8 +901,8 @@ namespace QMC.CDT320.Ajin
                             ? (leadingActual + homeGap) - command
                             : (command + homeGap) - leadingActual;
                         bool commandForward = direction > 0
-                            ? command > ActualPosition + tolerance
-                            : command < ActualPosition - tolerance;
+                            ? command > trailingActual + tolerance
+                            : command < trailingActual - tolerance;
                         bool commandIsFinal = Math.Abs(command - trailingTargetPosition) <= tolerance;
 
                         if (gapAfter + 0.000001 >= safetyGap && (commandForward || commandIsFinal))
@@ -900,10 +914,11 @@ namespace QMC.CDT320.Ajin
                                 if (double.IsNaN(lastCommanded) || Math.Abs(command - lastCommanded) > tolerance ||
                                     !IsAtTargetPosition(command, tolerance))
                                 {
-                                    // 수정 B(2026-07-25): 가감속 스케일을 MoveAbsoluteAsync의 속도값
-                                    // 추론에 맡기지 않고, 팔로잉이 계산한(스케일 보장된) 프로파일을
-                                    // 명시 전달한다. commandIsFinal이면 후행축 자기 프로파일(trail*),
-                                    // 중간 세그먼트는 팔로잉 프로파일(follow*) — 기존 의도 유지.
+                                    // [사용자 확정 2026-07-26] 속도 규칙:
+                                    //  - 추종 구간(중간 세그먼트, 안전거리 미확보): followVel=Min(선행,후행)
+                                    //    — 후행축은 절대 선행축보다 빠르게 명령하지 않는다.
+                                    //  - 최종 타겟까지 안전거리 확보(commandIsFinal, gapAfter 재검증 통과):
+                                    //    자기 프로파일(trail*)로 고속 진입한다.
                                     double startVelocity = commandIsFinal ? trailVel : followVel;
                                     double startAcceleration = commandIsFinal ? trailAcc : followAcc;
                                     double startDeceleration = commandIsFinal ? trailDec : followDec;
@@ -980,20 +995,23 @@ namespace QMC.CDT320.Ajin
                                 // -4(정지 경합)는 무시하고 다음 루프에서 재시도한다.
                             }
 
-                            // 최종 구간 진입: 자기 프로파일로 속도 복귀 후 완료 대기 단계로 전환.
+                            // 최종 구간 진입: 자기 프로파일로 증속 후 완료 대기 단계로 전환.
+                            // [사용자 확정 2026-07-26] 최종 타겟까지 안전거리가 확보된 뒤에만
+                            // (command가 최종 타겟으로 클램프됨 = 선행 실측 기준 경계가 타겟 밖,
+                            //  gapAfter 재검증 통과) 벨로시티 오버라이드로 고속 진입한다.
+                            // 추종 구간의 "선행보다 빠르게 금지" 불변식은 이 지점 전까지 유지된다.
                             bool finalCommandActive = commandIsFinal &&
                                 !double.IsNaN(lastCommanded) &&
                                 Math.Abs(lastCommanded - trailingTargetPosition) <= tolerance;
                             if (finalCommandActive && !finalEntered)
                             {
                                 finalEntered = true;
-                                // 수정 D(2026-07-25): 증속 동작(followVel→trailVel)은 유지하고
-                                // 반환값과 실제 명령값을 로그로 남겨 사후 검증 가능하게 한다.
                                 int finalOverrideResult = 0;
                                 if (IsMoving)
                                     finalOverrideResult = TryOverrideVelocity(trailVel, trailAcc, trailDec);
                                 QMC.Common.Log.Write("Motion", "SYSTEM", "AX-FOLLOW-MOVE",
-                                    Name + " 팔로잉 최종 구간에 진입했습니다. target=" + trailingTargetPosition.ToString("F3") +
+                                    Name + " 팔로잉 최종 구간에 진입했습니다(안전거리 확보 — 자기 속도 증속). " +
+                                    "target=" + trailingTargetPosition.ToString("F3") +
                                     ", velocity=" + trailVel.ToString("F3") +
                                     ", acc=" + trailAcc.ToString("F3") +
                                     ", dec=" + trailDec.ToString("F3") +
@@ -1250,17 +1268,29 @@ namespace QMC.CDT320.Ajin
                         return limitCheck;
                 }
 
+                // 명시 프로파일 스코프(2026-07-26, Config 임시 치환 대체): 스코프가 활성이면
+                // 전달된 가감속을 그대로 쓰고 기본속도 추론(재스케일)을 하지 않는다 — S² 차단.
+                double explicitAcceleration;
+                double explicitDeceleration;
+                bool hasExplicitProfile = BaseAxis.TryGetExplicitMotionProfile(
+                    out explicitAcceleration, out explicitDeceleration);
+
                 // 명시 velocity 가 없거나, 기존 시퀀스 헬퍼가 스케일된 DefaultVelocity 를 명시값으로 넘긴 경우에는
                 // DefaultVelocity 기반 일반 이동으로 보고 가속/감속도 동일한 비율로 스케일한다.
-                bool useDefaultMotionScale = velocity <= 0.0 ||
-                    MotionSpeedScale.MatchesDefaultVelocityScale(velocity, Config.DefaultVelocity);
-                double vel = velocity > 0 ? velocity : MotionSpeedScale.ApplyDefaultVelocityScale(Config.DefaultVelocity);
-                double acceleration = useDefaultMotionScale
-                    ? MotionSpeedScale.ApplyDefaultAccelerationScale(Config.Acceleration)
-                    : Config.Acceleration;
-                double deceleration = useDefaultMotionScale
-                    ? MotionSpeedScale.ApplyDefaultAccelerationScale(Config.Deceleration)
-                    : Config.Deceleration;
+                bool useDefaultMotionScale = !hasExplicitProfile &&
+                    (velocity <= 0.0 ||
+                     MotionSpeedScale.MatchesDefaultVelocityScale(velocity, Config.GetRawDefaultVelocity()));
+                double vel = velocity > 0 ? velocity : Config.GetDefaultVel();
+                double acceleration = hasExplicitProfile
+                    ? explicitAcceleration
+                    : useDefaultMotionScale
+                        ? Config.GetDefaultAcc()
+                        : Config.GetDefaultAcc();
+                double deceleration = hasExplicitProfile
+                    ? explicitDeceleration
+                    : useDefaultMotionScale
+                        ? Config.GetDefaultDec()
+                        : Config.GetDefaultDec();
                 double boardTargetPos = ToBoardPosition(targetPos);
                 double boardVelocity = ToBoardVelocity(vel);
                 double boardAcceleration = ToBoardAcceleration(acceleration);
@@ -1415,9 +1445,9 @@ namespace QMC.CDT320.Ajin
                 }
 
                 // 현재 기준: 전달값이 최종값. 0 이하일 때만 Config 기반 스케일 폴백.
-                double vel = velocity > 0 ? velocity : MotionSpeedScale.ApplyDefaultVelocityScale(Config.DefaultVelocity);
-                double acc = acceleration > 0 ? acceleration : MotionSpeedScale.ApplyDefaultAccelerationScale(Config.Acceleration);
-                double dec = deceleration > 0 ? deceleration : MotionSpeedScale.ApplyDefaultAccelerationScale(Config.Deceleration);
+                double vel = velocity > 0 ? velocity : Config.GetDefaultVel();
+                double acc = acceleration > 0 ? acceleration : Config.GetDefaultAcc();
+                double dec = deceleration > 0 ? deceleration : Config.GetDefaultDec();
                 double boardTargetPos = ToBoardPosition(targetPos);
                 double boardVelocity = ToBoardVelocity(vel);
                 double boardAcceleration = ToBoardAcceleration(acc);
@@ -1955,7 +1985,7 @@ namespace QMC.CDT320.Ajin
         {
             return Config != null && Config.JogAcceleration > 0.0
                 ? Config.JogAcceleration
-                : (Config != null ? Config.Acceleration : 0.0);
+                : (Config != null ? Config.GetRawAcceleration() : 0.0);
         }
 
         /// <summary>Jog 구동 감속도. JogDeceleration 미설정(0 이하) 시 일반 Deceleration 으로 폴백한다.</summary>
@@ -1963,7 +1993,7 @@ namespace QMC.CDT320.Ajin
         {
             return Config != null && Config.JogDeceleration > 0.0
                 ? Config.JogDeceleration
-                : (Config != null ? Config.Deceleration : 0.0);
+                : (Config != null ? Config.GetRawDeceleration() : 0.0);
         }
 
         /// <summary>Jog 정지(StopJog) 전용 감속도. 미설정(0 이하) 시 JogDeceleration→Deceleration 순으로 폴백한다.</summary>
@@ -1979,7 +2009,7 @@ namespace QMC.CDT320.Ajin
         {
             return Config != null && Config.StopDeceleration > 0.0
                 ? Config.StopDeceleration
-                : (Config != null ? Config.Deceleration : 0.0);
+                : (Config != null ? Config.GetRawDeceleration() : 0.0);
         }
 
         public override async Task<int> MoveJogStepAsync(int direction, JogSpeedType speedType,

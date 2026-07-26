@@ -301,11 +301,10 @@ namespace QMC.CDT320
 
         private static double ResolveAxisVelocity(BaseAxis axis)
         {
-            // DefaultVelocity 기반 일반 이동 속도. 전체 퍼센트 스케일을 적용한다.
-            return MotionSpeedScale.ApplyDefaultVelocityScale(
-                axis != null && axis.Config != null && axis.Config.DefaultVelocity > 0.0
-                    ? axis.Config.DefaultVelocity
-                    : 100.0);
+            // DefaultVelocity 기반 일반 이동 속도. 전체 퍼센트 스케일을 적용한다(GetDefaultVel).
+            return axis != null && axis.Config != null && axis.Config.GetRawDefaultVelocity() > 0.0
+                ? axis.Config.GetDefaultVel()
+                : MotionSpeedScale.ApplyDefaultVelocityScale(100.0);
         }
 
         private static double ResolveAxisFineVelocity(BaseAxis axis)
@@ -315,25 +314,21 @@ namespace QMC.CDT320
                 : ResolveAxisVelocity(axis);
         }
 
-        // 기존 조건: 일반 이동 가감속을 여기서 미리 스케일해서 넘겼다.
-        //           SharedRailXMotionRuntime가 Config에 임시 대입한 뒤 MoveAbsoluteAsync가 다시 스케일해서
-        //           가감속이 스케일 제곱(S^2)으로 이중 적용됐다. (픽커와 동일 구조)
-        // 현재 기준: 원값을 넘기고 스케일은 축 레이어(MoveAbsoluteAsync)에서 1회만 적용한다.
-        // To do: 인풋 스테이지 축 이동 가감속 이중 스케일 제거.
+        // [정정 2026-07-26, 사용자 지시] 일반 이동 가감속은 GetDefaultAcc/Dec(스케일 1회 적용
+        // 최종값)로 넘긴다 — 축 레이어 명시 프로파일 스코프는 재스케일하지 않으므로 원값을
+        // 넘기면 원본이 그대로 보드로 나갔다(EjectPinZ acc 10000 실측, 2026-07-26 23:03 로그).
         private static double ResolveAxisAcceleration(BaseAxis axis)
         {
-            // 기존 조건: MotionSpeedScale.ApplyDefaultAccelerationScale(...) 로 감싸서 반환했다.
-            return axis != null && axis.Config != null && axis.Config.Acceleration > 0.0
-                ? axis.Config.Acceleration
-                : 100.0;
+            return axis != null && axis.Config != null && axis.Config.GetRawAcceleration() > 0.0
+                ? axis.Config.GetDefaultAcc()
+                : MotionSpeedScale.ApplyDefaultAccelerationScale(100.0);
         }
 
         private static double ResolveAxisDeceleration(BaseAxis axis)
         {
-            // 기존 조건: MotionSpeedScale.ApplyDefaultAccelerationScale(...) 로 감싸서 반환했다.
-            return axis != null && axis.Config != null && axis.Config.Deceleration > 0.0
-                ? axis.Config.Deceleration
-                : 100.0;
+            return axis != null && axis.Config != null && axis.Config.GetRawDeceleration() > 0.0
+                ? axis.Config.GetDefaultDec()
+                : MotionSpeedScale.ApplyDefaultAccelerationScale(100.0);
         }
 
         private static double ResolveAxisFineAcceleration(BaseAxis axis)

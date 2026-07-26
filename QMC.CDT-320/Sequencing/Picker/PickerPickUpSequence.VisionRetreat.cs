@@ -692,17 +692,17 @@ namespace QMC.CDT320.Sequencing
             double trailingVelocity = velocity > 0.0
                 ? velocity
                 : MotionSpeedScale.ApplyDefaultVelocityScale(
-                    pickerX.Config != null ? pickerX.Config.DefaultVelocity : 0.0);
+                    pickerX.Config != null ? pickerX.Config.GetRawDefaultVelocity() : 0.0);
             double trailingAcceleration = MotionSpeedScale.ApplyDefaultAccelerationScale(
-                pickerX.Config != null ? pickerX.Config.Acceleration : 0.0);
+                pickerX.Config != null ? pickerX.Config.GetRawAcceleration() : 0.0);
             double trailingDeceleration = MotionSpeedScale.ApplyDefaultAccelerationScale(
-                pickerX.Config != null ? pickerX.Config.Deceleration : 0.0);
+                pickerX.Config != null ? pickerX.Config.GetRawDeceleration() : 0.0);
             double leadingVelocity = MotionSpeedScale.ApplyDefaultVelocityScale(
-                visionX.Config != null ? visionX.Config.DefaultVelocity : 0.0);
+                visionX.Config != null ? visionX.Config.GetRawDefaultVelocity() : 0.0);
             double leadingAcceleration = MotionSpeedScale.ApplyDefaultAccelerationScale(
-                visionX.Config != null ? visionX.Config.Acceleration : 0.0);
+                visionX.Config != null ? visionX.Config.GetRawAcceleration() : 0.0);
             double leadingDeceleration = MotionSpeedScale.ApplyDefaultAccelerationScale(
-                visionX.Config != null ? visionX.Config.Deceleration : 0.0);
+                visionX.Config != null ? visionX.Config.GetRawDeceleration() : 0.0);
 
             WriteLog("PickerPickUpSequence",
                 Name + " PickUp 피커X 팔로잉 진입을 시작합니다. leading=" + visionX.Name +

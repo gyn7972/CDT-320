@@ -250,9 +250,9 @@ namespace QMC.CDT_320.Ui.Pages.Settings
 
                     int idx = speedGrid.Rows.Add(
                         AjinAxisDefaults.ToDisplayName(row.Axis.Name),
-                        FormatAxisValue(c.DefaultVelocity, row.Axis, "0.###"),
-                        FormatAxisValue(c.Acceleration, row.Axis, "0.###"),
-                        FormatAxisValue(c.Deceleration, row.Axis, "0.###"),
+                        FormatAxisValue(c.GetRawDefaultVelocity(), row.Axis, "0.###"),
+                        FormatAxisValue(c.GetRawAcceleration(), row.Axis, "0.###"),
+                        FormatAxisValue(c.GetRawDeceleration(), row.Axis, "0.###"),
                         FormatAxisValue(c.StopDeceleration, row.Axis, "0.###"),
                         FormatAxisValue(c.HomeFirstVelocity, row.Axis, "0.###"),
                         FormatAxisValue(c.HomeSecondVelocity, row.Axis, "0.###"),
@@ -352,9 +352,9 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                     if (axis == null || axis.Config == null) continue;
 
                     AxisConfig c = axis.Config;
-                    c.DefaultVelocity = ReadDisplayCell(row, "DEFAULT_VEL", c.DefaultVelocity, axis);
-                    c.Acceleration = ReadDisplayCell(row, "ACCEL", c.Acceleration, axis);
-                    c.Deceleration = ReadDisplayCell(row, "DECEL", c.Deceleration, axis);
+                    c.DefaultVelocity = ReadDisplayCell(row, "DEFAULT_VEL", c.GetRawDefaultVelocity(), axis);
+                    c.Acceleration = ReadDisplayCell(row, "ACCEL", c.GetRawAcceleration(), axis);
+                    c.Deceleration = ReadDisplayCell(row, "DECEL", c.GetRawDeceleration(), axis);
                     c.StopDeceleration = ReadDisplayCell(row, "STOP_DEC", c.StopDeceleration, axis);
                     c.HomeFirstVelocity = ReadDisplayCell(row, "HOME_VEL_1", c.HomeFirstVelocity, axis);
                     c.HomeSecondVelocity = ReadDisplayCell(row, "HOME_VEL_2", c.HomeSecondVelocity, axis);

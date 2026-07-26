@@ -871,8 +871,8 @@ namespace QMC.CDT320.Initialization
         private static double ResolveAxisDefaultVelocity(BaseAxis axis)
         {
             return MotionSpeedScale.ApplyDefaultVelocityScale(
-                axis != null && axis.Config != null && axis.Config.DefaultVelocity > 0.0
-                    ? axis.Config.DefaultVelocity
+                axis != null && axis.Config != null && axis.Config.GetRawDefaultVelocity() > 0.0
+                    ? axis.Config.GetRawDefaultVelocity()
                     : 5.0);
         }
 

@@ -448,6 +448,16 @@ namespace QMC.CDT320.Interlocks
                    request.Intent.PickerZone == PickerWorkZone.Output;
         }
 
+        // [사용자 승인 2026-07-27] Place 정리 Y 후진(PlaceDoneSafeY) 판별 — 이 이동에 한해
+        // Y 인터락의 Z 위치 요구를 면제한다(Z는 Avoid로 상승 중, 도착은 X 전 join이 보장).
+        internal static bool IsPlaceDoneSafeYRetreatMove(MotionGuardRuleContext request)
+        {
+            return request != null &&
+                   request.MoveKind == MotionGuardMoveKind.AxisTeachingMove &&
+                   !string.IsNullOrWhiteSpace(request.TargetName) &&
+                   request.TargetName.IndexOf("PickerPhase=PlaceDoneSafeY", System.StringComparison.OrdinalIgnoreCase) >= 0;
+        }
+
         // 인터락 기준: FrontPickerY 이동 중 PickerZ 유지 예외를 허용할지 판단한다.
         private static bool CanKeepFrontPickerZDuringYMove(MotionGuardRuleContext request)
         {
@@ -531,14 +541,19 @@ namespace QMC.CDT320.Interlocks
                 // 현재 기준: 자동 검사 Z Hold/FineAlign 이동은 Z축을 유지해야 하므로 Home/Avoid 조건에서 제외한다.
                 // PickUpZHold 면제(검증 FAIL E5 수정 2026-07-26): Conti 픽업 die 간 Y 이동(선보정/전진)도
                 // 유지 픽커 Z만 위치 요구를 면제한다(비이동 요구는 Except 변형이 유지).
+                // PlaceDoneSafeY 면제(사용자 승인 2026-07-27): Place 정리 Y 후진은 Z들이 Avoid로
+                // 상승 명령된 상태(NEAR AVOID 이상)에서 Z 상승과 병렬 진행 — Z 위치 요구를
+                // 면제한다. Z Avoid 도착은 X 이동 전 join+복구가 보장한다.
                 int yPickUpZHoldExempt;
                 bool yHasPickUpZHold =
                     MotionGuardRuleHelpers.TryGetPickUpZHoldExemptPickerIndex(request, out yPickUpZHoldExempt);
-                if (!CanKeepFrontPickerZDuringYMove(request) &&
+                bool ySkipZRequirement =
+                    CanKeepFrontPickerZDuringYMove(request) || IsPlaceDoneSafeYRetreatMove(request);
+                if (!ySkipZRequirement &&
                     !yHasPickUpZHold &&
                     !VerifyFrontPickerZAxesHomeOrAvoid(machine != null ? machine.PickerFrontUnit : null, "FrontPickerY", out reason))
                     return false;
-                if (!CanKeepFrontPickerZDuringYMove(request) &&
+                if (!ySkipZRequirement &&
                     yHasPickUpZHold &&
                     !VerifyFrontPickerZAxesHomeOrAvoidExcept(machine != null ? machine.PickerFrontUnit : null, "FrontPickerY", yPickUpZHoldExempt, out reason))
                     return false;

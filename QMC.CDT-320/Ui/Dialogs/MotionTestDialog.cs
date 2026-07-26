@@ -162,6 +162,16 @@ namespace QMC.CDT_320.Ui.Dialogs
                 btnClose.Click += (s, e) => Close();
                 btnMotionLogClear.Click += btnMotionLogClear_Click;
                 gridProfile.CellEndEdit += (s, e) => ValidateProfileGrid();
+
+                // [사용자 지시 2026-07-27] 포지션 오버라이드 기준(모션시작 vs 현재위치) 실측 확정
+                // 테스트 버튼: 현재 위치에서 -100mm 절대이동 발행 → 이동 중간에 시작점-300mm로
+                // 오버라이드 발행 → 착지점으로 보드의 상대 기준을 한 번에 판정한다.
+                System.Windows.Forms.Button btnOverrideCalTest = new System.Windows.Forms.Button();
+                btnOverrideCalTest.Name = "btnOverrideCalTest";
+                btnOverrideCalTest.Text = "OVR CAL\n(-100/-300)";
+                btnOverrideCalTest.Size = new System.Drawing.Size(90, 30);
+                btnOverrideCalTest.Click += async (s, e) => await RunOverrideCalibrationTestAsync();
+                commandLayout.Controls.Add(btnOverrideCalTest);
             }
             catch (Exception ex)
             {
@@ -170,6 +180,182 @@ namespace QMC.CDT_320.Ui.Dialogs
             }
             finally
             {
+            }
+        }
+
+        // [사용자 지시 2026-07-27] 오버라이드 기준 실측 확정 테스트.
+        // 절차: start=현재실측 → ①MoveAbsolute(start-100) 발행 ②20mm 이상 진행한 "이동 중간"에
+        // TryOverridePosition(start-300) 발행 ③정지 후 착지점 판정:
+        //   착지 ≈ start-300  → 보드 상대 기준 = "모션 시작 위치" (현 변환 로직 정상)
+        //   착지 ≈ 발행순간실측-300+@ → 보드 상대 기준 = "현재 위치" (변환 로직 결함 확정)
+        // 모든 수치는 Motion 로그 태그 OVR-CAL-TEST 로 기록된다.
+        private async Task RunOverrideCalibrationTestAsync()
+        {
+            if (IsRunning)
+            {
+                MessageDialog.Show(this, "Motion test is running. Stop first.", "Motion Test", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            BaseAxis axis = SelectedAxis;
+            QMC.CDT320.Ajin.AjinAxis ajin = axis as QMC.CDT320.Ajin.AjinAxis;
+            if (ajin == null)
+            {
+                MessageDialog.Show(this, "Ajin 실축에서만 지원하는 테스트입니다.", "Override Cal", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            ajin.UpdateStatus();
+            if (!ajin.IsServoOn || ajin.IsAlarm || ajin.IsMoving)
+            {
+                MessageDialog.Show(this, "축 상태가 준비되지 않았습니다(서보/알람/이동 확인).", "Override Cal", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            double start = ajin.ActualPosition;
+            double target1 = start - 100.0;
+            double target2 = start - 300.0;
+            if (ajin.Setup != null && ajin.Setup.SoftLimitEnabled && target2 < ajin.Setup.SoftLimitMinus + 1.0)
+            {
+                MessageDialog.Show(this,
+                    "소프트리밋 여유 부족: target2=" + target2.ToString("F3") +
+                    ", limit-=" + ajin.Setup.SoftLimitMinus.ToString("F3") + "\r\n축을 +방향으로 옮긴 뒤 다시 시도하십시오.",
+                    "Override Cal", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            if (MessageDialog.Show(this,
+                    ajin.Name + " 오버라이드 확정 테스트\r\n" +
+                    "start=" + start.ToString("F3") +
+                    " → ①" + target1.ToString("F3") + " 이동\r\n" +
+                    "②이동 중 " + target2.ToString("F3") + " 오버라이드\r\n진행할까요?",
+                    "Override Cal", MessageBoxButtons.OKCancel, MessageBoxIcon.Question) != DialogResult.OK)
+                return;
+
+            SetBusy(true);
+            try
+            {
+                double vel = ajin.Config != null ? ajin.Config.GetDefaultVel() : 0.0;
+                double acc = ajin.Config != null ? ajin.Config.GetDefaultAcc() : 0.0;
+                double dec = ajin.Config != null ? ajin.Config.GetDefaultDec() : 0.0;
+
+                QMC.Common.Log.Write("Motion", "SYSTEM", "OVR-CAL-TEST",
+                    ajin.Name + " 시작. start=" + start.ToString("F3") +
+                    ", target1=" + target1.ToString("F3") +
+                    ", target2=" + target2.ToString("F3") +
+                    ", vel=" + vel.ToString("F3") +
+                    ", acc=" + acc.ToString("F3") + " - Start");
+
+                Task<int> moveTask = ajin.MoveAbsoluteAsync(target1, vel);
+
+                // 이동 중간(20mm 이상 진행) 포착 — 1ms 폴링.
+                double actualAtOverride = double.NaN;
+                var sw = System.Diagnostics.Stopwatch.StartNew();
+                while (true)
+                {
+                    if (moveTask.IsCompleted)
+                    {
+                        int earlyResult = await moveTask.ConfigureAwait(true);
+                        QMC.Common.Log.Write("Motion", "SYSTEM", "OVR-CAL-TEST",
+                            ajin.Name + " 이동이 오버라이드 발행 전에 끝났습니다(속도 과다). result=" + earlyResult + " - Failed");
+                        MessageDialog.Show(this, "이동이 너무 빨라 중간 발행을 못 했습니다. 속도 스케일을 낮추고 재시도하십시오.",
+                            "Override Cal", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        return;
+                    }
+                    ajin.UpdateStatus();
+                    if (Math.Abs(ajin.ActualPosition - start) >= 20.0)
+                    {
+                        actualAtOverride = ajin.ActualPosition;
+                        break;
+                    }
+                    if (sw.ElapsedMilliseconds > 10000)
+                    {
+                        QMC.Common.Log.Write("Motion", "SYSTEM", "OVR-CAL-TEST",
+                            ajin.Name + " 20mm 진행 대기 타임아웃 - Failed");
+                        return;
+                    }
+                    await Task.Delay(1).ConfigureAwait(true);
+                }
+
+                double commandBeforeOverride = ajin.CommandPosition;
+                int overrideRet = ajin.TryOverridePosition(target2, vel, acc, dec, "OverrideCalTest");
+                ajin.UpdateStatus();
+                double commandAfterOverride = ajin.CommandPosition;
+                QMC.Common.Log.Write("Motion", "SYSTEM", "OVR-CAL-TEST",
+                    ajin.Name + " 오버라이드 발행. actualAtOverride=" + actualAtOverride.ToString("F3") +
+                    ", commandBefore=" + commandBeforeOverride.ToString("F3") +
+                    ", commandAfter=" + commandAfterOverride.ToString("F3") +
+                    ", intent(target2)=" + target2.ToString("F3") +
+                    ", ret=" + overrideRet + " - Check");
+                if (overrideRet != 0)
+                {
+                    MessageDialog.Show(this, "오버라이드 발행 실패. ret=" + overrideRet, "Override Cal", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    await moveTask.ConfigureAwait(true);
+                    return;
+                }
+
+                // [사용자 지시 2026-07-27] 한 번의 테스트로 끝나도록 — 오버라이드 이후 정지까지
+                // 20ms 간격으로 실측/Command 전체 궤적을 기록하고 역주행(+방향 복귀)도 감지한다.
+                var trace = new System.Text.StringBuilder();
+                double minPos = actualAtOverride;
+                double maxReversal = 0.0;
+                sw.Restart();
+                while (true)
+                {
+                    ajin.UpdateStatus();
+                    double a = ajin.ActualPosition;
+                    if (a < minPos) minPos = a;
+                    if (a - minPos > maxReversal) maxReversal = a - minPos;
+                    trace.Append(sw.ElapsedMilliseconds).Append(":")
+                         .Append(a.ToString("F2")).Append("/")
+                         .Append(ajin.CommandPosition.ToString("F2")).Append(" ");
+                    if (!ajin.IsMoving && sw.ElapsedMilliseconds > 100)
+                        break;
+                    if (sw.ElapsedMilliseconds > 15000)
+                        break;
+                    await Task.Delay(20).ConfigureAwait(true);
+                }
+                int moveTaskResult = await moveTask.ConfigureAwait(true);
+
+                QMC.Common.Log.Write("Motion", "SYSTEM", "OVR-CAL-TEST",
+                    ajin.Name + " 궤적(ms:actual/command) " + trace + "- Check");
+                QMC.Common.Log.Write("Motion", "SYSTEM", "OVR-CAL-TEST",
+                    ajin.Name + " 이동 태스크 결과=" + moveTaskResult +
+                    ", 최저점=" + minPos.ToString("F3") +
+                    ", 역주행량=" + maxReversal.ToString("F3") + " - Check");
+
+                double landing = ajin.ActualPosition;
+                double predictMotionStartBase = target2;
+                double predictCurrentBase = actualAtOverride + (target2 - start);
+                string verdict;
+                if (Math.Abs(landing - predictMotionStartBase) <= 0.5)
+                    verdict = "기준=모션시작(변환 정상)";
+                else if (Math.Abs(landing - predictCurrentBase) <= 0.5)
+                    verdict = "기준=현재위치(변환 결함 확정)";
+                else
+                    verdict = "판정불가(예측 밖)";
+
+                string summary =
+                    "start=" + start.ToString("F3") +
+                    ", 발행순간=" + actualAtOverride.ToString("F3") +
+                    ", intent=" + target2.ToString("F3") +
+                    ", 착지=" + landing.ToString("F3") +
+                    ", 예측(모션시작)=" + predictMotionStartBase.ToString("F3") +
+                    ", 예측(현재)=" + predictCurrentBase.ToString("F3") +
+                    " => " + verdict;
+                QMC.Common.Log.Write("Motion", "SYSTEM", "OVR-CAL-TEST", ajin.Name + " " + summary + " - Ok");
+                lblStatus.Text = verdict;
+                MessageDialog.Show(this, summary, "Override Cal", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Log.Write("Motion", "SYSTEM", "OVR-CAL-TEST", "예외: " + ex.Message + " - Failed");
+                MessageDialog.Show(this, ex.Message, "Override Cal", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+                SetBusy(false);
+                RefreshAxisState();
             }
         }
 
@@ -211,9 +397,9 @@ namespace QMC.CDT_320.Ui.Dialogs
 
                 AxisConfig config = axis.Config;
                 SetProfileValues(
-                    config != null ? AxisUnitConverter.ToDisplayVelocity(config.DefaultVelocity, axis) : 0.0,
-                    config != null ? AxisUnitConverter.ToDisplayVelocity(config.Acceleration, axis) : 0.0,
-                    config != null ? AxisUnitConverter.ToDisplayVelocity(config.Deceleration, axis) : 0.0,
+                    config != null ? AxisUnitConverter.ToDisplayVelocity(config.GetRawDefaultVelocity(), axis) : 0.0,
+                    config != null ? AxisUnitConverter.ToDisplayVelocity(config.GetRawAcceleration(), axis) : 0.0,
+                    config != null ? AxisUnitConverter.ToDisplayVelocity(config.GetRawDeceleration(), axis) : 0.0,
                     unit);
 
                 lblStatus.Text = "Default profile loaded.";
@@ -1003,9 +1189,9 @@ namespace QMC.CDT_320.Ui.Dialogs
             private MotionProfileSnapshot(BaseAxis axis)
             {
                 _axis = axis;
-                _velocity = axis.Config.DefaultVelocity;
-                _acceleration = axis.Config.Acceleration;
-                _deceleration = axis.Config.Deceleration;
+                _velocity = axis.Config.GetRawDefaultVelocity();
+                _acceleration = axis.Config.GetRawAcceleration();
+                _deceleration = axis.Config.GetRawDeceleration();
             }
 
             public static MotionProfileSnapshot Capture(BaseAxis axis)

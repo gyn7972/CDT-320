@@ -565,6 +565,8 @@ namespace QMC.CDT320.Sequencing
 
             TurnPlaceBlowOff("Z Avoid 조기 진행 — NEAR AVOID 이탈");
             SetPendingContiRetreat(_currentPickerIndex, _currentPickerNo);
+            // [사용자 승인 2026-07-27] 상승 태스크 보관 — 소비점/종료 정리가 재명령 대신 join.
+            _pendingContiRetreatRiseTask = riseTask;
             WriteLog("PickerPlaceSequence",
                 Name + " Place Z를 Avoid로 명령하고 NEAR AVOID 이탈 확인 — 시퀀스 조기 진행" +
                 "(잔여 상승 백그라운드, 도착 join은 pending 소비점/종료 정리 담당). " +

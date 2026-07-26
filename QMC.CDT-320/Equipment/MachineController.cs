@@ -759,6 +759,24 @@ namespace QMC.CDT320
             }
         }
 
+        // [사용자 지시 2026-07-27] 픽업 핫패스의 die당 상태 저장(~10ms 디스크 I/O) 비동기화.
+        // 저장 자체는 기존 SaveMachineRuntimeState의 lock으로 직렬화되고, 상태 캡처도 저장
+        // 시점(락 안)에 이뤄지므로 순서/일관성은 동기 호출과 동일 — 호출자만 기다리지 않는다.
+        public void SaveMachineRuntimeStateAsync(string reason)
+        {
+            System.Threading.Tasks.Task.Run(() =>
+            {
+                try
+                {
+                    SaveMachineRuntimeState(reason);
+                }
+                catch
+                {
+                    // SaveMachineRuntimeState가 자체 로깅 — 백그라운드 예외 전파만 차단.
+                }
+            });
+        }
+
         public void SaveMachineRuntimeStateForApplicationClosing()
         {
             try
@@ -8979,8 +8997,8 @@ namespace QMC.CDT320
         {
             // DefaultVelocity 기반 일반 이동 속도. 전체 퍼센트 스케일을 적용한다.
             return MotionSpeedScale.ApplyDefaultVelocityScale(
-                axis != null && axis.Config != null && axis.Config.DefaultVelocity > 0.0
-                    ? axis.Config.DefaultVelocity
+                axis != null && axis.Config != null && axis.Config.GetRawDefaultVelocity() > 0.0
+                    ? axis.Config.GetRawDefaultVelocity()
                     : 5.0);
         }
 

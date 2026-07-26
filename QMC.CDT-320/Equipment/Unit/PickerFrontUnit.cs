@@ -1652,13 +1652,14 @@ namespace QMC.CDT320
                 double acceleration;
                 double deceleration;
                 bool safeMoveApplied = false;
-                if (safeMovePercent > 0.0 && item != null && item.Config != null && item.Config.DefaultVelocity > 0.0)
+                if (safeMovePercent > 0.0 && item != null && item.Config != null && item.Config.GetRawDefaultVelocity() > 0.0)
                 {
                     // 캘리브레이션 안전이동: 각 축 Config.Default(속도/가속/감속) × (SafeMovePercent/100) 명시 모션.
                     double factor = Math.Min(safeMovePercent, 100.0) / 100.0;
-                    velocity = item.Config.DefaultVelocity * factor;
-                    acceleration = item.Config.Acceleration * factor;
-                    deceleration = item.Config.Deceleration * factor;
+                    // [정정 2026-07-26] 스케일 적용값 × 퍼센트 — 원본 유출 차단.
+                    velocity = item.Config.GetDefaultVel() * factor;
+                    acceleration = item.Config.GetDefaultAcc() * factor;
+                    deceleration = item.Config.GetDefaultDec() * factor;
                     safeMoveApplied = true;
                 }
                 else
@@ -1930,61 +1931,26 @@ namespace QMC.CDT320
                 string guardTargetName = BuildPickerGuardTargetName(axis, targetName);
                 using (PickerZoneInterlockRules.BeginPickerZoneMove(side, axis, guardTargetName))
                 {
-                    double oldAcceleration = item.Config != null ? item.Config.Acceleration : 0.0;
-                    double oldDeceleration = item.Config != null ? item.Config.Deceleration : 0.0;
-                    double oldDefaultVelocity = item.Config != null ? item.Config.DefaultVelocity : 0.0;
+                    // [정정 2026-07-26] Config 임시 치환(DefaultVelocity=0/가감속) 폐기 — 공유
+                    // Config를 팔로잉 속도 계산 등이 동시에 읽어 0이 관측되는 경합이 실장비
+                    // 사고(22:08)를 냈다. 명시 가감속은 6인자 경로로 축까지 전달되고, 최내곽
+                    // (MoveAxisWithTemporaryMotionAsync)의 명시 프로파일 스코프가 기본속도
+                    // 추론(S² 재스케일)을 차단한다.
                     bool useCustomAccel = item.Config != null && acceleration > 0.0 && deceleration > 0.0;
-                    // 가감속 이중 스케일(S²) 차단(2026-07-26): 이미 스케일된 가감속을 임시 치환한
-                    // 상태에서 전달 속도가 "DefaultVelocity×스케일"과 우연히 일치하면 축 레이어의
-                    // 기본속도 추론이 가감속에 스케일을 한 번 더 곱했다(실장비 Front PickerX acc
-                    // 1/400 실측). FollowMove와 동일하게 DefaultVelocity=0 임시 치환으로 추론을
-                    // 결정적으로 차단한다(명시 경로 강제) — finally에서 원복.
                     if (!string.IsNullOrWhiteSpace(guardTargetName))
                     {
                         using (MotionGuardRuntime.BeginAxisTeachingMove(item, targetPos, guardTargetName))
                         {
-                            try
-                            {
-                                if (useCustomAccel)
-                                {
-                                    item.Config.DefaultVelocity = 0.0;
-                                    item.Config.Acceleration = acceleration;
-                                    item.Config.Deceleration = deceleration;
-                                }
-                                result = await SharedRailXMotionRuntime.MoveAxisAsync(item, targetPos, velocity, forceMove).ConfigureAwait(false);
-                            }
-                            finally
-                            {
-                                if (useCustomAccel)
-                                {
-                                    item.Config.DefaultVelocity = oldDefaultVelocity;
-                                    item.Config.Acceleration = oldAcceleration;
-                                    item.Config.Deceleration = oldDeceleration;
-                                }
-                            }
+                            result = useCustomAccel
+                                ? await SharedRailXMotionRuntime.MoveAxisAsync(item, targetPos, velocity, acceleration, deceleration, forceMove).ConfigureAwait(false)
+                                : await SharedRailXMotionRuntime.MoveAxisAsync(item, targetPos, velocity, forceMove).ConfigureAwait(false);
                         }
                     }
                     else
                     {
-                        try
-                        {
-                            if (useCustomAccel)
-                            {
-                                item.Config.DefaultVelocity = 0.0;
-                                item.Config.Acceleration = acceleration;
-                                item.Config.Deceleration = deceleration;
-                            }
-                            result = await SharedRailXMotionRuntime.MoveAxisAsync(item, targetPos, velocity, acceleration, deceleration, forceMove).ConfigureAwait(false);
-                        }
-                        finally
-                        {
-                            if (useCustomAccel)
-                            {
-                                item.Config.DefaultVelocity = oldDefaultVelocity;
-                                item.Config.Acceleration = oldAcceleration;
-                                item.Config.Deceleration = oldDeceleration;
-                            }
-                        }
+                        result = useCustomAccel
+                            ? await SharedRailXMotionRuntime.MoveAxisAsync(item, targetPos, velocity, acceleration, deceleration, forceMove).ConfigureAwait(false)
+                            : await SharedRailXMotionRuntime.MoveAxisAsync(item, targetPos, velocity, forceMove).ConfigureAwait(false);
                     }
 
                     if (result != 0 || item.IsAlarm)
@@ -2885,11 +2851,10 @@ namespace QMC.CDT320
         public double ResolvePickerAxisVelocity(PickerAxis axis)
         {
             BaseAxis item = GetAxis(axis);
-            // DefaultVelocity 기반 일반 이동 속도. 전체 퍼센트 스케일을 적용한다.
-            return MotionSpeedScale.ApplyDefaultVelocityScale(
-                item != null && item.Config != null && item.Config.DefaultVelocity > 0.0
-                    ? item.Config.DefaultVelocity
-                    : 1000.0);
+            // DefaultVelocity 기반 일반 이동 속도. 전체 퍼센트 스케일을 적용한다(GetDefaultVel).
+            return item != null && item.Config != null && item.Config.GetRawDefaultVelocity() > 0.0
+                ? item.Config.GetDefaultVel()
+                : MotionSpeedScale.ApplyDefaultVelocityScale(1000.0);
         }
 
         public int ResolvePickerAxisMoveTimeoutMs(PickerAxis axis)
@@ -3126,25 +3091,21 @@ namespace QMC.CDT320
             // Fine ABS 이동은 JogFineVelocity 를 그대로 쓰고, 일반 이동만 DefaultVelocity 퍼센트 스케일을 적용한다.
             if (bFine && axis.Config.JogFineVelocity > 0)
                 return axis.Config.JogFineVelocity;
-            return MotionSpeedScale.ApplyDefaultVelocityScale(axis.Config.DefaultVelocity);
+            return axis.Config.GetDefaultVel();
         }
 
-        // 기존 조건: 일반 이동 가감속을 여기서 미리 스케일해서 넘겼다.
-        //           그런데 이 값은 SharedRailXMotionRuntime.MoveAxisWithTemporaryMotionAsync가 Config.Acceleration에
-        //           임시로 넣고, MoveAbsoluteAsync가 (velocity==스케일된 DefaultVelocity 판정으로) 다시 스케일해서
-        //           가감속이 스케일 제곱(S^2)으로 이중 적용됐다. (예: 7%에서 7000 -> 34.3mm/s^2)
-        // 현재 기준: 원값을 넘기고 스케일은 축 레이어(MoveAbsoluteAsync)에서 1회만 적용한다.
-        //           Fine 이동은 velocity가 JogFine이라 축 레이어가 스케일하지 않으므로 기존대로 Jog 가감속 원값 사용.
-        // To do: 픽커 이동 가감속 이중 스케일 제거.
+        // [정정 2026-07-26, 사용자 지시] 일반 이동 가감속은 GetDefaultAcc/Dec(스케일 1회 적용
+        // 최종값)로 넘긴다 — 축 레이어의 명시 프로파일 스코프는 재스케일하지 않으므로 원값을
+        // 넘기면 원본 그대로 보드로 나갔다(실장비 acc 20배 실측, 2026-07-26 23:02 로그).
+        // Fine 이동은 Jog 가감속 체계(스케일 미적용) 그대로.
         private double ResolveMoveAcceleration(BaseAxis axis, bool bFine)
         {
             if (axis == null || axis.Config == null)
                 return 0.0;
 
-            // 기존 조건: MotionSpeedScale.ApplyDefaultAccelerationScale(axis.Config.Acceleration)
             return bFine
                 ? axis.Config.JogAcceleration
-                : axis.Config.Acceleration;
+                : axis.Config.GetDefaultAcc();
         }
 
         private double ResolveMoveDeceleration(BaseAxis axis, bool bFine)
@@ -3152,10 +3113,9 @@ namespace QMC.CDT320
             if (axis == null || axis.Config == null)
                 return 0.0;
 
-            // 기존 조건: MotionSpeedScale.ApplyDefaultAccelerationScale(axis.Config.Deceleration)
             return bFine
                 ? axis.Config.JogDeceleration
-                : axis.Config.Deceleration;
+                : axis.Config.GetDefaultDec();
         }
 
         private Task<int> MovePickerGroup(string positionName, bool bFine)

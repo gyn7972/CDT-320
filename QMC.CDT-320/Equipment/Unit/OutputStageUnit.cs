@@ -419,9 +419,9 @@ namespace QMC.CDT320
 
         private double ResolveAxisVelocity(BaseAxis axis)
         {
-            // DefaultVelocity 기반 일반 이동 속도. 전체 퍼센트 스케일을 적용한다.
-            if (axis != null && axis.Config != null && axis.Config.DefaultVelocity > 0.0)
-                return MotionSpeedScale.ApplyDefaultVelocityScale(axis.Config.DefaultVelocity);
+            // DefaultVelocity 기반 일반 이동 속도. 전체 퍼센트 스케일을 적용한다(GetDefaultVel).
+            if (axis != null && axis.Config != null && axis.Config.GetRawDefaultVelocity() > 0.0)
+                return axis.Config.GetDefaultVel();
 
             return MotionSpeedScale.ApplyDefaultVelocityScale(100.0);
         }
@@ -2718,8 +2718,8 @@ namespace QMC.CDT320
             if (bFine && axis.Config != null && axis.Config.JogFineVelocity > 0.0)
                 return axis.Config.JogFineVelocity;
 
-            if (axis.Config != null && axis.Config.DefaultVelocity > 0.0)
-                return MotionSpeedScale.ApplyDefaultVelocityScale(axis.Config.DefaultVelocity);
+            if (axis.Config != null && axis.Config.GetRawDefaultVelocity() > 0.0)
+                return axis.Config.GetDefaultVel();
 
             return MotionSpeedScale.ApplyDefaultVelocityScale(100.0);
         }
@@ -2731,7 +2731,7 @@ namespace QMC.CDT320
 
             return bFine && axis.Config.JogAcceleration > 0.0
                 ? axis.Config.JogAcceleration
-                : MotionSpeedScale.ApplyDefaultAccelerationScale(axis.Config.Acceleration);
+                : axis.Config.GetDefaultAcc();
         }
 
         private double ResolveStageAxisDeceleration(BaseAxis axis, bool bFine)
@@ -2741,7 +2741,7 @@ namespace QMC.CDT320
 
             return bFine && axis.Config.JogDeceleration > 0.0
                 ? axis.Config.JogDeceleration
-                : MotionSpeedScale.ApplyDefaultAccelerationScale(axis.Config.Deceleration);
+                : axis.Config.GetDefaultDec();
         }
 
         private StageAxisPositions ResolveRecipePositions(BinStageAxis axis)

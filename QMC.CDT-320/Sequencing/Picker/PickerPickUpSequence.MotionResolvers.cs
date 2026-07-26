@@ -166,8 +166,8 @@ namespace QMC.CDT320.Sequencing
         {
             double normalizedPercent = PickerPickUpMotionConfig.NormalizePercent(percent, 1.0);
             double baseVelocity = 1.0;
-            if (axis != null && axis.Config != null && axis.Config.DefaultVelocity > 0.0)
-                baseVelocity = axis.Config.DefaultVelocity;
+            if (axis != null && axis.Config != null && axis.Config.GetRawDefaultVelocity() > 0.0)
+                baseVelocity = axis.Config.GetRawDefaultVelocity();
 
             return Math.Max(0.001, QMC.Common.Motion.MotionSpeedScale.ApplyDefaultVelocityScale(baseVelocity) * normalizedPercent / 100.0);
         }
@@ -178,7 +178,7 @@ namespace QMC.CDT320.Sequencing
             double baseAcceleration = 1.0;
             if (axis != null && axis.Config != null)
             {
-                double configured = acceleration ? axis.Config.Acceleration : axis.Config.Deceleration;
+                double configured = acceleration ? axis.Config.GetRawAcceleration() : axis.Config.GetRawDeceleration();
                 if (configured > 0.0)
                     baseAcceleration = configured;
             }
@@ -515,7 +515,8 @@ namespace QMC.CDT320.Sequencing
 
             RecordColletUse(_currentPickerNo);
             RecordBottomAutoFocusPickCount(_currentPickerNo, MaterialStateService.GetDieAtPicker(PickerLocationKind, _currentPickerNo));
-            SaveRuntimeState(Name + ":PickUp:ColletUse:" + _currentPickerNo);
+            // [사용자 지시 2026-07-27] die당 동기 디스크 저장(~10ms) → 비동기 전환(핫패스 제거).
+            SaveRuntimeStateAsync(Name + ":PickUp:ColletUse:" + _currentPickerNo);
             WriteLog("PickerPickUpSequence", Name + " picked die. die=" + _currentDieId + ", pickerNo=" + _currentPickerNo + " - Ok");
 
             int completionResult = PublishInputStageCompletionAfterSafePickReturn();

@@ -1058,6 +1058,20 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
+        // [정정 2026-07-26] 픽업 후 EjectPinZ Avoid 백그라운드 복귀의 결과 회수(join).
+        // 소비 지점(새 EjectPinZ 명령/스냅샷 확인 전)에서 반드시 호출한다 — 백그라운드 이동이
+        // 정지·도착 확인까지 마친 뒤에만 진행되므로 "actual==target인데 moving=Y" 스냅샷
+        // 경합(실장비 알람)이 발생하지 않는다.
+        private async Task<int> JoinPickUpEjectPinAvoidBackgroundAsync()
+        {
+            Task<int> pendingEjectPinAvoid = _pickUpEjectPinAvoidTask;
+            if (pendingEjectPinAvoid == null)
+                return 0;
+
+            _pickUpEjectPinAvoidTask = null;
+            return await pendingEjectPinAvoid.ConfigureAwait(false);
+        }
+
         private async Task<int> MovePickerYPickerTAndEjectPinZBeforeContiPickUpAsync(
             InputStageUnit stage,
             PickerAxis tAxis,
@@ -1066,6 +1080,12 @@ namespace QMC.CDT320.Sequencing
         {
             try
             {
+                // [정정 2026-07-26] 백그라운드 EjectPinZ Avoid 복귀 join — 아래 자기 이동/확인과의
+                // 경합 차단(이번 실장비 알람 지점: actual=target인데 moving=Y 스냅샷 실패).
+                int backgroundResult = await JoinPickUpEjectPinAvoidBackgroundAsync().ConfigureAwait(false);
+                if (backgroundResult != 0)
+                    return backgroundResult;
+
                 double ejectPinZAvoid = ResolveEjectPinZAvoidTarget(stage);
                 var pickerTargets = new Dictionary<PickerAxis, double>();
                 pickerTargets[PickerAxis.PickerY] = _targetPickerY;
@@ -1077,11 +1097,30 @@ namespace QMC.CDT320.Sequencing
                     ejectPinZAvoid,
                     "PickUp ContiNode PickerY pre-correction with EjectPinZ Avoid",
                     ct);
-                Task<int> pickerPreMove = MovePickerAxesAndVerifyAsync(
-                    pickerTargets,
-                    "PickUp ContiNode PickerY/T pre-correction",
-                    ct,
-                    targetName);
+
+                // [사용자 지시 2026-07-27] Y/T가 이미 목표 위치면 그룹 이동 체인(인터락 매트릭스
+                // 평가·존 스코프·플랜 검증·StrongWait)을 통째로 생략한다 — 무이동 스텝이
+                // 픽커당 ~63ms를 소모하던 오버헤드 제거. 이동이 필요한 경우는 기존 경로 그대로.
+                Task<int> pickerPreMove;
+                bool pickerYtAlreadyInPosition =
+                    IsPickerAxisAlreadyInPosition(PickerAxis.PickerY, _targetPickerY) &&
+                    IsPickerAxisAlreadyInPosition(tAxis, _targetPickerT);
+                if (pickerYtAlreadyInPosition)
+                {
+                    WriteLog("PickerPickUpSequence",
+                        Name + " PickUp ContiNode PickerY/T 사전보정 생략(이미 목표 위치). " +
+                        BuildPickerAxisState(PickerAxis.PickerY, _targetPickerY) + ", " +
+                        BuildPickerAxisState(tAxis, _targetPickerT) + " - Check");
+                    pickerPreMove = Task.FromResult(0);
+                }
+                else
+                {
+                    pickerPreMove = MovePickerAxesAndVerifyAsync(
+                        pickerTargets,
+                        "PickUp ContiNode PickerY/T pre-correction",
+                        ct,
+                        targetName);
+                }
 
                 int[] results = await Task.WhenAll(pickerPreMove, ejectPinZMove).ConfigureAwait(false);
                 if (results[0] != 0 || results[1] != 0)
@@ -1130,6 +1169,11 @@ namespace QMC.CDT320.Sequencing
             string description,
             CancellationToken ct)
         {
+            // [정정 2026-07-26] 백그라운드 EjectPinZ Avoid 복귀 join(스냅샷 경합 차단).
+            int backgroundResult = await JoinPickUpEjectPinAvoidBackgroundAsync().ConfigureAwait(false);
+            if (backgroundResult != 0)
+                return backgroundResult;
+
             double ejectPinZAvoid = ResolveEjectPinZAvoidTarget(stage);
             int vacuumOffResult = EnsureNeedleVacuumOffForPick(stage, description + " - EjectPinZ Avoid 이동 전");
             if (vacuumOffResult != 0)

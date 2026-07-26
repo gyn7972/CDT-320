@@ -936,14 +936,19 @@ namespace QMC.CDT320.Interlocks
                 // 현재 기준: 자동 검사 Z Hold/FineAlign 이동은 Z축을 유지해야 하므로 Home/Avoid 조건에서 제외한다.
                 // PickUpZHold 면제(검증 FAIL E5 수정 2026-07-26): Conti 픽업 die 간 Y 이동(선보정/전진)도
                 // 유지 픽커 Z만 위치 요구를 면제한다(비이동 요구는 Except 변형이 유지).
+                // PlaceDoneSafeY 면제(사용자 승인 2026-07-27): Front 미러 — Z 위치 요구 면제,
+                // Z Avoid 도착은 X 이동 전 join+복구가 보장.
                 int yPickUpZHoldExempt;
                 bool yHasPickUpZHold =
                     MotionGuardRuleHelpers.TryGetPickUpZHoldExemptPickerIndex(request, out yPickUpZHoldExempt);
-                if (!CanKeepRearPickerZDuringYMove(request) &&
+                bool ySkipZRequirement =
+                    CanKeepRearPickerZDuringYMove(request) ||
+                    PickerFrontInterlockRules.IsPlaceDoneSafeYRetreatMove(request);
+                if (!ySkipZRequirement &&
                     !yHasPickUpZHold &&
                     !VerifyRearPickerZAxesHomeOrAvoid(machine != null ? machine.PickerRearUnit : null, "RearPickerY", out reason))
                     return false;
-                if (!CanKeepRearPickerZDuringYMove(request) &&
+                if (!ySkipZRequirement &&
                     yHasPickUpZHold &&
                     !VerifyRearPickerZAxesHomeOrAvoidExcept(machine != null ? machine.PickerRearUnit : null, "RearPickerY", yPickUpZHoldExempt, out reason))
                     return false;

@@ -59,11 +59,11 @@ namespace QMC.CDT320.Sequencing
                 // 사용자 확정 속도 모델(2026-07-26): CONTI MAX VEL/NODE% 폐지 —
                 // 대표 속도는 PickerX DefaultVelocity × 전역 스케일(이 경로는 현재 미호출).
                 result.Velocity = MotionSpeedScale.ApplyDefaultVelocityScale(
-                    pickerX != null && pickerX.Config != null ? pickerX.Config.DefaultVelocity : 0.0);
+                    pickerX != null && pickerX.Config != null ? pickerX.Config.GetRawDefaultVelocity() : 0.0);
                 result.Acceleration = MotionSpeedScale.ApplyDefaultAccelerationScale(
-                    pickerX != null && pickerX.Config != null ? pickerX.Config.Acceleration : 0.0);
+                    pickerX != null && pickerX.Config != null ? pickerX.Config.GetRawAcceleration() : 0.0);
                 result.Deceleration = MotionSpeedScale.ApplyDefaultAccelerationScale(
-                    pickerX != null && pickerX.Config != null ? pickerX.Config.Deceleration : 0.0);
+                    pickerX != null && pickerX.Config != null ? pickerX.Config.GetRawDeceleration() : 0.0);
 
                 string readyReason;
                 if (!IsAxisReady(pickerX, "PickerX", out readyReason) ||

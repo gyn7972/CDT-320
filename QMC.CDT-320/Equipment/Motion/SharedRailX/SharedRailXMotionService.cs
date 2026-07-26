@@ -190,7 +190,7 @@ namespace QMC.CDT320.Motion.SharedRailX
             var plan = new SharedRailXMovePlan
             {
                 Name = "SingleAxisGuard",
-                Velocity = axis.Config != null ? axis.Config.DefaultVelocity : 0.0
+                Velocity = axis.Config != null ? axis.Config.GetDefaultVel() : 0.0
             };
             plan.Add(railAxis, targetPosition);
             IReadOnlyList<SharedRailXAxisSetting> settings = GetAxisSettings();

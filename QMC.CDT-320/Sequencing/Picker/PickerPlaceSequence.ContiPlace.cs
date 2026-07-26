@@ -656,6 +656,10 @@ namespace QMC.CDT320.Sequencing
         // pending 설정 시점의 해당 die PrePlace 높이(다음 노드에서 _lastConti…가 덮여도 보존).
         private double _pendingContiRetreatPrePlaceZ = double.NaN;
 
+        // [사용자 승인 2026-07-27] 조기 진행이 발행한 Z Avoid 상승 태스크 — 이동 중 재명령
+        // (AXM 0x1038 거부 사고) 대신 join으로 완료를 회수하기 위해 보관한다.
+        private Task<int> _pendingContiRetreatRiseTask;
+
         private bool HasPendingContiRetreat()
         {
             return _pendingContiRetreatPickerIndex >= 0;
@@ -673,11 +677,13 @@ namespace QMC.CDT320.Sequencing
             _pendingContiRetreatPickerIndex = -1;
             _pendingContiRetreatPickerNo = 0;
             _pendingContiRetreatPrePlaceZ = double.NaN;
+            ObservePlaceBackgroundResultTask(_pendingContiRetreatRiseTask);
+            _pendingContiRetreatRiseTask = null;
         }
 
-        // [정정 2026-07-26, 사용자 승인] PrePlace 파킹 폐지 — pending은 "Avoid로 상승 명령된
-        // 이전 PickerZ의 도착 join 예약"이다. 소비점에서는 항상 전체 Avoid를 재확인한다
-        // (이미 상승 중이면 동일 목표 재명령은 무해, 도착 완료면 즉시 통과).
+        // [정정 2026-07-27, 사용자 승인] 소비점은 재명령하지 않는다 — "이동 중 재명령"은
+        // AXM 0x1038(IN_MOTION 거부)로 실장비 알람을 냈다(2026-07-26 23:16/23:56).
+        // join+복구(정지 대기 → 정지 후에만 동기 Avoid 이동, 타임아웃 5초)로 완료를 보장한다.
         private async Task<int> CompletePendingContiRetreatIfNeededAsync(
             string description,
             CancellationToken ct)
@@ -685,15 +691,7 @@ namespace QMC.CDT320.Sequencing
             if (!HasPendingContiRetreat())
                 return 0;
 
-            PickerAxis zAxis = GetPickerZAxis(_pendingContiRetreatPickerIndex);
-            double avoid = GetPickerTeachingPosition(zAxis, "AvoidPosition");
-
-            int result = await MovePickerAxisAndVerifyAsync(
-                zAxis,
-                avoid,
-                description,
-                ct,
-                "AvoidPosition").ConfigureAwait(false);
+            int result = await JoinAllPickerZAtAvoidWithRecoveryAsync(description, ct).ConfigureAwait(false);
             if (result != 0)
                 return result;
 

@@ -238,6 +238,81 @@ namespace QMC.CDT320.Sequencing
             return await MovePickerToAvoidAfterPlaceFastAsync(description, ct, null).ConfigureAwait(false);
         }
 
+        // [사용자 승인 2026-07-27] Z Avoid 완료 확인 — 재명령 금지 원칙(AXM 0x1038 사고 재발 방지):
+        // ①백그라운드 상승 태스크가 있으면 결과를 회수(join) ②각 Z: 이동 중이면 정지까지 대기
+        // ③정지 후 Avoid가 아니면 그때만 동기 Avoid 이동(정지 상태라 재명령 안전).
+        // 전체 타임아웃 5초(사용자 지정).
+        private const int PlaceZAvoidJoinTimeoutMs = 5000;
+
+        private async Task<int> JoinAllPickerZAtAvoidWithRecoveryAsync(string description, CancellationToken ct)
+        {
+            DateTime timeoutAt = DateTime.UtcNow.AddMilliseconds(PlaceZAvoidJoinTimeoutMs);
+
+            Task<int> riseTask = _pendingContiRetreatRiseTask;
+            _pendingContiRetreatRiseTask = null;
+            if (riseTask != null && !riseTask.IsCompleted)
+            {
+                Task finished = await Task.WhenAny(riseTask, Task.Delay(PlaceZAvoidJoinTimeoutMs, ct)).ConfigureAwait(false);
+                if (finished != riseTask)
+                {
+                    return Fail("PICKER-PLACE-Z-JOIN-TIMEOUT", Name,
+                        description + " 실패: Z Avoid 상승 태스크가 " + PlaceZAvoidJoinTimeoutMs +
+                        "ms 안에 완료되지 않았습니다.");
+                }
+            }
+            if (riseTask != null && riseTask.IsCompleted)
+            {
+                int riseResult = await riseTask.ConfigureAwait(false);
+                if (riseResult != 0)
+                {
+                    WriteLog("PickerPlaceSequence",
+                        Name + " " + description +
+                        " - 상승 태스크 결과가 실패였습니다. 위치 확인/복구로 계속합니다. result=" + riseResult + " - Check");
+                }
+            }
+
+            PickerAxis[] zAxes =
+            {
+                PickerAxis.PickerZ0, PickerAxis.PickerZ1, PickerAxis.PickerZ2, PickerAxis.PickerZ3
+            };
+            foreach (PickerAxis zKind in zAxes)
+            {
+                BaseAxis zAxis = GetPickerAxis(zKind);
+                if (zAxis == null)
+                    continue;
+
+                // 이동 중이면 정지까지 대기(10ms 폴링) — 재명령 금지.
+                while (zAxis.IsMoving)
+                {
+                    ct.ThrowIfCancellationRequested();
+                    if (DateTime.UtcNow > timeoutAt)
+                    {
+                        return Fail("PICKER-PLACE-Z-JOIN-TIMEOUT", Name,
+                            description + " 실패: " + zKind + " 이동 정지 대기 타임아웃(" +
+                            PlaceZAvoidJoinTimeoutMs + "ms). " +
+                            BuildPickerAxisState(zKind, GetPickerTeachingPosition(zKind, "AvoidPosition")));
+                    }
+                    await Task.Delay(10, ct).ConfigureAwait(false);
+                }
+
+                double avoid = GetPickerTeachingPosition(zKind, "AvoidPosition");
+                if (IsPickerAxisInPosition(zKind, avoid))
+                    continue;
+
+                // 정지 + 비Avoid → 이때만 동기 Avoid 이동(복구).
+                int moveResult = await MovePickerAxisAndVerifyAsync(
+                    zKind,
+                    avoid,
+                    description + " - " + zKind + " Avoid 복구 이동",
+                    ct,
+                    "AvoidPosition").ConfigureAwait(false);
+                if (moveResult != 0)
+                    return moveResult;
+            }
+
+            return 0;
+        }
+
         private async Task<int> MovePickerToAvoidAfterPlaceFastAsync(
             string description,
             CancellationToken ct,
@@ -247,11 +322,24 @@ namespace QMC.CDT320.Sequencing
             {
                 ct.ThrowIfCancellationRequested();
 
-                int result = await MoveAllPickerZToAvoidAndVerifyAsync(
-                    description + " Z축 Avoid",
-                    ct).ConfigureAwait(false);
-                if (result != 0)
-                    return result;
+                // [사용자 승인 2026-07-27] PLACE ENTRY Z PREDOWN 스위치 기준 정리 순서:
+                //  - True: Z Avoid 도착 확인/재명령 없이 Y 먼저 이동(Z 잔여 상승과 병렬),
+                //          X 이동 직전에 join+복구로 Z Avoid 완료를 보장.
+                //  - False: join+복구로 Z Up 완료를 먼저 확인한 뒤 Y → X 순차.
+                // 기존 MoveAllPickerZToAvoid(이동 중 재명령 → AXM 0x1038 알람)는 폐지.
+                PickerPlaceMotionConfig placeConfig = ResolvePlaceMotionConfig();
+                bool zPreDown = placeConfig != null && placeConfig.PlaceEntryZPreDownMode;
+
+                int result;
+                if (!zPreDown)
+                {
+                    result = await JoinAllPickerZAtAvoidWithRecoveryAsync(
+                        description + " Z축 Avoid 완료 확인(선행)",
+                        ct).ConfigureAwait(false);
+                    if (result != 0)
+                        return result;
+                    ClearPendingContiRetreat();
+                }
 
                 result = await MovePickerAxisAndVerifyAsync(
                     PickerAxis.PickerY,
@@ -269,6 +357,16 @@ namespace QMC.CDT320.Sequencing
                     int handoverResult = beforeFinalReturnHandover();
                     if (handoverResult != 0)
                         return handoverResult;
+                }
+
+                if (zPreDown)
+                {
+                    result = await JoinAllPickerZAtAvoidWithRecoveryAsync(
+                        description + " X 이동 전 Z축 Avoid join",
+                        ct).ConfigureAwait(false);
+                    if (result != 0)
+                        return result;
+                    ClearPendingContiRetreat();
                 }
 
                 var tTargets = new Dictionary<PickerAxis, double>();

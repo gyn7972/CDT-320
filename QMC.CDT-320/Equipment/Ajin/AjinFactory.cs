@@ -127,10 +127,10 @@ namespace QMC.CDT320.Ajin
                         c.IsSimulationMode = (!Ready || axis is SimAxis)
                             ? true
                             : forceRealAxisInDryRun ? false : src.IsSimulationMode;
-                        if (src.DefaultVelocity > 0) c.DefaultVelocity = src.DefaultVelocity;
+                        if (src.GetRawDefaultVelocity() > 0) c.DefaultVelocity = src.GetRawDefaultVelocity();
                         if (src.MaxVelocity > 0) c.MaxVelocity = src.MaxVelocity;
-                        if (src.Acceleration > 0) c.Acceleration = src.Acceleration;
-                        if (src.Deceleration > 0) c.Deceleration = src.Deceleration;
+                        if (src.GetRawAcceleration() > 0) c.Acceleration = src.GetRawAcceleration();
+                        if (src.GetRawDeceleration() > 0) c.Deceleration = src.GetRawDeceleration();
                         if (src.HomeFirstVelocity > 0) c.HomeFirstVelocity = src.HomeFirstVelocity;
                         if (src.HomeSecondVelocity > 0) c.HomeSecondVelocity = src.HomeSecondVelocity;
                         if (src.HomeThirdVelocity > 0) c.HomeThirdVelocity = src.HomeThirdVelocity;
@@ -268,10 +268,10 @@ namespace QMC.CDT320.Ajin
             if (definition.Config != null)
             {
                 axis.Config.IsSimulationMode = definition.Config.IsSimulationMode;
-                axis.Config.DefaultVelocity = definition.Config.DefaultVelocity;
+                axis.Config.DefaultVelocity = definition.Config.GetRawDefaultVelocity();
                 axis.Config.MaxVelocity = definition.Config.MaxVelocity;
-                axis.Config.Acceleration = definition.Config.Acceleration;
-                axis.Config.Deceleration = definition.Config.Deceleration;
+                axis.Config.Acceleration = definition.Config.GetRawAcceleration();
+                axis.Config.Deceleration = definition.Config.GetRawDeceleration();
                 axis.Config.HomeFirstVelocity = definition.Config.HomeFirstVelocity;
                 axis.Config.HomeSecondVelocity = definition.Config.HomeSecondVelocity;
                 axis.Config.HomeThirdVelocity = definition.Config.HomeThirdVelocity;
