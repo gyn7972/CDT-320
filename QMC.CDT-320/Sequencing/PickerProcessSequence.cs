@@ -1110,7 +1110,8 @@ namespace QMC.CDT320.Sequencing
                     Side,
                     Options,
                     ct,
-                    Name + ":PickUpCompleteToBottom");
+                    Name + ":PickUpCompleteToBottom",
+                    result => OnInputVisionXPrePositionArrived(result, ct));
 
                 WriteLog("InputVisionXPrePosition",
                     Name + " PickUp 완료 후 InputVisionX 선행이동 요청 결과. " +
@@ -1130,6 +1131,33 @@ namespace QMC.CDT320.Sequencing
             }
             finally
             {
+            }
+        }
+
+        // [A안, 사용자 승인 2026-07-27] 선행이동 세션이 최종 검사 위치 도착으로 정상 종료되면
+        // 비침습 InputCamera 선행검사 시작을 1회 재시도한다 — PickUp 완료 시점의 시도가 레일 간격
+        // 사전검사로 거절된 뒤 다음 시퀀스 이벤트(Place 완료 등)까지 검사가 기동되지 않던 공백
+        // (실장비 2026-07-27 06:02:10.4→12.78, 약 2.4초) 제거. 시작 가능 판정
+        // (CanStartSafeInputCameraPreInspection)과 중복 기동 방지(코디네이터)는 기존 그대로다.
+        private void OnInputVisionXPrePositionArrived(int sessionResult, CancellationToken ct)
+        {
+            try
+            {
+                if (sessionResult != 0)
+                    return;
+                if (Options == null || Options.RunMode != SequenceRunMode.Auto)
+                    return;
+
+                WriteLog("PickerProcessSequence",
+                    Name + " InputVisionX 선행이동 도착 — 비침습 InputCamera 선행검사 시작을 재시도합니다. " +
+                    "side=" + Side + " - Check");
+                StartSafeInputCameraPreInspectionsAfterPickUpComplete(ct, "VisionPrePositionArrived");
+            }
+            catch (Exception ex)
+            {
+                WriteLog("PickerProcessSequence",
+                    Name + " 선행이동 도착 후 선행검사 재시도 중 예외(무시). " +
+                    "side=" + Side + ", error=" + ex.Message + " - Check");
             }
         }
 

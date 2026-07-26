@@ -1683,9 +1683,24 @@ namespace QMC.CDT320.Interlocks
             //            이 규칙의 예외이므로 NeedleX∥StageY 동시 이동은 기존에도 허용됐다.
             //   목적 — 픽업의 InputVisionX 이연 최소 회피(약 330mm, 5%에서 ~6.6초)와 StageY 진입
             //          이동이 겹쳐 -11로 실패하던 문제 해소(실장비 2026-07-25 17:18:55).
-            //   주의 — 완화 범위는 (moving=WaferStageY × 이동 중=InputVisionX) 조합 1개뿐이다.
-            //          WaferStageT / ExpanderZ / NeedleZ / EjectPinZ는 그대로 차단된다.
-            if (!IsNeedleXMove(movingName) &&
+            // 현재 기준(사용자 승인 2026-07-27): EjectPinZ도 예외로 둔다.
+            //   근거 1 — 물리 간섭 없음(사용자 확인 2026-07-27): EjectPinZ(웨이퍼 하부 이젝트 핀)와
+            //            InputVisionX(카메라 X)는 기계적으로 간섭하지 않는 축이다.
+            //   근거 2 — 선언 매트릭스 불일치: interlock-check-matrix.json의 MovingName="EjectPinZ" 행이
+            //            요구하는 검사는 WaferY(H18) / NeedleX(L18) 2건뿐이며 InputVisionX는 없다.
+            //   목적 — 픽업 중 InputVisionX 비동기 전진과 SyncLift 동반 EjectPinZ 상승(3.1→3.7)이
+            //          겹쳐 Critical INTERLOCK → 전축 비상정지 → 상승 중 PickerZ -5로 이어지던
+            //          문제 해소(실장비 2026-07-27 05:09:16).
+            //   주의 — 완화 조합은 (WaferStageY × InputVisionX), (EjectPinZ × InputVisionX) 2개다.
+            //          WaferStageT / ExpanderZ / NeedleZ는 그대로 차단된다.
+            if (IsEjectPinZMove(movingName) &&
+                IsMovingExcept(stage.CameraX, movingName, "InputVisionX", "CameraX"))
+            {
+                QMC.Common.Log.Write("Main", "INTERLOCK", "MotionGuard",
+                    "EjectPinZ 이동 허용: InputVisionX 이동 중이지만 예외 적용(사용자 승인 2026-07-27). cameraActual=" +
+                    (stage.CameraX != null ? stage.CameraX.ActualPosition.ToString("F3") : "-") + " - Check");
+            }
+            else if (!IsNeedleXMove(movingName) &&
                 !IsWaferStageYMove(movingName) &&
                 IsMovingExcept(stage.CameraX, movingName, "InputVisionX", "CameraX"))
                 return MotionGuardRuleHelpers.Block(movingName, "InputVisionX is moving.", out reason);
@@ -1715,6 +1730,13 @@ namespace QMC.CDT320.Interlocks
         {
             return string.Equals(movingName, "NeedleX", System.StringComparison.OrdinalIgnoreCase) ||
                    string.Equals(movingName, "NeedleBlockX", System.StringComparison.OrdinalIgnoreCase);
+        }
+
+        // 인터락 기준: 현재 이동 대상이 EjectPinZ(NeedlePinZ)인지 판단한다.
+        private static bool IsEjectPinZMove(string movingName)
+        {
+            return string.Equals(movingName, "EjectPinZ", System.StringComparison.OrdinalIgnoreCase) ||
+                   string.Equals(movingName, "NeedlePinZ", System.StringComparison.OrdinalIgnoreCase);
         }
 
         // 인터락 기준: 현재 이동 대상이 WaferStageY인지 판단한다.

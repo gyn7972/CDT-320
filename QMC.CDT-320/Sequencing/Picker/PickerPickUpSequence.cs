@@ -60,6 +60,11 @@ namespace QMC.CDT320.Sequencing
         private PickUpZTargets _lastPickUpZTargets;
         private double _inputVisionPickerEntryTarget;
         private bool _inputVisionPickerEntryTargetPrepared;
+        // 픽업 중 비전X 비동기 전진(사용자 지시 2026-07-27, 한 번에 수정): 발행한 전진 목표와 이동 Task.
+        // Task는 "이동 중인 비전이 내 전진인지" 판정(ContiNode 비전 검사 통과 조건)에,
+        // 목표는 이동 중 오버라이드 연장의 기준 비교에 사용한다. 배치 준비 시 초기화.
+        private double _pickUpVisionAdvanceTarget;
+        private Task<int> _pickUpVisionAdvanceTask;
         // R3(follow-entry): 비동기 시작한 InputVisionX 최소 회피 이동 Task.
         // 첫 피커 X 진입(MovePickerXStageYPickerT) 완료 전에 반드시 join(결과 0 확인)한다.
         // 기존 조건(사용자 지시 2026-07-25): 이동 명령 발행을 피커 X 진입 직전까지 이연했다
@@ -525,6 +530,8 @@ namespace QMC.CDT320.Sequencing
                 _inspectionCursor = 0;
                 _pickCursor = 0;
                 _inputVisionPickerEntryTargetPrepared = false;
+                _pickUpVisionAdvanceTask = null;
+                _pickUpVisionAdvanceTarget = 0.0;
                 // R3(follow-entry): 이전 배치의 비동기 회피 Task 잔여분 정리(drain).
                 await JoinInputVisionRetreatMoveTaskAsync("배치 준비 초기화", ct).ConfigureAwait(false);
                 ClearCurrentPickContext();

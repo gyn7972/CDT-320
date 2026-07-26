@@ -391,13 +391,17 @@ namespace QMC.CDT320.Motion.SharedRailX
         /// (VerifySingleAxisMove, SharedRailXCollisionValidator, MotionGuardRuntime 등)의 요구거리는
         /// 기존 SafetyDistance 그대로이며 Extra를 더하지 않는다.
         /// </summary>
+        // allowForwardAdvance(사용자 승인 2026-07-27): true면 "전진 금지 - B안" 현재 위치
+        // 유지 클램프를 적용하지 않는다 — 픽업 중 비전 선행 전진 용도(경계 안 전진 허용).
+        // 기본 false = 기존 회피 호출 전부 무변경.
         public bool TryResolveMinimalVisionRetreatTarget(
             BaseAxis visionAxis,
             double fullAvoidPosition,
             IDictionary<SharedRailXAxis, IList<double>> plannedAxisPositions,
             double extraClearance,
             out double retreatTarget,
-            out string detail)
+            out string detail,
+            bool allowForwardAdvance = false)
         {
             retreatTarget = fullAvoidPosition;
             detail = string.Empty;
@@ -579,7 +583,7 @@ namespace QMC.CDT320.Motion.SharedRailX
             // 수정(사용자 지시 2026-07-24): 비전이 이미 목표보다 회피 방향으로 더 물러나 정지해 있으면
             // 진입 방향으로 전진시키지 않고 현재 위치를 유지한다 (호출부의 이동 생략 관례로 무이동).
             bool heldAtCurrent = false;
-            if (!clampedToFullAvoid && !visionAxis.IsMoving)
+            if (!allowForwardAdvance && !clampedToFullAvoid && !visionAxis.IsMoving)
             {
                 double sActual = canonicalVisionSign * visionAxis.ActualPosition;
                 double sTarget = canonicalVisionSign * retreatTarget;
@@ -643,7 +647,8 @@ namespace QMC.CDT320.Motion.SharedRailX
                      ", extra=" + Math.Max(0.0, extraClearance).ToString("F3") +
                      ", fullAvoid=" + fullAvoidPosition.ToString("F6") +
                      (clampedToFullAvoid ? ", clamp=fullAvoid" : clampedToSoftLimit ? ", clamp=softLimit" : "") +
-                     (heldAtCurrent ? ", hold=current(전진 금지 - B안)" : "");
+                     (heldAtCurrent ? ", hold=current(전진 금지 - B안)" : "") +
+                     (allowForwardAdvance ? ", allowForward=true" : "");
             return true;
         }
 

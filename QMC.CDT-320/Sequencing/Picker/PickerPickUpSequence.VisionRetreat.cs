@@ -652,27 +652,65 @@ namespace QMC.CDT320.Sequencing
         // 픽커 X 이동 인터락의 비전 간격 기준과 정합이 보장된다.
         private void TryAdvanceInputVisionForRemainingPicks()
         {
+            // [진단 2026-07-27] 무발행 원인 확정용 스킵 사유 로그 — die당 1줄.
+            string skipReason = null;
+            double diagTarget = double.NaN;
+            double diagActual = double.NaN;
+            string diagDetail = null;
             try
             {
                 if (Options == null || Options.RunMode != SequenceRunMode.Auto)
+                {
+                    skipReason = "notAuto";
                     return;
+                }
                 PickerPickUpMotionConfig advanceConfig = ResolvePickUpMotionConfig();
                 if (advanceConfig == null || !IsCoordinatedPickUpTransferMotionMode(advanceConfig.TransferMotionMode))
+                {
+                    skipReason = "notConti";
                     return;
+                }
                 InputStageUnit stage = ResolveInputStage();
                 if (stage == null || stage.CameraX == null || stage.Recipe == null)
+                {
+                    skipReason = "noStage";
                     return;
+                }
                 if (_pickBatchItems == null || _pickCursor < 0 || _pickCursor >= _pickBatchItems.Count)
+                {
+                    skipReason = "cursor(" + _pickCursor + "/" +
+                                 (_pickBatchItems != null ? _pickBatchItems.Count : -1) + ")";
                     return;
+                }
+
+                diagActual = stage.CameraX.ActualPosition;
 
                 // ① 이전 명령이 아직 이동 중이면 그냥 둔다(사용자 지시 — 알람/대기/재명령 금지).
+                //    [정정 2026-07-27] 이동 중 "오버라이드 연장"은 사용자 지시로 제거 — 비전-피커 간
+                //    인터락 센서가 아직 정위치에 없어 위험하고, 실속도에서는 비전이 픽업보다 빨라
+                //    다음 die 시점의 정지 상태 재발행으로 충분하다. 자기 전진/외부 이동 구분은
+                //    스킵 사유 문자열로만 남긴다(진단용).
                 if (stage.CameraX.IsMoving)
+                {
+                    skipReason = (_pickUpVisionAdvanceTask != null && !_pickUpVisionAdvanceTask.IsCompleted)
+                        ? "ownAdvanceStillMoving"
+                        : "visionMovingForeign";
                     return;
+                }
+                if (_pickUpVisionAdvanceTask != null && !_pickUpVisionAdvanceTask.IsCompleted)
+                {
+                    // 축은 멈췄는데 이동 Task 마무리가 아직인 극단 레이스 — 이번 die는 건너뛴다.
+                    skipReason = "advanceTaskFinishing";
+                    return;
+                }
 
                 SharedRailXMotionService service = SharedRailXMotionRuntime.ResolveService(
                     Context != null ? Context.Machine : null);
                 if (service == null)
+                {
+                    skipReason = "noService";
                     return;
+                }
 
                 stage.Recipe.EnsurePositionObjects();
                 double fullAvoid = stage.Recipe.VisionX.AvoidPosition;
@@ -694,21 +732,39 @@ namespace QMC.CDT320.Sequencing
                         (service.Config != null ? service.Config.InputVisionRetreatExtraClearance : 40.0) +
                         VisionIndependentRetreatCoordinator.RetreatTargetExtraMarginMm,
                         out advanceTarget,
-                        out advanceDetail))
+                        out advanceDetail,
+                        allowForwardAdvance: true))
+                {
+                    skipReason = "resolverFalse";
+                    diagDetail = advanceDetail;
                     return;
+                }
+
+                diagTarget = advanceTarget;
+                diagDetail = advanceDetail;
 
                 // ③ 전진(+) 방향의 유의미한 이동일 때만.
                 if (advanceTarget <= stage.CameraX.ActualPosition + 0.5)
+                {
+                    skipReason = "noForwardGain";
                     return;
+                }
 
                 double velocity = stage.CameraX.Config != null ? stage.CameraX.Config.GetDefaultVel() : 0.0;
                 Task<int> advanceTask = SharedRailXMotionRuntime.MoveAxisAsync(
                     stage.CameraX, advanceTarget, velocity, false);
+                // [한 번에 수정 2026-07-27] 발행 목표를 "확정 피커 진입 목표"로 등록한다 — resolver가
+                // 남은 픽 전체와의 간격을 보장한 값이라 ContiNode 비전 검사(정지: 목표 일치 / 이동:
+                // 자기 전진 Task)와 정합된다. 미등록이 ContiNode 연쇄 탈락(배치당 1회 이동)의 원인이었다.
+                _pickUpVisionAdvanceTask = advanceTask;
+                _pickUpVisionAdvanceTarget = advanceTarget;
+                _inputVisionPickerEntryTarget = advanceTarget;
+                _inputVisionPickerEntryTargetPrepared = true;
                 WriteLog("PickerPickUpSequence",
                     Name + " 픽업 중 InputVisionX 비동기 전진 발행. target=" + advanceTarget.ToString("F3") +
                     ", actual=" + stage.CameraX.ActualPosition.ToString("F3") +
                     ", remainingPicks=" + remaining.Count +
-                    ", detail=" + advanceDetail + " - Start");
+                    ", entryTargetUpdated=true, detail=" + advanceDetail + " - Start");
                 advanceTask.ContinueWith(
                     t =>
                     {
@@ -725,6 +781,18 @@ namespace QMC.CDT320.Sequencing
             {
                 WriteLog("PickerPickUpSequence",
                     Name + " 픽업 중 InputVisionX 전진 시도 중 예외(무시). error=" + ex.Message + " - Check");
+            }
+            finally
+            {
+                if (skipReason != null)
+                {
+                    WriteLog("PickerPickUpSequence",
+                        Name + " 픽업 중 InputVisionX 전진 스킵. reason=" + skipReason +
+                        ", cursor=" + _pickCursor +
+                        ", actual=" + (double.IsNaN(diagActual) ? "-" : diagActual.ToString("F3")) +
+                        ", target=" + (double.IsNaN(diagTarget) ? "-" : diagTarget.ToString("F3")) +
+                        ", detail=" + (diagDetail ?? "-") + " - Check");
+                }
             }
         }
 

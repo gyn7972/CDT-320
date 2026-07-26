@@ -970,10 +970,10 @@ namespace QMC.CDT320.Ajin
                                 } 
 
                                 if (overrideResult == 0)
-                                {
+                                { 
                                     lastCommanded = command;
                                     commandIssued = true;
-                                }
+                                } 
                                 else if (overrideResult == -11)
                                 {
                                     Stop();
