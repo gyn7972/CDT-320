@@ -204,6 +204,7 @@
             // 
             // _viewer
             // 
+            this._viewer.AllowLive = false;
             this._viewer.Dock = System.Windows.Forms.DockStyle.Fill;
             this._viewer.Location = new System.Drawing.Point(470, 0);
             this._viewer.Margin = new System.Windows.Forms.Padding(0);

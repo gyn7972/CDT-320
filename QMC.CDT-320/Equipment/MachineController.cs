@@ -31,6 +31,9 @@ namespace QMC.CDT320
     /// </summary>
     public class MachineController
     {
+        private const int MachineRuntimeStateSaveMergeIntervalMs = 1000;
+        private const int MachineRuntimeStateSaveFailureRetryMs = 5000;
+
         private readonly CDT320_Machine _machine;
         private EquipmentStatus _status = EquipmentStatus.Idle;
         private CancellationTokenSource _cycleCts;
@@ -74,6 +77,15 @@ namespace QMC.CDT320
         private readonly SemaphoreSlim _axisInitializeOperationGate =
             new SemaphoreSlim(1, 1);
         private readonly object _machineRuntimeStateSaveLock = new object();
+        private readonly object _machineRuntimeStateSaveRequestLock = new object();
+        private bool _machineRuntimeStateSaveWorkerRunning;
+        private bool _machineRuntimeStateSaveRequested;
+        private bool _machineRuntimeStateDeferredSaveClosed;
+        private string _pendingMachineRuntimeStateSaveReason = string.Empty;
+        private int _pendingMachineRuntimeStateSaveRequestCount;
+        private long _machineRuntimeStateSaveRequestVersion;
+        private long _pendingMachineRuntimeStateSaveVersion;
+        private long _machineRuntimeStateAuthoritativeVersion;
         private bool _restoringAxisInitializeStepState;
         private readonly object _operatorMessageLock = new object();
         private string _lastOperatorMessageKey = string.Empty;
@@ -734,24 +746,37 @@ namespace QMC.CDT320
             }
         }
 
-        public bool SaveMachineRuntimeState(string reason)
+        public bool RequestMachineRuntimeStateSave(string reason)
         {
+            bool startWorker = false;
             try
             {
-                lock (_machineRuntimeStateSaveLock)
+                lock (_machineRuntimeStateSaveRequestLock)
                 {
-                    var state = CaptureMachineRuntimeState(reason);
-                    bool ok = MachineRuntimeStateStore.Save(state);
-                    QMC.Common.Log.Write("Main", "SYSTEM", "MachineRuntimeStateSave",
-                        "Machine runtime state save. reason=" + reason + ", file=" + MachineRuntimeStateStore.StatePath +
-                        (ok ? " - Ok" : " - Failed"));
-                    return ok;
+                    if (_machineRuntimeStateDeferredSaveClosed)
+                        return false;
+
+                    _machineRuntimeStateSaveRequestVersion++;
+                    _pendingMachineRuntimeStateSaveVersion = _machineRuntimeStateSaveRequestVersion;
+                    _pendingMachineRuntimeStateSaveReason = reason ?? string.Empty;
+                    _pendingMachineRuntimeStateSaveRequestCount =
+                        AddMachineRuntimeStateSaveRequestCount(_pendingMachineRuntimeStateSaveRequestCount, 1);
+                    _machineRuntimeStateSaveRequested = true;
+
+                    if (!_machineRuntimeStateSaveWorkerRunning)
+                    {
+                        _machineRuntimeStateSaveWorkerRunning = true;
+                        startWorker = true;
+                    }
                 }
+
+                return !startWorker || StartMachineRuntimeStateSaveWorker();
             }
             catch (Exception ex)
             {
                 QMC.Common.Log.Write("Main", "SYSTEM", "MachineRuntimeStateSave",
-                    "Machine runtime state save failed: " + ex.Message + " - Failed");
+                    "장비 Runtime State 백그라운드 저장 요청에 실패했습니다. reason=" +
+                    (reason ?? string.Empty) + ", error=" + ex.Message + " - Failed");
                 return false;
             }
             finally
@@ -759,10 +784,27 @@ namespace QMC.CDT320
             }
         }
 
+        public bool SaveMachineRuntimeState(string reason)
+        {
+            long coveredRequestVersion = PrepareSynchronousMachineRuntimeStateSave();
+            bool saved = SaveMachineRuntimeStateCore(
+                reason,
+                0,
+                0L,
+                coveredRequestVersion);
+
+            if (!saved)
+                RequestMachineRuntimeStateSave("SynchronousSaveRetry:" + (reason ?? string.Empty));
+
+            return saved;
+        }
+
         public void SaveMachineRuntimeStateForApplicationClosing()
         {
             try
             {
+                CloseDeferredMachineRuntimeStateSaves();
+
                 var settings = AppSettingsStore.Current ?? AppSettingsStore.Load();
                 if (settings != null && settings.DeveloperMode)
                 {
@@ -780,6 +822,220 @@ namespace QMC.CDT320
             finally
             {
             }
+        }
+
+        private bool StartMachineRuntimeStateSaveWorker()
+        {
+            try
+            {
+                Task.Run(() => ProcessMachineRuntimeStateSaveRequestsAsync());
+                return true;
+            }
+            catch (Exception ex)
+            {
+                lock (_machineRuntimeStateSaveRequestLock)
+                {
+                    _machineRuntimeStateSaveWorkerRunning = false;
+                }
+
+                QMC.Common.Log.Write("Main", "SYSTEM", "MachineRuntimeStateSave",
+                    "장비 Runtime State 백그라운드 저장 작업을 시작하지 못했습니다. error=" +
+                    ex.Message + " - Failed");
+                return false;
+            }
+        }
+
+        private async Task ProcessMachineRuntimeStateSaveRequestsAsync()
+        {
+            int nextDelayMs = MachineRuntimeStateSaveMergeIntervalMs;
+            try
+            {
+                while (true)
+                {
+                    await Task.Delay(nextDelayMs).ConfigureAwait(false);
+
+                    string reason;
+                    int mergedRequestCount;
+                    long requestVersion;
+                    lock (_machineRuntimeStateSaveRequestLock)
+                    {
+                        if (_machineRuntimeStateDeferredSaveClosed ||
+                            !_machineRuntimeStateSaveRequested)
+                        {
+                            return;
+                        }
+
+                        reason = _pendingMachineRuntimeStateSaveReason;
+                        mergedRequestCount = _pendingMachineRuntimeStateSaveRequestCount;
+                        requestVersion = _pendingMachineRuntimeStateSaveVersion;
+                        _machineRuntimeStateSaveRequested = false;
+                        _pendingMachineRuntimeStateSaveReason = string.Empty;
+                        _pendingMachineRuntimeStateSaveRequestCount = 0;
+                        _pendingMachineRuntimeStateSaveVersion = 0L;
+                    }
+
+                    bool saved = SaveMachineRuntimeStateCore(
+                        reason,
+                        mergedRequestCount,
+                        requestVersion,
+                        0L);
+                    if (saved)
+                    {
+                        nextDelayMs = MachineRuntimeStateSaveMergeIntervalMs;
+                        continue;
+                    }
+
+                    RequeueFailedMachineRuntimeStateSave(
+                        reason,
+                        mergedRequestCount,
+                        requestVersion);
+                    nextDelayMs = MachineRuntimeStateSaveFailureRetryMs;
+                }
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Log.Write("Main", "SYSTEM", "MachineRuntimeStateSave",
+                    "장비 Runtime State 백그라운드 저장 작업이 실패했습니다. error=" +
+                    ex.Message + " - Failed");
+            }
+            finally
+            {
+                bool restartWorker = false;
+                lock (_machineRuntimeStateSaveRequestLock)
+                {
+                    _machineRuntimeStateSaveWorkerRunning = false;
+                    if (!_machineRuntimeStateDeferredSaveClosed &&
+                        _machineRuntimeStateSaveRequested)
+                    {
+                        _machineRuntimeStateSaveWorkerRunning = true;
+                        restartWorker = true;
+                    }
+                }
+
+                if (restartWorker)
+                    StartMachineRuntimeStateSaveWorker();
+            }
+        }
+
+        private bool SaveMachineRuntimeStateCore(
+            string reason,
+            int mergedRequestCount,
+            long deferredRequestVersion,
+            long authoritativeRequestVersion)
+        {
+            try
+            {
+                lock (_machineRuntimeStateSaveLock)
+                {
+                    if (deferredRequestVersion > 0L &&
+                        IsDeferredMachineRuntimeStateSaveSuperseded(deferredRequestVersion))
+                    {
+                        QMC.Common.Log.Write("Main", "SYSTEM", "MachineRuntimeStateSave",
+                            "더 최신 동기 저장이 완료되어 이전 PickUp Runtime State 저장을 생략합니다. " +
+                            "requestVersion=" + deferredRequestVersion + " - Skipped");
+                        return true;
+                    }
+
+                    var state = CaptureMachineRuntimeState(reason);
+                    bool ok = MachineRuntimeStateStore.Save(state);
+                    if (ok && authoritativeRequestVersion > 0L)
+                        MarkMachineRuntimeStateSaveAuthoritative(authoritativeRequestVersion);
+
+                    string mergedText = mergedRequestCount > 0
+                        ? ", deferredMergedRequests=" + mergedRequestCount
+                        : string.Empty;
+                    QMC.Common.Log.Write("Main", "SYSTEM", "MachineRuntimeStateSave",
+                        "Machine runtime state save. reason=" + reason +
+                        ", file=" + MachineRuntimeStateStore.StatePath +
+                        mergedText +
+                        (ok ? " - Ok" : " - Failed"));
+                    return ok;
+                }
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Log.Write("Main", "SYSTEM", "MachineRuntimeStateSave",
+                    "Machine runtime state save failed: " + ex.Message + " - Failed");
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
+        private long PrepareSynchronousMachineRuntimeStateSave()
+        {
+            lock (_machineRuntimeStateSaveRequestLock)
+            {
+                long coveredRequestVersion = _machineRuntimeStateSaveRequestVersion;
+                _machineRuntimeStateSaveRequested = false;
+                _pendingMachineRuntimeStateSaveReason = string.Empty;
+                _pendingMachineRuntimeStateSaveRequestCount = 0;
+                _pendingMachineRuntimeStateSaveVersion = 0L;
+                return coveredRequestVersion;
+            }
+        }
+
+        private void CloseDeferredMachineRuntimeStateSaves()
+        {
+            lock (_machineRuntimeStateSaveRequestLock)
+            {
+                _machineRuntimeStateDeferredSaveClosed = true;
+            }
+        }
+
+        private bool IsDeferredMachineRuntimeStateSaveSuperseded(long requestVersion)
+        {
+            lock (_machineRuntimeStateSaveRequestLock)
+            {
+                return _machineRuntimeStateDeferredSaveClosed ||
+                       requestVersion <= _machineRuntimeStateAuthoritativeVersion;
+            }
+        }
+
+        private void MarkMachineRuntimeStateSaveAuthoritative(long requestVersion)
+        {
+            lock (_machineRuntimeStateSaveRequestLock)
+            {
+                if (requestVersion > _machineRuntimeStateAuthoritativeVersion)
+                    _machineRuntimeStateAuthoritativeVersion = requestVersion;
+            }
+        }
+
+        private void RequeueFailedMachineRuntimeStateSave(
+            string reason,
+            int mergedRequestCount,
+            long requestVersion)
+        {
+            lock (_machineRuntimeStateSaveRequestLock)
+            {
+                if (_machineRuntimeStateDeferredSaveClosed ||
+                    requestVersion <= _machineRuntimeStateAuthoritativeVersion)
+                {
+                    return;
+                }
+
+                if (!_machineRuntimeStateSaveRequested ||
+                    requestVersion > _pendingMachineRuntimeStateSaveVersion)
+                {
+                    _pendingMachineRuntimeStateSaveReason = reason ?? string.Empty;
+                    _pendingMachineRuntimeStateSaveVersion = requestVersion;
+                }
+
+                _pendingMachineRuntimeStateSaveRequestCount =
+                    AddMachineRuntimeStateSaveRequestCount(
+                        _pendingMachineRuntimeStateSaveRequestCount,
+                        mergedRequestCount);
+                _machineRuntimeStateSaveRequested = true;
+            }
+        }
+
+        private static int AddMachineRuntimeStateSaveRequestCount(int current, int additional)
+        {
+            if (current >= int.MaxValue - additional)
+                return int.MaxValue;
+
+            return current + additional;
         }
 
         private MachineRuntimeState CaptureMachineRuntimeState(string reason)

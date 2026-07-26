@@ -1701,7 +1701,9 @@ namespace QMC.CDT320.Materials
             var targetWafers = State.Wafers.Where(w =>
                 w != null &&
                 ((slotWaferIds.Count > 0 && slotWaferIds.Contains(w.WaferId)) ||
-                 w.SourceCassetteRole == cassetteRole))
+                 (w.CurrentLocation != null &&
+                  w.CurrentLocation.Kind == MaterialLocationKind.InputCassette &&
+                  w.CurrentLocation.CassetteRole == cassetteRole)))
                 .ToList();
 
             foreach (var wafer in targetWafers)
@@ -1802,15 +1804,14 @@ namespace QMC.CDT320.Materials
                 ((slotWaferIds.Count > 0 && slotWaferIds.Contains(w.WaferId)) ||
                  (w.CurrentLocation != null &&
                   w.CurrentLocation.Kind == MaterialLocationKind.OutputCassette &&
-                  w.CurrentLocation.CassetteRole == cassetteRole) ||
-                 w.OutputCassetteRole == cassetteRole ||
-                 w.SourceCassetteRole == cassetteRole))
+                  w.CurrentLocation.CassetteRole == cassetteRole)))
                 .ToList();
 
             foreach (var wafer in targetWafers)
             {
                 wafer.State = WaferMaterialState.Empty;
                 wafer.CurrentLocation = MaterialLocation.Unknown();
+                wafer.CassetteLotId = "";
                 wafer.UpdatedAt = DateTime.Now;
             }
 
@@ -1827,6 +1828,7 @@ namespace QMC.CDT320.Materials
             // 유효한 것으로 사용할 수 없다. 다음 전체 준비에서 실제 mapping을 다시
             // 수행하여 센서 결과와 Ready Material을 함께 재생성하도록 한다.
             cassette.IsMapped = false;
+            cassette.CassetteLotId = "";
         }
 
         public static void MoveWaferToInputFeeder(WaferMaterial wafer)

@@ -195,18 +195,18 @@ namespace QMC.CDT320.Sequencing
             Options = options ?? PickerSequenceOptions.Default();
         }
 
-        protected void SaveRuntimeState(string reason)
+        protected void RequestRuntimeStateSave(string reason)
         {
             try
             {
                 if (Context == null || Context.Controller == null)
                     return;
 
-                Context.Controller.SaveMachineRuntimeState(reason);
+                Context.Controller.RequestMachineRuntimeStateSave(reason);
             }
             catch (Exception ex)
             {
-                WriteLog("SaveRuntimeState", Name + " runtime state save failed. reason=" + reason + ", error=" + ex.Message + " - Failed");
+                WriteLog("RequestRuntimeStateSave", Name + " runtime state save request failed. reason=" + reason + ", error=" + ex.Message + " - Failed");
             }
             finally
             {

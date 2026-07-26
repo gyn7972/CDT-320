@@ -128,12 +128,12 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.grpAction = new System.Windows.Forms.GroupBox();
             this.actionBar = new System.Windows.Forms.TableLayoutPanel();
             this.btnMap = new QMC.CDT_320.Ui.Controls.ActionButton();
-            this.btnLoad = new QMC.CDT_320.Ui.Controls.ActionButton();
-            this.btnUnload = new QMC.CDT_320.Ui.Controls.ActionButton();
-            this.btnStop = new QMC.CDT_320.Ui.Controls.ActionButton();
             this.btnMapNg = new QMC.CDT_320.Ui.Controls.ActionButton();
+            this.btnLoad = new QMC.CDT_320.Ui.Controls.ActionButton();
             this.btnLoadNg = new QMC.CDT_320.Ui.Controls.ActionButton();
+            this.btnUnload = new QMC.CDT_320.Ui.Controls.ActionButton();
             this.btnUnloadNg = new QMC.CDT_320.Ui.Controls.ActionButton();
+            this.btnStop = new QMC.CDT_320.Ui.Controls.ActionButton();
             this.materialDetailView = new QMC.CDT_320.Ui.Controls.MaterialDetailView();
             this.grpDataOnly = new System.Windows.Forms.GroupBox();
             this.dataOnlyLayout = new System.Windows.Forms.TableLayoutPanel();
@@ -256,7 +256,6 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.slotStateLayout.Controls.Add(this.lblSlotStateTitle, 0, 1);
             this.slotStateLayout.Controls.Add(this.lblSlotStateValue, 1, 1);
             this.slotStateLayout.Controls.Add(this.btnReady, 2, 1);
-            this.slotStateLayout.SetColumnSpan(this.btnReady, 2);
             this.slotStateLayout.Dock = System.Windows.Forms.DockStyle.Fill;
             this.slotStateLayout.Location = new System.Drawing.Point(3, 23);
             this.slotStateLayout.Name = "slotStateLayout";
@@ -523,7 +522,8 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblSlotStateValue.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
             // btnReady
-            //
+            // 
+            this.slotStateLayout.SetColumnSpan(this.btnReady, 2);
             this.btnReady.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnReady.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.btnReady.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(129)));
@@ -825,7 +825,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.grpAction.Controls.Add(this.actionBar);
             this.grpAction.Dock = System.Windows.Forms.DockStyle.Bottom;
             this.grpAction.Font = new System.Drawing.Font("맑은 고딕", 11F, System.Drawing.FontStyle.Bold);
-            this.grpAction.Location = new System.Drawing.Point(0, 713);
+            this.grpAction.Location = new System.Drawing.Point(0, 748);
             this.grpAction.Margin = new System.Windows.Forms.Padding(0, 3, 3, 0);
             this.grpAction.Name = "grpAction";
             this.grpAction.Size = new System.Drawing.Size(836, 122);
@@ -835,7 +835,6 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             // 
             // actionBar
             // 
-            // To do: [존 분리 스캔] GOOD/NG 액션 분리 - 4열 2행 배치.
             this.actionBar.ColumnCount = 4;
             this.actionBar.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 25F));
             this.actionBar.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 25F));
@@ -848,12 +847,11 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.actionBar.Controls.Add(this.btnUnload, 0, 1);
             this.actionBar.Controls.Add(this.btnUnloadNg, 1, 1);
             this.actionBar.Controls.Add(this.btnStop, 2, 1);
-            this.actionBar.SetColumnSpan(this.btnStop, 2);
             this.actionBar.Dock = System.Windows.Forms.DockStyle.Top;
             this.actionBar.Location = new System.Drawing.Point(3, 23);
             this.actionBar.Margin = new System.Windows.Forms.Padding(0);
-            this.actionBar.Padding = new System.Windows.Forms.Padding(3, 1, 3, 0);
             this.actionBar.Name = "actionBar";
+            this.actionBar.Padding = new System.Windows.Forms.Padding(3, 1, 3, 0);
             this.actionBar.RowCount = 2;
             this.actionBar.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 46F));
             this.actionBar.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 46F));
@@ -863,88 +861,120 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             // btnMap
             // 
             this.btnMap.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
+            this.btnMap.BadgeColor = System.Drawing.Color.FromArgb(((int)(((byte)(245)))), ((int)(((byte)(166)))), ((int)(((byte)(35)))));
+            this.btnMap.BadgeText = "ACTION";
+            this.btnMap.BorderColor = System.Drawing.Color.Empty;
+            this.btnMap.BorderWidth = 0;
             this.btnMap.Cursor = System.Windows.Forms.Cursors.Hand;
             this.btnMap.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnMap.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
             this.btnMap.ForeColor = System.Drawing.Color.White;
-            this.btnMap.Location = new System.Drawing.Point(3, 3);
+            this.btnMap.Location = new System.Drawing.Point(6, 4);
             this.btnMap.Name = "btnMap";
-            this.btnMap.Size = new System.Drawing.Size(409, 40);
+            this.btnMap.Size = new System.Drawing.Size(200, 40);
             this.btnMap.TabIndex = 0;
             this.btnMap.Text = "GOOD BIN MAPPING";
-            //
+            // 
             // btnMapNg
-            //
+            // 
             this.btnMapNg.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
+            this.btnMapNg.BadgeColor = System.Drawing.Color.FromArgb(((int)(((byte)(245)))), ((int)(((byte)(166)))), ((int)(((byte)(35)))));
+            this.btnMapNg.BadgeText = "ACTION";
+            this.btnMapNg.BorderColor = System.Drawing.Color.Empty;
+            this.btnMapNg.BorderWidth = 0;
             this.btnMapNg.Cursor = System.Windows.Forms.Cursors.Hand;
             this.btnMapNg.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnMapNg.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
             this.btnMapNg.ForeColor = System.Drawing.Color.White;
+            this.btnMapNg.Location = new System.Drawing.Point(212, 4);
             this.btnMapNg.Name = "btnMapNg";
             this.btnMapNg.Size = new System.Drawing.Size(200, 40);
             this.btnMapNg.TabIndex = 10;
             this.btnMapNg.Text = "NG BIN MAPPING";
-            //
+            // 
+            // btnLoad
+            // 
+            this.btnLoad.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
+            this.btnLoad.BadgeColor = System.Drawing.Color.FromArgb(((int)(((byte)(245)))), ((int)(((byte)(166)))), ((int)(((byte)(35)))));
+            this.btnLoad.BadgeText = "ACTION";
+            this.btnLoad.BorderColor = System.Drawing.Color.Empty;
+            this.btnLoad.BorderWidth = 0;
+            this.btnLoad.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.btnLoad.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.btnLoad.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
+            this.btnLoad.ForeColor = System.Drawing.Color.White;
+            this.btnLoad.Location = new System.Drawing.Point(418, 4);
+            this.btnLoad.Name = "btnLoad";
+            this.btnLoad.Size = new System.Drawing.Size(200, 40);
+            this.btnLoad.TabIndex = 1;
+            this.btnLoad.Text = "GOOD BIN LOADING";
+            // 
             // btnLoadNg
-            //
+            // 
             this.btnLoadNg.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
+            this.btnLoadNg.BadgeColor = System.Drawing.Color.FromArgb(((int)(((byte)(245)))), ((int)(((byte)(166)))), ((int)(((byte)(35)))));
+            this.btnLoadNg.BadgeText = "ACTION";
+            this.btnLoadNg.BorderColor = System.Drawing.Color.Empty;
+            this.btnLoadNg.BorderWidth = 0;
             this.btnLoadNg.Cursor = System.Windows.Forms.Cursors.Hand;
             this.btnLoadNg.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnLoadNg.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
             this.btnLoadNg.ForeColor = System.Drawing.Color.White;
+            this.btnLoadNg.Location = new System.Drawing.Point(624, 4);
             this.btnLoadNg.Name = "btnLoadNg";
             this.btnLoadNg.Size = new System.Drawing.Size(200, 40);
             this.btnLoadNg.TabIndex = 11;
             this.btnLoadNg.Text = "NG BIN LOADING";
-            //
+            // 
+            // btnUnload
+            // 
+            this.btnUnload.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
+            this.btnUnload.BadgeColor = System.Drawing.Color.FromArgb(((int)(((byte)(245)))), ((int)(((byte)(166)))), ((int)(((byte)(35)))));
+            this.btnUnload.BadgeText = "ACTION";
+            this.btnUnload.BorderColor = System.Drawing.Color.Empty;
+            this.btnUnload.BorderWidth = 0;
+            this.btnUnload.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.btnUnload.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.btnUnload.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
+            this.btnUnload.ForeColor = System.Drawing.Color.White;
+            this.btnUnload.Location = new System.Drawing.Point(6, 50);
+            this.btnUnload.Name = "btnUnload";
+            this.btnUnload.Size = new System.Drawing.Size(200, 40);
+            this.btnUnload.TabIndex = 2;
+            this.btnUnload.Text = "GOOD BIN UNLOADING";
+            // 
             // btnUnloadNg
-            //
+            // 
             this.btnUnloadNg.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
+            this.btnUnloadNg.BadgeColor = System.Drawing.Color.FromArgb(((int)(((byte)(245)))), ((int)(((byte)(166)))), ((int)(((byte)(35)))));
+            this.btnUnloadNg.BadgeText = "ACTION";
+            this.btnUnloadNg.BorderColor = System.Drawing.Color.Empty;
+            this.btnUnloadNg.BorderWidth = 0;
             this.btnUnloadNg.Cursor = System.Windows.Forms.Cursors.Hand;
             this.btnUnloadNg.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnUnloadNg.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
             this.btnUnloadNg.ForeColor = System.Drawing.Color.White;
+            this.btnUnloadNg.Location = new System.Drawing.Point(212, 50);
             this.btnUnloadNg.Name = "btnUnloadNg";
             this.btnUnloadNg.Size = new System.Drawing.Size(200, 40);
             this.btnUnloadNg.TabIndex = 12;
             this.btnUnloadNg.Text = "NG BIN UNLOADING";
             // 
-            // btnLoad
-            // 
-            this.btnLoad.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
-            this.btnLoad.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.btnLoad.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnLoad.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
-            this.btnLoad.ForeColor = System.Drawing.Color.White;
-            this.btnLoad.Location = new System.Drawing.Point(418, 3);
-            this.btnLoad.Name = "btnLoad";
-            this.btnLoad.Size = new System.Drawing.Size(409, 40);
-            this.btnLoad.TabIndex = 1;
-            this.btnLoad.Text = "GOOD BIN LOADING";
-            // 
-            // btnUnload
-            // 
-            this.btnUnload.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
-            this.btnUnload.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.btnUnload.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnUnload.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
-            this.btnUnload.ForeColor = System.Drawing.Color.White;
-            this.btnUnload.Location = new System.Drawing.Point(3, 49);
-            this.btnUnload.Name = "btnUnload";
-            this.btnUnload.Size = new System.Drawing.Size(409, 40);
-            this.btnUnload.TabIndex = 2;
-            this.btnUnload.Text = "GOOD BIN UNLOADING";
-            // 
             // btnStop
             // 
             this.btnStop.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(214)))), ((int)(((byte)(40)))), ((int)(((byte)(40)))));
+            this.btnStop.BadgeColor = System.Drawing.Color.FromArgb(((int)(((byte)(245)))), ((int)(((byte)(166)))), ((int)(((byte)(35)))));
+            this.btnStop.BadgeText = "ACTION";
+            this.btnStop.BorderColor = System.Drawing.Color.Empty;
+            this.btnStop.BorderWidth = 0;
+            this.actionBar.SetColumnSpan(this.btnStop, 2);
             this.btnStop.Cursor = System.Windows.Forms.Cursors.Hand;
             this.btnStop.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnStop.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
             this.btnStop.ForeColor = System.Drawing.Color.White;
-            this.btnStop.Location = new System.Drawing.Point(418, 49);
+            this.btnStop.Location = new System.Drawing.Point(418, 50);
             this.btnStop.Name = "btnStop";
-            this.btnStop.Size = new System.Drawing.Size(409, 40);
+            this.btnStop.Size = new System.Drawing.Size(406, 40);
             this.btnStop.TabIndex = 3;
             this.btnStop.Text = "STOP";
             // 
@@ -959,24 +989,24 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.materialDetailView.ShowProcessTestDataButton = false;
             this.materialDetailView.Size = new System.Drawing.Size(836, 710);
             this.materialDetailView.TabIndex = 2;
-            //
+            // 
             // grpDataOnly
-            //
+            // 
             this.grpDataOnly.BackColor = System.Drawing.Color.White;
             this.grpDataOnly.Controls.Add(this.dataOnlyLayout);
             this.grpDataOnly.Dock = System.Windows.Forms.DockStyle.Fill;
             this.grpDataOnly.Font = new System.Drawing.Font("맑은 고딕", 11F, System.Drawing.FontStyle.Bold);
             this.grpDataOnly.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(192)))), ((int)(((byte)(0)))), ((int)(((byte)(0)))));
-            this.grpDataOnly.Location = new System.Drawing.Point(845, 713);
+            this.grpDataOnly.Location = new System.Drawing.Point(842, 713);
             this.grpDataOnly.Margin = new System.Windows.Forms.Padding(3, 3, 0, 0);
             this.grpDataOnly.Name = "grpDataOnly";
-            this.grpDataOnly.Size = new System.Drawing.Size(833, 157);
+            this.grpDataOnly.Size = new System.Drawing.Size(836, 157);
             this.grpDataOnly.TabIndex = 3;
             this.grpDataOnly.TabStop = false;
             this.grpDataOnly.Text = "MATERIAL DATA ONLY";
-            //
+            // 
             // dataOnlyLayout
-            //
+            // 
             this.dataOnlyLayout.ColumnCount = 4;
             this.dataOnlyLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 90F));
             this.dataOnlyLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 50F));
@@ -1000,131 +1030,131 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.dataOnlyLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 28F));
             this.dataOnlyLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 50F));
             this.dataOnlyLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 50F));
-            this.dataOnlyLayout.Size = new System.Drawing.Size(827, 131);
+            this.dataOnlyLayout.Size = new System.Drawing.Size(830, 131);
             this.dataOnlyLayout.TabIndex = 0;
-            //
+            // 
             // lblDataOnlyWarning
-            //
-            this.dataOnlyLayout.SetColumnSpan(this.lblDataOnlyWarning, 4);
+            // 
             this.lblDataOnlyWarning.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(214)))), ((int)(((byte)(40)))), ((int)(((byte)(40)))));
+            this.dataOnlyLayout.SetColumnSpan(this.lblDataOnlyWarning, 4);
             this.lblDataOnlyWarning.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblDataOnlyWarning.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
             this.lblDataOnlyWarning.ForeColor = System.Drawing.Color.White;
             this.lblDataOnlyWarning.Location = new System.Drawing.Point(7, 4);
             this.lblDataOnlyWarning.Name = "lblDataOnlyWarning";
             this.lblDataOnlyWarning.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
-            this.lblDataOnlyWarning.Size = new System.Drawing.Size(813, 28);
+            this.lblDataOnlyWarning.Size = new System.Drawing.Size(816, 28);
             this.lblDataOnlyWarning.TabIndex = 0;
             this.lblDataOnlyWarning.Text = "DATA ONLY / NO MOTION — 실물 위치를 확인한 후 Material 데이터만 이동/삭제하십시오. 장비는 움직이지 않습니다.";
             this.lblDataOnlyWarning.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            //
+            // 
             // lblDataOnlySourceTitle
-            //
+            // 
             this.lblDataOnlySourceTitle.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblDataOnlySourceTitle.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
             this.lblDataOnlySourceTitle.ForeColor = System.Drawing.Color.Black;
             this.lblDataOnlySourceTitle.Location = new System.Drawing.Point(7, 32);
             this.lblDataOnlySourceTitle.Name = "lblDataOnlySourceTitle";
-            this.lblDataOnlySourceTitle.Size = new System.Drawing.Size(84, 49);
+            this.lblDataOnlySourceTitle.Size = new System.Drawing.Size(84, 47);
             this.lblDataOnlySourceTitle.TabIndex = 1;
             this.lblDataOnlySourceTitle.Text = "SOURCE";
             this.lblDataOnlySourceTitle.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            //
+            // 
             // cmbDataOnlySource
-            //
-            this.cmbDataOnlySource.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Left | System.Windows.Forms.AnchorStyles.Right))));
+            // 
+            this.cmbDataOnlySource.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Left | System.Windows.Forms.AnchorStyles.Right)));
             this.cmbDataOnlySource.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
             this.cmbDataOnlySource.Font = new System.Drawing.Font("Consolas", 10F);
             this.cmbDataOnlySource.ForeColor = System.Drawing.Color.Black;
             this.cmbDataOnlySource.FormattingEnabled = true;
             this.cmbDataOnlySource.Location = new System.Drawing.Point(97, 43);
             this.cmbDataOnlySource.Name = "cmbDataOnlySource";
-            this.cmbDataOnlySource.Size = new System.Drawing.Size(310, 26);
+            this.cmbDataOnlySource.Size = new System.Drawing.Size(315, 23);
             this.cmbDataOnlySource.TabIndex = 2;
-            //
+            // 
             // lblDataOnlyDestTitle
-            //
+            // 
             this.lblDataOnlyDestTitle.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblDataOnlyDestTitle.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
             this.lblDataOnlyDestTitle.ForeColor = System.Drawing.Color.Black;
-            this.lblDataOnlyDestTitle.Location = new System.Drawing.Point(413, 32);
+            this.lblDataOnlyDestTitle.Location = new System.Drawing.Point(418, 32);
             this.lblDataOnlyDestTitle.Name = "lblDataOnlyDestTitle";
-            this.lblDataOnlyDestTitle.Size = new System.Drawing.Size(84, 49);
+            this.lblDataOnlyDestTitle.Size = new System.Drawing.Size(84, 47);
             this.lblDataOnlyDestTitle.TabIndex = 3;
             this.lblDataOnlyDestTitle.Text = "DEST";
             this.lblDataOnlyDestTitle.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            //
+            // 
             // cmbDataOnlyDest
-            //
-            this.cmbDataOnlyDest.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Left | System.Windows.Forms.AnchorStyles.Right))));
+            // 
+            this.cmbDataOnlyDest.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Left | System.Windows.Forms.AnchorStyles.Right)));
             this.cmbDataOnlyDest.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
             this.cmbDataOnlyDest.Font = new System.Drawing.Font("Consolas", 10F);
             this.cmbDataOnlyDest.ForeColor = System.Drawing.Color.Black;
             this.cmbDataOnlyDest.FormattingEnabled = true;
-            this.cmbDataOnlyDest.Location = new System.Drawing.Point(503, 43);
+            this.cmbDataOnlyDest.Location = new System.Drawing.Point(508, 43);
             this.cmbDataOnlyDest.Name = "cmbDataOnlyDest";
-            this.cmbDataOnlyDest.Size = new System.Drawing.Size(317, 26);
+            this.cmbDataOnlyDest.Size = new System.Drawing.Size(315, 23);
             this.cmbDataOnlyDest.TabIndex = 4;
-            //
+            // 
             // lblDataOnlyMaterialTitle
-            //
+            // 
             this.lblDataOnlyMaterialTitle.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblDataOnlyMaterialTitle.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
             this.lblDataOnlyMaterialTitle.ForeColor = System.Drawing.Color.Black;
-            this.lblDataOnlyMaterialTitle.Location = new System.Drawing.Point(7, 81);
+            this.lblDataOnlyMaterialTitle.Location = new System.Drawing.Point(7, 79);
             this.lblDataOnlyMaterialTitle.Name = "lblDataOnlyMaterialTitle";
-            this.lblDataOnlyMaterialTitle.Size = new System.Drawing.Size(84, 46);
+            this.lblDataOnlyMaterialTitle.Size = new System.Drawing.Size(84, 48);
             this.lblDataOnlyMaterialTitle.TabIndex = 5;
             this.lblDataOnlyMaterialTitle.Text = "MATERIAL";
             this.lblDataOnlyMaterialTitle.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            //
+            // 
             // lblDataOnlyMaterialValue
-            //
+            // 
             this.lblDataOnlyMaterialValue.BackColor = System.Drawing.Color.White;
             this.lblDataOnlyMaterialValue.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblDataOnlyMaterialValue.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblDataOnlyMaterialValue.Font = new System.Drawing.Font("Consolas", 10F);
             this.lblDataOnlyMaterialValue.ForeColor = System.Drawing.Color.Black;
-            this.lblDataOnlyMaterialValue.Location = new System.Drawing.Point(97, 84);
+            this.lblDataOnlyMaterialValue.Location = new System.Drawing.Point(97, 79);
             this.lblDataOnlyMaterialValue.Name = "lblDataOnlyMaterialValue";
             this.lblDataOnlyMaterialValue.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
-            this.lblDataOnlyMaterialValue.Size = new System.Drawing.Size(310, 40);
+            this.lblDataOnlyMaterialValue.Size = new System.Drawing.Size(315, 48);
             this.lblDataOnlyMaterialValue.TabIndex = 6;
             this.lblDataOnlyMaterialValue.Text = "-";
             this.lblDataOnlyMaterialValue.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            //
+            // 
             // btnDataOnlyMove
-            //
+            // 
             this.btnDataOnlyMove.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(214)))), ((int)(((byte)(40)))), ((int)(((byte)(40)))));
             this.btnDataOnlyMove.Cursor = System.Windows.Forms.Cursors.Hand;
             this.btnDataOnlyMove.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnDataOnlyMove.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.btnDataOnlyMove.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
             this.btnDataOnlyMove.ForeColor = System.Drawing.Color.White;
-            this.btnDataOnlyMove.Location = new System.Drawing.Point(413, 84);
+            this.btnDataOnlyMove.Location = new System.Drawing.Point(418, 82);
             this.btnDataOnlyMove.Name = "btnDataOnlyMove";
-            this.btnDataOnlyMove.Size = new System.Drawing.Size(84, 40);
+            this.btnDataOnlyMove.Size = new System.Drawing.Size(84, 42);
             this.btnDataOnlyMove.TabIndex = 7;
             this.btnDataOnlyMove.Text = "MOVE DATA";
             this.btnDataOnlyMove.UseVisualStyleBackColor = false;
-            //
+            // 
             // btnDataOnlyDelete
-            //
+            // 
             this.btnDataOnlyDelete.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(0)))), ((int)(((byte)(0)))));
             this.btnDataOnlyDelete.Cursor = System.Windows.Forms.Cursors.Hand;
             this.btnDataOnlyDelete.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnDataOnlyDelete.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.btnDataOnlyDelete.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
             this.btnDataOnlyDelete.ForeColor = System.Drawing.Color.White;
-            this.btnDataOnlyDelete.Location = new System.Drawing.Point(503, 84);
+            this.btnDataOnlyDelete.Location = new System.Drawing.Point(508, 82);
             this.btnDataOnlyDelete.Name = "btnDataOnlyDelete";
-            this.btnDataOnlyDelete.Size = new System.Drawing.Size(317, 40);
+            this.btnDataOnlyDelete.Size = new System.Drawing.Size(315, 42);
             this.btnDataOnlyDelete.TabIndex = 8;
             this.btnDataOnlyDelete.Text = "DELETE DATA";
             this.btnDataOnlyDelete.UseVisualStyleBackColor = false;
-            //
+            // 
             // OutputCassettePage
-            //
+            // 
             this.BackColor = System.Drawing.Color.White;
             this.Controls.Add(this.rootLayout);
             this.Margin = new System.Windows.Forms.Padding(0);

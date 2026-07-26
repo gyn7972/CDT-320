@@ -509,7 +509,7 @@ namespace QMC.CDT320.Sequencing
 
             RecordColletUse(_currentPickerNo);
             RecordBottomAutoFocusPickCount(_currentPickerNo, MaterialStateService.GetDieAtPicker(PickerLocationKind, _currentPickerNo));
-            SaveRuntimeState(Name + ":PickUp:ColletUse:" + _currentPickerNo);
+            RequestRuntimeStateSave(Name + ":PickUp:ColletUse:" + _currentPickerNo);
             WriteLog("PickerPickUpSequence", Name + " picked die. die=" + _currentDieId + ", pickerNo=" + _currentPickerNo + " - Ok");
 
             int completionResult = PublishInputStageCompletionAfterSafePickReturn();

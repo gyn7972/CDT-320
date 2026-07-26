@@ -1,0 +1,205 @@
+﻿CDT-320 Calibration Dialog 저장 역할 분리 / Batch 측정 / Designer 검증 체크리스트
+
+[A. 구현 전 기준]
+
+[ ] 작업 경로가 D:\Source\CDT-320_New다.
+[ ] Git root, branch, HEAD, status, 원격 대비 상태를 보고했다.
+[ ] 기존 dirty 3개 파일을 보존한다.
+[ ] 여러 선택 측정은 병렬 축 구동이 아니라 직렬 자동 실행이다.
+[ ] PickUpZ 순서는 Front P4→P3→P2→P1, Rear P4→P3→P2→P1이다.
+[ ] PlaceZ는 Batch당 Output Side 하나만 고정한다.
+[ ] Bottom Focus는 Batch당 현재 Bottom Mode 하나만 고정한다.
+[ ] Side Focus는 Batch당 현재 angle/kind 하나만 고정한다.
+[ ] Needle/NeedlePin은 공용 단일 대상이라 Picker Batch를 만들지 않는다.
+[ ] 기존 Sequence 성공 시 자동 결과 저장은 유지한다.
+[ ] SAVE RESULT 전 완전 보류는 별도 승인 없이는 적용하지 않는다.
+[ ] Calibration Sequence의 모션 순서와 interlock은 변경하지 않는다.
+[ ] 명시적 구현 승인 전 소스 파일을 수정하지 않는다.
+
+[B. Git 및 변경 보호]
+
+[ ] MachineController.cs 기존 변경이 보존됐다.
+[ ] PickerPickUpSequence.MotionResolvers.cs 기존 변경이 보존됐다.
+[ ] PickerSequenceBase.cs 기존 변경이 보존됐다.
+[ ] 다른 체크아웃 또는 예전 파일을 복사하지 않았다.
+[ ] reset/checkout/clean/revert를 실행하지 않았다.
+[ ] commit/push/pull/merge/rebase를 실행하지 않았다.
+
+[C. PARAMETER SAVE]
+
+[ ] 파라미터 리스트 바로 아래 PARAMETER SAVE가 보인다.
+[ ] 편집 중 cell 값이 commit된 후 저장된다.
+[ ] 형식/범위 오류는 저장 전에 차단된다.
+[ ] Calibration Settings와 필요한 Recipe 파라미터만 변경된다.
+[ ] 저장 전후 measurement record가 동일하다.
+[ ] 저장 전후 Picker/Collet teaching position이 동일하다.
+[ ] 실제 축 ActualPosition 기반 값이 새로 기록되지 않는다.
+[ ] Bottom/Side/Pick/Place Z가 의도치 않게 바뀌지 않는다.
+[ ] START/BATCH START 전 처리도 같은 parameter-only 함수를 사용한다.
+[ ] 측정 중 PARAMETER SAVE가 비활성화된다.
+[ ] 저장 실패 시 성공 메시지를 표시하지 않는다.
+
+[D. SAVE RESULT]
+
+[ ] 측정 성공 전 SAVE RESULT는 모션 없이 차단된다.
+[ ] 실패·취소·Stop 결과는 저장 대상이 아니다.
+[ ] 마지막 성공 target과 result를 함께 보존한다.
+[ ] selector 변경 후 다른 target에 조용히 저장하지 않는다.
+[ ] 마지막 Sequence result 또는 정확한 target record를 사용한다.
+[ ] 현재 축 ActualPosition을 다시 읽어 결과로 사용하지 않는다.
+[ ] Collet footer에서 SaveSelectedColletZTeachingFromCurrentAxis()를 호출하지 않는다.
+[ ] Collet Batch 후 원래 selector가 복원된다.
+[ ] ColletCleaning에는 오해를 부르는 SAVE RESULT가 없다.
+
+[E. ColletCalibrationDialog]
+
+[ ] Parameter Save가 finder/tolerance/gain/motion/AF 설정을 저장한다.
+[ ] Parameter Save가 활성 Recipe ColletZ 파라미터를 저장한다.
+[ ] Parameter Save가 선택 Collet의 측정/티칭 Z를 변경하지 않는다.
+[ ] 선택 0개 Batch는 모션 전에 차단된다.
+[ ] Front 대상이 Rear 대상보다 먼저 실행된다.
+[ ] Side 내부 순서가 C4→C3→C2→C1이다.
+[ ] 코드 주석과 실제 순서가 일치한다.
+[ ] C4 미선택 시 유효 기준값이 없으면 모션 전에 차단된다.
+[ ] 실패/Stop/Cancel 후 다음 Collet을 실행하지 않는다.
+[ ] Batch 종료 후 selector와 UI가 복원된다.
+
+[F. ColletCleaningControlDialog]
+
+[ ] 기존 ALL/F·R C1~C4 선택 기능이 유지된다.
+[ ] 기존 직렬 Cleaning 순서와 interlock이 유지된다.
+[ ] 중복 Batch runner를 만들지 않았다.
+[ ] Parameter Save가 선택 mask와 cleaning 설정만 저장한다.
+[ ] Cleaning result/history 자동 기록이 유지된다.
+
+[G. NeedleCalibrationDialog]
+
+[ ] Picker Batch checkbox를 잘못 추가하지 않았다.
+[ ] Parameter Save와 결과 저장 역할이 분리됐다.
+[ ] 기존 Check Ready, Touch Sensor, Avoid 선행 동작이 유지된다.
+[ ] 실패/취소 결과를 저장 가능한 정상 결과로 표시하지 않는다.
+[ ] Visual Studio Designer에서 컨트롤이 보인다.
+
+[H. NeedlePinCalibrationDialog]
+
+[ ] Picker Batch checkbox를 잘못 추가하지 않았다.
+[ ] Setup/Recipe teaching/motion parameter 저장 역할이 명확하다.
+[ ] Parameter Save가 측정 NeedlePin/Vision offset을 덮어쓰지 않는다.
+[ ] 기존 Output Camera 및 Picker Avoid 준비가 유지된다.
+[ ] 기존 Designer가 오류 없이 로드된다.
+
+[I. PickUpZ Batch]
+
+[ ] ALL, Front P1~P4, Rear P1~P4, BATCH START가 보인다.
+[ ] 선택 0개는 모션 전에 차단된다.
+[ ] Front P4→P3→P2→P1 선택 항목만 실행된다.
+[ ] Rear P4→P3→P2→P1 선택 항목만 실행된다.
+[ ] Front가 Rear보다 먼저 실행된다.
+[ ] PickerNo와 RestrictToPickerNo가 target과 일치한다.
+[ ] 안전 복귀 후 다음 target이 실행된다.
+[ ] 실패/Alarm/Stop/Cancel 후 다음 target이 실행되지 않는다.
+[ ] SavedPickPosition이 올바른 record에 남는다.
+[ ] 마지막 결과가 이전 target record를 덮어쓰지 않는다.
+
+[J. PlaceZ Batch]
+
+[ ] ALL, Front P1~P4, Rear P1~P4, BATCH START가 보인다.
+[ ] Batch 시작 시 Output Side가 고정된다.
+[ ] Batch 중 Output Side selector를 변경할 수 없다.
+[ ] Good/NG가 한 target list에 동시에 포함되지 않는다.
+[ ] Front P4→P3→P2→P1, Rear P4→P3→P2→P1 순서다.
+[ ] PickerNo와 RestrictToPickerNo가 target과 일치한다.
+[ ] Output Stage 준비와 안전 복귀가 기존대로 유지된다.
+[ ] 실패/Alarm/Stop/Cancel 후 다음 target이 실행되지 않는다.
+[ ] SavedPlacePosition/OutputSide가 올바른 record에 남는다.
+[ ] 동일 Picker의 Good/NG 덮어쓰기 위험을 정책으로 차단한다.
+
+[K. VisionFocus / SideVisionFocus Batch]
+
+[ ] ALL, Front P1~P4, Rear P1~P4가 base Dialog에 보인다.
+[ ] Bottom profile은 현재 Bottom Mode 하나만 사용한다.
+[ ] Side profile은 현재 angle/kind 하나만 사용한다.
+[ ] SideVisionFocus가 base Designer를 재사용한다.
+[ ] 대상별 저장 DefaultPosition으로 request를 만든다.
+[ ] 첫 target DefaultPosition을 다른 target에 재사용하지 않는다.
+[ ] Front P4→P3→P2→P1, Rear P4→P3→P2→P1 순서다.
+[ ] BestPosition/BestScore/SampleCount가 정확한 record에 대응한다.
+[ ] 실패/Alarm/Stop/Cancel 후 다음 target을 실행하지 않는다.
+[ ] 기존 Z Avoid→Y Avoid→X→Y→T→Z 순서를 변경하지 않는다.
+
+[L. Visual Studio Designer]
+
+[ ] NeedleCalibrationDialog가 partial Form이다.
+[ ] PickUpZCalibrationDialog가 partial Form이다.
+[ ] PlaceZCalibrationDialog가 partial Form이다.
+[ ] 생성자의 첫 UI 동작이 InitializeComponent()다.
+[ ] 신규 Designer에 필드/컨트롤/배치/이벤트가 인라인으로 있다.
+[ ] 일반 .cs 생성자에서 중복 컨트롤을 만들지 않는다.
+[ ] Designer가 UI 생성 helper를 호출하지 않는다.
+[ ] csproj의 Designer DependentUpon가 정확하다.
+[ ] ColletCalibrationDialog Designer가 정상 로드된다.
+[ ] ColletCleaningControlDialog Designer가 정상 로드된다.
+[ ] NeedleCalibrationDialog Designer가 정상 로드된다.
+[ ] NeedlePinCalibrationDialog Designer가 정상 로드된다.
+[ ] PickUpZCalibrationDialog Designer가 정상 로드된다.
+[ ] PlaceZCalibrationDialog Designer가 정상 로드된다.
+[ ] VisionFocusCalibrationDialog Designer가 정상 로드된다.
+[ ] SideVisionFocus profile에서 base 컨트롤이 정상 표시된다.
+
+[M. 공통 안전 및 회귀]
+
+[ ] Batch가 물리 Sequence를 병렬 실행하지 않는다.
+[ ] Batch 전체에 ManualActionScope 하나만 사용한다.
+[ ] linked CancellationToken이 모든 target에 전달된다.
+[ ] MotionGuard와 Unit interlock이 유지된다.
+[ ] SharedRail/WorkArea/Resource/Zone 검사가 유지된다.
+[ ] Servo/Alarm/Moving/InPosition 검사가 유지된다.
+[ ] Stop 요청 후 새 target을 시작하지 않는다.
+[ ] Close/Dispose 시 실행 중 작업이 안전하게 취소된다.
+[ ] Auto Sequence 영향이 없거나 별도로 검증됐다.
+[ ] MachineController.cs 기존 dirty diff와 충돌하지 않는다.
+
+[N. 정적 및 빌드 검증]
+
+[ ] 변경 전후 git status를 비교했다.
+[ ] git diff --stat과 파일별 diff를 검토했다.
+[ ] git diff --check가 통과했다.
+[ ] 신규 Designer의 class/namespace/DependentUpon가 일치한다.
+[ ] 이벤트 handler 시그니처가 일치한다.
+[ ] 중복/미사용 컨트롤 필드가 없다.
+[ ] 기존 C# 수준과 코드 스타일을 지켰다.
+[ ] Clean/Rebuild를 실행하지 않았다.
+[ ] 별도 OutDir의 /t:Build만 실행했다.
+[ ] Build 결과와 기존 경고를 구분해 보고했다.
+
+[O. Mock/Simulation]
+
+[ ] Parameter Save 전후 record snapshot을 비교했다.
+[ ] SAVE RESULT target mismatch 차단을 검증했다.
+[ ] target builder 0개/1개/부분/전체 선택을 검증했다.
+[ ] F/R 및 P/C 순서를 검증했다.
+[ ] 중간 target 실패 후 이후 target 미실행을 검증했다.
+[ ] Cancel/Stop 후 이후 target 미실행과 UI 복구를 검증했다.
+[ ] Place Output Side 고정 정책을 검증했다.
+[ ] VisionFocus target별 DefaultPosition request를 검증했다.
+
+[P. 실제 장비 검증 - 별도 승인 필요]
+
+[ ] Parameter Save가 축/티칭값을 바꾸지 않는지 확인했다.
+[ ] 대상 1개 단일 측정을 확인했다.
+[ ] 같은 Side의 2개 연속 측정을 확인했다.
+[ ] Front→Rear 전환 안전 복귀를 확인했다.
+[ ] Batch 중 Stop/Alarm 복구를 확인했다.
+[ ] PickUpZ Flow 센서와 saved PickPosition을 확인했다.
+[ ] PlaceZ Good/NG를 각각 별도 Batch로 확인했다.
+[ ] Vision Focus 대상별 시작 위치와 BestPosition을 확인했다.
+[ ] 장비 검증 전에는 안전 확인 완료라고 보고하지 않는다.
+
+[Q. 완료 보고]
+
+[ ] 변경 파일과 핵심 diff를 보고했다.
+[ ] Dialog별 저장 역할과 Batch 범위를 보고했다.
+[ ] static/build/mock/equipment 결과를 구분했다.
+[ ] 미실행 장비 검증과 남은 위험을 명시했다.
+[ ] 기존 dirty 파일 보존을 보고했다.
+[ ] Git commit을 하지 않았음을 보고했다.

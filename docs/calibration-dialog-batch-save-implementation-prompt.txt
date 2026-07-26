@@ -1,0 +1,221 @@
+﻿CDT-320 Calibration Dialog 저장 역할 분리 / Batch 측정 / Designer 정리 구현 프롬프트
+
+1. 작업 기준
+
+- 소스 기준 경로는 반드시 D:\Source\CDT-320_New 하나만 사용한다.
+- 다른 체크아웃, 예전 소스, QMC-master 사본의 코드를 참고하거나 복사하지 않는다.
+- 작업 시작 시 Git root, branch, HEAD, git status, 기존 변경 파일을 다시 확인해 보고한다.
+- 현재 기준은 master, HEAD 81d1ac2b, 원격 master보다 2 commit 앞선 상태다.
+- 현재 보존해야 할 기존 변경 파일:
+  - QMC.CDT-320\Equipment\MachineController.cs
+  - QMC.CDT-320\Sequencing\Picker\PickerPickUpSequence.MotionResolvers.cs
+  - QMC.CDT-320\Sequencing\Picker\PickerSequenceBase.cs
+- 기존 변경을 덮어쓰거나 되돌리지 않는다.
+- reset, checkout 롤백, clean, revert, commit, push, pull, merge, rebase를 실행하지 않는다.
+- Clean/Rebuild를 실행하지 않는다. 빌드는 /t:Build와 별도 OutDir만 사용한다.
+- 실제 설비 축 구동 시험은 별도 승인 없이 실행하지 않는다.
+- UI 컨트롤 생성·배치·이벤트 연결은 *.Designer.cs의 InitializeComponent()에 인라인으로 작성한다.
+- 기능 로직, 검증, async 실행 로직은 일반 *.cs에 둔다.
+- 모션 시퀀스 순서 및 자동 연속 실행 변경은 분석 결과를 보고한 뒤 사용자의 명시적 구현 승인을 받고 적용한다.
+
+2. 작업 대상
+
+- ColletCalibrationDialog
+- ColletCleaningControlDialog
+- NeedleCalibrationDialog
+- NeedlePinCalibrationDialog
+- PickUpZCalibrationDialog
+- PlaceZCalibrationDialog
+- SideVisionFocusCalibrationDialog
+- VisionFocusCalibrationDialog
+
+3. 현재 코드에서 확인된 문제
+
+3.1 Collet SAVE 부작용
+
+- footer SAVE는 SaveSettingsFromUi(true)를 호출한다.
+- 이 경로는 파라미터뿐 아니라 SaveSelectedColletZTeachingFromCurrentAxis()도 호출한다.
+- 해당 함수는 현재 선택된 Side/Collet의 Picker Z ActualPosition을 기준으로 BottomPosition,
+  SidePosition, DieBottomPosition, DieSidePosition, FinalPickerZ, 활성 Recipe를 변경한다.
+- 따라서 파라미터 저장만 원해도 현재 선택 Picker의 측정/티칭 값이 변경된다.
+- Batch 후 UI 선택이 마지막 대상에 남아 있어 잘못된 Picker에 저장될 위험도 있다.
+
+3.2 현재 측정 결과 저장 구조
+
+- Collet, Needle, NeedlePin, PickUpZ, PlaceZ, VisionFocus Sequence는 성공 과정에서
+  CalibrationData 또는 Recipe 결과를 이미 갱신하거나 저장한다.
+- 모든 결과를 SAVE 클릭 전까지 완전히 보류하려면 Sequence 저장 책임과 실패 원자성까지
+  재설계해야 하므로 이번 최소 안전 변경과 분리한다.
+- 이번 기본 계약:
+  - PARAMETER SAVE와 측정/티칭 SAVE의 호출 경로를 완전히 분리한다.
+  - PARAMETER SAVE는 measurement record, teaching position, 실제 축 위치 기반 값을 변경하지 않는다.
+  - 기존 Sequence의 성공 시 자동 결과 갱신·저장은 회귀 방지를 위해 유지한다.
+  - footer SAVE RESULT는 마지막 정상 완료 결과를 확인하고 영속화하는 경로로만 사용한다.
+  - footer SAVE RESULT가 현재 축 ActualPosition 또는 단순 현재 selector를 결과 원본으로 사용하면 안 된다.
+  - SAVE RESULT 전 완전 보류 정책은 별도 승인 없이는 적용하지 않는다.
+
+3.3 Batch의 의미
+
+- 여러 항목 선택은 축을 물리적으로 동시에 구동한다는 뜻이 아니다.
+- 한 번 선택한 여러 대상을 기존 안전 Sequence로 순차 자동 측정한다.
+- Picker, Stage, Camera, SharedRail/WorkArea를 공유하므로 Task.WhenAll 등으로 물리 동작을 병렬화하지 않는다.
+- 기존 MotionGuard, Interlock, Resource/Zone, Servo/Alarm/InPosition 검사를 제거하거나 완화하지 않는다.
+
+4. Dialog별 적용 범위
+
+- ColletCalibrationDialog
+  - 기존 ALL/F·R C1~C4/BATCH START를 유지한다.
+  - 실제 실행 순서는 Front C4→C3→C2→C1, Rear C4→C3→C2→C1로 통일한다.
+  - Batch 전 selector를 보존하고 종료 후 복원한다.
+  - 코드와 주석의 순서 불일치를 바로잡는다.
+- ColletCleaningControlDialog
+  - 이미 복수 선택과 순차 실행이 구현되어 있으므로 Batch runner를 중복 구현하지 않는다.
+  - 저장 버튼 명칭과 parameter-only 역할만 공통 기준에 맞춘다.
+- NeedleCalibrationDialog
+  - 장비 공용 Needle 1세트이며 Picker별 복수 대상이 없다.
+  - 임의의 F/R Picker Batch를 만들지 않고 저장 역할 분리와 Designer 정리만 적용한다.
+- NeedlePinCalibrationDialog
+  - 장비 공용 Needle Pin/Vision offset 1세트다.
+  - 임의 Batch를 만들지 않고 저장 역할 분리와 기존 Designer 정리만 적용한다.
+- PickUpZCalibrationDialog
+  - ALL, F P1~P4, R P1~P4, BATCH START를 추가한다.
+  - Front P4→P3→P2→P1, Rear P4→P3→P2→P1 순서로 선택 항목만 직렬 실행한다.
+- PlaceZCalibrationDialog
+  - ALL, F P1~P4, R P1~P4, BATCH START를 추가한다.
+  - 한 Batch에서는 현재 Output Side(Good 또는 NG) 하나를 고정한다.
+  - Front P4→P3→P2→P1, Rear P4→P3→P2→P1 순서로 직렬 실행한다.
+  - Good/NG를 같은 Batch에서 실행하지 않는다. 현재 record가 Side+PickerNo당 하나라 뒤 결과가 앞 결과를 덮을 수 있다.
+- VisionFocusCalibrationDialog
+  - 현재 Bottom Mode(Bottom Collet 또는 Bottom Die) 하나를 Batch 전체에서 고정한다.
+  - ALL, F P1~P4, R P1~P4, BATCH START를 추가한다.
+  - Front P4→P3→P2→P1, Rear P4→P3→P2→P1 순서로 직렬 실행한다.
+  - 대상마다 저장된 DefaultPosition을 다시 읽어 request를 만든다.
+- SideVisionFocusCalibrationDialog
+  - base VisionFocusCalibrationDialog의 SideOnly profile을 재사용한다.
+  - 현재 Side angle/kind 하나를 Batch 전체에서 고정한다.
+  - 별도 중복 UI/runner/Designer를 만들지 않는다.
+
+5. 저장 기능 계약
+
+5.1 PARAMETER SAVE
+
+- 각 Dialog의 파라미터 리스트 바로 아래에 배치한다.
+- 편집 Grid commit, 형식/범위 검증, Calibration Settings와 명시된 Recipe 설정 저장만 수행한다.
+- 다음 항목은 절대 변경하지 않는다.
+  - 현재 축 ActualPosition 기반 Teaching
+  - 측정 결과 record
+  - Bottom/Side/Pick/Place position
+  - 마지막 측정 결과의 유효 상태
+- 측정 중에는 비활성화하고 SetButtonsEnabled() 관리 대상에 포함한다.
+
+5.2 footer SAVE RESULT
+
+- 마지막 정상 완료 결과가 없으면 모션 없이 저장을 차단하고 이유를 표시한다.
+- 화면의 현재 selector와 마지막 정상 완료 대상이 다르면 다른 target에 조용히 저장하지 않는다.
+- 원본은 마지막 성공 Sequence result 또는 그 결과의 정확한 target record다.
+- 현재 축 ActualPosition을 다시 읽어 결과를 재계산하지 않는다.
+- 실패·취소·중단된 결과는 저장하지 않는다.
+- Collet footer SAVE에서 SaveSelectedColletZTeachingFromCurrentAxis() 직접 호출을 제거한다.
+- 측정 결과가 없는 ColletCleaning에는 오해를 부르는 SAVE RESULT를 만들지 않는다.
+
+5.3 START/BATCH START 전 처리
+
+- 현재 동작 회귀를 막기 위해 편집값 검증과 필요한 파라미터 저장은 유지한다.
+- PARAMETER SAVE와 같은 parameter-only 함수를 재사용한다.
+- 이 경로에서 측정/티칭 값이 변경되면 안 된다.
+
+6. Batch runner 공통 계약
+
+- 선택 대상 0개는 모션 전에 차단한다.
+- Batch 전체에 ManualActionScope 하나와 linked CancellationTokenSource 하나를 사용한다.
+- 각 대상은 기존 단일 Sequence와 동일한 options, RestrictToPickerNo, interlock, resource 획득을 사용한다.
+- 대상별 await 직렬 실행만 허용한다.
+- 대상의 안전 복귀가 확인된 뒤 다음 대상으로 진행한다.
+- 실패, Alarm, Stop, Cancel, SequenceStopException 발생 시 다음 대상을 실행하지 않는다.
+- 종료 시 원래 UI Side/Picker/Mode/Output Side를 복원한다.
+- 상태와 Event log에 순번/전체 개수/target/result를 남긴다.
+- 실행 중 START, MOVE, SAVE, selector, checkbox를 비활성화한다.
+- 마지막 결과가 다른 target record를 덮어쓰지 않게 한다.
+
+7. Visual Studio Designer 정리
+
+7.1 신규 Designer 변환 대상
+
+- NeedleCalibrationDialog
+- PickUpZCalibrationDialog
+- PlaceZCalibrationDialog
+
+각 대상:
+
+- Form class를 partial로 변경한다.
+- 생성자의 첫 UI 동작은 InitializeComponent()로 한다.
+- 새 *.Designer.cs에 필드 선언, 컨트롤 생성, 속성, 배치, Controls.Add, 이벤트를 인라인으로 둔다.
+- 일반 *.cs의 Wrap/CreateGrid/CreateResultGrid/MakeButton 등 UI 생성 helper를 Designer가 사용하지 않게 한다.
+- 주요 Panel/TableLayout/GroupBox를 의미 있는 Designer 필드로 선언한다.
+- QMC.CDT-320.csproj에 Designer와 정확한 DependentUpon를 등록한다.
+- 불필요한 빈 resx는 만들지 않는다.
+
+7.2 기존 Designer 유지
+
+- ColletCalibrationDialog
+- ColletCleaningControlDialog
+- NeedlePinCalibrationDialog
+- VisionFocusCalibrationDialog
+
+- 새 컨트롤은 기존 InitializeComponent()에 인라인 추가한다.
+- NeedlePin의 #if false 과거 동적 UI와 미사용 helper 정리는 기능 변경과 분리해 최소 범위로 한다.
+
+7.3 SideVisionFocusCalibrationDialog
+
+- 별도 중복 Designer를 만들지 않고 base Designer와 profile 표시 로직을 재사용한다.
+
+8. 예상 변경 파일
+
+- QMC.CDT-320\Ui\Dialogs\ColletCalibrationDialog.cs
+- QMC.CDT-320\Ui\Dialogs\ColletCalibrationDialog.Designer.cs
+- QMC.CDT-320\Ui\Dialogs\ColletCleaningControlDialog.cs
+- QMC.CDT-320\Ui\Dialogs\ColletCleaningControlDialog.Designer.cs
+- QMC.CDT-320\Ui\Dialogs\NeedleCalibrationDialog.cs
+- QMC.CDT-320\Ui\Dialogs\NeedleCalibrationDialog.Designer.cs (신규)
+- QMC.CDT-320\Ui\Dialogs\NeedlePinCalibrationDialog.cs
+- QMC.CDT-320\Ui\Dialogs\NeedlePinCalibrationDialog.Designer.cs
+- QMC.CDT-320\Ui\Dialogs\PickUpZCalibrationDialog.cs
+- QMC.CDT-320\Ui\Dialogs\PickUpZCalibrationDialog.Designer.cs (신규)
+- QMC.CDT-320\Ui\Dialogs\PlaceZCalibrationDialog.cs
+- QMC.CDT-320\Ui\Dialogs\PlaceZCalibrationDialog.Designer.cs (신규)
+- QMC.CDT-320\Ui\Dialogs\VisionFocusCalibrationDialog.cs
+- QMC.CDT-320\Ui\Dialogs\VisionFocusCalibrationDialog.Designer.cs
+- QMC.CDT-320\Ui\Dialogs\SideVisionFocusCalibrationDialog.cs (필요 시만)
+- QMC.CDT-320\QMC.CDT-320.csproj
+- 선택 target 지원에 필요할 때만:
+  - QMC.CDT-320\Sequencing\Calibration\AutoCalibrationSequence.cs
+  - QMC.CDT-320\Sequencing\Calibration\AutoCalibrationSafePositionSequence.cs
+
+- MachineController.cs는 수정하지 않는다.
+- 기존 Calibration Sequence의 물리 동작 순서, MotionGuard, interlock은 변경하지 않는다.
+- SAVE 전 완전 보류 정책을 별도 승인받지 않은 한 개별 Sequence의 내부 결과 저장 구조를 변경하지 않는다.
+
+9. 구현 및 검증 순서
+
+1) Git 상태와 기존 diff를 재확인한다.
+2) 저장 책임을 parameter-only와 measured-result로 분리한다.
+3) Collet의 현재 축 위치 기반 잘못된 저장 경로를 제거하고 마지막 성공 결과를 추적한다.
+4) 기존 Designer에 필요한 PARAMETER SAVE/Batch UI를 추가한다.
+5) Needle/PickUpZ/PlaceZ를 Designer 구조로 변환한다.
+6) PickUpZ/PlaceZ/VisionFocus의 target builder와 직렬 Batch runner를 추가한다.
+7) Collet Batch selector 복원과 주석/실행 순서 불일치를 정리한다.
+8) 실패/취소/Stop 경로와 버튼 상태를 검증한다.
+9) git diff와 git diff --check를 실행한다.
+10) 별도 OutDir을 지정한 /t:Build만 실행한다.
+11) 실제 설비 모션 시험은 수행하지 않는다.
+
+10. 완료 보고
+
+- 변경 파일 목록과 핵심 diff
+- Dialog별 저장 역할과 Batch 범위
+- 정확한 직렬 실행 순서
+- Designer 표시 가능 여부의 정적 근거
+- static/build/mock/equipment 검증을 구분한 결과
+- 기존 dirty 3개 파일 보존 여부
+- 남은 장비 검증 항목
+- commit하지 않았음을 보고한다.
