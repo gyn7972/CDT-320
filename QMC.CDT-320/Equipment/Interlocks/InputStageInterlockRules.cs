@@ -1691,13 +1691,16 @@ namespace QMC.CDT320.Interlocks
             //   목적 — 픽업 중 InputVisionX 비동기 전진과 SyncLift 동반 EjectPinZ 상승(3.1→3.7)이
             //          겹쳐 Critical INTERLOCK → 전축 비상정지 → 상승 중 PickerZ -5로 이어지던
             //          문제 해소(실장비 2026-07-27 05:09:16).
-            //   주의 — 완화 조합은 (WaferStageY × InputVisionX), (EjectPinZ × InputVisionX) 2개다.
-            //          WaferStageT / ExpanderZ / NeedleZ는 그대로 차단된다.
-            if (IsEjectPinZMove(movingName) &&
+            // 추가(사용자 지시 2026-07-27): NeedleZ도 예외 — NeedleZ와 InputVisionX는 아무 인터락
+            //   관계가 없다(사용자 확인). 선언 매트릭스의 MovingName="NeedleZ" 행 검사도
+            //   WaferY(H17) / NeedleX(L17) 2건뿐이며 InputVisionX는 없다(EjectPinZ와 동일 유형).
+            //   주의 — 완화 조합은 (WaferStageY / EjectPinZ / NeedleZ) × InputVisionX 3개다.
+            //          WaferStageT / ExpanderZ는 그대로 차단된다.
+            if ((IsEjectPinZMove(movingName) || IsNeedleZMove(movingName)) &&
                 IsMovingExcept(stage.CameraX, movingName, "InputVisionX", "CameraX"))
             {
                 QMC.Common.Log.Write("Main", "INTERLOCK", "MotionGuard",
-                    "EjectPinZ 이동 허용: InputVisionX 이동 중이지만 예외 적용(사용자 승인 2026-07-27). cameraActual=" +
+                    movingName + " 이동 허용: InputVisionX 이동 중이지만 예외 적용(사용자 승인 2026-07-27). cameraActual=" +
                     (stage.CameraX != null ? stage.CameraX.ActualPosition.ToString("F3") : "-") + " - Check");
             }
             else if (!IsNeedleXMove(movingName) &&
@@ -1730,6 +1733,12 @@ namespace QMC.CDT320.Interlocks
         {
             return string.Equals(movingName, "NeedleX", System.StringComparison.OrdinalIgnoreCase) ||
                    string.Equals(movingName, "NeedleBlockX", System.StringComparison.OrdinalIgnoreCase);
+        }
+
+        // 인터락 기준: 현재 이동 대상이 NeedleZ인지 판단한다.
+        private static bool IsNeedleZMove(string movingName)
+        {
+            return string.Equals(movingName, "NeedleZ", System.StringComparison.OrdinalIgnoreCase);
         }
 
         // 인터락 기준: 현재 이동 대상이 EjectPinZ(NeedlePinZ)인지 판단한다.

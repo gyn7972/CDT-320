@@ -509,6 +509,11 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 "PickUp 진입 Y 전진과 동시에 Z를 PrePick까지 선행 하강합니다(1-A, 반경 게이트 내 한정).\r\n픽업 후 Z는 항상 Avoid까지 상승하며, PICKER SAFE FOR WAFERSTAGE 통과 시 시퀀스가 조기 진행됩니다.\r\nAuto + ContiSegmentedPickUp에서만 동작. 기본 Off."), groupKey));
             items.Add(InGroup(Describe(ParameterGridItem.Double("PREDOWN NEEDLE WORK RADIUS", AxisUnitConverter.Millimeter, ParameterGridScope.Config, () => ResolveLivePickUpConfig().PreDownNeedleWorkRadiusMm, v => ResolveLivePickUpConfig().PreDownNeedleWorkRadiusMm = Math.Max(0.0, v)),
                 "진입 Z 선행 하강(1-A) 발동 반경입니다. die 목표 NeedleX/StageY와 Needle 작업영역 중심의 거리가 이 값 이하일 때만 발동합니다.\r\n웨이퍼 가장자리 링/클램프 간섭 방지용 — 런타임 Needle 작업영역 반경을 넘으면 자동으로 그 값까지 줄입니다. 기본 130 mm, 0이면 기능 Off."), groupKey));
+            // [동적 선행 대기점, 지시서 2026-07-27]
+            items.Add(InGroup(Describe(ParameterGridItem.Bool("PICKUP DYNAMIC WAIT", ParameterGridScope.Config, () => ResolveLivePickUpConfig().PickUpDynamicWaitMode, v => ResolveLivePickUpConfig().PickUpDynamicWaitMode = v),
+                "촬영(선행검사) 진행 중 대기 픽커 X를 배치 최근접 비전 좌표 + 팔로잉 클리어런스 위치까지 미리 접근시킵니다.\r\n허가 후 팔로잉 진입 거리가 줄어 픽업 진입 시간이 단축됩니다. 전진만 하며 후퇴는 하지 않습니다.\r\nAuto + ContiSegmentedPickUp에서만 동작. 기본 Off."), groupKey));
+            items.Add(InGroup(Describe(ParameterGridItem.Double("DYNAMIC WAIT EXTRA MARGIN", AxisUnitConverter.Millimeter, ParameterGridScope.Config, () => ResolveLivePickUpConfig().DynamicWaitExtraMarginMm, v => ResolveLivePickUpConfig().DynamicWaitExtraMarginMm = Math.Max(0.0, v)),
+                "동적 선행 대기점에 추가하는 여유 간격입니다(현장 튜닝용).\r\n대기점 = 배치 maxVisionX + 팔로잉 클리어런스(SafetyDistance+Extra) + 이 값. 기본 0 mm."), groupKey));
         }
 
         // AddPickUpContiNodeSpeedRatioItems 삭제(사용자 확정 속도 모델 2026-07-26):

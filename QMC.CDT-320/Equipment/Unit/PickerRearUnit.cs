@@ -148,6 +148,14 @@ namespace QMC.CDT320
         [DisplayName("PreDown Needle Work Radius Mm")]
         public double PreDownNeedleWorkRadiusMm { get { return EnsurePickUpConfig().PreDownNeedleWorkRadiusMm; } set { EnsurePickUpConfig().PreDownNeedleWorkRadiusMm = value; } }
 
+        [Category("PickUp")]
+        [DisplayName("PickUp Dynamic Wait Mode")]
+        public bool PickUpDynamicWaitMode { get { return EnsurePickUpConfig().PickUpDynamicWaitMode; } set { EnsurePickUpConfig().PickUpDynamicWaitMode = value; } }
+
+        [Category("PickUp")]
+        [DisplayName("Dynamic Wait Extra Margin Mm")]
+        public double DynamicWaitExtraMarginMm { get { return EnsurePickUpConfig().DynamicWaitExtraMarginMm; } set { EnsurePickUpConfig().DynamicWaitExtraMarginMm = value; } }
+
         [Category("BottomInspection")]
         [DisplayName("Bottom Flying Z Down Mode")]
         public PickerBottomFlyingZDownMode BottomFlyingZDownMode { get { return EnsureBottomInspectionConfig().FlyingZDownMode; } set { EnsureBottomInspectionConfig().FlyingZDownMode = value; } }

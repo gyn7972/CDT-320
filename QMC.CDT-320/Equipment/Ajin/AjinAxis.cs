@@ -543,6 +543,11 @@ namespace QMC.CDT320.Ajin
         private const int FollowMoveTimeoutErrorCode = -21;
         // 선행축 알람 전용 에러코드.
         private const int FollowMoveLeadingAlarmErrorCode = -22;
+        // 백그라운드 이동 조기 종료 전용 에러코드(재설계 2026-07-27): 최초 이동 Task가 최종
+        // 오버라이드 발행 전에 끝나 축이 중간 좌표에 정지한 상태 — 이후 오버라이드가 전부
+        // -4(정지 경합)가 되는 교착이므로, 내부 재발행 없이 즉시 실패해 호출자 폴백(R6)에
+        // 위임한다(사용자 확정 2026-07-27, Q2=①).
+        private const int FollowMoveEarlyStopErrorCode = -23;
 
         // 규칙 2(2026-07-25): 팔로잉 명령은 속도·가속·감속을 한 세트로 명시 전달한다.
         // 기존 조건: MoveAbsoluteAsync(command, velocity) 2인자 호출 — 가감속 스케일 여부를
@@ -675,12 +680,31 @@ namespace QMC.CDT320.Ajin
 
         /// <summary>
         /// 선행축을 따라가며 후행축(this)을 목표 위치까지 이동시킨다.
-        /// 선행축에는 어떤 명령도 내리지 않는다(읽기 전용 — ActualPosition/IsMoving/IsAlarm만 참조).
-        /// 두 축의 물리 간격이 safetyGap(설정값 존중, 최소 바닥 5mm) 미만으로 줄어들지 않는 한도 내에서
-        /// 포지션 오버라이드로 추종하고, 후행축이 목표에 도달하면 0을 반환한다.
+        /// [전면 재설계 2026-07-27, 사용자 승인]
+        /// 기존 조건: 매 폴링마다 후행축 ActualPosition을 읽어 gap/slack(여유)을 계산하고,
+        ///           !IsMoving이면 신규 이동을 재발행했다 — 보드 InMotion 반영 지연(이 파일의
+        ///           시작 유예 5초로 인정된 특성) 동안 재진입해 최초 이동이 중복 발행되고
+        ///           (2번째부터는 무로그), 이전 moveTask가 고아가 되어 LastMotionFailureMessage를
+        ///           오염시켰으며, SharedRailX AutoMoveGuard가 중첩 기동됐다. 또한 경계식
+        ///           intermediate = trailingActual + slack은 수학적으로 trailingActual이 소거되는
+        ///           식이라, 이중 읽기 시 (A2-A1) 오염항이 경계에 유입될 구조적 위험이 있었다.
+        /// 현재 기준(사용자 정의 2026-07-27):
+        ///   ① 경계는 선행축 실측만의 함수 — bound = 선행Actual ± (homeGap − safetyGap) 부호식.
+        ///      후행축 자기 위치는 팔로잉 계산에 사용하지 않는다(진입 검증에서만 1회 읽음).
+        ///   ② 최초 이동 명령은 팔로잉당 정확히 1회(래치). 이후는 위치 오버라이드만 발행한다.
+        ///   ③ lastCommanded 시드는 최초 이동의 명령 좌표. 새 command가 lastCommanded 대비
+        ///      진행 방향으로 전진일 때만 오버라이드를 발행한다(역방향/무변화 발행 금지).
+        ///   ④ 후행축은 선행축보다 속도·가속·감속이 클 수 없다 — 전 구간 Min(선행,후행)
+        ///      단일 프로파일. 최종 구간 증속(TryOverrideVelocity) 폐지.
+        ///   ⑤ command가 최종 목표와 일치하면 그 발행을 끝으로 오버라이드를 영구 중단하고,
+        ///      모션 완료(WaitMoveCompleteAsync)까지 대기 후 리턴한다.
+        ///   ⑥ 최초 이동 Task가 최종 발행 전에 끝나면(-4 무한 재시도 교착) -23으로 즉시
+        ///      실패해 호출자 폴백(R6)에 위임한다 — 함수 내부 재발행 없음.
+        /// 선행축에는 어떤 명령도 내리지 않는다(읽기 전용 — ActualPosition/IsAlarm만 참조).
         /// additionalConstraints를 주면 선행축 외 페어(반대편 피커 등)의 상한으로도 명령을 클램프한다.
         /// 반환: 0=성공, -1=인자 오류, -2=축 미준비, -11=인터락 거부,
-        /// -21=타임아웃(timeoutMs 미지정 시 기본 5초), -22=선행축 알람, 그 외=하위 에러코드.
+        /// -21=타임아웃(timeoutMs 미지정 시 기본 5초, 발행+도달 전체 예산), -22=선행축 알람,
+        /// -23=백그라운드 이동 조기 종료, 그 외=하위 에러코드.
         /// </summary>
         public async Task<int> FollowMoveAsync(
             BaseAxis leadingAxis,
@@ -707,6 +731,7 @@ namespace QMC.CDT320.Ajin
 
             try
             {
+                // ---- Phase 0. 진입 검증 — 후행축 ActualPosition을 읽는 유일한 구간 ----
                 if (leadingAxis == null)
                     return FailMotion(-1, "FOLLOW MOVE", "선행축이 지정되지 않았습니다.", trailingTargetPosition, true);
                 if (direction != 1 && direction != -1)
@@ -719,23 +744,28 @@ namespace QMC.CDT320.Ajin
                     : 0.01;
 
                 UpdateStatus();
-                if (Math.Abs(ActualPosition - trailingTargetPosition) <= tolerance && !IsMoving)
+                double entryActual = ActualPosition;
+                if (Math.Abs(entryActual - trailingTargetPosition) <= tolerance && !IsMoving)
+                {
+                    QMC.Common.Log.Write("Motion", "SYSTEM", "AX-FOLLOW-MOVE",
+                        Name + " 팔로잉 진입 시 이미 목표 위치입니다(무발행 종료). target=" + trailingTargetPosition.ToString("F3") +
+                        ", actual=" + entryActual.ToString("F3") + " - Ok");
                     return 0;
+                }
 
-                if (direction > 0 && trailingTargetPosition < ActualPosition - tolerance)
-                    return FailMotion(-1, "FOLLOW MOVE", "목표 위치가 진행 방향(+)과 반대입니다. actual=" + ActualPosition.ToString("F3") + ", target=" + trailingTargetPosition.ToString("F3"), trailingTargetPosition, true);
-                if (direction < 0 && trailingTargetPosition > ActualPosition + tolerance)
-                    return FailMotion(-1, "FOLLOW MOVE", "목표 위치가 진행 방향(-)과 반대입니다. actual=" + ActualPosition.ToString("F3") + ", target=" + trailingTargetPosition.ToString("F3"), trailingTargetPosition, true);
+                if (direction > 0 && trailingTargetPosition < entryActual - tolerance)
+                    return FailMotion(-1, "FOLLOW MOVE", "목표 위치가 진행 방향(+)과 반대입니다. actual=" + entryActual.ToString("F3") + ", target=" + trailingTargetPosition.ToString("F3"), trailingTargetPosition, true);
+                if (direction < 0 && trailingTargetPosition > entryActual + tolerance)
+                    return FailMotion(-1, "FOLLOW MOVE", "목표 위치가 진행 방향(-)과 반대입니다. actual=" + entryActual.ToString("F3") + ", target=" + trailingTargetPosition.ToString("F3"), trailingTargetPosition, true);
 
                 bool safetyGapClamped = safetyGap < MinimumFollowSafetyGap;
                 if (safetyGapClamped)
                     safetyGap = MinimumFollowSafetyGap;
 
-                // 팔로잉 프로파일: 선행/후행 인자 중 성분별 작은 값.
-                // 규칙 1/2(2026-07-25): 폴백도 반드시 MotionSpeedScale을 경유한다.
-                //   기존 조건: Config 날값을 그대로 사용해 스케일 미적용 100%로 나갔다(이 파일의
-                //   다른 진입점 MoveAbsoluteAsync / TryOverridePosition / TryOverrideVelocity와
-                //   불일치). 명시 인자(>0)는 호출부가 이미 스케일한 값이므로 재스케일하지 않는다.
+                // 팔로잉 프로파일: 성분별 Min(선행, 후행) — 후행축은 선행축보다 속도·가속·감속이
+                // 클 수 없다(전 구간 불변식, 사용자 지시 2026-07-27). 최종 구간 증속 폐지.
+                // 규칙 1/2(2026-07-25): 폴백도 반드시 MotionSpeedScale을 경유한다(GetDefault*는
+                // 스케일 적용본). 명시 인자(>0)는 호출부가 이미 스케일한 값이므로 재스케일하지 않는다.
                 double leadVel = leadingVelocity > 0.0
                     ? leadingVelocity
                     : (leadingAxis.Config != null ? leadingAxis.Config.GetDefaultVel() : 0.0);
@@ -758,11 +788,6 @@ namespace QMC.CDT320.Ajin
                 double followAcc = Math.Min(leadAcc, trailAcc);
                 double followDec = Math.Min(leadDec, trailDec);
 
-                // 속도 규칙(사용자 확정 2026-07-26):
-                //  - 추종 구간(안전거리 미확보): 후행축은 절대 선행축보다 빠르게 명령하지
-                //    않는다 — followVel=Min(선행,후행) 프로파일로만 나간다.
-                //  - 최종 타겟까지 안전거리 확보 후(commandIsFinal+gapAfter 검증): 자기
-                //    프로파일(trail*)로 고속 진입한다(벨로시티 오버라이드).
                 // 프로파일 해석이 0 이하로 떨어지면(설정 오염/경합) velocity=0 명령이 드라이버
                 // 폴백으로 더 빠른 속도가 되는 사고(실장비 2026-07-26 22:08, followVel=0→
                 // 100mm/s 추종·제자리 진동·서보 알람)를 원천 봉쇄하기 위해 즉시 실패한다.
@@ -780,37 +805,90 @@ namespace QMC.CDT320.Ajin
                 }
 
                 QMC.Common.Log.Write("Motion", "SYSTEM", "AX-FOLLOW-MOVE",
-                    Name + " 팔로잉 이동을 시작합니다. leading=" + leadingAxis.Name +
+                    Name + " 팔로잉 이동을 시작합니다(재설계 2026-07-27). leading=" + leadingAxis.Name +
                     ", leadingTarget=" + leadingTargetPosition.ToString("F3") +
                     ", trailingTarget=" + trailingTargetPosition.ToString("F3") +
+                    ", entryActual=" + entryActual.ToString("F3") +
                     ", direction=" + direction +
                     ", safetyGap=" + safetyGap.ToString("F3") + (safetyGapClamped ? "(클램프됨)" : "") +
                     ", homeGap=" + homeGap.ToString("F3") +
                     ", followVel=" + followVel.ToString("F3") +
                     ", followAcc=" + followAcc.ToString("F3") +
                     ", followDec=" + followDec.ToString("F3") +
+                    ", leadVel=" + leadVel.ToString("F3") +
                     ", trailVel=" + trailVel.ToString("F3") +
-                    ", trailAcc=" + trailAcc.ToString("F3") +
-                    ", trailDec=" + trailDec.ToString("F3") +
+                    ", timeoutMs=" + effectiveTimeoutMs +
+                    ", constraints=" + (additionalConstraints != null ? additionalConstraints.Count : 0) +
                     ", trailingTargetName=" + (trailingTargetName ?? "<null>") +
                     ", scalePercent=" + (MotionSpeedScale.EffectiveScaleFactor * 100.0).ToString("0.#") + " - Start");
 
                 var stopwatch = System.Diagnostics.Stopwatch.StartNew();
-                double lastCommanded = double.NaN;
-                bool firstCommandLogged = false;
-                bool finalEntered = false;
-                // 수정 E(2026-07-25): 오버라이드 성공 로그 스로틀 — 최초 1건은 무조건, 이후 1초 1건.
+
+                // ---- Phase 1. 최초 이동 명령 — 팔로잉당 정확히 1회(래치) ----
+                // 경계는 선행축 실측만의 함수(사용자 정의). 후행축 위치는 개입하지 않는다.
+                // 간격이 이미 safetyGap 미만이면 command가 현재 위치보다 뒤가 되어 후퇴 명령이
+                // 나간다 — 안전거리를 회복하는 방향이므로 허용(사용자 확인 2026-07-27).
+                double firstLeadingActual = leadingAxis.ActualPosition;
+                double firstBound = direction > 0
+                    ? firstLeadingActual + homeGap - safetyGap
+                    : firstLeadingActual - homeGap + safetyGap;
+                double firstCommand = direction > 0
+                    ? Math.Min(trailingTargetPosition, firstBound)
+                    : Math.Max(trailingTargetPosition, firstBound);
+
+                string firstConstraintDetail;
+                double firstConstrained = ClampFollowCommandByConstraints(
+                    firstCommand, direction, additionalConstraints, out firstConstraintDetail);
+                if (firstConstraintDetail != null)
+                {
+                    QMC.Common.Log.Write("Motion", "SYSTEM", "AX-FOLLOW-CONSTRAINT",
+                        Name + " 팔로잉 최초 명령이 추가 제약 페어로 클램프되었습니다. " +
+                        "raw=" + firstCommand.ToString("F3") +
+                        ", clamped=" + firstConstrained.ToString("F3") +
+                        ", " + firstConstraintDetail + " - Check");
+                    firstCommand = firstConstrained;
+                }
+
+                // ③ lastCommanded 시드 = 최초 이동의 명령 좌표(사용자 지시 2026-07-27).
+                //    이후 전진 판정은 오직 이 값 대비로만 한다 — 후행축 실위치 미개입.
+                double lastCommanded = firstCommand;
+                bool finalIssued = Math.Abs(firstCommand - trailingTargetPosition) <= tolerance;
+                long overrideCount = 0;
+                long skipHoldCount = 0;
+                long busyRetryCount = 0;
                 long lastOverrideLogMs = -1;
-                // 추가 제약 클램프 로그 스로틀(동일 규칙).
+                long lastSkipLogMs = -1;
                 long lastConstraintLogMs = -1;
 
-                while (true)
+                moveTask = MoveAbsoluteForFollowAsync(
+                    firstCommand, followVel, followAcc, followDec, trailingTargetName);
+
+                QMC.Common.Log.Write("Motion", "SYSTEM", "AX-FOLLOW-FIRST",
+                    Name + " 팔로잉 최초 이동 명령을 발행했습니다(세션당 1회, 재발행 금지). " +
+                    "command=" + firstCommand.ToString("F3") +
+                    ", bound=" + firstBound.ToString("F3") +
+                    ", leadingActual=" + firstLeadingActual.ToString("F3") +
+                    ", isFinal=" + finalIssued +
+                    ", velocity=" + followVel.ToString("F3") +
+                    ", acc=" + followAcc.ToString("F3") +
+                    ", dec=" + followDec.ToString("F3") +
+                    ", targetName=" + (trailingTargetName ?? "<null>") +
+                    ", scalePercent=" + (MotionSpeedScale.EffectiveScaleFactor * 100.0).ToString("0.#") + " - Ok");
+
+                if (finalIssued)
+                    QMC.Common.Log.Write("Motion", "SYSTEM", "AX-FOLLOW-FINAL",
+                        Name + " 최초 명령이 곧 최종 목표입니다(추종 루프 생략, 완료 대기로 직행). " +
+                        "command=" + firstCommand.ToString("F3") + " - Ok");
+
+                // ---- Phase 2. 오버라이드 추종 루프 — 후행축 ActualPosition을 읽지 않는다 ----
+                while (!finalIssued)
                 {
                     ct.ThrowIfCancellationRequested();
 
                     if (stopwatch.ElapsedMilliseconds >= effectiveTimeoutMs)
                         return await FailFollowTimeoutAsync(moveTask, trailingTargetPosition, effectiveTimeoutMs).ConfigureAwait(false);
 
+                    // 알람/IsMoving 관측 갱신용 — Actual은 팔로잉 계산에 쓰지 않는다.
                     UpdateStatus();
 
                     if (IsAlarm)
@@ -819,7 +897,9 @@ namespace QMC.CDT320.Ajin
                         await DrainFollowMoveTaskAsync(moveTask).ConfigureAwait(false);
                         moveTask = null;
                         QMC.Common.Log.Write("Motion", "SYSTEM", "AX-FOLLOW-MOVE",
-                            Name + " 팔로잉 이동 중 후행축 알람이 발생했습니다. alarmCode=0x" + AlarmCode.ToString("X4") + " - Failed");
+                            Name + " 팔로잉 이동 중 후행축 알람이 발생했습니다. alarmCode=0x" + AlarmCode.ToString("X4") +
+                            ", lastCommanded=" + lastCommanded.ToString("F3") +
+                            ", overrideCount=" + overrideCount + " - Failed");
                         return (int)AlarmCode;
                     }
 
@@ -829,12 +909,17 @@ namespace QMC.CDT320.Ajin
                         await DrainFollowMoveTaskAsync(moveTask).ConfigureAwait(false);
                         moveTask = null;
                         QMC.Common.Log.Write("Motion", "SYSTEM", "AX-FOLLOW-MOVE",
-                            Name + " 팔로잉 이동 중 선행축(" + leadingAxis.Name + ") 알람이 발생했습니다. - Failed");
+                            Name + " 팔로잉 이동 중 선행축(" + leadingAxis.Name + ") 알람이 발생했습니다. " +
+                            "lastCommanded=" + lastCommanded.ToString("F3") +
+                            ", overrideCount=" + overrideCount + " - Failed");
                         return FailMotion(FollowMoveLeadingAlarmErrorCode, "FOLLOW MOVE",
                             "선행축 알람이 발생했습니다. leading=" + leadingAxis.Name, trailingTargetPosition, true);
                     }
 
-                    // 백그라운드 이동 Task가 오류로 끝났으면 해당 코드로 종료한다.
+                    // ⑥ 백그라운드 이동 Task 종료 감시.
+                    //    실패 → 해당 코드로 종료. 성공(0)인데 최종 미발행 → 축이 중간 좌표에서
+                    //    정지해 이후 오버라이드가 전부 -4가 되는 교착 — 재발행 없이 -23으로
+                    //    실패해 호출자 폴백(R6)에 위임한다(사용자 확정 2026-07-27, Q2=①).
                     if (moveTask != null && moveTask.IsCompleted)
                     {
                         int backgroundResult = ObserveFollowMoveResult(moveTask);
@@ -843,191 +928,168 @@ namespace QMC.CDT320.Ajin
                         {
                             Stop();
                             QMC.Common.Log.Write("Motion", "SYSTEM", "AX-FOLLOW-MOVE",
-                                Name + " 팔로잉 백그라운드 이동이 실패했습니다. result=" + backgroundResult + " - Failed");
+                                Name + " 팔로잉 백그라운드 이동이 실패했습니다. result=" + backgroundResult +
+                                ", lastCommanded=" + lastCommanded.ToString("F3") +
+                                ", overrideCount=" + overrideCount +
+                                ", elapsedMs=" + stopwatch.ElapsedMilliseconds + " - Failed");
                             return backgroundResult;
                         }
+
+                        QMC.Common.Log.Write("Motion", "SYSTEM", "AX-FOLLOW-MOVE",
+                            Name + " 팔로잉 백그라운드 이동이 최종 발행 전에 종료되었습니다(조기 정지 교착). " +
+                            "lastCommanded=" + lastCommanded.ToString("F3") +
+                            ", target=" + trailingTargetPosition.ToString("F3") +
+                            ", overrideCount=" + overrideCount +
+                            ", busyRetryCount=" + busyRetryCount +
+                            ", elapsedMs=" + stopwatch.ElapsedMilliseconds + " - Failed");
+                        return FailMotion(FollowMoveEarlyStopErrorCode, "FOLLOW MOVE",
+                            "팔로잉 백그라운드 이동이 최종 발행 전에 종료되었습니다. lastCommanded=" +
+                            lastCommanded.ToString("F3"), trailingTargetPosition, true);
                     }
 
-                    // 최종 목표 도달 완료 판정 (백그라운드 이동이 목표에서 정상 완료된 경우).
-                    if (finalEntered && IsAtTargetPosition(trailingTargetPosition, tolerance))
-                        break;
-
-                    // 간격/여유 계산 (실측 위치 기준).
-                    // [정정 2026-07-27, 사용자 확인] ActualPosition은 접근마다 보드 실시간
-                    // 읽기라 한 사이클 안에서 여러 번 읽으면 서로 다른 값이 온다(이동 중
-                    // 읽기 간격만큼 오염 — 경계 수식에 (A2-A1) 오염항 유입). 간격/경계/전진
-                    // 판정은 반드시 같은 스냅샷 1회 값(trailingActual)으로 계산한다.
-                    double trailingActual = ActualPosition;
+                    // ① 경계/명령 산출 — 선행축 실측만 사용(사용자 정의 2026-07-27).
+                    //    bound = 선행Actual ± (homeGap − safetyGap), command = 목표와 bound 중
+                    //    덜 진행한 쪽(+방향 Min / -방향 Max).
                     double leadingActual = leadingAxis.ActualPosition;
-                    double gap = direction > 0
-                        ? (leadingActual + homeGap) - trailingActual
-                        : (trailingActual + homeGap) - leadingActual;
-                    double slack = gap - safetyGap;
+                    double bound = direction > 0
+                        ? leadingActual + homeGap - safetyGap
+                        : leadingActual - homeGap + safetyGap;
+                    double command = direction > 0
+                        ? Math.Min(trailingTargetPosition, bound)
+                        : Math.Max(trailingTargetPosition, bound);
 
-                    if (slack > 0.0)
+                    // 2안 클램프(사용자 확정 2026-07-27, Q3=유지): 선행축 외 제약 페어(반대편
+                    // 피커 등)의 상한을 함께 적용한다. 클램프로 역방향이 되면 아래 전진 가드가
+                    // 발행을 보류한다(상대가 열릴 때까지 대기).
+                    string constraintDetail;
+                    double constrainedCommand = ClampFollowCommandByConstraints(
+                        command, direction, additionalConstraints, out constraintDetail);
+                    if (constraintDetail != null)
                     {
-                        double intermediate = direction > 0
-                            ? trailingActual + slack
-                            : trailingActual - slack;
-                        double command = direction > 0
-                            ? Math.Min(trailingTargetPosition, intermediate)
-                            : Math.Max(trailingTargetPosition, intermediate);
-
-                        // 2안 클램프: 선행축 외 제약 페어(반대편 피커 등)의 상한을 함께 적용한다.
-                        // 클램프로 명령이 현재 위치 뒤로 밀리면 아래 commandForward/commandIsFinal이
-                        // 모두 false가 되어 명령을 내지 않고 대기한다(상대가 열릴 때까지 추종 보류).
-                        string constraintDetail;
-                        double constrainedCommand = ClampFollowCommandByConstraints(
-                            command, direction, additionalConstraints, out constraintDetail);
-                        if (constraintDetail != null)
+                        bool constraintLogDue = lastConstraintLogMs < 0 ||
+                            stopwatch.ElapsedMilliseconds - lastConstraintLogMs >= 1000;
+                        if (constraintLogDue)
                         {
-                            bool constraintLogDue = lastConstraintLogMs < 0 ||
-                                stopwatch.ElapsedMilliseconds - lastConstraintLogMs >= 1000;
-                            if (constraintLogDue)
-                            {
-                                lastConstraintLogMs = stopwatch.ElapsedMilliseconds;
-                                QMC.Common.Log.Write("Motion", "SYSTEM", "AX-FOLLOW-CONSTRAINT",
-                                    Name + " 팔로잉 명령이 추가 제약 페어로 클램프되었습니다. " +
-                                    "leadCommand=" + command.ToString("F3") +
-                                    ", clamped=" + constrainedCommand.ToString("F3") +
-                                    ", " + constraintDetail + " - Check");
-                            }
-
-                            command = constrainedCommand;
+                            lastConstraintLogMs = stopwatch.ElapsedMilliseconds;
+                            QMC.Common.Log.Write("Motion", "SYSTEM", "AX-FOLLOW-CONSTRAINT",
+                                Name + " 팔로잉 명령이 추가 제약 페어로 클램프되었습니다. " +
+                                "raw=" + command.ToString("F3") +
+                                ", clamped=" + constrainedCommand.ToString("F3") +
+                                ", " + constraintDetail + " - Check");
                         }
 
-                        // 명령 위치로 이동 완료를 가정한 간격 재검증.
-                        double gapAfter = direction > 0
-                            ? (leadingActual + homeGap) - command
-                            : (command + homeGap) - leadingActual;
-                        bool commandForward = direction > 0
-                            ? command > trailingActual + tolerance
-                            : command < trailingActual - tolerance;
-                        bool commandIsFinal = Math.Abs(command - trailingTargetPosition) <= tolerance;
+                        command = constrainedCommand;
+                    }
 
-                        if (gapAfter + 0.000001 >= safetyGap && (commandForward || commandIsFinal))
+                    // ③ 전진 가드(사용자 정의 2026-07-27): 직전 발행값(lastCommanded) 대비
+                    //    진행 방향 전진일 때만 발행한다. 역방향(선행 후퇴/제약 클램프)·무변화는
+                    //    발행 금지 — 보류하고 다음 사이클에 재평가한다.
+                    bool commandAdvances = direction > 0
+                        ? command > lastCommanded + tolerance
+                        : command < lastCommanded - tolerance;
+                    if (!commandAdvances)
+                    {
+                        skipHoldCount++;
+                        bool skipLogDue = lastSkipLogMs < 0 ||
+                            stopwatch.ElapsedMilliseconds - lastSkipLogMs >= 1000;
+                        if (skipLogDue)
                         {
-                            bool commandIssued = false;
-
-                            if (!IsMoving)
-                            {
-                                if (double.IsNaN(lastCommanded) || Math.Abs(command - lastCommanded) > tolerance ||
-                                    !IsAtTargetPosition(command, tolerance))
-                                {
-                                    // [사용자 확정 2026-07-26] 속도 규칙:
-                                    //  - 추종 구간(중간 세그먼트, 안전거리 미확보): followVel=Min(선행,후행)
-                                    //    — 후행축은 절대 선행축보다 빠르게 명령하지 않는다.
-                                    //  - 최종 타겟까지 안전거리 확보(commandIsFinal, gapAfter 재검증 통과):
-                                    //    자기 프로파일(trail*)로 고속 진입한다.
-                                    double startVelocity = commandIsFinal ? trailVel : followVel;
-                                    double startAcceleration = commandIsFinal ? trailAcc : followAcc;
-                                    double startDeceleration = commandIsFinal ? trailDec : followDec;
-                                    moveTask = MoveAbsoluteForFollowAsync(
-                                        command, startVelocity, startAcceleration, startDeceleration,
-                                        trailingTargetName);
-                                    lastCommanded = command;
-                                    commandIssued = true;
-                                    if (!firstCommandLogged)
-                                    {
-                                        firstCommandLogged = true;
-                                        QMC.Common.Log.Write("Motion", "SYSTEM", "AX-FOLLOW-MOVE",
-                                            Name + " 팔로잉 최초 이동 명령을 발행했습니다. command=" + command.ToString("F3") +
-                                            ", velocity=" + startVelocity.ToString("F3") +
-                                            ", acc=" + startAcceleration.ToString("F3") +
-                                            ", dec=" + startDeceleration.ToString("F3") +
-                                            ", targetName=" + (trailingTargetName ?? "<null>") +
-                                            ", scalePercent=" + (MotionSpeedScale.EffectiveScaleFactor * 100.0).ToString("0.#") + " - Ok");
-                                    }
-                                }
-                            }
-                            else if (double.IsNaN(lastCommanded) || Math.Abs(command - lastCommanded) > tolerance)
-                            {
-                                // 존 판정용 이동 의도를 함께 넘긴다 — 중간 세그먼트 좌표는 티칭 존 밖이라
-                                // targetName 없이는 목표 존이 Unknown이 되어 -11로 차단된다(2026-07-25 사고).
-                                int overrideResult = TryOverridePosition(
-                                    command, followVel, followAcc, followDec, trailingTargetName);
-
-                                // 수정 E(2026-07-25): 오버라이드는 폴링마다 나가므로 성공 로그는
-                                // 최초 1건 + 이후 1초 1건으로 제한하고, 실패는 제한 없이 매번 남긴다.
-                                // (사고 시 보드에 실제로 나간 명령값을 로그로 재구성하기 위한 진단 로그.)
-                                bool overrideLogDue = overrideResult != 0 ||
-                                    lastOverrideLogMs < 0 ||
-                                    stopwatch.ElapsedMilliseconds - lastOverrideLogMs >= 1000;
-                                if (overrideLogDue)
-                                {
-                                    if (overrideResult == 0)
-                                        lastOverrideLogMs = stopwatch.ElapsedMilliseconds;
-                                    QMC.Common.Log.Write("Motion", "SYSTEM", "AX-FOLLOW-OVERRIDE",
-                                        Name + " 팔로잉 위치 오버라이드. command=" + command.ToString("F3") +
-                                        ", vel=" + followVel.ToString("F3") +
-                                        ", acc=" + followAcc.ToString("F3") +
-                                        ", dec=" + followDec.ToString("F3") +
-                                        ", leadingActual=" + leadingActual.ToString("F3") +
-                                        ", gap=" + gap.ToString("F3") +
-                                        ", slack=" + slack.ToString("F3") +
-                                        ", result=" + overrideResult +
-                                        ", scalePercent=" + (MotionSpeedScale.EffectiveScaleFactor * 100.0).ToString("0.#") + " - Check");
-                                } 
-
-                                if (overrideResult == 0)
-                                { 
-                                    lastCommanded = command;
-                                    commandIssued = true;
-                                } 
-                                else if (overrideResult == -11)
-                                {
-                                    Stop();
-                                    await DrainFollowMoveTaskAsync(moveTask).ConfigureAwait(false);
-                                    moveTask = null;
-                                    QMC.Common.Log.Write("Motion", "SYSTEM", "AX-FOLLOW-MOVE",
-                                        Name + " 팔로잉 위치 오버라이드가 인터락으로 거부되었습니다. command=" + command.ToString("F3") + " - Failed");
-                                    return -11;
-                                }
-                                else if (overrideResult != -4)
-                                {
-                                    Stop();
-                                    await DrainFollowMoveTaskAsync(moveTask).ConfigureAwait(false);
-                                    moveTask = null;
-                                    QMC.Common.Log.Write("Motion", "SYSTEM", "AX-FOLLOW-MOVE",
-                                        Name + " 팔로잉 위치 오버라이드가 실패했습니다. result=" + overrideResult + " - Failed");
-                                    return overrideResult;
-                                }
-                                // -4(정지 경합)는 무시하고 다음 루프에서 재시도한다.
-                            }
-
-                            // 최종 구간 진입: 자기 프로파일로 증속 후 완료 대기 단계로 전환.
-                            // [사용자 확정 2026-07-26] 최종 타겟까지 안전거리가 확보된 뒤에만
-                            // (command가 최종 타겟으로 클램프됨 = 선행 실측 기준 경계가 타겟 밖,
-                            //  gapAfter 재검증 통과) 벨로시티 오버라이드로 고속 진입한다.
-                            // 추종 구간의 "선행보다 빠르게 금지" 불변식은 이 지점 전까지 유지된다.
-                            bool finalCommandActive = commandIsFinal &&
-                                !double.IsNaN(lastCommanded) &&
-                                Math.Abs(lastCommanded - trailingTargetPosition) <= tolerance;
-                            if (finalCommandActive && !finalEntered)
-                            {
-                                finalEntered = true;
-                                int finalOverrideResult = 0;
-                                if (IsMoving)
-                                    finalOverrideResult = TryOverrideVelocity(trailVel, trailAcc, trailDec);
-                                QMC.Common.Log.Write("Motion", "SYSTEM", "AX-FOLLOW-MOVE",
-                                    Name + " 팔로잉 최종 구간에 진입했습니다(안전거리 확보 — 자기 속도 증속). " +
-                                    "target=" + trailingTargetPosition.ToString("F3") +
-                                    ", velocity=" + trailVel.ToString("F3") +
-                                    ", acc=" + trailAcc.ToString("F3") +
-                                    ", dec=" + trailDec.ToString("F3") +
-                                    ", followVel=" + followVel.ToString("F3") +
-                                    ", overrideResult=" + finalOverrideResult +
-                                    ", scalePercent=" + (MotionSpeedScale.EffectiveScaleFactor * 100.0).ToString("0.#") +
-                                    (commandIssued ? "" : " (명령 유지)") + " - Ok");
-                                break;
-                            }
+                            lastSkipLogMs = stopwatch.ElapsedMilliseconds;
+                            QMC.Common.Log.Write("Motion", "SYSTEM", "AX-FOLLOW-SKIP",
+                                Name + " 팔로잉 오버라이드 보류(전진 아님). command=" + command.ToString("F3") +
+                                ", lastCommanded=" + lastCommanded.ToString("F3") +
+                                ", bound=" + bound.ToString("F3") +
+                                ", leadingActual=" + leadingActual.ToString("F3") +
+                                ", skipHoldCount=" + skipHoldCount + " - Check");
                         }
+
+                        await Task.Delay(FollowMovePollIntervalMs, ct).ConfigureAwait(false);
+                        continue;
+                    }
+
+                    // ④ 전 구간 단일 프로파일(Min) — 최종 오버라이드도 동일. 증속 없음.
+                    // 존 판정용 이동 의도를 함께 넘긴다 — 중간 세그먼트 좌표는 티칭 존 밖이라
+                    // targetName 없이는 목표 존이 Unknown이 되어 -11로 차단된다(2026-07-25 사고).
+                    bool commandIsFinal = Math.Abs(command - trailingTargetPosition) <= tolerance;
+                    int overrideResult = TryOverridePosition(
+                        command, followVel, followAcc, followDec, trailingTargetName);
+
+                    // 오버라이드 진단 로그: 성공은 최초 1건 + 이후 1초 1건, 실패는 제한 없이 매번.
+                    // (사고 시 보드에 실제로 나간 명령값을 로그로 재구성하기 위한 진단 로그.)
+                    bool overrideLogDue = overrideResult != 0 ||
+                        lastOverrideLogMs < 0 ||
+                        stopwatch.ElapsedMilliseconds - lastOverrideLogMs >= 1000;
+                    if (overrideLogDue)
+                    {
+                        if (overrideResult == 0)
+                            lastOverrideLogMs = stopwatch.ElapsedMilliseconds;
+                        QMC.Common.Log.Write("Motion", "SYSTEM", "AX-FOLLOW-OVERRIDE",
+                            Name + " 팔로잉 위치 오버라이드. command=" + command.ToString("F3") +
+                            ", bound=" + bound.ToString("F3") +
+                            ", leadingActual=" + leadingActual.ToString("F3") +
+                            ", lastCommanded=" + lastCommanded.ToString("F3") +
+                            ", isFinal=" + commandIsFinal +
+                            ", vel=" + followVel.ToString("F3") +
+                            ", acc=" + followAcc.ToString("F3") +
+                            ", dec=" + followDec.ToString("F3") +
+                            ", result=" + overrideResult +
+                            ", overrideCount=" + overrideCount +
+                            ", busyRetryCount=" + busyRetryCount +
+                            ", scalePercent=" + (MotionSpeedScale.EffectiveScaleFactor * 100.0).ToString("0.#") + " - Check");
+                    }
+
+                    if (overrideResult == 0)
+                    {
+                        lastCommanded = command;
+                        overrideCount++;
+
+                        // ⑤ 최종 목표 오버라이드 발행 완료 — 이후 발행 영구 금지, 완료 대기로 전환.
+                        if (commandIsFinal)
+                        {
+                            finalIssued = true;
+                            QMC.Common.Log.Write("Motion", "SYSTEM", "AX-FOLLOW-FINAL",
+                                Name + " 팔로잉 최종 목표 오버라이드를 발행했습니다(이후 발행 금지, 완료 대기 전환). " +
+                                "target=" + trailingTargetPosition.ToString("F3") +
+                                ", overrideCount=" + overrideCount +
+                                ", skipHoldCount=" + skipHoldCount +
+                                ", busyRetryCount=" + busyRetryCount +
+                                ", elapsedMs=" + stopwatch.ElapsedMilliseconds +
+                                ", scalePercent=" + (MotionSpeedScale.EffectiveScaleFactor * 100.0).ToString("0.#") + " - Ok");
+                            break;
+                        }
+                    }
+                    else if (overrideResult == -4)
+                    {
+                        // 정지 경합(보드 InMotion 미관측) — lastCommanded 미갱신, 다음 루프 재시도.
+                        // 실제 정지 교착이면 위 moveTask 종료 감시(-23)가 회수한다.
+                        busyRetryCount++;
+                    }
+                    else if (overrideResult == -11)
+                    {
+                        Stop();
+                        await DrainFollowMoveTaskAsync(moveTask).ConfigureAwait(false);
+                        moveTask = null;
+                        QMC.Common.Log.Write("Motion", "SYSTEM", "AX-FOLLOW-MOVE",
+                            Name + " 팔로잉 위치 오버라이드가 인터락으로 거부되었습니다. command=" + command.ToString("F3") +
+                            ", overrideCount=" + overrideCount + " - Failed");
+                        return -11;
+                    }
+                    else
+                    {
+                        Stop();
+                        await DrainFollowMoveTaskAsync(moveTask).ConfigureAwait(false);
+                        moveTask = null;
+                        QMC.Common.Log.Write("Motion", "SYSTEM", "AX-FOLLOW-MOVE",
+                            Name + " 팔로잉 위치 오버라이드가 실패했습니다. result=" + overrideResult +
+                            ", command=" + command.ToString("F3") +
+                            ", overrideCount=" + overrideCount + " - Failed");
+                        return overrideResult;
                     }
 
                     await Task.Delay(FollowMovePollIntervalMs, ct).ConfigureAwait(false);
                 }
 
-                // 최종 완료 대기 (남은 타임아웃 적용).
+                // ---- Phase 3. 최종 완료 대기 (남은 타임아웃 적용) — 모션돈까지 대기 후 리턴 ----
                 int remainingMs = effectiveTimeoutMs - (int)stopwatch.ElapsedMilliseconds;
                 if (remainingMs <= 0)
                     return await FailFollowTimeoutAsync(moveTask, trailingTargetPosition, effectiveTimeoutMs).ConfigureAwait(false);
@@ -1047,16 +1109,23 @@ namespace QMC.CDT320.Ajin
                     await DrainFollowMoveTaskAsync(moveTask).ConfigureAwait(false);
                     moveTask = null;
                     QMC.Common.Log.Write("Motion", "SYSTEM", "AX-FOLLOW-MOVE",
-                        Name + " 팔로잉 최종 완료 대기가 실패했습니다. " + LastMotionFailureMessage + " - Failed");
+                        Name + " 팔로잉 최종 완료 대기가 실패했습니다. waitCode=" + waitCode +
+                        ", overrideCount=" + overrideCount +
+                        ", " + LastMotionFailureMessage + " - Failed");
                     return FailMotion(waitCode, "FOLLOW MOVE",
                         "팔로잉 최종 완료 대기가 실패했습니다. " + LastMotionFailureMessage, trailingTargetPosition, true);
                 }
 
                 await DrainFollowMoveTaskAsync(moveTask).ConfigureAwait(false);
                 moveTask = null;
+                // 완료 후 진단용 실측 1회(팔로잉 계산에는 미사용).
                 QMC.Common.Log.Write("Motion", "SYSTEM", "AX-FOLLOW-MOVE",
                     Name + " 팔로잉 이동이 정상 완료되었습니다. target=" + trailingTargetPosition.ToString("F3") +
-                    ", actual=" + ActualPosition.ToString("F3") + " - Ok");
+                    ", actual=" + ActualPosition.ToString("F3") +
+                    ", overrideCount=" + overrideCount +
+                    ", skipHoldCount=" + skipHoldCount +
+                    ", busyRetryCount=" + busyRetryCount +
+                    ", elapsedMs=" + stopwatch.ElapsedMilliseconds + " - Ok");
                 return 0;
             }
             catch (OperationCanceledException)

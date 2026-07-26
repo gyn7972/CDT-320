@@ -88,7 +88,7 @@ namespace QMC.CDT320.Sequencing
                 if (config.PickSettleMs > 0)
                     await Task.Delay(config.PickSettleMs, ct).ConfigureAwait(false);
 
-                result = await VerifyDiePickedAfterZMotionAsync(flowVerifyTask, updateMaterialInspection, ct).ConfigureAwait(false);
+                result = VerifyDiePickedWithFlowAlarmInBackground(flowVerifyTask, updateMaterialInspection);
                 if (result != 0)
                     return result;
 
@@ -158,7 +158,7 @@ namespace QMC.CDT320.Sequencing
                 if (config.PickSettleMs > 0)
                     await Task.Delay(config.PickSettleMs, ct).ConfigureAwait(false);
 
-                result = await VerifyDiePickedAfterZMotionAsync(flowVerifyTask, updateMaterialInspection, ct).ConfigureAwait(false);
+                result = VerifyDiePickedWithFlowAlarmInBackground(flowVerifyTask, updateMaterialInspection);
                 if (result != 0)
                     return result;
 
@@ -1469,6 +1469,31 @@ namespace QMC.CDT320.Sequencing
             finally
             {
             }
+        }
+
+        // [사용자 지시 2026-07-27] 픽업 흡착 Flow 확인은 조인하지 않는다 — 선행 시작된 백그라운드
+        // Task가 픽커 I/O 타임아웃(기본 5000ms)까지 폴링하고, 실패하면 Task 내부 Fail()이 직접
+        // 알람(PICKER-FLOW-CHECK)을 올린다(AlarmManager.Raise — 조인 여부와 무관). 여기서는
+        // 자재 데이터 갱신만 수행하고 다음 die 진행을 막지 않는다.
+        private int VerifyDiePickedWithFlowAlarmInBackground(Task<int> flowVerifyTask, bool updateMaterialInspection)
+        {
+            if (flowVerifyTask != null &&
+                flowVerifyTask.Status == TaskStatus.RanToCompletion &&
+                flowVerifyTask.Result != 0)
+            {
+                // 조인 없이도 이미 실패가 확정된 케이스 — 알람은 Task가 이미 올렸고, 이 die만 실패 처리한다.
+                return flowVerifyTask.Result;
+            }
+
+            WriteLog("PickerPickUpZ",
+                Name + " 흡착 Flow 확인을 백그라운드로 계속합니다(조인 없음, 실패 시 타임아웃 후 알람). " +
+                "pickerNo=" + _currentPickerNo +
+                ", flowTaskDone=" + (flowVerifyTask != null && flowVerifyTask.IsCompleted) + " - Check");
+
+            if (!updateMaterialInspection)
+                return 0;
+
+            return VerifyDiePicked();
         }
 
         private async Task<int> VerifyDiePickedAfterZMotionAsync(bool updateMaterialInspection, CancellationToken ct)

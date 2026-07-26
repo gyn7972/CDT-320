@@ -989,6 +989,7 @@
     <Compile Include="Sequencing\Picker\PickerMotionTargetResolver.cs" />
     <Compile Include="Sequencing\Picker\InputPickerPickTargetResolver.cs" />
     <Compile Include="Sequencing\Picker\PickerInputStageMoveHelper.cs" />
+    <Compile Include="Sequencing\Picker\InputDieVisionBatchCoordinateStore.cs" />
     <Compile Include="Sequencing\Picker\InputDieVisionPreparedItem.cs" />
     <Compile Include="Sequencing\Picker\InputDieVisionPrepareSequence.cs" />
     <Compile Include="Sequencing\Picker\InputCameraPickUpPermissionStore.cs" />

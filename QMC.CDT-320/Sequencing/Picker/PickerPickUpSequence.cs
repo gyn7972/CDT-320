@@ -554,6 +554,12 @@ namespace QMC.CDT320.Sequencing
                 if (result != 0)
                     return result;
 
+                // [동적 선행 대기점 2026-07-27, 검증 RV1] 허가 미경유 직접 prepare 경로(수동 픽업/
+                // 부분 PickUp 재개)는 배치를 여기서 즉시 소비하므로 공개 좌표를 지금 제거한다 —
+                // Grant 경로가 없어 스테일 좌표가 무기한 잔존하던 문제 차단. 스킵으로 축소된
+                // 배치가 남는 문제도 결과 회수 완료 후 Clear라 함께 해소.
+                InputDieVisionBatchCoordinateStore.Clear(Side);
+
                 IList<InputDieVisionPreparedItem> preparedItems = prepareSequence.PreparedItems;
                 for (int i = 0; i < preparedItems.Count; i++)
                 {
