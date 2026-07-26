@@ -904,6 +904,9 @@ namespace QMC.CDT320.Sequencing
                     ", needleXVel=" + needleXTransferVelocity.ToString("F6") +
                     ", speedModel=DefaultVelocity*GlobalScale - Start");
 
+                // [사용자 승인 2026-07-27] 비전X를 남은 픽커 경계까지 비동기 전진(이동 중이면 조용히 스킵).
+                TryAdvanceInputVisionForRemainingPicks();
+
                 // R3(follow-entry): 비전 회피가 진행 중이면 follow 진입(+R6 폴백) — 정지 상태면 기존 이동.
                 Task<int> pickerXMoveTask = StartPickUpPickerXEntryMoveTask(
                     stage,
@@ -1080,23 +1083,29 @@ namespace QMC.CDT320.Sequencing
         {
             try
             {
-                // [정정 2026-07-26] 백그라운드 EjectPinZ Avoid 복귀 join — 아래 자기 이동/확인과의
-                // 경합 차단(이번 실장비 알람 지점: actual=target인데 moving=Y 스냅샷 실패).
-                int backgroundResult = await JoinPickUpEjectPinAvoidBackgroundAsync().ConfigureAwait(false);
-                if (backgroundResult != 0)
-                    return backgroundResult;
-
+                // [정정 2026-07-27, 사용자 승인] 초입 join(픽커당 ~32ms) 폐지 — 백그라운드
+                // 복귀 진행 중이면 아래에서 EjectPinZ 이동/확인 자체를 게이트로 이연하므로
+                // 스냅샷 경합(2026-07-26 알람)도 발생하지 않는다. join은 StageY/NeedleX
+                // 게이트가 전담한다.
                 double ejectPinZAvoid = ResolveEjectPinZAvoidTarget(stage);
                 var pickerTargets = new Dictionary<PickerAxis, double>();
                 pickerTargets[PickerAxis.PickerY] = _targetPickerY;
                 pickerTargets[tAxis] = _targetPickerT;
 
-                Task<int> ejectPinZMove = MoveInputStageAxisToAvoidAndVerifyIfNeededAsync(
-                    stage,
-                    WaferStageAxis.EjectPinZ,
-                    ejectPinZAvoid,
-                    "PickUp ContiNode PickerY pre-correction with EjectPinZ Avoid",
-                    ct);
+                // [사용자 승인 2026-07-27] EjectPinZ 백그라운드 복귀가 진행 중이면 여기서
+                // join/이동/확인을 전부 하지 않는다 — 도착 join·확인은 StageY/NeedleX 게이트
+                // (EnsureEjectPinZAvoidAndVacuumOffSettledBeforeXYAsync)가 전담하고, 픽커X는
+                // join 없이 먼저 출발한다(게이트는 StageY/NeedleX만 잡음). 픽커당 ~32ms 병렬화.
+                // 백그라운드가 없는 경우(복구/수동 경로)만 기존 IfNeeded 이동+확인 수행.
+                bool ejectPinDeferredToGate = _pickUpEjectPinAvoidTask != null;
+                Task<int> ejectPinZMove = ejectPinDeferredToGate
+                    ? Task.FromResult(0)
+                    : MoveInputStageAxisToAvoidAndVerifyIfNeededAsync(
+                        stage,
+                        WaferStageAxis.EjectPinZ,
+                        ejectPinZAvoid,
+                        "PickUp ContiNode PickerY pre-correction with EjectPinZ Avoid",
+                        ct);
 
                 // [사용자 지시 2026-07-27] Y/T가 이미 목표 위치면 그룹 이동 체인(인터락 매트릭스
                 // 평가·존 스코프·플랜 검증·StrongWait)을 통째로 생략한다 — 무이동 스텝이
@@ -1134,13 +1143,22 @@ namespace QMC.CDT320.Sequencing
                         ", " + BuildInputStageAxisState(stage, WaferStageAxis.EjectPinZ, ejectPinZAvoid));
                 }
 
-                int check = CheckInputStageAxisInPosition(
-                    stage,
-                    WaferStageAxis.EjectPinZ,
-                    ejectPinZAvoid,
-                    "PickUp ContiNode EjectPinZ Avoid before StageY move");
-                if (check != 0)
-                    return check;
+                if (!ejectPinDeferredToGate)
+                {
+                    int check = CheckInputStageAxisInPosition(
+                        stage,
+                        WaferStageAxis.EjectPinZ,
+                        ejectPinZAvoid,
+                        "PickUp ContiNode EjectPinZ Avoid before StageY move");
+                    if (check != 0)
+                        return check;
+                }
+                else
+                {
+                    WriteLog("PickerPickUpSequence",
+                        Name + " PickUp ContiNode EjectPinZ 도착 확인을 StageY/NeedleX 게이트로 이연합니다(백그라운드 복귀 진행 중). " +
+                        BuildInputStageAxisState(stage, WaferStageAxis.EjectPinZ, ejectPinZAvoid) + " - Check");
+                }
 
                 WriteLog("PickerPickUpSequence",
                     Name + " PickUp ContiNode pre-correction complete. PickerY/T and EjectPinZ Avoid ready. " +

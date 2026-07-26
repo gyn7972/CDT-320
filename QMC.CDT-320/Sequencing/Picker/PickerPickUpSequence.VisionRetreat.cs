@@ -643,6 +643,91 @@ namespace QMC.CDT320.Sequencing
                 targetName).ConfigureAwait(false);
         }
 
+        // [사용자 승인 2026-07-27] 픽업 중 InputVisionX 비동기 전진 — die 이송 발행 때마다
+        // "남은 픽커 기준 최소 회피 경계"까지 비전을 미리 당겨, 픽업 완료 후 검사 진입 거리를
+        // 줄인다. 규칙(사용자 지시): ①비전이 이동 중이면 알람/대기 없이 조용히 스킵(재명령 금지)
+        // ②Auto+Conti 외 스킵 ③유의미한 전진(+0.5mm 이상)일 때만 발행 ④fire-and-forget,
+        // 실패(-11 등)는 로그만 남기고 픽업은 계속한다. 경계 산식은 기존 부호 인지 최소 회피
+        // (TryResolveMinimalVisionRetreatTarget, Extra+마진 동일)를 남은 픽커 목록으로 재사용 —
+        // 픽커 X 이동 인터락의 비전 간격 기준과 정합이 보장된다.
+        private void TryAdvanceInputVisionForRemainingPicks()
+        {
+            try
+            {
+                if (Options == null || Options.RunMode != SequenceRunMode.Auto)
+                    return;
+                PickerPickUpMotionConfig advanceConfig = ResolvePickUpMotionConfig();
+                if (advanceConfig == null || !IsCoordinatedPickUpTransferMotionMode(advanceConfig.TransferMotionMode))
+                    return;
+                InputStageUnit stage = ResolveInputStage();
+                if (stage == null || stage.CameraX == null || stage.Recipe == null)
+                    return;
+                if (_pickBatchItems == null || _pickCursor < 0 || _pickCursor >= _pickBatchItems.Count)
+                    return;
+
+                // ① 이전 명령이 아직 이동 중이면 그냥 둔다(사용자 지시 — 알람/대기/재명령 금지).
+                if (stage.CameraX.IsMoving)
+                    return;
+
+                SharedRailXMotionService service = SharedRailXMotionRuntime.ResolveService(
+                    Context != null ? Context.Machine : null);
+                if (service == null)
+                    return;
+
+                stage.Recipe.EnsurePositionObjects();
+                double fullAvoid = stage.Recipe.VisionX.AvoidPosition;
+                var planned = new Dictionary<SharedRailXAxis, IList<double>>();
+                SharedRailXAxis pickerRailAxis = Side == PickerSequenceSide.Front
+                    ? SharedRailXAxis.FrontPickerX
+                    : SharedRailXAxis.RearPickerX;
+                var remaining = new List<double>();
+                for (int i = _pickCursor; i < _pickBatchItems.Count; i++)
+                    remaining.Add(_pickBatchItems[i].TargetPickerX);
+                planned[pickerRailAxis] = remaining;
+
+                double advanceTarget;
+                string advanceDetail;
+                if (!service.TryResolveMinimalVisionRetreatTarget(
+                        stage.CameraX,
+                        fullAvoid,
+                        planned,
+                        (service.Config != null ? service.Config.InputVisionRetreatExtraClearance : 40.0) +
+                        VisionIndependentRetreatCoordinator.RetreatTargetExtraMarginMm,
+                        out advanceTarget,
+                        out advanceDetail))
+                    return;
+
+                // ③ 전진(+) 방향의 유의미한 이동일 때만.
+                if (advanceTarget <= stage.CameraX.ActualPosition + 0.5)
+                    return;
+
+                double velocity = stage.CameraX.Config != null ? stage.CameraX.Config.GetDefaultVel() : 0.0;
+                Task<int> advanceTask = SharedRailXMotionRuntime.MoveAxisAsync(
+                    stage.CameraX, advanceTarget, velocity, false);
+                WriteLog("PickerPickUpSequence",
+                    Name + " 픽업 중 InputVisionX 비동기 전진 발행. target=" + advanceTarget.ToString("F3") +
+                    ", actual=" + stage.CameraX.ActualPosition.ToString("F3") +
+                    ", remainingPicks=" + remaining.Count +
+                    ", detail=" + advanceDetail + " - Start");
+                advanceTask.ContinueWith(
+                    t =>
+                    {
+                        if (t.IsFaulted && t.Exception != null)
+                            t.Exception.Flatten();
+                        int code = t.IsFaulted ? -1 : (t.IsCanceled ? -2 : t.Result);
+                        if (code != 0)
+                            QMC.Common.Log.Write("Main", "SYSTEM", "PickerPickUpSequence",
+                                Name + " 픽업 중 InputVisionX 전진 실패(무시, 픽업 계속). result=" + code + " - Check");
+                    },
+                    TaskScheduler.Default);
+            }
+            catch (Exception ex)
+            {
+                WriteLog("PickerPickUpSequence",
+                    Name + " 픽업 중 InputVisionX 전진 시도 중 예외(무시). error=" + ex.Message + " - Check");
+            }
+        }
+
         // R3/R5(follow-entry): 피커X(후행)가 회피 중인 InputVisionX(선행)를 추종 진입한다.
         // homeGap/safetyGap/direction/timeout 전부 SharedRailX 설정에서 런타임 조회(하드코딩 금지).
         // 안전 근거: 팔로잉 유지 간격(safetyGap=SafetyDistance+InputExtra, 기본 50) > 인터락 요구

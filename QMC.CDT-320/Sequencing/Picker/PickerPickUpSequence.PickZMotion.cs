@@ -1091,51 +1091,26 @@ namespace QMC.CDT320.Sequencing
                 stage.Config.EnsurePickUpMotionDefaults();
                 double ejectPinZAvoid = ResolveEjectPinZAvoidTarget(stage);
 
-                double pickerSeparateSpeedPercent = config != null ? config.PickerZSeparateSpeedPercent : 1.0;
+                // [사용자 지시 2026-07-27] Separate(피커Z 단독 1mm 저속 분리) 스텝 폐지 —
+                // SyncLift 완료 후 곧바로 Avoid 상승(safe 조기 반환)으로 연결한다(~57ms/픽커 회수).
+                // PickerZSeparateDistance/SpeedPercent 설정은 미사용으로 남는다(동작만 제거).
                 // 사용자 확정 속도 모델(2026-07-26): Avoid 복귀 = DefaultVelocity × 전역 스케일(% 미적용).
                 double pickerAvoidSpeedPercent = 100.0;
-                double pickerSeparateDistance = config != null ? Math.Max(0.0, config.PickerZSeparateDistance) : 0.0;
                 double pickerSafeForWaferStageDistance = config != null
                     ? PickerPickUpMotionConfig.NormalizePickerSafeForWaferStageDistance(config.PickerSafeForWaferStageDistance)
                     : PickerPickUpMotionConfig.MinimumPickerSafeForWaferStageDistance;
-                double pickerSeparateStart = syncTargets != null ? syncTargets.PickerZ : GetPickerAxis(pickerZ).ActualPosition;
-                double pickerSeparateTarget = ResolveTargetToward(pickerSeparateStart, pickerZAvoid, pickerSeparateDistance);
-                double pickerVelocity = ResolvePickerAxisVelocityByPercent(pickerZ, pickerSeparateSpeedPercent);
-                double pickerAcceleration = ResolvePickerAxisAccelerationByPercent(pickerZ, pickerSeparateSpeedPercent, true);
-                double pickerDeceleration = ResolvePickerAxisAccelerationByPercent(pickerZ, pickerSeparateSpeedPercent, false);
-                // 현재 기준: Separate 저속 구간 이후 PickerZ Avoid 최종 상승은 별도 속도로 복귀한다.
                 double pickerAvoidVelocity = ResolvePickerAxisVelocityByPercent(pickerZ, pickerAvoidSpeedPercent);
                 double pickerAvoidAcceleration = ResolvePickerAxisAccelerationByPercent(pickerZ, pickerAvoidSpeedPercent, true);
                 double pickerAvoidDeceleration = ResolvePickerAxisAccelerationByPercent(pickerZ, pickerAvoidSpeedPercent, false);
                 WriteLog("PickerPickUpZ",
-                    "PickerZ separate speed resolved. axis=" + pickerZ +
-                    ", start=" + pickerSeparateStart.ToString("0.###") +
-                    ", target=" + pickerSeparateTarget.ToString("0.###") +
+                    "PickerZ avoid rise resolved (Separate 폐지). axis=" + pickerZ +
                     ", avoid=" + pickerZAvoid.ToString("0.###") +
-                    ", distance=" + pickerSeparateDistance.ToString("0.###") +
-                    ", percent=" + pickerSeparateSpeedPercent.ToString("0.###") +
-                    ", velocity=" + pickerVelocity.ToString("0.###") +
-                    ", acceleration=" + pickerAcceleration.ToString("0.###") +
-                    ", deceleration=" + pickerDeceleration.ToString("0.###") +
-                    ", avoidPercent=" + pickerAvoidSpeedPercent.ToString("0.###") +
                     ", avoidVelocity=" + pickerAvoidVelocity.ToString("0.###") +
                     ", avoidAcceleration=" + pickerAvoidAcceleration.ToString("0.###") +
                     ", avoidDeceleration=" + pickerAvoidDeceleration.ToString("0.###") +
                     ", pickerSafeForWaferStageDistance=" + pickerSafeForWaferStageDistance.ToString("0.###"));
 
-                int pickerResult = await MovePickerAxisWithMotionAndVerifyAsync(
-                    pickerZ,
-                    pickerSeparateTarget,
-                    pickerVelocity,
-                    pickerAcceleration,
-                    pickerDeceleration,
-                    "PickUp Sync Lift 후 PickerZ Separate 이동",
-                    "PickUpSeparateDistance",
-                    ct).ConfigureAwait(false);
-                if (pickerResult != 0)
-                    return pickerResult;
-
-                pickerResult = await MovePickerZToAvoidAndWaitSafeForWaferStageAsync(
+                int pickerResult = await MovePickerZToAvoidAndWaitSafeForWaferStageAsync(
                     pickerZ,
                     pickerZAvoid,
                     _targetPickerZ,

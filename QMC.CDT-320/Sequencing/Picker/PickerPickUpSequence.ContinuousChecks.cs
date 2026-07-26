@@ -518,7 +518,12 @@ namespace QMC.CDT320.Sequencing
                     return false;
                 }
 
-                if (stage.EjectPinZ != null && stage.EjectPinZ.IsMoving)
+                // [사용자 승인 2026-07-27] EjectPinZ가 픽업 후 Avoid로 백그라운드 복귀 중이면
+                // (join 이연 설계) 이동 중/위치 요구를 면제한다 — 도착 보장·확인은
+                // StageY/NeedleX 게이트의 join이 담당한다.
+                bool ejectPinReturningToAvoid = _pickUpEjectPinAvoidTask != null;
+
+                if (stage.EjectPinZ != null && !ejectPinReturningToAvoid && stage.EjectPinZ.IsMoving)
                 {
                     detail = "EjectPinZ is moving. actual=" + stage.EjectPinZ.ActualPosition.ToString("0.###");
                     return false;
@@ -537,7 +542,7 @@ namespace QMC.CDT320.Sequencing
                 double ejectAvoid = stage.Recipe != null && stage.Recipe.EjectPinZ != null
                     ? stage.Recipe.EjectPinZ.AvoidPosition
                     : 0.0;
-                if (stage.EjectPinZ != null)
+                if (stage.EjectPinZ != null && !ejectPinReturningToAvoid)
                 {
                     double tolerance = stage.EjectPinZ.Config != null && stage.EjectPinZ.Config.InPositionTolerance > 0.0
                         ? stage.EjectPinZ.Config.InPositionTolerance

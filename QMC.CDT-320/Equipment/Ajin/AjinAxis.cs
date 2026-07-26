@@ -967,7 +967,7 @@ namespace QMC.CDT320.Ajin
                                         ", slack=" + slack.ToString("F3") +
                                         ", result=" + overrideResult +
                                         ", scalePercent=" + (MotionSpeedScale.EffectiveScaleFactor * 100.0).ToString("0.#") + " - Check");
-                                }
+                                } 
 
                                 if (overrideResult == 0)
                                 {

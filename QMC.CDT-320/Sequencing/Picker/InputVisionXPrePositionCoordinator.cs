@@ -184,6 +184,22 @@ namespace QMC.CDT320.Sequencing
                     ct.ThrowIfCancellationRequested();
                     context.StopIfCycleStopRequested("InputVisionXPrePosition.Acquired:" + side);
 
+                    // [사용자 지시 2026-07-27] 세션 기동 전 MotionDone 확인 — 픽업 중 비동기 전진이
+                    // 아직 이동 중이면 정지까지 대기(최대 3초) 후 시작한다. 이동 중 재명령으로 인한
+                    // 알람/의도치 않은 동작 방지. 타임아웃이어도 알람 없이 기존 경로로 진행한다.
+                    if (visionX != null && visionX.IsMoving)
+                    {
+                        var motionDoneWait = System.Diagnostics.Stopwatch.StartNew();
+                        while (visionX.IsMoving && motionDoneWait.ElapsedMilliseconds < 3000)
+                        {
+                            ct.ThrowIfCancellationRequested();
+                            await Task.Delay(10, ct).ConfigureAwait(false);
+                        }
+                        WriteLog("InputVisionXPrePosition",
+                            side + " 세션 기동 전 MotionDone 대기 완료. waitedMs=" + motionDoneWait.ElapsedMilliseconds +
+                            ", stillMoving=" + visionX.IsMoving + " - Check");
+                    }
+
                     if (CanMoveToTarget(context, visionX, finalTarget, finalTargetName, out finalGuardReason))
                     {
                         int directResult = await MoveAndVerifyAsync(

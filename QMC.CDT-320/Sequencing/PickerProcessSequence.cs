@@ -134,6 +134,18 @@ namespace QMC.CDT320.Sequencing
             finally
             {
                 ReleaseActivePickerProcessResource("ProcessFinally");
+                // [사용자 지시 2026-07-27] Cycle Stop/종료 정리 전, place의 백그라운드 Z Avoid
+                // 상승이 진행 중이면 완주를 기다린다 — 상승이 잘리며 -5 알람으로 승격 방지.
+                if (_placeSequence != null)
+                {
+                    try
+                    {
+                        await _placeSequence.WaitPendingPickerZAvoidRiseBeforeStopAsync().ConfigureAwait(false);
+                    }
+                    catch
+                    {
+                    }
+                }
                 await EnsureCycleStopSafePoseAsync(ct).ConfigureAwait(false);
                 ReleasePickerProcessPhase("ProcessFinally");
                 ResetPickerPhaseSignals();
