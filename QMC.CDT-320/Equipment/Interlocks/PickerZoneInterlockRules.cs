@@ -1470,6 +1470,9 @@ namespace QMC.CDT320.Interlocks
                         currentZone = currentYZone;
                 }
 
+                int pickUpZHoldExemptForX;
+                if (!MotionGuardRuleHelpers.TryGetPickUpZHoldExemptPickerIndex(request, out pickUpZHoldExemptForX))
+                    pickUpZHoldExemptForX = -1;
                 if (!VerifyInputStageZSafeForInputZone(
                     request.Machine,
                     isFront,
@@ -1479,7 +1482,8 @@ namespace QMC.CDT320.Interlocks
                     targetZone,
                     ownX,
                     ownY,
-                    out reason))
+                    out reason,
+                    pickUpZHoldExemptForX))
                     return false;
 
                 string occupiedOwner;
@@ -2002,6 +2006,9 @@ namespace QMC.CDT320.Interlocks
 
                 PickerWorkZone targetZone = ResolveTargetYZone(request, isFront);
                 PickerWorkZone currentXZone = ResolveCurrentXZoneWithContext(request.Machine, isFront);
+                int pickUpZHoldExemptForY;
+                if (!MotionGuardRuleHelpers.TryGetPickUpZHoldExemptPickerIndex(request, out pickUpZHoldExemptForY))
+                    pickUpZHoldExemptForY = -1;
                 if (!VerifyInputStageZSafeForInputZone(
                     request.Machine,
                     isFront,
@@ -2011,7 +2018,8 @@ namespace QMC.CDT320.Interlocks
                     targetZone,
                     GetPickerX(request.Machine, isFront),
                     GetPickerY(request.Machine, isFront),
-                    out reason))
+                    out reason,
+                    pickUpZHoldExemptForY))
                     return false;
 
                 if (IsAvoidZone(targetZone))
@@ -2707,6 +2715,8 @@ namespace QMC.CDT320.Interlocks
         }
 
         // 인터락 항목: Picker가 Input 존에 있거나 진입할 때 PickerZ와 InputExpandingZ 안전 조건을 확인한다.
+        // pickUpZHoldExemptIndex(사용자 승인 2026-07-26): Auto Conti 픽업 die 간 이동에서
+        // PrePick 유지 픽커 Z의 위치 요구만 면제(-1이면 기존과 완전 동일).
         private static bool VerifyInputStageZSafeForInputZone(
             CDT320_Machine machine,
             bool isFront,
@@ -2716,7 +2726,8 @@ namespace QMC.CDT320.Interlocks
             PickerWorkZone targetZone,
             BaseAxis ownX,
             BaseAxis ownY,
-            out string reason)
+            out string reason,
+            int pickUpZHoldExemptIndex = -1)
         {
             reason = string.Empty;
 
@@ -2724,7 +2735,7 @@ namespace QMC.CDT320.Interlocks
                 return true;
 
             // 현재 기준: Picker가 Input 쪽으로 들어가거나 Input 존에 있으면 Picker Z0~Z3는 Avoid 또는 0 이상 위치여야 한다.
-            if (!VerifyPickerZHomeOrAvoidForInputZone(machine, isFront, movingName, out reason))
+            if (!VerifyPickerZHomeOrAvoidForInputZone(machine, isFront, movingName, pickUpZHoldExemptIndex, out reason))
                 return false;
 
             InputStageUnit stage = machine != null ? machine.InputStageUnit : null;
@@ -2775,10 +2786,13 @@ namespace QMC.CDT320.Interlocks
         //}
 
         // 인터락 항목: Input 존 진입 전 PickerZ 전체가 0 이상 또는 Avoid 위치인지 확인한다.
+        // pickUpZHoldExemptIndex(사용자 승인 2026-07-26): 해당 인덱스 픽커 Z는 위치 요구만 면제
+        // (비이동 요구는 유지). -1이면 기존과 완전 동일.
         private static bool VerifyPickerZHomeOrAvoidForInputZone(
             CDT320_Machine machine,
             bool isFront,
             string movingName,
+            int pickUpZHoldExemptIndex,
             out string reason)
         {
             reason = string.Empty;
@@ -2796,6 +2810,9 @@ namespace QMC.CDT320.Interlocks
                         movingName,
                         movingName + " Input 진입 불가: " + BuildPickerSideName(isFront) + zAxis + " 축이 이동 중입니다.",
                         out reason);
+
+                if (i == pickUpZHoldExemptIndex)
+                    continue;
 
                 if (!IsPickerZHomeOrAvoid(machine, isFront, zAxis, axis))
                     return MotionGuardRuleHelpers.Block(

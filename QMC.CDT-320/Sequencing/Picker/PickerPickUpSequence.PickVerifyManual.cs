@@ -27,11 +27,63 @@ namespace QMC.CDT320.Sequencing
                 if (stage == null)
                     return Fail("PICKER-PICKUP-STAGE-NO-UNIT", "InputStageUnit", "InputStageUnit is null.");
 
-                int result = await MoveAllPickerZToAvoidAndVerifyAsync(
-                    description + " - 모든 PickerZ Avoid",
-                    ct).ConfigureAwait(false);
-                if (result != 0)
-                    return result;
+                // 1-B PickUpZHold(사용자 승인 2026-07-26): 유지 픽커 Z가 PrePick 위치에 정확히
+                // 파킹돼 있으면 그 축만 Avoid 강제에서 제외한다. 파킹 상태가 아니면(재시작/드리프트)
+                // hold를 해제하고 기존 전체 Avoid 강제로 폴백 — 자가 치유.
+                int result;
+                bool holdHandled = false;
+                if (HasActivePickUpZHold)
+                {
+                    PickerAxis holdZAxisKind = GetPickerZAxis(_pickUpZHoldPickerIndex);
+                    BaseAxis holdAxis = GetPickerAxis(holdZAxisKind);
+                    bool parked = holdAxis != null && !holdAxis.IsMoving &&
+                        Math.Abs(holdAxis.ActualPosition - _pickUpZHoldZTarget) <= PickUpZHoldParkToleranceMm;
+                    if (!parked)
+                    {
+                        ClearPickUpZHold("유지 상태 불일치(파킹 확인 실패) — 전체 Avoid 폴백");
+                    }
+                    else
+                    {
+                        PickerAxis[] zAxes =
+                        {
+                            PickerAxis.PickerZ0, PickerAxis.PickerZ1, PickerAxis.PickerZ2, PickerAxis.PickerZ3
+                        };
+                        for (int i = 0; i < zAxes.Length; i++)
+                        {
+                            if (zAxes[i] == holdZAxisKind)
+                                continue;
+
+                            double zAvoid = GetPickerTeachingPosition(zAxes[i], "AvoidPosition");
+                            if (CanSkipPickerMoveCommand(zAxes[i], zAvoid))
+                                continue;
+
+                            result = await MovePickerAxisAndVerifyAsync(
+                                zAxes[i],
+                                zAvoid,
+                                description + " - PickerZ Avoid(PickUpZHold 제외)",
+                                ct,
+                                "AvoidPosition").ConfigureAwait(false);
+                            if (result != 0)
+                                return result;
+                        }
+
+                        WriteLog("PickerPickUpSequence",
+                            Name + " " + description +
+                            " - PickUpZHold 유지 픽커 Z는 PrePick 파킹을 유지하고 나머지만 Avoid 확인. " +
+                            "holdPickerNo=" + ToPickerNo(_pickUpZHoldPickerIndex) +
+                            ", holdZ=" + _pickUpZHoldZTarget.ToString("F3") + " - Check");
+                        holdHandled = true;
+                    }
+                }
+
+                if (!holdHandled)
+                {
+                    result = await MoveAllPickerZToAvoidAndVerifyAsync(
+                        description + " - 모든 PickerZ Avoid",
+                        ct).ConfigureAwait(false);
+                    if (result != 0)
+                        return result;
+                }
 
                 WriteLog("PickerPickUpSequence",
                     Name + " " + description +
@@ -346,6 +398,34 @@ namespace QMC.CDT320.Sequencing
         {
             try
             {
+                // 1-A join(사용자 승인 2026-07-26): 진입 시 선행 발행한 Z PrePick 하강을 여기서
+                // 합류한다 — 이후 Z 세부 모션의 절대 이동이 잔여 구간을 이어간다(동기 재시도 겸용).
+                Task<int> entryPreDown = _pickUpEntryZPreDownTask;
+                if (entryPreDown != null)
+                {
+                    _pickUpEntryZPreDownTask = null;
+                    double preDownTarget = _pickUpEntryZPreDownTarget;
+                    _pickUpEntryZPreDownTarget = double.NaN;
+                    DateTime joinStart = DateTime.UtcNow;
+
+                    int preDownCommandResult = await SequenceAwaiter.AwaitAsync(entryPreDown, -1, ct).ConfigureAwait(false);
+                    int preDownWaitResult = preDownCommandResult == 0 && !double.IsNaN(preDownTarget)
+                        ? await WaitPickerAxisMoveDoneAsync(
+                            GetPickerZAxis(_currentPickerIndex),
+                            preDownTarget,
+                            ResolveTimeout(),
+                            ct).ConfigureAwait(false)
+                        : 0;
+
+                    WriteLog("PickerPickUpSequence",
+                        Name + " PickUp 진입 Z 선행 join. pickerNo=" + _currentPickerNo +
+                        ", die=" + _currentDieId +
+                        ", commandResult=" + preDownCommandResult +
+                        ", waitResult=" + preDownWaitResult +
+                        ", joinWaitMs=" + (DateTime.UtcNow - joinStart).TotalMilliseconds.ToString("0") +
+                        " - " + (preDownCommandResult == 0 && preDownWaitResult == 0 ? "Ok" : "Check"));
+                }
+
                 int result = await RunPickupZMotionAsync(ct).ConfigureAwait(false);
                 if (result != 0)
                 {

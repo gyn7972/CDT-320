@@ -482,14 +482,24 @@ namespace QMC.CDT320.Sequencing
                     ", targetY=" + _targetPickerY +
                     ", targetName=" + targetName + " - Check");
 
-                result = await MovePickerAxisAndVerifyAsync(
+                // 1-A(사용자 승인 2026-07-26): Y 전진과 동시에 Z PrePick 선행 하강.
+                // 발행은 Y가 Avoid 공차를 벗어난 뒤(모니터) — Y-Avoid 중 Z 하강 차단룰 회피.
+                // 이전 die가 발행~join 사이 Fail로 중단된 경우의 stale task 잔존 방지(재개 1회 지연 차단).
+                ObservePickUpEntryZPreDownTask("새 die 진입 전 잔존 정리");
+                Task<int> pickYMove = MovePickerAxisAndVerifyAsync(
                     PickerAxis.PickerY,
                     _targetPickerY,
                     "pick corrected PickerY",
                     ct,
-                    targetName).ConfigureAwait(false);
+                    targetName);
+                Task entryPreDownMonitor = StartPickUpEntryZPreDownWhenYDepartsAsync(pickYMove, targetName, ct);
+                result = await pickYMove.ConfigureAwait(false);
+                await entryPreDownMonitor.ConfigureAwait(false);
                 if (result != 0)
+                {
+                    ObservePickUpEntryZPreDownTask("PickUp Y 전진 실패");
                     return result;
+                }
 
                 CurrentStep = PickerPickUpStep.VerifyPickTarget;
                 return 0;
@@ -510,6 +520,216 @@ namespace QMC.CDT320.Sequencing
         private static bool IsCoordinatedPickUpTransferMotionMode(PickerPickUpTransferMotionMode mode)
         {
             return mode == PickerPickUpTransferMotionMode.ContiSegmentedPickUp;
+        }
+
+        // 1-A(사용자 승인 2026-07-26): PickUp 진입 Y 전진 ∥ 첫 피커 Z PrePick 선행 하강.
+        // 반경 게이트(1-C): die 목표 NeedleX/StageY와 기존 Needle 작업영역 중심의 거리 ≤
+        // min(설정 반경, 런타임 작업영역 반경)일 때만 발동 — 기존 반경 인터락은 무변경 유지.
+        // join은 MovePickerZPickAsync(Z 세부 모션 직전). 이 경로는 default XYT(배치 첫 die 포함)
+        // 전용 — Conti 이송은 X 명령 시점 Z 전축 Avoid 인터락 요구 때문에 선행 하강 불가(레포트 기재).
+        private Task<int> _pickUpEntryZPreDownTask;
+        private double _pickUpEntryZPreDownTarget = double.NaN;
+        private const double PickUpEntryZPreDownYDepartureMm = 1.0;
+
+        // 1-B PickUpZHold(사용자 승인 2026-07-26: "Input존 반경 게이트 내 한정 ZHold류 면제,
+        // Auto+Conti일 때만"): die 간 이동에서 직전 픽업 픽커 Z를 PrePick 높이에 유지한다.
+        // 인터락 면제는 targetName의 "PickUpZHold={pickerNo}" 토큰으로 해당 픽커 Z만 적용된다.
+        private int _pickUpZHoldPickerIndex = -1;
+        private double _pickUpZHoldZTarget = double.NaN;
+        private const double PickUpZHoldParkToleranceMm = 0.05;
+
+        private bool HasActivePickUpZHold
+        {
+            get { return _pickUpZHoldPickerIndex >= 0 && !double.IsNaN(_pickUpZHoldZTarget); }
+        }
+
+        // [검증 FAIL S5 수정 2026-07-26] 드레인 경계가 PickUpZHold를 남긴 채 종료했는지 —
+        // PickerProcessSequence가 Bottom 진입 Full-Avoid 생략을 판단할 때 사용한다.
+        public bool DrainLeftPickerZHoldUnsafe { get; private set; }
+
+        private void ClearPickUpZHold(string reason)
+        {
+            if (!HasActivePickUpZHold)
+            {
+                _pickUpZHoldPickerIndex = -1;
+                _pickUpZHoldZTarget = double.NaN;
+                return;
+            }
+
+            WriteLog("PickerPickUpSequence",
+                Name + " PickUpZHold 해제. pickerNo=" + ToPickerNo(_pickUpZHoldPickerIndex) +
+                ", holdZ=" + _pickUpZHoldZTarget.ToString("F3") +
+                ", reason=" + (reason ?? "-") + " - Check");
+            _pickUpZHoldPickerIndex = -1;
+            _pickUpZHoldZTarget = double.NaN;
+        }
+
+        // 반경 게이트(1-C) 공용 판정: 중심/반경은 기존 Needle 작업영역 정의 재사용,
+        // limit = min(설정 반경, 런타임 작업영역 반경). die 목표 좌표 확정 판정.
+        private bool IsPickTargetWithinPreDownRadius(
+            double needleX,
+            double stageY,
+            PickerPickUpMotionConfig pickUpConfig,
+            out string detail)
+        {
+            detail = string.Empty;
+            InputStageUnit stage = ResolveInputStage();
+            if (stage == null || pickUpConfig == null)
+            {
+                detail = "stageOrConfigNull";
+                return false;
+            }
+
+            double centerX = stage.ResolveNeedleWorkAreaCenterX();
+            double centerY = stage.ResolveNeedleWorkAreaCenterY();
+            double areaRadius = stage.ResolveNeedleWorkAreaRadius();
+            double limit = pickUpConfig.PreDownNeedleWorkRadiusMm;
+            if (areaRadius > 0.0 && limit > areaRadius)
+                limit = areaRadius;
+            if (limit <= 0.0)
+            {
+                detail = "radiusOff";
+                return false;
+            }
+
+            double dx = needleX - centerX;
+            double dy = stageY - centerY;
+            double distance = Math.Sqrt(dx * dx + dy * dy);
+            detail = "distance=" + distance.ToString("F3") +
+                     ", limit=" + limit.ToString("F3") +
+                     ", centerX=" + centerX.ToString("F3") +
+                     ", centerY=" + centerY.ToString("F3");
+            return distance <= limit;
+        }
+
+        private void ObservePickUpEntryZPreDownTask(string reason)
+        {
+            Task<int> task = _pickUpEntryZPreDownTask;
+            _pickUpEntryZPreDownTask = null;
+            _pickUpEntryZPreDownTarget = double.NaN;
+            if (task == null || task.IsCompleted)
+                return;
+
+            task.ContinueWith(
+                t =>
+                {
+                    if (t.IsFaulted && t.Exception != null)
+                        t.Exception.Flatten();
+                },
+                TaskScheduler.Default);
+            WriteLog("PickerPickUpSequence",
+                Name + " PickUp 진입 Z 선행 Task를 관찰 정리합니다. reason=" + (reason ?? "-") + " - Check");
+        }
+
+        private bool IsPickUpEntryZPreDownEligible(out double preDownTarget, out string detail)
+        {
+            preDownTarget = double.NaN;
+            detail = string.Empty;
+            try
+            {
+                PickerPickUpMotionConfig pickUpConfig = ResolvePickUpMotionConfig();
+                if (pickUpConfig == null || !pickUpConfig.PickUpEntryZPreDownMode)
+                {
+                    detail = "switchOff";
+                    return false;
+                }
+
+                if (Options == null || Options.RunMode != SequenceRunMode.Auto ||
+                    !IsCoordinatedPickUpTransferMotionMode(pickUpConfig.TransferMotionMode))
+                {
+                    detail = "notAutoConti";
+                    return false;
+                }
+
+                if (pickUpConfig.PickerZPrePickDistance <= 0.0)
+                {
+                    detail = "prePickDistanceOff";
+                    return false;
+                }
+
+                PickerAxis zAxis = GetPickerZAxis(_currentPickerIndex);
+                double zAvoid = GetPickerTeachingPosition(zAxis, "AvoidPosition");
+                if (!IsPickerAxisInPosition(zAxis, zAvoid))
+                {
+                    detail = "zNotAvoid";
+                    return false;
+                }
+
+                // 반경 게이트(1-C): 공용 판정 헬퍼(중심·반경 기존 정의 재사용, 신규 중심 금지).
+                string radiusDetail;
+                if (!IsPickTargetWithinPreDownRadius(_targetNeedleX, _targetStageY, pickUpConfig, out radiusDetail))
+                {
+                    detail = "radius " + radiusDetail;
+                    return false;
+                }
+                detail = "radius " + radiusDetail;
+
+                preDownTarget = ResolveTargetToward(
+                    _targetPickerZ,
+                    zAvoid,
+                    pickUpConfig.PickerZPrePickDistance);
+                if (Math.Abs(preDownTarget - zAvoid) <= 0.0001)
+                {
+                    detail += ", preDownEqualsAvoid";
+                    return false;
+                }
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                detail = "exception " + ex.Message;
+                return false;
+            }
+        }
+
+        private async Task StartPickUpEntryZPreDownWhenYDepartsAsync(
+            Task<int> pickYMoveTask,
+            string targetName,
+            CancellationToken ct)
+        {
+            try
+            {
+                double preDownTarget;
+                string gateDetail;
+                if (!IsPickUpEntryZPreDownEligible(out preDownTarget, out gateDetail))
+                    return;
+
+                BaseAxis yAxisObject = GetPickerAxis(PickerAxis.PickerY);
+                double yAvoid = GetPickerTeachingPosition(PickerAxis.PickerY, "AvoidPosition");
+                DateTime start = DateTime.UtcNow;
+                while (!pickYMoveTask.IsCompleted)
+                {
+                    if (ct.IsCancellationRequested)
+                        return;
+
+                    double yActual = yAxisObject != null ? yAxisObject.ActualPosition : yAvoid;
+                    if (Math.Abs(yActual - yAvoid) > PickUpEntryZPreDownYDepartureMm)
+                    {
+                        _pickUpEntryZPreDownTarget = preDownTarget;
+                        _pickUpEntryZPreDownTask = MovePickerAxisCommandAsync(
+                            GetPickerZAxis(_currentPickerIndex),
+                            preDownTarget,
+                            targetName);
+                        WriteLog("PickerPickUpSequence",
+                            Name + " PickUp 진입 Y 전진과 동시 Z PrePick 선행 하강을 시작했습니다. " +
+                            "pickerNo=" + _currentPickerNo +
+                            ", die=" + _currentDieId +
+                            ", preDownZ=" + preDownTarget.ToString("F3") +
+                            ", yActual=" + yActual.ToString("F3") +
+                            ", gate=" + gateDetail +
+                            ", elapsedMs=" + (DateTime.UtcNow - start).TotalMilliseconds.ToString("0") + " - Ok");
+                        return;
+                    }
+
+                    await Task.Delay(10).ConfigureAwait(false);
+                }
+            }
+            catch (Exception ex)
+            {
+                WriteLog("PickerPickUpSequence",
+                    Name + " PickUp 진입 Z 선행 모니터 예외(선행 생략, 기존 경로 유지). error=" + ex.Message + " - Check");
+            }
         }
 
         private async Task<int> MovePickerXStageYPickerTByContiSegmentedPickUpOrDefaultAsync(
@@ -1461,7 +1681,13 @@ namespace QMC.CDT320.Sequencing
         {
             string targetName = BuildPickerTargetName("DiePickPosition", _currentPickerIndex);
             if (Options != null && Options.RunMode == SequenceRunMode.Auto && _pickCursor > 0)
-                return AppendAutoProcessCorrectionTargetTag(targetName + ";PickerPhase=InspectionZHold;InspectionContinuous;From=Input;To=Input");
+            {
+                string tags = ";PickerPhase=InspectionZHold;InspectionContinuous;From=Input;To=Input";
+                // PickUpZHold 면제 토큰(사용자 승인 2026-07-26): 유지 픽커 Z만 인터락 위치 요구 면제.
+                if (HasActivePickUpZHold)
+                    tags += ";PickUpZHold=" + ToPickerNo(_pickUpZHoldPickerIndex);
+                return AppendAutoProcessCorrectionTargetTag(targetName + tags);
+            }
 
             return AppendAutoProcessCorrectionTargetTag(targetName);
         }

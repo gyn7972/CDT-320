@@ -113,6 +113,11 @@ namespace QMC.CDT320.Sequencing
             public int PickerIndex;
             public double Target;
             public Task<int> MoveTask;
+            // Z+T 선행(사용자 승인 2026-07-26): Z만 선행하던 구조에 T 회전을 추가한다.
+            // HasT=false면 기존 Z 단독 선행과 완전 동일 동작.
+            public bool HasT;
+            public double TTarget;
+            public Task<int> TMoveTask;
         }
 
         public PickerBottomAndSideInspectionSequence(MachineSequenceContext context, PickerSequenceSide side)
@@ -857,16 +862,16 @@ namespace QMC.CDT320.Sequencing
                         return result;
                 }
 
-                result = await CompletePendingBottomZDownForPickerAsync(target.PickerIndex, ct).ConfigureAwait(false);
-                if (result != 0)
-                    return result;
-
+                // 기존 조건(~2026-07-26): 선행 Z 하강 join을 X 이동 "전"에 수행해 X 이동과
+                //   Z 하강의 오버랩 이득이 상쇄됐다. 현재 기준(사용자 승인 2026-07-26, 1-B(b)):
+                //   join은 MoveBottomTargetAsync 내부의 X 도착 후·Z/T 최종 확인 앞으로 이동 —
+                //   X 이동과 선행 Z(+T)가 실제로 겹친다.
                 result = await MoveBottomTargetAsync(target, ct).ConfigureAwait(false);
                 if (result != 0)
                     return result;
 
-                // 다음 PickerZ는 현재 Bottom 검사와 겹쳐 선행 하강합니다.
-                // 완료 확인은 다음 Picker 검사 진입 시 수행하여 현재 검사를 지연시키지 않습니다.
+                // 다음 PickerZ+T는 현재 Bottom 검사와 겹쳐 선행 구동합니다.
+                // 완료 확인은 다음 Picker 검사 진입 시(X 도착 후) 수행하여 현재 검사를 지연시키지 않습니다.
                 StartNextBottomZDownCommand(i + 1);
 
                 result = await RunAutoFocusBeforeBottomInspectionAsync(target, ct).ConfigureAwait(false);
@@ -1123,11 +1128,75 @@ namespace QMC.CDT320.Sequencing
                             return fixedYResult;
                     }
 
-                    int result = await MovePickerXTThenYAndVerifyAsync(
-                        targets,
-                        "Bottom/Side 통합 Bottom X/Y",
-                        ct,
-                        BuildBottomTargetName(target)).ConfigureAwait(false);
+                    // 1-A 접근 구간 Z+T 선행(사용자 승인 2026-07-26): 게이트 3종 —
+                    //   (1) fixed-Y 확립(Y가 이미 촬영 위치 — Y가 Avoid면 Z 하강이
+                    //       VerifyPickerYAvoidBlocksZDown에 차단되므로 이 게이트가 안전 근거),
+                    //   (2) Auto 모드(일반/수동 경로 제외),
+                    //   (3) ApproachPreMotionDistanceMm > 0.
+                    //   추가로 Z가 Avoid 또는 목표 위치일 때만(기존 선행 하강과 동일 자격) 발동.
+                    //   미충족 시 기존 동기 경로 그대로(동작 무변경).
+                    PickerBottomInspectionMotionConfig approachConfig = ResolveBottomInspectionMotionConfig();
+                    PickerAxis approachZAxis = GetPickerZAxis(target.PickerIndex);
+                    bool approachPreMotionEligible =
+                        fixedYWasEstablished &&
+                        !pickerXAlreadyInBottomPosition &&
+                        Options != null && Options.RunMode == SequenceRunMode.Auto &&
+                        approachConfig.ApproachPreMotionDistanceMm > 0.0 &&
+                        (IsPickerAxisInPosition(approachZAxis, target.Z) ||
+                         IsPickerAxisInPosition(approachZAxis, GetPickerTeachingPosition(approachZAxis, "AvoidPosition")));
+
+                    int result;
+                    if (approachPreMotionEligible)
+                    {
+                        // X 이동을 기존 헬퍼 그대로 비동기 보관(내부 인터락 대기 3종 + 속도 스케일
+                        // 자동 상속 — 신규 저수준 발행 없음). 실측 폴링으로 잔여 거리를 감시한다.
+                        Task<int> xMoveTask = MovePickerXTThenYAndVerifyAsync(
+                            targets,
+                            "Bottom/Side 통합 Bottom X/Y",
+                            ct,
+                            BuildBottomTargetName(target));
+                        BaseAxis xAxisObject = GetPickerAxis(PickerAxis.PickerX);
+                        bool preMotionStarted = false;
+                        DateTime approachPollStart = DateTime.UtcNow;
+                        while (!xMoveTask.IsCompleted)
+                        {
+                            ct.ThrowIfCancellationRequested();
+
+                            double remaining = xAxisObject != null
+                                ? Math.Abs(xAxisObject.ActualPosition - target.X)
+                                : double.MaxValue;
+                            if (remaining <= approachConfig.ApproachPreMotionDistanceMm)
+                            {
+                                QueuePendingBottomZTDown(target.PickerIndex, target.Z, target.T0);
+                                StartPendingBottomZDownCommand(
+                                    "Bottom 접근 구간 현재 피커 Z+T 선행 구동",
+                                    target.PickerIndex);
+                                preMotionStarted = true;
+                                WriteLog("PickerBottomAndSideInspectionSequence",
+                                    Name + " Bottom 접근 구간 Z+T 선행을 발동했습니다. " +
+                                    "pickerNo=" + target.PickerNo +
+                                    ", remainingX=" + remaining.ToString("0.###") +
+                                    ", thresholdMm=" + approachConfig.ApproachPreMotionDistanceMm.ToString("0.###") +
+                                    ", elapsedMs=" + (DateTime.UtcNow - approachPollStart).TotalMilliseconds.ToString("0") + " - Ok");
+                                break;
+                            }
+
+                            await Task.Delay(10, ct).ConfigureAwait(false);
+                        }
+
+                        result = await xMoveTask.ConfigureAwait(false);
+                        if (result != 0 && preMotionStarted)
+                            ObservePendingBottomZDownTasks("접근 구간 X 이동 실패로 선행 Z+T Task를 관찰 정리합니다.");
+                    }
+                    else
+                    {
+                        result = await MovePickerXTThenYAndVerifyAsync(
+                            targets,
+                            "Bottom/Side 통합 Bottom X/Y",
+                            ct,
+                            BuildBottomTargetName(target)).ConfigureAwait(false);
+                    }
+
                     if (result != 0)
                     {
                         tactScope.Fail("PICKER-BOTTOM-SIDE-BOTTOM-XY", BuildTactDetail(target, "Bottom pitch X/Y move failed. result=" + result));
@@ -1152,6 +1221,24 @@ namespace QMC.CDT320.Sequencing
                             return result;
                         }
                         _bottomInspectionYReady = true;
+                    }
+
+                    // join(사용자 승인 2026-07-26, 1-B(b)): 선행 Z(+T)의 완료 확인을 X 도착 후
+                    // 이 지점에서 수행한다 — X 이동과 선행 하강이 겹치고, 미완료분은 여기서만 대기.
+                    // 아래 Z/T 최종 단계는 CanSkip으로 자연 수렴(선행 완료 시 무명령).
+                    DateTime pendingJoinStart = DateTime.UtcNow;
+                    bool hadPendingJoin = HasPendingBottomZDown(target.PickerIndex);
+                    result = await CompletePendingBottomZDownForPickerAsync(target.PickerIndex, ct).ConfigureAwait(false);
+                    if (result != 0)
+                    {
+                        tactScope.Fail("PICKER-BOTTOM-SIDE-Z-PREDOWN-JOIN", BuildTactDetail(target, "Bottom pre-down join failed. result=" + result));
+                        return result;
+                    }
+                    if (hadPendingJoin)
+                    {
+                        WriteLog("PickerBottomAndSideInspectionSequence",
+                            Name + " Bottom 선행 Z+T join 완료. pickerNo=" + target.PickerNo +
+                            ", joinWaitMs=" + (DateTime.UtcNow - pendingJoinStart).TotalMilliseconds.ToString("0") + " - Ok");
                     }
 
                     PickerAxis zAxis = GetPickerZAxis(target.PickerIndex);
@@ -3814,7 +3901,8 @@ namespace QMC.CDT320.Sequencing
                 }
 
                 // 현재 기준: 통합 Bottom/Side 선행 Z는 FlyingZDownMode/Distance를 따른다.
-                QueuePendingBottomZDown(nextPickerIndex, zTarget);
+                // Z+T 확장(사용자 승인 2026-07-26, 1-B(a)): T 회전도 같은 pending으로 선행한다.
+                QueuePendingBottomZTDown(nextPickerIndex, zTarget, nextTarget.T0);
                 StartPendingBottomZDownCommand(
                     "Bottom 검사 중 다음 PickerZ 선행 하강",
                     nextPickerIndex);
@@ -3831,6 +3919,12 @@ namespace QMC.CDT320.Sequencing
 
         private void QueuePendingBottomZDown(int pickerIndex, double target)
         {
+            QueuePendingBottomZTDown(pickerIndex, target, double.NaN);
+        }
+
+        // Z+T 선행(사용자 승인 2026-07-26): tTarget이 NaN이면 기존 Z 단독 선행과 동일.
+        private void QueuePendingBottomZTDown(int pickerIndex, double target, double tTarget)
+        {
             for (int i = 0; i < _pendingBottomZDowns.Count; i++)
             {
                 if (_pendingBottomZDowns[i].PickerIndex == pickerIndex)
@@ -3840,8 +3934,51 @@ namespace QMC.CDT320.Sequencing
             _pendingBottomZDowns.Add(new PendingBottomZDown
             {
                 PickerIndex = pickerIndex,
-                Target = target
+                Target = target,
+                HasT = !double.IsNaN(tTarget),
+                TTarget = double.IsNaN(tTarget) ? 0.0 : tTarget
             });
+        }
+
+        private bool HasPendingBottomZDown(int pickerIndex)
+        {
+            for (int i = 0; i < _pendingBottomZDowns.Count; i++)
+            {
+                if (_pendingBottomZDowns[i].PickerIndex == pickerIndex)
+                    return true;
+            }
+
+            return false;
+        }
+
+        // 실패 경로 정리: 미소비 선행 Z/T Task를 관찰(observe)만 하고 목록을 비운다 —
+        // 미관찰 Task 예외 전파 방지. 축 정지/복귀는 기존 실패 처리(Z Avoid 복귀 경로)가 담당.
+        private void ObservePendingBottomZDownTasks(string reason)
+        {
+            for (int i = _pendingBottomZDowns.Count - 1; i >= 0; i--)
+            {
+                PendingBottomZDown pending = _pendingBottomZDowns[i];
+                ObservePendingMoveTask(pending.MoveTask);
+                ObservePendingMoveTask(pending.TMoveTask);
+                _pendingBottomZDowns.RemoveAt(i);
+            }
+
+            WriteLog("PickerBottomAndSideInspectionSequence",
+                Name + " 선행 Z+T pending 정리. reason=" + (reason ?? "-") + " - Check");
+        }
+
+        private static void ObservePendingMoveTask(Task<int> moveTask)
+        {
+            if (moveTask == null || moveTask.IsCompleted)
+                return;
+
+            moveTask.ContinueWith(
+                t =>
+                {
+                    if (t.IsFaulted && t.Exception != null)
+                        t.Exception.Flatten();
+                },
+                TaskScheduler.Default);
         }
 
         private void StartPendingBottomZDownCommand(string description, int pickerIndex)
@@ -3849,24 +3986,45 @@ namespace QMC.CDT320.Sequencing
             for (int i = _pendingBottomZDowns.Count - 1; i >= 0; i--)
             {
                 PendingBottomZDown pending = _pendingBottomZDowns[i];
-                if (pending.PickerIndex != pickerIndex || pending.MoveTask != null)
+                if (pending.PickerIndex != pickerIndex || pending.MoveTask != null || pending.TMoveTask != null)
                     continue;
 
                 PickerAxis axis = GetPickerZAxis(pending.PickerIndex);
-                if (CanSkipPickerMoveCommand(axis, pending.Target))
+                bool zSkip = CanSkipPickerMoveCommand(axis, pending.Target);
+                bool tSkip = true;
+                if (pending.HasT)
+                {
+                    PickerAxis tAxis = GetPickerTAxis(pending.PickerIndex);
+                    tSkip = CanSkipPickerMoveCommand(tAxis, pending.TTarget);
+                    if (!tSkip)
+                    {
+                        pending.TMoveTask = MovePickerAxisCommandAsync(
+                            tAxis,
+                            pending.TTarget,
+                            BuildPickerTargetName("DieBottomTPreMove", pending.PickerIndex) + ";PickerProcess=BottomSide;PickerPhase=InspectionZHold;InspectionContinuous;From=Bottom;To=Bottom");
+                    }
+                }
+
+                if (zSkip && tSkip)
                 {
                     _pendingBottomZDowns.RemoveAt(i);
                     continue;
                 }
 
-                pending.MoveTask = MovePickerAxisCommandAsync(
-                    axis,
-                    pending.Target,
-                    BuildPickerTargetName("DieBottomZPreDown", pending.PickerIndex) + ";PickerProcess=BottomSide;PickerPhase=InspectionZHold;InspectionContinuous;From=Bottom;To=Bottom");
+                if (!zSkip)
+                {
+                    pending.MoveTask = MovePickerAxisCommandAsync(
+                        axis,
+                        pending.Target,
+                        BuildPickerTargetName("DieBottomZPreDown", pending.PickerIndex) + ";PickerProcess=BottomSide;PickerPhase=InspectionZHold;InspectionContinuous;From=Bottom;To=Bottom");
+                }
 
                 WriteLog("PickerBottomAndSideInspectionSequence",
                     Name + " " + description + " 명령 시작. pickerNo=" + ToPickerNo(pending.PickerIndex) +
-                    ", target=" + pending.Target.ToString("0.###") + " - Ok");
+                    ", target=" + pending.Target.ToString("0.###") +
+                    ", zSkip=" + zSkip +
+                    ", t=" + (pending.HasT ? pending.TTarget.ToString("0.###") : "-") +
+                    ", tSkip=" + tSkip + " - Ok");
             }
         }
 
@@ -3903,40 +4061,103 @@ namespace QMC.CDT320.Sequencing
                 if (pending.PickerIndex != pickerIndex)
                     continue;
 
+                // Z join — 실패 시 동기 1회 재시도(사용자 승인 2026-07-26) 후 기존 Fail 코드.
                 PickerAxis axis = GetPickerZAxis(pending.PickerIndex);
-                if (pending.MoveTask != null)
-                {
-                    int commandResult = await SequenceAwaiter.AwaitAsync(
-                        pending.MoveTask,
-                        -1,
-                        ct).ConfigureAwait(false);
-                    if (commandResult != 0)
-                        return Fail("PICKER-BOTTOM-SIDE-Z-PREDOWN-CMD", Name, "예약된 Bottom PickerZ 선행 하강 명령 실패. result=" + commandResult + ", pickerNo=" + ToPickerNo(pending.PickerIndex));
-                }
-                else if (!CanSkipPickerMoveCommand(axis, pending.Target))
-                {
-                    int commandResult = await SequenceAwaiter.AwaitAsync(
-                        MovePickerAxisCommandAsync(
-                            axis,
-                            pending.Target,
-                            BuildPickerTargetName("DieBottomZPreDown", pending.PickerIndex) + ";PickerProcess=BottomSide;PickerPhase=InspectionZHold;InspectionContinuous;From=Bottom;To=Bottom"),
-                        -1,
-                        ct).ConfigureAwait(false);
-                    if (commandResult != 0)
-                        return Fail("PICKER-BOTTOM-SIDE-Z-PREDOWN-CMD", Name, "예약된 Bottom PickerZ 선행 하강 명령 실패. result=" + commandResult + ", pickerNo=" + ToPickerNo(pending.PickerIndex));
-                }
+                int zResult = await JoinPendingAxisMoveAsync(
+                    axis,
+                    pending.Target,
+                    pending.MoveTask,
+                    "DieBottomZPreDown",
+                    pending.PickerIndex,
+                    ct).ConfigureAwait(false);
+                if (zResult != 0)
+                    return zResult;
 
-                int waitCode = await WaitPickerAxisMoveDoneAsync(axis, pending.Target, ResolveTimeout(), ct).ConfigureAwait(false);
-                if (waitCode != 0)
-                    return Fail("PICKER-BOTTOM-SIDE-Z-PREDOWN-WAIT", Name, "예약된 Bottom PickerZ 선행 하강 완료 대기 실패. waitCode=" + waitCode + ". " + BuildPickerAxisState(axis, pending.Target));
-
-                if (!IsPickerAxisInPosition(axis, pending.Target))
-                    return Fail("PICKER-BOTTOM-SIDE-Z-PREDOWN-POS", Name, "예약된 Bottom PickerZ 선행 하강 최종 위치 확인 실패. " + BuildPickerAxisState(axis, pending.Target));
+                // T join(Z+T 확장) — 동일한 재시도 정책. 기존 Z-PREDOWN Fail 코드 재사용(신규 코드 금지).
+                if (pending.HasT)
+                {
+                    PickerAxis tAxis = GetPickerTAxis(pending.PickerIndex);
+                    int tResult = await JoinPendingAxisMoveAsync(
+                        tAxis,
+                        pending.TTarget,
+                        pending.TMoveTask,
+                        "DieBottomTPreMove",
+                        pending.PickerIndex,
+                        ct).ConfigureAwait(false);
+                    if (tResult != 0)
+                        return tResult;
+                }
 
                 _pendingBottomZDowns.RemoveAt(i);
             }
 
             return 0;
+        }
+
+        // 선행 축 1개의 join: 비동기 명령 결과 확인 → (미발행 시 발행) → 완료 대기 → 위치 확인.
+        // 어느 단계든 실패하면 동기 1회 재시도(MovePickerAxisAndVerifyAsync — 인터락 대기+스케일 포함)
+        // 후에도 실패면 기존 PICKER-BOTTOM-SIDE-Z-PREDOWN-* Fail 코드로 종료한다.
+        private async Task<int> JoinPendingAxisMoveAsync(
+            PickerAxis axis,
+            double target,
+            Task<int> moveTask,
+            string targetNamePrefix,
+            int pickerIndex,
+            CancellationToken ct)
+        {
+            string retryReason = null;
+
+            if (moveTask != null)
+            {
+                int commandResult = await SequenceAwaiter.AwaitAsync(moveTask, -1, ct).ConfigureAwait(false);
+                if (commandResult != 0)
+                    retryReason = "명령 실패 result=" + commandResult;
+            }
+            else if (!CanSkipPickerMoveCommand(axis, target))
+            {
+                int commandResult = await SequenceAwaiter.AwaitAsync(
+                    MovePickerAxisCommandAsync(
+                        axis,
+                        target,
+                        BuildPickerTargetName(targetNamePrefix, pickerIndex) + ";PickerProcess=BottomSide;PickerPhase=InspectionZHold;InspectionContinuous;From=Bottom;To=Bottom"),
+                    -1,
+                    ct).ConfigureAwait(false);
+                if (commandResult != 0)
+                    retryReason = "지연 발행 명령 실패 result=" + commandResult;
+            }
+
+            if (retryReason == null)
+            {
+                int waitCode = await WaitPickerAxisMoveDoneAsync(axis, target, ResolveTimeout(), ct).ConfigureAwait(false);
+                if (waitCode != 0)
+                    retryReason = "완료 대기 실패 waitCode=" + waitCode;
+                else if (!IsPickerAxisInPosition(axis, target))
+                    retryReason = "최종 위치 확인 실패";
+            }
+
+            if (retryReason == null)
+                return 0;
+
+            WriteLog("PickerBottomAndSideInspectionSequence",
+                Name + " Bottom 선행 구동 join 실패 — 동기 1회 재시도합니다. axis=" + axis +
+                ", pickerNo=" + ToPickerNo(pickerIndex) +
+                ", target=" + target.ToString("0.###") +
+                ", reason=" + retryReason + " - Check");
+
+            int retryResult = await MovePickerAxisAndVerifyAsync(
+                axis,
+                target,
+                "Bottom 선행 구동 동기 재시도",
+                ct,
+                BuildPickerTargetName(targetNamePrefix, pickerIndex) + ";PickerProcess=BottomSide;PickerPhase=InspectionZHold;InspectionContinuous;From=Bottom;To=Bottom").ConfigureAwait(false);
+            if (retryResult == 0 && IsPickerAxisInPosition(axis, target))
+                return 0;
+
+            return Fail("PICKER-BOTTOM-SIDE-Z-PREDOWN-CMD", Name,
+                "예약된 Bottom 선행 구동 실패(동기 재시도 포함). axis=" + axis +
+                ", retryResult=" + retryResult +
+                ", reason=" + retryReason +
+                ", pickerNo=" + ToPickerNo(pickerIndex) + ". " + BuildPickerAxisState(axis, target));
         }
 
         private void ApplySideInspectionResult(InspectionTarget target, SideVisionResult side0Result, SideVisionResult side90Result)

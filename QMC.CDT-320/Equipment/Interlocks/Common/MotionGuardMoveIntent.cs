@@ -25,6 +25,9 @@ namespace QMC.CDT320.Interlocks
             InputStageWorkAreaX = ResolveDoubleValue("InputStageWorkAreaX");
             InputStageWorkAreaNeedleX = ResolveDoubleValue("InputStageWorkAreaNeedleX");
             AutoProcessCorrectionMax = ResolveDoubleValue("AutoProcessCorrectionMax");
+            // PickUpZHold 면제(사용자 승인 2026-07-26): Auto Conti 픽업 die 간 이동에서
+            // PrePick 높이를 유지 중인 픽커 번호(1~4). 시퀀스만 부착한다.
+            PickUpZHoldPickerNo = ResolveDoubleValue("PickUpZHold");
         }
 
         public string RawTargetName { get; private set; }
@@ -41,6 +44,7 @@ namespace QMC.CDT320.Interlocks
         public double? InputStageWorkAreaX { get; private set; }
         public double? InputStageWorkAreaNeedleX { get; private set; }
         public double? AutoProcessCorrectionMax { get; private set; }
+        public double? PickUpZHoldPickerNo { get; private set; }
 
         public static MotionGuardMoveIntent Parse(string targetName)
         {

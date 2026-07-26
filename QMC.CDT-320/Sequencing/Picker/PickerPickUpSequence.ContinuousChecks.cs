@@ -280,6 +280,12 @@ namespace QMC.CDT320.Sequencing
                     return false;
                 }
 
+                // 1-B PickUpZHold(사용자 승인 2026-07-26): 유지 픽커 Z는 PrePick 파킹 위치면 적격.
+                if (HasActivePickUpZHold &&
+                    zAxis == GetPickerZAxis(_pickUpZHoldPickerIndex) &&
+                    Math.Abs(axis.ActualPosition - _pickUpZHoldZTarget) <= PickUpZHoldParkToleranceMm)
+                    continue;
+
                 double avoid = GetPickerTeachingPosition(zAxis, "AvoidPosition");
                 double tolerance = axis.Config != null && axis.Config.InPositionTolerance > 0.0
                     ? axis.Config.InPositionTolerance

@@ -140,6 +140,14 @@ namespace QMC.CDT320
         [DisplayName("PickUp Settle Ms")]
         public int PickUpSettleMs { get { return EnsurePickUpConfig().PickSettleMs; } set { EnsurePickUpConfig().PickSettleMs = value; } }
 
+        [Category("PickUp")]
+        [DisplayName("PickUp Entry Z PreDown Mode")]
+        public bool PickUpEntryZPreDownMode { get { return EnsurePickUpConfig().PickUpEntryZPreDownMode; } set { EnsurePickUpConfig().PickUpEntryZPreDownMode = value; } }
+
+        [Category("PickUp")]
+        [DisplayName("PreDown Needle Work Radius Mm")]
+        public double PreDownNeedleWorkRadiusMm { get { return EnsurePickUpConfig().PreDownNeedleWorkRadiusMm; } set { EnsurePickUpConfig().PreDownNeedleWorkRadiusMm = value; } }
+
         [Category("BottomInspection")]
         [DisplayName("Bottom Flying Z Down Mode")]
         public PickerBottomFlyingZDownMode BottomFlyingZDownMode { get { return EnsureBottomInspectionConfig().FlyingZDownMode; } set { EnsureBottomInspectionConfig().FlyingZDownMode = value; } }
@@ -147,6 +155,10 @@ namespace QMC.CDT320
         [Category("BottomInspection")]
         [DisplayName("Bottom Flying Z Down Distance")]
         public double BottomFlyingZDownDistance { get { return EnsureBottomInspectionConfig().FlyingZDownDistance; } set { EnsureBottomInspectionConfig().FlyingZDownDistance = value; } }
+
+        [Category("BottomInspection")]
+        [DisplayName("Bottom Approach PreMotion Distance Mm")]
+        public double BottomApproachPreMotionDistanceMm { get { return EnsureBottomInspectionConfig().ApproachPreMotionDistanceMm; } set { EnsureBottomInspectionConfig().ApproachPreMotionDistanceMm = value; } }
 
         [Category("Place")]
         [DisplayName("Place Motion Mode")]
@@ -159,6 +171,14 @@ namespace QMC.CDT320
         [Category("Place")]
         [DisplayName("Place Conti Timeout Ms")]
         public int PlaceContiTimeoutMs { get { return EnsurePlaceConfig().ContiTimeoutMs; } set { EnsurePlaceConfig().ContiTimeoutMs = Math.Max(1, value); } }
+
+        [Category("Place")]
+        [DisplayName("Place Entry Z PreDown Mode")]
+        public bool PlaceEntryZPreDownMode { get { return EnsurePlaceConfig().PlaceEntryZPreDownMode; } set { EnsurePlaceConfig().PlaceEntryZPreDownMode = value; } }
+
+        [Category("Place")]
+        [DisplayName("Rear Entry PreDown StageY Limit Mm")]
+        public double RearEntryPreDownStageYLimitMm { get { return EnsurePlaceConfig().RearEntryPreDownStageYLimitMm; } set { EnsurePlaceConfig().RearEntryPreDownStageYLimitMm = value; } }
 
         [Category("Place")]
         [DisplayName("Place Conti Max Travel")]
