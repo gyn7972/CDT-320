@@ -335,6 +335,35 @@ namespace QMC.CDT320.Sequencing
                 return 0;
             }
 
+            // 1-A join(사용자 승인 2026-07-26): 진입 시 선행 발행한 Z PrePlace 하강을 여기서
+            // 합류한다 — 완료 대기 후 아래 기존 최종 하강이 잔여 구간을 이어간다(동기 재시도 겸용).
+            // 선행 실패는 로그만 남기고 기존 하강이 그대로 흡수한다(기존 Fail 처리 경로 유지).
+            Task<int> entryPreDown = _placeEntryZPreDownTask;
+            if (entryPreDown != null)
+            {
+                _placeEntryZPreDownTask = null;
+                double preDownTarget = _placeEntryZPreDownTarget;
+                _placeEntryZPreDownTarget = double.NaN;
+                DateTime joinStart = DateTime.UtcNow;
+
+                int preDownCommandResult = await SequenceAwaiter.AwaitAsync(entryPreDown, -1, ct).ConfigureAwait(false);
+                int preDownWaitResult = preDownCommandResult == 0 && !double.IsNaN(preDownTarget)
+                    ? await WaitPickerAxisMoveDoneAsync(
+                        GetPickerZAxis(_currentPickerIndex),
+                        preDownTarget,
+                        ResolveTimeout(),
+                        ct).ConfigureAwait(false)
+                    : 0;
+
+                WriteLog("PickerPlaceSequence",
+                    Name + " Place 진입 Z 선행 join. pickerNo=" + _currentPickerNo +
+                    ", die=" + (_currentDie != null ? _currentDie.DieId : "-") +
+                    ", commandResult=" + preDownCommandResult +
+                    ", waitResult=" + preDownWaitResult +
+                    ", joinWaitMs=" + (DateTime.UtcNow - joinStart).TotalMilliseconds.ToString("0") +
+                    " - " + (preDownCommandResult == 0 && preDownWaitResult == 0 ? "Ok" : "Check"));
+            }
+
             int result = await MovePickerAxisAndVerifyAsync(
                 GetPickerZAxis(_currentPickerIndex),
                 _targetPickerZ,
@@ -437,6 +466,41 @@ namespace QMC.CDT320.Sequencing
                     return 0;
                 }
 
+                // 1-B(사용자 승인 2026-07-26, PlaceEntryZPreDownMode On): 배치 마지막 die는
+                // Avoid 풀 상승 대신 PrePlace 도달에서 place 완료를 판정한다. 종료 정리
+                // (Z 전체 Avoid → Y → X/T)는 무변경 — 시작 높이만 PrePlace로 바뀐다.
+                // 교체 준비 신호 안전성: 신호 발행 경로(CompleteOutputStageExchangeHandoff)가
+                // 자체적으로 전축 Avoid 후 _currentPlaceZSafeReturnCompleted를 set하므로
+                // 여기서 플래그를 건드리지 않는 것이 안전 의미를 보존한다(비교체 완료는 플래그 미사용).
+                // 사이드 전환(다음 die 다른 Bin) 케이스는 레거시 이동 경로라 안전측 제외 — 기존 풀 상승.
+                if (ShouldCompletePlaceAtPrePlaceHeight())
+                {
+                    PickerAxis earlyZAxis = GetPickerZAxis(_currentPickerIndex);
+                    int earlyRise = await MovePickerAxisAndVerifyAsync(
+                        earlyZAxis,
+                        _lastContiPrePlacePickerZ,
+                        "place picker Z preplace early-complete rise",
+                        ct,
+                        BuildPickerTargetName("DiePlacePosition", _currentPickerIndex) +
+                        ";PickerPhase=InspectionZHold;InspectionContinuous;From=Place;To=Place").ConfigureAwait(false);
+                    if (earlyRise != 0)
+                    {
+                        TurnPlaceBlowOff("PrePlace 조기 상승 실패");
+                        return earlyRise;
+                    }
+
+                    TurnPlaceBlowOff("PrePlace 조기 상승 완료");
+                    WriteLog("PickerPlaceSequence",
+                        Name + " Place 조기 완료 판정 — Z를 PrePlace에서 끊고 완료 처리로 진행합니다" +
+                        "(전체 Avoid는 배치 종료 정리 담당). " +
+                        "pickerNo=" + _currentPickerNo +
+                        ", die=" + (_currentDie != null ? _currentDie.DieId : "-") +
+                        ", prePlaceZ=" + _lastContiPrePlacePickerZ.ToString("F3") +
+                        ", outputSide=" + _currentOutputSide + " - Ok");
+                    CurrentStep = PickerPlaceStep.UpdateMaterialToOutputStage;
+                    return 0;
+                }
+
                 CurrentStep = PickerPlaceStep.MovePickerZToAvoid;
                 return 0;
             }
@@ -454,6 +518,36 @@ namespace QMC.CDT320.Sequencing
             }
             finally
             {
+            }
+        }
+
+        // 1-B 조기 완료 판정 발동 조건: 스위치 On + Conti 모드 + 이 die가 Conti로 하강(PrePlace 값
+        // 신뢰 가능) + 배치 마지막 die(사이드 전환/중간 die는 C4 지연 또는 기존 풀 상승 유지).
+        private bool ShouldCompletePlaceAtPrePlaceHeight()
+        {
+            try
+            {
+                // [검증 FAIL 수정 2026-07-26, F3] 비Auto 스텝 실행에서도 conti 노드가 사용될 수
+                // 있어 RunMode==Auto를 명시 게이트로 추가한다(지시서 공통 게이트 1).
+                if (Options == null || Options.RunMode != SequenceRunMode.Auto)
+                    return false;
+
+                PickerPlaceMotionConfig placeConfig = ResolvePlaceMotionConfig();
+                if (placeConfig == null || !placeConfig.PlaceEntryZPreDownMode ||
+                    !IsCoordinatedPlaceMotionMode(placeConfig.MotionMode))
+                    return false;
+                if (!_pickerZPlacedByContiSegmentedPlace)
+                    return false;
+                if (double.IsNaN(_lastContiPrePlacePickerZ))
+                    return false;
+                if (_pickerCursor + 1 < _pickedPickerIndexes.Count)
+                    return false;
+
+                return true;
+            }
+            catch
+            {
+                return false;
             }
         }
 

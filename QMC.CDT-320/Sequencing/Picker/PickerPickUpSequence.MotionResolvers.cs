@@ -652,10 +652,22 @@ namespace QMC.CDT320.Sequencing
 
         private int StopRemainingPickBatchForWaferCompletion(string boundary)
         {
+            // [검증 FAIL S5 수정 2026-07-26] 드레인 경계에서 PickUpZHold가 남아 있으면 유지 픽커
+            // Z가 PrePick(음수)에 물리 잔류한 채 배치가 종료된다 — 이 동기 스텝에서는 이동을
+            // 발행하지 않고 "불안전 종료"만 기록한다. PickerProcessSequence가 이 플래그를 보고
+            // Bottom 진입의 Full-Avoid 생략(_pickerZStageSafeConfirmedByPickUp)을 하지 않으면,
+            // Bottom 첫 스텝의 기존 전 Z Avoid 강제가 정상 경로로 잔류 Z를 회수한다(알람 없음).
+            if (HasActivePickUpZHold)
+            {
+                DrainLeftPickerZHoldUnsafe = true;
+                ClearPickUpZHold("웨이퍼 완료 드레인 경계 — 물리 잔류는 Bottom Full-Avoid 강제가 회수");
+            }
+
             WriteLog("WaferCompletionRun",
                 Name + " Stop After Drain 요청으로 현재 안전 경계에서 남은 신규 Pick 대상을 해제합니다. " +
                 "side=" + Side +
                 ", boundary=" + (boundary ?? "-") +
+                ", zHoldUnsafe=" + DrainLeftPickerZHoldUnsafe +
                 ", currentPickerNo=" + _currentPickerNo + " - Ok");
             // 조기 허가 경로: 드레인 중단된 배치의 RESULT 미회수 핸들 정리 (스토어 잔여분은 Clear→ReleaseItems가 정리).
             DrainPickBatchVisionHandles("웨이퍼 완료 드레인 정리");

@@ -992,6 +992,10 @@ namespace QMC.CDT320.Sequencing
 
                 if (_pickUpSequence.IsComplete)
                 {
+                    // [검증 FAIL S5 수정 2026-07-26] 드레인 경계가 PickUpZHold를 남긴 채 종료했으면
+                    // Bottom 진입 Full-Avoid 생략을 하지 않는다 — Bottom 첫 스텝의 전 Z Avoid 강제가
+                    // PrePick 잔류 Z를 정상 경로로 회수한다.
+                    bool pickUpLeftZHoldUnsafe = _pickUpSequence != null && _pickUpSequence.DrainLeftPickerZHoldUnsafe;
                     _pickUpSequence = null;
                     _resumePartialPickUpWithoutMarkPermission = false;
 
@@ -1002,7 +1006,13 @@ namespace QMC.CDT320.Sequencing
                     }
 
                     // PickUp 완료 시 PickerZ가 Stage Safe 높이를 통과했으므로 다음 Bottom 진입에서 1회 사용한다.
-                    _pickerZStageSafeConfirmedByPickUp = true;
+                    _pickerZStageSafeConfirmedByPickUp = !pickUpLeftZHoldUnsafe;
+                    if (pickUpLeftZHoldUnsafe)
+                    {
+                        WriteLog("PickerProcessSequence",
+                            Name + " 드레인 경계 PickUpZHold 잔류로 Bottom 진입 Full-Avoid 생략을 해제합니다. " +
+                            "side=" + Side + " - Check");
+                    }
                     StartInputVisionXPrePositionAfterPickUpComplete(ct);
                     WriteLog("PickerProcessSequence",
                         Name + " PickUp 완료 후 PickerProcessSequence가 비침습 InputCamera 선행검사를 예약합니다. " +

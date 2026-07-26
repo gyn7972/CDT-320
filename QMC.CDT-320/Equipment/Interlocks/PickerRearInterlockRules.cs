@@ -216,7 +216,16 @@ namespace QMC.CDT320.Interlocks
                 PickerRearUnit rear = machine != null ? machine.PickerRearUnit : null;
 
                 // 현재 기준: 오버라이드 중에도 RearPickerZ0~Z3는 모두 상승(Home 또는 Avoid) 상태여야 한다.
-                if (!VerifyRearPickerZAxesHomeOrAvoid(rear, "RearPickerX", out reason))
+                // PickUpZHold 면제(사용자 승인 2026-07-26): Conti 픽업 팔로잉 진입의 오버라이드는
+                // 유지 픽커 Z만 위치 요구 면제(비이동 요구는 AvoidForMove/입구 룰이 유지).
+                int overridePickUpZHoldExempt;
+                bool overrideHasPickUpZHold =
+                    MotionGuardRuleHelpers.TryGetPickUpZHoldExemptPickerIndex(request, out overridePickUpZHoldExempt);
+                if (!overrideHasPickUpZHold &&
+                    !VerifyRearPickerZAxesHomeOrAvoid(rear, "RearPickerX", out reason))
+                    return false;
+                if (overrideHasPickUpZHold &&
+                    !VerifyRearPickerZAxesHomeOrAvoidExcept(rear, "RearPickerX", overridePickUpZHoldExempt, out reason))
                     return false;
 
                 // 현재 기준: Reticle 관련 실린더가 이동 중이면 차단한다.
@@ -356,7 +365,11 @@ namespace QMC.CDT320.Interlocks
             reason = string.Empty;
 
             // 현재 기준: Input 진입 전 RearPickerZ0~Z3는 Avoid 또는 0 이상 위치여야 한다.
-            if (!VerifyRearPickerZAxesAvoidOrNonNegative(machine != null ? machine.PickerRearUnit : null, "RearPickerX", out reason))
+            // PickUpZHold 면제(사용자 승인 2026-07-26): Auto Conti 픽업 die 간 이동은 지정 픽커만 면제.
+            int inputEntryPickUpZHoldExempt;
+            if (!MotionGuardRuleHelpers.TryGetPickUpZHoldExemptPickerIndex(request, out inputEntryPickUpZHoldExempt))
+                inputEntryPickUpZHoldExempt = -1;
+            if (!VerifyRearPickerZAxesAvoidOrNonNegative(machine != null ? machine.PickerRearUnit : null, "RearPickerX", inputEntryPickUpZHoldExempt, out reason))
                 return false;
 
             // 현재 기준: Input 진입 전 InputExpandingZ는 0 이하 위치여야 한다.
@@ -425,6 +438,13 @@ namespace QMC.CDT320.Interlocks
         // 인터락 항목: RearPickerZ 전체가 Avoid 위치 또는 0 이상 위치인지 확인한다.
         internal static bool VerifyRearPickerZAxesAvoidOrNonNegative(PickerRearUnit picker, string movingName, out string reason)
         {
+            return VerifyRearPickerZAxesAvoidOrNonNegative(picker, movingName, -1, out reason);
+        }
+
+        // PickUpZHold 면제 오버로드(사용자 승인 2026-07-26): exemptIndex 픽커 Z는 위치 요구만
+        // 면제한다(비이동 요구는 유지). exemptIndex=-1이면 기존과 완전 동일.
+        internal static bool VerifyRearPickerZAxesAvoidOrNonNegative(PickerRearUnit picker, string movingName, int exemptIndex, out string reason)
+        {
             reason = string.Empty;
             // 방어 조건: RearPicker 참조가 없으면 Z 위치 조건을 적용하지 않는다.
             if (picker == null)
@@ -441,6 +461,9 @@ namespace QMC.CDT320.Interlocks
                         movingName,
                         movingName + " 이동 불가: Rear" + zAxis + " 축이 이동 중입니다.",
                         out reason);
+
+                if (i == exemptIndex)
+                    continue;
 
                 // 현재 기준: RearPickerZ축은 Avoid 위치이거나 ActualPosition이 0 이상이어야 한다.
                 if (picker.IsPickerAxisInTeachingPosition(zAxis, "AvoidPosition") ||
@@ -780,10 +803,27 @@ namespace QMC.CDT320.Interlocks
             if (MotionGuardRuleHelpers.IsColletCalibrationFineAlignMove(request, false, out fineAlignDetail))
                 return true;
 
+            // PickUpZHold 면제(사용자 승인 2026-07-26): Auto Conti 픽업 die 간 이동에서
+            // 지정 픽커 Z만 위치 요구를 면제한다(비이동 요구는 유지, 나머지 Z는 기존 그대로).
+            int pickUpZHoldExemptIndex;
+            bool hasPickUpZHoldExempt =
+                MotionGuardRuleHelpers.TryGetPickUpZHoldExemptPickerIndex(request, out pickUpZHoldExemptIndex);
+
             PickerAxis[] zAxes = { PickerAxis.PickerZ0, PickerAxis.PickerZ1, PickerAxis.PickerZ2, PickerAxis.PickerZ3 };
             for (int i = 0; i < zAxes.Length; i++)
             {
                 PickerAxis zAxis = zAxes[i];
+                if (hasPickUpZHoldExempt && i == pickUpZHoldExemptIndex)
+                {
+                    BaseAxis holdAxis = ResolveRearPickerAxis(picker, zAxis);
+                    if (holdAxis != null && holdAxis.IsMoving)
+                        return MotionGuardRuleHelpers.Block(
+                            movingName,
+                            movingName + " 이동 불가: PickUpZHold 픽커 Rear" + zAxis + " 축이 이동 중입니다.",
+                            out reason);
+                    continue;
+                }
+
                 // 현재 기준: RearPicker 평면 이동 전 Z0~Z3는 모두 Avoid 위치여야 한다.
                 if (!picker.IsPickerAxisInTeachingPosition(zAxis, "AvoidPosition"))
                     return MotionGuardRuleHelpers.Block(
@@ -889,8 +929,18 @@ namespace QMC.CDT320.Interlocks
                 CDT320_Machine machine = request != null ? request.Machine : null;
 
                 // 현재 기준: 자동 검사 Z Hold/FineAlign 이동은 Z축을 유지해야 하므로 Home/Avoid 조건에서 제외한다.
+                // PickUpZHold 면제(검증 FAIL E5 수정 2026-07-26): Conti 픽업 die 간 Y 이동(선보정/전진)도
+                // 유지 픽커 Z만 위치 요구를 면제한다(비이동 요구는 Except 변형이 유지).
+                int yPickUpZHoldExempt;
+                bool yHasPickUpZHold =
+                    MotionGuardRuleHelpers.TryGetPickUpZHoldExemptPickerIndex(request, out yPickUpZHoldExempt);
                 if (!CanKeepRearPickerZDuringYMove(request) &&
+                    !yHasPickUpZHold &&
                     !VerifyRearPickerZAxesHomeOrAvoid(machine != null ? machine.PickerRearUnit : null, "RearPickerY", out reason))
+                    return false;
+                if (!CanKeepRearPickerZDuringYMove(request) &&
+                    yHasPickUpZHold &&
+                    !VerifyRearPickerZAxesHomeOrAvoidExcept(machine != null ? machine.PickerRearUnit : null, "RearPickerY", yPickUpZHoldExempt, out reason))
                     return false;
 
                 // 현재 기준: Reticle 실린더가 이동 중이면 RearPickerY 수동 이동을 차단한다.
@@ -1474,6 +1524,39 @@ namespace QMC.CDT320.Interlocks
         }
 
         // 인터락 항목: RearPickerZ 전체가 Home 또는 Avoid 위치인지 확인한다.
+        // PickUpZHold 면제 변형(사용자 승인 2026-07-26): exemptIndex 픽커 Z는 위치 요구만 면제,
+        // 대신 비이동 상태를 요구한다. 나머지 픽커 Z는 기존 Home/Avoid 요구 그대로.
+        private static bool VerifyRearPickerZAxesHomeOrAvoidExcept(PickerRearUnit picker, string movingName, int exemptIndex, out string reason)
+        {
+            reason = string.Empty;
+            if (picker == null)
+                return true;
+
+            PickerAxis[] zAxes = { PickerAxis.PickerZ0, PickerAxis.PickerZ1, PickerAxis.PickerZ2, PickerAxis.PickerZ3 };
+            for (int i = 0; i < zAxes.Length; i++)
+            {
+                PickerAxis zAxis = zAxes[i];
+                BaseAxis axis = ResolveRearPickerAxis(picker, zAxis);
+                if (i == exemptIndex)
+                {
+                    if (axis != null && axis.IsMoving)
+                        return MotionGuardRuleHelpers.Block(
+                            movingName,
+                            movingName + " 오버라이드 불가: PickUpZHold 픽커 Rear" + zAxis + " 축이 이동 중입니다.",
+                            out reason);
+                    continue;
+                }
+
+                if (!IsAxisAtHomeOrTeachingAvoid(axis, () => picker.IsPickerAxisInTeachingPosition(zAxis, "AvoidPosition")))
+                    return MotionGuardRuleHelpers.Block(
+                        movingName,
+                        movingName + " HOME blocked. Rear" + zAxis + " must be at Home(0) or Avoid position.",
+                        out reason);
+            }
+
+            return true;
+        }
+
         private static bool VerifyRearPickerZAxesHomeOrAvoid(PickerRearUnit picker, string movingName, out string reason)
         {
             reason = string.Empty;

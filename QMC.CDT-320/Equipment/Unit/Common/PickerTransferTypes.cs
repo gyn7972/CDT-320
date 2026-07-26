@@ -84,6 +84,12 @@ namespace QMC.CDT320
         [DataMember] public int SyncLiftSettleMs { get; set; } = 0;
         [DataMember] public int PickSettleMs { get; set; } = 0;
 
+        // PickUp Z 선행(사용자 승인 2026-07-26): 1-A(Y 전진 ∥ Z PrePick 선행) 스위치. 기본 Off.
+        [DataMember] public bool PickUpEntryZPreDownMode { get; set; } = false;
+        // 반경 게이트: die 목표 NeedleX/StageY와 Needle 작업영역 중심의 거리 ≤ 이 값일 때만 선행.
+        // 사용 시 런타임 Needle 작업영역 반경(ResolveNeedleWorkAreaRadius)으로 상한 클램프한다.
+        [DataMember] public double PreDownNeedleWorkRadiusMm { get; set; } = 130.0;
+
         // Legacy values are kept only for reading old config files.
         [DataMember] public double PickerZSlowApproachVelocity { get; set; } = 0.0;
         [DataMember] public double PickerZSlowApproachAcceleration { get; set; } = 0.0;
@@ -108,6 +114,9 @@ namespace QMC.CDT320
             MechanicalOffsetX =
                 new double[] { LegacyPickUpMechanicalOffsetXmm, LegacyPickUpMechanicalOffsetXmm, LegacyPickUpMechanicalOffsetXmm, LegacyPickUpMechanicalOffsetXmm };
             MechanicalOffsetY = new double[MechanicalOffsetPickerCount];
+            // 구버전 설정 파일 하위호환: 멤버 부재 시 기본값 보장(스위치는 안전측 Off).
+            PickUpEntryZPreDownMode = false;
+            PreDownNeedleWorkRadiusMm = 130.0;
         }
 
         [OnDeserialized]
@@ -162,6 +171,7 @@ namespace QMC.CDT320
             TransferContiNode3SpeedPercent = NormalizePercent(TransferContiNode3SpeedPercent, 20.0);
 
             PickerZPrePickDistance = NormalizeDistance(PickerZPrePickDistance);
+            PreDownNeedleWorkRadiusMm = NormalizeDistance(PreDownNeedleWorkRadiusMm);
             PickerZSlowApproachSpeedPercent = NormalizePercent(PickerZSlowApproachSpeedPercent, 1.0);
             PickerZSyncLiftDistance = NormalizeDistance(PickerZSyncLiftDistance);
             PickerZSyncLiftVelocity = NormalizePositive(PickerZSyncLiftVelocity, 5.0);
@@ -356,6 +366,19 @@ namespace QMC.CDT320
         [DataMember] public PickerBottomFlyingZDownMode FlyingZDownMode { get; set; } = PickerBottomFlyingZDownMode.Off;
         [DataMember] public double FlyingZDownDistance { get; set; } = 2.0;
 
+        // 접근 구간 Z+T 선행(사용자 승인 2026-07-26): 첫 피커 Bottom X 이동 중 잔여 거리가
+        // 이 값 이하가 되면 해당 피커 Z 하강+T 회전을 X와 동시에 시작한다.
+        // 0 이하 = 기능 Off. 설비(유닛) Config — 레시피 아님.
+        [DataMember] public double ApproachPreMotionDistanceMm { get; set; } = 50.0;
+
+        [OnDeserializing]
+        private void OnDeserializing(StreamingContext ctx)
+        {
+            // DataContract 역직렬화는 필드 초기화식을 건너뛴다 — 구버전 설정 파일에
+            // 멤버가 없으면 여기서 기본값을 보장한다(파일에 값이 있으면 이후 덮어씀).
+            ApproachPreMotionDistanceMm = 50.0;
+        }
+
         [OnDeserialized]
         private void OnDeserialized(StreamingContext ctx)
         {
@@ -365,6 +388,7 @@ namespace QMC.CDT320
         public void Ensure()
         {
             FlyingZDownDistance = NormalizeDistance(FlyingZDownDistance);
+            ApproachPreMotionDistanceMm = NormalizeDistance(ApproachPreMotionDistanceMm);
         }
 
         public double ResolveFlyingZDownTarget(double avoid, double bottom)
@@ -442,12 +466,22 @@ namespace QMC.CDT320
         [DataMember] public double ContiNode3SpeedPercent { get; set; } = 100.0;
         [DataMember] public double ContiNode4SpeedPercent { get; set; } = 1.0;
 
+        // Place Z 선행/조기완료(사용자 승인 2026-07-26): 1-A(Y 전진 ∥ Z PrePlace 선행)와
+        // 1-B(상승 PrePlace 조기 완료 판정)를 묶는 공용 스위치. 기본 Off — 켜야만 동작.
+        [DataMember] public bool PlaceEntryZPreDownMode { get; set; } = false;
+        // Rear 전용 발동 제약: 대상 Bin StageY 실측 ≤ 이 값일 때만 Rear에서 1-A 발동.
+        // 기본 0.0 = Rear 발동 안 함(안전측 — 현장 실측으로 설정해야 켜짐). Front 미적용.
+        [DataMember] public double RearEntryPreDownStageYLimitMm { get; set; } = 0.0;
+
         [OnDeserializing]
         private void OnDeserializing(StreamingContext ctx)
         {
             ContiSplineCurvePercent = 100.0;
             ContiUseGlobalSpeedScale = true;
             PlaceBlowDelayMs = 100;
+            // 구버전 설정 파일 하위호환: 멤버 부재 시 안전측 기본값(Off/0.0) 보장.
+            PlaceEntryZPreDownMode = false;
+            RearEntryPreDownStageYLimitMm = 0.0;
             MechanicalOffsetLimitMm = PickerPickUpMotionConfig.DefaultMechanicalOffsetLimitMm;
             BottomPlaceCorrectionLimitMm = PickerPickUpMotionConfig.DefaultMechanicalOffsetLimitMm;
             MechanicalOffsetX = new double[PickerPickUpMotionConfig.MechanicalOffsetPickerCount];
@@ -498,6 +532,7 @@ namespace QMC.CDT320
                 PlaceBlowDelayMs = 0;
             ContiTapeThicknessFallback = NormalizeNonNegative(ContiTapeThicknessFallback);
             ContiDieThicknessFallback = NormalizeNonNegative(ContiDieThicknessFallback);
+            RearEntryPreDownStageYLimitMm = NormalizeFinite(RearEntryPreDownStageYLimitMm);
             ContiMaxVelocity = PickerPickUpMotionConfig.NormalizePositive(ContiMaxVelocity, 500.0);
             ContiMaxAcceleration = PickerPickUpMotionConfig.NormalizePositive(ContiMaxAcceleration, 5000.0);
             ContiMaxDeceleration = PickerPickUpMotionConfig.NormalizePositive(ContiMaxDeceleration, 5000.0);

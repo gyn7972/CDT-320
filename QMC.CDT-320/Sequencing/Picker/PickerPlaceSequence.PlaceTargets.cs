@@ -232,6 +232,197 @@ namespace QMC.CDT320.Sequencing
             return 0;
         }
 
+        // 1-A(사용자 승인 2026-07-26): Place 진입 Y 전진과 동시에 첫 피커 Z를 PrePlace 상당
+        // 높이까지 비동기 선행 하강. 발행은 "Y가 Avoid 공차를 벗어난 뒤"에만 한다 —
+        // Y가 Avoid 티칭 위치(공차 내)에 있는 동안 Z 하강은 VerifyPickerYAvoidBlocksZDown이
+        // 차단하므로(ZHold 예외 없음), 순서로 결정론을 보장한다. join은 MovePickerZPlaceAsync.
+        private Task<int> _placeEntryZPreDownTask;
+        private double _placeEntryZPreDownTarget = double.NaN;
+        private const double PlaceEntryZPreDownYDepartureMm = 1.0;
+
+        private void ObservePlaceEntryZPreDownTask(string reason)
+        {
+            Task<int> task = _placeEntryZPreDownTask;
+            _placeEntryZPreDownTask = null;
+            _placeEntryZPreDownTarget = double.NaN;
+            if (task == null || task.IsCompleted)
+                return;
+
+            task.ContinueWith(
+                t =>
+                {
+                    if (t.IsFaulted && t.Exception != null)
+                        t.Exception.Flatten();
+                },
+                TaskScheduler.Default);
+            WriteLog("PickerPlaceSequence",
+                Name + " Place 진입 Z 선행 Task를 관찰 정리합니다. reason=" + (reason ?? "-") + " - Check");
+        }
+
+        // 발동 게이트: 스위치 On + Auto + Conti 모드 + 검사결과 이미 완료(비블로킹 선확인 —
+        // 기존 하강 게이트의 재개 판정과 동일 기준) + Z가 Avoid 위치 + (Rear면 대상 Bin StageY
+        // 실측 ≤ 임계값; Front는 무조건). 미충족 시 아무 것도 하지 않는다(기존 동작).
+        private bool IsPlaceEntryZPreDownEligible(out double preDownTarget, out string detail)
+        {
+            preDownTarget = double.NaN;
+            detail = string.Empty;
+            try
+            {
+                PickerPlaceMotionConfig placeConfig = ResolvePlaceMotionConfig();
+                if (placeConfig == null || !placeConfig.PlaceEntryZPreDownMode)
+                {
+                    detail = "switchOff";
+                    return false;
+                }
+
+                if (Options == null || Options.RunMode != SequenceRunMode.Auto ||
+                    !IsCoordinatedPlaceMotionMode(placeConfig.MotionMode))
+                {
+                    detail = "notAutoConti";
+                    return false;
+                }
+
+                if (_currentDie == null ||
+                    !IsInspectionFlowComplete(_currentDie) ||
+                    (_currentDie.Result != DieResult.Good && _currentDie.Result != DieResult.NG))
+                {
+                    detail = "inspectionNotReady";
+                    return false;
+                }
+
+                PickerAxis zAxis = GetPickerZAxis(_currentPickerIndex);
+                if (!IsPickerAxisInPosition(zAxis, GetPickerTeachingPosition(zAxis, "AvoidPosition")))
+                {
+                    detail = "zNotAvoid";
+                    return false;
+                }
+
+                if (Side == PickerSequenceSide.Rear)
+                {
+                    string rearDetail;
+                    if (!IsRearEntryPreDownStageYWithinLimit(placeConfig, out rearDetail))
+                    {
+                        detail = rearDetail;
+                        return false;
+                    }
+
+                    detail = rearDetail;
+                }
+
+                // PrePlace 상당 높이 = 최종 접촉 + 두께 폴백 + Step1/Step2 여유(Conti prePlace 산식과 동형).
+                preDownTarget = _targetPickerZ +
+                    placeConfig.ContiTapeThicknessFallback +
+                    placeConfig.ContiDieThicknessFallback +
+                    placeConfig.ContiZ1Step1Clearance +
+                    placeConfig.ContiZ1Step2Clearance;
+                return true;
+            }
+            catch (Exception ex)
+            {
+                detail = "exception " + ex.Message;
+                return false;
+            }
+        }
+
+        // [검증 FAIL 수정 2026-07-26, F2] Rear StageY 임계 판정 — "발행 직전" 재판정용.
+        // 기존 결함: 게이트가 모니터 기동 시 1회만 실측을 읽었는데, 직전에 StageY 수령 이동이
+        //   이미 발행돼 있어 실제 Z 발행 시점(Y 이탈 감지, 수 초 뒤)엔 StageY가 임계 밖일 수
+        //   있었다 — 파라미터가 금지하려는 구간에서 하강하는 오동작 경로.
+        // 현재 기준: (a) 실측을 판정 시점마다 UpdateStatus 후 재확인하고, (b) 진행 중인 수령
+        //   이동의 "목표"(_targetOutputStageY)도 임계 이내여야 발동한다 — 둘 다 안전측 AND.
+        private bool IsRearEntryPreDownStageYWithinLimit(PickerPlaceMotionConfig placeConfig, out string detail)
+        {
+            detail = string.Empty;
+            double limit = placeConfig != null ? placeConfig.RearEntryPreDownStageYLimitMm : 0.0;
+            if (limit <= 0.0)
+            {
+                detail = "rearStageYLimitOff";
+                return false;
+            }
+
+            BaseAxis stageYAxis = ResolveOutputStageYAxis(
+                _currentOutputSide == BinSide.Ng ? BinStageAxis.NgBinY : BinStageAxis.GoodBinY);
+            if (stageYAxis == null)
+            {
+                detail = "rearStageYAxisNull";
+                return false;
+            }
+
+            stageYAxis.UpdateStatus();
+            double stageYActual = stageYAxis.ActualPosition;
+            double stageYTarget = _targetOutputStageY;
+            bool ok = stageYActual <= limit && stageYTarget <= limit;
+            detail = (ok ? "rearStageYOk" : "rearStageYLimit") +
+                     " actual=" + stageYActual.ToString("F3") +
+                     ", target=" + stageYTarget.ToString("F3") +
+                     ", limit=" + limit.ToString("F3");
+            return ok;
+        }
+
+        // Y 전진을 감시하다가 Avoid 공차 이탈이 확인되는 즉시 Z 선행 하강을 발행한다.
+        // 이 모니터는 진입 이동을 실패시키지 않는다(선행 실패는 join에서 기존 하강이 흡수).
+        private async Task StartPlaceEntryZPreDownWhenYDepartsAsync(Task<int> pickerMoveTask, CancellationToken ct)
+        {
+            try
+            {
+                double preDownTarget;
+                string gateDetail;
+                if (!IsPlaceEntryZPreDownEligible(out preDownTarget, out gateDetail))
+                    return;
+
+                BaseAxis yAxisObject = GetPickerAxis(PickerAxis.PickerY);
+                double yAvoid = GetPickerTeachingPosition(PickerAxis.PickerY, "AvoidPosition");
+                DateTime start = DateTime.UtcNow;
+                while (!pickerMoveTask.IsCompleted)
+                {
+                    if (ct.IsCancellationRequested)
+                        return;
+
+                    double yActual = yAxisObject != null ? yAxisObject.ActualPosition : yAvoid;
+                    if (Math.Abs(yActual - yAvoid) > PlaceEntryZPreDownYDepartureMm)
+                    {
+                        // [F2 수정] Rear는 발행 직전 실측+수령 목표를 재판정 — 초과면 발행 포기(기존 경로).
+                        if (Side == PickerSequenceSide.Rear)
+                        {
+                            string rearRecheckDetail;
+                            if (!IsRearEntryPreDownStageYWithinLimit(ResolvePlaceMotionConfig(), out rearRecheckDetail))
+                            {
+                                WriteLog("PickerPlaceSequence",
+                                    Name + " Place 진입 Z 선행을 발행 직전 Rear StageY 재판정으로 생략합니다. " +
+                                    "pickerNo=" + _currentPickerNo +
+                                    ", detail=" + rearRecheckDetail + " - Check");
+                                return;
+                            }
+                        }
+
+                        _placeEntryZPreDownTarget = preDownTarget;
+                        _placeEntryZPreDownTask = MovePickerAxisCommandAsync(
+                            GetPickerZAxis(_currentPickerIndex),
+                            preDownTarget,
+                            BuildPickerTargetName("DiePlacePosition", _currentPickerIndex) +
+                            ";PickerPhase=InspectionZHold;InspectionContinuous;From=Place;To=Place");
+                        WriteLog("PickerPlaceSequence",
+                            Name + " Place 진입 Y 전진과 동시 Z PrePlace 선행 하강을 시작했습니다. " +
+                            "pickerNo=" + _currentPickerNo +
+                            ", die=" + (_currentDie != null ? _currentDie.DieId : "-") +
+                            ", preDownZ=" + preDownTarget.ToString("F3") +
+                            ", yActual=" + yActual.ToString("F3") +
+                            ", side=" + Side +
+                            ", gate=" + gateDetail +
+                            ", elapsedMs=" + (DateTime.UtcNow - start).TotalMilliseconds.ToString("0") + " - Ok");
+                        return;
+                    }
+
+                    await Task.Delay(10).ConfigureAwait(false);
+                }
+            }
+            catch (Exception ex)
+            {
+                WriteLog("PickerPlaceSequence",
+                    Name + " Place 진입 Z 선행 모니터 예외(선행 생략, 기존 경로 유지). error=" + ex.Message + " - Check");
+            }
+        }
+
         private async Task<int> MoveOutputStageYAndPickerXYTToPlaceAsync(BinStageAxis yAxis, CancellationToken ct)
         {
             var pickerTargets = new Dictionary<PickerAxis, double>();
@@ -269,9 +460,14 @@ namespace QMC.CDT320.Sequencing
                     ct,
                     BuildPlaceMoveTargetName());
 
+            // 1-A: Y 전진 시작(Avoid 이탈) 감지 시 Z PrePlace 선행 — 게이트 미충족이면 즉시 종료.
+            Task entryPreDownMonitor = StartPlaceEntryZPreDownWhenYDepartsAsync(pickerMove, ct);
+
             int[] results = await Task.WhenAll(stageYMove, pickerMove).ConfigureAwait(false);
+            await entryPreDownMonitor.ConfigureAwait(false);
             if (results[0] != 0 || results[1] != 0)
             {
+                ObservePlaceEntryZPreDownTask("Place 진입 XYT 이동 실패");
                 return Fail("PICKER-PLACE-PARALLEL-MOVE", Name,
                     "Place OutputStageY와 Picker X/Y/T 동시 이동 실패. " +
                     "stageYResult=" + results[0] +

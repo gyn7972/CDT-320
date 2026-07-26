@@ -88,10 +88,14 @@ namespace QMC.CDT320.Sequencing
             double finalPickerZ = nodes[nodes.Count - 1].PickerZ;
             double originalPickerZTarget = _targetPickerZ;
             _targetPickerZ = prePlacePickerZ;
+            _lastContiPrePlacePickerZ = prePlacePickerZ;
 
+            // 1-B: 이 소비점(Conti 노드 직전)만 PrePlace 파킹 허용 — XY 이동 태그(InspectionZHold)가
+            // Z 비-Avoid 상태 X 이동을 면제하는 경로이므로 인터락 완화 없이 성립한다.
             int previousRetreatResult = await CompletePendingContiRetreatIfNeededAsync(
                 "Place 비동기 접근 전 이전 PickerZ Avoid 복귀",
-                ct).ConfigureAwait(false);
+                ct,
+                allowPrePlaceHold: true).ConfigureAwait(false);
             if (previousRetreatResult != 0)
             {
                 _targetPickerZ = originalPickerZTarget;
@@ -669,6 +673,12 @@ namespace QMC.CDT320.Sequencing
             return false;
         }
 
+        // 1-B(사용자 승인 2026-07-26): 현재 die의 Conti PrePlace 높이(노드[N-2]) — 조기 완료
+        // 판정과 pending 파킹 목표에 사용. Conti 노드 진입 시마다 갱신되므로 스테일 없음.
+        private double _lastContiPrePlacePickerZ = double.NaN;
+        // pending 설정 시점의 해당 die PrePlace 높이(다음 노드에서 _lastConti…가 덮여도 보존).
+        private double _pendingContiRetreatPrePlaceZ = double.NaN;
+
         private bool HasPendingContiRetreat()
         {
             return _pendingContiRetreatPickerIndex >= 0;
@@ -678,27 +688,62 @@ namespace QMC.CDT320.Sequencing
         {
             _pendingContiRetreatPickerIndex = pickerIndex;
             _pendingContiRetreatPickerNo = pickerNo;
+            _pendingContiRetreatPrePlaceZ = _lastContiPrePlacePickerZ;
         }
 
         private void ClearPendingContiRetreat()
         {
             _pendingContiRetreatPickerIndex = -1;
             _pendingContiRetreatPickerNo = 0;
+            _pendingContiRetreatPrePlaceZ = double.NaN;
         }
 
-        private async Task<int> CompletePendingContiRetreatIfNeededAsync(string description, CancellationToken ct)
+        // 기존 조건(~2026-07-26): 지연된 이전 PickerZ 복귀는 항상 전체 Avoid까지 동기 상승 —
+        //   다음 노드 XY 시작 전에 상승 시간 전체가 직렬로 들어갔다.
+        // 현재 기준(사용자 승인 2026-07-26, 1-B, PlaceEntryZPreDownMode On일 때):
+        //   allowPrePlaceHold=true인 소비점(Conti 노드 직전)에서는 해당 die의 PrePlace 높이까지만
+        //   상승해 파킹한다 — 이후 XY 이동은 InspectionZHold 태그로 통과하고(BuildPlaceMoveTargetName),
+        //   전체 Avoid는 배치 종료 정리(MovePickerToAvoidAfterPlaceFast: Z전체→Y→X/T)가 수행한다.
+        //   그 외 소비점(레거시 폴백/Bottom 대기 중 겹침)은 기존 전체 Avoid 그대로.
+        private async Task<int> CompletePendingContiRetreatIfNeededAsync(
+            string description,
+            CancellationToken ct,
+            bool allowPrePlaceHold = false)
         {
             if (!HasPendingContiRetreat())
                 return 0;
 
             PickerAxis zAxis = GetPickerZAxis(_pendingContiRetreatPickerIndex);
             double avoid = GetPickerTeachingPosition(zAxis, "AvoidPosition");
+
+            PickerPlaceMotionConfig placeConfig = ResolvePlaceMotionConfig();
+            // [검증 FAIL 수정 2026-07-26, F3] RunMode==Auto 명시 게이트 추가(비Auto 스텝 실행 방어).
+            bool holdAtPrePlace = allowPrePlaceHold &&
+                Options != null && Options.RunMode == SequenceRunMode.Auto &&
+                placeConfig != null && placeConfig.PlaceEntryZPreDownMode &&
+                !double.IsNaN(_pendingContiRetreatPrePlaceZ);
+            double riseTarget = holdAtPrePlace ? _pendingContiRetreatPrePlaceZ : avoid;
+            string riseTargetName = holdAtPrePlace
+                ? BuildPickerTargetName("DiePlacePosition", _pendingContiRetreatPickerIndex) +
+                  ";PickerPhase=InspectionZHold;InspectionContinuous;From=Place;To=Place"
+                : "AvoidPosition";
+
+            if (holdAtPrePlace)
+            {
+                WriteLog("PickerPlaceSequence",
+                    Name + " 이전 PickerZ 복귀를 PrePlace 파킹으로 단축합니다(전체 Avoid는 배치 종료 정리 담당). " +
+                    "pendingPickerNo=" + _pendingContiRetreatPickerNo +
+                    ", prePlaceZ=" + _pendingContiRetreatPrePlaceZ.ToString("F3") +
+                    ", avoid=" + avoid.ToString("F3") +
+                    ", context=" + description + " - Check");
+            }
+
             int result = await MovePickerAxisAndVerifyAsync(
                 zAxis,
-                avoid,
+                riseTarget,
                 description,
                 ct,
-                "AvoidPosition").ConfigureAwait(false);
+                riseTargetName).ConfigureAwait(false);
             if (result != 0)
                 return result;
 

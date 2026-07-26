@@ -372,6 +372,41 @@ namespace QMC.CDT320.Interlocks
             return name.Trim();
         }
 
+        // PickUpZHold 면제(사용자 승인 2026-07-26): Auto Conti 픽업의 die 간 이동에서 지정 픽커 Z가
+        // PrePick 높이를 유지한 채 X/Y 이동을 허용하는 Input존 한정 면제 판정.
+        // 시퀀스가 "Auto + ContiSegmentedPickUp + Needle 작업영역 반경 게이트 충족"일 때만
+        // targetName에 "PickUpZHold={pickerNo}" 토큰을 부착하며, 이 판정은 그 토큰과 함께
+        // InspectionZHold/InspectionContinuous/From=Input;To=Input/PickerZone=Input 태그 전부와
+        // Auto 계열 이동 종류(AxisTeachingMove 또는 위치 오버라이드 스텝)를 요구한다.
+        // 면제 범위는 "해당 픽커 Z의 위치 요구"뿐이다 — 비이동 요구와 다른 픽커 Z 요구는
+        // 호출부에서 기존 그대로 유지해야 한다(인터락 완화 최소화).
+        public static bool TryGetPickUpZHoldExemptPickerIndex(MotionGuardRuleContext request, out int exemptPickerIndex)
+        {
+            exemptPickerIndex = -1;
+            if (request == null || request.Intent == null)
+                return false;
+
+            MotionGuardMoveIntent intent = request.Intent;
+            if (!intent.PickUpZHoldPickerNo.HasValue)
+                return false;
+            if (!intent.InspectionZHold || !intent.InspectionContinuous)
+                return false;
+            if (intent.PickerZone != PickerWorkZone.Input ||
+                intent.InspectionFromZone != PickerWorkZone.Input ||
+                intent.InspectionToZone != PickerWorkZone.Input)
+                return false;
+            if (request.MoveKind != MotionGuardMoveKind.AxisTeachingMove &&
+                !request.IsPositionOverrideStep)
+                return false;
+
+            int pickerNo = (int)System.Math.Round(intent.PickUpZHoldPickerNo.Value);
+            if (pickerNo < 1 || pickerNo > 4)
+                return false;
+
+            exemptPickerIndex = pickerNo - 1;
+            return true;
+        }
+
         public static bool IsColletCalibrationFineAlignMove(MotionGuardRuleContext request, bool isFront, out string detail)
         {
             detail = string.Empty;
