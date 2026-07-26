@@ -2115,8 +2115,8 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
         private static double ResolveAxisVelocity(BaseAxis axis)
         {
             return MotionSpeedScale.ApplyDefaultVelocityScale(
-                axis != null && axis.Config != null && axis.Config.DefaultVelocity > 0.0
-                    ? axis.Config.DefaultVelocity
+                axis != null && axis.Config != null && axis.Config.GetRawDefaultVelocity() > 0.0
+                    ? axis.Config.GetRawDefaultVelocity()
                     : 100.0);
         }
 

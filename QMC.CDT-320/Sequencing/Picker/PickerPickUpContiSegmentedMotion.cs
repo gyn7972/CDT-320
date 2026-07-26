@@ -56,9 +56,14 @@ namespace QMC.CDT320.Sequencing
 
                 result.Coordinate = config.TransferContiCoordinate;
                 result.TimeoutMs = config.TransferContiTimeoutMs;
-                result.Velocity = config.GetTransferContiNodeVelocity(3);
-                result.Acceleration = config.GetTransferContiNodeAcceleration(3);
-                result.Deceleration = config.GetTransferContiNodeDeceleration(3);
+                // 사용자 확정 속도 모델(2026-07-26): CONTI MAX VEL/NODE% 폐지 —
+                // 대표 속도는 PickerX DefaultVelocity × 전역 스케일(이 경로는 현재 미호출).
+                result.Velocity = MotionSpeedScale.ApplyDefaultVelocityScale(
+                    pickerX != null && pickerX.Config != null ? pickerX.Config.GetRawDefaultVelocity() : 0.0);
+                result.Acceleration = MotionSpeedScale.ApplyDefaultAccelerationScale(
+                    pickerX != null && pickerX.Config != null ? pickerX.Config.GetRawAcceleration() : 0.0);
+                result.Deceleration = MotionSpeedScale.ApplyDefaultAccelerationScale(
+                    pickerX != null && pickerX.Config != null ? pickerX.Config.GetRawDeceleration() : 0.0);
 
                 string readyReason;
                 if (!IsAxisReady(pickerX, "PickerX", out readyReason) ||
@@ -252,41 +257,8 @@ namespace QMC.CDT320.Sequencing
             return expanded;
         }
 
-        private static ContiNodeMotionProfile ResolveDistanceLimitedProfile(
-            int nodeIndex,
-            double segmentDistance,
-            PickerPickUpMotionConfig config)
-        {
-            double velocity = config.GetTransferContiNodeVelocity(nodeIndex);
-            double acceleration = config.GetTransferContiNodeAcceleration(nodeIndex);
-            double deceleration = config.GetTransferContiNodeDeceleration(nodeIndex);
-
-            if (segmentDistance <= 0.0 ||
-                acceleration <= 0.0 ||
-                deceleration <= 0.0)
-            {
-                return new ContiNodeMotionProfile(velocity, acceleration, deceleration);
-            }
-
-            double denominator = acceleration + deceleration;
-            if (denominator <= 0.0)
-                return new ContiNodeMotionProfile(velocity, acceleration, deceleration);
-
-            double distanceLimitedVelocity = Math.Sqrt((2.0 * acceleration * deceleration * segmentDistance) / denominator) *
-                ShortSegmentVelocitySafetyRatio;
-            if (double.IsNaN(distanceLimitedVelocity) || double.IsInfinity(distanceLimitedVelocity) || distanceLimitedVelocity <= 0.0)
-                return new ContiNodeMotionProfile(velocity, acceleration, deceleration);
-
-            if (distanceLimitedVelocity < velocity)
-            {
-                velocity = Math.Max(MinimumContiVelocity, distanceLimitedVelocity);
-                double accelerationScale = ShortSegmentVelocitySafetyRatio * ShortSegmentVelocitySafetyRatio;
-                acceleration = Math.Max(MinimumContiAcceleration, acceleration * accelerationScale);
-                deceleration = Math.Max(MinimumContiAcceleration, deceleration * accelerationScale);
-            }
-
-            return new ContiNodeMotionProfile(velocity, acceleration, deceleration);
-        }
+        // ResolveDistanceLimitedProfile 삭제(사용자 확정 속도 모델 2026-07-26):
+        // 폐지된 CONTI MAX VEL/NODE% 기반 프로파일 산출로, 호출처 없는 사장 코드였다.
 
         private static double CalculateNodeDistance(PickerPickUpContiNode start, PickerPickUpContiNode end)
         {

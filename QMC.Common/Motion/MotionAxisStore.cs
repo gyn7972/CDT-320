@@ -255,10 +255,11 @@ namespace QMC.Common.Motion
             if (source == null || target == null) return;
             target.IsSimulationMode = source.IsSimulationMode;
             target.SimulationSpeedScale = source.SimulationSpeedScale;
-            target.DefaultVelocity = source.DefaultVelocity;
+            // 설정 복사 — 원본값 그대로 이관(GetRaw*는 이런 관리 용도 전용).
+            target.DefaultVelocity = source.GetRawDefaultVelocity();
             target.MaxVelocity = source.MaxVelocity;
-            target.Acceleration = source.Acceleration;
-            target.Deceleration = source.Deceleration;
+            target.Acceleration = source.GetRawAcceleration();
+            target.Deceleration = source.GetRawDeceleration();
             target.HomeFirstVelocity = source.HomeFirstVelocity;
             target.HomeSecondVelocity = source.HomeSecondVelocity;
             target.HomeThirdVelocity = source.HomeThirdVelocity;

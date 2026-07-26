@@ -2786,8 +2786,8 @@ namespace QMC.CDT320.Interlocks
         //}
 
         // 인터락 항목: Input 존 진입 전 PickerZ 전체가 0 이상 또는 Avoid 위치인지 확인한다.
-        // pickUpZHoldExemptIndex(사용자 승인 2026-07-26): 해당 인덱스 픽커 Z는 위치 요구만 면제
-        // (비이동 요구는 유지). -1이면 기존과 완전 동일.
+        // pickUpZHoldExemptIndex(정정 2026-07-26): 해당 인덱스 픽커 Z는 검사에서 제외
+        // (Avoid 상승 중 이동 허용). -1이면 기존과 완전 동일.
         private static bool VerifyPickerZHomeOrAvoidForInputZone(
             CDT320_Machine machine,
             bool isFront,
@@ -2805,14 +2805,16 @@ namespace QMC.CDT320.Interlocks
                 if (axis == null)
                     continue;
 
+                // PickUpZHold 면제(정정 2026-07-26): 시퀀스가 Avoid로 상승 명령한 축은
+                // 이동 중이어도 허용 — 검사에서 제외한다.
+                if (i == pickUpZHoldExemptIndex)
+                    continue;
+
                 if (axis.IsMoving)
                     return MotionGuardRuleHelpers.Block(
                         movingName,
                         movingName + " Input 진입 불가: " + BuildPickerSideName(isFront) + zAxis + " 축이 이동 중입니다.",
                         out reason);
-
-                if (i == pickUpZHoldExemptIndex)
-                    continue;
 
                 if (!IsPickerZHomeOrAvoid(machine, isFront, zAxis, axis))
                     return MotionGuardRuleHelpers.Block(

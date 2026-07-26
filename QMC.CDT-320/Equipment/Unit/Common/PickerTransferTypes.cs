@@ -60,14 +60,10 @@ namespace QMC.CDT320
         [DataMember] public double TransferContiPickerYMaxCorrectionDistance { get; set; } = 1.5;
         [DataMember] public double TransferContiXYMidRatio { get; set; } = 0.5;
         [DataMember] public double TransferContiSplineCurvePercent { get; set; } = 100.0;
-        [DataMember] public double TransferContiMaxVelocity { get; set; } = 500.0;
-        [DataMember] public double TransferContiMaxAcceleration { get; set; } = 5000.0;
-        [DataMember] public double TransferContiMaxDeceleration { get; set; } = 5000.0;
+        // 삭제(사용자 확정 속도 모델 2026-07-26): TransferContiMaxVelocity/Acc/Dec,
+        // TransferContiNode0~3SpeedPercent — 이송 속도는 각 축 DefaultVelocity × 전역 스케일로
+        // 일원화되어 폐지. 구버전 설정 파일의 해당 키는 역직렬화 시 무시된다.
         [DataMember] public bool TransferContiUseGlobalSpeedScale { get; set; } = true;
-        [DataMember] public double TransferContiNode0SpeedPercent { get; set; } = 20.0;
-        [DataMember] public double TransferContiNode1SpeedPercent { get; set; } = 100.0;
-        [DataMember] public double TransferContiNode2SpeedPercent { get; set; } = 100.0;
-        [DataMember] public double TransferContiNode3SpeedPercent { get; set; } = 20.0;
         [DataMember] public double PickerZPrePickDistance { get; set; } = 1.0;
         [DataMember] public double PickerZSlowApproachSpeedPercent { get; set; } = 1.0;
         [DataMember] public double PickerZSyncLiftDistance { get; set; } = 2.0;
@@ -162,13 +158,7 @@ namespace QMC.CDT320
             TransferContiPickerYMaxCorrectionDistance = NormalizePositive(TransferContiPickerYMaxCorrectionDistance, 1.5);
             TransferContiXYMidRatio = NormalizeRatio(TransferContiXYMidRatio, 0.5);
             TransferContiSplineCurvePercent = NormalizeSplineCurvePercent(TransferContiSplineCurvePercent, 100.0);
-            TransferContiMaxVelocity = NormalizePositive(TransferContiMaxVelocity, 500.0);
-            TransferContiMaxAcceleration = NormalizePositive(TransferContiMaxAcceleration, 5000.0);
-            TransferContiMaxDeceleration = NormalizePositive(TransferContiMaxDeceleration, 5000.0);
-            TransferContiNode0SpeedPercent = NormalizePercent(TransferContiNode0SpeedPercent, 20.0);
-            TransferContiNode1SpeedPercent = NormalizePercent(TransferContiNode1SpeedPercent, 100.0);
-            TransferContiNode2SpeedPercent = NormalizePercent(TransferContiNode2SpeedPercent, 100.0);
-            TransferContiNode3SpeedPercent = NormalizePercent(TransferContiNode3SpeedPercent, 20.0);
+            // TransferContiMaxVelocity/Acc/Dec, Node0~3SpeedPercent 정규화 삭제(필드 폐지).
 
             PickerZPrePickDistance = NormalizeDistance(PickerZPrePickDistance);
             PreDownNeedleWorkRadiusMm = NormalizeDistance(PreDownNeedleWorkRadiusMm);
@@ -194,23 +184,8 @@ namespace QMC.CDT320
                 PickSettleMs = 0;
         }
 
-        public double GetTransferContiNodeVelocity(int nodeIndex)
-        {
-            double velocity = TransferContiMaxVelocity * GetTransferContiNodeRatio(nodeIndex);
-            return TransferContiUseGlobalSpeedScale ? MotionSpeedScale.ApplyDefaultVelocityScale(velocity) : velocity;
-        }
-
-        public double GetTransferContiNodeAcceleration(int nodeIndex)
-        {
-            double acceleration = TransferContiMaxAcceleration * GetTransferContiNodeRatio(nodeIndex);
-            return TransferContiUseGlobalSpeedScale ? MotionSpeedScale.ApplyDefaultAccelerationScale(acceleration) : acceleration;
-        }
-
-        public double GetTransferContiNodeDeceleration(int nodeIndex)
-        {
-            double deceleration = TransferContiMaxDeceleration * GetTransferContiNodeRatio(nodeIndex);
-            return TransferContiUseGlobalSpeedScale ? MotionSpeedScale.ApplyDefaultAccelerationScale(deceleration) : deceleration;
-        }
+        // GetTransferContiNodeVelocity/Acceleration/Deceleration 삭제(사용자 확정 속도 모델
+        // 2026-07-26) — 이송 속도는 각 축 DefaultVelocity × 전역 스케일로 일원화.
 
         public static double NormalizePercent(double percent, double fallback)
         {
@@ -333,20 +308,7 @@ namespace QMC.CDT320
             return distance;
         }
 
-        private double GetTransferContiNodeRatio(int nodeIndex)
-        {
-            double percent;
-            switch (nodeIndex)
-            {
-                case 0: percent = TransferContiNode0SpeedPercent; break;
-                case 1: percent = TransferContiNode1SpeedPercent; break;
-                case 2: percent = TransferContiNode2SpeedPercent; break;
-                case 3: percent = TransferContiNode3SpeedPercent; break;
-                default: percent = TransferContiNode3SpeedPercent; break;
-            }
-
-            return NormalizePercent(percent, 1.0) / 100.0;
-        }
+        // GetTransferContiNodeRatio 삭제(Node0~3SpeedPercent 필드 폐지).
 
         private static double NormalizeRatio(double value, double fallback)
         {
@@ -469,8 +431,10 @@ namespace QMC.CDT320
         // Place Z 선행/조기완료(사용자 승인 2026-07-26): 1-A(Y 전진 ∥ Z PrePlace 선행)와
         // 1-B(상승 PrePlace 조기 완료 판정)를 묶는 공용 스위치. 기본 Off — 켜야만 동작.
         [DataMember] public bool PlaceEntryZPreDownMode { get; set; } = false;
-        // Rear 전용 발동 제약: 대상 Bin StageY 실측 ≤ 이 값일 때만 Rear에서 1-A 발동.
-        // 기본 0.0 = Rear 발동 안 함(안전측 — 현장 실측으로 설정해야 켜짐). Front 미적용.
+        // Rear 전용 발동 제약(방향 정정 — 사용자 실측 확인 2026-07-26): 대상 Bin StageY의
+        // 실측과 수령 이동 목표가 모두 이 값 "이상(≥)"일 때만 Rear에서 Z 선행 발동.
+        // 리어 물리 간섭 구조물은 StageY가 작은 구간에 있다. 0.0 = Rear 발동 안 함(안전측
+        // 기본 — 현장 실측으로 설정해야 켜짐). Front 미적용.
         [DataMember] public double RearEntryPreDownStageYLimitMm { get; set; } = 0.0;
 
         [OnDeserializing]

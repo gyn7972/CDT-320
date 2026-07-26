@@ -802,14 +802,14 @@ namespace QMC.CDT320.Sequencing
 
         private static MotionProfile ResolveMotionProfile(BaseAxis axis)
         {
-            double defaultVelocity = axis != null && axis.Config != null && axis.Config.DefaultVelocity > 0.0
-                ? axis.Config.DefaultVelocity
+            double defaultVelocity = axis != null && axis.Config != null && axis.Config.GetRawDefaultVelocity() > 0.0
+                ? axis.Config.GetRawDefaultVelocity()
                 : 1.0;
-            double defaultAcceleration = axis != null && axis.Config != null && axis.Config.Acceleration > 0.0
-                ? axis.Config.Acceleration
+            double defaultAcceleration = axis != null && axis.Config != null && axis.Config.GetRawAcceleration() > 0.0
+                ? axis.Config.GetRawAcceleration()
                 : 1.0;
-            double defaultDeceleration = axis != null && axis.Config != null && axis.Config.Deceleration > 0.0
-                ? axis.Config.Deceleration
+            double defaultDeceleration = axis != null && axis.Config != null && axis.Config.GetRawDeceleration() > 0.0
+                ? axis.Config.GetRawDeceleration()
                 : 1.0;
 
             return new MotionProfile

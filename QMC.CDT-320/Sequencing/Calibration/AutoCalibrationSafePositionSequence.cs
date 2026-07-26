@@ -42,13 +42,14 @@ namespace QMC.CDT320.Sequencing.Calibration
             ref double acceleration,
             ref double deceleration)
         {
-            if (safeMovePercent <= 0.0 || axis == null || axis.Config == null || axis.Config.DefaultVelocity <= 0.0)
+            if (safeMovePercent <= 0.0 || axis == null || axis.Config == null || axis.Config.GetRawDefaultVelocity() <= 0.0)
                 return false;
 
             double factor = Math.Min(safeMovePercent, CalibrationData.MaxSafeMovePercent) / 100.0;
-            velocity = axis.Config.DefaultVelocity * factor;
-            acceleration = axis.Config.Acceleration * factor;
-            deceleration = axis.Config.Deceleration * factor;
+            // [정정 2026-07-26] 스케일 적용값 × 퍼센트 — 원본 유출 차단.
+            velocity = axis.Config.GetDefaultVel() * factor;
+            acceleration = axis.Config.GetDefaultAcc() * factor;
+            deceleration = axis.Config.GetDefaultDec() * factor;
             return true;
         }
 

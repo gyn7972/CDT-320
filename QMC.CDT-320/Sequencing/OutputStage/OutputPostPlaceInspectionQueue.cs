@@ -2206,17 +2206,17 @@ namespace QMC.CDT320.Sequencing
                 service.Config != null ? service.Config.VisionFollowEntryTimeoutMs : 15000);
             // 현재 기준: follow의 명령/오버라이드 경로는 축 레이어 자동 스케일이 없으므로 여기서 1회 스케일.
             double trailingVelocity = MotionSpeedScale.ApplyDefaultVelocityScale(
-                stage.OutputCameraX.Config != null ? stage.OutputCameraX.Config.DefaultVelocity : 0.0);
+                stage.OutputCameraX.Config != null ? stage.OutputCameraX.Config.GetRawDefaultVelocity() : 0.0);
             double trailingAcceleration = MotionSpeedScale.ApplyDefaultAccelerationScale(
-                stage.OutputCameraX.Config != null ? stage.OutputCameraX.Config.Acceleration : 0.0);
+                stage.OutputCameraX.Config != null ? stage.OutputCameraX.Config.GetRawAcceleration() : 0.0);
             double trailingDeceleration = MotionSpeedScale.ApplyDefaultAccelerationScale(
-                stage.OutputCameraX.Config != null ? stage.OutputCameraX.Config.Deceleration : 0.0);
+                stage.OutputCameraX.Config != null ? stage.OutputCameraX.Config.GetRawDeceleration() : 0.0);
             double leadingVelocity = MotionSpeedScale.ApplyDefaultVelocityScale(
-                leadingPickerX.Config != null ? leadingPickerX.Config.DefaultVelocity : 0.0);
+                leadingPickerX.Config != null ? leadingPickerX.Config.GetRawDefaultVelocity() : 0.0);
             double leadingAcceleration = MotionSpeedScale.ApplyDefaultAccelerationScale(
-                leadingPickerX.Config != null ? leadingPickerX.Config.Acceleration : 0.0);
+                leadingPickerX.Config != null ? leadingPickerX.Config.GetRawAcceleration() : 0.0);
             double leadingDeceleration = MotionSpeedScale.ApplyDefaultAccelerationScale(
-                leadingPickerX.Config != null ? leadingPickerX.Config.Deceleration : 0.0);
+                leadingPickerX.Config != null ? leadingPickerX.Config.GetRawDeceleration() : 0.0);
 
             IList<AjinAxis.FollowConstraint> additionalConstraints =
                 BuildOppositePickerFollowConstraints(service, stage.OutputCameraX, leadingPickerX);

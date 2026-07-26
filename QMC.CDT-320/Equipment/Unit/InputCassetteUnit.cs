@@ -2202,8 +2202,8 @@ namespace QMC.CDT320
                 double scanDeceleration = ResolveCassetteProfileDeceleration(scanVelocity);
                 if (InputLifterZ.Config != null)
                 {
-                    originalAcc = InputLifterZ.Config.Acceleration;
-                    originalDec = InputLifterZ.Config.Deceleration;
+                    originalAcc = InputLifterZ.Config.GetRawAcceleration();
+                    originalDec = InputLifterZ.Config.GetRawDeceleration();
                     InputLifterZ.Config.Acceleration = scanAcceleration;
                     InputLifterZ.Config.Deceleration = scanDeceleration;
                     restoreScanProfile = true;
@@ -2504,8 +2504,8 @@ namespace QMC.CDT320
 
                 if (InputLifterZ.Config != null)
                 {
-                    originalAcc = InputLifterZ.Config.Acceleration;
-                    originalDec = InputLifterZ.Config.Deceleration;
+                    originalAcc = InputLifterZ.Config.GetRawAcceleration();
+                    originalDec = InputLifterZ.Config.GetRawDeceleration();
                     InputLifterZ.Config.Acceleration = scanAcceleration;
                     InputLifterZ.Config.Deceleration = scanDeceleration;
                     restoreScanProfile = true;
@@ -2825,7 +2825,8 @@ namespace QMC.CDT320
         {
             double velocity = Config != null && Config.ScanVelocity > 0.0 ? Config.ScanVelocity : 0.0;
             if (velocity <= 0.0 && InputLifterZ != null && InputLifterZ.Config != null)
-                velocity = InputLifterZ.Config.DefaultVelocity;
+                // [정정 2026-07-26] 스케일 적용값 — 원본 유출 차단.
+                velocity = InputLifterZ.Config.GetDefaultVel();
             return velocity > 0.0 ? velocity : 1.0;
         }
 
@@ -3022,8 +3023,8 @@ namespace QMC.CDT320
                     return -1;
                 }
 
-                oldAcceleration = InputLifterZ.Config != null ? InputLifterZ.Config.Acceleration : 0.0;
-                oldDeceleration = InputLifterZ.Config != null ? InputLifterZ.Config.Deceleration : 0.0;
+                oldAcceleration = InputLifterZ.Config != null ? InputLifterZ.Config.GetRawAcceleration() : 0.0;
+                oldDeceleration = InputLifterZ.Config != null ? InputLifterZ.Config.GetRawDeceleration() : 0.0;
                 useCustomAcceleration = InputLifterZ.Config != null && acceleration > 0.0 && deceleration > 0.0;
                 if (useCustomAcceleration)
                 {

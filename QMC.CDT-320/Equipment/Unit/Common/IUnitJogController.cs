@@ -47,7 +47,7 @@ namespace QMC.CDT320
 
             return axis.Config.JogAcceleration > 0.0
                 ? axis.Config.JogAcceleration
-                : axis.Config.Acceleration;
+                : axis.Config.GetRawAcceleration();
         }
 
         public static double ResolveDeceleration(BaseAxis axis)
@@ -57,7 +57,7 @@ namespace QMC.CDT320
 
             return axis.Config.JogDeceleration > 0.0
                 ? axis.Config.JogDeceleration
-                : axis.Config.Deceleration;
+                : axis.Config.GetRawDeceleration();
         }
     }
 }

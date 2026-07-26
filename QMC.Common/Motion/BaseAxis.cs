@@ -54,6 +54,67 @@ namespace QMC.Common.Motion
             return new ForceMoveScope();
         }
 
+        // 명시 모션 프로파일 스코프(2026-07-26, Config 임시 치환 대체):
+        // 기존 조건: 명시 가감속을 전달할 방법이 없어 Config.DefaultVelocity=0/Acceleration/
+        //   Deceleration을 이동 구간 동안 임시 치환했다 — 공유 Config를 다른 스레드(팔로잉 속도
+        //   계산 등)가 동시에 읽으면 0이 관측되어 실장비 사고로 이어졌다(2026-07-26 22:08).
+        // 현재 기준: AsyncLocal 스코프로 가감속을 전달한다 — Config는 절대 변형하지 않으며,
+        //   스코프가 활성인 이동은 기본속도 추론(재스케일) 없이 전달값을 그대로 쓴다.
+        //   스코프에 담는 가감속은 호출부가 이미 MotionSpeedScale을 적용한 최종값이어야 한다.
+        private sealed class ExplicitMotionProfileEntry
+        {
+            public double Acceleration;
+            public double Deceleration;
+        }
+
+        private static readonly AsyncLocal<ExplicitMotionProfileEntry> ExplicitMotionProfile =
+            new AsyncLocal<ExplicitMotionProfileEntry>();
+
+        public static bool TryGetExplicitMotionProfile(out double acceleration, out double deceleration)
+        {
+            ExplicitMotionProfileEntry entry = ExplicitMotionProfile.Value;
+            if (entry == null || entry.Acceleration <= 0.0 || entry.Deceleration <= 0.0)
+            {
+                acceleration = 0.0;
+                deceleration = 0.0;
+                return false;
+            }
+
+            acceleration = entry.Acceleration;
+            deceleration = entry.Deceleration;
+            return true;
+        }
+
+        public static IDisposable BeginExplicitMotionProfileScope(double acceleration, double deceleration)
+        {
+            ExplicitMotionProfileEntry previous = ExplicitMotionProfile.Value;
+            ExplicitMotionProfile.Value = new ExplicitMotionProfileEntry
+            {
+                Acceleration = acceleration,
+                Deceleration = deceleration,
+            };
+            return new ExplicitMotionProfileScope(previous);
+        }
+
+        private sealed class ExplicitMotionProfileScope : IDisposable
+        {
+            private readonly ExplicitMotionProfileEntry _previous;
+            private bool _disposed;
+
+            public ExplicitMotionProfileScope(ExplicitMotionProfileEntry previous)
+            {
+                _previous = previous;
+            }
+
+            public void Dispose()
+            {
+                if (_disposed)
+                    return;
+                _disposed = true;
+                ExplicitMotionProfile.Value = _previous;
+            }
+        }
+
         // ─────────────────────────────────────────────
         //  내부 상태 필드
         // ─────────────────────────────────────────────
@@ -548,17 +609,12 @@ namespace QMC.Common.Motion
 
                 ClearMotionFailure();
 
-                // 명시 velocity 가 없거나 스케일된 DefaultVelocity 로 전달된 경우에는
-                // 실장비와 동일하게 가속/감속도도 같은 전체 퍼센트 스케일을 적용한다.
-                bool useDefaultMotionScale = velocity <= 0.0 ||
-                    MotionSpeedScale.MatchesDefaultVelocityScale(velocity, Config.DefaultVelocity);
-                double vel = ApplySimulationSpeedScale(velocity > 0 ? velocity : MotionSpeedScale.ApplyDefaultVelocityScale(Config.DefaultVelocity));
-                double acceleration = useDefaultMotionScale
-                    ? MotionSpeedScale.ApplyDefaultAccelerationScale(Config.Acceleration)
-                    : Config.Acceleration;
-                double deceleration = useDefaultMotionScale
-                    ? MotionSpeedScale.ApplyDefaultAccelerationScale(Config.Deceleration)
-                    : Config.Deceleration;
+                // [정정 2026-07-26, 사용자 지시] 가감속은 명시 velocity 여부와 무관하게 항상
+                // 스케일 적용값(GetDefaultAcc/Dec)을 쓴다 — 명시 속도 전달 시 원본 가속도가
+                // 그대로 나가던 경로 차단. 속도는 명시값 우선, 없으면 GetDefaultVel().
+                double vel = ApplySimulationSpeedScale(velocity > 0 ? velocity : Config.GetDefaultVel());
+                double acceleration = Config.GetDefaultAcc();
+                double deceleration = Config.GetDefaultDec();
                 CommandPosition = targetPos;
                 _simTargetPosition = targetPos;
                 ConfigureSimulationMotionProfile(vel, acceleration, deceleration, true);
@@ -616,16 +672,16 @@ namespace QMC.Common.Motion
 
                 ClearMotionFailure();
 
-                // 현재 기준: 전달값이 최종값. 0 이하일 때만 Config 기반 스케일 폴백.
+                // 현재 기준: 전달값이 최종값. 0 이하일 때만 Config 기반 스케일 폴백(GetDefault*).
                 double vel = ApplySimulationSpeedScale(velocity > 0
                     ? velocity
-                    : MotionSpeedScale.ApplyDefaultVelocityScale(Config.DefaultVelocity));
+                    : Config.GetDefaultVel());
                 double acc = acceleration > 0
                     ? acceleration
-                    : MotionSpeedScale.ApplyDefaultAccelerationScale(Config.Acceleration);
+                    : Config.GetDefaultAcc();
                 double dec = deceleration > 0
                     ? deceleration
-                    : MotionSpeedScale.ApplyDefaultAccelerationScale(Config.Deceleration);
+                    : Config.GetDefaultDec();
 
                 CommandPosition = targetPos;
                 _simTargetPosition = targetPos;
@@ -805,9 +861,10 @@ namespace QMC.Common.Motion
         {
             lock (_simulationSync)
             {
-                _simCommandVelocity = NormalizePositive(commandVelocity, Config != null ? Config.DefaultVelocity : 1.0);
-                _simAcceleration = NormalizePositive(acceleration, Config != null ? Config.Acceleration : 1.0);
-                _simDeceleration = NormalizePositive(deceleration, Config != null ? Config.Deceleration : 1.0);
+                // [정정 2026-07-26] 폴백도 스케일 적용값(GetDefault*) — 원본 유출 차단.
+                _simCommandVelocity = NormalizePositive(commandVelocity, Config != null ? Config.GetDefaultVel() : 1.0);
+                _simAcceleration = NormalizePositive(acceleration, Config != null ? Config.GetDefaultAcc() : 1.0);
+                _simDeceleration = NormalizePositive(deceleration, Config != null ? Config.GetDefaultDec() : 1.0);
 
                 ClearSimulationOverrides();
                 _simMotionContinuationPending = false;
@@ -827,7 +884,8 @@ namespace QMC.Common.Motion
                 return 1.0;
             if (Config.HomeFirstAcceleration > 0.0)
                 return Config.HomeFirstAcceleration;
-            return Config.Acceleration;
+            // Home 가감속 체계는 스케일 미적용(기존 유지) — 폴백만 원본 명시 사용.
+            return Config.GetRawAcceleration();
         }
 
         private double ResolveSimulationHomeDeceleration()
@@ -836,7 +894,7 @@ namespace QMC.Common.Motion
                 return 1.0;
             if (Config.HomeFirstDeceleration > 0.0)
                 return Config.HomeFirstDeceleration;
-            return Config.Deceleration;
+            return Config.GetRawDeceleration();
         }
 
         private double ResolveSimulationJogAcceleration()
@@ -845,7 +903,8 @@ namespace QMC.Common.Motion
                 return 1.0;
             if (Config.JogAcceleration > 0.0)
                 return Config.JogAcceleration;
-            return Config.Acceleration;
+            // Jog 가감속 체계는 스케일 미적용(기존 유지) — 폴백만 원본 명시 사용.
+            return Config.GetRawAcceleration();
         }
 
         private double ResolveSimulationJogDeceleration()
@@ -854,7 +913,7 @@ namespace QMC.Common.Motion
                 return 1.0;
             if (Config.JogDeceleration > 0.0)
                 return Config.JogDeceleration;
-            return Config.Deceleration;
+            return Config.GetRawDeceleration();
         }
 
         private static double NormalizePositive(double value, double fallback)

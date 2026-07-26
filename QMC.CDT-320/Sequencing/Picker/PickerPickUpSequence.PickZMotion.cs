@@ -24,6 +24,12 @@ namespace QMC.CDT320.Sequencing
                 PickerPickUpMotionConfig config = ResolvePickUpMotionConfig();
                 PickerAxis pickerZ = GetPickerZAxis(_currentPickerIndex);
                 double pickerZAvoid = GetPickerTeachingPosition(pickerZ, "AvoidPosition");
+
+                // [정정 2026-07-26] 현재 픽커의 Z 픽업 모션이 시작되면(하강 명령 예정)
+                // 같은 픽커의 rising 추적은 종료한다 — 이후 명령이 상태의 진실.
+                if (HasActivePickUpZHold && _pickUpZHoldPickerIndex == _currentPickerIndex)
+                    ClearPickUpZHold("현재 픽커 Z 픽업 모션 시작 — rising 종료");
+
                 string syncLiftSettleSource;
                 int syncLiftSettleMs = ResolvePickUpSyncLiftSettleMs(config, out syncLiftSettleSource);
 
@@ -66,6 +72,15 @@ namespace QMC.CDT320.Sequencing
                 if (result != 0)
                     return result;
 
+                // [사용자 승인 2026-07-26] 흡착 Flow 확인을 미리 걸어두고(비동기)
+                // Separate/Avoid 상승과 겹친 뒤 기존 지점에서 결과만 회수한다.
+                Task<int> flowVerifyTask = VerifyPickerFlowStateAsync(
+                    _currentPickerNo,
+                    true,
+                    "PickUp Z 모션 완료 후 흡착 Flow 확인",
+                    ct);
+                ObserveBackgroundResultTask(flowVerifyTask);
+
                 result = await SeparateNeedlePickerZAsync(pickerZ, pickerZAvoid, _lastPickUpZTargets, config, ct).ConfigureAwait(false);
                 if (result != 0)
                     return result;
@@ -73,7 +88,7 @@ namespace QMC.CDT320.Sequencing
                 if (config.PickSettleMs > 0)
                     await Task.Delay(config.PickSettleMs, ct).ConfigureAwait(false);
 
-                result = await VerifyDiePickedAfterZMotionAsync(updateMaterialInspection, ct).ConfigureAwait(false);
+                result = await VerifyDiePickedAfterZMotionAsync(flowVerifyTask, updateMaterialInspection, ct).ConfigureAwait(false);
                 if (result != 0)
                     return result;
 
@@ -128,6 +143,14 @@ namespace QMC.CDT320.Sequencing
                 if (result != 0)
                     return result;
 
+                // [사용자 승인 2026-07-26] 흡착 Flow 확인 비동기 선행 — 표준 흐름과 동일.
+                Task<int> flowVerifyTask = VerifyPickerFlowStateAsync(
+                    _currentPickerNo,
+                    true,
+                    "PickUp Z 모션 완료 후 흡착 Flow 확인",
+                    ct);
+                ObserveBackgroundResultTask(flowVerifyTask);
+
                 result = await SeparateNeedlePickerZAsync(pickerZ, pickerZAvoid, _lastPickUpZTargets, config, ct).ConfigureAwait(false);
                 if (result != 0)
                     return result;
@@ -135,7 +158,7 @@ namespace QMC.CDT320.Sequencing
                 if (config.PickSettleMs > 0)
                     await Task.Delay(config.PickSettleMs, ct).ConfigureAwait(false);
 
-                result = await VerifyDiePickedAfterZMotionAsync(updateMaterialInspection, ct).ConfigureAwait(false);
+                result = await VerifyDiePickedAfterZMotionAsync(flowVerifyTask, updateMaterialInspection, ct).ConfigureAwait(false);
                 if (result != 0)
                     return result;
 
@@ -195,7 +218,8 @@ namespace QMC.CDT320.Sequencing
                 if (result != 0)
                     return result;
 
-                double pickerAvoidSpeedPercent = config != null ? config.PickerZAvoidReturnSpeedPercent : 10.0;
+                // 사용자 확정 속도 모델(2026-07-26): Avoid 복귀 = DefaultVelocity × 전역 스케일(% 미적용).
+                double pickerAvoidSpeedPercent = 100.0;
                 double pickerAvoidVelocity = ResolvePickerAxisVelocityByPercent(pickerZ, pickerAvoidSpeedPercent);
                 double pickerAvoidAcceleration = ResolvePickerAxisAccelerationByPercent(pickerZ, pickerAvoidSpeedPercent, true);
                 double pickerAvoidDeceleration = ResolvePickerAxisAccelerationByPercent(pickerZ, pickerAvoidSpeedPercent, false);
@@ -362,6 +386,17 @@ namespace QMC.CDT320.Sequencing
             try
             {
                 ct.ThrowIfCancellationRequested();
+
+                // [사용자 승인 2026-07-26, 병목 #1] 백그라운드 EjectPinZ Avoid 복귀가 아직
+                // 진행 중이면 새 EjectPinZ 명령 전에 결과를 회수한다(이동 중 재명령 방지).
+                Task<int> pendingEjectPinAvoid = _pickUpEjectPinAvoidTask;
+                if (pendingEjectPinAvoid != null)
+                {
+                    _pickUpEjectPinAvoidTask = null;
+                    int backgroundResult = await pendingEjectPinAvoid.ConfigureAwait(false);
+                    if (backgroundResult != 0)
+                        return backgroundResult;
+                }
 
                 Task<int> needleZMove;
                 if (IsInputStageAxisAlreadyInPosition(stage, WaferStageAxis.NeedleZ, _targetNeedleZ))
@@ -573,6 +608,17 @@ namespace QMC.CDT320.Sequencing
                 {
                     return Fail("PICKER-PICKUP-EJECTPIN-XY-SAFE-NO-RECIPE", stage.Name,
                         description + " 실패: EjectPinZ 대기(Avoid) 위치 정보가 없습니다.");
+                }
+
+                // [사용자 승인 2026-07-26, 병목 #1] 픽업 후 백그라운드 EjectPinZ Avoid 복귀가
+                // 있으면 여기서 결과를 회수(join)한다 — XY 이동 전 도착 보장 지점.
+                Task<int> pendingEjectPinAvoid = _pickUpEjectPinAvoidTask;
+                if (pendingEjectPinAvoid != null)
+                {
+                    _pickUpEjectPinAvoidTask = null;
+                    int backgroundResult = await pendingEjectPinAvoid.ConfigureAwait(false);
+                    if (backgroundResult != 0)
+                        return backgroundResult;
                 }
 
                 if (stage.NeedleVacuum.IsOn || _needleVacuumOffConfirmedAtUtc == DateTime.MinValue)
@@ -928,12 +974,17 @@ namespace QMC.CDT320.Sequencing
             PickUpZTargets syncTargets,
             CancellationToken ct)
         {
+            // 사용자 확정 속도 모델(2026-07-26): 이젝트핀과 피커가 동시에 올라오는 구동은
+            // 각축 DefaultVelocity × 전역 스케일 × PICKER Z SEPARATE SPEED %를 따른다
+            // (기존 InputStage PickUpNeedleSyncLiftVelocity 고정값 사용 폐지).
+            PickerPickUpMotionConfig syncLiftConfig = ResolvePickUpMotionConfig();
+            double syncLiftPercent = syncLiftConfig != null ? syncLiftConfig.PickerZSeparateSpeedPercent : 1.0;
             Task<int> pickerMove = MovePickerAxisWithMotionAndVerifyAsync(
                 pickerZ,
                 syncTargets.PickerZ,
-                stage.Config.PickUpNeedleSyncLiftVelocity,
-                stage.Config.PickUpNeedleSyncLiftAcc,
-                stage.Config.PickUpNeedleSyncLiftDec,
+                ResolvePickerAxisVelocityByPercent(pickerZ, syncLiftPercent),
+                ResolvePickerAxisAccelerationByPercent(pickerZ, syncLiftPercent, true),
+                ResolvePickerAxisAccelerationByPercent(pickerZ, syncLiftPercent, false),
                 "PickUp PickerZ/EjectPinZ 개별 비동기 상승 PickerZ",
                 "PickUpSyncLift",
                 ct,
@@ -942,9 +993,9 @@ namespace QMC.CDT320.Sequencing
                 stage,
                 WaferStageAxis.EjectPinZ,
                 syncTargets.EjectPinZ,
-                stage.Config.PickUpNeedleSyncLiftVelocity,
-                stage.Config.PickUpNeedleSyncLiftAcc,
-                stage.Config.PickUpNeedleSyncLiftDec,
+                ResolveInputStageAxisVelocityByPercent(stage, WaferStageAxis.EjectPinZ, syncLiftPercent),
+                ResolveInputStageAxisAccelerationByPercent(stage, WaferStageAxis.EjectPinZ, syncLiftPercent, true),
+                ResolveInputStageAxisAccelerationByPercent(stage, WaferStageAxis.EjectPinZ, syncLiftPercent, false),
                 "PickUp PickerZ/EjectPinZ 개별 비동기 상승 EjectPinZ",
                 ct,
                 null,
@@ -1041,7 +1092,8 @@ namespace QMC.CDT320.Sequencing
                 double ejectPinZAvoid = ResolveEjectPinZAvoidTarget(stage);
 
                 double pickerSeparateSpeedPercent = config != null ? config.PickerZSeparateSpeedPercent : 1.0;
-                double pickerAvoidSpeedPercent = config != null ? config.PickerZAvoidReturnSpeedPercent : 10.0;
+                // 사용자 확정 속도 모델(2026-07-26): Avoid 복귀 = DefaultVelocity × 전역 스케일(% 미적용).
+                double pickerAvoidSpeedPercent = 100.0;
                 double pickerSeparateDistance = config != null ? Math.Max(0.0, config.PickerZSeparateDistance) : 0.0;
                 double pickerSafeForWaferStageDistance = config != null
                     ? PickerPickUpMotionConfig.NormalizePickerSafeForWaferStageDistance(config.PickerSafeForWaferStageDistance)
@@ -1097,17 +1149,26 @@ namespace QMC.CDT320.Sequencing
                 if (pickerResult != 0)
                     return pickerResult;
 
+                // [사용자 승인 2026-07-26] PickerZ는 Avoid로 상승 중(safe 통과) — 이후 X 진입이
+                // Avoid 도착을 기다리지 않도록 rising 상태를 기록한다.
+                MarkPickUpZRising(pickerZ, pickerZAvoid);
+
                 WriteLog("PickerPickUpZ",
                     Name + " PickerZ Stage Safe 도달 후 Needle Vacuum OFF 및 EjectPinZ Avoid 이동을 시작합니다. " +
                     "pickerNo=" + _currentPickerNo +
                     ", safeDistance=" + pickerSafeForWaferStageDistance.ToString("0.###") +
                     ", ejectPinZAvoid=" + ejectPinZAvoid.ToString("0.###") + " - Start");
 
-                return await MoveEjectPinZToAvoidKeepNeedleZAsync(
+                // [사용자 승인 2026-07-26, 병목 #1] EjectPinZ Avoid 복귀는 백그라운드로 돌리고
+                // 시퀀스는 진행한다. 도착 보장은 다음 die의 XY 게이트
+                // (EnsureEjectPinZAvoidAndVacuumOffSettledBeforeXYAsync)에서 join.
+                _pickUpEjectPinAvoidTask = MoveEjectPinZToAvoidKeepNeedleZAsync(
                     stage,
                     _targetNeedleZ,
                     ejectPinZAvoid,
-                    ct).ConfigureAwait(false);
+                    ct);
+                ObserveBackgroundResultTask(_pickUpEjectPinAvoidTask);
+                return 0;
             }
             catch (OperationCanceledException)
             {
@@ -1437,15 +1498,26 @@ namespace QMC.CDT320.Sequencing
 
         private async Task<int> VerifyDiePickedAfterZMotionAsync(bool updateMaterialInspection, CancellationToken ct)
         {
+            return await VerifyDiePickedAfterZMotionAsync(null, updateMaterialInspection, ct).ConfigureAwait(false);
+        }
+
+        private async Task<int> VerifyDiePickedAfterZMotionAsync(
+            Task<int> flowVerifyTask,
+            bool updateMaterialInspection,
+            CancellationToken ct)
+        {
             try
             {
                 ct.ThrowIfCancellationRequested();
 
-                int flowResult = await VerifyPickerFlowStateAsync(
-                    _currentPickerNo,
-                    true,
-                    "PickUp Z 모션 완료 후 흡착 Flow 확인",
-                    ct).ConfigureAwait(false);
+                // [사용자 승인 2026-07-26] 선행 시작된 Flow 확인 태스크가 있으면 결과만 회수한다.
+                int flowResult = flowVerifyTask != null
+                    ? await flowVerifyTask.ConfigureAwait(false)
+                    : await VerifyPickerFlowStateAsync(
+                        _currentPickerNo,
+                        true,
+                        "PickUp Z 모션 완료 후 흡착 Flow 확인",
+                        ct).ConfigureAwait(false);
                 if (flowResult != 0)
                     return flowResult;
 
@@ -1505,81 +1577,6 @@ namespace QMC.CDT320.Sequencing
             return Math.Max(0, Math.Min(60000, config.NeedleVacuumOffSettleBeforeXYMs));
         }
 
-        // 1-B hold 적격판정(사용자 승인 2026-07-26): 스위치 On + Auto + Conti 모드 +
-        // PrePick 거리 유효 + 다음 die 존재 + "현재 die와 다음 die 모두" 반경 게이트 안.
-        // 미충족이면 기존 Avoid 복귀 경로 그대로(안전측 폴백).
-        private bool ShouldHoldPickerZAtPrePickAfterPick(
-            PickerAxis pickerZ,
-            double pickerZAvoid,
-            PickerPickUpMotionConfig config,
-            out double holdTarget,
-            out string detail)
-        {
-            holdTarget = double.NaN;
-            detail = string.Empty;
-            try
-            {
-                if (config == null || !config.PickUpEntryZPreDownMode)
-                {
-                    detail = "switchOff";
-                    return false;
-                }
-
-                if (Options == null || Options.RunMode != SequenceRunMode.Auto ||
-                    !IsCoordinatedPickUpTransferMotionMode(config.TransferMotionMode))
-                {
-                    detail = "notAutoConti";
-                    return false;
-                }
-
-                if (config.PickerZPrePickDistance <= 0.0)
-                {
-                    detail = "prePickDistanceOff";
-                    return false;
-                }
-
-                int nextCursor = _pickCursor + 1;
-                if (_pickBatchItems == null || nextCursor >= _pickBatchItems.Count)
-                {
-                    detail = "lastDie";
-                    return false;
-                }
-
-                string currentRadiusDetail;
-                if (!IsPickTargetWithinPreDownRadius(_targetNeedleX, _targetStageY, config, out currentRadiusDetail))
-                {
-                    detail = "currentDieOutOfRadius " + currentRadiusDetail;
-                    return false;
-                }
-
-                string nextRadiusDetail;
-                if (!IsPickTargetWithinPreDownRadius(
-                        _pickBatchItems[nextCursor].TargetNeedleX,
-                        _pickBatchItems[nextCursor].TargetStageY,
-                        config,
-                        out nextRadiusDetail))
-                {
-                    detail = "nextDieOutOfRadius " + nextRadiusDetail;
-                    return false;
-                }
-
-                holdTarget = ResolveTargetToward(_targetPickerZ, pickerZAvoid, config.PickerZPrePickDistance);
-                if (Math.Abs(holdTarget - pickerZAvoid) <= 0.0001)
-                {
-                    detail = "holdEqualsAvoid";
-                    return false;
-                }
-
-                detail = "current[" + currentRadiusDetail + "] next[" + nextRadiusDetail + "]";
-                return true;
-            }
-            catch (Exception ex)
-            {
-                detail = "exception " + ex.Message;
-                return false;
-            }
-        }
-
         private async Task<int> MovePickerEjectPinZToAvoidKeepNeedleZAsync(
             PickerAxis pickerZ,
             double pickerZAvoid,
@@ -1597,7 +1594,8 @@ namespace QMC.CDT320.Sequencing
 
                 double ejectPinZAvoid = ResolveEjectPinZAvoidTarget(stage);
                 PickerPickUpMotionConfig config = ResolvePickUpMotionConfig();
-                double pickerAvoidSpeedPercent = config != null ? config.PickerZAvoidReturnSpeedPercent : 10.0;
+                // 사용자 확정 속도 모델(2026-07-26): Avoid 복귀 = DefaultVelocity × 전역 스케일(% 미적용).
+                double pickerAvoidSpeedPercent = 100.0;
                 double pickerAvoidVelocity = ResolvePickerAxisVelocityByPercent(pickerZ, pickerAvoidSpeedPercent);
                 double pickerAvoidAcceleration = ResolvePickerAxisAccelerationByPercent(pickerZ, pickerAvoidSpeedPercent, true);
                 double pickerAvoidDeceleration = ResolvePickerAxisAccelerationByPercent(pickerZ, pickerAvoidSpeedPercent, false);
@@ -1608,80 +1606,42 @@ namespace QMC.CDT320.Sequencing
                 if (needleVacuumOffResult != 0)
                     return needleVacuumOffResult;
 
-                // 1-B PickUpZHold 핸드오버(사용자 승인 2026-07-26): 이전 die의 유지 픽커 Z가 있으면
-                // 새 hold/일반 상승 전에 먼저 Avoid로 완전 복귀시킨다 — 이후 X 이동의 면제 토큰은
-                // 새 hold 픽커 하나만 가리키므로, 이전 유지 축이 비-Avoid로 남으면 인터락이 차단한다.
-                if (HasActivePickUpZHold && GetPickerZAxis(_pickUpZHoldPickerIndex) != pickerZ)
-                {
-                    PickerAxis previousHoldZ = GetPickerZAxis(_pickUpZHoldPickerIndex);
-                    double previousHoldAvoid = GetPickerTeachingPosition(previousHoldZ, "AvoidPosition");
-                    ClearPickUpZHold("hold 핸드오버 — 이전 유지 픽커 Z Avoid 복귀");
-                    int previousRise = await MovePickerAxisAndVerifyAsync(
-                        previousHoldZ,
-                        previousHoldAvoid,
-                        description + " 이전 PickUpZHold PickerZ Avoid 복귀",
-                        ct,
-                        "AvoidPosition").ConfigureAwait(false);
-                    if (previousRise != 0)
-                        return previousRise;
-                }
-
-                // 1-B(사용자 승인 2026-07-26): 다음 die가 반경 게이트 안이면 현재 픽커 Z 상승을
-                // PrePick 높이에서 끊고 유지(hold)한다 — 픽업 완료 판정 높이가 PrePick으로 조기화.
-                // 미충족(마지막 die/반경 밖/스위치 Off)이면 기존 Avoid 복귀(안전높이 조기 완료) 그대로.
-                double pickUpZHoldTarget;
-                string pickUpZHoldDetail;
-                bool useProPickHold = ShouldHoldPickerZAtPrePickAfterPick(
-                    pickerZ, pickerZAvoid, config, out pickUpZHoldTarget, out pickUpZHoldDetail);
-
+                // [정정 2026-07-26, 사용자 승인] PrePick 파킹(hold)/핸드오버 폐지 — Z는 항상
+                // Avoid까지 명령하고 safe 통과 시 조기 반환(원형). 상승 중 상태는 rising 추적으로
+                // 기록해 다음 die 진입이 Avoid "도착"을 기다리지 않게 한다(병목 #2 해소).
                 // 현재 기준: 정상 PickUp 루프에서는 NeedleZ를 teaching 위치에 고정하고 PickerZ/EjectPinZ만 복귀한다.
-                Task<int> pickerZMove;
-                if (useProPickHold)
-                {
-                    _pickUpZHoldPickerIndex = _currentPickerIndex;
-                    _pickUpZHoldZTarget = pickUpZHoldTarget;
-                    WriteLog("PickerPickUpZ",
-                        Name + " PickUpZHold 시작 — PickerZ 상승을 PrePick에서 끊고 유지합니다. " +
-                        "pickerNo=" + _currentPickerNo +
-                        ", holdZ=" + pickUpZHoldTarget.ToString("F3") +
-                        ", avoid=" + pickerZAvoid.ToString("F3") +
-                        ", gate=" + pickUpZHoldDetail + " - Start");
-                    pickerZMove = MovePickerAxisAndVerifyAsync(
-                        pickerZ,
-                        pickUpZHoldTarget,
-                        description + " PickerZ PrePick 유지",
-                        ct,
-                        BuildPickerTargetName("DiePickPosition", _currentPickerIndex));
-                }
-                else
-                {
-                    pickerZMove = MovePickerZToAvoidAndWaitSafeForWaferStageAsync(
-                        pickerZ,
-                        pickerZAvoid,
-                        _targetPickerZ,
-                        pickerSafeForWaferStageDistance,
-                        pickerAvoidVelocity,
-                        pickerAvoidAcceleration,
-                        pickerAvoidDeceleration,
-                        description + " PickerZ",
-                        "AvoidPosition",
-                        ct);
-                }
+                Task<int> pickerZMove = MovePickerZToAvoidAndWaitSafeForWaferStageAsync(
+                    pickerZ,
+                    pickerZAvoid,
+                    _targetPickerZ,
+                    pickerSafeForWaferStageDistance,
+                    pickerAvoidVelocity,
+                    pickerAvoidAcceleration,
+                    pickerAvoidDeceleration,
+                    description + " PickerZ",
+                    "AvoidPosition",
+                    ct);
 
-                Task<int> ejectPinZMove = IsInputStageAxisAlreadyInPosition(stage, WaferStageAxis.EjectPinZ, ejectPinZAvoid)
-                    ? Task.FromResult(0)
-                    : MoveInputStageAxisCommandAsync(
-                        stage,
-                        WaferStageAxis.EjectPinZ,
-                        ejectPinZAvoid,
-                        description + " EjectPinZ",
-                        ct);
+                // [사용자 승인 2026-07-26, 병목 #1] EjectPinZ가 백그라운드로 Avoid 복귀 중이면
+                // 여기서 재명령/도착 대기하지 않는다 — 완료된 경우에만 결과를 회수하고,
+                // 이동 중이면 다음 die XY 게이트에서 join한다.
+                bool ejectPinInBackground = _pickUpEjectPinAvoidTask != null && !_pickUpEjectPinAvoidTask.IsCompleted;
+                Task<int> ejectPinZMove;
+                if (_pickUpEjectPinAvoidTask != null)
+                    ejectPinZMove = ejectPinInBackground ? Task.FromResult(0) : _pickUpEjectPinAvoidTask;
+                else
+                    ejectPinZMove = IsInputStageAxisAlreadyInPosition(stage, WaferStageAxis.EjectPinZ, ejectPinZAvoid)
+                        ? Task.FromResult(0)
+                        : MoveInputStageAxisCommandAsync(
+                            stage,
+                            WaferStageAxis.EjectPinZ,
+                            ejectPinZAvoid,
+                            description + " EjectPinZ",
+                            ct);
 
                 int[] results = await Task.WhenAll(pickerZMove, ejectPinZMove).ConfigureAwait(false);
                 if (results[0] != 0 || results[1] != 0)
                 {
-                    if (useProPickHold)
-                        ClearPickUpZHold("PrePick 유지 이동 실패 — 기존 실패 처리로 위임");
                     return Fail("PICKER-PICKUP-Z-EJECT-AVOID-KEEP-NEEDLE", Name,
                         description + " 실패. " +
                         "pickerZResult=" + results[0] +
@@ -1691,24 +1651,28 @@ namespace QMC.CDT320.Sequencing
                         ", needleKeep=" + BuildInputStageAxisState(stage, WaferStageAxis.NeedleZ, needleTeachingTarget));
                 }
 
-                int ejectResult = await WaitInputStageAxisInPositionResultAsync(
-                    stage,
-                    WaferStageAxis.EjectPinZ,
-                    ejectPinZAvoid,
-                    description + " EjectPinZ",
-                    ct).ConfigureAwait(false);
-                if (ejectResult != 0)
-                    return ejectResult;
+                int check;
+                if (!ejectPinInBackground)
+                {
+                    int ejectResult = await WaitInputStageAxisInPositionResultAsync(
+                        stage,
+                        WaferStageAxis.EjectPinZ,
+                        ejectPinZAvoid,
+                        description + " EjectPinZ",
+                        ct).ConfigureAwait(false);
+                    if (ejectResult != 0)
+                        return ejectResult;
 
-                int check = CheckInputStageAxisInPosition(stage, WaferStageAxis.EjectPinZ, ejectPinZAvoid, description + " EjectPinZ");
-                if (check != 0)
-                    return check;
+                    check = CheckInputStageAxisInPosition(stage, WaferStageAxis.EjectPinZ, ejectPinZAvoid, description + " EjectPinZ");
+                    if (check != 0)
+                        return check;
 
-                WriteLog("PickerPickUpZ",
-                    Name + " Needle Vacuum OFF 후 EjectPinZ Avoid 완료 확인. " +
-                    "description=" + description +
-                    ", " + BuildInputStageAxisState(stage, WaferStageAxis.EjectPinZ, ejectPinZAvoid) +
-                    " - Ok");
+                    WriteLog("PickerPickUpZ",
+                        Name + " Needle Vacuum OFF 후 EjectPinZ Avoid 완료 확인. " +
+                        "description=" + description +
+                        ", " + BuildInputStageAxisState(stage, WaferStageAxis.EjectPinZ, ejectPinZAvoid) +
+                        " - Ok");
+                }
 
                 check = CheckInputStageAxisInPosition(stage, WaferStageAxis.NeedleZ, needleTeachingTarget, description + " NeedleZ teaching 유지");
                 if (check != 0)

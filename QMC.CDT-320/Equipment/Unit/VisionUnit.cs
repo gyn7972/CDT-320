@@ -420,8 +420,8 @@ namespace QMC.CDT320
                     return RaiseVisionAlarm("VS-SOFT-LIMIT", axis + " 목표 위치가 소프트 리밋을 벗어났습니다. target=" + targetPos);
 
                 double moveVelocity = velocity > 0.0 ? velocity : ResolveMoveVelocity(item, false);
-                double oldAcceleration = item.Config != null ? item.Config.Acceleration : 0.0;
-                double oldDeceleration = item.Config != null ? item.Config.Deceleration : 0.0;
+                double oldAcceleration = item.Config != null ? item.Config.GetRawAcceleration() : 0.0;
+                double oldDeceleration = item.Config != null ? item.Config.GetRawDeceleration() : 0.0;
                 bool useCustomAccel = item.Config != null && acceleration > 0.0 && deceleration > 0.0;
 
                 EventLogger.Write(EventKind.Event, "QMC", "VS-MOVE-CMD",
@@ -1301,23 +1301,19 @@ namespace QMC.CDT320
             // Fine ABS 이동은 JogFineVelocity 를 그대로 쓰고, 일반 이동만 DefaultVelocity 퍼센트 스케일을 적용한다.
             if (bFine && axis.Config.JogFineVelocity > 0)
                 return axis.Config.JogFineVelocity;
-            return MotionSpeedScale.ApplyDefaultVelocityScale(axis.Config.DefaultVelocity);
+            return axis.Config.GetDefaultVel();
         }
 
-        // 기존 조건: 일반 이동 가감속을 여기서 미리 스케일해서 넘겼다.
-        //           SharedRailXMotionRuntime가 Config에 임시 대입한 뒤 MoveAbsoluteAsync가 다시 스케일해서
-        //           가감속이 스케일 제곱(S^2)으로 이중 적용됐다. (픽커와 동일 구조)
-        // 현재 기준: 원값을 넘기고 스케일은 축 레이어(MoveAbsoluteAsync)에서 1회만 적용한다.
-        // To do: 비전 축 이동 가감속 이중 스케일 제거.
+        // [정정 2026-07-26, 사용자 지시] 일반 이동 가감속은 GetDefaultAcc/Dec(스케일 1회 적용
+        // 최종값)로 넘긴다 — 픽커 유닛과 동일 정정(원본 유출 차단). Fine은 Jog 체계 그대로.
         private double ResolveMoveAcceleration(BaseAxis axis, bool bFine)
         {
             if (axis == null || axis.Config == null)
                 return 0.0;
 
-            // 기존 조건: MotionSpeedScale.ApplyDefaultAccelerationScale(axis.Config.Acceleration)
             return bFine
                 ? axis.Config.JogAcceleration
-                : axis.Config.Acceleration;
+                : axis.Config.GetDefaultAcc();
         }
 
         private double ResolveMoveDeceleration(BaseAxis axis, bool bFine)
@@ -1325,10 +1321,9 @@ namespace QMC.CDT320
             if (axis == null || axis.Config == null)
                 return 0.0;
 
-            // 기존 조건: MotionSpeedScale.ApplyDefaultAccelerationScale(axis.Config.Deceleration)
             return bFine
                 ? axis.Config.JogDeceleration
-                : axis.Config.Deceleration;
+                : axis.Config.GetDefaultDec();
         }
 
         private bool ValidateVisionTargetPosition(BaseAxis axis, double targetPos)

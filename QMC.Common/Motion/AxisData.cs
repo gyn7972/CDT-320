@@ -1,4 +1,5 @@
-﻿using QMC.Common;
+﻿using System.Runtime.Serialization;
+using QMC.Common;
 
 namespace QMC.Common.Motion
 {
@@ -385,81 +386,184 @@ namespace QMC.Common.Motion
     /// 축의 고정 사양/보드 신호 설정값.<br/>
     /// 모터, 드라이버, 보드 설정처럼 장비 모델에 묶이는 값을 둔다.
     /// </summary>
+    // [사용자 지시 2026-07-26] DataContract 전환 — DefaultVelocity/Acceleration/Deceleration의
+    // getter를 protected로 잠가, 스케일 미적용 원본이 모션 명령으로 나가는 것을 컴파일
+    // 타임에 차단한다(읽기는 GetDefaultVel/Acc/Dec 또는 GetRaw* 만). DataContract 역직렬화는
+    // 생성자를 호출하지 않으므로 기본값은 ApplyDefaults 한 곳에서만 정의하고 생성자와
+    // [OnDeserializing] 양쪽에서 호출한다. JSON 키 이름은 기존과 동일(멤버명 그대로).
+    [DataContract]
     public class AxisConfig : IConfigData
     {
+        public AxisConfig()
+        {
+            ApplyDefaults();
+        }
+
+        [OnDeserializing]
+        private void OnDeserializingApplyDefaults(StreamingContext context)
+        {
+            ApplyDefaults();
+        }
+
+        private void ApplyDefaults()
+        {
+            IsSimulationMode = true;
+            SimulationSpeedScale = 1.0;
+            DefaultVelocity = 100.0;
+            MaxVelocity = 0.0;
+            Acceleration = 1000.0;
+            Deceleration = 1000.0;
+            HomeFirstVelocity = 50.0;
+            HomeSecondVelocity = 20.0;
+            HomeThirdVelocity = 5.0;
+            HomeLastVelocity = 1.0;
+            HomeIndexSearchVelocity = 5.0;
+            HomeVelocity = 200.0;
+            HomeFirstAcceleration = 500.0;
+            HomeFirstDeceleration = 500.0;
+            HomeSecondAcceleration = 200.0;
+            HomeSecondDeceleration = 200.0;
+            JogCoarseVelocity = 10.0;
+            JogFineVelocity = 5.0;
+            JogAcceleration = 100.0;
+            JogDeceleration = 100.0;
+            JogStopDeceleration = 0.0;
+            StopDeceleration = 0.0;
+            InPositionTolerance = 0.01;
+        }
+
         /// <summary>
         /// true 이면 실제 보드 호출 없이 시뮬레이션 엔진으로 동작한다.<br/>
         /// false 여도 보드가 열려 있지 않거나 축 번호가 유효하지 않으면 자동으로 true 로 폴백한다.
         /// </summary>
-        public bool IsSimulationMode { get; set; } = true;
+        [DataMember]
+        public bool IsSimulationMode { get; set; }
 
         /// <summary>
         /// 시뮬레이션 절대 이동/홈 이동에만 적용하는 속도 배율입니다.
         /// 1.0이면 실장비/드라이런과 동일한 DefaultVelocity 기준으로 이동합니다.
         /// 실장비 모션 속도에는 적용하지 않습니다.
         /// </summary>
-        public double SimulationSpeedScale { get; set; } = 1.0;
+        [DataMember]
+        public double SimulationSpeedScale { get; set; }
 
-        /// <summary>일반 이동 기본 속도 [mm/s 또는 deg/s].</summary>
-        public double DefaultVelocity { get; set; } = 100.0;
+        /// <summary>일반 이동 기본 속도 [mm/s 또는 deg/s]. 읽기는 GetDefaultVel()/GetRawDefaultVelocity()만.</summary>
+        [DataMember]
+        public double DefaultVelocity { protected get; set; }
+
+        // [사용자 지시 2026-07-26] 모션 명령용 속도/가감속은 반드시 아래 Get 함수(전역
+        // DEFAULT SPEED SCALE 적용)로만 취득한다 — 스케일 미적용 원본이 보드로 나가는
+        // 사고(가속도 20배)를 원천 차단. 원본이 필요한 곳(설정 UI 표시/저장/스케일 일치
+        // 판정)은 GetRaw* 를 명시적으로 사용한다.
+        public double GetDefaultVel()
+        {
+            return MotionSpeedScale.ApplyDefaultVelocityScale(DefaultVelocity);
+        }
+
+        public double GetDefaultAcc()
+        {
+            return MotionSpeedScale.ApplyDefaultAccelerationScale(Acceleration);
+        }
+
+        public double GetDefaultDec()
+        {
+            return MotionSpeedScale.ApplyDefaultAccelerationScale(Deceleration);
+        }
+
+        /// <summary>스케일 미적용 원본 — 설정 UI 표시/저장/일치 판정 전용.</summary>
+        public double GetRawDefaultVelocity()
+        {
+            return DefaultVelocity;
+        }
+
+        public double GetRawAcceleration()
+        {
+            return Acceleration;
+        }
+
+        public double GetRawDeceleration()
+        {
+            return Deceleration;
+        }
 
         /// <summary>축의 최대 허용 속도 [mm/s 또는 deg/s].</summary>
-        public double MaxVelocity { get; set; } = 0.0;
+        [DataMember]
+        public double MaxVelocity { get; set; }
 
-        /// <summary>일반 이동 가속도 [mm/s^2 또는 deg/s^2].</summary>
-        public double Acceleration { get; set; } = 1000.0;
+        /// <summary>일반 이동 가속도 [mm/s^2 또는 deg/s^2]. 읽기는 GetDefaultAcc()/GetRawAcceleration()만.</summary>
+        [DataMember]
+        public double Acceleration { protected get; set; }
 
-        /// <summary>일반 이동 감속도 [mm/s^2 또는 deg/s^2].</summary>
-        public double Deceleration { get; set; } = 1000.0;
+        /// <summary>일반 이동 감속도 [mm/s^2 또는 deg/s^2]. 읽기는 GetDefaultDec()/GetRawDeceleration()만.</summary>
+        [DataMember]
+        public double Deceleration { protected get; set; }
 
         /// <summary>원점 복귀 1차 속도 [mm/s 또는 deg/s].</summary>
-        public double HomeFirstVelocity { get; set; } = 50.0;
+        [DataMember]
+        public double HomeFirstVelocity { get; set; }
 
         /// <summary>원점 복귀 2차 속도 [mm/s 또는 deg/s].</summary>
-        public double HomeSecondVelocity { get; set; } = 20.0;
+        [DataMember]
+        public double HomeSecondVelocity { get; set; }
 
         /// <summary>원점 복귀 3차 속도 [mm/s 또는 deg/s].</summary>
-        public double HomeThirdVelocity { get; set; } = 5.0;
+        [DataMember]
+        public double HomeThirdVelocity { get; set; }
 
         /// <summary>원점 복귀 마지막 접근 속도 [mm/s 또는 deg/s].</summary>
-        public double HomeLastVelocity { get; set; } = 1.0;
-        public double HomeIndexSearchVelocity { get; set; } = 5;
+        [DataMember]
+        public double HomeLastVelocity { get; set; }
+
+        [DataMember]
+        public double HomeIndexSearchVelocity { get; set; }
 
         /// <summary>원점 복귀 대표 속도 [mm/s 또는 deg/s]. 기존 코드 호환용.</summary>
-        public double HomeVelocity { get; set; } = 200.0;
+        [DataMember]
+        public double HomeVelocity { get; set; }
 
         /// <summary>원점 복귀 1차 가속도 [mm/s^2 또는 deg/s^2].</summary>
-        public double HomeFirstAcceleration { get; set; } = 500.0;
+        [DataMember]
+        public double HomeFirstAcceleration { get; set; }
 
         /// <summary>원점 복귀 1차 감속도 [mm/s^2 또는 deg/s^2].</summary>
-        public double HomeFirstDeceleration { get; set; } = 500.0;
+        [DataMember]
+        public double HomeFirstDeceleration { get; set; }
 
         /// <summary>원점 복귀 2차 가속도 [mm/s^2 또는 deg/s^2].</summary>
-        public double HomeSecondAcceleration { get; set; } = 200.0;
+        [DataMember]
+        public double HomeSecondAcceleration { get; set; }
 
         /// <summary>원점 복귀 2차 감속도 [mm/s^2 또는 deg/s^2].</summary>
-        public double HomeSecondDeceleration { get; set; } = 200.0;
+        [DataMember]
+        public double HomeSecondDeceleration { get; set; }
 
         /// <summary>Jog 빠른 속도 [mm/s 또는 deg/s].</summary>
-        public double JogCoarseVelocity { get; set; } = 10.0;
+        [DataMember]
+        public double JogCoarseVelocity { get; set; }
 
         /// <summary>Jog 미세 속도 [mm/s 또는 deg/s].</summary>
-        public double JogFineVelocity { get; set; } = 5.0;
+        [DataMember]
+        public double JogFineVelocity { get; set; }
 
         /// <summary>Jog 가속도 [mm/s^2 또는 deg/s^2].</summary>
-        public double JogAcceleration { get; set; } = 100.0;
+        [DataMember]
+        public double JogAcceleration { get; set; }
 
         /// <summary>Jog 감속도 [mm/s^2 또는 deg/s^2].</summary>
-        public double JogDeceleration { get; set; } = 100.0;
+        [DataMember]
+        public double JogDeceleration { get; set; }
 
         /// <summary>Jog 정지(StopJog) 전용 감속도 [mm/s^2 또는 deg/s^2]. 0 이하이면 JogDeceleration→Deceleration 순으로 폴백.</summary>
-        public double JogStopDeceleration { get; set; } = 0.0;
+        [DataMember]
+        public double JogStopDeceleration { get; set; }
 
         /// <summary>일반 정지(Stop) 전용 감속도 [mm/s^2 또는 deg/s^2]. 0 이하이면 Deceleration 으로 폴백.</summary>
-        public double StopDeceleration { get; set; } = 0.0;
+        [DataMember]
+        public double StopDeceleration { get; set; }
 
         /// <summary>인포지션 허용 오차 [mm 또는 deg].</summary>
-        public double InPositionTolerance { get; set; } = 0.01;
+        [DataMember]
+        public double InPositionTolerance { get; set; }
     }
 
     /// <summary>

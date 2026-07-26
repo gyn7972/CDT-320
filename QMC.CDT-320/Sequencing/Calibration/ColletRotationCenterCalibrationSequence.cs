@@ -293,8 +293,8 @@ namespace QMC.CDT320.Sequencing.Calibration
             var rotationMotion = new CalibrationMotionSettings
             {
                 MoveVelocity = rotationVelocity,
-                MoveAcceleration = original != null ? original.MoveAcceleration : axis.Config.Acceleration,
-                MoveDeceleration = original != null ? original.MoveDeceleration : axis.Config.Deceleration,
+                MoveAcceleration = original != null ? original.MoveAcceleration : axis.Config.GetDefaultAcc(),
+                MoveDeceleration = original != null ? original.MoveDeceleration : axis.Config.GetDefaultDec(),
                 MoveTimeoutMs = rotationTimeoutMs
             };
             rotationMotion.EnsureDefaults();

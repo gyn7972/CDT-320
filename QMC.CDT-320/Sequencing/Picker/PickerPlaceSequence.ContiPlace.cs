@@ -90,16 +90,26 @@ namespace QMC.CDT320.Sequencing
             _targetPickerZ = prePlacePickerZ;
             _lastContiPrePlacePickerZ = prePlacePickerZ;
 
-            // 1-B: 이 소비점(Conti 노드 직전)만 PrePlace 파킹 허용 — XY 이동 태그(InspectionZHold)가
-            // Z 비-Avoid 상태 X 이동을 면제하는 경로이므로 인터락 완화 없이 성립한다.
-            int previousRetreatResult = await CompletePendingContiRetreatIfNeededAsync(
-                "Place 비동기 접근 전 이전 PickerZ Avoid 복귀",
-                ct,
-                allowPrePlaceHold: true).ConfigureAwait(false);
-            if (previousRetreatResult != 0)
+            // [정정 2026-07-26, 사용자 승인] 이전 PickerZ가 Avoid로 상승 중이면 도착을
+            // 기다리지 않고 XY를 시작한다(XY 이동 태그 InspectionZHold가 Z 검사를 면제,
+            // 도착 보장은 다음 소비점/배치 종료 정리). 정지 상태면 기존 join으로 확인·해제.
+            bool previousRisingToAvoid = false;
+            if (HasPendingContiRetreat())
             {
-                _targetPickerZ = originalPickerZTarget;
-                return previousRetreatResult;
+                BaseAxis pendingZAxis = GetPickerAxis(GetPickerZAxis(_pendingContiRetreatPickerIndex));
+                previousRisingToAvoid = pendingZAxis != null && pendingZAxis.IsMoving;
+            }
+
+            if (!previousRisingToAvoid)
+            {
+                int previousRetreatResult = await CompletePendingContiRetreatIfNeededAsync(
+                    "Place 비동기 접근 전 이전 PickerZ Avoid 복귀",
+                    ct).ConfigureAwait(false);
+                if (previousRetreatResult != 0)
+                {
+                    _targetPickerZ = originalPickerZTarget;
+                    return previousRetreatResult;
+                }
             }
 
             double stageYTarget = _targetOutputStageY;
@@ -557,39 +567,6 @@ namespace QMC.CDT320.Sequencing
                 IsPickerAxisAlreadyInPosition(PickerAxis.PickerX, GetPickerTeachingPosition(PickerAxis.PickerX, "OutputAvoidPosition"));
         }
 
-        private bool ShouldDelayCurrentPickerZRetreatForNextContiPlace()
-        {
-            PickerPlaceMotionConfig placeConfig = ResolvePlaceMotionConfig();
-            if (placeConfig == null || !IsCoordinatedPlaceMotionMode(placeConfig.MotionMode))
-                return false;
-
-            if (WillCurrentPlaceCompleteOutputStage())
-            {
-                WriteLog("PickerPlaceSequence",
-                    Name + " OutputStage 마지막 Place이므로 PickerZ Avoid 복귀를 다음 Conti Place로 지연하지 않습니다. " +
-                    "side=" + Side + ", outputSide=" + _currentOutputSide +
-                    ", pickerNo=" + _currentPickerNo +
-                    ", order=" + (_receiveTarget != null ? _receiveTarget.OrderIndex.ToString() : "-") + " - Check");
-                return false;
-            }
-
-            int nextCursor = _pickerCursor + 1;
-            if (nextCursor >= _pickedPickerIndexes.Count)
-                return false;
-
-            int nextPickerIndex = _pickedPickerIndexes[nextCursor];
-            int nextPickerNo = ToPickerNo(nextPickerIndex);
-            DieMaterial nextDie = MaterialStateService.GetDieAtPicker(PickerLocationKind, nextPickerNo);
-            if (nextDie == null)
-                return false;
-
-            BinSide nextSide;
-            if (!TryResolveOutputSide(nextDie, out nextSide))
-                return false;
-
-            return nextSide == _currentOutputSide;
-        }
-
         private bool WillCurrentPlaceCompleteOutputStage()
         {
             try
@@ -679,6 +656,10 @@ namespace QMC.CDT320.Sequencing
         // pending 설정 시점의 해당 die PrePlace 높이(다음 노드에서 _lastConti…가 덮여도 보존).
         private double _pendingContiRetreatPrePlaceZ = double.NaN;
 
+        // [사용자 승인 2026-07-27] 조기 진행이 발행한 Z Avoid 상승 태스크 — 이동 중 재명령
+        // (AXM 0x1038 거부 사고) 대신 join으로 완료를 회수하기 위해 보관한다.
+        private Task<int> _pendingContiRetreatRiseTask;
+
         private bool HasPendingContiRetreat()
         {
             return _pendingContiRetreatPickerIndex >= 0;
@@ -696,54 +677,21 @@ namespace QMC.CDT320.Sequencing
             _pendingContiRetreatPickerIndex = -1;
             _pendingContiRetreatPickerNo = 0;
             _pendingContiRetreatPrePlaceZ = double.NaN;
+            ObservePlaceBackgroundResultTask(_pendingContiRetreatRiseTask);
+            _pendingContiRetreatRiseTask = null;
         }
 
-        // 기존 조건(~2026-07-26): 지연된 이전 PickerZ 복귀는 항상 전체 Avoid까지 동기 상승 —
-        //   다음 노드 XY 시작 전에 상승 시간 전체가 직렬로 들어갔다.
-        // 현재 기준(사용자 승인 2026-07-26, 1-B, PlaceEntryZPreDownMode On일 때):
-        //   allowPrePlaceHold=true인 소비점(Conti 노드 직전)에서는 해당 die의 PrePlace 높이까지만
-        //   상승해 파킹한다 — 이후 XY 이동은 InspectionZHold 태그로 통과하고(BuildPlaceMoveTargetName),
-        //   전체 Avoid는 배치 종료 정리(MovePickerToAvoidAfterPlaceFast: Z전체→Y→X/T)가 수행한다.
-        //   그 외 소비점(레거시 폴백/Bottom 대기 중 겹침)은 기존 전체 Avoid 그대로.
+        // [정정 2026-07-27, 사용자 승인] 소비점은 재명령하지 않는다 — "이동 중 재명령"은
+        // AXM 0x1038(IN_MOTION 거부)로 실장비 알람을 냈다(2026-07-26 23:16/23:56).
+        // join+복구(정지 대기 → 정지 후에만 동기 Avoid 이동, 타임아웃 5초)로 완료를 보장한다.
         private async Task<int> CompletePendingContiRetreatIfNeededAsync(
             string description,
-            CancellationToken ct,
-            bool allowPrePlaceHold = false)
+            CancellationToken ct)
         {
             if (!HasPendingContiRetreat())
                 return 0;
 
-            PickerAxis zAxis = GetPickerZAxis(_pendingContiRetreatPickerIndex);
-            double avoid = GetPickerTeachingPosition(zAxis, "AvoidPosition");
-
-            PickerPlaceMotionConfig placeConfig = ResolvePlaceMotionConfig();
-            // [검증 FAIL 수정 2026-07-26, F3] RunMode==Auto 명시 게이트 추가(비Auto 스텝 실행 방어).
-            bool holdAtPrePlace = allowPrePlaceHold &&
-                Options != null && Options.RunMode == SequenceRunMode.Auto &&
-                placeConfig != null && placeConfig.PlaceEntryZPreDownMode &&
-                !double.IsNaN(_pendingContiRetreatPrePlaceZ);
-            double riseTarget = holdAtPrePlace ? _pendingContiRetreatPrePlaceZ : avoid;
-            string riseTargetName = holdAtPrePlace
-                ? BuildPickerTargetName("DiePlacePosition", _pendingContiRetreatPickerIndex) +
-                  ";PickerPhase=InspectionZHold;InspectionContinuous;From=Place;To=Place"
-                : "AvoidPosition";
-
-            if (holdAtPrePlace)
-            {
-                WriteLog("PickerPlaceSequence",
-                    Name + " 이전 PickerZ 복귀를 PrePlace 파킹으로 단축합니다(전체 Avoid는 배치 종료 정리 담당). " +
-                    "pendingPickerNo=" + _pendingContiRetreatPickerNo +
-                    ", prePlaceZ=" + _pendingContiRetreatPrePlaceZ.ToString("F3") +
-                    ", avoid=" + avoid.ToString("F3") +
-                    ", context=" + description + " - Check");
-            }
-
-            int result = await MovePickerAxisAndVerifyAsync(
-                zAxis,
-                riseTarget,
-                description,
-                ct,
-                riseTargetName).ConfigureAwait(false);
+            int result = await JoinAllPickerZAtAvoidWithRecoveryAsync(description, ct).ConfigureAwait(false);
             if (result != 0)
                 return result;
 

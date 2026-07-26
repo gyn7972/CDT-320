@@ -195,7 +195,23 @@ namespace QMC.CDT320.Sequencing
             Options = options ?? PickerSequenceOptions.Default();
         }
 
-        protected void RequestRuntimeStateSave(string reason)
+        // [사용자 지시 2026-07-27] 핫패스용 — 디스크 쓰기를 백그라운드로 넘기고 즉시 반환.
+        protected void SaveRuntimeStateAsync(string reason)
+        {
+            try
+            {
+                if (Context == null || Context.Controller == null)
+                    return;
+
+                Context.Controller.SaveMachineRuntimeStateAsync(reason);
+            }
+            catch (Exception ex)
+            {
+                WriteLog("SaveRuntimeState", Name + " runtime state async save failed. reason=" + reason + ", error=" + ex.Message + " - Failed");
+            }
+        }
+
+        protected void SaveRuntimeState(string reason)
         {
             try
             {
@@ -2902,12 +2918,13 @@ namespace QMC.CDT320.Sequencing
                 {
                     safePercent = ResolveCalibrationSafeMovePercent();
                     BaseAxis safeAxis = safePercent > 0.0 ? GetPickerAxis(axis) : null;
-                    if (safeAxis != null && safeAxis.Config != null && safeAxis.Config.DefaultVelocity > 0.0)
+                    if (safeAxis != null && safeAxis.Config != null && safeAxis.Config.GetRawDefaultVelocity() > 0.0)
                     {
                         double factor = safePercent / 100.0;
-                        velocity = safeAxis.Config.DefaultVelocity * factor;
-                        acceleration = safeAxis.Config.Acceleration * factor;
-                        deceleration = safeAxis.Config.Deceleration * factor;
+                        // [정정 2026-07-26] 스케일 적용값 × 퍼센트 — 원본 유출 차단.
+                        velocity = safeAxis.Config.GetDefaultVel() * factor;
+                        acceleration = safeAxis.Config.GetDefaultAcc() * factor;
+                        deceleration = safeAxis.Config.GetDefaultDec() * factor;
                         safeMoveApplied = true;
                     }
                 }
@@ -4447,7 +4464,7 @@ namespace QMC.CDT320.Sequencing
             if (fine && axis.Config.JogFineVelocity > 0.0)
                 return axis.Config.JogFineVelocity;
 
-            return MotionSpeedScale.ApplyDefaultVelocityScale(axis.Config.DefaultVelocity);
+            return axis.Config.GetDefaultVel();
         }
 
         private double ResolvePickerMoveLogAcceleration(BaseAxis axis)
@@ -4457,9 +4474,9 @@ namespace QMC.CDT320.Sequencing
 
             bool fine = Options != null && Options.FineMove;
             if (fine)
-                return axis.Config.Acceleration;
+                return axis.Config.GetRawAcceleration();
 
-            return MotionSpeedScale.ApplyDefaultAccelerationScale(axis.Config.Acceleration);
+            return axis.Config.GetDefaultAcc();
         }
 
         private double ResolvePickerMoveLogDeceleration(BaseAxis axis)
@@ -4469,9 +4486,9 @@ namespace QMC.CDT320.Sequencing
 
             bool fine = Options != null && Options.FineMove;
             if (fine)
-                return axis.Config.Deceleration;
+                return axis.Config.GetRawDeceleration();
 
-            return MotionSpeedScale.ApplyDefaultAccelerationScale(axis.Config.Deceleration);
+            return axis.Config.GetDefaultDec();
         }
 
         private static string FormatPickerMoveAxisLogDetail(PickerMoveAxisLogDetail detail)

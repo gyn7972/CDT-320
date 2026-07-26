@@ -317,17 +317,16 @@ namespace QMC.CDT320.Motion.SharedRailX
             if (axis == null)
                 return -1;
 
+            // [정정 2026-07-26] Config 임시 치환(DefaultVelocity=0/가감속) 폐기 — 공유 Config를
+            // 다른 스레드(팔로잉 속도 계산 등)가 동시에 읽어 0이 관측되는 경합이 실장비 사고를
+            // 냈다(22:08). 명시 가감속은 BaseAxis.BeginExplicitMotionProfileScope(AsyncLocal)로
+            // 전달하고, 스코프 활성 이동은 기본속도 추론 없이 전달값을 그대로 쓴다(S² 차단 동일).
             bool useCustomAcceleration = axis.Config != null && acceleration > 0.0 && deceleration > 0.0;
-            double oldAcceleration = useCustomAcceleration ? axis.Config.Acceleration : 0.0;
-            double oldDeceleration = useCustomAcceleration ? axis.Config.Deceleration : 0.0;
+            IDisposable profileScope = useCustomAcceleration
+                ? BaseAxis.BeginExplicitMotionProfileScope(acceleration, deceleration)
+                : null;
             try
             {
-                if (useCustomAcceleration)
-                {
-                    axis.Config.Acceleration = acceleration;
-                    axis.Config.Deceleration = deceleration;
-                }
-
                 if (forceMove)
                     return await MoveAxisAbsoluteForceAsync(axis, targetPosition, velocity).ConfigureAwait(false);
 
@@ -335,11 +334,8 @@ namespace QMC.CDT320.Motion.SharedRailX
             }
             finally
             {
-                if (useCustomAcceleration)
-                {
-                    axis.Config.Acceleration = oldAcceleration;
-                    axis.Config.Deceleration = oldDeceleration;
-                }
+                if (profileScope != null)
+                    profileScope.Dispose();
             }
         }
 

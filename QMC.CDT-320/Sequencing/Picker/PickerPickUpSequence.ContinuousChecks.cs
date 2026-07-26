@@ -274,17 +274,16 @@ namespace QMC.CDT320.Sequencing
                 if (axis == null)
                     continue;
 
+                // [정정 2026-07-26, 사용자 승인] PickUpZRising: Avoid로 상승 중인 직전 픽업
+                // 픽커 Z는 이동 중이어도 적격 — 웨이퍼에서 멀어지는 방향이며 도착은 백그라운드.
+                if (HasActivePickUpZHold && zAxis == GetPickerZAxis(_pickUpZHoldPickerIndex))
+                    continue;
+
                 if (axis.IsMoving)
                 {
                     detail = zAxis + " is moving. " + FormatAxisForContinuousCheck(axis);
                     return false;
                 }
-
-                // 1-B PickUpZHold(사용자 승인 2026-07-26): 유지 픽커 Z는 PrePick 파킹 위치면 적격.
-                if (HasActivePickUpZHold &&
-                    zAxis == GetPickerZAxis(_pickUpZHoldPickerIndex) &&
-                    Math.Abs(axis.ActualPosition - _pickUpZHoldZTarget) <= PickUpZHoldParkToleranceMm)
-                    continue;
 
                 double avoid = GetPickerTeachingPosition(zAxis, "AvoidPosition");
                 double tolerance = axis.Config != null && axis.Config.InPositionTolerance > 0.0

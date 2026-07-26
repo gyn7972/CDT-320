@@ -27,20 +27,26 @@ namespace QMC.CDT320.Sequencing
                 if (stage == null)
                     return Fail("PICKER-PICKUP-STAGE-NO-UNIT", "InputStageUnit", "InputStageUnit is null.");
 
-                // 1-B PickUpZHold(사용자 승인 2026-07-26): 유지 픽커 Z가 PrePick 위치에 정확히
-                // 파킹돼 있으면 그 축만 Avoid 강제에서 제외한다. 파킹 상태가 아니면(재시작/드리프트)
-                // hold를 해제하고 기존 전체 Avoid 강제로 폴백 — 자가 치유.
+                // [정정 2026-07-26, 사용자 승인] PickUpZRising: 직전 픽업 픽커 Z가 Avoid로
+                // 상승 중이면 그 축의 "도착"을 기다리지 않고 나머지 축만 Avoid 확인한다.
+                // 이미 Avoid에 도달했으면 rising을 해제하고 정상 경로로 처리하며,
+                // 정지 상태인데 Avoid가 아니면(이상) rising을 해제하고 전체 Avoid 폴백 — 자가 치유.
                 int result;
                 bool holdHandled = false;
                 if (HasActivePickUpZHold)
                 {
                     PickerAxis holdZAxisKind = GetPickerZAxis(_pickUpZHoldPickerIndex);
                     BaseAxis holdAxis = GetPickerAxis(holdZAxisKind);
-                    bool parked = holdAxis != null && !holdAxis.IsMoving &&
+                    bool arrivedAtAvoid = holdAxis != null && !holdAxis.IsMoving &&
                         Math.Abs(holdAxis.ActualPosition - _pickUpZHoldZTarget) <= PickUpZHoldParkToleranceMm;
-                    if (!parked)
+                    bool risingToAvoid = holdAxis != null && holdAxis.IsMoving;
+                    if (arrivedAtAvoid)
                     {
-                        ClearPickUpZHold("유지 상태 불일치(파킹 확인 실패) — 전체 Avoid 폴백");
+                        ClearPickUpZHold("Avoid 도착 확인 — rising 종료, 정상 경로 처리");
+                    }
+                    else if (!risingToAvoid)
+                    {
+                        ClearPickUpZHold("rising 상태 불일치(정지·비Avoid) — 전체 Avoid 폴백");
                     }
                     else
                     {
@@ -60,7 +66,7 @@ namespace QMC.CDT320.Sequencing
                             result = await MovePickerAxisAndVerifyAsync(
                                 zAxes[i],
                                 zAvoid,
-                                description + " - PickerZ Avoid(PickUpZHold 제외)",
+                                description + " - PickerZ Avoid(PickUpZRising 제외)",
                                 ct,
                                 "AvoidPosition").ConfigureAwait(false);
                             if (result != 0)
@@ -69,9 +75,9 @@ namespace QMC.CDT320.Sequencing
 
                         WriteLog("PickerPickUpSequence",
                             Name + " " + description +
-                            " - PickUpZHold 유지 픽커 Z는 PrePick 파킹을 유지하고 나머지만 Avoid 확인. " +
-                            "holdPickerNo=" + ToPickerNo(_pickUpZHoldPickerIndex) +
-                            ", holdZ=" + _pickUpZHoldZTarget.ToString("F3") + " - Check");
+                            " - PickUpZRising 픽커 Z는 Avoid 상승을 백그라운드로 두고 나머지만 Avoid 확인. " +
+                            "risingPickerNo=" + ToPickerNo(_pickUpZHoldPickerIndex) +
+                            ", avoid=" + _pickUpZHoldZTarget.ToString("F3") + " - Check");
                         holdHandled = true;
                     }
                 }
@@ -101,6 +107,11 @@ namespace QMC.CDT320.Sequencing
                 }
                 else
                 {
+                    // [정정 2026-07-26] 백그라운드 EjectPinZ Avoid 복귀 join(스냅샷 경합 차단).
+                    result = await JoinPickUpEjectPinAvoidBackgroundAsync().ConfigureAwait(false);
+                    if (result != 0)
+                        return result;
+
                     result = await MoveInputStageAxisToAvoidAndVerifyIfNeededAsync(
                         stage,
                         WaferStageAxis.EjectPinZ,
