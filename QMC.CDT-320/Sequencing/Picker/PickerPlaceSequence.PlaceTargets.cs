@@ -329,7 +329,8 @@ namespace QMC.CDT320.Sequencing
         //   이미 발행돼 있어 실제 Z 발행 시점(Y 이탈 감지, 수 초 뒤)엔 StageY가 임계 밖일 수
         //   있었다 — 파라미터가 금지하려는 구간에서 하강하는 오동작 경로.
         // 현재 기준: (a) 실측을 판정 시점마다 UpdateStatus 후 재확인하고, (b) 진행 중인 수령
-        //   이동의 "목표"(_targetOutputStageY)도 임계 이내여야 발동한다 — 둘 다 안전측 AND.
+        //   이동의 "목표"(_targetOutputStageY)도 함께 판정한다 — 둘 다 안전측 AND.
+        // 방향(사용자 실측 확인 2026-07-26): 실측·목표 모두 임계 "이상(≥)"일 때만 발동.
         private bool IsRearEntryPreDownStageYWithinLimit(PickerPlaceMotionConfig placeConfig, out string detail)
         {
             detail = string.Empty;
@@ -351,11 +352,16 @@ namespace QMC.CDT320.Sequencing
             stageYAxis.UpdateStatus();
             double stageYActual = stageYAxis.ActualPosition;
             double stageYTarget = _targetOutputStageY;
-            bool ok = stageYActual <= limit && stageYTarget <= limit;
+            // 방향 정정(사용자 실측 확인 2026-07-26): 설정값 "이상(≥)"일 때만 발동한다 —
+            // 리어 물리 간섭 구조물은 StageY가 작은 구간에 있다. 실측과 수령 이동 목표 모두
+            // 임계 이상이어야 발동(이동 중 임계 아래로 진입하는 경합은 목표 검사가 차단).
+            // limit<=0은 계속 "Rear 발동 안 함(Off)" — 안전측 기본값 유지.
+            bool ok = stageYActual >= limit && stageYTarget >= limit;
             detail = (ok ? "rearStageYOk" : "rearStageYLimit") +
                      " actual=" + stageYActual.ToString("F3") +
                      ", target=" + stageYTarget.ToString("F3") +
-                     ", limit=" + limit.ToString("F3");
+                     ", limit=" + limit.ToString("F3") +
+                     ", rule=actual>=limit&&target>=limit";
             return ok;
         }
 

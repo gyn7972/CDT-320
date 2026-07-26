@@ -320,10 +320,16 @@ namespace QMC.CDT320.Motion.SharedRailX
             bool useCustomAcceleration = axis.Config != null && acceleration > 0.0 && deceleration > 0.0;
             double oldAcceleration = useCustomAcceleration ? axis.Config.Acceleration : 0.0;
             double oldDeceleration = useCustomAcceleration ? axis.Config.Deceleration : 0.0;
+            double oldDefaultVelocity = useCustomAcceleration ? axis.Config.DefaultVelocity : 0.0;
             try
             {
                 if (useCustomAcceleration)
                 {
+                    // 가감속 이중 스케일(S²) 차단(2026-07-26): 이미 스케일된 가감속을 임시 치환한
+                    // 상태에서 전달 velocity가 "DefaultVelocity×스케일"과 일치하면 축 레이어의
+                    // 기본속도 추론이 가감속에 스케일을 재적용했다. FollowMove와 동일하게
+                    // DefaultVelocity=0 치환으로 추론을 결정적으로 차단한다(finally 원복).
+                    axis.Config.DefaultVelocity = 0.0;
                     axis.Config.Acceleration = acceleration;
                     axis.Config.Deceleration = deceleration;
                 }
@@ -337,6 +343,7 @@ namespace QMC.CDT320.Motion.SharedRailX
             {
                 if (useCustomAcceleration)
                 {
+                    axis.Config.DefaultVelocity = oldDefaultVelocity;
                     axis.Config.Acceleration = oldAcceleration;
                     axis.Config.Deceleration = oldDeceleration;
                 }

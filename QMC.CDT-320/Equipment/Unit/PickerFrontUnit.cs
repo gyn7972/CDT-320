@@ -1932,7 +1932,13 @@ namespace QMC.CDT320
                 {
                     double oldAcceleration = item.Config != null ? item.Config.Acceleration : 0.0;
                     double oldDeceleration = item.Config != null ? item.Config.Deceleration : 0.0;
+                    double oldDefaultVelocity = item.Config != null ? item.Config.DefaultVelocity : 0.0;
                     bool useCustomAccel = item.Config != null && acceleration > 0.0 && deceleration > 0.0;
+                    // 가감속 이중 스케일(S²) 차단(2026-07-26): 이미 스케일된 가감속을 임시 치환한
+                    // 상태에서 전달 속도가 "DefaultVelocity×스케일"과 우연히 일치하면 축 레이어의
+                    // 기본속도 추론이 가감속에 스케일을 한 번 더 곱했다(실장비 Front PickerX acc
+                    // 1/400 실측). FollowMove와 동일하게 DefaultVelocity=0 임시 치환으로 추론을
+                    // 결정적으로 차단한다(명시 경로 강제) — finally에서 원복.
                     if (!string.IsNullOrWhiteSpace(guardTargetName))
                     {
                         using (MotionGuardRuntime.BeginAxisTeachingMove(item, targetPos, guardTargetName))
@@ -1941,6 +1947,7 @@ namespace QMC.CDT320
                             {
                                 if (useCustomAccel)
                                 {
+                                    item.Config.DefaultVelocity = 0.0;
                                     item.Config.Acceleration = acceleration;
                                     item.Config.Deceleration = deceleration;
                                 }
@@ -1950,6 +1957,7 @@ namespace QMC.CDT320
                             {
                                 if (useCustomAccel)
                                 {
+                                    item.Config.DefaultVelocity = oldDefaultVelocity;
                                     item.Config.Acceleration = oldAcceleration;
                                     item.Config.Deceleration = oldDeceleration;
                                 }
@@ -1962,6 +1970,7 @@ namespace QMC.CDT320
                         {
                             if (useCustomAccel)
                             {
+                                item.Config.DefaultVelocity = 0.0;
                                 item.Config.Acceleration = acceleration;
                                 item.Config.Deceleration = deceleration;
                             }
@@ -1971,6 +1980,7 @@ namespace QMC.CDT320
                         {
                             if (useCustomAccel)
                             {
+                                item.Config.DefaultVelocity = oldDefaultVelocity;
                                 item.Config.Acceleration = oldAcceleration;
                                 item.Config.Deceleration = oldDeceleration;
                             }

@@ -157,6 +157,11 @@ namespace QMC.CDT320.Sequencing
             return ResolveAxisAccelerationByPercent(item, percent, acceleration);
         }
 
+        // 기존 조건: 퍼센트 경로는 전역 MotionSpeedScale을 곱하지 않아 저속 테스트(5%)에서도
+        //   접촉/분리 구간이 풀속도로 나갔다(과속 위험) — 반대로 이송은 스케일이 걸려 체감 불일치.
+        // 현재 기준(사용자 확정 속도 모델 2026-07-26): 모든 퍼센트 경로 =
+        //   축 DefaultVelocity × 전역 스케일 × percent. (명시 발행 시 유닛 레이어가 기본속도
+        //   추론을 차단해 가감속 이중 스케일을 방지한다.)
         private static double ResolveAxisVelocityByPercent(QMC.Common.Motion.BaseAxis axis, double percent)
         {
             double normalizedPercent = PickerPickUpMotionConfig.NormalizePercent(percent, 1.0);
@@ -164,7 +169,7 @@ namespace QMC.CDT320.Sequencing
             if (axis != null && axis.Config != null && axis.Config.DefaultVelocity > 0.0)
                 baseVelocity = axis.Config.DefaultVelocity;
 
-            return Math.Max(0.001, baseVelocity * normalizedPercent / 100.0);
+            return Math.Max(0.001, QMC.Common.Motion.MotionSpeedScale.ApplyDefaultVelocityScale(baseVelocity) * normalizedPercent / 100.0);
         }
 
         private static double ResolveAxisAccelerationByPercent(QMC.Common.Motion.BaseAxis axis, double percent, bool acceleration)
@@ -178,7 +183,7 @@ namespace QMC.CDT320.Sequencing
                     baseAcceleration = configured;
             }
 
-            return Math.Max(0.001, baseAcceleration * normalizedPercent / 100.0);
+            return Math.Max(0.001, QMC.Common.Motion.MotionSpeedScale.ApplyDefaultAccelerationScale(baseAcceleration) * normalizedPercent / 100.0);
         }
 
         private static double ResolveTargetToward(double fromTarget, double towardTarget, double distance)
@@ -277,7 +282,8 @@ namespace QMC.CDT320.Sequencing
                 double needleZAvoid = ResolveNeedleZAvoidTarget(stage);
                 double ejectPinZAvoid = ResolveEjectPinZAvoidTarget(stage);
                 PickerPickUpMotionConfig config = ResolvePickUpMotionConfig();
-                double pickerAvoidSpeedPercent = config != null ? config.PickerZAvoidReturnSpeedPercent : 10.0;
+                // 사용자 확정 속도 모델(2026-07-26): Avoid 복귀 = DefaultVelocity × 전역 스케일(% 미적용).
+                double pickerAvoidSpeedPercent = 100.0;
                 double pickerAvoidVelocity = ResolvePickerAxisVelocityByPercent(pickerZ, pickerAvoidSpeedPercent);
                 double pickerAvoidAcceleration = ResolvePickerAxisAccelerationByPercent(pickerZ, pickerAvoidSpeedPercent, true);
                 double pickerAvoidDeceleration = ResolvePickerAxisAccelerationByPercent(pickerZ, pickerAvoidSpeedPercent, false);
@@ -652,15 +658,19 @@ namespace QMC.CDT320.Sequencing
 
         private int StopRemainingPickBatchForWaferCompletion(string boundary)
         {
-            // [검증 FAIL S5 수정 2026-07-26] 드레인 경계에서 PickUpZHold가 남아 있으면 유지 픽커
-            // Z가 PrePick(음수)에 물리 잔류한 채 배치가 종료된다 — 이 동기 스텝에서는 이동을
-            // 발행하지 않고 "불안전 종료"만 기록한다. PickerProcessSequence가 이 플래그를 보고
-            // Bottom 진입의 Full-Avoid 생략(_pickerZStageSafeConfirmedByPickUp)을 하지 않으면,
-            // Bottom 첫 스텝의 기존 전 Z Avoid 강제가 정상 경로로 잔류 Z를 회수한다(알람 없음).
+            // [정정 2026-07-26] 드레인 경계에서 PickUpZRising(Avoid 상승 중)이 남아 있으면
+            // 도착 미보장 상태로 배치가 종료된다 — 이동 발행 없이 "불안전 종료"만 기록하고,
+            // PickerProcessSequence가 Full-Avoid 생략을 하지 않아 Bottom 첫 스텝의
+            // 전 Z Avoid 강제가 도착을 보장한다(알람 없음). EjectPinZ 백그라운드 복귀도 관찰 정리.
             if (HasActivePickUpZHold)
             {
                 DrainLeftPickerZHoldUnsafe = true;
-                ClearPickUpZHold("웨이퍼 완료 드레인 경계 — 물리 잔류는 Bottom Full-Avoid 강제가 회수");
+                ClearPickUpZHold("웨이퍼 완료 드레인 경계 — Avoid 도착은 Bottom Full-Avoid 강제가 보장");
+            }
+            if (_pickUpEjectPinAvoidTask != null)
+            {
+                ObserveBackgroundResultTask(_pickUpEjectPinAvoidTask);
+                _pickUpEjectPinAvoidTask = null;
             }
 
             WriteLog("WaferCompletionRun",

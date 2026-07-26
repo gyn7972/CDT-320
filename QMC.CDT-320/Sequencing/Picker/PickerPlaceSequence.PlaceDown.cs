@@ -450,53 +450,16 @@ namespace QMC.CDT320.Sequencing
                     await Task.Delay(remainDwellMs, ct).ConfigureAwait(false);
                 }
 
-                if (ShouldDelayCurrentPickerZRetreatForNextContiPlace())
+                // [정정 2026-07-26, 사용자 승인] PrePlace 파킹/지연 폐지 — Auto+Conti(스위치 On)면
+                // Z를 즉시 Avoid까지 명령하고, place 높이에서 PLACE CONTI NEAR AVOID 거리만큼
+                // 이탈하는 순간 시퀀스는 다음으로 진행한다(잔여 상승 백그라운드, 도착 보장은
+                // pending join(다음 노드)과 배치 종료 정리(Z 전체 Avoid)가 담당).
+                if (ShouldEarlyProceedPlaceZRetreat())
                 {
-                    SetPendingContiRetreat(_currentPickerIndex, _currentPickerNo);
-                    WriteLog("PickerPlaceSequence",
-                        Name + " Place 완료 후 현재 PickerZ Avoid 복귀를 다음 Place ContiNode에 포함하도록 지연합니다. " +
-                        "Blow는 이미 OFF 상태입니다. " +
-                        "pickerNo=" + _currentPickerNo +
-                        ", cursor=" + _pickerCursor +
-                        ", outputSide=" + _currentOutputSide +
-                        ", releaseDwellMs=" + releaseDwellMs +
-                        ", blowDelayMs=" + blowDelayMs +
-                        ", totalDwellMs=" + totalDwellMs + " - Check");
-                    CurrentStep = PickerPlaceStep.UpdateMaterialToOutputStage;
-                    return 0;
-                }
+                    int earlyResult = await StartPickerZAvoidRiseAndWaitNearAvoidDepartureAsync(ct).ConfigureAwait(false);
+                    if (earlyResult != 0)
+                        return earlyResult;
 
-                // 1-B(사용자 승인 2026-07-26, PlaceEntryZPreDownMode On): 배치 마지막 die는
-                // Avoid 풀 상승 대신 PrePlace 도달에서 place 완료를 판정한다. 종료 정리
-                // (Z 전체 Avoid → Y → X/T)는 무변경 — 시작 높이만 PrePlace로 바뀐다.
-                // 교체 준비 신호 안전성: 신호 발행 경로(CompleteOutputStageExchangeHandoff)가
-                // 자체적으로 전축 Avoid 후 _currentPlaceZSafeReturnCompleted를 set하므로
-                // 여기서 플래그를 건드리지 않는 것이 안전 의미를 보존한다(비교체 완료는 플래그 미사용).
-                // 사이드 전환(다음 die 다른 Bin) 케이스는 레거시 이동 경로라 안전측 제외 — 기존 풀 상승.
-                if (ShouldCompletePlaceAtPrePlaceHeight())
-                {
-                    PickerAxis earlyZAxis = GetPickerZAxis(_currentPickerIndex);
-                    int earlyRise = await MovePickerAxisAndVerifyAsync(
-                        earlyZAxis,
-                        _lastContiPrePlacePickerZ,
-                        "place picker Z preplace early-complete rise",
-                        ct,
-                        BuildPickerTargetName("DiePlacePosition", _currentPickerIndex) +
-                        ";PickerPhase=InspectionZHold;InspectionContinuous;From=Place;To=Place").ConfigureAwait(false);
-                    if (earlyRise != 0)
-                    {
-                        TurnPlaceBlowOff("PrePlace 조기 상승 실패");
-                        return earlyRise;
-                    }
-
-                    TurnPlaceBlowOff("PrePlace 조기 상승 완료");
-                    WriteLog("PickerPlaceSequence",
-                        Name + " Place 조기 완료 판정 — Z를 PrePlace에서 끊고 완료 처리로 진행합니다" +
-                        "(전체 Avoid는 배치 종료 정리 담당). " +
-                        "pickerNo=" + _currentPickerNo +
-                        ", die=" + (_currentDie != null ? _currentDie.DieId : "-") +
-                        ", prePlaceZ=" + _lastContiPrePlacePickerZ.ToString("F3") +
-                        ", outputSide=" + _currentOutputSide + " - Ok");
                     CurrentStep = PickerPlaceStep.UpdateMaterialToOutputStage;
                     return 0;
                 }
@@ -521,26 +484,18 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
-        // 1-B 조기 완료 판정 발동 조건: 스위치 On + Conti 모드 + 이 die가 Conti로 하강(PrePlace 값
-        // 신뢰 가능) + 배치 마지막 die(사이드 전환/중간 die는 C4 지연 또는 기존 풀 상승 유지).
-        private bool ShouldCompletePlaceAtPrePlaceHeight()
+        // [정정 2026-07-26, 사용자 승인] 조기 진행 발동 조건: 스위치 On + Auto + Conti 모드.
+        // 마지막/중간 die 구분 없음 — 도착 보장은 pending join과 배치 종료 정리가 담당한다.
+        private bool ShouldEarlyProceedPlaceZRetreat()
         {
             try
             {
-                // [검증 FAIL 수정 2026-07-26, F3] 비Auto 스텝 실행에서도 conti 노드가 사용될 수
-                // 있어 RunMode==Auto를 명시 게이트로 추가한다(지시서 공통 게이트 1).
                 if (Options == null || Options.RunMode != SequenceRunMode.Auto)
                     return false;
 
                 PickerPlaceMotionConfig placeConfig = ResolvePlaceMotionConfig();
                 if (placeConfig == null || !placeConfig.PlaceEntryZPreDownMode ||
                     !IsCoordinatedPlaceMotionMode(placeConfig.MotionMode))
-                    return false;
-                if (!_pickerZPlacedByContiSegmentedPlace)
-                    return false;
-                if (double.IsNaN(_lastContiPrePlacePickerZ))
-                    return false;
-                if (_pickerCursor + 1 < _pickedPickerIndexes.Count)
                     return false;
 
                 return true;
@@ -549,6 +504,92 @@ namespace QMC.CDT320.Sequencing
             {
                 return false;
             }
+        }
+
+        // [사용자 승인 2026-07-26] Z→Avoid 풀 명령 후 place 높이에서 ContiNearAvoidDistance
+        // 만큼 이탈할 때까지만 대기(10ms 폴링)한다. 임계가 Avoid까지 거리 이상이면 도착 대기와
+        // 동일하게 수렴하고, 잔여 상승은 백그라운드 — 도착 join은 pending 소비점이 담당한다.
+        private async Task<int> StartPickerZAvoidRiseAndWaitNearAvoidDepartureAsync(CancellationToken ct)
+        {
+            PickerAxis zAxisKind = GetPickerZAxis(_currentPickerIndex);
+            BaseAxis zAxis = GetPickerAxis(zAxisKind);
+            if (zAxis == null)
+            {
+                TurnPlaceBlowOff("Z Avoid 조기 진행 실패(축 없음)");
+                return Fail("PICKER-PLACE-Z-EARLY-NO-AXIS", Name,
+                    "Place Z Avoid 조기 진행 실패: PickerZ 축이 없습니다. pickerNo=" + _currentPickerNo);
+            }
+
+            double avoid = GetPickerTeachingPosition(zAxisKind, "AvoidPosition");
+            PickerPlaceMotionConfig placeConfig = ResolvePlaceMotionConfig();
+            double nearAvoidDistance = placeConfig != null ? Math.Max(0.0, placeConfig.ContiNearAvoidDistance) : 0.0;
+            double startZ = zAxis.ActualPosition;
+            double requiredTravel = Math.Min(Math.Abs(avoid - startZ), nearAvoidDistance);
+
+            Task<int> riseTask = MovePickerAxisCommandAsync(zAxisKind, avoid, "AvoidPosition");
+            ObservePlaceBackgroundResultTask(riseTask);
+
+            DateTime timeoutAt = DateTime.UtcNow.AddMilliseconds(ResolveTimeout());
+            while (true)
+            {
+                ct.ThrowIfCancellationRequested();
+
+                if (riseTask.IsCompleted)
+                {
+                    int riseResult = await riseTask.ConfigureAwait(false);
+                    if (riseResult != 0)
+                    {
+                        TurnPlaceBlowOff("Z Avoid 조기 진행 상승 실패");
+                        return riseResult;
+                    }
+                    break;
+                }
+
+                if (Math.Abs(zAxis.ActualPosition - startZ) >= requiredTravel)
+                    break;
+
+                if (DateTime.UtcNow > timeoutAt)
+                {
+                    TurnPlaceBlowOff("Z Avoid 조기 진행 임계 대기 타임아웃");
+                    return Fail("PICKER-PLACE-Z-EARLY-TIMEOUT", Name,
+                        "Place Z Avoid 조기 진행 실패: NEAR AVOID 이탈 대기 타임아웃. " +
+                        "pickerNo=" + _currentPickerNo +
+                        ", startZ=" + startZ.ToString("F3") +
+                        ", actual=" + zAxis.ActualPosition.ToString("F3") +
+                        ", requiredTravel=" + requiredTravel.ToString("F3") +
+                        ", avoid=" + avoid.ToString("F3"));
+                }
+
+                await Task.Delay(10, ct).ConfigureAwait(false);
+            }
+
+            TurnPlaceBlowOff("Z Avoid 조기 진행 — NEAR AVOID 이탈");
+            SetPendingContiRetreat(_currentPickerIndex, _currentPickerNo);
+            WriteLog("PickerPlaceSequence",
+                Name + " Place Z를 Avoid로 명령하고 NEAR AVOID 이탈 확인 — 시퀀스 조기 진행" +
+                "(잔여 상승 백그라운드, 도착 join은 pending 소비점/종료 정리 담당). " +
+                "pickerNo=" + _currentPickerNo +
+                ", die=" + (_currentDie != null ? _currentDie.DieId : "-") +
+                ", startZ=" + startZ.ToString("F3") +
+                ", requiredTravel=" + requiredTravel.ToString("F3") +
+                ", avoid=" + avoid.ToString("F3") +
+                ", outputSide=" + _currentOutputSide + " - Ok");
+            return 0;
+        }
+
+        // 백그라운드 결과 태스크의 예외 관찰(미회수 예외 방지) — 결과 회수는 join 지점에서.
+        private static void ObservePlaceBackgroundResultTask(Task<int> task)
+        {
+            if (task == null || task.IsCompleted)
+                return;
+
+            task.ContinueWith(
+                t =>
+                {
+                    if (t.IsFaulted && t.Exception != null)
+                        t.Exception.Flatten();
+                },
+                TaskScheduler.Default);
         }
 
         private async Task<int> MovePickerZToAvoidAsync(CancellationToken ct)

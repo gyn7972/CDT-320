@@ -531,16 +531,54 @@ namespace QMC.CDT320.Sequencing
         private double _pickUpEntryZPreDownTarget = double.NaN;
         private const double PickUpEntryZPreDownYDepartureMm = 1.0;
 
-        // 1-B PickUpZHold(사용자 승인 2026-07-26: "Input존 반경 게이트 내 한정 ZHold류 면제,
-        // Auto+Conti일 때만"): die 간 이동에서 직전 픽업 픽커 Z를 PrePick 높이에 유지한다.
-        // 인터락 면제는 targetName의 "PickUpZHold={pickerNo}" 토큰으로 해당 픽커 Z만 적용된다.
+        // [정정 2026-07-26, 사용자 승인] PickUpZHold 의미 변경 — PrePick 파킹이 아니라
+        // "픽업 후 Avoid로 상승 명령된(safe 통과) 픽커 Z"를 추적한다. X 진입은 이 축의
+        // Avoid "도착"을 기다리지 않고 진행하며, 인터락 면제는 targetName의
+        // "PickUpZHold={pickerNo}" 토큰으로 해당 픽커 Z만(이동 중 포함) 적용된다.
         private int _pickUpZHoldPickerIndex = -1;
         private double _pickUpZHoldZTarget = double.NaN;
         private const double PickUpZHoldParkToleranceMm = 0.05;
 
+        // [사용자 승인 2026-07-26, 병목 #1] 픽업 후 EjectPinZ Avoid 복귀 백그라운드 태스크 —
+        // 다음 die XY 게이트(EnsureEjectPinZAvoidAndVacuumOffSettledBeforeXYAsync)에서 join.
+        private Task<int> _pickUpEjectPinAvoidTask;
+
         private bool HasActivePickUpZHold
         {
             get { return _pickUpZHoldPickerIndex >= 0 && !double.IsNaN(_pickUpZHoldZTarget); }
+        }
+
+        // 픽업 완료 직후 호출 — 해당 픽커 Z가 Avoid로 상승 중(safe 통과)임을 기록한다.
+        // Auto+Conti에서만 기록: 그 외 모드는 인터락 면제(토큰/태그)가 성립하지 않으므로
+        // 기존처럼 다음 진입에서 Avoid 도착을 기다린다(회귀 방지).
+        private void MarkPickUpZRising(PickerAxis pickerZ, double pickerZAvoid)
+        {
+            PickerPickUpMotionConfig pickUpConfig = ResolvePickUpMotionConfig();
+            if (Options == null || Options.RunMode != SequenceRunMode.Auto ||
+                pickUpConfig == null || !IsCoordinatedPickUpTransferMotionMode(pickUpConfig.TransferMotionMode))
+                return;
+
+            _pickUpZHoldPickerIndex = _currentPickerIndex;
+            _pickUpZHoldZTarget = pickerZAvoid;
+            WriteLog("PickerPickUpSequence",
+                Name + " PickUpZRising 기록 — PickerZ Avoid 상승 중 조기 진행. pickerNo=" + _currentPickerNo +
+                ", axis=" + pickerZ +
+                ", avoid=" + pickerZAvoid.ToString("F3") + " - Check");
+        }
+
+        // 백그라운드 결과 태스크의 예외 관찰(미회수 예외 방지). 결과 회수는 각 join 지점에서 한다.
+        private static void ObserveBackgroundResultTask(Task<int> task)
+        {
+            if (task == null || task.IsCompleted)
+                return;
+
+            task.ContinueWith(
+                t =>
+                {
+                    if (t.IsFaulted && t.Exception != null)
+                        t.Exception.Flatten();
+                },
+                TaskScheduler.Default);
         }
 
         // [검증 FAIL S5 수정 2026-07-26] 드레인 경계가 PickUpZHold를 남긴 채 종료했는지 —
@@ -706,6 +744,10 @@ namespace QMC.CDT320.Sequencing
                     double yActual = yAxisObject != null ? yAxisObject.ActualPosition : yAvoid;
                     if (Math.Abs(yActual - yAvoid) > PickUpEntryZPreDownYDepartureMm)
                     {
+                        // [정정 2026-07-26] 같은 픽커 Z에 하강 명령이 나가므로 rising 추적 종료.
+                        if (HasActivePickUpZHold && _pickUpZHoldPickerIndex == _currentPickerIndex)
+                            ClearPickUpZHold("1-A 진입 Z 선행 하강 시작 — rising 종료");
+
                         _pickUpEntryZPreDownTarget = preDownTarget;
                         _pickUpEntryZPreDownTask = MovePickerAxisCommandAsync(
                             GetPickerZAxis(_currentPickerIndex),
@@ -834,9 +876,20 @@ namespace QMC.CDT320.Sequencing
                     pickerXStart,
                     _targetPickerX,
                     pickUpConfig);
-                double transferVelocity = pickUpConfig.GetTransferContiNodeVelocity(2);
-                double transferAcceleration = pickUpConfig.GetTransferContiNodeAcceleration(2);
-                double transferDeceleration = pickUpConfig.GetTransferContiNodeDeceleration(2);
+                // 기존 조건: 이송 4축이 PICKUP CONTI MAX VEL × NODE2%(단일값)를 공유 — 축별
+                //   기본속도와 무관했고, 값이 축 기본속도×스케일과 우연히 일치하면 가감속 이중
+                //   스케일(S²)까지 발생했다(실장비 Front PickerX acc 1/400 실측).
+                // 현재 기준(사용자 확정 속도 모델 2026-07-26): 이송 각 축 = 자기 축
+                //   DefaultVelocity × 전역 스케일 (CONTI MAX VEL/NODE% 설정 폐지).
+                double pickerXTransferVelocity = ResolvePickerAxisVelocityByPercent(PickerAxis.PickerX, 100.0);
+                double pickerXTransferAcceleration = ResolvePickerAxisAccelerationByPercent(PickerAxis.PickerX, 100.0, true);
+                double pickerXTransferDeceleration = ResolvePickerAxisAccelerationByPercent(PickerAxis.PickerX, 100.0, false);
+                double stageYTransferVelocity = ResolveInputStageAxisVelocityByPercent(stage, WaferStageAxis.WaferY, 100.0);
+                double stageYTransferAcceleration = ResolveInputStageAxisAccelerationByPercent(stage, WaferStageAxis.WaferY, 100.0, true);
+                double stageYTransferDeceleration = ResolveInputStageAxisAccelerationByPercent(stage, WaferStageAxis.WaferY, 100.0, false);
+                double needleXTransferVelocity = ResolveInputStageAxisVelocityByPercent(stage, WaferStageAxis.NeedleX, 100.0);
+                double needleXTransferAcceleration = ResolveInputStageAxisAccelerationByPercent(stage, WaferStageAxis.NeedleX, 100.0, true);
+                double needleXTransferDeceleration = ResolveInputStageAxisAccelerationByPercent(stage, WaferStageAxis.NeedleX, 100.0, false);
 
                 WriteLog("PickerPickUpSequence",
                     Name + " PickUp ContiNode async transfer start. " +
@@ -846,16 +899,17 @@ namespace QMC.CDT320.Sequencing
                     ", pickerXTarget=" + _targetPickerX.ToString("F6") +
                     ", prePickTrigger=" + pickerXPrePickTrigger.ToString("F6") +
                     ", prePickZ=" + prePickTarget.ToString("F6") +
-                    ", velocity=" + transferVelocity.ToString("F6") +
-                    ", acc=" + transferAcceleration.ToString("F6") +
-                    ", dec=" + transferDeceleration.ToString("F6") + " - Start");
+                    ", pickerXVel=" + pickerXTransferVelocity.ToString("F6") +
+                    ", stageYVel=" + stageYTransferVelocity.ToString("F6") +
+                    ", needleXVel=" + needleXTransferVelocity.ToString("F6") +
+                    ", speedModel=DefaultVelocity*GlobalScale - Start");
 
                 // R3(follow-entry): 비전 회피가 진행 중이면 follow 진입(+R6 폴백) — 정지 상태면 기존 이동.
                 Task<int> pickerXMoveTask = StartPickUpPickerXEntryMoveTask(
                     stage,
-                    transferVelocity,
-                    transferAcceleration,
-                    transferDeceleration,
+                    pickerXTransferVelocity,
+                    pickerXTransferAcceleration,
+                    pickerXTransferDeceleration,
                     "PickUp ContiNode PickerX async target",
                     targetName,
                     ct);
@@ -890,9 +944,9 @@ namespace QMC.CDT320.Sequencing
                     stage,
                     WaferStageAxis.WaferY,
                     _targetStageY,
-                    transferVelocity,
-                    transferAcceleration,
-                    transferDeceleration,
+                    stageYTransferVelocity,
+                    stageYTransferAcceleration,
+                    stageYTransferDeceleration,
                     "PickUp ContiNode StageY async target",
                     ct,
                     BuildPickUpInputStageMoveTargetName(WaferStageAxis.WaferY, "PickUpContiNodeStageY"));
@@ -900,9 +954,9 @@ namespace QMC.CDT320.Sequencing
                     stage,
                     WaferStageAxis.NeedleX,
                     _targetNeedleX,
-                    transferVelocity,
-                    transferAcceleration,
-                    transferDeceleration,
+                    needleXTransferVelocity,
+                    needleXTransferAcceleration,
+                    needleXTransferDeceleration,
                     "PickUp ContiNode NeedleX async target",
                     ct,
                     BuildPickUpInputStageMoveTargetName(WaferStageAxis.NeedleX, "PickUpContiNodeNeedleX"));
