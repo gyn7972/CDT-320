@@ -531,11 +531,68 @@ namespace QMC.CDT320.Sequencing
             }
             if (!recipeChange && HasOutputActiveMaterial())
             {
+                if (outputMapped)
+                {
+                    if (controller != null &&
+                        !controller.CompleteOutputFullPreparation(requestRecipeName))
+                    {
+                        return Fail(
+                            "OUT-FULL-PREP-RECIPE-CHANGED",
+                            "OutputSequence",
+                            "Output 준비 요청 완료 중 활성 Recipe가 변경되었습니다. " +
+                            "requestedRecipe=" + requestRecipeName +
+                            ", activeRecipe=" + controller.ActiveRecipeName);
+                    }
+
+                    Context.LogPublic(
+                        "[OUTPUT] 진행 자재와 기존 Mapping을 유지하고 Output 준비 요청만 완료했습니다. reason=" +
+                        requestReason);
+                    return 0;
+                }
+
                 Context.LogPublic(
-                    "[OUTPUT] 초기 전체 준비 요청이 있으나 복구할 진행 자재가 있어 기존 단일 side 재개 흐름을 유지합니다. " +
+                    "[OUTPUT] 진행 자재를 유지한 채 Mapping이 무효화된 Output Cassette Side만 다시 Mapping합니다. " +
                     "reason=" + requestReason + ", recipe=" + requestRecipeName);
-                if (controller != null)
-                    controller.CompleteOutputFullPreparation(controller.ActiveRecipeName ?? string.Empty);
+
+                string preflightAlarmCode;
+                string preflightReason;
+                if (!TryValidateRequiredCassetteMappingPreconditions(out preflightAlarmCode, out preflightReason))
+                    return Fail(preflightAlarmCode, "OutputSequence", preflightReason);
+
+                int selectiveMappingResult = await ExecuteCoordinatorOutputLoaderWorkAsync(
+                    "OutputCassetteSelectiveMapping",
+                    ct,
+                    () => ExecuteRequiredCassetteMappingsAsync(
+                        ct,
+                        bFine,
+                        moveTimeoutMs,
+                        startMode)).ConfigureAwait(false);
+                if (selectiveMappingResult != 0)
+                    return selectiveMappingResult;
+
+                if (!AreRequiredOutputCassettesMapped())
+                {
+                    return Fail(
+                        "OUT-CST-SELECTIVE-MAP-STATE",
+                        "OutputSequence",
+                        "진행 자재 유지 상태에서 선택적 Output Cassette Mapping이 완료되지 않았습니다. reason=" +
+                        requestReason);
+                }
+
+                if (controller != null &&
+                    !controller.CompleteOutputFullPreparation(requestRecipeName))
+                {
+                    return Fail(
+                        "OUT-CST-SELECTIVE-MAP-RECIPE-CHANGED",
+                        "OutputSequence",
+                        "선택적 Output Cassette Mapping 중 활성 Recipe가 변경되어 준비 완료 상태를 확정하지 않았습니다. " +
+                        "requestedRecipe=" + requestRecipeName +
+                        ", activeRecipe=" + controller.ActiveRecipeName);
+                }
+
+                Context.LogPublic(
+                    "[OUTPUT] 진행 자재 유지 상태의 선택적 Output Cassette Mapping을 완료했습니다. reason=" +
+                    requestReason);
                 return 0;
             }
 
@@ -695,7 +752,7 @@ namespace QMC.CDT320.Sequencing
 
             if (!AreRequiredOutputCassettesMapped())
             {
-                int mappingResult = await ExecuteCassetteMappingAsync(
+                int mappingResult = await ExecuteRequiredCassetteMappingsAsync(
                     ct,
                     bFine,
                     moveTimeoutMs,

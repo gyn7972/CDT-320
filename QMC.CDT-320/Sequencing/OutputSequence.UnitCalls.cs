@@ -21,10 +21,12 @@ namespace QMC.CDT320.Sequencing
         public async Task<int> ExecuteCassetteMappingAsync(CancellationToken ct, bool bFine = false, int moveTimeoutMs = 0, SequenceStartMode startMode = SequenceStartMode.Resume)
         {
             // GOOD 카세트 맵핑: 레시피 1단/2단(GoodLevelCount)을 반영해 Good1(+2단 구성 시 Good2) 존을 스캔/등록한다.
-            var goodSequence = new OutputCassetteSequence(Context);
-            int goodResult = await SequenceTrace.ChildAsync("OutputCassetteSequence", "Mapping",
-                () => goodSequence.RunMappingAsync(ct, BuildCassetteOptions(TargetCassette.Good1, bFine, moveTimeoutMs, startMode)),
-                "target=Good").ConfigureAwait(false);
+            int goodResult = await ExecuteCassetteMappingForSideAsync(
+                BinSide.Good,
+                ct,
+                bFine,
+                moveTimeoutMs,
+                startMode).ConfigureAwait(false);
             if (goodResult != 0)
                 return goodResult;
 
@@ -44,16 +46,187 @@ namespace QMC.CDT320.Sequencing
                 return 0;
             }
 
-            var ngSequence = new OutputCassetteSequence(Context);
-            return await SequenceTrace.ChildAsync("OutputCassetteSequence", "MappingNg",
-                () => ngSequence.RunMappingAsync(ct, BuildCassetteOptions(TargetCassette.Ng, bFine, moveTimeoutMs, startMode)),
-                "target=Ng").ConfigureAwait(false);
+            return await ExecuteCassetteMappingForSideAsync(
+                BinSide.Ng,
+                ct,
+                bFine,
+                moveTimeoutMs,
+                startMode).ConfigureAwait(false);
+        }
+
+        /// <summary>
+        /// Auto 시작/재개 시 실제로 Mapping이 무효화된 Side만 다시 Mapping한다.
+        /// 반대 Side의 Mapping 및 Material 정보는 유지하며, 대상 Side에 기존 Cassette Material이
+        /// 남아 있으면 덮어쓰지 않고 실패 처리한다.
+        /// </summary>
+        private async Task<int> ExecuteRequiredCassetteMappingsAsync(
+            CancellationToken ct,
+            bool bFine,
+            int moveTimeoutMs,
+            SequenceStartMode startMode)
+        {
+            bool mapGood = !IsRequiredOutputCassetteSideMapped(BinSide.Good);
+            bool mapNg = IsNgCassetteUsed() && !IsRequiredOutputCassetteSideMapped(BinSide.Ng);
+
+            if (!mapGood && !mapNg)
+            {
+                Context.LogPublic("[OUTPUT-CASSETTE] 선택적 Mapping 대상이 없습니다. GOOD/NG Mapping 상태를 유지합니다.");
+                return 0;
+            }
+
+            Context.LogPublic(
+                "[OUTPUT-CASSETTE] 선택적 Mapping을 시작합니다. mapGood=" + mapGood +
+                ", mapNg=" + mapNg);
+
+            string preflightAlarmCode;
+            string preflightReason;
+            if (!TryValidateRequiredCassetteMappingPreconditions(out preflightAlarmCode, out preflightReason))
+                return Fail(preflightAlarmCode, "OutputSequence", preflightReason);
+
+            if (mapGood)
+            {
+                int goodResult = await ExecuteCassetteMappingForSideAsync(
+                    BinSide.Good,
+                    ct,
+                    bFine,
+                    moveTimeoutMs,
+                    startMode).ConfigureAwait(false);
+                if (goodResult != 0)
+                    return goodResult;
+            }
+
+            if (mapNg)
+            {
+                int ngResult = await ExecuteCassetteMappingForSideAsync(
+                    BinSide.Ng,
+                    ct,
+                    bFine,
+                    moveTimeoutMs,
+                    startMode).ConfigureAwait(false);
+                if (ngResult != 0)
+                    return ngResult;
+            }
+
+            if (!AreRequiredOutputCassettesMapped())
+            {
+                return Fail(
+                    "OUT-CST-SELECTIVE-MAP-INCOMPLETE",
+                    "OutputSequence",
+                    "선택적 Output Cassette Mapping 후에도 필수 Mapping 상태가 완료되지 않았습니다. " +
+                    "mapGood=" + mapGood + ", mapNg=" + mapNg);
+            }
+
+            Context.LogPublic(
+                "[OUTPUT-CASSETTE] 선택적 Mapping을 완료했습니다. mapGood=" + mapGood +
+                ", mapNg=" + mapNg);
+            return 0;
+        }
+
+        private bool TryValidateRequiredCassetteMappingPreconditions(out string alarmCode, out string reason)
+        {
+            bool mapGood = !IsRequiredOutputCassetteSideMapped(BinSide.Good);
+            bool mapNg = IsNgCassetteUsed() && !IsRequiredOutputCassetteSideMapped(BinSide.Ng);
+
+            if (mapGood)
+            {
+                if (IsSelectiveCassetteMappingBlockedByActiveMaterial(BinSide.Good, out reason))
+                {
+                    alarmCode = "OUT-CST-SELECTIVE-GOOD-ACTIVE";
+                    return false;
+                }
+
+                if (HasOutputCassetteWaferInfo(BinSide.Good))
+                {
+                    alarmCode = "OUT-CST-SELECTIVE-GOOD-DATA";
+                    reason = "GOOD 카세트 Mapping은 무효 상태이지만 기존 GOOD Cassette Material 정보가 남아 있어 자동으로 덮어쓸 수 없습니다.";
+                    return false;
+                }
+            }
+
+            if (mapNg)
+            {
+                if (IsSelectiveCassetteMappingBlockedByActiveMaterial(BinSide.Ng, out reason))
+                {
+                    alarmCode = "OUT-CST-SELECTIVE-NG-ACTIVE";
+                    return false;
+                }
+
+                if (HasOutputCassetteWaferInfo(BinSide.Ng))
+                {
+                    alarmCode = "OUT-CST-SELECTIVE-NG-DATA";
+                    reason = "NG 카세트 Mapping은 무효 상태이지만 기존 NG Cassette Material 정보가 남아 있어 자동으로 덮어쓸 수 없습니다.";
+                    return false;
+                }
+            }
+
+            alarmCode = string.Empty;
+            reason = string.Empty;
+            return true;
+        }
+
+        private static bool IsSelectiveCassetteMappingBlockedByActiveMaterial(BinSide side, out string reason)
+        {
+            MaterialLocationKind stageLocation = side == BinSide.Ng
+                ? MaterialLocationKind.OutputStageNg
+                : MaterialLocationKind.OutputStageGood;
+            WaferMaterial stageWafer = MaterialStateService.GetWaferAtLocation(stageLocation);
+            if (stageWafer != null)
+            {
+                reason = side + " OutputStage에 진행 중인 Material이 있어 같은 Side 카세트를 자동 Mapping할 수 없습니다. " +
+                         "wafer=" + stageWafer.WaferId;
+                return true;
+            }
+
+            WaferMaterial feederWafer = MaterialStateService.GetWaferAtLocation(MaterialLocationKind.OutputFeeder);
+            if (feederWafer != null)
+            {
+                BinSide feederSide;
+                string feederSideText = TryResolveBinSide(feederWafer, out feederSide)
+                    ? feederSide.ToString()
+                    : "Unknown";
+                reason = "OutputFeeder에 진행 중인 Material이 있어 카세트 Mapping 안전 자세를 확보할 수 없습니다. " +
+                         "wafer=" + feederWafer.WaferId + ", feederSide=" + feederSideText +
+                         ", mappingSide=" + side;
+                return true;
+            }
+
+            reason = string.Empty;
+            return false;
+        }
+
+        private async Task<int> ExecuteCassetteMappingForSideAsync(
+            BinSide side,
+            CancellationToken ct,
+            bool bFine,
+            int moveTimeoutMs,
+            SequenceStartMode startMode)
+        {
+            if (side == BinSide.Ng && !IsNgCassetteUsed())
+            {
+                Context.LogPublic("[OUTPUT-CASSETTE] NG 카세트 미사용(UseNgCassette=false) - NG Mapping을 건너뜁니다.");
+                return 0;
+            }
+
+            TargetCassette target = side == BinSide.Ng ? TargetCassette.Ng : TargetCassette.Good1;
+            string traceStep = side == BinSide.Ng ? "MappingNg" : "Mapping";
+            string traceTarget = side == BinSide.Ng ? "target=Ng" : "target=Good";
+            var sequence = new OutputCassetteSequence(Context);
+            return await SequenceTrace.ChildAsync(
+                "OutputCassetteSequence",
+                traceStep,
+                () => sequence.RunMappingAsync(ct, BuildCassetteOptions(target, bFine, moveTimeoutMs, startMode)),
+                traceTarget).ConfigureAwait(false);
         }
 
         // 판정 기준(옵션 1): NG(Ng1) 출력 카세트에 웨이퍼 Material 기록이 하나도 없으면 "정보 없음"으로 보고 자동 NG 맵핑을 허용한다.
         // - NG 카세트 슬롯에 배정된 WaferId/HasWafer가 있거나
         // - 위치가 NG 출력 카세트(OutputCassette/Ng1)인 비어있지 않은 웨이퍼가 있으면 정보 있음으로 판정한다.
         private static bool HasNgOutputCassetteWaferInfo()
+        {
+            return HasOutputCassetteWaferInfo(BinSide.Ng);
+        }
+
+        private static bool HasOutputCassetteWaferInfo(BinSide side)
         {
             MaterialSnapshot state = MaterialStateService.State;
             if (state == null)
@@ -63,7 +236,7 @@ namespace QMC.CDT320.Sequencing
             {
                 foreach (CassetteMaterial cassette in state.Cassettes)
                 {
-                    if (cassette == null || cassette.Role != CassetteMaterialRole.Ng1 || cassette.Slots == null)
+                    if (cassette == null || !IsOutputCassetteRoleForSide(cassette.Role, side) || cassette.Slots == null)
                         continue;
 
                     foreach (CassetteSlotMaterial slot in cassette.Slots)
@@ -84,12 +257,21 @@ namespace QMC.CDT320.Sequencing
                         continue;
                     if (wafer.CurrentLocation != null &&
                         wafer.CurrentLocation.Kind == MaterialLocationKind.OutputCassette &&
-                        wafer.CurrentLocation.CassetteRole == CassetteMaterialRole.Ng1)
+                        IsOutputCassetteRoleForSide(wafer.CurrentLocation.CassetteRole, side))
                         return true;
                 }
             }
 
             return false;
+        }
+
+        private static bool IsOutputCassetteRoleForSide(CassetteMaterialRole role, BinSide side)
+        {
+            if (side == BinSide.Ng)
+                return role == CassetteMaterialRole.Ng1;
+
+            return role == CassetteMaterialRole.Good1 ||
+                   role == CassetteMaterialRole.Good2;
         }
 
         public Task<int> ExecuteCassetteUnloadingAsync(CancellationToken ct, TargetCassette target = TargetCassette.Good1, bool bFine = false, int moveTimeoutMs = 0, SequenceStartMode startMode = SequenceStartMode.Resume)

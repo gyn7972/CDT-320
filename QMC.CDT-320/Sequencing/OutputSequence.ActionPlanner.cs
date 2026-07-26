@@ -232,6 +232,17 @@ namespace QMC.CDT320.Sequencing
         // To do: [NG 스킵] NG 맵핑 필수 요구를 사용 여부 조건부로 완화.
         private bool AreRequiredOutputCassettesMapped()
         {
+            return IsRequiredOutputCassetteSideMapped(BinSide.Good) &&
+                   IsRequiredOutputCassetteSideMapped(BinSide.Ng);
+        }
+
+        /// <summary>
+        /// 선택한 출력 Side가 현재 Recipe 구성에서 Auto 공급에 사용할 수 있도록 Mapping 되었는지 확인한다.
+        /// GOOD Mapping은 Good1과 활성화된 Good2를 한 묶음으로 취급한다.
+        /// NG 미사용 설정에서는 NG를 Mapping 완료로 간주한다.
+        /// </summary>
+        private bool IsRequiredOutputCassetteSideMapped(BinSide side)
+        {
             MaterialSnapshot state = MaterialStateService.State;
             if (state == null || state.Cassettes == null)
                 return false;
@@ -252,15 +263,21 @@ namespace QMC.CDT320.Sequencing
                     ng1 = cassette;
             }
 
-            // 기존 조건: if (!IsOutputCassetteMapped(good1) || !IsOutputCassetteMapped(ng1)) return false;
+            if (side == BinSide.Ng)
+                return !IsNgCassetteUsed() || IsOutputCassetteMapped(ng1);
+
             if (!IsOutputCassetteMapped(good1))
                 return false;
-            if (IsNgCassetteUsed() && !IsOutputCassetteMapped(ng1))
-                return false;
-            if (good2 != null && good2.IsEnabled && !IsOutputCassetteMapped(good2))
-                return false;
 
-            return true;
+            var outputCassette = Context != null && Context.Machine != null
+                ? Context.Machine.OutputCassetteUnit
+                : null;
+            bool good2Required = outputCassette != null && outputCassette.Config != null
+                ? outputCassette.Config.SelectedCassetteLevel >= 2
+                : good2 != null && good2.IsEnabled;
+            if (good2 != null && good2.IsEnabled != good2Required)
+                return false;
+            return !good2Required || IsOutputCassetteMapped(good2);
         }
 
         private static bool IsOutputCassetteMapped(CassetteMaterial cassette)

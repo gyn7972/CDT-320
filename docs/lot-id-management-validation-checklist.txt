@@ -1,0 +1,133 @@
+﻿CDT-320 LOT ID 관리 기능 검증 체크리스트
+
+대상 문서: docs\lot-id-management-implementation-prompt.txt
+작성 시점 기준: branch=master, HEAD=713ee25c
+
+표기
+  [ ] 미확인   [O] 확인 완료   [X] 실패/조치 필요   [-] 해당 없음
+
+
+A. 작업 규칙 준수
+
+[ ] A-1  소스 경로가 D:\Source\CDT-320_New 하나만 사용되었다.
+[ ] A-2  작업 시작 시 Git branch / HEAD / status 를 재확인하고 보고했다.
+[ ] A-3  작업 전부터 있던 변경 파일(OutputSequence*.cs, OutputCassettePage.cs 등)을 보존했다.
+[ ] A-4  reset / checkout 롤백 / clean / revert / commit / push / pull / merge / rebase 를 실행하지 않았다.
+[ ] A-5  Clean / Rebuild 를 실행하지 않았다. 빌드는 /t:Build + 별도 OutDir 만 사용했다.
+[ ] A-6  빌드 전후로 D:\CDT-320\QMC.CDT-320.exe 타임스탬프가 변하지 않았음을 확인했다.
+[ ] A-7  수정/신규 파일이 UTF-8 BOM + CRLF 를 유지한다(단독 LF 0건).
+[ ] A-8  git diff --check 가 통과한다.
+[ ] A-9  UI 컨트롤 생성·배치·이벤트 연결이 *.Designer.cs 의 InitializeComponent() 안에 인라인으로 있다.
+[ ] A-10 실제 설비 축 구동 시험을 임의로 실행하지 않았다.
+[ ] A-11 빌드 오류 0 이다.
+
+
+B. MaterialStateService.SetProductionLotId (4.2)
+
+[ ] B-1  State.LotId 설정이 _stateSync 락 안에서 이루어진다.
+[ ] B-2  설정 후 NotifyAndSave 가 호출되어 스냅샷에 영속화된다.
+[ ] B-3  공백/null 입력 처리 정책이 한 가지로 고정되어 있고 주석에 명시되어 있다.
+[ ] B-4  GetProductionLotId() 가 설정 직후 같은 값을 돌려준다.
+
+
+C. LotSessionService — LOT 시작 (4.1)
+
+[ ] C-1  빈 LOT ID 로 시작하면 거부되고 사유가 표시된다.
+[ ] C-2  이미 활성 LOT 이 있으면 새 시작이 거부되고 "먼저 완료" 안내가 나온다.
+[ ] C-3  시작 성공 시 MaterialSnapshot.LotId 가 입력값으로 바뀐다.
+[ ] C-4  시작 성공 시 활성 RecipeProject.LotId 에 같은 값이 기록된다. (사용자 요구 2.4)
+[ ] C-5  레시피가 실제로 디스크에 저장된다(SaveMachineRecipe 호출, 실패 시 사유 표시).
+[ ] C-6  LotStorage.OpenLot 이 호출되고, 생성된 Lot.LotID 가 입력한 LOT ID 와 **완전히 동일**하다.
+         (LOT-yyyyMMdd-HHmmss 자동 생성 ID 가 아니어야 한다 — 3.2 함정)
+[ ] C-7  검증 실패 시 위 4가지(스냅샷 / 레시피 / 레시피저장 / OpenLot)가 **하나도** 반영되지 않는다.
+[ ] C-8  시작 시 한글 로그와 EventLogger 이벤트가 남는다.
+[ ] C-9  totalDies 가 MachineController.ResolveProductionStatsTotalDies() 와 같은 기준으로 채워진다.
+
+
+D. LotSessionService — LOT 완료 (4.1)
+
+[ ] D-1  활성 LOT 이 없으면 완료가 거부되고 사유가 표시된다.
+[ ] D-2  완료 시 ProductionStatsSnapshot 의 ProcessedDies / GoodCount / NgCount 가 Lot 에 반영된다.
+[ ] D-3  Lot.State 가 Completed 로, FinishedAt 이 채워진다.
+[ ] D-4  Log\Lots 폴더에 yyyyMMdd_<LOTID>.json 파일이 생성된다.
+[ ] D-5  완료 후 LotStorage.ActiveLot 이 null 이 된다.
+[ ] D-6  완료 시 한글 로그와 EventLogger 이벤트가 남는다.
+[ ] D-7  다이 핫패스(Lot.RecordDie)에 새 호출을 추가하지 **않았다**(택타임 부하 0 유지).
+
+
+E. 자동 운전 START 차단 (4.3)
+
+[ ] E-1  활성 LOT 이 없는 상태에서 자동 START 를 누르면 운전이 시작되지 않는다.
+[ ] E-2  차단 시 알람이 아니라 사용자 안내 메시지로 처리된다.
+[ ] E-3  차단 시 임시 LOT 이 자동 생성되지 **않는다**. (사용자 확정 2.2)
+[ ] E-4  Manual / Step 모드는 차단되지 않는다.
+[ ] E-5  활성 LOT 이 있으면 기존과 동일하게 자동 운전이 시작된다.
+[ ] E-6  차단 처리 위치가 EnsureReticleAvoidForAutoStart 와 동일한 패턴(조기 return)이다.
+
+
+F. LOT 단위 = 여러 카세트 (사용자 확정 2.1)
+
+[ ] F-1  입력 카세트 소진(StopAutoSequenceIfInputCassetteComplete)이 LOT 을 완료시키지 **않는다**.
+[ ] F-2  카세트 교체 후 재시작해도 같은 LOT 이 유지된다(LotStorage.ActiveLot 동일 객체).
+[ ] F-3  CycleStop → 재시작 시 ProductionStatsEngine.TryResumeLot 이 동작해 통계가 이어진다.
+[ ] F-4  LOT 완료는 오직 [LOT 완료] 버튼으로만 발생한다.
+
+
+G. UI — 작업 정보(grpInfo) 재구성 (4.4)
+
+[ ] G-1  workInfoBody 행0 이 LOT 입력줄로 바뀌었고 ColumnSpan 4 로 전체 폭을 쓴다.
+[ ] G-2  LOT ID 라벨 / TextBox / [LOT 시작] / [LOT 완료] 가 한 줄에 배치된다.
+[ ] G-3  버튼 스타일이 grpTime 액션 패널(Button + FlatStyle.Flat + BackColor)과 통일된다.
+[ ] G-4  LOT 리스트 DataGridView 가 표시되고 컬럼이 LOT ID / 상태 / 시작 / 종료 / 처리 / GOOD / NG / 수율(%) 이다.
+[ ] G-5  활성 LOT 없음: TextBox 활성, [LOT 시작] 활성, [LOT 완료] 비활성.
+[ ] G-6  활성 LOT 있음: TextBox 비활성, [LOT 시작] 비활성, [LOT 완료] 활성.
+[ ] G-7  LOT 시작/완료 후 리스트가 즉시 갱신된다.
+[ ] G-8  기존 lblLot("작업중인 LOT ID", grpTime 행0)이 새 LOT ID 를 정상 표시한다.
+[ ] G-9  프로젝트 이름 타일 제거로 정보가 사라지지 않았다(상단 상태바 lblProjectValue 로 확인 가능).
+[ ] G-10 ApplyBottomGroupSizing() 의 0.35F / Math.Max(230, ...) 를 조정했고 근거를 주석에 남겼다.
+[ ] G-11 창 크기를 바꿔도 LOT 입력줄과 리스트가 잘리지 않는다(최소 크기에서도 확인).
+[ ] G-12 Visual Studio 디자이너 View 에서 화면이 정상적으로 보인다.
+
+
+H. ID 통일 — 기존 UI 3곳 정상화 (3.2 함정)
+
+[ ] H-1  StatePage.cs:74-79 의 lot 폐기 비교가 더 이상 lot 을 null 로 만들지 않는다.
+[ ] H-2  WorkMainPage.cs:679-684 동일.
+[ ] H-3  LiveLotMapView.cs:602-606 동일.
+[ ] H-4  StatePage 의 ACTIVE LOT 패널에 "(no active lot)" 대신 실제 LOT 정보가 표시된다.
+[ ] H-5  세 곳의 비교 로직을 수정했다면, 수정 사유를 주석으로 남겼다.
+
+
+I. 회귀 방지 (건드리지 말아야 할 것)
+
+[ ] I-1  LotStorage.ActiveInputDieMap 관련 동작이 변하지 않았다(DieMap 시각화/시퀀스 20여 곳 사용 중).
+[ ] I-2  legacy CycleRunAsync / DoOneDieAsync 경로를 수정하지 않았다.
+[ ] I-3  피더 UseBarcode 옵션과 InputFeederUnit.ReadWaferFeederBarcode 를 건드리지 않았다.
+[ ] I-4  Form1 상단 상태바 lblBarcodeValue(VisionHub 상태 표시)를 건드리지 않았다.
+[ ] I-5  바코드 리더 2대(wafer ID 전용) 관련 코드를 건드리지 않았다.
+[ ] I-6  모션 시퀀스 순서 / 인터락을 변경하지 않았다.
+[ ] I-7  TactTime / CSV / 비전 전문의 LotId 소비 경로가 그대로 동작한다.
+
+
+J. 실기 확인 (사용자 수행)
+
+[ ] J-1  LOT ID 입력 → [LOT 시작] → 상단/작업시간의 LOT ID 표시가 바뀐다.
+[ ] J-2  레시피 탭 ProjectPage 의 LOT ID 값이 입력값으로 갱신되어 있다.
+[ ] J-3  프로그램 재기동 후에도 레시피 LotId 가 유지된다.
+[ ] J-4  LOT 시작 없이 자동 START → 차단되고 안내가 나온다.
+[ ] J-5  LOT 시작 후 자동 START → 정상 운전된다.
+[ ] J-6  운전 중 입력 카세트를 교체해도 LOT 이 유지된다.
+[ ] J-7  [LOT 완료] → 리스트에 완료 상태/시간/수율이 표시된다.
+[ ] J-8  Log\Lots 에 JSON 파일이 생성되어 있다.
+[ ] J-9  TactTime CSV(Log\TactTime\yyyy-MM-dd.csv)의 LotId 컬럼이 입력한 LOT ID 로 기록된다.
+[ ] J-10 LOT 완료 후 새 LOT ID 로 다시 시작할 수 있다.
+
+
+K. 미결/후속 (이번 범위 아님)
+
+[ ] K-1  바코드 LOT ID 입력 — IBarcodeReader 이벤트 확장 + 리더 인스턴스 생성 필요.
+[ ] K-2  BarcodeReaderPage 목업을 실제 설정 바인딩으로 교체.
+[ ] K-3  Form1 상단 "Barcode Name" 캡션/값 불일치 정리(현재 VisionHub 상태 표시 중).
+[ ] K-4  RequireActiveLot 가드(IN-CST-NO-LOT / OUT-CST-NO-LOT) 활성화 여부 결정 (프롬프트 4.5).
+[ ] K-5  legacy CycleRunAsync / DoOneDieAsync 삭제 검토 (MachineController.cs:8930-8935 주석).
+[ ] K-6  LOT 이력 전용 페이지(README 가 언급하나 없는 ActiveLotPage) 신설 여부.

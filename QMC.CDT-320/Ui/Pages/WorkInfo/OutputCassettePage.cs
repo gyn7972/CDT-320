@@ -237,7 +237,104 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             btnLoadNg.Enabled = enabled;
             btnUnload.Enabled = enabled;
             btnUnloadNg.Enabled = enabled;
+            btnCstExchange.Enabled = enabled;
+            btnCstExchangeNg.Enabled = enabled;
+            btnCstClear.Enabled = enabled;
+            btnCstClearNg.Enabled = enabled;
             btnStop.Enabled = true;
+        }
+
+        private bool CanChangeOutputCassetteData(Form1 host, string actionName)
+        {
+            if (host == null || host.Controller == null)
+            {
+                QMC.Common.MessageDialog.Show(this,
+                    "장비 제어기를 확인할 수 없어 Output Cassette 데이터를 변경할 수 없습니다.",
+                    "Cassette Data", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return false;
+            }
+
+            MachineController controller = host.Controller;
+            EquipmentStatus status = controller.Status;
+            bool blocked = _manualSequenceRunning ||
+                           controller.IsManualBusy ||
+                           controller.IsSequenceRunning ||
+                           controller.IsReadySequenceRunning ||
+                           status == EquipmentStatus.AutoRunning ||
+                           status == EquipmentStatus.ManualRunning ||
+                           status == EquipmentStatus.Initializing;
+            if (!blocked)
+                return true;
+
+            QMC.Common.MessageDialog.Show(this,
+                actionName + " 작업을 수행할 수 없습니다.\r\n" +
+                "Auto/Manual/초기화/Ready 시퀀스가 완전히 정지된 뒤 다시 시도하세요.\r\n" +
+                "status=" + status +
+                ", sequenceRunning=" + controller.IsSequenceRunning +
+                ", manualBusy=" + controller.IsManualBusy +
+                ", readyRunning=" + controller.IsReadySequenceRunning,
+                "Cassette Data", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            return false;
+        }
+
+        private bool CanPrepareOutputCassetteExchange(BinSide side)
+        {
+            MaterialLocationKind stageLocation = side == BinSide.Ng
+                ? MaterialLocationKind.OutputStageNg
+                : MaterialLocationKind.OutputStageGood;
+            WaferMaterial stageWafer = MaterialStateService.GetWaferAtLocation(stageLocation);
+            if (stageWafer == null)
+                return true;
+
+            string sideName = side == BinSide.Ng ? "NG" : "GOOD";
+            QMC.Common.MessageDialog.Show(this,
+                sideName + " OutputStage에 진행 중인 Bin이 있어 카세트 교체를 준비할 수 없습니다.\r\n" +
+                "해당 Bin을 기존 카세트로 먼저 Unload한 뒤 다시 시도하세요.\r\n" +
+                "wafer=" + stageWafer.WaferId,
+                "Cassette Exchange", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            return false;
+        }
+
+        private bool CanClearOutputCassetteSideData(BinSide side)
+        {
+            if (!CanPrepareOutputCassetteExchange(side))
+                return false;
+
+            WaferMaterial feederWafer = MaterialStateService.GetWaferAtLocation(MaterialLocationKind.OutputFeeder);
+            if (feederWafer == null)
+                return true;
+
+            QMC.Common.MessageDialog.Show(this,
+                "OutputFeeder에 진행 중인 Bin이 있어 카세트 데이터를 초기화할 수 없습니다.\r\n" +
+                "Bin을 원래 카세트로 반납하고 Feeder를 안전 복귀한 뒤 다시 시도하세요.\r\n" +
+                "wafer=" + feederWafer.WaferId,
+                "Cassette Data", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            return false;
+        }
+
+        private bool CanClearOutputCassetteDetailData(params BinSide[] sides)
+        {
+            Form1 host = GetHost();
+            if (host != null && host.Controller != null &&
+                host.Controller.Status == EquipmentStatus.CycleStopped)
+            {
+                QMC.Common.MessageDialog.Show(this,
+                    "Cycle Stop 재개 정보가 남아 있어 Slot/Data All Clear를 수행할 수 없습니다.\r\n" +
+                    "일반 STOP으로 전환한 뒤 다시 시도하세요.",
+                    "Cassette Data", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return false;
+            }
+
+            if (sides == null)
+                return true;
+
+            foreach (BinSide side in sides)
+            {
+                if (!CanClearOutputCassetteSideData(side))
+                    return false;
+            }
+
+            return true;
         }
 
         private async Task StopManualActionAsync()
@@ -401,6 +498,8 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                     "Cassette Exchange", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return false;
             }
+            if (!CanPrepareOutputCassetteExchange(side))
+                return false;
 
             string sideLabel = side == BinSide.Ng ? "NG" : "GOOD";
             if (!ConfirmMaterialDataAction(
@@ -545,20 +644,20 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             try
             {
                 Form1 host = GetHost();
-                if (host != null && host.Controller != null &&
-                    host.Controller.Status == EquipmentStatus.AutoRunning)
-                {
-                    QMC.Common.MessageDialog.Show(this,
-                        "자동 운전 중에는 카세트 데이터를 초기화할 수 없습니다.\r\n정지 후 다시 시도하세요.",
-                        "Cassette Exchange", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                if (!CanChangeOutputCassetteData(host, "Output Cassette " + side + " CLEAR"))
                     return;
-                }
+                if (!CanClearOutputCassetteSideData(side))
+                    return;
 
                 string sideName = side == BinSide.Ng ? "NG" : "GOOD";
                 string keepName = side == BinSide.Ng ? "GOOD" : "NG";
                 if (!ConfirmMaterialDataAction(
                     sideName + " 카세트의 Material Data만 초기화합니다.\r\n" +
                     "(" + keepName + " 카세트 데이터는 유지됩니다)\r\n\r\n진행할까요?"))
+                    return;
+                if (!CanChangeOutputCassetteData(host, "Output Cassette " + sideName + " CLEAR"))
+                    return;
+                if (!CanClearOutputCassetteSideData(side))
                     return;
 
                 if (!MaterialStateService.ClearOutputCassetteSideData(side))
@@ -567,6 +666,16 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                         sideName + " 카세트 Material Data 초기화에 실패했습니다.",
                         "Cassette Exchange", MessageBoxButtons.OK, MessageBoxIcon.Error);
                     return;
+                }
+
+                // RecipeChange 등 더 강한 기존 전체 준비 요청의 사유를 Side Clear가 덮어쓰면
+                // Auto 준비 정책이 약화될 수 있다. 기존 요청이 없을 때만 새 요청을 등록하며,
+                // 실제 선택 대상은 위 Clear가 false로 만든 Side별 IsMapped 상태로 판정한다.
+                if (!host.Controller.IsOutputFullPreparationRequested)
+                {
+                    host.Controller.RequestOutputFullPreparation(
+                        "CassetteExchangeClear:" + sideName,
+                        host.Controller.ActiveRecipeName ?? string.Empty);
                 }
 
                 RefreshData();
@@ -1170,10 +1279,27 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             {
                 if (_selectedMaterialSlot < 0)
                     return;
+                if (!CanChangeOutputCassetteData(GetHost(), "Output Cassette Slot CLEAR"))
+                    return;
+                BinSide selectedSide = _selectedCassetteRole == CassetteMaterialRole.Ng1
+                    ? BinSide.Ng
+                    : BinSide.Good;
+                if (!CanClearOutputCassetteDetailData(selectedSide))
+                    return;
                 if (!ConfirmMaterialDataAction("선택한 Output Cassette Slot의 Material Data를 초기화하시겠습니까?"))
                     return;
+                if (!CanChangeOutputCassetteData(GetHost(), "Output Cassette Slot CLEAR"))
+                    return;
+                if (!CanClearOutputCassetteDetailData(selectedSide))
+                    return;
 
-                MaterialStateService.ClearOutputCassetteSlotData(_selectedCassetteRole, _selectedMaterialSlot);
+                if (!MaterialStateService.ClearOutputCassetteSlotData(_selectedCassetteRole, _selectedMaterialSlot))
+                {
+                    QMC.Common.MessageDialog.Show(this,
+                        "선택한 Output Cassette Slot의 Material Data 초기화에 실패했습니다.",
+                        "Material Data", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    return;
+                }
                 RefreshData();
             }
             catch (Exception ex)
@@ -1189,10 +1315,24 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
         {
             try
             {
+                if (!CanChangeOutputCassetteData(GetHost(), "Output Cassette DATA ALL CLEAR"))
+                    return;
+                if (!CanClearOutputCassetteDetailData(BinSide.Good, BinSide.Ng))
+                    return;
                 if (!ConfirmMaterialDataAction("Output Cassette의 모든 Material Data를 초기화하시겠습니까?"))
                     return;
+                if (!CanChangeOutputCassetteData(GetHost(), "Output Cassette DATA ALL CLEAR"))
+                    return;
+                if (!CanClearOutputCassetteDetailData(BinSide.Good, BinSide.Ng))
+                    return;
 
-                MaterialStateService.ClearOutputCassetteAllSlotData();
+                if (!MaterialStateService.ClearOutputCassetteAllSlotData())
+                {
+                    QMC.Common.MessageDialog.Show(this,
+                        "Output Cassette의 모든 Material Data 초기화에 실패했습니다.",
+                        "Material Data", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    return;
+                }
                 RefreshData();
             }
             catch (Exception ex)
