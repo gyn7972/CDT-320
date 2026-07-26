@@ -1,6 +1,7 @@
 ﻿using QMC.CDT320.Bin;
 using QMC.CDT320.Interlocks;
 using QMC.CDT320.Materials;
+using QMC.CDT320.Sequencing.Safety;
 using QMC.Common;
 using QMC.Common.Alarms;
 using QMC.Common.IO;
@@ -905,8 +906,10 @@ namespace QMC.CDT320.Sequencing
         // Ready 진입 시 InputFeeder가 Avoid/Down이 아니면(웨이퍼 이송 도중 정지 등) 기존에는 확인만 하고
         // 실패해 START가 수동 Recover 전까지 영구 차단되었다. 여기서는 다음 기계적 전제 아래에서만
         // 빈 피더를 자동 복구한다.
-        //  - Unclamp/Lift Down은 피더 자세를 낮추는 동작이라 상부 헤드·픽커와의 간섭 범위를 넓히지 않는다.
-        //  - Lift Down 상태의 Y 이동은 장비의 표준 빈 피더 이송 자세와 동일하다(카세트 매핑 등에서 사용).
+        //  - 복구 순서는 Unclamp -> Lift Up -> Y Avoid -> Lift Down 이다.
+        //    (기존에는 Lift Down -> Y Avoid 순서였고, InputStage 위에서 정지한 경우 스테이지의 wafer를
+        //     누르고 긁는다. Output 측에서 동일 결함이 현장 확인되어 양쪽을 함께 수정한다. 2026-07-27)
+        //  - Lift Up 전에는 Unclamp와 피더 공백을 반드시 확인한다. wafer를 문 채로 들어올리면 피더가 파손된다.
         //  - wafer를 보유한 피더는 자동 복구 시 자재 위치 상실/파손 위험이 있으므로 복구하지 않고
         //    CYCLE RUN INPUT UNLOAD 수동 배출을 안내하며 fail-closed로 실패한다.
         private async Task<int> EnsureInputFeederReadySafetyAsync(CancellationToken ct)
@@ -961,61 +964,34 @@ namespace QMC.CDT320.Sequencing
                 LogStep("InputFeeder가 Avoid/Down 상태가 아니어서 빈 피더 안전 복구를 시작합니다. " +
                     BuildAxisState("InputFeederY", unit.FeederY, target));
 
-                // 1) Unclamp: 명령 결과와 실제 센서 상태를 함께 확인한다.
-                int result = await unit.SetWaferFeederClampAsync(false, RecoverIoTimeoutMs, ct).ConfigureAwait(false);
-                if (result != 0 || !unit.IsWaferFeederUnclamp())
-                {
-                    return Fail(
-                        "READY-INPUT-FEEDER-RECOVER-UNCLAMP",
-                        "InputFeederUnit",
-                        "Ready InputFeeder 복구 중 Unclamp 실패. result=" + result + ". " + BuildInputFeederFailure(unit));
-                }
-
-                // 2) Lift Down.
-                result = await unit.SetWaferFeederUpDownAsync(false, RecoverIoTimeoutMs, ct).ConfigureAwait(false);
-                if (result != 0 || !unit.IsWaferFeederDown())
-                {
-                    return Fail(
-                        "READY-INPUT-FEEDER-RECOVER-DOWN",
-                        "InputFeederUnit",
-                        "Ready InputFeeder 복구 중 Lift Down 실패. result=" + result + ". " + BuildInputFeederFailure(unit));
-                }
-
-                // 3) Y Avoid 이동: 명령 → 결과 확인 → 완료 대기 → 최종 위치 확인 순서를 분리해 수행한다.
-                // Ready 스코프 5% 저속은 빈 피더 복귀에 과도하게 느리므로(수십 초) Jog Coarse 명시 속도로 이동한다.
-                // 기계적 전제: Coarse는 운전자 조그에서 상시 사용하는 검증된 속도이고, 이 시점의 피더는
-                // wafer 미보유 + Lift Down 저자세라 고속 복귀에 추가 간섭이 없다.
-                // (명시 속도는 MotionSpeedScale의 DefaultVelocity 스케일 대상이 아니며, Coarse 속도 미티칭 시 기존 저속 경로를 사용한다.)
+                // 후퇴 순서(Unclamp -> 보유확인 -> Lift Up -> Y Avoid -> Lift Down)와 파손 방지 확인은
+                // FeederRetreatPolicy가 단일 구현으로 보장한다. 여기서 순서를 다시 쓰지 않는다.
+                // Avoid 이동만 Ready 전용 Jog Coarse 속도를 쓰도록 넘겨준다.
+                // Ready 스코프 5% 저속은 빈 피더 복귀에 과도하게 느리다(수십 초).
+                // 기계적 전제: Coarse는 운전자 조그에서 상시 사용하는 검증된 속도이고,
+                // 이 시점의 피더는 wafer 미보유 + Lift Up 주행 자세라 고속 복귀에 추가 간섭이 없다.
                 double coarseVelocity = unit.FeederY.Config != null ? unit.FeederY.Config.JogCoarseVelocity : 0.0;
-                result = coarseVelocity > 0.0
-                    ? await unit.MoveWaferFeederY(target, JogSpeedType.Coarse, 0.0).ConfigureAwait(false)
-                    : await unit.MoveToWaferFeederAvoidPosition(false).ConfigureAwait(false);
-                if (result != 0)
-                {
-                    return Fail(
-                        "READY-INPUT-FEEDER-RECOVER-AVOID",
-                        "InputFeederUnit",
-                        "Ready InputFeeder 복구 중 Avoid 이동 명령 실패. result=" + result +
-                        ", coarseVelocity=" + coarseVelocity.ToString("0.###") + ". " +
-                        BuildAxisState("InputFeederY", unit.FeederY, target));
-                }
+                var retreatTarget = new InputFeederRetreatTarget(
+                    unit,
+                    async (moveTimeoutMs, token) =>
+                    {
+                        int moveResult = coarseVelocity > 0.0
+                            ? await unit.MoveWaferFeederY(target, JogSpeedType.Coarse, 0.0).ConfigureAwait(false)
+                            : await unit.MoveToWaferFeederAvoidPosition(false).ConfigureAwait(false);
+                        if (moveResult != 0)
+                            return moveResult;
 
-                result = await unit.WaitWaferFeederYMoveDoneInPosition(target, RecoverMoveTimeoutMs, ct).ConfigureAwait(false);
-                if (result != 0)
-                {
-                    return Fail(
-                        "READY-INPUT-FEEDER-RECOVER-AVOID-WAIT",
-                        "InputFeederUnit",
-                        "Ready InputFeeder 복구 중 Avoid 이동 완료 확인 실패. result=" + result + ". " +
-                        BuildAxisState("InputFeederY", unit.FeederY, target));
-                }
+                        return await unit.WaitWaferFeederYMoveDoneInPosition(target, moveTimeoutMs, token).ConfigureAwait(false);
+                    });
 
-                if (!unit.IsWaferFeederInAvoidPosition() || !unit.IsWaferFeederDown())
+                FeederRetreatResult retreat = await FeederRetreatPolicy.RetreatToAvoidAsync(
+                    retreatTarget, RecoverIoTimeoutMs, RecoverMoveTimeoutMs, ct).ConfigureAwait(false);
+                if (!retreat.Success)
                 {
                     return Fail(
-                        "READY-INPUT-FEEDER-RECOVER-CHECK",
+                        ResolveInputFeederRetreatAlarmCode(retreat.FailedPhase),
                         "InputFeederUnit",
-                        "Ready InputFeeder 복구 후 Avoid/Down 최종 확인 실패. " +
+                        "Ready InputFeeder 복구 실패. " + retreat.Message + " " +
                         BuildAxisState("InputFeederY", unit.FeederY, target) +
                         BuildInputFeederFailure(unit));
                 }
@@ -1040,8 +1016,11 @@ namespace QMC.CDT320.Sequencing
         // Ready 진입 시 OutputFeeder가 Avoid/Down이 아니면(Bin 이송 도중 정지 등) 기존에는 확인만 하고
         // 실패해 START가 수동 Recover 전까지 영구 차단되었다. InputFeeder와 동일한 기계적 전제 아래에서만
         // 빈 피더를 자동 복구한다.
-        //  - Unclamp/Lift Down은 피더 자세를 낮추는 동작이라 상부 헤드·픽커와의 간섭 범위를 넓히지 않는다.
-        //  - Lift Down 상태의 Y 이동은 장비의 표준 빈 피더 이송 자세와 동일하다(OutputFeederRecoverSequence와 같은 순서).
+        //  - 복구 순서는 Unclamp -> Lift Up -> Y Avoid -> Lift Down 이다.
+        //    (기존에는 Lift Down -> Y Avoid 순서였고, OutputStage 위에서 정지한 경우 스테이지의 Bin/제품을
+        //     누르고 긁었다. 현장 확인 2026-07-27. 생산 시퀀스 OutputFeederLoadToStageSequence의
+        //     PrepareFeederLiftUp -> MoveFeederAvoidPosition -> PrepareFeederLiftDownAfterAvoid 순서와 일치시킨다.)
+        //  - Lift Up 전에는 Unclamp와 피더 공백을 반드시 확인한다. Bin을 문 채로 들어올리면 피더가 파손된다.
         //  - Bin을 보유한 피더는 자동 복구 시 자재 위치 상실/파손 위험이 있으므로 복구하지 않고
         //    CYCLE RUN OUTPUT UNLOAD 수동 배출을 안내하며 fail-closed로 실패한다.
         //    보유 판정은 영속 Material과 물리 센서(IsFeederEmpty)를 모두 확인한다.
@@ -1105,61 +1084,34 @@ namespace QMC.CDT320.Sequencing
                 LogStep("OutputFeeder가 Avoid/Down 상태가 아니어서 빈 피더 안전 복구를 시작합니다. " +
                     BuildAxisState("OutputFeederY", unit.FeederY, target));
 
-                // 1) Unclamp: 명령 결과와 실제 센서 상태를 함께 확인한다.
-                int result = await unit.SetFeederClampAsync(false, RecoverIoTimeoutMs, ct).ConfigureAwait(false);
-                if (result != 0 || !unit.IsFeederUnclamped())
-                {
-                    return Fail(
-                        "READY-OUTPUT-FEEDER-RECOVER-UNCLAMP",
-                        "OutputFeederUnit",
-                        "Ready OutputFeeder 복구 중 Unclamp 실패. result=" + result + ". " + unit.DescribeFeederCylinderState());
-                }
-
-                // 2) Lift Down.
-                result = await unit.SetFeederUpDownAsync(false, RecoverIoTimeoutMs, ct).ConfigureAwait(false);
-                if (result != 0 || !unit.IsFeederDown())
-                {
-                    return Fail(
-                        "READY-OUTPUT-FEEDER-RECOVER-DOWN",
-                        "OutputFeederUnit",
-                        "Ready OutputFeeder 복구 중 Lift Down 실패. result=" + result + ". " + unit.DescribeFeederCylinderState());
-                }
-
-                // 3) Y Avoid 이동: 명령 → 결과 확인 → 완료 대기 → 최종 위치 확인 순서를 분리해 수행한다.
-                // Ready 스코프 5% 저속은 빈 피더 복귀에 과도하게 느리므로(수십 초) Jog Coarse 명시 속도로 이동한다.
-                // 기계적 전제: Coarse는 운전자 조그에서 상시 사용하는 검증된 속도이고, 이 시점의 피더는
-                // Bin 미보유 + Lift Down 저자세라 고속 복귀에 추가 간섭이 없다.
-                // (명시 속도는 MotionSpeedScale의 DefaultVelocity 스케일 대상이 아니며, Coarse 속도 미티칭 시 기존 저속 경로를 사용한다.)
+                // 후퇴 순서(Unclamp -> 보유확인 -> Lift Up -> Y Avoid -> Lift Down)와 파손 방지 확인은
+                // FeederRetreatPolicy가 단일 구현으로 보장한다. 여기서 순서를 다시 쓰지 않는다.
+                // Avoid 이동만 Ready 전용 Jog Coarse 속도를 쓰도록 넘겨준다.
+                // Ready 스코프 5% 저속은 빈 피더 복귀에 과도하게 느리다(수십 초).
+                // 기계적 전제: Coarse는 운전자 조그에서 상시 사용하는 검증된 속도이고,
+                // 이 시점의 피더는 Bin 미보유 + Lift Up 주행 자세라 고속 복귀에 추가 간섭이 없다.
                 double coarseVelocity = unit.FeederY.Config != null ? unit.FeederY.Config.JogCoarseVelocity : 0.0;
-                result = coarseVelocity > 0.0
-                    ? await unit.MoveBinFeederY(target, JogSpeedType.Coarse, 0.0).ConfigureAwait(false)
-                    : await unit.MoveToFeederAvoidPosition(false).ConfigureAwait(false);
-                if (result != 0)
-                {
-                    return Fail(
-                        "READY-OUTPUT-FEEDER-RECOVER-AVOID",
-                        "OutputFeederUnit",
-                        "Ready OutputFeeder 복구 중 Avoid 이동 명령 실패. result=" + result +
-                        ", coarseVelocity=" + coarseVelocity.ToString("0.###") + ". " +
-                        BuildAxisState("OutputFeederY", unit.FeederY, target));
-                }
+                var retreatTarget = new OutputFeederRetreatTarget(
+                    unit,
+                    async (moveTimeoutMs, token) =>
+                    {
+                        int moveResult = coarseVelocity > 0.0
+                            ? await unit.MoveBinFeederY(target, JogSpeedType.Coarse, 0.0).ConfigureAwait(false)
+                            : await unit.MoveToFeederAvoidPosition(false).ConfigureAwait(false);
+                        if (moveResult != 0)
+                            return moveResult;
 
-                result = await unit.WaitBinFeederYMoveDoneInPosition(target, RecoverMoveTimeoutMs, ct).ConfigureAwait(false);
-                if (result != 0)
-                {
-                    return Fail(
-                        "READY-OUTPUT-FEEDER-RECOVER-AVOID-WAIT",
-                        "OutputFeederUnit",
-                        "Ready OutputFeeder 복구 중 Avoid 이동 완료 확인 실패. result=" + result + ". " +
-                        BuildAxisState("OutputFeederY", unit.FeederY, target));
-                }
+                        return await unit.WaitBinFeederYMoveDoneInPosition(target, moveTimeoutMs, token).ConfigureAwait(false);
+                    });
 
-                if (!unit.IsBinFeederInAvoidPosition() || !unit.IsBinFeederDown())
+                FeederRetreatResult retreat = await FeederRetreatPolicy.RetreatToAvoidAsync(
+                    retreatTarget, RecoverIoTimeoutMs, RecoverMoveTimeoutMs, ct).ConfigureAwait(false);
+                if (!retreat.Success)
                 {
                     return Fail(
-                        "READY-OUTPUT-FEEDER-RECOVER-CHECK",
+                        ResolveOutputFeederRetreatAlarmCode(retreat.FailedPhase),
                         "OutputFeederUnit",
-                        "Ready OutputFeeder 복구 후 Avoid/Down 최종 확인 실패. " +
+                        "Ready OutputFeeder 복구 실패. " + retreat.Message + " " +
                         BuildAxisState("OutputFeederY", unit.FeederY, target) +
                         BuildOutputFeederFailure(unit));
                 }
@@ -2699,6 +2651,34 @@ namespace QMC.CDT320.Sequencing
             }
             finally
             {
+            }
+        }
+
+        // FeederRetreatPolicy의 실패 단계를 기존 Ready 알람 코드로 되돌린다.
+        // 코드 체계를 바꾸면 현장 알람 대응 문서와 어긋나므로 그대로 유지한다.
+        private static string ResolveInputFeederRetreatAlarmCode(FeederRetreatPhase phase)
+        {
+            switch (phase)
+            {
+                case FeederRetreatPhase.Unclamp: return "READY-INPUT-FEEDER-RECOVER-UNCLAMP";
+                case FeederRetreatPhase.LiftUpBlocked: return "READY-INPUT-FEEDER-RECOVER-LIFT-BLOCK";
+                case FeederRetreatPhase.LiftUp: return "READY-INPUT-FEEDER-RECOVER-UP";
+                case FeederRetreatPhase.MoveAvoid: return "READY-INPUT-FEEDER-RECOVER-AVOID";
+                case FeederRetreatPhase.LiftDown: return "READY-INPUT-FEEDER-RECOVER-DOWN";
+                default: return "READY-INPUT-FEEDER-RECOVER-CHECK";
+            }
+        }
+
+        private static string ResolveOutputFeederRetreatAlarmCode(FeederRetreatPhase phase)
+        {
+            switch (phase)
+            {
+                case FeederRetreatPhase.Unclamp: return "READY-OUTPUT-FEEDER-RECOVER-UNCLAMP";
+                case FeederRetreatPhase.LiftUpBlocked: return "READY-OUTPUT-FEEDER-RECOVER-LIFT-BLOCK";
+                case FeederRetreatPhase.LiftUp: return "READY-OUTPUT-FEEDER-RECOVER-UP";
+                case FeederRetreatPhase.MoveAvoid: return "READY-OUTPUT-FEEDER-RECOVER-AVOID";
+                case FeederRetreatPhase.LiftDown: return "READY-OUTPUT-FEEDER-RECOVER-DOWN";
+                default: return "READY-OUTPUT-FEEDER-RECOVER-CHECK";
             }
         }
 

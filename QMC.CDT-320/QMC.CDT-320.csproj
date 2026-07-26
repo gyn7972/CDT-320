@@ -430,7 +430,11 @@
     <Compile Include="Sequencing\InputStage\InputStagePrepareUnloadSequence.cs" />
     <Compile Include="Sequencing\InputStage\InputStageMoveAvoidSequence.cs" />
     <Compile Include="Sequencing\MachineReadySequence.cs" />
+    <Compile Include="Sequencing\Safety\FeederRetreatPolicy.cs" />
     <Compile Include="Sequencing\InputSequence.cs" />
+    <Compile Include="Sequencing\InputSequence.Steps.Load.cs" />
+    <Compile Include="Sequencing\InputSequence.Steps.Align.cs" />
+    <Compile Include="Sequencing\InputSequence.Steps.Review.cs" />
     <Compile Include="Sequencing\OutputCassette\OutputSlotPlanner.cs" />
     <Compile Include="Sequencing\OutputCassette\OutputCassetteSequenceKind.cs" />
     <Compile Include="Sequencing\OutputCassette\OutputCassetteSequenceOptions.cs" />
@@ -462,6 +466,9 @@
     <Compile Include="Sequencing\OutputFeeder\OutputFeederExchangeSequence.cs" />
     <Compile Include="Sequencing\OutputFeeder\OutputFeederRecoverSequence.cs" />
     <Compile Include="Sequencing\OutputSequence.cs" />
+    <Compile Include="Sequencing\OutputSequence.ActionPlanner.cs" />
+    <Compile Include="Sequencing\OutputSequence.UnitCalls.cs" />
+    <Compile Include="Sequencing\OutputSequence.Safety.cs" />
     <!-- Equipment / Alarms -->
     <!-- Equipment / Logging -->
     <!-- Equipment / Recipes -->

@@ -39,7 +39,11 @@ namespace QMC.CDT320.Sequencing
         Complete
     }
 
-    public class InputSequence : UnitSequenceBase
+    // 스텝 본문은 partial 파일로 분리되어 있다(순수 추출, 동작 변경 없음. 2026-07-27):
+    //   InputSequence.Steps.Load.cs    Mapping / ResolveSlot / PrepareStageLoad / LoadFeeder* / RecoverFeeder
+    //   InputSequence.Steps.Align.cs   AlignStage / DieMapping
+    //   InputSequence.Steps.Review.cs  ReviewStage / Complete
+    public partial class InputSequence : UnitSequenceBase
     {
         // 하위 시퀀스/step에서 이미 Fail()로 Alarm을 발생시킨 실패를 상위 계층이 중복 Alarm 없이
         // 전파하기 위한 내부 예외입니다. 동일 실패가 step -> cycle -> auto 순서로 세 번 Alarm되던
@@ -1683,408 +1687,10 @@ namespace QMC.CDT320.Sequencing
                 if (Mode != SequenceRunMode.Auto)
                     SetInputLoaderActive(loaderActiveStep, executingStep.ToString());
 
-                int result;
-                switch (_autoStep)
-                {
-                    // [1] Mapping: Input Cassette의 slot map/material 상태를 갱신한다.
-                    case InputSequenceAutoStep.Mapping:
-                        result = await ExecuteMappingAsync(ct, false, 0, SequenceStartMode.Resume).ConfigureAwait(false);
-                        if (result != 0)
-                        return Fail("SEQ-IN-STEP-MAP", "InputSequence", "Input cassette 매핑 실패. result=" + result);
-                        // Mapping 완료 후 다른 sequence가 확인할 수 있도록 cassette mapped bus를 올린다.
-                        Context.Bus.Set("InputCassetteMapped");
-                        _autoStep = InputSequenceAutoStep.ResolveSlot;
-                        break;
-
-                    // [2] ResolveSlot: Processing 중인 slot을 우선 사용하고, 없으면 다음 Ready slot을 선택한다.
-                    case InputSequenceAutoStep.ResolveSlot:
-                        _autoSlotIndex = ResolveCurrentOrNextInputSlot();
-                        if (_autoSlotIndex < 0)
-                            return StopInputNoReadyWafer();
-                        // wafer id는 Stage/Feeder 하위 sequence option과 로그 추적에 사용된다.
-                        _autoWaferId = ResolveInputWaferId(_autoSlotIndex);
-                        _autoStep = InputSequenceAutoStep.PrepareStageLoad;
-                        break;
-
-                    // [3] PrepareStageLoad: Picker가 Avoid로 빠진 상태에서 Stage 로드 준비 위치를 만든다.
-                    case InputSequenceAutoStep.PrepareStageLoad:
-                    {
-                        result = await ExecuteWithInputPickerAvoidGateAsync("InputPrepareLoad", ct, async () =>
-                        {
-                            using (SequenceResourceLease lease = await AcquireInputStageAreaAsync("InputPrepareLoad", ct).ConfigureAwait(false))
-                            {
-                                if (lease == null)
-                                    return Fail("SEQ-IN-RESOURCE-STAGE", "InputSequence", "Load 준비 중 InputStageArea 리소스 점유에 실패했습니다.");
-
-                                // InputStageSequence가 실제 Stage 준비 동작을 담당한다.
-                                var stageSequence = new InputStageSequence(Context);
-                                int stageResult = await SequenceTrace.ChildAsync("InputStageSequence", "PrepareLoad",
-                                    () => stageSequence.RunPrepareLoadAsync(
-                                        ct,
-                                        BuildStageSequenceOptions(false, SequenceStartMode.Resume, false, _autoWaferId, false)),
-                                    "wafer=" + _autoWaferId).ConfigureAwait(false);
-                                if (stageResult != 0)
-                                    return Fail("SEQ-IN-STEP-STAGE-PREP", "InputStage",
-                                        "InputStage Load 준비 실패. result=" + stageResult);
-                            }
-
-                            return 0;
-                        }).ConfigureAwait(false);
-                        if (result != 0)
-                            return result;
-                        _autoStep = InputSequenceAutoStep.LoadFeederFromCassette;
-                        break;
-                    }
-
-                    // [4] LoadFeederFromCassette: 선택된 cassette slot의 wafer를 InputFeeder로 로드한다.
-                    case InputSequenceAutoStep.LoadFeederFromCassette:
-                    {
-                        // 재개 상황에서 slot 정보가 비어 있으면 cassette 상태에서 다시 확인한다.
-                        if (_autoSlotIndex < 0)
-                            _autoSlotIndex = ResolveCurrentOrNextInputSlot();
-                        if (_autoSlotIndex < 0)
-                            return Fail("SEQ-IN-STEP-SLOT", "InputSequence", "Feeder 카세트 로딩 전에 Input Slot이 결정되지 않았습니다.");
-
-                        // InputFeederSequence가 cassette slot 접근과 feeder 적재 동작을 수행한다.
-                        var feederSequence = new InputFeederSequence(Context);
-                        InputFeederSequenceOptions feederOptions =
-                            BuildFeederSequenceOptions(_autoSlotIndex, _autoSlotIndex, false, 0, SequenceStartMode.Resume);
-                        result = await ExecuteWithInputPickerAvoidGateAsync("InputLoadFromCassette", ct, () =>
-                            SequenceTrace.ChildAsync("InputFeederSequence", "LoadFromCassette",
-                                () => feederSequence.RunLoadFromCassetteAsync(ct, feederOptions),
-                                "slot=" + _autoSlotIndex)).ConfigureAwait(false);
-                        if (result != 0)
-                            return Fail("SEQ-IN-STEP-FEEDER-CST", "InputFeeder",
-                                "InputFeeder cassette loading 실패. result=" + result);
-                        // slot은 이제 작업 중인 wafer로 표시해서 중복 선택을 막는다.
-                        UpdateInputSlotState(_autoSlotIndex, SlotPresence.Exist, ProcessState.Processing);
-                        _autoStep = InputSequenceAutoStep.LoadFeederToStage;
-                        break;
-                    }
-
-                    // [5] LoadFeederToStage: InputFeeder의 wafer를 InputStage로 넘긴다.
-                    case InputSequenceAutoStep.LoadFeederToStage:
-                    {
-                        // Feeder에 wafer만 남은 재개 상황이면 wafer의 source slot에서 slot index를 복원한다.
-                        if (_autoSlotIndex < 0)
-                            _autoSlotIndex = ResolveSlotIndexFromWafer(ResolveFeederWaferFromRuntimeState());
-
-                        result = await ExecuteWithInputPickerAvoidGateAsync("InputFeederToStage", ct, async () =>
-                        {
-                            using (SequenceResourceLease lease = await AcquireInputStageAreaAsync("InputFeederToStage", ct).ConfigureAwait(false))
-                            {
-                                if (lease == null)
-                                    return Fail("SEQ-IN-RESOURCE-STAGE", "InputSequence", "Feeder -> Stage 이송 중 InputStageArea 리소스 점유에 실패했습니다.");
-
-                                var feederSequence = new InputFeederSequence(Context);
-                                InputFeederSequenceOptions feederOptions =
-                                    BuildFeederSequenceOptions(_autoSlotIndex, _autoSlotIndex, false, 0, SequenceStartMode.Resume);
-                                int feederResult = await SequenceTrace.ChildAsync("InputFeederSequence", "LoadToStage",
-                                    () => feederSequence.RunLoadToStageAsync(ct, feederOptions),
-                                    "slot=" + _autoSlotIndex).ConfigureAwait(false);
-                                if (feederResult != 0)
-                                    return Fail("SEQ-IN-STEP-FEEDER-STAGE", "InputFeeder",
-                                        "InputFeeder -> InputStage loading 실패. result=" + feederResult);
-                            }
-
-                            return 0;
-                        }).ConfigureAwait(false);
-                        if (result != 0)
-                            return result;
-                        _autoStep = InputSequenceAutoStep.RecoverFeeder;
-                        break;
-                    }
-
-                    // [6] RecoverFeeder: wafer 전달 후 Feeder를 후속 동작 가능한 상태로 복귀시킨다.
-                    case InputSequenceAutoStep.RecoverFeeder:
-                    {
-                        // Stage에 올라간 wafer 기준으로 slot 정보를 복원할 수 있다.
-                        if (_autoSlotIndex < 0)
-                            _autoSlotIndex = ResolveSlotIndexFromWafer(ResolveStageWaferFromRuntimeState());
-
-                        var feederSequence = new InputFeederSequence(Context);
-                        InputFeederSequenceOptions feederOptions =
-                            BuildFeederSequenceOptions(_autoSlotIndex, _autoSlotIndex, false, 0, SequenceStartMode.Resume);
-                        result = await ExecuteWithInputPickerAvoidGateAsync("InputFeederRecover", ct, () =>
-                            SequenceTrace.ChildAsync("InputFeederSequence", "Recover",
-                                () => feederSequence.RunRecoverAsync(ct, feederOptions),
-                                "slot=" + _autoSlotIndex)).ConfigureAwait(false);
-                        if (result != 0)
-                            return Fail("SEQ-IN-STEP-FEEDER-RECOVER", "InputFeeder",
-                                "InputFeeder recover 실패. result=" + result);
-                        _autoStep = InputSequenceAutoStep.AlignStage;
-                        break;
-                    }
-
-                    // [7] AlignStage: InputStageArea를 점유하고 wafer align을 수행한다.
-                    case InputSequenceAutoStep.AlignStage:
-                    {
-                        SequenceStartMode alignStartMode = _restartAlignFromReview
-                            ? SequenceStartMode.Restart
-                            : SequenceStartMode.Resume;
-                        result = await ExecuteWithInputPickerAvoidGateAsync("InputAlign", ct, async () =>
-                        {
-                            using (SequenceResourceLease lease = await AcquireInputStageAreaAsync("InputAlign", ct).ConfigureAwait(false))
-                            {
-                                if (lease == null)
-                                    return Fail("SEQ-IN-RESOURCE-STAGE", "InputSequence", "Align 중 InputStageArea 리소스 점유에 실패했습니다.");
-
-                                // requireVisionAlign이 true이면 StageSequence 내부에서 vision align 조건을 함께 요구한다.
-                                var stageSequence = new InputStageSequence(Context);
-                                int stageResult = await SequenceTrace.ChildAsync("InputStageSequence", "Align",
-                                    () => stageSequence.RunAlignAsync(
-                                        ct,
-                                        BuildStageSequenceOptions(false, alignStartMode, requireVisionAlign, _autoWaferId, false)),
-                                    "wafer=" + _autoWaferId,
-                                    "requireVisionAlign=" + requireVisionAlign,
-                                    "startMode=" + alignStartMode).ConfigureAwait(false);
-                                if (stageResult != 0)
-                                    return Fail("SEQ-IN-STEP-STAGE-ALIGN", "InputStage",
-                                        "InputStage align 실패. result=" + stageResult);
-                            }
-
-                            return 0;
-                        }).ConfigureAwait(false);
-                        if (result != 0)
-                            return result;
-                        _restartAlignFromReview = false;
-                        _autoStep = InputSequenceAutoStep.DieMapping;
-                        break;
-                    }
-
-                    // [8] DieMapping: Align 결과를 기반으로 Stage wafer의 die map 정보를 생성한다.
-                    case InputSequenceAutoStep.DieMapping:
-                    {
-                        SequenceStartMode mappingStartMode = _restartDieMappingFromReview
-                            ? SequenceStartMode.Restart
-                            : SequenceStartMode.Resume;
-                        string dieMappingResumeStep;
-                        if (mappingStartMode == SequenceStartMode.Resume &&
-                            ShouldRestartWaferAlignForDieMappingResume(out dieMappingResumeStep))
-                        {
-                            RestartWaferAlignAfterMissingDieMapPoints(dieMappingResumeStep);
-                            break;
-                        }
-
-                        result = await ExecuteWithInputPickerAvoidGateAsync("InputDieMapping", ct, async () =>
-                        {
-                            using (SequenceResourceLease lease = await AcquireInputStageAreaAsync("InputDieMapping", ct).ConfigureAwait(false))
-                            {
-                                if (lease == null)
-                                    return Fail("SEQ-IN-RESOURCE-STAGE", "InputSequence", "Die mapping 중 InputStageArea 리소스 점유에 실패했습니다.");
-
-                                InputStageSequenceOptions mappingOptions =
-                                    BuildStageSequenceOptions(false, mappingStartMode, requireVisionAlign, _autoWaferId, false);
-                                // Auto에서는 사용자 리뷰 승인 전 Picker Ready 신호를 발행하지 않는다.
-                                mappingOptions.PublishReadySignals = false;
-
-                                // DieMapping이 끝나면 MaterialStateService의 Stage finish 조건이 만족되어야 한다.
-                                var stageSequence = new InputStageSequence(Context);
-                                int stageResult = await SequenceTrace.ChildAsync("InputStageSequence", "DieMapping",
-                                    () => stageSequence.RunDieMappingAsync(
-                                        ct,
-                                        mappingOptions),
-                                    "wafer=" + _autoWaferId,
-                                    "requireVisionAlign=" + requireVisionAlign).ConfigureAwait(false);
-                                if (stageResult != 0)
-                                    return Fail("SEQ-IN-STEP-STAGE-DIEMAP", "InputStage",
-                                        "InputStage die mapping 실패. result=" + stageResult);
-                            }
-
-                            return 0;
-                        }).ConfigureAwait(false);
-                        if (result != 0)
-                            return result;
-                        _restartDieMappingFromReview = false;
-                        // Picker Ready는 사용자 리뷰 승인 후에만 발행한다.
-                        _autoStep = InputSequenceAutoStep.ReviewStage;
-                        break;
-                    }
-
-                    // [9] ReviewStage: Align/Die Mapping 결과를 표시하고 작업자의 진행/재실행 결정을 기다린다.
-                    case InputSequenceAutoStep.ReviewStage:
-                    {
-                        InputStageUnit stage = Context != null && Context.Machine != null
-                            ? Context.Machine.InputStageUnit
-                            : null;
-                        MachineController controller = Context != null ? Context.Controller : null;
-                        WaferMaterial reviewWafer = ResolveStageWaferFromRuntimeState();
-                        if (stage == null || controller == null || reviewWafer == null)
-                            return Fail("SEQ-IN-REVIEW-MATERIAL", "InputSequence",
-                                "InputStage 리뷰 대상 장비 또는 Wafer Material이 없습니다.");
-
-                        if (!reviewWafer.HasInputStageAlignResult ||
-                            !reviewWafer.HasInputStageThetaAlignResult ||
-                            !reviewWafer.HasInputStageDieMappingResult ||
-                            reviewWafer.InputStageDieMappingInvalidatedByAlignChange)
-                        {
-                            return Fail("SEQ-IN-REVIEW-STATE", "InputSequence",
-                                "InputStage 리뷰 전 Align/T Align/Die Mapping 상태가 유효하지 않습니다. wafer=" +
-                                (reviewWafer.WaferId ?? ""));
-                        }
-
-                        ResetInputStageReadySignals();
-                        string pickerReason;
-                        if (!controller.AreInputStageRunReviewPickersSafe(out pickerReason))
-                        {
-                            return Fail("SEQ-IN-REVIEW-PICKER-STATE", "InputSequence",
-                                "InputStage Review 진입 전 통합 Picker 안전 조건이 유효하지 않습니다. " +
-                                pickerReason);
-                        }
-
-                        string sessionReason;
-                        if (!controller.TryEnterInputStageRunReviewManual(
-                            Context,
-                            reviewWafer.WaferId,
-                            out sessionReason))
-                        {
-                            return Fail("SEQ-IN-REVIEW-MANUAL-ENTER", "InputSequence", sessionReason);
-                        }
-
-                        WriteLog("InputStageRunReview",
-                            "Align/Die Mapping 사용자 확인을 Manual 상태에서 기다립니다. wafer=" +
-                            (reviewWafer.WaferId ?? "") + ", slot=" + _autoSlotIndex +
-                            ", outputSequenceMaintained=True - Wait");
-
-                        while (controller.IsInputStageRunReviewManualActive)
-                        {
-                            UserConfirmResult reviewResult = await stage.WaitForUserConfirmAsync(ct).ConfigureAwait(false);
-                            InputStageRunReviewDecision decision = reviewResult != null && reviewResult.IsConfirmed
-                                ? InputStageRunReviewDecision.ConfirmAndContinue
-                                : (reviewResult != null ? reviewResult.Decision : InputStageRunReviewDecision.RetryAlign);
-
-                            if (decision == InputStageRunReviewDecision.ConfirmAndContinue)
-                            {
-                                controller.CancelInputStageRunReviewAction();
-                                if (!await WaitForInputStageRunReviewActionStopAsync(controller, ct).ConfigureAwait(false))
-                                {
-                                    stage.NotifyUserConfirmProcessingFailed(
-                                        "Review 수동 동작 또는 Jog가 아직 진행 중입니다. STOP 후 다시 확인하세요.");
-                                    continue;
-                                }
-
-                                int avoidResult = await MoveInputCameraXToAvoidAfterReviewAsync(stage, ct).ConfigureAwait(false);
-                                if (avoidResult != 0)
-                                {
-                                    stage.NotifyUserConfirmProcessingFailed(
-                                        "Input Camera X를 Avoid 위치로 복귀하지 못했습니다. Alarm/인터락을 확인한 뒤 다시 시도하세요.");
-                                    continue;
-                                }
-
-                                string approvalReason;
-                                if (!MaterialStateService.CommitInputStageRunReview(
-                                    reviewWafer,
-                                    reviewResult,
-                                    out approvalReason))
-                                {
-                                    stage.NotifyUserConfirmProcessingFailed(approvalReason);
-                                    continue;
-                                }
-
-                                if (!controller.TryExitInputStageRunReviewManual(Context, true, out sessionReason))
-                                {
-                                    string resetReason;
-                                    WaferMaterial approvalWafer = ResolveStageWaferFromRuntimeState() ?? reviewWafer;
-                                    bool approvalCleared = MaterialStateService.SetInputStageRunReviewApproval(
-                                        approvalWafer,
-                                        false,
-                                        0,
-                                        out resetReason);
-                                    if (!approvalCleared)
-                                    {
-                                        return Fail("SEQ-IN-REVIEW-AUTO-RESUME-RESET", "InputSequence",
-                                            sessionReason + " Auto 복귀 실패 후 Review 승인을 해제하지 못했습니다. " +
-                                            resetReason);
-                                    }
-
-                                    stage.NotifyUserConfirmProcessingFailed(
-                                        sessionReason + " Auto 복귀가 완료되지 않아 Review 승인을 해제했습니다. 다시 확인하세요.");
-                                    WriteLog("InputStageRunReview",
-                                        "Review Commit 후 Auto 복귀가 실패하여 승인을 fail-closed 해제했습니다. wafer=" +
-                                        (reviewWafer.WaferId ?? "") + ", reason=" + sessionReason +
-                                        ", reset=" + resetReason + " - Reset");
-                                    continue;
-                                }
-
-                                _autoStep = InputSequenceAutoStep.Complete;
-                                WriteLog("InputStageRunReview",
-                                    approvalReason + ", CameraXAvoid=True, sameCoordinator=True - Ok");
-                                break;
-                            }
-
-                            if (decision == InputStageRunReviewDecision.RetryMapping)
-                            {
-                                string resetReason;
-                                MaterialStateService.SetInputStageRunReviewApproval(
-                                    reviewWafer,
-                                    false,
-                                    0,
-                                    out resetReason);
-                                SequenceResumeStore.Clear(InputStageDieMappingSequenceStateName);
-                                _restartDieMappingFromReview = true;
-                                _autoStep = InputSequenceAutoStep.DieMapping;
-
-                                if (!controller.TryExitInputStageRunReviewManual(Context, true, out sessionReason))
-                                {
-                                    stage.NotifyUserConfirmProcessingFailed(sessionReason);
-                                    continue;
-                                }
-
-                                WriteLog("InputStageRunReview",
-                                    "사용자가 Die Mapping 개별 재실행을 선택했습니다. wafer=" +
-                                    (reviewWafer.WaferId ?? "") + ", slot=" + _autoSlotIndex + " - Restart");
-                                break;
-                            }
-
-                            if (decision == InputStageRunReviewDecision.Stop)
-                            {
-                                string resetReason;
-                                MaterialStateService.SetInputStageRunReviewApproval(
-                                    reviewWafer,
-                                    false,
-                                    0,
-                                    out resetReason);
-                                controller.CancelInputStageRunReviewAction();
-                                controller.TryExitInputStageRunReviewManual(Context, false, out sessionReason);
-                                Context.RequestCycleStop();
-                                throw new SequenceStopException(
-                                    "InputStage Review 중 STOP 요청으로 동일 Auto Coordinator를 안전 정지합니다.");
-                            }
-
-                            string alignResetReason;
-                            MaterialStateService.SetInputStageRunReviewApproval(
-                                reviewWafer,
-                                false,
-                                0,
-                                out alignResetReason);
-                            SequenceResumeStore.Clear(InputStageAlignSequenceStateName);
-                            SequenceResumeStore.Clear(InputStageDieMappingSequenceStateName);
-                            _restartAlignFromReview = true;
-                            _restartDieMappingFromReview = true;
-                            _autoStep = InputSequenceAutoStep.AlignStage;
-
-                            if (!controller.TryExitInputStageRunReviewManual(Context, true, out sessionReason))
-                            {
-                                stage.NotifyUserConfirmProcessingFailed(sessionReason);
-                                continue;
-                            }
-
-                            WriteLog("InputStageRunReview",
-                                "사용자가 Align 재실행을 선택하여 센터 검출/T Align과 종속 Die Mapping을 다시 실행합니다. wafer=" +
-                                (reviewWafer.WaferId ?? "") + ", slot=" + _autoSlotIndex + " - Restart");
-                            break;
-                        }
-                        break;
-                    }
-
-                    // [10] Complete: 로딩/정렬/맵핑/사용자 확인이 끝났고, 상위 cycle에서 Picker 완료를 기다리는 상태이다.
-                    case InputSequenceAutoStep.Complete:
-                        LogPublic("[UNIT-INPUT] Input sequence already complete slot=" + _autoSlotIndex);
-                        break;
-
-                    default:
-                        return Fail("SEQ-IN-STEP-UNKNOWN", "InputSequence", "알 수 없는 Input 시퀀스 스텝입니다. step=" + _autoStep);
-                }
+                // 스텝 본문은 partial 파일(InputSequence.Steps.*.cs)로 분리되어 있다.
+                int result = await DispatchInputStepAsync(ct, requireVisionAlign).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
 
                 WriteLog("ExecuteCurrentInputStepAsync", "Input sequence step complete. nextStep=" + _autoStep + " - Ok");
                 stepSucceeded = true;
@@ -2108,6 +1714,51 @@ namespace QMC.CDT320.Sequencing
                 if (loaderActiveStep && (!stepSucceeded || !IsInputLoaderActiveAutoStep(_autoStep)))
                     if (Mode != SequenceRunMode.Auto)
                         ResetInputLoaderActive(true, executingStep.ToString());
+            }
+        }
+
+        // 현재 스텝 하나를 실행한다. 0이면 정상 진행(다음 스텝은 각 스텝 메서드가 _autoStep으로 지정),
+        // 0이 아니면 상위에서 그대로 반환해 사이클을 중단한다.
+        // 각 스텝 본문은 아래 partial 파일에 있다.
+        //   InputSequence.Steps.Load.cs    [1]~[6] Mapping ~ RecoverFeeder
+        //   InputSequence.Steps.Align.cs   [7]~[8] AlignStage / DieMapping
+        //   InputSequence.Steps.Review.cs  [9]~[10] ReviewStage / Complete
+        private async Task<int> DispatchInputStepAsync(CancellationToken ct, bool requireVisionAlign)
+        {
+            switch (_autoStep)
+            {
+                case InputSequenceAutoStep.Mapping:
+                    return await ExecuteStepMappingAsync(ct).ConfigureAwait(false);
+
+                case InputSequenceAutoStep.ResolveSlot:
+                    return ExecuteStepResolveSlot();
+
+                case InputSequenceAutoStep.PrepareStageLoad:
+                    return await ExecuteStepPrepareStageLoadAsync(ct).ConfigureAwait(false);
+
+                case InputSequenceAutoStep.LoadFeederFromCassette:
+                    return await ExecuteStepLoadFeederFromCassetteAsync(ct).ConfigureAwait(false);
+
+                case InputSequenceAutoStep.LoadFeederToStage:
+                    return await ExecuteStepLoadFeederToStageAsync(ct).ConfigureAwait(false);
+
+                case InputSequenceAutoStep.RecoverFeeder:
+                    return await ExecuteStepRecoverFeederAsync(ct).ConfigureAwait(false);
+
+                case InputSequenceAutoStep.AlignStage:
+                    return await ExecuteStepAlignStageAsync(ct, requireVisionAlign).ConfigureAwait(false);
+
+                case InputSequenceAutoStep.DieMapping:
+                    return await ExecuteStepDieMappingAsync(ct, requireVisionAlign).ConfigureAwait(false);
+
+                case InputSequenceAutoStep.ReviewStage:
+                    return await ExecuteStepReviewStageAsync(ct).ConfigureAwait(false);
+
+                case InputSequenceAutoStep.Complete:
+                    return ExecuteStepComplete();
+
+                default:
+                    return Fail("SEQ-IN-STEP-UNKNOWN", "InputSequence", "알 수 없는 Input 시퀀스 스텝입니다. step=" + _autoStep);
             }
         }
 

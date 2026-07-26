@@ -497,10 +497,17 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                     return -1;
                 }
 
+                // AVOID 확인을 Lift Down보다 먼저 수행한다.
+                // 기존에는 내린 뒤에 AVOID를 확인해서, 피더가 InputStage 위에 있으면
+                // 스테이지의 wafer를 누르고 긁은 뒤에야 알람이 났다(2026-07-27 Output 측 현장 확인, 동일 결함).
+                int avoidResult = EnsureInputFeederAvoidForStageButton(feeder, actionName);
+                if (avoidResult != 0)
+                    return avoidResult;
+
                 if (feeder.IsWaferFeederDown())
                 {
                     WriteEvent("INPUT-STAGE-FEEDER-DOWN-SKIP", actionName + " Feeder Down 생략: 이미 Down 상태입니다.");
-                    return EnsureInputFeederAvoidForStageButton(feeder, actionName);
+                    return 0;
                 }
 
                 string reason;
@@ -520,7 +527,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 }
 
                 WriteEvent("INPUT-STAGE-FEEDER-DOWN-OK", actionName + " Feeder Down 완료.");
-                return EnsureInputFeederAvoidForStageButton(feeder, actionName);
+                return 0;
             }
             catch (OperationCanceledException)
             {
