@@ -4,7 +4,8 @@
 
 [ ] 작업 경로가 D:\Source\CDT-320_New다.
 [ ] Git root, branch, HEAD, status, 원격 대비 상태를 보고했다.
-[ ] 기존 dirty 3개 파일을 보존한다.
+[ ] 문서 작성 후 변경된 HEAD를 포함해 구현 시작 시 Git 상태를 다시 캡처한다.
+[ ] 구현 중 새로 나타난 모든 사용자 변경을 보존한다.
 [ ] 여러 선택 측정은 병렬 축 구동이 아니라 직렬 자동 실행이다.
 [ ] PickUpZ 순서는 Front P4→P3→P2→P1, Rear P4→P3→P2→P1이다.
 [ ] PlaceZ는 Batch당 Output Side 하나만 고정한다.
@@ -18,9 +19,9 @@
 
 [B. Git 및 변경 보호]
 
-[ ] MachineController.cs 기존 변경이 보존됐다.
-[ ] PickerPickUpSequence.MotionResolvers.cs 기존 변경이 보존됐다.
-[ ] PickerSequenceBase.cs 기존 변경이 보존됐다.
+[ ] 구현 시작 당시의 모든 modified/untracked 파일을 별도로 기록했다.
+[ ] 이번 대상 Dialog와 겹치는 기존 diff가 있으면 덮어쓰지 않고 줄 단위로 병합했다.
+[ ] 이 프롬프트와 체크리스트의 기존 변경을 보존했다.
 [ ] 다른 체크아웃 또는 예전 파일을 복사하지 않았다.
 [ ] reset/checkout/clean/revert를 실행하지 않았다.
 [ ] commit/push/pull/merge/rebase를 실행하지 않았다.

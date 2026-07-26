@@ -2197,7 +2197,7 @@ namespace QMC.CDT320
                 double invalidOnMin = double.NaN;
                 double invalidOnMax = double.NaN;
 
-                double scanVelocity = ResolveWaferLifterZConfigMoveVelocity();
+                double scanVelocity = ResolveWaferLifterZScanVelocity();
                 double scanAcceleration = ResolveCassetteProfileAcceleration(scanVelocity);
                 double scanDeceleration = ResolveCassetteProfileDeceleration(scanVelocity);
                 if (InputLifterZ.Config != null)
@@ -2498,7 +2498,7 @@ namespace QMC.CDT320
                         FormatPosition(scanStartPosition) + " - Check");
                 }
 
-                double scanVelocity = ResolveWaferLifterZConfigMoveVelocity();
+                double scanVelocity = ResolveWaferLifterZScanVelocity();
                 double scanAcceleration = ResolveCassetteProfileAcceleration(scanVelocity);
                 double scanDeceleration = ResolveCassetteProfileDeceleration(scanVelocity);
 
@@ -2796,7 +2796,7 @@ namespace QMC.CDT320
         {
             try
             {
-                return ResolveWaferLifterZConfigMoveVelocity();
+                return ResolveWaferLifterZDefaultMoveVelocity();
             }
             catch
             {
@@ -2817,11 +2817,30 @@ namespace QMC.CDT320
             return ResolveCassetteProfileDeceleration(ResolveWaferLifterZMoveVelocity(bFine));
         }
 
-        private double ResolveWaferLifterZConfigMoveVelocity()
+        /// <summary>
+        /// 매핑 스캔 전용 속도. 레시피(Input Cassette) SCAN/JOG VELOCITY 값을 사용한다.
+        /// 매핑 이외의 이동에는 사용하지 않는다(사용자 확정 2026-07-26).
+        /// </summary>
+        private double ResolveWaferLifterZScanVelocity()
         {
             double velocity = Config != null && Config.ScanVelocity > 0.0 ? Config.ScanVelocity : 0.0;
             if (velocity <= 0.0 && InputLifterZ != null && InputLifterZ.Config != null)
                 velocity = InputLifterZ.Config.DefaultVelocity;
+            return velocity > 0.0 ? velocity : 1.0;
+        }
+
+        /// <summary>
+        /// 매핑이 아닌 일반 리프터 이동 속도(슬롯 이동/Avoid 복귀/카세트 교체 등).
+        /// 축 기본 속도(Config.DefaultVelocity)를 사용한다.
+        /// 기존에는 매핑용 ScanVelocity가 모든 이동에 적용되어 일반 이동까지 느려졌다.
+        /// </summary>
+        private double ResolveWaferLifterZDefaultMoveVelocity()
+        {
+            double velocity = InputLifterZ != null && InputLifterZ.Config != null
+                ? InputLifterZ.Config.DefaultVelocity
+                : 0.0;
+            if (velocity <= 0.0)
+                velocity = Config != null && Config.ScanVelocity > 0.0 ? Config.ScanVelocity : 0.0;
             return velocity > 0.0 ? velocity : 1.0;
         }
 

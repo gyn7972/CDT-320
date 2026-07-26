@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Globalization;
 using System.Threading;
 using System.Threading.Tasks;
@@ -94,6 +95,31 @@ namespace QMC.CDT_320.Ui.Dialogs
             }
         }
 
+        private sealed class BatchFocusTarget
+        {
+            public VisionFocusPickerSide Side;
+            public int PickerNo;
+
+            public string Label
+            {
+                get { return (Side == VisionFocusPickerSide.Front ? "F" : "R") + " P" + PickerNo; }
+            }
+        }
+
+        private sealed class FocusResultSnapshot
+        {
+            public VisionFocusScanKind Kind;
+            public VisionFocusPickerSide Side;
+            public int PickerNo;
+            public double DefaultPosition;
+            public double BestPosition;
+            public double BestScore;
+            public int SampleCount;
+            public double PickerZPosition;
+            public bool PickerZValid;
+            public string UpdatedBy;
+        }
+
         private static readonly string[] BottomModeOptions =
         {
             "Bottom Collet",
@@ -159,6 +185,8 @@ namespace QMC.CDT_320.Ui.Dialogs
         private CancellationTokenSource _runCts;
         private Action _activeStopRequest;
         private System.Windows.Forms.Timer _runtimeRefreshTimer;
+        private bool _suppressBatchAllChange;
+        private FocusResultSnapshot _lastSuccessfulResult;
 
         public static VisionFocusCalibrationDialog Open(IWin32Window owner)
         {
@@ -208,6 +236,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                 LoadSettingsToUi();
                 RefreshSavedGrid();
                 UpdateStopButtonEnabled();
+                UpdateResultSaveButtonEnabled();
                 lblStatus.Text = IsSideOnlyProfile
                     ? "대기 중입니다. Side Focus 기준 위치를 확인한 뒤 START SCAN을 실행하세요."
                     : "대기 중입니다. Focus 기준 위치를 확인한 뒤 START SCAN을 실행하세요.";
@@ -247,8 +276,8 @@ namespace QMC.CDT_320.Ui.Dialogs
         {
             CalibrationDialogButtonStyle.ApplyFooterButtons(
                 new[] { btnCheck, btnUseCurrent, btnMoveDefault, btnMoveZAvoid, btnMoveYAvoid, btnSeqStop, btnApplyBest, btnResetAutoFocus, btnReload, btnClose },
-                new[] { btnStartScan },
-                new[] { btnSave });
+                new[] { btnStartScan, btnBatchStart },
+                new[] { btnSaveParameters, btnSave });
         }
 
         private void StartRuntimeRefreshTimer()
@@ -587,9 +616,27 @@ namespace QMC.CDT_320.Ui.Dialogs
             lblStatus.Text = "Vision Focus Cal 설정값을 다시 불러왔습니다.";
         }
 
-        private void btnSave_Click(object sender, EventArgs e)
+        private void btnSaveParameters_Click(object sender, EventArgs e)
         {
             SaveSettingsFromUi(true);
+        }
+
+        private void btnSaveResult_Click(object sender, EventArgs e)
+        {
+            SaveLastSuccessfulResult();
+        }
+
+        private void chkBatchAll_CheckedChanged(object sender, EventArgs e)
+        {
+            if (_suppressBatchAllChange)
+                return;
+
+            SetAllBatchTargets(chkBatchAll.Checked);
+        }
+
+        private async void btnBatchStart_Click(object sender, EventArgs e)
+        {
+            await RunBatchScanAsync().ConfigureAwait(true);
         }
 
         private void btnClose_Click(object sender, EventArgs e)
@@ -916,6 +963,211 @@ namespace QMC.CDT_320.Ui.Dialogs
             }
         }
 
+        private void SetAllBatchTargets(bool selected)
+        {
+            _suppressBatchAllChange = true;
+            try
+            {
+                chkBatchFront4.Checked = selected;
+                chkBatchFront3.Checked = selected;
+                chkBatchFront2.Checked = selected;
+                chkBatchFront1.Checked = selected;
+                chkBatchRear4.Checked = selected;
+                chkBatchRear3.Checked = selected;
+                chkBatchRear2.Checked = selected;
+                chkBatchRear1.Checked = selected;
+            }
+            finally
+            {
+                _suppressBatchAllChange = false;
+            }
+        }
+
+        private List<BatchFocusTarget> BuildBatchTargets()
+        {
+            var targets = new List<BatchFocusTarget>();
+            if (chkBatchFront4.Checked) targets.Add(new BatchFocusTarget { Side = VisionFocusPickerSide.Front, PickerNo = 4 });
+            if (chkBatchFront3.Checked) targets.Add(new BatchFocusTarget { Side = VisionFocusPickerSide.Front, PickerNo = 3 });
+            if (chkBatchFront2.Checked) targets.Add(new BatchFocusTarget { Side = VisionFocusPickerSide.Front, PickerNo = 2 });
+            if (chkBatchFront1.Checked) targets.Add(new BatchFocusTarget { Side = VisionFocusPickerSide.Front, PickerNo = 1 });
+            if (chkBatchRear4.Checked) targets.Add(new BatchFocusTarget { Side = VisionFocusPickerSide.Rear, PickerNo = 4 });
+            if (chkBatchRear3.Checked) targets.Add(new BatchFocusTarget { Side = VisionFocusPickerSide.Rear, PickerNo = 3 });
+            if (chkBatchRear2.Checked) targets.Add(new BatchFocusTarget { Side = VisionFocusPickerSide.Rear, PickerNo = 2 });
+            if (chkBatchRear1.Checked) targets.Add(new BatchFocusTarget { Side = VisionFocusPickerSide.Rear, PickerNo = 1 });
+            return targets;
+        }
+
+        private static VisionFocusScanKind ResolveBatchKind(
+            VisionFocusScanKind fixedKind,
+            VisionFocusPickerSide side)
+        {
+            if (fixedKind != VisionFocusScanKind.FrontSide0 &&
+                fixedKind != VisionFocusScanKind.FrontSide90 &&
+                fixedKind != VisionFocusScanKind.RearSide0 &&
+                fixedKind != VisionFocusScanKind.RearSide90)
+                return fixedKind;
+
+            bool angle90 = fixedKind == VisionFocusScanKind.FrontSide90 ||
+                           fixedKind == VisionFocusScanKind.RearSide90;
+            if (side == VisionFocusPickerSide.Front)
+                return angle90 ? VisionFocusScanKind.FrontSide90 : VisionFocusScanKind.FrontSide0;
+            return angle90 ? VisionFocusScanKind.RearSide90 : VisionFocusScanKind.RearSide0;
+        }
+
+        private async Task RunBatchScanAsync()
+        {
+            if (_busy)
+                return;
+
+            List<BatchFocusTarget> targets = BuildBatchTargets();
+            if (targets.Count == 0)
+            {
+                lblStatus.Text = "Batch 측정 대상을 하나 이상 선택하세요.";
+                QMC.Common.MessageDialog.Show(
+                    this,
+                    lblStatus.Text,
+                    "VISION FOCUS CAL",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Warning);
+                return;
+            }
+
+            Form1 host = null;
+            Action stopHandler = null;
+            IDisposable actionScope = null;
+            CancellationTokenSource runCts = null;
+            VisionFocusScanKind originalKind = _selectedKind;
+            VisionFocusPickerSide originalSide = _selectedPickerSide;
+            int originalPickerNo = _selectedPickerNo;
+
+            try
+            {
+                _busy = true;
+                SetButtonsEnabled(false);
+                _lastSuccessfulResult = null;
+                UpdateResultSaveButtonEnabled();
+
+                string reason;
+                if (!CanRunManualCalibration(out reason))
+                {
+                    lblStatus.Text = reason;
+                    QMC.Common.MessageDialog.Show(this, reason, "VISION FOCUS CAL", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                host = ResolveHost(out reason);
+                if (host == null)
+                {
+                    lblStatus.Text = reason;
+                    return;
+                }
+
+                if (!SaveSettingsFromUi(false))
+                    return;
+
+                originalKind = _selectedKind;
+                originalSide = _selectedPickerSide;
+                originalPickerNo = _selectedPickerNo;
+                gridSamples.Rows.Clear();
+
+                runCts = BeginManualCalibrationRun(host, "BatchStart", out actionScope, out stopHandler);
+                var context = new MachineSequenceContext(host.Controller, new SequenceSignalBus());
+
+                for (int index = 0; index < targets.Count; index++)
+                {
+                    runCts.Token.ThrowIfCancellationRequested();
+                    BatchFocusTarget target = targets[index];
+                    _selectedKind = ResolveBatchKind(originalKind, target.Side);
+                    _selectedPickerSide = target.Side;
+                    _selectedPickerNo = target.PickerNo;
+                    ReloadSelectedTargetReference();
+                    RefreshSettingGrid();
+                    RefreshSavedGrid();
+
+                    lblStatus.Text = "Batch " + (index + 1) + "/" + targets.Count +
+                                     " " + target.Label + " Focus 측정 중입니다.";
+                    VisionFocusScanRequest request = BuildRequest(true);
+                    var sequence = new VisionFocusScanSequence(host.Machine, request);
+                    int result = await sequence.RunAsync(runCts.Token, SequenceRunMode.Manual).ConfigureAwait(true);
+                    PopulateSamples(sequence.Result);
+                    RefreshSavedGrid();
+
+                    if (result != 0 || sequence.Result == null || !sequence.Result.Success)
+                    {
+                        lblStatus.Text = "Batch " + target.Label + " Focus 측정 실패: " +
+                                         (sequence.Result != null ? sequence.Result.Message : "결과 없음");
+                        QMC.Common.MessageDialog.Show(
+                            this,
+                            lblStatus.Text,
+                            "VISION FOCUS CAL",
+                            MessageBoxButtons.OK,
+                            MessageBoxIcon.Error);
+                        return;
+                    }
+
+                    CaptureLastSuccessfulResult(host.Machine, sequence.Result);
+                    host.SaveMachineSettings();
+
+                    bool hasNextTarget = index < targets.Count - 1;
+                    lblStatus.Text = hasNextTarget
+                        ? "Batch " + target.Label + " 완료. 다음 대상 전 안전 Avoid 복귀 중입니다."
+                        : "Batch " + target.Label + " 완료. 최종 안전 Avoid 복귀 중입니다.";
+                    var safe = new AutoCalibrationSafePositionSequence(context, target.Side);
+                    PickerSequenceOptions options = PickerSequenceOptions.Default();
+                    options.RunMode = SequenceRunMode.Manual;
+                    options.StartMode = SequenceStartMode.Restart;
+                    options.PickerNo = target.PickerNo;
+                    options.RestrictToPickerNo = target.PickerNo;
+                    int safeResult = await safe.RunAsync(runCts.Token, options).ConfigureAwait(true);
+                    if (safeResult != 0)
+                    {
+                        lblStatus.Text = "Batch " + target.Label +
+                                         " 완료 후 안전 Avoid 복귀에 실패했습니다. " +
+                                         (hasNextTarget ? "다음 대상을 실행하지 않습니다." : "최종 안전 상태를 확인하세요.") +
+                                         " code=" + safeResult;
+                        QMC.Common.MessageDialog.Show(
+                            this,
+                            lblStatus.Text,
+                            "VISION FOCUS CAL",
+                            MessageBoxButtons.OK,
+                            MessageBoxIcon.Error);
+                        return;
+                    }
+                }
+
+                lblStatus.Text = "Batch Focus 측정을 모두 완료했습니다. 대상=" + targets.Count +
+                                 ". SAVE RESULT는 마지막 정상 측정 대상을 확인 저장합니다.";
+            }
+            catch (OperationCanceledException)
+            {
+                lblStatus.Text = "Batch Focus 측정이 정지 요청으로 중단되었습니다.";
+                EventLogger.Write(EventKind.Event, "CAL", "VISION-FOCUS-CAL-BATCH-STOP", lblStatus.Text);
+            }
+            catch (Exception ex)
+            {
+                lblStatus.Text = "Batch Focus 측정 예외 발생: " + ex.Message;
+                EventLogger.Write(EventKind.Alarm, "CAL", "VISION-FOCUS-CAL-BATCH", lblStatus.Text);
+                QMC.Common.MessageDialog.Show(
+                    this,
+                    lblStatus.Text,
+                    "VISION FOCUS CAL",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Error);
+            }
+            finally
+            {
+                _selectedKind = originalKind;
+                _selectedPickerSide = originalSide;
+                _selectedPickerNo = originalPickerNo;
+                ReloadSelectedTargetReference();
+                RefreshSettingGrid();
+                RefreshSavedGrid();
+                EndManualCalibrationRun(host, stopHandler, runCts, actionScope);
+                _busy = false;
+                SetButtonsEnabled(true);
+            }
+        }
+
         private async Task RunScanAsync()
         {
             if (_busy)
@@ -930,6 +1182,8 @@ namespace QMC.CDT_320.Ui.Dialogs
             {
                 _busy = true;
                 SetButtonsEnabled(false);
+                _lastSuccessfulResult = null;
+                UpdateResultSaveButtonEnabled();
 
                 string reason;
                 if (!CanRunManualCalibration(out reason))
@@ -965,8 +1219,10 @@ namespace QMC.CDT_320.Ui.Dialogs
                     return;
                 }
 
+                CaptureLastSuccessfulResult(host.Machine, sequence.Result);
                 host.SaveMachineSettings();
-                lblStatus.Text = "Focus Scan 완료. Best=" + sequence.Result.BestPosition.ToString("F3") +
+                lblStatus.Text = "Focus Scan 완료. SAVE RESULT로 마지막 정상 측정값을 확인 저장하세요. Best=" +
+                                 sequence.Result.BestPosition.ToString("F3") +
                                  ", Score=" + sequence.Result.BestScore.ToString("F4") +
                                  ", Sample=" + sequence.Result.SampleCount;
             }
@@ -1017,6 +1273,128 @@ namespace QMC.CDT_320.Ui.Dialogs
                 PrepareSidePickerPosition = !IsBottomFocusKind(_selectedKind),
                 UpdatedBy = UserSession.Name
             };
+        }
+
+        private void CaptureLastSuccessfulResult(
+            CDT320_Machine machine,
+            VisionFocusScanResult result)
+        {
+            if (machine == null || result == null || !result.Success)
+                return;
+
+            VisionFocusPositionRecord record = ResolveRecord(
+                machine,
+                _selectedKind,
+                _selectedPickerSide,
+                _selectedPickerNo);
+            _lastSuccessfulResult = new FocusResultSnapshot
+            {
+                Kind = _selectedKind,
+                Side = _selectedPickerSide,
+                PickerNo = _selectedPickerNo,
+                DefaultPosition = record != null ? record.DefaultPosition : _defaultPosition,
+                BestPosition = result.BestPosition,
+                BestScore = result.BestScore,
+                SampleCount = result.SampleCount,
+                PickerZPosition = record != null ? record.PickerZPosition : 0.0,
+                PickerZValid = record != null && record.PickerZValid,
+                UpdatedBy = UserSession.Name ?? string.Empty
+            };
+            UpdateResultSaveButtonEnabled();
+        }
+
+        private void SaveLastSuccessfulResult()
+        {
+            FocusResultSnapshot snapshot = _lastSuccessfulResult;
+            if (snapshot == null)
+            {
+                lblStatus.Text = "저장할 Focus 측정 결과가 없습니다. START SCAN 또는 BATCH START를 정상 완료한 뒤 SAVE RESULT를 누르세요.";
+                QMC.Common.MessageDialog.Show(
+                    this,
+                    lblStatus.Text,
+                    "VISION FOCUS CAL",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Warning);
+                return;
+            }
+
+            try
+            {
+                string reason;
+                Form1 host = ResolveHost(out reason);
+                if (host == null || host.Machine == null || host.Machine.VisionUnit == null)
+                    throw new InvalidOperationException(reason);
+
+                VisionFocusPositionRecord record = ResolveRecord(
+                    host.Machine,
+                    snapshot.Kind,
+                    snapshot.Side,
+                    snapshot.PickerNo);
+                if (record == null)
+                    throw new InvalidOperationException("마지막 정상 측정 대상의 저장 레코드를 찾을 수 없습니다.");
+
+                if (!DoesRecordMatchSnapshot(record, snapshot))
+                {
+                    _lastSuccessfulResult = null;
+                    lblStatus.Text = "마지막 정상 측정 이후 해당 Focus 결과가 변경되어 SAVE RESULT를 차단했습니다. 다시 측정하세요. target=" +
+                                     BuildTargetLabel(snapshot.Kind, snapshot.Side, snapshot.PickerNo);
+                    EventLogger.Write(EventKind.Event, "CAL", "VISION-FOCUS-CAL-SAVE-RESULT-STALE", lblStatus.Text);
+                    QMC.Common.MessageDialog.Show(
+                        this,
+                        lblStatus.Text,
+                        "VISION FOCUS CAL",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Warning);
+                    return;
+                }
+
+                host.SaveMachineSettings();
+                RefreshSavedGrid();
+                lblStatus.Text = "마지막 정상 Focus 결과를 저장했습니다. target=" +
+                                 BuildTargetLabel(snapshot.Kind, snapshot.Side, snapshot.PickerNo) +
+                                 ", best=" + snapshot.BestPosition.ToString("F6") +
+                                 ", score=" + snapshot.BestScore.ToString("F6");
+                EventLogger.Write(EventKind.Event, "CAL", "VISION-FOCUS-CAL-SAVE-RESULT", lblStatus.Text);
+                _lastSuccessfulResult = null;
+            }
+            catch (Exception ex)
+            {
+                lblStatus.Text = "Focus 측정 결과 저장 실패: " + ex.Message;
+                EventLogger.Write(EventKind.Alarm, "CAL", "VISION-FOCUS-CAL-SAVE-RESULT", lblStatus.Text);
+                QMC.Common.MessageDialog.Show(
+                    this,
+                    lblStatus.Text,
+                    "VISION FOCUS CAL",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Error);
+            }
+            finally
+            {
+                UpdateResultSaveButtonEnabled();
+            }
+        }
+
+        private static bool DoesRecordMatchSnapshot(
+            VisionFocusPositionRecord record,
+            FocusResultSnapshot snapshot)
+        {
+            if (record == null || snapshot == null || !record.Valid)
+                return false;
+            if (record.SampleCount != snapshot.SampleCount ||
+                record.PickerZValid != snapshot.PickerZValid)
+                return false;
+            if (!AreNearlyEqual(record.DefaultPosition, snapshot.DefaultPosition) ||
+                !AreNearlyEqual(record.BestPosition, snapshot.BestPosition) ||
+                !AreNearlyEqual(record.BestScore, snapshot.BestScore))
+                return false;
+            return !snapshot.PickerZValid ||
+                   AreNearlyEqual(record.PickerZPosition, snapshot.PickerZPosition);
+        }
+
+        private static bool AreNearlyEqual(double left, double right)
+        {
+            double scale = Math.Max(1.0, Math.Max(Math.Abs(left), Math.Abs(right)));
+            return Math.Abs(left - right) <= (1e-9 * scale);
         }
 
         private void LoadSettingsToUi()
@@ -1696,11 +2074,32 @@ namespace QMC.CDT_320.Ui.Dialogs
 
         private VisionFocusPositionRecord ResolveSelectedRecord(CDT320_Machine machine)
         {
+            return ResolveRecord(machine, _selectedKind, _selectedPickerSide, _selectedPickerNo);
+        }
+
+        private static VisionFocusPositionRecord ResolveRecord(
+            CDT320_Machine machine,
+            VisionFocusScanKind kind,
+            VisionFocusPickerSide side,
+            int pickerNo)
+        {
+            if (machine == null || machine.VisionUnit == null || machine.VisionUnit.Config == null)
+                return null;
+
             machine.VisionUnit.Config.EnsureCalibrationObjects();
             VisionFocusCalibrationData data = machine.VisionUnit.Config.FocusCalibration;
-            return IsBottomFocusKind(_selectedKind)
-                ? data.GetBottomRecord(_selectedKind, _selectedPickerSide, _selectedPickerNo)
-                : data.GetSideRecord(_selectedKind, _selectedPickerNo);
+            data.EnsureObjects();
+            return kind == VisionFocusScanKind.BottomCollet || kind == VisionFocusScanKind.BottomDie
+                ? data.GetBottomRecord(kind, side, pickerNo)
+                : data.GetSideRecord(kind, pickerNo);
+        }
+
+        private static string BuildTargetLabel(
+            VisionFocusScanKind kind,
+            VisionFocusPickerSide side,
+            int pickerNo)
+        {
+            return kind + ":" + (side == VisionFocusPickerSide.Front ? "F" : "R") + " P" + pickerNo;
         }
 
         private double ResolveCurrentAxisPosition(CDT320_Machine machine)
@@ -2002,6 +2401,7 @@ namespace QMC.CDT_320.Ui.Dialogs
         private void SetButtonsEnabled(bool enabled)
         {
             gridSettings.Enabled = enabled;
+            batchGroup.Enabled = enabled;
             btnCheck.Enabled = enabled;
             btnUseCurrent.Enabled = enabled;
             btnMoveDefault.Enabled = enabled;
@@ -2012,8 +2412,15 @@ namespace QMC.CDT_320.Ui.Dialogs
             btnApplyBest.Enabled = enabled;
             btnResetAutoFocus.Enabled = enabled;
             btnReload.Enabled = enabled;
-            btnSave.Enabled = enabled;
+            btnSaveParameters.Enabled = enabled;
+            btnSave.Enabled = enabled && _lastSuccessfulResult != null;
             btnClose.Enabled = enabled;
+        }
+
+        private void UpdateResultSaveButtonEnabled()
+        {
+            if (btnSave != null)
+                btnSave.Enabled = !_busy && _lastSuccessfulResult != null;
         }
 
         private void UpdateStopButtonEnabled()

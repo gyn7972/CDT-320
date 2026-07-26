@@ -5,12 +5,26 @@
         private System.ComponentModel.IContainer components = null;
         private System.Windows.Forms.TableLayoutPanel rootLayout;
         private System.Windows.Forms.Label lblHeader;
+        private System.Windows.Forms.GroupBox batchGroup;
+        private System.Windows.Forms.FlowLayoutPanel batchFlow;
+        private System.Windows.Forms.CheckBox chkBatchAll;
+        private System.Windows.Forms.CheckBox chkBatchFront4;
+        private System.Windows.Forms.CheckBox chkBatchFront3;
+        private System.Windows.Forms.CheckBox chkBatchFront2;
+        private System.Windows.Forms.CheckBox chkBatchFront1;
+        private System.Windows.Forms.CheckBox chkBatchRear4;
+        private System.Windows.Forms.CheckBox chkBatchRear3;
+        private System.Windows.Forms.CheckBox chkBatchRear2;
+        private System.Windows.Forms.CheckBox chkBatchRear1;
+        private CalibrationDialogButton btnBatchStart;
         private System.Windows.Forms.TableLayoutPanel mainLayout;
         private System.Windows.Forms.GroupBox groupSetting;
+        private System.Windows.Forms.TableLayoutPanel settingLayout;
         private System.Windows.Forms.DataGridView gridSettings;
         private System.Windows.Forms.DataGridViewTextBoxColumn colSettingName;
         private System.Windows.Forms.DataGridViewTextBoxColumn colSettingValue;
         private System.Windows.Forms.DataGridViewTextBoxColumn colSettingUnit;
+        private CalibrationDialogButton btnSaveParameters;
         private System.Windows.Forms.GroupBox groupResult;
         private System.Windows.Forms.DataGridView gridSamples;
         private System.Windows.Forms.DataGridViewTextBoxColumn colNo;
@@ -54,12 +68,26 @@
         {
             this.rootLayout = new System.Windows.Forms.TableLayoutPanel();
             this.lblHeader = new System.Windows.Forms.Label();
+            this.batchGroup = new System.Windows.Forms.GroupBox();
+            this.batchFlow = new System.Windows.Forms.FlowLayoutPanel();
+            this.chkBatchAll = new System.Windows.Forms.CheckBox();
+            this.chkBatchFront4 = new System.Windows.Forms.CheckBox();
+            this.chkBatchFront3 = new System.Windows.Forms.CheckBox();
+            this.chkBatchFront2 = new System.Windows.Forms.CheckBox();
+            this.chkBatchFront1 = new System.Windows.Forms.CheckBox();
+            this.chkBatchRear4 = new System.Windows.Forms.CheckBox();
+            this.chkBatchRear3 = new System.Windows.Forms.CheckBox();
+            this.chkBatchRear2 = new System.Windows.Forms.CheckBox();
+            this.chkBatchRear1 = new System.Windows.Forms.CheckBox();
+            this.btnBatchStart = new CalibrationDialogButton();
             this.mainLayout = new System.Windows.Forms.TableLayoutPanel();
             this.groupSetting = new System.Windows.Forms.GroupBox();
+            this.settingLayout = new System.Windows.Forms.TableLayoutPanel();
             this.gridSettings = new System.Windows.Forms.DataGridView();
             this.colSettingName = new System.Windows.Forms.DataGridViewTextBoxColumn();
             this.colSettingValue = new System.Windows.Forms.DataGridViewTextBoxColumn();
             this.colSettingUnit = new System.Windows.Forms.DataGridViewTextBoxColumn();
+            this.btnSaveParameters = new CalibrationDialogButton();
             this.groupResult = new System.Windows.Forms.GroupBox();
             this.gridSamples = new System.Windows.Forms.DataGridView();
             this.colNo = new System.Windows.Forms.DataGridViewTextBoxColumn();
@@ -92,8 +120,11 @@
             this.btnSave = new CalibrationDialogButton();
             this.btnClose = new CalibrationDialogButton();
             this.rootLayout.SuspendLayout();
+            this.batchGroup.SuspendLayout();
+            this.batchFlow.SuspendLayout();
             this.mainLayout.SuspendLayout();
             this.groupSetting.SuspendLayout();
+            this.settingLayout.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.gridSettings)).BeginInit();
             this.groupResult.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.gridSamples)).BeginInit();
@@ -101,28 +132,30 @@
             ((System.ComponentModel.ISupportInitialize)(this.gridSaved)).BeginInit();
             this.buttonPanel.SuspendLayout();
             this.SuspendLayout();
-            // 
+            //
             // rootLayout
-            // 
+            //
             this.rootLayout.ColumnCount = 1;
             this.rootLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.rootLayout.Controls.Add(this.lblHeader, 0, 0);
-            this.rootLayout.Controls.Add(this.mainLayout, 0, 1);
-            this.rootLayout.Controls.Add(this.lblStatus, 0, 2);
-            this.rootLayout.Controls.Add(this.buttonPanel, 0, 3);
+            this.rootLayout.Controls.Add(this.batchGroup, 0, 1);
+            this.rootLayout.Controls.Add(this.mainLayout, 0, 2);
+            this.rootLayout.Controls.Add(this.lblStatus, 0, 3);
+            this.rootLayout.Controls.Add(this.buttonPanel, 0, 4);
             this.rootLayout.Dock = System.Windows.Forms.DockStyle.Fill;
             this.rootLayout.Location = new System.Drawing.Point(0, 0);
             this.rootLayout.Name = "rootLayout";
-            this.rootLayout.RowCount = 4;
+            this.rootLayout.RowCount = 5;
             this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 56F));
+            this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 60F));
             this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 50F));
             this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 67F));
             this.rootLayout.Size = new System.Drawing.Size(1018, 758);
             this.rootLayout.TabIndex = 0;
-            // 
+            //
             // lblHeader
-            // 
+            //
             this.lblHeader.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(225)))), ((int)(((byte)(120)))), ((int)(((byte)(0)))));
             this.lblHeader.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblHeader.Font = new System.Drawing.Font("맑은 고딕", 15F, System.Drawing.FontStyle.Bold);
@@ -135,9 +168,130 @@
             this.lblHeader.TabIndex = 0;
             this.lblHeader.Text = "VISION FOCUS CAL";
             this.lblHeader.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            // 
+            //
+            // batchGroup
+            //
+            this.batchGroup.Controls.Add(this.batchFlow);
+            this.batchGroup.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.batchGroup.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
+            this.batchGroup.Location = new System.Drawing.Point(10, 59);
+            this.batchGroup.Margin = new System.Windows.Forms.Padding(10, 3, 10, 1);
+            this.batchGroup.Name = "batchGroup";
+            this.batchGroup.Padding = new System.Windows.Forms.Padding(4, 3, 4, 3);
+            this.batchGroup.Size = new System.Drawing.Size(998, 56);
+            this.batchGroup.TabIndex = 1;
+            this.batchGroup.TabStop = false;
+            this.batchGroup.Text = "BATCH (현재 Mode 고정 · 선택 Picker 순차 Focus 측정)";
+            //
+            // batchFlow
+            //
+            this.batchFlow.Controls.Add(this.chkBatchAll);
+            this.batchFlow.Controls.Add(this.chkBatchFront4);
+            this.batchFlow.Controls.Add(this.chkBatchFront3);
+            this.batchFlow.Controls.Add(this.chkBatchFront2);
+            this.batchFlow.Controls.Add(this.chkBatchFront1);
+            this.batchFlow.Controls.Add(this.chkBatchRear4);
+            this.batchFlow.Controls.Add(this.chkBatchRear3);
+            this.batchFlow.Controls.Add(this.chkBatchRear2);
+            this.batchFlow.Controls.Add(this.chkBatchRear1);
+            this.batchFlow.Controls.Add(this.btnBatchStart);
+            this.batchFlow.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.batchFlow.Location = new System.Drawing.Point(4, 19);
+            this.batchFlow.Margin = new System.Windows.Forms.Padding(0);
+            this.batchFlow.Name = "batchFlow";
+            this.batchFlow.Padding = new System.Windows.Forms.Padding(3, 2, 0, 0);
+            this.batchFlow.Size = new System.Drawing.Size(990, 34);
+            this.batchFlow.TabIndex = 0;
+            this.batchFlow.WrapContents = false;
+            //
+            // batch checkboxes
+            //
+            this.chkBatchAll.AutoSize = true;
+            this.chkBatchAll.Location = new System.Drawing.Point(8, 6);
+            this.chkBatchAll.Margin = new System.Windows.Forms.Padding(5, 4, 14, 4);
+            this.chkBatchAll.Name = "chkBatchAll";
+            this.chkBatchAll.Size = new System.Drawing.Size(46, 19);
+            this.chkBatchAll.TabIndex = 0;
+            this.chkBatchAll.Text = "ALL";
+            this.chkBatchAll.UseVisualStyleBackColor = true;
+            this.chkBatchAll.CheckedChanged += new System.EventHandler(this.chkBatchAll_CheckedChanged);
+            this.chkBatchFront4.AutoSize = true;
+            this.chkBatchFront4.Location = new System.Drawing.Point(73, 6);
+            this.chkBatchFront4.Margin = new System.Windows.Forms.Padding(5, 4, 5, 4);
+            this.chkBatchFront4.Name = "chkBatchFront4";
+            this.chkBatchFront4.Size = new System.Drawing.Size(51, 19);
+            this.chkBatchFront4.TabIndex = 1;
+            this.chkBatchFront4.Text = "F P4";
+            this.chkBatchFront4.UseVisualStyleBackColor = true;
+            this.chkBatchFront3.AutoSize = true;
+            this.chkBatchFront3.Margin = new System.Windows.Forms.Padding(5, 4, 5, 4);
+            this.chkBatchFront3.Name = "chkBatchFront3";
+            this.chkBatchFront3.Size = new System.Drawing.Size(51, 19);
+            this.chkBatchFront3.TabIndex = 2;
+            this.chkBatchFront3.Text = "F P3";
+            this.chkBatchFront3.UseVisualStyleBackColor = true;
+            this.chkBatchFront2.AutoSize = true;
+            this.chkBatchFront2.Margin = new System.Windows.Forms.Padding(5, 4, 5, 4);
+            this.chkBatchFront2.Name = "chkBatchFront2";
+            this.chkBatchFront2.Size = new System.Drawing.Size(51, 19);
+            this.chkBatchFront2.TabIndex = 3;
+            this.chkBatchFront2.Text = "F P2";
+            this.chkBatchFront2.UseVisualStyleBackColor = true;
+            this.chkBatchFront1.AutoSize = true;
+            this.chkBatchFront1.Margin = new System.Windows.Forms.Padding(5, 4, 12, 4);
+            this.chkBatchFront1.Name = "chkBatchFront1";
+            this.chkBatchFront1.Size = new System.Drawing.Size(51, 19);
+            this.chkBatchFront1.TabIndex = 4;
+            this.chkBatchFront1.Text = "F P1";
+            this.chkBatchFront1.UseVisualStyleBackColor = true;
+            this.chkBatchRear4.AutoSize = true;
+            this.chkBatchRear4.Margin = new System.Windows.Forms.Padding(5, 4, 5, 4);
+            this.chkBatchRear4.Name = "chkBatchRear4";
+            this.chkBatchRear4.Size = new System.Drawing.Size(52, 19);
+            this.chkBatchRear4.TabIndex = 5;
+            this.chkBatchRear4.Text = "R P4";
+            this.chkBatchRear4.UseVisualStyleBackColor = true;
+            this.chkBatchRear3.AutoSize = true;
+            this.chkBatchRear3.Margin = new System.Windows.Forms.Padding(5, 4, 5, 4);
+            this.chkBatchRear3.Name = "chkBatchRear3";
+            this.chkBatchRear3.Size = new System.Drawing.Size(52, 19);
+            this.chkBatchRear3.TabIndex = 6;
+            this.chkBatchRear3.Text = "R P3";
+            this.chkBatchRear3.UseVisualStyleBackColor = true;
+            this.chkBatchRear2.AutoSize = true;
+            this.chkBatchRear2.Margin = new System.Windows.Forms.Padding(5, 4, 5, 4);
+            this.chkBatchRear2.Name = "chkBatchRear2";
+            this.chkBatchRear2.Size = new System.Drawing.Size(52, 19);
+            this.chkBatchRear2.TabIndex = 7;
+            this.chkBatchRear2.Text = "R P2";
+            this.chkBatchRear2.UseVisualStyleBackColor = true;
+            this.chkBatchRear1.AutoSize = true;
+            this.chkBatchRear1.Margin = new System.Windows.Forms.Padding(5, 4, 14, 4);
+            this.chkBatchRear1.Name = "chkBatchRear1";
+            this.chkBatchRear1.Size = new System.Drawing.Size(52, 19);
+            this.chkBatchRear1.TabIndex = 8;
+            this.chkBatchRear1.Text = "R P1";
+            this.chkBatchRear1.UseVisualStyleBackColor = true;
+            //
+            // btnBatchStart
+            //
+            this.btnBatchStart.BackColor = System.Drawing.Color.FromArgb(225, 120, 0);
+            this.btnBatchStart.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.btnBatchStart.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this.btnBatchStart.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
+            this.btnBatchStart.ForeColor = System.Drawing.Color.White;
+            this.btnBatchStart.Location = new System.Drawing.Point(622, 3);
+            this.btnBatchStart.Margin = new System.Windows.Forms.Padding(5, 1, 5, 1);
+            this.btnBatchStart.Name = "btnBatchStart";
+            this.btnBatchStart.Role = CalibrationDialogButtonRole.Primary;
+            this.btnBatchStart.Size = new System.Drawing.Size(180, 29);
+            this.btnBatchStart.TabIndex = 9;
+            this.btnBatchStart.Text = "BATCH START";
+            this.btnBatchStart.UseVisualStyleBackColor = false;
+            this.btnBatchStart.Click += new System.EventHandler(this.btnBatchStart_Click);
+            //
             // mainLayout
-            // 
+            //
             this.mainLayout.ColumnCount = 2;
             this.mainLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 469F));
             this.mainLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
@@ -145,30 +299,46 @@
             this.mainLayout.Controls.Add(this.groupResult, 1, 0);
             this.mainLayout.Controls.Add(this.groupSaved, 0, 1);
             this.mainLayout.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.mainLayout.Location = new System.Drawing.Point(10, 69);
+            this.mainLayout.Location = new System.Drawing.Point(10, 129);
             this.mainLayout.Margin = new System.Windows.Forms.Padding(10, 13, 10, 13);
             this.mainLayout.Name = "mainLayout";
             this.mainLayout.RowCount = 2;
             this.mainLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 64F));
             this.mainLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 36F));
-            this.mainLayout.Size = new System.Drawing.Size(998, 559);
+            this.mainLayout.Size = new System.Drawing.Size(998, 499);
             this.mainLayout.TabIndex = 1;
-            // 
+            //
             // groupSetting
-            // 
-            this.groupSetting.Controls.Add(this.gridSettings);
+            //
+            this.groupSetting.Controls.Add(this.settingLayout);
             this.groupSetting.Dock = System.Windows.Forms.DockStyle.Fill;
             this.groupSetting.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.groupSetting.Location = new System.Drawing.Point(0, 0);
             this.groupSetting.Margin = new System.Windows.Forms.Padding(0, 0, 9, 9);
             this.groupSetting.Name = "groupSetting";
-            this.groupSetting.Size = new System.Drawing.Size(460, 348);
+            this.groupSetting.Size = new System.Drawing.Size(460, 310);
             this.groupSetting.TabIndex = 0;
             this.groupSetting.TabStop = false;
             this.groupSetting.Text = "SCAN SETTING";
-            // 
+            //
+            // settingLayout
+            //
+            this.settingLayout.ColumnCount = 1;
+            this.settingLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.settingLayout.Controls.Add(this.gridSettings, 0, 0);
+            this.settingLayout.Controls.Add(this.btnSaveParameters, 0, 1);
+            this.settingLayout.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.settingLayout.Location = new System.Drawing.Point(3, 21);
+            this.settingLayout.Margin = new System.Windows.Forms.Padding(0);
+            this.settingLayout.Name = "settingLayout";
+            this.settingLayout.RowCount = 2;
+            this.settingLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.settingLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 42F));
+            this.settingLayout.Size = new System.Drawing.Size(454, 286);
+            this.settingLayout.TabIndex = 0;
+            //
             // gridSettings
-            // 
+            //
             this.gridSettings.AllowUserToAddRows = false;
             this.gridSettings.AllowUserToDeleteRows = false;
             this.gridSettings.AllowUserToResizeRows = false;
@@ -181,12 +351,13 @@
             this.colSettingUnit});
             this.gridSettings.Dock = System.Windows.Forms.DockStyle.Fill;
             this.gridSettings.EditMode = System.Windows.Forms.DataGridViewEditMode.EditOnEnter;
-            this.gridSettings.Location = new System.Drawing.Point(3, 21);
+            this.gridSettings.Location = new System.Drawing.Point(0, 0);
+            this.gridSettings.Margin = new System.Windows.Forms.Padding(0, 0, 0, 4);
             this.gridSettings.MultiSelect = false;
             this.gridSettings.Name = "gridSettings";
             this.gridSettings.RowHeadersVisible = false;
             this.gridSettings.SelectionMode = System.Windows.Forms.DataGridViewSelectionMode.FullRowSelect;
-            this.gridSettings.Size = new System.Drawing.Size(454, 324);
+            this.gridSettings.Size = new System.Drawing.Size(454, 240);
             this.gridSettings.TabIndex = 0;
             this.gridSettings.CellBeginEdit += new System.Windows.Forms.DataGridViewCellCancelEventHandler(this.gridSettings_CellBeginEdit);
             this.gridSettings.CellClick += new System.Windows.Forms.DataGridViewCellEventHandler(this.gridSettings_CellClick);
@@ -194,32 +365,50 @@
             this.gridSettings.CellToolTipTextNeeded += new System.Windows.Forms.DataGridViewCellToolTipTextNeededEventHandler(this.gridSettings_CellToolTipTextNeeded);
             this.gridSettings.CellValueChanged += new System.Windows.Forms.DataGridViewCellEventHandler(this.gridSettings_CellValueChanged);
             this.gridSettings.CurrentCellDirtyStateChanged += new System.EventHandler(this.gridSettings_CurrentCellDirtyStateChanged);
-            // 
+            //
             // colSettingName
-            // 
+            //
             this.colSettingName.HeaderText = "PARAMETER";
             this.colSettingName.Name = "colSettingName";
             this.colSettingName.ReadOnly = true;
             this.colSettingName.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
             this.colSettingName.Width = 178;
-            // 
+            //
             // colSettingValue
-            // 
+            //
             this.colSettingValue.AutoSizeMode = System.Windows.Forms.DataGridViewAutoSizeColumnMode.Fill;
             this.colSettingValue.HeaderText = "VALUE";
             this.colSettingValue.Name = "colSettingValue";
             this.colSettingValue.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
-            // 
+            //
             // colSettingUnit
-            // 
+            //
             this.colSettingUnit.HeaderText = "UNIT";
             this.colSettingUnit.Name = "colSettingUnit";
             this.colSettingUnit.ReadOnly = true;
             this.colSettingUnit.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
             this.colSettingUnit.Width = 55;
-            // 
+            //
+            // btnSaveParameters
+            //
+            this.btnSaveParameters.BackColor = System.Drawing.Color.FromArgb(64, 64, 64);
+            this.btnSaveParameters.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.btnSaveParameters.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.btnSaveParameters.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this.btnSaveParameters.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
+            this.btnSaveParameters.ForeColor = System.Drawing.Color.White;
+            this.btnSaveParameters.Location = new System.Drawing.Point(0, 244);
+            this.btnSaveParameters.Margin = new System.Windows.Forms.Padding(0);
+            this.btnSaveParameters.Name = "btnSaveParameters";
+            this.btnSaveParameters.Role = CalibrationDialogButtonRole.Dark;
+            this.btnSaveParameters.Size = new System.Drawing.Size(454, 42);
+            this.btnSaveParameters.TabIndex = 1;
+            this.btnSaveParameters.Text = "PARAMETER SAVE";
+            this.btnSaveParameters.UseVisualStyleBackColor = false;
+            this.btnSaveParameters.Click += new System.EventHandler(this.btnSaveParameters_Click);
+            //
             // groupResult
-            // 
+            //
             this.groupResult.Controls.Add(this.gridSamples);
             this.groupResult.Dock = System.Windows.Forms.DockStyle.Fill;
             this.groupResult.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
@@ -231,9 +420,9 @@
             this.groupResult.TabIndex = 1;
             this.groupResult.TabStop = false;
             this.groupResult.Text = "SCAN SAMPLE";
-            // 
+            //
             // gridSamples
-            // 
+            //
             this.gridSamples.AllowUserToAddRows = false;
             this.gridSamples.AllowUserToDeleteRows = false;
             this.gridSamples.AllowUserToResizeRows = false;
@@ -254,49 +443,49 @@
             this.gridSamples.SelectionMode = System.Windows.Forms.DataGridViewSelectionMode.FullRowSelect;
             this.gridSamples.Size = new System.Drawing.Size(523, 526);
             this.gridSamples.TabIndex = 0;
-            // 
+            //
             // colNo
-            // 
+            //
             this.colNo.HeaderText = "NO";
             this.colNo.Name = "colNo";
             this.colNo.ReadOnly = true;
             this.colNo.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
             this.colNo.Width = 56;
-            // 
+            //
             // colPosition
-            // 
+            //
             this.colPosition.HeaderText = "POSITION";
             this.colPosition.Name = "colPosition";
             this.colPosition.ReadOnly = true;
             this.colPosition.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
             this.colPosition.Width = 120;
-            // 
+            //
             // colScore
-            // 
+            //
             this.colScore.HeaderText = "SCORE";
             this.colScore.Name = "colScore";
             this.colScore.ReadOnly = true;
             this.colScore.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
             this.colScore.Width = 110;
-            // 
+            //
             // colResult
-            // 
+            //
             this.colResult.HeaderText = "RESULT";
             this.colResult.Name = "colResult";
             this.colResult.ReadOnly = true;
             this.colResult.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
             this.colResult.Width = 90;
-            // 
+            //
             // colRaw
-            // 
+            //
             this.colRaw.AutoSizeMode = System.Windows.Forms.DataGridViewAutoSizeColumnMode.Fill;
             this.colRaw.HeaderText = "RAW";
             this.colRaw.Name = "colRaw";
             this.colRaw.ReadOnly = true;
             this.colRaw.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
-            // 
+            //
             // groupSaved
-            // 
+            //
             this.groupSaved.Controls.Add(this.gridSaved);
             this.groupSaved.Dock = System.Windows.Forms.DockStyle.Fill;
             this.groupSaved.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
@@ -307,9 +496,9 @@
             this.groupSaved.TabIndex = 2;
             this.groupSaved.TabStop = false;
             this.groupSaved.Text = "SAVED RESULT";
-            // 
+            //
             // gridSaved
-            // 
+            //
             this.gridSaved.AllowUserToAddRows = false;
             this.gridSaved.AllowUserToDeleteRows = false;
             this.gridSaved.AllowUserToResizeRows = false;
@@ -335,81 +524,81 @@
             this.gridSaved.Size = new System.Drawing.Size(454, 178);
             this.gridSaved.TabIndex = 0;
             this.gridSaved.CellDoubleClick += new System.Windows.Forms.DataGridViewCellEventHandler(this.gridSaved_CellDoubleClick);
-            // 
+            //
             // colItem
-            // 
+            //
             this.colItem.AutoSizeMode = System.Windows.Forms.DataGridViewAutoSizeColumnMode.Fill;
             this.colItem.FillWeight = 36F;
             this.colItem.HeaderText = "ITEM";
             this.colItem.Name = "colItem";
             this.colItem.ReadOnly = true;
             this.colItem.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
-            // 
+            //
             // colDefaultPos
-            // 
+            //
             this.colDefaultPos.AutoSizeMode = System.Windows.Forms.DataGridViewAutoSizeColumnMode.Fill;
             this.colDefaultPos.FillWeight = 22F;
             this.colDefaultPos.HeaderText = "DEFAULT";
             this.colDefaultPos.Name = "colDefaultPos";
             this.colDefaultPos.ReadOnly = true;
             this.colDefaultPos.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
-            // 
+            //
             // colBestPos
-            // 
+            //
             this.colBestPos.AutoSizeMode = System.Windows.Forms.DataGridViewAutoSizeColumnMode.Fill;
             this.colBestPos.FillWeight = 22F;
             this.colBestPos.HeaderText = "BEST";
             this.colBestPos.Name = "colBestPos";
             this.colBestPos.ReadOnly = true;
             this.colBestPos.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
-            // 
+            //
             // colBestScore
-            // 
+            //
             this.colBestScore.AutoSizeMode = System.Windows.Forms.DataGridViewAutoSizeColumnMode.Fill;
             this.colBestScore.FillWeight = 16F;
             this.colBestScore.HeaderText = "SCORE";
             this.colBestScore.Name = "colBestScore";
             this.colBestScore.ReadOnly = true;
             this.colBestScore.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
-            // 
+            //
             // colPickerZ
-            // 
+            //
             this.colPickerZ.AutoSizeMode = System.Windows.Forms.DataGridViewAutoSizeColumnMode.Fill;
             this.colPickerZ.FillWeight = 16F;
             this.colPickerZ.HeaderText = "PICKER Z";
             this.colPickerZ.Name = "colPickerZ";
             this.colPickerZ.ReadOnly = true;
             this.colPickerZ.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
-            // 
+            //
             // colAutoFocusCount
-            // 
+            //
             this.colAutoFocusCount.AutoSizeMode = System.Windows.Forms.DataGridViewAutoSizeColumnMode.Fill;
             this.colAutoFocusCount.FillWeight = 14F;
             this.colAutoFocusCount.HeaderText = "AF CNT";
             this.colAutoFocusCount.Name = "colAutoFocusCount";
             this.colAutoFocusCount.ReadOnly = true;
             this.colAutoFocusCount.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
-            // 
+            //
             // colAutoFocusWafer
-            // 
+            //
             this.colAutoFocusWafer.AutoSizeMode = System.Windows.Forms.DataGridViewAutoSizeColumnMode.Fill;
             this.colAutoFocusWafer.FillWeight = 20F;
             this.colAutoFocusWafer.HeaderText = "AF WAFER";
             this.colAutoFocusWafer.Name = "colAutoFocusWafer";
             this.colAutoFocusWafer.ReadOnly = true;
             this.colAutoFocusWafer.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
-            // 
+            //
             // colValid
-            // 
+            //
             this.colValid.AutoSizeMode = System.Windows.Forms.DataGridViewAutoSizeColumnMode.Fill;
             this.colValid.FillWeight = 10F;
             this.colValid.HeaderText = "OK";
             this.colValid.Name = "colValid";
             this.colValid.ReadOnly = true;
             this.colValid.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
-            // 
+            //
             // lblStatus
-            // 
+            //
             this.lblStatus.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblStatus.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblStatus.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
@@ -420,9 +609,9 @@
             this.lblStatus.Size = new System.Drawing.Size(998, 41);
             this.lblStatus.TabIndex = 2;
             this.lblStatus.Text = "대기 중입니다.";
-            // 
+            //
             // buttonPanel
-            // 
+            //
             this.buttonPanel.ColumnCount = 12;
             this.buttonPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 8.333333F));
             this.buttonPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 8.333333F));
@@ -456,9 +645,9 @@
             this.buttonPanel.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.buttonPanel.Size = new System.Drawing.Size(998, 41);
             this.buttonPanel.TabIndex = 3;
-            // 
+            //
             // btnCheck
-            // 
+            //
             this.btnCheck.BackColor = System.Drawing.Color.White;
             this.btnCheck.Cursor = System.Windows.Forms.Cursors.Hand;
             this.btnCheck.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -475,9 +664,9 @@
             this.btnCheck.UseVisualStyleBackColor = false;
             this.btnCheck.Role = CalibrationDialogButtonRole.Normal;
             this.btnCheck.Click += new System.EventHandler(this.btnCheck_Click);
-            // 
+            //
             // btnUseCurrent
-            // 
+            //
             this.btnUseCurrent.BackColor = System.Drawing.Color.White;
             this.btnUseCurrent.Cursor = System.Windows.Forms.Cursors.Hand;
             this.btnUseCurrent.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -494,9 +683,9 @@
             this.btnUseCurrent.UseVisualStyleBackColor = false;
             this.btnUseCurrent.Role = CalibrationDialogButtonRole.Normal;
             this.btnUseCurrent.Click += new System.EventHandler(this.btnUseCurrent_Click);
-            // 
+            //
             // btnMoveDefault
-            // 
+            //
             this.btnMoveDefault.BackColor = System.Drawing.Color.White;
             this.btnMoveDefault.Cursor = System.Windows.Forms.Cursors.Hand;
             this.btnMoveDefault.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -513,9 +702,9 @@
             this.btnMoveDefault.UseVisualStyleBackColor = false;
             this.btnMoveDefault.Role = CalibrationDialogButtonRole.Normal;
             this.btnMoveDefault.Click += new System.EventHandler(this.btnMoveDefault_Click);
-            // 
+            //
             // btnMoveZAvoid
-            // 
+            //
             this.btnMoveZAvoid.BackColor = System.Drawing.Color.White;
             this.btnMoveZAvoid.Cursor = System.Windows.Forms.Cursors.Hand;
             this.btnMoveZAvoid.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -532,9 +721,9 @@
             this.btnMoveZAvoid.UseVisualStyleBackColor = false;
             this.btnMoveZAvoid.Role = CalibrationDialogButtonRole.Normal;
             this.btnMoveZAvoid.Click += new System.EventHandler(this.btnMoveZAvoid_Click);
-            // 
+            //
             // btnMoveYAvoid
-            // 
+            //
             this.btnMoveYAvoid.BackColor = System.Drawing.Color.White;
             this.btnMoveYAvoid.Cursor = System.Windows.Forms.Cursors.Hand;
             this.btnMoveYAvoid.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -551,9 +740,9 @@
             this.btnMoveYAvoid.UseVisualStyleBackColor = false;
             this.btnMoveYAvoid.Role = CalibrationDialogButtonRole.Normal;
             this.btnMoveYAvoid.Click += new System.EventHandler(this.btnMoveYAvoid_Click);
-            // 
+            //
             // btnStartScan
-            // 
+            //
             this.btnStartScan.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(225)))), ((int)(((byte)(120)))), ((int)(((byte)(0)))));
             this.btnStartScan.Cursor = System.Windows.Forms.Cursors.Hand;
             this.btnStartScan.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -570,9 +759,9 @@
             this.btnStartScan.UseVisualStyleBackColor = false;
             this.btnStartScan.Role = CalibrationDialogButtonRole.Primary;
             this.btnStartScan.Click += new System.EventHandler(this.btnStartScan_Click);
-            // 
+            //
             // btnSeqStop
-            // 
+            //
             this.btnSeqStop.BackColor = System.Drawing.Color.White;
             this.btnSeqStop.Cursor = System.Windows.Forms.Cursors.Hand;
             this.btnSeqStop.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -590,9 +779,9 @@
             this.btnSeqStop.UseVisualStyleBackColor = false;
             this.btnSeqStop.Role = CalibrationDialogButtonRole.Normal;
             this.btnSeqStop.Click += new System.EventHandler(this.btnSeqStop_Click);
-            // 
+            //
             // btnApplyBest
-            // 
+            //
             this.btnApplyBest.BackColor = System.Drawing.Color.White;
             this.btnApplyBest.Cursor = System.Windows.Forms.Cursors.Hand;
             this.btnApplyBest.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -609,9 +798,9 @@
             this.btnApplyBest.UseVisualStyleBackColor = false;
             this.btnApplyBest.Role = CalibrationDialogButtonRole.Normal;
             this.btnApplyBest.Click += new System.EventHandler(this.btnApplyBest_Click);
-            // 
+            //
             // btnResetAutoFocus
-            // 
+            //
             this.btnResetAutoFocus.BackColor = System.Drawing.Color.White;
             this.btnResetAutoFocus.Cursor = System.Windows.Forms.Cursors.Hand;
             this.btnResetAutoFocus.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -628,9 +817,9 @@
             this.btnResetAutoFocus.UseVisualStyleBackColor = false;
             this.btnResetAutoFocus.Role = CalibrationDialogButtonRole.Normal;
             this.btnResetAutoFocus.Click += new System.EventHandler(this.btnResetAutoFocus_Click);
-            // 
+            //
             // btnReload
-            // 
+            //
             this.btnReload.BackColor = System.Drawing.Color.White;
             this.btnReload.Cursor = System.Windows.Forms.Cursors.Hand;
             this.btnReload.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -647,9 +836,9 @@
             this.btnReload.UseVisualStyleBackColor = false;
             this.btnReload.Role = CalibrationDialogButtonRole.Normal;
             this.btnReload.Click += new System.EventHandler(this.btnReload_Click);
-            // 
+            //
             // btnSave
-            // 
+            //
             this.btnSave.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(64)))), ((int)(((byte)(64)))), ((int)(((byte)(64)))));
             this.btnSave.Cursor = System.Windows.Forms.Cursors.Hand;
             this.btnSave.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -662,13 +851,13 @@
             this.btnSave.Name = "btnSave";
             this.btnSave.Size = new System.Drawing.Size(89, 29);
             this.btnSave.TabIndex = 10;
-            this.btnSave.Text = "SAVE";
+            this.btnSave.Text = "SAVE RESULT";
             this.btnSave.UseVisualStyleBackColor = false;
             this.btnSave.Role = CalibrationDialogButtonRole.Dark;
-            this.btnSave.Click += new System.EventHandler(this.btnSave_Click);
-            // 
+            this.btnSave.Click += new System.EventHandler(this.btnSaveResult_Click);
+            //
             // btnClose
-            // 
+            //
             this.btnClose.BackColor = System.Drawing.Color.White;
             this.btnClose.Cursor = System.Windows.Forms.Cursors.Hand;
             this.btnClose.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -685,9 +874,9 @@
             this.btnClose.UseVisualStyleBackColor = false;
             this.btnClose.Role = CalibrationDialogButtonRole.Normal;
             this.btnClose.Click += new System.EventHandler(this.btnClose_Click);
-            // 
+            //
             // VisionFocusCalibrationDialog
-            // 
+            //
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(1018, 758);
@@ -695,8 +884,12 @@
             this.Name = "VisionFocusCalibrationDialog";
             this.Text = "Vision Focus Calibration";
             this.rootLayout.ResumeLayout(false);
+            this.batchGroup.ResumeLayout(false);
+            this.batchFlow.ResumeLayout(false);
+            this.batchFlow.PerformLayout();
             this.mainLayout.ResumeLayout(false);
             this.groupSetting.ResumeLayout(false);
+            this.settingLayout.ResumeLayout(false);
             ((System.ComponentModel.ISupportInitialize)(this.gridSettings)).EndInit();
             this.groupResult.ResumeLayout(false);
             ((System.ComponentModel.ISupportInitialize)(this.gridSamples)).EndInit();

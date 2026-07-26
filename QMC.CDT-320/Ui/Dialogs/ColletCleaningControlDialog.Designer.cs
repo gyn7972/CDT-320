@@ -1,4 +1,4 @@
-namespace QMC.CDT_320.Ui.Dialogs
+﻿namespace QMC.CDT_320.Ui.Dialogs
 {
     partial class ColletCleaningControlDialog
     {
@@ -21,6 +21,7 @@ namespace QMC.CDT_320.Ui.Dialogs
 
         private System.Windows.Forms.TableLayoutPanel mainLayout;
         private System.Windows.Forms.GroupBox groupSettings;
+        private System.Windows.Forms.TableLayoutPanel settingsLayout;
         private System.Windows.Forms.DataGridView gridSettings;
         private System.Windows.Forms.DataGridViewTextBoxColumn colSettingName;
         private System.Windows.Forms.DataGridViewTextBoxColumn colSettingValue;
@@ -45,7 +46,7 @@ namespace QMC.CDT_320.Ui.Dialogs
         private CalibrationDialogButton btnSelectAll;
         private CalibrationDialogButton btnSelectNone;
         private CalibrationDialogButton btnReload;
-        private CalibrationDialogButton btnSave;
+        private CalibrationDialogButton btnParameterSave;
         private CalibrationDialogButton btnClose;
 
         protected override void Dispose(bool disposing)
@@ -72,6 +73,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             this.chkRear1 = new System.Windows.Forms.CheckBox();
             this.mainLayout = new System.Windows.Forms.TableLayoutPanel();
             this.groupSettings = new System.Windows.Forms.GroupBox();
+            this.settingsLayout = new System.Windows.Forms.TableLayoutPanel();
             this.gridSettings = new System.Windows.Forms.DataGridView();
             this.colSettingName = new System.Windows.Forms.DataGridViewTextBoxColumn();
             this.colSettingValue = new System.Windows.Forms.DataGridViewTextBoxColumn();
@@ -94,13 +96,14 @@ namespace QMC.CDT_320.Ui.Dialogs
             this.btnSelectAll = new QMC.CDT_320.Ui.Dialogs.CalibrationDialogButton();
             this.btnSelectNone = new QMC.CDT_320.Ui.Dialogs.CalibrationDialogButton();
             this.btnReload = new QMC.CDT_320.Ui.Dialogs.CalibrationDialogButton();
-            this.btnSave = new QMC.CDT_320.Ui.Dialogs.CalibrationDialogButton();
+            this.btnParameterSave = new QMC.CDT_320.Ui.Dialogs.CalibrationDialogButton();
             this.btnClose = new QMC.CDT_320.Ui.Dialogs.CalibrationDialogButton();
             this.rootLayout.SuspendLayout();
             this.targetGroup.SuspendLayout();
             this.targetFlow.SuspendLayout();
             this.mainLayout.SuspendLayout();
             this.groupSettings.SuspendLayout();
+            this.settingsLayout.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.gridSettings)).BeginInit();
             this.groupResults.SuspendLayout();
             this.resultsLayout.SuspendLayout();
@@ -296,7 +299,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             //
             // groupSettings
             //
-            this.groupSettings.Controls.Add(this.gridSettings);
+            this.groupSettings.Controls.Add(this.settingsLayout);
             this.groupSettings.Dock = System.Windows.Forms.DockStyle.Fill;
             this.groupSettings.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.groupSettings.Location = new System.Drawing.Point(0, 0);
@@ -307,6 +310,22 @@ namespace QMC.CDT_320.Ui.Dialogs
             this.groupSettings.TabIndex = 0;
             this.groupSettings.TabStop = false;
             this.groupSettings.Text = "SETTING";
+            //
+            // settingsLayout
+            //
+            this.settingsLayout.ColumnCount = 1;
+            this.settingsLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.settingsLayout.Controls.Add(this.gridSettings, 0, 0);
+            this.settingsLayout.Controls.Add(this.btnParameterSave, 0, 1);
+            this.settingsLayout.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.settingsLayout.Location = new System.Drawing.Point(4, 21);
+            this.settingsLayout.Margin = new System.Windows.Forms.Padding(0);
+            this.settingsLayout.Name = "settingsLayout";
+            this.settingsLayout.RowCount = 2;
+            this.settingsLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.settingsLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 46F));
+            this.settingsLayout.Size = new System.Drawing.Size(376, 527);
+            this.settingsLayout.TabIndex = 0;
             //
             // gridSettings
             //
@@ -321,14 +340,14 @@ namespace QMC.CDT_320.Ui.Dialogs
             this.colSettingUnit});
             this.gridSettings.Dock = System.Windows.Forms.DockStyle.Fill;
             this.gridSettings.EditMode = System.Windows.Forms.DataGridViewEditMode.EditOnEnter;
-            this.gridSettings.Location = new System.Drawing.Point(4, 21);
+            this.gridSettings.Location = new System.Drawing.Point(0, 0);
             this.gridSettings.Margin = new System.Windows.Forms.Padding(4, 3, 4, 3);
             this.gridSettings.MultiSelect = false;
             this.gridSettings.Name = "gridSettings";
             this.gridSettings.RowHeadersVisible = false;
             this.gridSettings.SelectionMode = System.Windows.Forms.DataGridViewSelectionMode.FullRowSelect;
             this.gridSettings.ShowCellToolTips = true;
-            this.gridSettings.Size = new System.Drawing.Size(376, 527);
+            this.gridSettings.Size = new System.Drawing.Size(376, 481);
             this.gridSettings.TabIndex = 0;
             //
             // colSettingName
@@ -500,7 +519,6 @@ namespace QMC.CDT_320.Ui.Dialogs
             this.footerFlow.Controls.Add(this.btnSelectAll);
             this.footerFlow.Controls.Add(this.btnSelectNone);
             this.footerFlow.Controls.Add(this.btnReload);
-            this.footerFlow.Controls.Add(this.btnSave);
             this.footerFlow.Controls.Add(this.btnClose);
             this.footerFlow.Dock = System.Windows.Forms.DockStyle.Fill;
             this.footerFlow.Location = new System.Drawing.Point(12, 719);
@@ -592,22 +610,23 @@ namespace QMC.CDT_320.Ui.Dialogs
             this.btnReload.Text = "RELOAD";
             this.btnReload.UseVisualStyleBackColor = false;
             //
-            // btnSave
+            // btnParameterSave
             //
-            this.btnSave.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(64)))), ((int)(((byte)(64)))), ((int)(((byte)(64)))));
-            this.btnSave.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.btnSave.FlatAppearance.BorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(176)))), ((int)(((byte)(176)))), ((int)(((byte)(176)))));
-            this.btnSave.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnSave.Font = new System.Drawing.Font("맑은 고딕", 9.5F, System.Drawing.FontStyle.Bold);
-            this.btnSave.ForeColor = System.Drawing.Color.White;
-            this.btnSave.Location = new System.Drawing.Point(827, 4);
-            this.btnSave.Margin = new System.Windows.Forms.Padding(7, 4, 7, 4);
-            this.btnSave.Name = "btnSave";
-            this.btnSave.Role = QMC.CDT_320.Ui.Dialogs.CalibrationDialogButtonRole.Dark;
-            this.btnSave.Size = new System.Drawing.Size(150, 66);
-            this.btnSave.TabIndex = 5;
-            this.btnSave.Text = "SAVE";
-            this.btnSave.UseVisualStyleBackColor = false;
+            this.btnParameterSave.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(64)))), ((int)(((byte)(64)))), ((int)(((byte)(64)))));
+            this.btnParameterSave.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.btnParameterSave.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.btnParameterSave.FlatAppearance.BorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(176)))), ((int)(((byte)(176)))), ((int)(((byte)(176)))));
+            this.btnParameterSave.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this.btnParameterSave.Font = new System.Drawing.Font("맑은 고딕", 9.5F, System.Drawing.FontStyle.Bold);
+            this.btnParameterSave.ForeColor = System.Drawing.Color.White;
+            this.btnParameterSave.Location = new System.Drawing.Point(4, 485);
+            this.btnParameterSave.Margin = new System.Windows.Forms.Padding(4);
+            this.btnParameterSave.Name = "btnParameterSave";
+            this.btnParameterSave.Role = QMC.CDT_320.Ui.Dialogs.CalibrationDialogButtonRole.Dark;
+            this.btnParameterSave.Size = new System.Drawing.Size(368, 38);
+            this.btnParameterSave.TabIndex = 1;
+            this.btnParameterSave.Text = "PARAMETER SAVE";
+            this.btnParameterSave.UseVisualStyleBackColor = false;
             //
             // btnClose
             //
@@ -616,12 +635,12 @@ namespace QMC.CDT_320.Ui.Dialogs
             this.btnClose.FlatAppearance.BorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(176)))), ((int)(((byte)(176)))), ((int)(((byte)(176)))));
             this.btnClose.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.btnClose.Font = new System.Drawing.Font("맑은 고딕", 9.5F, System.Drawing.FontStyle.Bold);
-            this.btnClose.Location = new System.Drawing.Point(991, 4);
+            this.btnClose.Location = new System.Drawing.Point(827, 4);
             this.btnClose.Margin = new System.Windows.Forms.Padding(7, 4, 7, 4);
             this.btnClose.Name = "btnClose";
             this.btnClose.Role = QMC.CDT_320.Ui.Dialogs.CalibrationDialogButtonRole.Normal;
             this.btnClose.Size = new System.Drawing.Size(150, 66);
-            this.btnClose.TabIndex = 6;
+            this.btnClose.TabIndex = 5;
             this.btnClose.Text = "CLOSE";
             this.btnClose.UseVisualStyleBackColor = false;
             //
@@ -643,6 +662,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             this.targetFlow.PerformLayout();
             this.mainLayout.ResumeLayout(false);
             this.groupSettings.ResumeLayout(false);
+            this.settingsLayout.ResumeLayout(false);
             ((System.ComponentModel.ISupportInitialize)(this.gridSettings)).EndInit();
             this.groupResults.ResumeLayout(false);
             this.resultsLayout.ResumeLayout(false);

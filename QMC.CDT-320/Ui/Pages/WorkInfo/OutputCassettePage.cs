@@ -57,6 +57,16 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             btnUnloadNg.Click += async (s, e) => await RunSequenceAction("NG BIN UNLOADING", host => UnloadAsync(host, TargetCassette.Ng));
             btnStop.Click += async (s, e) => await StopManualActionAsync();
 
+            // 카세트 교체: 장비가 정지된 상태에서만 수행한다(사용자 확정 2026-07-26).
+            // 교체 준비 -> (작업자가 물리 교체) -> 교체 완료(해당 side 데이터만 초기화)
+            // -> 문 닫고 START를 누르면 Ready에서 매핑이 다시 수행된다. 여기서는 매핑하지 않는다.
+            btnCstExchange.Click += async (s, e) =>
+                await RunSequenceAction("GOOD CST EXCHANGE", host => PrepareCassetteExchangeAsync(host, BinSide.Good));
+            btnCstExchangeNg.Click += async (s, e) =>
+                await RunSequenceAction("NG CST EXCHANGE", host => PrepareCassetteExchangeAsync(host, BinSide.Ng));
+            btnCstClear.Click += (s, e) => CompleteCassetteExchange(BinSide.Good);
+            btnCstClearNg.Click += (s, e) => CompleteCassetteExchange(BinSide.Ng);
+
             _good1CassetteView.SlotSelected += (s, e) => SelectMaterialSlot(CassetteMaterialRole.Good1, e.SlotIndex);
             _good2CassetteView.SlotSelected += (s, e) => SelectMaterialSlot(CassetteMaterialRole.Good2, e.SlotIndex);
             _ngCassetteView.SlotSelected += (s, e) => SelectMaterialSlot(CassetteMaterialRole.Ng1, e.SlotIndex);
@@ -372,6 +382,208 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
 
             var sequence = CreateOutputCassetteSequence(host);
             return await sequence.RunUnloadingAsync(host.Controller.ManualOperationToken, BuildCassetteOptions(host, _manualSequenceStartMode, target)) == 0;
+        }
+
+        /// <summary>
+        /// 카세트 교체 준비: 선택한 side의 피더/리프터를 교체 위치로 보낸다.
+        /// 자동 운전 중에는 수행할 수 없다(교체 시 장비는 정지 상태여야 한다).
+        /// 사람이 수동으로 교체할 수도 있으므로 이 준비 동작은 선택 사항이다.
+        /// </summary>
+        private async Task<bool> PrepareCassetteExchangeAsync(Form1 host, BinSide side)
+        {
+            if (host == null || host.Controller == null)
+                return false;
+
+            if (host.Controller.Status == EquipmentStatus.AutoRunning)
+            {
+                QMC.Common.MessageDialog.Show(this,
+                    "자동 운전 중에는 카세트를 교체할 수 없습니다.\r\n정지 후 다시 시도하세요.",
+                    "Cassette Exchange", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return false;
+            }
+
+            string sideLabel = side == BinSide.Ng ? "NG" : "GOOD";
+            if (!ConfirmMaterialDataAction(
+                sideLabel + " 카세트 교체 위치로 이동합니다.\r\n" +
+                "① 피더가 Bin을 물고 있으면 카세트로 먼저 반납\r\n" +
+                "② 피더 언클램프/리프트 다운 후 Avoid 복귀\r\n" +
+                "③ 카세트 리프터를 로딩 위치로 이동\r\n\r\n진행할까요?"))
+                return false;
+
+            QMC.Common.Log.Write("Main", "SYSTEM", "OutputCassetteExchange",
+                sideLabel + " 카세트 교체 준비를 시작합니다. - Start");
+
+            // ① 피더가 Bin을 물고 있으면 원래 슬롯으로 반납한다.
+            if (!await ReturnFeederBinBeforeExchangeAsync(host, side).ConfigureAwait(true))
+                return false;
+
+            var ctx = new MachineSequenceContext(host.Controller, new SequenceSignalBus());
+
+            // ② 피더 안전 복귀(언클램프 -> 리프트 다운 -> Avoid).
+            //    카세트를 물리적으로 뽑으려면 피더가 비어 있고 경로에서 비켜나 있어야 한다.
+            OutputFeederSequenceOptions feederOptions = OutputFeederSequenceOptions.Default();
+            feederOptions.Side = side;
+            feederOptions.CassetteRole = ResolveExchangeCassetteRole(side);
+            feederOptions.RunMode = SequenceRunMode.Manual;
+            feederOptions.StartMode = SequenceStartMode.Restart;
+
+            int result = await new OutputFeederSequence(ctx)
+                .RunRecoverAsync(host.Controller.ManualOperationToken, feederOptions)
+                .ConfigureAwait(true);
+            if (result != 0)
+                return false;
+
+            // ③ 카세트 리프터를 로딩 위치로 이동한다.
+            //    교체 높이는 별도 티칭 없이 레시피 로딩 포지션을 사용한다(사용자 확정 2026-07-26).
+            //    OutputCassetteLoadingSequence: 카세트 감지 -> 자재 확인 -> 피더 Avoid 확인 -> 로딩 위치 이동.
+            OutputCassetteSequenceOptions cassetteOptions = OutputCassetteSequenceOptions.Default();
+            cassetteOptions.TargetCassette = side == BinSide.Ng ? TargetCassette.Ng : TargetCassette.Good1;
+            cassetteOptions.RunMode = SequenceRunMode.Manual;
+            cassetteOptions.StartMode = SequenceStartMode.Restart;
+
+            result = await new OutputCassetteSequence(ctx)
+                .RunLoadingAsync(host.Controller.ManualOperationToken, cassetteOptions)
+                .ConfigureAwait(true);
+            if (result != 0)
+                return false;
+
+            QMC.Common.Log.Write("Main", "SYSTEM", "OutputCassetteExchange",
+                sideLabel + " 카세트 교체 준비를 완료했습니다. - Ok");
+
+            QMC.Common.MessageDialog.Show(this,
+                sideLabel + " 카세트가 교체 위치(로딩 포지션)로 이동했습니다.\r\n\r\n" +
+                "① 카세트를 교체하세요.\r\n" +
+                "② 교체 후 [" + sideLabel + " CST CLEAR]로 데이터를 초기화하세요.\r\n" +
+                "③ 문을 닫고 START를 누르면 매핑부터 다시 진행됩니다.",
+                "Cassette Exchange", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            return true;
+        }
+
+        private static CassetteMaterialRole ResolveExchangeCassetteRole(BinSide side)
+        {
+            return side == BinSide.Ng ? CassetteMaterialRole.Ng1 : CassetteMaterialRole.Good1;
+        }
+
+        /// <summary>
+        /// 카세트 교체 준비 ① 단계. 피더가 Bin을 물고 있으면 원래 슬롯으로 반납한다.
+        /// 반대 side의 Bin을 물고 있으면 그쪽을 먼저 정리해야 하므로 중단한다.
+        /// 수동 UnloadToCassette(OutputFeederPage)와 동일하게 Place/Stage Area를 점유한 상태로 실행한다.
+        /// </summary>
+        private async Task<bool> ReturnFeederBinBeforeExchangeAsync(Form1 host, BinSide side)
+        {
+            WaferMaterial wafer = MaterialStateService.GetWaferAtLocation(MaterialLocationKind.OutputFeeder);
+            if (wafer == null)
+                return true;
+
+            CassetteMaterialRole role = wafer.SourceCassetteRole;
+            BinSide waferSide = role == CassetteMaterialRole.Ng1 ? BinSide.Ng : BinSide.Good;
+            if (waferSide != side)
+            {
+                QMC.Common.MessageDialog.Show(this,
+                    "피더가 " + (waferSide == BinSide.Ng ? "NG" : "GOOD") + " Bin을 물고 있습니다.\r\n" +
+                    "해당 Bin을 먼저 반납한 뒤 " + (side == BinSide.Ng ? "NG" : "GOOD") + " 카세트를 교체하세요.",
+                    "Cassette Exchange", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return false;
+            }
+
+            int slot = wafer.SourceSlotNumber >= 0 ? wafer.SourceSlotNumber : 0;
+            OutputFeederSequenceOptions options = OutputFeederSequenceOptions.Default();
+            options.Side = side;
+            options.CassetteRole = role;
+            options.SlotIndex = slot;
+            options.ExpectedWaferId = wafer.WaferId ?? "";
+            options.RunMode = SequenceRunMode.Manual;
+            options.StartMode = SequenceStartMode.Restart;
+
+            var context = new MachineSequenceContext(host.Controller, new SequenceSignalBus());
+            SequenceResourceKind stageResource = side == BinSide.Ng
+                ? SequenceResourceKind.OutputNgStageArea
+                : SequenceResourceKind.OutputGoodStageArea;
+
+            using (SequenceResourceLease placeLease = await context.Resources.AcquireAsync(
+                SequenceResourceKind.OutputPlaceArea,
+                "OutputCassettePage.CassetteExchange",
+                30000,
+                host.Controller.ManualOperationToken).ConfigureAwait(true))
+            {
+                if (placeLease == null)
+                {
+                    EventLogger.Write(EventKind.Alarm, "QMC", "OUT-CST-EXCHANGE-PLACE-RESOURCE",
+                        "카세트 교체 준비 Output Place Area 점유 실패. side=" + side);
+                    return false;
+                }
+
+                using (SequenceResourceLease stageLease = await context.Resources.AcquireAsync(
+                    stageResource,
+                    "OutputCassettePage.CassetteExchange:" + side,
+                    30000,
+                    host.Controller.ManualOperationToken).ConfigureAwait(true))
+                {
+                    if (stageLease == null)
+                    {
+                        EventLogger.Write(EventKind.Alarm, "QMC", "OUT-CST-EXCHANGE-STAGE-RESOURCE",
+                            "카세트 교체 준비 대상 Stage Area 점유 실패. side=" + side + ", resource=" + stageResource);
+                        return false;
+                    }
+
+                    return await new OutputFeederSequence(context)
+                        .RunUnloadToCassetteWithHeldResourcesAsync(
+                            host.Controller.ManualOperationToken,
+                            options,
+                            placeLease,
+                            stageLease).ConfigureAwait(true) == 0;
+                }
+            }
+        }
+
+        /// <summary>
+        /// 카세트 교체 완료: 선택한 side의 Material 데이터만 초기화한다(반대편은 유지).
+        /// 매핑은 여기서 하지 않는다 — 문을 닫고 START를 누르면 Ready 과정에서 다시 수행된다.
+        /// </summary>
+        private void CompleteCassetteExchange(BinSide side)
+        {
+            try
+            {
+                Form1 host = GetHost();
+                if (host != null && host.Controller != null &&
+                    host.Controller.Status == EquipmentStatus.AutoRunning)
+                {
+                    QMC.Common.MessageDialog.Show(this,
+                        "자동 운전 중에는 카세트 데이터를 초기화할 수 없습니다.\r\n정지 후 다시 시도하세요.",
+                        "Cassette Exchange", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                string sideName = side == BinSide.Ng ? "NG" : "GOOD";
+                string keepName = side == BinSide.Ng ? "GOOD" : "NG";
+                if (!ConfirmMaterialDataAction(
+                    sideName + " 카세트의 Material Data만 초기화합니다.\r\n" +
+                    "(" + keepName + " 카세트 데이터는 유지됩니다)\r\n\r\n진행할까요?"))
+                    return;
+
+                if (!MaterialStateService.ClearOutputCassetteSideData(side))
+                {
+                    QMC.Common.MessageDialog.Show(this,
+                        sideName + " 카세트 Material Data 초기화에 실패했습니다.",
+                        "Cassette Exchange", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    return;
+                }
+
+                RefreshData();
+                QMC.Common.MessageDialog.Show(this,
+                    sideName + " 카세트 Material Data를 초기화했습니다.\r\n\r\n" +
+                    "문을 닫고 START를 누르면 매핑부터 다시 진행됩니다.",
+                    "Cassette Exchange", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.MessageDialog.Show(this,
+                    "카세트 교체 완료 처리 실패:\r\n" + ex.Message,
+                    "Cassette Exchange", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+            }
         }
 
         private OutputCassetteSequence CreateOutputCassetteSequence(Form1 host)

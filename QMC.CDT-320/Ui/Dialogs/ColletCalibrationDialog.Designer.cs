@@ -7,6 +7,7 @@
         private System.Windows.Forms.Label lblHeader;
         private System.Windows.Forms.TableLayoutPanel mainLayout;
         private System.Windows.Forms.GroupBox groupSettings;
+        private System.Windows.Forms.TableLayoutPanel settingsLayout;
         private System.Windows.Forms.DataGridView gridSettings;
         private System.Windows.Forms.DataGridViewTextBoxColumn colSettingName;
         private System.Windows.Forms.DataGridViewTextBoxColumn colSettingValue;
@@ -47,6 +48,7 @@
         private CalibrationDialogButton btnMoveYAvoid;
         private CalibrationDialogButton btnSeqStop;
         private CalibrationDialogButton btnReload;
+        private CalibrationDialogButton btnParameterSave;
         private CalibrationDialogButton btnSave;
         private CalibrationDialogButton btnClose;
         private System.Windows.Forms.GroupBox batchGroup;
@@ -87,6 +89,7 @@
             this.btnBatchStart = new QMC.CDT_320.Ui.Dialogs.CalibrationDialogButton();
             this.mainLayout = new System.Windows.Forms.TableLayoutPanel();
             this.groupSettings = new System.Windows.Forms.GroupBox();
+            this.settingsLayout = new System.Windows.Forms.TableLayoutPanel();
             this.gridSettings = new System.Windows.Forms.DataGridView();
             this.colSettingName = new System.Windows.Forms.DataGridViewTextBoxColumn();
             this.colSettingValue = new System.Windows.Forms.DataGridViewTextBoxColumn();
@@ -127,6 +130,7 @@
             this.btnMoveYAvoid = new QMC.CDT_320.Ui.Dialogs.CalibrationDialogButton();
             this.btnSeqStop = new QMC.CDT_320.Ui.Dialogs.CalibrationDialogButton();
             this.btnReload = new QMC.CDT_320.Ui.Dialogs.CalibrationDialogButton();
+            this.btnParameterSave = new QMC.CDT_320.Ui.Dialogs.CalibrationDialogButton();
             this.btnSave = new QMC.CDT_320.Ui.Dialogs.CalibrationDialogButton();
             this.btnClose = new QMC.CDT_320.Ui.Dialogs.CalibrationDialogButton();
             this.rootLayout.SuspendLayout();
@@ -134,6 +138,7 @@
             this.batchFlow.SuspendLayout();
             this.mainLayout.SuspendLayout();
             this.groupSettings.SuspendLayout();
+            this.settingsLayout.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.gridSettings)).BeginInit();
             this.groupResults.SuspendLayout();
             this.resultsLayout.SuspendLayout();
@@ -190,19 +195,19 @@
             this.batchGroup.Size = new System.Drawing.Size(1299, 56);
             this.batchGroup.TabIndex = 4;
             this.batchGroup.TabStop = false;
-            this.batchGroup.Text = "BATCH (일괄 콜렛 캘리브레이션 · 각 side C4 → C1~3 순, 측정 후 COC 연속)";
+            this.batchGroup.Text = "BATCH (일괄 콜렛 캘리브레이션 · 각 side C4 → C3 → C2 → C1 순, 측정 후 COC 연속)";
             // 
             // batchFlow
             // 
             this.batchFlow.Controls.Add(this.chkBatchAll);
             this.batchFlow.Controls.Add(this.chkBatchFront4);
-            this.batchFlow.Controls.Add(this.chkBatchFront1);
-            this.batchFlow.Controls.Add(this.chkBatchFront2);
             this.batchFlow.Controls.Add(this.chkBatchFront3);
+            this.batchFlow.Controls.Add(this.chkBatchFront2);
+            this.batchFlow.Controls.Add(this.chkBatchFront1);
             this.batchFlow.Controls.Add(this.chkBatchRear4);
-            this.batchFlow.Controls.Add(this.chkBatchRear1);
-            this.batchFlow.Controls.Add(this.chkBatchRear2);
             this.batchFlow.Controls.Add(this.chkBatchRear3);
+            this.batchFlow.Controls.Add(this.chkBatchRear2);
+            this.batchFlow.Controls.Add(this.chkBatchRear1);
             this.batchFlow.Controls.Add(this.btnBatchStart);
             this.batchFlow.Dock = System.Windows.Forms.DockStyle.Fill;
             this.batchFlow.Location = new System.Drawing.Point(4, 19);
@@ -239,11 +244,11 @@
             // chkBatchFront1
             // 
             this.chkBatchFront1.AutoSize = true;
-            this.chkBatchFront1.Location = new System.Drawing.Point(131, 4);
-            this.chkBatchFront1.Margin = new System.Windows.Forms.Padding(5, 4, 5, 4);
+            this.chkBatchFront1.Location = new System.Drawing.Point(253, 4);
+            this.chkBatchFront1.Margin = new System.Windows.Forms.Padding(5, 4, 14, 4);
             this.chkBatchFront1.Name = "chkBatchFront1";
             this.chkBatchFront1.Size = new System.Drawing.Size(51, 19);
-            this.chkBatchFront1.TabIndex = 2;
+            this.chkBatchFront1.TabIndex = 4;
             this.chkBatchFront1.Text = "F C1";
             this.chkBatchFront1.UseVisualStyleBackColor = true;
             // 
@@ -261,11 +266,11 @@
             // chkBatchFront3
             // 
             this.chkBatchFront3.AutoSize = true;
-            this.chkBatchFront3.Location = new System.Drawing.Point(253, 4);
-            this.chkBatchFront3.Margin = new System.Windows.Forms.Padding(5, 4, 14, 4);
+            this.chkBatchFront3.Location = new System.Drawing.Point(131, 4);
+            this.chkBatchFront3.Margin = new System.Windows.Forms.Padding(5, 4, 5, 4);
             this.chkBatchFront3.Name = "chkBatchFront3";
             this.chkBatchFront3.Size = new System.Drawing.Size(51, 19);
-            this.chkBatchFront3.TabIndex = 4;
+            this.chkBatchFront3.TabIndex = 2;
             this.chkBatchFront3.Text = "F C3";
             this.chkBatchFront3.UseVisualStyleBackColor = true;
             // 
@@ -283,11 +288,11 @@
             // chkBatchRear1
             // 
             this.chkBatchRear1.AutoSize = true;
-            this.chkBatchRear1.Location = new System.Drawing.Point(386, 4);
-            this.chkBatchRear1.Margin = new System.Windows.Forms.Padding(5, 4, 5, 4);
+            this.chkBatchRear1.Location = new System.Drawing.Point(512, 4);
+            this.chkBatchRear1.Margin = new System.Windows.Forms.Padding(5, 4, 19, 4);
             this.chkBatchRear1.Name = "chkBatchRear1";
             this.chkBatchRear1.Size = new System.Drawing.Size(53, 19);
-            this.chkBatchRear1.TabIndex = 6;
+            this.chkBatchRear1.TabIndex = 8;
             this.chkBatchRear1.Text = "R C1";
             this.chkBatchRear1.UseVisualStyleBackColor = true;
             // 
@@ -305,11 +310,11 @@
             // chkBatchRear3
             // 
             this.chkBatchRear3.AutoSize = true;
-            this.chkBatchRear3.Location = new System.Drawing.Point(512, 4);
-            this.chkBatchRear3.Margin = new System.Windows.Forms.Padding(5, 4, 19, 4);
+            this.chkBatchRear3.Location = new System.Drawing.Point(386, 4);
+            this.chkBatchRear3.Margin = new System.Windows.Forms.Padding(5, 4, 5, 4);
             this.chkBatchRear3.Name = "chkBatchRear3";
             this.chkBatchRear3.Size = new System.Drawing.Size(53, 19);
-            this.chkBatchRear3.TabIndex = 8;
+            this.chkBatchRear3.TabIndex = 6;
             this.chkBatchRear3.Text = "R C3";
             this.chkBatchRear3.UseVisualStyleBackColor = true;
             // 
@@ -349,7 +354,7 @@
             // 
             // groupSettings
             // 
-            this.groupSettings.Controls.Add(this.gridSettings);
+            this.groupSettings.Controls.Add(this.settingsLayout);
             this.groupSettings.Dock = System.Windows.Forms.DockStyle.Fill;
             this.groupSettings.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.groupSettings.Location = new System.Drawing.Point(0, 0);
@@ -360,7 +365,23 @@
             this.groupSettings.TabIndex = 0;
             this.groupSettings.TabStop = false;
             this.groupSettings.Text = "SETTING";
-            // 
+            //
+            // settingsLayout
+            //
+            this.settingsLayout.ColumnCount = 1;
+            this.settingsLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.settingsLayout.Controls.Add(this.gridSettings, 0, 0);
+            this.settingsLayout.Controls.Add(this.btnParameterSave, 0, 1);
+            this.settingsLayout.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.settingsLayout.Location = new System.Drawing.Point(4, 21);
+            this.settingsLayout.Margin = new System.Windows.Forms.Padding(0);
+            this.settingsLayout.Name = "settingsLayout";
+            this.settingsLayout.RowCount = 2;
+            this.settingsLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.settingsLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 46F));
+            this.settingsLayout.Size = new System.Drawing.Size(376, 527);
+            this.settingsLayout.TabIndex = 0;
+            //
             // gridSettings
             // 
             this.gridSettings.AllowUserToAddRows = false;
@@ -374,13 +395,13 @@
             this.colSettingUnit});
             this.gridSettings.Dock = System.Windows.Forms.DockStyle.Fill;
             this.gridSettings.EditMode = System.Windows.Forms.DataGridViewEditMode.EditOnEnter;
-            this.gridSettings.Location = new System.Drawing.Point(4, 21);
+            this.gridSettings.Location = new System.Drawing.Point(0, 0);
             this.gridSettings.Margin = new System.Windows.Forms.Padding(4, 3, 4, 3);
             this.gridSettings.MultiSelect = false;
             this.gridSettings.Name = "gridSettings";
             this.gridSettings.RowHeadersVisible = false;
             this.gridSettings.SelectionMode = System.Windows.Forms.DataGridViewSelectionMode.FullRowSelect;
-            this.gridSettings.Size = new System.Drawing.Size(376, 527);
+            this.gridSettings.Size = new System.Drawing.Size(376, 481);
             this.gridSettings.TabIndex = 0;
             this.gridSettings.CellBeginEdit += new System.Windows.Forms.DataGridViewCellCancelEventHandler(this.gridSettings_CellBeginEdit);
             this.gridSettings.CellDoubleClick += new System.Windows.Forms.DataGridViewCellEventHandler(this.gridSettings_CellDoubleClick);
@@ -898,7 +919,26 @@
             this.btnReload.Text = "RELOAD";
             this.btnReload.UseVisualStyleBackColor = false;
             this.btnReload.Click += new System.EventHandler(this.btnReload_Click);
-            // 
+            //
+            // btnParameterSave
+            //
+            this.btnParameterSave.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(64)))), ((int)(((byte)(64)))), ((int)(((byte)(64)))));
+            this.btnParameterSave.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.btnParameterSave.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.btnParameterSave.FlatAppearance.BorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(176)))), ((int)(((byte)(176)))), ((int)(((byte)(176)))));
+            this.btnParameterSave.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this.btnParameterSave.Font = new System.Drawing.Font("맑은 고딕", 9.5F, System.Drawing.FontStyle.Bold);
+            this.btnParameterSave.ForeColor = System.Drawing.Color.White;
+            this.btnParameterSave.Location = new System.Drawing.Point(4, 485);
+            this.btnParameterSave.Margin = new System.Windows.Forms.Padding(4);
+            this.btnParameterSave.Name = "btnParameterSave";
+            this.btnParameterSave.Role = QMC.CDT_320.Ui.Dialogs.CalibrationDialogButtonRole.Dark;
+            this.btnParameterSave.Size = new System.Drawing.Size(368, 38);
+            this.btnParameterSave.TabIndex = 1;
+            this.btnParameterSave.Text = "PARAMETER SAVE";
+            this.btnParameterSave.UseVisualStyleBackColor = false;
+            this.btnParameterSave.Click += new System.EventHandler(this.btnParameterSave_Click);
+            //
             // btnSave
             // 
             this.btnSave.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(64)))), ((int)(((byte)(64)))), ((int)(((byte)(64)))));
@@ -914,7 +954,7 @@
             this.btnSave.Role = QMC.CDT_320.Ui.Dialogs.CalibrationDialogButtonRole.Dark;
             this.btnSave.Size = new System.Drawing.Size(94, 60);
             this.btnSave.TabIndex = 8;
-            this.btnSave.Text = "SAVE";
+            this.btnSave.Text = "SAVE RESULT";
             this.btnSave.UseVisualStyleBackColor = false;
             this.btnSave.Click += new System.EventHandler(this.btnSave_Click);
             // 
@@ -953,6 +993,7 @@
             this.batchFlow.PerformLayout();
             this.mainLayout.ResumeLayout(false);
             this.groupSettings.ResumeLayout(false);
+            this.settingsLayout.ResumeLayout(false);
             ((System.ComponentModel.ISupportInitialize)(this.gridSettings)).EndInit();
             this.groupResults.ResumeLayout(false);
             this.resultsLayout.ResumeLayout(false);

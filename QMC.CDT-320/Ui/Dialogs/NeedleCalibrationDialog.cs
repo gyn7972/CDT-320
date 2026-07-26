@@ -1,5 +1,4 @@
-using System;
-using System.Drawing;
+﻿using System;
 using System.Globalization;
 using System.Threading;
 using System.Threading.Tasks;
@@ -15,7 +14,7 @@ using QMC.Common.Motion;
 
 namespace QMC.CDT_320.Ui.Dialogs
 {
-    public sealed class NeedleCalibrationDialog : Form
+    public sealed partial class NeedleCalibrationDialog : Form
     {
         private const string MoveSpeedKey = "Move Speed";
         private const string MoveAccKey = "Move Acc";
@@ -36,22 +35,10 @@ namespace QMC.CDT_320.Ui.Dialogs
         private const string TouchPollKey = "Touch Poll Interval";
         private const string MoveAvoidAfterKey = "Move Avoid After Cal";
 
-        private readonly DataGridView _settingsGrid;
-        private readonly DataGridView _resultGrid;
-        private readonly DataGridView _teachingGrid;
-        private readonly Label _status;
-        private readonly CalibrationDialogButton _btnCheck;
-        private readonly CalibrationDialogButton _btnUseCurrent;
-        private readonly CalibrationDialogButton _btnMoveTouch;
-        private readonly CalibrationDialogButton _btnStart;
-        private readonly CalibrationDialogButton _btnAvoid;
-        private readonly CalibrationDialogButton _btnReload;
-        private readonly CalibrationDialogButton _btnSave;
-        private readonly CalibrationDialogButton _btnClose;
-
         private bool _busy;
         private bool _loadedOnce;
         private CancellationTokenSource _runCts;
+        private NeedleCalibrationResult _lastSuccessfulResult;
 
         public static NeedleCalibrationDialog Open(IWin32Window owner)
         {
@@ -63,124 +50,58 @@ namespace QMC.CDT_320.Ui.Dialogs
 
         public NeedleCalibrationDialog()
         {
-            Text = "Needle Z Calibration";
-            Size = new Size(1180, 720);
-            MinimumSize = new Size(980, 620);
-            Font = new Font("Malgun Gothic", 9F);
-            BackColor = Color.FromArgb(238, 238, 238);
-
-            var root = new TableLayoutPanel
-            {
-                Dock = DockStyle.Fill,
-                ColumnCount = 1,
-                RowCount = 4,
-                Padding = new Padding(8)
-            };
-            root.RowStyles.Add(new RowStyle(SizeType.Absolute, 54F));
-            root.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
-            root.RowStyles.Add(new RowStyle(SizeType.Absolute, 40F));
-            root.RowStyles.Add(new RowStyle(SizeType.Absolute, 54F));
-            Controls.Add(root);
-
-            var header = new Label
-            {
-                Dock = DockStyle.Fill,
-                BackColor = Color.FromArgb(230, 126, 0),
-                ForeColor = Color.White,
-                Font = new Font("Malgun Gothic", 14F, FontStyle.Bold),
-                Padding = new Padding(14, 0, 0, 0),
-                Text = "NEEDLE Z CAL",
-                TextAlign = ContentAlignment.MiddleLeft
-            };
-            root.Controls.Add(header, 0, 0);
-
-            var body = new TableLayoutPanel
-            {
-                Dock = DockStyle.Fill,
-                ColumnCount = 2,
-                RowCount = 1
-            };
-            body.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 470F));
-            body.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
-            root.Controls.Add(body, 0, 1);
-
-            var left = new TableLayoutPanel
-            {
-                Dock = DockStyle.Fill,
-                ColumnCount = 1,
-                RowCount = 2
-            };
-            left.RowStyles.Add(new RowStyle(SizeType.Percent, 68F));
-            left.RowStyles.Add(new RowStyle(SizeType.Percent, 32F));
-            body.Controls.Add(left, 0, 0);
-
-            _settingsGrid = CreateGrid();
-            _settingsGrid.CellDoubleClick += SettingsGrid_CellDoubleClick;
-            _settingsGrid.CellToolTipTextNeeded += SettingsGrid_CellToolTipTextNeeded;
-            left.Controls.Add(Wrap("CAL SETTING", _settingsGrid), 0, 0);
-
-            _resultGrid = CreateGrid();
-            _resultGrid.ReadOnly = true;
-            left.Controls.Add(Wrap("SAVED RESULT", _resultGrid), 0, 1);
-
-            _teachingGrid = CreateTeachingGrid();
-            body.Controls.Add(Wrap("CURRENT POSITION", _teachingGrid), 1, 0);
-
-            _status = new Label
-            {
-                Dock = DockStyle.Fill,
-                BorderStyle = BorderStyle.FixedSingle,
-                BackColor = Color.WhiteSmoke,
-                Padding = new Padding(12, 0, 0, 0),
-                TextAlign = ContentAlignment.MiddleLeft,
-                Text = "USE CURRENT로 터치 위치를 잡고 START CAL을 실행하세요."
-            };
-            root.Controls.Add(_status, 0, 2);
-
-            var buttons = new TableLayoutPanel
-            {
-                Dock = DockStyle.Fill,
-                ColumnCount = 8,
-                RowCount = 1,
-                Padding = new Padding(0, 8, 0, 0)
-            };
-            for (int i = 0; i < 8; i++)
-                buttons.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 12.5F));
-            root.Controls.Add(buttons, 0, 3);
-
-            _btnCheck = MakeButton("CHECK");
-            _btnUseCurrent = MakeButton("USE CURRENT");
-            _btnMoveTouch = MakeButton("MOVE TOUCH");
-            _btnStart = MakeButton("START CAL");
-            _btnAvoid = MakeButton("Z AVOID");
-            _btnReload = MakeButton("RELOAD");
-            _btnSave = MakeButton("SAVE");
-            _btnClose = MakeButton("CLOSE");
-            _btnStart.Role = CalibrationDialogButtonRole.Primary;
-            _btnSave.Role = CalibrationDialogButtonRole.Dark;
-
-            buttons.Controls.Add(_btnCheck, 0, 0);
-            buttons.Controls.Add(_btnUseCurrent, 1, 0);
-            buttons.Controls.Add(_btnMoveTouch, 2, 0);
-            buttons.Controls.Add(_btnStart, 3, 0);
-            buttons.Controls.Add(_btnAvoid, 4, 0);
-            buttons.Controls.Add(_btnReload, 5, 0);
-            buttons.Controls.Add(_btnSave, 6, 0);
-            buttons.Controls.Add(_btnClose, 7, 0);
-
+            InitializeComponent();
             CalibrationDialogButtonStyle.ApplyFooterButtons(
                 new[] { _btnCheck, _btnUseCurrent, _btnMoveTouch, _btnAvoid, _btnReload, _btnClose },
                 new[] { _btnStart },
                 new[] { _btnSave });
+            CalibrationDialogGridBehavior.Apply(_settingsGrid, _resultGrid, _teachingGrid);
+            UpdateResultSaveButtonEnabled();
+        }
 
-            _btnCheck.Click += delegate { CheckReady(true); };
-            _btnUseCurrent.Click += delegate { UseCurrentPosition(); };
-            _btnMoveTouch.Click += async delegate { await MoveTouchAsync().ConfigureAwait(true); };
-            _btnStart.Click += async delegate { await RunCalibrationAsync().ConfigureAwait(true); };
-            _btnAvoid.Click += async delegate { await MoveZAvoidAsync().ConfigureAwait(true); };
-            _btnReload.Click += delegate { LoadFromMachine(); };
-            _btnSave.Click += delegate { SaveSettingsFromUi(true); };
-            _btnClose.Click += delegate { Close(); };
+        private void btnCheck_Click(object sender, EventArgs e)
+        {
+            CheckReady(true);
+        }
+
+        private void btnUseCurrent_Click(object sender, EventArgs e)
+        {
+            UseCurrentPosition();
+        }
+
+        private async void btnMoveTouch_Click(object sender, EventArgs e)
+        {
+            await MoveTouchAsync().ConfigureAwait(true);
+        }
+
+        private async void btnStart_Click(object sender, EventArgs e)
+        {
+            await RunCalibrationAsync().ConfigureAwait(true);
+        }
+
+        private async void btnAvoid_Click(object sender, EventArgs e)
+        {
+            await MoveZAvoidAsync().ConfigureAwait(true);
+        }
+
+        private void btnReload_Click(object sender, EventArgs e)
+        {
+            LoadFromMachine();
+        }
+
+        private void btnSaveParameters_Click(object sender, EventArgs e)
+        {
+            SaveSettingsFromUi(true);
+        }
+
+        private void btnSaveResult_Click(object sender, EventArgs e)
+        {
+            SaveLastSuccessfulResult();
+        }
+
+        private void btnClose_Click(object sender, EventArgs e)
+        {
+            Close();
         }
 
         protected override void OnShown(EventArgs e)
@@ -192,78 +113,6 @@ namespace QMC.CDT_320.Ui.Dialogs
                 LoadFromMachine();
             }
         }
-
-        private static Control Wrap(string title, Control content)
-        {
-            var box = new GroupBox
-            {
-                Dock = DockStyle.Fill,
-                Text = title,
-                Font = new Font("Malgun Gothic", 9F, FontStyle.Bold),
-                Padding = new Padding(6)
-            };
-            content.Font = new Font("Malgun Gothic", 9F);
-            box.Controls.Add(content);
-            return box;
-        }
-
-        private static DataGridView CreateGrid()
-        {
-            var grid = new DataGridView
-            {
-                Dock = DockStyle.Fill,
-                AllowUserToAddRows = false,
-                AllowUserToDeleteRows = false,
-                RowHeadersVisible = false,
-                SelectionMode = DataGridViewSelectionMode.FullRowSelect,
-                AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill,
-                BackgroundColor = Color.White,
-                ReadOnly = true
-            };
-            grid.Columns.Add("Item", "ITEM");
-            grid.Columns.Add("Value", "VALUE");
-            grid.Columns.Add("Unit", "UNIT");
-            grid.Columns[0].FillWeight = 52F;
-            grid.Columns[1].FillWeight = 30F;
-            grid.Columns[2].FillWeight = 18F;
-            CalibrationDialogGridBehavior.Apply(grid);
-            return grid;
-        }
-
-        private static DataGridView CreateTeachingGrid()
-        {
-            var grid = new DataGridView
-            {
-                Dock = DockStyle.Fill,
-                AllowUserToAddRows = false,
-                AllowUserToDeleteRows = false,
-                RowHeadersVisible = false,
-                SelectionMode = DataGridViewSelectionMode.FullRowSelect,
-                AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill,
-                BackgroundColor = Color.White,
-                ReadOnly = true
-            };
-            grid.Columns.Add("Item", "ITEM");
-            grid.Columns.Add("Actual", "ACTUAL");
-            grid.Columns.Add("Unit", "UNIT");
-            grid.Columns[0].FillWeight = 48F;
-            grid.Columns[1].FillWeight = 34F;
-            grid.Columns[2].FillWeight = 18F;
-            CalibrationDialogGridBehavior.Apply(grid);
-            return grid;
-        }
-
-        private static CalibrationDialogButton MakeButton(string text)
-        {
-            return new CalibrationDialogButton
-            {
-                Dock = DockStyle.Fill,
-                Text = text,
-                Margin = new Padding(6, 0, 6, 0),
-                Font = new Font("Malgun Gothic", 9F, FontStyle.Bold)
-            };
-        }
-
         private void LoadFromMachine()
         {
             try
@@ -551,6 +400,84 @@ namespace QMC.CDT_320.Ui.Dialogs
             }
         }
 
+        private void SaveLastSuccessfulResult()
+        {
+            if (_lastSuccessfulResult == null || !_lastSuccessfulResult.Success)
+            {
+                _status.Text = "저장할 Needle Z 측정 결과가 없습니다. START CAL을 정상 완료한 뒤 SAVE RESULT를 누르세요.";
+                QMC.Common.MessageDialog.Show(
+                    this,
+                    _status.Text,
+                    "NEEDLE Z CAL",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Warning);
+                return;
+            }
+
+            try
+            {
+                CalibrationData calibrationData = ResolveCalibrationData();
+                if (calibrationData == null)
+                    throw new InvalidOperationException("Needle CalibrationData를 찾을 수 없습니다.");
+
+                calibrationData.EnsureObjects();
+                NeedleCalibrationData data = calibrationData.Needle;
+                if (!data.NeedleZCalibrationValid ||
+                    !AreNearlyEqual(data.NeedleCapTouchPosition, _lastSuccessfulResult.NeedleCapTouchPosition) ||
+                    !AreNearlyEqual(data.NeedlePinFlushPosition, _lastSuccessfulResult.NeedlePinFlushPosition) ||
+                    !AreNearlyEqual(data.NeedlePinReadyPosition, _lastSuccessfulResult.NeedlePinReadyPosition))
+                {
+                    _lastSuccessfulResult = null;
+                    _status.Text = "마지막 정상 측정 이후 Needle Z 결과가 변경되어 SAVE RESULT를 차단했습니다. 다시 측정하세요.";
+                    EventLogger.Write(EventKind.Event, "CAL", "NEEDLE-CAL-SAVE-RESULT-STALE", _status.Text);
+                    QMC.Common.MessageDialog.Show(
+                        this,
+                        _status.Text,
+                        "NEEDLE Z CAL",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Warning);
+                    return;
+                }
+
+                string saveReason;
+                if (!CalibrationDataStore.Save(calibrationData, out saveReason))
+                    throw new InvalidOperationException("CalibrationData 저장 실패: " + saveReason);
+
+                Form1 host = ResolveHost();
+                if (host != null)
+                    host.SaveMachineSettings();
+
+                RefreshResultGrid(data);
+                _status.Text = "마지막 정상 측정 결과를 저장했습니다. CapTouch=" +
+                               data.NeedleCapTouchPosition.ToString("F6") +
+                               ", PinFlush=" + data.NeedlePinFlushPosition.ToString("F6") +
+                               ", PinReady=" + data.NeedlePinReadyPosition.ToString("F6");
+                EventLogger.Write(EventKind.Event, "CAL", "NEEDLE-CAL-SAVE-RESULT", _status.Text);
+                _lastSuccessfulResult = null;
+            }
+            catch (Exception ex)
+            {
+                _status.Text = "Needle Z 측정 결과 저장 실패: " + ex.Message;
+                EventLogger.Write(EventKind.Alarm, "CAL", "NEEDLE-CAL-SAVE-RESULT", _status.Text);
+                QMC.Common.MessageDialog.Show(
+                    this,
+                    _status.Text,
+                    "NEEDLE Z CAL",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Error);
+            }
+            finally
+            {
+                UpdateResultSaveButtonEnabled();
+            }
+        }
+
+        private static bool AreNearlyEqual(double left, double right)
+        {
+            double scale = Math.Max(1.0, Math.Max(Math.Abs(left), Math.Abs(right)));
+            return Math.Abs(left - right) <= (1e-9 * scale);
+        }
+
         private bool CheckReady(bool showOk)
         {
             try
@@ -657,6 +584,11 @@ namespace QMC.CDT_320.Ui.Dialogs
             {
                 _busy = true;
                 SetButtonsEnabled(false);
+                if (saveAfterSuccess)
+                {
+                    _lastSuccessfulResult = null;
+                    UpdateResultSaveButtonEnabled();
+                }
                 if (!SaveSettingsFromUi(false) || !CheckReady(false))
                     return;
 
@@ -679,7 +611,19 @@ namespace QMC.CDT_320.Ui.Dialogs
                 if (saveAfterSuccess)
                 {
                     host.SaveMachineSettings();
-                    _status.Text = "완료. CapTouch=" + sequence.Result.NeedleCapTouchPosition.ToString("F6") +
+                    _lastSuccessfulResult = new NeedleCalibrationResult
+                    {
+                        Success = true,
+                        Message = sequence.Result.Message,
+                        TouchStageYPosition = sequence.Result.TouchStageYPosition,
+                        TouchNeedleXPosition = sequence.Result.TouchNeedleXPosition,
+                        NeedleCapTouchPosition = sequence.Result.NeedleCapTouchPosition,
+                        NeedlePinFlushPosition = sequence.Result.NeedlePinFlushPosition,
+                        NeedlePinReadyPosition = sequence.Result.NeedlePinReadyPosition
+                    };
+                    UpdateResultSaveButtonEnabled();
+                    _status.Text = "측정 완료. SAVE RESULT로 마지막 정상 측정값을 확인 저장하세요. CapTouch=" +
+                                   sequence.Result.NeedleCapTouchPosition.ToString("F6") +
                                    ", PinFlush=" + sequence.Result.NeedlePinFlushPosition.ToString("F6") +
                                    ", PinReady=" + sequence.Result.NeedlePinReadyPosition.ToString("F6");
                 }
@@ -919,8 +863,15 @@ namespace QMC.CDT_320.Ui.Dialogs
             _btnStart.Enabled = enabled;
             _btnAvoid.Enabled = enabled;
             _btnReload.Enabled = enabled;
-            _btnSave.Enabled = enabled;
+            _btnSaveParameters.Enabled = enabled;
+            _btnSave.Enabled = enabled && _lastSuccessfulResult != null && _lastSuccessfulResult.Success;
             _btnClose.Enabled = enabled;
+        }
+
+        private void UpdateResultSaveButtonEnabled()
+        {
+            if (_btnSave != null)
+                _btnSave.Enabled = !_busy && _lastSuccessfulResult != null && _lastSuccessfulResult.Success;
         }
     }
 }

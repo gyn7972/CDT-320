@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Drawing;
 using System.Globalization;
 using System.Threading;
@@ -15,7 +16,7 @@ using QMC.Common.Motion;
 
 namespace QMC.CDT_320.Ui.Dialogs
 {
-    public sealed class PlaceZCalibrationDialog : Form
+    public sealed partial class PlaceZCalibrationDialog : Form
     {
         private const string MoveSpeedKey = "Move Speed";
         private const string MoveAccKey = "Move Acc";
@@ -48,27 +49,20 @@ namespace QMC.CDT_320.Ui.Dialogs
         private const string MoveAvoidAfterScanKey = "Move Avoid After Scan";
         private const string FailIfFlowAlreadyOnKey = "Fail If Flow Already On";
 
-        private readonly ComboBox _cmbSide;
-        private readonly ComboBox _cmbOutputSide;
-        private readonly ComboBox _cmbPickerNo;
-        private readonly DataGridView _settingsGrid;
-        private readonly DataGridView _resultGrid;
-        private readonly Label _status;
-        private readonly CalibrationDialogButton _btnCheck;
-        private readonly CalibrationDialogButton _btnMoveStart;
-        private readonly CalibrationDialogButton _btnStartScan;
-        private readonly CalibrationDialogButton _btnMoveAvoid;
-        private readonly CalibrationDialogButton _btnVacOff;
-        private readonly CalibrationDialogButton _btnSeqStop;
-        private readonly CalibrationDialogButton _btnReload;
-        private readonly CalibrationDialogButton _btnSave;
-        private readonly CalibrationDialogButton _btnClose;
-        private readonly System.Windows.Forms.Timer _flowStatusTimer;
-
         private bool _busy;
         private bool _loadedOnce;
+        private bool _updatingBatchChecks;
+        private bool _hasLastSuccessfulResult;
+        private VisionFocusPickerSide _lastSuccessfulSide;
+        private BinSide _lastSuccessfulOutputSide;
+        private int _lastSuccessfulPickerNo;
+        private double _lastSuccessfulSavedPlacePosition;
+        private DateTime _lastSuccessfulResultUpdatedAt;
+        private string _lastSuccessfulRecipeName;
         private CancellationTokenSource _runCts;
         private Action<string> _activeStopRequest;
+        private PickerPlaceZCalibrationSequence _activeCalibrationSequence;
+        private AutoCalibrationSafePositionSequence _activeSafePositionSequence;
 
         public static PlaceZCalibrationDialog Open(IWin32Window owner)
         {
@@ -80,190 +74,15 @@ namespace QMC.CDT_320.Ui.Dialogs
 
         public PlaceZCalibrationDialog()
         {
-            Text = "Place Z Calibration";
-            Size = new Size(1120, 720);
-            MinimumSize = new Size(980, 620);
-            Font = new Font("Malgun Gothic", 9F);
-            BackColor = Color.FromArgb(238, 238, 238);
-
-            var root = new TableLayoutPanel
-            {
-                Dock = DockStyle.Fill,
-                ColumnCount = 1,
-                RowCount = 5,
-                Padding = new Padding(8)
-            };
-            root.RowStyles.Add(new RowStyle(SizeType.Absolute, 54F));
-            root.RowStyles.Add(new RowStyle(SizeType.Absolute, 44F));
-            root.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
-            root.RowStyles.Add(new RowStyle(SizeType.Absolute, 40F));
-            root.RowStyles.Add(new RowStyle(SizeType.Absolute, 54F));
-            Controls.Add(root);
-
-            var header = new Label
-            {
-                Dock = DockStyle.Fill,
-                BackColor = Color.FromArgb(230, 126, 0),
-                ForeColor = Color.White,
-                Font = new Font("Malgun Gothic", 14F, FontStyle.Bold),
-                Padding = new Padding(14, 0, 0, 0),
-                Text = "PLACE Z CAL",
-                TextAlign = ContentAlignment.MiddleLeft
-            };
-            root.Controls.Add(header, 0, 0);
-
-            var selector = new Panel { Dock = DockStyle.Fill, Padding = new Padding(4, 6, 4, 4) };
-            root.Controls.Add(selector, 0, 1);
-
-            var lblSide = new Label
-            {
-                Text = "Side",
-                Location = new Point(8, 9),
-                Size = new Size(48, 24),
-                TextAlign = ContentAlignment.MiddleLeft,
-                Font = new Font("Malgun Gothic", 9F, FontStyle.Bold)
-            };
-            selector.Controls.Add(lblSide);
-
-            _cmbSide = new ComboBox
-            {
-                DropDownStyle = ComboBoxStyle.DropDownList,
-                Location = new Point(60, 7),
-                Size = new Size(120, 25)
-            };
-            _cmbSide.Items.Add("Front");
-            _cmbSide.Items.Add("Rear");
-            _cmbSide.SelectedIndex = 0;
-            selector.Controls.Add(_cmbSide);
-
-            var lblOutput = new Label
-            {
-                Text = "Output",
-                Location = new Point(202, 9),
-                Size = new Size(62, 24),
-                TextAlign = ContentAlignment.MiddleLeft,
-                Font = new Font("Malgun Gothic", 9F, FontStyle.Bold)
-            };
-            selector.Controls.Add(lblOutput);
-
-            _cmbOutputSide = new ComboBox
-            {
-                DropDownStyle = ComboBoxStyle.DropDownList,
-                Location = new Point(266, 7),
-                Size = new Size(90, 25)
-            };
-            _cmbOutputSide.Items.Add("Good");
-            _cmbOutputSide.Items.Add("NG");
-            _cmbOutputSide.SelectedIndex = 0;
-            selector.Controls.Add(_cmbOutputSide);
-
-            var lblPicker = new Label
-            {
-                Text = "Picker No",
-                Location = new Point(382, 9),
-                Size = new Size(80, 24),
-                TextAlign = ContentAlignment.MiddleLeft,
-                Font = new Font("Malgun Gothic", 9F, FontStyle.Bold)
-            };
-            selector.Controls.Add(lblPicker);
-
-            _cmbPickerNo = new ComboBox
-            {
-                DropDownStyle = ComboBoxStyle.DropDownList,
-                Location = new Point(466, 7),
-                Size = new Size(80, 25)
-            };
-            _cmbPickerNo.Items.Add("1");
-            _cmbPickerNo.Items.Add("2");
-            _cmbPickerNo.Items.Add("3");
-            _cmbPickerNo.Items.Add("4");
-            _cmbPickerNo.SelectedIndex = 0;
-            selector.Controls.Add(_cmbPickerNo);
-
-            var body = new TableLayoutPanel
-            {
-                Dock = DockStyle.Fill,
-                ColumnCount = 2,
-                RowCount = 1
-            };
-            body.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 430F));
-            body.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
-            root.Controls.Add(body, 0, 2);
-
-            _settingsGrid = CreateGrid();
-            _settingsGrid.CellDoubleClick += SettingsGrid_CellDoubleClick;
-            _settingsGrid.CellToolTipTextNeeded += SettingsGrid_CellToolTipTextNeeded;
-            body.Controls.Add(Wrap("CAL SETTING", _settingsGrid), 0, 0);
-
-            _resultGrid = CreateResultGrid();
-            body.Controls.Add(Wrap("SAVED PLACE Z", _resultGrid), 1, 0);
-
-            _status = new Label
-            {
-                Dock = DockStyle.Fill,
-                BorderStyle = BorderStyle.FixedSingle,
-                BackColor = Color.WhiteSmoke,
-                Padding = new Padding(12, 0, 0, 0),
-                TextAlign = ContentAlignment.MiddleLeft,
-                Text = "Output Place 위치 위에 Picker를 위치시킨 후 START SCAN을 실행하세요."
-            };
-            root.Controls.Add(_status, 0, 3);
-
-            var footer = new TableLayoutPanel
-            {
-                Dock = DockStyle.Fill,
-                ColumnCount = 9,
-                RowCount = 1,
-                Padding = new Padding(0, 8, 0, 0)
-            };
-            for (int i = 0; i < 9; i++)
-                footer.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F / 9F));
-            root.Controls.Add(footer, 0, 4);
-
-            _btnCheck = MakeButton("CHECK");
-            _btnMoveStart = MakeButton("MOVE START");
-            _btnStartScan = MakeButton("START SCAN");
-            _btnMoveAvoid = MakeButton("Z AVOID");
-            _btnVacOff = MakeButton("VAC OFF");
-            _btnSeqStop = MakeButton("SEQ STOP");
-            _btnReload = MakeButton("RELOAD");
-            _btnSave = MakeButton("SAVE");
-            _btnClose = MakeButton("CLOSE");
-            _btnStartScan.Role = CalibrationDialogButtonRole.Primary;
-            _btnSave.Role = CalibrationDialogButtonRole.Dark;
-            _btnSeqStop.Enabled = false;
-            ApplyStopButtonStyle();
-
-            footer.Controls.Add(_btnCheck, 0, 0);
-            footer.Controls.Add(_btnMoveStart, 1, 0);
-            footer.Controls.Add(_btnStartScan, 2, 0);
-            footer.Controls.Add(_btnMoveAvoid, 3, 0);
-            footer.Controls.Add(_btnVacOff, 4, 0);
-            footer.Controls.Add(_btnSeqStop, 5, 0);
-            footer.Controls.Add(_btnReload, 6, 0);
-            footer.Controls.Add(_btnSave, 7, 0);
-            footer.Controls.Add(_btnClose, 8, 0);
-
+            InitializeComponent();
+            CalibrationDialogGridBehavior.Apply(_settingsGrid, _resultGrid);
             CalibrationDialogButtonStyle.ApplyFooterButtons(
                 new[] { _btnCheck, _btnMoveStart, _btnMoveAvoid, _btnVacOff, _btnSeqStop, _btnReload, _btnClose },
                 new[] { _btnStartScan },
                 new[] { _btnSave });
+            CalibrationDialogButtonStyle.ApplyFooterButtons(null, null, new[] { _btnParameterSave });
             ApplyStopButtonStyle();
-
-            _btnCheck.Click += delegate { CheckReady(true); };
-            _btnMoveStart.Click += async delegate { await MoveScanStartAsync().ConfigureAwait(true); };
-            _btnStartScan.Click += async delegate { await RunCalibrationAsync().ConfigureAwait(true); };
-            _btnMoveAvoid.Click += async delegate { await MoveZAvoidAsync().ConfigureAwait(true); };
-            _btnVacOff.Click += delegate { VacuumOff(); };
-            _btnSeqStop.Click += delegate { RequestActiveSequenceStop("창 STOP 버튼 요청"); };
-            _btnReload.Click += delegate { LoadFromMachine(); };
-            _btnSave.Click += delegate { SaveSettingsFromUi(true); };
-            _btnClose.Click += delegate { Close(); };
-            _cmbSide.SelectedIndexChanged += delegate { RefreshResultGrid(); UpdateVacFlowButton(); };
-            _cmbOutputSide.SelectedIndexChanged += delegate { RefreshResultGrid(); };
-            _cmbPickerNo.SelectedIndexChanged += delegate { RefreshResultGrid(); UpdateVacFlowButton(); };
-            _flowStatusTimer = new System.Windows.Forms.Timer { Interval = 300 };
-            _flowStatusTimer.Tick += delegate { UpdateVacFlowButton(); };
+            UpdateResultSaveButtonEnabled();
         }
 
         protected override void OnShown(EventArgs e)
@@ -285,90 +104,139 @@ namespace QMC.CDT_320.Ui.Dialogs
             base.OnFormClosed(e);
         }
 
-        private static Control Wrap(string title, Control content)
+        private void BtnCheck_Click(object sender, EventArgs e)
         {
-            var box = new GroupBox
-            {
-                Dock = DockStyle.Fill,
-                Text = title,
-                Font = new Font("Malgun Gothic", 9F, FontStyle.Bold),
-                Padding = new Padding(6)
-            };
-            content.Font = new Font("Malgun Gothic", 9F);
-            box.Controls.Add(content);
-            return box;
+            CheckReady(true);
         }
 
-        private static DataGridView CreateGrid()
+        private async void BtnMoveStart_Click(object sender, EventArgs e)
         {
-            var grid = new DataGridView
-            {
-                Dock = DockStyle.Fill,
-                AllowUserToAddRows = false,
-                AllowUserToDeleteRows = false,
-                RowHeadersVisible = false,
-                SelectionMode = DataGridViewSelectionMode.FullRowSelect,
-                AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill,
-                BackgroundColor = Color.White,
-                ReadOnly = true
-            };
-            grid.Columns.Add("Parameter", "PARAMETER");
-            grid.Columns.Add("Value", "VALUE");
-            grid.Columns.Add("Unit", "UNIT");
-            grid.Columns[0].FillWeight = 52F;
-            grid.Columns[1].FillWeight = 30F;
-            grid.Columns[2].FillWeight = 18F;
-            CalibrationDialogGridBehavior.Apply(grid);
-            return grid;
+            await MoveScanStartAsync().ConfigureAwait(true);
         }
 
-        private static DataGridView CreateResultGrid()
+        private async void BtnStartScan_Click(object sender, EventArgs e)
         {
-            var grid = new DataGridView
-            {
-                Dock = DockStyle.Fill,
-                AllowUserToAddRows = false,
-                AllowUserToDeleteRows = false,
-                RowHeadersVisible = false,
-                SelectionMode = DataGridViewSelectionMode.FullRowSelect,
-                AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill,
-                BackgroundColor = Color.White,
-                ReadOnly = true
-            };
-            grid.Columns.Add("Item", "ITEM");
-            grid.Columns.Add("Side", "SIDE");
-            grid.Columns.Add("Output", "OUTPUT");
-            grid.Columns.Add("Picker", "PICKER");
-            grid.Columns.Add("OldPlace", "OLD PLACE");
-            grid.Columns.Add("StartZ", "START Z");
-            grid.Columns.Add("FlowZ", "FLOW Z");
-            grid.Columns.Add("Die", "DIE");
-            grid.Columns.Add("Film", "FILM");
-            grid.Columns.Add("SavedPlace", "SAVED PLACE");
-            grid.Columns.Add("Valid", "VALID");
-            grid.Columns[0].FillWeight = 32F;
-            grid.Columns[1].FillWeight = 18F;
-            grid.Columns[2].FillWeight = 18F;
-            grid.Columns[3].FillWeight = 16F;
-            grid.Columns[4].FillWeight = 24F;
-            grid.Columns[5].FillWeight = 24F;
-            grid.Columns[6].FillWeight = 24F;
-            grid.Columns[7].FillWeight = 18F;
-            grid.Columns[8].FillWeight = 18F;
-            grid.Columns[9].FillWeight = 24F;
-            grid.Columns[10].FillWeight = 14F;
-            CalibrationDialogGridBehavior.Apply(grid);
-            return grid;
+            await RunCalibrationAsync().ConfigureAwait(true);
         }
 
-        private static CalibrationDialogButton MakeButton(string text)
+        private async void BtnMoveAvoid_Click(object sender, EventArgs e)
         {
-            return new CalibrationDialogButton
+            await MoveZAvoidAsync().ConfigureAwait(true);
+        }
+
+        private void BtnVacOff_Click(object sender, EventArgs e)
+        {
+            VacuumOff();
+        }
+
+        private void BtnSeqStop_Click(object sender, EventArgs e)
+        {
+            RequestActiveSequenceStop("창 STOP 버튼 요청");
+        }
+
+        private void BtnReload_Click(object sender, EventArgs e)
+        {
+            LoadFromMachine();
+        }
+
+        private void BtnParameterSave_Click(object sender, EventArgs e)
+        {
+            SaveSettingsFromUi(true);
+        }
+
+        private void BtnSaveResult_Click(object sender, EventArgs e)
+        {
+            SaveLastSuccessfulResult();
+        }
+
+        private void BtnClose_Click(object sender, EventArgs e)
+        {
+            Close();
+        }
+
+        private void PickerSelector_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            RefreshResultGrid();
+            UpdateVacFlowButton();
+        }
+
+        private void OutputSelector_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            RefreshResultGrid();
+        }
+
+        private void FlowStatusTimer_Tick(object sender, EventArgs e)
+        {
+            UpdateVacFlowButton();
+        }
+
+        private void BatchAll_CheckedChanged(object sender, EventArgs e)
+        {
+            if (_updatingBatchChecks)
+                return;
+
+            SetAllBatchTargets(_chkBatchAll.Checked);
+        }
+
+        private void BatchTarget_CheckedChanged(object sender, EventArgs e)
+        {
+            if (_updatingBatchChecks)
+                return;
+
+            CheckBox[] checks = GetBatchTargetChecks();
+            bool allChecked = true;
+            for (int i = 0; i < checks.Length; i++)
             {
-                Dock = DockStyle.Fill,
-                Text = text,
-                Margin = new Padding(6, 0, 6, 0),
-                Font = new Font("Malgun Gothic", 9F, FontStyle.Bold)
+                if (!checks[i].Checked)
+                {
+                    allChecked = false;
+                    break;
+                }
+            }
+
+            _updatingBatchChecks = true;
+            try
+            {
+                _chkBatchAll.Checked = allChecked;
+            }
+            finally
+            {
+                _updatingBatchChecks = false;
+            }
+        }
+
+        private async void BtnBatchStart_Click(object sender, EventArgs e)
+        {
+            await RunBatchCalibrationAsync().ConfigureAwait(true);
+        }
+
+        private void SetAllBatchTargets(bool isChecked)
+        {
+            _updatingBatchChecks = true;
+            try
+            {
+                CheckBox[] checks = GetBatchTargetChecks();
+                for (int i = 0; i < checks.Length; i++)
+                    checks[i].Checked = isChecked;
+            }
+            finally
+            {
+                _updatingBatchChecks = false;
+            }
+        }
+
+        private CheckBox[] GetBatchTargetChecks()
+        {
+            return new[]
+            {
+                _chkBatchFront1,
+                _chkBatchFront2,
+                _chkBatchFront3,
+                _chkBatchFront4,
+                _chkBatchRear1,
+                _chkBatchRear2,
+                _chkBatchRear3,
+                _chkBatchRear4
             };
         }
 
@@ -652,6 +520,143 @@ namespace QMC.CDT_320.Ui.Dialogs
             }
         }
 
+        private void SaveLastSuccessfulResult()
+        {
+            try
+            {
+                if (!_hasLastSuccessfulResult)
+                {
+                    _status.Text = "저장할 PlaceZ 측정 결과가 없습니다. START SCAN 또는 BATCH를 먼저 완료하세요.";
+                    QMC.Common.MessageDialog.Show(
+                        this,
+                        _status.Text,
+                        "PLACE Z CAL",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Warning);
+                    return;
+                }
+
+                Form1 host = ResolveHost();
+                if (host == null || string.IsNullOrWhiteSpace(host.ActiveRecipeName))
+                {
+                    _status.Text = "활성 Recipe가 없어 PlaceZ 측정 결과를 저장할 수 없습니다.";
+                    return;
+                }
+
+                if (!string.Equals(host.ActiveRecipeName, _lastSuccessfulRecipeName, StringComparison.Ordinal))
+                {
+                    _status.Text = "측정 완료 후 활성 Recipe가 변경되었습니다. 결과 저장을 차단합니다. measuredRecipe=" +
+                                   _lastSuccessfulRecipeName + ", activeRecipe=" + host.ActiveRecipeName;
+                    QMC.Common.MessageDialog.Show(
+                        this,
+                        _status.Text,
+                        "PLACE Z CAL",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Warning);
+                    return;
+                }
+
+                PlaceZCalibrationData data = ResolveData();
+                PlaceZCalibrationRecord record = data != null
+                    ? data.GetRecord(_lastSuccessfulSide, _lastSuccessfulPickerNo)
+                    : null;
+                if (record == null ||
+                    !record.Valid ||
+                    record.Side != _lastSuccessfulSide ||
+                    record.PickerNo != _lastSuccessfulPickerNo ||
+                    record.OutputSide != _lastSuccessfulOutputSide ||
+                    record.UpdatedAt != _lastSuccessfulResultUpdatedAt ||
+                    Math.Abs(record.SavedPlacePosition - _lastSuccessfulSavedPlacePosition) > 0.000001)
+                {
+                    _status.Text = "마지막 PlaceZ 측정 결과와 저장 대상 데이터가 일치하지 않습니다. 저장을 차단합니다. side=" +
+                                   _lastSuccessfulSide + ", output=" + _lastSuccessfulOutputSide +
+                                   ", pickerNo=" + _lastSuccessfulPickerNo +
+                                   ", measured=" + _lastSuccessfulSavedPlacePosition.ToString("F6") +
+                                   ", record=" + (record != null
+                                       ? record.OutputSide + "/" + record.SavedPlacePosition.ToString("F6")
+                                       : "null");
+                    QMC.Common.MessageDialog.Show(
+                        this,
+                        _status.Text,
+                        "PLACE Z CAL",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Error);
+                    return;
+                }
+
+                bool recipeSaved = host.SaveMachineRecipe(_lastSuccessfulRecipeName);
+                if (!recipeSaved)
+                {
+                    _status.Text = "PlaceZ 측정 결과 Recipe 저장에 실패했습니다. recipe=" +
+                                   _lastSuccessfulRecipeName + ", side=" + _lastSuccessfulSide +
+                                   ", output=" + _lastSuccessfulOutputSide +
+                                   ", pickerNo=" + _lastSuccessfulPickerNo;
+                    QMC.Common.MessageDialog.Show(
+                        this,
+                        _status.Text,
+                        "PLACE Z CAL",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Error);
+                    return;
+                }
+
+                host.SaveMachineSettings();
+                ClearLastSuccessfulResult();
+                _status.Text = "PlaceZ 측정 결과 저장 완료. recipe=" + _lastSuccessfulRecipeName +
+                               ", side=" + _lastSuccessfulSide +
+                               ", output=" + _lastSuccessfulOutputSide +
+                               ", pickerNo=" + _lastSuccessfulPickerNo +
+                               ", PlaceZ=" + _lastSuccessfulSavedPlacePosition.ToString("F6");
+                EventLogger.Write(EventKind.Event, "CAL", "PLACE-Z-CAL-SAVE-RESULT", _status.Text);
+            }
+            catch (Exception ex)
+            {
+                _status.Text = "PlaceZ 측정 결과 저장 예외: " + ex.Message;
+                EventLogger.Write(EventKind.Alarm, "CAL", "PLACE-Z-CAL-SAVE-RESULT-EX", _status.Text);
+            }
+        }
+
+        private void RegisterLastSuccessfulResult(
+            PlaceZCalibrationResult result,
+            string recipeName)
+        {
+            PlaceZCalibrationData data = ResolveData();
+            PlaceZCalibrationRecord record = data != null && result != null
+                ? data.GetRecord(result.Side, result.PickerNo)
+                : null;
+            if (result == null ||
+                !result.Success ||
+                result.PickerNo < 1 ||
+                result.PickerNo > 4 ||
+                string.IsNullOrWhiteSpace(recipeName) ||
+                record == null ||
+                !record.Valid ||
+                record.Side != result.Side ||
+                record.OutputSide != result.OutputSide ||
+                record.PickerNo != result.PickerNo ||
+                Math.Abs(record.SavedPlacePosition - result.SavedPlacePosition) > 0.000001)
+            {
+                ClearLastSuccessfulResult();
+                return;
+            }
+
+            _lastSuccessfulSide = result.Side;
+            _lastSuccessfulOutputSide = result.OutputSide;
+            _lastSuccessfulPickerNo = result.PickerNo;
+            _lastSuccessfulSavedPlacePosition = result.SavedPlacePosition;
+            _lastSuccessfulResultUpdatedAt = record.UpdatedAt;
+            _lastSuccessfulRecipeName = recipeName;
+            _hasLastSuccessfulResult = true;
+            UpdateResultSaveButtonEnabled();
+        }
+
+        private void ClearLastSuccessfulResult()
+        {
+            _hasLastSuccessfulResult = false;
+            _lastSuccessfulResultUpdatedAt = DateTime.MinValue;
+            UpdateResultSaveButtonEnabled();
+        }
+
         private bool CheckReady(bool showOk)
         {
             try
@@ -731,6 +736,225 @@ namespace QMC.CDT_320.Ui.Dialogs
                 true).ConfigureAwait(true);
         }
 
+        private List<BatchTarget> BuildSelectedBatchTargets()
+        {
+            var targets = new List<BatchTarget>();
+            AppendBatchTarget(targets, _chkBatchFront4, VisionFocusPickerSide.Front, 4);
+            AppendBatchTarget(targets, _chkBatchFront3, VisionFocusPickerSide.Front, 3);
+            AppendBatchTarget(targets, _chkBatchFront2, VisionFocusPickerSide.Front, 2);
+            AppendBatchTarget(targets, _chkBatchFront1, VisionFocusPickerSide.Front, 1);
+            AppendBatchTarget(targets, _chkBatchRear4, VisionFocusPickerSide.Rear, 4);
+            AppendBatchTarget(targets, _chkBatchRear3, VisionFocusPickerSide.Rear, 3);
+            AppendBatchTarget(targets, _chkBatchRear2, VisionFocusPickerSide.Rear, 2);
+            AppendBatchTarget(targets, _chkBatchRear1, VisionFocusPickerSide.Rear, 1);
+            return targets;
+        }
+
+        private static void AppendBatchTarget(
+            ICollection<BatchTarget> targets,
+            CheckBox checkBox,
+            VisionFocusPickerSide side,
+            int pickerNo)
+        {
+            if (checkBox != null && checkBox.Checked)
+                targets.Add(new BatchTarget(side, pickerNo));
+        }
+
+        private async Task RunBatchCalibrationAsync()
+        {
+            if (_busy)
+                return;
+
+            List<BatchTarget> targets = BuildSelectedBatchTargets();
+            if (targets.Count == 0)
+            {
+                _status.Text = "Batch로 측정할 Picker를 하나 이상 선택하세요.";
+                QMC.Common.MessageDialog.Show(
+                    this,
+                    _status.Text,
+                    "PLACE Z CAL",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Warning);
+                return;
+            }
+
+            Form1 host = null;
+            Action stopHandler = null;
+            IDisposable actionScope = null;
+            CancellationTokenSource runCts = null;
+            int originalSideIndex = _cmbSide.SelectedIndex;
+            int originalOutputIndex = _cmbOutputSide.SelectedIndex;
+            int originalPickerIndex = _cmbPickerNo.SelectedIndex;
+            BinSide batchOutputSide = ResolveOutputSide();
+
+            try
+            {
+                _busy = true;
+                SetButtonsEnabled(false);
+                SelectBatchTarget(targets[0]);
+                if (!SaveSettingsFromUi(false) || !CheckReady(false))
+                    return;
+                ClearLastSuccessfulResult();
+
+                host = ResolveHost();
+                var context = new MachineSequenceContext(host.Controller, new SequenceSignalBus());
+                runCts = BeginManualCalibrationRun(
+                    host,
+                    "Batch-" + batchOutputSide,
+                    null,
+                    out actionScope,
+                    out stopHandler);
+
+                for (int index = 0; index < targets.Count; index++)
+                {
+                    runCts.Token.ThrowIfCancellationRequested();
+                    BatchTarget target = targets[index];
+                    SelectBatchTarget(target);
+
+                    if (ResolveOutputSide() != batchOutputSide)
+                        throw new InvalidOperationException("PlaceZ Batch 실행 중 Output Side가 변경되었습니다.");
+
+                    PickerSequenceOptions options = PickerSequenceOptions.Default();
+                    options.RunMode = SequenceRunMode.Manual;
+                    options.StartMode = SequenceStartMode.Restart;
+                    options.PickerNo = target.PickerNo;
+                    options.RestrictToPickerNo = target.PickerNo;
+
+                    _status.Text = "PlaceZ Batch " + (index + 1) + "/" + targets.Count +
+                                   " 실행 중. output=" + batchOutputSide +
+                                   ", side=" + target.Side +
+                                   ", pickerNo=" + target.PickerNo;
+
+                    var sequence = new PickerPlaceZCalibrationSequence(
+                        context,
+                        target.Side,
+                        target.PickerNo,
+                        batchOutputSide);
+                    _activeCalibrationSequence = sequence;
+                    int result = await sequence.RunCurrentPoseTestOrDefaultAsync(
+                        runCts.Token,
+                        options).ConfigureAwait(true);
+                    _activeCalibrationSequence = null;
+                    RefreshResultGrid();
+
+                    if (result != 0)
+                    {
+                        _status.Text = "PlaceZ Batch 실패. output=" + batchOutputSide +
+                                       ", side=" + target.Side +
+                                       ", pickerNo=" + target.PickerNo +
+                                       ", detail=" + sequence.Result.Message;
+                        QMC.Common.MessageDialog.Show(
+                            this,
+                            _status.Text,
+                            "PLACE Z CAL",
+                            MessageBoxButtons.OK,
+                            MessageBoxIcon.Error);
+                        return;
+                    }
+
+                    if (sequence.Result.OutputSide != batchOutputSide)
+                    {
+                        _status.Text = "PlaceZ Batch 결과 Output Side가 고정 대상과 일치하지 않습니다. 실행을 중단합니다. expected=" +
+                                       batchOutputSide + ", actual=" + sequence.Result.OutputSide +
+                                       ", side=" + target.Side + ", pickerNo=" + target.PickerNo;
+                        QMC.Common.MessageDialog.Show(
+                            this,
+                            _status.Text,
+                            "PLACE Z CAL",
+                            MessageBoxButtons.OK,
+                            MessageBoxIcon.Error);
+                        return;
+                    }
+
+                    RegisterLastSuccessfulResult(sequence.Result, host.ActiveRecipeName);
+                    bool recipeSaved = host.SaveMachineRecipe(host.ActiveRecipeName);
+                    host.SaveMachineSettings();
+                    if (!recipeSaved)
+                    {
+                        _status.Text = "PlaceZ Batch 결과 Recipe 저장 실패. output=" + batchOutputSide +
+                                       ", side=" + target.Side +
+                                       ", pickerNo=" + target.PickerNo +
+                                       ", recipe=" + host.ActiveRecipeName;
+                        QMC.Common.MessageDialog.Show(
+                            this,
+                            _status.Text,
+                            "PLACE Z CAL",
+                            MessageBoxButtons.OK,
+                            MessageBoxIcon.Error);
+                        return;
+                    }
+
+                    _status.Text = "PlaceZ Batch 안전위치 복귀 중. output=" + batchOutputSide +
+                                   ", side=" + target.Side +
+                                   ", pickerNo=" + target.PickerNo;
+                    var safe = new AutoCalibrationSafePositionSequence(context, target.Side);
+                    _activeSafePositionSequence = safe;
+                    int safeResult = await safe.RunAsync(runCts.Token, options).ConfigureAwait(true);
+                    _activeSafePositionSequence = null;
+                    if (safeResult != 0)
+                    {
+                        _status.Text = "PlaceZ Batch 안전위치 복귀 실패. 다음 Picker 측정을 중단합니다. output=" +
+                                       batchOutputSide + ", side=" + target.Side +
+                                       ", pickerNo=" + target.PickerNo +
+                                       ", result=" + safeResult;
+                        QMC.Common.MessageDialog.Show(
+                            this,
+                            _status.Text,
+                            "PLACE Z CAL",
+                            MessageBoxButtons.OK,
+                            MessageBoxIcon.Error);
+                        return;
+                    }
+                }
+
+                _status.Text = "PlaceZ Batch 완료. output=" + batchOutputSide +
+                               ", count=" + targets.Count +
+                               ". 결과는 자동 저장되었으며 SAVE RESULT로 마지막 성공 결과를 재확인 저장할 수 있습니다.";
+                EventLogger.Write(EventKind.Event, "CAL", "PLACE-Z-CAL-BATCH-COMPLETE", _status.Text);
+            }
+            catch (OperationCanceledException)
+            {
+                _status.Text = "PlaceZ Batch가 정지 요청으로 중단되었습니다.";
+                EventLogger.Write(EventKind.Event, "CAL", "PLACE-Z-CAL-BATCH-STOP", _status.Text);
+            }
+            catch (SequenceStopException ex)
+            {
+                _status.Text = "PlaceZ Batch 정지: " + ex.Message;
+                EventLogger.Write(EventKind.Event, "CAL", "PLACE-Z-CAL-BATCH-STOP", _status.Text);
+            }
+            catch (Exception ex)
+            {
+                _status.Text = "PlaceZ Batch 예외: " + ex.Message;
+                EventLogger.Write(EventKind.Alarm, "CAL", "PLACE-Z-CAL-BATCH-EX", _status.Text);
+                QMC.Common.MessageDialog.Show(
+                    this,
+                    _status.Text,
+                    "PLACE Z CAL",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Error);
+            }
+            finally
+            {
+                _activeCalibrationSequence = null;
+                _activeSafePositionSequence = null;
+                EndManualCalibrationRun(host, stopHandler, runCts, actionScope);
+                _cmbSide.SelectedIndex = originalSideIndex;
+                _cmbOutputSide.SelectedIndex = originalOutputIndex;
+                _cmbPickerNo.SelectedIndex = originalPickerIndex;
+                RefreshResultGrid();
+                _busy = false;
+                SetButtonsEnabled(true);
+            }
+        }
+
+        private void SelectBatchTarget(BatchTarget target)
+        {
+            _cmbSide.SelectedIndex = target.Side == VisionFocusPickerSide.Rear ? 1 : 0;
+            _cmbPickerNo.SelectedItem = target.PickerNo.ToString(CultureInfo.InvariantCulture);
+            RefreshResultGrid();
+            UpdateVacFlowButton();
+        }
+
         private async Task RunSequenceActionAsync(
             string actionName,
             string runningMessage,
@@ -751,10 +975,13 @@ namespace QMC.CDT_320.Ui.Dialogs
                 SetButtonsEnabled(false);
                 if (!SaveSettingsFromUi(false) || !CheckReady(false))
                     return;
+                if (saveRecipeAfterSuccess)
+                    ClearLastSuccessfulResult();
 
                 host = ResolveHost();
                 var context = new MachineSequenceContext(host.Controller, new SequenceSignalBus());
                 var sequence = new PickerPlaceZCalibrationSequence(context, ResolveSide(), ResolvePickerNo(), ResolveOutputSide());
+                _activeCalibrationSequence = sequence;
                 runCts = BeginManualCalibrationRun(host, actionName, sequence, out actionScope, out stopHandler);
                 PickerSequenceOptions options = PickerSequenceOptions.Default();
                 options.RunMode = SequenceRunMode.Manual;
@@ -764,6 +991,7 @@ namespace QMC.CDT_320.Ui.Dialogs
 
                 _status.Text = runningMessage;
                 int result = await action(sequence, runCts.Token, options).ConfigureAwait(true);
+                _activeCalibrationSequence = null;
                 LoadFromMachine();
 
                 if (result != 0)
@@ -777,9 +1005,11 @@ namespace QMC.CDT_320.Ui.Dialogs
                 {
                     bool recipeSaved = host.SaveMachineRecipe(host.ActiveRecipeName);
                     host.SaveMachineSettings();
+                    RegisterLastSuccessfulResult(sequence.Result, host.ActiveRecipeName);
                     _status.Text = "완료. FlowZ=" + sequence.Result.DetectedFlowPosition.ToString("F6") +
                                    ", SavedPlaceZ=" + sequence.Result.SavedPlacePosition.ToString("F6") +
-                                   ", RecipeSave=" + (recipeSaved ? "OK" : "NG");
+                                   ", RecipeSave=" + (recipeSaved ? "OK" : "NG") +
+                                   ". SAVE RESULT로 마지막 성공 결과를 재확인 저장할 수 있습니다.";
                 }
                 else
                 {
@@ -804,6 +1034,8 @@ namespace QMC.CDT_320.Ui.Dialogs
             }
             finally
             {
+                _activeCalibrationSequence = null;
+                _activeSafePositionSequence = null;
                 EndManualCalibrationRun(host, stopHandler, runCts, actionScope);
                 _busy = false;
                 SetButtonsEnabled(true);
@@ -861,6 +1093,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                 "PlaceZCalibration:" + actionName + ":" + ResolveSide() + ":" + ResolvePickerNo());
             CancellationTokenSource runCts = CancellationTokenSource.CreateLinkedTokenSource(host.Controller.ManualOperationToken);
             _runCts = runCts;
+            _activeCalibrationSequence = sequence;
             _activeStopRequest = delegate(string reason)
             {
                 try
@@ -869,8 +1102,9 @@ namespace QMC.CDT_320.Ui.Dialogs
                     if (cts != null && !cts.IsCancellationRequested)
                         cts.Cancel();
 
-                    if (sequence != null)
-                        sequence.RequestImmediateStop(reason);
+                    PickerPlaceZCalibrationSequence activeCalibration = _activeCalibrationSequence;
+                    if (activeCalibration != null)
+                        activeCalibration.RequestImmediateStop(reason);
 
                     QMC.Common.Log.Write("Calibration", "SYSTEM", "PlaceZCalStop",
                         reason + "으로 PlaceZ Calibration 정지 요청. action=" + actionName +
@@ -899,6 +1133,8 @@ namespace QMC.CDT_320.Ui.Dialogs
             if (ReferenceEquals(_runCts, runCts))
                 _runCts = null;
             _activeStopRequest = null;
+            _activeCalibrationSequence = null;
+            _activeSafePositionSequence = null;
             UpdateStopButtonEnabled();
 
             if (runCts != null)
@@ -1067,15 +1303,34 @@ namespace QMC.CDT_320.Ui.Dialogs
             _cmbOutputSide.Enabled = enabled;
             _cmbPickerNo.Enabled = enabled;
             _settingsGrid.Enabled = enabled;
+            _chkBatchAll.Enabled = enabled;
+            _chkBatchFront1.Enabled = enabled;
+            _chkBatchFront2.Enabled = enabled;
+            _chkBatchFront3.Enabled = enabled;
+            _chkBatchFront4.Enabled = enabled;
+            _chkBatchRear1.Enabled = enabled;
+            _chkBatchRear2.Enabled = enabled;
+            _chkBatchRear3.Enabled = enabled;
+            _chkBatchRear4.Enabled = enabled;
+            _btnBatchStart.Enabled = enabled;
             _btnCheck.Enabled = enabled;
             _btnMoveStart.Enabled = enabled;
             _btnStartScan.Enabled = enabled;
             _btnMoveAvoid.Enabled = enabled;
             _btnVacOff.Enabled = enabled;
             _btnReload.Enabled = enabled;
-            _btnSave.Enabled = enabled;
+            _btnParameterSave.Enabled = enabled;
             _btnClose.Enabled = enabled;
+            UpdateResultSaveButtonEnabled();
             UpdateStopButtonEnabled();
+        }
+
+        private void UpdateResultSaveButtonEnabled()
+        {
+            if (_btnSave == null)
+                return;
+
+            _btnSave.Enabled = !_busy && _hasLastSuccessfulResult;
         }
 
         private void UpdateStopButtonEnabled()
@@ -1163,6 +1418,18 @@ namespace QMC.CDT_320.Ui.Dialogs
                 reason = ex.Message;
                 return false;
             }
+        }
+
+        private sealed class BatchTarget
+        {
+            public BatchTarget(VisionFocusPickerSide side, int pickerNo)
+            {
+                Side = side;
+                PickerNo = pickerNo;
+            }
+
+            public VisionFocusPickerSide Side { get; private set; }
+            public int PickerNo { get; private set; }
         }
     }
 }

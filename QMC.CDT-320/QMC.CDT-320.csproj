@@ -788,11 +788,20 @@
     <Compile Include="Ui\Dialogs\NeedleCalibrationDialog.cs">
       <SubType>Form</SubType>
     </Compile>
+    <Compile Include="Ui\Dialogs\NeedleCalibrationDialog.Designer.cs">
+      <DependentUpon>NeedleCalibrationDialog.cs</DependentUpon>
+    </Compile>
     <Compile Include="Ui\Dialogs\PickUpZCalibrationDialog.cs">
       <SubType>Form</SubType>
     </Compile>
+    <Compile Include="Ui\Dialogs\PickUpZCalibrationDialog.Designer.cs">
+      <DependentUpon>PickUpZCalibrationDialog.cs</DependentUpon>
+    </Compile>
     <Compile Include="Ui\Dialogs\PlaceZCalibrationDialog.cs">
       <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Ui\Dialogs\PlaceZCalibrationDialog.Designer.cs">
+      <DependentUpon>PlaceZCalibrationDialog.cs</DependentUpon>
     </Compile>
     <Compile Include="Ui\Dialogs\AutoCalibrationDialog.cs">
       <SubType>Form</SubType>

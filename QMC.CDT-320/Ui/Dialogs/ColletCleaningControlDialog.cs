@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Globalization;
 using System.Threading;
 using System.Threading.Tasks;
@@ -142,7 +142,7 @@ namespace QMC.CDT_320.Ui.Dialogs
         {
             btnSelectAll.Click += delegate { SetAllTargets(true); };
             btnSelectNone.Click += delegate { SetAllTargets(false); };
-            btnSave.Click += delegate { SaveSettingsFromUi(true); };
+            btnParameterSave.Click += delegate { SaveParameterSettingsFromUi(true); };
             btnReload.Click += delegate { LoadSettingsToUi(); RefreshHistory(); };
             btnClose.Click += delegate { Close(); };
             btnStart.Click += async delegate { await StartCleaningAsync().ConfigureAwait(true); };
@@ -495,7 +495,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             }
         }
 
-        private bool SaveSettingsFromUi(bool showMessage)
+        private bool SaveParameterSettingsFromUi(bool showMessage)
         {
             try
             {
@@ -594,7 +594,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                     return;
                 }
 
-                if (!SaveSettingsFromUi(false))
+                if (!SaveParameterSettingsFromUi(false))
                     return;
 
                 if (!_settings.HasAnySelection())
@@ -823,7 +823,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             btnStart.Enabled = enabled;
             btnSelectAll.Enabled = enabled;
             btnSelectNone.Enabled = enabled;
-            btnSave.Enabled = enabled;
+            btnParameterSave.Enabled = enabled;
             btnReload.Enabled = enabled;
             btnClose.Enabled = enabled;
         }

@@ -5,11 +5,10 @@
 - 소스 기준 경로는 반드시 D:\Source\CDT-320_New 하나만 사용한다.
 - 다른 체크아웃, 예전 소스, QMC-master 사본의 코드를 참고하거나 복사하지 않는다.
 - 작업 시작 시 Git root, branch, HEAD, git status, 기존 변경 파일을 다시 확인해 보고한다.
-- 현재 기준은 master, HEAD 81d1ac2b, 원격 master보다 2 commit 앞선 상태다.
-- 현재 보존해야 할 기존 변경 파일:
-  - QMC.CDT-320\Equipment\MachineController.cs
-  - QMC.CDT-320\Sequencing\Picker\PickerPickUpSequence.MotionResolvers.cs
-  - QMC.CDT-320\Sequencing\Picker\PickerSequenceBase.cs
+- 분석 최종 재검증 기준은 master, HEAD 034a1aae, 원격 master보다 4 commit 앞선 상태다.
+- 분석 도중 외부에서 HEAD가 81d1ac2b에서 034a1aae로 변경됐으나, 대상 Calibration Dialog/Sequence 파일은 두 HEAD 사이에 변경되지 않았음을 확인했다.
+- 문서 최종화 시 working tree 변경은 이 프롬프트와 체크리스트 2개뿐이다.
+- 구현 시작 직전에 HEAD와 status를 다시 확인하고, 새로 나타난 모든 변경을 사용자 변경으로 간주해 보존한다.
 - 기존 변경을 덮어쓰거나 되돌리지 않는다.
 - reset, checkout 롤백, clean, revert, commit, push, pull, merge, rebase를 실행하지 않는다.
 - Clean/Rebuild를 실행하지 않는다. 빌드는 /t:Build와 별도 OutDir만 사용한다.
@@ -216,6 +215,6 @@
 - 정확한 직렬 실행 순서
 - Designer 표시 가능 여부의 정적 근거
 - static/build/mock/equipment 검증을 구분한 결과
-- 기존 dirty 3개 파일 보존 여부
+- 기존 dirty 파일 전체 보존 여부
 - 남은 장비 검증 항목
 - commit하지 않았음을 보고한다.

@@ -1785,6 +1785,49 @@ namespace QMC.CDT320.Materials
             return true;
         }
 
+        /// <summary>
+        /// 출력 카세트를 GOOD / NG 한쪽만 골라서 Material 데이터를 초기화한다.
+        /// 카세트 교체는 GOOD만 또는 NG만 진행하는 경우가 많아 반대편 데이터를 보존해야 한다.
+        /// GOOD은 장비에서 한 묶음으로 취급하므로 Good1/Good2를 함께 지운다(사용자 확정 2026-07-26).
+        /// </summary>
+        public static bool ClearOutputCassetteSideData(QMC.CDT320.BinSide side)
+        {
+            try
+            {
+                lock (_stateSync)
+                {
+                    bool processed = false;
+                    if (side == QMC.CDT320.BinSide.Ng)
+                    {
+                        ClearOutputCassetteAllSlotData(CassetteMaterialRole.Ng1, ref processed);
+                    }
+                    else
+                    {
+                        ClearOutputCassetteAllSlotData(CassetteMaterialRole.Good1, ref processed);
+                        ClearOutputCassetteAllSlotData(CassetteMaterialRole.Good2, ref processed);
+                    }
+
+                    if (!processed)
+                        return false;
+
+                    Log.Write("Main", "SYSTEM", "MaterialStateService",
+                        "출력 카세트 " + side + " 측 Material 데이터를 초기화했습니다. " +
+                        "반대편 데이터는 유지됩니다. - Ok");
+                    NotifyAndSave("ClearOutputCassetteSideData:" + side);
+                    return true;
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Write("Main", "SYSTEM", "MaterialStateService",
+                    "출력 카세트 " + side + " 측 Material 초기화 실패: " + ex.Message + " - Failed");
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
         private static void ClearOutputCassetteAllSlotData(CassetteMaterialRole cassetteRole, ref bool processed)
         {
             var cassette = State.Cassettes.FirstOrDefault(c => c.Role == cassetteRole);

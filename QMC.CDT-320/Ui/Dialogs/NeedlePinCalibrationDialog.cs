@@ -24,6 +24,9 @@ namespace QMC.CDT_320.Ui.Dialogs
         private bool _busy;
         private bool _loadedOnce;
         private CancellationTokenSource _runCts;
+        private NeedlePinCalibrationResult _lastSuccessfulResult;
+        private NeedleCalibrationData _lastSuccessfulDataRecord;
+        private DateTime _lastSuccessfulResultUpdatedAt;
 
         public static NeedlePinCalibrationDialog Open(IWin32Window owner)
         {
@@ -187,6 +190,7 @@ namespace QMC.CDT_320.Ui.Dialogs
 
         private void BtnReload_Click(object sender, EventArgs e)
         {
+            ClearLastSuccessfulResult();
             LoadFromMachine();
         }
 
@@ -195,12 +199,17 @@ namespace QMC.CDT_320.Ui.Dialogs
             CalibrationDialogButtonStyle.ApplyFooterButtons(
                 new[] { _btnCheck, _btnMoveReady, _btnTeach, _btnMoveTeach, _btnReload, _btnClose },
                 new[] { _btnStart },
-                new[] { _btnSave });
+                new[] { _btnParameterSave, _btnSave });
+        }
+
+        private void BtnParameterSave_Click(object sender, EventArgs e)
+        {
+            SaveParameterSettingsFromUi(true);
         }
 
         private void BtnSave_Click(object sender, EventArgs e)
         {
-            SaveToMachine(true);
+            SaveLastSuccessfulResult(true);
         }
 
         private void BtnClose_Click(object sender, EventArgs e)
@@ -657,7 +666,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             }
         }
 
-        private bool SaveToMachine(bool showMessage)
+        private bool SaveParameterSettingsFromUi(bool showMessage)
         {
             try
             {
@@ -700,6 +709,108 @@ namespace QMC.CDT_320.Ui.Dialogs
                 _status.Text = "저장 실패: " + ex.Message;
                 return false;
             }
+        }
+
+        private bool SaveLastSuccessfulResult(bool showMessage)
+        {
+            try
+            {
+                if (_lastSuccessfulResult == null || !_lastSuccessfulResult.Success)
+                    return BlockResultSave(
+                        "정상 완료된 Needle Pin Calibration 결과가 없습니다. START CAL을 먼저 완료하세요.",
+                        showMessage);
+
+                Form1 host = ResolveHost();
+                NeedleCalibrationData current = ResolveNeedleCalibrationData();
+                if (host == null || current == null)
+                    return BlockResultSave("장비 또는 Needle CalibrationData가 준비되지 않았습니다.", showMessage);
+
+                if (!ReferenceEquals(current, _lastSuccessfulDataRecord) ||
+                    !current.Valid ||
+                    current.UpdatedAt != _lastSuccessfulResultUpdatedAt ||
+                    !MatchesLastSuccessfulResult(current, _lastSuccessfulResult))
+                {
+                    return BlockResultSave(
+                        "마지막 정상 완료 결과가 이후에 변경되었거나 다시 로드되었습니다. 잘못된 결과 저장을 막기 위해 SAVE RESULT를 차단합니다.",
+                        showMessage);
+                }
+
+                // Sequence가 만든 정확한 Needle Pin 결과 record를 다시 영속화한다.
+                // 현재 축 ActualPosition은 읽지 않으며 측정값을 다시 계산하지 않는다.
+                host.SaveMachineSettings();
+                _status.Text = "마지막 Needle Pin Calibration 결과를 저장했습니다. updatedAt=" +
+                               _lastSuccessfulResultUpdatedAt.ToString("yyyy-MM-dd HH:mm:ss.fff");
+                QMC.Common.Log.Write("Calibration", "SYSTEM", "NeedlePinCalSaveResult", _status.Text);
+                EventLogger.Write(EventKind.Event, "CAL", "NEEDLE-PIN-CAL-SAVE-RESULT", _status.Text);
+                InputStageUnit stage = ResolveStage();
+                if (stage != null)
+                    RefreshResultGrid(stage);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                return BlockResultSave("Needle Pin Calibration 결과 저장 실패: " + ex.Message, showMessage);
+            }
+        }
+
+        private bool BlockResultSave(string message, bool showMessage)
+        {
+            _status.Text = message;
+            EventLogger.Write(EventKind.Warning, "CAL", "NEEDLE-PIN-CAL-SAVE-RESULT-BLOCK", message);
+            if (showMessage)
+                QMC.Common.MessageDialog.Show(this, message, "NEEDLE PIN CAL", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            return false;
+        }
+
+        private void RememberSuccessfulResult(NeedlePinCalibrationResult result)
+        {
+            NeedleCalibrationData data = ResolveNeedleCalibrationData();
+            if (result == null || !result.Success || data == null || !data.Valid)
+            {
+                ClearLastSuccessfulResult();
+                EventLogger.Write(EventKind.Warning, "CAL", "NEEDLE-PIN-CAL-RESULT-TRACK",
+                    "정상 완료 Needle Pin Calibration 결과 추적에 실패했습니다.");
+                return;
+            }
+
+            _lastSuccessfulResult = new NeedlePinCalibrationResult
+            {
+                Success = true,
+                VisionXPosition = result.VisionXPosition,
+                StageYPosition = result.StageYPosition,
+                NeedleXPosition = result.NeedleXPosition,
+                NeedleZPosition = result.NeedleZPosition,
+                EjectPinZPosition = result.EjectPinZPosition,
+                VisionOffsetX = result.VisionOffsetX,
+                VisionOffsetY = result.VisionOffsetY,
+                NeedleXToVisionXOffset = result.NeedleXToVisionXOffset,
+                NeedleYToVisionYOffset = result.NeedleYToVisionYOffset,
+                Message = result.Message
+            };
+            _lastSuccessfulDataRecord = data;
+            _lastSuccessfulResultUpdatedAt = data.UpdatedAt;
+        }
+
+        private void ClearLastSuccessfulResult()
+        {
+            _lastSuccessfulResult = null;
+            _lastSuccessfulDataRecord = null;
+            _lastSuccessfulResultUpdatedAt = DateTime.MinValue;
+        }
+
+        private static bool MatchesLastSuccessfulResult(
+            NeedleCalibrationData data,
+            NeedlePinCalibrationResult result)
+        {
+            return data.VisionXPosition == result.VisionXPosition &&
+                   data.StageYPosition == result.StageYPosition &&
+                   data.NeedleXPosition == result.NeedleXPosition &&
+                   data.NeedleZPosition == result.NeedleZPosition &&
+                   data.EjectPinZPosition == result.EjectPinZPosition &&
+                   data.VisionOffsetX == result.VisionOffsetX &&
+                   data.VisionOffsetY == result.VisionOffsetY &&
+                   data.NeedleXToVisionXOffset == result.NeedleXToVisionXOffset &&
+                   data.NeedleYToVisionYOffset == result.NeedleYToVisionYOffset;
         }
 
         private CancellationTokenSource BeginManualCalibrationRun(
@@ -768,7 +879,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             {
                 _busy = true;
                 SetButtonsEnabled(false);
-                if (!SaveToMachine(false) || !CheckReady(false))
+                if (!SaveParameterSettingsFromUi(false) || !CheckReady(false))
                     return;
 
                 host = ResolveHost();
@@ -812,7 +923,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             {
                 _busy = true;
                 SetButtonsEnabled(false);
-                if (!SaveToMachine(false) || !CheckReady(false))
+                if (!SaveParameterSettingsFromUi(false) || !CheckReady(false))
                     return;
 
                 host = ResolveHost();
@@ -856,9 +967,10 @@ namespace QMC.CDT_320.Ui.Dialogs
             {
                 _busy = true;
                 SetButtonsEnabled(false);
-                if (!SaveToMachine(false) || !CheckReady(false))
+                if (!SaveParameterSettingsFromUi(false) || !CheckReady(false))
                     return;
 
+                ClearLastSuccessfulResult();
                 host = ResolveHost();
                 runCts = BeginManualCalibrationRun(host, "StartCal", out actionScope, out stopHandler);
                 var context = new MachineSequenceContext(host.Controller, new SequenceSignalBus());
@@ -875,6 +987,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                 }
 
                 host.SaveMachineSettings();
+                RememberSuccessfulResult(sequence.Result);
                 _status.Text = "완료. Pixel X=" + sequence.Result.VisionOffsetX.ToString("F6") +
                                ", Pixel Y=" + sequence.Result.VisionOffsetY.ToString("F6") +
                                ", NeedleX-To-VisionX=" + sequence.Result.NeedleXToVisionXOffset.ToString("F6");
@@ -999,6 +1112,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             _btnMoveTeach.Enabled = enabled;
             _btnStart.Enabled = enabled;
             _btnReload.Enabled = enabled;
+            _btnParameterSave.Enabled = enabled;
             _btnSave.Enabled = enabled;
             _btnClose.Enabled = enabled;
             _settingsGrid.Enabled = enabled;

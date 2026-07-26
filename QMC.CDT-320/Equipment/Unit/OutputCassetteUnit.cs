@@ -324,7 +324,7 @@ namespace QMC.CDT320
             try
             {
                 ct.ThrowIfCancellationRequested();
-                double velocity = ResolveBinLifterZConfigMoveVelocity();
+                double velocity = ResolveBinLifterZDefaultMoveVelocity();
                 double acceleration = ResolveCassetteProfileAcceleration(velocity);
                 double deceleration = ResolveCassetteProfileDeceleration(velocity);
 
@@ -1342,7 +1342,7 @@ namespace QMC.CDT320
                     "Bin mapping scan window. halfWidth=" + FormatPosition(windowHalf) +
                     " (ratio=" + FormatPosition(ratio) + ") - Ok");
 
-                double scanVelocity = ResolveBinLifterZConfigMoveVelocity();
+                double scanVelocity = ResolveBinLifterZScanVelocity();
                 double scanAcceleration = ResolveCassetteProfileAcceleration(scanVelocity);
                 double scanDeceleration = ResolveCassetteProfileDeceleration(scanVelocity);
                 if (OutputLifterZ.Config != null)
@@ -1616,7 +1616,7 @@ namespace QMC.CDT320
                 //if (previous)
                 //    return FailMappingScanList("OUT-CST-MAP-SENSOR-ON", "Mapping sensor is ON at mapping start. Check mapping start position.");
 
-                double scanVelocity = ResolveBinLifterZConfigMoveVelocity();
+                double scanVelocity = ResolveBinLifterZScanVelocity();
                 double scanAcceleration = ResolveCassetteProfileAcceleration(scanVelocity);
                 double scanDeceleration = ResolveCassetteProfileDeceleration(scanVelocity);
 
@@ -2503,11 +2503,30 @@ namespace QMC.CDT320
             return MoveBinLifterZ(targetPosition);
         }
 
-        private double ResolveBinLifterZConfigMoveVelocity()
+        /// <summary>
+        /// 매핑 스캔 전용 속도. 레시피(Output Cassette) SCAN/JOG VELOCITY 값을 사용한다.
+        /// 매핑 이외의 이동에는 사용하지 않는다(사용자 확정 2026-07-26).
+        /// </summary>
+        private double ResolveBinLifterZScanVelocity()
         {
             double velocity = Config != null && Config.ScanVelocity > 0.0 ? Config.ScanVelocity : 0.0;
             if (velocity <= 0.0 && OutputLifterZ != null && OutputLifterZ.Config != null)
                 velocity = OutputLifterZ.Config.DefaultVelocity;
+            return velocity > 0.0 ? velocity : 1.0;
+        }
+
+        /// <summary>
+        /// 매핑이 아닌 일반 리프터 이동 속도(슬롯 이동/Avoid 복귀/카세트 교체 등).
+        /// 축 기본 속도(Config.DefaultVelocity)를 사용한다.
+        /// 기존에는 매핑용 ScanVelocity가 모든 이동에 적용되어 일반 이동까지 느려졌다.
+        /// </summary>
+        private double ResolveBinLifterZDefaultMoveVelocity()
+        {
+            double velocity = OutputLifterZ != null && OutputLifterZ.Config != null
+                ? OutputLifterZ.Config.DefaultVelocity
+                : 0.0;
+            if (velocity <= 0.0)
+                velocity = Config != null && Config.ScanVelocity > 0.0 ? Config.ScanVelocity : 0.0;
             return velocity > 0.0 ? velocity : 1.0;
         }
 

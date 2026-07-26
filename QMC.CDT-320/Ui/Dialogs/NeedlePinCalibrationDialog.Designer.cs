@@ -8,6 +8,7 @@
         private System.Windows.Forms.TableLayoutPanel mainLayout;
         private System.Windows.Forms.TableLayoutPanel leftLayout;
         private System.Windows.Forms.GroupBox groupSetting;
+        private System.Windows.Forms.TableLayoutPanel settingLayout;
         private System.Windows.Forms.GroupBox groupSaved;
         private System.Windows.Forms.GroupBox groupTeaching;
         private System.Windows.Forms.DataGridView _settingsGrid;
@@ -31,6 +32,7 @@
         private CalibrationDialogButton _btnMoveTeach;
         private CalibrationDialogButton _btnStart;
         private CalibrationDialogButton _btnReload;
+        private CalibrationDialogButton _btnParameterSave;
         private CalibrationDialogButton _btnSave;
         private CalibrationDialogButton _btnClose;
 
@@ -48,6 +50,7 @@
             this.mainLayout = new System.Windows.Forms.TableLayoutPanel();
             this.leftLayout = new System.Windows.Forms.TableLayoutPanel();
             this.groupSetting = new System.Windows.Forms.GroupBox();
+            this.settingLayout = new System.Windows.Forms.TableLayoutPanel();
             this._settingsGrid = new System.Windows.Forms.DataGridView();
             this.colSettingItem = new System.Windows.Forms.DataGridViewTextBoxColumn();
             this.colSettingValue = new System.Windows.Forms.DataGridViewTextBoxColumn();
@@ -71,12 +74,14 @@
             this._btnMoveTeach = new CalibrationDialogButton();
             this._btnStart = new CalibrationDialogButton();
             this._btnReload = new CalibrationDialogButton();
+            this._btnParameterSave = new CalibrationDialogButton();
             this._btnSave = new CalibrationDialogButton();
             this._btnClose = new CalibrationDialogButton();
             this.rootLayout.SuspendLayout();
             this.mainLayout.SuspendLayout();
             this.leftLayout.SuspendLayout();
             this.groupSetting.SuspendLayout();
+            this.settingLayout.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this._settingsGrid)).BeginInit();
             this.groupSaved.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this._resultGrid)).BeginInit();
@@ -153,7 +158,7 @@
             // 
             // groupSetting
             // 
-            this.groupSetting.Controls.Add(this._settingsGrid);
+            this.groupSetting.Controls.Add(this.settingLayout);
             this.groupSetting.Dock = System.Windows.Forms.DockStyle.Fill;
             this.groupSetting.Font = new System.Drawing.Font("留묒? 怨좊뵓", 9F, System.Drawing.FontStyle.Bold);
             this.groupSetting.Location = new System.Drawing.Point(0, 0);
@@ -164,7 +169,23 @@
             this.groupSetting.TabIndex = 0;
             this.groupSetting.TabStop = false;
             this.groupSetting.Text = "CAL SETTING";
-            // 
+            //
+            // settingLayout
+            //
+            this.settingLayout.ColumnCount = 1;
+            this.settingLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.settingLayout.Controls.Add(this._settingsGrid, 0, 0);
+            this.settingLayout.Controls.Add(this._btnParameterSave, 0, 1);
+            this.settingLayout.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.settingLayout.Location = new System.Drawing.Point(6, 22);
+            this.settingLayout.Margin = new System.Windows.Forms.Padding(0);
+            this.settingLayout.Name = "settingLayout";
+            this.settingLayout.RowCount = 2;
+            this.settingLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.settingLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 46F));
+            this.settingLayout.Size = new System.Drawing.Size(522, 289);
+            this.settingLayout.TabIndex = 0;
+            //
             // _settingsGrid
             // 
             this._settingsGrid.AllowUserToAddRows = false;
@@ -177,12 +198,12 @@
             this.colSettingValue,
             this.colSettingUnit});
             this._settingsGrid.Dock = System.Windows.Forms.DockStyle.Fill;
-            this._settingsGrid.Location = new System.Drawing.Point(6, 22);
+            this._settingsGrid.Location = new System.Drawing.Point(0, 0);
             this._settingsGrid.MultiSelect = false;
             this._settingsGrid.Name = "_settingsGrid";
             this._settingsGrid.RowHeadersVisible = false;
             this._settingsGrid.SelectionMode = System.Windows.Forms.DataGridViewSelectionMode.FullRowSelect;
-            this._settingsGrid.Size = new System.Drawing.Size(522, 289);
+            this._settingsGrid.Size = new System.Drawing.Size(522, 243);
             this._settingsGrid.TabIndex = 0;
             this._settingsGrid.CellDoubleClick += new System.Windows.Forms.DataGridViewCellEventHandler(this.SettingsGrid_CellDoubleClick);
             // 
@@ -434,7 +455,24 @@
             this._btnReload.Name = "_btnReload";
             this._btnReload.Text = "RELOAD";
             this._btnReload.UseVisualStyleBackColor = false;
-            // 
+            //
+            // _btnParameterSave
+            //
+            this._btnParameterSave.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(64)))), ((int)(((byte)(64)))), ((int)(((byte)(64)))));
+            this._btnParameterSave.Dock = System.Windows.Forms.DockStyle.Fill;
+            this._btnParameterSave.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this._btnParameterSave.Font = new System.Drawing.Font("맑은 고딕", 9.5F, System.Drawing.FontStyle.Bold);
+            this._btnParameterSave.ForeColor = System.Drawing.Color.White;
+            this._btnParameterSave.Location = new System.Drawing.Point(4, 247);
+            this._btnParameterSave.Margin = new System.Windows.Forms.Padding(4);
+            this._btnParameterSave.Name = "_btnParameterSave";
+            this._btnParameterSave.Role = CalibrationDialogButtonRole.Dark;
+            this._btnParameterSave.Size = new System.Drawing.Size(514, 38);
+            this._btnParameterSave.TabIndex = 1;
+            this._btnParameterSave.Text = "PARAMETER SAVE";
+            this._btnParameterSave.UseVisualStyleBackColor = false;
+            this._btnParameterSave.Click += new System.EventHandler(this.BtnParameterSave_Click);
+            //
             // _btnSave
             // 
             this._btnSave.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -442,7 +480,7 @@
             this._btnSave.Font = new System.Drawing.Font("留묒? 怨좊뵓", 9.5F, System.Drawing.FontStyle.Bold);
             this._btnSave.Margin = new System.Windows.Forms.Padding(6, 0, 6, 0);
             this._btnSave.Name = "_btnSave";
-            this._btnSave.Text = "SAVE";
+            this._btnSave.Text = "SAVE RESULT";
             this._btnSave.UseVisualStyleBackColor = false;
             // 
             // _btnClose
@@ -492,6 +530,7 @@
             this.mainLayout.ResumeLayout(false);
             this.leftLayout.ResumeLayout(false);
             this.groupSetting.ResumeLayout(false);
+            this.settingLayout.ResumeLayout(false);
             ((System.ComponentModel.ISupportInitialize)(this._settingsGrid)).EndInit();
             this.groupSaved.ResumeLayout(false);
             ((System.ComponentModel.ISupportInitialize)(this._resultGrid)).EndInit();
@@ -501,16 +540,6 @@
             this.ResumeLayout(false);
         }
 
-        private static void ConfigureButton(CalibrationDialogButton button, string text)
-        {
-            button.BackColor = System.Drawing.Color.White;
-            button.Dock = System.Windows.Forms.DockStyle.Fill;
-            button.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            button.Font = new System.Drawing.Font("留묒? 怨좊뵓", 9.5F, System.Drawing.FontStyle.Bold);
-            button.Margin = new System.Windows.Forms.Padding(6, 0, 6, 0);
-            button.Text = text;
-            button.UseVisualStyleBackColor = false;
-        }
     }
 }
 

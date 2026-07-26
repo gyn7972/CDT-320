@@ -102,6 +102,10 @@ namespace QMC.CDT_320.Ui.Dialogs
         private double _colletRimOffsetFromFlatMm;
         private CancellationTokenSource _runCts;
         private Action _activeStopRequest;
+        private ColletCalibrationRecord _lastSuccessfulResultRecord;
+        private VisionFocusPickerSide _lastSuccessfulResultSide;
+        private int _lastSuccessfulResultColletNo;
+        private DateTime _lastSuccessfulResultUpdatedAt;
 
         public static ColletCalibrationDialog Open(IWin32Window owner)
         {
@@ -141,7 +145,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             CalibrationDialogButtonStyle.ApplyFooterButtons(
                 new[] { btnCheck, btnSaveBottomTeaching, btnApplyHomeOffset, btnMoveZForward, btnMoveYAvoid, btnSeqStop, btnReload, btnClose },
                 new[] { btnStart, btnCoc, btnCocCenter },
-                new[] { btnSave });
+                new[] { btnParameterSave, btnSave });
         }
 
         private void ConfigureEditableSettingGrid()
@@ -329,14 +333,20 @@ namespace QMC.CDT_320.Ui.Dialogs
 
         private void btnReload_Click(object sender, EventArgs e)
         {
+            ClearLastSuccessfulResult();
             LoadSettingsToUi();
             RefreshResultGrid();
             lblStatus.Text = "Collet Calibration 설정과 저장값을 다시 불러왔습니다.";
         }
 
+        private void btnParameterSave_Click(object sender, EventArgs e)
+        {
+            SaveParameterSettingsFromUi(true);
+        }
+
         private void btnSave_Click(object sender, EventArgs e)
         {
-            SaveSettingsFromUi(true);
+            SaveLastSuccessfulResult(true);
         }
 
         private void btnSeqStop_Click(object sender, EventArgs e)
@@ -379,8 +389,10 @@ namespace QMC.CDT_320.Ui.Dialogs
                     return;
                 }
 
-                if (!SaveSettingsFromUi(false))
+                if (!SaveParameterSettingsFromUi(false))
                     return;
+
+                ClearLastSuccessfulResult();
 
                 actionScope = host.Controller.BeginManualActionScope(
                     ManualMotionScopeKind.ProcessSequence,
@@ -415,6 +427,7 @@ namespace QMC.CDT_320.Ui.Dialogs
 
                 host.SaveMachineSettings();
                 ColletCalibrationRecord record = sequence.ResultRecord;
+                RememberSuccessfulResult(_side, _colletNo, record);
                 lblStatus.Text = "Collet Calibration 완료. OffsetX=" +
                                  (record != null ? record.OffsetX.ToString("F6") : "-") +
                                  ", OffsetY=" + (record != null ? record.OffsetY.ToString("F6") : "-") +
@@ -488,7 +501,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                     return;
                 }
 
-                if (!SaveSettingsFromUi(false))
+                if (!SaveParameterSettingsFromUi(false))
                     return;
 
                 if (moveToStoredCenter)
@@ -585,7 +598,7 @@ namespace QMC.CDT_320.Ui.Dialogs
         }
 
         // ── BATCH: 선택 콜렛 일괄 캘리브레이션 ────────────────────────────────
-        // side별 C4 → C1~3 순으로 [Collet Cal → (C4면 Save Bottom) → Apply T → COC]를 연속 수행하고,
+        // side별 C4 → C3 → C2 → C1 순으로 [Collet Cal → (C4면 Save Bottom) → Apply T → COC]를 연속 수행하고,
         // 전체 완료 후 SaveMachineSettings 1회. 실패/정지 시 즉시 전체 중단(알람 상태 연속 동작 금지).
         private sealed class BatchColletTarget
         {
@@ -623,7 +636,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             await RunBatchCalibrationAsync().ConfigureAwait(true);
         }
 
-        // 체크된 콜렛을 side별 실행 순서(C4 먼저 → C1 → C2 → C3)로 정렬해 반환한다.
+        // 체크된 콜렛을 side별 실행 순서(C4 → C3 → C2 → C1)로 정렬해 반환한다.
         private System.Collections.Generic.List<BatchColletTarget> BuildBatchTargets()
         {
             var list = new System.Collections.Generic.List<BatchColletTarget>();
@@ -642,6 +655,39 @@ namespace QMC.CDT_320.Ui.Dialogs
             if (c3) list.Add(new BatchColletTarget { Side = side, ColletNo = 3 });
             if (c2) list.Add(new BatchColletTarget { Side = side, ColletNo = 2 });
             if (c1) list.Add(new BatchColletTarget { Side = side, ColletNo = 1 });
+        }
+
+        private bool ValidateBatchReferenceRecords(
+            Form1 host,
+            System.Collections.Generic.List<BatchColletTarget> targets,
+            out string reason)
+        {
+            reason = string.Empty;
+            if (host == null || host.Machine == null)
+            {
+                reason = "장비가 준비되지 않아 Collet Batch 기준값을 확인할 수 없습니다.";
+                return false;
+            }
+
+            foreach (VisionFocusPickerSide side in new[] { VisionFocusPickerSide.Front, VisionFocusPickerSide.Rear })
+            {
+                VisionFocusPickerSide sideLocal = side;
+                bool hasSideTarget = targets.Exists(t => t.Side == sideLocal);
+                bool hasSelectedC4 = targets.Exists(t => t.Side == sideLocal && t.ColletNo == 4);
+                if (!hasSideTarget || hasSelectedC4)
+                    continue;
+
+                ColletCalibrationRecord reference = ResolveData(host.Machine).GetRecord(side, 4);
+                if (reference == null || !reference.Valid)
+                {
+                    reason = side +
+                             " side는 C4가 선택되지 않았고 기존 C4 기준 저장값도 유효하지 않습니다. " +
+                             "모션을 시작하지 않습니다. C4를 함께 선택하거나 먼저 C4를 캘리브레이션하세요.";
+                    return false;
+                }
+            }
+
+            return true;
         }
 
         // 현재 대상 콜렛을 전환하고 SETTING 그리드 표시를 동기화한다(수동 개별 버튼이 쓰는 "현재 대상 콜렛" 개념과 동일).
@@ -669,6 +715,8 @@ namespace QMC.CDT_320.Ui.Dialogs
             Action stopHandler = null;
             IDisposable actionScope = null;
             CancellationTokenSource runCts = null;
+            VisionFocusPickerSide originalSide = _side;
+            int originalColletNo = _colletNo;
 
             try
             {
@@ -690,8 +738,18 @@ namespace QMC.CDT_320.Ui.Dialogs
                     return;
                 }
 
-                if (!SaveSettingsFromUi(false))
+                if (!ValidateBatchReferenceRecords(host, targets, out reason))
+                {
+                    lblStatus.Text = reason;
+                    EventLogger.Write(EventKind.Warning, "CAL", "COLLET-BATCH-REFERENCE-BLOCK", reason);
+                    QMC.Common.MessageDialog.Show(this, reason, "COLLET BATCH", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
+                }
+
+                if (!SaveParameterSettingsFromUi(false))
+                    return;
+
+                ClearLastSuccessfulResult();
 
                 runCts = BeginManualCalibrationRun(host, "ColletBatch", out actionScope, out stopHandler);
                 CancellationToken ct = runCts.Token;
@@ -715,10 +773,14 @@ namespace QMC.CDT_320.Ui.Dialogs
                         ColletCalibrationRecord ref4 = ResolveData(host.Machine).GetRecord(side, 4);
                         if (ref4 == null || !ref4.Valid)
                         {
-                            string skip = side + " side: C4 미선택이고 기존 C4 기준 저장값이 유효하지 않아 이 side를 건너뜁니다. 먼저 C4를 캘리브레이션하세요.";
-                            AppendSaveHistory(new[] { "[BATCH] " + skip });
-                            EventLogger.Write(EventKind.Warning, "CAL", "COLLET-BATCH-SIDE-SKIP", skip);
-                            continue;
+                            string fail = side +
+                                          " side의 C4 기준 저장값이 Batch 실행 중 유효하지 않게 변경되었습니다. " +
+                                          "다음 동작을 시작하지 않고 BATCH를 중단합니다.";
+                            AppendSaveHistory(new[] { "[BATCH] " + fail });
+                            EventLogger.Write(EventKind.Warning, "CAL", "COLLET-BATCH-REFERENCE-LOST", fail);
+                            lblStatus.Text = fail;
+                            aborted = true;
+                            break;
                         }
                     }
 
@@ -773,6 +835,10 @@ namespace QMC.CDT_320.Ui.Dialogs
                         // COC(회전중심)는 ColletCalibrationSequence 내부(측정 직후, AutoFocus 켜짐 시)에서 이미 수행된다.
                         // 여기서 별도 COC를 다시 돌리면 Save Bottom이 FinalPickerZ를 검사 티칭 Z로 덮어써
                         // "COC는 기존 Collet Calibration 완료 X/Y/Z 위치에서만 시작" 위치 검사에서 실패하므로 호출하지 않는다.
+                        RememberSuccessfulResult(
+                            target.Side,
+                            target.ColletNo,
+                            ResolveData(host.Machine).GetRecord(target.Side, target.ColletNo));
                         okCount++;
                         AppendSaveHistory(new[] { "[BATCH] " + target.Label + " 완료(Collet Cal+COC" +
                             (target.ColletNo == 4 ? " → Save Bottom" : string.Empty) + " → Apply T)" });
@@ -805,6 +871,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             finally
             {
                 EndManualCalibrationRun(host, stopHandler, runCts, actionScope);
+                SetTargetCollet(originalSide, originalColletNo);
                 _busy = false;
                 SetButtonsEnabled(true);
                 UpdateStopButtonEnabled();
@@ -1080,7 +1147,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             }
         }
 
-        private bool SaveSettingsFromUi(bool showMessage)
+        private bool SaveParameterSettingsFromUi(bool showMessage)
         {
             try
             {
@@ -1139,24 +1206,6 @@ namespace QMC.CDT_320.Ui.Dialogs
                     return false;
                 }
 
-                string[] saveHistoryLines = null;
-                if (showMessage)
-                {
-                    string zSaveMessage;
-                    if (!SaveSelectedColletZTeachingFromCurrentAxis(host, out saveHistoryLines, out zSaveMessage))
-                    {
-                        if (saveHistoryLines != null && saveHistoryLines.Length > 0)
-                        {
-                            AppendSaveHistory(saveHistoryLines);
-                            WriteSaveHistoryLog(saveHistoryLines);
-                        }
-
-                        lblStatus.Text = zSaveMessage;
-                        QMC.Common.MessageDialog.Show(this, zSaveMessage, "COLLET CAL", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                        return false;
-                    }
-                }
-
                 host.SaveMachineSettings();
                 QMC.Common.Log.Write("Calibration", "SYSTEM", "ColletCalSaveSettings",
                     "Collet Calibration 설정 저장. side=" + _side +
@@ -1190,15 +1239,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                 RefreshResultGrid();
 
                 if (showMessage)
-                {
-                    if (saveHistoryLines != null && saveHistoryLines.Length > 0)
-                    {
-                        AppendSaveHistory(saveHistoryLines);
-                        WriteSaveHistoryLog(saveHistoryLines);
-                    }
-
-                    lblStatus.Text = "Collet Calibration 설정값과 Bottom/Side Z를 저장했습니다.";
-                }
+                    lblStatus.Text = "Collet Calibration 파라미터를 저장했습니다. 측정 결과와 Picker 티칭값은 변경하지 않았습니다.";
 
                 return true;
             }
@@ -1211,6 +1252,90 @@ namespace QMC.CDT_320.Ui.Dialogs
             finally
             {
             }
+        }
+
+        private bool SaveLastSuccessfulResult(bool showMessage)
+        {
+            try
+            {
+                if (_lastSuccessfulResultRecord == null)
+                    return BlockResultSave(
+                        "정상 완료된 Collet Calibration 결과가 없습니다. START 또는 BATCH START를 먼저 완료하세요.",
+                        showMessage);
+
+                string reason;
+                Form1 host = ResolveHost(out reason);
+                if (host == null || host.Machine == null)
+                    return BlockResultSave(reason, showMessage);
+
+                ColletCalibrationRecord current = ResolveData(host.Machine).GetRecord(
+                    _lastSuccessfulResultSide,
+                    _lastSuccessfulResultColletNo);
+                if (current == null ||
+                    !ReferenceEquals(current, _lastSuccessfulResultRecord) ||
+                    !current.Valid ||
+                    current.Side != _lastSuccessfulResultSide ||
+                    current.ColletNo != _lastSuccessfulResultColletNo ||
+                    current.UpdatedAt != _lastSuccessfulResultUpdatedAt)
+                {
+                    return BlockResultSave(
+                        "마지막 정상 완료 결과가 이후에 변경되었거나 다시 로드되었습니다. 잘못된 대상 저장을 막기 위해 SAVE RESULT를 차단합니다. 대상=" +
+                        _lastSuccessfulResultSide + " C" + _lastSuccessfulResultColletNo,
+                        showMessage);
+                }
+
+                // Sequence가 만든 정확한 target record를 다시 영속화한다.
+                // 현재 축 ActualPosition은 읽지 않으며 티칭 위치를 재계산하지 않는다.
+                host.SaveMachineSettings();
+                lblStatus.Text = "마지막 Collet Calibration 결과를 저장했습니다. target=" +
+                                 _lastSuccessfulResultSide + " C" + _lastSuccessfulResultColletNo +
+                                 ", currentSelector=" + _side + " C" + _colletNo +
+                                 ", updatedAt=" + _lastSuccessfulResultUpdatedAt.ToString("yyyy-MM-dd HH:mm:ss.fff");
+                QMC.Common.Log.Write("Calibration", "SYSTEM", "ColletCalSaveResult", lblStatus.Text);
+                EventLogger.Write(EventKind.Event, "CAL", "COLLET-CAL-SAVE-RESULT", lblStatus.Text);
+                RefreshResultGrid();
+                return true;
+            }
+            catch (Exception ex)
+            {
+                return BlockResultSave("Collet Calibration 결과 저장 실패: " + ex.Message, showMessage);
+            }
+        }
+
+        private bool BlockResultSave(string message, bool showMessage)
+        {
+            lblStatus.Text = message;
+            EventLogger.Write(EventKind.Warning, "CAL", "COLLET-CAL-SAVE-RESULT-BLOCK", message);
+            if (showMessage)
+                QMC.Common.MessageDialog.Show(this, message, "COLLET CAL", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            return false;
+        }
+
+        private void RememberSuccessfulResult(
+            VisionFocusPickerSide side,
+            int colletNo,
+            ColletCalibrationRecord record)
+        {
+            if (record == null || !record.Valid || record.Side != side || record.ColletNo != colletNo)
+            {
+                ClearLastSuccessfulResult();
+                EventLogger.Write(EventKind.Warning, "CAL", "COLLET-CAL-RESULT-TRACK",
+                    "정상 완료 결과 추적에 실패했습니다. side=" + side + ", colletNo=" + colletNo);
+                return;
+            }
+
+            _lastSuccessfulResultRecord = record;
+            _lastSuccessfulResultSide = side;
+            _lastSuccessfulResultColletNo = colletNo;
+            _lastSuccessfulResultUpdatedAt = record.UpdatedAt;
+        }
+
+        private void ClearLastSuccessfulResult()
+        {
+            _lastSuccessfulResultRecord = null;
+            _lastSuccessfulResultSide = VisionFocusPickerSide.Front;
+            _lastSuccessfulResultColletNo = 0;
+            _lastSuccessfulResultUpdatedAt = DateTime.MinValue;
         }
 
         private bool CommitSettingGridEdits(out string reason)
@@ -2828,6 +2953,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             btnMoveYAvoid.Enabled = enabled;
             btnSeqStop.Enabled = _activeStopRequest != null;
             btnReload.Enabled = enabled;
+            btnParameterSave.Enabled = enabled;
             btnSave.Enabled = enabled;
             btnClose.Enabled = enabled;
             btnBatchStart.Enabled = enabled;
