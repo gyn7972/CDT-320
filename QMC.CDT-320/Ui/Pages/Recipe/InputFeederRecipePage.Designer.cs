@@ -296,8 +296,8 @@
             this.centerLayout.Name = "centerLayout";
             this.centerLayout.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(245)))), ((int)(((byte)(245)))), ((int)(((byte)(245)))));
             this.centerLayout.RowCount = 2;
-            this.centerLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 388F));
             this.centerLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.centerLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 0F));
             this.centerLayout.Size = new System.Drawing.Size(694, 868);
             this.centerLayout.TabIndex = 1;
             // 
@@ -315,6 +315,7 @@
             this.grpWait.TabIndex = 1;
             this.grpWait.TabStop = false;
             this.grpWait.Text = "WAIT TIME";
+            this.grpWait.Visible = false;
             // 
             // waitParameterGrid
             // 

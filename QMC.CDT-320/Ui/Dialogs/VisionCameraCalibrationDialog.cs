@@ -39,6 +39,16 @@ namespace QMC.CDT_320.Ui.Dialogs
         private CancellationTokenSource _cts;
         private bool _busy;
 
+        // [측정 가드 2026-07-27] SAVE POS는 "이번 다이얼로그 세션에서 실제로 측정/입력한 값"만 저장한다.
+        // 기존에는 data.InputReticle.HasVisionXPosition 만 확인했는데, 이 플래그는 파일에서 로드된
+        // 과거 값에도 true라서 FIND INPUT/OUTPUT을 한 번도 하지 않고 SAVE POS를 눌러도 통과했고,
+        // 그 결과 과거 VisionX 값이 현재 Recipe의 ReticlePosition을 덮어썼다.
+        // 세션 내 성공 시점의 값을 함께 보관해, 이후 LOAD/재측정으로 값이 바뀌면 저장을 차단한다.
+        private bool _inputReticleMeasuredInSession;
+        private bool _outputReticleMeasuredInSession;
+        private double _measuredInputVisionX;
+        private double _measuredOutputVisionX;
+
         private enum ManualCalibrationReadinessTarget
         {
             None,
@@ -256,8 +266,11 @@ namespace QMC.CDT_320.Ui.Dialogs
 
                 _sequence = null;
                 EnsureSequence();
+                // 파일에서 다시 읽었으므로 세션 측정 기록은 무효다(과거값 저장 차단).
+                ClearReticleMeasuredInSession();
                 RefreshData();
-                lblStatus.Text = "저장 파일에서 Machine Settings와 현재 Recipe 값을 다시 불러왔습니다.";
+                lblStatus.Text = "저장 파일에서 Machine Settings와 현재 Recipe 값을 다시 불러왔습니다. " +
+                                 "SAVE POS를 하려면 FIND INPUT/OUTPUT을 다시 수행하세요.";
             }
             catch (Exception ex)
             {
@@ -299,6 +312,28 @@ namespace QMC.CDT_320.Ui.Dialogs
                 if (data.OutputReticle == null ||
                     !data.OutputReticle.HasVisionXPosition)
                     throw new InvalidOperationException("Output Reticle VisionX 위치가 없습니다. FIND OUTPUT을 수행하거나 Admin 수동 입력 후 저장하세요.");
+
+                // [측정 가드 2026-07-27] HasVisionXPosition은 파일 로드값에도 true이므로 신뢰할 수 없다.
+                // 이번 세션에서 실제로 측정/입력했는지, 그리고 그 값이 이후 바뀌지 않았는지까지 확인한다.
+                if (!_inputReticleMeasuredInSession)
+                    throw new InvalidOperationException(
+                        "이번 세션에서 Input Reticle을 측정하지 않았습니다. FIND INPUT을 먼저 정상 완료하세요. " +
+                        "(과거 저장값으로 Recipe ReticlePosition을 덮어쓰지 않도록 차단합니다.)");
+
+                if (!_outputReticleMeasuredInSession)
+                    throw new InvalidOperationException(
+                        "이번 세션에서 Output Reticle을 측정하지 않았습니다. FIND OUTPUT을 먼저 정상 완료하세요. " +
+                        "(과거 저장값으로 Recipe ReticlePosition을 덮어쓰지 않도록 차단합니다.)");
+
+                const double ReticlePositionTolerance = 1e-6;
+                if (Math.Abs(data.InputReticle.VisionXPosition - _measuredInputVisionX) > ReticlePositionTolerance ||
+                    Math.Abs(data.OutputReticle.VisionXPosition - _measuredOutputVisionX) > ReticlePositionTolerance)
+                {
+                    ClearReticleMeasuredInSession();
+                    throw new InvalidOperationException(
+                        "마지막 측정 이후 Reticle VisionX 값이 변경되었거나 다시 로드되었습니다. " +
+                        "잘못된 값 저장을 막기 위해 SAVE POS를 차단합니다. FIND INPUT/OUTPUT을 다시 수행하세요.");
+                }
 
                 double inputX = data.InputReticle.VisionXPosition;
                 double outputX = data.OutputReticle.VisionXPosition;
@@ -396,7 +431,8 @@ namespace QMC.CDT_320.Ui.Dialogs
         private async Task RunOperationAsync(
             string actionName,
             Func<CancellationToken, Task<int>> operation,
-            ManualCalibrationReadinessTarget readinessTarget = ManualCalibrationReadinessTarget.None)
+            ManualCalibrationReadinessTarget readinessTarget = ManualCalibrationReadinessTarget.None,
+            Action onSuccess = null)
         {
             if (_busy)
                 return;
@@ -448,6 +484,9 @@ namespace QMC.CDT_320.Ui.Dialogs
 
                 int result = await operation(runCts.Token).ConfigureAwait(true);
                 RefreshData();
+
+                if (result == 0 && onSuccess != null)
+                    onSuccess();
 
                 lblStatus.Text = result == 0
                     ? actionName + " 완료. 측정값이 VisionUnit Config에 반영되었습니다."
@@ -1249,6 +1288,11 @@ namespace QMC.CDT_320.Ui.Dialogs
 
                 ApplyManualAppliedValue(item, valueText);
                 SaveManualAppliedValue(item);
+                // Admin 수동 입력도 정식 측정 경로로 인정한다(기존 안내 문구와 동일 기준).
+                if (item == InputVisionXEncoderRow)
+                    MarkReticleMeasuredInSession(true, false);
+                else if (item == OutputVisionXEncoderRow)
+                    MarkReticleMeasuredInSession(false, true);
                 RefreshData();
 
                 string suffix = IsReticlePixelItem(item)
@@ -1512,10 +1556,63 @@ namespace QMC.CDT_320.Ui.Dialogs
             }
         }
 
+        /// <summary>
+        /// FIND INPUT / FIND OUTPUT 또는 Admin 수동 입력이 성공했을 때 세션 측정 사실을 기록한다.
+        /// 기록 시점의 값을 함께 보관해 SAVE POS 시점에 대조한다.
+        /// </summary>
+        private void MarkReticleMeasuredInSession(bool input, bool output)
+        {
+            VisionCameraCalibrationData data = Sequence != null ? Sequence.CalibrationData : null;
+            if (data == null)
+                return;
+
+            data.EnsureObjects();
+            if (input && data.InputReticle != null && data.InputReticle.HasVisionXPosition)
+            {
+                _inputReticleMeasuredInSession = true;
+                _measuredInputVisionX = data.InputReticle.VisionXPosition;
+            }
+
+            if (output && data.OutputReticle != null && data.OutputReticle.HasVisionXPosition)
+            {
+                _outputReticleMeasuredInSession = true;
+                _measuredOutputVisionX = data.OutputReticle.VisionXPosition;
+            }
+
+            UpdateSaveReticleButtonEnabled();
+        }
+
+        /// <summary>LOAD 등으로 데이터가 다시 로드되면 세션 측정 기록을 폐기한다.</summary>
+        private void ClearReticleMeasuredInSession()
+        {
+            _inputReticleMeasuredInSession = false;
+            _outputReticleMeasuredInSession = false;
+            _measuredInputVisionX = 0.0;
+            _measuredOutputVisionX = 0.0;
+            UpdateSaveReticleButtonEnabled();
+        }
+
+        private bool HasReticleMeasuredInSession()
+        {
+            return _inputReticleMeasuredInSession && _outputReticleMeasuredInSession;
+        }
+
+        private void UpdateSaveReticleButtonEnabled()
+        {
+            try
+            {
+                btnSaveReticleValues.Enabled = !_busy && HasReticleMeasuredInSession();
+            }
+            catch
+            {
+            }
+        }
+
         private void SetButtonsEnabled(bool enabled)
         {
             btnLoadValues.Enabled = enabled;
-            btnSaveReticleValues.Enabled = enabled;
+            // SAVE POS는 세션 내 Input/Output 측정이 모두 끝난 경우에만 활성화한다.
+            btnSaveReticleValues.Enabled = enabled && HasReticleMeasuredInSession();
             btnCheck.Enabled = enabled;
             btnFindBottom.Enabled = enabled;
             btnFindInput.Enabled = enabled;

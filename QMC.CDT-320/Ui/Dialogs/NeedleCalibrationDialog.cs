@@ -324,7 +324,9 @@ namespace QMC.CDT_320.Ui.Dialogs
                 SetSetting(NeedleCapTeachKey, stage.EjectPinZ != null ? stage.EjectPinZ.ActualPosition : 0.0);
                 SetSetting(NeedlePinTeachKey, stage.NeedleZ != null ? stage.NeedleZ.ActualPosition : 0.0);
                 RefreshTeachingGrid(stage);
-                _status.Text = "현재 StageY/NeedleX/EjectPinZ/NeedleZ 위치를 캘리브레이션 티칭값으로 넣었습니다. SAVE로 저장하세요.";
+                // [문구 정정 2026-07-27] SAVE 버튼이 PARAMETER SAVE / SAVE RESULT 둘로 나뉘었다.
+                // 티칭값은 파라미터 쪽이므로 PARAMETER SAVE를 명시한다(SAVE RESULT 오조작 방지).
+                _status.Text = "현재 StageY/NeedleX/EjectPinZ/NeedleZ 위치를 캘리브레이션 티칭값으로 넣었습니다. PARAMETER SAVE로 저장하세요.";
             }
             catch (Exception ex)
             {
@@ -405,6 +407,9 @@ namespace QMC.CDT_320.Ui.Dialogs
             if (_lastSuccessfulResult == null || !_lastSuccessfulResult.Success)
             {
                 _status.Text = "저장할 Needle Z 측정 결과가 없습니다. START CAL을 정상 완료한 뒤 SAVE RESULT를 누르세요.";
+                // [로그 보강 2026-07-27] 차단 사실을 이력에 남긴다(Collet BlockResultSave와 동일 기준).
+                QMC.Common.Log.Write("Calibration", "SYSTEM", "NeedleCalSaveResultBlocked", _status.Text + " - Check");
+                EventLogger.Write(EventKind.Warning, "CAL", "NEEDLE-CAL-SAVE-RESULT-BLOCKED", _status.Text);
                 QMC.Common.MessageDialog.Show(
                     this,
                     _status.Text,

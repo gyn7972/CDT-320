@@ -277,6 +277,20 @@ namespace QMC.CDT_320.Ui.Controls
                     GridBrowse(gridLogPaths, e, colLogBrowse.Index, colLogPath.Index);
             };
             gridVisionImages.CellContentClick += (s, e) => GridBrowse(gridVisionImages, e, colVisBrowse.Index, colVisPath.Index);
+            _chkInspectionDetail.CheckedChanged += (s, e) => ApplyInspectionDetailUi();
+        }
+
+        /// <summary>측정값 상세 저장 버튼(체크박스 버튼형)의 표시 상태를 갱신한다.</summary>
+        private void ApplyInspectionDetailUi()
+        {
+            bool on = _chkInspectionDetail.Checked;
+            _chkInspectionDetail.Text = on ? "측정값 상세 저장  [ON]" : "측정값 상세 저장  [OFF]";
+            _chkInspectionDetail.BackColor = on
+                ? System.Drawing.Color.FromArgb(230, 88, 31)
+                : System.Drawing.Color.FromArgb(238, 238, 238);
+            _chkInspectionDetail.ForeColor = on
+                ? System.Drawing.Color.White
+                : System.Drawing.Color.FromArgb(60, 60, 60);
         }
 
         /// <summary>현재 설정값을 UI에 로드한다.</summary>
@@ -300,6 +314,9 @@ namespace QMC.CDT_320.Ui.Controls
             _cbPathMode.Items.Add("ALL (single folder)");
             _cbPathMode.Items.Add("KIND (per type)");
             _cbPathMode.SelectedIndex = cfg.LogSplitByKind ? 1 : 0;
+
+            _chkInspectionDetail.Checked = cfg.SaveMaterialInspectionDetail;
+            ApplyInspectionDetailUi();
 
             ApplyCompressState();
             ApplyDeleteEnableGate();
@@ -354,6 +371,9 @@ namespace QMC.CDT_320.Ui.Controls
             var cfg = AppSettingsStore.Current;
 
             cfg.FileLogHistoryEnabled = _cbLogHistory.SelectedIndex == 0;
+
+            // material_state.json 에 검사 측정값 상세를 포함할지 여부(기본 OFF).
+            cfg.SaveMaterialInspectionDetail = _chkInspectionDetail.Checked;
 
             cfg.LogCompressEnabled = _cbLogCompress.SelectedIndex == 0;
             cfg.LogCompressDays = _cbLogCompress.SelectedIndex == 0 ? (int)_nCompressDays.Value : _lastCompressDays;

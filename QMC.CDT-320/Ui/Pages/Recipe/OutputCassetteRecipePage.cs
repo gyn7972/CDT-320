@@ -957,7 +957,6 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                         _OutCassetteUnit.Recipe.EnsureSlotPositionBuffers(_OutCassetteUnit.Config.SlotCount);
                     }),
                     AxisDouble("SCAN/JOG VELOCITY", ParameterGridScope.Config, () => _OutCassetteUnit.Config.ScanVelocity, v => _OutCassetteUnit.Config.ScanVelocity = Math.Max(0.1, v), "/s"),
-                    AxisDouble("IN POSITION TOL.", ParameterGridScope.Config, () => _OutCassetteUnit.OutputLifterZ.Config.InPositionTolerance, v => _OutCassetteUnit.OutputLifterZ.Config.InPositionTolerance = Math.Max(0.0, v)),
                     ParameterGridItem.Selection("INCH SELECT", "Inch", ParameterGridScope.Config, () => _OutCassetteUnit.Config.InchSelect, v => _OutCassetteUnit.Config.InchSelect = Convert.ToInt32(v), new[]
                     {
                         new ParameterGridOption("8", 8),
@@ -982,8 +981,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 waitParameterGrid.AutoFitParentGroupHeight = true;   // WAIT 그룹 높이를 내용에 맞춰 자동 조정 (스크롤 없이 전 항목 표시)
                 waitParameterGrid.SetItems(new[]
                 {
-                    ParameterGridItem.Int("SCAN SETTLE TIME", "ms", ParameterGridScope.Config, () => _OutCassetteUnit.Config.ScanSettleTimeMs, v => _OutCassetteUnit.Config.ScanSettleTimeMs = Math.Max(0, v)),
-                    ParameterGridItem.Int("MOVE TIMEOUT", "ms", ParameterGridScope.Setup, () => _OutCassetteUnit.OutputLifterZ.Setup.MoveTimeoutMs, v => _OutCassetteUnit.OutputLifterZ.Setup.MoveTimeoutMs = Math.Max(0, v))
+                    ParameterGridItem.Int("SCAN SETTLE TIME", "ms", ParameterGridScope.Config, () => _OutCassetteUnit.Config.ScanSettleTimeMs, v => _OutCassetteUnit.Config.ScanSettleTimeMs = Math.Max(0, v))
                 });
             }
             catch (Exception ex)
@@ -1318,9 +1316,13 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             {
                 var host = FindHostForm();
                 if (host == null || string.IsNullOrWhiteSpace(host.ActiveRecipeName))
-                    return;
+                    throw new InvalidOperationException("활성 Recipe가 없어 Output Cassette Recipe 값을 저장할 수 없습니다.");
 
-                host.SaveMachineRecipe(host.ActiveRecipeName);
+                if (!host.SaveMachineRecipe(host.ActiveRecipeName))
+                    throw new InvalidOperationException(
+                        "Output Cassette Recipe 저장에 실패했습니다. 현재 적용값과 저장 파일의 값이 다를 수 있으며, " +
+                        "재시작하면 이전값으로 복원될 수 있습니다. Alarm/Event Log를 확인하십시오. recipe=" +
+                        host.ActiveRecipeName);
             }
             catch
             {
@@ -1336,7 +1338,13 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             try
             {
                 var host = FindHostForm();
-                host?.SaveMachineSettings();
+                if (host == null)
+                    throw new InvalidOperationException("Main 화면을 찾을 수 없어 Output Cassette Config/Setup 값을 저장할 수 없습니다.");
+
+                if (!host.SaveMachineSettings())
+                    throw new InvalidOperationException(
+                        "Output Cassette Config/Setup 저장에 실패했습니다. 현재 적용값과 저장 파일의 값이 다를 수 있으며, " +
+                        "재시작하면 이전값으로 복원될 수 있습니다. Alarm/Event Log를 확인하십시오.");
             }
             catch
             {

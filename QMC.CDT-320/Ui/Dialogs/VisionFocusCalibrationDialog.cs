@@ -1309,6 +1309,9 @@ namespace QMC.CDT_320.Ui.Dialogs
             if (snapshot == null)
             {
                 lblStatus.Text = "저장할 Focus 측정 결과가 없습니다. START SCAN 또는 BATCH START를 정상 완료한 뒤 SAVE RESULT를 누르세요.";
+                // [로그 보강 2026-07-27] 차단 사실을 이력에 남긴다(Collet BlockResultSave와 동일 기준).
+                QMC.Common.Log.Write("Calibration", "SYSTEM", "VisionFocusCalSaveResultBlocked", lblStatus.Text + " - Check");
+                EventLogger.Write(EventKind.Warning, "CAL", "VISION-FOCUS-CAL-SAVE-RESULT-BLOCKED", lblStatus.Text);
                 QMC.Common.MessageDialog.Show(
                     this,
                     lblStatus.Text,

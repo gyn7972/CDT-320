@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -620,7 +621,72 @@ namespace QMC.CDT320.Materials
             return updated >= picked ? updated : picked;
         }
 
+        /// <summary>
+        /// 저장용 스냅샷 사본을 만든다.
+        /// [정정 2026-07-27] 기존에는 Save() 안에서 라이브 State를 _stateSync 락 없이 클론해
+        /// 저장 중 시퀀스가 Die를 추가하면 "컬렉션이 수정되었습니다" 예외가 날 수 있었다.
+        /// 호출자가 상태 락을 쥔 채 이 메서드로 사본을 먼저 만들고, 디스크 쓰기는 락 밖에서 하도록 분리한다.
+        /// </summary>
+        public static MaterialSnapshot CreateSaveCopy(MaterialSnapshot snapshot)
+        {
+            MaterialSnapshot copy = CloneSnapshotForSave(snapshot);
+            TrimInspectionDetailIfDisabled(copy);
+            return copy;
+        }
+
+        /// <summary>
+        /// 설정(LOG SETTINGS → MATERIAL SNAPSHOT)이 꺼져 있으면 저장 사본에서 검사 측정값 상세를 비운다.
+        /// 런타임 객체는 그대로 두므로 화면/CSV/시퀀스 판정에는 영향이 없고, 디스크에 쓰는 양만 줄어든다.
+        /// (2026-07-27 실측: Measurements/Alignments가 스냅샷 용량의 약 80%를 차지)
+        /// </summary>
+        private static void TrimInspectionDetailIfDisabled(MaterialSnapshot copy)
+        {
+            try
+            {
+                AppSettings settings = AppSettingsStore.Current;
+                if (settings != null && settings.SaveMaterialInspectionDetail)
+                    return;
+
+                if (copy == null || copy.Dies == null)
+                    return;
+
+                foreach (DieMaterial die in copy.Dies)
+                {
+                    if (die == null || die.Inspections == null)
+                        continue;
+
+                    foreach (DieInspectionRecord record in die.Inspections)
+                    {
+                        if (record == null)
+                            continue;
+
+                        // 재개에 필요한 InspectionType/Result/Offset/NgCodes는 남기고 상세만 비운다.
+                        if (record.Measurements != null && record.Measurements.Count > 0)
+                            record.Measurements = new List<InspectionMeasurement>();
+                        if (record.Alignments != null && record.Alignments.Count > 0)
+                            record.Alignments = new List<InspectionAlignmentSnapshot>();
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Write("Main", "SYSTEM", "MaterialSnapshotSave",
+                    "검사 측정값 상세 제외 처리에 실패했습니다(상세 포함 상태로 저장). error=" + ex.Message + " - Check");
+            }
+            finally
+            {
+            }
+        }
+
         public static bool Save(MaterialSnapshot snapshot)
+        {
+            return Save(snapshot, false);
+        }
+
+        /// <param name="alreadyCopied">
+        /// true이면 snapshot이 이미 CreateSaveCopy로 만든 사본이므로 다시 클론하지 않는다.
+        /// </param>
+        public static bool Save(MaterialSnapshot snapshot, bool alreadyCopied)
         {
             if (snapshot == null)
             {
@@ -633,7 +699,7 @@ namespace QMC.CDT320.Materials
             try
             {
                 Directory.CreateDirectory(Dir);
-                MaterialSnapshot saveSnapshot = CloneSnapshotForSave(snapshot);
+                MaterialSnapshot saveSnapshot = alreadyCopied ? snapshot : CloneSnapshotForSave(snapshot);
                 saveSnapshot.SavedAt = DateTime.Now;
                 NormalizeSnapshotStates(saveSnapshot);
                 NormalizeSnapshotDateTimes(saveSnapshot);
@@ -747,25 +813,74 @@ namespace QMC.CDT320.Materials
                    value.IndexOf("Dialog", StringComparison.OrdinalIgnoreCase) >= 0;
         }
 
+        // [검증 계측 2026-07-27] 저장 소요 누적 통계.
+        // 저장은 5초 병합이라 분당 3회 수준이므로 매 저장을 남겨도 로그 부담이 없다.
+        private const long SlowSnapshotSaveMs = 300;
+        private static readonly object _saveStatSync = new object();
+        private static long _saveStatCount;
+        private static long _saveStatTotalMs;
+        private static long _saveStatMaxMs;
+
+        /// <summary>
+        /// 스냅샷 저장 소요를 기록한다.
+        /// [정정 2026-07-27] 기존에는 Log.Write(class,...) 경로를 써서 Release(ProductionMinimal)에서
+        /// 전부 억제되었고, 300ms 초과분만 기록해 개선 전후를 비교할 수가 없었다.
+        /// LogLevel 지정 오버로드는 LogPolicy를 거치지 않으므로 Release에서도 남는다.
+        /// 매 저장의 소요/누적평균/최대와 파일 크기를 함께 남겨, 프로퍼티 캐시 적용 효과와
+        /// 스냅샷 증가에 따른 악화 추이를 현장 로그만으로 확인할 수 있게 한다.
+        /// </summary>
         private static void LogSaveElapsed(long elapsedMs, MaterialSnapshot snapshot, bool validated)
         {
             try
             {
-                if (elapsedMs < 300)
-                    return;
+                long count;
+                long avgMs;
+                long maxMs;
+                lock (_saveStatSync)
+                {
+                    _saveStatCount++;
+                    _saveStatTotalMs += elapsedMs;
+                    if (elapsedMs > _saveStatMaxMs)
+                        _saveStatMaxMs = elapsedMs;
 
-                Log.Write("Main", "SYSTEM", "MaterialSnapshotSave",
+                    count = _saveStatCount;
+                    avgMs = _saveStatTotalMs / _saveStatCount;
+                    maxMs = _saveStatMaxMs;
+                }
+
+                bool slow = elapsedMs >= SlowSnapshotSaveMs;
+                Log.Write(
+                    slow ? LogLevel.AboveNormal : LogLevel.Normal,
+                    "Main",
+                    "MaterialSnapshotSave",
                     "Material snapshot save completed. elapsedMs=" + elapsedMs +
+                    ", avgMs=" + avgMs +
+                    ", maxMs=" + maxMs +
+                    ", saves=" + count +
                     ", validated=" + validated +
                     ", wafers=" + CountList(snapshot != null ? snapshot.Wafers : null) +
                     ", dies=" + CountList(snapshot != null ? snapshot.Dies : null) +
-                    ", file=" + SnapshotPath + " - Ok");
+                    ", bytes=" + ResolveSnapshotFileLength() +
+                    (slow ? " - Check" : " - Ok"));
             }
             catch
             {
             }
             finally
             {
+            }
+        }
+
+        private static long ResolveSnapshotFileLength()
+        {
+            try
+            {
+                var info = new FileInfo(SnapshotPath);
+                return info.Exists ? info.Length : 0L;
+            }
+            catch
+            {
+                return -1L;
             }
         }
 
@@ -788,6 +903,22 @@ namespace QMC.CDT320.Materials
             }
         }
 
+        // [택타임 개선 2026-07-27] 스냅샷 저장은 전체 객체 그래프를 리플렉션으로 두 번 순회한다
+        // (딥클론 + DateTime 정규화). Type.GetProperties()는 호출할 때마다 새 배열을 만들고 메타데이터를
+        // 조회하므로, Die 수천 개 + Inspection 규모에서는 이 호출 자체가 저장 비용의 대부분이었다.
+        // (실측: 회당 343~447ms, material_state.json 3.9MB -> 7.5MB로 커지며 계속 악화)
+        // 타입별 프로퍼티 목록은 런타임에 변하지 않으므로 캐시해서 재사용한다.
+        private static readonly ConcurrentDictionary<Type, PropertyInfo[]> _snapshotPropertyCache =
+            new ConcurrentDictionary<Type, PropertyInfo[]>();
+
+        private static PropertyInfo[] GetSnapshotProperties(Type type)
+        {
+            return _snapshotPropertyCache.GetOrAdd(type, t =>
+                t.GetProperties(BindingFlags.Instance | BindingFlags.Public)
+                    .Where(p => p.CanRead && p.CanWrite && p.GetIndexParameters().Length == 0)
+                    .ToArray());
+        }
+
         private static object CloneObject(object value)
         {
             if (value == null)
@@ -807,13 +938,8 @@ namespace QMC.CDT320.Materials
             }
 
             object clone = Activator.CreateInstance(type);
-            foreach (var property in type.GetProperties())
+            foreach (PropertyInfo property in GetSnapshotProperties(type))
             {
-                if (!property.CanRead || !property.CanWrite)
-                    continue;
-                if (property.GetIndexParameters().Length > 0)
-                    continue;
-
                 object propertyValue = property.GetValue(value, null);
                 property.SetValue(clone, CloneObject(propertyValue), null);
             }
@@ -1104,13 +1230,8 @@ namespace QMC.CDT320.Materials
                     return count;
                 }
 
-                foreach (PropertyInfo property in type.GetProperties(BindingFlags.Instance | BindingFlags.Public))
+                foreach (PropertyInfo property in GetSnapshotProperties(type))
                 {
-                    if (!property.CanRead || !property.CanWrite)
-                        continue;
-                    if (property.GetIndexParameters().Length > 0)
-                        continue;
-
                     Type propertyType = property.PropertyType;
                     if (propertyType == typeof(DateTime))
                     {

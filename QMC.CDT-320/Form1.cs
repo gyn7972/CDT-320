@@ -88,18 +88,31 @@ namespace QMC.CDT_320
             }
         }
 
-        internal void SaveMachineSettings()
+        internal bool SaveMachineSettings()
         {
             try
             {
-                if (Machine != null && !Machine.SaveSettings())
+                if (Machine == null)
+                {
+                    QMC.Common.Logging.EventLogger.Write(
+                        QMC.Common.Logging.EventKind.Alarm,
+                        UserSession.Name,
+                        "DATA-SAVE",
+                        "Machine settings save failed: Machine is null.");
+                    return false;
+                }
+
+                if (!Machine.SaveSettings())
                 {
                     QMC.Common.Logging.EventLogger.Write(
                         QMC.Common.Logging.EventKind.Alarm,
                         UserSession.Name,
                         "DATA-SAVE",
                         "Machine settings save returned false.");
+                    return false;
                 }
+
+                return true;
             }
             catch (Exception ex)
             {
@@ -108,6 +121,7 @@ namespace QMC.CDT_320
                     UserSession.Name,
                     "DATA-SAVE",
                     "Machine settings save failed: " + ex.Message);
+                return false;
             }
             finally
             {

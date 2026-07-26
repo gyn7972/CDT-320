@@ -158,6 +158,17 @@ namespace QMC.CDT320
         /// 비어있거나 키가 없으면 기본 경로(&lt;LogRoot&gt;\&lt;종류&gt;)를 사용한다.</summary>
         [DataMember] public Dictionary<string, string> LogKindPaths { get; set; }
 
+        /// <summary>
+        /// material_state.json 에 검사 측정값 상세(Measurements/Alignments)를 저장할지 여부. 기본 false(저장 안 함).
+        /// true 로 두면 검사 1건마다 측정값 약 20쌍이 스냅샷에 함께 쌓여 파일이 웨이퍼 1장당 27MB 규모까지 커지고,
+        /// 5초 주기 전체 재직렬화 비용이 그만큼 늘어난다(2026-07-27 실측: 10MB에서 저장 1회 0.3~1.2초).
+        /// 측정값 상세는 InputWaferInspectionCsvSnapshotWriter / OutputWaferCsvSnapshotWriter /
+        /// VisionInspectionResultFileWriter 가 이미 CSV로 남기며, 재개(resume)에는
+        /// InspectionType/Result/Offset/NgCodes 만 있으면 되므로 기본은 저장하지 않는다.
+        /// 비전 측정값을 스냅샷에서 직접 추적해야 하는 분석 상황에서만 켠다.
+        /// </summary>
+        [DataMember] public bool   SaveMaterialInspectionDetail { get; set; } = false;
+
         // DataContractJsonSerializer 는 필드 이니셜라이저를 실행하지 않으므로, 구 settings.json 에 없는
         // 신규 키는 여기서 기본값을 심는다(없으면 false 로 로드되어 의도치 않게 비전이 꺼지는 문제 방지).
         [OnDeserializing]

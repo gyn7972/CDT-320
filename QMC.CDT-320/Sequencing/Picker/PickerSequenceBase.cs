@@ -211,6 +211,8 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
+        // [머지 정정 2026-07-27] 서버(f9210867) 원문 유지 — 머지가 이 메서드 몸통만 로컬
+        // 지연저장 호출로 바꿔놓았던 것을 서버 우선 원칙에 따라 되돌렸다. (현재 호출부 없음)
         protected void SaveRuntimeState(string reason)
         {
             try
@@ -218,11 +220,11 @@ namespace QMC.CDT320.Sequencing
                 if (Context == null || Context.Controller == null)
                     return;
 
-                Context.Controller.RequestMachineRuntimeStateSave(reason);
+                Context.Controller.SaveMachineRuntimeState(reason);
             }
             catch (Exception ex)
             {
-                WriteLog("RequestRuntimeStateSave", Name + " runtime state save request failed. reason=" + reason + ", error=" + ex.Message + " - Failed");
+                WriteLog("SaveRuntimeState", Name + " runtime state save failed. reason=" + reason + ", error=" + ex.Message + " - Failed");
             }
             finally
             {

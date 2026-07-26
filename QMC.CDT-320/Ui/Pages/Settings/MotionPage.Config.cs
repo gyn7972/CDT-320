@@ -17,6 +17,8 @@ namespace QMC.CDT_320.Ui.Pages.Settings
     /// </summary>
     public partial class MotionPage
     {
+        private const string MoveTimeoutName = "MOVE TIMEOUT(ms)";
+
         // ?? ?? ? = AxisSetup/AxisConfig ? ??? 1:1 ????.
 
         private static readonly string[] CFG_NAMES =
@@ -33,6 +35,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
         {
             "INPOSITION",        // Setup.InPosition
             "TOLERANCE",         // Config.InPositionTolerance
+            MoveTimeoutName,     // Setup.MoveTimeoutMs
         };
 
         private static readonly string[] LIMIT_NAMES =
@@ -181,7 +184,10 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                     pgConfig.SetValue("MAX VELOCITY", FormatAxisValue(cfg.MaxVelocity, axis, "0.###"));
 
                 if (setup != null)
+                {
                     pgInposition.SetValue("INPOSITION", setup.InPosition.ToString().ToUpperInvariant());
+                    pgInposition.SetValue(MoveTimeoutName, setup.MoveTimeoutMs.ToString(CultureInfo.InvariantCulture));
+                }
                 if (cfg != null)
                     pgInposition.SetValue("TOLERANCE", FormatAxisValue(cfg.InPositionTolerance, axis, "0.####"));
 
@@ -304,12 +310,40 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                     using (var dlg = new NumericKeypadDialog(name, current, string.Empty))
                     {
                         if (dlg.ShowDialog(FindForm()) != DialogResult.OK) return;
-                        ApplyTextValue(axis, name, dlg.ValueText ?? string.Empty);
+                        string valueText = dlg.ValueText ?? string.Empty;
+                        if (string.Equals(name, MoveTimeoutName, StringComparison.OrdinalIgnoreCase))
+                        {
+                            int moveTimeout;
+                            if (!int.TryParse(valueText, NumberStyles.Integer, CultureInfo.InvariantCulture, out moveTimeout) ||
+                                moveTimeout < 0)
+                            {
+                                QMC.Common.MessageDialog.Show(
+                                    this,
+                                    "MOVE TIMEOUT은 0 이상의 정수(ms)로 입력하십시오.",
+                                    "모션 설정",
+                                    MessageBoxButtons.OK,
+                                    MessageBoxIcon.Warning);
+                                return;
+                            }
+                        }
+
+                        ApplyTextValue(axis, name, valueText);
                     }
                 }
 
-                SaveMotionAxisSettings();
+                bool saved = SaveMotionAxisSettings();
                 RefreshConfigForSelected();
+
+                if (!saved)
+                {
+                    QMC.Common.MessageDialog.Show(
+                        this,
+                        "모션 축 설정 저장에 실패했습니다.\r\n현재 적용값과 저장 파일의 값이 다를 수 있으며, 재시작하면 이전값으로 복원될 수 있습니다.\r\nAlarm/Event Log를 확인하십시오.",
+                        "모션 설정 저장 실패",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Error);
+                    return;
+                }
 
                 QMC.Common.Logging.EventLogger.Write(
                     QMC.Common.Logging.EventKind.Event,
@@ -361,6 +395,8 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                 case "INPOSITION":    return s.InPosition.ToString();
                 // InPosition 허용오차 표시
                 case "TOLERANCE":     return FormatAxisValue(c.InPositionTolerance, axis, "0.####");
+                // 일반 이동 Timeout 표시
+                case MoveTimeoutName: return s.MoveTimeoutMs.ToString(CultureInfo.InvariantCulture);
                 // Plus Limit 레벨 표시
                 case "POS LEVEL":     return s.PositiveLimitLevel.ToString();
                 // Minus Limit 레벨 표시
@@ -454,6 +490,11 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                 // InPosition 허용오차 저장
                 case "TOLERANCE":
                     if (TryParseDouble(text, out var tol)) c.InPositionTolerance = AxisUnitConverter.FromDisplay(tol, axis);
+                    break;
+                // 일반 이동 Timeout 저장
+                case MoveTimeoutName:
+                    if (int.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var moveTimeout))
+                        s.MoveTimeoutMs = Math.Max(0, moveTimeout);
                     break;
                 // Plus Soft Limit 저장
                 case "SW POSITIVE":

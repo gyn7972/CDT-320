@@ -300,7 +300,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 items.Add(ParameterGridItem.Bool("SIMULATION MODE", ParameterGridScope.Setup, () => unit.Setup.IsSimulationMode, v => unit.Setup.IsSimulationMode = v));
                 items.Add(ParameterGridItem.Bool("DRY RUN", ParameterGridScope.Config, () => unit.Config.bDryRun, v => unit.Config.bDryRun = v));
                 items.Add(ParameterGridItem.Selection<PickerInspectionPipelineMode>(
-                    "PICKER INSPECTION MODE",
+                    "수동/단계 검사 모드",
                     "mode",
                     ParameterGridScope.Config,
                     () => unit.Config.PickerInspectionMode,
@@ -308,12 +308,10 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
 
                 optionParameterGrid.SetItems(items);
 
-                // WAIT TIME — VisionRecipe 타임아웃 값
+                // WAIT TIME — Vision Camera Calibration 촬영/응답 타임아웃
                 waitParameterGrid.AutoFitParentGroupHeight = true;   // WAIT 그룹 높이를 내용에 맞춰 자동 조정 (스크롤 없이 전 항목 표시)
                 waitParameterGrid.SetItems(new[]
                 {
-                    ParameterGridItem.Int("MOVE TIMEOUT", "ms", ParameterGridScope.Recipe, () => unit.Recipe.MoveTimeoutMs, v => unit.Recipe.MoveTimeoutMs = v),
-                    ParameterGridItem.Int("I/O TIMEOUT", "ms", ParameterGridScope.Recipe, () => unit.Recipe.IoTimeoutMs, v => unit.Recipe.IoTimeoutMs = v),
                     ParameterGridItem.Int("CAPTURE TIMEOUT", "ms", ParameterGridScope.Recipe, () => unit.Recipe.CaptureTimeoutMs, v => unit.Recipe.CaptureTimeoutMs = v)
                 });
             }
@@ -883,9 +881,13 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             {
                 var host = FindHostForm();
                 if (host == null || string.IsNullOrWhiteSpace(host.ActiveRecipeName))
-                    return;
+                    throw new InvalidOperationException("활성 Recipe가 없어 Vision Recipe 값을 저장할 수 없습니다.");
 
-                host.SaveMachineRecipe(host.ActiveRecipeName);
+                if (!host.SaveMachineRecipe(host.ActiveRecipeName))
+                    throw new InvalidOperationException(
+                        "Vision Recipe 저장에 실패했습니다. 현재 적용값과 저장 파일의 값이 다를 수 있으며, " +
+                        "재시작하면 이전값으로 복원될 수 있습니다. Alarm/Event Log를 확인하십시오. recipe=" +
+                        host.ActiveRecipeName);
             }
             catch
             {
@@ -901,7 +903,13 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             try
             {
                 var host = FindHostForm();
-                host?.SaveMachineSettings();
+                if (host == null)
+                    throw new InvalidOperationException("Main 화면을 찾을 수 없어 Vision Config/Setup 값을 저장할 수 없습니다.");
+
+                if (!host.SaveMachineSettings())
+                    throw new InvalidOperationException(
+                        "Vision Config/Setup 저장에 실패했습니다. 현재 적용값과 저장 파일의 값이 다를 수 있으며, " +
+                        "재시작하면 이전값으로 복원될 수 있습니다. Alarm/Event Log를 확인하십시오.");
             }
             catch
             {

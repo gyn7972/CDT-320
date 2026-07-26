@@ -2523,8 +2523,10 @@ namespace QMC.CDT320
         /// </summary>
         private double ResolveBinLifterZDefaultMoveVelocity()
         {
+            // [머지 정합 2026-07-27] 서버 규칙: 모션 경로는 스케일 적용값(GetDefaultVel)만 읽는다.
+            // 원본 DefaultVelocity 직접 읽기는 컴파일 타임 차단됨(AxisConfig protected get).
             double velocity = OutputLifterZ != null && OutputLifterZ.Config != null
-                ? OutputLifterZ.Config.DefaultVelocity
+                ? OutputLifterZ.Config.GetDefaultVel()
                 : 0.0;
             if (velocity <= 0.0)
                 velocity = Config != null && Config.ScanVelocity > 0.0 ? Config.ScanVelocity : 0.0;

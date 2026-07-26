@@ -558,11 +558,6 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 items.Add(ParameterGridItem.Bool("DRY RUN", ParameterGridScope.Config, () => _inputFeederUnit.Config.bDryRun, v => _inputFeederUnit.Config.bDryRun = v));
                 optionParameterGrid.SetItems(items);
 
-                waitParameterGrid.AutoFitParentGroupHeight = true;   // WAIT 그룹 높이를 내용에 맞춰 자동 조정 (스크롤 없이 전 항목 표시)
-                waitParameterGrid.SetItems(new[]
-                {
-                    ParameterGridItem.Int("MOVE TIMEOUT", "ms", ParameterGridScope.Setup, () => _inputFeederUnit.FeederY.Setup.MoveTimeoutMs, v => _inputFeederUnit.FeederY.Setup.MoveTimeoutMs = Math.Max(0, v))
-                });
             }
             catch (Exception ex)
             {
@@ -696,9 +691,13 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             {
                 var host = FindHostForm();
                 if (host == null || string.IsNullOrWhiteSpace(host.ActiveRecipeName))
-                    return;
+                    throw new InvalidOperationException("활성 Recipe가 없어 Input Feeder Recipe 값을 저장할 수 없습니다.");
 
-                host.SaveMachineRecipe(host.ActiveRecipeName);
+                if (!host.SaveMachineRecipe(host.ActiveRecipeName))
+                    throw new InvalidOperationException(
+                        "Input Feeder Recipe 저장에 실패했습니다. 현재 적용값과 저장 파일의 값이 다를 수 있으며, " +
+                        "재시작하면 이전값으로 복원될 수 있습니다. Alarm/Event Log를 확인하십시오. recipe=" +
+                        host.ActiveRecipeName);
             }
             catch
             {
@@ -714,7 +713,13 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             try
             {
                 var host = FindHostForm();
-                host?.SaveMachineSettings();
+                if (host == null)
+                    throw new InvalidOperationException("Main 화면을 찾을 수 없어 Input Feeder Config/Setup 값을 저장할 수 없습니다.");
+
+                if (!host.SaveMachineSettings())
+                    throw new InvalidOperationException(
+                        "Input Feeder Config/Setup 저장에 실패했습니다. 현재 적용값과 저장 파일의 값이 다를 수 있으며, " +
+                        "재시작하면 이전값으로 복원될 수 있습니다. Alarm/Event Log를 확인하십시오.");
             }
             catch
             {

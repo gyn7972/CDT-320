@@ -26,6 +26,11 @@
         private System.Windows.Forms.DataGridViewTextBoxColumn colLogType;
         private System.Windows.Forms.DataGridViewTextBoxColumn colLogPath;
         private System.Windows.Forms.DataGridViewButtonColumn colLogBrowse;
+        // Material 스냅샷 저장 옵션
+        private System.Windows.Forms.GroupBox grpSnapshot;
+        private System.Windows.Forms.TableLayoutPanel tlpSnapshot;
+        private System.Windows.Forms.CheckBox _chkInspectionDetail;
+        private System.Windows.Forms.Label lblSnapshotHint;
         // Vision 이미지
         private System.Windows.Forms.GroupBox grpVision;
         private System.Windows.Forms.TableLayoutPanel tlpVision;
@@ -67,6 +72,10 @@
             this.colLogType = new System.Windows.Forms.DataGridViewTextBoxColumn();
             this.colLogPath = new System.Windows.Forms.DataGridViewTextBoxColumn();
             this.colLogBrowse = new System.Windows.Forms.DataGridViewButtonColumn();
+            this.grpSnapshot = new System.Windows.Forms.GroupBox();
+            this.tlpSnapshot = new System.Windows.Forms.TableLayoutPanel();
+            this._chkInspectionDetail = new System.Windows.Forms.CheckBox();
+            this.lblSnapshotHint = new System.Windows.Forms.Label();
             this.grpVision = new System.Windows.Forms.GroupBox();
             this.tlpVision = new System.Windows.Forms.TableLayoutPanel();
             this.lblImageFormat = new System.Windows.Forms.Label();
@@ -82,6 +91,8 @@
             ((System.ComponentModel.ISupportInitialize)(this._nDeleteDays)).BeginInit();
             this.grpPaths.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.gridLogPaths)).BeginInit();
+            this.grpSnapshot.SuspendLayout();
+            this.tlpSnapshot.SuspendLayout();
             this.grpVision.SuspendLayout();
             this.tlpVision.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.gridVisionImages)).BeginInit();
@@ -93,19 +104,81 @@
             this.rootLayout.ColumnCount = 1;
             this.rootLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.rootLayout.Controls.Add(this.grpMaint, 0, 0);
-            this.rootLayout.Controls.Add(this.grpPaths, 0, 1);
-            this.rootLayout.Controls.Add(this.grpVision, 0, 2);
+            this.rootLayout.Controls.Add(this.grpSnapshot, 0, 1);
+            this.rootLayout.Controls.Add(this.grpPaths, 0, 2);
+            this.rootLayout.Controls.Add(this.grpVision, 0, 3);
             this.rootLayout.Dock = System.Windows.Forms.DockStyle.Fill;
             this.rootLayout.Location = new System.Drawing.Point(0, 0);
             this.rootLayout.Name = "rootLayout";
             this.rootLayout.Padding = new System.Windows.Forms.Padding(1);
+            // [레이아웃 정정 2026-07-27] 기존에는 4행이 전부 Absolute(130+336+150) + 빈 Percent 행이라
+            // 합계 616px가 필요했는데 패널 높이가 그보다 작아 VISION IMAGE 그룹 하단이 잘렸다.
+            // LOG FILE PATH 행만 Percent로 두어 남는 높이를 흡수하게 하고, 나머지는 내용에 맞춘 고정 높이로 둔다.
             this.rootLayout.RowCount = 4;
             this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 130F));
-            this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 336F));
-            this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 150F));
+            this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 78F));
             this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.rootLayout.Size = new System.Drawing.Size(900, 560);
+            this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 176F));
+            this.rootLayout.Size = new System.Drawing.Size(900, 700);
             this.rootLayout.TabIndex = 0;
+            //
+            // grpSnapshot
+            //
+            this.grpSnapshot.BackColor = System.Drawing.Color.White;
+            this.grpSnapshot.Controls.Add(this.tlpSnapshot);
+            this.grpSnapshot.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.grpSnapshot.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
+            this.grpSnapshot.Location = new System.Drawing.Point(1, 133);
+            this.grpSnapshot.Margin = new System.Windows.Forms.Padding(0, 0, 0, 2);
+            this.grpSnapshot.Name = "grpSnapshot";
+            this.grpSnapshot.Padding = new System.Windows.Forms.Padding(6, 4, 6, 4);
+            this.grpSnapshot.Size = new System.Drawing.Size(898, 76);
+            this.grpSnapshot.TabIndex = 1;
+            this.grpSnapshot.TabStop = false;
+            this.grpSnapshot.Text = "MATERIAL SNAPSHOT (material_state.json)";
+            //
+            // tlpSnapshot
+            //
+            this.tlpSnapshot.ColumnCount = 2;
+            this.tlpSnapshot.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 260F));
+            this.tlpSnapshot.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.tlpSnapshot.Controls.Add(this._chkInspectionDetail, 0, 0);
+            this.tlpSnapshot.Controls.Add(this.lblSnapshotHint, 1, 0);
+            this.tlpSnapshot.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.tlpSnapshot.Location = new System.Drawing.Point(6, 23);
+            this.tlpSnapshot.Name = "tlpSnapshot";
+            this.tlpSnapshot.RowCount = 1;
+            this.tlpSnapshot.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.tlpSnapshot.Size = new System.Drawing.Size(886, 49);
+            this.tlpSnapshot.TabIndex = 0;
+            //
+            // _chkInspectionDetail
+            //
+            this._chkInspectionDetail.Appearance = System.Windows.Forms.Appearance.Button;
+            this._chkInspectionDetail.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(238)))), ((int)(((byte)(238)))), ((int)(((byte)(238)))));
+            this._chkInspectionDetail.Cursor = System.Windows.Forms.Cursors.Hand;
+            this._chkInspectionDetail.Dock = System.Windows.Forms.DockStyle.Fill;
+            this._chkInspectionDetail.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this._chkInspectionDetail.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
+            this._chkInspectionDetail.Margin = new System.Windows.Forms.Padding(3, 6, 8, 6);
+            this._chkInspectionDetail.Name = "_chkInspectionDetail";
+            this._chkInspectionDetail.Size = new System.Drawing.Size(249, 37);
+            this._chkInspectionDetail.TabIndex = 0;
+            this._chkInspectionDetail.Text = "측정값 상세 저장  [OFF]";
+            this._chkInspectionDetail.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
+            this._chkInspectionDetail.UseVisualStyleBackColor = false;
+            //
+            // lblSnapshotHint
+            //
+            this.lblSnapshotHint.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.lblSnapshotHint.Font = new System.Drawing.Font("맑은 고딕", 9F);
+            this.lblSnapshotHint.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(90)))), ((int)(((byte)(90)))), ((int)(((byte)(90)))));
+            this.lblSnapshotHint.Location = new System.Drawing.Point(263, 0);
+            this.lblSnapshotHint.Name = "lblSnapshotHint";
+            this.lblSnapshotHint.Size = new System.Drawing.Size(620, 49);
+            this.lblSnapshotHint.TabIndex = 1;
+            this.lblSnapshotHint.Text = "OFF 권장 — 검사 측정값 상세(Measurements/Alignments)를 스냅샷에서 제외합니다.\r\nON 하면 파일이 웨이퍼 1장당 약 5배로 커지고 저장 부하가 늘어납니다. 상세는 CSV에 별도 기록됩니다.";
+            this.lblSnapshotHint.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
             // grpMaint
             // 
@@ -288,11 +361,11 @@
             this.grpPaths.Controls.Add(this.gridLogPaths);
             this.grpPaths.Dock = System.Windows.Forms.DockStyle.Fill;
             this.grpPaths.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
-            this.grpPaths.Location = new System.Drawing.Point(1, 131);
+            this.grpPaths.Location = new System.Drawing.Point(1, 211);
             this.grpPaths.Margin = new System.Windows.Forms.Padding(0, 0, 0, 2);
             this.grpPaths.Name = "grpPaths";
             this.grpPaths.Padding = new System.Windows.Forms.Padding(6, 2, 6, 6);
-            this.grpPaths.Size = new System.Drawing.Size(898, 334);
+            this.grpPaths.Size = new System.Drawing.Size(898, 311);
             this.grpPaths.TabIndex = 1;
             this.grpPaths.TabStop = false;
             this.grpPaths.Text = "LOG FILE PATH";
@@ -368,11 +441,11 @@
             this.grpVision.Controls.Add(this.tlpVision);
             this.grpVision.Dock = System.Windows.Forms.DockStyle.Fill;
             this.grpVision.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
-            this.grpVision.Location = new System.Drawing.Point(1, 467);
+            this.grpVision.Location = new System.Drawing.Point(1, 524);
             this.grpVision.Margin = new System.Windows.Forms.Padding(0);
             this.grpVision.Name = "grpVision";
             this.grpVision.Padding = new System.Windows.Forms.Padding(6, 2, 6, 6);
-            this.grpVision.Size = new System.Drawing.Size(898, 150);
+            this.grpVision.Size = new System.Drawing.Size(898, 175);
             this.grpVision.TabIndex = 2;
             this.grpVision.TabStop = false;
             this.grpVision.Text = "VISION IMAGE (OK / NG)";
@@ -477,7 +550,7 @@
             this.BackColor = System.Drawing.Color.White;
             this.Controls.Add(this.rootLayout);
             this.Name = "LogSettingsPanelControl";
-            this.Size = new System.Drawing.Size(900, 560);
+            this.Size = new System.Drawing.Size(900, 700);
             this.rootLayout.ResumeLayout(false);
             this.grpMaint.ResumeLayout(false);
             this.tlpMaint.ResumeLayout(false);
@@ -485,6 +558,8 @@
             ((System.ComponentModel.ISupportInitialize)(this._nDeleteDays)).EndInit();
             this.grpPaths.ResumeLayout(false);
             ((System.ComponentModel.ISupportInitialize)(this.gridLogPaths)).EndInit();
+            this.grpSnapshot.ResumeLayout(false);
+            this.tlpSnapshot.ResumeLayout(false);
             this.grpVision.ResumeLayout(false);
             this.tlpVision.ResumeLayout(false);
             ((System.ComponentModel.ISupportInitialize)(this.gridVisionImages)).EndInit();

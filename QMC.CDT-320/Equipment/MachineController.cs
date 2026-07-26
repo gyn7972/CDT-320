@@ -784,6 +784,25 @@ namespace QMC.CDT320
             }
         }
 
+        // [머지 복원 2026-07-27] 원격(f9210867)과 로컬 지연저장 리팩토링이 같은 구간을 수정하면서
+        // 머지 결과에서 이 동기 저장 메서드 정의가 유실되어 빌드가 깨졌다(호출부 20여 곳 CS0103).
+        // 서버 호출부는 건드리지 않고, 지연저장 워커와 버전 일관성을 유지하는 로컬 구현을 복원한다.
+        // (동기 저장이 pending 요청 버전을 흡수하므로 순서/일관성은 서버의 동기 저장과 동일하다.)
+        public bool SaveMachineRuntimeState(string reason)
+        {
+            long coveredRequestVersion = PrepareSynchronousMachineRuntimeStateSave();
+            bool saved = SaveMachineRuntimeStateCore(
+                reason,
+                0,
+                0L,
+                coveredRequestVersion);
+
+            if (!saved)
+                RequestMachineRuntimeStateSave("SynchronousSaveRetry:" + (reason ?? string.Empty));
+
+            return saved;
+        }
+
         // [사용자 지시 2026-07-27] 픽업 핫패스의 die당 상태 저장(~10ms 디스크 I/O) 비동기화.
         // 저장 자체는 기존 SaveMachineRuntimeState의 lock으로 직렬화되고, 상태 캡처도 저장
         // 시점(락 안)에 이뤄지므로 순서/일관성은 동기 호출과 동일 — 호출자만 기다리지 않는다.

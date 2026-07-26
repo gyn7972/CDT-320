@@ -20,8 +20,14 @@ namespace QMC.CDT_320.Ui.Dialogs
             MinimizeBox = false;
             MaximizeBox = true;
             ShowInTaskbar = false;
-            ClientSize = new Size(700, 674);
-            MinimumSize = new Size(700, 560);
+            // [레이아웃 정정 2026-07-27] 기존 674 클라이언트 높이로는
+            //   DIAGNOSTIC LOG(86) + 판넬 고정행 합계 + SAVE/CLOSE 바(52) 가 들어가지 않아
+            //   VISION IMAGE 그룹 하단이 잘려 보였다.
+            // 판넬이 요구하는 최소 높이를 담을 수 있도록 키우고, 그 아래로는 줄일 수 없게 MinimumSize 를 맞춘다.
+            //   DIAGNOSTIC 86 + LOG MAINTENANCE 130 + MATERIAL SNAPSHOT 78
+            //   + LOG FILE PATH(가변, 최소 200) + VISION IMAGE 176 + 버튼바 52 = 722
+            ClientSize = new Size(760, 800);
+            MinimumSize = new Size(776, 761);
             BackColor = Color.White;
             Font = new Font("맑은 고딕", 9F);
 

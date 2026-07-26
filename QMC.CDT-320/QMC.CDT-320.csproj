@@ -33,6 +33,11 @@
     <DefineConstants>TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
+    <!-- [필수 2026-07-27] Debug|AnyCPU와 동일하게 64비트로 강제한다.
+         이 항목이 없으면 .NET 4.5+ AnyCPU exe는 Prefer32Bit 기본값 true로 32비트 프로세스가 되고,
+         x64 네이티브 DLL(Axl / EzbasicAxl / ColletFinderCuda / CudaBackend)을 로드하지 못해
+         모션 보드 초기화에서 BadImageFormatException이 발생한다. -->
+    <Prefer32Bit>false</Prefer32Bit>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|x64'">
     <DebugSymbols>true</DebugSymbols>

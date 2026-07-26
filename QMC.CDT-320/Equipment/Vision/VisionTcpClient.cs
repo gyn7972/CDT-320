@@ -69,6 +69,11 @@ namespace QMC.CDT320.VisionComm
                 ct.ThrowIfCancellationRequested();
                 // 로컬 변수로 다뤄, 연결 도중 Disconnect/Dispose 가 _client 를 null 로 바꿔도 NRE 가 나지 않게 한다.
                 var client = new TcpClient();
+                // [택타임 개선 2026-07-27] Nagle 비활성화.
+                // 이 채널은 "한 줄 요청 -> EPD/RESULT 한 줄 응답"의 짧은 왕복이 다이당 6~10회 반복된다.
+                // Nagle이 켜져 있으면 지연 ACK와 맞물려 왕복마다 수~수십 ms가 붙는다.
+                // 같은 리포의 VisionFrameClient / VisionViewerSource는 이미 NoDelay=true이며, 제어/검사 채널만 빠져 있었다.
+                try { client.NoDelay = true; } catch { }
                 _client = client;
                 var task = client.ConnectAsync(Host, Port);
                 if (await Task.WhenAny(task, Task.Delay(timeoutMs, ct)).ConfigureAwait(false) != task)

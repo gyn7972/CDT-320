@@ -32,6 +32,14 @@ namespace QMC.CDT320.Sequencing
         private static double _cutoffFrequency = 0.1;
         private static FilterSet[] _filters;
 
+        // [택타임 개선 2026-07-27] Output 후검사마다(다이당 1회) Sync 락을 쥔 채 File.Create + JSON 쓰기를
+        // 동기로 수행했다. 저장 내용은 고정 8행뿐이라 병합 저장해도 잃는 정보가 없다.
+        // Pick 측(PickRuntimeOffsetService)과 동일한 방식으로 처리한다.
+        private const int DeferredSaveQuietMs = 1000;
+        private static readonly object DeferredSaveSync = new object();
+        private static bool _deferredSaveRequested;
+        private static bool _deferredSaveWorkerRunning;
+
         private sealed class FilterSet
         {
             public FilterSet(double cutoffFrequency)
@@ -173,7 +181,8 @@ namespace QMC.CDT320.Sequencing
                     if (acceptedX || acceptedY || acceptedT)
                     {
                         set.LastUpdated = DateTime.Now;
-                        SaveLocked();
+                        // 다이당 실행되는 핫패스 — 디스크 쓰기를 락 밖 병합 저장으로 넘긴다.
+                        RequestDeferredSave();
                     }
 
                     filteredX = set.X.Value;
@@ -396,7 +405,88 @@ namespace QMC.CDT320.Sequencing
             return true;
         }
 
+        /// <summary>
+        /// 핫패스용 병합 저장 요청. 호출자는 디스크를 기다리지 않는다.
+        /// Sync 락을 쥔 상태에서 호출해도 안전하다(여기서는 플래그만 세운다).
+        /// </summary>
+        private static void RequestDeferredSave()
+        {
+            lock (DeferredSaveSync)
+            {
+                _deferredSaveRequested = true;
+                if (_deferredSaveWorkerRunning)
+                    return;
+
+                _deferredSaveWorkerRunning = true;
+            }
+
+            System.Threading.Tasks.Task.Run(async () =>
+            {
+                try
+                {
+                    while (true)
+                    {
+                        await System.Threading.Tasks.Task.Delay(DeferredSaveQuietMs).ConfigureAwait(false);
+
+                        lock (DeferredSaveSync)
+                        {
+                            if (!_deferredSaveRequested)
+                            {
+                                _deferredSaveWorkerRunning = false;
+                                return;
+                            }
+
+                            _deferredSaveRequested = false;
+                        }
+
+                        SaveOutsideLock();
+                    }
+                }
+                catch (Exception ex)
+                {
+                    lock (DeferredSaveSync)
+                    {
+                        _deferredSaveWorkerRunning = false;
+                    }
+
+                    QMC.Common.Log.Write("Main", "SYSTEM", "PlaceRuntimeOffset",
+                        "Place 런타임 오프셋 지연 저장 워커가 실패했습니다. error=" + ex.Message + " - Failed");
+                }
+            });
+        }
+
+        /// <summary>대기 중인 지연 저장을 즉시 반영한다(종료/수동 확정 시 호출).</summary>
+        public static void FlushPendingSave()
+        {
+            bool pending;
+            lock (DeferredSaveSync)
+            {
+                pending = _deferredSaveRequested;
+                _deferredSaveRequested = false;
+            }
+
+            if (pending)
+                SaveOutsideLock();
+        }
+
+        // 문서 구성만 Sync 락 안에서 하고, 디스크 쓰기는 락 밖에서 수행한다.
+        private static void SaveOutsideLock()
+        {
+            PlaceRuntimeOffsetDocument document;
+            lock (Sync)
+            {
+                document = BuildDocumentLocked();
+            }
+
+            PlaceRuntimeOffsetStore.Save(document);
+        }
+
         private static void SaveLocked()
+        {
+            PlaceRuntimeOffsetStore.Save(BuildDocumentLocked());
+        }
+
+        private static PlaceRuntimeOffsetDocument BuildDocumentLocked()
         {
             var document = new PlaceRuntimeOffsetDocument();
             document.UsePlaceRuntimeOffset = _useCorrection;
@@ -421,7 +511,7 @@ namespace QMC.CDT320.Sequencing
                 }
             }
 
-            PlaceRuntimeOffsetStore.Save(document);
+            return document;
         }
 
         private static string F(double value)

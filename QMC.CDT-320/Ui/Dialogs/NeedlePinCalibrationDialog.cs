@@ -532,6 +532,26 @@ namespace QMC.CDT_320.Ui.Dialogs
             if (!IsEditableResultOffset(name))
                 return;
 
+            // [측정 가드 보강 2026-07-27] SAVED RESULT 그리드 직접 수정은 SAVE RESULT의 측정 가드를
+            // 완전히 우회해 캘리브레이션 결과를 임의 값으로 영속화할 수 있었다.
+            // 결과값 수정은 되돌릴 수 없는 조작이므로 Admin 권한 + 명시적 확인을 요구한다.
+            if (!UserSession.Has(UserLevel.Admin))
+            {
+                _status.Text = "Admin 권한에서만 Needle Pin Calibration 결과값을 수동 수정할 수 있습니다.";
+                QMC.Common.MessageDialog.Show(this, _status.Text, "NEEDLE PIN CAL",
+                    MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            if (QMC.Common.MessageDialog.Show(
+                    this,
+                    name + " 측정 결과를 수동으로 덮어씁니다.\r\n" +
+                    "실제 측정 없이 캘리브레이션 값을 바꾸는 조작이며 즉시 저장됩니다.\r\n\r\n진행할까요?",
+                    "NEEDLE PIN CAL",
+                    MessageBoxButtons.YesNo,
+                    MessageBoxIcon.Warning) != DialogResult.Yes)
+                return;
+
             string unit = Convert.ToString(_resultGrid.Rows[e.RowIndex].Cells[2].Value, CultureInfo.InvariantCulture);
             string currentText = Convert.ToString(_resultGrid.Rows[e.RowIndex].Cells[1].Value, CultureInfo.InvariantCulture);
             using (var keypad = new QMC.CDT_320.Ui.Controls.NumericKeypadDialog(name, currentText, unit))
@@ -590,6 +610,16 @@ namespace QMC.CDT_320.Ui.Dialogs
                 needle.UpdatedBy = "NeedlePinCalibrationManual";
                 host.Machine.VisionUnit.Config.CalibrationData.Touch("NeedlePinCalibrationManual");
                 host.SaveMachineSettings();
+
+                // 수동 수정으로 측정 결과가 바뀌었으므로 직전 측정 스냅샷은 더 이상 유효하지 않다.
+                // (SAVE RESULT가 스테일 스냅샷으로 다시 덮어쓰는 것을 막는다.)
+                ClearLastSuccessfulResult();
+
+                string auditMessage = "Needle Pin Calibration 결과값을 수동 수정했습니다. item=" + name +
+                                      ", value=" + value.ToString("0.######", CultureInfo.InvariantCulture) +
+                                      ", user=" + UserSession.Name;
+                QMC.Common.Log.Write("Calibration", "SYSTEM", "NeedlePinCalManualOffset", auditMessage + " - Check");
+                EventLogger.Write(EventKind.Warning, "CAL", "NEEDLE-PIN-CAL-MANUAL-OFFSET", auditMessage);
                 return true;
             }
             catch (Exception ex)
@@ -657,8 +687,31 @@ namespace QMC.CDT_320.Ui.Dialogs
                 if (stage.EjectPinZ != null)
                     stage.Recipe.EjectPinZ.NeedlePinCalPosition = stage.EjectPinZ.ActualPosition;
 
+                // [정정 2026-07-27] Cal Position은 InputStageRecipe(IRecipeData) 소속이라
+                // SaveMachineSettings로는 저장되지 않는다(Setup/Config만 기록).
+                // 기존에는 이 다이얼로그가 SaveMachineRecipe를 한 번도 호출하지 않아
+                // 티칭한 값이 메모리에만 남고 재기동 시 사라졌다.
                 LoadFromMachine();
-                _status.Text = "현재 축 위치를 Needle Pin Cal Position으로 티칭했습니다. 다음은 MOVE TEACH로 티칭 위치 이동을 확인하세요.";
+                Form1 teachHost = ResolveHost();
+                if (teachHost == null)
+                {
+                    _status.Text = "티칭 값을 화면에 반영했으나 저장하지 못했습니다: Form1 호스트를 찾을 수 없습니다.";
+                    return;
+                }
+
+                bool recipeSaved = teachHost.SaveMachineRecipe(teachHost.ActiveRecipeName);
+                teachHost.SaveMachineSettings();
+                if (!recipeSaved)
+                {
+                    _status.Text = "티칭 값 Recipe 저장에 실패했습니다. recipe=" + teachHost.ActiveRecipeName +
+                                   " — 값이 재기동 시 사라질 수 있습니다.";
+                    QMC.Common.Log.Write("Calibration", "SYSTEM", "NeedlePinCalTeach", _status.Text + " - Failed");
+                    return;
+                }
+
+                _status.Text = "현재 축 위치를 Needle Pin Cal Position으로 티칭하고 저장했습니다. recipe=" +
+                               teachHost.ActiveRecipeName + " — 다음은 MOVE TEACH로 티칭 위치 이동을 확인하세요.";
+                QMC.Common.Log.Write("Calibration", "SYSTEM", "NeedlePinCalTeach", _status.Text + " - Ok");
             }
             catch (Exception ex)
             {
@@ -688,11 +741,10 @@ namespace QMC.CDT_320.Ui.Dialogs
                     needleData.Motion.MoveTimeoutMs = Math.Max(100, ReadInt("Move Timeout", CalibrationMotionSettings.DefaultMoveTimeoutMs));
                     needleData.Motion.EnsureDefaults();
                 }
-                stage.Recipe.VisionX.NeedlePinCalPosition = ReadDouble("VisionX Cal Position");
-                stage.Recipe.WaferY.ProcessPosition = ReadDouble("StageY Process Position");
-                stage.Recipe.NeedleX.NeedlePinCalPosition = ReadDouble("NeedleX Cal Position");
-                stage.Recipe.NeedleZ.NeedlePinCalPosition = ReadDouble("NeedleZ Cal Position");
-                stage.Recipe.EjectPinZ.NeedlePinCalPosition = ReadDouble("EjectPinZ Cal Position");
+                // [정정 2026-07-27] 여기서 Recipe의 Cal Position(티칭값)을 쓰지 않는다.
+                // 기존에는 PARAMETER SAVE가 VisionX/StageY/NeedleX/NeedleZ/EjectPinZ 티칭 위치까지
+                // 그리드 표시값으로 되돌려, 파라미터만 고치려 해도 티칭이 덮어써졌다.
+                // 티칭 변경은 USE CURRENT(TeachCurrentPosition) / SAVE TEACHING 전용 경로에서만 수행한다.
 
                 Form1 host = ResolveHost();
                 if (host != null)
@@ -701,7 +753,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                 RefreshResultGrid(stage);
                 RefreshTeachingGrid(stage);
                 if (showMessage)
-                    _status.Text = "설정을 저장했습니다.";
+                    _status.Text = "설정을 저장했습니다. 티칭 위치(Cal Position)와 측정 결과는 변경하지 않았습니다.";
                 return true;
             }
             catch (Exception ex)
@@ -1113,9 +1165,17 @@ namespace QMC.CDT_320.Ui.Dialogs
             _btnStart.Enabled = enabled;
             _btnReload.Enabled = enabled;
             _btnParameterSave.Enabled = enabled;
-            _btnSave.Enabled = enabled;
+            // [측정 가드 2026-07-27] SAVE RESULT는 정상 완료된 측정 결과가 있을 때만 활성화한다.
+            // 기존에는 _busy 여부만 반영해 측정 전에도 눌러볼 수 있었고, 코드 가드에만 의존했다.
+            // (PickUpZ/PlaceZ의 UpdateResultSaveButtonEnabled와 동일 기준)
+            _btnSave.Enabled = enabled && HasSavableSuccessfulResult();
             _btnClose.Enabled = enabled;
             _settingsGrid.Enabled = enabled;
+        }
+
+        private bool HasSavableSuccessfulResult()
+        {
+            return _lastSuccessfulResult != null && _lastSuccessfulResult.Success;
         }
     }
 }
