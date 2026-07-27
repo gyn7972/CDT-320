@@ -2550,6 +2550,27 @@ namespace QMC.CDT320.Sequencing
                     return 0;
                 }
 
+                // Stage wafer는 남아 있지만 빈 Feeder가 안전 후퇴 위치가 아니면 Restore가
+                // RecoverFeeder를 선택한다. 기존 수동 Unload 경로는 이 판정을 무시하고 Stage
+                // 준비부터 시작해 ExpanderZ 인터락 또는 저장된 중간 Step 재개로 이어졌다.
+                if (_autoStep == InputSequenceAutoStep.RecoverFeeder)
+                {
+                    WriteLog(
+                        "ExecuteAutoStepUnloadingForTestAsync",
+                        "CYCLE RUN INPUT UNLOAD: Stage 준비 전에 빈 InputFeeder 안전 복구를 실행합니다. - Start");
+                    int recoverResult = await ExecuteStepRecoverFeederAsync(ct).ConfigureAwait(false);
+                    if (recoverResult != 0)
+                        return recoverResult;
+
+                    // 안전 복구로 실제 Feeder 위치/Lift 상태가 바뀌었으므로 이전 UnloadFromStage
+                    // 실패 Step은 더 이상 유효하지 않다. Material 상태는 유지하고 해당 하위
+                    // 시퀀스 재개 정보만 초기화한다.
+                    SequenceResumeStore.Clear(InputFeederUnloadFromStageSequence.ResumeStateName);
+                    WriteLog(
+                        "ExecuteAutoStepUnloadingForTestAsync",
+                        "CYCLE RUN INPUT UNLOAD: InputFeeder 안전 복구 완료 및 UnloadFromStage 재개 상태 초기화. - Ok");
+                }
+
                 WaferMaterial stageWafer = ResolveStageWaferFromRuntimeState();
                 if (stageWafer == null)
                 {

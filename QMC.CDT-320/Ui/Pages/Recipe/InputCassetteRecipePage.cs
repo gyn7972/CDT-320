@@ -694,6 +694,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                     AxisDouble("LV2 MAPPING END Z POSITION", ParameterGridScope.Recipe, () => _InputCassetteUnit.Recipe.Level2MappingEndPosition, v => _InputCassetteUnit.Recipe.Level2MappingEndPosition = v),
                     AxisDouble("LOADING OFFSET", ParameterGridScope.Config, () => _InputCassetteUnit.Config.LoadingPositionOffset, v => _InputCassetteUnit.Config.LoadingPositionOffset = v),
                     AxisDouble("UNLOADING OFFSET", ParameterGridScope.Config, () => _InputCassetteUnit.Config.UnloadingPositionOffset, v => _InputCassetteUnit.Config.UnloadingPositionOffset = v),
+                    AxisDouble("UNLOAD RELEASE LIFT DISTANCE", ParameterGridScope.Config, () => _InputCassetteUnit.Config.UnloadReleaseLiftDistance, v => _InputCassetteUnit.Config.UnloadReleaseLiftDistance = Math.Max(0.001, v)),
                     AxisDouble("LEVEL 2 OFFSET", ParameterGridScope.Config, () => _InputCassetteUnit.Config.Level2PositionOffset, v => _InputCassetteUnit.Config.Level2PositionOffset = Math.Max(0.0, v)),
                     AxisDouble("SLOT PITCH", ParameterGridScope.Config, () => _InputCassetteUnit.Config.SlotPitch, v => _InputCassetteUnit.Config.SlotPitch = Math.Max(0.0, v)),
                     // To do: [맵핑 재설계] 슬롯 벨리드 윈도우 반폭 비율(윈도우 = 명목 ± SlotPitch×비율). 0.05~0.49로 제한.

@@ -19,6 +19,8 @@ namespace QMC.CDT320.Sequencing
         MoveCassetteToUnloadOffsetPosition,
         MoveFeederUnloadPosition,
         PrepareFeederUnclamp,
+        MoveCassetteToReleaseLiftPosition,
+        MoveFeederReleaseAvoidPosition,
         VerifyWaferCleared,
         MoveMaterialDataToCassette,
         UpdateCassetteData,
@@ -41,6 +43,68 @@ namespace QMC.CDT320.Sequencing
         protected override InputFeederUnloadToCassetteStep InitialStep { get { return InputFeederUnloadToCassetteStep.CheckUnit; } }
         protected override InputFeederUnloadToCassetteStep CompleteStep { get { return InputFeederUnloadToCassetteStep.Complete; } }
         protected override InputFeederUnloadToCassetteStep ErrorStep { get { return InputFeederUnloadToCassetteStep.Error; } }
+
+        protected override InputFeederUnloadToCassetteStep ResolveStartStep(InputFeederUnloadToCassetteStep initialStep)
+        {
+            InputFeederUnloadToCassetteStep resolvedStep = base.ResolveStartStep(initialStep);
+            if (resolvedStep != InputFeederUnloadToCassetteStep.MoveFeederReleaseAvoidPosition &&
+                resolvedStep != InputFeederUnloadToCassetteStep.VerifyWaferCleared)
+                return resolvedStep;
+
+            bool inAvoidPosition = Feeder != null &&
+                                   Feeder.IsWaferFeederInAvoidPosition();
+            bool avoidDogOn = Feeder != null &&
+                              Feeder.IsWaferFeederAvoidPositionCheck();
+            if (inAvoidPosition && avoidDogOn)
+            {
+                InputCassetteUnit cassette = ResolveCassette();
+                WaferMaterial wafer = ResolveFeederWafer();
+                double unloadTarget;
+                double releaseTarget;
+                string targetReason;
+                double tolerance =
+                    cassette != null
+                        ? cassette.ResolveWaferLifterZInPositionTolerance()
+                        : 0.0;
+                if (TryResolveCassetteUnloadReleaseTargets(
+                        cassette,
+                        wafer,
+                        out unloadTarget,
+                        out releaseTarget,
+                        out targetReason) &&
+                    cassette.InputLifterZ != null &&
+                    cassette.InputLifterZ.IsServoOn &&
+                    !cassette.InputLifterZ.IsAlarm &&
+                    !cassette.InputLifterZ.IsMoving &&
+                    cassette.IsWaferLifterZInPosition(releaseTarget, tolerance) &&
+                    Math.Abs(cassette.InputLifterZ.CommandPosition - releaseTarget) <= tolerance)
+                {
+                    return InputFeederUnloadToCassetteStep.VerifyWaferCleared;
+                }
+
+                WriteLog(
+                    "ResolveStartStep",
+                    "InputFeederY는 이미 Avoid이지만 InputCassette release lift 완료를 확인할 수 없어 " +
+                    "안전 검증 단계로 재개합니다. savedStep=" + resolvedStep +
+                    ", targetReason=" + targetReason +
+                    ", cassette=" +
+                    (cassette != null
+                        ? BuildCassetteZState(cassette, releaseTarget)
+                        : "null") +
+                    " - Check");
+                return InputFeederUnloadToCassetteStep.MoveCassetteToReleaseLiftPosition;
+            }
+
+            WriteLog(
+                "ResolveStartStep",
+                "제품 해제 후 재개 시 InputFeederY가 Avoid에 있지 않아 " +
+                "카세트 release lift 단계부터 재개합니다. savedStep=" + resolvedStep +
+                ", inAvoidPosition=" +
+                inAvoidPosition + ", avoidDogOn=" + avoidDogOn + ". " +
+                (Feeder != null ? Feeder.GetWaferFeederTransferState() : "Feeder=null") +
+                " - Check");
+            return InputFeederUnloadToCassetteStep.MoveCassetteToReleaseLiftPosition;
+        }
 
         protected override Task<int> ExecuteCurrentStepAsync(CancellationToken ct)
         {
@@ -79,6 +143,12 @@ namespace QMC.CDT320.Sequencing
                     // 피더 언클램프 준비
                     case InputFeederUnloadToCassetteStep.PrepareFeederUnclamp:
                         return PrepareFeederUnclampAsync(ct);
+                    // 제품 해제 후 카세트 리프터 상승
+                    case InputFeederUnloadToCassetteStep.MoveCassetteToReleaseLiftPosition:
+                        return MoveCassetteToReleaseLiftPositionAsync(ct);
+                    // 제품 해제 후 피더 AVOID 위치 이동
+                    case InputFeederUnloadToCassetteStep.MoveFeederReleaseAvoidPosition:
+                        return MoveFeederReleaseAvoidPositionAsync(ct);
                     // 웨이퍼 클리어 검증
                     case InputFeederUnloadToCassetteStep.VerifyWaferCleared:
                         return VerifyWaferClearedAsync(ct);
@@ -294,6 +364,219 @@ namespace QMC.CDT320.Sequencing
                 return Fail("IN-FEEDER-UNCLAMP", Feeder.Name,
                     "WaferFeeder unclamp command failed. result=" + result + ". " + Feeder.GetWaferFeederTransferState());
 
+            CurrentStep = InputFeederUnloadToCassetteStep.MoveCassetteToReleaseLiftPosition;
+            return 0;
+        }
+
+        private async Task<int> MoveCassetteToReleaseLiftPositionAsync(CancellationToken ct)
+        {
+            ct.ThrowIfCancellationRequested();
+
+            WaferMaterial wafer = ResolveFeederWafer();
+            InputCassetteUnit cassette = ResolveCassette();
+            if (wafer == null || cassette == null || cassette.InputLifterZ == null)
+            {
+                return Fail(
+                    "IN-FEEDER-CST-UNLOAD-RELEASE-PRECONDITION",
+                    "InputCassette",
+                    "Unload release lift 전 wafer 데이터 또는 InputCassette LifterZ가 없습니다.");
+            }
+
+            if (Feeder == null ||
+                Feeder.FeederY == null ||
+                Feeder.FeederY.IsMoving ||
+                Feeder.FeederY.IsAlarm ||
+                !Feeder.IsWaferFeederYInCassetteUnloadPosition() ||
+                !Feeder.IsWaferFeederDown() ||
+                Feeder.IsWaferFeederUp() ||
+                !Feeder.IsWaferFeederUnclamp() ||
+                Feeder.IsWaferFeederClamp())
+            {
+                return Fail(
+                    "IN-FEEDER-CST-UNLOAD-RELEASE-PRECONDITION",
+                    Feeder != null ? Feeder.Name : "InputFeeder",
+                    "Unload release lift 전 피더가 정지된 CassetteUnload/Down/Unclamp 상태가 아닙니다. " +
+                    (Feeder != null ? Feeder.GetWaferFeederTransferState() : "Feeder=null"));
+            }
+
+            double unloadTarget;
+            double releaseTarget;
+            string targetReason;
+            if (!TryResolveCassetteUnloadReleaseTargets(
+                cassette,
+                wafer,
+                out unloadTarget,
+                out releaseTarget,
+                out targetReason))
+            {
+                return Fail(
+                    "IN-FEEDER-CST-UNLOAD-RELEASE-CONFIG",
+                    cassette.Name,
+                    targetReason);
+            }
+
+            double tolerance = cassette.ResolveWaferLifterZInPositionTolerance();
+            double actual = cassette.InputLifterZ.ActualPosition;
+            if (!cassette.InputLifterZ.IsServoOn ||
+                cassette.InputLifterZ.IsAlarm ||
+                cassette.InputLifterZ.IsMoving ||
+                actual < unloadTarget - tolerance ||
+                actual > releaseTarget + tolerance)
+            {
+                return Fail(
+                    "IN-FEEDER-CST-UNLOAD-RELEASE-PRECONDITION",
+                    cassette.Name,
+                    "InputCassette가 unload 위치와 release 위치 사이에 있지 않습니다. " +
+                    BuildCassetteZState(cassette, releaseTarget) +
+                    ", unloadTarget=" + unloadTarget.ToString("0.###"));
+            }
+
+            if (!cassette.IsWaferLifterZInPosition(releaseTarget, tolerance))
+            {
+                int result = await AwaitStepWithCancellationAsync(
+                    cassette.MoveWaferLifterZForUnloadRelease(
+                        releaseTarget,
+                        Options.FineMove,
+                        ct),
+                    ct).ConfigureAwait(false);
+                if (result != 0)
+                {
+                    return Fail(
+                        "IN-FEEDER-CST-UNLOAD-RELEASE-MOVE",
+                        cassette.Name,
+                        "InputCassette unload release lift 이동이 실패했습니다. result=" +
+                        result + ". " + BuildCassetteZState(cassette, releaseTarget));
+                }
+            }
+
+            bool actualOk = cassette.IsWaferLifterZInPosition(releaseTarget, tolerance);
+            bool commandOk =
+                Math.Abs(cassette.InputLifterZ.CommandPosition - releaseTarget) <= tolerance;
+            if (!cassette.InputLifterZ.IsServoOn ||
+                cassette.InputLifterZ.IsAlarm ||
+                cassette.InputLifterZ.IsMoving ||
+                !actualOk ||
+                !commandOk)
+            {
+                return Fail(
+                    "IN-FEEDER-CST-UNLOAD-RELEASE-CHECK",
+                    cassette.Name,
+                    "InputCassette unload release lift 도착 확인에 실패했습니다. " +
+                    BuildCassetteZState(cassette, releaseTarget) +
+                    ", commandOk=" + commandOk);
+            }
+
+            CurrentStep = InputFeederUnloadToCassetteStep.MoveFeederReleaseAvoidPosition;
+            return 0;
+        }
+
+        private async Task<int> MoveFeederReleaseAvoidPositionAsync(CancellationToken ct)
+        {
+            ct.ThrowIfCancellationRequested();
+
+            if (Feeder == null || Feeder.FeederY == null)
+                return Fail(
+                    "IN-FEEDER-CST-UNLOAD-AVOID-PRECONDITION",
+                    "InputFeeder",
+                    "카세트 제품 해제 후 Avoid 이동 전 InputFeeder 또는 FeederY가 없습니다.");
+
+            WaferMaterial wafer = ResolveFeederWafer();
+            if (wafer == null)
+                return Fail(
+                    "IN-FEEDER-CST-UNLOAD-AVOID-PRECONDITION",
+                    "Material",
+                    "카세트 제품 해제 후 Avoid 이동 전 InputFeeder wafer 데이터가 없습니다. " +
+                    Feeder.GetWaferFeederTransferState());
+
+            bool unclamp = Feeder.IsWaferFeederUnclamp();
+            bool clamp = Feeder.IsWaferFeederClamp();
+            bool liftDown = Feeder.IsWaferFeederDown();
+            bool liftUp = Feeder.IsWaferFeederUp();
+            if (!unclamp || clamp || !liftDown || liftUp)
+            {
+                return Fail(
+                    "IN-FEEDER-CST-UNLOAD-AVOID-PRECONDITION",
+                    Feeder.Name,
+                    "카세트 제품 해제 후 Avoid 이동 전 피더 자세가 안전하지 않습니다. " +
+                    "unclamp=" + unclamp +
+                    ", clamp=" + clamp +
+                    ", liftDown=" + liftDown +
+                    ", liftUp=" + liftUp +
+                    ", wafer=" + wafer.WaferId + ". " +
+                    Feeder.GetWaferFeederTransferState());
+            }
+
+            InputCassetteUnit cassette = ResolveCassette();
+            if (cassette == null || cassette.InputLifterZ == null)
+                return Fail(
+                    "IN-FEEDER-CST-UNLOAD-AVOID-PRECONDITION",
+                    "InputCassette",
+                    "카세트 제품 해제 후 Avoid 이동 전 InputCassette 또는 LifterZ가 없습니다.");
+
+            double unloadTarget;
+            double cassetteTarget;
+            string targetReason;
+            if (!TryResolveCassetteUnloadReleaseTargets(
+                cassette,
+                wafer,
+                out unloadTarget,
+                out cassetteTarget,
+                out targetReason))
+            {
+                return Fail(
+                    "IN-FEEDER-CST-UNLOAD-RELEASE-CONFIG",
+                    cassette.Name,
+                    targetReason);
+            }
+
+            double cassetteTolerance = cassette.ResolveWaferLifterZInPositionTolerance();
+            if (!cassette.IsWaferLifterZInPosition(cassetteTarget, cassetteTolerance))
+            {
+                return Fail(
+                    "IN-FEEDER-CST-UNLOAD-AVOID-PRECONDITION",
+                    cassette.Name,
+                    "카세트 제품 해제 후 Avoid 이동 전 InputCassette가 release lift 위치에 있지 않습니다. " +
+                    BuildCassetteZState(cassette, cassetteTarget) +
+                    ", unloadTarget=" + unloadTarget.ToString("0.###"));
+            }
+
+            int result = await AwaitStepWithCancellationAsync(
+                Feeder.MoveToWaferFeederAvoidPosition(Options.FineMove),
+                ct).ConfigureAwait(false);
+            if (result != 0)
+            {
+                return Fail(
+                    "IN-FEEDER-CST-UNLOAD-AVOID-MOVE",
+                    Feeder.Name,
+                    "카세트 제품 해제 후 InputFeeder Avoid 이동 명령이 실패했습니다. result=" +
+                    result + ". " + Feeder.GetWaferFeederTransferState());
+            }
+
+            result = await WaitFeederYDoneAsync(
+                () => Feeder.IsWaferFeederInAvoidPosition(),
+                "카세트 제품 해제 후 InputFeeder Avoid",
+                ct).ConfigureAwait(false);
+            if (result != 0)
+                return result;
+
+            bool finalAvoidPosition = Feeder.IsWaferFeederInAvoidPosition();
+            bool finalAvoidDog = Feeder.IsWaferFeederAvoidPositionCheck();
+            if (Feeder.FeederY.IsMoving ||
+                Feeder.FeederY.IsAlarm ||
+                !finalAvoidPosition ||
+                !finalAvoidDog)
+            {
+                return Fail(
+                    "IN-FEEDER-CST-UNLOAD-AVOID-CHECK",
+                    Feeder.Name,
+                    "카세트 제품 해제 후 InputFeeder Avoid 도착 확인에 실패했습니다. " +
+                    "moving=" + Feeder.FeederY.IsMoving +
+                    ", alarm=" + Feeder.FeederY.IsAlarm +
+                    ", inAvoidPosition=" + finalAvoidPosition +
+                    ", avoidDogOn=" + finalAvoidDog + ". " +
+                    Feeder.GetWaferFeederTransferState());
+            }
+
             CurrentStep = InputFeederUnloadToCassetteStep.VerifyWaferCleared;
             return 0;
         }
@@ -301,6 +584,29 @@ namespace QMC.CDT320.Sequencing
         private async Task<int> VerifyWaferClearedAsync(CancellationToken ct)
         {
             ct.ThrowIfCancellationRequested();
+
+            bool inAvoidPosition = Feeder != null &&
+                                   Feeder.FeederY != null &&
+                                   Feeder.IsWaferFeederInAvoidPosition();
+            bool avoidDogOn = Feeder != null &&
+                              Feeder.IsWaferFeederAvoidPositionCheck();
+            if (Feeder == null ||
+                Feeder.FeederY == null ||
+                Feeder.FeederY.IsMoving ||
+                Feeder.FeederY.IsAlarm ||
+                !inAvoidPosition ||
+                !avoidDogOn)
+            {
+                return Fail(
+                    "IN-FEEDER-CST-UNLOAD-RING-PRECONDITION",
+                    Feeder != null ? Feeder.Name : "InputFeeder",
+                    "Ring OFF 확인 전 InputFeeder Avoid 안전 상태가 유지되지 않았습니다. " +
+                    "moving=" + (Feeder != null && Feeder.FeederY != null && Feeder.FeederY.IsMoving) +
+                    ", alarm=" + (Feeder != null && Feeder.FeederY != null && Feeder.FeederY.IsAlarm) +
+                    ", inAvoidPosition=" + inAvoidPosition +
+                    ", avoidDogOn=" + avoidDogOn + ". " +
+                    (Feeder != null ? Feeder.GetWaferFeederTransferState() : "Feeder=null"));
+            }
 
             if (!IsHardwareBypass())
             {
@@ -366,7 +672,9 @@ namespace QMC.CDT320.Sequencing
                 }
             }
 
-            CurrentStep = InputFeederUnloadToCassetteStep.MoveFeederPostUnloadPosition;
+            CurrentStep = Options.PostUnloadMove == InputFeederPostUnloadMove.Exchange
+                ? InputFeederUnloadToCassetteStep.MoveFeederPostUnloadPosition
+                : InputFeederUnloadToCassetteStep.MoveCassetteToSlotPosition;
             return 0;
         }
 
@@ -649,6 +957,50 @@ namespace QMC.CDT320.Sequencing
         private double ResolveCassetteUnloadOffset(InputCassetteUnit cassette)
         {
             return cassette != null && cassette.Config != null ? cassette.Config.UnloadingPositionOffset : 0.0;
+        }
+
+        private bool TryResolveCassetteUnloadReleaseTargets(
+            InputCassetteUnit cassette,
+            WaferMaterial wafer,
+            out double unloadTarget,
+            out double releaseTarget,
+            out string reason)
+        {
+            unloadTarget = 0.0;
+            releaseTarget = 0.0;
+            reason = string.Empty;
+
+            if (cassette == null || cassette.Config == null || wafer == null)
+            {
+                reason = "Unload release lift 목표를 계산할 수 없습니다.";
+                return false;
+            }
+
+            double unloadOffset = cassette.Config.UnloadingPositionOffset;
+            double releaseDistance = cassette.Config.UnloadReleaseLiftDistance;
+            if (double.IsNaN(unloadOffset) ||
+                double.IsInfinity(unloadOffset) ||
+                double.IsNaN(releaseDistance) ||
+                double.IsInfinity(releaseDistance) ||
+                unloadOffset >= 0.0 ||
+                releaseDistance <= 0.0 ||
+                releaseDistance > Math.Abs(unloadOffset))
+            {
+                reason =
+                    "Unload release lift 설정이 안전 범위를 벗어났습니다. " +
+                    "UnloadingPositionOffset=" + unloadOffset.ToString("0.###") +
+                    ", UnloadReleaseLiftDistance=" + releaseDistance.ToString("0.###") +
+                    ", required=UnloadingPositionOffset<0 and 0<distance<=abs(offset).";
+                return false;
+            }
+
+            int unloadSlot = ResolveUnloadSlotIndex(wafer);
+            int unloadLevel = InputCassetteUnit.ResolveCassetteLevel(Options.CassetteRole);
+            double slotTarget =
+                cassette.CalculateWaferCassetteSlotTargetPosition(unloadSlot, unloadLevel);
+            unloadTarget = slotTarget + unloadOffset;
+            releaseTarget = unloadTarget + releaseDistance;
+            return true;
         }
 
         private InputCassetteUnit ResolveCassette()

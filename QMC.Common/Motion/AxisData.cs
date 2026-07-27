@@ -329,8 +329,8 @@ namespace QMC.Common.Motion
         /// <summary>원점 복귀 제한 시간 [ms].</summary>
         public int HomeTimeoutMs { get; set; } = 60000;
 
-        /// <summary>일반 이동 제한 시간 [ms].</summary>
-        public int MoveTimeoutMs { get; set; } = 60000;
+        /// <summary>일반 이동 제한 시간 [ms]. TEST 임시 기본값이며 현장 검증 후 재조정한다.</summary>
+        public int MoveTimeoutMs { get; set; } = 300000;
 
         /// <summary>펄스 출력 방식.</summary>
         public PulseOutput PulseOutput { get; set; } = PulseOutput.TwoPulse_High_CCW_CW;

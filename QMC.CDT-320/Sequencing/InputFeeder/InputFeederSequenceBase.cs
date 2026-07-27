@@ -347,7 +347,7 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
-        private TStep ResolveStartStep(TStep initialStep)
+        protected virtual TStep ResolveStartStep(TStep initialStep)
         {
             try
             {

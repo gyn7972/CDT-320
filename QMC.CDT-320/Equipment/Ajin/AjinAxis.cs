@@ -537,6 +537,9 @@ namespace QMC.CDT320.Ajin
         private const double MinimumFollowSafetyGap = 5.0;
         // 팔로잉 이동 전체 타임아웃(고정). 팔로잉 루프와 최종 완료 대기를 합쳐 적용한다.
         private const int FollowMoveTimeoutMs = 5000;
+        // TEST 임시 기준(사용자 승인 2026-07-27): 전 축 일반 이동 완료 기본 timeout 300초.
+        // 현장 TEST 완료 후 거리/속도 기반 timeout으로 재조정한다.
+        private const int DefaultAxisMoveTimeoutMs = 300000;
         // 팔로잉 루프 폴링 주기.
         private const int FollowMovePollIntervalMs = 1;
         // 타임아웃 전용 에러코드.
@@ -3394,7 +3397,7 @@ namespace QMC.CDT320.Ajin
             try
             {
                 if (timeoutMs <= 0)
-                    timeoutMs = 60000;
+                    timeoutMs = DefaultAxisMoveTimeoutMs;
                 double tolerance = Config != null && Config.InPositionTolerance > 0.0
                     ? Config.InPositionTolerance
                     : 0.01;
@@ -3480,14 +3483,14 @@ namespace QMC.CDT320.Ajin
             // 기존 조건: 폴링 횟수로 타임아웃(guard>6000)과 이동 시작 유예(guard>20)를 판정했다 —
             //           Delay(10) 전제라 각각 60초 / 200ms 였다.
             // 현재 기준: Delay(1)에서는 폴링 횟수가 경과 시간과 무관하므로(보드 폴링 속도에 좌우)
-            //           Stopwatch로 경과 시간을 직접 측정해 판정한다. 타임아웃 60초.
+            //           Stopwatch로 경과 시간을 직접 측정해 판정한다. TEST 임시 타임아웃 300초.
             // 시작 유예(사용자 지시 2026-07-26): 200ms → 5000ms — 보드 InMotion 플래그 지연 시
             //           이동 Task가 실제 완료 전에 조기 '완료(0)'로 끝나는 것을 방지한다
             //           (PICKER-PICKUP-PERMISSION-VISIONX-NOT-AVOID 오탐 3건 원인 분석 대응).
             // 보완(사용자 지시 2026-07-26): 인모션 미관측 미소 이동의 5초 대기 방지 —
             //           보드가 이동 중이 아니고 Actual이 목표와 일치(톨러런스 내)하면 완료로
             //           판정한다(위치 기반 완료). 이동 중(inMotion)에는 기존 완료 판정 유지.
-            const int MoveWaitTimeoutMs = 60000;
+            const int MoveWaitTimeoutMs = DefaultAxisMoveTimeoutMs;
             const int MotionStartGraceMs = 5000;
             double arrivalTolerance = Config != null && Config.InPositionTolerance > 0.0
                 ? Config.InPositionTolerance
@@ -3501,7 +3504,7 @@ namespace QMC.CDT320.Ajin
 
                 // 읽기 실패 시 판정에 쓰지 않는다(WaitMoveCompleteAsync와 동일 규칙 — 2026-07-26 정합화):
                 // 실패한 읽기의 false를 "정지"로 오인해 이동 중 조기 break(조기 완료 0)되는 것을 막고,
-                // 계속 폴링한다(지속 실패는 60초 타임아웃으로 귀결).
+                // 계속 폴링한다(지속 실패는 300초 타임아웃으로 귀결).
                 bool inMotion = false;
                 bool inMotionReadOk = AXM.GetInMotion(AxisNo, ref inMotion) == 0;
                 if (inMotionReadOk && inMotion)

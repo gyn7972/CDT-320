@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using QMC.CDT320.Interlocks;
 using QMC.CDT320.Lots;
 using QMC.CDT320.Materials;
+using QMC.Common.IO;
 using QMC.Common.Motion;
 
 namespace QMC.CDT320.Sequencing
@@ -37,6 +38,8 @@ namespace QMC.CDT320.Sequencing
 
     internal sealed class InputFeederUnloadFromStageSequence : InputFeederSequenceBase<InputFeederUnloadFromStageStep>
     {
+        internal const string ResumeStateName = "InputFeederUnloadFromStageSequence.UnloadFromStage";
+
         public InputFeederUnloadFromStageSequence(MachineSequenceContext context)
             : base(context, InputFeederSequenceKind.UnloadFromStage, "InputFeederUnloadFromStageSequence")
         {
@@ -46,6 +49,36 @@ namespace QMC.CDT320.Sequencing
         protected override InputFeederUnloadFromStageStep InitialStep { get { return InputFeederUnloadFromStageStep.CheckUnit; } }
         protected override InputFeederUnloadFromStageStep CompleteStep { get { return InputFeederUnloadFromStageStep.Complete; } }
         protected override InputFeederUnloadFromStageStep ErrorStep { get { return InputFeederUnloadFromStageStep.Error; } }
+
+        protected override InputFeederUnloadFromStageStep ResolveStartStep(InputFeederUnloadFromStageStep initialStep)
+        {
+            InputFeederUnloadFromStageStep resolvedStep = base.ResolveStartStep(initialStep);
+            if (resolvedStep != InputFeederUnloadFromStageStep.MoveFeederStageUnloadAvoidPosition ||
+                Feeder == null)
+            {
+                return resolvedStep;
+            }
+
+            // 실패 당시에는 Lift Up 상태였더라도 Ready/수동 복구가 실제 장비를 Avoid+Down으로
+            // 되돌릴 수 있다. 저장 Step만 믿고 Y 이동을 재개하지 않고, 현재 상태가 정상 시작
+            // 자세이면 Stage 위치와 Feeder 선행조건부터 다시 확인한다.
+            if (Feeder.IsWaferFeederInAvoidPosition() &&
+                Feeder.IsWaferFeederDown() &&
+                Feeder.IsWaferFeederEmpty() &&
+                ResolveStageWafer() != null)
+            {
+                WriteLog(
+                    "ResolveStartStep",
+                    "Input feeder UnloadFromStage 저장 Step과 실제 상태가 달라 안전 Step으로 되돌립니다. " +
+                    "savedStep=" + resolvedStep +
+                    ", restartStep=" + InputFeederUnloadFromStageStep.CheckStagePosition +
+                    ". " + Feeder.GetWaferFeederTransferState() +
+                    " - Check");
+                return InputFeederUnloadFromStageStep.CheckStagePosition;
+            }
+
+            return resolvedStep;
+        }
 
         protected override Task<int> ExecuteCurrentStepAsync(CancellationToken ct)
         {
@@ -326,6 +359,17 @@ namespace QMC.CDT320.Sequencing
         {
             ct.ThrowIfCancellationRequested();
 
+            string prerequisiteReason;
+            if (!CheckFeederStageUnloadAvoidMovePrerequisites(out prerequisiteReason))
+            {
+                return Fail(
+                    "IN-FEEDER-STAGE-UNLOAD-AVOID-PRECONDITION",
+                    Feeder != null ? Feeder.Name : "InputFeeder",
+                    "InputFeederY stage unload avoid 이동 전 선행조건 불일치로 이동을 차단합니다. " +
+                    prerequisiteReason +
+                    (Feeder != null ? " " + Feeder.GetWaferFeederTransferState() : ""));
+            }
+
             int result = await AwaitStepWithCancellationAsync(
                 Feeder.MoveToWaferFeederStageUnloadAvoidPosition(Options.FineMove),
                 ct).ConfigureAwait(false);
@@ -342,6 +386,67 @@ namespace QMC.CDT320.Sequencing
 
             CurrentStep = InputFeederUnloadFromStageStep.PrepareFeederLiftDown;
             return 0;
+        }
+
+        private bool CheckFeederStageUnloadAvoidMovePrerequisites(out string reason)
+        {
+            reason = string.Empty;
+            if (Feeder == null)
+            {
+                reason = "InputFeeder unit is not available.";
+                return false;
+            }
+
+            if (!Feeder.IsWaferFeederSimulationOrDryRun())
+            {
+                int readError = -1;
+                if (Feeder.WaferFeederUpSensor == null ||
+                    !AjinIoScanService.TryReadHardwareInput(Feeder.WaferFeederUpSensor, out readError))
+                {
+                    reason = "Lift Up 센서 갱신 실패. error=" + readError + ".";
+                    return false;
+                }
+
+                if (Feeder.WaferFeederDownSensor == null ||
+                    !AjinIoScanService.TryReadHardwareInput(Feeder.WaferFeederDownSensor, out readError))
+                {
+                    reason = "Lift Down 센서 갱신 실패. error=" + readError + ".";
+                    return false;
+                }
+
+                if (Feeder.WaferFeederClampSensor == null ||
+                    !AjinIoScanService.TryReadHardwareInput(Feeder.WaferFeederClampSensor, out readError))
+                {
+                    reason = "Clamp/Unclamp 센서 갱신 실패. error=" + readError + ".";
+                    return false;
+                }
+            }
+
+            string axisReason;
+            if (!Feeder.CheckWaferFeederYMoveReady(out axisReason))
+            {
+                reason = "InputFeederY 이동 준비 실패. " + axisReason;
+                return false;
+            }
+
+            bool liftUp = Feeder.IsWaferFeederUp();
+            bool liftDown = Feeder.IsWaferFeederDown();
+            bool unclamp = Feeder.IsWaferFeederUnclamp();
+            bool feederEmpty = Feeder.IsWaferFeederEmpty();
+            bool stageWaferPresent = ResolveStageWafer() != null;
+            if (!liftUp || liftDown || !unclamp || !feederEmpty || !stageWaferPresent)
+            {
+                reason =
+                    "required=LiftUp+LiftDownOff+Unclamp+FeederEmpty+StageWafer, " +
+                    "actual=LiftUp:" + liftUp +
+                    ",LiftDown:" + liftDown +
+                    ",Unclamp:" + unclamp +
+                    ",FeederEmpty:" + feederEmpty +
+                    ",StageWafer:" + stageWaferPresent + ".";
+                return false;
+            }
+
+            return true;
         }
 
         private async Task<int> PrepareFeederLiftDownAsync(CancellationToken ct)

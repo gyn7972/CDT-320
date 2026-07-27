@@ -868,10 +868,10 @@ namespace QMC.CDT_320
 
             OnLocalizationChanged();
 
-#if DEBUG
+            // 임시 TEST 운전: Release 빌드도 Debug와 동일하게 시작 즉시 Admin 세션으로 진입한다.
+            // 사용자 승인 후 정식 로그인 정책으로 복귀할 때 이 자동 로그인 호출을 다시 DEBUG 조건으로 제한한다.
             QMC.CDT_320.Ui.Security.UserSession.ForceSet(
                 "admin", QMC.CDT_320.Ui.Security.UserLevel.Admin);
-#endif
             OnUserChanged();
 
             try

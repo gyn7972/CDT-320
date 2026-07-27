@@ -469,7 +469,7 @@ namespace QMC.Common.Motion
             try
             {
                 if (timeoutMs <= 0)
-                    timeoutMs = 60000;
+                    timeoutMs = 300000;
                 double tolerance = Config != null && Config.InPositionTolerance > 0.0
                     ? Config.InPositionTolerance
                     : 0.01;

@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using QMC.CDT320.Interlocks;
@@ -39,6 +40,45 @@ namespace QMC.CDT320.Sequencing
         protected override InputFeederLoadFromCassetteStep InitialStep { get { return InputFeederLoadFromCassetteStep.CheckUnit; } }
         protected override InputFeederLoadFromCassetteStep CompleteStep { get { return InputFeederLoadFromCassetteStep.Complete; } }
         protected override InputFeederLoadFromCassetteStep ErrorStep { get { return InputFeederLoadFromCassetteStep.Error; } }
+
+        protected override InputFeederLoadFromCassetteStep ResolveStartStep(InputFeederLoadFromCassetteStep initialStep)
+        {
+            InputFeederLoadFromCassetteStep resolvedStep = base.ResolveStartStep(initialStep);
+            switch (resolvedStep)
+            {
+                case InputFeederLoadFromCassetteStep.CheckTransferReady:
+                case InputFeederLoadFromCassetteStep.CheckCassetteWaferData:
+                case InputFeederLoadFromCassetteStep.MoveCassetteToWaferSlot:
+                case InputFeederLoadFromCassetteStep.MoveStageToAvoidPosition:
+                case InputFeederLoadFromCassetteStep.MoveStageToLoadPosition:
+                case InputFeederLoadFromCassetteStep.CheckPickerAvoidPosition:
+                case InputFeederLoadFromCassetteStep.PrepareFeederUnclamp:
+                case InputFeederLoadFromCassetteStep.PrepareFeederLiftDown:
+                    WriteLog(
+                        "ResolveStartStep",
+                        "Input cassette load 재개 전 앞단 안전조건을 다시 확인합니다. savedStep=" +
+                        resolvedStep + ", restartStep=" +
+                        InputFeederLoadFromCassetteStep.CheckUnit + " - Check");
+                    return InputFeederLoadFromCassetteStep.CheckUnit;
+
+                case InputFeederLoadFromCassetteStep.MoveFeederLoadPosition:
+                    bool alreadyAtLoadPosition =
+                        IsFeederAtCassetteLoadPositionComplete();
+                    InputFeederLoadFromCassetteStep restartStep =
+                        alreadyAtLoadPosition
+                            ? InputFeederLoadFromCassetteStep.VerifyWaferDetected
+                            : InputFeederLoadFromCassetteStep.CheckPickerAvoidPosition;
+                    WriteLog(
+                        "ResolveStartStep",
+                        "InputFeeder cassette load 이동 재개 위치를 판정했습니다. savedStep=" +
+                        resolvedStep + ", alreadyAtLoadPosition=" +
+                        alreadyAtLoadPosition + ", restartStep=" + restartStep + " - Check");
+                    return restartStep;
+
+                default:
+                    return resolvedStep;
+            }
+        }
 
         protected override Task<int> ExecuteCurrentStepAsync(CancellationToken ct)
         {
@@ -131,6 +171,9 @@ namespace QMC.CDT320.Sequencing
                 return Fail("IN-FEEDER-CST-SENSOR", cassette.Name, "Input cassette is not detected or not ready for transfer. " + cassetteReason);
 
             InputStageUnit stage = Context.Machine != null ? Context.Machine.InputStageUnit : null;
+            if (stage == null)
+                return Fail("IN-FEEDER-STAGE-MISSING", "InputStage", "Input stage unit is not available.");
+
             if (!IsInputStageEmpty(stage))
                 return Fail("IN-FEEDER-STAGE-OCCUPIED", "InputStage", "Input stage must be empty before cassette to feeder load.");
 
@@ -175,21 +218,30 @@ namespace QMC.CDT320.Sequencing
                     "Selected cassette slot is not ready for wafer loading. slot=" + Options.SlotIndex);
             }
 
-            WaferMaterial wafer = ResolveCassetteWafer();
-            if (wafer == null)
-                return Fail("IN-FEEDER-CST-WAFER-DATA", "Material", "Mapped cassette wafer data was not found. role=" + Options.CassetteRole + ", slot=" + Options.SlotIndex);
+            WaferMaterial wafer;
+            string validationCode;
+            string validationReason;
+            if (!TryValidateSelectedCassetteWafer(
+                out wafer,
+                out validationCode,
+                out validationReason))
+            {
+                return Fail(validationCode, "Material", validationReason);
+            }
 
-            if (WaferMaterialStateText.Normalize(wafer.State) != WaferMaterialState.Ready)
-                return Fail("IN-FEEDER-CST-WAFER-STATE", "Material", "선택한 Input cassette wafer가 Ready 상태가 아닙니다. wafer=" + wafer.WaferId + ", state=" + wafer.State);
+            if (WaferMaterialStateText.Normalize(wafer.State) == WaferMaterialState.WorkReady)
+            {
+                WriteLog(
+                    "CheckCassetteWaferData",
+                    "WorkReady wafer를 정확한 Input cassette role/slot 검증 후 로딩 대상으로 허용합니다. " +
+                    "wafer=" + wafer.WaferId +
+                    ", role=" + Options.CassetteRole +
+                    ", slot=" + (Options.SlotIndex + 1).ToString("00") + " - Check");
+            }
 
-            if (wafer.SourceCassetteRole != Options.CassetteRole || wafer.SourceSlotNumber != Options.SlotIndex)
-                return Fail("IN-FEEDER-CST-WAFER-SOURCE", "Material", "선택한 Input wafer의 원본 cassette/slot 정보가 현재 slot과 다릅니다. wafer=" + wafer.WaferId +
-                    ", sourceRole=" + wafer.SourceCassetteRole + ", sourceSlot=" + (wafer.SourceSlotNumber + 1).ToString("00") +
-                    ", targetRole=" + Options.CassetteRole + ", targetSlot=" + (Options.SlotIndex + 1).ToString("00"));
-
-            if (!string.IsNullOrWhiteSpace(Options.ExpectedWaferId) &&
-                !string.Equals(Options.ExpectedWaferId, wafer.WaferId, StringComparison.OrdinalIgnoreCase))
-                return Fail("IN-FEEDER-CST-WAFER-MISMATCH", "Material", "선택 계획과 현재 Input cassette slot의 Wafer ID가 다릅니다. expected=" + Options.ExpectedWaferId + ", actual=" + wafer.WaferId);
+            int entrySafety = CheckCassetteLoadEntrySafety();
+            if (entrySafety != 0)
+                return entrySafety;
 
             CurrentStep = InputFeederLoadFromCassetteStep.MoveCassetteToWaferSlot;
             return 0;
@@ -468,6 +520,10 @@ namespace QMC.CDT320.Sequencing
         {
             ct.ThrowIfCancellationRequested();
 
+            int precondition = CheckFeederLoadMoveSafety();
+            if (precondition != 0)
+                return precondition;
+
             int result = await AwaitStepWithCancellationAsync(
                 Feeder.MoveToWaferFeederCassetteLoadPosition(Options.SlotIndex, Options.FineMove),
                 ct).ConfigureAwait(false);
@@ -490,12 +546,15 @@ namespace QMC.CDT320.Sequencing
         {
             ct.ThrowIfCancellationRequested();
 
-            WaferMaterial wafer = ResolveCassetteWafer();
-            bool hasData = wafer != null;
-            bool bypass = IsHardwareBypass();
+            WaferMaterial wafer;
+            int precondition = CheckFeederAtCassetteLoadSafety(
+                false,
+                "VerifyWaferDetected",
+                out wafer);
+            if (precondition != 0)
+                return precondition;
 
-            if (!hasData)
-                return Fail("IN-FEEDER-WAFER-DATA-MISSING", "Material", "Wafer data disappeared before feeder clamp. role=" + Options.CassetteRole + ", slot=" + Options.SlotIndex);
+            bool bypass = IsHardwareBypass();
 
             if (!bypass)
             {
@@ -511,6 +570,39 @@ namespace QMC.CDT320.Sequencing
         private async Task<int> ClampFeederWaferAsync(CancellationToken ct)
         {
             ct.ThrowIfCancellationRequested();
+
+            WaferMaterial wafer;
+            bool clampAlreadyComplete =
+                Feeder != null &&
+                Feeder.IsWaferFeederClamp() &&
+                !Feeder.IsWaferFeederUnclamp() &&
+                (IsHardwareBypass() ||
+                 Feeder.IsWaferFeederRingDetected(true));
+            if (clampAlreadyComplete)
+            {
+                int completedPrecondition = CheckFeederAtCassetteLoadSafety(
+                    true,
+                    "ClampFeederWaferResume",
+                    out wafer);
+                if (completedPrecondition != 0)
+                    return completedPrecondition;
+
+                CurrentStep = InputFeederLoadFromCassetteStep.MoveMaterialDataToFeeder;
+                return 0;
+            }
+
+            int precondition = CheckFeederAtCassetteLoadSafety(
+                false,
+                "ClampFeederWafer",
+                out wafer);
+            if (precondition != 0)
+                return precondition;
+
+            if (!IsHardwareBypass() && !Feeder.IsWaferFeederRingDetected(true))
+                return Fail(
+                    "IN-FEEDER-CLAMP-WAFER-SENSOR",
+                    Feeder.Name,
+                    "Wafer sensor is not detected before feeder clamp. wafer=" + wafer.WaferId);
 
             int result = await AwaitStepWithCancellationAsync(
                 Feeder.SetWaferFeederClampAsync(true, ResolveTimeout(), ct),
@@ -528,22 +620,13 @@ namespace QMC.CDT320.Sequencing
 
         private int MoveMaterialDataToFeeder()
         {
-            WaferMaterial wafer = ResolveCassetteWafer();
-            if (wafer == null)
-                return Fail("IN-FEEDER-MATERIAL-MOVE", "Material", "Cassette wafer data was not found for feeder material move.");
-
-            if (WaferMaterialStateText.Normalize(wafer.State) != WaferMaterialState.Ready ||
-                wafer.SourceCassetteRole != Options.CassetteRole ||
-                wafer.SourceSlotNumber != Options.SlotIndex ||
-                (!string.IsNullOrWhiteSpace(Options.ExpectedWaferId) &&
-                 !string.Equals(Options.ExpectedWaferId, wafer.WaferId, StringComparison.OrdinalIgnoreCase)))
-            {
-                return Fail("IN-FEEDER-MATERIAL-REVALIDATE", "Material", "물리 이송 후 Material 갱신 직전에 Input wafer 정보가 선택 계획과 달라졌습니다. wafer=" + wafer.WaferId +
-                    ", state=" + wafer.State + ", sourceRole=" + wafer.SourceCassetteRole +
-                    ", sourceSlot=" + (wafer.SourceSlotNumber + 1).ToString("00") +
-                    ", expectedWafer=" + Options.ExpectedWaferId + ", targetRole=" + Options.CassetteRole +
-                    ", targetSlot=" + (Options.SlotIndex + 1).ToString("00"));
-            }
+            WaferMaterial wafer;
+            int precondition = CheckFeederAtCassetteLoadSafety(
+                true,
+                "MoveMaterialDataToFeeder",
+                out wafer);
+            if (precondition != 0)
+                return precondition;
 
             Feeder.SetCurrentWaferMaterial(wafer);
             MaterialStateService.MoveWaferToInputFeeder(wafer);
@@ -779,6 +862,381 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
+        private bool TryValidateSelectedCassetteWafer(
+            out WaferMaterial wafer,
+            out string alarmCode,
+            out string reason)
+        {
+            wafer = ResolveCassetteWafer();
+            alarmCode = "IN-FEEDER-CST-WAFER-DATA";
+            reason = string.Empty;
+
+            if (wafer == null || string.IsNullOrWhiteSpace(wafer.WaferId))
+            {
+                reason =
+                    "Mapped cassette wafer data was not found. role=" +
+                    Options.CassetteRole + ", slot=" + Options.SlotIndex;
+                return false;
+            }
+
+            WaferMaterialState state = WaferMaterialStateText.Normalize(wafer.State);
+            if (state != WaferMaterialState.Ready &&
+                state != WaferMaterialState.WorkReady)
+            {
+                alarmCode = "IN-FEEDER-CST-WAFER-STATE";
+                reason =
+                    "선택한 Input cassette wafer가 Ready/WorkReady 상태가 아닙니다. wafer=" +
+                    wafer.WaferId + ", state=" + wafer.State;
+                return false;
+            }
+
+            MaterialLocation location = wafer.CurrentLocation;
+            if (location == null ||
+                location.Kind != MaterialLocationKind.InputCassette ||
+                location.CassetteRole != Options.CassetteRole ||
+                location.SlotNumber != Options.SlotIndex)
+            {
+                alarmCode = "IN-FEEDER-CST-WAFER-LOCATION";
+                reason =
+                    "선택한 Input wafer의 현재 위치가 실제 cassette role/slot과 다릅니다. wafer=" +
+                    wafer.WaferId + ", currentLocation=" +
+                    (location != null ? location.ToString() : "null") +
+                    ", targetRole=" + Options.CassetteRole +
+                    ", targetSlot=" + (Options.SlotIndex + 1).ToString("00");
+                return false;
+            }
+
+            CassetteMaterial cassetteMaterial =
+                MaterialStateService.State != null &&
+                MaterialStateService.State.Cassettes != null
+                    ? MaterialStateService.State.Cassettes.FirstOrDefault(
+                        item => item != null && item.Role == Options.CassetteRole)
+                    : null;
+            CassetteSlotMaterial slot =
+                cassetteMaterial != null &&
+                cassetteMaterial.Slots != null &&
+                Options.SlotIndex >= 0 &&
+                Options.SlotIndex < cassetteMaterial.Slots.Count
+                    ? cassetteMaterial.Slots[Options.SlotIndex]
+                    : null;
+            if (slot == null ||
+                !slot.HasWafer ||
+                string.IsNullOrWhiteSpace(slot.WaferId) ||
+                !string.Equals(slot.WaferId, wafer.WaferId, StringComparison.OrdinalIgnoreCase))
+            {
+                alarmCode = "IN-FEEDER-CST-WAFER-SLOT-DATA";
+                reason =
+                    "선택한 Input cassette slot의 Wafer ID와 Material이 일치하지 않습니다. wafer=" +
+                    wafer.WaferId + ", slotWafer=" +
+                    (slot != null ? slot.WaferId : "null") +
+                    ", role=" + Options.CassetteRole +
+                    ", slot=" + (Options.SlotIndex + 1).ToString("00");
+                return false;
+            }
+
+            if (wafer.SourceCassetteRole != Options.CassetteRole ||
+                wafer.SourceSlotNumber != Options.SlotIndex)
+            {
+                alarmCode = "IN-FEEDER-CST-WAFER-SOURCE";
+                reason =
+                    "선택한 Input wafer의 원본 cassette/slot 정보가 현재 slot과 다릅니다. wafer=" +
+                    wafer.WaferId +
+                    ", sourceRole=" + wafer.SourceCassetteRole +
+                    ", sourceSlot=" + (wafer.SourceSlotNumber + 1).ToString("00") +
+                    ", targetRole=" + Options.CassetteRole +
+                    ", targetSlot=" + (Options.SlotIndex + 1).ToString("00");
+                return false;
+            }
+
+            if (!string.IsNullOrWhiteSpace(Options.ExpectedWaferId) &&
+                !string.Equals(
+                    Options.ExpectedWaferId,
+                    wafer.WaferId,
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                alarmCode = "IN-FEEDER-CST-WAFER-MISMATCH";
+                reason =
+                    "선택 계획과 현재 Input cassette slot의 Wafer ID가 다릅니다. expected=" +
+                    Options.ExpectedWaferId + ", actual=" + wafer.WaferId;
+                return false;
+            }
+
+            return true;
+        }
+
+        private int CheckCassetteLoadEntrySafety()
+        {
+            if (Feeder == null || !Feeder.IsWaferFeederTransferDataEmpty())
+            {
+                return Fail(
+                    "IN-FEEDER-CST-LOAD-ENTRY-DATA",
+                    "InputFeeder",
+                    "WorkReady/Ready wafer 로딩 전 InputFeeder 데이터가 Empty가 아닙니다. " +
+                    (Feeder != null ? Feeder.GetWaferFeederTransferState() : "Feeder=null"));
+            }
+
+            if (!IsHardwareBypass() && !Feeder.IsWaferFeederRingDetected(false))
+            {
+                return Fail(
+                    "IN-FEEDER-CST-LOAD-ENTRY-RING",
+                    Feeder.Name,
+                    "WorkReady/Ready wafer 로딩 전 InputFeeder Ring이 OFF가 아닙니다. " +
+                    Feeder.GetWaferFeederTransferState());
+            }
+
+            InputStageUnit stage =
+                Context.Machine != null ? Context.Machine.InputStageUnit : null;
+            if (stage == null)
+                return Fail(
+                    "IN-FEEDER-STAGE-MISSING",
+                    "InputStage",
+                    "Input stage unit is not available.");
+
+            if (!IsInputStageEmpty(stage))
+                return Fail(
+                    "IN-FEEDER-STAGE-OCCUPIED",
+                    "InputStage",
+                    "Input stage must be empty before cassette to feeder load.");
+
+            return 0;
+        }
+
+        private int CheckCassetteLoadMotionContext(
+            string phase,
+            out WaferMaterial wafer)
+        {
+            wafer = null;
+            if (Feeder == null)
+            {
+                return Fail(
+                    "IN-FEEDER-MISSING",
+                    "InputFeeder",
+                    "Input feeder unit is not available. phase=" + phase);
+            }
+
+            string validationCode;
+            string validationReason;
+            if (!TryValidateSelectedCassetteWafer(
+                out wafer,
+                out validationCode,
+                out validationReason))
+            {
+                return Fail(
+                    "IN-FEEDER-CST-LOAD-CONTEXT",
+                    "Material",
+                    "phase=" + phase + ", validationCode=" +
+                    validationCode + ". " + validationReason);
+            }
+
+            if (!Feeder.IsWaferFeederTransferDataEmpty())
+            {
+                return Fail(
+                    "IN-FEEDER-CST-LOAD-CONTEXT-DATA",
+                    Feeder.Name,
+                    "Cassette pickup 완료 전 InputFeeder 데이터가 Empty가 아닙니다. phase=" +
+                    phase + ". " + Feeder.GetWaferFeederTransferState());
+            }
+
+            InputCassetteUnit cassette =
+                Context.Machine != null ? Context.Machine.InputCassetteUnit : null;
+            if (cassette == null || cassette.InputLifterZ == null)
+            {
+                return Fail(
+                    "IN-FEEDER-CST-MISSING",
+                    "InputCassette",
+                    "Input cassette unit or LifterZ is not available. phase=" + phase);
+            }
+
+            string cassetteReason;
+            if (!IsHardwareBypass() &&
+                !cassette.CheckWaferCassetteTransferReady(
+                    TransferMode.Load,
+                    out cassetteReason))
+            {
+                return Fail(
+                    "IN-FEEDER-CST-SENSOR",
+                    cassette.Name,
+                    "Input cassette transfer condition is not ready. phase=" +
+                    phase + ". " + cassetteReason);
+            }
+
+            int cassetteLevel =
+                InputCassetteUnit.ResolveCassetteLevel(Options.CassetteRole);
+            double cassetteTarget =
+                cassette.CalculateWaferCassetteSlotTargetPosition(
+                    Options.SlotIndex,
+                    cassetteLevel);
+            double cassetteTolerance =
+                cassette.ResolveWaferLifterZInPositionTolerance();
+            bool cassetteActualOk =
+                cassette.IsWaferLifterZInPosition(
+                    cassetteTarget,
+                    cassetteTolerance);
+            bool cassetteCommandOk =
+                Math.Abs(cassette.InputLifterZ.CommandPosition - cassetteTarget) <=
+                cassetteTolerance;
+            if (!cassette.InputLifterZ.IsServoOn ||
+                cassette.InputLifterZ.IsAlarm ||
+                cassette.InputLifterZ.IsMoving ||
+                !cassetteActualOk ||
+                !cassetteCommandOk)
+            {
+                return Fail(
+                    "IN-FEEDER-CST-LOAD-Z-PRECONDITION",
+                    cassette.Name,
+                    "InputCassette LifterZ가 선택 Slot 위치에 있지 않습니다. phase=" +
+                    phase +
+                    ", servo=" + cassette.InputLifterZ.IsServoOn +
+                    ", alarm=" + cassette.InputLifterZ.IsAlarm +
+                    ", moving=" + cassette.InputLifterZ.IsMoving +
+                    ", actual=" + cassette.InputLifterZ.ActualPosition +
+                    ", command=" + cassette.InputLifterZ.CommandPosition +
+                    ", target=" + cassetteTarget +
+                    ", tolerance=" + cassetteTolerance);
+            }
+
+            InputStageUnit stage =
+                Context.Machine != null ? Context.Machine.InputStageUnit : null;
+            if (stage == null)
+                return Fail(
+                    "IN-FEEDER-STAGE-MISSING",
+                    "InputStage",
+                    "Input stage unit is not available. phase=" + phase);
+
+            if (!IsInputStageEmpty(stage))
+                return Fail(
+                    "IN-FEEDER-STAGE-OCCUPIED",
+                    "InputStage",
+                    "Input stage must be empty before cassette pickup. phase=" + phase);
+
+            return 0;
+        }
+
+        private int CheckFeederLoadMoveSafety()
+        {
+            WaferMaterial wafer;
+            int contextResult =
+                CheckCassetteLoadMotionContext("MoveFeederLoadPosition", out wafer);
+            if (contextResult != 0)
+                return contextResult;
+
+            string feederReason;
+            if (!Feeder.CheckWaferFeederMoveReady(out feederReason))
+            {
+                return Fail(
+                    "IN-FEEDER-CST-LOAD-MOVE-READY",
+                    Feeder.Name,
+                    "InputFeeder cassette load 이동 준비가 되지 않았습니다. " +
+                    feederReason);
+            }
+
+            if (Feeder.FeederY == null ||
+                !Feeder.FeederY.IsServoOn ||
+                Feeder.FeederY.IsAlarm ||
+                Feeder.FeederY.IsMoving)
+            {
+                return Fail(
+                    "IN-FEEDER-CST-LOAD-MOVE-AXIS",
+                    Feeder.Name,
+                    "InputFeederY가 정지된 Servo ON/Alarm OFF 상태가 아닙니다. " +
+                    Feeder.GetWaferFeederTransferState());
+            }
+
+            if (!Feeder.IsWaferFeederDown() ||
+                Feeder.IsWaferFeederUp() ||
+                !Feeder.IsWaferFeederUnclamp() ||
+                Feeder.IsWaferFeederClamp())
+            {
+                return Fail(
+                    "IN-FEEDER-CST-LOAD-MOVE-POSTURE",
+                    Feeder.Name,
+                    "InputFeeder cassette load 이동 전 Down/Unclamp 자세가 아닙니다. wafer=" +
+                    wafer.WaferId + ". " + Feeder.GetWaferFeederTransferState());
+            }
+
+            if (!IsHardwareBypass() && !Feeder.IsWaferFeederRingDetected(false))
+            {
+                return Fail(
+                    "IN-FEEDER-CST-LOAD-MOVE-RING",
+                    Feeder.Name,
+                    "InputFeeder cassette load 이동 전 Ring이 OFF가 아닙니다. " +
+                    Feeder.GetWaferFeederTransferState());
+            }
+
+            return 0;
+        }
+
+        private int CheckFeederAtCassetteLoadSafety(
+            bool requireClampedWafer,
+            string phase,
+            out WaferMaterial wafer)
+        {
+            int contextResult =
+                CheckCassetteLoadMotionContext(
+                    phase,
+                    out wafer);
+            if (contextResult != 0)
+                return contextResult;
+
+            if (!IsFeederAtCassetteLoadPositionComplete() ||
+                !Feeder.IsWaferFeederDown() ||
+                Feeder.IsWaferFeederUp())
+            {
+                return Fail(
+                    "IN-FEEDER-CST-LOAD-PICK-PRECONDITION",
+                    Feeder.Name,
+                    "InputFeeder가 정지된 CassetteLoad/Down 상태가 아닙니다. " +
+                    Feeder.GetWaferFeederTransferState());
+            }
+
+            if (requireClampedWafer)
+            {
+                if (!Feeder.IsWaferFeederClamp() ||
+                    Feeder.IsWaferFeederUnclamp() ||
+                    (!IsHardwareBypass() &&
+                     !Feeder.IsWaferFeederRingDetected(true)))
+                {
+                    return Fail(
+                        "IN-FEEDER-MATERIAL-PRECONDITION",
+                        Feeder.Name,
+                        "Material 이동 전 Clamp/Ring ON 상태가 아닙니다. wafer=" +
+                        wafer.WaferId + ". " +
+                        Feeder.GetWaferFeederTransferState());
+                }
+            }
+            else if (!Feeder.IsWaferFeederUnclamp() ||
+                     Feeder.IsWaferFeederClamp())
+            {
+                return Fail(
+                    "IN-FEEDER-CST-LOAD-PICK-POSTURE",
+                    Feeder.Name,
+                    "Wafer 검출/Clamp 전 InputFeeder가 Unclamp 상태가 아닙니다. wafer=" +
+                    wafer.WaferId + ". " +
+                    Feeder.GetWaferFeederTransferState());
+            }
+
+            return 0;
+        }
+
+        private bool IsFeederAtCassetteLoadPositionComplete()
+        {
+            if (Feeder == null || Feeder.FeederY == null)
+                return false;
+
+            double target =
+                Feeder.CalculateWaferFeederCassetteLoadPosition(Options.SlotIndex);
+            double tolerance =
+                Feeder.FeederY.Config != null &&
+                Feeder.FeederY.Config.InPositionTolerance >= 0.0
+                    ? Feeder.FeederY.Config.InPositionTolerance
+                    : 0.05;
+            return Feeder.FeederY.IsServoOn &&
+                   !Feeder.FeederY.IsAlarm &&
+                   !Feeder.FeederY.IsMoving &&
+                   Math.Abs(Feeder.FeederY.ActualPosition - target) <= tolerance &&
+                   Math.Abs(Feeder.FeederY.CommandPosition - target) <= tolerance;
+        }
+
         private WaferMaterial ResolveCassetteWafer()
         {
             return MaterialStateService.GetWaferInCassette(Options.CassetteRole, Options.SlotIndex);
@@ -787,7 +1245,7 @@ namespace QMC.CDT320.Sequencing
         private bool IsInputStageEmpty(InputStageUnit stage)
         {
             if (stage == null)
-                return true;
+                return false;
 
             return stage.CurrentWaferMaterial == null &&
                    MaterialStateService.GetWaferAtLocation(MaterialLocationKind.InputStage) == null;

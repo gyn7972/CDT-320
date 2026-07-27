@@ -34,6 +34,7 @@ namespace QMC.CDT320
         [DataMember]public bool bDryRun { get; set; }
         [DataMember]public double LoadingPositionOffset { get; set; }
         [DataMember]public double UnloadingPositionOffset { get; set; }
+        [DataMember]public double UnloadReleaseLiftDistance { get; set; } = 1.00;
         [DataMember]public double Level2PositionOffset { get; set; }
         [DataMember]public double SlotPitch { get; set; }
         [DataMember]public int SlotCount { get; set; }
@@ -57,6 +58,7 @@ namespace QMC.CDT320
             bDryRun = false;
             LoadingPositionOffset = 0.00;
             UnloadingPositionOffset = 0.00;
+            UnloadReleaseLiftDistance = 1.00;
             Level2PositionOffset = 59.00;
             SlotPitch = 5.00;
             SlotCount = 25;
@@ -139,6 +141,8 @@ namespace QMC.CDT320
 
     public class InputCassetteUnit : BaseUnit<InputCassetteSetup, InputCassetteConfig, InputCassetteRecipe>, IUnitJogController
     {
+        internal const string UnloadReleaseLiftTargetName = "InputCassette.InputLifterZ.UnloadReleaseLift";
+
         // To do: C4 - 슬롯 상태를 레벨별(1단/2단) dict로 관리한다. 외부 키=level(1/2), 내부 키=레벨 내 로컬 슬롯 인덱스.
         private readonly Dictionary<int, Dictionary<int, WaferSlotState>> levelSlotStates = new Dictionary<int, Dictionary<int, WaferSlotState>>();
         private readonly Dictionary<int, Dictionary<int, WaferSlotState>> mappingPreviousLevelSlotStates = new Dictionary<int, Dictionary<int, WaferSlotState>>();
@@ -299,6 +303,65 @@ namespace QMC.CDT320
             }
             finally
             {
+            }
+        }
+
+        internal async Task<int> MoveWaferLifterZForUnloadRelease(
+            double targetPos,
+            bool bFine,
+            CancellationToken ct)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+
+                string targetReason;
+                if (!ValidateWaferLifterZTargetPosition(targetPos, out targetReason))
+                {
+                    RaiseWaferCassetteConditionAlarm("IN-CST-LIFTER-TARGET", targetReason);
+                    return -1;
+                }
+
+                string interlockReason;
+                if (!InputCassetteInterlockRules.VerifyUnloadReleaseLift(
+                    Machine,
+                    targetPos,
+                    out interlockReason))
+                {
+                    LastWaferLifterMoveFailureMessage = interlockReason;
+                    RaiseWaferCassetteConditionAlarm("IN-CST-LIFTER-INTERLOCK", interlockReason);
+                    return -11;
+                }
+
+                using (MotionGuardRuntime.BeginAxisTeachingMove(
+                    InputLifterZ,
+                    targetPos,
+                    UnloadReleaseLiftTargetName))
+                {
+                    return await MoveWithProtrusionWatch(
+                        targetPos,
+                        ResolveWaferLifterZMoveVelocity(bFine),
+                        ResolveWaferLifterZMoveAcceleration(bFine),
+                        ResolveWaferLifterZMoveDeceleration(bFine),
+                        ct).ConfigureAwait(false);
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                try { InputLifterZ?.Stop(); } catch { }
+                throw;
+            }
+            catch (Exception ex)
+            {
+                LastWaferLifterMoveFailureMessage =
+                    "Wafer Lifter Z unload release 이동 예외. target=" +
+                    targetPos + ", error=" + ex.Message;
+                Log.Write(
+                    "Main",
+                    "MOTION",
+                    Name,
+                    LastWaferLifterMoveFailureMessage + " - Failed");
+                return -1;
             }
         }
 

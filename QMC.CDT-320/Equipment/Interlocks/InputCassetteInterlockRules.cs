@@ -1,5 +1,6 @@
 ﻿using QMC.Common;
 using QMC.Common.IO;
+using QMC.CDT320.Materials;
 using System;
 
 namespace QMC.CDT320.Interlocks
@@ -14,7 +15,21 @@ namespace QMC.CDT320.Interlocks
                 return true;
 
             if (MotionGuardRuleHelpers.IsMoving(request, "InputLifterZ"))
+            {
+                if (request.MoveKind == MotionGuardMoveKind.AxisTeachingMove &&
+                    string.Equals(
+                        request.TargetName,
+                        InputCassetteUnit.UnloadReleaseLiftTargetName,
+                        StringComparison.Ordinal))
+                {
+                    return VerifyUnloadReleaseLift(
+                        request.Machine,
+                        request.TargetValue,
+                        out reason);
+                }
+
                 return VerifyWaferLifterZ(request.Machine, request.TargetValue, request.MoveKind, out reason);
+            }
 
             return true;
         }
@@ -91,6 +106,176 @@ namespace QMC.CDT320.Interlocks
             }
 
 
+        }
+
+        internal static bool VerifyUnloadReleaseLift(
+            CDT320_Machine machine,
+            double targetPosition,
+            out string reason)
+        {
+            reason = string.Empty;
+
+            try
+            {
+                if (machine == null ||
+                    machine.InputCassetteUnit == null ||
+                    machine.InputCassetteUnit.InputLifterZ == null ||
+                    machine.InputCassetteUnit.Config == null ||
+                    machine.InputFeederUnit == null ||
+                    machine.InputFeederUnit.FeederY == null)
+                {
+                    return MotionGuardRuleHelpers.Block(
+                        "InputLifterZ",
+                        "Unload release lift 상태를 확인할 수 없습니다.",
+                        out reason);
+                }
+
+                InputCassetteUnit cassette = machine.InputCassetteUnit;
+                InputFeederUnit feeder = machine.InputFeederUnit;
+
+                if (!VerifyFrontPickerXAvoidPosition(machine.PickerFrontUnit, out reason))
+                    return false;
+
+                if (!VerifyRearPickerXAvoidPosition(machine.PickerRearUnit, out reason))
+                    return false;
+
+                if (cassette.IsWaferProtrusionDetected())
+                {
+                    return MotionGuardRuleHelpers.Block(
+                        "InputLifterZ",
+                        "InputCassette Jut detected. Unload release lift is blocked.",
+                        out reason);
+                }
+
+                if (!cassette.InputLifterZ.IsServoOn ||
+                    cassette.InputLifterZ.IsAlarm ||
+                    cassette.InputLifterZ.IsMoving)
+                {
+                    return MotionGuardRuleHelpers.Block(
+                        "InputLifterZ",
+                        "InputLifterZ가 unload release lift 준비 상태가 아닙니다. " +
+                        "servo=" + cassette.InputLifterZ.IsServoOn +
+                        ", alarm=" + cassette.InputLifterZ.IsAlarm +
+                        ", moving=" + cassette.InputLifterZ.IsMoving,
+                        out reason);
+                }
+
+                if (!feeder.FeederY.IsServoOn ||
+                    feeder.FeederY.IsAlarm ||
+                    feeder.FeederY.IsMoving ||
+                    !feeder.IsWaferFeederYInCassetteUnloadPosition())
+                {
+                    return MotionGuardRuleHelpers.Block(
+                        "InputLifterZ",
+                        "InputFeederY가 정지된 CassetteUnloadPosition이어야 합니다. " +
+                        "servo=" + feeder.FeederY.IsServoOn +
+                        ", alarm=" + feeder.FeederY.IsAlarm +
+                        ", moving=" + feeder.FeederY.IsMoving +
+                        ", actual=" + feeder.FeederY.ActualPosition.ToString("0.###"),
+                        out reason);
+                }
+
+                if (!feeder.IsWaferFeederDown() ||
+                    feeder.IsWaferFeederUp() ||
+                    !feeder.IsWaferFeederUnclamp() ||
+                    feeder.IsWaferFeederClamp())
+                {
+                    return MotionGuardRuleHelpers.Block(
+                        "InputLifterZ",
+                        "Unload release lift 전 피더는 Down/Unclamp 상태여야 합니다. " +
+                        feeder.GetWaferFeederTransferState(),
+                        out reason);
+                }
+
+                if (!feeder.IsWaferFeederTransferDataOccupied())
+                {
+                    return MotionGuardRuleHelpers.Block(
+                        "InputLifterZ",
+                        "Unload release lift 전 InputFeeder wafer 데이터가 없습니다.",
+                        out reason);
+                }
+
+                double unloadOffset = cassette.Config.UnloadingPositionOffset;
+                double releaseDistance = cassette.Config.UnloadReleaseLiftDistance;
+                double tolerance = cassette.ResolveWaferLifterZInPositionTolerance();
+                WaferMaterial wafer =
+                    feeder.CurrentWaferMaterial ??
+                    MaterialStateService.GetWaferAtLocation(MaterialLocationKind.InputFeeder);
+                double moveDistance = targetPosition - cassette.InputLifterZ.ActualPosition;
+                bool invalidConfig =
+                    double.IsNaN(unloadOffset) ||
+                    double.IsInfinity(unloadOffset) ||
+                    double.IsNaN(releaseDistance) ||
+                    double.IsInfinity(releaseDistance) ||
+                    unloadOffset >= 0.0 ||
+                    releaseDistance <= 0.0 ||
+                    releaseDistance > Math.Abs(unloadOffset);
+                if (invalidConfig)
+                {
+                    return MotionGuardRuleHelpers.Block(
+                        "InputLifterZ",
+                        "Unload release lift 설정이 안전 범위를 벗어났습니다. " +
+                        "unloadOffset=" + unloadOffset.ToString("0.###") +
+                        ", releaseDistance=" + releaseDistance.ToString("0.###"),
+                        out reason);
+                }
+
+                if (wafer == null ||
+                    wafer.SourceSlotNumber < 0 ||
+                    (wafer.SourceCassetteRole != CassetteMaterialRole.Input1 &&
+                     wafer.SourceCassetteRole != CassetteMaterialRole.Input2))
+                {
+                    return MotionGuardRuleHelpers.Block(
+                        "InputLifterZ",
+                        "Unload release lift 대상 wafer의 원본 cassette/slot을 확인할 수 없습니다.",
+                        out reason);
+                }
+
+                int level = InputCassetteUnit.ResolveCassetteLevel(wafer.SourceCassetteRole);
+                double unloadTarget =
+                    cassette.CalculateWaferCassetteSlotTargetPosition(
+                        wafer.SourceSlotNumber,
+                        level) +
+                    unloadOffset;
+                double releaseTarget = unloadTarget + releaseDistance;
+                double actual = cassette.InputLifterZ.ActualPosition;
+                bool actualInReleaseCorridor =
+                    actual >= unloadTarget - tolerance &&
+                    actual <= releaseTarget + tolerance;
+                bool targetMatches =
+                    Math.Abs(targetPosition - releaseTarget) <= tolerance;
+                if (!actualInReleaseCorridor ||
+                    !targetMatches ||
+                    moveDistance < -tolerance ||
+                    moveDistance > releaseDistance + tolerance)
+                {
+                    return MotionGuardRuleHelpers.Block(
+                        "InputLifterZ",
+                        "Unload release lift 거리 조건이 맞지 않습니다. " +
+                        "unloadOffset=" + unloadOffset.ToString("0.###") +
+                        ", releaseDistance=" + releaseDistance.ToString("0.###") +
+                        ", unloadTarget=" + unloadTarget.ToString("0.###") +
+                        ", releaseTarget=" + releaseTarget.ToString("0.###") +
+                        ", actual=" + actual.ToString("0.###") +
+                        ", target=" + targetPosition.ToString("0.###") +
+                        ", source=" + wafer.SourceCassetteRole +
+                        "/" + (wafer.SourceSlotNumber + 1),
+                        out reason);
+                }
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                return MotionGuardRuleHelpers.Block(
+                    "InputLifterZ",
+                    "Unload release lift 인터락 확인 중 예외가 발생했습니다. error=" + ex.Message,
+                    out reason);
+            }
+            finally
+            {
+                LogBlockedReason(reason);
+            }
         }
 
         // 인터락 조건: InputLifterZ 이동 전 FrontPickerX가 정확한 AvoidPosition인지 확인한다.

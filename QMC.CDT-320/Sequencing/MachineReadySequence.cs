@@ -933,7 +933,13 @@ namespace QMC.CDT320.Sequencing
 
                 double target = unit.Recipe.AvoidPosition;
                 if (unit.IsWaferFeederInAvoidPosition() && unit.IsWaferFeederDown())
+                {
+                    // Ready 상태와 일치하는 빈 피더는 이전 중간 모션 Step을 재개하면 안 된다.
+                    // Material은 유지하고 InputFeeder UnloadFromStage 재개 정보만 무효화한다.
+                    if (unit.IsWaferFeederEmpty())
+                        SequenceResumeStore.Clear(InputFeederUnloadFromStageSequence.ResumeStateName);
                     return 0;
+                }
 
                 if (unit.FeederY.IsMoving)
                 {
@@ -998,6 +1004,9 @@ namespace QMC.CDT320.Sequencing
 
                 LogStep("InputFeeder 빈 피더 안전 복구 완료. " +
                     BuildAxisState("InputFeederY", unit.FeederY, target));
+                // Ready 복구가 실제 Y/Lift 상태를 변경했으므로 이전 UnloadFromStage 중간
+                // Step을 그대로 재개하지 않는다. 자재 상태는 삭제하지 않는다.
+                SequenceResumeStore.Clear(InputFeederUnloadFromStageSequence.ResumeStateName);
                 return 0;
             }
             catch (OperationCanceledException)

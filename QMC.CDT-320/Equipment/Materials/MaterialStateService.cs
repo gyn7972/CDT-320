@@ -37,28 +37,6 @@ namespace QMC.CDT320.Materials
         private static bool _stateChangedQueued;
         private static DateTime _lastStateChangedAt = DateTime.MinValue;
 
-        // [택타임 개선 2026-07-27] 출력 수령 순서 캐시.
-        // 기존에는 다이 1개를 배치할 때마다(ReserveNextOutputStageReceiveTarget) _stateSync 락 안에서
-        // .Project 역직렬화 → 빈맵 파일 로드 → Normalize → 수령 순서 전체 재계산을 반복했다.
-        // 실측 48ms/다이(런당 5.4초)가 그대로 픽커 대기 시간이 되었다.
-        // 레시피는 오토 운전 중에 바뀌지 않으므로, 관련 파일 타임스탬프가 동일하면 계산 결과를 재사용한다.
-        // 무효화 근거는 파일 3개의 LastWriteTimeUtc(마커/프로젝트/빈맵)이며, 하나라도 달라지면 재계산한다.
-        private sealed class OutputReceiveOrderCacheEntry
-        {
-            public DateTime MarkerStampUtc;
-            public string ProjectPath;
-            public DateTime ProjectStampUtc;
-            public string MapPath;
-            public DateTime MapStampUtc;
-            public DieMap BinMap;
-            public List<DieMapEntry> Ordered;
-            public PickupSubset Pickup;
-        }
-
-        private static readonly object _outputReceiveOrderCacheSync = new object();
-        private static readonly Dictionary<QMC.CDT320.BinSide, OutputReceiveOrderCacheEntry> _outputReceiveOrderCache =
-            new Dictionary<QMC.CDT320.BinSide, OutputReceiveOrderCacheEntry>();
-
         public static MaterialSnapshot State => MaterialStorage.State;
 
         public static string GetProductionLotId()
@@ -2412,22 +2390,19 @@ namespace QMC.CDT320.Materials
                     return false;
 
                 // 출력 수령 계획은 레시피의 원형 빈맵(side별)에서 타겟 슬롯을 소스로 한다.
-                DieMap binMap;
-                List<DieMapEntry> ordered;
-                PickupSubset pickup;
-                if (!TryResolveOutputReceiveOrder(side, out binMap, out ordered, out pickup))
+                DieMap binMap = LoadRecipeBinMap(side);
+                if (binMap == null || binMap.DieMapX <= 0 || binMap.DieMapY <= 0)
                 {
                     Log.Write("Main", "SYSTEM", "MaterialStateService",
                         "Output receive plan initialize skipped: recipe bin map is missing. side=" + side + " - Check");
                     return false;
                 }
 
-                if (binMap.DieMapX <= 0 || binMap.DieMapY <= 0)
-                {
-                    Log.Write("Main", "SYSTEM", "MaterialStateService",
-                        "Output receive plan initialize skipped: recipe bin map is missing. side=" + side + " - Check");
+                var project = RecipeStore.LoadLastOrDefault();
+                PickupSubset pickup = ResolveOutputPickup(project);
+                List<DieMapEntry> ordered = BuildOutputReceiveOrder(binMap, pickup);
+                if (ordered.Count == 0)
                     return false;
-                }
 
                 // [사용자 승인 2026-07-27] 계획 재초기화 시 수령 순서 캐시를 최신으로 갱신.
                 _outputReceiveOrderCache[side] =
@@ -2487,6 +2462,7 @@ namespace QMC.CDT320.Materials
         // wafer 단위 1회로 줄인다. 키 = side + 출력 WaferId: wafer 교체 시 WaferId 불일치로
         // 자동 무효화되고, 수령 계획 재초기화(InitializeOutputStageReceivePlan)가 명시 갱신한다.
         // 호출은 전부 _stateSync lock 안(스레드 안전).
+        // [원격 master 기준 2026-07-27] 동일 목적의 별도 파일 캐시와 병합하지 않고 이 구현 하나만 사용한다.
         private static readonly System.Collections.Generic.Dictionary<QMC.CDT320.BinSide, System.Collections.Generic.KeyValuePair<string, List<DieMapEntry>>> _outputReceiveOrderCache =
             new System.Collections.Generic.Dictionary<QMC.CDT320.BinSide, System.Collections.Generic.KeyValuePair<string, List<DieMapEntry>>>();
 
@@ -4226,16 +4202,9 @@ namespace QMC.CDT320.Materials
         /// 경로는 RecipeMapPaths 공용 규칙을 사용하며, 없으면 null.</summary>
         private static DieMap LoadRecipeBinMap(QMC.CDT320.BinSide side)
         {
-            string mapPath;
-            return LoadRecipeBinMap(RecipeStore.LoadLastOrDefault(), side, out mapPath);
-        }
-
-        // 프로젝트를 이미 로드한 호출자를 위한 오버로드. 캐시 무효화에 쓸 실제 맵 파일 경로도 돌려준다.
-        private static DieMap LoadRecipeBinMap(RecipeProject project, QMC.CDT320.BinSide side, out string mapPath)
-        {
-            mapPath = "";
             try
             {
+                RecipeProject project = RecipeStore.LoadLastOrDefault();
                 if (project == null)
                     return null;
 
@@ -4244,7 +4213,6 @@ namespace QMC.CDT320.Materials
                 string reason;
                 // 현재 기준: 출력 Good/NG 빈맵도 Input과 같은 원본 wafer map index 기준을 사용한다.
                 DieMap map = RecipeDieMapResolver.LoadCompatibleMap(project, kind, out path, out reason);
-                mapPath = path ?? "";
                 if (map != null)
                     return DieMapGenerator.Normalize(map);
 
@@ -4263,122 +4231,6 @@ namespace QMC.CDT320.Materials
             }
             finally
             {
-            }
-        }
-
-        /// <summary>
-        /// 출력 수령 순서(빈맵 + 픽업 순서)를 캐시에서 얻는다. 캐시가 유효하지 않으면 다시 계산하고 저장한다.
-        /// 반환된 binMap/ordered는 캐시 공유 인스턴스이므로 호출자가 변경하면 안 된다(현재 호출부는 모두 읽기 전용).
-        /// </summary>
-        private static bool TryResolveOutputReceiveOrder(
-            QMC.CDT320.BinSide side,
-            out DieMap binMap,
-            out List<DieMapEntry> ordered)
-        {
-            PickupSubset pickup;
-            return TryResolveOutputReceiveOrder(side, out binMap, out ordered, out pickup);
-        }
-
-        private static bool TryResolveOutputReceiveOrder(
-            QMC.CDT320.BinSide side,
-            out DieMap binMap,
-            out List<DieMapEntry> ordered,
-            out PickupSubset pickup)
-        {
-            binMap = null;
-            ordered = null;
-            pickup = null;
-
-            string markerPath = Path.Combine(RecipeStore.Dir, ".last_project");
-            DateTime markerStamp = ResolveFileStampUtc(markerPath);
-
-            lock (_outputReceiveOrderCacheSync)
-            {
-                OutputReceiveOrderCacheEntry cached;
-                if (_outputReceiveOrderCache.TryGetValue(side, out cached) &&
-                    cached.MarkerStampUtc == markerStamp &&
-                    ResolveFileStampUtc(cached.ProjectPath) == cached.ProjectStampUtc &&
-                    ResolveFileStampUtc(cached.MapPath) == cached.MapStampUtc)
-                {
-                    binMap = cached.BinMap;
-                    ordered = cached.Ordered;
-                    pickup = cached.Pickup;
-                    return binMap != null && ordered != null && ordered.Count > 0 && pickup != null;
-                }
-            }
-
-            // 캐시 미스: 기존과 동일한 경로로 다시 만든다(프로젝트 로드는 1회만).
-            RecipeProject project = RecipeStore.LoadLastOrDefault();
-            if (project == null)
-                return false;
-
-            string mapPath;
-            DieMap map = LoadRecipeBinMap(project, side, out mapPath);
-            if (map == null)
-                return false;
-
-            PickupSubset resolvedPickup = ResolveOutputPickup(project);
-            List<DieMapEntry> order = BuildOutputReceiveOrder(map, resolvedPickup);
-            if (order == null || order.Count == 0)
-                return false;
-
-            string projectPath = ResolveRecipeProjectFilePath(project);
-            var entry = new OutputReceiveOrderCacheEntry
-            {
-                MarkerStampUtc = markerStamp,
-                ProjectPath = projectPath,
-                ProjectStampUtc = ResolveFileStampUtc(projectPath),
-                MapPath = mapPath,
-                MapStampUtc = ResolveFileStampUtc(mapPath),
-                BinMap = map,
-                Ordered = order,
-                Pickup = resolvedPickup
-            };
-
-            lock (_outputReceiveOrderCacheSync)
-            {
-                _outputReceiveOrderCache[side] = entry;
-            }
-
-            Log.Write("Main", "SYSTEM", "OutputReceiveOrderCache",
-                "출력 수령 순서를 다시 계산해 캐시했습니다. side=" + side +
-                ", count=" + order.Count + ", map=" + mapPath + " - Ok");
-
-            binMap = map;
-            ordered = order;
-            pickup = resolvedPickup;
-            return true;
-        }
-
-        private static DateTime ResolveFileStampUtc(string path)
-        {
-            try
-            {
-                if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
-                    return DateTime.MinValue;
-                return File.GetLastWriteTimeUtc(path);
-            }
-            catch
-            {
-                return DateTime.MinValue;
-            }
-        }
-
-        private static string ResolveRecipeProjectFilePath(RecipeProject project)
-        {
-            try
-            {
-                if (project == null || string.IsNullOrWhiteSpace(project.FileName))
-                    return "";
-
-                string name = project.FileName;
-                if (!name.EndsWith(".Project", StringComparison.OrdinalIgnoreCase))
-                    name += ".Project";
-                return Path.Combine(RecipeStore.Dir, name);
-            }
-            catch
-            {
-                return "";
             }
         }
 
