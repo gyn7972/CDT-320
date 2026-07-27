@@ -81,10 +81,31 @@ namespace QMC.CDT320.Sequencing
             get { return CurrentStep == PickerPlaceStep.Complete; }
         }
 
+        // [사용자 지시 2026-07-27] 정지/종료 경계에서 백그라운드 Z Avoid 상승이 진행 중이면
+        // 완주를 기다린 뒤 정지한다 — 상승이 도중에 잘리며 -5(이동 완료 후 command≠target)로
+        // 유닛 PK-MOVE 알람이 승격되던 사고(실장비 2026-07-27 03:42, RearPickerZ0 -8.198) 차단.
+        public async Task WaitPendingPickerZAvoidRiseBeforeStopAsync(int timeoutMs = 5000)
+        {
+            Task<int> rise = _pendingContiRetreatRiseTask;
+            if (rise == null || rise.IsCompleted)
+                return;
+
+            WriteLog("PickerPlaceSequence",
+                Name + " 정지 전 백그라운드 PickerZ Avoid 상승 완주를 대기합니다. timeoutMs=" + timeoutMs + " - Wait");
+            await Task.WhenAny(rise, Task.Delay(timeoutMs)).ConfigureAwait(false);
+        }
+
         public void Abort()
         {
             try
             {
+                // [사용자 지시 2026-07-27] Abort 정리 전 상승 완주 대기(최대 5초) — 동기 경계라 Wait 사용.
+                Task<int> rise = _pendingContiRetreatRiseTask;
+                if (rise != null && !rise.IsCompleted)
+                {
+                    try { rise.Wait(5000); } catch { }
+                }
+
                 ObserveOutputVisionRetreatMoveTaskOnAbort();
                 TurnPlaceBlowOff("Place 시퀀스 Abort");
                 ClearPendingContiRetreat();

@@ -28,6 +28,11 @@ namespace QMC.CDT320.Sequencing
         private bool _resumePartialPickUpWithoutMarkPermission;
         private bool _firstForwardTurnHandled;
         private bool _resumeDrainWaitHandled;
+        // [동적 선행 대기점, 지시서 2026-07-27] 촬영(선행검사) 진행 중 대기 픽커 X를
+        // "배치 maxVisionX + 팔로잉 클리어런스(+여유)"까지 선행 접근시키는 기능의 이동 Task/목표.
+        // 허가 대기 세션당 1회만 발동(재명령 금지 — AXM 0x1038 선례), 세션 시작 시 초기화.
+        private Task<int> _dynamicWaitAdvanceMoveTask;
+        private double _dynamicWaitAdvanceTarget;
         private bool _resumeDrainTurnHeld;
         private bool _pickerZStageSafeConfirmedByPickUp;
 
@@ -134,6 +139,18 @@ namespace QMC.CDT320.Sequencing
             finally
             {
                 ReleaseActivePickerProcessResource("ProcessFinally");
+                // [사용자 지시 2026-07-27] Cycle Stop/종료 정리 전, place의 백그라운드 Z Avoid
+                // 상승이 진행 중이면 완주를 기다린다 — 상승이 잘리며 -5 알람으로 승격 방지.
+                if (_placeSequence != null)
+                {
+                    try
+                    {
+                        await _placeSequence.WaitPendingPickerZAvoidRiseBeforeStopAsync().ConfigureAwait(false);
+                    }
+                    catch
+                    {
+                    }
+                }
                 await EnsureCycleStopSafePoseAsync(ct).ConfigureAwait(false);
                 ReleasePickerProcessPhase("ProcessFinally");
                 ResetPickerPhaseSignals();
@@ -882,13 +899,33 @@ namespace QMC.CDT320.Sequencing
                 if (readyResult != 0)
                     return readyResult;
 
-                InputCameraPreInspectionWaitResult waitResult =
-                    await InputCameraPreInspectionCoordinator.WaitForPermissionOrCompletionAsync(
-                        Context,
-                        Side,
-                        BuildChildSequenceOptions(),
-                        ct,
-                        Name + ":PickUpReady").ConfigureAwait(false);
+                // [동적 선행 대기점 2026-07-27] 허가 대기 동안만 모니터를 돌린다 — 게이트 4종
+                // (촬영 중/허가 대기/Auto+Conti/스위치 On) 충족 시 1회 선행 이동 발행.
+                // 이동 명령은 시퀀스 ct를 쓰고(허가 도착으로 모니터가 꺼져도 이동은 완주),
+                // 대기 종료 시 반드시 join해 픽업 X 진입과의 재명령 충돌(0x1038)을 차단한다.
+                _dynamicWaitAdvanceMoveTask = null;
+                _dynamicWaitAdvanceTarget = 0.0;
+                InputCameraPreInspectionWaitResult waitResult;
+                using (CancellationTokenSource dynamicWaitCts = CancellationTokenSource.CreateLinkedTokenSource(ct))
+                {
+                    Task dynamicWaitMonitor = RunDynamicPickUpWaitAdvanceMonitorAsync(dynamicWaitCts.Token, ct);
+                    try
+                    {
+                        waitResult =
+                            await InputCameraPreInspectionCoordinator.WaitForPermissionOrCompletionAsync(
+                                Context,
+                                Side,
+                                BuildChildSequenceOptions(),
+                                ct,
+                                Name + ":PickUpReady").ConfigureAwait(false);
+                    }
+                    finally
+                    {
+                        dynamicWaitCts.Cancel();
+                        try { await dynamicWaitMonitor.ConfigureAwait(false); } catch { }
+                        await JoinDynamicPickUpWaitAdvanceAsync("허가 대기 종료").ConfigureAwait(false);
+                    }
+                }
 
                 if (ShouldBlockNewPickForWaferCompletion())
                 {
@@ -1066,6 +1103,235 @@ namespace QMC.CDT320.Sequencing
             return completion.IsDrainRequested;
         }
 
+        // ===== [동적 선행 대기점, 지시서 2026-07-27] =====
+        // 촬영(선행검사) 진행 중 대기 픽커 X를 "배치 maxVisionX + FollowMove 클리어런스(+여유)"
+        // 위치로 미리 접근시켜 허가 후 팔로잉 시작 거리를 줄인다.
+        //   게이트 4종: ①자기 측 촬영 진행 중 ②허가 대기 상태(모니터 수명으로 보장)
+        //              ③Auto+ContiSegmentedPickUp ④PickUpDynamicWaitMode On(기본 Off)
+        //   원칙: 전진만 허용(후퇴 금지), 산식·좌표 변환은 기존 것 재사용(신규 산식 금지),
+        //         발행 전 MotionGuard dry-run(차단이면 알람 없이 스킵), 허가/선행검사 흐름 무변경.
+
+        // 허가 대기 세션 동안 200ms 주기로 게이트를 판정하고 충족 시 1회 선행 이동을 발행한다.
+        // monitorCt = 대기 종료 시 취소(모니터 전용), moveCt = 시퀀스 토큰(이동은 완주 허용).
+        private async Task RunDynamicPickUpWaitAdvanceMonitorAsync(CancellationToken monitorCt, CancellationToken moveCt)
+        {
+            HashSet<string> loggedReasons = new HashSet<string>();
+            try
+            {
+                while (!monitorCt.IsCancellationRequested)
+                {
+                    if (_dynamicWaitAdvanceMoveTask != null)
+                        return;
+
+                    PickerPickUpMotionConfig config;
+                    string gateDetail;
+                    if (IsDynamicPickUpWaitGateSatisfied(out config, out gateDetail))
+                    {
+                        TryIssueDynamicPickUpWaitAdvance(config, loggedReasons, moveCt);
+                        if (_dynamicWaitAdvanceMoveTask != null)
+                            return;
+                    }
+                    else if (!string.Equals(gateDetail, "switchOff", StringComparison.Ordinal) &&
+                             !string.Equals(gateDetail, "noConfig", StringComparison.Ordinal))
+                    {
+                        // 스위치 Off/설정 부재는 로그 없이 무동작(R3·검증 F1: Off = 로그 포함
+                        // 기존과 완전 동일). 그 외 게이트 미충족 사유는 세션당 1회만 기록.
+                        LogDynamicWaitSkipOnce(loggedReasons, "gate:" + gateDetail, gateDetail);
+                    }
+
+                    await Task.Delay(200, monitorCt).ConfigureAwait(false);
+                }
+            }
+            catch (OperationCanceledException)
+            {
+            }
+            catch (Exception ex)
+            {
+                WriteLog("PickerProcessSequence",
+                    Name + " 동적 선행 대기점 모니터 예외(기능 중단, 기존 대기 유지). error=" + ex.Message + " - Check");
+            }
+        }
+
+        // 게이트 ③④ + 기본 참조 확인. 촬영 진행 중(①)은 코디네이터 조회, 대기 상태(②)는
+        // 모니터가 허가 대기 await 동안만 살아 있는 구조 자체로 보장된다.
+        private bool IsDynamicPickUpWaitGateSatisfied(out PickerPickUpMotionConfig config, out string detail)
+        {
+            // 판정 순서(검증 F1): 스위치 Off를 최우선 무로그 차단해 Off 상태에서는 실행 모드와
+            // 무관하게 로그 포함 기존 동작과 완전히 동일하게 만든다.
+            config = Side == PickerSequenceSide.Front
+                ? (FrontPicker != null && FrontPicker.Config != null ? FrontPicker.Config.PickUp : null)
+                : (RearPicker != null && RearPicker.Config != null ? RearPicker.Config.PickUp : null);
+            if (config == null)
+            {
+                detail = "noConfig";
+                return false;
+            }
+            config.Ensure();
+
+            if (!config.PickUpDynamicWaitMode)
+            {
+                detail = "switchOff";
+                return false;
+            }
+
+            if (Options == null || Options.RunMode != SequenceRunMode.Auto)
+            {
+                detail = "notAuto";
+                return false;
+            }
+
+            // 검증 A7: Motion Only Test에서도 선행검사 Task/배치 Publish는 수행되므로 명시 차단
+            // (지시서 A7 '자연 비활성' 전제가 성립하지 않음 — 무변경 원칙을 명시 게이트로 보장).
+            if (Options.PickerMotionOnlyTestMode)
+            {
+                detail = "motionOnlyTest";
+                return false;
+            }
+
+            if (config.TransferMotionMode != PickerPickUpTransferMotionMode.ContiSegmentedPickUp)
+            {
+                detail = "notConti";
+                return false;
+            }
+
+            if (!InputCameraPreInspectionCoordinator.IsInspectionRunning(Side))
+            {
+                detail = "inspectionNotRunning";
+                return false;
+            }
+
+            detail = "ok";
+            return true;
+        }
+
+        private void TryIssueDynamicPickUpWaitAdvance(
+            PickerPickUpMotionConfig config,
+            HashSet<string> loggedReasons,
+            CancellationToken moveCt)
+        {
+            // 산출 코어는 베이스 공용 리졸버 재사용(Place 복귀 직행과 동일 산식 공유 — 중복 금지).
+            DynamicPickUpWaitTarget resolved;
+            string failReasonKey;
+            string failDetail;
+            if (!TryResolveDynamicPickUpWaitTargetX(config, out resolved, out failReasonKey, out failDetail))
+            {
+                LogDynamicWaitSkipOnce(loggedReasons, failReasonKey, failDetail);
+                return;
+            }
+
+            BaseAxis pickerX = GetPickerAxis(PickerAxis.PickerX);
+            if (pickerX == null)
+            {
+                LogDynamicWaitSkipOnce(loggedReasons, "noAxis", "PickerX 축 참조 없음");
+                return;
+            }
+
+            double waitX = resolved.WaitX;
+            double currentX = pickerX.ActualPosition;
+            bool forward = resolved.Direction > 0 ? waitX > currentX + 0.5 : waitX < currentX - 0.5;
+            if (!forward)
+            {
+                LogDynamicWaitSkipOnce(loggedReasons, "noForwardGain",
+                    "후퇴/무이득 — waitX=" + waitX.ToString("F3") + ", currentX=" + currentX.ToString("F3"));
+                return;
+            }
+
+            // MotionGuard 전 규칙 dry-run(알람 없는 판정) — 차단 사유가 있으면 발행하지 않는다.
+            // targetName은 유닛 가드 조립 형식과 동일하게 구성(명시 PickerZone 토큰은 재부착 안 됨).
+            string moveTargetName = "PickUpDynamicWait;PickerZone=Input";
+            string dryRunName = (Side == PickerSequenceSide.Front ? "FrontPicker" : "RearPicker") +
+                                ";PickerX;" + moveTargetName;
+            string guardReason;
+            if (!MotionGuardRuntime.CanAxisTeachingMove(pickerX, waitX, dryRunName, out guardReason))
+            {
+                LogDynamicWaitSkipOnce(loggedReasons, "guardDryRun", guardReason);
+                return;
+            }
+
+            _dynamicWaitAdvanceTarget = waitX;
+            _dynamicWaitAdvanceMoveTask = MovePickerAxisAndVerifyAsync(
+                PickerAxis.PickerX,
+                waitX,
+                "PickUp 동적 선행 대기점",
+                moveCt,
+                moveTargetName);
+
+            WriteLog("PickerProcessSequence",
+                Name + " PickUp 동적 선행 대기점 이동 발행. constraintVisionX=" + resolved.ConstraintVisionX.ToString("F3") +
+                ", batchVisionXRange=" + resolved.MinVisionX.ToString("F3") + "~" + resolved.MaxVisionX.ToString("F3") +
+                ", dieCount=" + resolved.DieCount +
+                ", homeGap=" + resolved.HomeGap.ToString("F3") +
+                ", safetyGap=" + resolved.SafetyGap.ToString("F3") +
+                ", extraMargin=" + resolved.ExtraMargin.ToString("F3") +
+                ", direction=" + resolved.Direction +
+                ", waitX=" + waitX.ToString("F3") +
+                ", currentX=" + currentX.ToString("F3") +
+                ", advance=" + Math.Abs(currentX - waitX).ToString("F3") + " - Start");
+        }
+
+        private void LogDynamicWaitSkipOnce(HashSet<string> loggedReasons, string key, string detail)
+        {
+            if (loggedReasons == null || !loggedReasons.Add(key))
+                return;
+
+            WriteLog("PickerProcessSequence",
+                Name + " PickUp 동적 선행 대기점 스킵. reason=" + key +
+                ", detail=" + (detail ?? "-") + " - Check");
+        }
+
+        // 대기 종료(허가/실패/정지) 시 선행 이동을 join한다 — 픽업 X 진입/정지 경로와의
+        // 재명령 충돌(AXM 0x1038) 차단. 실패는 알람 재승격 없이 로그만(가드 차단은 dry-run이
+        // 사전에 거르고, 차단이 실제 발생했다면 가드 레이어가 이미 알람을 올렸다).
+        private async Task JoinDynamicPickUpWaitAdvanceAsync(string reason)
+        {
+            Task<int> move = _dynamicWaitAdvanceMoveTask;
+            if (move == null)
+                return;
+            _dynamicWaitAdvanceMoveTask = null;
+
+            try
+            {
+                // 검증 R5/공정 속도 규칙: 이동 시간은 MotionSpeedScale에 비례하므로 join 캡도 스케일한다.
+                int joinTimeoutMs = MotionSpeedScale.ScaleDefaultTimeoutMs(15000);
+                Task completed = await Task.WhenAny(move, Task.Delay(joinTimeoutMs)).ConfigureAwait(false);
+                if (completed != move)
+                {
+                    WriteLog("PickerProcessSequence",
+                        Name + " 동적 선행 대기점 이동 join 타임아웃 — 백그라운드 관찰로 전환합니다. " +
+                        "timeoutMs=" + joinTimeoutMs +
+                        ", reason=" + reason +
+                        ", target=" + _dynamicWaitAdvanceTarget.ToString("F3") + " - Check");
+                    move.ContinueWith(
+                        t =>
+                        {
+                            if (t.IsFaulted && t.Exception != null)
+                                t.Exception.Flatten();
+                        },
+                        TaskScheduler.Default);
+                    return;
+                }
+
+                int result = move.Status == TaskStatus.RanToCompletion ? move.Result : -1;
+                if (move.IsFaulted && move.Exception != null)
+                    move.Exception.Flatten();
+
+                BaseAxis pickerX = GetPickerAxis(PickerAxis.PickerX);
+                double actual = pickerX != null ? pickerX.ActualPosition : double.NaN;
+                WriteLog("PickerProcessSequence",
+                    Name + " 동적 선행 대기점 이동 join 완료. reason=" + reason +
+                    ", result=" + result +
+                    ", target=" + _dynamicWaitAdvanceTarget.ToString("F3") +
+                    ", actual=" + (double.IsNaN(actual) ? "-" : actual.ToString("F3")) +
+                    " - " + (result == 0 ? "Ok" : "Check"));
+            }
+            catch (Exception ex)
+            {
+                WriteLog("PickerProcessSequence",
+                    Name + " 동적 선행 대기점 이동 join 중 예외(무시). reason=" + reason +
+                    ", error=" + ex.Message + " - Check");
+            }
+        }
+
         private void CompleteProcessWithoutNewPick(string boundary)
         {
             InputCameraPickUpPermissionStore.Clear(Side);
@@ -1098,7 +1364,8 @@ namespace QMC.CDT320.Sequencing
                     Side,
                     Options,
                     ct,
-                    Name + ":PickUpCompleteToBottom");
+                    Name + ":PickUpCompleteToBottom",
+                    result => OnInputVisionXPrePositionArrived(result, ct));
 
                 WriteLog("InputVisionXPrePosition",
                     Name + " PickUp 완료 후 InputVisionX 선행이동 요청 결과. " +
@@ -1118,6 +1385,33 @@ namespace QMC.CDT320.Sequencing
             }
             finally
             {
+            }
+        }
+
+        // [A안, 사용자 승인 2026-07-27] 선행이동 세션이 최종 검사 위치 도착으로 정상 종료되면
+        // 비침습 InputCamera 선행검사 시작을 1회 재시도한다 — PickUp 완료 시점의 시도가 레일 간격
+        // 사전검사로 거절된 뒤 다음 시퀀스 이벤트(Place 완료 등)까지 검사가 기동되지 않던 공백
+        // (실장비 2026-07-27 06:02:10.4→12.78, 약 2.4초) 제거. 시작 가능 판정
+        // (CanStartSafeInputCameraPreInspection)과 중복 기동 방지(코디네이터)는 기존 그대로다.
+        private void OnInputVisionXPrePositionArrived(int sessionResult, CancellationToken ct)
+        {
+            try
+            {
+                if (sessionResult != 0)
+                    return;
+                if (Options == null || Options.RunMode != SequenceRunMode.Auto)
+                    return;
+
+                WriteLog("PickerProcessSequence",
+                    Name + " InputVisionX 선행이동 도착 — 비침습 InputCamera 선행검사 시작을 재시도합니다. " +
+                    "side=" + Side + " - Check");
+                StartSafeInputCameraPreInspectionsAfterPickUpComplete(ct, "VisionPrePositionArrived");
+            }
+            catch (Exception ex)
+            {
+                WriteLog("PickerProcessSequence",
+                    Name + " 선행이동 도착 후 선행검사 재시도 중 예외(무시). " +
+                    "side=" + Side + ", error=" + ex.Message + " - Check");
             }
         }
 

@@ -475,6 +475,11 @@ namespace QMC.CDT320.Sequencing
                         ", pickerNo=" + _currentPickerNo);
                 }
 
+                // [한 번에 수정 2026-07-27] 첫 픽/폴백(default) 경로에서도 die 도착 후 비전 전진을
+                // 발행한다 — ContiNode 경로와 동일 시점. 미호출이 배치 첫 픽에서 전진이 시작되지
+                // 못하던(배치당 1회 이동 고정) 원인의 한 축.
+                TryAdvanceInputVisionForRemainingPicks();
+
                 WriteLog("PickerPickUpSequence",
                     Name + " PickUp Picker X/T 및 NeedleX/StageY 목표 이동 완료 후 PickerY 전진을 시작합니다. " +
                     "die=" + _currentDieId +
@@ -817,14 +822,9 @@ namespace QMC.CDT320.Sequencing
                     return await MovePickerXStageYPickerTByDefaultAsync(stage, tAxis, targetName, ct).ConfigureAwait(false);
                 }
 
-                int preMove = await MovePickerYPickerTAndEjectPinZBeforeContiPickUpAsync(
-                    stage,
-                    tAxis,
-                    targetName,
-                    ct).ConfigureAwait(false);
-                if (preMove != 0)
-                    return preMove;
-
+                // [사용자 승인 2026-07-27] Y/T 사전보정 "직렬 스텝" 폐지 — die별 Y 보정(비전
+                // align)과 T 복귀는 아래 transfer 동시 발행(X/StageY/NeedleX와 같은 순간)에
+                // 포함된다. EjectPinZ ready/도착 확인은 StageY/NeedleX 게이트가 전담(기존 이연).
                 string inputZDetail;
                 if (!AreInputPickZAxesSafeBeforeContinuousXYT(stage, out inputZDetail))
                 {
@@ -904,6 +904,20 @@ namespace QMC.CDT320.Sequencing
                     ", needleXVel=" + needleXTransferVelocity.ToString("F6") +
                     ", speedModel=DefaultVelocity*GlobalScale - Start");
 
+                // [사용자 승인 2026-07-27] 비전X를 남은 픽커 경계까지 비동기 전진(이동 중이면 조용히 스킵).
+                // [사용자 승인 2026-07-27] die별 PickerY 보정(비전 align ±0.0x~0.17mm)과 T 0도를
+                // X와 "동시 발행" — 이동은 die당 1회 그대로, 직렬 스텝(~63ms)만 소멸. 목표가
+                // 직전 지령과 같으면 축 레이어가 무명령 처리한다. 태그(targetName)의 PickUpZHold
+                // 면제 토큰으로 die 간 Z 상승 중에도 Y 인터락을 통과한다.
+                var pickerYtTargets = new Dictionary<PickerAxis, double>();
+                pickerYtTargets[PickerAxis.PickerY] = _targetPickerY;
+                pickerYtTargets[tAxis] = _targetPickerT;
+                Task<int> pickerYtMoveTask = MovePickerAxesAndVerifyAsync(
+                    pickerYtTargets,
+                    "PickUp ContiNode PickerY/T 동시 발행",
+                    ct,
+                    targetName);
+
                 // R3(follow-entry): 비전 회피가 진행 중이면 follow 진입(+R6 폴백) — 정지 상태면 기존 이동.
                 Task<int> pickerXMoveTask = StartPickUpPickerXEntryMoveTask(
                     stage,
@@ -930,13 +944,15 @@ namespace QMC.CDT320.Sequencing
                 {
                     int[] pickerOnlyResults = await Task.WhenAll(
                         pickerXMoveTask,
-                        pickerZPrePickTask).ConfigureAwait(false);
+                        pickerZPrePickTask,
+                        pickerYtMoveTask).ConfigureAwait(false);
                     WriteLog("PickerPickUpSequence",
                         Name + " EjectPinZ 대기(Avoid)/Vacuum OFF 조건 실패로 StageY/NeedleX 이동은 시작하지 않았습니다. " +
-                        "PickerX/PickerZ 선행 이동 완료 후 시퀀스를 중단합니다. " +
+                        "PickerX/PickerZ/PickerYT 선행 이동 완료 후 시퀀스를 중단합니다. " +
                         "needleSafetyResult=" + needleSafetyResult +
                         ", pickerXResult=" + pickerOnlyResults[0] +
-                        ", pickerZPrePickResult=" + pickerOnlyResults[1] + " - Failed");
+                        ", pickerZPrePickResult=" + pickerOnlyResults[1] +
+                        ", pickerYtResult=" + pickerOnlyResults[2] + " - Failed");
                     return needleSafetyResult;
                 }
 
@@ -965,11 +981,13 @@ namespace QMC.CDT320.Sequencing
                     pickerXMoveTask,
                     stageYMoveTask,
                     needleXMoveTask,
-                    pickerZPrePickTask).ConfigureAwait(false);
+                    pickerZPrePickTask,
+                    pickerYtMoveTask).ConfigureAwait(false);
                 if (transferResults[0] != 0 ||
                     transferResults[1] != 0 ||
                     transferResults[2] != 0 ||
-                    transferResults[3] != 0)
+                    transferResults[3] != 0 ||
+                    transferResults[4] != 0)
                 {
                     return Fail("PICKER-PICKUP-CONTI-ASYNC-MOVE", Name,
                         "PickUp ContiNode async transfer failed. " +
@@ -977,11 +995,19 @@ namespace QMC.CDT320.Sequencing
                         ", stageYResult=" + transferResults[1] +
                         ", needleXResult=" + transferResults[2] +
                         ", pickerZPrePickResult=" + transferResults[3] +
+                        ", pickerYtResult=" + transferResults[4] +
                         ", " + BuildPickerAxisState(PickerAxis.PickerX, _targetPickerX) +
                         ", " + BuildInputStageAxisState(stage, WaferStageAxis.WaferY, _targetStageY) +
                         ", " + BuildInputStageAxisState(stage, WaferStageAxis.NeedleX, _targetNeedleX) +
-                        ", " + BuildPickerAxisState(pickerZAxis, prePickTarget));
+                        ", " + BuildPickerAxisState(pickerZAxis, prePickTarget) +
+                        ", " + BuildPickerAxisState(PickerAxis.PickerY, _targetPickerY));
                 }
+
+                // [정정 2026-07-27] 비전X 전진은 "픽커가 이번 die에 도착한 뒤" 발행해야 경계가
+                // 실제로 전진한다 — 회피 산식이 픽커 Actual/Command도 장애물로 포함하므로
+                // (안전상 옳음) transfer 발행 직후에 부르면 이전 die 위치에 막혀 전진량 0으로
+                // 매번 스킵됐다(실장비 확인). 여기(이송 완료 후)면 픽업 Z 동작과 병렬 진행된다.
+                TryAdvanceInputVisionForRemainingPicks();
 
                 // XY 이동 게이트에서 Needle Vacuum을 OFF했으므로 Contact/EjectPinZ 상승 전에 다시 ON한다.
                 int vacuumOnResult = EnsureNeedleVacuumOnForPick(stage, "PickUp ContiNode Contact 전");
@@ -1072,98 +1098,9 @@ namespace QMC.CDT320.Sequencing
             return await pendingEjectPinAvoid.ConfigureAwait(false);
         }
 
-        private async Task<int> MovePickerYPickerTAndEjectPinZBeforeContiPickUpAsync(
-            InputStageUnit stage,
-            PickerAxis tAxis,
-            string targetName,
-            CancellationToken ct)
-        {
-            try
-            {
-                // [정정 2026-07-26] 백그라운드 EjectPinZ Avoid 복귀 join — 아래 자기 이동/확인과의
-                // 경합 차단(이번 실장비 알람 지점: actual=target인데 moving=Y 스냅샷 실패).
-                int backgroundResult = await JoinPickUpEjectPinAvoidBackgroundAsync().ConfigureAwait(false);
-                if (backgroundResult != 0)
-                    return backgroundResult;
-
-                double ejectPinZAvoid = ResolveEjectPinZAvoidTarget(stage);
-                var pickerTargets = new Dictionary<PickerAxis, double>();
-                pickerTargets[PickerAxis.PickerY] = _targetPickerY;
-                pickerTargets[tAxis] = _targetPickerT;
-
-                Task<int> ejectPinZMove = MoveInputStageAxisToAvoidAndVerifyIfNeededAsync(
-                    stage,
-                    WaferStageAxis.EjectPinZ,
-                    ejectPinZAvoid,
-                    "PickUp ContiNode PickerY pre-correction with EjectPinZ Avoid",
-                    ct);
-
-                // [사용자 지시 2026-07-27] Y/T가 이미 목표 위치면 그룹 이동 체인(인터락 매트릭스
-                // 평가·존 스코프·플랜 검증·StrongWait)을 통째로 생략한다 — 무이동 스텝이
-                // 픽커당 ~63ms를 소모하던 오버헤드 제거. 이동이 필요한 경우는 기존 경로 그대로.
-                Task<int> pickerPreMove;
-                bool pickerYtAlreadyInPosition =
-                    IsPickerAxisAlreadyInPosition(PickerAxis.PickerY, _targetPickerY) &&
-                    IsPickerAxisAlreadyInPosition(tAxis, _targetPickerT);
-                if (pickerYtAlreadyInPosition)
-                {
-                    WriteLog("PickerPickUpSequence",
-                        Name + " PickUp ContiNode PickerY/T 사전보정 생략(이미 목표 위치). " +
-                        BuildPickerAxisState(PickerAxis.PickerY, _targetPickerY) + ", " +
-                        BuildPickerAxisState(tAxis, _targetPickerT) + " - Check");
-                    pickerPreMove = Task.FromResult(0);
-                }
-                else
-                {
-                    pickerPreMove = MovePickerAxesAndVerifyAsync(
-                        pickerTargets,
-                        "PickUp ContiNode PickerY/T pre-correction",
-                        ct,
-                        targetName);
-                }
-
-                int[] results = await Task.WhenAll(pickerPreMove, ejectPinZMove).ConfigureAwait(false);
-                if (results[0] != 0 || results[1] != 0)
-                {
-                    return Fail("PICKER-PICKUP-CONTI-PRE-MOVE", Name,
-                        "PickUp ContiNode pre-correction failed. " +
-                        "pickerResult=" + results[0] +
-                        ", ejectPinZResult=" + results[1] +
-                        ", " + BuildPickerAxisState(PickerAxis.PickerY, _targetPickerY) +
-                        ", " + BuildPickerAxisState(tAxis, _targetPickerT) +
-                        ", " + BuildInputStageAxisState(stage, WaferStageAxis.EjectPinZ, ejectPinZAvoid));
-                }
-
-                int check = CheckInputStageAxisInPosition(
-                    stage,
-                    WaferStageAxis.EjectPinZ,
-                    ejectPinZAvoid,
-                    "PickUp ContiNode EjectPinZ Avoid before StageY move");
-                if (check != 0)
-                    return check;
-
-                WriteLog("PickerPickUpSequence",
-                    Name + " PickUp ContiNode pre-correction complete. PickerY/T and EjectPinZ Avoid ready. " +
-                    BuildPickerAxisState(PickerAxis.PickerY, _targetPickerY) +
-                    ", " + BuildPickerAxisState(tAxis, _targetPickerT) +
-                    ", " + BuildInputStageAxisState(stage, WaferStageAxis.EjectPinZ, ejectPinZAvoid) +
-                    " - Ok");
-                return 0;
-            }
-            catch (OperationCanceledException)
-            {
-                throw;
-            }
-            catch (Exception ex)
-            {
-                return Fail("PICKER-PICKUP-CONTI-PRE-MOVE-EX", Name,
-                    "PickUp ContiNode pre-correction exception. error=" + ex.Message);
-            }
-            finally
-            {
-            }
-        }
-
+        // [사용자 승인 2026-07-27] MovePickerYPickerTAndEjectPinZBeforeContiPickUpAsync 삭제 —
+        // Y/T는 transfer 동시 발행에 흡수(직렬 스텝 폐지), EjectPinZ ready/도착 확인은
+        // StageY/NeedleX 게이트가 전담한다.
         private async Task<int> EnsureEjectPinZAtAvoidBeforePickStageMoveAsync(
             InputStageUnit stage,
             string description,

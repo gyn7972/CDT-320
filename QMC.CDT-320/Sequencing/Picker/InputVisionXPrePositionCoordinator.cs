@@ -25,12 +25,16 @@ namespace QMC.CDT320.Sequencing
         private static CancellationTokenSource _runningCancellation;
         private static PickerSequenceSide _runningSide;
 
+        // onSessionCompleted(A안, 사용자 승인 2026-07-27): 세션이 정상 종료(result=0, 최종 검사
+        // 위치 도착 포함)되면 1회 호출된다 — 호출자가 "도착 즉시 선행검사 재시도" 등 후속 트리거를
+        // 걸 수 있게 한다. 기본 null = 기존 동작 무변경.
         public static bool EnsureStarted(
             MachineSequenceContext context,
             PickerSequenceSide side,
             PickerSequenceOptions options,
             CancellationToken ct,
-            string reason)
+            string reason,
+            Action<int> onSessionCompleted = null)
         {
             if (context == null || context.Machine == null)
                 return false;
@@ -55,7 +59,11 @@ namespace QMC.CDT320.Sequencing
                 _runningTask = task;
 
                 task.ContinueWith(
-                    completed => CompleteTask(completed, linkedCancellation),
+                    completed =>
+                    {
+                        CompleteTask(completed, linkedCancellation);
+                        InvokeSessionCompletedCallback(side, completed, onSessionCompleted);
+                    },
                     CancellationToken.None,
                     TaskContinuationOptions.ExecuteSynchronously,
                     TaskScheduler.Default);
@@ -66,6 +74,34 @@ namespace QMC.CDT320.Sequencing
                 side + " PickUp 완료 후 InputVisionX 선행이동 세션을 시작했습니다. " +
                 "reason=" + Safe(reason) + " - Start");
             return true;
+        }
+
+        // [A안 2026-07-27] 세션 정상 종료 시 호출자 콜백을 1회 실행한다. 취소/실패/예외 종료는
+        // 호출하지 않는다(도착 보장이 없으므로). 콜백 예외는 로그만 남기고 무시한다.
+        private static void InvokeSessionCompletedCallback(
+            PickerSequenceSide side,
+            Task<int> completed,
+            Action<int> onSessionCompleted)
+        {
+            if (onSessionCompleted == null)
+                return;
+
+            try
+            {
+                if (completed == null || completed.Status != TaskStatus.RanToCompletion)
+                    return;
+
+                WriteLog(
+                    "InputVisionXPrePosition",
+                    side + " InputVisionX 선행이동 세션 종료 콜백을 호출합니다. result=" + completed.Result + " - Check");
+                onSessionCompleted(completed.Result);
+            }
+            catch (Exception ex)
+            {
+                WriteLog(
+                    "InputVisionXPrePosition",
+                    side + " InputVisionX 선행이동 세션 종료 콜백 처리 중 예외(무시). error=" + ex.Message + " - Check");
+            }
         }
 
         public static void Cancel(PickerSequenceSide side)
@@ -183,6 +219,22 @@ namespace QMC.CDT320.Sequencing
                 {
                     ct.ThrowIfCancellationRequested();
                     context.StopIfCycleStopRequested("InputVisionXPrePosition.Acquired:" + side);
+
+                    // [사용자 지시 2026-07-27] 세션 기동 전 MotionDone 확인 — 픽업 중 비동기 전진이
+                    // 아직 이동 중이면 정지까지 대기(최대 3초) 후 시작한다. 이동 중 재명령으로 인한
+                    // 알람/의도치 않은 동작 방지. 타임아웃이어도 알람 없이 기존 경로로 진행한다.
+                    if (visionX != null && visionX.IsMoving)
+                    {
+                        var motionDoneWait = System.Diagnostics.Stopwatch.StartNew();
+                        while (visionX.IsMoving && motionDoneWait.ElapsedMilliseconds < 3000)
+                        {
+                            ct.ThrowIfCancellationRequested();
+                            await Task.Delay(10, ct).ConfigureAwait(false);
+                        }
+                        WriteLog("InputVisionXPrePosition",
+                            side + " 세션 기동 전 MotionDone 대기 완료. waitedMs=" + motionDoneWait.ElapsedMilliseconds +
+                            ", stillMoving=" + visionX.IsMoving + " - Check");
+                    }
 
                     if (CanMoveToTarget(context, visionX, finalTarget, finalTargetName, out finalGuardReason))
                     {

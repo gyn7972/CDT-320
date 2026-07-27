@@ -354,6 +354,16 @@ namespace QMC.CDT320.Sequencing
                     Name + " Input die vision 준비 배치를 생성했습니다. count=" + _preparedItems.Count +
                     ", enabledPickerCount=" + _enabledPickerIndexes.Count + " - Ok");
 
+                // [동적 선행 대기점 2026-07-27] 촬영 진행 중 배치 좌표(비전 점유 X)를 side별로
+                // 공개한다 — 대기 픽커 동적 선행 대기점 산출 소스. 실패/취소 시 예약 해제에서 제거.
+                List<double> batchVisionXs = new List<double>();
+                for (int i = 0; i < _preparedItems.Count; i++)
+                {
+                    if (_preparedItems[i] != null && _preparedItems[i].PickTarget != null)
+                        batchVisionXs.Add(_preparedItems[i].PickTarget.TargetX);
+                }
+                InputDieVisionBatchCoordinateStore.Publish(Side, batchVisionXs);
+
                 CurrentStep = InputDieVisionPrepareStep.SelectNextInspectionTarget;
                 return 0;
             }
@@ -3451,6 +3461,9 @@ namespace QMC.CDT320.Sequencing
                         Name + " Input die vision 준비 예약을 해제했습니다. die=" + item.DieId +
                         ", pickerNo=" + item.PickerNo + " - Ok");
                 }
+
+                // [동적 선행 대기점 2026-07-27] 실패/취소로 예약을 해제하면 공개한 배치 좌표도 제거.
+                InputDieVisionBatchCoordinateStore.Clear(Side);
             }
             catch (Exception ex)
             {

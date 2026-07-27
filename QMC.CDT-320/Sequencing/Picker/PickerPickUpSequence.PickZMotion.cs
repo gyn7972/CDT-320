@@ -88,7 +88,7 @@ namespace QMC.CDT320.Sequencing
                 if (config.PickSettleMs > 0)
                     await Task.Delay(config.PickSettleMs, ct).ConfigureAwait(false);
 
-                result = await VerifyDiePickedAfterZMotionAsync(flowVerifyTask, updateMaterialInspection, ct).ConfigureAwait(false);
+                result = VerifyDiePickedWithFlowAlarmInBackground(flowVerifyTask, updateMaterialInspection);
                 if (result != 0)
                     return result;
 
@@ -158,7 +158,7 @@ namespace QMC.CDT320.Sequencing
                 if (config.PickSettleMs > 0)
                     await Task.Delay(config.PickSettleMs, ct).ConfigureAwait(false);
 
-                result = await VerifyDiePickedAfterZMotionAsync(flowVerifyTask, updateMaterialInspection, ct).ConfigureAwait(false);
+                result = VerifyDiePickedWithFlowAlarmInBackground(flowVerifyTask, updateMaterialInspection);
                 if (result != 0)
                     return result;
 
@@ -1091,51 +1091,26 @@ namespace QMC.CDT320.Sequencing
                 stage.Config.EnsurePickUpMotionDefaults();
                 double ejectPinZAvoid = ResolveEjectPinZAvoidTarget(stage);
 
-                double pickerSeparateSpeedPercent = config != null ? config.PickerZSeparateSpeedPercent : 1.0;
+                // [사용자 지시 2026-07-27] Separate(피커Z 단독 1mm 저속 분리) 스텝 폐지 —
+                // SyncLift 완료 후 곧바로 Avoid 상승(safe 조기 반환)으로 연결한다(~57ms/픽커 회수).
+                // PickerZSeparateDistance/SpeedPercent 설정은 미사용으로 남는다(동작만 제거).
                 // 사용자 확정 속도 모델(2026-07-26): Avoid 복귀 = DefaultVelocity × 전역 스케일(% 미적용).
                 double pickerAvoidSpeedPercent = 100.0;
-                double pickerSeparateDistance = config != null ? Math.Max(0.0, config.PickerZSeparateDistance) : 0.0;
                 double pickerSafeForWaferStageDistance = config != null
                     ? PickerPickUpMotionConfig.NormalizePickerSafeForWaferStageDistance(config.PickerSafeForWaferStageDistance)
                     : PickerPickUpMotionConfig.MinimumPickerSafeForWaferStageDistance;
-                double pickerSeparateStart = syncTargets != null ? syncTargets.PickerZ : GetPickerAxis(pickerZ).ActualPosition;
-                double pickerSeparateTarget = ResolveTargetToward(pickerSeparateStart, pickerZAvoid, pickerSeparateDistance);
-                double pickerVelocity = ResolvePickerAxisVelocityByPercent(pickerZ, pickerSeparateSpeedPercent);
-                double pickerAcceleration = ResolvePickerAxisAccelerationByPercent(pickerZ, pickerSeparateSpeedPercent, true);
-                double pickerDeceleration = ResolvePickerAxisAccelerationByPercent(pickerZ, pickerSeparateSpeedPercent, false);
-                // 현재 기준: Separate 저속 구간 이후 PickerZ Avoid 최종 상승은 별도 속도로 복귀한다.
                 double pickerAvoidVelocity = ResolvePickerAxisVelocityByPercent(pickerZ, pickerAvoidSpeedPercent);
                 double pickerAvoidAcceleration = ResolvePickerAxisAccelerationByPercent(pickerZ, pickerAvoidSpeedPercent, true);
                 double pickerAvoidDeceleration = ResolvePickerAxisAccelerationByPercent(pickerZ, pickerAvoidSpeedPercent, false);
                 WriteLog("PickerPickUpZ",
-                    "PickerZ separate speed resolved. axis=" + pickerZ +
-                    ", start=" + pickerSeparateStart.ToString("0.###") +
-                    ", target=" + pickerSeparateTarget.ToString("0.###") +
+                    "PickerZ avoid rise resolved (Separate 폐지). axis=" + pickerZ +
                     ", avoid=" + pickerZAvoid.ToString("0.###") +
-                    ", distance=" + pickerSeparateDistance.ToString("0.###") +
-                    ", percent=" + pickerSeparateSpeedPercent.ToString("0.###") +
-                    ", velocity=" + pickerVelocity.ToString("0.###") +
-                    ", acceleration=" + pickerAcceleration.ToString("0.###") +
-                    ", deceleration=" + pickerDeceleration.ToString("0.###") +
-                    ", avoidPercent=" + pickerAvoidSpeedPercent.ToString("0.###") +
                     ", avoidVelocity=" + pickerAvoidVelocity.ToString("0.###") +
                     ", avoidAcceleration=" + pickerAvoidAcceleration.ToString("0.###") +
                     ", avoidDeceleration=" + pickerAvoidDeceleration.ToString("0.###") +
                     ", pickerSafeForWaferStageDistance=" + pickerSafeForWaferStageDistance.ToString("0.###"));
 
-                int pickerResult = await MovePickerAxisWithMotionAndVerifyAsync(
-                    pickerZ,
-                    pickerSeparateTarget,
-                    pickerVelocity,
-                    pickerAcceleration,
-                    pickerDeceleration,
-                    "PickUp Sync Lift 후 PickerZ Separate 이동",
-                    "PickUpSeparateDistance",
-                    ct).ConfigureAwait(false);
-                if (pickerResult != 0)
-                    return pickerResult;
-
-                pickerResult = await MovePickerZToAvoidAndWaitSafeForWaferStageAsync(
+                int pickerResult = await MovePickerZToAvoidAndWaitSafeForWaferStageAsync(
                     pickerZ,
                     pickerZAvoid,
                     _targetPickerZ,
@@ -1494,6 +1469,31 @@ namespace QMC.CDT320.Sequencing
             finally
             {
             }
+        }
+
+        // [사용자 지시 2026-07-27] 픽업 흡착 Flow 확인은 조인하지 않는다 — 선행 시작된 백그라운드
+        // Task가 픽커 I/O 타임아웃(기본 5000ms)까지 폴링하고, 실패하면 Task 내부 Fail()이 직접
+        // 알람(PICKER-FLOW-CHECK)을 올린다(AlarmManager.Raise — 조인 여부와 무관). 여기서는
+        // 자재 데이터 갱신만 수행하고 다음 die 진행을 막지 않는다.
+        private int VerifyDiePickedWithFlowAlarmInBackground(Task<int> flowVerifyTask, bool updateMaterialInspection)
+        {
+            if (flowVerifyTask != null &&
+                flowVerifyTask.Status == TaskStatus.RanToCompletion &&
+                flowVerifyTask.Result != 0)
+            {
+                // 조인 없이도 이미 실패가 확정된 케이스 — 알람은 Task가 이미 올렸고, 이 die만 실패 처리한다.
+                return flowVerifyTask.Result;
+            }
+
+            WriteLog("PickerPickUpZ",
+                Name + " 흡착 Flow 확인을 백그라운드로 계속합니다(조인 없음, 실패 시 타임아웃 후 알람). " +
+                "pickerNo=" + _currentPickerNo +
+                ", flowTaskDone=" + (flowVerifyTask != null && flowVerifyTask.IsCompleted) + " - Check");
+
+            if (!updateMaterialInspection)
+                return 0;
+
+            return VerifyDiePicked();
         }
 
         private async Task<int> VerifyDiePickedAfterZMotionAsync(bool updateMaterialInspection, CancellationToken ct)

@@ -2429,6 +2429,10 @@ namespace QMC.CDT320.Materials
                     return false;
                 }
 
+                // [사용자 승인 2026-07-27] 계획 재초기화 시 수령 순서 캐시를 최신으로 갱신.
+                _outputReceiveOrderCache[side] =
+                    new System.Collections.Generic.KeyValuePair<string, List<DieMapEntry>>(outputWafer.WaferId, ordered);
+
                 // 입력 웨이퍼는 추적용(있으면 기록). 없어도 빈맵 기반 계획은 성립한다.
                 WaferMaterial sourceWafer = GetWaferAtLocation(MaterialLocationKind.InputStage);
                 outputWafer.OutputReceiveSourceWaferId = sourceWafer != null ? sourceWafer.WaferId : "";
@@ -2478,6 +2482,36 @@ namespace QMC.CDT320.Materials
             }
         }
 
+        // [사용자 승인 2026-07-27] 출력 수령 순서 캐시 — die마다 레시피 프로젝트/빈맵 파일
+        // 로드와 전체 재정렬(BuildOutputReceiveOrder, 실측 ~16ms/die)을 반복하던 것을 출력
+        // wafer 단위 1회로 줄인다. 키 = side + 출력 WaferId: wafer 교체 시 WaferId 불일치로
+        // 자동 무효화되고, 수령 계획 재초기화(InitializeOutputStageReceivePlan)가 명시 갱신한다.
+        // 호출은 전부 _stateSync lock 안(스레드 안전).
+        private static readonly System.Collections.Generic.Dictionary<QMC.CDT320.BinSide, System.Collections.Generic.KeyValuePair<string, List<DieMapEntry>>> _outputReceiveOrderCache =
+            new System.Collections.Generic.Dictionary<QMC.CDT320.BinSide, System.Collections.Generic.KeyValuePair<string, List<DieMapEntry>>>();
+
+        private static List<DieMapEntry> ResolveOutputReceiveOrderCached(QMC.CDT320.BinSide side, WaferMaterial outputWafer)
+        {
+            if (outputWafer == null)
+                return null;
+
+            System.Collections.Generic.KeyValuePair<string, List<DieMapEntry>> cached;
+            if (_outputReceiveOrderCache.TryGetValue(side, out cached) &&
+                cached.Key == outputWafer.WaferId &&
+                cached.Value != null && cached.Value.Count > 0)
+                return cached.Value;
+
+            DieMap binMap = LoadRecipeBinMap(side);
+            if (binMap == null)
+                return null;
+            var project = RecipeStore.LoadLastOrDefault();
+            PickupSubset pickup = ResolveOutputPickup(project);
+            List<DieMapEntry> ordered = BuildOutputReceiveOrder(binMap, pickup);
+            _outputReceiveOrderCache[side] =
+                new System.Collections.Generic.KeyValuePair<string, List<DieMapEntry>>(outputWafer.WaferId, ordered);
+            return ordered;
+        }
+
         public static OutputStageReceiveTarget ReserveNextOutputStageReceiveTarget(QMC.CDT320.BinSide side)
         {
             try
@@ -2502,10 +2536,9 @@ namespace QMC.CDT320.Materials
                     }
 
                     // 타겟 슬롯 순서는 레시피 원형 빈맵 + 출력 픽업 순서로 결정(계획 초기화와 동일).
-                    // [택타임 2026-07-27] 다이마다 재계산하던 것을 캐시로 대체(파일 타임스탬프로 무효화).
-                    DieMap binMap;
-                    List<DieMapEntry> ordered;
-                    if (!TryResolveOutputReceiveOrder(side, out binMap, out ordered))
+                    // [사용자 승인 2026-07-27] wafer 단위 캐시 사용 — die당 파일 로드/재정렬 제거.
+                    List<DieMapEntry> ordered = ResolveOutputReceiveOrderCached(side, outputWafer);
+                    if (ordered == null || ordered.Count == 0)
                         return null;
 
                     int index = ResolveNextOutputReceiveIndex(outputWafer);
@@ -2605,12 +2638,9 @@ namespace QMC.CDT320.Materials
                     if (outputWafer.OutputReceiveTotalCount <= 0)
                         return null;
 
-                    // [택타임 2026-07-27] Reserve와 동일하게 캐시된 수령 순서를 사용한다.
-                    DieMap binMap;
-                    List<DieMapEntry> ordered;
-                    if (!TryResolveOutputReceiveOrder(side, out binMap, out ordered))
-                        return null;
-                    if (index >= ordered.Count)
+                    // [사용자 승인 2026-07-27] wafer 단위 캐시 사용 — 호출당 파일 로드/재정렬 제거.
+                    List<DieMapEntry> ordered = ResolveOutputReceiveOrderCached(side, outputWafer);
+                    if (ordered == null || ordered.Count == 0 || index >= ordered.Count)
                         return null;
 
                     DieMapEntry entry = ordered[index];

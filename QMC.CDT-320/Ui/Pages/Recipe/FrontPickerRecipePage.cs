@@ -467,16 +467,11 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 "PickerZ가 PickPosition으로 바로 내려가기 전에 멈추는 거리입니다.\r\nPickPosition에서 Avoid 방향으로 이 거리만큼 떨어진 위치까지 먼저 이동한 뒤 저속 접근합니다."), groupKey));
             items.Add(InGroup(Describe(ParameterGridItem.Double("PICKER Z APPROACH SPEED", "%", ParameterGridScope.Config, () => ResolveLivePickUpConfig().PickerZSlowApproachSpeedPercent, v => ResolveLivePickUpConfig().PickerZSlowApproachSpeedPercent = PickerPickUpMotionConfig.NormalizePercent(v, 1.0)),
                 "PrePick 위치에서 실제 PickPosition까지 천천히 내려갈 때 사용하는 PickerZ 속도 비율입니다.\r\n축 기본 속도 대비 퍼센트로 적용됩니다."), groupKey));
-            items.Add(InGroup(Describe(ParameterGridItem.Double("PICKER Z SEPARATE DISTANCE", AxisUnitConverter.Millimeter, ParameterGridScope.Config, () => ResolveLivePickUpConfig().PickerZSeparateDistance, v => ResolveLivePickUpConfig().PickerZSeparateDistance = Math.Max(0.0, v)),
-                "Sync Lift 후 PickerZ를 Needle/EjectPinZ와 먼저 벌리는 거리입니다.\r\n이 거리만큼 PICKER Z SEPARATE SPEED로 이동한 뒤 이어서 PickerZ를 Avoid 위치까지 올립니다."), groupKey));
-            items.Add(InGroup(Describe(ParameterGridItem.Double("PICKER Z SEPARATE SPEED", "%", ParameterGridScope.Config, () => ResolveLivePickUpConfig().PickerZSeparateSpeedPercent, v => ResolveLivePickUpConfig().PickerZSeparateSpeedPercent = PickerPickUpMotionConfig.NormalizePercent(v, 1.0)),
-                "Step 07에서 Sync Lift 후 PickerZ를 Separate Distance만큼 이동할 때 사용하는 속도 비율입니다.\r\nNeedleZ/EjectPinZ Avoid 이동 속도는 InputStage Needle Pickup 설정값을 사용합니다."), groupKey));
-            items.Add(InGroup(Describe(ParameterGridItem.Double("PICKER Z AVOID SPEED", "%", ParameterGridScope.Config, () => ResolveLivePickUpConfig().PickerZAvoidReturnSpeedPercent, v => ResolveLivePickUpConfig().PickerZAvoidReturnSpeedPercent = PickerPickUpMotionConfig.NormalizePercent(v, 10.0)),
-                "Separate Distance 이동 후 PickerZ를 Avoid 위치까지 올릴 때 사용하는 속도 비율입니다.\r\nSeparate 저속 구간과 최종 상승 구간을 분리해서 PickUp 시간을 줄입니다."), groupKey));
+            // [사용자 지시 2026-07-27] Separate 스텝 폐지 — SEPARATE DISTANCE/SPEED,
+            // AVOID SPEED(미사용), SEPARATE MODE(구 옵션) UI 항목 제거. Config 프로퍼티는
+            // 직렬화 하위호환용으로만 유지.
             items.Add(InGroup(Describe(ParameterGridItem.Double("PICKER SAFE FOR WAFERSTAGE", AxisUnitConverter.Millimeter, ParameterGridScope.Config, () => ResolveLivePickUpConfig().PickerSafeForWaferStageDistance, v => ResolveLivePickUpConfig().PickerSafeForWaferStageDistance = PickerPickUpMotionConfig.NormalizePickerSafeForWaferStageDistance(v)),
                 "PickUp 후 PickerZ Avoid 복귀를 끝까지 기다리지 않고 다음 동작을 허용할 최소 상승 거리입니다.\r\nDie Touch 높이에서 Avoid 방향으로 이 거리 이상 올라오면 다음 시퀀스를 진행합니다. 최소값은 2.0 mm입니다."), groupKey));
-            items.Add(InGroup(Describe(ParameterGridItem.Selection<PickerPickUpSeparateMode>("SEPARATE MODE", "mode", ParameterGridScope.Config, () => ResolveLivePickUpConfig().SeparateMode, v => ResolveLivePickUpConfig().SeparateMode = v),
-                "구 분리 동작에서 Picker와 Needle을 어떤 순서로 벌릴지 정하던 옵션입니다.\r\n현재 Step 07은 PickerZ Separate 이동 후 EjectPinZ/NeedleZ Avoid 고정 순서라 이 값은 현재 흐름에서 사용하지 않습니다."), groupKey));
             items.Add(InGroup(Describe(ParameterGridItem.Int("VACUUM BEFORE PICK DELAY", "ms", ParameterGridScope.Config, () => ResolveLivePickUpConfig().VacuumOnBeforePickDelayMs, v => ResolveLivePickUpConfig().VacuumOnBeforePickDelayMs = Math.Max(0, v)),
                 "PickerZ가 Die Touch 위치에 도착하고 위치 확인이 끝난 직후 기다리는 시간입니다.\r\n이 시간이 지난 뒤 Sync Lift 또는 PickerZ 상승을 시작합니다."), groupKey));
             items.Add(InGroup(Describe(ParameterGridItem.Int("SYNC LIFT SETTLE", "ms", ParameterGridScope.Config, () => ResolveLivePickUpConfig().SyncLiftSettleMs, v => ResolveLivePickUpConfig().SyncLiftSettleMs = Math.Max(0, v)),
@@ -489,6 +484,11 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 "PickUp 진입 Y 전진과 동시에 Z를 PrePick까지 선행 하강합니다(1-A, 반경 게이트 내 한정).\r\n픽업 후 Z는 항상 Avoid까지 상승하며, PICKER SAFE FOR WAFERSTAGE 통과 시 시퀀스가 조기 진행됩니다.\r\nAuto + ContiSegmentedPickUp에서만 동작. 기본 Off."), groupKey));
             items.Add(InGroup(Describe(ParameterGridItem.Double("PREDOWN NEEDLE WORK RADIUS", AxisUnitConverter.Millimeter, ParameterGridScope.Config, () => ResolveLivePickUpConfig().PreDownNeedleWorkRadiusMm, v => ResolveLivePickUpConfig().PreDownNeedleWorkRadiusMm = Math.Max(0.0, v)),
                 "진입 Z 선행 하강(1-A) 발동 반경입니다. die 목표 NeedleX/StageY와 Needle 작업영역 중심의 거리가 이 값 이하일 때만 발동합니다.\r\n웨이퍼 가장자리 링/클램프 간섭 방지용 — 런타임 Needle 작업영역 반경을 넘으면 자동으로 그 값까지 줄입니다. 기본 130 mm, 0이면 기능 Off."), groupKey));
+            // [동적 선행 대기점, 지시서 2026-07-27]
+            items.Add(InGroup(Describe(ParameterGridItem.Bool("PICKUP DYNAMIC WAIT", ParameterGridScope.Config, () => ResolveLivePickUpConfig().PickUpDynamicWaitMode, v => ResolveLivePickUpConfig().PickUpDynamicWaitMode = v),
+                "촬영(선행검사) 진행 중 대기 픽커 X를 배치 최근접 비전 좌표 + 팔로잉 클리어런스 위치까지 미리 접근시킵니다.\r\n허가 후 팔로잉 진입 거리가 줄어 픽업 진입 시간이 단축됩니다. 전진만 하며 후퇴는 하지 않습니다.\r\nAuto + ContiSegmentedPickUp에서만 동작. 기본 Off."), groupKey));
+            items.Add(InGroup(Describe(ParameterGridItem.Double("DYNAMIC WAIT EXTRA MARGIN", AxisUnitConverter.Millimeter, ParameterGridScope.Config, () => ResolveLivePickUpConfig().DynamicWaitExtraMarginMm, v => ResolveLivePickUpConfig().DynamicWaitExtraMarginMm = Math.Max(0.0, v)),
+                "동적 선행 대기점에 추가하는 여유 간격입니다(현장 튜닝용).\r\n대기점 = 배치 maxVisionX + 팔로잉 클리어런스(SafetyDistance+Extra) + 이 값. 기본 0 mm."), groupKey));
         }
 
         // AddPickUpContiNodeSpeedRatioItems 삭제(사용자 확정 속도 모델 2026-07-26):

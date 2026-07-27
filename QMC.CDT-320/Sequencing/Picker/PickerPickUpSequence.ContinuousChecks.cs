@@ -18,6 +18,27 @@ namespace QMC.CDT320.Sequencing
         {
             try
             {
+                // 현재 기준(사용자 지시 2026-07-27): Auto-Conti 픽업 중에는 PickerY Avoid 왕복을 하지 않는다.
+                //   근거 1 — InputVisionX 충돌은 X 레일 간섭이라 PickerY가 Avoid든 공정위치든 무관하다.
+                //   근거 2 — 반대편 피커 충돌(양쪽 Y 공정위치)은 Front/Rear Facing 인터락이 차단한다(유지).
+                //   근거 3 — Y 회피 왕복은 택트만 소모한다(실장비 2026-07-27 05:28, 픽당 Y 0↔36 왕복 ~1.3초).
+                //   주의 — 비전X↔피커X 거리 유지 산식(resolver/페어 간격/인터락)과 Facing 인터락은
+                //          변경하지 않는다. PickerZ 안전은 별도 스텝("PickUp 피커 이동 전 Z축 안전 복귀")이
+                //          계속 보장한다. 수동/비-Conti 경로는 기존 Y Avoid 안전 진입을 그대로 사용한다.
+                PickerPickUpMotionConfig contiConfig = ResolvePickUpMotionConfig();
+                if (Options != null && Options.RunMode == SequenceRunMode.Auto &&
+                    contiConfig != null &&
+                    IsCoordinatedPickUpTransferMotionMode(contiConfig.TransferMotionMode))
+                {
+                    WriteLog("PickerPickUpSequence",
+                        Name + " PickUp 안전 진입: Auto-Conti 픽업이므로 PickerY Avoid 복귀를 생략합니다(사용자 지시 2026-07-27). " +
+                        "pickIndex=" + (_pickCursor + 1) +
+                        "/" + (_pickBatchItems != null ? _pickBatchItems.Count : 0) +
+                        ", pickerNo=" + _currentPickerNo +
+                        ", pickerYActual=" + FormatAxisForContinuousCheck(GetPickerAxis(PickerAxis.PickerY)) + " - Check");
+                    return 0;
+                }
+
                 string continuousDetail;
                 if (CanKeepPickerYForwardForContinuousPick(out continuousDetail))
                 {
@@ -316,6 +337,19 @@ namespace QMC.CDT320.Sequencing
 
                 if (stage.CameraX.IsMoving)
                 {
+                    // 현재 기준(사용자 지시 2026-07-27, 한 번에 수정): 이동 주체가 "픽업 중 비전 전진"
+                    // (자기 발행 Task, resolver가 남은 픽 전체와의 간격을 보장한 목표)이면 안전으로
+                    // 보고 ContiNode를 유지한다. 그 외 이동(회피/선행이동)은 기존대로 차단한다.
+                    if (_pickUpVisionAdvanceTask != null && !_pickUpVisionAdvanceTask.IsCompleted &&
+                        _inputVisionPickerEntryTargetPrepared)
+                    {
+                        detail = "InputVisionX가 픽업 전진 목표로 이동 중(자기 발행, 계속 진행). target=" +
+                            _inputVisionPickerEntryTarget.ToString("0.###") +
+                            ", actual=" + stage.CameraX.ActualPosition.ToString("0.###");
+                        WriteLog("PickerPickUpSequence",
+                            Name + " ContiNode 비전 검사: 픽업 전진 이동 중 통과. " + detail + " - Check");
+                        return true;
+                    }
                     detail = "InputVisionX is moving. actual=" +
                         stage.CameraX.ActualPosition.ToString("0.###") +
                         ", command=" + stage.CameraX.CommandPosition.ToString("0.###");
@@ -518,7 +552,12 @@ namespace QMC.CDT320.Sequencing
                     return false;
                 }
 
-                if (stage.EjectPinZ != null && stage.EjectPinZ.IsMoving)
+                // [사용자 승인 2026-07-27] EjectPinZ가 픽업 후 Avoid로 백그라운드 복귀 중이면
+                // (join 이연 설계) 이동 중/위치 요구를 면제한다 — 도착 보장·확인은
+                // StageY/NeedleX 게이트의 join이 담당한다.
+                bool ejectPinReturningToAvoid = _pickUpEjectPinAvoidTask != null;
+
+                if (stage.EjectPinZ != null && !ejectPinReturningToAvoid && stage.EjectPinZ.IsMoving)
                 {
                     detail = "EjectPinZ is moving. actual=" + stage.EjectPinZ.ActualPosition.ToString("0.###");
                     return false;
@@ -537,7 +576,7 @@ namespace QMC.CDT320.Sequencing
                 double ejectAvoid = stage.Recipe != null && stage.Recipe.EjectPinZ != null
                     ? stage.Recipe.EjectPinZ.AvoidPosition
                     : 0.0;
-                if (stage.EjectPinZ != null)
+                if (stage.EjectPinZ != null && !ejectPinReturningToAvoid)
                 {
                     double tolerance = stage.EjectPinZ.Config != null && stage.EjectPinZ.Config.InPositionTolerance > 0.0
                         ? stage.EjectPinZ.Config.InPositionTolerance

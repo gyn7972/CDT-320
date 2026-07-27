@@ -86,6 +86,13 @@ namespace QMC.CDT320
         // 사용 시 런타임 Needle 작업영역 반경(ResolveNeedleWorkAreaRadius)으로 상한 클램프한다.
         [DataMember] public double PreDownNeedleWorkRadiusMm { get; set; } = 130.0;
 
+        // [동적 선행 대기점, 지시서 2026-07-27] 촬영(선행검사) 진행 중 대기 픽커 X를
+        // "배치 maxVisionX + 팔로잉 클리어런스(+여유)"까지 선행 접근시키는 스위치.
+        // Auto + ContiSegmentedPickUp에서만 동작. 기본 Off.
+        [DataMember] public bool PickUpDynamicWaitMode { get; set; } = false;
+        // 동적 대기점 여유 가산(mm, 현장 튜닝용) — 팔로잉 클리어런스에 더해진다. 기본 0.
+        [DataMember] public double DynamicWaitExtraMarginMm { get; set; } = 0.0;
+
         // Legacy values are kept only for reading old config files.
         [DataMember] public double PickerZSlowApproachVelocity { get; set; } = 0.0;
         [DataMember] public double PickerZSlowApproachAcceleration { get; set; } = 0.0;
@@ -113,6 +120,8 @@ namespace QMC.CDT320
             // 구버전 설정 파일 하위호환: 멤버 부재 시 기본값 보장(스위치는 안전측 Off).
             PickUpEntryZPreDownMode = false;
             PreDownNeedleWorkRadiusMm = 130.0;
+            PickUpDynamicWaitMode = false;
+            DynamicWaitExtraMarginMm = 0.0;
         }
 
         [OnDeserialized]
@@ -162,6 +171,8 @@ namespace QMC.CDT320
 
             PickerZPrePickDistance = NormalizeDistance(PickerZPrePickDistance);
             PreDownNeedleWorkRadiusMm = NormalizeDistance(PreDownNeedleWorkRadiusMm);
+            if (DynamicWaitExtraMarginMm < 0.0)
+                DynamicWaitExtraMarginMm = 0.0;
             PickerZSlowApproachSpeedPercent = NormalizePercent(PickerZSlowApproachSpeedPercent, 1.0);
             PickerZSyncLiftDistance = NormalizeDistance(PickerZSyncLiftDistance);
             PickerZSyncLiftVelocity = NormalizePositive(PickerZSyncLiftVelocity, 5.0);

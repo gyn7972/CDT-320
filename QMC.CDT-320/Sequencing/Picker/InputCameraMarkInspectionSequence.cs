@@ -782,6 +782,10 @@ namespace QMC.CDT320.Sequencing
                 }
 
                 InputCameraPickUpPermissionStore.Grant(Side, _inspectedItems);
+                // [동적 선행 대기점 2026-07-27, 검증 F4] 배치가 허가로 소비되면 공개 좌표도 제거 —
+                // 다음 촬영 세션 초기 창(Running 등록~새 배치 Publish 사이)에서 이전 배치 좌표가
+                // 재사용되는 것을 차단한다. 좌표 부재 시 모니터는 fail-safe로 무동작.
+                InputDieVisionBatchCoordinateStore.Clear(Side);
                 WriteLog("InputCameraMarkInspectionSequence",
                     Name + " pickup permission granted after input camera mark inspection. count=" +
                     _inspectedItems.Count + ", side=" + Side + " - Ok");

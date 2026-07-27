@@ -21,6 +21,20 @@ namespace QMC.CDT320.Sequencing
         private static readonly Dictionary<PickerSequenceSide, RunningInspection> Running =
             new Dictionary<PickerSequenceSide, RunningInspection>();
 
+        // [동적 선행 대기점 2026-07-27] 촬영(선행검사) 진행 중 여부 — 읽기 전용 조회(부수효과 없음).
+        // 대기 픽커의 동적 선행 대기 게이트 1(자기 측 촬영 진행 중) 판정용. 허가 발행/소비 무변경.
+        public static bool IsInspectionRunning(PickerSequenceSide side)
+        {
+            lock (Sync)
+            {
+                RunningInspection running;
+                return Running.TryGetValue(side, out running) &&
+                       running != null &&
+                       running.Task != null &&
+                       !running.Task.IsCompleted;
+            }
+        }
+
         public static bool EnsureStarted(
             MachineSequenceContext context,
             PickerSequenceSide side,

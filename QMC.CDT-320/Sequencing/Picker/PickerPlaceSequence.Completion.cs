@@ -313,6 +313,106 @@ namespace QMC.CDT320.Sequencing
             return 0;
         }
 
+        // [동적 대기점 직행, 사용자 승인 2026-07-27] Place 복귀 X 목표를 동적 선행 대기점으로
+        // 치환할 수 있으면 ref 인자를 갱신한다. 모든 실패/미충족은 로그 후 기존 고정 Avoid 유지
+        // (알람 없음, fail-safe). 스위치 Off는 로그 없이 기존과 완전 동일(R3 원칙).
+        private void TryApplyPlaceReturnDynamicWaitTarget(
+            ref double pickerXReturnTarget,
+            ref string xtTargetName,
+            double pickerXAvoid)
+        {
+            try
+            {
+                if (Options == null || Options.RunMode != SequenceRunMode.Auto || Options.PickerMotionOnlyTestMode)
+                    return;
+
+                PickerPickUpMotionConfig pickUpConfig = Side == PickerSequenceSide.Front
+                    ? (FrontPicker != null && FrontPicker.Config != null ? FrontPicker.Config.PickUp : null)
+                    : (RearPicker != null && RearPicker.Config != null ? RearPicker.Config.PickUp : null);
+                if (pickUpConfig == null)
+                    return;
+                pickUpConfig.Ensure();
+
+                if (!pickUpConfig.PickUpDynamicWaitMode)
+                    return;
+                if (pickUpConfig.TransferMotionMode != PickerPickUpTransferMotionMode.ContiSegmentedPickUp)
+                    return;
+
+                // [검증 P5] 출력 스테이지 수령 완료 상태면 교체 준비 신호 발행이 픽커 "전축 고정
+                // Avoid"를 요구한다(PublishOutputStageExchangeReadyAfterSafeCompletionAsync의
+                // IsCurrentPickerAtFullAvoidPosition 검사) — 직행하면 X가 Avoid를 벗어나
+                // PICKER-PLACE-STAGE-COMPLETE-UNSAFE로 확정 실패하므로, 이 경우는 직행을 스킵하고
+                // 기존 고정 Avoid로 복귀한다(OutputStageReady의 Full 대기 경로 포함 동일 게이트).
+                if (MaterialStateService.IsOutputStageReceiveComplete(_currentOutputSide))
+                {
+                    WriteLog("PickerPlaceSequence",
+                        Name + " Place 복귀 동적 대기점 직행 스킵(출력 스테이지 수령 완료 — 교체 준비 발행 예정, 고정 Avoid 복귀). " +
+                        "outputSide=" + _currentOutputSide + " - Check");
+                    return;
+                }
+
+                DynamicPickUpWaitTarget resolved;
+                string failReasonKey;
+                string failDetail;
+                if (!TryResolveDynamicPickUpWaitTargetX(pickUpConfig, out resolved, out failReasonKey, out failDetail))
+                {
+                    WriteLog("PickerPlaceSequence",
+                        Name + " Place 복귀 동적 대기점 직행 스킵(고정 Avoid 복귀). reason=" + failReasonKey +
+                        ", detail=" + (failDetail ?? "-") + " - Check");
+                    return;
+                }
+
+                // 진짜 단축일 때만: 대기점이 고정 Avoid보다 접근 방향으로 앞서야 한다.
+                bool beyondAvoid = resolved.Direction > 0
+                    ? resolved.WaitX > pickerXAvoid + 0.5
+                    : resolved.WaitX < pickerXAvoid - 0.5;
+                if (!beyondAvoid)
+                {
+                    WriteLog("PickerPlaceSequence",
+                        Name + " Place 복귀 동적 대기점 직행 스킵(단축 없음, 고정 Avoid 복귀). waitX=" +
+                        resolved.WaitX.ToString("F3") +
+                        ", fixedAvoid=" + pickerXAvoid.ToString("F3") + " - Check");
+                    return;
+                }
+
+                // MotionGuard 전 규칙 dry-run(알람 없는 판정) — 기존 PlaceDoneSafeXT 토큰은 유지하고
+                // 명시 PickerZone=Input 토큰만 추가한다(유닛은 명시 토큰 존재 시 재부착 안 함).
+                string directName = "AvoidPosition;PickerPhase=PlaceDoneSafeXT;PickerZone=Input";
+                BaseAxis pickerX = GetPickerAxis(PickerAxis.PickerX);
+                string dryRunName = (Side == PickerSequenceSide.Front ? "FrontPicker" : "RearPicker") +
+                                    ";PickerX;" + directName;
+                string guardReason = "PickerX 축 참조 없음";
+                if (pickerX == null ||
+                    !MotionGuardRuntime.CanAxisTeachingMove(pickerX, resolved.WaitX, dryRunName, out guardReason))
+                {
+                    WriteLog("PickerPlaceSequence",
+                        Name + " Place 복귀 동적 대기점 직행 스킵(가드 dry-run 차단, 고정 Avoid 복귀). reason=" +
+                        (guardReason ?? "-") + " - Check");
+                    return;
+                }
+
+                pickerXReturnTarget = resolved.WaitX;
+                xtTargetName = directName;
+                WriteLog("PickerPlaceSequence",
+                    Name + " Place 복귀 X를 동적 선행 대기점으로 직행합니다. waitX=" + resolved.WaitX.ToString("F3") +
+                    ", fixedAvoid=" + pickerXAvoid.ToString("F3") +
+                    ", shortcut=" + Math.Abs(pickerXAvoid - resolved.WaitX).ToString("F3") +
+                    ", constraintVisionX=" + resolved.ConstraintVisionX.ToString("F3") +
+                    ", batchVisionXRange=" + resolved.MinVisionX.ToString("F3") + "~" + resolved.MaxVisionX.ToString("F3") +
+                    ", dieCount=" + resolved.DieCount +
+                    ", homeGap=" + resolved.HomeGap.ToString("F3") +
+                    ", safetyGap=" + resolved.SafetyGap.ToString("F3") +
+                    ", extraMargin=" + resolved.ExtraMargin.ToString("F3") +
+                    ", direction=" + resolved.Direction + " - Start");
+            }
+            catch (Exception ex)
+            {
+                WriteLog("PickerPlaceSequence",
+                    Name + " Place 복귀 동적 대기점 직행 판정 중 예외(고정 Avoid 복귀 유지). error=" +
+                    ex.Message + " - Check");
+            }
+        }
+
         private async Task<int> MovePickerToAvoidAfterPlaceFastAsync(
             string description,
             CancellationToken ct,
@@ -369,18 +469,28 @@ namespace QMC.CDT320.Sequencing
                     ClearPendingContiRetreat();
                 }
 
+                // [동적 대기점 직행, 사용자 승인 2026-07-27] Auto+Conti+스위치 On이고 다음 픽업
+                // 배치 좌표가 공개돼 있으면 X 복귀 목표를 고정 Avoid 대신 동적 선행 대기점으로
+                // 직행시킨다(고정점 경유 왕복 제거). 비전X 충돌 방지: 대기점 = 배치 구속 극값 +
+                // 팔로잉 클리어런스(접근 내내 간격 ≥ requiredGap, FollowMove 경계식과 동일 항등식)
+                // + 발행 전 MotionGuard 전 규칙 dry-run — 하나라도 안 되면 기존 고정 Avoid 복귀.
+                double pickerXAvoid = GetPickerTeachingPosition(PickerAxis.PickerX, "AvoidPosition");
+                double pickerXReturnTarget = pickerXAvoid;
+                string xtTargetName = "AvoidPosition;PickerPhase=PlaceDoneSafeXT";
+                TryApplyPlaceReturnDynamicWaitTarget(ref pickerXReturnTarget, ref xtTargetName, pickerXAvoid);
+
                 var tTargets = new Dictionary<PickerAxis, double>();
                 tTargets[PickerAxis.PickerT0] = GetPickerTeachingPosition(PickerAxis.PickerT0, "AvoidPosition");
                 tTargets[PickerAxis.PickerT1] = GetPickerTeachingPosition(PickerAxis.PickerT1, "AvoidPosition");
                 tTargets[PickerAxis.PickerT2] = GetPickerTeachingPosition(PickerAxis.PickerT2, "AvoidPosition");
                 tTargets[PickerAxis.PickerT3] = GetPickerTeachingPosition(PickerAxis.PickerT3, "AvoidPosition");
-                tTargets[PickerAxis.PickerX] = GetPickerTeachingPosition(PickerAxis.PickerX, "AvoidPosition");
+                tTargets[PickerAxis.PickerX] = pickerXReturnTarget;
 
                 result = await MovePickerAxesAndVerifyAsync(
                     tTargets,
                     description + " X/T축 병렬 Avoid",
                     ct,
-                    "AvoidPosition;PickerPhase=PlaceDoneSafeXT").ConfigureAwait(false);
+                    xtTargetName).ConfigureAwait(false);
                 if (result != 0)
                     return result;
 
@@ -400,7 +510,10 @@ namespace QMC.CDT320.Sequencing
 
                 foreach (PickerAxis axis in finalAxes)
                 {
-                    double target = GetPickerTeachingPosition(axis, "AvoidPosition");
+                    // 직행 시 X의 최종 확인 기준은 실제 이동 목표(동적 대기점)다.
+                    double target = axis == PickerAxis.PickerX
+                        ? pickerXReturnTarget
+                        : GetPickerTeachingPosition(axis, "AvoidPosition");
                     if (!IsPickerAxisInPosition(axis, target))
                     {
                         return Fail("PICKER-PLACE-AVOID-FINAL-POS", Name,
