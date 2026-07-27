@@ -142,6 +142,36 @@ namespace QMC.CDT320
     public class InputCassetteUnit : BaseUnit<InputCassetteSetup, InputCassetteConfig, InputCassetteRecipe>, IUnitJogController
     {
         internal const string UnloadReleaseLiftTargetName = "InputCassette.InputLifterZ.UnloadReleaseLift";
+        internal const double MinUnloadReleaseLiftDistanceMm = 0.001;
+        internal const double MaxUnloadReleaseLiftDistanceMm = 2.0;
+
+        internal static bool IsSameUnloadReleasePositionKey(double left, double right)
+        {
+            if (double.IsNaN(left) ||
+                double.IsInfinity(left) ||
+                double.IsNaN(right) ||
+                double.IsInfinity(right))
+            {
+                return false;
+            }
+
+            return Math.Round(left, 3, MidpointRounding.AwayFromZero) ==
+                   Math.Round(right, 3, MidpointRounding.AwayFromZero);
+        }
+
+        internal static bool IsUnloadReleasePositionMatch(
+            double value,
+            double expectedTarget,
+            double alternateTarget,
+            double tolerance)
+        {
+            if (!IsSameUnloadReleasePositionKey(value, expectedTarget))
+                return false;
+
+            double expectedError = Math.Abs(value - expectedTarget);
+            double alternateError = Math.Abs(value - alternateTarget);
+            return expectedError <= tolerance && expectedError < alternateError;
+        }
 
         // To do: C4 - 슬롯 상태를 레벨별(1단/2단) dict로 관리한다. 외부 키=level(1/2), 내부 키=레벨 내 로컬 슬롯 인덱스.
         private readonly Dictionary<int, Dictionary<int, WaferSlotState>> levelSlotStates = new Dictionary<int, Dictionary<int, WaferSlotState>>();
@@ -343,7 +373,9 @@ namespace QMC.CDT320
                         ResolveWaferLifterZMoveVelocity(bFine),
                         ResolveWaferLifterZMoveAcceleration(bFine),
                         ResolveWaferLifterZMoveDeceleration(bFine),
-                        ct).ConfigureAwait(false);
+                        ct,
+                        forceMove: true,
+                        allowProtrusionForUnloadRelease: true).ConfigureAwait(false);
                 }
             }
             catch (OperationCanceledException)
@@ -1857,6 +1889,196 @@ namespace QMC.CDT320
             GetLevelSlotStates(level)[slotIndex] = new WaferSlotState { Presence = presence, Process = state };
         }
 
+        /// <summary>
+        /// MaterialStateService를 기준으로 Input cassette의 런타임 슬롯 projection을 다시 구성합니다.
+        /// 카세트에 있는 Ready/WorkReady wafer는 Ready, 이송 중인 원본 슬롯은 Processing,
+        /// 완료 wafer는 Done으로 유지합니다.
+        /// </summary>
+        public bool TrySynchronizeSlotProjectionFromMaterialState(out string summary)
+        {
+            summary = string.Empty;
+
+            try
+            {
+                int slotCount = Config != null && Config.SlotCount > 0
+                    ? Config.SlotCount
+                    : 0;
+                if (slotCount <= 0)
+                {
+                    summary = "Input cassette slot count가 유효하지 않습니다. slotCount=" + slotCount;
+                    return false;
+                }
+
+                MaterialSnapshot snapshot = MaterialStateService.State;
+                if (snapshot == null || snapshot.Cassettes == null)
+                {
+                    summary = "Material snapshot 또는 cassette 정보가 없습니다.";
+                    return false;
+                }
+
+                WaferMaterial feederWafer =
+                    MaterialStateService.GetWaferAtLocation(MaterialLocationKind.InputFeeder);
+                WaferMaterial stageWafer =
+                    MaterialStateService.GetWaferAtLocation(MaterialLocationKind.InputStage);
+
+                int synchronizedLevels = 0;
+                int skippedLevels = 0;
+                int emptyCount = 0;
+                int readyCount = 0;
+                int processingCount = 0;
+                int doneCount = 0;
+
+                int levelCount = ResolveCassetteLevelCount();
+                for (int level = 1; level <= levelCount; level++)
+                {
+                    CassetteMaterialRole role = ResolveCassetteRole(level);
+                    CassetteMaterial cassette = snapshot.Cassettes.FirstOrDefault(c => c != null && c.Role == role);
+                    if (cassette == null || !cassette.IsEnabled || !cassette.IsPresent || !cassette.IsMapped)
+                    {
+                        skippedLevels++;
+                        continue;
+                    }
+
+                    cassette.EnsureSlots();
+                    if (cassette.Slots == null || cassette.Slots.Count < slotCount)
+                    {
+                        summary =
+                            "Material cassette slot 수가 장비 설정보다 작습니다. role=" + role +
+                            ", materialSlots=" + (cassette.Slots != null ? cassette.Slots.Count : 0) +
+                            ", configuredSlots=" + slotCount;
+                        return false;
+                    }
+
+                    for (int slotIndex = 0; slotIndex < slotCount; slotIndex++)
+                    {
+                        bool feederSource = IsActiveTransferSourceSlot(feederWafer, role, slotIndex);
+                        bool stageSource = IsActiveTransferSourceSlot(stageWafer, role, slotIndex);
+                        if (feederSource && stageSource)
+                        {
+                            summary =
+                                "동일한 Input cassette 원본 슬롯을 Feeder와 Stage가 동시에 참조합니다. role=" +
+                                role + ", slot=" + (slotIndex + 1).ToString("00") +
+                                ", feederWafer=" + (feederWafer != null ? feederWafer.WaferId : "") +
+                                ", stageWafer=" + (stageWafer != null ? stageWafer.WaferId : "");
+                            return false;
+                        }
+
+                        if (feederSource || stageSource)
+                        {
+                            UpdateWaferCassetteSlotState(
+                                level,
+                                slotIndex,
+                                SlotPresence.Exist,
+                                ProcessState.Processing);
+                            processingCount++;
+                            continue;
+                        }
+
+                        CassetteSlotMaterial materialSlot = cassette.Slots[slotIndex];
+                        bool materialSlotHasWafer =
+                            materialSlot != null &&
+                            materialSlot.HasWafer &&
+                            !string.IsNullOrWhiteSpace(materialSlot.WaferId);
+                        WaferMaterial cassetteWafer =
+                            MaterialStateService.GetWaferInCassette(role, slotIndex);
+
+                        if (materialSlotHasWafer != (cassetteWafer != null))
+                        {
+                            summary =
+                                "Material cassette slot과 wafer 위치 정보가 일치하지 않습니다. role=" +
+                                role + ", slot=" + (slotIndex + 1).ToString("00") +
+                                ", slotHasWafer=" + materialSlotHasWafer +
+                                ", slotWafer=" + (materialSlot != null ? materialSlot.WaferId : "") +
+                                ", locationWafer=" + (cassetteWafer != null ? cassetteWafer.WaferId : "");
+                            return false;
+                        }
+
+                        if (cassetteWafer != null &&
+                            !string.Equals(
+                                materialSlot.WaferId,
+                                cassetteWafer.WaferId,
+                                StringComparison.OrdinalIgnoreCase))
+                        {
+                            summary =
+                                "Material cassette slot wafer ID가 위치 정보와 다릅니다. role=" +
+                                role + ", slot=" + (slotIndex + 1).ToString("00") +
+                                ", slotWafer=" + materialSlot.WaferId +
+                                ", locationWafer=" + cassetteWafer.WaferId;
+                            return false;
+                        }
+
+                        if (cassetteWafer == null)
+                        {
+                            UpdateWaferCassetteSlotState(
+                                level,
+                                slotIndex,
+                                SlotPresence.Empty,
+                                ProcessState.Ready);
+                            emptyCount++;
+                            continue;
+                        }
+
+                        WaferMaterialState materialState =
+                            WaferMaterialStateText.Normalize(cassetteWafer.State);
+                        ProcessState processState;
+                        if (materialState == WaferMaterialState.Finish)
+                        {
+                            processState = ProcessState.Done;
+                            doneCount++;
+                        }
+                        else if (materialState == WaferMaterialState.Working)
+                        {
+                            processState = ProcessState.Processing;
+                            processingCount++;
+                        }
+                        else
+                        {
+                            processState = ProcessState.Ready;
+                            readyCount++;
+                        }
+
+                        UpdateWaferCassetteSlotState(
+                            level,
+                            slotIndex,
+                            SlotPresence.Exist,
+                            processState);
+                    }
+
+                    synchronizedLevels++;
+                }
+
+                summary =
+                    "levels=" + synchronizedLevels +
+                    ", skippedLevels=" + skippedLevels +
+                    ", empty=" + emptyCount +
+                    ", ready=" + readyCount +
+                    ", processing=" + processingCount +
+                    ", done=" + doneCount +
+                    ", feederWafer=" + (feederWafer != null ? feederWafer.WaferId : "") +
+                    ", stageWafer=" + (stageWafer != null ? stageWafer.WaferId : "");
+                return true;
+            }
+            catch (Exception ex)
+            {
+                summary = "Input cassette slot projection 동기화 중 예외가 발생했습니다. " + ex.Message;
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
+        private static bool IsActiveTransferSourceSlot(
+            WaferMaterial wafer,
+            CassetteMaterialRole role,
+            int slotIndex)
+        {
+            return wafer != null &&
+                   WaferMaterialStateText.Normalize(wafer.State) != WaferMaterialState.Empty &&
+                   wafer.SourceCassetteRole == role &&
+                   wafer.SourceSlotNumber == slotIndex;
+        }
+
         public void BeginWaferMapping()
         {
             CaptureWaferMappingSnapshot();
@@ -3070,7 +3292,8 @@ namespace QMC.CDT320
             double acceleration,
             double deceleration,
             CancellationToken ct,
-            bool forceMove = false)
+            bool forceMove = false,
+            bool allowProtrusionForUnloadRelease = false)
         {
             double oldAcceleration = 0.0;
             double oldDeceleration = 0.0;
@@ -3079,7 +3302,8 @@ namespace QMC.CDT320
             {
                 ct.ThrowIfCancellationRequested();
 
-                if (IsWaferProtrusionDetected())
+                if (!allowProtrusionForUnloadRelease &&
+                    IsWaferProtrusionDetected())
                 {
                     LastWaferLifterMoveFailureMessage = "돌출 센서 감지로 이동 차단. target=" + targetPosition;
                     InputLifterZ.EStop();
@@ -3113,7 +3337,8 @@ namespace QMC.CDT320
                 {
                     ct.ThrowIfCancellationRequested();
 
-                    if (IsWaferProtrusionDetected())
+                    if (!allowProtrusionForUnloadRelease &&
+                        IsWaferProtrusionDetected())
                     {
                         LastWaferLifterMoveFailureMessage = "이동 중 돌출 센서 감지로 정지. target=" + targetPosition;
                         InputLifterZ.EStop();

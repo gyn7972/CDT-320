@@ -38,7 +38,8 @@ namespace QMC.CDT320.Sequencing
 
     internal sealed class InputFeederUnloadFromStageSequence : InputFeederSequenceBase<InputFeederUnloadFromStageStep>
     {
-        internal const string ResumeStateName = "InputFeederUnloadFromStageSequence.UnloadFromStage";
+        // InputFeederSequenceBase.SequenceStateName과 반드시 같은 키를 사용한다.
+        internal const string ResumeStateName = "InputFeederSequence.UnloadFromStage";
 
         public InputFeederUnloadFromStageSequence(MachineSequenceContext context)
             : base(context, InputFeederSequenceKind.UnloadFromStage, "InputFeederUnloadFromStageSequence")
@@ -53,15 +54,14 @@ namespace QMC.CDT320.Sequencing
         protected override InputFeederUnloadFromStageStep ResolveStartStep(InputFeederUnloadFromStageStep initialStep)
         {
             InputFeederUnloadFromStageStep resolvedStep = base.ResolveStartStep(initialStep);
-            if (resolvedStep != InputFeederUnloadFromStageStep.MoveFeederStageUnloadAvoidPosition ||
-                Feeder == null)
+            if (object.Equals(resolvedStep, initialStep) || Feeder == null)
             {
                 return resolvedStep;
             }
 
-            // 실패 당시에는 Lift Up 상태였더라도 Ready/수동 복구가 실제 장비를 Avoid+Down으로
-            // 되돌릴 수 있다. 저장 Step만 믿고 Y 이동을 재개하지 않고, 현재 상태가 정상 시작
-            // 자세이면 Stage 위치와 Feeder 선행조건부터 다시 확인한다.
+            // Ready/수동 복구가 실제 장비를 Avoid+Down 시작 자세로 되돌렸다면 저장된 후반
+            // Step은 더 이상 물리 상태와 일치하지 않는다. 어떤 후반 Step이 저장됐더라도
+            // CheckUnit부터 모든 자재/Teaching/Stage/Feeder 선행조건을 다시 확인한다.
             if (Feeder.IsWaferFeederInAvoidPosition() &&
                 Feeder.IsWaferFeederDown() &&
                 Feeder.IsWaferFeederEmpty() &&
@@ -71,10 +71,10 @@ namespace QMC.CDT320.Sequencing
                     "ResolveStartStep",
                     "Input feeder UnloadFromStage 저장 Step과 실제 상태가 달라 안전 Step으로 되돌립니다. " +
                     "savedStep=" + resolvedStep +
-                    ", restartStep=" + InputFeederUnloadFromStageStep.CheckStagePosition +
+                    ", restartStep=" + initialStep +
                     ". " + Feeder.GetWaferFeederTransferState() +
                     " - Check");
-                return InputFeederUnloadFromStageStep.CheckStagePosition;
+                return initialStep;
             }
 
             return resolvedStep;
@@ -529,6 +529,10 @@ namespace QMC.CDT320.Sequencing
             if (wafer == null)
                 return Fail("IN-FEEDER-STAGE-WAFER-DATA-MISSING", "Material", "InputStage wafer data disappeared before feeder detection check.");
 
+            int prerequisiteResult = VerifyFeederWaferDetectionPrerequisites();
+            if (prerequisiteResult != 0)
+                return prerequisiteResult;
+
             if (!IsHardwareBypass())
             {
                 bool detected = await Feeder.WaitWaferFeederRingState(true, ResolveTimeout(), ct).ConfigureAwait(false);
@@ -538,6 +542,88 @@ namespace QMC.CDT320.Sequencing
 
             CurrentStep = InputFeederUnloadFromStageStep.MoveMaterialDataToFeeder;
             return 0;
+        }
+
+        private int VerifyFeederWaferDetectionPrerequisites()
+        {
+            if (Feeder == null || Feeder.FeederY == null || Feeder.Recipe == null)
+            {
+                return Fail(
+                    "IN-FEEDER-STAGE-UNLOAD-RING-PRECONDITION",
+                    Feeder != null ? Feeder.Name : "InputFeeder",
+                    "Ring 확인 전 InputFeeder, FeederY 또는 Recipe를 확인할 수 없습니다.");
+            }
+
+            double target = Feeder.Recipe.WaferUnloadPosition;
+            double tolerance = Feeder.FeederY.Config != null &&
+                               Feeder.FeederY.Config.InPositionTolerance > 0.0
+                ? Feeder.FeederY.Config.InPositionTolerance
+                : 0.01;
+            bool actualMatch = Math.Abs(Feeder.FeederY.ActualPosition - target) <= tolerance;
+            bool commandMatch = Math.Abs(Feeder.FeederY.CommandPosition - target) <= tolerance;
+            bool liftUp = Feeder.IsWaferFeederUp();
+            bool liftDown = Feeder.IsWaferFeederDown();
+            bool clamp = Feeder.IsWaferFeederClamp();
+            bool unclamp = Feeder.IsWaferFeederUnclamp();
+            bool transferDataEmpty = Feeder.IsWaferFeederTransferDataEmpty();
+            bool overload = Feeder.IsWaferFeederOverload();
+
+            if (!Feeder.FeederY.IsServoOn ||
+                Feeder.FeederY.IsAlarm ||
+                Feeder.FeederY.IsMoving ||
+                !Feeder.FeederY.IsInPosition ||
+                !actualMatch ||
+                !commandMatch ||
+                liftUp ||
+                !liftDown ||
+                !clamp ||
+                unclamp ||
+                !transferDataEmpty ||
+                overload)
+            {
+                return Fail(
+                    "IN-FEEDER-STAGE-UNLOAD-RING-PRECONDITION",
+                    Feeder.Name,
+                    "Ring 확인 전 InputFeeder의 Stage Unload 인계 자세가 일치하지 않습니다. " +
+                    "required=ServoOn+AlarmOff+Stopped+InPosition+UnloadPosition+LiftDown+Clamp+DataEmpty+OverloadOff, " +
+                    "target=" + target +
+                    ", tolerance=" + tolerance +
+                    ", actualMatch=" + actualMatch +
+                    ", commandMatch=" + commandMatch +
+                    ", liftUp=" + liftUp +
+                    ", liftDown=" + liftDown +
+                    ", clamp=" + clamp +
+                    ", unclamp=" + unclamp +
+                    ", transferDataEmpty=" + transferDataEmpty +
+                    ", overload=" + overload +
+                    ". " + Feeder.GetWaferFeederTransferState());
+            }
+
+            InputStageUnit stage = ResolveStage();
+            if (stage == null || stage.Recipe == null)
+            {
+                return Fail(
+                    "IN-FEEDER-STAGE-UNLOAD-RING-PRECONDITION",
+                    "InputStage",
+                    "Ring 확인 전 InputStage 또는 Recipe를 확인할 수 없습니다.");
+            }
+
+            int result = CheckStageAxisReady(stage, WaferStageAxis.WaferY, "StageY");
+            if (result != 0) return result;
+            result = CheckStageAxisReady(stage, WaferStageAxis.WaferT, "StageT");
+            if (result != 0) return result;
+            result = CheckStageAxisReady(stage, WaferStageAxis.WaferExpandingZ, "StageZ");
+            if (result != 0) return result;
+
+            result = CheckStageAxisInPosition(stage, WaferStageAxis.WaferY, stage.Recipe.WaferY.UnloadPosition, "StageY unload before ring check");
+            if (result != 0) return result;
+            result = CheckStageAxisInPosition(stage, WaferStageAxis.WaferT, stage.Recipe.WaferT.UnloadPosition, "StageT unload before ring check");
+            if (result != 0) return result;
+            return CheckStageAxisInPosition(
+                stage,
+                WaferStageAxis.WaferExpandingZ,
+                stage.Recipe.WaferZ.UnloadPosition,
+                "StageZ unload before ring check");
         }
 
         private int MoveMaterialDataToFeeder()

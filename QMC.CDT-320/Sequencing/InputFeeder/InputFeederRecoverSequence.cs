@@ -64,6 +64,13 @@ namespace QMC.CDT320.Sequencing
 
         private async Task<int> RetreatToAvoidAsync(CancellationToken ct)
         {
+            if (IsFeederAlreadyRecoveredStrongly())
+            {
+                Context.Bus.Set("InputFeederRecovered");
+                CurrentStep = InputFeederRecoverStep.Complete;
+                return 0;
+            }
+
             int timeoutMs = ResolveTimeout();
 
             // Avoid 이동은 기존처럼 시퀀스 베이스의 이동/인계 확인 경로를 그대로 사용한다.
@@ -97,6 +104,59 @@ namespace QMC.CDT320.Sequencing
             Context.Bus.Set("InputFeederRecovered");
             CurrentStep = InputFeederRecoverStep.Complete;
             return 0;
+        }
+
+        private bool IsFeederAlreadyRecoveredStrongly()
+        {
+            if (Feeder == null ||
+                Feeder.FeederY == null ||
+                Feeder.Recipe == null)
+            {
+                return false;
+            }
+
+            double target = Feeder.Recipe.AvoidPosition;
+            double tolerance =
+                Feeder.FeederY.Config != null &&
+                Feeder.FeederY.Config.InPositionTolerance >= 0.0
+                    ? Feeder.FeederY.Config.InPositionTolerance
+                    : 0.05;
+            bool actualPositionKeyMatches =
+                Math.Round(
+                    Feeder.FeederY.ActualPosition,
+                    3,
+                    MidpointRounding.AwayFromZero) ==
+                Math.Round(
+                    target,
+                    3,
+                    MidpointRounding.AwayFromZero);
+            bool commandPositionKeyMatches =
+                Math.Round(
+                    Feeder.FeederY.CommandPosition,
+                    3,
+                    MidpointRounding.AwayFromZero) ==
+                Math.Round(
+                    target,
+                    3,
+                    MidpointRounding.AwayFromZero);
+
+            return Feeder.FeederY.IsServoOn &&
+                   !Feeder.FeederY.IsAlarm &&
+                   !Feeder.FeederY.IsMoving &&
+                   Feeder.FeederY.IsInPosition &&
+                   actualPositionKeyMatches &&
+                   commandPositionKeyMatches &&
+                   Math.Abs(Feeder.FeederY.ActualPosition - target) <= tolerance &&
+                   Math.Abs(Feeder.FeederY.CommandPosition - target) <= tolerance &&
+                   Feeder.IsWaferFeederInAvoidPosition() &&
+                   Feeder.IsWaferFeederAvoidPositionCheck() &&
+                   Feeder.IsWaferFeederDown() &&
+                   !Feeder.IsWaferFeederUp() &&
+                   Feeder.IsWaferFeederUnclamp() &&
+                   !Feeder.IsWaferFeederClamp() &&
+                   Feeder.IsWaferFeederTransferDataEmpty() &&
+                   Feeder.IsWaferFeederEmpty() &&
+                   !Feeder.IsWaferFeederOverload();
         }
 
         // 기존 알람 코드 체계를 유지한다(현장 알람 대응 문서와 일치시키기 위함).

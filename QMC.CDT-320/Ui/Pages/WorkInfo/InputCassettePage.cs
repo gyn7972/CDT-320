@@ -101,7 +101,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                     cmbDataOnlySource.SelectedIndexChanged += (s, e) => OnDataOnlySourceChanged();
                 }
                 if (cmbDataOnlyDest != null)
-                    cmbDataOnlyDest.DropDown += (s, e) => RebuildDataOnlyDestItems();
+                    cmbDataOnlyDest.DropDown += (s, e) => RebuildDataOnlyDestItems(false);
                 if (btnDataOnlyMove != null)
                     btnDataOnlyMove.Click += (s, e) => ExecuteDataOnlyMove();
                 if (btnDataOnlyDelete != null)
@@ -809,7 +809,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 OutputCassetteUnit outputCassette = host.Controller.Machine != null ? host.Controller.Machine.OutputCassetteUnit : null;
                 bool ok = MaterialStateService.CreateProcessTestDataSet(inputStage, inputCassette, outputCassette, out message);
                 if (ok && host.Controller.Machine != null && host.Controller.Machine.InputCassetteUnit != null)
-                    SynchronizeProcessTestInputCassetteSlotStates(host.Controller.Machine.InputCassetteUnit);
+                    SynchronizeInputCassetteSlotStates(host.Controller.Machine.InputCassetteUnit);
                 WriteEvent("INPUT-CST-PROCESS-TEST-DATA", message + ", result=" + ok);
                 if (!ok)
                 {
@@ -832,60 +832,23 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             }
         }
 
-        private void SynchronizeProcessTestInputCassetteSlotStates(InputCassetteUnit cassette)
+        private void SynchronizeInputCassetteSlotStates(InputCassetteUnit cassette)
         {
             try
             {
                 if (cassette == null)
                     return;
 
-                int slotCount = cassette.Config != null && cassette.Config.SlotCount > 0
-                    ? cassette.Config.SlotCount
-                    : 0;
-                int levelCount = cassette.ResolveCassetteLevelCount();
-                WaferMaterial stageWafer = MaterialStateService.GetWaferAtLocation(MaterialLocationKind.InputStage);
+                string summary;
+                if (!cassette.TrySynchronizeSlotProjectionFromMaterialState(out summary))
+                    throw new InvalidOperationException(summary);
 
-                for (int level = 1; level <= levelCount; level++)
-                {
-                    CassetteMaterialRole role = InputCassetteUnit.ResolveCassetteRole(level);
-                    for (int slotIndex = 0; slotIndex < slotCount; slotIndex++)
-                    {
-                        bool isStageSourceSlot =
-                            stageWafer != null &&
-                            WaferMaterialStateText.Normalize(stageWafer.State) != WaferMaterialState.Empty &&
-                            stageWafer.SourceCassetteRole == role &&
-                            stageWafer.SourceSlotNumber == slotIndex;
-                        if (isStageSourceSlot)
-                        {
-                            // 정상 Cassette -> Feeder -> Stage 로드 완료와 같은 projection이다.
-                            cassette.UpdateWaferCassetteSlotState(
-                                level,
-                                slotIndex,
-                                SlotPresence.Exist,
-                                ProcessState.Processing);
-                            continue;
-                        }
-
-                        WaferMaterial cassetteWafer = MaterialStateService.GetWaferInCassette(role, slotIndex);
-                        bool hasReadyWafer =
-                            cassetteWafer != null &&
-                            WaferMaterialStateText.Normalize(cassetteWafer.State) != WaferMaterialState.Empty;
-                        cassette.UpdateWaferCassetteSlotState(
-                            level,
-                            slotIndex,
-                            hasReadyWafer ? SlotPresence.Exist : SlotPresence.Empty,
-                            ProcessState.Ready);
-                    }
-                }
-
-                WriteEvent("INPUT-CST-PROCESS-TEST-SLOT-SYNC",
-                    "공정 테스트 Input Cassette slot projection 동기화 완료. levels=" + levelCount +
-                    ", slotsPerLevel=" + slotCount +
-                    ", stageWafer=" + (stageWafer != null ? stageWafer.WaferId : ""));
+                WriteEvent("INPUT-CST-SLOT-SYNC",
+                    "Input Cassette slot projection 동기화 완료. " + summary);
             }
             catch (Exception ex)
             {
-                throw new InvalidOperationException("공정 테스트 Input Cassette slot 상태 동기화 실패: " + ex.Message, ex);
+                throw new InvalidOperationException("Input Cassette slot 상태 동기화 실패: " + ex.Message, ex);
             }
             finally
             {
@@ -1579,7 +1542,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             {
                 var item = cmbDataOnlySource.SelectedItem as DataOnlyLocationItem;
                 lblDataOnlyMaterialValue.Text = item != null ? ResolveDataOnlyMaterialId(item.Location) : "-";
-                RebuildDataOnlyDestItems();
+                RebuildDataOnlyDestItems(true);
             }
             catch (Exception ex)
             {
@@ -1590,7 +1553,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             }
         }
 
-        private void RebuildDataOnlyDestItems()
+        private void RebuildDataOnlyDestItems(bool preferOriginalCassetteSlot = false)
         {
             try
             {
@@ -1617,6 +1580,12 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                         break;
                 }
 
+                if (preferOriginalCassetteSlot &&
+                    TrySelectOriginalCassetteDestination(snapshot, sourceItem))
+                {
+                    return;
+                }
+
                 RestoreDataOnlySelection(cmbDataOnlyDest, previous);
             }
             catch (Exception ex)
@@ -1630,10 +1599,20 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
 
         private void AddDataOnlyCassetteDestItems(MaterialSnapshot snapshot, CassetteMaterialRole role)
         {
+            if (role == CassetteMaterialRole.Input2 &&
+                !IsSecondInputCassetteLevelEnabled())
+            {
+                return;
+            }
+
             var cassette = snapshot != null && snapshot.Cassettes != null
                 ? snapshot.Cassettes.FirstOrDefault(c => c != null && c.Role == role)
                 : null;
-            if (cassette == null || cassette.Slots == null)
+            if (cassette == null ||
+                !cassette.IsEnabled ||
+                !cassette.IsPresent ||
+                !cassette.IsMapped ||
+                cassette.Slots == null)
                 return;
 
             for (int i = 0; i < cassette.Slots.Count; i++)
@@ -1645,6 +1624,65 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 var location = DataOnlyLocation.Cassette(role, i);
                 cmbDataOnlyDest.Items.Add(new DataOnlyLocationItem(location, location.DisplayText + "  [EMPTY]"));
             }
+        }
+
+        private bool IsSecondInputCassetteLevelEnabled()
+        {
+            var host = GetHost();
+            InputCassetteUnit cassette =
+                host != null && host.Machine != null
+                    ? host.Machine.InputCassetteUnit
+                    : null;
+            return cassette != null &&
+                   cassette.ResolveCassetteLevelCount() >= 2;
+        }
+
+        private bool TrySelectOriginalCassetteDestination(
+            MaterialSnapshot snapshot,
+            DataOnlyLocationItem sourceItem)
+        {
+            if (snapshot == null ||
+                snapshot.Wafers == null ||
+                sourceItem == null ||
+                sourceItem.Location == null ||
+                (sourceItem.Location.Kind != MaterialLocationKind.InputFeeder &&
+                 sourceItem.Location.Kind != MaterialLocationKind.InputStage))
+            {
+                return false;
+            }
+
+            var wafers = snapshot.Wafers
+                .Where(w => w != null &&
+                            w.CurrentLocation != null &&
+                            w.CurrentLocation.Kind == sourceItem.Location.Kind &&
+                            WaferMaterialStateText.Normalize(w.State) != WaferMaterialState.Empty)
+                .ToList();
+            if (wafers.Count != 1)
+                return false;
+
+            WaferMaterial wafer = wafers[0];
+            if ((wafer.SourceCassetteRole != CassetteMaterialRole.Input1 &&
+                 wafer.SourceCassetteRole != CassetteMaterialRole.Input2) ||
+                wafer.SourceSlotNumber < 0)
+            {
+                return false;
+            }
+
+            DataOnlyLocation preferred =
+                DataOnlyLocation.Cassette(
+                    wafer.SourceCassetteRole,
+                    wafer.SourceSlotNumber);
+            foreach (object candidate in cmbDataOnlyDest.Items)
+            {
+                var item = candidate as DataOnlyLocationItem;
+                if (item != null && item.Location.IsSameAs(preferred))
+                {
+                    cmbDataOnlyDest.SelectedItem = candidate;
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         private void AddDataOnlyStationDestItem(MaterialSnapshot snapshot, MaterialLocationKind kind)
@@ -1873,6 +1911,8 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                     else
                         stage.ClearCurrentWaferMaterial();
                 }
+
+                SynchronizeInputCassetteSlotStates(host.Machine.InputCassetteUnit);
             }
             catch (Exception ex)
             {
@@ -1888,7 +1928,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             try
             {
                 RebuildDataOnlySourceItems();
-                RebuildDataOnlyDestItems();
+                RebuildDataOnlyDestItems(false);
                 var item = cmbDataOnlySource.SelectedItem as DataOnlyLocationItem;
                 lblDataOnlyMaterialValue.Text = item != null ? ResolveDataOnlyMaterialId(item.Location) : "-";
                 RefreshSelectedMaterialDetail();

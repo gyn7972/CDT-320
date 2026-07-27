@@ -76,8 +76,17 @@ namespace QMC.CDT320.Sequencing
                     cassette.InputLifterZ.IsServoOn &&
                     !cassette.InputLifterZ.IsAlarm &&
                     !cassette.InputLifterZ.IsMoving &&
-                    cassette.IsWaferLifterZInPosition(releaseTarget, tolerance) &&
-                    Math.Abs(cassette.InputLifterZ.CommandPosition - releaseTarget) <= tolerance)
+                    cassette.InputLifterZ.IsInPosition &&
+                    InputCassetteUnit.IsUnloadReleasePositionMatch(
+                        cassette.InputLifterZ.ActualPosition,
+                        releaseTarget,
+                        unloadTarget,
+                        tolerance) &&
+                    InputCassetteUnit.IsUnloadReleasePositionMatch(
+                        cassette.InputLifterZ.CommandPosition,
+                        releaseTarget,
+                        unloadTarget,
+                        tolerance))
                 {
                     return InputFeederUnloadToCassetteStep.VerifyWaferCleared;
                 }
@@ -390,7 +399,8 @@ namespace QMC.CDT320.Sequencing
                 !Feeder.IsWaferFeederDown() ||
                 Feeder.IsWaferFeederUp() ||
                 !Feeder.IsWaferFeederUnclamp() ||
-                Feeder.IsWaferFeederClamp())
+                Feeder.IsWaferFeederClamp() ||
+                !Feeder.HasWaferOnFeeder())
             {
                 return Fail(
                     "IN-FEEDER-CST-UNLOAD-RELEASE-PRECONDITION",
@@ -417,21 +427,44 @@ namespace QMC.CDT320.Sequencing
 
             double tolerance = cassette.ResolveWaferLifterZInPositionTolerance();
             double actual = cassette.InputLifterZ.ActualPosition;
+            bool atUnloadTarget =
+                InputCassetteUnit.IsUnloadReleasePositionMatch(
+                    actual,
+                    unloadTarget,
+                    releaseTarget,
+                    tolerance) &&
+                InputCassetteUnit.IsUnloadReleasePositionMatch(
+                    cassette.InputLifterZ.CommandPosition,
+                    unloadTarget,
+                    releaseTarget,
+                    tolerance);
+            bool atReleaseTarget =
+                InputCassetteUnit.IsUnloadReleasePositionMatch(
+                    actual,
+                    releaseTarget,
+                    unloadTarget,
+                    tolerance) &&
+                InputCassetteUnit.IsUnloadReleasePositionMatch(
+                    cassette.InputLifterZ.CommandPosition,
+                    releaseTarget,
+                    unloadTarget,
+                    tolerance);
             if (!cassette.InputLifterZ.IsServoOn ||
                 cassette.InputLifterZ.IsAlarm ||
                 cassette.InputLifterZ.IsMoving ||
-                actual < unloadTarget - tolerance ||
-                actual > releaseTarget + tolerance)
+                !cassette.InputLifterZ.IsInPosition ||
+                (!atUnloadTarget && !atReleaseTarget))
             {
                 return Fail(
                     "IN-FEEDER-CST-UNLOAD-RELEASE-PRECONDITION",
                     cassette.Name,
-                    "InputCassette가 unload 위치와 release 위치 사이에 있지 않습니다. " +
+                    "InputCassette가 완료된 unload 또는 release 위치에 있지 않습니다. " +
                     BuildCassetteZState(cassette, releaseTarget) +
-                    ", unloadTarget=" + unloadTarget.ToString("0.###"));
+                    ", unloadTarget=" + unloadTarget.ToString("0.###") +
+                    ", actual=" + actual.ToString("0.###"));
             }
 
-            if (!cassette.IsWaferLifterZInPosition(releaseTarget, tolerance))
+            if (!atReleaseTarget)
             {
                 int result = await AwaitStepWithCancellationAsync(
                     cassette.MoveWaferLifterZForUnloadRelease(
@@ -449,12 +482,22 @@ namespace QMC.CDT320.Sequencing
                 }
             }
 
-            bool actualOk = cassette.IsWaferLifterZInPosition(releaseTarget, tolerance);
+            bool actualOk =
+                InputCassetteUnit.IsUnloadReleasePositionMatch(
+                    cassette.InputLifterZ.ActualPosition,
+                    releaseTarget,
+                    unloadTarget,
+                    tolerance);
             bool commandOk =
-                Math.Abs(cassette.InputLifterZ.CommandPosition - releaseTarget) <= tolerance;
+                InputCassetteUnit.IsUnloadReleasePositionMatch(
+                    cassette.InputLifterZ.CommandPosition,
+                    releaseTarget,
+                    unloadTarget,
+                    tolerance);
             if (!cassette.InputLifterZ.IsServoOn ||
                 cassette.InputLifterZ.IsAlarm ||
                 cassette.InputLifterZ.IsMoving ||
+                !cassette.InputLifterZ.IsInPosition ||
                 !actualOk ||
                 !commandOk)
             {
@@ -530,7 +573,20 @@ namespace QMC.CDT320.Sequencing
             }
 
             double cassetteTolerance = cassette.ResolveWaferLifterZInPositionTolerance();
-            if (!cassette.IsWaferLifterZInPosition(cassetteTarget, cassetteTolerance))
+            if (!cassette.InputLifterZ.IsServoOn ||
+                cassette.InputLifterZ.IsAlarm ||
+                cassette.InputLifterZ.IsMoving ||
+                !cassette.InputLifterZ.IsInPosition ||
+                !InputCassetteUnit.IsUnloadReleasePositionMatch(
+                    cassette.InputLifterZ.ActualPosition,
+                    cassetteTarget,
+                    unloadTarget,
+                    cassetteTolerance) ||
+                !InputCassetteUnit.IsUnloadReleasePositionMatch(
+                    cassette.InputLifterZ.CommandPosition,
+                    cassetteTarget,
+                    unloadTarget,
+                    cassetteTolerance))
             {
                 return Fail(
                     "IN-FEEDER-CST-UNLOAD-AVOID-PRECONDITION",
@@ -983,14 +1039,19 @@ namespace QMC.CDT320.Sequencing
                 double.IsNaN(releaseDistance) ||
                 double.IsInfinity(releaseDistance) ||
                 unloadOffset >= 0.0 ||
-                releaseDistance <= 0.0 ||
+                releaseDistance < InputCassetteUnit.MinUnloadReleaseLiftDistanceMm ||
+                releaseDistance > InputCassetteUnit.MaxUnloadReleaseLiftDistanceMm ||
                 releaseDistance > Math.Abs(unloadOffset))
             {
                 reason =
                     "Unload release lift 설정이 안전 범위를 벗어났습니다. " +
                     "UnloadingPositionOffset=" + unloadOffset.ToString("0.###") +
                     ", UnloadReleaseLiftDistance=" + releaseDistance.ToString("0.###") +
-                    ", required=UnloadingPositionOffset<0 and 0<distance<=abs(offset).";
+                    ", required=UnloadingPositionOffset<0 and " +
+                    InputCassetteUnit.MinUnloadReleaseLiftDistanceMm.ToString("0.###") +
+                    "mm<=distance<=" +
+                    InputCassetteUnit.MaxUnloadReleaseLiftDistanceMm.ToString("0.###") +
+                    "mm and distance<=abs(offset).";
                 return false;
             }
 

@@ -161,7 +161,7 @@ namespace QMC.Common.IO
         /// <summary>
         /// <see cref="IsOn"/>이 <paramref name="targetState"/>와 같아질 때까지 비동기로 대기한다.<br/>
         /// <list type="bullet">
-        ///   <item><description>타겟 상태 도달 후 <c>Recipe.SettleTimeMs</c>만큼 추가 대기(채터링 방지).</description></item>
+        ///   <item><description>타겟 상태가 <c>Recipe.SettleTimeMs</c> 동안 연속 유지될 때 완료한다.</description></item>
         ///   <item><description><paramref name="timeoutMs"/> 초과 시 에러 메시지 출력 후 <c>false</c> 반환.</description></item>
         /// </list>
         /// </summary>
@@ -178,22 +178,39 @@ namespace QMC.Common.IO
                                                             int timeoutMs,
                                                             CancellationToken ct)
         {
-            //Todo: 임시로 SettleTimeMs를 200으로 설정. 추후 Recipe에서 가져오도록 수정 필요
-            Recipe.SettleTimeMs = 200;
+            int settleTimeMs = Recipe != null ? Math.Max(0, Recipe.SettleTimeMs) : 0;
             if (Config.IgnoreWaits)
             {
                 ApplyScannedState(targetState);
                 AjinIoScanService.SetSimulatedState(this, targetState);
-                if (Recipe.SettleTimeMs > 0)
-                    await Task.Delay(Recipe.SettleTimeMs, ct);
+                if (settleTimeMs > 0)
+                    await Task.Delay(settleTimeMs, ct);
                 return true;
             }
 
             Stopwatch sw = Stopwatch.StartNew();
+            long stableStartMs = -1;
 
-            while (IsOn != targetState)
+            while (true)
             {
                 ct.ThrowIfCancellationRequested();
+
+                if (IsOn == targetState)
+                {
+                    if (settleTimeMs == 0)
+                        return true;
+
+                    if (stableStartMs < 0)
+                        stableStartMs = sw.ElapsedMilliseconds;
+
+                    if (sw.ElapsedMilliseconds - stableStartMs >= settleTimeMs)
+                        return true;
+                }
+                else
+                {
+                    // 안정화 중 상태가 반전되면 연속 유지 시간을 처음부터 다시 측정한다.
+                    stableStartMs = -1;
+                }
 
                 if (sw.ElapsedMilliseconds >= timeoutMs)
                 {
@@ -206,12 +223,6 @@ namespace QMC.Common.IO
 
                 await Task.Delay(10, ct);
             }
-
-            // ── 채터링 방지: 목표 상태 도달 후 안정화 대기 ──────────────────
-            if (Recipe.SettleTimeMs > 0)
-                await Task.Delay(Recipe.SettleTimeMs, ct);
-
-            return true;
         }
 
         // ──────────────────────────────────────────────────────────────────────

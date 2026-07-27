@@ -1823,6 +1823,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
 
                 if (result.Success)
                 {
+                    SyncOutputRuntimeProjection();
                     WriteEvent("OUTPUT-CST-DATAONLY-MOVE", "DATA ONLY move done. material=" + result.MaterialId +
                         ", source=" + result.SourceText + ", destination=" + result.DestinationText +
                         ", persisted=" + result.PersistenceSucceeded);
@@ -1890,6 +1891,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
 
                 if (result.Success)
                 {
+                    SyncOutputRuntimeProjection();
                     WriteEvent("OUTPUT-CST-DATAONLY-DELETE", "DATA ONLY delete done. material=" + result.MaterialId +
                         ", location=" + result.SourceText + ", persisted=" + result.PersistenceSucceeded);
                     RefreshDataOnlyAfterChange();
@@ -1914,6 +1916,58 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             finally
             {
                 _dataOnlyBusy = false;
+            }
+        }
+
+        private void SyncOutputRuntimeProjection()
+        {
+            try
+            {
+                var host = GetHost();
+                if (host == null || host.Machine == null)
+                    return;
+
+                var feeder = host.Machine.OutputFeederUnit;
+                if (feeder != null)
+                {
+                    WaferMaterial feederWafer =
+                        MaterialStateService.GetWaferAtLocation(MaterialLocationKind.OutputFeeder);
+                    feeder.UpdateFeederMaterialState(
+                        feederWafer == null ? MaterialState.Empty : MaterialState.Occupied);
+                }
+
+                var cassette = host.Machine.OutputCassetteUnit;
+                if (cassette == null || cassette.Config == null)
+                    return;
+
+                CassetteMaterialRole[] roles =
+                {
+                    CassetteMaterialRole.Good1,
+                    CassetteMaterialRole.Good2,
+                    CassetteMaterialRole.Ng1
+                };
+
+                foreach (CassetteMaterialRole role in roles)
+                {
+                    TargetCassette target = ResolveTargetCassette(role);
+                    for (int slotIndex = 0; slotIndex < cassette.Config.SlotCount; slotIndex++)
+                    {
+                        WaferMaterial wafer = MaterialStateService.GetWaferInCassette(role, slotIndex);
+                        cassette.UpdateCassetteSlotState(
+                            target,
+                            slotIndex,
+                            wafer != null ? SlotPresence.Exist : SlotPresence.Empty,
+                            ProcessState.Ready);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                WriteAlarm("OUTPUT-CST-DATAONLY-SYNC",
+                    "DATA ONLY projection 동기화 실패: " + ex.Message);
+            }
+            finally
+            {
             }
         }
 

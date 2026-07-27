@@ -2085,6 +2085,27 @@ namespace QMC.CDT320.Materials
                                 "Destination 카세트 상태 데이터가 없습니다. role=" + destination.CassetteRole, userName);
                         }
 
+                        bool isInputCassette =
+                            destination.CassetteRole == CassetteMaterialRole.Input1 ||
+                            destination.CassetteRole == CassetteMaterialRole.Input2;
+                        if (isInputCassette &&
+                            (!destinationCassette.IsEnabled ||
+                             !destinationCassette.IsPresent ||
+                             !destinationCassette.IsMapped))
+                        {
+                            return FailDataOnly(
+                                operation,
+                                source,
+                                destination,
+                                "DATA-ONLY-DEST-CASSETTE-NOT-ACTIVE",
+                                "Destination Input cassette가 사용 가능한 상태가 아닙니다. role=" +
+                                destination.CassetteRole +
+                                ", enabled=" + destinationCassette.IsEnabled +
+                                ", present=" + destinationCassette.IsPresent +
+                                ", mapped=" + destinationCassette.IsMapped,
+                                userName);
+                        }
+
                         destinationCassette.EnsureSlots();
                         if (destination.SlotIndex < 0 || destination.SlotIndex >= destinationCassette.Slots.Count)
                         {

@@ -5603,6 +5603,22 @@ namespace QMC.CDT320
                     return result;
                 }
 
+                ClearLoaderTransportResumeStatesAfterReady();
+                if (!TrySynchronizeInputCassetteSlotProjection(
+                    "ReadySequenceComplete",
+                    "READY-INPUT-CST-SLOT-SYNC"))
+                {
+                    SetReadySequenceProgress(
+                        MachineReadySequenceState.Failed,
+                        100,
+                        totalSteps,
+                        totalSteps,
+                        "InputCassetteSlotSync",
+                        LastActionFailureMessage);
+                    SetStatus(EquipmentStatus.Alarm);
+                    return -1;
+                }
+
                 SaveMachineRuntimeState("ReadySequenceComplete");
                 SetStatus(EquipmentStatus.Ready);
                 SetReadySequenceProgress(MachineReadySequenceState.Completed, 100, totalSteps, totalSteps, "Ready", "Ready 시퀀스가 완료되었습니다.");
@@ -5640,6 +5656,119 @@ namespace QMC.CDT320
                 if (actionScope != null)
                     actionScope.Dispose();
             }
+        }
+
+        /// <summary>
+        /// READY 완료 후 로딩/언로딩 물류의 저장된 중간 Step만 폐기합니다.
+        /// 다음 실행 방향은 기존 Material 기반 Dispatcher가 다시 결정하며,
+        /// Align/DieMapping/검사/Picker/Vision 재개 상태는 유지합니다.
+        /// </summary>
+        private static void ClearLoaderTransportResumeStatesAfterReady()
+        {
+            string[] stateNames =
+            {
+                "InputFeederSequence.LoadFromCassette",
+                "InputFeederSequence.LoadToStage",
+                "InputFeederSequence.UnloadFromStage",
+                "InputFeederSequence.UnloadToCassette",
+                "InputFeederSequence.Exchange",
+                "InputFeederSequence.Recover",
+                "InputStageSequence.PrepareLoad",
+                "InputStageSequence.PrepareUnload",
+                "InputStageSequence.MoveAvoid",
+                "InputCassetteSequence.Loading",
+                "InputCassetteSequence.Unloading",
+                "OutputCassetteSequence.Loading",
+                "OutputCassetteSequence.Unloading",
+                "OutputCassetteSequence.MoveSlot"
+            };
+
+            foreach (string stateName in stateNames)
+                QMC.CDT320.Sequencing.SequenceResumeStore.Clear(stateName);
+
+            string[] outputFeederKinds =
+            {
+                "LoadFromCassette",
+                "LoadToStage",
+                "UnloadFromStage",
+                "UnloadToCassette",
+                "Exchange",
+                "Recover"
+            };
+            string[] outputStageKinds =
+            {
+                "PrepareLoad",
+                "PrepareUnload",
+                "MoveAvoid"
+            };
+
+            foreach (BinSide side in new[] { BinSide.Good, BinSide.Ng })
+            {
+                foreach (string kind in outputFeederKinds)
+                {
+                    QMC.CDT320.Sequencing.SequenceResumeStore.Clear(
+                        "OutputFeederSequence." + kind + "." + side);
+                }
+
+                foreach (string kind in outputStageKinds)
+                {
+                    QMC.CDT320.Sequencing.SequenceResumeStore.Clear(
+                        "OutputStageSequence." + kind + "." + side);
+                }
+            }
+
+            QMC.Common.Log.Write(
+                "Main",
+                "SYSTEM",
+                "ClearLoaderTransportResumeStatesAfterReady",
+                "READY 완료 후 Input/Output 로딩·언로딩 중간 Step을 초기화했습니다. 다음 작업은 현재 Material 상태에서 최초 안전검사부터 시작합니다. - Ok");
+        }
+
+        private bool TrySynchronizeInputCassetteSlotProjection(
+            string reason,
+            string alarmCode)
+        {
+            InputCassetteUnit cassette =
+                _machine != null ? _machine.InputCassetteUnit : null;
+            if (cassette == null)
+            {
+                LastActionFailureMessage =
+                    "Input Cassette slot projection 동기화에 필요한 Unit이 없습니다. reason=" +
+                    reason;
+                AlarmManager.Raise(
+                    AlarmSeverity.Error,
+                    alarmCode,
+                    "MachineController",
+                    LastActionFailureMessage);
+                return false;
+            }
+
+            string summary;
+            if (!cassette.TrySynchronizeSlotProjectionFromMaterialState(out summary))
+            {
+                LastActionFailureMessage =
+                    "Input Cassette slot projection 동기화에 실패했습니다. reason=" +
+                    reason + ", detail=" + summary;
+                QMC.Common.Log.Write(
+                    "Main",
+                    "SYSTEM",
+                    "SynchronizeInputCassetteSlotProjection",
+                    LastActionFailureMessage + " - Failed");
+                AlarmManager.Raise(
+                    AlarmSeverity.Error,
+                    alarmCode,
+                    cassette.Name,
+                    LastActionFailureMessage);
+                return false;
+            }
+
+            QMC.Common.Log.Write(
+                "Main",
+                "SYSTEM",
+                "SynchronizeInputCassetteSlotProjection",
+                "Input Cassette slot projection 동기화 완료. reason=" +
+                reason + ", " + summary + " - Ok");
+            return true;
         }
 
         /// <summary>장비 START: Servo ON 후 현재 구성된 자동 시퀀스를 시작합니다.</summary>
@@ -8502,6 +8631,14 @@ namespace QMC.CDT320
                 "SEQ-MANUAL-IN-LOAD",
                 async delegate (QMC.CDT320.Sequencing.MachineSequenceContext context, CancellationToken token)
                 {
+                    if (!TrySynchronizeInputCassetteSlotProjection(
+                        "ManualInputLoad",
+                        "SEQ-MANUAL-IN-LOAD-SLOT-SYNC"))
+                    {
+                        SetStatus(EquipmentStatus.Alarm);
+                        return -1;
+                    }
+
                     var sequence = new QMC.CDT320.Sequencing.InputSequence(context);
                     sequence.Configure(QMC.CDT320.Sequencing.SequenceRunMode.Manual);
                     return await sequence.ExecuteAutoStepLoadingForTestAsync(token, requestedRole, requestedSlotIndex)
@@ -8596,6 +8733,18 @@ namespace QMC.CDT320
                     return -1;
                 }
 
+                if (_status != EquipmentStatus.Ready)
+                {
+                    LastActionFailureMessage = processLabel +
+                        " Manual 공정은 READY 완료 후에만 시작할 수 있습니다. currentStatus=" + _status;
+                    AlarmManager.Raise(
+                        AlarmSeverity.Error,
+                        alarmCodePrefix + "-READY-REQUIRED",
+                        "MachineController",
+                        LastActionFailureMessage);
+                    return -1;
+                }
+
                 if (!EnsureMachineInitializedForRun("RunManualUnitProcessAsync:" + processLabel))
                     return -1;
 
@@ -8615,6 +8764,8 @@ namespace QMC.CDT320
                     if (result != 0)
                     {
                         LastActionFailureMessage = processLabel + " Manual 공정 실패. result=" + result;
+                        if (_status != EquipmentStatus.Alarm)
+                            SetStatus(EquipmentStatus.Stopped);
                         return result;
                     }
 
@@ -8625,6 +8776,8 @@ namespace QMC.CDT320
             catch (OperationCanceledException)
             {
                 LastActionFailureMessage = processLabel + " Manual 공정이 취소되었습니다.";
+                if (_status != EquipmentStatus.Alarm)
+                    SetStatus(EquipmentStatus.Stopped);
                 return -1;
             }
             catch (Exception ex)

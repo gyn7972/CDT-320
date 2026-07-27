@@ -16,7 +16,8 @@ namespace QMC.CDT320.Interlocks
 
             if (MotionGuardRuleHelpers.IsMoving(request, "InputLifterZ"))
             {
-                if (request.MoveKind == MotionGuardMoveKind.AxisTeachingMove &&
+                if (request.IsSequenceProcess &&
+                    request.MoveKind == MotionGuardMoveKind.AxisTeachingMove &&
                     string.Equals(
                         request.TargetName,
                         InputCassetteUnit.UnloadReleaseLiftTargetName,
@@ -139,14 +140,8 @@ namespace QMC.CDT320.Interlocks
                 if (!VerifyRearPickerXAvoidPosition(machine.PickerRearUnit, out reason))
                     return false;
 
-                if (cassette.IsWaferProtrusionDetected())
-                {
-                    return MotionGuardRuleHelpers.Block(
-                        "InputLifterZ",
-                        "InputCassette Jut detected. Unload release lift is blocked.",
-                        out reason);
-                }
-
+                // 언클램프 직후 Jut ON은 제품이 카세트에 걸쳐 있는 이 전용 release lift에서만 정상이다.
+                // 일반 Manual/Home/Teaching 이동은 아래 기존 Jut 인터락을 그대로 사용한다.
                 if (!cassette.InputLifterZ.IsServoOn ||
                     cassette.InputLifterZ.IsAlarm ||
                     cassette.InputLifterZ.IsMoving)
@@ -187,11 +182,12 @@ namespace QMC.CDT320.Interlocks
                         out reason);
                 }
 
-                if (!feeder.IsWaferFeederTransferDataOccupied())
+                if (!feeder.HasWaferOnFeeder())
                 {
                     return MotionGuardRuleHelpers.Block(
                         "InputLifterZ",
-                        "Unload release lift 전 InputFeeder wafer 데이터가 없습니다.",
+                        "Unload release lift 전 InputFeeder wafer 데이터 또는 Ring 감지가 없습니다. " +
+                        feeder.GetWaferFeederTransferState(),
                         out reason);
                 }
 
@@ -208,7 +204,8 @@ namespace QMC.CDT320.Interlocks
                     double.IsNaN(releaseDistance) ||
                     double.IsInfinity(releaseDistance) ||
                     unloadOffset >= 0.0 ||
-                    releaseDistance <= 0.0 ||
+                    releaseDistance < InputCassetteUnit.MinUnloadReleaseLiftDistanceMm ||
+                    releaseDistance > InputCassetteUnit.MaxUnloadReleaseLiftDistanceMm ||
                     releaseDistance > Math.Abs(unloadOffset);
                 if (invalidConfig)
                 {
@@ -216,7 +213,11 @@ namespace QMC.CDT320.Interlocks
                         "InputLifterZ",
                         "Unload release lift 설정이 안전 범위를 벗어났습니다. " +
                         "unloadOffset=" + unloadOffset.ToString("0.###") +
-                        ", releaseDistance=" + releaseDistance.ToString("0.###"),
+                        ", releaseDistance=" + releaseDistance.ToString("0.###") +
+                        ", minReleaseDistance=" +
+                        InputCassetteUnit.MinUnloadReleaseLiftDistanceMm.ToString("0.###") +
+                        ", maxReleaseDistance=" +
+                        InputCassetteUnit.MaxUnloadReleaseLiftDistanceMm.ToString("0.###"),
                         out reason);
                 }
 
@@ -239,15 +240,35 @@ namespace QMC.CDT320.Interlocks
                     unloadOffset;
                 double releaseTarget = unloadTarget + releaseDistance;
                 double actual = cassette.InputLifterZ.ActualPosition;
-                bool actualInReleaseCorridor =
-                    actual >= unloadTarget - tolerance &&
-                    actual <= releaseTarget + tolerance;
+                bool actualAtUnload =
+                    InputCassetteUnit.IsUnloadReleasePositionMatch(
+                        actual,
+                        unloadTarget,
+                        releaseTarget,
+                        tolerance);
+                bool commandAtUnload =
+                    InputCassetteUnit.IsUnloadReleasePositionMatch(
+                        cassette.InputLifterZ.CommandPosition,
+                        unloadTarget,
+                        releaseTarget,
+                        tolerance);
                 bool targetMatches =
-                    Math.Abs(targetPosition - releaseTarget) <= tolerance;
-                if (!actualInReleaseCorridor ||
+                    InputCassetteUnit.IsUnloadReleasePositionMatch(
+                        targetPosition,
+                        releaseTarget,
+                        unloadTarget,
+                        tolerance);
+                bool moveDistanceMatches =
+                    InputCassetteUnit.IsUnloadReleasePositionMatch(
+                        moveDistance,
+                        releaseDistance,
+                        0.0,
+                        tolerance);
+                if (!cassette.InputLifterZ.IsInPosition ||
+                    !actualAtUnload ||
+                    !commandAtUnload ||
                     !targetMatches ||
-                    moveDistance < -tolerance ||
-                    moveDistance > releaseDistance + tolerance)
+                    !moveDistanceMatches)
                 {
                     return MotionGuardRuleHelpers.Block(
                         "InputLifterZ",
@@ -257,7 +278,10 @@ namespace QMC.CDT320.Interlocks
                         ", unloadTarget=" + unloadTarget.ToString("0.###") +
                         ", releaseTarget=" + releaseTarget.ToString("0.###") +
                         ", actual=" + actual.ToString("0.###") +
+                        ", command=" + cassette.InputLifterZ.CommandPosition.ToString("0.###") +
                         ", target=" + targetPosition.ToString("0.###") +
+                        ", moveDistance=" + moveDistance.ToString("0.###") +
+                        ", inPosition=" + cassette.InputLifterZ.IsInPosition +
                         ", source=" + wafer.SourceCassetteRole +
                         "/" + (wafer.SourceSlotNumber + 1),
                         out reason);
