@@ -21,6 +21,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
         private const int RefreshIntervalMs = 500;
         private const int MaterialRefreshIntervalMs = 1000;
         private const int BottomPanelReserveHeight = 56;
+        // workInfoBody 0행(LOT 입력줄)의 Designer 고정 높이와 반드시 같아야 한다.
+        private const int LotInputRowHeight = 34;
 
         private System.Windows.Forms.Timer _refresh;
         private ToolTip _workTimeToolTip;
@@ -49,6 +51,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 WireRuntimeEvents();
                 InitializeWorkTimeToolTips();
                 HookStateEvents();
+                RefreshLotUi();
                 EnsureRefreshTimer();
             }
         }
@@ -461,6 +464,152 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 btnTestAlarm.Click += btnTestAlarm_Click;
         }
 
+        // ── LOT 관리 (2026-07-27 신규) ─────────────────────────────────────────────
+        // LOT 시작/완료는 LotSessionService 하나만 호출한다. 화면은 결과 표시와 버튼 상태만 담당한다.
+
+        private void btnLotStart_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                Form1 host = ParentForm as Form1 ?? FindForm() as Form1;
+                if (host == null)
+                {
+                    QMC.Common.MessageDialog.Show(this, "장비 화면을 찾을 수 없습니다.", "LOT",
+                        MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    return;
+                }
+
+                string lotId = txtLotId.Text;
+                string reason;
+                if (!LotSessionService.TryStartLot(host.Machine, host.ActiveRecipeName, lotId, out reason))
+                {
+                    QMC.Common.MessageDialog.Show(this, reason, "LOT 시작",
+                        MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                RefreshLotUi();
+                QMC.Common.MessageDialog.Show(this,
+                    "LOT을 시작했습니다.\r\nLOT ID: " + LotSessionService.ActiveLotId +
+                    "\r\n\r\n레시피에도 LOT ID를 기록했습니다.",
+                    "LOT 시작", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.MessageDialog.Show(this, "LOT 시작 실패: " + ex.Message, "LOT 시작",
+                    MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+            }
+        }
+
+        private void btnLotComplete_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                Form1 host = ParentForm as Form1 ?? FindForm() as Form1;
+                if (host == null || host.Controller == null)
+                {
+                    QMC.Common.MessageDialog.Show(this, "장비 화면을 찾을 수 없습니다.", "LOT",
+                        MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    return;
+                }
+
+                // 운전 중 완료는 막는다. 카세트 교체를 위해 잠시 멈춘 것과 LOT 종료를 구분해야 한다.
+                if (host.Controller.Status == EquipmentStatus.AutoRunning)
+                {
+                    QMC.Common.MessageDialog.Show(this,
+                        "자동 운전 중에는 LOT을 완료할 수 없습니다.\r\n정지 후 다시 시도하세요.",
+                        "LOT 완료", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                string activeLotId = LotSessionService.ActiveLotId;
+                if (QMC.Common.MessageDialog.Show(this,
+                        "LOT을 완료합니다.\r\nLOT ID: " + activeLotId +
+                        "\r\n\r\n완료 후에는 새 LOT을 시작해야 자동 운전이 가능합니다. 진행할까요?",
+                        "LOT 완료", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes)
+                    return;
+
+                string reason;
+                if (!LotSessionService.TryCompleteLot(host.Controller.Stats, out reason))
+                {
+                    QMC.Common.MessageDialog.Show(this, reason, "LOT 완료",
+                        MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                RefreshLotUi();
+                QMC.Common.MessageDialog.Show(this,
+                    "LOT을 완료했습니다.\r\nLOT ID: " + activeLotId,
+                    "LOT 완료", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.MessageDialog.Show(this, "LOT 완료 실패: " + ex.Message, "LOT 완료",
+                    MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+            }
+        }
+
+        /// <summary>
+        /// LOT 진행 이력 창을 연다.
+        /// [LOT 관리 2026-07-27] 작업 정보 화면에 리스트를 넣으면 기존 정보 타일 값이 잘리므로
+        /// 이력은 별도 창으로 뺐다. 이력은 Log\Lots JSON 으로 남아 재시작해도 유지된다.
+        /// </summary>
+        private void btnLotHistory_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                using (var dialog = new QMC.CDT_320.Ui.Dialogs.LotHistoryDialog())
+                {
+                    dialog.ShowDialog(this);
+                }
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.MessageDialog.Show(this, "LOT 진행 이력을 열지 못했습니다: " + ex.Message,
+                    "LOT 진행 이력", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+            }
+        }
+
+        /// <summary>LOT 입력줄의 버튼 상태를 갱신한다.</summary>
+        private void RefreshLotUi()
+        {
+            try
+            {
+                if (txtLotId == null || btnLotStart == null || btnLotComplete == null)
+                    return;
+
+                bool active = LotSessionService.IsLotActive;
+
+                txtLotId.Enabled = !active;
+                btnLotStart.Enabled = !active;
+                btnLotComplete.Enabled = active;
+                btnLotStart.BackColor = active
+                    ? Color.FromArgb(150, 150, 150)
+                    : Color.FromArgb(21, 128, 61);
+                btnLotComplete.BackColor = active
+                    ? Color.FromArgb(217, 119, 6)
+                    : Color.FromArgb(150, 150, 150);
+
+                if (active)
+                    txtLotId.Text = LotSessionService.ActiveLotId;
+            }
+            catch
+            {
+            }
+            finally
+            {
+            }
+        }
+
         private void btnCcs_Click(object sender, EventArgs e)
         {
             try
@@ -511,9 +660,14 @@ namespace QMC.CDT_320.Ui.Pages.Work
             if (rootLayout == null || grpInfo == null || grpTime == null)
                 return;
 
+            // [LOT 관리 2026-07-27] 작업 정보 안에 LOT 입력줄(34px)이 한 줄 늘었다.
+            // 최소 높이를 그만큼 올려주지 않으면 화면이 작을 때 Collet 타일 3행이
+            // 39px 까지 눌려 값이 잘린다(타일 1개 = caption 17px + 값 20px + 여백 ≈ 42px 필요).
+            // 실측: grpInfo 230px -> 타일 39px(잘림) / 264px -> 타일 50px(정상).
+            const int WorkInfoMinimumHeight = 230 + LotInputRowHeight;
             int available = rootLayout.ClientSize.Height - rootLayout.Padding.Vertical;
             int bottomRow = Math.Max(0, (int)(available * 0.35F));
-            int groupHeight = Math.Max(230, bottomRow - BottomPanelReserveHeight);
+            int groupHeight = Math.Max(WorkInfoMinimumHeight, bottomRow - BottomPanelReserveHeight);
             groupHeight = Math.Min(Math.Max(0, bottomRow), groupHeight);
 
             grpInfo.Dock = DockStyle.Top;
@@ -625,6 +779,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
 
                 BeginInvoke((Action)(() =>
                 {
+                    // LOT 입력줄/리스트는 화면이 보이지 않아도 상태를 맞춰 둔다(다시 열었을 때 즉시 정확).
+                    RefreshLotUi();
                     if (ShouldRefreshVisible(this))
                     {
                         QueueMaterialDisplayRefresh(true);

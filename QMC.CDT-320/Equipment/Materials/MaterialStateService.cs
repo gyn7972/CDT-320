@@ -71,6 +71,44 @@ namespace QMC.CDT320.Materials
             }
         }
 
+        /// <summary>
+        /// 생산 LOT ID를 설정한다.
+        /// [신규 2026-07-27] 기존에는 읽기(GetProductionLotId)만 있고 설정 경로가 없어,
+        /// LOT ID가 최초 기동 시 레시피(RecipeProject.LotId)에서 한 번 복사되는 것 외에는 바꿀 수 없었다.
+        /// 운전 중 LOT 시작/완료를 지원하기 위해 설정 API를 연다.
+        /// 이 값 하나만 바꾸면 TactTime CSV / 웨이퍼·검사 CSV / 비전 요청 전문 / 생산통계 / 화면 표시가
+        /// 모두 GetProductionLotId()를 통해 자동으로 따라온다(시퀀스 수정 불필요).
+        ///
+        /// 공백/null 정책: 빈 값은 "LOT 미지정"을 뜻하는 빈 문자열로 정규화해 저장한다.
+        /// (LOT 완료 후 미지정 상태로 되돌릴 때 사용한다. 시작 시의 빈 값 거부는 호출자인
+        ///  LotSessionService.TryStartLot에서 처리한다.)
+        /// </summary>
+        /// <returns>값이 실제로 바뀌었으면 true.</returns>
+        public static bool SetProductionLotId(string lotId, string reason)
+        {
+            string normalized = string.IsNullOrWhiteSpace(lotId) ? "" : lotId.Trim();
+            string previous;
+
+            lock (_stateSync)
+            {
+                if (State == null)
+                    return false;
+
+                previous = State.LotId ?? "";
+                if (string.Equals(previous, normalized, StringComparison.Ordinal))
+                    return false;
+
+                State.LotId = normalized;
+            }
+
+            NotifyAndSave(string.IsNullOrWhiteSpace(reason) ? "SetProductionLotId" : reason);
+            Log.Write("Main", "SYSTEM", "SetProductionLotId",
+                "생산 LOT ID를 변경했습니다. 이전=" + (string.IsNullOrEmpty(previous) ? "(없음)" : previous) +
+                ", 이후=" + (string.IsNullOrEmpty(normalized) ? "(없음)" : normalized) +
+                ", reason=" + (reason ?? "") + " - Ok");
+            return true;
+        }
+
         public static void InitializeForRecipe(int inputLevelCount, int goodLevelCount, int inputSlots, int outputSlots)
         {
             MaterialStorage.InitializeDefaultState(inputLevelCount, goodLevelCount, inputSlots, outputSlots);

@@ -1,0 +1,279 @@
+﻿using System;
+using QMC.CDT320.Materials;
+using QMC.CDT320.Recipes;
+using QMC.CDT320.Stats;
+using QMC.Common;
+using QMC.Common.Logging;
+
+namespace QMC.CDT320.Lots
+{
+    /// <summary>
+    /// LOT 시작/완료의 단일 진입점.
+    ///
+    /// [신규 2026-07-27] 기존에 LOT 체계가 두 갈래로 갈라져 있었고 한쪽은 死코드였다.
+    ///  - 살아있던 경로: RecipeProject.LotId -> MaterialSnapshot.LotId -> GetProductionLotId()
+    ///    -> TactTime CSV / 웨이퍼·검사 CSV / 비전 요청 전문 / 생산통계 / 화면 표시
+    ///  - 죽어있던 경로: LotStorage.OpenLot/CloseLot/RecordDie. OpenLot 호출부가 커맨드라인
+    ///    자동테스트(legacy CycleRunAsync)뿐이라 ActiveLot이 항상 null이었다.
+    ///  - 게다가 두 경로의 ID 규칙이 달라(레시피 문자열 vs "LOT-yyyyMMdd-HHmmss")
+    ///    StatePage / WorkMainPage / LiveLotMapView 세 곳이 ID 불일치로 lot을 강제 폐기했고,
+    ///    화면에는 항상 "(no active lot)"만 보였다.
+    ///
+    /// 이 서비스는 두 체계를 "입력한 LOT ID 하나"로 묶는다. LotStorage.OpenLot에 자동 생성 ID가
+    /// 아니라 사용자가 입력한 ID를 그대로 넘기므로, 위 세 곳의 비교가 저절로 성립한다.
+    ///
+    /// 사용자 확정 사항(2026-07-27):
+    ///  - 여러 카세트를 묶어 한 LOT으로 본다. 입력 카세트 소진은 LOT 완료가 아니다.
+    ///  - LOT 완료는 작업자가 명시적으로 요청할 때만 발생한다.
+    ///  - 활성 LOT이 없으면 자동 운전을 차단한다. 임시 LOT을 자동 생성하지 않는다.
+    ///  - LOT ID를 시작하면 활성 레시피(RecipeProject.LotId)에도 기록한다.
+    /// </summary>
+    public static class LotSessionService
+    {
+        /// <summary>현재 진행 중인 LOT이 있는지 여부.</summary>
+        public static bool IsLotActive
+        {
+            get { return LotStorage.ActiveLot != null; }
+        }
+
+        /// <summary>현재 진행 중인 LOT ID. 없으면 빈 문자열.</summary>
+        public static string ActiveLotId
+        {
+            get
+            {
+                Lot lot = LotStorage.ActiveLot;
+                return lot != null ? (lot.LotID ?? "") : "";
+            }
+        }
+
+        /// <summary>
+        /// 프로그램 시작 시 진행 중이던 LOT을 되살린다.
+        ///
+        /// [LOT 관리 2026-07-27] LOT은 여러 카세트에 걸치고, 완료는 작업자가 명시적으로 누를 때만
+        /// 발생한다(사용자 확정 사항). 따라서 프로그램 재시작이 LOT을 끝내서는 안 된다.
+        /// 생산 LOT ID는 Material 스냅샷에 남아 있으므로, 그 ID와 같은 Running LOT이
+        /// Log\Lots 이력에 있으면 활성 LOT으로 되돌린다.
+        ///
+        /// Material 스냅샷 복구가 끝난 뒤에 호출해야 한다(Form1 시작 시퀀스 참고).
+        /// </summary>
+        public static bool RestoreActiveLotOnStartup()
+        {
+            try
+            {
+                if (IsLotActive)
+                    return false;
+
+                string lotId = MaterialStateService.GetProductionLotId();
+                if (string.IsNullOrWhiteSpace(lotId))
+                    return false;
+
+                if (!LotStorage.TryRestoreActiveLot(lotId))
+                {
+                    Log.Write("Main", "SYSTEM", "LotRestore",
+                        "이전 LOT ID가 남아 있으나 진행 중 이력이 없어 활성 LOT을 복구하지 않았습니다. lot=" +
+                        lotId.Trim() + " - Check");
+                    return false;
+                }
+
+                string message = "재시작 전 진행 중이던 LOT을 복구했습니다. lot=" + ActiveLotId;
+                Log.Write("Main", "SYSTEM", "LotRestore", message + " - Ok");
+                EventLogger.Write(EventKind.Event, "LOT", "LOT-RESTORE", message);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Log.Write("Main", "SYSTEM", "LotRestore", "LOT 복구 실패: " + ex.Message + " - Failed");
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
+        /// <summary>
+        /// LOT을 시작한다.
+        /// 검증을 모두 통과한 뒤에만 반영하며, 중간 실패 시 어떤 것도 적용하지 않는다(부분 적용 금지).
+        /// </summary>
+        /// <param name="machine">장비 객체(총 die 수 산출용). null 허용.</param>
+        /// <param name="activeRecipeName">활성 레시피 이름. 비어 있으면 레시피 기록을 건너뛴다.</param>
+        public static bool TryStartLot(
+            CDT320_Machine machine,
+            string activeRecipeName,
+            string lotId,
+            out string reason)
+        {
+            reason = "";
+            try
+            {
+                // 1) 입력 검증
+                string normalized = string.IsNullOrWhiteSpace(lotId) ? "" : lotId.Trim();
+                if (normalized.Length == 0)
+                {
+                    reason = "LOT ID를 입력하세요.";
+                    return false;
+                }
+
+                // 2) 중복 시작 방지
+                if (IsLotActive)
+                {
+                    reason = "이미 진행 중인 LOT이 있습니다. 먼저 [LOT 완료]로 종료한 뒤 새 LOT을 시작하세요. 진행 중=" + ActiveLotId;
+                    return false;
+                }
+
+                // 3) 레시피 기록 대상 확인(사용자 확정: 입력한 LOT ID를 레시피에도 남긴다).
+                //    레시피 저장이 실패하면 LOT을 시작하지 않는다 — 재기동 시 LOT ID가 사라지는 것을 막는다.
+                RecipeProject project = null;
+                if (!string.IsNullOrWhiteSpace(activeRecipeName))
+                {
+                    project = RecipeStore.Load(activeRecipeName);
+                    if (project == null)
+                    {
+                        reason = "활성 레시피를 불러오지 못해 LOT을 시작할 수 없습니다. recipe=" + activeRecipeName;
+                        return false;
+                    }
+                }
+
+                // ---- 여기서부터 실제 반영 ----
+
+                // 4) 생산 LOT ID 설정. 이 값 하나로 TactTime/CSV/비전/통계/화면이 모두 따라온다.
+                MaterialStateService.SetProductionLotId(normalized, "LotStart");
+
+                // 5) 레시피에도 기록하고 저장한다.
+                if (project != null)
+                {
+                    project.LotId = normalized;
+                    if (!RecipeStore.Save(project))
+                    {
+                        // 레시피 저장 실패는 되돌린다(LOT ID만 남고 레시피가 어긋나는 상태 방지).
+                        MaterialStateService.SetProductionLotId("", "LotStartRollback");
+                        reason = "레시피에 LOT ID를 저장하지 못했습니다. recipe=" + activeRecipeName;
+                        return false;
+                    }
+                }
+
+                // 6) LotStorage에 동일 ID로 연다. 자동 생성 ID를 쓰지 않는 것이 핵심이다.
+                int totalDies = ResolveTotalDies(machine);
+                string recipeName = project != null
+                    ? (project.FileName ?? activeRecipeName ?? "")
+                    : (activeRecipeName ?? "");
+                LotStorage.OpenLot(normalized, recipeName, totalDies);
+
+                string message = "LOT을 시작했습니다. lot=" + normalized +
+                                 ", recipe=" + (string.IsNullOrEmpty(recipeName) ? "(없음)" : recipeName) +
+                                 ", totalDies=" + totalDies;
+                Log.Write("Main", "SYSTEM", "LotStart", message + " - Ok");
+                EventLogger.Write(EventKind.Event, "LOT", "LOT-START", message);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                reason = "LOT 시작 실패: " + ex.Message;
+                Log.Write("Main", "SYSTEM", "LotStart", reason + " - Failed");
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
+        /// <summary>
+        /// 진행 중인 LOT을 완료한다.
+        /// 완료 직전 생산통계 스냅샷을 Lot에 옮겨 담는다.
+        /// (다이 핫패스에 Lot.RecordDie를 붙이지 않는 이유: 택타임에 부하를 주지 않기 위함)
+        /// </summary>
+        public static bool TryCompleteLot(ProductionStatsEngine stats, out string reason)
+        {
+            reason = "";
+            try
+            {
+                Lot lot = LotStorage.ActiveLot;
+                if (lot == null)
+                {
+                    reason = "진행 중인 LOT이 없습니다.";
+                    return false;
+                }
+
+                string lotId = lot.LotID ?? "";
+                ApplyStatsSnapshot(lot, stats);
+
+                // CloseLot이 State=Completed, FinishedAt 설정 + Log\Lots JSON 저장까지 수행한다.
+                LotStorage.CloseLot(false);
+
+                string message = "LOT을 완료했습니다. lot=" + lotId +
+                                 ", 처리=" + lot.ProcessedDies +
+                                 ", GOOD=" + lot.GoodCount +
+                                 ", NG=" + lot.NgCount +
+                                 ", 수율=" + lot.YieldPercent.ToString("F1") + "%";
+                Log.Write("Main", "SYSTEM", "LotComplete", message + " - Ok");
+                EventLogger.Write(EventKind.Event, "LOT", "LOT-COMPLETE", message);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                reason = "LOT 완료 실패: " + ex.Message;
+                Log.Write("Main", "SYSTEM", "LotComplete", reason + " - Failed");
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
+        /// <summary>생산통계 스냅샷의 카운터를 Lot에 반영한다.</summary>
+        private static void ApplyStatsSnapshot(Lot lot, ProductionStatsEngine stats)
+        {
+            try
+            {
+                if (lot == null || stats == null)
+                    return;
+
+                ProductionStatsSnapshot snapshot = stats.GetSnapshot();
+                if (snapshot == null)
+                    return;
+
+                lot.ProcessedDies = snapshot.ProcessedDies;
+                lot.GoodCount = snapshot.GoodCount;
+                lot.NgCount = snapshot.NgCount;
+            }
+            catch (Exception ex)
+            {
+                Log.Write("Main", "SYSTEM", "LotComplete",
+                    "LOT 통계 반영에 실패했습니다(카운터 없이 저장). error=" + ex.Message + " - Check");
+            }
+            finally
+            {
+            }
+        }
+
+        /// <summary>
+        /// LOT의 총 die 수를 산출한다.
+        /// MachineController.ResolveProductionStatsTotalDies와 같은 기준(입력 대상 die 수)을 쓴다.
+        /// </summary>
+        private static int ResolveTotalDies(CDT320_Machine machine)
+        {
+            try
+            {
+                MaterialSnapshot state = MaterialStorage.State;
+                if (state != null && state.Dies != null)
+                {
+                    int count = 0;
+                    foreach (DieMaterial die in state.Dies)
+                    {
+                        if (die != null && die.IsInputTarget)
+                            count++;
+                    }
+
+                    return count;
+                }
+            }
+            catch
+            {
+            }
+            finally
+            {
+            }
+
+            return 0;
+        }
+    }
+}

@@ -143,6 +143,7 @@ namespace QMC.Common.Ui.Controls
         private ToolStripLabel  _tbMag;
         private ICameraViewSource _source;
         private bool _live;
+        private bool _cameraCommandsEnabled = true;
         private int  _grabBusy;   // 0/1 — 단발 그랩 재진입 가드(백그라운드 그랩 중 재클릭 무시)
         private int  _liveBusy;   // 0/1 — Live 시작 재진입 가드
         private int  _liveUiPending;   // 0/1 — 라이브 프레임 UI 적체 방지(직전 프레임 표시 중이면 새 프레임 드롭)
@@ -179,6 +180,22 @@ namespace QMC.Common.Ui.Controls
         {
             get { return _tools != null && _tools.Visible; }
             set { if (_tools != null) { _tools.Visible = value; Invalidate(); } }
+        }
+
+        /// <summary>
+        /// 카메라 상태를 변경하는 Grab/Live 명령의 허용 여부입니다.
+        /// 측정·저장·불러오기 같은 표시 기능은 계속 사용할 수 있도록 명령 버튼만 분리해서 잠급니다.
+        /// </summary>
+        public bool CameraCommandsEnabled
+        {
+            get { return _cameraCommandsEnabled; }
+            set
+            {
+                if (_cameraCommandsEnabled == value)
+                    return;
+                _cameraCommandsEnabled = value;
+                UpdateToolbarButtons();
+            }
         }
 
         /// <summary>Grab/Live 영상 소스 지정. null 이면 툴바 Grab/Live 비활성.</summary>
@@ -219,6 +236,16 @@ namespace QMC.Common.Ui.Controls
         public void StopLive()  { DoToolbarStop(); }
         public void GrabOnce()  { DoToolbarGrab(); }
         public bool IsLive => _live;
+
+        /// <summary>
+        /// 현재까지 CameraView에 등록된 Grab/Live/Stop 소스 작업의 완료를 기다립니다.
+        /// 화면을 닫거나 외부 Resource Lease를 반환하기 전에 카메라 명령이 남지 않았는지 확인할 때 사용합니다.
+        /// </summary>
+        public System.Threading.Tasks.Task WaitForCameraOperationsAsync()
+        {
+            lock (_srcOpLock)
+                return _srcOps ?? System.Threading.Tasks.Task.CompletedTask;
+        }
 
         /// <summary>측정 시작 직전 호출(스케일 갱신 훅). 기본 no-op — 파생 클래스가 모듈 스케일 주입 등에 사용.</summary>
         protected virtual void RefreshMeasureScale() { }
@@ -327,14 +354,14 @@ namespace QMC.Common.Ui.Controls
         {
             bool live = _live;
             bool grabbing = System.Threading.Interlocked.CompareExchange(ref _grabBusy, 0, 0) == 1;
-            if (_tbGrab != null) _tbGrab.Enabled = !grabbing;   // 라이브 중에도 Grab 허용 — 그랩이 Live 를 자동 정지한다.
-            if (_tbLive != null) _tbLive.Enabled = !live && !grabbing;
+            if (_tbGrab != null) _tbGrab.Enabled = _cameraCommandsEnabled && !grabbing;   // 라이브 중에도 Grab 허용 — 그랩이 Live 를 자동 정지한다.
+            if (_tbLive != null) _tbLive.Enabled = _cameraCommandsEnabled && !live && !grabbing;
             if (_tbStop != null) _tbStop.Enabled = live;
         }
 
         private void DoToolbarGrab()
         {
-            if (_source == null) return;
+            if (!_cameraCommandsEnabled || _source == null) return;
             // 단발 그랩(MIL MdigGrab 등)은 완료까지 블록될 수 있어 UI Thread 에서 직접 호출하지 않는다.
             //   워커에서 수행 후 UI 로 마샬링. 재진입 가드로 연속 클릭 겹침 방지(QMC.MilCameraTest 검증 패턴).
             if (System.Threading.Interlocked.Exchange(ref _grabBusy, 1) == 1) return;
@@ -401,7 +428,7 @@ namespace QMC.Common.Ui.Controls
 
         private void DoToolbarLive()
         {
-            if (_source == null || _live || !_source.SupportsLive) return;
+            if (!_cameraCommandsEnabled || _source == null || _live || !_source.SupportsLive) return;
             if (System.Threading.Interlocked.Exchange(ref _liveBusy, 1) == 1) return;
 
             _liveFrameTotal = 0; _fpsWindowCount = 0; _fpsValue = 0;

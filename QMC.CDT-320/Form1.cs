@@ -520,6 +520,8 @@ namespace QMC.CDT_320
         private string _inputStageRunReviewPendingOffsetDraftSignature = string.Empty;
         private WaferVisionTestDialog _inputStageRunReviewVisionTestDialog;
         private IDisposable _inputStageRunReviewVisionTestScope;
+        private IDisposable _inputStageRunReviewEmbeddedVisionScope;
+        private bool _inputStageRunReviewEmbeddedVisionTransition;
 
         private MainTab _currentTab = MainTab.Work;
         private bool _mainTabShown;
@@ -735,6 +737,9 @@ namespace QMC.CDT_320
             AlarmResponse = new QMC.CDT320.Alarms.AlarmResponseService(Controller);
             AlarmResponse.Start();
             PromptMaterialRecoveryOnStartup();
+            // [LOT 관리 2026-07-27] Material 스냅샷 복구 직후에 진행 중이던 LOT 을 되살린다.
+            // 스냅샷의 생산 LOT ID 를 기준으로 하므로 반드시 복구 프롬프트 뒤에 와야 한다.
+            QMC.CDT320.Lots.LotSessionService.RestoreActiveLotOnStartup();
             alarmBanner.ClearRequested += async (s, args) =>
             {
                 try
@@ -1507,6 +1512,17 @@ namespace QMC.CDT_320
                 {
                     OpenInputStageRunReviewVisionTest(dialog);
                 };
+                dialog.WaferVisionControlStartRequested += delegate
+                {
+                    StartInputStageRunReviewEmbeddedVisionAsync(dialog);
+                };
+                dialog.WaferVisionControlStopRequested += delegate
+                {
+                    StopInputStageRunReviewEmbeddedVision(
+                        dialog,
+                        true,
+                        "Wafer Vision Live/Grab 사용을 종료했습니다.");
+                };
                 dialog.BuzzerStopRequested += delegate
                 {
                     StopRunReviewBuzzer();
@@ -1576,6 +1592,10 @@ namespace QMC.CDT_320
                         Controller.CancelInputStageRunReviewAction();
                 }
                 catch { }
+                StopInputStageRunReviewEmbeddedVision(
+                    dialog,
+                    false,
+                    "Review 종료로 내장 Wafer Vision을 정지했습니다.");
                 try
                 {
                     await StopInputStageRunReviewJogCoreAsync().ConfigureAwait(true);
@@ -1711,6 +1731,10 @@ namespace QMC.CDT_320
 
             InputStageRunReviewDialog dialog = _inputStageRunReviewDialog;
             StopInputStageRunReviewJogAsync(dialog, "Review Manual 종료로 Jog를 정지했습니다.");
+            StopInputStageRunReviewEmbeddedVision(
+                dialog,
+                false,
+                "Review Manual 종료로 내장 Wafer Vision을 정지했습니다.");
             if (_inputStageRunReviewVisionTestDialog != null &&
                 !_inputStageRunReviewVisionTestDialog.IsDisposed)
             {
@@ -1758,11 +1782,12 @@ namespace QMC.CDT_320
                 async (stage, token) =>
                 {
                     token.ThrowIfCancellationRequested();
-                    int result = await stage.MoveVisionPointSafelyAsync(
+                    // Map 절대좌표 이동은 Auto 속도가 아니라 Manual Sequence 화면에서 설정한
+                    // Ready 속도(%)를 사용합니다. Review는 Auto와 병행될 수 있으므로
+                    // 전역 READY Scope 없이 이 이동 명령에만 퍼센트를 적용합니다.
+                    int result = await stage.MoveVisionPointSafelyAtReadySequenceSpeedAsync(
                         entry.PosX,
                         entry.PosY,
-                        JogSpeedType.Fine,
-                        0.0,
                         "InputStageRunReview.MoveSelectedDie").ConfigureAwait(false);
                     if (result != 0)
                         throw new InvalidOperationException("선택 Die 좌표 이동 실패. result=" + result);
@@ -2049,6 +2074,10 @@ namespace QMC.CDT_320
                     await _inputStageRunReviewVisionTestDialog.RequestClose().ConfigureAwait(true);
                 }
 
+                StopInputStageRunReviewEmbeddedVision(
+                    dialog,
+                    true,
+                    "Review STOP으로 내장 Wafer Vision을 정지했습니다.");
                 await StopInputStageRunReviewJogCoreAsync().ConfigureAwait(true);
                 if (dialog != null && !dialog.IsDisposed)
                 {
@@ -2459,12 +2488,197 @@ namespace QMC.CDT_320
             _inputStageRunReviewPendingOffsetDraftSignature = string.Empty;
         }
 
+        private async void StartInputStageRunReviewEmbeddedVisionAsync(
+            InputStageRunReviewDialog dialog)
+        {
+            if (_inputStageRunReviewEmbeddedVisionTransition)
+                return;
+
+            if (Controller == null || !Controller.IsInputStageRunReviewManualActive)
+            {
+                if (dialog != null)
+                    dialog.SetBusy(false, "활성 Review Manual 세션이 없어 Wafer Vision을 시작할 수 없습니다.");
+                return;
+            }
+
+            if (_inputStageRunReviewVisionTestDialog != null &&
+                !_inputStageRunReviewVisionTestDialog.IsDisposed)
+            {
+                dialog.SetBusy(false, "기존 Vision Test 화면을 먼저 종료하세요.");
+                return;
+            }
+
+            if (_inputStageRunReviewEmbeddedVisionScope != null ||
+                (dialog != null && dialog.IsWaferVisionControlActive))
+            {
+                dialog.SetBusy(true, "내장 Wafer Vision이 이미 사용 중입니다.");
+                return;
+            }
+
+            if (Controller.IsInputStageRunReviewActionBusy ||
+                _inputStageRunReviewVisionTestScope != null)
+            {
+                dialog.SetBusy(false, "다른 Review 수동 동작이 진행 중입니다. STOP 후 다시 시도하세요.");
+                return;
+            }
+
+            if (QMC.CDT320.VisionComm.VisionViewerRegistry.IsStreaming(
+                QMC.CDT_320.Equipment.Vision.VisionViewerPorts.Wafer))
+            {
+                dialog.SetBusy(false,
+                    "다른 화면에서 Wafer Vision Live를 사용 중입니다. 해당 Live를 먼저 종료하세요.");
+                return;
+            }
+
+            IDisposable scope = null;
+            _inputStageRunReviewEmbeddedVisionTransition = true;
+            try
+            {
+                dialog.SetBusy(true, "Wafer Vision 안전 영역을 확보하고 있습니다. STOP으로 취소할 수 있습니다.");
+                scope = await Controller.BeginInputStageRunReviewWorkAsync(
+                    ManualMotionScopeKind.ProcessSequence,
+                    "Embedded Wafer Vision",
+                    System.Threading.CancellationToken.None).ConfigureAwait(true);
+
+                System.Threading.CancellationToken actionToken = Controller.InputStageRunReviewActionToken;
+                if (dialog == null ||
+                    dialog.IsDisposed ||
+                    !Controller.IsInputStageRunReviewManualActive ||
+                    actionToken.IsCancellationRequested)
+                {
+                    throw new OperationCanceledException(
+                        "Wafer Vision 시작 전에 Review Manual 세션이 종료되었습니다.");
+                }
+
+                // Scope 대기 중 다른 화면이 Live를 시작했을 수 있으므로 명령 허용 직전에 다시 확인합니다.
+                if (QMC.CDT320.VisionComm.VisionViewerRegistry.IsStreaming(
+                    QMC.CDT_320.Equipment.Vision.VisionViewerPorts.Wafer))
+                {
+                    throw new InvalidOperationException(
+                        "다른 화면에서 Wafer Vision Live를 사용 중입니다. 해당 Live를 먼저 종료하세요.");
+                }
+
+                _inputStageRunReviewEmbeddedVisionScope = scope;
+                scope = null;
+                if (!dialog.SetWaferVisionControlActive(
+                    true,
+                    "Wafer Vision 안전 영역을 확보했습니다. 상단 Live/Grab/측정 기능을 사용할 수 있습니다."))
+                {
+                    throw new InvalidOperationException("내장 Wafer Vision Viewer 구성에 실패했습니다.");
+                }
+                dialog.SetBusy(true,
+                    "Wafer Vision 사용 중입니다. 종료 또는 STOP 후 다른 Review 동작을 실행하세요.");
+                QMC.Common.Log.Write(
+                    "Main",
+                    UserSession.Name,
+                    "InputStageRunReviewVision",
+                    "내장 Wafer Vision 안전 Scope를 시작했습니다. - Start");
+            }
+            catch (OperationCanceledException)
+            {
+                if (scope != null)
+                    scope.Dispose();
+                DisposeInputStageRunReviewEmbeddedVisionScope();
+                if (dialog != null && !dialog.IsDisposed)
+                {
+                    dialog.SetWaferVisionControlActive(false, string.Empty);
+                    dialog.SetBusy(false, "Wafer Vision 시작이 STOP/취소되었습니다.");
+                }
+            }
+            catch (Exception ex)
+            {
+                if (scope != null)
+                    scope.Dispose();
+                DisposeInputStageRunReviewEmbeddedVisionScope();
+                if (dialog != null && !dialog.IsDisposed)
+                {
+                    dialog.SetWaferVisionControlActive(false, string.Empty);
+                    dialog.SetBusy(false, "Wafer Vision 시작 실패: " + ex.Message);
+                }
+                QMC.Common.Log.Write(
+                    "Main",
+                    UserSession.Name,
+                    "InputStageRunReviewVision",
+                    "내장 Wafer Vision 시작 실패: " + ex.Message + " - Failed");
+            }
+            finally
+            {
+                _inputStageRunReviewEmbeddedVisionTransition = false;
+            }
+        }
+
+        private void StopInputStageRunReviewEmbeddedVision(
+            InputStageRunReviewDialog dialog,
+            bool restoreViewer,
+            string status)
+        {
+            try
+            {
+                // CAM_SWITCH OFF와 Viewer 수신 Thread 정지를 먼저 완료한 뒤 Resource Lease를 반환합니다.
+                if (dialog != null && !dialog.IsDisposed)
+                    dialog.StopWaferVision();
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Log.Write(
+                    "Main",
+                    UserSession.Name,
+                    "InputStageRunReviewVision",
+                    "내장 Wafer Vision 정지 실패: " + ex.Message + " - Failed");
+            }
+            finally
+            {
+                DisposeInputStageRunReviewEmbeddedVisionScope();
+                _inputStageRunReviewEmbeddedVisionTransition = false;
+            }
+
+            if (restoreViewer && dialog != null && !dialog.IsDisposed)
+            {
+                dialog.SetWaferVisionControlActive(false, status);
+                bool busy = Controller != null && Controller.IsInputStageRunReviewActionBusy;
+                dialog.SetBusy(busy, status);
+            }
+        }
+
+        private void DisposeInputStageRunReviewEmbeddedVisionScope()
+        {
+            IDisposable scope = _inputStageRunReviewEmbeddedVisionScope;
+            _inputStageRunReviewEmbeddedVisionScope = null;
+            if (scope == null)
+                return;
+
+            try
+            {
+                scope.Dispose();
+                QMC.Common.Log.Write(
+                    "Main",
+                    UserSession.Name,
+                    "InputStageRunReviewVision",
+                    "내장 Wafer Vision 안전 Scope를 종료했습니다. - End");
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Log.Write(
+                    "Main",
+                    UserSession.Name,
+                    "InputStageRunReviewVision",
+                    "내장 Wafer Vision 안전 Scope 종료 실패: " + ex.Message + " - Failed");
+            }
+        }
+
         private async void OpenInputStageRunReviewVisionTest(InputStageRunReviewDialog dialog)
         {
             if (Controller == null || !Controller.IsInputStageRunReviewManualActive)
             {
                 if (dialog != null)
                     dialog.SetBusy(false, "활성 Review Manual 세션이 없습니다.");
+                return;
+            }
+
+            if (_inputStageRunReviewEmbeddedVisionScope != null ||
+                (dialog != null && dialog.IsWaferVisionControlActive))
+            {
+                dialog.SetBusy(true, "내장 Wafer Vision을 먼저 종료한 뒤 Vision Test를 실행하세요.");
                 return;
             }
 

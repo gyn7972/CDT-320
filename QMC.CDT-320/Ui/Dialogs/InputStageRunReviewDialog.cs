@@ -7,6 +7,8 @@ using QMC.CDT320.Bin;
 using QMC.CDT320.DieMaps;
 using QMC.CDT320.Materials;
 using QMC.CDT320.Recipes;
+using QMC.CDT320.VisionComm;
+using QMC.CDT_320.Equipment.Vision;
 
 namespace QMC.CDT_320.Ui.Dialogs
 {
@@ -43,6 +45,10 @@ namespace QMC.CDT_320.Ui.Dialogs
         private Func<double[]> _axisPositionProvider;
         private ComboBox _cmbJogMode;
         private ComboBox _cmbJogStep;
+        private bool _waferVisionControlActive;
+        private string _waferVisionHost = "127.0.0.1";
+        private int _waferVisionPort;
+        private VisionTcpClient _waferVisionCommandClient;
 
         public InputStageRunReviewDialog()
         {
@@ -54,6 +60,17 @@ namespace QMC.CDT_320.Ui.Dialogs
             SetWorkflowState("-", "-", false, false, "-", false, "REVIEW REQUIRED");
             SetAxisPositions(0.0, 0.0, 0.0);
             SetStatus("Wafer Align / Die Mapping 결과를 불러오는 중입니다.");
+
+            if (System.ComponentModel.LicenseManager.UsageMode !=
+                System.ComponentModel.LicenseUsageMode.Designtime)
+            {
+                // Review가 안전 Scope를 확보하기 전에는 Vision 명령 채널을 연결하지 않고,
+                // Grab 결과 영상 수신과 화면 측정만 가능한 상태로 구성합니다.
+                ConfigureWaferVision(
+                    VisionHub.Host,
+                    VisionViewerPorts.Wafer,
+                    VisionHub.Wafer);
+            }
 
             _encoderRefreshTimer = new Timer();
             _encoderRefreshTimer.Interval = 200;
@@ -165,6 +182,8 @@ namespace QMC.CDT_320.Ui.Dialogs
         public event EventHandler MappingRetryRequested;
         public event EventHandler MappingSetupRequested;
         public event EventHandler VisionTestRequested;
+        public event EventHandler WaferVisionControlStartRequested;
+        public event EventHandler WaferVisionControlStopRequested;
         public event EventHandler ThetaCorrectionRequested;
         public event EventHandler DieDetectionRequested;
         public event EventHandler OffsetApplyRequested;
@@ -206,6 +225,105 @@ namespace QMC.CDT_320.Ui.Dialogs
         public IReadOnlyList<string> OrderedDieUids { get { return OrderedDieIds; } }
         public DieMap DraftDieMap { get { return _dieMap; } }
         public PickupSubset ReviewPickupOptions { get { return BuildPickupOptions(); } }
+        public bool IsWaferVisionControlActive { get { return _waferVisionControlActive; } }
+
+        /// <summary>
+        /// Review 화면의 Wafer 영상 연결 정보를 설정합니다.
+        /// 이 시점에는 명령 채널을 Viewer에 전달하지 않아 Live/Grab이 장비 상태를 바꾸지 않습니다.
+        /// </summary>
+        public void ConfigureWaferVision(
+            string host,
+            int viewerPort,
+            VisionTcpClient commandClient)
+        {
+            _waferVisionHost = string.IsNullOrWhiteSpace(host) ? "127.0.0.1" : host.Trim();
+            _waferVisionPort = viewerPort;
+            _waferVisionCommandClient = commandClient;
+            ConfigureWaferVisionViewer(false);
+        }
+
+        /// <summary>
+        /// Form1이 기존 Review Work Scope를 확보하거나 반환한 뒤 호출하는 상태 반영 함수입니다.
+        /// 실제 Live/Grab 명령은 Scope가 살아 있는 active 상태에서만 허용합니다.
+        /// </summary>
+        public bool SetWaferVisionControlActive(bool active, string status)
+        {
+            if (IsDisposed || Disposing)
+                return false;
+
+            _waferVisionControlActive = active && !_readOnlyPreview;
+            if (!ConfigureWaferVisionViewer(_waferVisionControlActive))
+            {
+                _waferVisionControlActive = false;
+                UpdateActionAvailability();
+                return false;
+            }
+            lblWaferVisionState.Text = _waferVisionControlActive
+                ? "비전 안전 영역 사용 중 - Live/Grab/측정 가능"
+                : (_readOnlyPreview
+                    ? "읽기 전용 - 영상 확인/측정만 가능"
+                    : "영상 확인/측정 가능 - Live/Grab은 비전 사용 시작 후 가능");
+            lblWaferVisionState.ForeColor = _waferVisionControlActive
+                ? Color.SeaGreen
+                : Color.DimGray;
+            btnWaferVisionControl.Text = _waferVisionControlActive
+                ? "비전 사용 종료"
+                : "비전 사용 시작";
+            if (!string.IsNullOrWhiteSpace(status))
+                SetStatus(status);
+            UpdateActionAvailability();
+            return true;
+        }
+
+        /// <summary>
+        /// Sequence 종료/STOP에서는 Viewer 재구성 없이 즉시 CAM_SWITCH OFF와 수신 Thread 정지만 수행합니다.
+        /// 안전 Scope는 호출한 Form1이 이 함수 실행 후 반환합니다.
+        /// </summary>
+        public void StopWaferVision()
+        {
+            try
+            {
+                waferVisionViewer.CameraCommandsEnabled = false;
+                waferVisionViewer.StopLive();
+                // Toolbar Grab은 Worker Queue에서 실행되므로 완료를 확인한 뒤 Review Lease를 반환해야 합니다.
+                waferVisionViewer.WaitForCameraOperationsAsync().GetAwaiter().GetResult();
+            }
+            catch { }
+            if (lblWaferVisionState != null && !lblWaferVisionState.IsDisposed)
+            {
+                lblWaferVisionState.Text = "비전 영상 정지";
+                lblWaferVisionState.ForeColor = Color.DimGray;
+            }
+        }
+
+        private bool ConfigureWaferVisionViewer(bool commandMode)
+        {
+            if (waferVisionViewer == null || waferVisionViewer.IsDisposed)
+                return false;
+
+            try
+            {
+                // AllowLive는 VisionViewerSource 생성 전에 적용해야 실제 CAM_SWITCH Live 지원 여부가 반영됩니다.
+                waferVisionViewer.StopLive();
+                waferVisionViewer.CameraCommandsEnabled = false;
+                waferVisionViewer.AllowLive = commandMode;
+                waferVisionViewer.Configure(
+                    _waferVisionHost,
+                    _waferVisionPort,
+                    "Wafer Image",
+                    commandMode ? _waferVisionCommandClient : null);
+                waferVisionViewer.CameraCommandsEnabled =
+                    commandMode && !_readOnlyPreview && !_decisionSubmitted;
+                return true;
+            }
+            catch (Exception ex)
+            {
+                waferVisionViewer.CameraCommandsEnabled = false;
+                lblWaferVisionState.Text = "Wafer Vision 연결 실패: " + ex.Message;
+                lblWaferVisionState.ForeColor = Color.Firebrick;
+                return false;
+            }
+        }
 
         public void SetMode(InputStageRunReviewMode mode)
         {
@@ -288,6 +406,12 @@ namespace QMC.CDT_320.Ui.Dialogs
         public void SetReadOnlyPreview(bool readOnly)
         {
             _readOnlyPreview = readOnly;
+            if (readOnly)
+            {
+                _waferVisionControlActive = false;
+                ConfigureWaferVisionViewer(false);
+                lblWaferVisionState.Text = "읽기 전용 - 영상 확인/측정만 가능";
+            }
             UpdateActionAvailability();
             if (readOnly)
                 SetStatus("현재 Stage Wafer/DieMap의 읽기 전용 화면입니다. 모션 및 데이터 변경 기능은 연결되지 않았습니다.");
@@ -1146,6 +1270,24 @@ namespace QMC.CDT_320.Ui.Dialogs
         }
 
         private void BtnVisionTest_Click(object sender, EventArgs e) { RaiseSimpleEvent(VisionTestRequested); }
+        private void BtnWaferVisionControl_Click(object sender, EventArgs e)
+        {
+            if (_readOnlyPreview)
+            {
+                SetStatus("읽기 전용 화면에서는 Live/Grab 명령을 사용할 수 없습니다.");
+                return;
+            }
+
+            EventHandler handler = _waferVisionControlActive
+                ? WaferVisionControlStopRequested
+                : WaferVisionControlStartRequested;
+            if (handler == null)
+            {
+                SetStatus("Wafer Vision 안전 제어 연결이 없습니다.");
+                return;
+            }
+            handler(this, EventArgs.Empty);
+        }
         private void BtnThetaCorrection_Click(object sender, EventArgs e) { RaiseSimpleEvent(ThetaCorrectionRequested); }
         private void BtnDieDetection_Click(object sender, EventArgs e) { RaiseSimpleEvent(DieDetectionRequested); }
         private void BtnOffsetApply_Click(object sender, EventArgs e) { RaiseSimpleEvent(OffsetApplyRequested); }
@@ -1169,6 +1311,11 @@ namespace QMC.CDT_320.Ui.Dialogs
         {
             if (_decisionSubmitted)
                 return;
+            if (_waferVisionControlActive)
+            {
+                SetStatus("비전 사용을 먼저 종료한 뒤 Auto 진행 여부를 선택하세요.");
+                return;
+            }
 
             if (handler == null)
             {
@@ -1227,6 +1374,13 @@ namespace QMC.CDT_320.Ui.Dialogs
             btnDieDetection.Enabled = actionEnabled && _alignComplete && _mappingComplete;
             btnOffsetApply.Enabled = actionEnabled && _mappingComplete;
             btnVisionTest.Enabled = actionEnabled;
+            bool waferVisionCommandEnabled = _waferVisionControlActive &&
+                                              !_readOnlyPreview &&
+                                              !_decisionSubmitted;
+            waferVisionViewer.CameraCommandsEnabled = waferVisionCommandEnabled;
+            btnWaferVisionControl.Enabled = !_readOnlyPreview &&
+                                            (!_busy || _waferVisionControlActive) &&
+                                            !_decisionSubmitted;
             grpPickupRoute.Enabled = actionEnabled && _mappingComplete;
             btnPreviewPath.Enabled = actionEnabled && _mappingComplete;
             btnApplyPickupOrder.Enabled = actionEnabled && _mappingComplete;
@@ -1278,6 +1432,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             // Sequence 종료 요청은 사용자 차단 로직보다 먼저 통과시킨다.
             if (_sequenceCloseRequested)
             {
+                StopWaferVision();
                 DisposeEncoderRefreshTimer();
                 return;
             }
@@ -1297,6 +1452,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             }
 
             DisposeEncoderRefreshTimer();
+            StopWaferVision();
 
             if (!_readOnlyPreview &&
                 e.CloseReason == CloseReason.UserClosing &&

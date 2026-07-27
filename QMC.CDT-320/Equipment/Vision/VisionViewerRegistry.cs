@@ -22,6 +22,25 @@ namespace QMC.CDT320.VisionComm
             }
         }
 
+        /// <summary>
+        /// 같은 Viewer 포트의 실제 Live 소유권을 한 화면에만 부여합니다.
+        /// IsStreaming 확인과 등록을 한 Lock 안에서 처리하여 두 화면의 동시 시작 경합을 막습니다.
+        /// </summary>
+        public static bool TryStreamStarted(int port)
+        {
+            if (port <= 0)
+                return false;
+
+            lock (_lock)
+            {
+                int count;
+                if (_active.TryGetValue(port, out count) && count > 0)
+                    return false;
+                _active[port] = 1;
+                return true;
+            }
+        }
+
         public static void StreamStopped(int port)
         {
             if (port <= 0) return;

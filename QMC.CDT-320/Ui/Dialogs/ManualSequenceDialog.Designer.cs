@@ -5,10 +5,10 @@
         private System.ComponentModel.IContainer components = null;
         private System.Windows.Forms.Label titleLabel;
         private System.Windows.Forms.TableLayoutPanel mainLayout;
-        private System.Windows.Forms.Button btnInputLoad;
-        private System.Windows.Forms.Button btnInputUnload;
-        private System.Windows.Forms.Button btnOutputLoad;
-        private System.Windows.Forms.Button btnOutputUnload;
+        private QMC.CDT_320.Ui.Controls.ActionButton btnInputLoad;
+        private QMC.CDT_320.Ui.Controls.ActionButton btnInputUnload;
+        private QMC.CDT_320.Ui.Controls.ActionButton btnOutputLoad;
+        private QMC.CDT_320.Ui.Controls.ActionButton btnOutputUnload;
         private System.Windows.Forms.Panel pickerSelectPanel;
         private System.Windows.Forms.RadioButton rbFrontPicker;
         private System.Windows.Forms.RadioButton rbRearPicker;
@@ -31,6 +31,7 @@
         private System.Windows.Forms.NumericUpDown numSpeedPercent;
         private System.Windows.Forms.Label lblReadySpeedPercent;
         private System.Windows.Forms.NumericUpDown numReadySpeedPercent;
+        private System.Windows.Forms.Button btnSaveSpeedPercent;
         private System.Windows.Forms.Panel loadTargetPanel;
         private System.Windows.Forms.Label lblInputLoadTarget;
         private System.Windows.Forms.ComboBox cmbInputLoadTarget;
@@ -49,10 +50,10 @@
         {
             this.titleLabel = new System.Windows.Forms.Label();
             this.mainLayout = new System.Windows.Forms.TableLayoutPanel();
-            this.btnInputLoad = new System.Windows.Forms.Button();
-            this.btnInputUnload = new System.Windows.Forms.Button();
-            this.btnOutputLoad = new System.Windows.Forms.Button();
-            this.btnOutputUnload = new System.Windows.Forms.Button();
+            this.btnInputLoad = new QMC.CDT_320.Ui.Controls.ActionButton();
+            this.btnInputUnload = new QMC.CDT_320.Ui.Controls.ActionButton();
+            this.btnOutputLoad = new QMC.CDT_320.Ui.Controls.ActionButton();
+            this.btnOutputUnload = new QMC.CDT_320.Ui.Controls.ActionButton();
             this.pickerSelectPanel = new System.Windows.Forms.Panel();
             this.outputSidePanel = new System.Windows.Forms.Panel();
             this.rbOutputNg = new System.Windows.Forms.RadioButton();
@@ -75,6 +76,7 @@
             this.lblSpeedPercent = new System.Windows.Forms.Label();
             this.numReadySpeedPercent = new System.Windows.Forms.NumericUpDown();
             this.lblReadySpeedPercent = new System.Windows.Forms.Label();
+            this.btnSaveSpeedPercent = new System.Windows.Forms.Button();
             this.loadTargetPanel = new System.Windows.Forms.Panel();
             this.lblInputLoadTarget = new System.Windows.Forms.Label();
             this.cmbInputLoadTarget = new System.Windows.Forms.ComboBox();
@@ -138,10 +140,14 @@
             // 
             // btnInputLoad
             // 
-            this.btnInputLoad.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
+            this.btnInputLoad.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(88)))), ((int)(((byte)(94)))), ((int)(((byte)(103)))));
+            this.btnInputLoad.BadgeColor = System.Drawing.Color.FromArgb(((int)(((byte)(245)))), ((int)(((byte)(166)))), ((int)(((byte)(35)))));
+            this.btnInputLoad.BadgeText = "ACTION";
+            this.btnInputLoad.BorderColor = System.Drawing.Color.Empty;
+            this.btnInputLoad.BorderWidth = 0;
+            this.btnInputLoad.Cursor = System.Windows.Forms.Cursors.Hand;
             this.btnInputLoad.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnInputLoad.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnInputLoad.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
+            this.btnInputLoad.Font = new System.Drawing.Font("Malgun Gothic", 8F, System.Drawing.FontStyle.Bold);
             this.btnInputLoad.ForeColor = System.Drawing.Color.White;
             this.btnInputLoad.Location = new System.Drawing.Point(21, 21);
             this.btnInputLoad.Margin = new System.Windows.Forms.Padding(5);
@@ -149,14 +155,17 @@
             this.btnInputLoad.Size = new System.Drawing.Size(193, 47);
             this.btnInputLoad.TabIndex = 0;
             this.btnInputLoad.Text = "INPUT LOAD";
-            this.btnInputLoad.UseVisualStyleBackColor = false;
             // 
             // btnInputUnload
             // 
-            this.btnInputUnload.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
+            this.btnInputUnload.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(88)))), ((int)(((byte)(94)))), ((int)(((byte)(103)))));
+            this.btnInputUnload.BadgeColor = System.Drawing.Color.FromArgb(((int)(((byte)(245)))), ((int)(((byte)(166)))), ((int)(((byte)(35)))));
+            this.btnInputUnload.BadgeText = "ACTION";
+            this.btnInputUnload.BorderColor = System.Drawing.Color.Empty;
+            this.btnInputUnload.BorderWidth = 0;
+            this.btnInputUnload.Cursor = System.Windows.Forms.Cursors.Hand;
             this.btnInputUnload.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnInputUnload.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnInputUnload.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
+            this.btnInputUnload.Font = new System.Drawing.Font("Malgun Gothic", 8F, System.Drawing.FontStyle.Bold);
             this.btnInputUnload.ForeColor = System.Drawing.Color.White;
             this.btnInputUnload.Location = new System.Drawing.Point(224, 21);
             this.btnInputUnload.Margin = new System.Windows.Forms.Padding(5);
@@ -164,14 +173,17 @@
             this.btnInputUnload.Size = new System.Drawing.Size(193, 47);
             this.btnInputUnload.TabIndex = 1;
             this.btnInputUnload.Text = "INPUT UNLOAD";
-            this.btnInputUnload.UseVisualStyleBackColor = false;
             // 
             // btnOutputLoad
             // 
-            this.btnOutputLoad.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
+            this.btnOutputLoad.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(88)))), ((int)(((byte)(94)))), ((int)(((byte)(103)))));
+            this.btnOutputLoad.BadgeColor = System.Drawing.Color.FromArgb(((int)(((byte)(245)))), ((int)(((byte)(166)))), ((int)(((byte)(35)))));
+            this.btnOutputLoad.BadgeText = "ACTION";
+            this.btnOutputLoad.BorderColor = System.Drawing.Color.Empty;
+            this.btnOutputLoad.BorderWidth = 0;
+            this.btnOutputLoad.Cursor = System.Windows.Forms.Cursors.Hand;
             this.btnOutputLoad.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnOutputLoad.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnOutputLoad.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
+            this.btnOutputLoad.Font = new System.Drawing.Font("Malgun Gothic", 8F, System.Drawing.FontStyle.Bold);
             this.btnOutputLoad.ForeColor = System.Drawing.Color.White;
             this.btnOutputLoad.Location = new System.Drawing.Point(427, 21);
             this.btnOutputLoad.Margin = new System.Windows.Forms.Padding(5);
@@ -179,14 +191,17 @@
             this.btnOutputLoad.Size = new System.Drawing.Size(193, 47);
             this.btnOutputLoad.TabIndex = 2;
             this.btnOutputLoad.Text = "OUTPUT LOAD";
-            this.btnOutputLoad.UseVisualStyleBackColor = false;
             // 
             // btnOutputUnload
             // 
-            this.btnOutputUnload.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
+            this.btnOutputUnload.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(88)))), ((int)(((byte)(94)))), ((int)(((byte)(103)))));
+            this.btnOutputUnload.BadgeColor = System.Drawing.Color.FromArgb(((int)(((byte)(245)))), ((int)(((byte)(166)))), ((int)(((byte)(35)))));
+            this.btnOutputUnload.BadgeText = "ACTION";
+            this.btnOutputUnload.BorderColor = System.Drawing.Color.Empty;
+            this.btnOutputUnload.BorderWidth = 0;
+            this.btnOutputUnload.Cursor = System.Windows.Forms.Cursors.Hand;
             this.btnOutputUnload.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnOutputUnload.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnOutputUnload.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
+            this.btnOutputUnload.Font = new System.Drawing.Font("Malgun Gothic", 8F, System.Drawing.FontStyle.Bold);
             this.btnOutputUnload.ForeColor = System.Drawing.Color.White;
             this.btnOutputUnload.Location = new System.Drawing.Point(630, 21);
             this.btnOutputUnload.Margin = new System.Windows.Forms.Padding(5);
@@ -194,7 +209,6 @@
             this.btnOutputUnload.Size = new System.Drawing.Size(195, 47);
             this.btnOutputUnload.TabIndex = 3;
             this.btnOutputUnload.Text = "OUTPUT UNLOAD";
-            this.btnOutputUnload.UseVisualStyleBackColor = false;
             // 
             // pickerSelectPanel
             // 
@@ -524,6 +538,7 @@
             // 
             // speedPanel
             // 
+            this.speedPanel.Controls.Add(this.btnSaveSpeedPercent);
             this.speedPanel.Controls.Add(this.numReadySpeedPercent);
             this.speedPanel.Controls.Add(this.lblReadySpeedPercent);
             this.speedPanel.Controls.Add(this.numSpeedPercent);
@@ -582,6 +597,20 @@
             this.numReadySpeedPercent.TabIndex = 3;
             this.numReadySpeedPercent.TextAlign = System.Windows.Forms.HorizontalAlignment.Right;
             this.numReadySpeedPercent.Value = new decimal(new int[] { 5, 0, 0, 0 });
+            //
+            // btnSaveSpeedPercent
+            //
+            this.btnSaveSpeedPercent.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
+            this.btnSaveSpeedPercent.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.btnSaveSpeedPercent.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this.btnSaveSpeedPercent.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
+            this.btnSaveSpeedPercent.ForeColor = System.Drawing.Color.White;
+            this.btnSaveSpeedPercent.Location = new System.Drawing.Point(714, 8);
+            this.btnSaveSpeedPercent.Name = "btnSaveSpeedPercent";
+            this.btnSaveSpeedPercent.Size = new System.Drawing.Size(114, 30);
+            this.btnSaveSpeedPercent.TabIndex = 4;
+            this.btnSaveSpeedPercent.Text = "SAVE";
+            this.btnSaveSpeedPercent.UseVisualStyleBackColor = false;
             // 
             // ManualSequenceDialog
             // 

@@ -31,8 +31,35 @@ namespace QMC.CDT_320.Ui.Controls
         private double _savedWidthPixel;
         private double _savedHeightPixel;
         private int _grabImageUiPending;
+        private bool _cameraCommandsEnabled = true;
 
         public bool AllowLive { get; set; }
+
+        /// <summary>
+        /// Vision 카메라 상태를 바꾸는 Viewer 토글과 Grab/Live 명령의 허용 여부입니다.
+        /// false여도 수신된 이미지의 표시와 측정 기능은 계속 사용할 수 있습니다.
+        /// </summary>
+        public bool CameraCommandsEnabled
+        {
+            get { return _cameraCommandsEnabled; }
+            set
+            {
+                _cameraCommandsEnabled = value;
+                if (_cam != null)
+                    _cam.CameraCommandsEnabled = value;
+                if (_chkViewer != null)
+                    _chkViewer.Enabled = value && _port > 0;
+            }
+        }
+
+        public bool IsLive
+        {
+            get
+            {
+                return (_cam != null && _cam.IsLive) ||
+                       (_chkViewer != null && _chkViewer.Checked && AllowLive);
+            }
+        }
 
         public VisionViewerPanel()
         {
@@ -55,6 +82,7 @@ namespace QMC.CDT_320.Ui.Controls
                              (viewerPort > 0 ? "  (뷰어 " + viewerPort + ")" : "  (뷰어 없음)");
 
             StopLive();
+            WaitForCameraOperationsAsync().GetAwaiter().GetResult();
             try { if (_source != null) { _source.FrameMeta -= OnMeta; _source.Status -= OnStatus; _source.Dispose(); _source = null; } } catch { }
 
             if (_port > 0)
@@ -70,7 +98,8 @@ namespace QMC.CDT_320.Ui.Controls
                 _lblStat.Text = AllowLive ? "대기 — Vision Live/Grab 준비" : "대기 — Grab 이미지 수신 준비";
                 RefreshSavedPixelScale();
                 SetViewerToggle(false);       // 재구성 시 토글은 OFF(라이브 미시작)로 초기화
-                _chkViewer.Enabled = true;
+                _chkViewer.Enabled = _cameraCommandsEnabled;
+                _cam.CameraCommandsEnabled = _cameraCommandsEnabled;
                 if (!AllowLive)
                     StartGrabImageView();
             }
@@ -97,7 +126,17 @@ namespace QMC.CDT_320.Ui.Controls
         /// <summary>기존 호출 호환용. Grab 이미지 수신을 정지한다.</summary>
         public void StopLive()
         {
+            // CameraView 툴바의 Start/Grab이 Worker Queue에서 진행 중일 수 있으므로
+            // 동일 Queue 뒤에 Stop을 등록하고, 직접 Viewer 토글로 시작한 수신도 즉시 정지합니다.
+            try { if (_cam != null) _cam.StopLive(); } catch { }
             StopGrabImageView();
+        }
+
+        public System.Threading.Tasks.Task WaitForCameraOperationsAsync()
+        {
+            return _cam != null
+                ? _cam.WaitForCameraOperationsAsync()
+                : System.Threading.Tasks.Task.CompletedTask;
         }
 
         private void StartGrabImageView()
@@ -195,6 +234,11 @@ namespace QMC.CDT_320.Ui.Controls
         {
             try
             {
+                if (!_cameraCommandsEnabled)
+                {
+                    SetViewerToggle(false);
+                    return;
+                }
                 if (_port <= 0) { _chkViewer.Text = "뷰어 OFF"; return; }
 
                 if (_chkViewer.Checked)

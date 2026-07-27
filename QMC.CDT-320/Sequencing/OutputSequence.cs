@@ -621,14 +621,21 @@ namespace QMC.CDT320.Sequencing
 
                         WaferMaterial goodStage = MaterialStateService.GetWaferAtLocation(MaterialLocationKind.OutputStageGood);
                         WaferMaterial ngStage = MaterialStateService.GetWaferAtLocation(MaterialLocationKind.OutputStageNg);
-                        if (goodStage == null || ngStage == null)
+
+                        // [NG 스킵 2026-07-27] 준비 본체(ExecuteFullOutputPreparationCoreAsync)는 UseNgCassette=false면
+                        // NG Stage 공급을 의도적으로 건너뛰고 성공(0)으로 돌아온다. 그런데 이 완료 검사만 조건 없이
+                        // NG Stage를 요구해서, NG 미사용 장비는 초기/레시피 변경 준비 직후 항상 OUT-FULL-PREP-STAGE로
+                        // 실패했다(2026-07-27 현장 발생). 준비 본체와 같은 기준으로 맞춘다.
+                        bool ngRequired = IsNgCassetteUsed();
+                        if (goodStage == null || (ngRequired && ngStage == null))
                         {
                             return Fail(
                                 "OUT-FULL-PREP-STAGE",
                                 "OutputSequence",
-                                "초기/레시피 변경 Output 전체 준비 후 GOOD/NG Stage가 모두 채워지지 않았습니다. " +
+                                "초기/레시피 변경 Output 전체 준비 후 필요한 Stage가 채워지지 않았습니다. " +
                                 "goodStage=" + (goodStage != null ? goodStage.WaferId : "-") +
                                 ", ngStage=" + (ngStage != null ? ngStage.WaferId : "-") +
+                                ", ngRequired=" + ngRequired +
                                 ", reason=" + requestReason);
                         }
 
@@ -661,9 +668,11 @@ namespace QMC.CDT320.Sequencing
                                 ", activeRecipe=" + controller.ActiveRecipeName);
                         }
 
+                        // NG 카세트 미사용 구성에서는 ngStage가 정상적으로 null일 수 있으므로 완료 로그도 같은 정책으로 기록한다.
                         Context.LogPublic(
                             "[OUTPUT] GOOD/NG 전체 준비 완료. goodWafer=" + goodStage.WaferId +
-                            ", ngWafer=" + ngStage.WaferId +
+                            ", ngWafer=" + (ngStage != null ? ngStage.WaferId : "-") +
+                            ", ngRequired=" + ngRequired +
                             ", reason=" + requestReason);
                         return 0;
                     }
@@ -1432,7 +1441,10 @@ namespace QMC.CDT320.Sequencing
 
                 string reason = BuildOutputNoBinWorkReason();
                 OutputCassetteOperatorMessageHelper.RequestReplacement(Context, BinSide.Good, "OK 출력 카세트 전체", reason);
-                OutputCassetteOperatorMessageHelper.RequestReplacement(Context, BinSide.Ng, "NG 출력 카세트", reason);
+
+                // [NG 스킵 2026-07-27] NG 미사용 장비에 NG 카세트 교체를 요구하지 않는다.
+                if (IsNgCassetteUsed())
+                    OutputCassetteOperatorMessageHelper.RequestReplacement(Context, BinSide.Ng, "NG 출력 카세트", reason);
                 Log.Write("Main", "SYSTEM", "OutputSequence", reason + " - Failed");
 
                 // Picker가 보유 Die를 가진 상태에서도 sibling 종료가 전파되도록 정상 SequenceStop이 아니라
@@ -1455,7 +1467,10 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
-        private static bool IsOutputAutoNoBinWorkComplete()
+        // [NG 스킵 2026-07-27] static 이면 인스턴스 메서드인 IsNgCassetteUsed()를 부를 수 없어
+        // NG 사용 여부 판정이 이 메서드까지 반영되지 못했다. 인스턴스 메서드로 바꾼다.
+        // (호출부 2곳 ResolveNextOutputAction / WaitAnyOutputReceiveCompleteAsync 모두 인스턴스 컨텍스트다.)
+        private bool IsOutputAutoNoBinWorkComplete()
         {
             try
             {
@@ -1474,7 +1489,10 @@ namespace QMC.CDT320.Sequencing
                 if (!goodStagePresent && !canSupplyGood)
                     return true;
 
-                if (!ngStagePresent && !canSupplyNg)
+                // NG 미사용(UseNgCassette=false)이면 NG Stage 부재는 정상이다.
+                // 이 조건을 걸지 않으면 Ng1 카세트가 disabled 라 canSupplyNg 도 false 가 되어,
+                // 자동 운전 시작 직후 곧바로 "출력 카세트 교체 필요"로 빠진다.
+                if (IsNgCassetteUsed() && !ngStagePresent && !canSupplyNg)
                     return true;
 
                 return false;
@@ -1509,7 +1527,9 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
-        private static string BuildOutputNoBinWorkReason()
+        // [NG 스킵 2026-07-27] 메시지에 ngUsed 를 함께 남기기 위해 인스턴스 메서드로 바꾼다.
+        // (호출부 StopOutputAutoNoBinWork 는 인스턴스 컨텍스트다.)
+        private string BuildOutputNoBinWorkReason()
         {
             try
             {
@@ -1523,9 +1543,12 @@ namespace QMC.CDT320.Sequencing
                 bool goodStagePresent = MaterialStateService.GetWaferAtLocation(MaterialLocationKind.OutputStageGood) != null;
                 bool ngStagePresent = MaterialStateService.GetWaferAtLocation(MaterialLocationKind.OutputStageNg) != null;
 
-                return "자동 운전에 필요한 GOOD/NG OutputStage를 모두 유지할 수 없습니다. " +
+                bool ngUsed = IsNgCassetteUsed();
+
+                return "자동 운전에 필요한 OutputStage를 유지할 수 없습니다. " +
                        "출력 카세트를 교체하거나 매핑/자재 상태를 확인하세요. " +
-                       "feederPresent=" + feederPresent +
+                       "ngUsed=" + ngUsed +
+                       ", feederPresent=" + feederPresent +
                        ", goodStagePresent=" + goodStagePresent +
                        ", ngStagePresent=" + ngStagePresent +
                        ", goodSupply=" + goodSupply +

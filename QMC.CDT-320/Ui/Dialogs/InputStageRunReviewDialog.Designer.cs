@@ -21,6 +21,13 @@
         private System.Windows.Forms.Label lblReviewValue;
         private System.Windows.Forms.TableLayoutPanel bodyLayout;
         private System.Windows.Forms.TableLayoutPanel leftLayout;
+        private System.Windows.Forms.GroupBox grpWaferVision;
+        private System.Windows.Forms.TableLayoutPanel waferVisionLayout;
+        private System.Windows.Forms.TableLayoutPanel waferVisionHeaderLayout;
+        private System.Windows.Forms.Label lblWaferVisionState;
+        private System.Windows.Forms.Button btnWaferVisionControl;
+        private QMC.CDT_320.Ui.Controls.VisionViewerPanel waferVisionViewer;
+        private System.Windows.Forms.TableLayoutPanel leftBottomLayout;
         private QMC.CDT320.Ui.Controls.DieMapView mapView;
         private System.Windows.Forms.DataGridView dieGrid;
         private System.Windows.Forms.DataGridViewTextBoxColumn colSequence;
@@ -175,6 +182,13 @@
             this.lblReviewValue = new System.Windows.Forms.Label();
             this.bodyLayout = new System.Windows.Forms.TableLayoutPanel();
             this.leftLayout = new System.Windows.Forms.TableLayoutPanel();
+            this.grpWaferVision = new System.Windows.Forms.GroupBox();
+            this.waferVisionLayout = new System.Windows.Forms.TableLayoutPanel();
+            this.waferVisionHeaderLayout = new System.Windows.Forms.TableLayoutPanel();
+            this.lblWaferVisionState = new System.Windows.Forms.Label();
+            this.btnWaferVisionControl = new System.Windows.Forms.Button();
+            this.waferVisionViewer = new QMC.CDT_320.Ui.Controls.VisionViewerPanel();
+            this.leftBottomLayout = new System.Windows.Forms.TableLayoutPanel();
             this.mapView = new QMC.CDT320.Ui.Controls.DieMapView();
             this.dieGrid = new System.Windows.Forms.DataGridView();
             this.colSequence = new System.Windows.Forms.DataGridViewTextBoxColumn();
@@ -303,6 +317,10 @@
             this.headerLayout.SuspendLayout();
             this.bodyLayout.SuspendLayout();
             this.leftLayout.SuspendLayout();
+            this.grpWaferVision.SuspendLayout();
+            this.waferVisionLayout.SuspendLayout();
+            this.waferVisionHeaderLayout.SuspendLayout();
+            this.leftBottomLayout.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.dieGrid)).BeginInit();
             this.centerLayout.SuspendLayout();
             this.grpDieState.SuspendLayout();
@@ -549,9 +567,9 @@
             // bodyLayout
             // 
             this.bodyLayout.ColumnCount = 3;
-            this.bodyLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 51F));
-            this.bodyLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 25F));
-            this.bodyLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 24F));
+            this.bodyLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 59F));
+            this.bodyLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 22F));
+            this.bodyLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 19F));
             this.bodyLayout.Controls.Add(this.leftLayout, 0, 0);
             this.bodyLayout.Controls.Add(this.centerLayout, 1, 0);
             this.bodyLayout.Controls.Add(this.rightLayout, 2, 0);
@@ -568,17 +586,116 @@
             // 
             this.leftLayout.ColumnCount = 1;
             this.leftLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.leftLayout.Controls.Add(this.mapView, 0, 0);
+            // 상단은 비전과 웨이퍼 맵을 1:1로 배치하고, 하단 Die 목록은 전체 폭을 사용합니다.
+            this.leftLayout.Controls.Add(this.leftBottomLayout, 0, 0);
             this.leftLayout.Controls.Add(this.dieGrid, 0, 1);
             this.leftLayout.Dock = System.Windows.Forms.DockStyle.Fill;
             this.leftLayout.Location = new System.Drawing.Point(0, 0);
             this.leftLayout.Margin = new System.Windows.Forms.Padding(0, 0, 6, 0);
             this.leftLayout.Name = "leftLayout";
             this.leftLayout.RowCount = 2;
-            this.leftLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 64F));
-            this.leftLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 36F));
-            this.leftLayout.Size = new System.Drawing.Size(873, 788);
+            this.leftLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 62F));
+            this.leftLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 38F));
+            this.leftLayout.Size = new System.Drawing.Size(1011, 788);
             this.leftLayout.TabIndex = 0;
+            //
+            // grpWaferVision
+            //
+            this.grpWaferVision.Controls.Add(this.waferVisionLayout);
+            this.grpWaferVision.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.grpWaferVision.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
+            this.grpWaferVision.Location = new System.Drawing.Point(0, 0);
+            this.grpWaferVision.Margin = new System.Windows.Forms.Padding(0, 0, 3, 0);
+            this.grpWaferVision.Name = "grpWaferVision";
+            this.grpWaferVision.Padding = new System.Windows.Forms.Padding(6);
+            this.grpWaferVision.Size = new System.Drawing.Size(502, 482);
+            this.grpWaferVision.TabIndex = 0;
+            this.grpWaferVision.TabStop = false;
+            this.grpWaferVision.Text = "WAFER VISION";
+            //
+            // waferVisionLayout
+            //
+            this.waferVisionLayout.ColumnCount = 1;
+            this.waferVisionLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.waferVisionLayout.Controls.Add(this.waferVisionHeaderLayout, 0, 0);
+            this.waferVisionLayout.Controls.Add(this.waferVisionViewer, 0, 1);
+            this.waferVisionLayout.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.waferVisionLayout.Location = new System.Drawing.Point(6, 22);
+            this.waferVisionLayout.Margin = new System.Windows.Forms.Padding(0);
+            this.waferVisionLayout.Name = "waferVisionLayout";
+            this.waferVisionLayout.RowCount = 2;
+            this.waferVisionLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 40F));
+            this.waferVisionLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.waferVisionLayout.Size = new System.Drawing.Size(490, 454);
+            this.waferVisionLayout.TabIndex = 0;
+            //
+            // waferVisionHeaderLayout
+            //
+            this.waferVisionHeaderLayout.ColumnCount = 2;
+            this.waferVisionHeaderLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.waferVisionHeaderLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 160F));
+            this.waferVisionHeaderLayout.Controls.Add(this.lblWaferVisionState, 0, 0);
+            this.waferVisionHeaderLayout.Controls.Add(this.btnWaferVisionControl, 1, 0);
+            this.waferVisionHeaderLayout.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.waferVisionHeaderLayout.Location = new System.Drawing.Point(0, 0);
+            this.waferVisionHeaderLayout.Margin = new System.Windows.Forms.Padding(0);
+            this.waferVisionHeaderLayout.Name = "waferVisionHeaderLayout";
+            this.waferVisionHeaderLayout.RowCount = 1;
+            this.waferVisionHeaderLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.waferVisionHeaderLayout.Size = new System.Drawing.Size(490, 40);
+            this.waferVisionHeaderLayout.TabIndex = 0;
+            //
+            // lblWaferVisionState
+            //
+            this.lblWaferVisionState.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.lblWaferVisionState.Font = new System.Drawing.Font("맑은 고딕", 9F);
+            this.lblWaferVisionState.ForeColor = System.Drawing.Color.DimGray;
+            this.lblWaferVisionState.Location = new System.Drawing.Point(3, 0);
+            this.lblWaferVisionState.Name = "lblWaferVisionState";
+            this.lblWaferVisionState.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
+            this.lblWaferVisionState.Size = new System.Drawing.Size(324, 40);
+            this.lblWaferVisionState.TabIndex = 0;
+            this.lblWaferVisionState.Text = "영상 수신 대기 (측정 가능)";
+            this.lblWaferVisionState.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            //
+            // btnWaferVisionControl
+            //
+            this.btnWaferVisionControl.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.btnWaferVisionControl.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
+            this.btnWaferVisionControl.Location = new System.Drawing.Point(333, 3);
+            this.btnWaferVisionControl.Name = "btnWaferVisionControl";
+            this.btnWaferVisionControl.Size = new System.Drawing.Size(154, 34);
+            this.btnWaferVisionControl.TabIndex = 1;
+            this.btnWaferVisionControl.Text = "비전 사용 시작";
+            this.btnWaferVisionControl.UseVisualStyleBackColor = true;
+            this.btnWaferVisionControl.Click += new System.EventHandler(this.BtnWaferVisionControl_Click);
+            //
+            // waferVisionViewer
+            //
+            this.waferVisionViewer.AllowLive = false;
+            this.waferVisionViewer.CameraCommandsEnabled = false;
+            this.waferVisionViewer.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.waferVisionViewer.Location = new System.Drawing.Point(0, 40);
+            this.waferVisionViewer.Margin = new System.Windows.Forms.Padding(0);
+            this.waferVisionViewer.Name = "waferVisionViewer";
+            this.waferVisionViewer.Size = new System.Drawing.Size(490, 414);
+            this.waferVisionViewer.TabIndex = 1;
+            //
+            // leftBottomLayout
+            //
+            this.leftBottomLayout.ColumnCount = 2;
+            this.leftBottomLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 50F));
+            this.leftBottomLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 50F));
+            this.leftBottomLayout.Controls.Add(this.grpWaferVision, 0, 0);
+            this.leftBottomLayout.Controls.Add(this.mapView, 1, 0);
+            this.leftBottomLayout.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.leftBottomLayout.Location = new System.Drawing.Point(0, 0);
+            this.leftBottomLayout.Margin = new System.Windows.Forms.Padding(0, 0, 0, 6);
+            this.leftBottomLayout.Name = "leftBottomLayout";
+            this.leftBottomLayout.RowCount = 1;
+            this.leftBottomLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.leftBottomLayout.Size = new System.Drawing.Size(1011, 482);
+            this.leftBottomLayout.TabIndex = 1;
             // 
             // mapView
             // 
@@ -587,14 +704,14 @@
             this.mapView.CompactUsedBounds = false;
             this.mapView.Dock = System.Windows.Forms.DockStyle.Fill;
             this.mapView.EnableRectangleSelection = false;
-            this.mapView.Location = new System.Drawing.Point(0, 0);
+            this.mapView.Location = new System.Drawing.Point(508, 0);
             this.mapView.Map = null;
-            this.mapView.Margin = new System.Windows.Forms.Padding(0, 0, 0, 6);
+            this.mapView.Margin = new System.Windows.Forms.Padding(3, 0, 0, 0);
             this.mapView.Name = "mapView";
             this.mapView.SelectedEntry = null;
             this.mapView.ShowEquipmentAxes = false;
             this.mapView.ShowWaferOutline = false;
-            this.mapView.Size = new System.Drawing.Size(873, 498);
+            this.mapView.Size = new System.Drawing.Size(503, 482);
             this.mapView.TabIndex = 0;
             this.mapView.CellClicked += new System.Action<QMC.CDT320.DieMaps.DieMapEntry>(this.MapView_CellClicked);
             this.mapView.CellDoubleClicked += new System.Action<QMC.CDT320.DieMaps.DieMapEntry>(this.MapView_CellDoubleClicked);
@@ -639,7 +756,7 @@
             dataGridViewCellStyle2.WrapMode = System.Windows.Forms.DataGridViewTriState.False;
             this.dieGrid.DefaultCellStyle = dataGridViewCellStyle2;
             this.dieGrid.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.dieGrid.Location = new System.Drawing.Point(0, 504);
+            this.dieGrid.Location = new System.Drawing.Point(0, 489);
             this.dieGrid.Margin = new System.Windows.Forms.Padding(0);
             this.dieGrid.MultiSelect = false;
             this.dieGrid.Name = "dieGrid";
@@ -648,7 +765,7 @@
             this.dieGrid.RowHeadersWidth = 51;
             this.dieGrid.RowTemplate.Height = 26;
             this.dieGrid.SelectionMode = System.Windows.Forms.DataGridViewSelectionMode.FullRowSelect;
-            this.dieGrid.Size = new System.Drawing.Size(873, 284);
+            this.dieGrid.Size = new System.Drawing.Size(1011, 299);
             this.dieGrid.TabIndex = 1;
             this.dieGrid.SelectionChanged += new System.EventHandler(this.DieGrid_SelectionChanged);
             // 
@@ -765,15 +882,16 @@
             this.centerLayout.Controls.Add(this.grpJog, 0, 2);
             this.centerLayout.Controls.Add(this.grpActions, 0, 3);
             this.centerLayout.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.centerLayout.Location = new System.Drawing.Point(879, 0);
+            this.centerLayout.Location = new System.Drawing.Point(1017, 0);
             this.centerLayout.Margin = new System.Windows.Forms.Padding(0, 0, 6, 0);
+            this.centerLayout.MinimumSize = new System.Drawing.Size(360, 0);
             this.centerLayout.Name = "centerLayout";
             this.centerLayout.RowCount = 4;
             this.centerLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 180F));
             this.centerLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 150F));
             this.centerLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 235F));
             this.centerLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.centerLayout.Size = new System.Drawing.Size(425, 788);
+            this.centerLayout.Size = new System.Drawing.Size(373, 788);
             this.centerLayout.TabIndex = 1;
             // 
             // grpDieState
@@ -1316,14 +1434,15 @@
             this.rightLayout.Controls.Add(this.grpPickupRoute, 0, 1);
             this.rightLayout.Controls.Add(this.grpWorkflow, 0, 2);
             this.rightLayout.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.rightLayout.Location = new System.Drawing.Point(1310, 0);
+            this.rightLayout.Location = new System.Drawing.Point(1396, 0);
             this.rightLayout.Margin = new System.Windows.Forms.Padding(0);
+            this.rightLayout.MinimumSize = new System.Drawing.Size(320, 0);
             this.rightLayout.Name = "rightLayout";
             this.rightLayout.RowCount = 3;
             this.rightLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 290F));
             this.rightLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 230F));
             this.rightLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.rightLayout.Size = new System.Drawing.Size(414, 788);
+            this.rightLayout.Size = new System.Drawing.Size(328, 788);
             this.rightLayout.TabIndex = 2;
             // 
             // grpMapInfo
@@ -2241,6 +2360,10 @@
             this.headerLayout.ResumeLayout(false);
             this.bodyLayout.ResumeLayout(false);
             this.leftLayout.ResumeLayout(false);
+            this.grpWaferVision.ResumeLayout(false);
+            this.waferVisionLayout.ResumeLayout(false);
+            this.waferVisionHeaderLayout.ResumeLayout(false);
+            this.leftBottomLayout.ResumeLayout(false);
             ((System.ComponentModel.ISupportInitialize)(this.dieGrid)).EndInit();
             this.centerLayout.ResumeLayout(false);
             this.grpDieState.ResumeLayout(false);

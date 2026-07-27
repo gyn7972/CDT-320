@@ -71,16 +71,32 @@ namespace QMC.CDT320.VisionComm
                 throw new InvalidOperationException(blockReason);
             }
 
-            // 핸들러 Live → Vision 카메라를 연속 촬상(Live)으로 전환. RUN/READY 중이면 Vision 이 거부(throw).
-            // 이 명령이 있어야 Vision 이 프레임을 내보내고, 아래 RecvLoop 가 그 프레임을 받는다.
-            RequestVisionLive(true);
-            _liveCommandActive = true;
+            // 같은 카메라 포트의 Live를 여러 화면이 동시에 소유하면 한 화면의 Stop이 다른 화면까지
+            // 정지시키므로, CAM_SWITCH ON 전에 전역 Registry에서 단일 소유권을 먼저 확보합니다.
+            if (!VisionViewerRegistry.TryStreamStarted(_port))
+                throw new InvalidOperationException(
+                    "동일 Vision Viewer 포트의 Live가 이미 실행 중입니다. port=" + _port);
+
             _registryRegistered = true;
-            _onFrame = onFrame;
-            _running = true;
-            VisionViewerRegistry.StreamStarted(_port);   // 스트리밍 상태 등록(설정 페이지 표시용)
-            _thread = new Thread(RecvLoop) { IsBackground = true, Name = "VisionViewer-" + _port };
-            _thread.Start();
+            try
+            {
+                // 핸들러 Live → Vision 카메라를 연속 촬상(Live)으로 전환. RUN/READY 중이면 Vision 이 거부(throw).
+                // 이 명령이 있어야 Vision 이 프레임을 내보내고, 아래 RecvLoop 가 그 프레임을 받는다.
+                RequestVisionLive(true);
+                _liveCommandActive = true;
+                _onFrame = onFrame;
+                _running = true;
+                _thread = new Thread(RecvLoop) { IsBackground = true, Name = "VisionViewer-" + _port };
+                _thread.Start();
+            }
+            catch
+            {
+                _running = false;
+                _liveCommandActive = false;
+                _registryRegistered = false;
+                VisionViewerRegistry.StreamStopped(_port);
+                throw;
+            }
         }
 
         /// <summary>Vision Live 명령 없이 뷰어 포트에서 Grab 이미지 프레임만 수신한다.

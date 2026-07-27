@@ -3666,6 +3666,58 @@ namespace QMC.CDT320
                 source);
         }
 
+        /// <summary>
+        /// Review 화면의 Map 절대좌표 이동을 READY 시퀀스 속도 퍼센트로 실행합니다.
+        /// 전역 READY Scope는 Auto 축에도 영향을 줄 수 있으므로 열지 않고, 각 축의 원본
+        /// DefaultVelocity/Acceleration/Deceleration에 현재 ReadySequencePercent를 직접 적용합니다.
+        /// </summary>
+        public Task<int> MoveVisionPointSafelyAtReadySequenceSpeedAsync(
+            double targetX,
+            double targetY,
+            string source = null)
+        {
+            double readyPercent = MotionSpeedScale.ReadySequencePercent;
+            return MoveVisionPointSafelyAsync(
+                targetX,
+                targetY,
+                (axis, target) => MoveInputStageAxisAtDefaultSpeedPercentAsync(
+                    axis,
+                    target,
+                    readyPercent),
+                source);
+        }
+
+        private Task<int> MoveInputStageAxisAtDefaultSpeedPercentAsync(
+            WaferStageAxis axis,
+            double target,
+            double speedPercent)
+        {
+            BaseAxis item = ResolveInputStageAxis(axis);
+            if (item == null || item.Config == null)
+                return MoveInputStageAxisCommandWithMotion(axis, target, 0.0, 0.0, 0.0);
+
+            double rawVelocity = item.Config.GetRawDefaultVelocity();
+            double rawAcceleration = item.Config.GetRawAcceleration();
+            double rawDeceleration = item.Config.GetRawDeceleration();
+
+            double velocity = MotionSpeedScale.ApplyDefaultVelocityScale(
+                rawVelocity > 0.0 ? rawVelocity : 100.0,
+                speedPercent);
+            double acceleration = MotionSpeedScale.ApplyDefaultAccelerationScale(
+                rawAcceleration > 0.0 ? rawAcceleration : 100.0,
+                speedPercent);
+            double deceleration = MotionSpeedScale.ApplyDefaultAccelerationScale(
+                rawDeceleration > 0.0 ? rawDeceleration : 100.0,
+                speedPercent);
+
+            return MoveInputStageAxisCommandWithMotion(
+                axis,
+                target,
+                velocity,
+                acceleration,
+                deceleration);
+        }
+
         private async Task<int> MoveVisionPointSafelyAsync(double targetX, double targetY, Func<WaferStageAxis, double, Task<int>> moveAxisAsync, string source = null)
         {
             try

@@ -598,6 +598,25 @@ namespace QMC.CDT320.Sequencing
                 return Fail("PICKER-PLACE-ROUTING-MODE", "OutputStage",
                     "지원하지 않는 Die 결과 배출 모드이므로 Place를 시작하지 않습니다. mode=" + routingMode + ".");
             }
+
+            // [NG 스킵 2026-07-27] 설정 조합 모순 방어.
+            // RouteByInspectionResult 이면 NG Die가 NG Stage로 가는데, UseNgCassette=false 면
+            // Ng1 카세트가 disabled 라 NG Stage는 영원히 공급되지 않는다. 그 상태로 진행하면
+            // VerifyOutputStageReadyAsync 가 Die를 문 채 무한 대기한다(자동 모드는 timeout 없음).
+            // 모션 시작 전에 명확한 알람으로 끊는다.
+            var outputCassetteConfig = Context != null && Context.Machine != null && Context.Machine.OutputCassetteUnit != null
+                ? Context.Machine.OutputCassetteUnit.Config
+                : null;
+            bool ngCassetteUsed = outputCassetteConfig == null || outputCassetteConfig.UseNgCassette;
+            if (routingMode == OutputStageResultRoutingMode.RouteByInspectionResult && !ngCassetteUsed)
+            {
+                return Fail("PICKER-PLACE-NG-ROUTING-UNAVAILABLE", "OutputStage",
+                    "설정이 서로 모순됩니다. 검사 결과별 배출(RouteByInspectionResult)은 NG Stage가 필요한데 " +
+                    "NG 카세트가 미사용(UseNgCassette=false)이라 NG Stage를 공급할 수 없습니다. " +
+                    "OutputStage 배출 모드를 ForceGoodStage로 바꾸거나 NG 카세트를 사용으로 설정하세요. " +
+                    "mode=" + routingMode + ", useNgCassette=" + ngCassetteUsed + ".");
+            }
+
             _resultRoutingModeSnapshot = routingMode;
             _resultRoutingModeCaptured = true;
             WriteLog("PickerPlaceSequence",

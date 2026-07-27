@@ -179,6 +179,12 @@
     <Compile Include="Ui\Dialogs\LogSettingsDialog.cs">
       <SubType>Form</SubType>
     </Compile>
+    <Compile Include="Ui\Dialogs\LotHistoryDialog.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Ui\Dialogs\LotHistoryDialog.Designer.cs">
+      <DependentUpon>LotHistoryDialog.cs</DependentUpon>
+    </Compile>
     <Compile Include="Ui\Controls\ParamGrid.cs">
       <SubType>UserControl</SubType>
     </Compile>
@@ -512,6 +518,7 @@
     <Compile Include="Equipment\Bin\SubPortMaterialRejector.cs" />
     <!-- Equipment / Lots (Stage 3) -->
     <Compile Include="Equipment\Lots\Lot.cs" />
+    <Compile Include="Equipment\Lots\LotSessionService.cs" />
     <Compile Include="Equipment\Lots\LotStorage.cs" />
     <!-- Equipment / Interlocks (Stage 3 ??5 + Stage 8 ??5 추�?, �?15) -->
     <Compile Include="Equipment\Interlocks\Common\ExtendedInterlocks.cs" />

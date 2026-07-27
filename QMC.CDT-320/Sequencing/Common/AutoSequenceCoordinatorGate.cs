@@ -945,6 +945,15 @@ namespace QMC.CDT320.Sequencing
             CancellationToken ct)
         {
             bool waitLogged = false;
+            // [무언정지 방지 2026-07-27] 이 루프는 timeout이 없어 조건이 영원히 참이면 알람 없이 교착된다.
+            // 실제로 NG 미사용 설정에서 IsOutputStageExchangePending()이 항상 참이 되어
+            // Picker가 시작조차 못 하고 전 유닛이 조용히 멈췄다. 아래 LogPublic은 Release(ProductionMinimal)
+            // 에서 저장되지 않아 로그에 흔적조차 남지 않았다.
+            // 따라서 일정 시간 이상 막히면 LogPolicy를 우회하는 경로로 주기 경고를 남긴다.
+            const int BlockedWarnAfterMs = 5000;
+            const int BlockedWarnIntervalMs = 10000;
+            var blockedWatch = System.Diagnostics.Stopwatch.StartNew();
+            long nextWarnMs = BlockedWarnAfterMs;
 
             while (IsPickerProcessStartBlocked())
             {
@@ -961,6 +970,22 @@ namespace QMC.CDT320.Sequencing
                         ", outputActive=" + IsSignalSet("OutputLoaderActive") +
                         ", outputExchangePending=" + IsOutputStageExchangePending());
                     waitLogged = true;
+                }
+
+                if (blockedWatch.ElapsedMilliseconds >= nextWarnMs)
+                {
+                    nextWarnMs = blockedWatch.ElapsedMilliseconds + BlockedWarnIntervalMs;
+                    // LogLevel 오버로드는 LogPolicy를 우회해 Release에서도 디스크에 남는다.
+                    Log.Write(LogLevel.AboveNormal, "Main", "AutoSequenceCoordinator",
+                        "Picker 시작이 " + (blockedWatch.ElapsedMilliseconds / 1000) + "초째 막혀 있습니다. " +
+                        "holder=" + holder +
+                        ", inputActive=" + IsSignalSet("InputLoaderActive") +
+                        ", outputActive=" + IsSignalSet("OutputLoaderActive") +
+                        ", outputExchangePending=" + IsOutputStageExchangePending() +
+                        ", ngUsed=" + IsNgCassetteUsed() +
+                        ", feederOccupied=" + (MaterialStateService.GetWaferAtLocation(MaterialLocationKind.OutputFeeder) != null) +
+                        ", goodStagePresent=" + IsOutputStageMaterialPresent(BinSide.Good) +
+                        ", ngStagePresent=" + IsOutputStageMaterialPresent(BinSide.Ng) + " - Check");
                 }
 
                 await Task.Delay(20, ct).ConfigureAwait(false);
@@ -995,17 +1020,23 @@ namespace QMC.CDT320.Sequencing
                            !IsOutputStageMaterialPresent(BinSide.Good);
                 }
 
+                // [NG 스킵 2026-07-27] NG 미사용(UseNgCassette=false)이면 NG Stage는 영원히 공급되지 않는다.
+                // NG 조건을 그대로 두면 아래 판정이 항상 true가 되어 Picker가 절대 시작하지 못하고,
+                // Input(WaitInputStageDieComplete) / Output(WaitReceiveComplete)은 그 Picker를 기다려
+                // 알람 없이 교착된다(2026-07-27 현장 무언정지). NG 사용 시에만 NG를 요구한다.
+                bool ngUsed = IsNgCassetteUsed();
+
                 if (IsSignalSet("OutputGoodStageReceiveComplete") ||
-                    IsSignalSet("OutputNgStageReceiveComplete") ||
+                    (ngUsed && IsSignalSet("OutputNgStageReceiveComplete")) ||
                     MaterialStateService.IsOutputStageReceiveComplete(BinSide.Good) ||
-                    MaterialStateService.IsOutputStageReceiveComplete(BinSide.Ng))
+                    (ngUsed && MaterialStateService.IsOutputStageReceiveComplete(BinSide.Ng)))
                 {
                     return true;
                 }
 
                 return feederOccupied ||
                        !IsOutputStageMaterialPresent(BinSide.Good) ||
-                       !IsOutputStageMaterialPresent(BinSide.Ng);
+                       (ngUsed && !IsOutputStageMaterialPresent(BinSide.Ng));
             }
             catch (Exception ex)
             {
@@ -1017,6 +1048,18 @@ namespace QMC.CDT320.Sequencing
                 }
                 return true;
             }
+        }
+
+        /// <summary>
+        /// NG 카세트 사용 여부. OutputSequence.IsNgCassetteUsed()와 같은 기준(Config.UseNgCassette)을 쓴다.
+        /// [NG 스킵 2026-07-27] 설정을 못 읽으면 "사용"으로 보아 기존 동작(NG 요구)을 유지한다.
+        /// </summary>
+        private bool IsNgCassetteUsed()
+        {
+            var cassette = _context != null && _context.Machine != null
+                ? _context.Machine.OutputCassetteUnit
+                : null;
+            return cassette == null || cassette.Config == null || cassette.Config.UseNgCassette;
         }
 
         private bool IsStopAfterDrainPickerCapacityRequired()

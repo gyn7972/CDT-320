@@ -1638,6 +1638,40 @@ namespace QMC.CDT320
             }
         }
 
+        /// <summary>
+        /// 자동 운전 시작 전 활성 LOT 확인.
+        /// [사용자 확정 2026-07-27] 활성 LOT이 없으면 자동 운전을 시작하지 않는다.
+        /// 임시 LOT을 자동 생성하지 않는다 — 어떤 LOT으로 생산했는지 불명확해지는 것을 막기 위함.
+        /// 알람이 아니라 사용자 안내로 처리한다(설비 이상이 아니라 작업 절차 누락이므로 Alarm 상태로 만들지 않는다).
+        /// Manual / Step 모드는 이 검사를 적용하지 않는다.
+        /// </summary>
+        private bool EnsureActiveLotForAutoStart(string source)
+        {
+            try
+            {
+                if (QMC.CDT320.Lots.LotSessionService.IsLotActive)
+                    return true;
+
+                LastActionFailureMessage =
+                    "자동 운전 시작 불가: 진행 중인 LOT이 없습니다. " +
+                    "[작업 → 메인 화면 → 작업 정보]에서 LOT ID를 입력하고 [LOT 시작]을 누른 뒤 다시 START 하세요.";
+                QMC.Common.Log.Write("Main", "SYSTEM", source, LastActionFailureMessage + " - Failed");
+                QMC.Common.Logging.EventLogger.Write(
+                    QMC.Common.Logging.EventKind.Warning, "LOT", "LOT-START-REQUIRED", LastActionFailureMessage);
+                Log("[START] blocked: no active lot.");
+                return false;
+            }
+            catch (Exception ex)
+            {
+                LastActionFailureMessage = "자동 운전 시작 전 LOT 확인 실패: " + ex.Message;
+                QMC.Common.Log.Write("Main", "SYSTEM", source, LastActionFailureMessage + " - Failed");
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
         private bool EnsureReticleAvoidForAutoStart(string source)
         {
             try
@@ -2482,7 +2516,11 @@ namespace QMC.CDT320
                 //    try { ax.ServoOff(); } catch { }
                 //}
 
-                LotStorage.CloseLot(aborted: true);
+                // [LOT 관리 2026-07-27] 프로그램 종료는 LOT 종료가 아니다.
+                // 예전에는 여기서 CloseLot(aborted:true) 로 LOT을 강제 중단시켰다.
+                // LOT은 여러 카세트에 걸치고 완료는 작업자가 [LOT 완료]를 누를 때만 발생하므로,
+                // 종료 시에는 진행 카운터만 파일에 남기고 Running 상태를 유지한다.
+                LotStorage.SaveActiveLotProgress();
                 AppSettingsStore.Save();
                 SaveMachineRuntimeState("Shutdown");
                 SetStatus(EquipmentStatus.Stopped);
@@ -5659,6 +5697,10 @@ namespace QMC.CDT320
                 if (!EnsureMachineInitializedForRun("StartAsync"))
                     return -1;
 
+                // Ready 시퀀스(모션)보다 먼저 확인한다 — LOT이 없으면 축을 움직이지 않고 바로 막는다.
+                if (!EnsureActiveLotForAutoStart("StartAsync"))
+                    return -1;
+
                 int readyResult = await RunReadySequenceBeforeStartAsync().ConfigureAwait(false);
                 if (readyResult != 0)
                     return readyResult;
@@ -5781,9 +5823,12 @@ namespace QMC.CDT320
             {
                 int skipped = System.Math.Max(0, CycleTotal - CycleDone);
                 lot.SkippedCount = skipped;
-                Log("[STOP] LOT=" + lot.LotID + " finalize (done=" + CycleDone + "/" + CycleTotal +
+                Log("[STOP] LOT=" + lot.LotID + " progress saved (done=" + CycleDone + "/" + CycleTotal +
                     ", good=" + GoodCount + ", ng=" + NgCount + ", skipped=" + skipped + ")");
-                try { QMC.CDT320.Lots.LotStorage.CloseLot(aborted: true); } catch { }
+                // [LOT 관리 2026-07-27] 정지는 LOT 중단이 아니다.
+                // 예전에는 CloseLot(aborted:true) 로 LOT을 끝내버려서, 정지 후 재시작하면
+                // 활성 LOT이 사라지고 자동 운전이 막혔다. 카운터만 저장하고 LOT은 유지한다.
+                try { QMC.CDT320.Lots.LotStorage.SaveActiveLotProgress(); } catch { }
                 try { _machine.OpPanelUnit?.TowerLampOff(); } catch { }
             }
             else
@@ -7145,6 +7190,11 @@ namespace QMC.CDT320
 
                 if (options == null)
                     options = QMC.CDT320.Sequencing.SequenceRunOptions.FullAuto();
+
+                // 모든 자동 운전 진입점이 지나는 최종 관문(운전 패널·UI·내부 호출 공통).
+                if (options.Mode == QMC.CDT320.Sequencing.SequenceRunMode.Auto &&
+                    !EnsureActiveLotForAutoStart("StartSequenceAsync"))
+                    return;
 
                 if (options.Mode == QMC.CDT320.Sequencing.SequenceRunMode.Auto &&
                     !EnsureReticleAvoidForAutoStart("StartSequenceAsync"))

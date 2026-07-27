@@ -162,6 +162,19 @@ namespace QMC.Common.Motion
         }
 
         /// <summary>
+        /// 전역 스케일 Scope를 열지 않고 호출자가 지정한 퍼센트로 DefaultVelocity를 계산합니다.
+        /// Auto와 병행 가능한 Review 수동 이동처럼 해당 명령에만 속도를 적용할 때 사용합니다.
+        /// </summary>
+        public static double ApplyDefaultVelocityScale(double velocity, double percent)
+        {
+            if (velocity <= 0.0)
+                return velocity;
+
+            double scaled = velocity * (ClampPercent(percent) / 100.0);
+            return scaled < MinScaledVelocity ? MinScaledVelocity : scaled;
+        }
+
+        /// <summary>
         /// DefaultVelocity 기반 일반 이동의 가속도/감속도에 전체 퍼센트 스케일을 적용한다.
         /// </summary>
         /// <param name="acceleration">AxisConfig.Acceleration 또는 Deceleration 값.</param>
@@ -172,6 +185,19 @@ namespace QMC.Common.Motion
                 return acceleration;
 
             double scaled = acceleration * EffectiveScaleFactor;
+            return scaled < MinScaledAcceleration ? MinScaledAcceleration : scaled;
+        }
+
+        /// <summary>
+        /// 전역 스케일 Scope를 열지 않고 호출자가 지정한 퍼센트로 Default 가감속을 계산합니다.
+        /// 속도와 같은 퍼센트를 전달해 특정 수동 명령의 모션 프로파일만 안전하게 감속합니다.
+        /// </summary>
+        public static double ApplyDefaultAccelerationScale(double acceleration, double percent)
+        {
+            if (acceleration <= 0.0)
+                return acceleration;
+
+            double scaled = acceleration * (ClampPercent(percent) / 100.0);
             return scaled < MinScaledAcceleration ? MinScaledAcceleration : scaled;
         }
 

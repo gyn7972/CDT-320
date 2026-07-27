@@ -94,6 +94,15 @@ namespace QMC.CDT_320.Ui.Pages.Work
         private Button btnCcs;
         private Button btnWorkTimeClear;
         private Button btnTestAlarm;
+        // LOT 관리 (2026-07-27 신규): 작업 정보 상단에 입력줄 한 줄만 둔다.
+        // 진행 이력은 화면에 상주시키면 기존 타일 높이가 부족해 값이 잘리므로
+        // [이력] 버튼 -> LotHistoryDialog 별도 창으로 뺐다.
+        private TableLayoutPanel lotInputPanel;
+        private Label lblLotIdCaption;
+        private TextBox txtLotId;
+        private Button btnLotStart;
+        private Button btnLotComplete;
+        private Button btnLotHistory;
         private Panel workInfoProjectTile;
         private Panel workInfoBinQtyTile;
         private Panel workInfoPickFailTile;
@@ -230,6 +239,12 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.btnCcs = new System.Windows.Forms.Button();
             this.btnWorkTimeClear = new System.Windows.Forms.Button();
             this.btnTestAlarm = new System.Windows.Forms.Button();
+            this.lotInputPanel = new System.Windows.Forms.TableLayoutPanel();
+            this.lblLotIdCaption = new System.Windows.Forms.Label();
+            this.txtLotId = new System.Windows.Forms.TextBox();
+            this.btnLotStart = new System.Windows.Forms.Button();
+            this.btnLotComplete = new System.Windows.Forms.Button();
+            this.btnLotHistory = new System.Windows.Forms.Button();
             this.workInfoProjectTile = new System.Windows.Forms.Panel();
             this.workInfoBinQtyTile = new System.Windows.Forms.Panel();
             this.workInfoPickFailTile = new System.Windows.Forms.Panel();
@@ -298,6 +313,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.tabOutputGoodMap.SuspendLayout();
             this.tabOutputNgMap.SuspendLayout();
             this.workInfoBody.SuspendLayout();
+            this.lotInputPanel.SuspendLayout();
             this.workTimeBody.SuspendLayout();
             this.workTimeActionPanel.SuspendLayout();
             this.workTimeUphHeaderLayout.SuspendLayout();
@@ -318,6 +334,9 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.rootLayout.Location = new System.Drawing.Point(0, 0);
             this.rootLayout.Name = "rootLayout";
             this.rootLayout.Padding = new System.Windows.Forms.Padding(4);
+            // 원래 2행 구성(65/35)을 유지한다.
+            // [LOT 관리 2026-07-27] LOT 진행 이력은 화면에 상주시키지 않고 [이력] 버튼 → 별도 창으로 뺐다.
+            // 작업 정보 안에는 LOT 입력줄 한 줄(34px)만 추가되므로 기존 타일 높이가 줄지 않는다.
             this.rootLayout.RowCount = 2;
             this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 65F));
             this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 35F));
@@ -802,30 +821,118 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.workInfoBody.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 25F));
             this.workInfoBody.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 25F));
             this.workInfoBody.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 25F));
-            this.workInfoBody.Controls.Add(this.workInfoProjectTile, 0, 0);
-            this.workInfoBody.Controls.Add(this.workInfoBinQtyTile, 0, 1);
-            this.workInfoBody.Controls.Add(this.workInfoPickFailTile, 1, 1);
-            this.workInfoBody.Controls.Add(this.workInfoPlaceFailTile, 2, 1);
-            this.workInfoBody.Controls.Add(this.workInfoNeedleTile, 3, 1);
-            this.workInfoBody.Controls.Add(this.workInfoFrontCollet1Tile, 0, 2);
-            this.workInfoBody.Controls.Add(this.workInfoFrontCollet2Tile, 1, 2);
-            this.workInfoBody.Controls.Add(this.workInfoFrontCollet3Tile, 2, 2);
-            this.workInfoBody.Controls.Add(this.workInfoFrontCollet4Tile, 3, 2);
-            this.workInfoBody.Controls.Add(this.workInfoRearCollet1Tile, 0, 3);
-            this.workInfoBody.Controls.Add(this.workInfoRearCollet2Tile, 1, 3);
-            this.workInfoBody.Controls.Add(this.workInfoRearCollet3Tile, 2, 3);
-            this.workInfoBody.Controls.Add(this.workInfoRearCollet4Tile, 3, 3);
+            // [LOT 관리 2026-07-27] 행 0에 LOT 입력줄만 끼워 넣고, 기존 타일은 한 행씩 내렸다.
+            // 행 구성/비율은 원래대로 유지한다(프로젝트 42F 고정 + 타일 3행 33.33% 균등).
+            this.workInfoBody.Controls.Add(this.lotInputPanel, 0, 0);
+            this.workInfoBody.Controls.Add(this.workInfoProjectTile, 0, 1);
+            this.workInfoBody.Controls.Add(this.workInfoBinQtyTile, 0, 2);
+            this.workInfoBody.Controls.Add(this.workInfoPickFailTile, 1, 2);
+            this.workInfoBody.Controls.Add(this.workInfoPlaceFailTile, 2, 2);
+            this.workInfoBody.Controls.Add(this.workInfoNeedleTile, 3, 2);
+            this.workInfoBody.Controls.Add(this.workInfoFrontCollet1Tile, 0, 3);
+            this.workInfoBody.Controls.Add(this.workInfoFrontCollet2Tile, 1, 3);
+            this.workInfoBody.Controls.Add(this.workInfoFrontCollet3Tile, 2, 3);
+            this.workInfoBody.Controls.Add(this.workInfoFrontCollet4Tile, 3, 3);
+            this.workInfoBody.Controls.Add(this.workInfoRearCollet1Tile, 0, 4);
+            this.workInfoBody.Controls.Add(this.workInfoRearCollet2Tile, 1, 4);
+            this.workInfoBody.Controls.Add(this.workInfoRearCollet3Tile, 2, 4);
+            this.workInfoBody.Controls.Add(this.workInfoRearCollet4Tile, 3, 4);
             this.workInfoBody.Dock = System.Windows.Forms.DockStyle.Fill;
             this.workInfoBody.Margin = new System.Windows.Forms.Padding(0);
             this.workInfoBody.Name = "workInfoBody";
             this.workInfoBody.Padding = new System.Windows.Forms.Padding(3);
-            this.workInfoBody.RowCount = 4;
+            // 행0 = LOT 입력줄(34F 고정, 신규). 행1~4 는 원래의 42F + 33.33% x 3 그대로다.
+            // ApplyBottomGroupSizing 의 최소 높이도 34px 만큼 같이 올려 타일이 눌리지 않게 한다.
+            this.workInfoBody.RowCount = 5;
+            this.workInfoBody.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 34F));
             this.workInfoBody.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 42F));
             this.workInfoBody.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 33.33333F));
             this.workInfoBody.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 33.33333F));
             this.workInfoBody.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 33.33333F));
             this.workInfoBody.TabIndex = 0;
+            this.workInfoBody.SetColumnSpan(this.lotInputPanel, 4);
             this.workInfoBody.SetColumnSpan(this.workInfoProjectTile, 4);
+            //
+            // lotInputPanel
+            //
+            this.lotInputPanel.ColumnCount = 5;
+            this.lotInputPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 60F));
+            this.lotInputPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.lotInputPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 92F));
+            this.lotInputPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 92F));
+            this.lotInputPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 72F));
+            this.lotInputPanel.Controls.Add(this.lblLotIdCaption, 0, 0);
+            this.lotInputPanel.Controls.Add(this.txtLotId, 1, 0);
+            this.lotInputPanel.Controls.Add(this.btnLotStart, 2, 0);
+            this.lotInputPanel.Controls.Add(this.btnLotComplete, 3, 0);
+            this.lotInputPanel.Controls.Add(this.btnLotHistory, 4, 0);
+            this.lotInputPanel.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.lotInputPanel.Margin = new System.Windows.Forms.Padding(0, 0, 0, 3);
+            this.lotInputPanel.Name = "lotInputPanel";
+            this.lotInputPanel.RowCount = 1;
+            this.lotInputPanel.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.lotInputPanel.TabIndex = 0;
+            //
+            // lblLotIdCaption
+            //
+            this.lblLotIdCaption.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.lblLotIdCaption.Font = new System.Drawing.Font("맑은 고딕", 9.5F, System.Drawing.FontStyle.Bold);
+            this.lblLotIdCaption.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(60)))), ((int)(((byte)(60)))), ((int)(((byte)(60)))));
+            this.lblLotIdCaption.Name = "lblLotIdCaption";
+            this.lblLotIdCaption.TabIndex = 0;
+            this.lblLotIdCaption.Text = "LOT ID";
+            this.lblLotIdCaption.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            //
+            // txtLotId
+            //
+            this.txtLotId.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.txtLotId.Font = new System.Drawing.Font("Consolas", 11F);
+            this.txtLotId.MaxLength = 64;
+            this.txtLotId.Margin = new System.Windows.Forms.Padding(3, 3, 6, 3);
+            this.txtLotId.Name = "txtLotId";
+            this.txtLotId.TabIndex = 1;
+            //
+            // btnLotStart
+            //
+            this.btnLotStart.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(21)))), ((int)(((byte)(128)))), ((int)(((byte)(61)))));
+            this.btnLotStart.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.btnLotStart.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this.btnLotStart.Font = new System.Drawing.Font("맑은 고딕", 9.5F, System.Drawing.FontStyle.Bold);
+            this.btnLotStart.ForeColor = System.Drawing.Color.White;
+            this.btnLotStart.Margin = new System.Windows.Forms.Padding(3, 2, 3, 2);
+            this.btnLotStart.Name = "btnLotStart";
+            this.btnLotStart.TabIndex = 2;
+            this.btnLotStart.Text = "LOT 시작";
+            this.btnLotStart.UseVisualStyleBackColor = false;
+            this.btnLotStart.Click += new System.EventHandler(this.btnLotStart_Click);
+            //
+            // btnLotComplete
+            //
+            this.btnLotComplete.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(89)))), ((int)(((byte)(89)))), ((int)(((byte)(89)))));
+            this.btnLotComplete.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.btnLotComplete.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this.btnLotComplete.Font = new System.Drawing.Font("맑은 고딕", 9.5F, System.Drawing.FontStyle.Bold);
+            this.btnLotComplete.ForeColor = System.Drawing.Color.White;
+            this.btnLotComplete.Margin = new System.Windows.Forms.Padding(3, 2, 3, 2);
+            this.btnLotComplete.Name = "btnLotComplete";
+            this.btnLotComplete.TabIndex = 3;
+            this.btnLotComplete.Text = "LOT 완료";
+            this.btnLotComplete.UseVisualStyleBackColor = false;
+            this.btnLotComplete.Click += new System.EventHandler(this.btnLotComplete_Click);
+            //
+            // btnLotHistory
+            //
+            this.btnLotHistory.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(71)))), ((int)(((byte)(85)))), ((int)(((byte)(105)))));
+            this.btnLotHistory.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.btnLotHistory.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this.btnLotHistory.Font = new System.Drawing.Font("맑은 고딕", 9.5F, System.Drawing.FontStyle.Bold);
+            this.btnLotHistory.ForeColor = System.Drawing.Color.White;
+            this.btnLotHistory.Margin = new System.Windows.Forms.Padding(3, 2, 0, 2);
+            this.btnLotHistory.Name = "btnLotHistory";
+            this.btnLotHistory.TabIndex = 4;
+            this.btnLotHistory.Text = "이력";
+            this.btnLotHistory.UseVisualStyleBackColor = false;
+            this.btnLotHistory.Click += new System.EventHandler(this.btnLotHistory_Click);
             //
             // grpTime
             //
@@ -1642,6 +1749,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.tabOutputGoodMap.ResumeLayout(false);
             this.tabOutputNgMap.ResumeLayout(false);
             this.workInfoBody.ResumeLayout(false);
+            this.lotInputPanel.ResumeLayout(false);
+            this.lotInputPanel.PerformLayout();
             this.workTimeBody.ResumeLayout(false);
             this.workTimeActionPanel.ResumeLayout(false);
             this.workTimeUphHeaderLayout.ResumeLayout(false);
