@@ -1209,63 +1209,26 @@ namespace QMC.CDT320.Sequencing
             HashSet<string> loggedReasons,
             CancellationToken moveCt)
         {
-            double minVisionX;
-            double maxVisionX;
-            int dieCount;
-            if (!InputDieVisionBatchCoordinateStore.TryGetVisionXRange(Side, out minVisionX, out maxVisionX, out dieCount))
+            // 산출 코어는 베이스 공용 리졸버 재사용(Place 복귀 직행과 동일 산식 공유 — 중복 금지).
+            DynamicPickUpWaitTarget resolved;
+            string failReasonKey;
+            string failDetail;
+            if (!TryResolveDynamicPickUpWaitTargetX(config, out resolved, out failReasonKey, out failDetail))
             {
-                // fail-safe: 배치 좌표 부재 시 동작하지 않고 기존 대기 유지(지시서 §1).
-                LogDynamicWaitSkipOnce(loggedReasons, "noBatchCoordinates", "촬영 배치 좌표 없음");
+                LogDynamicWaitSkipOnce(loggedReasons, failReasonKey, failDetail);
                 return;
             }
 
-            var stage = Context != null && Context.Machine != null ? Context.Machine.InputStageUnit : null;
-            BaseAxis visionX = stage != null ? stage.CameraX : null;
             BaseAxis pickerX = GetPickerAxis(PickerAxis.PickerX);
-            if (visionX == null || pickerX == null)
+            if (pickerX == null)
             {
-                LogDynamicWaitSkipOnce(loggedReasons, "noAxis", "InputVisionX/PickerX 축 참조 없음");
+                LogDynamicWaitSkipOnce(loggedReasons, "noAxis", "PickerX 축 참조 없음");
                 return;
             }
 
-            SharedRailXMotionService service = SharedRailXMotionRuntime.ResolveService(Context.Machine);
-            if (service == null)
-            {
-                LogDynamicWaitSkipOnce(loggedReasons, "noService", "SharedRailX 서비스 없음");
-                return;
-            }
-
-            // 클리어런스는 팔로잉 진입과 동일 소스 재사용: safetyGap = 페어 SafetyDistance +
-            // InputVisionRetreatExtraClearance (PickerPickUpSequence.VisionRetreat.cs:824와 동일 호출).
-            int direction;
-            double homeGap;
-            double safetyGap;
-            string gapDetail;
-            if (!service.TryGetFollowGapParameters(
-                pickerX,
-                visionX,
-                service.Config != null ? service.Config.InputVisionRetreatExtraClearance : 40.0,
-                out direction,
-                out homeGap,
-                out safetyGap,
-                out gapDetail))
-            {
-                LogDynamicWaitSkipOnce(loggedReasons, "noGapParams", gapDetail);
-                return;
-            }
-
-            // 대기점 산출 — FollowMoveAsync 간격식(AjinAxis.cs:862)과 동일 항등식(신규 산식 아님):
-            //   direction>0: gap=(vision+homeGap)-picker ≥ required → picker ≤ vision+homeGap-required
-            //   direction<0: gap=(picker+homeGap)-vision ≥ required → picker ≥ vision-homeGap+required
-            // 배치 전체를 구속하는 비전 극값은 direction<0이면 max, direction>0이면 min이다(검증 F2/B3).
-            double requiredGap = safetyGap + Math.Max(0.0, config.DynamicWaitExtraMarginMm);
-            double constraintVisionX = direction > 0 ? minVisionX : maxVisionX;
-            double waitX = direction > 0
-                ? constraintVisionX + homeGap - requiredGap
-                : constraintVisionX - homeGap + requiredGap;
-
+            double waitX = resolved.WaitX;
             double currentX = pickerX.ActualPosition;
-            bool forward = direction > 0 ? waitX > currentX + 0.5 : waitX < currentX - 0.5;
+            bool forward = resolved.Direction > 0 ? waitX > currentX + 0.5 : waitX < currentX - 0.5;
             if (!forward)
             {
                 LogDynamicWaitSkipOnce(loggedReasons, "noForwardGain",
@@ -1294,13 +1257,13 @@ namespace QMC.CDT320.Sequencing
                 moveTargetName);
 
             WriteLog("PickerProcessSequence",
-                Name + " PickUp 동적 선행 대기점 이동 발행. constraintVisionX=" + constraintVisionX.ToString("F3") +
-                ", batchVisionXRange=" + minVisionX.ToString("F3") + "~" + maxVisionX.ToString("F3") +
-                ", dieCount=" + dieCount +
-                ", homeGap=" + homeGap.ToString("F3") +
-                ", safetyGap=" + safetyGap.ToString("F3") +
-                ", extraMargin=" + Math.Max(0.0, config.DynamicWaitExtraMarginMm).ToString("F3") +
-                ", direction=" + direction +
+                Name + " PickUp 동적 선행 대기점 이동 발행. constraintVisionX=" + resolved.ConstraintVisionX.ToString("F3") +
+                ", batchVisionXRange=" + resolved.MinVisionX.ToString("F3") + "~" + resolved.MaxVisionX.ToString("F3") +
+                ", dieCount=" + resolved.DieCount +
+                ", homeGap=" + resolved.HomeGap.ToString("F3") +
+                ", safetyGap=" + resolved.SafetyGap.ToString("F3") +
+                ", extraMargin=" + resolved.ExtraMargin.ToString("F3") +
+                ", direction=" + resolved.Direction +
                 ", waitX=" + waitX.ToString("F3") +
                 ", currentX=" + currentX.ToString("F3") +
                 ", advance=" + Math.Abs(currentX - waitX).ToString("F3") + " - Start");

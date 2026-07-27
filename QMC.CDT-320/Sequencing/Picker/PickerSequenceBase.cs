@@ -839,6 +839,116 @@ namespace QMC.CDT320.Sequencing
             return PickerRunOrderMode.Descending;
         }
 
+        // ===== [동적 선행 대기점 공용 산출, 사용자 승인 2026-07-27] =====
+        // "배치 구속 극값 비전 X + FollowMove 클리어런스(+여유)" 대기점 산출 코어.
+        // 소비처: ①PickerProcessSequence 허가 대기 모니터 ②PickerPlaceSequence Place 복귀 직행.
+        // 산식은 FollowMoveAsync 경계식(bound = 선행 ± (homeGap − safetyGap))과 동일 항등식이며
+        // 신규 산식이 아니다(requiredGap = safetyGap + margin ≥ safetyGap → 경계보다 보수적).
+        // 게이트(Auto/MotionOnly/스위치/Conti) 판정은 호출처 책임 — 여기는 좌표/축/산식만.
+        protected sealed class DynamicPickUpWaitTarget
+        {
+            public double WaitX;
+            public double ConstraintVisionX;
+            public double MinVisionX;
+            public double MaxVisionX;
+            public int DieCount;
+            public int Direction;
+            public double HomeGap;
+            public double SafetyGap;
+            public double ExtraMargin;
+        }
+
+        protected bool TryResolveDynamicPickUpWaitTargetX(
+            PickerPickUpMotionConfig config,
+            out DynamicPickUpWaitTarget resolved,
+            out string failReasonKey,
+            out string failDetail)
+        {
+            resolved = null;
+            failReasonKey = null;
+            failDetail = null;
+
+            if (config == null)
+            {
+                failReasonKey = "noConfig";
+                failDetail = "PickUp Config 없음";
+                return false;
+            }
+
+            double minVisionX;
+            double maxVisionX;
+            int dieCount;
+            if (!InputDieVisionBatchCoordinateStore.TryGetVisionXRange(Side, out minVisionX, out maxVisionX, out dieCount))
+            {
+                // fail-safe: 배치 좌표 부재 시 동작하지 않는다(지시서 §1).
+                failReasonKey = "noBatchCoordinates";
+                failDetail = "촬영 배치 좌표 없음";
+                return false;
+            }
+
+            var stage = Context != null && Context.Machine != null ? Context.Machine.InputStageUnit : null;
+            BaseAxis visionX = stage != null ? stage.CameraX : null;
+            BaseAxis pickerX = GetPickerAxis(PickerAxis.PickerX);
+            if (visionX == null || pickerX == null)
+            {
+                failReasonKey = "noAxis";
+                failDetail = "InputVisionX/PickerX 축 참조 없음";
+                return false;
+            }
+
+            SharedRailXMotionService service = SharedRailXMotionRuntime.ResolveService(Context.Machine);
+            if (service == null)
+            {
+                failReasonKey = "noService";
+                failDetail = "SharedRailX 서비스 없음";
+                return false;
+            }
+
+            // 클리어런스는 팔로잉 진입과 동일 소스 재사용: safetyGap = 페어 SafetyDistance +
+            // InputVisionRetreatExtraClearance (PickerPickUpSequence.VisionRetreat.cs의 진입 호출과 동일).
+            int direction;
+            double homeGap;
+            double safetyGap;
+            string gapDetail;
+            if (!service.TryGetFollowGapParameters(
+                pickerX,
+                visionX,
+                service.Config != null ? service.Config.InputVisionRetreatExtraClearance : 40.0,
+                out direction,
+                out homeGap,
+                out safetyGap,
+                out gapDetail))
+            {
+                failReasonKey = "noGapParams";
+                failDetail = gapDetail;
+                return false;
+            }
+
+            // direction>0: gap=(vision+homeGap)-picker ≥ required → picker ≤ vision+homeGap-required
+            // direction<0: gap=(picker+homeGap)-vision ≥ required → picker ≥ vision-homeGap+required
+            // 배치 전체를 구속하는 비전 극값은 direction<0이면 max, direction>0이면 min(검증 F2/B3).
+            double extraMargin = Math.Max(0.0, config.DynamicWaitExtraMarginMm);
+            double requiredGap = safetyGap + extraMargin;
+            double constraintVisionX = direction > 0 ? minVisionX : maxVisionX;
+            double waitX = direction > 0
+                ? constraintVisionX + homeGap - requiredGap
+                : constraintVisionX - homeGap + requiredGap;
+
+            resolved = new DynamicPickUpWaitTarget
+            {
+                WaitX = waitX,
+                ConstraintVisionX = constraintVisionX,
+                MinVisionX = minVisionX,
+                MaxVisionX = maxVisionX,
+                DieCount = dieCount,
+                Direction = direction,
+                HomeGap = homeGap,
+                SafetyGap = safetyGap,
+                ExtraMargin = extraMargin
+            };
+            return true;
+        }
+
         protected async Task<int> MovePickerAxisAndVerifyAsync(
             PickerAxis axis,
             double target,
