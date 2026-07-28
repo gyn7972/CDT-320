@@ -206,7 +206,7 @@ namespace QMC.CDT320.Ajin
             DI("NgBin8CassetteCheck1", 2, 21),
             DI("NgBin12CassetteCheck0", 2, 22),
             DI("NgBin12CassetteCheck1", 2, 23),
-            DI("BinRingJUTCheck", 2, 24),
+            DI("BinRingJUTCheck", 2, 24, true),
             DI("BinMapping", 2, 25),
             DI("WaferFeederAvoidPositionCheck", 2, 26),
             DI("BinFeederAvoidPositionCheck", 2, 27)

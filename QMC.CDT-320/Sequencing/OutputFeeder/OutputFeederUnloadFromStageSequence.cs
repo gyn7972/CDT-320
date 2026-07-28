@@ -512,10 +512,6 @@ namespace QMC.CDT320.Sequencing
             if (wafer == null)
                 return Fail("OUT-STAGE-DATA-MISSING", "Material", "Output stage data disappeared before feeder material move. side=" + Options.Side);
 
-            var stageRingSensor =
-                Options.Side == BinSide.Ng
-                    ? Stage.NgBinRingSensor
-                    : Stage.GoodBinRingSensor;
             bool controllerGlobalDryRun =
                 Context != null &&
                 Context.Controller != null &&
@@ -524,20 +520,18 @@ namespace QMC.CDT320.Sequencing
                 wafer != null && ResolveFeederWafer() == null;
             bool detected = await Feeder.WaitTransportRingStatesConfirmedAsync(
                 true,
-                stageRingSensor,
-                false,
+                null,
+                null,
                 controllerGlobalDryRun,
                 virtualTransferReady,
-                !virtualTransferReady,
+                null,
                 ResolveTimeout(),
                 ct).ConfigureAwait(false);
             if (!detected)
                 return Fail(
                     "OUT-FEEDER-STAGE-UNLOAD-RING",
                     Feeder.Name,
-                    "Stage→OutputFeeder 전달 후 Feeder Ring ON + " +
-                    Options.Side +
-                    " Stage Ring OFF 안정 확인에 실패했습니다. waferId=" +
+                    "Stage→OutputFeeder 전달 후 Feeder Ring ON 안정 확인에 실패했습니다. waferId=" +
                     wafer.WaferId + ", detail=" +
                     Feeder.LastTransportRingConfirmationFailure);
 
@@ -573,10 +567,6 @@ namespace QMC.CDT320.Sequencing
 
             if (!ringProofCompleted)
             {
-                var stageRingSensor =
-                    Options.Side == BinSide.Ng
-                        ? Stage.NgBinRingSensor
-                        : Stage.GoodBinRingSensor;
                 bool controllerGlobalDryRun =
                     Context != null &&
                     Context.Controller != null &&
@@ -586,11 +576,11 @@ namespace QMC.CDT320.Sequencing
                 bool ringConfirmed =
                     await Feeder.WaitTransportRingStatesConfirmedAsync(
                         true,
-                        stageRingSensor,
-                        false,
+                        null,
+                        null,
                         controllerGlobalDryRun,
                         virtualTransferReady,
-                        !virtualTransferReady,
+                        null,
                         ResolveTimeout(),
                         ct).ConfigureAwait(false);
                 if (!ringConfirmed)
@@ -598,9 +588,7 @@ namespace QMC.CDT320.Sequencing
                     return Fail(
                         "OUT-FEEDER-MATERIAL-RING",
                         Feeder.Name,
-                        "Stage→OutputFeeder Material 재개 직전 Feeder Ring ON + " +
-                        Options.Side +
-                        " Stage Ring OFF 안정 확인에 실패했습니다. wafer=" +
+                        "Stage→OutputFeeder Material 재개 직전 Feeder Ring ON 안정 확인에 실패했습니다. wafer=" +
                         wafer.WaferId + ", detail=" +
                         Feeder.LastTransportRingConfirmationFailure);
                 }

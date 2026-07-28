@@ -1075,6 +1075,45 @@ namespace QMC.CDT320.Sequencing
                     return Fail("OUT-MANUAL-LOAD-STAGE-OCCUPIED", "OutputSequence",
                         side + " OutputStage에 이미 Bin이 있습니다. 먼저 OUTPUT UNLOAD로 배출하세요.");
 
+                // CYCLE RUN 자동 순번 LOAD는 Input과 동일하게, 선택 Side의 카세트가 아직
+                // Mapping되지 않았고 진행 중 자재/기존 슬롯 데이터가 없을 때 Mapping부터 수행한다.
+                // 이미 Mapping된 상태에서 Ready Bin만 없는 경우에는 기존 NO-SLOT 알람을 유지한다.
+                if (requestedSlotIndex < 0 && !IsRequiredOutputCassetteSideMapped(side))
+                {
+                    string mappingBlockedReason;
+                    if (IsSelectiveCassetteMappingBlockedByActiveMaterial(side, out mappingBlockedReason))
+                    {
+                        return Fail("OUT-MANUAL-LOAD-MAP-ACTIVE", "OutputSequence",
+                            side + " OUTPUT LOAD 전 Mapping을 시작할 수 없습니다. " + mappingBlockedReason);
+                    }
+
+                    if (HasOutputCassetteWaferInfo(side))
+                    {
+                        return Fail("OUT-MANUAL-LOAD-MAP-DATA", "OutputSequence",
+                            side + " 카세트가 미매핑 상태이지만 기존 Bin Material 데이터가 남아 있어 " +
+                            "자동 Mapping으로 덮어쓸 수 없습니다.");
+                    }
+
+                    Context.LogPublic(
+                        "[OUTPUT] CYCLE RUN " + side +
+                        " LOAD 전 미매핑 카세트를 먼저 Mapping합니다.");
+
+                    int mappingResult = await ExecuteCassetteMappingForSideAsync(
+                        side,
+                        ct,
+                        bFine,
+                        moveTimeoutMs,
+                        startMode).ConfigureAwait(false);
+                    if (mappingResult != 0)
+                        return mappingResult;
+
+                    if (!IsRequiredOutputCassetteSideMapped(side))
+                    {
+                        return Fail("OUT-MANUAL-LOAD-MAP-INCOMPLETE", "OutputSequence",
+                            side + " OUTPUT LOAD 전 카세트 Mapping이 완료되지 않았습니다.");
+                    }
+                }
+
                 // 작업자 지정 Bin 공급: 자동 순번과 동일한 Ready/일관성 조건을 통과해야 한다.
                 OutputSlotPlan requestedPlan = null;
                 if (requestedSlotIndex >= 0)

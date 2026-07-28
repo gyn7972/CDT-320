@@ -2125,7 +2125,13 @@ namespace QMC.CDT320
 
         public async Task<int> EnsureBinGuideUnclampedAsync(BinSide side, int timeoutMs, CancellationToken ct)
         {
-            return await EnsureCylinderStateAsync(ResolveBinGuideClampCylinder(side), false, timeoutMs, ResolveSideName(side) + " Bin Guide Unclamp", ct).ConfigureAwait(false);
+            return await EnsureCylinderStateAsync(
+                ResolveBinGuideClampCylinder(side),
+                false,
+                timeoutMs,
+                ResolveSideName(side) + " Bin Guide Unclamp",
+                ct,
+                forceCommandWhenOppositeOutputActive: true).ConfigureAwait(false);
         }
 
         public async Task<int> EnsureBinGuideClampedAsync(BinSide side, int timeoutMs)
@@ -2172,6 +2178,21 @@ namespace QMC.CDT320
         {
             BaseCylinder cylinder = ResolveBinGuideClampCylinder(side);
             return ResolveCylinderState(cylinder, null, true, IsStageMaterialPresent(side));
+        }
+
+        public bool IsBinGuideClampOutputActive(BinSide side)
+        {
+            BaseCylinder cylinder = ResolveBinGuideClampCylinder(side);
+            if (cylinder == null || cylinder.OutFwd == null)
+                return false;
+
+            // 센서 불일치 알람 후에도 실제 Clamp DO가 살아 있으면
+            // UI에서 반대 방향(Unclamp)을 선택할 수 있도록 출력 명령 상태를 사용한다.
+            bool clampOutputOn = cylinder.OutFwd.IsOn;
+            bool unclampOutputOn =
+                cylinder.OutBwd != null &&
+                cylinder.OutBwd.IsOn;
+            return clampOutputOn && !unclampOutputOn;
         }
 
         public bool IsOutputStageSimulationOrDryRun()
@@ -2434,7 +2455,13 @@ namespace QMC.CDT320
             }
         }
 
-        private async Task<int> EnsureCylinderStateAsync(BaseCylinder cylinder, bool fwd, int timeoutMs, string description, CancellationToken ct)
+        private async Task<int> EnsureCylinderStateAsync(
+            BaseCylinder cylinder,
+            bool fwd,
+            int timeoutMs,
+            string description,
+            CancellationToken ct,
+            bool forceCommandWhenOppositeOutputActive = false)
         {
             try
             {
@@ -2449,7 +2476,13 @@ namespace QMC.CDT320
                     return RaiseOutputStageAlarm("OS-CYL-INPUT", description + " 실린더 입력 갱신 실패.");
 
                 bool already = fwd ? cylinder.IsFwd : cylinder.IsBwd;
-                if (already)
+                bool oppositeOutputActive =
+                    fwd
+                        ? cylinder.OutBwd != null && cylinder.OutBwd.IsOn
+                        : cylinder.OutFwd != null && cylinder.OutFwd.IsOn;
+                if (already &&
+                    (!forceCommandWhenOppositeOutputActive ||
+                     !oppositeOutputActive))
                     return 0;
 
                 ct.ThrowIfCancellationRequested();

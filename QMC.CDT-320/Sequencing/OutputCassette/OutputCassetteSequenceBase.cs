@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using QMC.CDT320.Interlocks;
 using QMC.CDT320.Lots;
 using QMC.CDT320.Materials;
 using QMC.Common;
@@ -270,12 +271,18 @@ namespace QMC.CDT320.Sequencing
             try
             {
                 var feeder = Feeder;
-                bool ready = feeder != null && feeder.IsBinFeederYInAvoidPosition();
+                string feederDetail = string.Empty;
+                bool ready =
+                    feeder != null &&
+                    OutputCassetteInterlockRules.IsOutputFeederYSafeForOutputLifterZ(
+                        feeder,
+                        out feederDetail);
                 if (!IsHardwareBypassed() && !ready)
                     return Fail("OUT-CST-FEEDER-POS", feeder != null ? feeder.Name : "OutputFeeder",
-                        "Output feeder must be in avoid position before output cassette mapping/move. feederNull=" + (feeder == null) +
+                        "Output feeder must be outside the cassette entry zone before output cassette mapping/move. feederNull=" + (feeder == null) +
                         (feeder != null
                             ? ", avoid=" + feeder.IsBinFeederYInAvoidPosition() +
+                              ", " + feederDetail +
                               ", feederY=" + feeder.DescribeBinFeederYMoveDoneState()
                             : ""));
                 if (IsHardwareBypassed() && !ready)

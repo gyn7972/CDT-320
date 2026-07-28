@@ -453,28 +453,45 @@ namespace QMC.CDT320.Interlocks
             return true;
         }
 
-        // 인터락 기준: OutputLifterZ 이동 전 OutputFeederY가 Avoid 또는 카세트/스테이지 안전 위치인지 판단한다.
+        // 인터락 기준: OutputLifterZ 이동 전 OutputFeederY가 카세트 진입 구간 밖의 안전 위치인지 판단한다.
         private static bool IsOutputFeederYSafeForOutputLifterZ(OutputFeederUnit feeder)
         {
+            string detail;
+            return IsOutputFeederYSafeForOutputLifterZ(feeder, out detail);
+        }
+
+        // InputCassetteInterlockRules와 같은 기계 계약을 적용한다.
+        // OutputFeederY는 음수 방향으로 이동할 때만 카세트 안으로 진입한다.
+        // 기존 티칭 안전 위치는 유지하고, 정지된 엔코더 위치가 0 이상인 경우도 안전으로 인정한다.
+        internal static bool IsOutputFeederYSafeForOutputLifterZ(
+            OutputFeederUnit feeder,
+            out string detail)
+        {
+            detail = string.Empty;
             if (feeder == null || feeder.FeederY == null)
                 return true;
+
+            QMC.Common.Motion.BaseAxis feederY = feeder.FeederY;
+            double tolerance =
+                feederY.Config != null &&
+                feederY.Config.InPositionTolerance > 0.0
+                    ? feederY.Config.InPositionTolerance
+                    : 0.05;
+            double actual = feederY.ActualPosition;
+            detail =
+                "OutputFeederY actual=" + actual.ToString("0.###") +
+                ", cassetteEntryLimit=" + (-tolerance).ToString("0.###");
+
+            if (feederY.IsMoving)
+            {
+                detail += ", moving=Y";
+                return false;
+            }
 
             if (feeder.IsBinFeederYInAvoidPosition())
                 return true;
 
-            return IsOutputFeederYSafeForOutputLifterZ(feeder, BinSide.Good) ||
-                   IsOutputFeederYSafeForOutputLifterZ(feeder, BinSide.Ng);
-        }
-
-        // 인터락 기준: Good/NG별 OutputFeederY 카세트/스테이지 로드·언로드 안전 위치를 판단한다.
-        private static bool IsOutputFeederYSafeForOutputLifterZ(OutputFeederUnit feeder, BinSide side)
-        {
-            return feeder.IsBinFeederYInCassetteLoadPosition(side) ||
-                   feeder.IsBinFeederYInCassetteUnloadPosition(side) ||
-                   feeder.IsBinFeederYInStageLoadPosition(side) ||
-                   feeder.IsBinFeederYInStageLoadAvoidPosition(side) ||
-                   feeder.IsBinFeederYInStageUnloadPosition(side) ||
-                   feeder.IsBinFeederYInStageUnloadAvoidPosition(side);
+            return actual >= -tolerance;
         }
 
         private static void LogBlockedReason(string reason)

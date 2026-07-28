@@ -962,7 +962,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
 
                     // ===== GOOD BIN : SET CLAMP (Unclamp 체크 센서 + Clamp/Unclamp 출력 통합) =====
                     IoCylinderItem.Input("GOOD BIN UNCLAMP", () => unit.IsBinGuideUnclamped(BinSide.Good)),
-                    IoCylinderItem.Output("GOOD BIN CLAMP", () => unit.IsBinGuideClamped(BinSide.Good),
+                    IoCylinderItem.Output("GOOD BIN CLAMP", () => unit.IsBinGuideClampOutputActive(BinSide.Good),
                         on => SetBinClampAsync(BinSide.Good, on), "CLAMP", "UNCLAMP"),
 
                     // ===== NG BIN : SET GUIDE (Up/Down 체크 센서 + Up/Down 출력 통합) =====
@@ -978,7 +978,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
 
                     // ===== NG BIN : SET CLAMP (Unclamp 체크 센서 + Clamp/Unclamp 출력 통합) =====
                     IoCylinderItem.Input("NG BIN UNCLAMP", () => unit.IsBinGuideUnclamped(BinSide.Ng)),
-                    IoCylinderItem.Output("NG BIN CLAMP", () => unit.IsBinGuideClamped(BinSide.Ng),
+                    IoCylinderItem.Output("NG BIN CLAMP", () => unit.IsBinGuideClampOutputActive(BinSide.Ng),
                         on => SetBinClampAsync(BinSide.Ng, on), "CLAMP", "UNCLAMP"),
 
                     // ===== BOTTOM VISION BLOW (On/Off 출력 통합) =====
