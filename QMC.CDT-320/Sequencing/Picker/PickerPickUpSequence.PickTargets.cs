@@ -20,7 +20,12 @@ namespace QMC.CDT320.Sequencing
         {
             try
             {
-                int collectResult = await CollectPendingBatchVisionResultsAsync(ct).ConfigureAwait(false);
+                // [사용자 승인 2026-07-28, A안] 첫 픽 RESULT만 동기 회수하고 나머지는 백그라운드로
+                //   회수한다 — 4건 전량 동기 회수(실측 0.4~2.5초)가 비전 독립 회피(약 1.15초)보다
+                //   길어지는 사이클에서 픽커 진입이 늦어 팔로잉이 성립하지 못했다(19사이클 중 7건 실패).
+                //   아직 RESULT가 없는 항목은 보정 없는 다이 좌표에 안전 마진을 적용한 잠정 목표로
+                //   회피 클리어런스만 산출하고, 각 픽 직전에 정확 좌표로 재확정한다.
+                int collectResult = await CollectPendingBatchVisionResultsAsync(ct, true).ConfigureAwait(false);
                 if (collectResult != 0)
                     return collectResult;
 
@@ -39,7 +44,9 @@ namespace QMC.CDT320.Sequencing
                 {
                     SetCurrentBatchItem(_pickBatchItems[i]);
 
-                    int result = CalculateCurrentPickTarget();
+                    int result = _visionOffset != null
+                        ? CalculateCurrentPickTarget()
+                        : CalculateProvisionalPickTargetWithoutVisionOffset();
                     if (result != 0)
                         return result;
 
@@ -72,7 +79,7 @@ namespace QMC.CDT320.Sequencing
         /// 루프 후 픽업이 기록을 적용한 마지막 항목이 배치 마지막이면 미촬영 다이 좌표 전파를 1회 수행
         /// (prepare ApplyInputDieVisionOffset의 마지막 다이 처리와 동일). 내부 경로/이미 적용된 항목은 전부 통과.
         /// </summary>
-        private async Task<int> CollectPendingBatchVisionResultsAsync(CancellationToken ct)
+        private async Task<int> CollectPendingBatchVisionResultsAsync(CancellationToken ct, bool firstItemOnly = false)
         {
             List<PickUpBatchItem> failedItems = null;
             PickUpBatchItem lastAppliedItem = null;
@@ -84,6 +91,20 @@ namespace QMC.CDT320.Sequencing
                 PickUpBatchItem item = _pickBatchItems[i];
                 if (item == null)
                     continue;
+
+                // [사용자 승인 2026-07-28, A안] 첫 픽만 동기 회수하고 나머지는 여기서 중단한다 —
+                //   남은 항목은 각 픽 직전(SelectNextPickTarget)에 회수·확정한다. 회수 자체는
+                //   Vision 서비스가 EPD 시점부터 백그라운드로 진행 중이므로 대기 시간은 짧다.
+                if (firstItemOnly && i > 0 && item.VisionOffset == null)
+                {
+                    WriteLog("PickerPickUpSequence",
+                        Name + " Input die vision RESULT 회수를 각 픽 직전으로 이연합니다(A안 — 첫 픽만 선회수). " +
+                        "die=" + item.DieId +
+                        ", pickerNo=" + item.PickerNo +
+                        ", pickIndex=" + (i + 1) +
+                        "/" + _pickBatchItems.Count + " - Check");
+                    continue;
+                }
 
                 if (item.VisionOffset == null)
                 {
@@ -153,6 +174,131 @@ namespace QMC.CDT320.Sequencing
                     return propagateResult;
             }
 
+            return 0;
+        }
+
+        // [사용자 지시 2026-07-28] RESULT 미회수 항목의 "잠정" 목표 — 비전 보정 없는 다이 좌표로
+        //   계산한 뒤 PickerX만 안전 방향으로 ProvisionalPickerXMarginMm 만큼 당긴다(예: 200 → 199).
+        //   용도는 오직 비전 회피 클리어런스 산출이며, 실제 픽 좌표는 각 픽 직전에 RESULT를 회수해
+        //   CalculateCurrentPickTarget으로 재확정한다(이 잠정값으로는 픽 이동을 하지 않는다).
+        //   방향 근거: 페어 간격 = homeClearance − (비전 − 피커) 이므로 피커 X가 작을수록 제약이
+        //   커진다 — 1mm 감산이 곧 보수적(더 깊은 회피) 방향이다. 실측 비전 보정량은 X 0.001mm,
+        //   Y 0.04mm 수준으로 1mm를 넘을 수 없다(사용자 확인).
+        private const double ProvisionalPickerXMarginMm = 1.0;
+
+        private int CalculateProvisionalPickTargetWithoutVisionOffset()
+        {
+            VisionAlignResult savedOffset = _visionOffset;
+            try
+            {
+                _visionOffset = new VisionAlignResult();
+                int result = CalculateCurrentPickTarget();
+                if (result != 0)
+                    return result;
+
+                double provisionalPickerX = _targetPickerX - ProvisionalPickerXMarginMm;
+                WriteLog("PickerPickUpSequence",
+                    Name + " Input die vision RESULT 미회수 항목을 잠정 목표로 계산했습니다(회피 클리어런스 전용). " +
+                    "die=" + _currentDieId +
+                    ", pickerNo=" + _currentPickerNo +
+                    ", nominalPickerX=" + _targetPickerX.ToString("F3") +
+                    ", provisionalPickerX=" + provisionalPickerX.ToString("F3") +
+                    ", marginMm=" + ProvisionalPickerXMarginMm.ToString("F3") + " - Check");
+                _targetPickerX = provisionalPickerX;
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                return Fail("PICKER-PICKUP-PROVISIONAL-TARGET-EX", Name,
+                    "RESULT 미회수 항목의 잠정 목표 계산 중 예외가 발생했습니다. die=" + _currentDieId +
+                    ", error=" + ex.Message);
+            }
+            finally
+            {
+                // 잠정 계산이었음을 남긴다 — 이후 각 픽 직전 회수·재확정의 트리거가 된다.
+                _visionOffset = savedOffset;
+            }
+        }
+
+        // [사용자 승인 2026-07-28, A안] 픽 직전 RESULT 확정 — 현재 배치 항목의 RESULT가 아직
+        //   없으면 여기서 회수하고 정확 좌표로 재계산한다. 회수 실패는 기존 SKIP 경로와 동일하게
+        //   처리하고 다음 항목으로 넘긴다(호출자가 커서 이동 없이 재선택하도록 true 반환).
+        private async Task<int> EnsureCurrentPickTargetVisionResultAsync(CancellationToken ct)
+        {
+            PickUpBatchItem item = _currentBatchItem;
+            if (item == null || item.VisionOffset != null)
+                return 0;
+
+            if (item.VisionRequest == null)
+            {
+                return Fail("PICKER-PICKUP-VISION-COLLECT-HANDLE", "Vision",
+                    "픽 직전 RESULT 회수 대상 항목에 Vision 핸들이 없습니다. die=" + item.DieId +
+                    ", pickerNo=" + item.PickerNo);
+            }
+
+            DateTime collectStart = DateTime.UtcNow;
+            WriteLog("PickerPickUpSequence",
+                Name + " Input die vision RESULT 회수 시작(A안 — 픽 직전 확정). " +
+                "die=" + item.DieId +
+                ", pickerNo=" + item.PickerNo +
+                ", requestIndex=" + item.VisionRequestIndex + " - Start");
+
+            VisionAlignResult offset = await InputDieVisionPrepareSequence.CollectInputDieVisionResultCoreAsync(
+                item.VisionRequest,
+                ct).ConfigureAwait(false);
+
+            int waitedMs = (int)(DateTime.UtcNow - collectStart).TotalMilliseconds;
+            if (offset == null)
+            {
+                int skipResult = SkipBatchItemForVisionResultFailure(item);
+                if (skipResult != 0)
+                    return skipResult;
+
+                _pickBatchItems.Remove(item);
+                SetCurrentBatchItem(null);
+                WriteLog("PickerPickUpSequence",
+                    Name + " 픽 직전 RESULT 회수 실패로 해당 Die를 배치에서 제외했습니다. " +
+                    "die=" + item.DieId +
+                    ", pickerNo=" + item.PickerNo +
+                    ", waitedMs=" + waitedMs + " - Check");
+                return 0;
+            }
+
+            item.VisionOffset = offset;
+            if (!item.VisionOffsetApplied)
+            {
+                int applyResult = ApplyInputPickVisionRecordForBatchItem(item);
+                if (applyResult != 0)
+                    return applyResult;
+
+                item.VisionOffsetApplied = true;
+
+                // 배치 마지막 항목의 기록을 적용한 시점에 미촬영 다이 좌표 전파를 1회 수행한다
+                // (전량 선회수 경로의 루프 후 처리와 동일 의미 — 이연 경로에서도 보존).
+                if (_pickBatchItems.Count > 0 &&
+                    ReferenceEquals(_pickBatchItems[_pickBatchItems.Count - 1], item))
+                {
+                    int propagateResult = ApplyLastVisionOffsetToPendingDiesForBatch(item);
+                    if (propagateResult != 0)
+                        return propagateResult;
+                }
+            }
+
+            // 잠정 목표(보정 없음 + 마진)를 실제 RESULT 기반 정확 목표로 재확정한다.
+            SetCurrentBatchItem(item);
+            int exactResult = CalculateCurrentPickTarget();
+            if (exactResult != 0)
+                return exactResult;
+
+            SaveCurrentStateToBatchItem();
+            WriteLog("PickerPickUpSequence",
+                Name + " Input die vision RESULT 회수 완료 및 정확 목표 재확정(A안). die=" + item.DieId +
+                ", pickerNo=" + item.PickerNo +
+                ", dx=" + offset.DeltaX +
+                ", dy=" + offset.DeltaY +
+                ", dt=" + offset.DeltaTheta +
+                ", pickerX=" + _targetPickerX.ToString("F3") +
+                ", waitedMs=" + waitedMs + " - Ok");
             return 0;
         }
 
@@ -450,6 +596,32 @@ namespace QMC.CDT320.Sequencing
             }
             finally
             {
+            }
+        }
+
+        // [사용자 승인 2026-07-28, A안] 픽 직전 RESULT 확정을 위해 async로 전환한다 — 선택한
+        //   항목의 RESULT가 아직 없으면 여기서 회수·정확 목표 재확정 후 진행한다(대부분 이미 도착).
+        //   회수 실패로 항목이 배치에서 제외되면 커서 이동 없이 같은 커서로 재선택한다.
+        private async Task<int> SelectNextPickTargetAsync(CancellationToken ct)
+        {
+            while (true)
+            {
+                int selectResult = SelectNextPickTarget();
+                if (selectResult != 0)
+                    return selectResult;
+
+                if (CurrentStep != PickerPickUpStep.MoveOppositePickerToAvoidForPickerMove)
+                    return 0;
+
+                int ensureResult = await EnsureCurrentPickTargetVisionResultAsync(ct).ConfigureAwait(false);
+                if (ensureResult != 0)
+                    return ensureResult;
+
+                if (_currentBatchItem != null)
+                    return 0;
+
+                // RESULT 회수 실패로 제외됨 — 같은 커서 위치에서 다음 항목을 다시 선택한다.
+                CurrentStep = PickerPickUpStep.SelectNextPickTarget;
             }
         }
 

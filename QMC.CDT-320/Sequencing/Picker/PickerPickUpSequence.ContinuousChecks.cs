@@ -506,8 +506,13 @@ namespace QMC.CDT320.Sequencing
             return false;
         }
 
-        // Conti 적격 판정(사용자 승인 2026-07-24): 정지한 비전 위치가 배치 전체 피커 X 목표와
-        // 페어 간격(SafetyDistance, RetreatExtra 미포함)을 만족하는지 확인한다.
+        // 기존 조건(사용자 승인 2026-07-24): 정지한 비전 위치가 "배치 전체" 피커 X 목표와
+        //   페어 간격을 만족해야 통과 — 이미 픽 완료한 앞선 목표까지 검사했다.
+        // 현재 기준(사용자 승인 2026-07-28): "픽업 중 InputVisionX 비동기 전진"이 남은 픽 기준으로
+        //   비전을 전진시키면, 이미 지나간 픽 목표와는 간격이 깨지는 것이 정상이라 마지막 픽이
+        //   항상 Conti 탈락(→ PrePick 플라잉 Z 미동작)했다. 픽커는 완료된 목표로 되돌아가지
+        //   않으므로 판정 기준을 전진 resolver와 동일하게 "남은 픽(현재 포함)"으로 정렬한다.
+        //   (페어 간격 산식 자체는 무변경 — SafetyDistance, RetreatExtra 미포함)
         private bool IsInputVisionParkedClearOfBatchPickerTargets(InputStageUnit stage)
         {
             try
@@ -522,7 +527,8 @@ namespace QMC.CDT320.Sequencing
                     return false;
 
                 double vision = stage.CameraX.ActualPosition;
-                for (int i = 0; i < _pickBatchItems.Count; i++)
+                int firstRemainingIndex = Math.Max(0, Math.Min(_pickCursor, _pickBatchItems.Count - 1));
+                for (int i = firstRemainingIndex; i < _pickBatchItems.Count; i++)
                 {
                     string detail;
                     if (!service.IsPairClearanceSatisfied(pickerX, _pickBatchItems[i].TargetPickerX, stage.CameraX, vision, out detail))
