@@ -111,7 +111,8 @@ namespace QMC.CDT320.Sequencing
 
             // Place 런타임 보정: Enable일 때만 필터 상태를 적용하고, Disable이면 0을 전달한다
             // (Disable이어도 필터 학습·저장은 Bin 후검사 경로에서 계속된다).
-            // 부호 반영(X:-, Y:+, T:-)은 DieCoordinateTransformService.CalculatePlaceTarget이 담당한다.
+            // 부호 반영(X:-, Y:-, T:-)은 DieCoordinateTransformService.CalculatePlaceTarget이 담당한다.
+            // (Y는 2026-07-29 사용자 실장비 확인으로 가산→감산 정정 — 전 채널 감산.)
             bool placeRuntimeEnabled = PlaceRuntimeOffsetService.IsEnabled;
             double placeRuntimeOffsetX = 0.0;
             double placeRuntimeOffsetY = 0.0;

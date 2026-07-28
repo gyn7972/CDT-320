@@ -185,6 +185,12 @@
     <Compile Include="Ui\Dialogs\LotHistoryDialog.Designer.cs">
       <DependentUpon>LotHistoryDialog.cs</DependentUpon>
     </Compile>
+    <Compile Include="Ui\Dialogs\RuntimeOffsetMonitorDialog.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Ui\Dialogs\RuntimeOffsetMonitorDialog.Designer.cs">
+      <DependentUpon>RuntimeOffsetMonitorDialog.cs</DependentUpon>
+    </Compile>
     <Compile Include="Ui\Controls\ParamGrid.cs">
       <SubType>UserControl</SubType>
     </Compile>
@@ -1013,6 +1019,7 @@
     <Compile Include="Sequencing\Picker\PickRuntimeOffsetService.cs" />
     <Compile Include="Sequencing\Picker\PickRuntimeOffsetStore.cs" />
     <Compile Include="Sequencing\Picker\PlaceRuntimeOffsetService.cs" />
+    <Compile Include="Sequencing\Picker\RuntimeOffsetSnapshot.cs" />
     <Compile Include="Sequencing\Picker\PlaceRuntimeOffsetStore.cs" />
     <Compile Include="Sequencing\Picker\PickerMotionTargetResolver.cs" />
     <Compile Include="Sequencing\Picker\InputPickerPickTargetResolver.cs" />

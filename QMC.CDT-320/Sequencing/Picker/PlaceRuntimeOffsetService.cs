@@ -9,8 +9,9 @@ namespace QMC.CDT320.Sequencing
     /// Place → Bin 비전 후검사 결과(X/Y/T 오프셋)를 LowPassFilter(EMA)로 누적해
     /// 다음 Place 목표 좌표 계산에 반영하는 폐루프 보정의 상태 보관소다.
     /// - 필터 단위: PickerSide(Front/Rear) × PickerNo(1~4) = 8세트, 각 X/Y/T 3채널 독립.
-    /// - 필터 상태는 비전 측정 부호 그대로(raw) 저장하고, 부호 변환(X:−, Y:+, T:−)은
+    /// - 필터 상태는 비전 측정 부호 그대로(raw) 저장하고, 부호 변환(X:−, Y:−, T:−)은
     ///   적용 지점(DieCoordinateTransformService.CalculatePlaceTarget)에서 수행한다.
+    ///   (Y는 가산이었으나 2026-07-29 사용자 실장비 확인으로 감산 정정 — 전 채널 감산.)
     /// - Enable/Disable(UsePlaceRuntimeOffset): Disable이어도 필터 갱신(학습)·저장은 계속하며
     ///   적용만 중지한다 — Enable 판정은 적용 지점(PickerPlaceSequence)에서 GetOffset 사용 여부로 결정.
     /// - 발산 방지: 갱신 후 상태값을 X/Y ±0.50mm, T ±0.5°로 클램프하고 한계 도달 시 Warning을 1회 발생
@@ -208,6 +209,80 @@ namespace QMC.CDT320.Sequencing
             {
                 QMC.Common.Log.Write("Main", "SYSTEM", "PlaceRuntimeOffset",
                     "Place 런타임 오프셋 갱신 중 예외가 발생했습니다. error=" + ex.Message + " - Failed");
+            }
+            finally
+            {
+            }
+        }
+
+        /// <summary>
+        /// 8세트 전체 필터 현재값 스냅샷을 반환한다(뷰어/메카 오프셋 이관용).
+        /// 반환값은 복사본이며, Enable 여부와 무관하게 현재 학습 상태를 그대로 담는다.
+        /// </summary>
+        public static RuntimeOffsetSnapshot[] GetSnapshot()
+        {
+            try
+            {
+                lock (Sync)
+                {
+                    EnsureLoadedLocked();
+                    var rows = new RuntimeOffsetSnapshot[_filters.Length];
+                    for (int sideIndex = 0; sideIndex < 2; sideIndex++)
+                    {
+                        PickerSequenceSide side = sideIndex == 0
+                            ? PickerSequenceSide.Front
+                            : PickerSequenceSide.Rear;
+                        for (int pickerNo = 1; pickerNo <= 4; pickerNo++)
+                        {
+                            int index = sideIndex * 4 + (pickerNo - 1);
+                            FilterSet set = _filters[index];
+                            rows[index] = new RuntimeOffsetSnapshot(
+                                side, pickerNo, set.X.Value, set.Y.Value, set.T.Value, set.LastUpdated);
+                        }
+                    }
+
+                    return rows;
+                }
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Log.Write("Main", "SYSTEM", "PlaceRuntimeOffset",
+                    "Place 런타임 오프셋 스냅샷 조회 중 예외가 발생했습니다. error=" + ex.Message + " - Failed");
+                return new RuntimeOffsetSnapshot[0];
+            }
+            finally
+            {
+            }
+        }
+
+        /// <summary>지정 (side, pickerNo)의 X/Y 채널만 0으로 초기화한다(메카 오프셋 이관 후 이중 보정 방지).</summary>
+        public static void ResetXy(PickerSequenceSide side, int pickerNo)
+        {
+            try
+            {
+                lock (Sync)
+                {
+                    EnsureLoadedLocked();
+                    FilterSet set = ResolveSetLocked(side, pickerNo);
+                    if (set == null)
+                        return;
+
+                    set.X.Reset(0.0);
+                    set.Y.Reset(0.0);
+                    set.ClampLatchedX = false;
+                    set.ClampLatchedY = false;
+                    set.LastUpdated = DateTime.Now;
+                    SaveLocked();
+                }
+
+                QMC.Common.Log.Write("Main", "SYSTEM", "PlaceRuntimeOffset",
+                    "Place 런타임 오프셋 X/Y를 초기화했습니다(메카 오프셋 이관). side=" + side +
+                    ", pickerNo=" + pickerNo + " - Ok");
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Log.Write("Main", "SYSTEM", "PlaceRuntimeOffset",
+                    "Place 런타임 오프셋 X/Y 초기화 중 예외가 발생했습니다. error=" + ex.Message + " - Failed");
             }
             finally
             {

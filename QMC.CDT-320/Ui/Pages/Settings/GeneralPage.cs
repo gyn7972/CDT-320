@@ -289,5 +289,11 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             PlaceRuntimeOffsetService.ResetAll();
             QMC.Common.MessageDialog.Show("Place 런타임 보정 필터를 초기화했습니다.");
         }
+
+        private void btnRuntimeOffsetMonitor_Click(object sender, EventArgs e)
+        {
+            using (var dlg = new QMC.CDT_320.Ui.Dialogs.RuntimeOffsetMonitorDialog())
+                dlg.ShowDialog(FindForm());
+        }
     }
 }

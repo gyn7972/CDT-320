@@ -208,11 +208,13 @@ namespace QMC.CDT320.Sequencing
             double mapPickerX = outputVisionProcessX + receiveTargetX + outputVisionToPickerX + pickerAlignOffsetX;
 
             // Place 보정 — Bottom 검사 보정은 이동축 기준으로 X/T/StageY 모두 감산 방향,
-            // 런타임 보정(placeRuntimeOffset*)은 Bin 후검사 LowPassFilter 출력(raw)이며
-            // 비전 + 방향(과이동)을 상쇄하도록 X/T는 감산, Y는 스테이지 이동 방향 정의상 가산한다.
+            // 런타임 보정(placeRuntimeOffset*)은 Bin 후검사 LowPassFilter 출력(raw)이다.
+            // 기존 조건(~2026-07-29): Y만 "스테이지 이동 방향 정의상 가산"으로 두었다.
+            // 현재 기준(사용자 실장비 확인 2026-07-29): X/Y/T 전 채널 감산 — Y 가산이 실측과
+            //   반대 방향으로 확인되어 감산으로 정정한다.
             // (UsePlaceRuntimeOffset=false면 0이 전달되지만 항은 수식에 항상 유지한다)
             // Place Y 기구 보정은 PickerY 티칭을 바꾸지 않고 선택된 GOOD/NG OutputStageY에만 더한다.
-            double placeCorrectionY = -bottomOffsetY + placeRuntimeOffsetY + placeMechanicalOffsetY;
+            double placeCorrectionY = -bottomOffsetY - placeRuntimeOffsetY + placeMechanicalOffsetY;
             double placeCorrectionX = -bottomOffsetX - placeRuntimeOffsetX + placeMechanicalOffsetX;
             double placeCorrectionT = -bottomOffsetT - placeRuntimeOffsetT;
 
@@ -226,7 +228,7 @@ namespace QMC.CDT320.Sequencing
                 ", appliedToOutputStageY=" + (!bottomFinalItemOffsetYIsSoleColletYCorrection) +
                 ", usedValue=" + F(outputCameraToPickerY) +
                 " / mapStageY = outputStageBaseY(" + F(outputStageBaseY) + ") + receiveTargetY(" + F(receiveTargetY) + ") + outputCameraToPickerY(" + F(outputCameraToPickerY) + ") = " + F(mapStageY) +
-                " / placeCorrectionY = -bottomOffsetY(" + F(bottomOffsetY) + ") + placeRuntimeOffsetY(" + F(placeRuntimeOffsetY) + ") + placeMechanicalOffsetY(" + F(placeMechanicalOffsetY) + ") = " + F(placeCorrectionY) +
+                " / placeCorrectionY = -bottomOffsetY(" + F(bottomOffsetY) + ") - placeRuntimeOffsetY(" + F(placeRuntimeOffsetY) + ") + placeMechanicalOffsetY(" + F(placeMechanicalOffsetY) + ") = " + F(placeCorrectionY) +
                 " / outputStageY = mapStageY + placeCorrectionY = " + F(result.OutputStageY) +
                 " / pickerColletOffsetY(" + F(pickerColletOffsetY) + ") " +
                 (bottomFinalItemOffsetYIsSoleColletYCorrection
