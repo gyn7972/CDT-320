@@ -1,4 +1,4 @@
-using System.Drawing;
+﻿using System.Drawing;
 using System.Windows.Forms;
 
 namespace QMC.CDT_320.Ui.Controls
@@ -38,8 +38,8 @@ namespace QMC.CDT_320.Ui.Controls
             this.colName = new System.Windows.Forms.DataGridViewTextBoxColumn();
             this.colValue = new System.Windows.Forms.DataGridViewTextBoxColumn();
             this.materialButtonLayout = new System.Windows.Forms.FlowLayoutPanel();
-            this.btnCreateProcessTestData = new System.Windows.Forms.Button();
             this.btnCreateData = new System.Windows.Forms.Button();
+            this.btnCreateProcessTestData = new System.Windows.Forms.Button();
             this.btnClearData = new System.Windows.Forms.Button();
             this.btnClearAllData = new System.Windows.Forms.Button();
             this.grpMaterialDetail.SuspendLayout();
@@ -57,7 +57,7 @@ namespace QMC.CDT_320.Ui.Controls
             this.grpMaterialDetail.Location = new System.Drawing.Point(0, 0);
             this.grpMaterialDetail.Name = "grpMaterialDetail";
             this.grpMaterialDetail.Padding = new System.Windows.Forms.Padding(8);
-            this.grpMaterialDetail.Size = new System.Drawing.Size(420, 520);
+            this.grpMaterialDetail.Size = new System.Drawing.Size(558, 520);
             this.grpMaterialDetail.TabIndex = 0;
             this.grpMaterialDetail.TabStop = false;
             this.grpMaterialDetail.Text = "MATERIAL";
@@ -74,7 +74,7 @@ namespace QMC.CDT_320.Ui.Controls
             this.materialLayout.RowCount = 2;
             this.materialLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.materialLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 44F));
-            this.materialLayout.Size = new System.Drawing.Size(404, 484);
+            this.materialLayout.Size = new System.Drawing.Size(542, 484);
             this.materialLayout.TabIndex = 0;
             // 
             // gridMaterial
@@ -83,7 +83,6 @@ namespace QMC.CDT_320.Ui.Controls
             this.gridMaterial.AllowUserToDeleteRows = false;
             this.gridMaterial.AllowUserToResizeRows = false;
             this.gridMaterial.BackgroundColor = System.Drawing.Color.White;
-            this.gridMaterial.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.gridMaterial.ColumnHeadersHeight = 30;
             this.gridMaterial.ColumnHeadersHeightSizeMode = System.Windows.Forms.DataGridViewColumnHeadersHeightSizeMode.DisableResizing;
             this.gridMaterial.Columns.AddRange(new System.Windows.Forms.DataGridViewColumn[] {
@@ -100,85 +99,9 @@ namespace QMC.CDT_320.Ui.Controls
             this.gridMaterial.RowHeadersVisible = false;
             this.gridMaterial.RowTemplate.Height = 30;
             this.gridMaterial.SelectionMode = System.Windows.Forms.DataGridViewSelectionMode.FullRowSelect;
-            this.gridMaterial.Size = new System.Drawing.Size(398, 434);
+            this.gridMaterial.Size = new System.Drawing.Size(536, 434);
             this.gridMaterial.TabIndex = 0;
             this.gridMaterial.CellDoubleClick += new System.Windows.Forms.DataGridViewCellEventHandler(this.gridMaterial_CellDoubleClick);
-            // 
-            // materialButtonLayout
-            // 
-            this.materialButtonLayout.Controls.Add(this.btnCreateData);
-            this.materialButtonLayout.Controls.Add(this.btnCreateProcessTestData);
-            this.materialButtonLayout.Controls.Add(this.btnClearData);
-            this.materialButtonLayout.Controls.Add(this.btnClearAllData);
-            this.materialButtonLayout.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.materialButtonLayout.FlowDirection = System.Windows.Forms.FlowDirection.RightToLeft;
-            this.materialButtonLayout.Location = new System.Drawing.Point(3, 443);
-            this.materialButtonLayout.Name = "materialButtonLayout";
-            this.materialButtonLayout.Padding = new System.Windows.Forms.Padding(0, 5, 0, 0);
-            this.materialButtonLayout.Size = new System.Drawing.Size(398, 38);
-            this.materialButtonLayout.TabIndex = 1;
-            this.materialButtonLayout.WrapContents = false;
-            // 
-            // btnCreateProcessTestData
-            // 
-            this.btnCreateProcessTestData.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(64)))), ((int)(((byte)(96)))), ((int)(((byte)(160)))));
-            this.btnCreateProcessTestData.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.btnCreateProcessTestData.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnCreateProcessTestData.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
-            this.btnCreateProcessTestData.ForeColor = System.Drawing.Color.White;
-            this.btnCreateProcessTestData.Margin = new System.Windows.Forms.Padding(6, 0, 0, 0);
-            this.btnCreateProcessTestData.Name = "btnCreateProcessTestData";
-            this.btnCreateProcessTestData.Size = new System.Drawing.Size(150, 30);
-            this.btnCreateProcessTestData.TabIndex = 3;
-            this.btnCreateProcessTestData.Text = "PROCESS TEST DATA";
-            this.btnCreateProcessTestData.UseVisualStyleBackColor = false;
-            this.btnCreateProcessTestData.Visible = false;
-            this.btnCreateProcessTestData.Click += new System.EventHandler(this.btnCreateProcessTestData_Click);
-            // 
-            // btnCreateData
-            // 
-            this.btnCreateData.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
-            this.btnCreateData.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.btnCreateData.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnCreateData.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
-            this.btnCreateData.ForeColor = System.Drawing.Color.White;
-            this.btnCreateData.Margin = new System.Windows.Forms.Padding(6, 0, 0, 0);
-            this.btnCreateData.Name = "btnCreateData";
-            this.btnCreateData.Size = new System.Drawing.Size(110, 30);
-            this.btnCreateData.TabIndex = 0;
-            this.btnCreateData.Text = "DATA CREATE";
-            this.btnCreateData.UseVisualStyleBackColor = false;
-            this.btnCreateData.Click += new System.EventHandler(this.btnCreateData_Click);
-            // 
-            // btnClearData
-            // 
-            this.btnClearData.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(160)))), ((int)(((byte)(48)))), ((int)(((byte)(48)))));
-            this.btnClearData.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.btnClearData.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnClearData.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
-            this.btnClearData.ForeColor = System.Drawing.Color.White;
-            this.btnClearData.Margin = new System.Windows.Forms.Padding(6, 0, 0, 0);
-            this.btnClearData.Name = "btnClearData";
-            this.btnClearData.Size = new System.Drawing.Size(110, 30);
-            this.btnClearData.TabIndex = 1;
-            this.btnClearData.Text = "DATA CLEAR";
-            this.btnClearData.UseVisualStyleBackColor = false;
-            this.btnClearData.Click += new System.EventHandler(this.btnClearData_Click);
-            // 
-            // btnClearAllData
-            // 
-            this.btnClearAllData.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(120)))), ((int)(((byte)(32)))), ((int)(((byte)(32)))));
-            this.btnClearAllData.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.btnClearAllData.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnClearAllData.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
-            this.btnClearAllData.ForeColor = System.Drawing.Color.White;
-            this.btnClearAllData.Margin = new System.Windows.Forms.Padding(6, 0, 0, 0);
-            this.btnClearAllData.Name = "btnClearAllData";
-            this.btnClearAllData.Size = new System.Drawing.Size(135, 30);
-            this.btnClearAllData.TabIndex = 2;
-            this.btnClearAllData.Text = "DATA ALL CLEAR";
-            this.btnClearAllData.UseVisualStyleBackColor = false;
-            this.btnClearAllData.Click += new System.EventHandler(this.btnClearAllData_Click);
             // 
             // colName
             // 
@@ -196,12 +119,92 @@ namespace QMC.CDT_320.Ui.Controls
             this.colValue.ReadOnly = true;
             this.colValue.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
             // 
+            // materialButtonLayout
+            // 
+            this.materialButtonLayout.Controls.Add(this.btnCreateData);
+            this.materialButtonLayout.Controls.Add(this.btnCreateProcessTestData);
+            this.materialButtonLayout.Controls.Add(this.btnClearData);
+            this.materialButtonLayout.Controls.Add(this.btnClearAllData);
+            this.materialButtonLayout.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.materialButtonLayout.FlowDirection = System.Windows.Forms.FlowDirection.RightToLeft;
+            this.materialButtonLayout.Location = new System.Drawing.Point(3, 443);
+            this.materialButtonLayout.Name = "materialButtonLayout";
+            this.materialButtonLayout.Padding = new System.Windows.Forms.Padding(0, 5, 0, 0);
+            this.materialButtonLayout.Size = new System.Drawing.Size(536, 38);
+            this.materialButtonLayout.TabIndex = 1;
+            this.materialButtonLayout.WrapContents = false;
+            // 
+            // btnCreateData
+            // 
+            this.btnCreateData.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
+            this.btnCreateData.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.btnCreateData.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this.btnCreateData.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
+            this.btnCreateData.ForeColor = System.Drawing.Color.White;
+            this.btnCreateData.Location = new System.Drawing.Point(426, 5);
+            this.btnCreateData.Margin = new System.Windows.Forms.Padding(6, 0, 0, 0);
+            this.btnCreateData.Name = "btnCreateData";
+            this.btnCreateData.Size = new System.Drawing.Size(110, 30);
+            this.btnCreateData.TabIndex = 0;
+            this.btnCreateData.Text = "DATA CREATE";
+            this.btnCreateData.UseVisualStyleBackColor = false;
+            this.btnCreateData.Click += new System.EventHandler(this.btnCreateData_Click);
+            // 
+            // btnCreateProcessTestData
+            // 
+            this.btnCreateProcessTestData.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(64)))), ((int)(((byte)(96)))), ((int)(((byte)(160)))));
+            this.btnCreateProcessTestData.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.btnCreateProcessTestData.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this.btnCreateProcessTestData.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
+            this.btnCreateProcessTestData.ForeColor = System.Drawing.Color.White;
+            this.btnCreateProcessTestData.Location = new System.Drawing.Point(270, 5);
+            this.btnCreateProcessTestData.Margin = new System.Windows.Forms.Padding(6, 0, 0, 0);
+            this.btnCreateProcessTestData.Name = "btnCreateProcessTestData";
+            this.btnCreateProcessTestData.Size = new System.Drawing.Size(150, 30);
+            this.btnCreateProcessTestData.TabIndex = 3;
+            this.btnCreateProcessTestData.Text = "PROCESS TEST DATA";
+            this.btnCreateProcessTestData.UseVisualStyleBackColor = false;
+            this.btnCreateProcessTestData.Visible = false;
+            this.btnCreateProcessTestData.Click += new System.EventHandler(this.btnCreateProcessTestData_Click);
+            // 
+            // btnClearData
+            // 
+            this.btnClearData.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(160)))), ((int)(((byte)(48)))), ((int)(((byte)(48)))));
+            this.btnClearData.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.btnClearData.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this.btnClearData.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
+            this.btnClearData.ForeColor = System.Drawing.Color.White;
+            this.btnClearData.Location = new System.Drawing.Point(154, 5);
+            this.btnClearData.Margin = new System.Windows.Forms.Padding(6, 0, 0, 0);
+            this.btnClearData.Name = "btnClearData";
+            this.btnClearData.Size = new System.Drawing.Size(110, 30);
+            this.btnClearData.TabIndex = 1;
+            this.btnClearData.Text = "DATA CLEAR";
+            this.btnClearData.UseVisualStyleBackColor = false;
+            this.btnClearData.Click += new System.EventHandler(this.btnClearData_Click);
+            // 
+            // btnClearAllData
+            // 
+            this.btnClearAllData.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(120)))), ((int)(((byte)(32)))), ((int)(((byte)(32)))));
+            this.btnClearAllData.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.btnClearAllData.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this.btnClearAllData.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
+            this.btnClearAllData.ForeColor = System.Drawing.Color.White;
+            this.btnClearAllData.Location = new System.Drawing.Point(13, 5);
+            this.btnClearAllData.Margin = new System.Windows.Forms.Padding(6, 0, 0, 0);
+            this.btnClearAllData.Name = "btnClearAllData";
+            this.btnClearAllData.Size = new System.Drawing.Size(135, 30);
+            this.btnClearAllData.TabIndex = 2;
+            this.btnClearAllData.Text = "DATA ALL CLEAR";
+            this.btnClearAllData.UseVisualStyleBackColor = false;
+            this.btnClearAllData.Click += new System.EventHandler(this.btnClearAllData_Click);
+            // 
             // MaterialDetailView
             // 
             this.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(240)))), ((int)(((byte)(240)))), ((int)(((byte)(240)))));
             this.Controls.Add(this.grpMaterialDetail);
             this.Name = "MaterialDetailView";
-            this.Size = new System.Drawing.Size(420, 520);
+            this.Size = new System.Drawing.Size(558, 520);
             this.grpMaterialDetail.ResumeLayout(false);
             this.materialLayout.ResumeLayout(false);
             ((System.ComponentModel.ISupportInitialize)(this.gridMaterial)).EndInit();

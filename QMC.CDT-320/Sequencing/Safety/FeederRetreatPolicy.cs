@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Threading;
 using System.Threading.Tasks;
+// [옵션 2026-07-29] Ready 전용 이탈 이동에서 축 소프트리밋과 Jog 속도 타입을 참조한다.
+using QMC.Common.Motion;
 
 namespace QMC.CDT320.Sequencing.Safety
 {
@@ -12,6 +14,7 @@ namespace QMC.CDT320.Sequencing.Safety
         None,
         Unclamp,
         LiftUpBlocked,
+        BackOff,     // [옵션 2026-07-29] Unclamp 후 Lift Up 전 +방향 이탈 이동
         LiftUp,
         MoveAvoid,
         LiftDown
@@ -46,6 +49,13 @@ namespace QMC.CDT320.Sequencing.Safety
     /// 후퇴 대상 피더. Input/Output 유닛의 메서드 이름이 달라 어댑터로 감싼다.
     /// 구현은 이 파일 아래의 InputFeederRetreatTarget / OutputFeederRetreatTarget.
     /// </summary>
+    /// <summary>피더 후퇴 공용 상수.</summary>
+    internal static class FeederRetreatLimits
+    {
+        /// <summary>[옵션 2026-07-29] 이탈 이동 시 소프트리밋에서 남겨둘 여유(mm).</summary>
+        internal const double SoftLimitMarginMm = 0.5;
+    }
+
     public interface IFeederRetreatTarget
     {
         string Name { get; }
@@ -63,6 +73,13 @@ namespace QMC.CDT320.Sequencing.Safety
 
         /// <summary>Avoid 위치로 이동하고 완료까지 대기한다.</summary>
         Task<int> MoveToAvoidAsync(int timeoutMs, CancellationToken ct);
+
+        /// <summary>
+        /// [옵션 2026-07-29] 현재 위치에서 상대 이동하고 완료까지 대기한다. Ready 전용 이탈 이동에 쓴다.
+        /// 지원하지 않는 구현은 null 을 돌려주면 정책이 이 단계를 건너뛴다.
+        /// 구현 측에서 소프트리밋 안쪽으로 클램프할 책임을 진다.
+        /// </summary>
+        Func<double, int, CancellationToken, Task<int>> MoveRelativeAsync { get; }
     }
 
     /// <summary>
@@ -84,11 +101,19 @@ namespace QMC.CDT320.Sequencing.Safety
     /// </summary>
     public static class FeederRetreatPolicy
     {
+        /// <param name="backOffMm">
+        /// [옵션 2026-07-29 / Ready 전용] Unclamp 후 Lift Up 전에 +방향으로 이탈시킬 거리(mm).
+        /// 0 이면 수행하지 않는다(기본). Ready 시퀀스만 값을 넘기며, 생산/개별 Recover 경로는 0 이다.
+        /// 대상 유닛이 MoveRelativeAsync 를 지원하지 않으면 조용히 건너뛴다.
+        /// ★소프트리밋 주의★ InputFeederY 는 SoftLimitPlus=629.78 이고 Load/Unload 위치가 607.72 라
+        /// +20mm 면 여유가 2.06mm 뿐이다. 실제 이동량은 유닛 구현에서 소프트리밋 안쪽으로 클램프된다.
+        /// </param>
         public static async Task<FeederRetreatResult> RetreatToAvoidAsync(
             IFeederRetreatTarget feeder,
             int ioTimeoutMs,
             int moveTimeoutMs,
-            CancellationToken ct)
+            CancellationToken ct,
+            double backOffMm = 0.0)
         {
             if (feeder == null)
                 return FeederRetreatResult.Failed(FeederRetreatPhase.None, -1, "피더 유닛이 없습니다.");
@@ -106,13 +131,43 @@ namespace QMC.CDT320.Sequencing.Safety
                 }
             }
 
-            // 2) Lift Up 전 파손 방지 확인. 자재를 물고 있으면 절대 올리지 않는다.
+            // 2) [사용자 지시 2026-07-29] 제품 보유 여부로 분기한다.
+            //      · 보유 X → 곧바로 Lift Up (2-1 생략)
+            //      · 보유 O → +방향으로 이탈시킨 뒤 다시 판정하고, 그때 비워졌으면 Lift Up
+            //    자재를 문 상태로 Lift Up 하면 피더가 파손되므로, 최종적으로 "비어 있음"이
+            //    확인되지 않으면 어떤 경우에도 올리지 않는다(아래 재판정에서 fail-closed).
             if (!feeder.IsUnclamped() || !feeder.IsEmpty())
             {
-                return FeederRetreatResult.Failed(FeederRetreatPhase.LiftUpBlocked, -1,
-                    "Lift Up 차단: 자재를 보유했거나 Unclamp가 확인되지 않았습니다. " +
-                    "자재를 문 상태로 Lift Up 하면 피더가 파손됩니다. unclamped=" + feeder.IsUnclamped() +
-                    ", empty=" + feeder.IsEmpty() + ". " + feeder.DescribeState());
+                // 2-1) [옵션 / Ready 전용] +방향 이탈 이동.
+                //      backOffMm == 0 이면 시도하지 않고 기존처럼 즉시 차단한다
+                //      (생산 시퀀스와 개별 Recover 경로는 항상 0 이므로 동작이 바뀌지 않는다).
+                //      Lift Down 상태에서 Y 가 움직이는 유일한 구간이라 거리를 짧게 유지할 것.
+                bool escaped = false;
+                if (backOffMm > 0.0 && feeder.IsUnclamped() && feeder.MoveRelativeAsync != null)
+                {
+                    int backOffResult = await feeder.MoveRelativeAsync(backOffMm, moveTimeoutMs, ct).ConfigureAwait(false);
+                    if (backOffResult != 0)
+                        return FeederRetreatResult.Failed(FeederRetreatPhase.BackOff, backOffResult,
+                            "제품 보유 상태에서 +방향 이탈 이동을 완료하지 못했습니다. " +
+                            "요청 거리를 전부 이동하지 못하면 제품이 어중간하게 걸릴 수 있어 이동하지 않습니다. " +
+                            "★피더와 제품 상태를 육안으로 확인한 뒤 제품을 제거하고 Material DATA를 CLEAR 한 다음 Ready 바랍니다.★ " +
+                            "backOffMm=" + backOffMm.ToString("0.###") + ", result=" + backOffResult +
+                            ". " + feeder.DescribeState());
+
+                    // 이탈 후 재판정. 여전히 물고 있으면 올리지 않는다.
+                    escaped = feeder.IsUnclamped() && feeder.IsEmpty();
+                }
+
+                if (!escaped)
+                {
+                    return FeederRetreatResult.Failed(FeederRetreatPhase.LiftUpBlocked, -1,
+                        "Lift Up 차단: 자재를 보유했거나 Unclamp가 확인되지 않았습니다. " +
+                        "자재를 문 상태로 Lift Up 하면 피더가 파손됩니다. " +
+                        "★제품을 육안으로 확인해 제거하고 Material DATA를 CLEAR 한 뒤 Ready 바랍니다.★ " +
+                        "unclamped=" + feeder.IsUnclamped() +
+                        ", empty=" + feeder.IsEmpty() +
+                        ", backOffMm=" + backOffMm.ToString("0.###") + ". " + feeder.DescribeState());
+                }
             }
 
             // 3) Lift Up: 스테이지 위에서 정지했을 수 있으므로 Y 이동 전에 반드시 들어올린다.
@@ -209,6 +264,56 @@ namespace QMC.CDT320.Sequencing.Safety
             double target = _unit.Recipe != null ? _unit.Recipe.AvoidPosition : 0.0;
             return await _unit.WaitWaferFeederYMoveDoneInPosition(target, timeoutMs, ct).ConfigureAwait(false);
         }
+
+        /// <summary>
+        /// [옵션 2026-07-29 / Ready 전용] 제품 보유 시 +방향 이탈 상대 이동.
+        /// +방향으로 이동하면 카세트든 다른 위치든 제품을 놓게 된다(사용자 확인 2026-07-29).
+        ///
+        /// ★부분 이동 금지★ 요청 거리를 소프트리밋 안에서 전부 확보할 수 없으면 아예 움직이지 않는다.
+        /// 절반만 움직이면 제품이 어중간하게 걸린 상태가 되어 오히려 위험하다.
+        /// 확보 불가 시 음수 코드를 돌려 호출부가 BackOff 단계 실패로 처리하게 한다.
+        /// </summary>
+        public Func<double, int, CancellationToken, Task<int>> MoveRelativeAsync
+        {
+            get
+            {
+                return async (deltaMm, timeoutMs, ct) =>
+                {
+                    BaseAxis axis = _unit != null ? _unit.FeederY : null;
+                    if (axis == null || deltaMm <= 0.0)
+                        return -1;
+
+                    double current = axis.ActualPosition;
+                    double destination = current + deltaMm;
+
+                    if (axis.Setup != null && axis.Setup.SoftLimitEnabled &&
+                        destination > axis.Setup.SoftLimitPlus - FeederRetreatLimits.SoftLimitMarginMm)
+                    {
+                        QMC.Common.Log.Write(QMC.Common.LogLevel.AboveNormal, "Main", "FeederRetreatBackOff",
+                            "Ready 이탈 이동 중단: 요청 거리를 소프트리밋 안에서 확보할 수 없습니다(부분 이동 금지). axis=" +
+                            axis.Name +
+                            ", actual=" + current.ToString("0.###") +
+                            ", 요청=" + deltaMm.ToString("0.###") +
+                            ", 목표=" + destination.ToString("0.###") +
+                            ", softLimitPlus=" + axis.Setup.SoftLimitPlus.ToString("0.###") +
+                            ", margin=" + FeederRetreatLimits.SoftLimitMarginMm.ToString("0.###") + " - Failed");
+                        return -2;
+                    }
+
+                    QMC.Common.Log.Write(QMC.Common.LogLevel.AboveNormal, "Main", "FeederRetreatBackOff",
+                        "Ready 이탈 이동(제품 보유). axis=" + axis.Name +
+                        ", actual=" + current.ToString("0.###") +
+                        ", 이동=" + deltaMm.ToString("0.###") +
+                        ", 목표=" + destination.ToString("0.###") + "mm - Start");
+
+                    int moveResult = await _unit.MoveWaferFeederY(destination, JogSpeedType.Coarse, 0.0).ConfigureAwait(false);
+                    if (moveResult != 0)
+                        return moveResult;
+
+                    return await _unit.WaitWaferFeederYMoveDoneInPosition(destination, timeoutMs, ct).ConfigureAwait(false);
+                };
+            }
+        }
     }
 
     /// <summary>OutputFeederUnit 어댑터.</summary>
@@ -265,6 +370,52 @@ namespace QMC.CDT320.Sequencing.Safety
 
             double target = _unit.Recipe != null ? _unit.Recipe.AvoidPosition : 0.0;
             return await _unit.WaitBinFeederYMoveDoneInPosition(target, timeoutMs, ct).ConfigureAwait(false);
+        }
+
+        /// <summary>
+        /// [옵션 2026-07-29 / Ready 전용] 입력측과 동일. ★부분 이동 금지★ —
+        /// 요청 거리를 소프트리밋 안에서 전부 확보할 수 없으면 움직이지 않고 실패로 돌린다.
+        /// </summary>
+        public Func<double, int, CancellationToken, Task<int>> MoveRelativeAsync
+        {
+            get
+            {
+                return async (deltaMm, timeoutMs, ct) =>
+                {
+                    BaseAxis axis = _unit != null ? _unit.FeederY : null;
+                    if (axis == null || deltaMm <= 0.0)
+                        return -1;
+
+                    double current = axis.ActualPosition;
+                    double destination = current + deltaMm;
+
+                    if (axis.Setup != null && axis.Setup.SoftLimitEnabled &&
+                        destination > axis.Setup.SoftLimitPlus - FeederRetreatLimits.SoftLimitMarginMm)
+                    {
+                        QMC.Common.Log.Write(QMC.Common.LogLevel.AboveNormal, "Main", "FeederRetreatBackOff",
+                            "Ready 이탈 이동 중단: 요청 거리를 소프트리밋 안에서 확보할 수 없습니다(부분 이동 금지). axis=" +
+                            axis.Name +
+                            ", actual=" + current.ToString("0.###") +
+                            ", 요청=" + deltaMm.ToString("0.###") +
+                            ", 목표=" + destination.ToString("0.###") +
+                            ", softLimitPlus=" + axis.Setup.SoftLimitPlus.ToString("0.###") +
+                            ", margin=" + FeederRetreatLimits.SoftLimitMarginMm.ToString("0.###") + " - Failed");
+                        return -2;
+                    }
+
+                    QMC.Common.Log.Write(QMC.Common.LogLevel.AboveNormal, "Main", "FeederRetreatBackOff",
+                        "Ready 이탈 이동(제품 보유). axis=" + axis.Name +
+                        ", actual=" + current.ToString("0.###") +
+                        ", 이동=" + deltaMm.ToString("0.###") +
+                        ", 목표=" + destination.ToString("0.###") + "mm - Start");
+
+                    int moveResult = await _unit.MoveBinFeederY(destination, JogSpeedType.Coarse, 0.0).ConfigureAwait(false);
+                    if (moveResult != 0)
+                        return moveResult;
+
+                    return await _unit.WaitBinFeederYMoveDoneInPosition(destination, timeoutMs, ct).ConfigureAwait(false);
+                };
+            }
         }
     }
 }

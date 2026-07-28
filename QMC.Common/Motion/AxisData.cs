@@ -432,6 +432,10 @@ namespace QMC.Common.Motion
             InPositionTolerance = 0.01;
         }
 
+        //Todo : [사용자 지시 2026-07-26] 시뮬레이션 모드/속도 스케일은 AxisConfig에 두고, AxisSetup에는 두지 않는다.
+        //       AxisSetup은 장비 모델에 묶이는 고정 사양/보드 신호 설정값만 두고, AxisConfig은 공정마다 바뀔 수 있는 운전 파라미터를 둔다.
+        //       이 변수 실장비에서 확인 할 것.!
+
         /// <summary>
         /// true 이면 실제 보드 호출 없이 시뮬레이션 엔진으로 동작한다.<br/>
         /// false 여도 보드가 열려 있지 않거나 축 번호가 유효하지 않으면 자동으로 true 로 폴백한다.

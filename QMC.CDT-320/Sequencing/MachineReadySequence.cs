@@ -17,6 +17,29 @@ namespace QMC.CDT320.Sequencing
     /// <summary>장비 전체 모션을 안전한 Ready(Avoid) 위치로 복귀시키는 시퀀스입니다.</summary>
     internal sealed class MachineReadySequence
     {
+        // ─────────────────────────────────────────────────────────────────────────────
+        // [옵션 2026-07-29 / 테스트용 하드코딩] Ready 피더 후퇴에서 "제품 보유 시" +방향 이탈 거리(mm).
+        //
+        // 동작 분기 (사용자 지시 2026-07-29):
+        //   · 제품 보유 X → 이 이동 없이 곧바로 Lift Up
+        //   · 제품 보유 O → Unclamp → +방향 이동 → 재판정 → 비워졌으면 Lift Up
+        //                    여전히 물고 있으면 Lift Up 하지 않고 차단(피더 파손 방지)
+        //
+        //   0    = 이탈 이동을 시도하지 않는다. 보유 시 기존처럼 즉시 차단.  ← 현재 기본값
+        //   20   = 보유 시 +20mm 이탈을 시도한 뒤 판정
+        //
+        // ★Ready 시퀀스에서만 적용된다★ 생산 시퀀스와 개별 Recover(InputFeederRecoverSequence /
+        //   OutputFeederRecoverSequence)는 FeederRetreatPolicy 기본값 0 으로 호출하므로 영향이 없다.
+        //
+        // ★안전 주의★
+        //   · 이 이동은 Lift Down + 제품 보유 상태에서 Y 가 움직이는 유일한 구간이다. 거리를 짧게.
+        //   · 이동 후 반드시 재판정하며, "비어 있음"이 확인되지 않으면 절대 Lift Up 하지 않는다.
+        //   · InputFeederY SoftLimitPlus=629.78, Load/Unload=607.72 → +20mm 시 여유 2.06mm 뿐이다.
+        //     실제 이동량은 어댑터에서 소프트리밋 -0.5mm 안쪽으로 클램프되고, 여유가 없으면 생략된다.
+        //   · 실장비 검증 후 값을 조정할 것. 검증 전에는 0 을 유지한다.
+        // ─────────────────────────────────────────────────────────────────────────────
+        private const double ReadyRetreatBackOffMm = 0.0;
+
         private readonly CDT320_Machine _machine;
         private readonly Action<MachineReadyProgress> _progressChanged;
         private readonly List<ReadyStep> _steps;
@@ -962,7 +985,11 @@ namespace QMC.CDT320.Sequencing
                         "InputFeederUnit",
                         "Ready InputFeeder 자동 복구 불가: InputFeeder가 wafer를 보유한 상태로 Avoid/Down이 아닙니다. wafer=" +
                         (feederWafer.WaferId ?? "") +
-                        ". 알람 해제 후 [작업 → CYCLE RUN → INPUT UNLOAD]로 wafer를 카세트로 배출한 뒤 다시 START 하세요. " +
+                        // [안내 문구 정정 2026-07-29] 기존에는 [작업 → CYCLE RUN → INPUT UNLOAD]를 안내했으나,
+                        // 그 경로는 IsFeederWaferMidUnload(언로드 중단 판정)일 때만 카세트 복귀를 수행한다.
+                        // 로드 방향으로 물고 있는 지금 상태에서는 동작하지 않아 작업자를 헤매게 했다.
+                        // 현재 방침: 작업자가 웨이퍼를 물리적으로 제거하고 Material DATA CLEAR 후 Ready.
+                        ". 웨이퍼를 제거하고 Material DATA를 CLEAR 한 뒤 Ready 바랍니다. " +
                         BuildAxisState("InputFeederY", unit.FeederY, target) +
                         BuildInputFeederFailure(unit));
                 }
@@ -990,8 +1017,10 @@ namespace QMC.CDT320.Sequencing
                         return await unit.WaitWaferFeederYMoveDoneInPosition(target, moveTimeoutMs, token).ConfigureAwait(false);
                     });
 
+                // [옵션 2026-07-29] Ready 전용 이탈 이동. ReadyRetreatBackOffMm 이 0 이면 기존 동작과 동일하다.
                 FeederRetreatResult retreat = await FeederRetreatPolicy.RetreatToAvoidAsync(
-                    retreatTarget, RecoverIoTimeoutMs, RecoverMoveTimeoutMs, ct).ConfigureAwait(false);
+                    retreatTarget, RecoverIoTimeoutMs, RecoverMoveTimeoutMs, ct,
+                    ReadyRetreatBackOffMm).ConfigureAwait(false);
                 if (!retreat.Success)
                 {
                     return Fail(
@@ -1111,8 +1140,18 @@ namespace QMC.CDT320.Sequencing
                         unit.DescribeFeederCylinderState());
                 }
 
+                // [Ready 오검출 수정 2026-07-29] 기존 조건에 unit.FeederY.IsInPosition 이 있었다.
+                // INP 는 "지금 그 위치에 있는가"가 아니라 "명령받은 이동을 완료하고 정정착했는가" 신호다.
+                // 서보 ON 후 위치 결정 이동을 한 번도 하지 않으면 좌표가 정확히 맞아도 INP 가 뜨지 않는다.
+                // Ready Step2 는 아무것도 움직이기 전이므로, 갓 켠 직후·초기화 직후에는 구조적으로 통과 불가였고
+                // READY-OUTPUT-FEEDER-AVOID-AMBIGUOUS 로 매번 막혔다(2026-07-29 현장: Ready 누르면 계속 발생).
+                //   실측 예: actual=0, command=0, target=0, tolerance=0.01, inPosition=OFF → 좌표는 완전 일치
+                // 위치 근거는 아래 둘로 충분하다.
+                //   · IsAxisInPosition(FeederY, target) : 좌표가 Avoid 티칭값과 공차 내 일치
+                //   · IsBinFeederAvoidPositionCheck()   : 실제 Avoid Dog(X091) 물리 확인
+                //     (순수 Simulation/보드 미사용일 때만 엔코더 위치로 대체된다 — OutputFeederUnit:571)
+                // 도그는 이동 이력과 무관하게 항상 유효하므로 INP 보다 강한 물리 근거다. INP 요구를 제거한다.
                 bool strongAvoidAxis =
-                    unit.FeederY.IsInPosition &&
                     IsAxisInPosition(unit.FeederY, target) &&
                     unit.IsBinFeederAvoidPositionCheck();
                 bool strongAvoid =
@@ -1193,7 +1232,8 @@ namespace QMC.CDT320.Sequencing
                         "OutputFeederUnit",
                         "Ready OutputFeeder 자동 복구 불가: OutputFeeder가 Bin을 보유한 상태로 강한 Avoid/Down이 아닙니다. bin=" +
                         (feederBin.WaferId ?? "") +
-                        ". 알람 해제 후 [작업 → CYCLE RUN → OUTPUT UNLOAD/LOAD]로 이송을 완료한 뒤 다시 START 하세요. " +
+                        // [안내 문구 정정 2026-07-29] 입력측과 동일 방침. 작업자가 물리적으로 제거 + DATA CLEAR 후 Ready.
+                        ". Bin을 제거하고 Material DATA를 CLEAR 한 뒤 Ready 바랍니다. " +
                         BuildAxisState("OutputFeederY", unit.FeederY, target) +
                         BuildOutputFeederFailure(unit));
                 }
@@ -1204,7 +1244,9 @@ namespace QMC.CDT320.Sequencing
                         "READY-OUTPUT-FEEDER-SENSOR",
                         "OutputFeederUnit",
                         "Ready OutputFeeder 자동 복구 불가: Material은 비어 있으나 Ring 센서가 Bin을 감지했습니다. " +
-                        "자재 상태를 확인/복구한 뒤 다시 START 하세요. " + unit.DescribeFeederCylinderState());
+                        // [안내 문구 정정 2026-07-29] 데이터와 센서 불일치 → 실물 확인 후 DATA CLEAR 방침으로 통일.
+                        "실물을 확인해 Bin을 제거하고 Material DATA를 CLEAR 한 뒤 Ready 바랍니다. " +
+                        unit.DescribeFeederCylinderState());
                 }
 
                 string cassetteReleaseReason;
@@ -1244,8 +1286,10 @@ namespace QMC.CDT320.Sequencing
                         return await unit.WaitBinFeederYMoveDoneInPosition(target, moveTimeoutMs, token).ConfigureAwait(false);
                     });
 
+                // [옵션 2026-07-29] Ready 전용 이탈 이동. 입력측과 동일 상수를 쓴다.
                 FeederRetreatResult retreat = await FeederRetreatPolicy.RetreatToAvoidAsync(
-                    retreatTarget, RecoverIoTimeoutMs, RecoverMoveTimeoutMs, ct).ConfigureAwait(false);
+                    retreatTarget, RecoverIoTimeoutMs, RecoverMoveTimeoutMs, ct,
+                    ReadyRetreatBackOffMm).ConfigureAwait(false);
                 if (!retreat.Success)
                 {
                     return Fail(
@@ -1865,7 +1909,8 @@ namespace QMC.CDT320.Sequencing
                         ", limit=" + limit.ToString("0.###") +
                         ", " + BuildAxisState("GoodStageZ", axis, process, tolerance) +
                         BuildOutputStageFailure(unit) +
-                        " 알람 해제 후 [작업 → CYCLE RUN → OUTPUT UNLOAD/LOAD] 또는 OutputStage 화면에서 Stage를 복구한 뒤 다시 START 하세요.");
+                        // [안내 문구 정정 2026-07-29] CYCLE RUN 경로 안내를 제거하고 제품 조치 방침으로 통일.
+                        " 제품을 조치하고 Material DATA를 확인한 뒤 Ready 바랍니다.");
                 }
 
                 return 0;
@@ -3226,6 +3271,8 @@ namespace QMC.CDT320.Sequencing
             {
                 case FeederRetreatPhase.Unclamp: return "READY-INPUT-FEEDER-RECOVER-UNCLAMP";
                 case FeederRetreatPhase.LiftUpBlocked: return "READY-INPUT-FEEDER-RECOVER-LIFT-BLOCK";
+                // [옵션 2026-07-29] 제품 보유 시 +방향 이탈 이동 실패(부분 이동 금지로 미이동 포함).
+                case FeederRetreatPhase.BackOff: return "READY-INPUT-FEEDER-RECOVER-BACKOFF";
                 case FeederRetreatPhase.LiftUp: return "READY-INPUT-FEEDER-RECOVER-UP";
                 case FeederRetreatPhase.MoveAvoid: return "READY-INPUT-FEEDER-RECOVER-AVOID";
                 case FeederRetreatPhase.LiftDown: return "READY-INPUT-FEEDER-RECOVER-DOWN";
@@ -3239,6 +3286,8 @@ namespace QMC.CDT320.Sequencing
             {
                 case FeederRetreatPhase.Unclamp: return "READY-OUTPUT-FEEDER-RECOVER-UNCLAMP";
                 case FeederRetreatPhase.LiftUpBlocked: return "READY-OUTPUT-FEEDER-RECOVER-LIFT-BLOCK";
+                // [옵션 2026-07-29] 제품 보유 시 +방향 이탈 이동 실패(부분 이동 금지로 미이동 포함).
+                case FeederRetreatPhase.BackOff: return "READY-OUTPUT-FEEDER-RECOVER-BACKOFF";
                 case FeederRetreatPhase.LiftUp: return "READY-OUTPUT-FEEDER-RECOVER-UP";
                 case FeederRetreatPhase.MoveAvoid: return "READY-OUTPUT-FEEDER-RECOVER-AVOID";
                 case FeederRetreatPhase.LiftDown: return "READY-OUTPUT-FEEDER-RECOVER-DOWN";

@@ -690,6 +690,38 @@ namespace QMC.CDT320.Materials
                    kind == MaterialLocationKind.OutputCassette;
         }
 
+        /// <summary>
+        /// 입력 계열 위치인지 여부(Unknown 포함).
+        /// [입출력 분리 2026-07-29] 카세트 Data All Clear 가 WaferId 이름만으로 State.Wafers 전체를 훑어,
+        /// 입력 슬롯 ID 와 겹치는 출력 Bin 웨이퍼까지 같이 지워버렸다(실장비 발생).
+        /// 이름 매칭 대상은 반드시 자기 계열 위치로 제한한다.
+        /// Unknown 을 포함하는 이유: 슬롯에는 남아 있으나 위치 추적이 끊긴 자기 계열 웨이퍼를 계속 정리해야 한다.
+        /// </summary>
+        private static bool IsInputSideLocationForClear(MaterialLocation location)
+        {
+            if (location == null)
+                return true;   // 위치 정보가 없으면 계열 판별 불가 → 기존 동작(정리 대상) 유지
+
+            MaterialLocationKind kind = location.Kind;
+            return kind == MaterialLocationKind.Unknown ||
+                   kind == MaterialLocationKind.InputCassette ||
+                   kind == MaterialLocationKind.InputFeeder ||
+                   kind == MaterialLocationKind.InputStage;
+        }
+
+        /// <summary>
+        /// 출력 계열 위치인지 여부(Unknown 포함). IsInputSideLocationForClear 의 대칭.
+        /// </summary>
+        private static bool IsOutputSideLocationForClear(MaterialLocation location)
+        {
+            if (location == null)
+                return true;
+
+            MaterialLocationKind kind = location.Kind;
+            return kind == MaterialLocationKind.Unknown ||
+                   IsOutputStageLocation(kind);
+        }
+
         private static int ResolveManualBinCode(DieResult result, int binCode)
         {
             if (result == DieResult.Good)
@@ -1686,9 +1718,11 @@ namespace QMC.CDT320.Materials
                 return false;
 
             var slot = cassette.Slots[slotNumber];
+            // [입출력 분리 2026-07-29] 이름 매칭을 입력 계열 위치로 제한. 전체 Clear 와 같은 이유다.
             var targetWafers = State.Wafers.Where(w =>
                 w != null &&
-                ((!string.IsNullOrWhiteSpace(slot.WaferId) && w.WaferId == slot.WaferId) ||
+                ((!string.IsNullOrWhiteSpace(slot.WaferId) && w.WaferId == slot.WaferId &&
+                  IsInputSideLocationForClear(w.CurrentLocation)) ||
                  (w.SourceCassetteRole == cassetteRole && w.SourceSlotNumber == slotNumber)))
                 .ToList();
 
@@ -1736,9 +1770,14 @@ namespace QMC.CDT320.Materials
                 .Select(s => s.WaferId)
                 .ToList();
 
+            // [입출력 분리 2026-07-29] 이름 매칭은 입력 계열 위치로 제한한다.
+            // 기존에는 slotWaferIds.Contains(w.WaferId) 가 위치를 보지 않아, 출력 Bin 웨이퍼의 WaferId 가
+            // 입력 슬롯 ID 와 겹치면 출력 Bin 정보까지 함께 초기화됐다(실장비 발생 2026-07-29).
+            // 입력/출력은 서로 독립적으로 관리되어야 하므로, 입력 Clear 는 입력 계열만 건드린다.
             var targetWafers = State.Wafers.Where(w =>
                 w != null &&
-                ((slotWaferIds.Count > 0 && slotWaferIds.Contains(w.WaferId)) ||
+                ((slotWaferIds.Count > 0 && slotWaferIds.Contains(w.WaferId) &&
+                  IsInputSideLocationForClear(w.CurrentLocation)) ||
                  (w.CurrentLocation != null &&
                   w.CurrentLocation.Kind == MaterialLocationKind.InputCassette &&
                   w.CurrentLocation.CassetteRole == cassetteRole)))
@@ -1790,9 +1829,11 @@ namespace QMC.CDT320.Materials
                 return false;
 
             var slot = cassette.Slots[slotNumber];
+            // [입출력 분리 2026-07-29] 이름 매칭을 출력 계열 위치로 제한. 입력측과 대칭.
             var targetWafers = State.Wafers.Where(w =>
                 w != null &&
-                ((!string.IsNullOrWhiteSpace(slot.WaferId) && w.WaferId == slot.WaferId) ||
+                ((!string.IsNullOrWhiteSpace(slot.WaferId) && w.WaferId == slot.WaferId &&
+                  IsOutputSideLocationForClear(w.CurrentLocation)) ||
                  (w.SourceCassetteRole == cassetteRole && w.SourceSlotNumber == slotNumber)))
                 .ToList();
 
@@ -1880,9 +1921,12 @@ namespace QMC.CDT320.Materials
                 .Select(s => s.WaferId)
                 .ToList();
 
+            // [입출력 분리 2026-07-29] 입력측과 대칭. 이름 매칭을 출력 계열 위치로 제한해
+            // 출력 Clear 가 입력 웨이퍼를 건드리지 않게 한다.
             var targetWafers = State.Wafers.Where(w =>
                 w != null &&
-                ((slotWaferIds.Count > 0 && slotWaferIds.Contains(w.WaferId)) ||
+                ((slotWaferIds.Count > 0 && slotWaferIds.Contains(w.WaferId) &&
+                  IsOutputSideLocationForClear(w.CurrentLocation)) ||
                  (w.CurrentLocation != null &&
                   w.CurrentLocation.Kind == MaterialLocationKind.OutputCassette &&
                   w.CurrentLocation.CassetteRole == cassetteRole)))
@@ -2005,7 +2049,8 @@ namespace QMC.CDT320.Materials
         //        현재 기준: 지정 Material의 State만 바꾸고 위치/슬롯 포인터는 옮기지 않는다.
         //                   그 Material을 이미 가리키는 슬롯이 있으면 점유 플래그만 State에 맞춰 정리한다.
         /// <summary>
-        /// Bin/Wafer 상태만 변경합니다(위치 이동 없음). 성공 시 즉시 저장합니다.
+        /// Bin/Wafer 상태만 변경합니다(위치 이동 없음). 성공 시 저장을 요청하며,
+        /// 수동 UI처럼 저장 완료 확인이 필요한 호출자는 TryFlushPendingSave를 이어서 호출합니다.
         /// </summary>
         public static bool UpdateWaferStateOnly(string waferId, string stateText, string userName)
         {
@@ -2016,7 +2061,7 @@ namespace QMC.CDT320.Materials
             if (!WaferMaterialStateText.TryParse(stateText, out parsed))
             {
                 Log.Write("Main", string.IsNullOrWhiteSpace(userName) ? "SYSTEM" : userName, "UpdateWaferStateOnly",
-                    "Bin 상태 변경 실패: 상태 문자열을 해석할 수 없습니다. material=" + waferId +
+                        "Material 상태 변경 실패: 상태 문자열을 해석할 수 없습니다. material=" + waferId +
                     ", state=" + (stateText ?? "") + " - Failed");
                 return false;
             }
@@ -2034,7 +2079,7 @@ namespace QMC.CDT320.Materials
                 if (wafer == null)
                 {
                     Log.Write("Main", string.IsNullOrWhiteSpace(userName) ? "SYSTEM" : userName, "UpdateWaferStateOnly",
-                        "Bin 상태 변경 실패: Material 데이터를 찾을 수 없습니다. material=" + waferId + " - Failed");
+                        "Material 상태 변경 실패: Material 데이터를 찾을 수 없습니다. material=" + waferId + " - Failed");
                     return false;
                 }
 
@@ -2064,7 +2109,7 @@ namespace QMC.CDT320.Materials
             }
 
             Log.Write("Main", string.IsNullOrWhiteSpace(userName) ? "SYSTEM" : userName, "UpdateWaferStateOnly",
-                "Bin 상태 변경 완료(위치 이동 없음). material=" + waferId +
+                "Material 상태 변경 완료(위치 이동 없음). material=" + waferId +
                 ", before=" + WaferMaterialStateText.ToDisplayName(before) +
                 ", after=" + WaferMaterialStateText.ToDisplayName(normalized) +
                 ", location=" + locationText + " - Ok");
@@ -2108,7 +2153,10 @@ namespace QMC.CDT320.Materials
         // ===== DATA ONLY 수동 위치 이동/삭제 =====
         // 장비를 움직이지 않고 Material 위치 데이터만 변경한다. Motion/Cylinder/Vacuum/IO를 호출하지 않는다.
         // Source clear + Destination set + CurrentLocation 갱신을 하나의 lock에서 처리하고 즉시 저장한다.
-        // Material ID/LOT/검사결과/DieMap/Grade/State는 이동만으로 변경하지 않는다.
+        // Material ID/검사결과/DieMap은 유지한다.
+        // State와 Cassette 위치 메타데이터는 실제 Auto 이송 규칙과 동일하게 목적지 기준으로 정규화한다.
+        // 위치만 바꾸고 State를 유지하면 예: OutputCassette + Working 같은 불가능한 조합이 저장되어
+        // 다음 Auto 시작 시 Material 일관성 검사에서 차단되므로 DATA ONLY에서도 반드시 함께 맞춘다.
 
         public static DataOnlyOperationResult MoveMaterialDataOnly(
             DataOnlyLocation source,
@@ -2130,6 +2178,10 @@ namespace QMC.CDT320.Materials
                     SourceText = source.DisplayText,
                     DestinationText = destination.DisplayText
                 };
+                WaferMaterialState beforeState = WaferMaterialState.Empty;
+                WaferMaterialState afterState = WaferMaterialState.Empty;
+                WaferMaterialState displacedBeforeState = WaferMaterialState.Empty;
+                WaferMaterialState displacedAfterState = WaferMaterialState.Empty;
 
                 lock (_stateSync)
                 {
@@ -2215,6 +2267,10 @@ namespace QMC.CDT320.Materials
                     // 원자 반영: 양쪽 pointer 제거 → Source 자재를 Destination에, 점유 자재를 Source 위치에 등록.
                     MaterialLocation beforeLocation = wafer.CurrentLocation;
                     MaterialLocation displacedBeforeLocation = displaced != null ? displaced.CurrentLocation : null;
+                    beforeState = WaferMaterialStateText.Normalize(wafer.State);
+                    displacedBeforeState = displaced != null
+                        ? WaferMaterialStateText.Normalize(displaced.State)
+                        : WaferMaterialState.Empty;
                     RemoveWaferFromCassetteSlot(wafer.WaferId);
                     if (displaced != null)
                         RemoveWaferFromCassetteSlot(displaced.WaferId);
@@ -2222,6 +2278,10 @@ namespace QMC.CDT320.Materials
                     ApplyDataOnlyPlacementNoLock(wafer, destination);
                     if (displaced != null)
                         ApplyDataOnlyPlacementNoLock(displaced, source);
+                    afterState = WaferMaterialStateText.Normalize(wafer.State);
+                    displacedAfterState = displaced != null
+                        ? WaferMaterialStateText.Normalize(displaced.State)
+                        : WaferMaterialState.Empty;
 
                     result.MaterialId = wafer.WaferId;
                     result.BeforeLocationText = beforeLocation != null ? beforeLocation.ToString() : "";
@@ -2234,6 +2294,7 @@ namespace QMC.CDT320.Materials
                         "wafer=" + wafer.WaferId,
                         "from=" + beforeLocation,
                         "to=" + wafer.CurrentLocation,
+                        "state=" + beforeState + "->" + afterState,
                         "user=" + (userName ?? ""),
                         "noMotion=true");
 
@@ -2244,6 +2305,7 @@ namespace QMC.CDT320.Materials
                             "wafer=" + displaced.WaferId,
                             "from=" + displacedBeforeLocation,
                             "to=" + displaced.CurrentLocation,
+                            "state=" + displacedBeforeState + "->" + displacedAfterState,
                             "user=" + (userName ?? ""),
                             "noMotion=true");
                     }
@@ -2258,8 +2320,12 @@ namespace QMC.CDT320.Materials
                     "[DATA ONLY] Material 데이터 이동 완료(장비 무동작). material=" + result.MaterialId +
                     ", source=" + result.SourceText +
                     ", destination=" + result.DestinationText +
+                    ", state=" + beforeState + "->" + afterState +
                     ", swapped=" + (string.IsNullOrWhiteSpace(result.SwappedMaterialId) ? "-" : result.SwappedMaterialId) +
                     ", swappedTo=" + (string.IsNullOrWhiteSpace(result.SwappedToText) ? "-" : result.SwappedToText) +
+                    ", swappedState=" + (string.IsNullOrWhiteSpace(result.SwappedMaterialId)
+                        ? "-"
+                        : displacedBeforeState + "->" + displacedAfterState) +
                     ", persisted=" + result.PersistenceSucceeded + " - Ok");
                 return result;
             }
@@ -2354,7 +2420,8 @@ namespace QMC.CDT320.Materials
         /// <summary>
         /// DATA ONLY 배치 반영입니다. 카세트면 슬롯 pointer와 출력 키를 등록하고, 스테이션이면 위치만 갱신합니다.
         /// 호출 전에 해당 Material의 기존 슬롯 pointer가 제거되어 있어야 합니다(_stateSync 보유 상태에서 호출).
-        /// DATA ONLY 계약대로 Material ID/LOT/검사결과/DieMap/Grade/State는 변경하지 않습니다.
+        /// Material ID/검사결과/DieMap은 유지하고, State와 Cassette 메타데이터는
+        /// 실제 Auto 이송 완료 상태와 동일하게 목적지 기준으로 맞춥니다.
         /// </summary>
         private static void ApplyDataOnlyPlacementNoLock(WaferMaterial wafer, DataOnlyLocation location)
         {
@@ -2382,7 +2449,25 @@ namespace QMC.CDT320.Materials
                         wafer.OutputCassetteId = cassette.CassetteId;
                         wafer.OutputCassetteRole = location.CassetteRole;
                         wafer.OutputSlotNumber = location.SlotIndex;
+                        wafer.OutputGrade = location.CassetteRole == CassetteMaterialRole.Ng1
+                            ? DieResult.NG
+                            : DieResult.Good;
                     }
+
+                    // DATA ONLY는 실제 자재 위치를 기준 정보로 복구하는 기능이다.
+                    // 다른 Cassette/Slot로 옮긴 경우 다음 Auto가 이전 Source를 다시 참조하지 않도록
+                    // 원본 Cassette 정보도 현재 목적지에 맞춘다.
+                    wafer.SourceCassetteId = cassette.CassetteId;
+                    wafer.SourceCassetteRole = location.CassetteRole;
+                    wafer.SourceSlotNumber = location.SlotIndex;
+                    wafer.SourceCassetteSlotPosition = double.NaN;
+
+                    // 목적 Cassette LOT가 등록되어 있으면 그 LOT를 기준으로 맞춘다.
+                    // Cassette LOT가 비어 있으면 기존 Material LOT를 Cassette에 승계한다.
+                    if (!string.IsNullOrWhiteSpace(cassette.CassetteLotId))
+                        wafer.CassetteLotId = cassette.CassetteLotId;
+                    else if (!string.IsNullOrWhiteSpace(wafer.CassetteLotId))
+                        cassette.CassetteLotId = wafer.CassetteLotId;
                 }
 
                 wafer.CurrentLocation = location.ToMaterialLocation();
@@ -2394,9 +2479,43 @@ namespace QMC.CDT320.Materials
             else
             {
                 wafer.CurrentLocation = location.ToMaterialLocation();
+
+                // Output Stage의 GOOD/NG 구분은 실제 배치 위치가 기준이다.
+                // DATA ONLY로 Stage 위치를 복구할 때 Grade가 반대로 남아 다음 언로드 대상이
+                // 틀어지지 않도록 Stage 종류와 함께 정규화한다.
+                if (location.Kind == MaterialLocationKind.OutputStageGood)
+                    wafer.OutputGrade = DieResult.Good;
+                else if (location.Kind == MaterialLocationKind.OutputStageNg)
+                    wafer.OutputGrade = DieResult.NG;
             }
 
+            // Auto 정상 이송과 동일한 목적지 상태:
+            // Cassette 반환 완료=Finish, Feeder 이송 중=WorkReady, Stage 공정 중=Working.
+            wafer.State = ResolveDataOnlyTargetState(location.Kind);
             wafer.UpdatedAt = DateTime.Now;
+        }
+
+        private static WaferMaterialState ResolveDataOnlyTargetState(MaterialLocationKind kind)
+        {
+            switch (kind)
+            {
+                case MaterialLocationKind.InputCassette:
+                case MaterialLocationKind.OutputCassette:
+                    return WaferMaterialState.Finish;
+
+                case MaterialLocationKind.InputFeeder:
+                case MaterialLocationKind.OutputFeeder:
+                    return WaferMaterialState.WorkReady;
+
+                case MaterialLocationKind.InputStage:
+                case MaterialLocationKind.OutputStageGood:
+                case MaterialLocationKind.OutputStageNg:
+                    return WaferMaterialState.Working;
+
+                default:
+                    throw new InvalidOperationException(
+                        "DATA ONLY 목적지의 Material State를 결정할 수 없습니다. kind=" + kind);
+            }
         }
 
         // DATA ONLY 대상 위치에서 Material을 정확히 하나 찾는다.

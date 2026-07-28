@@ -251,6 +251,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                 string label = target.SlotIndex >= 0
                     ? "INPUT LOAD(" + target.Text + ")"
                     : "INPUT LOAD";
+
                 if (!ConfirmManualProcessStart(
                     "INPUT LOAD",
                     "대상: " + target.Text))
@@ -305,6 +306,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             };
             btnRefreshLoadTargets.Click += delegate { RefreshLoadTargets(); };
             btnSaveSpeedPercent.Click += delegate { SaveSequenceSpeedSettings(); };
+
             // GOOD/NG를 바꾸면 해당 side의 공급 가능한 Bin 목록으로 갱신한다.
             rbOutputGood.CheckedChanged += delegate { if (rbOutputGood.Checked) RefreshLoadTargets(); };
             rbOutputNg.CheckedChanged += delegate { if (rbOutputNg.Checked) RefreshLoadTargets(); };

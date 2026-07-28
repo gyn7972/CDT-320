@@ -1335,6 +1335,9 @@
     <EmbeddedResource Include="Ui\Controls\LogSettingsPanelControl.resx">
       <DependentUpon>LogSettingsPanelControl.cs</DependentUpon>
     </EmbeddedResource>
+    <EmbeddedResource Include="Ui\Controls\MaterialDetailView.resx">
+      <DependentUpon>MaterialDetailView.cs</DependentUpon>
+    </EmbeddedResource>
     <EmbeddedResource Include="Ui\Controls\SideVisionViewerControl.resx">
       <DependentUpon>SideVisionViewerControl.cs</DependentUpon>
     </EmbeddedResource>

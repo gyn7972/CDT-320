@@ -305,6 +305,41 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             }
         }
 
+        // 작업자가 State를 바꾸는 동안 Auto/Manual/초기화 시퀀스가 같은 자재를 갱신하면
+        // 중앙 Material State와 Unit 슬롯 projection이 서로 다른 상태로 남을 수 있으므로 완전 정지 상태에서만 허용한다.
+        private bool CanChangeInputCassetteMaterialState(Form1 host)
+        {
+            if (host == null || host.Controller == null)
+            {
+                QMC.Common.MessageDialog.Show(this,
+                    "장비 제어기를 확인할 수 없어 Input Cassette 상태를 변경할 수 없습니다.",
+                    "Wafer 상태 변경", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return false;
+            }
+
+            MachineController controller = host.Controller;
+            EquipmentStatus status = controller.Status;
+            bool blocked = _manualSequenceRunning ||
+                           controller.IsManualBusy ||
+                           controller.IsSequenceRunning ||
+                           controller.IsReadySequenceRunning ||
+                           status == EquipmentStatus.AutoRunning ||
+                           status == EquipmentStatus.ManualRunning ||
+                           status == EquipmentStatus.Initializing;
+            if (!blocked)
+                return true;
+
+            QMC.Common.MessageDialog.Show(this,
+                "Input Cassette 상태를 변경할 수 없습니다.\r\n" +
+                "Auto/Manual/초기화/Ready 시퀀스가 완전히 정지된 뒤 다시 시도하세요.\r\n" +
+                "status=" + status +
+                ", sequenceRunning=" + controller.IsSequenceRunning +
+                ", manualBusy=" + controller.IsManualBusy +
+                ", readyRunning=" + controller.IsReadySequenceRunning,
+                "Wafer 상태 변경", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            return false;
+        }
+
         private async Task StopManualActionAsync()
         {
             try
@@ -676,7 +711,9 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 Row("Slot", BuildSlotOccupancyText(slot, wafer, mapped), "", false),
                 Row("Wafer ID", wafer != null ? wafer.WaferId : "", "WaferId", mapped),
                 Row("Lot ID", wafer != null ? wafer.CassetteLotId : (cassette != null ? cassette.CassetteLotId : ""), "CassetteLotId", mapped),
-                Row("State", wafer != null ? WaferMaterialStateText.ToDisplayName(wafer.State) : "", "State", mapped),
+                // 빈 슬롯의 State 편집으로 GetOrCreateWaferInMappedCassette가 자재를 암묵 생성하지 않게 한다.
+                // 자재 생성은 DATA CREATE에서만 수행하고, 여기서는 실제로 표시된 Wafer 상태만 변경한다.
+                Row("State", wafer != null ? WaferMaterialStateText.ToDisplayName(wafer.State) : "", "State", mapped && wafer != null),
                 Row("Location", wafer != null && wafer.CurrentLocation != null ? wafer.CurrentLocation.ToString() : "", "", false),
                 Row("Cassette Role", wafer != null ? wafer.SourceCassetteRole.ToString() : "", "", false),
                 Row("Cassette Slot", wafer != null && wafer.SourceSlotNumber >= 0 ? (wafer.SourceSlotNumber + 1).ToString("00") : "", "", false),
@@ -722,15 +759,95 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                     return;
                 }
 
+                bool isStateEdit = e.Row.Key == "State";
+                if (isStateEdit && !CanChangeInputCassetteMaterialState(GetHost()))
+                    return;
+
                 string newValue;
                 if (!TryEditMaterialValue(e.Row, out newValue))
                     return;
 
-                bool ok = MaterialStateService.UpdateWaferFieldInMappedCassette(
-                    _selectedCassetteRole,
-                    _selectedMaterialSlot,
-                    e.Row.Key,
-                    newValue);
+                bool ok;
+                if (isStateEdit)
+                {
+                    // 상태 선택창이 열린 동안 시퀀스가 시작됐을 수 있으므로 실제 반영 직전에 다시 확인한다.
+                    if (!CanChangeInputCassetteMaterialState(GetHost()))
+                        return;
+
+                    CassetteSlotMaterial slot = cassette.Slots != null &&
+                                                  _selectedMaterialSlot >= 0 &&
+                                                  _selectedMaterialSlot < cassette.Slots.Count
+                        ? cassette.Slots[_selectedMaterialSlot]
+                        : null;
+                    WaferMaterial targetWafer = ResolveCassetteSlotWafer(
+                        snapshot,
+                        _selectedCassetteRole,
+                        _selectedMaterialSlot,
+                        slot);
+                    if (targetWafer == null)
+                    {
+                        RaiseWarning("INPUT-CST-MATERIAL-STATE-NO-DATA",
+                            "Wafer 상태 변경 대상 Material이 없습니다. role=" + _selectedCassetteRole +
+                            ", slot=" + (_selectedMaterialSlot + 1));
+                        QMC.Common.MessageDialog.Show(this,
+                            "이 Slot에는 Material 데이터가 없습니다.\r\nDATA CREATE로 먼저 생성한 뒤 상태를 변경하십시오.",
+                            "Wafer 상태 변경", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        return;
+                    }
+
+                    string waferId = targetWafer.WaferId;
+                    string beforeState = WaferMaterialStateText.ToDisplayName(
+                        WaferMaterialStateText.Normalize(targetWafer.State));
+                    string location = targetWafer.CurrentLocation != null
+                        ? targetWafer.CurrentLocation.ToString()
+                        : "-";
+
+                    // 상태만 변경하는 전용 API를 사용한다. InputFeeder/InputStage에 나가 있는 Wafer의
+                    // CurrentLocation과 원본 슬롯 포인터를 카세트 위치로 되돌리지 않는다.
+                    ok = MaterialStateService.UpdateWaferStateOnly(
+                        waferId,
+                        newValue,
+                        QMC.CDT_320.Ui.Security.UserSession.Name);
+
+                    bool projectionSynchronized = ok && SyncInputRuntimeProjection();
+                    bool persisted = ok &&
+                        MaterialStateService.TryFlushPendingSave("InputCassetteManualStateUpdate");
+
+                    WriteEvent("INPUT-CST-MATERIAL-STATE",
+                        "Wafer 상태 변경. material=" + waferId +
+                        ", role=" + _selectedCassetteRole +
+                        ", slot=" + (_selectedMaterialSlot + 1) +
+                        ", state=" + beforeState + "->" + newValue +
+                        ", location=" + location +
+                        ", projectionSynchronized=" + projectionSynchronized +
+                        ", persisted=" + persisted +
+                        ", result=" + ok);
+
+                    if (ok && (!projectionSynchronized || !persisted))
+                    {
+                        RaiseWarning("INPUT-CST-MATERIAL-STATE-CONSISTENCY",
+                            "Wafer 상태는 메모리에 반영됐지만 Unit 동기화 또는 Snapshot 저장에 실패했습니다. " +
+                            "material=" + waferId +
+                            ", projectionSynchronized=" + projectionSynchronized +
+                            ", persisted=" + persisted);
+                        QMC.Common.MessageDialog.Show(this,
+                            "Wafer 상태는 메모리에 반영됐지만 장비 상태 동기화 또는 파일 저장에 실패했습니다.\r\n" +
+                            "Auto를 시작하지 말고 Alarm/Event Log와 저장 경로를 확인하십시오.",
+                            "Wafer 상태 저장 실패", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                        RefreshSelectedMaterialDetail();
+                        RefreshFromMachine();
+                        return;
+                    }
+                }
+                else
+                {
+                    // Wafer ID/LOT/TapeFrame 등 기존 편집 경로는 이번 작업에서 변경하지 않는다.
+                    ok = MaterialStateService.UpdateWaferFieldInMappedCassette(
+                        _selectedCassetteRole,
+                        _selectedMaterialSlot,
+                        e.Row.Key,
+                        newValue);
+                }
 
                 WriteEvent("INPUT-CST-MATERIAL", e.Row.Key + " update result=" + ok);
                 if (!ok)
@@ -1750,6 +1867,19 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             return wafers.Count == 0 ? "-" : "다중(" + wafers.Count + ")";
         }
 
+        private static string ResolveDataOnlyMaterialStateText(string materialId)
+        {
+            MaterialSnapshot snapshot = MaterialStorage.State;
+            WaferMaterial wafer = snapshot != null && snapshot.Wafers != null
+                ? snapshot.Wafers.FirstOrDefault(w =>
+                    w != null &&
+                    string.Equals(w.WaferId, materialId, StringComparison.OrdinalIgnoreCase))
+                : null;
+            return wafer != null
+                ? WaferMaterialStateText.ToDisplayName(WaferMaterialStateText.Normalize(wafer.State))
+                : "-";
+        }
+
         private void ExecuteDataOnlyMove()
         {
             if (_dataOnlyBusy)
@@ -1802,19 +1932,38 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 if (result.Success)
                 {
                     SyncInputRuntimeProjection();
+                    RefreshDataOnlyAfterChange();
                     WriteEvent("INPUT-CST-DATAONLY-MOVE", "DATA ONLY move done. material=" + result.MaterialId +
                         ", source=" + result.SourceText + ", destination=" + result.DestinationText +
+                        ", state=" + ResolveDataOnlyMaterialStateText(result.MaterialId) +
                         ", swapped=" + (string.IsNullOrWhiteSpace(result.SwappedMaterialId) ? "-" : result.SwappedMaterialId) +
                         ", swappedTo=" + (string.IsNullOrWhiteSpace(result.SwappedToText) ? "-" : result.SwappedToText) +
                         ", persisted=" + result.PersistenceSucceeded);
-                    RefreshDataOnlyAfterChange();
+
+                    // 실장비에서는 메모리 이동이 성공해도 Snapshot 저장이 실패할 수 있다.
+                    // 저장 실패를 완료로 표시하면 재기동 후 이전 위치가 복원되므로 Auto 시작 전 알람으로 차단한다.
+                    if (!result.PersistenceSucceeded)
+                    {
+                        RaiseWarning("INPUT-CST-DATAONLY-SAVE-FAIL",
+                            "DATA ONLY 위치 변경은 반영됐지만 Material Snapshot 저장에 실패했습니다. " +
+                            "프로그램을 재시작하거나 Auto를 시작하지 말고 저장 경로를 확인하십시오. material=" +
+                            result.MaterialId);
+                        QMC.Common.MessageDialog.Show(this,
+                            "Material 위치는 변경됐지만 저장에 실패했습니다.\r\n" +
+                            "프로그램을 재시작하거나 Auto를 시작하지 말고 로그와 저장 경로를 확인하십시오.",
+                            "DATA ONLY 저장 실패", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                        return;
+                    }
+
                     QMC.Common.MessageDialog.Show(this,
                         "Material 데이터 이동이 완료되었습니다 (NO MOTION).\r\n" +
                         "Material ID: " + result.MaterialId + "\r\n" +
+                        "State: " + ResolveDataOnlyMaterialStateText(result.MaterialId) + "\r\n" +
                         result.SourceText + " → " + result.DestinationText +
                         (string.IsNullOrWhiteSpace(result.SwappedMaterialId)
                             ? ""
-                            : "\r\n교환: " + result.SwappedMaterialId + " → " + result.SwappedToText),
+                            : "\r\n교환: " + result.SwappedMaterialId + " → " + result.SwappedToText +
+                              " / State: " + ResolveDataOnlyMaterialStateText(result.SwappedMaterialId)),
                         "DATA ONLY", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 }
                 else
@@ -1903,13 +2052,13 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
         }
 
         // 중앙 상태 기준으로 Input Feeder/Stage runtime projection(로컬 캐시)을 재동기화한다.
-        private void SyncInputRuntimeProjection()
+        private bool SyncInputRuntimeProjection()
         {
             try
             {
                 var host = GetHost();
                 if (host == null || host.Machine == null)
-                    return;
+                    return false;
 
                 var feeder = host.Machine.InputFeederUnit;
                 if (feeder != null)
@@ -1932,10 +2081,12 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 }
 
                 SynchronizeInputCassetteSlotStates(host.Machine.InputCassetteUnit);
+                return true;
             }
             catch (Exception ex)
             {
-                WriteAlarm("INPUT-CST-DATAONLY-SYNC", "DATA ONLY projection 동기화 실패: " + ex.Message);
+                WriteAlarm("INPUT-CST-RUNTIME-SYNC", "Input runtime projection 동기화 실패: " + ex.Message);
+                return false;
             }
             finally
             {

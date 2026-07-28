@@ -730,6 +730,13 @@ namespace QMC.CDT_320
             // [주소 불일치 감시 2026-07-28] Setup 파일이 카탈로그 주소를 덮어쓴 채 조용히 운전되던 문제
             // (GoodBinRing/NgBinRing Bit 뒤바뀜)를 기동 시 로그로 드러낸다. 값은 고치지 않고 경고만 남긴다.
             QMC.CDT320.Ajin.AjinFactory.VerifyCatalogAddresses("Startup");
+            // [실장비 시뮬 강제 해제 2026-07-29] ★실장비 미검증★
+            // LoadMachineSettings() 안에서 EquipmentData\Config\*.json 이 실보드 포인트를 시뮬로
+            // 되돌려놓는 경로가 있었다(AjinDigitalInput/Output.LoadSettings 주석 참조).
+            // 각 포인트에서 이미 false 로 강제했고, 여기서는 합계만 로그로 남긴다.
+            // 합계가 0 이 아니면 그동안 그만큼의 실신호가 죽어 있었다는 뜻이다.
+            QMC.CDT320.Ajin.AjinDigitalInput.LogSimForcedRealSummary();
+            QMC.CDT320.Ajin.AjinDigitalOutput.LogSimForcedRealSummary();
             ApplyRuntimeMode();
             Bridge     = new SimulatorBridge(Machine);
             BeginSimulatorAutoConnect(cfg);

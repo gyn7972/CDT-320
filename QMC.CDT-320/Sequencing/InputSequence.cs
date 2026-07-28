@@ -1180,6 +1180,9 @@ namespace QMC.CDT320.Sequencing
                     return;
                 }
 
+                //Todo : Feeder에 wafer가 있으면...Ready 상태인지 확인하고, Ready 상태가 아니면 RecoverFeeder부터 재개하도록 보정한다.
+                // Feeder에 wafer 가지고 있으면 사용자가 조치 후 장비 런일텐데...
+
                 // 2순위: Feeder에 wafer가 있으면 이송 방향을 판별해 재개한다.
                 //  - 로드(Cassette->Feeder->Stage) 진행 중: 아직 스테이지를 거치지 않아 Align 결과가 없다 -> Stage로 전진.
                 //  - 언로드(Stage->Feeder->Cassette) 진행 중: 이미 스테이지에서 처리(Align 완료)된 wafer가 되돌아오는 중이다
@@ -2398,6 +2401,7 @@ namespace QMC.CDT320.Sequencing
             try
             {
                 ct.ThrowIfCancellationRequested();
+
                 LogPublic("[UNIT-INPUT] CYCLE RUN INPUT LOAD (auto-step test) start");
                 WriteLog("ExecuteAutoStepLoadingForTestAsync",
                     "CYCLE RUN INPUT LOAD: Auto 스텝 상태머신 로딩 테스트를 시작합니다. requestedSlot=" +
