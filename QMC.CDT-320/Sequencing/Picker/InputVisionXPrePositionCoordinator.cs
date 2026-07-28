@@ -17,8 +17,6 @@ namespace QMC.CDT320.Sequencing
         private const int StandbySearchIterations = 24;
         private const double StandbyBoundaryBackoffMm = 1.0;
         private const double MinimumStandbyTravelMm = 0.2;
-        // 롤링 대기점 연장 최소 전진량 — 이보다 작으면 오버라이드하지 않는다(명령 폭주 방지).
-        private const double StandbyRollForwardMinAdvanceMm = 1.0;
 
         private static readonly object Sync = new object();
         private static Task<int> _runningTask;
@@ -289,11 +287,8 @@ namespace QMC.CDT320.Sequencing
                             standbyTarget,
                             motion.Velocity);
                         stopActiveMoveOnExit = true;
-                        bool overrideIssued = false;
+                        bool guardClearedDuringStandby = false;
                         int standbyResult;
-                        // 롤링 대기점(사용자 승인 2026-07-26): 현재 명령 중인 대기점.
-                        double commandedStandby = standbyTarget;
-                        int rollForwardCount = 0;
 
                         try
                         {
@@ -302,98 +297,24 @@ namespace QMC.CDT320.Sequencing
                                 ct.ThrowIfCancellationRequested();
                                 context.StopIfCycleStopRequested("InputVisionXPrePosition.Standby:" + side);
 
-                                if (CanMoveToTarget(context, visionX, finalTarget, finalTargetName, out finalGuardReason))
+                                // 기존 조건(사용자 승인 2026-07-26, 롤링 대기점): 이동 중 가드가 열리면
+                                //   Position Override로 최종 목표로 연장했다(무정지 전진).
+                                // 현재 기준(사용자 지시 2026-07-28, 오버라이드 전면 폐지): 위치 오버라이드는
+                                //   팔로잉(FollowMove) 전용이다 — 선행이동은 오버라이드를 쓰지 않는다.
+                                //   이동이 이미 끝난 축에 AxmOverridePos가 0(성공)을 반환하며 무효가 되는
+                                //   레이스(실장비 2026-07-28 14:15, MOVE JOIN -5)의 원인 제거.
+                                //   가드가 이동 중 열려도 대기점 완료를 기다렸다가 완료 검증형 일반
+                                //   이동(MoveAndVerifyAsync)으로 최종 진입한다(비동기 Task 구조 유지).
+                                if (!guardClearedDuringStandby &&
+                                    CanMoveToTarget(context, visionX, finalTarget, finalTargetName, out finalGuardReason))
                                 {
-                                    int overrideResult = TryOverrideMovingAxisToFinal(
-                                        visionX,
-                                        finalTarget,
-                                        motion,
-                                        out string overrideDetail);
-
-                                    if (overrideResult == 0)
-                                    {
-                                        overrideIssued = true;
-                                        WriteLog(
-                                            "InputVisionXPrePosition",
-                                            side + " InputVisionX 이동 중 최종 die 위치로 Position Override를 적용했습니다. " +
-                                            "die=" + target.DieId +
-                                            ", finalX=" + finalTarget.ToString("F6") +
-                                            ", detail=" + overrideDetail + " - Ok");
-                                        break;
-                                    }
-
-                                    if (!visionX.IsMoving)
-                                    {
-                                        WriteLog(
-                                            "InputVisionXPrePosition",
-                                            side + " 최종 가드 해제 시점에 InputVisionX가 이미 정지해 일반 Move로 전환합니다. " +
-                                            "die=" + target.DieId +
-                                            ", overrideResult=" + overrideResult +
-                                            ", detail=" + overrideDetail + " - Check");
-                                        break;
-                                    }
-
+                                    guardClearedDuringStandby = true;
                                     WriteLog(
                                         "InputVisionXPrePosition",
-                                        side + " InputVisionX Position Override가 실패했고 축이 계속 이동 중이라 선행이동을 중단합니다. " +
+                                        side + " 대기점 이동 중 최종 가드가 열렸습니다. 오버라이드 없이 대기점 완료 후 일반 Move로 최종 진입합니다. " +
                                         "die=" + target.DieId +
-                                        ", overrideResult=" + overrideResult +
-                                        ", detail=" + overrideDetail + " - Failed");
-                                    await StopAndDrainMoveTaskAsync(visionX, activeMoveTask, side).ConfigureAwait(false);
-                                    activeMoveTask = null;
-                                    stopActiveMoveOnExit = false;
-                                    return 0;
-                                }
-
-                                // 기존 조건: 최종 가드가 안 풀리면 대기점까지만 가서 "정지"했고,
-                                //   가드가 그 직후 풀리면 다시 새 이동을 발행했다 — 감속 정지 후
-                                //   재기동이라 비전이 잠깐 멈췄다 다시 가는 현상이 보였다
-                                //   (실장비 2026-07-26 05:58:02 Rear, 대기점 445.376 도달-정지).
-                                // 현재 기준(사용자 승인 2026-07-26): 피커가 비켜난 만큼 대기점을
-                                //   재계산해 앞으로 연장(Position Override)한다 — 축이 멈추지 않고
-                                //   이어서 전진하고, 최종 가드가 풀리면 위 분기가 최종 좌표로 넘긴다.
-                                //   실패하면 아무것도 하지 않는다(기존 대기점 이동 그대로 유지).
-                                if (visionX.IsMoving)
-                                {
-                                    double rolledStandby;
-                                    string rolledDetail;
-                                    if (TryResolveSafeStandbyTarget(
-                                            context,
-                                            visionX,
-                                            finalTarget,
-                                            standbyTargetName,
-                                            out rolledStandby,
-                                            out rolledDetail))
-                                    {
-                                        double advance = finalTarget >= commandedStandby
-                                            ? rolledStandby - commandedStandby
-                                            : commandedStandby - rolledStandby;
-                                        if (advance >= StandbyRollForwardMinAdvanceMm)
-                                        {
-                                            string rollOverrideDetail;
-                                            int rollResult = TryOverrideMovingAxisToFinal(
-                                                visionX,
-                                                rolledStandby,
-                                                motion,
-                                                out rollOverrideDetail);
-                                            if (rollResult == 0)
-                                            {
-                                                commandedStandby = rolledStandby;
-                                                rollForwardCount++;
-                                                if (rollForwardCount == 1 || rollForwardCount % 10 == 0)
-                                                {
-                                                    WriteLog(
-                                                        "InputVisionXPrePosition",
-                                                        side + " InputVisionX 대기점을 앞으로 연장했습니다(정지 없이 계속 전진). " +
-                                                        "die=" + target.DieId +
-                                                        ", standbyX=" + commandedStandby.ToString("F6") +
-                                                        ", advance=" + advance.ToString("F6") +
-                                                        ", count=" + rollForwardCount +
-                                                        ", detail=" + rollOverrideDetail + " - Ok");
-                                                }
-                                            }
-                                        }
-                                    }
+                                        ", standbyX=" + standbyTarget.ToString("F6") +
+                                        ", finalX=" + finalTarget.ToString("F6") + " - Check");
                                 }
 
                                 await Task.Delay(GuardPollIntervalMs, ct).ConfigureAwait(false);
@@ -432,18 +353,8 @@ namespace QMC.CDT320.Sequencing
                                 side + " InputVisionX 중간 안전대기점 이동이 실패했습니다. " +
                                 "die=" + target.DieId +
                                 ", result=" + standbyResult +
-                                ", " + BuildAxisState(visionX, overrideIssued ? finalTarget : standbyTarget) + " - Failed");
+                                ", " + BuildAxisState(visionX, standbyTarget) + " - Failed");
                             return 0;
-                        }
-
-                        if (overrideIssued)
-                        {
-                            int finalWait = await stage.WaitInputStageAxisInPosition(
-                                WaferStageAxis.VisionX,
-                                finalTarget,
-                                moveTimeoutMs,
-                                ct).ConfigureAwait(false);
-                            return LogOptimizationResult(side, target.DieId, finalWait, "PositionOverride");
                         }
 
                         standbyCompleted = true;
@@ -641,58 +552,9 @@ namespace QMC.CDT320.Sequencing
                 ct).ConfigureAwait(false);
         }
 
-        private static int TryOverrideMovingAxisToFinal(
-            BaseAxis axis,
-            double target,
-            MotionProfile motion,
-            out string detail)
-        {
-            double previousActual = axis != null ? axis.ActualPosition : 0.0;
-            double previousCommand = axis != null ? axis.CommandPosition : 0.0;
-
-            if (axis == null)
-            {
-                detail = "axis=null";
-                return -1;
-            }
-
-            if (!axis.IsMoving)
-            {
-                detail = "moving=False, previousActual=" + previousActual.ToString("F6") +
-                         ", previousCommand=" + previousCommand.ToString("F6");
-                return -4;
-            }
-
-            int result;
-            AjinAxis ajinAxis = axis as AjinAxis;
-            if (ajinAxis != null)
-            {
-                // 존 판정용 이동 의도를 명시한다 — 후행축이 InputVisionX라 Picker 존 규칙과는 무관하지만,
-                // "PositionOverride" 고정값을 벗어나 차단 로그에서 요청 의도를 식별할 수 있게 한다.
-                result = ajinAxis.TryOverridePosition(
-                    target,
-                    motion.Velocity,
-                    motion.Acceleration,
-                    motion.Deceleration,
-                    "InputVisionXPrePosition;VisionX;중간 안전대기점");
-            }
-            else
-            {
-                axis.OverridePosition(target);
-                result = 0;
-            }
-
-            detail = "result=" + result +
-                     ", previousActual=" + previousActual.ToString("F6") +
-                     ", previousCommand=" + previousCommand.ToString("F6") +
-                     ", newActual=" + axis.ActualPosition.ToString("F6") +
-                     ", newCommand=" + axis.CommandPosition.ToString("F6") +
-                     ", velocity=" + motion.Velocity.ToString("F6") +
-                     ", acceleration=" + motion.Acceleration.ToString("F6") +
-                     ", deceleration=" + motion.Deceleration.ToString("F6") +
-                     ", moving=" + axis.IsMoving;
-            return result;
-        }
+        // 2026-07-28 사용자 지시: 위치 오버라이드는 팔로잉(FollowMove) 전용 — 선행이동의
+        // TryOverrideMovingAxisToFinal(이동 중 최종 진입 오버라이드)은 무효 성공 레이스
+        // (완료된 이동에 AxmOverridePos가 0을 반환, MOVE JOIN -5)로 폐지·삭제했다.
 
         private static async Task StopAndDrainMoveTaskAsync(
             BaseAxis axis,

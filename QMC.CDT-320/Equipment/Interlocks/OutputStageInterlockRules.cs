@@ -1537,13 +1537,13 @@ namespace QMC.CDT320.Interlocks
                     movingName,
                     signalName + " sensor is not registered in real hardware mode.",
                     out reason);
-
-            if (input.Config != null && (input.Config.IsSimulationMode || input.Config.IgnoreWaits))
-                return MotionGuardRuleHelpers.Block(
-                    movingName,
-                    signalName + " sensor is still simulation/dry-run mode in real hardware mode. " +
-                    "Refresh DIO configuration before movement.",
-                    out reason);
+            // Todo : 김영남 초기화 확인후. 가드 활성화
+            //if (input.Config != null && (input.Config.IsSimulationMode || input.Config.IgnoreWaits))
+            //    return MotionGuardRuleHelpers.Block(
+            //        movingName,
+            //        signalName + " sensor is still simulation/dry-run mode in real hardware mode. " +
+            //        "Refresh DIO configuration before movement.",
+            //        out reason);
 
             int errorCode;
             if (!AjinIoScanService.TryReadHardwareInput(input, out errorCode))

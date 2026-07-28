@@ -2281,7 +2281,12 @@ namespace QMC.Common.Motion.Ajin
         {
             try
             {
-                if (ret == 0)
+                // 기존 조건: 성공 오버라이드 로그는 축당 1초 1건 스로틀(폴링 발행 폭주 방지).
+                // 현재 기준(사용자 지시 2026-07-28): 진단 상세(DiagnosticVerbose/ENABLE) 중에는
+                //   스로틀을 해제해 보드로 나간 위치 오버라이드를 전건 기록한다 — 디스크 저장
+                //   여부는 LogPolicy(ProductionMinimal이면 블랙박스만)가 판정하므로 여기서는
+                //   기록만 한다. 실패는 기존대로 항상 기록.
+                if (ret == 0 && !QMC.Common.Logging.LogPolicy.IsDiagnosticVerbose)
                 {
                     long nowMs = System.Diagnostics.Stopwatch.GetTimestamp() / (System.Diagnostics.Stopwatch.Frequency / 1000L);
                     long lastMs;
