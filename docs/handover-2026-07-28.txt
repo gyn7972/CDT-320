@@ -1,0 +1,318 @@
+================================================================================
+CDT-320 인수인계 — 2026-07-28
+대상 리포 D:\Source\CDT-320_New (QMC.CDT-320.sln / .NET Framework 4.7.2 / VS2022)
+HEAD 0ae9854b (2026-07-28 16:31 원격 머지)
+================================================================================
+
+■ 0. ★★ 최우선 — 머지에서 유실된 변경 3건 ★★
+
+  16:31 원격 머지(0ae9854b)에서 아래 3건이 사라졌다. 복원 여부를 먼저 결정할 것.
+
+  [유실 1] 섀도 모드 관측기 — 파일 자체가 없음
+      QMC.CDT-320/Equipment/Interlocks/Common/MotionGuardHomeConfidence.cs  (삭제됨)
+      csproj 등록도 사라짐. 계측 호출(ReportUnknownPass) 6곳도 전부 사라짐:
+        PickerZoneInterlockRules / PickerFrontInterlockRules(2) /
+        PickerRearInterlockRules(2) / InputStageInterlockRules
+      MachineController.InitializeAllAxesCoreAsync 의 Reset/Flush 연결도 사라짐.
+      → 초기화 개선(§3-B)의 전제 작업이므로 복원 필요.
+
+  [유실 2] READY-OUTPUT-FEEDER-AVOID-AMBIGUOUS 알람 제거 → 되살아남
+      MachineReadySequence.cs:1181 에 알람이 다시 존재한다.
+      사용자가 "이 알람 제거해줘. 이거 아니다" 로 명시 지시한 건이다.
+      제거 사유는 §2-C 참고. 다시 제거할 것.
+
+  [유실 3] (1과 동일 커밋 범위) 위 두 건과 함께 들어갔던 주석/설명도 소실
+
+  ※ 유실되지 않고 살아있는 것(확인 완료):
+      IO 오염 차단(IsSimulated)        AjinIoScanService.cs        OK
+      IO 주소 검증(VerifyCatalogAddresses) AjinFactory.cs / Form1.cs  OK
+      링 센서 주석 정정                OutputStageUnit.cs          OK
+      Place 시뮬 우회                  PickerPlaceSequence.cs      OK
+      NG 스킵 4곳                      OutputSequence.cs           OK
+      NG 스킵 교착 수정                AutoSequenceCoordinatorGate.cs OK
+      LOT 기능 전체                    LotSessionService / LotHistoryDialog OK
+
+--------------------------------------------------------------------------------
+■ 1. 작업 규칙 (반드시)
+
+  - Clean / Rebuild 금지. OutputPath 가 운영 폴더 D:\CDT-320 를 가리킨다.
+    빌드는 /t:Build + 별도 OutDir 로만:
+      msbuild QMC.CDT-320.sln /t:Build /p:Configuration=Debug
+              /p:Platform="Any CPU" /p:OutDir="<임시>\" /v:minimal
+    빌드 전후 D:\CDT-320\QMC.CDT-320.exe 의 LastWriteTime 을 출력해 미변경 증명할 것.
+  - 커밋/푸시/이력변경은 사용자 명시 허락 전 절대 금지.
+  - UTF-8 BOM + CRLF 유지. 편집 후 바이트 단위 검증.
+  - Task<int>(0=정상), async void 금지.
+  - 한국어 로그: Log.Write("Main","SYSTEM",source,msg)
+    Release 에서도 남겨야 하면 Log.Write(LogLevel.AboveNormal, "Main", source, msg)
+    (LogLevel 오버로드는 LogPolicy 를 우회한다. 3인자 버전은 Release 에서 억제됨.)
+  - UI 컨트롤은 *.Designer.cs 의 InitializeComponent() 안에 인라인으로 생성/배치/이벤트연결.
+  - 인터락은 마지막 안전망. 완화는 한국어 주석 + 사용자 승인 필수.
+  - 원격(실장비) 라인이 우선순위. 머지 시 서버 것을 기준으로 우리 것을 맞춘다.
+
+--------------------------------------------------------------------------------
+■ 2. 오늘 완료한 작업
+
+ [2-A] NG 카세트 미사용 모드 (UseNgCassette=false) — 4곳 + 교착 1곳
+   증상: 초기/레시피 변경 후 OUT-FULL-PREP-STAGE 알람, 이후 무언정지(4중 교착)
+   근본: NG 스킵 처리가 준비 로직에는 있고 완료검사/게이트에는 없었다.
+     OutputSequence.cs:628    완료검사 ngStage 요구를 IsNgCassetteUsed() 조건부로
+     OutputSequence.cs:1490   IsOutputAutoNoBinWorkComplete static→인스턴스 + NG 조건부
+     OutputSequence.cs:1443   NG 미사용 시 NG 카세트 교체요청 제거
+     OutputSequence.cs:1528   진단 메시지에 ngUsed 추가
+     AutoSequenceCoordinatorGate.cs:1008  ★교착 근본★
+        !IsOutputStageMaterialPresent(BinSide.Ng) 가 영구 true → 피커가 시작조차 못 함
+        → ngUsed 조건부로 수정. + 5초 이상 막히면 10초 주기 경고 로그 추가.
+   실장비 설정: EquipmentData/Config/BinCassetteUnit.json  "UseNgCassette": false
+   다이 배출: OutputStageUnit.json "ResultRoutingMode": 0 (=ForceGoodStage)
+             → NG 다이도 GOOD Stage 로 간다. 정합함.
+   추가 가드: PickerPlaceSequence.cs:602 RouteByInspectionResult + NG미사용 조합 차단
+             (그 조합이면 다이 물고 무한대기하므로 모션 전에 알람으로 끊는다)
+
+ [2-B] IO 신호 오염 차단 ★가장 중요★
+   증상: 실장비에서 OutputStage GoodBin 링 신호가 뒤집힘 (새벽 장시간 디버깅)
+   원인이 세 겹이었다:
+     (1) Setup 파일이 IO 주소를 덮어씀 — BaseComponent.LoadSettings 에서
+         Setup = UnitDataStore.LoadSetup(...) 이 모듈/비트를 통째로 교체.
+         AjinIoCatalog 는 파일이 없을 때만 쓰이는 기본값.
+         → 사용자가 새벽에 Setup 파일 수정으로 해결. 현재 카탈로그 값이 정상:
+              GoodBinRing = M2/B3,  NgBinRing = M2/B8
+     (2) 시뮬 주입값이 공용 캐시로 실보드 신호를 오염 — 오늘 수정
+     (3) OutputStageUnit.cs 주석이 정반대로 적혀 있었음 — 오늘 정정
+   (2)의 구조:
+     AjinIoScanService 의 _latest 캐시 키가 이름이 아니라 "모듈/비트"다.
+     → 시뮬 포인트와 실보드 포인트가 같은 칸을 공유.
+     오염 경로 두 개:
+       ① SimulateInput → SetSimulatedState → UpdateCached(공용캐시)
+          → 실보드 센서가 IsOn 읽을 때 RefreshLatestState → TryApplyLatest 로 적용
+          (IsOn 게터가 매번 이 경로를 탄다)
+       ② ReadInput/ReadOutput 의 조건이 `IsSimulationMode || !hardwareOpen`
+          → 보드 미오픈이면 실보드 포인트까지 시뮬 분기로 들어와 값을 직접 주입
+   수정: QMC.Common/IO/AjinIoScanService.cs
+     - AjinIoSnapshot.IsSimulated 필드 신규
+     - BuildSnapshot / UpdateCached 에 isSimulated 파라미터 추가(기본 false)
+     - 시뮬 경로 4곳이 true 로 기록
+     - TryApplyLatest(입력/출력): 실보드 포인트는 IsSimulated 스냅샷 거부
+       Config 가 null 이면 실보드로 간주(fail-closed)
+     - !hardwareOpen 인데 실보드 포인트면 값을 건드리지 않고 시뮬 스냅샷으로만 표시
+   ※ io_settings.json 확인 결과 시뮬 잔존 포인트 0개(입력90/출력72 전부 실보드).
+     즉 오염 트리거는 IsSimulationMode 가 아니라 !hardwareOpen 이었다.
+   재발 방지: AjinFactory.VerifyCatalogAddresses("Startup") 신규
+     Form1.cs LoadMachineSettings() 직후 호출. 카탈로그 vs 적용된 Setup 주소 비교.
+     불일치 시 경고 로그(값은 안 고침). 기동 로그에 "불일치=0건 - Ok" 나오면 정상.
+
+ [2-C] READY-OUTPUT-FEEDER-AVOID-AMBIGUOUS 제거  ← ★유실됨, 재적용 필요★
+   증상: 정상 기동에서 Ready Step2 가 오검출로 막힘
+     actual=0, command=0, target=0, tolerance=0.01, inPosition=OFF
+   원인: strongAvoidAxis 가 축의 InPosition(INP) 신호를 요구한다.
+     INP 는 "위치"가 아니라 "명령받은 이동을 완료하고 정정착했는가" 신호다.
+     서보 ON 후 아무 이동도 안 한 상태에서는 좌표가 정확히 맞아도 INP 가 안 뜬다.
+     Ready Step2 는 아무것도 움직이기 전이므로 구조적으로 통과 불가.
+   제거 후 남는 보호(그대로 동작): READY-OUTPUT-FEEDER-BIN(Bin 보유 차단) →
+     READY-OUTPUT-FEEDER-SENSOR(Ring) → READY-OUTPUT-FEEDER-CASSETTE-RELEASE →
+     FeederRetreatPolicy(Unclamp→보유확인→Lift Up→Y Avoid→Lift Down, 파손방지 포함)
+   ※ 같은 InPosition 요구가 바로 위 strongAvoid 판정에도 있다. 그쪽은 안 건드렸다.
+     동작은 하지만 Ready 가 느려질 수 있다. 근본은 InPosition 대신 Avoid Dog 를 쓰는 것.
+
+ [2-D] Place 이동 전 Bottom FINAL 시뮬 우회
+   증상: 시뮬(비전 미연결)에서 PICKER-PLACE-BOTTOM-GATE-CALLBACK 으로 Place 차단
+   원인: 비전이 없으면 Bottom FINAL RESULT 가 안 생겨 검사 시퀀스가 IsComplete 가 안 되고,
+     PickerProcessSequence.cs:1830 에서 델리게이트 주입이 일어나지 않는다.
+     저장값 복원 폴백도 FINAL 필드가 없어 실패 → 두 경로 모두 막힘.
+   수정: PickerPlaceSequence.cs — 기존 IsPlaceProductCheckBypassed() 와 동일 조건
+     (BypassHardware/SimulationMode/DryRunMode/GlobalDryRun)에서 무보정(0) 통과.
+     HasBottomItemOffsetX/Y = false 로 두어 "보정값 있음"으로 위장하지 않는다.
+   주의: 이 우회는 SimulationMode/DryRunMode 기준이다. AppSettings.UseVision=false 만
+     끄고 SimulationMode 가 꺼져 있으면 여전히 막힌다(미해결, 필요 시 조건 추가).
+
+ [2-E] LOT ID 관리 (2026-07-27 작업, 유지됨)
+   Equipment/Lots/LotSessionService.cs      시작/완료 단일 진입점
+   Ui/Dialogs/LotHistoryDialog.cs/.Designer.cs  진행 이력 창([이력] 버튼)
+   LotStorage: OpenLot 즉시 JSON 저장 + 정적 생성자에서 Log\Lots\*.json 로드
+   LotSessionService.RestoreActiveLotOnStartup() — Form1 Material 복구 직후 호출
+   MachineController: 종료/정지가 LOT 을 끝내지 않도록 SaveActiveLotProgress() 로 변경
+     (:2519 Shutdown, :5824 STOP) — LOT 완료는 작업자 명시 조작만
+   WorkMainPage: 작업정보 상단 34px LOT 줄. ApplyBottomGroupSizing 최소높이 230→264
+     (실측: grpInfo 230px→타일 39px 잘림 / 264px→타일 50px 정상)
+
+ [2-F] 아이콘 자산 (파일만 생성, csproj 미등록)
+   QMC.CDT-320/Resources/Icons/
+     axis-jog.ico / axis-position.ico   16~256 멀티사이즈 + 개별 png
+     Logo.ico                            Q 마크 정사각 멀티사이즈(교체)
+     Logo-original.ico                   기존 232x53 원본 보존
+     Logo-wordmark.ico                   전체 워드마크 정사각(대안)
+     Logo.png                            원본 워드마크 — 손대지 않음
+   브랜드색: 파랑 #0066B2 / 주황 #F5851F
+   ※ ApplicationIcon 등록과 폼 Icon 코드는 넣지 않았다. 사용자 확인 대기.
+
+--------------------------------------------------------------------------------
+■ 3. 미완료 / 대기 중인 작업
+
+ [3-A] 전체 초기화 개선 — 문서만 작성됨, 코드 미착수
+   docs/machine-initialize-prompt.txt      (구현 프롬프트, 파일·라인 전부 조사됨)
+   docs/machine-initialize-checklist.txt   (검증 체크리스트 A~N)
+   핵심 결론:
+     · 전원 OFF/ON 후 전체 초기화가 100% 실패. step 260 OutputFeeder, result=-11.
+       OutputFeederInterlockRules.cs:86 이 cameraX.ActualPosition < 1000 으로 차단.
+       HOME 전 Actual=0 은 "0mm"가 아니라 "위치 미확정"인데 전자로 읽는다.
+     · ★안전 구멍★ 반대 방향이 더 위험하다.
+       PickerZoneInterlockRules.cs:3674 IsAxisAtHomePosition 이 좌표만 보고
+       HOME 전 0 을 "홈에 있다"로 판정 → 피커 Y가 전진 위치였어도 피더가 들어간다.
+     · 의미론이 3종 혼재:
+       (A) MotionGuardRuleHelpers.cs:149 IsAxisNotHomedOrAtHomePosition — 홈 인지, 올바름
+       (B) IsAxisAtHomeOrTeachingAvoid / IsAxisAtHomePosition — 0을 홈으로 오인 ★위험★
+           정의 6곳(3개 파일에 같은 이름 중복 정의), 직접 호출 18곳
+       (C) ActualPosition < 1000 류 — 0을 위험으로 보고 차단
+     · 티칭위치 비교가 88곳 더 있다(전부 좌표 기반, HOME 전 무효)
+       PickerFront 23 / PickerRear 23 / InputStage 14 / InputFeeder 7 / OutputStage 7 /
+       OutputFeeder 6 / PickerZone 6 / Input·OutputCassette 각 1
+     · 픽커에는 HOME 전 물리 확인 수단이 사실상 없다(위치55/센서2, 28/0, 28/0)
+       유효 센서: InputFeeder Avoid Dog(X090), OutputFeeder Avoid Dog(X091),
+                 Feeder Down, GoodBinGuideDownSensor
+     · ★1번(홈-인지 교체) 단독 적용 금지★
+       전원 투입 직후엔 전 축이 Unknown 이므로, 좌표 근거를 정직하게 차단으로 바꾸면
+       서로를 기다리며 아무것도 시작하지 못한다. 지금의 "0=Home" 오판정이 초기화를
+       굴러가게 하는 버팀목이다. 대체 근거를 같이 넣어야만 떼어낼 수 있다.
+   합의된 진행 순서:
+     0) 전체 초기화 완주 소요시간 기준선 확보 (현재 없음 — 44초 만에 실패)
+     1) INIT-RESTORE 개선 (인터락 미접촉, 시간 효과 최대)
+     2) 섀도 모드 투입 → 며칠 운전 → 로그로 의존 그래프 확정  ← 유실됨(§0)
+     3) 1+3(홈인지 교체 + 순서/Lane 재구성) 한 커밋으로
+     4) 물리 안전 검증 (픽커 전진 + 전원 재투입)
+
+ [3-B] 섀도 모드 재적용  ← §0 유실 1
+   설계: 판정은 새 로직으로 계산하되 행동은 기존 그대로, 다를 때만 로그.
+   위험 0. 이걸 며칠 돌려야 의존 그래프가 실측으로 나온다.
+   ★확장 필요★ 전에 만든 것은 픽커 계열만 계측했다. 다음도 포함할 것:
+     - MotionGuardRuleHelpers.IsAt (2개 오버로드) ← 공용 좌표 비교기, 나머지 파일 대부분 커버
+     - OutputFeederInterlockRules.cs:86 카메라 X 인라인 판정 ← 초기화를 막는 그 규칙
+     - OutputStage / InputFeeder / 카세트 계열의 인라인 비교
+
+ [3-C] INIT-RESTORE 복구 성립시키기
+   현재 구조적으로 성공 불가:
+     MachineController.cs:1820 TryRecoverMachineInitializedFromAxisState
+       → :1856 AreAllAxesInitializedAndReady 가 파일을 안 읽고 살아있는 축을 본다
+         if (!axis.IsServoOn)  → "Servo OFF"   ← 서보 ON 전 호출이라 첫 축에서 즉사
+         if (!axis.IsHomeDone) → "Home 미완료"  ← 드라이브 래치는 프로그램 재실행 시 OFF
+   하드웨어 전제(사용자 확인): 증분형 엔코더. 드라이브 홈 신호가 프로그램 재실행 시 꺼진다.
+     그래서 홈 여부를 프로그램이 파일로 관리한다.
+   ★미확인★ 프로그램만 재시작할 때 드라이브 전원이 유지되는가?
+     유지되면 드라이브 위치 카운트가 살아 있어 복구가 정당하다. 착수 전 확인 필수.
+   판별식 제안: 서보 ON 후 드라이브 ActualPosition 을 저장값과 비교.
+     전 축 일치(엄격 공차) → 드라이브 전원 유지 → 복구 허용
+     하나라도 불일치 / 전 축 0 → 전원 재투입 → 복구 거부(전체 HOME)
+   필요 데이터는 이미 저장됨: MachineRuntimeState.cs:12 MachineAxisRuntimeState
+     Name/IsServoOn/IsAlarm/IsHomeDone/IsInPosition/ActualPosition/CommandPosition/AlarmCode
+   추가할 것: 정상 종료 플래그 [DataMember] (비정상 종료면 무조건 전체 HOME)
+   호출 시점을 서보 ON 직후로 이동해야 한다.
+
+ [3-D] 출력 수령 순서 캐시 무효화 보강 — 문서만 작성됨
+   docs/output-receive-cache-invalidation-prompt.txt
+   docs/output-receive-cache-invalidation-checklist.txt
+   요지: MaterialStateService.cs:2470 ResolveOutputReceiveOrderCached 의 유효성 판정이
+     "출력 WaferId 일치" 하나뿐이다. 같은 웨이퍼를 유지한 채(초기화/정지 후 재개/티칭 후)
+     레시피 빈맵이 바뀌면 stale 순서로 배치되고 알람도 안 뜬다.
+   ★프롬프트 보정 필요★ 프롬프트에 "운전 중 레시피 파일은 안 바뀐다"고 썼는데 틀렸다.
+     런타임 Bottom AutoFocus 가 SaveRecipe 를 호출한다(§4-B). 현재 설정에선 START 1회뿐이라
+     실질 영향은 작지만, AF 주기를 정상화하면 재검토가 필요하다.
+   범위 미결정: 파일 타임스탬프 자가검증(A안, 권장) vs 명시적 무효화 API(B안)
+
+ [3-E] 초기화 코드 이관 미완료 (인지만, 지금 하지 말 것)
+   Equipment/Initialization/ (7파일 6,868줄)에는 실행 엔진만 있다.
+   오케스트레이션·상태 소유권은 MachineController.cs(10,494줄)에 남아 있다(210회 참조).
+     진입점 InitializeAllAxesAsync:3052 / Core:3071 / Axis:2868 / Group:2987 /
+            PlanStep:3264 / ForMonitor:3348
+     상태   _isMachineInitialized:67 / SetMachineInitialized:715 / IsMachineInitialized:191
+     복구   TryRecoverMachineInitializedFromAxisState:1820
+     판정   AreAllAxesInitializedAndReady:1856 / VerifyInitializeCompletionSafety:1905
+     사전   VerifyFeederInitializePreflight:3177
+   ★3-A 설계 확정 후 함께 옮겨야 한 번만 헤집는다. 지금 옮기면 두 번 헤집는다.
+
+--------------------------------------------------------------------------------
+■ 4. 확인·판단 대기 항목 (사용자 결정 필요)
+
+ [4-A] 초기화 관련
+   D1. 프로그램만 재시작할 때 드라이브 전원이 유지되는가? (3-C 성립 전제)
+   D2. 위치 일치 판정 공차 (권장 0.05mm)
+   D3. 홈-인지 교체 범위 — 88곳 전부 / AxisHome 경로만 (권장 후자)
+   D4. 작업 순서 — 권장 0→1(3-C)→2(3-B)→3
+
+ [4-B] 런타임 Bottom AutoFocus 주기
+   구현은 정상이다(fail-closed, readback 검증, 보상 롤백, 예약 뮤텍스 모두 있음).
+   경로: RunAutoFocusBeforeBottomInspectionAsync (PickerBottomAndSideInspectionSequence.cs:877)
+         → PickerSequenceBase.cs:261 RunBottomRuntimeAutoFocusIfNeededAsync
+         → bestZ → Picker Z 이동 → AccumulateColletAfZOffsetFromRuntimeAf
+         → ApplyRuntimeBottomFocusPosition → SaveRecipe
+   AF Z Offset 소비 3곳(전부 ResolveColletAfZOffset 경유, 한계 초과 시 알람 중단):
+     PickTargets.cs:390   _targetPickerZ = coordinate.PickerZ + pickColletAfZOffset
+     PlaceTargets.cs:164  _targetPickerZ = coordinate.PickerZ + placeZOverDrive + placeColletAfZOffset
+     PickVerifyManual.cs:494
+   ★현재 설정이 사실상 "START 1회"★ VisionUnit.json BottomDieScan:
+     AutoFocusOnStartEnabled: true / AutoFocusOnWaferChange: false
+     AutoFocusOnPickCountEnabled: true / AutoFocusPickInterval: 1000000 (상한=사실상 끄기)
+   → 의도한 설정인지 확인 필요. 웨이퍼 교체마다 원하면 OnWaferChange:true,
+     주기적으로 원하면 Interval 을 실제 값으로. AF 1회는 수 초 걸려 UPH 에 직접 반영된다.
+
+ [4-C] 미사용 필드 BestFocusApplyOffsetMm
+   RecipeStore.cs:409 ColletZConfigSubset 안에 있는데 참조 3회 전부 자기 파일 내부
+   (선언 + NaN 보정). 읽는 곳도 쓰는 곳도 없다.
+   ResolveEffectiveOffsetMm(:430)은 Rim 오프셋만 계산하고 두께항/BestFocus 를 안 쓴다.
+   RecipeColletZApplyService 는 존재하지만 호출부가 0곳.
+   → "Best Focus 를 레시피 오프셋으로 적용" 기능이 만들다 만 상태. 뼈대는 다 있다.
+
+ [4-D] 아이콘 csproj 등록 여부 (2-F)
+
+ [4-E] 남은 택타임 항목 (사용자 판단 필요)
+   PickerFrontUnit.json / PickerRearUnit.json 의 100ms 고정 지연 5개
+     VacuumOnBeforePickDelayMs / NeedleVacuumOffSettleBeforeXYMs / PickSettleMs /
+     SyncLiftSettleMs / PlaceBlowDelayMs
+   PickUp 임계경로에 약 300ms/다이. 고정비의 73%가 BlowOff(145ms×4=580ms/사이클).
+   다이 붙음 위험이 걸린 공정값이라 임의 변경 금지.
+
+--------------------------------------------------------------------------------
+■ 5. 성능 실측치 (2026-07-28 기준)
+
+  노트북 시뮬 (현재 코드, 정체 제외):
+    08:38런  203다이  1,079 ms/die  UPH 3,337
+    09:23런 1,063다이 1,079 ms/die  UPH 3,336   ← 25분, 신뢰도 최고
+    10:08런  354다이  1,037 ms/die  UPH 3,472   ← HEAD 이후 유일한 런
+    순간 최대(UphInstant) ~3,800 / 다이 간격 중앙값 482ms
+  실장비: 100% 속도에서 3,050 UPH (원격 master = b69adc1c 기준)
+  머지 후 실장비 예상: 3,170 ~ 3,400 (중앙 약 3,250)
+  UPH 두 종류를 구분할 것:
+    UphInstant   = 3600000 / 다이당ms      (순간)
+    UphEffective = 양품수 × 3600 / 가동초  (정지시간 포함)
+  ※ 로그 정체 구간(10초 초과)은 대부분 "런 종료 직전 유휴"다. 처리율에서 빼야 한다.
+  ※ 비전은 택타임에 0을 더한다. 최종 RESULT 를 FinalResultTask 로 병렬 수집하고
+    합류(WaitBottomFinalBeforePlaceMove) 비용이 1ms다. 시뮬 RESULT 2,536ms 도 완전히 숨었다.
+  ※ 속도 스케일은 1/s 가 아니라 약 s^-0.54 로 스케일한다.
+    전 축이 가속도=속도×10 (v/a=0.1s)이라 짧은 이동은 삼각 프로파일이다.
+    7%→100% 는 14.3배가 아니라 약 4배.
+
+--------------------------------------------------------------------------------
+■ 6. 이 코드베이스의 반복 함정 (오늘 하루의 교훈)
+
+  · 같은 정보가 두 군데 있으면 조용히 한쪽이 이긴다
+      IO 주소:  AjinIoCatalog(코드) vs Setup 파일(디스크) → Setup 이 이김
+      수령순서 캐시: 로컬 구현 vs 서버 구현 → 중복 공존했다가 정리
+      인터락 의미론: 홈인지 / 좌표0=안전 / 좌표0=위험 3종 혼재
+      → 새 상태를 추가할 때 "기존에 같은 걸 들고 있는 곳"을 먼저 찾을 것
+  · 이동 후에만 유효한 상태를 이동 전에 요구하면 구조적으로 통과 불가
+      HOME 전 ActualPosition, 이동 전 IsInPosition(INP)
+  · 조건 하나를 여러 곳에서 각자 판단하면 반드시 한 곳을 빠뜨린다
+      NG 스킵이 4곳에 있었고 5번째(게이트)에서 교착
+      → 판정 함수를 하나로 모으고 그것만 부르게 할 것
+  · Release 로그가 억제되면 무언정지의 증거가 안 남는다
+      LogPolicy 가 3인자 Log.Write 를 억제한다. 블랙박스는 알람 때만 덤프한다.
+      → 진단이 필요한 자리는 LogLevel 오버로드를 쓸 것
+  · 머지가 조용히 되돌린다 (오늘 §0)
+      → 작업 후 반드시 grep 으로 생존 확인. 특히 신규 파일과 삭제성 변경.
+
+--------------------------------------------------------------------------------
+■ 7. 참고 문서
+
+  QMC.CDT-320/Sequencing/SEQUENCE_MAP.md          시퀀스 리뷰 진입점
+  docs/machine-initialize-prompt.txt / -checklist.txt        전체 초기화 (3-A)
+  docs/output-receive-cache-invalidation-prompt.txt / -checklist.txt  캐시 (3-D)
+  docs/lot-id-management-implementation-prompt.txt / -validation-checklist.txt  LOT
+================================================================================
