@@ -1654,6 +1654,56 @@ namespace QMC.CDT320
         }
 
         /// <summary>
+        /// Ready 모션 전에 InputStage/InputFeeder의 활성 wafer와 원본 Cassette/Slot Material 정합성을 확인한다.
+        /// 원본을 식별할 수 없는 상태에서 자동 시퀀스를 시작하면 Input/Picker가 서로 완료 신호만 기다릴 수 있으므로
+        /// 자동 복구하거나 임의 데이터를 만들지 않고 Error Alarm으로 시작을 차단한다.
+        /// </summary>
+        private bool EnsureActiveInputWaferSourceForAutoStart(string source)
+        {
+            try
+            {
+                string reason;
+                if (MaterialStateService.TryValidateActiveInputWaferSourceState(out reason))
+                    return true;
+
+                LastActionFailureMessage =
+                    "InputStage/InputFeeder 제품의 원본 Cassette/Slot 정보를 확인할 수 없습니다. " +
+                    reason +
+                    " Material 데이터를 실제 장비 상태와 일치시킨 후 다시 START 하십시오.";
+                QMC.Common.Log.Write(
+                    "Main",
+                    "SYSTEM",
+                    source,
+                    "Auto start blocked by active Input wafer source Material mismatch. " +
+                    LastActionFailureMessage + " - Failed");
+                AlarmManager.Raise(
+                    AlarmSeverity.Error,
+                    "START-IN-MATERIAL-SOURCE-NOT-READY",
+                    "Material",
+                    LastActionFailureMessage);
+                Log("[START] failed: active Input wafer source Material mismatch. " + reason);
+                return false;
+            }
+            catch (Exception ex)
+            {
+                LastActionFailureMessage =
+                    "START 전 활성 Input wafer 원본 Material 확인 중 예외가 발생했습니다. " + ex.Message;
+                QMC.Common.Log.Write(
+                    "Main",
+                    "SYSTEM",
+                    source,
+                    LastActionFailureMessage + " - Failed");
+                AlarmManager.Raise(
+                    AlarmSeverity.Error,
+                    "START-IN-MATERIAL-SOURCE-CHECK-EX",
+                    "Material",
+                    LastActionFailureMessage);
+                Log("[START] failed: active Input wafer source Material check exception. " + ex.Message);
+                return false;
+            }
+        }
+
+        /// <summary>
         /// 자동 운전 시작 전 활성 LOT 확인.
         /// [사용자 확정 2026-07-27] 활성 LOT이 없으면 자동 운전을 시작하지 않는다.
         /// 임시 LOT을 자동 생성하지 않는다 — 어떤 LOT으로 생산했는지 불명확해지는 것을 막기 위함.
@@ -5913,6 +5963,11 @@ namespace QMC.CDT320
                 }
 
                 if (!EnsureMachineInitializedForRun("StartAsync"))
+                    return -1;
+
+                // Stage/Feeder에 남은 Input wafer의 원본 Cassette 정보를 식별할 수 없으면
+                // Ready 모션 전에 Alarm으로 차단한다. START에서 Material을 임의 생성/복원하지 않는다.
+                if (!EnsureActiveInputWaferSourceForAutoStart("StartAsync"))
                     return -1;
 
                 // Ready 시퀀스(모션)보다 먼저 확인한다 — LOT이 없으면 축을 움직이지 않고 바로 막는다.

@@ -1151,7 +1151,18 @@ namespace QMC.CDT320.Sequencing
                 {
                     _autoSlotIndex = ResolveSlotIndexFromWafer(stageWafer);
                     _autoWaferId = stageWafer.WaferId ?? "";
-                    RestoreActiveInputWaferSourceSlotProjection(stageWafer, "InputStageRestore");
+                    string sourceRestoreReason;
+                    if (!TryRestoreActiveInputWaferSourceSlotProjection(
+                        stageWafer,
+                        "InputStageRestore",
+                        out sourceRestoreReason))
+                    {
+                        Fail(
+                            "SEQ-IN-ACTIVE-WAFER-SOURCE",
+                            "InputSequence",
+                            sourceRestoreReason);
+                        throw new StepAlreadyAlarmedException(sourceRestoreReason);
+                    }
                     _autoStep = ResolveStageWaferResumeStep(stageWafer);
 
                     // 재개 안전(Align-into-Feeder 충돌 방지):
@@ -1192,7 +1203,18 @@ namespace QMC.CDT320.Sequencing
                 {
                     _autoSlotIndex = ResolveSlotIndexFromWafer(feederWafer);
                     _autoWaferId = feederWafer.WaferId ?? "";
-                    RestoreActiveInputWaferSourceSlotProjection(feederWafer, "InputFeederRestore");
+                    string sourceRestoreReason;
+                    if (!TryRestoreActiveInputWaferSourceSlotProjection(
+                        feederWafer,
+                        "InputFeederRestore",
+                        out sourceRestoreReason))
+                    {
+                        Fail(
+                            "SEQ-IN-ACTIVE-WAFER-SOURCE",
+                            "InputSequence",
+                            sourceRestoreReason);
+                        throw new StepAlreadyAlarmedException(sourceRestoreReason);
+                    }
 
                     if (IsFeederWaferMidUnload(feederWafer))
                     {
@@ -1227,6 +1249,10 @@ namespace QMC.CDT320.Sequencing
                     "Input sequence restored from cassette state. step=" + _autoStep +
                     ", positions=" + BuildAutoResumePositionSummary() +
                     " - Ok");
+            }
+            catch (StepAlreadyAlarmedException)
+            {
+                throw;
             }
             catch (Exception ex)
             {
@@ -1460,20 +1486,24 @@ namespace QMC.CDT320.Sequencing
             return -1;
         }
 
-        private void RestoreActiveInputWaferSourceSlotProjection(WaferMaterial wafer, string restoreContext)
+        private bool TryRestoreActiveInputWaferSourceSlotProjection(
+            WaferMaterial wafer,
+            string restoreContext,
+            out string reason)
         {
             try
             {
-                if (wafer == null ||
-                    wafer.CurrentLocation == null ||
-                    (wafer.CurrentLocation.Kind != MaterialLocationKind.InputStage &&
-                     wafer.CurrentLocation.Kind != MaterialLocationKind.InputFeeder) ||
-                    (wafer.SourceCassetteRole != CassetteMaterialRole.Input1 &&
-                     wafer.SourceCassetteRole != CassetteMaterialRole.Input2) ||
-                    wafer.SourceSlotNumber < 0 ||
-                    WaferMaterialStateText.Normalize(wafer.State) == WaferMaterialState.Empty)
+                reason = "";
+                string materialReason;
+                if (!MaterialStateService.TryValidateActiveInputWaferSourceState(
+                    wafer,
+                    out materialReason))
                 {
-                    return;
+                    reason = "활성 Input wafer의 원본 Cassette/Slot 정보가 유효하지 않습니다. context=" +
+                             (restoreContext ?? "") +
+                             ", detail=" + materialReason;
+                    WriteLog("RestoreInputSourceSlot", reason + " - Failed");
+                    return false;
                 }
 
                 CassetteMaterial cassetteMaterial = MaterialStateService.State != null &&
@@ -1491,12 +1521,17 @@ namespace QMC.CDT320.Sequencing
                         (restoreContext ?? "") +
                         ", wafer=" + (wafer.WaferId ?? "") +
                         ", role=" + wafer.SourceCassetteRole +
-                        ", slot=" + wafer.SourceSlotNumber + " - Check");
-                    return;
+                        ", slot=" + wafer.SourceSlotNumber + " - Failed");
+                    reason = "활성 Input wafer의 원본 Cassette Material mapping이 유효하지 않습니다. context=" +
+                             (restoreContext ?? "") +
+                             ", wafer=" + (wafer.WaferId ?? "") +
+                             ", role=" + wafer.SourceCassetteRole +
+                             ", slot=" + wafer.SourceSlotNumber;
+                    return false;
                 }
 
-                cassetteMaterial.EnsureSlots();
-                if (wafer.SourceSlotNumber >= cassetteMaterial.Slots.Count)
+                if (cassetteMaterial.Slots == null ||
+                    wafer.SourceSlotNumber >= cassetteMaterial.Slots.Count)
                 {
                     WriteLog("RestoreInputSourceSlot",
                         "Active wafer source slot projection restore skipped because source slot is out of range. context=" +
@@ -1504,8 +1539,17 @@ namespace QMC.CDT320.Sequencing
                         ", wafer=" + (wafer.WaferId ?? "") +
                         ", role=" + wafer.SourceCassetteRole +
                         ", slot=" + wafer.SourceSlotNumber +
-                        ", slotCount=" + cassetteMaterial.Slots.Count + " - Failed");
-                    return;
+                        ", slotCount=" +
+                        (cassetteMaterial.Slots != null ? cassetteMaterial.Slots.Count : 0) +
+                        " - Failed");
+                    reason = "활성 Input wafer의 원본 Slot이 Material 범위를 벗어났습니다. context=" +
+                             (restoreContext ?? "") +
+                             ", wafer=" + (wafer.WaferId ?? "") +
+                             ", role=" + wafer.SourceCassetteRole +
+                             ", slot=" + wafer.SourceSlotNumber +
+                             ", slotCount=" +
+                             (cassetteMaterial.Slots != null ? cassetteMaterial.Slots.Count : 0);
+                    return false;
                 }
 
                 CassetteSlotMaterial sourceSlot = cassetteMaterial.Slots[wafer.SourceSlotNumber];
@@ -1528,7 +1572,13 @@ namespace QMC.CDT320.Sequencing
                         ", slotHasWafer=" + (sourceSlot != null && sourceSlot.HasWafer) +
                         ", role=" + wafer.SourceCassetteRole +
                         ", slot=" + wafer.SourceSlotNumber + " - Failed");
-                    return;
+                    reason = "활성 Input wafer의 원본 Slot이 다른 wafer 정보로 점유되어 있습니다. context=" +
+                             (restoreContext ?? "") +
+                             ", activeWafer=" + (wafer.WaferId ?? "") +
+                             ", cassetteWafer=" + (cassetteWafer != null ? cassetteWafer.WaferId : "") +
+                             ", role=" + wafer.SourceCassetteRole +
+                             ", slot=" + wafer.SourceSlotNumber;
+                    return false;
                 }
 
                 InputCassetteUnit cassette = Context != null && Context.Machine != null
@@ -1538,7 +1588,15 @@ namespace QMC.CDT320.Sequencing
                     cassette.Config == null ||
                     wafer.SourceSlotNumber >= cassette.Config.SlotCount)
                 {
-                    return;
+                    reason = "활성 Input wafer의 원본 Slot을 Unit projection에 복원할 수 없습니다. context=" +
+                             (restoreContext ?? "") +
+                             ", wafer=" + (wafer.WaferId ?? "") +
+                             ", role=" + wafer.SourceCassetteRole +
+                             ", slot=" + wafer.SourceSlotNumber +
+                             ", unitNull=" + (cassette == null) +
+                             ", configNull=" + (cassette == null || cassette.Config == null);
+                    WriteLog("RestoreInputSourceSlot", reason + " - Failed");
+                    return false;
                 }
 
                 int cassetteLevel = InputCassetteUnit.ResolveCassetteLevel(wafer.SourceCassetteRole);
@@ -1554,7 +1612,7 @@ namespace QMC.CDT320.Sequencing
                     previousState.Presence == SlotPresence.Exist &&
                     previousState.Process == ProcessState.Processing)
                 {
-                    return;
+                    return true;
                 }
 
                 // 기존 조건: Presence != Empty 이면 모두 차단 - 앱 재시작 직후 Unit projection의 초기값이
@@ -1577,7 +1635,14 @@ namespace QMC.CDT320.Sequencing
                         ", slot=" + wafer.SourceSlotNumber +
                         ", presence=" + previousState.Presence +
                         ", process=" + previousState.Process + " - Failed");
-                    return;
+                    reason = "활성 Input wafer의 원본 Unit Slot이 이미 점유되어 복원할 수 없습니다. context=" +
+                             (restoreContext ?? "") +
+                             ", wafer=" + (wafer.WaferId ?? "") +
+                             ", role=" + wafer.SourceCassetteRole +
+                             ", slot=" + wafer.SourceSlotNumber +
+                             ", presence=" + previousState.Presence +
+                             ", process=" + previousState.Process;
+                    return false;
                 }
 
                 // 앱 재시작 시 Unit의 휘발성 slot projection은 사라지지만(Unknown), 저장된 active Material과
@@ -1599,16 +1664,16 @@ namespace QMC.CDT320.Sequencing
                     ", previousPresence=" + (previousState != null ? previousState.Presence.ToString() : "null") +
                     ", previousProcess=" + (previousState != null ? previousState.Process.ToString() : "null") +
                     ", restoredProcess=" + ProcessState.Processing + " - Check");
+                return true;
             }
             catch (Exception ex)
             {
-                WriteLog("RestoreInputSourceSlot",
-                    "Active wafer source slot projection restore failed. context=" + (restoreContext ?? "") +
-                    ", wafer=" + (wafer != null ? wafer.WaferId : "") +
-                    ", error=" + ex.Message + " - Failed");
-            }
-            finally
-            {
+                reason = "활성 Input wafer 원본 Slot projection 복원 중 예외가 발생했습니다. context=" +
+                         (restoreContext ?? "") +
+                         ", wafer=" + (wafer != null ? wafer.WaferId : "") +
+                         ", error=" + ex.Message;
+                WriteLog("RestoreInputSourceSlot", reason + " - Failed");
+                return false;
             }
         }
 

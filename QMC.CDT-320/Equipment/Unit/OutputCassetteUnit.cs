@@ -308,10 +308,11 @@ namespace QMC.CDT320
         {
             base.LoadSettings();
 
+            // 근디.. 여기를 막아 버려야 하는게 맞겠다.. 
             // X088은 정상 시 물리 ON, 링 돌출 시 물리 OFF로 들어오는 NC 센서다.
             // 과거 개별 Setup 파일의 NO 설정이 카탈로그 극성을 되덮지 않도록 이 신호만 재확정한다.
-            if (BinRingJutCheck != null && BinRingJutCheck.Setup != null)
-                BinRingJutCheck.Setup.IsNormallyClosed = false;
+            //if (BinRingJutCheck != null && BinRingJutCheck.Setup != null)
+            //    BinRingJutCheck.Setup.IsNormallyClosed = false;
         }
 
         public void BindMachine(CDT320_Machine machine)

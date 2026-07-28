@@ -1705,6 +1705,203 @@ namespace QMC.CDT320.Materials
                 WaferMaterialStateText.Normalize(w.State) != WaferMaterialState.Empty);
         }
 
+        /// <summary>
+        /// START/재개 전에 InputStage 또는 InputFeeder에 남아 있는 활성 wafer의 원본 Input cassette/slot
+        /// Material이 안전하게 식별 가능한지 확인한다. 원본 slot은 wafer가 장비 안으로 이동한 동안 비어 있는
+        /// 것이 정상이므로 Empty는 허용하고, 미매핑/범위 오류/다른 wafer 점유만 실패로 처리한다.
+        /// </summary>
+        public static bool TryValidateActiveInputWaferSourceState(out string reason)
+        {
+            lock (_stateSync)
+            {
+                reason = "";
+                if (State == null || State.Wafers == null || State.Cassettes == null)
+                {
+                    reason = "Material snapshot이 초기화되지 않았습니다.";
+                    return false;
+                }
+
+                List<WaferMaterial> activeWafers = State.Wafers
+                    .Where(w =>
+                        w != null &&
+                        w.CurrentLocation != null &&
+                        (w.CurrentLocation.Kind == MaterialLocationKind.InputStage ||
+                         w.CurrentLocation.Kind == MaterialLocationKind.InputFeeder) &&
+                        WaferMaterialStateText.Normalize(w.State) != WaferMaterialState.Empty)
+                    .ToList();
+
+                foreach (WaferMaterial wafer in activeWafers)
+                {
+                    if (!TryValidateActiveInputWaferSourceStateNoLock(wafer, out reason))
+                        return false;
+                }
+
+                return true;
+            }
+        }
+
+        public static bool TryValidateActiveInputWaferSourceState(WaferMaterial wafer, out string reason)
+        {
+            lock (_stateSync)
+            {
+                return TryValidateActiveInputWaferSourceStateNoLock(wafer, out reason);
+            }
+        }
+
+        private static bool TryValidateActiveInputWaferSourceStateNoLock(
+            WaferMaterial wafer,
+            out string reason)
+        {
+            reason = "";
+            if (State == null || State.Wafers == null || State.Cassettes == null)
+            {
+                reason = "Material snapshot이 초기화되지 않았습니다.";
+                return false;
+            }
+
+            if (wafer == null)
+            {
+                reason = "활성 Input wafer Material이 null입니다.";
+                return false;
+            }
+
+            string waferId = string.IsNullOrWhiteSpace(wafer.WaferId) ? "(없음)" : wafer.WaferId.Trim();
+            MaterialLocationKind location = wafer.CurrentLocation != null
+                ? wafer.CurrentLocation.Kind
+                : MaterialLocationKind.Unknown;
+            if (location != MaterialLocationKind.InputStage &&
+                location != MaterialLocationKind.InputFeeder)
+            {
+                reason = "활성 Input wafer 위치가 Stage/Feeder가 아닙니다. wafer=" + waferId +
+                         ", location=" + location;
+                return false;
+            }
+
+            if (WaferMaterialStateText.Normalize(wafer.State) == WaferMaterialState.Empty)
+            {
+                reason = "활성 Input wafer 상태가 Empty입니다. wafer=" + waferId +
+                         ", location=" + location;
+                return false;
+            }
+
+            if (string.IsNullOrWhiteSpace(wafer.WaferId))
+            {
+                reason = "활성 Input wafer ID가 없습니다. location=" + location;
+                return false;
+            }
+
+            if (wafer.SourceCassetteRole != CassetteMaterialRole.Input1 &&
+                wafer.SourceCassetteRole != CassetteMaterialRole.Input2)
+            {
+                reason = "활성 Input wafer의 원본 Cassette 역할이 유효하지 않습니다. wafer=" + waferId +
+                         ", location=" + location +
+                         ", sourceRole=" + wafer.SourceCassetteRole;
+                return false;
+            }
+
+            if (wafer.SourceSlotNumber < 0)
+            {
+                reason = "활성 Input wafer의 원본 Slot 정보가 없습니다. wafer=" + waferId +
+                         ", location=" + location +
+                         ", sourceRole=" + wafer.SourceCassetteRole +
+                         ", sourceSlot=" + wafer.SourceSlotNumber;
+                return false;
+            }
+
+            CassetteMaterial cassette = State.Cassettes.FirstOrDefault(c =>
+                c != null && c.Role == wafer.SourceCassetteRole);
+            if (cassette == null)
+            {
+                reason = "활성 Input wafer의 원본 Cassette Material이 없습니다. wafer=" + waferId +
+                         ", location=" + location +
+                         ", source=" + wafer.SourceCassetteRole + "/S" +
+                         (wafer.SourceSlotNumber + 1).ToString("00");
+                return false;
+            }
+
+            if (!cassette.IsEnabled || !cassette.IsPresent || !cassette.IsMapped)
+            {
+                reason = "활성 Input wafer의 원본 Cassette가 운전 가능한 상태가 아닙니다. wafer=" + waferId +
+                         ", location=" + location +
+                         ", source=" + wafer.SourceCassetteRole + "/S" +
+                         (wafer.SourceSlotNumber + 1).ToString("00") +
+                         ", enabled=" + cassette.IsEnabled +
+                         ", present=" + cassette.IsPresent +
+                         ", mapped=" + cassette.IsMapped;
+                return false;
+            }
+
+            if (!string.IsNullOrWhiteSpace(wafer.SourceCassetteId) &&
+                !string.IsNullOrWhiteSpace(cassette.CassetteId) &&
+                !string.Equals(
+                    wafer.SourceCassetteId.Trim(),
+                    cassette.CassetteId.Trim(),
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                reason = "활성 Input wafer의 원본 Cassette ID가 현재 Cassette와 다릅니다. wafer=" + waferId +
+                         ", location=" + location +
+                         ", sourceCassetteId=" + wafer.SourceCassetteId +
+                         ", currentCassetteId=" + cassette.CassetteId +
+                         ", sourceRole=" + wafer.SourceCassetteRole;
+                return false;
+            }
+
+            if (cassette.SlotCount <= 0 ||
+                wafer.SourceSlotNumber >= cassette.SlotCount ||
+                cassette.Slots == null ||
+                wafer.SourceSlotNumber >= cassette.Slots.Count)
+            {
+                reason = "활성 Input wafer의 원본 Slot이 Cassette 범위를 벗어났습니다. wafer=" + waferId +
+                         ", location=" + location +
+                         ", source=" + wafer.SourceCassetteRole + "/S" +
+                         (wafer.SourceSlotNumber + 1).ToString("00") +
+                         ", slotCount=" + cassette.SlotCount +
+                         ", materialSlotCount=" + (cassette.Slots != null ? cassette.Slots.Count : 0);
+                return false;
+            }
+
+            CassetteSlotMaterial sourceSlot = cassette.Slots[wafer.SourceSlotNumber];
+            if (sourceSlot == null)
+            {
+                reason = "활성 Input wafer의 원본 Slot Material이 null입니다. wafer=" + waferId +
+                         ", source=" + wafer.SourceCassetteRole + "/S" +
+                         (wafer.SourceSlotNumber + 1).ToString("00");
+                return false;
+            }
+
+            if (sourceSlot.HasWafer || !string.IsNullOrWhiteSpace(sourceSlot.WaferId))
+            {
+                reason = "활성 Input wafer의 원본 Slot에 다른 Cassette wafer 정보가 남아 있습니다. wafer=" +
+                         waferId +
+                         ", location=" + location +
+                         ", source=" + wafer.SourceCassetteRole + "/S" +
+                         (wafer.SourceSlotNumber + 1).ToString("00") +
+                         ", slotHasWafer=" + sourceSlot.HasWafer +
+                         ", slotWaferId=" + (sourceSlot.WaferId ?? "");
+                return false;
+            }
+
+            WaferMaterial conflictingWafer = State.Wafers.FirstOrDefault(w =>
+                w != null &&
+                !ReferenceEquals(w, wafer) &&
+                w.CurrentLocation != null &&
+                w.CurrentLocation.Kind == MaterialLocationKind.InputCassette &&
+                w.CurrentLocation.CassetteRole == wafer.SourceCassetteRole &&
+                w.CurrentLocation.SlotNumber == wafer.SourceSlotNumber &&
+                WaferMaterialStateText.Normalize(w.State) != WaferMaterialState.Empty);
+            if (conflictingWafer != null)
+            {
+                reason = "활성 Input wafer의 원본 Slot을 다른 wafer 위치 정보가 점유하고 있습니다. wafer=" +
+                         waferId +
+                         ", conflictingWafer=" + (conflictingWafer.WaferId ?? "") +
+                         ", source=" + wafer.SourceCassetteRole + "/S" +
+                         (wafer.SourceSlotNumber + 1).ToString("00");
+                return false;
+            }
+
+            return true;
+        }
+
         public static WaferMaterial CreateWaferAtLocation(MaterialLocationKind kind, string waferId, WaferMaterialState state)
         {
             var wafer = GetOrCreateWafer(waferId);
