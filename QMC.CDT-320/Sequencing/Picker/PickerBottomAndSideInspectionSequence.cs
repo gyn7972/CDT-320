@@ -350,13 +350,21 @@ namespace QMC.CDT320.Sequencing
             //   노출 — 레시피 화면 BOTTOM MOTION SETTING 그룹에서 켜고 끈다.
             _parallelFirstSideEnabled = ResolveBottomInspectionMotionConfig().ParallelFirstSideOverlap;
 
+            // 기존 조건: 고정 PickerY 기준을 "보유 중 최상위 피커"(_pickedPickerIndexes[0])의
+            //   DieBottomPosition Y로 잡았다 — 보유 조합에 따라 기준이 바뀌어, 같은 다이라도
+            //   4개 배치(P4 기준)와 1개 배치(P1/P2 기준)에서 촬영 Y가 달라졌다
+            //   (실측 2026-07-28: Front P4=36.264 / P1=36.497 → 0.233mm, Rear P2=-32.449 → 0.550mm).
+            // 현재 기준(사용자 승인 2026-07-28): 보유 조합과 무관하게 항상 P4의 Y를 기준으로 고정한다.
+            //   PickerY는 4헤드 공용 축이므로 P4 미보유·비활성 조합에서도 좌표 자체는 유효하다.
             int firstPickerIndex = _pickedPickerIndexes[0];
-            _inspectionFixedY = ResolvePickerZoneY("DieBottomPosition", firstPickerIndex);
+            int fixedYReferenceIndex = ToPickerIndex(4);
+            _inspectionFixedY = ResolvePickerZoneY("DieBottomPosition", fixedYReferenceIndex);
             if (!IsExpectedProcessYDirection(_inspectionFixedY))
             {
                 return Fail("PICKER-BOTTOM-SIDE-FIXED-Y", Name,
                     "Bottom P4부터 Side 종료까지 유지할 PickerY 기준값이 올바르지 않습니다. " +
                     "side=" + Side +
+                    ", fixedYSource=P" + ToPickerNo(fixedYReferenceIndex) + "(고정)" +
                     ", firstPickerNo=" + ToPickerNo(firstPickerIndex) +
                     ", fixedY=" + _inspectionFixedY.ToString("F6") +
                     ", expectedDirection=" + ResolveProcessYDirectionName() + ".");
@@ -372,6 +380,8 @@ namespace QMC.CDT320.Sequencing
                 "Bottom은 EPD까지만 받고, Side 0도 직전에 해당 Picker MRESULT를 확인합니다. " +
                 "loadedPickers=" + BuildPickerNoListText(_pickedPickerIndexes) +
                 ", fixedY=" + _inspectionFixedY.ToString("F6") +
+                ", fixedYSource=P" + ToPickerNo(fixedYReferenceIndex) + "(고정, 보유 조합 무관)" +
+                ", firstPickerNo=" + ToPickerNo(firstPickerIndex) +
                 ", specialBottomP1SideP4Overlap=" + _parallelFirstSideEnabled + " - Check");
 
             WriteLog("PickerBottomAndSideInspectionSequence",
