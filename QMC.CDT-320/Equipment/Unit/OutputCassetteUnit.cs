@@ -311,7 +311,7 @@ namespace QMC.CDT320
             // X088은 정상 시 물리 ON, 링 돌출 시 물리 OFF로 들어오는 NC 센서다.
             // 과거 개별 Setup 파일의 NO 설정이 카탈로그 극성을 되덮지 않도록 이 신호만 재확정한다.
             if (BinRingJutCheck != null && BinRingJutCheck.Setup != null)
-                BinRingJutCheck.Setup.IsNormallyClosed = true;
+                BinRingJutCheck.Setup.IsNormallyClosed = false;
         }
 
         public void BindMachine(CDT320_Machine machine)
@@ -1153,7 +1153,10 @@ namespace QMC.CDT320
             return IsDryRunInput(NgBinCassetteLock) || NgBinCassetteLock.IsOn;
         }
         public bool IsBinProtrusionDetectionSensor() { return IsBinProtrusionDetected(); }
-        public bool IsBinProtrusionDetected() { return !IsDryRunInput(BinRingJutCheck) && BinRingJutCheck.IsOn; }
+        public bool IsBinProtrusionDetected()
+        {
+            return !IsDryRunInput(BinRingJutCheck) && BinRingJutCheck.IsOn;
+        }
         public bool IsBinMapping() { return !IsDryRunInput(BinMappingSensor) && BinMappingSensor.IsOn; }
 
         private static bool IsDryRunInput(BaseDigitalInput input)

@@ -621,6 +621,15 @@ namespace QMC.CDT320.Sequencing
                         "Output cassette mapping 결과를 반영할 수 있는 side가 없습니다. goodReason=" + goodReason +
                         ", ngReason=" + ngReason);
 
+                string recoveryReason;
+                bool recoverDetachedWorkingMaterial =
+                    CanRecoverDetachedWorkingOutputMaterial(out recoveryReason);
+                WriteLog(
+                    "RegisterMappingResult",
+                    "Output cassette detached material recovery permission=" +
+                    recoverDetachedWorkingMaterial +
+                    ", reason=" + recoveryReason + " - Check");
+
                 MaterialStateService.UpdateOutputCassetteMappingSelective(
                     updateGood,
                     updateNg,
@@ -633,7 +642,8 @@ namespace QMC.CDT320.Sequencing
                     BuildSlotPositions(cassette, TargetCassette.Good2),
                     BuildSlotPositions(cassette, TargetCassette.Ng),
                     MaterialStateService.GetProductionLotId(),
-                    MaterialStateService.ResolveRecipeTapeFrameSpecName(cassette.Config != null ? cassette.Config.InchSelect : 0));
+                    MaterialStateService.ResolveRecipeTapeFrameSpecName(cassette.Config != null ? cassette.Config.InchSelect : 0),
+                    recoverDetachedWorkingMaterial);
                 WriteLog("RegisterMappingResult",
                     "Output cassette mapping result registered. updateGood=" + updateGood +
                     ", goodReason=" + goodReason +
@@ -701,6 +711,87 @@ namespace QMC.CDT320.Sequencing
             }
             finally
             {
+            }
+        }
+
+        private bool CanRecoverDetachedWorkingOutputMaterial(out string reason)
+        {
+            try
+            {
+                if (IsHardwareBypassed())
+                {
+                    reason = "Simulation/DryRun/IgnoreSensor에서는 Material 자동 정리를 허용하지 않습니다.";
+                    return false;
+                }
+
+                var machine = Context != null ? Context.Machine : null;
+                var feeder = machine != null ? machine.OutputFeederUnit : null;
+                var stage = machine != null ? machine.OutputStageUnit : null;
+                if (feeder == null || stage == null)
+                {
+                    reason = "OutputFeeder 또는 OutputStage Unit이 없습니다.";
+                    return false;
+                }
+
+                if (!feeder.IsFeederEmpty())
+                {
+                    reason = "OutputFeeder가 물리 센서와 Material 데이터 모두 Empty가 아닙니다.";
+                    return false;
+                }
+
+                if (stage.GoodBinRingSensor == null || stage.NgBinRingSensor == null)
+                {
+                    reason = "OutputStage Ring 감지 센서를 확인할 수 없습니다.";
+                    return false;
+                }
+
+                if (stage.GoodBinRingSensor.IsOn || stage.NgBinRingSensor.IsOn)
+                {
+                    reason = "OutputStage에 Ring 감지 신호가 있습니다. goodRing=" +
+                             stage.GoodBinRingSensor.IsOn +
+                             ", ngRing=" + stage.NgBinRingSensor.IsOn;
+                    return false;
+                }
+
+                WaferMaterial goodStageWafer =
+                    MaterialStateService.GetWaferAtLocation(MaterialLocationKind.OutputStageGood);
+                WaferMaterial ngStageWafer =
+                    MaterialStateService.GetWaferAtLocation(MaterialLocationKind.OutputStageNg);
+                WaferMaterial feederWafer =
+                    MaterialStateService.GetWaferAtLocation(MaterialLocationKind.OutputFeeder);
+                if (goodStageWafer != null || ngStageWafer != null || feederWafer != null)
+                {
+                    reason = "OutputStage/Feeder Material 데이터가 Empty가 아닙니다. good=" +
+                             (goodStageWafer != null ? goodStageWafer.WaferId : "-") +
+                             ", ng=" + (ngStageWafer != null ? ngStageWafer.WaferId : "-") +
+                             ", feeder=" + (feederWafer != null ? feederWafer.WaferId : "-");
+                    return false;
+                }
+
+                for (int pickerNo = 1; pickerNo <= 4; pickerNo++)
+                {
+                    DieMaterial frontDie = MaterialStateService.GetDieAtPicker(
+                        MaterialLocationKind.PickerFront,
+                        pickerNo);
+                    DieMaterial rearDie = MaterialStateService.GetDieAtPicker(
+                        MaterialLocationKind.PickerRear,
+                        pickerNo);
+                    if (frontDie != null || rearDie != null)
+                    {
+                        reason = "Picker에 Die Material 데이터가 있습니다. pickerNo=" + pickerNo +
+                                 ", front=" + (frontDie != null ? frontDie.DieId : "-") +
+                                 ", rear=" + (rearDie != null ? rearDie.DieId : "-");
+                        return false;
+                    }
+                }
+
+                reason = "OutputStage Good/NG와 OutputFeeder의 물리 센서 및 Material 데이터가 Empty이고 Picker Die 데이터도 없습니다.";
+                return true;
+            }
+            catch (Exception ex)
+            {
+                reason = "복구 허용 조건 확인 중 예외가 발생했습니다. error=" + ex.Message;
+                return false;
             }
         }
 

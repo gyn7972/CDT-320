@@ -940,7 +940,8 @@ namespace QMC.CDT320.Materials
             IReadOnlyList<double> good2SlotPositions,
             IReadOnlyList<double> ngSlotPositions,
             string cassetteLotId,
-            string tapeFrameSpecName)
+            string tapeFrameSpecName,
+            bool recoverDetachedWorkingMaterial)
         {
             if (goodLevelCount < 1) goodLevelCount = 1;
             if (goodLevelCount > 2) goodLevelCount = 2;
@@ -959,12 +960,45 @@ namespace QMC.CDT320.Materials
                 string resolvedLotId = ResolveOrCreateCassetteMappingLotId(cassetteLotId, lotRoles.ToArray());
                 if (updateGood)
                 {
-                    ValidateCassetteMappingRequest(CassetteMaterialRole.Good1, true, slotCount, good1Map, good1SlotPositions);
-                    ValidateCassetteMappingRequest(CassetteMaterialRole.Good2, goodLevelCount >= 2, slotCount, good2Map, good2SlotPositions);
+                    ValidateCassetteMappingRequest(
+                        CassetteMaterialRole.Good1,
+                        true,
+                        slotCount,
+                        good1Map,
+                        good1SlotPositions,
+                        recoverDetachedWorkingMaterial);
+                    ValidateCassetteMappingRequest(
+                        CassetteMaterialRole.Good2,
+                        goodLevelCount >= 2,
+                        slotCount,
+                        good2Map,
+                        good2SlotPositions,
+                        recoverDetachedWorkingMaterial);
                 }
 
                 if (updateNg)
-                    ValidateCassetteMappingRequest(CassetteMaterialRole.Ng1, true, slotCount, ngMap, ngSlotPositions);
+                {
+                    ValidateCassetteMappingRequest(
+                        CassetteMaterialRole.Ng1,
+                        true,
+                        slotCount,
+                        ngMap,
+                        ngSlotPositions,
+                        recoverDetachedWorkingMaterial);
+                }
+
+                if (recoverDetachedWorkingMaterial)
+                {
+                    if (updateGood)
+                    {
+                        RemoveDetachedWorkingOutputMaterialForMapping(CassetteMaterialRole.Good1);
+                        if (goodLevelCount >= 2)
+                            RemoveDetachedWorkingOutputMaterialForMapping(CassetteMaterialRole.Good2);
+                    }
+
+                    if (updateNg)
+                        RemoveDetachedWorkingOutputMaterialForMapping(CassetteMaterialRole.Ng1);
+                }
 
                 if (updateGood)
                 {
@@ -7891,7 +7925,8 @@ namespace QMC.CDT320.Materials
             bool enabled,
             int slotCount,
             IReadOnlyList<bool> map,
-            IReadOnlyList<double> slotPositions)
+            IReadOnlyList<double> slotPositions,
+            bool recoverDetachedWorkingMaterial = false)
         {
             if (slotCount <= 0)
                 throw new InvalidOperationException("Cassette SlotCount가 유효하지 않습니다. cassette=" + role + ", slotCount=" + slotCount);
@@ -7994,6 +8029,12 @@ namespace QMC.CDT320.Materials
                                         location.SlotNumber == wafer.SourceSlotNumber;
                 if (!atSourceCassette)
                 {
+                    if (recoverDetachedWorkingMaterial &&
+                        IsDetachedWorkingOutputMaterial(wafer, role))
+                    {
+                        continue;
+                    }
+
                     throw new InvalidOperationException("공정 중 자재가 cassette 밖에 있어 재매핑할 수 없습니다. cassette=" + role +
                                                         ", wafer=" + wafer.WaferId +
                                                         ", sourceSlot=" + (wafer.SourceSlotNumber + 1) +
@@ -8336,6 +8377,53 @@ namespace QMC.CDT320.Materials
             return role == CassetteMaterialRole.Good1 ||
                    role == CassetteMaterialRole.Good2 ||
                    role == CassetteMaterialRole.Ng1;
+        }
+
+        private static bool IsDetachedWorkingOutputMaterial(
+            WaferMaterial wafer,
+            CassetteMaterialRole role)
+        {
+            if (wafer == null ||
+                !IsOutputCassetteRole(role) ||
+                wafer.SourceCassetteRole != role ||
+                WaferMaterialStateText.Normalize(wafer.State) != WaferMaterialState.Working)
+            {
+                return false;
+            }
+
+            return wafer.CurrentLocation == null ||
+                   wafer.CurrentLocation.Kind == MaterialLocationKind.Unknown;
+        }
+
+        private static void RemoveDetachedWorkingOutputMaterialForMapping(
+            CassetteMaterialRole role)
+        {
+            List<WaferMaterial> staleWafers = State.Wafers
+                .Where(w => IsDetachedWorkingOutputMaterial(w, role))
+                .ToList();
+
+            foreach (WaferMaterial wafer in staleWafers)
+            {
+                string waferId = wafer.WaferId ?? string.Empty;
+                int sourceSlot = wafer.SourceSlotNumber;
+                int removedDieCount = State.Dies.RemoveAll(d =>
+                    d != null &&
+                    (string.Equals(d.WaferID_Input, waferId, StringComparison.OrdinalIgnoreCase) ||
+                     string.Equals(d.WaferID_Output, waferId, StringComparison.OrdinalIgnoreCase)));
+
+                RemoveWaferFromCassetteSlot(waferId);
+                State.Wafers.Remove(wafer);
+
+                Log.Write(
+                    "Main",
+                    "SYSTEM",
+                    "OutputCassetteMappingRecovery",
+                    "Detached Working/Unknown material removed after successful physical scan. cassette=" + role +
+                    ", wafer=" + waferId +
+                    ", sourceSlot=" + (sourceSlot + 1) +
+                    ", removedDies=" + removedDieCount +
+                    " - Check");
+            }
         }
 
         private static void RemoveFinishedOutputBinWaferForNewCassetteMapping(WaferMaterial wafer)

@@ -204,9 +204,12 @@ namespace QMC.Common.IO
 
         public bool TryApplyLatest(BaseDigitalInput input)
         {
-            if (input == null) return false;
+            if (input == null) return
+                    false;
+
             AjinIoSnapshot snapshot = GetLatest(input.Setup.ModuleNo, input.Setup.BitNo, false);
-            if (snapshot == null || snapshot.ErrorCode != 0) return false;
+            if (snapshot == null || snapshot.ErrorCode != 0)
+                return false;
 
             // [실장비 오염 차단 2026-07-28] 캐시 키가 모듈/비트라서 시뮬 포인트와 실보드 포인트가 같은 칸을 공유한다.
             // 예전에는 여기서 출처를 따지지 않아, 시뮬 주입값(SimulateInput -> SetSimulatedState -> UpdateCached)이
