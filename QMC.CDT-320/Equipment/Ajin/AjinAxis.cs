@@ -1488,17 +1488,17 @@ namespace QMC.CDT320.Ajin
                 double tolerance = Config != null && Config.InPositionTolerance > 0.0
                     ? Config.InPositionTolerance
                     : 0.01;
-                if (!BaseAxis.IsForceMoveActive &&
-                    CanSkipMoveToTarget(targetPos, tolerance))
-                {
-                    CommandPosition = targetPos;
-                    CurrentVelocity = 0.0;
-                    IsMoving = false;
-                    IsInPosition = true;
-                    _motionDirection = 0;
-                    ClearMotionFailure();
-                    return Task.FromResult(0);
-                }
+                //if (!BaseAxis.IsForceMoveActive &&
+                //    CanSkipMoveToTarget(targetPos, tolerance))
+                //{
+                //    CommandPosition = targetPos;
+                //    CurrentVelocity = 0.0;
+                //    IsMoving = false;
+                //    IsInPosition = true;
+                //    _motionDirection = 0;
+                //    ClearMotionFailure();
+                //    return Task.FromResult(0);
+                //}
 
                 string interlockReason;
                 if (!SharedRailXMotionRuntime.IsInternalDispatch &&
