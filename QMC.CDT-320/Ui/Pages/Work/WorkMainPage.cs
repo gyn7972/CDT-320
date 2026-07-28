@@ -601,6 +601,9 @@ namespace QMC.CDT_320.Ui.Pages.Work
 
                 if (active)
                     txtLotId.Text = LotSessionService.ActiveLotId;
+                else
+                    // LOT 완료 후 이전 ID가 입력창에 남아 활성 LOT처럼 보이지 않게 생산 LOT 상태와 맞춘다.
+                    txtLotId.Text = MaterialStateService.GetProductionLotId();
             }
             catch
             {

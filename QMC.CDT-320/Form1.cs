@@ -47,6 +47,7 @@ namespace QMC.CDT_320
         private QMC.CDT320.Recipes.RecipeProject _currentRecipe;
         private readonly Dictionary<object, bool> _unitDryRunOverrides = new Dictionary<object, bool>();
         private bool _materialSnapshotRestored;
+        private string _materialSnapshotLotIdBeforeInitialization = "";
         private bool _applicationExitRequested;
         private bool _materialStateSavedForExit;
         private bool _topDoorClosed = true;
@@ -271,6 +272,9 @@ namespace QMC.CDT_320
                     return false;
 
                 Controller?.ApplyRecipeMode(_currentRecipe);
+                // 레시피 수명과 생산 LOT 수명은 다르다.
+                // LOT 완료 전에는 레시피 변경으로 Material의 활성 LOT ID가 바뀌지 않게 다시 동기화한다.
+                QMC.CDT320.Lots.LotSessionService.SynchronizeActiveLotToMaterial("RecipeApply");
 
                 QMC.CDT320.Recipes.RecipeStore.SaveLastProjectName(recipeName);
                 AppSettingsStore.Current.LastProject = recipeName;
@@ -747,9 +751,10 @@ namespace QMC.CDT_320
             AlarmResponse = new QMC.CDT320.Alarms.AlarmResponseService(Controller);
             AlarmResponse.Start();
             PromptMaterialRecoveryOnStartup();
-            // [LOT 관리 2026-07-27] Material 스냅샷 복구 직후에 진행 중이던 LOT 을 되살린다.
-            // 스냅샷의 생산 LOT ID 를 기준으로 하므로 반드시 복구 프롬프트 뒤에 와야 한다.
-            QMC.CDT320.Lots.LotSessionService.RestoreActiveLotOnStartup();
+            // Material을 사용하지 않기로 선택해도 LOT은 작업자가 [LOT 완료]하기 전까지 유지한다.
+            // 신규 활성 포인터를 우선하고, 도입 전 데이터는 초기화 직전 Snapshot LOT ID로 제한 복구한다.
+            QMC.CDT320.Lots.LotSessionService.RestoreActiveLotOnStartup(
+                _materialSnapshotLotIdBeforeInitialization);
             alarmBanner.ClearRequested += async (s, args) =>
             {
                 try
@@ -1035,6 +1040,9 @@ namespace QMC.CDT_320
 
                 string savedAt = snapshot != null ? snapshot.SavedAt.ToString("yyyy-MM-dd HH:mm:ss") : "unknown";
                 string lot = ResolveMaterialSnapshotLotId(snapshot);
+                // 사용자가 아래에서 Material 초기화를 선택해도 LOT 복구 키는 잃지 않는다.
+                // 실제 복원은 Running 이력과 일치하는 경우에만 LotSessionService가 수행한다.
+                _materialSnapshotLotIdBeforeInitialization = lot;
                 string recipe = ResolveMaterialSnapshotRecipeName(snapshot);
                 string snapshotPath = string.IsNullOrWhiteSpace(MaterialSnapshotStore.LastLoadedPath)
                     ? MaterialSnapshotStore.SnapshotPath
@@ -1210,7 +1218,11 @@ namespace QMC.CDT_320
 
             MaterialStorage.InitializeDefaultState(inputLevels, goodLevels, 25, 25);
             MaterialStorage.State.RecipeName = recipe.FileName ?? "";
-            MaterialStorage.State.LotId = string.IsNullOrWhiteSpace(recipe.LotId) ? "" : recipe.LotId.Trim();
+            // Recipe에 저장된 과거 LOT ID를 새 LOT처럼 되살리지 않는다.
+            // 활성 LOT이 있으면 그 ID만 유지하고, 없으면 명시적인 [LOT 시작] 전까지 빈 상태로 둔다.
+            MaterialStorage.State.LotId = QMC.CDT320.Lots.LotSessionService.IsLotActive
+                ? QMC.CDT320.Lots.LotSessionService.ActiveLotId
+                : "";
             MaterialStateService.NotifyAndSave("InitializeFromRecipe");
         }
 

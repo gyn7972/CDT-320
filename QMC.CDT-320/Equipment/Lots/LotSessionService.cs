@@ -59,33 +59,82 @@ namespace QMC.CDT320.Lots
         /// </summary>
         public static bool RestoreActiveLotOnStartup()
         {
+            return RestoreActiveLotOnStartup("");
+        }
+
+        /// <summary>
+        /// Material 초기화 전에 읽어 둔 LOT ID를 구버전 데이터의 복구 후보로 함께 사용한다.
+        /// 신규 버전에서는 State\active_lot.json 포인터를 우선하며, 포인터가 명시적으로 비어 있으면
+        /// 과거 Running 이력을 임의로 선택하지 않는다.
+        /// </summary>
+        public static bool RestoreActiveLotOnStartup(string materialLotIdBeforeReset)
+        {
             try
             {
                 if (IsLotActive)
-                    return false;
+                {
+                    SynchronizeActiveLotToMaterial("LotRestoreAlreadyActive");
+                    return true;
+                }
 
-                string lotId = MaterialStateService.GetProductionLotId();
+                string persistedLotId;
+                bool pointerExists;
+                string pointerError;
+                bool pointerRead = LotStorage.TryGetPersistedActiveLotId(
+                    out persistedLotId,
+                    out pointerExists,
+                    out pointerError);
+
+                string materialLotId = MaterialStateService.GetProductionLotId();
+                string fallbackLotId = string.IsNullOrWhiteSpace(materialLotId)
+                    ? (materialLotIdBeforeReset ?? "")
+                    : materialLotId;
+                string lotId = "";
+
+                if (pointerRead && pointerExists)
+                {
+                    // 빈 포인터도 의미가 있다. LOT 완료가 저장된 것이므로 과거 Running 이력을 되살리지 않는다.
+                    if (string.IsNullOrWhiteSpace(persistedLotId))
+                    {
+                        Log.Write("Main", "SYSTEM", "LotRestore",
+                            "활성 LOT 포인터에 진행 중 LOT이 없습니다. 과거 Running 이력은 자동 복원하지 않습니다. - Ok");
+                        return false;
+                    }
+
+                    lotId = persistedLotId.Trim();
+                }
+                else
+                {
+                    // active_lot.json 도입 전 데이터는 Snapshot의 정확한 LOT ID로 1회 마이그레이션한다.
+                    lotId = string.IsNullOrWhiteSpace(fallbackLotId) ? "" : fallbackLotId.Trim();
+                    if (!pointerRead)
+                    {
+                        Log.Write("Main", "SYSTEM", "LotRestore",
+                            pointerError + " Snapshot LOT ID를 이용한 제한 복구를 시도합니다. - Check");
+                    }
+                }
+
                 if (string.IsNullOrWhiteSpace(lotId))
                 {
-                    // To do: [LOT 복구] 조용한 실패 제거 - 복구를 건너뛴 사유를 남긴다.
-                    // 기존 조건: 로그 없이 return false → 재시작 후 LOT이 사라져도 원인을 추적할 수 없었다.
-                    //            (화면의 Lot ID는 웨이퍼의 CassetteLotId라서, 스냅샷 LotId가 비어 있어도
-                    //             화면에는 LOT이 있는 것처럼 보여 혼동이 컸다)
-                    // 현재 기준: 스냅샷에 생산 LOT ID가 없으면 그 사실과 디스크에 남은 진행 중 LOT을 함께 기록한다.
                     Log.Write("Main", "SYSTEM", "LotRestore",
-                        "활성 LOT 복구 건너뜀: Material 스냅샷에 생산 LOT ID가 없습니다. " +
+                        "활성 LOT 복구 건너뜀: 활성 포인터와 Material 스냅샷에 생산 LOT ID가 없습니다. " +
                         "diskRunningLots=" + DescribeRestorableLots() +
                         " - Check");
                     return false;
                 }
 
-                if (!LotStorage.TryRestoreActiveLot(lotId))
+                string restoreError;
+                if (!LotStorage.TryRestoreActiveLot(lotId, out restoreError))
                 {
                     Log.Write("Main", "SYSTEM", "LotRestore",
-                        "이전 LOT ID가 남아 있으나 진행 중 이력이 없어 활성 LOT을 복구하지 않았습니다. lot=" +
-                        lotId.Trim() + " - Check");
+                        "활성 LOT을 복구하지 않았습니다. lot=" + lotId.Trim() +
+                        ", detail=" + restoreError + " - Check");
                     return false;
                 }
+
+                // 사용자가 Material을 초기화했더라도 LOT 세션은 별도 수명이다.
+                // 복원된 활성 LOT ID를 새 Material 상태에 다시 연결한다.
+                SynchronizeActiveLotToMaterial("LotRestore");
 
                 string message = "재시작 전 진행 중이던 LOT을 복구했습니다. lot=" + ActiveLotId;
                 Log.Write("Main", "SYSTEM", "LotRestore", message + " - Ok");
@@ -100,6 +149,30 @@ namespace QMC.CDT320.Lots
             finally
             {
             }
+        }
+
+        /// <summary>
+        /// 레시피 변경 또는 Material 초기화가 발생해도 활성 LOT ID를 생산 상태에 다시 반영한다.
+        /// LOT이 없을 때는 아무 값도 만들지 않는다.
+        /// </summary>
+        public static bool SynchronizeActiveLotToMaterial(string reason)
+        {
+            string activeLotId = ActiveLotId;
+            if (string.IsNullOrWhiteSpace(activeLotId))
+                return false;
+
+            bool changed = MaterialStateService.SetProductionLotId(
+                activeLotId,
+                string.IsNullOrWhiteSpace(reason) ? "ActiveLotSync" : reason);
+
+            if (changed)
+            {
+                Log.Write("Main", "SYSTEM", "LotPreserve",
+                    "활성 LOT ID를 Material 상태에 다시 반영했습니다. lot=" + activeLotId +
+                    ", reason=" + (reason ?? "") + " - Ok");
+            }
+
+            return true;
         }
 
         // To do: [LOT 복구] 복구 실패 로그에 "되살릴 후보가 있었는지"를 같이 남기기 위한 요약.
@@ -175,6 +248,9 @@ namespace QMC.CDT320.Lots
 
                 // ---- 여기서부터 실제 반영 ----
 
+                string previousMaterialLotId = MaterialStateService.GetProductionLotId();
+                string previousRecipeLotId = project != null ? project.LotId : null;
+
                 // 4) 생산 LOT ID 설정. 이 값 하나로 TactTime/CSV/비전/통계/화면이 모두 따라온다.
                 MaterialStateService.SetProductionLotId(normalized, "LotStart");
 
@@ -196,7 +272,26 @@ namespace QMC.CDT320.Lots
                 string recipeName = project != null
                     ? (project.FileName ?? activeRecipeName ?? "")
                     : (activeRecipeName ?? "");
-                LotStorage.OpenLot(normalized, recipeName, totalDies);
+                Lot openedLot;
+                string storageError;
+                if (!LotStorage.TryOpenLot(normalized, recipeName, totalDies, out openedLot, out storageError))
+                {
+                    // 활성 LOT 포인터까지 저장되지 않았으면 Material/Recipe 반영도 원래 값으로 되돌린다.
+                    MaterialStateService.SetProductionLotId(previousMaterialLotId, "LotStartRollback");
+                    if (project != null)
+                    {
+                        project.LotId = previousRecipeLotId;
+                        if (!RecipeStore.Save(project))
+                        {
+                            Log.Write("Main", "SYSTEM", "LotStart",
+                                "LOT 시작 실패 후 Recipe LOT ID 원복 저장도 실패했습니다. recipe=" +
+                                (activeRecipeName ?? "") + " - Failed");
+                        }
+                    }
+
+                    reason = storageError;
+                    return false;
+                }
 
                 string message = "LOT을 시작했습니다. lot=" + normalized +
                                  ", recipe=" + (string.IsNullOrEmpty(recipeName) ? "(없음)" : recipeName) +
@@ -236,8 +331,17 @@ namespace QMC.CDT320.Lots
                 string lotId = lot.LotID ?? "";
                 ApplyStatsSnapshot(lot, stats);
 
-                // CloseLot이 State=Completed, FinishedAt 설정 + Log\Lots JSON 저장까지 수행한다.
-                LotStorage.CloseLot(false);
+                // LOT 이력과 활성 포인터가 모두 저장되어야 완료로 인정한다.
+                string closeError;
+                if (!LotStorage.TryCloseLot(false, out closeError))
+                {
+                    reason = closeError;
+                    return false;
+                }
+
+                // 사용자 확정 정책: LOT ID를 지우는 정상 경로는 명시적인 LOT 완료뿐이다.
+                MaterialStateService.SetProductionLotId("", "LotComplete");
+                ClearCompletedLotIdFromRecipe(lot.RecipeName, lotId);
 
                 string message = "LOT을 완료했습니다. lot=" + lotId +
                                  ", 처리=" + lot.ProcessedDies +
@@ -256,6 +360,35 @@ namespace QMC.CDT320.Lots
             }
             finally
             {
+            }
+        }
+
+        private static void ClearCompletedLotIdFromRecipe(string recipeName, string completedLotId)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(recipeName) || string.IsNullOrWhiteSpace(completedLotId))
+                    return;
+
+                RecipeProject project = RecipeStore.Load(recipeName);
+                if (project == null ||
+                    !string.Equals(project.LotId ?? "", completedLotId, StringComparison.Ordinal))
+                    return;
+
+                project.LotId = "";
+                if (!RecipeStore.Save(project))
+                {
+                    Log.Write("Main", "SYSTEM", "LotComplete",
+                        "LOT 완료 후 Recipe LOT ID 정리 저장에 실패했습니다. recipe=" + recipeName +
+                        ", lot=" + completedLotId + " - Failed");
+                }
+            }
+            catch (Exception ex)
+            {
+                // LOT 이력과 활성 포인터 완료가 끝난 뒤의 보조 정리 실패이므로 완료 자체를 되돌리지는 않는다.
+                Log.Write("Main", "SYSTEM", "LotComplete",
+                    "LOT 완료 후 Recipe LOT ID 정리 중 오류가 발생했습니다. recipe=" + recipeName +
+                    ", lot=" + completedLotId + ", error=" + ex.Message + " - Failed");
             }
         }
 
