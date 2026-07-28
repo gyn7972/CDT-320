@@ -1538,11 +1538,6 @@ namespace QMC.CDT320.Interlocks
                     signalName + " sensor is not registered in real hardware mode.",
                     out reason);
 
-            if (input.Config != null && (input.Config.IsSimulationMode))
-            {
-                return true;
-            }
-
             if (input.Config != null && (input.Config.IsSimulationMode || input.Config.IgnoreWaits))
                 return MotionGuardRuleHelpers.Block(
                     movingName,
@@ -1569,7 +1564,8 @@ namespace QMC.CDT320.Interlocks
                 return settings != null &&
                        settings.UseAjin &&
                        !settings.SimulationMode &&
-                       !settings.DryRunMode;
+                       !settings.DryRunMode &&
+                       !settings.BypassHardware;
             }
             catch
             {

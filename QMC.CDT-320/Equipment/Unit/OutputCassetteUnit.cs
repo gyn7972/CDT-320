@@ -8,6 +8,7 @@ using QMC.Common;
 using QMC.Common.Alarms;
 using QMC.Common.IO;
 using QMC.Common.Motion;
+using QMC.CDT320.Interlocks;
 
 namespace QMC.CDT320
 {
@@ -38,6 +39,7 @@ namespace QMC.CDT320
         [DataMember] public bool UseNgCassette { get; set; }
         [DataMember] public double LoadingPositionOffset { get; set; }
         [DataMember] public double UnloadingPositionOffset { get; set; }
+        [DataMember] public double UnloadReleaseLiftDistance { get; set; } = 1.00;
         [DataMember] public double Level2PositionOffset { get; set; }
         [DataMember] public double GOODNGPositionOffset { get; set; }
         [DataMember] public double SlotPitch { get; set; }
@@ -66,6 +68,7 @@ namespace QMC.CDT320
             UseNgCassette = true;
             LoadingPositionOffset = 0.0;
             UnloadingPositionOffset = 0.0;
+            UnloadReleaseLiftDistance = 1.00;
             Level2PositionOffset = 59.0;
             GOODNGPositionOffset = 0.0;
             SlotPitch = 6.0;
@@ -204,6 +207,38 @@ namespace QMC.CDT320
 
     public class OutputCassetteUnit : BaseUnit<OutputCassetteSetup, OutputCassetteConfig, OutputCassetteRecipe>, IUnitJogController
     {
+        internal const string UnloadReleaseLiftTargetName = "OutputCassette.OutputLifterZ.UnloadReleaseLift";
+        internal const double MinUnloadReleaseLiftDistanceMm = 0.001;
+        internal const double MaxUnloadReleaseLiftDistanceMm = 2.0;
+
+        internal static bool IsSameUnloadReleasePositionKey(double left, double right)
+        {
+            if (double.IsNaN(left) ||
+                double.IsInfinity(left) ||
+                double.IsNaN(right) ||
+                double.IsInfinity(right))
+            {
+                return false;
+            }
+
+            return Math.Round(left, 3, MidpointRounding.AwayFromZero) ==
+                   Math.Round(right, 3, MidpointRounding.AwayFromZero);
+        }
+
+        internal static bool IsUnloadReleasePositionMatch(
+            double value,
+            double expectedTarget,
+            double alternateTarget,
+            double tolerance)
+        {
+            if (!IsSameUnloadReleasePositionKey(value, expectedTarget))
+                return false;
+
+            double expectedError = Math.Abs(value - expectedTarget);
+            double alternateError = Math.Abs(value - alternateTarget);
+            return expectedError <= tolerance && expectedError < alternateError;
+        }
+
         private readonly Dictionary<TargetCassette, bool[]> _slotMap = new Dictionary<TargetCassette, bool[]>();
         private readonly Dictionary<TargetCassette, Dictionary<int, WaferSlotState>> _slotStates =
             new Dictionary<TargetCassette, Dictionary<int, WaferSlotState>>();
@@ -228,6 +263,7 @@ namespace QMC.CDT320
         public BaseDigitalInput ProtrusionSensor { get { return BinRingJutCheck; } }
         public BaseDigitalInput WaferDetectSensor { get { return BinMappingSensor; } }
         public IReadOnlyDictionary<TargetCassette, bool[]> SlotMap { get { return _slotMap; } }
+        public CDT320_Machine Machine { get; private set; }
 
         public OutputCassetteUnit() : base("BinCassetteUnit")
         {
@@ -266,6 +302,11 @@ namespace QMC.CDT320
             Components.Add(NgBinCassetteUnlockOut);
 
             BeginMapping();
+        }
+
+        public void BindMachine(CDT320_Machine machine)
+        {
+            Machine = machine;
         }
 
         public bool CanHandleJogAxis(BaseAxis axis)
@@ -345,6 +386,69 @@ namespace QMC.CDT320
             }
             finally
             {
+            }
+        }
+
+        internal async Task<int> MoveBinLifterZForUnloadRelease(
+            double targetPos,
+            bool bFine,
+            CancellationToken ct)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+
+                string targetReason;
+                if (!ValidateBinLifterZTargetPosition(targetPos, out targetReason))
+                {
+                    LastBinLifterMoveFailureMessage = targetReason;
+                    QMC.Common.Log.Write("Main", "MOTION", Name, targetReason + " - Failed");
+                    return -1;
+                }
+
+                string interlockReason;
+                if (!OutputCassetteInterlockRules.VerifyUnloadReleaseLift(
+                    Machine,
+                    targetPos,
+                    out interlockReason))
+                {
+                    LastBinLifterMoveFailureMessage = interlockReason;
+                    QMC.Common.Log.Write("Main", "INTERLOCK", Name, interlockReason + " - Blocked");
+                    return -11;
+                }
+
+                double velocity = ResolveBinLifterZDefaultMoveVelocity();
+                using (MotionGuardRuntime.BeginAxisTeachingMove(
+                    OutputLifterZ,
+                    targetPos,
+                    UnloadReleaseLiftTargetName))
+                {
+                    return await MoveWithProtrusionWatch(
+                        targetPos,
+                        velocity,
+                        ResolveCassetteProfileAcceleration(velocity),
+                        ResolveCassetteProfileDeceleration(velocity),
+                        ct,
+                        forceMove: true,
+                        allowProtrusionForUnloadRelease: true).ConfigureAwait(false);
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                try { OutputLifterZ?.Stop(); } catch { }
+                throw;
+            }
+            catch (Exception ex)
+            {
+                LastBinLifterMoveFailureMessage =
+                    "Bin Lifter Z unload release 이동 예외. target=" +
+                    targetPos + ", error=" + ex.Message;
+                QMC.Common.Log.Write(
+                    "Main",
+                    "MOTION",
+                    Name,
+                    LastBinLifterMoveFailureMessage + " - Failed");
+                return -1;
             }
         }
 
@@ -2554,7 +2658,8 @@ namespace QMC.CDT320
             double acceleration,
             double deceleration,
             CancellationToken ct,
-            bool forceMove = false)
+            bool forceMove = false,
+            bool allowProtrusionForUnloadRelease = false)
         {
             double oldAcceleration = 0.0;
             double oldDeceleration = 0.0;
@@ -2563,7 +2668,8 @@ namespace QMC.CDT320
             {
                 ct.ThrowIfCancellationRequested();
 
-                if (IsBinProtrusionDetected())
+                if (!allowProtrusionForUnloadRelease &&
+                    IsBinProtrusionDetected())
                 {
                     LastBinLifterMoveFailureMessage = "돌출 센서 감지로 이동 차단. target=" + targetPosition;
                     OutputLifterZ.EStop();
@@ -2597,7 +2703,8 @@ namespace QMC.CDT320
                 {
                     ct.ThrowIfCancellationRequested();
 
-                    if (IsBinProtrusionDetected())
+                    if (!allowProtrusionForUnloadRelease &&
+                        IsBinProtrusionDetected())
                     {
                         LastBinLifterMoveFailureMessage = "이동 중 돌출 센서 감지로 정지. target=" + targetPosition;
                         OutputLifterZ.EStop();

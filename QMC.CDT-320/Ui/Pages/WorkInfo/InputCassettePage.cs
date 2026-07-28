@@ -1608,21 +1608,29 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             var cassette = snapshot != null && snapshot.Cassettes != null
                 ? snapshot.Cassettes.FirstOrDefault(c => c != null && c.Role == role)
                 : null;
-            if (cassette == null ||
-                !cassette.IsEnabled ||
-                !cassette.IsPresent ||
-                !cassette.IsMapped ||
-                cassette.Slots == null)
+            // 기존 조건: cassette.IsEnabled/IsPresent/IsMapped가 모두 참이어야 목록에 넣었다.
+            //            → 미장착/미맵핑 카세트를 고르면 Destination 목록이 통째로 비어 데이터 정렬이 불가능했다.
+            // 현재 기준: DATA ONLY는 유저가 장비 실물에 데이터를 맞추는 도구이므로 카세트 활성 상태로 목록을 비우지 않는다.
+            if (cassette == null || cassette.Slots == null)
                 return;
 
+            // 기존 조건: 빈 슬롯만 목록에 넣었다(slot.HasWafer 또는 WaferId가 있으면 skip).
+            //            → 사용 중인 카세트인데도 데이터를 넘길 대상 슬롯이 화면에서 사라져 수동 복구가 불가능했다.
+            // 현재 기준: 사용 중인 카세트의 슬롯은 전부 표시하고, 점유 여부를 라벨에 표시한다.
+            //            실제 점유 충돌은 실행 시점에 MaterialStateService가 판정한다.
             for (int i = 0; i < cassette.Slots.Count; i++)
             {
                 var slot = cassette.Slots[i];
-                if (slot == null || slot.HasWafer || !string.IsNullOrWhiteSpace(slot.WaferId))
+                if (slot == null)
                     continue;
 
+                bool occupied = slot.HasWafer || !string.IsNullOrWhiteSpace(slot.WaferId);
+                string occupancyText = occupied
+                    ? (!string.IsNullOrWhiteSpace(slot.WaferId) ? slot.WaferId : "HAS WAFER")
+                    : "EMPTY";
+
                 var location = DataOnlyLocation.Cassette(role, i);
-                cmbDataOnlyDest.Items.Add(new DataOnlyLocationItem(location, location.DisplayText + "  [EMPTY]"));
+                cmbDataOnlyDest.Items.Add(new DataOnlyLocationItem(location, location.DisplayText + "  [" + occupancyText + "]"));
             }
         }
 
@@ -1687,16 +1695,14 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
 
         private void AddDataOnlyStationDestItem(MaterialSnapshot snapshot, MaterialLocationKind kind)
         {
-            bool occupied = snapshot != null && snapshot.Wafers != null && snapshot.Wafers.Any(w =>
-                w != null &&
-                w.CurrentLocation != null &&
-                w.CurrentLocation.Kind == kind &&
-                WaferMaterialStateText.Normalize(w.State) != WaferMaterialState.Empty);
-            if (occupied)
-                return;
-
+            // 기존 조건: 점유된 스테이션은 목록에서 제외했다(occupied면 return).
+            //            → 피더/스테이지에 데이터가 남아 있으면 그쪽으로 정렬할 방법이 없었다.
+            // 현재 기준: 점유 여부를 라벨에 표시하고 목록에는 항상 넣는다. 점유 시 실행 단계에서 교환된다.
             var location = DataOnlyLocation.Station(kind);
-            cmbDataOnlyDest.Items.Add(new DataOnlyLocationItem(location, location.DisplayText + "  [EMPTY]"));
+            string occupancyText = ResolveDataOnlyMaterialId(location);
+            cmbDataOnlyDest.Items.Add(new DataOnlyLocationItem(
+                location,
+                location.DisplayText + "  [" + (occupancyText == "-" ? "EMPTY" : occupancyText) + "]"));
         }
 
         private static void RestoreDataOnlySelection(ComboBox combo, DataOnlyLocationItem previous)
@@ -1763,11 +1769,19 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 }
 
                 string expectedId = ResolveDataOnlyMaterialId(sourceItem.Location);
+
+                // 현재 기준: Destination이 점유된 경우 그 자재가 Source 위치로 교환되므로 확인창에 명시한다.
+                string destOccupantId = ResolveDataOnlyMaterialId(destItem.Location);
+                string swapNotice = destOccupantId != "-" && !string.Equals(destOccupantId, expectedId, StringComparison.OrdinalIgnoreCase)
+                    ? "Destination에 있는 [" + destOccupantId + "]는 " + sourceItem.Location.DisplayText + "로 교환됩니다.\r\n"
+                    : "";
+
                 string message =
                     "[DATA ONLY 이동]\r\n" +
                     "Source: " + sourceItem.Location.DisplayText + "\r\n" +
                     "Destination: " + destItem.Location.DisplayText + "\r\n" +
-                    "Material ID: " + expectedId + "\r\n\r\n" +
+                    "Material ID: " + expectedId + "\r\n" +
+                    swapNotice + "\r\n" +
                     "실물 장비는 움직이지 않습니다 (NO MOTION).\r\n" +
                     "Material 데이터만 이동하시겠습니까?";
                 if (QMC.Common.MessageDialog.Show(this, message, "DATA ONLY",
@@ -1790,12 +1804,17 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                     SyncInputRuntimeProjection();
                     WriteEvent("INPUT-CST-DATAONLY-MOVE", "DATA ONLY move done. material=" + result.MaterialId +
                         ", source=" + result.SourceText + ", destination=" + result.DestinationText +
+                        ", swapped=" + (string.IsNullOrWhiteSpace(result.SwappedMaterialId) ? "-" : result.SwappedMaterialId) +
+                        ", swappedTo=" + (string.IsNullOrWhiteSpace(result.SwappedToText) ? "-" : result.SwappedToText) +
                         ", persisted=" + result.PersistenceSucceeded);
                     RefreshDataOnlyAfterChange();
                     QMC.Common.MessageDialog.Show(this,
                         "Material 데이터 이동이 완료되었습니다 (NO MOTION).\r\n" +
                         "Material ID: " + result.MaterialId + "\r\n" +
-                        result.SourceText + " → " + result.DestinationText,
+                        result.SourceText + " → " + result.DestinationText +
+                        (string.IsNullOrWhiteSpace(result.SwappedMaterialId)
+                            ? ""
+                            : "\r\n교환: " + result.SwappedMaterialId + " → " + result.SwappedToText),
                         "DATA ONLY", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 }
                 else

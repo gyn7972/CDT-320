@@ -128,6 +128,14 @@ namespace QMC.CDT320.Materials
         /// <summary>Snapshot 즉시 저장 성공 여부입니다.</summary>
         public bool PersistenceSucceeded { get; set; }
 
+        // To do: [DATA ONLY 교환] Destination이 점유된 경우 그 자재를 Source 위치로 교환한다.
+        //        장비 실물 상태에 데이터를 맞추는 도구이므로 점유를 이유로 이동을 막지 않는다.
+        /// <summary>Destination이 점유되어 Source 위치로 교환된 Material ID입니다. 교환이 없으면 빈 문자열.</summary>
+        public string SwappedMaterialId { get; set; } = "";
+
+        /// <summary>교환된 Material이 이동한 위치 텍스트입니다.</summary>
+        public string SwappedToText { get; set; } = "";
+
         public static DataOnlyOperationResult Fail(string operation, string failureCode, string failureMessage)
         {
             return new DataOnlyOperationResult
@@ -141,6 +149,8 @@ namespace QMC.CDT320.Materials
                 FailureMessage = failureMessage ?? "",
                 BeforeLocationText = "",
                 AfterLocationText = "",
+                SwappedMaterialId = "",
+                SwappedToText = "",
                 PersistenceSucceeded = false
             };
         }

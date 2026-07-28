@@ -948,6 +948,16 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                     //AxisDouble("MAPPING END Z POSITION", ParameterGridScope.Recipe, () => _OutCassetteUnit.Recipe.MappingEndPosition, v => _OutCassetteUnit.Recipe.MappingEndPosition = v),
                     AxisDouble("LOADING OFFSET", ParameterGridScope.Config, () => _OutCassetteUnit.Config.LoadingPositionOffset, v => _OutCassetteUnit.Config.LoadingPositionOffset = v),
                     AxisDouble("UNLOADING OFFSET", ParameterGridScope.Config, () => _OutCassetteUnit.Config.UnloadingPositionOffset, v => _OutCassetteUnit.Config.UnloadingPositionOffset = v),
+                    AxisDouble(
+                        "UNLOAD RELEASE LIFT DISTANCE",
+                        ParameterGridScope.Config,
+                        () => _OutCassetteUnit.Config.UnloadReleaseLiftDistance,
+                        v => _OutCassetteUnit.Config.UnloadReleaseLiftDistance =
+                            Math.Min(
+                                OutputCassetteUnit.MaxUnloadReleaseLiftDistanceMm,
+                                Math.Max(
+                                    OutputCassetteUnit.MinUnloadReleaseLiftDistanceMm,
+                                    v))),
                     AxisDouble("LEVEL 2 OFFSET", ParameterGridScope.Config, () => _OutCassetteUnit.Config.Level2PositionOffset, v => _OutCassetteUnit.Config.Level2PositionOffset = Math.Max(0.0, v)),
                     AxisDouble("GOOD/NG OFFSET", ParameterGridScope.Config, () => _OutCassetteUnit.Config.GOODNGPositionOffset, v => _OutCassetteUnit.Config.GOODNGPositionOffset = v),
                     AxisDouble("SLOT PITCH", ParameterGridScope.Config, () => _OutCassetteUnit.Config.SlotPitch, v => _OutCassetteUnit.Config.SlotPitch = Math.Max(0.0, v)),

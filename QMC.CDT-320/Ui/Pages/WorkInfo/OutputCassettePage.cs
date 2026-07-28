@@ -1146,10 +1146,18 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 Row("Selected", GetCassetteRoleDisplay(_selectedCassetteRole) + " / SLOT " + (_selectedMaterialSlot + 1).ToString("00")),
                 Row("Cassette ID", cassette != null ? cassette.CassetteId : ""),
                 Row("Cassette Mapped", cassette != null && cassette.IsMapped ? "Y" : "N"),
-                Row("Slot", BuildSlotOccupancyText(slot, wafer)),
+                // 기존 조건: Row("Slot", BuildSlotOccupancyText(slot, wafer)) - 읽기 전용이라 여기서 Bin 상태를 바꿀 수 없었다.
+                //            (바로 아래 State 행과 같은 값을 보여주는데 한쪽만 편집돼 혼동이 있었다)
+                // 현재 기준: Slot 행에서도 Bin 상태를 바꿀 수 있게 편집을 연결한다(대상은 State 행과 동일).
+                //            키는 "SlotState"로 분리한다 — MaterialDetailView.RestoreSelection이 Key로 행을
+                //            되찾기 때문에 두 행이 같은 키를 쓰면 새로고침 때 커서가 위 행으로 튄다.
+                // To do: [Bin 상태 편집] Slot 행에서 Bin State 변경.
+                Row("Slot", BuildSlotOccupancyText(slot, wafer), "SlotState", mapped && wafer != null),
                 Row("Wafer ID", wafer != null ? wafer.WaferId : "", "WaferId", mapped),
                 Row("Lot ID", wafer != null ? wafer.CassetteLotId : (cassette != null ? cassette.CassetteLotId : ""), "CassetteLotId", mapped),
-                Row("State", wafer != null ? WaferMaterialStateText.ToDisplayName(wafer.State) : "", "State", mapped),
+                // 기존 조건: editable = mapped - 자재가 없는 슬롯에서도 편집이 열려 새 자재가 생성되는 경로였다.
+                // 현재 기준: 자재가 있을 때만 상태를 바꾼다(빈 슬롯 데이터 생성은 DATA CREATE 버튼 담당).
+                Row("State", wafer != null ? WaferMaterialStateText.ToDisplayName(wafer.State) : "", "State", mapped && wafer != null),
                 Row("Location", wafer != null && wafer.CurrentLocation != null ? wafer.CurrentLocation.ToString() : ""),
                 Row("Cassette Role", wafer != null ? wafer.SourceCassetteRole.ToString() : ""),
                 Row("Cassette Slot", wafer != null && wafer.SourceSlotNumber >= 0 ? (wafer.SourceSlotNumber + 1).ToString("00") : ""),
@@ -1182,11 +1190,53 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 if (!TryEditMaterialValue(e.Row, out newValue))
                     return;
 
-                bool ok = MaterialStateService.UpdateWaferFieldInMappedCassette(
-                    _selectedCassetteRole,
-                    _selectedMaterialSlot,
-                    e.Row.Key,
-                    newValue);
+                // 기존 조건: 모든 필드를 UpdateWaferFieldInMappedCassette로 처리했다.
+                //            → 상태만 바꾸려 해도 내부에서 CurrentLocation이 카세트 슬롯으로 덮여,
+                //              스테이지/피더에 나가 있는 자재가 슬롯으로 끌려 들어왔다.
+                // 현재 기준: State는 위치를 건드리지 않는 전용 API로 처리하고, 대상 자재는
+                //            화면과 동일한 해석(ResolveCassetteSlotWafer)으로 찾는다.
+                // To do: [Bin 상태 편집] State 편집을 위치 보존 경로로 분리.
+                bool ok;
+                if (e.Row.Key == "State" || e.Row.Key == "SlotState")
+                {
+                    var slot = cassette.Slots != null &&
+                               _selectedMaterialSlot >= 0 &&
+                               _selectedMaterialSlot < cassette.Slots.Count
+                        ? cassette.Slots[_selectedMaterialSlot]
+                        : null;
+                    var targetWafer = ResolveCassetteSlotWafer(snapshot, _selectedCassetteRole, _selectedMaterialSlot, slot);
+                    if (targetWafer == null)
+                    {
+                        RaiseWarning("OUTPUT-CST-MATERIAL-STATE-NO-DATA",
+                            "Bin 상태 변경 대상 Material이 없습니다. role=" + _selectedCassetteRole +
+                            ", slot=" + (_selectedMaterialSlot + 1));
+                        QMC.Common.MessageDialog.Show(this,
+                            "이 Slot에는 Material 데이터가 없습니다.\r\nDATA CREATE로 먼저 생성한 뒤 상태를 변경하십시오.",
+                            "Material", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        return;
+                    }
+
+                    ok = MaterialStateService.UpdateWaferStateOnly(
+                        targetWafer.WaferId,
+                        newValue,
+                        QMC.CDT_320.Ui.Security.UserSession.Name);
+
+                    WriteEvent("OUTPUT-CST-MATERIAL-STATE",
+                        "Bin 상태 변경. material=" + targetWafer.WaferId +
+                        ", role=" + _selectedCassetteRole +
+                        ", slot=" + (_selectedMaterialSlot + 1) +
+                        ", value=" + newValue +
+                        ", location=" + (targetWafer.CurrentLocation != null ? targetWafer.CurrentLocation.ToString() : "-") +
+                        ", result=" + ok);
+                }
+                else
+                {
+                    ok = MaterialStateService.UpdateWaferFieldInMappedCassette(
+                        _selectedCassetteRole,
+                        _selectedMaterialSlot,
+                        e.Row.Key,
+                        newValue);
+                }
 
                 WriteEvent("OUTPUT-CST-MATERIAL", e.Row.Key + " update result=" + ok);
                 if (!ok)
@@ -1215,7 +1265,8 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             if (row == null)
                 return false;
 
-            if (row.Key == "State")
+            // 현재 기준: Slot 행("SlotState")도 State와 동일한 Bin State 선택창을 쓴다.
+            if (row.Key == "State" || row.Key == "SlotState")
             {
                 var states = WaferMaterialStateText.DisplayNames;
                 using (var dialog = new EnumPickerDialog("Bin State", states, row.Value))
@@ -1423,6 +1474,21 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                     return slotWafer;
             }
 
+            // To do: [DATA ONLY 배선] 피더/스테이지에 나가 있는 자재를 슬롯에 되짚는 키를 보강한다.
+            // 기존 조건: Source 키(SourceCassetteRole/SourceSlotNumber)만 사용했다.
+            //            → DATA ONLY 이동은 출력 키(OutputCassetteRole/OutputSlotNumber)만 갱신하므로,
+            //              다른 슬롯으로 옮긴 자재를 다시 피더/스테이지로 빼면 "원래 Source 슬롯"에 붙어 보였다.
+            // 현재 기준: 아웃풋 화면이므로 출력 키를 먼저 보고, 없으면 Source 키로 폴백한다
+            //            (CstStatusDialog.IsRoleSlotMatch의 Source/Output OR 판정과 동일 취지).
+            WaferMaterial outputKeyWafer = snapshot.Wafers.FirstOrDefault(w =>
+                w != null &&
+                w.OutputCassetteRole == role &&
+                w.OutputSlotNumber == slotIndex &&
+                WaferMaterialStateText.Normalize(w.State) != WaferMaterialState.Empty &&
+                IsWaferInOutputTransferLocation(w));
+            if (outputKeyWafer != null)
+                return outputKeyWafer;
+
             return snapshot.Wafers.FirstOrDefault(w =>
                 w != null &&
                 w.SourceCassetteRole == role &&
@@ -1562,6 +1628,86 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
 
         private bool _dataOnlyBusy;
 
+        // To do: [DATA ONLY 배선] 목록/실행 판정을 장비 Config 한 곳으로 통일한다.
+        //        기존 조건: 목록을 스냅샷(cassette.Slots.Count)만 보고 만들었고 1단/2단·NG 사용 여부를 보지 않았다.
+        //                   → 화면 그리드(Config.SlotCount)와 개수가 달라 없는 슬롯(예: NG SLOT 14~)이 목록에 뜨고,
+        //                     미사용 카세트(2단 미사용/NG 미사용)도 이동 대상으로 제시되었다.
+        //        현재 기준: 슬롯 상한과 사용 여부 모두 OutputCassetteUnit.Config를 기준으로 판정한다.
+
+        /// <summary>DATA ONLY 판정에 사용할 아웃풋 카세트 Config입니다. 조회 실패 시 null.</summary>
+        private QMC.CDT320.OutputCassetteConfig ResolveDataOnlyCassetteConfig()
+        {
+            try
+            {
+                var host = GetHost();
+                var cassette = host != null && host.Machine != null ? host.Machine.OutputCassetteUnit : null;
+                return cassette != null ? cassette.Config : null;
+            }
+            catch
+            {
+                return null;
+            }
+            finally
+            {
+            }
+        }
+
+        /// <summary>
+        /// DATA ONLY 목록에 쓸 슬롯 상한입니다. 화면 그리드와 동일하게 Config.SlotCount를 기준으로 하고,
+        /// Config를 못 읽으면 스냅샷 슬롯 수를 그대로 사용합니다(목록이 아예 비지 않도록).
+        /// </summary>
+        private int ResolveDataOnlySlotLimit(CassetteMaterial cassette)
+        {
+            int snapshotCount = cassette != null && cassette.Slots != null ? cassette.Slots.Count : 0;
+            var config = ResolveDataOnlyCassetteConfig();
+            if (config == null || config.SlotCount <= 0)
+                return snapshotCount;
+
+            return Math.Min(snapshotCount, config.SlotCount);
+        }
+
+        /// <summary>
+        /// 해당 카세트 Role이 현재 설정에서 사용 중인지 판정합니다.
+        /// GOOD1(1단)은 항상 사용, GOOD2(2단)는 SelectedCassetteLevel>=2, NG는 UseNgCassette 기준입니다.
+        /// </summary>
+        private bool IsDataOnlyCassetteRoleInUse(CassetteMaterialRole role, out string reason)
+        {
+            reason = string.Empty;
+            var config = ResolveDataOnlyCassetteConfig();
+            if (config == null)
+                return true;
+
+            if (role == CassetteMaterialRole.Good2)
+            {
+                if (config.SelectedCassetteLevel >= 2)
+                    return true;
+
+                reason = "2단 미사용(SelectedCassetteLevel=" + config.SelectedCassetteLevel + ")";
+                return false;
+            }
+
+            if (role == CassetteMaterialRole.Ng1)
+            {
+                if (config.UseNgCassette)
+                    return true;
+
+                reason = "NG 카세트 미사용(UseNgCassette=False)";
+                return false;
+            }
+
+            return true;
+        }
+
+        /// <summary>OUTPUT NG STAGE는 NG 카세트 미사용이면 이동 대상에서 제외합니다.</summary>
+        private bool IsDataOnlyStationInUse(MaterialLocationKind kind, out string reason)
+        {
+            reason = string.Empty;
+            if (kind != MaterialLocationKind.OutputStageNg)
+                return true;
+
+            return IsDataOnlyCassetteRoleInUse(CassetteMaterialRole.Ng1, out reason);
+        }
+
         private sealed class DataOnlyLocationItem
         {
             public DataOnlyLocationItem(DataOnlyLocation location, string text)
@@ -1614,7 +1760,19 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             if (cassette == null || cassette.Slots == null)
                 return;
 
-            for (int i = 0; i < cassette.Slots.Count; i++)
+            // 기존 조건: for (int i = 0; i < cassette.Slots.Count; i++)
+            // 현재 기준: 슬롯 상한을 Config.SlotCount로 클램프한다(스냅샷 SlotCount가 커도 없는 슬롯을 만들지 않는다).
+            // 사용 여부(1단/2단/NG) 필터는 Source에 걸지 않는다 — 미사용 카세트에 남은 데이터도 회수할 수 있어야 한다.
+            int slotLimit = ResolveDataOnlySlotLimit(cassette);
+            if (slotLimit < cassette.Slots.Count)
+            {
+                WriteEvent("OUTPUT-CST-DATAONLY-SLOT-CLAMP",
+                    "DATA ONLY source 슬롯 상한 적용. role=" + role +
+                    ", snapshotSlotCount=" + cassette.Slots.Count +
+                    ", configSlotCount=" + slotLimit);
+            }
+
+            for (int i = 0; i < slotLimit; i++)
             {
                 var slot = cassette.Slots[i];
                 if (slot == null || !slot.HasWafer || string.IsNullOrWhiteSpace(slot.WaferId))
@@ -1710,29 +1868,65 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             if (cassette == null || cassette.Slots == null)
                 return;
 
-            for (int i = 0; i < cassette.Slots.Count; i++)
+            // 현재 기준: 미사용 카세트(2단 미사용/NG 미사용)는 이동 대상에서 제외한다.
+            string skipReason;
+            if (!IsDataOnlyCassetteRoleInUse(role, out skipReason))
+            {
+                WriteEvent("OUTPUT-CST-DATAONLY-ROLE-SKIP",
+                    "DATA ONLY destination 제외. role=" + role + ", reason=" + skipReason);
+                return;
+            }
+
+            // 기존 조건: for (int i = 0; i < cassette.Slots.Count; i++)
+            // 현재 기준: 슬롯 상한을 Config.SlotCount로 클램프한다(화면 그리드와 동일 소스).
+            int slotLimit = ResolveDataOnlySlotLimit(cassette);
+            if (slotLimit < cassette.Slots.Count)
+            {
+                WriteEvent("OUTPUT-CST-DATAONLY-SLOT-CLAMP",
+                    "DATA ONLY destination 슬롯 상한 적용. role=" + role +
+                    ", snapshotSlotCount=" + cassette.Slots.Count +
+                    ", configSlotCount=" + slotLimit);
+            }
+
+            // 기존 조건: 빈 슬롯만 목록에 넣었다(slot.HasWafer 또는 WaferId가 있으면 skip).
+            //            → 사용 중인 카세트인데도 데이터를 넘길 대상 슬롯이 화면에서 사라져 수동 복구가 불가능했다.
+            // 현재 기준: 사용 중인 카세트의 슬롯은 전부 표시하고, 점유 여부를 라벨에 표시한다.
+            //            실제 점유 충돌은 실행 시점에 MaterialStateService가 판정한다.
+            for (int i = 0; i < slotLimit; i++)
             {
                 var slot = cassette.Slots[i];
-                if (slot == null || slot.HasWafer || !string.IsNullOrWhiteSpace(slot.WaferId))
+                if (slot == null)
                     continue;
 
+                bool occupied = slot.HasWafer || !string.IsNullOrWhiteSpace(slot.WaferId);
+                string occupancyText = occupied
+                    ? (!string.IsNullOrWhiteSpace(slot.WaferId) ? slot.WaferId : "HAS WAFER")
+                    : "EMPTY";
+
                 var location = DataOnlyLocation.Cassette(role, i);
-                cmbDataOnlyDest.Items.Add(new DataOnlyLocationItem(location, location.DisplayText + "  [EMPTY]"));
+                cmbDataOnlyDest.Items.Add(new DataOnlyLocationItem(location, location.DisplayText + "  [" + occupancyText + "]"));
             }
         }
 
         private void AddDataOnlyStationDestItem(MaterialSnapshot snapshot, MaterialLocationKind kind)
         {
-            bool occupied = snapshot != null && snapshot.Wafers != null && snapshot.Wafers.Any(w =>
-                w != null &&
-                w.CurrentLocation != null &&
-                w.CurrentLocation.Kind == kind &&
-                WaferMaterialStateText.Normalize(w.State) != WaferMaterialState.Empty);
-            if (occupied)
+            // 현재 기준: NG 미사용이면 OUTPUT NG STAGE도 이동 대상에서 제외한다(카세트 판정과 동일 기준).
+            string stationSkipReason;
+            if (!IsDataOnlyStationInUse(kind, out stationSkipReason))
+            {
+                WriteEvent("OUTPUT-CST-DATAONLY-ROLE-SKIP",
+                    "DATA ONLY destination 제외. station=" + kind + ", reason=" + stationSkipReason);
                 return;
+            }
 
+            // 기존 조건: 점유된 스테이션은 목록에서 제외했다(occupied면 return).
+            //            → 피더/스테이지에 데이터가 남아 있으면 그쪽으로 정렬할 방법이 없었다.
+            // 현재 기준: 점유 여부를 라벨에 표시하고 목록에는 항상 넣는다. 점유 시 실행 단계에서 교환된다.
             var location = DataOnlyLocation.Station(kind);
-            cmbDataOnlyDest.Items.Add(new DataOnlyLocationItem(location, location.DisplayText + "  [EMPTY]"));
+            string occupancyText = ResolveDataOnlyMaterialId(location);
+            cmbDataOnlyDest.Items.Add(new DataOnlyLocationItem(
+                location,
+                location.DisplayText + "  [" + (occupancyText == "-" ? "EMPTY" : occupancyText) + "]"));
         }
 
         private static void RestoreDataOnlySelection(ComboBox combo, DataOnlyLocationItem previous)
@@ -1780,6 +1974,37 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             return wafers.Count == 0 ? "-" : "다중(" + wafers.Count + ")";
         }
 
+        // To do: [DATA ONLY 배선] 실행 직전 재확인 - 목록 갱신 이후 설정이 바뀌거나 오래된 선택이 남은 경우를 막는다.
+        //        Destination에만 사용 여부(1단/2단/NG)와 슬롯 범위를 적용한다.
+        //        Source는 검사하지 않는다 — 미사용 카세트/범위 밖에 남은 데이터를 회수·정리하는 경로를 막으면 안 된다.
+        //        (Source Material 변경은 MaterialStateService가 expectedMaterialId로 이미 재확인한다)
+        private bool VerifyDataOnlyDestinationBeforeApply(DataOnlyLocation destination, out string reason)
+        {
+            reason = string.Empty;
+            if (destination == null)
+            {
+                reason = "Destination이 지정되지 않았습니다.";
+                return false;
+            }
+
+            if (!destination.IsCassette)
+                return IsDataOnlyStationInUse(destination.Kind, out reason);
+
+            if (!IsDataOnlyCassetteRoleInUse(destination.CassetteRole, out reason))
+                return false;
+
+            var config = ResolveDataOnlyCassetteConfig();
+            int limit = config != null && config.SlotCount > 0 ? config.SlotCount : 0;
+            if (limit > 0 && (destination.SlotIndex < 0 || destination.SlotIndex >= limit))
+            {
+                reason = "Destination 슬롯이 설정 범위를 벗어났습니다. slot=" + (destination.SlotIndex + 1) +
+                         ", configSlotCount=" + limit;
+                return false;
+            }
+
+            return true;
+        }
+
         private void ExecuteDataOnlyMove()
         {
             if (_dataOnlyBusy)
@@ -1798,12 +2023,33 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                     return;
                 }
 
+                // 현재 기준: 확인창 이전에 Destination 사용 여부/슬롯 범위를 재확인한다(목록 필터 우회 방어).
+                string destinationReason;
+                if (!VerifyDataOnlyDestinationBeforeApply(destItem.Location, out destinationReason))
+                {
+                    RaiseWarning("OUTPUT-CST-DATAONLY-DEST-BLOCKED",
+                        "DATA ONLY move 차단. destination=" + destItem.Location.DisplayText +
+                        ", reason=" + destinationReason);
+                    QMC.Common.MessageDialog.Show(this,
+                        "선택한 Destination으로는 이동할 수 없습니다.\r\n" + destinationReason,
+                        "DATA ONLY", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
                 string expectedId = ResolveDataOnlyMaterialId(sourceItem.Location);
+
+                // 현재 기준: Destination이 점유된 경우 그 자재가 Source 위치로 교환되므로 확인창에 명시한다.
+                string destOccupantId = ResolveDataOnlyMaterialId(destItem.Location);
+                string swapNotice = destOccupantId != "-" && !string.Equals(destOccupantId, expectedId, StringComparison.OrdinalIgnoreCase)
+                    ? "Destination에 있는 [" + destOccupantId + "]는 " + sourceItem.Location.DisplayText + "로 교환됩니다.\r\n"
+                    : "";
+
                 string message =
                     "[DATA ONLY 이동]\r\n" +
                     "Source: " + sourceItem.Location.DisplayText + "\r\n" +
                     "Destination: " + destItem.Location.DisplayText + "\r\n" +
-                    "Material ID: " + expectedId + "\r\n\r\n" +
+                    "Material ID: " + expectedId + "\r\n" +
+                    swapNotice + "\r\n" +
                     "실물 장비는 움직이지 않습니다 (NO MOTION).\r\n" +
                     "Material 데이터만 이동하시겠습니까?";
                 if (QMC.Common.MessageDialog.Show(this, message, "DATA ONLY",
@@ -1826,12 +2072,17 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                     SyncOutputRuntimeProjection();
                     WriteEvent("OUTPUT-CST-DATAONLY-MOVE", "DATA ONLY move done. material=" + result.MaterialId +
                         ", source=" + result.SourceText + ", destination=" + result.DestinationText +
+                        ", swapped=" + (string.IsNullOrWhiteSpace(result.SwappedMaterialId) ? "-" : result.SwappedMaterialId) +
+                        ", swappedTo=" + (string.IsNullOrWhiteSpace(result.SwappedToText) ? "-" : result.SwappedToText) +
                         ", persisted=" + result.PersistenceSucceeded);
                     RefreshDataOnlyAfterChange();
                     QMC.Common.MessageDialog.Show(this,
                         "Material 데이터 이동이 완료되었습니다 (NO MOTION).\r\n" +
                         "Material ID: " + result.MaterialId + "\r\n" +
-                        result.SourceText + " → " + result.DestinationText,
+                        result.SourceText + " → " + result.DestinationText +
+                        (string.IsNullOrWhiteSpace(result.SwappedMaterialId)
+                            ? ""
+                            : "\r\n교환: " + result.SwappedMaterialId + " → " + result.SwappedToText),
                         "DATA ONLY", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 }
                 else
@@ -1872,6 +2123,17 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 }
 
                 string expectedId = ResolveDataOnlyMaterialId(sourceItem.Location);
+
+                // 현재 기준: 삭제는 회수·정리 경로이므로 사용 여부/범위로 차단하지 않고, 판정 근거만 기록한다.
+                //            (Source Material 변경 방어는 MaterialStateService의 expectedMaterialId 재확인이 담당)
+                var deleteConfig = ResolveDataOnlyCassetteConfig();
+                WriteEvent("OUTPUT-CST-DATAONLY-DELETE-CHECK",
+                    "DATA ONLY delete 사전 확인. location=" + sourceItem.Location.DisplayText +
+                    ", material=" + expectedId +
+                    ", configSlotCount=" + (deleteConfig != null ? deleteConfig.SlotCount : 0) +
+                    ", selectedCassetteLevel=" + (deleteConfig != null ? deleteConfig.SelectedCassetteLevel : 0) +
+                    ", useNgCassette=" + (deleteConfig != null && deleteConfig.UseNgCassette));
+
                 string message =
                     "[DATA ONLY 삭제]\r\n" +
                     sourceItem.Location.DisplayText + "의 Material [" + expectedId + "] 데이터를 삭제하시겠습니까?\r\n\r\n" +

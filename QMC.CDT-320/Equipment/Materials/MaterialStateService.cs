@@ -1997,6 +1997,82 @@ namespace QMC.CDT320.Materials
             return true;
         }
 
+        // To do: [Bin 상태 편집] 자재가 스테이지/피더에 나가 있어도 상태만 안전하게 바꾼다.
+        //        기존 조건: 상태 변경도 UpdateWaferFieldInMappedCassette를 탔고, 그 안의
+        //                   GetOrCreateWaferInMappedCassette + ApplyWaferCassetteLocation이
+        //                   CurrentLocation을 카세트 슬롯으로 덮어써서, 스테이지에 나가 있는 자재를
+        //                   슬롯으로 끌어오는 부작용이 있었다(슬롯 포인터까지 다시 채움).
+        //        현재 기준: 지정 Material의 State만 바꾸고 위치/슬롯 포인터는 옮기지 않는다.
+        //                   그 Material을 이미 가리키는 슬롯이 있으면 점유 플래그만 State에 맞춰 정리한다.
+        /// <summary>
+        /// Bin/Wafer 상태만 변경합니다(위치 이동 없음). 성공 시 즉시 저장합니다.
+        /// </summary>
+        public static bool UpdateWaferStateOnly(string waferId, string stateText, string userName)
+        {
+            if (string.IsNullOrWhiteSpace(waferId))
+                return false;
+
+            WaferMaterialState parsed;
+            if (!WaferMaterialStateText.TryParse(stateText, out parsed))
+            {
+                Log.Write("Main", string.IsNullOrWhiteSpace(userName) ? "SYSTEM" : userName, "UpdateWaferStateOnly",
+                    "Bin 상태 변경 실패: 상태 문자열을 해석할 수 없습니다. material=" + waferId +
+                    ", state=" + (stateText ?? "") + " - Failed");
+                return false;
+            }
+
+            WaferMaterialState normalized = WaferMaterialStateText.Normalize(parsed);
+            WaferMaterialState before;
+            string locationText;
+
+            lock (_stateSync)
+            {
+                WaferMaterial wafer = State.Wafers != null
+                    ? State.Wafers.FirstOrDefault(w => w != null &&
+                        string.Equals(w.WaferId, waferId, StringComparison.OrdinalIgnoreCase))
+                    : null;
+                if (wafer == null)
+                {
+                    Log.Write("Main", string.IsNullOrWhiteSpace(userName) ? "SYSTEM" : userName, "UpdateWaferStateOnly",
+                        "Bin 상태 변경 실패: Material 데이터를 찾을 수 없습니다. material=" + waferId + " - Failed");
+                    return false;
+                }
+
+                before = WaferMaterialStateText.Normalize(wafer.State);
+                wafer.State = normalized;
+                wafer.UpdatedAt = DateTime.Now;
+                locationText = wafer.CurrentLocation != null ? wafer.CurrentLocation.ToString() : "";
+
+                // 위치는 그대로 두고, 이 Material을 가리키고 있는 슬롯의 점유 플래그만 정리한다.
+                if (State.Cassettes != null)
+                {
+                    foreach (CassetteMaterial cassette in State.Cassettes)
+                    {
+                        if (cassette == null || cassette.Slots == null)
+                            continue;
+
+                        foreach (CassetteSlotMaterial slot in cassette.Slots)
+                        {
+                            if (slot == null ||
+                                !string.Equals(slot.WaferId, wafer.WaferId, StringComparison.OrdinalIgnoreCase))
+                                continue;
+
+                            slot.HasWafer = normalized != WaferMaterialState.Empty;
+                        }
+                    }
+                }
+            }
+
+            Log.Write("Main", string.IsNullOrWhiteSpace(userName) ? "SYSTEM" : userName, "UpdateWaferStateOnly",
+                "Bin 상태 변경 완료(위치 이동 없음). material=" + waferId +
+                ", before=" + WaferMaterialStateText.ToDisplayName(before) +
+                ", after=" + WaferMaterialStateText.ToDisplayName(normalized) +
+                ", location=" + locationText + " - Ok");
+
+            NotifyAndSave("UpdateWaferStateOnly");
+            return true;
+        }
+
         public static void MoveWafer(string waferId, MaterialLocation location, WaferMaterialState state)
         {
             lock (_stateSync)
@@ -2073,7 +2149,8 @@ namespace QMC.CDT320.Materials
                             expectedMaterialId + ", current=" + wafer.WaferId, userName);
                     }
 
-                    // Apply 직전 재확인 2: Destination Empty.
+                    // 기존 조건: "Apply 직전 재확인 2: Destination Empty."
+                    // 현재 기준: Destination은 카세트 데이터 존재/슬롯 범위만 확인한다(점유는 교환으로 처리).
                     CassetteMaterial destinationCassette = null;
                     CassetteSlotMaterial destinationSlot = null;
                     if (destination.IsCassette)
@@ -2085,25 +2162,21 @@ namespace QMC.CDT320.Materials
                                 "Destination 카세트 상태 데이터가 없습니다. role=" + destination.CassetteRole, userName);
                         }
 
-                        bool isInputCassette =
-                            destination.CassetteRole == CassetteMaterialRole.Input1 ||
-                            destination.CassetteRole == CassetteMaterialRole.Input2;
-                        if (isInputCassette &&
-                            (!destinationCassette.IsEnabled ||
-                             !destinationCassette.IsPresent ||
-                             !destinationCassette.IsMapped))
+                        // 기존 조건: Input cassette destination은 enabled/present/mapped가 모두 참이어야 이동을 허용했다.
+                        //            → 실물과 데이터가 어긋난 상태를 맞추려는데 카세트 상태 때문에 이동이 막혔다.
+                        // 현재 기준: DATA ONLY는 유저가 장비 실물에 데이터를 맞추는 도구이므로 카세트 활성 상태로 막지 않고,
+                        //            판정 근거만 로그로 남긴다(슬롯 범위/카세트 데이터 존재는 계속 검사한다).
+                        // To do: [DATA ONLY 배선] 카세트 활성 상태 게이트 제거 - 상태 정렬 도구 목적 우선.
+                        if (!destinationCassette.IsEnabled ||
+                            !destinationCassette.IsPresent ||
+                            !destinationCassette.IsMapped)
                         {
-                            return FailDataOnly(
-                                operation,
-                                source,
-                                destination,
-                                "DATA-ONLY-DEST-CASSETTE-NOT-ACTIVE",
-                                "Destination Input cassette가 사용 가능한 상태가 아닙니다. role=" +
+                            Log.Write("Main", string.IsNullOrWhiteSpace(userName) ? "SYSTEM" : userName, "DataOnlyMaterial",
+                                "[DATA ONLY] Destination 카세트가 비활성 상태이지만 상태 정렬 목적으로 이동을 허용합니다. role=" +
                                 destination.CassetteRole +
                                 ", enabled=" + destinationCassette.IsEnabled +
                                 ", present=" + destinationCassette.IsPresent +
-                                ", mapped=" + destinationCassette.IsMapped,
-                                userName);
+                                ", mapped=" + destinationCassette.IsMapped + " - Check");
                         }
 
                         destinationCassette.EnsureSlots();
@@ -2121,53 +2194,40 @@ namespace QMC.CDT320.Materials
                                 "Destination Slot 데이터가 없습니다. " + destination.DisplayText, userName);
                         }
 
-                        if (destinationSlot.HasWafer || !string.IsNullOrWhiteSpace(destinationSlot.WaferId))
-                        {
-                            return FailDataOnly(operation, source, destination, "DATA-ONLY-DEST-OCCUPIED",
-                                "Destination Slot이 비어 있지 않습니다. " + destination.DisplayText +
-                                ", 기존 Material=" + destinationSlot.WaferId, userName);
-                        }
                     }
 
-                    WaferMaterial occupied = FindOtherWaferAtLocation(wafer.WaferId, destination.ToMaterialLocation());
-                    if (occupied != null)
+                    // 기존 조건: Destination이 점유되어 있으면 DATA-ONLY-DEST-OCCUPIED로 이동을 거부했다.
+                    //            (카세트 슬롯 점유 검사 + FindOtherWaferAtLocation 검사 2곳)
+                    //            → 실물은 그 슬롯에 있는데 데이터가 다른 자재로 채워져 있으면 정렬이 불가능했다.
+                    // 현재 기준: 점유 자재를 Source 위치로 교환(swap)한다. 어느 Material 데이터도 삭제하지 않는다.
+                    // To do: [DATA ONLY 교환] 점유 Destination은 거부 대신 Source 위치와 교환한다.
+                    WaferMaterial displaced = null;
+                    if (destination.IsCassette &&
+                        (destinationSlot.HasWafer || !string.IsNullOrWhiteSpace(destinationSlot.WaferId)))
                     {
-                        return FailDataOnly(operation, source, destination, "DATA-ONLY-DEST-OCCUPIED",
-                            "Destination 위치에 다른 Material 데이터가 있습니다. " + destination.DisplayText +
-                            ", 기존 Material=" + occupied.WaferId, userName);
+                        displaced = State.Wafers.FirstOrDefault(w => w != null &&
+                            string.Equals(w.WaferId, destinationSlot.WaferId, StringComparison.OrdinalIgnoreCase));
                     }
 
-                    // 원자 반영: Source pointer 제거 → Destination pointer 등록 → CurrentLocation 갱신.
+                    if (displaced == null)
+                        displaced = FindOtherWaferAtLocation(wafer.WaferId, destination.ToMaterialLocation());
+
+                    // 원자 반영: 양쪽 pointer 제거 → Source 자재를 Destination에, 점유 자재를 Source 위치에 등록.
                     MaterialLocation beforeLocation = wafer.CurrentLocation;
+                    MaterialLocation displacedBeforeLocation = displaced != null ? displaced.CurrentLocation : null;
                     RemoveWaferFromCassetteSlot(wafer.WaferId);
+                    if (displaced != null)
+                        RemoveWaferFromCassetteSlot(displaced.WaferId);
 
-                    if (destination.IsCassette)
-                    {
-                        destinationSlot.WaferId = wafer.WaferId;
-                        destinationSlot.HasWafer = true;
-                        wafer.CurrentLocation = destination.ToMaterialLocation();
-                        if (IsOutputCassetteRole(destination.CassetteRole))
-                        {
-                            wafer.OutputCassetteId = destinationCassette.CassetteId;
-                            wafer.OutputCassetteRole = destination.CassetteRole;
-                            wafer.OutputSlotNumber = destination.SlotIndex;
-                        }
-
-                        // 저장된 물리 슬롯 위치는 새 슬롯 기준으로 신뢰할 수 없다.
-                        // 물리 이동 목표는 중앙 Unit 계산기가 재계산하므로 여기서는 무효화만 한다.
-                        wafer.CurrentCassetteSlotPosition = double.NaN;
-                    }
-                    else
-                    {
-                        wafer.CurrentLocation = destination.ToMaterialLocation();
-                    }
-
-                    // DATA ONLY 계약: Material ID/LOT/검사결과/DieMap/Grade/State는 변경하지 않는다.
-                    wafer.UpdatedAt = DateTime.Now;
+                    ApplyDataOnlyPlacementNoLock(wafer, destination);
+                    if (displaced != null)
+                        ApplyDataOnlyPlacementNoLock(displaced, source);
 
                     result.MaterialId = wafer.WaferId;
                     result.BeforeLocationText = beforeLocation != null ? beforeLocation.ToString() : "";
                     result.AfterLocationText = wafer.CurrentLocation != null ? wafer.CurrentLocation.ToString() : "";
+                    result.SwappedMaterialId = displaced != null ? displaced.WaferId : "";
+                    result.SwappedToText = displaced != null ? source.DisplayText : "";
 
                     SequenceTrace.MaterialChange(
                         "DataOnlyMove",
@@ -2176,6 +2236,17 @@ namespace QMC.CDT320.Materials
                         "to=" + wafer.CurrentLocation,
                         "user=" + (userName ?? ""),
                         "noMotion=true");
+
+                    if (displaced != null)
+                    {
+                        SequenceTrace.MaterialChange(
+                            "DataOnlyMoveSwap",
+                            "wafer=" + displaced.WaferId,
+                            "from=" + displacedBeforeLocation,
+                            "to=" + displaced.CurrentLocation,
+                            "user=" + (userName ?? ""),
+                            "noMotion=true");
+                    }
                 }
 
                 // 이동 결과를 즉시 Snapshot에 저장한다(백그라운드 스로틀 대기 없이 동기 flush).
@@ -2187,6 +2258,8 @@ namespace QMC.CDT320.Materials
                     "[DATA ONLY] Material 데이터 이동 완료(장비 무동작). material=" + result.MaterialId +
                     ", source=" + result.SourceText +
                     ", destination=" + result.DestinationText +
+                    ", swapped=" + (string.IsNullOrWhiteSpace(result.SwappedMaterialId) ? "-" : result.SwappedMaterialId) +
+                    ", swappedTo=" + (string.IsNullOrWhiteSpace(result.SwappedToText) ? "-" : result.SwappedToText) +
                     ", persisted=" + result.PersistenceSucceeded + " - Ok");
                 return result;
             }
@@ -2275,6 +2348,55 @@ namespace QMC.CDT320.Materials
             finally
             {
             }
+        }
+
+        // To do: [DATA ONLY 교환] Source/Destination 양방향 배치를 한 함수로 처리한다(교환 시 대칭 적용).
+        /// <summary>
+        /// DATA ONLY 배치 반영입니다. 카세트면 슬롯 pointer와 출력 키를 등록하고, 스테이션이면 위치만 갱신합니다.
+        /// 호출 전에 해당 Material의 기존 슬롯 pointer가 제거되어 있어야 합니다(_stateSync 보유 상태에서 호출).
+        /// DATA ONLY 계약대로 Material ID/LOT/검사결과/DieMap/Grade/State는 변경하지 않습니다.
+        /// </summary>
+        private static void ApplyDataOnlyPlacementNoLock(WaferMaterial wafer, DataOnlyLocation location)
+        {
+            if (wafer == null || location == null)
+                return;
+
+            if (location.IsCassette)
+            {
+                CassetteMaterial cassette = State.Cassettes.FirstOrDefault(c => c != null && c.Role == location.CassetteRole);
+                if (cassette != null)
+                {
+                    cassette.EnsureSlots();
+                    if (location.SlotIndex >= 0 && location.SlotIndex < cassette.Slots.Count)
+                    {
+                        CassetteSlotMaterial slot = cassette.Slots[location.SlotIndex];
+                        if (slot != null)
+                        {
+                            slot.WaferId = wafer.WaferId;
+                            slot.HasWafer = true;
+                        }
+                    }
+
+                    if (IsOutputCassetteRole(location.CassetteRole))
+                    {
+                        wafer.OutputCassetteId = cassette.CassetteId;
+                        wafer.OutputCassetteRole = location.CassetteRole;
+                        wafer.OutputSlotNumber = location.SlotIndex;
+                    }
+                }
+
+                wafer.CurrentLocation = location.ToMaterialLocation();
+
+                // 저장된 물리 슬롯 위치는 새 슬롯 기준으로 신뢰할 수 없다.
+                // 물리 이동 목표는 중앙 Unit 계산기가 재계산하므로 여기서는 무효화만 한다.
+                wafer.CurrentCassetteSlotPosition = double.NaN;
+            }
+            else
+            {
+                wafer.CurrentLocation = location.ToMaterialLocation();
+            }
+
+            wafer.UpdatedAt = DateTime.Now;
         }
 
         // DATA ONLY 대상 위치에서 Material을 정확히 하나 찾는다.

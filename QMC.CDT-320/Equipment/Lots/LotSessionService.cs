@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Linq;
 using QMC.CDT320.Materials;
 using QMC.CDT320.Recipes;
 using QMC.CDT320.Stats;
@@ -65,7 +66,18 @@ namespace QMC.CDT320.Lots
 
                 string lotId = MaterialStateService.GetProductionLotId();
                 if (string.IsNullOrWhiteSpace(lotId))
+                {
+                    // To do: [LOT 복구] 조용한 실패 제거 - 복구를 건너뛴 사유를 남긴다.
+                    // 기존 조건: 로그 없이 return false → 재시작 후 LOT이 사라져도 원인을 추적할 수 없었다.
+                    //            (화면의 Lot ID는 웨이퍼의 CassetteLotId라서, 스냅샷 LotId가 비어 있어도
+                    //             화면에는 LOT이 있는 것처럼 보여 혼동이 컸다)
+                    // 현재 기준: 스냅샷에 생산 LOT ID가 없으면 그 사실과 디스크에 남은 진행 중 LOT을 함께 기록한다.
+                    Log.Write("Main", "SYSTEM", "LotRestore",
+                        "활성 LOT 복구 건너뜀: Material 스냅샷에 생산 LOT ID가 없습니다. " +
+                        "diskRunningLots=" + DescribeRestorableLots() +
+                        " - Check");
                     return false;
+                }
 
                 if (!LotStorage.TryRestoreActiveLot(lotId))
                 {
@@ -84,6 +96,34 @@ namespace QMC.CDT320.Lots
             {
                 Log.Write("Main", "SYSTEM", "LotRestore", "LOT 복구 실패: " + ex.Message + " - Failed");
                 return false;
+            }
+            finally
+            {
+            }
+        }
+
+        // To do: [LOT 복구] 복구 실패 로그에 "되살릴 후보가 있었는지"를 같이 남기기 위한 요약.
+        /// <summary>
+        /// 이력(디스크)에 남아 있는 진행 중 LOT을 요약한다.
+        /// 스냅샷 LotId가 비어 복구를 건너뛸 때, 실제로 되살릴 LOT이 있었는지 로그만 보고 판단할 수 있게 한다.
+        /// </summary>
+        private static string DescribeRestorableLots()
+        {
+            try
+            {
+                var running = LotStorage.Lots.Values
+                    .Where(l => l != null && l.State == LotState.Running)
+                    .Select(l => l.LotID ?? "")
+                    .Where(id => id.Length > 0)
+                    .ToList();
+
+                return running.Count == 0
+                    ? "(없음)"
+                    : running.Count + "건[" + string.Join(", ", running) + "]";
+            }
+            catch (Exception ex)
+            {
+                return "(조회 실패: " + ex.Message + ")";
             }
             finally
             {

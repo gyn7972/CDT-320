@@ -306,6 +306,7 @@ namespace QMC.CDT320
 
             OutputFeederUnit = new OutputFeederUnit();
             OutputCassetteUnit = new OutputCassetteUnit();
+            OutputCassetteUnit.BindMachine(this);
             OutputStageUnit = new OutputStageUnit(
                 tpu: new NullTpuUnit(),
                 unloader: new QMC.CDT320.Sim.OutputUnloaderAdapter(OutputCassetteUnit, OutputFeederUnit));

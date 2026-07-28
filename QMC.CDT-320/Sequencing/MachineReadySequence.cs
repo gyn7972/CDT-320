@@ -1053,8 +1053,17 @@ namespace QMC.CDT320.Sequencing
                     return Fail("READY-SAFETY-OUTPUT-FEEDER-RECIPE", "OutputFeederUnit", "Ready 상부 헤드/비전/픽커 이동 전 OutputFeeder Avoid 위치 레시피를 확인할 수 없습니다.");
 
                 double target = unit.Recipe.AvoidPosition;
-                if (unit.IsBinFeederInAvoidPosition() && unit.IsBinFeederDown())
-                    return 0;
+                unit.FeederY.UpdateStatus();
+
+                if (!unit.FeederY.IsServoOn || unit.FeederY.IsAlarm)
+                {
+                    return Fail(
+                        "READY-SAFETY-OUTPUT-FEEDER-AXIS-STATE",
+                        "OutputFeederUnit",
+                        "Ready OutputFeeder 복구 불가: OutputFeederY Servo/Alarm 상태가 정상적이지 않습니다. " +
+                        BuildAxisState("OutputFeederY", unit.FeederY, target) +
+                        BuildOutputFeederFailure(unit));
+                }
 
                 if (unit.FeederY.IsMoving)
                 {
@@ -1066,28 +1075,150 @@ namespace QMC.CDT320.Sequencing
                         BuildOutputFeederFailure(unit));
                 }
 
-                // Bin 보유 확인(fail-closed): 영속 Material이 OutputFeeder 점유를 가리키면 자동 복구하지 않는다.
-                WaferMaterial feederBin = MaterialStateService.GetWaferAtLocation(MaterialLocationKind.OutputFeeder);
-                if (feederBin != null)
+                if (unit.IsFeederOverload())
                 {
                     return Fail(
-                        "READY-OUTPUT-FEEDER-BIN",
+                        "READY-SAFETY-OUTPUT-FEEDER-OVERLOAD",
                         "OutputFeederUnit",
-                        "Ready OutputFeeder 자동 복구 불가: OutputFeeder가 Bin을 보유한 상태로 Avoid/Down이 아닙니다. bin=" +
-                        (feederBin.WaferId ?? "") +
-                        ". 알람 해제 후 [작업 → CYCLE RUN → OUTPUT UNLOAD]로 Bin을 카세트로 배출한 뒤 다시 START 하세요. " +
+                        "Ready OutputFeeder 복구 불가: OutputFeeder Overload가 감지되었습니다. " +
                         BuildAxisState("OutputFeederY", unit.FeederY, target) +
                         BuildOutputFeederFailure(unit));
                 }
 
-                // 물리 센서로도 Bin 부재를 확인한다. Material은 비어 있는데 센서가 점유이면 자재 불일치이므로 복구하지 않는다.
-                if (!unit.IsFeederEmpty())
+                WaferMaterial feederBin = MaterialStateService.GetWaferAtLocation(MaterialLocationKind.OutputFeeder);
+                bool persistentOccupied = feederBin != null;
+                bool projectedOccupied = unit.IsFeederTransferDataOccupied();
+                if (persistentOccupied != projectedOccupied)
+                {
+                    return Fail(
+                        "READY-OUTPUT-FEEDER-DATA-MISMATCH",
+                        "OutputFeederUnit",
+                        "Ready OutputFeeder Material과 Unit runtime 점유 상태가 서로 다릅니다. persistent=" +
+                        persistentOccupied + ", projected=" + projectedOccupied +
+                        ", bin=" + (feederBin != null ? feederBin.WaferId : "") +
+                        ". DATA ONLY 상태를 다시 확인한 뒤 READY를 실행하세요. " +
+                        unit.DescribeFeederCylinderState());
+                }
+
+                bool ringDetected;
+                string ringReason;
+                if (!TryReadOutputFeederRingStateForReady(unit, out ringDetected, out ringReason))
+                {
+                    return Fail(
+                        "READY-OUTPUT-FEEDER-RING-READ",
+                        "OutputFeederUnit",
+                        "Ready OutputFeeder Ring 상태를 확정할 수 없습니다. " + ringReason + " " +
+                        unit.DescribeFeederCylinderState());
+                }
+
+                bool strongAvoidAxis =
+                    unit.FeederY.IsInPosition &&
+                    IsAxisInPosition(unit.FeederY, target) &&
+                    unit.IsBinFeederAvoidPositionCheck();
+                bool strongAvoid =
+                    strongAvoidAxis &&
+                    unit.IsFeederDown() &&
+                    !unit.IsFeederUp();
+                bool approvedPostRelease = false;
+                string postReleaseReason = string.Empty;
+                if (strongAvoid &&
+                    persistentOccupied &&
+                    !ringDetected &&
+                    unit.IsFeederUnclamped())
+                {
+                    approvedPostRelease = TryValidateOutputPostReleaseReadyState(
+                        unit,
+                        feederBin,
+                        out postReleaseReason);
+                }
+
+                if (persistentOccupied != ringDetected && !approvedPostRelease)
+                {
+                    return Fail(
+                        "READY-OUTPUT-FEEDER-MATERIAL-RING-MISMATCH",
+                        "OutputFeederUnit",
+                        "Ready OutputFeeder Material/Ring 상태가 일치하지 않습니다. material=" +
+                        persistentOccupied + ", ring=" + ringDetected +
+                        ", postRelease=" + postReleaseReason +
+                        ". 자동 이동하지 않습니다. " +
+                        BuildAxisState("OutputFeederY", unit.FeederY, target) +
+                        BuildOutputFeederFailure(unit));
+                }
+
+                if (strongAvoid)
+                {
+                    if (persistentOccupied && ringDetected && unit.IsFeederUnclamped())
+                    {
+                        return Fail(
+                            "READY-OUTPUT-FEEDER-OCCUPIED-UNCLAMPED",
+                            "OutputFeederUnit",
+                            "Ready OutputFeeder가 Bin을 감지하지만 Unclamp 상태입니다. 자동 진행하지 않습니다. bin=" +
+                            (feederBin != null ? feederBin.WaferId : "") + ", " +
+                            unit.DescribeFeederCylinderState());
+                    }
+
+                    if (approvedPostRelease)
+                    {
+                        LogStep(
+                            "OutputFeeder post-release 강한 상태를 확인했습니다. READY 후 현재 물리 상태에서 " +
+                            "UnloadToCassette 후속 검증을 재개합니다. bin=" +
+                            (feederBin != null ? feederBin.WaferId : "") + ", " +
+                            postReleaseReason);
+                    }
+
+                    return 0;
+                }
+
+                // Actual은 이미 Avoid 부근인데 Command/InPosition/Avoid dog 중 하나가 맞지 않으면
+                // FeederRetreatPolicy가 Y 이동을 생략하고 Lift만 왕복할 수 있다. 이 모호 상태에서는
+                // 자동 실린더 동작을 하지 않고 원인을 확인하도록 차단한다.
+                double avoidTolerance = ResolveAxisTolerance(unit.FeederY);
+                bool liftStateAmbiguous = unit.IsFeederUp() == unit.IsFeederDown();
+                if (Math.Abs(unit.FeederY.ActualPosition - target) <= avoidTolerance &&
+                    (!strongAvoidAxis || liftStateAmbiguous))
+                {
+                    return Fail(
+                        "READY-OUTPUT-FEEDER-AVOID-AMBIGUOUS",
+                        "OutputFeederUnit",
+                        "Ready OutputFeeder가 물리적으로 Avoid 부근이지만 강한 완료 조건이 맞지 않습니다. " +
+                        "자동 Lift 왕복을 수행하지 않습니다. " +
+                        BuildAxisState("OutputFeederY", unit.FeederY, target) +
+                        BuildOutputFeederFailure(unit));
+                }
+
+                if (persistentOccupied)
+                {
+                    return Fail(
+                        "READY-OUTPUT-FEEDER-BIN",
+                        "OutputFeederUnit",
+                        "Ready OutputFeeder 자동 복구 불가: OutputFeeder가 Bin을 보유한 상태로 강한 Avoid/Down이 아닙니다. bin=" +
+                        (feederBin.WaferId ?? "") +
+                        ". 알람 해제 후 [작업 → CYCLE RUN → OUTPUT UNLOAD/LOAD]로 이송을 완료한 뒤 다시 START 하세요. " +
+                        BuildAxisState("OutputFeederY", unit.FeederY, target) +
+                        BuildOutputFeederFailure(unit));
+                }
+
+                if (ringDetected)
                 {
                     return Fail(
                         "READY-OUTPUT-FEEDER-SENSOR",
                         "OutputFeederUnit",
-                        "Ready OutputFeeder 자동 복구 불가: Material 상태는 비어 있으나 피더 센서가 Bin 점유를 감지했습니다. " +
+                        "Ready OutputFeeder 자동 복구 불가: Material은 비어 있으나 Ring 센서가 Bin을 감지했습니다. " +
                         "자재 상태를 확인/복구한 뒤 다시 START 하세요. " + unit.DescribeFeederCylinderState());
+                }
+
+                string cassetteReleaseReason;
+                if (!VerifyOutputCassetteReleaseBeforeEmptyFeederRetreat(
+                        unit,
+                        out cassetteReleaseReason))
+                {
+                    return Fail(
+                        "READY-OUTPUT-FEEDER-CASSETTE-RELEASE",
+                        "OutputFeederUnit",
+                        "Ready OutputFeeder 자동 복구 불가: CassetteUnload 위치의 빈 피더 후퇴 조건이 맞지 않습니다. " +
+                        cassetteReleaseReason + " " +
+                        BuildAxisState("OutputFeederY", unit.FeederY, target) +
+                        BuildOutputFeederFailure(unit));
                 }
 
                 LogStep("OutputFeeder가 Avoid/Down 상태가 아니어서 빈 피더 안전 복구를 시작합니다. " +
@@ -1125,6 +1256,39 @@ namespace QMC.CDT320.Sequencing
                         BuildOutputFeederFailure(unit));
                 }
 
+                unit.FeederY.UpdateStatus();
+                bool finalStrongAvoid =
+                    unit.FeederY.IsServoOn &&
+                    !unit.FeederY.IsAlarm &&
+                    !unit.FeederY.IsMoving &&
+                    unit.FeederY.IsInPosition &&
+                    IsAxisInPosition(unit.FeederY, target) &&
+                    unit.IsBinFeederAvoidPositionCheck() &&
+                    unit.IsFeederDown() &&
+                    !unit.IsFeederUp() &&
+                    !unit.IsFeederOverload();
+                bool finalRingDetected = false;
+                string finalRingReason = string.Empty;
+                if (!finalStrongAvoid ||
+                    !TryReadOutputFeederRingStateForReady(
+                        unit,
+                        out finalRingDetected,
+                        out finalRingReason) ||
+                    finalRingDetected ||
+                    unit.IsFeederTransferDataOccupied())
+                {
+                    return Fail(
+                        "READY-OUTPUT-FEEDER-RECOVER-CHECK",
+                        "OutputFeederUnit",
+                        "Ready OutputFeeder 빈 피더 복구 후 강한 최종 확인에 실패했습니다. " +
+                        "strongAvoid=" + finalStrongAvoid +
+                        ", ring=" + finalRingDetected +
+                        ", ringReason=" + finalRingReason +
+                        ", dataOccupied=" + unit.IsFeederTransferDataOccupied() + ". " +
+                        BuildAxisState("OutputFeederY", unit.FeederY, target) +
+                        BuildOutputFeederFailure(unit));
+                }
+
                 LogStep("OutputFeeder 빈 피더 안전 복구 완료. " +
                     BuildAxisState("OutputFeederY", unit.FeederY, target));
                 return 0;
@@ -1140,6 +1304,397 @@ namespace QMC.CDT320.Sequencing
             finally
             {
             }
+        }
+
+        private static bool TryReadOutputFeederRingStateForReady(
+            OutputFeederUnit feeder,
+            out bool ringDetected,
+            out string reason)
+        {
+            ringDetected = false;
+            reason = string.Empty;
+
+            if (feeder == null || feeder.BinFeederRingCheckSensor == null)
+            {
+                reason = "OutputFeeder Ring 센서 정보를 찾을 수 없습니다.";
+                return false;
+            }
+
+            if (feeder.IsOutputFeederSimulationOrDryRun())
+            {
+                // Material은 물리 인계 완료 전까지 Feeder에 남는다. Simulation/DryRun에서는
+                // 강한 Avoid/Down/Unclamp 상태만 제품 해제 완료로 해석한다.
+                bool releasedAtAvoid =
+                    feeder.IsFeederDown() &&
+                    feeder.IsFeederUnclamped() &&
+                    feeder.IsBinFeederYInAvoidPosition() &&
+                    feeder.IsBinFeederAvoidPositionCheck();
+                ringDetected =
+                    !releasedAtAvoid &&
+                    feeder.IsFeederTransferDataOccupied();
+                return true;
+            }
+
+            if (feeder.BinFeederRingCheckSensor.Config != null &&
+                (feeder.BinFeederRingCheckSensor.Config.IsSimulationMode ||
+                 feeder.BinFeederRingCheckSensor.Config.IgnoreWaits))
+            {
+                reason = "실기 운전 중 OutputFeeder Ring 센서가 Simulation/DryRun 설정입니다.";
+                return false;
+            }
+
+            int errorCode;
+            if (!AjinIoScanService.TryReadHardwareInput(
+                    feeder.BinFeederRingCheckSensor,
+                    out errorCode))
+            {
+                reason = "OutputFeeder Ring 센서 실제 입력 읽기 실패. errorCode=" + errorCode;
+                return false;
+            }
+
+            ringDetected = feeder.BinFeederRingCheckSensor.IsOn;
+            return true;
+        }
+
+        private bool TryValidateOutputPostReleaseReadyState(
+            OutputFeederUnit feeder,
+            WaferMaterial feederBin,
+            out string reason)
+        {
+            reason = string.Empty;
+
+            if (feeder == null || feederBin == null)
+            {
+                reason = "OutputFeeder 또는 Feeder Material이 없습니다.";
+                return false;
+            }
+
+            CassetteMaterialRole role = feederBin.SourceCassetteRole;
+            int slotIndex = feederBin.SourceSlotNumber;
+            TargetCassette targetCassette;
+            BinSide side;
+            if (!TryResolveOutputCassetteTarget(role, out targetCassette, out side))
+            {
+                reason = "Feeder Material의 원본 Output cassette role이 올바르지 않습니다. role=" + role;
+                return false;
+            }
+
+            WaferMaterial stageBin = MaterialStateService.GetWaferAtLocation(
+                side == BinSide.Ng
+                    ? MaterialLocationKind.OutputStageNg
+                    : MaterialLocationKind.OutputStageGood);
+            if (stageBin != null)
+            {
+                reason = "대상 OutputStage에 다른 Material이 남아 있습니다. stageBin=" + stageBin.WaferId;
+                return false;
+            }
+
+            double releaseTarget;
+            if (!TryValidateOutputCassetteReleasePosition(
+                    role,
+                    slotIndex,
+                    false,
+                    out releaseTarget,
+                    out reason))
+            {
+                return false;
+            }
+
+            reason =
+                "role=" + role +
+                ", slot=" + (slotIndex + 1).ToString("00") +
+                ", side=" + side +
+                ", releaseTarget=" + releaseTarget.ToString("0.###");
+            return true;
+        }
+
+        private bool VerifyOutputCassetteReleaseBeforeEmptyFeederRetreat(
+            OutputFeederUnit feeder,
+            out string reason)
+        {
+            reason = string.Empty;
+
+            if (feeder == null || feeder.FeederY == null || feeder.Recipe == null)
+            {
+                reason = "OutputFeeder Y축 또는 Recipe가 없습니다.";
+                return false;
+            }
+
+            double feederTolerance = ResolveAxisTolerance(feeder.FeederY);
+            bool physicallyAtGoodCassetteUnload =
+                Math.Abs(
+                    feeder.FeederY.ActualPosition -
+                    feeder.Recipe.GoodCassetteUnloadPosition) <= feederTolerance;
+            bool physicallyAtNgCassetteUnload =
+                Math.Abs(
+                    feeder.FeederY.ActualPosition -
+                    feeder.Recipe.NGCassetteUnloadPosition) <= feederTolerance;
+
+            // Cassette 삽입 위치가 아니면 기존 빈 피더 Ready 복구 계약을 유지한다.
+            if (!physicallyAtGoodCassetteUnload && !physicallyAtNgCassetteUnload)
+                return true;
+
+            bool atGoodCassetteUnload =
+                physicallyAtGoodCassetteUnload &&
+                feeder.FeederY.IsInPosition &&
+                IsOutputPositionMatch(
+                    feeder.FeederY.ActualPosition,
+                    feeder.Recipe.GoodCassetteUnloadPosition,
+                    feederTolerance) &&
+                IsOutputPositionMatch(
+                    feeder.FeederY.CommandPosition,
+                    feeder.Recipe.GoodCassetteUnloadPosition,
+                    feederTolerance);
+            bool atNgCassetteUnload =
+                physicallyAtNgCassetteUnload &&
+                feeder.FeederY.IsInPosition &&
+                IsOutputPositionMatch(
+                    feeder.FeederY.ActualPosition,
+                    feeder.Recipe.NGCassetteUnloadPosition,
+                    feederTolerance) &&
+                IsOutputPositionMatch(
+                    feeder.FeederY.CommandPosition,
+                    feeder.Recipe.NGCassetteUnloadPosition,
+                    feederTolerance);
+
+            if (!atGoodCassetteUnload && !atNgCassetteUnload)
+            {
+                reason =
+                    "OutputFeederY Actual은 CassetteUnload 부근이지만 Command/InPosition/F3 완료 조건이 " +
+                    "맞지 않습니다. 자동 후퇴하지 않습니다. physicallyAtGood=" +
+                    physicallyAtGoodCassetteUnload + ", physicallyAtNg=" +
+                    physicallyAtNgCassetteUnload + ", " +
+                    BuildAxisState(
+                        "OutputFeederY",
+                        feeder.FeederY,
+                        physicallyAtNgCassetteUnload
+                            ? feeder.Recipe.NGCassetteUnloadPosition
+                            : feeder.Recipe.GoodCassetteUnloadPosition);
+                return false;
+            }
+
+            if (!feeder.IsFeederDown() ||
+                feeder.IsFeederUp() ||
+                !feeder.IsFeederUnclamped() ||
+                feeder.IsFeederOverload())
+            {
+                reason =
+                    "CassetteUnload 위치에서 빈 피더의 Down/Unclamp/Overload 상태가 안전 조건과 다릅니다. " +
+                    feeder.DescribeFeederCylinderState();
+                return false;
+            }
+
+            CassetteMaterialRole[] candidateRoles =
+            {
+                CassetteMaterialRole.Good1,
+                CassetteMaterialRole.Good2,
+                CassetteMaterialRole.Ng1
+            };
+            int matchCount = 0;
+            string matchedState = string.Empty;
+            OutputCassetteUnit cassette = _machine != null ? _machine.OutputCassetteUnit : null;
+            int slotCount = cassette != null && cassette.Config != null
+                ? cassette.Config.SlotCount
+                : 0;
+
+            for (int roleIndex = 0; roleIndex < candidateRoles.Length; roleIndex++)
+            {
+                CassetteMaterialRole role = candidateRoles[roleIndex];
+                if ((role == CassetteMaterialRole.Ng1 && !atNgCassetteUnload) ||
+                    (role != CassetteMaterialRole.Ng1 && !atGoodCassetteUnload))
+                {
+                    continue;
+                }
+
+                for (int slotIndex = 0; slotIndex < slotCount; slotIndex++)
+                {
+                    if (MaterialStateService.GetWaferInCassette(role, slotIndex) == null)
+                        continue;
+
+                    double releaseTarget;
+                    string releaseReason;
+                    if (!TryValidateOutputCassetteReleasePosition(
+                            role,
+                            slotIndex,
+                            true,
+                            out releaseTarget,
+                            out releaseReason))
+                    {
+                        continue;
+                    }
+
+                    matchCount++;
+                    matchedState =
+                        "role=" + role +
+                        ", slot=" + (slotIndex + 1).ToString("00") +
+                        ", releaseTarget=" + releaseTarget.ToString("0.###");
+                }
+            }
+
+            if (matchCount == 1)
+            {
+                reason = matchedState;
+                return true;
+            }
+
+            reason =
+                "CassetteUnload 위치의 빈 피더에 대응하는 'Material commit 완료 + Cassette release +1mm' " +
+                "상태를 하나로 확정할 수 없습니다. matchCount=" + matchCount +
+                ", atGoodUnload=" + atGoodCassetteUnload +
+                ", atNgUnload=" + atNgCassetteUnload;
+            return false;
+        }
+
+        private bool TryValidateOutputCassetteReleasePosition(
+            CassetteMaterialRole role,
+            int slotIndex,
+            bool requireCassetteMaterial,
+            out double releaseTarget,
+            out string reason)
+        {
+            releaseTarget = 0.0;
+            reason = string.Empty;
+
+            OutputCassetteUnit cassette = _machine != null ? _machine.OutputCassetteUnit : null;
+            if (cassette == null ||
+                cassette.OutputLifterZ == null ||
+                cassette.Config == null)
+            {
+                reason = "OutputCassette 또는 OutputLifterZ/Config가 없습니다.";
+                return false;
+            }
+
+            TargetCassette targetCassette;
+            BinSide side;
+            if (!TryResolveOutputCassetteTarget(role, out targetCassette, out side))
+            {
+                reason = "Output cassette role이 올바르지 않습니다. role=" + role;
+                return false;
+            }
+
+            if (slotIndex < 0 || slotIndex >= cassette.Config.SlotCount)
+            {
+                reason =
+                    "Output cassette slot이 범위를 벗어났습니다. role=" + role +
+                    ", slot=" + (slotIndex + 1) +
+                    ", slotCount=" + cassette.Config.SlotCount;
+                return false;
+            }
+
+            if (targetCassette == TargetCassette.Good2 &&
+                cassette.Config.SelectedCassetteLevel < 2)
+            {
+                reason = "GOOD2 cassette가 비활성 상태입니다.";
+                return false;
+            }
+
+            WaferMaterial cassetteBin = MaterialStateService.GetWaferInCassette(role, slotIndex);
+            if (requireCassetteMaterial != (cassetteBin != null))
+            {
+                reason =
+                    "Output cassette Material 상태가 기대와 다릅니다. role=" + role +
+                    ", slot=" + (slotIndex + 1).ToString("00") +
+                    ", expectedOccupied=" + requireCassetteMaterial +
+                    ", actualOccupied=" + (cassetteBin != null);
+                return false;
+            }
+
+            double unloadingOffset = cassette.ResolveUnloadingPositionOffset();
+            double releaseDistance = cassette.Config.UnloadReleaseLiftDistance;
+            if (double.IsNaN(unloadingOffset) ||
+                double.IsInfinity(unloadingOffset) ||
+                double.IsNaN(releaseDistance) ||
+                double.IsInfinity(releaseDistance) ||
+                unloadingOffset >= 0.0 ||
+                releaseDistance < OutputCassetteUnit.MinUnloadReleaseLiftDistanceMm ||
+                releaseDistance > OutputCassetteUnit.MaxUnloadReleaseLiftDistanceMm ||
+                releaseDistance > Math.Abs(unloadingOffset))
+            {
+                reason =
+                    "OutputCassette unload release 설정이 안전 범위를 벗어났습니다. " +
+                    "UnloadingPositionOffset=" + unloadingOffset.ToString("0.###") +
+                    ", UnloadReleaseLiftDistance=" + releaseDistance.ToString("0.###");
+                return false;
+            }
+
+            double slotTarget = cassette.CalculateBinCassetteSlotTargetPosition(
+                targetCassette,
+                slotIndex);
+            double unloadTarget = slotTarget + unloadingOffset;
+            releaseTarget = unloadTarget + releaseDistance;
+
+            cassette.OutputLifterZ.UpdateStatus();
+            BaseAxis axis = cassette.OutputLifterZ;
+            double tolerance = ResolveAxisTolerance(axis);
+            if (!axis.IsServoOn ||
+                axis.IsAlarm ||
+                axis.IsMoving ||
+                !axis.IsInPosition ||
+                !OutputCassetteUnit.IsUnloadReleasePositionMatch(
+                    axis.ActualPosition,
+                    releaseTarget,
+                    unloadTarget,
+                    tolerance) ||
+                !OutputCassetteUnit.IsUnloadReleasePositionMatch(
+                    axis.CommandPosition,
+                    releaseTarget,
+                    unloadTarget,
+                    tolerance))
+            {
+                reason =
+                    "OutputCassette가 승인된 release 위치에 강하게 정지하지 않았습니다. role=" + role +
+                    ", slot=" + (slotIndex + 1).ToString("00") +
+                    ", releaseTarget=" + releaseTarget.ToString("0.###") +
+                    ", " + BuildAxisState("OutputLifterZ", axis, releaseTarget);
+                return false;
+            }
+
+            return true;
+        }
+
+        private static bool TryResolveOutputCassetteTarget(
+            CassetteMaterialRole role,
+            out TargetCassette targetCassette,
+            out BinSide side)
+        {
+            switch (role)
+            {
+                case CassetteMaterialRole.Good1:
+                    targetCassette = TargetCassette.Good1;
+                    side = BinSide.Good;
+                    return true;
+
+                case CassetteMaterialRole.Good2:
+                    targetCassette = TargetCassette.Good2;
+                    side = BinSide.Good;
+                    return true;
+
+                case CassetteMaterialRole.Ng1:
+                    targetCassette = TargetCassette.Ng;
+                    side = BinSide.Ng;
+                    return true;
+
+                default:
+                    targetCassette = TargetCassette.Good1;
+                    side = BinSide.Good;
+                    return false;
+            }
+        }
+
+        private static bool IsOutputPositionMatch(double value, double target, double tolerance)
+        {
+            if (double.IsNaN(value) ||
+                double.IsInfinity(value) ||
+                double.IsNaN(target) ||
+                double.IsInfinity(target) ||
+                tolerance <= 0.0)
+            {
+                return false;
+            }
+
+            double valueKey = Math.Round(value, 3, MidpointRounding.AwayFromZero);
+            double targetKey = Math.Round(target, 3, MidpointRounding.AwayFromZero);
+            return valueKey == targetKey && Math.Abs(value - target) <= tolerance;
         }
 
         // Ready 진입 시 ExpanderZ가 0보다 위 티칭 위치(예: 로딩 구간의 WaferZ.LoadPosition)에 남아 있으면

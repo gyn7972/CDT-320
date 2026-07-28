@@ -38,6 +38,8 @@ namespace QMC.CDT320.Sequencing
 
     internal sealed class OutputFeederUnloadFromStageSequence : OutputFeederSequenceBase<OutputFeederUnloadFromStageStep>
     {
+        private bool _stageToFeederRingProofCompleted;
+
         public OutputFeederUnloadFromStageSequence(MachineSequenceContext context)
             : base(context, OutputFeederSequenceKind.UnloadFromStage, "OutputFeederUnloadFromStageSequence")
         {
@@ -145,7 +147,7 @@ namespace QMC.CDT320.Sequencing
 
                     // 자재 데이터를 피더로 이동
                     case OutputFeederUnloadFromStageStep.MoveMaterialDataToFeeder:
-                        return Task.FromResult(MoveMaterialDataToFeeder());
+                        return MoveMaterialDataToFeederAsync(ct);
 
                     // 스테이지 데이터 갱신
                     case OutputFeederUnloadFromStageStep.UpdateStageData:
@@ -510,19 +512,50 @@ namespace QMC.CDT320.Sequencing
             if (wafer == null)
                 return Fail("OUT-STAGE-DATA-MISSING", "Material", "Output stage data disappeared before feeder material move. side=" + Options.Side);
 
-            if (!IsHardwareBypass())
-            {
-                bool detected = await Feeder.WaitFeederRingState(true, ResolveTimeout(), ct).ConfigureAwait(false);
-                if (!detected)
-                    return Fail("OUT-FEEDER-STAGE-UNLOAD-RING", Feeder.Name, "Output feeder ring was not detected after stage unload. waferId=" + wafer.WaferId);
-            }
+            var stageRingSensor =
+                Options.Side == BinSide.Ng
+                    ? Stage.NgBinRingSensor
+                    : Stage.GoodBinRingSensor;
+            bool controllerGlobalDryRun =
+                Context != null &&
+                Context.Controller != null &&
+                Context.Controller.GlobalDryRun;
+            bool virtualTransferReady =
+                wafer != null && ResolveFeederWafer() == null;
+            bool detected = await Feeder.WaitTransportRingStatesConfirmedAsync(
+                true,
+                stageRingSensor,
+                false,
+                controllerGlobalDryRun,
+                virtualTransferReady,
+                !virtualTransferReady,
+                ResolveTimeout(),
+                ct).ConfigureAwait(false);
+            if (!detected)
+                return Fail(
+                    "OUT-FEEDER-STAGE-UNLOAD-RING",
+                    Feeder.Name,
+                    "Stage→OutputFeeder 전달 후 Feeder Ring ON + " +
+                    Options.Side +
+                    " Stage Ring OFF 안정 확인에 실패했습니다. waferId=" +
+                    wafer.WaferId + ", detail=" +
+                    Feeder.LastTransportRingConfirmationFailure);
 
-            CurrentStep = OutputFeederUnloadFromStageStep.MoveMaterialDataToFeeder;
-            return 0;
+            _stageToFeederRingProofCompleted = true;
+            // Ring 증명과 Material cutover 사이에 Step 경계가 생기면 정지/재개 후
+            // 오래된 증명을 재사용할 수 있다. 정상 흐름에서는 같은 호출 안에서 즉시
+            // Material을 갱신하고, 구 ResumeStep로 직접 진입한 경우에는 아래 메서드가
+            // Ring 상태를 다시 확인한다.
+            return await MoveMaterialDataToFeederAsync(ct).ConfigureAwait(false);
         }
 
-        private int MoveMaterialDataToFeeder()
+        private async Task<int> MoveMaterialDataToFeederAsync(
+            CancellationToken ct)
         {
+            ct.ThrowIfCancellationRequested();
+            bool ringProofCompleted = _stageToFeederRingProofCompleted;
+            _stageToFeederRingProofCompleted = false;
+
             WaferMaterial wafer = ResolveStageWafer();
             if (wafer == null)
                 return Fail("OUT-FEEDER-MATERIAL-MOVE", "Material", "Output stage wafer data was not found for feeder material move. side=" + Options.Side);
@@ -537,6 +570,47 @@ namespace QMC.CDT320.Sequencing
             if ((Options.Side == BinSide.Ng && sourceRole != CassetteMaterialRole.Ng1) ||
                 (Options.Side == BinSide.Good && sourceRole != CassetteMaterialRole.Good1 && sourceRole != CassetteMaterialRole.Good2))
                 return Fail("OUT-FEEDER-MATERIAL-SIDE", "Material", "Output side와 source cassette role이 일치하지 않습니다. wafer=" + wafer.WaferId + ", side=" + Options.Side + ", sourceRole=" + sourceRole);
+
+            if (!ringProofCompleted)
+            {
+                var stageRingSensor =
+                    Options.Side == BinSide.Ng
+                        ? Stage.NgBinRingSensor
+                        : Stage.GoodBinRingSensor;
+                bool controllerGlobalDryRun =
+                    Context != null &&
+                    Context.Controller != null &&
+                    Context.Controller.GlobalDryRun;
+                bool virtualTransferReady =
+                    wafer != null && ResolveFeederWafer() == null;
+                bool ringConfirmed =
+                    await Feeder.WaitTransportRingStatesConfirmedAsync(
+                        true,
+                        stageRingSensor,
+                        false,
+                        controllerGlobalDryRun,
+                        virtualTransferReady,
+                        !virtualTransferReady,
+                        ResolveTimeout(),
+                        ct).ConfigureAwait(false);
+                if (!ringConfirmed)
+                {
+                    return Fail(
+                        "OUT-FEEDER-MATERIAL-RING",
+                        Feeder.Name,
+                        "Stage→OutputFeeder Material 재개 직전 Feeder Ring ON + " +
+                        Options.Side +
+                        " Stage Ring OFF 안정 확인에 실패했습니다. wafer=" +
+                        wafer.WaferId + ", detail=" +
+                        Feeder.LastTransportRingConfirmationFailure);
+                }
+
+                wafer = ResolveStageWafer();
+                if (wafer == null)
+                    return Fail("OUT-FEEDER-MATERIAL-MOVE", "Material", "Ring 확인 후 Output stage wafer data가 사라졌습니다. side=" + Options.Side);
+                if (ResolveFeederWafer() != null)
+                    return Fail("OUT-FEEDER-DATA-OCCUPIED", "Material", "Ring 확인 후 Output feeder data가 점유 상태로 변경되었습니다.");
+            }
 
             MaterialStateService.MoveWafer(wafer.WaferId, new MaterialLocation { Kind = MaterialLocationKind.OutputFeeder }, WaferMaterialState.WorkReady);
             Feeder.UpdateFeederMaterialState(MaterialState.Occupied);

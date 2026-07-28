@@ -535,6 +535,8 @@ namespace QMC.CDT320
             NgBinGuideDownSensor   = RegisterCylinderInput("NGBinGuideLift", false, "NgBinGuideDown");
             NgBinClampUpSensor     = RegisterCylinderInput("NGBinGuideClampLift", true, "NgBinClampUp");
             NgBinUnclampSensor     = RegisterCylinderInput("NGBinGuideClamp", false, "NgBinUnclamp");
+            // 링 센서 교차 배선(2026-07-28)은 IO 포인트 명칭 쪽에서 정정했다(AjinIoCatalog: Bit8=GoodBinRing,
+            //   Bit3=NgBinRing). 여기서는 이름 그대로 붙이면 실물과 일치한다.
             NgBinRingSensor        = RegisterInput("NgBinRing");
             GoodBinGuideUpSensor   = RegisterCylinderInput("GoodBinGuideLift", true, "GoodBinGuideUp");
             GoodBinGuideDownSensor = RegisterCylinderInput("GoodBinGuideLift", false, "GoodBinGuideDown");

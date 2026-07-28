@@ -95,7 +95,7 @@ namespace QMC.CDT320.Sequencing
 
                     // 자재 데이터를 피더로 이동
                     case OutputFeederLoadFromCassetteStep.MoveMaterialDataToFeeder:
-                        return Task.FromResult(MoveMaterialDataToFeeder());
+                        return MoveMaterialDataToFeederAsync(ct);
 
                     // 카세트 데이터 갱신
                     case OutputFeederLoadFromCassetteStep.UpdateCassetteData:
@@ -370,19 +370,38 @@ namespace QMC.CDT320.Sequencing
             if (wafer == null)
                 return Fail("OUT-FEEDER-CST-DATA-MISSING", "Material", "Output cassette wafer data disappeared before feeder material move. role=" + ResolveOutputCassetteRole() + ", slot=" + Options.SlotIndex);
 
-            if (!IsHardwareBypass())
-            {
-                bool detected = await Feeder.WaitFeederRingState(true, ResolveTimeout(), ct).ConfigureAwait(false);
-                if (!detected)
-                    return Fail("OUT-FEEDER-RING", Feeder.Name, "Output feeder ring was not detected after cassette load. waferId=" + wafer.WaferId);
-            }
+            bool controllerGlobalDryRun =
+                Context != null &&
+                Context.Controller != null &&
+                Context.Controller.GlobalDryRun;
+            bool virtualFeederRingState =
+                wafer != null && ResolveFeederWafer() == null;
+            bool detected = await Feeder.WaitTransportRingStatesConfirmedAsync(
+                true,
+                null,
+                null,
+                controllerGlobalDryRun,
+                virtualFeederRingState,
+                null,
+                ResolveTimeout(),
+                ct).ConfigureAwait(false);
+            if (!detected)
+                return Fail(
+                    "OUT-FEEDER-RING",
+                    Feeder.Name,
+                    "Output feeder Ring ON 안정 확인에 실패했습니다. waferId=" +
+                    wafer.WaferId + ", detail=" +
+                    Feeder.LastTransportRingConfirmationFailure);
 
             CurrentStep = OutputFeederLoadFromCassetteStep.ClampFeederBin;
             return 0;
         }
 
-        private int MoveMaterialDataToFeeder()
+        private async Task<int> MoveMaterialDataToFeederAsync(
+            CancellationToken ct)
         {
+            ct.ThrowIfCancellationRequested();
+
             WaferMaterial wafer = ResolveCassetteWafer();
             if (wafer == null)
                 return Fail("OUT-FEEDER-MATERIAL-MOVE", "Material", "Output cassette wafer data was not found for feeder material move. role=" + ResolveOutputCassetteRole() + ", slot=" + Options.SlotIndex);
@@ -394,6 +413,43 @@ namespace QMC.CDT320.Sequencing
             if (!string.IsNullOrWhiteSpace(Options.ExpectedWaferId) &&
                 !string.Equals(Options.ExpectedWaferId, wafer.WaferId, StringComparison.OrdinalIgnoreCase))
                 return Fail("OUT-FEEDER-MATERIAL-WAFER", "Material", "물리 이송 후 Material 위치 변경 직전에 Bin ID가 변경되었습니다. expected=" + Options.ExpectedWaferId + ", actual=" + wafer.WaferId);
+
+            bool controllerGlobalDryRun =
+                Context != null &&
+                Context.Controller != null &&
+                Context.Controller.GlobalDryRun;
+            bool virtualFeederRingState =
+                wafer != null && ResolveFeederWafer() == null;
+            bool ringConfirmed = await Feeder.WaitTransportRingStatesConfirmedAsync(
+                true,
+                null,
+                null,
+                controllerGlobalDryRun,
+                virtualFeederRingState,
+                null,
+                ResolveTimeout(),
+                ct).ConfigureAwait(false);
+            if (!ringConfirmed)
+            {
+                return Fail(
+                    "OUT-FEEDER-MATERIAL-RING",
+                    Feeder.Name,
+                    "Cassette→OutputFeeder Material 이동 직전 Ring ON 안정 확인에 실패했습니다. wafer=" +
+                    wafer.WaferId + ", detail=" +
+                    Feeder.LastTransportRingConfirmationFailure);
+            }
+
+            wafer = ResolveCassetteWafer();
+            if (wafer == null)
+                return Fail("OUT-FEEDER-MATERIAL-MOVE", "Material", "Ring 확인 후 Output cassette wafer data가 사라졌습니다. role=" + ResolveOutputCassetteRole() + ", slot=" + Options.SlotIndex);
+
+            state = WaferMaterialStateText.Normalize(wafer.State);
+            if (state != WaferMaterialState.Ready)
+                return Fail("OUT-FEEDER-MATERIAL-STATE", "Material", "Ring 확인 후 source Bin 상태가 변경되었습니다. wafer=" + wafer.WaferId + ", state=" + state);
+
+            if (!string.IsNullOrWhiteSpace(Options.ExpectedWaferId) &&
+                !string.Equals(Options.ExpectedWaferId, wafer.WaferId, StringComparison.OrdinalIgnoreCase))
+                return Fail("OUT-FEEDER-MATERIAL-WAFER", "Material", "Ring 확인 후 Bin ID가 변경되었습니다. expected=" + Options.ExpectedWaferId + ", actual=" + wafer.WaferId);
 
             MaterialStateService.MoveWafer(wafer.WaferId, new MaterialLocation { Kind = MaterialLocationKind.OutputFeeder }, WaferMaterialState.WorkReady);
             Feeder.UpdateFeederMaterialState(MaterialState.Occupied);

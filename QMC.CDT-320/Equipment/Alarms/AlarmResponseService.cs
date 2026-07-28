@@ -69,8 +69,11 @@ namespace QMC.CDT320.Alarms
                     return;
 
                 AlarmResponsePolicy policy = _policyStore.Resolve(alarm);
-                if (policy != null && policy.SetMachineAlarmStatus)
-                    _controller.SetAlarmStateFromAlarmResponse(alarm.Code);
+
+                // 중앙 안전 계약:
+                // AlarmManager에 알람이 발생하면 개별 정책과 무관하게 장비를 Alarm 상태로 유지한다.
+                // 축은 Servo OFF가 아니라 EStop으로 모션만 즉시 정지하고 위치 유지력은 보존한다.
+                _controller.SetAlarmStateFromAlarmResponse(alarm.Code);
 
                 Task<int> responseTask = HandleAlarmAsync(alarm, policy);
                 responseTask.ContinueWith(
@@ -96,27 +99,28 @@ namespace QMC.CDT320.Alarms
         {
             try
             {
-                if (policy == null || policy.StopScope == AlarmStopScope.None && !policy.StopSequence)
-                {
-                    Log.Write("Main", "SYSTEM", "AlarmResponseService",
-                        "Alarm response skipped. code=" + alarm.Code + ", source=" + alarm.Source + " - Ok");
-                    return 0;
-                }
-
                 Log.Write("Main", "SYSTEM", "AlarmResponseService",
                     "Alarm response start. code=" + alarm.Code + ", source=" + alarm.Source +
-                    ", severity=" + alarm.Severity + ", scope=" + policy.StopScope + " - Start");
+                    ", severity=" + alarm.Severity +
+                    ", configuredScope=" + (policy != null ? policy.StopScope.ToString() : "None") +
+                    ", enforcedScope=Equipment, emergency=True - Start");
 
-                // 알람은 일반 정지와 다르다. 축 정지 명령을 먼저 내린 뒤 시퀀스를 정리한다.
-                int stopResult = await StopAxesByPolicyAsync(alarm, policy).ConfigureAwait(false);
-                int sequenceResult = policy.StopSequence
-                    ? await StopSequenceByPolicyAsync(alarm, policy).ConfigureAwait(false)
-                    : 0;
+                // 중앙 안전 계약은 알람 코드/Severity/개별 StopScope 예외를 허용하지 않는다.
+                // 반드시 전체 축 EStop을 먼저 실행하고, 이어서 모든 실행 도메인을 취소한다.
+                // EStop은 Servo OFF가 아니므로 수직축의 위치 유지력은 그대로 보존된다.
+                Task<int> axisStopTask = _controller.StopAllAxesAsync(true);
+                Task<int> sequenceStopTask = _controller.StopSequenceForAlarmAsync(
+                    alarm != null ? alarm.Code : "");
+
+                int stopResult = await axisStopTask.ConfigureAwait(false);
+                int sequenceResult = await sequenceStopTask.ConfigureAwait(false);
                 if (sequenceResult != 0 && stopResult == 0)
                     stopResult = sequenceResult;
 
                 Log.Write("Main", "SYSTEM", "AlarmResponseService",
-                    "Alarm response complete. code=" + alarm.Code + ", result=" + stopResult + " - Ok");
+                    "Alarm response complete. code=" + alarm.Code +
+                    ", result=" + stopResult +
+                    (stopResult == 0 ? " - Ok" : " - Failed"));
                 return stopResult;
             }
             catch (Exception ex)
@@ -140,7 +144,10 @@ namespace QMC.CDT320.Alarms
                 string code = alarm != null ? alarm.Code : "";
                 bool immediateSequenceStop = alarm != null &&
                     (alarm.Severity == AlarmSeverity.Error || alarm.Severity == AlarmSeverity.Critical);
+                // Machine Alarm 상태를 설정하는 알람은 Auto/Manual 구분 없이 즉시 취소한다.
+                // Alarm 상태를 설정하지 않는 경고성 요청만 기존 안전 경계 정지를 유지한다.
                 if (!immediateSequenceStop &&
+                    !policy.SetMachineAlarmStatus &&
                     policy.StopScope == AlarmStopScope.None &&
                     !policy.UseEmergencyStop)
                 {

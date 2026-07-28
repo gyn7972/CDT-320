@@ -33,10 +33,13 @@ namespace QMC.CDT320
     {
         private const int MachineRuntimeStateSaveMergeIntervalMs = 1000;
         private const int MachineRuntimeStateSaveFailureRetryMs = 5000;
+        private const int AlarmSequenceStopTimeoutMs = 10000;
+        private const int AlarmSequenceStopPollIntervalMs = 20;
 
         private readonly CDT320_Machine _machine;
         private EquipmentStatus _status = EquipmentStatus.Idle;
         private CancellationTokenSource _cycleCts;
+        private int _legacyCycleBusyCount;
         private bool _cycleStopRequested;
         private bool _cycleResumePending;
         private CancellationTokenSource _autoCts;
@@ -75,6 +78,8 @@ namespace QMC.CDT320
         private readonly AxisInitializeProgressStore _axisInitializeProgressStore =
             new AxisInitializeProgressStore();
         private readonly SemaphoreSlim _axisInitializeOperationGate =
+            new SemaphoreSlim(1, 1);
+        private readonly SemaphoreSlim _alarmSequenceStopGate =
             new SemaphoreSlim(1, 1);
         private readonly object _machineRuntimeStateSaveLock = new object();
         private readonly object _machineRuntimeStateSaveRequestLock = new object();
@@ -138,6 +143,7 @@ namespace QMC.CDT320
 
         public EquipmentStatus Status => _status;
         public bool IsManualBusy => Volatile.Read(ref _manualBusyCount) > 0;
+        public bool IsLegacyCycleBusy => Volatile.Read(ref _legacyCycleBusyCount) > 0;
         public bool IsSequenceRunning => _coordinatorTask != null && !_coordinatorTask.IsCompleted;
         public bool IsInputStageRunReviewManualActive
         {
@@ -192,6 +198,15 @@ namespace QMC.CDT320
         public bool IsDeveloperReadyRestored => _isDeveloperReadyRestored;
         public MachineReadyProgress ReadySequenceProgress => _readySequenceProgress;
         public bool IsReadySequenceRunning => _readySequenceProgress != null && _readySequenceProgress.IsRunning;
+        private bool IsAxisInitializeOperationRunning => _axisInitializeOperationGate.CurrentCount == 0;
+        private bool HasActiveAlarmControlledOperation =>
+            IsSequenceRunning ||
+            IsManualBusy ||
+            IsInputStageRunReviewManualActive ||
+            IsInputStageRunReviewActionBusy ||
+            IsReadySequenceRunning ||
+            IsLegacyCycleBusy ||
+            IsAxisInitializeOperationRunning;
         /// <summary>4개 유닛(INPUT/FRONT/REAR/OUTPUT) 시퀀스 동작 상태(공식 상태 객체). UI 표시용.</summary>
         public QMC.CDT320.Sequencing.SequenceActivityMonitor SequenceActivity => _sequenceActivity;
         public DateTime MachineInitializedAt { get; private set; }
@@ -2538,31 +2553,54 @@ namespace QMC.CDT320
         {
             Log("[RESET-ALARM] Alarm reset start...");
             int axisCount = 0, axisFail = 0;
+            int alarmGenerationAtRequest = GetLatestAlarmRecordId();
+            IReadOnlyList<AlarmRecord> activeAlarmsAtRequest = AlarmManager.Active;
+            List<int> alarmIdsAtRequest = activeAlarmsAtRequest != null
+                ? activeAlarmsAtRequest.Select(x => x.Id).ToList()
+                : new List<int>();
+            bool alarmStopGateEntered = false;
             try
             {
-                if (IsSequenceRunning)
+                await _alarmSequenceStopGate.WaitAsync().ConfigureAwait(false);
+                alarmStopGateEntered = true;
+
+                if (HasActiveAlarmControlledOperation)
                 {
                     Task runningTask = _coordinatorTask;
                     string taskStatus = runningTask != null ? runningTask.Status.ToString() : "null";
-                    Log("[RESET-ALARM] Active sequence cancellation wait start. taskStatus=" + taskStatus);
+                    string activeState = BuildAlarmControlledOperationState();
+                    Log("[RESET-ALARM] Active operation cancellation wait start. taskStatus=" +
+                        taskStatus + ", " + activeState);
                     QMC.Common.Log.Write("Main", "SYSTEM", "ResetAlarm",
-                        "Alarm reset waits for active sequence cancellation. taskStatus=" + taskStatus + " - Wait");
+                        "Alarm reset waits for active operation cancellation. taskStatus=" +
+                        taskStatus + ", " + activeState + " - Wait");
 
-                    int stopResult = await StopSequenceForAlarmAsync("RESET-ALARM").ConfigureAwait(false);
-                    if (stopResult != 0 || IsSequenceRunning)
+                    int stopResult = await StopSequenceForAlarmCoreAsync("RESET-ALARM").ConfigureAwait(false);
+                    if (stopResult != 0 || HasActiveAlarmControlledOperation)
                     {
-                        LastActionFailureMessage = "알람 리셋 전 자동 시퀀스를 완전히 정지하지 못했습니다.";
+                        activeState = BuildAlarmControlledOperationState();
+                        LastActionFailureMessage = "알람 리셋 전 실행 중인 동작을 완전히 정지하지 못했습니다.";
                         Log("[RESET-ALARM] " + LastActionFailureMessage +
-                            " result=" + stopResult + ", sequenceRunning=" + IsSequenceRunning);
+                            " result=" + stopResult + ", " + activeState);
                         QMC.Common.Log.Write("Main", "SYSTEM", "ResetAlarm",
                             LastActionFailureMessage + " result=" + stopResult +
-                            ", sequenceRunning=" + IsSequenceRunning + " - Failed");
+                            ", " + activeState + " - Failed");
                         return;
                     }
 
-                    Log("[RESET-ALARM] Active sequence cancellation wait complete.");
+                    Log("[RESET-ALARM] Active operation cancellation wait complete.");
                     QMC.Common.Log.Write("Main", "SYSTEM", "ResetAlarm",
-                        "Active sequence terminated before alarm reset. - Ok");
+                        "Active operations terminated before alarm reset. - Ok");
+                }
+
+                if (GetLatestAlarmRecordId() > alarmGenerationAtRequest)
+                {
+                    LastActionFailureMessage =
+                        "알람 리셋 요청 이후 새 알람이 발생하여 리셋을 차단했습니다.";
+                    Log("[RESET-ALARM] " + LastActionFailureMessage);
+                    QMC.Common.Log.Write("Main", "SYSTEM", "ResetAlarm",
+                        LastActionFailureMessage + " - Failed");
+                    return;
                 }
 
                 foreach (var ax in EnumerateAxes())
@@ -2570,22 +2608,69 @@ namespace QMC.CDT320
                     try { ax.ResetAlarm(); axisCount++; }
                     catch { axisFail++; }
                 }
-                int activeBefore = AlarmManager.Active != null ? AlarmManager.Active.Count : 0;
-                AlarmManager.ClearAll();
+
+                if (HasActiveAlarmControlledOperation ||
+                    GetLatestAlarmRecordId() > alarmGenerationAtRequest)
+                {
+                    LastActionFailureMessage =
+                        "알람 리셋 완료 전 새 알람 또는 실행 중인 동작이 확인되어 알람 해제를 차단했습니다.";
+                    Log("[RESET-ALARM] " + LastActionFailureMessage + " " +
+                        BuildAlarmControlledOperationState());
+                    QMC.Common.Log.Write("Main", "SYSTEM", "ResetAlarm",
+                        LastActionFailureMessage + " " +
+                        BuildAlarmControlledOperationState() + " - Failed");
+                    return;
+                }
+
+                int activeBefore = alarmIdsAtRequest.Count;
+                foreach (int alarmId in alarmIdsAtRequest)
+                    AlarmManager.Clear(alarmId);
+
+                if (AlarmManager.HasActive)
+                {
+                    LastActionFailureMessage =
+                        "알람 리셋 중 새 알람이 발생하여 Alarm 상태를 유지합니다.";
+                    SetStatus(EquipmentStatus.Alarm);
+                    Log("[RESET-ALARM] " + LastActionFailureMessage);
+                    QMC.Common.Log.Write("Main", "SYSTEM", "ResetAlarm",
+                        LastActionFailureMessage + " - Failed");
+                    return;
+                }
+
                 Log("[RESET-ALARM] Complete (axis=" + axisCount + ", fail=" + axisFail +
                     ", active alarms cleared=" + activeBefore + ")");
 
                 // 알람 해제 후에는 장비가 자동으로 대기/가동 상태가 된 것이 아니므로 Stopped로 둔다.
                 if (_status == EquipmentStatus.Alarm) SetStatus(EquipmentStatus.Stopped);
 
+                if (AlarmManager.HasActive ||
+                    GetLatestAlarmRecordId() > alarmGenerationAtRequest)
+                {
+                    LastActionFailureMessage =
+                        "알람 리셋 직후 새 알람이 확인되어 Alarm 상태를 복구했습니다.";
+                    SetStatus(EquipmentStatus.Alarm);
+                    Log("[RESET-ALARM] " + LastActionFailureMessage);
+                    QMC.Common.Log.Write("Main", "SYSTEM", "ResetAlarm",
+                        LastActionFailureMessage + " - Failed");
+                    return;
+                }
+
                 TryRecoverMachineInitializedFromAxisState("ResetAlarm");
 
                 // Tower Lamp OFF(알람 해제).
-                try { _machine.OpPanelUnit?.TowerLampOff(); } catch { }
+                if (!AlarmManager.HasActive)
+                {
+                    try { _machine.OpPanelUnit?.TowerLampOff(); } catch { }
+                }
             }
             catch (Exception ex)
             {
                 Log("[RESET-ALARM] exception: " + ex.Message);
+            }
+            finally
+            {
+                if (alarmStopGateEntered)
+                    _alarmSequenceStopGate.Release();
             }
         }
 
@@ -5603,7 +5688,6 @@ namespace QMC.CDT320
                     return result;
                 }
 
-                ClearLoaderTransportResumeStatesAfterReady();
                 if (!TrySynchronizeInputCassetteSlotProjection(
                     "ReadySequenceComplete",
                     "READY-INPUT-CST-SLOT-SYNC"))
@@ -5619,6 +5703,10 @@ namespace QMC.CDT320
                     return -1;
                 }
 
+                // READY가 최종 성공하기 전에는 로딩/언로딩 재개 정보를 폐기하지 않는다.
+                // Slot projection 검증이 실패하면 장비는 Alarm으로 끝나므로, 이 경우 기존
+                // 복구 문맥을 보존해야 다음 READY/수동 복구에서 현재 상태를 다시 판단할 수 있다.
+                ClearLoaderTransportResumeStatesAfterReady();
                 SaveMachineRuntimeState("ReadySequenceComplete");
                 SetStatus(EquipmentStatus.Ready);
                 SetReadySequenceProgress(MachineReadySequenceState.Completed, 100, totalSteps, totalSteps, "Ready", "Ready 시퀀스가 완료되었습니다.");
@@ -5636,7 +5724,8 @@ namespace QMC.CDT320
                 QMC.Common.Log.Write("Main", "SYSTEM", "RunReadySequenceAsync",
                     "Ready sequence canceled. - Stopped");
                 Log("[READY] canceled");
-                SetStatus(EquipmentStatus.Stopped);
+                if (_status != EquipmentStatus.Alarm && !AlarmManager.HasActive)
+                    SetStatus(EquipmentStatus.Stopped);
                 return -1;
             }
             catch (Exception ex)
@@ -6789,6 +6878,10 @@ namespace QMC.CDT320
         {
             try
             {
+                if (_status == EquipmentStatus.Alarm || AlarmManager.HasActive)
+                    throw new InvalidOperationException(
+                        "Alarm 상태에서는 수동 동작을 시작할 수 없습니다. reason=" + reason);
+
                 if (IsSequenceRunning || _status == EquipmentStatus.AutoRunning)
                     throw new InvalidOperationException(
                         "자동/시컨스 동작 중에는 수동 동작을 시작할 수 없습니다. reason=" + reason +
@@ -6800,6 +6893,13 @@ namespace QMC.CDT320
                 try
                 {
                     manualScope = EnterManualOperation();
+                    if (_status == EquipmentStatus.Alarm || AlarmManager.HasActive)
+                    {
+                        CancelManualOperation();
+                        throw new InvalidOperationException(
+                            "수동 동작 진입 중 Alarm이 발생하여 실행을 취소했습니다. reason=" + reason);
+                    }
+
                     motionScope = BeginManualMotionScope(kind, reason);
                     return new ManualActionScope(manualScope, motionScope);
                 }
@@ -6848,9 +6948,15 @@ namespace QMC.CDT320
 
         public void CancelManualOperation()
         {
-            var cts = _manualCts;
-            if (cts != null && !cts.IsCancellationRequested)
-                cts.Cancel();
+            try
+            {
+                var cts = _manualCts;
+                if (cts != null && !cts.IsCancellationRequested)
+                    cts.Cancel();
+            }
+            catch (ObjectDisposedException)
+            {
+            }
         }
 
         private void LeaveManualOperation()
@@ -7672,66 +7778,200 @@ namespace QMC.CDT320
 
         public async Task<int> StopSequenceForAlarmAsync(string alarmCode)
         {
+            bool alarmStopGateEntered = false;
             try
             {
-                var coordinator = _coordinator;
-                var cts = _autoCts;
-                var task = _coordinatorTask;
-
-                QMC.Common.Log.Write("Main", "SYSTEM", "StopSequenceForAlarm",
-                    "Immediate sequence cancellation start. code=" + alarmCode +
-                    ", taskStatus=" + (task != null ? task.Status.ToString() : "null") +
-                    ", coordinator=" + (coordinator != null) + " - Start");
-
-                if (coordinator != null)
-                    coordinator.AbortChildren();
-                if (cts != null && !cts.IsCancellationRequested)
-                    cts.Cancel();
-
-                if (task != null)
-                {
-                    try
-                    {
-                        await task.ConfigureAwait(false);
-                    }
-                    catch (OperationCanceledException)
-                    {
-                        Log("[SEQ] alarm stop canceled. code=" + alarmCode);
-                    }
-                }
-
-                QMC.Common.Log.Write("Main", "SYSTEM", "StopSequenceForAlarm",
-                    "Immediate sequence cancellation join complete. code=" + alarmCode +
-                    ", taskCompleted=" + (task == null || task.IsCompleted) + " - Check");
-
-                _coordinatorTask = null;
-                _coordinator = null;
-                _seqContext = null;
-                ActiveSequenceRunMode = null;
-
-                if (_autoCts != null)
-                {
-                    _autoCts.Dispose();
-                    _autoCts = null;
-                }
-
-                if (_status == EquipmentStatus.ManualRunning || _status == EquipmentStatus.AutoRunning)
-                    SetStatus(EquipmentStatus.Stopped);
-
-                QMC.Common.Log.Write("Main", "SYSTEM", "StopSequenceForAlarm",
-                    "Alarm response stopped active sequence. code=" + alarmCode +
-                    ", status=" + _status + " - Ok");
-                return 0;
+                await _alarmSequenceStopGate.WaitAsync().ConfigureAwait(false);
+                alarmStopGateEntered = true;
+                return await StopSequenceForAlarmCoreAsync(alarmCode).ConfigureAwait(false);
             }
             catch (Exception ex)
             {
                 QMC.Common.Log.Write("Main", "SYSTEM", "StopSequenceForAlarm",
-                    "Sequence stop by alarm failed. code=" + alarmCode + ", error=" + ex.Message + " - Failed");
+                    "Sequence stop by alarm failed. code=" + alarmCode +
+                    ", error=" + ex.Message + " - Failed");
                 return -1;
             }
             finally
             {
+                if (alarmStopGateEntered)
+                    _alarmSequenceStopGate.Release();
             }
+        }
+
+        private async Task<int> StopSequenceForAlarmCoreAsync(string alarmCode)
+        {
+            var coordinator = _coordinator;
+            var autoCts = _autoCts;
+            var coordinatorTask = _coordinatorTask;
+            var cycleCts = _cycleCts;
+
+            QMC.Common.Log.Write("Main", "SYSTEM", "StopSequenceForAlarm",
+                "Immediate operation cancellation start. code=" + alarmCode +
+                ", taskStatus=" +
+                (coordinatorTask != null ? coordinatorTask.Status.ToString() : "null") +
+                ", coordinator=" + (coordinator != null) +
+                ", " + BuildAlarmControlledOperationState() + " - Start");
+
+            OnStopRequested();
+            CancelInputStageRunReviewAction();
+            CancelManualOperation();
+            TryCancelAlarmOperationToken(cycleCts, "LegacyCycle", alarmCode);
+
+            if (coordinator != null)
+                coordinator.AbortChildren();
+            TryCancelAlarmOperationToken(autoCts, "AutoSequence", alarmCode);
+
+            var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+            bool allStopped = await WaitForAlarmControlledOperationsToStopAsync(
+                coordinatorTask,
+                stopwatch).ConfigureAwait(false);
+
+            if (!allStopped)
+            {
+                string timeoutState = BuildAlarmControlledOperationState();
+                LastActionFailureMessage =
+                    "알람 발생 후 실행 중인 동작이 제한시간 내 종료되지 않았습니다.";
+                QMC.Common.Log.Write("Main", "SYSTEM", "StopSequenceForAlarm",
+                    LastActionFailureMessage + " code=" + alarmCode +
+                    ", elapsedMs=" + stopwatch.ElapsedMilliseconds +
+                    ", " + timeoutState + " - Failed");
+                return -1;
+            }
+
+            if (coordinatorTask == null || coordinatorTask.IsCompleted)
+            {
+                if (object.ReferenceEquals(_coordinatorTask, coordinatorTask))
+                    _coordinatorTask = null;
+                if (_coordinator == null || object.ReferenceEquals(_coordinator, coordinator))
+                {
+                    _coordinator = null;
+                    _seqContext = null;
+                    ActiveSequenceRunMode = null;
+                }
+
+                if (object.ReferenceEquals(_autoCts, autoCts))
+                {
+                    _autoCts = null;
+                    if (autoCts != null)
+                    {
+                        try { autoCts.Dispose(); }
+                        catch (ObjectDisposedException) { }
+                    }
+                }
+            }
+
+            if ((_status == EquipmentStatus.ManualRunning ||
+                 _status == EquipmentStatus.AutoRunning) &&
+                !AlarmManager.HasActive)
+            {
+                SetStatus(EquipmentStatus.Stopped);
+            }
+
+            QMC.Common.Log.Write("Main", "SYSTEM", "StopSequenceForAlarm",
+                "Alarm response stopped active operations. code=" + alarmCode +
+                ", elapsedMs=" + stopwatch.ElapsedMilliseconds +
+                ", status=" + _status +
+                ", " + BuildAlarmControlledOperationState() + " - Ok");
+            return 0;
+        }
+
+        private async Task<bool> WaitForAlarmControlledOperationsToStopAsync(
+            Task coordinatorTask,
+            System.Diagnostics.Stopwatch stopwatch)
+        {
+            while (coordinatorTask != null &&
+                   !coordinatorTask.IsCompleted &&
+                   stopwatch.ElapsedMilliseconds < AlarmSequenceStopTimeoutMs)
+            {
+                await Task.Delay(AlarmSequenceStopPollIntervalMs).ConfigureAwait(false);
+            }
+
+            if (coordinatorTask != null && coordinatorTask.IsCompleted)
+            {
+                try
+                {
+                    await coordinatorTask.ConfigureAwait(false);
+                }
+                catch (OperationCanceledException)
+                {
+                }
+                catch (Exception ex)
+                {
+                    QMC.Common.Log.Write("Main", "SYSTEM", "StopSequenceForAlarm",
+                        "Coordinator completed with exception during alarm stop. error=" +
+                        ex.Message + " - Check");
+                }
+            }
+
+            while (stopwatch.ElapsedMilliseconds < AlarmSequenceStopTimeoutMs)
+            {
+                if ((coordinatorTask == null || coordinatorTask.IsCompleted) &&
+                    IsInputStageRunReviewManualActive &&
+                    !IsInputStageRunReviewActionBusy)
+                {
+                    ClearInputStageRunReviewManualState("AlarmStop");
+                }
+
+                if (!HasActiveAlarmControlledOperation)
+                    return true;
+
+                await Task.Delay(AlarmSequenceStopPollIntervalMs).ConfigureAwait(false);
+            }
+
+            return !HasActiveAlarmControlledOperation;
+        }
+
+        private static void TryCancelAlarmOperationToken(
+            CancellationTokenSource cts,
+            string operationName,
+            string alarmCode)
+        {
+            if (cts == null)
+                return;
+
+            try
+            {
+                if (!cts.IsCancellationRequested)
+                    cts.Cancel();
+            }
+            catch (ObjectDisposedException)
+            {
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Log.Write("Main", "SYSTEM", "StopSequenceForAlarm",
+                    "Operation cancellation failed. code=" + alarmCode +
+                    ", operation=" + operationName +
+                    ", error=" + ex.Message + " - Failed");
+            }
+        }
+
+        private string BuildAlarmControlledOperationState()
+        {
+            return "sequenceRunning=" + IsSequenceRunning +
+                   ", manualBusy=" + IsManualBusy +
+                   ", reviewManualActive=" + IsInputStageRunReviewManualActive +
+                   ", reviewActionBusy=" + IsInputStageRunReviewActionBusy +
+                   ", readyRunning=" + IsReadySequenceRunning +
+                   ", legacyCycleBusy=" + IsLegacyCycleBusy +
+                   ", initializeBusy=" + IsAxisInitializeOperationRunning;
+        }
+
+        private static int GetLatestAlarmRecordId()
+        {
+            int latestId = 0;
+            IReadOnlyList<AlarmRecord> history = AlarmManager.History;
+            if (history == null)
+                return latestId;
+
+            foreach (AlarmRecord alarm in history)
+            {
+                if (alarm != null && alarm.Id > latestId)
+                    latestId = alarm.Id;
+            }
+
+            return latestId;
         }
 
         public async Task<int> StopAxesAsync(IEnumerable<string> axisNames, bool emergencyStop = false)
@@ -9266,6 +9506,7 @@ namespace QMC.CDT320
             {
                 totalDies = 10;   // legacy default
             }
+
             _cycleCts = new CancellationTokenSource();
             _cycleStopRequested = false;
 
@@ -9289,21 +9530,31 @@ namespace QMC.CDT320
             }
             // 작업 시간/UPH 통계 엔진: 부하 시간 시작(사이클 Start 기준) + 작업 변수 리셋.
             try { Stats.BeginLot(lotId, totalDies); } catch { }
-            SetStatus(EquipmentStatus.AutoRunning);
-            Log("[CYCLE] Start (total=" + totalDies + ", lot=" + lotId + ")");
 
-            // Stage 41: SECS/HSMS 사이클 시작 이벤트.
-            try { SecsHost?.RaiseEvent("CycleStart", lotId, totalDies.ToString()); } catch { }
-
-            // Stage 45: Tower Lamp 운전 상태 표시.
-            try { _machine.OpPanelUnit?.TowerLampRunning(); } catch { }
+            if (Interlocked.CompareExchange(ref _legacyCycleBusyCount, 1, 0) != 0)
+            {
+                Log("[CYCLE] legacy cycle is already running");
+                return;
+            }
 
             try
             {
+                ThrowIfLegacyCycleAlarmStopRequested();
+                SetStatus(EquipmentStatus.AutoRunning);
+                Log("[CYCLE] Start (total=" + totalDies + ", lot=" + lotId + ")");
+
+                // Stage 41: SECS/HSMS 사이클 시작 이벤트.
+                try { SecsHost?.RaiseEvent("CycleStart", lotId, totalDies.ToString()); } catch { }
+
+                // Stage 45: Tower Lamp 운전 상태 표시.
+                try { _machine.OpPanelUnit?.TowerLampRunning(); } catch { }
+
+                ThrowIfLegacyCycleAlarmStopRequested();
                 if (!resumeCycle)
                 {
                     // 사이클 시작 시 첫 웨이퍼를 LotPort에서 진입시킵니다.
                     bool loaded = await LoadNextWaferAsync();
+                    ThrowIfLegacyCycleAlarmStopRequested();
                     if (!loaded)
                     {
                         Log("[CYCLE] First wafer load from lot port failed. Continue cycle in dry/default mode.");
@@ -9320,12 +9571,14 @@ namespace QMC.CDT320
                 var swCycle = System.Diagnostics.Stopwatch.StartNew();
                 for (int cyc = startCycle; cyc < totalCycles; cyc++)
                 {
+                    ThrowIfLegacyCycleAlarmStopRequested();
                     if (_cycleStopRequested) break;
                     int dieBase = cyc * pickers;
                     int diesInCycle = System.Math.Min(pickers, totalDies - dieBase);
                     int goodBefore = GoodCount;
                     int ngBefore = NgCount;
                     await DoOneDieAsync(cyc, totalCycles, _cycleCts.Token);  // 사이클 인덱스와 전체 수 전달.
+                    ThrowIfLegacyCycleAlarmStopRequested();
                     CycleDone = System.Math.Min(totalDies, (cyc + 1) * pickers);
                     // 통계 엔진에 1 사이클 결과를 먹인다(기존 카운트는 그대로 유지).
                     long cycleMs = swCycle.ElapsedMilliseconds;
@@ -9352,15 +9605,18 @@ namespace QMC.CDT320
                     _cycleResumePending = true;
                     Log("[CYCLE STOP] paused at done=" + CycleDone + "/" + CycleTotal);
                     try { _machine.OpPanelUnit?.TowerLampOff(); } catch { }
-                    SetStatus(EquipmentStatus.CycleStopped);
+                    if (_status != EquipmentStatus.Alarm && !AlarmManager.HasActive)
+                        SetStatus(EquipmentStatus.CycleStopped);
                     return;
                 }
 
                 // 사이클 종료 후 피더 후퇴.
                 await RetractCurrentWaferAsync();
+                ThrowIfLegacyCycleAlarmStopRequested();
 
                 // Stage 28: InputStage 웨이퍼 언로드.
                 await UnloadInputStageWaferAsync();
+                ThrowIfLegacyCycleAlarmStopRequested();
 
                 Log("[CYCLE] 완료 (good=" + GoodCount + ", ng=" + NgCount + ")");
                 LotStorage.CloseLot(aborted: false);
@@ -9377,7 +9633,8 @@ namespace QMC.CDT320
                         yield.ToString("F2"));
                 }
                 catch { }
-                SetStatus(EquipmentStatus.Ready);
+                if (_status != EquipmentStatus.Alarm && !AlarmManager.HasActive)
+                    SetStatus(EquipmentStatus.Ready);
             }
             catch (OperationCanceledException)
             {
@@ -9386,7 +9643,8 @@ namespace QMC.CDT320
                     _cycleResumePending = true;
                     Log("[CYCLE STOP] paused at done=" + CycleDone + "/" + CycleTotal);
                     try { _machine.OpPanelUnit?.TowerLampOff(); } catch { }
-                    SetStatus(EquipmentStatus.Stopped);
+                    if (_status != EquipmentStatus.Alarm && !AlarmManager.HasActive)
+                        SetStatus(EquipmentStatus.Stopped);
                 }
                 else
                 {
@@ -9401,7 +9659,8 @@ namespace QMC.CDT320
                     try { _machine.OpPanelUnit?.TowerLampOff(); } catch { }
                     LotStorage.CloseLot(aborted: true);
                     try { Stats.EndLot(); } catch { }
-                    SetStatus(EquipmentStatus.Stopped);
+                    if (_status != EquipmentStatus.Alarm && !AlarmManager.HasActive)
+                        SetStatus(EquipmentStatus.Stopped);
                 }
             }
             catch (Exception ex)
@@ -9411,6 +9670,24 @@ namespace QMC.CDT320
                 LotStorage.CloseLot(aborted: true);
                 try { Stats.EndLot(); } catch { }
                 SetStatus(EquipmentStatus.Alarm);
+            }
+            finally
+            {
+                Interlocked.Exchange(ref _legacyCycleBusyCount, 0);
+            }
+        }
+
+        private void ThrowIfLegacyCycleAlarmStopRequested()
+        {
+            CancellationTokenSource cycleCts = _cycleCts;
+            if (cycleCts != null)
+                cycleCts.Token.ThrowIfCancellationRequested();
+
+            if (_status == EquipmentStatus.Alarm || AlarmManager.HasActive)
+            {
+                if (_status != EquipmentStatus.Alarm)
+                    SetStatus(EquipmentStatus.Alarm);
+                throw new OperationCanceledException("Alarm 상태에서 legacy cycle 실행을 중단했습니다.");
             }
         }
 

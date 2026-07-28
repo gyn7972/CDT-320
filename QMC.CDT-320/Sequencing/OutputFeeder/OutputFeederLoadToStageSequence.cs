@@ -140,7 +140,7 @@ namespace QMC.CDT320.Sequencing
 
                     // 자재 데이터를 스테이지로 이동
                     case OutputFeederLoadToStageStep.MoveMaterialDataToStage:
-                        return Task.FromResult(MoveMaterialDataToStage());
+                        return MoveMaterialDataToStageAsync(ct);
 
                     // 피더 리프트 업 준비
                     case OutputFeederLoadToStageStep.PrepareFeederLiftUp:
@@ -630,12 +630,34 @@ namespace QMC.CDT320.Sequencing
             if (wafer == null)
                 return Fail("OUT-STAGE-DATA-MISSING", "Material", "Output stage data was not created before transfer verification. side=" + Options.Side);
 
-            if (!IsHardwareBypass())
-            {
-                bool cleared = await Feeder.WaitFeederRingState(false, ResolveTimeout(), ct).ConfigureAwait(false);
-                if (!cleared)
-                    return Fail("OUT-FEEDER-STAGE-RING", Feeder.Name, "Output feeder ring remained after stage load. waferId=" + wafer.WaferId);
-            }
+            var stageRingSensor =
+                Options.Side == BinSide.Ng
+                    ? Stage.NgBinRingSensor
+                    : Stage.GoodBinRingSensor;
+            bool controllerGlobalDryRun =
+                Context != null &&
+                Context.Controller != null &&
+                Context.Controller.GlobalDryRun;
+            bool virtualFeederRingState = ResolveFeederWafer() != null;
+            bool virtualStageRingState = wafer != null;
+            bool transferred = await Feeder.WaitTransportRingStatesConfirmedAsync(
+                false,
+                stageRingSensor,
+                true,
+                controllerGlobalDryRun,
+                virtualFeederRingState,
+                virtualStageRingState,
+                ResolveTimeout(),
+                ct).ConfigureAwait(false);
+            if (!transferred)
+                return Fail(
+                    "OUT-FEEDER-STAGE-RING",
+                    Feeder.Name,
+                    "OutputFeeder→Stage 전달 후 Feeder Ring OFF + " +
+                    Options.Side +
+                    " Stage Ring ON 안정 확인에 실패했습니다. waferId=" +
+                    wafer.WaferId + ", detail=" +
+                    Feeder.LastTransportRingConfirmationFailure);
 
             CurrentStep = Options.Side == BinSide.Ng
                 ? OutputFeederLoadToStageStep.UpdateFeederData
@@ -690,8 +712,11 @@ namespace QMC.CDT320.Sequencing
             return 0;
         }
 
-        private int MoveMaterialDataToStage()
+        private async Task<int> MoveMaterialDataToStageAsync(
+            CancellationToken ct)
         {
+            ct.ThrowIfCancellationRequested();
+
             WaferMaterial wafer = ResolveFeederWafer();
             if (wafer == null)
                 return Fail("OUT-FEEDER-MATERIAL-MOVE", "Material", "Output feeder wafer data was not found for stage material move.");
@@ -706,6 +731,52 @@ namespace QMC.CDT320.Sequencing
             if ((Options.Side == BinSide.Ng && sourceRole != CassetteMaterialRole.Ng1) ||
                 (Options.Side == BinSide.Good && sourceRole != CassetteMaterialRole.Good1 && sourceRole != CassetteMaterialRole.Good2))
                 return Fail("OUT-STAGE-MATERIAL-SIDE", "Material", "Output side와 source cassette role이 일치하지 않습니다. wafer=" + wafer.WaferId + ", side=" + Options.Side + ", sourceRole=" + sourceRole);
+
+            var stageRingSensor =
+                Options.Side == BinSide.Ng
+                    ? Stage.NgBinRingSensor
+                    : Stage.GoodBinRingSensor;
+            bool controllerGlobalDryRun =
+                Context != null &&
+                Context.Controller != null &&
+                Context.Controller.GlobalDryRun;
+            bool virtualTransferReady =
+                wafer != null && ResolveStageWafer() == null;
+            bool ringConfirmed = await Feeder.WaitTransportRingStatesConfirmedAsync(
+                false,
+                stageRingSensor,
+                true,
+                controllerGlobalDryRun,
+                !virtualTransferReady,
+                virtualTransferReady,
+                ResolveTimeout(),
+                ct).ConfigureAwait(false);
+            if (!ringConfirmed)
+            {
+                return Fail(
+                    "OUT-STAGE-MATERIAL-RING",
+                    Feeder.Name,
+                    "OutputFeeder→Stage Material 이동 직전 Feeder Ring OFF + " +
+                    Options.Side +
+                    " Stage Ring ON 안정 확인에 실패했습니다. wafer=" +
+                    wafer.WaferId + ", detail=" +
+                    Feeder.LastTransportRingConfirmationFailure);
+            }
+
+            wafer = ResolveFeederWafer();
+            if (wafer == null)
+                return Fail("OUT-FEEDER-MATERIAL-MOVE", "Material", "Ring 확인 후 Output feeder wafer data가 사라졌습니다.");
+            if (ResolveStageWafer() != null)
+                return Fail("OUT-STAGE-DATA-OCCUPIED", "Material", "Ring 확인 후 Output stage data가 점유 상태로 변경되었습니다. side=" + Options.Side);
+
+            if (!string.IsNullOrWhiteSpace(Options.ExpectedWaferId) &&
+                !string.Equals(Options.ExpectedWaferId, wafer.WaferId, StringComparison.OrdinalIgnoreCase))
+                return Fail("OUT-STAGE-MATERIAL-WAFER", "Material", "Ring 확인 후 Bin ID가 변경되었습니다. expected=" + Options.ExpectedWaferId + ", actual=" + wafer.WaferId);
+
+            sourceRole = wafer.SourceCassetteRole;
+            if ((Options.Side == BinSide.Ng && sourceRole != CassetteMaterialRole.Ng1) ||
+                (Options.Side == BinSide.Good && sourceRole != CassetteMaterialRole.Good1 && sourceRole != CassetteMaterialRole.Good2))
+                return Fail("OUT-STAGE-MATERIAL-SIDE", "Material", "Ring 확인 후 Output side와 source cassette role이 일치하지 않습니다. wafer=" + wafer.WaferId + ", side=" + Options.Side + ", sourceRole=" + sourceRole);
 
             MaterialStateService.MoveWafer(wafer.WaferId, new MaterialLocation { Kind = ResolveOutputStageLocation() }, WaferMaterialState.Working);
             MaterialStateService.InitializeOutputStageReceivePlan(Options.Side);

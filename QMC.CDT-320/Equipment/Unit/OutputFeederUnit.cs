@@ -9,6 +9,7 @@ using QMC.Common.Motion;
 using QMC.CDT320.Motion.SharedRailX;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Globalization;
 using System.Runtime.Serialization;
 using System.Threading;
@@ -128,6 +129,7 @@ namespace QMC.CDT320
         public BaseDigitalInput BinFeederOverloadSensor { get; private set; }
         public BaseDigitalInput BinFeederAvoidPositionCheckSensor { get; private set; }
         public BaseDigitalInput WaferClampedSensor { get { return BinFeederRingCheckSensor; } }
+        public string LastTransportRingConfirmationFailure { get; private set; }
         public BaseCylinder FeederUpDownCyl { get; private set; }
         public BaseCylinder FeederClampCyl { get; private set; }
         public BaseDigitalOutput BinFeederUpOut { get { return FeederUpDownCyl.OutFwd; } }
@@ -138,6 +140,7 @@ namespace QMC.CDT320
         public OutputFeederUnit() : base("BinFeederUnit")
         {
             CurrentMaterialState = MaterialState.Empty;
+            LastTransportRingConfirmationFailure = string.Empty;
             FeederY = AjinFactory.CreateAxis("OutputFeederY");
             FeederY.Setup.SoftLimitPlus = 350.0;
 
@@ -978,6 +981,305 @@ namespace QMC.CDT320
                 return IsFeederTransferDataOccupied() == expected;
             return await BinFeederRingCheckSensor.WaitUntilStateAsync(expected, timeoutMs, ct);
         }
+
+        public async Task<bool> WaitTransportRingStatesConfirmedAsync(
+            bool expectedFeederState,
+            BaseDigitalInput pairedRingSensor,
+            bool? expectedPairedState,
+            bool controllerGlobalDryRun,
+            bool virtualFeederState,
+            bool? virtualPairedState,
+            int timeoutMs,
+            CancellationToken ct)
+        {
+            LastTransportRingConfirmationFailure = string.Empty;
+
+            if (IsOutputTransportVirtualMode(controllerGlobalDryRun))
+            {
+                bool virtualStatesMatch =
+                    virtualFeederState == expectedFeederState &&
+                    (!expectedPairedState.HasValue ||
+                     (virtualPairedState.HasValue &&
+                      virtualPairedState.Value == expectedPairedState.Value));
+                if (!virtualStatesMatch)
+                {
+                    LastTransportRingConfirmationFailure =
+                        "Output transport virtual Ring state mismatch. feederExpected=" +
+                        expectedFeederState + ", feederVirtual=" + virtualFeederState +
+                        ", pairedExpected=" +
+                        (expectedPairedState.HasValue
+                            ? expectedPairedState.Value.ToString()
+                            : "-") +
+                        ", pairedVirtual=" +
+                        (virtualPairedState.HasValue
+                            ? virtualPairedState.Value.ToString()
+                            : "-");
+                }
+
+                return virtualStatesMatch;
+            }
+
+            if (!AjinFactory.IsRealBoardReady)
+            {
+                LastTransportRingConfirmationFailure =
+                    "Output transport Ring confirmation requires a ready real AJIN board.";
+                return false;
+            }
+
+            string validationReason;
+            if (!ValidateStrictTransportRingSensor(
+                BinFeederRingCheckSensor,
+                "OutputFeederRing",
+                out validationReason))
+            {
+                LastTransportRingConfirmationFailure = validationReason;
+                return false;
+            }
+
+            if (expectedPairedState.HasValue &&
+                !ValidateStrictTransportRingSensor(
+                    pairedRingSensor,
+                    "OutputStageRing",
+                    out validationReason))
+            {
+                LastTransportRingConfirmationFailure = validationReason;
+                return false;
+            }
+
+            int effectiveTimeoutMs = timeoutMs > 0 ? timeoutMs : 3000;
+            int stableTimeMs = ResolveTransportRingSettleTimeMs(
+                BinFeederRingCheckSensor);
+            if (expectedPairedState.HasValue)
+            {
+                stableTimeMs = Math.Max(
+                    stableTimeMs,
+                    ResolveTransportRingSettleTimeMs(pairedRingSensor));
+            }
+
+            Stopwatch stopwatch = Stopwatch.StartNew();
+            long stableStartMs = -1;
+            bool lastFeederState = false;
+            bool lastPairedState = false;
+
+            while (stopwatch.ElapsedMilliseconds < effectiveTimeoutMs)
+            {
+                ct.ThrowIfCancellationRequested();
+
+                int feederErrorCode;
+                if (!TryReadTransportRingSensor(
+                    BinFeederRingCheckSensor,
+                    out lastFeederState,
+                    out feederErrorCode))
+                {
+                    LastTransportRingConfirmationFailure =
+                        "OutputFeeder Ring direct hardware read failed. errorCode=" +
+                        feederErrorCode + ", expected=" + expectedFeederState;
+                    return false;
+                }
+
+                bool pairedMatches = true;
+                if (expectedPairedState.HasValue)
+                {
+                    int pairedErrorCode;
+                    if (!TryReadTransportRingSensor(
+                        pairedRingSensor,
+                        out lastPairedState,
+                        out pairedErrorCode))
+                    {
+                        LastTransportRingConfirmationFailure =
+                            "OutputStage Ring direct hardware read failed. sensor=" +
+                            pairedRingSensor.Name + ", errorCode=" +
+                            pairedErrorCode + ", expected=" +
+                            expectedPairedState.Value;
+                        return false;
+                    }
+
+                    pairedMatches =
+                        lastPairedState == expectedPairedState.Value;
+                }
+
+                if (lastFeederState == expectedFeederState &&
+                    pairedMatches)
+                {
+                    if (stableStartMs < 0)
+                        stableStartMs = stopwatch.ElapsedMilliseconds;
+
+                    if (stopwatch.ElapsedMilliseconds - stableStartMs >=
+                        stableTimeMs)
+                    {
+                        return VerifyTransportRingStatesFinal(
+                            expectedFeederState,
+                            pairedRingSensor,
+                            expectedPairedState);
+                    }
+                }
+                else
+                {
+                    stableStartMs = -1;
+                }
+
+                await Task.Delay(10, ct).ConfigureAwait(false);
+            }
+
+            LastTransportRingConfirmationFailure =
+                "Output transport Ring stable confirmation timeout. elapsedMs=" +
+                stopwatch.ElapsedMilliseconds + ", timeoutMs=" +
+                effectiveTimeoutMs + ", stableTimeMs=" + stableTimeMs +
+                ", feederExpected=" + expectedFeederState +
+                ", feederActual=" + lastFeederState +
+                ", pairedExpected=" +
+                (expectedPairedState.HasValue
+                    ? expectedPairedState.Value.ToString()
+                    : "-") +
+                ", pairedActual=" +
+                (expectedPairedState.HasValue
+                    ? lastPairedState.ToString()
+                    : "-");
+            return false;
+        }
+
+        private bool VerifyTransportRingStatesFinal(
+            bool expectedFeederState,
+            BaseDigitalInput pairedRingSensor,
+            bool? expectedPairedState)
+        {
+            bool feederState;
+            int feederErrorCode;
+            if (!TryReadTransportRingSensor(
+                BinFeederRingCheckSensor,
+                out feederState,
+                out feederErrorCode))
+            {
+                LastTransportRingConfirmationFailure =
+                    "OutputFeeder Ring final direct hardware read failed. errorCode=" +
+                    feederErrorCode;
+                return false;
+            }
+
+            if (feederState != expectedFeederState)
+            {
+                LastTransportRingConfirmationFailure =
+                    "OutputFeeder Ring final state mismatch. expected=" +
+                    expectedFeederState + ", actual=" + feederState;
+                return false;
+            }
+
+            if (expectedPairedState.HasValue)
+            {
+                bool pairedState;
+                int pairedErrorCode;
+                if (!TryReadTransportRingSensor(
+                    pairedRingSensor,
+                    out pairedState,
+                    out pairedErrorCode))
+                {
+                    LastTransportRingConfirmationFailure =
+                        "OutputStage Ring final direct hardware read failed. sensor=" +
+                        pairedRingSensor.Name + ", errorCode=" +
+                        pairedErrorCode;
+                    return false;
+                }
+
+                if (pairedState != expectedPairedState.Value)
+                {
+                    LastTransportRingConfirmationFailure =
+                        "OutputStage Ring final state mismatch. sensor=" +
+                        pairedRingSensor.Name + ", expected=" +
+                        expectedPairedState.Value + ", actual=" + pairedState;
+                    return false;
+                }
+            }
+
+            LastTransportRingConfirmationFailure = string.Empty;
+            return true;
+        }
+
+        private static bool TryReadTransportRingSensor(
+            BaseDigitalInput sensor,
+            out bool actual,
+            out int errorCode)
+        {
+            actual = false;
+            if (!AjinIoScanService.TryReadHardwareInput(sensor, out errorCode))
+                return false;
+
+            actual = sensor.IsOn;
+            return true;
+        }
+
+        private static bool ValidateStrictTransportRingSensor(
+            BaseDigitalInput sensor,
+            string role,
+            out string reason)
+        {
+            reason = string.Empty;
+            if (sensor == null)
+            {
+                reason = role + " sensor is null in strict hardware mode.";
+                return false;
+            }
+
+            if (sensor.Config == null)
+            {
+                reason = role + " sensor Config is null in strict hardware mode.";
+                return false;
+            }
+
+            if (sensor.Config.IsSimulationMode || sensor.Config.IgnoreWaits)
+            {
+                reason =
+                    role +
+                    " sensor is Simulation/IgnoreWaits in strict hardware mode. sensor=" +
+                    sensor.Name + ", simulation=" +
+                    sensor.Config.IsSimulationMode + ", ignoreWaits=" +
+                    sensor.Config.IgnoreWaits;
+                return false;
+            }
+
+            if (sensor.Setup == null ||
+                sensor.Setup.ModuleNo < 0 ||
+                sensor.Setup.BitNo < 0)
+            {
+                reason =
+                    role + " sensor hardware address is invalid. sensor=" +
+                    sensor.Name;
+                return false;
+            }
+
+            return true;
+        }
+
+        private static int ResolveTransportRingSettleTimeMs(
+            BaseDigitalInput sensor)
+        {
+            int recipeSettleTimeMs =
+                sensor != null && sensor.Recipe != null
+                    ? sensor.Recipe.SettleTimeMs
+                    : 0;
+            return recipeSettleTimeMs > 0 ? recipeSettleTimeMs : 200;
+        }
+
+        private bool IsOutputTransportVirtualMode(bool controllerGlobalDryRun)
+        {
+            if (controllerGlobalDryRun)
+                return true;
+
+            if (Setup != null && Setup.IsSimulationMode)
+                return true;
+
+            AppSettings settings = AppSettingsStore.Current;
+            if (settings != null &&
+                (!settings.UseAjin ||
+                 settings.SimulationMode ||
+                 settings.DryRunMode ||
+                 settings.BypassHardware))
+            {
+                return true;
+            }
+
+            return Config != null && Config.bDryRun;
+        }
+
         public async Task<bool> WaitBinFeederUp(int timeoutMs) { return await WaitFeederUp(timeoutMs); }
         public async Task<bool> WaitBinFeederDown(int timeoutMs) { return await WaitFeederDown(timeoutMs); }
         public async Task<bool> WaitBinFeederUnclamp(int timeoutMs) { return await WaitFeederUnclamped(timeoutMs); }

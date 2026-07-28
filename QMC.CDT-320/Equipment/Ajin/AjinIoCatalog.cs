@@ -180,6 +180,11 @@ namespace QMC.CDT320.Ajin
             DI("GoodBinGuideDown", 2, 0),
             DI("GoodBinClampUp", 2, 1),
             DI("GoodBinUnclamp", 2, 2),
+            // 실배선 검증(2026-07-28): 두 스테이지가 모두 비어 둘 다 OFF인 기준선에서 GOOD 스테이지에 Bin을 올리니
+            //   Module2/Bit3이 ON. → 아래 이름↔비트가 실배선과 일치한다(교차 아님).
+            //   증상의 원인은 배선이 아니라 EquipmentData 폴더의 Setup 파일이 Good=Bit8 / Ng=Bit3으로
+            //   뒤바뀌어 저장돼 있던 것이었다. 시작 시 BaseComponent.LoadSettings가 Setup으로 주소를 덮어쓰므로
+            //   이 카탈로그와 ajin-map을 고쳐도 반영되지 않았다. IO 주소를 바꿀 땐 반드시 Setup 파일도 같이 맞출 것.
             DI("GoodBinRing", 2, 3),
             DI("NgBinGuideUp", 2, 4),
             DI("NgBinGuideDown", 2, 5),
