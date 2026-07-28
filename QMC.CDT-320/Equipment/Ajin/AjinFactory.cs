@@ -736,5 +736,69 @@ namespace QMC.CDT320.Ajin
             m = null;
             return false;
         }
+
+        /// <summary>
+        /// [주소 불일치 감시 2026-07-28] 카탈로그(코드)와 실제 적용된 Setup 의 모듈/비트가 어긋나면 경고를 남긴다.
+        ///
+        /// BaseComponent.LoadSettings 가 Setup = UnitDataStore.LoadSetup(...) 으로 주소를 통째로 덮어쓴다.
+        /// 그래서 AjinIoCatalog / ajin-map 을 고쳐도 EquipmentData 의 Setup 파일이 다르면 그쪽이 조용히 이긴다.
+        /// 2026-07-28 현장에서 GoodBinRing/NgBinRing 이 Setup 파일에 Bit8/Bit3 으로 뒤바뀌어 저장돼 있었고,
+        /// 카탈로그를 고쳐도 반영되지 않아 원인 파악에 오래 걸렸다.
+        ///
+        /// 판정만 하고 값을 고치지는 않는다. 반드시 유닛 LoadSettings 이후에 호출할 것.
+        /// </summary>
+        public static int VerifyCatalogAddresses(string reason)
+        {
+            int mismatch = 0;
+            try
+            {
+                lock (IoGate)
+                {
+                    foreach (BaseDigitalInput input in SharedInputs.Values)
+                    {
+                        if (input == null || input.Setup == null) continue;
+                        DioDefault catalog = AjinIoCatalog.FindInput(input.Name);
+                        if (catalog == null) continue;
+                        if (catalog.Module == input.Setup.ModuleNo && catalog.Bit == input.Setup.BitNo) continue;
+
+                        mismatch++;
+                        QMC.Common.Log.Write(QMC.Common.LogLevel.AboveNormal, "Main", "IoAddressVerify",
+                            "IO 입력 주소가 카탈로그와 다릅니다(Setup 파일이 우선 적용됨). name=" + input.Name +
+                            ", 카탈로그=M" + catalog.Module + "/B" + catalog.Bit +
+                            ", 적용값=M" + input.Setup.ModuleNo + "/B" + input.Setup.BitNo +
+                            ". EquipmentData 의 Setup 파일을 확인하세요. - Check");
+                    }
+
+                    foreach (BaseDigitalOutput output in SharedOutputs.Values)
+                    {
+                        if (output == null || output.Setup == null) continue;
+                        DioDefault catalog = AjinIoCatalog.FindOutput(output.Name);
+                        if (catalog == null) continue;
+                        if (catalog.Module == output.Setup.ModuleNo && catalog.Bit == output.Setup.BitNo) continue;
+
+                        mismatch++;
+                        QMC.Common.Log.Write(QMC.Common.LogLevel.AboveNormal, "Main", "IoAddressVerify",
+                            "IO 출력 주소가 카탈로그와 다릅니다(Setup 파일이 우선 적용됨). name=" + output.Name +
+                            ", 카탈로그=M" + catalog.Module + "/B" + catalog.Bit +
+                            ", 적용값=M" + output.Setup.ModuleNo + "/B" + output.Setup.BitNo +
+                            ". EquipmentData 의 Setup 파일을 확인하세요. - Check");
+                    }
+                }
+
+                QMC.Common.Log.Write(QMC.Common.LogLevel.AboveNormal, "Main", "IoAddressVerify",
+                    "IO 주소 검증 완료. reason=" + (reason ?? "") +
+                    ", 불일치=" + mismatch + "건 - " + (mismatch == 0 ? "Ok" : "Check"));
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Log.Write("Main", "SYSTEM", "IoAddressVerify",
+                    "IO 주소 검증 실패: " + ex.Message + " - Failed");
+            }
+            finally
+            {
+            }
+
+            return mismatch;
+        }
     }
 }

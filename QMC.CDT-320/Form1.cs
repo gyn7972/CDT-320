@@ -727,6 +727,9 @@ namespace QMC.CDT_320
 
             Machine    = new CDT320_Machine();
             LoadMachineSettings();
+            // [주소 불일치 감시 2026-07-28] Setup 파일이 카탈로그 주소를 덮어쓴 채 조용히 운전되던 문제
+            // (GoodBinRing/NgBinRing Bit 뒤바뀜)를 기동 시 로그로 드러낸다. 값은 고치지 않고 경고만 남긴다.
+            QMC.CDT320.Ajin.AjinFactory.VerifyCatalogAddresses("Startup");
             ApplyRuntimeMode();
             Bridge     = new SimulatorBridge(Machine);
             BeginSimulatorAutoConnect(cfg);
