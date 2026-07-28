@@ -643,6 +643,10 @@ namespace QMC.CDT320.Sequencing
                 double tolerance = item != null && item.Config != null && item.Config.InPositionTolerance > 0.0
                     ? item.Config.InPositionTolerance
                     : 0.05;
+                if(item.IsMoving)
+                {
+                    return false;
+                }
                 return item.IsAtTargetPosition(target, tolerance);
             }
             catch

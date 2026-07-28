@@ -541,7 +541,7 @@ namespace QMC.CDT320.Ajin
         // 현장 TEST 완료 후 거리/속도 기반 timeout으로 재조정한다.
         private const int DefaultAxisMoveTimeoutMs = 300000;
         // 팔로잉 루프 폴링 주기.
-        private const int FollowMovePollIntervalMs = 1;
+        private const int FollowMovePollIntervalMs = 10;
         // 타임아웃 전용 에러코드.
         private const int FollowMoveTimeoutErrorCode = -21;
         // 선행축 알람 전용 에러코드.
@@ -1019,7 +1019,10 @@ namespace QMC.CDT320.Ajin
 
                     // 오버라이드 진단 로그: 성공은 최초 1건 + 이후 1초 1건, 실패는 제한 없이 매번.
                     // (사고 시 보드에 실제로 나간 명령값을 로그로 재구성하기 위한 진단 로그.)
+                    // 현재 기준(사용자 지시 2026-07-28): 진단 상세(DiagnosticVerbose/ENABLE) 중에는
+                    //   스로틀을 해제해 발행 오버라이드를 전건 기록한다(디스크 저장 여부는 LogPolicy가 판정).
                     bool overrideLogDue = overrideResult != 0 ||
+                        QMC.Common.Logging.LogPolicy.IsDiagnosticVerbose ||
                         lastOverrideLogMs < 0 ||
                         stopwatch.ElapsedMilliseconds - lastOverrideLogMs >= 1000;
                     if (overrideLogDue)

@@ -344,6 +344,11 @@ namespace QMC.CDT320
         // 0 이하 = 기능 Off. 설비(유닛) Config — 레시피 아님.
         [DataMember] public double ApproachPreMotionDistanceMm { get; set; } = 50.0;
 
+        // 마지막 Bottom(P1) 촬영과 첫 Side(P4) 촬영 요청을 병렬 송신하는 특수 오버랩.
+        // 기존 조건: 시퀀스에서 하드코딩 false로 잠겨 있어 어떤 설정으로도 켤 수 없었다.
+        // 현재 기준(사용자 승인 2026-07-28): 유닛 Config로 노출. 기본 Off — 레시피 아님.
+        [DataMember] public bool ParallelFirstSideOverlap { get; set; } = false;
+
         [OnDeserializing]
         private void OnDeserializing(StreamingContext ctx)
         {

@@ -345,7 +345,10 @@ namespace QMC.CDT320.Sequencing
             }
 
             _sidePipelineEnabled = true;
-            _parallelFirstSideEnabled = false;
+            // 기존 조건: 특수 Bottom P1+Side P4 오버랩은 하드코딩 false로 잠겨 있었다.
+            // 현재 기준(사용자 승인 2026-07-28): 유닛 Config(ParallelFirstSideOverlap, 기본 Off)로
+            //   노출 — 레시피 화면 BOTTOM MOTION SETTING 그룹에서 켜고 끈다.
+            _parallelFirstSideEnabled = ResolveBottomInspectionMotionConfig().ParallelFirstSideOverlap;
 
             int firstPickerIndex = _pickedPickerIndexes[0];
             _inspectionFixedY = ResolvePickerZoneY("DieBottomPosition", firstPickerIndex);
@@ -369,7 +372,7 @@ namespace QMC.CDT320.Sequencing
                 "Bottom은 EPD까지만 받고, Side 0도 직전에 해당 Picker MRESULT를 확인합니다. " +
                 "loadedPickers=" + BuildPickerNoListText(_pickedPickerIndexes) +
                 ", fixedY=" + _inspectionFixedY.ToString("F6") +
-                ", specialBottomP1SideP4Overlap=false - Check");
+                ", specialBottomP1SideP4Overlap=" + _parallelFirstSideEnabled + " - Check");
 
             WriteLog("PickerBottomAndSideInspectionSequence",
                 Name + " Bottom/Side 통합 검사 대상 구성 완료. count=" + _pickedPickerIndexes.Count +

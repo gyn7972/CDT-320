@@ -504,6 +504,8 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 "DOWN MODE가 DownDistance일 때 사용할 선행 하강 거리입니다.\r\n예: 2 mm면 Avoid 위치에서 2 mm만 먼저 내려가고, 이후 정식 Bottom Z 위치로 이동합니다."), groupKey));
             items.Add(InGroup(Describe(ParameterGridItem.Double("BOTTOM APPROACH PREMOTION DIST", AxisUnitConverter.Millimeter, ParameterGridScope.Config, () => ResolveLiveBottomInspectionConfig().ApproachPreMotionDistanceMm, v => ResolveLiveBottomInspectionConfig().ApproachPreMotionDistanceMm = PickerBottomInspectionMotionConfig.NormalizeDistance(v)),
                 "Bottom 접근 X 이동 중 잔여 거리가 이 값 이하가 되면 해당 피커의 Z 하강+T 회전을 X와 동시에 시작합니다.\r\n발동 조건: Auto + PickerY가 이미 촬영 위치(fixed-Y 확립). 0이면 기능을 끕니다. 기본 50 mm."), groupKey));
+            items.Add(InGroup(Describe(ParameterGridItem.Bool("BOTTOM P1 + SIDE P4 OVERLAP", ParameterGridScope.Config, () => ResolveLiveBottomInspectionConfig().ParallelFirstSideOverlap, v => ResolveLiveBottomInspectionConfig().ParallelFirstSideOverlap = v),
+                "마지막 Bottom(P1) 촬영과 첫 Side(P4) 촬영 요청을 병렬로 송신하는 특수 오버랩입니다.\r\n발동 조건: Auto + Bottom 마지막 대상이 P1, Side 첫 대상이 P4, 두 픽커 제품 문맥 일치.\r\n기본 Off."), groupKey));
         }
 
         private void AddPlaceMotionSettingItems(List<ParameterGridItem> items, string groupKey)
