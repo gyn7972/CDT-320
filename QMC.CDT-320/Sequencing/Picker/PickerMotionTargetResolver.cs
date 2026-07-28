@@ -392,7 +392,7 @@ namespace QMC.CDT320.Sequencing
                 ")+receiveTargetY(" + F(receiveTargetY) +
                 ")+outputCameraToPickerY(" + F(bottomFinalItemOffsetYIsSoleColletYCorrection ? 0.0 : outputVisionToPickerY - pickerYTeaching) +
                 ")-bottomOffsetY(" + F(bottomOffsetY) +
-                ")+placeRuntimeOffsetY(" + F(placeRuntimeOffsetY) +
+                ")-placeRuntimeOffsetY(" + F(placeRuntimeOffsetY) +
                 ")+placeMechanicalOffsetY(" + F(placeMechanicalOffsetY) +
                 ")=" + F(result.OutputStageY) +
                 ", runtimeOffsetYLoggedOnly=" + F(runtimeOffsetY) +

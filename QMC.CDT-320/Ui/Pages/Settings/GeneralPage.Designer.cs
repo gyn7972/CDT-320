@@ -27,6 +27,7 @@
         private System.Windows.Forms.ComboBox _cbPlaceRuntimeOffset;
         private System.Windows.Forms.Button btnResetPickRuntimeOffset;
         private System.Windows.Forms.Button btnResetPlaceRuntimeOffset;
+        private System.Windows.Forms.Button btnRuntimeOffsetMonitor;
         private System.Windows.Forms.ComboBox _cbLang;
         private System.Windows.Forms.ComboBox _cbBinArr;
         private System.Windows.Forms.ComboBox _cbVisionMatch;
@@ -87,6 +88,7 @@
             this.placeRuntimeOffsetLayout = new System.Windows.Forms.TableLayoutPanel();
             this._cbPlaceRuntimeOffset = new System.Windows.Forms.ComboBox();
             this.btnResetPlaceRuntimeOffset = new System.Windows.Forms.Button();
+            this.btnRuntimeOffsetMonitor = new System.Windows.Forms.Button();
             this.grpAjin = new System.Windows.Forms.GroupBox();
             this.ajinLayout = new System.Windows.Forms.TableLayoutPanel();
             this._cbAjin = new System.Windows.Forms.CheckBox();
@@ -553,11 +555,13 @@
             // 
             // placeRuntimeOffsetLayout
             // 
-            this.placeRuntimeOffsetLayout.ColumnCount = 2;
+            this.placeRuntimeOffsetLayout.ColumnCount = 3;
             this.placeRuntimeOffsetLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.placeRuntimeOffsetLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 110F));
+            this.placeRuntimeOffsetLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 130F));
             this.placeRuntimeOffsetLayout.Controls.Add(this._cbPlaceRuntimeOffset, 0, 0);
             this.placeRuntimeOffsetLayout.Controls.Add(this.btnResetPlaceRuntimeOffset, 1, 0);
+            this.placeRuntimeOffsetLayout.Controls.Add(this.btnRuntimeOffsetMonitor, 2, 0);
             this.placeRuntimeOffsetLayout.Dock = System.Windows.Forms.DockStyle.Fill;
             this.placeRuntimeOffsetLayout.Location = new System.Drawing.Point(180, 374);
             this.placeRuntimeOffsetLayout.Margin = new System.Windows.Forms.Padding(0);
@@ -575,7 +579,7 @@
             this._cbPlaceRuntimeOffset.Location = new System.Drawing.Point(2, 2);
             this._cbPlaceRuntimeOffset.Margin = new System.Windows.Forms.Padding(2);
             this._cbPlaceRuntimeOffset.Name = "_cbPlaceRuntimeOffset";
-            this._cbPlaceRuntimeOffset.Size = new System.Drawing.Size(535, 23);
+            this._cbPlaceRuntimeOffset.Size = new System.Drawing.Size(405, 23);
             this._cbPlaceRuntimeOffset.TabIndex = 0;
             this._cbPlaceRuntimeOffset.SelectedIndexChanged += new System.EventHandler(this._cbPlaceRuntimeOffset_SelectedIndexChanged);
             // 
@@ -584,7 +588,7 @@
             this.btnResetPlaceRuntimeOffset.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnResetPlaceRuntimeOffset.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.btnResetPlaceRuntimeOffset.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
-            this.btnResetPlaceRuntimeOffset.Location = new System.Drawing.Point(541, 2);
+            this.btnResetPlaceRuntimeOffset.Location = new System.Drawing.Point(411, 2);
             this.btnResetPlaceRuntimeOffset.Margin = new System.Windows.Forms.Padding(2);
             this.btnResetPlaceRuntimeOffset.Name = "btnResetPlaceRuntimeOffset";
             this.btnResetPlaceRuntimeOffset.Size = new System.Drawing.Size(106, 30);
@@ -592,7 +596,21 @@
             this.btnResetPlaceRuntimeOffset.Text = "RESET";
             this.btnResetPlaceRuntimeOffset.UseVisualStyleBackColor = true;
             this.btnResetPlaceRuntimeOffset.Click += new System.EventHandler(this.btnResetPlaceRuntimeOffset_Click);
-            // 
+            //
+            // btnRuntimeOffsetMonitor
+            //
+            this.btnRuntimeOffsetMonitor.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.btnRuntimeOffsetMonitor.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this.btnRuntimeOffsetMonitor.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
+            this.btnRuntimeOffsetMonitor.Location = new System.Drawing.Point(651, 2);
+            this.btnRuntimeOffsetMonitor.Margin = new System.Windows.Forms.Padding(2);
+            this.btnRuntimeOffsetMonitor.Name = "btnRuntimeOffsetMonitor";
+            this.btnRuntimeOffsetMonitor.Size = new System.Drawing.Size(126, 30);
+            this.btnRuntimeOffsetMonitor.TabIndex = 2;
+            this.btnRuntimeOffsetMonitor.Text = "OFFSET MONITOR";
+            this.btnRuntimeOffsetMonitor.UseVisualStyleBackColor = true;
+            this.btnRuntimeOffsetMonitor.Click += new System.EventHandler(this.btnRuntimeOffsetMonitor_Click);
+            //
             // grpAjin
             // 
             this.grpAjin.Controls.Add(this.ajinLayout);

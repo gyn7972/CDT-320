@@ -22,16 +22,16 @@ namespace QMC.CDT320.Sequencing
     internal static class PickRuntimeOffsetService
     {
         // 이상치 거부 한계: 현재 필터 출력 대비 편차가 이 값 이상이면 해당 채널 샘플 폐기.
-        private const double OutlierLimitXyMm = 1.0;
+        private const double OutlierLimitXyMm = 3.0;
         private const double OutlierLimitTDeg = 0.5;
         // 발산 방지 클램프 한계 (필터 상태값 자체를 이 범위로 제한).
-        private const double ClampLimitXyMm = 0.50;
+        private const double ClampLimitXyMm = 2.0;
         private const double ClampLimitTDeg = 0.5;
 
         private static readonly object Sync = new object();
         private static bool _loaded;
         private static bool _useCorrection;
-        private static double _cutoffFrequency = 0.1;
+        private static double _cutoffFrequency = 0.05;
         private static FilterSet[] _filters;
 
         // [택타임 개선 2026-07-27] Bottom 검사마다(다이당 1회) Sync 락을 쥔 채 File.Create + JSON 쓰기를
@@ -236,6 +236,80 @@ namespace QMC.CDT320.Sequencing
             {
                 QMC.Common.Log.Write("Main", "SYSTEM", "PickRuntimeOffset",
                     "Pick 런타임 오프셋 갱신 중 예외가 발생했습니다. error=" + ex.Message + " - Failed");
+            }
+            finally
+            {
+            }
+        }
+
+        /// <summary>
+        /// 8세트 전체 필터 현재값 스냅샷을 반환한다(뷰어/메카 오프셋 이관용).
+        /// 반환값은 복사본이며, Enable 여부와 무관하게 현재 학습 상태를 그대로 담는다.
+        /// </summary>
+        public static RuntimeOffsetSnapshot[] GetSnapshot()
+        {
+            try
+            {
+                lock (Sync)
+                {
+                    EnsureLoadedLocked();
+                    var rows = new RuntimeOffsetSnapshot[_filters.Length];
+                    for (int sideIndex = 0; sideIndex < 2; sideIndex++)
+                    {
+                        PickerSequenceSide side = sideIndex == 0
+                            ? PickerSequenceSide.Front
+                            : PickerSequenceSide.Rear;
+                        for (int pickerNo = 1; pickerNo <= 4; pickerNo++)
+                        {
+                            int index = sideIndex * 4 + (pickerNo - 1);
+                            FilterSet set = _filters[index];
+                            rows[index] = new RuntimeOffsetSnapshot(
+                                side, pickerNo, set.X.Value, set.Y.Value, set.T.Value, set.LastUpdated);
+                        }
+                    }
+
+                    return rows;
+                }
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Log.Write("Main", "SYSTEM", "PickRuntimeOffset",
+                    "Pick 런타임 오프셋 스냅샷 조회 중 예외가 발생했습니다. error=" + ex.Message + " - Failed");
+                return new RuntimeOffsetSnapshot[0];
+            }
+            finally
+            {
+            }
+        }
+
+        /// <summary>지정 (side, pickerNo)의 X/Y 채널만 0으로 초기화한다(메카 오프셋 이관 후 이중 보정 방지).</summary>
+        public static void ResetXy(PickerSequenceSide side, int pickerNo)
+        {
+            try
+            {
+                lock (Sync)
+                {
+                    EnsureLoadedLocked();
+                    FilterSet set = ResolveSetLocked(side, pickerNo);
+                    if (set == null)
+                        return;
+
+                    set.X.Reset(0.0);
+                    set.Y.Reset(0.0);
+                    set.ClampLatchedX = false;
+                    set.ClampLatchedY = false;
+                    set.LastUpdated = DateTime.Now;
+                    SaveLocked();
+                }
+
+                QMC.Common.Log.Write("Main", "SYSTEM", "PickRuntimeOffset",
+                    "Pick 런타임 오프셋 X/Y를 초기화했습니다(메카 오프셋 이관). side=" + side +
+                    ", pickerNo=" + pickerNo + " - Ok");
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Log.Write("Main", "SYSTEM", "PickRuntimeOffset",
+                    "Pick 런타임 오프셋 X/Y 초기화 중 예외가 발생했습니다. error=" + ex.Message + " - Failed");
             }
             finally
             {
