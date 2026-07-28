@@ -1,0 +1,349 @@
+﻿CDT-320 PickUp Flow / Needle-Picker Transfer 분석 메모
+작성일: 2026-07-29
+
+1. 기준 환경
+
+- 기준 소스: D:\Source\CDT-320_New
+- 장비 로그/설정 참고: D:\CDT-320
+- 분석 대상:
+  - InputStage Needle/EjectPinZ와 PickerZ 사이의 Die 인계 흐름
+  - Picker Flow ON/OFF 시점
+  - 실제 자동 PickUp에서 참조하는 딜레이/거리/속도 설정
+- 이번 변경은 진단 로그만 추가했다.
+- 모션, 딜레이, Flow 판정, Material 처리, 인터락은 변경하지 않았다.
+- 장비 실행 검증은 수행하지 않았다.
+
+
+2. 실제 Flow를 강제로 ON 처리하는 테스트 코드
+
+파일:
+D:\Source\CDT-320_New\QMC.CDT-320\Sequencing\Picker\PickerPickUpSequence.MotionResolvers.cs
+
+함수:
+VerifyPickerHasDieDataAndFlowAfterPick()
+
+위치:
+597~599행 부근
+
+코드:
+
+bool flowOn = ReadPickerFlowState(pickerNo);
+//Todo : Test Flow code
+flowOn = true;
+
+영향:
+
+- 실제 Picker Flow 입력이 OFF여도 해당 완료 검증은 ON으로 처리한다.
+- Material 데이터가 Picker로 이동한 후 로그에 data=OK, flow=ON으로 기록될 수 있다.
+- 따라서 기존 "PickUp 완료 후 제품 보유 Flow/Data 확인 완료" 로그만으로 실제 흡착 성공을 판단하면 안 된다.
+- 이번 작업에서는 사용자 지시에 따라 이 코드를 제거하거나 수정하지 않았다.
+- 이후 분석은 새로 추가한 PickerFlowTransition 로그와 Bottom/Side 직전 실제 Flow 확인 결과를 기준으로 해야 한다.
+
+
+3. 추가한 최소 Flow 전이 로그
+
+수정 파일:
+D:\Source\CDT-320_New\QMC.CDT-320\Equipment\CDT320Machine.cs
+
+주요 위치:
+- BindPickerFlowTransitionDiagnostics(): 346행 부근
+- LogPickerFlowTransition(): 378행 부근
+- 실제 로그 메시지: 387행 부근
+
+구현 방식:
+
+- Front/Rear Picker의 8개 Flow 입력에 기존 BaseDigitalInput.StateChanged 이벤트를 연결했다.
+- 새로운 폴링 Task나 Task.Delay를 추가하지 않았다.
+- Flow 입력이 실제로 ON 또는 OFF로 전이될 때만 한 줄을 기록한다.
+- I/O 스캔 주기가 10ms이므로 전이 시각 해상도는 약 10ms다.
+- 명시적 Normal 로그 경로를 사용하므로 진단용 로그 검색 키워드는 PickerFlowTransition이다.
+
+기록 항목:
+
+- transitionAt
+- side (Front/Rear)
+- pickerNo (1~4)
+- flow (ON/OFF)
+- PickerZ name/actual/command/moving
+- EjectPinZ name/actual/command/moving
+
+예시:
+
+Picker Flow 전이 감지. transitionAt=2026-07-29 08:21:24.415,
+side=Rear, pickerNo=4, flow=ON,
+pickerZ=name=RearPickerZ4,actual=-11.070000,command=-11.070000,moving=False,
+ejectPinZ=name=EjectPinZ,actual=3.600000,command=3.600000,moving=False - Check
+
+검색 키워드:
+
+PickerFlowTransition
+Picker Flow 전이 감지
+
+
+4. 현재 자동 PickUp의 Needle-Picker 인계 흐름
+
+1) Input Vision RESULT로 다음 목표를 계산한다.
+2) StageY, NeedleX, PickerX/Y/T를 Pick 위치로 이동한다.
+3) PickerZ를 PrePick 위치까지 이동한다.
+4) Picker Vacuum을 ON한다.
+5) PickerZ를 Die Touch 위치까지 이동한다.
+6) Touch 위치에서 VacuumOnBeforePickDelayMs만큼 기다린다.
+7) PickerZ와 EjectPinZ를 PickUpNeedleSyncLiftDistance만큼 동시에 상승시킨다.
+8) NeedleZ는 기존 Teaching 위치를 유지한다.
+9) 동기 상승 완료 후 PickUpNeedleSyncLiftSettleMs만큼 기다린다.
+10) Flow 확인 Task를 시작한다.
+11) 현재 Separate Step은 제거되어 PickerZ를 바로 Avoid 방향으로 상승시킨다.
+12) PickerZ가 PickerSafeForWaferStageDistance 이상 상승하면 Needle Vacuum을 OFF하고 EjectPinZ를 복귀시킨다.
+13) Flow 확인이 완료되지 않았더라도 현재 코드는 다음 Step으로 진행할 수 있다.
+14) Material 데이터를 Picker로 이동한다.
+15) Bottom/Side 검사 시작 전 실제 Flow를 다시 확인한다.
+
+
+5. 현재 실제 적용되는 딜레이
+
+5.1 VacuumOnBeforePickDelayMs
+
+- Front: 100ms
+- Rear: 100ms
+- 실제 용도:
+  PickerZ가 Die Touch 위치에 도착하고 위치 확인이 끝난 후 Sync Lift 전 대기한다.
+- UI:
+  Front Head 또는 Rear Head
+  -> PICKUP SETTING
+  -> VACUUM BEFORE PICK DELAY
+- 설정 파일:
+  D:\CDT-320\EquipmentData\Config\PickerFrontUnit.json
+  D:\CDT-320\EquipmentData\Config\PickerRearUnit.json
+
+5.2 PickUpNeedleSyncLiftSettleMs
+
+- Front/Rear 공통: 30ms
+- 실제 용도:
+  PickerZ와 EjectPinZ 동기 상승 완료 후 대기한다.
+- UI:
+  Input Stage
+  -> NEEDLE PICKUP SETTING
+  -> PICKUP SYNC LIFT SETTLE
+- 설정 파일:
+  D:\CDT-320\EquipmentData\Config\InputStageUnit.json
+- 주의:
+  Picker Front/Rear 화면의 SYNC LIFT SETTLE보다 InputStage 공통값이 우선 적용된다.
+
+5.3 PickSettleMs
+
+- Front: 0ms
+- Rear: 0ms
+- 실제 용도:
+  PickUp Z 동작 후 Flow/Material 갱신 전에 적용할 수 있는 추가 안정화 대기다.
+- 현재값이 0이므로 실제 추가 대기는 없다.
+- UI:
+  Front Head 또는 Rear Head
+  -> PICKUP SETTING
+  -> PICK SETTLE
+
+5.4 NeedleVacuumOffSettleBeforeXYMs
+
+- Front: 20ms
+- Rear: 10ms
+- 실제 용도:
+  Needle Vacuum OFF 후 StageY/NeedleX 이동을 허용하기 위한 최소 경과시간이다.
+- OFF 이후 이미 경과한 시간을 차감한다.
+- 예:
+  Vacuum OFF 후 56.9ms가 이미 지났고 설정이 20ms이면 추가 대기는 0ms다.
+- UI:
+  Front Head 또는 Rear Head
+  -> PICKUP SETTING
+  -> NEEDLE VACUUM OFF SETTLE
+
+
+6. 현재 실제 적용되는 거리/속도 조건
+
+6.1 PickerZPrePickDistance
+
+- Front: 1mm
+- Rear: 1mm
+- 실제 용도:
+  Die Touch 위치에서 Avoid 방향으로 1mm 떨어진 PrePick 위치까지 먼저 이동한다.
+- UI:
+  Front Head 또는 Rear Head
+  -> PICKUP SETTING
+  -> PICKER Z PRE PICK DISTANCE
+
+6.2 PickerZSlowApproachSpeedPercent
+
+- Front: 100%
+- Rear: 100%
+- 실제 용도:
+  PrePick에서 Die Touch 위치까지의 최종 PickerZ 접근 속도 비율이다.
+- UI:
+  Front Head 또는 Rear Head
+  -> PICKUP SETTING
+  -> PICKER Z APPROACH SPEED
+
+6.3 PickUpEjectPinOffset
+
+- 현재값: 0mm
+- 실제 용도:
+  EjectPinZ Pick Teaching 위치에 더하는 Offset이다.
+- UI:
+  Input Stage
+  -> NEEDLE PICKUP SETTING
+  -> EJECT PIN PICK OFFSET
+
+6.4 PickUpNeedleSyncLiftDistance
+
+- 현재값: 0.6mm
+- 실제 용도:
+  PickerZ와 EjectPinZ가 동시에 상승하는 공통 거리다.
+- 계산:
+  PickerZ 목표 = PickerZ Die Touch 위치 + 0.6mm
+  EjectPinZ 목표 = EjectPinZ Pick 위치 + 0.6mm + EjectPin Sync Offset
+  NeedleZ 목표 = 기존 Teaching 위치 유지
+- UI:
+  Input Stage
+  -> NEEDLE PICKUP SETTING
+  -> PICKUP SYNC LIFT DISTANCE
+
+6.5 PickerSafeForWaferStageDistance
+
+- Front: 2mm
+- Rear: 2mm
+- 실제 용도:
+  PickerZ가 Die Touch 위치에서 Avoid 방향으로 2mm 이상 상승하면 Stage 관련 다음 동작을 허용한다.
+- 이동 목표가 아니라 다음 동작 허용 기준 거리다.
+- UI:
+  Front Head 또는 Rear Head
+  -> PICKUP SETTING
+  -> PICKER SAFE FOR WAFERSTAGE
+
+6.6 PickerZSeparateSpeedPercent
+
+- Front: 100%
+- Rear: 100%
+- 실제 용도:
+  현재 코드에서는 PickerZ/EjectPinZ의 0.6mm 동기 상승 속도 비율로 사용한다.
+- 속도 모델:
+  각 축 기본속도 x 전역 속도 스케일 x PickerZSeparateSpeedPercent
+- 현재 UI에는 노출되지 않는다.
+- 설정 파일에서만 확인 가능:
+  D:\CDT-320\EquipmentData\Config\PickerFrontUnit.json
+  D:\CDT-320\EquipmentData\Config\PickerRearUnit.json
+
+
+7. UI에 보이지만 현재 자동 PickUp에서 사용하지 않는 값
+
+7.1 Picker Front/Rear SYNC LIFT SETTLE
+
+- Front 설정: 20ms
+- Rear 설정: 100ms
+- InputStage의 PickUpNeedleSyncLiftSettleMs=30ms가 존재하므로 현재 정상 자동 PickUp에서는 30ms 공통값을 사용한다.
+
+7.2 PickerZSyncLiftDistance
+
+- Front/Rear 설정: 0.5mm
+- 실제 자동 PickUp은 InputStage의 PickUpNeedleSyncLiftDistance=0.6mm를 사용한다.
+
+7.3 InputStage PICKUP SYNC LIFT VELOCITY/ACC/DEC
+
+- 현재 설정:
+  - Velocity: 1000
+  - Acc: 10000
+  - Dec: 10000
+- 현재 자동 PickUp 코드에서는 사용하지 않는다.
+- 실제 동기 상승 속도는 PickerZSeparateSpeedPercent와 축 기본속도/전역 스케일을 사용한다.
+- InputStage Recipe 화면의 설명과 실제 코드가 일치하지 않는다.
+
+7.4 InputStage NEEDLE SEPARATE DISTANCE/SPEED
+
+- 현재 자동 PickUp Step에서는 사용하지 않는다.
+- 현재 NeedleZ/EjectPinZ Avoid 복귀는 각 축 기본 모터 조건을 사용한다.
+
+7.5 PickerZ Separate Distance
+
+- 설정값은 남아 있지만 현재 Separate Step이 제거되어 사용하지 않는다.
+
+
+8. 향후 로그 분석 방법
+
+PickUp 실패가 발생하면 다음 순서로 확인한다.
+
+1) 해당 Die와 Picker 번호를 찾는다.
+2) Picker Vacuum ON 시각을 찾는다.
+3) PickerZ Touch 완료 시각과 위치를 찾는다.
+4) PickerZ/EjectPinZ Sync Lift 시작/완료 시각을 찾는다.
+5) PickerFlowTransition의 최초 ON 시각을 찾는다.
+6) 최초 ON 이후 OFF 전이가 있는지 찾는다.
+7) OFF 전이 순간 PickerZ/EjectPinZ actual/command/moving을 확인한다.
+8) Bottom/Side 시작 전 Flow 확인 결과와 연결한다.
+
+판정 기준:
+
+A. Flow가 한 번도 ON되지 않음
+
+- 실제 Pick 미흡 가능성
+- Vacuum 공급/콜렛 막힘/누설
+- PickerZ Touch 높이
+- Die 중심 위치
+- EjectPinZ Pick 높이
+- Contact 후 100ms 응답 시간 확인
+
+B. Flow가 Sync Lift 중 OFF로 전이
+
+- PickerZ/EjectPinZ 동기 상승 조건 확인
+- Sync Lift 거리 0.6mm 확인
+- 동기 상승 속도 비율 100% 확인
+- PickerZ와 EjectPinZ의 실제 이동 완료 시차 확인
+- 테이프 장력 및 Die 분리 저항 확인
+
+C. Flow가 PickerZ Avoid 상승 중 OFF로 전이
+
+- Separate Step 제거 영향 가능성
+- PickerZ Avoid 상승 속도/가속도 영향 가능성
+- Die가 완전히 분리되기 전 급상승하는지 확인
+- 콜렛 중심 및 진공 유지력 확인
+
+D. PickerZ가 정지한 뒤 Flow가 OFF로 전이
+
+- 진공 누설
+- 콜렛 오염/손상
+- Die가 콜렛 중심에서 벗어난 상태
+- Die 흔들림
+- Vacuum 밸브/센서 채터링
+
+E. ON/OFF가 짧은 시간에 반복됨
+
+- Flow 센서 채터링
+- Vacuum 압력 임계값
+- 튜브/피팅 누설
+- 콜렛 접촉면 불안정
+- 전이 간격을 10ms 단위로 비교한다.
+
+
+9. 이번 작업에서 의도적으로 적용하지 않은 변경
+
+택타임 영향을 피하기 위해 다음 항목은 적용하지 않았다.
+
+- 강제 flowOn=true 제거
+- Flow 안정 유지시간 추가
+- Flow 완료까지 시퀀스 동기 대기
+- Flow 실패 시 Material 이동 차단
+- PickerZ 1mm 저속 Separate 복원
+- PickSettleMs 증가
+
+현재 목적은 모션과 택타임을 그대로 둔 상태에서 실제 Flow가 언제 ON/OFF 되는지 증거를 수집하는 것이다.
+
+
+10. 검증 결과
+
+- 변경 파일:
+  D:\Source\CDT-320_New\QMC.CDT-320\Equipment\CDT320Machine.cs
+- 추가 문서:
+  D:\Source\CDT-320_New\docs\diagnostics\pickup_flow_transition_analysis_20260729.txt
+- 기존 변경 파일 보존:
+  - QMC.CDT-320\Form1.cs
+  - QMC.CDT-320\Ui\Dialogs\InputStageRunReviewDialog.cs
+- git diff --check: 오류 없음
+- 별도 OutDir Debug Build: PASS
+- 장비 실행: NOT RUN
+- 커밋: 수행하지 않음
+
