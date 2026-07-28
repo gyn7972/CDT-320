@@ -302,9 +302,9 @@ namespace QMC.CDT320.Sequencing
                 case PickerPickUpStep.CalculatePickTargets:
                     return CalculatePickTargetsAsync(true, ct);
 
-                // 다음 픽업 대상 선택
+                // 다음 픽업 대상 선택 (A안: 선택 항목의 RESULT 미회수 시 여기서 확정)
                 case PickerPickUpStep.SelectNextPickTarget:
-                    return Task.FromResult(SelectNextPickTarget());
+                    return SelectNextPickTargetAsync(ct);
 
                 // 피커 접근 전 반대 피커 회피
                 case PickerPickUpStep.MoveOppositePickerToAvoidForPickerMove:

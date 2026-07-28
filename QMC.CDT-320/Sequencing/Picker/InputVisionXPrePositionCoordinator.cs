@@ -15,6 +15,10 @@ namespace QMC.CDT320.Sequencing
         private const int GuardPollIntervalMs = 10;
         private const int GuardWaitLogIntervalMs = 1000;
         private const int StandbySearchIterations = 24;
+        // [사용자 지시 2026-07-28] 픽업 퇴장 팔로잉은 "첫 명령 이동량이 이 값 이상"이 될 때까지만
+        // 대기했다가 진입한다. 선행축 속도/가속 기반 대기는 사용하지 않는다(대기 시간 최소화).
+        private const double FollowStartMinFirstMoveMm = 20.0;
+        private const int FollowStartWaitTimeoutMs = 1000;
         private const double StandbyBoundaryBackoffMm = 1.0;
         private const double MinimumStandbyTravelMm = 0.2;
 
@@ -247,6 +251,35 @@ namespace QMC.CDT320.Sequencing
                             "최종 위치 직접 이동",
                             ct).ConfigureAwait(false);
                         return LogOptimizationResult(side, target.DieId, directResult, "DirectMove");
+                    }
+
+                    // [사용자 승인 2026-07-28] 픽업 완료→바텀 퇴장 세션은 대기점 스텝을 쓰지 않는다.
+                    //   기존 조건: 직행 가드가 픽커의 "정지 중 현재 위치" 기준이라 바텀 출발 명령
+                    //             (실측 +53ms)보다 먼저 판정이 실패, 매 배치 대기점 스텝(+40mm 왕복
+                    //             ~0.3s)이 발생했다.
+                    //   현재 기준: 자기 픽커X를 리딩축으로 FollowMove 진입 — 픽커가 퇴장하는 만큼
+                    //             비전이 간격을 유지하며 최종 촬영 위치까지 연속 추종한다(오버라이드는
+                    //             팔로잉 전용 정책 부합). 실패/미출발(-11/-21 등)은 기존 대기점 경로 폴백.
+                    if (IsPickUpCompleteToBottomReason(reason))
+                    {
+                        int followResult = await TryFollowOwnPickerToFinalAsync(
+                            context,
+                            stage,
+                            visionX,
+                            finalTarget,
+                            moveTimeoutMs,
+                            side,
+                            target.DieId,
+                            ct).ConfigureAwait(false);
+                        if (followResult == 0)
+                            return LogOptimizationResult(side, target.DieId, 0, "FollowBehindPicker");
+
+                        WriteLog(
+                            "InputVisionXPrePosition",
+                            side + " 픽업 퇴장 팔로잉 진입이 성립하지 않아 기존 대기점 경로로 폴백합니다. " +
+                            "die=" + target.DieId +
+                            ", followResult=" + followResult +
+                            ", finalX=" + finalTarget.ToString("F6") + " - Check");
                     }
 
                     double standbyTarget;
@@ -555,6 +588,183 @@ namespace QMC.CDT320.Sequencing
         // 2026-07-28 사용자 지시: 위치 오버라이드는 팔로잉(FollowMove) 전용 — 선행이동의
         // TryOverrideMovingAxisToFinal(이동 중 최종 진입 오버라이드)은 무효 성공 레이스
         // (완료된 이동에 AxmOverridePos가 0을 반환, MOVE JOIN -5)로 폐지·삭제했다.
+
+        // [사용자 승인 2026-07-28] 세션 사유가 "픽업 완료 → 바텀 퇴장"인지 판정한다.
+        private static bool IsPickUpCompleteToBottomReason(string reason)
+        {
+            return !string.IsNullOrWhiteSpace(reason) &&
+                   reason.IndexOf("PickUpCompleteToBottom", StringComparison.OrdinalIgnoreCase) >= 0;
+        }
+
+        // [사용자 승인 2026-07-28] 자기 픽커X(바텀으로 퇴장 중)를 리딩축으로 InputVisionX가 최종
+        // 촬영 위치까지 팔로잉 진입한다 — Output 후검사 TryFollowOutputVisionXBehindPickerAsync의
+        // 인풋 미러. 픽커가 아직 정지 상태면 FollowMove가 여유(slack) 없는 동안 명령 없이 대기하고,
+        // 끝내 미출발이면 타임아웃(-21) → 호출자가 기존 대기점 경로로 폴백한다. 팔로잉 내부
+        // 이동/오버라이드는 MotionGuard(SharedRailX 페어 간격 포함)를 통과하며 검증된다(위반 -11 → 폴백).
+        private static async Task<int> TryFollowOwnPickerToFinalAsync(
+            MachineSequenceContext context,
+            InputStageUnit stage,
+            BaseAxis visionX,
+            double finalTarget,
+            int moveTimeoutMs,
+            PickerSequenceSide side,
+            string dieId,
+            CancellationToken ct)
+        {
+            AjinAxis followVisionX = visionX as AjinAxis;
+            BaseAxis leadingPickerX = side == PickerSequenceSide.Front
+                ? (context.Machine.PickerFrontUnit != null ? context.Machine.PickerFrontUnit.PickerX : null)
+                : (context.Machine.PickerRearUnit != null ? context.Machine.PickerRearUnit.PickerX : null);
+            SharedRailXMotionService service = SharedRailXMotionRuntime.ResolveService(context.Machine);
+            if (followVisionX == null || leadingPickerX == null || service == null)
+                return -1;
+
+            int direction;
+            double homeGap;
+            double safetyGap;
+            string gapDetail;
+            if (!service.TryGetFollowGapParameters(
+                visionX,
+                leadingPickerX,
+                service.Config != null ? service.Config.InputVisionRetreatExtraClearance : 40.0,
+                out direction,
+                out homeGap,
+                out safetyGap,
+                out gapDetail))
+            {
+                WriteLog(
+                    "InputVisionXPrePosition",
+                    side + " 픽업 퇴장 팔로잉 파라미터 조회 실패 — 기존 대기점 경로로 폴백합니다. " +
+                    "die=" + dieId +
+                    ", detail=" + gapDetail + " - Check");
+                return -1;
+            }
+
+            // 타임아웃/속도/가감속은 100% 기준 설정값이므로 속도 스케일을 정확히 1회 적용한다
+            // (Output 후검사 팔로잉과 동일 규약).
+            int followTimeoutMs = MotionSpeedScale.ScaleDefaultTimeoutMs(
+                service.Config != null ? service.Config.VisionFollowEntryTimeoutMs : 15000);
+            double trailingVelocity = MotionSpeedScale.ApplyDefaultVelocityScale(
+                visionX.Config != null ? visionX.Config.GetRawDefaultVelocity() : 0.0);
+            double trailingAcceleration = MotionSpeedScale.ApplyDefaultAccelerationScale(
+                visionX.Config != null ? visionX.Config.GetRawAcceleration() : 0.0);
+            double trailingDeceleration = MotionSpeedScale.ApplyDefaultAccelerationScale(
+                visionX.Config != null ? visionX.Config.GetRawDeceleration() : 0.0);
+            double leadingVelocity = MotionSpeedScale.ApplyDefaultVelocityScale(
+                leadingPickerX.Config != null ? leadingPickerX.Config.GetRawDefaultVelocity() : 0.0);
+            double leadingAcceleration = MotionSpeedScale.ApplyDefaultAccelerationScale(
+                leadingPickerX.Config != null ? leadingPickerX.Config.GetRawAcceleration() : 0.0);
+            double leadingDeceleration = MotionSpeedScale.ApplyDefaultAccelerationScale(
+                leadingPickerX.Config != null ? leadingPickerX.Config.GetRawDeceleration() : 0.0);
+
+            // [사용자 지시 2026-07-28] 첫 명령 이동량이 FollowStartMinFirstMoveMm(20mm) 이상이 될
+            //   때까지만 대기했다가 진입한다.
+            //   기존 조건: 픽업 배치 완료 즉시 FollowMove를 걸었다. 실측(19:10:57.266)에서 팔로잉이
+            //     픽커 X 이동 명령(.270)보다 3ms 빨라 진입 시 선행축이 정지 상태였고, 경계가
+            //     선행축 실측의 함수라 첫 명령이 +1.0mm에 그쳤다. 이후 선행축 가속 구간 동안
+            //     목표가 0.07→0.16→0.44mm씩만 늘어나 후행축이 300ms 동안 미세 이동·정지를 27회
+            //     반복했다(실장비 육안: 뒤로 튀었다가 다시 전진).
+            //   현재 기준: 경계(bound)와 후행축 현재 위치의 차이 = 첫 명령의 실제 이동량이므로,
+            //     그 값이 20mm 이상일 때 진입한다 — 첫 명령이 연속 주행 구간을 확보한다.
+            //     선행축 속도 도달을 기다리지 않는다(대기 시간 최소화).
+            //   대기 실패(선행축 미출발 등)는 폴백 코드로 돌려보내 기존 대기점 경로가 처리한다.
+            bool startWaitLogged = false;
+            DateTime startWaitBegin = DateTime.UtcNow;
+            while (true)
+            {
+                ct.ThrowIfCancellationRequested();
+                context.StopIfCycleStopRequested("InputVisionXPrePosition.FollowStartWait:" + side);
+
+                double leadingActualNow = leadingPickerX.ActualPosition;
+                double visionActualNow = visionX.ActualPosition;
+                // FollowMoveAsync의 경계식과 동일: direction>0 → bound = 선행 + homeGap − safetyGap.
+                double boundNow = direction > 0
+                    ? leadingActualNow + homeGap - safetyGap
+                    : leadingActualNow - homeGap + safetyGap;
+                // 첫 명령은 min/max(최종목표, bound)이므로 실제 이동량은 목표까지의 거리로도 제한된다.
+                double firstCommandNow = direction > 0
+                    ? Math.Min(finalTarget, boundNow)
+                    : Math.Max(finalTarget, boundNow);
+                double firstMoveNow = direction > 0
+                    ? firstCommandNow - visionActualNow
+                    : visionActualNow - firstCommandNow;
+
+                if (firstMoveNow >= FollowStartMinFirstMoveMm)
+                {
+                    WriteLog(
+                        "InputVisionXPrePosition",
+                        side + " 픽업 퇴장 팔로잉 진입 기회 확보(첫 명령 이동량 확보). " +
+                        "die=" + dieId +
+                        ", leadingActual=" + leadingActualNow.ToString("F3") +
+                        ", visionActual=" + visionActualNow.ToString("F3") +
+                        ", firstCommand=" + firstCommandNow.ToString("F3") +
+                        ", firstMove=" + firstMoveNow.ToString("F3") +
+                        ", requiredFirstMove=" + FollowStartMinFirstMoveMm.ToString("F3") +
+                        ", waitedMs=" + ((int)(DateTime.UtcNow - startWaitBegin).TotalMilliseconds) + " - Ok");
+                    break;
+                }
+
+                if (!startWaitLogged)
+                {
+                    WriteLog(
+                        "InputVisionXPrePosition",
+                        side + " 픽업 퇴장 팔로잉 진입 기회를 대기합니다(첫 명령 이동량 부족). " +
+                        "die=" + dieId +
+                        ", leadingActual=" + leadingActualNow.ToString("F3") +
+                        ", leadingMoving=" + leadingPickerX.IsMoving +
+                        ", firstMove=" + firstMoveNow.ToString("F3") +
+                        ", requiredFirstMove=" + FollowStartMinFirstMoveMm.ToString("F3") + " - Wait");
+                    startWaitLogged = true;
+                }
+
+                if ((DateTime.UtcNow - startWaitBegin).TotalMilliseconds >= FollowStartWaitTimeoutMs)
+                {
+                    WriteLog(
+                        "InputVisionXPrePosition",
+                        side + " 픽업 퇴장 팔로잉 진입 기회 대기가 타임아웃되어 기존 대기점 경로로 위임합니다. " +
+                        "die=" + dieId +
+                        ", timeoutMs=" + FollowStartWaitTimeoutMs + " - Check");
+                    return -24;
+                }
+
+                await Task.Delay(GuardPollIntervalMs, ct).ConfigureAwait(false);
+            }
+
+            WriteLog(
+                "InputVisionXPrePosition",
+                side + " 픽업 퇴장 팔로잉 진입을 시작합니다. leading=" + leadingPickerX.Name +
+                ", leadingCommand=" + leadingPickerX.CommandPosition.ToString("F6") +
+                ", visionActual=" + visionX.ActualPosition.ToString("F6") +
+                ", visionTarget=" + finalTarget.ToString("F6") +
+                ", die=" + dieId +
+                ", " + gapDetail +
+                ", timeoutMs=" + followTimeoutMs + " - Start");
+
+            int followResult = await followVisionX.FollowMoveAsync(
+                leadingPickerX,
+                leadingPickerX.CommandPosition,
+                leadingVelocity,
+                leadingAcceleration,
+                leadingDeceleration,
+                finalTarget,
+                trailingVelocity,
+                trailingAcceleration,
+                trailingDeceleration,
+                direction,
+                safetyGap,
+                homeGap,
+                followTimeoutMs,
+                ct: ct).ConfigureAwait(false);
+            if (followResult != 0)
+                return followResult;
+
+            // 도착 검증은 직행 경로(MoveAndVerifyAsync)와 동일 기준을 유지한다.
+            return await stage.WaitInputStageAxisInPosition(
+                WaferStageAxis.VisionX,
+                finalTarget,
+                moveTimeoutMs,
+                ct).ConfigureAwait(false);
+        }
 
         private static async Task StopAndDrainMoveTaskAsync(
             BaseAxis axis,
