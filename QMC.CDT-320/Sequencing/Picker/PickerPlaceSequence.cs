@@ -935,6 +935,34 @@ namespace QMC.CDT320.Sequencing
 
             if (WaitBottomFinalBeforePlaceMoveAsync == null || GetValidatedBottomPlaceResult == null)
             {
+                // [시뮬 통과 2026-07-28] 비전 미연결/시뮬 환경에서는 Bottom FINAL RESULT 자체가 생성되지 않는다.
+                // 이때 Bottom/Side 검사 시퀀스가 완료 상태가 되지 못해 위 두 델리게이트가 주입되지 않고,
+                // 저장된 FINAL 필드도 없어 PICKER-PLACE-BOTTOM-GATE-CALLBACK 으로 Place 가 막혔다.
+                // 실장비 판정에는 영향이 없도록, 기존 IsPlaceProductCheckBypassed 와 동일한 조건
+                // (BypassHardware / SimulationMode / DryRunMode / GlobalDryRun) 에서만 무보정으로 통과시킨다.
+                // 보정값은 0 으로 두어 티칭 좌표 그대로 Place 한다(가짜 보정값을 만들지 않는다).
+                if (IsPlaceProductCheckBypassed())
+                {
+                    _currentBottomPlaceResult = new BottomVisionOffset
+                    {
+                        PickerNo = _currentPickerNo,
+                        BottomItemOffsetX = 0.0,
+                        BottomItemOffsetY = 0.0,
+                        HasBottomItemOffsetX = false,
+                        HasBottomItemOffsetY = false
+                    };
+
+                    WriteLog("PickerPlaceSequence",
+                        Name + " Place 이동 전 Bottom FINAL 보정 확인을 Simulation/DryRun 조건으로 통과합니다. " +
+                        "보정값 0(무보정)으로 티칭 좌표를 그대로 사용합니다. " +
+                        "side=" + Side +
+                        ", pickerNo=" + _currentPickerNo +
+                        ", die=" + (_currentDie != null ? _currentDie.DieId : "-") + " - Bypass");
+
+                    CurrentStep = PickerPlaceStep.ResolveOutputSide;
+                    return 0;
+                }
+
                 string storedReason = "Bottom/Side 저장 검사 흐름이 완료되지 않았습니다.";
                 if (IsInspectionFlowComplete(_currentDie) &&
                     TryResolveStoredBottomPlaceResult(

@@ -26,6 +26,12 @@ namespace QMC.CDT320.Ajin
         [DataMember] public string BwdLabel { get; set; } = "BWD";
         [DataMember] public int FwdTimeoutMs { get; set; } = 3000;
         [DataMember] public int BwdTimeoutMs { get; set; } = 3000;
+
+        /// <summary>
+        /// 고장 센서 승인 우회 시 실제 DO 출력 후 명령 상태를 완료로 인정하기 전 정착시간입니다.
+        /// 일반 하드웨어 센서 운전에는 사용하지 않습니다.
+        /// </summary>
+        [DataMember] public int CommandFeedbackSettleMs { get; set; } = 500;
     }
 
     public static class CylinderSettingsStore
@@ -161,6 +167,7 @@ namespace QMC.CDT320.Ajin
                 cylinder.Setup.UseBwdSensor = settings.UseBwdInput && HasValidInput(cylinder.InBwd);
                 cylinder.Recipe.FwdTimeoutMs = settings.FwdTimeoutMs;
                 cylinder.Recipe.BwdTimeoutMs = settings.BwdTimeoutMs;
+                cylinder.Config.SimulationDelayMs = settings.CommandFeedbackSettleMs;
 
                 bool dryRunMode = IsApplicationDryRunMode();
                 bool simulationMode = IsApplicationSimulationMode();
@@ -287,6 +294,9 @@ namespace QMC.CDT320.Ajin
                         }
                     }
 
+                    if (settings.Cylinders[item.Name].CommandFeedbackSettleMs <= 0)
+                        settings.Cylinders[item.Name].CommandFeedbackSettleMs = 500;
+
                     FillDefaultLabels(item, settings.Cylinders[item.Name]);
                 }
             }
@@ -306,7 +316,8 @@ namespace QMC.CDT320.Ajin
                 FwdLabel = DefaultFwdLabel(item),
                 BwdLabel = DefaultBwdLabel(item),
                 FwdTimeoutMs = 3000,
-                BwdTimeoutMs = 3000
+                BwdTimeoutMs = 3000,
+                CommandFeedbackSettleMs = 500
             };
         }
 

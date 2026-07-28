@@ -100,6 +100,12 @@ namespace QMC.Common.IO
         /// <summary>시뮬레이션 모드에서 설정값이 유효하지 않을 때 사용하는 기본 대기 시간 [ms].</summary>
         private const int DefaultSimulationDelayMs = 75;
 
+        // 센서 우회 운전에서는 DO를 직접 조작한 것만으로 완료로 인정하지 않도록
+        // BaseCylinder 정식 이동 명령이 정착 대기까지 끝났는지 별도로 기억합니다.
+        //  1: Fwd, -1: Bwd, 0: 아직 정식 이동 명령이 없음
+        private int _lastCommandDirection;
+        private int _lastCommandSettled;
+
         // ──────────────────────────────────────────────────────────────────────
         //  내부 컴포넌트 - DO (밸브)
         // ──────────────────────────────────────────────────────────────────────
@@ -219,6 +225,30 @@ namespace QMC.Common.IO
             }
         }
 
+        /// <summary>
+        /// 지정 방향의 정식 실린더 이동 명령이 완료 대기까지 정상 종료됐는지 확인합니다.
+        /// 센서 고장으로 DI 대기를 우회할 때도 직접 DO 조작만으로 완료 처리되지 않게 합니다.
+        /// </summary>
+        public bool IsCommandStateSettled(bool fwd)
+        {
+            int expectedDirection = fwd ? 1 : -1;
+            return System.Threading.Volatile.Read(ref _lastCommandDirection) == expectedDirection &&
+                   System.Threading.Volatile.Read(ref _lastCommandSettled) == 1;
+        }
+
+        private void MarkCommandStarted(bool fwd)
+        {
+            System.Threading.Volatile.Write(ref _lastCommandSettled, 0);
+            System.Threading.Volatile.Write(ref _lastCommandDirection, fwd ? 1 : -1);
+        }
+
+        private void MarkCommandSettled(bool fwd)
+        {
+            int expectedDirection = fwd ? 1 : -1;
+            if (System.Threading.Volatile.Read(ref _lastCommandDirection) == expectedDirection)
+                System.Threading.Volatile.Write(ref _lastCommandSettled, 1);
+        }
+
         // ──────────────────────────────────────────────────────────────────────
         //  §2. 구동 메서드
         // ──────────────────────────────────────────────────────────────────────
@@ -243,6 +273,7 @@ namespace QMC.Common.IO
                 return false;
 
             ct.ThrowIfCancellationRequested();
+            MarkCommandStarted(true);
 
             // ── 밸브 출력 제어 ───────────────────────────────────────────────
             OutFwd.On();
@@ -270,6 +301,8 @@ namespace QMC.Common.IO
 
             if (!result)
                 Console.WriteLine($"[ALARM] '{Name}' 전진(Fwd) 타임아웃 ({Recipe.FwdTimeoutMs}ms 초과)");
+            else
+                MarkCommandSettled(true);
 
             return result;
         }
@@ -294,6 +327,7 @@ namespace QMC.Common.IO
                 return false;
 
             ct.ThrowIfCancellationRequested();
+            MarkCommandStarted(false);
 
             // ── 밸브 출력 제어 ───────────────────────────────────────────────
             if (Setup.IsSingleSolenoid)
@@ -328,6 +362,8 @@ namespace QMC.Common.IO
 
             if (!result)
                 Console.WriteLine($"[ALARM] '{Name}' 후진(Bwd) 타임아웃 ({Recipe.BwdTimeoutMs}ms 초과)");
+            else
+                MarkCommandSettled(false);
 
             return result;
         }

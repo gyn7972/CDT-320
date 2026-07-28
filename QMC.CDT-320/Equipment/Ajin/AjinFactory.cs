@@ -669,6 +669,24 @@ namespace QMC.CDT320.Ajin
             "NGBinGuideClamp"
         };
 
+        private static readonly object FaultySensorMaskLogSync = new object();
+        private static readonly HashSet<string> FaultySensorMaskLogged =
+            new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        /// <summary>
+        /// 실린더와 DO는 실장비로 유지하면서 고장 난 DI만 명령 피드백으로 대체하도록
+        /// 명시적으로 승인된 실린더인지 확인합니다.
+        /// </summary>
+        public static bool IsFaultySensorCommandFallbackActive(BaseCylinder cylinder)
+        {
+            if (cylinder == null || cylinder.Config == null)
+                return false;
+
+            return !cylinder.Config.IsSimulationMode &&
+                   cylinder.Config.IgnoreInputWaits &&
+                   IsFaultySensorMaskCylinder(cylinder.Name);
+        }
+
         private static void ApplyFaultySensorMaskOverride(BaseCylinder cylinder)
         {
             if (cylinder == null || cylinder.Config == null)
@@ -678,22 +696,37 @@ namespace QMC.CDT320.Ajin
             if (cylinder.Config.IsSimulationMode)
                 return;
 
-            bool masked = false;
-            for (int i = 0; i < FaultySensorMaskCylinderNames.Length; i++)
-            {
-                if (string.Equals(cylinder.Name, FaultySensorMaskCylinderNames[i], StringComparison.OrdinalIgnoreCase))
-                {
-                    masked = true;
-                    break;
-                }
-            }
-
-            if (!masked)
+            if (!IsFaultySensorMaskCylinder(cylinder.Name))
                 return;
 
             cylinder.Config.IgnoreInputWaits = true;
             ApplyInputSimulation(cylinder.InFwd, true);
             ApplyInputSimulation(cylinder.InBwd, true);
+
+            lock (FaultySensorMaskLogSync)
+            {
+                if (FaultySensorMaskLogged.Add(cylinder.Name))
+                {
+                    QMC.Common.Logging.EventLogger.Write(
+                        QMC.Common.Logging.EventKind.Warning,
+                        "QMC",
+                        "CYL-SENSOR-BYPASS",
+                        "Real DO / command-feedback sensor bypass is active. cylinder=" + cylinder.Name +
+                        ", settleMs=" + cylinder.Config.SimulationDelayMs +
+                        ". Repair the sensor and remove the bypass after verification.");
+                }
+            }
+        }
+
+        private static bool IsFaultySensorMaskCylinder(string cylinderName)
+        {
+            for (int i = 0; i < FaultySensorMaskCylinderNames.Length; i++)
+            {
+                if (string.Equals(cylinderName, FaultySensorMaskCylinderNames[i], StringComparison.OrdinalIgnoreCase))
+                    return true;
+            }
+
+            return false;
         }
 
         private static bool TryFindDio(string name, out DioMap m)

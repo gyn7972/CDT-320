@@ -2,6 +2,7 @@
 
 using QMC.Common.IO;
 using QMC.CDT320.Materials;
+using QMC.CDT320.Ajin;
 
 namespace QMC.CDT320.Interlocks
 {
@@ -1037,6 +1038,14 @@ namespace QMC.CDT320.Interlocks
                     movingName + " 이동 불가: " + sideName + " Bin Guide Clamp 실린더 정보가 없습니다.",
                     out reason);
 
+            // NG Clamp 센서 고장 승인 모드에서는 일반 Simulation 입력을 허용하지 않고,
+            // 해당 실린더의 실제 Unclamp DO와 BaseCylinder 정식 명령 완료 이력만 확인합니다.
+            if (side == BinSide.Ng &&
+                AjinFactory.IsFaultySensorCommandFallbackActive(clampCylinder))
+            {
+                return VerifyNgBinClampCommandBackFallback(clampCylinder, movingName, out reason);
+            }
+
             BaseDigitalInput backStateSensor = clampCylinder.Setup != null && clampCylinder.Setup.UseBwdSensor
                 ? clampCylinder.InBwd
                 : clampCylinder.InFwd;
@@ -1051,6 +1060,73 @@ namespace QMC.CDT320.Interlocks
                     out reason);
 
             return true;
+        }
+
+        // 고장 난 NgBinClamp DI를 보지 않는 동안에도 실린더/DO 자체는 반드시 실장비여야 하며,
+        // 직접 DO 조작이 아니라 MoveBwdAsync의 정착 대기까지 완료된 경우에만 Back을 인정합니다.
+        private static bool VerifyNgBinClampCommandBackFallback(
+            BaseCylinder clampCylinder,
+            string movingName,
+            out string reason)
+        {
+            reason = string.Empty;
+
+            if (clampCylinder == null || clampCylinder.Setup == null || clampCylinder.Config == null)
+                return MotionGuardRuleHelpers.Block(
+                    movingName,
+                    "NG Bin Clamp 센서 우회 상태를 확인할 수 없습니다.",
+                    out reason);
+
+            if (clampCylinder.Config.IsSimulationMode)
+                return MotionGuardRuleHelpers.Block(
+                    movingName,
+                    "NG Bin Clamp 센서 우회 불가: 실린더 자체가 Simulation 상태입니다.",
+                    out reason);
+
+            BaseDigitalOutput outFwd = clampCylinder.OutFwd;
+            BaseDigitalOutput outBwd = clampCylinder.OutBwd;
+            if (!IsRealMappedOutput(outFwd) ||
+                (!clampCylinder.Setup.IsSingleSolenoid && !IsRealMappedOutput(outBwd)))
+            {
+                return MotionGuardRuleHelpers.Block(
+                    movingName,
+                    "NG Bin Clamp 센서 우회 불가: Clamp/Unclamp DO가 실제 하드웨어로 매핑되지 않았습니다.",
+                    out reason);
+            }
+
+            bool unclampOutputOn = clampCylinder.Setup.IsSingleSolenoid
+                ? !outFwd.IsOn
+                : outBwd.IsOn && !outFwd.IsOn;
+            if (!unclampOutputOn)
+            {
+                return MotionGuardRuleHelpers.Block(
+                    movingName,
+                    "NG Bin Clamp 센서 우회 상태이지만 Unclamp DO 명령 상태가 아닙니다. " +
+                    "clampOut=" + outFwd.IsOn +
+                    ", unclampOut=" + (outBwd != null && outBwd.IsOn) + ".",
+                    out reason);
+            }
+
+            if (!clampCylinder.IsCommandStateSettled(false))
+            {
+                return MotionGuardRuleHelpers.Block(
+                    movingName,
+                    "NG Bin Clamp Unclamp 명령의 정착 대기가 완료되지 않았습니다. " +
+                    "settleMs=" + clampCylinder.Config.SimulationDelayMs + ".",
+                    out reason);
+            }
+
+            return true;
+        }
+
+        private static bool IsRealMappedOutput(BaseDigitalOutput output)
+        {
+            return output != null &&
+                   output.Setup != null &&
+                   output.Config != null &&
+                   output.Setup.ModuleNo >= 0 &&
+                   output.Setup.BitNo >= 0 &&
+                   !output.Config.IsSimulationMode;
         }
 
         // 절대 인터락: NGStageY는 Good Z 최소 안전 높이, NG ClampLift Up, Good Guide Down을 모두 만족해야 한다.

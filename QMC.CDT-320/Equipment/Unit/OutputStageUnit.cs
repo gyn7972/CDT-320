@@ -535,8 +535,13 @@ namespace QMC.CDT320
             NgBinGuideDownSensor   = RegisterCylinderInput("NGBinGuideLift", false, "NgBinGuideDown");
             NgBinClampUpSensor     = RegisterCylinderInput("NGBinGuideClampLift", true, "NgBinClampUp");
             NgBinUnclampSensor     = RegisterCylinderInput("NGBinGuideClamp", false, "NgBinUnclamp");
-            // 링 센서 교차 배선(2026-07-28)은 IO 포인트 명칭 쪽에서 정정했다(AjinIoCatalog: Bit8=GoodBinRing,
-            //   Bit3=NgBinRing). 여기서는 이름 그대로 붙이면 실물과 일치한다.
+            // 링 센서(2026-07-28 실배선 검증 완료): 배선은 교차가 아니었다.
+            //   실제 = GoodBinRing:Module2/Bit3, NgBinRing:Module2/Bit8 (AjinIoCatalog 값이 맞다)
+            //   증상의 원인은 EquipmentData 의 Setup 파일이 Good=Bit8 / Ng=Bit3 으로 뒤바뀌어 저장돼 있었고,
+            //   시작 시 BaseComponent.LoadSettings 가 그 Setup 값으로 주소를 덮어쓴 것이었다.
+            //   → IO 주소를 바꿀 때는 카탈로그/ajin-map 뿐 아니라 반드시 Setup 파일도 같이 맞출 것.
+            //   (이전 주석에 "Bit8=GoodBinRing, Bit3=NgBinRing" 이라 적혀 있었으나 사실과 반대여서 정정한다.)
+            //   여기서는 이름 그대로 붙이면 실물과 일치한다.
             NgBinRingSensor        = RegisterInput("NgBinRing");
             GoodBinGuideUpSensor   = RegisterCylinderInput("GoodBinGuideLift", true, "GoodBinGuideUp");
             GoodBinGuideDownSensor = RegisterCylinderInput("GoodBinGuideLift", false, "GoodBinGuideDown");

@@ -16,6 +16,13 @@ namespace QMC.Common.IO
         public bool Nc { get; set; }
         public int ErrorCode { get; set; }
         public DateTime Timestamp { get; set; }
+
+        /// <summary>
+        /// 이 값이 시뮬레이션 주입에서 온 것인지 여부.
+        /// [실장비 오염 차단 2026-07-28] 캐시 키가 모듈/비트라 시뮬 포인트와 실보드 포인트가 같은 칸을 쓴다.
+        /// 실보드 입력/출력은 이 플래그가 true 인 스냅샷을 절대 적용하지 않는다.
+        /// </summary>
+        public bool IsSimulated { get; set; }
     }
 
     public sealed class AjinIoScanService : IDisposable
@@ -200,6 +207,17 @@ namespace QMC.Common.IO
             if (input == null) return false;
             AjinIoSnapshot snapshot = GetLatest(input.Setup.ModuleNo, input.Setup.BitNo, false);
             if (snapshot == null || snapshot.ErrorCode != 0) return false;
+
+            // [실장비 오염 차단 2026-07-28] 캐시 키가 모듈/비트라서 시뮬 포인트와 실보드 포인트가 같은 칸을 공유한다.
+            // 예전에는 여기서 출처를 따지지 않아, 시뮬 주입값(SimulateInput -> SetSimulatedState -> UpdateCached)이
+            // 같은 주소의 실보드 입력에 그대로 덮어씌워졌다. IsOn 게터가 매번 이 경로를 타므로
+            // 실제 센서값이 조용히 뒤집혔다(2026-07-28 현장: OutputStage GoodBin 링 신호).
+            // 실보드 포인트는 하드웨어에서 읽은 값만 쓴다. 시뮬 스냅샷은 적용하지 않는다.
+            // Config 를 못 읽으면 모드를 확정할 수 없으므로 실보드로 간주해 차단한다(fail-closed).
+            bool isSimulationPoint = input.Config != null && input.Config.IsSimulationMode;
+            if (!isSimulationPoint && snapshot.IsSimulated)
+                return false;
+
             input.ApplyScannedState(snapshot.IsOn);
             return true;
         }
@@ -238,6 +256,12 @@ namespace QMC.Common.IO
             if (output == null) return false;
             AjinIoSnapshot snapshot = GetLatest(output.Setup.ModuleNo, output.Setup.BitNo, true);
             if (snapshot == null || snapshot.ErrorCode != 0) return false;
+
+            // [실장비 오염 차단 2026-07-28] 입력과 같은 이유로 출력도 출처를 따진다. 모르면 실보드로 간주(fail-closed).
+            bool isSimulationPoint = output.Config != null && output.Config.IsSimulationMode;
+            if (!isSimulationPoint && snapshot.IsSimulated)
+                return false;
+
             output.ApplyScannedState(snapshot.IsOn);
             return true;
         }
@@ -331,7 +355,7 @@ namespace QMC.Common.IO
 
             AjinIoScanService current = Current;
             if (current != null)
-                current.UpdateCached(name, module, bit, isOutput, logicalState, nc, 0);
+                current.UpdateCached(name, module, bit, isOutput, logicalState, nc, 0, true);
         }
 
         private static bool TryGetSimulatedState(
@@ -421,6 +445,17 @@ namespace QMC.Common.IO
 
             if (input.Config.IsSimulationMode || !hardwareOpen)
             {
+                // [실장비 오염 차단 2026-07-28] 실보드로 설정된 포인트는 시뮬 저장값을 절대 쓰지 않는다.
+                // 보드 미오픈(!hardwareOpen)일 때 실보드 포인트까지 이 분기로 들어와,
+                // 같은 모듈/비트에 남아 있던 시뮬 주입값을 그대로 적용해 실제 센서값을 뒤집었다.
+                // 이 경우 유효한 읽기가 없는 것이므로 값을 건드리지 않고 시뮬 스냅샷으로만 표시해
+                // TryApplyLatest 에서 걸러지게 한다.
+                if (!input.Config.IsSimulationMode)
+                {
+                    return UpdateCached(input.Name, input.Setup.ModuleNo, input.Setup.BitNo, false,
+                        input.IsOn, input.Setup.IsNormallyClosed, 0, true);
+                }
+
                 bool simulatedLogical = input.IsOn;
                 bool hasSimulatedState = TryGetSimulatedState(input, out simulatedLogical);
                 if (hasSimulatedState)
@@ -428,7 +463,7 @@ namespace QMC.Common.IO
                 else
                     SetSimulatedState(input, simulatedLogical);
 
-                return UpdateCached(input.Name, input.Setup.ModuleNo, input.Setup.BitNo, false, simulatedLogical, input.Setup.IsNormallyClosed, 0);
+                return UpdateCached(input.Name, input.Setup.ModuleNo, input.Setup.BitNo, false, simulatedLogical, input.Setup.IsNormallyClosed, 0, true);
             }
 
             bool raw = false;
@@ -449,6 +484,13 @@ namespace QMC.Common.IO
 
             if (output.Config.IsSimulationMode || !hardwareOpen)
             {
+                // [실장비 오염 차단 2026-07-28] 입력과 같은 이유. 실보드 출력은 시뮬 저장값으로 갱신하지 않는다.
+                if (!output.Config.IsSimulationMode)
+                {
+                    return UpdateCached(output.Name, output.Setup.ModuleNo, output.Setup.BitNo, true,
+                        output.IsOn, output.Setup.IsNormallyClosed, 0, true);
+                }
+
                 bool simulatedLogical = output.IsOn;
                 bool hasSimulatedState = TryGetSimulatedState(output, out simulatedLogical);
                 if (hasSimulatedState)
@@ -456,7 +498,7 @@ namespace QMC.Common.IO
                 else
                     SetSimulatedState(output, simulatedLogical);
 
-                return UpdateCached(output.Name, output.Setup.ModuleNo, output.Setup.BitNo, true, simulatedLogical, output.Setup.IsNormallyClosed, 0);
+                return UpdateCached(output.Name, output.Setup.ModuleNo, output.Setup.BitNo, true, simulatedLogical, output.Setup.IsNormallyClosed, 0, true);
             }
 
             bool raw = false;
@@ -471,9 +513,9 @@ namespace QMC.Common.IO
             return UpdateCached(output.Name, output.Setup.ModuleNo, output.Setup.BitNo, true, logical, output.Setup.IsNormallyClosed, ret);
         }
 
-        private AjinIoSnapshot UpdateCached(string name, int module, int bit, bool isOutput, bool isOn, bool nc, int errorCode)
+        private AjinIoSnapshot UpdateCached(string name, int module, int bit, bool isOutput, bool isOn, bool nc, int errorCode, bool isSimulated = false)
         {
-            AjinIoSnapshot snapshot = BuildSnapshot(name, module, bit, isOutput, isOn, nc, errorCode);
+            AjinIoSnapshot snapshot = BuildSnapshot(name, module, bit, isOutput, isOn, nc, errorCode, isSimulated);
             lock (_gate)
             {
                 _latest[name] = snapshot;
@@ -483,7 +525,7 @@ namespace QMC.Common.IO
             return snapshot;
         }
 
-        private static AjinIoSnapshot BuildSnapshot(string name, int module, int bit, bool isOutput, bool isOn, bool nc, int errorCode)
+        private static AjinIoSnapshot BuildSnapshot(string name, int module, int bit, bool isOutput, bool isOn, bool nc, int errorCode, bool isSimulated = false)
         {
             return new AjinIoSnapshot
             {
@@ -494,7 +536,8 @@ namespace QMC.Common.IO
                 IsOn = isOn,
                 Nc = nc,
                 ErrorCode = errorCode,
-                Timestamp = DateTime.Now
+                Timestamp = DateTime.Now,
+                IsSimulated = isSimulated
             };
         }
 
