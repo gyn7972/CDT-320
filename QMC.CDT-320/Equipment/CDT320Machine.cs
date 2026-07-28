@@ -1,4 +1,6 @@
 ﻿using QMC.Common;
+using QMC.Common.IO;
+using QMC.Common.Motion;
 using System;
 using System.Collections.Generic;
 using System.Threading;
@@ -337,6 +339,76 @@ namespace QMC.CDT320
             Units.Add(OutputFeederUnit);
             Units.Add(OutputStageUnit);
             Units.Add(OpPanelUnit);
+
+            BindPickerFlowTransitionDiagnostics();
+        }
+
+        private void BindPickerFlowTransitionDiagnostics()
+        {
+            BindPickerFlowTransitionDiagnostics(
+                "Front",
+                PickerFrontUnit.FlowChecks,
+                new[] { PickerFrontUnit.PickerZ0, PickerFrontUnit.PickerZ1, PickerFrontUnit.PickerZ2, PickerFrontUnit.PickerZ3 });
+            BindPickerFlowTransitionDiagnostics(
+                "Rear",
+                PickerRearUnit.FlowChecks,
+                new[] { PickerRearUnit.PickerZ0, PickerRearUnit.PickerZ1, PickerRearUnit.PickerZ2, PickerRearUnit.PickerZ3 });
+        }
+
+        private void BindPickerFlowTransitionDiagnostics(
+            string side,
+            BaseDigitalInput[] flowChecks,
+            BaseAxis[] pickerZAxes)
+        {
+            if (flowChecks == null || pickerZAxes == null)
+                return;
+
+            int count = Math.Min(flowChecks.Length, pickerZAxes.Length);
+            for (int i = 0; i < count; i++)
+            {
+                BaseDigitalInput flowCheck = flowChecks[i];
+                BaseAxis pickerZ = pickerZAxes[i];
+                int pickerNo = i + 1;
+                if (flowCheck == null)
+                    continue;
+
+                flowCheck.StateChanged += (input, flowOn) =>
+                    LogPickerFlowTransition(side, pickerNo, flowOn, pickerZ);
+            }
+        }
+
+        private void LogPickerFlowTransition(string side, int pickerNo, bool flowOn, BaseAxis pickerZ)
+        {
+            DateTime transitionAt = DateTime.Now;
+            Log.Write(
+                LogLevel.Normal,
+                "Main",
+                "PickerFlowTransition",
+                "Picker Flow 전이 감지. transitionAt=" + transitionAt.ToString("yyyy-MM-dd HH:mm:ss.fff") +
+                ", side=" + side +
+                ", pickerNo=" + pickerNo +
+                ", flow=" + (flowOn ? "ON" : "OFF") +
+                ", pickerZ=" + BuildFlowTransitionAxisSnapshot(pickerZ) +
+                ", ejectPinZ=" + BuildFlowTransitionAxisSnapshot(InputStageUnit != null ? InputStageUnit.EjectPinZ : null) +
+                " - Check");
+        }
+
+        private static string BuildFlowTransitionAxisSnapshot(BaseAxis axis)
+        {
+            if (axis == null)
+                return "null";
+
+            try
+            {
+                return "name=" + axis.Name +
+                       ",actual=" + axis.ActualPosition.ToString("F6") +
+                       ",command=" + axis.CommandPosition.ToString("F6") +
+                       ",moving=" + axis.IsMoving;
+            }
+            catch (Exception ex)
+            {
+                return "name=" + axis.Name + ",readError=" + ex.Message;
+            }
         }
     }
 }

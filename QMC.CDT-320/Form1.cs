@@ -1814,7 +1814,8 @@ namespace QMC.CDT_320
                     if (result != 0)
                         throw new InvalidOperationException("선택 Die 좌표 이동 실패. result=" + result);
                     return "선택 Die 좌표 이동을 완료했습니다. UID=" + (entry.DieUid ?? "");
-                }).ConfigureAwait(true);
+                },
+                true).ConfigureAwait(true);
         }
 
         /// <summary>
@@ -1839,10 +1840,12 @@ namespace QMC.CDT_320
         private async System.Threading.Tasks.Task RunInputStageReviewOneShotAsync(
             InputStageRunReviewDialog dialog,
             string actionName,
-            Func<InputStageUnit, System.Threading.CancellationToken, System.Threading.Tasks.Task<string>> action)
+            Func<InputStageUnit, System.Threading.CancellationToken, System.Threading.Tasks.Task<string>> action,
+            bool allowEmbeddedVisionScopeReuse = false)
         {
             IDisposable workScope = null;
             string finalStatus = string.Empty;
+            bool reusedEmbeddedVisionScope = false;
             try
             {
                 if (dialog == null || dialog.IsDisposed || Controller == null ||
@@ -1851,17 +1854,42 @@ namespace QMC.CDT_320
                 if (Machine == null || Machine.InputStageUnit == null)
                     throw new InvalidOperationException("InputStage Unit이 없습니다.");
 
-                dialog.SetBusy(true, actionName + " 동작 중입니다. STOP으로 취소할 수 있습니다.");
-                workScope = await Controller.BeginInputStageRunReviewWorkAsync(
-                    ManualMotionScopeKind.ProcessSequence,
-                    actionName,
-                    System.Threading.CancellationToken.None).ConfigureAwait(true);
+                reusedEmbeddedVisionScope =
+                    allowEmbeddedVisionScopeReuse &&
+                    !_inputStageRunReviewEmbeddedVisionTransition &&
+                    _inputStageRunReviewEmbeddedVisionScope != null &&
+                    dialog.IsWaferVisionControlActive;
+
+                if (reusedEmbeddedVisionScope)
+                {
+                    string safetyReason;
+                    if (!Controller.AreInputStageRunReviewPickersSafe(out safetyReason))
+                    {
+                        throw new InvalidOperationException(
+                            "Review 선택 Die 이동 직전 Picker 안전 재확인에 실패했습니다. " + safetyReason);
+                    }
+                    dialog.SetWaferVisionMoveBusy(
+                        true,
+                        actionName + " 동작 중입니다. Live 영상은 유지되며 STOP으로 취소할 수 있습니다.");
+                }
+                else
+                {
+                    dialog.SetBusy(true, actionName + " 동작 중입니다. STOP으로 취소할 수 있습니다.");
+                    workScope = await Controller.BeginInputStageRunReviewWorkAsync(
+                        ManualMotionScopeKind.ProcessSequence,
+                        actionName,
+                        System.Threading.CancellationToken.None).ConfigureAwait(true);
+                }
+
+                System.Threading.CancellationToken actionToken =
+                    Controller.InputStageRunReviewActionToken;
+                actionToken.ThrowIfCancellationRequested();
                 using (QMC.CDT320.Interlocks.MotionGuardRuntime.BeginManualSequenceProcessMove(
                     "InputStageRunReview." + actionName))
                 {
                     finalStatus = await action(
                         Machine.InputStageUnit,
-                        Controller.InputStageRunReviewActionToken).ConfigureAwait(true);
+                        actionToken).ConfigureAwait(true);
                 }
                 dialog.SetAxisPositions(
                     Machine.InputStageUnit.CameraX != null ? Machine.InputStageUnit.CameraX.ActualPosition : 0.0,
@@ -1883,7 +1911,12 @@ namespace QMC.CDT_320
                 if (workScope != null)
                     workScope.Dispose();
                 if (dialog != null && !dialog.IsDisposed)
-                    dialog.SetBusy(false, finalStatus);
+                {
+                    if (reusedEmbeddedVisionScope && dialog.IsWaferVisionControlActive)
+                        dialog.SetWaferVisionMoveBusy(false, finalStatus);
+                    else
+                        dialog.SetBusy(false, finalStatus);
+                }
             }
         }
 

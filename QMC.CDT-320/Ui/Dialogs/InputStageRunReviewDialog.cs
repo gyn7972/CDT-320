@@ -46,6 +46,7 @@ namespace QMC.CDT_320.Ui.Dialogs
         private ComboBox _cmbJogMode;
         private ComboBox _cmbJogStep;
         private bool _waferVisionControlActive;
+        private bool _waferVisionMoveBusy;
         private string _waferVisionHost = "127.0.0.1";
         private int _waferVisionPort;
         private VisionTcpClient _waferVisionCommandClient;
@@ -252,9 +253,12 @@ namespace QMC.CDT_320.Ui.Dialogs
                 return false;
 
             _waferVisionControlActive = active && !_readOnlyPreview;
+            if (!_waferVisionControlActive)
+                _waferVisionMoveBusy = false;
             if (!ConfigureWaferVisionViewer(_waferVisionControlActive))
             {
                 _waferVisionControlActive = false;
+                _waferVisionMoveBusy = false;
                 UpdateActionAvailability();
                 return false;
             }
@@ -507,6 +511,14 @@ namespace QMC.CDT_320.Ui.Dialogs
         public void SetBusy(bool busy, string status)
         {
             _busy = busy;
+            if (!string.IsNullOrWhiteSpace(status))
+                SetStatus(status);
+            UpdateActionAvailability();
+        }
+
+        public void SetWaferVisionMoveBusy(bool busy, string status)
+        {
+            _waferVisionMoveBusy = busy && _waferVisionControlActive;
             if (!string.IsNullOrWhiteSpace(status))
                 SetStatus(status);
             UpdateActionAvailability();
@@ -958,8 +970,20 @@ namespace QMC.CDT_320.Ui.Dialogs
         private void MapView_CellDoubleClicked(DieMapEntry entry)
         {
             SelectDie(entry, true);
-            if (!_readOnlyPreview)
-                RaiseSimpleEvent(SelectedDieMoveRequested);
+            if (_readOnlyPreview)
+                return;
+            if (_waferVisionMoveBusy)
+            {
+                SetStatus("선택 Die 이동이 진행 중입니다. 완료 또는 STOP 후 다시 실행하세요.");
+                return;
+            }
+            if (_busy && !_waferVisionControlActive)
+            {
+                SetStatus("다른 Review 수동 동작이 진행 중입니다. 완료 또는 STOP 후 다시 실행하세요.");
+                return;
+            }
+
+            RaiseSimpleEvent(SelectedDieMoveRequested);
         }
 
         private void MapView_SelectionRectangleCompleted(IReadOnlyList<DieMapEntry> entries)
@@ -1376,11 +1400,13 @@ namespace QMC.CDT_320.Ui.Dialogs
             btnVisionTest.Enabled = actionEnabled;
             bool waferVisionCommandEnabled = _waferVisionControlActive &&
                                               !_readOnlyPreview &&
-                                              !_decisionSubmitted;
+                                              !_decisionSubmitted &&
+                                              !_waferVisionMoveBusy;
             waferVisionViewer.CameraCommandsEnabled = waferVisionCommandEnabled;
             btnWaferVisionControl.Enabled = !_readOnlyPreview &&
                                             (!_busy || _waferVisionControlActive) &&
-                                            !_decisionSubmitted;
+                                            !_decisionSubmitted &&
+                                            !_waferVisionMoveBusy;
             grpPickupRoute.Enabled = actionEnabled && _mappingComplete;
             btnPreviewPath.Enabled = actionEnabled && _mappingComplete;
             btnApplyPickupOrder.Enabled = actionEnabled && _mappingComplete;
