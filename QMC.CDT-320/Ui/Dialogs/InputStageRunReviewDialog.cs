@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
+using System.Text;
 using System.Windows.Forms;
 using QMC.CDT320.Bin;
 using QMC.CDT320.DieMaps;
@@ -40,6 +41,8 @@ namespace QMC.CDT_320.Ui.Dialogs
         private DialogResult _submittedDialogResult = DialogResult.None;
         private string _waferId = string.Empty;
         private string _mappingRevision = string.Empty;
+        private string _lastDieGridSignature = string.Empty;
+        private bool _dieGridRebindRequired;
         private Button _activeJogButton;
         private Timer _encoderRefreshTimer;
         private Func<double[]> _axisPositionProvider;
@@ -348,6 +351,9 @@ namespace QMC.CDT_320.Ui.Dialogs
             _startDie = null;
             _selectedDies.Clear();
             _pickupOrderApplied = false;
+            // 새 Map 객체를 받으면 표시값이 같아도 Grid Row.Tag를 새 Entry 객체로 다시 연결해야 한다.
+            _lastDieGridSignature = string.Empty;
+            _dieGridRebindRequired = true;
             mapView.SetMap(map, true);
             RefreshPickupPreview();
             RefreshMapInformation();
@@ -745,34 +751,27 @@ namespace QMC.CDT_320.Ui.Dialogs
 
         private void RefreshDieGrid()
         {
+            List<DieMapEntry> entries = BuildDieGridEntries();
+            string signature = BuildDieGridSignature(entries);
+            if (!_dieGridRebindRequired &&
+                string.Equals(signature, _lastDieGridSignature, StringComparison.Ordinal))
+                return;
+
             _synchronizingSelection = true;
             try
             {
-                dieGrid.Rows.Clear();
-                IEnumerable<DieMapEntry> entries = _dieMap != null && _dieMap.Entries != null
-                    ? _dieMap.Entries
-                    : Enumerable.Empty<DieMapEntry>();
-
-                foreach (DieMapEntry entry in entries
-                    .Where(item => item != null)
-                    .OrderBy(item => ResolvePreviewSequence(item) <= 0 ? int.MaxValue : ResolvePreviewSequence(item))
-                    .ThenBy(item => item.DieMapY)
-                    .ThenBy(item => item.DieMapX))
+                // 행 구성이 같으면 Rows.Clear/Add를 하지 않고 값만 갱신해 선택과 스크롤을 보존한다.
+                if (!_dieGridRebindRequired && TryRefreshDieGridValues(entries))
                 {
-                    int rowIndex = dieGrid.Rows.Add(
-                        ResolvePreviewSequence(entry) > 0 ? ResolvePreviewSequence(entry).ToString() : "-",
-                        entry.DieMapX,
-                        entry.DieMapY,
-                        FormatGrid(entry.EquipmentGridX),
-                        FormatGrid(entry.EquipmentGridY),
-                        entry.OriginalMapX >= 0 ? entry.OriginalMapX.ToString() : "-",
-                        entry.OriginalMapY >= 0 ? entry.OriginalMapY.ToString() : "-",
-                        ResolveDieStateText(entry),
-                        entry.Result,
-                        entry.BinCode,
-                        entry.PosX.ToString("F4"),
-                        entry.PosY.ToString("F4"),
-                        entry.DieUid ?? string.Empty);
+                    _lastDieGridSignature = signature;
+                    return;
+                }
+
+                // 행 수 또는 순서가 달라 부분 갱신할 수 없을 때만 전체 행을 안전하게 다시 구성한다.
+                dieGrid.Rows.Clear();
+                foreach (DieMapEntry entry in entries)
+                {
+                    int rowIndex = dieGrid.Rows.Add(BuildDieGridRowValues(entry));
                     dieGrid.Rows[rowIndex].Tag = entry;
                 }
 
@@ -789,11 +788,115 @@ namespace QMC.CDT_320.Ui.Dialogs
 
                 if (firstSelectedRow >= 0)
                     dieGrid.FirstDisplayedScrollingRowIndex = firstSelectedRow;
+
+                _lastDieGridSignature = signature;
+                _dieGridRebindRequired = false;
             }
             finally
             {
                 _synchronizingSelection = false;
             }
+        }
+
+        private List<DieMapEntry> BuildDieGridEntries()
+        {
+            IEnumerable<DieMapEntry> entries = _dieMap != null && _dieMap.Entries != null
+                ? _dieMap.Entries
+                : Enumerable.Empty<DieMapEntry>();
+
+            return entries
+                .Where(item => item != null)
+                .OrderBy(item => ResolvePreviewSequence(item) <= 0 ? int.MaxValue : ResolvePreviewSequence(item))
+                .ThenBy(item => item.DieMapY)
+                .ThenBy(item => item.DieMapX)
+                .ToList();
+        }
+
+        private string BuildDieGridSignature(IList<DieMapEntry> entries)
+        {
+            var signature = new StringBuilder();
+            signature.Append(entries != null ? entries.Count : 0).Append('|');
+            if (entries == null)
+                return signature.ToString();
+
+            foreach (DieMapEntry entry in entries)
+            {
+                string dieUid = entry != null ? entry.DieUid ?? string.Empty : string.Empty;
+                signature
+                    .Append(ResolvePreviewSequence(entry)).Append(':')
+                    .Append(entry != null ? entry.DieMapX : 0).Append(':')
+                    .Append(entry != null ? entry.DieMapY : 0).Append(':')
+                    .Append(entry != null ? entry.OriginalMapX : 0).Append(':')
+                    .Append(entry != null ? entry.OriginalMapY : 0).Append(':')
+                    .Append(entry != null && entry.IsTarget ? '1' : '0').Append(':')
+                    .Append(entry != null ? (int)entry.Result : 0).Append(':')
+                    .Append(entry != null ? entry.BinCode : 0).Append(':')
+                    .Append(entry != null ? BitConverter.DoubleToInt64Bits(entry.EquipmentGridX) : 0L).Append(':')
+                    .Append(entry != null ? BitConverter.DoubleToInt64Bits(entry.EquipmentGridY) : 0L).Append(':')
+                    .Append(entry != null ? BitConverter.DoubleToInt64Bits(entry.PosX) : 0L).Append(':')
+                    .Append(entry != null ? BitConverter.DoubleToInt64Bits(entry.PosY) : 0L).Append(':')
+                    .Append(dieUid.Length).Append('#').Append(dieUid).Append('|');
+            }
+
+            return signature.ToString();
+        }
+
+        private bool TryRefreshDieGridValues(IList<DieMapEntry> entries)
+        {
+            if (entries == null || dieGrid.Rows.Count != entries.Count)
+                return false;
+
+            for (int i = 0; i < entries.Count; i++)
+            {
+                DieMapEntry rowEntry = dieGrid.Rows[i].Tag as DieMapEntry;
+                DieMapEntry updatedEntry = entries[i];
+                if (rowEntry == null || updatedEntry == null ||
+                    rowEntry.DieMapX != updatedEntry.DieMapX ||
+                    rowEntry.DieMapY != updatedEntry.DieMapY)
+                {
+                    return false;
+                }
+            }
+
+            dieGrid.SuspendLayout();
+            try
+            {
+                for (int i = 0; i < entries.Count; i++)
+                {
+                    DieMapEntry entry = entries[i];
+                    DataGridViewRow row = dieGrid.Rows[i];
+                    object[] values = BuildDieGridRowValues(entry);
+                    for (int columnIndex = 0; columnIndex < values.Length; columnIndex++)
+                        row.Cells[columnIndex].Value = values[columnIndex];
+                    row.Tag = entry;
+                }
+            }
+            finally
+            {
+                dieGrid.ResumeLayout();
+            }
+
+            return true;
+        }
+
+        private object[] BuildDieGridRowValues(DieMapEntry entry)
+        {
+            return new object[]
+            {
+                ResolvePreviewSequence(entry) > 0 ? ResolvePreviewSequence(entry).ToString() : "-",
+                entry.DieMapX,
+                entry.DieMapY,
+                FormatGrid(entry.EquipmentGridX),
+                FormatGrid(entry.EquipmentGridY),
+                entry.OriginalMapX >= 0 ? entry.OriginalMapX.ToString() : "-",
+                entry.OriginalMapY >= 0 ? entry.OriginalMapY.ToString() : "-",
+                ResolveDieStateText(entry),
+                entry.Result,
+                entry.BinCode,
+                entry.PosX.ToString("F4"),
+                entry.PosY.ToString("F4"),
+                entry.DieUid ?? string.Empty
+            };
         }
 
         private void RefreshProgress()
