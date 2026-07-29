@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
 using System.Threading;
@@ -1470,9 +1471,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                     return false;
                 }
 
-                var wafer = snapshot.Wafers != null
-                    ? snapshot.Wafers.FirstOrDefault(w => w != null && w.WaferId == slot.WaferId)
-                    : null;
+                var wafer = ResolveCassetteSlotWafer(snapshot, role, slotIndex, slot);
                 if (wafer == null)
                 {
                     reason = "슬롯이 가리키는 Material 객체가 없습니다. waferId=" + slot.WaferId;
@@ -2366,11 +2365,33 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             if (snapshot == null || snapshot.Wafers == null || slotIndex < 0)
                 return null;
 
-            if (slot != null && !string.IsNullOrEmpty(slot.WaferId))
+            if (slot != null && !string.IsNullOrWhiteSpace(slot.WaferInstanceId))
             {
-                var waferInSlot = snapshot.Wafers.FirstOrDefault(w => w.WaferId == slot.WaferId);
-                if (waferInSlot != null)
-                    return waferInSlot;
+                return snapshot.Wafers.FirstOrDefault(w =>
+                    w != null &&
+                    string.Equals(
+                        w.WaferInstanceId ?? "",
+                        slot.WaferInstanceId,
+                        StringComparison.OrdinalIgnoreCase) &&
+                    string.Equals(
+                        w.WaferId ?? "",
+                        slot.WaferId ?? "",
+                        StringComparison.OrdinalIgnoreCase));
+            }
+
+            if (slot != null && !string.IsNullOrWhiteSpace(slot.WaferId))
+            {
+                List<WaferMaterial> legacyCandidates = snapshot.Wafers
+                    .Where(w =>
+                        w != null &&
+                        string.Equals(
+                            w.WaferId ?? "",
+                            slot.WaferId,
+                            StringComparison.OrdinalIgnoreCase))
+                    .ToList();
+                if (legacyCandidates.Count == 1)
+                    return legacyCandidates[0];
+                return null;
             }
 
             return snapshot.Wafers.FirstOrDefault(w =>

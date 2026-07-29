@@ -904,6 +904,7 @@ namespace QMC.CDT320.Sequencing
                     0,
                     "",
                     "InputDieVisionPrepareVisionNgSkip",
+                    ManualDieStateSyncScope.InputMapOnly,
                     out message);
                 if (!syncOk)
                 {

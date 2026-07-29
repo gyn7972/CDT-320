@@ -1409,10 +1409,10 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     ApplyManualStateToOutputEntry(entries[i], state);
 
                 for (int i = 0; i < entries.Count; i++)
-                    SyncManualOutputReceiveSlotState(entries[i], state);
+                    SyncManualOutputDieState(entries[i], "OutputMapManualDieState");
 
                 for (int i = 0; i < entries.Count; i++)
-                    SyncManualOutputDieState(entries[i], "OutputMapManualDieState");
+                    SyncManualOutputReceiveSlotState(entries[i], state);
                 MaterialStateService.NotifyAndSave("OutputMapManualDieState");
 
                 QMC.Common.Log.Write("Main", "SYSTEM", "OutputStageMapTransferPage",
@@ -1704,6 +1704,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 entry.IsTarget ? entry.BinCode : 0,
                 "",
                 reason,
+                ManualDieStateSyncScope.MaterialOnly,
                 out message);
             if (!ok)
             {

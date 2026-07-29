@@ -344,11 +344,33 @@ namespace QMC.CDT_320.Ui.Dialogs
             if (snapshot == null || snapshot.Wafers == null || slotIndex < 0)
                 return null;
 
+            if (slot != null && !string.IsNullOrWhiteSpace(slot.WaferInstanceId))
+            {
+                return snapshot.Wafers.FirstOrDefault(w =>
+                    w != null &&
+                    string.Equals(
+                        w.WaferInstanceId ?? "",
+                        slot.WaferInstanceId,
+                        StringComparison.OrdinalIgnoreCase) &&
+                    string.Equals(
+                        w.WaferId ?? "",
+                        slot.WaferId ?? "",
+                        StringComparison.OrdinalIgnoreCase));
+            }
+
             if (slot != null && !string.IsNullOrWhiteSpace(slot.WaferId))
             {
-                WaferMaterial slotWafer = snapshot.Wafers.FirstOrDefault(w => string.Equals(w.WaferId, slot.WaferId, StringComparison.OrdinalIgnoreCase));
-                if (slotWafer != null)
-                    return slotWafer;
+                List<WaferMaterial> legacyCandidates = snapshot.Wafers
+                    .Where(w =>
+                        w != null &&
+                        string.Equals(
+                            w.WaferId ?? "",
+                            slot.WaferId,
+                            StringComparison.OrdinalIgnoreCase))
+                    .ToList();
+                if (legacyCandidates.Count == 1)
+                    return legacyCandidates[0];
+                return null;
             }
 
             return snapshot.Wafers.FirstOrDefault(w =>

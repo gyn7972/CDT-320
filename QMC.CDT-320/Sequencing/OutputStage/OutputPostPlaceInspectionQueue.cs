@@ -574,7 +574,9 @@ namespace QMC.CDT320.Sequencing
                         {
                             StageLocation = stageLocation,
                             OutputWaferId = wafer.WaferId,
-                            SourceWaferId = wafer.OutputReceiveSourceWaferId,
+                            OutputWaferInstanceId = MaterialStateService.EnsureWaferInstanceId(wafer),
+                            SourceWaferId = die != null ? die.WaferID_Input : "",
+                            SourceWaferInstanceId = die != null ? die.InputWaferInstanceId : "",
                             OrderIndex = slot.OrderIndex,
                             DieMapX = slot.DieMapX,
                             DieMapY = slot.DieMapY,
@@ -971,6 +973,17 @@ namespace QMC.CDT320.Sequencing
                     return RaiseFailure("OUT-POST-INSPECT-TARGET", "Material",
                         "Output camera 후검사 대상 좌표가 없습니다. die=" + request.DieId +
                         ", side=" + request.OutputSide);
+                string targetReason;
+                if (!MaterialStateService.IsOutputStageReceiveTargetCurrent(
+                    request.OutputSide,
+                    request.ReceiveTarget,
+                    out targetReason))
+                {
+                    return RaiseFailure("OUT-POST-INSPECT-TARGET-STALE", "Material",
+                        "Output camera 후검사 시작 전에 Output Bin이 교체되었거나 대상 세대가 일치하지 않습니다. die=" +
+                        request.DieId + ", side=" + request.OutputSide +
+                        ", reason=" + targetReason);
+                }
                 int timeout = request.MoveTimeoutMs > 0 ? request.MoveTimeoutMs : 10000;
                 SequenceResourceKind stageResource = request.OutputSide == BinSide.Ng
                     ? SequenceResourceKind.OutputNgStageArea
@@ -1217,7 +1230,33 @@ namespace QMC.CDT320.Sequencing
             }
 
             for (int i = 0; i < capturedRequests.Count; i++)
-                ApplyPlacedDieResult(capturedRequests[i]);
+            {
+                string targetReason;
+                OutputPostPlaceInspectionRequest request = capturedRequests[i];
+                if (!MaterialStateService.IsOutputStageReceiveTargetCurrent(
+                    request.OutputSide,
+                    request.ReceiveTarget,
+                    out targetReason))
+                {
+                    return new BinResultCollectionOutcome(
+                        -1,
+                        "BIN RESULT 반영 전에 Output Bin이 교체되었거나 대상 세대가 일치하지 않습니다. die=" +
+                        request.DieId + ", side=" + request.OutputSide +
+                        ", reason=" + targetReason);
+                }
+            }
+
+            for (int i = 0; i < capturedRequests.Count; i++)
+            {
+                if (!ApplyPlacedDieResult(capturedRequests[i]))
+                {
+                    return new BinResultCollectionOutcome(
+                        -1,
+                        "BIN RESULT Material 반영이 세대/slot 일치 검증에서 차단되었습니다. die=" +
+                        capturedRequests[i].DieId +
+                        ", side=" + capturedRequests[i].OutputSide);
+                }
+            }
 
             Log.Write("Main", "SYSTEM", "OutputPostPlaceInspection",
                 "BIN 전체 REQ/EPD 완료 후 RESULT 일괄 수집 및 Material 반영 완료. count=" +
@@ -1278,7 +1317,7 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
-        private static void ApplyPlacedDieResult(OutputPostPlaceInspectionRequest request)
+        private static bool ApplyPlacedDieResult(OutputPostPlaceInspectionRequest request)
         {
             InspectionResultDto inspection = request.InspectionResult;
             bool inspectionOk = inspection != null && inspection.IsPass;
@@ -1297,7 +1336,18 @@ namespace QMC.CDT320.Sequencing
                 R = hasPlacementT ? placementT : 0.0,
                 IsValid = hasPlacementX && hasPlacementY
             };
-            // Place 런타임 보정 필터 갱신.
+            bool materialUpdated = MaterialStateService.UpdateOutputStageDieInspection(
+                request.DieId,
+                request.OutputSide,
+                request.ReceiveTarget,
+                inspectionOk,
+                offset,
+                inspection != null ? inspection.Raw : string.Empty,
+                inspection != null ? inspection.Values : null);
+            if (!materialUpdated)
+                return false;
+
+            // Place 런타임 보정 필터는 Material/Output slot 세대 일치가 최종 확인된 뒤에만 갱신한다.
             // IsPass == true 인 경우에만 갱신한다 — NG 판정 Die의 위치 측정은 신뢰할 수 없으므로 제외.
             if (inspectionOk && offset.IsValid &&
                 request.HasPickerContext && !request.SkipInspection)
@@ -1310,15 +1360,6 @@ namespace QMC.CDT320.Sequencing
                     offset.R,
                     request.DieId);
             }
-
-            MaterialStateService.UpdateOutputStageDieInspection(
-                request.DieId,
-                request.OutputSide,
-                request.ReceiveTarget,
-                inspectionOk,
-                offset,
-                inspection != null ? inspection.Raw : string.Empty,
-                inspection != null ? inspection.Values : null);
             Log.Write("Main", "SYSTEM", "OutputPostPlaceInspection",
                 "Output camera BIN RESULT 반영 완료. die=" + request.DieId +
                 ", side=" + request.OutputSide +
@@ -1329,6 +1370,7 @@ namespace QMC.CDT320.Sequencing
                 ", offsetX=" + offset.X.ToString("F6") +
                 ", offsetY=" + offset.Y.ToString("F6") +
                 ", offsetT=" + offset.R.ToString("F6") + " - Ok");
+            return true;
         }
 
         private static bool TryReadPlacementMm(InspectionResultDto inspection, out double value, string key)
@@ -2452,7 +2494,9 @@ namespace QMC.CDT320.Sequencing
             {
                 StageLocation = source.StageLocation,
                 OutputWaferId = source.OutputWaferId,
+                OutputWaferInstanceId = source.OutputWaferInstanceId,
                 SourceWaferId = source.SourceWaferId,
+                SourceWaferInstanceId = source.SourceWaferInstanceId,
                 OrderIndex = source.OrderIndex,
                 DieMapX = source.DieMapX,
                 DieMapY = source.DieMapY,

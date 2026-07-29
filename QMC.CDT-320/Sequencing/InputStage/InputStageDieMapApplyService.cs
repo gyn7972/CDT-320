@@ -15,6 +15,8 @@ namespace QMC.CDT320.Sequencing
         public DieMap DieMap { get; set; }
         public WaferMapData WaferMap { get; set; }
         public WaferMaterial ExpectedWafer { get; set; }
+        public string ExpectedWaferId { get; set; }
+        public string ExpectedWaferInstanceId { get; set; }
         public PickupSubset PickupOptions { get; set; }
         public string ResultMode { get; set; }
         public string AlignResultRunId { get; set; }
@@ -57,14 +59,24 @@ namespace QMC.CDT320.Sequencing
                     return Fail(result, "Die Mapping 결과를 저장할 InputStage Material을 찾을 수 없습니다.");
                 waferForFailure = wafer;
 
-                if (request.ExpectedWafer != null &&
-                    !string.IsNullOrWhiteSpace(request.ExpectedWafer.WaferId) &&
-                    !string.Equals(request.ExpectedWafer.WaferId, wafer.WaferId, StringComparison.OrdinalIgnoreCase))
+                string currentWaferInstanceId = MaterialStateService.EnsureWaferInstanceId(wafer);
+                if (string.IsNullOrWhiteSpace(request.ExpectedWaferInstanceId))
+                {
+                    return Fail(result,
+                        "Die Mapping 시작 Wafer의 물리 세대 ID가 없습니다. expectedWafer=" +
+                        (request.ExpectedWaferId ?? ""));
+                }
+                if (!string.Equals(
+                    request.ExpectedWaferInstanceId,
+                    currentWaferInstanceId,
+                    StringComparison.OrdinalIgnoreCase))
                 {
                     return Fail(result,
                         "Die Mapping 대상 Wafer와 MaterialState InputStage Wafer가 다릅니다. sequenceWafer=" +
-                        request.ExpectedWafer.WaferId +
-                        ", stateWafer=" + wafer.WaferId);
+                        (request.ExpectedWaferId ?? "") +
+                        ", sequenceInstance=" + request.ExpectedWaferInstanceId +
+                        ", stateWafer=" + wafer.WaferId +
+                        ", stateInstance=" + currentWaferInstanceId);
                 }
 
                 string requestedResultMode = request.ResultMode;
@@ -95,6 +107,9 @@ namespace QMC.CDT320.Sequencing
                 PickupSubset pickup = request.PickupOptions ?? ResolveInputPickupSubset();
                 PickupSequenceGenerator.ApplySequenceNumbers(request.DieMap, pickup);
                 DieMapGenerator.Normalize(request.DieMap);
+                string identityReason;
+                if (!MaterialStateService.TryAssignPhysicalDieIds(request.DieMap, wafer, out identityReason))
+                    return Fail(result, "Input Die 물리 식별자 생성에 실패했습니다. " + identityReason);
 
                 WaferMapData waferMap = request.WaferMap ?? BuildWaferMapDataFromDieMap(request.DieMap, wafer);
                 if (waferMap == null)
@@ -552,9 +567,7 @@ namespace QMC.CDT320.Sequencing
                 int mapY = DieMapGenerator.ResolveMapIndexY(entry);
                 int originalX = DieMapGenerator.ResolveOriginalMapIndexX(entry);
                 int originalY = DieMapGenerator.ResolveOriginalMapIndexY(entry);
-                string dieId = string.IsNullOrWhiteSpace(entry.DieUid)
-                    ? BuildDieId(wafer, mapY, mapX)
-                    : entry.DieUid;
+                string dieId = MaterialStateService.BuildPhysicalDieId(wafer, originalX, originalY);
 
                 entry.DieUid = dieId;
                 entry.DieMapX = mapX;
@@ -564,7 +577,9 @@ namespace QMC.CDT320.Sequencing
 
                 DieMaterial die = MaterialStateService.GetOrCreateDieMaterial(dieId);
                 die.WaferID_Input = wafer.WaferId;
+                die.InputWaferInstanceId = MaterialStateService.EnsureWaferInstanceId(wafer);
                 die.WaferID_Output = "";
+                die.OutputWaferInstanceId = "";
                 die.Wafer_IndexX = mapX;
                 die.Wafer_IndexY = mapY;
                 die.Wafer_OriginalIndexX = originalX;
@@ -612,7 +627,7 @@ namespace QMC.CDT320.Sequencing
             }
 
             MaterialStateService.ClearStaleInputDieMaterialsForWafer(
-                wafer.WaferId,
+                wafer,
                 activeDieIds,
                 "InputStageDieMapApplyService.ApplyDieMaterials");
 
@@ -634,10 +649,5 @@ namespace QMC.CDT320.Sequencing
             return count;
         }
 
-        private static string BuildDieId(WaferMaterial wafer, int row, int col)
-        {
-            string waferId = wafer != null && !string.IsNullOrWhiteSpace(wafer.WaferId) ? wafer.WaferId : "WAFER";
-            return waferId + "-D" + row.ToString("000") + "-" + col.ToString("000");
-        }
     }
 }

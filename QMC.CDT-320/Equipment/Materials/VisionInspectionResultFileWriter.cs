@@ -1363,6 +1363,10 @@ namespace QMC.CDT320.Materials
         {
             try
             {
+                string instanceId = die != null ? die.InputWaferInstanceId : "";
+                if (!string.IsNullOrWhiteSpace(instanceId))
+                    return instanceId;
+
                 string waferId = die != null ? die.WaferID_Input : "";
                 WaferMaterial wafer = MaterialStateService.State != null &&
                     MaterialStateService.State.Wafers != null
@@ -1392,7 +1396,7 @@ namespace QMC.CDT320.Materials
                 (lotId ?? "") + "\u001f" +
                 (outputWafer != null ? outputWafer.WaferId ?? "" : "") + "\u001f" +
                 (outputWafer != null
-                    ? outputWafer.CreatedAt.Ticks.ToString(CultureInfo.InvariantCulture)
+                    ? MaterialStateService.EnsureWaferInstanceId(outputWafer)
                     : "0");
         }
 

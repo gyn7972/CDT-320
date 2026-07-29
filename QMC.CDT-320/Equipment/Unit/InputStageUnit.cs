@@ -2394,11 +2394,25 @@ namespace QMC.CDT320
             {
                 EnsurePositionObjectsForSequence();
 
-                int result = await MoveNeedleZAvoidForNonProcessMoveAsync(bFine, "InputStageUnit.LoadAndPrepareWaferAsync").ConfigureAwait(false);
-                if (result != 0)
-                    return result;
+                // Feeder 로딩 준비 완료 조건은 NeedleZ와 EjectPinZ가 모두 Avoid여야 한다.
+                // 두 축을 먼저 안전 위치로 이동해 뒤의 Feeder 시퀀스가 StageZ를 다시 내리지 않도록 한다.
+                Task<int> needleZMove = MoveNeedleZAvoidForNonProcessMoveAsync(
+                    bFine,
+                    "InputStageUnit.LoadAndPrepareWaferAsync");
+                Task<int> ejectPinZMove = MoveLoadPreparationAxisAsync(
+                    WaferStageAxis.EjectPinZ,
+                    Recipe.EjectPinZ.AvoidPosition,
+                    EjectPinZ,
+                    "EjectPinZ avoid",
+                    "IS-LOAD-EJECT-Z",
+                    bFine);
+                int[] safeZMoveResults = await Task.WhenAll(needleZMove, ejectPinZMove).ConfigureAwait(false);
+                if (safeZMoveResults[0] != 0)
+                    return safeZMoveResults[0];
+                if (safeZMoveResults[1] != 0)
+                    return safeZMoveResults[1];
 
-                result = await MoveInputStageAxis(WaferStageAxis.WaferT, Recipe.WaferT.LoadPosition, bFine).ConfigureAwait(false);
+                int result = await MoveInputStageAxis(WaferStageAxis.WaferT, Recipe.WaferT.LoadPosition, bFine).ConfigureAwait(false);
                 if (result != 0 || StageT.IsAlarm)
                     return RaiseStageAlarm(AlarmSeverity.Error, "IS-LOAD-T", "InputStageUnit.LoadAndPrepareWaferAsync",
                         "StageT Load 위치 이동 실패. result=" + result + ", alarm=" + StageT.IsAlarm);
@@ -2413,6 +2427,28 @@ namespace QMC.CDT320
                         "ExpanderZ Avoid 위치 이동 실패. result=" + result + ", alarm=" + ExpanderZ.IsAlarm);
 
                 result = await WaitInputStageAxisInPosition(WaferStageAxis.WaferExpandingZ, Recipe.WaferZ.AvoidPosition, ResolveSequenceMoveTimeout()).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                // ExpanderZ가 Avoid인 동안 Feeder 진입 간섭축을 모두 정리한다.
+                // PrepareLoad 종료 시 후속 IsInputStageFullyPreparedForCassetteLoad 조건과 동일한 자세가 된다.
+                result = await MoveLoadPreparationAxisAsync(
+                    WaferStageAxis.VisionX,
+                    Recipe.VisionX.AvoidPosition,
+                    CameraX,
+                    "VisionX avoid",
+                    "IS-LOAD-VISION-X",
+                    bFine).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                result = await MoveLoadPreparationAxisAsync(
+                    WaferStageAxis.NeedleX,
+                    Recipe.NeedleX.AvoidPosition,
+                    NeedleBlockX,
+                    "NeedleX avoid",
+                    "IS-LOAD-NEEDLE-X",
+                    bFine).ConfigureAwait(false);
                 if (result != 0)
                     return result;
 
@@ -3812,6 +3848,38 @@ namespace QMC.CDT320
             {
                 return RaiseStageAlarm(AlarmSeverity.Error, "IS-NEEDLEZ-AVOID-EX", source,
                     "NeedleZ avoid move before non-process move exception: " + ex.Message);
+            }
+        }
+
+        private async Task<int> MoveLoadPreparationAxisAsync(
+            WaferStageAxis axis,
+            double target,
+            BaseAxis axisState,
+            string description,
+            string alarmCode,
+            bool bFine)
+        {
+            try
+            {
+                int result = await MoveInputStageAxis(axis, target, bFine).ConfigureAwait(false);
+                bool axisAlarm = axisState != null && axisState.IsAlarm;
+                if (result != 0 || axisAlarm)
+                    return RaiseStageAlarm(AlarmSeverity.Error, alarmCode, "InputStageUnit.LoadAndPrepareWaferAsync",
+                        description + " move before load failed. result=" + result +
+                        ", alarm=" + axisAlarm +
+                        ", actual=" + (axisState != null ? axisState.ActualPosition.ToString("F3") : "null") +
+                        ", target=" + target.ToString("F3"));
+
+                result = await WaitInputStageAxisInPosition(axis, target, ResolveSequenceMoveTimeout()).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                return RaiseStageAlarm(AlarmSeverity.Error, alarmCode + "-EX", "InputStageUnit.LoadAndPrepareWaferAsync",
+                    description + " move before load exception: " + ex.Message);
             }
         }
 

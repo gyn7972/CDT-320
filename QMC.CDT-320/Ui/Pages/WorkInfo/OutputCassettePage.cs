@@ -953,10 +953,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                     return false;
                 }
 
-                var wafer = snapshot.Wafers != null
-                    ? snapshot.Wafers.FirstOrDefault(w => w != null &&
-                          string.Equals(w.WaferId, slot.WaferId, StringComparison.OrdinalIgnoreCase))
-                    : null;
+                var wafer = ResolveCassetteSlotWafer(snapshot, role, slotIndex, slot);
                 if (wafer == null)
                 {
                     reason = "슬롯이 가리키는 Material 객체가 없습니다. waferId=" + slot.WaferId;
@@ -1531,11 +1528,33 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             if (snapshot == null || snapshot.Wafers == null || slotIndex < 0)
                 return null;
 
+            if (slot != null && !string.IsNullOrWhiteSpace(slot.WaferInstanceId))
+            {
+                return snapshot.Wafers.FirstOrDefault(w =>
+                    w != null &&
+                    string.Equals(
+                        w.WaferInstanceId ?? "",
+                        slot.WaferInstanceId,
+                        StringComparison.OrdinalIgnoreCase) &&
+                    string.Equals(
+                        w.WaferId ?? "",
+                        slot.WaferId ?? "",
+                        StringComparison.OrdinalIgnoreCase));
+            }
+
             if (slot != null && !string.IsNullOrWhiteSpace(slot.WaferId))
             {
-                WaferMaterial slotWafer = snapshot.Wafers.FirstOrDefault(w => string.Equals(w.WaferId, slot.WaferId, StringComparison.OrdinalIgnoreCase));
-                if (slotWafer != null)
-                    return slotWafer;
+                List<WaferMaterial> legacyCandidates = snapshot.Wafers
+                    .Where(w =>
+                        w != null &&
+                        string.Equals(
+                            w.WaferId ?? "",
+                            slot.WaferId,
+                            StringComparison.OrdinalIgnoreCase))
+                    .ToList();
+                if (legacyCandidates.Count == 1)
+                    return legacyCandidates[0];
+                return null;
             }
 
             // To do: [DATA ONLY 배선] 피더/스테이지에 나가 있는 자재를 슬롯에 되짚는 키를 보강한다.

@@ -2252,6 +2252,44 @@ namespace QMC.CDT_320.Ui.Pages.Work
 
                 DieMapGenerator.Normalize(map);
                 WaferMaterial wafer = MaterialStateService.GetWaferAtLocation(MaterialLocationKind.InputStage);
+                if (wafer == null)
+                {
+                    QMC.Common.Log.Write("Main", "SYSTEM", "InputStageMapTransferPage",
+                        "Input Die 상태 저장을 차단했습니다. InputStage Wafer Material이 없습니다. - Blocked");
+                    return;
+                }
+
+                string identityReason;
+                if (!MaterialStateService.TryAssignPhysicalDieIds(map, wafer, out identityReason))
+                {
+                    QMC.Common.Log.Write("Main", "SYSTEM", "InputStageMapTransferPage",
+                        "Input Die 물리 식별자 생성에 실패했습니다. reason=" + identityReason + " - Failed");
+                    return;
+                }
+
+                string inputWaferInstanceId = MaterialStateService.EnsureWaferInstanceId(wafer);
+                foreach (DieMapEntry entry in map.Entries)
+                {
+                    if (entry == null)
+                        continue;
+
+                    DieMaterial existingDie = MaterialStateService.GetDieMaterial(entry.DieUid);
+                    if (existingDie != null &&
+                        !string.IsNullOrWhiteSpace(existingDie.InputWaferInstanceId) &&
+                        !string.Equals(
+                            existingDie.InputWaferInstanceId,
+                            inputWaferInstanceId,
+                            StringComparison.OrdinalIgnoreCase))
+                    {
+                        QMC.Common.Log.Write("Main", "SYSTEM", "InputStageMapTransferPage",
+                            "Input Pick Status 저장을 차단했습니다. Die의 Input Wafer 물리 세대가 현재 Stage Wafer와 다릅니다. die=" +
+                            existingDie.DieId +
+                            ", dieInstance=" + existingDie.InputWaferInstanceId +
+                            ", stageInstance=" + inputWaferInstanceId + " - Blocked");
+                        return;
+                    }
+                }
+
                 if (wafer != null)
                 {
                     wafer.DieMapFrameObjId = map.FrameObjId ?? "";
@@ -2290,15 +2328,24 @@ namespace QMC.CDT_320.Ui.Pages.Work
 
                     int mapX = ResolveEntryMapX(entry);
                     int mapY = ResolveEntryMapY(entry);
-                    if (string.IsNullOrWhiteSpace(entry.DieUid))
-                        entry.DieUid = "INPUT-D" + mapY.ToString("000") + "-" + mapX.ToString("000");
 
                     DieMaterial die = MaterialStateService.GetOrCreateDieMaterial(entry.DieUid);
                     if (wafer != null)
                     {
                         die.WaferID_Input = wafer.WaferId;
+                        die.InputWaferInstanceId = inputWaferInstanceId;
                         if (!wafer.DieIds.Contains(die.DieId))
                             wafer.DieIds.Add(die.DieId);
+                    }
+
+                    MaterialLocationKind currentKind = die.CurrentLocation != null
+                        ? die.CurrentLocation.Kind
+                        : MaterialLocationKind.Unknown;
+                    if (currentKind != MaterialLocationKind.InputStage &&
+                        currentKind != MaterialLocationKind.Unknown)
+                    {
+                        // 이미 Picker/Output으로 이동한 물리 Die는 Input Map 편집으로 판정/위치를 되돌리지 않는다.
+                        continue;
                     }
 
                     // 현재 기준: DieMaterial에는 웨이퍼맵 원본 X/Y 인덱스를 저장한다.
@@ -2309,9 +2356,6 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     die.InputSequenceNo = entry.SequenceNo;
                     die.Input_BinCode = entry.IsTarget ? entry.BinCode : 0;
                     die.IsInputTarget = entry.IsTarget;
-                    MaterialLocationKind currentKind = die.CurrentLocation != null
-                        ? die.CurrentLocation.Kind
-                        : MaterialLocationKind.Unknown;
                     if (!entry.IsTarget &&
                         (currentKind == MaterialLocationKind.InputStage || currentKind == MaterialLocationKind.Unknown))
                     {
@@ -3061,6 +3105,10 @@ namespace QMC.CDT_320.Ui.Pages.Work
                             DieMap = absoluteMap,
                             WaferMap = null,
                             ExpectedWafer = stageWafer,
+                            ExpectedWaferId = stageWafer != null ? stageWafer.WaferId : "",
+                            ExpectedWaferInstanceId = stageWafer != null
+                                ? MaterialStateService.EnsureWaferInstanceId(stageWafer)
+                                : "",
                             PickupOptions = ResolveInputPickupSubsetFromRecipe(),
                             ResultMode = stageWafer != null ? stageWafer.InputStageAlignResultMode : "",
                             AlignResultRunId = stageWafer != null ? stageWafer.InputStageAlignResultRunId : "",
@@ -6016,6 +6064,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 entry.IsTarget ? entry.BinCode : 0,
                 "",
                 reason,
+                ManualDieStateSyncScope.InputMapOnly,
                 out message);
             if (!ok)
             {

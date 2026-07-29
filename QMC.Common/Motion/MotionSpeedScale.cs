@@ -64,7 +64,9 @@ namespace QMC.Common.Motion
         /// <summary>스케일 적용 후 0 이하로 떨어지지 않도록 보장하는 최소 가감속도.</summary>
         private const double MinScaledAcceleration = 0.001;
 
+        private static readonly object ScalePercentSync = new object();
         private static double _scalePercent = DefaultPercent;
+        private static long _scalePercentRevision;
         private static int _manualSequenceScaleDepth;
         private static int _readySequenceScaleDepth;
 
@@ -74,14 +76,39 @@ namespace QMC.Common.Motion
         /// </summary>
         public static double ScalePercent
         {
-            get { return _scalePercent; }
-            set { _scalePercent = ClampPercent(value); }
+            get
+            {
+                lock (ScalePercentSync)
+                    return _scalePercent;
+            }
+            set
+            {
+                double clamped = ClampPercent(value);
+                lock (ScalePercentSync)
+                {
+                    if (_scalePercent != clamped)
+                    {
+                        _scalePercent = clamped;
+                        _scalePercentRevision++;
+                    }
+                }
+            }
+        }
+
+        /// <summary>통계 등에서 속도 값과 변경 번호를 같은 시점 기준으로 읽습니다.</summary>
+        public static void GetScaleSnapshot(out double percent, out long revision)
+        {
+            lock (ScalePercentSync)
+            {
+                percent = _scalePercent;
+                revision = _scalePercentRevision;
+            }
         }
 
         /// <summary>현재 스케일 배율(0.01~1.0).</summary>
         public static double ScaleFactor
         {
-            get { return _scalePercent / 100.0; }
+            get { return ScalePercent / 100.0; }
         }
 
         /// <summary>Manual Sequence 추가 안전 스케일이 적용 중인지 여부입니다.</summary>

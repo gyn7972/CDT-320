@@ -608,7 +608,9 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             {
                 StageLocation = outputSide == BinSide.Ng ? MaterialLocationKind.OutputStageNg : MaterialLocationKind.OutputStageGood,
                 OutputWaferId = wafer != null ? wafer.WaferId : "",
+                OutputWaferInstanceId = wafer != null ? MaterialStateService.EnsureWaferInstanceId(wafer) : "",
                 SourceWaferId = wafer != null ? wafer.OutputReceiveSourceWaferId : "",
+                SourceWaferInstanceId = wafer != null ? wafer.OutputReceiveSourceWaferInstanceId : "",
                 OrderIndex = _selectedOrderIndex,
                 DieMapX = _selectedMapX,
                 DieMapY = _selectedMapY,

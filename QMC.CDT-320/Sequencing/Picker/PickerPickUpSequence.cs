@@ -1009,6 +1009,7 @@ namespace QMC.CDT320.Sequencing
                     0,
                     "",
                     "PickerPickUpVisionNgSkip",
+                    ManualDieStateSyncScope.InputMapOnly,
                     out message);
                 if (!syncOk)
                 {

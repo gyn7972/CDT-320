@@ -46,6 +46,8 @@ namespace QMC.CDT320.Sequencing
 
         private readonly Dictionary<string, MappedMarkPoint> _mappedPoints = new Dictionary<string, MappedMarkPoint>(StringComparer.OrdinalIgnoreCase);
         private WaferMaterial _wafer;
+        private string _expectedWaferId = "";
+        private string _expectedWaferInstanceId = "";
         private TapeFrameSpec _frameSpec;
         private DieMap _sourceMap;
         private DieMap _dieMap;
@@ -190,6 +192,12 @@ namespace QMC.CDT320.Sequencing
                 if (_wafer == null)
                     return Fail("IN-STAGE-DIEMAP-WAFER", "Material",
                         "InputStage wafer material is not available. CurrentWaferMaterial=null, MaterialLocation=InputStage empty.");
+
+                _expectedWaferId = _wafer.WaferId ?? "";
+                _expectedWaferInstanceId = MaterialStateService.EnsureWaferInstanceId(_wafer);
+                if (string.IsNullOrWhiteSpace(_expectedWaferInstanceId))
+                    return Fail("IN-STAGE-DIEMAP-WAFER-INSTANCE", "Material",
+                        "Die Mapping 시작 Wafer의 물리 세대 ID를 확인할 수 없습니다. wafer=" + _expectedWaferId);
 
                 result = ValidateStoredAlignResultForCurrentMode();
                 if (result != 0)
@@ -1690,9 +1698,7 @@ namespace QMC.CDT320.Sequencing
                                 : DieMapGenerator.CalculateEquipmentGridY(mapY, dieMapY),
                             PosX = x,
                             PosY = y,
-                            DieUid = sourceEntry != null && !string.IsNullOrWhiteSpace(sourceEntry.DieUid)
-                                ? sourceEntry.DieUid
-                                : BuildDieId(_wafer, mapY, mapX)
+                            DieUid = MaterialStateService.BuildPhysicalDieId(_wafer, originalX, originalY)
                         });
                     }
                 }
@@ -1866,6 +1872,8 @@ namespace QMC.CDT320.Sequencing
                         DieMap = _dieMap,
                         WaferMap = _waferMap,
                         ExpectedWafer = _wafer,
+                        ExpectedWaferId = _expectedWaferId,
+                        ExpectedWaferInstanceId = _expectedWaferInstanceId,
                         PickupOptions = ResolveInputPickupSubset(),
                         ResultMode = resultMode,
                         AlignResultRunId = _wafer != null ? _wafer.InputStageAlignResultRunId : "",
@@ -2204,14 +2212,19 @@ namespace QMC.CDT320.Sequencing
                         "stageWafer=" + (_wafer != null ? _wafer.WaferId : "-"));
                 }
 
-                if (_wafer != null &&
-                    !string.IsNullOrWhiteSpace(_wafer.WaferId) &&
-                    !string.Equals(_wafer.WaferId, stateWafer.WaferId, StringComparison.OrdinalIgnoreCase))
+                string stateWaferInstanceId = MaterialStateService.EnsureWaferInstanceId(stateWafer);
+                if (string.IsNullOrWhiteSpace(_expectedWaferInstanceId) ||
+                    !string.Equals(
+                        _expectedWaferInstanceId,
+                        stateWaferInstanceId,
+                        StringComparison.OrdinalIgnoreCase))
                 {
                     return Fail("IN-STAGE-DIEMAP-WAFER-MISMATCH", "Material",
-                        "Die Mapping 대상 Wafer와 MaterialState InputStage Wafer가 다릅니다. " +
-                        "sequenceWafer=" + _wafer.WaferId +
-                        ", stateWafer=" + stateWafer.WaferId);
+                        "Die Mapping 도중 InputStage의 물리 Wafer 세대가 변경되었습니다. " +
+                        "sequenceWafer=" + _expectedWaferId +
+                        ", sequenceInstance=" + _expectedWaferInstanceId +
+                        ", stateWafer=" + stateWafer.WaferId +
+                        ", stateInstance=" + stateWaferInstanceId);
                 }
 
                 _wafer = stateWafer;
@@ -2259,7 +2272,7 @@ namespace QMC.CDT320.Sequencing
                     int mapY = DieMapGenerator.ResolveMapIndexY(entry);
                     int originalX = DieMapGenerator.ResolveOriginalMapIndexX(entry);
                     int originalY = DieMapGenerator.ResolveOriginalMapIndexY(entry);
-                    string dieId = string.IsNullOrWhiteSpace(entry.DieUid) ? BuildDieId(wafer, mapY, mapX) : entry.DieUid;
+                    string dieId = MaterialStateService.BuildPhysicalDieId(wafer, originalX, originalY);
                     entry.DieUid = dieId;
                     entry.DieMapX = mapX;
                     entry.DieMapY = mapY;
@@ -2267,7 +2280,9 @@ namespace QMC.CDT320.Sequencing
                     entry.OriginalMapY = originalY;
                     DieMaterial die = MaterialStateService.GetOrCreateDieMaterial(dieId);
                     die.WaferID_Input = wafer.WaferId;
+                    die.InputWaferInstanceId = MaterialStateService.EnsureWaferInstanceId(wafer);
                     die.WaferID_Output = "";
+                    die.OutputWaferInstanceId = "";
                     die.Wafer_IndexX = mapX;
                     die.Wafer_IndexY = mapY;
                     die.Wafer_OriginalIndexX = originalX;
@@ -3228,12 +3243,6 @@ namespace QMC.CDT320.Sequencing
         {
             string waferId = wafer != null && !string.IsNullOrWhiteSpace(wafer.WaferId) ? wafer.WaferId : "InputStage";
             return waferId + "-DIEMAP-" + DateTime.Now.ToString("yyyyMMddHHmmss");
-        }
-
-        private static string BuildDieId(WaferMaterial wafer, int row, int col)
-        {
-            string waferId = wafer != null && !string.IsNullOrWhiteSpace(wafer.WaferId) ? wafer.WaferId : "WAFER";
-            return waferId + "-D" + row.ToString("000") + "-" + col.ToString("000");
         }
 
         private static async Task<int> AwaitStepWithCancellationAsync(Task<int> stepTask, CancellationToken ct)

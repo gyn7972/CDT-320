@@ -403,7 +403,9 @@ namespace QMC.CDT320.Sequencing
             {
                 StageLocation = side == BinSide.Ng ? MaterialLocationKind.OutputStageNg : MaterialLocationKind.OutputStageGood,
                 OutputWaferId = source.OutputWaferId ?? "",
+                OutputWaferInstanceId = source.OutputWaferInstanceId ?? "",
                 SourceWaferId = source.SourceWaferId ?? "",
+                SourceWaferInstanceId = source.SourceWaferInstanceId ?? "",
                 OrderIndex = source.OrderIndex,
                 DieMapX = source.DieMapX,
                 DieMapY = source.DieMapY,

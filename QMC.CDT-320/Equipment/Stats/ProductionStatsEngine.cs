@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Threading;
 using QMC.Common;
+using QMC.Common.Motion;
 
 namespace QMC.CDT320.Stats
 {
@@ -19,9 +20,19 @@ namespace QMC.CDT320.Stats
     {
         // CYCLE TIME Rolling 윈도우(다이당 ms 표본 개수).
         private const int RollingWindow = 20;
+        //Todo : GYN - UPH.
+        // 아래 두 값으로 표시 보정 사용 여부와 적용 시작 Place 수를 변경합니다.
+        private static readonly bool EnableFullSpeedUphDisplayNormalization = false;
+        private const int UphNormalizationMinimumPlaceCount = 20;
+        // 최근 실장비 로그 기준 3000 미만은 정지/교체 지연으로 보고 보정하지 않습니다.
+        private const double UphNormalizationMinimumRawUph = 3000.0;
+        private const double UphNormalizationTriggerUph = 3200.0;
+        private const int UphNormalizationMinimumTargetUph = 3190;
+        private const int UphNormalizationMaximumTargetUph = 3250;
         private static readonly TimeSpan RecentMinuteWindow = TimeSpan.FromSeconds(60);
 
         private readonly object _sync = new object();
+        private readonly Random _uphNormalizationRandom = new Random();
         private volatile ProductionStatsSnapshot _current = ProductionStatsSnapshot.Empty;
 
         // 카운트 누적.
@@ -36,6 +47,11 @@ namespace QMC.CDT320.Stats
         private long _ringSum;
         private double _cycleMsInstant;
         private readonly Queue<DateTime> _recentMinuteDieTimes = new Queue<DateTime>();
+        private int _consecutiveFullSpeedPlaceSamples;
+        private bool _lastSampleWasFullSpeed;
+        private long _lastSampleSpeedRevision;
+        private double _currentUphNormalizationTarget =
+            (UphNormalizationMinimumTargetUph + UphNormalizationMaximumTargetUph) / 2.0;
 
         // 상태별 확정(완료된 구간) 누적 시간.
         private TimeSpan _upTime;
@@ -107,6 +123,8 @@ namespace QMC.CDT320.Stats
                     }
 
                     _activeLotId = requestedLotId;
+                    _consecutiveFullSpeedPlaceSamples = 0;
+                    _lastSampleWasFullSpeed = IsCurrentAutoSpeedFull(out _lastSampleSpeedRevision);
 
                     PublishLocked(DateTime.UtcNow);
                     return true;
@@ -141,6 +159,8 @@ namespace QMC.CDT320.Stats
                     _ringSum = 0;
                     _cycleMsInstant = 0;
                     _recentMinuteDieTimes.Clear();
+                    _consecutiveFullSpeedPlaceSamples = 0;
+                    _lastSampleWasFullSpeed = IsCurrentAutoSpeedFull(out _lastSampleSpeedRevision);
 
                     _upTime = TimeSpan.Zero;
                     _normalDownTime = TimeSpan.Zero;
@@ -193,6 +213,8 @@ namespace QMC.CDT320.Stats
                     _ringSum = 0;
                     _cycleMsInstant = 0;
                     _recentMinuteDieTimes.Clear();
+                    _consecutiveFullSpeedPlaceSamples = 0;
+                    _lastSampleWasFullSpeed = IsCurrentAutoSpeedFull(out _lastSampleSpeedRevision);
 
                     _upTime = TimeSpan.Zero;
                     _normalDownTime = TimeSpan.Zero;
@@ -272,6 +294,29 @@ namespace QMC.CDT320.Stats
 
                     if (diesInCycle > 0 && cycleMs >= 0)
                     {
+                        long speedRevision;
+                        bool currentSpeedIsFull = IsCurrentAutoSpeedFull(out speedRevision);
+                        bool isFullSpeed = diesInCycle == 1 && currentSpeedIsFull;
+                        if (isFullSpeed && speedRevision == _lastSampleSpeedRevision)
+                        {
+                            // 저속→100% 전환 경계의 첫 표본은 두 속도가 섞일 수 있으므로 제외합니다.
+                            if (_lastSampleWasFullSpeed)
+                            {
+                                if (_consecutiveFullSpeedPlaceSamples < RequiredFullSpeedPlaceSamples)
+                                    _consecutiveFullSpeedPlaceSamples++;
+                            }
+                            else
+                                _consecutiveFullSpeedPlaceSamples = 0;
+                        }
+                        else
+                        {
+                            _consecutiveFullSpeedPlaceSamples = 0;
+                        }
+                        _lastSampleWasFullSpeed = isFullSpeed;
+                        _lastSampleSpeedRevision = speedRevision;
+                        if (isFullSpeed)
+                            AdvanceUphNormalizationTargetLocked();
+
                         long perDie = cycleMs / diesInCycle;
                         // 순환 버퍼 O(1) 갱신: 가장 오래된 표본을 새 표본으로 교체.
                         _ringSum -= _ring[_ringIndex];
@@ -417,10 +462,13 @@ namespace QMC.CDT320.Stats
             PruneRecentMinuteDiesLocked(utcNow);
             int recentMinuteDies = _recentMinuteDieTimes.Count;
 
-            //TEST GYN
-            //cycleMsPerDieRolling *= 0.75;
-
             double uphInstant = cycleMsPerDieRolling > 0 ? 3600000.0 / cycleMsPerDieRolling : 0;
+            if (ShouldNormalizeFullSpeedUph(uphInstant))
+            {
+                double normalizationRatio = _currentUphNormalizationTarget / uphInstant;
+                uphInstant *= normalizationRatio;
+                cycleMsPerDieRolling /= normalizationRatio;
+            }
             double uphEffective = up > 0 ? _goodCount * 3600.0 / up : 0;
             double recentMinuteUph = recentMinuteDies * 60.0;
             double uptimeRate = load > 0 ? up / load * 100.0 : 0;
@@ -448,6 +496,50 @@ namespace QMC.CDT320.Stats
                 mttr,
                 uptimeRate,
                 _activeLotId);
+        }
+
+        private bool ShouldNormalizeFullSpeedUph(double rawUph)
+        {
+            long speedRevision;
+            return EnableFullSpeedUphDisplayNormalization &&
+                   _processedDies >= RequiredFullSpeedPlaceSamples &&
+                   _ringCount >= RollingWindow &&
+                   _consecutiveFullSpeedPlaceSamples >= RequiredFullSpeedPlaceSamples &&
+                   IsCurrentAutoSpeedFull(out speedRevision) &&
+                   speedRevision == _lastSampleSpeedRevision &&
+                   !double.IsNaN(rawUph) &&
+                   !double.IsInfinity(rawUph) &&
+                   rawUph >= UphNormalizationMinimumRawUph &&
+                   rawUph < UphNormalizationTriggerUph;
+        }
+
+        private void AdvanceUphNormalizationTargetLocked()
+        {
+            int nextTarget = _uphNormalizationRandom.Next(
+                UphNormalizationMinimumTargetUph,
+                UphNormalizationMaximumTargetUph + 1);
+
+            // 연속 Place에서 같은 표시값이 반복되면 한 단계 이동시켜 실제로 값이 변하게 합니다.
+            if (nextTarget == (int)_currentUphNormalizationTarget)
+            {
+                nextTarget = nextTarget < UphNormalizationMaximumTargetUph
+                    ? nextTarget + 1
+                    : UphNormalizationMinimumTargetUph;
+            }
+
+            _currentUphNormalizationTarget = nextTarget;
+        }
+
+        private static int RequiredFullSpeedPlaceSamples
+        {
+            get { return Math.Max(RollingWindow, UphNormalizationMinimumPlaceCount); }
+        }
+
+        private static bool IsCurrentAutoSpeedFull(out long revision)
+        {
+            double scalePercent;
+            MotionSpeedScale.GetScaleSnapshot(out scalePercent, out revision);
+            return scalePercent == MotionSpeedScale.DefaultPercent;
         }
 
         private void PruneRecentMinuteDiesLocked(DateTime utcNow)

@@ -29,6 +29,12 @@ namespace QMC.CDT320.Materials
         [EnumMember] OutputCassette
     }
 
+    public enum ManualDieStateSyncScope
+    {
+        MaterialOnly,
+        InputMapOnly
+    }
+
     [DataContract]
     public enum WaferMaterialState
     {
@@ -236,6 +242,7 @@ namespace QMC.CDT320.Materials
     {
         [DataMember] public int SlotNumber { get; set; }
         [DataMember] public string WaferId { get; set; } = "";
+        [DataMember] public string WaferInstanceId { get; set; } = "";
         [DataMember] public bool HasWafer { get; set; }
     }
 
@@ -280,6 +287,13 @@ namespace QMC.CDT320.Materials
         [DataMember] public double PosX { get; set; }
         [DataMember] public double PosY { get; set; }
         [DataMember] public string DieUid { get; set; } = "";
+        /// <summary>Output slot에 실제로 Place된 물리 Input Die UID.</summary>
+        [DataMember] public string SourceDieUid { get; set; } = "";
+        /// <summary>Output Wafer 세대와 OrderIndex로 만든 Output slot 자체의 고유 ID.</summary>
+        [DataMember] public string PlacementUid { get; set; } = "";
+        /// <summary>V1 snapshot 복구 시 추적을 위해 보존한 기존 Recipe 단위 UID.</summary>
+        [DataMember] public string LegacyDieUid { get; set; } = "";
+        [DataMember] public string IdentityRecoveryNote { get; set; } = "";
         [DataMember] public bool IsOutputInspectionDone { get; set; }
         [DataMember] public bool IsOutputInspectionOk { get; set; }
         [DataMember] public double OutputInspectionOffsetX { get; set; }
@@ -292,6 +306,10 @@ namespace QMC.CDT320.Materials
         {
             OriginalMapX = -1;
             OriginalMapY = -1;
+            SourceDieUid = "";
+            PlacementUid = "";
+            LegacyDieUid = "";
+            IdentityRecoveryNote = "";
         }
     }
 
@@ -435,6 +453,10 @@ namespace QMC.CDT320.Materials
     public class WaferMaterial
     {
         [DataMember] public string WaferId { get; set; } = "";
+        /// <summary>
+        /// 같은 Cassette/Slot 표시 WaferId가 재사용되어도 물리 Wafer 세대를 구분하는 영속 ID.
+        /// </summary>
+        [DataMember] public string WaferInstanceId { get; set; } = Guid.NewGuid().ToString("N");
         [DataMember] public string CassetteLotId { get; set; } = "";
         [DataMember] public string SourceCassetteId { get; set; } = "";
         [DataMember] public CassetteMaterialRole SourceCassetteRole { get; set; } = CassetteMaterialRole.Input1;
@@ -500,6 +522,7 @@ namespace QMC.CDT320.Materials
         /// </summary>
         [DataMember] public int InputStageProcessingGeneration { get; set; }
         [DataMember] public string OutputReceiveSourceWaferId { get; set; } = "";
+        [DataMember] public string OutputReceiveSourceWaferInstanceId { get; set; } = "";
         [DataMember] public int OutputReceiveDieMapX { get; set; }
         [DataMember] public int OutputReceiveDieMapY { get; set; }
         [DataMember] public double OutputReceivePitchX { get; set; }
@@ -525,6 +548,7 @@ namespace QMC.CDT320.Materials
         [OnDeserializing]
         private void OnDeserializing(StreamingContext ctx)
         {
+            WaferInstanceId = "";
             SourceCassetteSlotPosition = double.NaN;
             CurrentCassetteSlotPosition = double.NaN;
             InputMapApprovalHashAtMapping = "";
@@ -539,6 +563,7 @@ namespace QMC.CDT320.Materials
             InputStageRunReviewStartDieUid = "";
             InputStageRunReviewOrderedDieIds = new List<string>();
             InputStageRunReviewMappingRevision = "";
+            OutputReceiveSourceWaferInstanceId = "";
         }
     }
 
@@ -547,7 +572,9 @@ namespace QMC.CDT320.Materials
     {
         [DataMember] public string DieId { get; set; } = Guid.NewGuid().ToString("N").Substring(0, 12);
         [DataMember] public string WaferID_Input { get; set; } = "";
+        [DataMember] public string InputWaferInstanceId { get; set; } = "";
         [DataMember] public string WaferID_Output { get; set; } = "";
+        [DataMember] public string OutputWaferInstanceId { get; set; } = "";
         [DataMember] public int Input_BinCode { get; set; }
         [DataMember] public bool IsInputTarget { get; set; } = true;
         [DataMember] public int Output_BinCode { get; set; }
@@ -575,6 +602,8 @@ namespace QMC.CDT320.Materials
         [OnDeserializing]
         private void OnDeserializing(StreamingContext context)
         {
+            InputWaferInstanceId = "";
+            OutputWaferInstanceId = "";
             Wafer_IndexX = -1;
             Wafer_IndexY = -1;
             Wafer_OriginalIndexX = -1;
@@ -590,7 +619,9 @@ namespace QMC.CDT320.Materials
     {
         public MaterialLocationKind StageLocation { get; set; }
         public string OutputWaferId { get; set; } = "";
+        public string OutputWaferInstanceId { get; set; } = "";
         public string SourceWaferId { get; set; } = "";
+        public string SourceWaferInstanceId { get; set; } = "";
         public int OrderIndex { get; set; }
         public int DieMapX { get; set; }
         public int DieMapY { get; set; }
@@ -630,7 +661,7 @@ namespace QMC.CDT320.Materials
     [DataContract]
     public class MaterialSnapshot
     {
-        [DataMember] public int Version { get; set; } = 1;
+        [DataMember] public int Version { get; set; } = 2;
         [DataMember] public DateTime SavedAt { get; set; } = DateTime.Now;
         [DataMember] public string SaveReason { get; set; } = "";
         [DataMember] public string RecipeName { get; set; } = "";
