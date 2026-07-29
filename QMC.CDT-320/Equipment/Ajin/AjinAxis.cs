@@ -586,6 +586,23 @@ namespace QMC.CDT320.Ajin
             double deceleration,
             string targetName)
         {
+            // 기존 조건: 최초 이동 검증을 MoveAbsoluteAsync 내부 VerifyAxisMove에만 맡겼다 — 차단 시
+            //           MotionGuardRuntime이 즉시 INTERLOCK 알람(Critical)을 올려, 설계 의도였던
+            //           "-11 → 호출자 폴백(대기+일반 이동)"이 받기 전에 장비 전체가 정지했다
+            //           (실장비 2026-07-29 02:19/15:29, 2026-07-30 재발 — 팔로잉 첫 명령 거부 Critical).
+            // 현재 기준(사용자 승인 2026-07-30): 발행 전에 조용한 Can 검사로 선확인하고, 차단이면 알람 없이
+            //           -11을 반환해 폴백에 위임한다. 통과 후 MoveAbsoluteAsync 내부 Verify는 백스톱으로 유지
+            //           (선확인~발행 사이 극소 레이스만 기존 알람 경로로 남는다).
+            string quietGuardReason;
+            if (!MotionGuardRuntime.CanAxisTeachingMove(this, targetPosition, targetName, out quietGuardReason))
+            {
+                QMC.Common.Log.Write("Motion", "SYSTEM", "AX-FOLLOW-FIRST",
+                    Name + " 팔로잉 최초 이동이 MotionGuard에 차단되어 알람 없이 -11로 폴백에 위임합니다. " +
+                    "target=" + targetPosition.ToString("0.###") +
+                    ", reason=" + quietGuardReason + " - Check");
+                return FailMotion(-11, "FOLLOW FIRST MOVE", quietGuardReason, targetPosition, true);
+            }
+
             // [정정 2026-07-26] Config 임시 치환(DefaultVelocity=0) 폐기 — 공유 Config를 다른
             // 스레드(팔로잉 속도 계산 등)가 읽어 0이 관측되는 경합이 실장비 사고를 냈다(22:08).
             // 명시 가감속은 AsyncLocal 스코프로 전달하고 Config는 절대 변형하지 않는다.

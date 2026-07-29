@@ -549,6 +549,8 @@ namespace QMC.CDT_320.Ui.Dialogs
                 tolerance = 1.0;
 
             List<DataGridViewRow> matchedRows = new List<DataGridViewRow>();
+            List<double> matchedMins = new List<double>();
+            List<double> matchedMaxs = new List<double>();
             foreach (DataGridViewRow row in gridZones.Rows)
             {
                 if (row == null || row.IsNewRow)
@@ -568,15 +570,49 @@ namespace QMC.CDT_320.Ui.Dialogs
                 };
                 bool match = temp.Enabled && temp.Contains(actual, tolerance);
                 if (match)
+                {
                     matchedRows.Add(row);
+                    matchedMins.Add(Math.Min(min, max));
+                    matchedMaxs.Add(Math.Max(min, max));
+                }
                 row.Cells[colMatch.Index].Value = match ? "Y" : "-";
             }
 
             if (matchedRows.Count > 1)
             {
-                foreach (DataGridViewRow row in matchedRows)
-                    row.Cells[colMatch.Index].Value = "OVERLAP";
-                lblStatus.Text = "현재 X 위치가 여러 Zone에 겹칩니다. Zone 범위를 다시 설정하세요.";
+                // 현재 기준(사용자 지시 2026-07-29): 맞닿은 경계의 허용오차 밴드는 raw 범위 포함 존
+                // (공유 경계점은 그 값에서 시작하는 존)으로 확정 표시한다 — 런타임 판정 타이브레이크와 동일.
+                // 진짜 겹침 설정일 때만 OVERLAP 경고를 유지한다.
+                int rawIndex = -1;
+                int rawCount = 0;
+                int startIndex = -1;
+                int startCount = 0;
+                for (int i = 0; i < matchedRows.Count; i++)
+                {
+                    if (actual < matchedMins[i] || actual > matchedMaxs[i])
+                        continue;
+
+                    rawCount++;
+                    rawIndex = i;
+                    if (Math.Abs(matchedMins[i] - actual) <= 0.000001)
+                    {
+                        startCount++;
+                        startIndex = i;
+                    }
+                }
+
+                int winner = rawCount == 1 ? rawIndex : (rawCount > 1 && startCount == 1 ? startIndex : -1);
+                if (winner >= 0)
+                {
+                    for (int i = 0; i < matchedRows.Count; i++)
+                        matchedRows[i].Cells[colMatch.Index].Value = i == winner ? "Y" : "-";
+                }
+                else
+                {
+                    foreach (DataGridViewRow row in matchedRows)
+                        row.Cells[colMatch.Index].Value = "OVERLAP";
+                    lblStatus.Text = "현재 X 위치가 여러 Zone에 겹칩니다. Zone 범위를 다시 설정하세요.";
+                }
             }
         }
 
@@ -592,9 +628,11 @@ namespace QMC.CDT_320.Ui.Dialogs
         //           2x허용오차 초과의 "판정 불가 갭"이 구조적으로 강제됐고, 그 갭에 떨어진 목표는
         //           Encoder Zone Unknown -> Y존 폴백 오판으로 이어졌다(실장비 2026-07-29 15:29:58,
         //           FrontPickerX 팔로잉 중간좌표 877.9 -> Side(835)~Output(900) 갭 -> Input 오판 Critical).
-        // 현재 기준(사용자 지시 2026-07-29): Encoder Zone 사용 시 인접 활성 존은
-        //           다음 MinX == 이전 MaxX + 2x허용오차 를 만족해야 저장할 수 있다.
-        //           확장범위가 정확히 맞닿는 이 배치가 갭/겹침(판정 불가) 구간이 생기지 않는 유일한 배치다.
+        // 현재 기준(사용자 지시 2026-07-29, 갭 강제 폐지): Encoder Zone 사용 시 인접 활성 존은
+        //           다음 MinX == 이전 MaxX (같은 값으로 맞닿음) 여야 저장할 수 있다 — 갭/겹침 모두 거부.
+        //           경계 ±허용오차 밴드의 이중매칭은 판정식 타이브레이크(raw 범위 포함 존 확정,
+        //           PickerZoneInterlockRules.TryResolveEncoderXZoneByPosition)가 해소하므로
+        //           맞닿은 배치에서 판정 불가 X 좌표는 존재하지 않는다.
         //           Encoder Zone 미사용 시 범위는 존 판정에 쓰이지 않으므로 기존 겹침 검사만 유지한다.
         private bool ValidateGridRanges(out string message)
         {
@@ -631,7 +669,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                 }
 
                 if (chkUseEncoderZone.Checked)
-                    return ValidateEncoderZoneAdjacency(entries, tolerance, out message);
+                    return ValidateEncoderZoneAdjacency(entries, out message);
 
                 return ValidateLegacyOverlap(entries, tolerance, out message);
             }
@@ -646,8 +684,9 @@ namespace QMC.CDT_320.Ui.Dialogs
         }
 
         // 인터락 기준: Encoder Zone 사용 시 모든 X 좌표가 정확히 한 Zone으로 판정되도록
-        //             인접 활성 존의 시작을 "이전 존 MaxX + 2x허용오차"로 강제한다(갭/겹침 모두 저장 거부).
-        private static bool ValidateEncoderZoneAdjacency(List<ZoneRangeEntry> entries, double tolerance, out string message)
+        //             인접 활성 존을 같은 경계값으로 맞닿게(다음 MinX == 이전 MaxX) 강제한다
+        //             (갭/겹침 모두 저장 거부 — 경계 밴드는 판정식 타이브레이크가 확정).
+        private static bool ValidateEncoderZoneAdjacency(List<ZoneRangeEntry> entries, out string message)
         {
             message = string.Empty;
             if (entries == null || entries.Count < 2)
@@ -656,20 +695,18 @@ namespace QMC.CDT_320.Ui.Dialogs
             entries.Sort((a, b) => a.Min.CompareTo(b.Min));
 
             StringBuilder builder = new StringBuilder();
-            double step = 2.0 * Math.Max(0.0, tolerance);
             const double epsilon = 0.001;
             for (int i = 1; i < entries.Count; i++)
             {
                 ZoneRangeEntry prev = entries[i - 1];
                 ZoneRangeEntry next = entries[i];
-                double required = prev.Max + step;
-                double difference = next.Min - required;
+                double difference = next.Min - prev.Max;
                 if (Math.Abs(difference) <= epsilon)
                     continue;
 
                 builder.AppendLine(
                     prev.Name + "(~" + FormatNumber(prev.Max) + ") <-> " + next.Name + "(" + FormatNumber(next.Min) + "~): " +
-                    next.Name + " MinX는 " + FormatNumber(required) + " 이어야 합니다 (현재 " +
+                    next.Name + " MinX는 " + prev.Name + " MaxX(" + FormatNumber(prev.Max) + ")와 같아야 합니다 (현재 " +
                     (difference > 0.0
                         ? "판정 불가 갭 " + FormatNumber(difference) + "mm"
                         : "겹침 " + FormatNumber(-difference) + "mm") + ").");
@@ -680,7 +717,7 @@ namespace QMC.CDT_320.Ui.Dialogs
 
             message = "Picker X Zone에 판정 불가 구간이 있어 저장할 수 없습니다.\r\n\r\n" +
                       builder +
-                      "\r\n인접 Zone은 이전 Zone MaxX + 2x허용오차(" + FormatNumber(step) + "mm)에서 시작해야 " +
+                      "\r\n인접 Zone은 이전 Zone MaxX와 같은 값에서 시작(맞닿음)해야 " +
                       "모든 X 좌표가 정확히 한 Zone으로 판정됩니다.";
             return false;
         }

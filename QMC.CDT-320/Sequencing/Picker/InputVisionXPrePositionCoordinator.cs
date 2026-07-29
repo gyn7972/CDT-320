@@ -626,7 +626,7 @@ namespace QMC.CDT320.Sequencing
             if (!service.TryGetFollowGapParameters(
                 visionX,
                 leadingPickerX,
-                service.Config != null ? service.Config.InputVisionRetreatExtraClearance : 40.0,
+                0.0, // 진입 유지갭 Extra 제외(사용자 승인 2026-07-30) — 선행검사 진입 팔로잉과 동일 기준.
                 out direction,
                 out homeGap,
                 out safetyGap,

@@ -634,19 +634,21 @@ namespace QMC.CDT320.Interlocks
 
             // 제3 분기(사용자 승인 2026-07-24): 피커가 존을 점유/이동(퇴장 포함) 중이어도, 비전 이동 목표와
             // 해당 피커 X의 Actual/Command 양쪽이 SharedRailX 페어 간격식으로 SafetyDistance를 만족하면
-            // 진입을 허용한다 (팔로잉 진입의 유지 간격 50mm > 요구 10mm, RetreatExtra 미포함 — R5.
+            // 진입을 허용한다 (판정은 보드 최신값 기준 — stale 오판 제거 2026-07-30, RetreatExtra 미포함 — R5.
             // 피커가 비전 쪽으로 접근 중이면 Command 판정에서 차단된다 — fail-closed).
             BaseAxis clearanceVisionAxis = machine.OutputStageUnit != null ? machine.OutputStageUnit.OutputCameraX : null;
             BaseAxis clearancePickerAxis = state != null ? state.PickerX : null;
-            string clearanceDetail;
+            string clearanceDetail = string.Empty;
             if (request != null &&
                 MotionGuardRuleHelpers.IsPairClearanceSatisfiedForEntry(
                     machine, clearanceVisionAxis, request.TargetValue, clearancePickerAxis, out clearanceDetail))
                 return true;
 
+            // 현재 기준(2026-07-30): 차단 사유에 페어 간격 계산 상세를 포함한다 — 블랙박스 없이도 원인 확정 가능하게.
             return MotionGuardRuleHelpers.Block(
                 "OutputVisionX",
-                "OutputCameraX 이동 불가: " + prefix + "Picker가 Output 영역을 점유하거나 간섭 중이고 페어 간격도 부족합니다. " + detail,
+                "OutputCameraX 이동 불가: " + prefix + "Picker가 Output 영역을 점유하거나 간섭 중이고 페어 간격도 부족합니다. " +
+                detail + ", clearance=[" + clearanceDetail + "]",
                 out reason);
         }
 

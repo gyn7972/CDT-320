@@ -2629,7 +2629,12 @@ namespace QMC.CDT320.Sequencing
                     if (!service.TryGetFollowGapParameters(
                         stage.CameraX,
                         constrainingPickerX,
-                        service.Config != null ? service.Config.InputVisionRetreatExtraClearance : 40.0,
+                        // 기존 조건: 회피 Extra(40)를 진입 유지갭에도 더해 safetyGap=50 — 접근 한계가 피커+20mm뿐이라
+                        //           피커 바텀 촬영(615~) 동안 비전이 다이 촬영 위치(665.4)에 못 들어가 스톨/왕복 발생
+                        //           (실장비 2026-07-30 00:0x, 다이당 skipHold 31~34회 실측).
+                        // 현재 기준(사용자 승인 2026-07-30): 진입 유지갭은 페어 SafetyDistance만 사용(Extra 제외)
+                        //           — 접근 한계 피커+60mm. 회피 깊이 계산의 Extra는 기존 유지. 인풋/아웃풋 미러 동일.
+                        0.0,
                         out direction,
                         out homeGap,
                         out safetyGap,
@@ -2787,7 +2792,7 @@ namespace QMC.CDT320.Sequencing
             if (!service.TryGetFollowGapParameters(
                 visionAxis,
                 pickerAxis,
-                service.Config != null ? service.Config.InputVisionRetreatExtraClearance : 40.0,
+                0.0, // 진입 유지갭 Extra 제외(사용자 승인 2026-07-30) — 게이트/팔로잉과 동일 기준.
                 out direction,
                 out homeGap,
                 out safetyGap,
@@ -2831,7 +2836,7 @@ namespace QMC.CDT320.Sequencing
             if (!service.TryGetFollowGapParameters(
                 visionAxis,
                 oppositePickerX,
-                service.Config != null ? service.Config.InputVisionRetreatExtraClearance : 40.0,
+                0.0, // 진입 유지갭 Extra 제외(사용자 승인 2026-07-30) — 게이트/한계/팔로잉과 동일 기준.
                 out direction,
                 out homeGap,
                 out safetyGap,
@@ -2880,7 +2885,7 @@ namespace QMC.CDT320.Sequencing
             if (!service.TryGetFollowGapParameters(
                 stage.CameraX,
                 leadingPickerX,
-                service.Config != null ? service.Config.InputVisionRetreatExtraClearance : 40.0,
+                0.0, // 진입 유지갭 Extra 제외(사용자 승인 2026-07-30) — 게이트/한계/제약과 동일 기준.
                 out direction,
                 out homeGap,
                 out safetyGap,

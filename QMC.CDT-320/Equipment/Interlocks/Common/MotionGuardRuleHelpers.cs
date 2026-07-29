@@ -32,6 +32,15 @@ namespace QMC.CDT320.Interlocks
             if (service == null)
                 return false;
 
+            // 기존 조건: otherAxis.CommandPosition(UpdateStatus 캐시)을 그대로 판정에 썼다 — 고속 이동 중
+            //           캐시가 수십 ms 묵으면 실제보다 수십 mm 뒤 위치로 간격을 계산해, 정상 팔로잉 진입
+            //           (실간격 +50mm)을 간격 부족(-12.3mm)으로 오판해 Critical을 냈다
+            //           (실장비 2026-07-29 02:19:19 — 버그#1 기록 문서 참조).
+            // 현재 기준(사용자 승인 2026-07-30, 8/3 보류 철회): 판정 직전 UpdateStatus()로 보드 최신값을
+            //           캐시에 반영한 뒤 Actual/Command를 읽는다 — 두 값이 같은 샘플 기준이 되어 낡은 값
+            //           오판만 사라지고, 접근 중 피커 차단(fail-closed) 취지는 그대로 유지된다.
+            otherAxis.UpdateStatus();
+
             string actualDetail;
             string commandDetail;
             bool actualOk = service.IsPairClearanceSatisfied(
