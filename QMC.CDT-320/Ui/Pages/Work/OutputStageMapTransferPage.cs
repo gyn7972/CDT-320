@@ -34,6 +34,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
         private DieMapEntry _selectedEntry;
         private BinSide _selectedSide = BinSide.Good;
         private string _lastMapSignature;
+        private string _lastOutputProgressSignature;
         private ContextMenuStrip _gridMenu;
         private ToolStripMenuItem _gridMoveMenuItem;
         private ToolStripMenuItem[] _gridMoveFrontPickerMenuItems;
@@ -412,19 +413,37 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 DieMap baseMap = activeProject != null && activeProject.MapApprovalVersion > 0
                     ? recipeMap
                     : (materialMap ?? recipeMap);
+                string mapSignature = BuildMapStructureSignature(baseMap, outputWafer);
+                string progressSignature = BuildOutputProgressSignature(outputWafer);
+                bool mapChanged = !string.Equals(mapSignature, _lastMapSignature, StringComparison.Ordinal);
+                bool progressChanged = !string.Equals(
+                    progressSignature,
+                    _lastOutputProgressSignature,
+                    StringComparison.Ordinal);
+
+                if (!mapChanged && !progressChanged)
+                    return;
+
                 if (baseMap == null)
                 {
+                    _lastMapSignature = mapSignature;
+                    _lastOutputProgressSignature = progressSignature;
                     ApplyEmptyOutputMap(outputWafer, sourceWafer);
                     return;
                 }
 
                 DieMap displayMap = BuildDisplayMap(baseMap, outputWafer);
 
-                // 변경 없으면 재적용 생략(타이머가 선택/스크롤을 매번 리셋하지 않도록).
-                string signature = BuildMapSignature(displayMap, outputWafer);
-                if (string.Equals(signature, _lastMapSignature, StringComparison.Ordinal))
+                // 수납 진행값만 바뀐 경우에는 기존 Map/Grid 객체를 유지해 선택 행과 스크롤을 보존한다.
+                // 맵 구조나 행 키가 달라진 경우에만 아래 전체 ApplyMap 경로로 안전하게 복구한다.
+                if (!mapChanged && TryApplyOutputProgress(displayMap, outputWafer, sourceWafer))
+                {
+                    _lastOutputProgressSignature = progressSignature;
                     return;
-                _lastMapSignature = signature;
+                }
+
+                _lastMapSignature = mapSignature;
+                _lastOutputProgressSignature = progressSignature;
 
                 ApplyMap(displayMap, outputWafer, sourceWafer);
             }
@@ -438,31 +457,84 @@ namespace QMC.CDT_320.Ui.Pages.Work
             }
         }
 
-        private string BuildMapSignature(DieMap map, WaferMaterial outputWafer)
+        private string BuildMapStructureSignature(DieMap map, WaferMaterial outputWafer)
         {
             if (map == null)
-                return _selectedSide + "|null";
+            {
+                return _selectedSide + "|null|" +
+                    (outputWafer != null ? outputWafer.WaferId ?? "" : "") + "|" +
+                    (outputWafer != null ? outputWafer.OutputReceiveSourceWaferId ?? "" : "");
+            }
 
-            int next = outputWafer != null ? outputWafer.OutputReceiveNextIndex : 0;
             return string.Join("|",
                 _selectedSide.ToString(),
                 outputWafer != null ? outputWafer.WaferId ?? "" : "",
-                outputWafer != null ? outputWafer.State.ToString() : "",
                 outputWafer != null ? outputWafer.OutputReceiveSourceWaferId ?? "" : "",
-                outputWafer != null ? outputWafer.OutputReceiveTotalCount.ToString() : "0",
-                outputWafer != null ? outputWafer.UpdatedAt.ToString("O") : "",
-                BuildOutputReceiveSlotHash(outputWafer).ToString(),
+                map.FrameObjId ?? "",
                 map.DieMapX.ToString(),
                 map.DieMapY.ToString(),
-                map.PitchX.ToString("F4"),
-                map.PitchY.ToString("F4"),
-                map.DieSizeX.ToString("F4"),
-                map.DieSizeY.ToString("F4"),
-                map.OuterDiameterMm.ToString("F4"),
-                map.OriginX.ToString("F4"),
-                map.OriginY.ToString("F4"),
+                map.PitchX.ToString("R", CultureInfo.InvariantCulture),
+                map.PitchY.ToString("R", CultureInfo.InvariantCulture),
+                map.DieSizeX.ToString("R", CultureInfo.InvariantCulture),
+                map.DieSizeY.ToString("R", CultureInfo.InvariantCulture),
+                map.OuterDiameterMm.ToString("R", CultureInfo.InvariantCulture),
+                map.OriginX.ToString("R", CultureInfo.InvariantCulture),
+                map.OriginY.ToString("R", CultureInfo.InvariantCulture),
                 (map.Entries != null ? map.Entries.Count : 0).ToString(),
-                next.ToString());
+                BuildOutputMapStructureHash(map).ToString(CultureInfo.InvariantCulture));
+        }
+
+        private string BuildOutputProgressSignature(WaferMaterial outputWafer)
+        {
+            if (outputWafer == null)
+                return _selectedSide + "|NO_OUTPUT_WAFER";
+
+            // UpdatedAt은 LOT/UI 저장 등 수납 진행과 무관한 작업에서도 바뀔 수 있으므로 제외한다.
+            // 실제 표시 변경 요소인 NextIndex와 Slot 상태 Hash만으로 부분 갱신 여부를 판단한다.
+            return string.Join("|",
+                _selectedSide.ToString(),
+                outputWafer.WaferId ?? "",
+                outputWafer.State.ToString(),
+                outputWafer.OutputReceiveTotalCount.ToString(CultureInfo.InvariantCulture),
+                outputWafer.OutputReceiveNextIndex.ToString(CultureInfo.InvariantCulture),
+                BuildOutputReceiveSlotHash(outputWafer).ToString(CultureInfo.InvariantCulture));
+        }
+
+        private static int BuildOutputMapStructureHash(DieMap map)
+        {
+            try
+            {
+                unchecked
+                {
+                    int hash = 17;
+                    if (map == null || map.Entries == null)
+                        return hash;
+
+                    foreach (DieMapEntry entry in map.Entries.Where(e => e != null))
+                    {
+                        // Result/Bin/DieUid는 공정 진행값이므로 구조 Hash에서 제외한다.
+                        hash = hash * 31 + entry.Index;
+                        hash = hash * 31 + entry.SequenceNo;
+                        hash = hash * 31 + ResolveEntryMapX(entry);
+                        hash = hash * 31 + ResolveEntryMapY(entry);
+                        hash = hash * 31 + DieMapGenerator.ResolveOriginalMapIndexX(entry);
+                        hash = hash * 31 + DieMapGenerator.ResolveOriginalMapIndexY(entry);
+                        hash = hash * 31 + entry.PosX.GetHashCode();
+                        hash = hash * 31 + entry.PosY.GetHashCode();
+                        hash = hash * 31 + entry.EquipmentGridX.GetHashCode();
+                        hash = hash * 31 + entry.EquipmentGridY.GetHashCode();
+                    }
+
+                    return hash;
+                }
+            }
+            catch
+            {
+                return 0;
+            }
+            finally
+            {
+            }
         }
 
         private static int BuildOutputReceiveSlotHash(WaferMaterial outputWafer)
@@ -914,6 +986,134 @@ namespace QMC.CDT_320.Ui.Pages.Work
             }
             catch
             {
+            }
+            finally
+            {
+            }
+        }
+
+        private bool TryApplyOutputProgress(
+            DieMap updatedMap,
+            WaferMaterial outputWafer,
+            WaferMaterial sourceWafer)
+        {
+            try
+            {
+                DieMap currentMap = mapView != null ? mapView.Map : null;
+                if (currentMap == null || currentMap.Entries == null ||
+                    updatedMap == null || updatedMap.Entries == null ||
+                    currentMap.Entries.Count != updatedMap.Entries.Count)
+                {
+                    return false;
+                }
+
+                var updatedByGrid = new Dictionary<string, DieMapEntry>(StringComparer.Ordinal);
+                foreach (DieMapEntry entry in updatedMap.Entries)
+                {
+                    if (entry == null)
+                        continue;
+
+                    string key = BuildEntryGridKey(entry);
+                    if (updatedByGrid.ContainsKey(key))
+                        return false;
+                    updatedByGrid.Add(key, entry);
+                }
+
+                foreach (DieMapEntry currentEntry in currentMap.Entries)
+                {
+                    if (currentEntry == null)
+                        continue;
+
+                    DieMapEntry updatedEntry;
+                    if (!updatedByGrid.TryGetValue(BuildEntryGridKey(currentEntry), out updatedEntry))
+                        return false;
+
+                    // 공정 진행에 따라 변하는 표시값만 기존 객체에 반영한다.
+                    // Map 객체를 교체하지 않으므로 사용자가 선택한 Die와 확대/이동 상태가 유지된다.
+                    currentEntry.IsTarget = updatedEntry.IsTarget;
+                    currentEntry.Result = updatedEntry.Result;
+                    currentEntry.BinCode = updatedEntry.BinCode;
+                    currentEntry.DieUid = updatedEntry.DieUid;
+                }
+
+                if (!RefreshDieGridProgressValues(currentMap))
+                    return false;
+
+                string sideText = _selectedSide == BinSide.Ng ? "NG" : "GOOD";
+                grpMapInfo.Text = "BIN / DIE INFO   Grid " + currentMap.DieMapX + "x" + currentMap.DieMapY +
+                    "   Progress " + BuildProgressText(outputWafer, currentMap);
+                lblBarcodeValue.Text = sourceWafer != null ? sourceWafer.WaferId : "-";
+                lblBinValue.Text = sideText;
+
+                if (_selectedEntry != null)
+                    SetOutputStateRadioFromEntry(_selectedEntry);
+
+                mapView.Invalidate();
+                return true;
+            }
+            catch
+            {
+                // 부분 갱신이 불가능하면 호출부가 기존 ApplyMap 전체 갱신으로 복구한다.
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
+        private bool RefreshDieGridProgressValues(DieMap map)
+        {
+            try
+            {
+                if (gridDieList == null || map == null || map.Entries == null ||
+                    colTarget == null || colResult == null || colBin == null || colDieUid == null)
+                {
+                    return false;
+                }
+
+                List<DieMapEntry> ordered = BuildReceiveOrder(map);
+                if (gridDieList.Rows.Count != ordered.Count)
+                    return false;
+
+                // 행 수뿐 아니라 순서 키까지 확인하여 GOOD/NG 전환이나 맵 변경을 부분 갱신으로 오인하지 않는다.
+                for (int i = 0; i < ordered.Count; i++)
+                {
+                    DieMapEntry rowEntry = gridDieList.Rows[i].Tag as DieMapEntry;
+                    DieMapEntry updatedEntry = ordered[i];
+                    if (rowEntry == null || updatedEntry == null ||
+                        !string.Equals(
+                            BuildEntryGridKey(rowEntry),
+                            BuildEntryGridKey(updatedEntry),
+                            StringComparison.Ordinal))
+                    {
+                        return false;
+                    }
+                }
+
+                gridDieList.SuspendLayout();
+                try
+                {
+                    for (int i = 0; i < ordered.Count; i++)
+                    {
+                        DieMapEntry entry = ordered[i];
+                        DataGridViewRow row = gridDieList.Rows[i];
+                        row.Tag = entry;
+                        row.Cells[colTarget.Index].Value = ResolveOutputDieGridStateText(entry);
+                        row.Cells[colResult.Index].Value = entry.Result;
+                        row.Cells[colBin.Index].Value = entry.BinCode;
+                        row.Cells[colDieUid.Index].Value = entry.DieUid ?? "";
+                    }
+                }
+                finally
+                {
+                    gridDieList.ResumeLayout();
+                }
+
+                return true;
+            }
+            catch
+            {
+                return false;
             }
             finally
             {

@@ -80,6 +80,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
         private string _i18nTitle;
         private string _lastMapFrameObjId = "";
         private string _lastMapSignature = "";
+        private string _lastLotProgressSignature = "";
         private DieMapEntry _selectedEntry;
         private bool _pickStatusDirty;
         private bool _suppressLotProgressOverlay;
@@ -1581,6 +1582,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 mapView.Map = map;
                 _lastMapFrameObjId = map != null ? map.FrameObjId ?? "" : "";
                 _lastMapSignature = signature;
+                // Map 객체가 교체되면 LOT 진행 상태가 같더라도 새 Map에 한 번은 표시 상태를 반영한다.
+                _lastLotProgressSignature = "";
                 _pickStatusDirty = false;
                 _suppressLotProgressOverlay = false;
                 _selectedEntry = FindEquivalentEntry(map, previousSelection);
@@ -2052,8 +2055,13 @@ namespace QMC.CDT_320.Ui.Pages.Work
             if (map == null) return;
 
             var lot = LotStorage.ActiveLot;
+            string progressSignature = BuildLotProgressSignature(map, lot);
+            if (string.Equals(_lastLotProgressSignature, progressSignature, StringComparison.Ordinal))
+                return;
+
             if (lot == null)
             {
+                _lastLotProgressSignature = progressSignature;
                 mapView.Invalidate();
                 return;
             }
@@ -2090,9 +2098,75 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 }
             }
 
-            RefreshDieGrid();
-            ApplyInputInfoValues(map);
+            // LOT 진행값만 변경된 경우에는 전체 Rows.Clear/Add를 하지 않고 상태 셀만 갱신한다.
+            // 행 구성 불일치는 RefreshDieGridProgressValues 내부에서 기존 전체 갱신으로 안전하게 복구한다.
+            RefreshDieGridProgressValues(map);
             mapView.Invalidate();
+            _lastLotProgressSignature = BuildLotProgressSignature(map, lot);
+        }
+
+        private string BuildLotProgressSignature(DieMap map, Lot lot)
+        {
+            string mapFrame = map != null ? map.FrameObjId ?? "" : "";
+            if (lot == null)
+                return "NO_LOT|" + mapFrame + "|" + (_lastMapSignature ?? "");
+
+            return (lot.LotID ?? "") + "|" +
+                lot.StartedAt.Ticks.ToString(CultureInfo.InvariantCulture) + "|" +
+                lot.State.ToString() + "|" +
+                lot.ProcessedDies.ToString(CultureInfo.InvariantCulture) + "|" +
+                lot.GoodCount.ToString(CultureInfo.InvariantCulture) + "|" +
+                lot.NgCount.ToString(CultureInfo.InvariantCulture) + "|" +
+                lot.SkippedCount.ToString(CultureInfo.InvariantCulture) + "|" +
+                mapFrame + "|" +
+                (_lastMapSignature ?? "");
+        }
+
+        private void RefreshDieGridProgressValues(DieMap map)
+        {
+            try
+            {
+                if (gridDieList == null || map == null || map.Entries == null ||
+                    colTarget == null || colResult == null || colBin == null)
+                {
+                    RefreshDieGrid();
+                    return;
+                }
+
+                List<DieMapEntry> displayEntries = BuildDisplayEntries(map);
+                if (gridDieList.Rows.Count != displayEntries.Count)
+                {
+                    // Map 구조나 필터 결과가 바뀐 경우에만 전체 행을 다시 구성한다.
+                    RefreshDieGrid();
+                    return;
+                }
+
+                RefreshInputDieMapDisplayState(map);
+                gridDieList.SuspendLayout();
+                try
+                {
+                    for (int i = 0; i < displayEntries.Count; i++)
+                    {
+                        DieMapEntry entry = displayEntries[i];
+                        DataGridViewRow row = gridDieList.Rows[i];
+                        row.Tag = entry;
+                        row.Cells[colTarget.Index].Value = ResolveInputDieGridStateText(entry);
+                        row.Cells[colResult.Index].Value = entry.Result;
+                        row.Cells[colBin.Index].Value = entry.BinCode;
+                    }
+                }
+                finally
+                {
+                    gridDieList.ResumeLayout();
+                }
+
+                UpdateMapCountLabels(map);
+            }
+            catch
+            {
+                // 부분 갱신에 실패하면 기존 전체 갱신 경로로 복구해 화면 데이터 누락을 방지한다.
+                RefreshDieGrid();
+            }
         }
 
         private void ReloadMapFromActiveOrRecipe()
