@@ -220,6 +220,22 @@ namespace QMC.CDT_320
                     return false;
 
                 string normalizedRecipeName = NormalizeRecipeName(recipeName);
+                bool materialRecipeRestore = false;
+                string recipeChangeReason = string.Empty;
+                if (Controller != null &&
+                    !Controller.TryValidateRecipeChange(
+                        normalizedRecipeName,
+                        out materialRecipeRestore,
+                        out recipeChangeReason))
+                {
+                    QMC.Common.Logging.EventLogger.Write(
+                        QMC.Common.Logging.EventKind.Alarm,
+                        UserSession.Name,
+                        "RECIPE-CHANGE-BLOCK",
+                        recipeChangeReason);
+                    return false;
+                }
+
                 QMC.CDT320.Recipes.RecipeProject project =
                     QMC.CDT320.Recipes.RecipeStore.Load(normalizedRecipeName);
 
@@ -239,6 +255,27 @@ namespace QMC.CDT_320
                 _currentRecipe = project;
                 ActiveRecipeName = normalizedRecipeName;
                 Controller?.SetActiveRecipeName(ActiveRecipeName);
+
+                if (materialRecipeRestore)
+                {
+                    if (Controller == null ||
+                        !Controller.CompleteMaterialRecipeRestore(ActiveRecipeName))
+                    {
+                        QMC.Common.Logging.EventLogger.Write(
+                            QMC.Common.Logging.EventKind.Alarm,
+                            UserSession.Name,
+                            "RECIPE-RESTORE-FAIL",
+                            "장비 내부 Material Recipe 복구 후 Output 전체교체 요청 해제에 실패했습니다. " +
+                            "recipe=" + ActiveRecipeName);
+                        return false;
+                    }
+
+                    QMC.Common.Logging.EventLogger.Write(
+                        QMC.Common.Logging.EventKind.Event,
+                        UserSession.Name,
+                        "RECIPE-RESTORE",
+                        recipeChangeReason);
+                }
 
                 _ = QMC.CDT320.VisionComm.VisionHub.BroadcastRecipeAsync(ActiveRecipeName);
 
@@ -894,17 +931,28 @@ namespace QMC.CDT_320
                 var last = QMC.CDT320.Recipes.RecipeStore.LoadLastOrDefault();
                 if (last != null)
                 {
-                    LoadMachineRecipe(last.FileName);
-                    _currentRecipe = last;
-                    Controller.ApplyRecipeMode(last);
-                    if (!_materialSnapshotRestored)
-                        InitializeMaterialStateFromRecipe(last);
-                    RefreshProjectName(last.FileName);
-                    QMC.Common.Logging.EventLogger.Write(
-                        QMC.Common.Logging.EventKind.Event,
-                        "NONE",
-                        "RECIPE-LOAD",
-                        "Project loaded: " + last.FileName + ".Project (auto on startup)");
+                    if (LoadMachineRecipe(last.FileName))
+                    {
+                        _currentRecipe = last;
+                        Controller.ApplyRecipeMode(last);
+                        if (!_materialSnapshotRestored)
+                            InitializeMaterialStateFromRecipe(last);
+                        RefreshProjectName(last.FileName);
+                        QMC.Common.Logging.EventLogger.Write(
+                            QMC.Common.Logging.EventKind.Event,
+                            "NONE",
+                            "RECIPE-LOAD",
+                            "Project loaded: " + last.FileName + ".Project (auto on startup)");
+                    }
+                    else
+                    {
+                        QMC.Common.Logging.EventLogger.Write(
+                            QMC.Common.Logging.EventKind.Alarm,
+                            "NONE",
+                            "RECIPE-STARTUP-BLOCK",
+                            "저장된 마지막 Recipe를 적용하지 못했습니다. 장비 내부 Material Recipe와 일치하는 Recipe를 확인하여 적용하십시오. " +
+                            "lastProject=" + last.FileName);
+                    }
                 }
             }
             catch { /* Optional startup failure ignored. */ }

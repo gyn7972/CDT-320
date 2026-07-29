@@ -527,8 +527,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
 
                 string activeLotId = LotSessionService.ActiveLotId;
                 if (QMC.Common.MessageDialog.Show(this,
-                        "LOT을 완료합니다.\r\nLOT ID: " + activeLotId +
-                        "\r\n\r\n완료 후에는 새 LOT을 시작해야 자동 운전이 가능합니다. 진행할까요?",
+                        "LOT 완료하시겠습니까?\r\n\r\nLOT ID: " + activeLotId +
+                        "\r\n완료 후에는 새 LOT을 시작해야 자동 운전이 가능합니다.",
                         "LOT 완료", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes)
                     return;
 

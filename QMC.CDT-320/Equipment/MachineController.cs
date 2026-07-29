@@ -477,6 +477,98 @@ namespace QMC.CDT320
             }
         }
 
+        public bool TryValidateRecipeChange(
+            string recipeName,
+            out bool materialRecipeRestore,
+            out string reason)
+        {
+            materialRecipeRestore = false;
+            reason = string.Empty;
+
+            string currentRecipeName = (ActiveRecipeName ?? string.Empty).Trim();
+            string nextRecipeName = string.IsNullOrWhiteSpace(recipeName)
+                ? string.Empty
+                : recipeName.Trim();
+
+            if (string.IsNullOrWhiteSpace(nextRecipeName))
+            {
+                reason = "적용할 Recipe 이름이 없습니다.";
+                return false;
+            }
+
+            if (string.Equals(currentRecipeName, nextRecipeName, StringComparison.OrdinalIgnoreCase))
+                return true;
+
+            if (!string.IsNullOrWhiteSpace(currentRecipeName) &&
+                HasActiveAlarmControlledOperation)
+            {
+                reason =
+                    "장비 동작 중에는 Recipe를 변경할 수 없습니다. " +
+                    "Auto/Manual/READY/초기화 동작을 완전히 정지한 후 다시 실행하십시오. " +
+                    "active=" + currentRecipeName + ", requested=" + nextRecipeName;
+                return false;
+            }
+
+            string materialRecipeName;
+            string materialDetail;
+            if (!HasInMachineMaterial(out materialRecipeName, out materialDetail))
+                return true;
+
+            // 최초 기동 또는 잘못 적용된 Recipe에서 저장 Material의 원래 Recipe로 복구하는 경우만 허용한다.
+            if (!string.IsNullOrWhiteSpace(materialRecipeName) &&
+                string.Equals(materialRecipeName, nextRecipeName, StringComparison.OrdinalIgnoreCase))
+            {
+                materialRecipeRestore = true;
+                reason =
+                    "장비 내부 Material의 원래 Recipe로 복구합니다. " +
+                    "active=" + currentRecipeName +
+                    ", materialRecipe=" + materialRecipeName +
+                    ", material=" + materialDetail;
+                return true;
+            }
+
+            reason =
+                "장비 내부에 제품이 있어 Recipe 변경을 차단했습니다. " +
+                "제품을 정상 언로드한 후 Recipe를 변경하십시오. " +
+                "active=" + currentRecipeName +
+                ", requested=" + nextRecipeName +
+                ", materialRecipe=" + (string.IsNullOrWhiteSpace(materialRecipeName) ? "-" : materialRecipeName) +
+                ", material=" + materialDetail;
+            return false;
+        }
+
+        public bool CompleteMaterialRecipeRestore(string recipeName)
+        {
+            string restoredRecipeName = string.IsNullOrWhiteSpace(recipeName)
+                ? string.Empty
+                : recipeName.Trim();
+            string materialRecipeName = MaterialStateService.State != null
+                ? (MaterialStateService.State.RecipeName ?? string.Empty).Trim()
+                : string.Empty;
+
+            if (string.IsNullOrWhiteSpace(restoredRecipeName) ||
+                !string.Equals(ActiveRecipeName ?? string.Empty, restoredRecipeName, StringComparison.OrdinalIgnoreCase) ||
+                !string.Equals(materialRecipeName, restoredRecipeName, StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
+            }
+
+            lock (_outputFullPreparationLock)
+            {
+                _outputFullPreparationRequested = false;
+                _outputFullPreparationReason = string.Empty;
+                _outputFullPreparationRecipeName = restoredRecipeName;
+            }
+
+            QMC.Common.Log.Write(
+                "Main",
+                "SYSTEM",
+                "RecipeMaterialRestore",
+                "활성 Recipe를 장비 내부 Material Recipe로 복구하고 대기 중인 Output 전체교체 요청을 해제했습니다. " +
+                "recipe=" + restoredRecipeName + " - Reset");
+            return true;
+        }
+
         public void RequestOutputFullPreparation(string reason, string recipeName)
         {
             lock (_outputFullPreparationLock)
@@ -523,6 +615,131 @@ namespace QMC.CDT320
             QMC.Common.Log.Write("Main", "SYSTEM", "OutputFullPreparation",
                 "Output GOOD/NG 전체 준비가 완료되었습니다. recipe=" + (recipeName ?? string.Empty) + " - Reset");
             return true;
+        }
+
+        private bool HasInMachineMaterial(out string materialRecipeName, out string detail)
+        {
+            var evidence = new List<string>();
+            MaterialSnapshot state = MaterialStateService.State;
+            materialRecipeName = state != null ? (state.RecipeName ?? string.Empty).Trim() : string.Empty;
+
+            if (state == null)
+            {
+                detail = "MaterialState=Unavailable";
+                return true;
+            }
+
+            var waferLocations = new HashSet<MaterialLocationKind>
+            {
+                MaterialLocationKind.InputFeeder,
+                MaterialLocationKind.InputStage,
+                MaterialLocationKind.OutputStageGood,
+                MaterialLocationKind.OutputStageNg,
+                MaterialLocationKind.OutputFeeder
+            };
+
+            if (state.Wafers != null)
+            {
+                foreach (WaferMaterial wafer in state.Wafers)
+                {
+                    if (wafer == null ||
+                        wafer.CurrentLocation == null ||
+                        !waferLocations.Contains(wafer.CurrentLocation.Kind) ||
+                        WaferMaterialStateText.Normalize(wafer.State) == WaferMaterialState.Empty)
+                    {
+                        continue;
+                    }
+
+                    evidence.Add(wafer.CurrentLocation.Kind + ":" + (wafer.WaferId ?? "-"));
+                }
+            }
+
+            if (state.Dies != null)
+            {
+                foreach (DieMaterial die in state.Dies)
+                {
+                    if (die == null || die.CurrentLocation == null)
+                        continue;
+
+                    if (die.CurrentLocation.Kind == MaterialLocationKind.PickerFront ||
+                        die.CurrentLocation.Kind == MaterialLocationKind.PickerRear)
+                    {
+                        evidence.Add(
+                            die.CurrentLocation.Kind + "#" + die.CurrentLocation.PickerNo +
+                            ":" + (die.DieId ?? "-"));
+                    }
+                }
+            }
+
+            try
+            {
+                if (_machine.InputFeederUnit != null &&
+                    _machine.InputFeederUnit.IsWaferFeederRingDetected(true))
+                {
+                    evidence.Add("Sensor:InputFeederRing=ON");
+                }
+
+                if (_machine.InputStageUnit != null)
+                {
+                    if (_machine.InputStageUnit.WaferStage8RingCheckSensor != null &&
+                        _machine.InputStageUnit.WaferStage8RingCheckSensor.IsOn)
+                    {
+                        evidence.Add("Sensor:InputStage8Ring=ON");
+                    }
+
+                    if (_machine.InputStageUnit.WaferStage12RingCheckSensor != null &&
+                        _machine.InputStageUnit.WaferStage12RingCheckSensor.IsOn)
+                    {
+                        evidence.Add("Sensor:InputStage12Ring=ON");
+                    }
+                }
+
+                if (_machine.OutputStageUnit != null)
+                {
+                    if (_machine.OutputStageUnit.GoodBinRingSensor != null &&
+                        _machine.OutputStageUnit.GoodBinRingSensor.IsOn)
+                    {
+                        evidence.Add("Sensor:GoodStageRing=ON");
+                    }
+
+                    if (_machine.OutputStageUnit.NgBinRingSensor != null &&
+                        _machine.OutputStageUnit.NgBinRingSensor.IsOn)
+                    {
+                        evidence.Add("Sensor:NgStageRing=ON");
+                    }
+                }
+
+                if (_machine.OutputFeederUnit != null &&
+                    _machine.OutputFeederUnit.IsFeederRingDetected(true))
+                {
+                    evidence.Add("Sensor:OutputFeederRing=ON");
+                }
+
+                for (int pickerNo = 1; pickerNo <= PickerFrontUnit.MaxPickerCount; pickerNo++)
+                {
+                    if (_machine.PickerFrontUnit != null &&
+                        _machine.PickerFrontUnit.IsPickerFlowDetected(pickerNo, true))
+                    {
+                        evidence.Add("Sensor:FrontPicker" + pickerNo + "Flow=ON");
+                    }
+
+                    if (_machine.PickerRearUnit != null &&
+                        _machine.PickerRearUnit.IsPickerFlowDetected(pickerNo, true))
+                    {
+                        evidence.Add("Sensor:RearPicker" + pickerNo + "Flow=ON");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                // 실물 감지 신호를 읽지 못한 상태에서 Recipe 변경을 허용하지 않는다.
+                evidence.Add("SensorReadFailed:" + ex.Message);
+            }
+
+            detail = evidence.Count > 0
+                ? string.Join(", ", evidence.Distinct(StringComparer.OrdinalIgnoreCase))
+                : "None";
+            return evidence.Count > 0;
         }
 
         private static SharedRailXConfig CreateSharedRailXConfig()

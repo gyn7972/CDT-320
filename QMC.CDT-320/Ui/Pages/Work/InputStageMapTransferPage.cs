@@ -5755,13 +5755,35 @@ namespace QMC.CDT_320.Ui.Pages.Work
 
                 InputDieManualState state = ResolveSelectedDieManualState();
                 string stateText = ResolveManualStateDisplayName(state);
+                string repickWarning = state == InputDieManualState.InspectionWait
+                    ? "\r\n\r\n[재픽업 복구]\r\n" +
+                      "선택 Die가 실제로 Input Stage에 있는 것을 눈으로 확인한 경우에만 진행하십시오.\r\n" +
+                      "이전 Pick/검사/Output 수신 상태를 초기화하여 다시 픽업 가능하게 만듭니다."
+                    : "";
                 DialogResult confirm = QMC.Common.MessageDialog.Show(this,
                     "선택 Die " + entries.Count + "개 상태를 [" + stateText + "]로 변경하시겠습니까?\r\n" +
                     "첫 Die=" + BuildSelectedDieText(entries[0]) + "\r\n" +
-                    "UID=" + (entries[0].DieUid ?? ""),
+                    "UID=" + (entries[0].DieUid ?? "") +
+                    repickWarning,
                     "Input Die Map", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
                 if (confirm != DialogResult.Yes)
                     return;
+
+                if (state == InputDieManualState.InspectionWait)
+                {
+                    string repickMessage;
+                    bool repickPrepared = MaterialStateService.PrepareInputDiesForManualRepick(
+                        entries.Select(entry => entry != null ? entry.DieUid : "").ToList(),
+                        "InputMapManualDieState; OperatorConfirmedInputStage",
+                        out repickMessage);
+                    if (!repickPrepared)
+                    {
+                        QMC.Common.MessageDialog.Show(this,
+                            "선택 Die를 재픽업 대기로 복구하지 못했습니다.\r\n" + repickMessage,
+                            "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        return;
+                    }
+                }
 
                 for (int i = 0; i < entries.Count; i++)
                     ApplyManualStateToEntry(entries[i], state);
@@ -5793,8 +5815,12 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     "Input Die 상태 일괄 변경 완료. count=" + entries.Count +
                     ", firstDie=" + (entries[0].DieUid ?? "") +
                     ", firstGrid=(" + ResolveEntryMapX(entries[0]) + "," + ResolveEntryMapY(entries[0]) + ")" +
-                    ", state=" + stateText + " - Ok");
-                QMC.Common.MessageDialog.Show(this, "선택 Die " + entries.Count + "개 상태 변경 완료.",
+                    ", state=" + stateText +
+                    ", manualRepick=" + (state == InputDieManualState.InspectionWait) + " - Ok");
+                string completedMessage = state == InputDieManualState.InspectionWait
+                    ? "선택 Die " + entries.Count + "개를 재픽업 대기로 복구했습니다."
+                    : "선택 Die " + entries.Count + "개 상태 변경 완료.";
+                QMC.Common.MessageDialog.Show(this, completedMessage,
                     "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
             catch (Exception ex)

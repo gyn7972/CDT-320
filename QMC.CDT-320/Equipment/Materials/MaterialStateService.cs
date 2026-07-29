@@ -7688,65 +7688,184 @@ namespace QMC.CDT320.Materials
             NotifyAndSave("RemoveInspection");
         }
 
-        public static void ResetInputPickCompletionHistory(string dieId, string reason)
+        /// <summary>
+        /// 작업자가 실제 Die가 Input Stage에 복귀한 것을 확인한 뒤 실행하는 수동 재픽업 복구입니다.
+        /// 선택 Die만 대상으로 하며, 이전 Pick/검사/Output 수신 상태를 새 작업 전 상태로 되돌립니다.
+        /// </summary>
+        public static bool PrepareInputDiesForManualRepick(
+            IEnumerable<string> dieIds,
+            string reason,
+            out string message)
         {
+            message = string.Empty;
             try
             {
+                List<string> ids = (dieIds ?? Enumerable.Empty<string>())
+                    .Where(id => !string.IsNullOrWhiteSpace(id))
+                    .Select(id => id.Trim())
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .ToList();
+                if (ids.Count == 0)
+                {
+                    message = "재픽업 복구할 Die가 없습니다.";
+                    return false;
+                }
+
+                List<string> auditLines = new List<string>();
                 lock (_stateSync)
                 {
-                    if (string.IsNullOrWhiteSpace(dieId))
-                        return;
-
-                    DieMaterial die = State.Dies.FirstOrDefault(d =>
-                        d != null &&
-                        string.Equals(d.DieId, dieId, StringComparison.OrdinalIgnoreCase));
-                    if (die == null)
-                        return;
-
-                    die.IsInputTarget = true;
-                    die.Result = DieResult.Unknown;
-                    if (die.NgCodes != null)
-                        die.NgCodes.Clear();
-
-                    if (die.CurrentLocation == null ||
-                        die.CurrentLocation.Kind == MaterialLocationKind.Unknown)
+                    if (State == null || State.Dies == null)
                     {
-                        die.CurrentLocation = new MaterialLocation { Kind = MaterialLocationKind.InputStage };
+                        message = "Material 상태가 초기화되지 않았습니다.";
+                        return false;
                     }
 
-                    die.ReservedPickerLocation = MaterialLocationKind.Unknown;
-                    die.ReservedPickerNo = -1;
-                    die.PickedPickerLocation = MaterialLocationKind.Unknown;
-                    die.PickedPickerNo = -1;
-                    die.PickedAt = DateTime.MinValue;
-
-                    if (die.Inspections != null)
+                    List<DieMaterial> dies = new List<DieMaterial>();
+                    foreach (string dieId in ids)
                     {
-                        die.Inspections.RemoveAll(x =>
-                            x != null &&
-                            (string.Equals(x.InspectionType, "InputPickVision", StringComparison.OrdinalIgnoreCase) ||
-                             string.Equals(x.InspectionType, "PickUp", StringComparison.OrdinalIgnoreCase) ||
-                             string.Equals(x.InspectionType, "Bottom", StringComparison.OrdinalIgnoreCase) ||
-                             string.Equals(x.InspectionType, "Side0", StringComparison.OrdinalIgnoreCase) ||
-                             string.Equals(x.InspectionType, "Side90", StringComparison.OrdinalIgnoreCase) ||
-                             string.Equals(x.InspectionType, "ManualPickerHeadEdit", StringComparison.OrdinalIgnoreCase)));
+                        DieMaterial die = State.Dies.FirstOrDefault(d =>
+                            d != null &&
+                            string.Equals(d.DieId, dieId, StringComparison.OrdinalIgnoreCase));
+                        if (die == null)
+                        {
+                            message = "Material Die 정보를 찾을 수 없습니다. die=" + dieId;
+                            return false;
+                        }
+
+                        dies.Add(die);
                     }
 
-                    die.UpdatedAt = DateTime.Now;
-                    NotifyAndSave("ResetInputPickCompletionHistory");
-                    Log.Write("Main", "MATERIAL", "ResetInputPickCompletionHistory",
-                        "Input pick completion history reset manually. die=" + dieId +
-                        ", reason=" + (reason ?? "") + " - Ok");
+                    foreach (DieMaterial die in dies)
+                    {
+                        MaterialLocation previousLocation = die.CurrentLocation;
+                        if (auditLines.Count < 10)
+                        {
+                            auditLines.Add("die=" + die.DieId +
+                                ", previousLocation=" + (previousLocation != null ? previousLocation.Kind.ToString() : "Unknown") +
+                                ", previousResult=" + die.Result +
+                                ", previousPickedAt=" + FormatDateTimeForLog(die.PickedAt));
+                        }
+                        PrepareInputDieForManualRepickNoLock(die);
+                    }
                 }
+
+                NotifyAndSave("ManualInputDieRepick");
+                string detail = string.Join(" | ", auditLines);
+                if (ids.Count > auditLines.Count)
+                    detail += " | additionalDies=" + (ids.Count - auditLines.Count);
+                Log.Write("Main", "MATERIAL", "ManualInputDieRepick",
+                    "Input Die를 수동 재픽업 대기로 복구했습니다. count=" + ids.Count +
+                    ", reason=" + (reason ?? "") +
+                    ", " + detail + " - Ok");
+                message = "선택 Die " + ids.Count + "개를 재픽업 대기로 복구했습니다.";
+                return true;
             }
             catch (Exception ex)
             {
-                Log.Write("Main", "MATERIAL", "ResetInputPickCompletionHistory",
-                    "Input pick completion history reset failed. die=" + dieId +
-                    ", error=" + ex.Message + " - Failed");
+                message = "재픽업 복구 실패: " + ex.Message;
+                Log.Write("Main", "MATERIAL", "ManualInputDieRepick",
+                    message + ", reason=" + (reason ?? "") + " - Failed");
+                return false;
             }
             finally
             {
+            }
+        }
+
+        public static void ResetInputPickCompletionHistory(string dieId, string reason)
+        {
+            string message;
+            if (!PrepareInputDiesForManualRepick(new[] { dieId }, reason, out message))
+            {
+                Log.Write("Main", "MATERIAL", "ResetInputPickCompletionHistory",
+                    "Input pick completion history reset failed. die=" + (dieId ?? "") +
+                    ", message=" + message + " - Failed");
+            }
+        }
+
+        private static void PrepareInputDieForManualRepickNoLock(DieMaterial die)
+        {
+            if (die == null)
+                return;
+
+            die.IsInputTarget = true;
+            die.Result = DieResult.Unknown;
+            die.Input_BinCode = 0;
+            die.Output_BinCode = 0;
+            die.WaferID_Output = string.Empty;
+            die.Bin_IndexX = -1;
+            die.Bin_IndexY = -1;
+            die.BinOffset = new VisionOffset();
+            if (die.NgCodes != null)
+                die.NgCodes.Clear();
+
+            // 수동 재픽업은 실물이 Input Stage에 있음을 사용자가 확인한 경우에만 UI에서 호출한다.
+            die.CurrentLocation = new MaterialLocation { Kind = MaterialLocationKind.InputStage };
+            die.ReservedPickerLocation = MaterialLocationKind.Unknown;
+            die.ReservedPickerNo = -1;
+            die.PickedPickerLocation = MaterialLocationKind.Unknown;
+            die.PickedPickerNo = -1;
+            die.PickedAt = DateTime.MinValue;
+
+            if (die.Inspections != null)
+            {
+                die.Inspections.RemoveAll(x =>
+                    x != null &&
+                    (string.Equals(x.InspectionType, "InputPickVision", StringComparison.OrdinalIgnoreCase) ||
+                     string.Equals(x.InspectionType, "PickUp", StringComparison.OrdinalIgnoreCase) ||
+                     string.Equals(x.InspectionType, "Bottom", StringComparison.OrdinalIgnoreCase) ||
+                     string.Equals(x.InspectionType, "Side0", StringComparison.OrdinalIgnoreCase) ||
+                     string.Equals(x.InspectionType, "Side90", StringComparison.OrdinalIgnoreCase) ||
+                     string.Equals(x.InspectionType, "OutputPlaceVision", StringComparison.OrdinalIgnoreCase) ||
+                     string.Equals(x.InspectionType, "ManualPickerHeadEdit", StringComparison.OrdinalIgnoreCase)));
+            }
+
+            SyncActiveInputMapEntryNoLock(die.DieId, true, DieResult.Unknown, 0);
+            ResetOutputReceiveSlotsForManualRepickNoLock(die.DieId);
+            die.UpdatedAt = DateTime.Now;
+        }
+
+        private static void ResetOutputReceiveSlotsForManualRepickNoLock(string dieId)
+        {
+            if (string.IsNullOrWhiteSpace(dieId) || State == null || State.Wafers == null)
+                return;
+
+            foreach (WaferMaterial wafer in State.Wafers)
+            {
+                if (wafer == null || wafer.OutputReceiveSlots == null)
+                    continue;
+
+                bool touched = false;
+                foreach (OutputReceiveSlotMaterial slot in wafer.OutputReceiveSlots)
+                {
+                    if (slot == null ||
+                        !string.Equals(slot.DieUid ?? "", dieId, StringComparison.OrdinalIgnoreCase))
+                        continue;
+
+                    slot.IsTarget = true;
+                    slot.Result = DieResult.Unknown;
+                    slot.BinCode = 0;
+                    // Die가 Input Stage로 실제 복귀했으므로 이전 Output Bin 점유를 해제한다.
+                    slot.DieUid = string.Empty;
+                    slot.IsOutputInspectionDone = false;
+                    slot.IsOutputInspectionOk = false;
+                    slot.OutputInspectionOffsetX = 0.0;
+                    slot.OutputInspectionOffsetY = 0.0;
+                    slot.OutputInspectionOffsetT = 0.0;
+                    slot.OutputInspectionRaw = string.Empty;
+                    touched = true;
+                }
+
+                if (!touched)
+                    continue;
+
+                if (wafer.DieIds != null)
+                    wafer.DieIds.RemoveAll(id => string.Equals(id ?? "", dieId, StringComparison.OrdinalIgnoreCase));
+                wafer.OutputReceiveNextIndex = ResolveNextOutputReceiveIndex(wafer);
+                // 이전 Finish 상태가 남아 있으면 IsOutputStageReceiveComplete가 즉시 true를 반환한다.
+                // 방금 해제한 슬롯을 다시 사용할 수 있도록 명시적으로 Working으로 되돌린다.
+                wafer.State = WaferMaterialState.Working;
+                wafer.UpdatedAt = DateTime.Now;
             }
         }
 
