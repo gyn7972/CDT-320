@@ -108,6 +108,57 @@
             }
         }
 
+        /// <summary>
+        /// 지정 Recipe 노드 파일을 기본값 대체 없이 검증하여 로드합니다.
+        /// 누락/손상 파일을 기존 객체로 조용히 대체하면 서로 다른 Recipe가 섞일 수 있으므로
+        /// 장비 Recipe 적용 경로에서는 이 메서드를 사용합니다.
+        /// </summary>
+        public static bool TryLoadRecipeRequired<T>(
+            string recipeName,
+            string storageKey,
+            out T data,
+            out string reason) where T : new()
+        {
+            data = default(T);
+            reason = string.Empty;
+
+            DataStoreResult<T> result = RecipeDataStore.Load<T>(recipeName, storageKey);
+            if (result == null)
+            {
+                reason =
+                    "Recipe 로드 결과가 없습니다. recipe=" + (recipeName ?? string.Empty) +
+                    ", storageKey=" + (storageKey ?? string.Empty);
+                return false;
+            }
+
+            if (!result.Success || result.UsedDefault || result.Data == null)
+            {
+                reason =
+                    "Recipe 노드 로드 실패. recipe=" + (recipeName ?? string.Empty) +
+                    ", storageKey=" + (storageKey ?? string.Empty) +
+                    ", path=" + (result.Path ?? string.Empty) +
+                    ", usedDefault=" + result.UsedDefault +
+                    ", message=" + (result.Message ?? string.Empty) +
+                    (result.Exception != null
+                        ? ", exception=" + result.Exception.Message
+                        : string.Empty);
+                return false;
+            }
+
+            data = result.Data;
+            return true;
+        }
+
+        public static T LoadRecipeRequired<T>(string recipeName, string storageKey) where T : new()
+        {
+            T data;
+            string reason;
+            if (!TryLoadRecipeRequired(recipeName, storageKey, out data, out reason))
+                throw new System.IO.InvalidDataException(reason);
+
+            return data;
+        }
+
         public static bool SaveSetup<T>(T data, string storageKey)
         {
             try

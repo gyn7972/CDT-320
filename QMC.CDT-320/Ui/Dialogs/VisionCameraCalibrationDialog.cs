@@ -261,8 +261,12 @@ namespace QMC.CDT_320.Ui.Dialogs
 
                 string recipeName = host.ActiveRecipeName;
                 host.LoadMachineSettings();
-                if (!string.IsNullOrWhiteSpace(recipeName))
-                    host.LoadMachineRecipe(recipeName);
+                if (!string.IsNullOrWhiteSpace(recipeName) &&
+                    !host.LoadMachineRecipe(recipeName))
+                {
+                    throw new InvalidOperationException(
+                        "현재 Recipe 값을 다시 불러오지 못했습니다. recipe=" + recipeName);
+                }
 
                 _sequence = null;
                 EnsureSequence();

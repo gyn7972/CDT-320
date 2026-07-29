@@ -99,6 +99,13 @@ namespace QMC.CDT320
         private bool _outputFullPreparationRequested = true;
         private string _outputFullPreparationReason = "InitialStart";
         private string _outputFullPreparationRecipeName = string.Empty;
+        private readonly object _recipeRunGateLock = new object();
+        private string _recipeRunGateVerifiedName = string.Empty;
+        private DateTime _recipeRunGateVerifiedAtUtc = DateTime.MinValue;
+        private readonly object _recipeOperationLock = new object();
+        private bool _recipeApplyOperationActive;
+        private CancellationTokenSource _recipeStartAttemptCts;
+        private long _recipeConfigurationGeneration;
         public SharedRailXMotionService SharedRailX { get; private set; }
 
         public event Action<EquipmentStatus> StatusChanged;
@@ -199,7 +206,23 @@ namespace QMC.CDT320
         public MachineReadyProgress ReadySequenceProgress => _readySequenceProgress;
         public bool IsReadySequenceRunning => _readySequenceProgress != null && _readySequenceProgress.IsRunning;
         private bool IsAxisInitializeOperationRunning => _axisInitializeOperationGate.CurrentCount == 0;
-        private bool HasActiveAlarmControlledOperation =>
+        private bool IsRecipeApplyOperationActive
+        {
+            get
+            {
+                lock (_recipeOperationLock)
+                    return _recipeApplyOperationActive;
+            }
+        }
+        private bool IsRecipeStartAttemptActive
+        {
+            get
+            {
+                lock (_recipeOperationLock)
+                    return _recipeStartAttemptCts != null;
+            }
+        }
+        private bool HasActiveEquipmentOperation =>
             IsSequenceRunning ||
             IsManualBusy ||
             IsInputStageRunReviewManualActive ||
@@ -207,6 +230,10 @@ namespace QMC.CDT320
             IsReadySequenceRunning ||
             IsLegacyCycleBusy ||
             IsAxisInitializeOperationRunning;
+        private bool HasActiveAlarmControlledOperation =>
+            HasActiveEquipmentOperation ||
+            IsRecipeApplyOperationActive ||
+            IsRecipeStartAttemptActive;
         /// <summary>4개 유닛(INPUT/FRONT/REAR/OUTPUT) 시퀀스 동작 상태(공식 상태 객체). UI 표시용.</summary>
         public QMC.CDT320.Sequencing.SequenceActivityMonitor SequenceActivity => _sequenceActivity;
         public DateTime MachineInitializedAt { get; private set; }
@@ -470,6 +497,8 @@ namespace QMC.CDT320
             if (!string.Equals(previousRecipeName, nextRecipeName, StringComparison.OrdinalIgnoreCase) &&
                 !string.IsNullOrWhiteSpace(nextRecipeName))
             {
+                InvalidateRecipeRunReadiness();
+
                 string reason = string.IsNullOrWhiteSpace(previousRecipeName)
                     ? "InitialRecipe:" + nextRecipeName
                     : "RecipeChange:" + previousRecipeName + "->" + nextRecipeName;
@@ -477,8 +506,73 @@ namespace QMC.CDT320
             }
         }
 
+        public void InvalidateRecipeRunReadiness()
+        {
+            lock (_recipeRunGateLock)
+            {
+                _recipeRunGateVerifiedName = string.Empty;
+                _recipeRunGateVerifiedAtUtc = DateTime.MinValue;
+            }
+        }
+
         public bool TryValidateRecipeChange(
             string recipeName,
+            out bool materialRecipeRestore,
+            out string reason)
+        {
+            return TryValidateRecipeChangeCore(
+                recipeName,
+                false,
+                out materialRecipeRestore,
+                out reason);
+        }
+
+        public bool TryBeginRecipeApplyOperation(
+            string recipeName,
+            out bool materialRecipeRestore,
+            out IDisposable lease,
+            out string reason)
+        {
+            materialRecipeRestore = false;
+            lease = null;
+            reason = string.Empty;
+
+            lock (_recipeOperationLock)
+            {
+                if (_recipeApplyOperationActive)
+                {
+                    reason = "다른 Recipe 저장/적용 작업이 이미 진행 중입니다.";
+                    return false;
+                }
+
+                if (_recipeStartAttemptCts != null)
+                {
+                    reason =
+                        "START 준비 작업이 진행 중이므로 Recipe 저장/적용을 차단했습니다. " +
+                        "START 완료 또는 STOP 후 다시 실행하십시오.";
+                    return false;
+                }
+
+                _recipeApplyOperationActive = true;
+            }
+
+            if (!TryValidateRecipeChangeCore(
+                    recipeName,
+                    true,
+                    out materialRecipeRestore,
+                    out reason))
+            {
+                EndRecipeApplyOperation();
+                return false;
+            }
+
+            lease = new RecipeApplyOperationLease(this);
+            return true;
+        }
+
+        private bool TryValidateRecipeChangeCore(
+            string recipeName,
+            bool recipeApplyLeaseHeld,
             out bool materialRecipeRestore,
             out string reason)
         {
@@ -496,14 +590,40 @@ namespace QMC.CDT320
                 return false;
             }
 
-            if (string.Equals(currentRecipeName, nextRecipeName, StringComparison.OrdinalIgnoreCase))
-                return true;
+            if (!recipeApplyLeaseHeld)
+            {
+                lock (_recipeOperationLock)
+                {
+                    if (_recipeApplyOperationActive)
+                    {
+                        reason = "다른 Recipe 저장/적용 작업이 이미 진행 중입니다.";
+                        return false;
+                    }
 
-            if (!string.IsNullOrWhiteSpace(currentRecipeName) &&
-                HasActiveAlarmControlledOperation)
+                    if (_recipeStartAttemptCts != null)
+                    {
+                        reason =
+                            "START 준비 작업이 진행 중이므로 Recipe 저장/적용을 차단했습니다. " +
+                            "START 완료 또는 STOP 후 다시 실행하십시오.";
+                        return false;
+                    }
+                }
+            }
+
+            if (_status == EquipmentStatus.Alarm || AlarmManager.HasActive)
             {
                 reason =
-                    "장비 동작 중에는 Recipe를 변경할 수 없습니다. " +
+                    "Alarm 상태에서는 Recipe를 저장하거나 적용할 수 없습니다. " +
+                    "알람 원인을 조치하고 RESET 완료 후 다시 실행하십시오.";
+                return false;
+            }
+
+            // 동일 이름 Recipe도 디스크의 Teaching/Offset 값이 변경됐을 수 있다.
+            // 이름 비교보다 먼저 모든 운전 상태를 확인하여 동작 중 재적용을 중앙 차단한다.
+            if (HasActiveEquipmentOperation)
+            {
+                reason =
+                    "장비 동작 중에는 Recipe를 변경하거나 다시 적용할 수 없습니다. " +
                     "Auto/Manual/READY/초기화 동작을 완전히 정지한 후 다시 실행하십시오. " +
                     "active=" + currentRecipeName + ", requested=" + nextRecipeName;
                 return false;
@@ -511,11 +631,49 @@ namespace QMC.CDT320
 
             string materialRecipeName;
             string materialDetail;
-            if (!HasInMachineMaterial(out materialRecipeName, out materialDetail))
-                return true;
+            bool hasMaterial = HasInMachineMaterial(out materialRecipeName, out materialDetail);
+
+            bool hasPhysicalEvidence = false;
+            string physicalDetail = string.Empty;
+            if (!string.IsNullOrWhiteSpace(currentRecipeName))
+            {
+                string physicalCheckReason;
+                if (!TryCollectRecipePhysicalProductEvidence(
+                        out hasPhysicalEvidence,
+                        out physicalDetail,
+                        out physicalCheckReason))
+                {
+                    reason =
+                        "실제 제품 감지 신호를 확인할 수 없어 Recipe 적용을 차단했습니다. " +
+                        physicalCheckReason +
+                        " active=" + currentRecipeName +
+                        ", requested=" + nextRecipeName;
+                    return false;
+                }
+            }
+
+            bool sameRecipe = string.Equals(
+                currentRecipeName,
+                nextRecipeName,
+                StringComparison.OrdinalIgnoreCase);
+            if (sameRecipe)
+            {
+                if (!hasMaterial && !hasPhysicalEvidence)
+                    return true;
+
+                reason =
+                    "장비 내부에 제품이 있어 동일 Recipe 재적용을 차단했습니다. " +
+                    "제품을 정상 언로드한 후 다시 적용하십시오. " +
+                    "recipe=" + nextRecipeName +
+                    ", material=" + materialDetail +
+                    (hasPhysicalEvidence ? ", physical=" + physicalDetail : string.Empty);
+                return false;
+            }
 
             // 최초 기동 또는 잘못 적용된 Recipe에서 저장 Material의 원래 Recipe로 복구하는 경우만 허용한다.
-            if (!string.IsNullOrWhiteSpace(materialRecipeName) &&
+            if (hasMaterial &&
+                !string.IsNullOrWhiteSpace(materialRecipeName) &&
+                !string.Equals(currentRecipeName, materialRecipeName, StringComparison.OrdinalIgnoreCase) &&
                 string.Equals(materialRecipeName, nextRecipeName, StringComparison.OrdinalIgnoreCase))
             {
                 materialRecipeRestore = true;
@@ -527,14 +685,251 @@ namespace QMC.CDT320
                 return true;
             }
 
+            if (!hasMaterial && !hasPhysicalEvidence)
+                return true;
+
             reason =
                 "장비 내부에 제품이 있어 Recipe 변경을 차단했습니다. " +
                 "제품을 정상 언로드한 후 Recipe를 변경하십시오. " +
                 "active=" + currentRecipeName +
                 ", requested=" + nextRecipeName +
                 ", materialRecipe=" + (string.IsNullOrWhiteSpace(materialRecipeName) ? "-" : materialRecipeName) +
-                ", material=" + materialDetail;
+                ", material=" + materialDetail +
+                (hasPhysicalEvidence ? ", physical=" + physicalDetail : string.Empty);
             return false;
+        }
+
+        private void EndRecipeApplyOperation()
+        {
+            lock (_recipeOperationLock)
+                _recipeApplyOperationActive = false;
+        }
+
+        private sealed class RecipeApplyOperationLease : IDisposable
+        {
+            private MachineController _owner;
+
+            public RecipeApplyOperationLease(MachineController owner)
+            {
+                _owner = owner;
+            }
+
+            public void Dispose()
+            {
+                MachineController owner = Interlocked.Exchange(ref _owner, null);
+                if (owner != null)
+                    owner.EndRecipeApplyOperation();
+            }
+        }
+
+        public void NotifyRecipeConfigurationApplied()
+        {
+            lock (_recipeOperationLock)
+                _recipeConfigurationGeneration++;
+
+            InvalidateRecipeRunReadiness();
+        }
+
+        private bool TryBeginRecipeStartAttempt(
+            string source,
+            out CancellationTokenSource attemptCts,
+            out long recipeGeneration,
+            out string reason)
+        {
+            attemptCts = null;
+            recipeGeneration = 0;
+            reason = string.Empty;
+
+            lock (_recipeOperationLock)
+            {
+                if (_recipeApplyOperationActive)
+                {
+                    reason = "Recipe 저장/적용 작업이 진행 중이므로 START를 시작할 수 없습니다.";
+                    return false;
+                }
+
+                if (_recipeStartAttemptCts != null)
+                {
+                    reason = "다른 START 준비 작업이 이미 진행 중입니다.";
+                    return false;
+                }
+
+                if (_status == EquipmentStatus.Alarm || AlarmManager.HasActive)
+                {
+                    reason = "Alarm 상태에서는 START를 수행할 수 없습니다.";
+                    return false;
+                }
+
+                attemptCts = new CancellationTokenSource();
+                _recipeStartAttemptCts = attemptCts;
+                recipeGeneration = _recipeConfigurationGeneration;
+            }
+
+            QMC.Common.Log.Write(
+                "Main",
+                "SYSTEM",
+                source,
+                "START 단일 실행 Gate를 획득했습니다. recipeGeneration=" +
+                recipeGeneration + " - Start");
+            return true;
+        }
+
+        private void EndRecipeStartAttempt(CancellationTokenSource attemptCts, string source)
+        {
+            if (attemptCts == null)
+                return;
+
+            bool released = false;
+            lock (_recipeOperationLock)
+            {
+                if (object.ReferenceEquals(_recipeStartAttemptCts, attemptCts))
+                {
+                    _recipeStartAttemptCts = null;
+                    released = true;
+                }
+            }
+
+            try { attemptCts.Dispose(); } catch { }
+            if (released)
+            {
+                QMC.Common.Log.Write(
+                    "Main",
+                    "SYSTEM",
+                    source,
+                    "START 단일 실행 Gate를 해제했습니다. - End");
+            }
+        }
+
+        private void CancelRecipeStartAttempt(string reason)
+        {
+            CancellationTokenSource attemptCts;
+            lock (_recipeOperationLock)
+                attemptCts = _recipeStartAttemptCts;
+
+            if (attemptCts == null)
+                return;
+
+            try
+            {
+                if (!attemptCts.IsCancellationRequested)
+                    attemptCts.Cancel();
+            }
+            catch (ObjectDisposedException)
+            {
+            }
+
+            QMC.Common.Log.Write(
+                "Main",
+                "SYSTEM",
+                "RecipeStartAttempt",
+                "대기 중인 START 준비 작업을 취소했습니다. reason=" +
+                (reason ?? string.Empty) + " - Canceled");
+        }
+
+        private bool IsRecipeStartAttemptValid(
+            CancellationTokenSource attemptCts,
+            long recipeGeneration,
+            string source,
+            out string reason)
+        {
+            reason = string.Empty;
+            if (attemptCts == null || attemptCts.IsCancellationRequested)
+            {
+                reason = "START 준비 작업이 STOP/Alarm 요청으로 취소되었습니다.";
+                return false;
+            }
+
+            lock (_recipeOperationLock)
+            {
+                if (!object.ReferenceEquals(_recipeStartAttemptCts, attemptCts))
+                {
+                    reason = "현재 START 준비 작업의 소유권이 변경되었습니다.";
+                    return false;
+                }
+
+                if (_recipeConfigurationGeneration != recipeGeneration)
+                {
+                    reason =
+                        "START 준비 중 Recipe 설정 세대가 변경되었습니다. expected=" +
+                        recipeGeneration + ", actual=" + _recipeConfigurationGeneration;
+                    return false;
+                }
+            }
+
+            if (_status == EquipmentStatus.Alarm || AlarmManager.HasActive)
+            {
+                reason = "START 준비 중 Alarm이 발생했습니다.";
+                return false;
+            }
+
+            return true;
+        }
+
+        public bool CompleteRecipeApplyContext(string recipeName, out string reason)
+        {
+            reason = string.Empty;
+            string normalizedRecipeName = string.IsNullOrWhiteSpace(recipeName)
+                ? string.Empty
+                : recipeName.Trim();
+            if (string.IsNullOrWhiteSpace(normalizedRecipeName) ||
+                !string.Equals(
+                    ActiveRecipeName ?? string.Empty,
+                    normalizedRecipeName,
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                reason =
+                    "적용 완료 Recipe와 Controller Active Recipe가 다릅니다. active=" +
+                    (ActiveRecipeName ?? string.Empty) +
+                    ", applied=" + normalizedRecipeName;
+                return false;
+            }
+
+            string materialRecipeName;
+            string materialDetail;
+            if (HasInMachineMaterial(out materialRecipeName, out materialDetail))
+            {
+                if (string.Equals(
+                        materialRecipeName,
+                        normalizedRecipeName,
+                        StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+
+                reason =
+                    "Recipe 적용 직후 Material이 새로 확인되어 Material Recipe 문맥을 변경할 수 없습니다. " +
+                    "active=" + normalizedRecipeName +
+                    ", materialRecipe=" + materialRecipeName +
+                    ", material=" + materialDetail;
+                return false;
+            }
+
+            bool hasPhysicalEvidence;
+            string physicalDetail;
+            string physicalCheckReason;
+            if (!TryCollectRecipePhysicalProductEvidence(
+                    out hasPhysicalEvidence,
+                    out physicalDetail,
+                    out physicalCheckReason))
+            {
+                reason =
+                    "Recipe 적용 직후 실제 제품 감지 신호를 확인할 수 없습니다. " +
+                    physicalCheckReason;
+                return false;
+            }
+
+            if (hasPhysicalEvidence)
+            {
+                reason =
+                    "Recipe 적용 직후 미등록 실물이 감지되어 Material Recipe 문맥 변경을 차단했습니다. " +
+                    physicalDetail;
+                return false;
+            }
+
+            MaterialStateService.UpdateRecipeContext(
+                normalizedRecipeName,
+                "RecipeApplyEmptyMachine");
+            return true;
         }
 
         public bool CompleteMaterialRecipeRestore(string recipeName)
@@ -629,56 +1024,355 @@ namespace QMC.CDT320
                 return true;
             }
 
-            var waferLocations = new HashSet<MaterialLocationKind>
-            {
-                MaterialLocationKind.InputFeeder,
-                MaterialLocationKind.InputStage,
-                MaterialLocationKind.OutputStageGood,
-                MaterialLocationKind.OutputStageNg,
-                MaterialLocationKind.OutputFeeder
-            };
-
             if (state.Wafers != null)
             {
                 foreach (WaferMaterial wafer in state.Wafers)
                 {
                     if (wafer == null ||
-                        wafer.CurrentLocation == null ||
-                        !waferLocations.Contains(wafer.CurrentLocation.Kind) ||
                         WaferMaterialStateText.Normalize(wafer.State) == WaferMaterialState.Empty)
                     {
                         continue;
                     }
 
-                    evidence.Add(wafer.CurrentLocation.Kind + ":" + (wafer.WaferId ?? "-"));
+                    string location = wafer.CurrentLocation != null
+                        ? wafer.CurrentLocation.Kind.ToString()
+                        : MaterialLocationKind.Unknown.ToString();
+                    evidence.Add("Wafer@" + location + ":" + (wafer.WaferId ?? "-"));
+                }
+            }
+
+            if (state.Cassettes != null)
+            {
+                foreach (CassetteMaterial cassette in state.Cassettes)
+                {
+                    if (cassette == null || cassette.Slots == null)
+                        continue;
+
+                    if (cassette.IsEnabled && cassette.IsPresent && !cassette.IsMapped)
+                    {
+                        evidence.Add(
+                            "Cassette@" + cassette.Role +
+                            "-L" + cassette.Level +
+                            ":Present/Unmapped");
+                    }
+
+                    foreach (CassetteSlotMaterial slot in cassette.Slots)
+                    {
+                        if (slot == null ||
+                            (!slot.HasWafer && string.IsNullOrWhiteSpace(slot.WaferId)))
+                        {
+                            continue;
+                        }
+
+                        evidence.Add(
+                            "Cassette@" + cassette.Role +
+                            "-L" + cassette.Level +
+                            "-S" + (slot.SlotNumber + 1) +
+                            ":" + (string.IsNullOrWhiteSpace(slot.WaferId) ? "(미등록)" : slot.WaferId) +
+                            (slot.HasWafer ? string.Empty : "(HasWafer=False)"));
+                    }
                 }
             }
 
             if (state.Dies != null)
             {
-                foreach (DieMaterial die in state.Dies)
-                {
-                    if (die == null || die.CurrentLocation == null)
-                        continue;
+                var knownDies = state.Dies
+                    .Where(die =>
+                        die != null &&
+                        die.CurrentLocation != null &&
+                        die.CurrentLocation.Kind != MaterialLocationKind.Unknown)
+                    .GroupBy(die => die.CurrentLocation.Kind);
 
-                    if (die.CurrentLocation.Kind == MaterialLocationKind.PickerFront ||
-                        die.CurrentLocation.Kind == MaterialLocationKind.PickerRear)
-                    {
-                        evidence.Add(
-                            die.CurrentLocation.Kind + "#" + die.CurrentLocation.PickerNo +
-                            ":" + (die.DieId ?? "-"));
-                    }
+                foreach (var group in knownDies)
+                {
+                    string samples = string.Join(
+                        "|",
+                        group.Take(3).Select(die => die.DieId ?? "-"));
+                    evidence.Add(
+                        "Dies@" + group.Key +
+                        ":count=" + group.Count() +
+                        ", sample=" + samples);
                 }
             }
-
-            // Recipe 변경은 Material 데이터만으로 판단한다.
-            // Flow/Ring 등 DI는 Vacuum 상태·배관 잔압·센서 조건에 따라 ON일 수 있으므로
-            // 장비 내부 제품 보유 여부 또는 Recipe 변경 차단 근거로 사용하지 않는다.
 
             detail = evidence.Count > 0
                 ? string.Join(", ", evidence.Distinct(StringComparer.OrdinalIgnoreCase))
                 : "None";
             return evidence.Count > 0;
+        }
+
+        private sealed class RecipePresenceSensorState
+        {
+            public bool Bypassed;
+            public bool InputFeeder;
+            public bool InputStage;
+            public bool OutputStageGood;
+            public bool OutputStageNg;
+            public bool OutputFeeder;
+            public bool InputCassetteProtrusion;
+            public bool OutputCassetteProtrusion;
+        }
+
+        private bool TryCollectRecipePhysicalProductEvidence(
+            out bool hasEvidence,
+            out string detail,
+            out string reason)
+        {
+            hasEvidence = false;
+            detail = string.Empty;
+            reason = string.Empty;
+
+            RecipePresenceSensorState sensors;
+            if (!TryReadRecipePresenceSensors(out sensors, out reason))
+                return false;
+
+            if (sensors.Bypassed)
+                return true;
+
+            var evidence = new List<string>();
+            if (sensors.InputFeeder)
+                evidence.Add("InputFeederRing=ON");
+            if (sensors.InputStage)
+                evidence.Add("InputStageRing=ON");
+            if (sensors.OutputStageGood)
+                evidence.Add("OutputGoodStageRing=ON");
+            if (sensors.OutputStageNg)
+                evidence.Add("OutputNgStageRing=ON");
+            if (sensors.OutputFeeder)
+                evidence.Add("OutputFeederRing=ON");
+            if (sensors.InputCassetteProtrusion)
+                evidence.Add("InputCassetteProtrusion=ON");
+            if (sensors.OutputCassetteProtrusion)
+                evidence.Add("OutputCassetteProtrusion=ON");
+
+            hasEvidence = evidence.Count > 0;
+            detail = hasEvidence ? string.Join(", ", evidence) : "None";
+            return true;
+        }
+
+        private bool TryValidateRecipeMaterialSensorConsistency(out string reason)
+        {
+            reason = string.Empty;
+            RecipePresenceSensorState sensors;
+            if (!TryReadRecipePresenceSensors(out sensors, out reason))
+                return false;
+
+            if (sensors.Bypassed)
+                return true;
+
+            var mismatches = new List<string>();
+            AddRecipePresenceMismatch(
+                mismatches,
+                MaterialLocationKind.InputFeeder,
+                sensors.InputFeeder);
+            AddRecipePresenceMismatch(
+                mismatches,
+                MaterialLocationKind.InputStage,
+                sensors.InputStage);
+            AddRecipePresenceMismatch(
+                mismatches,
+                MaterialLocationKind.OutputStageGood,
+                sensors.OutputStageGood);
+            AddRecipePresenceMismatch(
+                mismatches,
+                MaterialLocationKind.OutputStageNg,
+                sensors.OutputStageNg);
+            AddRecipePresenceMismatch(
+                mismatches,
+                MaterialLocationKind.OutputFeeder,
+                sensors.OutputFeeder);
+
+            if (sensors.InputCassetteProtrusion)
+                mismatches.Add("InputCassette 돌출 감지=ON");
+            if (sensors.OutputCassetteProtrusion)
+                mismatches.Add("OutputCassette 돌출 감지=ON");
+
+            if (mismatches.Count == 0)
+                return true;
+
+            reason =
+                "Material 데이터와 실제 Ring 감지 상태가 일치하지 않습니다. " +
+                string.Join(", ", mismatches);
+            return false;
+        }
+
+        private static void AddRecipePresenceMismatch(
+            ICollection<string> mismatches,
+            MaterialLocationKind location,
+            bool sensorDetected)
+        {
+            WaferMaterial wafer = MaterialStateService.GetWaferAtLocation(location);
+            bool dataPresent =
+                wafer != null &&
+                WaferMaterialStateText.Normalize(wafer.State) != WaferMaterialState.Empty;
+            if (dataPresent == sensorDetected)
+                return;
+
+            mismatches.Add(
+                location +
+                "[data=" + (dataPresent ? "Present" : "Empty") +
+                ", sensor=" + (sensorDetected ? "ON" : "OFF") + "]");
+        }
+
+        private bool TryReadRecipePresenceSensors(
+            out RecipePresenceSensorState state,
+            out string reason)
+        {
+            state = new RecipePresenceSensorState();
+            reason = string.Empty;
+
+            AppSettings settings = AppSettingsStore.Current;
+            bool virtualMode =
+                DryRun ||
+                GlobalDryRun ||
+                (settings != null &&
+                 (!settings.UseAjin ||
+                  settings.SimulationMode ||
+                  settings.DryRunMode ||
+                  settings.BypassHardware));
+            if (virtualMode)
+            {
+                state.Bypassed = true;
+                return true;
+            }
+
+            if (!AjinFactory.IsRealBoardReady)
+            {
+                reason =
+                    "실장비 I/O 모드이지만 AJIN 보드가 준비되지 않아 제품 감지 센서를 확인할 수 없습니다.";
+                return false;
+            }
+
+            bool inputFeeder;
+            if (!TryReadRecipePresenceSensor(
+                    _machine.InputFeederUnit != null
+                        ? _machine.InputFeederUnit.WaferFeederRingCheckSensor
+                        : null,
+                    "InputFeederRing",
+                    out inputFeeder,
+                    out reason))
+            {
+                return false;
+            }
+
+            bool inputStage8;
+            if (!TryReadRecipePresenceSensor(
+                    _machine.InputStageUnit != null
+                        ? _machine.InputStageUnit.WaferStage8RingCheckSensor
+                        : null,
+                    "InputStage8Ring",
+                    out inputStage8,
+                    out reason))
+            {
+                return false;
+            }
+
+            bool inputStage12;
+            if (!TryReadRecipePresenceSensor(
+                    _machine.InputStageUnit != null
+                        ? _machine.InputStageUnit.WaferStage12RingCheckSensor
+                        : null,
+                    "InputStage12Ring",
+                    out inputStage12,
+                    out reason))
+            {
+                return false;
+            }
+
+            bool outputStageGood;
+            if (!TryReadRecipePresenceSensor(
+                    _machine.OutputStageUnit != null
+                        ? _machine.OutputStageUnit.GoodBinRingSensor
+                        : null,
+                    "OutputGoodStageRing",
+                    out outputStageGood,
+                    out reason))
+            {
+                return false;
+            }
+
+            bool outputStageNg;
+            if (!TryReadRecipePresenceSensor(
+                    _machine.OutputStageUnit != null
+                        ? _machine.OutputStageUnit.NgBinRingSensor
+                        : null,
+                    "OutputNgStageRing",
+                    out outputStageNg,
+                    out reason))
+            {
+                return false;
+            }
+
+            bool outputFeeder;
+            if (!TryReadRecipePresenceSensor(
+                    _machine.OutputFeederUnit != null
+                        ? _machine.OutputFeederUnit.BinFeederRingCheckSensor
+                        : null,
+                    "OutputFeederRing",
+                    out outputFeeder,
+                    out reason))
+            {
+                return false;
+            }
+
+            bool inputCassetteProtrusion;
+            if (!TryReadRecipePresenceSensor(
+                    _machine.InputCassetteUnit != null
+                        ? _machine.InputCassetteUnit.ProtrusionSensor
+                        : null,
+                    "InputCassetteProtrusion",
+                    out inputCassetteProtrusion,
+                    out reason))
+            {
+                return false;
+            }
+
+            bool outputCassetteProtrusion;
+            if (!TryReadRecipePresenceSensor(
+                    _machine.OutputCassetteUnit != null
+                        ? _machine.OutputCassetteUnit.ProtrusionSensor
+                        : null,
+                    "OutputCassetteProtrusion",
+                    out outputCassetteProtrusion,
+                    out reason))
+            {
+                return false;
+            }
+
+            state.InputFeeder = inputFeeder;
+            state.InputStage = inputStage8 || inputStage12;
+            state.OutputStageGood = outputStageGood;
+            state.OutputStageNg = outputStageNg;
+            state.OutputFeeder = outputFeeder;
+            state.InputCassetteProtrusion = inputCassetteProtrusion;
+            state.OutputCassetteProtrusion = outputCassetteProtrusion;
+            return true;
+        }
+
+        private static bool TryReadRecipePresenceSensor(
+            BaseDigitalInput sensor,
+            string sensorName,
+            out bool detected,
+            out string reason)
+        {
+            detected = false;
+            reason = string.Empty;
+            if (sensor == null)
+            {
+                reason = sensorName + " 센서 객체가 없습니다.";
+                return false;
+            }
+
+            int errorCode;
+            if (!AjinIoScanService.TryReadHardwareInput(sensor, out errorCode))
+            {
+                reason =
+                    sensorName + " 실입력 읽기에 실패했습니다. errorCode=" + errorCode;
+                return false;
+            }
+
+            detected = sensor.IsOn;
+            return true;
         }
 
         private static SharedRailXConfig CreateSharedRailXConfig()
@@ -1810,6 +2504,209 @@ namespace QMC.CDT320
         }
 
         /// <summary>
+        /// READY 모션과 Auto Coordinator 시작 전에 Handler/Material/marker/Vision Recipe를 동일하게 맞춘다.
+        /// 이름이 하나라도 다르거나 현재 MainComm의 ACK가 없으면 움직이지 않고 Alarm으로 차단한다.
+        /// </summary>
+        private async Task<bool> EnsureRecipeReadyForAutoStartAsync(
+            string source,
+            bool forceVisionRefresh,
+            CancellationToken ct)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+                string activeRecipeName = NormalizeRecipeIdentity(ActiveRecipeName);
+                if (string.IsNullOrWhiteSpace(activeRecipeName))
+                {
+                    return FailRecipeRunGate(
+                        source,
+                        "START-RECIPE-ACTIVE-EMPTY",
+                        "활성 Recipe가 없어 자동 운전을 시작할 수 없습니다.");
+                }
+
+                string markerRecipeName = NormalizeRecipeIdentity(RecipeStore.GetLastProjectName());
+                if (!string.Equals(
+                        activeRecipeName,
+                        markerRecipeName,
+                        StringComparison.OrdinalIgnoreCase))
+                {
+                    return FailRecipeRunGate(
+                        source,
+                        "START-RECIPE-MARKER-MISMATCH",
+                        "활성 Recipe와 .last_project가 다릅니다. active=" +
+                        activeRecipeName + ", lastProject=" +
+                        (string.IsNullOrWhiteSpace(markerRecipeName) ? "(없음)" : markerRecipeName));
+                }
+
+                MaterialSnapshot materialState = MaterialStateService.State;
+                string materialRecipeName = materialState != null
+                    ? NormalizeRecipeIdentity(materialState.RecipeName)
+                    : string.Empty;
+                if (materialState == null ||
+                    !string.Equals(
+                        activeRecipeName,
+                        materialRecipeName,
+                        StringComparison.OrdinalIgnoreCase))
+                {
+                    string materialDetail;
+                    string ignoredRecipeName;
+                    HasInMachineMaterial(out ignoredRecipeName, out materialDetail);
+                    return FailRecipeRunGate(
+                        source,
+                        "START-RECIPE-MATERIAL-MISMATCH",
+                        "활성 Recipe와 Material Recipe가 다릅니다. 자동으로 덮어쓰지 않습니다. " +
+                        "active=" + activeRecipeName +
+                        ", materialRecipe=" +
+                        (string.IsNullOrWhiteSpace(materialRecipeName) ? "(없음)" : materialRecipeName) +
+                        ", material=" + materialDetail);
+                }
+
+                if (QMC.CDT320.VisionComm.VisionHub.IsRecipeSynchronizationBypassed)
+                {
+                    QMC.Common.Log.Write(
+                        "Main",
+                        "SYSTEM",
+                        source,
+                        "Vision 미사용/가상 검사 설정으로 Recipe ACK Gate를 명시적으로 우회합니다. " +
+                        "recipe=" + activeRecipeName + " - Bypassed");
+                    MarkRecipeRunGateVerified(activeRecipeName);
+                    return true;
+                }
+
+                bool controllerGateFresh = IsRecipeRunGateFresh(activeRecipeName);
+                string ackReason;
+                bool visionAckFresh =
+                    QMC.CDT320.VisionComm.VisionHub.IsRecipeAcknowledged(
+                        activeRecipeName,
+                        TimeSpan.FromMinutes(2),
+                        out ackReason);
+
+                if (forceVisionRefresh || !controllerGateFresh || !visionAckFresh)
+                {
+                    bool acknowledged =
+                        await QMC.CDT320.VisionComm.VisionHub.BroadcastRecipeAsync(
+                            activeRecipeName,
+                            ct).ConfigureAwait(false);
+                    ct.ThrowIfCancellationRequested();
+                    if (!acknowledged ||
+                        !QMC.CDT320.VisionComm.VisionHub.IsRecipeAcknowledged(
+                            activeRecipeName,
+                            TimeSpan.FromMinutes(2),
+                            out ackReason))
+                    {
+                        return FailRecipeRunGate(
+                            source,
+                            "START-RECIPE-VISION-NO-ACK",
+                            "현재 Vision MainComm에서 활성 Recipe ACK를 받지 못했습니다. " +
+                            "recipe=" + activeRecipeName +
+                            ", detail=" + (ackReason ?? string.Empty));
+                    }
+                }
+
+                ct.ThrowIfCancellationRequested();
+                string activeRecipeAfter = NormalizeRecipeIdentity(ActiveRecipeName);
+                string markerRecipeAfter = NormalizeRecipeIdentity(RecipeStore.GetLastProjectName());
+                MaterialSnapshot materialStateAfter = MaterialStateService.State;
+                string materialRecipeAfter = materialStateAfter != null
+                    ? NormalizeRecipeIdentity(materialStateAfter.RecipeName)
+                    : string.Empty;
+                if (!string.Equals(activeRecipeName, activeRecipeAfter, StringComparison.OrdinalIgnoreCase) ||
+                    !string.Equals(activeRecipeName, markerRecipeAfter, StringComparison.OrdinalIgnoreCase) ||
+                    materialStateAfter == null ||
+                    !string.Equals(activeRecipeName, materialRecipeAfter, StringComparison.OrdinalIgnoreCase))
+                {
+                    return FailRecipeRunGate(
+                        source,
+                        "START-RECIPE-CHANGED-DURING-CHECK",
+                        "START Recipe 확인 중 Recipe/Material 상태가 변경되었습니다. " +
+                        "activeBefore=" + activeRecipeName +
+                        ", activeAfter=" + activeRecipeAfter +
+                        ", lastProject=" + markerRecipeAfter +
+                        ", materialRecipe=" + materialRecipeAfter);
+                }
+
+                MarkRecipeRunGateVerified(activeRecipeName);
+                QMC.Common.Log.Write(
+                    "Main",
+                    "SYSTEM",
+                    source,
+                    "Auto START Recipe Gate 통과. recipe=" + activeRecipeName +
+                    ", materialRecipe=" + materialRecipeName +
+                    ", lastProject=" + markerRecipeName +
+                    ", visionAck=" +
+                    QMC.CDT320.VisionComm.VisionHub.AcknowledgedRecipeName +
+                    " - Ok");
+                return true;
+            }
+            catch (OperationCanceledException)
+            {
+                LastActionFailureMessage = "START Recipe 정합성 확인이 STOP/Alarm 요청으로 취소되었습니다.";
+                QMC.Common.Log.Write(
+                    "Main",
+                    "SYSTEM",
+                    source,
+                    LastActionFailureMessage + " - Canceled");
+                return false;
+            }
+            catch (Exception ex)
+            {
+                return FailRecipeRunGate(
+                    source,
+                    "START-RECIPE-CHECK-EX",
+                    "START 전 Recipe 정합성 확인 중 예외가 발생했습니다. " + ex.Message);
+            }
+        }
+
+        private bool FailRecipeRunGate(string source, string alarmCode, string message)
+        {
+            LastActionFailureMessage = message;
+            QMC.Common.Log.Write(
+                "Main",
+                "SYSTEM",
+                source,
+                "Auto START Recipe Gate 실패. " + message + " - Failed");
+            AlarmManager.Raise(
+                AlarmSeverity.Error,
+                alarmCode,
+                "Recipe",
+                message);
+            Log("[START] Recipe Gate failed. code=" + alarmCode + ", detail=" + message);
+            SetStatus(EquipmentStatus.Alarm);
+            InvalidateRecipeRunReadiness();
+            return false;
+        }
+
+        private bool IsRecipeRunGateFresh(string recipeName)
+        {
+            lock (_recipeRunGateLock)
+            {
+                return
+                    string.Equals(
+                        _recipeRunGateVerifiedName,
+                        recipeName,
+                        StringComparison.OrdinalIgnoreCase) &&
+                    DateTime.UtcNow - _recipeRunGateVerifiedAtUtc <= TimeSpan.FromMinutes(2);
+            }
+        }
+
+        private void MarkRecipeRunGateVerified(string recipeName)
+        {
+            lock (_recipeRunGateLock)
+            {
+                _recipeRunGateVerifiedName = recipeName ?? string.Empty;
+                _recipeRunGateVerifiedAtUtc = DateTime.UtcNow;
+            }
+        }
+
+        private static string NormalizeRecipeIdentity(string recipeName)
+        {
+            if (string.IsNullOrWhiteSpace(recipeName))
+                return string.Empty;
+
+            return System.IO.Path.GetFileNameWithoutExtension(recipeName.Trim());
+        }
+
+        /// <summary>
         /// Ready 모션 전에 InputStage/InputFeeder의 활성 wafer와 원본 Cassette/Slot Material 정합성을 확인한다.
         /// 원본을 식별할 수 없는 상태에서 자동 시퀀스를 시작하면 Input/Picker가 서로 완료 신호만 기다릴 수 있으므로
         /// 자동 복구하거나 임의 데이터를 만들지 않고 Error Alarm으로 시작을 차단한다.
@@ -2889,6 +3786,7 @@ namespace QMC.CDT320
             Log("[E-STOP] Emergency stop start...");
             try
             {
+                CancelRecipeStartAttempt("EmergencyStop");
                 MotionGuardRuntime.CancelPickerYCollisionRecoveryJog(null);
                 SetMachineInitialized(false, "EmergencyStop", false);
                 _cycleCts?.Cancel();
@@ -6086,12 +6984,30 @@ namespace QMC.CDT320
 
         public async Task<int> StartAsync(RuntimeAutoFocusScanMode? startupAutoFocusMode = null)
         {
+            CancellationTokenSource startAttemptCts = null;
+            long recipeGeneration = 0;
             try
             {
                 if (IsAutomaticStartTemporarilyDisabled())
                     return -1;
 
                 LastActionFailureMessage = "";
+
+                string startAdmissionReason;
+                if (!TryBeginRecipeStartAttempt(
+                        "StartAsync",
+                        out startAttemptCts,
+                        out recipeGeneration,
+                        out startAdmissionReason))
+                {
+                    LastActionFailureMessage = startAdmissionReason;
+                    QMC.Common.Log.Write(
+                        "Main",
+                        "SYSTEM",
+                        "StartAsync",
+                        "START 진입 차단. " + startAdmissionReason + " - Blocked");
+                    return -1;
+                }
 
                 if (_status == EquipmentStatus.Alarm)
                 {
@@ -6121,6 +7037,26 @@ namespace QMC.CDT320
                 if (!EnsureMachineInitializedForRun("StartAsync"))
                     return -1;
 
+                // Recipe/Vision 오류는 READY 축을 움직이기 전에 차단한다.
+                if (!await EnsureRecipeReadyForAutoStartAsync(
+                        "StartAsync",
+                        true,
+                        startAttemptCts.Token).ConfigureAwait(false))
+                {
+                    return -1;
+                }
+
+                string startAttemptReason;
+                if (!IsRecipeStartAttemptValid(
+                        startAttemptCts,
+                        recipeGeneration,
+                        "StartAsync",
+                        out startAttemptReason))
+                {
+                    LastActionFailureMessage = startAttemptReason;
+                    return -1;
+                }
+
                 // Stage/Feeder에 남은 Input wafer의 원본 Cassette 정보를 식별할 수 없으면
                 // Ready 모션 전에 Alarm으로 차단한다. START에서 Material을 임의 생성/복원하지 않는다.
                 if (!EnsureActiveInputWaferSourceForAutoStart("StartAsync"))
@@ -6134,6 +7070,16 @@ namespace QMC.CDT320
                 if (readyResult != 0)
                     return readyResult;
 
+                if (!IsRecipeStartAttemptValid(
+                        startAttemptCts,
+                        recipeGeneration,
+                        "StartAsync.AfterReady",
+                        out startAttemptReason))
+                {
+                    LastActionFailureMessage = startAttemptReason;
+                    return -1;
+                }
+
                 if (!EnsureReticleAvoidForAutoStart("StartAsync"))
                     return -1;
 
@@ -6145,10 +7091,24 @@ namespace QMC.CDT320
                 Log("[START] Process auto sequence start.");
                 QMC.Common.Log.Write("Main", "SYSTEM", "StartAsync", "Process auto sequence start requested. - Ok");
 
-                await StartSequenceAsync(
-                    QMC.CDT320.Sequencing.SequenceRunOptions.ProcessAuto()).ConfigureAwait(false);
+                int sequenceStartResult = await StartSequenceCoreAsync(
+                    QMC.CDT320.Sequencing.SequenceRunOptions.ProcessAuto(),
+                    startAttemptCts,
+                    recipeGeneration).ConfigureAwait(false);
+                if (sequenceStartResult != 0)
+                    return sequenceStartResult;
 
                 return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                LastActionFailureMessage = "START 준비가 STOP/Alarm 요청으로 취소되었습니다.";
+                QMC.Common.Log.Write(
+                    "Main",
+                    "SYSTEM",
+                    "StartAsync",
+                    LastActionFailureMessage + " - Canceled");
+                return -1;
             }
             catch (Exception ex)
             {
@@ -6161,6 +7121,7 @@ namespace QMC.CDT320
             }
             finally
             {
+                EndRecipeStartAttempt(startAttemptCts, "StartAsync");
             }
         }
 
@@ -6309,6 +7270,8 @@ namespace QMC.CDT320
 
         private void OnStopRequested()
         {
+            CancelRecipeStartAttempt("StopRequested");
+
             var handler = StopRequested;
             if (handler == null)
                 return;
@@ -7624,15 +8587,65 @@ namespace QMC.CDT320
         /// 지정한 옵션으로 병렬 시퀀스 Coordinator를 시작합니다.
         /// 자동 운전의 기준 진입점이며, Unit/Mode/StartMode는 SequenceRunOptions로 결정합니다.
         /// </summary>
-        public async Task StartSequenceAsync(QMC.CDT320.Sequencing.SequenceRunOptions options)
+        public async Task<int> StartSequenceAsync(QMC.CDT320.Sequencing.SequenceRunOptions options)
+        {
+            CancellationTokenSource startAttemptCts = null;
+            long recipeGeneration = 0;
+            try
+            {
+                string reason;
+                if (!TryBeginRecipeStartAttempt(
+                        "StartSequenceAsync",
+                        out startAttemptCts,
+                        out recipeGeneration,
+                        out reason))
+                {
+                    LastActionFailureMessage = reason;
+                    QMC.Common.Log.Write(
+                        "Main",
+                        "SYSTEM",
+                        "StartSequenceAsync",
+                        "Sequence START 진입 차단. " + reason + " - Blocked");
+                    return -1;
+                }
+
+                return await StartSequenceCoreAsync(
+                    options,
+                    startAttemptCts,
+                    recipeGeneration).ConfigureAwait(false);
+            }
+            finally
+            {
+                EndRecipeStartAttempt(startAttemptCts, "StartSequenceAsync");
+            }
+        }
+
+        private async Task<int> StartSequenceCoreAsync(
+            QMC.CDT320.Sequencing.SequenceRunOptions options,
+            CancellationTokenSource startAttemptCts,
+            long recipeGeneration)
         {
             try
             {
+                string startAttemptReason;
+                if (!IsRecipeStartAttemptValid(
+                        startAttemptCts,
+                        recipeGeneration,
+                        "StartSequenceCoreAsync",
+                        out startAttemptReason))
+                {
+                    LastActionFailureMessage = startAttemptReason;
+                    return -1;
+                }
+
                 if (!EnsureMachineInitializedForRun("StartSequenceAsync"))
-                    return;
+                    return -1;
 
                 if (_coordinatorTask != null && !_coordinatorTask.IsCompleted)
-                    await StopSequenceAsync().ConfigureAwait(false);
+                {
+                    LastActionFailureMessage = "다른 Sequence가 실행 중이므로 새 Sequence START를 차단했습니다.";
+                    return -1;
+                }
 
                 if (options == null)
                     options = QMC.CDT320.Sequencing.SequenceRunOptions.FullAuto();
@@ -7640,13 +8653,33 @@ namespace QMC.CDT320
                 // 모든 자동 운전 진입점이 지나는 최종 관문(운전 패널·UI·내부 호출 공통).
                 if (options.Mode == QMC.CDT320.Sequencing.SequenceRunMode.Auto &&
                     !EnsureActiveLotForAutoStart("StartSequenceAsync"))
-                    return;
+                    return -1;
+
+                if (options.Mode == QMC.CDT320.Sequencing.SequenceRunMode.Auto &&
+                    !await EnsureRecipeReadyForAutoStartAsync(
+                        "StartSequenceAsync",
+                        false,
+                        startAttemptCts.Token).ConfigureAwait(false))
+                {
+                    return -1;
+                }
 
                 if (options.Mode == QMC.CDT320.Sequencing.SequenceRunMode.Auto &&
                     !EnsureReticleAvoidForAutoStart("StartSequenceAsync"))
-                    return;
+                    return -1;
 
-                _autoCts = new CancellationTokenSource();
+                if (!IsRecipeStartAttemptValid(
+                        startAttemptCts,
+                        recipeGeneration,
+                        "StartSequenceAsync.BeforeCoordinator",
+                        out startAttemptReason))
+                {
+                    LastActionFailureMessage = startAttemptReason;
+                    return -1;
+                }
+
+                _autoCts = CancellationTokenSource.CreateLinkedTokenSource(
+                    startAttemptCts.Token);
                 var bus = new QMC.CDT320.Sequencing.SequenceSignalBus();
                 TactTimeRecorder tact = CreateTactTimeRecorder(options);
                 _activeTactTimeRecorder = tact;
@@ -7817,6 +8850,17 @@ namespace QMC.CDT320
                         }
                     }
                 });
+                return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                LastActionFailureMessage = "Sequence START 준비가 STOP/Alarm 요청으로 취소되었습니다.";
+                QMC.Common.Log.Write(
+                    "Main",
+                    "SYSTEM",
+                    "StartSequenceAsync",
+                    LastActionFailureMessage + " - Canceled");
+                return -1;
             }
             catch (Exception ex)
             {
@@ -7915,6 +8959,8 @@ namespace QMC.CDT320
         /// <summary>실행 중인 병렬 시퀀스를 중단하고 Coordinator 종료를 대기합니다.</summary>
         public async Task StopSequenceAsync()
         {
+            CancelRecipeStartAttempt("StopSequence");
+
             var coordinator = _coordinator;
             var cts = _autoCts;
             var task = _coordinatorTask;
@@ -8341,7 +9387,7 @@ namespace QMC.CDT320
         }
 
         /// <summary>지정한 유닛들을 Manual 모드로 시작합니다.</summary>
-        public Task StartManualAsync(QMC.CDT320.Sequencing.SequenceUnitKind units)
+        public Task<int> StartManualAsync(QMC.CDT320.Sequencing.SequenceUnitKind units)
         {
             return StartSequenceAsync(new QMC.CDT320.Sequencing.SequenceRunOptions
             {
@@ -8351,7 +9397,7 @@ namespace QMC.CDT320
         }
 
         /// <summary>지정한 단일 유닛을 지정 실행 모드로 시작합니다.</summary>
-        public Task StartSingleUnitAsync(
+        public Task<int> StartSingleUnitAsync(
             QMC.CDT320.Sequencing.SequenceUnitKind unit,
             QMC.CDT320.Sequencing.SequenceRunMode mode)
         {
@@ -8444,7 +9490,11 @@ namespace QMC.CDT320
                 foreach (var ax in EnumerateAxes())
                     ax.ServoOn();
 
-                await StartSequenceAsync(QMC.CDT320.Sequencing.SequenceRunOptions.ProcessStep()).ConfigureAwait(false);
+                int startResult = await StartSequenceAsync(
+                    QMC.CDT320.Sequencing.SequenceRunOptions.ProcessStep()).ConfigureAwait(false);
+                if (startResult != 0)
+                    return startResult;
+
                 ManualStep(unit);
 
                 QMC.Common.Log.Write("Main", "SYSTEM", "RunManualSequenceUnitStep",
@@ -9295,8 +10345,10 @@ namespace QMC.CDT320
                 foreach (var ax in EnumerateAxes())
                     ax.ServoOn();
 
-                await StartSequenceAsync(
+                int startResult = await StartSequenceAsync(
                     QMC.CDT320.Sequencing.SequenceRunOptions.ProcessStep()).ConfigureAwait(false);
+                if (startResult != 0)
+                    return startResult;
 
                 ManualStepAll();
                 QMC.Common.Log.Write("Main", "SYSTEM", "RunProcessSequenceStep",
@@ -9373,9 +10425,11 @@ namespace QMC.CDT320
                 foreach (var ax in EnumerateAxes())
                     ax.ServoOn();
 
-                await StartSingleUnitAsync(
+                int startResult = await StartSingleUnitAsync(
                     QMC.CDT320.Sequencing.SequenceUnitKind.InputLoader,
                     QMC.CDT320.Sequencing.SequenceRunMode.Step).ConfigureAwait(false);
+                if (startResult != 0)
+                    return startResult;
 
                 ManualStep(QMC.CDT320.Sequencing.SequenceUnitKind.InputLoader);
                 QMC.Common.Log.Write("Main", "SYSTEM", "RunInputSequenceStep",

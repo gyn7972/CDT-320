@@ -545,7 +545,10 @@ namespace QMC.CDT320.VisionComm
                 throw new ArgumentException("recipeName is empty", nameof(recipeName));
 
             VisionProtocolResponse response = await SendCommandAsync(VisionProtocolCommand.Recipe, timeoutMs, ct, recipeName).ConfigureAwait(false);
-            return response.IsAck;
+            return
+                response.IsAck &&
+                string.Equals(response.Module, ModuleName, StringComparison.OrdinalIgnoreCase) &&
+                string.Equals(response.Command, VisionProtocolCommands.Recipe, StringComparison.OrdinalIgnoreCase);
         }
 
         public async Task<VisionScaleResult> ScaleAsync(double chipWidthMm, double chipHeightMm, int timeoutMs = 5000)

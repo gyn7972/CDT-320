@@ -21,11 +21,12 @@ namespace QMC.CDT320.Sequencing
     internal static class PlaceRuntimeOffsetService
     {
         // 이상치 거부 한계: 현재 필터 출력 대비 편차가 이 값 이상이면 해당 채널 샘플 폐기.
-        private const double OutlierLimitXyMm = 1.0;
-        private const double OutlierLimitTDeg = 0.5;
+        private const double OutlierLimitXyMm = 3; //기존: 0.5 → 2026-07-29 사용자 실장비 확인으로 3 로 완화   구영남
+        private const double OutlierLimitTDeg = 1; //기존: 0.5 → 2026-07-29 사용자 실장비 확인으로 1.0°로 완화   구영남
+
         // 발산 방지 클램프 한계 (필터 상태값 자체를 이 범위로 제한, Pick 보정과 동일).
-        private const double ClampLimitXyMm = 0.50;
-        private const double ClampLimitTDeg = 0.5;
+        private const double ClampLimitXyMm = 2;    //기존: 0.5 → 2026-07-29 사용자 실장비 확인으로 2.0mm로 완화   구영남
+        private const double ClampLimitTDeg = 1;    //기존: 0.5 → 2026-07-29 사용자 실장비 확인으로 1.0°로 완화   구영남
 
         private static readonly object Sync = new object();
         private static bool _loaded;

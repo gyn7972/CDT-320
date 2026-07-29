@@ -137,20 +137,41 @@ namespace QMC.Common
         /// </summary>
         public override void LoadRecipe(string recipeName)
         {
-            try
-            {
-                Recipe = UnitDataStore.LoadRecipe(recipeName, StorageKey, Recipe);
+            Recipe = UnitDataStore.LoadRecipeRequired<TRecipe>(recipeName, StorageKey);
 
-                foreach (BaseEquipmentNode component in Components)
-                    component.LoadRecipe(recipeName);
-            }
-            catch
-            {
-            }
-            finally
-            {
-            }
+            foreach (BaseEquipmentNode component in Components)
+                component.LoadRecipe(recipeName);
         }
+
+        public override bool ValidateRecipe(string recipeName, out string reason)
+        {
+            TRecipe loaded;
+            if (!UnitDataStore.TryLoadRecipeRequired(
+                    recipeName,
+                    StorageKey,
+                    out loaded,
+                    out reason))
+            {
+                return false;
+            }
+
+            foreach (BaseEquipmentNode component in Components)
+            {
+                string componentReason;
+                if (component.ValidateRecipe(recipeName, out componentReason))
+                    continue;
+
+                reason =
+                    "Unit 하위 Recipe 검증 실패. unit=" + Name +
+                    ", component=" + component.Name +
+                    ", detail=" + componentReason;
+                return false;
+            }
+
+            reason = string.Empty;
+            return true;
+        }
+
         /// <summary>
         /// Composite: 자신의 Setup / Config 저장 파일을 삭제한 뒤 모든 자식 Component로 위임.
         /// </summary>

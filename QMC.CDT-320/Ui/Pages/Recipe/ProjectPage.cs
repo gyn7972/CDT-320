@@ -734,6 +734,18 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 if (project == null || string.IsNullOrWhiteSpace(project.FileName))
                     return;
 
+                var host = FindForm() as Form1;
+                if (host == null)
+                    throw new InvalidOperationException("메인 화면을 찾을 수 없습니다.");
+
+                string validationReason;
+                if (!host.TryValidateMachineRecipeChange(
+                        project.FileName,
+                        out validationReason))
+                {
+                    throw new InvalidOperationException(validationReason);
+                }
+
                 if (!RecipeStore.Save(project))
                     throw new IOException("Project 파일 저장에 실패했습니다.");
                 _current = project;

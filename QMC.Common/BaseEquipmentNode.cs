@@ -71,6 +71,17 @@
         public virtual void LoadRecipe(string recipeName)
         {
         }
+
+        /// <summary>
+        /// Recipe를 실제 객체에 반영하기 전에 해당 노드와 하위 노드의 파일을 검증한다.
+        /// 전체 검증이 끝나기 전에는 현재 Recipe 객체를 변경하지 않는다.
+        /// </summary>
+        public virtual bool ValidateRecipe(string recipeName, out string reason)
+        {
+            reason = string.Empty;
+            return true;
+        }
+
         /// <summary>
         /// Setup / Config 저장 파일을 삭제한다. 하위 클래스에서 Composite 연쇄로 override.
         /// 하나라도 실패하면 false 를 반환한다.

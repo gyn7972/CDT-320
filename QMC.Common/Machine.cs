@@ -139,19 +139,48 @@ namespace QMC.Common
         /// </summary>
         public override void LoadRecipe(string recipeName)
         {
-            try
+            string validationReason;
+            if (!ValidateRecipe(recipeName, out validationReason))
             {
-                Recipe = UnitDataStore.LoadRecipe(recipeName, StorageKey, Recipe);
+                throw new System.IO.InvalidDataException(
+                    "Machine Recipe 전체 사전검증 실패. machine=" + Name +
+                    ", recipe=" + (recipeName ?? string.Empty) +
+                    ", detail=" + validationReason);
+            }
 
-                foreach (BaseEquipmentNode unit in Units)
-                    unit.LoadRecipe(recipeName);
-            }
-            catch
+            Recipe = UnitDataStore.LoadRecipeRequired<TRecipe>(recipeName, StorageKey);
+
+            foreach (BaseEquipmentNode unit in Units)
+                unit.LoadRecipe(recipeName);
+        }
+
+        public override bool ValidateRecipe(string recipeName, out string reason)
+        {
+            TRecipe loaded;
+            if (!UnitDataStore.TryLoadRecipeRequired(
+                    recipeName,
+                    StorageKey,
+                    out loaded,
+                    out reason))
             {
+                return false;
             }
-            finally
+
+            foreach (BaseEquipmentNode unit in Units)
             {
+                string unitReason;
+                if (unit.ValidateRecipe(recipeName, out unitReason))
+                    continue;
+
+                reason =
+                    "Machine 하위 Unit Recipe 검증 실패. machine=" + Name +
+                    ", unit=" + unit.Name +
+                    ", detail=" + unitReason;
+                return false;
             }
+
+            reason = string.Empty;
+            return true;
         }
     }
 }

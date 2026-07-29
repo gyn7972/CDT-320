@@ -212,20 +212,40 @@ namespace QMC.CDT_320
             }
         }
 
+        internal bool TryValidateMachineRecipeChange(string recipeName, out string reason)
+        {
+            reason = string.Empty;
+            if (Controller == null)
+            {
+                reason = "MachineController가 준비되지 않았습니다.";
+                return false;
+            }
+
+            bool materialRecipeRestore;
+            return Controller.TryValidateRecipeChange(
+                NormalizeRecipeName(recipeName),
+                out materialRecipeRestore,
+                out reason);
+        }
+
         internal bool LoadMachineRecipe(string recipeName)
         {
+            IDisposable recipeApplyLease = null;
             try
             {
                 if (Machine == null || string.IsNullOrWhiteSpace(recipeName))
                     return false;
 
                 string normalizedRecipeName = NormalizeRecipeName(recipeName);
-                bool materialRecipeRestore = false;
-                string recipeChangeReason = string.Empty;
-                if (Controller != null &&
-                    !Controller.TryValidateRecipeChange(
+                if (Controller == null)
+                    return false;
+
+                bool materialRecipeRestore;
+                string recipeChangeReason;
+                if (!Controller.TryBeginRecipeApplyOperation(
                         normalizedRecipeName,
                         out materialRecipeRestore,
+                        out recipeApplyLease,
                         out recipeChangeReason))
                 {
                     QMC.Common.Logging.EventLogger.Write(
@@ -236,50 +256,11 @@ namespace QMC.CDT_320
                     return false;
                 }
 
-                QMC.CDT320.Recipes.RecipeProject project =
-                    QMC.CDT320.Recipes.RecipeStore.Load(normalizedRecipeName);
-
-                if (project == null)
-                {
-                    QMC.Common.Logging.EventLogger.Write(
-                        QMC.Common.Logging.EventKind.Alarm,
-                        UserSession.Name,
-                        "DATA-LOAD",
-                        "Project recipe file not found: " + normalizedRecipeName);
-
-                    return false;
-                }
-
-                Machine.LoadRecipe(normalizedRecipeName);
-
-                _currentRecipe = project;
-                ActiveRecipeName = normalizedRecipeName;
-                Controller?.SetActiveRecipeName(ActiveRecipeName);
-
-                if (materialRecipeRestore)
-                {
-                    if (Controller == null ||
-                        !Controller.CompleteMaterialRecipeRestore(ActiveRecipeName))
-                    {
-                        QMC.Common.Logging.EventLogger.Write(
-                            QMC.Common.Logging.EventKind.Alarm,
-                            UserSession.Name,
-                            "RECIPE-RESTORE-FAIL",
-                            "장비 내부 Material Recipe 복구 후 Output 전체교체 요청 해제에 실패했습니다. " +
-                            "recipe=" + ActiveRecipeName);
-                        return false;
-                    }
-
-                    QMC.Common.Logging.EventLogger.Write(
-                        QMC.Common.Logging.EventKind.Event,
-                        UserSession.Name,
-                        "RECIPE-RESTORE",
-                        recipeChangeReason);
-                }
-
-                _ = QMC.CDT320.VisionComm.VisionHub.BroadcastRecipeAsync(ActiveRecipeName);
-
-                return true;
+                return LoadMachineRecipeCore(
+                    normalizedRecipeName,
+                    materialRecipeRestore,
+                    recipeChangeReason,
+                    true);
             }
             catch (Exception ex)
             {
@@ -293,7 +274,63 @@ namespace QMC.CDT_320
             }
             finally
             {
+                if (recipeApplyLease != null)
+                    recipeApplyLease.Dispose();
             }
+        }
+
+        private bool LoadMachineRecipeCore(
+            string normalizedRecipeName,
+            bool materialRecipeRestore,
+            string recipeChangeReason,
+            bool broadcastVision)
+        {
+            QMC.CDT320.Recipes.RecipeProject project =
+                QMC.CDT320.Recipes.RecipeStore.Load(normalizedRecipeName);
+
+            if (project == null)
+            {
+                QMC.Common.Logging.EventLogger.Write(
+                    QMC.Common.Logging.EventKind.Alarm,
+                    UserSession.Name,
+                    "DATA-LOAD",
+                    "Project recipe file not found: " + normalizedRecipeName);
+                return false;
+            }
+
+            Machine.LoadRecipe(normalizedRecipeName);
+            QMC.CDT320.VisionComm.VisionHub.InvalidateRecipeAcknowledgement(
+                "HandlerRecipeApply:" + normalizedRecipeName);
+
+            _currentRecipe = project;
+            ActiveRecipeName = normalizedRecipeName;
+            Controller.SetActiveRecipeName(ActiveRecipeName);
+            Controller.NotifyRecipeConfigurationApplied();
+
+            if (materialRecipeRestore)
+            {
+                if (!Controller.CompleteMaterialRecipeRestore(ActiveRecipeName))
+                {
+                    QMC.Common.Logging.EventLogger.Write(
+                        QMC.Common.Logging.EventKind.Alarm,
+                        UserSession.Name,
+                        "RECIPE-RESTORE-FAIL",
+                        "장비 내부 Material Recipe 복구 후 Output 전체교체 요청 해제에 실패했습니다. " +
+                        "recipe=" + ActiveRecipeName);
+                    return false;
+                }
+
+                QMC.Common.Logging.EventLogger.Write(
+                    QMC.Common.Logging.EventKind.Event,
+                    UserSession.Name,
+                    "RECIPE-RESTORE",
+                    recipeChangeReason ?? string.Empty);
+            }
+
+            if (broadcastVision)
+                _ = QMC.CDT320.VisionComm.VisionHub.BroadcastRecipeAsync(ActiveRecipeName);
+
+            return true;
         }
 
         internal bool ApplyMachineRecipe(QMC.CDT320.Recipes.RecipeProject project)
@@ -307,6 +344,21 @@ namespace QMC.CDT_320
 
                 if (!LoadMachineRecipe(recipeName))
                     return false;
+
+                string recipeContextReason;
+                if (Controller != null &&
+                    !Controller.CompleteRecipeApplyContext(
+                        recipeName,
+                        out recipeContextReason))
+                {
+                    QMC.Common.Logging.EventLogger.Write(
+                        QMC.Common.Logging.EventKind.Alarm,
+                        UserSession.Name,
+                        "RECIPE-CONTEXT-APPLY",
+                        "Recipe 적용 후 Material 문맥 동기화 실패. recipe=" +
+                        recipeName + ", detail=" + recipeContextReason);
+                    return false;
+                }
 
                 Controller?.ApplyRecipeMode(_currentRecipe);
                 // 레시피 수명과 생산 LOT 수명은 다르다.
@@ -371,6 +423,22 @@ namespace QMC.CDT_320
                         "active=" + (ActiveRecipeName ?? "-") +
                         ", requested=" + recipeName);
 
+                    return false;
+                }
+
+                bool materialRecipeRestore;
+                string recipeChangeReason;
+                if (Controller != null &&
+                    !Controller.TryValidateRecipeChange(
+                        recipeName,
+                        out materialRecipeRestore,
+                        out recipeChangeReason))
+                {
+                    QMC.Common.Logging.EventLogger.Write(
+                        QMC.Common.Logging.EventKind.Alarm,
+                        UserSession.Name,
+                        "RECIPE-SAVE-APPLY-BLOCK",
+                        recipeChangeReason);
                     return false;
                 }
 

@@ -110,16 +110,17 @@ namespace QMC.Common
         /// <summary>Leaf: 레시피 이름별 Recipe 로드.</summary>
         public override void LoadRecipe(string recipeName)
         {
-            try
-            {
-                Recipe = UnitDataStore.LoadRecipe(recipeName, StorageKey, Recipe);
-            }
-            catch
-            {
-            }
-            finally
-            {
-            }
+            Recipe = UnitDataStore.LoadRecipeRequired<TRecipe>(recipeName, StorageKey);
+        }
+
+        public override bool ValidateRecipe(string recipeName, out string reason)
+        {
+            TRecipe loaded;
+            return UnitDataStore.TryLoadRecipeRequired(
+                recipeName,
+                StorageKey,
+                out loaded,
+                out reason);
         }
     }
 }

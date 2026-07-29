@@ -14,6 +14,12 @@ namespace QMC.CDT320.VisionComm
     public static class VisionHub
     {
         private static readonly SemaphoreSlim ConnectGate = new SemaphoreSlim(1, 1);
+        private static readonly SemaphoreSlim RecipeBroadcastGate = new SemaphoreSlim(1, 1);
+        private static readonly object RecipeSyncLock = new object();
+        private static string _acknowledgedRecipeName = string.Empty;
+        private static DateTime _acknowledgedRecipeAtUtc = DateTime.MinValue;
+        private static VisionTcpClient _acknowledgedRecipeClient;
+        private static long _recipeSyncGeneration;
 
         public static VisionTcpClient Wafer { get; private set; }
         public static VisionTcpClient Inspection { get; private set; }
@@ -54,6 +60,89 @@ namespace QMC.CDT320.VisionComm
                        (FrontSideVision != null && FrontSideVision.IsConnected) ||
                        (RearSideVision != null && RearSideVision.IsConnected);
             }
+        }
+
+        public static bool IsRecipeSynchronizationBypassed
+        {
+            get { return IsRecipeSynchronizationBypassedBySettings(); }
+        }
+
+        public static string AcknowledgedRecipeName
+        {
+            get
+            {
+                lock (RecipeSyncLock)
+                    return _acknowledgedRecipeName ?? string.Empty;
+            }
+        }
+
+        public static void InvalidateRecipeAcknowledgement(string reason)
+        {
+            lock (RecipeSyncLock)
+            {
+                _recipeSyncGeneration++;
+                _acknowledgedRecipeName = string.Empty;
+                _acknowledgedRecipeAtUtc = DateTime.MinValue;
+                _acknowledgedRecipeClient = null;
+            }
+
+            EventLogger.Write(
+                EventKind.Event,
+                "SYS",
+                "VISION-RECIPE-SYNC",
+                "Vision Recipe ACK 상태를 무효화했습니다. reason=" + (reason ?? string.Empty));
+        }
+
+        public static bool IsRecipeAcknowledged(
+            string recipeName,
+            TimeSpan maximumAge,
+            out string reason)
+        {
+            reason = string.Empty;
+            if (IsRecipeSynchronizationBypassedBySettings())
+            {
+                reason = "Vision 미사용/가상 검사 설정으로 Recipe ACK 검사를 우회합니다.";
+                return true;
+            }
+
+            VisionTcpClient main = Main;
+            if (main == null || !main.IsConnected)
+            {
+                reason = "Vision MainComm이 연결되지 않았습니다.";
+                return false;
+            }
+
+            lock (RecipeSyncLock)
+            {
+                if (!object.ReferenceEquals(_acknowledgedRecipeClient, main))
+                {
+                    reason = "현재 MainComm 연결에서 받은 Recipe ACK가 없습니다.";
+                    return false;
+                }
+
+                if (!string.Equals(
+                        _acknowledgedRecipeName ?? string.Empty,
+                        recipeName ?? string.Empty,
+                        StringComparison.OrdinalIgnoreCase))
+                {
+                    reason =
+                        "Vision ACK Recipe가 현재 Recipe와 다릅니다. acknowledged=" +
+                        (_acknowledgedRecipeName ?? string.Empty) +
+                        ", requested=" + (recipeName ?? string.Empty);
+                    return false;
+                }
+
+                TimeSpan age = DateTime.UtcNow - _acknowledgedRecipeAtUtc;
+                if (maximumAge > TimeSpan.Zero && age > maximumAge)
+                {
+                    reason =
+                        "Vision Recipe ACK가 오래되었습니다. ageMs=" +
+                        Math.Max(0, age.TotalMilliseconds).ToString("0");
+                    return false;
+                }
+            }
+
+            return true;
         }
 
         public static async Task<bool> ConnectAllAsync(
@@ -116,6 +205,7 @@ namespace QMC.CDT320.VisionComm
 
         public static void DisconnectAll()
         {
+            InvalidateRecipeAcknowledgement("VisionDisconnectAll");
             try { Wafer?.Dispose(); } catch { }
             try { Inspection?.Dispose(); } catch { }
             try { Bin?.Dispose(); } catch { }
@@ -137,8 +227,19 @@ namespace QMC.CDT320.VisionComm
         /// </summary>
         public static async Task<bool> BroadcastRecipeAsync(string recipeName)
         {
+            return await BroadcastRecipeAsync(
+                recipeName,
+                CancellationToken.None).ConfigureAwait(false);
+        }
+
+        public static async Task<bool> BroadcastRecipeAsync(
+            string recipeName,
+            CancellationToken ct)
+        {
+            await RecipeBroadcastGate.WaitAsync(ct).ConfigureAwait(false);
             try
             {
+                ct.ThrowIfCancellationRequested();
                 if (string.IsNullOrWhiteSpace(recipeName))
                 {
                     EventLogger.Write(EventKind.Alarm, "SYS", "VISION-RECIPE",
@@ -154,26 +255,66 @@ namespace QMC.CDT320.VisionComm
                     return false;
                 }
 
-                bool ok = await main.SendRecipeAsync(recipeName).ConfigureAwait(false);
+                long requestGeneration;
+                lock (RecipeSyncLock)
+                    requestGeneration = _recipeSyncGeneration;
+
+                bool ok = await main.SendRecipeAsync(
+                    recipeName,
+                    5000,
+                    ct).ConfigureAwait(false);
+                lock (RecipeSyncLock)
+                {
+                    if (requestGeneration == _recipeSyncGeneration &&
+                        object.ReferenceEquals(main, Main) &&
+                        main.IsConnected)
+                    {
+                        if (ok)
+                        {
+                            _acknowledgedRecipeName = recipeName.Trim();
+                            _acknowledgedRecipeAtUtc = DateTime.UtcNow;
+                            _acknowledgedRecipeClient = main;
+                        }
+                        else
+                        {
+                            _acknowledgedRecipeName = string.Empty;
+                            _acknowledgedRecipeAtUtc = DateTime.MinValue;
+                            _acknowledgedRecipeClient = null;
+                        }
+                    }
+                }
+
                 EventLogger.Write(ok ? EventKind.Event : EventKind.Alarm, "SYS", "VISION-RECIPE",
                     "Vision 레시피 전송. name=" + recipeName + ", result=" + (ok ? "ACK" : "NO-ACK"));
                 return ok;
             }
+            catch (OperationCanceledException)
+            {
+                InvalidateRecipeAcknowledgement("RecipeBroadcastCanceled");
+                throw;
+            }
             catch (Exception ex)
             {
+                InvalidateRecipeAcknowledgement("RecipeBroadcastException");
                 EventLogger.Write(EventKind.Alarm, "SYS", "VISION-RECIPE",
                     "Vision 레시피 전송 실패. name=" + recipeName + ", error=" + ex.Message);
                 return false;
             }
             finally
             {
+                RecipeBroadcastGate.Release();
             }
         }
 
         private static VisionTcpClient New(string module, string host, int port)
         {
             var client = new VisionTcpClient(module, host, port);
-            client.ConnectionChanged += _ => RaiseChanged();
+            client.ConnectionChanged += _ =>
+            {
+                if (string.Equals(module, VisionModuleNames.Main, StringComparison.OrdinalIgnoreCase))
+                    InvalidateRecipeAcknowledgement("MainCommConnectionChanged");
+                RaiseChanged();
+            };
             client.Log += line =>
             {
                 if (line == null)
@@ -214,6 +355,23 @@ namespace QMC.CDT320.VisionComm
         {
             AppSettings settings = AppSettingsStore.Current;
             return settings != null && !settings.UseVision;
+        }
+
+        private static bool IsRecipeSynchronizationBypassedBySettings()
+        {
+            AppSettings settings = AppSettingsStore.Current;
+            if (settings == null)
+                return false;
+
+            if (!settings.UseVision)
+                return true;
+
+            if (settings.DryRunMode)
+                return true;
+
+            return
+                (settings.SimulationMode || settings.BypassHardware) &&
+                !settings.UseRealVisionInSimulation;
         }
 
         private static string ResolveBypassReason()
