@@ -1029,13 +1029,29 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 if (!ConfirmMaterialDataAction("Input Stage의 Material Data를 초기화하시겠습니까?"))
                     return;
 
-                MaterialStateService.ClearWaferAtLocation(MaterialLocationKind.InputStage);
+                bool cleared = MaterialStateService.ClearWaferAtLocation(MaterialLocationKind.InputStage);
                 var host = GetHost();
                 var stage = host != null && host.Machine != null ? host.Machine.InputStageUnit : null;
                 if (stage != null)
+                {
+                    // Stage DATA CLEAR는 Material 포인터뿐 아니라 런타임 Align/Die Map도 비운다.
+                    // 이 Map을 남기면 다음 Wafer가 이전 Mapping 화면/좌표를 재사용할 수 있다.
+                    stage.ClearCurrentWaferMap();
                     stage.ClearCurrentWaferMaterial();
+                }
 
-                WriteEvent("INPUT-STAGE-DATA-CLEAR", "Input stage material data cleared.");
+                if (cleared && !MaterialStateService.TryFlushPendingSave("InputStageDataClear"))
+                {
+                    QMC.Common.MessageDialog.Show(
+                        this,
+                        "Input Stage Material Data는 메모리에서 초기화했지만 저장 파일 갱신에 실패했습니다.\r\n" +
+                        "프로그램을 재시작하지 말고 로그를 확인하십시오.",
+                        "Material Data",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Error);
+                }
+
+                WriteEvent("INPUT-STAGE-DATA-CLEAR", "Input stage material data cleared. changed=" + cleared);
                 RefreshFromMachine();
             }
             catch (Exception ex)

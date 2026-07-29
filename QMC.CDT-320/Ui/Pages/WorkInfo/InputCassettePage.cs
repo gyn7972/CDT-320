@@ -1004,7 +1004,18 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                     return;
 
                 bool ok = MaterialStateService.ClearInputCassetteSlotData(_selectedCassetteRole, _selectedMaterialSlot);
+                if (ok)
+                    ok = MaterialStateService.TryFlushPendingSave("InputCassetteSlotDataClear");
                 WriteEvent("INPUT-CST-DATA-CLEAR", "slot=" + _selectedCassetteRole + "/" + (_selectedMaterialSlot + 1).ToString("00") + ", result=" + ok);
+                if (!ok)
+                {
+                    QMC.Common.MessageDialog.Show(
+                        this,
+                        "선택한 Input Cassette Slot Data를 저장 파일까지 초기화하지 못했습니다.\r\n로그를 확인하십시오.",
+                        "Material Data",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Error);
+                }
                 RefreshSelectedMaterialDetail();
                 RefreshFromMachine();
             }
@@ -1022,7 +1033,18 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                     return;
 
                 bool ok = MaterialStateService.ClearInputCassetteAllSlotData();
+                if (ok)
+                    ok = MaterialStateService.TryFlushPendingSave("InputCassetteAllDataClear");
                 WriteEvent("INPUT-CST-DATA-ALL-CLEAR", "result=" + ok);
+                if (!ok)
+                {
+                    QMC.Common.MessageDialog.Show(
+                        this,
+                        "Input Cassette 전체 Data를 저장 파일까지 초기화하지 못했습니다.\r\n로그를 확인하십시오.",
+                        "Material Data",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Error);
+                }
                 RefreshSelectedMaterialDetail();
                 RefreshFromMachine();
             }

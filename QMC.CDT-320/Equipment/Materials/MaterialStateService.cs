@@ -1919,6 +1919,13 @@ namespace QMC.CDT320.Materials
 
         public static bool ClearWaferAtLocation(MaterialLocationKind kind)
         {
+            if (kind == MaterialLocationKind.InputStage ||
+                kind == MaterialLocationKind.OutputStageGood ||
+                kind == MaterialLocationKind.OutputStageNg)
+            {
+                return ClearStageMaterialData(kind);
+            }
+
             var wafers = State.Wafers
                 .Where(w => w.CurrentLocation != null &&
                             w.CurrentLocation.Kind == kind &&
@@ -1936,6 +1943,169 @@ namespace QMC.CDT320.Materials
 
             NotifyAndSave("ClearWaferAtLocation");
             return true;
+        }
+
+        /// <summary>
+        /// Stage DATA CLEAR는 화면의 Wafer 한 건만 비우지 않고 해당 Stage에 연결된
+        /// Die 위치, 공정 Map/수령 계획, 예약 상태까지 함께 초기화한다.
+        /// 다른 Stage 또는 Picker에 실제로 이동한 Die는 수동 Clear 범위에서 제외한다.
+        /// </summary>
+        private static bool ClearStageMaterialData(MaterialLocationKind kind)
+        {
+            int clearedWaferCount = 0;
+            int removedDieCount = 0;
+
+            lock (_stateSync)
+            {
+                var directStageWafers = State.Wafers
+                    .Where(w =>
+                        w != null &&
+                        w.CurrentLocation != null &&
+                        w.CurrentLocation.Kind == kind)
+                    .ToList();
+
+                var relatedWaferIds = new HashSet<string>(
+                    directStageWafers
+                        .Select(w => w.WaferId)
+                        .Where(id => !string.IsNullOrWhiteSpace(id)),
+                    StringComparer.OrdinalIgnoreCase);
+
+                // 이전 코드로 Wafer만 Unknown 처리된 경우에도 Stage에 고립된 Die의
+                // Wafer ID를 역추적하여 같은 DATA CLEAR 요청으로 복구할 수 있게 한다.
+                foreach (DieMaterial die in State.Dies)
+                {
+                    if (die == null ||
+                        die.CurrentLocation == null ||
+                        die.CurrentLocation.Kind != kind)
+                    {
+                        continue;
+                    }
+
+                    string relatedWaferId = kind == MaterialLocationKind.InputStage
+                        ? die.WaferID_Input
+                        : die.WaferID_Output;
+                    if (!string.IsNullOrWhiteSpace(relatedWaferId))
+                        relatedWaferIds.Add(relatedWaferId);
+                }
+
+                var affectedWafers = State.Wafers
+                    .Where(w =>
+                        w != null &&
+                        ((w.CurrentLocation != null && w.CurrentLocation.Kind == kind) ||
+                         (!string.IsNullOrWhiteSpace(w.WaferId) && relatedWaferIds.Contains(w.WaferId))))
+                    .ToList();
+
+                var removedDieIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                foreach (DieMaterial die in State.Dies)
+                {
+                    if (die == null)
+                        continue;
+
+                    MaterialLocationKind dieLocation = die.CurrentLocation != null
+                        ? die.CurrentLocation.Kind
+                        : MaterialLocationKind.Unknown;
+                    bool remove = dieLocation == kind;
+
+                    // Input Mapping의 비대상 Die는 위치가 Unknown으로 저장된다.
+                    // Stage Wafer와 같은 입력 Wafer에 속한 Unknown Die도 Map 잔재이므로 함께 지운다.
+                    if (!remove &&
+                        kind == MaterialLocationKind.InputStage &&
+                        dieLocation == MaterialLocationKind.Unknown &&
+                        !string.IsNullOrWhiteSpace(die.WaferID_Input) &&
+                        relatedWaferIds.Contains(die.WaferID_Input))
+                    {
+                        remove = true;
+                    }
+
+                    if (remove && !string.IsNullOrWhiteSpace(die.DieId))
+                        removedDieIds.Add(die.DieId);
+                }
+
+                if (removedDieIds.Count > 0)
+                {
+                    removedDieCount = State.Dies.RemoveAll(d =>
+                        d != null &&
+                        !string.IsNullOrWhiteSpace(d.DieId) &&
+                        removedDieIds.Contains(d.DieId));
+
+                    // Wafer의 DieIds 포인터도 함께 정리해야 재시작 후 삭제된 Die가
+                    // Mapping/Output 수령 데이터로 다시 살아나지 않는다.
+                    foreach (WaferMaterial wafer in State.Wafers)
+                    {
+                        if (wafer != null && wafer.DieIds != null)
+                            wafer.DieIds.RemoveAll(id => !string.IsNullOrWhiteSpace(id) && removedDieIds.Contains(id));
+                    }
+                }
+
+                foreach (WaferMaterial wafer in affectedWafers)
+                {
+                    if (kind == MaterialLocationKind.InputStage)
+                    {
+                        ClearInputStageWaferProcessingFieldsNoLock(wafer);
+                        wafer.InputStageProcessingGeneration = wafer.InputStageProcessingGeneration + 1;
+                    }
+                    else
+                    {
+                        ClearOutputStageWaferProcessingFieldsNoLock(wafer);
+                    }
+
+                    wafer.State = WaferMaterialState.Empty;
+                    wafer.CurrentLocation = MaterialLocation.Unknown();
+                    wafer.UpdatedAt = DateTime.Now;
+                    clearedWaferCount++;
+                }
+
+                if (kind == MaterialLocationKind.InputStage)
+                {
+                    InputStageHybridResultSession.Clear();
+                }
+                else
+                {
+                    QMC.CDT320.BinSide side = kind == MaterialLocationKind.OutputStageNg
+                        ? QMC.CDT320.BinSide.Ng
+                        : QMC.CDT320.BinSide.Good;
+                    _outputReceiveOrderCache.Remove(side);
+                }
+            }
+
+            if (clearedWaferCount == 0 && removedDieCount == 0)
+                return false;
+
+            string saveReason = "ClearStageMaterialData:" + kind;
+            NotifyAndSave(saveReason);
+            Log.Write(
+                "Main",
+                "SYSTEM",
+                "MaterialStateService",
+                "Stage Material 데이터를 전체 초기화했습니다. location=" + kind +
+                ", wafers=" + clearedWaferCount +
+                ", removedDies=" + removedDieCount + " - Ok");
+            return true;
+        }
+
+        private static void ClearOutputStageWaferProcessingFieldsNoLock(WaferMaterial wafer)
+        {
+            if (wafer == null)
+                return;
+
+            wafer.OutputReceiveSourceWaferId = string.Empty;
+            wafer.OutputReceiveDieMapX = 0;
+            wafer.OutputReceiveDieMapY = 0;
+            wafer.OutputReceivePitchX = 0.0;
+            wafer.OutputReceivePitchY = 0.0;
+            wafer.OutputReceiveDieSizeX = 0.0;
+            wafer.OutputReceiveDieSizeY = 0.0;
+            wafer.OutputReceiveOuterDiameterMm = 0.0;
+            wafer.OutputReceiveOriginX = 0.0;
+            wafer.OutputReceiveOriginY = 0.0;
+            wafer.OutputReceiveNextIndex = 0;
+            wafer.OutputReceiveTotalCount = 0;
+            wafer.OutputReceiveStartCorner = string.Empty;
+            wafer.OutputReceiveDirection = string.Empty;
+            wafer.OutputReceivePattern = string.Empty;
+            wafer.OutputReceiveSlots = new List<OutputReceiveSlotMaterial>();
+            wafer.DieMapFrameObjId = string.Empty;
+            wafer.OutputGrade = DieResult.Unknown;
         }
 
         public static bool ClearInputCassetteSlotData(CassetteMaterialRole cassetteRole, int slotNumber)
@@ -2036,6 +2206,10 @@ namespace QMC.CDT320.Materials
             // 유효한 것으로 사용할 수 없다. 다음 Auto 시작에서 실제 mapping을 다시
             // 수행하여 센서 결과와 Ready Material을 함께 재생성하도록 한다.
             cassette.IsMapped = false;
+            // IsPresent는 현재 물리 센서가 아니라 Mapping으로 만든 논리 상태다.
+            // 모든 Slot Data를 삭제한 뒤 true를 남기면 Present/Unmapped 잔재가
+            // Recipe 변경을 영구 차단하므로 다음 Mapping 전까지 false로 초기화한다.
+            cassette.IsPresent = false;
 
             // To do: 카세트 레코드의 CassetteLotId도 초기화해야 한다.
             // 이 값(예: Y482CB12)이 State.LotId(예: Y482CB1)와 달라지면
@@ -2184,6 +2358,9 @@ namespace QMC.CDT320.Materials
             // 유효한 것으로 사용할 수 없다. 다음 전체 준비에서 실제 mapping을 다시
             // 수행하여 센서 결과와 Ready Material을 함께 재생성하도록 한다.
             cassette.IsMapped = false;
+            // 출력 카세트도 Mapping 결과가 IsPresent를 다시 설정한다.
+            // Side/전체 Clear 직후에는 빈 논리 상태로 내려 잔존 Material 판정을 막는다.
+            cassette.IsPresent = false;
             cassette.CassetteLotId = "";
         }
 
@@ -8624,6 +8801,29 @@ namespace QMC.CDT320.Materials
                     string.Equals(d.WaferID_Input, waferId, StringComparison.OrdinalIgnoreCase));
             }
 
+            ClearInputStageWaferProcessingFieldsNoLock(wafer);
+            wafer.DieIds = new List<string>();
+            wafer.InputStageProcessingGeneration = wafer.InputStageProcessingGeneration + 1;
+            InputStageHybridResultSession.Clear();
+
+            if (hadState)
+            {
+                Log.Write("Main", "SYSTEM", "MaterialStateService",
+                    "New physical wafer processing state reset. wafer=" + (wafer.WaferId ?? "") +
+                    ", generation=" + wafer.InputStageProcessingGeneration +
+                    ", cause=" + (cause ?? "") + " - Ok");
+            }
+        }
+
+        /// <summary>
+        /// Input Stage의 Align/Mapping/Review 결과 필드만 초기화한다.
+        /// Die 삭제 범위는 호출 목적마다 다르므로 이 helper에서는 Die 목록을 직접 지우지 않는다.
+        /// </summary>
+        private static void ClearInputStageWaferProcessingFieldsNoLock(WaferMaterial wafer)
+        {
+            if (wafer == null)
+                return;
+
             wafer.HasInputStageAlignResult = false;
             wafer.InputStageAlignResultMode = string.Empty;
             wafer.InputStageAlignResultRunId = string.Empty;
@@ -8631,6 +8831,9 @@ namespace QMC.CDT320.Materials
             wafer.InputStageAlignOriginY = 0.0;
             wafer.InputStageAlignPitchX = 0.0;
             wafer.InputStageAlignPitchY = 0.0;
+            wafer.InputStageDieSizeX = 0.0;
+            wafer.InputStageDieSizeY = 0.0;
+            wafer.InputStageOuterDiameterMm = 0.0;
             wafer.InputStageAlignOffsetX = 0.0;
             wafer.InputStageAlignOffsetY = 0.0;
             wafer.HasInputStageThetaAlignResult = false;
@@ -8655,17 +8858,6 @@ namespace QMC.CDT320.Materials
             wafer.InputStageRunReviewStartDieUid = string.Empty;
             wafer.InputStageRunReviewOrderedDieIds = new List<string>();
             wafer.InputStageRunReviewMappingRevision = string.Empty;
-            wafer.DieIds = new List<string>();
-            wafer.InputStageProcessingGeneration = wafer.InputStageProcessingGeneration + 1;
-            InputStageHybridResultSession.Clear();
-
-            if (hadState)
-            {
-                Log.Write("Main", "SYSTEM", "MaterialStateService",
-                    "New physical wafer processing state reset. wafer=" + (wafer.WaferId ?? "") +
-                    ", generation=" + wafer.InputStageProcessingGeneration +
-                    ", cause=" + (cause ?? "") + " - Ok");
-            }
         }
 
         private static bool IsWaferAtCassetteSlot(WaferMaterial wafer, CassetteMaterialRole role, int slotNumber)

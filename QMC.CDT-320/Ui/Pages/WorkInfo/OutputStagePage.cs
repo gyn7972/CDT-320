@@ -774,7 +774,17 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 if (QMC.Common.MessageDialog.Show(this, "Output Stage " + sideName + " Material Data를 초기화하시겠습니까?", "Material Data", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes)
                     return;
 
-                MaterialStateService.ClearWaferAtLocation(ResolveMaterialLocation(_selectedMaterialSide));
+                bool cleared = MaterialStateService.ClearWaferAtLocation(ResolveMaterialLocation(_selectedMaterialSide));
+                if (cleared && !MaterialStateService.TryFlushPendingSave("OutputStageDataClear:" + _selectedMaterialSide))
+                {
+                    QMC.Common.MessageDialog.Show(
+                        this,
+                        "Output Stage " + sideName + " Material Data는 메모리에서 초기화했지만 저장 파일 갱신에 실패했습니다.\r\n" +
+                        "프로그램을 재시작하지 말고 로그를 확인하십시오.",
+                        "Material Data",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Error);
+                }
                 RefreshData();
             }
             catch (Exception ex)

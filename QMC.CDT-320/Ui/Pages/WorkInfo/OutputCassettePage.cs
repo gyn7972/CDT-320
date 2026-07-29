@@ -667,6 +667,14 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                         "Cassette Exchange", MessageBoxButtons.OK, MessageBoxIcon.Error);
                     return;
                 }
+                if (!MaterialStateService.TryFlushPendingSave("OutputCassetteSideDataClear:" + side))
+                {
+                    QMC.Common.MessageDialog.Show(this,
+                        sideName + " 카세트 Material Data는 메모리에서 초기화했지만 저장 파일 갱신에 실패했습니다.\r\n" +
+                        "프로그램을 재시작하지 말고 로그를 확인하십시오.",
+                        "Cassette Exchange", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    return;
+                }
 
                 // RecipeChange 등 더 강한 기존 전체 준비 요청의 사유를 Side Clear가 덮어쓰면
                 // Auto 준비 정책이 약화될 수 있다. 기존 요청이 없을 때만 새 요청을 등록하며,
@@ -1391,6 +1399,14 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                         "Material Data", MessageBoxButtons.OK, MessageBoxIcon.Error);
                     return;
                 }
+                if (!MaterialStateService.TryFlushPendingSave("OutputCassetteSlotDataClear"))
+                {
+                    QMC.Common.MessageDialog.Show(this,
+                        "선택한 Output Cassette Slot Data는 메모리에서 초기화했지만 저장 파일 갱신에 실패했습니다.\r\n" +
+                        "프로그램을 재시작하지 말고 로그를 확인하십시오.",
+                        "Material Data", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    return;
+                }
                 RefreshData();
             }
             catch (Exception ex)
@@ -1421,6 +1437,14 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 {
                     QMC.Common.MessageDialog.Show(this,
                         "Output Cassette의 모든 Material Data 초기화에 실패했습니다.",
+                        "Material Data", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    return;
+                }
+                if (!MaterialStateService.TryFlushPendingSave("OutputCassetteAllDataClear"))
+                {
+                    QMC.Common.MessageDialog.Show(this,
+                        "Output Cassette 전체 Data는 메모리에서 초기화했지만 저장 파일 갱신에 실패했습니다.\r\n" +
+                        "프로그램을 재시작하지 말고 로그를 확인하십시오.",
                         "Material Data", MessageBoxButtons.OK, MessageBoxIcon.Error);
                     return;
                 }
