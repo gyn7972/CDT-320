@@ -53,23 +53,25 @@ namespace QMC.CDT320.Sequencing
             // Bottom 촬영 명령 시점의 PickerY CommandPosition (Pick 런타임 보정 Y 전처리용 캡처값).
             public double BottomShotPickerYCommand;
             public bool SideCorrectionValid;
-            public double SideBottomOffsetXmm;
-            public double SideBottomOffsetYmm;
+            public double SideVisionProcess0YOffset;
+            public double SideVisionProcess90YOffset;
             public double SidePickerZBase;
             public double SidePickerZOffset;
             public SideVisionPositionTarget FrontSideVision;
             public SideVisionPositionTarget RearSideVision;
             public string SideCorrectionSourceDieId;
-            // Side 비전 Y 절대식 계산 결과(항별 값 로그·이동에 공용 사용).
-            public SideVisionYTargetResult SideVisionCalc;
         }
 
         private sealed class SideVisionPositionTarget
         {
             public PickerSequenceSide CameraSide;
             public VisionAxis Axis;
+            public double Process0BaseY;
+            public double Process90BaseY;
             public double Process0Y;
             public double Process90Y;
+            public bool Focus0CalibrationValid;
+            public bool Focus90CalibrationValid;
         }
 
         private sealed class BottomShot
@@ -1650,20 +1652,18 @@ namespace QMC.CDT320.Sequencing
                     ", die=" + shot.Target.Die.DieId + ".");
             }
 
-            double sideVisionOffsetX;
             double sideVisionOffsetY;
             string offsetReason;
-            if (!TryResolveBottomMResultSideVisionOffset(result, out sideVisionOffsetX, out sideVisionOffsetY, out offsetReason))
+            if (!TryResolveBottomMResultSideVisionOffsetY(result, out sideVisionOffsetY, out offsetReason))
             {
-                return Fail("PICKER-BOTTOM-SIDE-BOTTOM-MRESULT-OFFSET", "Vision",
-                    "Bottom MRESULT Offset(X,Y)가 Side Vision Y 절대식 허용 조건을 만족하지 않습니다. " +
+                return Fail("PICKER-BOTTOM-SIDE-BOTTOM-MRESULT-OFFSETY", "Vision",
+                    "Bottom MRESULT OffsetY가 Side Vision Y 보정 허용 조건을 만족하지 않습니다. " +
                     "side=" + Side +
                     ", pickerNo=" + shot.Target.PickerNo +
                     ", die=" + shot.Target.Die.DieId +
                     ", reason=" + offsetReason + ".");
             }
 
-            result.OffsetX = sideVisionOffsetX;
             result.OffsetY = sideVisionOffsetY;
             shot.MResult = result;
             StoreRuntimeSideInspectionCorrection(shot.Target, result);
@@ -1682,17 +1682,15 @@ namespace QMC.CDT320.Sequencing
                 "Bottom MRESULT Interval",
                 "MRESULT",
                 shot.Target,
-                "offsetX=" + result.OffsetX.ToString("F6") +
-                ",offsetY=" + result.OffsetY.ToString("F6") + ",finalResultPending=True");
+                "offsetY=" + result.OffsetY.ToString("F6") + ",finalResultPending=True");
 
             EnsureDeferredFinalResultLifetime(ct);
             if (shot.FinalResultTask == null)
                 shot.FinalResultTask = ReceiveBottomFinalResultAsync(shot, _deferredResultCancellation.Token);
 
             WriteLog("PickerBottomAndSideInspectionSequence",
-                Name + " Bottom MRESULT Offset(X,Y) 저장 및 SideReady 등록 완료. 최종 RESULT는 병렬 수집합니다. die=" + shot.Target.Die.DieId +
+                Name + " Bottom MRESULT OffsetY 저장 및 SideReady 등록 완료. 최종 RESULT는 병렬 수집합니다. die=" + shot.Target.Die.DieId +
                 ", pickerNo=" + shot.Target.PickerNo +
-                ", offsetXmm=" + result.OffsetX.ToString("F6") +
                 ", offsetYmm=" + result.OffsetY.ToString("F6") +
                 ", sideReadyCount=" + _sideReadyPickerIndexes.Count + " - Ok");
             return 0;
@@ -1878,13 +1876,12 @@ namespace QMC.CDT320.Sequencing
             if (target == null || result == null)
                 return;
 
-            // Bottom MRESULT의 Offset(X,Y) 벡터를 Side Vision Y 절대식 입력으로 저장한다.
-            // Picker X/Y/Z/T 보정에는 전달하지 않는다. 0도는 OffsetY, 90도는 OffsetX(COC 중심 CW 회전)로 소비된다.
-            double bottomOffsetXmm = result.OffsetX;
-            double bottomOffsetYmm = result.OffsetY;
+            // Bottom MRESULT의 OffsetY만 Side Vision Y 축에 적용한다.
+            // Picker X/Y/Z/T 보정에는 전달하지 않으며 Side 0도/90도 기준 위치에 같은 Y 보정량을 더한다.
+            double sideVisionProcess0YOffset = result.OffsetY;
+            double sideVisionProcess90YOffset = result.OffsetY;
             double pickerZOffset = 0.0;
-            bool valid = IsValidSideVisionCenterCorrection(bottomOffsetXmm) &&
-                         IsValidSideVisionCenterCorrection(bottomOffsetYmm);
+            bool valid = IsValidSideVisionCenterCorrection(result.OffsetY);
             string sourceDieId = target.Die != null ? target.Die.DieId : string.Empty;
 
             if (Side == PickerSequenceSide.Front)
@@ -1892,8 +1889,8 @@ namespace QMC.CDT320.Sequencing
                 if (FrontPicker != null)
                     FrontPicker.SetRuntimeSideInspectionCorrection(
                         target.PickerIndex,
-                        bottomOffsetXmm,
-                        bottomOffsetYmm,
+                        sideVisionProcess0YOffset,
+                        sideVisionProcess90YOffset,
                         pickerZOffset,
                         valid,
                         sourceDieId);
@@ -1903,23 +1900,24 @@ namespace QMC.CDT320.Sequencing
                 if (RearPicker != null)
                     RearPicker.SetRuntimeSideInspectionCorrection(
                         target.PickerIndex,
-                        bottomOffsetXmm,
-                        bottomOffsetYmm,
+                        sideVisionProcess0YOffset,
+                        sideVisionProcess90YOffset,
                         pickerZOffset,
                         valid,
                         sourceDieId);
             }
 
             WriteLog("PickerBottomAndSideInspectionSequence",
-                Name + " Bottom MRESULT Offset(X,Y)를 Side Vision Y 절대식 입력으로 저장합니다. " +
+                Name + " Bottom MRESULT OffsetY를 Side Vision Y에만 적용합니다. " +
                 "side=" + Side +
                 ", pickerNo=" + target.PickerNo +
                 ", die=" + sourceDieId +
                 ", bottomInspectionOk=" + result.IsOk +
                 ", valid=" + valid +
-                ", bottomOffsetXmm=" + bottomOffsetXmm.ToString("F6") +
-                ", bottomOffsetYmm=" + bottomOffsetYmm.ToString("F6") +
+                ", appliedSideVisionY0Offset=" + sideVisionProcess0YOffset.ToString("F6") +
+                ", appliedSideVisionY90Offset=" + sideVisionProcess90YOffset.ToString("F6") +
                 ", PickerZ.offset=" + pickerZOffset.ToString("F6") +
+                ", sourceBottomOffsetY=" + result.OffsetY.ToString("F6") +
                 ", pickerAxisOffsetApplied=false - Ok");
         }
 
@@ -1957,16 +1955,16 @@ namespace QMC.CDT320.Sequencing
                     ", bottomResultDie=" + (correction.SourceDieId ?? string.Empty) + ".");
             }
 
-            if (!IsValidSideVisionCenterCorrection(correction.BottomOffsetXmm) ||
-                !IsValidSideVisionCenterCorrection(correction.BottomOffsetYmm))
+            if (!IsValidSideVisionCenterCorrection(correction.SideVisionProcess0YOffset) ||
+                !IsValidSideVisionCenterCorrection(correction.SideVisionProcess90YOffset))
             {
                 return Fail("PICKER-BOTTOM-SIDE-MRESULT-OFFSET-RANGE", "Vision",
-                    "Bottom MRESULT Offset(X,Y)가 Side Vision Y 절대식 허용범위를 벗어났습니다. " +
+                    "Bottom MRESULT OffsetY가 Side Vision Y 보정 허용범위를 벗어났습니다. " +
                     "side=" + Side +
                     ", pickerNo=" + pickerNo +
                     ", die=" + die.DieId +
-                    ", bottomOffsetXmm=" + correction.BottomOffsetXmm.ToString("F6") +
-                    ", bottomOffsetYmm=" + correction.BottomOffsetYmm.ToString("F6") +
+                    ", offsetYFor0Deg=" + correction.SideVisionProcess0YOffset.ToString("F6") +
+                    ", offsetYFor90Deg=" + correction.SideVisionProcess90YOffset.ToString("F6") +
                     ", allowedAbsMaxMm=" + MaxSideVisionCenterCorrectionMm.ToString("F3") + ".");
             }
 
@@ -1983,13 +1981,11 @@ namespace QMC.CDT320.Sequencing
             return IsFiniteCorrectionValue(value) && Math.Abs(value) <= MaxSideVisionCenterCorrectionMm;
         }
 
-        private static bool TryResolveBottomMResultSideVisionOffset(
+        private static bool TryResolveBottomMResultSideVisionOffsetY(
             BottomVisionOffset result,
-            out double offsetX,
             out double offsetY,
             out string reason)
         {
-            offsetX = 0.0;
             offsetY = 0.0;
             reason = string.Empty;
 
@@ -1999,29 +1995,18 @@ namespace QMC.CDT320.Sequencing
                 return false;
             }
 
-            string rawX;
-            if (!result.Values.TryGetValue("bottom_offset_x_mm", out rawX) ||
-                !VisionProtocolResponse.TryParseDouble(rawX, out offsetX) ||
-                !IsFiniteCorrectionValue(offsetX))
-            {
-                reason = "bottom_offset_x_mm 누락 또는 숫자 형식 오류, raw=" + (rawX ?? string.Empty);
-                return false;
-            }
-
-            string rawY;
-            if (!result.Values.TryGetValue("bottom_offset_y_mm", out rawY) ||
-                !VisionProtocolResponse.TryParseDouble(rawY, out offsetY) ||
+            string raw;
+            if (!result.Values.TryGetValue("bottom_offset_y_mm", out raw) ||
+                !VisionProtocolResponse.TryParseDouble(raw, out offsetY) ||
                 !IsFiniteCorrectionValue(offsetY))
             {
-                reason = "bottom_offset_y_mm 누락 또는 숫자 형식 오류, raw=" + (rawY ?? string.Empty);
+                reason = "bottom_offset_y_mm 누락 또는 숫자 형식 오류, raw=" + (raw ?? string.Empty);
                 return false;
             }
 
-            if (!IsValidSideVisionCenterCorrection(offsetX) ||
-                !IsValidSideVisionCenterCorrection(offsetY))
+            if (!IsValidSideVisionCenterCorrection(offsetY))
             {
-                reason = "Offset 허용 범위 초과, value=(" + offsetX.ToString("F6") +
-                         "," + offsetY.ToString("F6") + ")" +
+                reason = "OffsetY 허용 범위 초과, value=" + offsetY.ToString("F6") +
                          ", allowedAbsMaxMm=" + MaxSideVisionCenterCorrectionMm.ToString("F3");
                 return false;
             }
@@ -2131,53 +2116,25 @@ namespace QMC.CDT320.Sequencing
             PickerSideInspectionCorrection correction = ResolveRuntimeSideInspectionCorrection(pickerIndex);
             bool correctionValid = correction != null &&
                                    correction.IsValid &&
-                                   IsValidSideVisionCenterCorrection(correction.BottomOffsetXmm) &&
-                                   IsValidSideVisionCenterCorrection(correction.BottomOffsetYmm) &&
+                                   IsValidSideVisionCenterCorrection(correction.SideVisionProcess0YOffset) &&
+                                   IsValidSideVisionCenterCorrection(correction.SideVisionProcess90YOffset) &&
                                    !string.IsNullOrWhiteSpace(die.DieId) &&
                                    !string.IsNullOrWhiteSpace(correction.SourceDieId) &&
                                    string.Equals(correction.SourceDieId, die.DieId, StringComparison.Ordinal);
             double baseZ = ResolveSidePickerZBase(pickerIndex, pickerNo);
             double zOffset = 0.0;
-            double bottomOffsetXmm = correctionValid ? correction.BottomOffsetXmm : 0.0;
-            double bottomOffsetYmm = correctionValid ? correction.BottomOffsetYmm : 0.0;
-
-            SideVisionYTargetResult sideVisionCalc;
-            string sideVisionCalcFailReason;
-            if (!SideVisionYTargetCalculator.TryBuild(
-                Context != null ? Context.Machine : null,
-                Context != null ? Context.Controller : null,
-                Side == PickerSequenceSide.Front ? VisionFocusPickerSide.Front : VisionFocusPickerSide.Rear,
+            double sideVisionProcess0YOffset = correctionValid ? correction.SideVisionProcess0YOffset : 0.0;
+            double sideVisionProcess90YOffset = correctionValid ? correction.SideVisionProcess90YOffset : 0.0;
+            SideVisionPositionTarget frontSideVision = BuildSideVisionPositionTarget(
+                PickerSequenceSide.Front,
                 pickerNo,
-                bottomOffsetXmm,
-                bottomOffsetYmm,
-                correctionValid,
-                out sideVisionCalc,
-                out sideVisionCalcFailReason))
-            {
-                WriteLog("PickerBottomAndSideInspectionSequence",
-                    Name + " Side Vision Y 절대식 계산 실패로 Side 목표를 만들 수 없습니다. " +
-                    "side=" + Side +
-                    ", pickerNo=" + pickerNo +
-                    ", die=" + die.DieId +
-                    ", offsetApplied=" + correctionValid +
-                    ", reason=" + sideVisionCalcFailReason + " - Failed");
-                return null;
-            }
-
-            SideVisionPositionTarget frontSideVision = new SideVisionPositionTarget
-            {
-                CameraSide = PickerSequenceSide.Front,
-                Axis = VisionAxis.FrontSideVisionY,
-                Process0Y = sideVisionCalc.Front0Y,
-                Process90Y = sideVisionCalc.Front90Y
-            };
-            SideVisionPositionTarget rearSideVision = new SideVisionPositionTarget
-            {
-                CameraSide = PickerSequenceSide.Rear,
-                Axis = VisionAxis.RearSideVisionY,
-                Process0Y = sideVisionCalc.Rear0Y,
-                Process90Y = sideVisionCalc.Rear90Y
-            };
+                sideVisionProcess0YOffset,
+                sideVisionProcess90YOffset);
+            SideVisionPositionTarget rearSideVision = BuildSideVisionPositionTarget(
+                PickerSequenceSide.Rear,
+                pickerNo,
+                sideVisionProcess0YOffset,
+                sideVisionProcess90YOffset);
             double t0 = ResolvePickerZoneT("DieSidePosition", pickerIndex);
             double sideTeachingX = ResolvePickerZoneX("DieSidePosition", pickerIndex);
             double sideTeachingY = ResolvePickerZoneY("DieSidePosition", pickerIndex);
@@ -2227,14 +2184,36 @@ namespace QMC.CDT320.Sequencing
                 T0 = t0,
                 T90 = t0 + 90.0,
                 SideCorrectionValid = correctionValid,
-                SideBottomOffsetXmm = bottomOffsetXmm,
-                SideBottomOffsetYmm = bottomOffsetYmm,
+                SideVisionProcess0YOffset = sideVisionProcess0YOffset,
+                SideVisionProcess90YOffset = sideVisionProcess90YOffset,
                 SidePickerZBase = baseZ,
                 SidePickerZOffset = zOffset,
                 FrontSideVision = frontSideVision,
                 RearSideVision = rearSideVision,
-                SideCorrectionSourceDieId = correction != null ? correction.SourceDieId : string.Empty,
-                SideVisionCalc = sideVisionCalc
+                SideCorrectionSourceDieId = correction != null ? correction.SourceDieId : string.Empty
+            };
+        }
+
+        private SideVisionPositionTarget BuildSideVisionPositionTarget(
+            PickerSequenceSide cameraSide,
+            int pickerNo,
+            double process0Offset,
+            double process90Offset)
+        {
+            bool focus0Valid;
+            bool focus90Valid;
+            double process0BaseY = ResolveSideVisionBasePosition(cameraSide, 0, pickerNo, out focus0Valid);
+            double process90BaseY = ResolveSideVisionBasePosition(cameraSide, 90, pickerNo, out focus90Valid);
+            return new SideVisionPositionTarget
+            {
+                CameraSide = cameraSide,
+                Axis = ResolveSideVisionAxis(cameraSide),
+                Process0BaseY = process0BaseY,
+                Process90BaseY = process90BaseY,
+                Process0Y = process0BaseY + process0Offset,
+                Process90Y = process90BaseY + process90Offset,
+                Focus0CalibrationValid = focus0Valid,
+                Focus90CalibrationValid = focus90Valid
             };
         }
 
@@ -2251,6 +2230,148 @@ namespace QMC.CDT320.Sequencing
                 pickerIndex,
                 pickerNo,
                 "PickerBottomAndSideInspectionSequence");
+        }
+
+        private double ResolveSideVisionBasePosition(
+            PickerSequenceSide cameraSide,
+            int angleDeg,
+            int pickerNo,
+            out bool focusCalibrationValid)
+        {
+            focusCalibrationValid = false;
+            try
+            {
+                VisionUnit vision = Context != null && Context.Machine != null ? Context.Machine.VisionUnit : null;
+                if (vision == null)
+                    return 0.0;
+
+                // Side 0/90도 저장 AF가 없을 때는 공통 Process0 티칭 위치를 기준으로 사용한다.
+                VisionAxis axis = ResolveSideVisionAxis(cameraSide);
+                double teachingY = vision.GetVisionTeachingPosition(axis, "Process0Position");
+                VisionFocusCalibrationData focusData = vision.Config != null ? vision.Config.FocusCalibration : null;
+                if (focusData == null)
+                    return teachingY;
+
+                focusData.EnsureObjects();
+                VisionFocusScanKind kind;
+                if (cameraSide == PickerSequenceSide.Front)
+                    kind = angleDeg == 90 ? VisionFocusScanKind.FrontSide90 : VisionFocusScanKind.FrontSide0;
+                else
+                    kind = angleDeg == 90 ? VisionFocusScanKind.RearSide90 : VisionFocusScanKind.RearSide0;
+
+                VisionFocusPositionRecord record = focusData.GetSideRecord(kind, pickerNo);
+                if (record == null || !record.Valid ||
+                    double.IsNaN(record.BestPosition) || double.IsInfinity(record.BestPosition))
+                {
+                    double fallbackCorrection;
+                    if (!TryResolveSideFocusFallbackCorrection(cameraSide, angleDeg, pickerNo, focusData, out fallbackCorrection))
+                        return teachingY;
+
+                    double axisSign = cameraSide == PickerSequenceSide.Front ? 1.0 : -1.0;
+                    double fallbackY = teachingY + axisSign * fallbackCorrection;
+                    WriteLog("PickerBottomAndSideInspectionSequence",
+                        Name + " Side AF 저장값이 없어 Process0+COC/DieSize 폴백을 적용합니다. " +
+                        "pickerSide=" + Side +
+                        ", cameraSide=" + cameraSide +
+                        ", axis=" + axis +
+                        ", pickerNo=" + pickerNo +
+                        ", angle=" + angleDeg +
+                        ", process0Y=" + teachingY.ToString("F6") +
+                        ", axisSign=" + axisSign.ToString("F1") +
+                        ", correction=" + fallbackCorrection.ToString("F6") +
+                        ", fallbackY=" + fallbackY.ToString("F6") + " - Check");
+                    return fallbackY;
+                }
+
+                focusCalibrationValid = true;
+                return record.BestPosition;
+            }
+            catch
+            {
+                return 0.0;
+            }
+            finally
+            {
+            }
+        }
+
+        private bool TryResolveSideFocusFallbackCorrection(
+            PickerSequenceSide cameraSide,
+            int angleDeg,
+            int pickerNo,
+            VisionFocusCalibrationData focusData,
+            out double correction)
+        {
+            correction = 0.0;
+            try
+            {
+                if (Context == null || Context.Machine == null || Context.Machine.VisionUnit == null ||
+                    Context.Machine.VisionUnit.Config == null ||
+                    Context.Machine.VisionUnit.Config.CalibrationData == null)
+                    return false;
+
+                VisionFocusPickerSide focusSide = Side == PickerSequenceSide.Front
+                    ? VisionFocusPickerSide.Front
+                    : VisionFocusPickerSide.Rear;
+                ColletCalibrationData colletData = Context.Machine.VisionUnit.Config.CalibrationData.Collet;
+                if (colletData == null)
+                    return false;
+
+                ColletCalibrationRecord record = colletData.GetRecord(focusSide, pickerNo);
+                if (record == null || !record.RotationCenterValid)
+                    return false;
+
+                VisionCameraPixelCalibration camera = VisionCameraCalibrationTransform.ResolveCamera(
+                    Context.Machine.VisionUnit.Config.CalibrationData.Camera,
+                    QMC.CDT320.VisionComm.AutoVisionChannel.BottomInspection);
+                double cocXmm = camera.PixelToMmOffsetX(record.RotationCenterPixelX);
+                double cocYmm = camera.PixelToMmOffsetY(record.RotationCenterPixelY);
+                if (double.IsNaN(cocXmm) || double.IsInfinity(cocXmm) ||
+                    double.IsNaN(cocYmm) || double.IsInfinity(cocYmm))
+                    return false;
+
+                bool frontCamera = cameraSide == PickerSequenceSide.Front;
+                if (angleDeg != 90)
+                {
+                    double coc0Sign = frontCamera ? focusData.SideFocusCoc0SignFront : focusData.SideFocusCoc0SignRear;
+                    correction = coc0Sign * cocYmm;
+                    return true;
+                }
+
+                double dieSizeX = 0.0;
+                double dieSizeY = 0.0;
+                QMC.CDT320.Recipes.RecipeProject recipe = QMC.CDT320.Recipes.RecipeStore.LoadLastOrDefault();
+                QMC.CDT320.Recipes.TapeFrameSubset frame = recipe != null
+                    ? (recipe.InputFrame ?? recipe.Frame)
+                    : null;
+                if (frame != null)
+                {
+                    dieSizeX = frame.DieSizeX;
+                    dieSizeY = frame.DieSizeY;
+                }
+                if ((dieSizeX <= 0.0 || dieSizeY <= 0.0) && Context.Controller != null)
+                {
+                    dieSizeX = Context.Controller.DieSizeXMm;
+                    dieSizeY = Context.Controller.DieSizeYMm;
+                }
+                if (dieSizeX <= 0.0 || dieSizeY <= 0.0)
+                    return false;
+
+                double sizeTerm90 = (dieSizeX - dieSizeY) / 2.0;
+                double size90Sign = frontCamera ? focusData.SideFocusSize90SignFront : focusData.SideFocusSize90SignRear;
+                double coc90Sign = frontCamera ? focusData.SideFocusCoc90SignFront : focusData.SideFocusCoc90SignRear;
+                correction = size90Sign * sizeTerm90 + coc90Sign * cocXmm;
+                return true;
+            }
+            catch (Exception ex)
+            {
+                WriteLog("PickerBottomAndSideInspectionSequence",
+                    Name + " Side Process0+COC/DieSize 폴백 계산 중 예외가 발생했습니다. " +
+                    "pickerSide=" + Side + ", cameraSide=" + cameraSide +
+                    ", pickerNo=" + pickerNo + ", angle=" + angleDeg +
+                    ", error=" + ex.Message + " - Failed");
+                return false;
+            }
         }
 
         private SideVisionPositionTarget ResolveSideVisionPositionTarget(
@@ -2273,11 +2394,8 @@ namespace QMC.CDT320.Sequencing
             SideVisionPositionTarget cameraTarget = ResolveSideVisionPositionTarget(target, cameraSide);
             if (cameraTarget == null)
             {
-                // 절대식 계산 결과가 없는 비정상 경로 — 로그 표기용 안전 폴백(티칭값)만 반환한다.
-                VisionUnit vision = Context != null && Context.Machine != null ? Context.Machine.VisionUnit : null;
-                return vision != null
-                    ? vision.GetVisionTeachingPosition(ResolveSideVisionAxis(cameraSide), "Process0Position")
-                    : 0.0;
+                bool focusCalibrationValid;
+                return ResolveSideVisionBasePosition(cameraSide, angleDeg, 1, out focusCalibrationValid);
             }
 
             return angleDeg == 90 ? cameraTarget.Process90Y : cameraTarget.Process0Y;
@@ -2781,10 +2899,17 @@ namespace QMC.CDT320.Sequencing
                 if (vision == null)
                     return Fail("PICKER-BOTTOM-SIDE-VISION-UNIT", "Vision", "Side 검사 카메라 이동 실패. VisionUnit을 찾을 수 없습니다. angle=" + angleDeg + ", pickerNo=" + target.PickerNo);
 
+                double correctionYOffset = angleDeg == 90
+                    ? target.SideVisionProcess90YOffset
+                    : target.SideVisionProcess0YOffset;
+                const string correctionSource = "BottomMResultOffsetY";
+
                 Task<int> frontTask = MoveSideVisionAxisProcessPositionAsync(
-                    vision, target, target.FrontSideVision, angleDeg);
+                    vision, target, target.FrontSideVision, angleDeg,
+                    correctionYOffset, correctionSource);
                 Task<int> rearTask = MoveSideVisionAxisProcessPositionAsync(
-                    vision, target, target.RearSideVision, angleDeg);
+                    vision, target, target.RearSideVision, angleDeg,
+                    correctionYOffset, correctionSource);
 
                 int[] results = await Task.WhenAll(frontTask, rearTask).ConfigureAwait(false);
                 if (results.Length != 2 || results[0] != 0 || results[1] != 0)
@@ -2818,26 +2943,36 @@ namespace QMC.CDT320.Sequencing
             VisionUnit vision,
             InspectionTarget target,
             SideVisionPositionTarget cameraTarget,
-            int angleDeg)
+            int angleDeg,
+            double correctionYOffset,
+            string correctionSource)
         {
             if (vision == null || target == null || cameraTarget == null)
                 return -1;
 
+            double baseY = vision.GetVisionTeachingPosition(cameraTarget.Axis, "Process0Position");
+            double focusCalBaseY = angleDeg == 90 ? cameraTarget.Process90BaseY : cameraTarget.Process0BaseY;
+            bool focusCalValid = angleDeg == 90
+                ? cameraTarget.Focus90CalibrationValid
+                : cameraTarget.Focus0CalibrationValid;
             double targetY = angleDeg == 90 ? cameraTarget.Process90Y : cameraTarget.Process0Y;
 
             WriteLog("PickerBottomAndSideInspectionSequence",
-                Name + " SideVisionY 절대식 이동. " +
+                Name + " SideVisionY 보정 이동. " +
                 "pickerSide=" + Side +
                 ", cameraSide=" + cameraTarget.CameraSide +
                 ", axis=" + cameraTarget.Axis +
                 ", pickerNo=" + target.PickerNo +
                 ", die=" + target.Die.DieId +
                 ", angle=" + angleDeg +
+                ", process0TeachingY=" + baseY.ToString("F6") +
+                ", focusCalBaseY=" + focusCalBaseY.ToString("F6") +
+                ", focusCalValid=" + focusCalValid +
+                ", offsetY=" + correctionYOffset.ToString("F6") +
+                ", offsetSource=" + correctionSource +
                 ", finalY=" + targetY.ToString("F6") +
-                ", offsetApplied=" + target.SideCorrectionValid +
-                ", sourceDie=" + (target.SideCorrectionSourceDieId ?? string.Empty) +
-                ", " + (target.SideVisionCalc != null ? target.SideVisionCalc.BuildTermLogText() : "calc=null") +
-                " - Start");
+                ", correctionValid=" + target.SideCorrectionValid +
+                ", sourceDie=" + (target.SideCorrectionSourceDieId ?? string.Empty) + " - Start");
 
             return await vision.MoveVisionAxis(
                 cameraTarget.Axis,
@@ -3662,11 +3797,17 @@ namespace QMC.CDT320.Sequencing
                 ", PickerZ.final=" + target.Z.ToString("F6") +
                 " | PickerT0.final=" + target.T0.ToString("F6") +
                 ", PickerT90.final=" + target.T90.ToString("F6") +
-                " | SideVisionCalc: " +
-                (target.SideVisionCalc != null ? target.SideVisionCalc.BuildTermLogText() : "null") +
-                " | FrontSideVisionY0.final=" + target.FrontSideVision.Process0Y.ToString("F6") +
+                " | FrontSideVisionY0.base=" + target.FrontSideVision.Process0BaseY.ToString("F6") +
+                ", FrontSideVisionY0.offset=" + target.SideVisionProcess0YOffset.ToString("F6") +
+                ", FrontSideVisionY0.final=" + target.FrontSideVision.Process0Y.ToString("F6") +
+                " | FrontSideVisionY90.base=" + target.FrontSideVision.Process90BaseY.ToString("F6") +
+                ", FrontSideVisionY90.offset=" + target.SideVisionProcess90YOffset.ToString("F6") +
                 ", FrontSideVisionY90.final=" + target.FrontSideVision.Process90Y.ToString("F6") +
+                " | RearSideVisionY0.base=" + target.RearSideVision.Process0BaseY.ToString("F6") +
+                ", RearSideVisionY0.offset=" + target.SideVisionProcess0YOffset.ToString("F6") +
                 ", RearSideVisionY0.final=" + target.RearSideVision.Process0Y.ToString("F6") +
+                " | RearSideVisionY90.base=" + target.RearSideVision.Process90BaseY.ToString("F6") +
+                ", RearSideVisionY90.offset=" + target.SideVisionProcess90YOffset.ToString("F6") +
                 ", RearSideVisionY90.final=" + target.RearSideVision.Process90Y.ToString("F6") +
                 " - Check");
         }

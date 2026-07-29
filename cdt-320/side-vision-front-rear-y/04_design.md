@@ -48,8 +48,9 @@ RearY  = ProcessY_R + DieWidth/2 − rotY + ΔY4
 - `AxisInterferenceMap`의 SideVisionY 그룹은 주석 처리(비활성)
 - 실질 차단 지점 = `MoveVisionAxis`의 소프트리밋(VS-SOFT-LIMIT). 신규 목표는 티칭Y 대비 최대 ±(H/2 + 7mm + |ΔY4|) 이탈 → **실장비 양 축 소프트리밋 여유 확인 필요**
 
-## 미확정 (착수 전 확인)
+## 확정 사항 (2026-07-29 "ㅇㅇ 이거 수정 해라" 승인, 구현 완료)
 
-- A. ΔY4 데이터 소스: 콜렛Cal `FinalPickerY`(콜렛별 Bottom 센터링 PickerY) 차 제안. 콜렛Cal 무효 시 차단/0진행 선택 필요.
-- B. 단독 시퀀스에서 Bottom 결과 없는 다이: o=(0,0) 기하항만 적용 제안. 단독은 PickerY가 피커별 티칭 이동이라 ΔY4 이중보정 여부 티칭 운영 기준 확인 필요.
-- ProcessY 재티칭 전제: 콜렛(4번) 중심면 기준.
+- A. ΔY4 = 콜렛Cal `FinalPickerY`(현재) − `FinalPickerY`(4번). 방향 확정: **현재 − 4번**. 콜렛Cal(FinalPickerY/COC) 무효 시 **검사 차단**(명확한 사유 알람).
+- B. 단독 시퀀스에서 Bottom 결과 없는 다이: o=(0,0)으로 기하항+ΔY4만 적용.
+- 구현 내역·실장비 확인 항목: [06_implementation/CHANGES.md](06_implementation/CHANGES.md) 참조.
+- ProcessY 재티칭 전제: 콜렛(4번) 중심면 기준 (다이 면 기준 구티칭이면 DieSize/2 이중 반영).

@@ -1950,9 +1950,12 @@ namespace QMC.CDT320.Sequencing
                         constrainingPickerX,
                         // 기존 조건: 회피 Extra(40)를 진입 유지갭에도 더해 safetyGap=50 — 피커가 검사/플레이스
                         //           대역에 있는 동안 비전 접근 한계가 피커±20mm뿐이라 스톨/왕복을 만들었다.
-                        // 현재 기준(사용자 승인 2026-07-30): 진입 유지갭은 페어 SafetyDistance만 사용(Extra 제외).
+                        // 현재 기준(사용자 승인 2026-07-30): 진입 유지갭 = 페어 SafetyDistance + 경계여유 2mm.
+                        //           Extra(40)는 제외하되, 실시간 간격 가드가 clearance<=required(등호 포함)에서
+                        //           정지하므로 목표가 정지선 위에 정확히 얹히지 않게 2mm를 띄운다
+                        //           (실장비 2026-07-30 01:xx, 유지갭=10 진입이 등호 정지 알람 유발 — 재발 방지).
                         //           회피 깊이 계산의 Extra는 기존 유지 — 진입 게이트/한계/제약/팔로잉 4곳 동일 적용.
-                        0.0,
+                        2.0,
                         out direction,
                         out homeGap,
                         out safetyGap,
@@ -2097,7 +2100,7 @@ namespace QMC.CDT320.Sequencing
             if (!service.TryGetFollowGapParameters(
                 visionAxis,
                 pickerAxis,
-                0.0, // 진입 유지갭 Extra 제외(사용자 승인 2026-07-30) — 게이트/팔로잉과 동일 기준.
+                2.0, // 진입 유지갭 = SafetyDistance + 경계여유 2mm(2026-07-30) — 게이트/팔로잉과 동일 기준.
                 out direction,
                 out homeGap,
                 out safetyGap,
@@ -2144,7 +2147,7 @@ namespace QMC.CDT320.Sequencing
             if (!service.TryGetFollowGapParameters(
                 visionAxis,
                 oppositePickerX,
-                0.0, // 진입 유지갭 Extra 제외(사용자 승인 2026-07-30) — 게이트/한계/팔로잉과 동일 기준.
+                2.0, // 진입 유지갭 = SafetyDistance + 경계여유 2mm(2026-07-30) — 게이트/한계/팔로잉과 동일 기준.
                 out direction,
                 out homeGap,
                 out safetyGap,
@@ -2192,7 +2195,7 @@ namespace QMC.CDT320.Sequencing
             if (!service.TryGetFollowGapParameters(
                 stage.OutputCameraX,
                 leadingPickerX,
-                0.0, // 진입 유지갭 Extra 제외(사용자 승인 2026-07-30) — 게이트/한계/제약과 동일 기준.
+                2.0, // 진입 유지갭 = SafetyDistance + 경계여유 2mm(2026-07-30) — 게이트/한계/제약과 동일 기준.
                 out direction,
                 out homeGap,
                 out safetyGap,
