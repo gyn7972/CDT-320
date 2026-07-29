@@ -125,11 +125,47 @@ namespace QMC.CDT320.Sequencing
                         item.VisionRequest,
                         ct).ConfigureAwait(false);
 
-                    if (offset == null)
+                    // 과대 보정 가드(Y 전용, 사용자 확정 2026-07-29): 비전이 인접 다이를 오매칭해
+                    //   다이 피치급 보정값을 돌려주면 스테이지가 한 피치 이동해 이미 픽업된 옆자리로
+                    //   내려간다(실장비 2026-07-29 확인). 한계 초과 보정은 적용하지 않고 RESULT 미수신과
+                    //   동일하게 Wait로 되돌린다. 판정은 Y만 — X/T는 판정하지 않는다.
+                    string offsetRejectReason = null;
+                    if (offset != null)
                     {
-                        int skipResult = SkipBatchItemForVisionResultFailure(item);
-                        if (skipResult != 0)
-                            return skipResult;
+                        double limitY;
+                        double dieSizeY;
+                        string rangeDetail;
+                        if (IsInputDieVisionOffsetYOutOfRange(offset, out limitY, out dieSizeY, out rangeDetail))
+                        {
+                            offsetRejectReason = "OffsetYOutOfRange";
+                            WriteLog("PickerPickUpSequence",
+                                Name + " Input die vision Y 보정값이 한계를 초과해 폐기하고 Die를 Wait로 남깁니다. " +
+                                "die=" + item.DieId +
+                                ", pickerNo=" + item.PickerNo +
+                                ", deltaY=" + offset.DeltaY.ToString("F6") +
+                                ", limitY=" + limitY.ToString("F6") +
+                                ", dieSizeY=" + dieSizeY.ToString("F6") +
+                                ", ratio=0.50" +
+                                ", deltaX=" + offset.DeltaX.ToString("F6") + "(판정제외)" +
+                                ", detail=" + rangeDetail + " - Check");
+                        }
+                        else if (!string.IsNullOrEmpty(rangeDetail))
+                        {
+                            WriteLog("PickerPickUpSequence",
+                                Name + " Input die vision 과대 보정 가드를 적용하지 않습니다. " +
+                                "die=" + item.DieId +
+                                ", pickerNo=" + item.PickerNo +
+                                ", detail=" + rangeDetail + " - Check");
+                        }
+                    }
+
+                    if (offset == null || offsetRejectReason != null)
+                    {
+                        int waitResult = ReturnBatchItemToWaitForVisionResultFailure(
+                            item,
+                            offsetRejectReason ?? "ResultNotReceived");
+                        if (waitResult != 0)
+                            return waitResult;
 
                         if (failedItems == null)
                             failedItems = new List<PickUpBatchItem>();
@@ -248,18 +284,53 @@ namespace QMC.CDT320.Sequencing
                 ct).ConfigureAwait(false);
 
             int waitedMs = (int)(DateTime.UtcNow - collectStart).TotalMilliseconds;
-            if (offset == null)
+
+            // 과대 보정 가드(Y 전용, 사용자 확정 2026-07-29) — 선회수 경로와 동일 판정.
+            string offsetRejectReason = null;
+            if (offset != null)
             {
-                int skipResult = SkipBatchItemForVisionResultFailure(item);
-                if (skipResult != 0)
-                    return skipResult;
+                double limitY;
+                double dieSizeY;
+                string rangeDetail;
+                if (IsInputDieVisionOffsetYOutOfRange(offset, out limitY, out dieSizeY, out rangeDetail))
+                {
+                    offsetRejectReason = "OffsetYOutOfRange";
+                    WriteLog("PickerPickUpSequence",
+                        Name + " Input die vision Y 보정값이 한계를 초과해 폐기하고 Die를 Wait로 남깁니다. " +
+                        "die=" + item.DieId +
+                        ", pickerNo=" + item.PickerNo +
+                        ", deltaY=" + offset.DeltaY.ToString("F6") +
+                        ", limitY=" + limitY.ToString("F6") +
+                        ", dieSizeY=" + dieSizeY.ToString("F6") +
+                        ", ratio=0.50" +
+                        ", deltaX=" + offset.DeltaX.ToString("F6") + "(판정제외)" +
+                        ", detail=" + rangeDetail + " - Check");
+                }
+                else if (!string.IsNullOrEmpty(rangeDetail))
+                {
+                    WriteLog("PickerPickUpSequence",
+                        Name + " Input die vision 과대 보정 가드를 적용하지 않습니다. " +
+                        "die=" + item.DieId +
+                        ", pickerNo=" + item.PickerNo +
+                        ", detail=" + rangeDetail + " - Check");
+                }
+            }
+
+            if (offset == null || offsetRejectReason != null)
+            {
+                int waitResult = ReturnBatchItemToWaitForVisionResultFailure(
+                    item,
+                    offsetRejectReason ?? "ResultNotReceived");
+                if (waitResult != 0)
+                    return waitResult;
 
                 _pickBatchItems.Remove(item);
                 SetCurrentBatchItem(null);
                 WriteLog("PickerPickUpSequence",
-                    Name + " 픽 직전 RESULT 회수 실패로 해당 Die를 배치에서 제외했습니다. " +
+                    Name + " 픽 직전 RESULT 확정 실패로 해당 Die를 배치에서 제외하고 Wait로 남겼습니다. " +
                     "die=" + item.DieId +
                     ", pickerNo=" + item.PickerNo +
+                    ", reason=" + (offsetRejectReason ?? "ResultNotReceived") +
                     ", waitedMs=" + waitedMs + " - Check");
                 return 0;
             }
@@ -302,45 +373,85 @@ namespace QMC.CDT320.Sequencing
             return 0;
         }
 
-        /// <summary>RESULT 회수 실패 Die SKIP — prepare SkipCurrentVisionFailedDieAndContinue와 동일 자재 처리.</summary>
-        private int SkipBatchItemForVisionResultFailure(PickUpBatchItem item)
+        /// <summary>
+        /// RESULT 회수 실패/과대 보정 Die를 Wait로 되돌린다 — 다음 라운드에 다시 촬영·픽업된다.
+        /// [사용자 확정 2026-07-29] 기존에는 SKIP(IsInputTarget=false)으로 영구 제외했다.
+        ///   재시도 상한(InputDieVisionWaitRetryLimit, 기본 3회) 초과 시에만 기존 SKIP으로 전환한다.
+        /// </summary>
+        private int ReturnBatchItemToWaitForVisionResultFailure(PickUpBatchItem item, string reason)
         {
             try
             {
                 string dieId = item != null && item.DieId != null ? item.DieId : string.Empty;
                 int pickerNo = item != null ? item.PickerNo : 0;
 
-                MaterialStateService.ReleaseInputStagePickReservation(dieId, PickerLocationKind, pickerNo);
-                MaterialStateService.RemoveInspection(dieId, "InputPickVision");
-
-                string message;
-                bool syncOk = MaterialStateService.ApplyManualDieState(
+                int waitCount;
+                int waitLimit;
+                string detail;
+                InputDieVisionWaitResult decision = ResolveInputDieVisionWait(
                     dieId,
-                    false,
-                    DieResult.Unknown,
-                    0,
-                    "",
-                    "PickUpVisionResultNgSkip",
-                    ManualDieStateSyncScope.InputMapOnly,
-                    out message);
-                if (!syncOk)
+                    pickerNo,
+                    reason,
+                    out waitCount,
+                    out waitLimit,
+                    out detail);
+
+                if (decision == InputDieVisionWaitResult.Failed)
                 {
-                    return Fail("PICKER-PICKUP-VISION-SKIP-FAIL", "Material",
-                        "Input die vision RESULT 실패 Die SKIP 처리에 실패했습니다. die=" + dieId +
+                    return Fail("PICKER-PICKUP-VISION-WAIT-FAIL", "Material",
+                        "Input die vision RESULT 실패 Die의 Wait 복귀에 실패했습니다. die=" + dieId +
                         ", pickerNo=" + pickerNo +
-                        ", message=" + message);
+                        ", reason=" + reason +
+                        ", detail=" + detail);
+                }
+
+                if (decision == InputDieVisionWaitResult.SkipByLimit)
+                {
+                    // 상한 초과 — 기존 SKIP(영구 제외) 경로를 그대로 유지한다.
+                    MaterialStateService.ReleaseInputStagePickReservation(dieId, PickerLocationKind, pickerNo);
+                    MaterialStateService.RemoveInspection(dieId, "InputPickVision");
+
+                    string message;
+                    bool syncOk = MaterialStateService.ApplyManualDieState(
+                        dieId,
+                        false,
+                        DieResult.Unknown,
+                        0,
+                        "",
+                        "PickUpVisionResultNgSkipByWaitLimit",
+                        ManualDieStateSyncScope.InputMapOnly,
+                        out message);
+                    if (!syncOk)
+                    {
+                        return Fail("PICKER-PICKUP-VISION-SKIP-FAIL", "Material",
+                            "Input die vision RESULT 실패 Die SKIP 처리에 실패했습니다. die=" + dieId +
+                            ", pickerNo=" + pickerNo +
+                            ", message=" + message);
+                    }
+
+                    WriteLog("PickerPickUpSequence",
+                        Name + " Input die vision 재시도 한계를 초과해 Die를 SKIP(영구 제외) 처리합니다. " +
+                        "die=" + dieId +
+                        ", pickerNo=" + pickerNo +
+                        ", waitCount=" + waitCount +
+                        ", limit=" + waitLimit +
+                        ", lastReason=" + reason +
+                        ", detail=" + detail + " - Failed");
+                    return 0;
                 }
 
                 WriteLog("PickerPickUpSequence",
-                    Name + " Input die vision RESULT 실패 Die를 SKIP 처리하고 다음 항목으로 진행합니다. " +
+                    Name + " Input die vision RESULT 실패 Die를 Wait로 남기고 다음 항목으로 진행합니다. " +
                     "die=" + dieId +
-                    ", pickerNo=" + pickerNo + " - Ok");
+                    ", pickerNo=" + pickerNo +
+                    ", reason=" + reason +
+                    ", waitCount=" + waitCount + "/" + waitLimit + " - Ok");
                 return 0;
             }
             catch (Exception ex)
             {
-                return Fail("PICKER-PICKUP-VISION-SKIP-EX", "Material",
-                    "Input die vision RESULT 실패 Die SKIP 처리 중 예외가 발생했습니다. die=" +
+                return Fail("PICKER-PICKUP-VISION-WAIT-EX", "Material",
+                    "Input die vision RESULT 실패 Die Wait 복귀 중 예외가 발생했습니다. die=" +
                     (item != null ? item.DieId : "-") +
                     ", error=" + ex.Message);
             }

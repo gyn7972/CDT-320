@@ -1016,6 +1016,7 @@
     <Compile Include="Sequencing\Picker\PickerFirstForwardSequencer.cs" />
     <Compile Include="Sequencing\Picker\PickerCoordinateTransformHelper.cs" />
     <Compile Include="Sequencing\Picker\DieCoordinateTransformService.cs" />
+    <Compile Include="Sequencing\Picker\InputDieVisionWaitRetryStore.cs" />
     <Compile Include="Sequencing\Picker\PickRuntimeOffsetService.cs" />
     <Compile Include="Sequencing\Picker\PickRuntimeOffsetStore.cs" />
     <Compile Include="Sequencing\Picker\PlaceRuntimeOffsetService.cs" />

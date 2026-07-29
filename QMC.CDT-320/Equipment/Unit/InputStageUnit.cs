@@ -149,7 +149,23 @@ namespace QMC.CDT320
         /// <summary>PickUp 전 Input Die Vision 검사 실패 시 처리 방식.</summary>
         [DataMember] public InputDieVisionFailureAction InputDieVisionFailureAction { get; set; } = InputDieVisionFailureAction.SkipDie;
 
+        /// <summary>
+        /// Input Die Vision 실패/과대 보정 Die를 Wait(다음 라운드 재촬영)로 되돌릴 수 있는 최대 횟수.
+        /// [사용자 확정 2026-07-29] 기본 3회. 이 횟수를 초과하면 기존 SKIP(영구 제외)으로 전환한다.
+        /// 0이면 재시도 없이 즉시 SKIP — 수정 전 동작으로 되돌리는 탈출구다(0을 기본값 복원 대상으로 삼지 말 것).
+        /// </summary>
+        [DataMember] public int InputDieVisionWaitRetryLimit { get; set; } = 3;
+
         [DataMember] public int SequenceMoveTimeoutMs { get; set; } = 10000;
+
+        // DataContractJsonSerializer는 필드 이니셜라이저를 실행하지 않는다. 구 설정 파일에
+        // InputDieVisionWaitRetryLimit 키가 없으면 0(=즉시 SKIP)으로 읽혀 의도와 달라지므로
+        // 역직렬화 전에 기본값을 심는다. Ensure에서는 0을 복원 대상으로 삼을 수 없다(0이 유효값).
+        [OnDeserializing]
+        private void OnDeserializing(StreamingContext ctx)
+        {
+            InputDieVisionWaitRetryLimit = 3;
+        }
 
         [OnDeserialized]
         private void OnDeserialized(StreamingContext ctx)
@@ -187,6 +203,11 @@ namespace QMC.CDT320
                 PickUpNeedleSeparateSpeedPercent = 1.0;
             if (InputDieVisionRetryCount <= 0)
                 InputDieVisionRetryCount = 3;
+            // 0은 "재시도 없이 즉시 SKIP"이라는 유효값이므로 기본값으로 복원하지 않는다. 범위만 클램프한다.
+            if (InputDieVisionWaitRetryLimit < 0)
+                InputDieVisionWaitRetryLimit = 0;
+            if (InputDieVisionWaitRetryLimit > 10)
+                InputDieVisionWaitRetryLimit = 10;
             // 현재 기준: 얼라인 허용값 3종은 0 이하로 저장된 경우 기본값(현재 운용값)으로 복원한다.
             if (AlignPitchCompareToleranceMm <= 0.0)
                 AlignPitchCompareToleranceMm = 0.1;

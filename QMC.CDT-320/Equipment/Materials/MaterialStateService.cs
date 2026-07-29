@@ -7177,6 +7177,100 @@ namespace QMC.CDT320.Materials
             }
         }
 
+        /// <summary>
+        /// Input die vision 실패/과대 보정 Die를 "Wait"(다음 라운드 재촬영 대기) 상태로 되돌린다.
+        /// [사용자 확정 2026-07-29] 기존 SKIP은 ApplyManualDieState(isInputTarget:false)로
+        ///   die.IsInputTarget을 내려 CanUseInputPickCandidate에서 영구 제외됐다(=다이를 버림).
+        ///   Wait는 그 다이를 픽업 후보로 살려 두고 다음 라운드에 다시 촬영·픽업하게 한다.
+        ///
+        /// 따라서 이 메서드는 IsInputTarget / Result를 변경하지 않는다 — 예약 해제와
+        ///   InputPickVision 검사기록 제거만 수행한다(둘 다 재예약·재촬영의 전제).
+        /// 픽커 위치에 남아 있는 Die는 저장 상태와 물리 상태 불일치이므로 fail-closed로 거부한다.
+        /// 세 호출부(prepare / 픽업 RESULT 회수 / 픽업 직접 경로)가 이 단일 구현만 호출한다.
+        /// </summary>
+        public static bool ReturnInputDieToWait(
+            string dieId,
+            MaterialLocationKind pickerLocation,
+            int pickerNo,
+            string reason,
+            out string message)
+        {
+            message = string.Empty;
+            try
+            {
+                if (string.IsNullOrWhiteSpace(dieId))
+                {
+                    message = "Die ID가 비어 있습니다.";
+                    return false;
+                }
+
+                // 예약 해제가 먼저다 — 이 호출이 legacy 예약(CurrentLocation=Picker*)을
+                // InputStage로 정규화해 주므로, 아래 위치 검증이 정상 케이스를 오탐하지 않는다.
+                ReleaseInputStagePickReservation(dieId, pickerLocation, pickerNo);
+                RemoveInspection(dieId, "InputPickVision");
+
+                bool isInputTarget;
+                DieResult result;
+                lock (_stateSync)
+                {
+                    DieMaterial die = State.Dies.FirstOrDefault(d =>
+                        d != null &&
+                        string.Equals(d.DieId, dieId, StringComparison.OrdinalIgnoreCase));
+                    if (die == null)
+                    {
+                        message = "Die 정보를 찾을 수 없습니다. dieId=" + dieId;
+                        return false;
+                    }
+
+                    MaterialLocationKind locationKind = die.CurrentLocation != null
+                        ? die.CurrentLocation.Kind
+                        : MaterialLocationKind.Unknown;
+                    if (locationKind == MaterialLocationKind.PickerFront ||
+                        locationKind == MaterialLocationKind.PickerRear)
+                    {
+                        message = "Die가 아직 Picker 위치로 기록되어 있어 Wait로 되돌릴 수 없습니다. " +
+                                  "dieId=" + dieId + ", location=" + locationKind +
+                                  ", pickerNo=" + die.CurrentLocation.PickerNo;
+                        return false;
+                    }
+
+                    // IsInputTarget / Result는 의도적으로 변경하지 않는다(Wait의 정의).
+                    isInputTarget = die.IsInputTarget;
+                    result = die.Result;
+                    die.UpdatedAt = DateTime.Now;
+                }
+
+                NotifyAndSave("ReturnInputDieToWait:" + (reason ?? string.Empty) + ":" + dieId);
+
+                // 후보 조건이 이미 깨져 있으면 재픽업이 되지 않으므로 그 사실을 남긴다(무음 방지).
+                bool pickableAgain = isInputTarget &&
+                                     result != DieResult.Good &&
+                                     result != DieResult.NG;
+                Log.Write("Main", "MATERIAL", "ReturnInputDieToWait",
+                    "Input die를 Wait 상태로 되돌렸습니다. dieId=" + dieId +
+                    ", reason=" + (reason ?? string.Empty) +
+                    ", isInputTarget=" + isInputTarget +
+                    ", result=" + result +
+                    ", pickableAgain=" + pickableAgain +
+                    (pickableAgain ? " - Ok" : " - Check"));
+
+                message = "Die를 Wait 상태로 되돌렸습니다. dieId=" + dieId;
+                return true;
+            }
+            catch (Exception ex)
+            {
+                message = "Die Wait 복귀 실패: " + ex.Message;
+                Log.Write("Main", "MATERIAL", "ReturnInputDieToWait",
+                    "Input die Wait 복귀 실패. dieId=" + dieId +
+                    ", reason=" + (reason ?? string.Empty) +
+                    ", error=" + ex.Message + " - Failed");
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
         public static int ReleaseInputStagePickReservationsForPickerLocation(MaterialLocationKind pickerLocation, string reason)
         {
             try

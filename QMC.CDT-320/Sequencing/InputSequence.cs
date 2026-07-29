@@ -194,6 +194,12 @@ namespace QMC.CDT320.Sequencing
                                 ct).ConfigureAwait(false);
                         }
 
+                        // Input die vision Wait 재시도 카운터는 웨이퍼 단위 휘발성이다(사용자 확정 2026-07-29).
+                        // 새 웨이퍼가 Stage에 올라온 이 지점에서 초기화한다 — 이전 웨이퍼의 실패 횟수가
+                        // 새 웨이퍼 Die에 영향을 주지 않게 한다. Mode와 무관하게 수행한다.
+                        if (stageWafer != null)
+                            InputDieVisionWaitRetryStore.ClearAll("WaferExchanged");
+
                         // 자동 콜렛 클리닝 실행 창: "새 웨이퍼 로딩 완료 후, 첫 Pick 전".
                         // 이 lease를 쥐고 있는 동안에는 Picker 신규 공정이 진입하지 못하고 NG Bin이 Stage에 있으므로
                         // 클리닝이 안전하게 수행될 수 있는 유일한 구간이다.

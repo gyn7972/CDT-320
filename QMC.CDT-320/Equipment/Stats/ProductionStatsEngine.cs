@@ -22,12 +22,12 @@ namespace QMC.CDT320.Stats
         private const int RollingWindow = 20;
         //Todo : GYN - UPH.
         // 아래 두 값으로 표시 보정 사용 여부와 적용 시작 Place 수를 변경합니다.
-        private static readonly bool EnableFullSpeedUphDisplayNormalization = false;
+        private static readonly bool EnableFullSpeedUphDisplayNormalization = true;
         private const int UphNormalizationMinimumPlaceCount = 20;
         // 최근 실장비 로그 기준 3000 미만은 정지/교체 지연으로 보고 보정하지 않습니다.
         private const double UphNormalizationMinimumRawUph = 3000.0;
         private const double UphNormalizationTriggerUph = 3200.0;
-        private const int UphNormalizationMinimumTargetUph = 3190;
+        private const int UphNormalizationMinimumTargetUph = 3200;
         private const int UphNormalizationMaximumTargetUph = 3250;
         private static readonly TimeSpan RecentMinuteWindow = TimeSpan.FromSeconds(60);
 

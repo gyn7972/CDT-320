@@ -1476,9 +1476,11 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 v => unit.Config.InputDieVisionRetryCount = Math.Max(1, v)),
                 "PickUp 전 Die Vision 검사를 최대 몇 번 시도할지 설정합니다.\r\n예: 3이면 3회 검사 후 실패 정책을 적용합니다."), groupKey));
 
+            // [사용자 확정 2026-07-29] SkipDie 동작이 "영구 제외"에서 "Wait(다음 라운드 재촬영)"로 바뀌었다.
+            //   enum 값 이름/직렬화 키는 설정 호환을 위해 그대로 두고 표기만 정정한다.
             var failActionOptions = new List<ParameterGridOption>
             {
-                new ParameterGridOption("SKIP DIE / 다음 Die 진행", InputDieVisionFailureAction.SkipDie),
+                new ParameterGridOption("WAIT DIE / 다음 Die 진행(해당 Die는 다음에 재촬영)", InputDieVisionFailureAction.SkipDie),
                 new ParameterGridOption("ALARM / 알람 정지", InputDieVisionFailureAction.Alarm)
             };
             items.Add(InGroup(Describe(ParameterGridItem.Selection("INPUT DIE VISION FAIL ACTION", "mode", ParameterGridScope.Config,
@@ -1487,7 +1489,15 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                     ? (InputDieVisionFailureAction)value
                     : InputDieVisionFailureAction.SkipDie,
                 failActionOptions),
-                "지정 횟수만큼 Die Vision 검사에 실패했을 때 처리 방식입니다.\r\nSKIP은 해당 Die를 제외 처리하고 다음 Die로 넘어가며, ALARM은 기존처럼 알람 정지합니다."), groupKey));
+                "지정 횟수만큼 Die Vision 검사에 실패했을 때 처리 방식입니다.\r\n" +
+                "WAIT은 해당 Die를 픽업 대기 상태로 남겨 다음 라운드에 다시 촬영·픽업하고, ALARM은 기존처럼 알람 정지합니다."), groupKey));
+
+            items.Add(InGroup(Describe(ParameterGridItem.Int("INPUT DIE VISION WAIT RETRY LIMIT", "ea", ParameterGridScope.Config,
+                () => unit.Config.InputDieVisionWaitRetryLimit,
+                v => unit.Config.InputDieVisionWaitRetryLimit = Math.Max(0, Math.Min(10, v))),
+                "같은 Die를 Wait(재촬영 대기)로 되돌릴 수 있는 최대 횟수입니다.\r\n" +
+                "이 횟수를 넘기면 해당 Die를 픽업 대상에서 제외하고 경고 알람을 남깁니다.\r\n" +
+                "0이면 재시도 없이 즉시 제외합니다. 카운터는 웨이퍼 교체와 자동 운전 시작 시 초기화됩니다."), groupKey));
         }
 
         private void AddWorkAreaSettingItems(List<ParameterGridItem> items, InputStageUnit unit)

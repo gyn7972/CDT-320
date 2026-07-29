@@ -98,6 +98,8 @@ namespace QMC.CDT320.Sequencing
 
             // §4: 이번 run의 크로스-픽커 첫 전진 우선순위 상태를 초기화한다(신규 시작/재시작 순서 게이트).
             PickerFirstForwardSequencer.BeginRun();
+            // Input die vision Wait 재시도 카운터 초기화(사용자 확정 2026-07-29) — 자동 운전 시작 시점.
+            InputDieVisionWaitRetryStore.ClearAll("AutoStart");
             PickerFirstForwardSequencer.ConfigureActiveSides(
                 IsPickerSideActive(PickerSequenceSide.Front),
                 IsPickerSideActive(PickerSequenceSide.Rear));

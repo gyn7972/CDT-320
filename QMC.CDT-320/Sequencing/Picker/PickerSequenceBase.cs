@@ -3923,6 +3923,209 @@ namespace QMC.CDT320.Sequencing
             return IsFiniteSideInspectionZ(value) ? value : 0.0;
         }
 
+        // ─────────────────────────────────────────────
+        //  Input die vision 실패/과대 보정 Die 처리 (Wait vs 상한 초과 SKIP)
+        //  [사용자 확정 2026-07-29] 기존 SKIP(영구 제외) → Wait(다음 라운드 재촬영)로 변경.
+        //  세 경로(prepare / 픽업 RESULT 회수 / 픽업 직접)가 이 단일 판정을 공유한다.
+        // ─────────────────────────────────────────────
+
+        /// <summary>Input die vision 실패 Die 처리 판정 결과.</summary>
+        protected enum InputDieVisionWaitResult
+        {
+            /// <summary>Wait로 되돌렸다 — 다음 라운드에 재촬영·재픽업 대상이 된다.</summary>
+            Wait,
+            /// <summary>재시도 상한 초과(또는 상한 0) — 호출자가 기존 SKIP(영구 제외)을 수행해야 한다.</summary>
+            SkipByLimit,
+            /// <summary>자재 상태 처리 실패 — 호출자가 Fail로 중단해야 한다.</summary>
+            Failed
+        }
+
+        /// <summary>
+        /// Input Die Vision 실패/과대 보정 Die를 Wait로 되돌리거나, 재시도 상한 초과를 알린다.
+        /// 상한(<c>InputDieVisionWaitRetryLimit</c>, 기본 3)을 초과하면 Warning 알람을 1회 올리고
+        /// SkipByLimit를 반환한다 — 실제 SKIP(IsInputTarget=false) 처리는 각 호출부의 기존 코드가 수행한다
+        /// (경로별 ManualDieStateSyncScope 차이를 보존하기 위함).
+        /// </summary>
+        protected InputDieVisionWaitResult ResolveInputDieVisionWait(
+            string dieId,
+            int pickerNo,
+            string reason,
+            out int waitCount,
+            out int waitLimit,
+            out string detail)
+        {
+            waitCount = 0;
+            waitLimit = ResolveInputDieVisionWaitRetryLimit();
+            detail = string.Empty;
+
+            try
+            {
+                // 상한 0 = "재시도 없이 즉시 SKIP"(수정 전 동작으로 되돌리는 탈출구).
+                if (waitLimit <= 0)
+                {
+                    detail = "waitRetryLimit=0(즉시 SKIP 설정)";
+                    return InputDieVisionWaitResult.SkipByLimit;
+                }
+
+                waitCount = InputDieVisionWaitRetryStore.Increment(dieId);
+                if (waitCount > waitLimit)
+                {
+                    detail = "waitCount=" + waitCount + " > limit=" + waitLimit;
+                    string alarmMessage =
+                        "Input die vision 재시도 한계를 초과해 해당 Die를 픽업 대상에서 제외합니다. " +
+                        "side=" + Side +
+                        ", pickerNo=" + pickerNo +
+                        ", die=" + (dieId ?? string.Empty) +
+                        ", waitCount=" + waitCount +
+                        ", limit=" + waitLimit +
+                        ", lastReason=" + (reason ?? string.Empty);
+                    AlarmManager.Raise(
+                        AlarmSeverity.Warning,
+                        "INPUT-DIE-VISION-WAIT-LIMIT",
+                        "InputDieVision",
+                        alarmMessage);
+                    WriteLog(Name, alarmMessage + " - Failed");
+                    return InputDieVisionWaitResult.SkipByLimit;
+                }
+
+                string message;
+                if (!MaterialStateService.ReturnInputDieToWait(
+                        dieId,
+                        PickerLocationKind,
+                        pickerNo,
+                        reason,
+                        out message))
+                {
+                    detail = message;
+                    return InputDieVisionWaitResult.Failed;
+                }
+
+                return InputDieVisionWaitResult.Wait;
+            }
+            catch (Exception ex)
+            {
+                detail = ex.Message;
+                return InputDieVisionWaitResult.Failed;
+            }
+            finally
+            {
+            }
+        }
+
+        /// <summary>Wait 재시도 상한 설정값. 해석 실패 시 기본 3회.</summary>
+        private int ResolveInputDieVisionWaitRetryLimit()
+        {
+            try
+            {
+                InputStageUnit stage = Context != null && Context.Machine != null
+                    ? Context.Machine.InputStageUnit
+                    : null;
+                if (stage == null || stage.Config == null)
+                    return 3;
+
+                int limit = stage.Config.InputDieVisionWaitRetryLimit;
+                if (limit < 0)
+                    return 0;
+                return limit > 10 ? 10 : limit;
+            }
+            catch
+            {
+                return 3;
+            }
+            finally
+            {
+            }
+        }
+
+        /// <summary>
+        /// Input die vision 보정값이 인접 다이 오매칭 의심 범위인지 판정한다(Y 채널 전용).
+        /// [사용자 확정 2026-07-29] 한계 = DieSizeY × 0.5, 설정 항목 없이 고정.
+        ///   X(DeltaX)/T(DeltaTheta)는 판정하지 않는다 — 확장 금지.
+        /// 다이 치수를 구할 수 없으면 가드를 적용하지 않는다(fail-open) — 치수를 모르는 상태에서
+        ///   임의 기본값으로 자재를 Wait 처리하지 않는다. 그 사유는 호출자가 로그로 남긴다.
+        /// </summary>
+        protected bool IsInputDieVisionOffsetYOutOfRange(
+            VisionAlignResult offset,
+            out double limitY,
+            out double dieSizeY,
+            out string detail)
+        {
+            limitY = 0.0;
+            dieSizeY = 0.0;
+            detail = string.Empty;
+
+            try
+            {
+                if (offset == null)
+                    return false;
+
+                if (!TryResolveInputDieSizeY(out dieSizeY))
+                {
+                    detail = "dieSizeY 미확보 — 가드 미적용(fail-open)";
+                    return false;
+                }
+
+                limitY = dieSizeY * InputDieVisionOffsetLimitRatio;
+                double deltaY = offset.DeltaY;
+                if (double.IsNaN(deltaY) || double.IsInfinity(deltaY))
+                {
+                    detail = "deltaY=" + deltaY + "(비정상 수치)";
+                    return true;
+                }
+
+                if (Math.Abs(deltaY) < limitY)
+                    return false;
+
+                detail = "|deltaY|=" + Math.Abs(deltaY).ToString("F6") +
+                         " >= limitY=" + limitY.ToString("F6") +
+                         " (dieSizeY=" + dieSizeY.ToString("F6") +
+                         " x ratio=" + InputDieVisionOffsetLimitRatio.ToString("F2") + ")";
+                return true;
+            }
+            catch (Exception ex)
+            {
+                detail = "판정 예외 — 가드 미적용: " + ex.Message;
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
+        // 한계 비율(고정). alignOffsetY는 InputStageY 축에 적용되므로 대응 치수는 DieSizeY다.
+        // 실측 근거: 스테이지Y 피치 6.32mm = DieSizeY 6.12 + Gap 0.2 (레시피 GM1SP-T150-G300).
+        private const double InputDieVisionOffsetLimitRatio = 0.5;
+
+        /// <summary>
+        /// 다이 Y 치수 해석. Side 비전 폴백(TryResolveSideFocusFallbackCorrection)과 동일 순서를 따른다.
+        /// ① 레시피 InputFrame(없으면 Frame)의 DieSizeY ② Controller.DieSizeYMm ③ 실패.
+        /// </summary>
+        private bool TryResolveInputDieSizeY(out double dieSizeY)
+        {
+            dieSizeY = 0.0;
+            try
+            {
+                QMC.CDT320.Recipes.RecipeProject recipe = QMC.CDT320.Recipes.RecipeStore.LoadLastOrDefault();
+                QMC.CDT320.Recipes.TapeFrameSubset frame = recipe != null
+                    ? (recipe.InputFrame ?? recipe.Frame)
+                    : null;
+                if (frame != null)
+                    dieSizeY = frame.DieSizeY;
+
+                if (dieSizeY <= 0.0 && Context != null && Context.Controller != null)
+                    dieSizeY = Context.Controller.DieSizeYMm;
+
+                return dieSizeY > 0.0;
+            }
+            catch
+            {
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
         protected double ResolvePickerZoneX(string positionArrayName, int pickerIndex)
         {
             return ResolvePickerZoneTarget(positionArrayName, pickerIndex).X;
