@@ -1604,7 +1604,7 @@ namespace QMC.CDT320.Sequencing.Calibration
                 string recipeName = Context != null && Context.Controller != null ? Context.Controller.ActiveRecipeName : null;
                 if (string.IsNullOrWhiteSpace(recipeName))
                 {
-                    QMC.Common.Log.Write("Calibration", "SYSTEM", "AfPickProcessZ",
+                    QMC.Common.Log.Write("Calibration", "SYSTEM", "AfProcessZ",
                         "활성 Recipe가 없어 콜렛 AF 기반 PickPosition을 갱신하지 않습니다. side=" + _calibrationSide + ", colletNo=" + _colletNo);
                     return 0;
                 }
@@ -1613,8 +1613,9 @@ namespace QMC.CDT320.Sequencing.Calibration
                 double bottomToPickMm = ResolveBottomToPickMm();
                 double newPickZ = target.FinalPickerZ + zInfo.ColletOffset + zInfo.DieThickness + bottomToPickMm;
 
-                return ApplyAfDerivedPickPosition(
+                return ApplyAfDerivedZTeaching(
                     _colletIndex,
+                    "PickPosition",
                     newPickZ,
                     "formulaPickZ=afBestZ+colletOffset+dieThickness+bottomToPick=" +
                     target.FinalPickerZ.ToString("F6") + "+" + zInfo.ColletOffset.ToString("F6") + "+" +
@@ -1689,7 +1690,7 @@ namespace QMC.CDT320.Sequencing.Calibration
                 SetPickerIndexedTeachingPosition(zAxis, "DieSidePosition", snapshot[13]);
                 SetPickerPickTeachingPosition(zAxis, snapshot[14]);
 
-                QMC.Common.Log.Write("Calibration", "SYSTEM", "AfPickProcessZ",
+                QMC.Common.Log.Write("Calibration", "SYSTEM", "AfProcessZ",
                     "티칭 동기화 실패로 콜렛 티칭 스냅샷을 원복했습니다(메모리=캘 이전 상태). side=" + _calibrationSide +
                     ", colletNo=" + _colletNo +
                     ", bottomZRestored=" + snapshot[4].ToString("F6") +
@@ -1698,7 +1699,7 @@ namespace QMC.CDT320.Sequencing.Calibration
             }
             catch (Exception ex)
             {
-                QMC.Common.Log.Write("Calibration", "SYSTEM", "AfPickProcessZ",
+                QMC.Common.Log.Write("Calibration", "SYSTEM", "AfProcessZ",
                     "콜렛 티칭 스냅샷 원복 중 예외. side=" + _calibrationSide +
                     ", colletNo=" + _colletNo + ", error=" + ex.Message);
             }

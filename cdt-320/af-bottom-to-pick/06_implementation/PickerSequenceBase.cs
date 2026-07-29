@@ -376,16 +376,21 @@ namespace QMC.CDT320.Sequencing
                     if (result != 0)
                         return result;
 
-                    // 다이 AF 절대 산식(승인 2026-07-29): PickPosition = bestZ + BottomToPickMm.
-                    // 다이 바닥면 실측 포커스이므로 상대 누적 없이 Pick 공정 Z를 직접 재계산한다(이번 다이 Pick은
-                    // 이미 지났으므로 다음 다이부터 반영). 한계 초과는 fail-closed(알람 중단). 레시피 파일 저장은
-                    // 아래 ApplyRuntimeBottomFocusPosition의 레시피 저장에 함께 실린다.
+                    // 다이 AF 절대 산식(승인 2026-07-29, Place 반영 동일자 추가 지시):
+                    //   PickPosition = bestZ + BottomToPickMm / PlacePosition = bestZ + BottomToPlaceMm.
+                    // 다이 바닥면 실측 포커스이므로 상대 누적 없이 공정 Z를 직접 재계산한다(이번 다이 Pick은
+                    // 이미 지났으므로 다음 다이부터 반영). 한계 초과는 fail-closed(알람 중단)이며 Pick/Place는
+                    // 한 트랜잭션(부분 반영 금지). 레시피 파일 저장은 아래 ApplyRuntimeBottomFocusPosition의
+                    // 레시피 저장에 함께 실린다.
                     double bottomToPickMm = ResolveBottomToPickMm();
+                    double bottomToPlaceMm = ResolveBottomToPlaceMm();
                     double newPickZ = bestZ + bottomToPickMm;
+                    double newPlaceZ = bestZ + bottomToPlaceMm;
                     double afPreviousPickZ;
                     bool afPickApplied;
-                    result = ApplyAfDerivedPickPosition(
+                    result = ApplyAfDerivedZTeaching(
                         pickerIndex,
+                        "PickPosition",
                         newPickZ,
                         "formulaPickZ=bestZ+bottomToPick=" + bestZ.ToString("F6") + "+" + bottomToPickMm.ToString("F6") + "=" + newPickZ.ToString("F6") +
                         ", bestScore=" + sequence.Result.BestScore.ToString("F4") +
@@ -398,11 +403,32 @@ namespace QMC.CDT320.Sequencing
                     if (result != 0)
                         return result;
 
+                    double afPreviousPlaceZ;
+                    bool afPlaceApplied;
+                    result = ApplyAfDerivedZTeaching(
+                        pickerIndex,
+                        "PlacePosition",
+                        newPlaceZ,
+                        "formulaPlaceZ=bestZ+bottomToPlace=" + bestZ.ToString("F6") + "+" + bottomToPlaceMm.ToString("F6") + "=" + newPlaceZ.ToString("F6") +
+                        ", bestScore=" + sequence.Result.BestScore.ToString("F4") +
+                        ", sampleCount=" + sequence.Result.SampleCount +
+                        ", scanMode=" + scanMode +
+                        ", wafer=" + (waferKey ?? "-"),
+                        "RuntimeBottomDieAutoFocus",
+                        out afPreviousPlaceZ,
+                        out afPlaceApplied);
+                    if (result != 0)
+                    {
+                        // Pick/Place는 한 트랜잭션: Place 차단 시 이미 반영된 PickPosition도 원복한다(부분 반영 금지).
+                        RollbackRuntimeAfTeachingsAndBaseline(pickerIndex, afPreviousPickZ, afPickApplied, 0.0, false, defaultPosition);
+                        return result;
+                    }
+
                     if (!ApplyRuntimeBottomFocusPosition(pickerIndex, bestZ))
                     {
-                        // 보상 롤백: PickPosition·인메모리 BottomPosition을 함께 AF 이전 상태로 복원한다.
-                        // (부분 롤백 금지 — 한쪽만 되돌리면 레시피 저장 실패 서브경로에서 기준선/PickZ가 어긋난다.)
-                        RollbackRuntimeAfPickAndBaseline(pickerIndex, afPreviousPickZ, afPickApplied, defaultPosition);
+                        // 보상 롤백: PickPosition/PlacePosition·인메모리 BottomPosition을 함께 AF 이전 상태로 복원한다.
+                        // (부분 롤백 금지 — 일부만 되돌리면 레시피 저장 실패 서브경로에서 기준선/공정 Z가 어긋난다.)
+                        RollbackRuntimeAfTeachingsAndBaseline(pickerIndex, afPreviousPickZ, afPickApplied, afPreviousPlaceZ, afPlaceApplied, defaultPosition);
                         return Fail("PICKER-BOTTOM-DIE-AUTOFOCUS-SAVE", Name,
                             "생산 Bottom Die AutoFocus Best Z를 Picker별 BottomPosition에 저장하지 못했습니다. " +
                             "side=" + Side + ", pickerNo=" + pickerNo + ", bestZ=" + bestZ.ToString("F6"));
@@ -3533,18 +3559,26 @@ namespace QMC.CDT320.Sequencing
             return RearPicker.GetPickerTeachingPosition(axis, positionName);
         }
 
-        // ── AF 기반 Pick 공정 Z (Bottom to Pick) ─────────────────────────────
-        // 부호 규칙: 픽커 Z 위=+ / 아래=-. 산식(승인 2026-07-29):
+        // ── AF 기반 Pick/Place 공정 Z (Bottom to Pick/Place) ─────────────────────────────
+        // 부호 규칙: 픽커 Z 위=+ / 아래=-. 산식(승인 2026-07-29, Place·헤드OD 추가 지시 동일자):
         //   콜렛 AF: PickPosition = AF BestZ + ColletOffset(Rim/Flat) + DieThickness + BottomToPickMm
-        //   다이 AF: PickPosition = AF BestZ + BottomToPickMm
-        // 공정 Pick 목표 = PickPosition 티칭 + PickerHeaderOverdriveMm[헤더]. Place는 미적용(PlaceZOverDrive 체계 유지).
-        // 인덱스 정합: pickerIndex(0-base) = colletNo-1 = PickerHeaderOverdriveMm 인덱스 = PickerZ{i} 축.
+        //   다이 AF: PickPosition = AF BestZ + BottomToPickMm / PlacePosition = AF BestZ + BottomToPlaceMm
+        // 공정 Pick 목표 = PickPosition 티칭 + HeadPickOverdriveMm + ColletPickOverdriveMm[콜렛].
+        // 공정 Place 목표 = PlacePosition 티칭 + PlaceZOverDrive(기존 체계 유지, AF Overdrive 미적용).
+        // 인덱스 정합: pickerIndex(0-base) = colletNo-1 = ColletPickOverdriveMm 인덱스 = PickerZ{i} 축.
 
-        /// <summary>자기 side 픽커 레시피의 BottomToPick/헤더 Overdrive/PickZ 갱신 한계를 얻는다. 실패 시 false.</summary>
-        private bool TryGetPickProcessZRecipe(out double bottomToPickMm, out double[] headerOverdriveMm, out double updateLimitMm)
+        /// <summary>자기 side 픽커 레시피의 BottomToPick/Place, 헤드·콜렛 Overdrive, 갱신 한계를 얻는다. 실패 시 false.</summary>
+        private bool TryGetAfProcessZRecipe(
+            out double bottomToPickMm,
+            out double bottomToPlaceMm,
+            out double headOverdriveMm,
+            out double[] colletOverdriveMm,
+            out double updateLimitMm)
         {
             bottomToPickMm = 0.0;
-            headerOverdriveMm = null;
+            bottomToPlaceMm = 0.0;
+            headOverdriveMm = 0.0;
+            colletOverdriveMm = null;
             updateLimitMm = 0.3;
             if (Side == PickerSequenceSide.Front)
             {
@@ -3552,8 +3586,10 @@ namespace QMC.CDT320.Sequencing
                     return false;
                 FrontPicker.Recipe.EnsurePositionObjects();
                 bottomToPickMm = FrontPicker.Recipe.BottomToPickMm;
-                headerOverdriveMm = FrontPicker.Recipe.PickerHeaderOverdriveMm;
-                updateLimitMm = FrontPicker.Recipe.PickZUpdateLimitMm;
+                bottomToPlaceMm = FrontPicker.Recipe.BottomToPlaceMm;
+                headOverdriveMm = FrontPicker.Recipe.HeadPickOverdriveMm;
+                colletOverdriveMm = FrontPicker.Recipe.ColletPickOverdriveMm;
+                updateLimitMm = FrontPicker.Recipe.AfZUpdateLimitMm;
             }
             else
             {
@@ -3561,30 +3597,52 @@ namespace QMC.CDT320.Sequencing
                     return false;
                 RearPicker.Recipe.EnsurePositionObjects();
                 bottomToPickMm = RearPicker.Recipe.BottomToPickMm;
-                headerOverdriveMm = RearPicker.Recipe.PickerHeaderOverdriveMm;
-                updateLimitMm = RearPicker.Recipe.PickZUpdateLimitMm;
+                bottomToPlaceMm = RearPicker.Recipe.BottomToPlaceMm;
+                headOverdriveMm = RearPicker.Recipe.HeadPickOverdriveMm;
+                colletOverdriveMm = RearPicker.Recipe.ColletPickOverdriveMm;
+                updateLimitMm = RearPicker.Recipe.AfZUpdateLimitMm;
             }
 
             if (double.IsNaN(bottomToPickMm) || double.IsInfinity(bottomToPickMm))
                 bottomToPickMm = 0.0;
+            if (double.IsNaN(bottomToPlaceMm) || double.IsInfinity(bottomToPlaceMm))
+                bottomToPlaceMm = 0.0;
+            if (double.IsNaN(headOverdriveMm) || double.IsInfinity(headOverdriveMm))
+                headOverdriveMm = 0.0;
             if (double.IsNaN(updateLimitMm) || double.IsInfinity(updateLimitMm) || updateLimitMm <= 0.0)
                 updateLimitMm = 0.3;
-            return headerOverdriveMm != null;
+            return colletOverdriveMm != null;
         }
 
-        /// <summary>공정 Pick Z 목표에 가산할 헤더(콜렛)별 Pick Overdrive(mm). 미구성/이상값은 0.</summary>
-        protected double ResolvePickerHeaderOverdrive(int pickerIndex)
+        /// <summary>공정 Pick Z 목표에 가산할 헤드(사이드) 공통 Pick Overdrive(mm). 미구성/이상값은 0.</summary>
+        protected double ResolveHeadPickOverdrive()
+        {
+            double bottomToPickMm;
+            double bottomToPlaceMm;
+            double headOverdriveMm;
+            double[] colletOverdrives;
+            double updateLimitMm;
+            if (!TryGetAfProcessZRecipe(out bottomToPickMm, out bottomToPlaceMm, out headOverdriveMm, out colletOverdrives, out updateLimitMm))
+                return 0.0;
+            return headOverdriveMm;
+        }
+
+        /// <summary>공정 Pick Z 목표에 가산할 콜렛별 Pick Overdrive(mm). 미구성/이상값은 0.</summary>
+        protected double ResolveColletPickOverdrive(int pickerIndex)
         {
             if (pickerIndex < 0 || pickerIndex > 3)
                 return 0.0;
 
             double bottomToPickMm;
-            double[] overdrives;
+            double bottomToPlaceMm;
+            double headOverdriveMm;
+            double[] colletOverdrives;
             double updateLimitMm;
-            if (!TryGetPickProcessZRecipe(out bottomToPickMm, out overdrives, out updateLimitMm) || overdrives.Length <= pickerIndex)
+            if (!TryGetAfProcessZRecipe(out bottomToPickMm, out bottomToPlaceMm, out headOverdriveMm, out colletOverdrives, out updateLimitMm) ||
+                colletOverdrives.Length <= pickerIndex)
                 return 0.0;
 
-            double overdrive = overdrives[pickerIndex];
+            double overdrive = colletOverdrives[pickerIndex];
             if (double.IsNaN(overdrive) || double.IsInfinity(overdrive))
                 return 0.0;
             return overdrive;
@@ -3594,86 +3652,106 @@ namespace QMC.CDT320.Sequencing
         protected double ResolveBottomToPickMm()
         {
             double bottomToPickMm;
-            double[] overdrives;
+            double bottomToPlaceMm;
+            double headOverdriveMm;
+            double[] colletOverdrives;
             double updateLimitMm;
-            if (!TryGetPickProcessZRecipe(out bottomToPickMm, out overdrives, out updateLimitMm))
+            if (!TryGetAfProcessZRecipe(out bottomToPickMm, out bottomToPlaceMm, out headOverdriveMm, out colletOverdrives, out updateLimitMm))
                 return 0.0;
             return bottomToPickMm;
         }
 
+        /// <summary>자기 side 레시피의 BottomToPlaceMm(포커스 평면→Place 공정 Z 변환값). 미구성 시 0.</summary>
+        protected double ResolveBottomToPlaceMm()
+        {
+            double bottomToPickMm;
+            double bottomToPlaceMm;
+            double headOverdriveMm;
+            double[] colletOverdrives;
+            double updateLimitMm;
+            if (!TryGetAfProcessZRecipe(out bottomToPickMm, out bottomToPlaceMm, out headOverdriveMm, out colletOverdrives, out updateLimitMm))
+                return 0.0;
+            return bottomToPlaceMm;
+        }
+
         /// <summary>
-        /// AF 결과로 계산한 새 Pick 공정 Z를 PickPosition 티칭에 기록한다(메모리 변이 — 파일 영속은 호출부 저장에 실림).
-        /// |신규-기존| > Recipe.PickZUpdateLimitMm 이면 fail-closed(알람, 티칭 미갱신) — AF 오판(엉뚱한 면 포커스) 대비 안전 한계.
-        /// 성공 시 previousPickZ/applied로 보상 롤백 정보를 반환하고, 산식 전체를 영속 로그로 남긴다.
+        /// AF 결과로 계산한 새 공정 Z를 PickPosition/PlacePosition 티칭에 기록한다(메모리 변이 — 파일 영속은 호출부 저장에 실림).
+        /// |신규-기존| > Recipe.AfZUpdateLimitMm 이면 fail-closed(알람, 티칭 미갱신) — AF 오판(엉뚱한 면 포커스) 대비 안전 한계.
+        /// 성공 시 previousZ/applied로 보상 롤백 정보를 반환하고, 산식 전체를 영속 로그로 남긴다.
         /// </summary>
-        protected int ApplyAfDerivedPickPosition(
+        protected int ApplyAfDerivedZTeaching(
             int pickerIndex,
-            double newPickZ,
+            string positionName,
+            double newZ,
             string formulaDetail,
             string source,
-            out double previousPickZ,
+            out double previousZ,
             out bool applied)
         {
-            previousPickZ = 0.0;
+            previousZ = 0.0;
             applied = false;
             if (pickerIndex < 0 || pickerIndex > 3)
                 return 0;
 
-            if (double.IsNaN(newPickZ) || double.IsInfinity(newPickZ))
-                return Fail("PICKER-AF-PICKZ-INVALID", Name,
-                    "AF 기반 Pick 공정 Z 계산값이 유효하지 않습니다. side=" + Side +
+            string kind = positionName == "PlacePosition" ? "PLACEZ" : "PICKZ";
+            if (double.IsNaN(newZ) || double.IsInfinity(newZ))
+                return Fail("PICKER-AF-" + kind + "-INVALID", Name,
+                    "AF 기반 공정 Z 계산값이 유효하지 않습니다. side=" + Side +
                     ", colletNo=" + (pickerIndex + 1) +
-                    ", newPickZ=" + newPickZ +
+                    ", position=" + positionName +
+                    ", newZ=" + newZ +
                     ", source=" + source +
                     ", " + formulaDetail);
 
             double bottomToPickMm;
-            double[] overdrives;
+            double bottomToPlaceMm;
+            double headOverdriveMm;
+            double[] colletOverdrives;
             double updateLimitMm;
-            TryGetPickProcessZRecipe(out bottomToPickMm, out overdrives, out updateLimitMm);
+            TryGetAfProcessZRecipe(out bottomToPickMm, out bottomToPlaceMm, out headOverdriveMm, out colletOverdrives, out updateLimitMm);
 
             PickerAxis zAxis = GetPickerZAxis(pickerIndex);
-            double oldPickZ = GetPickerTeachingPosition(zAxis, "PickPosition");
-            double delta = newPickZ - oldPickZ;
+            double oldZ = GetPickerTeachingPosition(zAxis, positionName);
+            double delta = newZ - oldZ;
             if (Math.Abs(delta) > updateLimitMm)
             {
-                return Fail("PICKER-AF-PICKZ-UPDATE-LIMIT", Name,
-                    "AF 기반 PickPosition 갱신 편차가 안전 한계를 초과해 갱신을 차단합니다. side=" + Side +
+                return Fail("PICKER-AF-" + kind + "-UPDATE-LIMIT", Name,
+                    "AF 기반 " + positionName + " 갱신 편차가 안전 한계를 초과해 갱신을 차단합니다. side=" + Side +
                     ", colletNo=" + (pickerIndex + 1) +
-                    ", newPickZ=" + newPickZ.ToString("F6") +
-                    ", oldPickZ=" + oldPickZ.ToString("F6") +
+                    ", newZ=" + newZ.ToString("F6") +
+                    ", oldZ=" + oldZ.ToString("F6") +
                     ", delta=" + delta.ToString("F6") +
                     ", limitMm=" + updateLimitMm.ToString("F6") +
                     ", source=" + source +
                     ", " + formulaDetail +
-                    ". BottomToPick/티칭/AF 상태를 확인하세요.");
+                    ". BottomToPick/BottomToPlace/티칭/AF 상태를 확인하세요.");
             }
 
             if (Side == PickerSequenceSide.Front)
-                FrontPicker.SetPickerAxisTeachingPosition(zAxis, "PickPosition", newPickZ);
+                FrontPicker.SetPickerAxisTeachingPosition(zAxis, positionName, newZ);
             else
-                RearPicker.SetPickerAxisTeachingPosition(zAxis, "PickPosition", newPickZ);
+                RearPicker.SetPickerAxisTeachingPosition(zAxis, positionName, newZ);
 
-            double readback = GetPickerTeachingPosition(zAxis, "PickPosition");
-            if (Math.Abs(readback - newPickZ) > 0.000001)
+            double readback = GetPickerTeachingPosition(zAxis, positionName);
+            if (Math.Abs(readback - newZ) > 0.000001)
             {
-                return Fail("PICKER-AF-PICKZ-VERIFY", Name,
-                    "AF 기반 PickPosition 기록 readback 불일치. side=" + Side +
+                return Fail("PICKER-AF-" + kind + "-VERIFY", Name,
+                    "AF 기반 " + positionName + " 기록 readback 불일치. side=" + Side +
                     ", colletNo=" + (pickerIndex + 1) +
-                    ", expected=" + newPickZ.ToString("F6") +
+                    ", expected=" + newZ.ToString("F6") +
                     ", readback=" + readback.ToString("F6") +
                     ", source=" + source);
             }
 
-            previousPickZ = oldPickZ;
+            previousZ = oldZ;
             applied = true;
 
-            QMC.Common.Log.Write("Calibration", "SYSTEM", "AfPickProcessZ",
-                "AF 기반 Pick 공정 Z(PickPosition) 갱신. side=" + Side +
+            QMC.Common.Log.Write("Calibration", "SYSTEM", "AfProcessZ",
+                "AF 기반 공정 Z(" + positionName + ") 갱신. side=" + Side +
                 ", colletNo=" + (pickerIndex + 1) +
                 ", " + formulaDetail +
-                ", oldPickZ=" + oldPickZ.ToString("F6") +
-                ", newPickZ=" + newPickZ.ToString("F6") +
+                ", oldZ=" + oldZ.ToString("F6") +
+                ", newZ=" + newZ.ToString("F6") +
                 ", delta=" + delta.ToString("F6") +
                 ", limitMm=" + updateLimitMm.ToString("F6") +
                 ", source=" + source +
@@ -3682,20 +3760,33 @@ namespace QMC.CDT320.Sequencing
         }
 
         /// <summary>
-        /// Runtime AF의 BottomPosition 적용 실패 시 보상 롤백: 갱신했던 PickPosition과 인메모리 BottomPosition(FocusPosition)을
-        /// 함께 AF 이전 값으로 복원해 "PickZ는 새값 + 기준선은 구값" 부정합을 차단한다.
+        /// Runtime AF 적용 실패 시 보상 롤백: 갱신했던 PickPosition/PlacePosition과 인메모리 BottomPosition(FocusPosition)을
+        /// 함께 AF 이전 값으로 복원해 "공정 Z는 새값 + 기준선은 구값" 부정합을 차단한다.
         /// </summary>
-        private void RollbackRuntimeAfPickAndBaseline(int pickerIndex, double previousPickZ, bool pickApplied, double previousBottomZ)
+        private void RollbackRuntimeAfTeachingsAndBaseline(
+            int pickerIndex,
+            double previousPickZ,
+            bool pickApplied,
+            double previousPlaceZ,
+            bool placeApplied,
+            double previousBottomZ)
         {
             try
             {
+                PickerAxis zAxis = GetPickerZAxis(pickerIndex);
                 if (pickApplied)
                 {
-                    PickerAxis zAxis = GetPickerZAxis(pickerIndex);
                     if (Side == PickerSequenceSide.Front)
                         FrontPicker.SetPickerAxisTeachingPosition(zAxis, "PickPosition", previousPickZ);
                     else
                         RearPicker.SetPickerAxisTeachingPosition(zAxis, "PickPosition", previousPickZ);
+                }
+                if (placeApplied)
+                {
+                    if (Side == PickerSequenceSide.Front)
+                        FrontPicker.SetPickerAxisTeachingPosition(zAxis, "PlacePosition", previousPlaceZ);
+                    else
+                        RearPicker.SetPickerAxisTeachingPosition(zAxis, "PlacePosition", previousPlaceZ);
                 }
 
                 if (Side == PickerSequenceSide.Front)
@@ -3703,15 +3794,16 @@ namespace QMC.CDT320.Sequencing
                 else
                     RearPicker.SetRuntimePickerZPosition(pickerIndex, "FocusPosition", previousBottomZ);
 
-                QMC.Common.Log.Write("Calibration", "SYSTEM", "AfPickProcessZ",
-                    "Runtime Bottom AF 적용 실패 — PickPosition/기준선 보상 롤백 수행. side=" + Side +
+                QMC.Common.Log.Write("Calibration", "SYSTEM", "AfProcessZ",
+                    "Runtime Bottom AF 적용 실패 — Pick/Place 공정 Z·기준선 보상 롤백 수행. side=" + Side +
                     ", colletNo=" + (pickerIndex + 1) +
                     ", pickPositionRolledBackTo=" + previousPickZ.ToString("F6") + " (applied=" + pickApplied + ")" +
+                    ", placePositionRolledBackTo=" + previousPlaceZ.ToString("F6") + " (applied=" + placeApplied + ")" +
                     ", bottomPositionRolledBackTo=" + previousBottomZ.ToString("F6"));
             }
             catch (Exception ex)
             {
-                WriteLog("AfPickProcessZ",
+                WriteLog("AfProcessZ",
                     Name + " Runtime AF 보상 롤백 중 예외. colletNo=" + (pickerIndex + 1) +
                     ", error=" + ex.Message + " - Failed");
             }

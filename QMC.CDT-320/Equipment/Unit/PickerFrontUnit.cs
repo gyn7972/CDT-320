@@ -552,9 +552,11 @@ namespace QMC.CDT320
         [DataMember] public double[] ColletRotationCenterX { get; set; } = new double[4]; // Collet별 회전 중심의 PickerX 기계 좌표입니다.
         [DataMember] public double[] ColletRotationCenterY { get; set; } = new double[4]; // Collet별 회전 중심의 PickerY 기계 좌표입니다.
         [DataMember] public bool[] ColletRotationCenterValid { get; set; } = new bool[4]; // Collet별 회전 중심 좌표의 유효 상태입니다.
-        [DataMember] public double BottomToPickMm { get; set; } = 0.0; // Bottom 카메라 포커스 평면 Z를 Pick 공정 Z로 변환하는 고정 가산값(mm). AF Best 기반 PickPosition 산식에 사용.
-        [DataMember] public double[] PickerHeaderOverdriveMm { get; set; } = new double[4]; // 헤더(콜렛)별 Pick Z Overdrive(mm). 공정 Pick Z에 가산. +면 덜 내려오고 -면 더 내려옵니다.
-        [DataMember] public double PickZUpdateLimitMm { get; set; } = 0.3; // AF 기반 PickPosition 갱신 안전 한계(|신규-기존|, mm). 초과 시 갱신 차단(알람).
+        [DataMember] public double BottomToPickMm { get; set; } = 0.0; // Bottom 카메라 포커스 평면 Z를 Pick 공정 Z로 변환하는 고정 가산값(mm). 콜렛/다이 AF Best 기반 PickPosition 산식에 사용.
+        [DataMember] public double BottomToPlaceMm { get; set; } = 0.0; // Bottom 카메라 포커스 평면 Z를 Place 공정 Z로 변환하는 고정 가산값(mm). 다이 AF Best 기반 PlacePosition 산식에 사용.
+        [DataMember] public double HeadPickOverdriveMm { get; set; } = 0.0; // 헤드(사이드) 공통 Pick Z Overdrive(mm). 콜렛별 값과 합산해 공정 Pick Z에 가산.
+        [DataMember] public double[] ColletPickOverdriveMm { get; set; } = new double[4]; // 콜렛별 Pick Z Overdrive(mm). 헤드 공통값과 합산해 공정 Pick Z에 가산. +면 덜 내려오고 -면 더 내려옵니다.
+        [DataMember] public double AfZUpdateLimitMm { get; set; } = 0.3; // AF 기반 PickPosition/PlacePosition 갱신 안전 한계(|신규-기존|, mm). 초과 시 갱신 차단(알람).
 
         [OnDeserialized]
         private void OnDeserialized(StreamingContext ctx)
@@ -564,16 +566,20 @@ namespace QMC.CDT320
 
         public void EnsurePositionObjects()
         {
-            PickerHeaderOverdriveMm = EnsureArrayLength(PickerHeaderOverdriveMm, 4);
-            for (int i = 0; i < PickerHeaderOverdriveMm.Length; i++)
+            ColletPickOverdriveMm = EnsureArrayLength(ColletPickOverdriveMm, 4);
+            for (int i = 0; i < ColletPickOverdriveMm.Length; i++)
             {
-                if (double.IsNaN(PickerHeaderOverdriveMm[i]) || double.IsInfinity(PickerHeaderOverdriveMm[i]))
-                    PickerHeaderOverdriveMm[i] = 0.0;
+                if (double.IsNaN(ColletPickOverdriveMm[i]) || double.IsInfinity(ColletPickOverdriveMm[i]))
+                    ColletPickOverdriveMm[i] = 0.0;
             }
+            if (double.IsNaN(HeadPickOverdriveMm) || double.IsInfinity(HeadPickOverdriveMm))
+                HeadPickOverdriveMm = 0.0;
             if (double.IsNaN(BottomToPickMm) || double.IsInfinity(BottomToPickMm))
                 BottomToPickMm = 0.0;
-            if (PickZUpdateLimitMm <= 0.0 || double.IsNaN(PickZUpdateLimitMm) || double.IsInfinity(PickZUpdateLimitMm))
-                PickZUpdateLimitMm = 0.3;
+            if (double.IsNaN(BottomToPlaceMm) || double.IsInfinity(BottomToPlaceMm))
+                BottomToPlaceMm = 0.0;
+            if (AfZUpdateLimitMm <= 0.0 || double.IsNaN(AfZUpdateLimitMm) || double.IsInfinity(AfZUpdateLimitMm))
+                AfZUpdateLimitMm = 0.3;
             if (PickerX == null) PickerX = new PickerAxisPositionSet();
             if (PickerY == null) PickerY = new PickerAxisPositionSet();
             if (PickerT0 == null) PickerT0 = new PickerAxisPositionSet();

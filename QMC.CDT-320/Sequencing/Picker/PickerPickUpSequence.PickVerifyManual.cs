@@ -489,14 +489,17 @@ namespace QMC.CDT320.Sequencing
                 _currentDieId = "ManualPickUpZTest";
                 _pickTarget = null;
                 _visionOffset = null;
-                // 수동 Z 단독 테스트도 실공정과 동일하게 헤더별 Pick Overdrive를 가산한다.
-                double manualHeaderOverdrive = ResolvePickerHeaderOverdrive(_currentPickerIndex);
-                _targetPickerZ = GetPickerTeachingPosition(GetPickerZAxis(_currentPickerIndex), "PickPosition") + manualHeaderOverdrive;
-                if (manualHeaderOverdrive != 0.0)
+                // 수동 Z 단독 테스트도 실공정과 동일하게 헤드 공통 + 콜렛별 Pick Overdrive를 가산한다.
+                double manualHeadOverdrive = ResolveHeadPickOverdrive();
+                double manualColletOverdrive = ResolveColletPickOverdrive(_currentPickerIndex);
+                double manualPickOverdrive = manualHeadOverdrive + manualColletOverdrive;
+                _targetPickerZ = GetPickerTeachingPosition(GetPickerZAxis(_currentPickerIndex), "PickPosition") + manualPickOverdrive;
+                if (manualPickOverdrive != 0.0)
                 {
-                    WriteLog("PickerHeaderOverdrive",
-                        Name + " ManualPickUpZTest에 헤더 Pick Overdrive 적용. colletNo=" + _currentPickerNo +
-                        ", overdriveMm=" + manualHeaderOverdrive.ToString("F6") +
+                    WriteLog("PickOverdrive",
+                        Name + " ManualPickUpZTest에 Pick Overdrive 적용. colletNo=" + _currentPickerNo +
+                        ", headOverdriveMm=" + manualHeadOverdrive.ToString("F6") +
+                        ", colletOverdriveMm=" + manualColletOverdrive.ToString("F6") +
                         ", targetZ=" + _targetPickerZ.ToString("F6") + " - Ok");
                 }
                 _targetNeedleZ = stage.Recipe != null && stage.Recipe.NeedleZ != null

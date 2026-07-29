@@ -358,7 +358,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             AddVisionPickerOffsetItems(optionItems, "INPUT VISION", () => ResolveLiveVisionOffsets(true), PickerAxis.PickerX, PickerAxis.PickerY, visionOffsetGroup);
             AddVisionPickerOffsetItems(optionItems, "OUTPUT VISION", () => ResolveLiveVisionOffsets(false), PickerAxis.PickerX, PickerAxis.PickerY, visionOffsetGroup);
 
-            AddPickProcessZItems(optionItems);
+            AddAfProcessZItems(optionItems);
 
             optionParameterGrid.SetItems(optionItems);
 
@@ -374,35 +374,44 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             });
         }
 
-        // AF 기반 Pick 공정 Z 파라미터: Bottom to Pick 변환값, PickPosition 갱신 안전 한계, 헤더별 Pick Overdrive.
-        // PickPosition 티칭은 콜렛 AF(콜렛 캘)와 생산 런타임 다이 AF가 산식으로 자동 갱신한다(승인 2026-07-29).
-        private void AddPickProcessZItems(List<ParameterGridItem> items)
+        // AF 기반 Pick/Place 공정 Z 파라미터: Bottom to Pick/Place 변환값, 갱신 안전 한계, 헤드·콜렛별 Pick Overdrive.
+        // PickPosition은 콜렛 AF(콜렛 캘)와 생산 런타임 다이 AF가, PlacePosition은 다이 AF가 산식으로 자동 갱신한다(승인 2026-07-29).
+        private void AddAfProcessZItems(List<ParameterGridItem> items)
         {
-            const string groupKey = "L_PICK_PROCESS_Z";
+            const string groupKey = "L_AF_PROCESS_Z";
             unit.Recipe.EnsurePositionObjects();
-            items.Add(ParameterGridItem.Header("PICK PROCESS Z (AF)", groupKey));
+            items.Add(ParameterGridItem.Header("AF PROCESS Z (PICK/PLACE)", groupKey));
             items.Add(InGroup(Describe(ParameterGridItem.Double("BOTTOM TO PICK", "mm (0.000)", ParameterGridScope.Recipe,
                 () => unit.Recipe.BottomToPickMm,
                 v => unit.Recipe.BottomToPickMm = v),
                 "Bottom 카메라 포커스 평면 Z를 Pick 공정 Z로 변환하는 고정 가산값(mm)입니다. " +
                 "콜렛 AF: PickZ = AF BestZ + Collet Offset + Die Thickness + Bottom to Pick / 다이 AF: PickZ = AF BestZ + Bottom to Pick."), groupKey));
-            items.Add(InGroup(Describe(ParameterGridItem.Double("PICK Z UPDATE LIMIT", "mm (0.000)", ParameterGridScope.Recipe,
-                () => unit.Recipe.PickZUpdateLimitMm,
-                v => unit.Recipe.PickZUpdateLimitMm = Math.Max(0.001, Math.Abs(v))),
-                "AF 기반 PickPosition 갱신 안전 한계(|신규-기존|, mm)입니다. 초과 시 알람으로 차단하고 티칭을 갱신하지 않습니다. 기본 0.3mm."), groupKey));
+            items.Add(InGroup(Describe(ParameterGridItem.Double("BOTTOM TO PLACE", "mm (0.000)", ParameterGridScope.Recipe,
+                () => unit.Recipe.BottomToPlaceMm,
+                v => unit.Recipe.BottomToPlaceMm = v),
+                "Bottom 카메라 포커스 평면 Z를 Place 공정 Z로 변환하는 고정 가산값(mm)입니다. " +
+                "다이 AF: PlaceZ = AF BestZ + Bottom to Place (콜렛 AF는 Place를 갱신하지 않습니다)."), groupKey));
+            items.Add(InGroup(Describe(ParameterGridItem.Double("AF Z UPDATE LIMIT", "mm (0.000)", ParameterGridScope.Recipe,
+                () => unit.Recipe.AfZUpdateLimitMm,
+                v => unit.Recipe.AfZUpdateLimitMm = Math.Max(0.001, Math.Abs(v))),
+                "AF 기반 PickPosition/PlacePosition 갱신 안전 한계(|신규-기존|, mm)입니다. 초과 시 알람으로 차단하고 티칭을 갱신하지 않습니다. 기본 0.3mm."), groupKey));
+            items.Add(InGroup(Describe(ParameterGridItem.Double("HEAD PICK OVERDRIVE", "mm (0.000)", ParameterGridScope.Recipe,
+                () => unit.Recipe.HeadPickOverdriveMm,
+                v => unit.Recipe.HeadPickOverdriveMm = v),
+                "헤드(사이드) 공통 Pick Overdrive(mm)입니다. 콜렛별 값과 합산해 공정 Pick Z에 가산됩니다. +면 덜 내려오고 -면 더 내려옵니다."), groupKey));
             for (int i = 0; i < 4; i++)
             {
                 int index = i;
-                items.Add(InGroup(Describe(ParameterGridItem.Double("PICKER " + (index + 1) + " PICK OVERDRIVE", "mm (0.000)", ParameterGridScope.Recipe,
-                    () => unit.Recipe.PickerHeaderOverdriveMm != null && unit.Recipe.PickerHeaderOverdriveMm.Length > index
-                        ? unit.Recipe.PickerHeaderOverdriveMm[index]
+                items.Add(InGroup(Describe(ParameterGridItem.Double("COLLET " + (index + 1) + " PICK OVERDRIVE", "mm (0.000)", ParameterGridScope.Recipe,
+                    () => unit.Recipe.ColletPickOverdriveMm != null && unit.Recipe.ColletPickOverdriveMm.Length > index
+                        ? unit.Recipe.ColletPickOverdriveMm[index]
                         : 0.0,
                     v =>
                     {
                         unit.Recipe.EnsurePositionObjects();
-                        unit.Recipe.PickerHeaderOverdriveMm[index] = v;
+                        unit.Recipe.ColletPickOverdriveMm[index] = v;
                     }),
-                    "공정 Pick Z에 가산되는 헤더별 Overdrive(mm)입니다. +면 덜 내려오고 -면 더 내려옵니다. Place에는 적용되지 않습니다."), groupKey));
+                    "콜렛별 Pick Overdrive(mm)입니다. HEAD PICK OVERDRIVE와 합산해 공정 Pick Z에 가산됩니다. +면 덜 내려오고 -면 더 내려옵니다. Place에는 적용되지 않습니다."), groupKey));
             }
         }
 

@@ -7,10 +7,10 @@
 
 | # | 질문 | 확정 |
 |---|------|------|
-| 1 | Place Z | AF 미반영. offset 항만 제거, `PlaceZOverDrive`는 유지 (Place = PlacePosition 티칭 + PlaceZOverDrive) |
-| 2 | 신규 Overdrive 범위 | **Pick 전용** (오토 Pick + 수동 PickUp Z 테스트). Place는 기존 PlaceZOverDrive 체계 유지 |
-| 3 | 헤더 수 | 배열 4개(콜렛 1~4 = PickerZ0~Z3 축과 정합). 미사용 헤더는 0 유지 |
-| 4 | 안전 한계 | 유지(권장안). 신규 `PickZUpdateLimitMm`(기본 0.3) — \|신규 PickZ − 기존 PickPosition\| 초과 시 fail-closed 알람, 티칭 미갱신 |
+| 1 | Place Z | ~~AF 미반영~~ → **동일자 추가 지시로 변경: 다이 AF 사용.** `PlacePosition = 다이 AF BestZ + BottomToPlaceMm(신설)`. 콜렛 AF는 Place 미갱신. 목표식은 티칭+PlaceZOverDrive 유지 |
+| 2 | 신규 Overdrive 범위 | **Pick 전용** (오토 Pick + 수동 PickUp Z 테스트). **동일자 추가 지시: 헤드 공통(`HeadPickOverdriveMm`) + 콜렛별(`ColletPickOverdriveMm[4]`) 합산** |
+| 3 | 헤더 수 | 콜렛 배열 4개(콜렛 1~4 = PickerZ0~Z3 축과 정합). 미사용 콜렛은 0 유지 |
+| 4 | 안전 한계 | 유지(권장안). `AfZUpdateLimitMm`(기본 0.3, Pick/Place 공용) — \|신규 Z − 기존 티칭\| 초과 시 fail-closed 알람, 티칭 미갱신 |
 | 5 | 터치 Z캘 관계 | 병행 유지. PickUpZ 캘도 PickPosition을 씀(마지막 실행 우선). offset 폴딩/리셋 호출만 제거 |
 | 6 | FilmThickness | Pick 산식에서 **제외** (지시 산식 그대로: Rim + DieThickness + BottomToPick). 검사티칭Z 산식(film 포함)은 기존 유지 |
 | 7 | 다이 AF 적용점 | 생산 런타임 Bottom Die AF(기존 누적 지점)를 신규 산식으로 대체. Vision Focus Cal 다이얼로그는 기준선 갱신만(현행 유지) |
@@ -45,6 +45,17 @@
 
 - [ ] Front/Rear Recipe 페이지: "COLLET AF Z OFFSET" 그룹 제거 → "PICK PROCESS Z (AF)" 그룹 신설(BOTTOM TO PICK / PICK Z UPDATE LIMIT / PICKER 1~4 PICK OVERDRIVE, 각 설명 포함)
 - [ ] `ColletCalibrationDialog`: "AF Z OFS" 컬럼(Designer 포함)·`ResolveAppliedAfZOffsetText`·행 추가 인자 제거
+
+## R-05/R-06 — 동일자 추가 지시 (Place Die AF + 헤드 Overdrive)
+
+- [ ] `BottomToPlaceMm` 신설(Front/Rear Recipe) + Ensure 가드, `PickZUpdateLimitMm`→`AfZUpdateLimitMm`(Pick/Place 공용) 개명
+- [ ] `PickerHeaderOverdriveMm[4]`→`ColletPickOverdriveMm[4]` 개명 + `HeadPickOverdriveMm`(헤드 공통) 신설
+- [ ] 다이 AF 완료 시 `PlacePosition = bestZ + BottomToPlaceMm` 갱신 — Pick과 **한 트랜잭션**(Place 차단 시 Pick 원복, 기준선 저장 실패 시 Pick/Place/기준선 동시 원복)
+- [ ] 콜렛 AF는 PlacePosition을 갱신하지 않음
+- [ ] 공정 Pick Z = PickPosition + Head OD + Collet OD (오토/수동 동일), 산식 로그에 두 값 분리 표기
+- [ ] `ApplyAfDerivedZTeaching` 공용화(PICKZ/PLACEZ 알람 코드 분리: `PICKER-AF-PICKZ-*`/`PICKER-AF-PLACEZ-*`), 로그 카테고리 `AfProcessZ`
+- [ ] UI 그룹 "AF PROCESS Z (PICK/PLACE)": BOTTOM TO PICK / BOTTOM TO PLACE / AF Z UPDATE LIMIT / HEAD PICK OVERDRIVE / COLLET 1~4 PICK OVERDRIVE
+- [ ] 구명칭 잔존 0건 + 빌드 0 에러
 
 ## 로그/검증
 

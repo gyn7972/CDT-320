@@ -154,8 +154,9 @@ namespace QMC.CDT320.Sequencing
             _targetPickerX = coordinate.PickerX;
             _targetPickerY = coordinate.PickerY;
             _targetPickerT = coordinate.PickerT;
-            // 공정 Place Z 유일한 생성점(Conti 노드/하강/검증에 자동 전파). AF 기반 보정은 Pick 전용(승인 2026-07-29)
-            // — Place는 PlacePosition 티칭 + PlaceZOverDrive만 사용한다. PlaceZ 캘리브레이션은 이 함수를 지나지 않는다.
+            // 공정 Place Z 유일한 생성점(Conti 노드/하강/검증에 자동 전파). PlacePosition 티칭은 다이 AF가
+            // bestZ+BottomToPlace 산식으로 갱신하며(승인 2026-07-29), 목표식은 티칭 + PlaceZOverDrive 그대로다.
+            // PlaceZ 캘리브레이션은 이 함수를 지나지 않는다.
             double placeZOverDrive = ResolvePlaceZOverDrive();
             _targetPickerZ = coordinate.PickerZ + placeZOverDrive;
             _targetFormula = coordinate.Formula +

@@ -522,22 +522,25 @@ namespace QMC.CDT320.Sequencing
                     pickMechanicalOffsetX,
                     pickMechanicalOffsetY);
 
-                // 공정 Pick Z 유일한 대입점: 헤더별 Pick Overdrive를 여기서 1회만 가산한다(파생 이동/검증/배치 저장·복원에 자동 전파).
-                // PickPosition 티칭 자체는 콜렛/다이 AF가 산식으로 갱신한다(승인 2026-07-29).
-                double pickHeaderOverdrive = ResolvePickerHeaderOverdrive(_currentPickerIndex);
+                // 공정 Pick Z 유일한 대입점: 헤드 공통 + 콜렛별 Pick Overdrive를 여기서 1회만 가산한다
+                // (파생 이동/검증/배치 저장·복원에 자동 전파). PickPosition 티칭 자체는 콜렛/다이 AF가 산식으로 갱신한다(승인 2026-07-29).
+                double pickHeadOverdrive = ResolveHeadPickOverdrive();
+                double pickColletOverdrive = ResolveColletPickOverdrive(_currentPickerIndex);
+                double pickOverdrive = pickHeadOverdrive + pickColletOverdrive;
 
                 _targetStageY = coordinate.StageY;
                 _targetPickerX = coordinate.PickerX;
                 _targetPickerY = coordinate.PickerY;
                 _targetPickerT = coordinate.PickerT;
-                _targetPickerZ = coordinate.PickerZ + pickHeaderOverdrive;
+                _targetPickerZ = coordinate.PickerZ + pickOverdrive;
                 _targetNeedleX = coordinate.NeedleX;
                 _targetNeedleZ = coordinate.NeedleZ;
                 _targetEjectPinZ = coordinate.EjectPinZ;
                 _targetFormula = coordinate.Formula +
-                    (pickHeaderOverdrive != 0.0
+                    (pickOverdrive != 0.0
                         ? " / pickerZFinal = pickerZTeaching(" + coordinate.PickerZ.ToString("F6") +
-                          ") + headerOverdrive(" + pickHeaderOverdrive.ToString("F6") +
+                          ") + headOverdrive(" + pickHeadOverdrive.ToString("F6") +
+                          ") + colletOverdrive(" + pickColletOverdrive.ToString("F6") +
                           ") = " + _targetPickerZ.ToString("F6")
                         : string.Empty);
 
@@ -556,7 +559,8 @@ namespace QMC.CDT320.Sequencing
                     ", pickerY=" + _targetPickerY +
                     ", pickerT=" + _targetPickerT +
                     ", pickerZ=" + _targetPickerZ +
-                    ", headerOverdrive=" + pickHeaderOverdrive.ToString("F6") +
+                    ", headOverdrive=" + pickHeadOverdrive.ToString("F6") +
+                    ", colletOverdrive=" + pickColletOverdrive.ToString("F6") +
                     ", needleX=" + _targetNeedleX +
                     ", needleZ=" + _targetNeedleZ +
                     ", ejectPinZ=" + _targetEjectPinZ +

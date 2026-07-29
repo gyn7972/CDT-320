@@ -39,10 +39,21 @@
 ## 요약
 - 체크리스트 25항목: ✅ 24 / ❌ 0 / ❓ 1(운영 폴더 배포 — 앱 종료 후 수행)
 
+## R-05/R-06 검증 (동일자 추가 지시: Place Die AF + 헤드/콜렛 Overdrive)
+- ✅ `BottomToPlaceMm` 신설 + `AfZUpdateLimitMm` 공용화 + `HeadPickOverdriveMm`/`ColletPickOverdriveMm[4]` — Front/Rear Recipe, Ensure 가드 포함
+- ✅ 다이 AF → `PlacePosition = bestZ + BottomToPlaceMm` 갱신, Pick과 한 트랜잭션: Place 한계 차단 시 Pick 원복, 기준선 저장 실패 시 Pick/Place/기준선 동시 원복(`RollbackRuntimeAfTeachingsAndBaseline`)
+- ✅ 콜렛 AF는 PlacePosition 미갱신(`ApplyAfDerivedZTeaching("PickPosition")`만 호출)
+- ✅ 공정 Pick Z = PickPosition + HeadOD + ColletOD (PickTargets/PickVerifyManual 동일), 로그 분리 표기
+- ✅ 알람 코드 분리: `PICKER-AF-PICKZ-*` / `PICKER-AF-PLACEZ-*`, 로그 카테고리 `AfProcessZ` 통일
+- ✅ UI: "AF PROCESS Z (PICK/PLACE)" 그룹 5종 항목(Front/Rear)
+- ✅ 구명칭 잔존 0건(grep), 빌드 0 error / 신규 경고 0 (verifyMs·AxisInitializePlan·MotionPage 경고는 기존 상존 — 해당 파일 git diff 없음 확인)
+
 ## 초기 도입 절차 (중요 — 실장비 첫 가동 전)
-새 체계는 AF 절대값 기준이라, BottomToPick을 맞추기 전에는 콜렛캘/다이 AF가
-`PICKER-AF-PICKZ-UPDATE-LIMIT` 알람(신규 PickZ vs 기존 PickPosition 편차 > 0.3mm)으로 fail-closed 됩니다.
-1. 콜렛 AF(또는 다이 AF) 1회 실행 → 알람 메시지의 `newPickZ`/`oldPickZ` 확인.
-2. `BOTTOM TO PICK = 기존 PickPosition − (AF BestZ + ColletOffset + DieThickness)` (다이 AF 기준이면 `− BestZ`)로 역산 입력.
-3. 재실행 → delta≈0으로 통과, 이후 AF가 PickPosition을 자동 유지.
-4. 의도적으로 큰 초기 편차를 허용해야 하면 PICK Z UPDATE LIMIT를 일시 상향 후 원복.
+새 체계는 AF 절대값 기준이라, Bottom to Pick/Place를 맞추기 전에는 콜렛캘/다이 AF가
+`PICKER-AF-PICKZ-UPDATE-LIMIT` / `PICKER-AF-PLACEZ-UPDATE-LIMIT` 알람(신규 Z vs 기존 티칭 편차 > 0.3mm)으로 fail-closed 됩니다.
+1. 콜렛 AF(또는 다이 AF) 1회 실행 → 알람 메시지의 `newZ`/`oldZ` 확인.
+2. `BOTTOM TO PICK = 기존 PickPosition − (AF BestZ + ColletOffset + DieThickness)` (다이 AF 기준이면 `− BestZ`),
+   `BOTTOM TO PLACE = 기존 PlacePosition − 다이 AF BestZ` 로 역산 입력.
+3. 재실행 → delta≈0으로 통과, 이후 AF가 PickPosition/PlacePosition을 자동 유지.
+4. 의도적으로 큰 초기 편차를 허용해야 하면 AF Z UPDATE LIMIT를 일시 상향 후 원복.
+5. Overdrive는 HEAD(사이드 공통) + COLLET(개별)이 합산 적용 — 공통 눌림량은 HEAD에, 콜렛 편차만 COLLET에 입력 권장.
