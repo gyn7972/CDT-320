@@ -1015,10 +1015,14 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 ioCylinderPanel.SetItems(new[]
                 {
                     // ===== 단독(묶이지 않은) 체크 센서 — 최상단 =====
-                    IoCylinderItem.Input("GOOD BIN 8 INCH CASSETTE", () => _OutCassetteUnit.IsGoodBin(8) && !_OutCassetteUnit.IsNgBin(8) && !_OutCassetteUnit.IsNgBin(12) && !_OutCassetteUnit.IsGoodBin(12)),
-                    IoCylinderItem.Input("GOOD BIN 12 INCH CASSETTE", () => _OutCassetteUnit.IsGoodBin(12) && !_OutCassetteUnit.IsNgBin(12) && !_OutCassetteUnit.IsNgBin(8) && !_OutCassetteUnit.IsGoodBin(8)),
-                    IoCylinderItem.Input("NG BIN 8 INCH CASSETTE", () => !_OutCassetteUnit.IsGoodBin(8) && _OutCassetteUnit.IsNgBin(8) && !_OutCassetteUnit.IsNgBin(12) && !_OutCassetteUnit.IsGoodBin(12)),
-                    IoCylinderItem.Input("NG BIN 12 INCH CASSETTE", () => !_OutCassetteUnit.IsGoodBin(12) && _OutCassetteUnit.IsNgBin(12) && !_OutCassetteUnit.IsNgBin(8) && !_OutCassetteUnit.IsGoodBin(8)),
+                    //IoCylinderItem.Input("GOOD BIN 8 INCH CASSETTE", () => _OutCassetteUnit.IsGoodBin(8) && !_OutCassetteUnit.IsNgBin(8) && !_OutCassetteUnit.IsNgBin(12) && !_OutCassetteUnit.IsGoodBin(12)),
+                    //IoCylinderItem.Input("GOOD BIN 12 INCH CASSETTE", () => _OutCassetteUnit.IsGoodBin(12) && !_OutCassetteUnit.IsNgBin(12) && !_OutCassetteUnit.IsNgBin(8) && !_OutCassetteUnit.IsGoodBin(8)),
+                    //IoCylinderItem.Input("NG BIN 8 INCH CASSETTE", () => !_OutCassetteUnit.IsGoodBin(8) && _OutCassetteUnit.IsNgBin(8) && !_OutCassetteUnit.IsNgBin(12) && !_OutCassetteUnit.IsGoodBin(12)),
+                    //IoCylinderItem.Input("NG BIN 12 INCH CASSETTE", () => !_OutCassetteUnit.IsGoodBin(12) && _OutCassetteUnit.IsNgBin(12) && !_OutCassetteUnit.IsNgBin(8) && !_OutCassetteUnit.IsGoodBin(8)),
+                    IoCylinderItem.Input("GOOD BIN 8 INCH CASSETTE", () => _OutCassetteUnit.IsGoodBin(8)),
+                    IoCylinderItem.Input("GOOD BIN 12 INCH CASSETTE", () => _OutCassetteUnit.IsGoodBin(12)),
+                    IoCylinderItem.Input("NG BIN 8 INCH CASSETTE", () => _OutCassetteUnit.IsNgBin(8)),
+                    IoCylinderItem.Input("NG BIN 12 INCH CASSETTE", () => _OutCassetteUnit.IsNgBin(12)),
                     IoCylinderItem.Input("BIN RING JUT CHECK", () => _OutCassetteUnit.IsBinProtrusionDetectionSensor()),
                     IoCylinderItem.Input("BIN MAPPING", () => _OutCassetteUnit.IsBinMapping()),
 

@@ -671,70 +671,9 @@ namespace QMC.CDT320
                 }
             }
 
-            try
-            {
-                if (_machine.InputFeederUnit != null &&
-                    _machine.InputFeederUnit.IsWaferFeederRingDetected(true))
-                {
-                    evidence.Add("Sensor:InputFeederRing=ON");
-                }
-
-                if (_machine.InputStageUnit != null)
-                {
-                    if (_machine.InputStageUnit.WaferStage8RingCheckSensor != null &&
-                        _machine.InputStageUnit.WaferStage8RingCheckSensor.IsOn)
-                    {
-                        evidence.Add("Sensor:InputStage8Ring=ON");
-                    }
-
-                    if (_machine.InputStageUnit.WaferStage12RingCheckSensor != null &&
-                        _machine.InputStageUnit.WaferStage12RingCheckSensor.IsOn)
-                    {
-                        evidence.Add("Sensor:InputStage12Ring=ON");
-                    }
-                }
-
-                if (_machine.OutputStageUnit != null)
-                {
-                    if (_machine.OutputStageUnit.GoodBinRingSensor != null &&
-                        _machine.OutputStageUnit.GoodBinRingSensor.IsOn)
-                    {
-                        evidence.Add("Sensor:GoodStageRing=ON");
-                    }
-
-                    if (_machine.OutputStageUnit.NgBinRingSensor != null &&
-                        _machine.OutputStageUnit.NgBinRingSensor.IsOn)
-                    {
-                        evidence.Add("Sensor:NgStageRing=ON");
-                    }
-                }
-
-                if (_machine.OutputFeederUnit != null &&
-                    _machine.OutputFeederUnit.IsFeederRingDetected(true))
-                {
-                    evidence.Add("Sensor:OutputFeederRing=ON");
-                }
-
-                for (int pickerNo = 1; pickerNo <= PickerFrontUnit.MaxPickerCount; pickerNo++)
-                {
-                    if (_machine.PickerFrontUnit != null &&
-                        _machine.PickerFrontUnit.IsPickerFlowDetected(pickerNo, true))
-                    {
-                        evidence.Add("Sensor:FrontPicker" + pickerNo + "Flow=ON");
-                    }
-
-                    if (_machine.PickerRearUnit != null &&
-                        _machine.PickerRearUnit.IsPickerFlowDetected(pickerNo, true))
-                    {
-                        evidence.Add("Sensor:RearPicker" + pickerNo + "Flow=ON");
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                // 실물 감지 신호를 읽지 못한 상태에서 Recipe 변경을 허용하지 않는다.
-                evidence.Add("SensorReadFailed:" + ex.Message);
-            }
+            // Recipe 변경은 Material 데이터만으로 판단한다.
+            // Flow/Ring 등 DI는 Vacuum 상태·배관 잔압·센서 조건에 따라 ON일 수 있으므로
+            // 장비 내부 제품 보유 여부 또는 Recipe 변경 차단 근거로 사용하지 않는다.
 
             detail = evidence.Count > 0
                 ? string.Join(", ", evidence.Distinct(StringComparer.OrdinalIgnoreCase))
