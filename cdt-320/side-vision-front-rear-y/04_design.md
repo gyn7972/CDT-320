@@ -12,14 +12,14 @@ rotY  = COCy − (OffsetX − COCx)                 (CW 90도 회전, COC 중심
 
 [0도]
 FrontY = ProcessY_F − DieHeight/2 − OffsetY + ΔY4
-RearY  = ProcessY_R + DieHeight/2 + OffsetY + ΔY4
+RearY  = ProcessY_R + DieHeight/2 − OffsetY + ΔY4
 
 [90도]
 FrontY = ProcessY_F − DieWidth/2 − rotY + ΔY4
-RearY  = ProcessY_R + DieWidth/2 + rotY + ΔY4    (확정: Rear 회전항 +.
-                                                  Front −방향 / 다이 중앙 / Rear +방향 배치라
-                                                  오프셋 추종은 물리적으로 같은 방향 이동)
+RearY  = ProcessY_R + DieWidth/2 − rotY + ΔY4
 ```
+
+**2차 확정(2026-07-29, 팀장님 부호 정정): 오프셋 추종 항(OffsetY·rotY·ΔY4)은 Front/Rear 두 카메라에 동일 부호(−Offset, −rotY, +ΔY4)로 공통 적용. 카메라별로 갈리는 것은 반쪽치수 항(Front −, Rear +)뿐.** Front가 −방향, 다이(콜렛) 중앙, Rear가 +방향 배치이므로 다이 위치 추종은 두 카메라가 물리적으로 같은 방향으로 움직인다.
 
 - `ProcessY_F/R`: 각 카메라 `Recipe.{Front|Rear}SideVision.Process0Position` (콜렛 4번 중심면 기준 티칭 전제)
 - `DieHeight` = 레시피 `DieSizeY`(세로), `DieWidth` = `DieSizeX`(가로) — InputFrame 우선, Frame, Controller 순 폴백

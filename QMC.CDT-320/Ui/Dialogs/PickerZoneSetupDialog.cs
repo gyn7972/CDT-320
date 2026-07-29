@@ -294,7 +294,14 @@ namespace QMC.CDT_320.Ui.Dialogs
                 AddZoneRow("Bottom", "INSPECT_B", setup.Bottom);
                 AddZoneRow("Side", "INSPECT_S", setup.Side);
                 AddZoneRow("Output", "PLACE", setup.Output);
-                lblStatus.Text = "불러오기 완료.";
+
+                // 현재 기준(사용자 지시 2026-07-29): 저장된 설정에 판정 불가 구간(갭/겹침)이 있으면
+                // 다이얼로그를 여는 즉시 상태줄로 알린다 — 신규 검증 도입 이전에 저장된 갭 인지용.
+                string adjacencyMessage;
+                if (!ValidateGridRanges(out adjacencyMessage))
+                    lblStatus.Text = "불러오기 완료 - 판정 불가 구간 있음(저장하려면 경계 수정 필요).";
+                else
+                    lblStatus.Text = "불러오기 완료.";
             }
             catch (Exception ex)
             {
@@ -573,12 +580,27 @@ namespace QMC.CDT_320.Ui.Dialogs
             }
         }
 
+        // 존 범위 행 스냅샷 — 인접 계약 검증용.
+        private sealed class ZoneRangeEntry
+        {
+            public string Name;
+            public double Min;
+            public double Max;
+        }
+
+        // 기존 조건: 확장(허용오차 포함) 범위가 서로 겹치지만 않으면 저장을 허용했다 — 인접 존 사이에
+        //           2x허용오차 초과의 "판정 불가 갭"이 구조적으로 강제됐고, 그 갭에 떨어진 목표는
+        //           Encoder Zone Unknown -> Y존 폴백 오판으로 이어졌다(실장비 2026-07-29 15:29:58,
+        //           FrontPickerX 팔로잉 중간좌표 877.9 -> Side(835)~Output(900) 갭 -> Input 오판 Critical).
+        // 현재 기준(사용자 지시 2026-07-29): Encoder Zone 사용 시 인접 활성 존은
+        //           다음 MinX == 이전 MaxX + 2x허용오차 를 만족해야 저장할 수 있다.
+        //           확장범위가 정확히 맞닿는 이 배치가 갭/겹침(판정 불가) 구간이 생기지 않는 유일한 배치다.
+        //           Encoder Zone 미사용 시 범위는 존 판정에 쓰이지 않으므로 기존 겹침 검사만 유지한다.
         private bool ValidateGridRanges(out string message)
         {
             message = string.Empty;
             try
             {
-                StringBuilder builder = new StringBuilder();
                 double tolerance;
                 if (!TryParseDouble(txtTolerance.Text, out tolerance) || tolerance <= 0.0)
                 {
@@ -586,47 +608,32 @@ namespace QMC.CDT_320.Ui.Dialogs
                     return false;
                 }
 
-                for (int i = 0; i < gridZones.Rows.Count; i++)
+                List<ZoneRangeEntry> entries = new List<ZoneRangeEntry>();
+                foreach (DataGridViewRow row in gridZones.Rows)
                 {
-                    DataGridViewRow first = gridZones.Rows[i];
-                    if (!IsRangeRowEnabled(first))
+                    if (!IsRangeRowEnabled(row))
                         continue;
 
-                    double firstMin;
-                    double firstMax;
-                    if (!TryGetRowRange(first, out firstMin, out firstMax))
+                    double min;
+                    double max;
+                    if (!TryGetRowRange(row, out min, out max))
                     {
-                        message = Convert.ToString(first.Cells[colZone.Index].Value) + " Zone 범위 값이 올바르지 않습니다.";
+                        message = Convert.ToString(row.Cells[colZone.Index].Value) + " Zone 범위 값이 올바르지 않습니다.";
                         return false;
                     }
 
-                    for (int j = i + 1; j < gridZones.Rows.Count; j++)
+                    entries.Add(new ZoneRangeEntry
                     {
-                        DataGridViewRow second = gridZones.Rows[j];
-                        if (!IsRangeRowEnabled(second))
-                            continue;
-
-                        double secondMin;
-                        double secondMax;
-                        if (!TryGetRowRange(second, out secondMin, out secondMax))
-                        {
-                            message = Convert.ToString(second.Cells[colZone.Index].Value) + " Zone 범위 값이 올바르지 않습니다.";
-                            return false;
-                        }
-
-                        if (RangesOverlap(firstMin, firstMax, secondMin, secondMax, tolerance))
-                            builder.AppendLine(Convert.ToString(first.Cells[colZone.Index].Value) + " / " +
-                                               Convert.ToString(second.Cells[colZone.Index].Value));
-                    }
+                        Name = Convert.ToString(row.Cells[colZone.Index].Value),
+                        Min = Math.Min(min, max),
+                        Max = Math.Max(min, max)
+                    });
                 }
 
-                if (builder.Length <= 0)
-                    return true;
+                if (chkUseEncoderZone.Checked)
+                    return ValidateEncoderZoneAdjacency(entries, tolerance, out message);
 
-                message = "Picker X Zone 범위가 겹쳐 저장할 수 없습니다.\r\n\r\n" +
-                          builder +
-                          "\r\nZone 허용오차(" + FormatNumber(tolerance) + "mm)를 포함해 서로 겹치지 않게 다시 설정하세요.";
-                return false;
+                return ValidateLegacyOverlap(entries, tolerance, out message);
             }
             catch (Exception ex)
             {
@@ -636,6 +643,69 @@ namespace QMC.CDT_320.Ui.Dialogs
             finally
             {
             }
+        }
+
+        // 인터락 기준: Encoder Zone 사용 시 모든 X 좌표가 정확히 한 Zone으로 판정되도록
+        //             인접 활성 존의 시작을 "이전 존 MaxX + 2x허용오차"로 강제한다(갭/겹침 모두 저장 거부).
+        private static bool ValidateEncoderZoneAdjacency(List<ZoneRangeEntry> entries, double tolerance, out string message)
+        {
+            message = string.Empty;
+            if (entries == null || entries.Count < 2)
+                return true;
+
+            entries.Sort((a, b) => a.Min.CompareTo(b.Min));
+
+            StringBuilder builder = new StringBuilder();
+            double step = 2.0 * Math.Max(0.0, tolerance);
+            const double epsilon = 0.001;
+            for (int i = 1; i < entries.Count; i++)
+            {
+                ZoneRangeEntry prev = entries[i - 1];
+                ZoneRangeEntry next = entries[i];
+                double required = prev.Max + step;
+                double difference = next.Min - required;
+                if (Math.Abs(difference) <= epsilon)
+                    continue;
+
+                builder.AppendLine(
+                    prev.Name + "(~" + FormatNumber(prev.Max) + ") <-> " + next.Name + "(" + FormatNumber(next.Min) + "~): " +
+                    next.Name + " MinX는 " + FormatNumber(required) + " 이어야 합니다 (현재 " +
+                    (difference > 0.0
+                        ? "판정 불가 갭 " + FormatNumber(difference) + "mm"
+                        : "겹침 " + FormatNumber(-difference) + "mm") + ").");
+            }
+
+            if (builder.Length <= 0)
+                return true;
+
+            message = "Picker X Zone에 판정 불가 구간이 있어 저장할 수 없습니다.\r\n\r\n" +
+                      builder +
+                      "\r\n인접 Zone은 이전 Zone MaxX + 2x허용오차(" + FormatNumber(step) + "mm)에서 시작해야 " +
+                      "모든 X 좌표가 정확히 한 Zone으로 판정됩니다.";
+            return false;
+        }
+
+        // 기존 조건 유지: Encoder Zone 미사용 시 범위는 존 판정에 쓰이지 않으므로 겹침만 금지한다.
+        private static bool ValidateLegacyOverlap(List<ZoneRangeEntry> entries, double tolerance, out string message)
+        {
+            message = string.Empty;
+            StringBuilder builder = new StringBuilder();
+            for (int i = 0; i < entries.Count; i++)
+            {
+                for (int j = i + 1; j < entries.Count; j++)
+                {
+                    if (RangesOverlap(entries[i].Min, entries[i].Max, entries[j].Min, entries[j].Max, tolerance))
+                        builder.AppendLine(entries[i].Name + " / " + entries[j].Name);
+                }
+            }
+
+            if (builder.Length <= 0)
+                return true;
+
+            message = "Picker X Zone 범위가 겹쳐 저장할 수 없습니다.\r\n\r\n" +
+                      builder +
+                      "\r\nZone 허용오차(" + FormatNumber(tolerance) + "mm)를 포함해 서로 겹치지 않게 다시 설정하세요.";
+            return false;
         }
 
         private bool IsRangeRowEnabled(DataGridViewRow row)
