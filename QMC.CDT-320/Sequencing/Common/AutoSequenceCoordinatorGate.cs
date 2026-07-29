@@ -20,7 +20,11 @@ namespace QMC.CDT320.Sequencing
         private const int PickerWorkZonePollIntervalMs = 20;
         // R4/B5: 선행검사 카메라 존 획득 상한. FIFO head가 물리 클리어/CanSet를 무한 대기하면
         // 무언정지가 되므로, 이 시간 초과 시 예외로 전환해 복구 알람으로 처리한다.
-        private const int InputCameraZoneAcquireTimeoutMs = 30000;
+        // 기존 조건: 30000ms(30초). 실장비에서 상대 픽커 공정이 길어지는 정상 구간에도
+        //   30초를 넘겨 오탐 타임아웃이 발생했다(2026-07-29 Front 선행검사, ticket=70).
+        // 현재 기준(사용자 지시 2026-07-29): 300000ms(5분). 무언정지 방지라는 상한의 목적은
+        //   유지하되, 정상 대기가 걸리지 않도록 여유를 크게 둔다.
+        private const int InputCameraZoneAcquireTimeoutMs = 300000;
         private readonly MachineSequenceContext _context;
         private readonly object _pickerWorkZoneGate = new object();
         private PickerWorkZone _frontWorkZone = PickerWorkZone.Unknown;

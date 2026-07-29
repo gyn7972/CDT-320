@@ -18,6 +18,13 @@ namespace QMC.CDT320.Sequencing
         // [사용자 지시 2026-07-28] 픽업 퇴장 팔로잉은 "첫 명령 이동량이 이 값 이상"이 될 때까지만
         // 대기했다가 진입한다. 선행축 속도/가속 기반 대기는 사용하지 않는다(대기 시간 최소화).
         private const double FollowStartMinFirstMoveMm = 20.0;
+        // [사용자 지시 2026-07-30] 선행축(픽커)이 퇴장 방향으로 이 거리 이상 실제로 이동한 뒤에만 출발한다.
+        //   기존 조건: "첫 명령 이동량 ≥ 20mm"만 확인 — 진입 유지갭이 50이던 때는 그 20mm가 선행축
+        //     퇴장으로만 생겨 사실상 "선행축 20mm 퇴장 후 출발"과 같았다. 유지갭 축소(2026-07-30) 후에는
+        //     축소분(약 40mm)이 공짜 이동량으로 잡혀, 선행축이 정지(픽업 중)인데도 waitedMs=0으로 즉시
+        //     출발해 정지 중인 픽커 옆 실시간 가드 정지선까지 따라붙었다(실장비 01:xx 등호 정지 알람).
+        //   현재 기준: 게이트 시작 시점 대비 선행축 퇴장 변위 ≥ 이 값 AND 첫 명령 이동량 ≥ 20mm.
+        private const double FollowStartMinLeadingDepartureMm = 20.0;
         private const int FollowStartWaitTimeoutMs = 1000;
         private const double StandbyBoundaryBackoffMm = 1.0;
         private const double MinimumStandbyTravelMm = 0.2;
@@ -626,7 +633,7 @@ namespace QMC.CDT320.Sequencing
             if (!service.TryGetFollowGapParameters(
                 visionX,
                 leadingPickerX,
-                service.Config != null ? service.Config.InputVisionRetreatExtraClearance : 40.0,
+                2.0, // 진입 유지갭 = SafetyDistance + 경계여유 2mm(2026-07-30) — 선행검사 진입 팔로잉과 동일 기준.
                 out direction,
                 out homeGap,
                 out safetyGap,
@@ -670,6 +677,8 @@ namespace QMC.CDT320.Sequencing
             //   대기 실패(선행축 미출발 등)는 폴백 코드로 돌려보내 기존 대기점 경로가 처리한다.
             bool startWaitLogged = false;
             DateTime startWaitBegin = DateTime.UtcNow;
+            // [사용자 지시 2026-07-30] 선행축 퇴장 변위 기준점 — 게이트 시작 시점의 선행축 실측 위치.
+            double leadingStartActual = leadingPickerX.ActualPosition;
             while (true)
             {
                 ct.ThrowIfCancellationRequested();
@@ -688,14 +697,22 @@ namespace QMC.CDT320.Sequencing
                 double firstMoveNow = direction > 0
                     ? firstCommandNow - visionActualNow
                     : visionActualNow - firstCommandNow;
+                // [사용자 지시 2026-07-30] 선행축이 퇴장 방향으로 실제 이동한 변위 — 이 값이
+                // FollowStartMinLeadingDepartureMm 이상이어야 출발한다(정지 픽커 옆 선진입 방지).
+                double leadingDepartureNow = direction > 0
+                    ? leadingActualNow - leadingStartActual
+                    : leadingStartActual - leadingActualNow;
 
-                if (firstMoveNow >= FollowStartMinFirstMoveMm)
+                if (leadingDepartureNow >= FollowStartMinLeadingDepartureMm &&
+                    firstMoveNow >= FollowStartMinFirstMoveMm)
                 {
                     WriteLog(
                         "InputVisionXPrePosition",
-                        side + " 픽업 퇴장 팔로잉 진입 기회 확보(첫 명령 이동량 확보). " +
+                        side + " 픽업 퇴장 팔로잉 진입 기회 확보(선행축 퇴장+첫 명령 이동량 확보). " +
                         "die=" + dieId +
                         ", leadingActual=" + leadingActualNow.ToString("F3") +
+                        ", leadingDeparture=" + leadingDepartureNow.ToString("F3") +
+                        ", requiredDeparture=" + FollowStartMinLeadingDepartureMm.ToString("F3") +
                         ", visionActual=" + visionActualNow.ToString("F3") +
                         ", firstCommand=" + firstCommandNow.ToString("F3") +
                         ", firstMove=" + firstMoveNow.ToString("F3") +
@@ -708,9 +725,11 @@ namespace QMC.CDT320.Sequencing
                 {
                     WriteLog(
                         "InputVisionXPrePosition",
-                        side + " 픽업 퇴장 팔로잉 진입 기회를 대기합니다(첫 명령 이동량 부족). " +
+                        side + " 픽업 퇴장 팔로잉 진입 기회를 대기합니다(선행축 퇴장/첫 명령 이동량 대기). " +
                         "die=" + dieId +
                         ", leadingActual=" + leadingActualNow.ToString("F3") +
+                        ", leadingDeparture=" + leadingDepartureNow.ToString("F3") +
+                        ", requiredDeparture=" + FollowStartMinLeadingDepartureMm.ToString("F3") +
                         ", leadingMoving=" + leadingPickerX.IsMoving +
                         ", firstMove=" + firstMoveNow.ToString("F3") +
                         ", requiredFirstMove=" + FollowStartMinFirstMoveMm.ToString("F3") + " - Wait");

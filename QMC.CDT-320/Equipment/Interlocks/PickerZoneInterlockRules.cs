@@ -3420,9 +3420,61 @@ namespace QMC.CDT320.Interlocks
                 }
 
                 configured = IsZoneConfigured(setup);
+                if (matchCount == 1)
+                    return true;
+
                 if (matchCount > 1)
+                {
+                    // 기존 조건: 허용오차 확장범위가 2개 이상 매칭되면 무조건 Unknown(판정 실패)으로 반환했다 —
+                    //           존을 맞닿게(이전 MaxX == 다음 MinX) 설정하면 경계 ±허용오차 밴드 전체가
+                    //           판정 불가가 되어, 존 셋업이 존 사이 갭을 강제해야 하는 원인이었다
+                    //           (실장비 2026-07-29 15:29:58, 갭 낙하 좌표 Y존 폴백 Input 오판 Critical).
+                    // 현재 기준(사용자 지시 2026-07-29): 경계 허용오차 밴드는 raw 범위(허용오차 미포함)가
+                    //           위치를 포함하는 존으로 확정하고, 공유 경계점(양쪽 raw 동시 포함)은 그 값에서
+                    //           시작하는 존으로 확정한다. 그래도 못 가리면(진짜 겹침 설정) 기존대로
+                    //           Unknown + overlap 로그 — 기존에 판정되던 좌표의 결과는 불변이고,
+                    //           기존 Unknown이던 경계 밴드만 확정으로 바뀐다.
+                    PickerZoneXRange[] ranges =
+                    {
+                        setup.Avoid, setup.Input, setup.Bottom, setup.Side, setup.Output
+                    };
+                    PickerWorkZone[] zoneKinds =
+                    {
+                        PickerWorkZone.Avoid, PickerWorkZone.Input, PickerWorkZone.Bottom,
+                        PickerWorkZone.Side, PickerWorkZone.Output
+                    };
+
+                    PickerWorkZone rawZone = PickerWorkZone.Unknown;
+                    int rawCount = 0;
+                    PickerWorkZone startZone = PickerWorkZone.Unknown;
+                    int startCount = 0;
+                    for (int i = 0; i < ranges.Length; i++)
+                    {
+                        if (!IsInZoneRaw(ranges[i], position))
+                            continue;
+
+                        SetEncoderZoneMatch(zoneKinds[i], ref rawZone, ref rawCount);
+                        if (Math.Abs(Math.Min(ranges[i].MinX, ranges[i].MaxX) - position) <= 0.000001)
+                            SetEncoderZoneMatch(zoneKinds[i], ref startZone, ref startCount);
+                    }
+
+                    if (rawCount == 1 && rawZone != PickerWorkZone.Unknown)
+                    {
+                        zone = rawZone;
+                        return true;
+                    }
+
+                    if (rawCount > 1 && startCount == 1 && startZone != PickerWorkZone.Unknown)
+                    {
+                        zone = startZone;
+                        return true;
+                    }
+
+                    zone = PickerWorkZone.Unknown;
                     WriteEncoderZoneOverlapLog(isFront, position, tolerance, matches, setup);
-                return matchCount == 1;
+                }
+
+                return false;
             }
             catch
             {
@@ -3592,6 +3644,17 @@ namespace QMC.CDT320.Interlocks
         private static bool IsInZone(PickerZoneXRange range, double position, double tolerance)
         {
             return range != null && range.Enabled && range.Contains(position, tolerance);
+        }
+
+        // 인터락 기준: 허용오차를 더하지 않은 raw 범위 포함 여부 — 맞닿은 존 경계 밴드 확정용.
+        private static bool IsInZoneRaw(PickerZoneXRange range, double position)
+        {
+            if (range == null || !range.Enabled)
+                return false;
+
+            double min = Math.Min(range.MinX, range.MaxX);
+            double max = Math.Max(range.MinX, range.MaxX);
+            return position >= min && position <= max;
         }
 
         // 인터락 기준: Picker 작업 존을 화면/로그 표시명으로 변환한다.

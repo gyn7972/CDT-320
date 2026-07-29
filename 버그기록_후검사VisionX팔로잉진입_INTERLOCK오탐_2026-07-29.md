@@ -1,8 +1,13 @@
 # 버그기록: 후검사 VisionX 팔로잉 진입 INTERLOCK 오탐 (stale CommandPosition)
 
 - 기록일: 2026-07-29
-- 상태: **기록만 — 수정 금지. 2026-08-03 이후 수정 착수** (팀장 지시 2026-07-29)
-- 임시 조치: 팀장이 비전·피커 **가속도 일치**로 완화 적용(2026-07-29). 코드 수정 없음.
+- 상태: **수정 완료 (2026-07-30, 팀장 승인으로 8/3 보류 철회)** — 아웃풋 동일 알람 재발(07-30 2회)로 앞당김.
+  - 근본수정: `MotionGuardRuleHelpers.IsPairClearanceSatisfiedForEntry`에서 판정 직전 `otherAxis.UpdateStatus()`
+    호출로 보드 최신값 기준 판정(수정 후보 1안 채택). 6개 룰 공통 적용.
+  - 증폭기 제거: `AjinAxis.MoveAbsoluteForFollowAsync`에 조용한 Can 사전검사 추가 — 팔로잉 최초 이동이
+    가드에 차단되면 알람 없이 -11 반환 → 호출자 폴백(대기+일반 이동). Critical 정지 소멸.
+  - 계측: Output/Input 비전 룰 차단 메시지에 `clearance=[actual…, command…]` 페어 수치 포함.
+- (이력) 임시 조치: 팀장이 비전·피커 **가속도 일치**로 완화 적용(2026-07-29).
 - 심각도: Critical 알람 → 자동 사이클 전체 정지 + RearPickerX 이동 절단(PK-MOVE -5) 연쇄
 - 재현성: 간헐 (타이밍 레이스 — 아래 "재발 조건" 참조)
 

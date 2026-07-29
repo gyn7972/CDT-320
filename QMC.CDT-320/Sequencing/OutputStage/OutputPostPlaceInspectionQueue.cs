@@ -1912,7 +1912,7 @@ namespace QMC.CDT320.Sequencing
         //   (a) 목표가 양 피커 Actual/Command 페어 간격을 이미 만족 → false(기존 대기+일반 이동)
         //   (b) 제약 피커 실측 위치 기준 전진 여유(slack)가 있고 간격이 실제로 벌어지는 중
         //       (20ms 샘플 간 간격 확대 + 선행축 IsMoving = 퇴장 이동 감지) → true(즉시 추종 진입).
-        //       중간 creep·간격 유지는 FollowMoveAsync(safetyGap=Safety+Extra 설정값)가 담당한다.
+        //       중간 creep·간격 유지는 FollowMoveAsync(safetyGap=페어 SafetyDistance — Extra 제외, 2026-07-30)가 담당한다.
         //   (c) 피커 정지/작업 중(간격 불변·축소)이면 출발하지 않는다 — "정지 피커 앞 선진입 금지"
         //       (사용자 지시 2026-07-25)는 이 조건이 보존한다. 타임아웃 시 false —
         //       기존 WaitOutputVisionXSharedRailClearAsync + 일반 이동 경로에 위임한다
@@ -1990,7 +1990,14 @@ namespace QMC.CDT320.Sequencing
                     if (!service.TryGetFollowGapParameters(
                         stage.OutputCameraX,
                         constrainingPickerX,
-                        service.Config != null ? service.Config.OutputVisionRetreatExtraClearance : 40.0,
+                        // 기존 조건: 회피 Extra(40)를 진입 유지갭에도 더해 safetyGap=50 — 피커가 검사/플레이스
+                        //           대역에 있는 동안 비전 접근 한계가 피커±20mm뿐이라 스톨/왕복을 만들었다.
+                        // 현재 기준(사용자 승인 2026-07-30): 진입 유지갭 = 페어 SafetyDistance + 경계여유 2mm.
+                        //           Extra(40)는 제외하되, 실시간 간격 가드가 clearance<=required(등호 포함)에서
+                        //           정지하므로 목표가 정지선 위에 정확히 얹히지 않게 2mm를 띄운다
+                        //           (실장비 2026-07-30 01:xx, 유지갭=10 진입이 등호 정지 알람 유발 — 재발 방지).
+                        //           회피 깊이 계산의 Extra는 기존 유지 — 진입 게이트/한계/제약/팔로잉 4곳 동일 적용.
+                        2.0,
                         out direction,
                         out homeGap,
                         out safetyGap,
@@ -2135,7 +2142,7 @@ namespace QMC.CDT320.Sequencing
             if (!service.TryGetFollowGapParameters(
                 visionAxis,
                 pickerAxis,
-                service.Config != null ? service.Config.OutputVisionRetreatExtraClearance : 40.0,
+                2.0, // 진입 유지갭 = SafetyDistance + 경계여유 2mm(2026-07-30) — 게이트/팔로잉과 동일 기준.
                 out direction,
                 out homeGap,
                 out safetyGap,
@@ -2182,7 +2189,7 @@ namespace QMC.CDT320.Sequencing
             if (!service.TryGetFollowGapParameters(
                 visionAxis,
                 oppositePickerX,
-                service.Config != null ? service.Config.OutputVisionRetreatExtraClearance : 40.0,
+                2.0, // 진입 유지갭 = SafetyDistance + 경계여유 2mm(2026-07-30) — 게이트/한계/팔로잉과 동일 기준.
                 out direction,
                 out homeGap,
                 out safetyGap,
@@ -2230,7 +2237,7 @@ namespace QMC.CDT320.Sequencing
             if (!service.TryGetFollowGapParameters(
                 stage.OutputCameraX,
                 leadingPickerX,
-                service.Config != null ? service.Config.OutputVisionRetreatExtraClearance : 40.0,
+                2.0, // 진입 유지갭 = SafetyDistance + 경계여유 2mm(2026-07-30) — 게이트/한계/제약과 동일 기준.
                 out direction,
                 out homeGap,
                 out safetyGap,
